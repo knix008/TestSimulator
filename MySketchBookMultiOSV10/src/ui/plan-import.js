@@ -36,6 +36,7 @@ import { detectFurniture, MATCH_ITEMS } from '../io/plan-furniture.js';
 import { templateSource } from '../io/plan-templates.js';
 import { getMaterial } from '../engine/materials.js';
 import { catalogItem } from '../library/catalog.js';
+import { repairModel } from '../engine/repair.js';
 import { PROGRESS_STEP_ICONS } from './progressicons.js';
 
 /** Buildings: BIM models (IFC), Sweet Home 3D homes and MyArchitecture projects — levels, walls, openings, rooms, furniture. */
@@ -205,15 +206,23 @@ export function createPlanImport(app) {
   }
 
   /**
-   * The cleaned-up plan into the project and the 3D scene built from it, with progress: `apply()` makes the one
-   * change (one Undo step); then the scene (walls, rooms, furniture) is built.
+   * The cleaned-up plan into the project, then checked and fixed, then the 3D scene built from that.
+   * `mutate(project)` adds the plan (one Undo step, together with the fixes). The view switches to 3D
+   * and frames the result; problems that could not be fixed stay in the Problems list, with what to change.
    */
-  async function convertTo3d(name, apply, furniture = 0) {
-    return inSteps('progress.convert3d', name, 2, async (step) => {
+  async function convertTo3d(name, mutate, furniture = 0, label = 'op.importPlan') {
+    return inSteps('progress.convert3d', name, 3, async (step) => {
       await step('progress.step.buildPlan');
-      const applied = apply();
+      await step('progress.step.repair');
+      const applied = app.change(label, (p) => {
+        const counts = mutate(p) ?? {};
+        const repair = repairModel(p, catalogItem);
+        return { ...counts, fixed: repair.fixed, remaining: repair.remaining };
+      }, null);
       await step(furniture ? 'progress.step.buildSceneFurniture' : 'progress.step.buildScene', { n: furniture });
+      if (app.planView?.()) app.setPlanView(false);
       app.afterImport?.(applied);
+      if (applied?.remaining) app.showProblems?.();
       return applied;
     });
   }
@@ -303,8 +312,9 @@ export function createPlanImport(app) {
     }
     if (chosen.target === 'new' || !app.project()) app.newProject('empty');
     const target = chosen.target === 'level' ? 'level' : 'replace';
-    const applied = await convertTo3d(name, () => app.change('op.importPlan', (p) => applyPlan(p, final, { target, wallHeight: chosen.wallHeight, keepLeftovers: chosen.keepLines, levelName: stem(name) }), null), final.furniture?.length ?? 0);
-    app.notify('success', t(o.refine ? 'studio.converted' : 'notice.planImported', { name, walls: applied.walls, doors: applied.doors, windows: applied.windows, rooms: applied.rooms, objects: applied.objects ?? 0 }));
+    const applied = await convertTo3d(name, (p) => applyPlan(p, final, { target, wallHeight: chosen.wallHeight, keepLeftovers: chosen.keepLines, levelName: stem(name) }), final.furniture?.length ?? 0);
+    const counts = { name, walls: applied.walls, doors: applied.doors, windows: applied.windows, rooms: applied.rooms, objects: applied.objects ?? 0, fixed: applied.fixed ?? 0, left: applied.remaining ?? 0 };
+    app.notify(applied.remaining ? 'warning' : 'success', t(o.refine ? 'studio.converted' : 'notice.planImported', counts));
     return { result: final, applied, refined: Boolean(o.refine) };
   }
 
@@ -688,8 +698,8 @@ export function createPlanImport(app) {
       const result = toResult(out.draft);
       // Pictures carry no room labels the app can read (no OCR): unnamed rooms get a name from size and shape.
       const roomNames = (key, n) => { const base = t(`plan.roomGuess.${key}`); return n > 1 && key !== 'living' ? `${base} ${n}` : base; };
-      const applied = await convertTo3d(u.name, () => app.change('op.detectWalls', (p) => { p.activeLevel = u.level; return applyPlan(p, result, { target: out.target === 'replace' ? 'replace' : 'add', shift: [0, 0], wallHeight: out.wallHeight, keepLeftovers: out.keepLines, roomNames, source: u.id }); }, null), result.furniture?.length ?? 0);
-      app.notify('success', t('studio.converted', { walls: applied.walls, doors: applied.doors, windows: applied.windows, rooms: applied.rooms, objects: applied.objects ?? 0 }));
+      const applied = await convertTo3d(u.name, (p) => { p.activeLevel = u.level; return applyPlan(p, result, { target: out.target === 'replace' ? 'replace' : 'add', shift: [0, 0], wallHeight: out.wallHeight, keepLeftovers: out.keepLines, roomNames, source: u.id }); }, result.furniture?.length ?? 0, 'op.detectWalls');
+      app.notify(applied.remaining ? 'warning' : 'success', t('studio.converted', { walls: applied.walls, doors: applied.doors, windows: applied.windows, rooms: applied.rooms, objects: applied.objects ?? 0, fixed: applied.fixed ?? 0, left: applied.remaining ?? 0 }));
       return applied;
     } finally {
       bitmap.close?.();
@@ -716,8 +726,8 @@ export function createPlanImport(app) {
       if (!out) return null;
       if (background) followBackground(u, out);
       const result = toResult(out.draft);
-      const applied = await convertTo3d(level.name, () => app.change('op.importPlan', (pp) => applyPlan(pp, result, { target: 'replace', shift: [0, 0], wallHeight: out.wallHeight, keepLeftovers: out.keepLines }), null), result.furniture?.length ?? 0);
-      app.notify('success', t('studio.converted', { walls: applied.walls, doors: applied.doors, windows: applied.windows, rooms: applied.rooms, objects: applied.objects ?? 0 }));
+      const applied = await convertTo3d(level.name, (pp) => applyPlan(pp, result, { target: 'replace', shift: [0, 0], wallHeight: out.wallHeight, keepLeftovers: out.keepLines }), result.furniture?.length ?? 0);
+      app.notify(applied.remaining ? 'warning' : 'success', t('studio.converted', { walls: applied.walls, doors: applied.doors, windows: applied.windows, rooms: applied.rooms, objects: applied.objects ?? 0, fixed: applied.fixed ?? 0, left: applied.remaining ?? 0 }));
       return applied;
     } finally {
       bitmap?.close?.();
@@ -856,7 +866,13 @@ export function createPlanImport(app) {
     // Pictures carry no room labels the app can read (no OCR): rooms get a name from size and shape, listed in the
     // underlay's panel to be renamed.
     const roomNames = (key, n) => { const base = t(`plan.roomGuess.${key}`); return n > 1 && key !== 'living' ? `${base} ${n}` : base; };
-    const applied = app.change('op.detectWalls', (p) => { p.activeLevel = u.level; return applyPlan(p, result, { target: 'add', shift: [0, 0], keepLeftovers: false, roomNames, source: u.id }); }, null);
+    const applied = app.change('op.detectWalls', (p) => {
+      p.activeLevel = u.level;
+      const counts = applyPlan(p, result, { target: 'add', shift: [0, 0], keepLeftovers: false, roomNames, source: u.id });
+      const repair = repairModel(p, catalogItem);
+      return { ...counts, fixed: repair.fixed, remaining: repair.remaining };
+    }, null);
+    if (applied?.remaining) app.showProblems?.();
     const counts = { walls: result.walls.length, doors: result.stats.doors, windows: result.stats.windows, rooms: applied?.rooms ?? 0, angle: Math.round(((result.angle ?? 0) * 180) / Math.PI * 10) / 10 };
     if (level !== u.level) app.project().activeLevel = level;
     if (ask) {

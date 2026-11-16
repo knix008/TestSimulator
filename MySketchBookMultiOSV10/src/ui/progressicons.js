@@ -16,7 +16,7 @@ export const PROGRESS_ICONS = {
 export const PROGRESS_STEP_ICONS = {
   'progress.step.readDrawing': 'importPlan', 'progress.step.recognise': 'wallTool', 'progress.step.readPicture': 'picture',
   'progress.step.findWallsOnly': 'wallTool', 'progress.step.findWalls': 'wallTool', 'progress.step.chooseWalls': 'sparkles',
-  'progress.step.furnitureShapes': 'furniture', 'progress.step.findFurniture': 'search', 'progress.step.buildPlan': 'plan2d',
+  'progress.step.furnitureShapes': 'furniture', 'progress.step.findFurniture': 'search', 'progress.step.buildPlan': 'plan2d', 'progress.step.repair': 'warning',
   'progress.step.buildScene': 'cube', 'progress.step.buildSceneFurniture': 'furniture', 'progress.step.done': 'check',
   'progress.step.buildProject': 'roomTool', 'progress.step.firstFrame': 'view3d',
   'progress.rendering': 'render', 'progress.encoding': 'imageFormat', 'progress.packing': 'save',

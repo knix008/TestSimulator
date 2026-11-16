@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { SAMPLE_PROJECTS, buildSampleProject } from '../../src/engine/samples.js';
-import { planTour, levelObstacles, clearPath, roomStandPoint, isPassable, TourPlayer, EYE_HEIGHT } from '../../src/engine/tour.js';
+import { planTour, levelObstacles, clearPath, roomStandPoint, isPassable, doorsCrossed, TourPlayer, EYE_HEIGHT } from '../../src/engine/tour.js';
 import { pointInPolygon } from '../../src/engine/walls.js';
 
 const projects = SAMPLE_PROJECTS.map((s) => [s.id, buildSampleProject(s.id, 'ko')]).filter(([, p]) => p);
@@ -71,6 +71,25 @@ test('tour: the stairs of multi-storey samples are climbed, ending on the next f
     }
   }
   assert.ok(climbs >= 5, `climbs: ${climbs}`);
+});
+
+test('tour: the walk names each door it goes through, the entrance first', () => {
+  const p = buildSampleProject('apt84-a', 'ko');
+  const moves = planTour(p);
+  const entrance = p.openings.find((o) => /entrance/.test(o.item));
+  const first = moves[0];
+  assert.equal(first.type, 'walk');
+  assert.ok(first.doors.some((d) => d.id === entrance.id), 'the way in opens the entrance');
+  assert.ok(first.doors.every((d) => d.at > 0.3), 'the crossing is along the walk, not at the start');
+  const seen = new Set(moves.flatMap((m) => m.doors ?? []).map((d) => d.id));
+  const passable = p.openings.filter((o) => isPassable(o));
+  assert.ok(seen.size >= Math.min(3, passable.length), 'later doors are opened on the way into rooms');
+  // A path that misses a doorway does not list it.
+  const { doors } = levelObstacles(p, p.levels[0].id);
+  const door = doors[0];
+  const aside = [door.centre[0] + door.normal[0] * 3, door.centre[1] + door.normal[1] * 3];
+  const along = [aside[0] + door.normal[1] * 2, aside[1] - door.normal[0] * 2];
+  assert.equal(doorsCrossed([aside, along], doors).length, 0);
 });
 
 test('tour: starts outside the entrance door when there is one', () => {
@@ -143,6 +162,35 @@ test('tour player: walks the camera along the route at eye height, looks round, 
   player.stop({ restore: true });
   assert.equal(vp.tour, null);
   assert.ok(camera.position.distanceTo(new THREE.Vector3(10, 10, 10)) < 1e-9, 'back to the view it started from');
+});
+
+test('tour player: a door ahead swings fully open before the camera reaches it', () => {
+  const p = buildSampleProject('apt84-a', 'ko');
+  const moves = planTour(p);
+  const entranceId = p.openings.find((o) => /entrance/.test(o.item)).id;
+  const entrance = moves[0].doors.find((d) => d.id === entranceId);
+  const camera = new THREE.PerspectiveCamera();
+  const opened = [];
+  const vp = {
+    camera, target: new THREE.Vector3(), isOrtho: false, tour: null,
+    setProjection() {}, syncCameras() {}, touchInteraction() {}, requestRender() {},
+    animateTo(pos, target) { camera.position.copy(pos); this.target.copy(target); },
+  };
+  const player = new TourPlayer(vp, p, moves, { speed: 1, onChange: () => {}, onDoor: (id, open) => opened.push([id, open]) });
+  player.start();
+  player.wait = 0;
+  let now = 1000;
+  let crossed = false;
+  for (let i = 0; i < 4000 && player.index === 0; i++) {
+    now += 16;
+    player.step(now);
+    const along = player.motion ? Math.min(1, Math.max(0, player.t)) * player.motion.length : 0;
+    if (along + 0.15 >= entrance.at) { crossed = true; break; }
+  }
+  assert.ok(crossed, 'the walk reaches the entrance');
+  const full = opened.filter(([id, open]) => id === entranceId && open === 1);
+  assert.ok(full.length >= 1, 'the entrance is fully open as the camera arrives');
+  player.stop({ restore: false });
 });
 
 test('tour player: pause holds the camera; skip goes to the next room', () => {

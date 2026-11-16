@@ -371,7 +371,7 @@ const base = {
   animDimensions: '<path d="M3 7v6M21 7v6M3 10h18"/><path d="M2 11l2-2M20 11l2-2"/><path d="M8 16h8M8 19h5" opacity="0.6"/>',
   animSwatches: '<rect x="3" y="4" width="7" height="16" rx="1.5"/><path d="M10 7.5l4.5-2.2a1.5 1.5 0 0 1 2 .7l4 8.3a1.5 1.5 0 0 1-.7 2L10 20"/><path d="M3 15h7M6.5 17.5h.01"/>',
   animLamps: '<path d="M8 2v6M17 2v4"/><path d="M4 12a4 4 0 0 1 8 0z"/><path d="M14.5 9l1-3h3l1 3z"/><path d="M5 15l-1.5 5M11 15l1.5 5M15.5 11.5l-1 4M18.5 11.5l1 4" opacity="0.5"/>',
-  animCurtains: '<path d="M3 3h18"/><path d="M4 3v18c2 0 4-1 6-3 0-5-1-10 0-15M20 3v18c-2 0-4-1-6-3 0-5 1-10 0-15"/><path d="M6.5 5v13M17.5 5v13" opacity="0.5"/>',
+  animRain: '<rect x="4" y="3" width="16" height="18" rx="1"/><path d="M12 3v18M4 12h16" opacity="0.4"/><path d="M7.2 6.2l1.1 2.8M11 8.2l.9 2.4M15.2 5.4l1.2 3M16.8 10l.8 2.2"/>',
   animLeaves: '<path d="M8 21h8M12 21v-8"/><path d="M12 13C8 13 5 10 5 5c5 0 7 3 7 8zM12 15c3 0 6-2 7-6-4 0-6 2-7 6z"/>',
   animPerspective: '<path d="M2 12h20" opacity="0.5"/><path d="M12 4v16M12 4L5 9v7l7 4M12 4l7 5v7l-7 4"/><path d="M2 12l3-3M22 12l-3-3" opacity="0.5"/>',
   animBricks: '<rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 9.3h18M3 14.6h18M10 4v5.3M16 4v5.3M7 9.3v5.3M14 9.3v5.3M10 14.6V20M17 14.6V20"/>',

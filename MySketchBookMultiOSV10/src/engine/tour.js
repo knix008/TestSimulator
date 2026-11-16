@@ -73,6 +73,35 @@ export function levelObstacles(project, levelId) {
   return { solids, doors };
 }
 
+/**
+ * Doors a walk passes through, in order: `{ id, at }` with `at` the distance along `points` (metres)
+ * where the path crosses that doorway. A door already open in the model is still listed — the tour opens it as it arrives.
+ */
+export function doorsCrossed(points, doors) {
+  const found = [];
+  const seen = new Set();
+  let travelled = 0;
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1]; const b = points[i];
+    const seg = dist(a, b) || 1;
+    for (const d of doors) {
+      if (seen.has(d.id)) continue;
+      const tangent = [-d.normal[1], d.normal[0]];
+      const halfW = (d.width ?? 0.9) / 2;
+      const wa = [d.centre[0] - tangent[0] * halfW, d.centre[1] - tangent[1] * halfW];
+      const wb = [d.centre[0] + tangent[0] * halfW, d.centre[1] + tangent[1] * halfW];
+      if (segmentDistance(a, b, wa, wb) > 0.3) continue;
+      const ab = sub(b, a);
+      const L2 = ab[0] * ab[0] + ab[1] * ab[1] || 1;
+      const t = Math.max(0, Math.min(1, ((d.centre[0] - a[0]) * ab[0] + (d.centre[1] - a[1]) * ab[1]) / L2));
+      seen.add(d.id);
+      found.push({ id: d.id, at: travelled + seg * t });
+    }
+    travelled += seg;
+  }
+  return found;
+}
+
 /** Whether one can walk straight from p to q (keeping CLEARANCE from every wall face). */
 export function clearPath(p, q, solids, clearance = CLEARANCE) {
   for (const s of solids) if (segmentDistance(p, q, s.a, s.b) < s.half + clearance) return false;
@@ -292,7 +321,7 @@ export function planTour(project, { levels = null, start = null } = {}) {
       at = best;
     }
     for (const v of visits) {
-      if (v.path.length > 1) moves.push({ type: 'walk', level: level.id, points: v.path });
+      if (v.path.length > 1) moves.push({ type: 'walk', level: level.id, points: v.path, doors: doorsCrossed(v.path, doors) });
       rooms.push(moves.length);
       moves.push({ type: 'look', level: level.id, at: v.at, room: v.room.id, name: v.room.name ?? '' });
     }
@@ -304,10 +333,27 @@ export function planTour(project, { levels = null, start = null } = {}) {
     }
     enter = null;
     if (climb && stairNode >= 0) {
+      // A flight that finishes against the far wall: the point past the last step is outside. Step back
+      // onto the floor above so the tour walks on through its doors instead of gliding in.
+      const upperRooms = next ? project.rooms.filter((r) => r.level === next.id && r.points?.length >= 3) : [];
+      const rects = (project.rects ?? []).filter((r) => r.level === next.id);
+      const onFloor = (p) => upperRooms.some((r) => pointInPolygon(p, r.points))
+        || rects.some((r) => p[0] > r.x0 + 0.4 && p[0] < r.x1 - 0.4 && p[1] > r.z0 + 0.4 && p[1] < r.z1 - 0.4);
+      if (!onFloor(climb.to)) {
+        const last = climb.steps.at(-1);
+        const anchor = last ? [last[0], last[2]] : climb.from;
+        const away = sub(anchor, climb.to);
+        const k = len(away) || 1;
+        const u = [away[0] / k, away[1] / k];
+        for (let d = 0.15; d <= 2.8; d += 0.15) {
+          const p = [climb.to[0] + u[0] * d, climb.to[1] + u[1] * d];
+          if (onFloor(p)) { climb.to = p; break; }
+        }
+      }
       const sp = shortestPath(nodes, edges, at, stairNode);
       if (sp) {
         const pts = simplify(sp.path.map((i) => nodes[i]), solids);
-        if (pts.length > 1) moves.push({ type: 'walk', level: level.id, points: pts });
+        if (pts.length > 1) moves.push({ type: 'walk', level: level.id, points: pts, doors: doorsCrossed(pts, doors) });
         const foot = climb.points0 ?? climb.from;
         moves.push({ type: 'climb', from: level.id, to: next.id, points: [[foot[0], 0, foot[1]], ...climb.steps.slice(climb.skip ?? 0), [climb.to[0], next.elevation - level.elevation, climb.to[1]]] });
         enter = climb.to;
@@ -324,18 +370,24 @@ export function planTour(project, { levels = null, start = null } = {}) {
 /**
  * Walks a viewport's camera along a planned tour. viewport.tour = this while it runs; the viewport calls step(now).
  * onChange({ move, index, room: { name, index, total }, paused, done }) reports where it is.
+ * onDoor(id, open) is called as the walk reaches a door (`open` is 0…1 of the way to fully open) so the leaf
+ * swings clear before the camera goes through; onDoorsDone() restores them when the tour ends.
  */
 export class TourPlayer {
-  constructor(viewport, project, moves, { speed = 1, onChange = () => {} } = {}) {
+  constructor(viewport, project, moves, { speed = 1, onChange = () => {}, onDoor = null, onDoorsDone = null } = {}) {
     this.vp = viewport;
     this.project = project;
     this.moves = moves;
     this.speed = speed;
     this.onChange = onChange;
+    this.onDoor = onDoor;
+    this.onDoorsDone = onDoorsDone;
     this.index = -1;
     this.paused = false;
     this.last = 0;
     this.yaw = null;
+    this.held = new Set();
+    this.doorQt = new Map();
   }
 
   elevation(levelId) { return this.project.levels.find((l) => l.id === levelId)?.elevation ?? 0; }
@@ -433,7 +485,43 @@ export class TourPlayer {
     const yaw = this.currentYaw();
     this.vp.animateTo(new THREE.Vector3(m.at[0], y, m.at[1]), new THREE.Vector3(m.at[0] + Math.sin(yaw), y, m.at[1] + Math.cos(yaw)), new THREE.Vector3(0, 1, 0), 700);
     this.wait = performance.now() + 750;
+    this.holdDoorsUntil(target);
     this.go(target);
+  }
+
+  /** Doors on the way to move `index` are already open (a skip must not appear inside a shut door). */
+  holdDoorsUntil(index) {
+    for (const m of this.moves.slice(0, index)) for (const d of m.doors ?? []) this.held.add(d.id);
+    this.flushDoors(new Map([...this.held].map((id) => [id, 1])));
+  }
+
+  /**
+   * Opens each door of the current walk over the last 1.2 m before the threshold, and keeps it open
+   * afterwards so the room it leads to stays in view.
+   */
+  swingDoorsAlong() {
+    const m = this.moves[this.index];
+    const want = new Map();
+    for (const id of this.held) want.set(id, 1);
+    if (m?.type === 'walk' && this.motion && m.doors?.length) {
+      const travelled = Math.min(1, Math.max(0, this.t)) * this.motion.length;
+      for (const d of m.doors) {
+        const open = travelled <= d.at - 1.25 ? 0 : Math.min(1, (travelled - (d.at - 1.25)) / 0.75);
+        if (open > (want.get(d.id) ?? 0)) want.set(d.id, open);
+        if (open >= 1) this.held.add(d.id);
+      }
+    }
+    this.flushDoors(want);
+  }
+
+  flushDoors(want) {
+    if (!this.onDoor) return;
+    for (const [id, open] of want) {
+      const q = Math.max(0, Math.min(8, Math.round(open * 8)));
+      if (!q || this.doorQt.get(id) === q) continue;
+      this.doorQt.set(id, q);
+      this.onDoor(id, q / 8);
+    }
   }
 
   step(now) {
@@ -470,6 +558,7 @@ export class TourPlayer {
     }
     this.vp.syncCameras();
     this.vp.touchInteraction();
+    this.swingDoorsAlong();
     if (this.t >= 1) { this.yaw = m.type === 'look' ? null : this.yaw; this.go(this.index + 1); }
   }
 
@@ -481,6 +570,9 @@ export class TourPlayer {
 
   /** Ends the tour; `restore` glides back to the view it started from. */
   stop({ restore = true } = {}) {
+    if (this.doorQt.size) this.onDoorsDone?.();
+    this.doorQt.clear();
+    this.held.clear();
     if (this.vp.tour === this) this.vp.tour = null;
     if (this.vp.axes && this.axesWere != null) this.vp.axes.visible = this.axesWere;
     if (restore && this.saved) {

@@ -1,9 +1,11 @@
 // Model checks for the bottom panel's Problems tab (pure, Node-testable):
 // things that are probably mistakes in a floor plan — doors wider than their
 // wall, openings overlapping, furniture overlapping or outside every room,
-// items floating above the floor, library items that cannot be found.
+// wall-mounted items standing off a wall, objects raised with nothing under
+// them, library items that cannot be found.
 // Each problem: { id, severity: 'error' | 'warning' | 'info', code, entity, params }.
-import { wallLength, pointInPolygon } from './walls.js';
+// The panel shows check.<code> and a fix direction check.fix.<code> (see CHECK_CODES).
+import { wallLength, wallDir, wallNormal, pointInPolygon } from './walls.js';
 import { swingMeta, planLeaves, sectorPolygon, doorwayZones, wallQuad, overlapDepth, SWING_BAND } from './doorswing.js';
 import { HEADROOM, holePolygons, isStairs, stairsWorld, toWorld } from './stairs.js';
 
@@ -37,6 +39,40 @@ function overlapShare(a, b) {
   }
   void inB;
   return inA ? inBoth / inA : 0;
+}
+
+/** Every check code. The Problems panel shows `check.<code>` and a fix direction `check.fix.<code>`. */
+export const CHECK_CODES = [
+  'wallShort', 'openingTooWide', 'openingOutside', 'openingTooTall', 'openingsOverlap', 'itemMissing',
+  'outsideRooms', 'floating', 'unsupported', 'offWall', 'objectsOverlap',
+  'doorBlocked', 'doorwayBlocked', 'doorsCollide', 'doorHitsWall', 'swingBlocked', 'noRooms',
+  'stairsRise', 'stairsNoLevel', 'stairsHeadroom',
+];
+
+/** Distance from a plan point to the nearest wall face on this level (Infinity when none is near). */
+function wallFaceDist(p, walls, level) {
+  let best = Infinity;
+  for (const w of walls) {
+    if (w.level !== level) continue;
+    const L = wallLength(w);
+    if (L < 0.05) continue;
+    const d = wallDir(w);
+    const n = wallNormal(w);
+    const relx = p[0] - w.a[0];
+    const relz = p[1] - w.a[1];
+    const t = relx * d[0] + relz * d[1];
+    if (t < -0.08 || t > L + 0.08) continue;
+    const face = Math.abs(relx * n[0] + relz * n[1]) - (w.thickness ?? 0.15) / 2;
+    if (face < best) best = face;
+  }
+  return best;
+}
+
+/** The back of an item (local −Z) in plan, so a wall-mounted piece can be checked against the wall face. */
+function backPoint(o, size) {
+  const depth = size[2] * Math.abs(o.scale?.[2] ?? 1);
+  const ry = o.rotation?.[1] ?? 0;
+  return [o.position[0] - Math.sin(ry) * (depth / 2), o.position[2] - Math.cos(ry) * (depth / 2)];
 }
 
 /**
@@ -83,14 +119,29 @@ export function checkProject(project, itemOf) {
     const isStairs = o.item === 'stairs' || (item.tags ?? []).includes('stairs') || /^column(-|$)/.test(o.item);
     if (!isStairs && rooms.length && !rooms.some((r) => pointInPolygon([o.position[0], o.position[2]], r.points))) push('warning', 'outsideRooms', o.id);
     const placement = item.placement ?? 'floor';
-    if (placement === 'floor' && o.position[1] > 0.03 && o.position[1] < 0.6) push('info', 'floating', o.id, { height: o.position[1] });
     const size = item.sizeOf?.(o.params ?? {}) ?? item.size;
-    if (placement === 'floor' && o.position[1] < 0.03 && size) floorObjects.push({ o, quad: footprint(o, size), rug: /rug|carpet|cushion/.test(item.id), seat: /chair|stool|bench/.test(item.id) && !/armchair|lounge/.test(item.id), table: /table|desk|island/.test(item.id) && !/side-table|coffee|bedside/.test(item.id) });
+    if (placement === 'wall' && size && project.walls.length) {
+      const gap = wallFaceDist(backPoint(o, size), project.walls, o.level);
+      if (gap > 0.06) push('warning', 'offWall', o.id, { height: gap });
+    }
+    const h = size ? size[1] * Math.abs(o.scale?.[1] ?? 1) : 0;
+    if ((placement === 'floor' || placement === 'surface') && size) floorObjects.push({ o, quad: footprint(o, size), h, y: o.position[1] ?? 0, rug: /rug|carpet|cushion/.test(item.id), seat: /chair|stool|bench/.test(item.id) && !/armchair|lounge/.test(item.id), table: /table|desk|island|wp-manager|wp-cluster|wp-conf/.test(item.id) && !/side-table|coffee|bedside/.test(item.id) });
+  }
+  // Raised off the floor with nothing underneath: it is not resting on a piece of furniture, so it would fall.
+  for (const a of floorObjects) {
+    if (a.y <= 0.05 || /^stairs|column/.test(a.o.item)) continue;
+    const held = floorObjects.some((b) => {
+      if (b.o === a.o || b.o.level !== a.o.level) return false;
+      const top = b.y + b.h;
+      if (Math.abs(top - a.y) > 0.12) return false;
+      return pointInPolygon([a.o.position[0], a.o.position[2]], b.quad);
+    });
+    if (!held) push('warning', 'unsupported', a.o.id, { height: a.y });
   }
   for (let i = 0; i < floorObjects.length; i++) {
     for (let j = i + 1; j < floorObjects.length; j++) {
       const A = floorObjects[i]; const B = floorObjects[j];
-      if (A.rug || B.rug || A.o.level !== B.o.level) continue; // rugs lie under furniture on purpose
+      if (A.rug || B.rug || A.o.level !== B.o.level || Math.abs(A.y - B.y) > 0.05) continue; // rugs, and things standing on furniture, overlap on purpose
       if ((A.seat && B.table) || (A.table && B.seat)) continue; // chairs tuck under tables and desks
       const share = Math.max(overlapShare(A.quad, B.quad), overlapShare(B.quad, A.quad));
       if (share > 0.35) push('warning', 'objectsOverlap', B.o.id, { other: A.o.id, share: Math.round(share * 100) });
@@ -171,6 +222,121 @@ function doorChecks(project, itemOf, walls, push) {
 }
 
 export const countBySeverity =(list) => ({ error: list.filter((p) => p.severity === 'error').length, warning: list.filter((p) => p.severity === 'warning').length, info: list.filter((p) => p.severity === 'info').length });
+
+const PLACE = '__place__';
+
+/**
+ * Physical problems of something being placed (or moved), before it is committed.
+ * `draft` is an object `{ kind: 'object', level, item, position, rotation, scale, params, id? }`
+ * or an opening `{ kind: 'opening', wall, item, offset, width, height, sill, side, flip, params }`.
+ * An `id` already in the project is that object at its current position (a move), not a second copy.
+ * Returns [{ severity, code, params }] — the same codes the Problems list uses, plus `swingBlocked`
+ * when a door being placed would open into furniture.
+ */
+export function placementProblems(project, draft, itemOf) {
+  if (!draft || !project) return [];
+  const out = [];
+  const push = (severity, code, params = {}) => out.push({ severity, code, params });
+  if (draft.kind === 'opening') openingPlacement(project, draft, itemOf, push);
+  else objectPlacement(project, draft, itemOf, push);
+  return out;
+}
+
+function objectPlacement(project, draft, itemOf, push) {
+  const existing = draft.id ? project.objects.find((o) => o.id === draft.id) : null;
+  const o = existing ?? {
+    id: PLACE, level: draft.level, item: draft.item, position: draft.position, rotation: draft.rotation ?? [0, 0, 0],
+    scale: draft.scale ?? [1, 1, 1], params: draft.params ?? {}, hidden: false,
+  };
+  const item = itemOf(o.item);
+  if (!item) { push('error', 'itemMissing', { item: o.item }); return; }
+  const rooms = project.rooms.filter((r) => r.level === o.level);
+  const structural = o.item === 'stairs' || (item.tags ?? []).includes('stairs') || /^column(-|$)/.test(o.item);
+  if (!structural && rooms.length && !rooms.some((r) => pointInPolygon([o.position[0], o.position[2]], r.points))) push('warning', 'outsideRooms');
+  const placement = item.placement ?? 'floor';
+  const size = item.sizeOf?.(o.params ?? {}) ?? item.size;
+  if (placement === 'wall' && size && project.walls.length) {
+    const gap = wallFaceDist(backPoint(o, size), project.walls, o.level);
+    if (gap > 0.06) push('warning', 'offWall', { height: gap });
+  }
+  if ((placement !== 'floor' && placement !== 'surface') || !size) return;
+  const quad = footprint(o, size);
+  const y = o.position[1] ?? 0;
+  const rug = /rug|carpet|cushion/.test(item.id);
+  const seat = /chair|stool|bench/.test(item.id) && !/armchair|lounge/.test(item.id);
+  const table = /table|desk|island|wp-manager|wp-cluster|wp-conf/.test(item.id) && !/side-table|coffee|bedside/.test(item.id);
+  if (y > 0.05 && !/^stairs|column/.test(o.item)) {
+    const held = project.objects.some((b) => {
+      if (b === o || b.hidden || b.level !== o.level) return false;
+      const bi = itemOf(b.item);
+      const bs = bi?.sizeOf?.(b.params ?? {}) ?? bi?.size;
+      if (!bs || ((bi.placement ?? 'floor') !== 'floor' && (bi.placement ?? 'floor') !== 'surface')) return false;
+      const top = (b.position[1] ?? 0) + bs[1] * Math.abs(b.scale?.[1] ?? 1);
+      return Math.abs(top - y) <= 0.12 && pointInPolygon([o.position[0], o.position[2]], footprint(b, bs));
+    });
+    if (!held) push('warning', 'unsupported', { height: y });
+  }
+  if (!rug) {
+    for (const b of project.objects) {
+      if (b === o || b.hidden || b.level !== o.level || Math.abs((b.position[1] ?? 0) - y) > 0.05) continue;
+      const bi = itemOf(b.item);
+      const bs = bi?.sizeOf?.(b.params ?? {}) ?? bi?.size;
+      if (!bs || (bi.placement ?? 'floor') !== 'floor' || /rug|carpet|cushion/.test(bi.id)) continue;
+      const bSeat = /chair|stool|bench/.test(bi.id) && !/armchair|lounge/.test(bi.id);
+      const bTable = /table|desk|island|wp-manager|wp-cluster|wp-conf/.test(bi.id) && !/side-table|coffee|bedside/.test(bi.id);
+      if ((seat && bTable) || (table && bSeat)) continue;
+      const bq = footprint(b, bs);
+      const share = Math.max(overlapShare(quad, bq), overlapShare(bq, quad));
+      if (share > 0.35) push('warning', 'objectsOverlap', { other: b.id, share: Math.round(share * 100) });
+    }
+  }
+  if ((item.placement ?? 'floor') === 'floor' && y < 1.9 && !/rug|carpet|(^|-)mat($|-)|doormat/.test(item.id) && size[1] * Math.abs(o.scale?.[1] ?? 1) >= 0.03) {
+    const doors = doorSwings(project, itemOf);
+    const hits = (polys, depth) => polys.some((p) => overlapDepth(p, quad) > depth);
+    for (const d of doors) {
+      if (d.wall.level !== o.level) continue;
+      if (/^column(-|$)/.test(o.item)) { if (hits(d.sectors, 0.02)) push('warning', 'doorHitsWall', { other: d.o.id }); continue; }
+      if (hits(d.zones, 0.01)) push('warning', 'doorBlocked', { other: d.o.id });
+      else if (hits(d.ways, 0.02)) push('info', 'doorwayBlocked', { other: d.o.id });
+    }
+  }
+}
+
+function openingPlacement(project, draft, itemOf, push) {
+  const wall = project.walls.find((w) => w.id === draft.wall);
+  if (!wall) return;
+  const o = {
+    id: PLACE, wall: draft.wall, item: draft.item, offset: draft.offset, width: draft.width, height: draft.height,
+    sill: draft.sill ?? 0, side: draft.side ?? 'left', flip: Boolean(draft.flip), params: draft.params ?? {},
+  };
+  const L = wallLength(wall);
+  if (o.width > L - 0.02) push('error', 'openingTooWide', { width: o.width, length: L });
+  else if (o.offset - o.width / 2 < -0.001 || o.offset + o.width / 2 > L + 0.001) push('error', 'openingOutside');
+  const level = project.levels.find((l) => l.id === wall.level);
+  if (level && o.sill + o.height > (wall.height ?? level.height) - 0.01) push('error', 'openingTooTall');
+  for (const other of project.openings) {
+    if (other.wall !== o.wall) continue;
+    if (o.offset + o.width / 2 > other.offset - other.width / 2 + 0.005 && other.offset + other.width / 2 > o.offset - o.width / 2 + 0.005) push('error', 'openingsOverlap', { other: other.id });
+  }
+  const item = itemOf(o.item);
+  if (!item || item.category !== 'doors') return;
+  const doors = doorSwings({ openings: [...project.openings, o], walls: project.walls }, itemOf);
+  const mine = doors.find((d) => d.o.id === PLACE);
+  if (!mine) return;
+  const hits = (polys, quad, depth) => polys.some((p) => overlapDepth(p, quad) > depth);
+  for (const b of doorBlockers(project, itemOf)) {
+    if (b.o.level !== mine.wall.level) continue;
+    if (hits(mine.zones, b.quad, 0.01) || hits(mine.ways, b.quad, 0.02)) push('warning', 'swingBlocked', { other: b.o.id });
+  }
+  for (const w of project.walls) {
+    if (w.id === wall.id || w.level !== wall.level || wallLength(w) < 0.05) continue;
+    if (hits(mine.sectors, wallQuad(w), 0.02)) push('warning', 'doorHitsWall', { other: w.id });
+  }
+  for (const other of doors) {
+    if (other.o.id === PLACE || other.wall.level !== mine.wall.level) continue;
+    if (mine.sectors.some((s) => hits(other.sectors, s, 0.02))) push('warning', 'doorsCollide', { other: other.o.id });
+  }
+}
 
 /**
  * Stairs (engine/stairs.js): the top reaches the level above (rise mismatch → warning), a stair of a

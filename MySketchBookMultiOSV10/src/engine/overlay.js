@@ -184,7 +184,14 @@ export class Overlay {
       }
       if (entry.hidden !== hidden) { entry.el.hidden = hidden; entry.hidden = hidden; }
       if (!hidden) {
-        const tx = Math.round(s.x - host.left + entry.dx); const ty = Math.round(s.y - host.top + entry.dy);
+        let tx = Math.round(s.x - host.left + entry.dx); let ty = Math.round(s.y - host.top + entry.dy);
+        // A problem note stays inside the view, so the fix can be read while the piece is still moving.
+        if (entry.el.dataset.kind === 'warning' || entry.el.dataset.kind === 'error') {
+          const w = entry.el.offsetWidth; const h = entry.el.offsetHeight;
+          if (tx + w > host.width - 8) tx = Math.max(8, host.width - w - 8);
+          if (ty + h > host.height - 8) ty = Math.max(8, host.height - h - 8);
+          if (ty < 8) ty = 8;
+        }
         if (entry.tx !== tx || entry.ty !== ty) { entry.el.style.transform = `translate(${tx}px, ${ty}px)`; entry.tx = tx; entry.ty = ty; }
       }
     }

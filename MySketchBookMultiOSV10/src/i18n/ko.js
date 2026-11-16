@@ -149,7 +149,7 @@ export default {
   'animation.blueprint': "청사진",
   'animation.bricks': "벽돌 쌓기",
   'animation.contours': "대지 등고선",
-  'animation.curtains': "커튼",
+  'animation.rain': "창가의 비",
   'animation.dimensions': "치수선",
   'animation.dust': "햇살 속 먼지",
   'animation.fabric': "패브릭",

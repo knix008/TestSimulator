@@ -1,7 +1,7 @@
 // Moving backgrounds for the start page and (faintly) behind the views: twenty quiet scenes from the
 // world of interiors and architecture (the list is ANIMATIONS in settings): a blueprint being drafted,
 // a floor plan tracing in, isometric blocks, a wireframe house, sunlight through a window, dust in a
-// sunbeam, fabric, wood grain, tiles being laid, dimension lines, paint chips, pendant lamps, curtains,
+// sunbeam, fabric, wood grain, tiles being laid, dimension lines, paint chips, pendant lamps, rain on a window,
 // leaves, two-point perspective, a brick wall, furniture silhouettes, a sun path, parquet and site
 // contours. Colours follow the theme (a warm light is mixed in where the scene needs sunlight). The
 // animation pauses while the window is hidden; `frames` counts drawn frames (tests use it).
@@ -216,7 +216,7 @@ export class AnimatedBackground {
     if (!w || !h) return;
     const colors = this.colors();
     // Broad washes (light, glow, cloth) are strong already; thin lines and dots need the most help.
-    const kindBoost = { sunlight: 0.75, lamps: 0.8, curtains: 0.8, fabric: 0.8, parquet: 0.85, bricks: 0.85, tiles: 0.85 }[this.kind] ?? 1;
+    const kindBoost = { sunlight: 0.75, lamps: 0.8, fabric: 0.8, parquet: 0.85, bricks: 0.85, tiles: 0.85 }[this.kind] ?? 1;
     BOOST = this.vivid ? (colors.dark ? 2.3 : 2.9) * kindBoost : 1;
     SIZE = this.vivid ? 1.6 : 1;
     this.frames += 1;
@@ -228,7 +228,7 @@ export class AnimatedBackground {
     c.lineJoin = 'miter';
     c.fillStyle = colors.bg;
     c.fillRect(0, 0, w, h);
-    const fn = this[this.kind];
+    const fn = this[this.kind === 'curtains' ? 'rain' : this.kind];
     if (fn) fn.call(this, c, w, h, this.time, colors);
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.globalCompositeOperation = 'source-over';
@@ -771,52 +771,41 @@ export class AnimatedBackground {
     c.globalCompositeOperation = 'source-over';
   }
 
-  /** Two curtains on a rod, their folds swaying in a soft breeze, light through the gap. */
-  curtains(c, w, h, time, colors) {
+  /** Rain sliding down a window: a pale sky, a simple frame, and streaks that fall and start again. */
+  rain(c, w, h, time, colors) {
     const unit = Math.min(w, h);
-    const rodY = h * 0.05;
-    const open = 0.07 + 0.03 * Math.sin(time * 0.08);
-    const gap = c.createLinearGradient(w * (0.5 - open - 0.05), 0, w * (0.5 + open + 0.05), 0);
-    gap.addColorStop(0, rgba(warm(colors), 0));
-    gap.addColorStop(0.5, rgba(warm(colors), 0.12));
-    gap.addColorStop(1, rgba(warm(colors), 0));
-    c.fillStyle = gap;
-    c.fillRect(0, rodY, w, h - rodY);
-    const folds = 9;
-    const stepsY = 24;
-    for (const side of [-1, 1]) {
-      const inner = w * (0.5 + side * open);
-      const outer = side < 0 ? -w * 0.02 : w * 1.02;
-      const edge = (k, y) => {
-        const t = (y - rodY) / (h - rodY);
-        const base = outer + (inner - outer) * (k / folds) * (1 - 0.18 * t * (k / folds));
-        return base + (Math.sin(time * 0.5 + k * 0.7 + t * 3) * 0.6 + Math.sin(time * 0.27 + t * 2)) * unit * 0.012 * t;
-      };
-      for (let k = 0; k < folds; k++) {
-        const xa = edge(k, h * 0.5);
-        const xb = edge(k + 1, h * 0.5);
-        const g = c.createLinearGradient(xa, 0, xb, 0);
-        g.addColorStop(0, rgba(colors.accent, 0.04));
-        g.addColorStop(0.55, rgba(colors.accent, 0.14));
-        g.addColorStop(1, rgba(colors.text, 0.03));
-        c.fillStyle = g;
-        c.beginPath();
-        for (let s = 0; s <= stepsY; s++) { const y = rodY + (s / stepsY) * (h - rodY); c[s ? 'lineTo' : 'moveTo'](edge(k, y), y); }
-        for (let s = stepsY; s >= 0; s--) { const y = rodY + (s / stepsY) * (h - rodY); c.lineTo(edge(k + 1, y), y); }
-        c.closePath();
-        c.fill();
-      }
-      c.strokeStyle = rgba(colors.text, 0.25);
-      c.lineWidth = Math.max(1, unit * 0.004);
-      c.beginPath();
-      for (let k = 0; k <= folds; k++) { c.moveTo(edge(k, rodY) + unit * 0.008, rodY); c.arc(edge(k, rodY), rodY, unit * 0.008, 0, Math.PI * 2); }
-      c.stroke();
-    }
-    c.strokeStyle = rgba(colors.text, 0.3);
-    c.lineWidth = Math.max(2, unit * 0.007);
+    const sky = c.createLinearGradient(0, 0, 0, h);
+    sky.addColorStop(0, rgba(colors.dark ? colors.accent : warm(colors), 0.1));
+    sky.addColorStop(1, rgba(colors.accent, 0.03));
+    c.fillStyle = sky;
+    c.fillRect(0, 0, w, h);
+    const x0 = w * 0.16;
+    const y0 = h * 0.07;
+    const x1 = w * 0.84;
+    const y1 = h * 0.93;
+    c.fillStyle = rgba(warm(colors), colors.dark ? 0.05 : 0.07);
+    c.fillRect(x0, y0, x1 - x0, y1 - y0);
+    const span = y1 - y0;
+    const fall = time * unit * 0.16;
     c.lineCap = 'round';
+    c.lineWidth = Math.max(1, unit * 0.0018) * SIZE;
     c.beginPath();
-    c.moveTo(w * 0.01, rodY); c.lineTo(w * 0.99, rodY);
+    for (let i = 0; i < 42; i++) {
+      const len = unit * (0.035 + hash(i, 2) * 0.055);
+      const x = x0 + unit * 0.02 + hash(i, 1) * (x1 - x0 - unit * 0.04);
+      const y = y0 + mod(hash(i, 4) * span + fall * (0.55 + hash(i, 3) * 0.75), span);
+      c.moveTo(x, y);
+      c.lineTo(x + unit * 0.012, Math.min(y1 - 2, y + len));
+    }
+    c.strokeStyle = rgba(colors.text, colors.dark ? 0.22 : 0.16);
+    c.stroke();
+    c.strokeStyle = rgba(colors.text, 0.32);
+    c.lineWidth = Math.max(2, unit * 0.011);
+    c.strokeRect(x0, y0, x1 - x0, y1 - y0);
+    c.lineWidth = Math.max(1.5, unit * 0.005);
+    c.beginPath();
+    c.moveTo((x0 + x1) / 2, y0); c.lineTo((x0 + x1) / 2, y1);
+    c.moveTo(x0, (y0 + y1) / 2); c.lineTo(x1, (y0 + y1) / 2);
     c.stroke();
   }
 

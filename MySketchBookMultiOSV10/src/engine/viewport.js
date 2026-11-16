@@ -1033,7 +1033,12 @@ export class Viewport {
       const ray = new THREE.Raycaster(cam.position.clone(), move.clone().setY(0).normalize(), 0, 0.35 + speed);
       ray.firstHitOnly = true;
       const hits = move.x || move.z ? ray.intersectObjects(this.content.children, true).filter((h) => h.object.visible && !h.object.userData.helper) : [];
-      if (!hits.length) { cam.position.add(move); this.target.add(move); }
+      if (hits.length) {
+        // A shut door in front of the walker opens, so the next steps go through it.
+        let node = hits[0].object;
+        while (node && !node.userData?.entityId) node = node.parent;
+        if (node?.userData?.entityKind === 'opening') this.onWalkDoor?.(node.userData.entityId);
+      } else { cam.position.add(move); this.target.add(move); }
       this.syncCameras();
     }
     this.touchInteraction();

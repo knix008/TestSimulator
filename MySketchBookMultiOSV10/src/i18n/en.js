@@ -149,7 +149,7 @@ export default {
   'animation.blueprint': "Blueprint",
   'animation.bricks': "Bricklaying",
   'animation.contours': "Site contours",
-  'animation.curtains': "Curtains",
+  'animation.rain': "Rain on the window",
   'animation.dimensions': "Dimension lines",
   'animation.dust': "Dust in a sunbeam",
   'animation.fabric': "Fabric",

@@ -14,6 +14,8 @@
   color: var(--text); border: 1px solid var(--border); box-shadow: 0 2px 6px rgb(0 0 0 / 0.15);
 }
 .vp-label[data-kind="length"], .vp-label[data-kind="dimension"] { font-weight: 600; font-variant-numeric: tabular-nums; }
+.vp-label[data-kind="warning"] { background: #fff6e0; color: #7a4b00; border-color: #e4a11b; white-space: pre-wrap; max-width: 240px; }
+.vp-label[data-kind="error"] { background: #fff0f0; color: #9b1c1c; border-color: #e5484d; white-space: pre-wrap; max-width: 240px; }
 .vp-label[data-kind="dimension"] { background: #fffbea; color: #1f2937; border-color: #d9c27a; }
 /* Plan dimensions: the length centred on its dimension line, small and quiet. */
 .vp-label[data-kind="plandim"] { translate: -50% -50%; padding: 0; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; background: none; color: var(--plandim-color, #1f2933); border: 0; box-shadow: none; pointer-events: none; }
@@ -231,7 +233,9 @@ html[data-lib-drag="over"] *, html[data-lib-drag="over"] canvas { cursor: copy !
 /* ── bottom panel extras ── */
 .bottom-count { font-style: normal; margin-left: 4px; padding: 0 5px; border-radius: 999px; background: var(--hover); color: var(--muted); font-size: 10.5px; }
 .segment.active .bottom-count { background: color-mix(in srgb, var(--accent-text) 25%, transparent); color: inherit; }
-.problems-list.bottom-problems .problem-row, .problems-list.bottom-messages .problem-row { grid-template-columns: 22px minmax(240px, 3fr) minmax(160px, 1.4fr) minmax(90px, 0.7fr); }
+.problems-list.bottom-problems .problem-row { grid-template-columns: 22px minmax(180px, 2.1fr) minmax(180px, 2fr) minmax(120px, 1.1fr) minmax(72px, 0.6fr); }
+.problems-list.bottom-messages .problem-row { grid-template-columns: 22px minmax(240px, 3fr) minmax(160px, 1.4fr) minmax(90px, 0.7fr); }
+.problem-row .cell.fix { color: var(--text); }
 .problems-list.bottom-info .problem-row { grid-template-columns: 22px minmax(120px, 160px) minmax(0, 1fr); cursor: default; }
 .problem-row.info .cell.sev { color: var(--accent); }
 .problem-row.success .cell.sev { color: #2f9e44; }

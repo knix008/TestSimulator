@@ -471,6 +471,7 @@ function mountViewport() {
   overlay = new Overlay(viewport, host.querySelector('.vp-labels'));
   builder = new SceneBuilder(viewport, { settings: () => ({ quality: state.settings.renderQuality === 'fast' ? 'low' : 'high', planWall: { mode: state.settings.planWallFill ?? 'color', color: state.settings.planWallColor ?? '#000000' } }), onAsync: () => updateSelectionBoxes() });
   builder.meshOf = Modeling?.meshOf ?? null;
+  viewport.onWalkDoor = (id) => approachDoor(id);
   // The 2D plan always shows the active level alone; the 3D view follows the project's Level view.
   builder.levelMode = (p) => (state.planView ? 'active' : p.levelView ?? 'all');
   rulers = new Rulers(host, viewport, { units, enabled: () => state.settings.showRulers !== false, format: (v, o = {}) => formatLength(v, units(), { suffix: !o.short }) });
@@ -1074,7 +1075,7 @@ const toolApi = {
   get viewport() { return viewport; },
   get overlay() { return overlay; },
   get builder() { return builder; },
-  project, level: () => levelOf(project(), project().activeLevel), units, settings: () => state.settings, t, notify, showError,
+  project, level: () => levelOf(project(), project().activeLevel), units, settings: () => state.settings, t, language: () => lang(), notify, showError,
   change, commit, live, select, clearSelection, selection: () => state.selection, isSelected, isLocked, kindOf, setHover, markErase, toggleDoorById,
   moveEntities, rotateEntities, rotateSelection, scaleEntities, duplicateEntities, deleteEntities, paintHit, setTool, setVcb, groundPoint,
   entitiesInRect, showSelectionRect, editEntity, describeEntity, prompt, brush: () => state.brush, setBrush: (id) => { state.brush = id; renderLeft(); notify('info', t('notice.brush', { name: presetName(id) })); },
@@ -1349,6 +1350,7 @@ function swingDoors(doors, open, { quiet = true } = {}) {
     doorSwing = null;
     if (doc() !== d) return;
     set(1);
+    for (const m of moves) walkOpening.delete(m.o.id);
     commit(open ? 'op.openDoor' : 'op.closeDoor', ['openings']);
     if (!quiet) notify('info', t(open ? 'notice.doorsOpened' : 'notice.doorsClosed', { count: moves.length }));
   };
@@ -1366,6 +1368,51 @@ function swingDoors(doors, open, { quiet = true } = {}) {
 
 /** A swing still running ends at once (another swing, undo, saving). */
 function finishDoorSwing() { doorSwing?.end(); }
+
+// Doors the tour has opened (original params, put back when the tour ends — not an undo step).
+const tourDoorSaved = new Map();
+/** A walk into a door (the Walk tool) opens it once; cleared when the swing finishes. */
+const walkOpening = new Set();
+
+function beginTourDoors() { finishDoorSwing(); }
+
+/** Sets a door's open amount while the tour walks through it (`fraction` 0…1 of the way to fully open). */
+function setTourDoor(id, fraction) {
+  const o = project()?.openings.find((x) => x.id === id);
+  const spec = o && catalogItem(o.item)?.params?.find((p) => p.key === 'open');
+  if (!spec) return;
+  if (!tourDoorSaved.has(id)) tourDoorSaved.set(id, { ...(o.params ?? {}) });
+  const from = Number(tourDoorSaved.get(id).open) || 0;
+  const to = spec.max ?? 90;
+  const open = from + (to - from) * fraction;
+  if (Math.abs((Number(o.params?.open) || 0) - open) < 0.05) return;
+  o.params = { ...(o.params ?? {}), open };
+  syncScene();
+}
+
+function restoreTourDoors() {
+  const p = project();
+  const saved = [...tourDoorSaved];
+  tourDoorSaved.clear();
+  if (!p || !saved.length) return;
+  for (const [id, params] of saved) {
+    const o = p.openings.find((x) => x.id === id);
+    if (o) o.params = { ...params };
+  }
+  syncScene();
+}
+
+/** The Walk tool: a door in front of the camera swings open so the walk can go through. */
+function approachDoor(id) {
+  const o = kindOf(id) === 'opening' ? entity(id)?.entity : null;
+  const doors = openableDoors(o ? [o] : []);
+  if (!doors.length || walkOpening.has(id)) return;
+  const spec = catalogItem(doors[0].item)?.params?.find((p) => p.key === 'open');
+  if (doorAngle(doors[0]) > (spec?.max ?? 90) * 0.25) return;
+  walkOpening.add(id);
+  swingDoors(doors, true, { quiet: true });
+  if (!doorSwing) walkOpening.delete(id);
+}
 
 function switchLamps(lamps, on) {
   if (!lamps.length) return;
@@ -2068,7 +2115,10 @@ function problemTarget(pr) {
   return { glyph, name: e.name || (item ? itemName(item, lang()) : '') || t(`kind.${kindOf(pr.entity)}`), kind: t(`kind.${kindOf(pr.entity)}`) };
 }
 
-const problemText = (pr) => t(`check.${pr.code}`, { ...pr.params, width: pr.params.width != null ? formatLength(pr.params.width, units()) : '', length: pr.params.length != null ? formatLength(pr.params.length, units()) : '', height: pr.params.height != null ? formatLength(pr.params.height, units()) : '', other: pr.params.other ? problemTarget({ entity: pr.params.other, params: {} }).name : '' });
+const problemVars = (pr) => ({ ...pr.params, width: pr.params.width != null ? formatLength(pr.params.width, units()) : '', length: pr.params.length != null ? formatLength(pr.params.length, units()) : '', height: pr.params.height != null ? formatLength(pr.params.height, units()) : '', other: pr.params.other ? problemTarget({ entity: pr.params.other, params: {} }).name : '' });
+const problemText = (pr) => t(`check.${pr.code}`, problemVars(pr));
+/** What to change so this problem goes away (`check.fix.<code>`). */
+const problemFix = (pr) => t(`check.fix.${pr.code}`, problemVars(pr));
 
 function renderBottom() {
   const host = root.querySelector('#bottom-panel');
@@ -2084,9 +2134,11 @@ function renderBottom() {
     tools = `<span class="segmented">${filters.map(([id, label, n]) => `<button class="segment ${state.problemFilter === id ? 'active' : ''}" data-problem-filter="${id}">${id === 'all' ? '' : icon(SEV_ICON[id])}<span>${escapeHtml(label)} ${n}</span></button>`).join('')}</span>
       <span class="grow"></span><button class="small-button" data-command="checkNow" title="${escapeHtml(commandTip('checkNow'))}">${icon('validate')}<span>${escapeHtml(t('action.checkNow'))}</span></button>`;
     const list = state.problems.filter((pr) => state.problemFilter === 'all' || pr.severity === state.problemFilter);
-    body = list.length ? `<div class="problem-row head"><span class="cell"></span><span class="cell">${escapeHtml(t('bottom.message'))}</span><span class="cell">${escapeHtml(t('bottom.target'))}</span><span class="cell">${escapeHtml(t('bottom.kind'))}</span></div>` + list.map((pr) => {
+    body = list.length ? `<div class="problem-row head"><span class="cell"></span><span class="cell">${escapeHtml(t('bottom.message'))}</span><span class="cell">${escapeHtml(t('bottom.fix'))}</span><span class="cell">${escapeHtml(t('bottom.target'))}</span><span class="cell">${escapeHtml(t('bottom.kind'))}</span></div>` + list.map((pr) => {
       const tg = problemTarget(pr);
-      return `<div class="problem-row bottom-row ${pr.severity} ${state.problemSelected === pr.id ? 'selected' : ''}" data-problem="${escapeHtml(pr.id)}" title="${escapeHtml(problemText(pr))}"><span class="cell sev">${icon(SEV_ICON[pr.severity])}</span><span class="cell">${escapeHtml(problemText(pr))}</span><span class="cell el">${icon(tg.glyph)}<b>${escapeHtml(tg.name)}</b></span><span class="cell muted">${escapeHtml(tg.kind ?? '')}</span></div>`;
+      const text = problemText(pr);
+      const fix = problemFix(pr);
+      return `<div class="problem-row bottom-row ${pr.severity} ${state.problemSelected === pr.id ? 'selected' : ''}" data-problem="${escapeHtml(pr.id)}" title="${escapeHtml(`${text} — ${fix}`)}"><span class="cell sev">${icon(SEV_ICON[pr.severity])}</span><span class="cell">${escapeHtml(text)}</span><span class="cell fix">${escapeHtml(fix)}</span><span class="cell el">${icon(tg.glyph)}<b>${escapeHtml(tg.name)}</b></span><span class="cell muted">${escapeHtml(tg.kind ?? '')}</span></div>`;
     }).join('') : `<p class="problems-empty">${icon('check')}<span>${escapeHtml(t(state.problems.length ? 'bottom.noneFiltered' : 'bottom.none'))}</span></p>`;
   } else if (state.bottomTab === 'messages') {
     tools = `<span class="grow"></span><button class="small-button" data-command="copyMessages" ${state.log.length ? '' : 'disabled'}>${icon('copy')}<span>${escapeHtml(t('action.copyMessages'))}</span></button><button class="small-button danger" data-command="clearMessages" ${state.log.length ? '' : 'disabled'}>${icon('clearHistory')}<span>${escapeHtml(t('action.clearMessages'))}</span></button>`;
@@ -2636,6 +2688,7 @@ const tour = createTour({
   host: () => root.querySelector('#view-host'),
   settings: () => state.settings, updateSettings: (patch) => updateSettings(patch, { quiet: true }),
   onChange: () => { renderToolbarState(); planDims?.update?.(); },
+  beginTourDoors, setTourDoor, restoreTourDoors,
   // The 3D view alone over the whole screen: the window goes full screen (desktop) or the page does (browser).
   setFullscreen: (on) => {
     document.body.classList.toggle('tour-full', on);
@@ -2656,6 +2709,7 @@ const planImport = createPlanImport({
   planView: () => state.planView,
   levelMode: (p) => builder?.levelMode?.(p) ?? 'all',
   afterImport: () => { syncScene(); viewport?.zoomExtents(); renderAll(); },
+  showProblems: () => run('showProblems'),
   focusUnderlay: () => { clearSelection(); syncScene(); renderRight(); },
   // Furniture of IFC / Sweet Home 3D files that has no library item: its own model in My objects.
   modelIo: () => Object.values(ioImport)[0]?.(),
@@ -2942,7 +2996,7 @@ function contextMenu(event, kind, payload = {}) {
     const pr = state.problems.find((x) => x.id === payload.id);
     const handlers = {
       'custom:reveal': () => revealProblem(payload.id),
-      'custom:copy': () => native.clipboardWrite(problemText(pr)).then(() => notify('success', t('notice.copiedText'))),
+      'custom:copy': () => native.clipboardWrite(`${problemText(pr)}\n${t('bottom.fix')}: ${problemFix(pr)}`).then(() => notify('success', t('notice.copiedText'))),
       'custom:delete': () => { select([pr.entity]); run('delete'); },
     };
     const hasEntity = Boolean(pr?.entity && entity(pr.entity));
@@ -2952,7 +3006,7 @@ function contextMenu(event, kind, payload = {}) {
       { separator: true },
       { id: 'custom:delete', label: t('bottom.deleteTarget'), icon: 'trash', disabled: !hasEntity || isLocked(pr.entity) },
       { separator: true }, ...menuItems(['checkNow', 'bottomPanel']),
-    ], anchor, 'context', { handlers, header: { icon: 'warning', title: t('bottom.problems') } });
+    ], anchor, 'context', { handlers, header: { icon: 'warning', title: pr ? problemFix(pr) : t('bottom.problems') } });
   }
   if (kind === 'log') {
     const e = state.log[payload.index];

@@ -33,7 +33,13 @@ export function createTour(app) {
     const cam = vp.camera.position;
     const moves = planTour(p, { start: [cam.x, cam.z] });
     if (!moves.some((m) => m.type === 'look')) { app.notify('info', app.t('tour.noRooms')); return false; }
-    player = new TourPlayer(vp, p, moves, { speed: SPEEDS[speedIndex()], onChange: (s) => { last = s; render(); if (s.done) finished(); } });
+    app.beginTourDoors?.();
+    player = new TourPlayer(vp, p, moves, {
+      speed: SPEEDS[speedIndex()],
+      onChange: (s) => { last = s; render(); if (s.done) finished(); },
+      onDoor: (id, open) => app.setTourDoor?.(id, open),
+      onDoorsDone: () => app.restoreTourDoors?.(),
+    });
     showBar();
     player.start();
     app.onChange?.();

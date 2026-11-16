@@ -5,7 +5,7 @@
 // consistent and easy to add. Pure (no three).
 import { createProject, newId } from './document.js';
 import { detectRoom, wallNormal } from './walls.js';
-import { placeStairs, stairLayout, syncStairwells } from './stairs.js';
+import { placeStairs, riserCount, rotationFor, stairLayout, syncStairwells } from './stairs.js';
 
 export const TEMPLATES = [
   ['empty', 'cube'],
@@ -308,7 +308,12 @@ function buildRects(project, level, spec, names) {
     const lv = project.levels.find((l) => l.id === level);
     // `turn`: this flight runs back over the one below (stacked stair halls of three or more storeys).
     if (r && lv && spec.stairs.type) project.objects.push(fittedStairs(r, level, lv.height + 0.3, spec.stairs));
-    else if (r && lv) project.objects.push({ id: newId('ob'), level, item: 'stairs', params: { rise: lv.height + 0.3, width: Math.min(1.0, r.x1 - r.x0 - 0.5) }, position: [(r.x0 + r.x1) / 2, 0, (r.z0 + r.z1) / 2], rotation: [0, spec.stairs.turn ? Math.PI : 0, 0], scale: [1, 1, 1], materials: {}, tag: 'untagged', name: '' });
+    else if (r && lv) {
+      // A straight flight fitted to the hall: the top meets the far wall and the bottom keeps a landing,
+      // so the doors (moved to that landing) can open. A centred flight in a short hall stood in the doorways.
+      project.objects.push(fittedStraight(r, level, lv.height + 0.3));
+      shiftDoorsToLanding(project, r);
+    }
   }
   // 8. Structural columns (their centres are wall nodes, so walls stay joined to them).
   for (const [x, z, size = 0.4, shape = 'square'] of spec.columns ?? []) {
@@ -322,6 +327,72 @@ function buildRects(project, level, spec, names) {
  * from the hall's first end (where the doors are: that end stays a floor landing), its far end against the
  * far wall. Stacked halls get the same stair on every floor, so the flights sit over each other.
  */
+/**
+ * A straight flight in a stair hall. The top finishes at the far wall; at least a metre stays clear at the
+ * near end (the landing the doors use). The going shrinks, down to 150 mm, so the flight fits that length.
+ */
+function fittedStraight(r, level, rise) {
+  const alongZ = r.z1 - r.z0 >= r.x1 - r.x0;
+  const inset = T_EXT / 2 + 0.02;
+  const span = (alongZ ? r.z1 - r.z0 : r.x1 - r.x0) - 2 * inset;
+  const across = (alongZ ? r.x1 - r.x0 : r.z1 - r.z0) - 2 * inset;
+  const width = Math.round(Math.min(1.0, Math.max(0.7, across - 0.1)) * 100) / 100;
+  const n = riserCount(rise, 0.19);
+  const landing = Math.min(1.15, Math.max(0.85, span * 0.28));
+  const run = Math.round(Math.min(0.27, Math.max(0.15, (span - landing) / (n - 1))) * 1000) / 1000;
+  const params = { type: 'straight', rise: Math.round(rise * 1000) / 1000, width, run, maxRiser: 0.19, rail: 'baluster', tread: 'wood-oak', riser: 'paint-white-matte' };
+  const len = stairLayout(params).size[2];
+  const far = (alongZ ? r.z1 : r.x1) - inset;
+  const mid = alongZ ? (r.x0 + r.x1) / 2 : (r.z0 + r.z1) / 2;
+  const c = alongZ ? [mid, far - len / 2] : [far - len / 2, mid];
+  // Local −Z climbs; turn it toward the far wall.
+  const rotation = rotationFor(alongZ ? [0, 1] : [1, 0]);
+  return { id: newId('ob'), level, item: 'stairs', params, position: [c[0], 0, c[1]], rotation: [0, rotation, 0], scale: [1, 1, 1], materials: {}, tag: 'untagged', name: '' };
+}
+
+/** Doors of a stair hall move to the near end (the landing), clear of the flight against the far wall. */
+function shiftDoorsToLanding(project, r) {
+  const alongZ = r.z1 - r.z0 >= r.x1 - r.x0;
+  const near = alongZ ? r.z0 : r.x0;
+  const far = alongZ ? r.z1 : r.x1;
+  for (const w of project.walls) {
+    if (w.level !== r.level) continue;
+    const horiz = Math.abs(w.a[1] - w.b[1]) < 0.02;
+    const vert = Math.abs(w.a[0] - w.b[0]) < 0.02;
+    if (!horiz && !vert) continue;
+    // Only the stretch of the wall that is this hall's edge (a merged wall continues into the next room).
+    let edgeLo; let edgeHi; let onFar;
+    if (horiz) {
+      if (Math.abs(w.a[1] - r.z0) > 0.03 && Math.abs(w.a[1] - r.z1) > 0.03) continue;
+      onFar = Math.abs(w.a[1] - far) < 0.03;
+      edgeLo = Math.max(r.x0, Math.min(w.a[0], w.b[0]));
+      edgeHi = Math.min(r.x1, Math.max(w.a[0], w.b[0]));
+    } else {
+      if (Math.abs(w.a[0] - r.x0) > 0.03 && Math.abs(w.a[0] - r.x1) > 0.03) continue;
+      onFar = Math.abs(w.a[0] - far) < 0.03;
+      edgeLo = Math.max(r.z0, Math.min(w.a[1], w.b[1]));
+      edgeHi = Math.min(r.z1, Math.max(w.a[1], w.b[1]));
+    }
+    if (onFar || edgeHi - edgeLo < 0.95) continue;
+    const L = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]) || 1;
+    const dx = (w.b[0] - w.a[0]) / L; const dz = (w.b[1] - w.a[1]) / L;
+    const worldOf = (t) => (horiz ? w.a[0] + dx * t : w.a[1] + dz * t);
+    const offsetOf = (world) => (horiz ? (world - w.a[0]) / (dx || 1) : (world - w.a[1]) / (dz || 1));
+    const landing = Math.abs(edgeLo - near) <= Math.abs(edgeHi - near) ? edgeLo : edgeHi;
+    for (const o of project.openings) {
+      if (o.wall !== w.id || (o.sill ?? 0) > 0.2 || o.height < 1.6) continue;
+      const c = worldOf(o.offset);
+      if (c < edgeLo - 0.08 || c > edgeHi + 0.08) continue;
+      const landingWorld = landing === edgeLo ? edgeLo + o.width / 2 + 0.15 : edgeHi - o.width / 2 - 0.15;
+      if (landingWorld <= edgeLo + o.width / 2 || landingWorld >= edgeHi - o.width / 2) continue;
+      const offset = offsetOf(landingWorld);
+      if (offset < o.width / 2 + 0.02 || offset > L - o.width / 2 - 0.02) continue;
+      const clash = project.openings.some((x) => x !== o && x.wall === w.id && Math.abs(x.offset - offset) < (x.width + o.width) / 2 + 0.12);
+      if (!clash) o.offset = offset;
+    }
+  }
+}
+
 function fittedStairs(r, level, rise, { type = 'u', guard = false, turn = 'right' }) {
   const alongZ = r.z1 - r.z0 >= r.x1 - r.x0;
   const inset = T_EXT / 2 + 0.02;

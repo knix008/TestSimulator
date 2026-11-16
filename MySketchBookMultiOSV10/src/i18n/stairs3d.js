@@ -31,6 +31,9 @@ const T = {
   'check.stairsRise': ['계단 높이({width})가 위층까지의 높이({length})와 다릅니다', 'The stairs rise {width} but the level above is {length} up'],
   'check.stairsNoLevel': ['계단 위에 층이 없습니다', 'There is no level above the stairs'],
   'check.stairsHeadroom': ['계단 위 머리 높이가 {height}뿐입니다 (위층 바닥에 계단실 구멍이 필요)', 'Only {height} headroom over the stairs (the floor above needs a stairwell opening)'],
+  'check.fix.stairsRise': ['계단 높이를 위층 높이에 맞추세요', 'Set the stair rise to the height of the level above'],
+  'check.fix.stairsNoLevel': ['위층을 추가하거나, 계단 높이를 이 층의 천장 아래로 낮추세요', 'Add the level above, or lower the rise so the flight stays under this ceiling'],
+  'check.fix.stairsHeadroom': ['위층 바닥에 계단실 구멍을 내거나, 계단 위치를 바꾸세요', 'Cut a stairwell opening in the floor above, or move the stairs'],
 };
 
 export const ko = Object.fromEntries(Object.entries(T).map(([k, v]) => [k, v[0]]));

@@ -14,7 +14,8 @@ import { formatLength, newId, parseLength, polygonArea, formatArea, wallHeight }
 import { showInference } from '../engine/overlay.js';
 import { placeStairs as stairsPlace, riseToNextLevel as stairsRiseToNextLevel, stairInfo as stairsInfo, toWorld as stairsToWorld } from '../engine/stairs.js';
 import { catalogItem as stairsCatalogItem } from '../library/catalog.js';
-import { itemParams } from '../library/catalog.js';
+import { itemParams, itemName } from '../library/catalog.js';
+import { placementProblems } from '../engine/checks.js';
 import { clearOfWalls, dragPointer, dragSurface as dragSurfaceOf } from './drag.js';
 import { MoveGizmo, axisParam } from './movegizmo.js';
 export { dragPointer };
@@ -317,6 +318,12 @@ export class SelectTool extends Tool {
       this.drag.last.copy(ground);
       if (this.drag.surface?.mode !== 'wall') fitFurniture(app, this.drag.ids, delta, this.drag);
       app.moveEntities(this.drag.ids, delta, { live: true });
+      const moved = app.project().objects.find((o) => o.id === this.drag.ids[0]);
+      if (moved) {
+        const lv = app.project().levels.find((l) => l.id === moved.level);
+        const y = (lv?.elevation ?? 0) + (moved.position[1] ?? 0);
+        showPlacement(app, { kind: 'object', id: moved.id, level: moved.level, item: moved.item, params: moved.params, position: moved.position, rotation: moved.rotation, scale: moved.scale ?? [1, 1, 1] }, v3(moved.position[0], y, moved.position[2]));
+      }
       return;
     }
     if (this.press && (this.navigating || Math.hypot(e.clientX - this.press.x, e.clientY - this.press.y) > 4)) {
@@ -450,6 +457,7 @@ export class SelectTool extends Tool {
       const drag = this.drag;
       this.drag = null;
       // Columns drag the walls joined to them, and the rooms follow the walls; a column dropped in a wall joins it.
+      clearPlacement(app);
       if (drag.started) { attachColumns(app, drag.ids); app.commit('op.move', ['objects', 'models', 'walls', 'rooms', 'openings']); return; }
       if (drag.lamp) return; // a click on a lamp marker selected it (in down)
     }
@@ -784,6 +792,56 @@ function attachColumns(app, ids) {
 
 // ───────────────────────── Place (library items, doors and windows)
 
+/** The physical problems of a piece being placed or moved, drawn on the view with what to change. */
+function showPlacement(app, draft, at) {
+  const problems = placementProblems(app.project(), draft, stairsCatalogItem);
+  if (!problems.length || !at) { clearPlacement(app); return; }
+  const rank = { error: 0, warning: 1, info: 2 };
+  const pr = [...problems].sort((a, b) => (rank[a.severity] ?? 9) - (rank[b.severity] ?? 9))[0];
+  const lang = app.language?.() ?? 'ko';
+  const nameOf = (id) => {
+    const p = app.project();
+    const obj = p.objects.find((o) => o.id === id);
+    if (obj) return obj.name || itemName(stairsCatalogItem(obj.item), lang);
+    const op = p.openings.find((o) => o.id === id);
+    if (op) return itemName(stairsCatalogItem(op.item), lang);
+    if (p.walls.some((w) => w.id === id)) return app.t('kind.wall');
+    return '';
+  };
+  const u = app.units();
+  const vars = {
+    ...pr.params,
+    width: pr.params.width != null ? formatLength(pr.params.width, u) : '',
+    length: pr.params.length != null ? formatLength(pr.params.length, u) : '',
+    height: pr.params.height != null ? formatLength(pr.params.height, u) : '',
+    other: pr.params.other ? nameOf(pr.params.other) : '',
+  };
+  const more = problems.length > 1 ? `\n${app.t('place.more', { n: problems.length - 1 })}` : '';
+  app.overlay.label('place-problem', at, `${app.t(`check.${pr.code}`, vars)}\n${app.t(`check.fix.${pr.code}`, vars)}${more}`, { kind: pr.severity === 'error' ? 'error' : 'warning', dx: 18, dy: -28 });
+  const quad = placementFoot(draft, at.y);
+  if (quad) app.overlay.polygon('place-foot', quad, { color: pr.severity === 'error' ? '#e5484d' : '#e4a11b', opacity: 0.35 });
+  else app.overlay.clear('place-foot');
+}
+
+function clearPlacement(app) {
+  app.overlay.clearLabel('place-problem');
+  app.overlay.clear('place-foot');
+}
+
+/** The plan rectangle of the piece being placed, flat on the floor, so a clash is visible. */
+function placementFoot(draft, y) {
+  if (draft.kind === 'opening') return null;
+  const item = stairsCatalogItem(draft.item);
+  const size = item?.sizeOf?.(draft.params ?? {}) ?? item?.size;
+  if (!size) return null;
+  const hw = size[0] * Math.abs(draft.scale?.[0] ?? 1) / 2;
+  const hd = size[2] * Math.abs(draft.scale?.[2] ?? 1) / 2;
+  const ry = draft.rotation?.[1] ?? 0;
+  const c = Math.cos(ry); const s = Math.sin(ry);
+  const x = draft.position[0]; const z = draft.position[2];
+  return [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]].map(([lx, lz]) => v3(x + lx * c + lz * s, y, z - lx * s + lz * c));
+}
+
 export class PlaceTool extends Tool {
   id = 'place';
   get cursor() { return 'copy'; }
@@ -836,8 +894,8 @@ export class PlaceTool extends Tool {
       const width = Number(this.params.width ?? item.size?.[0] ?? 0.9);
       const height = Number(this.params.height ?? item.size?.[1] ?? 2.1);
       const L = wallLength(near.wall);
-      if (width > L - 0.05) return null;
-      const offset = Math.max(width / 2 + 0.02, Math.min(L - width / 2 - 0.02, near.t));
+      // Wider than the wall still previews, so the clash is shown instead of the ghost vanishing.
+      const offset = width > L - 0.05 ? L / 2 : Math.max(width / 2 + 0.02, Math.min(L - width / 2 - 0.02, near.t));
       const sill = item.category === 'windows' ? Number(this.params.sill ?? item.defaultSill ?? 0.9) : 0;
       const d = wallDir(near.wall); const n = wallNormal(near.wall);
       const pos = v3(near.wall.a[0] + d[0] * offset, level.elevation + sill, near.wall.a[1] + d[1] * offset);
@@ -887,14 +945,19 @@ export class PlaceTool extends Tool {
   move(e) {
     const where = this.placement(e);
     this.where = where;
-    if (!this.ghost) return;
-    this.ghost.visible = Boolean(where);
-    if (where) {
+    if (!where) { clearPlacement(this.app); if (this.ghost) this.ghost.visible = false; return; }
+    if (this.ghost) {
+      this.ghost.visible = true;
       this.ghost.position.copy(where.position);
       this.ghost.rotation.set(0, where.rotationY, 0);
-      if (where.kind === 'opening') this.app.overlay.label('place', where.position, `${formatLength(where.offset, this.app.units())}`, { kind: 'info' });
-      else this.app.overlay.clearLabel('place');
     }
+    if (where.kind === 'opening') this.app.overlay.label('place', where.position, `${formatLength(where.offset, this.app.units())}`, { kind: 'info' });
+    else this.app.overlay.clearLabel('place');
+    const level = this.app.level();
+    const draft = where.kind === 'opening'
+      ? { kind: 'opening', wall: where.wall.id, item: this.item.id, offset: where.offset, width: where.width, height: where.height, sill: where.sill, side: where.side, flip: false, params: this.params }
+      : { kind: 'object', level: level.id, item: this.item.id, params: this.params, position: [where.position.x, where.position.y - level.elevation, where.position.z], rotation: [0, where.rotationY, 0], scale: [1, 1, 1] };
+    showPlacement(this.app, draft, where.position);
     this.app.viewport.requestRender();
   }
 

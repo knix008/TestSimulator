@@ -108,6 +108,12 @@ const NAMES = {
 
 const ROT = { n: 0, s: Math.PI, w: Math.PI / 2, e: -Math.PI / 2 };
 const OPPOSITE = { n: 's', s: 'n', w: 'e', e: 'w' };
+/** Fraction along `side` that sits away from the corner it shares with `from`. */
+const awayFrom = (side, from) => {
+  if (side === from || side === OPPOSITE[from]) return 0.5;
+  if ((from === 'e' && (side === 'n' || side === 's')) || (from === 's' && (side === 'e' || side === 'w'))) return 0.22;
+  return 0.78;
+};
 
 class Furnisher {
   constructor(project, style) { this.p = project; this.style = style; }
@@ -129,15 +135,28 @@ class Furnisher {
     this.p.objects.push({ id: newId('ob'), level, item, params: this.params(item, params), position: [x, y, z], rotation: [0, rotation, 0], scale: [1, 1, 1], materials: {}, tag: 'untagged', name: '' });
   }
 
-  /** Against side n (−z) / s (+z) / w (−x) / e (+x) of a box; `t` along it; the item's depth from its size. */
+  /**
+   * Against side n (−z) / s (+z) / w (−x) / e (+x) of a box; `t` along it.
+   * The box edge is the wall face, so the item's back (half its depth behind its centre) meets that face.
+   * An open side (no wall) uses another solid side.
+   */
   wall(b, side, t, item, { depth, off = 0, y = 0, params = {} } = {}) {
-    const d = depth ?? ITEMS.get(item)?.size?.[2] ?? 0.5;
-    const gap = 0.03 + off;
-    const at = (lo, hi) => lo + (hi - lo) * t;
-    if (side === 'n') this.add(b.level, item, at(b.x0, b.x1), b.z0 + d / 2 + gap, ROT.n, { y, params });
-    else if (side === 's') this.add(b.level, item, at(b.x0, b.x1), b.z1 - d / 2 - gap, ROT.s, { y, params });
-    else if (side === 'w') this.add(b.level, item, b.x0 + d / 2 + gap, at(b.z0, b.z1), ROT.w, { y, params });
-    else this.add(b.level, item, b.x1 - d / 2 - gap, at(b.z0, b.z1), ROT.e, { y, params });
+    const spec = ITEMS.get(item);
+    if (!spec) return;
+    if (b.open?.[side]) {
+      const alt = ['n', 'e', 'w', 's'].find((s) => !b.open?.[s]);
+      if (!alt) return;
+      side = alt;
+    }
+    const d = depth ?? spec.size?.[2] ?? 0.5;
+    const gap = ((spec.placement ?? 'floor') === 'wall' ? 0.002 : 0.015) + off;
+    const span = b.spans?.[side];
+    const tt = Math.max(0.02, Math.min(0.98, t));
+    const alongAt = span && span.len > 0.3 ? span.lo + span.len * tt : null;
+    if (side === 'n') this.add(b.level, item, alongAt ?? (b.x0 + (b.x1 - b.x0) * tt), b.z0 + d / 2 + gap, ROT.n, { y, params });
+    else if (side === 's') this.add(b.level, item, alongAt ?? (b.x0 + (b.x1 - b.x0) * tt), b.z1 - d / 2 - gap, ROT.s, { y, params });
+    else if (side === 'w') this.add(b.level, item, b.x0 + d / 2 + gap, alongAt ?? (b.z0 + (b.z1 - b.z0) * tt), ROT.w, { y, params });
+    else this.add(b.level, item, b.x1 - d / 2 - gap, alongAt ?? (b.z0 + (b.z1 - b.z0) * tt), ROT.e, { y, params });
   }
 
   at(b, fx, fz, item, rotation = 0, options = {}) {
@@ -145,22 +164,120 @@ class Furnisher {
   }
 }
 
-/** The room's box shrunk to the inside faces of its walls. */
-const inner = (r) => ({ level: r.level, key: r.key, x0: r.x0 + 0.13, z0: r.z0 + 0.13, x1: r.x1 - 0.13, z1: r.z1 - 0.13 });
-const along = (side, b) => (side === 'n' || side === 's' ? b.x1 - b.x0 : b.z1 - b.z0);
+/**
+ * The longest wall actually standing on one side of a room rectangle.
+ * A side can be open for most of its length and still have a short stub: only the real wall counts,
+ * so a sofa or a kitchen run is placed on that wall and not in the opening.
+ */
+function wallSpan(project, r, side) {
+  const horiz = side === 'n' || side === 's';
+  const edge = horiz ? (side === 'n' ? r.z0 : r.z1) : (side === 'w' ? r.x0 : r.x1);
+  const edgeLo = horiz ? r.x0 : r.z0;
+  const edgeHi = horiz ? r.x1 : r.z1;
+  let best = null;
+  for (const w of project?.walls ?? []) {
+    if (w.level !== r.level) continue;
+    if (horiz) { if (Math.abs(w.a[1] - edge) > 0.03 || Math.abs(w.b[1] - edge) > 0.03) continue; }
+    else if (Math.abs(w.a[0] - edge) > 0.03 || Math.abs(w.b[0] - edge) > 0.03) continue;
+    const a = horiz ? Math.min(w.a[0], w.b[0]) : Math.min(w.a[1], w.b[1]);
+    const b = horiz ? Math.max(w.a[0], w.b[0]) : Math.max(w.a[1], w.b[1]);
+    const lo = Math.max(edgeLo, a) + 0.04;
+    const hi = Math.min(edgeHi, b) - 0.04;
+    if (hi - lo > (best?.len ?? 0)) best = { lo, hi, len: hi - lo, thick: (w.thickness ?? 0.15) / 2, wall: w };
+  }
+  return best ?? { lo: edgeLo, hi: edgeHi, len: 0, thick: 0.02, wall: null };
+}
 
-/** Sides of a room that face other rooms (inside walls) first, longest first. */
-function insideSides(r, rects) {
+/** A door (not a window) whose opening lies on the wall span of this side. */
+const sideHasDoor = (project, r, side) => doorFraction(project, r, side) != null;
+
+/** The candidate side whose middle sits farthest from a door. */
+function fartherFromDoors(project, r, sides) {
+  if (!project || !r) return sides[0] ?? null;
+  let best = sides[0] ?? null;
+  let bestD = -1;
+  for (const s of sides) {
+    if (!s) continue;
+    const span = wallSpan(project, r, s);
+    const mid = span.len > 0.3 ? (span.lo + span.hi) / 2 : (s === 'n' || s === 's' ? (r.x0 + r.x1) / 2 : (r.z0 + r.z1) / 2);
+    const px = s === 'n' || s === 's' ? mid : (s === 'w' ? r.x0 : r.x1);
+    const pz = s === 'w' || s === 'e' ? mid : (s === 'n' ? r.z0 : r.z1);
+    let d = 99;
+    for (const o of project.openings) {
+      if (/window/.test(o.item) || (o.sill ?? 0) > 0.3 || o.height < 1.6) continue;
+      const w = project.walls.find((w) => w.id === o.wall);
+      if (!w || w.level !== r.level) continue;
+      const L = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]) || 1;
+      d = Math.min(d, Math.hypot(w.a[0] + ((w.b[0] - w.a[0]) * o.offset) / L - px, w.a[1] + ((w.b[1] - w.a[1]) * o.offset) / L - pz));
+    }
+    if (d > bestD) { bestD = d; best = s; }
+  }
+  return best;
+}
+
+/** Where a door sits along this side's wall, 0 at `span.lo` and 1 at `span.hi`, or null. */
+function doorFraction(project, r, side) {
+  const span = wallSpan(project, r, side);
+  const w = span.wall;
+  if (!w || span.len < 0.5) return null;
+  const horiz = side === 'n' || side === 's';
+  const L = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]) || 1;
+  const dx = (w.b[0] - w.a[0]) / L; const dz = (w.b[1] - w.a[1]) / L;
+  let best = null;
+  for (const o of project.openings) {
+    if (o.wall !== w.id || /window/.test(o.item) || (o.sill ?? 0) > 0.3 || o.height < 1.6) continue;
+    const c = horiz ? w.a[0] + dx * o.offset : w.a[1] + dz * o.offset;
+    if (c < span.lo - 0.05 || c > span.hi + 0.05) continue;
+    const f = (c - span.lo) / span.len;
+    if (best == null || Math.min(f, 1 - f) < Math.min(best, 1 - best)) best = f;
+  }
+  return best;
+}
+
+/**
+ * The room's box on the inside faces of its walls (each side inset by that wall's half thickness).
+ * A side with no wall (an opening into the next room) is `open` and is barely inset.
+ */
+function inner(r, project) {
+  const spans = {};
+  for (const s of ['n', 's', 'w', 'e']) spans[s] = project ? wallSpan(project, r, s) : { lo: 0, hi: 0, len: 0, thick: 0.13, wall: null };
+  const open = {};
+  for (const s of ['n', 's', 'w', 'e']) open[s] = spans[s].len < 0.8;
+  const inset = (side) => (open[side] ? 0.02 : spans[side].thick);
+  return { level: r.level, key: r.key, rect: r, spans, open, x0: r.x0 + inset('w'), z0: r.z0 + inset('n'), x1: r.x1 - inset('e'), z1: r.z1 - inset('s') };
+}
+const along = (side, b) => b.spans?.[side]?.len || (side === 'n' || side === 's' ? b.x1 - b.x0 : b.z1 - b.z0);
+
+/**
+ * Solid walls of a room: no door first, then the longest real wall, then a wall shared with
+ * another room. Open sides (no wall, or only a short stub) are left out.
+ */
+function furnishingSides(project, r, rects) {
   const others = rects.filter((o) => o !== r && o.level === r.level);
   const touch = (side) => others.some((o) => (side === 'n' ? Math.abs(o.z1 - r.z0) < 1e-6 : side === 's' ? Math.abs(o.z0 - r.z1) < 1e-6 : side === 'w' ? Math.abs(o.x1 - r.x0) < 1e-6 : Math.abs(o.x0 - r.x1) < 1e-6)
     && (side === 'n' || side === 's' ? Math.min(o.x1, r.x1) - Math.max(o.x0, r.x0) > 0.5 : Math.min(o.z1, r.z1) - Math.max(o.z0, r.z0) > 0.5));
-  return ['n', 'w', 'e', 's'].sort((a, b) => Number(touch(b)) - Number(touch(a)) || along(b, r) - along(a, r));
+  const door = (side) => sideHasDoor(project, r, side);
+  const spanLen = (side) => wallSpan(project, r, side).len;
+  const sides = ['n', 'w', 'e', 's'].filter((s) => spanLen(s) >= 0.8);
+  sides.sort((a, b) => Number(door(a)) - Number(door(b)) || spanLen(b) - spanLen(a) || Number(touch(b)) - Number(touch(a)));
+  return sides.length ? sides : ['n'];
 }
 
 // ───────────────────────── rooms by kind
 
 function living(F, b, side, variant = 0) {
-  const op = OPPOSITE[side];
+  // Opposite the sofa when that wall is real and has no door; otherwise another solid wall, away from the sofa's corner.
+  const solid = (s) => !b.open?.[s] && along(s, b) >= 1.5;
+  const free = (s) => solid(s) && !(b.rect && sideHasDoor(F.p, b.rect, s));
+  const op = free(OPPOSITE[side]) ? OPPOSITE[side]
+    : ['e', 'w', 'n', 's'].find((s) => s !== side && free(s))
+    ?? (solid(OPPOSITE[side]) ? OPPOSITE[side] : ['e', 'w', 'n', 's'].find((s) => s !== side && solid(s)) ?? OPPOSITE[side]);
+  const adjacent = op !== OPPOSITE[side];
+  let tvT = adjacent ? awayFrom(op, side) : 0.5;
+  if (b.rect) {
+    const doorAt = doorFraction(F.p, b.rect, op);
+    if (doorAt != null) tvT = doorAt < 0.5 ? 0.78 : 0.22;
+  }
   const across = side === 'n' || side === 's';
   const pt = (t, depth) => (across ? [t, side === 'n' ? depth : 1 - depth] : [side === 'w' ? depth : 1 - depth, t]);
   const len = along(side, b);
@@ -174,21 +291,28 @@ function living(F, b, side, variant = 0) {
   else if (variant === 2) F.wall(b, side, 0.5, 'sofa-loveseat');
   else F.wall(b, side, 0.5, 'sofa-modern');
   F.at(b, ...pt(0.5, 0.5), 'rug', ROT[side]);
-  F.at(b, ...pt(0.55, variant === 1 ? 0.62 : 0.45), 'coffee-table', ROT[side]);
+  const tableDepth = variant === 1 ? 0.62 : 0.45;
+  F.at(b, ...pt(0.55, tableDepth), 'coffee-table', ROT[side]);
+  F.at(b, ...pt(0.55, tableDepth), 'vase-stems', 0, { y: ITEMS.get('coffee-table')?.size?.[1] ?? 0.4 });
   F.at(b, ...pt(0.15, 0.55), variant === 2 ? 'lounge-chair' : 'armchair', ROT[side] + Math.PI / 2);
-  F.wall(b, op, 0.5, 'tv-console');
-  F.wall(b, op, 0.5, 'tv', { y: 0.5, off: 0.1 });
+  F.wall(b, op, tvT, 'tv-console');
+  F.wall(b, op, tvT, 'tv', { y: 0.5, off: 0.1 });
   if (variant !== 1) F.wall(b, side, 0.86, 'floor-lamp-tripod');
   else if (lampAt < 0.97) F.wall(b, side, lampAt, 'floor-lamp-arc');
-  F.wall(b, side, Math.min(0.1, (plant / 2) / len), 'monstera', { off: -0.15 });
+  F.wall(b, side, Math.min(0.12, (plant / 2) / len), 'monstera');
   F.wall(b, side, 0.5, 'wall-art', { y: 1.3 });
   F.at(b, ...pt(0.5, 0.45), 'pendant-light', 0, { y: 1.415 });
-  F.at(b, ...pt(0.52, 0.45), 'vase-stems', 0, { y: 0.4 });
-  F.wall(b, op, 0.1, 'fiddle-leaf-fig');
-  F.wall(b, op, 0.88, 'bookshelf');
+  if (!adjacent && along(op, b) > 2.8 && tvT > 0.4) F.wall(b, op, 0.12, 'fiddle-leaf-fig');
+  if (!adjacent && along(op, b) > 3.6 && tvT < 0.6) F.wall(b, op, 0.88, 'bookshelf');
 }
 
 function bedroom(F, b, side, { single = false } = {}) {
+  // A bed against the wall opposite a door in a small room stands in that doorway: turn it onto a side wall.
+  const across = (side === 'n' || side === 's' ? b.z1 - b.z0 : b.x1 - b.x0);
+  if (b.rect && across < 3.3 && sideHasDoor(F.p, b.rect, OPPOSITE[side])) {
+    const alt = fartherFromDoors(F.p, b.rect, ['n', 'e', 's', 'w'].filter((s) => s !== side && s !== OPPOSITE[side] && !b.open?.[s] && !sideHasDoor(F.p, b.rect, s)));
+    if (alt) side = alt;
+  }
   const op = OPPOSITE[side];
   const len = along(side, b);
   const bedSize = single ? 'single' : len > 3.4 ? 'queen' : 'supersingle';
@@ -201,15 +325,12 @@ function bedroom(F, b, side, { single = false } = {}) {
   F.wall(b, side, 0.5 - half, 'table-lamp', { y: 0.55, off: 0.02 });
   // Wardrobe and dresser opposite the bed when there is room to walk between; else on a side wall by the foot.
   const deep = (side === 'n' || side === 's' ? b.z1 - b.z0 : b.x1 - b.x0);
-  if (deep >= bl + 0.6 + 0.7) {
-    F.wall(b, op, 0.3, 'wardrobe');
-    F.wall(b, op, 0.78, single ? 'desk' : 'dresser');
-  } else {
-    const sideWall = side === 'n' || side === 's' ? 'w' : 'n';
-    const tFoot = side === 's' || side === 'e' ? 0.2 : 0.8;
-    const room = along(sideWall, b) * (1 - tFoot) - 0.05;
-    if (along(op, b) / 2 - bw / 2 > 0.65 || room > 1.1) F.wall(b, sideWall, tFoot, 'wardrobe');
-  }
+  const ward = (!b.open?.[op] && !(b.rect && sideHasDoor(F.p, b.rect, op))) ? op
+    : ['e', 'w', 'n', 's'].find((s) => s !== side && !b.open?.[s] && !(b.rect && sideHasDoor(F.p, b.rect, s)));
+  if (ward && deep >= bl + 0.6 + 0.7) {
+    F.wall(b, ward, ward === op ? 0.3 : awayFrom(ward, side), 'wardrobe');
+    if (ward === op) F.wall(b, op, 0.78, single ? 'desk' : 'dresser');
+  } else if (ward) F.wall(b, ward, awayFrom(ward, side), 'wardrobe');
   F.at(b, 0.5, 0.5, 'ceiling-flush', 0, { y: 2.3 });
 }
 
@@ -224,14 +345,29 @@ function kids(F, b, side, bunk) {
 
 function kitchen(F, b, side, island = false) {
   const len = along(side, b);
-  // Fridge at one end, a sink counter, base cabinets with a hob under the hood, wall cabinets above.
-  F.wall(b, side, 0.48 / len, 'refrigerator');
-  let at = 0.98;
-  const place = (item, width, options) => { if (at + width > len - 0.02) return false; F.wall(b, side, (at + width / 2) / len, item, options); at += width; return true; };
-  place('kitchen-base-cabinet', 0.6);
-  if (place('kitchen-sink-counter', 1.8)) F.wall(b, side, (at - 0.9) / len, 'kitchen-wall-cabinet', { y: 1.45 });
-  const hob = at + 0.3;
-  if (place('kitchen-base-cabinet', 0.6)) { F.wall(b, side, hob / len, 'cooktop', { y: 0.85, off: 0.04 }); F.wall(b, side, hob / len, 'range-hood', { y: 1.55 }); }
+  // The stretch of this wall that is clear of the door, and of a door around either corner.
+  let lo = 0.12;
+  let hi = Math.max(lo + 0.5, len - 0.12);
+  const horiz = side === 'n' || side === 's';
+  if (b.rect && sideHasDoor(F.p, b.rect, horiz ? 'w' : 'n')) lo = Math.max(lo, 0.7);
+  if (b.rect && sideHasDoor(F.p, b.rect, horiz ? 'e' : 's')) hi = Math.min(hi, len - 0.7);
+  const doorAt = b.rect ? doorFraction(F.p, b.rect, side) : null;
+  if (doorAt != null) {
+    const at = doorAt * len;
+    const left = at - 0.65; const right = at + 0.65;
+    if (left - lo >= hi - right) hi = Math.max(lo + 0.7, left);
+    else lo = Math.min(hi - 0.7, right);
+  }
+  const span = Math.max(0, hi - lo);
+  const u = (metres) => (lo + metres) / Math.max(len, 0.01);
+  // Fridge at the clear end, then a sink and cabinets for as long as the clear stretch allows.
+  if (span >= 0.7) F.wall(b, side, u(Math.min(0.48, span / 2)), 'refrigerator');
+  let at = Math.min(0.98, span);
+  const place = (item, width, options) => { if (at + width > span + 0.02) return false; F.wall(b, side, u(at + width / 2), item, options); at += width; return true; };
+  if (span >= 2.9) place('kitchen-base-cabinet', 0.6);
+  if (place('kitchen-sink-counter', 1.8)) F.wall(b, side, u(at - 0.9), 'kitchen-wall-cabinet', { y: 1.45 });
+  else place('kitchen-base-cabinet', 0.6);
+  if (place('kitchen-base-cabinet', 0.6)) { F.wall(b, side, u(at - 0.3), 'cooktop', { y: 0.85, off: 0.04 }); F.wall(b, side, u(at - 0.3), 'range-hood', { y: 1.55 }); }
   place('kitchen-base-cabinet', 0.6);
   if (island) {
     F.at(b, 0.5, 0.62, 'kitchen-island', ROT[side]);
@@ -252,12 +388,43 @@ function dining(F, b, long = false) {
 }
 
 function bathroom(F, b, shower = false) {
+  const dx = b.x1 - b.x0; const dz = b.z1 - b.z0;
+  const ranked = b.rect ? furnishingSides(F.p, b.rect, [b.rect]) : [];
+  const long = ranked[0] ?? (dx >= dz ? 'n' : 'w');
+  const open = (s) => b.open?.[s];
+  const door = (s) => b.rect && sideHasDoor(F.p, b.rect, s);
+  const ends = ['n', 'e', 's', 'w'].filter((s) => s !== long && !open(s) && !door(s));
+  const endA = ends[0] ?? ['n', 'e', 's', 'w'].find((s) => s !== long && !open(s)) ?? OPPOSITE[long];
+  const endB = ends.find((s) => s !== endA) ?? ['n', 'e', 's', 'w'].find((s) => s !== long && s !== endA && !open(s)) ?? OPPOSITE[endA];
+  // A tub is 1.87 m wide, so in a short bath it takes the long wall alone; the basin and toilet stand on the ends.
+  if (!shower && Math.min(dx, dz) < 2.6) {
+    const ta = awayFrom(endA, long);
+    const tb = awayFrom(endB, long);
+    F.wall(b, long, 0.5, 'bathtub');
+    F.wall(b, endA, ta, 'washbasin-vanity');
+    F.wall(b, endA, ta, 'mirror-cabinet', { y: 1.15 });
+    if (endB !== endA) F.wall(b, endB, tb, 'toilet');
+    const rail = ['n', 'e', 's', 'w'].find((s) => s !== long && s !== endA && s !== endB && !open(s));
+    if (rail) F.wall(b, rail, 0.5, 'towel-rail', { y: 1.15 });
+    return;
+  }
+  // A shower shares the long wall with the basin; the toilet sits opposite, at the basin's end.
+  if (shower && Math.min(dx, dz) < 2.6) {
+    const far = fartherFromDoors(F.p, b.rect, [OPPOSITE[long], endA, endB].filter((s) => s && !open(s) && !door(s))) ?? endA;
+    F.wall(b, long, 0.24, 'washbasin-vanity');
+    F.wall(b, long, 0.24, 'mirror-cabinet', { y: 1.15 });
+    F.wall(b, long, 0.78, 'shower-booth');
+    F.wall(b, far, far === OPPOSITE[long] ? 0.22 : awayFrom(far, long), 'toilet');
+    const rail = ['n', 'e', 's', 'w'].find((s) => s !== long && s !== far && !open(s));
+    if (rail) F.wall(b, rail, 0.5, 'towel-rail', { y: 1.15 });
+    return;
+  }
   F.wall(b, 'n', 0.3, 'washbasin-vanity');
   F.wall(b, 'n', 0.3, 'mirror-cabinet', { y: 1.1 });
   F.wall(b, 'e', 0.3, 'toilet');
   if (shower) F.wall(b, 's', 0.25, 'shower-booth');
   else F.wall(b, 's', 0.55, 'bathtub');
-  F.wall(b, 'w', 0.6, 'towel-rail', { y: 0.5 });
+  F.wall(b, 'w', 0.6, 'towel-rail', { y: 1.1 });
 }
 
 function office(F, b, side, lDesk = false) {
@@ -272,10 +439,12 @@ function office(F, b, side, lDesk = false) {
 }
 
 function dressing(F, b) {
-  F.wall(b, 'n', 0.5, 'built-in-closet', { params: { width: Math.min(2.4, b.x1 - b.x0 - 0.1) } });
-  F.wall(b, 's', 0.3, 'vanity-table');
-  F.wall(b, 's', 0.8, 'wall-mirror', { y: 1 });
-  F.at(b, 0.5, 0.55, 'ottoman');
+  const back = b.rect ? (furnishingSides(F.p, b.rect, [b.rect])[0] ?? 'n') : 'n';
+  const front = !b.open?.[OPPOSITE[back]] ? OPPOSITE[back] : ['s', 'n', 'e', 'w'].find((s) => s !== back && !b.open?.[s]) ?? 's';
+  F.wall(b, back, 0.5, 'built-in-closet', { params: { width: Math.min(2.4, along(back, b) - 0.15) } });
+  F.wall(b, front, 0.3, 'vanity-table');
+  F.wall(b, front, 0.78, 'wall-mirror', { y: 1 });
+  if (Math.min(b.x1 - b.x0, b.z1 - b.z0) > 1.9) F.at(b, 0.5, 0.55, 'ottoman');
 }
 
 function laundry(F, b) {
@@ -285,8 +454,11 @@ function laundry(F, b) {
 }
 
 function entry(F, b) {
-  F.wall(b, 'w', 0.5, 'shoe-cabinet', { params: { width: Math.min(1, b.z1 - b.z0 - 0.3) } });
-  F.wall(b, 'e', 0.25, 'coat-rack');
+  const sides = b.rect ? furnishingSides(F.p, b.rect, [b.rect]) : ['w', 'e'];
+  const shoe = sides[0] ?? 'w';
+  const coat = sides.find((s) => s !== shoe) ?? OPPOSITE[shoe];
+  F.wall(b, shoe, 0.5, 'shoe-cabinet', { params: { width: Math.min(1, along(shoe, b) - 0.3) } });
+  if (!b.open?.[coat]) F.wall(b, coat, 0.25, 'coat-rack');
 }
 
 function reading(F, b) {
@@ -372,7 +544,7 @@ function openOffice(F, b) {
   F.wall(b, 'w', 0.5, 'ofp-mobile-double-whiteboard');
   F.wall(b, 's', 0.62, 'ofp-paper-shredder');
   F.wall(b, 's', 0.85, 'wp-lockers');
-  F.wall(b, 'w', 0.12, 'monstera');
+  F.wall(b, 's', 0.28, 'monstera');
   F.wall(b, 'e', 0.95, 'ofp-fire-extinguisher-stand');
   for (const fx of [0.2, 0.46, 0.72]) for (const fz of [0.3, 0.7]) ceil(F, b, fx, fz, 'lgx-led-panel-600', H);
   ceil(F, b, 0.95, 0.05, 'ofp-ip-camera-dome', H);
@@ -381,10 +553,14 @@ function openOffice(F, b) {
 
 function executiveOffice(F, b) {
   const H = 2.4;
-  F.at(b, 0.5, 0.35, 'wp-manager-l', 0);
-  F.at(b, 0.5, 0.17, 'wp-mesh-chair', 0);
-  F.at(b, 0.42, 0.6, 'wp-visitor-chair', Math.PI);
-  F.at(b, 0.58, 0.6, 'wp-visitor-chair', Math.PI);
+  const fx = 0.48; const fz = 0.38;
+  F.at(b, fx, fz, 'wp-manager-l', 0);
+  const cx = b.x0 + (b.x1 - b.x0) * fx; const cz = b.z0 + (b.z1 - b.z0) * fz;
+  const [dw, , dd] = ITEMS.get('wp-manager-l')?.size ?? [1.8, 0.75, 1.8];
+  // Just outside the desk's footprint: one chair at the back, two in front of the return.
+  F.add(b.level, 'wp-mesh-chair', cx - dw / 2 - 0.35, cz - 0.05, Math.PI / 2);
+  F.add(b.level, 'wp-visitor-chair', cx - 0.45, cz + dd / 2 + 0.32, Math.PI);
+  F.add(b.level, 'wp-visitor-chair', cx + 0.45, cz + dd / 2 + 0.32, Math.PI);
   onTop(F, b, 0.47, 0.3, 'cmp-aio-27-pro', 'wp-manager-l', 0);
   onTop(F, b, 0.6, 0.4, 'ofp-desk-name-plate', 'wp-manager-l', 0);
   onTop(F, b, 0.36, 0.38, 'ofp-ip-desk-phone', 'wp-manager-l', 0.3);
@@ -449,18 +625,26 @@ function nocRoom(F, b) {
 
 /** Furnishes one room of a home by its kind. */
 function furnish(F, r, rects, sample, index) {
-  const b = inner(r);
-  const sides = insideSides(r, rects);
+  const b = inner(r, F.p);
+  const sides = furnishingSides(F.p, r, rects);
   const studio = /studio/.test(sample.template);
   switch (r.key) {
     case 'living':
       if (studio) {
-        // A studio: bed, desk and a small sofa in one room.
-        F.wall(b, sides[0], 0.25, 'bed', { params: { bedSize: 'super-single' } });
-        F.wall(b, OPPOSITE[sides[0]], 0.3, 'desk');
-        F.wall(b, OPPOSITE[sides[0]], 0.75, 'sofa-loveseat');
+        // A studio: bed, desk and a small sofa in one room, each against a real wall.
+        const bedSide = sides[0];
+        const free = sides.filter((s) => s !== bedSide && !sideHasDoor(F.p, r, s));
+        const sofaSide = free.find((s) => s === OPPOSITE[bedSide]) ?? free[0] ?? sides.find((s) => s !== bedSide) ?? bedSide;
+        const deskSide = free.find((s) => s !== sofaSide) ?? sofaSide;
+        const horiz = sofaSide === 'n' || sofaSide === 's';
+        const lowDoor = sideHasDoor(F.p, r, horiz ? 'w' : 'n');
+        const highDoor = sideHasDoor(F.p, r, horiz ? 'e' : 's');
+        const sofaT = lowDoor && !highDoor ? 0.72 : highDoor && !lowDoor ? 0.28 : (sofaSide === OPPOSITE[bedSide] ? 0.5 : awayFrom(sofaSide, bedSide));
+        F.wall(b, bedSide, 0.62, 'bed', { params: { bedSize: 'super-single' } });
+        F.wall(b, deskSide, 0.35, 'desk');
+        if (sofaSide !== bedSide) F.wall(b, sofaSide, sofaT, 'sofa-loveseat');
         F.at(b, 0.6, 0.5, 'rug', 0, { params: { width: 1.6, depth: 1.2 } });
-        if (sample.style === 'modern') F.wall(b, sides[0], 0.75, 'wardrobe');
+        if (sample.style === 'modern') F.wall(b, bedSide, 0.16, 'wardrobe');
         return undefined;
       }
       return living(F, b, sides[0], index % 3);
@@ -469,7 +653,11 @@ function furnish(F, r, rects, sample, index) {
     case 'bedroom3': return /84-c/.test(sample.id) ? office(F, b, sides[0]) : kids(F, b, sides[0], true);
     case 'bedroom4': return office(F, b, sides[0]);
     case 'kids': return kids(F, b, sides[0], false);
-    case 'kitchen': return kitchen(F, b, [...sides].sort((x, y) => along(y, b) - along(x, b))[0], false);
+    case 'kitchen': {
+      const free = sides.filter((s) => !sideHasDoor(F.p, r, s));
+      const run = [...(free.length ? free : sides)].sort((x, y) => along(y, b) - along(x, b))[0];
+      return kitchen(F, b, run, false);
+    }
     case 'dining': return dining(F, b);
     case 'bath': case 'bath2': return bathroom(F, b, index % 2 === 1 || b.z1 - b.z0 < 2.2);
     case 'office': return office(F, b, sides[0]);
@@ -637,7 +825,7 @@ export function buildSampleProject(id, language = 'ko', { doors = true } = {}) {
   for (const w of p.walls) w.material = { left: w.material?.left ?? style.wall, right: w.material?.right ?? style.wall };
   const index = SAMPLE_PROJECTS.indexOf(sample);
   if (sample.group === 'rooms') {
-    const b = inner(rects[0]);
+    const b = inner(rects[0], p);
     switch (sample.id) {
       case 'living-modern': living(F, b, 'n', 0); break;
       case 'living-scandi': living(F, b, 'n', 2); break;

@@ -27,7 +27,7 @@ export const BACKGROUND_KINDS = ['animated', 'image', 'none'];
 export const ANIMATION_INTERVALS = [0, 15, 30, 60, 120, 300];
 export const ANIMATIONS = [
   'blueprint', 'floorplan', 'isometric', 'wireframe', 'sunlight', 'dust', 'fabric', 'woodgrain', 'tiles', 'dimensions',
-  'swatches', 'lamps', 'curtains', 'leaves', 'perspective', 'bricks', 'furniture', 'sunpath', 'parquet', 'contours',
+  'swatches', 'lamps', 'rain', 'leaves', 'perspective', 'bricks', 'furniture', 'sunpath', 'parquet', 'contours',
 ];
 export const BACKGROUND_FITS = ['cover', 'contain', 'tile', 'center', 'stretch'];
 export const DATE_FORMATS = ['iso', 'ko', 'us', 'eu'];
@@ -174,6 +174,7 @@ export function normalizeSettings(raw = {}, language) {
   s.fontStyle = FONT_STYLES.includes(s.fontStyle) ? s.fontStyle : base.fontStyle;
   s.zoom = clamp(s.zoom, ZOOM.min, ZOOM.max, 100);
   s.backgroundKind = BACKGROUND_KINDS.includes(s.backgroundKind) ? s.backgroundKind : base.backgroundKind;
+  if (s.animation === 'curtains') s.animation = 'rain';
   s.animation = ANIMATIONS.includes(s.animation) ? s.animation : base.animation;
   s.animationSpeed = clamp(s.animationSpeed, 0, 300, 100);
   s.animationRandom = s.animationRandom !== false;
