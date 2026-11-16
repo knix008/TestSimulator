@@ -96,9 +96,11 @@ test('defines package targets for all three OSes with the app icon', () => {
   for (const file of conf.bundle.icon) {
     assert.ok(fs.existsSync(path.join(TAURI, file)), `${file} is missing`);
   }
-  assert.equal(conf.bundle.windows.nsis.installerIcon, '../src/assets/icon.ico', 'installer icon differs from the app icon');
-  // 박스 창은 ../src 의 renderer 와 assets 를 그대로 싣는다.
-  assert.equal(conf.build.frontendDist, '../src');
+  assert.equal(conf.bundle.windows.nsis.installerIcon, '../assets/icon.ico', 'installer icon differs from the app icon');
+  // 박스 창은 src 와 루트 assets 를 tools/stage.js 가 dist 에 모아 싣는다.
+  assert.equal(conf.build.frontendDist, '../dist');
+  assert.equal(conf.build.beforeDevCommand, 'node tools/stage.js');
+  assert.equal(conf.build.beforeBuildCommand, 'node tools/stage.js');
 });
 
 test('installer lets the user choose a language and installs per user', () => {

@@ -89,6 +89,11 @@ pub trait Desktop: Send + Sync {
     fn icon_of_file(&self, _file: &str, _index: i32) -> Option<Picture> {
         None
     }
+    // 운영체제가 만들어 주는 내용 미리보기(PDF 첫 쪽, 문서, 동영상, 안에 든 것이 비치는 폴더).
+    // 미리보기가 없는 파일은 None 이고, 그때는 종류 그림을 쓴다.
+    fn thumbnail(&self, _path: &str) -> Option<Picture> {
+        None
+    }
     fn shortcut_link(&self, _path: &str) -> Option<Link> {
         None
     }

@@ -10,7 +10,7 @@ const path = require('node:path');
 const i18n = require('../src/shared/i18n');
 const { THEMES } = require('../src/shared/themes.json');
 
-const ASSETS = path.join(__dirname, '..', 'src', 'assets');
+const ASSETS = path.join(__dirname, '..', 'assets');
 
 test('both languages have the same set of keys', () => {
   const ko = Object.keys(i18n.TEXT.ko).sort();

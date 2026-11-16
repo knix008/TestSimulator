@@ -108,11 +108,11 @@ npm start
 | `src/renderer/ghost.*` | 끄는 동안 손을 따라다니는 아이콘 |
 | `src/renderer/draw.*` | 새 박스를 그리는 전체 화면 |
 | `src/renderer/fatal.*` | 큰 오류 창 |
-| `src/assets/` | 앱, 트레이, 메뉴, 테마, 국기 그림. 실행 파일에 함께 실린다 |
+| `assets/` | 앱, 트레이, 메뉴, 테마, 국기 그림. 실행 파일에 함께 실린다 |
 | `tools/start.js` | `npm start` (`tauri dev`) |
 | `tools/copy-installer.js` | 만든 설치 파일을 루트로 복사 |
 | `tools/reporter.js` | `npm run test:js` 출력. 검사마다 시간을 붙인다 |
-| `tools/make-icons.js` | `src/assets/` 를 코드로 다시 그린다 |
+| `tools/make-icons.js` | `assets/` 를 코드로 다시 그린다 |
 | `tools/icon-check.js` | 바탕화면 아이콘에 그림이 남아 있는지 센다 |
 | `tools/shoot-desktop.js` | 가려져 있어도 바탕화면 층만 찍는다 |
 | `test/` | `node --test`: 창 쪽 계산과 창↔Rust 고리, 설치 설정 |

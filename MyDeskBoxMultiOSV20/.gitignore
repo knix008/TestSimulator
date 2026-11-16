@@ -4,7 +4,7 @@ node_modules/
 src-tauri/target/
 # tauri 가 만드는 스키마 따위. 빌드할 때마다 다시 만든다.
 src-tauri/gen/
-# Electron 판이 쓰던 빌드 폴더. 예전에 만든 것이 남아 있을 수 있다.
+# 창에 실을 파일을 모으는 폴더(tools/stage.js 가 src 와 assets 로 만든다).
 dist/
 out/
 

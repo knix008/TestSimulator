@@ -13,7 +13,7 @@
     "start": "node tools/start.js",
     "test": "npm run test:js && npm run test:rust",
     "test:js": "node --test --test-reporter=./tools/reporter.js test/*.test.js",
-    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "test:rust": "node tools/stage.js && cargo test --manifest-path src-tauri/Cargo.toml",
     "test:tap": "node --test test/*.test.js",
     "icons": "node tools/make-icons.js",
     "tauri": "tauri",
@@ -21,7 +21,10 @@
     "build": "tauri build && node tools/copy-installer.js",
     "build:win": "tauri build --bundles nsis && node tools/copy-installer.js",
     "build:mac": "tauri build --bundles dmg && node tools/copy-installer.js",
-    "build:linux": "tauri build --bundles appimage,deb && node tools/copy-installer.js"
+    "build:linux": "tauri build --bundles appimage,deb && node tools/copy-installer.js",
+    "clean": "node tools/clean.js",
+    "clean:all": "node tools/clean.js --all",
+    "stage": "node tools/stage.js"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.8.0",

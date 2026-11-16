@@ -61,7 +61,7 @@ fn assert_icons(items: &[MenuItem]) {
     for f in flat {
         match icon_of(&f.item) {
             MenuIcon::Asset(name) => {
-                let file = Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/assets").join(&name);
+                let file = Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets").join(&name);
                 assert!(file.exists(), "icon file for '{}' is missing: {}", f.where_, name);
             }
             MenuIcon::Pic(_) => {}

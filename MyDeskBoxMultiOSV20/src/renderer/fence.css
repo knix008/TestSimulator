@@ -75,6 +75,21 @@ html, body {
   cursor: grabbing;
 }
 
+/* 제목 앞의 이동 표시. 가로줄 네 개로 잡아 끄는 자리임을 알린다. 글씨 색을 따른다. */
+#move {
+  flex: none;
+  width: 13px;
+  height: 11px;
+  margin-right: 8px;
+  opacity: 0.8;
+  background: repeating-linear-gradient(to bottom, currentColor 0 1.6px, transparent 1.6px 3.1px);
+  border-radius: 1px;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
+  pointer-events: none;
+}
+
+#panel.light #move { filter: none; }
+
 /* 제목 줄 오른쪽의 설정 단추. 박스에 손이 갔을 때만 보인다. */
 #gear {
   flex: none;
@@ -405,8 +420,10 @@ html, body {
   visibility: hidden;
 }
 
-/* 오른쪽 아래의 크기 조절 표시. 박스에 손이 갔을 때만 보인다. */
+/* 오른쪽 아래의 크기 조절 표시. 박스에 손이 갔을 때만 보인다.
+   점 여섯 개를 삼각형(1·2·3개)으로 놓는다: 3×3 점 격자를 대각선 아래쪽만 남기고 자른다. */
 #grip {
+  --dot: rgba(255, 255, 255, 0.5);
   position: absolute;
   right: 3px;
   bottom: 3px;
@@ -416,22 +433,14 @@ html, body {
   pointer-events: none;
   opacity: 0;
   transition: opacity 140ms linear;
-  /* 빗금 세 줄로 잡는 자리를 알려 준다. 눈에 거슬리지 않게 흐리게 둔다. */
-  background:
-    linear-gradient(135deg, transparent 0 44%, rgba(255, 255, 255, 0.34) 44% 54%, transparent 54%) no-repeat right 0 bottom 0 / 15px 15px,
-    linear-gradient(135deg, transparent 0 44%, rgba(255, 255, 255, 0.28) 44% 54%, transparent 54%) no-repeat right 0 bottom 0 / 10px 10px,
-    linear-gradient(135deg, transparent 0 44%, rgba(255, 255, 255, 0.22) 44% 54%, transparent 54%) no-repeat right 0 bottom 0 / 5px 5px;
+  background: radial-gradient(circle at center, var(--dot) 0 1.25px, transparent 1.6px) 0 0 / 5px 5px;
+  clip-path: polygon(100% -3px, 100% 100%, -3px 100%);
 }
 
 #panel:hover #grip { opacity: 1; }
 #panel.collapsed #grip { opacity: 0; }
 
-#panel.light #grip {
-  background:
-    linear-gradient(135deg, transparent 0 44%, rgba(15, 23, 42, 0.30) 44% 54%, transparent 54%) no-repeat right 0 bottom 0 / 15px 15px,
-    linear-gradient(135deg, transparent 0 44%, rgba(15, 23, 42, 0.24) 44% 54%, transparent 54%) no-repeat right 0 bottom 0 / 10px 10px,
-    linear-gradient(135deg, transparent 0 44%, rgba(15, 23, 42, 0.18) 44% 54%, transparent 54%) no-repeat right 0 bottom 0 / 5px 5px;
-}
+#panel.light #grip { --dot: rgba(15, 23, 42, 0.42); }
 
 .edge {
   position: absolute;

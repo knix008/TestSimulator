@@ -64,7 +64,7 @@ pub struct Props {
 #[derive(Debug, Clone, PartialEq)]
 pub enum MenuIcon {
     None,
-    // src/assets 아래 이름 ("menu/open.png")
+    // assets 아래 이름 ("menu/open.png")
     Asset(String),
     Pic(Picture),
 }

@@ -31,204 +31,98 @@ function arrowHead(tipX, tipY, dirX, dirY, size) {
   ]);
 }
 
-// 글자 모양. 선을 이어 붙여 만든다. (x, y) 는 왼쪽 위, (w, h) 는 글자 한 칸의 크기.
-function rightOf(x) {
-  return d.convex([[x, -1], [2, -1], [2, 2], [x, 2]]);
-}
-
-function glyphB(x, y, w, h, t) {
-  const stem = x + t / 2;
-  const bowl = (cy, hh) => d.intersect(
-    d.outline(d.roundRect(x + w * 0.52, cy, w * 0.48, hh, Math.min(w * 0.42, hh * 0.9)), t / 2),
-    rightOf(stem)
-  );
-  return d.union(
-    d.capsule(stem, y + t / 2, stem, y + h - t / 2, t / 2),
-    bowl(y + h * 0.26, h * 0.26),
-    bowl(y + h * 0.74, h * 0.26)
-  );
-}
-
-function glyphO(x, y, w, h, t) {
-  return d.outline(
-    d.roundRect(x + w / 2, y + h / 2, w / 2, h / 2, Math.min(w, h) / 2),
-    t / 2
-  );
-}
-
-function glyphX(x, y, w, h, t) {
-  const inset = t / 2;
-  return d.union(
-    d.capsule(x + inset, y + inset, x + w - inset, y + h - inset, t / 2),
-    d.capsule(x + w - inset, y + inset, x + inset, y + h - inset, t / 2)
-  );
-}
-
-// 'BOX' 를 한 덩어리로 만든다.
-// 낱자마다 너비를 달리 주어야 눈에는 같은 크기로 보인다.
-// 둥근 O 는 위아래로 조금 넘겨야 B, X 와 키가 같아 보인다.
-function wordBox(x, y, h) {
-  const t = h * 0.21;
-  const gap = h * 0.15;
-  const wB = h * 0.62;
-  const wO = h * 0.70;
-  const wX = h * 0.66;
-  const over = h * 0.025;
-  let at = x;
-  const parts = [glyphB(at, y, wB, h, t)];
-  at += wB + gap;
-  parts.push(glyphO(at, y - over, wO, h + over * 2, t));
-  at += wO + gap;
-  parts.push(glyphX(at, y, wX, h, t));
-  return d.union(...parts);
-}
-
-// 'Box' 를 낱말 모양으로 짠다. B 는 키가 크고, o 와 x 는 낮다.
-// 세 낱자를 같은 밑줄에 맞춰야 낱말로 읽힌다.
-const SMALL_CAP = 0.72;
-
-function wordBoxWord(x, y, h) {
-  const t = h * 0.2;
-  const gap = h * 0.13;
-  const low = h * SMALL_CAP;
-  const base = y + h;
-  const wB = h * 0.62;
-  const wO = low * 0.92;
-  const wX = low * 0.88;
-  let at = x;
-  const parts = [glyphB(at, y, wB, h, t)];
-  at += wB + gap;
-  parts.push(glyphO(at, base - low, wO, low, t * 0.95));
-  at += wO + gap;
-  parts.push(glyphX(at, base - low, wX, low, t * 0.95));
-  return d.union(...parts);
-}
-
-function wordBoxWordWidth(h) {
-  const low = h * SMALL_CAP;
-  return h * 0.62 + low * 0.92 + low * 0.88 + h * 0.13 * 2;
-}
-
-function wordBoxWidth(h) {
-  return h * (0.62 + 0.70 + 0.66) + h * 0.15 * 2;
-}
-
-// 뒤로 밀린 그림자를 겹겹이 쌓아 글자를 도톰하게 만든다.
-function emboss(canvas, shape, depth, steps) {
-  for (let i = steps; i >= 1; i -= 1) {
-    const k = i / steps;
-    canvas.fill(
-      (px, py) => shape(px - depth * k, py - depth * k),
-      d.mix([13, 42, 110], [37, 99, 235], 1 - k)
-    );
-  }
-}
-
 // 앱 아이콘.
-// 아이콘을 담아 두는 판 하나를 정면에서 보되, 아래에 두께와 그림자를 두어 입체로 보이게 한다.
-// 판 아래에는 'Box' 를 도톰하게 새긴다. 작은 크기에서는 뭉개지므로 글자를 빼고 판만 둔다.
+// 요즘 아이콘처럼 둥근 사각형(스쿼클)에 선명한 대각선 그라데이션을 깔고, 그 위에 반투명 유리판 두 장을 겹친다.
+// 앞 판은 박스 하나다: 위에 잡는 줄(알약)이 있고 안에 색색의 아이콘 타일이 놓여 있다. 글자는 넣지 않는다.
 
-// 아래에 'Box' 글자를 둘 자리를 비우느라 판을 조금 위로 올린다.
-const PLATE = { cx: 0.5, cy: 0.425, hw: 0.275, hh: 0.235, r: 0.072 };
-const THICK = 0.036;
+const APP_BG = (x, y) => {
+  // 왼쪽 위 남보라 → 가운데 보라빛 파랑 → 오른쪽 아래 하늘색.
+  const t = Math.max(0, Math.min(1, ((x - 0.08) + (y - 0.08)) / 1.68));
+  return t < 0.5
+    ? d.mix([124, 58, 237], [79, 70, 229], t / 0.5)
+    : d.mix([79, 70, 229], [14, 165, 233], (t - 0.5) / 0.5);
+};
 
-function plateShape(dy = 0, inset = 0) {
-  return d.roundRect(PLATE.cx, PLATE.cy + dy, PLATE.hw - inset, PLATE.hh, PLATE.r - inset * 0.6);
-}
+const TILE_COLORS = [
+  [[253, 164, 175], [244, 63, 94]],
+  [[253, 224, 71], [245, 158, 11]],
+  [[110, 231, 183], [16, 185, 129]],
+  [[125, 211, 252], [14, 165, 233]],
+  [[196, 181, 253], [139, 92, 246]],
+  [[251, 146, 60], [234, 88, 12]],
+];
 
-// 그림자는 흐리게 할 수 없으니 옅은 층을 여러 겹 쌓아 부드럽게 만든다.
-function softShadow(canvas) {
-  for (let i = 4; i >= 1; i -= 1) {
-    const spread = 0.012 * i;
-    const shape = d.roundRect(
-      PLATE.cx,
-      PLATE.cy + THICK + 0.026 + spread * 0.5,
-      PLATE.hw + spread,
-      PLATE.hh + spread * 0.5,
-      PLATE.r + spread
-    );
-    canvas.fill(shape, [8, 20, 56], 0.10);
-  }
+function tile(canvas, x, y, h, colors) {
+  const shape = d.roundRect(x, y, h, h, h * 0.42);
+  canvas.fill(d.roundRect(x, y + h * 0.18, h, h, h * 0.42), [30, 27, 75], 0.16);
+  canvas.fill(shape, d.linear(0, y - h, 0, y + h, colors[0], colors[1]));
 }
 
 function boxArt(canvas) {
   const small = canvas.size < 32;
-  const body = d.roundRect(0.5, 0.5, 0.435, 0.435, 0.145);
+  const body = d.roundRect(0.5, 0.5, 0.44, 0.44, 0.2);
 
-  // 바탕. 위에서 빛이 들고 아래로 갈수록 어두워진다.
-  canvas.fill(body, d.linear(0, 0.065, 0, 0.935, [124, 186, 255], [21, 60, 168]));
-  canvas.fill(body, d.radial(0.5, 0.08, 0.92, [255, 255, 255, 0.34], [255, 255, 255, 0]));
-  canvas.fill(body, d.linear(0, 0.54, 0, 0.96, [0, 0, 0, 0], [0, 0, 0, 0.24]));
-  canvas.fill(
-    d.outline(body, 0.011),
-    d.linear(0, 0.065, 0, 0.935, [255, 255, 255, 0.62], [0, 0, 0, 0.32])
-  );
+  // 바탕과 은은한 빛
+  canvas.fill(body, APP_BG);
+  canvas.fill(body, d.radial(0.22, 0.12, 0.75, [255, 255, 255, 0.26], [255, 255, 255, 0]));
+  canvas.fill(body, d.radial(0.85, 0.95, 0.6, [56, 189, 248, 0.35], [56, 189, 248, 0]));
+  if (!small) canvas.fill(d.intersect(body, d.outline(body, 0.006)), [255, 255, 255], 0.22);
 
-  softShadow(canvas);
+  // 뒤의 유리판. 박스가 여러 개임을 알린다.
+  const back = d.roundRect(0.585, 0.385, 0.235, 0.19, 0.07);
+  canvas.fill(back, [255, 255, 255], 0.2);
+  if (!small) canvas.fill(d.outline(back, 0.005), [255, 255, 255], 0.38);
 
-  // 판의 두께. 아래로 조금 내린 같은 모양을 먼저 깔아 옆면으로 삼는다.
-  // 좌우로 조금 좁혀야 둥근 모서리에서 옆구리가 비어져 나오지 않는다.
-  canvas.fill(
-    plateShape(THICK, 0.018),
-    d.linear(0, PLATE.cy, 0, PLATE.cy + PLATE.hh + THICK, [70, 124, 220], [28, 62, 158])
-  );
-
-  // 판의 앞면
-  const face = plateShape(0);
-  canvas.fill(face, d.linear(0, PLATE.cy - PLATE.hh, 0, PLATE.cy + PLATE.hh, [255, 255, 255], [219, 232, 250]));
-
-  // 제목 줄
-  const barBottom = PLATE.cy - PLATE.hh + (small ? 0.13 : 0.105);
-  canvas.fill(
-    d.intersect(face, d.convex([[0, 0], [1, 0], [1, barBottom], [0, barBottom]])),
-    d.linear(0, PLATE.cy - PLATE.hh, 0, barBottom, [86, 150, 250], [37, 99, 235])
-  );
-
-  // 담겨 있는 아이콘
-  const dots = small
-    ? [[0.415, 0.515], [0.585, 0.515]]
-    : [[0.405, 0.455], [0.595, 0.455], [0.405, 0.585], [0.595, 0.585]];
-  const radius = small ? 0.062 : 0.047;
-  for (const [x, y] of dots) {
-    canvas.fill(d.circle(x, y + 0.010, radius), [30, 64, 160], 0.22);
-    canvas.fill(d.circle(x, y, radius), d.linear(0, y - radius, 0, y + radius, [96, 165, 250], [29, 78, 216]));
+  // 앞 유리판의 그림자: 옅은 층을 겹쳐 부드럽게
+  const front = { cx: 0.455, cy: 0.565, hw: 0.285, hh: 0.235, r: 0.08 };
+  for (let i = 4; i >= 1; i -= 1) {
+    const s = 0.011 * i;
+    canvas.fill(d.roundRect(front.cx, front.cy + 0.03 + s * 0.4, front.hw + s, front.hh + s, front.r + s), [30, 27, 75], 0.07);
   }
-
-  // 판 아래의 'Box'. 뒤로 밀린 층을 쌓아 도톰하게 만들고, 앞면은 밝게 칠한다.
+  const face = d.roundRect(front.cx, front.cy, front.hw, front.hh, front.r);
+  canvas.fill(face, d.linear(0, front.cy - front.hh, 0, front.cy + front.hh, [255, 255, 255, 0.97], [237, 233, 254, 0.93]));
   if (!small) {
-    const h = 0.155;
-    const x = 0.5 - wordBoxWordWidth(h) / 2;
-    const y = 0.765;
-    const word = wordBoxWord(x, y, h);
-    canvas.fill((px, py) => word(px, py - 0.012), [8, 20, 56], 0.22);
-    emboss(canvas, word, 0.018, 5);
-    canvas.fill(word, d.linear(0, y, 0, y + h, [255, 255, 255], [198, 222, 252]));
     canvas.fill(
-      d.intersect(d.outline(word, 0.006), d.convex([[0, 0], [1, 0], [1, y + h * 0.4], [0, y + h * 0.4]])),
+      d.intersect(d.outline(face, 0.004), d.convex([[0, 0], [1, 0], [1, front.cy - front.hh + 0.05], [0, front.cy - front.hh + 0.05]])),
       [255, 255, 255],
-      0.55
+      0.9
     );
   }
 
-  // 제목 줄 맨 위의 가는 빛. 판이 도톰해 보이게 한다.
-  canvas.fill(
-    d.intersect(
-      d.outline(face, 0.007),
-      d.convex([[0, 0], [1, 0], [1, PLATE.cy - PLATE.hh + 0.06], [0, PLATE.cy - PLATE.hh + 0.06]])
-    ),
-    [255, 255, 255],
-    0.5
-  );
+  const left = front.cx - front.hw;
+  const top = front.cy - front.hh;
+  if (small) {
+    // 작은 크기: 타일 네 개만 크게.
+    const h = 0.075;
+    const xs = [front.cx - 0.105, front.cx + 0.105];
+    const ys = [front.cy - 0.085, front.cy + 0.095];
+    let k = 0;
+    for (const y of ys) for (const x of xs) tile(canvas, x, y, h, TILE_COLORS[k++]);
+    return;
+  }
+
+  // 잡는 줄(알약)과 점 하나: 박스의 제목 줄
+  const barY = top + 0.075;
+  canvas.fill(d.capsule(left + 0.075, barY, left + 0.235, barY, 0.019), d.linear(left, 0, left + 0.3, 0, [124, 58, 237], [79, 70, 229]));
+  canvas.fill(d.circle(front.cx + front.hw - 0.075, barY, 0.019), [196, 181, 253]);
+
+  // 담긴 아이콘 타일 3×2
+  const h = 0.05;
+  const xs = [front.cx - 0.15, front.cx, front.cx + 0.15];
+  const ys = [front.cy + 0.01, front.cy + 0.135];
+  let k = 0;
+  for (const y of ys) for (const x of xs) tile(canvas, x, y, h, TILE_COLORS[k++]);
 }
 
-// 트레이는 늘 작게 보이므로 1배·2배 그림이 같은 모양이도록 글자를 넣지 않는다.
+// 트레이는 늘 작게 보이므로 1배·2배 그림이 같은 모양이도록 단순하게 둔다. 앱 아이콘과 같은 색이다.
 function trayArt(canvas) {
-  const body = d.roundRect(0.5, 0.5, 0.40, 0.34, 0.11);
-  canvas.fill(body, BLUE);
-  canvas.fill(d.intersect(body, d.convex([[0, 0], [1, 0], [1, 0.31], [0, 0.31]])), DEEP);
-  for (const [x, y] of [[0.38, 0.50], [0.62, 0.50], [0.38, 0.69], [0.62, 0.69]]) {
-    canvas.fill(d.circle(x, y, 0.062), WHITE);
-  }
+  const body = d.roundRect(0.5, 0.5, 0.44, 0.44, 0.17);
+  canvas.fill(body, APP_BG);
+  const face = d.roundRect(0.5, 0.53, 0.30, 0.27, 0.07);
+  canvas.fill(face, [255, 255, 255], 0.96);
+  const h = 0.07;
+  let k = 0;
+  for (const y of [0.45, 0.62]) for (const x of [0.39, 0.61]) tile(canvas, x, y, h, TILE_COLORS[k++]);
 }
 
 const icons = {

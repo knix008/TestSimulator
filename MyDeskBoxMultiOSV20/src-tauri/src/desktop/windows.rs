@@ -20,6 +20,8 @@ use windows::Win32::Graphics::Gdi::{
     DeleteObject, GetDC, GetDIBits, GetObjectW, InvalidateRect, ReleaseDC, UpdateWindow, BITMAP, BITMAPINFO,
     BITMAPINFOHEADER, DIB_RGB_COLORS, HBITMAP, HGDIOBJ,
 };
+use windows::Win32::Foundation::SIZE;
+use windows::Win32::UI::Shell::{IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF, SIIGBF_RESIZETOFIT, SIIGBF_THUMBNAILONLY};
 use windows::Win32::Storage::FileSystem::{GetFileAttributesW, SetFileAttributesW, FILE_FLAGS_AND_ATTRIBUTES};
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoTaskMemFree, IPersistFile, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED, STGM_READ};
 use windows::Win32::System::Diagnostics::Debug::{ReadProcessMemory, WriteProcessMemory};
@@ -488,6 +490,76 @@ pub fn bitmap_of(icon: HICON) -> Option<Picture> {
             let _ = DeleteObject(HGDIOBJ(mask.0));
         }
         result
+    }
+}
+
+// 셸이 만드는 미리보기(탐색기의 큰 아이콘 보기와 같은 그림).
+//   파일: 미리보기 처리기가 있을 때만(THUMBNAILONLY). 없으면 None 이라 종류 그림으로 넘어간다.
+//   폴더: 탐색기처럼 안에 든 것이 비치는 폴더 그림. 빈 폴더는 보통 폴더 그림이다.
+fn shell_thumbnail(path: &str, size: i32) -> Option<Picture> {
+    prepare_com();
+    let path = normalize_win(path);
+    let folder = std::path::Path::new(&path).is_dir();
+    let w = wide(&path);
+    unsafe {
+        let factory: IShellItemImageFactory = SHCreateItemFromParsingName(PCWSTR(w.as_ptr()), None).ok()?;
+        let flags = if folder { SIIGBF_RESIZETOFIT } else { SIIGBF(SIIGBF_RESIZETOFIT.0 | SIIGBF_THUMBNAILONLY.0) };
+        let bitmap = factory.GetImage(SIZE { cx: size, cy: size }, flags).ok()?;
+        let shot = picture_of_bitmap(bitmap);
+        let _ = DeleteObject(HGDIOBJ(bitmap.0));
+        shot
+    }
+}
+
+// 셸이 준 32비트 비트맵. 알파가 없으면 불투명이고, 있으면 미리 곱해져 있어 되돌린다.
+fn picture_of_bitmap(bitmap: HBITMAP) -> Option<Picture> {
+    unsafe {
+        let mut shape = BITMAP::default();
+        if GetObjectW(HGDIOBJ(bitmap.0), std::mem::size_of::<BITMAP>() as i32, Some(&mut shape as *mut _ as *mut c_void)) == 0 {
+            return None;
+        }
+        let (width, height) = (shape.bmWidth, shape.bmHeight.abs());
+        if width <= 0 || height <= 0 {
+            return None;
+        }
+        let mut header = BITMAPINFO {
+            bmiHeader: BITMAPINFOHEADER {
+                biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+                biWidth: width,
+                biHeight: -height,
+                biPlanes: 1,
+                biBitCount: 32,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let hdc = GetDC(None);
+        let mut data = vec![0u8; (width * height * 4) as usize];
+        let got = GetDIBits(hdc, bitmap, 0, height as u32, Some(data.as_mut_ptr() as *mut c_void), &mut header, DIB_RGB_COLORS);
+        ReleaseDC(None, hdc);
+        if got == 0 {
+            return None;
+        }
+        unpremultiply(&mut data);
+        Picture::from_bgra(width as u32, height as u32, data)
+    }
+}
+
+pub fn unpremultiply(data: &mut [u8]) {
+    if !data.chunks_exact(4).any(|px| px[3] != 0) {
+        for px in data.chunks_exact_mut(4) {
+            px[3] = 255;
+        }
+        return;
+    }
+    for px in data.chunks_exact_mut(4) {
+        let a = px[3] as u32;
+        if a == 0 || a == 255 {
+            continue;
+        }
+        for c in &mut px[..3] {
+            *c = ((*c as u32 * 255 + a / 2) / a).min(255) as u8;
+        }
     }
 }
 
@@ -1456,6 +1528,14 @@ impl Desktop for WinDesktop {
         }
         let info = file_info(path, SHGFI_SYSICONINDEX)?;
         icon_from_index(info.iIcon)
+    }
+
+    fn thumbnail(&self, path: &str) -> Option<Picture> {
+        if path.is_empty() || path.starts_with("shell:") {
+            return None;
+        }
+        // 창에서는 44 로 그리니 64 면 배율이 높은 화면에서도 또렷하다.
+        shell_thumbnail(path, 64)
     }
 
     // 프로그램이나 아이콘 파일에서 그림을 바로 꺼낸다. 다시 설치해 바뀐 그림도 늘 지금 것이다.

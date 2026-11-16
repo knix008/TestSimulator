@@ -339,6 +339,13 @@ impl Host {
         if let Some(p) = self.picture_of(path) {
             return Some(p);
         }
+        // 바로가기·인터넷 바로가기·프로그램은 미리보기보다 제 그림이 낫다.
+        let ext = extname(path).to_lowercase();
+        if ![".lnk", ".url", ".exe", ".ico"].contains(&ext.as_str()) {
+            if let Some(p) = self.desk.thumbnail(path) {
+                return Some(p);
+            }
+        }
         if let Some(p) = self.link_icon_from_file(path) {
             return Some(p);
         }
