@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MyAgents — User’s Guide</title>
+<style>
+  :root { color-scheme: light dark; --bg: #ffffff; --text: #1f2328; --muted: #59636e; --accent: #2f63d8; --border: #d0d7de; --code: #f3f5f8; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #16191f; --text: #e6e9ef; --muted: #9aa4b2; --accent: #7aa7ff; --border: #343a46; --code: #222731; } }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.65 "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; }
+  .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 20px 24px; }
+  main { min-width: 0; max-width: 860px; padding: 8px 0 60px; }
+  nav.toc { position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); overflow: auto; font-size: 14px; padding: 8px 8px 8px 0; border-right: 1px solid var(--border); }
+  nav.toc .toc-title { font-weight: 700; color: var(--muted); font-size: 12px; letter-spacing: .04em; margin: 0 0 8px 10px; }
+  nav.toc ul { list-style: none; margin: 0; padding: 0; }
+  nav.toc li a { display: block; padding: 3px 10px; border-left: 2px solid transparent; color: var(--text); text-decoration: none; border-radius: 0 6px 6px 0; }
+  nav.toc li a:hover { background: var(--code); }
+  nav.toc li a.active { border-left-color: var(--accent); color: var(--accent); font-weight: 600; }
+  nav.toc li.h3 a { padding-left: 24px; color: var(--muted); font-size: 13px; }
+  @media (max-width: 760px) { .layout { grid-template-columns: 1fr; padding: 12px; } nav.toc { position: static; max-height: none; border: 1px solid var(--border); border-radius: 10px; } }
+  @media print { nav.toc { display: none; } .layout { display: block; } }
+  h1 { font-size: 1.9em; margin: 0 0 18px; }
+  h2 { font-size: 1.45em; margin: 34px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.15em; margin: 26px 0 8px; color: var(--accent); }
+  p, li { color: var(--text); }
+  code { padding: 1px 6px; border-radius: 5px; background: var(--code); font-family: Consolas, "D2Coding", monospace; font-size: 0.92em; }
+  table { border-collapse: collapse; margin: 10px 0 18px; }
+  th, td { border: 1px solid var(--border); padding: 5px 12px; text-align: left; }
+  th { background: var(--code); }
+  .step { margin: 0 0 14px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; }
+  .step b { color: var(--accent); }
+  .muted { color: var(--muted); }
+  figure { margin: 14px 0 22px; }
+  figure img { display: block; max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12); }
+  figcaption { margin-top: 6px; color: var(--muted); font-size: 13px; text-align: center; }
+</style>
+</head>
+<body><div class="layout">
+<nav class="toc" aria-label="Contents"><p class="toc-title">Contents</p><ul><li class="h3"><a href="#what-myagents-is">What MyAgents is</a></li><li class="h3"><a href="#the-window">The window</a></li><li class="h3"><a href="#start-page">Start page</a></li><li class="h3"><a href="#working-on-the-canvas">Working on the canvas</a></li><li class="h3"><a href="#node-types">Node types</a></li><li class="h3"><a href="#expressions">Expressions</a></li><li class="h3"><a href="#running-and-reading-results">Running and reading results</a></li><li class="h3"><a href="#human-approval">Human approval</a></li><li class="h3"><a href="#chat-tester">Chat tester</a></li><li class="h3"><a href="#webhooks-and-schedules-deploy">Webhooks and schedules (deploy)</a></li><li class="h3"><a href="#knowledge-bases-rag">Knowledge bases (RAG)</a></li><li class="h3"><a href="#models-keys">Models &amp; keys</a></li><li class="h3"><a href="#input-sources-and-output-formats">Input sources and output formats</a></li><li class="h3"><a href="#the-run-result-window-and-printing">The run result window and printing</a></li><li class="h3"><a href="#tutorial">Tutorial</a></li><li class="h3"><a href="#describe-it">Describe it</a></li><li class="h3"><a href="#files">Files</a></li><li class="h3"><a href="#as-a-web-server">As a web server</a></li><li class="h3"><a href="#shortcuts">Shortcuts</a></li></ul></nav>
+<main>
+<h1>MyAgents — User’s Guide</h1>
+<h3 id="what-myagents-is">What MyAgents is</h3>
+<p>MyAgents builds AI agents and automations by <b>dragging nodes onto a canvas</b>. Triggers, AI steps, tools, conditions, loops and human approval are nodes; connecting them makes a workflow. When it runs, the canvas shows which node is working, which connection the data travels, how often a loop ran and where it failed.</p>
+<ul>
+<li><b>Developers</b>: a Code (JavaScript) node, HTTP requests, webhooks, JSON expressions, shell commands, each node's input and output as JSON, pinned outputs</li>
+<li><b>Office work</b>: 16 templates, &quot;Describe it&quot; (write what you want, get a draft), approval steps, a chat tester</li>
+</ul>
+<p>Without any key, every template runs on the <b>offline test model</b>. Connect real models under &quot;Models &amp; keys&quot;.</p>
+<h3 id="the-window">The window</h3>
+<figure><img src="images/editor-en.png" alt="The editor: agents and the node palette on the left, the canvas, properties on the right, the run below" loading="lazy" /><figcaption>The editor: agents and the node palette on the left, the canvas, properties on the right, the run below</figcaption></figure>
+<table><thead><tr><th>Where</th><th>What</th></tr></thead><tbody><tr><td>Menus · toolbar</td><td>File, Edit, Run, View, Help. Run (▶), Chat test and Deploy on the toolbar</td></tr><tr><td>Left, top</td><td>Your agents (search, right-click menu)</td></tr><tr><td>Left, bottom</td><td>The node palette: drag onto the canvas, or click to append after the selected node</td></tr><tr><td>Centre</td><td>The canvas (editor) · Runs · Knowledge · Models &amp; keys</td></tr><tr><td>Right</td><td>Node tab (the selected node's settings; with nothing selected, the agent's) · Chat tab</td></tr><tr><td>Bottom</td><td>Run (time bars per step, input · output · log, the approval card) · History · Problems · Messages · Information</td></tr></tbody></table>
+<h3 id="start-page">Start page</h3>
+<figure><img src="images/start-en.png" alt="The start page (vertical): program info, start, history, my agents, templates" loading="lazy" /><figcaption>The start page (vertical): program info, start, history, my agents, templates</figcaption></figure>
+<p>The start page is <b>vertical</b> by default (one card per row). Switch to &quot;Grid&quot; at the top right. Move cards by their handle, resize them by the bottom-right corner.</p>
+<p>Start page: <b>History</b> lists the agents opened lately (✕ forgets one, &quot;Clear all&quot; empties the list; the agents stay); <b>My agents</b> deletes one agent (the bin) or all of them after a confirmation (run records stay). Folded panels keep a rail with their icon and title; the button at the right end of each panel header folds it.</p>
+<h3 id="working-on-the-canvas">Working on the canvas</h3>
+<ul>
+<li><b>Add</b>: drag from the palette, click a palette item, double-click the canvas, toolbar &quot;+&quot;, key <code>A</code></li>
+<li><b>Connect</b>: drag from an output port (●) on the right of a node to another node. Dropping on empty space offers the node to add there</li>
+<li><b>Tools</b>: draw from an AI agent's &quot;tools&quot; port (◆, at its bottom) to a node: that node (and the flow after it) becomes a tool of the agent. Connect other AI agents for a multi-agent team</li>
+<li><b>Move &amp; select</b>: drag a node; drag empty space to pan; Shift/Ctrl+drag to box-select; wheel to zoom</li>
+<li><b>Edit</b>: <code>Delete</code>, <code>Ctrl+C</code>/<code>Ctrl+V</code>, <code>Ctrl+D</code> duplicate, arrow keys nudge, <code>Ctrl+Z</code>/<code>Ctrl+Y</code></li>
+<li><b>Tidy</b>: Auto arrange (Ctrl+Shift+A), Fit (F), click the minimap</li>
+</ul>
+<h3 id="node-types">Node types</h3>
+<table><thead><tr><th>Category</th><th>Nodes</th></tr></thead><tbody><tr><td>Triggers</td><td>Manual (test input JSON), Chat message, Webhook, Schedule (minutes, daily, weekly, cron)</td></tr><tr><td>AI</td><td>AI agent (tools, memory, max steps), LLM prompt (optional JSON answer), Classifier (a port per category), Extractor</td></tr><tr><td>Knowledge</td><td>Knowledge search (RAG), Add to knowledge</td></tr><tr><td>Flow</td><td>If, Switch, Loop over items, Merge, Set variables, Text template, Code (JavaScript), Wait, Stop</td></tr><tr><td>Tools &amp; data</td><td>HTTP request, Read web page, Call another agent, File read/write, Run command, JSON, Date &amp; time</td></tr><tr><td>Human</td><td>Approval, Ask a person, Notify</td></tr><tr><td>Output</td><td>Respond (run result · chat reply · webhook response)</td></tr><tr><td>Notes</td><td>Sticky notes (never run)</td></tr></tbody></table>
+<p>Every runnable node has <b>retries, retry delay, timeout and error handling</b> (stop the run / continue with the error as output / send to an error port).</p>
+<h3 id="expressions">Expressions</h3>
+<p>Write <code>{{ … }}</code> in a setting to use earlier values.</p>
+<table><thead><tr><th>Name</th><th>Meaning</th></tr></thead><tbody><tr><td><code>input</code></td><td>the previous node's output (LLM and agent: <code>input.text</code>)</td></tr><tr><td><code>trigger</code></td><td>what the trigger received (chat: <code>trigger.message</code>; webhook: <code>trigger.body</code>, <code>trigger.query</code>)</td></tr><tr><td><code>nodes.&lt;node name&gt;.output</code></td><td>another node's output, by name</td></tr><tr><td><code>vars.&lt;name&gt;</code></td><td>variables (agent settings, Set variables)</td></tr><tr><td><code>item</code>, <code>index</code></td><td>the current item and its number inside a loop</td></tr></tbody></table>
+<p>Filters: <code>| upper</code>, <code>| lower</code>, <code>| trim</code>, <code>| json</code>, <code>| length</code>, <code>| join:&quot;, &quot;</code>, <code>| truncate:100</code>, <code>| default:&quot;none&quot;</code>, <code>| pluck:&quot;name&quot;</code>, <code>| first</code>, <code>| last</code>, <code>| date</code>, <code>| parse</code> … <code>a || b</code> takes b when a is empty. After one run, each field shows a <b>preview computed from the real values</b>; the <code>{}</code> button lists the variables you can use.</p>
+<h3 id="running-and-reading-results">Running and reading results</h3>
+<ul>
+<li><b>Run</b> (Ctrl+Enter) uses the manual trigger's test input; a webhook trigger asks for a request body. Unsaved changes run as they are (marked &quot;draft&quot; in the history)</li>
+<li><b>While it runs</b>: the working node glows blue, finished nodes turn green (succeeded) or red (failed), waiting nodes orange. Data moves along the connections as dots; looped nodes show <code>×N</code> and ports show how often they were used; an agent shows the tool it calls above the node</li>
+<li><b>Run tab</b> (bottom): a time bar per step; click a step for its input, output and log</li>
+<li><b>Run to here</b> (node settings): runs this node and the nodes before it only</li>
+<li><b>Pin output</b>: a pinned node does not run again but hands on its pinned output — test later steps without API costs</li>
+<li><b>History tab / Runs view</b>: reopening a run draws its states on the canvas</li>
+<li><b>Stop</b> (Shift+F5)</li>
+</ul>
+<figure><img src="images/result-en.png" alt="The result window at the end of a run, and the time bars of the Run tab" loading="lazy" /><figcaption>The result window at the end of a run, and the time bars of the Run tab</figcaption></figure>
+<p>The <b>Progress tab</b> shows the phases of the nodes, the round and each test node's passed / failed by round. The <b>Code tab</b> lists the files a run wrote with their versions and +/− lines; pick one to read it with the changed lines marked.</p>
+<figure><img src="images/progress-en.png" alt="Progress: the eight phases of the dev loop, round 2, unit / integration / GUI tests" loading="lazy" /><figcaption>Progress: the eight phases of the dev loop, round 2, unit / integration / GUI tests</figcaption></figure>
+<figure><img src="images/code-en.png" alt="Code: the files the run wrote and the lines the fix changed" loading="lazy" /><figcaption>Code: the files the run wrote and the lines the fix changed</figcaption></figure>
+<h3 id="human-approval">Human approval</h3>
+<p>At an Approval node the run pauses and the node blinks orange. In the card of the Run tab, write a comment and press <b>Approve</b> or <b>Reject</b>; the run continues on that port. With a time limit, it is rejected afterwards. &quot;Ask a person&quot; waits for form fields.</p>
+<h3 id="chat-tester">Chat tester</h3>
+<p>Agents with a &quot;Chat message&quot; trigger are tested in the right <b>Chat</b> tab. Every answer shows its run on the canvas; the small button on a bubble opens that run. With &quot;Conversation memory&quot; on, the AI agent remembers the session. &quot;New chat&quot; starts a new session; &quot;Forget&quot; deletes this agent's memory.</p>
+<h3 id="webhooks-and-schedules-deploy">Webhooks and schedules (deploy)</h3>
+<ul>
+<li>A saved agent with a Webhook trigger shows its <b>webhook URL</b> in the agent settings (right panel, nothing selected). The URL contains a secret, so no sign-in is needed; you can make a new one. The webhook answers with the result when the run ends, or at once with 202. The Respond node can set the HTTP status</li>
+<li><b>Deploy</b> turns on schedule triggers (while the program runs). Deploying refuses an agent with errors and lists them in Problems</li>
+</ul>
+<h3 id="knowledge-bases-rag">Knowledge bases (RAG)</h3>
+<p>Create them in the Knowledge view; add files (txt, md, html, csv, json, code …), pasted text or web pages. Documents stay on this computer and are found with BM25 keyword search (no embedding service; Korean is indexed down to two-letter pieces). &quot;Search test&quot; shows what an agent would find. The first start creates a sample knowledge base (refunds, shipping, support hours, API).</p>
+<h3 id="models-keys">Models &amp; keys</h3>
+<table><thead><tr><th>Provider</th><th>Setting</th></tr></thead><tbody><tr><td>Anthropic Claude</td><td>API key (default model claude-opus-5-5); ANTHROPIC_API_KEY is read too</td></tr><tr><td>OpenAI</td><td>API key (OPENAI_API_KEY)</td></tr><tr><td>Google Gemini</td><td>API key (GEMINI_API_KEY)</td></tr><tr><td>Ollama</td><td>local server (default <code>http://127.0.0.1:11434</code>), no key</td></tr><tr><td>OpenAI-compatible</td><td>LM Studio, vLLM, Groq, OpenRouter … server address and key</td></tr><tr><td>Offline test model</td><td>no network, no key; for trying templates</td></tr></tbody></table>
+<p>&quot;Test call&quot; checks the connection, &quot;List models&quot; loads the available models, &quot;Make default&quot; sets the model for nodes that leave it empty. Keys are stored only in the data folder's <code>credentials.json</code>; the page shows four characters at each end. The same view allows &quot;Run command&quot; nodes and sets the work folder (used by File and Command nodes).</p>
+<p><b>Local Ollama</b>: when it is not installed, not running or lacks the chosen model, a failed test call or run opens a window that does it for you with progress: <b>Install automatically</b> (winget or the official installer on Windows, Homebrew on macOS, the official script on Linux), <b>Start</b>, or <b>Download the model</b>. A big model can take minutes to load the first time; the test waits without a time limit. The web server only points to the download page.</p>
+<p><b>Cursor</b>: an API key from the Cursor dashboard (CURSOR_API_KEY). Each call runs a cloud agent and returns its final text; add <code>#https://github.com/org/repo@branch</code> after the server address to work in that repository.</p>
+<figure><img src="images/models-en.png" alt="Models &amp; keys: a key, a model and a test call per provider, the local Ollama state" loading="lazy" /><figcaption>Models &amp; keys: a key, a model and a test call per provider, the local Ollama state</figcaption></figure>
+<p>Settings › <b>AI model keys</b> adds, changes and deletes keys per provider and sets the default model too (the same store).</p>
+<figure><img src="images/keys-en.png" alt="Settings › AI model keys" loading="lazy" /><figcaption>Settings › AI model keys</figcaption></figure>
+<h3 id="input-sources-and-output-formats">Input sources and output formats</h3>
+<figure><img src="images/io-en.png" alt="Read → Summarize → Save as PDF: the Save node takes the format and the file path" loading="lazy" /><figcaption>Read → Summarize → Save as PDF: the Save node takes the format and the file path</figcaption></figure>
+<p>The <b>Read (input source)</b> node reads a work-folder file, a URL, typed text or the previous step's value and parses it; <b>Save (output target)</b> writes a value as a file in the chosen format (extension added) or only hands it on (a data: URL). Text, Markdown, HTML, CSV, JSON, Excel (.xlsx), PDF (Korean included), Word (.docx) and pictures (png, jpg, gif, webp, bmp, svg) are read and written; rows become tables, Markdown becomes styled HTML, a PDF or a Word document. The <b>Image analysis</b> node shows a picture to a vision model.</p>
+<h3 id="the-run-result-window-and-printing">The run result window and printing</h3>
+<p>When a run ends, a <b>result window</b> shows the status, time, steps, failed steps, tokens and the result (Copy result, Show the run); turn it off in Settings › Editor or with its check box. <b>Print</b> (Ctrl+P) opens its own window: printer and copies, paper size, orientation, margins, scale, colour, header/footer, page numbers and what to print (overview, flow diagram, nodes and settings, the last run), with a live preview. The flow diagram is laid out again for the paper (&quot;Fit paper&quot;). <b>Print</b> prints straight to the chosen printer on the desktop; Save as PDF is there too.</p>
+<figure><img src="images/print-en.png" alt="The print window: printer, paper and contents on the left, the preview on the right" loading="lazy" /><figcaption>The print window: printer, paper and contents on the left, the preview on the right</figcaption></figure>
+<h3 id="tutorial">Tutorial</h3>
+<p>When the start page opens, a window asks &quot;Run the tutorial?&quot;. <b>Start the tutorial</b> lights up each part of the window in turn (start page, templates, describe it, palette, canvas, properties, run, progress and code, chat, models and keys, print, help) and explains it; Back / Next or ← / → move, Esc ends it. Turn off &quot;Show this window at start&quot; in that window or Settings › Start page › &quot;Show the tutorial popup at start&quot; to stop it; Help › Tutorial shows it any time.</p>
+<figure><img src="images/tutorial-en.png" alt="The tutorial explaining the canvas" loading="lazy" /><figcaption>The tutorial explaining the canvas</figcaption></figure>
+<h3 id="describe-it">Describe it</h3>
+<p><b>Describe it</b> (Ctrl+Shift+N) turns a sentence into a workflow draft. With a real model, the model designs it from the node catalogue; without, keywords decide (daily, webhook, chat, approval, summarise, translate, classify, documents, file, notify …).</p>
+<h3 id="files">Files</h3>
+<p>Agents are stored as <code>agents/&lt;id&gt;.json</code> in the data folder. <b>Export</b> writes a <code>.myagent</code> file (without the webhook secret); <b>Import</b> or drag and drop brings it back.</p>
+<h3 id="as-a-web-server">As a web server</h3>
+<p>After <code>npm run build:web</code>, run <code>node server/web.js --port 8080 --password &lt;password&gt;</code> and use the same app in a browser. Without a password it listens on 127.0.0.1 only. &quot;Run command&quot; nodes are always off on the web server.</p>
+<h3 id="shortcuts">Shortcuts</h3>
+<p>Settings › Shortcuts lists them all. Common ones: <code>Ctrl+N</code> new agent, <code>Ctrl+S</code> save, <code>Ctrl+Enter</code> run, <code>A</code> add node, <code>F</code> fit, <code>Ctrl+Shift+C</code> chat, <code>F2</code> rename.</p>
+</main></div>
+<script>
+  // the section being read is marked in the contents
+  const links = [...document.querySelectorAll('nav.toc a')];
+  const mark = () => { let current = null; for (const a of links) { const h = document.getElementById(decodeURIComponent(a.hash.slice(1))); if (h && h.getBoundingClientRect().top < 120) current = a; } links.forEach((a) => a.classList.toggle('active', a === current)); };
+  addEventListener('scroll', mark, { passive: true }); mark();
+</script></body>
+</html>

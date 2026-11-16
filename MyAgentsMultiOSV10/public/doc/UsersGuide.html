@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MyAgents — 사용 설명서</title>
+<style>
+  :root { color-scheme: light dark; --bg: #ffffff; --text: #1f2328; --muted: #59636e; --accent: #2f63d8; --border: #d0d7de; --code: #f3f5f8; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #16191f; --text: #e6e9ef; --muted: #9aa4b2; --accent: #7aa7ff; --border: #343a46; --code: #222731; } }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.65 "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; }
+  .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 20px 24px; }
+  main { min-width: 0; max-width: 860px; padding: 8px 0 60px; }
+  nav.toc { position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); overflow: auto; font-size: 14px; padding: 8px 8px 8px 0; border-right: 1px solid var(--border); }
+  nav.toc .toc-title { font-weight: 700; color: var(--muted); font-size: 12px; letter-spacing: .04em; margin: 0 0 8px 10px; }
+  nav.toc ul { list-style: none; margin: 0; padding: 0; }
+  nav.toc li a { display: block; padding: 3px 10px; border-left: 2px solid transparent; color: var(--text); text-decoration: none; border-radius: 0 6px 6px 0; }
+  nav.toc li a:hover { background: var(--code); }
+  nav.toc li a.active { border-left-color: var(--accent); color: var(--accent); font-weight: 600; }
+  nav.toc li.h3 a { padding-left: 24px; color: var(--muted); font-size: 13px; }
+  @media (max-width: 760px) { .layout { grid-template-columns: 1fr; padding: 12px; } nav.toc { position: static; max-height: none; border: 1px solid var(--border); border-radius: 10px; } }
+  @media print { nav.toc { display: none; } .layout { display: block; } }
+  h1 { font-size: 1.9em; margin: 0 0 18px; }
+  h2 { font-size: 1.45em; margin: 34px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.15em; margin: 26px 0 8px; color: var(--accent); }
+  p, li { color: var(--text); }
+  code { padding: 1px 6px; border-radius: 5px; background: var(--code); font-family: Consolas, "D2Coding", monospace; font-size: 0.92em; }
+  table { border-collapse: collapse; margin: 10px 0 18px; }
+  th, td { border: 1px solid var(--border); padding: 5px 12px; text-align: left; }
+  th { background: var(--code); }
+  .step { margin: 0 0 14px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; }
+  .step b { color: var(--accent); }
+  .muted { color: var(--muted); }
+  figure { margin: 14px 0 22px; }
+  figure img { display: block; max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12); }
+  figcaption { margin-top: 6px; color: var(--muted); font-size: 13px; text-align: center; }
+</style>
+</head>
+<body><div class="layout">
+<nav class="toc" aria-label="목차"><p class="toc-title">목차</p><ul><li class="h3"><a href="#myagents란">MyAgents란</a></li><li class="h3"><a href="#화면-구성">화면 구성</a></li><li class="h3"><a href="#시작-화면">시작 화면</a></li><li class="h3"><a href="#캔버스-조작">캔버스 조작</a></li><li class="h3"><a href="#노드-종류">노드 종류</a></li><li class="h3"><a href="#입력-소스와-출력-형식">입력 소스와 출력 형식</a></li><li class="h3"><a href="#표현식">표현식</a></li><li class="h3"><a href="#실행과-결과-보기">실행과 결과 보기</a></li><li class="h3"><a href="#사람-승인">사람 승인</a></li><li class="h3"><a href="#채팅-시험">채팅 시험</a></li><li class="h3"><a href="#웹훅과-일정-배포">웹훅과 일정 (배포)</a></li><li class="h3"><a href="#지식-베이스-rag">지식 베이스 (RAG)</a></li><li class="h3"><a href="#모델-키">모델 · 키</a></li><li class="h3"><a href="#실행-결과-창-인쇄">실행 결과 창 · 인쇄</a></li><li class="h3"><a href="#튜토리얼">튜토리얼</a></li><li class="h3"><a href="#설명으로-만들기">설명으로 만들기</a></li><li class="h3"><a href="#파일">파일</a></li><li class="h3"><a href="#웹-서버로-쓰기">웹 서버로 쓰기</a></li><li class="h3"><a href="#단축키">단축키</a></li></ul></nav>
+<main>
+<h1>MyAgents — 사용 설명서</h1>
+<h3 id="myagents란">MyAgents란</h3>
+<p>MyAgents는 AI 에이전트와 자동화를 <b>노드를 끌어다 놓아</b> 만드는 프로그램입니다. 트리거, AI, 도구, 조건, 반복, 사람 승인을 노드로 놓고 선으로 이으면 워크플로가 됩니다. 실행하면 캔버스에서 어느 노드가 돌고 있는지, 데이터가 어느 선을 따라 흐르는지, 몇 번 반복했는지, 어디서 실패했는지 바로 보입니다.</p>
+<ul>
+<li><b>개발자</b>: 코드(JavaScript) 노드, HTTP 요청, 웹훅, JSON 표현식, 명령 실행, 노드별 입출력 JSON, 출력 고정(pin)</li>
+<li><b>사무직</b>: 16가지 템플릿, &quot;설명으로 만들기&quot;(하고 싶은 일을 글로 쓰면 초안 생성), 승인 단계, 채팅 시험</li>
+</ul>
+<p>키가 없어도 <b>오프라인 시험 모델</b>로 모든 템플릿이 돌아갑니다. 실제 모델은 &quot;모델 · 키&quot; 화면에서 연결합니다.</p>
+<h3 id="화면-구성">화면 구성</h3>
+<figure><img src="images/editor-ko.png" alt="편집기: 왼쪽 에이전트·노드 팔레트, 가운데 캔버스, 오른쪽 속성, 아래 실행 결과" loading="lazy" /><figcaption>편집기: 왼쪽 에이전트·노드 팔레트, 가운데 캔버스, 오른쪽 속성, 아래 실행 결과</figcaption></figure>
+<table><thead><tr><th>위치</th><th>내용</th></tr></thead><tbody><tr><td>메뉴 · 툴바</td><td>파일, 편집, 실행, 보기, 도움말. 툴바의 실행(▶), 채팅 시험, 배포</td></tr><tr><td>왼쪽 위</td><td>내 에이전트 목록 (검색, 우클릭 메뉴)</td></tr><tr><td>왼쪽 아래</td><td>노드 팔레트: 끌어다 놓거나 누르면 선택한 노드 뒤에 붙습니다. 위의 &quot;전체 열기 / 전체 닫기&quot;로 그룹을 한 번에 펼치고 접습니다</td></tr><tr><td>가운데</td><td>캔버스 (편집기) · 실행 기록 · 지식 베이스 · 모델 · 키</td></tr><tr><td>오른쪽</td><td>노드 탭(선택한 노드의 설정, 아무것도 선택하지 않으면 에이전트 설정) · 채팅 탭</td></tr><tr><td>아래</td><td>실행(단계별 시간 막대, 입력·출력·로그, 승인 카드) · 기록 · 문제 · 메시지 · 정보</td></tr></tbody></table>
+<p>패널 머리의 오른쪽 끝 단추(툴바와 같은 아이콘)로 패널을 접습니다. 접힌 패널은 아이콘과 제목만 보이는 좁은 띠가 되고, 띠를 누르면 다시 펼쳐집니다.</p>
+<h3 id="시작-화면">시작 화면</h3>
+<figure><img src="images/start-ko.png" alt="시작 화면 (세로 배치): 프로그램 정보, 할 일, 최근 기록, 내 에이전트, 템플릿" loading="lazy" /><figcaption>시작 화면 (세로 배치): 프로그램 정보, 할 일, 최근 기록, 내 에이전트, 템플릿</figcaption></figure>
+<p>시작 화면은 <b>세로 배치</b>(카드 한 줄에 하나)가 기본입니다. 오른쪽 위에서 &quot;격자 배치&quot;로 바꿀 수 있습니다. 카드는 손잡이로 옮기고 오른쪽 아래 모서리로 크기를 바꿉니다. 맨 위 프로그램 정보(아이콘 · 이름 · 설명 · 단추)는 움직이지 않습니다.</p>
+<ul>
+<li><b>최근 기록</b>: 최근에 연 에이전트. 줄 끝의 ✕ 는 기록에서만 지우고(에이전트는 남음), &quot;전체 지우기&quot;는 기록을 비웁니다.</li>
+<li><b>내 에이전트</b>: 줄 끝의 휴지통은 그 에이전트를 삭제하고, &quot;전체 삭제&quot;는 확인 후 모든 에이전트를 지웁니다(실행 기록은 남음).</li>
+</ul>
+<h3 id="캔버스-조작">캔버스 조작</h3>
+<ul>
+<li><b>노드 추가</b>: 팔레트에서 끌어다 놓기, 팔레트 항목 누르기, 캔버스 더블클릭, 툴바 &quot;+&quot;, 키 <code>A</code></li>
+<li><b>연결</b>: 노드 오른쪽의 출력 포트(●)에서 다른 노드로 끌기. 빈 곳에 놓으면 이어 붙일 노드를 고르는 메뉴가 뜹니다</li>
+<li><b>도구 연결</b>: AI 에이전트 아래의 &quot;도구&quot; 포트(◆)에서 노드로 선을 그으면 그 노드(와 그 뒤의 흐름)가 에이전트의 도구가 됩니다. 다른 AI 에이전트를 이으면 다중 에이전트가 됩니다</li>
+<li><b>이동 · 선택</b>: 노드 끌기, 빈 곳 끌기 = 화면 이동, Shift/Ctrl+끌기 = 상자 선택, 휠 = 확대/축소</li>
+<li><b>편집</b>: <code>Delete</code> 삭제, <code>Ctrl+C</code>/<code>Ctrl+V</code> 복사·붙여넣기, <code>Ctrl+D</code> 복제, 화살표 = 미세 이동, <code>Ctrl+Z</code>/<code>Ctrl+Y</code> 되돌리기</li>
+<li><b>정리</b>: &quot;자동 정렬&quot;(Ctrl+Shift+A)은 캔버스 모양에 맞춰 긴 흐름을 여러 줄로 나눠 배치합니다. &quot;화면에 맞추기&quot;(F)는 전체가 보이게 가로·세로 가운데로 맞춥니다. 미니맵을 눌러도 이동합니다</li>
+<li><b>격자와 눈금자</b>: 바탕의 옅은 5 × 5 격자는 위·왼쪽 눈금자와 같은 간격이며, 확대·축소하면 너무 촘촘하거나 성글어지기 전에 5배 간격으로 다시 그려집니다. 마우스 위치는 눈금자에 붉은 선으로 표시됩니다</li>
+</ul>
+<h3 id="노드-종류">노드 종류</h3>
+<table><thead><tr><th>분류</th><th>노드</th></tr></thead><tbody><tr><td>트리거</td><td>수동 실행(시험 입력 JSON), 채팅 메시지, 웹훅, 일정(분 간격·매일·매주·cron), 입력 양식(실행할 때 칸을 채움), 폴더 감시(새 파일), 다른 에이전트가 끝나면</td></tr><tr><td>AI</td><td>AI 에이전트(도구·기억·최대 단계), LLM 호출(JSON 답 가능), 분류(범주마다 포트), 정보 추출, 요약, 번역, 감정 분류, 그림 분석, 다시 쓰기, 핵심어 뽑기, 문서에 묻기</td></tr><tr><td>지식</td><td>지식 검색(RAG), 지식 추가, 글 조각내기, 지식으로 답하기(근거 포함)</td></tr><tr><td>흐름 제어</td><td>조건 분기, 값으로 분기, 반복(각 항목), 합치기, 변수 설정, 텍스트 템플릿, 코드(JavaScript), 기다리기, 중지, 카운터, A/B 나누기, 품질 검사, 묶음 나누기</td></tr><tr><td>데이터 변환</td><td>CSV, 목록 거르기·정렬·집계·나누기·정규식·중복 제거, 형식 바꾸기, 표 만들기, 열 계산, 열 고르기, 평평하게</td></tr><tr><td>개발 도구</td><td>테스트 실행, 프로젝트 읽기, git, SQLite, 차이 비교, 코드 검사(lint), 빌드</td></tr><tr><td>도구·데이터</td><td>HTTP 요청, 웹 페이지 읽기, 다른 에이전트 호출, 파일 읽기·쓰기, 명령 실행, JSON 변환, 날짜·시간, 팀 채팅 알림, 읽기(입력 소스), 저장(출력 대상), RSS·뉴스 피드</td></tr><tr><td>사람 참여</td><td>승인 요청, 사람에게 묻기, 알림</td></tr><tr><td>출력</td><td>응답 (실행 결과 · 채팅 답 · 웹훅 응답)</td></tr><tr><td>메모</td><td>캔버스 위의 메모 (실행되지 않음)</td></tr></tbody></table>
+<p>모든 실행 노드에는 <b>재시도 횟수, 재시도 간격, 제한 시간, 오류 처리</b>(실행 중지 / 오류를 출력으로 계속 / 오류 포트로 보내기)가 있습니다.</p>
+<h3 id="입력-소스와-출력-형식">입력 소스와 출력 형식</h3>
+<p><b>읽기(입력 소스)</b> 노드는 작업 폴더의 파일, URL, 직접 쓴 글, 앞 단계의 값에서 읽어 형식대로 풉니다. <b>저장(출력 대상)</b> 노드는 값을 고른 형식으로 파일에 쓰거나(확장자 자동) 다음 단계로만 넘깁니다(data: URL).</p>
+<table><thead><tr><th>형식</th><th>읽기 결과</th><th>쓰기</th></tr></thead><tbody><tr><td>텍스트 · Markdown</td><td><code>text</code> (Markdown은 <code>headings</code>, <code>html</code> 도)</td><td>그대로</td></tr><tr><td>HTML</td><td><code>text</code>, <code>markdown</code>, <code>title</code></td><td>Markdown을 꾸민 HTML 문서로</td></tr><tr><td>CSV · JSON · Excel(.xlsx)</td><td><code>items</code>(행 목록), <code>columns</code>, <code>count</code></td><td>행 목록을 표로</td></tr><tr><td>PDF</td><td><code>text</code>, <code>pages</code></td><td>Markdown을 A4 문서로 (한글 포함, 제목·목록·쪽 번호)</td></tr><tr><td>Word(.docx)</td><td><code>text</code>, <code>markdown</code>(제목·목록)</td><td>제목·목록·굵게를 살린 문서</td></tr><tr><td>그림(png·jpg·gif·webp·bmp·svg)</td><td><code>width</code>, <code>height</code>, <code>dataUrl</code></td><td>그림 그대로, 글이면 SVG 카드</td></tr></tbody></table>
+<p>그림은 <b>그림 분석</b> 노드로 모델에게 보여 줄 수 있습니다(Claude, OpenAI, Gemini, Ollama의 비전 모델, Cursor).</p>
+<figure><img src="images/io-ko.png" alt="읽기 → 요약 → PDF로 저장: 저장 노드에서 형식과 파일 경로를 고릅니다" loading="lazy" /><figcaption>읽기 → 요약 → PDF로 저장: 저장 노드에서 형식과 파일 경로를 고릅니다</figcaption></figure>
+<h3 id="표현식">표현식</h3>
+<p>설정 칸에 <code>{{ … }}</code>를 쓰면 앞 단계의 값을 넣습니다.</p>
+<table><thead><tr><th>이름</th><th>뜻</th></tr></thead><tbody><tr><td><code>input</code></td><td>바로 앞 노드의 출력 (LLM·에이전트는 <code>input.text</code>)</td></tr><tr><td><code>trigger</code></td><td>트리거가 받은 값 (채팅: <code>trigger.message</code>, 웹훅: <code>trigger.body</code>, <code>trigger.query</code>)</td></tr><tr><td><code>nodes.&lt;노드 이름&gt;.output</code></td><td>이름으로 다른 노드의 출력</td></tr><tr><td><code>vars.&lt;이름&gt;</code></td><td>변수 (에이전트 설정의 변수, 변수 설정 노드)</td></tr><tr><td><code>item</code>, <code>index</code></td><td>반복 안에서 지금 항목과 순번</td></tr></tbody></table>
+<p>필터: <code>| upper</code>, <code>| lower</code>, <code>| trim</code>, <code>| json</code>, <code>| length</code>, <code>| join:&quot;, &quot;</code>, <code>| truncate:100</code>, <code>| default:&quot;없음&quot;</code>, <code>| pluck:&quot;name&quot;</code>, <code>| first</code>, <code>| last</code>, <code>| date</code>, <code>| parse</code> 등. <code>a || b</code>는 앞이 비면 뒤를 씁니다. 한 번 실행하면 각 칸 아래에 <b>실제 값으로 계산한 미리보기</b>가 나옵니다. <code>{}</code> 버튼은 쓸 수 있는 변수 목록을 보여 줍니다.</p>
+<h3 id="실행과-결과-보기">실행과 결과 보기</h3>
+<ul>
+<li><b>실행</b>(Ctrl+Enter): 수동 트리거의 시험 입력으로 실행합니다. 웹훅 트리거면 요청 본문을 물어봅니다. 저장하지 않은 변경도 그대로 실행됩니다(기록에 &quot;저장 전&quot; 표시)</li>
+<li><b>실행 중</b>: 돌고 있는 노드는 파랗게 빛나고, 끝난 노드는 초록(성공) 또는 빨강(실패), 기다리는 노드는 주황입니다. 데이터는 선을 따라 점으로 흐르고, 반복한 노드에는 <code>×N</code>, 포트에는 지나간 횟수가 붙습니다. 에이전트가 도구를 부르면 노드 위에 도구 이름이 보입니다</li>
+<li><b>아래 &quot;실행&quot; 탭</b>: 단계마다 시간 막대(언제 얼마나 걸렸는지)가 있고, 누르면 그 단계의 입력, 출력, 로그를 봅니다</li>
+<li><b>여기까지 실행</b>: 노드의 설정에서 그 노드와 앞 노드만 실행합니다</li>
+<li><b>출력 고정</b>: 한 번 실행한 노드의 출력을 고정하면 다음 실행부터 그 노드는 실제로 돌지 않고 고정값을 씁니다. API 비용 없이 뒤쪽을 시험할 때 씁니다</li>
+<li><b>기록 탭 / 실행 기록 화면</b>: 지난 실행을 다시 열면 캔버스에 그때의 상태가 그려집니다</li>
+<li><b>중지</b>(Shift+F5)</li>
+</ul>
+<figure><img src="images/result-ko.png" alt="실행이 끝나면 뜨는 결과 창과 아래 실행 탭의 단계별 시간 막대" loading="lazy" /><figcaption>실행이 끝나면 뜨는 결과 창과 아래 실행 탭의 단계별 시간 막대</figcaption></figure>
+<p><b>진행률 탭</b>은 노드의 단계(phase)별 진행, 회차, 테스트 노드의 회차별 통과·실패를 보여 줍니다. <b>코드 탭</b>은 실행이 쓴 파일, 판 수, 바뀐 줄(+/−)을 보여 주고 파일을 고르면 내용과 바뀐 줄을 강조해 보여 줍니다.</p>
+<figure><img src="images/progress-ko.png" alt="진행률 탭: 자율 개발 루프의 8단계, 2회차, 단위·통합·GUI 테스트 결과" loading="lazy" /><figcaption>진행률 탭: 자율 개발 루프의 8단계, 2회차, 단위·통합·GUI 테스트 결과</figcaption></figure>
+<figure><img src="images/code-ko.png" alt="코드 탭: 실행이 쓴 파일과 고친 판에서 바뀐 줄" loading="lazy" /><figcaption>코드 탭: 실행이 쓴 파일과 고친 판에서 바뀐 줄</figcaption></figure>
+<h3 id="사람-승인">사람 승인</h3>
+<p>&quot;승인 요청&quot; 노드에 오면 실행이 멈추고 노드가 주황으로 깜박입니다. 아래 실행 탭의 카드에서 의견을 쓰고 <b>승인</b> 또는 <b>거절</b>을 누르면 그 포트로 이어집니다. 기다릴 시간을 정하면 지나서 거절로 갑니다. &quot;사람에게 묻기&quot;는 양식 칸을 채워 보냅니다.</p>
+<h3 id="채팅-시험">채팅 시험</h3>
+<p>&quot;채팅 메시지&quot; 트리거가 있는 에이전트는 오른쪽 <b>채팅</b> 탭에서 대화로 시험합니다. 답마다 실행이 캔버스에 보이고, 말풍선의 작은 버튼으로 그 실행을 엽니다. AI 에이전트의 &quot;대화 기억&quot;이 켜져 있으면 같은 세션의 앞 대화를 기억합니다. &quot;새 대화&quot;는 새 세션, &quot;기억 지우기&quot;는 이 에이전트의 기억을 모두 지웁니다.</p>
+<h3 id="웹훅과-일정-배포">웹훅과 일정 (배포)</h3>
+<ul>
+<li>저장한 에이전트에 웹훅 트리거가 있으면 에이전트 설정(오른쪽, 아무것도 선택하지 않은 상태)에 <b>웹훅 주소</b>가 나옵니다. 주소에 비밀값이 들어 있어 따로 로그인이 필요 없고, 새로 만들 수 있습니다. 응답 방식은 &quot;끝날 때까지 기다려 결과를 응답&quot; 또는 &quot;바로 202&quot;입니다. 응답 노드의 HTTP 상태도 정할 수 있습니다</li>
+<li><b>배포</b>를 켜면 일정 트리거가 정해진 시각에 실행됩니다(프로그램이 켜져 있는 동안). 배포할 때 오류가 있으면 문제 탭에 보여 주고 배포하지 않습니다</li>
+</ul>
+<h3 id="지식-베이스-rag">지식 베이스 (RAG)</h3>
+<p>&quot;지식 베이스&quot; 화면에서 만들고, 파일(txt, md, html, csv, json, 코드 …)을 추가하거나 글을 붙여넣거나 웹 페이지를 가져옵니다. 문서는 이 컴퓨터에만 저장되며 BM25 키워드 검색으로 찾습니다(외부 임베딩 서비스 불필요, 한국어는 두 글자 조각까지 색인). &quot;검색 시험&quot;으로 에이전트가 무엇을 찾을지 미리 봅니다. 처음 실행하면 샘플 지식 베이스(환불·배송·상담 시간·API)가 만들어집니다.</p>
+<h3 id="모델-키">모델 · 키</h3>
+<table><thead><tr><th>공급자</th><th>설정</th></tr></thead><tbody><tr><td>Anthropic Claude</td><td>API 키 (기본 모델 claude-opus-5-5). 환경 변수 ANTHROPIC_API_KEY 도 읽습니다</td></tr><tr><td>OpenAI</td><td>API 키 (OPENAI_API_KEY)</td></tr><tr><td>Google Gemini</td><td>API 키 (GEMINI_API_KEY)</td></tr><tr><td>Ollama</td><td>로컬 서버 주소 (기본 <code>http://127.0.0.1:11434</code>), 키 없음. 설치·실행 상태와 모델 수가 카드에 보입니다</td></tr><tr><td>Cursor</td><td>Cursor 대시보드의 API 키 (CURSOR_API_KEY). 호출마다 클라우드 에이전트를 실행해 결과 글을 받습니다. 서버 주소 뒤에 <code>#https://github.com/org/repo@branch</code> 를 붙이면 그 저장소에서 일합니다</td></tr><tr><td>OpenAI 호환</td><td>LM Studio, vLLM, Groq, OpenRouter 등 서버 주소와 키</td></tr><tr><td>오프라인 시험 모델</td><td>네트워크·키 없음. 템플릿 시험용</td></tr></tbody></table>
+<p>카드마다 모델을 골라 &quot;시험 호출&quot;로 연결을 확인하고, &quot;모델 목록&quot;으로 쓸 수 있는 모델을 불러오고, &quot;기본 모델로&quot;를 누르면 모델을 비워 둔 노드가 그것을 씁니다. 키는 데이터 폴더의 <code>credentials.json</code>에만 저장되고 화면에는 앞뒤 네 글자만 보입니다. 같은 화면에서 &quot;명령 실행&quot; 노드 허용과 작업 폴더(파일·명령 노드가 쓰는 폴더)를 정합니다.</p>
+<p><b>로컬 Ollama</b>: 설치되어 있지 않거나, 꺼져 있거나, 고른 모델이 없으면 시험 호출이나 실행이 실패할 때 창이 떠서 <b>자동 설치</b>(Windows는 winget 또는 공식 설치 파일, macOS는 Homebrew, Linux는 공식 스크립트) · <b>시작</b> · <b>모델 내려받기</b>를 진행률과 함께 해 줍니다. 처음 불러오는 큰 모델은 몇 분 걸릴 수 있어 시간 제한 없이 기다립니다. 웹 서버에서는 다운로드 페이지만 안내합니다.</p>
+<figure><img src="images/models-ko.png" alt="모델 · 키: 공급자마다 키, 모델 선택, 시험 호출, 로컬 Ollama 상태" loading="lazy" /><figcaption>모델 · 키: 공급자마다 키, 모델 선택, 시험 호출, 로컬 Ollama 상태</figcaption></figure>
+<p>설정 › <b>AI 모델 키</b> 탭에서도 공급자별 키를 추가·변경·삭제하고 기본 모델을 고를 수 있습니다(같은 저장소).</p>
+<figure><img src="images/keys-ko.png" alt="설정 › AI 모델 키" loading="lazy" /><figcaption>설정 › AI 모델 키</figcaption></figure>
+<h3 id="실행-결과-창-인쇄">실행 결과 창 · 인쇄</h3>
+<p>실행이 끝나면 <b>결과 창</b>이 상태, 걸린 시간, 단계 수, 실패한 단계, 토큰, 결과를 보여 줍니다(&quot;결과 복사&quot;, &quot;실행 과정 보기&quot;). 설정 › 편집기 또는 창 아래의 확인란으로 끌 수 있습니다.</p>
+<p><b>인쇄</b>(Ctrl+P)는 별도의 창입니다. 왼쪽에서 프린터와 매수, 용지 크기·방향·여백·배율·색, 머리글·바닥글·쪽 번호, 인쇄할 내용(에이전트 개요, 흐름도, 노드와 설정, 마지막 실행)을 고르면 오른쪽 미리보기가 바로 바뀝니다. 흐름도는 &quot;용지 맞춤&quot;이면 용지 모양에 맞게 다시 배치됩니다. <b>인쇄</b>를 누르면 데스크톱에서는 고른 프린터로 바로 인쇄되고, &quot;PDF로 저장&quot;도 있습니다.</p>
+<figure><img src="images/print-ko.png" alt="인쇄 창: 왼쪽 프린터·용지·내용, 오른쪽 미리보기" loading="lazy" /><figcaption>인쇄 창: 왼쪽 프린터·용지·내용, 오른쪽 미리보기</figcaption></figure>
+<h3 id="튜토리얼">튜토리얼</h3>
+<p>시작 화면이 열릴 때 &quot;튜토리얼을 실행할까요?&quot; 창이 뜹니다. <b>튜토리얼 시작</b>을 누르면 화면의 각 부분(시작 화면, 템플릿, 설명으로 만들기, 팔레트, 캔버스, 속성, 실행, 진행률·코드, 채팅, 모델·키, 인쇄, 도움말)을 차례로 비추며 설명합니다. 이전·다음 단추나 ←/→ 키로 움직이고 Esc 로 끝냅니다. 창 아래의 &quot;시작할 때 이 창 보이기&quot;를 끄거나 설정 › 시작 화면 › &quot;튜토리얼 실행 팝업창 보여주기&quot;를 끄면 다음부터 뜨지 않으며, 도움말 › 튜토리얼로 언제든 다시 볼 수 있습니다.</p>
+<figure><img src="images/tutorial-ko.png" alt="튜토리얼: 캔버스를 비추며 설명하는 단계" loading="lazy" /><figcaption>튜토리얼: 캔버스를 비추며 설명하는 단계</figcaption></figure>
+<h3 id="설명으로-만들기">설명으로 만들기</h3>
+<p>툴바의 <b>설명으로 만들기</b>(Ctrl+Shift+N)에 하고 싶은 일을 쓰면 워크플로 초안을 만듭니다. 실제 모델이 있으면 모델이 노드 목록을 보고 설계하고, 없으면 키워드(매일, 웹훅, 채팅, 승인, 요약, 번역, 분류, 문서, 파일, 알림 …)로 만듭니다.</p>
+<h3 id="파일">파일</h3>
+<p>에이전트는 데이터 폴더의 <code>agents/&lt;id&gt;.json</code>에 저장됩니다. <b>내보내기</b>는 <code>.myagent</code> 파일을 만들고(웹훅 비밀값은 빠짐), <b>가져오기</b>나 끌어다 놓기로 다시 들여옵니다.</p>
+<h3 id="웹-서버로-쓰기">웹 서버로 쓰기</h3>
+<p><code>npm run build:web</code> 후 <code>node server/web.js --port 8080 --password &lt;비밀번호&gt;</code>로 실행하면 브라우저에서 같은 화면을 씁니다. 비밀번호가 없으면 127.0.0.1에서만 받습니다. 웹 서버에서는 &quot;명령 실행&quot; 노드가 늘 꺼집니다.</p>
+<h3 id="단축키">단축키</h3>
+<p>설정 › 단축키에 전체 목록이 있습니다. 자주 쓰는 것: <code>Ctrl+N</code> 새 에이전트, <code>Ctrl+S</code> 저장, <code>Ctrl+Enter</code> 실행, <code>A</code> 노드 추가, <code>F</code> 화면에 맞추기, <code>Ctrl+Shift+C</code> 채팅, <code>F2</code> 이름 바꾸기.</p>
+</main></div>
+<script>
+  // the section being read is marked in the contents
+  const links = [...document.querySelectorAll('nav.toc a')];
+  const mark = () => { let current = null; for (const a of links) { const h = document.getElementById(decodeURIComponent(a.hash.slice(1))); if (h && h.getBoundingClientRect().top < 120) current = a; } links.forEach((a) => a.classList.toggle('active', a === current)); };
+  addEventListener('scroll', mark, { passive: true }); mark();
+</script></body>
+</html>

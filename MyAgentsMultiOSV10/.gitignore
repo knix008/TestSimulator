@@ -1,0 +1,14 @@
+node_modules/
+dist/
+release/
+test-results/
+src-tauri/target/
+src-tauri/gen/
+/MyAgents-*.exe
+/MyAgents-*.msi
+/MyAgents-*.dmg
+/MyAgents-*.deb
+/MyAgents-*.rpm
+/MyAgents-*.AppImage
+*.log
+.vite/

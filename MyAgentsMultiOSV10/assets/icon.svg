@@ -1,0 +1,153 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- MyAgents app icon: a business briefcase whose front carries an agent workflow (three connected nodes
+       with a lit path) and an AI spark, on a deep navy tile — bevel, soft top light, gloss and shadow — and,
+       on the case's top-left corner, two small round badges side by side: a man and a woman in suits with sunglasses.
+       The tile sits in 112…912 both ways; the border is transparent. -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3b5bdb"/>
+      <stop offset="0.55" stop-color="#1e2f8f"/>
+      <stop offset="1" stop-color="#0d1543"/>
+    </linearGradient>
+    <linearGradient id="tileSide" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b1236"/>
+      <stop offset="1" stop-color="#050a22"/>
+    </linearGradient>
+    <linearGradient id="bevel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.8"/>
+      <stop offset="0.4" stop-color="#ffffff" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#000814" stop-opacity="0.6"/>
+    </linearGradient>
+    <radialGradient id="light" cx="0.28" cy="0.12" r="0.75">
+      <stop offset="0" stop-color="#9fb4ff" stop-opacity="0.55"/>
+      <stop offset="0.6" stop-color="#9fb4ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="caseBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.55" stop-color="#e9edf7"/>
+      <stop offset="1" stop-color="#c9d1e6"/>
+    </linearGradient>
+    <linearGradient id="caseEdge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9aa6c4"/>
+      <stop offset="1" stop-color="#5d6a8e"/>
+    </linearGradient>
+    <linearGradient id="handle" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e6ebf7"/>
+      <stop offset="1" stop-color="#aab4cf"/>
+    </linearGradient>
+    <linearGradient id="band" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#d7deef"/>
+      <stop offset="0.5" stop-color="#bfc8de"/>
+      <stop offset="1" stop-color="#d7deef"/>
+    </linearGradient>
+    <linearGradient id="path" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f59f00"/>
+      <stop offset="0.5" stop-color="#4c6ef5"/>
+      <stop offset="1" stop-color="#12b886"/>
+    </linearGradient>
+    <linearGradient id="nodeA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd166"/><stop offset="1" stop-color="#f08c00"/></linearGradient>
+    <linearGradient id="nodeB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8ea6ff"/><stop offset="1" stop-color="#3b5bdb"/></linearGradient>
+    <linearGradient id="nodeC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#63e6be"/><stop offset="1" stop-color="#0ca678"/></linearGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <!-- the agent badge -->
+    <linearGradient id="badgeBg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4c6ef5"/><stop offset="1" stop-color="#1c2a7a"/></linearGradient>
+    <linearGradient id="skin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe0c2"/><stop offset="1" stop-color="#f2b98f"/></linearGradient>
+    <linearGradient id="hair" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3a3f58"/><stop offset="1" stop-color="#14172a"/></linearGradient>
+    <linearGradient id="suit" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a4466"/><stop offset="1" stop-color="#171c33"/></linearGradient>
+    <linearGradient id="lens" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4a5578"/><stop offset="0.45" stop-color="#0b0f1e"/><stop offset="1" stop-color="#1c2340"/></linearGradient>
+    <clipPath id="badgeClip"><circle cx="772" cy="728" r="80"/></clipPath>
+    <linearGradient id="badgeBg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f06595"/><stop offset="1" stop-color="#7a1d4f"/></linearGradient>
+    <linearGradient id="hairW" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6b3d2a"/><stop offset="1" stop-color="#2b160e"/></linearGradient>
+    <linearGradient id="suitW" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5c3d6e"/><stop offset="1" stop-color="#2a1a35"/></linearGradient>
+    <filter id="tileShadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="24" stdDeviation="24" flood-color="#020617" flood-opacity="0.5"/>
+    </filter>
+    <filter id="caseShadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="18" stdDeviation="16" flood-color="#020617" flood-opacity="0.55"/>
+    </filter>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- tile -->
+  <g filter="url(#tileShadow)">
+    <rect x="112" y="134" width="800" height="778" rx="176" fill="url(#tileSide)"/>
+    <rect x="112" y="112" width="800" height="770" rx="176" fill="url(#tile)"/>
+  </g>
+  <rect x="112" y="112" width="800" height="770" rx="176" fill="url(#light)"/>
+  <rect x="117" y="117" width="790" height="760" rx="171" fill="none" stroke="url(#bevel)" stroke-width="9"/>
+  <g stroke="#ffffff" stroke-opacity="0.06" stroke-width="3">
+    <path d="M240 112v770M384 112v770M528 112v770M672 112v770M816 112v770"/>
+    <path d="M112 260h800M112 404h800M112 548h800M112 692h800M112 836h800"/>
+  </g>
+
+  <!-- briefcase -->
+  <g filter="url(#caseShadow)">
+    <path d="M418 330 v-38 a34 34 0 0 1 34 -34 h120 a34 34 0 0 1 34 34 v38" fill="none" stroke="url(#handle)" stroke-width="30" stroke-linecap="round"/>
+    <rect x="236" y="336" width="552" height="398" rx="62" fill="url(#caseEdge)"/>
+    <rect x="236" y="326" width="552" height="394" rx="62" fill="url(#caseBody)"/>
+    <rect x="236" y="442" width="552" height="30" fill="url(#band)" opacity="0.9"/>
+    <rect x="476" y="426" width="72" height="62" rx="14" fill="#1e2f8f"/>
+    <rect x="490" y="440" width="44" height="34" rx="8" fill="#4c6ef5"/>
+  </g>
+
+  <!-- workflow on the front: trigger → agent → result -->
+  <path d="M332 610 C 392 610, 402 560, 470 560 L 556 560 C 622 560, 632 610, 692 610" fill="none" stroke="url(#path)" stroke-width="16" stroke-linecap="round" filter="url(#glow)"/>
+  <circle cx="332" cy="610" r="34" fill="url(#nodeA)" stroke="#ffffff" stroke-width="8"/>
+  <path d="M338 588 L318 614 h16 l-6 22 l22 -30 h-16 z" fill="#ffffff"/>
+  <rect x="470" y="520" width="86" height="80" rx="24" fill="url(#nodeB)" stroke="#ffffff" stroke-width="8"/>
+  <circle cx="496" cy="556" r="8" fill="#ffffff"/><circle cx="530" cy="556" r="8" fill="#ffffff"/>
+  <path d="M497 578 q16 10 32 0" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="692" cy="610" r="34" fill="url(#nodeC)" stroke="#ffffff" stroke-width="8"/>
+  <path d="M676 610 l11 12 l22 -24" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- AI spark -->
+  <g filter="url(#glow)">
+    <path d="M760 214 l16 40 40 16 -40 16 -16 40 -16 -40 -40 -16 40 -16 z" fill="#ffe8a3"/>
+    <path d="M832 330 l7 17 17 7 -17 7 -7 17 -7 -17 -17 -7 17 -7 z" fill="#ffffff" opacity="0.9"/>
+  </g>
+
+  <!-- gloss -->
+  <path d="M176 196 Q512 132 848 196 L848 340 Q512 280 176 380 Z" fill="url(#gloss)" opacity="0.55"/>
+
+  <!-- the agents: a man and a woman in business suits with sunglasses, side by side -->
+  <g transform="translate(262 318) scale(0.5) translate(-772 -728)">
+    <g filter="url(#caseShadow)"><circle cx="772" cy="728" r="92" fill="#ffffff"/><circle cx="772" cy="728" r="80" fill="url(#badgeBg)"/></g>
+    <g clip-path="url(#badgeClip)">
+      
+      <path d="M684 840 C 684 772, 720 748, 772 748 C 824 748, 860 772, 860 840 Z" fill="url(#suit)"/>
+      <path d="M752 750 L772 790 L792 750 Z" fill="#f8f9fc"/><path d="M772 758 L780 770 L776 808 L772 816 L768 808 L764 770 Z" fill="#e03131"/>
+      <rect x="760" y="722" width="24" height="32" rx="10" fill="#e8a87c"/>
+      <ellipse cx="772" cy="690" rx="46" ry="52" fill="url(#skin)"/>
+      <path d="M726 682 C 722 646, 744 628, 774 628 C 804 628, 824 646, 818 684 C 810 664, 794 656, 772 657 C 752 658, 734 664, 726 682 Z" fill="url(#hair)"/>
+      <path d="M728 684 h88" stroke="#05070f" stroke-width="5" stroke-linecap="round"/>
+      <path d="M731 682 h34 a3 3 0 0 1 3 3 v8 c0 12 -8 19 -20 19 c-11 0 -19 -7 -19 -19 v-8 a3 3 0 0 1 2 -3 z" fill="url(#lens)" stroke="#05070f" stroke-width="2"/>
+      <path d="M779 682 h34 a3 3 0 0 1 2 3 v8 c0 12 -8 19 -19 19 c-12 0 -20 -7 -20 -19 v-8 a3 3 0 0 1 3 -3 z" fill="url(#lens)" stroke="#05070f" stroke-width="2"/>
+      <path d="M737 687 l13 0 l-9 11 z" fill="#ffffff" opacity="0.35"/><path d="M785 687 l13 0 l-9 11 z" fill="#ffffff" opacity="0.35"/>
+      <path d="M758 720 q14 9 28 -1" fill="none" stroke="#9c4a2e" stroke-width="4" stroke-linecap="round"/>
+    </g>
+    <circle cx="772" cy="728" r="80" fill="none" stroke="#12b886" stroke-width="7"/>
+  </g>
+  <g transform="translate(358 318) scale(0.5) translate(-772 -728)">
+    <g filter="url(#caseShadow)"><circle cx="772" cy="728" r="92" fill="#ffffff"/><circle cx="772" cy="728" r="80" fill="url(#badgeBg2)"/></g>
+    <g clip-path="url(#badgeClip)">
+      <path d="M716 700 C 704 640, 740 618, 774 618 C 812 618, 842 642, 830 704 C 836 760, 820 800, 812 812 L 736 812 C 724 796, 708 760, 716 700 Z" fill="url(#hairW)"/>
+      <path d="M684 840 C 684 772, 720 748, 772 748 C 824 748, 860 772, 860 840 Z" fill="url(#suitW)"/>
+      <path d="M752 750 L772 784 L792 750 Z" fill="#fff0f6"/><circle cx="772" cy="792" r="5" fill="#f783ac"/>
+      <rect x="760" y="722" width="24" height="32" rx="10" fill="#e8a87c"/>
+      <ellipse cx="772" cy="690" rx="44" ry="50" fill="url(#skin)"/>
+      <path d="M728 690 C 722 646, 746 628, 774 628 C 804 628, 826 648, 818 690 C 806 664, 790 652, 768 654 C 748 656, 736 668, 728 690 Z" fill="url(#hairW)"/>
+      <path d="M728 684 h88" stroke="#05070f" stroke-width="5" stroke-linecap="round"/>
+      <path d="M731 682 h34 a3 3 0 0 1 3 3 v8 c0 12 -8 19 -20 19 c-11 0 -19 -7 -19 -19 v-8 a3 3 0 0 1 2 -3 z" fill="url(#lens)" stroke="#05070f" stroke-width="2"/>
+      <path d="M779 682 h34 a3 3 0 0 1 2 3 v8 c0 12 -8 19 -19 19 c-12 0 -20 -7 -20 -19 v-8 a3 3 0 0 1 3 -3 z" fill="url(#lens)" stroke="#05070f" stroke-width="2"/>
+      <path d="M737 687 l13 0 l-9 11 z" fill="#ffffff" opacity="0.35"/><path d="M785 687 l13 0 l-9 11 z" fill="#ffffff" opacity="0.35"/>
+      <path d="M758 720 q14 9 28 -1" fill="none" stroke="#c2255c" stroke-width="4" stroke-linecap="round"/>
+    </g>
+    <circle cx="772" cy="728" r="80" fill="none" stroke="#f783ac" stroke-width="7"/>
+  </g>
+</svg>

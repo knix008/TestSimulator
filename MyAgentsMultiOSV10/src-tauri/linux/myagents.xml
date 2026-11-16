@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-myagents">
+    <comment>MyAgents Project</comment>
+    <comment xml:lang="ko">MyAgents 프로젝트</comment>
+    <icon name="application-x-myagents"/>
+    <glob pattern="*.myagents"/>
+  </mime-type>
+</mime-info>
