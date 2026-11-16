@@ -96,7 +96,7 @@ describe('local state', () => {
 describe('appInfo', () => {
   it('reports the web runtime', async () => {
     const info = await appInfo();
-    expect(info.version).toBe('1.0.0');
+    expect(info.version).toBe('1.0.2');
     expect(info.platform).toBe('web');
     expect(info).toHaveProperty('arch');
     expect(info).toHaveProperty('chrome');

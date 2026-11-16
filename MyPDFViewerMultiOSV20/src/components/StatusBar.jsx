@@ -65,7 +65,7 @@ function ResizeGrip({ title }) {
       onPointerCancel={stop}
     >
       <svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true">
-        <path d="M12 4 4 12M12 8 8 12M12 12l0 0" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" fill="none" />
+        {/* Six dots in a triangle, as on the start-screen cards. */}<circle cx="11" cy="11" r="1.3" fill="currentColor" /><circle cx="7" cy="11" r="1.3" fill="currentColor" /><circle cx="11" cy="7" r="1.3" fill="currentColor" /><circle cx="3" cy="11" r="1.3" fill="currentColor" /><circle cx="7" cy="7" r="1.3" fill="currentColor" /><circle cx="11" cy="3" r="1.3" fill="currentColor" />
       </svg>
     </span>
   );

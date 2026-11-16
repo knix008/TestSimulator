@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  IconStar, IconClose, IconPdf, IconTiles, IconDetails, IconGallery, IconSearch, IconLibrary,
+  IconStar, IconClose, IconPdf, IconTiles, IconDetails, IconGallery, IconSearch, IconLibrary, IconTrash,
 } from './Icons.jsx';
 import {
   sortGallery, filterGallery, isCurrent, favoritesOf, TILE_MIN, TILE_MAX, GALLERY_SORTS,
@@ -62,7 +62,7 @@ export function fmtDate(ts, lang) {
 // sortable table (details). Entries come only from opening a file.
 export default function Gallery({
   entries = [], currentPath = '', view = 'tiles', tileSize = 168,
-  onView, onTileSize, onOpen, onRemove, onFavorite, onNeedThumb, onClose, onCardMenu, onShowLibrary,
+  onView, onTileSize, onOpen, onRemove, onRemoveAll, onFavorite, onNeedThumb, onClose, onCardMenu, onShowLibrary,
 }) {
   const { t, i18n } = useTranslation();
   const [only, setOnly] = useState('all');
@@ -190,12 +190,24 @@ export default function Gallery({
           </button>
         </div>
 
+        {onRemoveAll ? (
+          <button
+            type="button"
+            className="btn gal-remove-all"
+            onClick={() => onRemoveAll(entries)}
+            disabled={!entries.some((e) => !e.favorite)}
+            title={t('gallery.removeAllTip')}
+            data-gallery-remove-all
+          >
+            <IconTrash size={15} /> {t('gallery.removeAll')}
+          </button>
+        ) : null}
         {onShowLibrary ? (
           <button type="button" className="btn icon-only" onClick={onShowLibrary} title={t('library.open')} aria-label={t('library.open')}>
             <IconLibrary size={15} />
           </button>
         ) : null}
-        <button type="button" className="btn icon-only" onClick={onClose} title={t('gallery.close')} aria-label={t('gallery.close')}>
+        <button type="button" className="btn icon-only close-x" onClick={onClose} title={t('gallery.close')} aria-label={t('gallery.close')}>
           <IconClose size={15} />
         </button>
       </header>

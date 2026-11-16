@@ -122,23 +122,25 @@
     </ul>
 
     <h2 id="start">2. Start screen</h2>
-    <p>The start screen appears when the program starts; the <b>Home</b> button at the left of the toolbar brings it back at any time. It uses the whole window, left panel included.</p>
-    <figure><img src="images/start.png" alt="Start screen"><figcaption>Start screen — the title card, then Get started · My library · Start-screen background</figcaption></figure>
+    <p>The start screen appears when the program starts; the <b>Home</b> button right after the version in the title bar brings it back (and hides it) at any time. It uses the whole window, left panel included.</p>
+    <figure><img src="images/start.png" alt="Start screen"><figcaption>Start screen — under the fixed title card the cards stand one under another</figcaption></figure>
     <ul>
-      <li><b>Title card</b> — name and version, <b>[Program guide]</b> (opens this guide in a new window) and <b>[Open the library]</b>.</li>
-      <li><b>Get started</b> — Open, Open URL, Opened files, and your <b>recently opened files</b> with an ✕ to forget each.</li>
+      <li><b>Top right</b> — <b>Show this screen at startup</b> (untick it to start with an empty window), <b>Settings</b> and <b>Auto arrange</b> (puts the cards back as at first).</li>
+      <li><b>Title card</b> — name and version, <b>[Program guide]</b> (opens this guide in a new window) and <b>[Open the library]</b>. It stays on top.</li>
+      <li><b>Moving and resizing cards</b> — drag the <b>✥ handle</b> left of a card's title to move it and the <b>dotted triangle</b> in its corner to resize it (double-click fits it to its content). The arrangement is remembered.</li>
+      <li><b>Get started</b> — Open, Open URL, Opened files.</li>
+      <li><b>Recently opened</b> — ✕ forgets one file, <b>[Clear all]</b> all of them.</li>
       <li><b>My library</b> — your library on a shelf; a book opens its document.</li>
       <li><b>Start-screen background</b> — choose and tune the moving background (below).</li>
-      <li>Untick <b>Show this screen at startup</b> to start with an empty window.</li>
     </ul>
     <h3>Start-screen background</h3>
-    <div class="grid2">
-      <figure class="narrow"><img src="images/start-background.png" alt="Background picker"><figcaption>21 backgrounds, random, opacity, speed, automatic changes</figcaption></figure>
+    <figure><img src="images/start-background.png" alt="Background picker"><figcaption>21 backgrounds, random, opacity and speed on one line (− slider +), automatic changes</figcaption></figure>
+    <div>
       <div>
         <p>Books · Pages · Stars · Letters · Planes · Tunnel · Waves · Galaxy · Cubes · Helix · Knot · Sphere · Bubbles · Snow · Fireflies · Starmap · Aurora · Hexes · Orbits · Hills · Ink — 21 3D scenes about reading, books and paper. Hover a button for a description.</p>
         <ul>
           <li><b>Random background</b> picks any other one.</li>
-          <li><b>Opacity</b> 10 %–100 %, <b>motion speed</b> 10 %–300 %.</li>
+          <li><b>Opacity</b> 10 %–100 % and <b>motion speed</b> 10 %–300 %, on one line; the <b>− / +</b> beside each slider step by 5 % and 10 %.</li>
           <li><b>Change automatically</b> every 15 s to 5 min, in order or in <b>random order</b>.</li>
         </ul>
         <p>The same controls are in <b>Settings → Start screen</b>. Colours follow the current theme.</p>
@@ -155,7 +157,7 @@
     <figure><img src="images/viewer.png" alt="Viewer"><figcaption>A document open — toolbar, left panel (thumbnails) and the page</figcaption></figure>
 
     <h2 id="view">4. Fit and zoom</h2>
-    <figure><img src="images/toolbar.png" alt="Toolbar"><figcaption>The toolbar — Home, File, undo, tools, copy, pages, layout, zoom, view fit, rotate; on the right Opened files, Library, sidebar, theme, language, Help, Settings</figcaption></figure>
+    <figure><img src="images/toolbar.png" alt="Toolbar"><figcaption>Title bar and toolbar — the title bar has the version and Home, and the left / right panel folds on the right. The toolbar: File, Print, undo, tools, copy, pages, layout, zoom, view fit, rotate; on the right Opened files, Library, theme, language, Help, Settings, About. Every icon has its own colour</figcaption></figure>
     <table>
       <tr><th>Button</th><th>What you see</th></tr>
       <tr><td>Fit window</td><td>The whole page inside the window — every document opens this way.</td></tr>
@@ -215,19 +217,33 @@
     <h2 id="menus">11. Right-click menus</h2>
     <div class="grid2">
       <figure class="narrow"><img src="images/context-menu.png" alt="Right-click menu"><figcaption>Right-click on a page</figcaption></figure>
-      <p>Pages, every left-panel entry and every Opened files or library card have a menu, each item with an icon: copy, highlight, add to library, show in folder, copy path, delete and more.</p>
+      <p>Pages, every left-panel entry and every Opened files or library card have a menu, each item with an icon: copy, highlight, add to library, show in folder, copy path, delete and more. The page menu ends with <b>Print</b>.</p>
     </div>
 
     <h2 id="print">12. Printing</h2>
-    <figure><img src="images/print.png" alt="Print dialog"><figcaption>Range, printer, copies, orientation and preview</figcaption></figure>
+    <p>The toolbar's <b>Print</b> button, right-click → <b>Print</b> or <kbd>Ctrl</kbd>+<kbd>P</kbd> opens the <b>print window</b> — a window of its own that you can drag anywhere, with a fixed size and no scroll bars.</p>
+    <figure><img src="images/print.png" alt="Print window"><figcaption>Settings on the left, a large preview on the right — the sheet exactly as it will print</figcaption></figure>
     <ul>
-      <li>All · current page · custom range (<code>1-5, 8, 11-13</code>).</li>
-      <li>Pick the printer, copies and orientation and press <b>[Print]</b> — it prints at once. The printer and orientation are remembered.</li>
-      <li>Use <b>[System print dialog…]</b> for paper, duplex and other settings.</li>
+      <li><b>Printer · copies (− / +) · colour</b> (colour or black and white).</li>
+      <li><b>Range</b> — all · current page · custom (<code>1-5, 8, 11-13</code>); <b>Pages</b> — all · odd only · even only.</li>
+      <li><b>Page setup</b> — paper (A4 · A3 · A5 · B5 · Letter · Legal), orientation (automatic · portrait · landscape), margins (none · narrow · normal · wide),
+        <b>1 · 2 · 4 · 6 · 9 pages per sheet</b>, scale (fit to paper · actual size · custom %).</li>
+      <li>Above the preview: the <b>chosen printer</b> and <b>paper · orientation</b>; below it the <b>sheet buttons</b>.</li>
+      <li><b>[Print]</b> prints at once, exactly as previewed — no system print dialog. Your choices are kept for next time.</li>
     </ul>
+    <div class="grid2">
+      <figure><img src="images/print-magnifier.png" alt="Magnifier"><figcaption>Point at the preview for a magnifier that makes the text readable</figcaption></figure>
+      <figure><img src="images/print-2up.png" alt="Two pages per sheet"><figcaption>Two pages per sheet — side by side on landscape paper when the orientation is automatic</figcaption></figure>
+    </div>
 
     <h2 id="settings">13. Settings</h2>
     <figure><img src="images/settings-start.png" alt="Settings — start screen"><figcaption>Settings → Start screen</figcaption></figure>
+    <ul>
+      <li><b>Appearance</b> — language, font and size.</li>
+      <li><b>Theme</b> — the 40 themes and, on the right, <b>custom themes</b>: press [Add] and choose a name, dark or light, and background, panel, text and accent colours.
+        <b>[Custom themes…]</b> at the top of the toolbar's theme list opens this tab directly.</li>
+      <li><b>Viewer</b>, <b>Start screen</b>, <b>Copying</b>, <b>Files</b> — as their names say.</li>
+    </ul>
 
     <h2 id="keys">14. Shortcuts</h2>
     <table>

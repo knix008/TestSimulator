@@ -1,6 +1,6 @@
 [package]
 name = "mypdfviewer"
-version = "1.0.0"
+version = "1.0.2"
 description = "Cross-platform PDF viewer: read PDFs, highlight them and copy their text and images"
 authors = ["SHKWON <knix008@naver.com>"]
 license = "MIT"
@@ -36,6 +36,7 @@ windows = { version = "0.62", features = [
   "Win32_Graphics_Gdi",
   "Win32_Graphics_Printing",
   "Win32_Storage_Xps",
+  "Win32_UI_WindowsAndMessaging",
 ] }
 
 [dev-dependencies]

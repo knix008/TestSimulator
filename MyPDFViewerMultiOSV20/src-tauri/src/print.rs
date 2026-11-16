@@ -2,7 +2,11 @@
 // second, system print window. The renderer sends the selected pages as JPEGs
 // (drawn by pdf.js); each becomes one sheet, scaled to fit the printable area
 // and centred.
-//   Windows:       GDI — a printer DC with the chosen orientation, one page per image
+//   Windows:       GDI — a printer DC with the chosen paper and orientation, one sheet per image
+//
+// Each image is a whole sheet as the print dialog's preview shows it: the
+// renderer has already laid out the paper, margins, scale and pages per sheet
+// (src/lib/print-layout.js), so here it only has to cover the physical paper.
 //   macOS / Linux: CUPS `lp` with the same files
 use serde::Serialize;
 
@@ -22,6 +26,43 @@ pub struct Job {
   pub copies: u32,
   pub landscape: bool,
   pub title: String,
+  /// "a4", "letter", … ("" = the printer's own paper).
+  pub paper: String,
+}
+
+/// The Windows DMPAPER_* code for a paper name.
+pub fn paper_code(name: &str) -> Option<i16> {
+  Some(match name {
+    "letter" => 1,
+    "legal" => 5,
+    "a3" => 8,
+    "a4" => 9,
+    "a5" => 11,
+    "b5" => 13,
+    _ => return None,
+  })
+}
+
+/// The CUPS media name for a paper name.
+#[cfg_attr(windows, allow(dead_code))]
+pub fn paper_media(name: &str) -> Option<&'static str> {
+  Some(match name {
+    "letter" => "Letter",
+    "legal" => "Legal",
+    "a3" => "A3",
+    "a4" => "A4",
+    "a5" => "A5",
+    "b5" => "JIS-B5",
+    _ => return None,
+  })
+}
+
+/// Where a sheet image goes on the printer's device surface: it covers the
+/// physical paper (aspect kept, centred), and the device origin sits at the
+/// printable area's corner, `off` from the paper's.
+pub fn sheet_rect(iw: u32, ih: u32, phys: (i32, i32), off: (i32, i32)) -> (i32, i32, i32, i32) {
+  let (x, y, w, h) = fit_rect(iw, ih, phys.0, phys.1);
+  (x - off.0, y - off.1, w, h)
 }
 
 /// The frame the renderer sends: u32 LE page count, a u32 LE length per page,
@@ -70,12 +111,13 @@ pub fn clamp_copies(n: u32) -> u32 {
 // ── Windows ─────────────────────────────────────────────────
 #[cfg(windows)]
 mod platform {
-  use super::{fit_rect, Job, Printers, CANCELLED};
+  use super::{paper_code, sheet_rect, Job, Printers, CANCELLED};
   use windows::core::{HSTRING, PCWSTR, PWSTR};
   use windows::Win32::Foundation::{GetLastError, ERROR_CANCELLED};
   use windows::Win32::Graphics::Gdi::{
     CreateDCW, DeleteDC, GetDeviceCaps, SetBrushOrgEx, SetStretchBltMode, StretchDIBits, BITMAPINFO,
-    BITMAPINFOHEADER, BI_RGB, DEVMODEW, DIB_RGB_COLORS, DM_ORIENTATION, HALFTONE, HORZRES, SRCCOPY, VERTRES,
+    BITMAPINFOHEADER, BI_RGB, DEVMODEW, DIB_RGB_COLORS, DM_ORIENTATION, DM_PAPERSIZE, HALFTONE, PHYSICALHEIGHT,
+    PHYSICALOFFSETX, PHYSICALOFFSETY, PHYSICALWIDTH, SRCCOPY,
   };
   use windows::Win32::Graphics::Printing::{
     ClosePrinter, DocumentPropertiesW, EnumPrintersW, GetDefaultPrinterW, OpenPrinterW, PRINTER_ENUM_CONNECTIONS,
@@ -118,8 +160,8 @@ mod platform {
     out
   }
 
-  /// The printer's own settings with our orientation laid over them.
-  unsafe fn devmode(name: &HSTRING, landscape: bool) -> Option<Vec<u8>> {
+  /// The printer's own settings with our paper and orientation laid over them.
+  unsafe fn devmode(name: &HSTRING, landscape: bool, paper: Option<i16>) -> Option<Vec<u8>> {
     let mut h = PRINTER_HANDLE::default();
     OpenPrinterW(name, &mut h, None).ok()?;
     let size = DocumentPropertiesW(None, h, name, None, None, 0);
@@ -129,6 +171,10 @@ mod platform {
       if DocumentPropertiesW(None, h, name, Some(dm), None, DM_OUT_BUFFER) >= 0 {
         (*dm).Anonymous1.Anonymous1.dmOrientation = if landscape { 2 } else { 1 };
         (*dm).dmFields |= DM_ORIENTATION;
+        if let Some(code) = paper {
+          (*dm).Anonymous1.Anonymous1.dmPaperSize = code;
+          (*dm).dmFields |= DM_PAPERSIZE;
+        }
         let _ = DocumentPropertiesW(None, h, name, Some(dm), Some(dm), DM_IN_BUFFER | DM_OUT_BUFFER);
         Some(buf)
       } else {
@@ -144,7 +190,7 @@ mod platform {
   pub fn print(job: &Job, pages: &[image::RgbImage]) -> Result<(), String> {
     unsafe {
       let name = HSTRING::from(job.printer.as_str());
-      let dm = devmode(&name, job.landscape);
+      let dm = devmode(&name, job.landscape, paper_code(&job.paper));
       let dm_ptr = dm.as_ref().map(|b| b.as_ptr() as *const DEVMODEW);
       let hdc = CreateDCW(PCWSTR::null(), &name, PCWSTR::null(), dm_ptr);
       if hdc.is_invalid() {
@@ -163,8 +209,8 @@ mod platform {
           }
           return Err(format!("The printer \"{}\" did not accept the job.", job.printer));
         }
-        let pw = GetDeviceCaps(Some(hdc), HORZRES);
-        let ph = GetDeviceCaps(Some(hdc), VERTRES);
+        let phys = (GetDeviceCaps(Some(hdc), PHYSICALWIDTH), GetDeviceCaps(Some(hdc), PHYSICALHEIGHT));
+        let off = (GetDeviceCaps(Some(hdc), PHYSICALOFFSETX), GetDeviceCaps(Some(hdc), PHYSICALOFFSETY));
         // Copies are printed as whole sets (collated); not every driver honours dmCopies.
         for _ in 0..job.copies {
           for img in pages {
@@ -172,7 +218,7 @@ mod platform {
               let _ = EndDoc(hdc);
               return Err("The printer stopped accepting pages.".into());
             }
-            draw(hdc, img, pw, ph);
+            draw(hdc, img, phys, off);
             EndPage(hdc);
           }
         }
@@ -184,7 +230,7 @@ mod platform {
     }
   }
 
-  unsafe fn draw(hdc: windows::Win32::Graphics::Gdi::HDC, img: &image::RgbImage, pw: i32, ph: i32) {
+  unsafe fn draw(hdc: windows::Win32::Graphics::Gdi::HDC, img: &image::RgbImage, phys: (i32, i32), off: (i32, i32)) {
     let (iw, ih) = img.dimensions();
     // 24-bit BGR rows, each padded to 4 bytes, top-down (negative height).
     let stride = ((iw as usize * 3) + 3) & !3;
@@ -209,7 +255,7 @@ mod platform {
       },
       ..Default::default()
     };
-    let (x, y, w, h) = fit_rect(iw, ih, pw, ph);
+    let (x, y, w, h) = sheet_rect(iw, ih, phys, off);
     SetStretchBltMode(hdc, HALFTONE);
     let _ = SetBrushOrgEx(hdc, 0, 0, None);
     StretchDIBits(
@@ -222,7 +268,7 @@ mod platform {
 // ── macOS / Linux (CUPS) ────────────────────────────────────
 #[cfg(not(windows))]
 mod platform {
-  use super::{Job, Printers};
+  use super::{paper_media, Job, Printers};
   use std::process::Command;
 
   pub fn list() -> Printers {
@@ -252,6 +298,9 @@ mod platform {
       .arg("-o").arg("collate=true")
       .arg("-o").arg("fit-to-page")
       .arg("-o").arg(if job.landscape { "orientation-requested=4" } else { "orientation-requested=3" });
+    if let Some(media) = paper_media(&job.paper) {
+      cmd.arg("-o").arg(format!("media={media}"));
+    }
     if !job.title.is_empty() {
       cmd.arg("-t").arg(&job.title);
     }
@@ -329,6 +378,24 @@ mod tests {
     assert_eq!(fit_rect(100, 200, 1000, 1000), (250, 0, 500, 1000));
     assert_eq!(fit_rect(200, 100, 1000, 1000), (0, 250, 1000, 500));
     assert_eq!(fit_rect(0, 10, 50, 50), (0, 0, 50, 50));
+  }
+
+  #[test]
+  fn covers_the_physical_paper() {
+    // An A4-shaped sheet on A4 paper at 600 dpi fills it; the origin is the
+    // printable area's corner, so the image starts before it.
+    assert_eq!(sheet_rect(1240, 1754, (4961, 7016), (100, 120)), (-100, -120, 4960, 7016));
+    // A sheet that does not match the paper keeps its shape, centred.
+    assert_eq!(sheet_rect(100, 100, (1000, 2000), (0, 0)), (0, 500, 1000, 1000));
+  }
+
+  #[test]
+  fn knows_the_paper_names() {
+    assert_eq!(paper_code("a4"), Some(9));
+    assert_eq!(paper_code("letter"), Some(1));
+    assert_eq!(paper_code(""), None);
+    assert_eq!(paper_media("b5"), Some("JIS-B5"));
+    assert_eq!(paper_media("x"), None);
   }
 
   #[test]

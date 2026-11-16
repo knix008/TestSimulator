@@ -5,14 +5,14 @@ import {
   IconOpen, IconUrl, IconRecent, IconSave, IconSaveAs, IconUndo, IconRedo, IconCopy, IconClip,
   IconSelectAll, IconMarquee, IconHand, IconImage, IconText, IconHighlight, IconBookmark, IconComment,
   IconFirst, IconPrev, IconNext, IconLast, IconZoomIn, IconZoomOut,
-  IconRotateLeft, IconRotateRight, IconSidebar, IconRightPanel,
+  IconRotateLeft, IconRotateRight,
   IconSettings, IconInfo, IconFlag, IconTheme, IconTrash, IconDown, IconFolder,
   IconSelectText, IconPrint, IconPageSingle, IconPageContinuous, IconPageSpread,
   IconEffectNone, IconEffectFade, IconEffectSlide, IconEffectFlip,
-  IconFitPage, IconFitWidth, IconFitHeight, IconActual, IconGallery, IconStar, IconLibrary, IconHome, IconHelp,
+  IconFitPage, IconFitWidth, IconFitHeight, IconActual, IconGallery, IconStar, IconLibrary, IconHelp,
 } from './Icons.jsx';
 import { nextTheme } from '../lib/themes.js';
-import { ThemeMenu } from './ThemePicker.jsx';
+import { ThemeMenu, CUSTOM_THEME_ACTION } from './ThemePicker.jsx';
 import { otherLang } from '../i18n.js';
 import { api, isDesktop } from '../lib/platform.js';
 import { stepPage, PAGE_EFFECTS, nextPageEffect, normalizePageEffect, isPagedLayout, FIT_ZOOM_MODES, zoomModeLabelKey, VIEW_FIT_BUTTONS, fitButtonDisabled } from '../lib/view.js';
@@ -283,9 +283,9 @@ export default function Toolbar({
   onCopyText, onSelectPage, onExtractImages, onExportText,
   onHighlight, onComment, onComments, onBookmarks, onBookmark,
   onGoToPage, onZoom, onZoomMode, onRotate, onLayout, onPageEffect,
-  onSearch, onTogglePanel, onToggleInfo, onTheme, onLang, onSettings, onAbout, onPrint,
+  onSearch, onTogglePanel, onToggleInfo, onTheme, onCustomTheme, onLang, onSettings, onAbout, onPrint,
   galleryOpen = false, onGallery, libraryOpen = false, onLibrary,
-  homeOpen = false, onHome, onHelp,
+  onHelp,
 }) {
   const { t, i18n } = useTranslation();
   const [pageInput, setPageInput] = useState(String(pageNumber));
@@ -302,8 +302,12 @@ export default function Toolbar({
 
   useEffect(() => {
     if (!isDesktop || !api.win?.onThemePicked) return undefined;
-    return api.win.onThemePicked((id) => onTheme(id));
-  }, [onTheme]);
+    return api.win.onThemePicked((id) => {
+      // The popup's "Custom themes…" button.
+      if (id === CUSTOM_THEME_ACTION) { onCustomTheme?.(); return; }
+      onTheme(id);
+    });
+  }, [onTheme, onCustomTheme]);
 
   const effectId = normalizePageEffect(settings.pageEffect);
   const EffectIcon = EFFECT_ICONS[effectId] || IconEffectFlip;
@@ -323,11 +327,8 @@ export default function Toolbar({
           in its dropdown so the same command is never shown twice. */}
       <div className="toolbar-scroll" ref={scrollRef}>
 
-      {/* File (the Home button brings back the start screen) */}
+      {/* File (the Home button lives in the title bar, after the version) */}
       <div className="toolbar-group">
-        {onHome ? (
-          <ToolButton icon={IconHome} label={t('toolbar.home')} tip={t('tip.home')} onClick={onHome} active={homeOpen} showLabel={showLabel} />
-        ) : null}
         <MenuButton icon={IconFolder} label={t('toolbar.fileMenu')} tip={t('tip.fileMenu')} showLabel={showLabel} width={430}>
           <ul className="dd-list">
             <li><button className="dd-item" onClick={onOpen} title={t('tip.open')}>
@@ -352,8 +353,6 @@ export default function Toolbar({
             ) : null}
             <li><button className="dd-item" onClick={onExportText} disabled={!doc} title={t('tip.exportText')}>
               <IconText size={15} /><span className="dd-name wide">{t('toolbar.exportText')}</span></button></li>
-            <li><button className="dd-item" onClick={onPrint} disabled={!doc} title={t('tip.print')}>
-              <IconPrint size={15} /><span className="dd-name wide">{t('toolbar.print')}</span><span className="dd-key">Ctrl+P</span></button></li>
           </ul>
 
           <div className="dd-head">
@@ -409,6 +408,9 @@ export default function Toolbar({
             </ul>
           )}
         </MenuButton>
+        {onPrint ? (
+          <ToolButton icon={IconPrint} label={t('toolbar.print')} tip={`${t('tip.print')} (Ctrl+P)`} onClick={onPrint} disabled={!doc} showLabel={showLabel} />
+        ) : null}
       </div>
 
       <div className="toolbar-sep" />
@@ -660,14 +662,7 @@ export default function Toolbar({
         {onLibrary ? (
           <ToolButton icon={IconLibrary} label={t('toolbar.library')} tip={t('tip.library')} onClick={onLibrary} active={libraryOpen} />
         ) : null}
-        <ToolButton icon={IconSidebar} label={t('toolbar.sidebar')} tip={t('tip.sidebar')} onClick={onTogglePanel} active={panel !== 'none'} />
-        <ToolButton
-          icon={IconRightPanel}
-          label={t('toolbar.infoPanel')}
-          tip={t('tip.infoPanel')}
-          onClick={onToggleInfo}
-          active={!!settings.rightPanel}
-        />
+        {/* The left/right panel fold buttons live in the title bar, left of minimize. */}
 
         <MenuButton
           icon={IconTheme}
@@ -684,6 +679,7 @@ export default function Toolbar({
             current={settings.theme}
             customThemes={settings.customThemes}
             onPick={onTheme}
+            onCustomize={onCustomTheme}
             labelledBy={t('toolbar.theme')}
           />
         </MenuButton>

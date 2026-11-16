@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { IconCheck, IconTrash } from './Icons.jsx';
+import { IconCheck, IconTrash, IconTheme } from './Icons.jsx';
 import {
   DEFAULT_CUSTOM_COLORS, MAX_CUSTOM_THEMES, THEME_KINDS,
   normalizeCustomTheme, normalizeCustomThemes, newCustomThemeId,
@@ -30,12 +30,32 @@ function ThemeRow({ theme, current, onPick, label }) {
   );
 }
 
+// What the detached theme popup sends instead of a theme id when its
+// "Custom themes…" button is pressed: the main window opens Settings → Theme.
+export const CUSTOM_THEME_ACTION = '__custom-theme__';
+
 // Two-column Dark / Light list used by the toolbar dropdown and the detached
-// theme popup. Custom themes sit in a row under both columns when any exist.
-export function ThemeMenu({ current, onPick, labelledBy, customThemes = [] }) {
+// theme popup. At the top, a button opens the custom theme settings; custom
+// themes sit in a row under both columns when any exist.
+export function ThemeMenu({ current, onPick, labelledBy, customThemes = [], onCustomize }) {
   const { t } = useTranslation();
   const customs = normalizeCustomThemes(customThemes).map(pickerThemeFromCustom);
   return (
+    <>
+    {onCustomize ? (
+      <div className="theme-menu-top">
+        <button
+          type="button"
+          className="dd-item theme-customize"
+          onClick={onCustomize}
+          title={t('settings.themeCustomizeTip')}
+          data-theme-customize
+        >
+          <IconTheme size={15} />
+          <span className="dd-name wide">{t('settings.themeCustomize')}</span>
+        </button>
+      </div>
+    ) : null}
     <div className="theme-cols" role="listbox" aria-label={labelledBy || t('toolbar.theme')}>
       {THEME_KINDS.map((kind) => (
         <div key={kind} className="theme-col">
@@ -62,6 +82,7 @@ export function ThemeMenu({ current, onPick, labelledBy, customThemes = [] }) {
         </div>
       ) : null}
     </div>
+    </>
   );
 }
 
@@ -201,7 +222,7 @@ export function CustomThemeEditor({ themes = [], current, onCommit }) {
             );
           })}
         </div>
-      ) : null}
+      ) : (draft ? null : <p className="theme-custom-empty" data-custom-theme-empty>{t('settings.themeCustomEmpty')}</p>)}
       {draft ? (
         <div className="theme-editor">
           <label className="field">

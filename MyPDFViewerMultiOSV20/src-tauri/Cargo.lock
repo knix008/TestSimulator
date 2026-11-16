@@ -2223,7 +2223,7 @@ dependencies = [
 
 [[package]]
 name = "mypdfviewer"
-version = "1.0.0"
+version = "1.0.2"
 dependencies = [
  "arboard",
  "fontdb",

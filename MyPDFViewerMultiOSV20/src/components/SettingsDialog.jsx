@@ -11,13 +11,17 @@ import { isDesktop, appInfo } from '../lib/platform.js';
 import { FIT_ZOOM_MODES, zoomModeLabelKey } from '../lib/view.js';
 import BackgroundPicker from './BackgroundPicker.jsx';
 
-const TABS = ['appearance', 'viewer', 'start', 'copy', 'files'];
+const TABS = ['appearance', 'theme', 'viewer', 'start', 'copy', 'files'];
 
 // Every application setting lives here. Changes apply immediately (and are
 // persisted by App), so there is no OK/Apply dance.
-export default function SettingsDialog({ open, settings, onChange, onClose, onPickOpenDir, onClearDirs, onReset }) {
+export default function SettingsDialog({ open, settings, onChange, onClose, onPickOpenDir, onClearDirs, onReset, initialTab = 'appearance' }) {
   const { t } = useTranslation();
-  const [tab, setTab] = useState('appearance');
+  const [tab, setTab] = useState(TABS.includes(initialTab) ? initialTab : 'appearance');
+  // Each opening starts on the tab it was opened for.
+  useEffect(() => {
+    if (open) setTab(TABS.includes(initialTab) ? initialTab : 'appearance');
+  }, [open, initialTab]);
   const [fonts, setFonts] = useState([]);
   const [storagePath, setStoragePath] = useState('');
 
@@ -77,11 +81,6 @@ export default function SettingsDialog({ open, settings, onChange, onClose, onPi
       <div className="settings-pane">
         <div className={`settings-panel${tab === 'appearance' ? ' on' : ''}`} aria-hidden={tab !== 'appearance'} {...(tab !== 'appearance' ? { inert: '' } : {})}>
           <div className="settings-split">
-            <section className="sgroup">
-              <h4>{t('settings.theme')}</h4>
-              <ThemeChipGroups current={settings.theme} onPick={(id) => set({ theme: id })} />
-            </section>
-
             <div className="settings-side">
               <section className="sgroup">
                 <h4>{t('settings.language')}</h4>
@@ -99,7 +98,9 @@ export default function SettingsDialog({ open, settings, onChange, onClose, onPi
                   ))}
                 </div>
               </section>
+            </div>
 
+            <div className="settings-side">
               <section className="sgroup">
                 <h4>{t('settings.font')}</h4>
                 <label className="field">
@@ -165,7 +166,18 @@ export default function SettingsDialog({ open, settings, onChange, onClose, onPi
 
                 <div className="font-preview" style={previewStyle}>{t('settings.previewText')}</div>
               </section>
+            </div>
+          </div>
+        </div>
 
+        {/* Theme: the built-in themes, and the custom theme settings beside them. */}
+        <div className={`settings-panel${tab === 'theme' ? ' on' : ''}`} aria-hidden={tab !== 'theme'} {...(tab !== 'theme' ? { inert: '' } : {})} data-settings-tab="theme">
+          <div className="settings-split theme-split">
+            <section className="sgroup">
+              <h4>{t('settings.theme')}</h4>
+              <ThemeChipGroups current={settings.theme} onPick={(id) => set({ theme: id })} />
+            </section>
+            <div className="settings-side" data-custom-theme-settings>
               <CustomThemeEditor
                 themes={settings.customThemes}
                 current={settings.theme}

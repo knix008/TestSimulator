@@ -6,9 +6,9 @@ const root = path.resolve(import.meta.dirname, '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 
 describe('package.json product metadata', () => {
-  it('identifies MyPDFViewer 1.0.0', () => {
+  it('identifies MyPDFViewer 1.0.2', () => {
     expect(pkg.name).toBe('mypdfviewer');
-    expect(pkg.version).toBe('1.0.0');
+    expect(pkg.version).toBe('1.0.2');
     expect(pkg.author.name).toBe('SHKWON');
     expect(pkg.license).toBe('MIT');
     expect(pkg.productName).toBe('MyPDFViewer');

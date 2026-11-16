@@ -8,6 +8,7 @@
 //   • native dialogs, chunked file I/O with progress, URL downloads
 //   • clipboard, fonts, settings.json, the detached theme popup
 mod files;
+mod popout;
 mod print;
 
 use serde::Deserialize;
@@ -503,6 +504,7 @@ async fn print_pages(request: Request<'_>) -> Result<usize, String> {
     copies: print::clamp_copies(header(&request, "x-copies").and_then(|c| c.parse().ok()).unwrap_or(1)),
     landscape: header(&request, "x-landscape").as_deref() == Some("1"),
     title: header(&request, "x-title").unwrap_or_default(),
+    paper: header(&request, "x-paper").unwrap_or_default(),
   };
   let InvokeBody::Raw(body) = request.body() else {
     return Err("Expected the pages as the request body".into());
@@ -864,6 +866,7 @@ fn is_app_url(url: &tauri::Url) -> bool {
 
 fn build_main_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
   let handle = app.clone();
+  let popouts = app.clone();
   let w = WebviewWindowBuilder::new(app, MAIN, WebviewUrl::App("index.html".into()))
     .title("MyPDFViewer")
     .inner_size(1480.0, 960.0)
@@ -882,6 +885,18 @@ fn build_main_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
         let _ = handle.opener().open_url(url.as_str(), None::<&str>);
       }
       false
+    })
+    // The print dialog (and any other about:blank#dialog-… page) opens as a
+    // window of its own (popout.rs); web links go to the system browser.
+    .on_new_window(move |url, features| {
+      if url.scheme() == "about" {
+        if let Some(main) = popouts.get_webview_window(MAIN) {
+          return popout::new_window(&popouts, &main, &url, features);
+        }
+      } else if files::is_external_url(url.as_str()) {
+        let _ = popouts.opener().open_url(url.as_str(), None::<&str>);
+      }
+      tauri::webview::NewWindowResponse::Deny
     })
     .build()?;
   *state(app).min_size.lock().unwrap() = (MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT);
@@ -925,6 +940,9 @@ fn on_window_event(window: &tauri::Window, event: &WindowEvent) {
         _ => return,
       };
       let _ = app.emit_to(MAIN, "file-drop", payload);
+    }
+    (label, WindowEvent::Destroyed) if popout::is_popout(label) => {
+      popout::closed(app, label);
     }
     (THEME_POPUP, WindowEvent::Focused(false)) => {
       let shown = state(app).popup.lock().unwrap().map(|a| a.shown).unwrap_or(false);
@@ -997,6 +1015,9 @@ pub fn run() {
       win_pick_theme,
       win_open_guide,
       win_set_theme_kind,
+      popout::popout_show,
+      popout::popout_hide,
+      popout::popout_close,
     ])
     .build(tauri::generate_context!())
     .expect("error while building MyPDFViewer");

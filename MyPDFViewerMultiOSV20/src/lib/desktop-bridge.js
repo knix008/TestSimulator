@@ -91,7 +91,7 @@ function toBytes(data) {
 
 // The host window cannot print a PDF, so the pages arrive as JPEGs and are
 // printed from a hidden frame; the system print dialog shows exactly them.
-async function printImages({ images, title } = {}) {
+async function printImages({ images, title, pageSize = '' } = {}) {
   if (!Array.isArray(images) || !images.length) throw new Error('There are no pages to print.');
   const urls = images.map((b) => URL.createObjectURL(new Blob([toBytes(b)], { type: 'image/jpeg' })));
   const frame = document.createElement('iframe');
@@ -105,7 +105,7 @@ async function printImages({ images, title } = {}) {
     await new Promise((resolve, reject) => {
       frame.onload = resolve;
       frame.onerror = reject;
-      frame.srcdoc = buildPrintHtml(urls.map((src) => ({ src })), title);
+      frame.srcdoc = buildPrintHtml(urls.map((src) => ({ src })), title, { pageSize });
       document.body.appendChild(frame);
     });
     const doc = frame.contentDocument;
@@ -212,12 +212,13 @@ export function createDesktopApi({
     printPages: printImages,
     // Straight to a printer chosen in the app's own dialog.
     listPrinters: () => call('print_list_printers'),
-    printTo: ({ images, printer, copies = 1, landscape = false, title = '' } = {}) => call('print_pages', framePages(images), {
+    printTo: ({ images, printer, copies = 1, landscape = false, title = '', paper = '' } = {}) => call('print_pages', framePages(images), {
       headers: {
         'x-printer': encodeURIComponent(String(printer || '')),
         'x-copies': String(Math.max(1, Math.min(99, Math.round(Number(copies) || 1)))),
         'x-landscape': landscape ? '1' : '0',
         'x-title': encodeURIComponent(String(title || '')),
+        'x-paper': String(paper || ''),
       },
     }),
 
@@ -259,6 +260,12 @@ export function createDesktopApi({
       // Dark or light native title bars for the app's ordinary windows.
       setThemeKind: (dark) => call('win_set_theme_kind', { dark: Boolean(dark) }),
       onThemePicked: on('theme-picked'),
+      // Dialogs in a window of their own (the print dialog; src/lib/popout.js
+      // and src-tauri/src/popout.rs).
+      popoutShow: (opts = {}) => call('popout_show', { opts }),
+      popoutHide: (label) => call('popout_hide', { label: String(label || '') }),
+      popoutClose: (label) => call('popout_close', { label: String(label || '') }),
+      onPopoutClosed: on('popout-closed'),
     },
   };
 }

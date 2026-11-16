@@ -19,6 +19,7 @@ async function renderSettings(overrides = {}) {
       onPickOpenDir={onPickOpenDir}
       onClearDirs={() => {}}
       onReset={onReset}
+      initialTab={overrides.initialTab}
     />,
   );
   return { onChange, onReset, onPickOpenDir };
@@ -71,7 +72,7 @@ describe('SettingsDialog', () => {
 
   it('keeps every tab mounted so switching tabs does not resize the window', async () => {
     await renderSettings();
-    expect(document.querySelectorAll('.settings-panel')).toHaveLength(5);
+    expect(document.querySelectorAll('.settings-panel')).toHaveLength(6);
     expect(screen.getByTitle('nord')).toBeTruthy();
     fireEvent.click(screen.getByTitle('Viewer'));
     expect(screen.getByTitle('nord')).toBeTruthy();
@@ -93,8 +94,28 @@ describe('SettingsDialog', () => {
     }));
   });
 
+  it('has a Theme tab with the built-in themes and the custom theme settings', async () => {
+    await renderSettings();
+    fireEvent.click(screen.getByTitle('Theme'));
+    const panel = document.querySelector('[data-settings-tab="theme"]');
+    expect(panel.classList.contains('on')).toBe(true);
+    expect(panel.querySelector('.theme-groups')).toBeTruthy();
+    expect(panel.querySelector('[data-custom-theme-settings]')).toBeTruthy();
+    // With none made yet it says how to make one.
+    expect(panel.querySelector('[data-custom-theme-empty]').textContent).toMatch(/Add/);
+    // Not on the Appearance tab any more.
+    const appearance = document.querySelectorAll('.settings-panel')[0];
+    expect(appearance.querySelector('.theme-groups, [data-custom-theme-settings]')).toBeNull();
+  });
+
+  it('opens on the Theme tab when asked to (the theme menu\'s Custom themes…)', async () => {
+    await renderSettings({ initialTab: 'theme' });
+    expect(document.querySelector('[data-settings-tab="theme"]').classList.contains('on')).toBe(true);
+  });
+
   it('lets the user add a custom theme', async () => {
     const { onChange } = await renderSettings();
+    fireEvent.click(screen.getByTitle('Theme'));
     fireEvent.click(screen.getByTitle('Add'));
     fireEvent.change(screen.getByDisplayValue('My theme'), { target: { value: 'Lake' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
@@ -116,6 +137,7 @@ describe('SettingsDialog', () => {
     const { onChange } = await renderSettings({
       settings: { theme: 'dark', customThemes: [custom] },
     });
+    fireEvent.click(screen.getByTitle('Theme'));
     fireEvent.click(screen.getByTitle('Lake'));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ theme: 'custom-lake' }));
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));

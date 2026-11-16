@@ -8,6 +8,7 @@
 // Every long-running operation (open / save / download) reports progress so the
 // UI can put a progress dialog in front of the user.
 import { toFolderEntries } from './folders.js';
+import buildInfo from '../build-info.json';
 
 export const api = typeof window !== 'undefined' ? window.desktopAPI : undefined;
 export const isDesktop = !!(api && api.isDesktop);
@@ -318,7 +319,7 @@ export async function loadPersistedState() {
 export async function appInfo() {
   if (isDesktop) return api.getInfo();
   return {
-    version: '1.0.0',
+    version: buildInfo.version || '1.0.2',
     platform: 'web',
     arch: navigator.platform || '',
     chrome: (/Chrome\/([\d.]+)/.exec(navigator.userAgent) || [])[1] || '',

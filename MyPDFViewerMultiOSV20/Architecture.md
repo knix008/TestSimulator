@@ -198,19 +198,33 @@ PDF 저장 후 다시 열 때만 탭을 교체합니다.
 
 ---
 
-## 5.7 인쇄 — `src/lib/print.js`
+## 5.7 인쇄 — `src/lib/print.js`, `src/lib/print-layout.js`, `src/components/PrintDialog.jsx`
 
-인쇄는 **양쪽 런타임 모두 pdf.js가 그린 페이지 이미지**를 보냅니다. 웹뷰에 원본 PDF를 띄워
+인쇄는 **양쪽 런타임 모두 pdf.js가 그린 이미지**를 보냅니다. 웹뷰에 원본 PDF를 띄워
 인쇄하는 방법은 쓰지 않습니다 — 시스템 웹뷰마다 내장 PDF 표시 여부가 다르고, 표시하지 못하면 백지가 인쇄됩니다.
+보내는 단위는 쪽이 아니라 **용지 한 장(sheet)** 입니다. 미리보기와 인쇄가 같은 함수로 같은 그림을 만들므로
+화면에서 본 것이 그대로 나옵니다.
 
-* `parsePageList()` 가 `1-5, 8, 11-13` 을 쪽 번호 목록으로 바꾸고, 빈 값·형식 오류·문서 범위 초과를
-  각각 다른 메시지로 구분합니다. 대화상자는 그 결과로 인쇄될 쪽 수를 미리 보여 줍니다.
-* `renderPagesForPrint()` 는 150 DPI로 한 쪽씩 그려 JPEG로 인코딩하고 **캔버스를 즉시 반납**합니다.
-  긴 문서를 인쇄해도 모든 쪽이 메모리에 남지 않습니다.
-* 데스크톱은 이미지들을 blob URL 로 만들어 같은 HTML을 **숨은 iframe** 에 넣고, 그 프레임의
-  `print()` 로 시스템 인쇄 창을 엽니다(브리지의 `printPages`). 이미지는 `decode()` 가 끝난 뒤에
-  인쇄해 빈 페이지가 섞이지 않게 하고, 프레임은 `afterprint` 뒤에 치웁니다.
-* 웹은 같은 HTML을 새 창에 띄우고 `window.print()` 를 호출합니다.
+* **범위** — `parsePageList()` 가 `1-5, 8, 11-13` 을 쪽 번호 목록으로 바꾸고, 빈 값·형식 오류·문서 범위 초과를
+  각각 다른 메시지로 구분합니다.
+* **페이지 설정** — [print-layout.js](src/lib/print-layout.js) 는 DOM 없는 순수 계산(mm 단위)입니다.
+  `normalizePrintOptions()` 가 저장된 값(`settings.printOptions` — 용지 · 여백 · 한 장에 n쪽 · 배율 모드 · 비율 · 홀짝 · 색)을
+  안전한 값으로 맞추고, `printPlan()` 이 홀짝을 거른 쪽 목록을 장(`planSheets`)으로 나누고 용지 방향을 정합니다.
+  방향 *자동* 은 `resolveOrientation()` 이 세로 · 가로 중 **쪽이 더 크게 들어가는 쪽**을 고릅니다(그래서 세로 쪽 2개는 가로 용지).
+  `gridFor()` 는 n쪽을 나누는 열 × 행 가운데 쪽이 가장 크게 들어가는 것을 고르고, `placePage()` 는 칸 안에
+  맞춤 · 실제 크기 · 사용자 % 로 가운데 놓되 칸 밖은 잘라냅니다(clip).
+* **그리기** — `renderSheet()` 가 흰 용지에 각 쪽을 제자리에 그리고, 흑백이면 휘도로 바꿉니다.
+  쪽은 **늘 이 페이지 document 의 캔버스**에 그린 뒤 옮겨 그립니다: pdf.js 는 PDF 글꼴을 이 document 의 `FontFace` 로
+  등록하므로, 인쇄 창(다른 document)의 캔버스에 직접 그리면 글자가 대체 글꼴로 깨졌습니다.
+  `renderSheetsForPrint()` 는 150 DPI로 한 장씩 JPEG 로 만들고 캔버스를 즉시 반납합니다.
+  `renderPreviewSheet()` 는 미리보기 칸에 맞추되 **최소 2.5배 화소**(`PREVIEW_DETAIL`)로 그려 축소해 보여 줍니다 —
+  작은 글자도 알아볼 수 있고, 돋보기(`LENS`, 2.5배)는 같은 캔버스의 화소를 그대로 확대합니다.
+* **인쇄 창** — [PrintDialog.jsx](src/components/PrintDialog.jsx) 는 `Modal` 의 `windowName="print"` 로 **별도 창**에 뜨고
+  (아래 7.58), `fixedSize`(기본 1180 × 860, 작은 화면은 `printWindowSize()` 로 줄여 고정)라 내용이 바뀌어도 창이 커지거나 줄지 않습니다.
+  쓰지 않는 입력칸(사용자 범위 · 비율)은 사라지지 않고 꺼지기만 하며, 안내 · 오류 줄은 높이가 정해져 있어 스크롤바가 생길 일이 없습니다.
+* **보내기** — 데스크톱은 [인쇄] 가 곧바로 `print_pages` 로 갑니다(7.55). 시스템 인쇄 창 경로는 없습니다.
+  웹은 장 이미지를 `@page { size: <용지 mm>; margin: 0 }` 인 HTML 로 새 창에 띄우고 `window.print()` 를 부릅니다
+  (프린터 · 매수는 브라우저 창에서 고릅니다).
 
 ---
 
@@ -297,17 +311,23 @@ PDF 저장을 권합니다 (`win_force_close` 로만 실제로 닫힙니다).
   빼낸 바이트로 문서를 **제자리에서 다시 열고** 변경됨으로 표시합니다 — 캔버스가 그리는 외형까지 바로 사라지고, Ctrl+S 로 파일에 반영됩니다.
 * **오른쪽 클릭** — 페이지 · 좌측 패널 행 · 열어 본 파일 · 서재 카드가 같은 `ContextMenu` 를 씁니다. 메뉴가 없는 곳에서는 데스크톱 웹뷰의
   브라우저 메뉴(뒤로 · 새로 고침 · 검사)를 막습니다(입력란은 제외).
-* **직접 인쇄** — 인쇄 창이 `print_list_printers` 로 프린터 목록을 받고, [인쇄] 는 pdf.js 가 그린 JPEG 들을
-  `print_pages` 로 보냅니다(본문 `[u32 쪽수][u32 길이…][JPEG…]`, 프린터 · 매수 · 방향 · 제목은 헤더).
-  [print.rs](src-tauri/src/print.rs) 가 Windows 에서는 GDI(`CreateDCW` + 프린터 DEVMODE 에 방향만 덮어쓰기, 쪽마다
-  `StretchDIBits` 로 인쇄 가능 영역에 맞춰 가운데), macOS · Linux 에서는 CUPS `lp` 로 보냅니다. 매수는 묶음(collated)으로
+* **직접 인쇄** — 인쇄 창이 `print_list_printers` 로 프린터 목록을 받고, [인쇄] 는 장(sheet) JPEG 들을
+  `print_pages` 로 보냅니다(본문 `[u32 장수][u32 길이…][JPEG…]`, 프린터 · 매수 · 방향 · 용지(`x-paper`) · 제목은 헤더).
+  [print.rs](src-tauri/src/print.rs) 가 Windows 에서는 GDI(`CreateDCW` + 프린터 DEVMODE 에 방향과 용지 `dmPaperSize` 를 덮어쓰기),
+  장 이미지는 이미 여백까지 그려진 용지 한 장이므로 `sheet_rect()` 로 **물리 용지 전체**(`PHYSICALWIDTH/HEIGHT`)에 맞추고
+  인쇄 가능 영역의 원점(`PHYSICALOFFSETX/Y`)만큼 당겨 `StretchDIBits` 합니다. macOS · Linux 는 CUPS `lp -o media=…` 입니다. 매수는 묶음(collated)으로
   반복합니다 — dmCopies 를 무시하는 드라이버가 있어서입니다. 드라이버가 스스로 띄운 창(Print to PDF 의 파일 이름)을
   취소하면 `PRINT_CANCELLED` 로 돌아와 오류 없이 "인쇄 취소" 로 끝납니다.
 
 ## 7.57 시작 화면과 프로그램 설명서
 
-* [StartScreen.jsx](src/components/StartScreen.jsx) — 제목 카드 · 시작하기(최근 파일) · 내 서재 · 배경 고르기 카드. 처음 표시 조건은
-  `!doc && settings.showStartPage`, 툴바 홈 버튼은 `homeOpen` 으로 문서가 있어도 엽니다.
+* [StartScreen.jsx](src/components/StartScreen.jsx) — 고정된 제목 카드와 그 아래 **카드 보드**(시작하기 · 최근 연 파일 · 내 서재 ·
+  시작 화면 배경 · 사용 팁). 처음 표시 조건은 `!doc && settings.showStartPage`, 타이틀 바의 홈 버튼은 `homeOpen` 으로 문서가 있어도 엽니다.
+  보드는 MyUMLMaker 의 것을 옮긴 [startboard.js](src/lib/startboard.js)(DOM: 20px 행 격자에 카드 배치, 손잡이로 옮기기 —
+  반투명 사본이 따라옴, 점 삼각형 모서리로 크기 조절, 두 번 누르면 내용에 맞춤)와 [startlayout.js](src/lib/startlayout.js)(순수 배치 계산)입니다.
+  기본은 모든 카드가 3열을 다 차지해 **한 줄씩 위아래**로 놓이고, 배치는 `settings.startLayout` 에 남습니다. 보드는
+  `useLayoutEffect` 에서 시작해야 첫 프레임에 배치 전 카드가 보이지 않습니다. 오른쪽 위 **자동 정렬**이 기본 배치로 되돌립니다.
+  배경 카드의 투명도 · 움직임 속도는 한 줄에 놓고 슬라이더 양옆에 − / + (`StepSlider`)를 둡니다.
 * [startbg.js](src/lib/startbg.js) — 배경 21가지. 장면마다 `{ init(w, h, rand), draw(ctx, state, { t, dt, w, h, c }) }` 이고,
   3D 는 WebGL 없이 `project(x, y, z)` 원근 투영 + Canvas 2D 입니다(셰이더 컴파일 지연이 없고 가볍습니다).
   `depthAlpha` 는 멀리서뿐 아니라 **카메라 바로 앞**에서도 흐려져, 가까이 온 물체가 화면을 덮지 않습니다.
@@ -320,9 +340,40 @@ PDF 저장을 권합니다 (`win_force_close` 로만 실제로 닫힙니다).
   `guide_page` 로 두 파일 이름만 허용합니다. 설명서 안의 외부 링크는 기본 브라우저로 엽니다.
   웹 판은 `window.open("./doc/…")` 입니다. 툴바 도움말 · F1 · 시작 화면 [프로그램 설명] 이 모두 `openGuide` 하나를 부릅니다.
 
+## 7.58 별도 창 대화상자 — `src/lib/popout.js`, `src-tauri/src/popout.rs`
+
+인쇄 창은 MyEBookReader V20 에서 옮겨 온 **팝아웃** 방식입니다.
+
+* 페이지가 `window.open("about:blank#dialog-print")` 를 부르면, 본 창의 `on_new_window` 가 [popout.rs](src-tauri/src/popout.rs) 로
+  **테두리 없는 소유 창**(`parent(main)`, 숨김 상태)을 만들어 돌려줍니다. 라벨은 `dialog-` 로 시작하는 조각만 허용합니다.
+* 그 창의 document 는 본 페이지와 같은 출처 · 같은 렌더러라, [popout.js](src/lib/popout.js) 가 빈 문서에 `<base>` 와
+  스타일시트 · `<html>` 속성(테마 변수)을 복사하고 `MutationObserver` 로 계속 따라가게 한 뒤 React `createPortal` 로 그립니다.
+  상태 · 이벤트 처리기는 모두 본 페이지에 그대로 있습니다.
+* [Modal.jsx](src/components/Modal.jsx) 의 `windowName` 이 이 경로를 씁니다. 창 크기는 `fitPopoutTo()` 가 `popout_show` 로 정하고
+  실제 `innerWidth/Height` 와 비교해 차이만큼 다시 요청합니다(프레임 없는 창은 요청과 뷰포트가 어긋나고, 막 만든 창은 잠깐 0×0 이라 그때는 보정하지 않습니다).
+  모달이므로 열려 있는 동안 본 창은 `set_enabled(false)`, 창이 사라지면(`Destroyed`, Alt+F4 포함) 다시 켜고 `popout-closed` 를 보내
+  페이지가 대화상자 상태를 닫습니다. 닫기는 `popout_close`(창 `destroy`) — 페이지의 `window.close()` 로는 Tauri 창이 남습니다.
+* 제목 줄은 CSS `app-region: drag` 로 창을 옮깁니다(WebView2 비클라이언트 영역).
+* **웹** 판은 같은 코드가 브라우저 팝업(`popup=yes`)을 열고 `resizeBy` 로 뷰포트를 맞춥니다. 팝업이 막히거나 jsdom(테스트)이면
+  `openPopout()` 이 `null` 을 돌려 같은 대화상자가 페이지 안에 뜹니다.
+
+## 7.59 색 아이콘 · 닫기 버튼 · 창 손잡이
+
+* [Icons.jsx](src/components/Icons.jsx) 의 모든 아이콘은 `hue` (`ICON_HUES` 10가지 색 계열)를 `data-hue` 로 달고,
+  [App.css](src/App.css) 가 `--ic-<색>` 변수로 칠합니다. 변수는 `:root` (어두운 테마)와 `:root[data-theme-kind='light']` 두 벌이며,
+  `applyTheme()` 가 `data-theme-kind` 를 붙입니다. 켜진 툴바 버튼 · 기본 버튼처럼 **강조색 바탕** 위에서는 글자색으로 돌아갑니다.
+  창 버튼(─ □) · 화살표 · 더보기는 색을 넣지 않고, 국기는 원래 색입니다.
+* 모든 팝업의 닫기(`.modal-x`, 전체 화면 [열어 본 파일] · 서재의 `.close-x`)는 마우스를 올리면 `#e81123` 빨강입니다.
+* 창 오른쪽 아래 크기 조절 손잡이(`StatusBar` 의 `ResizeGrip`)와 시작 화면 카드의 크기 모서리는 같은 **점 6개 삼각형**입니다.
+
 ---
 
 ## 7.6 테마 목록이 창 밖으로 나가는 이유
+
+(목록 맨 위 **[사용자 정의 테마 설정…]** 은 `ThemeMenu` 의 `onCustomize`. 떨어진 팝업 창에서는 테마 id 대신
+`CUSTOM_THEME_ACTION`(`__custom-theme__`)을 `win_pick_theme` 으로 보내고, 본 창의 Toolbar 가 그것을 받아 `onCustomTheme` —
+App 이 설정 창을 `initialTab="theme"` 으로 엽니다. 설정의 **테마** 탭은 왼쪽 기본 테마 40개, 오른쪽 `CustomThemeEditor` 입니다.)
+
 
 웹 내용은 창 밖으로 그릴 수 없습니다. 40개 테마를 스크롤 없이 보여 주려면
 호스트가 **프레임 없는 자식 창**(`win_open_theme_popup`, 라벨 `theme-popup`)을 화면 좌표에 띄웁니다.
@@ -368,11 +419,12 @@ Rust 명령은 오류를 사람이 읽을 문장(`File not found: …`, `HTTP 40
 | `npm start` | `tauri dev` — Vite 개발 서버 + Rust 호스트 (화면 코드 수정은 즉시, Rust 수정은 다시 빌드). Vite 를 띄우기 전에 `scripts/free-port.mjs` 가 5179 포트를 잡고 있는 이전 프로세스를 정리하므로, 비정상 종료 뒤에도 바로 다시 실행됩니다 |
 | `npm test` | `test:js` + `test:rust` |
 | `npm run test:js` | Vitest. [test/reporters/summary.mjs](test/reporters/summary.mjs) 만 사용합니다. 분류(파일/스위트)는 녹색, 각 항목은 무색 제목 + 초록/빨강 표시이며 진행 점(`…`)은 없습니다. [desktop-contract.test.js](test/desktop-contract.test.js) 가 브리지 ↔ Rust 명령·이벤트 · tauri.conf.json · 설치 훅이 서로 맞는지 봅니다 |
-| `npm run test:rust` | `cargo test` — 폴더 목록 · 실행 인자 · 다운로드 이름 · 헤더/데이터 URL 해석 · 최소 폭 |
+| `npm run test:rust` | `cargo test` — 폴더 목록 · 실행 인자 · 다운로드 이름 · 헤더/데이터 URL 해석 · 최소 폭 · 인쇄 용지 · 팝아웃 창 라벨/배치 |
+| `npm run smoke:desktop` | 실제 데스크톱 앱 GUI 점검 [scripts/smoke-desktop.mjs](scripts/smoke-desktop.mjs). 식별자가 다른 시험용 사본(`com.shkwon.mypdfviewer.smoketest`)을 `src-tauri/target-smoke` 에 빌드하고, 임시 폴더의 설정 · WebView2 프로필과 CDP 포트로 띄워 시작 화면 · 타이틀 바 · 툴바 · 패널 · 오른쪽 클릭 메뉴 · **인쇄 창(별도 창 · 고정 크기 · 스크롤바 없음 · 미리보기 · 돋보기 · 페이지 설정)** · 열어 본 파일 · 서재 · 정보 · 테마 · 언어를 실제 마우스 · 키 입력으로 확인합니다(36개). 스스로 만든 6쪽 PDF 만 열고 **[인쇄] 는 누르지 않습니다**. `-- --no-build` 로 다시 돌립니다 |
 | `npm run web` | 브라우저용 개발 서버 |
 | `npm run build` | 웹 배포용 정적 파일 → `dist/` (Tauri 빌드가 이것을 먼저 실행) |
 | `npm run build:win` / `:mac` / `:linux` / `:all` | `tauri build` → `src-tauri/target/release/bundle/` (그리고 프로젝트 최상위로 복사). Windows 는 NSIS 설치 파일만 만듭니다 |
-| `npm run clean` / `clean:all` | 빌드 생성물 삭제 → `dist/` · `src-tauri/target/` · `src-tauri/gen/` · `public/pdfjs/` · `src/build-info.json` · 최상위 설치 파일 · Vite/Vitest 캐시. `clean:all` 은 `node_modules/` 까지 (`--dry-run` 으로 미리 확인) |
+| `npm run clean` / `clean:all` | 빌드 생성물 삭제 → `dist/` · `src-tauri/target/` · `src-tauri/target-smoke/` · `src-tauri/gen/` · `public/pdfjs/` · `src/build-info.json` · 최상위 설치 파일 · Vite/Vitest 캐시. `clean:all` 은 `node_modules/` 까지 (`--dry-run` 으로 미리 확인) |
 
 * 모든 진입점(`prebuild:*`, `prepare:assets`, `pretest`, `prestart`)은
   [scripts/ensure-deps.mjs](scripts/ensure-deps.mjs) 를 먼저 실행합니다. `package.json` 에 적힌 패키지가
@@ -395,17 +447,17 @@ Rust 명령은 오류를 사람이 읽을 문장(`File not found: …`, `HTTP 40
 
 ```
 assets/            icon.svg · file-icon.svg (원본 아이콘)
-src-tauri/         Tauri 호스트 — src/lib.rs · src/files.rs · tauri.conf.json · capabilities/ ·
+src-tauri/         Tauri 호스트 — src/lib.rs · src/files.rs · src/popout.rs · src/print.rs · tauri.conf.json · capabilities/ ·
                    icons/ (생성된 ico · icns · png) · windows/hooks.nsh (NSIS 사용자 정의)
 public/pdfjs/      pdf.js 런타임 데이터(cmaps · standard_fonts) — 생성물
-scripts/           아이콘 · 빌드정보 · pdf.js 자산 · 포트 정리 · 설치파일 복사 · 정리
+scripts/           아이콘 · 빌드정보 · pdf.js 자산 · 포트 정리 · 설치파일 복사 · 정리 · smoke-desktop(GUI 점검)
 src/components/    Toolbar · TabBar · Sidebar · FolderTree · PdfView · StatusBar · TitleBar ·
                    ThemePopup · Gallery · Modal · Dialogs · CaptureDialog · SettingsDialog ·
                    AboutDialog · PrintDialog · ContextMenu · Tooltip · Toasts · Icons
 src/lib/           pdf · pdf-write · comments · tabs · folders · image · history · workspace ·
                    settings · platform · desktop-bridge · gallery · thumb-store · highlights ·
                    view · text-select · search · nav ·
-                   print · themes · fonts
+                   print · print-layout · popout · startboard · startlayout · themes · fonts
 src/i18n.js        한국어 · 영어 문자열
 test/              Vitest 스위트 · fixtures · reporters/summary.mjs
 ```

@@ -274,7 +274,7 @@ export default function Library({
             <IconGallery size={15} />
           </button>
         ) : null}
-        <button type="button" className="btn icon-only" onClick={onClose} title={t('library.close')} aria-label={t('library.close')}>
+        <button type="button" className="btn icon-only close-x" onClick={onClose} title={t('library.close')} aria-label={t('library.close')}>
           <IconClose size={15} />
         </button>
       </header>

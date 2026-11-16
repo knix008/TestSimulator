@@ -6,7 +6,6 @@ import '../src/i18n.js';
 import { setLanguage } from '../src/i18n.js';
 import Gallery from '../src/components/Gallery.jsx';
 import Sidebar from '../src/components/Sidebar.jsx';
-import PrintDialog from '../src/components/PrintDialog.jsx';
 import { DEFAULT_SETTINGS } from '../src/lib/settings.js';
 import { setThumb, __resetThumbs } from '../src/lib/thumb-store.js';
 
@@ -329,63 +328,5 @@ describe('left-panel right-click menus', () => {
   });
 });
 
-describe('Print dialog on the desktop', () => {
-  function mockDoc() {
-    return {
-      getPage: vi.fn(async () => ({
-        rotate: 0,
-        getViewport: ({ scale = 1 } = {}) => ({ width: 80 * scale, height: 110 * scale, scale }),
-        render: () => ({ promise: Promise.resolve() }),
-        cleanup: vi.fn(),
-      })),
-    };
-  }
+// The print window (desktop and web) is tested in print-dialog.test.jsx.
 
-  async function renderPrint(listPrinters, settings = {}) {
-    await setLanguage('ko');
-    const onPrint = vi.fn();
-    const onChange = vi.fn();
-    render(
-      <PrintDialog
-        open
-        doc={mockDoc()}
-        numPages={4}
-        pageNumber={2}
-        settings={{ ...DEFAULT_SETTINGS, ...settings }}
-        onChange={onChange}
-        onPrint={onPrint}
-        onClose={() => {}}
-        busy={false}
-        listPrinters={listPrinters}
-      />,
-    );
-    return { onPrint, onChange };
-  }
-
-  it('picks the default printer and prints straight to it with copies and orientation', async () => {
-    const listPrinters = vi.fn(async () => ({ printers: ['Office', 'Home'], default: 'Home' }));
-    const { onPrint, onChange } = await renderPrint(listPrinters);
-    await waitFor(() => expect(screen.getByLabelText('프린터').value).toBe('Home'));
-    expect(screen.getByRole('option', { name: 'Home (기본)' })).toBeTruthy();
-    fireEvent.change(screen.getByLabelText('프린터'), { target: { value: 'Office' } });
-    fireEvent.change(screen.getByLabelText('매수'), { target: { value: '3' } });
-    fireEvent.change(screen.getByLabelText('용지 방향'), { target: { value: 'landscape' } });
-    fireEvent.click(screen.getByRole('button', { name: '인쇄' }));
-    expect(onPrint).toHaveBeenCalledWith({ pages: [1, 2, 3, 4], scope: 'all', printer: 'Office', copies: 3, orientation: 'landscape' });
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ printPrinter: 'Office', printOrientation: 'landscape' }));
-  });
-
-  it('remembers the last printer and still offers the system dialog', async () => {
-    const listPrinters = vi.fn(async () => ({ printers: ['Office', 'Home'], default: 'Home' }));
-    const { onPrint } = await renderPrint(listPrinters, { printPrinter: 'Office' });
-    await waitFor(() => expect(screen.getByLabelText('프린터').value).toBe('Office'));
-    fireEvent.click(screen.getByRole('button', { name: '시스템 인쇄 창…' }));
-    expect(onPrint).toHaveBeenCalledWith({ pages: [1, 2, 3, 4], scope: 'all', viaSystem: true });
-  });
-
-  it('cannot print directly when no printer is installed', async () => {
-    await renderPrint(vi.fn(async () => ({ printers: [], default: null })));
-    await waitFor(() => expect(screen.getAllByText('설치된 프린터가 없습니다.').length).toBeGreaterThan(0));
-    expect(screen.getByRole('button', { name: '인쇄' }).disabled).toBe(true);
-  });
-});

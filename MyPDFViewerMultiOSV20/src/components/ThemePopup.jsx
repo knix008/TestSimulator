@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo } from 'react';
-import { ThemeMenu } from './ThemePicker.jsx';
+import { ThemeMenu, CUSTOM_THEME_ACTION } from './ThemePicker.jsx';
 import { applyTheme, loadSettingsSync } from '../lib/settings.js';
 
 const desktop = () => (typeof window !== 'undefined' ? window.desktopAPI : undefined);
@@ -39,6 +39,7 @@ export default function ThemePopup({ current }) {
         current={current}
         customThemes={customThemes}
         onPick={(id) => desktop()?.win?.pickTheme?.(id)}
+        onCustomize={() => desktop()?.win?.pickTheme?.(CUSTOM_THEME_ACTION)}
         labelledBy="theme"
       />
     </div>

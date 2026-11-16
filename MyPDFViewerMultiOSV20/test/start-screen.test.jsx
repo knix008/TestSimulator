@@ -124,6 +124,34 @@ describe('BackgroundPicker', () => {
     fireEvent.click(screen.getByRole('button', { name: /무작위 배경/ }));
     expect(onChange.mock.calls.at(-1)[0].startBg).not.toBe('books');
   });
+
+  it('puts opacity and speed on one line, each with − on the left and + on the right', () => {
+    const onChange = vi.fn();
+    const { container } = render(<BackgroundPicker settings={{ ...DEFAULT_SETTINGS, startBgOpacity: 0.6, startBgSpeed: 1 }} onChange={onChange} />);
+    const line = container.querySelector('.bg-sliders');
+    expect([...line.children].map((c) => c.dataset.bgSlider)).toEqual(['opacity', 'speed']);
+    for (const id of ['opacity', 'speed']) {
+      const kids = [...line.querySelector(`[data-bg-slider="${id}"]`).children];
+      const range = kids.findIndex((k) => k.type === 'range');
+      expect(kids[range - 1].dataset.bgStep).toBe(`${id}-down`);
+      expect(kids[range + 1].dataset.bgStep).toBe(`${id}-up`);
+    }
+    fireEvent.click(screen.getByRole('button', { name: '투명도 줄이기' }));
+    expect(onChange).toHaveBeenLastCalledWith({ startBgOpacity: 0.55 });
+    fireEvent.click(screen.getByRole('button', { name: '투명도 늘리기' }));
+    expect(onChange).toHaveBeenLastCalledWith({ startBgOpacity: 0.65 });
+    fireEvent.click(screen.getByRole('button', { name: '움직임 속도 늘리기' }));
+    expect(onChange).toHaveBeenLastCalledWith({ startBgSpeed: 1.1 });
+    fireEvent.click(screen.getByRole('button', { name: '움직임 속도 줄이기' }));
+    expect(onChange).toHaveBeenLastCalledWith({ startBgSpeed: 0.9 });
+  });
+
+  it('stops the step buttons at the ends', () => {
+    render(<BackgroundPicker settings={{ ...DEFAULT_SETTINGS, startBgOpacity: 1, startBgSpeed: 0.1 }} onChange={() => {}} />);
+    expect(screen.getByRole('button', { name: '투명도 늘리기' }).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: '투명도 줄이기' }).disabled).toBe(false);
+    expect(screen.getByRole('button', { name: '움직임 속도 줄이기' }).disabled).toBe(true);
+  });
 });
 
 const entries = [
@@ -143,7 +171,7 @@ function renderStart(props = {}) {
 describe('StartScreen', () => {
   beforeEach(async () => { await setLanguage('ko'); });
 
-  it('has the moving background, the title card and the three cards', () => {
+  it('has the moving background, the title card and the cards on the board', () => {
     const { container } = renderStart();
     expect(container.querySelector('canvas.start-bg').dataset.scene).toBe('books');
     expect(container.querySelector('canvas.start-bg').style.opacity).toBe('0.6');
@@ -181,6 +209,84 @@ describe('StartScreen', () => {
     expect(onSettings.mock.calls.at(-1)[0]()).toEqual({ startBg: 'aurora' });
     fireEvent.click(screen.getByText('시작할 때 이 화면 보이기'));
     expect(onSettings.mock.calls.at(-1)[0]()).toEqual({ showStartPage: false });
+  });
+
+  it('has a fixed title card with no move handle and no resize corner', () => {
+    const { container } = renderStart();
+    const hero = container.querySelector('.start-hero');
+    expect(hero).toBeTruthy();
+    expect(hero.closest('.start-board')).toBeNull();
+    expect(hero.querySelector('[data-card-handle], .card-handle, [data-card-resize], .card-resize')).toBeNull();
+    expect(hero.hasAttribute('data-card')).toBe(false);
+  });
+
+  it('puts every other section on the card board, one under another by default', () => {
+    const { container } = renderStart();
+    const cards = [...container.querySelectorAll('.start-board > .start-card')];
+    expect(cards.map((c) => c.dataset.card)).toEqual(['begin', 'recent', 'library', 'background', 'tips']);
+    let lastRow = -1;
+    for (const card of cards) {
+      expect(card.querySelector(`[data-card-handle="${card.dataset.card}"]`), card.dataset.card).toBeTruthy();
+      expect(card.querySelector(`[data-card-resize="${card.dataset.card}"]`), card.dataset.card).toBeTruthy();
+      expect(card.style.gridColumn, card.dataset.card).toBe('1 / span 3');
+      const row = Number(card.style.gridRow.split('/')[0]);
+      expect(row, card.dataset.card).toBeGreaterThan(lastRow);
+      lastRow = row;
+    }
+  });
+
+  it('straightens a saved side-by-side arrangement: every card takes a whole row', () => {
+    const saved = { version: 1, cards: {
+      recent: { col: 0, row: 0, w: 1, h: 8, fit: true },
+      begin: { col: 1, row: 0, w: 2, h: 8, fit: true },
+      library: { col: 2, row: 8, w: 1, h: 6, fit: false },
+    } };
+    const { container } = renderStart({ settings: { ...DEFAULT_SETTINGS, startLayout: saved } });
+    const cards = [...container.querySelectorAll('.start-board > .start-card')];
+    for (const card of cards) expect(card.style.gridColumn, card.dataset.card).toBe('1 / span 3');
+    const rows = cards.map((c) => [c.dataset.card, Number(c.style.gridRow.split('/')[0]), Number(c.style.gridRow.split('span')[1])]);
+    rows.sort((x, y) => x[1] - y[1]);
+    for (let i = 1; i < rows.length; i++) expect(rows[i][1], rows[i][0]).toBeGreaterThanOrEqual(rows[i - 1][1] + rows[i - 1][2]);
+  });
+
+  it('has an auto-arrange button that puts the cards back one under another', () => {
+    const saved = { version: 1, cards: { tips: { col: 0, row: 0, w: 3, h: 8, fit: true } } };
+    const { container, onSettings } = renderStart({ settings: { ...DEFAULT_SETTINGS, startLayout: saved } });
+    expect(container.querySelector('.start-board > .start-card').dataset.card).toBeTruthy();
+    const button = screen.getByRole('button', { name: /자동 정렬/ });
+    expect(button.closest('.start-tools')).toBeTruthy();
+    fireEvent.click(button);
+    const layout = onSettings.mock.calls.at(-1)[0]().startLayout;
+    expect(layout.version).toBe(1);
+    const order = ['begin', 'recent', 'library', 'background', 'tips'];
+    for (const id of order) expect(layout.cards[id]).toMatchObject({ col: 0, w: 3 });
+    for (let i = 1; i < order.length; i++) expect(layout.cards[order[i]].row).toBeGreaterThan(layout.cards[order[i - 1]].row);
+  });
+
+  it('keeps cards full width when moved or resized', async () => {
+    const { place, cardsOf } = await import('../src/lib/startlayout.js');
+    const ids = ['begin', 'recent', 'library'];
+    const cards = cardsOf(null, ids, { begin: 1, recent: 1, library: 1 });
+    for (const id of ids) expect(cards[id]).toMatchObject({ col: 0, w: 3 });
+    const moved = place(cards, 'library', { col: 2, row: 0 });
+    expect(moved.library).toMatchObject({ col: 0, row: 0, w: 3 });
+    expect(moved.begin.row).toBeGreaterThanOrEqual(moved.library.h);
+    const resized = place(cards, 'begin', { w: 1, h: 12, fit: false });
+    expect(resized.begin).toMatchObject({ col: 0, w: 3, h: 12 });
+  });
+
+  it('keeps the arrangement in settings, dropping junk', () => {
+    expect(DEFAULT_SETTINGS.startLayout).toBeNull();
+    expect(normalize({ startLayout: 'x' }).startLayout).toBeNull();
+    expect(normalize({ startLayout: [1] }).startLayout).toBeNull();
+    expect(normalize({ startLayout: { version: 1, cards: {} } }).startLayout).toEqual({ version: 1, cards: {} });
+  });
+
+  it('opens Settings from the top-right tools', () => {
+    const onOpenSettings = vi.fn();
+    renderStart({ onOpenSettings });
+    fireEvent.click(screen.getByRole('button', { name: /^설정/ }));
+    expect(onOpenSettings).toHaveBeenCalledTimes(1);
   });
 
   it('changes the background by itself at the chosen interval', () => {

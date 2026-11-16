@@ -1,7 +1,7 @@
 {
   "name": "mypdfviewer",
   "productName": "MyPDFViewer",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Cross-platform (Web / Windows / macOS / Linux) PDF viewer that lets you read and highlight PDFs and copy the text and images inside them.",
   "author": {
     "name": "SHKWON",
@@ -44,6 +44,7 @@
     "test": "npm run test:js && npm run test:rust",
     "test:js": "vitest run",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "smoke:desktop": "node scripts/smoke-desktop.mjs",
     "pretest:watch": "node scripts/ensure-deps.mjs",
     "test:watch": "vitest",
     "sync:doc": "node scripts/sync-doc.mjs"

@@ -6,6 +6,49 @@ import {
   nextStartBg,
 } from '../lib/startbg.js';
 
+// A short slider with a decrease button on its left and an increase button on
+// its right; each button moves one step and stops at the ends.
+function StepSlider({ id, icon, label, min, max, step, value, onValue }) {
+  const { t } = useTranslation();
+  const clamp = (v) => Math.min(max, Math.max(min, Math.round(v / step) * step));
+  const tidy = (v) => Number(clamp(v).toFixed(2));
+  const by = (n) => onValue(tidy(Number(value) + n * step));
+  return (
+    <div className="bg-slider" data-bg-slider={id}>
+      {icon}
+      <span>{label}</span>
+      <button
+        type="button"
+        className="bg-step"
+        onClick={() => by(-1)}
+        disabled={value <= min + 1e-9}
+        title={t('startbg.decrease', { name: label })}
+        aria-label={t('startbg.decrease', { name: label })}
+        data-bg-step={`${id}-down`}
+      >−</button>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        aria-label={label}
+        onChange={(e) => onValue(Number(e.target.value))}
+      />
+      <button
+        type="button"
+        className="bg-step"
+        onClick={() => by(1)}
+        disabled={value >= max - 1e-9}
+        title={t('startbg.increase', { name: label })}
+        aria-label={t('startbg.increase', { name: label })}
+        data-bg-step={`${id}-up`}
+      >+</button>
+      <output>{Math.round(value * 100)}%</output>
+    </div>
+  );
+}
+
 // Choosing the start-screen background: 21 buttons with a picture each, a
 // shuffle button, transparency and speed, and automatic changes. The same
 // control sits on the start screen and in Settings.
@@ -48,35 +91,29 @@ export default function BackgroundPicker({ settings, onChange, compact = false }
         <IconDice size={15} /> {t('startbg.shuffle')}
       </button>
 
-      <label className="bg-slider">
-        <IconOpacity size={15} />
-        <span>{t('startbg.opacity')}</span>
-        <input
-          type="range"
+      {/* Transparency and speed share one short line. */}
+      <div className="bg-sliders">
+        <StepSlider
+          id="opacity"
+          icon={<IconOpacity size={15} />}
+          label={t('startbg.opacity')}
           min={START_OPACITY_MIN}
           max={START_OPACITY_MAX}
           step={0.05}
           value={settings.startBgOpacity}
-          aria-label={t('startbg.opacity')}
-          onChange={(e) => set({ startBgOpacity: Number(e.target.value) })}
+          onValue={(v) => set({ startBgOpacity: v })}
         />
-        <output>{Math.round(settings.startBgOpacity * 100)}%</output>
-      </label>
-
-      <label className="bg-slider">
-        <IconSpeed size={15} />
-        <span>{t('startbg.speed')}</span>
-        <input
-          type="range"
+        <StepSlider
+          id="speed"
+          icon={<IconSpeed size={15} />}
+          label={t('startbg.speed')}
           min={START_SPEED_MIN}
           max={START_SPEED_MAX}
           step={0.1}
           value={settings.startBgSpeed}
-          aria-label={t('startbg.speed')}
-          onChange={(e) => set({ startBgSpeed: Number(e.target.value) })}
+          onValue={(v) => set({ startBgSpeed: v })}
         />
-        <output>{Math.round(settings.startBgSpeed * 100)}%</output>
-      </label>
+      </div>
 
       <div className="bg-auto">
         <label className="bg-check">

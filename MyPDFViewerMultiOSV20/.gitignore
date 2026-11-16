@@ -6,6 +6,8 @@ node_modules/
 dist/
 # Rust / Tauri build output and installers — cargo build, npm run build:*
 src-tauri/target/
+# the GUI smoke test's own build — npm run smoke:desktop
+src-tauri/target-smoke/
 # schemas tauri-build writes on every build
 src-tauri/gen/
 # NOTE: src-tauri/icons/ is generated from assets/*.svg (npm run generate:icons)

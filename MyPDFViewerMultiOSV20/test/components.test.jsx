@@ -28,6 +28,29 @@ describe('TitleBar', () => {
     const { container } = render(<TitleBar title="" />);
     expect(container.querySelector('.titlebar-controls')).toBe(null);
   });
+
+  it('puts Home after the version and the panel folds before the window buttons', async () => {
+    await setLanguage('en');
+    const onHome = vi.fn();
+    const onToggleLeft = vi.fn();
+    const onToggleRight = vi.fn();
+    const { container } = render(
+      <TitleBar title="a.pdf" onHome={onHome} homeOpen leftOpen onToggleLeft={onToggleLeft} rightOpen={false} onToggleRight={onToggleRight} />,
+    );
+    const home = container.querySelector('[data-titlebar-home]');
+    expect(home.previousElementSibling.classList.contains('titlebar-version')).toBe(true);
+    expect(home.getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(home);
+    expect(onHome).toHaveBeenCalledTimes(1);
+    const left = container.querySelector('[data-titlebar-fold="left"]');
+    const right = container.querySelector('[data-titlebar-fold="right"]');
+    expect(left.getAttribute('aria-pressed')).toBe('true');
+    expect(right.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(left);
+    fireEvent.click(right);
+    expect(onToggleLeft).toHaveBeenCalledTimes(1);
+    expect(onToggleRight).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('TabBar', () => {
@@ -570,8 +593,11 @@ describe('Toolbar panel buttons', () => {
     expect(onComments).not.toHaveBeenCalled();
     expect(onBookmarks).not.toHaveBeenCalled();
     expect(onSearch).not.toHaveBeenCalled();
-    expect(screen.queryByRole('button', { name: 'Print' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Document info' })).toBeTruthy();
+    // Print is its own toolbar button now; the panel folds and Home live in the title bar.
+    const print = screen.getByRole('button', { name: 'Print' });
+    expect(print.closest('.toolbar-group')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Document info' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Home' })).toBeNull();
   });
 
   it('lets the toolbar pick single page, continuous or two-page view', async () => {

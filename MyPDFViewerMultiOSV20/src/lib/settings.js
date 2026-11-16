@@ -5,6 +5,7 @@
 // desktop app, so a restart restores the previous session exactly.
 import { loadPersistedState, writeLocalState, readLocalState } from './platform.js';
 import { normalizePageLayout, normalizePageEffect, normalizeZoomMode } from './view.js';
+import { normalizePrintOptions, PRINT_OPTION_DEFAULTS, PRINT_ORIENTATIONS } from './print-layout.js';
 import {
   normalizeStartBg, clampStartOpacity, clampStartSpeed, normalizeStartInterval,
 } from './startbg.js';
@@ -82,6 +83,7 @@ export const DEFAULT_SETTINGS = {
   printPrinter: '',          // '' = the system default printer
   printOrientation: 'auto',  // auto | portrait | landscape
   printScope: 'all',         // all | current | custom — remembered between prints
+  printOptions: { ...PRINT_OPTION_DEFAULTS }, // page setup: paper, margins, scale, pages per sheet, odd/even, colour
   rememberLastPage: true,
 
   // Session
@@ -101,6 +103,7 @@ export const DEFAULT_SETTINGS = {
   startBgSpeed: 1,           // 0.1–3
   startBgRandom: false,      // automatic changes pick a random one, not the next
   startBgInterval: 0,        // seconds between automatic changes, 0 = never
+  startLayout: null,         // the card board's arrangement (src/lib/startlayout.js); null = one card under another
   recentDirs: [],            // [path]
   lastSession: null,         // { path, page, zoomMode, zoom, rotation }
 };
@@ -131,6 +134,9 @@ export function normalize(raw) {
   out.startBgOpacity = clampStartOpacity(out.startBgOpacity);
   out.startBgSpeed = clampStartSpeed(out.startBgSpeed);
   out.startBgInterval = normalizeStartInterval(out.startBgInterval);
+  out.printOptions = normalizePrintOptions(out.printOptions);
+  if (!PRINT_ORIENTATIONS.includes(out.printOrientation)) out.printOrientation = 'auto';
+  if (!out.startLayout || typeof out.startLayout !== 'object' || Array.isArray(out.startLayout)) out.startLayout = null;
   out.fontSize = Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, out.fontSize));
   out.sidebarWidth = clampSidebarWidth(out.sidebarWidth);
   out.rightPanelWidth = clampInfoPanelWidth(out.rightPanelWidth);
@@ -207,6 +213,8 @@ export function applyFontSettings(s) {
 
 export function applyTheme(id, customThemes) {
   const root = document.documentElement;
+  // Dark or light: the coloured icons take a shade that reads on either.
+  root.setAttribute('data-theme-kind', isDarkTheme(id || 'dark', customThemes) ? 'dark' : 'light');
   const custom = normalizeCustomThemes(customThemes).find((t) => t.id === id);
   if (custom) {
     root.setAttribute('data-theme', 'custom');

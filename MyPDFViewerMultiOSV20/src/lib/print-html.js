@@ -6,8 +6,10 @@ export function escapeHtml(s) {
   return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
-// One image per sheet, each on its own piece of paper.
-export function buildPrintHtml(sources, title) {
+// One image per sheet, each on its own piece of paper. With `pageSize`
+// ("210mm 297mm") each image is a whole sheet — margins already drawn in — so
+// the paper gets no margin of its own.
+export function buildPrintHtml(sources, title, { pageSize = '' } = {}) {
   const body = sources.map((s) => (
     `<div class="sheet"><img src="${s.src}" alt=""></div>`
   )).join('\n');
@@ -15,7 +17,7 @@ export function buildPrintHtml(sources, title) {
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>${escapeHtml(title || 'Print')}</title>
 <style>
-  @page { size: auto; margin: 8mm; }
+  @page { size: ${pageSize || 'auto'}; margin: ${pageSize ? '0' : '8mm'}; }
   html, body { margin: 0; padding: 0; background: #fff; }
   .sheet {
     page-break-after: always; break-after: page;
@@ -23,6 +25,7 @@ export function buildPrintHtml(sources, title) {
   }
   .sheet:last-child { page-break-after: auto; break-after: auto; }
   .sheet img { max-width: 100%; display: block; }
+  ${pageSize ? `.sheet { width: 100vw; height: 100vh; overflow: hidden; } .sheet img { width: 100%; height: 100%; object-fit: contain; }` : ''}
   @media screen { .sheet img { max-height: 100vh; } }
 </style></head>
 <body>${body}</body></html>`;

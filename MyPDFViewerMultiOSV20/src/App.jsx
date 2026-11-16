@@ -20,7 +20,7 @@ import {
   IconCopy, IconSelectAll, IconMarquee, IconHand, IconHighlight, IconBookmark, IconZoomIn,
   IconZoomOut, IconFitWidth, IconRotateRight, IconPrev, IconNext, IconImage,
   IconSelectText, IconDownload, IconClip, IconClose, IconComment,
-  IconFitPage, IconFitHeight, IconActual, IconStar, IconLibrary, IconOpen, IconFolderOpen,
+  IconFitPage, IconFitHeight, IconActual, IconStar, IconLibrary, IconOpen, IconFolderOpen, IconPrint,
 } from './components/Icons.jsx';
 
 import {
@@ -43,7 +43,8 @@ import {
   serializeWorkspace, parseWorkspace, isWorkspacePath, bytesToText, looksLikePdf, WORKSPACE_EXT,
 } from './lib/workspace.js';
 import { encodeImage, formatById, formatByExtension, saveFilters } from './lib/image.js';
-import { renderPagesForPrint, printViaBrowser, resolveLandscape, clampCopies } from './lib/print.js';
+import { renderSheetsForPrint, printSheetsViaBrowser, planForDoc, clampCopies } from './lib/print.js';
+import { cssPageSize } from './lib/print-layout.js';
 import i18n, { setLanguage } from './i18n.js';
 import {
   HIGHLIGHT_COLOR, cycleTool, nextZoom, clampPage, normalizeRotation,
@@ -121,6 +122,9 @@ export default function App() {
   const [task, setTask] = useState(null);
   const [prompt, setPrompt] = useState({ open: false, kind: 'url', error: '' });
   const [showSettings, setShowSettings] = useState(false);
+  // The tab Settings opens on: the theme menu's "Custom themes…" opens Theme.
+  const [settingsTab, setSettingsTab] = useState('appearance');
+  const openSettings = useCallback((tab = 'appearance') => { setSettingsTab(tab); setShowSettings(true); }, []);
   const [showAbout, setShowAbout] = useState(false);
   const [showProps, setShowProps] = useState(false);
   const [capture, setCapture] = useState(null);        // { dataUrl, width, height, page }
@@ -1119,27 +1123,33 @@ export default function App() {
   }, [doc, fail, file, settings.lastDir, t, toast, withProgress]);
 
   // ── Printing ───────────────────────────────────────────
-  // On the desktop the original PDF goes to Chromium's PDF viewer and prints as
-  // vector output; on the web the chosen pages are rasterised and printed from
-  // a new window, because a browser cannot be told which pages to send.
-  // On the desktop the print button of the app's own dialog prints at once,
-  // to the printer chosen there; the system print window only opens when
-  // asked for (viaSystem).
-  const printPages = useCallback(async ({ pages, printer, copies = 1, orientation = 'auto', viaSystem = false }) => {
-    if (!doc || !file || !pages.length) return;
+  // The print window lays out whole sheets (paper, margins, scale, pages per
+  // sheet, odd/even, colour — lib/print-layout.js) and both runtimes print
+  // exactly those sheets, rendered by pdf.js: the desktop webview cannot show
+  // a PDF itself, and a browser cannot be told which pages to send.
+  // Desktop: Print sends the sheets straight to the printer chosen in the
+  // window — no system print window opens.
+  // Web: the sheets go to the browser's print window, on paper of their size.
+  const printPages = useCallback(async ({
+    pages, printer, copies = 1, orientation = 'auto', options = settings.printOptions,
+  }) => {
+    if (!doc || !file || !pages?.length) return;
     setPrinting(true);
     try {
-      if (isDesktop && !viaSystem && api.printTo) {
+      // `pages` already went through odd/even; the plan only lays them out.
+      const plan = await planForDoc({
+        doc, pages, options: { ...options, subset: 'all' }, orientation, rotation: settings.rotation,
+      });
+      if (isDesktop && api.printTo) {
         if (!printer) throw new Error(t('print.noPrinter'));
         await withProgress('printing', file.name, async (onProgress) => {
-          const sheets = await renderPagesForPrint({
-            doc, pages, rotation: settings.rotation, onProgress,
-          });
+          const sheets = await renderSheetsForPrint({ doc, plan, rotation: settings.rotation, onProgress });
           await api.printTo({
             images: sheets.map((s) => s.bytes),
             printer,
             copies: clampCopies(copies),
-            landscape: resolveLandscape(orientation, sheets),
+            landscape: plan.landscape,
+            paper: plan.options.paper,
             title: file.name,
           });
         });
@@ -1151,15 +1161,13 @@ export default function App() {
       }
       if (isDesktop) {
         await withProgress('printing', file.name, async (onProgress) => {
-          const sheets = await renderPagesForPrint({
-            doc, pages, rotation: settings.rotation, onProgress,
-          });
-          await api.printPages({ images: sheets.map((s) => s.bytes), title: file.name });
+          const sheets = await renderSheetsForPrint({ doc, plan, rotation: settings.rotation, onProgress });
+          await api.printPages({ images: sheets.map((s) => s.bytes), title: file.name, pageSize: cssPageSize(plan.paper) });
         });
       } else {
-        await withProgress('printing', file.name, (onProgress) => printViaBrowser({
+        await withProgress('printing', file.name, (onProgress) => printSheetsViaBrowser({
           doc,
-          pages,
+          plan,
           rotation: settings.rotation,
           title: file.name,
           onProgress,
@@ -1179,7 +1187,7 @@ export default function App() {
     } finally {
       setPrinting(false);
     }
-  }, [doc, fail, file, settings.rotation, t, toast, withProgress]);
+  }, [doc, fail, file, settings.rotation, settings.printOptions, t, toast, withProgress]);
 
   // ── Images panel ───────────────────────────────────────
   const extractImages = useCallback(async (num) => {
@@ -1488,6 +1496,16 @@ export default function App() {
     setSettings((s) => ({ ...s, gallery: removeFromGallery(s.gallery, path) }));
     deleteThumb(path);
   }, []);
+
+  // "Clear all" in the opened-files view: every card goes, except the books in
+  // the library (it has its own Clear all). The files themselves stay.
+  const removeAllFromGalleryList = useCallback((list) => {
+    const gone = (list || []).filter((x) => !x.favorite);
+    if (!gone.length) return;
+    setSettings((s) => ({ ...s, gallery: (s.gallery || []).filter((x) => x.favorite) }));
+    for (const x of gone) deleteThumb(x.path);
+    toast(t('gallery.removedAll', { n: gone.length }), 'ok');
+  }, [t, toast]);
 
   // History entries go at once, without asking: the file and its gallery
   // card stay; only the "recently opened" record (and the toolbar's recent
@@ -1856,6 +1874,8 @@ export default function App() {
       { icon: IconFitWidth, label: t('menu.fitWidth'), onClick: () => setSettings((s) => ({ ...s, zoomMode: 'fit-width' })), disabled: fitButtonDisabled('fit-width', { hasDoc: !!doc, layout: settings.pageLayout }) },
       { icon: IconFitHeight, label: t('toolbar.fitHeight'), onClick: () => setSettings((s) => ({ ...s, zoomMode: 'fit-height' })), disabled: fitButtonDisabled('fit-height', { hasDoc: !!doc, layout: settings.pageLayout }) },
       { icon: IconRotateRight, label: t('menu.rotate'), onClick: () => rotate(90), disabled: !doc },
+      { separator: true },
+      { icon: IconPrint, label: `${t('toolbar.print')}… (Ctrl+P)`, onClick: () => setShowPrint(true), disabled: !doc },
     ];
     setMenu({ open: true, x: e.clientX, y: e.clientY, items });
   }, [addBookmark, addComment, applyHighlight, attachFile, changeZoom, copyPageText, copySelection, copySelectedImage, doc, extractImages,
@@ -1950,6 +1970,7 @@ export default function App() {
       onTileSize={(n) => setSettings((s) => ({ ...s, galleryTileSize: clampTileSize(n) }))}
       onOpen={openGalleryEntry}
       onRemove={removeFromGalleryList}
+      onRemoveAll={removeAllFromGalleryList}
       onFavorite={toggleFavorite}
       onNeedThumb={requestGalleryThumb}
       onCardMenu={galleryCardMenu}
@@ -1965,7 +1986,15 @@ export default function App() {
       onDragLeave={() => setDragOver(false)}
       onDrop={onDrop}
     >
-      <TitleBar title={titleText} />
+      <TitleBar
+        title={titleText}
+        homeOpen={!overlay && (homeOpen || (!doc && settings.showStartPage !== false))}
+        onHome={() => { setShowGallery(false); setShowLibrary(false); setHomeOpen((v) => !v || !doc); }}
+        leftOpen={!panelsHidden && settings.sidebar !== 'none'}
+        onToggleLeft={() => toggleSidebar()}
+        rightOpen={!!settings.rightPanel}
+        onToggleRight={toggleInfoPanel}
+      />
 
       <Toolbar
         settings={settings}
@@ -2030,12 +2059,11 @@ export default function App() {
         onGallery={() => setShowGallery((v) => !v)}
         libraryOpen={showLibrary}
         onLibrary={() => setShowLibrary((v) => !v)}
-        homeOpen={!overlay && (homeOpen || (!doc && settings.showStartPage !== false))}
-        onHome={() => { setShowGallery(false); setShowLibrary(false); setHomeOpen((v) => !v || !doc); }}
         onHelp={openGuide}
         onTheme={(id) => setSettings((s) => ({ ...s, theme: id }))}
         onLang={changeLang}
-        onSettings={() => setShowSettings(true)}
+        onSettings={() => openSettings()}
+        onCustomTheme={() => openSettings('theme')}
         onAbout={() => setShowAbout(true)}
         onPrint={() => setShowPrint(true)}
       />
@@ -2239,12 +2267,14 @@ export default function App() {
             onOpenUrl={() => setPrompt({ open: true, kind: 'url', error: '' })}
             onOpenEntry={async (e) => { if (await openGalleryEntry(e)) setHomeOpen(false); }}
             onForgetRecent={forgetRecent}
+            onForgetAllRecent={forgetAllRecent}
             onUnfavorite={(e) => toggleFavorite(e, false)}
             onClearLibrary={clearLibrary}
             onShowLibrary={() => setShowLibrary(true)}
             onShowGallery={() => setShowGallery(true)}
             onOpenGuide={openGuide}
             onNeedThumb={requestGalleryThumb}
+            onOpenSettings={() => openSettings()}
           />
         ) : null}
         {/* The library and the gallery, like the start screen, take the whole
@@ -2276,6 +2306,7 @@ export default function App() {
 
       <SettingsDialog
         open={showSettings}
+        initialTab={settingsTab}
         settings={settings}
         onChange={applySettings}
         onClose={() => setShowSettings(false)}
