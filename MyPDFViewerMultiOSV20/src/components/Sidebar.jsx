@@ -88,14 +88,16 @@ export default function Sidebar({
     if (drag.current) return;
     e.preventDefault();
     drag.current = { x: pointX(e), w: width };
-    document.body.classList.add('resizing-sidebar');
+    // resizing-sidebar: the cursor and no text selection while dragging;
+    // resizing-left: only this splitter lights up, not the right one.
+    document.body.classList.add('resizing-sidebar', 'resizing-left');
     const move = (ev) => {
       if (!drag.current) return;
       onResize?.(drag.current.w + (pointX(ev) - drag.current.x));
     };
     const up = () => {
       drag.current = null;
-      document.body.classList.remove('resizing-sidebar');
+      document.body.classList.remove('resizing-sidebar', 'resizing-left');
       window.removeEventListener('pointermove', move);
       window.removeEventListener('mousemove', move);
       window.removeEventListener('pointerup', up);

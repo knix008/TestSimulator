@@ -54,3 +54,36 @@ describe('InfoPanel', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('panel splitters', () => {
+  it('marks only the dragged splitter: the right one never lights the left one up', async () => {
+    await setLanguage('en');
+    if (typeof window.PointerEvent === 'undefined') window.PointerEvent = class extends MouseEvent {};
+    Element.prototype.setPointerCapture ??= () => {};
+    Element.prototype.releasePointerCapture ??= () => {};
+    const onResize = vi.fn();
+    const { container } = render(<InfoPanel open width={260} onResize={onResize} onClose={() => {}} />);
+    const split = container.querySelector('.info-splitter');
+    fireEvent.pointerDown(split, { button: 0, clientX: 500, pointerId: 1 });
+    expect(document.body.classList.contains('resizing-right')).toBe(true);
+    expect(document.body.classList.contains('resizing-left')).toBe(false);
+    fireEvent.pointerMove(split, { clientX: 480, pointerId: 1 });
+    expect(onResize).toHaveBeenCalled();
+    fireEvent.pointerUp(split, { pointerId: 1 });
+    expect(document.body.classList.contains('resizing-right')).toBe(false);
+    expect(document.body.classList.contains('resizing-sidebar')).toBe(false);
+  });
+
+  it('lights each splitter from its own class, and keeps the other one plain', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const css = fs.readFileSync(path.resolve(import.meta.dirname, '..', 'src', 'App.css'), 'utf8');
+    expect(css).toContain('body.resizing-right .info-splitter::before {');
+    expect(css).toContain('body.resizing-left .side-splitter::before {');
+    expect(css).not.toMatch(/body\.resizing-sidebar \.(info|side)-splitter/);
+    expect(css).toMatch(/body\.resizing-left \.info-splitter:hover::before,\s*body\.resizing-right \.side-splitter:hover::before \{ width: 1px;/);
+    const sidebar = fs.readFileSync(path.resolve(import.meta.dirname, '..', 'src', 'components', 'Sidebar.jsx'), 'utf8');
+    expect(sidebar).toContain("classList.add('resizing-sidebar', 'resizing-left')");
+    expect(sidebar).toContain("classList.remove('resizing-sidebar', 'resizing-left')");
+  });
+});

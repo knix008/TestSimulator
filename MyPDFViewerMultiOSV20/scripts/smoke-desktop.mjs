@@ -270,6 +270,32 @@ try {
     await m.click(`document.querySelector('[data-titlebar-fold="right"]')`);
     eq(await m.ev(open), before, 'did not come back');
   });
+  await check('dragging one panel splitter lights up only that one, and resizes its panel', async () => {
+    const fold = (side) => `document.querySelector('[data-titlebar-fold="${side}"]')`;
+    const wasOpen = await m.ev(`${fold('right')}.getAttribute('aria-pressed') === 'true'`);
+    if (!wasOpen) await m.click(fold('right'));
+    const line = (sel) => `getComputedStyle(document.querySelector('${sel}'), '::before').width`;
+    for (const [sel, other, panel, dx] of [
+      ['.info-splitter', '.side-splitter', '.info-panel', -40],
+      ['.side-splitter', '.info-splitter', '.sidebar', 40],
+    ]) {
+      const w0 = await m.ev(`document.querySelector('${panel}').getBoundingClientRect().width`);
+      const p = await m.center(`document.querySelector('${sel}')`);
+      await m.mouse('mouseMoved', p, { button: 'none' });
+      await m.mouse('mousePressed', p);
+      await m.mouse('mouseMoved', { x: p.x + dx / 2, y: p.y }, { buttons: 1 });
+      await m.mouse('mouseMoved', { x: p.x + dx, y: p.y }, { buttons: 1 });
+      await sleep(150);
+      const during = { dragged: await m.ev(line(sel)), other: await m.ev(line(other)) };
+      await m.mouse('mouseReleased', { x: p.x + dx, y: p.y });
+      await sleep(200);
+      eq(during, { dragged: '3px', other: '1px' }, `${sel} while dragging`);
+      const w1 = await m.ev(`document.querySelector('${panel}').getBoundingClientRect().width`);
+      expect(Math.abs(w1 - w0 - Math.abs(dx)) <= 2, `${panel} width ${w0} → ${w1}`);
+      expect(!(await m.ev(`document.body.classList.contains('resizing-sidebar')`)), 'still marked as resizing');
+    }
+    if (!wasOpen) await m.click(fold('right'));
+  });
   // Continuous scrolling (the default) has no next/previous buttons: type the page.
   const goTo = async (n) => {
     await m.click(`document.querySelector('.page-input')`);

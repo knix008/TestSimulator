@@ -585,7 +585,7 @@ html.theme-popup, html.theme-popup body, html.theme-popup #root {
 }
 .info-splitter:hover::before,
 .info-splitter:focus-visible::before,
-body.resizing-sidebar .info-splitter::before {
+body.resizing-right .info-splitter::before {
   width: 3px; right: 2px; background: var(--accent);
 }
 .info-body { padding: 10px 12px 16px; }
@@ -621,10 +621,14 @@ body.resizing-sidebar .info-splitter::before {
 }
 .side-splitter:hover::before,
 .side-splitter:focus-visible::before,
-body.resizing-sidebar .side-splitter::before {
+body.resizing-left .side-splitter::before {
   width: 3px; left: 2px; background: var(--accent);
 }
 body.resizing-sidebar { cursor: col-resize; user-select: none; }
+body.resizing-left .info-splitter:hover::before,
+body.resizing-right .side-splitter:hover::before { width: 1px; background: var(--border); }
+body.resizing-left .info-splitter:hover::before { right: 3px; }
+body.resizing-right .side-splitter:hover::before { left: 3px; }
 .side-rail {
   width: var(--side-rail); flex: none; display: flex; flex-direction: column; align-items: center;
   gap: 4px; padding: 8px 0; border-right: 1px solid var(--border);

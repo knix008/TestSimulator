@@ -27,7 +27,9 @@ export default function InfoPanel({
     if (e.button !== 0) return;
     drag.current = { x: e.clientX, w: width };
     e.currentTarget.setPointerCapture(e.pointerId);
-    document.body.classList.add('resizing-sidebar');
+    // resizing-sidebar: the cursor and no text selection while dragging;
+    // resizing-right: only this splitter lights up, not the left one.
+    document.body.classList.add('resizing-sidebar', 'resizing-right');
   }, [width]);
 
   const onPointerMove = useCallback((e) => {
@@ -40,7 +42,7 @@ export default function InfoPanel({
     if (!drag.current) return;
     drag.current = null;
     try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* released */ }
-    document.body.classList.remove('resizing-sidebar');
+    document.body.classList.remove('resizing-sidebar', 'resizing-right');
   }, []);
 
   // Collapsed, the panel is a narrow strip that still shows what it is —
