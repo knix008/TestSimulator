@@ -1,7 +1,8 @@
 // Removes build and test leftovers.
 //
-//   node scripts/clean.mjs        → dist/, test-results/, root logs and installers
-//   node scripts/clean.mjs all    → also release/, Rust target/gen, vendored public assets, node_modules/
+//   node scripts/clean.mjs        → dist/, test-results/, root logs
+//   node scripts/clean.mjs all    → also build products (release/, root installers),
+//                                   Rust target/gen, vendored public assets, node_modules/
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -34,14 +35,18 @@ function rmMatching(dirRel, pattern) {
   }
 }
 
-// Always: Vite output, test runs, stray logs and installers at the project root.
+/** Installers and web zips that build.mjs writes to release/ and the project root. */
+const BUILD_PRODUCT = /^MyPhotoManager-.*\.(exe|msi|dmg|deb|rpm|AppImage|zip)$/i;
+
+// Always: Vite output, test runs, stray logs.
 rm('dist');
 rm('test-results');
-rmMatching('.', /^MyPhotoManager-.*\.(exe|msi|dmg|deb|rpm|AppImage|zip)$/i);
 rmMatching('.', /.*\.log$/i);
 
 if (all) {
+  // Build products from npm run build:* (release/ + copies at the project root).
   rm('release');
+  rmMatching('.', BUILD_PRODUCT);
   rm(path.join('src-tauri', 'target'));
   rm(path.join('src-tauri', 'gen'));
   rm(path.join('public', 'models'));

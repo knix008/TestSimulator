@@ -54,8 +54,8 @@ npm run build:linux   # .deb · .rpm · .AppImage → release/
 npm run build:webapp  # 웹 앱 ZIP               → release/MyPhotoManager-<버전>-web.zip
 npm run build:all     # 웹 앱 + 지금 OS에서 만들 수 있는 전부
 npm run build:icons   # assets/icon.svg → 모든 아이콘·설치 화면 이미지 다시 만들기
-npm run clean         # dist/ · test-results/ · 루트 설치 파일·로그 삭제
-npm run clean:all     # + release/ · Rust target/gen · public/models·vendor·doc/img · node_modules
+npm run clean         # dist/ · test-results/ · 로그 삭제
+npm run clean:all     # + 빌드 결과(release/ · 루트 MyPhotoManager-*.exe 등) · Rust target/gen · public/models·vendor·doc/img · node_modules
 ```
 
 만든 파일은 `release/` 와 프로젝트 폴더에 함께 놓입니다. Tauri는 교차 빌드를 하지 않으므로 **각 OS 설치 파일은 그 OS에서** 만듭니다.

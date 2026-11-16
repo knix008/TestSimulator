@@ -139,12 +139,13 @@ test('ignored build output and installers', () => {
   for (const entry of ['node_modules/', 'dist/', 'src-tauri/target/', 'release/', '/MyPhotoManager-*.exe', '/MyPhotoManager-*.zip', 'test-results/']) assert.ok(ignore.includes(entry), entry);
 });
 
-test('clean script removes dist and optionally release/target/vendor/node_modules', () => {
+test('clean script removes dist; clean:all also removes build products, target, vendor, node_modules', () => {
   const script = read('scripts/clean.mjs');
   for (const name of ['dist', 'test-results', 'release', 'src-tauri', 'target', 'public/models', 'public/vendor', 'public/doc/img', 'node_modules']) {
     assert.ok(script.includes(name.replace(/\//g, `', '`)) || script.includes(name) || script.includes(name.split('/').join("', '")), name);
   }
-  assert.match(script, /MyPhotoManager-.*\\\.\(exe/);
+  assert.match(script, /BUILD_PRODUCT|MyPhotoManager-.*\\\.\(exe/);
+  assert.match(script, /if \(all\)[\s\S]*rm\('release'\)[\s\S]*rmMatching\('\.', BUILD_PRODUCT\)/);
   assert.match(script, /if \(all\)[\s\S]*rm\('node_modules'\)/);
 });
 
