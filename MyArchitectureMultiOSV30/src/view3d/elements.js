@@ -14,6 +14,7 @@ import { optionHidden } from "../core/elements/model.js";
 import {
   cutsOf, slabTop, slabMaterial, ceilingZ, beamEnds, beamProfile, railingPath, railingParts, rampModel, rampRails,
   stairLayout, stairRise, stairRails, STAIR_RAIL, curtainGrid, isCurtainWall, wallProfiled, wallTopRel, slabTypeOf,
+  stairWellsInto, stairWellsOn, minusConvex,
 } from "../core/elements/geometry.js";
 import { DEFAULT_MATERIAL } from "../lib/materials.js";
 
@@ -85,6 +86,48 @@ function slabSolid(geo, THREE, outer, holes, top, th) {
   for (const h of holes) side(cw(h));
 }
 
+// A slab-like solid with its holes and the stair wells through it: the wells
+// split the outline into pieces (minusConvex); each hole goes with the piece
+// that holds it, and a hole no piece holds is cut out like a well.
+function cutSolid(geo, THREE, outer, holes, wells, top, th) {
+  if (!wells.length) { slabSolid(geo, THREE, outer, holes, top, th); return; }
+  let pieces = minusConvex([outer], wells);
+  const loose = [];
+  const inside = (h, q) => h.every(([x, y]) => pointIn(x, y, q));
+  const own = pieces.map(() => []);
+  for (const h of holes) {
+    const k = pieces.findIndex((q) => inside(h, q));
+    if (k >= 0) own[k].push(h); else loose.push(h);
+  }
+  if (loose.length) {
+    pieces = pieces.map((q, i) => ({ q, h: own[i] }));
+    const hulls = loose.map(hullOf);
+    const out = [];
+    for (const { q, h } of pieces) for (const r of minusConvex([q], hulls)) out.push({ q: r, h: h.filter((x) => inside(x, r)) });
+    for (const { q, h } of out) slabSolid(geo, THREE, q, h, top, th);
+    return;
+  }
+  pieces.forEach((q, i) => slabSolid(geo, THREE, q, own[i], top, th));
+}
+
+function pointIn(x, y, pts) {
+  let c = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [xi, yi] = pts[i], [xj, yj] = pts[j];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c;
+  }
+  return c;
+}
+
+function hullOf(pts) {
+  const q = pts.map((a) => a.slice()).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [], hi = [];
+  for (const p of q) { while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
+  for (const p of q.slice().reverse()) { while (hi.length >= 2 && cross(hi[hi.length - 2], hi[hi.length - 1], p) <= 0) hi.pop(); hi.push(p); }
+  return lo.slice(0, -1).concat(hi.slice(0, -1));
+}
+
 // Vertical prism between flat heights (mm).
 function prism(geo, pts, z0, z1) {
   if (pts.length < 3 || z1 - z0 < 0.01) return;
@@ -148,10 +191,13 @@ export function buildLevelElements(THREE, p, mats, lg, lv, ctx) {
   const vis = (it) => ctx.vis(it) && !optionHidden(it);
   const base = lv.elevation;
   const add = (mesh, it, kind, name) => { mesh.name = name; lg.add(tag(mesh, it.id, kind, lv.id)); return mesh; };
+  // Stair wells: the floor this level's stairs arrive from below, its ceilings under its own stairs.
+  const wellsIn = stairWellsInto(p, lv.id, vis), wellsUp = stairWellsOn(p, lv.id, vis);
   // ---- slabs (floors, foundations)
   for (const s of (p.slabs || []).filter((x) => x.level === lv.id && vis(x))) {
     const geo = new Geo();
-    slabSolid(geo, THREE, s.pts, cutsOf(p, s), slabTop(p, s), s.thickness);
+    // A floor slab level with the storey takes the wells of the stairs arriving on it.
+    cutSolid(geo, THREE, s.pts, cutsOf(p, s), s.kind !== "foundation" && Math.abs(s.offset || 0) < 300 ? wellsIn : [], slabTop(p, s), s.thickness);
     if (geo.empty) continue;
     const mesh = shadow(new THREE.Mesh(geo.build(THREE), phaseMat(s, mats.surface(slabMaterial(p, s), "#a7a7a2"))));
     add(mesh, s, "slabs", `${s.kind === "foundation" ? "foundation" : "slab"} ${s.id}`);
@@ -160,7 +206,7 @@ export function buildLevelElements(THREE, p, mats, lg, lv, ctx) {
   for (const c of (p.ceilings || []).filter((x) => x.level === lv.id && vis(x))) {
     const geo = new Geo();
     const z = ceilingZ(p, c);
-    slabSolid(geo, THREE, c.pts, cutsOf(p, c), () => z + c.thickness, c.thickness);
+    cutSolid(geo, THREE, c.pts, cutsOf(p, c), wellsUp, () => z + c.thickness, c.thickness);
     if (geo.empty) continue;
     const st = slabTypeOf(p, c);
     const mesh = new THREE.Mesh(geo.build(THREE), phaseMat(c, mats.surface(c.material || (st ? st.layers[0].material : "gypsum"), "#efeeea")));
@@ -340,4 +386,4 @@ function planeFn(pts) {
   return (x, y) => a[2] - (nx * (x - a[0]) + ny * (y - a[1])) / nz;
 }
 
-export { levelById };
+export { levelById, cutSolid };

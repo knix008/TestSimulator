@@ -178,7 +178,10 @@ describe("buildBuilding — openings", () => {
     const g = build(p);
     const door = byName(g, "door d");
     const win = byName(g, "window w");
-    assert.deepEqual({ ...door.userData }, { id: "d", kind: "openings", level: "L" });
+    const { doorAt, ...tags } = door.userData;
+    assert.deepEqual(tags, { id: "d", kind: "openings", level: "L" });
+    assert.equal(doorAt.length, 3, "a door carries its centre for the walk-through");
+    assert.equal(win.userData.doorAt, undefined);
     for (const m of meshes(door)) assert.deepEqual([m.userData.id, m.userData.kind], ["d", "openings"]);
     assert.ok(meshes(door).length >= 4, "jambs, head, leaf and handle");
     assert.ok(meshes(win).some((m) => m.userData.glass), "the window has glass");

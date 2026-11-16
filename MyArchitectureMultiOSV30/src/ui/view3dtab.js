@@ -32,7 +32,7 @@ export class View3DTab {
     this.highlighted = [];
     this.picked = null;
     this.hiddenLevels = new Set();
-    this.opts = { style: "realistic", navMode: "orbit", ortho: false, section: null, openDoors: false, furniture: true, roofs: true, grid: true, axes: true, labels: app.settings.labels3d !== false, scaleBar: app.settings.scaleBar3d !== false, gizmo: true, dimensions: false, ground: true, tool: "none", fog: false, solids: true, night: false };
+    this.opts = { style: "realistic", navMode: "orbit", ortho: false, section: null, openDoors: false, walkDoors: true, furniture: true, roofs: true, grid: true, axes: true, labels: app.settings.labels3d !== false, scaleBar: app.settings.scaleBar3d !== false, gizmo: true, dimensions: false, ground: true, tool: "none", fog: false, solids: true, night: false };
     this.paintMaterial = "brick";
     // SketchUp-style tools, panels and edits (src/ui/skui.js); tags hidden in 3D.
     this.hiddenTags = new Set();
@@ -336,7 +336,7 @@ export class View3DTab {
   }
 
   hintText() {
-    if (this.opts.navMode === "walk") return t("Walk: W/A/S/D or arrows move, drag to look around, Q/E down/up, Shift runs. Esc leaves walk mode.");
+    if (this.opts.navMode === "walk") return t("Walk: W/A/S/D or arrows move, drag to look around, Q/E down/up, Shift runs. Doors open as you come near; click a door or press F to open or close it. Esc leaves walk mode.");
     if (this.opts.navMode === "pan") return t("Pan mode: left-drag moves the view, right-drag rotates, wheel zooms.");
     return t("Left-drag to orbit, right-drag to pan, wheel to zoom. Click a wall, door or piece of furniture to select it in the plan too.");
   }
@@ -542,7 +542,7 @@ export class View3DTab {
     const vis = h("div", { class: "panel" });
     vis.append(panelHead("eye", t("Show")));
     const vb = h("div", { class: "panel-body" });
-    for (const [k, label] of [["furniture", "Furniture"], ["roofs", "Roofs"], ["solids", "Mass models"], ["openDoors", "Open doors"], ["ground", "Ground"], ["grid", "Grid"], ["axes", "Axes"], ["labels", "Grid and axis numbers"], ["scaleBar", "Scale bar"], ["dimensions", "Building dimensions"], ["gizmo", "Orientation gizmo"], ["fog", "Fog"], ["night", "Night (interior lighting)"]]) {
+    for (const [k, label] of [["furniture", "Furniture"], ["roofs", "Roofs"], ["solids", "Mass models"], ["openDoors", "Open doors"], ["walkDoors", "Doors open as you walk"], ["ground", "Ground"], ["grid", "Grid"], ["axes", "Axes"], ["labels", "Grid and axis numbers"], ["scaleBar", "Scale bar"], ["dimensions", "Building dimensions"], ["gizmo", "Orientation gizmo"], ["fog", "Fog"], ["night", "Night (interior lighting)"]]) {
       vb.append(h("div", {}, checkbox(!!this.opts[k], t(label), { onChange: (v) => this.setOpt(k, v) })));
     }
     vis.append(vb);

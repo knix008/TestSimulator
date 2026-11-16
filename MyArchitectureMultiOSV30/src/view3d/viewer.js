@@ -20,7 +20,7 @@ const DEG = Math.PI / 180;
 
 export const DEFAULT_OPTIONS = {
   background: "gradient", shadows: true, grid: true, axes: false, labels: true, gizmo: true, dimensions: false, units3d: "m",
-  style: "realistic", section: null, levels: null, openDoors: false, forceOpenDoors: false, furniture: true, roofs: true, ground: true,
+  style: "realistic", section: null, levels: null, openDoors: false, forceOpenDoors: false, walkDoors: true, furniture: true, roofs: true, ground: true,
   sunAzimuth: 135, sunAltitude: 45, north: 0, navMode: "orbit", ortho: false, fov: 45, rotateSpeed: 1,
   tool: "none", fog: false, solids: true, night: false, environment: "", envBackground: false, groundType: "plain", groundShape: "disc",
 };
@@ -1010,10 +1010,106 @@ export function createViewer(container, options = {}) {
   function walkKey(e, down) {
     if (opts.navMode !== "walk") return false;
     const k = e.key.toLowerCase();
+    if (k === "f") { if (down && !e.repeat) toggleDoorAhead(); return true; }
     if (!["w", "a", "s", "d", "q", "e", "arrowup", "arrowdown", "arrowleft", "arrowright", "pageup", "pagedown", "shift"].includes(k)) return false;
     if (down) walk.keys.add(k); else walk.keys.delete(k);
     if (e.shiftKey) walk.keys.add("shift"); else walk.keys.delete("shift");
     return true;
+  }
+
+  // ---------------------------------------------------------------- doors on the walk
+  // While walking, a door opens as the walker comes within reach and closes
+  // again behind them (opts.walkDoors); a click on a door, or F for the door
+  // ahead, opens or closes it for the rest of the walk. Only the drawing moves
+  // — the project is not edited — and every door swings back to how the model
+  // has it when the walk ends. Leaves and sliding panels are tagged by
+  // build.js (userData.leaf / userData.slide, the door's centre in doorAt).
+  const DOOR_REACH = 1.6; // m from the door's centre (plan)
+  const DOOR_ANGLE = Math.PI / 2; // a walked-through door opens to 90°
+  const walkDoors = { list: null, of: null, state: new Map(), busy: false };
+  function applyDoor(d, t) {
+    for (const part of d.parts) {
+      const L = part.userData.leaf, S = part.userData.slide;
+      if (L) {
+        const a = L.a + (Math.max(L.a, DOOR_ANGLE) - L.a) * t;
+        part.rotation.y = L.y0 + L.k * a;
+      } else if (S) {
+        if (!S.p0) S.p0 = part.position.clone();
+        const off = (Math.max(S.a, S.max) - S.a) * t;
+        part.position.set(S.p0.x + S.d[0] * off, S.p0.y, S.p0.z + S.d[1] * off);
+      }
+      part.updateMatrix();
+      part.updateMatrixWorld(true);
+    }
+  }
+  function doorList() {
+    if (walkDoors.list && walkDoors.of === building) return walkDoors.list;
+    // A rebuild keeps unchanged levels' groups: put their doors back first.
+    if (walkDoors.list) for (const d of walkDoors.list) if ((walkDoors.state.get(d.id) || {}).t > 0) applyDoor(d, 0);
+    const list = [];
+    building.updateMatrixWorld(true);
+    building.traverse((o) => {
+      if (!o.userData || !o.userData.doorAt || o.userData.kind !== "openings") return;
+      const parts = [];
+      o.traverse((c) => { if (c.userData.leaf || c.userData.slide) parts.push(c); });
+      if (!parts.length) return;
+      const at = new THREE.Vector3(...o.userData.doorAt);
+      if (o.parent) o.parent.localToWorld(at);
+      list.push({ id: o.userData.id, at, parts });
+    });
+    walkDoors.list = list;
+    walkDoors.of = building;
+    walkDoors.state = new Map();
+    return list;
+  }
+  const doorState = (id) => { let st = walkDoors.state.get(id); if (!st) { st = { t: 0, want: 0, manual: undefined, near: false, unbatched: false }; walkDoors.state.set(id, st); } return st; };
+  function doorStep(dt) {
+    const walking = opts.navMode === "walk";
+    if (!walking && !walkDoors.busy) return;
+    const eye = camera.position;
+    let busy = false;
+    for (const d of doorList()) {
+      const st = doorState(d.id);
+      const near = walking && Math.hypot(d.at.x - eye.x, d.at.z - eye.z) < DOOR_REACH && Math.abs(d.at.y - eye.y) < 2;
+      if (st.near && !near && st.manual !== undefined) st.manual = undefined; // walked away: back to opening on approach
+      st.near = near;
+      const want = !walking ? 0 : st.manual !== undefined ? (st.manual ? 1 : 0) : opts.walkDoors !== false && near ? 1 : 0;
+      st.want = want;
+      if (st.t === want) { if (st.t > 0) busy = true; continue; }
+      busy = true;
+      if (!st.unbatched) { st.unbatched = true; unbatch([d.id]); }
+      st.t = want > st.t ? Math.min(want, st.t + dt * 1.8) : Math.max(want, st.t - dt * 1.8);
+      applyDoor(d, st.t);
+      if (st.t === want) invalidateShadows();
+      dirty = true;
+    }
+    walkDoors.busy = busy;
+  }
+  // Opens or closes a door for the walk → true when `id` is a door that moves.
+  function toggleWalkDoor(id, open) {
+    const d = doorList().find((x) => x.id === id);
+    if (!d) return false;
+    const st = doorState(id);
+    st.manual = open ?? !st.want; // the other way from where it is heading (a door half way round turns back)
+    st.want = st.manual ? 1 : 0;
+    walkDoors.busy = true;
+    dirty = true;
+    return true;
+  }
+  // F: the door the walker faces (within 3 m, not more than 50° off the view).
+  function toggleDoorAhead() {
+    const fwd = camera.getWorldDirection(new THREE.Vector3()).setY(0);
+    if (fwd.lengthSq() < 1e-6) fwd.set(Math.sin(walk.yaw), 0, -Math.cos(walk.yaw));
+    fwd.normalize();
+    let best = null, bestD = 3;
+    for (const d of doorList()) {
+      const v = new THREE.Vector3(d.at.x - camera.position.x, 0, d.at.z - camera.position.z);
+      const dist = v.length();
+      if (dist > bestD || Math.abs(d.at.y - camera.position.y) > 2) continue;
+      if (dist > 0.3 && v.normalize().dot(fwd) < Math.cos((50 * Math.PI) / 180)) continue;
+      best = d; bestD = dist;
+    }
+    return best ? toggleWalkDoor(best.id) : false;
   }
 
   // ---------------------------------------------------------------- picking
@@ -1197,7 +1293,13 @@ export function createViewer(container, options = {}) {
     if (!down || down.button !== 0) { down = null; return; }
     const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
     down = null;
-    if (moved > 4 || !pickCallbacks.size) return;
+    if (moved > 4) return;
+    // Walking: a click on a door opens or closes it.
+    if (opts.navMode === "walk") {
+      const h0 = raycastAt(e.clientX, e.clientY);
+      if (h0 && h0.object.userData.kind === "openings" && h0.distance < 6 && toggleWalkDoor(h0.object.userData.id)) return;
+    }
+    if (!pickCallbacks.size) return;
     const hit = raycastAt(e.clientX, e.clientY);
     const info = hit ? { id: hit.object.userData.id || null, kind: hit.object.userData.kind || null, level: hit.object.userData.level || null, point: hit.point, comp: hit.object.userData.comp || null, shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey } : null;
     lastPickId = info ? info.id : null;
@@ -1505,6 +1607,7 @@ export function createViewer(container, options = {}) {
     lastT = now;
     if (anim) stepAnim(now);
     walkStep(dt);
+    doorStep(dt);
     let driven = false;
     if (driver) { try { driven = !!driver(now, dt); } catch (err) { console.error(err); driver = null; } }
     if (driven) dirty = true;
@@ -1781,6 +1884,8 @@ export function createViewer(container, options = {}) {
 
   return {
     setProject, setOptions, setView, zoomToFit, flyTo, setDriver, photoPrep, applyEnvironment, environmentInfo: () => ({ id: hdri ? hdri.env.id : "", background: scene.background === (hdri && hdri.background), picture: hdri ? hdri.background : null }), isAnimating: () => !!anim, canvas, highlight, onPick, screenshot, orbit, pan, setNavMode, walkKey,
+    // The walk's doors: [{id, t}] (0 closed … 1 open), and open / close one (open undefined = toggle).
+    walkDoors: () => doorList().map((d) => { const st = walkDoors.state.get(d.id) || { t: 0, want: 0 }; return { id: d.id, t: st.t, want: st.want, manual: st.manual, near: !!st.near, at: d.at.toArray() }; }), toggleWalkDoor, toggleDoorAhead,
     onTool: (cb) => { toolCallbacks.add(cb); return () => toolCallbacks.delete(cb); }, clearMeasures, measureCount: () => measures.children.length / 2, getCamera, setCamera,
     exportFile, exportRoot, resize, dispose, stats, rebuild, ready,
     // Screen pixels per metre at the orbit target (perspective) or anywhere (orthographic).

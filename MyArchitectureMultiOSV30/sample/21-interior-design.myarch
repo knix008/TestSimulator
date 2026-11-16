@@ -8,7 +8,7 @@
   "client": "Sample",
   "address": "Seoul",
   "rev": "A",
-  "date": "2026-11-08",
+  "date": "2026-11-16",
   "comment": "",
   "scale": 100,
   "north": 0,
@@ -31,7 +31,7 @@
  },
  "levels": [
   {
-   "id": "lvbtc3i06n5we",
+   "id": "lvathki07a1m9",
    "name": "1F",
    "elevation": 0,
    "height": 2700,
@@ -202,8 +202,8 @@
  ],
  "walls": [
   {
-   "id": "wbtc3i06n634",
-   "level": "lvbtc3i06n5we",
+   "id": "wathki07a2p2",
+   "level": "lvathki07a1m9",
    "x1": 0,
    "y1": 0,
    "x2": 11000,
@@ -214,8 +214,8 @@
    "phase": "new"
   },
   {
-   "id": "wbtc3i06n7qe",
-   "level": "lvbtc3i06n5we",
+   "id": "wathki07a34l",
+   "level": "lvathki07a1m9",
    "x1": 11000,
    "y1": 0,
    "x2": 11000,
@@ -226,8 +226,8 @@
    "phase": "new"
   },
   {
-   "id": "wbtc3i06n88k",
-   "level": "lvbtc3i06n5we",
+   "id": "wathki07a4ov",
+   "level": "lvathki07a1m9",
    "x1": 11000,
    "y1": 8000,
    "x2": 0,
@@ -238,8 +238,8 @@
    "phase": "new"
   },
   {
-   "id": "wbtc3i06n9fi",
-   "level": "lvbtc3i06n5we",
+   "id": "wathki07a56q",
+   "level": "lvathki07a1m9",
    "x1": 0,
    "y1": 8000,
    "x2": 0,
@@ -250,8 +250,8 @@
    "phase": "new"
   },
   {
-   "id": "wbtc3i06nabs",
-   "level": "lvbtc3i06n5we",
+   "id": "wathki07a6a6",
+   "level": "lvathki07a1m9",
    "x1": 0,
    "y1": 4800,
    "x2": 3200,
@@ -261,8 +261,8 @@
    "phase": "new"
   },
   {
-   "id": "wbtc3i06nbzz",
-   "level": "lvbtc3i06n5we",
+   "id": "wathki07a71u",
+   "level": "lvathki07a1m9",
    "x1": 3200,
    "y1": 4800,
    "x2": 6500,
@@ -272,8 +272,8 @@
    "phase": "new"
   },
   {
-   "id": "wbtc3i06ncfl",
-   "level": "lvbtc3i06n5we",
+   "id": "wathki07a8v6",
+   "level": "lvathki07a1m9",
    "x1": 3200,
    "y1": 4800,
    "x2": 3200,
@@ -283,8 +283,8 @@
    "phase": "new"
   },
   {
-   "id": "wbtc3i06ndzd",
-   "level": "lvbtc3i06n5we",
+   "id": "wathki07a9rh",
+   "level": "lvathki07a1m9",
    "x1": 6500,
    "y1": 0,
    "x2": 6500,
@@ -296,8 +296,8 @@
    "phase": "new"
   },
   {
-   "id": "wbtc3i06nevb",
-   "level": "lvbtc3i06n5we",
+   "id": "wathki07aao1",
+   "level": "lvathki07a1m9",
    "x1": 6500,
    "y1": 4800,
    "x2": 6500,
@@ -307,8 +307,8 @@
    "phase": "new"
   },
   {
-   "id": "wbtc3i06nf5h",
-   "level": "lvbtc3i06n5we",
+   "id": "wathki07aboc",
+   "level": "lvathki07a1m9",
    "x1": 6500,
    "y1": 4800,
    "x2": 11000,
@@ -318,8 +318,8 @@
    "phase": "new"
   },
   {
-   "id": "wbtc3i06ng7k",
-   "level": "lvbtc3i06n5we",
+   "id": "wathki07acwd",
+   "level": "lvathki07a1m9",
    "x1": 9000,
    "y1": 4800,
    "x2": 9000,
@@ -331,8 +331,8 @@
  ],
  "openings": [
   {
-   "id": "obtc3i06nh4g",
-   "wall": "wbtc3i06nabs",
+   "id": "oathki07adci",
+   "wall": "wathki07a6a6",
    "kind": "opening",
    "type": "none",
    "at": 1700,
@@ -344,8 +344,8 @@
    "phase": "new"
   },
   {
-   "id": "obtc3i06nihk",
-   "wall": "wbtc3i06nbzz",
+   "id": "oathki07aeph",
+   "wall": "wathki07a71u",
    "kind": "opening",
    "type": "none",
    "at": 1650,
@@ -357,8 +357,8 @@
    "phase": "new"
   },
   {
-   "id": "obtc3i06njfv",
-   "wall": "wbtc3i06ncfl",
+   "id": "oathki07afly",
+   "wall": "wathki07a8v6",
    "kind": "door",
    "type": "single",
    "at": 1600,
@@ -370,8 +370,8 @@
    "phase": "new"
   },
   {
-   "id": "obtc3i06nkc4",
-   "wall": "wbtc3i06ndzd",
+   "id": "oathki07agrf",
+   "wall": "wathki07a9rh",
    "kind": "door",
    "type": "single",
    "at": 4250,
@@ -383,8 +383,8 @@
    "phase": "new"
   },
   {
-   "id": "obtc3i06nlx7",
-   "wall": "wbtc3i06nevb",
+   "id": "oathki07ah8e",
+   "wall": "wathki07aao1",
    "kind": "door",
    "type": "single",
    "at": 1000,
@@ -396,8 +396,8 @@
    "phase": "new"
   },
   {
-   "id": "obtc3i06nmyb",
-   "wall": "wbtc3i06nf5h",
+   "id": "oathki07aibr",
+   "wall": "wathki07aboc",
    "kind": "door",
    "type": "single",
    "at": 3500,
@@ -409,8 +409,8 @@
    "phase": "new"
   },
   {
-   "id": "obtc3i06nntx",
-   "wall": "wbtc3i06n88k",
+   "id": "oathki07aj8g",
+   "wall": "wathki07a4ov",
    "kind": "door",
    "type": "single",
    "at": 6200,
@@ -422,8 +422,8 @@
    "phase": "new"
   },
   {
-   "id": "obtc3i06noin",
-   "wall": "wbtc3i06n634",
+   "id": "oathki07ak9h",
+   "wall": "wathki07a2p2",
    "kind": "window",
    "type": "casement",
    "at": 2000,
@@ -435,8 +435,8 @@
    "phase": "new"
   },
   {
-   "id": "obtc3i06npo6",
-   "wall": "wbtc3i06n634",
+   "id": "oathki07ala6",
+   "wall": "wathki07a2p2",
    "kind": "window",
    "type": "casement",
    "at": 4800,
@@ -448,8 +448,8 @@
    "phase": "new"
   },
   {
-   "id": "obtc3i06nq8i",
-   "wall": "wbtc3i06n634",
+   "id": "oathki07amc7",
+   "wall": "wathki07a2p2",
    "kind": "window",
    "type": "casement",
    "at": 8700,
@@ -461,8 +461,8 @@
    "phase": "new"
   },
   {
-   "id": "obtc3i06nr0n",
-   "wall": "wbtc3i06n7qe",
+   "id": "oathki07anzv",
+   "wall": "wathki07a34l",
    "kind": "window",
    "type": "casement",
    "at": 2400,
@@ -474,8 +474,8 @@
    "phase": "new"
   },
   {
-   "id": "obtc3i06nsy2",
-   "wall": "wbtc3i06n7qe",
+   "id": "oathki07ao73",
+   "wall": "wathki07a34l",
    "kind": "window",
    "type": "casement",
    "at": 6400,
@@ -487,8 +487,8 @@
    "phase": "new"
   },
   {
-   "id": "obtc3i06ntjf",
-   "wall": "wbtc3i06n88k",
+   "id": "oathki07ap16",
+   "wall": "wathki07a4ov",
    "kind": "window",
    "type": "casement",
    "at": 9400,
@@ -500,8 +500,8 @@
    "phase": "new"
   },
   {
-   "id": "obtc3i06nuyo",
-   "wall": "wbtc3i06n88k",
+   "id": "oathki07aqtz",
+   "wall": "wathki07a4ov",
    "kind": "window",
    "type": "casement",
    "at": 3300,
@@ -515,8 +515,8 @@
  ],
  "rooms": [
   {
-   "id": "rbtc3i06nvix",
-   "level": "lvbtc3i06n5we",
+   "id": "rathki07aru2",
+   "level": "lvathki07a1m9",
    "name": "Living room",
    "pts": [
     [
@@ -543,8 +543,8 @@
    "phase": "new"
   },
   {
-   "id": "rbtc3i06nwtb",
-   "level": "lvbtc3i06n5we",
+   "id": "rathki07asip",
+   "level": "lvathki07a1m9",
    "name": "Bedroom",
    "pts": [
     [
@@ -571,8 +571,8 @@
    "phase": "new"
   },
   {
-   "id": "rbtc3i06nx9s",
-   "level": "lvbtc3i06n5we",
+   "id": "rathki07atfw",
+   "level": "lvathki07a1m9",
    "name": "Study",
    "pts": [
     [
@@ -599,8 +599,8 @@
    "phase": "new"
   },
   {
-   "id": "rbtc3i06nyis",
-   "level": "lvbtc3i06n5we",
+   "id": "rathki07aui4",
+   "level": "lvathki07a1m9",
    "name": "Bathroom",
    "pts": [
     [
@@ -625,8 +625,8 @@
    "phase": "new"
   },
   {
-   "id": "rbtc3i06nzcu",
-   "level": "lvbtc3i06n5we",
+   "id": "rathki07av1y",
+   "level": "lvathki07a1m9",
    "name": "Hall",
    "pts": [
     [
@@ -653,8 +653,8 @@
    "phase": "new"
   },
   {
-   "id": "rbtc3i06o07p",
-   "level": "lvbtc3i06n5we",
+   "id": "rathki07aweu",
+   "level": "lvathki07a1m9",
    "name": "Kitchen",
    "pts": [
     [
@@ -683,8 +683,8 @@
  "stairs": [],
  "furniture": [
   {
-   "id": "ubtc3i06o1cs",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07ax55",
+   "level": "lvathki07a1m9",
    "kind": "sofa3",
    "x": 2800,
    "y": 2400,
@@ -697,8 +697,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3i06o2u9",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07ayf2",
+   "level": "lvathki07a1m9",
    "kind": "coffeeTable",
    "x": 4100,
    "y": 2400,
@@ -711,8 +711,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3i06o3yc",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07az5l",
+   "level": "lvathki07a1m9",
    "kind": "rug",
    "x": 4000,
    "y": 2400,
@@ -725,8 +725,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3i06o4va",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07b0zd",
+   "level": "lvathki07a1m9",
    "kind": "armchair",
    "x": 4800,
    "y": 800,
@@ -739,8 +739,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3i06o5mr",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07b1vc",
+   "level": "lvathki07a1m9",
    "kind": "floorLamp",
    "x": 1700,
    "y": 700,
@@ -758,8 +758,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3i06o604",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07b25m",
+   "level": "lvathki07a1m9",
    "kind": "plant",
    "x": 600,
    "y": 600,
@@ -772,8 +772,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3i06o7xs",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07b3mj",
+   "level": "lvathki07a1m9",
    "kind": "wallTV",
    "x": 6395,
    "y": 2400,
@@ -786,8 +786,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3i06o8cv",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07b45b",
+   "level": "lvathki07a1m9",
    "kind": "sideboard",
    "x": 350,
    "y": 1600,
@@ -800,8 +800,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3i06o98m",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07b5ja",
+   "level": "lvathki07a1m9",
    "kind": "wallArt",
    "x": 150,
    "y": 1600,
@@ -814,8 +814,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3i06oauz",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07b6wb",
+   "level": "lvathki07a1m9",
    "kind": "curtain",
    "x": 2000,
    "y": 185,
@@ -828,8 +828,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3i06obmr",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07b7t8",
+   "level": "lvathki07a1m9",
    "kind": "curtain",
    "x": 8700,
    "y": 185,
@@ -842,8 +842,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3i06ocqq",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07b8f9",
+   "level": "lvathki07a1m9",
    "kind": "diningTable4",
    "x": 1500,
    "y": 3300,
@@ -856,8 +856,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3i06od98",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07b9xg",
+   "level": "lvathki07a1m9",
    "kind": "chair",
    "x": 1150,
    "y": 2650,
@@ -870,8 +870,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3i06oew2",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07badu",
+   "level": "lvathki07a1m9",
    "kind": "chair",
    "x": 1850,
    "y": 2650,
@@ -884,8 +884,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3i06ofo9",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07bbuz",
+   "level": "lvathki07a1m9",
    "kind": "chair",
    "x": 1150,
    "y": 3950,
@@ -898,8 +898,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3i06oglw",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07bcw7",
+   "level": "lvathki07a1m9",
    "kind": "chair",
    "x": 1850,
    "y": 3950,
@@ -912,8 +912,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3i06ohzj",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07bdbm",
+   "level": "lvathki07a1m9",
    "kind": "chandelier",
    "x": 3600,
    "y": 2400,
@@ -931,8 +931,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06oi1r",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07begq",
+   "level": "lvathki07a1m9",
    "kind": "pendantLamp",
    "x": 1500,
    "y": 3300,
@@ -950,8 +950,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06ojj2",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07bfpd",
+   "level": "lvathki07a1m9",
    "kind": "counter",
    "x": 425,
    "y": 6300,
@@ -964,8 +964,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06oke4",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07bg21",
+   "level": "lvathki07a1m9",
    "kind": "fridge",
    "x": 2700,
    "y": 7575,
@@ -978,8 +978,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06ol2n",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07bh8i",
+   "level": "lvathki07a1m9",
    "kind": "island",
    "x": 1900,
    "y": 6400,
@@ -992,8 +992,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06omx5",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07biy2",
+   "level": "lvathki07a1m9",
    "kind": "pendantLamp",
    "x": 1900,
    "y": 6000,
@@ -1011,8 +1011,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06on19",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07bjcg",
+   "level": "lvathki07a1m9",
    "kind": "pendantLamp",
    "x": 1900,
    "y": 6800,
@@ -1030,8 +1030,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06ooii",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07bk6g",
+   "level": "lvathki07a1m9",
    "kind": "consoleTable",
    "x": 6250,
    "y": 7200,
@@ -1044,8 +1044,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06opal",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07bl3w",
+   "level": "lvathki07a1m9",
    "kind": "mirror",
    "x": 6410,
    "y": 7200,
@@ -1058,8 +1058,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06oq3r",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07bmll",
+   "level": "lvathki07a1m9",
    "kind": "downlight",
    "x": 4800,
    "y": 6400,
@@ -1078,8 +1078,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06orbq",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07bnvi",
+   "level": "lvathki07a1m9",
    "kind": "doubleBed",
    "x": 7625,
    "y": 2400,
@@ -1092,8 +1092,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06osqf",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07boui",
+   "level": "lvathki07a1m9",
    "kind": "nightstand",
    "x": 6800,
    "y": 1300,
@@ -1106,8 +1106,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06otl5",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07bpzr",
+   "level": "lvathki07a1m9",
    "kind": "nightstand",
    "x": 6800,
    "y": 3480,
@@ -1120,8 +1120,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06oumc",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07bqhs",
+   "level": "lvathki07a1m9",
    "kind": "bedBench",
    "x": 8900,
    "y": 2400,
@@ -1134,8 +1134,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06ovv9",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07br0y",
+   "level": "lvathki07a1m9",
    "kind": "wardrobe",
    "x": 10575,
    "y": 3900,
@@ -1148,8 +1148,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06owjt",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07bsjh",
+   "level": "lvathki07a1m9",
    "kind": "curtain",
    "x": 10815,
    "y": 2400,
@@ -1162,8 +1162,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06oxr4",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07btf0",
+   "level": "lvathki07a1m9",
    "kind": "wallArt",
    "x": 6595,
    "y": 2400,
@@ -1176,8 +1176,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06oy6x",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07bu1p",
+   "level": "lvathki07a1m9",
    "kind": "ceilingLight",
    "x": 8700,
    "y": 2400,
@@ -1195,8 +1195,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06ozpr",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07bvcn",
+   "level": "lvathki07a1m9",
    "kind": "tableLamp",
    "x": 6800,
    "y": 1300,
@@ -1214,8 +1214,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06p0xr",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07bwuq",
+   "level": "lvathki07a1m9",
    "kind": "bathtub",
    "x": 7750,
    "y": 7500,
@@ -1228,8 +1228,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06p1aw",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07bx1b",
+   "level": "lvathki07a1m9",
    "kind": "toilet",
    "x": 8600,
    "y": 5600,
@@ -1242,8 +1242,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06p28s",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07byjh",
+   "level": "lvathki07a1m9",
    "kind": "washbasin",
    "x": 7300,
    "y": 5110,
@@ -1256,8 +1256,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06p35d",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07bzcy",
+   "level": "lvathki07a1m9",
    "kind": "mirror",
    "x": 7300,
    "y": 4880,
@@ -1270,8 +1270,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06p450",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07c00k",
+   "level": "lvathki07a1m9",
    "kind": "downlight",
    "x": 7700,
    "y": 6400,
@@ -1290,8 +1290,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06p5kb",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07c10n",
+   "level": "lvathki07a1m9",
    "kind": "desk",
    "x": 10575,
    "y": 6400,
@@ -1304,8 +1304,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06p6i1",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07c23e",
+   "level": "lvathki07a1m9",
    "kind": "officeChair",
    "x": 9950,
    "y": 6400,
@@ -1318,8 +1318,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06p7hr",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07c3zf",
+   "level": "lvathki07a1m9",
    "kind": "bookshelf",
    "x": 9225,
    "y": 6400,
@@ -1332,8 +1332,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06p8ud",
-   "level": "lvbtc3i06n5we",
+   "id": "uathki07c4bo",
+   "level": "lvathki07a1m9",
    "kind": "ceilingLight",
    "x": 10000,
    "y": 6400,
@@ -1351,7 +1351,7 @@
    "phase": "new"
   },
   {
-   "id": "ubtc3j06ppbk",
+   "id": "uathkj07cl52",
    "kind": "bowlDeco",
    "x": 4077.5029834127054,
    "y": 2318.5360123217106,
@@ -1361,10 +1361,10 @@
    "h": 150,
    "elevation": 420,
    "color": null,
-   "level": "lvbtc3i06n5we"
+   "level": "lvathki07a1m9"
   },
   {
-   "id": "ubtc3j06pqpu",
+   "id": "uathkj07cmcu",
    "kind": "flowerVase",
    "x": 1500,
    "y": 3300,
@@ -1374,36 +1374,54 @@
    "h": 550,
    "elevation": 750,
    "color": null,
-   "level": "lvbtc3i06n5we"
+   "level": "lvathki07a1m9"
   },
   {
-   "id": "ubtc3j06pr5h",
-   "kind": "vaseSet",
-   "x": 6211.975912717171,
-   "y": 7450.512789813802,
-   "rot": 105,
-   "w": 400,
-   "d": 200,
-   "h": 350,
-   "elevation": 780,
+   "id": "uathkj07cnqn",
+   "kind": "saladBowl",
+   "x": 1723.9639855362475,
+   "y": 5896.491736276075,
+   "rot": 135,
+   "w": 320,
+   "d": 320,
+   "h": 140,
+   "elevation": 900,
    "color": null,
-   "level": "lvbtc3i06n5we"
+   "level": "lvathki07a1m9"
   },
   {
-   "id": "ubtc3j06psl0",
-   "kind": "bookStack",
-   "x": 8917.356238579378,
-   "y": 2457.445004489273,
-   "rot": 285,
-   "w": 300,
-   "d": 220,
-   "h": 160,
-   "elevation": 450,
+   "id": "uathkj07cod2",
+   "kind": "cuttingBoard",
+   "x": 1667.697267238982,
+   "y": 6315.182836735621,
+   "rot": 135,
+   "w": 450,
+   "d": 300,
+   "h": 90,
+   "elevation": 900,
    "color": null,
-   "level": "lvbtc3i06n5we"
+   "level": "lvathki07a1m9"
   },
   {
-   "id": "ubtc3j06pt7s",
+   "id": "uathkj07crfy",
+   "kind": "tableLampSage",
+   "x": 6800,
+   "y": 3480,
+   "rot": 270,
+   "w": 350,
+   "d": 350,
+   "h": 550,
+   "elevation": 500,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 450,
+    "color": "#ffdfba"
+   },
+   "level": "lvathki07a1m9"
+  },
+  {
+   "id": "uathkj07cs8m",
    "kind": "snakePlant",
    "x": 5990,
    "y": 560,
@@ -1413,23 +1431,23 @@
    "h": 900,
    "elevation": 0,
    "color": null,
-   "level": "lvbtc3i06n5we"
+   "level": "lvathki07a1m9"
   },
   {
-   "id": "ubtc3j06puho",
-   "kind": "plantMonstera",
+   "id": "uathkj07ct08",
+   "kind": "plantPalm",
    "x": 5715,
    "y": 4030,
    "rot": 0,
    "w": 900,
    "d": 900,
-   "h": 1100,
+   "h": 1700,
    "elevation": 0,
    "color": null,
-   "level": "lvbtc3i06n5we"
+   "level": "lvathki07a1m9"
   },
   {
-   "id": "ubtc3j06pwf6",
+   "id": "uathkj07cumv",
    "kind": "airPurifier",
    "x": 6970,
    "y": 520,
@@ -1439,10 +1457,23 @@
    "h": 640,
    "elevation": 0,
    "color": null,
-   "level": "lvbtc3i06n5we"
+   "level": "lvathki07a1m9"
   },
   {
-   "id": "ubtc3j06pyk3",
+   "id": "uathkj07cvcj",
+   "kind": "laundryBasket",
+   "x": 10415,
+   "y": 585,
+   "rot": 0,
+   "w": 400,
+   "d": 400,
+   "h": 550,
+   "elevation": 0,
+   "color": null,
+   "level": "lvathki07a1m9"
+  },
+  {
+   "id": "uathkj07cw9s",
    "kind": "snakePlant",
    "x": 10440,
    "y": 7440,
@@ -1452,26 +1483,117 @@
    "h": 900,
    "elevation": 0,
    "color": null,
-   "level": "lvbtc3i06n5we"
+   "level": "lvathki07a1m9"
   },
   {
-   "id": "ubtc3j06pziz",
-   "kind": "trashCan",
-   "x": 2730,
-   "y": 5270,
+   "id": "uathkj07cyz7",
+   "kind": "zzPlant",
+   "x": 3745,
+   "y": 7390,
    "rot": 0,
-   "w": 300,
-   "d": 300,
-   "h": 650,
+   "w": 450,
+   "d": 450,
+   "h": 750,
    "elevation": 0,
    "color": null,
-   "level": "lvbtc3i06n5we"
+   "level": "lvathki07a1m9"
+  },
+  {
+   "id": "uathkj07czj6",
+   "kind": "plantSmall",
+   "x": 2705,
+   "y": 5295,
+   "rot": 0,
+   "w": 350,
+   "d": 350,
+   "h": 700,
+   "elevation": 0,
+   "color": null,
+   "level": "lvathki07a1m9"
+  },
+  {
+   "id": "uathkj07d05g",
+   "kind": "curtainLinen",
+   "x": 4800,
+   "y": 215,
+   "rot": 0,
+   "w": 2000,
+   "d": 120,
+   "h": 2320,
+   "elevation": 0,
+   "color": null,
+   "level": "lvathki07a1m9"
+  },
+  {
+   "id": "uathkk07d16t",
+   "kind": "wallClock",
+   "x": 3275,
+   "y": 4710,
+   "rot": 180,
+   "w": 400,
+   "d": 50,
+   "h": 400,
+   "elevation": 1800,
+   "color": null,
+   "level": "lvathki07a1m9"
+  },
+  {
+   "id": "uathkk07d2ui",
+   "kind": "floatingShelves",
+   "x": 240,
+   "y": 3217,
+   "rot": 270,
+   "w": 900,
+   "d": 220,
+   "h": 900,
+   "elevation": 1100,
+   "color": null,
+   "level": "lvathki07a1m9"
+  },
+  {
+   "id": "uathkk07d3mu",
+   "kind": "macrame",
+   "x": 8725,
+   "y": 4715,
+   "rot": 180,
+   "w": 600,
+   "d": 40,
+   "h": 900,
+   "elevation": 1200,
+   "color": null,
+   "level": "lvathki07a1m9"
+  },
+  {
+   "id": "uathkk07d4bh",
+   "kind": "rugPattern",
+   "x": 8087,
+   "y": 2400,
+   "rot": 270,
+   "w": 2500,
+   "d": 1575,
+   "h": 12,
+   "elevation": 0,
+   "color": null,
+   "level": "lvathki07a1m9"
+  },
+  {
+   "id": "uathkk07d5fr",
+   "kind": "wallClock",
+   "x": 155,
+   "y": 6368,
+   "rot": 270,
+   "w": 400,
+   "d": 50,
+   "h": 400,
+   "elevation": 1800,
+   "color": null,
+   "level": "lvathki07a1m9"
   }
  ],
  "roofs": [
   {
-   "id": "fbtc3j06p95a",
-   "level": "lvbtc3i06n5we",
+   "id": "fathki07c58i",
+   "level": "lvathki07a1m9",
    "pts": [
     [
      -125,
@@ -1500,8 +1622,8 @@
  ],
  "dimensions": [
   {
-   "id": "kbtc3j06pbnq",
-   "level": "lvbtc3i06n5we",
+   "id": "kathki07c72v",
+   "level": "lvathki07a1m9",
    "x1": 0,
    "y1": 0,
    "x2": 11000,
@@ -1511,8 +1633,8 @@
    "phase": "new"
   },
   {
-   "id": "kbtc3j06pcl9",
-   "level": "lvbtc3i06n5we",
+   "id": "kathki07c8gz",
+   "level": "lvathki07a1m9",
    "x1": 0,
    "y1": 8000,
    "x2": 0,
@@ -1527,8 +1649,8 @@
  "underlays": [],
  "slabs": [
   {
-   "id": "slbtc3j06pahn",
-   "level": "lvbtc3i06n5we",
+   "id": "slathki07c6re",
+   "level": "lvathki07a1m9",
    "pts": [
     [
      -125,
@@ -1567,7 +1689,7 @@
  "solids": [],
  "scenes": [
   {
-   "id": "scbtc3j06pdbt",
+   "id": "scathki07c9d3",
    "name": "Overview",
    "camera": {
     "pos": [
@@ -1587,7 +1709,7 @@
    "phase": "all"
   },
   {
-   "id": "scbtc3j06pe1o",
+   "id": "scathki07caei",
    "name": "Living room",
    "camera": {
     "pos": [
@@ -1607,7 +1729,7 @@
    "phase": "all"
   },
   {
-   "id": "scbtc3j06pfx2",
+   "id": "scathki07cbji",
    "name": "Kitchen",
    "camera": {
     "pos": [
@@ -1627,7 +1749,7 @@
    "phase": "all"
   },
   {
-   "id": "scbtc3j06pgwv",
+   "id": "scathki07cc0c",
    "name": "Bedroom",
    "camera": {
     "pos": [
@@ -1647,7 +1769,7 @@
    "phase": "all"
   },
   {
-   "id": "scbtc3j06phb7",
+   "id": "scathki07cd9r",
    "name": "Bathroom",
    "camera": {
     "pos": [
@@ -1668,7 +1790,7 @@
   }
  ],
  "view": {
-  "level": "lvbtc3i06n5we"
+  "level": "lvathki07a1m9"
  },
  "libraryItems": [],
  "slabTypes": [],
@@ -1677,7 +1799,7 @@
  "structures": [],
  "views": [
   {
-   "id": "vbtc3m06q0xi",
+   "id": "vathkp07d63v",
    "kind": "section",
    "name": "Section A-A",
    "scale": 50,
@@ -1703,7 +1825,7 @@
    }
   },
   {
-   "id": "vbtc3m06q1v4",
+   "id": "vathkp07d73l",
    "kind": "section",
    "name": "Section B-B",
    "scale": 50,
@@ -1729,7 +1851,7 @@
    }
   },
   {
-   "id": "vbtc3m06q2e7",
+   "id": "vathkp07d8hq",
    "kind": "elevation",
    "name": "South elevation",
    "scale": 50,
@@ -1754,7 +1876,7 @@
    "angle": -90
   },
   {
-   "id": "vbtc3m06q3pq",
+   "id": "vathkp07d9zg",
    "kind": "elevation",
    "name": "North elevation",
    "scale": 50,
@@ -1779,7 +1901,7 @@
    "angle": 90
   },
   {
-   "id": "vbtc3m06q4pb",
+   "id": "vathkp07da4a",
    "kind": "elevation",
    "name": "East elevation",
    "scale": 50,
@@ -1804,7 +1926,7 @@
    "angle": 180
   },
   {
-   "id": "vbtc3m06q5yq",
+   "id": "vathkp07dbgt",
    "kind": "elevation",
    "name": "West elevation",
    "scale": 50,
@@ -1829,7 +1951,7 @@
    "angle": 0
   },
   {
-   "id": "vbtc3m06q6ie",
+   "id": "vathkp07dcox",
    "kind": "schedule",
    "name": "Room schedule",
    "scale": 100,
@@ -1859,7 +1981,7 @@
    "calc": []
   },
   {
-   "id": "vbtc3m06q7kj",
+   "id": "vathkp07ddvs",
    "kind": "schedule",
    "name": "Door schedule",
    "scale": 100,
@@ -1890,7 +2012,7 @@
    "calc": []
   },
   {
-   "id": "vbtc3m06q8wt",
+   "id": "vathkp07detj",
    "kind": "schedule",
    "name": "Sheet list",
    "scale": 100,
@@ -1920,7 +2042,7 @@
    "calc": []
   },
   {
-   "id": "vbtc3m06q9k5",
+   "id": "vathkp07dfb3",
    "kind": "legend",
    "name": "Wall types legend",
    "scale": 20,
@@ -1937,7 +2059,7 @@
  ],
  "sheets": [
   {
-   "id": "shbtc3j06pn3m",
+   "id": "shathkj07cjev",
    "number": "A101",
    "name": "Floor plan — 1F",
    "paper": "A3",
@@ -1951,8 +2073,8 @@
    },
    "viewports": [
     {
-     "id": "vpbtc3j06po4h",
-     "view": "pl-lvbtc3i06n5we",
+     "id": "vpathkj07cklc",
+     "view": "pl-lvathki07a1m9",
      "x": 0,
      "y": 0,
      "fit": true
@@ -1962,7 +2084,7 @@
    "auto": true
   },
   {
-   "id": "shbtc3m06qkbc",
+   "id": "shathkp07dq7s",
    "number": "A001",
    "name": "Cover and drawing list",
    "paper": "A1",
@@ -1971,18 +2093,18 @@
     "drawnBy": "SHKWON",
     "checkedBy": "",
     "approvedBy": "",
-    "issueDate": "2026-11-08",
+    "issueDate": "2026-11-16",
     "status": "For planning"
    },
    "viewports": [
     {
-     "id": "vpbtc3m06qloo",
-     "view": "vbtc3m06q8wt",
+     "id": "vpathkp07drs5",
+     "view": "vathkp07detj",
      "x": 67,
      "y": 30
     },
     {
-     "id": "vpbtc3n06qot7",
+     "id": "vpathkp07duy0",
      "view": "3d-default",
      "x": 166,
      "y": 53
@@ -1993,7 +2115,7 @@
    ]
   },
   {
-   "id": "shbtc3n06qp9e",
+   "id": "shathkp07dvck",
    "number": "A201",
    "name": "Sections",
    "paper": "A1",
@@ -2002,19 +2124,19 @@
     "drawnBy": "SHKWON",
     "checkedBy": "",
     "approvedBy": "",
-    "issueDate": "2026-11-08",
+    "issueDate": "2026-11-16",
     "status": "For planning"
    },
    "viewports": [
     {
-     "id": "vpbtc3n06qqwm",
-     "view": "vbtc3m06q0xi",
+     "id": "vpathkp07dwcf",
+     "view": "vathkp07d63v",
      "x": 171,
      "y": 77
     },
     {
-     "id": "vpbtc3n06qrsn",
-     "view": "vbtc3m06q1v4",
+     "id": "vpathkp07dx4y",
+     "view": "vathkp07d73l",
      "x": 437,
      "y": 77
     }
@@ -2024,7 +2146,7 @@
    ]
   },
   {
-   "id": "shbtc3n06qsf8",
+   "id": "shathkp07dy7l",
    "number": "A301",
    "name": "Elevations",
    "paper": "A1",
@@ -2033,31 +2155,31 @@
     "drawnBy": "SHKWON",
     "checkedBy": "",
     "approvedBy": "",
-    "issueDate": "2026-11-08",
+    "issueDate": "2026-11-16",
     "status": "For planning"
    },
    "viewports": [
     {
-     "id": "vpbtc3n06qt6c",
-     "view": "vbtc3m06q2e7",
+     "id": "vpathkp07dzkq",
+     "view": "vathkp07d8hq",
      "x": 171,
      "y": 77
     },
     {
-     "id": "vpbtc3n06qu5o",
-     "view": "vbtc3m06q3pq",
+     "id": "vpathkp07e0co",
+     "view": "vathkp07d9zg",
      "x": 467,
      "y": 77
     },
     {
-     "id": "vpbtc3n06qvh8",
-     "view": "vbtc3m06q4pb",
+     "id": "vpathkp07e1du",
+     "view": "vathkp07da4a",
      "x": 141,
      "y": 213
     },
     {
-     "id": "vpbtc3n06qwmz",
-     "view": "vbtc3m06q5yq",
+     "id": "vpathkp07e25j",
+     "view": "vathkp07dbgt",
      "x": 373,
      "y": 213
     }
@@ -2067,7 +2189,7 @@
    ]
   },
   {
-   "id": "shbtc3n06qxtk",
+   "id": "shathkp07e3ne",
    "number": "A601",
    "name": "Schedules and legend",
    "paper": "A1",
@@ -2076,25 +2198,25 @@
     "drawnBy": "SHKWON",
     "checkedBy": "",
     "approvedBy": "",
-    "issueDate": "2026-11-08",
+    "issueDate": "2026-11-16",
     "status": "For planning"
    },
    "viewports": [
     {
-     "id": "vpbtc3n06qy22",
-     "view": "vbtc3m06q6ie",
+     "id": "vpathkp07e4ir",
+     "view": "vathkp07dcox",
      "x": 66,
      "y": 51
     },
     {
-     "id": "vpbtc3n06qzrx",
-     "view": "vbtc3m06q7kj",
+     "id": "vpathkq07e57k",
+     "view": "vathkp07ddvs",
      "x": 161,
      "y": 42
     },
     {
-     "id": "vpbtc3n06r0ek",
-     "view": "vbtc3m06q9k5",
+     "id": "vpathkq07e631",
+     "view": "vathkp07dfb3",
      "x": 291,
      "y": 62
     }
@@ -2106,8 +2228,8 @@
  ],
  "annotations": [
   {
-   "id": "anbtc3m06qa45",
-   "view": "vbtc3m06q0xi",
+   "id": "anathkp07dgn0",
+   "view": "vathkp07d63v",
    "kind": "dim",
    "pts": [
     [
@@ -2122,8 +2244,8 @@
    "offset": -300
   },
   {
-   "id": "anbtc3m06qbj3",
-   "view": "vbtc3m06q0xi",
+   "id": "anathkp07dh6m",
+   "view": "vathkp07d63v",
    "kind": "spot",
    "x": 7125,
    "y": 0,
@@ -2131,8 +2253,8 @@
    "dy": -300
   },
   {
-   "id": "anbtc3m06qcay",
-   "view": "vbtc3m06q0xi",
+   "id": "anathkp07dioo",
+   "view": "vathkp07d63v",
    "kind": "note",
    "x": 9975,
    "y": -3500,
@@ -2146,56 +2268,56 @@
    ]
   },
   {
-   "id": "anbtc3m06qdzf",
-   "view": "pl-lvbtc3i06n5we",
+   "id": "anathkp07djy4",
+   "view": "pl-lvathki07a1m9",
    "kind": "tag",
-   "target": "rbtc3i06nvix",
+   "target": "rathki07aru2",
    "dx": 0,
    "dy": 0
   },
   {
-   "id": "anbtc3m06qe47",
-   "view": "pl-lvbtc3i06n5we",
+   "id": "anathkp07dk08",
+   "view": "pl-lvathki07a1m9",
    "kind": "tag",
-   "target": "rbtc3i06nwtb",
+   "target": "rathki07asip",
    "dx": 0,
    "dy": 0
   },
   {
-   "id": "anbtc3m06qf74",
-   "view": "pl-lvbtc3i06n5we",
+   "id": "anathkp07dlsc",
+   "view": "pl-lvathki07a1m9",
    "kind": "tag",
-   "target": "rbtc3i06nx9s",
+   "target": "rathki07atfw",
    "dx": 0,
    "dy": 0
   },
   {
-   "id": "anbtc3m06qgtq",
-   "view": "pl-lvbtc3i06n5we",
+   "id": "anathkp07dmry",
+   "view": "pl-lvathki07a1m9",
    "kind": "tag",
-   "target": "rbtc3i06nyis",
+   "target": "rathki07aui4",
    "dx": 0,
    "dy": 0
   },
   {
-   "id": "anbtc3m06qhmx",
-   "view": "pl-lvbtc3i06n5we",
+   "id": "anathkp07dnsl",
+   "view": "pl-lvathki07a1m9",
    "kind": "tag",
-   "target": "rbtc3i06nzcu",
+   "target": "rathki07av1y",
    "dx": 0,
    "dy": 0
   },
   {
-   "id": "anbtc3m06qicz",
-   "view": "pl-lvbtc3i06n5we",
+   "id": "anathkp07docy",
+   "view": "pl-lvathki07a1m9",
    "kind": "tag",
-   "target": "rbtc3i06o07p",
+   "target": "rathki07aweu",
    "dx": 0,
    "dy": 0
   },
   {
-   "id": "anbtc3m06qj6t",
-   "view": "vbtc3m06q0xi",
+   "id": "anathkp07dp30",
+   "view": "vathkp07d63v",
    "kind": "cloud",
    "pts": [
     [
@@ -2223,7 +2345,7 @@
    "id": "rv-a",
    "seq": 1,
    "name": "A",
-   "date": "2026-11-08",
+   "date": "2026-11-16",
    "description": "Issued for planning",
    "issuedTo": "Sample",
    "issuedBy": "SHKWON",
@@ -2235,11 +2357,11 @@
    "id": "ps-all",
    "name": "Planning set",
    "sheets": [
-    "shbtc3j06pn3m",
-    "shbtc3m06qkbc",
-    "shbtc3n06qp9e",
-    "shbtc3n06qsf8",
-    "shbtc3n06qxtk"
+    "shathkj07cjev",
+    "shathkp07dq7s",
+    "shathkp07dvck",
+    "shathkp07dy7l",
+    "shathkp07e3ne"
    ]
   }
  ],
@@ -2375,6 +2497,10 @@
   "watermark": "",
   "watermarkPos": "br",
   "sectionFill": "#3b4250",
-  "fogDensity": 1
+  "fogDensity": 1,
+  "environment": "",
+  "envBackground": false,
+  "groundType": "plain",
+  "groundShape": "disc"
  }
 }

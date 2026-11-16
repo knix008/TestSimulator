@@ -8,7 +8,7 @@
   "client": "Sample",
   "address": "Gwangju",
   "rev": "A",
-  "date": "2026-11-08",
+  "date": "2026-11-16",
   "comment": "",
   "scale": 100,
   "north": 0,
@@ -31,21 +31,21 @@
  },
  "levels": [
   {
-   "id": "lvbtbv400cr4j",
+   "id": "lvath8400edav",
    "name": "1F",
    "elevation": 0,
    "height": 2900,
    "slab": 200
   },
   {
-   "id": "lvbtbv400csc9",
+   "id": "lvath8400eew6",
    "name": "2F",
    "elevation": 2900,
    "height": 2900,
    "slab": 200
   },
   {
-   "id": "lvbtbv400cta2",
+   "id": "lvath8400ef8y",
    "name": "3F",
    "elevation": 5800,
    "height": 2900,
@@ -188,7 +188,7 @@
  ],
  "grids": [
   {
-   "id": "gbtbv500glr9",
+   "id": "gath8500i700",
    "x1": 0,
    "y1": -2000,
    "x2": 0,
@@ -196,7 +196,7 @@
    "label": "1"
   },
   {
-   "id": "gbtbv500gm48",
+   "id": "gath8500i8vz",
    "x1": 6500,
    "y1": -2000,
    "x2": 6500,
@@ -204,7 +204,7 @@
    "label": "2"
   },
   {
-   "id": "gbtbv500gnwt",
+   "id": "gath8500i9ep",
    "x1": 9500,
    "y1": -2000,
    "x2": 9500,
@@ -212,7 +212,7 @@
    "label": "3"
   },
   {
-   "id": "gbtbv500go5w",
+   "id": "gath8500iack",
    "x1": 16000,
    "y1": -2000,
    "x2": 16000,
@@ -220,7 +220,7 @@
    "label": "4"
   },
   {
-   "id": "gbtbv500gpgj",
+   "id": "gath8500ibjc",
    "x1": -2000,
    "y1": 0,
    "x2": 18000,
@@ -228,7 +228,7 @@
    "label": "A"
   },
   {
-   "id": "gbtbv500gq3n",
+   "id": "gath8500iczx",
    "x1": -2000,
    "y1": 10000,
    "x2": 18000,
@@ -265,8 +265,8 @@
  ],
  "walls": [
   {
-   "id": "wbtbv500cusz",
-   "level": "lvbtbv400cr4j",
+   "id": "wath8500egab",
+   "level": "lvath8400edav",
    "x1": 0,
    "y1": 0,
    "x2": 16000,
@@ -277,8 +277,8 @@
    "phase": "new"
   },
   {
-   "id": "wbtbv500cveq",
-   "level": "lvbtbv400cr4j",
+   "id": "wath8500ehqb",
+   "level": "lvath8400edav",
    "x1": 16000,
    "y1": 0,
    "x2": 16000,
@@ -289,8 +289,8 @@
    "phase": "new"
   },
   {
-   "id": "wbtbv500cwve",
-   "level": "lvbtbv400cr4j",
+   "id": "wath8500ein9",
+   "level": "lvath8400edav",
    "x1": 16000,
    "y1": 10000,
    "x2": 0,
@@ -301,8 +301,8 @@
    "phase": "new"
   },
   {
-   "id": "wbtbv500cxug",
-   "level": "lvbtbv400cr4j",
+   "id": "wath8500ejqr",
+   "level": "lvath8400edav",
    "x1": 0,
    "y1": 10000,
    "x2": 0,
@@ -313,8 +313,8 @@
    "phase": "new"
   },
   {
-   "id": "wbtbv500cyqp",
-   "level": "lvbtbv400cr4j",
+   "id": "wath8500ekkd",
+   "level": "lvath8400edav",
    "x1": 6500,
    "y1": 0,
    "x2": 6500,
@@ -325,8 +325,8 @@
    "phase": "new"
   },
   {
-   "id": "wbtbv500cz25",
-   "level": "lvbtbv400cr4j",
+   "id": "wath8500elbl",
+   "level": "lvath8400edav",
    "x1": 9500,
    "y1": 0,
    "x2": 9500,
@@ -337,8 +337,8 @@
    "phase": "new"
   },
   {
-   "id": "wbtbv500d02o",
-   "level": "lvbtbv400cr4j",
+   "id": "wath8500em7j",
+   "level": "lvath8400edav",
    "x1": 6500,
    "y1": 4000,
    "x2": 9500,
@@ -349,8 +349,8 @@
    "phase": "new"
   },
   {
-   "id": "wbtbv500d114",
-   "level": "lvbtbv400cr4j",
+   "id": "wath8500enyw",
+   "level": "lvath8400edav",
    "x1": 0,
    "y1": 6000,
    "x2": 6500,
@@ -361,8 +361,8 @@
    "phase": "new"
   },
   {
-   "id": "wbtbv500d2zp",
-   "level": "lvbtbv400cr4j",
+   "id": "wath8500eouv",
+   "level": "lvath8400edav",
    "x1": 9500,
    "y1": 6000,
    "x2": 16000,
@@ -373,8 +373,8 @@
    "phase": "new"
   },
   {
-   "id": "wbtbv500e4pp",
-   "level": "lvbtbv400csc9",
+   "id": "wath8500fqsh",
+   "level": "lvath8400eew6",
    "x1": 0,
    "y1": 0,
    "x2": 16000,
@@ -385,8 +385,8 @@
    "phase": "new"
   },
   {
-   "id": "wbtbv500e5xs",
-   "level": "lvbtbv400csc9",
+   "id": "wath8500frym",
+   "level": "lvath8400eew6",
    "x1": 16000,
    "y1": 0,
    "x2": 16000,
@@ -397,8 +397,8 @@
    "phase": "new"
   },
   {
-   "id": "wbtbv500e6jh",
-   "level": "lvbtbv400csc9",
+   "id": "wath8500fs7e",
+   "level": "lvath8400eew6",
    "x1": 16000,
    "y1": 10000,
    "x2": 0,
@@ -409,8 +409,8 @@
    "phase": "new"
   },
   {
-   "id": "wbtbv500e77m",
-   "level": "lvbtbv400csc9",
+   "id": "wath8500ft2c",
+   "level": "lvath8400eew6",
    "x1": 0,
    "y1": 10000,
    "x2": 0,
@@ -421,8 +421,8 @@
    "phase": "new"
   },
   {
-   "id": "wbtbv500e8pj",
-   "level": "lvbtbv400csc9",
+   "id": "wath8500fu2b",
+   "level": "lvath8400eew6",
    "x1": 6500,
    "y1": 0,
    "x2": 6500,
@@ -433,8 +433,8 @@
    "phase": "new"
   },
   {
-   "id": "wbtbv500e9hr",
-   "level": "lvbtbv400csc9",
+   "id": "wath8500fvuq",
+   "level": "lvath8400eew6",
    "x1": 9500,
    "y1": 0,
    "x2": 9500,
@@ -445,116 +445,8 @@
    "phase": "new"
   },
   {
-   "id": "wbtbv500eavd",
-   "level": "lvbtbv400csc9",
-   "x1": 6500,
-   "y1": 4000,
-   "x2": 9500,
-   "y2": 4000,
-   "thickness": 150,
-   "height": null,
-   "type": "int-block-150",
-   "phase": "new"
-  },
-  {
-   "id": "wbtbv500ebzs",
-   "level": "lvbtbv400csc9",
-   "x1": 0,
-   "y1": 6000,
-   "x2": 6500,
-   "y2": 6000,
-   "thickness": 100,
-   "height": null,
-   "type": "int-drywall-100",
-   "phase": "new"
-  },
-  {
-   "id": "wbtbv500ecsc",
-   "level": "lvbtbv400csc9",
-   "x1": 9500,
-   "y1": 6000,
-   "x2": 16000,
-   "y2": 6000,
-   "thickness": 100,
-   "height": null,
-   "type": "int-drywall-100",
-   "phase": "new"
-  },
-  {
-   "id": "wbtbv500fdrk",
-   "level": "lvbtbv400cta2",
-   "x1": 0,
-   "y1": 0,
-   "x2": 16000,
-   "y2": 0,
-   "thickness": 300,
-   "height": null,
-   "type": "ext-brick-300",
-   "phase": "new"
-  },
-  {
-   "id": "wbtbv500feus",
-   "level": "lvbtbv400cta2",
-   "x1": 16000,
-   "y1": 0,
-   "x2": 16000,
-   "y2": 10000,
-   "thickness": 300,
-   "height": null,
-   "type": "ext-brick-300",
-   "phase": "new"
-  },
-  {
-   "id": "wbtbv500ffp1",
-   "level": "lvbtbv400cta2",
-   "x1": 16000,
-   "y1": 10000,
-   "x2": 0,
-   "y2": 10000,
-   "thickness": 300,
-   "height": null,
-   "type": "ext-brick-300",
-   "phase": "new"
-  },
-  {
-   "id": "wbtbv500fga8",
-   "level": "lvbtbv400cta2",
-   "x1": 0,
-   "y1": 10000,
-   "x2": 0,
-   "y2": 0,
-   "thickness": 300,
-   "height": null,
-   "type": "ext-brick-300",
-   "phase": "new"
-  },
-  {
-   "id": "wbtbv500fh7x",
-   "level": "lvbtbv400cta2",
-   "x1": 6500,
-   "y1": 0,
-   "x2": 6500,
-   "y2": 10000,
-   "thickness": 200,
-   "height": null,
-   "type": "concrete-200",
-   "phase": "new"
-  },
-  {
-   "id": "wbtbv500fi90",
-   "level": "lvbtbv400cta2",
-   "x1": 9500,
-   "y1": 0,
-   "x2": 9500,
-   "y2": 10000,
-   "thickness": 200,
-   "height": null,
-   "type": "concrete-200",
-   "phase": "new"
-  },
-  {
-   "id": "wbtbv500fjt7",
-   "level": "lvbtbv400cta2",
+   "id": "wath8500fwpb",
+   "level": "lvath8400eew6",
    "x1": 6500,
    "y1": 4000,
    "x2": 9500,
@@ -565,8 +457,8 @@
    "phase": "new"
   },
   {
-   "id": "wbtbv500fkm2",
-   "level": "lvbtbv400cta2",
+   "id": "wath8500fxgs",
+   "level": "lvath8400eew6",
    "x1": 0,
    "y1": 6000,
    "x2": 6500,
@@ -577,8 +469,116 @@
    "phase": "new"
   },
   {
-   "id": "wbtbv500flmd",
-   "level": "lvbtbv400cta2",
+   "id": "wath8500fydm",
+   "level": "lvath8400eew6",
+   "x1": 9500,
+   "y1": 6000,
+   "x2": 16000,
+   "y2": 6000,
+   "thickness": 100,
+   "height": null,
+   "type": "int-drywall-100",
+   "phase": "new"
+  },
+  {
+   "id": "wath8500gz45",
+   "level": "lvath8400ef8y",
+   "x1": 0,
+   "y1": 0,
+   "x2": 16000,
+   "y2": 0,
+   "thickness": 300,
+   "height": null,
+   "type": "ext-brick-300",
+   "phase": "new"
+  },
+  {
+   "id": "wath8500h0bh",
+   "level": "lvath8400ef8y",
+   "x1": 16000,
+   "y1": 0,
+   "x2": 16000,
+   "y2": 10000,
+   "thickness": 300,
+   "height": null,
+   "type": "ext-brick-300",
+   "phase": "new"
+  },
+  {
+   "id": "wath8500h1lg",
+   "level": "lvath8400ef8y",
+   "x1": 16000,
+   "y1": 10000,
+   "x2": 0,
+   "y2": 10000,
+   "thickness": 300,
+   "height": null,
+   "type": "ext-brick-300",
+   "phase": "new"
+  },
+  {
+   "id": "wath8500h2qf",
+   "level": "lvath8400ef8y",
+   "x1": 0,
+   "y1": 10000,
+   "x2": 0,
+   "y2": 0,
+   "thickness": 300,
+   "height": null,
+   "type": "ext-brick-300",
+   "phase": "new"
+  },
+  {
+   "id": "wath8500h37i",
+   "level": "lvath8400ef8y",
+   "x1": 6500,
+   "y1": 0,
+   "x2": 6500,
+   "y2": 10000,
+   "thickness": 200,
+   "height": null,
+   "type": "concrete-200",
+   "phase": "new"
+  },
+  {
+   "id": "wath8500h4iq",
+   "level": "lvath8400ef8y",
+   "x1": 9500,
+   "y1": 0,
+   "x2": 9500,
+   "y2": 10000,
+   "thickness": 200,
+   "height": null,
+   "type": "concrete-200",
+   "phase": "new"
+  },
+  {
+   "id": "wath8500h5te",
+   "level": "lvath8400ef8y",
+   "x1": 6500,
+   "y1": 4000,
+   "x2": 9500,
+   "y2": 4000,
+   "thickness": 150,
+   "height": null,
+   "type": "int-block-150",
+   "phase": "new"
+  },
+  {
+   "id": "wath8500h6ca",
+   "level": "lvath8400ef8y",
+   "x1": 0,
+   "y1": 6000,
+   "x2": 6500,
+   "y2": 6000,
+   "thickness": 100,
+   "height": null,
+   "type": "int-drywall-100",
+   "phase": "new"
+  },
+  {
+   "id": "wath8500h7vu",
+   "level": "lvath8400ef8y",
    "x1": 9500,
    "y1": 6000,
    "x2": 16000,
@@ -591,8 +591,8 @@
  ],
  "openings": [
   {
-   "id": "obtbv500d3xn",
-   "wall": "wbtbv500cusz",
+   "id": "oath8500ep71",
+   "wall": "wath8500egab",
    "kind": "window",
    "type": "casement",
    "at": 1600,
@@ -604,8 +604,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500d4t6",
-   "wall": "wbtbv500cusz",
+   "id": "oath8500eqw4",
+   "wall": "wath8500egab",
    "kind": "window",
    "type": "casement",
    "at": 4800,
@@ -617,8 +617,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500d566",
-   "wall": "wbtbv500cusz",
+   "id": "oath8500ero4",
+   "wall": "wath8500egab",
    "kind": "window",
    "type": "casement",
    "at": 11200,
@@ -630,8 +630,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500d6xc",
-   "wall": "wbtbv500cusz",
+   "id": "oath8500eshm",
+   "wall": "wath8500egab",
    "kind": "window",
    "type": "casement",
    "at": 14400,
@@ -643,8 +643,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500d7wc",
-   "wall": "wbtbv500cwve",
+   "id": "oath8500ety0",
+   "wall": "wath8500ein9",
    "kind": "window",
    "type": "casement",
    "at": 1600,
@@ -656,8 +656,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500d86p",
-   "wall": "wbtbv500cwve",
+   "id": "oath8500eux3",
+   "wall": "wath8500ein9",
    "kind": "window",
    "type": "casement",
    "at": 4800,
@@ -669,8 +669,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500d9cq",
-   "wall": "wbtbv500cwve",
+   "id": "oath8500evsi",
+   "wall": "wath8500ein9",
    "kind": "window",
    "type": "casement",
    "at": 11200,
@@ -682,8 +682,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500daiu",
-   "wall": "wbtbv500cwve",
+   "id": "oath8500ewzl",
+   "wall": "wath8500ein9",
    "kind": "window",
    "type": "casement",
    "at": 14400,
@@ -695,8 +695,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500dbew",
-   "wall": "wbtbv500cveq",
+   "id": "oath8500exzt",
+   "wall": "wath8500ehqb",
    "kind": "window",
    "type": "casement",
    "at": 3000,
@@ -708,8 +708,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500dcsm",
-   "wall": "wbtbv500cxug",
+   "id": "oath8500ey9u",
+   "wall": "wath8500ejqr",
    "kind": "window",
    "type": "casement",
    "at": 3000,
@@ -721,8 +721,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500ddr1",
-   "wall": "wbtbv500cyqp",
+   "id": "oath8500ezt5",
+   "wall": "wath8500ekkd",
    "kind": "door",
    "type": "single",
    "at": 7000,
@@ -734,8 +734,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500deba",
-   "wall": "wbtbv500cz25",
+   "id": "oath8500f0nd",
+   "wall": "wath8500elbl",
    "kind": "door",
    "type": "single",
    "at": 7000,
@@ -747,8 +747,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500dfet",
-   "wall": "wbtbv500cwve",
+   "id": "oath8500f1v4",
+   "wall": "wath8500ein9",
    "kind": "door",
    "type": "double",
    "at": 8000,
@@ -760,8 +760,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500dg59",
-   "wall": "wbtbv500d02o",
+   "id": "oath8500f27z",
+   "wall": "wath8500em7j",
    "kind": "door",
    "type": "single",
    "at": 1500,
@@ -773,8 +773,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500dhpa",
-   "wall": "wbtbv500d114",
+   "id": "oath8500f3s1",
+   "wall": "wath8500enyw",
    "kind": "door",
    "type": "single",
    "at": 3200,
@@ -786,8 +786,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500dilj",
-   "wall": "wbtbv500d2zp",
+   "id": "oath8500f4ji",
+   "wall": "wath8500eouv",
    "kind": "door",
    "type": "single",
    "at": 3200,
@@ -799,8 +799,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500edd3",
-   "wall": "wbtbv500e4pp",
+   "id": "oath8500fzhv",
+   "wall": "wath8500fqsh",
    "kind": "window",
    "type": "casement",
    "at": 1600,
@@ -812,8 +812,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500eegm",
-   "wall": "wbtbv500e4pp",
+   "id": "oath8500g045",
+   "wall": "wath8500fqsh",
    "kind": "window",
    "type": "casement",
    "at": 4800,
@@ -825,8 +825,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500efww",
-   "wall": "wbtbv500e4pp",
+   "id": "oath8500g1w7",
+   "wall": "wath8500fqsh",
    "kind": "window",
    "type": "casement",
    "at": 11200,
@@ -838,8 +838,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500eg4n",
-   "wall": "wbtbv500e4pp",
+   "id": "oath8500g29h",
+   "wall": "wath8500fqsh",
    "kind": "window",
    "type": "casement",
    "at": 14400,
@@ -851,8 +851,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500eh4c",
-   "wall": "wbtbv500e6jh",
+   "id": "oath8500g3s9",
+   "wall": "wath8500fs7e",
    "kind": "window",
    "type": "casement",
    "at": 1600,
@@ -864,8 +864,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500eixe",
-   "wall": "wbtbv500e6jh",
+   "id": "oath8500g47s",
+   "wall": "wath8500fs7e",
    "kind": "window",
    "type": "casement",
    "at": 4800,
@@ -877,8 +877,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500ejdq",
-   "wall": "wbtbv500e6jh",
+   "id": "oath8500g5b0",
+   "wall": "wath8500fs7e",
    "kind": "window",
    "type": "casement",
    "at": 11200,
@@ -890,8 +890,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500ek51",
-   "wall": "wbtbv500e6jh",
+   "id": "oath8500g6qo",
+   "wall": "wath8500fs7e",
    "kind": "window",
    "type": "casement",
    "at": 14400,
@@ -903,8 +903,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500elcz",
-   "wall": "wbtbv500e5xs",
+   "id": "oath8500g7p8",
+   "wall": "wath8500frym",
    "kind": "window",
    "type": "casement",
    "at": 3000,
@@ -916,8 +916,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500emyf",
-   "wall": "wbtbv500e77m",
+   "id": "oath8500g8h5",
+   "wall": "wath8500ft2c",
    "kind": "window",
    "type": "casement",
    "at": 3000,
@@ -929,8 +929,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500enmr",
-   "wall": "wbtbv500e8pj",
+   "id": "oath8500g9wq",
+   "wall": "wath8500fu2b",
    "kind": "door",
    "type": "single",
    "at": 7000,
@@ -942,8 +942,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500eopj",
-   "wall": "wbtbv500e9hr",
+   "id": "oath8500gacy",
+   "wall": "wath8500fvuq",
    "kind": "door",
    "type": "single",
    "at": 7000,
@@ -955,8 +955,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500ep3w",
-   "wall": "wbtbv500eavd",
+   "id": "oath8500gb9a",
+   "wall": "wath8500fwpb",
    "kind": "door",
    "type": "single",
    "at": 1500,
@@ -968,8 +968,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500eq5y",
-   "wall": "wbtbv500ebzs",
+   "id": "oath8500gch9",
+   "wall": "wath8500fxgs",
    "kind": "door",
    "type": "single",
    "at": 3200,
@@ -981,8 +981,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500eruz",
-   "wall": "wbtbv500ecsc",
+   "id": "oath8500gdho",
+   "wall": "wath8500fydm",
    "kind": "door",
    "type": "single",
    "at": 3200,
@@ -994,8 +994,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500fmqy",
-   "wall": "wbtbv500fdrk",
+   "id": "oath8500h8bs",
+   "wall": "wath8500gz45",
    "kind": "window",
    "type": "casement",
    "at": 1600,
@@ -1007,8 +1007,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500fnsb",
-   "wall": "wbtbv500fdrk",
+   "id": "oath8500h900",
+   "wall": "wath8500gz45",
    "kind": "window",
    "type": "casement",
    "at": 4800,
@@ -1020,8 +1020,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500foes",
-   "wall": "wbtbv500fdrk",
+   "id": "oath8500haow",
+   "wall": "wath8500gz45",
    "kind": "window",
    "type": "casement",
    "at": 11200,
@@ -1033,8 +1033,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500fpje",
-   "wall": "wbtbv500fdrk",
+   "id": "oath8500hb31",
+   "wall": "wath8500gz45",
    "kind": "window",
    "type": "casement",
    "at": 14400,
@@ -1046,8 +1046,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500fqs8",
-   "wall": "wbtbv500ffp1",
+   "id": "oath8500hcw8",
+   "wall": "wath8500h1lg",
    "kind": "window",
    "type": "casement",
    "at": 1600,
@@ -1059,8 +1059,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500fr6d",
-   "wall": "wbtbv500ffp1",
+   "id": "oath8500hdq7",
+   "wall": "wath8500h1lg",
    "kind": "window",
    "type": "casement",
    "at": 4800,
@@ -1072,8 +1072,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500fsm3",
-   "wall": "wbtbv500ffp1",
+   "id": "oath8500hews",
+   "wall": "wath8500h1lg",
    "kind": "window",
    "type": "casement",
    "at": 11200,
@@ -1085,8 +1085,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500ft0l",
-   "wall": "wbtbv500ffp1",
+   "id": "oath8500hfgi",
+   "wall": "wath8500h1lg",
    "kind": "window",
    "type": "casement",
    "at": 14400,
@@ -1098,8 +1098,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500fuox",
-   "wall": "wbtbv500feus",
+   "id": "oath8500hgw3",
+   "wall": "wath8500h0bh",
    "kind": "window",
    "type": "casement",
    "at": 3000,
@@ -1111,8 +1111,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500fvod",
-   "wall": "wbtbv500fga8",
+   "id": "oath8500hhap",
+   "wall": "wath8500h2qf",
    "kind": "window",
    "type": "casement",
    "at": 3000,
@@ -1124,8 +1124,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500fw94",
-   "wall": "wbtbv500fh7x",
+   "id": "oath8500hiei",
+   "wall": "wath8500h37i",
    "kind": "door",
    "type": "single",
    "at": 7000,
@@ -1137,8 +1137,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500fxzr",
-   "wall": "wbtbv500fi90",
+   "id": "oath8500hjij",
+   "wall": "wath8500h4iq",
    "kind": "door",
    "type": "single",
    "at": 7000,
@@ -1150,8 +1150,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500fyms",
-   "wall": "wbtbv500fjt7",
+   "id": "oath8500hk3y",
+   "wall": "wath8500h5te",
    "kind": "door",
    "type": "single",
    "at": 1500,
@@ -1163,8 +1163,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500fz76",
-   "wall": "wbtbv500fkm2",
+   "id": "oath8500hlg2",
+   "wall": "wath8500h6ca",
    "kind": "door",
    "type": "single",
    "at": 3200,
@@ -1176,8 +1176,8 @@
    "phase": "new"
   },
   {
-   "id": "obtbv500g0at",
-   "wall": "wbtbv500flmd",
+   "id": "oath8500hm6z",
+   "wall": "wath8500h7vu",
    "kind": "door",
    "type": "single",
    "at": 3200,
@@ -1191,8 +1191,8 @@
  ],
  "rooms": [
   {
-   "id": "rbtbv500dj61",
-   "level": "lvbtbv400cr4j",
+   "id": "rath8500f5kc",
+   "level": "lvath8400edav",
    "name": "Living room",
    "pts": [
     [
@@ -1218,8 +1218,8 @@
    "phase": "new"
   },
   {
-   "id": "rbtbv500dk0m",
-   "level": "lvbtbv400cr4j",
+   "id": "rath8500f6ut",
+   "level": "lvath8400edav",
    "name": "Stairs",
    "pts": [
     [
@@ -1245,8 +1245,8 @@
    "phase": "new"
   },
   {
-   "id": "rbtbv500dlln",
-   "level": "lvbtbv400cr4j",
+   "id": "rath8500f7jt",
+   "level": "lvath8400edav",
    "name": "Living room",
    "pts": [
     [
@@ -1272,8 +1272,8 @@
    "phase": "new"
   },
   {
-   "id": "rbtbv500dmt6",
-   "level": "lvbtbv400cr4j",
+   "id": "rath8500f8uy",
+   "level": "lvath8400edav",
    "name": "Bedroom",
    "pts": [
     [
@@ -1299,8 +1299,8 @@
    "phase": "new"
   },
   {
-   "id": "rbtbv500dneu",
-   "level": "lvbtbv400cr4j",
+   "id": "rath8500f9lx",
+   "level": "lvath8400edav",
    "name": "Hall",
    "pts": [
     [
@@ -1326,8 +1326,8 @@
    "phase": "new"
   },
   {
-   "id": "rbtbv500doc6",
-   "level": "lvbtbv400cr4j",
+   "id": "rath8500faft",
+   "level": "lvath8400edav",
    "name": "Bedroom",
    "pts": [
     [
@@ -1353,8 +1353,8 @@
    "phase": "new"
   },
   {
-   "id": "rbtbv500es7e",
-   "level": "lvbtbv400csc9",
+   "id": "rath8500gen1",
+   "level": "lvath8400eew6",
    "name": "Living room",
    "pts": [
     [
@@ -1380,8 +1380,8 @@
    "phase": "new"
   },
   {
-   "id": "rbtbv500etb6",
-   "level": "lvbtbv400csc9",
+   "id": "rath8500gfhm",
+   "level": "lvath8400eew6",
    "name": "Stairs",
    "pts": [
     [
@@ -1407,8 +1407,8 @@
    "phase": "new"
   },
   {
-   "id": "rbtbv500eu7a",
-   "level": "lvbtbv400csc9",
+   "id": "rath8500gg6p",
+   "level": "lvath8400eew6",
    "name": "Living room",
    "pts": [
     [
@@ -1434,8 +1434,8 @@
    "phase": "new"
   },
   {
-   "id": "rbtbv500evd2",
-   "level": "lvbtbv400csc9",
+   "id": "rath8500ghac",
+   "level": "lvath8400eew6",
    "name": "Bedroom",
    "pts": [
     [
@@ -1461,8 +1461,8 @@
    "phase": "new"
   },
   {
-   "id": "rbtbv500ew8e",
-   "level": "lvbtbv400csc9",
+   "id": "rath8500gii5",
+   "level": "lvath8400eew6",
    "name": "Hall",
    "pts": [
     [
@@ -1488,8 +1488,8 @@
    "phase": "new"
   },
   {
-   "id": "rbtbv500ex2c",
-   "level": "lvbtbv400csc9",
+   "id": "rath8500gjuk",
+   "level": "lvath8400eew6",
    "name": "Bedroom",
    "pts": [
     [
@@ -1515,8 +1515,8 @@
    "phase": "new"
   },
   {
-   "id": "rbtbv500g15g",
-   "level": "lvbtbv400cta2",
+   "id": "rath8500hn63",
+   "level": "lvath8400ef8y",
    "name": "Living room",
    "pts": [
     [
@@ -1542,8 +1542,8 @@
    "phase": "new"
   },
   {
-   "id": "rbtbv500g2dj",
-   "level": "lvbtbv400cta2",
+   "id": "rath8500hoip",
+   "level": "lvath8400ef8y",
    "name": "Stairs",
    "pts": [
     [
@@ -1569,8 +1569,8 @@
    "phase": "new"
   },
   {
-   "id": "rbtbv500g3tl",
-   "level": "lvbtbv400cta2",
+   "id": "rath8500hpqo",
+   "level": "lvath8400ef8y",
    "name": "Living room",
    "pts": [
     [
@@ -1596,8 +1596,8 @@
    "phase": "new"
   },
   {
-   "id": "rbtbv500g4rx",
-   "level": "lvbtbv400cta2",
+   "id": "rath8500hqr9",
+   "level": "lvath8400ef8y",
    "name": "Bedroom",
    "pts": [
     [
@@ -1623,8 +1623,8 @@
    "phase": "new"
   },
   {
-   "id": "rbtbv500g5po",
-   "level": "lvbtbv400cta2",
+   "id": "rath8500hrgn",
+   "level": "lvath8400ef8y",
    "name": "Hall",
    "pts": [
     [
@@ -1650,8 +1650,8 @@
    "phase": "new"
   },
   {
-   "id": "rbtbv500g6cb",
-   "level": "lvbtbv400cta2",
+   "id": "rath8500hsoa",
+   "level": "lvath8400ef8y",
    "name": "Bedroom",
    "pts": [
     [
@@ -1679,8 +1679,8 @@
  ],
  "columns": [
   {
-   "id": "cbtbv500dqkn",
-   "level": "lvbtbv400cr4j",
+   "id": "cath8500fcmt",
+   "level": "lvath8400edav",
    "x": 0,
    "y": 0,
    "w": 450,
@@ -1690,8 +1690,8 @@
    "phase": "new"
   },
   {
-   "id": "cbtbv500drt4",
-   "level": "lvbtbv400cr4j",
+   "id": "cath8500fd0p",
+   "level": "lvath8400edav",
    "x": 0,
    "y": 10000,
    "w": 450,
@@ -1701,8 +1701,8 @@
    "phase": "new"
   },
   {
-   "id": "cbtbv500ds17",
-   "level": "lvbtbv400cr4j",
+   "id": "cath8500feyb",
+   "level": "lvath8400edav",
    "x": 6500,
    "y": 0,
    "w": 450,
@@ -1712,8 +1712,8 @@
    "phase": "new"
   },
   {
-   "id": "cbtbv500dt7e",
-   "level": "lvbtbv400cr4j",
+   "id": "cath8500ff6g",
+   "level": "lvath8400edav",
    "x": 6500,
    "y": 10000,
    "w": 450,
@@ -1723,8 +1723,8 @@
    "phase": "new"
   },
   {
-   "id": "cbtbv500du97",
-   "level": "lvbtbv400cr4j",
+   "id": "cath8500fgsx",
+   "level": "lvath8400edav",
    "x": 9500,
    "y": 0,
    "w": 450,
@@ -1734,8 +1734,8 @@
    "phase": "new"
   },
   {
-   "id": "cbtbv500dv2e",
-   "level": "lvbtbv400cr4j",
+   "id": "cath8500fh8t",
+   "level": "lvath8400edav",
    "x": 9500,
    "y": 10000,
    "w": 450,
@@ -1745,8 +1745,8 @@
    "phase": "new"
   },
   {
-   "id": "cbtbv500dwq4",
-   "level": "lvbtbv400cr4j",
+   "id": "cath8500fif3",
+   "level": "lvath8400edav",
    "x": 16000,
    "y": 0,
    "w": 450,
@@ -1756,8 +1756,8 @@
    "phase": "new"
   },
   {
-   "id": "cbtbv500dxzc",
-   "level": "lvbtbv400cr4j",
+   "id": "cath8500fjd1",
+   "level": "lvath8400edav",
    "x": 16000,
    "y": 10000,
    "w": 450,
@@ -1767,8 +1767,8 @@
    "phase": "new"
   },
   {
-   "id": "cbtbv500ez3r",
-   "level": "lvbtbv400csc9",
+   "id": "cath8500gl70",
+   "level": "lvath8400eew6",
    "x": 0,
    "y": 0,
    "w": 450,
@@ -1778,8 +1778,8 @@
    "phase": "new"
   },
   {
-   "id": "cbtbv500f0l6",
-   "level": "lvbtbv400csc9",
+   "id": "cath8500gmp5",
+   "level": "lvath8400eew6",
    "x": 0,
    "y": 10000,
    "w": 450,
@@ -1789,8 +1789,8 @@
    "phase": "new"
   },
   {
-   "id": "cbtbv500f1si",
-   "level": "lvbtbv400csc9",
+   "id": "cath8500gnbi",
+   "level": "lvath8400eew6",
    "x": 6500,
    "y": 0,
    "w": 450,
@@ -1800,8 +1800,8 @@
    "phase": "new"
   },
   {
-   "id": "cbtbv500f2yy",
-   "level": "lvbtbv400csc9",
+   "id": "cath8500go4z",
+   "level": "lvath8400eew6",
    "x": 6500,
    "y": 10000,
    "w": 450,
@@ -1811,8 +1811,8 @@
    "phase": "new"
   },
   {
-   "id": "cbtbv500f3sb",
-   "level": "lvbtbv400csc9",
+   "id": "cath8500gp09",
+   "level": "lvath8400eew6",
    "x": 9500,
    "y": 0,
    "w": 450,
@@ -1822,8 +1822,8 @@
    "phase": "new"
   },
   {
-   "id": "cbtbv500f4le",
-   "level": "lvbtbv400csc9",
+   "id": "cath8500gqdv",
+   "level": "lvath8400eew6",
    "x": 9500,
    "y": 10000,
    "w": 450,
@@ -1833,8 +1833,8 @@
    "phase": "new"
   },
   {
-   "id": "cbtbv500f5b7",
-   "level": "lvbtbv400csc9",
+   "id": "cath8500grhh",
+   "level": "lvath8400eew6",
    "x": 16000,
    "y": 0,
    "w": 450,
@@ -1844,8 +1844,8 @@
    "phase": "new"
   },
   {
-   "id": "cbtbv500f6jl",
-   "level": "lvbtbv400csc9",
+   "id": "cath8500gs4s",
+   "level": "lvath8400eew6",
    "x": 16000,
    "y": 10000,
    "w": 450,
@@ -1855,8 +1855,8 @@
    "phase": "new"
   },
   {
-   "id": "cbtbv500g7y1",
-   "level": "lvbtbv400cta2",
+   "id": "cath8500htg1",
+   "level": "lvath8400ef8y",
    "x": 0,
    "y": 0,
    "w": 450,
@@ -1866,8 +1866,8 @@
    "phase": "new"
   },
   {
-   "id": "cbtbv500g8vx",
-   "level": "lvbtbv400cta2",
+   "id": "cath8500hu73",
+   "level": "lvath8400ef8y",
    "x": 0,
    "y": 10000,
    "w": 450,
@@ -1877,8 +1877,8 @@
    "phase": "new"
   },
   {
-   "id": "cbtbv500g91f",
-   "level": "lvbtbv400cta2",
+   "id": "cath8500hv53",
+   "level": "lvath8400ef8y",
    "x": 6500,
    "y": 0,
    "w": 450,
@@ -1888,8 +1888,8 @@
    "phase": "new"
   },
   {
-   "id": "cbtbv500ga27",
-   "level": "lvbtbv400cta2",
+   "id": "cath8500hw2k",
+   "level": "lvath8400ef8y",
    "x": 6500,
    "y": 10000,
    "w": 450,
@@ -1899,8 +1899,8 @@
    "phase": "new"
   },
   {
-   "id": "cbtbv500gb3a",
-   "level": "lvbtbv400cta2",
+   "id": "cath8500hxaj",
+   "level": "lvath8400ef8y",
    "x": 9500,
    "y": 0,
    "w": 450,
@@ -1910,8 +1910,8 @@
    "phase": "new"
   },
   {
-   "id": "cbtbv500gc0u",
-   "level": "lvbtbv400cta2",
+   "id": "cath8500hyfh",
+   "level": "lvath8400ef8y",
    "x": 9500,
    "y": 10000,
    "w": 450,
@@ -1921,8 +1921,8 @@
    "phase": "new"
   },
   {
-   "id": "cbtbv500gdtl",
-   "level": "lvbtbv400cta2",
+   "id": "cath8500hzgg",
+   "level": "lvath8400ef8y",
    "x": 16000,
    "y": 0,
    "w": 450,
@@ -1932,8 +1932,8 @@
    "phase": "new"
   },
   {
-   "id": "cbtbv500gen4",
-   "level": "lvbtbv400cta2",
+   "id": "cath8500i0sp",
+   "level": "lvath8400ef8y",
    "x": 16000,
    "y": 10000,
    "w": 450,
@@ -1945,8 +1945,8 @@
  ],
  "stairs": [
   {
-   "id": "sbtbv500dplu",
-   "level": "lvbtbv400cr4j",
+   "id": "sath8500fbho",
+   "level": "lvath8400edav",
    "x": 8000,
    "y": 2000,
    "rot": 270,
@@ -1956,8 +1956,8 @@
    "phase": "new"
   },
   {
-   "id": "sbtbv500ey7k",
-   "level": "lvbtbv400csc9",
+   "id": "sath8500gkfl",
+   "level": "lvath8400eew6",
    "x": 8000,
    "y": 2000,
    "rot": 270,
@@ -1969,8 +1969,8 @@
  ],
  "furniture": [
   {
-   "id": "ubtbv500dykk",
-   "level": "lvbtbv400cr4j",
+   "id": "uath8500fkd1",
+   "level": "lvath8400edav",
    "kind": "sofa3",
    "x": 3200,
    "y": 3800,
@@ -1983,8 +1983,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtbv500dzm6",
-   "level": "lvbtbv400cr4j",
+   "id": "uath8500flpg",
+   "level": "lvath8400edav",
    "kind": "doubleBed",
    "x": 2000,
    "y": 8200,
@@ -1997,8 +1997,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtbv500e0ox",
-   "level": "lvbtbv400cr4j",
+   "id": "uath8500fmrl",
+   "level": "lvath8400edav",
    "kind": "sofa3",
    "x": 12800,
    "y": 3800,
@@ -2011,8 +2011,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtbv500e1jf",
-   "level": "lvbtbv400cr4j",
+   "id": "uath8500fnnq",
+   "level": "lvath8400edav",
    "kind": "doubleBed",
    "x": 14000,
    "y": 8200,
@@ -2025,8 +2025,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtbv500e27z",
-   "level": "lvbtbv400cr4j",
+   "id": "uath8500fof6",
+   "level": "lvath8400edav",
    "kind": "counter",
    "x": 3200,
    "y": 450,
@@ -2039,8 +2039,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtbv500e3rk",
-   "level": "lvbtbv400cr4j",
+   "id": "uath8500fpxm",
+   "level": "lvath8400edav",
    "kind": "counter",
    "x": 12800,
    "y": 450,
@@ -2053,8 +2053,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtbv500f7qb",
-   "level": "lvbtbv400csc9",
+   "id": "uath8500gtqc",
+   "level": "lvath8400eew6",
    "kind": "sofa3",
    "x": 3200,
    "y": 3800,
@@ -2067,8 +2067,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtbv500f8np",
-   "level": "lvbtbv400csc9",
+   "id": "uath8500guvs",
+   "level": "lvath8400eew6",
    "kind": "doubleBed",
    "x": 2000,
    "y": 8200,
@@ -2081,8 +2081,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtbv500f9v9",
-   "level": "lvbtbv400csc9",
+   "id": "uath8500gvj2",
+   "level": "lvath8400eew6",
    "kind": "sofa3",
    "x": 12800,
    "y": 3800,
@@ -2095,8 +2095,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtbv500favl",
-   "level": "lvbtbv400csc9",
+   "id": "uath8500gwa1",
+   "level": "lvath8400eew6",
    "kind": "doubleBed",
    "x": 14000,
    "y": 8200,
@@ -2109,8 +2109,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtbv500fbv1",
-   "level": "lvbtbv400csc9",
+   "id": "uath8500gx49",
+   "level": "lvath8400eew6",
    "kind": "counter",
    "x": 3200,
    "y": 450,
@@ -2123,8 +2123,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtbv500fcam",
-   "level": "lvbtbv400csc9",
+   "id": "uath8500gyfm",
+   "level": "lvath8400eew6",
    "kind": "counter",
    "x": 12800,
    "y": 450,
@@ -2137,8 +2137,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtbv500gfvc",
-   "level": "lvbtbv400cta2",
+   "id": "uath8500i189",
+   "level": "lvath8400ef8y",
    "kind": "sofa3",
    "x": 3200,
    "y": 3800,
@@ -2151,8 +2151,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtbv500gg0g",
-   "level": "lvbtbv400cta2",
+   "id": "uath8500i2kk",
+   "level": "lvath8400ef8y",
    "kind": "doubleBed",
    "x": 2000,
    "y": 8200,
@@ -2165,8 +2165,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtbv500ghrk",
-   "level": "lvbtbv400cta2",
+   "id": "uath8500i3ni",
+   "level": "lvath8400ef8y",
    "kind": "sofa3",
    "x": 12800,
    "y": 3800,
@@ -2179,8 +2179,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtbv500gie5",
-   "level": "lvbtbv400cta2",
+   "id": "uath8500i45b",
+   "level": "lvath8400ef8y",
    "kind": "doubleBed",
    "x": 14000,
    "y": 8200,
@@ -2193,8 +2193,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtbv500gjyq",
-   "level": "lvbtbv400cta2",
+   "id": "uath8500i5q7",
+   "level": "lvath8400ef8y",
    "kind": "counter",
    "x": 3200,
    "y": 450,
@@ -2207,8 +2207,8 @@
    "phase": "new"
   },
   {
-   "id": "ubtbv500gkxt",
-   "level": "lvbtbv400cta2",
+   "id": "uath8500i6wn",
+   "level": "lvath8400ef8y",
    "kind": "counter",
    "x": 12800,
    "y": 450,
@@ -2221,20 +2221,20 @@
    "phase": "new"
   },
   {
-   "id": "ubtbv600hjr9",
-   "kind": "microwave",
-   "x": 2408.9172942447476,
-   "y": 490,
+   "id": "uath8600j5op",
+   "kind": "coffeeMachine",
+   "x": 2820.231033177115,
+   "y": 480,
    "rot": 0,
-   "w": 490,
-   "d": 380,
-   "h": 290,
+   "w": 280,
+   "d": 400,
+   "h": 380,
    "elevation": 900,
    "color": null,
-   "level": "lvbtbv400csc9"
+   "level": "lvath8400edav"
   },
   {
-   "id": "ubtbv600hky1",
+   "id": "uath8600j6w6",
    "kind": "knifeBlock",
    "x": 3124.143971533049,
    "y": 570,
@@ -2244,49 +2244,36 @@
    "h": 330,
    "elevation": 900,
    "color": null,
-   "level": "lvbtbv400csc9"
+   "level": "lvath8400edav"
   },
   {
-   "id": "ubtbv600hlou",
-   "kind": "riceCooker",
-   "x": 3567.6586650311947,
-   "y": 510,
+   "id": "uath8600j7qr",
+   "kind": "herbPots",
+   "x": 13009.420388811268,
+   "y": 605,
    "rot": 0,
-   "w": 260,
-   "d": 340,
-   "h": 260,
+   "w": 450,
+   "d": 150,
+   "h": 300,
    "elevation": 900,
    "color": null,
-   "level": "lvbtbv400csc9"
+   "level": "lvath8400edav"
   },
   {
-   "id": "ubtbv600hm9a",
-   "kind": "knifeBlock",
-   "x": 12813.881964744069,
-   "y": 570,
+   "id": "uath8600j8pi",
+   "kind": "utensilHolder",
+   "x": 4509.795719366521,
+   "y": 620,
    "rot": 0,
-   "w": 150,
-   "d": 220,
+   "w": 120,
+   "d": 120,
    "h": 330,
    "elevation": 900,
    "color": null,
-   "level": "lvbtbv400csc9"
+   "level": "lvath8400eew6"
   },
   {
-   "id": "ubtbv600hnkn",
-   "kind": "toaster",
-   "x": 13332.40371875465,
-   "y": 590,
-   "rot": 0,
-   "w": 300,
-   "d": 180,
-   "h": 200,
-   "elevation": 900,
-   "color": null,
-   "level": "lvbtbv400csc9"
-  },
-  {
-   "id": "ubtbv600hoxt",
+   "id": "uath8600j9bo",
    "kind": "breadBox",
    "x": 2849.605125579983,
    "y": 555,
@@ -2296,10 +2283,23 @@
    "h": 200,
    "elevation": 900,
    "color": null,
-   "level": "lvbtbv400cta2"
+   "level": "lvath8400eew6"
   },
   {
-   "id": "ubtbv600hp0x",
+   "id": "uath8600ja08",
+   "kind": "utensilHolder",
+   "x": 13239.22808086034,
+   "y": 620,
+   "rot": 0,
+   "w": 120,
+   "d": 120,
+   "h": 330,
+   "elevation": 900,
+   "color": null,
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8600jbeg",
    "kind": "utensilHolder",
    "x": 13485.198452011682,
    "y": 620,
@@ -2309,10 +2309,10 @@
    "h": 330,
    "elevation": 900,
    "color": null,
-   "level": "lvbtbv400cta2"
+   "level": "lvath8400eew6"
   },
   {
-   "id": "ubtbv600hq52",
+   "id": "uath8600jcmg",
    "kind": "coffeeMachine",
    "x": 12121.883616014384,
    "y": 480,
@@ -2322,218 +2322,36 @@
    "h": 380,
    "elevation": 900,
    "color": null,
-   "level": "lvbtbv400cta2"
+   "level": "lvath8400eew6"
   },
   {
-   "id": "ubtbv600hr3t",
-   "kind": "snakePlant",
-   "x": 585,
-   "y": 5515,
+   "id": "uath8600jdo9",
+   "kind": "toaster",
+   "x": 13203.23015857488,
+   "y": 590,
    "rot": 0,
-   "w": 350,
-   "d": 350,
-   "h": 900,
-   "elevation": 0,
+   "w": 300,
+   "d": 180,
+   "h": 200,
+   "elevation": 900,
    "color": null,
-   "level": "lvbtbv400cr4j"
+   "level": "lvath8400ef8y"
   },
   {
-   "id": "ubtbv600hsfo",
-   "kind": "plantRubber",
-   "x": 5840,
-   "y": 710,
+   "id": "uath8600je7y",
+   "kind": "microwave",
+   "x": 12709.826335508842,
+   "y": 490,
    "rot": 0,
-   "w": 600,
-   "d": 600,
-   "h": 1300,
-   "elevation": 0,
+   "w": 490,
+   "d": 380,
+   "h": 290,
+   "elevation": 900,
    "color": null,
-   "level": "lvbtbv400cr4j"
+   "level": "lvath8400ef8y"
   },
   {
-   "id": "ubtbv600htfq",
-   "kind": "airPurifier",
-   "x": 9995,
-   "y": 545,
-   "rot": 0,
-   "w": 270,
-   "d": 270,
-   "h": 640,
-   "elevation": 0,
-   "color": null,
-   "level": "lvbtbv400cr4j"
-  },
-  {
-   "id": "ubtbv600huvd",
-   "kind": "plantFiddle",
-   "x": 10210,
-   "y": 5340,
-   "rot": 0,
-   "w": 700,
-   "d": 700,
-   "h": 1800,
-   "elevation": 0,
-   "color": null,
-   "level": "lvbtbv400cr4j"
-  },
-  {
-   "id": "ubtbv600hv23",
-   "kind": "snakePlant",
-   "x": 15415,
-   "y": 6485,
-   "rot": 0,
-   "w": 350,
-   "d": 350,
-   "h": 900,
-   "elevation": 0,
-   "color": null,
-   "level": "lvbtbv400cr4j"
-  },
-  {
-   "id": "ubtbv600hw50",
-   "kind": "airPurifier",
-   "x": 9995,
-   "y": 9455,
-   "rot": 0,
-   "w": 270,
-   "d": 270,
-   "h": 640,
-   "elevation": 0,
-   "color": null,
-   "level": "lvbtbv400cr4j"
-  },
-  {
-   "id": "ubtbv600hx5j",
-   "kind": "peaceLily",
-   "x": 5890,
-   "y": 9340,
-   "rot": 0,
-   "w": 500,
-   "d": 500,
-   "h": 700,
-   "elevation": 0,
-   "color": null,
-   "level": "lvbtbv400cr4j"
-  },
-  {
-   "id": "ubtbv600hy9v",
-   "kind": "airPurifier",
-   "x": 6005,
-   "y": 6445,
-   "rot": 0,
-   "w": 270,
-   "d": 270,
-   "h": 640,
-   "elevation": 0,
-   "color": null,
-   "level": "lvbtbv400cr4j"
-  },
-  {
-   "id": "ubtbv600hz07",
-   "kind": "plantFiddle",
-   "x": 760,
-   "y": 5340,
-   "rot": 0,
-   "w": 700,
-   "d": 700,
-   "h": 1800,
-   "elevation": 0,
-   "color": null,
-   "level": "lvbtbv400csc9"
-  },
-  {
-   "id": "ubtbv600i04k",
-   "kind": "oliveTree",
-   "x": 5690,
-   "y": 5240,
-   "rot": 0,
-   "w": 900,
-   "d": 900,
-   "h": 2000,
-   "elevation": 0,
-   "color": null,
-   "level": "lvbtbv400csc9"
-  },
-  {
-   "id": "ubtbv600i1or",
-   "kind": "oliveTree",
-   "x": 10310,
-   "y": 860,
-   "rot": 0,
-   "w": 900,
-   "d": 900,
-   "h": 2000,
-   "elevation": 0,
-   "color": null,
-   "level": "lvbtbv400csc9"
-  },
-  {
-   "id": "ubtbv600i2k2",
-   "kind": "plantPalm",
-   "x": 15140,
-   "y": 860,
-   "rot": 0,
-   "w": 900,
-   "d": 900,
-   "h": 1700,
-   "elevation": 0,
-   "color": null,
-   "level": "lvbtbv400csc9"
-  },
-  {
-   "id": "ubtbv600i3hk",
-   "kind": "peaceLily",
-   "x": 10110,
-   "y": 6560,
-   "rot": 0,
-   "w": 500,
-   "d": 500,
-   "h": 700,
-   "elevation": 0,
-   "color": null,
-   "level": "lvbtbv400csc9"
-  },
-  {
-   "id": "ubtbv600i4w0",
-   "kind": "laundryBasket",
-   "x": 10060,
-   "y": 9390,
-   "rot": 0,
-   "w": 400,
-   "d": 400,
-   "h": 550,
-   "elevation": 0,
-   "color": null,
-   "level": "lvbtbv400csc9"
-  },
-  {
-   "id": "ubtbv600i5ny",
-   "kind": "airPurifier",
-   "x": 545,
-   "y": 6445,
-   "rot": 0,
-   "w": 270,
-   "d": 270,
-   "h": 640,
-   "elevation": 0,
-   "color": null,
-   "level": "lvbtbv400csc9"
-  },
-  {
-   "id": "ubtbv600i6aq",
-   "kind": "plantRubber",
-   "x": 5840,
-   "y": 6610,
-   "rot": 0,
-   "w": 600,
-   "d": 600,
-   "h": 1300,
-   "elevation": 0,
-   "color": null,
-   "level": "lvbtbv400csc9"
-  },
-  {
-   "id": "ubtbv600i787",
+   "id": "uath8600jffv",
    "kind": "snakePlant",
    "x": 585,
    "y": 585,
@@ -2543,12 +2361,25 @@
    "h": 900,
    "elevation": 0,
    "color": null,
-   "level": "lvbtbv400cta2"
+   "level": "lvath8400edav"
   },
   {
-   "id": "ubtbv600i8dw",
+   "id": "uath8600jgxg",
+   "kind": "plantFiddle",
+   "x": 5790,
+   "y": 760,
+   "rot": 0,
+   "w": 700,
+   "d": 700,
+   "h": 1800,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400edav"
+  },
+  {
+   "id": "uath8600jhm8",
    "kind": "oliveTree",
-   "x": 5690,
+   "x": 10310,
    "y": 860,
    "rot": 0,
    "w": 900,
@@ -2556,64 +2387,25 @@
    "h": 2000,
    "elevation": 0,
    "color": null,
-   "level": "lvbtbv400cta2"
+   "level": "lvath8400edav"
   },
   {
-   "id": "ubtbv700i9kp",
-   "kind": "airPurifier",
-   "x": 9995,
-   "y": 545,
+   "id": "uath8600jig5",
+   "kind": "plantPalm",
+   "x": 10310,
+   "y": 5240,
    "rot": 0,
-   "w": 270,
-   "d": 270,
-   "h": 640,
+   "w": 900,
+   "d": 900,
+   "h": 1700,
    "elevation": 0,
    "color": null,
-   "level": "lvbtbv400cta2"
+   "level": "lvath8400edav"
   },
   {
-   "id": "ubtbv700iaos",
+   "id": "uath8600jjhi",
    "kind": "plantRubber",
-   "x": 15290,
-   "y": 710,
-   "rot": 0,
-   "w": 600,
-   "d": 600,
-   "h": 1300,
-   "elevation": 0,
-   "color": null,
-   "level": "lvbtbv400cta2"
-  },
-  {
-   "id": "ubtbv700ibqm",
-   "kind": "snakePlant",
-   "x": 10035,
-   "y": 9415,
-   "rot": 0,
-   "w": 350,
-   "d": 350,
-   "h": 900,
-   "elevation": 0,
-   "color": null,
-   "level": "lvbtbv400cta2"
-  },
-  {
-   "id": "ubtbv700ico5",
-   "kind": "laundryBasket",
-   "x": 10060,
-   "y": 6510,
-   "rot": 0,
-   "w": 400,
-   "d": 400,
-   "h": 550,
-   "elevation": 0,
-   "color": null,
-   "level": "lvbtbv400cta2"
-  },
-  {
-   "id": "ubtbv700id0a",
-   "kind": "plantRubber",
-   "x": 710,
+   "x": 10160,
    "y": 6610,
    "rot": 0,
    "w": 600,
@@ -2621,10 +2413,166 @@
    "h": 1300,
    "elevation": 0,
    "color": null,
-   "level": "lvbtbv400cta2"
+   "level": "lvath8400edav"
   },
   {
-   "id": "ubtbv700ie1f",
+   "id": "uath8600jkxq",
+   "kind": "snakePlant",
+   "x": 15415,
+   "y": 6485,
+   "rot": 0,
+   "w": 350,
+   "d": 350,
+   "h": 900,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400edav"
+  },
+  {
+   "id": "uath8600jl7x",
+   "kind": "zzPlant",
+   "x": 7085,
+   "y": 4560,
+   "rot": 0,
+   "w": 450,
+   "d": 450,
+   "h": 750,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400edav"
+  },
+  {
+   "id": "uath8700jm1q",
+   "kind": "peaceLily",
+   "x": 5890,
+   "y": 9340,
+   "rot": 0,
+   "w": 500,
+   "d": 500,
+   "h": 700,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400edav"
+  },
+  {
+   "id": "uath8700jnic",
+   "kind": "airPurifier",
+   "x": 545,
+   "y": 9455,
+   "rot": 0,
+   "w": 270,
+   "d": 270,
+   "h": 640,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400edav"
+  },
+  {
+   "id": "uath8700jo65",
+   "kind": "airPurifier",
+   "x": 545,
+   "y": 545,
+   "rot": 0,
+   "w": 270,
+   "d": 270,
+   "h": 640,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8700jp2g",
+   "kind": "plantFiddle",
+   "x": 5790,
+   "y": 760,
+   "rot": 0,
+   "w": 700,
+   "d": 700,
+   "h": 1800,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8700jqq2",
+   "kind": "oliveTree",
+   "x": 10310,
+   "y": 860,
+   "rot": 0,
+   "w": 900,
+   "d": 900,
+   "h": 2000,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8700jr27",
+   "kind": "plantFiddle",
+   "x": 15240,
+   "y": 760,
+   "rot": 0,
+   "w": 700,
+   "d": 700,
+   "h": 1800,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8700jsw6",
+   "kind": "peaceLily",
+   "x": 10110,
+   "y": 6560,
+   "rot": 0,
+   "w": 500,
+   "d": 500,
+   "h": 700,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8700jtlw",
+   "kind": "snakePlant",
+   "x": 15415,
+   "y": 6485,
+   "rot": 0,
+   "w": 350,
+   "d": 350,
+   "h": 900,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8700jufo",
+   "kind": "basket",
+   "x": 7085,
+   "y": 4560,
+   "rot": 0,
+   "w": 450,
+   "d": 450,
+   "h": 400,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8700jv4r",
+   "kind": "peaceLily",
+   "x": 660,
+   "y": 6560,
+   "rot": 0,
+   "w": 500,
+   "d": 500,
+   "h": 700,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8700jw7k",
    "kind": "snakePlant",
    "x": 5965,
    "y": 6485,
@@ -2634,13 +2582,810 @@
    "h": 900,
    "elevation": 0,
    "color": null,
-   "level": "lvbtbv400cta2"
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8700jxi3",
+   "kind": "plantPalm",
+   "x": 860,
+   "y": 5240,
+   "rot": 0,
+   "w": 900,
+   "d": 900,
+   "h": 1700,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400ef8y"
+  },
+  {
+   "id": "uath8700jyy6",
+   "kind": "snakePlant",
+   "x": 5965,
+   "y": 5515,
+   "rot": 0,
+   "w": 350,
+   "d": 350,
+   "h": 900,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400ef8y"
+  },
+  {
+   "id": "uath8700jzol",
+   "kind": "plantRubber",
+   "x": 10160,
+   "y": 5390,
+   "rot": 0,
+   "w": 600,
+   "d": 600,
+   "h": 1300,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400ef8y"
+  },
+  {
+   "id": "uath8700k0wf",
+   "kind": "plantFiddle",
+   "x": 10210,
+   "y": 760,
+   "rot": 0,
+   "w": 700,
+   "d": 700,
+   "h": 1800,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400ef8y"
+  },
+  {
+   "id": "uath8700k1gf",
+   "kind": "snakePlant",
+   "x": 15415,
+   "y": 6485,
+   "rot": 0,
+   "w": 350,
+   "d": 350,
+   "h": 900,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400ef8y"
+  },
+  {
+   "id": "uath8700k2vy",
+   "kind": "plantRubber",
+   "x": 10160,
+   "y": 6610,
+   "rot": 0,
+   "w": 600,
+   "d": 600,
+   "h": 1300,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400ef8y"
+  },
+  {
+   "id": "uath8700k3zh",
+   "kind": "snakePlant",
+   "x": 8965,
+   "y": 9415,
+   "rot": 0,
+   "w": 350,
+   "d": 350,
+   "h": 900,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400ef8y"
+  },
+  {
+   "id": "uath8700k48a",
+   "kind": "plantRubber",
+   "x": 5840,
+   "y": 9290,
+   "rot": 0,
+   "w": 600,
+   "d": 600,
+   "h": 1300,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400ef8y"
+  },
+  {
+   "id": "uath8700k50u",
+   "kind": "airPurifier",
+   "x": 6005,
+   "y": 6445,
+   "rot": 0,
+   "w": 270,
+   "d": 270,
+   "h": 640,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400ef8y"
+  },
+  {
+   "id": "uath8700k6hs",
+   "kind": "mirrorSunburst",
+   "x": 4338,
+   "y": 5920,
+   "rot": 180,
+   "w": 900,
+   "d": 50,
+   "h": 900,
+   "elevation": 1200,
+   "color": null,
+   "level": "lvath8400edav"
+  },
+  {
+   "id": "uath8700k7hp",
+   "kind": "mirrorRound",
+   "x": 6375,
+   "y": 3050,
+   "rot": 90,
+   "w": 800,
+   "d": 40,
+   "h": 800,
+   "elevation": 1200,
+   "color": null,
+   "level": "lvath8400edav"
+  },
+  {
+   "id": "uath8700k8uc",
+   "kind": "floorLamp",
+   "x": 1850,
+   "y": 4000,
+   "rot": 180,
+   "w": 400,
+   "d": 400,
+   "h": 1650,
+   "elevation": 0,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 1200,
+    "color": "#ffdfba"
+   },
+   "level": "lvath8400edav"
+  },
+  {
+   "id": "uath8700k9oo",
+   "kind": "curtainLinen",
+   "x": 15760,
+   "y": 3000,
+   "rot": 90,
+   "w": 1600,
+   "d": 120,
+   "h": 2500,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400edav"
+  },
+  {
+   "id": "uath8700ka9u",
+   "kind": "floatingShelves",
+   "x": 13788,
+   "y": 5835,
+   "rot": 180,
+   "w": 900,
+   "d": 220,
+   "h": 900,
+   "elevation": 1100,
+   "color": null,
+   "level": "lvath8400edav"
+  },
+  {
+   "id": "uath8700kb3k",
+   "kind": "floatingShelves",
+   "x": 9715,
+   "y": 3050,
+   "rot": 270,
+   "w": 900,
+   "d": 220,
+   "h": 900,
+   "elevation": 1100,
+   "color": null,
+   "level": "lvath8400edav"
+  },
+  {
+   "id": "uath8700kc3s",
+   "kind": "floorLamp",
+   "x": 11450,
+   "y": 4000,
+   "rot": 180,
+   "w": 400,
+   "d": 400,
+   "h": 1650,
+   "elevation": 0,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 1200,
+    "color": "#ffdfba"
+   },
+   "level": "lvath8400edav"
+  },
+  {
+   "id": "uath8700kd51",
+   "kind": "curtainVelvet",
+   "x": 14400,
+   "y": 9760,
+   "rot": 180,
+   "w": 2000,
+   "d": 120,
+   "h": 2500,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400edav"
+  },
+  {
+   "id": "uath8700keur",
+   "kind": "curtainVelvet",
+   "x": 11200,
+   "y": 9760,
+   "rot": 180,
+   "w": 2000,
+   "d": 120,
+   "h": 2500,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400edav"
+  },
+  {
+   "id": "uath8700kfcy",
+   "kind": "mirrorRound",
+   "x": 12725,
+   "y": 9825,
+   "rot": 180,
+   "w": 800,
+   "d": 40,
+   "h": 800,
+   "elevation": 1200,
+   "color": null,
+   "level": "lvath8400edav"
+  },
+  {
+   "id": "uath8700kga9",
+   "kind": "rugGrey",
+   "x": 14462,
+   "y": 8200,
+   "rot": 270,
+   "w": 2500,
+   "d": 1575,
+   "h": 10,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400edav"
+  },
+  {
+   "id": "uath8700khd1",
+   "kind": "curtainLinen",
+   "x": 4800,
+   "y": 9760,
+   "rot": 180,
+   "w": 2000,
+   "d": 120,
+   "h": 2500,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400edav"
+  },
+  {
+   "id": "uath8700kikh",
+   "kind": "curtainLinen",
+   "x": 1600,
+   "y": 9760,
+   "rot": 180,
+   "w": 2000,
+   "d": 120,
+   "h": 2500,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400edav"
+  },
+  {
+   "id": "uath8700kj87",
+   "kind": "curtainLinen",
+   "x": 240,
+   "y": 7000,
+   "rot": 270,
+   "w": 1600,
+   "d": 120,
+   "h": 2500,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400edav"
+  },
+  {
+   "id": "uath8700kkkf",
+   "kind": "wallArt",
+   "x": 3275,
+   "y": 9825,
+   "rot": 180,
+   "w": 900,
+   "d": 40,
+   "h": 600,
+   "elevation": 1300,
+   "color": null,
+   "level": "lvath8400edav"
+  },
+  {
+   "id": "uath8700kl7x",
+   "kind": "rugSage",
+   "x": 1538,
+   "y": 8200,
+   "rot": 90,
+   "w": 2500,
+   "d": 1575,
+   "h": 10,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400edav"
+  },
+  {
+   "id": "uath8700kmbf",
+   "kind": "wallArt",
+   "x": 3275,
+   "y": 175,
+   "rot": 0,
+   "w": 900,
+   "d": 40,
+   "h": 600,
+   "elevation": 1300,
+   "color": null,
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8700knr8",
+   "kind": "wallArt",
+   "x": 4338,
+   "y": 5925,
+   "rot": 180,
+   "w": 900,
+   "d": 40,
+   "h": 600,
+   "elevation": 1300,
+   "color": null,
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8800koxs",
+   "kind": "floorLamp",
+   "x": 1850,
+   "y": 4000,
+   "rot": 180,
+   "w": 400,
+   "d": 400,
+   "h": 1650,
+   "elevation": 0,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 1200,
+    "color": "#ffdfba"
+   },
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8800kpn9",
+   "kind": "curtainVelvet",
+   "x": 15760,
+   "y": 3000,
+   "rot": 90,
+   "w": 1600,
+   "d": 120,
+   "h": 2500,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8800kqwv",
+   "kind": "macrame",
+   "x": 12725,
+   "y": 175,
+   "rot": 0,
+   "w": 600,
+   "d": 40,
+   "h": 900,
+   "elevation": 1200,
+   "color": null,
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8800kr96",
+   "kind": "mirrorSunburst",
+   "x": 9630,
+   "y": 3050,
+   "rot": 270,
+   "w": 900,
+   "d": 50,
+   "h": 900,
+   "elevation": 1200,
+   "color": null,
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8800ksxm",
+   "kind": "floorLamp",
+   "x": 11450,
+   "y": 4000,
+   "rot": 180,
+   "w": 400,
+   "d": 400,
+   "h": 1650,
+   "elevation": 0,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 1200,
+    "color": "#ffdfba"
+   },
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8800kt74",
+   "kind": "curtain",
+   "x": 14400,
+   "y": 9760,
+   "rot": 180,
+   "w": 2000,
+   "d": 120,
+   "h": 2500,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8800kuxh",
+   "kind": "curtain",
+   "x": 11200,
+   "y": 9760,
+   "rot": 180,
+   "w": 2000,
+   "d": 120,
+   "h": 2500,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8800kvcq",
+   "kind": "wallArt",
+   "x": 12725,
+   "y": 9825,
+   "rot": 180,
+   "w": 900,
+   "d": 40,
+   "h": 600,
+   "elevation": 1300,
+   "color": null,
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8800kwo7",
+   "kind": "rugJute",
+   "x": 14462,
+   "y": 8200,
+   "rot": 270,
+   "w": 2500,
+   "d": 1575,
+   "h": 12,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8800kxfg",
+   "kind": "galleryWall",
+   "x": 8000,
+   "y": 9830,
+   "rot": 180,
+   "w": 1600,
+   "d": 30,
+   "h": 1000,
+   "elevation": 1100,
+   "color": null,
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8800kymg",
+   "kind": "curtainVelvet",
+   "x": 4800,
+   "y": 9760,
+   "rot": 180,
+   "w": 2000,
+   "d": 120,
+   "h": 2500,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8800kzd0",
+   "kind": "curtainVelvet",
+   "x": 1600,
+   "y": 9760,
+   "rot": 180,
+   "w": 2000,
+   "d": 120,
+   "h": 2500,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8800l0lr",
+   "kind": "curtainVelvet",
+   "x": 240,
+   "y": 7000,
+   "rot": 270,
+   "w": 1600,
+   "d": 120,
+   "h": 2500,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8800l10n",
+   "kind": "floatingShelves",
+   "x": 3275,
+   "y": 9735,
+   "rot": 180,
+   "w": 900,
+   "d": 220,
+   "h": 900,
+   "elevation": 1100,
+   "color": null,
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8800l2e8",
+   "kind": "rugSage",
+   "x": 1538,
+   "y": 8200,
+   "rot": 90,
+   "w": 2500,
+   "d": 1575,
+   "h": 10,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400eew6"
+  },
+  {
+   "id": "uath8800l3q0",
+   "kind": "macrame",
+   "x": 3275,
+   "y": 175,
+   "rot": 0,
+   "w": 600,
+   "d": 40,
+   "h": 900,
+   "elevation": 1200,
+   "color": null,
+   "level": "lvath8400ef8y"
+  },
+  {
+   "id": "uath8800l49r",
+   "kind": "macrame",
+   "x": 4338,
+   "y": 5925,
+   "rot": 180,
+   "w": 600,
+   "d": 40,
+   "h": 900,
+   "elevation": 1200,
+   "color": null,
+   "level": "lvath8400ef8y"
+  },
+  {
+   "id": "uath8800l5xu",
+   "kind": "floorLamp",
+   "x": 1850,
+   "y": 4000,
+   "rot": 180,
+   "w": 400,
+   "d": 400,
+   "h": 1650,
+   "elevation": 0,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 1200,
+    "color": "#ffdfba"
+   },
+   "level": "lvath8400ef8y"
+  },
+  {
+   "id": "uath8800l6sq",
+   "kind": "curtainLinen",
+   "x": 15760,
+   "y": 3000,
+   "rot": 90,
+   "w": 1600,
+   "d": 120,
+   "h": 2500,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400ef8y"
+  },
+  {
+   "id": "uath8800l748",
+   "kind": "macrame",
+   "x": 13788,
+   "y": 5925,
+   "rot": 180,
+   "w": 600,
+   "d": 40,
+   "h": 900,
+   "elevation": 1200,
+   "color": null,
+   "level": "lvath8400ef8y"
+  },
+  {
+   "id": "uath8800l8k3",
+   "kind": "macrame",
+   "x": 9625,
+   "y": 3050,
+   "rot": 270,
+   "w": 600,
+   "d": 40,
+   "h": 900,
+   "elevation": 1200,
+   "color": null,
+   "level": "lvath8400ef8y"
+  },
+  {
+   "id": "uath8800l9wy",
+   "kind": "floorLamp",
+   "x": 11450,
+   "y": 4000,
+   "rot": 180,
+   "w": 400,
+   "d": 400,
+   "h": 1650,
+   "elevation": 0,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 1200,
+    "color": "#ffdfba"
+   },
+   "level": "lvath8400ef8y"
+  },
+  {
+   "id": "uath8800lafq",
+   "kind": "curtainLinen",
+   "x": 14400,
+   "y": 9760,
+   "rot": 180,
+   "w": 2000,
+   "d": 120,
+   "h": 2500,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400ef8y"
+  },
+  {
+   "id": "uath8800lbey",
+   "kind": "curtainLinen",
+   "x": 11200,
+   "y": 9760,
+   "rot": 180,
+   "w": 2000,
+   "d": 120,
+   "h": 2500,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400ef8y"
+  },
+  {
+   "id": "uath8800lcvb",
+   "kind": "wallArt",
+   "x": 12725,
+   "y": 9825,
+   "rot": 180,
+   "w": 900,
+   "d": 40,
+   "h": 600,
+   "elevation": 1300,
+   "color": null,
+   "level": "lvath8400ef8y"
+  },
+  {
+   "id": "uath8800ld6e",
+   "kind": "rugPattern",
+   "x": 14462,
+   "y": 8200,
+   "rot": 270,
+   "w": 2500,
+   "d": 1575,
+   "h": 12,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400ef8y"
+  },
+  {
+   "id": "uath8800levg",
+   "kind": "mirrorRound",
+   "x": 8000,
+   "y": 9825,
+   "rot": 180,
+   "w": 800,
+   "d": 40,
+   "h": 800,
+   "elevation": 1200,
+   "color": null,
+   "level": "lvath8400ef8y"
+  },
+  {
+   "id": "uath8800lfa6",
+   "kind": "curtainLinen",
+   "x": 4800,
+   "y": 9760,
+   "rot": 180,
+   "w": 2000,
+   "d": 120,
+   "h": 2500,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400ef8y"
+  },
+  {
+   "id": "uath8800lgvc",
+   "kind": "curtainLinen",
+   "x": 1600,
+   "y": 9760,
+   "rot": 180,
+   "w": 2000,
+   "d": 120,
+   "h": 2500,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400ef8y"
+  },
+  {
+   "id": "uath8800lhbm",
+   "kind": "curtainLinen",
+   "x": 240,
+   "y": 7000,
+   "rot": 270,
+   "w": 1600,
+   "d": 120,
+   "h": 2500,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400ef8y"
+  },
+  {
+   "id": "uath8800lids",
+   "kind": "wallArt",
+   "x": 3275,
+   "y": 9825,
+   "rot": 180,
+   "w": 900,
+   "d": 40,
+   "h": 600,
+   "elevation": 1300,
+   "color": null,
+   "level": "lvath8400ef8y"
+  },
+  {
+   "id": "uath8800ljac",
+   "kind": "rugSage",
+   "x": 1538,
+   "y": 8200,
+   "rot": 90,
+   "w": 2500,
+   "d": 1575,
+   "h": 10,
+   "elevation": 0,
+   "color": null,
+   "level": "lvath8400ef8y"
   }
  ],
  "roofs": [
   {
-   "id": "fbtbv600grro",
-   "level": "lvbtbv400cta2",
+   "id": "fath8600idju",
+   "level": "lvath8400ef8y",
    "pts": [
     [
      -150,
@@ -2669,8 +3414,8 @@
  ],
  "dimensions": [
   {
-   "id": "kbtbv600gsss",
-   "level": "lvbtbv400cr4j",
+   "id": "kath8600iedn",
+   "level": "lvath8400edav",
    "x1": 0,
    "y1": 0,
    "x2": 16000,
@@ -2680,8 +3425,8 @@
    "phase": "new"
   },
   {
-   "id": "kbtbv600gta2",
-   "level": "lvbtbv400cr4j",
+   "id": "kath8600if29",
+   "level": "lvath8400edav",
    "x1": 0,
    "y1": 10000,
    "x2": 0,
@@ -2691,8 +3436,8 @@
    "phase": "new"
   },
   {
-   "id": "kbtbv600gury",
-   "level": "lvbtbv400csc9",
+   "id": "kath8600igro",
+   "level": "lvath8400eew6",
    "x1": 0,
    "y1": 0,
    "x2": 16000,
@@ -2702,8 +3447,8 @@
    "phase": "new"
   },
   {
-   "id": "kbtbv600gvlq",
-   "level": "lvbtbv400csc9",
+   "id": "kath8600iht8",
+   "level": "lvath8400eew6",
    "x1": 0,
    "y1": 10000,
    "x2": 0,
@@ -2713,8 +3458,8 @@
    "phase": "new"
   },
   {
-   "id": "kbtbv600gwhw",
-   "level": "lvbtbv400cta2",
+   "id": "kath8600iinn",
+   "level": "lvath8400ef8y",
    "x1": 0,
    "y1": 0,
    "x2": 16000,
@@ -2724,8 +3469,8 @@
    "phase": "new"
   },
   {
-   "id": "kbtbv600gxvc",
-   "level": "lvbtbv400cta2",
+   "id": "kath8600ij71",
+   "level": "lvath8400ef8y",
    "x1": 0,
    "y1": 10000,
    "x2": 0,
@@ -2749,7 +3494,7 @@
  "solids": [],
  "scenes": [
   {
-   "id": "scbtbv600gylq",
+   "id": "scath8600ik50",
    "name": "Aerial",
    "camera": {
     "pos": [
@@ -2769,7 +3514,7 @@
    "phase": "all"
   },
   {
-   "id": "scbtbv600gzul",
+   "id": "scath8600ilcq",
    "name": "2F cut",
    "camera": {
     "pos": [
@@ -2790,7 +3535,7 @@
   }
  ],
  "view": {
-  "level": "lvbtbv400cr4j"
+  "level": "lvath8400edav"
  },
  "libraryItems": [],
  "slabTypes": [],
@@ -2800,7 +3545,7 @@
  "views": [],
  "sheets": [
   {
-   "id": "shbtbv600hdyb",
+   "id": "shath8600izru",
    "number": "A101",
    "name": "Floor plan — 1F",
    "paper": "A3",
@@ -2814,8 +3559,8 @@
    },
    "viewports": [
     {
-     "id": "vpbtbv600heb6",
-     "view": "pl-lvbtbv400cr4j",
+     "id": "vpath8600j0tv",
+     "view": "pl-lvath8400edav",
      "x": 0,
      "y": 0,
      "fit": true
@@ -2825,7 +3570,7 @@
    "auto": true
   },
   {
-   "id": "shbtbv600hf2t",
+   "id": "shath8600j1pk",
    "number": "A102",
    "name": "Floor plan — 2F",
    "paper": "A3",
@@ -2839,8 +3584,8 @@
    },
    "viewports": [
     {
-     "id": "vpbtbv600hgg0",
-     "view": "pl-lvbtbv400csc9",
+     "id": "vpath8600j29h",
+     "view": "pl-lvath8400eew6",
      "x": 0,
      "y": 0,
      "fit": true
@@ -2850,7 +3595,7 @@
    "auto": true
   },
   {
-   "id": "shbtbv600hhk5",
+   "id": "shath8600j31l",
    "number": "A103",
    "name": "Floor plan — 3F",
    "paper": "A3",
@@ -2864,8 +3609,8 @@
    },
    "viewports": [
     {
-     "id": "vpbtbv600hiau",
-     "view": "pl-lvbtbv400cta2",
+     "id": "vpath8600j4e3",
+     "view": "pl-lvath8400ef8y",
      "x": 0,
      "y": 0,
      "fit": true
@@ -3010,6 +3755,10 @@
   "watermark": "",
   "watermarkPos": "br",
   "sectionFill": "#3b4250",
-  "fogDensity": 1
+  "fogDensity": 1,
+  "environment": "",
+  "envBackground": false,
+  "groundType": "plain",
+  "groundShape": "disc"
  }
 }

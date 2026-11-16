@@ -367,6 +367,97 @@ export function stairRails(p, s) {
 
 export const STAIR_RAIL = { height: 900, spacing: 150, baluster: 20, rail: 50, style: "bars", material: "steel" };
 
+// ---------------------------------------------------------------- stair wells
+// The opening a stair needs in the floor it climbs to (and in the ceiling of
+// its own storey): its plan footprint as convex pieces, so the 3D model can
+// cut it out of any floor with minusConvex. Straight and U stairs are one
+// rectangle, an L stair two (flight 1 + landing, flight 2), a spiral one wedge
+// per tread (centre included, so no floor island is left around the pole).
+export function stairWellParts(p, s) {
+  const lay = stairLayout(s, stairRise(p, s));
+  if (lay.shape === "spiral") {
+    return lay.treads.map((t) => [[s.x, s.y], t.pts[1], t.pts[2], t.pts[3]]);
+  }
+  if (lay.shape === "L") {
+    const o = lay.outline; // A B C D E F (see stairLayout)
+    const [A, B, C, D, E, F] = o;
+    const BB = [B[0] + (F[0] - A[0]), B[1] + (F[1] - A[1])]; // the corner (L/2, t·W/2)
+    return [[A, B, BB, F], [E, BB, C, D]];
+  }
+  return [lay.outline];
+}
+
+// Stairs whose top arrives at `levelId` (they start on the level below it).
+export function stairsInto(p, levelId) {
+  return (p.stairs || []).filter((s) => { const up = levelAbove(p, s.level); return up && up.id === levelId; });
+}
+
+// Wells cut into the floor of `levelId` (rooms, floor slabs) by the stairs
+// climbing to it, and into the ceilings of `levelId` by its own stairs.
+export function stairWellsInto(p, levelId, vis = () => true) {
+  return stairsInto(p, levelId).filter(vis).flatMap((s) => stairWellParts(p, s));
+}
+export function stairWellsOn(p, levelId, vis = () => true) {
+  return (p.stairs || []).filter((s) => s.level === levelId && levelAbove(p, s.level) && vis(s)).flatMap((s) => stairWellParts(p, s));
+}
+
+const boxOf = (pts) => {
+  let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+  for (const [x, y] of pts) { if (x < x1) x1 = x; if (x > x2) x2 = x; if (y < y1) y1 = y; if (y > y2) y2 = y; }
+  return [x1, y1, x2, y2];
+};
+
+// Polygons minus convex cutters → the pieces left (each a simple polygon,
+// possibly with zero-width bridges where a concave polygon was clipped).
+// Pieces smaller than 1 mm² are dropped; a cutter that misses a polygon
+// leaves it exactly as it was.
+export function minusConvex(polys, cutters) {
+  let out = polys.map((q) => q.slice());
+  for (const c0 of cutters) {
+    if (!c0 || c0.length < 3) continue;
+    const c = polygonArea(c0) < 0 ? c0.slice().reverse() : c0; // counter-clockwise
+    const [cx1, cy1, cx2, cy2] = boxOf(c);
+    const next = [];
+    for (const poly of out) {
+      const [px1, py1, px2, py2] = boxOf(poly);
+      if (px2 <= cx1 + 0.5 || px1 >= cx2 - 0.5 || py2 <= cy1 + 0.5 || py1 >= cy2 - 0.5) { next.push(poly); continue; }
+      let rest = poly;
+      const pieces = [];
+      for (let i = 0; i < c.length && rest.length >= 3; i++) {
+        const a = c[i], b = c[(i + 1) % c.length];
+        const inward = [-(b[1] - a[1]), b[0] - a[0]]; // left of a → b = inside a counter-clockwise cutter
+        const outward = [-inward[0], -inward[1]];
+        const piece = clipHalfPlaneStrict(rest, a, outward);
+        if (piece.length >= 3 && Math.abs(polygonArea(piece)) > 1) pieces.push(piece);
+        rest = clipHalfPlaneStrict(rest, a, inward);
+      }
+      // Nothing cut (the boxes overlapped but the shapes do not): keep it as is.
+      if (pieces.length === 1 && Math.abs(Math.abs(polygonArea(pieces[0])) - Math.abs(polygonArea(poly))) < 1) next.push(poly);
+      else next.push(...pieces);
+    }
+    out = next;
+  }
+  return out;
+}
+
+// clipHalfPlane (geom.js) without its import here: (q − a)·dir >= 0, with
+// points on the line kept once.
+function clipHalfPlaneStrict(pts, a, dir) {
+  const f = (q) => (q[0] - a[0]) * dir[0] + (q[1] - a[1]) * dir[1];
+  const out = [];
+  for (let i = 0, n = pts.length; i < n; i++) {
+    const A = pts[i], B = pts[(i + 1) % n];
+    const fa = f(A), fb = f(B);
+    if (fa >= 0) out.push(A);
+    if ((fa > 0 && fb < 0) || (fa < 0 && fb > 0)) {
+      const t = fa / (fa - fb);
+      out.push([A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t]);
+    }
+  }
+  // Drop repeated points.
+  return out.filter((q, i) => { const r = out[(i + 1) % out.length]; return out.length < 2 || Math.hypot(q[0] - r[0], q[1] - r[1]) > 1e-6; });
+}
+
 // ---------------------------------------------------------------- curtain walls
 export const curtainTypeOf = (p, w) => {
   const wt = w.type ? (p.wallTypes || []).find((x) => x.id === w.type) : null;

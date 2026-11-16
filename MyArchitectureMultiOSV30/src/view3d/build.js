@@ -23,7 +23,7 @@ import { buildSolid, buildComponent, buildOpeningComponent, skVisible } from "./
 import { setProjectMaterials } from "../lib/materials.js";
 import { buildLevelElements, specialWallBody, roofFacesCut } from "./elements.js";
 import { syncOptions, optionHidden } from "../core/elements/model.js";
-import { roomOnSlab } from "../core/elements/geometry.js";
+import { roomOnSlab, stairWellsInto, minusConvex } from "../core/elements/geometry.js";
 import { memberGroup } from "./members.js";
 import { memberPoints } from "../core/members.js";
 
@@ -317,7 +317,7 @@ function boxInWall(THREE, w, mat, u, v, z, su, sv, sz) {
 
 function openingMeshes(THREE, mats, w, s, base, opts) {
   const o = s.o;
-  const g = new THREE.Group();
+  let g = new THREE.Group();
   const t = w.thickness;
   const fw = o.frameWidth || 60; // frame member width (a type parameter)
   const z0 = base + o.sill;
@@ -342,7 +342,12 @@ function openingMeshes(THREE, mats, w, s, base, opts) {
     if (o.type === "sliding") g.add(boxInWall(THREE, w, frame, uc, 25, z0 + fw, 40, depth * 0.6, o.height - 2 * fw));
     return g;
   }
-  // Doors.
+  // Doors. The group carries where the door is (metres) for the walk-through,
+  // which opens a door as the walker comes near (viewer.js walkDoors).
+  {
+    const f = wallFrame(w);
+    g.userData.doorAt = [(w.x1 + f.d[0] * uc) * M, (z0 + o.height / 2) * M, (w.y1 + f.d[1] * uc) * M];
+  }
   const leafT = 40;
   const leafH = o.height - fw;
   const leafMat = o.type === "garage" ? mats.color("#c7ccd2", { rough: 0.5, metal: 0.3 }) : mats.door();
@@ -359,7 +364,15 @@ function openingMeshes(THREE, mats, w, s, base, opts) {
     };
     // An open sliding door: its first leaf slides over the second (90° = fully open).
     const slide = Math.min(1, doorAngle(o, opts.openDoors, { force: opts.forceOpenDoors }) / 90) * (half - 60);
+    // The moving leaf in a group of its own, so the walk-through can slide it.
+    const all = g;
+    const moving = new THREE.Group();
+    g = moving;
     glassLeaf(s.u1 + fw + half / 2 + slide, 25);
+    g = all;
+    const f = wallFrame(w);
+    moving.userData.slide = { d: [f.d[0], f.d[1]], max: (half - 60) * M, a: slide * M };
+    g.add(moving);
     glassLeaf(s.u2 - fw - half / 2, -25);
     return g;
   }
@@ -383,6 +396,7 @@ function openingMeshes(THREE, mats, w, s, base, opts) {
     pivot.add(m, hdl);
     // Local +z is the wall's left normal; a positive turn about y swings +x
     // towards −z, so the sign makes the leaf open towards `side`.
+    pivot.userData.leaf = { y0: pivot.rotation.y, k: -dir * side, a: open };
     pivot.rotateY(-open * dir * side);
     g.add(pivot);
   };
@@ -581,11 +595,16 @@ export function buildBuilding(THREE, p, mats, opts = {}) {
         lg.add(tag(og, s.o.id, "openings", lv.id));
       }
     }
-    // ---- floors under rooms
+    // ---- floors under rooms (with the wells of the stairs arriving from below cut out)
+    const wells = stairWellsInto(p, lv.id, vis);
     for (const r of p.rooms.filter((x) => x.level === lv.id && vis(x))) {
       const geo = new Geo();
+      const onSlab = roomOnSlab(p, r);
       // On a floor slab the room keeps only its finish (the slab is the structure).
-      if (roomOnSlab(p, r)) prism(geo, r.pts, base - 20, base + 1); else prism(geo, r.pts, base - Math.max(20, lv.slab || 0), base);
+      for (const piece of wells.length ? minusConvex([r.pts], wells) : [r.pts]) {
+        if (onSlab) prism(geo, piece, base - 20, base + 1); else prism(geo, piece, base - Math.max(20, lv.slab || 0), base);
+      }
+      // A room wholly inside a stair well keeps an empty floor mesh (it is still the room, for picking and tags).
       const mesh = new THREE.Mesh(geo.build(THREE), mats.surface(r.floor || DEFAULT_MATERIAL.floor, "#c49a6c"));
       mesh.receiveShadow = true;
       mesh.name = `floor ${r.name || r.id}`;
@@ -728,6 +747,8 @@ export function levelKeys(p, opts = {}) {
   for (const k of PER_LEVEL) for (const it of p[k] || []) { const l = local.get(it.level); if (l) (l[k] || (l[k] = [])).push(it); }
   const wallLevel = new Map(p.walls.map((w) => [w.id, w.level]));
   for (const op of p.openings || []) { const l = local.get(wallLevel.get(op.wall)); if (l) (l.openings || (l.openings = [])).push(op); }
+  // A stair cuts its well into the floor of the level above: that level is rebuilt with it.
+  for (const st of p.stairs || []) { const up = levelAbove(p, st.level); const l = up && local.get(up.id); if (l) (l.stairsBelow || (l.stairsBelow = [])).push(st); }
   return new Map([...local].map(([id, l]) => [id, [g, keyJson(l)]]));
 }
 

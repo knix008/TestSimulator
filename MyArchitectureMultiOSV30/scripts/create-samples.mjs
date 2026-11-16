@@ -1637,7 +1637,7 @@ function corridorFloor(b, L, { len, dn, cw, ds, north, south, ext = {}, part = {
     const reading = (x1, y1, cols, rows) => { for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) table4(b, L, "diningTable6", x1 + i * 3400, y1 + j * 2600, 1800, 900); };
     if (ground) {
       for (let i = 0; i < 4; i++) b.furn(L, "bookshelf", 1500 + i * 2400, 500, 0, { w: 1800 }); for (let i = 0; i < 3; i++) table4(b, L, "roundTable", 3000 + i * 4000, 4500, 1200); b.furn(L, "sofa3", 12500, 7600, 180);
-      for (let i = 0; i < 3; i++) b.furn(L, "displayTable", 3500 + i * 4000, 13500, 0); b.furn(L, "wallArt", 7500, 17800, 180, { w: 2400 });
+      for (let i = 0; i < 3; i++) b.furn(L, "displayTable", 3500 + i * 4000, 13500, 0); b.furn(L, "wallArt", 7500, 17905, 180, { w: 2400 });
       for (const x of [29000, 32500, 36000, 39500]) table4(b, L, "cafeTable", x, 3500, 800); b.furn(L, "barCounter", 34500, 8300, 180, { w: 4200 });
       b.furn(L, "checkout", 21000, 12000, 0, { w: 3000 }); for (const x of [17500, 24500]) { b.furn(L, "planter", x, 1200, 0); b.furn(L, "bench", x, 6000, 0, { w: 2000 }); }
       b.furn(L, "reception", 26500, 23500, 0, { w: 4000 }); b.furn(L, "officeChair", 25500, 24400, 180); b.furn(L, "officeChair", 27500, 24400, 180); for (let i = 0; i < 3; i++) b.furn(L, "libraryShelf", 23000 + i * 3000, 28300, 0);
@@ -1718,7 +1718,7 @@ function corridorFloor(b, L, { len, dn, cw, ds, north, south, ext = {}, part = {
       b.window(s, W - 19000, 6000, { sill: 900, height: 1800 }); b.window(s, W - 35000, 3000, { sill: 900, height: 1800 });
       b.rooms(L, [[13000, 33000, "Viewing gallery", "oak"], [33000, 33000, "Dance studio", "walnut"], [4000, 39000, "Stairs", "concrete"], [19000, 39000, "Gym", "tile-grey"], [35000, 39000, "Office", "carpet"]]);
       for (let i = 0; i < 6; i++) b.furn(L, "bench", 3000 + i * 3800, 31400, 0, { w: 3000 }); for (let i = 0; i < 6; i++) b.furn(L, "bench", 3000 + i * 3800, 33400, 0, { w: 3000 });
-      b.furn(L, "mirror", 33000, 30200, 0, { w: 6000 }); b.furn(L, "box", 33000, 33500, 0, { w: 6000, d: 3000, h: 20, color: "#4e6e8e" });
+      b.furn(L, "mirror", 33000, 30115, 0, { w: 6000 }); b.furn(L, "box", 33000, 33500, 0, { w: 6000, d: 3000, h: 20, color: "#4e6e8e" });
       for (let i = 0; i < 5; i++) b.furn(L, "treadmill", 10500 + i * 1300, 37200, 0); for (let i = 0; i < 5; i++) b.furn(L, "spinBike", 10500 + i * 1300, 40600, 180);
       for (let i = 0; i < 3; i++) b.furn(L, "weightBench", 20500 + i * 2400, 39000, 90); b.furn(L, "lockers", 28800, 41500, 180);
       for (const x of [33000, 36500]) { b.furn(L, "officeDesk", x, 37200, 0); b.furn(L, "officeChair", x, 37950, 180); } meeting(b, L, 35000, 40300, 1800, 900, 2);
@@ -1966,7 +1966,7 @@ function fitter(b) {
       case "bathroom": b.furn(L, "shower", x1 + 550, out(550), rot); b.furn(L, "toilet", x2 - 350, cy, 270); b.furn(L, "washbasin", x2 - 225, into(800), 270); break;
       case "gallery":
         b.furn(L, "displayTable", cx, cy, rot); b.furn(L, "bench", cx, out(1500), rot);
-        for (let i = 0; i < Math.floor((w - 600) / 2400); i++) b.furn(L, "wallArt", x1 + 1500 + i * 2400, into(20), rot, { w: 1600, elevation: 1200 });
+        // Pictures on its solid walls: scripts/sample-dress.mjs (WALL_DECOR) finds the wall faces.
         break;
       default: break;
     }
@@ -2425,7 +2425,7 @@ const flatRoof = (p, level, pts, overhang = 0) => p.roofs.push({ id: uid("f"), l
   // Ensuite.
   b.furn(L, "vanity2", 8750, 8350, 0);
   b.furn(L, "bathFreestanding", 8750, 13400, 0);
-  b.furn(L, "toiletWallHung", 10155, 11000, 270);
+  b.furn(L, "toiletWallHung", 10155, 11000, 90);
   b.furn(L, "showerWalkIn", 7525, 12200, 90);
   b.lamp(L, "downlight", 8750, 10000); b.lamp(L, "downlight", 8750, 12500);
   // Study: executive desk with a monitor, chair, bookcases.
