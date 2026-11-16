@@ -438,7 +438,7 @@ if (typeof window !== 'undefined' && !windowKind) {
     }
   });
 }
-const SINGLETON_KINDS = new Set(['viewer', 'editor', 'preview', 'info', 'multiRename', 'search', 'settings', 'about', 'manual']);   // one popup per tool
+const SINGLETON_KINDS = new Set(['viewer', 'editor', 'preview', 'info', 'multiRename', 'search', 'settings', 'about', 'manual', 'manualPrint']);   // one popup per tool
 const QUIET_KINDS = new Set(['preview']);   // re-used without taking the focus (it follows double-clicks in the file list)
 let bus = null;
 function channel() {
@@ -449,10 +449,10 @@ function channel() {
 // Settings and About open at the size their content actually takes, so the window is not
 // drawn large and then shrunk. Settings is the width at which its tallest page (the viewer
 // tab) still fits the height; About is the icon, the lines of text and the close button.
-const TOOL_SIZES = { viewer: [960, 720], editor: [960, 720], preview: [720, 560], info: [660, 720], multiRename: [920, 680], search: [760, 600], settings: [960, 540], about: [480, 260], manual: [1000, 780] };
+const TOOL_SIZES = { viewer: [960, 720], editor: [960, 720], preview: [720, 560], info: [660, 720], multiRename: [920, 680], search: [760, 600], settings: [960, 540], about: [480, 260], manual: [1000, 780], manualPrint: [900, 820] };
 // The narrowest a tool window may get. The guide's header row (title, search, text size,
-// languages) needs 769 px; doc/index.html keeps 780 px, plus the page's scrollbar.
-const TOOL_MIN = { manual: [800, 480] };
+// languages, print) needs 847 px; doc/index.html keeps 860 px, plus the page's scrollbar.
+const TOOL_MIN = { manual: [880, 480], manualPrint: [640, 400] };
 // This window's smallest inner size. The host holds a drag on the native frame to it; a size set
 // from code (the resize marker) is not held, so resizeWindow clamps to it. The main window's is
 // tauri.conf.json's, raised by setMinContentWidth.

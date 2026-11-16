@@ -173,7 +173,7 @@ export function PromptEditor({ value, onChange, custom = [], onCustomChange, pag
           <button type="button" className="btn small" onClick={saveCustom}><Icon name="plus" size={13} /> {t('pe_save_custom')}</button>
           {customCur && <>
             <input value={customCur.label} onChange={(e) => renameCustom(e.target.value)} spellCheck={false} placeholder={t('pe_custom_name')} style={{ width: 200 }} />
-            <button type="button" className="btn small" disabled={!modified} onClick={updateCustom} title={t('pe_update_custom_tip')}>{t('pe_update_custom')}</button>
+            <button type="button" className="btn small" disabled={!modified} onClick={updateCustom} title={t('pe_update_custom_tip')}><Icon name="save" size={14} /> {t('pe_update_custom')}</button>
             <button type="button" className="btn small" onClick={removeCustom}><Icon name="close" size={13} /> {t('pe_delete_custom')}</button>
           </>}
           {!customCur && <span className="muted small ellipsis">{t('pe_custom_hint')}</span>}
@@ -206,7 +206,7 @@ export function PromptEditor({ value, onChange, custom = [], onCustomChange, pag
             <span style={{ color: cfg.git_colors[k] }}>{t(`pe_gs_${k}`)}</span>
           </label>
         ))}
-        <button type="button" className="btn small" disabled={GIT_STATE_NAMES.every((k) => cfg.git_colors[k] === GIT_STATE_COLORS[k])} onClick={() => update((c) => { c.git_colors = { ...GIT_STATE_COLORS }; })}>{t('pe_gs_reset')}</button>
+        <button type="button" className="btn small" disabled={GIT_STATE_NAMES.every((k) => cfg.git_colors[k] === GIT_STATE_COLORS[k])} onClick={() => update((c) => { c.git_colors = { ...GIT_STATE_COLORS }; })}><Icon name="undo" size={14} /> {t('pe_gs_reset')}</button>
       </div>
       </>)}
       {advanced && <div className="pe-section-title">{t('pe_advanced')}</div>}

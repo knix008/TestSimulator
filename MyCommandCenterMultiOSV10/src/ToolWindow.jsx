@@ -10,6 +10,8 @@
 //   search       { root }                       F9
 //   settings     { values, shells, platform }   ⚙
 //   about        { info }                        정보
+//   manual       {}                             F1 (the guide)
+//   manualPrint  { lang }                       the guide's Print button (the print window)
 //
 // Anything that must happen in the main window (refresh a panel, record an
 // undo step, navigate, apply settings) is posted over the window message bus
@@ -23,7 +25,7 @@ import { SETTINGS_DEFAULTS } from './lib/settings';
 import { DialogHost, useDialogs, AboutDialog } from './dialogs/Dialogs';
 import { InfoDialog } from './dialogs/InfoDialog';
 import { ResizeGrip } from './components/ResizeGrip';
-import { ManualFrame } from './components/Manual';
+import { ManualFrame, ManualPrint } from './components/Manual';
 import { ViewerDialog, EditorDialog, MultiRenameDialog } from './dialogs/ToolDialogs';
 import { SearchDialog } from './dialogs/SearchDialog';
 import { SettingsDialog } from './dialogs/SettingsDialog';
@@ -198,7 +200,10 @@ export default function ToolWindow() {
     body = <AboutDialog spec={{ info: args.info || {}, windowed: true }} done={() => closeWindow()} />;
   } else if (mode === 'manual') {
     // The strip under the page keeps the resize marker off the page and its scrollbar.
-    body = <><ManualFrame onClose={() => closeWindow()} /><div className="tool-foot" /></>;
+    body = <><ManualFrame onClose={() => closeWindow()} onPrint={(lang) => postToApp({ type: 'manualPrint', lang })} /><div className="tool-foot" /></>;
+  } else if (mode === 'manualPrint') {
+    // The guide's print window (Guide › Print): the page as it goes on paper, with Print and Close.
+    body = <><ManualPrint key={args.lang || ''} lang={args.lang} windowed onClose={() => closeWindow()} /><div className="tool-foot" /></>;
   } else {
     body = <div className="boot">?</div>;
   }

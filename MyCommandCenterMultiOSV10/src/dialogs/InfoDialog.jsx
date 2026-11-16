@@ -88,7 +88,7 @@ export function InfoDialog({ spec, done }) {
         <button className="btn" onClick={copyAll}><Icon name="clipboard" /> {copied ? t('info_copied') : t('info_copy_all')}</button>
         {!info.isDir && <button className="btn" onClick={computeHash} disabled={hash === 'busy'}><Icon name="hex" /> {t('info_hash_compute')}</button>}
         <span className="spacer" />
-        <button className="btn primary" onClick={() => done()} autoFocus>{t('ok')}</button>
+        <button className="btn primary" onClick={() => done()} autoFocus><Icon name="check" size={14} /> {t('ok')}</button>
       </>}>
       <div className="info-sections" ref={bodyRef}>
         {sections.map(([title, rows]) => rows.length ? (

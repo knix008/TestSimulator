@@ -105,7 +105,7 @@ export function MenuBar({ onAction, state }) {
       { sep: true },
       { id: 'rename', label: t('rename'), icon: 'rename', disabled: state.selCount !== 1 },
       { id: 'multiRename', label: t('multi_rename'), icon: 'multiRename', shortcut: 'Ctrl+M', disabled: !state.hasSelection },
-      { id: 'delete', label: t('delete'), icon: 'delete', disabled: !state.hasSelection },
+      { id: 'trash', label: t('ctx_trash'), icon: 'trash', shortcut: 'Del', disabled: !state.hasSelection },
     ],
     select: [
       { id: 'selectPattern', label: t('sel_pattern'), icon: 'select', shortcut: 'Num +' },
@@ -210,8 +210,7 @@ export function Toolbar({ onAction, theme, dockVisible, state = {} }) {
     ['moveOther', 'move', 'tb_move', 'tip_move', !some],
     ['rename', 'rename', 'ctx_rename', 'tip_rename', !one],
     ['multiRename', 'multiRename', 'multi_rename', 'tip_multi_rename', !some],
-    ['delete', 'delete', 'tb_delete', 'tip_delete', !some],
-    state.canTrash ? ['trash', 'trash', 'ctx_trash', 'tip_trash', !some] : undefined,
+    ['trash', 'trash', 'ctx_trash', 'tip_trash', !some],
     null,
     ['clipCut', 'cut', 'ctx_cut', 'tip_clip_cut', !some],
     ['clipCopy', 'clipboard', 'ctx_copy', 'tip_clip_copy', !some],
@@ -322,7 +321,7 @@ export function FnBar({ onAction, state }) {
     ['F5', 'copyOther', 'fn_copy', !state.hasSelection],
     ['F6', 'moveOther', 'fn_move', !state.hasSelection],
     ['F7', 'newFolder', 'fn_mkdir', false],
-    ['F8', 'delete', 'fn_delete', !state.hasSelection],
+    ['F8', 'trash', 'fn_trash', !state.hasSelection],
     ['Alt+F4', 'quit', 'fn_quit', false],
   ];
   return (

@@ -1,6 +1,6 @@
 [package]
 name = "commandcenter"
-version = "1.0.0"
+version = "1.0.3"
 description = "Command Center — Tauri shell around the Node core"
 authors = ["SHKWON <knix008@naver.com>"]
 edition = "2021"

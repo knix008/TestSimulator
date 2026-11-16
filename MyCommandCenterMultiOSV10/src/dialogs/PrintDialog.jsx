@@ -132,8 +132,8 @@ export function PrintDialog({ spec, done }) {
     <DialogFrame title={t('print')} icon="print" width={1000} className="print-dlg" onClose={() => done({ ok: false, cancelled: true })}
       footer={<>
         <span className="muted small print-count">{preview.loading ? t('pr_preview_loading') : preview.pages ? t('pr_page_count', { n: preview.pages }) : ''}</span>
-        {isElectron && <button className="btn" onClick={() => print(true)} disabled={busy}>{t('pr_system_dialog')}</button>}
-        <button className="btn" onClick={() => done({ ok: false, cancelled: true })} disabled={busy}>{t('cancel')}</button>
+        {isElectron && <button className="btn" onClick={() => print(true)} disabled={busy}><Icon name="settings" size={14} /> {t('pr_system_dialog')}</button>}
+        <button className="btn" onClick={() => done({ ok: false, cancelled: true })} disabled={busy}><Icon name="close" size={14} /> {t('cancel')}</button>
         <button className="btn primary" onClick={() => print()} disabled={busy || rangeBad || preview.loading}><Icon name="print" size={14} /> {t('pr_print')}</button>
       </>}>
       <div className="print-body" onKeyDown={onKey}>

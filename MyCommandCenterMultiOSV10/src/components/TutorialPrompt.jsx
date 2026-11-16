@@ -5,6 +5,7 @@
 import React from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { DialogFrame } from '../dialogs/Dialogs';
+import { Icon } from './Icons';
 
 export function TutorialPrompt({ showNext = true, onShowNext, onRun, onClose }) {
   useLanguage();
@@ -16,8 +17,8 @@ export function TutorialPrompt({ showNext = true, onShowNext, onRun, onClose }) 
           <span>{t('tut_prompt_again')}</span>
         </label>
         <span className="spacer" />
-        <button type="button" className="btn" onClick={onClose}>{t('tut_prompt_later')}</button>
-        <button type="button" className="btn primary" onClick={onRun}>{t('tut_prompt_run')}</button>
+        <button type="button" className="btn" onClick={onClose}><Icon name="history" size={14} /> {t('tut_prompt_later')}</button>
+        <button type="button" className="btn primary" onClick={onRun}><Icon name="play" size={14} /> {t('tut_prompt_run')}</button>
       </>}>
       <p className="pre">{t('tut_prompt_text')}</p>
     </DialogFrame>

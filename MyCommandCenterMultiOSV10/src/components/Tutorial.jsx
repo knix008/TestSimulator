@@ -104,11 +104,11 @@ export function Tutorial({ onClose, onPrepare }) {
         <h2 id="tut-title" className="tutorial-title">{t(`tut_${step.id}_title`)}</h2>
         <p className="tutorial-text">{t(`tut_${step.id}_text`)}</p>
         <div className="tutorial-buttons">
-          <button type="button" className="btn" onClick={onClose}>{t('tut_exit')}</button>
-          <button type="button" className="btn" disabled={index === 0} onClick={() => setIndex((i) => i - 1)}>{t('tut_prev')}</button>
+          <button type="button" className="btn" onClick={onClose}><Icon name="quit" size={14} /> {t('tut_exit')}</button>
+          <button type="button" className="btn" disabled={index === 0} onClick={() => setIndex((i) => i - 1)}><Icon name="chevronLeft" size={14} /> {t('tut_prev')}</button>
           {last
-            ? <button type="button" className="btn primary" onClick={onClose}>{t('tut_finish')}</button>
-            : <button type="button" className="btn primary" onClick={() => setIndex((i) => i + 1)}>{t('tut_next')}</button>}
+            ? <button type="button" className="btn primary" onClick={onClose}><Icon name="check" size={14} /> {t('tut_finish')}</button>
+            : <button type="button" className="btn primary" onClick={() => setIndex((i) => i + 1)}>{t('tut_next')} <Icon name="chevronRight" size={14} /></button>}
         </div>
       </div>
     </>

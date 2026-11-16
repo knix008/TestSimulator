@@ -13,7 +13,7 @@ import { FilePanel } from './components/FilePanel';
 import { MenuBar, Toolbar, FnBar } from './components/Chrome';
 import { StartPage } from './components/StartPage';
 import { Tutorial } from './components/Tutorial';
-import { Manual } from './components/Manual';
+import { Manual, ManualPrint } from './components/Manual';
 import { DialogHost, useDialogs } from './dialogs/Dialogs';
 import { BottomDock } from './components/BottomDock';
 import { SearchDialog } from './dialogs/SearchDialog';
@@ -104,6 +104,7 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [startOpen, setStartOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
+  const [manualPrint, setManualPrint] = useState(null);   // the guide's print view, inside this window: its language
   const [tutorial, setTutorial] = useState(false);
   const tutSnap = useRef({ dock: false });
   // "Run the tutorial?" — asked once at startup over the start screen; it goes away by itself
@@ -585,6 +586,13 @@ export default function App() {
     const p = panel(side);
     const paths = p ? p.getSelectedPaths() : [];
     if (!paths.length) { setStatus(t('trash_none')); return; }
+    // No Trash on this host (a web server without one): the only way left is a permanent delete, which asks itself.
+    if (info && info.capabilities && info.capabilities.trash === false) { await remove(side); return; }
+    const ok = session.confirmDelete === false || await dialogs.confirm({
+      title: t('ctx_trash'), icon: 'trash',
+      message: paths.length === 1 ? t('trash_confirm_one', { name: baseName(paths[0]) }) : t('trash_confirm_many', { n: paths.length }),
+    });
+    if (!ok) return;
     const final = await runWithProgress(t('trashing'), 'ops.trash', { paths });
     await p.refresh();
     history.mark();
@@ -1076,8 +1084,11 @@ export default function App() {
       case 'splitHorizontal': saveSession({ layout: 'horizontal' }); break;
       case 'splitVertical': saveSession({ layout: 'vertical' }); break;
       case 'splitReset': saveSession({ splitter: 0.5 }); setStatus(t('split_reset_done')); break;
-      case 'delete': await remove(side); break;
+      // Delete / F8 / the menus all move to the Trash (with a confirmation); only Shift+Delete deletes for good.
+      case 'delete': await trash(side); break;
       case 'trash': await trash(side); break;
+      case 'deletePermanent': await remove(side); break;
+      case 'panelTerminal': await newTerminal(undefined, pathOf(side)); break;
       case 'copyOther': await transfer(side, false); break;
       case 'moveOther': await transfer(side, true); break;
       case 'clipCut': await clipCut(side); break;
@@ -1099,6 +1110,15 @@ export default function App() {
         if (useWindows() && await openTool('manual', {}, { title: t('manual_title') })) break;
         setManualOpen(true);
         break;
+      // The guide's print window ('manualPrint:<lang>' from the guide's Print button).
+      case 'manualPrint':
+      case 'manualPrint:ko':
+      case 'manualPrint:en': {
+        const lang = id.endsWith(':en') ? 'en' : id.endsWith(':ko') ? 'ko' : getLanguage();
+        if (useWindows() && await openTool('manualPrint', { lang }, { title: t('manual_print_title') })) break;
+        setManualPrint(lang);
+        break;
+      }
       case 'about': {
         if (openAlready('about')) break;
         const about = { ...(info || {}), host: hostName, theme: session.theme, language: getLanguage(), fontSize: session.fontSize, customThemes: session.customThemes };
@@ -1186,6 +1206,7 @@ export default function App() {
       case 'copyTo': await copyPathsTo(msg.side, msg.paths || []); break;
       case 'settings': applySettings(msg.values, { quiet: !!msg.live }); break;
       case 'recentDirs': saveSession({ recentDirs: msg.recentDirs || [] }); break;
+      case 'manualPrint': await onAction(`manualPrint:${msg.lang === 'en' ? 'en' : 'ko'}`); break;
       default: break;
     }
   };
@@ -1219,7 +1240,7 @@ export default function App() {
       } else if (!ctrl && !e.altKey) {
         id = e.shiftKey
           ? { F2: 'compareDirs', F4: 'newFile', F6: 'rename' }[e.key] || null
-          : { F1: 'manual', F2: 'rename', F3: 'view', F4: 'edit', F5: 'copyOther', F6: 'moveOther', F7: 'newFolder', F8: 'delete', F9: 'search' }[e.key] || null;
+          : { F1: 'manual', F2: 'rename', F3: 'view', F4: 'edit', F5: 'copyOther', F6: 'moveOther', F7: 'newFolder', F8: 'trash', F9: 'search' }[e.key] || null;
       }
       if (id) {
         e.preventDefault();
@@ -1383,7 +1404,8 @@ export default function App() {
         }} />
       {session.fnBar !== false && <FnBar onAction={(id) => onAction(id)} state={menuState} />}
       </div>
-      {manualOpen && <Manual onClose={() => setManualOpen(false)} />}
+      {manualOpen && <Manual onClose={() => setManualOpen(false)} onPrint={(lang) => onAction(`manualPrint:${lang}`)} />}
+      {manualPrint && <ManualPrint key={manualPrint} lang={manualPrint} onClose={() => setManualPrint(null)} />}
       </div>
       <div className="statusbar ellipsis" title={status}>
         {status}

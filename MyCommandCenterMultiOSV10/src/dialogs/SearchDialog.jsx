@@ -173,9 +173,9 @@ export function SearchDialog({ root, onClose, onOpenDir, onOpenFile, onClipCopy,
             <label>{t('lbl_pattern')}</label>
             <input ref={patternRef} value={pattern} onChange={(e) => setPattern(e.target.value)} spellCheck={false} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }} />
             {running
-              ? <button type="button" className="btn" onClick={stop}>{t('search_stop')}</button>
+              ? <button type="button" className="btn" onClick={stop}><Icon name="stop" size={14} /> {t('search_stop')}</button>
               : <button type="submit" className="btn primary"><Icon name="search" size={14} /> {t('search_start')}</button>}
-            <button type="button" className="btn" onClick={clear} disabled={running || !results.length}>{t('search_clear')}</button>
+            <button type="button" className="btn" onClick={clear} disabled={running || !results.length}><Icon name="eraser" size={14} /> {t('search_clear')}</button>
           </div>
           <div className="search-row search-opts">
             <button type="button" className={`opt-btn ${matchContent ? 'on' : ''}`} title={t('tip_opt_content')} aria-pressed={matchContent} onClick={() => setMatchContent(!matchContent)}><Icon name="contentSearch" size={14} /><span>{t('opt_content')}</span></button>
@@ -186,8 +186,8 @@ export function SearchDialog({ root, onClose, onOpenDir, onOpenFile, onClipCopy,
             <span className="tb-spacer" />
             {/* result actions share this line */}
             <button type="button" className="btn" onClick={copyClip} disabled={!any} title={t('search_copy_tip')}><Icon name="copy" size={14} /> {t('ctx_copy')}</button>
-            <button type="button" className="btn" onClick={() => onCopyTo('left', selectedPaths)} disabled={!any}>{t('search_copy_left')}</button>
-            <button type="button" className="btn" onClick={() => onCopyTo('right', selectedPaths)} disabled={!any}>{t('search_copy_right')}</button>
+            <button type="button" className="btn" onClick={() => onCopyTo('left', selectedPaths)} disabled={!any}><Icon name="chevronLeft" size={14} /> {t('search_copy_left')}</button>
+            <button type="button" className="btn" onClick={() => onCopyTo('right', selectedPaths)} disabled={!any}><Icon name="chevronRight" size={14} /> {t('search_copy_right')}</button>
           </div>
         </form>
         <div className="search-results" ref={listRef} tabIndex={0} onKeyDown={onListKey} onContextMenu={onContextMenu}
@@ -211,7 +211,7 @@ export function SearchDialog({ root, onClose, onOpenDir, onOpenFile, onClipCopy,
       <div className="dlg-footer">
         <span className="muted small ellipsis">{t('search_footer_hint')}</span>
         <span className="spacer" />
-        {!docked && <button className="btn close-btn" onClick={onClose}>{t('close')}</button>}
+        {!docked && <button className="btn close-btn" onClick={onClose}><Icon name="close" size={14} /> {t('close')}</button>}
       </div>
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} onPick={onMenuPick} />}
     </div>

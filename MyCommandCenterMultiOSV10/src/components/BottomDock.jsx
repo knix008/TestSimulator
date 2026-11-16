@@ -448,7 +448,7 @@ export function BottomDock({ visible = true, tab, onTab, log, onClearLog, onCopy
           </div>
         )}
         {terms.length === 0 && (tab === 'log' ? !logOpen : tab !== 'search') && (
-          <div className="dock-empty"><Icon name="terminal" size={26} /><p>{t('term_empty')}</p><button className="btn" onClick={() => onNewTerm()}>{t('term_new')}</button></div>
+          <div className="dock-empty"><Icon name="terminal" size={26} /><p>{t('term_empty')}</p><button className="btn" onClick={() => onNewTerm()}><Icon name="plus" size={14} /> {t('term_new')}</button></div>
         )}
         {terms.map((tm) => <TerminalView key={tm.id} term={tm} active={tab === tm.id} onExit={onTermExit} onRestart={onTermRestart} prompt={prompt} env={env} themeId={themeId}
           termColor={termColor} termEol={termEol} termCr={termCr} scrollback={termScrollback} />)}

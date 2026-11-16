@@ -95,7 +95,44 @@ const paths = {
   tabNew: <><path d="M3 8h18v12H3z" /><path d="M3 8V5a1 1 0 0 1 1-1h6l2 2h4" /><path d="M12 11v6M9 14h6" /></>,
   panelLeft: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /><path d="M5.5 8.5h1.5M5.5 12h1.5M5.5 15.5h1.5" /></>,
   panelBottom: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 14h18" /></>,
+  skip: <><path d="M5 5l9 7-9 7z" /><path d="M18 5v14" /></>,
+  stop: <><rect x="6" y="6" width="12" height="12" rx="1.5" /></>,
 };
+
+// Every icon has its own colour (user request: all icons in colour). Mid-tone hues that read on both
+// dark and light themes. The rules are wrapped in :where() so they weigh nothing: a rule that colours an
+// icon on purpose (.ic-folder = the theme's folder colour, a danger dialog's red title icon, a checked
+// item's accent tick) still wins, while a colour merely inherited from the button / menu row does not.
+const C = {
+  blue: '#3b82f6', sky: '#0ea5e9', teal: '#14b8a6', green: '#22a35a', lime: '#65a30d', amber: '#e59e0b',
+  orange: '#f97316', red: '#e5484d', pink: '#e0479e', purple: '#8b5cf6', indigo: '#6366f1', slate: '#64748b', brown: '#b7791f',
+};
+const ICON_COLORS = {
+  folder: C.amber, folderOpen: C.amber, folderNew: C.amber, file: C.sky, fileNew: C.sky,
+  copy: C.blue, move: C.indigo, delete: C.red, trash: C.red, search: C.teal, home: C.orange, refresh: C.green,
+  archive: C.brown, extract: C.brown, rename: C.purple, paste: C.teal, cut: C.pink, open: C.blue,
+  properties: C.sky, info: C.sky, help: C.purple, book: C.indigo, tree: C.green, sun: C.amber, moon: C.indigo,
+  language: C.teal, chevronRight: C.blue, chevronLeft: C.blue, chevronDown: C.blue, up: C.green, close: C.red,
+  winMin: C.slate, winMax: C.slate, winRestore: C.slate, quit: C.red, check: C.green, settings: C.slate,
+  disc: C.purple, network: C.teal, usb: C.indigo, drive: C.slate, edit: C.orange, eye: C.teal, palette: C.pink,
+  clipboard: C.brown, link: C.sky, terminal: C.green, log: C.slate, gitBranch: C.orange, plus: C.green,
+  eraser: C.pink, undo: C.blue, redo: C.blue, star: C.amber, history: C.purple, view: C.teal, swap: C.indigo,
+  compare: C.purple, multiRename: C.purple, select: C.blue, print: C.indigo, portrait: C.sky, landscape: C.sky,
+  video: C.pink, audio: C.purple, warning: C.amber, image: C.green, zoomIn: C.teal, zoomOut: C.teal, fit: C.teal,
+  actual: C.teal, rotateL: C.indigo, rotateR: C.indigo, save: C.blue, wrap: C.slate, hex: C.slate,
+  contentSearch: C.teal, exact: C.slate, regex: C.purple, caseAa: C.indigo, searchDock: C.teal, splitH: C.indigo,
+  splitV: C.indigo, play: C.green, pause: C.amber, dragHandle: C.slate, grid: C.blue, tabs: C.sky, tabNew: C.sky,
+  panelLeft: C.green, panelBottom: C.green, skip: C.amber, stop: C.red,
+};
+export const iconColor = (name) => ICON_COLORS[name] || ICON_COLORS.file;
+
+// Installed once per page (every window that draws an icon imports this module).
+if (typeof document !== 'undefined' && !document.getElementById('cc-icon-colors')) {
+  const style = document.createElement('style');
+  style.id = 'cc-icon-colors';
+  style.textContent = Object.entries(ICON_COLORS).map(([n, c]) => `:where(svg.icon-${n}){color:${c}}`).join('\n');
+  (document.head || document.documentElement).appendChild(style);
+}
 
 // Flags for the language toggle (the flag of the language you switch TO).
 // Drawn as filled shapes, so they ignore the stroke styling of the line icons.

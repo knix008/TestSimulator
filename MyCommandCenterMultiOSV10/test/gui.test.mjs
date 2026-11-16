@@ -457,10 +457,11 @@ describe('GUI operations', { concurrency: false }, () => {
     assert.ok(names(leftPanel()).includes('keep.txt'));
   });
 
-  test('delete asks first; No keeps the file and Yes removes it', async () => {
+  // On this host (the web server on Windows) there is no Trash, so the trash command falls back to a permanent delete — it still asks first.
+  test('trash (toolbar / F8) asks first; No keeps the file and Yes removes it', async () => {
     await boot({ 'gone.txt': 'x', 'stay.txt': 'y' });
     await selectRow(leftPanel(), 'gone.txt');
-    await click(tool('삭제 (F8)'));
+    await click(tool('휴지통으로 이동 (F8'));
     const ask = await waitFor(() => topDialog());
     assert.match(ask.textContent, /gone\.txt/);
     await click(buttonNamed(ask, '아니요'));
@@ -472,6 +473,43 @@ describe('GUI operations', { concurrency: false }, () => {
     await click(buttonNamed(await waitFor(() => topDialog()), '예'));
     await waitFor(() => !names(leftPanel()).includes('gone.txt') && !topDialog());
     assert.ok(names(leftPanel()).includes('stay.txt'));
+  });
+
+  test('the context menu has no permanent delete; its Move to Trash asks first', async () => {
+    await boot({ 'keep.txt': 'k' });
+    await selectRow(leftPanel(), 'keep.txt');
+    await mouse(row(leftPanel(), 'keep.txt'), 'contextmenu', { button: 2, clientX: 12, clientY: 12 });
+    const menu = await waitFor(() => document.querySelector('.ctx-menu'));
+    const labels = [...menu.querySelectorAll('.ctx-label')].map((e) => e.textContent);
+    assert.ok(labels.includes('휴지통으로 이동'));
+    assert.equal(labels.includes('삭제'), false);
+    await pickItem('휴지통으로 이동');
+    const ask = await waitFor(() => topDialog());
+    assert.match(ask.textContent, /keep\.txt/);
+    // every dialog button carries an icon
+    assert.ok([...ask.querySelectorAll('.dlg-footer .btn')].every((b) => b.querySelector('svg.icon')));
+    await click(buttonNamed(ask, '아니요'));
+    await waitFor(() => !topDialog());
+    assert.ok(names(leftPanel()).includes('keep.txt'));
+  });
+
+  test("each panel's terminal button opens a terminal in that panel's folder", async () => {
+    const { call } = await import('../src/lib/backend.js');
+    const ui = await boot({ 'a.txt': 'a' }, {}, { autoRefresh: false });
+    const opened = async (n) => {
+      for (let i = 0; i < 100; i += 1) { const list = await call('term.list'); if (list.length >= n) return list; await sleep(50); }
+      throw new Error(`terminal ${n} did not open`);
+    };
+    await click(leftPanel().querySelector('.term-btn'));
+    assert.equal((await opened(1))[0].cwd, ui.dirs.L);
+    await click(rightPanel().querySelector('.term-btn'));
+    assert.equal((await opened(2))[1].cwd, ui.dirs.R);
+    for (const term of await call('term.list')) await call('term.kill', { id: term.id });
+    for (const dir of [ui.dirs.L, ui.dirs.R]) {
+      for (let i = 0; ; i += 1) {
+        try { fs.rmSync(dir, { recursive: true, force: true }); break; } catch (err) { if (i > 50) throw err; await sleep(100); }
+      }
+    }
   });
 
   test('copy and move send the selection to the other panel', async () => {

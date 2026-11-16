@@ -95,7 +95,7 @@ export function ViewerDialog({ spec, done }) {
         <span className="muted small ellipsis" title={path}>{info}</span>
         <span className="spacer" />
         {!plain && spec.canOpen && <button className="btn" onClick={() => { spec.onOpen(); }}><Icon name="open" /> {t('viewer_open_app')}</button>}
-        <button className="btn primary" onClick={() => done()}>{t('close')}</button>
+        <button className="btn primary" onClick={() => done()}><Icon name="close" size={14} /> {t('close')}</button>
       </>}>
       {/* text / binary: the options and actions in a bar at the top (the footer keeps the file facts and Close) */}
       {plain && (
@@ -216,7 +216,7 @@ export function EditorDialog({ spec, done }) {
         <span className="spacer" />
         <button className="btn primary" onClick={save} disabled={!dirty || busy}><Icon name="save" /> {t('save')} (Ctrl+S)</button>
         <button className="btn" onClick={print} disabled={printing} title={t('tip_print_edit')}><Icon name="print" /> {t('print')} (Ctrl+P)</button>
-        <button className="btn" onClick={close}>{t('close')}</button>
+        <button className="btn" onClick={close}><Icon name="close" size={14} /> {t('close')}</button>
       </>}>
       <div className={`editor-stack ${colour ? 'coloured' : ''} ${prefs.editorWrap ? 'wrap' : ''}`}
         style={{ fontSize: prefs.editorFontSize ? `${prefs.editorFontSize}px` : undefined, tabSize: prefs.editorTabSize || 4 }}>
@@ -308,9 +308,9 @@ export function MultiRenameDialog({ spec, done }) {
       footer={<>
         <span className="muted small">{blocked ? t('mrn_conflict') : t('mrn_changed', { n: changed.length })}</span>
         <span className="spacer" />
-        <button className="btn" onClick={reset}>{t('mrn_reset')}</button>
-        <button className="btn" onClick={() => done(null)}>{t('cancel')}</button>
-        <button className="btn primary" onClick={submit} disabled={blocked || !changed.length}>{t('mrn_start')}</button>
+        <button className="btn" onClick={reset}><Icon name="undo" size={14} /> {t('mrn_reset')}</button>
+        <button className="btn" onClick={() => done(null)}><Icon name="close" size={14} /> {t('cancel')}</button>
+        <button className="btn primary" onClick={submit} disabled={blocked || !changed.length}><Icon name="play" size={14} /> {t('mrn_start')}</button>
       </>}>
       <div className="mrn-grid">
         <fieldset>

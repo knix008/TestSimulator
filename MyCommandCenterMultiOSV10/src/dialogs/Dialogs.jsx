@@ -78,8 +78,8 @@ function PromptDialog({ spec, done }) {
   return (
     <DialogFrame title={spec.title} onClose={() => done(null)} icon={spec.icon}
       footer={<>
-        <button className="btn" onClick={() => done(null)}>{t('cancel')}</button>
-        <button className="btn primary" onClick={submit} disabled={!value.trim()}>{spec.okLabel || t('ok')}</button>
+        <button className="btn" onClick={() => done(null)}><Icon name="close" size={14} /> {t('cancel')}</button>
+        <button className="btn primary" onClick={submit} disabled={!value.trim()}><Icon name="check" size={14} /> {spec.okLabel || t('ok')}</button>
       </>}>
       <form onSubmit={submit} className="form-row">
         <label>{spec.label}</label>
@@ -95,8 +95,8 @@ function ConfirmDialog({ spec, done }) {
   return (
     <DialogFrame title={spec.title} onClose={() => done(false)} icon={spec.danger ? 'trash' : 'info'} className={spec.danger ? 'danger' : ''}
       footer={<>
-        <button className="btn" onClick={() => done(false)} autoFocus>{spec.noLabel || t('no')}</button>
-        <button className={`btn ${spec.danger ? 'danger' : 'primary'}`} onClick={() => done(true)}>{spec.yesLabel || t('yes')}</button>
+        <button className="btn" onClick={() => done(false)} autoFocus><Icon name="close" size={14} /> {spec.noLabel || t('no')}</button>
+        <button className={`btn ${spec.danger ? 'danger' : 'primary'}`} onClick={() => done(true)}><Icon name={spec.yesIcon || (spec.danger ? 'trash' : 'check')} size={14} /> {spec.yesLabel || t('yes')}</button>
       </>}>
       <p className="pre">{spec.message}</p>
     </DialogFrame>
@@ -124,7 +124,7 @@ function MessageDialog({ spec, done }) {
       footer={<>
         {isError && <button className="btn" onClick={copy}><Icon name={copied ? 'check' : 'clipboard'} /> {copied ? t('copied_details') : t('copy_details')}</button>}
         <span className="spacer" />
-        <button className="btn primary" onClick={() => done()} autoFocus>{t('ok')}</button>
+        <button className="btn primary" onClick={() => done()} autoFocus><Icon name="check" size={14} /> {t('ok')}</button>
       </>}>
       <p className="pre" style={{ userSelect: 'text' }}>{spec.message}</p>
       {spec.detail && <>
@@ -143,9 +143,9 @@ function ConflictDialog({ spec, done }) {
   return (
     <DialogFrame title={isMove ? t('conflict_title_move') : t('conflict_title_copy')} onClose={() => done({ answer: 'cancel', applyAll: false })} icon="copy" width={520}
       footer={<>
-        <button className="btn" onClick={() => done({ answer: 'cancel', applyAll: false })}>{t('cancel')}</button>
-        <button className="btn" onClick={() => done({ answer: 'skip', applyAll })}>{t('skip')}</button>
-        <button className="btn primary" onClick={() => done({ answer: 'overwrite', applyAll })} autoFocus>{t('overwrite')}</button>
+        <button className="btn" onClick={() => done({ answer: 'cancel', applyAll: false })}><Icon name="close" size={14} /> {t('cancel')}</button>
+        <button className="btn" onClick={() => done({ answer: 'skip', applyAll })}><Icon name="skip" size={14} /> {t('skip')}</button>
+        <button className="btn primary" onClick={() => done({ answer: 'overwrite', applyAll })} autoFocus><Icon name="save" size={14} /> {t('overwrite')}</button>
       </>}>
       <p className="pre">{t('conflict_msg', { kind: destIsDir ? t('folder') : t('file'), name, path: destPath })}</p>
       <label className="check"><input type="checkbox" checked={applyAll} onChange={(e) => setApplyAll(e.target.checked)} /> {t('apply_all')}</label>
@@ -171,7 +171,7 @@ function ProgressDialog({ spec }) {
         <span className="bar-text">{pct}</span>
       </div>
       <div className="progress-actions">
-        <button className="btn" onClick={spec.onCancel} disabled={spec.cancelled}>{t('progress_cancel')}</button>
+        <button className="btn" onClick={spec.onCancel} disabled={spec.cancelled}><Icon name="close" size={14} /> {t('progress_cancel')}</button>
       </div>
     </DialogFrame>
   );
@@ -197,8 +197,8 @@ function CompressDialog({ spec, done }) {
   return (
     <DialogFrame title={t('compress_title')} onClose={() => done(null)} icon="archive"
       footer={<>
-        <button className="btn" onClick={() => done(null)}>{t('cancel')}</button>
-        <button className="btn primary" onClick={submit} disabled={!name.trim()}>{t('compress')}</button>
+        <button className="btn" onClick={() => done(null)}><Icon name="close" size={14} /> {t('cancel')}</button>
+        <button className="btn primary" onClick={submit} disabled={!name.trim()}><Icon name="archive" size={14} /> {t('compress')}</button>
       </>}>
       <form onSubmit={submit} className="form-grid">
         <label>{t('lbl_archive_name')}</label>
@@ -233,12 +233,12 @@ export function AboutDialog({ spec, done }) {
   useLayoutEffect(() => { if (spec.windowed) revealWindow(); }, [spec.windowed]);
   return (
     <DialogFrame title={t('about_title')} onClose={() => done()} icon="info" width={460} windowed={spec.windowed} className="about-dlg"
-      footer={<button className="btn close-btn" onClick={() => done()} autoFocus>{t('close')}</button>}>
+      footer={<button className="btn close-btn" onClick={() => done()} autoFocus><Icon name="close" size={14} /> {t('close')}</button>}>
       <div className="about">
         <img src="./icon.svg" alt="" width={112} height={112} />
         <div className="about-text">
           <div className="about-name">{t('appName')}</div>
-          <div><b>{t('version')}</b>&nbsp; {info.version || build.version || '1.0.0'}</div>
+          <div><b>{t('version')}</b>&nbsp; {info.version || build.version || '1.0.3'}</div>
           <div><b>{t('author')}</b>&nbsp; {t('author_name')}</div>
           <div className="muted">{t('about_desc')}</div>
           <div className="muted small">{t('about_host')}: {info.host === 'electron' ? t('host_electron') : info.host === 'tauri' ? t('host_tauri') : t('host_web')} · {info.platform}</div>

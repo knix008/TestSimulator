@@ -74,8 +74,6 @@ button:disabled { cursor: default; opacity: 0.45; }
 .win-btn:hover { background: var(--bg-hover); }
 .win-btn.win-close:hover { background: #c42b1c; color: #fff; }
 .menu-title { display: inline-flex; align-items: center; gap: 5px; flex: none; white-space: nowrap; background: none; border: 0; padding: 0 10px; height: 28px; border-radius: 4px; color: var(--fg); -webkit-app-region: no-drag; }
-.menu-title .menu-icon { color: var(--fg-muted); }
-.menu-title:hover .menu-icon, .menu-title.open .menu-icon { color: inherit; }
 .menu-title:hover, .menu-title.open { background: var(--bg-hover); }
 
 /* ── Toolbar ── */
@@ -139,13 +137,13 @@ button:disabled { cursor: default; opacity: 0.45; }
 .start-btn:hover:not(:disabled) { background: var(--bg-hover); border-color: var(--accent); }
 .start-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .start-btn.small { height: 24px; padding: 0 8px; gap: 5px; font-size: 11px; font-weight: normal; background: var(--bg-panel); }
-.start-btn svg { color: var(--accent); flex: none; }
+.start-btn svg { flex: none; }
 .start-btn.start-launch input { margin: 0; accent-color: var(--accent); }
 
 .start-board { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 20px; column-gap: 14px; row-gap: 0; align-items: start; }
 .start-card { position: relative; display: flex; flex-direction: column; box-sizing: border-box; min-width: 0; overflow: hidden; padding: 10px 14px 12px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); background: color-mix(in srgb, var(--bg-panel) var(--start-card-alpha), transparent); backdrop-filter: blur(3px); box-shadow: var(--shadow); }
 .start-card > h2 { flex: none; display: flex; align-items: center; gap: 7px; height: 22px; margin: 0 0 8px; font-size: 13px; font-weight: 700; min-width: 0; }
-.start-card > h2 > svg { color: var(--accent); flex: none; }
+.start-card > h2 > svg { flex: none; }
 .start-card-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .start-card-note, .start-count { font-size: 11px; font-weight: normal; color: var(--fg-muted); }
 .start-card > .card-body { flex: 1 1 auto; min-height: 0; min-width: 0; }
@@ -177,10 +175,8 @@ button:disabled { cursor: default; opacity: 0.45; }
 .start-hero-text p { margin: 4px 0 0; color: var(--fg-muted); font-size: 13px; line-height: 1.5; }
 .start-hero-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin-left: auto; }
 .start-big { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-panel); color: var(--fg); cursor: pointer; font-size: 13px; white-space: nowrap; }
-.start-big svg { color: var(--accent); }
 .start-big:hover { border-color: var(--accent); background: var(--bg-hover); }
 .start-big.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
-.start-big.primary svg { color: inherit; }
 .start-big.primary:hover { background: var(--accent-strong); }
 
 /* Tiles: icon on the left, name over a short line. */
@@ -199,7 +195,7 @@ button:disabled { cursor: default; opacity: 0.45; }
 /* Recent folders (also on the settings start-screen tab). */
 .recent-folders { display: flex; flex-direction: column; gap: 4px; }
 .recent-head { display: flex; align-items: center; gap: 6px; height: 22px; margin: 0; padding-bottom: 4px; border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent); font-size: 12px; font-weight: 600; color: var(--fg-muted); }
-.recent-head svg { color: var(--accent); flex: none; }
+.recent-head svg { flex: none; }
 .recent-head > span { flex: 1; min-width: 0; }
 .recent-clear { height: 22px; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 6px; background: var(--bg-panel); color: var(--fg); cursor: pointer; font-size: 11px; }
 .recent-clear:hover:not(:disabled) { border-color: var(--accent); }
@@ -208,7 +204,7 @@ button:disabled { cursor: default; opacity: 0.45; }
 .settings-pane .recent-list { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 8px; }
 .recent-row { display: flex; align-items: center; gap: 2px; min-width: 0; }
 .recent-item { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 4px 8px; border: 0; border-radius: 7px; cursor: pointer; background: none; color: var(--fg); text-align: left; font-weight: 600; }
-.recent-item svg { color: var(--accent); flex: none; }
+.recent-item svg { flex: none; }
 .recent-x { flex: none; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--fg-muted); display: grid; place-items: center; cursor: pointer; }
 .recent-x:hover { background: var(--bg-hover); color: var(--danger); }
 .recent-item:hover { background: var(--bg-hover); }
@@ -216,7 +212,7 @@ button:disabled { cursor: default; opacity: 0.45; }
 .start-muted { margin: 0; font-size: 12px; }
 .start-tip { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 0; padding: 6px 8px; border-radius: 8px; background: var(--bg-panel); border: 1px solid var(--border); line-height: 1.35; font-size: 12px; }
 .start-tip-toggle { display: flex; align-items: flex-start; gap: 6px; width: 100%; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.start-tip-toggle svg { color: var(--accent); flex: none; margin-top: 2px; }
+.start-tip-toggle svg { flex: none; margin-top: 2px; }
 .start-tip-text { flex: 1; }
 .start-tip-more-label { flex: none; color: var(--accent); font-size: 12px; }
 .start-tip-more { margin: 0; white-space: pre-wrap; }
@@ -244,22 +240,29 @@ button:disabled { cursor: default; opacity: 0.45; }
 .start-speed-reset:hover { border-color: var(--accent); }
 
 .start-foot { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 12px; background: color-mix(in srgb, var(--bg-panel) var(--start-card-alpha), transparent); font-size: 12px; }
-.start-foot svg { color: var(--accent); flex: none; }
+.start-foot svg { flex: none; }
 @media (max-width: 860px) { .start { padding: 10px 12px; } }
 
 /* Tutorial card and the outline around the part of the window the step is about. */
 .manual-layer { position: absolute; inset: 0; z-index: 30; display: flex; flex-direction: column; background: var(--bg); color: var(--fg); }
 .manual-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 40px; padding: 0 12px; border-bottom: 1px solid var(--border); flex: none; background: var(--bg-panel); }
 .manual-title { display: inline-flex; align-items: center; gap: 8px; }
-.manual-title svg { color: var(--accent); flex: none; }
+.manual-title svg { flex: none; }
 .manual-frame { flex: 1; width: 100%; min-height: 0; border: 0; background: var(--bg); }
 /* Hidden until the page has taken the theme, so a light page never flashes in a dark theme. */
 .manual-frame.is-pending { visibility: hidden; }
+/* The guide's print window: a short note between the title and the buttons; the page shows as paper (white). */
+.manual-print { z-index: 31; }
+.manual-print.windowed { position: static; flex: 1 1 auto; min-height: 0; }
+.manual-print-note { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg-muted); font-size: 12px; }
+.manual-bar-btns { display: inline-flex; gap: 8px; flex: none; }
+.manual-print-frame { background: #ffffff; }
+.tool-manualPrint > .resize-grip { width: 18px; height: 18px; right: 1px; bottom: 1px; color: var(--fg); opacity: 0.85; }
 .tutorial-spot { position: fixed; z-index: 4000; pointer-events: none; border: 2px solid var(--accent); border-radius: 8px; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent), 0 0 18px color-mix(in srgb, var(--accent) 55%, transparent); transition: left 0.25s, top 0.25s, width 0.25s, height 0.25s; }
 .tutorial-card { position: fixed; right: 16px; bottom: 48px; z-index: 4010; width: 380px; max-width: calc(100vw - 32px); padding: 12px 14px; border: 1px solid var(--accent); border-radius: 10px; background: var(--bg-panel); color: var(--fg); box-shadow: var(--shadow); }
 .tutorial-card.top { bottom: auto; top: 64px; }
 .tutorial-top { display: flex; align-items: center; gap: 8px; }
-.tutorial-top svg { color: var(--accent); flex: none; }
+.tutorial-top svg { flex: none; }
 .tutorial-chapter { flex: 1; min-width: 0; height: 28px; font-size: 12px; }
 .tutorial-count { color: var(--fg-muted); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tutorial-progress { height: 3px; margin: 8px 0 6px; border-radius: 2px; background: var(--bg-hover); overflow: hidden; }
@@ -465,7 +468,10 @@ html.theme-menu, html.theme-menu body, html.theme-menu #root { height: auto; min
 .detail { font-family: var(--mono); font-size: 11px; background: var(--bg-elev); border: 1px solid var(--border); padding: 8px; border-radius: 4px; max-height: 240px; overflow: auto; user-select: text; white-space: pre-wrap; word-break: break-all; margin: 8px 0 0; }
 .dlg-footer .spacer { flex: 1; }
 
-.btn { background: var(--bg-elev); border: 1px solid var(--border); padding: 6px 14px; border-radius: 5px; color: var(--fg); min-width: 80px; }
+.btn { background: var(--bg-elev); border: 1px solid var(--border); padding: 6px 14px; border-radius: 5px; color: var(--fg); min-width: 80px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.btn .icon { flex: none; }
+/* a coloured icon on a filled (accent / danger) button sits on a small white chip, so it stays readable */
+.btn.primary .icon, .btn.danger .icon, .start-big.primary svg { background: #ffffff; border-radius: 4px; padding: 1px; box-sizing: content-box; }
 .btn:hover:not(:disabled) { background: var(--bg-hover); }
 .btn.primary { background: var(--accent); border-color: var(--accent-strong); color: var(--accent-text); }
 .btn.primary:hover:not(:disabled) { background: var(--accent-strong); color: #fff; }
@@ -711,8 +717,6 @@ html[data-mode="light"] {
 .dlg-caption { display: none; }
 html.wco .search-window.windowed > .dlg-caption,
 html.wco .dlg.windowed > .dlg-caption { display: flex; align-items: center; gap: 8px; flex: none; height: 30px; font-weight: 600; background: var(--bg-elev); border-bottom: 1px solid var(--border); -webkit-app-region: drag; padding-left: calc(12px + var(--wco-left, 0px)); padding-right: calc(12px + var(--wco-right, 0px)); }
-html.wco .search-window.windowed > .dlg-caption .icon,
-html.wco .dlg.windowed > .dlg-caption .icon { color: var(--fg-muted); }
 .tool-window > .resize-grip { z-index: 5; }
 body.window-resizing iframe { pointer-events: none; }
 /* The guide: a strip below the page carries the resize marker, drawn larger and in full text colour. */

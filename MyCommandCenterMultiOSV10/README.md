@@ -107,7 +107,8 @@ node scripts/generate-samples.mjs   # samples/ 다시 생성 (sharp + 자체 GIF
 | DICOM: ← → · Home/End · I · W · Ctrl+드래그 | 프레임 · 첫/끝 프레임 · 반전 · 윈도우 초기화 · 윈도우 조절(좌우 폭, 상하 중심) |
 | F5 / F6 | 반대 패널로 복사 / 이동 |
 | F7 / Shift+F4 | 새 폴더 / 새 파일 |
-| F8 · Delete | 삭제 |
+| F8 · Delete | 휴지통으로 이동 (확인 후) |
+| Shift+Delete | 영구 삭제 (확인 후) |
 | F9 | 검색 창 |
 | Alt+F5 / Alt+F9 | 압축 / 압축 해제 |
 | Ctrl+M | 다중 이름 바꾸기 |

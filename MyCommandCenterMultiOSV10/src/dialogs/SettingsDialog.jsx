@@ -113,10 +113,10 @@ export function SettingsDialog({ spec, done }) {
   return (
     <DialogFrame title={t('settings_title')} onClose={() => done(null)} icon="settings" width={960} windowed={spec.windowed} className="settings"
       footer={<>
-        <button className="btn" onClick={() => setV({ ...SETTINGS_DEFAULTS, language: v.language })}>{t('set_defaults')}</button>
+        <button className="btn" onClick={() => setV({ ...SETTINGS_DEFAULTS, language: v.language })}><Icon name="undo" size={14} /> {t('set_defaults')}</button>
         <span className="spacer" />
-        <button className="btn" onClick={() => done(null)}>{t('cancel')}</button>
-        <button className="btn primary" onClick={submit}>{t('ok')}</button>
+        <button className="btn" onClick={() => done(null)}><Icon name="close" size={14} /> {t('cancel')}</button>
+        <button className="btn primary" onClick={submit}><Icon name="check" size={14} /> {t('ok')}</button>
       </>}>
       <div className="settings-layout">
       <div className="settings-nav" role="tablist">
@@ -272,7 +272,7 @@ export function SettingsDialog({ spec, done }) {
             <div className="row">
               <input type="text" className="mono" value={v.textApp || ''} placeholder={t('set_text_app_hint')} spellCheck={false} disabled={v.textOpen !== 'custom'}
                 onChange={(e) => set('textApp', e.target.value)} style={{ flex: 1, minWidth: 0 }} />
-              {isDesktop && spec.pickFile && <button type="button" className="btn" disabled={v.textOpen !== 'custom'} onClick={browseApp}>{t('set_browse')}</button>}
+              {isDesktop && spec.pickFile && <button type="button" className="btn" disabled={v.textOpen !== 'custom'} onClick={browseApp}><Icon name="folderOpen" size={14} /> {t('set_browse')}</button>}
             </div>
 
             <label>{t('set_text_exts')}</label>
@@ -327,7 +327,7 @@ export function SettingsDialog({ spec, done }) {
             <div className="row">
               <input type="text" className="mono" value={v.termCwd || ''} placeholder={t('set_term_cwd_default')} spellCheck={false}
                 onChange={(e) => set('termCwd', e.target.value)} style={{ flex: 1, minWidth: 0 }} />
-              {isDesktop && spec.pickFolder && <button type="button" className="btn" onClick={browseFolder}>{t('set_browse')}</button>}
+              {isDesktop && spec.pickFolder && <button type="button" className="btn" onClick={browseFolder}><Icon name="folderOpen" size={14} /> {t('set_browse')}</button>}
             </div>
             <span />
             <span className="muted small">{t('set_term_cwd_hint')}</span>

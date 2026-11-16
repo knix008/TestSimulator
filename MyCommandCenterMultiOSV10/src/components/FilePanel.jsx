@@ -298,7 +298,7 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
       case 'Backspace': e.preventDefault(); if (quick) quickSearchKey('\b'); else goUp(); break;
       case 'Insert': if (cursor >= 0) { e.preventDefault(); selectIndex(cursor, { toggle: true }); move(cursor + 1); } break;
       case ' ': if (cursor >= 0) { e.preventDefault(); selectIndex(cursor, { toggle: true }); if (spaceMeasures) measure(sorted[cursor]); } break;
-      case 'Delete': e.preventDefault(); onAction('delete'); break;
+      case 'Delete': e.preventDefault(); onAction(e.shiftKey ? 'deletePermanent' : 'trash'); break;   // Shift+Delete = gone for good (it asks first)
       case 'F2': e.preventDefault(); onAction('rename'); break;
       case 'a': case 'A': if (ctrl) { e.preventDefault(); selectAll(); break; } if (quickSearch) quickSearchKey(e.key); break;
       case 'c': case 'C': if (ctrl) { e.preventDefault(); onAction('clipCopy'); break; } if (quickSearch) quickSearchKey(e.key); break;
@@ -508,8 +508,7 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
     { sep: true },
     { id: 'rename', label: t('ctx_rename'), icon: 'rename', disabled: !single },
     { id: 'multiRename', label: t('multi_rename'), icon: 'multiRename', shortcut: 'Ctrl+M', disabled: !hasSel },
-    { id: 'trash', label: t('ctx_trash'), icon: 'trash', disabled: !hasSel || !(capabilities && capabilities.trash) },
-    { id: 'delete', label: t('ctx_delete'), icon: 'delete', disabled: !hasSel },
+    { id: 'trash', label: t('ctx_trash'), icon: 'trash', shortcut: 'Del', disabled: !hasSel },   // asks first; there is no permanent delete here
     { sep: true },
     { id: 'compress', label: t('ctx_compress'), icon: 'archive', disabled: !hasSel },
     { id: 'extract', label: t('ctx_extract'), icon: 'extract', disabled: !(single && extractable) },
@@ -584,6 +583,10 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
         {/* the folder-tree pane toggle: icon only (no side label), lit while the pane is open */}
         <button className={`icon-btn tree-btn ${treeOpen ? 'on' : ''}`} title={t('folder_tree')} aria-label={t('folder_tree')} onClick={() => { onActivate(); if (onTreeToggle) onTreeToggle(!treeOpen); }}>
           <Icon name="panelLeft" />
+        </button>
+        {/* a terminal in this panel's folder (opens the dock's terminal tab) */}
+        <button className="icon-btn term-btn" title={t('tip_panel_terminal')} aria-label={t('tip_panel_terminal')} onClick={() => { onActivate(); onAction('panelTerminal'); }}>
+          <Icon name="terminal" />
         </button>
         <div className="breadcrumb">
           {crumbs.map((c, i) => (
