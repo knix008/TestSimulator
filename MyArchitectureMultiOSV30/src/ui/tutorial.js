@@ -11,6 +11,8 @@
 // verifies its outcome (ctx.expect), so the lessons double as an end-to-end
 // test (the GUI smoke test runs them all at instant speed).
 
+import { revealInPanels } from "./panels.js";
+import { showInLibrary } from "./library.js";
 import { getLanguage } from "./i18n.js";
 import { icon } from "./icons.js";
 import { h } from "./widgets.js";
@@ -524,7 +526,13 @@ export class TutorialPlayer {
     const plan = () => app.plan;
     const find = (sel) => {
       if (sel instanceof Element) return sel;
-      const el = typeof sel === "function" ? sel() : document.querySelector(sel);
+      const look = () => (typeof sel === "function" ? sel() : document.querySelector(sel));
+      let el = look();
+      // On another tab of a side panel (library, browser, lights, model …): that tab comes up.
+      if (!el && revealInPanels(app, look)) el = look();
+      // A library item filtered out by the chosen category or search: its category comes up.
+      const kind = typeof sel === "string" && /lib-item\[data-kind="([^"]+)"\]/.exec(sel);
+      if (!el && kind) { showInLibrary(app, kind[1]); if (!look()) revealInPanels(app, look); el = look(); }
       if (!el) throw new Error(`UI element not found: ${typeof sel === "string" ? sel : "?"}`);
       return el;
     };
@@ -693,6 +701,7 @@ export class TutorialPlayer {
       },
       modal() { return document.querySelector(".modal"); },
       async waitFor(fn, ms = 4000) {
+        if (!fn()) revealInPanels(app, fn); // on another tab of a side panel: that tab comes up
         const t0 = performance.now();
         while (performance.now() - t0 < ms) {
           const v = fn();

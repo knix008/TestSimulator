@@ -230,6 +230,19 @@ export class View3DTab {
         const on = under.lamp.on;
         items.unshift({ label: on ? t("Switch light off") : t("Switch light on"), icon: on ? "bulbOff" : "bulb", action: () => switchLamps(this.app, [under.id], !on) }, "-");
       }
+      // The object's own actions (the plan's: it is selected there too): properties; for furniture also turn, copy, delete.
+      const it = under && under.id ? findItem(this.app.store.project, under.id) : null;
+      if (it) {
+        const app = this.app, sel = () => { app.onSelection("3d", [under.id]); app.plan.select([under.id]); this.highlight([under.id]); };
+        const own = [{ label: t("Properties…"), icon: "settings", action: () => { sel(); app.editProperties(it.kind, it.obj); } }];
+        if (it.kind === "furniture") own.push(
+          { label: t("Rotate 90°"), icon: "rotate", action: () => { sel(); app.plan.rotate(90); } },
+          { label: t("Duplicate"), icon: "copy", action: () => { sel(); app.plan.duplicate(); } },
+          { label: t("Move: drag it on the floor"), icon: "skMove", action: () => { sel(); app.setHint(t("Drag the selected piece on the floor; it keeps clear of walls and furniture.")); } },
+          { label: t("Delete"), icon: "trash", danger: true, action: () => { sel(); app.plan.deleteSelection(); } });
+        if (it.kind === "openings" || it.kind === "walls") own.push({ label: t("Delete"), icon: "trash", danger: true, action: () => { sel(); app.plan.deleteSelection(); } });
+        items.unshift(...own, "-");
+      }
       contextMenu(items, e.clientX, e.clientY);
     });
   }

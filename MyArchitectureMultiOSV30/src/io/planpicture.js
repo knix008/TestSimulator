@@ -5,12 +5,30 @@
 // walls x1 y1 x2 y2, openings at = centre along the wall, rooms detected from
 // the new walls). Pure: RGBA pixels in ({ data, width, height }), plain objects out.
 
-import { detectImageWalls, wallsOnly, MAX_DETECT_SIZE } from "./plan-image.js";
+import { detectImageWalls, wallsOnly, borrowWindows, MAX_DETECT_SIZE } from "./plan-image.js";
 import { fromResult, cleanupAll, pickDetection, dominantAngle, rotateDraft, wallLength, draftProblems } from "./plan-draft.js";
 import { detectRooms } from "../core/rooms.js";
 import { uid } from "../core/geom.js";
+import { detectFurniture } from "./plan-furniture.js";
+import { templateSource } from "./plan-templates.js";
+import { furnitureDef, makeFurniture } from "../lib/furniture.js";
 
 export { MAX_DETECT_SIZE };
+
+let templateLoad = null;
+/**
+ * The library items' top views (MySketchBook's builders, loaded once; each item drawn once, when first asked for):
+ * (item) → template, which plan-furniture.js compares the picture's shapes with — a bed's pillows, a sofa's back
+ * and arms, a plant's leaves. Resolves to null when the builders cannot load (then the size rules alone name things).
+ */
+export function furnitureTemplates() {
+  return (templateLoad ||= Promise.all([import("../lib/sketchbook/index.js"), import("../vendor/three/three.module.js")])
+    .then(([sb, THREE]) => {
+      const mat = new THREE.MeshBasicMaterial();
+      return templateSource((id) => sb.sbItem(id)?.build({}, { quality: "low", wallThickness: 0.2, material: () => mat }) ?? null);
+    })
+    .catch(() => null));
+}
 
 /** What to read: 'auto' tries the four variants and keeps the one that leaves least to fix. */
 export const PICTURE_METHODS = ["auto", "walls", "outline", "edges"];
@@ -30,7 +48,7 @@ const EMPTY = { walls: [], openings: [], leftovers: [], texts: [], stats: { door
  * Reads a plan picture: the recogniser's result in picture metres (x right, z down from the top-left corner).
  * `step(i, total)` is awaited before each variant (a progress bar; lets the page breathe).
  */
-export async function readPlanPicture(image, { metresPerPixel, method = "auto", step = async () => {} } = {}) {
+export async function readPlanPicture(image, { metresPerPixel, method = "auto", step = async () => {}, furnitureStep = async () => {}, templates } = {}) {
   const variants = VARIANTS[method] || VARIANTS.auto;
   let wallsPicture;
   const found = [];
@@ -40,8 +58,18 @@ export async function readPlanPicture(image, { metresPerPixel, method = "auto", 
     const picture = walls ? wallsPicture : image;
     found.push(picture ? { ...detectImageWalls(picture, { metresPerPixel, method: m, evidence: walls ? image : null }), leftovers: [], texts: [] } : EMPTY);
   }
-  const best = found.length > 1 ? found[pickDetection(found)] : found[0];
-  return best || EMPTY;
+  // The best reading, with the windows the others found where it has only thin frame lines.
+  const best = found.length > 1 ? borrowWindows(found[pickDetection(found)], found) : found[0];
+  if (!best) return EMPTY;
+  // Furniture (MySketchBook's plan-furniture.js): sofas, beds, tables, wardrobes, toilets, baths, plants, rugs …
+  // by their size, fill, colour, room and the walls they stand against.
+  let furniture = [];
+  if (best.walls.length) {
+    await furnitureStep();
+    const tpl = templates === undefined ? await furnitureTemplates() : templates;
+    try { furniture = detectFurniture(image, { metresPerPixel, result: best, angle: best.angle ?? 0, templates: tpl }); } catch { furniture = []; }
+  }
+  return { ...best, furniture };
 }
 
 const rad = (deg) => (deg * Math.PI) / 180;
@@ -121,7 +149,35 @@ export function placePicturePlan(result, u, { level, pictureWidth, metresPerPixe
     openings.push({ id: uid("o"), wall: w.id, ...openingOf(o), at: mm(at), width: Math.round(width * 1000), height: Math.round((o.height ?? 2.1) * 1000), sill: Math.round((o.sill ?? 0) * 1000) });
   }
   const rooms = detectRooms(walls).sort((a, b) => b.area - a.area).map((r, i) => ({ id: uid("r"), level, name: roomName(r.area, i), pts: r.pts }));
-  return { walls, openings, rooms, angle, underlay: angle ? turnUnderlay(u, angle) : null, problems };
+  const furniture = placeFurniture(result.furniture || [], { u, k, toPlan, angle, level });
+  return { walls, openings, rooms, furniture, angle, underlay: angle ? turnUnderlay(u, angle) : null, problems };
+}
+
+/**
+ * Recognised furniture ({ item, position: [x, z] picture metres, rotation (radians about +Y, three.js), size: [w, d] m,
+ * on: the index of the piece it stands on, if any }) as this app's furniture on `level`: the item is a catalogue kind, or MySketchBook's id ("sb-<id>"). A piece turned
+ * by θ faces (sin θ, cos θ); this app's rot r faces (−sin r, cos r): r = −θ, plus the underlay's and the straightening turn.
+ */
+export function placeFurniture(list, { u, k, toPlan, angle = 0, level }) {
+  const c = underlayPoint(u, [u.w / 2, u.h / 2], 1).map((v) => v / 1000);
+  const about = (p) => { if (!angle) return p; const s = Math.sin(angle), co = Math.cos(angle), x = p[0] - c[0], y = p[1] - c[1]; return [c[0] + x * co - y * s, c[1] + x * s + y * co]; };
+  const out = [];
+  const placed = new Map(); // index in `list` → the piece made of it
+  list.forEach((f, i) => {
+    const def = furnitureDef(f.item) || furnitureDef(`sb-${f.item}`);
+    if (!def || !f.position || !f.size) return;
+    const q = about(toPlan(f.position));
+    let rot = ((-(f.rotation || 0) + angle) * 180) / Math.PI + (u.rot || 0);
+    rot = Math.round((((rot % 360) + 360) % 360) * 10) / 10;
+    const w = Math.max(100, Math.round(f.size[0] * k * 1000)), d = Math.max(100, Math.round(f.size[1] * k * 1000));
+    // A small thing found on another (a lamp on a nightstand, a TV on its console) stands on that one's top.
+    const host = f.on != null ? placed.get(f.on) : null;
+    const extra = host ? { elevation: (host.elevation || 0) + (host.h || 0) } : f.elevation != null ? { elevation: Math.round(f.elevation * 1000) } : {};
+    const piece = { ...makeFurniture(def.kind, Math.round(q[0] * 1000), Math.round(q[1] * 1000), { rot, w, d, ...extra }), id: uid("u"), level };
+    placed.set(i, piece);
+    out.push(piece);
+  });
+  return out;
 }
 
 /** Pixels per metre the picture would have if the underlay's size is right (for the dialog's sanity note). */

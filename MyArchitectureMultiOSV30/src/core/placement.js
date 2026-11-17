@@ -74,3 +74,18 @@ export function freeSpot(p, f, { step = 50, maxR = 4000, ignore = new Set(), obs
   }
   return null;
 }
+
+/**
+ * Pieces just added (recognised in a plan, pasted …) settle one by one into the nearest free spot, but no further
+ * than `maxR` mm (what is drawn stays where it was drawn). Changes `p` in place; returns how many moved.
+ */
+export function settlePieces(p, ids, { maxR = 600 } = {}) {
+  let moved = 0;
+  for (const id of ids) {
+    const f = p.furniture.find((x) => x.id === id);
+    if (!f) continue;
+    const s = freeSpot(p, f, { maxR, step: 25 });
+    if (s && s.moved) { f.x = s.x; f.y = s.y; moved++; }
+  }
+  return moved;
+}

@@ -4,6 +4,7 @@
 // what the level has — in one undoable step. The underlay is turned with the
 // plan when a slightly tilted picture is straightened.
 
+import { settlePieces } from "../core/placement.js";
 import { t } from "./i18n.js";
 import { h, modal, toast, field, select, checkbox } from "./widgets.js";
 import { suggestRoomName } from "../core/rooms.js";
@@ -82,6 +83,7 @@ export async function wallsFromPicture(app, { underlay = null, ask = true, optio
     const result = await readPlanPicture(image, {
       metresPerPixel, method: opts.method,
       step: async (i, n) => { status.textContent = n > 1 ? t("Finding walls ({i} of {n})…", { i: i + 1, n }) : t("Finding walls…"); bar(0.1 + (0.8 * i) / Math.max(1, n)); await breathe(); if (cancelled) throw new Error("cancelled"); },
+      furnitureStep: async () => { status.textContent = t("Finding furniture…"); bar(0.86); await breathe(); if (cancelled) throw new Error("cancelled"); },
     });
     if (cancelled) return null;
     status.textContent = t("Placing walls, doors and rooms…"); bar(0.92); await breathe();
@@ -106,6 +108,8 @@ export async function wallsFromPicture(app, { underlay = null, ask = true, optio
     const floor = st.floorMaterial || "oak";
     pr.walls.push(...out.walls);
     pr.openings.push(...out.openings);
+    pr.furniture.push(...(out.furniture || []).map((f) => ({ ...f, level }))); // sofas, beds, tables, plants … read from the picture
+    settlePieces(pr, (out.furniture || []).map((f) => f.id)); // a little apart where they overlap
     // Added to a level that has rooms: only the new enclosed spaces.
     const existing = pr.rooms.filter((r) => r.level === level);
     const centre = (pts) => [pts.reduce((s, q) => s + q[0], 0) / pts.length, pts.reduce((s, q) => s + q[1], 0) / pts.length];
@@ -116,6 +120,6 @@ export async function wallsFromPicture(app, { underlay = null, ask = true, optio
   app.plan.select(out.walls.map((w) => w.id));
   const doors = out.openings.filter((o) => o.kind !== "window").length;
   const windows = out.openings.length - doors;
-  toast(t("Read from the picture: {w} walls, {d} doors, {n} windows, {r} rooms.", { w: out.walls.length, d: doors, n: windows, r: out.rooms.length }) + (out.problems ? ` ${t("{n} places to check (open wall ends, overlaps).", { n: out.problems })}` : ""), "ok", 6000);
+  toast(t("Read from the picture: {w} walls, {d} doors, {n} windows, {r} rooms.", { w: out.walls.length, d: doors, n: windows, r: out.rooms.length }) + (out.furniture && out.furniture.length ? ` ${t("{n} pieces of furniture and plants.", { n: out.furniture.length })}` : "") + (out.problems ? ` ${t("{n} places to check (open wall ends, overlaps).", { n: out.problems })}` : ""), "ok", 6000);
   return out;
 }

@@ -12,6 +12,7 @@ import { furnitureDef, makeFurniture, drawFurniturePlan, drawLightSymbol, furnit
 import { PLAN_THEMES, drawPlan, planBounds, stairGeometry, roomColor } from "./render.js";
 import * as ops from "./ops.js";
 import { freeSpot } from "../core/placement.js";
+import { isOpen } from "../core/doors.js";
 import { ELEMENT_TOOLS, OPEN_CHAIN_TOOLS, pointerElement, finishElementChain, renderElementOverlay, stairFromClicks, ensureCurtainType } from "./element-tools.js";
 import { dragElementHandle, elementHandles, PTS_KINDS } from "./elements.js";
 import { elementMenuItems } from "../ui/elements.js";
@@ -241,6 +242,7 @@ export class PlanEditor {
   select(ids, add = false) {
     if (!add) this.sel.clear();
     for (const id of ids) this.sel.add(id);
+    if (ids.length && !this.app.keepRightTab && this.app.settings.panelTab_right_plan === "check") this.app.settings.panelTab_right_plan = "props";
     this.selectionChanged();
   }
 
@@ -982,6 +984,10 @@ export class PlanEditor {
         items.push({ label: on ? t("Switch light off") : t("Switch light on"), icon: on ? "bulbOff" : "bulb", action: () => this.app.run("light.toggle") }, { label: t("All lights on / off"), icon: "bulbRays", action: () => this.app.run("light.all") });
       }
       if (h.kind === "solids") items.push({ label: t("Mass to building…"), icon: "skMassBuild", action: () => this.app.run("sk.massToBuilding") });
+      if (h.kind === "openings" && h.obj.kind === "door" && this.app.v3d) {
+        const open = isOpen(h.obj, this.app.v3d.opts.openDoors);
+        items.push({ label: open ? t("Close this door") : t("Open this door"), icon: "door", action: () => this.app.v3d.toggleDoors([h.obj.id], !open) });
+      }
       if (h.kind === "openings") items.push({ label: t("Flip swing side"), icon: "flip", shortcut: "X", action: () => this.flipSelected("side") }, { label: t("Swap hinge"), icon: "mirror", shortcut: "H", action: () => this.flipSelected("hinge") });
       if (h.kind === "furniture" && h.obj.kind !== "component") items.push({ label: t("Register in my library…"), icon: "libraryAdd", action: () => this.app.run("furniture.register") });
       items.push({ label: t("Select similar"), icon: "select", action: () => this.selectSimilar() }, { label: t("BIM properties…"), icon: "bim", action: () => this.app.run("build.bimProps") });

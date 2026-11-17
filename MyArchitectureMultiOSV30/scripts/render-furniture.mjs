@@ -21,6 +21,40 @@ const [cw, ch] = (opt("--size", sheet ? "300x250" : "160x128")).split("x").map(N
 const cols = +opt("--cols", sheet ? 6 : 16);
 const kindsArg = opt("--kinds", "");
 const dirArg = opt("--dir", "");
+const pageArg = opt("--page", null);
+const thumbsDir = path.join(root, "assets", "furniture");
+
+// The whole library: one browser page per sprite page (512 items). One page
+// rendering all ~2,700 items stalls the headless browser; a fresh one per
+// part does not. Each part writes its sprite page and its index; they are
+// put together here.
+if (!sheet && !kindsArg && pageArg === null) {
+  const { spawnSync } = await import("node:child_process");
+  const { pathToFileURL } = await import("node:url");
+  const { allFurniture } = await import(pathToFileURL(path.join(root, "src", "lib", "furniture.js")).href);
+  const kinds = allFurniture().map((d) => d.kind);
+  const per = cols * 32;
+  fs.mkdirSync(thumbsDir, { recursive: true });
+  for (const f of fs.readdirSync(thumbsDir)) if (/^thumbs(-\d+)?\.webp$|^\.page-\d+\.json$/.test(f)) fs.rmSync(path.join(thumbsDir, f));
+  const index = {};
+  const pages = Math.ceil(kinds.length / per);
+  let bytes = 0;
+  for (let p = 0; p < pages; p++) {
+    const part = kinds.slice(p * per, (p + 1) * per);
+    const t0 = Date.now();
+    const r = spawnSync(process.execPath, [fileURLToPathSafe(import.meta.url), "--page", String(p), "--kinds", part.join(",")], { stdio: ["ignore", "ignore", "inherit"] });
+    if (r.status !== 0) { console.error(`render-furniture: page ${p + 1} of ${pages} failed`); process.exit(r.status || 1); }
+    const pj = JSON.parse(fs.readFileSync(path.join(thumbsDir, `.page-${p}.json`), "utf8"));
+    fs.rmSync(path.join(thumbsDir, `.page-${p}.json`));
+    for (const [k, i] of Object.entries(pj.index)) index[k] = p * per + i;
+    bytes += pj.bytes;
+    console.log(`  page ${p + 1} / ${pages}: ${part.length} items in ${((Date.now() - t0) / 1000).toFixed(0)} s`);
+  }
+  fs.writeFileSync(path.join(thumbsDir, "thumbs.json"), JSON.stringify({ cols, w: cw, h: ch, perPage: per, pages, index }) + "\n");
+  console.log(`thumbnails: ${Object.keys(index).length} items → assets/furniture/thumbs*.webp (${pages} pages, ${(bytes / 1024).toFixed(0)} KB)`);
+  process.exit(0);
+}
+function fileURLToPathSafe(u) { return decodeURIComponent(new URL(u).pathname).replace(/^\/([A-Za-z]:)/, "$1"); }
 
 const BROWSERS = {
   win32: ["C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe", "C:/Program Files/Microsoft/Edge/Application/msedge.exe", "C:/Program Files/Google/Chrome/Application/chrome.exe"],
@@ -113,6 +147,11 @@ if (sheet) {
   fs.mkdirSync(path.dirname(path.resolve(sheet)), { recursive: true });
   fs.writeFileSync(path.resolve(sheet), buf);
   console.log(`sheet: ${path.resolve(sheet)} (${Object.keys(result.index).length} items)`);
+} else if (pageArg !== null) {
+  // One part of the library (see above): its sprite page and its index.
+  const p = +pageArg;
+  fs.writeFileSync(path.join(thumbsDir, p ? `thumbs-${p}.webp` : "thumbs.webp"), buf);
+  fs.writeFileSync(path.join(thumbsDir, `.page-${p}.json`), JSON.stringify({ index: result.index, bytes: buf.length }));
 } else {
   const dir = path.join(root, "assets", "furniture");
   fs.mkdirSync(dir, { recursive: true });

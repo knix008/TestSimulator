@@ -10,6 +10,7 @@ import { h, modal, toast, withBusy } from "./widgets.js";
 import { icon } from "./icons.js";
 import * as platform from "./platform.js";
 import { uid } from "../core/geom.js";
+import { settlePieces } from "../core/placement.js";
 
 const DIR = "sample/plans";
 let index = null;
@@ -82,7 +83,7 @@ export async function openPlanSample(app, s) {
       });
       if (!placed.walls.length) { toast(t("No walls found in the picture. Try another way of reading it, or check that the underlay is at the real size."), "warn", 6000); return; }
       const floor = app.settings.floorMaterial || "oak";
-      app.store.edit(t("2D → 3D examples"), (pr) => { pr.walls.push(...placed.walls); pr.openings.push(...placed.openings); pr.rooms.push(...placed.rooms.map((r) => ({ ...r, floor }))); });
+      app.store.edit(t("2D → 3D examples"), (pr) => { pr.walls.push(...placed.walls); pr.openings.push(...placed.openings); pr.rooms.push(...placed.rooms.map((r) => ({ ...r, floor }))); pr.furniture.push(...(placed.furniture || [])); settlePieces(pr, (placed.furniture || []).map((f) => f.id)); });
     } else {
       // A picture: an underlay at the plan's real width, then the walls read from it (with its own progress window).
       const bytes = await bytesOf(s.file);

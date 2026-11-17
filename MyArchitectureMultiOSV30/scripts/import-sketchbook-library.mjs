@@ -48,8 +48,18 @@ for (const f of fs.readdirSync(srcDir).filter((x) => x.endsWith(".js")).sort()) 
 }
 // structure.js (stairs among the parametric items) needs MySketchBook's stairs.js, and that its document.js (pure).
 fs.mkdirSync(path.join(dst, "engine"), { recursive: true });
-for (const f of ["stairs.js", "document.js"]) {
-  fs.writeFileSync(path.join(dst, "engine", f), `// Copied from MySketchBook (src/engine/${f}) by scripts/import-sketchbook-library.mjs: change it there.\n${fs.readFileSync(path.join(sb, "src", "engine", f), "utf8")}`);
+for (const f of ["stairs.js", "document.js", "walls.js"]) {
+  const text = fs.readFileSync(path.join(sb, "src", "engine", f), "utf8").replace(/from ['"]three['"]/g, "from '../../../vendor/three/three.module.js'");
+  fs.writeFileSync(path.join(dst, "engine", f), `// Copied from MySketchBook (src/engine/${f}) by scripts/import-sketchbook-library.mjs: change it there.\n${text}`);
+}
+// Furniture in floor plans: the picture recogniser (plan-furniture.js, with the rooms of plan-build.js) and the
+// name matcher for CAD blocks and BIM furniture (plan-match.js) → src/io (2D → 3D: planpicture.js, plandrawing.js);
+// plan-templates.js: the library items' top views the recogniser compares the picture's shapes with.
+for (const f of ["plan-build.js", "plan-furniture.js", "plan-match.js", "plan-templates.js"]) {
+  const text = fs.readFileSync(path.join(sb, "src", "io", f), "utf8").replace(/from ['"]\.\.\/engine\//g, "from '../lib/sketchbook/engine/")
+    .replace(/from ['"]three['"]/g, "from '../vendor/three/three.module.js'");
+  if (/^import .* from ['"](?!\.\/plan-build\.js|\.\.\/lib\/sketchbook\/engine\/|\.\.\/vendor\/three\/three\.module\.js)/m.test(text)) throw new Error(`${f}: an import this app does not have`);
+  fs.writeFileSync(path.join(root, "src", "io", f), `// Copied from MySketchBook (src/io/${f}) by scripts/import-sketchbook-library.mjs: change it there.\n${text}`);
 }
 const rb = fs.readFileSync(path.join(sb, "node_modules", "three", "examples", "jsm", "geometries", "RoundedBoxGeometry.js"), "utf8");
 fs.writeFileSync(path.join(root, "src", "vendor", "three", "addons", "RoundedBoxGeometry.js"), rb.replace(/from ['"]three['"]/g, "from '../three.module.js'"));

@@ -96,6 +96,29 @@ export function panelTabs(app, host, side, defs, badges = {}) {
   return cur;
 }
 
+/**
+ * Something wanted on screen (`find` → element or null: a tutorial step, a shortcut) that sits on another tab of a
+ * side panel: that tab is shown. True when it is there (now or after a switch).
+ */
+export function revealInPanels(app, find) {
+  const ok = () => { try { const el = find(); return !!el && (el instanceof Element ? el.isConnected : true); } catch { return false; } };
+  if (ok()) return true;
+  for (const side of ["left", "right"]) {
+    const key = `panelTab_${side}_${app.tab}`, prev = app.settings[key];
+    const ids = [...document.querySelectorAll(`[data-panel-tabs="${side}"] [data-panel-tab]`)].map((b) => b.dataset.panelTab);
+    const draw = () => (side === "left" ? app.renderLeft() : app.refreshInspector());
+    for (const id of ids) {
+      if (id === prev) continue;
+      app.settings[key] = id;
+      draw();
+      if (ok()) { app.saveSettings(); return true; }
+    }
+    app.settings[key] = prev;
+    draw();
+  }
+  return false;
+}
+
 // The 3D view's panels into its tabs (by the icon of each panel's head): the
 // view (scenes, levels, what to show, section, sun, style, camera, animation),
 // the model (tags, components, outliner, materials, section planes, entity
@@ -613,7 +636,7 @@ function issuesPanel(app) {
     const row = h("div", { class: `issue ${is.severity}`, title: t("Click to zoom to the problem") }, h("span", { html: icon(is.severity === "error" ? "error" : "warning", 15) }),
       h("div", { class: "grow" }, t(is.key, is.vars), h("small", { class: "advice" }, t(adviceFor(is.code))), h("small", {}, `${is.code} · ${levelName(is.level)}`)),
       h("button", { class: "icon-btn fix-btn", title: t("Repair it (checked first; one undo step)"), "data-fix": is.code, html: icon("wand", 14), onclick: async (e) => { e.stopPropagation(); (await import("./fixui.js")).fixIssue(app, is); } }));
-    row.addEventListener("click", () => app.plan.focusPoint(is.x, is.y, is.ids || [], is.level));
+    row.addEventListener("click", () => { app.keepRightTab = true; try { app.plan.focusPoint(is.x, is.y, is.ids || [], is.level); } finally { app.keepRightTab = false; } });
     list.append(row);
   }
   body.append(list);

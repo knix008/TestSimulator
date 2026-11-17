@@ -24,6 +24,14 @@ export const categoryIcon = (key) => CATEGORY_ICONS[key] || "furniture";
 
 const state = { query: "", category: "" };
 
+/** Shows a catalogue item in the library (its category, the search cleared): a tutorial step or a link points at it. */
+export function showInLibrary(app, kind) {
+  const d = furnitureDef(kind);
+  state.query = "";
+  state.category = d ? d.cat : "";
+  if (app.renderLeft) app.renderLeft();
+}
+
 // ---------------------------------------------------------------- 3D thumbnails (one sprite)
 const SPRITE = "assets/furniture/thumbs.webp";
 let sprite = null; // {cols, w, h, index}

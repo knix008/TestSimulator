@@ -55,7 +55,9 @@ function template(THREE, mats, id) {
     holder.traverse((c) => { if (c.name === "lamp") c.name = "sb-lamp"; if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; c.userData.sharedGeometry = true; } });
     obj = holder;
   }
-  if (templates.size > 400) templates.clear();
+  // A full cache is emptied with its geometry freed (the thumbnails build ~2,100 items in one page: without this
+  // their buffers pile up until the page stalls). Copies in a model share it: a model is built again after this.
+  if (templates.size > 200) { for (const tp of templates.values()) if (tp) tp.traverse((c) => { if (c.geometry) c.geometry.dispose(); }); templates.clear(); }
   templates.set(key, obj);
   return obj;
 }

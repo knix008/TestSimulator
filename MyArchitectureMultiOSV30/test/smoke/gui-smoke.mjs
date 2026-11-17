@@ -59,8 +59,10 @@ async function step(name, fn) {
 const fail = (x) => { throw new Error(typeof x === "string" ? x : JSON.stringify(x)); };
 const app = (expr) => a.ev(`const app = window.myarchApp; ${expr}`);
 const closeModals = () => a.ev(`for (let i = 0; i < 4; i++) { const x = document.querySelector(".modal-head .icon-btn"); if (!x) break; x.click(); } document.querySelectorAll(".qp-backdrop,.ctx-menu,.popup-input,.theme-drop").forEach(e => e.remove()); return 1;`);
-const waitFor = async (expr, ms = 5000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await app(`return !!(${expr})`)) return true; await sleep(60); } fail(`timed out: ${expr}`); };
-const clickSel = async (sel) => { const r = await a.ev(`const el = document.querySelector(${JSON.stringify(sel)}); if (!el) return null; el.scrollIntoView && el.scrollIntoView({block:"nearest"}); const b = el.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2];`); if (!r) fail(`not found: ${sel}`); await a.click(r[0], r[1]); };
+const waitFor = async (expr, ms = 5000) => { const t0 = Date.now(); let revealed = false; while (Date.now() - t0 < ms) { if (await app(`return !!(${expr})`)) return true; const sel = expr.startsWith("document.querySelector(") && !expr.includes("&&") && !expr.includes("||"); if (sel && !revealed) { revealed = true; await app(`const m = await import("./src/ui/panels.js"); m.revealInPanels(app, () => ${expr}); return 1`); continue; } await sleep(60); } fail(`timed out: ${expr}`); };
+// An element on another tab of a side panel is brought out first (panels.js revealInPanels), as a user picks the tab.
+const reveal = (sel) => a.ev(`const el = document.querySelector(${JSON.stringify(sel)}); if (el) return true; const m = await import("./src/ui/panels.js"); return m.revealInPanels(window.myarchApp, () => document.querySelector(${JSON.stringify(sel)}));`).catch(() => false);
+const clickSel = async (sel) => { await reveal(sel); const r = await a.ev(`const el = document.querySelector(${JSON.stringify(sel)}); if (!el) return null; el.scrollIntoView && el.scrollIntoView({block:"nearest"}); const b = el.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2];`); if (!r) fail(`not found: ${sel}`); await a.click(r[0], r[1]); };
 const primary = async () => { await waitFor(`document.querySelector(".modal-foot .btn.primary")`); await clickSel(".modal-foot .btn.primary"); await sleep(120); };
 const dialogButton = async (label) => { await waitFor(`[...document.querySelectorAll(".modal-foot .btn")].some(b => b.textContent.trim() === ${JSON.stringify(label)})`); const r = await a.ev(`const b = [...document.querySelectorAll(".modal-foot .btn")].find(b => b.textContent.trim() === ${JSON.stringify(label)}); const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2];`); await a.click(r[0], r[1]); await sleep(150); };
 // Plan world (mm) → screen.
@@ -89,7 +91,7 @@ try {
   await step("app boots, title set, tutorial popup shown on the start page", async () => { for (let i = 0; i < 60; i++) { if (await app(`return !!app && !!document.querySelector(".modal .tutorial-prompt")`).catch(() => false)) break; await sleep(150); } return app(`return !!app && document.title.includes("MyArchitecture") && !!document.querySelector(".modal .tutorial-prompt") && app.tab === "start"`); });
   await closeModals();
   await app(`app.settings.onboarded = true; app.setSetting("lang", "en"); return 1`);
-  await step("start page lists every sample with a card", async () => { await sleep(400); const n = await app(`return document.querySelectorAll(".sample-card").length`); const idx = JSON.parse(fs.readFileSync(path.join(root, "sample/index.json"), "utf8")); return n === idx.length || fail(`${n} cards for ${idx.length} samples`); });
+  await step("start page lists every sample with a card", async () => { await sleep(400); const n = await app(`return document.querySelectorAll(".sample-card:not(.plan-sample)").length`); /* the 2D → 3D examples have their own card */ const idx = JSON.parse(fs.readFileSync(path.join(root, "sample/index.json"), "utf8")); return n === idx.length || fail(`${n} cards for ${idx.length} samples`); });
   await step("program icon and favicon load", async () => app(`const img = document.querySelector(".brand img"); return img.complete && img.naturalWidth >= 256`));
   await step("menu bar has File, Edit, View, Build, BIM and Help — no Draw or 3D menu repeating the toolbar", async () => app(`return ["File","Edit","View","Build","BIM","Help"].every(m => document.querySelector('.menu-root[data-menu="' + m + '"]')) && !document.querySelector('.menu-root[data-menu="Draw"], .menu-root[data-menu="3D"]')`));
   await step("every menu opens and lists its items", async () => {
@@ -567,6 +569,39 @@ try {
     return has;
   });
 
+  await step("context menus act on the object: a door opens from the plan, a sofa in 3D turns, copies and deletes", async () => {
+    // On sample 21; the drawing made so far comes back afterwards (the steps after this one use it).
+    const kept = await app(`return JSON.stringify({ p: app.store.project, fileName: app.store.fileName, filePath: app.store.filePath })`);
+    await openSample("21-interior-design.myarch");
+    await app(`app.setTab("plan"); app.run("view.fit"); return 1`); await sleep(400);
+    const rmouse = async (x, y) => { await a.send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }); await a.send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "right", clickCount: 1, buttons: 2 }); await a.send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "right", clickCount: 1, buttons: 0 }); await sleep(300); };
+    const labels = () => app(`return [...document.querySelectorAll(".ctx-menu .menu-item")].map(b => b.textContent.trim())`);
+    const choose = (re) => app(`const b = [...document.querySelectorAll(".ctx-menu .menu-item")].find(b => ${re}.test(b.textContent)); if (b) b.click(); document.querySelectorAll(".ctx-menu").forEach(m => m.remove()); return !!b`);
+    // A door in the plan: "Open this door" opens it (its own angle, core/doors.js).
+    const door = await app(`const p = app.store.project, L = app.plan.level; const o = p.openings.find(o => o.kind === "door" && p.walls.some(w => w.id === o.wall && w.level === L)); const w = p.walls.find(w => w.id === o.wall);
+      const len = Math.hypot(w.x2 - w.x1, w.y2 - w.y1); const r = app.plan.canvas.getBoundingClientRect(); const [sx, sy] = app.plan.vp.toScreen(w.x1 + (w.x2 - w.x1) * o.at / len, w.y1 + (w.y2 - w.y1) * o.at / len); return { id: o.id, at: [r.left + sx, r.top + sy] }`);
+    await rmouse(...door.at);
+    const planItems = await labels();
+    const opened = await choose("/Open this door|Close this door/");
+    const doorOpen = await app(`const o = app.store.project.openings.find(o => o.id === ${JSON.stringify(door.id)}); return o.open !== undefined`);
+    // A sofa in 3D, seen from straight above with only its level: the menu has its own actions, "Rotate 90°" turns it.
+    await app(`app.setTab("3d"); return 1`); await waitFor(`app.v3d.viewer`, 10000); await sleep(1500);
+    const sofa = await app(`const p = app.store.project, L = p.levels[0].id; app.v3d.soloLevel(L); app.v3d.viewer.setOptions({ roofs: false }); app.v3d.viewer.zoomToFit();
+      const f = p.furniture.find(x => x.level === L && /sofa/.test(x.kind)); return { id: f.id, rot: f.rot }`);
+    await sleep(2500);
+    const at = await app(`const v = app.v3d.viewer; const { camera, renderer, THREE } = v.three; const r = renderer.domElement.getBoundingClientRect(); const f = app.store.project.furniture.find(x => x.id === ${JSON.stringify(sofa.id)});
+      const box = new THREE.Box3(); v.three.building.traverse((o) => { if (o.isMesh && o.userData.id === f.id) box.expandByObject(o); }); const c = box.getCenter(new THREE.Vector3()); c.y = box.max.y;
+      // Straight above it, so no wall stands between the eye and the sofa.
+      v.setCamera({ pos: [c.x, c.y + 6, c.z + 0.01], target: [c.x, c.y, c.z] }, 1); await new Promise((r) => setTimeout(r, 400)); const q = c.clone().project(v.three.camera); return [r.left + (q.x + 1) / 2 * r.width, r.top + (1 - q.y) / 2 * r.height]`);
+    await rmouse(...at);
+    const items3d = await labels();
+    await choose("/Rotate 90°/");
+    const rot = await app(`return app.store.project.furniture.find(x => x.id === ${JSON.stringify(sofa.id)}).rot`);
+    await app(`app.v3d.showAllLevels(); app.setTab("plan"); const k = JSON.parse(${JSON.stringify(kept)}); app.store.dirty = false; app.store.load(k.p, { fileName: k.fileName, filePath: k.filePath }); return 1`); await sleep(300);
+    const own = ["Properties", "Rotate 90°", "Duplicate", "Delete"].every((l) => items3d.some((s) => s.includes(l)));
+    return (planItems.some((s) => /Open this door|Close this door/.test(s)) && opened && doorOpen && own && rot === ((sofa.rot + 90) % 360)) || fail({ planItems: planItems.slice(0, 6), opened, doorOpen, items3d: items3d.slice(0, 6), rot, was: sofa.rot });
+  });
+
   // ---------------------------------------------------------------- 3D
   sectionStart("3D view");
   await step("F3: views, styles, ortho, section, open doors, fog, grid", async () => {
@@ -903,6 +938,7 @@ try {
   });
   await step("style editor: edges and profiles from the panel, a watermark in the saved image", async () => {
     await app(`app.settings.skFold = { styles: true }; app.renderLeft(); return 1`);
+    await reveal('[data-sk-panel="styles"]');
     const box = async (label) => { const r = await a.ev(`const el = [...document.querySelectorAll('[data-sk-panel="styles"] label')].find(l => l.textContent.trim() === ${JSON.stringify(label)}); el.scrollIntoView({ block: "nearest" }); const b = el.getBoundingClientRect(); return [b.left + 8, b.top + b.height / 2]`); await a.click(r[0], r[1]); await sleep(600); };
     await box("Edges"); await box("Profiles (thick outlines)");
     await app(`app.store.edit("Style", p => { p.style3d.watermark = "SMOKE"; }); app.v3d.viewer.skRefresh(); return 1`);
@@ -1022,8 +1058,10 @@ try {
     await app(`app.run("file.exportDxf"); return 1`);
     await waitFor(`document.querySelector(".modal")`);
     await app(`document.querySelectorAll(".modal input[type=checkbox]")[0].click(); return 1`);
-    await primary(); await sleep(400);
-    const files = fs.readdirSync(out).filter((f) => f.endsWith(".dxf"));
+    await primary();
+    // One file per level, each made under its progress popup, then saved.
+    let files = [];
+    for (let i = 0; i < 40 && files.length < 2; i++) { await sleep(100); files = fs.readdirSync(out).filter((f) => f.endsWith(".dxf")); }
     if (files.length < 2) fail(`${files}`);
     const text = fs.readFileSync(outFile(files[0]), "utf8");
     return /AC1009/.test(text) && /A-WALL/.test(text);
@@ -1621,7 +1659,7 @@ try {
     for (let i = 0; i < tabs; i++) await app(`document.querySelectorAll(".settings-modal .tab")[${i}].click(); return 1`);
     await app(`document.querySelector('.settings-modal [data-setting="planGrid"] [data-step="1"]').click(); return 1`);
     await primary();
-    return app(`return app.settings.planGrid === 250 && ${tabs} === 6`);
+    return app(`return app.settings.planGrid === 250 && ${tabs} === 7`); /* General, Themes, Appearance, Units & grid, Floor plan, 3D view, Output */
   });
   await step("themes: random, menu, gallery; language toggle; units cycle", async () => {
     const t0 = await app(`return app.settings.theme`);
@@ -1687,10 +1725,11 @@ try {
     await app(`app.setTab("plan"); return 1`);
     await newProject();
     await fitView({ x1: -1000, y1: -1000, x2: 8000, y2: 6000 });
-    const chip = await a.ev(`const c = [...document.querySelectorAll(".chip")].find(b => b.textContent === "Lighting"); if (!c) return null; const b = c.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]`);
+    await reveal('[data-chip="Lighting"]');
+    const chip = await a.ev(`const c = document.querySelector('[data-chip="Lighting"]'); if (!c) return null; const b = c.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]`);
     if (!chip) fail("no Lighting category chip");
     await a.click(chip[0], chip[1]);
-    const cat = await app(`return document.querySelector(".chip.on").textContent`);
+    const cat = await app(`return document.querySelector(".chip.on").dataset.chip`); /* its label carries the count */
     await clickSel('.lib-item[data-kind="ceilingLight"]');
     await clickW(3000, 2000);
     lamp1 = await app(`const f = app.store.project.furniture.find(q => q.kind === "ceilingLight"); return f && f.id`);
@@ -1790,6 +1829,7 @@ try {
     await closeModals();
     if (!(await openSample("03-two-storey-house.myarch"))) fail("not opened");
     await app(`app.setTab("plan"); app.settings.showLeft = true; app.applyPanels(); app.renderLeft(); return 1`);
+    await reveal("#left-panel .vb-group");
     await sleep(300);
     const groups = await app(`return [...document.querySelectorAll("#left-panel .vb-group")].map(g => g.dataset.group)`);
     const items = await app(`return document.querySelectorAll("#left-panel .vb-item").length`);

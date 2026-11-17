@@ -208,7 +208,7 @@ describe("buildBuilding — openings", () => {
       const d = byName(g, "door d");
       assert.ok(meshes(d).length >= 4, type);
       const b = worldBox(d);
-      assert.ok(b.max.y <= 2.1 + 1e-6, `${type} stays under the head`);
+      assert.ok(b.max.y <= 2.1 + 0.055 + 1e-6, `${type} stays under the head (the architrave round it reaches 55 mm above)`);
     }
     const garage = meshes(byName(build(withDoor({ type: "garage", width: 2400 })), "door d"));
     assert.equal(garage.length, 3 + 4, "frame plus four panels");

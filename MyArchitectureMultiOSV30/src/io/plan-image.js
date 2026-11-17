@@ -564,10 +564,68 @@ export function detectImageWalls(image, { metresPerPixel, method = 'outline', ed
     const swingsFound = findDoorSwings(evidencePicture, result.walls, m);
     windowPanes(result, swingsFound, evidencePicture, m);
     placeDoorSwings(result, swingsFound, work, m);
+    solidGaps(result, swingsFound, evidencePicture, m);
+    joinSplitWindows(result, swingsFound);
   }
   doorSwings(evidencePicture, result, m);
   const turn = (x) => ({ ...x, a: back(x.a), b: back(x.b) });
   return { ...result, walls: result.walls.map(turn), leftovers: result.leftovers.map(turn), segments: lines.map(turn), angle, scanned: Boolean(found.scanned) };
+}
+
+/**
+ * Windows the chosen reading of a picture missed, taken from the other readings (`others`, the same picture read
+ * another way; all in picture metres): a wide window's frame and pane lines can read as a thin wall of their own, so
+ * the window is lost — a living room's sliding window becomes a wall. Where another reading has a window (0.9 m or
+ * wider) and the chosen one has, on the same line and within the window's stretch, only a wall much thinner than that
+ * reading's wall (frame lines) with no opening, that thin wall becomes the window: the other reading's thickness, the
+ * window's stretch, the window in it. Returns a new result (the chosen one is not changed).
+ */
+export function borrowWindows(chosen, others) {
+  if (!chosen?.walls?.length) return chosen;
+  const out = { ...chosen, walls: chosen.walls.map((w) => ({ ...w })), openings: chosen.openings.map((o) => ({ ...o })) };
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1];
+  const geo = (w) => { const L = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]) || 1; const u = [(w.b[0] - w.a[0]) / L, (w.b[1] - w.a[1]) / L]; return { L, u, n: [-u[1], u[0]] }; };
+  const taken = new Set();
+  for (const other of others) {
+    if (!other || other === chosen) continue;
+    for (const op of other.openings ?? []) {
+      if (op.kind !== 'window' || op.width < 0.9) continue;
+      const host = other.walls[op.wall];
+      if (!host) continue;
+      const g = geo(host);
+      const c = [host.a[0] + g.u[0] * op.offset, host.a[1] + g.u[1] * op.offset];
+      const lo = dot(g.u, c) - op.width / 2; const hi = dot(g.u, c) + op.width / 2; const o = dot(g.n, host.a);
+      for (const [i, w] of out.walls.entries()) {
+        if (taken.has(i) || w.thickness >= host.thickness * 0.6) continue;
+        const q = geo(w);
+        if (Math.abs(q.u[0] * g.u[1] - q.u[1] * g.u[0]) > Math.sin((2 * Math.PI) / 180)) continue;
+        if (Math.abs(dot(g.n, w.a) - o) > host.thickness / 2 + 0.03 || Math.abs(dot(g.n, w.b) - o) > host.thickness / 2 + 0.03) continue;
+        const p0 = Math.min(dot(g.u, w.a), dot(g.u, w.b)); const p1 = Math.max(dot(g.u, w.a), dot(g.u, w.b));
+        if (Math.min(p1, hi + 0.1) - Math.max(p0, lo - 0.1) < (p1 - p0) * 0.8 || p1 - p0 < op.width * 0.6) continue;
+        if (out.openings.some((x) => x.wall === i)) continue;
+        // Windows are in outside walls: on one side of it nothing else of the plan.
+        const outside = [1, -1].some((side) => !out.walls.some((v, j) => {
+          if (j === i) return false;
+          const from = [c[0] + g.n[0] * side * host.thickness, c[1] + g.n[1] * side * host.thickness];
+          const d = [g.n[0] * side, g.n[1] * side]; const e = [v.b[0] - v.a[0], v.b[1] - v.a[1]];
+          const den = d[0] * e[1] - d[1] * e[0];
+          if (Math.abs(den) < 1e-9) return false;
+          const t = ((v.a[0] - from[0]) * e[1] - (v.a[1] - from[1]) * e[0]) / den;
+          const k = ((v.a[0] - from[0]) * d[1] - (v.a[1] - from[1]) * d[0]) / den;
+          return t > 0 && k >= 0 && k <= 1;
+        }));
+        if (!outside) continue;
+        const at = (sv) => [g.u[0] * sv + g.n[0] * o, g.u[1] * sv + g.n[1] * o];
+        Object.assign(w, { a: at(lo), b: at(hi), thickness: host.thickness });
+        const { side, hinge, swing, hingeS, wall: _w, offset: _o, ...rest } = op;
+        out.openings.push({ ...rest, wall: i, offset: (hi - lo) / 2 });
+        taken.add(i);
+        break;
+      }
+    }
+  }
+  if (taken.size) out.stats = { ...out.stats, windows: out.openings.filter((x) => x.kind === 'window').length };
+  return out;
 }
 
 /** `mask` grown by `r` pixels (a square): lookups then forgive a line drawn a pixel or two off. */
@@ -671,6 +729,106 @@ function findDoorSwings(image, walls, m) {
   return kept;
 }
 
+/** A swing hinged at either jamb of this gap whose closed leaf spans the gap (not one beside it, or tile lines). */
+function swungAt(op, wall, swings) {
+  const L = Math.hypot(wall.b[0] - wall.a[0], wall.b[1] - wall.a[1]);
+  if (L < 1e-6) return false;
+  const u = [(wall.b[0] - wall.a[0]) / L, (wall.b[1] - wall.a[1]) / L];
+  const c = [wall.a[0] + u[0] * op.offset, wall.a[1] + u[1] * op.offset];
+  const half = op.width / 2;
+  return swings.some((sw) => {
+    if (Math.abs(sw.u[0] * u[1] - sw.u[1] * u[0]) >= 0.05) return false;
+    if (Math.abs(sw.n[0] * (sw.H[0] - c[0]) + sw.n[1] * (sw.H[1] - c[1])) > wall.thickness / 2 + 0.1) return false;
+    const along = sw.u[0] * (c[0] - sw.H[0]) + sw.u[1] * (c[1] - sw.H[1]);
+    return Math.abs(Math.abs(along) - half) <= 0.2 && sw.d * along > 0 && sw.r >= op.width * 0.7 && sw.r <= op.width * 1.4 + 0.1;
+  });
+}
+
+/**
+ * Gaps that are wall: a door gap with no swing drawn, or a window gap, whose inside (between the wall faces) is as dark as
+ * the wall beside it — a dark wardrobe or desk against the wall, or a partition meeting it, made its face look broken
+ * there. Such stretches are trimmed off the ends of the gap; a gap that is wall all along is removed.
+ */
+function solidGaps(result, swings, image, m) {
+  const { data, width: w, height: h } = image;
+  const gray = toGrayscale(data, w, h);
+  const level = otsu(gray);
+  for (let k = result.openings.length - 1; k >= 0; k--) {
+    const op = result.openings[k];
+    if (op.kind !== 'door' && op.kind !== 'window') continue;
+    const wall = result.walls[op.wall];
+    if (swungAt(op, wall, swings)) continue;
+    const L = Math.hypot(wall.b[0] - wall.a[0], wall.b[1] - wall.a[1]);
+    if (L < 1e-6) continue;
+    const u = [(wall.b[0] - wall.a[0]) / L, (wall.b[1] - wall.a[1]) / L]; const n = [-u[1], u[0]];
+    // Grey levels inside the wall band over a stretch [s0, s1] along it (offsets from the wall's start).
+    const band = (s0, s1) => {
+      const out = [];
+      for (let sAt = Math.max(0, s0); sAt <= Math.min(L, s1); sAt += m) for (let t = -wall.thickness * 0.3; t <= wall.thickness * 0.3; t += m) {
+        const X = Math.round((wall.a[0] + u[0] * sAt + n[0] * t) / m); const Y = Math.round((wall.a[1] + u[1] * sAt + n[1] * t) / m);
+        if (X >= 0 && Y >= 0 && X < w && Y < h) out.push(gray[Y * w + X]);
+      }
+      return out;
+    };
+    const half = op.width / 2;
+    const mean = (a) => a.reduce((t, v) => t + v, 0) / a.length;
+    // The wall itself just beside the gap (a shaded photo darkens a window as well: it must look like this wall).
+    const beside = [...band(op.offset - half - 0.35, op.offset - half - 0.1), ...band(op.offset + half + 0.1, op.offset + half + 0.35)];
+    if (beside.length < 8) continue;
+    const wallGrey = mean(beside) + 20;
+    // Slices across the band (2 px) that are wall: dark and as dark as the wall. Trimmed off both ends of the gap.
+    const step = 2 * m;
+    const slices = [];
+    for (let s0 = op.offset - half; s0 < op.offset + half - 1e-9; s0 += step) {
+      const g = band(s0, Math.min(op.offset + half, s0 + step) - 1e-9);
+      slices.push(g.length >= 2 && g.filter((v) => v < level).length / g.length >= 0.8 && mean(g) <= wallGrey);
+    }
+    let a = 0; let b = slices.length;
+    while (a < b && slices[a]) a++;
+    while (b > a && slices[b - 1]) b--;
+    const lo = op.offset - half + a * step; const hi = Math.min(op.offset + half, op.offset - half + b * step);
+    // A gap wall all along, or most of it with only bits left: no opening.
+    if (hi - lo < 0.25 || slices.slice(a, b).filter(Boolean).length >= (b - a) * 0.8) { result.openings.splice(k, 1); continue; }
+    if (hi - lo < op.width - 0.08) {
+      Object.assign(op, { offset: (lo + hi) / 2, width: hi - lo });
+      if (op.kind === 'window') Object.assign(op, openingDefaults('window', op.width));
+    }
+  }
+}
+
+/**
+ * One window split in pieces: the frame or pane lines of a wide window (a living room's sliding window) can read as a
+ * short bit of wall in the gap, which leaves a window and a "door" (or two windows) side by side. Two openings on a wall
+ * with at most a short stub between them (no wall pier: under 0.35 m), neither a door with a swing drawn, are one window.
+ */
+function joinSplitWindows(result, swings) {
+  const isDoor = (op) => op.kind !== 'window' && op.kind !== 'passage';
+  for (let again = true; again;) {
+    again = false;
+    for (const [wi, wall] of result.walls.entries()) {
+      const ops = result.openings.filter((op) => op.wall === wi).sort((a, b) => a.offset - b.offset);
+      for (let k = 0; k + 1 < ops.length; k++) {
+        const A = ops[k]; const B = ops[k + 1];
+        if (A.kind !== 'window' && B.kind !== 'window') continue;
+        if (![A, B].every((op) => op.kind === 'window' || (op.kind === 'door' && !swungAt(op, wall, swings)))) continue;
+        // A split window leaves its big piece and a small one: a door wider than the window beside it is a door.
+        if ([A, B].some((op) => op.kind === 'door' && op.width >= Math.max(...[A, B].filter((x) => x.kind === 'window').map((x) => x.width)))) continue;
+        const a0 = A.offset - A.width / 2; const b1 = B.offset + B.width / 2;
+        const stub = (B.offset - B.width / 2) - (A.offset + A.width / 2);
+        if (stub > 0.35 || b1 - a0 > 4.8) continue;
+        const width = b1 - a0;
+        for (const key of ['side', 'hinge', 'swing', 'hingeS']) delete A[key];
+        Object.assign(A, { kind: 'window', offset: (a0 + b1) / 2, width, ...openingDefaults('window', width) });
+        result.openings.splice(result.openings.indexOf(B), 1);
+        again = true;
+        break;
+      }
+      if (again) break;
+    }
+  }
+  result.stats = { ...result.stats, doors: result.openings.filter((x) => x.kind !== 'window' && x.kind !== 'passage').length, windows: result.openings.filter((x) => x.kind === 'window').length };
+}
+
 /**
  * Small windows read as doors: a picture's door gap is a door by default (the short pane lines of a 0.5–0.6 m window
  * fall under the shortest line kept), so a door gap with no swing drawn at it (findDoorSwings) and two or more lines
@@ -689,14 +847,7 @@ function windowPanes(result, swings, image, m) {
     const n = [-u[1], u[0]];
     const c = [wall.a[0] + u[0] * op.offset, wall.a[1] + u[1] * op.offset];
     const half = op.width / 2;
-    // A swing hinged at either jamb of this gap whose closed leaf spans the gap (not one beside it, or tile lines): a door.
-    const swung = swings.some((sw) => {
-      if (Math.abs(sw.u[0] * u[1] - sw.u[1] * u[0]) >= 0.05) return false;
-      if (Math.abs(sw.n[0] * (sw.H[0] - c[0]) + sw.n[1] * (sw.H[1] - c[1])) > wall.thickness / 2 + 0.1) return false;
-      const along = sw.u[0] * (c[0] - sw.H[0]) + sw.u[1] * (c[1] - sw.H[1]);
-      return Math.abs(Math.abs(along) - half) <= 0.2 && sw.d * along > 0 && sw.r >= op.width * 0.7 && sw.r <= op.width * 1.4 + 0.1;
-    });
-    if (swung) continue;
+    if (swungAt(op, wall, swings)) continue;
     // Lines across the gap: depths (across the wall) where ink runs along most of the gap.
     const T = wall.thickness;
     let lines = 0; let inLine = false;

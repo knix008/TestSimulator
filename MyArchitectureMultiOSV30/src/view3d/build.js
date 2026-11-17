@@ -343,6 +343,17 @@ function openingMeshes(THREE, mats, w, s, base, opts) {
     if (o.type === "sliding") g.add(boxInWall(THREE, w, frame, uc, 25, z0 + fw, 40, depth * 0.6, o.height - 2 * fw));
     return g;
   }
+  // Doors: architraves round the opening on both faces of the wall, and a threshold.
+  if (o.type !== "garage") {
+    const cw = 70, ct = 15; // architrave width and thickness
+    for (const sg of [-1, 1]) {
+      const v = sg * (t / 2 + ct / 2);
+      g.add(boxInWall(THREE, w, frame, s.u1 - cw / 2 + 15, v, z0, cw, ct, o.height + cw - 15));
+      g.add(boxInWall(THREE, w, frame, s.u2 + cw / 2 - 15, v, z0, cw, ct, o.height + cw - 15));
+      g.add(boxInWall(THREE, w, frame, uc, v, z1 - 15, width + 2 * cw - 30, ct, cw));
+    }
+    g.add(boxInWall(THREE, w, mats.color("#8a7766", { rough: 0.6 }), uc, 0, z0, width - 2 * fw, t, 12));
+  }
   // Doors. The group carries where the door is (metres) for the walk-through,
   // which opens a door as the walker comes near (viewer.js walkDoors).
   {
@@ -351,7 +362,10 @@ function openingMeshes(THREE, mats, w, s, base, opts) {
   }
   const leafT = 40;
   const leafH = o.height - fw;
-  const leafMat = o.type === "garage" ? mats.color("#c7ccd2", { rough: 0.5, metal: 0.3 }) : mats.door();
+  const outsideWall = /ext|curtain/i.test(w.typeId || w.type || "") || t >= 250;
+  const leafMat = o.type === "garage" ? mats.color("#c7ccd2", { rough: 0.5, metal: 0.3 })
+    : o.type === "double" || outsideWall ? mats.door() // wood: French doors, entrance doors
+    : mats.color("#f2f0ea", { rough: 0.45 }); // inner doors: white paint
   if (o.type === "garage") {
     for (let k = 0; k < 4; k++) g.add(boxInWall(THREE, w, leafMat, uc, 0, z0 + (k * leafH) / 4 + 5, width - 2 * fw, leafT, leafH / 4 - 10));
     return g;
@@ -377,6 +391,10 @@ function openingMeshes(THREE, mats, w, s, base, opts) {
     glassLeaf(s.u2 - fw - half / 2, -25);
     return g;
   }
+  // What kind of door: glazed French doors (double), a solid entrance door in an outside wall (thick or an
+  // "ext" wall type), else a white two-panel inner door.
+  const outside = /ext|curtain/i.test(w.typeId || w.type || "") || t >= 250;
+  const style = o.type === "double" ? "french" : outside ? "entrance" : "inner";
   // Each door its own angle (core/doors.js), else the view's "Open doors"; the walk-through opens them all.
   const open = (doorAngle(o, opts.openDoors, { force: opts.forceOpenDoors }) * Math.PI) / 180;
   const leaf = (hingeU, len, dir) => {
@@ -391,10 +409,31 @@ function openingMeshes(THREE, mats, w, s, base, opts) {
     pivot.rotation.y = -Math.atan2(f.d[1], f.d[0]);
     const m = boxMesh(THREE, len * M, leafH * M, leafT * M, leafMat);
     m.position.set((dir * len * M) / 2, (leafH * M) / 2, 0);
-    // Door handle.
-    const hdl = boxMesh(THREE, 0.12, 0.02, 0.07, mats.color("#9aa0a6", { rough: 0.3, metal: 0.8 }));
-    hdl.position.set(dir * (len - 70) * M, 1.0, 0); // 1 m above the threshold
-    pivot.add(m, hdl);
+    pivot.add(m);
+    // On the leaf (local: x along it from the hinge, y up, z through it): mm → a box centred at (x, y, z).
+    const part = (mat, x, y, z, sx, sy, sz) => { const b = boxMesh(THREE, sx * M, sy * M, sz * M, mat); b.position.set(dir * x * M, y * M, z * M); pivot.add(b); return b; };
+    const metal = mats.color("#b9bcc0", { rough: 0.25, metal: 0.9 });
+    if (style === "french") {
+      // Glazed: a rail-and-stile frame round two glass panes.
+      const gl = part(mats.glass(), len / 2, leafH / 2, 0, len - 140, leafH - 300, 14);
+      gl.userData.glass = true;
+      m.visible = false; // the stiles and rails below stand in for the solid leaf
+      for (const [x, y, sx, sy] of [[35, leafH / 2, 70, leafH], [len - 35, leafH / 2, 70, leafH], [len / 2, leafH - 50, len, 100], [len / 2, 100, len, 200], [len / 2, leafH * 0.55, len, 50]]) part(leafMat, x, y, 0, sx, sy, leafT);
+    } else {
+      // Panels on both faces (12 mm proud): two on an inner door, one with a glass light on an entrance door.
+      const panels = style === "entrance" ? [[0.12, 0.62]] : [[0.08, 0.47], [0.53, 0.92]];
+      // A shade apart from the leaf, so the panels read as panels.
+      const panelMat = style === "entrance" ? mats.color("#7a5236", { rough: 0.55 }) : mats.color("#e2ded5", { rough: 0.5 });
+      for (const sg of [-1, 1]) for (const [a, b] of panels) part(panelMat, len / 2, leafH * (a + b) / 2, sg * (leafT / 2 + 6), len - 200, leafH * (b - a), 12);
+      if (style === "entrance") { const gl = part(mats.glass(), len / 2, leafH * 0.81, 0, Math.min(300, len - 300), leafH * 0.22, leafT + 4); gl.userData.glass = true; }
+    }
+    // Lever handles with their roses on both faces, 1 m up; three hinges on the hinge edge.
+    for (const sg of [-1, 1]) {
+      const z = sg * (leafT / 2 + 8);
+      part(metal, len - 75, 1000, z, 52, 52, 10);
+      part(metal, len - 75 - 55, 1000, sg * (leafT / 2 + 30), 130, 20, 20);
+    }
+    for (const y of [180, leafH / 2, leafH - 180]) part(metal, 4, y, 0, 8, 100, leafT + 6);
     // Local +z is the wall's left normal; a positive turn about y swings +x
     // towards −z, so the sign makes the leaf open towards `side`.
     pivot.userData.leaf = { y0: pivot.rotation.y, k: -dir * side, a: open };
