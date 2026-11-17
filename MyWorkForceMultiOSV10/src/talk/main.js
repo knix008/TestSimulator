@@ -1,14 +1,39 @@
 import './talk.css';
 import { icon } from '../icons.js';
-import { chatMessages, chatPeople, chatProfile, chatRooms, checkChat, currentSession, fetchChatFile, inviteChat, loginSession, logoutSession, openChat, postChat, postChatFile, rememberProfile, saveChatProfile, savedLogin, sessionProfile, sessionToken, watchSharedSession } from '../platform/data.js';
+import { changeOwnPassword, chatMessages, chatPeople, chatProfile, chatRooms, checkChat, currentSession, fetchChatFile, inviteChat, loginSession, logoutSession, openChat, postChat, postChatFile, rememberLogin, rememberProfile, saveChatProfile, savedLogin, sessionProfile, sessionToken, watchSharedSession } from '../platform/data.js';
+import { installTooltips } from '../ui/tooltip.js';
 import { openMain } from '../platform/native.js';
 
 const text = {
   ko: {
     product: 'MyWorkForce Talk',
     hint: '같은 회사 사람과 대화하고, 작업 알림을 받습니다.',
-    account: '로그인 ID',
-    password: '암호',
+    account: 'ID',
+    password: 'Password',
+    changeTitle: '새 암호 정하기',
+    changeLead: '처음 로그인했습니다. 관리자가 정해 준 암호 대신, 자신만 아는 새 암호를 정해야 계속할 수 있습니다.',
+    changeMine: '지금 암호를 확인한 뒤 새 암호로 바꿉니다.',
+    changePassword: '암호 바꾸기',
+    current: '지금 암호',
+    next: '새 암호',
+    again: '다시 입력',
+    change: '바꾸기',
+    cancel: '취소',
+    changed: '암호를 바꿨습니다.',
+    rule: '6자 이상, 지금 암호와 다르게 정합니다.',
+    teams: '팀',
+    noTeam: '팀 없음',
+    lead: '팀장',
+    errors: {
+      password: '암호가 맞지 않습니다.',
+      'not-registered': '등록된 사용자가 아닙니다.',
+      'password-change': '처음 로그인했습니다. 계속하려면 새 암호를 정하세요.',
+      'password-weak': '암호는 6자 이상이어야 합니다.',
+      'password-same': '지금 암호와 다른 암호를 정하세요.',
+      'password-mismatch': '새 암호 두 칸이 서로 다릅니다.',
+      connect: '데이터 서비스에 연결하지 못했습니다.',
+      permission: '권한이 없습니다.',
+    },
     signIn: '로그인',
     signOut: '로그아웃',
     notices: '알림',
@@ -51,8 +76,32 @@ const text = {
   en: {
     product: 'MyWorkForce Talk',
     hint: 'Talk with people in this company and receive work notices.',
-    account: 'Login ID',
+    account: 'ID',
     password: 'Password',
+    changeTitle: 'Choose a new password',
+    changeLead: 'This is your first sign-in. Replace the password you were given with one only you know to continue.',
+    changeMine: 'Confirm the current password, then choose a new one.',
+    changePassword: 'Change password',
+    current: 'Current password',
+    next: 'New password',
+    again: 'Repeat',
+    change: 'Change',
+    cancel: 'Cancel',
+    changed: 'Your password is changed.',
+    rule: 'At least 6 characters, different from the current one.',
+    teams: 'Teams',
+    noTeam: 'No team',
+    lead: 'Lead',
+    errors: {
+      password: 'That password does not match.',
+      'not-registered': 'That account is not registered.',
+      'password-change': 'This is your first sign-in. Choose a new password to continue.',
+      'password-weak': 'A password needs at least 6 characters.',
+      'password-same': 'Choose a password different from the current one.',
+      'password-mismatch': 'The two new password boxes do not match.',
+      connect: 'Could not reach the data service.',
+      permission: 'You do not have permission.',
+    },
     signIn: 'Sign in',
     signOut: 'Sign out',
     notices: 'Notices',
@@ -111,9 +160,13 @@ const state = {
   photos: {},
   pane: 'talks',
   threadOpen: false,
+  mustChange: false,
+  currentPw: '',
 };
 
 function t(key) { return text[state.language][key] || key; }
+/** An error code from the data service, in words. */
+function errorText(error) { const code = error?.message || ''; return text[state.language].errors[code] || (code && code !== 'connect' ? code : t('failed')); }
 function esc(value) { return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
 
 const SKIN = ['#f6d7b8', '#e7b98a', '#c68642', '#8d5524', '#f3c7a1', '#d9a066'];
@@ -212,6 +265,7 @@ function stageHtml() {
   }
   if (state.pane === 'profile') return `<div class="stage-page">${profileCard() || `<p class="empty">${icon('user')}<span>${esc(t('details'))}</span></p>`}</div>`;
   if (state.pane === 'invite') return inviteHtml();
+  if (state.pane === 'password') return `<div class="stage-page">${passwordForm(false)}</div>`;
   if (state.pane === 'notices') return threadHtml(true);
   if (state.threadOpen && personalRoom()) return threadHtml(false);
   const rooms = roomButtons();
@@ -261,7 +315,8 @@ function shell() {
         ${railButton('profile', 'user', t('mine'))}
         <button type="button" class="rail-button" data-action="language" title="${esc(t('language'))}" aria-label="${esc(t('language'))}">${icon('globe')}</button>
         <button type="button" class="rail-button" data-action="work" title="${esc(t('work'))}" aria-label="${esc(t('work'))}">${icon('folder')}</button>
-        <button type="button" class="rail-button" data-action="sign-out" title="${esc(t('signOut'))}" aria-label="${esc(t('signOut'))}">${icon('close')}</button>
+        ${railButton('password', 'key', t('changePassword'))}
+        <button type="button" class="rail-button" data-action="sign-out" title="${esc(t('signOut'))}" aria-label="${esc(t('signOut'))}">${icon('logout')}</button>
       </aside>
       <section class="stage">${stageHtml()}</section>
     </div>
@@ -273,24 +328,56 @@ function loginCard() {
     ${icon('comment')}<img src="./icon.png" alt="" width="36" height="36">
     <b>${esc(t('product'))}</b>
     <p class="muted">${icon('info')}<span>${esc(t('hint'))}</span></p>
-    <label><span class="field-name">${icon('user')}<span>${esc(t('account'))}</span></span><input name="account" value="${esc(state.account)}" autocomplete="username"></label>
-    <label><span class="field-name">${icon('lock')}<span>${esc(t('password'))}</span></span><input name="password" type="password" autocomplete="current-password"></label>
+    <label><span class="field-name">${icon('idCard')}<span>${esc(t('account'))}</span></span><input name="account" value="${esc(state.account)}" autocomplete="username" spellcheck="false" autocapitalize="off"></label>
+    <label><span class="field-name">${icon('key')}<span>${esc(t('password'))}</span></span><input name="password" type="password" autocomplete="current-password"></label>
     <label class="reveal"><input type="checkbox" data-reveal="password">${icon('eye')}<span>${esc(t('show'))}</span></label>
     <p class="error">${esc(state.error)}</p>
-    <button type="submit">${icon('check')}<span>${esc(t('signIn'))}</span></button>
+    <button type="submit" class="login-submit">${icon('login')}<span>${esc(t('signIn'))}</span></button>
   </form></div>`;
+}
+
+/** Choosing one's own password: forced at the first sign-in, or by choice from the side rail. */
+function passwordForm(forced) {
+  return `<form class="card change${forced ? ' forced' : ''}" data-change>
+    <b>${icon('key')}<span>${esc(forced ? t('changeTitle') : t('changePassword'))}</span></b>
+    <p class="muted">${esc(forced ? t('changeLead') : t('changeMine'))}</p>
+    ${forced && state.currentPw ? '' : `<label><span class="field-name">${icon('key')}<span>${esc(t('current'))}</span></span><input name="current" type="password" required autocomplete="current-password"></label>`}
+    <label><span class="field-name">${icon('key')}<span>${esc(t('next'))}</span></span><input name="next" type="password" required minlength="6" autocomplete="new-password"></label>
+    <label><span class="field-name">${icon('key')}<span>${esc(t('again'))}</span></span><input name="again" type="password" required minlength="6" autocomplete="new-password"></label>
+    <p class="muted">${icon('info')}<span>${esc(t('rule'))}</span></p>
+    <p class="error">${esc(state.error)}</p>
+    <div class="actions">${forced
+      ? `<button type="button" class="quiet" data-action="sign-out">${icon('logout')}<span>${esc(t('signOut'))}</span></button>`
+      : `<button type="button" class="quiet" data-pane="talks">${icon('close')}<span>${esc(t('cancel'))}</span></button>`}
+      <button type="submit" class="login-submit">${icon('check')}<span>${esc(t('change'))}</span></button></div>
+  </form>`;
 }
 
 function roomButtons() {
   return state.rooms.filter((room) => room.kind !== 'notices').map((room) => `<button type="button" class="room${room.id === state.roomId ? ' active' : ''}" data-room="${esc(room.id)}"><b>${icon(room.kind === 'group' ? 'people' : 'comment')}<span>${esc(roomTitle(room))}</span></b><small>${esc(room.last?.body || '')}</small>${room.unread ? `<i>${room.unread}</i>` : ''}</button>`).join('');
 }
 
+function personRow(person) {
+  const teams = (person.teams || []).map((team) => team.name);
+  const line = [person.jobTitle, ...(teams.length ? teams : [person.team])].filter(Boolean).join(' · ');
+  const talk = person.id === state.self ? '' : `<button type="button" class="icon-button" data-action="direct" data-id="${esc(person.id)}" title="${esc(t('talks'))}" aria-label="${esc(t('talks'))}">${icon('comment')}</button>`;
+  return `<div class="person-row"><button type="button" class="person" data-action="profile" data-id="${esc(person.id)}">${faceHtml(person)}<span class="person-copy"><span class="person-name">${esc(person.name)}</span>${line ? `<small>${esc(line)}</small>` : ''}</span></button>${talk}</div>`;
+}
+
+/** People grouped by team (Company → Teams); someone in several teams shows in each. */
 function personButtons() {
-  return state.people.map((person) => {
-    const line = [person.jobTitle, person.team].filter(Boolean).join(' · ');
-    const talk = person.id === state.self ? '' : `<button type="button" class="icon-button" data-action="direct" data-id="${esc(person.id)}" title="${esc(t('talks'))}">${icon('comment')}</button>`;
-    return `<div class="person-row"><button type="button" class="person" data-action="profile" data-id="${esc(person.id)}">${faceHtml(person)}<span class="person-copy"><span class="person-name">${esc(person.name)}</span>${line ? `<small>${esc(line)}</small>` : ''}</span></button>${talk}</div>`;
-  }).join('');
+  const teams = new Map();
+  const loose = [];
+  for (const person of state.people) {
+    if (!(person.teams || []).length) { loose.push(person); continue; }
+    for (const team of person.teams) {
+      if (!teams.has(team.id)) teams.set(team.id, { name: team.name, people: [] });
+      teams.get(team.id).people.push(person);
+    }
+  }
+  const group = (name, glyph, people) => `<div class="team-group"><h3>${icon(glyph)}<span>${esc(name)}</span><i class="count-chip">${people.length}</i></h3>${people.map(personRow).join('')}</div>`;
+  const sorted = [...teams.values()].sort((a, b) => a.name.localeCompare(b.name));
+  return sorted.map((team) => group(team.name, 'team', team.people)).join('') + (loose.length ? group(t('noTeam'), 'user', loose) : '');
 }
 
 function profileCard() {
@@ -305,7 +392,7 @@ function profileCard() {
     <div class="profile-head">${faceHtml(person, 'lg')}<span class="person-copy"><b>${esc(person.name)}</b><small>${esc(t('details'))}</small></span><button type="button" data-action="close-profile">${icon('close')}<span>${esc(t('close'))}</span></button></div>
     ${field('user', t('name'), 'name', person.name)}
     ${field('flag', t('title'), 'jobTitle', person.jobTitle)}
-    ${field('people', t('team'), 'team', person.team)}
+    <p>${icon('team')}<span>${esc(t('teams'))}</span><b class="team-chips">${(person.teams || []).map((team) => `<i class="chip">${icon(team.lead ? 'shield' : 'team')}${esc(team.name)}${team.lead ? ` · ${esc(t('lead'))}` : ''}</i>`).join(' ') || esc(person.team || t('noTeam'))}</b></p>
     ${field('phone', t('phone'), 'phone', person.phone)}
     ${field('globe', t('email'), 'email', person.email)}
     ${canEdit ? `<label>${icon('image')}<span>${esc(t('photo'))}</span><input id="portrait" type="file" accept="image/*"></label><button type="submit">${icon('save')}<span>${esc(t('save'))}</span></button>` : ''}
@@ -339,7 +426,7 @@ function messageHtml() {
 
 function paint(options = {}) {
   const root = document.querySelector('#app');
-  const live = sessionToken() && state.self && document.querySelector('.app');
+  const live = sessionToken() && state.self && !state.mustChange && document.querySelector('.app');
   if (live && !options.full) {
     const rooms = document.querySelector('.rooms');
     if (rooms) rooms.innerHTML = roomButtons();
@@ -360,15 +447,22 @@ function paint(options = {}) {
     return;
   }
   const draft = document.querySelector('#draft')?.value || '';
-  root.innerHTML = sessionToken() && state.self ? shell() : loginCard();
+  root.innerHTML = state.mustChange && sessionToken() ? `<div class="login">${passwordForm(true)}</div>` : (sessionToken() && state.self ? shell() : loginCard());
   if (draft && document.querySelector('#draft')) document.querySelector('#draft').value = draft;
   const box = document.querySelector('#messages');
   if (box) box.scrollTop = box.scrollHeight;
 }
 
 async function refresh(full = false) {
-  if (!state.self) return;
-  const [rooms, people] = await Promise.all([chatRooms(), chatPeople()]);
+  if (!state.self || state.mustChange) return;
+  let rooms;
+  let people;
+  try {
+    [rooms, people] = await Promise.all([chatRooms(), chatPeople()]);
+  } catch (error) {
+    if (error?.message === 'password-change') { askNewPassword(''); return; }
+    throw error;
+  }
   state.rooms = rooms.rooms || [];
   state.people = people.people || [];
   if (state.pane === 'notices') {
@@ -388,6 +482,13 @@ async function refresh(full = false) {
 
 let signing = false;
 
+function askNewPassword(current) {
+  state.mustChange = true;
+  state.currentPw = current || '';
+  state.error = '';
+  paint({ full: true });
+}
+
 async function enter(account, password) {
   signing = true;
   try {
@@ -396,6 +497,7 @@ async function enter(account, password) {
     state.account = session.user.login || account;
     state.password = '';
     state.error = '';
+    if (session.user.mustChangePassword) { askNewPassword(password); return; }
     await refresh(true);
   } finally {
     signing = false;
@@ -420,8 +522,9 @@ async function adopt(force = false) {
   try {
     const session = profile?.id ? { user: profile } : await currentSession();
     if (!profile?.id) rememberProfile(session.user);
-    if (state.self === session.user.id && !force) return;
+    if (state.self === session.user.id && !force && !session.user.mustChangePassword) return;
     state.self = session.user.id;
+    if (session.user.mustChangePassword) { state.account = session.user.login || state.account; askNewPassword(''); return; }
     state.account = session.user.login || session.user.name || state.account;
     state.roomId = '';
     state.messages = [];
@@ -436,8 +539,26 @@ async function adopt(force = false) {
 document.querySelector('#app').addEventListener('submit', (event) => {
   event.preventDefault();
   const form = event.target;
-  if (form.classList.contains('card')) {
-    enter(form.account.value.trim(), form.password.value).catch((error) => { state.error = error.message || t('failed'); paint({ full: true }); });
+  if (form.classList.contains('card') && !form.hasAttribute('data-change')) {
+    enter(form.account.value.trim(), form.password.value).catch((error) => { state.error = errorText(error); paint({ full: true }); });
+    return;
+  }
+  if (form.hasAttribute('data-change')) {
+    const current = state.currentPw || form.elements.current?.value || '';
+    const next = form.elements.next.value;
+    if (next !== form.elements.again.value) { state.error = t('errors')['password-mismatch']; paint({ full: true }); return; }
+    changeOwnPassword(current, next).then(() => {
+      if (savedLogin()?.password) rememberLogin(state.account, next);
+      state.mustChange = false;
+      state.currentPw = '';
+      state.error = '';
+      state.pane = 'talks';
+      return refresh(true).then(() => { state.profileError = t('changed'); });
+    }).catch((error) => {
+      if (error?.message === 'password') state.currentPw = '';
+      state.error = errorText(error);
+      paint({ full: true });
+    });
     return;
   }
   if (form.hasAttribute('data-profile')) {
@@ -448,7 +569,7 @@ document.querySelector('#app').addEventListener('submit', (event) => {
       id: person.id,
       name,
       jobTitle: form.elements.jobTitle.value.trim(),
-      team: form.elements.team.value.trim(),
+      team: person.team || '',
       phone: form.elements.phone.value.trim(),
       email: form.elements.email.value.trim(),
       photo: person.photo || '',
@@ -497,7 +618,8 @@ document.querySelector('#app').addEventListener('click', (event) => {
       refresh(true).then(() => openMain(latestNoticeTarget(), { focus: false })).catch(() => {});
       return;
     }
-    if (pane === 'people' || pane === 'invite') openMain({ view: 'people' });
+    if (pane === 'people') openMain({ view: 'teams' });
+    if (pane === 'password') state.error = '';
     if (pane === 'profile') {
       openMain({ view: 'users', profile: true, userId: state.self });
       chatProfile(state.self).then((result) => {
@@ -583,6 +705,8 @@ document.querySelector('#app').addEventListener('click', (event) => {
   if (action === 'sign-out') {
     logoutSession();
     state.self = '';
+    state.mustChange = false;
+    state.currentPw = '';
     state.rooms = [];
     state.messages = [];
     state.profile = null;
@@ -690,6 +814,7 @@ async function boot() {
 }
 
 loadLanguage();
+installTooltips(document.body);
 paint({ full: true });
 boot().catch(() => { state.self = ''; paint({ full: true }); });
 watchSharedSession(() => { adopt().catch(() => {}); });

@@ -181,6 +181,10 @@ function publicPerson(user, withPhoto = false) {
     photo: withPhoto ? (user.photo || '') : '',
     hasPhoto: Boolean(user.photo),
     admin: isWorkspaceAdmin(user),
+    // The teams this person belongs to (Company → Teams), for Talk's people list.
+    teams: (repository?.cached?.teams || [])
+      .filter((item) => item.leadId === user.id || (item.members || []).some((member) => member.userId === user.id))
+      .map((item) => ({ id: item.id, name: item.name, lead: item.leadId === user.id || (item.members || []).some((member) => member.userId === user.id && member.role === 'lead') })),
   };
 }
 

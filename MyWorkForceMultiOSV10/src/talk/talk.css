@@ -136,3 +136,21 @@ button { cursor: pointer; }
 @media (max-width: 800px) {
   .body { grid-template-columns: 56px 1fr; }
 }
+/* Same sign-in button and password window as the main program. */
+.card .login-submit { gap: 8px; height: 38px; font-weight: 700; letter-spacing: 0.02em; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 88%, #fff), var(--accent)); box-shadow: 0 2px 6px color-mix(in srgb, var(--accent) 35%, transparent); }
+.card .login-submit:hover { filter: brightness(1.06); }
+.card.change > b { display: flex; align-items: center; gap: 6px; font-size: 16px; }
+.card.change .actions { display: flex; gap: 8px; justify-content: flex-end; }
+.card.change .actions .quiet { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+.stage-page > .card.change { justify-self: start; }
+/* People grouped by team. */
+.team-group { display: grid; gap: 2px; margin-bottom: 10px; }
+.team-group h3 { display: flex; align-items: center; gap: 6px; margin: 6px 4px 2px; font-size: 12.5px; color: var(--muted); letter-spacing: 0.02em; }
+.count-chip { font-style: normal; font-size: 11px; padding: 0 7px; border: 1px solid var(--line); border-radius: 99px; color: var(--muted); }
+.team-chips { display: flex; flex-wrap: wrap; gap: 4px; font-weight: 500; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border: 1px solid var(--line); border-radius: 99px; font-style: normal; font-size: 12px; }
+.chip .icon { width: 13px; height: 13px; }
+/* Quick tooltips (src/ui/tooltip.js). */
+.quick-tip { position: fixed; z-index: 90; max-width: 300px; padding: 4px 8px; border-radius: 6px; background: var(--ink); color: var(--panel); font-size: 12px; line-height: 1.35; pointer-events: none; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); }
+.quick-tip[hidden] { display: none; }
+.rail { overflow-x: hidden; overflow-y: auto; }
