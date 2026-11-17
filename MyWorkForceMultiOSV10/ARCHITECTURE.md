@@ -40,6 +40,14 @@ MyWorkForce는 Vite로 묶는 브라우저 화면과 Tauri 2 데스크톱 껍질
 
 질의 언어는 WQL입니다. `src/domain/query.js` 가 구문 분석과 실행을 맡습니다.
 
+## 데이터 서비스와 스키마
+
+설치본은 데이터 서비스를 직접 띄웁니다. `npm run stage` (`scripts/stage-runtime.mjs`)가 `server/index.mjs`와 DB 드라이버를 esbuild로 `src-tauri/runtime/server.cjs` 하나로 묶고, 실행 중인 `node`를 옆에 복사합니다. `--check`는 빈 폴더에서 그 묶음을 띄워 `admin` 첫 로그인까지 확인합니다. `src-tauri/src/core.rs`는 시작할 때 `runtime/node server.cjs --data <앱 데이터>/data --parent-pid <pid>`를 실행하고, 출력은 `service.log`에 남깁니다. 1481 포트를 이미 다른 서비스가 쓰면 새 사본은 스스로 끝납니다.
+
+처음 여는 데이터베이스에는 작업 공간이 없으므로, 서버가 연결할 때 관리자 계정(`admin`)을 만듭니다(`seedAdmin`). 다른 데이터베이스로 바꾸면 사람이 다르므로 세션을 모두 지우고 다시 로그인하게 합니다.
+
+스키마는 `server/schema.mjs`에 있습니다. 버전은 `app_meta.schema_version`이고, 그 행이 없는 예전 데이터베이스는 버전 1로 봅니다. 연결할 때 `ensureSchema`가 없는 표를 만들고 남은 단계(`MIGRATIONS`)를 실행합니다. 프로그램보다 새 버전이면 손대지 않고 거절합니다. MySQL과 SQL Server는 길이 없는 텍스트에 키를 걸 수 없어서 키 열은 `VARCHAR(191)`/`NVARCHAR(191)`입니다. 서버에 데이터베이스가 없으면 "없으면 데이터베이스 만들기"로 `CREATE DATABASE`를 실행합니다. 관리자는 설정 → 데이터베이스 → 스키마에서 표 상태를 확인하고 만들기/올리기를 하거나, DBA에게 줄 SQL 스크립트(`GET /api/schema/sql?engine=`)를 받습니다.
+
 ## 데스크톱
 
 `src-tauri` 는 창, 파일 대화상자, 텍스트 읽기·쓰기, 자동 저장 경로, 설치 직후 언어와 설정 초기화를 담당합니다. 창 위치는 구성 폴더의 `window-state.json` 에 남습니다. 화면이 준비되면 창을 보여주고, 12초가 지나도 보이지 않으면 셸이 직접 보여 줍니다.

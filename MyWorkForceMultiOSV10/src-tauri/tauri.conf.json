@@ -7,7 +7,7 @@
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1480",
-    "beforeBuildCommand": "npm run build:web",
+    "beforeBuildCommand": "npm run stage && npm run build:web",
     "frontendDist": "../dist"
   },
   "app": {
@@ -29,6 +29,9 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "resources": {
+      "runtime/": "runtime/"
+    },
     "fileAssociations": [
       {
         "ext": ["mwf"],

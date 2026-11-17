@@ -1,10 +1,10 @@
 import { EXAMPLES } from '../domain/examples.js';
 import { savedLogin } from '../platform/data.js';
-import { ENGINES } from '../domain/engines.js';
+import { engineById, ENGINES } from '../domain/engines.js';
+import { isWorkspaceAdmin } from '../domain/permissions.js';
 import { gripIcon } from '../icons.js';
 import { esc, icon, L } from './bits.js';
 import { BACKGROUND_INTERVALS, BACKGROUNDS, knownBackground } from './background.js';
-import { loginForm } from './chrome.js';
 
 const KIND = {
   software: ['소프트웨어', 'Software', 'board'],
@@ -52,6 +52,42 @@ export function startupOptions(ctx) {
   return `<section><h2>${icon('play')}<span>${L('이 컴퓨터', 'This computer')}</span></h2>${startupFields(ctx)}</section>`;
 }
 
+/** The tables in the connected database: what is there, what is missing, and the way to fix it. */
+export function schemaPanel(ctx) {
+  const ui = ctx.ui || {};
+  if (!isWorkspaceAdmin(ctx.user)) return '';
+  const schema = ui.schema;
+  const busy = ui.schemaBusy ? 'disabled' : '';
+  const error = ui.schemaError ? `<p class="danger-text">${icon('alert')}<span>${esc(ui.schemaError)}</span></p>` : '';
+  let state = `<span class="schema-badge">${icon('clock')}${L('확인하지 않음', 'Not checked')}</span>`;
+  let body = `<p class="muted">${L('"확인"을 누르면 연결된 데이터베이스의 표를 살펴봅니다.', 'Press Check to look at the tables in the connected database.')}</p>`;
+  if (schema) {
+    const ok = schema.ready;
+    const label = schema.newer
+      ? L('더 새 버전', 'Newer version')
+      : ok ? L('최신', 'Up to date') : (schema.version ? L('올려야 함', 'Upgrade needed') : L('만들어야 함', 'Needs creating'));
+    state = `<span class="schema-badge ${ok ? 'ok' : 'warn'}">${icon(ok ? 'check' : 'alert')}${esc(label)} · ${L('버전', 'Version')} ${esc(schema.version)} / ${esc(schema.expected)}</span>`;
+    const rows = (schema.tables || []).map((table) => `<tr class="${table.exists ? '' : 'missing'}"><td>${icon('table')}<code>${esc(table.name)}</code></td><td>${table.exists ? `${icon('check')}${L('있음', 'Present')}` : `${icon('alert')}${L('없음', 'Missing')}`}</td><td class="num">${table.rows == null ? '—' : esc(table.rows)}</td></tr>`).join('');
+    const pending = (schema.pending || []).length
+      ? `<p class="schema-pending">${icon('layers')}<span>${L('남은 단계', 'Pending steps')}: ${(schema.pending || []).map((step) => `v${esc(step.version)} ${esc(L(step.ko, step.en))}`).join(', ')}</span></p>`
+      : '';
+    body = `<p class="muted">${icon('database')}<span>${esc(L(engineById(schema.engine).ko, engineById(schema.engine).en))} · ${esc(schema.database || '')}</span></p>
+      ${pending}
+      <div class="schema-table-wrap"><table class="schema-table"><thead><tr><th>${L('표', 'Table')}</th><th>${L('상태', 'State')}</th><th class="num">${L('행', 'Rows')}</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+  const upgradeLabel = schema && !schema.version ? L('스키마 만들기', 'Create schema') : L('만들기 / 올리기', 'Create / upgrade');
+  return `<section class="panel-card schema-card">
+    <header><b>${icon('table')}${L('스키마', 'Schema')}</b>${state}</header>
+    <p>${L('MyWorkForce가 쓰는 표와 색인입니다. 연결할 때 없는 표는 자동으로 만들고, 여기서 다시 확인하고 올릴 수 있습니다.', 'The tables and indexes MyWorkForce uses. Connecting creates missing tables; check and upgrade them again here.')}</p>
+    ${error}${body}
+    <div class="page-actions">
+      <button type="button" class="button" data-action="schema-check" ${busy}>${icon('search')}<span>${L('확인', 'Check')}</span></button>
+      <button type="button" class="button primary" data-action="schema-upgrade" ${busy || (schema?.ready ? 'disabled' : '')}>${icon('wrench')}<span>${upgradeLabel}</span></button>
+      <button type="button" class="button" data-action="schema-sql" data-engine="${esc(schema?.engine || '')}">${icon('code')}<span>${L('SQL 스크립트', 'SQL script')}</span></button>
+    </div>
+  </section>`;
+}
+
 /** SQLite file and the server connection. Shown from Settings. */
 export function databaseSettings(ctx) {
   const ui = ctx.ui || {};
@@ -81,9 +117,26 @@ export function databaseSettings(ctx) {
         <label class="form-row"><span>${L('사용자', 'User')}</span><input name="user" value="${esc(saved?.user || '')}"></label>
         <label class="form-row"><span>${L('암호', 'Password')}</span><input name="password" type="password"></label>
         <label class="form-row"><span>${L('작업 공간 암호', 'Workspace password')}</span><input name="unlock" type="password" placeholder="${esc(L('사람마다 암호가 있을 때만', 'Only when a person has a password'))}"></label>
-        <button type="submit" class="button primary" ${ui.connecting ? 'disabled' : ''}>${icon('check')}<span>${L('연결', 'Connect')}</span></button>
+        <label class="check"><input type="checkbox" name="createDatabase" checked>${icon('plus')}<span>${L('없으면 데이터베이스 만들기', 'Create the database if it is missing')}</span></label>
+        <p class="muted">${L('연결하면 필요한 표를 만들고 스키마를 최신 버전으로 올립니다. 계정에 만들기 권한이 없으면 SQL 스크립트를 DBA에게 전달하세요.', 'Connecting creates the tables it needs and brings the schema up to date. If the account may not create tables, give the SQL script to your DBA.')}</p>
+        <div class="page-actions">
+          <button type="submit" class="button primary" ${ui.connecting ? 'disabled' : ''}>${icon('link')}<span>${L('연결', 'Connect')}</span></button>
+          <button type="button" class="button" data-action="schema-sql">${icon('code')}<span>${L('SQL 스크립트', 'SQL script')}</span></button>
+        </div>
       </form>
+      ${schemaPanel(ctx)}
     </div></section>`;
+}
+
+/** The title section's account part: Sign in (opens the sign-in window), or who is signed in and Sign out. */
+function heroAccount(ctx) {
+  const ui = ctx.ui || {};
+  if (!ui.loginUser) {
+    return `<button type="button" class="button big hero-login" data-action="open-login" ${ui.connecting ? 'disabled' : ''}>${icon('login')}<span>${L('로그인', 'Sign in')}</span></button>`;
+  }
+  const who = ctx.user?.name || ui.loginAccount || '';
+  return `<span class="hero-account" title="${esc(L('로그인한 사람', 'Signed in'))}">${icon('idCard')}<b>${esc(who)}</b></span>
+    <button type="button" class="button big" data-action="sign-out">${icon('logout')}<span>${L('로그아웃', 'Sign out')}</span></button>`;
 }
 
 export function renderStart(ctx) {
@@ -143,14 +196,13 @@ export function renderStart(ctx) {
             <p>${L('튜토리얼로 둘러보거나, 설명서를 읽거나, 예제를 열어 시작합니다.', 'Start with the tutorial, the user guide, or an example.')}</p>
           </div>
           <div class="start-hero-actions">
+            ${heroAccount(ctx)}
             <button type="button" class="button big" data-action="open-guide" data-id="guide">${icon('book')}<span>${L('사용 설명서', 'User guide')}</span></button>
             <button type="button" class="button big primary" data-action="start-tutorial" ${ui.connecting ? 'disabled' : ''}>${icon('play')}<span>${L('튜토리얼 시작', 'Start the tutorial')}</span></button>
           </div>
         </section>
         ${offline}${error}
         <div class="start-board">
-        ${card('login', 'user', L('로그인', 'Sign in'), loginForm(ctx))}
-        ${ui.loginUser ? card('computer', 'play', L('이 컴퓨터', 'This computer'), startupFields(ctx)) : ''}
         ${card('actions', 'spark', L('시작', 'Start'), `<div class="sample-tiles">${actions}</div>`)}
         ${settings.startShowProjects === false ? '' : card('projects', 'folder', L('과제', 'Projects'), projectTiles ? `<div class="sample-tiles">${projectTiles}</div>` : `<p class="muted">${L('만들어진 과제가 없습니다.', 'There are no projects yet.')}</p>`, '', `<span class="sample-count">${projects.length}</span>`)}
         ${settings.startShowExamples === false ? '' : card('examples', 'box', L('예제', 'Examples'), `<p>${L('카드를 누르면 그 작업 공간으로 바뀝니다. 이미 프로젝트가 있으면 먼저 확인합니다.', 'A card replaces the workspace with that example. If you already have projects, it asks first.')}</p><label class="start-find"><span>${L('찾기', 'Find')}</span><input id="example-filter" value="${esc(ui.exampleFilter || '')}" placeholder="${esc(L('이름, 키, 설명', 'Name, key, or description'))}" autocomplete="off"></label><div class="sample-groups">${groups || `<p class="muted">${L('찾는 예제가 없습니다.', 'No example matches.')}</p>`}</div>`, show('examples'), `<span class="sample-count">${EXAMPLES.length}</span>`)}

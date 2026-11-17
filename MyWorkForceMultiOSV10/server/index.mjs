@@ -4,12 +4,19 @@ import { createServer } from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isWorkspaceAdmin } from '../src/domain/permissions.js';
-import { updateProfile, userByAccount } from '../src/domain/store.js';
+import { ensureAdmin, updateProfile, upgradeWorkspace, userByAccount } from '../src/domain/store.js';
 import { checkMessage, inviteMembers, listMessages, listRooms, noticeTarget, openRoom, postFile, postMessage, readFile } from './chat.mjs';
+import { createDatabase } from './engine.mjs';
 import { checkPassword, hashPassword, openRepository } from './repository.mjs';
+import { schemaScript } from './schema.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const dataDir = path.join(root, 'data');
+function argument(name) {
+  const at = process.argv.indexOf(name);
+  return at > 0 ? process.argv[at + 1] || '' : '';
+}
+// The installed app passes its own data folder (the program folder is not the place for the database).
+const dataDir = path.resolve(argument('--data') || process.env.MYWORKFORCE_DATA_DIR || path.join(root, 'data'));
 const configPath = path.join(dataDir, 'connection.json');
 const port = Number(process.env.MYWORKFORCE_DATA_PORT || 1481);
 const host = process.env.MYWORKFORCE_DATA_HOST || '0.0.0.0';
@@ -86,11 +93,43 @@ async function connect(config) {
     dataDir,
   };
   if (next.engine === 'sqlite') mkdirSync(dataDir, { recursive: true });
-  const opened = await openRepository(next);
+  let opened;
+  let createdDatabase = false;
+  try {
+    opened = await openRepository(next);
+  } catch (error) {
+    if (error?.message !== 'database-missing' || !config.createDatabase) throw error;
+    createdDatabase = await createDatabase(next);
+    opened = await openRepository(next);
+  }
+  await seedAdmin(opened);
+  // A session names a person in one database; another database has other people.
+  const moved = Boolean(repository) && storeKey(repository.config) !== storeKey(next);
+  if (moved) {
+    sessions.clear();
+    storeSessions();
+  }
   if (repository) await repository.close().catch(() => {});
   repository = opened;
   remember(next);
+  opened.lastConnect = { createdDatabase, sessionsReset: moved, ...(opened.engine.schemaChanges || {}) };
   return opened;
+}
+
+function storeKey(config) {
+  return [config.engine, config.host, config.port, config.database, config.engine === 'sqlite' ? path.resolve(config.file || '') : ''].join('|').toLowerCase();
+}
+
+function signedAdmin(req) {
+  const user = signedUser(req);
+  return isWorkspaceAdmin(user) ? user : null;
+}
+
+// A fresh database has no workspace, so nobody could sign in to create one.
+// The server seeds the administrator account itself.
+async function seedAdmin(repo) {
+  if (!repo.cached) await repo.writeWorkspace(upgradeWorkspace({}));
+  else if (ensureAdmin(repo.cached)) await repo.writeWorkspace(repo.cached);
 }
 
 function tokenOf(req) {
@@ -172,13 +211,19 @@ const server = createServer(async (req, res) => {
         saved: saved ? publicConfig(saved) : null,
         locked: Boolean(repository?.cached?.users?.some((user) => user.passwordHash)),
         revision: Number(repository?.cached?.revision) || 0,
+        schema: repository ? await repository.schemaStatus().then((item) => ({ version: item.version, expected: item.expected, ready: item.ready })).catch(() => null) : null,
       });
+    }
+    if (req.method === 'GET' && url.pathname === '/api/schema/sql') {
+      const engine = url.searchParams.get('engine') || repository?.engine.engine || 'sqlite';
+      if (!['sqlite', 'mysql', 'mariadb', 'mssql', 'postgres'].includes(engine)) return send(res, 400, { error: 'engine-unknown' });
+      return send(res, 200, { engine, sql: schemaScript(engine) });
     }
     if (req.method === 'POST' && url.pathname === '/api/connect') {
       if (!loopback(req) && !sessionOf(req)) return send(res, 403, { error: 'permission' });
       const body = await readBody(req);
       await connect(body.engine ? body : { engine: 'sqlite' });
-      return send(res, 200, repository.describe());
+      return send(res, 200, { ...repository.describe(), ...repository.lastConnect, schema: await repository.schemaStatus() });
     }
     if (req.method === 'POST' && url.pathname === '/api/disconnect') {
       if (!loopback(req) && !sessionOf(req)) return send(res, 403, { error: 'permission' });
@@ -187,6 +232,13 @@ const server = createServer(async (req, res) => {
       return send(res, 200, { connected: false, company: true });
     }
     if (!repository) return send(res, 409, { error: 'connect', detail: 'Connect a database first.' });
+    if (url.pathname === '/api/schema' && (req.method === 'GET' || req.method === 'POST')) {
+      if (!signedAdmin(req)) return send(res, 403, { error: 'permission' });
+      if (req.method === 'GET') return send(res, 200, await repository.schemaStatus());
+      const body = await readBody(req);
+      if (body.action !== 'upgrade') return send(res, 400, { error: 'schema-action' });
+      return send(res, 200, await repository.upgradeSchema());
+    }
     if (req.method === 'POST' && url.pathname === '/api/session') {
       const body = await readBody(req);
       const user = userByAccount(repository.cached?.users || [], body.account);
@@ -344,5 +396,12 @@ server.listen(port, host, () => {
   console.log(`MyWorkForce data service  ${host}:${port}  (company)`);
   connect(savedConfig() || { engine: 'sqlite' }).catch((error) => {
     console.error(error?.detail || error?.message || error);
-  });
+  }).finally(() => console.log(`MYWORKFORCE_READY ${port}`));
 });
+
+const parentPid = Number(argument('--parent-pid')) || 0;
+if (parentPid) {
+  setInterval(() => {
+    try { process.kill(parentPid, 0); } catch { process.exit(0); }
+  }, 2000).unref();
+}

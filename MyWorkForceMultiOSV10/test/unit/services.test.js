@@ -102,7 +102,12 @@ describe('Start screen', () => {
     const hero = html.slice(html.indexOf('start-hero'), html.indexOf('start-board'));
     assert.equal(hero.includes('data-card-handle'), false);
     assert.equal(hero.includes('data-card-resize'), false);
-    for (const id of ['actions', 'login', 'background', 'projects', 'examples']) {
+    // Signing in is a button in the title section that opens the sign-in window; no sign-in or computer card.
+    assert.match(hero, /data-action="open-login"/);
+    assert.equal(html.includes('data-card="login"'), false);
+    assert.equal(signed.includes('data-card="computer"'), false);
+    assert.match(signed.slice(signed.indexOf('start-hero'), signed.indexOf('start-board')), /data-action="sign-out"/);
+    for (const id of ['actions', 'background', 'projects', 'examples']) {
       assert.match(html, new RegExp(`data-card-handle="${id}"`));
       assert.match(html, new RegExp(`data-card-resize="${id}"`));
     }
@@ -115,9 +120,8 @@ describe('Start screen', () => {
     assert.equal((html.match(/data-action="pick-background"/g) || []).length, 21);
     assert.match(html, /data-action="shuffle-background"/);
     assert.match(html, /data-bg="speed"/);
-    assert.match(html, /id="login-account"/);
-    assert.match(html, /id="login-password"/);
-    assert.match(html, /data-login/);
+    // The sign-in form lives in the sign-in window, not on the start page.
+    assert.equal(html.includes('data-login'), false);
     const hidden = renderStart({ ui: { status: { listening: true }, connecting: false }, settings: { startShowBackground: false, startShowExamples: false, startShowProjects: false } });
     assert.equal(hidden.includes('data-card="background"'), false);
     assert.equal(hidden.includes('data-card="examples"'), false);

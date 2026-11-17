@@ -2,7 +2,7 @@ import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypt
 import { describeMail, webhookPayload } from '../src/domain/services.js';
 import { postNotice } from './chat.mjs';
 import { loadPrivacyKey, openUsers, openValue, seal, sealUsers } from './privacy.mjs';
-import { openEngine } from './engine.mjs';
+import { ensureSchema, inspectSchema, openEngine } from './engine.mjs';
 
 export function hashPassword(password) {
   const salt = randomBytes(16).toString('hex');
@@ -275,6 +275,17 @@ export class Repository {
     const locked = users.filter((item) => item.passwordHash);
     if (!locked.length) return true;
     return checkPassword(password, locked[0]?.passwordHash);
+  }
+
+  /** The tables and version in the connected database. */
+  async schemaStatus() {
+    return { ...(await inspectSchema(this.engine)), database: this.config.database || this.config.file || '' };
+  }
+
+  /** Creates missing tables and runs pending steps, then reports the result. */
+  async upgradeSchema() {
+    const changes = await ensureSchema(this.engine);
+    return { ...(await this.schemaStatus()), ...changes };
   }
 
   async close() { await this.engine.close(); }

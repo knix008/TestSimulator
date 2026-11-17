@@ -8,7 +8,7 @@ import { visibleDocuments } from '../domain/documents.js';
 import { noticeChecked } from '../domain/notices.js';
 import { allowed, isWorkspaceAdmin, orderedProjects, projectAncestors } from '../domain/permissions.js';
 import { visiblePage } from '../domain/wiki.js';
-import { activeSprint, findIssue, movesFrom } from '../domain/store.js';
+import { activeSprint, canDeleteProject, findIssue, movesFrom } from '../domain/store.js';
 import { dateInputValue, formatDuration } from '../domain/util.js';
 import { CUSTOM_KEYS } from '../themes.js';
 import { avatar, badge, byId, empty, esc, formatWhen, icon, L, nameOf, options, pageHead, panelFrame, person, safeColor, typeBadge, userOptions } from './bits.js';
@@ -473,6 +473,7 @@ function projectsAdmin(ctx) {
     const archive = manage ? ` <button type="button" class="small-button" data-action="archive-project" data-id="${esc(project.id)}" data-on="${project.archived ? '0' : '1'}">${icon(project.archived ? 'restore' : 'box')}<span>${project.archived ? L('보관 해제', 'Unarchive') : L('보관', 'Archive')}</span></button>` : '';
     const participants = manage ? ` <button type="button" class="small-button" data-action="project-participants" data-id="${esc(project.id)}">${icon('people')}<span>${L('참여자', 'Participants')}</span></button>` : '';
     const configure = manage ? ` <button type="button" class="small-button" data-action="open-project-settings" data-id="${esc(project.id)}">${icon('settings')}<span>${L('설정', 'Settings')}</span></button>` : '';
+    const remove = canDeleteProject(ctx.ws, project, ctx.user?.id) ? ` <button type="button" class="small-button danger" data-action="delete-project" data-id="${esc(project.id)}" title="${esc(L('관리자만 삭제할 수 있습니다.', 'Only an administrator may delete.'))}">${icon('trash')}<span>${L('삭제', 'Delete')}</span></button>` : '';
     const child = manage ? ` <button type="button" class="small-button" data-action="new-project" data-parent="${esc(project.id)}">${icon('subtask')}<span>${L('하위 과제', 'Sub-project')}</span></button>` : '';
     return `<tr>
       <td class="nest" style="padding-left:${8 + depth * 16}px">${esc(project.key)}</td>
@@ -480,7 +481,7 @@ function projectsAdmin(ctx) {
       <td>${esc(typeName(project.type))}</td>
       <td>${lead}</td>
       <td>${project.archived ? L('보관', 'Archived') : L('사용', 'Active')}</td>
-      <td><button type="button" class="small-button" data-action="activate" data-id="${esc(project.id)}">${icon('folder')}<span>${L('열기', 'Open')}</span></button>${child}${participants}${configure}${archive}</td>
+      <td><button type="button" class="small-button" data-action="activate" data-id="${esc(project.id)}">${icon('folder')}<span>${L('열기', 'Open')}</span></button>${child}${participants}${configure}${archive}${remove}</td>
     </tr>`;
   }).join('');
   return `<div class="page">${pageHead(L('과제', 'Projects'), `<button type="button" class="button primary" data-action="new-project">${icon('plus')}${L('새 과제', 'New project')}</button>`, 'projects')}

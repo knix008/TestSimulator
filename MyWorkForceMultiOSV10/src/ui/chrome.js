@@ -10,25 +10,30 @@ function item(action, glyph, label, extra = '', keys = '') {
   return `<button type="button" data-action="${action}" ${extra}>${icon(glyph)}<span>${label}</span>${keys ? `<kbd>${keys}</kbd>` : ''}</button>`;
 }
 
+/**
+ * The sign-in form. `layout: 'row'` (the start page) puts ID, Password and the button on one line;
+ * `layout: 'stack'` (the sign-in window) lines the labels up in one column with the button below.
+ */
 export function loginForm(ctx, ids = {}) {
   const account = ctx.ui.loginAccount || '';
   const accountId = ids.account || 'login-account';
   const passwordId = ids.password || 'login-password';
-  return `<form class="login-form" data-login>
-    <div class="login-row">
-      <div class="login-fields">
-        <label class="form-row"><span>${L('로그인 ID', 'Login ID')}</span><input id="${accountId}" name="account" value="${esc(account)}" autocomplete="username" placeholder="admin"></label>
-        <label class="form-row"><span>${L('비밀번호', 'Password')}</span><input id="${passwordId}" name="password" type="password" autocomplete="current-password" placeholder="admin"></label>
-        <label class="check password-reveal"><input type="checkbox" data-reveal="password">${L('비밀번호 표시', 'Show password')}</label>
-      </div>
-      <button type="submit" class="button primary" ${ctx.ui.connecting ? 'disabled' : ''}>${icon('check')}<span>${L('로그인', 'Sign in')}</span></button>
+  const layout = ids.layout === 'stack' ? 'stack' : 'row';
+  const busy = ctx.ui.connecting;
+  const reveal = `<label class="check password-reveal"><input type="checkbox" data-reveal="password">${icon('eye')}<span>${L('비밀번호 표시', 'Show password')}</span></label>`;
+  return `<form class="login-form login-${layout}" data-login>
+    <div class="login-grid">
+      <label class="login-field" for="${accountId}"><span class="login-label">${icon('idCard')}<span>ID</span></span><input id="${accountId}" name="account" value="${esc(account)}" autocomplete="username" spellcheck="false" autocapitalize="off"></label>
+      <label class="login-field" for="${passwordId}"><span class="login-label">${icon('key')}<span>Password</span></span><input id="${passwordId}" name="password" type="password" autocomplete="current-password"></label>
+      ${layout === 'stack' ? reveal : ''}
+      <button type="submit" class="login-submit" ${busy ? 'disabled' : ''}>${icon(busy ? 'clock' : 'login')}<span>${busy ? L('확인 중…', 'Checking…') : L('로그인', 'Sign in')}</span></button>
     </div>
-    <p class="muted">${L('관리자는 admin / admin 으로 들어갑니다.', 'The administrator signs in with admin / admin.')}</p>
+    ${layout === 'stack' ? '' : reveal}
   </form>`;
 }
 
 function menu(ctx, id, label, glyph, body, extra = '') {
-  return `<div class="menu${extra}${ctx.ui.menu === id ? ' open' : ''}"><button type="button" class="menubar-item" data-menu="${id}">${icon(glyph)}<span>${label}</span></button><div class="menu-pop"><div class="popup-bar">${closeButton()}</div>${body}</div></div>`;
+  return `<div class="menu${extra}${ctx.ui.menu === id ? ' open' : ''}"><button type="button" class="menubar-item" data-menu="${id}">${icon(glyph)}<span>${label}</span></button><div class="menu-pop" role="menu">${body}</div></div>`;
 }
 
 function closeButton(action = 'modal-cancel') {
@@ -57,6 +62,8 @@ export function renderMenubar(ctx) {
     recent ? `<div class="sep"></div>${recent}` : '',
     '<div class="sep"></div>',
     item('print', 'printer', L('인쇄', 'Print'), '', 'Ctrl+P'),
+    ctx.ui.loginUser ? '<div class="sep"></div>' : '',
+    ctx.ui.loginUser ? item('sign-out', 'logout', L('로그아웃', 'Sign out')) : '',
   ].join('');
   const edit = [
     item('undo', 'undo', L('실행 취소', 'Undo'), '', 'Ctrl+Z'),
@@ -191,7 +198,7 @@ export function renderToolbar(ctx) {
       <button type="button" class="tool-button" data-action="go" data-view="notifications" title="${esc(L('알림', 'Notifications'))}">${icon('bell')}${unread ? `<i class="dot">${unread}</i>` : ''}</button>
       <button type="button" class="tool-button wide" data-action="open-talk" title="${esc(L('대화 프로그램', 'Talk'))}">${icon('comment')}<span>${L('대화', 'Talk')}</span></button>
       <span class="signed-in" title="${esc(L('로그인한 사람', 'Signed in'))}">${ctx.user ? avatar(ctx.user) : ''}<span>${esc(ctx.user?.name || ctx.user?.login || '')}</span></span>
-      <button type="button" class="tool-button wide" data-action="sign-out" title="${esc(L('로그아웃', 'Sign out'))}">${icon('close')}<span>${L('로그아웃', 'Sign out')}</span></button>
+      <button type="button" class="tool-button wide" data-action="sign-out" title="${esc(L('로그아웃', 'Sign out'))}">${icon('logout')}<span>${L('로그아웃', 'Sign out')}</span></button>
       <button type="button" class="tool-button wide" data-action="language" title="Ctrl+Shift+L">${icon('globe')}<span>${ctx.settings.language === 'en' ? 'EN' : 'KO'}</span></button>
       ${panelButton('left', 'panelLeft', leftOpen, '왼쪽 패널', 'Left panel', 'Ctrl+Shift+1')}
       ${panelButton('right', 'panelRight', rightOpen, '오른쪽 패널', 'Right panel', 'Ctrl+Shift+2')}
@@ -368,9 +375,16 @@ export function renderModal(ctx) {
   if (!modal) return '';
   const project = ctx.project;
   if (modal.kind === 'confirm') {
-    return `<div class="modal-back"><div class="modal">${heading('alert', L('확인', 'Confirm'))}<p>${esc(modal.message)}</p><div class="modal-foot"><button type="button" class="button" data-action="modal-cancel">${icon('close')}<span>${L('취소', 'Cancel')}</span></button><button type="button" class="button primary" data-action="confirm-yes">${icon('check')}<span>${L('계속', 'Continue')}</span></button></div></div></div>`;
+    return `<div class="modal-back"><div class="modal">${heading('alert', L('확인', 'Confirm'))}<p>${esc(modal.message)}</p><div class="modal-foot"><button type="button" class="button" data-action="modal-cancel">${icon('close')}<span>${L('취소', 'Cancel')}</span></button><button type="button" class="button ${modal.yes?.danger ? 'primary danger-fill' : 'primary'}" data-action="confirm-yes">${icon(modal.yes?.glyph || 'check')}<span>${modal.yes ? L(modal.yes.ko, modal.yes.en) : L('계속', 'Continue')}</span></button></div></div></div>`;
   }
   if (modal.kind === 'about') return aboutDialog(ctx);
+  if (modal.kind === 'schema-sql') {
+    return `<div class="modal-back"><div class="modal schema-sql-modal">${heading('code', L('SQL 스크립트', 'SQL script'))}
+      <p class="muted">${L('DBA가 직접 표를 만들 때 이 스크립트를 실행합니다. 여러 번 실행해도 안전합니다.', 'A DBA runs this script to create the tables by hand. It is safe to run more than once.')} · <b>${esc(modal.engine)}</b></p>
+      <textarea id="schema-sql-text" class="schema-sql" readonly spellcheck="false">${esc(modal.sql || '')}</textarea>
+      <div class="modal-foot"><button type="button" class="button" data-action="schema-copy">${icon('copy')}<span>${L('복사', 'Copy')}</span></button><button type="button" class="button primary" data-action="modal-cancel">${icon('check')}<span>${L('닫기', 'Close')}</span></button></div>
+    </div></div>`;
+  }
   if (modal.kind === 'login') {
     const gate = modal.next !== 'tutorial';
     const lead = gate
@@ -378,10 +392,8 @@ export function renderModal(ctx) {
       : L('튜토리얼을 실행하려면 등록된 사용자로 로그인하세요.', 'Sign in as a registered user to run the tutorial.');
     const error = ctx.ui.startError ? `<p class="danger-text">${esc(ctx.ui.startError)}</p>` : '';
     const docs = gate ? `<div class="page-actions login-docs"><button type="button" class="button" data-action="open-guide" data-id="guide">${icon('book')}<span>${L('사용 설명서', "User's guide")}</span></button><button type="button" class="button" data-action="open-guide" data-id="tutorial">${icon('play')}<span>${L('튜토리얼 문서', 'Tutorial document')}</span></button></div>` : '';
-    const head = gate
-      ? `<h2>${icon('user')}<span class="grow">${esc(L('로그인', 'Sign in'))}</span></h2>`
-      : heading('user', L('로그인', 'Sign in'));
-    return `<div class="modal-back"><div class="modal login-modal">${head}<p>${esc(lead)}</p>${error}${docs}${loginForm(ctx, { account: 'dialog-account', password: 'dialog-password' })}</div></div>`;
+    const head = heading('login', L('로그인', 'Sign in'));
+    return `<div class="modal-back"><div class="modal login-modal">${head}<p>${esc(lead)}</p>${error}${docs}${loginForm(ctx, { account: 'dialog-account', password: 'dialog-password', layout: 'stack' })}</div></div>`;
   }
   if (modal.kind === 'welcome') {
     const again = ctx.settings?.showWelcome !== false;
@@ -511,7 +523,8 @@ export function paletteItems(ctx, text) {
 export function renderContext(ctx) {
   const menu = ctx.ui.context;
   if (!menu) return '';
-  const bar = `<div class="popup-bar">${closeButton()}</div>`;
+  // A menu is its list of items: no title bar and no close button (Esc or a click outside closes it).
+  const bar = '';
   if (menu.kind === 'file') {
     return bar + item('download-file', 'download', L('다운로드', 'Download'), `data-file="${esc(menu.id || '')}" data-name="${esc(menu.name || '')}" data-src="${esc(menu.src || '')}"`);
   }

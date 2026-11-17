@@ -728,7 +728,8 @@ describe('Screens', () => {
     assert.match(locked, /without signing in/);
     assert.match(locked, /data-action="open-guide" data-id="guide"/);
     assert.match(locked, /data-action="open-guide" data-id="tutorial"/);
-    assert.doesNotMatch(locked, /data-action="modal-cancel"/);
+    // The sign-in window opens from the Sign in button and can always be closed.
+    assert.match(locked, /data-action="modal-cancel"/);
     assert.match(html, /Show this window again at start/);
     assert.match(html, /Later/);
   });
@@ -864,8 +865,9 @@ describe('Screens', () => {
     assert.match(login, /id="login-password"/);
     assert.match(login, /data-reveal="password"/);
     assert.match(login, /Show password/);
-    assert.match(login, /Login ID/);
-    assert.match(login, /admin \/ admin/);
+    assert.match(login, /<span>ID<\/span>/);
+    assert.match(login, /<span>Password<\/span>/);
+    assert.doesNotMatch(login, /admin/);
     assert.doesNotMatch(login, /pick-login/);
     assert.match(nav, /User menu/);
     assert.match(nav, /data-view="projects"/);

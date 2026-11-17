@@ -98,13 +98,15 @@ html.is-web #app { min-height: 100vh; }
 .menubar-item:hover, .menu.open > .menubar-item { background: var(--hover); }
 .menubar-home { font-weight: 600; }
 .menubar-home.current { background: color-mix(in srgb, var(--accent) 18%, transparent); box-shadow: inset 0 -2px 0 var(--accent); }
-.menu-pop { display: none; position: absolute; z-index: 30; top: 100%; left: 0; min-width: 240px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 8px 24px var(--shadow, rgba(0,0,0,.18)); }
+.menu-pop { display: none; position: absolute; z-index: 30; top: 100%; left: 0; min-width: 280px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 8px 24px var(--shadow, rgba(0,0,0,.18)); }
 .menu.open > .menu-pop { display: grid; }
 .menu-pop button { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; border: 0; border-radius: 6px; background: none; padding: 6px 8px; }
 .menu-pop button:hover { background: var(--hover); }
 .menu-pop button span { flex: 1; }
 .menu-pop .sep { height: 1px; margin: 4px 6px; background: var(--border); }
-.window-controls { display: flex; margin-left: auto; }
+/* Above the sign-in window (#modal, z-index 50): the window can be moved, minimized, maximized and closed while signed out. */
+.window-controls { display: flex; margin-left: auto; position: relative; z-index: 55; align-self: stretch; }
+.menubar-drag, .app-brand { position: relative; z-index: 55; }
 .window-button { width: 46px; border: 0; border-radius: 0; background: none; color: var(--text); display: grid; place-items: center; }
 .window-button svg, .window-button .icon { width: 15px; height: 15px; }
 .window-button:hover { background: var(--hover); }
@@ -234,7 +236,8 @@ textarea { width: 100%; resize: vertical; }
 .button, .small-button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); padding: 5px 10px; }
 .button.primary, .small-button.primary { background: var(--accent); color: var(--accent-text, #fff); border-color: var(--accent); }
 .button.active { border-color: var(--accent); color: var(--accent); }
-.button.danger { color: var(--danger); }
+.button.danger, .small-button.danger { color: var(--danger); }
+.small-button.danger:hover { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, var(--surface)); }
 .small-button { padding: 3px 8px; font-size: 0.92em; }
 .button:hover, .small-button:hover { border-color: var(--accent); }
 .icon-button { width: 24px; height: 24px; display: inline-grid; place-items: center; border: 0; border-radius: 6px; background: none; color: var(--muted); padding: 0; }
@@ -420,13 +423,48 @@ ul.plain li { display: flex; align-items: center; gap: 6px; padding: 4px 0; bord
 .bg-tile.on, .bg-tile:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--surface)); }
 .start-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
 .welcome-again { margin-top: 8px; }
-.login-form { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
-.login-row { display: flex; align-items: stretch; gap: 10px; max-width: 100%; }
-.login-fields { flex: 0 1 260px; width: 260px; max-width: 100%; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
-.login-fields .form-row { grid-template-columns: 72px minmax(0, 1fr); }
-.login-fields .password-reveal { margin: 0; font-size: 12px; }
-.login-row > .button.primary { align-self: stretch; height: auto; white-space: nowrap; }
+.login-form { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 720px; }
+.login-grid { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.login-field { display: flex; align-items: center; gap: 8px; flex: 1 1 200px; min-width: 0; margin: 0; }
+.login-label { display: inline-flex; align-items: center; gap: 5px; font-weight: 650; white-space: nowrap; color: var(--text); }
+.login-field input { flex: 1 1 auto; min-width: 0; height: 34px; padding: 0 10px; border-radius: 8px; }
+.login-field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); outline: none; }
+.login-submit { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 34px; padding: 0 20px; border: 1px solid color-mix(in srgb, var(--accent) 80%, #000); border-radius: 8px; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 88%, #fff), var(--accent)); color: var(--accent-text, #fff); font-weight: 700; letter-spacing: 0.02em; white-space: nowrap; cursor: pointer; box-shadow: 0 2px 6px color-mix(in srgb, var(--accent) 35%, transparent); transition: transform 0.08s ease, box-shadow 0.12s ease, filter 0.12s ease; }
+.login-submit .icon[data-tone] { color: inherit; }
+.login-submit:hover:not(:disabled) { filter: brightness(1.06); box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 45%, transparent); transform: translateY(-1px); }
+.login-submit:active:not(:disabled) { transform: translateY(0); box-shadow: 0 1px 3px color-mix(in srgb, var(--accent) 35%, transparent); }
+.login-submit:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.login-submit:disabled { opacity: 0.65; cursor: default; }
+.login-form .password-reveal { display: inline-flex; align-items: center; gap: 5px; margin: 0; font-size: 12px; color: var(--muted); }
+.login-row .login-submit { flex: 0 0 auto; }
+.login-stack { max-width: none; }
+.login-stack .login-grid { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 10px 12px; align-items: center; }
+.login-stack .login-field { display: contents; }
+.login-stack .login-label { justify-content: flex-start; }
+.login-stack .login-submit { grid-column: 1 / -1; width: 100%; height: 38px; margin-top: 4px; font-size: 1.02em; }
+.login-stack .password-reveal { grid-column: 2; }
+.login-modal { width: min(460px, calc(100vw - 32px)); }
+.login-modal > p { margin: 0 0 12px; color: var(--muted); line-height: 1.5; }
 .login-modal .login-form { padding: 0; }
+.schema-card header { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.schema-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); font-size: 12px; font-weight: 650; }
+.schema-badge.ok { border-color: color-mix(in srgb, #2e9d5b 60%, var(--border)); color: #2e9d5b; }
+.schema-badge.warn { border-color: color-mix(in srgb, #d08a12 60%, var(--border)); color: #c27c0e; }
+.schema-card p { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.schema-table-wrap { max-height: 260px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+.schema-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.schema-table th, .schema-table td { padding: 4px 8px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+.schema-table th { position: sticky; top: 0; background: var(--surface); }
+.schema-table td .icon { width: 14px; height: 14px; vertical-align: -2px; margin-right: 4px; }
+.schema-table .num { text-align: right; }
+.schema-table tr.missing td { color: var(--danger, #c0392b); }
+.schema-sql-modal { width: min(820px, calc(100vw - 32px)); }
+.schema-sql { width: 100%; height: min(52vh, 460px); font-family: ui-monospace, Consolas, monospace; font-size: 12px; white-space: pre; resize: vertical; }
+.hero-login { min-width: 120px; justify-content: center; }
+.hero-account { display: inline-flex; align-items: center; gap: 6px; padding: 0 6px; font-size: 1.02em; }
+.button.primary.danger-fill { background: var(--danger); border-color: var(--danger); color: #fff; }
+.signed-in-card { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.signed-in-who { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
 .login-modal .login-docs { margin: 0 0 12px; justify-content: flex-start; }
 .start-speed { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
 .start-speed input[type="range"] { width: 110px; }

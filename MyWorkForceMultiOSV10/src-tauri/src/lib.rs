@@ -1,3 +1,4 @@
+mod core;
 mod files;
 mod i18n;
 mod window_state;
@@ -80,6 +81,7 @@ fn quit_all(app: &tauri::AppHandle) {
     for (_, window) in app.webview_windows() {
         let _ = window.destroy();
     }
+    core::stop();
     app.exit(0);
 }
 
@@ -287,9 +289,24 @@ pub fn run() {
                 open_main_window(app.handle())?;
             }
             install_tray(app.handle())?;
+            // The data service the windows sign in to (port 1481). Its database lives in the app data folder.
+            let resources = app.path().resource_dir().ok();
+            match app.path().app_data_dir() {
+                Ok(dir) => {
+                    if let Err(error) = core::start(resources, &dir.join("data")) {
+                        eprintln!("[data service] {error}");
+                    }
+                }
+                Err(error) => eprintln!("[data service] {error}"),
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![app_info, set_language, startup_files, read_text_file, write_text_file, workspace_file, open_talk, open_main, open_browser, set_talk_autostart])
-        .run(tauri::generate_context!())
-        .expect("error while running MyWorkForce");
+        .build(tauri::generate_context!())
+        .expect("error while building MyWorkForce")
+        .run(|_app, event| {
+            if let tauri::RunEvent::Exit = event {
+                core::stop();
+            }
+        });
 }

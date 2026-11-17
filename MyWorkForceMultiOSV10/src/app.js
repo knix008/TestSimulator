@@ -15,13 +15,14 @@ import { loadSettings, PANEL_MAX, PANEL_MIN, rememberPath, saveSettings } from '
 import {
   addAttachment, addComment, addComponent, addField, addGadget, addGroup, addLink, addRule, addStatus, addTransition,
   addUser, addVersion, addWorklog, blankWorkspace, cloneIssue, completeSprint, createIssue, createSprint, deleteComment, ensureAdmin, updateProfile,
-  deleteFilter, deleteIssue, deleteRule, deleteWorklog, findIssue, markAllRead, markRead, mergeProject, newProject,
+  canDeleteProject, deleteFilter, deleteIssue, deleteProject, deleteRule, deleteWorklog, findIssue, markAllRead, markRead, mergeProject, newProject,
   projectDocument, rankIssues, readDocument,   releaseVersion, removeAttachment, removeField, removeGadget, removeLink,
   removeStatus, removeTransition, saveFilter, setArchived, setCustomField, setMember, setUserActive,
   startSprint, toggleGroupUser, toggleWatch, transitionGate, updateIssue, updateProject, upgradeWorkspace, userByAccount, workspaceDocument,
 } from './domain/store.js';
 import { writingExport } from './domain/markdown.js';
 import { fromDateInput, parseDuration, uid } from './domain/util.js';
+import { schemaSql, schemaStatus, upgradeSchema } from './platform/data.js';
 import { clearMainRequest, clearSavedLogin, connectData, currentSession, dataStatus, dataUrl, hashPassword, loadWorkspace, loginSession, logoutSession, readMainRequest, rememberDataUrl, rememberLogin, rememberSession, savedLogin, saveWorkspace, sendTestMail, sessionToken, unlockData, watchMainRequest, watchSharedSession } from './platform/data.js';
 import { getLanguage, L, setLanguage } from './i18n.js';
 import { appInfo, chooseOpen, chooseSave, dragWindow, errorText, isDesktop, openBrowser, openTalk, readTextFile, resizeWindow, setBackendLanguage, setLaunchAtStartup, setWindowTheme, showMain, startupFiles, windowControl, writeTextFile } from './platform/native.js';
@@ -69,6 +70,12 @@ const ERRORS = {
   'engine-unknown': ['지원하지 않는 데이터베이스입니다.', 'That database is not supported.'],
   'project-required': ['프로젝트를 연 뒤에 그 프로젝트와 공유하세요.', 'Open a project before sharing with it.'],
   connect: ['데이터베이스에 연결하지 못했습니다.', 'Could not connect to the database.'],
+  'project-has-children': ['하위 과제가 있는 과제는 삭제할 수 없습니다. 하위 과제를 먼저 옮기거나 삭제하세요.', 'A project with sub-projects cannot be deleted. Move or delete its sub-projects first.'],
+  'database-missing': ['그 데이터베이스가 서버에 없습니다. "없으면 데이터베이스 만들기"를 켜고 다시 연결하세요.', 'That database does not exist on the server. Turn on "Create the database if it is missing" and connect again.'],
+  'database-create': ['데이터베이스를 만들지 못했습니다. 계정에 CREATE DATABASE 권한이 있는지 확인하세요.', 'The database could not be created. Check that the account may CREATE DATABASE.'],
+  'database-name': ['데이터베이스 이름은 영문자, 숫자, _, -, $ 만 쓸 수 있습니다.', 'A database name may use letters, digits, _, - and $ only.'],
+  schema: ['표를 만들지 못했습니다. 계정에 CREATE 권한이 있는지 확인하거나, SQL 스크립트를 DBA에게 전달하세요.', 'The tables could not be created. Check that the account may CREATE tables, or give the SQL script to your DBA.'],
+  'schema-newer': ['이 데이터베이스는 더 새 버전의 MyWorkForce가 만든 것입니다. 프로그램을 업데이트하세요.', 'A newer MyWorkForce made this database. Update the program.'],
   'mail-host': ['메일 서버 주소를 입력하세요.', 'Enter the mail server address.'],
   'mail-from': ['보내는 메일 주소를 입력하세요.', 'Enter the From address.'],
   'mail-to': ['받을 메일 주소를 입력하세요.', 'Enter the address that should receive the message.'],
@@ -325,10 +332,30 @@ async function connectServer(form) {
   ui.startError = '';
   paint();
   try {
-    ui.connection = await connectData({
+    const result = await connectData({
       engine: value('engine') || 'mysql', host: value('host'), port: value('port'),
       database: value('database'), user: value('user'), password: value('password'),
+      createDatabase: data.get('createDatabase') === 'on',
     });
+    ui.connection = result;
+    ui.schema = result.schema || null;
+    toast(connectSummary(result));
+    if (result.sessionsReset) {
+      // The new database has its own people: sign in again there.
+      rememberSession('');
+      ui.loginUser = '';
+      ui.loginAccount = '';
+      ui.loginPassword = '';
+      ui.unlocked = false;
+      ui.ready = false;
+      ui.opened = false;
+      ui.connecting = false;
+      ui.modal = null;
+      ui.startError = L('새 데이터베이스에 연결했습니다. 그 데이터베이스의 계정으로 다시 로그인하세요.', 'Connected to the new database. Sign in again with an account of that database.');
+      await refreshStatus();
+      paint();
+      return;
+    }
     if (ui.ready) ui.returnView = ui.view || 'settings';
     await afterConnect(value('unlock'));
   } catch (error) {
@@ -336,6 +363,59 @@ async function connectServer(form) {
     ui.startError = message(error);
     if (!ui.ready) ui.ready = false;
     paint();
+  }
+}
+
+/** One line about what connecting did to the database. */
+function connectSummary(result) {
+  const parts = [L('데이터베이스에 연결했습니다.', 'Connected to the database.')];
+  if (result.createdDatabase) parts.push(L('데이터베이스를 만들었습니다.', 'The database was created.'));
+  if (result.created?.length) parts.push(L(`표 ${result.created.length}개를 만들었습니다.`, `${result.created.length} tables were created.`));
+  if (result.applied?.length) parts.push(L(`스키마를 버전 ${result.applied.at(-1)}(으)로 올렸습니다.`, `The schema was upgraded to version ${result.applied.at(-1)}.`));
+  return parts.join(' ');
+}
+
+async function refreshSchema(loud = false) {
+  if (!ui.loginUser) return;
+  ui.schemaBusy = true;
+  try {
+    ui.schema = await schemaStatus();
+    ui.schemaError = '';
+    if (loud) toast(ui.schema.ready ? L('스키마가 최신입니다.', 'The schema is up to date.') : L('스키마를 만들거나 올려야 합니다.', 'The schema needs to be created or upgraded.'));
+  } catch (error) {
+    ui.schemaError = message(error);
+  } finally {
+    ui.schemaBusy = false;
+    paint();
+  }
+}
+
+async function runSchemaUpgrade() {
+  ui.schemaBusy = true;
+  paint();
+  try {
+    const result = await upgradeSchema();
+    ui.schema = result;
+    ui.schemaError = '';
+    const did = [];
+    if (result.created?.length) did.push(L(`표 ${result.created.length}개를 만들었습니다.`, `${result.created.length} tables were created.`));
+    if (result.applied?.length) did.push(L(`버전 ${result.applied.at(-1)}(으)로 올렸습니다.`, `Upgraded to version ${result.applied.at(-1)}.`));
+    toast(did.join(' ') || L('바꿀 것이 없습니다. 스키마가 최신입니다.', 'Nothing to change. The schema is up to date.'));
+  } catch (error) {
+    ui.schemaError = message(error);
+  } finally {
+    ui.schemaBusy = false;
+    paint();
+  }
+}
+
+async function openSchemaSql(engine) {
+  try {
+    const result = await schemaSql(engine);
+    ui.modal = { kind: 'schema-sql', engine: result.engine, sql: result.sql };
+    paint();
+  } catch (error) {
+    toast(message(error));
   }
 }
 
@@ -589,15 +669,9 @@ function offerWelcome() {
   ui.modal = { kind: 'welcome' };
 }
 
-function offerLogin() {
-  if (ui.loginUser || ui.ready) return;
-  if (ui.modal?.kind === 'login') return;
-  ui.modal = { kind: 'login', next: 'gate' };
-}
-
 function signedOut(name, el) {
   if (ui.loginUser || ui.ready) return false;
-  if (name === 'sign-in' || name === 'pick-login') return false;
+  if (name === 'sign-in' || name === 'pick-login' || name === 'open-login' || name === 'modal-cancel') return false;
   if (name === 'close-reading' || name === 'reader-lang' || name === 'reader-print') return false;
   if ((name === 'open-guide' || name === 'help-doc' || name === 'start-tab') && ['guide', 'tutorial'].includes(el?.dataset?.id || 'guide')) return false;
   return true;
@@ -754,8 +828,7 @@ function paint() {
     const reading = ui.reading && DOC_KINDS[ui.reading];
     if (reading && (ui.modal?.kind === 'login' || ui.modal?.kind === 'welcome')) ui.modal = null;
     if (!reading && ui.loginUser && ui.modal?.kind === 'login') ui.modal = null;
-    if (!reading && !ui.loginUser) offerLogin();
-    else if (!reading) offerWelcome();
+    if (!reading && ui.loginUser) offerWelcome();
     if (reading) {
       stopStartBackground();
       document.querySelector('#view').innerHTML = readingHtml(ui.reading);
@@ -777,7 +850,9 @@ function paint() {
   startCards = null;
   stopStartBackground();
   if (ui.modal?.kind === 'welcome' || (ui.modal?.kind === 'login' && ui.loginUser)) ui.modal = null;
-  if (!ctx.project && !['home', 'help', 'knowledge', 'documents', 'calendar', 'plans', 'extensions'].includes(ui.view)) ui.view = 'home';
+  // Views that need no open project stay put (a fresh install has none yet, and the administrator
+  // must still reach Settings, Users and Projects to make one).
+  if (!ctx.project && !NO_PROJECT_VIEWS.has(ui.view)) ui.view = 'home';
   if (ctx.project && !ctx.project.boards.some((board) => board.id === ui.boardId)) {
     ui.boardId = ctx.project.boards.find((board) => board.type === 'scrum')?.id || ctx.project.boards[0]?.id || null;
   }
@@ -1100,8 +1175,8 @@ function exportWriting(title, body, files, format) {
   setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
-function confirm(messageText, action, id = null) {
-  ui.modal = { kind: 'confirm', message: messageText, action, id };
+function confirm(messageText, action, id = null, yes = null) {
+  ui.modal = { kind: 'confirm', message: messageText, action, id, yes };
   paint();
 }
 
@@ -1127,6 +1202,11 @@ function runConfirmed() {
     undo = []; redo = [];
     scheduleSave();
     paint();
+    return;
+  }
+  if (modal.action === 'delete-project') {
+    mutate(() => deleteProject(ws, modal.id, actor()));
+    toast(L('과제를 삭제했습니다. 실행 취소(Ctrl+Z)로 되돌릴 수 있습니다.', 'The project is deleted. Undo (Ctrl+Z) brings it back.'));
     return;
   }
   if (modal.action === 'delete-issue') mutate(() => { deleteIssue(ws, project().id, ui.issueId, actor()); ui.issueId = null; ui.view = 'issues'; });
@@ -1511,7 +1591,16 @@ function onAction(el) {
   if (name === 'go') {
     ui.view = el.dataset.view || 'home';
     if (!ui.ready && ui.view === 'settings') { ui.returnView = 'settings'; connectLocal(); return; }
+    if (ui.view === 'settings') refreshSchema();
     paint();
+    return;
+  }
+  if (name === 'schema-check') { refreshSchema(true); return; }
+  if (name === 'schema-upgrade') { runSchemaUpgrade(); return; }
+  if (name === 'schema-sql') { openSchemaSql(el.dataset.engine || document.querySelector('#server-form [name="engine"]')?.value || ui.schema?.engine || 'sqlite'); return; }
+  if (name === 'schema-copy') {
+    const text = document.querySelector('#schema-sql-text')?.value || '';
+    navigator.clipboard?.writeText(text).then(() => toast(L('SQL을 복사했습니다.', 'The SQL is copied.'))).catch(() => toast(L('복사하지 못했습니다.', 'Could not copy.')));
     return;
   }
   if (name === 'activate') { ws.activeProjectId = el.dataset.id; ui.issueId = null; ui.selected = []; ui.boardId = null; ui.view = 'board'; scheduleSave(); paint(); return; }
@@ -1559,6 +1648,7 @@ function onAction(el) {
     return;
   }
   if (name === 'confirm-yes') { runConfirmed(); return; }
+  if (name === 'open-login') { ui.startError = ''; ui.modal = { kind: 'login', next: 'gate' }; paint(); document.querySelector('#dialog-account')?.focus(); return; }
   if (name === 'new-project') { ui.modal = { kind: 'project', parentId: el.dataset.parent || '' }; paint(); return; }
   if (name === 'open-project-settings') {
     const target = (ws.projects || []).find((item) => item.id === (el.dataset.id || current?.id));
@@ -1711,6 +1801,15 @@ function onAction(el) {
   if (name === 'delete-transition') { mutate(() => removeTransition(ws, current.id, el.dataset.id, actor())); return; }
   if (name === 'delete-rule') { mutate(() => deleteRule(ws, current.id, el.dataset.id, actor())); return; }
   if (name === 'delete-field') { mutate(() => removeField(ws, current.id, el.dataset.id, actor())); return; }
+  if (name === 'delete-project') {
+    const target = (ws.projects || []).find((item) => item.id === el.dataset.id);
+    if (!target) return;
+    if (!canDeleteProject(ws, target, actor())) { toast(L('과제는 관리자만 삭제할 수 있습니다.', 'Only an administrator may delete a project.')); return; }
+    if ((ws.projects || []).some((item) => item.parentId === target.id)) { toast(message(new Error('project-has-children'))); return; }
+    const issues = (target.issues || []).length;
+    confirm(L(`과제 "${target.name}" (${target.key})를 삭제할까요? 이슈 ${issues}개와 이 과제의 문서, 지식 자료, 승인도 함께 지워집니다.`, `Delete the project "${target.name}" (${target.key})? Its ${issues} issues, documents, knowledge articles and approvals go with it.`), 'delete-project', target.id, { glyph: 'trash', ko: '삭제', en: 'Delete', danger: true });
+    return;
+  }
   if (name === 'archive-project') { mutate(() => setArchived(ws, el.dataset.id, el.dataset.on !== '0', actor())); return; }
   if (name === 'archive') { mutate(() => setArchived(ws, current.id, true, actor())); return; }
   if (name === 'unarchive') { mutate(() => setArchived(ws, current.id, false, actor())); return; }
@@ -1756,7 +1855,7 @@ function onChange(event) {
     if (input) input.type = el.checked ? 'text' : 'password';
     return;
   }
-  if (!ui.loginUser && !ui.ready) { offerLogin(); return; }
+  if (!ui.loginUser && !ui.ready) { ui.modal = { kind: 'login', next: 'gate' }; paint(); return; }
   if (el.dataset.facet) {
     ui.screenFind = ui.screenFind || {};
     ui.screenFind[ui.view] = { ...(ui.screenFind[ui.view] || {}), [el.dataset.facet]: el.value };
@@ -2266,6 +2365,7 @@ function mount() {
 }
 
 const FREE_VIEWS = new Set(['home', 'help', 'settings', 'users', 'projects', 'extensions', 'people']);
+const NO_PROJECT_VIEWS = new Set([...FREE_VIEWS, 'knowledge', 'documents', 'calendar', 'plans']);
 
 function listedIssueIds() {
   const ids = [];
@@ -2289,7 +2389,11 @@ function stepIssue(delta) {
 
 function runShortcut(hit, event) {
   if (hit.id === 'escape') {
-    if (!ui.loginUser && !ui.ready) return;
+    if (!ui.loginUser && !ui.ready) {
+      // Signed out: Esc closes an open menu or the sign-in window.
+      if (ui.menu || ui.context || ui.modal) { ui.menu = null; ui.context = null; ui.modal = null; paint(); }
+      return;
+    }
     if (ui.menu || ui.popover || ui.modal || ui.context) {
       ui.menu = null;
       ui.popover = null;

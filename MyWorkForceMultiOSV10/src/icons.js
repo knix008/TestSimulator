@@ -1,4 +1,12 @@
 const ICONS = {
+  login: '<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M3 12h11"/><path d="m10 8 4 4-4 4"/>',
+  logout: '<path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"/><path d="M10 12h11"/><path d="m17 8 4 4-4 4"/>',
+  key: '<circle cx="8" cy="15" r="4"/><path d="m11 12 9-9"/><path d="m16 7 3 3"/><path d="m14 9 2 2"/>',
+  idCard: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M6 16c.6-1.6 1.7-2.4 3-2.4s2.4.8 3 2.4"/><path d="M14 10h4M14 14h3"/>',
+  team: '<circle cx="12" cy="7.5" r="2.6"/><circle cx="5.5" cy="10" r="2"/><circle cx="18.5" cy="10" r="2"/><path d="M7.5 19c.5-3 2.3-4.6 4.5-4.6s4 1.6 4.5 4.6"/><path d="M2.5 18c.3-2 1.4-3.2 3-3.2.8 0 1.5.3 2 .8"/><path d="M21.5 18c-.3-2-1.4-3.2-3-3.2-.8 0-1.5.3-2 .8"/>',
+  table: '<rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M3 9h18M3 14h18M9 9v11"/>',
+  wrench: '<path d="M14.5 5.5a4 4 0 0 0 4.9 4.9L21 12l-9 9-3.5-3.5 9-9-1.6-1.6a4 4 0 0 1-1.4-1.4z"/><path d="M6 18l-2 2"/>',
+  code: '<path d="m8 8-4 4 4 4M16 8l4 4-4 4M14 5l-4 14"/>',
   home: '<path d="M4 11 12 4l8 7"/><path d="M6 10.5V20h12v-9.5"/>',
   board: '<rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="10" rx="1"/><rect x="17" y="4" width="4" height="13" rx="1"/>',
   backlog: '<path d="M4 7h16M4 12h16M4 17h10"/>',
@@ -76,6 +84,7 @@ const ICONS = {
 };
 
 const TONES = {
+  login: 'green', logout: 'red', key: 'amber', idCard: 'indigo', team: 'purple', table: 'teal', wrench: 'slate', code: 'cyan',
   home: 'orange', board: 'blue', backlog: 'amber', roadmap: 'purple', issues: 'indigo', list: 'sky',
   dashboard: 'teal', chart: 'cyan', release: 'green', component: 'brown', filter: 'green', people: 'pink',
   bell: 'amber', settings: 'slate', help: 'blue', alert: 'red', search: 'teal', plus: 'green', bug: 'red',

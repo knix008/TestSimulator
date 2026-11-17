@@ -267,6 +267,30 @@ export function setArchived(ws, projectId, archived, actorId) {
   project.archived = Boolean(archived);
 }
 
+/**
+ * Who may delete a project. Deleting is stronger than editing: an editor never may.
+ * For now only the workspace administrator may; the project lead is the next to be allowed.
+ */
+export function canDeleteProject(ws, project, actorId) {
+  const actor = (ws.users || []).find((user) => user.id === actorId);
+  return Boolean(project) && isWorkspaceAdmin(actor);
+}
+
+/** Deletes a project and what belongs only to it. A project with sub-projects is refused. */
+export function deleteProject(ws, projectId, actorId) {
+  const project = mustProject(ws, projectId);
+  if (!canDeleteProject(ws, project, actorId)) throw new Error('permission');
+  if ((ws.projects || []).some((item) => item.parentId === project.id)) throw new Error('project-has-children');
+  ws.projects = ws.projects.filter((item) => item.id !== project.id);
+  const mine = (item) => item?.projectId === project.id;
+  for (const key of ['documents', 'articles', 'approvals']) {
+    if (Array.isArray(ws[key])) ws[key] = ws[key].filter((item) => !mine(item));
+  }
+  if (Array.isArray(ws.notices)) ws.notices = ws.notices.filter((item) => !(item.scope === 'project' && item.targetId === project.id) && !mine(item));
+  if (ws.activeProjectId === project.id) ws.activeProjectId = ws.projects.find((item) => !item.archived)?.id || ws.projects[0]?.id || null;
+  return project;
+}
+
 export function makeIssue(project, partial, actorId) {
   let key = partial.key;
   if (!key) {

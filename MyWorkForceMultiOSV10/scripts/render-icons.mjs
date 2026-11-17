@@ -122,6 +122,7 @@ writeFileSync(path.join(icons, 'icon.ico'), ico([16, 32, 48, 256].map((size) => 
 writeFileSync(path.join(icons, 'icon.icns'), icns([
   ['icp5', 32], ['icp6', 64], ['ic07', 128], ['ic08', 256], ['ic09', 512], ['ic10', 1024],
 ].map(([type, size]) => ({ type, data: images[size] }))));
-writeFileSync(path.join(root, 'public', 'icon.png'), images[32]);
+// Shown at up to 76 px (start page, About, Talk): a 32 px image would be blurred when scaled up.
+writeFileSync(path.join(root, 'public', 'icon.png'), images[256]);
 writeFileSync(path.join(root, 'assets', 'icon-256.png'), images[256]);
 console.log('icons written');
