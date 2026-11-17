@@ -39,6 +39,7 @@ function inline(source, files) {
   return source
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/~~([^~]+)~~/g, '<del>$1</del>')
     .replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>')
     .replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (_match, alt, href) => {
       const file = fileByRef(href, files);

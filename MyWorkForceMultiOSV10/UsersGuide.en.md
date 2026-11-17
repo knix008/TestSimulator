@@ -22,6 +22,10 @@ MyWorkForce holds one company. The company works in **teams**, teams run **proje
 - **People & access**: each project lists its people with **View** (read only), **Edit** (create and change issues and pages) or **Lead** (manage people, access and settings). The main lead is always a lead. For now only the administrator deletes a project, and the program asks first; a project with sub-projects needs them moved or deleted before.
 - **Pages**: the place to share information and documents. The **Company** space is for everyone, a **team** space for its members, a **project** space for that project's people. A single page can be restricted further. The space picker on the Pages screen groups the spaces by company, team and project.
 
+Pages are written like documents. **Edit** shows a large title and a formatting bar (headings 1-3, bold, italic, strikethrough, code, lists, quote, code block, divider, link, table, table of contents, child page list, image, file), and the text looks as it will be read. It is kept as Markdown; the button at the right end of the bar opens the Markdown source. Put **child pages** under a page to split it into chapters and sections; the path above the title leads back up.
+
+Accounts: on the **Users** screen the administrator sets the **ID** and the **password** when creating or editing a person. A password given by the administrator is temporary: at the first sign-in the person must choose their own before anything else opens. The first administrator password after installing works the same way. Passwords have at least 6 characters and can be changed any time under **File → Change password**.
+
 Settings are shown as cards in groups: **General** (start page, appearance), **This computer and sign-in**, **Data** (database and schema) and **Notifications** (mail).
 
 ## Tutorial and examples

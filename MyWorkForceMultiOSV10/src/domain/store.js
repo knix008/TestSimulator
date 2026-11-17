@@ -730,6 +730,25 @@ export function updateProfile(ws, userId, input, actorId) {
   return user;
 }
 
+/**
+ * Sets a person's login ID (administrator only). IDs are 2-32 letters, digits, '.', '_' or '-', unique
+ * regardless of case; "admin" belongs to the administrator account and nobody else.
+ */
+export function setLogin(ws, userId, login, actorId) {
+  const actor = (ws.users || []).find((item) => item.id === actorId);
+  if (!isWorkspaceAdmin(actor)) throw new Error('permission');
+  const user = (ws.users || []).find((item) => item.id === userId);
+  if (!user) throw new Error('not-found');
+  const next = String(login || '').trim();
+  if (!/^[A-Za-z0-9._-]{2,32}$/.test(next)) throw new Error('login-invalid');
+  const isAdmin = String(user.login || '').toLowerCase() === 'admin';
+  if (isAdmin && next.toLowerCase() !== 'admin') throw new Error('login-admin');
+  if (!isAdmin && next.toLowerCase() === 'admin') throw new Error('duplicate-login');
+  if ((ws.users || []).some((item) => item.id !== user.id && String(item.login || '').toLowerCase() === next.toLowerCase())) throw new Error('duplicate-login');
+  user.login = next;
+  return user;
+}
+
 export function setUserActive(ws, userId, active) {
   const user = ws.users.find((item) => item.id === userId);
   if (!user) throw new Error('not-found');

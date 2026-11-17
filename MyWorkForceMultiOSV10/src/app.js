@@ -13,7 +13,7 @@ import { addColumn, addPage, addRow, addShape, addSpace, attachPage, commentPage
 import { addArticle, addCalendar, addToken, addWebhook, authorizationUrl, csvIssueRows, decideApproval, deleteArticle, deleteToken, deleteWebhook, openApproval } from './domain/services.js';
 import { loadSettings, PANEL_MAX, PANEL_MIN, rememberPath, saveSettings } from './domain/settings.js';
 import {
-  addAttachment, addComment, addComponent, addField, addGadget, addGroup, addLink, addRule, addStatus, addTransition,
+  addAttachment, addComment, addComponent, addField, addGadget, addGroup, setLogin, addLink, addRule, addStatus, addTransition,
   addUser, addVersion, addWorklog, blankWorkspace, cloneIssue, completeSprint, createIssue, createSprint, deleteComment, ensureAdmin, updateProfile,
   canDeleteProject, deleteFilter, deleteIssue, deleteProject, deleteRule, deleteWorklog, findIssue, markAllRead, markRead, mergeProject, newProject,
   projectDocument, rankIssues, readDocument,   releaseVersion, removeAttachment, removeField, removeGadget, removeLink,
@@ -22,8 +22,11 @@ import {
 } from './domain/store.js';
 import { writingExport } from './domain/markdown.js';
 import { fromDateInput, parseDuration, uid } from './domain/util.js';
-import { schemaSql, schemaStatus, upgradeSchema } from './platform/data.js';
+import { changeOwnPassword, schemaSql, schemaStatus, setUserPassword, upgradeSchema } from './platform/data.js';
 import { decorateIcons } from './ui/autoicons.js';
+import { htmlToMarkdown } from './domain/htmlmd.js';
+import { renderMarkdown } from './domain/markdown.js';
+import { installTooltips } from './ui/tooltip.js';
 import { createTeam, deleteTeam, DEFAULT_METHODS, moveProjectToTeam, setProjectAccess, setProjectMethod, setTeamMember, teamSpace, updateTeam } from './domain/teams.js';
 import { clearMainRequest, clearSavedLogin, connectData, currentSession, dataStatus, dataUrl, hashPassword, loadWorkspace, loginSession, logoutSession, readMainRequest, rememberDataUrl, rememberLogin, rememberSession, savedLogin, saveWorkspace, sendTestMail, sessionToken, unlockData, watchMainRequest, watchSharedSession } from './platform/data.js';
 import { getLanguage, L, setLanguage } from './i18n.js';
@@ -72,6 +75,14 @@ const ERRORS = {
   'engine-unknown': ['지원하지 않는 데이터베이스입니다.', 'That database is not supported.'],
   'project-required': ['과제를 연 뒤에 그 과제와 공유하세요.', 'Open a project before sharing with it.'],
   connect: ['데이터베이스에 연결하지 못했습니다.', 'Could not connect to the database.'],
+  'password-change': ['처음 로그인했습니다. 계속하려면 새 암호를 정하세요.', 'This is your first sign-in. Choose a new password to continue.'],
+  'password-weak': ['암호는 6자 이상이어야 합니다.', 'A password needs at least 6 characters.'],
+  'password-same': ['지금 암호와 다른 암호를 정하세요.', 'Choose a password different from the current one.'],
+  'password-mismatch': ['새 암호 두 칸이 서로 다릅니다.', 'The two new password boxes do not match.'],
+  'password-required': ['처음 암호를 입력하세요.', 'Enter a first password.'],
+  'login-invalid': ['아이디는 2~32자의 영문자, 숫자, ., _, - 만 쓸 수 있습니다.', 'An ID is 2-32 letters, digits, ".", "_" or "-".'],
+  'login-admin': ['관리자 계정의 아이디는 admin 으로 둡니다.', 'The administrator account keeps the ID admin.'],
+  'duplicate-login': ['같은 아이디가 이미 있습니다.', 'That ID is already taken.'],
   'duplicate-team': ['같은 이름의 팀이 있습니다.', 'A team with that name already exists.'],
   'team-has-projects': ['과제가 있는 팀은 삭제할 수 없습니다. 과제를 다른 팀으로 옮기거나 삭제하세요.', 'A team with projects cannot be deleted. Move or delete its projects first.'],
   'team-last': ['마지막 팀은 삭제할 수 없습니다.', 'The last team cannot be deleted.'],
@@ -139,10 +150,66 @@ function toast(text) {
 }
 
 function fail(error) {
+  if (error?.message === 'password-change' && ui.loginUser) { askNewPassword(''); return; }
   toast(message(error));
 }
 
 let saving = false;
+
+/** The page body as Markdown: from the document being written, or from the source box. */
+function currentPageBody() {
+  if (ui.pageSource) return document.querySelector('#page-body')?.value ?? '';
+  const doc = document.querySelector('#page-doc');
+  if (doc) return htmlToMarkdown(doc.innerHTML);
+  return document.querySelector('#page-body')?.value ?? '';
+}
+
+let linkRange = null;
+
+/** One formatting command on the page being written. */
+function formatPage(format) {
+  const doc = document.querySelector('#page-doc');
+  if (!doc) return;
+  if (format === 'link-apply') {
+    const url = document.querySelector('#doc-link-url')?.value.trim() || '';
+    document.querySelector('.doc-link-bar')?.setAttribute('hidden', '');
+    doc.focus();
+    if (linkRange) { const sel = getSelection(); sel.removeAllRanges(); sel.addRange(linkRange); }
+    if (/^(https?:|mailto:)/i.test(url)) {
+      if (getSelection()?.isCollapsed) document.execCommand('insertHTML', false, `<a href="${url.replace(/"/g, '%22')}">${url.replace(/[<>&]/g, '')}</a>`);
+      else document.execCommand('createLink', false, url);
+    } else if (url) toast(message(new Error('url-invalid')));
+    linkRange = null;
+    return;
+  }
+  doc.focus();
+  const block = { p: 'p', h1: 'h1', h2: 'h2', h3: 'h3', quote: 'blockquote', pre: 'pre' }[format];
+  if (block) { document.execCommand('formatBlock', false, `<${block}>`); return; }
+  const simple = { bold: 'bold', italic: 'italic', strike: 'strikeThrough', ul: 'insertUnorderedList', ol: 'insertOrderedList', hr: 'insertHorizontalRule', undo: 'undo', redo: 'redo' }[format];
+  if (simple) { document.execCommand(simple, false, null); return; }
+  if (format === 'code') {
+    const text = String(getSelection() || '').replace(/[<>&]/g, (ch) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[ch]));
+    document.execCommand('insertHTML', false, `<code>${text || 'code'}</code>&nbsp;`);
+    return;
+  }
+  if (format === 'table') {
+    const head = L(['항목', '내용', '비고'], ['Item', 'Detail', 'Note']);
+    document.execCommand('insertHTML', false, `<table><thead><tr>${head.map((cell) => `<th>${cell}</th>`).join('')}</tr></thead><tbody><tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr><tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr></tbody></table><p><br></p>`);
+    return;
+  }
+  if (format === 'toc' || format === 'children') {
+    document.execCommand('insertHTML', false, `<p>[[${format}]]</p>`);
+    return;
+  }
+  if (format === 'link') {
+    const sel = getSelection();
+    linkRange = sel?.rangeCount ? sel.getRangeAt(0).cloneRange() : null;
+    const bar = document.querySelector('.doc-link-bar');
+    bar?.removeAttribute('hidden');
+    const input = document.querySelector('#doc-link-url');
+    if (input) { input.value = ''; input.focus(); }
+  }
+}
 
 /** A workspace that replaces the open one (an example, the sample, an empty one) keeps the stored revision, so saving it is not taken for someone else's change. */
 function replaceWorkspace(next) {
@@ -260,7 +327,8 @@ let pulling = false;
 async function pullWorkspace() {
   if (pulling || !ui.ready || !sessionToken() || ui.modal || saveTimer || saving) return;
   const active = document.activeElement;
-  if (active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName)) return;
+  if (active && (['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName) || active.isContentEditable)) return;
+  if (ui.wikiEdit) return;
   pulling = true;
   try {
     const status = await dataStatus();
@@ -463,6 +531,65 @@ async function confirmRegistered(account, password) {
   ui.unlocked = true;
   ui.loginUser = session.user.id;
   ui.loginAccount = session.user.login || account;
+  if (session.user.mustChangePassword) {
+    askNewPassword(password);
+    throw new Error('password-change');
+  }
+}
+
+/** Opens the window where a person must choose their own password before anything else. */
+function askNewPassword(current = '') {
+  ui.connecting = false;
+  ui.startError = '';
+  ui.modal = { kind: 'change-password', forced: true, current };
+  paint();
+}
+
+/** Waits for a save in flight, then saves now, so the server knows about a person just added. */
+async function flushSave() {
+  clearTimeout(saveTimer);
+  saveTimer = 0;
+  for (let i = 0; i < 100 && saving; i += 1) await new Promise((resolve) => setTimeout(resolve, 50));
+  if (!ui.ready) return;
+  const saved = await saveWorkspace(ws);
+  if (saved?.revision) ws.revision = saved.revision;
+}
+
+/** The administrator gives a person a password; they choose their own at the next sign-in. */
+async function givePassword(userId, password, mustChange) {
+  await flushSave();
+  const result = await setUserPassword(userId, password, mustChange);
+  if (result?.revision) ws.revision = result.revision;
+  const user = ws.users.find((item) => item.id === userId);
+  if (user) user.mustChangePassword = Boolean(result?.mustChangePassword);
+  paint();
+}
+
+async function changeMyPassword(form) {
+  const modal = ui.modal || {};
+  const data = new FormData(form);
+  const current = modal.current || String(data.get('current') || '');
+  const next = String(data.get('next') || '');
+  if (next !== String(data.get('confirm') || '')) { toast(message(new Error('password-mismatch'))); return; }
+  try {
+    const result = await changeOwnPassword(current, next);
+    if (result?.revision && ui.ready) ws.revision = result.revision;
+    const me = ws.users.find((user) => user.id === ui.loginUser);
+    if (me) me.mustChangePassword = false;
+    if (settings.autoLogin && savedLogin()?.password) rememberLogin(ui.loginAccount, next);
+    ui.modal = null;
+    toast(L('암호를 바꿨습니다.', 'Your password is changed.'));
+    if (modal.forced && !ui.ready) {
+      const loaded = await loadWorkspace();
+      await enterWorkspace(loaded.workspace || {});
+      return;
+    }
+    paint();
+  } catch (error) {
+    if (error?.message === 'password' && modal.current) ui.modal = { ...modal, current: '' };
+    paint();
+    toast(message(error));
+  }
 }
 
 function storeAutoLogin() {
@@ -496,6 +623,10 @@ async function adoptSharedSession() {
     ui.loginAccount = data.user.login || data.user.name || '';
     ui.unlocked = true;
     ui.opened = true;
+    if (data.user.mustChangePassword) {
+      askNewPassword('');
+      return true;
+    }
     if (settings.showStartPage === false && ui.status?.connected) {
       const loaded = await loadWorkspace();
       await enterWorkspace(loaded.workspace || {});
@@ -536,6 +667,10 @@ async function companySignIn() {
     ui.loginAccount = session.user.login || ui.loginAccount;
     ui.unlocked = true;
     ui.opened = true;
+    if (session.user.mustChangePassword) {
+      askNewPassword(typed);
+      return;
+    }
     const loaded = await loadWorkspace();
     await enterWorkspace(loaded.workspace || {});
   } catch (error) {
@@ -888,7 +1023,7 @@ function paint() {
   const skipQuery = document.activeElement?.id === 'issue-query';
   const skipLive = Boolean(document.activeElement?.dataset?.live);
   const skipDoc = Boolean(document.activeElement?.dataset?.doc);
-  const skipPage = ['page-title', 'page-body', 'page-labels', 'page-comment'].includes(document.activeElement?.id);
+  const skipPage = ['page-title', 'page-body', 'page-labels', 'page-comment', 'page-doc', 'doc-link-url'].includes(document.activeElement?.id);
   app.classList.toggle('no-right', !showRight(ctx));
   app.classList.toggle('fold-left', settings.showLeftPanel === false);
   app.classList.toggle('fold-right', showRight(ctx) && settings.showRightPanel === false);
@@ -1065,6 +1200,7 @@ async function exportText(kind) {
 function submitModal(form) {
   const modal = ui.modal;
   if (!modal) return;
+  if (modal.kind === 'change-password') { changeMyPassword(form); return; }
   if (modal.kind === 'palette') {
     const first = document.querySelector('#palette-results [data-id]');
     if (first) { ui.issueId = first.dataset.id; ui.view = 'issue'; }
@@ -1075,16 +1211,19 @@ function submitModal(form) {
   const data = new FormData(form);
   const value = (name) => String(data.get(name) ?? '').trim();
   if (modal.kind === 'password') {
-    hashPassword(value('password')).then((result) => {
-      const user = ws.users.find((item) => item.id === value('user'));
-      if (user) user.passwordHash = result.passwordHash;
+    givePassword(value('user'), value('password'), data.get('mustChange') === 'on').then(() => {
       ui.modal = null;
-      scheduleSave();
       paint();
       toast(L('암호를 저장했습니다.', 'Password saved.'));
     }).catch(fail);
     return;
   }
+  const admin = isWorkspaceAdmin(ws.users.find((user) => user.id === actor()));
+  const typedPassword = admin ? String(data.get('password') || '') : '';
+  const mustChange = data.get('mustChange') === 'on';
+  if (modal.kind === 'user' && admin && !typedPassword) { toast(message(new Error('password-required'))); return; }
+  if (typedPassword && typedPassword.trim().length < 6) { toast(message(new Error('password-weak'))); return; }
+  let passwordFor = '';
   const ok = mutate(() => {
     const current = project();
     if (modal.kind === 'project') {
@@ -1095,12 +1234,16 @@ function submitModal(form) {
     }
     if (modal.kind === 'user') {
       const user = addUser(ws, { name: value('name'), email: value('email'), phone: value('phone'), jobTitle: value('jobTitle'), team: value('team'), photo: ui.profilePhoto || '' });
+      if (admin) setLogin(ws, user.id, value('login'), actor());
+      passwordFor = user.id;
       ui.profilePhoto = '';
       if (current && value('role')) setMember(ws, current.id, user.id, value('role'), actor());
       return;
     }
     if (modal.kind === 'profile') {
       updateProfile(ws, modal.userId, { name: value('name'), email: value('email'), phone: value('phone'), jobTitle: value('jobTitle'), team: value('team'), photo: ui.profilePhoto || '' }, actor());
+      if (admin && data.has('login')) setLogin(ws, modal.userId, value('login'), actor());
+      passwordFor = modal.userId;
       ui.profilePhoto = '';
       return;
     }
@@ -1161,6 +1304,9 @@ function submitModal(form) {
     if (modal.kind === 'version') { addVersion(ws, current.id, { name: value('name'), description: value('description') }, actor()); return; }
     if (modal.kind === 'filter') { saveFilter(ws, current.id, { name: value('name'), query: ui.query }, actor()); return; }
   });
+  if (ok && typedPassword && passwordFor) {
+    givePassword(passwordFor, typedPassword, mustChange).then(() => toast(mustChange ? L('암호를 정했습니다. 다음 로그인 때 그 사람이 새 암호로 바꿉니다.', 'Password set. They choose their own at the next sign-in.') : L('암호를 정했습니다.', 'Password set.'))).catch(fail);
+  }
   if (ok) { ui.modal = null; paint(); }
 }
 
@@ -1262,6 +1408,8 @@ function runConfirmed() {
 
 function onAction(el) {
   const name = el.dataset.action;
+  // Leaving the page being written: its repaint is held back only while someone types in it.
+  if (['save-page', 'page-source', 'wiki-edit', 'add-child', 'pick-page-file', 'open-article'].includes(name) && ['page-doc', 'page-title', 'page-body'].includes(document.activeElement?.id)) document.activeElement.blur();
   if (signedOut(name, el)) {
     ui.modal = { kind: 'login', next: 'gate' };
     paint();
@@ -1459,6 +1607,9 @@ function onAction(el) {
   }
   if (name === 'wiki-edit') {
     ui.wikiEdit = el.dataset.on !== '0';
+    if (el.dataset.id) ui.articleId = el.dataset.id;
+    ui.pageDraft = null;
+    ui.pageSource = false;
     const page = (ws.articles || []).find((item) => item.id === ui.articleId);
     if (page) markEditing(ws, page.id, actor(), ui.wikiEdit);
     scheduleSave();
@@ -1466,15 +1617,30 @@ function onAction(el) {
     return;
   }
   if (name === 'save-page') {
+    const body = currentPageBody();
     mutate(() => {
       updatePage(ws, el.dataset.id, {
         title: document.querySelector('#page-title')?.value,
-        body: document.querySelector('#page-body')?.value,
+        body,
         labels: document.querySelector('#page-labels')?.value,
       }, actor());
       markEditing(ws, el.dataset.id, actor(), false);
       ui.wikiEdit = false;
+      ui.pageDraft = null;
+      ui.pageSource = false;
     });
+    return;
+  }
+  if (name === 'page-source') {
+    // Switch between writing the document and its Markdown source; nothing typed is lost.
+    const pageId = document.querySelector('.doc-editor')?.dataset.page || ui.articleId;
+    const page = (ws.articles || []).find((item) => item.id === pageId);
+    if (!page) return;
+    ui.articleId = page.id;
+    const markdown = currentPageBody();
+    ui.pageSource = !ui.pageSource;
+    ui.pageDraft = { id: page.id, title: document.querySelector('#page-title')?.value ?? page.title, markdown, html: renderMarkdown(markdown, page.attachments || []) };
+    paint();
     return;
   }
   if (name === 'watch-page') { mutate(() => watchPage(ws, el.dataset.id, actor())); return; }
@@ -1769,6 +1935,7 @@ function onAction(el) {
   if (name === 'new-field') { ui.modal = { kind: 'field' }; paint(); return; }
   if (name === 'new-rule') { ui.modal = { kind: 'rule' }; paint(); return; }
   if (name === 'new-user') { ui.profilePhoto = ''; ui.modal = { kind: 'user' }; paint(); return; }
+  if (name === 'change-password') { ui.modal = { kind: 'change-password', forced: false }; paint(); return; }
   if (name === 'edit-profile') {
     const user = ws.users.find((item) => item.id === el.dataset.id);
     if (!user) return;
@@ -2239,6 +2406,23 @@ function mount() {
     ui.popover = null;
     paint();
   });
+  installTooltips(document.body);
+  document.body.addEventListener('mousedown', (event) => {
+    const tool = event.target.closest('[data-format]');
+    if (!tool || tool.disabled) return;
+    event.preventDefault();
+    formatPage(tool.dataset.format);
+  });
+  document.body.addEventListener('keydown', (event) => {
+    if (event.target.id === 'doc-link-url' && event.key === 'Enter') { event.preventDefault(); formatPage('link-apply'); }
+    if (event.target.id === 'doc-link-url' && event.key === 'Escape') { event.stopPropagation(); document.querySelector('.doc-link-bar')?.setAttribute('hidden', ''); }
+  });
+  document.body.addEventListener('input', (event) => {
+    if (event.target.id !== 'page-doc' && !(event.target.id === 'page-title' && ui.wikiEdit)) return;
+    const doc = document.querySelector('#page-doc');
+    if (!doc || ui.pageSource) return;
+    ui.pageDraft = { id: doc.dataset.page, title: document.querySelector('#page-title')?.value, html: doc.innerHTML };
+  });
   document.body.addEventListener('click', (event) => {
     const hadContext = Boolean(ui.context) && !event.target.closest('#context');
     if (hadContext) ui.context = null;
@@ -2430,9 +2614,10 @@ function mount() {
           return;
         }
         if (document.querySelector('#page-body')) {
+          ui.pageDraft = null;
           updatePage(ws, pageId, {
             title: document.querySelector('#page-title')?.value,
-            body: document.querySelector('#page-body')?.value,
+            body: currentPageBody(),
             labels: document.querySelector('#page-labels')?.value,
           }, actor());
         }
@@ -2484,6 +2669,7 @@ function stepIssue(delta) {
 
 function runShortcut(hit, event) {
   if (hit.id === 'escape') {
+    if (ui.modal?.forced) return;
     if (!ui.loginUser && !ui.ready) {
       // Signed out: Esc closes an open menu or the sign-in window.
       if (ui.menu || ui.context || ui.modal) { ui.menu = null; ui.context = null; ui.modal = null; paint(); }

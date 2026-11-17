@@ -152,6 +152,8 @@ export function logoutSession() {
   return done;
 }
 export const unlockData = (userId, password) => call('/api/unlock', { method: 'POST', body: JSON.stringify({ userId, password }) });
+export const changeOwnPassword = (current, next) => call('/api/account/password', { method: 'POST', body: JSON.stringify({ current, next }) });
+export const setUserPassword = (userId, password, mustChange = true) => call('/api/users/password', { method: 'POST', body: JSON.stringify({ userId, password, mustChange }) });
 export const schemaStatus = () => call('/api/schema');
 export const upgradeSchema = () => call('/api/schema', { method: 'POST', body: JSON.stringify({ action: 'upgrade' }) });
 export const schemaSql = (engine) => call(`/api/schema/sql?engine=${encodeURIComponent(engine || '')}`);

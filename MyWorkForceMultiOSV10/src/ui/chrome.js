@@ -65,6 +65,7 @@ export function renderMenubar(ctx) {
     '<div class="sep"></div>',
     item('print', 'printer', L('인쇄', 'Print'), '', 'Ctrl+P'),
     ctx.ui.loginUser ? '<div class="sep"></div>' : '',
+    ctx.ui.loginUser ? item('change-password', 'key', L('암호 바꾸기', 'Change password')) : '',
     ctx.ui.loginUser ? item('sign-out', 'logout', L('로그아웃', 'Sign out')) : '',
   ].join('');
   const edit = [
@@ -194,23 +195,23 @@ export function renderToolbar(ctx) {
   return `<div class="toolbar-inner">
       <select data-choose="project" title="${esc(L('과제', 'Project'))}">${options(projects, ctx.ws.activeProjectId, L('과제 없음', 'No project'))}</select>
       <label class="quick-search" title="Ctrl+F">${icon('search')}<input id="quick-search" value="${esc(ctx.ui.quick || '')}" placeholder="${esc(L('검색 또는 WQL', 'Search or WQL'))}"></label>
-      <button type="button" class="tool-button" data-action="command-palette" title="${esc(L('이동', 'Go to'))} Ctrl+K">${icon('bolt')}</button>
+      <button type="button" class="tool-button" data-action="command-palette" title="${esc(L('이동', 'Go to'))} · Ctrl+K" aria-label="${esc(L('이동', 'Go to'))}">${icon('bolt')}</button>
       <span class="tool-sep"></span>
-      <button type="button" class="tool-button wide" data-action="new-issue" title="Ctrl+N">${icon('plus')}<span>${L('이슈', 'Issue')}</span></button>
+      <button type="button" class="tool-button" data-action="new-issue" title="${esc(L('새 이슈', 'New issue'))} · Ctrl+N" aria-label="${esc(L('새 이슈', 'New issue'))}">${icon('plus')}</button>
       <span class="grow"></span>
-      <button type="button" class="tool-button" data-action="go" data-view="notifications" title="${esc(L('알림', 'Notifications'))}">${icon('bell')}${unread ? `<i class="dot">${unread}</i>` : ''}</button>
-      <button type="button" class="tool-button wide" data-action="open-talk" title="${esc(L('대화 프로그램', 'Talk'))}">${icon('comment')}<span>${L('대화', 'Talk')}</span></button>
-      <span class="signed-in" title="${esc(L('로그인한 사람', 'Signed in'))}">${ctx.user ? avatar(ctx.user) : ''}<span>${esc(ctx.user?.name || ctx.user?.login || '')}</span></span>
-      <button type="button" class="tool-button wide" data-action="sign-out" title="${esc(L('로그아웃', 'Sign out'))}">${icon('logout')}<span>${L('로그아웃', 'Sign out')}</span></button>
-      <button type="button" class="tool-button wide" data-action="language" title="Ctrl+Shift+L">${icon('globe')}<span>${ctx.settings.language === 'en' ? 'EN' : 'KO'}</span></button>
+      <button type="button" class="tool-button" data-action="go" data-view="notifications" title="${esc(L('알림', 'Notifications'))}" aria-label="${esc(L('알림', 'Notifications'))}">${icon('bell')}${unread ? `<i class="dot">${unread}</i>` : ''}</button>
+      <button type="button" class="tool-button" data-action="open-talk" title="${esc(L('대화 프로그램 열기', 'Open Talk'))}" aria-label="${esc(L('대화', 'Talk'))}">${icon('comment')}</button>
+      <span class="signed-in" title="${esc(`${L('로그인한 사람', 'Signed in')}: ${ctx.user?.name || ''}${ctx.user?.login ? ` (${ctx.user.login})` : ''}`)}">${ctx.user ? avatar(ctx.user) : ''}</span>
+      <button type="button" class="tool-button" data-action="sign-out" title="${esc(L('로그아웃', 'Sign out'))}" aria-label="${esc(L('로그아웃', 'Sign out'))}">${icon('logout')}</button>
+      <button type="button" class="tool-button" data-action="language" title="${esc(L('언어: 한국어 → English', 'Language: English → 한국어'))} · Ctrl+Shift+L" aria-label="${esc(L('언어', 'Language'))}">${icon('globe')}</button>
       ${panelButton('left', 'panelLeft', leftOpen, '왼쪽 패널', 'Left panel', 'Ctrl+Shift+1')}
       ${panelButton('right', 'panelRight', rightOpen, '오른쪽 패널', 'Right panel', 'Ctrl+Shift+2')}
       <span class="theme-anchor theme-split">
-        <button type="button" class="tool-button" data-action="theme-random" title="${esc(L('테마 바꾸기', 'Change the theme'))} · ${esc(currentName)} · Ctrl+Shift+B">${icon('palette')}</button>
-        <button type="button" class="tool-button split-arrow" data-action="theme-menu" title="${esc(L('테마 설정', 'Theme settings'))}" aria-haspopup="true" aria-expanded="${ctx.ui.popover === 'theme' || ctx.ui.popover === 'theme-custom' ? 'true' : 'false'}">${icon('chevronDown')}</button>
+        <button type="button" class="tool-button" data-action="theme-random" title="${esc(L('테마 바꾸기', 'Change the theme'))} · ${esc(currentName)} · Ctrl+Shift+B" aria-label="${esc(L('테마 바꾸기', 'Change the theme'))}">${icon('palette')}</button>
+        <button type="button" class="tool-button split-arrow" data-action="theme-menu" title="${esc(L('테마 설정', 'Theme settings'))}" aria-label="${esc(L('테마 설정', 'Theme settings'))}" aria-haspopup="true" aria-expanded="${ctx.ui.popover === 'theme' || ctx.ui.popover === 'theme-custom' ? 'true' : 'false'}">${icon('chevronDown')}</button>
         ${themePopover(ctx)}
       </span>
-      <button type="button" class="tool-button" data-action="about" title="${esc(L('프로그램 정보', 'About'))} Ctrl+Shift+A" aria-label="${esc(L('프로그램 정보', 'About'))}">${icon('info')}</button>
+      <button type="button" class="tool-button" data-action="about" title="${esc(L('프로그램 정보', 'About'))} · Ctrl+Shift+A" aria-label="${esc(L('프로그램 정보', 'About'))}">${icon('info')}</button>
     </div>`;
 }
 
@@ -381,7 +382,7 @@ const FIELD_GLYPH = {
   name: 'tag', key: 'idCard', type: 'layers', parent: 'subtask', description: 'pencil', team: 'team', summary: 'tag',
   priority: 'flag', assignee: 'user', reporter: 'user', sprint: 'backlog', epic: 'epic', component: 'component', version: 'release',
   due: 'calendar', start: 'calendar', end: 'calendar', estimate: 'clock', labels: 'tag', email: 'globe', phone: 'phone',
-  jobTitle: 'idCard', role: 'shield', lead: 'shield', password: 'key', user: 'user', goal: 'flag', status: 'workflow', from: 'workflow', to: 'workflow',
+  jobTitle: 'idCard', role: 'shield', lead: 'shield', login: 'idCard', current: 'key', next: 'key', confirm: 'key', password: 'key', user: 'user', goal: 'flag', status: 'workflow', from: 'workflow', to: 'workflow',
   query: 'filter', url: 'link', events: 'bell', title: 'tag', body: 'file', color: 'palette', category: 'box', field: 'tag',
 };
 
@@ -389,6 +390,20 @@ function row(label, control) {
   const name = /\bname="([^"]+)"/.exec(control)?.[1] || '';
   const glyph = FIELD_GLYPH[name];
   return `<label class="form-row"><span>${glyph ? icon(glyph) : ''}${label}</span>${control}</label>`;
+}
+
+function accountFields(ctx, user = {}, isNew = false) {
+  if (!isWorkspaceAdmin(ctx.user)) {
+    return user.id && user.id === ctx.user?.id ? `<div class="form-block"><button type="button" class="button" data-action="change-password">${icon('key')}<span>${L('내 암호 바꾸기', 'Change my password')}</span></button></div>` : '';
+  }
+  const isAdminAccount = String(user.login || '').toLowerCase() === 'admin';
+  const state = user.id ? (user.mustChangePassword ? L('다음 로그인 때 암호를 바꿔야 합니다.', 'Must change the password at the next sign-in.') : '') : '';
+  return `<div class="form-block"><span class="form-block-title">${icon('idCard')}${L('계정', 'Account')}</span>
+    ${row(L('아이디', 'ID'), `<input name="login" required pattern="[A-Za-z0-9._-]{2,32}" value="${esc(user.login || '')}" autocomplete="off" spellcheck="false" ${isAdminAccount ? 'readonly' : ''}>`)}
+    ${row(isNew ? L('처음 암호', 'First password') : L('새 암호', 'New password'), `<input name="password" type="password" minlength="6" autocomplete="new-password" ${isNew ? 'required' : `placeholder="${esc(L('바꿀 때만 입력', 'Only to change it'))}"`}>`)}
+    <label class="check"><input type="checkbox" name="mustChange" checked>${L('다음 로그인 때 자기 암호로 바꾸게 하기', 'Make them choose their own at the next sign-in')}</label>
+    ${state ? `<p class="muted">${icon('alert')}${esc(state)}</p>` : ''}
+  </div>`;
 }
 
 function personFields(ctx, user = {}) {
@@ -412,6 +427,22 @@ export function renderModal(ctx) {
     return `<div class="modal-back"><div class="modal">${heading('alert', L('확인', 'Confirm'))}<p>${esc(modal.message)}</p><div class="modal-foot"><button type="button" class="button" data-action="modal-cancel">${icon('close')}<span>${L('취소', 'Cancel')}</span></button><button type="button" class="button ${modal.yes?.danger ? 'primary danger-fill' : 'primary'}" data-action="confirm-yes">${icon(modal.yes?.glyph || 'check')}<span>${modal.yes ? L(modal.yes.ko, modal.yes.en) : L('계속', 'Continue')}</span></button></div></div></div>`;
   }
   if (modal.kind === 'about') return aboutDialog(ctx);
+  if (modal.kind === 'change-password') {
+    const forced = Boolean(modal.forced);
+    const lead = forced
+      ? L('처음 로그인했습니다. 관리자가 정해 준 암호 대신, 자신만 아는 새 암호를 정해야 계속할 수 있습니다.', 'This is your first sign-in. Replace the password you were given with one only you know to continue.')
+      : L('지금 암호를 확인한 뒤 새 암호로 바꿉니다.', 'Confirm the current password, then choose a new one.');
+    const head = forced ? `<h2>${icon('key')}<span class="grow">${esc(L('새 암호 정하기', 'Choose a new password'))}</span></h2>` : heading('key', L('암호 바꾸기', 'Change password'));
+    const foot = forced
+      ? `<button type="button" class="button" data-action="sign-out">${icon('logout')}<span>${L('로그아웃', 'Sign out')}</span></button>`
+      : `<button type="button" class="button" data-action="modal-cancel">${icon('close')}<span>${L('취소', 'Cancel')}</span></button>`;
+    return `<div class="modal-back"><form class="modal password-modal">${head}<p class="muted">${esc(lead)}</p><div class="modal-body">
+      ${modal.current ? '' : row(L('지금 암호', 'Current password'), '<input name="current" type="password" required autocomplete="current-password">')}
+      ${row(L('새 암호', 'New password'), '<input name="next" type="password" required minlength="6" autocomplete="new-password">')}
+      ${row(L('다시 입력', 'Repeat'), '<input name="confirm" type="password" required minlength="6" autocomplete="new-password">')}
+      <p class="muted">${icon('info')}${L('6자 이상, 지금 암호와 다르게 정합니다.', 'At least 6 characters, different from the current one.')}</p>
+    </div><div class="modal-foot">${foot}<button type="submit" class="button primary">${icon('check')}<span>${L('바꾸기', 'Change')}</span></button></div></form></div>`;
+  }
   if (modal.kind === 'schema-sql') {
     return `<div class="modal-back"><div class="modal schema-sql-modal">${heading('code', L('SQL 스크립트', 'SQL script'))}
       <p class="muted">${L('DBA가 직접 표를 만들 때 이 스크립트를 실행합니다. 여러 번 실행해도 안전합니다.', 'A DBA runs this script to create the tables by hand. It is safe to run more than once.')} · <b>${esc(modal.engine)}</b></p>
@@ -517,10 +548,11 @@ export function renderModal(ctx) {
     return dialog(L('CSV 가져오기', 'Import CSV'), `<p class="muted">summary, type, priority, status, assignee, labels, description</p><textarea name="csv" rows="8" required></textarea>`, L('가져오기', 'Import'), 'download');
   }
   if (modal.kind === 'password') {
-    return dialog(L('암호', 'Password'), [
-      row(L('사람', 'Person'), `<select name="user">${userOptions(ctx.ws, ctx.user?.id || '')}</select>`),
-      row(L('암호', 'Password'), '<input name="password" type="password" required>'),
-    ].join(''), L('저장', 'Save'), 'lock');
+    return dialog(L('암호 정하기', 'Set a password'), [
+      row(L('사람', 'Person'), `<select name="user">${userOptions(ctx.ws, modal.userId || ctx.user?.id || '')}</select>`),
+      row(L('암호', 'Password'), '<input name="password" type="password" minlength="6" required autocomplete="new-password">'),
+      `<label class="check"><input type="checkbox" name="mustChange" checked>${L('다음 로그인 때 자기 암호로 바꾸게 하기', 'Make them choose their own at the next sign-in')}</label>`,
+    ].join(''), L('저장', 'Save'), 'key');
   }
   if (modal.kind === 'field') {
     return dialog(L('필드', 'Field'), [
@@ -542,14 +574,15 @@ export function renderModal(ctx) {
     ].join(''), L('추가', 'Add'), 'bolt');
   }
   if (modal.kind === 'user') {
-    return dialog(L('사람', 'Person'), [
+    return dialog(L('새 사용자', 'New user'), [
       personFields(ctx),
+      accountFields(ctx, {}, true),
       row(L('역할', 'Role'), `<select name="role">${options(ROLES, 'developer')}</select>`),
     ].join(''), L('추가', 'Add'), 'user');
   }
   if (modal.kind === 'profile') {
     const user = (ctx.ws.users || []).find((item) => item.id === modal.userId) || {};
-    return dialog(L('사람 정보', 'Person details'), personFields(ctx, user), L('저장', 'Save'), 'user');
+    return dialog(L('사용자 정보', 'User details'), personFields(ctx, user) + accountFields(ctx, user), L('저장', 'Save'), 'user');
   }
   if (modal.kind === 'component' || modal.kind === 'version' || modal.kind === 'group' || modal.kind === 'filter') {
     const titles = { component: L('구성 요소', 'Component'), version: L('버전', 'Version'), group: L('그룹', 'Group'), filter: L('필터', 'Filter') };

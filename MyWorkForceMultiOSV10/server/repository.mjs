@@ -59,7 +59,12 @@ export class Repository {
     return ws;
   }
 
-  async writeWorkspace(ws, expectedRevision = null) {
+  /**
+   * Saves the workspace. Passwords and "must change password" belong to the server: a save keeps them
+   * as they are (they change only through setPassword). Only a trusted save (the administrator's, or the
+   * server's own) may change a person's login or bring a password for a new person.
+   */
+  async writeWorkspace(ws, expectedRevision = null, { trusted = true } = {}) {
     const current = Number(this.cached?.revision) || 0;
     if (expectedRevision != null && Number(expectedRevision) !== current) {
       const error = new Error('conflict');
@@ -68,11 +73,27 @@ export class Repository {
     }
     ws.revision = current + 1;
     const previous = this.cached;
+    const taken = new Set();
     for (const user of ws.users || []) {
-      if (!user.passwordHash) {
-        const older = previous?.users?.find((item) => item.id === user.id);
-        if (older?.passwordHash) user.passwordHash = older.passwordHash;
+      const older = previous?.users?.find((item) => item.id === user.id);
+      if (older && older !== user) {
+        user.passwordHash = older.passwordHash || '';
+        user.mustChangePassword = Boolean(older.mustChangePassword);
+        if (!trusted) user.login = older.login || '';
+      } else if (!older && !trusted) {
+        delete user.passwordHash;
+        user.mustChangePassword = false;
       }
+      const login = String(user.login || '').toLowerCase();
+      if (login) {
+        if (taken.has(login)) throw new Error('duplicate-login');
+        taken.add(login);
+      }
+    }
+    if (!trusted && previous && !(ws.users || []).some((user) => String(user.login || '').toLowerCase() === 'admin')) {
+      // The administrator account cannot be removed by someone else's save.
+      const admin = previous.users?.find((user) => String(user.login || '').toLowerCase() === 'admin');
+      if (admin) ws.users.push(structuredClone(admin));
     }
     if (ws.mail && typeof ws.mail === 'object' && !ws.mail.password && previous?.mail?.password) {
       ws.mail.password = previous.mail.password;
@@ -266,6 +287,16 @@ export class Repository {
         message.error = error?.detail || error?.message || 'mail';
       }
     }
+  }
+
+  /** Sets a person's password; `mustChange` makes them choose their own at the next sign-in. */
+  async setPassword(userId, password, mustChange) {
+    const user = (this.cached?.users || []).find((item) => item.id === userId);
+    if (!user) throw new Error('not-found');
+    user.passwordHash = hashPassword(password);
+    user.mustChangePassword = Boolean(mustChange);
+    await this.writeWorkspace(this.cached);
+    return user;
   }
 
   unlock(userId, password) {

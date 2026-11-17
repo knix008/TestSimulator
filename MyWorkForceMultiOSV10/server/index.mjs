@@ -122,7 +122,8 @@ function storeKey(config) {
 
 function signedAdmin(req) {
   const user = signedUser(req);
-  return isWorkspaceAdmin(user) ? user : null;
+  // An administrator still on a given password acts as an administrator only after changing it.
+  return isWorkspaceAdmin(user) && !user.mustChangePassword ? user : null;
 }
 
 // A fresh database has no workspace, so nobody could sign in to create one.
@@ -130,6 +131,22 @@ function signedAdmin(req) {
 async function seedAdmin(repo) {
   if (!repo.cached) await repo.writeWorkspace(upgradeWorkspace({}));
   else if (ensureAdmin(repo.cached)) await repo.writeWorkspace(repo.cached);
+  const admin = (repo.cached?.users || []).find((user) => String(user.login || '').toLowerCase() === 'admin');
+  if (admin && !admin.mustChangePassword && admin.passwordHash && checkPassword('admin', admin.passwordHash)) {
+    admin.mustChangePassword = true;
+    await repo.writeWorkspace(repo.cached);
+  }
+}
+
+/** A password people may choose: 6 to 128 characters, not only spaces. */
+function passwordProblem(password) {
+  const text = String(password || '');
+  if (text.trim().length < 6 || text.length > 128) return 'password-weak';
+  return '';
+}
+
+function sessionUser(user) {
+  return { id: user.id, name: user.name || '', login: user.login || '', email: user.email || '', mustChangePassword: Boolean(user.mustChangePassword) };
 }
 
 function tokenOf(req) {
@@ -247,17 +264,42 @@ const server = createServer(async (req, res) => {
       const token = randomBytes(24).toString('hex');
       sessions.set(token, { userId: user.id, login: user.login || '' });
       storeSessions();
-      return send(res, 200, { token, user: { id: user.id, name: user.name || '', login: user.login || '', email: user.email || '' } });
+      return send(res, 200, { token, user: sessionUser(user) });
     }
     if (req.method === 'GET' && url.pathname === '/api/session') {
       const user = signedUser(req);
       if (!user) return send(res, 401, { error: 'permission' });
-      return send(res, 200, { user: { id: user.id, name: user.name || '', login: user.login || '', email: user.email || '' } });
+      return send(res, 200, { user: sessionUser(user) });
     }
     if (req.method === 'DELETE' && url.pathname === '/api/session') {
       sessions.delete(tokenOf(req));
       storeSessions();
       return send(res, 200, { ok: true });
+    }
+    if (req.method === 'POST' && url.pathname === '/api/account/password') {
+      // A person changes their own password (and must, at the first sign-in after one was given to them).
+      const me = signedUser(req);
+      if (!me) return send(res, 401, { error: 'permission' });
+      const body = await readBody(req);
+      if (me.passwordHash && !checkPassword(body.current || '', me.passwordHash)) return send(res, 403, { error: 'password' });
+      const problem = passwordProblem(body.next);
+      if (problem) return send(res, 400, { error: problem });
+      if (String(body.next) === String(body.current || '')) return send(res, 400, { error: 'password-same' });
+      await repository.setPassword(me.id, String(body.next), false);
+      return send(res, 200, { ok: true, revision: repository.cached?.revision || 0, user: sessionUser(me) });
+    }
+    if (req.method === 'POST' && url.pathname === '/api/users/password') {
+      // The administrator gives someone a password; they choose their own at the next sign-in.
+      if (!signedAdmin(req)) return send(res, 403, { error: 'permission' });
+      const body = await readBody(req);
+      const problem = passwordProblem(body.password);
+      if (problem) return send(res, 400, { error: problem });
+      const user = await repository.setPassword(String(body.userId || ''), String(body.password), body.mustChange !== false);
+      return send(res, 200, { ok: true, revision: repository.cached?.revision || 0, userId: user.id, mustChangePassword: Boolean(user.mustChangePassword) });
+    }
+    if (signedUser(req)?.mustChangePassword && url.pathname !== '/api/status') {
+      // Until the first password is replaced, nothing else opens.
+      return send(res, 403, { error: 'password-change' });
     }
     if ((req.method === 'GET' || req.method === 'PUT') && url.pathname === '/api/workspace' && !sessionOf(req)) {
       return send(res, 401, { error: 'permission' });
@@ -268,7 +310,7 @@ const server = createServer(async (req, res) => {
     if (req.method === 'PUT' && url.pathname === '/api/workspace') {
       const body = await readBody(req);
       if (!body.workspace) return send(res, 400, { error: 'file-invalid' });
-      await repository.writeWorkspace(body.workspace, body.revision);
+      await repository.writeWorkspace(body.workspace, body.revision, { trusted: Boolean(signedAdmin(req)) });
       return send(res, 200, { saved: true, revision: repository.cached?.revision || 0 });
     }
     if (req.method === 'POST' && url.pathname === '/api/unlock') {

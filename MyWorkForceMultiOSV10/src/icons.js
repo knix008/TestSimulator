@@ -1,4 +1,16 @@
 const ICONS = {
+  bold: '<path d="M7 5h6a3.5 3.5 0 0 1 0 7H7z"/><path d="M7 12h7a3.5 3.5 0 0 1 0 7H7z"/>',
+  italic: '<path d="M10 5h8M6 19h8M14 5l-4 14"/>',
+  strike: '<path d="M4 12h16"/><path d="M16 7.5C15.3 6 13.8 5 12 5c-2.5 0-4 1.3-4 3 0 1.4.9 2.3 2.6 3"/><path d="M8 16.5c.7 1.5 2.2 2.5 4 2.5 2.5 0 4-1.3 4-3 0-.6-.2-1.1-.5-1.5"/>',
+  h1: '<path d="M4 5v12M12 5v12M4 11h8"/><text x="16.5" y="19.5" font-size="8.5" font-weight="700" fill="currentColor" stroke="none" font-family="sans-serif">1</text>',
+  h2: '<path d="M4 5v12M12 5v12M4 11h8"/><text x="16.5" y="19.5" font-size="8.5" font-weight="700" fill="currentColor" stroke="none" font-family="sans-serif">2</text>',
+  h3: '<path d="M4 5v12M12 5v12M4 11h8"/><text x="16.5" y="19.5" font-size="8.5" font-weight="700" fill="currentColor" stroke="none" font-family="sans-serif">3</text>',
+  paragraph: '<path d="M11 4v16M15 4v16M18 4h-7.5a4 4 0 0 0 0 8H11"/>',
+  listNumber: '<path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 5h1.5v4M4 9h3"/><path d="M4 14.5c.3-.9 2.6-.9 2.6.5 0 1-2.6 1.6-2.6 3h2.8"/>',
+  quote: '<path d="M6 7h4v4c0 3-1.5 5-4 6"/><path d="M14 7h4v4c0 3-1.5 5-4 6"/>',
+  divider: '<path d="M3 12h18"/><path d="M7 7h10M7 17h10" opacity=".45"/>',
+  codeBlock: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="m9 10-2 2 2 2M15 10l2 2-2 2"/>',
+  toc: '<path d="M4 6h2M4 12h2M4 18h2M9 6h11M11 12h9M11 18h9"/>',
   login: '<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M3 12h11"/><path d="m10 8 4 4-4 4"/>',
   logout: '<path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"/><path d="M10 12h11"/><path d="m17 8 4 4-4 4"/>',
   key: '<circle cx="8" cy="15" r="4"/><path d="m11 12 9-9"/><path d="m16 7 3 3"/><path d="m14 9 2 2"/>',
@@ -84,6 +96,7 @@ const ICONS = {
 };
 
 const TONES = {
+  bold: 'slate', italic: 'slate', strike: 'slate', h1: 'indigo', h2: 'indigo', h3: 'indigo', paragraph: 'slate', listNumber: 'sky', quote: 'purple', divider: 'slate', codeBlock: 'cyan', toc: 'teal',
   login: 'green', logout: 'red', key: 'amber', idCard: 'indigo', team: 'purple', table: 'teal', wrench: 'slate', code: 'cyan',
   home: 'orange', board: 'blue', backlog: 'amber', roadmap: 'purple', issues: 'indigo', list: 'sky',
   dashboard: 'teal', chart: 'cyan', release: 'green', component: 'brown', filter: 'green', people: 'pink',
