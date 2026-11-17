@@ -971,12 +971,14 @@ export function createViewer(container, options = {}) {
   // ---------------------------------------------------------------- walk mode
   const walk = { yaw: 0, pitch: 0, keys: new Set(), drag: null, last: 0, eye: 1.6, base: 0 };
   function setNavMode(mode) {
-    opts.navMode = mode === "pan" ? "pan" : mode === "walk" ? "walk" : "orbit";
+    opts.navMode = ["pan", "walk", "select"].includes(mode) ? mode : "orbit";
     controls.enabled = opts.navMode !== "walk";
+    // Select: the left button picks and drags pieces only; the middle button turns the view, the right one pans.
     controls.mouseButtons = opts.navMode === "pan"
       ? { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE }
-      : { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
-    canvas.style.cursor = opts.navMode === "pan" ? "grab" : opts.navMode === "walk" ? "crosshair" : "";
+      : opts.navMode === "select" ? { LEFT: null, MIDDLE: THREE.MOUSE.ROTATE, RIGHT: THREE.MOUSE.PAN }
+        : { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+    canvas.style.cursor = restCursor();
     if (opts.navMode === "walk") {
       if (camera === ortho) setProjection(false);
       // Stand at eye height on the lowest visible level, looking along the view.
@@ -1260,8 +1262,30 @@ export function createViewer(container, options = {}) {
   }
 
   let down = null;
+  // ---------------------------------------------------------------- the pointer
+  // What the pointer shows: a tool its crosshair; walking the crosshair (a hand over a door it can open); else
+  // what a press would do there — the move arrows over the selected piece (drag it), a hand over anything that can
+  // be picked, and over nothing the mode's own: the open hand to pan or turn the view, the arrow to select.
+  function restCursor() { return (opts.tool && opts.tool !== "none") || opts.navMode === "walk" ? "crosshair" : opts.navMode === "select" ? "default" : "grab"; }
+  let cursorAt = 0;
+  function hoverCursor(e) {
+    if (opts.tool && opts.tool !== "none") return; // the tool keeps its crosshair
+    const now = performance.now();
+    if (now - cursorAt < 60) return; // a ray at most ~16 times a second
+    cursorAt = now;
+    const hit = raycastAt(e.clientX, e.clientY);
+    const ud = hit ? hit.object.userData : {};
+    let c = restCursor();
+    if (opts.navMode === "walk") { if (hit && ud.kind === "openings" && hit.distance < 6) c = "pointer"; }
+    else if (ud.id && ud.kind === "furniture" && (highlighted.has(ud.id) || lastPickId === ud.id)) c = "move";
+    else if (ud.id) c = "pointer";
+    if (canvas.style.cursor !== c) canvas.style.cursor = c;
+  }
+
   function onPointerDown(e) {
     down = { x: e.clientX, y: e.clientY, button: e.button };
+    // Turning or moving the view: the closed hand while the button is down.
+    if (!(opts.tool && opts.tool !== "none") && opts.navMode !== "walk" && !(opts.navMode === "select" && e.button === 0)) canvas.style.cursor = "grabbing";
     if (sk && sk.pointerDown(e)) { down.tool = true; return; }
     // A drag that a tool takes (push/pull, a lamp) keeps the pointer even when
     // it leaves the canvas, so its release always ends it.
@@ -1282,6 +1306,7 @@ export function createViewer(container, options = {}) {
   }
   function onPointerMove(e) {
     if (sk && sk.pointerMove(e)) return;
+    if (!e.buttons) hoverCursor(e);
     if (lampDrag) { lampMove(e); return; }
     if (push) {
       const y = heightAt(push.point, e.clientX, e.clientY);
@@ -1296,6 +1321,7 @@ export function createViewer(container, options = {}) {
   }
   function onPointerUp(e) {
     walk.drag = null;
+    if (canvas.style.cursor === "grabbing") canvas.style.cursor = restCursor();
     if (sk && sk.pointerUp(e)) { down = null; return; }
     if (lampDrag) {
       const d = lampDrag;
@@ -1738,7 +1764,7 @@ export function createViewer(container, options = {}) {
     if (changed("rotateSpeed")) controls.rotateSpeed = opts.rotateSpeed || 1;
     if (changed("background")) applyBackground();
     if (["environment", "envBackground"].some(changed)) applyEnvironment();
-    if (changed("tool")) { tapeA = null; canvas.style.cursor = opts.tool === "none" ? "" : "crosshair"; }
+    if (changed("tool")) { tapeA = null; canvas.style.cursor = restCursor(); }
     if (["fog", "background", "fogDensity"].some(changed)) applyFog();
     if (["groundColor", "style", "groundType", "groundShape"].some(changed)) buildGround(); // the sketch is drawn on paper
     if (["sectionCuts", "sectionFill"].some(changed)) applyClipping();

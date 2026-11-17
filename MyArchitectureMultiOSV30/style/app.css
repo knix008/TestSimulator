@@ -193,6 +193,15 @@ html.titlebar-wrap .titlebar > * { height: var(--titlebar-h); }
 /* The toolbar shows icons only; names are in the tooltips. */
 .toolbar .icon-btn .lbl, .toolbar .group-label { display: none; }
 .toolbar .grow { flex: 1; }
+/* The views (App.viewTabs): an icon and the name each; the current one underlined in the accent colour. */
+.toolbar .view-tabs { display: flex; align-items: stretch; gap: 2px; height: 32px; flex: 0 0 auto; }
+.toolbar .view-tab { height: 32px; padding: 0 9px; border-radius: 6px; border-top: 2px solid transparent; }
+.toolbar .view-tab.on { background: var(--hover); color: var(--text); border-bottom-color: var(--accent); }
+.toolbar.compact .view-tab { padding: 0 6px; gap: 4px; }
+/* The menu bar: an icon before every menu's name. */
+.menu-root { display: inline-flex; align-items: center; gap: 5px; }
+.menu-root-ico { display: inline-flex; opacity: .85; }
+.tabbar:empty { display: none; }
 .toolbar .group-label { font-size: 11px; color: var(--faint); margin: 0 4px 0 2px; white-space: nowrap; }
 .toolbar select.input { height: 28px; padding: 0 6px; }
 .layer-chip { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
@@ -460,6 +469,8 @@ select.input { padding-right: 4px; }
   position: fixed; z-index: 1000; min-width: 220px; padding: 5px; border-radius: 8px; background: var(--panel);
   border: 1px solid var(--line2); box-shadow: var(--shadow);
 }
+/* A menu laid out in columns (widgets.js fitMenu): an item or a separator never splits between two columns. */
+.ctx-menu > * { break-inside: avoid; }
 .menu-item { display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 6px; width: 100%; height: 28px; padding: 0 8px; border: 0; border-radius: 5px; background: transparent; color: var(--text); text-align: left; cursor: pointer; }
 .menu-item:hover:not(:disabled) { background: var(--accent); color: var(--accent-text); }
 .menu-item:hover:not(:disabled) .mi-key { color: inherit; opacity: .8; }

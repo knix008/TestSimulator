@@ -283,9 +283,7 @@ export function contextMenu(items, x, y) {
     menu.append(row);
   }
   doc.body.append(menu);
-  const r = menu.getBoundingClientRect();
-  menu.style.left = `${Math.max(0, Math.min(x, view.innerWidth - r.width - 6))}px`;
-  menu.style.top = `${Math.max(0, Math.min(y, view.innerHeight - r.height - 6))}px`;
+  fitMenu(menu, x, y, view);
   setTimeout(() => doc.addEventListener("pointerdown", outside, true), 0);
   function outside(e) {
     // A menu removed some other way must not close the next one.
@@ -295,6 +293,31 @@ export function contextMenu(items, x, y) {
   menu._outside = outside;
   menu._doc = doc;
   return menu;
+}
+
+/**
+ * Puts a menu at (x, y) wholly inside the window: as it is when it fits (moved in from the right and bottom edges);
+ * a menu taller than the window is laid out in as many columns as it needs, so every item shows without
+ * scrolling; only one that is still too big (a very small window) scrolls.
+ */
+export function fitMenu(menu, x, y, view = window) {
+  const M = 6, W = view.innerWidth, H = view.innerHeight;
+  Object.assign(menu.style, { columnCount: "", width: "", maxHeight: "", overflowY: "", left: "0px", top: "0px" });
+  let r = menu.getBoundingClientRect();
+  // Opened in the upper half (a menu bar or toolbar button, a right-click high up): it stays below the point and
+  // fits in the room there; lower down it may move up as far as the top.
+  const room = y < H / 2 ? H - Math.max(M, y) - M : H - 2 * M;
+  if (r.height > room) {
+    const colW = Math.ceil(r.width);
+    const cols = Math.min(Math.max(2, Math.ceil(r.height / (room - 12))), Math.max(1, Math.floor((W - 2 * M + 6) / (colW + 6))));
+    if (cols > 1) {
+      Object.assign(menu.style, { columnCount: String(cols), columnGap: "6px", width: `${colW * cols + 6 * (cols - 1) + 2}px` });
+      r = menu.getBoundingClientRect();
+    }
+    if (r.height > room) { Object.assign(menu.style, { maxHeight: `${room}px`, overflowY: "auto" }); r = menu.getBoundingClientRect(); }
+  }
+  menu.style.left = `${Math.max(M, Math.min(x, W - r.width - M))}px`;
+  menu.style.top = `${Math.max(M, Math.min(y, H - r.height - M))}px`;
 }
 
 export function closeMenus() {

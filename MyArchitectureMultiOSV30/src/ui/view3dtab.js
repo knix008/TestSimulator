@@ -362,6 +362,7 @@ export class View3DTab {
   hintText() {
     if (this.opts.navMode === "walk") return t("Walk: W/A/S/D or arrows move, drag to look around, Q/E down/up, Shift runs. Doors open as you come near; click a door or press F to open or close it. Esc leaves walk mode.");
     if (this.opts.navMode === "pan") return t("Pan mode: left-drag moves the view, right-drag rotates, wheel zooms.");
+    if (this.opts.navMode === "select") return t("Select: click a wall, door or piece to select it; drag a selected piece to move it. Middle-drag turns the view, right-drag pans, wheel zooms.");
     return t("Left-drag to orbit, right-drag to pan, wheel to zoom. Click a wall, door or piece of furniture to select it in the plan too.");
   }
 
@@ -547,7 +548,7 @@ export class View3DTab {
   renderToolbar(bar, btn, sep) {
     const nav = (mode, ic, label) => h("button", { class: `icon-btn ${this.opts.navMode === mode ? "on" : ""}`, title: t(label), "data-nav": mode, onclick: () => this.setNav(mode), html: icon(ic, 18) });
     const tool = (id, ic, label) => h("button", { class: `icon-btn ${this.opts.tool === id ? "on" : ""}`, title: t(label), "data-tool3d": id, onclick: () => this.setTool(id), html: icon(ic, 18) });
-    bar.append(nav("orbit", "orbit", "Orbit: left-drag turns the view"), nav("pan", "hand", "Pan (P): left-drag moves the view"), nav("walk", "walk", "Walk through (V)"),
+    bar.append(nav("select", "select", "Select: click picks, drag moves the selected piece (middle-drag turns the view, right-drag pans)"), nav("orbit", "orbit", "Orbit: left-drag turns the view"), nav("pan", "hand", "Pan (P): left-drag moves the view"), nav("walk", "walk", "Walk through (V)"),
       h("button", { class: `icon-btn ${this.tour.active ? "on" : ""}`, title: t("Automatic walk-through: in at the entrance, through every room, up the stairs"), "data-tour-start": "1", onclick: () => this.tour.toggle(), html: icon("tour", 18) }), sep(),
       tool("pushpull", "pushpull", "Push/Pull (U)"), tool("paint", "bucket", "Paint bucket"), tool("tape", "tape", "Tape measure"));
     this.sk.toolbar(bar, sep); // draw, modify, construction, camera, sandbox, solid tools (split buttons)

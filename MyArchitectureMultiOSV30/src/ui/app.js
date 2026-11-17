@@ -236,22 +236,31 @@ class App {
     this.setTab(this.tab === "start" ? this.lastWorkTab || "plan" : "start");
   }
 
-  renderTabs() {
-    const bar = this.$("tabbar");
-    bar.innerHTML = "";
+  // The views (Floor plan, 3D View, Views & sheets): the first group of the toolbar, an icon and the name each.
+  // The start page has its own toggle left of the File menu.
+  viewTabs() {
     const err = this.checkIssues.filter((i) => i.severity === "error").length;
     const warn = this.checkIssues.length - err;
     const defs = [
-      ["start", "home", t("Start")],
       ["plan", "floorplan", t("Floor plan"), err ? [err, ""] : warn ? [warn, "warn"] : null],
       ["3d", "cube", t("3D View")],
       ["views", "sheet", t("Views & sheets")],
     ];
+    const group = h("div", { class: "view-tabs", role: "tablist" });
     for (const [id, ic, label, badge] of defs) {
       const keyHint = { plan: "F2", "3d": "F3", views: "F6" }[id];
-      bar.append(h("button", { class: `doc-tab ${this.tab === id ? "on" : ""}`, "data-tab": id, title: keyHint ? `${label} (${keyHint})` : label, role: "tab", onclick: () => this.setTab(id) }, h("span", { html: icon(ic, 16) }), h("span", { class: "tab-label" }, label),
+      group.append(h("button", { class: `doc-tab view-tab ${this.tab === id ? "on" : ""}`, "data-tab": id, title: `${label} (${keyHint})`, role: "tab", "aria-selected": String(this.tab === id), onclick: () => this.setTab(id) }, h("span", { html: icon(ic, 17) }), h("span", { class: "tab-label" }, label),
         badge ? h("span", { class: `badge ${badge[1]}` }, String(badge[0])) : null));
     }
+    return group;
+  }
+
+  renderTabs() {
+    const bar = this.$("tabbar");
+    if (bar) bar.innerHTML = "";
+    // The toolbar's view buttons follow (the problem count, the current view) without redrawing the toolbar.
+    const old = document.querySelector("#toolbar .view-tabs");
+    if (old) old.replaceWith(this.viewTabs());
     this.fillSearch(this.$("title-search"));
   }
 
@@ -977,7 +986,8 @@ class App {
       title: t("Start page (click again to go back)"), onclick: () => this.toggleStart() },
       h("span", { html: icon("home", 15) }), h("span", {}, t("Start"))));
     for (const [name, ids] of Object.entries(M)) {
-      const btn = h("button", { class: "menu-root", "data-menu": name }, t(name));
+      const MENU_ICONS = { File: "open", Edit: "cut", View: "eye", Build: "wall", BIM: "bim", Drawings: "sheet", Help: "help" };
+      const btn = h("button", { class: "menu-root", "data-menu": name }, h("span", { class: "menu-root-ico", html: icon(MENU_ICONS[name] || "menu", 14) }), h("span", {}, t(name)));
       const open = () => {
         document.querySelectorAll(".menu-root.open").forEach((b) => b.classList.remove("open"));
         btn.classList.add("open");
@@ -1255,7 +1265,7 @@ class App {
     };
     const sep = () => h("div", { class: "sep" });
     const add = (...els) => bar.append(...els.filter(Boolean));
-    add(btn("file.new"), btn("file.open"), btn("file.save"), btn("file.print"), sep(), btn("edit.undo"), btn("edit.redo"), sep());
+    add(this.viewTabs(), sep(), btn("file.new"), btn("file.open"), btn("file.save"), btn("file.print"), sep(), btn("edit.undo"), btn("edit.redo"), sep());
     if (tab === "start") {
       add(btn("help.tutorial", { label: true }), btn("file.samples", { label: true }), btn("file.import", { label: true }), btn("help.manual", { label: true }));
     } else if (tab === "plan") {

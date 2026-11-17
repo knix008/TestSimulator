@@ -197,7 +197,8 @@ function initialConfig(app) {
   // The default paper in Settings wins when it was changed after the last print.
   if (saved.paper && saved.paper !== "custom" && app.settings.defaultPaper && saved.defaultPaper !== app.settings.defaultPaper) cfg.paper = app.settings.defaultPaper;
   if (cfg.paper !== "custom" && !PAPER[cfg.paper]) cfg.paper = "A3";
-  if (!SCALES.includes(+cfg.scale)) { cfg.customScale = +cfg.scale; cfg.scale = "custom"; }
+  if (cfg.scale === "custom") cfg.scale = String(cfg.customScale || 100);
+  if (cfg.scale !== "fit" && !(+cfg.scale >= 1)) cfg.scale = "100";
   return cfg;
 }
 
@@ -287,6 +288,7 @@ export async function printWindow(app, { pdf = false, sheets = null } = {}) {
   const preview = h("div", { class: "pw-preview" }, toolbar, stage, h("div", { class: "pw-statusbar" }, status, warnLine));
 
   let current = null; // { svg, W, H, ... }
+  let onDrawn = null; // the scale field shows the scale "Fit to page" came to
   function fitZoom() {
     if (!current) return 1;
     const r = stage.getBoundingClientRect();
@@ -330,6 +332,7 @@ export async function printWindow(app, { pdf = false, sheets = null } = {}) {
     const paperName = current && current.paperName ? current.paperName : cfg.paper === "custom" ? `${Math.round(W)} × ${Math.round(H)} mm` : `${cfg.paper} (${Math.round(W)} × ${Math.round(H)} mm)`;
     status.textContent = [t("Sheets: {n}", { n: pages.length }), paperName, cfg.landscape ? t("Landscape") : t("Portrait"), current && current.scale ? `1:${current.scale}` : null, cfg.mono ? t("Black and white") : t("Colour"), desktop && cfg.copies > 1 ? t("{n} copies", { n: cfg.copies }) : null].filter(Boolean).join(" · ");
     placePage();
+    if (onDrawn) onDrawn();
   }
   let pending = 0;
   const redraw = () => { cancelAnimationFrame(pending); pending = requestAnimationFrame(draw); };
@@ -387,10 +390,40 @@ export async function printWindow(app, { pdf = false, sheets = null } = {}) {
     row(t("Orientation"), orient, "pw-wide"),
     row(t("Margins"), marginSel, "pw-wide"), marginRow);
 
-  const customScale = h("div", { class: "pw-pair" }, h("span", {}, "1 :"), num(cfg.customScale, { min: 1, max: 100000, onChange: (v) => set("customScale", v) }));
-  const customScaleRow = row(t("Custom scale"), customScale);
-  customScaleRow.hidden = cfg.scale !== "custom";
-  const scaleSel = select(cfg.scale, [["fit", t("Fit to page")], ...SCALES.map((s) => [String(s), `1:${s}`]), ["custom", t("Custom")]], { cls: "wide pw-scale", onChange: (v) => { cfg.scale = v; customScaleRow.hidden = v !== "custom"; redraw(); } });
+  // The drawing scale: − / + step to the next scale of the list (past its ends too), any scale can be typed
+  // ("150", "1:150" or "1/150"), and the list next to it picks a usual one or "Fit to page".
+  const scaleInput = h("input", { class: "stepper-val", type: "text", inputmode: "numeric", spellcheck: "false", "data-pw-scale": "1", title: t("Type a scale, e.g. 1:150") });
+  const scaleBtn = (dir) => h("button", { class: "stepper-btn", type: "button", title: dir < 0 ? t("Larger scale (more detail)") : t("Smaller scale (more on the page)"), "aria-label": dir < 0 ? t("Decrease") : t("Increase"), "data-pw-scale-step": String(dir), html: icon(dir < 0 ? "minus" : "plus", 13) });
+  const scaleDec = scaleBtn(-1), scaleInc = scaleBtn(1);
+  const scalePreset = select("", [["fit", t("Fit to page")], ...SCALES.map((s) => [String(s), `1:${s}`]), ["custom", t("Custom")]], { cls: "pw-scale-list", onChange: (v) => { if (v !== "custom") setScale(v); else { scaleInput.focus(); showScale(); } } });
+  const showScale = () => {
+    const fit = cfg.scale === "fit";
+    scaleInput.value = fit ? (current && current.scale ? `${t("Fit")} (1:${current.scale})` : t("Fit to page")) : `1:${cfg.scale}`;
+    scalePreset.value = fit ? "fit" : SCALES.includes(+cfg.scale) ? String(+cfg.scale) : "custom";
+  };
+  const setScale = (v) => { cfg.scale = v === "fit" ? "fit" : String(Math.round(clampNum(v, 1, 100000, 100))); showScale(); redraw(); };
+  const stepScale = (dir) => {
+    const cur = cfg.scale === "fit" ? (current && current.scale) || 100 : +cfg.scale;
+    const next = dir > 0 ? SCALES.find((s) => s > cur) ?? Math.round(cur * 1.25) : [...SCALES].reverse().find((s) => s < cur) ?? Math.max(1, Math.floor(cur / 1.25));
+    setScale(next);
+  };
+  scaleDec.addEventListener("click", () => stepScale(-1));
+  scaleInc.addEventListener("click", () => stepScale(1));
+  scaleInput.addEventListener("focus", () => { if (cfg.scale === "fit") scaleInput.value = ""; scaleInput.select(); });
+  scaleInput.addEventListener("keydown", (e) => {
+    e.stopPropagation();
+    if (e.key === "Enter") scaleInput.blur();
+    else if (e.key === "Escape") { showScale(); scaleInput.blur(); }
+    else if (e.key === "ArrowUp" || e.key === "ArrowDown") { e.preventDefault(); stepScale(e.key === "ArrowUp" ? 1 : -1); }
+  });
+  scaleInput.addEventListener("change", () => {
+    const m = /^\s*(?:1\s*[:/]\s*)?(\d+(?:[.,]\d+)?)\s*$/.exec(scaleInput.value);
+    if (m) setScale(parseFloat(m[1].replace(",", "."))); else showScale();
+  });
+  scaleInput.addEventListener("blur", () => showScale());
+  const scaleSel = h("div", { class: "pw-scale" }, h("div", { class: "stepper editable", role: "spinbutton" }, scaleDec, scaleInput, scaleInc), scalePreset);
+  showScale();
+  onDrawn = () => { if (cfg.scale === "fit" && scaleInput.ownerDocument.activeElement !== scaleInput) showScale(); };
   const levelChecks = h("div", { class: "check-col pw-levels" }, ...p.levels.slice().reverse().map((l) => checkbox(cfg.levels.has(l.id), l.name, { onChange: (v) => { if (v) cfg.levels.add(l.id); else cfg.levels.delete(l.id); redraw(); } })));
   const allLevels = h("button", { type: "button", class: "btn small pw-all-levels", onclick: () => { for (const l of p.levels) cfg.levels.add(l.id); for (const c of levelChecks.querySelectorAll("input")) c.checked = true; redraw(); } }, t("Select all"));
   const rangeInput = h("input", { class: "input wide pw-range-text", placeholder: t("e.g. 1-2, 4"), value: cfg.rangeText });
@@ -405,7 +438,7 @@ export async function printWindow(app, { pdf = false, sheets = null } = {}) {
   sourceSeg.classList.add("pw-source");
   const drawingSection = section("drawing", t("Drawing"), "floorplan", true,
     row(t("Print"), sourceSeg, "pw-wide"), sheetRow,
-    row(t("Drawing scale"), scaleSel, "pw-wide"), customScaleRow,
+    row(t("Drawing scale"), scaleSel, "pw-wide"),
     h("div", { class: "pw-row" }, checkbox(cfg.centre, t("Centre on page"), { onChange: (v) => set("centre", v) })),
     row(t("Levels (one sheet each)"), h("div", { class: "pw-levels-wrap" }, levelChecks, p.levels.length > 1 ? allLevels : null), "pw-wide"),
     row(t("Page range"), h("div", { class: "pw-range" }, rangeSeg, rangeInput), "pw-wide"));

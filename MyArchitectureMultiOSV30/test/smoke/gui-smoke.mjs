@@ -1226,7 +1226,7 @@ try {
     await app(`document.querySelector('[data-section="sheet"]').open = true; return 1`);
     const tbCheck = await app(`const l = [...document.querySelectorAll('[data-section="sheet"] .check')].find(c => c.textContent.includes("Title block")); l.querySelector("input").click(); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); return document.querySelector(".print-stage .page svg").innerHTML.includes("Drawn by")`);
     await app(`const l = [...document.querySelectorAll('[data-section="sheet"] .check')].find(c => c.textContent.includes("Title block")); l.querySelector("input").click(); return 1`);
-    await pwChange(".pw-scale", "50"); await settle();
+    await pwChange(".pw-scale-list", "50"); await settle();
     const info = await app(`return document.querySelector(".pw-status").textContent`);
     const ok = land.w > land.h && port.h > port.w && a4.sw === 210 && a4.sh === 297 && m0 !== m1 && tbOn && tbCheck === false && info.includes("1:50") && info.includes("A4") && info.includes("Portrait");
     return ok || fail({ land, port: [port.w, port.h], a4: [a4.sw, a4.sh], m0, m1, tbOn, tbCheck, info });
@@ -1567,7 +1567,7 @@ try {
       if (r.left < B.left - 1 || r.right > B.right + 1 || r.top < B.top - 1 || r.bottom > B.bottom + 1) bad.push("toolbar item cut off: " + name(e));
     }
     // Icons only on the toolbar: no visible words, no text dropdowns.
-    for (const e of bar.querySelectorAll("button, select, span, label")) if (shown(e) && (e.tagName === "SELECT" || [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))) bad.push("toolbar shows text: " + name(e));
+    for (const e of bar.querySelectorAll("button, select, span, label")) if (!e.closest(".view-tabs") /* the view switches name their view */ && shown(e) && (e.tagName === "SELECT" || [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))) bad.push("toolbar shows text: " + name(e));
     return [...new Set(bad)].slice(0, 20);
   })()`;
   await step("no button or label in the side panels and toolbar is hidden, cut off or squashed (plan, 3D, normal and minimum width)", async () => {

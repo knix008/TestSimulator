@@ -333,6 +333,23 @@ export class PlanEditor {
     }
   }
 
+  // The pointer over what is under it (Select tool): a corner of a piece of furniture resizes it (the diagonal
+  // arrow along that corner), a wall end or a room / roof corner moves that point, a selected item moves, an item
+  // not selected yet is a hand to pick it, empty space the arrow (dragging it pans: the closed hand).
+  cursorFor(h) {
+    if (!h) return "default";
+    if (h.handle !== undefined) {
+      if (h.kind === "furniture" && typeof h.handle === "string" && /^c\d$/.test(h.handle)) {
+        const [a, b] = [[-1, -1], [1, -1], [1, 1], [-1, 1]][+h.handle.slice(1)];
+        const r = ((h.obj.rot || 0) * Math.PI) / 180;
+        const dx = a * Math.cos(r) - b * Math.sin(r), dy = a * Math.sin(r) + b * Math.cos(r);
+        return dx * dy > 0 ? "nwse-resize" : "nesw-resize";
+      }
+      return "move";
+    }
+    return this.sel.has(h.obj.id) ? "move" : "pointer";
+  }
+
   pointerSelect(type, e, x, y) {
     if (type === "move") {
       if (this.drag) return this.dragMove(x, y, e);
@@ -340,7 +357,7 @@ export class PlanEditor {
       const h = ops.hitTest(this.p, this.level, x, y, this.tol(), { selected: this.sel });
       const id = h ? h.obj.id : null;
       if (id !== (this.hover && this.hover.obj.id) || (h && this.hover && h.handle !== this.hover.handle)) { this.hover = h; this.request(); }
-      this.canvas.style.cursor = h ? (h.handle !== undefined ? "crosshair" : "move") : "default";
+      this.canvas.style.cursor = this.cursorFor(h);
       return;
     }
     if (type === "down" && e.button === 0) {
