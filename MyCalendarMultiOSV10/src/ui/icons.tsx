@@ -97,7 +97,14 @@ export function CollapseIcon() {
 export function ResizeGripIcon() {
   return (
     <svg viewBox="0 0 14 14" aria-hidden="true">
-      <path d="M13 3 3 13M13 7.5 7.5 13M13 12l-1 1" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      {/* Six dots stacked into a triangle in the corner: 1 · 2 · 3 from top to bottom. */}
+      {[
+        [11, 3],
+        [7, 7], [11, 7],
+        [3, 11], [7, 11], [11, 11],
+      ].map(([cx, cy]) => (
+        <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="1.35" fill="currentColor" />
+      ))}
     </svg>
   );
 }
