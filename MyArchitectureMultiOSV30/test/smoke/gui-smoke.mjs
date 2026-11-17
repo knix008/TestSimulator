@@ -1567,7 +1567,7 @@ try {
       if (r.left < B.left - 1 || r.right > B.right + 1 || r.top < B.top - 1 || r.bottom > B.bottom + 1) bad.push("toolbar item cut off: " + name(e));
     }
     // Icons only on the toolbar: no visible words, no text dropdowns.
-    for (const e of bar.querySelectorAll("button, select, span, label")) if (!e.closest(".view-tabs") /* the view switches name their view */ && shown(e) && (e.tagName === "SELECT" || [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))) bad.push("toolbar shows text: " + name(e));
+    for (const e of bar.querySelectorAll("button, select, span, label")) if (!e.closest(".view-tabs") /* the view buttons' problem-count badge */ && shown(e) && (e.tagName === "SELECT" || [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))) bad.push("toolbar shows text: " + name(e));
     return [...new Set(bad)].slice(0, 20);
   })()`;
   await step("no button or label in the side panels and toolbar is hidden, cut off or squashed (plan, 3D, normal and minimum width)", async () => {
@@ -1913,7 +1913,7 @@ try {
     const dxf = files.find((f) => f.endsWith(".dxf"));
     const ok = dxf && fs.readFileSync(path.join(out, dxf), "latin1").includes("AC1009");
     await app(`app.run("views.publish"); return 1`);
-    await waitFor(`document.querySelector(".vt-pub-list")`);
+    await waitFor(`(app.dialogWindows()[0] ? app.dialogWindows()[0].document : document).querySelector(".pw-pubset")`); /* publishing is the print window, with its publish sets */
     await closeModals();
     return (ok && files.some((f) => f.endsWith(".svg"))) || fail(files);
   });

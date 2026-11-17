@@ -236,7 +236,7 @@ class App {
     this.setTab(this.tab === "start" ? this.lastWorkTab || "plan" : "start");
   }
 
-  // The views (Floor plan, 3D View, Views & sheets): the first group of the toolbar, an icon and the name each.
+  // The views (Floor plan, 3D View, Views & sheets): the first group of the toolbar, icon buttons (the name in the tooltip).
   // The start page has its own toggle left of the File menu.
   viewTabs() {
     const err = this.checkIssues.filter((i) => i.severity === "error").length;
@@ -249,7 +249,7 @@ class App {
     const group = h("div", { class: "view-tabs", role: "tablist" });
     for (const [id, ic, label, badge] of defs) {
       const keyHint = { plan: "F2", "3d": "F3", views: "F6" }[id];
-      group.append(h("button", { class: `doc-tab view-tab ${this.tab === id ? "on" : ""}`, "data-tab": id, title: `${label} (${keyHint})`, role: "tab", "aria-selected": String(this.tab === id), onclick: () => this.setTab(id) }, h("span", { html: icon(ic, 17) }), h("span", { class: "tab-label" }, label),
+      group.append(h("button", { class: `doc-tab view-tab ${this.tab === id ? "on" : ""}`, "data-tab": id, title: `${label} (${keyHint})`, role: "tab", "aria-selected": String(this.tab === id), onclick: () => this.setTab(id) }, h("span", { html: icon(ic, 18) }), // icons only, as every toolbar button: the name is in the tooltip
         badge ? h("span", { class: `badge ${badge[1]}` }, String(badge[0])) : null));
     }
     return group;

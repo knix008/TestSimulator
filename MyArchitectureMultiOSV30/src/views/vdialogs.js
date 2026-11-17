@@ -218,37 +218,6 @@ export async function revisionsDialog(app) {
   });
 }
 
-// ---------------------------------------------------------------- publish
-export async function publishDialog(app, setId = null) {
-  const store = app.store;
-  const p = store.project;
-  const sheets = (p.sheets || []).slice().sort((a, b) => String(a.number).localeCompare(String(b.number), undefined, { numeric: true }));
-  if (!sheets.length) { toast(t("There are no sheets yet: make one with Drawings → New sheet."), "warn"); return; }
-  const set = (p.publishSets || []).find((x) => x.id === setId);
-  const chosen = new Set(set ? set.sheets : sheets.map((s) => s.id));
-  const boxes = h("div", { class: "check-col vt-pub-list" });
-  const draw = () => { boxes.innerHTML = ""; for (const s of sheets) boxes.append(checkbox(chosen.has(s.id), `${s.number} — ${displayName(s.name)}  (${s.paper})`, { onChange: (on) => { if (on) chosen.add(s.id); else chosen.delete(s.id); } })); };
-  draw();
-  const setSel = select(setId || "", [["", t("All sheets")], ...(p.publishSets || []).map((x) => [x.id, displayName(x.name)])], { onChange: (v) => { chosen.clear(); const ps = (store.project.publishSets || []).find((x) => x.id === v); for (const s of sheets) if (!ps || ps.sheets.includes(s.id)) chosen.add(s.id); draw(); } });
-  const saveName = input(set ? set.name : "", { placeholder: t("Name of a new publish set") });
-  const body = h("div", {}, h("div", { class: "form-grid" }, field(t("Publish set"), setSel), field(t("Save the selection as"), saveName)), h("h4", {}, t("Sheets")), boxes,
-    h("p", { class: "field-hint" }, t("Print / PDF opens the print window with these sheets; SVG and DXF write one file per sheet.")));
-  const r = await modal({ icon: "export", title: t("Publish sheets"), width: 620, body, buttons: [
-    { label: t("Save set"), value: "save", left: true }, { label: t("Cancel"), value: null }, { label: "DXF…", value: "dxf" }, { label: "SVG…", value: "svg" }, { label: t("Print / PDF…"), value: "print", primary: true },
-  ] });
-  if (!r) return;
-  const ids = sheets.filter((s) => chosen.has(s.id)).map((s) => s.id);
-  if (r === "save" || (saveName.value.trim() && (!set || saveName.value.trim() !== set.name))) {
-    const nm = saveName.value.trim() || t("Publish set");
-    store.edit(t("Save publish set"), (pr) => { const ex = pr.publishSets.find((x) => x.name === nm); if (ex) ex.sheets = ids; else pr.publishSets.push({ id: uid("ps"), name: nm, sheets: ids }); });
-    if (r === "save") { toast(t("Publish set \"{name}\" saved.", { name: nm }), "ok"); return; }
-  }
-  if (!ids.length) { toast(t("Tick at least one sheet."), "warn"); return; }
-  if (r === "print") await app.views.printSheets(ids);
-  else if (r === "svg") await app.views.exportSheetsSvg(ids);
-  else if (r === "dxf") await app.views.exportSheetsDxf(ids);
-}
-
 // ---------------------------------------------------------------- schedules
 export function pickScheduleCategory(app, onPick) {
   quickPick({ title: t("New schedule"), placeholder: t("Category…"), items: Object.entries(SCHEDULE_CATEGORIES).map(([k, c]) => ({ label: t(c.label), icon: "schedule", value: k })), onPick: (it) => onPick(it.value) });

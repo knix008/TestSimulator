@@ -193,9 +193,10 @@ html.titlebar-wrap .titlebar > * { height: var(--titlebar-h); }
 /* The toolbar shows icons only; names are in the tooltips. */
 .toolbar .icon-btn .lbl, .toolbar .group-label { display: none; }
 .toolbar .grow { flex: 1; }
-/* The views (App.viewTabs): an icon and the name each; the current one underlined in the accent colour. */
+/* The views (App.viewTabs): icon buttons; the current one underlined in the accent colour, the problem count a badge on its corner. */
 .toolbar .view-tabs { display: flex; align-items: stretch; gap: 2px; height: 32px; flex: 0 0 auto; }
-.toolbar .view-tab { height: 32px; padding: 0 9px; border-radius: 6px; border-top: 2px solid transparent; }
+.toolbar .view-tab { position: relative; height: 32px; min-width: 32px; padding: 0 7px; gap: 0; justify-content: center; border-radius: 6px; border-top: 2px solid transparent; }
+.toolbar .view-tab .badge { position: absolute; top: 1px; right: -2px; font-size: 9px; padding: 0 4px; line-height: 13px; }
 .toolbar .view-tab.on { background: var(--hover); color: var(--text); border-bottom-color: var(--accent); }
 .toolbar.compact .view-tab { padding: 0 6px; gap: 4px; }
 /* The menu bar: an icon before every menu's name. */

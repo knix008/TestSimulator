@@ -160,7 +160,7 @@ export class ViewsTab {
     if (this.isSheet()) {
       bar.append(h("span", { class: "vt-bar-label" }, `${t("Sheet")} ${it.number}`), h("span", { class: "vt-bar-dim" }, `${it.paper} ${it.landscape === false ? t("Portrait") : t("Landscape")}`));
       bar.append(h("button", { class: "btn small", onclick: () => this.app.run("views.placeView") }, h("span", { html: icon("plus", 13) }), t("Place view…")));
-      bar.append(h("button", { class: "btn small", onclick: () => this.app.run("views.publish") }, h("span", { html: icon("print", 13) }), t("Print / publish…")));
+      bar.append(h("button", { class: "btn small", onclick: () => this.app.views.printSheets(null) }, h("span", { html: icon("print", 13) }), t("Print / publish…")));
       return;
     }
     const v = viewById(this.p, this.current);

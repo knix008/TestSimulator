@@ -625,9 +625,9 @@ export const LESSONS = [
       { title: T("일람표 뷰", "Schedule views"), text: T("도면 → 새 일람표…에서 범주(실, 문, 창 …)를 고르면 필드·필터·정렬·그룹·합계·계산 값이 있는 표가 뷰로 열립니다. 셀을 더블클릭해 고치면 모델이 바뀌고, 시트에 표로 놓을 수 있습니다.", "Drawings → New schedule… asks for a category (rooms, doors, windows …) and opens a table with fields, filters, sorting, grouping, totals and calculated values. Editing a cell changes the model; the table can go on a sheet."),
         run: async (ctx) => { const n = ctx.p.views.filter((v) => v.kind === "schedule").length; await ctx.command("views.schedule"); await ctx.pick(ctx.app.t("Doors"), ctx.app.t("Doors")); await ctx.waitFor(() => ctx.p.views.filter((v) => v.kind === "schedule").length > n, 3000); await ctx.waitFor(() => document.querySelector(".vt-sched"), 3000); },
         practice: { todo: T("새 일람표를 하나 만들어 보세요.", "Make a new schedule."), check: (ctx, mem) => ctx.p.views.filter((v) => v.kind === "schedule").length > (mem.schedules ?? (mem.schedules = ctx.p.views.filter((v) => v.kind === "schedule").length)) } },
-      { title: T("출판", "Publish"), text: T("도면 → 시트 출판에서 시트(또는 저장한 출판 세트)를 골라 인쇄·PDF·SVG·DXF로 한꺼번에 내보냅니다. 인쇄 창은 시트마다 자기 용지 크기로 인쇄합니다.", "Drawings → Publish sheets prints or saves chosen sheets (or a saved publish set) as print, PDF, SVG or DXF in one go; the print window prints each sheet on its own paper size."),
+      { title: T("출판", "Publish"), text: T("인쇄 창(Ctrl+P, 도면 → 시트 출판)에서 '시트'를 고르면 시트(또는 저장한 출판 세트)를 골라 인쇄하거나 PDF·SVG·DXF로 한꺼번에 저장합니다. 시트마다 자기 용지 크기로 인쇄합니다.", "In the print window (Ctrl+P, or Drawings → Publish sheets) choose Sheets: print the chosen sheets (or a saved publish set), or save them as PDF, SVG or DXF in one go; each sheet prints on its own paper size."),
         run: async (ctx) => { await ctx.command("views.publish"); await ctx.waitFor(() => ctx.modal(), 3000); await ctx.wait(400); await closeAll(ctx); },
-        practice: { todo: T("도면 → 시트 출판 창을 열어 보세요.", "Open Drawings → Publish sheets."), check: (ctx, mem) => [...mem.modals].some((m) => m.includes(ctx.app.t("Publish sheets"))) } },
+        practice: { todo: T("도면 → 시트 출판으로 인쇄 창을 열어 보세요.", "Open the print window with Drawings → Publish sheets."), check: (ctx, mem) => [...mem.modals].some((m) => m.includes(ctx.app.t("Print"))) } },
     ],
   },
   // ---------------------------------------------------------------- SketchUp tools

@@ -241,12 +241,15 @@ function section(id, title, ic, open, ...children) {
 const pageIcon = (land) => `<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><rect x="${land ? 1.5 : 3.5}" y="${land ? 3.5 : 1.5}" width="${land ? 13 : 9}" height="${land ? 9 : 13}" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>`;
 
 // ---------------------------------------------------------------- the window
-export async function printWindow(app, { pdf = false, sheets = null } = {}) {
+export async function printWindow(app, { pdf = false, sheets = null, setId = null, source = null } = {}) {
   const p = app.store.project;
   const cfg = initialConfig(app);
-  // What prints: the level plans (one page each) or the project's sheets (src/views).
-  cfg.source = sheets ? "sheets" : "levels";
-  cfg.sheetIds = new Set(sheets || printableSheets(p).map((s) => s.id));
+  // What prints: the level plans (one page each) or the project's sheets (src/views). Printing, PDF, SVG and DXF of
+  // sheets, and the publish sets (named lists of sheets), are all here: there is no separate publish dialog.
+  const set0 = setId ? (p.publishSets || []).find((x) => x.id === setId) : null;
+  cfg.source = source || (sheets || set0 ? "sheets" : "levels");
+  cfg.sheetIds = new Set(set0 ? set0.sheets : sheets || printableSheets(p).map((s) => s.id));
+  if (cfg.source === "sheets") await prepareSheets(app, [...cfg.sheetIds]);
   const desktop = platform.isDesktop;
   let index = 0;
   let zoom = "fit";
@@ -431,16 +434,56 @@ export async function printWindow(app, { pdf = false, sheets = null } = {}) {
   rangeInput.addEventListener("keydown", (e) => e.stopPropagation());
   rangeInput.hidden = cfg.range !== "custom";
   const rangeSeg = segmented(cfg.range, [["all", t("All pages")], ["custom", t("Pages")]], (v) => { cfg.range = v; rangeInput.hidden = v !== "custom"; if (v === "custom") rangeInput.focus(); redraw(); });
-  const sheetChecks = h("div", { class: "check-col pw-sheets" }, ...printableSheets(p).map((s) => checkbox(cfg.sheetIds.has(s.id), sheetLabel(s), { onChange: (v) => { if (v) cfg.sheetIds.add(s.id); else cfg.sheetIds.delete(s.id); prepareSheets(app, [s.id]).then(redraw); redraw(); } })));
-  const sheetRow = row(t("Sheets"), sheetChecks, "pw-wide");
+  const sheetChecks = h("div", { class: "check-col pw-sheets" });
+  const fillSheetChecks = () => {
+    sheetChecks.innerHTML = "";
+    sheetChecks.append(...printableSheets(p).map((s) => checkbox(cfg.sheetIds.has(s.id), sheetLabel(s), { onChange: (v) => { if (v) cfg.sheetIds.add(s.id); else cfg.sheetIds.delete(s.id); setSel.value = ""; prepareSheets(app, [s.id]).then(redraw); redraw(); } })));
+  };
+  // Publish sets: pick one to tick its sheets; the ticked sheets saved under a name for next time.
+  const setOptions = () => [["", t("Sheets ticked below")], ...(app.store.project.publishSets || []).map((x) => [x.id, `${x.name} (${x.sheets.length})`])];
+  const setSel = select(set0 ? set0.id : "", setOptions(), { cls: "pw-pubset", onChange: (v) => {
+    const ps = (app.store.project.publishSets || []).find((x) => x.id === v);
+    if (!ps) return;
+    cfg.sheetIds = new Set(ps.sheets);
+    fillSheetChecks();
+    index = 0;
+    prepareSheets(app, ps.sheets).then(redraw);
+    redraw();
+  } });
+  const saveSet = h("button", { type: "button", class: "btn small pw-saveset", title: t("Save the ticked sheets as a publish set"), onclick: async () => {
+    const cur = (app.store.project.publishSets || []).find((x) => x.id === setSel.value);
+    const nm = await promptName(cur ? cur.name : "");
+    if (!nm) return;
+    const ids = printableSheets(p).filter((s) => cfg.sheetIds.has(s.id)).map((s) => s.id);
+    let id = null;
+    app.store.edit(t("Save publish set"), (pr) => { pr.publishSets = pr.publishSets || []; const ex = pr.publishSets.find((x) => x.name === nm); if (ex) { ex.sheets = ids; id = ex.id; } else { id = `ps${Date.now().toString(36)}`; pr.publishSets.push({ id, name: nm, sheets: ids }); } });
+    setSel.innerHTML = "";
+    for (const [v, l] of setOptions()) setSel.append(h("option", { value: v }, l));
+    setSel.value = id;
+    toast(t("Publish set \"{name}\" saved.", { name: nm }), "ok");
+  } }, h("span", { html: icon("save", 13) }), t("Save set…"));
+  const promptName = async (value) => {
+    const inp = h("input", { class: "input wide", value, placeholder: t("Name of a new publish set") });
+    inp.addEventListener("keydown", (e) => e.stopPropagation());
+    const ok = await modal({ icon: "save", title: t("Save publish set"), width: 420, body: h("div", {}, inp), onOpen: () => setTimeout(() => { inp.focus(); inp.select(); }, 30), buttons: [{ label: t("Cancel"), value: null }, { label: t("Save"), value: "ok", primary: true }] });
+    return ok === "ok" ? inp.value.trim() || null : null;
+  };
+  fillSheetChecks();
+  const sheetRow = h("div", {}, row(t("Publish set"), h("div", { class: "pw-pair" }, setSel, saveSet), "pw-wide"), row(t("Sheets"), sheetChecks, "pw-wide"));
   sheetRow.hidden = cfg.source !== "sheets";
-  const sourceSeg = segmented(cfg.source, [["levels", t("Level plans")], ["sheets", t("Sheets")]], (v) => { cfg.source = v; index = 0; sheetRow.hidden = v !== "sheets"; if (v === "sheets") prepareSheets(app, [...cfg.sheetIds]).then(redraw); redraw(); });
+  const sourceSeg = segmented(cfg.source, [["levels", t("Level plans")], ["sheets", t("Sheets")]], (v) => { cfg.source = v; index = 0; showSource(); if (v === "sheets") prepareSheets(app, [...cfg.sheetIds]).then(redraw); redraw(); });
   sourceSeg.classList.add("pw-source");
-  const drawingSection = section("drawing", t("Drawing"), "floorplan", true,
-    row(t("Print"), sourceSeg, "pw-wide"), sheetRow,
+  // Scale, centring and levels belong to the level plans; a sheet has its own (each viewport its scale).
+  const levelRows = [
     row(t("Drawing scale"), scaleSel, "pw-wide"),
     h("div", { class: "pw-row" }, checkbox(cfg.centre, t("Centre on page"), { onChange: (v) => set("centre", v) })),
     row(t("Levels (one sheet each)"), h("div", { class: "pw-levels-wrap" }, levelChecks, p.levels.length > 1 ? allLevels : null), "pw-wide"),
+  ];
+  const showSource = () => { sheetRow.hidden = cfg.source !== "sheets"; for (const r of levelRows) r.hidden = cfg.source === "sheets"; };
+  showSource();
+  const drawingSection = section("drawing", t("Drawing"), "floorplan", true,
+    row(t("Print"), sourceSeg, "pw-wide"), sheetRow,
+    ...levelRows,
     row(t("Page range"), h("div", { class: "pw-range" }, rangeSeg, rangeInput), "pw-wide"));
 
   const tog = (k, label) => checkbox(cfg[k], label, { onChange: (v) => set(k, v) });
@@ -466,6 +509,7 @@ export async function printWindow(app, { pdf = false, sheets = null } = {}) {
     buttons: [
       { label: t("Save as PDF…"), value: "pdf", left: true, primary: pdf },
       { label: t("Save as SVG…"), value: "svg", left: true },
+      { label: t("Save as DXF…"), value: "dxf", left: true },
       { label: t("Cancel"), value: null },
       { label: desktop ? t("Print") : t("Print…"), value: "print", primary: !pdf || !desktop },
     ],
@@ -486,6 +530,12 @@ export async function printWindow(app, { pdf = false, sheets = null } = {}) {
   if (!r) return;
   const pages = renderPages();
   if (!pages.length) return;
+  // DXF: each sheet its own file (views/index.js), or the plan as the DXF export writes it.
+  if (r === "dxf") {
+    if (cfg.source === "sheets") await app.views.exportSheetsDxf(pages.map((pg) => pg.sheet).filter(Boolean));
+    else await app.run("file.exportDxf");
+    return;
+  }
   if (r === "svg") {
     for (const pg of pages) {
       const out = pg.svg.replace(/width="([\d.]+)" height="([\d.]+)"/, 'width="$1mm" height="$2mm"');

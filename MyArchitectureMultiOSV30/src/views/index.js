@@ -96,7 +96,7 @@ export function install(app) {
         { label: t("Open"), icon: "sheet", action: () => api.open(s.id) },
         { label: t("Sheet properties…"), icon: "settings", action: () => api.sheetProperties(s.id) },
         { label: t("Place view…"), icon: "plus", action: () => { api.open(s.id); app.run("views.placeView"); } },
-        { label: t("Print / publish…"), icon: "print", action: () => D.publishDialog(app) },
+        { label: t("Print / publish…"), icon: "print", action: () => api.printSheets(null) },
         { label: t("Export DXF of the sheet…"), icon: "dxf", action: () => api.exportDxf(s.id) },
         { label: t("Duplicate sheet"), icon: "copy", action: () => app.store.edit(t("Duplicate sheet"), (p) => { const n = { ...JSON.parse(JSON.stringify(s)), id: uid("sh"), number: newSheet(p).number, name: `${s.name} (2)`, viewports: (s.viewports || []).filter((vp) => { const v = viewById(p, vp.view); return v && (v.kind === "schedule" || v.kind === "legend"); }).map((vp) => ({ ...vp, id: uid("vp") })) }; p.sheets.push(n); }) },
         "-", { label: t("Delete sheet"), icon: "trash", danger: true, action: async () => { if (await confirmDialog(t("Delete sheet {n}? The views stay in the project.", { n: s.number }), { danger: true, ok: t("Delete") })) app.store.edit(t("Delete sheet"), (p) => { p.sheets = p.sheets.filter((x) => x.id !== s.id); p.annotations = p.annotations.filter((a) => a.view !== s.id); for (const ps of p.publishSets) ps.sheets = ps.sheets.filter((x) => x !== s.id); }); } },
@@ -110,7 +110,7 @@ export function install(app) {
     scheduleProperties: (id) => D.scheduleProperties(app, id),
     templatesDialog: (id) => D.templatesDialog(app, id),
     revisionsDialog: () => D.revisionsDialog(app),
-    publishDialog: (id) => D.publishDialog(app, id),
+    publishDialog: (id) => api.printSheets(null, id), // a publish set: the print window with its sheets
 
     contentExtent: (id) => viewExtent(app.store.project, viewById(app.store.project, id), null, app.store.revision),
 
@@ -214,11 +214,13 @@ export function install(app) {
     },
 
     // ---------------------------------------------------------------- output
-    async printSheets(ids) {
+    // The print window with sheets: these (ids), a publish set's (setId), or all of them (null).
+    async printSheets(ids, setId = null) {
       const p = app.store.project;
-      for (const id of ids) { const s = sheetById(p, id); if (s) await prepareSheet(p, s, app.store.revision); }
+      if (!(p.sheets || []).length) { toast(t("There are no sheets yet: make one with Drawings → New sheet."), "warn"); return null; }
+      for (const id of ids || []) { const s = sheetById(p, id); if (s) await prepareSheet(p, s, app.store.revision); }
       const { printWindow } = await import("../ui/printwin.js");
-      return printWindow(app, { sheets: ids });
+      return printWindow(app, { sheets: ids, setId, source: "sheets" });
     },
     async exportSheetsSvg(ids) {
       const p = app.store.project;
@@ -297,7 +299,7 @@ export function install(app) {
       if (it && !sheet && it.kind !== "schedule") add(split("dim", DIM_GROUP, btn), split("text", TEXT_GROUP, btn), split("detail", DETAIL_GROUP, btn), btn("views.callout"), btn("views.tagAll"));
       if (sheet) add(btn("views.placeView"), split("text", ["note"], btn), split("detail", DETAIL_GROUP, btn));
       add(sep(), btn("views.section"), btn("views.extElevations"), btn("views.ceilingPlan"), btn("views.schedule"), btn("views.sheet"), sep(),
-        btn("views.properties"), btn("views.visibility"), btn("views.templates"), btn("views.revisions"), sep(), btn("views.publish"), btn("views.exportDxf"),
+        btn("views.properties"), btn("views.visibility"), btn("views.templates"), btn("views.revisions"), sep(), btn("views.exportDxf"),
         sep(), btn("view.fit"));
     },
     // Two split buttons on the floor-plan tool bar: views and annotation.
@@ -495,7 +497,7 @@ export function install(app) {
   C("views.lineStyles", "Line styles…", "line", "", () => D.lineStylesDialog(app));
   C("views.visibility", "Visibility / graphics…", "layers", "", () => D.visibilityDialog(app, api.currentId()));
   C("views.properties", "View properties…", "settings", "", () => { const id = api.currentId(); if (sheetById(app.store.project, id)) api.sheetProperties(id); else api.viewProperties(id); });
-  C("views.publish", "Publish sheets (print, PDF, SVG, DXF)…", "print", "", () => D.publishDialog(app));
+  C("views.publish", "Publish sheets (print, PDF, SVG, DXF)…", "print", "", () => api.printSheets(null));
   C("views.exportDxf", "Export DXF of the view or sheet…", "dxf", "", () => api.exportDxf());
   C("views.tagAll", "Tag all not tagged…", "label", "", () => {
     const id = api.currentId();
