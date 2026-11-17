@@ -23,7 +23,7 @@ function newel(y, z, r, dir, n = 6) {
 // An escalator (steps) or a moving walkway / ramp (pallets), centred on x = ox,
 // w wide, d long (landings included), rising `rise` from −y to +y.
 // o: { steps, glass, land, base (raised deck of a flat walkway), side: "main" colour of the cladding }
-function mover(ox, w, d, rise, o = {}) {
+export function mover(ox, w, d, rise, o = {}) {
   const out = [];
   const land = o.land ?? Math.min(1300, d * 0.15);
   const base = rise > 0 ? 0 : o.base ?? 150;
@@ -74,7 +74,7 @@ function mover(ox, w, d, rise, o = {}) {
 
 // ---------------------------------------------------------------- lift cars
 // A lift car open at the front (+y): floor, walls, ceiling with a light, handrail, panel.
-function car(w, d, h, o = {}) {
+export function car(w, d, h, o = {}) {
   const wall = o.wall || "main", out = [];
   out.push(B(0, 0, 0, w, d, 40, o.floor || "granite", 0, o.floorM ? { m: o.floorM } : undefined));
   if (o.glassBack) {

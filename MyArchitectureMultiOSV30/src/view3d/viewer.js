@@ -1040,8 +1040,21 @@ export function createViewer(container, options = {}) {
   const walkDoors = { list: null, of: null, state: new Map(), busy: false };
   function applyDoor(d, t) {
     for (const part of d.parts) {
-      const L = part.userData.leaf, S = part.userData.slide;
-      if (L) {
+      const L = part.userData.leaf, S = part.userData.slide, Mo = part.userData.morph;
+      if (Mo) {
+        // A library door whose leaf is part of the model: the model at the angle reached (5° steps, cached).
+        const deg = Math.round((Mo.a + (Math.max(Mo.a, 90) - Mo.a) * t) / 5) * 5;
+        if (deg !== Mo.cur) {
+          const m = Mo.make(deg);
+          if (m) {
+            const ud = part.parent ? part.parent.userData : {};
+            m.traverse((c) => { c.userData.id = ud.id; c.userData.kind = ud.kind; c.userData.level = ud.level; });
+            for (const c of [...part.children]) part.remove(c);
+            part.add(m);
+            Mo.cur = deg;
+          }
+        }
+      } else if (L) {
         const a = L.a + (Math.max(L.a, DOOR_ANGLE) - L.a) * t;
         part.rotation.y = L.y0 + L.k * a;
       } else if (S) {
@@ -1062,7 +1075,7 @@ export function createViewer(container, options = {}) {
     building.traverse((o) => {
       if (!o.userData || !o.userData.doorAt || o.userData.kind !== "openings") return;
       const parts = [];
-      o.traverse((c) => { if (c.userData.leaf || c.userData.slide) parts.push(c); });
+      o.traverse((c) => { if (c.userData.leaf || c.userData.slide || c.userData.morph) parts.push(c); });
       if (!parts.length) return;
       const at = new THREE.Vector3(...o.userData.doorAt);
       if (o.parent) o.parent.localToWorld(at);

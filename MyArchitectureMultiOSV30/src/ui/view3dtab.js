@@ -187,6 +187,8 @@ export class View3DTab {
           // Shift+click adds to the selection (and takes away), as in SketchUp.
           if (info && info.id && info.shift) { const cur = [...this.app.plan.sel]; const next = cur.includes(info.id) ? cur.filter((x) => x !== info.id) : [...cur, info.id]; this.app.onSelection("3d", next); this.highlight(next); }
           else if (info && info.id) this.app.onSelection("3d", [info.id]);
+          // A click on nothing (sky, ground) clears the selection, as in the plan; Shift keeps it.
+          else if (!(info && info.shift)) this.app.onSelection("3d", []);
           // A picked lamp lights up as selected: drag it to move it.
           if (info && info.id && this.isLamp(info.id)) { this.highlight([info.id]); this.app.setHint(t("Light selected: drag it to move it, double-click to switch it on or off.")); }
           this.app.refreshInspector();
@@ -335,7 +337,8 @@ export class View3DTab {
     this.viewer.setProject(this.app.store.project, { fresh: !!this.freshModel });
     this.freshModel = false;
     this.dirty = false;
-    if (this.highlighted.length) this.viewer.highlight(this.highlighted);
+    // Always: the frames are drawn again for the rebuilt model (or cleared when nothing is selected).
+    this.viewer.highlight(this.highlighted);
     if (this.app.tab === "3d") this.app.updateStatus();
   }
 
@@ -639,9 +642,14 @@ export class View3DTab {
     const vis = h("div", { class: "panel" });
     vis.append(panelHead("eye", t("Show")));
     const vb = h("div", { class: "panel-body" });
-    for (const [k, label] of [["furniture", "Furniture"], ["roofs", "Roofs"], ["solids", "Mass models"], ["openDoors", "Open doors"], ["walkDoors", "Doors open as you walk"], ["ground", "Ground"], ["grid", "Grid"], ["axes", "Axes"], ["labels", "Grid and axis numbers"], ["scaleBar", "Scale bar"], ["dimensions", "Building dimensions"], ["gizmo", "Orientation gizmo"], ["fog", "Fog"], ["night", "Night (interior lighting)"]]) {
-      vb.append(h("div", {}, checkbox(!!this.opts[k], t(label), { onChange: (v) => this.setOpt(k, v) })));
-    }
+    // In two columns, in groups: the model, the doors, the guides drawn over it.
+    const checks = (list) => h("div", { class: "check-grid" }, ...list.map(([k, label]) => h("div", { title: t(label) }, checkbox(!!this.opts[k], t(label), { onChange: (v) => this.setOpt(k, v) }))));
+    vb.append(
+      checks([["furniture", "Furniture"], ["roofs", "Roofs"], ["solids", "Mass models"], ["ground", "Ground"], ["fog", "Fog"], ["night", "Night (interior lighting)"]]),
+      h("div", { class: "panel-sub" }, t("Doors")),
+      checks([["openDoors", "Open doors"], ["walkDoors", "Doors open as you walk"]]),
+      h("div", { class: "panel-sub" }, t("Guides")),
+      checks([["grid", "Grid"], ["axes", "Axes"], ["labels", "Grid and axis numbers"], ["scaleBar", "Scale bar"], ["dimensions", "Building dimensions"], ["gizmo", "Orientation gizmo"]]));
     vis.append(vb);
     host.append(vis);
 
@@ -652,8 +660,7 @@ export class View3DTab {
     cb.append(
       checkbox(this.opts.section !== null, t("Section cut"), { onChange: (v) => { if (v) this.toggleSection(); else this.setOpt("section", null); } }),
       field(t("Cut height"), stepper(this.opts.section ?? 1200, { min: -1000, max: top, step: 100, format: (v) => `${(v / 1000).toFixed(2)} m`, onChange: (v) => this.setOpt("section", v) })),
-      field(t("Phase"), select(this.app.settings.phaseView || "all", [["all", t("All phases")], ["new", t("New design (no demolition)")], ["existing", t("Existing (before works)")]], { onChange: (v) => { this.app.setSetting("phaseView", v); this.applySettings(); } })),
-      field(t("Render style"), select(this.opts.style, STYLES.map(([id, label]) => [id, t(label)]), { onChange: (v) => this.setOpt("style", v) })));
+      field(t("Phase"), select(this.app.settings.phaseView || "all", [["all", t("All phases")], ["new", t("New design (no demolition)")], ["existing", t("Existing (before works)")]], { onChange: (v) => { this.app.setSetting("phaseView", v); this.applySettings(); } })));
     const st = this.app.settings;
     const set = (k, v) => { st[k] = v; this.app.saveSettings(); this.applySettings(); this.app.renderLeft(); };
     const sunBody = h("div", { class: "panel-body" }, checkbox(!!st.sunStudy, t("Sun from the site, date and time"), { onChange: (v) => set("sunStudy", v) }));

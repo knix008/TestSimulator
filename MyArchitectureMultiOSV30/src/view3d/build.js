@@ -18,7 +18,7 @@ import { partNeedsOwnGeometry, partGeometry, classOf, classNameOf, surfaceTextur
 import { materialById, materialColor, paintPattern, DEFAULT_MATERIAL } from "../lib/materials.js";
 import { presetSurface } from "./presetmat.js";
 import { doorAngle } from "../core/doors.js";
-import { sbGroup, sbIdOf, loadSb } from "./sbitems.js";
+import { sbGroup, sbIdOf, loadSb, sbOpening } from "./sbitems.js";
 import { phaseVisible } from "../plan/render.js";
 import { buildSolid, buildComponent, buildOpeningComponent, skVisible } from "./skbuild.js";
 import { setProjectMaterials } from "../lib/materials.js";
@@ -327,6 +327,35 @@ function openingMeshes(THREE, mats, w, s, base, opts) {
   const width = s.u2 - s.u1;
   const frame = mats.frame();
   if (o.kind === "opening") return g;
+  // A door or window from the library (MySketchBook's models): built for this hole, the leaf at its angle.
+  if (sbIdOf(o.item)) {
+    const f = wallFrame(w);
+    const side = o.side || 1;
+    const angle0 = o.kind === "door" ? doorAngle(o, opts.openDoors, { force: opts.forceOpenDoors }) : 0;
+    const makeAt = (deg) => sbOpening(THREE, mats, o.item, { width, height: o.height, wallThickness: t, angle: deg, right: (o.hinge === "end") !== side < 0 });
+    const make = () => makeAt(angle0);
+    const holder = new THREE.Group();
+    holder.position.set((w.x1 + f.d[0] * uc) * M, z0 * M, (w.y1 + f.d[1] * uc) * M);
+    // Local x along the wall, +z the wall's left normal; the model opens to its +z: turned round for side −1.
+    holder.rotation.y = -Math.atan2(f.d[1], f.d[0]) + (side < 0 ? Math.PI : 0);
+    g.add(holder);
+    const real = make();
+    if (real) holder.add(real);
+    else {
+      // Until the builders are loaded: the frame, so the hole does not read as empty.
+      const ph = new THREE.Group();
+      ph.add(boxInWall(THREE, w, frame, s.u1 + fw / 2, 0, z0, fw, Math.min(t, 90), o.height), boxInWall(THREE, w, frame, s.u2 - fw / 2, 0, z0, fw, Math.min(t, 90), o.height), boxInWall(THREE, w, frame, uc, 0, z1 - fw, width, Math.min(t, 90), fw));
+      g.add(ph);
+      loadSb().then(() => { const m = make(); if (!m) return; g.remove(ph); holder.add(m); if (opts.onAsync) opts.onAsync(); }).catch(() => {});
+    }
+    if (o.kind === "door") {
+      g.userData.doorAt = [(w.x1 + f.d[0] * uc) * M, (z0 + o.height / 2) * M, (w.y1 + f.d[1] * uc) * M];
+      // The model's leaf is part of its shape: the walk-through opens it by building it again at the angle it has
+      // reached (viewer.js applyDoor, userData.morph: angle now and a builder by angle in degrees, cached in 5° steps).
+      holder.userData.morph = { a: angle0, cur: angle0, make: makeAt };
+    }
+    return g;
+  }
   // Frame: jambs and head (and a sill for windows).
   const depth = Math.min(t, o.frameDepth || (o.kind === "window" ? 90 : t));
   g.add(boxInWall(THREE, w, frame, s.u1 + fw / 2, 0, z0, fw, depth, o.height));

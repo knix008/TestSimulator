@@ -10,7 +10,7 @@
 import { t } from "./i18n.js";
 import { icon } from "./icons.js";
 import { h, panelHead, contextMenu, toast } from "./widgets.js";
-import { allFurniture, furnitureDef, FURNITURE_CATEGORIES } from "../lib/furniture.js";
+import { furnitureDef, libraryItems, FURNITURE_CATEGORIES } from "../lib/furniture.js";
 import * as userlib from "./userlib.js";
 
 export const CATEGORY_ICONS = {
@@ -18,7 +18,7 @@ export const CATEGORY_ICONS = {
   Living: "sofa", Dining: "catDining", Kitchen: "catKitchen", Bedroom: "catBed", Kids: "catKids", Bathroom: "catBath",
   Office: "catOffice", Electronics: "catTv", Lighting: "bulb", Decor: "catDecor", Plants: "catPlant", Outdoor: "catOutdoor",
   Vehicles: "catCar", People: "catPerson", Commercial: "catShop", Restaurant: "catRestaurant", Healthcare: "catHealth",
-  School: "catSchool", Fitness: "catFitness", Building: "building", "Lifts & escalators": "catLift", Storage: "box3d", Other: "catOther",
+  School: "catSchool", Fitness: "catFitness", Building: "building", "Lifts & escalators": "catLift", Storage: "box3d", Other: "catOther", Doors: "door", Windows: "window",
 };
 export const categoryIcon = (key) => CATEGORY_ICONS[key] || "furniture";
 
@@ -81,7 +81,7 @@ export function renderLibrary(app, host, { groupBox, thumb, rerender }) {
   const fav = new Set(st.favFurniture || []);
   const btn = (ic, title, onclick, attrs = {}) => h("button", { class: "icon-btn", title, html: icon(ic, 15), onclick, ...attrs });
   const panel = h("div", { class: "panel grow" });
-  panel.append(panelHead("sofa", t("Furniture library"), h("div", { class: "grow" }),
+  panel.append(panelHead("sofa", t("Library"), h("div", { class: "grow" }),
     btn("libraryAdd", t("Register the selection in my library…"), () => userlib.registerSelection(app), { "data-lib": "register" }),
     btn(tiles ? "viewRows" : "viewTiles", tiles ? t("Show as a list") : t("Show as pictures"), () => { app.setSetting("libView", tiles ? "rows" : "tiles"); rerender(); }, { "data-lib": "view" }),
     btn("dots", t("Library menu"), (e) => {
@@ -103,16 +103,23 @@ export function renderLibrary(app, host, { groupBox, thumb, rerender }) {
   // How many of each item this project has placed (all levels): kind, or model:<id> for imported models.
   const used = new Map();
   for (const f of p.furniture) { const k = f.kind === "model" ? `model:${f.model}` : f.kind; used.set(k, (used.get(k) || 0) + 1); }
-  const all = allFurniture();
+  const all = libraryItems();
   const perCat = new Map();
-  for (const d of all) perCat.set(d.cat, (perCat.get(d.cat) || 0) + 1);
+  for (const d of all) for (const c of [d.cat, ...(d.also || [])]) perCat.set(c, (perCat.get(c) || 0) + 1);
   const cats = [["", t("All"), "all", all.length + mine.length], ["used", t("In this project"), "used", used.size], ["fav", t("Favourites"), "fav", fav.size], ["mine", t("My library"), "mine", mine.length], ...FURNITURE_CATEGORIES.map((c) => [c, t(c), c, perCat.get(c) || 0])];
   for (const [key, label, ic, n] of cats) {
     chips.append(h("button", { class: `chip ${state.category === key ? "on" : ""}`, "data-chip": key || "all", title: `${label} (${n})`, onclick: () => { state.category = key; rerender(); } },
       h("span", { class: "chip-ico", html: icon(categoryIcon(ic), 13) }), h("span", { class: "chip-label" }, label), h("span", { class: "chip-count" }, String(n))));
   }
   panel.append(chips);
-  requestAnimationFrame(() => { const w = chipNaturalWidth(chips); if (w) chips.style.setProperty("--chip-w", `${w + 2}px`); });
+  // Two columns whatever the panel's width: a chip is its widest label, or half the row (the label then ends in …).
+  requestAnimationFrame(() => {
+    const w = chipNaturalWidth(chips);
+    if (!w) return;
+    const cs = getComputedStyle(chips), gap = parseFloat(cs.columnGap) || 0;
+    const avail = chips.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+    chips.style.setProperty("--chip-w", `${Math.max(60, Math.min(w + 2, Math.floor((avail - gap) / 2) - 1))}px`);
+  });
   const list = h("div", { class: `lib-list ${tiles ? "tiles" : "rows"}` });
   panel.append(list);
   host.append(panel);
@@ -141,7 +148,13 @@ export function renderLibrary(app, host, { groupBox, thumb, rerender }) {
     rerender();
   };
   const favItem = (key) => ({ label: fav.has(key) ? t("Remove from favourites") : t("Add to favourites"), icon: fav.has(key) ? "starFill" : "star", action: () => toggleFav(key) });
-  const builtIn = (d) => ({
+  // A door or window: the door / window tool with it; click a wall to put it there.
+  const placeOpening = (d) => { app.setTab("plan"); app.plan.setTool(d.opening, { item: d.kind }); app.plan.canvas.focus(); toast(t("Click on a wall."), "info", 2500); };
+  const builtIn = (d) => d.opening ? ({
+    key: d.kind, kind: d.kind, name: t(d.name), sub: `${d.ow} × ${d.oh}`, tip: `${t(d.name)} — ${d.ow} × ${d.oh} mm`,
+    place: () => placeOpening(d),
+    menu: () => [{ label: t("Place"), icon: "plus", action: () => placeOpening(d) }, favItem(d.kind)],
+  }) : ({
     key: d.kind, kind: d.kind, name: t(d.name), sub: `${d.w} × ${d.d} × ${d.h}`, tip: `${t(d.name)} — ${d.w} × ${d.d} × ${d.h} mm`,
     place: () => {
       if (app.tab === "3d" && app.v3d && app.v3d.viewer) { const at = app.v3d.floorPointMm(); if (at) { app.v3d.placeAt(d.kind, ...at); return; } }
@@ -200,11 +213,13 @@ export function renderLibrary(app, host, { groupBox, thumb, rerender }) {
     if (proj.length && cat !== "fav" && cat !== "used") groups.push(["project", t("This project's library items"), proj.map((e) => entryItem({ ...e, models: p.models }, false))]);
     if (cat !== "fav" && cat !== "mine" && cat !== "used") {
       const byCat = new Map();
-      for (const d of allFurniture()) {
-        if (cat && d.cat !== cat) continue;
+      for (const d of libraryItems()) {
+        // Its own category or one it is also listed under (catalog/also.js).
+        if (cat && d.cat !== cat && !(d.also && d.also.includes(cat))) continue;
         if (q && !`${d.kind} ${d.name} ${t(d.name)} ${d.cat} ${t(d.cat)} ${d.tags || ""}`.toLowerCase().includes(q)) continue;
-        if (!byCat.has(d.cat)) byCat.set(d.cat, []);
-        byCat.get(d.cat).push(builtIn(d));
+        const gk = cat || d.cat;
+        if (!byCat.has(gk)) byCat.set(gk, []);
+        byCat.get(gk).push(builtIn(d));
       }
       for (const [c, items] of byCat) groups.push([c, t(c), items]);
       const models = p.models.filter((m) => match(m.name));
@@ -256,6 +271,9 @@ function bindCanvasDrop(app) {
       return;
     }
     if (key.startsWith("model:")) { app.plan.setTool("furniture", { kind: "model", model: key.slice(6) }); app.plan.pointerPlace("down", { button: 0, shiftKey: false }, wx, wy); return; }
+    // A door or window goes into the wall under the pointer.
+    const def = furnitureDef(key);
+    if (def && def.opening) { app.plan.setTool(def.opening, { item: key }); app.plan.pointerOpening("down", { button: 0 }, wx, wy); return; }
     app.plan.setTool("furniture", { kind: key });
     app.plan.pointerPlace("down", { button: 0, shiftKey: false }, wx, wy);
   });

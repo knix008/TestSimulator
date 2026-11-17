@@ -144,7 +144,7 @@ export const KO_ELEMENTS = {
   "Windows": "창",
   "Columns": "기둥",
   "Beams": "보",
-  "Furniture": "가구",
+  "Furniture": "소품",
   "Curtain walls": "커튼월",
   "Floor and ceiling types": "바닥·천장 타입",
   "Materials": "재료",

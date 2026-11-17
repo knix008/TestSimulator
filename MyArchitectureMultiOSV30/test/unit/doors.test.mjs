@@ -10,6 +10,8 @@ import * as THREE from "../../src/vendor/three/three.module.js";
 import { doorAngle, isOpen, toggledOpen, setDoors, followSwitch, OPEN_ANGLE, DOOR_TYPES, DOOR_STYLES } from "../../src/core/doors.js";
 import { newProject, parseProject } from "../../src/core/project.js";
 import { buildBuilding, makeMaterials } from "../../src/view3d/build.js";
+import { loadSb } from "../../src/view3d/sbitems.js";
+import { libraryItems, allFurniture, openingTypeOf } from "../../src/lib/furniture.js";
 
 const D = (extra = {}) => ({ id: "d", kind: "door", type: "single", ...extra });
 
@@ -143,5 +145,53 @@ describe("every kind of door in 3D", () => {
     assert.ok(barn.min.z > 0.1, "in front of the wall's face");
     // Wider than the opening, so it covers it.
     assert.ok(barn.max.x - barn.min.x > 0.9, "covers the opening");
+  });
+});
+
+describe("doors and windows from the library", () => {
+  const doors = libraryItems().filter((d) => d.opening === "door"), windows = libraryItems().filter((d) => d.opening === "window");
+
+  test("the library has doors and windows (100 or more each); they are not furniture", () => {
+    assert.ok(doors.length >= 100, `${doors.length} doors`);
+    assert.ok(windows.length >= 100, `${windows.length} windows`);
+    assert.ok(doors.every((d) => d.cat === "Doors" && d.ow > 300 && d.oh > 1000), "each with its hole's size");
+    assert.ok(!allFurniture().some((d) => d.opening), "not offered as furniture");
+    assert.ok(new Set(doors.map(openingTypeOf)).size >= 5, "their types are told apart (single, double, sliding, folding …)");
+  });
+
+  test("a library door opens in the walk-through: its model is built again at the angle reached", async () => {
+    await loadSb();
+    const hinged = doors.filter((d) => openingTypeOf(d) === "single").slice(0, 3);
+    for (const d of hinged) {
+      const p = house();
+      p.openings = [{ id: "d", wall: "a", kind: "door", type: "single", item: d.kind, at: 2000, width: d.ow, height: d.oh, sill: 0, side: 1, hinge: "start" }];
+      const g = buildBuilding(THREE, parseProject(JSON.stringify(p)), makeMaterials(THREE, { textures: false }), { furniture: false, roofs: false });
+      g.updateMatrixWorld(true);
+      let part = null;
+      g.traverse((o) => { if (!part && o.userData.morph) part = o; });
+      assert.ok(part, `${d.kind}: a part the walk-through can open`);
+      const reach = (obj) => { const holder = new THREE.Group(); holder.add(obj); return new THREE.Box3().setFromObject(holder).max.z; };
+      const shut = reach(part.userData.morph.make(0)), open = reach(part.userData.morph.make(90));
+      assert.ok(open - shut > 0.4, `${d.kind}: the leaf turns out of the wall when open (${shut.toFixed(2)} → ${open.toFixed(2)} m)`);
+    }
+  });
+
+  test("a library door and window are built in their hole", async () => {
+    await loadSb();
+    for (const d of [doors[0], doors.find((x) => openingTypeOf(x) === "sliding"), windows[0]]) {
+      const kind = d.opening;
+      const p = house();
+      p.openings = [{ id: "d", wall: "a", kind, type: openingTypeOf(d), item: d.kind, at: 2000, width: d.ow, height: d.oh, sill: kind === "window" ? 900 : 0, side: 1, hinge: "start" }];
+      const g = buildBuilding(THREE, parseProject(JSON.stringify(p)), makeMaterials(THREE, { textures: false }), { furniture: false, roofs: false });
+      g.updateMatrixWorld(true);
+      let door = null;
+      g.traverse((o) => { if (!door && o.userData.kind === "openings" && o.userData.id === "d") door = o; });
+      const box = new THREE.Box3().setFromObject(door);
+      const c = box.getCenter(new THREE.Vector3());
+      assert.ok(Math.abs(c.x - 2) < 0.1, `${d.kind}: centred on the opening (${c.x.toFixed(2)})`);
+      assert.ok(box.max.x - box.min.x > d.ow / 1000 - 0.05 && box.max.x - box.min.x < d.ow / 1000 + 0.5, `${d.kind}: as wide as the hole (${(box.max.x - box.min.x).toFixed(2)} m)`);
+      assert.ok(box.max.z < 0.6 && box.min.z > -0.6, `${d.kind}: in the wall (${box.min.z.toFixed(2)}…${box.max.z.toFixed(2)})`);
+      if (kind === "window") assert.ok(box.min.y > 0.7, `${d.kind}: on its sill (${box.min.y.toFixed(2)})`);
+    }
   });
 });

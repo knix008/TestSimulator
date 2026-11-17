@@ -507,7 +507,8 @@ class App {
     this.crossLock = true;
     try {
       if (kind === "plan") this.v3d.highlight(ids);
-      if (kind === "3d") this.plan.selectIds(ids);
+      // Picked in 3D: selected in the plan and framed in 3D (the frame of what was selected before goes).
+      if (kind === "3d") { this.plan.selectIds(ids); this.v3d.highlight(ids); }
     } finally { this.crossLock = false; }
     this.queueInspector();
   }

@@ -8,7 +8,7 @@ import { uid, dist, rotPt, snap, pointInPolygon, polygonArea, fmtLen, offsetPoly
 import { wallLength, newLevel, levelById, levelIndex, findItem, LEVEL_COLLECTIONS } from "../core/project.js";
 import { wallAt, fitOpening, wallFrame, wallPoint, splitWall, mergeCollinear, wallOutlines } from "../core/walls.js";
 import { roomAtPoint, detectRooms, buildingOutlines, suggestRoomName } from "../core/rooms.js";
-import { furnitureDef, makeFurniture, drawFurniturePlan, drawLightSymbol, furnitureCorners, isLight, mountElevation } from "../lib/furniture.js";
+import { furnitureDef, makeFurniture, drawFurniturePlan, drawLightSymbol, furnitureCorners, isLight, mountElevation, openingTypeOf } from "../lib/furniture.js";
 import { PLAN_THEMES, drawPlan, planBounds, stairGeometry, roomColor } from "./render.js";
 import * as ops from "./ops.js";
 import { freeSpot, settleMoved } from "../core/placement.js";
@@ -639,7 +639,9 @@ export class PlanEditor {
     if (!h) return null;
     const kind = this.tool === "window" ? "window" : "door";
     const d = this.p.defaults;
-    const width = kind === "window" ? +this.app.settings.windowWidth || d.windowWidth : +this.app.settings.doorWidth || d.doorWidth;
+    // A door or window from the library brings its own size.
+    const lib = this.toolOpts && this.toolOpts.item ? furnitureDef(this.toolOpts.item) : null;
+    const width = lib && lib.ow ? lib.ow : kind === "window" ? +this.app.settings.windowWidth || d.windowWidth : +this.app.settings.doorWidth || d.doorWidth;
     const L = wallLength(h.wall);
     if (L < width + 20) return { wall: h.wall, tooShort: true };
     const g = this.app.settings.snap !== false ? this.grid / 2 : 0;
@@ -662,6 +664,13 @@ export class PlanEditor {
     const o = g.kind === "window"
       ? { id: uid("o"), wall: g.wall.id, kind: "window", type: this.app.settings.windowType || "casement", at: g.at, width: g.width, height: +this.app.settings.windowHeight || d.windowHeight, sill: +this.app.settings.windowSill || d.windowSill, side: g.side, hinge: g.hinge }
       : { id: uid("o"), wall: g.wall.id, kind: "door", type: this.app.settings.doorType || "single", at: g.at, width: g.width, height: +this.app.settings.doorHeight || d.doorHeight, sill: 0, side: g.side, hinge: g.hinge };
+    const lib = this.toolOpts && this.toolOpts.item ? furnitureDef(this.toolOpts.item) : null;
+    if (lib && lib.opening) {
+      o.item = lib.kind;
+      o.type = openingTypeOf(lib);
+      if (lib.oh) o.height = lib.oh;
+      if (lib.opening === "window" && Number.isFinite(lib.sill)) o.sill = lib.sill;
+    }
     const clash = this.p.openings.some((q) => q.wall === o.wall && Math.abs(q.at - o.at) < (q.width + o.width) / 2 - 1);
     if (clash) { toast(t("There is already a door or window there."), "warn"); return; }
     this.store.edit(g.kind === "window" ? t("Add window") : t("Add door"), (p) => { p.openings.push(o); });

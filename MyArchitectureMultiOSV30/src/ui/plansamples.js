@@ -98,6 +98,8 @@ export async function openPlanSample(app, s) {
       if (!out) return;
     }
     if (kind !== "bim") app.autoRoof();
+    // A new example starts with nothing selected (the roof the step above made is not a choice of the user's).
+    app.plan.select([]);
     app.store.dirty = false;
     app.setTab("3d");
     if (app.v3d && app.v3d.ensure) { await app.v3d.ensure(); app.v3d.syncModel(); app.v3d.setView && app.v3d.setView("iso"); }

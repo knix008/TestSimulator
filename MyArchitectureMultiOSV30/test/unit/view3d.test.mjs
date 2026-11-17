@@ -10,7 +10,7 @@ import path from "node:path";
 import * as THREE from "../../src/vendor/three/three.module.js";
 import { buildBuilding, makeMaterials, modelExtent, M } from "../../src/view3d/build.js";
 import {
-  allFurniture, furnitureDef, makeFurniture, furnitureParts, furnitureCorners, drawFurniturePlan, FURNITURE_CATEGORIES, COLORS,
+  allFurniture, libraryItems, furnitureDef, makeFurniture, furnitureParts, furnitureCorners, drawFurniturePlan, FURNITURE_CATEGORIES, COLORS,
 } from "../../src/lib/furniture.js";
 import { PART_TYPES, partBounds, partsBounds, partOutline, fitParts, B as PB, C as PC, S as PS, L as PL, E as PE, T as PT, R as PR, MATERIAL_CLASSES, CLASS_OF_COLOR } from "../../src/lib/furnparts.js";
 import { partGeometry, partNeedsOwnGeometry, classNameOf } from "../../src/view3d/furngeo.js";
@@ -549,9 +549,10 @@ describe("lib/furniture.js", () => {
     const all = allFurniture();
     assert.ok(all.length >= 500, `${all.length} items`);
     assert.equal(new Set(all.map((d) => d.kind)).size, all.length);
-    assert.deepEqual(FURNITURE_CATEGORIES, [...new Set(all.map((d) => d.cat))]);
+    // The library's categories: furniture's and the doors' and windows' (placed as openings, not furniture).
+    assert.deepEqual(FURNITURE_CATEGORIES, [...new Set(libraryItems().map((d) => d.cat))]);
     for (const c of ["Living", "Dining", "Bedroom", "Kitchen", "Bathroom", "Office", "Outdoor", "Other", "Kids", "Electronics", "Decor", "Plants", "Vehicles", "People", "Lighting"]) assert.ok(FURNITURE_CATEGORIES.includes(c), c);
-    for (const c of FURNITURE_CATEGORIES) assert.ok(all.filter((d) => d.cat === c).length >= 5, `${c} has a handful of items`);
+    for (const c of FURNITURE_CATEGORIES) assert.ok(libraryItems().filter((d) => d.cat === c).length >= 5, `${c} has a handful of items`);
     for (const d of all) {
       assert.ok(d.w > 0 && d.d > 0 && d.h > 0, d.kind);
       assert.ok(d.name.length > 1);

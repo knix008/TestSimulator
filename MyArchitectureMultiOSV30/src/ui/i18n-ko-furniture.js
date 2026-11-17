@@ -16,7 +16,7 @@ export const KO_FURNITURE = {
   "Drawing the picture…": "그림을 그리는 중…", "Give the item a name.": "항목 이름을 입력하세요.", "Name the new category.": "새 범주 이름을 입력하세요.",
   "Group of {n} items": "항목 {n}개 묶음", "{n} items · {w} × {d} × {h} mm": "항목 {n}개 · {w} × {d} × {h} mm",
   "{name} is in your library ({cat}).": "{name} 항목을 내 라이브러리({cat})에 넣었습니다.", "{n} items added to your library.": "내 라이브러리에 항목 {n}개를 추가했습니다.",
-  "Select one or more pieces of furniture first (a group registers as one item).": "먼저 가구를 하나 이상 선택하세요 (그룹은 항목 하나로 등록됩니다).",
+  "Select one or more pieces of furniture first (a group registers as one item).": "먼저 소품을 하나 이상 선택하세요 (그룹은 항목 하나로 등록됩니다).",
   "These items cannot be registered.": "이 항목은 등록할 수 없습니다.", "This is not a MyArchitecture library file.": "MyArchitecture 라이브러리 파일이 아닙니다.",
   "This item's 3D model is missing from the project.": "이 항목의 3D 모델이 프로젝트에 없습니다.", "This library item is gone.": "이 라이브러리 항목이 없어졌습니다.",
   "Your library is empty: register items first.": "내 라이브러리가 비어 있습니다. 먼저 항목을 등록하세요.",
@@ -95,7 +95,7 @@ export const KO_FURNITURE = {
   "Fire extinguisher": "소화기", "Air conditioner (wall split)": "벽걸이 에어컨", "Air conditioner outdoor unit": "에어컨 실외기", "Water heater": "온수기", "Electrical panel": "분전반", "Apartment mailboxes": "공동 우편함", "Exit sign": "비상구 유도등",
   "Sphere": "구", "Cone": "원뿔", "Wooden crate": "나무 상자", "Pallet": "팔레트",
   // 새로 시작 tiles of the furnished samples 39 and 40
-  "Café-bistro": "카페 비스트로", "Bar, dining room and kitchen, furnished": "바·홀·주방, 가구 배치 완료", "Penthouse": "펜트하우스", "Luxury interior, every room furnished": "고급 인테리어, 모든 방 가구 배치",
+  "Café-bistro": "카페 비스트로", "Bar, dining room and kitchen, furnished": "바·홀·주방, 소품 배치 완료", "Penthouse": "펜트하우스", "Luxury interior, every room furnished": "고급 인테리어, 모든 방 소품 배치",
   // appliances and electronics
   "55\" curved TV": "55인치 커브드 TV", "77\" OLED TV on a pedestal": "77인치 OLED TV (스탠드형)", "Air conditioner (floor-standing)": "스탠드 에어컨", "Air purifier": "공기청정기",
   "Bookshelf speakers (pair)": "북쉘프 스피커 (한 쌍)", "Built-in oven": "빌트인 오븐", "Capsule coffee machine": "캡슐 커피 머신", "Clothes care cabinet (styler)": "의류 관리기 (스타일러)",

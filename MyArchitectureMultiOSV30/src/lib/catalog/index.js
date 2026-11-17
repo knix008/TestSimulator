@@ -15,6 +15,9 @@ import { VARIANTS } from "./variants.js";
 import transportItems from "./transport.js";
 import { SB_ENTRIES } from "./sketchbook.js";
 import { B } from "./common.js";
+import { addAlsoCategories } from "./also.js";
+import { familyItems } from "./families.js";
+export { FAMILY_KO } from "./families.js";
 
 // Items whose height is the furniture's own, with things standing on top of
 // it (a TV on its unit, a lamp on a nightstand, a laptop on a desk); older
@@ -38,4 +41,7 @@ for (const d of BASE) {
 // and the fit tests use their outline. Names come with the catalogue in English (Korean: i18n-ko-sketchbook.js).
 const SB = SB_ENTRIES.map((e) => ({ ...e, color: "white", sb: e.kind.slice(3), parts: (w, d, h) => [B(0, 0, 0, w, d, h, "main", 0)] }));
 
-export const CATALOG = [...LIST, ...SB].map((d) => (OVER.has(d.kind) || OVER.has(d.variantOf) ? { ...d, over: true } : d));
+// Each item also listed under the other categories it belongs to (also.js: a bistro chair is a restaurant's too).
+// Families of products in their sizes and finishes, people in many roles … (families.js), after the catalogue's own.
+const FAMILIES = familyItems(new Map(LIST.map((d) => [d.kind, d])));
+export const CATALOG = addAlsoCategories([...LIST, ...FAMILIES, ...SB].map((d) => (OVER.has(d.kind) || OVER.has(d.variantOf) ? { ...d, over: true } : { ...d })));

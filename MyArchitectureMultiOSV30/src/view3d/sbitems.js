@@ -21,16 +21,11 @@ export const sbIdOf = (kind) => (typeof kind === "string" && kind.startsWith("sb
 // item id → Object3D at the default size, centred, floor at y 0.
 const templatesOf = new WeakMap();
 
-function template(THREE, mats, id) {
-  let templates = templatesOf.get(mats);
-  if (!templates) templatesOf.set(mats, (templates = new Map()));
-  const key = id;
-  if (templates.has(key)) return templates.get(key);
-  const it = lib && lib.sbItem(id);
-  if (!it) return null;
+// What MySketchBook's builders get: materials from this app's set (cached per build).
+function buildCtx(THREE, mats, wallThickness = 0.2) {
   const cache = new Map();
-  const ctx = {
-    quality: "high", wallThickness: 0.2,
+  return {
+    quality: "high", wallThickness,
     material: (mid, overrides) => {
       const k = overrides ? `${mid}|${JSON.stringify(overrides)}` : mid;
       if (cache.has(k)) return cache.get(k);
@@ -40,6 +35,16 @@ function template(THREE, mats, id) {
       return m;
     },
   };
+}
+
+function template(THREE, mats, id) {
+  let templates = templatesOf.get(mats);
+  if (!templates) templatesOf.set(mats, (templates = new Map()));
+  const key = id;
+  if (templates.has(key)) return templates.get(key);
+  const it = lib && lib.sbItem(id);
+  if (!it) return null;
+  const ctx = buildCtx(THREE, mats);
   let obj;
   try { obj = it.build({}, ctx); } catch (e) { console.warn(`sketchbook item ${id}:`, e); obj = null; }
   if (obj) {
@@ -77,4 +82,37 @@ export function sbGroup(THREE, mats, f) {
   const out = new THREE.Group();
   out.add(g);
   return out;
+}
+
+// Doors and windows built for their opening (per material set): key → Object3D, a few hundred at most.
+const openingsOf = new WeakMap();
+
+/**
+ * A MySketchBook door or window (opening.item "sb-<id>") built for its hole: width × height (mm), the wall's
+ * thickness, how far it is open (`angle`, degrees 0…90: a hinged leaf turns that far, a sliding or folding one
+ * opens that share) and the hinge side (`right`). Item frame: x along the wall, y up from the sill, +z the side it
+ * opens to. Null while the builders are not loaded (loadSb()) or the item is unknown.
+ */
+export function sbOpening(THREE, mats, kind, { width, height, wallThickness, angle = 0, right = false }) {
+  const id = sbIdOf(kind);
+  if (!id || !lib) return null;
+  const it = lib.sbItem(id);
+  if (!it) return null;
+  const has = (k) => (it.params || []).find((q) => q.key === k);
+  const params = { width: width / 1000, height: height / 1000 };
+  const op = has("open");
+  if (op) params.open = (op.max ?? 1) > 2 ? Math.min(op.max ?? 90, angle) : (op.max ?? 1) * Math.min(1, angle / 90);
+  if (has("hinge")) params.hinge = right ? "right" : "left";
+  let made = openingsOf.get(mats);
+  if (!made) openingsOf.set(mats, (made = new Map()));
+  const key = `${id}|${Math.round(width)}|${Math.round(height)}|${Math.round(wallThickness)}|${params.open ?? ""}|${params.hinge ?? ""}`;
+  if (!made.has(key)) {
+    let obj = null;
+    try { obj = it.build(params, buildCtx(THREE, mats, wallThickness / 1000)); } catch (e) { console.warn(`sketchbook opening ${id}:`, e); }
+    if (obj) obj.traverse((c) => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; c.userData.sharedGeometry = true; } });
+    if (made.size > 300) { for (const o of made.values()) if (o) o.traverse((c) => { if (c.geometry) c.geometry.dispose(); }); made.clear(); }
+    made.set(key, obj);
+  }
+  const tpl = made.get(key);
+  return tpl ? tpl.clone() : null;
 }

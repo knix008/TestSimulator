@@ -21,14 +21,17 @@ const srcDir = path.join(sb, "src", "library", "parametric");
 const dst = path.join(root, "src", "lib", "sketchbook");
 if (!fs.existsSync(srcDir)) { console.error(`no MySketchBook library at ${srcDir}`); process.exit(1); }
 
-// Doors, windows and stairs / structure are building elements here (walls' openings, stairs), not furniture.
+// Stairs / structure are building elements here, not library items. Doors and windows come in as library items
+// that are placed as openings in a wall (entry.opening: "door" | "window"; the 3D view builds the model in the hole).
 const SKIP_FILES = new Set(["index.js"]);
-const SKIP_CATS = new Set(["doors", "windows", "structure"]);
+const SKIP_CATS = new Set(["structure"]);
+const OPENING_CATS = { doors: "door", windows: "window" };
 // MySketchBook category → this app's.
 const CAT = {
   living: "Living", dining: "Dining", bedroom: "Bedroom", kitchen: "Kitchen", appliances: "Electronics", bathroom: "Bathroom",
   office: "Office", workplace: "Office", officeprops: "Office", computer: "Electronics", serverroom: "Office", security: "Building",
   kids: "Kids", storage: "Storage", lighting: "Lighting", decor: "Decor", accessories: "Decor", plants: "Plants", outdoor: "Outdoor", landscape: "Outdoor",
+  doors: "Doors", windows: "Windows",
 };
 
 // ---------------------------------------------------------------- 1. the builders
@@ -65,7 +68,7 @@ const rb = fs.readFileSync(path.join(sb, "node_modules", "three", "examples", "j
 fs.writeFileSync(path.join(root, "src", "vendor", "three", "addons", "RoundedBoxGeometry.js"), rb.replace(/from ['"]three['"]/g, "from '../three.module.js'"));
 const ident = (f) => `m_${f.replace(/\.js$/, "").replace(/[^a-z0-9]/gi, "_")}`;
 fs.writeFileSync(path.join(dst, "index.js"), `// MySketchBook's parametric items (written by scripts/import-sketchbook-library.mjs).
-// SB_ITEMS: every item but doors, windows and structure; sbItem(id) finds one.
+// SB_ITEMS: every item but structure (doors and windows are placed as openings); sbItem(id) finds one.
 ${modules.map((f) => `import { ITEMS as ${ident(f)} } from './${f}';`).join("\n")}
 
 const SKIP = new Set(${JSON.stringify([...SKIP_CATS])});
@@ -89,6 +92,18 @@ for (const it of SB_ITEMS) {
   else if (it.placement === "ceiling") e.mount = "ceiling";
   else if (it.placement === "surface") e.mount = "surface";
   if (it.tags && it.tags.length) e.tags = it.tags.join(" ");
+  if (OPENING_CATS[it.category]) {
+    // An opening: its hole is the item's width × height parameters (the measured size includes the casing), the
+    // sill of a window, and how "open" is given (degrees for a hinged leaf, else a 0…1 ratio of sliding or folding).
+    const par = (k) => (it.params || []).find((q) => q.key === k);
+    const pv = (k, dflt) => { const q = par(k); return q && Number.isFinite(+q.default) ? +q.default : dflt; };
+    e.opening = OPENING_CATS[it.category];
+    e.ow = mm(pv("width", x)); e.oh = mm(pv("height", y));
+    if (e.opening === "window") e.sill = Math.round(pv("sill", 0.9) * 1000);
+    const op = par("open");
+    if (op) e.openMax = op.max ?? 1, e.openDeg = (op.max ?? 1) > 2;
+    delete e.mount; delete e.elev;
+  }
   out.push(e);
   if (it.ko && it.en && !(it.en in ko)) ko[it.en] = it.ko;
 }

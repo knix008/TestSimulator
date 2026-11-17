@@ -225,18 +225,18 @@ export const LESSONS = [
   },
   // ---------------------------------------------------------------- 5
   {
-    title: T("가구 배치", "Furnishing"),
+    title: T("소품 배치", "Furnishing"),
     steps: [
-      { title: T("라이브러리에서 고르기", "From the library"), text: T("왼쪽 가구 라이브러리에서 항목을 누르고 평면을 클릭하면 놓입니다. 끌어다 놓아도 됩니다.", "Click an item in the furniture library on the left, then click the plan. Drag and drop works too."),
+      { title: T("라이브러리에서 고르기", "From the library"), text: T("왼쪽 소품 라이브러리에서 항목을 누르고 평면을 클릭하면 놓입니다. 끌어다 놓아도 됩니다.", "Click an item in the furniture library on the left, then click the plan. Drag and drop works too."),
         run: async (ctx) => { await ctx.click('.lib-item[data-kind="sofa3"]'); await ctx.clickAt(7000, 3500); ctx.expect(ctx.on("furniture").some((f) => f.kind === "sofa3"), "sofa missing"); },
         practice: { todo: T("왼쪽 목록의 '소파 (3인)'을 누르고 거실을 클릭하세요.", "Click Sofa (3 seats) on the left, then click in the living room."), check: (ctx) => ctx.on("furniture").some((f) => f.kind === "sofa3"), targets: () => [{ el: '.lib-item[data-kind="sofa3"]' }] } },
       { title: T("회전", "Rotate"), text: T("R 은 90°, Shift+R 은 15° 씩 돌립니다. 놓기 전 미리보기도 R 로 돌릴 수 있습니다.", "R turns by 90°, Shift+R by 15°. The preview can be turned before placing too."),
         run: async (ctx) => { await ctx.key("r"); ctx.expect(ctx.on("furniture").find((f) => f.kind === "sofa3").rot === 90, "not rotated"); },
         practice: { todo: T("소파를 선택한 상태에서 R 을 누르세요.", "With the sofa selected, press R."), check: (ctx) => ctx.on("furniture").some((f) => f.kind === "sofa3" && f.rot) } },
-      { title: T("검색해서 놓기", "Search and place"), text: T("F 는 가구 검색 창을 엽니다. 이름을 입력하고 Enter, 평면을 클릭합니다.", "F opens the furniture search. Type a name, press Enter and click the plan."),
+      { title: T("검색해서 놓기", "Search and place"), text: T("F 는 소품 검색 창을 엽니다. 이름을 입력하고 Enter, 평면을 클릭합니다.", "F opens the furniture search. Type a name, press Enter and click the plan."),
         run: async (ctx) => { await ctx.key("f"); await ctx.pick(ctx.L(T("더블", "Double bed")), ctx.L(T("더블", "Double bed"))); await ctx.clickAt(2500, 1400); ctx.expect(ctx.on("furniture").some((f) => f.kind === "doubleBed"), "bed missing"); },
         practice: { todo: T("F 를 누르고 '더블 침대'를 찾아 왼쪽 위 방에 놓으세요.", "Press F, find Double bed and place it in the top-left room."), check: (ctx) => ctx.on("furniture").some((f) => f.kind === "doubleBed"), targets: () => [{ x: 2500, y: 1400 }] } },
-      { title: T("끌어서 옮기기", "Drag to move"), text: T("가구를 끌면 격자 반 칸 단위로 움직입니다. Shift 를 누르면 가로·세로로만 움직입니다.", "Drag furniture to move it in half-grid steps; Shift keeps it horizontal or vertical."),
+      { title: T("끌어서 옮기기", "Drag to move"), text: T("소품을 끌면 격자 반 칸 단위로 움직입니다. Shift 를 누르면 가로·세로로만 움직입니다.", "Drag furniture to move it in half-grid steps; Shift keeps it horizontal or vertical."),
         run: async (ctx) => { await ctx.drag([7000, 3500], [7000, 3000]); ctx.expect(ctx.on("furniture").find((f) => f.kind === "sofa3").y === 3000, "sofa not moved"); },
         practice: { todo: T("소파를 위로 끌어 옮기세요.", "Drag the sofa a little upwards."), check: (ctx) => ctx.on("furniture").some((f) => f.kind === "sofa3" && f.y < 3500), targets: () => [{ x: 7000, y: 3500 }] } },
       { title: T("속성 창", "The properties window"), text: T("두 번 클릭하면 크기, 높이, 색상 같은 모든 속성을 바꿀 수 있습니다.", "Double-click to change size, height, colour and every other property."),
@@ -272,7 +272,7 @@ export const LESSONS = [
       { title: T("그룹 풀기", "Ungroup"), text: T("Ctrl+Shift+G 로 그룹을 풉니다.", "Ctrl+Shift+G breaks the group up again."),
         run: async (ctx) => { await ctx.key("g", { ctrl: true, shift: true }); ctx.expect(!ctx.on("furniture").some((f) => f.group), "still grouped"); },
         practice: { todo: T("그룹을 선택하고 Ctrl+Shift+G.", "Select the group and press Ctrl+Shift+G."), check: (ctx) => !ctx.on("furniture").some((f) => f.group) } },
-      { title: T("크기 조정", "Scale"), text: T("편집 → 크기 조정… 은 선택한 것을 배율로 키우거나 줄입니다 (가구는 높이까지).", "Edit → Scale… resizes the selection by a factor (furniture in height too)."),
+      { title: T("크기 조정", "Scale"), text: T("편집 → 크기 조정… 은 선택한 것을 배율로 키우거나 줄입니다 (소품은 높이까지).", "Edit → Scale… resizes the selection by a factor (furniture in height too)."),
         run: async (ctx) => { await ctx.clickAt(2500, 1400); const w0 = ctx.on("furniture").find((f) => f.kind === "doubleBed").w; await ctx.command("edit.scale"); const inp = await ctx.waitFor(() => document.querySelector(".modal input")); await ctx.type(inp, "0.9"); await ctx.confirm(); ctx.expect(Math.abs(ctx.on("furniture").find((f) => f.kind === "doubleBed").w - w0 * 0.9) < 1, "not scaled"); },
         practice: { todo: T("침대를 선택하고 편집 → 크기 조정… 에서 0.9 를 입력하세요.", "Select the bed, Edit → Scale… and enter 0.9."), check: (ctx) => ctx.on("furniture").some((f) => f.kind === "doubleBed" && f.w < 1600) } },
     ],
@@ -369,7 +369,7 @@ export const LESSONS = [
           ctx.expect(ctx.app.store.project.solids.find((q) => q.id === s.id).height > h0, "push/pull did not raise the mass");
         },
         practice: { todo: T("3D 에서 '밀기/끌기'를 고르고 매스 윗면을 위로 끄세요.", "In 3D pick Push/Pull and drag the top of the mass upwards."), setup: (ctx) => { ctx.app.tutH = (ctx.app.store.project.solids[0] || {}).height; }, check: (ctx) => (ctx.app.store.project.solids[0] || {}).height > ctx.app.tutH, targets: () => [{ el: '[data-tool3d="pushpull"]' }] } },
-      { title: T("페인트 통", "Paint bucket"), text: T("페인트 통으로 왼쪽에서 재료를 고르고 벽, 바닥, 지붕, 매스, 가구를 클릭해 칠합니다.", "With the Paint bucket pick a material on the left and click walls, floors, roofs, masses or furniture."),
+      { title: T("페인트 통", "Paint bucket"), text: T("페인트 통으로 왼쪽에서 재료를 고르고 벽, 바닥, 지붕, 매스, 소품을 클릭해 칠합니다.", "With the Paint bucket pick a material on the left and click walls, floors, roofs, masses or furniture."),
         run: async (ctx) => {
           await ctx.click('[data-tool3d="paint"]');
           await ctx.click('.swatch[data-material="brick"]');
@@ -480,7 +480,7 @@ export const LESSONS = [
           await ctx.click([...document.querySelectorAll("#left-panel .check")].find((l) => l.textContent.includes(ctx.app.t("Sun from the site, date and time"))).querySelector("input"));
         },
         practice: { todo: T("왼쪽의 '대지·날짜·시각으로 해 위치'를 켜 보세요.", "Tick Sun from the site, date and time on the left."), check: (ctx) => !!ctx.app.settings.sunStudy } },
-      { title: T("3D 에서 선택", "Pick in 3D"), text: T("3D 에서 벽이나 가구를 클릭하면 평면에서도 선택됩니다(그 반대도).", "Clicking a wall or piece of furniture in 3D selects it in the plan as well (and back)."),
+      { title: T("3D 에서 선택", "Pick in 3D"), text: T("3D 에서 벽이나 소품을 클릭하면 평면에서도 선택됩니다(그 반대도).", "Clicking a wall or piece of furniture in 3D selects it in the plan as well (and back)."),
         run: async (ctx) => { await ctx.click('[data-nav="orbit"]'); await ctx.click3d(9000, 3000, 1500); await ctx.wait(300); await ctx.key("F2"); ctx.expect(ctx.app.plan.sel.size >= 1, "nothing selected from 3D"); },
         practice: { todo: T("3D 에서 벽을 클릭하고 F2 로 평면을 보세요.", "Click a wall in 3D, then press F2."), check: (ctx) => ctx.app.plan.sel.size >= 1 } },
     ],
@@ -502,7 +502,7 @@ export const LESSONS = [
           ctx.expect(ctx.app.store.project.drawings.length > before, "DXF not imported");
         },
         practice: { todo: T("파일 → 가져오기 로 DXF 파일을 하나 열어 보세요 (없으면 '건너뛰기').", "Import any DXF with File → Import (or press Skip)."), check: (ctx) => ctx.p.drawings.length > 3 } },
-      { title: T("3D 모델 가져오기", "Import a 3D model"), text: T("OBJ, FBX, GLB/glTF, STL, DAE, 3MF, 3DS, PLY 모델은 가구처럼 배치됩니다. 단위와 위쪽 축은 자동 판단됩니다.", "OBJ, FBX, GLB/glTF, STL, DAE, 3MF, 3DS and PLY models become furniture. Units and the up axis are detected."),
+      { title: T("3D 모델 가져오기", "Import a 3D model"), text: T("OBJ, FBX, GLB/glTF, STL, DAE, 3MF, 3DS, PLY 모델은 소품처럼 배치됩니다. 단위와 위쪽 축은 자동 판단됩니다.", "OBJ, FBX, GLB/glTF, STL, DAE, 3MF, 3DS and PLY models become furniture. Units and the up axis are detected."),
         run: async (ctx) => {
           const obj = ["o box", "v 0 0 0", "v 60 0 0", "v 60 0 60", "v 0 0 60", "v 0 75 0", "v 60 75 0", "v 60 75 60", "v 0 75 60", "f 1 2 3 4", "f 5 8 7 6", "f 1 5 6 2", "f 2 6 7 3", "f 3 7 8 4", "f 4 8 5 1"].join("\n");
           const n = ctx.p.models.length;
@@ -737,7 +737,7 @@ export const LESSONS = [
           ctx.expect(ctx.p.rooms.find((r) => r.name === "Living room").skirting > 80, "skirting unchanged");
         },
         practice: { todo: T("거실의 '걸레받이 높이'를 바꾸세요.", "Change the living room's Skirting height."), check: (ctx) => ctx.app.store.project.rooms.some((r) => r.name === "Living room" && r.skirting !== 80), targets: (ctx) => [{ el: plusOf(ctx.app.t("Skirting height")) }] } },
-      { title: T("3D 로 보기", "See it in 3D"), text: T("F3 으로 3D 를 열고 왼쪽 '장면'의 '거실'을 누르면 눈높이에서 마감과 가구를 볼 수 있습니다.", "F3 opens 3D; the scene Living room on the left shows the finishes and furniture at eye level."),
+      { title: T("3D 로 보기", "See it in 3D"), text: T("F3 으로 3D 를 열고 왼쪽 '장면'의 '거실'을 누르면 눈높이에서 마감과 소품을 볼 수 있습니다.", "F3 opens 3D; the scene Living room on the left shows the finishes and furniture at eye level."),
         run: async (ctx) => {
           await ctx.key("F3");
           const v = await ctx.waitFor(() => ctx.app.v3d.viewer, 8000);

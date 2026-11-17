@@ -31,8 +31,8 @@ const thumbsDir = path.join(root, "assets", "furniture");
 if (!sheet && !kindsArg && pageArg === null) {
   const { spawnSync } = await import("node:child_process");
   const { pathToFileURL } = await import("node:url");
-  const { allFurniture } = await import(pathToFileURL(path.join(root, "src", "lib", "furniture.js")).href);
-  const kinds = allFurniture().map((d) => d.kind);
+  const { libraryItems } = await import(pathToFileURL(path.join(root, "src", "lib", "furniture.js")).href);
+  const kinds = libraryItems().map((d) => d.kind); // furniture, and the doors and windows (as they look on their own)
   const per = cols * 32;
   fs.mkdirSync(thumbsDir, { recursive: true });
   for (const f of fs.readdirSync(thumbsDir)) if (/^thumbs(-\d+)?\.webp$|^\.page-\d+\.json$/.test(f)) fs.rmSync(path.join(thumbsDir, f));

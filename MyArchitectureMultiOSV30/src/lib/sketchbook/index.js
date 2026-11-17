@@ -1,5 +1,5 @@
 // MySketchBook's parametric items (written by scripts/import-sketchbook-library.mjs).
-// SB_ITEMS: every item but doors, windows and structure; sbItem(id) finds one.
+// SB_ITEMS: every item but structure (doors and windows are placed as openings); sbItem(id) finds one.
 import { ITEMS as m_accessories_plus } from './accessories-plus.js';
 import { ITEMS as m_accessories_plus2 } from './accessories-plus2.js';
 import { ITEMS as m_appliances_air } from './appliances-air.js';
@@ -78,7 +78,7 @@ import { ITEMS as m_workplace_plus } from './workplace-plus.js';
 import { ITEMS as m_workplace_plus2 } from './workplace-plus2.js';
 import { ITEMS as m_workplace } from './workplace.js';
 
-const SKIP = new Set(["doors","windows","structure"]);
+const SKIP = new Set(["structure"]);
 const seen = new Set();
 export const SB_ITEMS = [...m_accessories_plus, ...m_accessories_plus2, ...m_appliances_air, ...m_appliances_extra, ...m_appliances_more, ...m_appliances_plus, ...m_appliances, ...m_bathroom_extra, ...m_bathroom_more, ...m_bathroom_plus, ...m_bathroom, ...m_bedroom_extra, ...m_bedroom_more, ...m_bedroom_plus, ...m_bedroom, ...m_computers, ...m_computers2, ...m_decor_extra, ...m_decor_more, ...m_decor, ...m_dining_extra, ...m_dining_more, ...m_dining_plus, ...m_dining, ...m_doors_extra, ...m_doors_more, ...m_doors_plus, ...m_kids_more, ...m_kids_plus, ...m_kids, ...m_kitchen_extra, ...m_kitchen_more, ...m_kitchen, ...m_landscape, ...m_landscape2, ...m_lighting_extra, ...m_lighting_fixtures, ...m_lighting_more, ...m_lighting_plus, ...m_lighting, ...m_living_extra, ...m_living_more, ...m_living_sofas, ...m_living, ...m_office_extra, ...m_office_more, ...m_office_plus, ...m_office_props, ...m_office_props2, ...m_office, ...m_openings, ...m_outdoor_extra, ...m_outdoor_more, ...m_outdoor_plus, ...m_outdoor, ...m_plants_extra, ...m_plants_more, ...m_plants, ...m_security_moved, ...m_security, ...m_security2, ...m_server_room, ...m_server_room2, ...m_sofas_extra, ...m_storage_extra, ...m_storage_more, ...m_storage, ...m_structure_extra, ...m_structure_more, ...m_structure_plus, ...m_structure, ...m_windows_extra, ...m_windows_more, ...m_windows_plus, ...m_workplace_plus, ...m_workplace_plus2, ...m_workplace].filter((it) => !SKIP.has(it.category) && !seen.has(it.id) && seen.add(it.id));
 const byId = new Map(SB_ITEMS.map((it) => [it.id, it]));

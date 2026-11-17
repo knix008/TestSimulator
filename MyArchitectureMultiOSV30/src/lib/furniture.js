@@ -264,8 +264,27 @@ const BY_KIND = new Map(CATALOG.map((c) => [c.kind, c]));
 
 export const FURNITURE_CATEGORIES = [...new Set(CATALOG.map((c) => c.cat))];
 
+// What stands on the floor or hangs on a wall or ceiling: the library without its doors and windows (they are
+// placed as openings in a wall, entry.opening). The plan recogniser, pickers and dialogs use this.
+const FURNITURE_ONLY = CATALOG.filter((c) => !c.opening);
 export function allFurniture() {
+  return FURNITURE_ONLY.slice();
+}
+/** Everything the library offers: furniture, props, and doors and windows (entry.opening: "door" | "window"). */
+export function libraryItems() {
   return CATALOG.slice();
+}
+/** An opening's type for the plan symbol and the checks, from a library door or window's id. */
+export function openingTypeOf(def) {
+  const id = String((def && def.kind) || "");
+  if (def && def.opening === "window") return /slid|sash|lift-slide|glider/.test(id) ? "sliding" : /fixed|picture|skylight|glass-block|transom/.test(id) ? "fixed" : "casement";
+  if (/garage|roller|sectional/.test(id)) return "garage";
+  if (/pocket/.test(id)) return "pocket";
+  if (/barn/.test(id)) return "barn";
+  if (/fold|bifold|accordion/.test(id)) return "folding";
+  if (/slid|bypass|telescop|shoji|fusuma|patio|automatic|auto-/.test(id)) return "sliding";
+  if (/double|pair|french|twin/.test(id)) return "double";
+  return "single";
 }
 
 export function furnitureDef(kind) {

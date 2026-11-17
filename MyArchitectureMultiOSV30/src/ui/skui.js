@@ -777,32 +777,40 @@ export class SketchupUI {
     const s = { ...STYLE_DEFAULTS, ...(this.p.style3d || {}) };
     const set = (k, v) => { this.edit("Style", (p) => { p.style3d = { ...STYLE_DEFAULTS, ...(p.style3d || {}), [k]: v }; }); this.pushOpts(); if (this.viewer) { this.viewer.setOptions({ background: this.v3d.background() }); this.viewer.skRefresh(); } this.app.renderLeft(); };
     const col = (k, fallback) => h("input", { type: "color", value: s[k] || fallback, "data-sk-style": k, onchange: (e) => set(k, e.target.value) });
-    const clr = (k) => h("button", { class: "btn small", title: t("Default"), onclick: () => set(k, "") }, "×");
+    // A colour of its own with its label, on one line with the others; × (only when set) goes back to the default.
+    const swatch = (label, k, fallback) => h("label", { class: "swatch", title: label }, h("span", {}, label), col(k, fallback),
+      s[k] ? h("button", { class: "icon-btn tiny", type: "button", title: t("Default"), "aria-label": t("Default"), html: icon("close", 11), onclick: (e) => { e.preventDefault(); set(k, ""); } }) : null);
+    const sub = (text) => h("div", { class: "panel-sub" }, text);
+    const two = (...cells) => h("div", { class: "field-row" }, ...cells);
+    const bare = (control, hint) => h("div", { class: "field" }, control, hint ? h("small", { class: "field-hint" }, hint) : null);
     const wm = h("input", { class: "input wide", value: s.watermark, placeholder: t("Watermark text"), "data-sk-style": "watermark" });
     wm.addEventListener("keydown", (e) => e.stopPropagation());
     wm.addEventListener("change", () => set("watermark", wm.value));
     const body = h("div", { class: "panel-body" },
+      // Faces and lines.
       field(t("Faces"), select(this.v3d.opts.style, [["realistic", t("Realistic")], ["white", t("White model")], ["lines", t("Line drawing")], ["sketch", t("Sketch")], ["xray", t("X-ray")]], { onChange: (v) => this.v3d.setOpt("style", v) })),
-      h("div", {}, checkbox(!!s.edges, t("Edges"), { onChange: (v) => set("edges", v) })),
-      h("div", {}, checkbox(!!s.profiles, t("Profiles (thick outlines)"), { onChange: (v) => set("profiles", v) })),
-      field(t("Profile width"), stepper(s.profileWidth, { min: 1, max: 12, step: 1, format: (x) => `${x} px`, onChange: (x) => set("profileWidth", x) })),
-      field(t("Edge colour"), col("edgeColor", "#1d2128")),
-      h("div", {}, checkbox(!!s.colorByTag, t("Colour by tag"), { onChange: (v) => set("colorByTag", v) })),
-      field(t("Lighting"), select(s.environment || "", [["", t("Procedural sky")], ...ENVIRONMENTS.map((e) => [e.id, t(e.name)])], { onChange: (v) => set("environment", v) }), t("Light and reflections from a real place (HDRI). Shown behind the model if you tick the box below.")),
+      h("div", { class: "check-grid" },
+        h("div", {}, checkbox(!!s.edges, t("Edges"), { onChange: (v) => set("edges", v) })),
+        h("div", {}, checkbox(!!s.profiles, t("Profiles (thick outlines)"), { onChange: (v) => set("profiles", v) })),
+        h("div", {}, checkbox(!!s.colorByTag, t("Colour by tag"), { onChange: (v) => set("colorByTag", v) }))),
+      two(field(t("Profile width"), stepper(s.profileWidth, { min: 1, max: 12, step: 1, format: (x) => `${x} px`, onChange: (x) => set("profileWidth", x) })),
+        h("div", { class: "field" }, h("span", { class: "field-label" }, t("Colour")), h("div", { class: "swatch-row" }, swatch(t("Edges"), "edgeColor", "#1d2128"), swatch(t("Section fill"), "sectionFill", "#3b4250")))),
+      sub(t("Lighting")),
+      bare(select(s.environment || "", [["", t("Procedural sky")], ...ENVIRONMENTS.map((e) => [e.id, t(e.name)])], { onChange: (v) => set("environment", v) }), t("Light and reflections from a real place (HDRI). Shown behind the model if you tick the box below.")),
       h("div", {}, checkbox(!!s.envBackground, t("Show the lighting picture behind the model"), { onChange: (v) => set("envBackground", v) })),
-      // The app-wide background (Settings → 3D background); the project's own sky / background colours below win.
-      field(t("3D background"), select(this.app.settings.background3d || "gradient", BACKGROUND_3D.map(([id, name]) => [id, t(name)]), { onChange: (v) => { this.app.setSetting("background3d", v); this.v3d.applyTheme(); } }), s.sky || s.background ? t("This project's own Sky / Background colour is used instead (× clears it).") : null),
-      field(t("Sky"), h("span", {}, col("sky", "#8fb6dc"), clr("sky"))),
-      field(t("Horizon"), h("span", {}, col("horizon", "#f1f4f6"), clr("horizon"))),
-      field(t("Background"), h("span", {}, col("background", "#e8ebf0"), clr("background"))),
-      field(t("Ground"), h("span", {}, col("ground", "#9aa68a"), clr("ground"))),
-      field(t("Ground surface"), select(s.groundType || "plain", GROUND_TYPES.map((g) => [g.id, t(g.name)]), { onChange: (v) => set("groundType", v) })),
-      field(t("Ground shape"), select(s.groundShape || "disc", GROUND_SHAPES.map((g) => [g.id, t(g.name)]), { onChange: (v) => set("groundShape", v) })),
-      h("div", { class: "prop-actions" }, h("button", { class: "btn small", "data-ground-dialog": "1", onclick: () => this.app.run("v3d.ground") }, t("Ground…"))),
-      field(t("Section fill"), col("sectionFill", "#3b4250")),
+      // The app-wide background (Settings → 3D background); the project's own sky / horizon / background colours win.
+      sub(t("3D background")),
+      bare(select(this.app.settings.background3d || "gradient", BACKGROUND_3D.map(([id, name]) => [id, t(name)]), { onChange: (v) => { this.app.setSetting("background3d", v); this.v3d.applyTheme(); } }), s.sky || s.background ? t("This project's own Sky / Background colour is used instead (× clears it).") : null),
+      h("div", { class: "swatch-row", "data-sk-colours": "background" }, swatch(t("Sky"), "sky", "#8fb6dc"), swatch(t("Horizon"), "horizon", "#f1f4f6"), swatch(t("Background"), "background", "#e8ebf0")),
+      sub(t("Ground")),
+      h("div", { class: "swatch-row" }, swatch(t("Ground colour"), "ground", "#9aa68a"),
+        h("button", { class: "btn small", "data-ground-dialog": "1", onclick: () => this.app.run("v3d.ground") }, t("Ground…"))),
+      two(field(t("Ground surface"), select(s.groundType || "plain", GROUND_TYPES.map((g) => [g.id, t(g.name)]), { onChange: (v) => set("groundType", v) })),
+        field(t("Ground shape"), select(s.groundShape || "disc", GROUND_SHAPES.map((g) => [g.id, t(g.name)]), { onChange: (v) => set("groundShape", v) }))),
+      sub(t("Fog and watermark")),
       field(t("Fog density"), stepper(s.fogDensity, { min: 0.1, max: 5, step: 0.1, format: (x) => x.toFixed(1), onChange: (x) => set("fogDensity", +x.toFixed(1)) })),
-      field(t("Watermark"), wm),
-      field(t("Position"), select(s.watermarkPos, [["br", t("Bottom right")], ["bl", t("Bottom left")], ["tr", t("Top right")], ["tl", t("Top left")], ["c", t("Centre")]], { onChange: (v) => set("watermarkPos", v) })));
+      two(field(t("Watermark"), wm),
+        field(t("Position"), select(s.watermarkPos, [["br", t("Bottom right")], ["bl", t("Bottom left")], ["tr", t("Top right")], ["tl", t("Top left")], ["c", t("Centre")]], { onChange: (v) => set("watermarkPos", v) }))));
     return h("div", { class: "panel", "data-sk-panel": "styles" }, panelHead("skStyle", t("Style")), body);
   }
 

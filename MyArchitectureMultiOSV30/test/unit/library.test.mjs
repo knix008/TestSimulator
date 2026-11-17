@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { allFurniture, makeFurniture, FURNITURE_CATEGORIES, furnitureDef } from "../../src/lib/furniture.js";
+import { allFurniture, libraryItems, makeFurniture, FURNITURE_CATEGORIES, furnitureDef } from "../../src/lib/furniture.js";
 import { newProject, normalizeProject } from "../../src/core/project.js";
 import { normalizeEntry, entryFromItems, entryInstances, insertEntry, libraryFileText, parseLibraryFile, mergeEntries, projectEntries } from "../../src/ui/userlib.js";
 import { CATEGORY_ICONS } from "../../src/ui/library.js";
@@ -24,6 +24,24 @@ describe("the built-in catalogue", () => {
     for (const c of FURNITURE_CATEGORIES) assert.ok(KO[c], `Korean name of the category ${c}`);
   });
 
+  test("every category offers 100 items or more (its own and those also listed under it)", () => {
+    const n = new Map();
+    for (const d of libraryItems()) for (const c of [d.cat, ...(d.also || [])]) n.set(c, (n.get(c) || 0) + 1);
+    for (const c of FURNITURE_CATEGORIES) assert.ok((n.get(c) || 0) >= 100, `${c}: ${n.get(c) || 0} items`);
+    for (const d of libraryItems()) assert.ok(KO[d.name], `Korean name of ${d.kind} (${d.name})`);
+  });
+
+  test("people: men and women, children, teenagers and older people, in many outfits", () => {
+    const people = libraryItems().filter((d) => d.cat === "People");
+    const has = (re) => people.filter((d) => re.test(d.name)).length;
+    assert.ok(people.length >= 100, `${people.length} people`);
+    assert.ok(has(/\b(woman|girl)\b/i) >= 25, "women and girls");
+    assert.ok(has(/\b(man|boy)\b/i) >= 20, "men and boys");
+    assert.ok(has(/child|girl|boy|toddler/i) >= 12, "children");
+    assert.ok(has(/older/i) >= 9, "older people");
+    assert.ok(new Set(people.map((d) => d.color)).size >= 12, "many outfit colours");
+  });
+
   test("every category, and favourites / my library / recent, has its own icon", () => {
     for (const c of [...FURNITURE_CATEGORIES, "all", "fav", "mine", "recent", "project", "models"]) {
       assert.ok(CATEGORY_ICONS[c], `icon for ${c}`);
@@ -35,7 +53,7 @@ describe("the built-in catalogue", () => {
     const j = JSON.parse(fs.readFileSync(path.join(root, "assets/furniture/thumbs.json"), "utf8"));
     assert.ok(fs.statSync(path.join(root, "assets/furniture/thumbs.webp")).size > 10000);
     for (let i = 1; i < (j.pages || 1); i++) assert.ok(fs.statSync(path.join(root, `assets/furniture/thumbs-${i}.webp`)).size > 10000, `page ${i}`);
-    for (const d of allFurniture()) assert.ok(Number.isInteger(j.index[d.kind]), `thumbnail of ${d.kind}`);
+    for (const d of libraryItems()) assert.ok(Number.isInteger(j.index[d.kind]), `thumbnail of ${d.kind}`);
     assert.ok(j.w > 0 && j.h > 0 && j.cols > 0);
   });
 

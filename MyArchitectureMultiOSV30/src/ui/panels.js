@@ -62,18 +62,18 @@ export function furnitureThumb(kind, w = 44, hgt = 36, themeName = "dark") {
 export function renderLeft(app, host) {
   host.innerHTML = "";
   if (app.tab === "start") return undefined;
-  if (!app.settings.showLeft) return rail(app, host, "left", app.tab === "3d" ? "cube" : app.tab === "views" ? "tree" : "sofa", app.tab === "3d" ? t("3D view options") : app.tab === "views" ? t("Project Browser") : t("Furniture library"));
+  if (!app.settings.showLeft) return rail(app, host, "left", app.tab === "3d" ? "cube" : app.tab === "views" ? "tree" : "sofa", app.tab === "3d" ? t("3D view options") : app.tab === "views" ? t("Project Browser") : t("Library"));
   // Tabs keep the panel short: the plan has the furniture library and the
   // Project Browser (src/views/browser.js); 3D its view options, the model
   // (tags, components, materials …), the lights, the library and the browser.
   // Views & sheets: the browser is the whole panel.
   if (app.tab === "views") { if (app.views) app.views.renderLeft(host); }
   else if (app.tab === "plan") {
-    const cur = panelTabs(app, host, "left", [["library", "sofa", t("Furniture library")], ["explorer", "tree", t("Project Browser")]]);
+    const cur = panelTabs(app, host, "left", [["library", "sofa", t("Library")], ["explorer", "tree", t("Project Browser")]]);
     if (cur === "library") renderLibrary(app, host);
     else if (app.views) app.views.renderLeft(host);
   } else if (app.tab === "3d") {
-    const cur = panelTabs(app, host, "left", [["view", "cube", t("View")], ["model", "skOutliner", t("Model")], ["lights", "bulb", t("Lights")], ["library", "sofa", t("Furniture"), t("Furniture library")], ["explorer", "tree", t("Browser"), t("Project Browser")]]);
+    const cur = panelTabs(app, host, "left", [["view", "cube", t("View")], ["model", "skOutliner", t("Model")], ["lights", "bulb", t("Lights")], ["library", "sofa", t("Furniture"), t("Library")], ["explorer", "tree", t("Browser"), t("Project Browser")]]);
     if (cur === "library") renderLibrary(app, host);
     else if (cur === "explorer") { if (app.views) app.views.renderLeft(host); }
     else render3dPanels(app, host, cur);
@@ -152,7 +152,8 @@ function leftNeed(host) {
   folded.forEach((p) => p.classList.remove("folded"));
   hidden.forEach((b) => { b.hidden = false; });
   // The app's own words; names the user gives (views, sheets, imported models) wrap or end in "…".
-  const rows = [...host.querySelectorAll(".panel-head, .vb-group, .lib-group[data-cat], .check")];
+  // Check boxes in a grid (.check-grid) are measured on their own below: one column is enough.
+  const rows = [...host.querySelectorAll(".panel-head, .vb-group, .lib-group[data-cat], .check")].filter((el) => !el.closest(".check-grid"));
   const saved = rows.map((el) => [el.style.width, el.style.flex]);
   rows.forEach((el) => { el.style.width = "max-content"; el.style.flex = "none"; }); // one layout for all
   const GAP = 10; // the panel's right margin
@@ -162,6 +163,11 @@ function leftNeed(host) {
     if (r.width) need = Math.max(need, r.left - hostL + r.width + (el.classList.contains("check") ? GAP : 0));
   }
   rows.forEach((el, i) => { el.style.width = saved[i][0]; el.style.flex = saved[i][1]; });
+  for (const grid of host.querySelectorAll(".check-grid")) {
+    let w = 0;
+    for (const c of grid.querySelectorAll(".check")) { const s = c.style.width; c.style.width = "max-content"; w = Math.max(w, c.getBoundingClientRect().width); c.style.width = s; }
+    if (w) need = Math.max(need, grid.getBoundingClientRect().left - hostL + w + GAP);
+  }
   // Category chips: two columns of the widest one.
   for (const chips of host.querySelectorAll(".chips")) {
     const w = chipNaturalWidth(chips) + 2; // they stretch to fill their rows: their own width
