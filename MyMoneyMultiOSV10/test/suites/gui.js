@@ -72,7 +72,7 @@ export function registerGui(h) {
       assert.equal(getComputedStyle(grip).right, "4px");
       assert.equal(getComputedStyle(grip).bottom, "4px");
       assert.equal(getComputedStyle(grip).cursor, "nwse-resize");
-      assert.ok(grip.querySelector("svg path"));
+      assert.equal(grip.querySelectorAll("svg circle").length, 6, "the marker is a triangle of six dots");
       assert.equal(app.shell.style.width, "760px");
       assert.equal(app.shell.style.height, "640px");
       pointer(grip, "pointerdown", 100, 100);

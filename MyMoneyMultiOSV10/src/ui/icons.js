@@ -71,8 +71,16 @@ const PATHS = {
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/>',
 };
 
+// Resize markers are six dots stacked into a triangle in the bottom-right corner (3 + 2 + 1).
+const GRIP_DOTS = [
+  [12, 2],
+  [7, 7], [12, 7],
+  [2, 12], [7, 12], [12, 12],
+];
+
 export function gripIcon() {
-  return '<svg class="grip-svg" viewBox="0 0 14 14" aria-hidden="true"><path d="M13 3 3 13M13 7.5 7.5 13M13 12l-1 1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+  const dots = GRIP_DOTS.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.4"/>`).join("");
+  return `<svg class="grip-svg" viewBox="0 0 14 14" aria-hidden="true"><g fill="currentColor">${dots}</g></svg>`;
 }
 
 const COLOR = {
