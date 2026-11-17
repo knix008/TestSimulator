@@ -247,17 +247,17 @@ export function entityInfoHtml(app) {
   }
   if (kind === 'objects') {
     const deg = Math.round(((e.rotation[1] * 180) / Math.PI) * 10) / 10;
-    const box = app.builder.worldBox(e.id);
-    const size = box ? box.getSize(new (box.min.constructor)()) : null;
+    // Its own width / height / depth (not turned with it): each can be typed — the object stretches along that axis.
+    const size = app.builder.localSize(e.id);
     return section(CATEGORIES.find((c) => c.id === item?.category)?.icon ?? 'cube', e.name || itemName(item, L()) || e.item, `
       ${textRow(t('entity.name'), 'name', e.name)}
       <div class="prop-row"><span class="prop-label"><span>${escapeHtml(t('entity.item'))}</span></span><span class="prop-control"><span class="prop-value">${escapeHtml(itemName(item, L()) || e.item)}</span></span></div>
-      ${size ? `<div class="prop-row"><span class="prop-label"><span>${escapeHtml(t('entity.size'))}</span></span><span class="prop-control"><span class="prop-value">${escapeHtml([size.x, size.y, size.z].map(len).join(' × '))} ${escapeHtml(units)}</span></span></div>` : ''}
+      ${size ? [['entity.width', 0], ['entity.height', 1], ['entity.depth', 2]].map(([label, i]) => numberRow(t(label), `size.${i}`, len(size[i]), units, { title: t('entity.sizeTip') })).join('') : ''}
       ${numberRow('X', 'pos.0', len(e.position[0]), units)}
       ${numberRow(t('entity.elevation'), 'pos.1', len(e.position[1]), units)}
       ${numberRow('Z', 'pos.2', len(e.position[2]), units)}
       ${numberRow(t('entity.rotation'), 'rot.1', deg, '°')}
-      ${numberRow(t('entity.scale'), 'scale', Number(e.scale[0].toFixed(3)), '×')}
+      ${numberRow(t('entity.scale'), 'scale', Number(Math.abs(e.scale[0]).toFixed(3)), '×', { title: t('entity.scaleTip') })}
       ${tagRow(app, e)}${common}`, actionButtons(app, ['rotate90', 'mirrorObject', 'replaceItem']))
       + lampHtml(app, e)
       + (item?.params?.length ? section(/^column(-|$)/.test(e.item) ? 'columnTool' : 'scaleTool', t(/^column(-|$)/.test(e.item) ? 'entity.column' : 'entity.parameters'), paramsHtml(app, item, e, /^column(-|$)/.test(e.item) ? [...(e.params?.shape === 'rect' ? [] : ['depth']), ...(e.params?.fitLevel ? ['height'] : [])] : [])) : '')

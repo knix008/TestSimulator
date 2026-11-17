@@ -14,6 +14,7 @@ import { PARAMETRIC_ITEMS } from '../../src/library/parametric/index.js';
 import { getMaterial } from '../../src/engine/materials.js';
 import { detectImageWalls, wallsOnly } from '../../src/io/plan-image.js';
 import { pickDetection } from '../../src/io/plan-draft.js';
+import { pieceScale } from '../../src/io/plan-build.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const dir = path.join(root, 'samples', 'plan-images');
@@ -165,4 +166,22 @@ test('plan-furniture: a plan picture without furniture gets none made up', async
     const items = await recognise(p);
     assert.ok(items.length <= 2, `${id}: ${items.map((x) => x.item).join(', ')}`);
   }
+});
+
+test('plan-furniture: small things keep the size they are drawn at (pieceScale), sized pieces their parameters', () => {
+  const item = (id) => PARAMETRIC_ITEMS.find((x) => x.id === id);
+  const lamp = item('table-lamp'); // 0.36 × 0.6 × 0.36
+  const big = pieceScale(lamp, { item: 'table-lamp', size: [0.48, 0.48] });
+  assert.ok(Math.abs(big[0] - 0.48 / 0.36) < 0.01 && Math.abs(big[2] - big[0]) < 1e-9, `footprint as drawn (${big})`);
+  assert.ok(Math.abs(big[1] - big[0]) < 0.01, 'and as much taller');
+  const small = pieceScale(lamp, { item: 'table-lamp', size: [0.24, 0.24] });
+  assert.ok(small[0] < 0.7 && small[1] < 0.7, `a small lamp is small (${small})`);
+  const tv = pieceScale(item('tv'), { item: 'tv', size: [1.0, 0.24] });
+  assert.ok(Math.abs(tv[1] - tv[0]) < 1e-9 && tv[2] === 1, `a screen scales with its width (${tv})`);
+  const floorLamp = pieceScale(item('floor-lamp-tripod'), { item: 'floor-lamp-tripod', size: [0.4, 0.4] });
+  assert.equal(floorLamp[1], 1, 'a floor lamp keeps its height');
+  const plant = pieceScale(item('fiddle-leaf-fig'), { item: 'fiddle-leaf-fig', size: [1.6, 1.6] });
+  assert.ok(plant[1] * item('fiddle-leaf-fig').size[1] <= 2.4 + 1e-6, `a big plant stays under the ceiling (${plant})`);
+  assert.deepEqual(pieceScale(item('sofa-modern'), { item: 'sofa-modern', params: { width: 2.6, depth: 0.95 }, size: [2.6, 0.95] }), [1, 1, 1], 'a sofa is sized by its parameters');
+  assert.deepEqual(pieceScale(lamp, { item: 'table-lamp', size: [0.5, 0.5], keep: {} }), [1, 1, 1], 'a piece brought back from the level keeps its own scale');
 });

@@ -43,10 +43,31 @@ export function floorForName(name = '') {
 const isLabel = (text) => /\p{L}/u.test(text) && !/^[\d\s.,x×*+\-=:/()㎡m²]+$/i.test(text) && text.length <= 24;
 
 /**
- * Builds the entities of a recognised plan for `level`: { walls, openings, rooms, guides, bounds }.
- * `shift` moves everything ([x, z] added), `elevation` places reference lines on the level's floor.
+ * The scale of a recognised piece drawn bigger or smaller than its library item (`item`: { id, category, size:
+ * [w, h, d] }), from its footprint `f.size` [w, d] (m): small things whose size no parameter sets — lamps, vases,
+ * plants, decor, screens — follow the drawing, their height with their footprint (a screen with its width; a floor
+ * lamp or a ceiling light keeps its height). Things sized by their parameters (a bed, a sofa, a table), or brought
+ * back from the level (`f.keep`), stay [1, 1, 1].
  */
-export function planEntities(result, { level, shift = [0, 0], elevation = 0, keepLeftovers = true, maxGuides = 3000 } = {}) {
+export function pieceScale(item, f) {
+  if (!item?.size || !f?.size || f.keep) return [1, 1, 1];
+  if (['width', 'length', 'depth', 'bedSize'].some((k) => f.params?.[k] != null)) return [1, 1, 1];
+  const screen = /(^|-)(tv|monitor)($|-)/.test(item.id) && !/console|stand|cabinet|mount|bracket/.test(item.id);
+  if (!['lighting', 'decor', 'accessories', 'plants'].includes(item.category) && !screen) return [1, 1, 1];
+  const k = (v) => Math.round(Math.min(2.5, Math.max(0.4, v)) * 1000) / 1000;
+  const sx = k(f.size[0] / item.size[0]);
+  const sz = screen ? 1 : k(f.size[1] / item.size[2]);
+  const sy = screen ? sx : /floor-lamp|pendant|ceiling|chandelier|sconce|wall/.test(item.id) ? 1 : k(Math.sqrt(sx * sz));
+  // Under a ceiling: at most 2.4 m tall (a big plant drawn wide does not grow through it).
+  return [sx, Math.min(sy, Math.max(1, Math.floor((2.4 / item.size[1]) * 1000) / 1000)), sz];
+}
+
+/**
+ * Builds the entities of a recognised plan for `level`: { walls, openings, rooms, guides, bounds }.
+ * `shift` moves everything ([x, z] added), `elevation` places reference lines on the level's floor; `itemOf`
+ * (id → library item) lets small recognised things keep the size they are drawn at (pieceScale).
+ */
+export function planEntities(result, { level, shift = [0, 0], elevation = 0, keepLeftovers = true, maxGuides = 3000, itemOf = null } = {}) {
   const mv = (p) => [p[0] + shift[0], p[1] + shift[1]];
   // Curved walls: every piece of one arc keeps the arc (moved with the plan) and one id per import.
   const curveIds = new Map();
@@ -116,7 +137,7 @@ export function planEntities(result, { level, shift = [0, 0], elevation = 0, kee
   const objects = (result.furniture ?? []).filter((f) => f.item).map((f) => {
     // A small thing found on another (a lamp on a nightstand) stands at that one's top (`elevation`, m).
     const { y = f.elevation ?? 0, rx = 0, rz = 0, ...keep } = f.keep ?? {};
-    return { tag: 'untagged', name: '', materials: {}, scale: [1, 1, 1], ...keep, id: newId('ob'), level, item: f.item, params: { ...(f.params ?? {}) }, position: [f.position[0] + shift[0], y, f.position[1] + shift[1]], rotation: [rx, f.rotation ?? 0, rz] };
+    return { tag: 'untagged', name: '', materials: {}, scale: itemOf ? pieceScale(itemOf(f.item), f) : [1, 1, 1], ...keep, id: newId('ob'), level, item: f.item, params: { ...(f.params ?? {}) }, position: [f.position[0] + shift[0], y, f.position[1] + shift[1]], rotation: [rx, f.rotation ?? 0, rz] };
   });
   return { walls, openings, rooms, guides, objects, bounds };
 }
@@ -156,7 +177,7 @@ export function planCenter(result) {
  * The first import is centred on the origin; later ones reuse that shift so the floors of one drawing line up.
  * Returns { level, walls, openings, rooms, guides } (counts) and the level id.
  */
-export function applyPlan(project, result, { target = 'replace', wallHeight = null, keepLeftovers = true, levelName = null, shift: fixedShift = null, roomNames = null, source = null } = {}) {
+export function applyPlan(project, result, { target = 'replace', wallHeight = null, keepLeftovers = true, levelName = null, shift: fixedShift = null, roomNames = null, source = null, itemOf = null } = {}) {
   let level = project.levels.find((l) => l.id === project.activeLevel) ?? project.levels[0];
   if (target === 'level') {
     const top = [...project.levels].sort((a, b) => a.elevation - b.elevation).at(-1);
@@ -186,7 +207,7 @@ export function applyPlan(project, result, { target = 'replace', wallHeight = nu
     shift = overlap ? reuse : [(old.x0 + old.x1) / 2 - center[0], (old.z0 + old.z1) / 2 - center[1]];
   }
   if (!fixedShift && !(target === 'level' && project.planShift)) project.planShift = shift;
-  const built = planEntities(result, { level: level.id, shift, elevation: level.elevation, keepLeftovers });
+  const built = planEntities(result, { level: level.id, shift, elevation: level.elevation, keepLeftovers, itemOf });
   // Unlabelled rooms: named from the guess (roomNames(key, n) → text, n counts rooms of one kind), marked with the source.
   const counts = new Map();
   for (const r of built.rooms) {

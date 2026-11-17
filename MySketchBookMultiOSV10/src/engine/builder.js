@@ -222,6 +222,17 @@ export class SceneBuilder {
     return object ? new THREE.Box3().setFromObject(object) : null;
   }
 
+  /**
+   * An object's own size [width (x), height (y), depth (z)] in metres, scale included and its turn left out (its
+   * oriented box: nothing is moved to measure it — objects keep their matrices by hand, matrixAutoUpdate off).
+   */
+  localSize(id) {
+    const box = this.orientedBox(id);
+    if (!box) return null;
+    const size = box.local.getSize(new THREE.Vector3()); const k = this.objectOf(id).scale;
+    return [size.x * Math.abs(k.x), size.y * Math.abs(k.y), size.z * Math.abs(k.z)];
+  }
+
   removeWhere(group, test) {
     for (const child of [...group.children]) if (test(child)) this.disposeObject(child, group);
   }

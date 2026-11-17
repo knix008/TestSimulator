@@ -826,19 +826,25 @@ export function detectFurniture(image, { metresPerPixel: m, result, angle = 0, t
     if (placed.some((p) => u >= p.box[0] - 0.1 && u <= p.box[2] + 0.1 && v >= p.box[1] - 0.1 && v <= p.box[3] + 0.1)) continue;
     if (centres[sym.room] && Math.hypot(sym.centre[0] - centres[sym.room][0], sym.centre[1] - centres[sym.room][1]) <= 0.9) continue;
     if (wallAt(sym.centre).dist < 0.12) continue;
-    accessories.push({ item: 'floor-lamp-tripod', params: {}, position: sym.centre, rotation: angle ? -angle : 0, size: [0.55, 0.55], score: 0.45 });
+    // As big as its symbol (the legs' spread), within what floor lamps are.
+    const spread = Math.min(0.75, Math.max(0.3, Math.max(...sym.size)));
+    accessories.push({ item: 'floor-lamp-tripod', params: {}, position: sym.centre, rotation: angle ? -angle : 0, size: [spread, spread], score: 0.45 });
   }
   return [...placed, ...accessories].map(({ box, ...p }) => p);
 }
 
+/** A round thing (a lamp's shade) as big as its drawn shape: its mean diameter. */
+const disc = (s) => { const dia = (s.long + s.short) / 2; return [dia, dia]; };
+
 /**
  * What stands on a piece of furniture (by the host's item): the item, the size range of its drawn shape (m), its
- * footprint from the shape, and the host's top (m: the item stands there; `on` is the host's index in the list).
+ * footprint from the shape (as drawn: a big lamp is a big lamp), and the host's top (m: the item stands there; `on`
+ * is the host's index in the list).
  */
 const ON_TOP = {
-  nightstand: { item: 'table-lamp', long: [0.15, 0.5], short: [0.12, 0.5], size: () => [0.36, 0.36], elevation: 0.55 },
-  dresser: { item: 'table-lamp', long: [0.15, 0.5], short: [0.12, 0.5], size: () => [0.36, 0.36], elevation: 0.82 },
+  nightstand: { item: 'table-lamp', long: [0.15, 0.5], short: [0.12, 0.5], size: (s) => disc(s), elevation: 0.55 },
+  dresser: { item: 'table-lamp', long: [0.15, 0.5], short: [0.12, 0.5], size: (s) => disc(s), elevation: 0.82 },
   'tv-console': { item: 'tv', long: [0.7, 2.0], short: [0.04, 0.4], size: (s) => [s.long, 0.24], elevation: 0.5 },
-  'coffee-table': { item: 'vase-stems', long: [0.15, 0.6], short: [0.12, 0.6], size: () => [0.48, 0.42], elevation: 0.4 },
+  'coffee-table': { item: 'vase-stems', long: [0.15, 0.6], short: [0.12, 0.6], size: (s) => [s.long, s.short], elevation: 0.4 },
   desk: { item: 'monitor', long: [0.35, 0.9], short: [0.05, 0.35], size: (s) => [s.long, 0.2], elevation: 0.74 },
 };

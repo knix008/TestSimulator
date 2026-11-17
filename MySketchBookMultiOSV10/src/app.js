@@ -2048,7 +2048,14 @@ function setProp(field, raw, input) {
   }
   if (field.startsWith('pos.')) { const i = Number(field.slice(4)); const v = len(raw); if (v != null) change('op.move', () => { e.position = e.position.map((x, j) => (j === i ? v : x)); }, touch); return undefined; }
   if (field === 'rot.1') { const v = Number(raw); if (Number.isFinite(v)) change('op.rotate', () => { e.rotation = [e.rotation[0], (v * Math.PI) / 180, e.rotation[2]]; }, touch); return undefined; }
-  if (field === 'scale') { const v = Number(raw); if (v > 0) change('op.scale', () => { e.scale = [Math.sign(e.scale[0]) * v, v, v]; }, touch); return undefined; }
+  // The whole object bigger or smaller, its proportions kept (the width's scale becomes `v`; a mirror stays mirrored).
+  if (field === 'scale') { const v = Number(raw); if (v > 0) change('op.scale', () => { const k = v / (Math.abs(e.scale[0]) || 1); e.scale = e.scale.map((s) => s * k); }, touch); return undefined; }
+  // One of its own sizes (width, height, depth): stretched along that axis only (a taller lamp, a wider vase).
+  if (field.startsWith('size.')) {
+    const i = Number(field.slice(5)); const v = len(raw); const now = builder.localSize(e.id)?.[i];
+    if (v != null && v > 0.005 && now > 1e-6) change('op.scale', () => { e.scale = e.scale.map((s, j) => (j === i ? s * (v / now) : s)); }, touch);
+    return undefined;
+  }
   if (field.startsWith('param.')) {
     const key = field.slice(6);
     const item = catalogItem(e.item);

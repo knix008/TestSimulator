@@ -131,3 +131,36 @@ for (const p of index.pictures) {
     assert.ok(draftProblems(d).length <= 6, `${p.id}: little left to fix by hand (${draftProblems(d).length})`);
   });
 }
+
+// Which way a door opens is what the picture draws: over a grey tiled floor (once read off the tiles, not the arc),
+// and where the gap was read wider than the door beside a wall joint (the leaf, not the gap, is the door).
+for (const [id, at, hinge, open, width] of [
+  ['apt84-interior', [9.4, 7.0], [9.4, 7.4], [1, 0], 0.8],
+  ['academy-sketch', [10.65, 4.6], [10.2, 4.6], [0, 1], 0.9],
+]) {
+  test(`plan image samples: ${id} — the door at (${at}) hinges and opens as drawn`, async () => {
+    const p = index.pictures.find((x) => x.id === id);
+    const { img, k } = await detectable(await decode(p.file));
+    const m = 1 / (p.pxPerMetre * k);
+    const walls = wallsOnly(img, { metresPerPixel: m });
+    const found = [
+      ...['outline', 'edges'].map((method) => (walls ? detectImageWalls(walls, { metresPerPixel: m, method, evidence: img }) : { walls: [], openings: [] })),
+      ...['outline', 'edges'].map((method) => detectImageWalls(img, { metresPerPixel: m, method })),
+    ];
+    const d = fromResult({ ...found[pickDetection(found)], texts: [] });
+    cleanupAll(d);
+    const wallOf = new Map(d.walls.map((w) => [w.id, w]));
+    const doors = d.openings.filter((o) => o.side && o.hinge).map((o) => {
+      const w = wallOf.get(o.wall); const L = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]);
+      const u = [(w.b[0] - w.a[0]) / L, (w.b[1] - w.a[1]) / L]; const n = [-u[1], u[0]];
+      const s = o.side === 'left' ? 1 : -1; const end = (o.hinge === 'left' ? -1 : 1) * s; // the hinge's jamb: ±u
+      const along = (t) => [w.a[0] + u[0] * t, w.a[1] + u[1] * t];
+      return { o, c: along(o.offset), h: along(o.offset + (end * o.width) / 2), v: [n[0] * s, n[1] * s] };
+    });
+    const door = doors.find((x) => Math.hypot(x.c[0] - at[0], x.c[1] - at[1]) < 0.5);
+    assert.ok(door, `a door at (${at}) among ${doors.map((x) => x.c.map((v) => v.toFixed(2))).join(' / ')}`);
+    assert.ok(Math.hypot(door.h[0] - hinge[0], door.h[1] - hinge[1]) < 0.15, `hinged at ${hinge} (${door.h.map((v) => v.toFixed(2))})`);
+    assert.ok(door.v[0] * open[0] + door.v[1] * open[1] > 0.9, `opens to ${open} (${door.v.map((v) => v.toFixed(2))})`);
+    assert.ok(Math.abs(door.o.width - width) <= 0.1, `${width} m wide (${door.o.width.toFixed(2)})`);
+  });
+}

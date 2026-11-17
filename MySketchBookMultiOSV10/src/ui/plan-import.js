@@ -312,7 +312,7 @@ export function createPlanImport(app) {
     }
     if (chosen.target === 'new' || !app.project()) app.newProject('empty');
     const target = chosen.target === 'level' ? 'level' : 'replace';
-    const applied = await convertTo3d(name, (p) => applyPlan(p, final, { target, wallHeight: chosen.wallHeight, keepLeftovers: chosen.keepLines, levelName: stem(name) }), final.furniture?.length ?? 0);
+    const applied = await convertTo3d(name, (p) => applyPlan(p, final, { target, wallHeight: chosen.wallHeight, keepLeftovers: chosen.keepLines, levelName: stem(name), itemOf: catalogItem }), final.furniture?.length ?? 0);
     const counts = { name, walls: applied.walls, doors: applied.doors, windows: applied.windows, rooms: applied.rooms, objects: applied.objects ?? 0, fixed: applied.fixed ?? 0, left: applied.remaining ?? 0 };
     app.notify(applied.remaining ? 'warning' : 'success', t(o.refine ? 'studio.converted' : 'notice.planImported', counts));
     return { result: final, applied, refined: Boolean(o.refine) };
@@ -699,7 +699,7 @@ export function createPlanImport(app) {
       const result = toResult(out.draft);
       // Pictures carry no room labels the app can read (no OCR): unnamed rooms get a name from size and shape.
       const roomNames = (key, n) => { const base = t(`plan.roomGuess.${key}`); return n > 1 && key !== 'living' ? `${base} ${n}` : base; };
-      const applied = await convertTo3d(u.name, (p) => { p.activeLevel = u.level; return applyPlan(p, result, { target: out.target === 'replace' ? 'replace' : 'add', shift: [0, 0], wallHeight: out.wallHeight, keepLeftovers: out.keepLines, roomNames, source: u.id }); }, result.furniture?.length ?? 0, 'op.detectWalls');
+      const applied = await convertTo3d(u.name, (p) => { p.activeLevel = u.level; return applyPlan(p, result, { target: out.target === 'replace' ? 'replace' : 'add', shift: [0, 0], wallHeight: out.wallHeight, keepLeftovers: out.keepLines, roomNames, source: u.id, itemOf: catalogItem }); }, result.furniture?.length ?? 0, 'op.detectWalls');
       app.notify(applied.remaining ? 'warning' : 'success', t('studio.converted', { walls: applied.walls, doors: applied.doors, windows: applied.windows, rooms: applied.rooms, objects: applied.objects ?? 0, fixed: applied.fixed ?? 0, left: applied.remaining ?? 0 }));
       return applied;
     } finally {
@@ -727,7 +727,7 @@ export function createPlanImport(app) {
       if (!out) return null;
       if (background) followBackground(u, out);
       const result = toResult(out.draft);
-      const applied = await convertTo3d(level.name, (pp) => applyPlan(pp, result, { target: 'replace', shift: [0, 0], wallHeight: out.wallHeight, keepLeftovers: out.keepLines }), result.furniture?.length ?? 0);
+      const applied = await convertTo3d(level.name, (pp) => applyPlan(pp, result, { target: 'replace', shift: [0, 0], wallHeight: out.wallHeight, keepLeftovers: out.keepLines, itemOf: catalogItem }), result.furniture?.length ?? 0);
       app.notify(applied.remaining ? 'warning' : 'success', t('studio.converted', { walls: applied.walls, doors: applied.doors, windows: applied.windows, rooms: applied.rooms, objects: applied.objects ?? 0, fixed: applied.fixed ?? 0, left: applied.remaining ?? 0 }));
       return applied;
     } finally {
@@ -869,7 +869,7 @@ export function createPlanImport(app) {
     const roomNames = (key, n) => { const base = t(`plan.roomGuess.${key}`); return n > 1 && key !== 'living' ? `${base} ${n}` : base; };
     const applied = app.change('op.detectWalls', (p) => {
       p.activeLevel = u.level;
-      const counts = applyPlan(p, result, { target: 'add', shift: [0, 0], keepLeftovers: false, roomNames, source: u.id });
+      const counts = applyPlan(p, result, { target: 'add', shift: [0, 0], keepLeftovers: false, roomNames, source: u.id, itemOf: catalogItem });
       const repair = repairModel(p, catalogItem);
       return { ...counts, fixed: repair.fixed, remaining: repair.remaining };
     }, null);

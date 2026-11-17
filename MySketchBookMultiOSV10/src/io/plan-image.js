@@ -559,15 +559,16 @@ export function detectImageWalls(image, { metresPerPixel, method = 'outline', ed
   const lines = found.segments.map((sg) => ({ a: [sg.a[0] * m, sg.a[1] * m], b: [sg.b[0] * m, sg.b[1] * m], layer: 'IMAGE' }));
   const result = recognizePlan({ lines }, { mode: 'image', minThickness: Math.max(minThickness, 2.5 * m), maxThickness, angleTol: 1, minWall: Math.max(0.3, 6 * m), bandTolerance: Math.max(0.02, 4 * m) });
   const evidencePicture = swings === image ? work : swings;
+  let swingsFound = [];
   if (result.walls.length) {
-    const swingsFound = findDoorSwings(evidencePicture, result.walls, m);
+    swingsFound = findDoorSwings(evidencePicture, result.walls, m);
     windowPanes(result, swingsFound, evidencePicture, m);
     placeDoorSwings(result, swingsFound, work, m);
     solidGaps(result, swingsFound, evidencePicture, m);
     joinSplitWindows(result, swingsFound);
   }
-  doorSwings(evidencePicture, result, m);
-  const turn = (x) => ({ ...x, a: back(x.a), b: back(x.b) });
+  doorSwings(evidencePicture, result, m, swingsFound);
+  const turn =(x) => ({ ...x, a: back(x.a), b: back(x.b) });
   return { ...result, walls: result.walls.map(turn), leftovers: result.leftovers.map(turn), segments: lines.map(turn), angle, scanned: Boolean(found.scanned) };
 }
 
@@ -965,10 +966,42 @@ function placeDoorSwings(result, swings, work, m) {
 }
 
 /**
- * Door gaps in a picture: which way the door opens and where its hinge is, from the ink of the drawn swing
- * (a quarter circle around the hinge and the leaf line). Of the four possible swings the one over most ink wins.
+ * The traced swing (findDoorSwings) of door `op` on `wall` (unit u along it, n its left normal): on the wall's line,
+ * its leaf closing over the gap, hinged at a jamb (or inside a gap read too wide, its closed leaf reaching the other
+ * jamb). { open (±1: opens to ±n), end (±1: the hinge's jamb, along ±u from the gap's middle), lo, hi (the closed
+ * leaf, along u from the gap's middle, inside the gap) } of the best one, or null.
  */
-function doorSwings(image, result, m) {
+function tracedSwing(op, wall, u, n, swings) {
+  const c = [wall.a[0] + u[0] * op.offset, wall.a[1] + u[1] * op.offset];
+  const half = op.width / 2;
+  let best = null;
+  for (const sw of swings) {
+    if (Math.abs(sw.u[0] * u[1] - sw.u[1] * u[0]) >= 0.05) continue;
+    const rel = [sw.H[0] - c[0], sw.H[1] - c[1]];
+    if (Math.abs(n[0] * rel[0] + n[1] * rel[1]) > Math.max(wall.thickness, sw.thickness) / 2 + 0.1) continue;
+    const a = u[0] * rel[0] + u[1] * rel[1];
+    const dd = Math.sign(u[0] * sw.u[0] + u[1] * sw.u[1]) * sw.d; // the closed leaf runs along dd·u from the hinge
+    const tip = a + dd * sw.r;
+    const lo = Math.max(-half, Math.min(a, tip)); const hi = Math.min(half, Math.max(a, tip));
+    if (hi - lo < 0.6 * Math.min(sw.r, op.width) || sw.r > op.width * 1.4 + 0.1) continue;
+    const atJamb = (s) => Math.min(Math.abs(s + half), Math.abs(s - half));
+    // Hinged at a jamb, its leaf closing towards the other; or (a gap too wide) hinged inside, closing on a jamb.
+    const fits = (atJamb(a) <= 0.2 && dd * a < 0) || (Math.abs(a) < half + 0.05 && atJamb(tip) <= 0.2 && sw.r < op.width);
+    if (!fits) continue;
+    const open = Math.sign(sw.f * (sw.n[0] * n[0] + sw.n[1] * n[1]));
+    const key = sw.score - atJamb(a) * 0.1;
+    if (!best || key > best.key) best = { key, open, end: -dd, lo, hi };
+  }
+  return best;
+}
+
+/**
+ * Door gaps in a picture: which way the door opens and where its hinge is, from the ink of the drawn swing
+ * (a quarter circle around the hinge and the leaf line). A swing findDoorSwings traced over this gap (thin lines
+ * only: a tiled, wooden or coloured floor is not ink there) says it, and narrows a gap read too wide to the door's
+ * leaf; else, of the four possible swings, the one over most dark pixels wins.
+ */
+function doorSwings(image, result, m, swings = []) {
   const { data, width: w, height: h } = image;
   const gray = toGrayscale(data, w, h);
   const level = otsu(gray);
@@ -986,6 +1019,15 @@ function doorSwings(image, result, m) {
     const L = Math.hypot(wall.b[0] - wall.a[0], wall.b[1] - wall.a[1]);
     const u = [(wall.b[0] - wall.a[0]) / L, (wall.b[1] - wall.a[1]) / L];
     const n = [-u[1], u[0]];
+    const traced = tracedSwing(op, wall, u, n, swings);
+    if (traced) {
+      const { open, end, lo, hi } = traced;
+      op.side = open > 0 ? 'left' : 'right';
+      op.hinge = end * (open > 0 ? 1 : -1) < 0 ? 'left' : 'right';
+      // The leaf is narrower than the gap read (a wall junction beside the door taken for gap): the door is the leaf.
+      if (op.width - (hi - lo) >= 0.15 && hi - lo >= 0.5) { op.offset += (lo + hi) / 2; op.width = hi - lo; }
+      continue;
+    }
     const g = op.width;
     let best = null;
     for (const side of [1, -1]) {

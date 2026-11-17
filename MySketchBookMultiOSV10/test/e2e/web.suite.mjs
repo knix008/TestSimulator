@@ -797,6 +797,34 @@ export const cases = [
       },
     },
     {
+      name: '소품 크기: 속성 창에서 폭·높이·깊이를 따로 입력하면 그 방향으로만 늘어남(돌려 놓아도), 배율은 비율 유지',
+      async run(app) {
+        const r = await app.run(`
+          await T.fresh('empty');
+          A.actions.change('op.place', (p) => { p.objects.push({ id: 'e2e-acc', level: p.activeLevel, item: 'acc-pour-over-set', params: {}, position: [0, 0, 0], rotation: [0, Math.PI / 3, 0], scale: [1, 1, 1], materials: {}, tag: 'untagged', name: '' }); });
+          await T.frames(3);
+          A.actions.select(['e2e-acc']);
+          await T.frames(3);
+          const size = () => A.builder.localSize('e2e-acc');
+          const field = (i) => document.querySelector('[data-prop="size.' + i + '"]');
+          const type = async (el, v) => { el.value = String(v); el.dispatchEvent(new Event('change', { bubbles: true })); await T.frames(3); };
+          const s0 = size();
+          const k = Number(field(0).value) / s0[0]; // the panel's length unit per metre
+          await type(field(1), Math.round(s0[1] * 2 * k * 1000) / 1000);
+          const s1 = size();
+          await type(field(0), Math.round(s0[0] * 1.5 * k * 1000) / 1000);
+          const s2 = size();
+          await type(document.querySelector('[data-prop="scale"]'), 3);
+          const s3 = size(); const sc = [...A.api.project().objects.find((o) => o.id === 'e2e-acc').scale];
+          return { fields: [0, 1, 2].every((i) => field(i)), s0, s1, s2, s3, sc };`);
+        assert.ok(r.fields, 'width, height and depth fields in the panel');
+        const near = (a, b, tol = 0.01) => Math.abs(a - b) <= Math.max(tol, Math.abs(b) * 0.02);
+        assert.ok(near(r.s1[1], r.s0[1] * 2) && near(r.s1[0], r.s0[0]) && near(r.s1[2], r.s0[2]), `height doubled only (${r.s0} → ${r.s1})`);
+        assert.ok(near(r.s2[0], r.s0[0] * 1.5) && near(r.s2[1], r.s1[1]) && near(r.s2[2], r.s0[2]), `width ×1.5 only (${r.s0} → ${r.s1} → ${r.s2}, scale ${r.sc})`);
+        assert.ok(near(r.sc[0], 3) && near(r.sc[1], 4) && near(r.sc[2], 2), `scale 3 keeps the proportions (${r.sc})`);
+      },
+    },
+    {
       name: '바닥 소품: 위쪽을 잡아 끌어도 바닥을 따라 이동, ↑ 키로 위아래 이동 전환',
       async run(app) {
         const r = await app.run(`

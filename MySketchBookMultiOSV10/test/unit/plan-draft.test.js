@@ -157,6 +157,20 @@ test('plan-draft: mergeCollinear joins straight runs (openings move over), not c
   assert.equal(mergeCollinear(t), 0, 'pieces at a T joint stay apart');
 });
 
+test('plan-draft: a door on a wall merged the other way round still opens into the same room', () => {
+  // The first piece runs right to left: its left side is −z. Merged, the wall runs left to right (left = +z).
+  const d = fromResult({ walls: [
+    { a: [2, 0], b: [0, 0], thickness: 0.2 },
+    { a: [2, 0], b: [5, 0], thickness: 0.2 },
+  ], openings: [{ wall: 0, item: 'door-single', kind: 'door', offset: 1, width: 0.9, height: 2.1, sill: 0, side: 'left', hinge: 'left' }] });
+  assert.equal(mergeCollinear(d), 1);
+  const w = d.walls[0];
+  assert.ok(w.b[0] > w.a[0], 'the merged wall runs left to right');
+  assert.equal(d.openings[0].side, 'right', 'still opens to −z');
+  assert.equal(d.openings[0].hinge, 'left', 'the same jamb, seen from the side it opens to');
+  assert.ok(near(pointAlong(w, d.openings[0].offset), [1, 0], 0.02));
+});
+
 test('plan-draft: removeShort collapses crumbs to their middle so neighbours stay joined', () => {
   const d = fromResult({ walls: [
     { a: [0, 0], b: [3, 0], thickness: 0.2 },
