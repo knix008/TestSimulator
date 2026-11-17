@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>MyCapture records your microphone into screen recordings when you turn it on.</string>
+  <key>NSScreenCaptureUsageDescription</key>
+  <string>MyCapture captures and records the screens and windows you choose.</string>
+</dict>
+</plist>
