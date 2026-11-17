@@ -372,6 +372,46 @@ a.file-link { cursor: pointer; }
 ul.plain { list-style: none; padding: 0; margin: 0 0 8px; }
 ul.plain li { display: flex; align-items: center; gap: 6px; padding: 4px 0; border-bottom: 1px solid var(--border); }
 .settings section { margin-bottom: 18px; }
+/* Settings are grouped: a heading per group over a grid of cards, one card per section. */
+.settings-group { margin-bottom: 20px; }
+.form-row > span:first-child { display: inline-flex; align-items: center; gap: 5px; }
+.form-row > span:first-child .icon { width: 15px; height: 15px; flex: none; }
+.form-block { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.form-block-title { display: inline-flex; align-items: center; gap: 6px; font-weight: 650; }
+.nav-section .icon { width: 13px; height: 13px; margin-right: 4px; vertical-align: -2px; }
+.nav-current b { color: var(--accent); }
+.settings-group-title { display: flex; align-items: center; gap: 8px; margin: 6px 0 10px; padding-bottom: 6px; font-size: 1.05em; border-bottom: 1px solid var(--border); }
+.settings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; align-items: start; }
+.settings-grid > section, .settings-grid > .panel-card { margin: 0; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); box-shadow: 0 1px 4px var(--shadow, rgba(0,0,0,.06)); display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.settings-grid > section > h2 { display: flex; align-items: center; gap: 7px; margin: 0 0 2px; font-size: 1em; }
+.settings-grid > section:has(.start-grid) { grid-column: 1 / -1; }
+.settings-grid > section .form-row > span:first-child, .team-section .form-row > span:first-child { display: inline-flex; align-items: center; gap: 5px; }
+.settings-grid .page-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.method-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 6px; }
+.method-option { display: flex; align-items: flex-start; gap: 7px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 9px; cursor: pointer; background: var(--surface); }
+.method-option.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
+.method-option input { margin-top: 3px; }
+.method-option span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.method-option small { color: var(--muted); font-size: 11.5px; line-height: 1.35; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border: 1px solid var(--border); border-radius: 999px; font-size: 11.5px; white-space: nowrap; background: var(--surface); }
+.chip .icon { width: 13px; height: 13px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip.access-lead { border-color: color-mix(in srgb, #7c3aed 50%, var(--border)); color: #7c3aed; }
+.chip.access-edit { border-color: color-mix(in srgb, #2e9d5b 50%, var(--border)); color: #2e9d5b; }
+.chip.access-view { border-color: color-mix(in srgb, #3a6cf0 50%, var(--border)); color: #3a6cf0; }
+.team-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.team-card { gap: 8px; padding: 14px; border-radius: 12px; }
+.team-card.mine { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+.team-card header { flex-wrap: wrap; }
+.team-facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 10px; margin: 0; }
+.team-facts dt { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); }
+.team-facts dd { margin: 0; display: inline-flex; align-items: center; gap: 5px; }
+.team-section header { flex-wrap: wrap; }
+.team-section header > .button, .team-section header > .small-button { margin-left: auto; }
+.team-project { display: flex; flex-direction: column; gap: 5px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 9px; }
+.team-project.archived { opacity: 0.7; }
+.team-project-head, .team-project-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.team-page .page-head h1 small { font-size: 0.6em; font-weight: 600; }
 .empty { color: var(--muted); }
 
 #modal { position: fixed; inset: 0; z-index: 50; }
@@ -539,3 +579,30 @@ form.panel-card { gap: 8px; }
   #app, #workspace, #view { display: block; height: auto; min-width: 0; overflow: visible; }
   body { overflow: visible; background: #fff; color: #111; }
 }
+.auto-icon > .icon:first-child { width: 15px; height: 15px; flex: none; margin-right: 5px; vertical-align: -3px; }
+.check.auto-icon { display: inline-flex; align-items: center; gap: 4px; }
+.settings-grid .inline { flex-wrap: wrap; }
+.settings-grid .inline > input, .settings-grid .inline > select { flex: 1 1 140px; min-width: 0; }
+/* Consistency: every heading lines its icon up the same way; content and creation forms sit in cards. */
+.page h2, .page h3 { display: flex; align-items: center; gap: 6px; }
+.page h2 > .icon, .page h3 > .icon { flex: none; }
+.page-lead p { margin: 4px 0 10px; color: var(--muted); }
+.page-actions-left { margin-left: 0; justify-content: flex-start; margin-bottom: 6px; }
+.form-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; margin-top: 14px; }
+.form-cards > .panel-card { gap: 8px; }
+.form-cards > .panel-card .inline { margin-top: 0; }
+.form-cards textarea { width: 100%; }
+.report.panel-card { padding: 14px; }
+.feed.panel-card { padding: 4px 12px; }
+.pie ul { flex: none; min-width: 96px; }
+.pie li { white-space: nowrap; }
+.pie svg { flex: 0 1 auto; min-width: 0; }
+.link-row > button:not([class]) { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; padding: 4px 6px; border: 0; border-radius: 6px; background: none; color: inherit; text-align: left; cursor: pointer; }
+.link-row > button:not([class]):hover { background: var(--hover); }
+.link-row > button:not([class]) small { margin-left: 8px; font-family: ui-monospace, Consolas, monospace; }
+button.chip { cursor: pointer; }
+button.chip:hover { border-color: var(--accent); }
+.inline > .button, .inline > .small-button { flex: none; white-space: nowrap; }
+.page-head h1 .space-scope { display: inline-flex; align-items: center; gap: 4px; margin-left: 10px; font-size: 0.55em; font-weight: 600; }
+.page-head h1 .space-scope .icon { width: 15px; height: 15px; }
+.inline input, .inline select, .inline textarea { min-width: 0; }

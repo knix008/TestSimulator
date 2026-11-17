@@ -23,6 +23,8 @@ import {
 import { writingExport } from './domain/markdown.js';
 import { fromDateInput, parseDuration, uid } from './domain/util.js';
 import { schemaSql, schemaStatus, upgradeSchema } from './platform/data.js';
+import { decorateIcons } from './ui/autoicons.js';
+import { createTeam, deleteTeam, DEFAULT_METHODS, moveProjectToTeam, setProjectAccess, setProjectMethod, setTeamMember, teamSpace, updateTeam } from './domain/teams.js';
 import { clearMainRequest, clearSavedLogin, connectData, currentSession, dataStatus, dataUrl, hashPassword, loadWorkspace, loginSession, logoutSession, readMainRequest, rememberDataUrl, rememberLogin, rememberSession, savedLogin, saveWorkspace, sendTestMail, sessionToken, unlockData, watchMainRequest, watchSharedSession } from './platform/data.js';
 import { getLanguage, L, setLanguage } from './i18n.js';
 import { appInfo, chooseOpen, chooseSave, dragWindow, errorText, isDesktop, openBrowser, openTalk, readTextFile, resizeWindow, setBackendLanguage, setLaunchAtStartup, setWindowTheme, showMain, startupFiles, windowControl, writeTextFile } from './platform/native.js';
@@ -68,8 +70,13 @@ const ERRORS = {
   'sso-required': ['발급자 주소와 클라이언트가 필요합니다.', 'An issuer and a client are required.'],
   'driver-missing': ['그 데이터베이스 드라이버가 설치되어 있지 않습니다.', 'That database driver is not installed.'],
   'engine-unknown': ['지원하지 않는 데이터베이스입니다.', 'That database is not supported.'],
-  'project-required': ['프로젝트를 연 뒤에 그 프로젝트와 공유하세요.', 'Open a project before sharing with it.'],
+  'project-required': ['과제를 연 뒤에 그 과제와 공유하세요.', 'Open a project before sharing with it.'],
   connect: ['데이터베이스에 연결하지 못했습니다.', 'Could not connect to the database.'],
+  'duplicate-team': ['같은 이름의 팀이 있습니다.', 'A team with that name already exists.'],
+  'team-has-projects': ['과제가 있는 팀은 삭제할 수 없습니다. 과제를 다른 팀으로 옮기거나 삭제하세요.', 'A team with projects cannot be deleted. Move or delete its projects first.'],
+  'team-last': ['마지막 팀은 삭제할 수 없습니다.', 'The last team cannot be deleted.'],
+  'method-required': ['관리 방법을 하나 이상 남겨 두세요.', 'Keep at least one management method.'],
+  'lead-required': ['과제의 주 책임자는 책임자로 남아야 합니다. 과제 설정에서 책임자를 먼저 바꾸세요.', 'The main lead stays a lead. Change the lead in project settings first.'],
   'project-has-children': ['하위 과제가 있는 과제는 삭제할 수 없습니다. 하위 과제를 먼저 옮기거나 삭제하세요.', 'A project with sub-projects cannot be deleted. Move or delete its sub-projects first.'],
   'database-missing': ['그 데이터베이스가 서버에 없습니다. "없으면 데이터베이스 만들기"를 켜고 다시 연결하세요.', 'That database does not exist on the server. Turn on "Create the database if it is missing" and connect again.'],
   'database-create': ['데이터베이스를 만들지 못했습니다. 계정에 CREATE DATABASE 권한이 있는지 확인하세요.', 'The database could not be created. Check that the account may CREATE DATABASE.'],
@@ -136,6 +143,27 @@ function fail(error) {
 }
 
 let saving = false;
+
+/** A workspace that replaces the open one (an example, the sample, an empty one) keeps the stored revision, so saving it is not taken for someone else's change. */
+function replaceWorkspace(next) {
+  const revision = ws?.revision || 0;
+  // The signed-in person must still be there afterwards: their id stays (the server keeps the password
+  // by id), and the new workspace's person with the same login becomes them.
+  const me = (ws?.users || []).find((user) => user.id === ui.loginUser);
+  let out = next;
+  if (me) {
+    const twin = (out.users || []).find((user) => user.id === me.id)
+      || (out.users || []).find((user) => me.login && String(user.login || '').toLowerCase() === String(me.login).toLowerCase());
+    if (twin && twin.id !== me.id) out = JSON.parse(JSON.stringify(out).split(JSON.stringify(twin.id)).join(JSON.stringify(me.id)));
+    const mine = (out.users || []).find((user) => user.id === me.id);
+    if (mine) Object.assign(mine, { login: me.login, active: true });
+    else (out.users = out.users || []).unshift({ ...me });
+    out.currentUserId = me.id;
+    out = upgradeWorkspace(out);
+  }
+  out.revision = revision;
+  return out;
+}
 
 function scheduleSave() {
   clearTimeout(saveTimer);
@@ -569,7 +597,7 @@ async function openExample(id, confirmed = false) {
         return;
       }
     }
-    ws = upgradeWorkspace(exampleWorkspace(id, Date.now(), getLanguage()));
+    ws = replaceWorkspace(upgradeWorkspace(exampleWorkspace(id, Date.now(), getLanguage())));
     ui.ready = true;
     ui.opened = true;
     ui.returnView = '';
@@ -608,7 +636,7 @@ async function beginTutorial(confirmed = false) {
         return;
       }
     }
-    ws = upgradeWorkspace(exampleWorkspace('shop', Date.now(), getLanguage()));
+    ws = replaceWorkspace(upgradeWorkspace(exampleWorkspace('shop', Date.now(), getLanguage())));
     ui.ready = true;
     ui.opened = true;
     ui.returnView = '';
@@ -876,6 +904,8 @@ function paint() {
   } else if (!skipLive && !skipQuery && !skipDoc && !skipPage) {
     document.querySelector('#view').innerHTML = renderView(ctx);
     document.querySelector('#right').innerHTML = showRight(ctx) ? renderRight(ctx) : '';
+    decorateIcons(document.querySelector('#view'));
+    decorateIcons(document.querySelector('#right'));
   }
   document.querySelector('#statusbar').innerHTML = renderStatus(ctx);
   paintModal(ctx);
@@ -890,6 +920,7 @@ function paintModal(ctx) {
   const kind = ui.modal?.kind || '';
   if (modal.dataset.kind === kind) return;
   modal.innerHTML = kind ? renderModal(ctx) : '';
+  decorateIcons(modal);
   modal.hidden = !kind;
   modal.dataset.kind = kind;
   if (kind) modal.querySelector('input, textarea, select')?.focus();
@@ -934,7 +965,7 @@ function paintCoach() {
 
 function ensureProject() {
   if (project()) return true;
-  toast(L('먼저 프로젝트를 만드세요.', 'Create a project first.'));
+  toast(L('먼저 과제를 만드세요.', 'Create a project first.'));
   return false;
 }
 
@@ -1057,8 +1088,9 @@ function submitModal(form) {
   const ok = mutate(() => {
     const current = project();
     if (modal.kind === 'project') {
-      newProject(ws, { name: value('name'), key: value('key'), type: value('type'), description: value('description'), leadId: actor(), parentId: value('parent') }, actor());
-      if (ui.view !== 'projects') ui.view = 'board';
+      const methods = data.getAll('methods').map(String);
+      newProject(ws, { name: value('name'), key: value('key'), type: value('type'), description: value('description'), leadId: actor(), parentId: value('parent'), teamId: value('team'), methods: methods.length ? methods : null }, actor());
+      if (!['projects', 'team'].includes(ui.view)) ui.view = 'home';
       return;
     }
     if (modal.kind === 'user') {
@@ -1073,6 +1105,12 @@ function submitModal(form) {
       return;
     }
     if (modal.kind === 'group') { addGroup(ws, value('name'), actor(), current?.id); return; }
+    if (modal.kind === 'team') {
+      const team = createTeam(ws, { name: value('name'), key: value('key'), description: value('description'), leadId: value('lead') }, actor());
+      ui.teamId = team.id;
+      ui.view = 'team';
+      return;
+    }
     if (!current) throw new Error('not-found');
     if (modal.kind === 'issue') {
       const issue = createIssue(ws, current.id, {
@@ -1187,7 +1225,7 @@ function runConfirmed() {
   if (modal.action === 'open-file') { paint(); pickAndLoad(); return; }
   if (modal.action === 'load-sample') {
     const keep = { ready: ui.ready, connection: ui.connection, status: ui.status, dataUrl: ui.dataUrl, localBackup: ui.localBackup, unlocked: ui.unlocked };
-    ws = sampleWorkspace();
+    ws = replaceWorkspace(upgradeWorkspace(sampleWorkspace()));
     ui = { ...freshUi(), ...keep, view: 'board' };
     undo = []; redo = [];
     scheduleSave();
@@ -1197,11 +1235,15 @@ function runConfirmed() {
   if (modal.action === 'open-example') { openExample(ui.pendingExample, true); return; }
   if (modal.action === 'start-tutorial') { beginTutorial(true); return; }
   if (modal.action === 'empty') {
-    ws = blankWorkspace();
+    ws = replaceWorkspace(blankWorkspace());
     ui = freshUi();
     undo = []; redo = [];
     scheduleSave();
     paint();
+    return;
+  }
+  if (modal.action === 'delete-team') {
+    mutate(() => { deleteTeam(ws, modal.id, actor()); ui.view = 'teams'; ui.teamId = ''; });
     return;
   }
   if (modal.action === 'delete-project') {
@@ -1406,6 +1448,7 @@ function onAction(el) {
     return;
   }
   if (name === 'open-article') {
+    if (el.dataset.space) ui.spaceId = el.dataset.space;
     ui.articleId = el.dataset.id;
     ui.wikiEdit = false;
     ui.view = 'knowledge';
@@ -1649,7 +1692,45 @@ function onAction(el) {
   }
   if (name === 'confirm-yes') { runConfirmed(); return; }
   if (name === 'open-login') { ui.startError = ''; ui.modal = { kind: 'login', next: 'gate' }; paint(); document.querySelector('#dialog-account')?.focus(); return; }
-  if (name === 'new-project') { ui.modal = { kind: 'project', parentId: el.dataset.parent || '' }; paint(); return; }
+  if (name === 'new-project') { ui.modal = { kind: 'project', parentId: el.dataset.parent || '', teamId: el.dataset.team || '' }; paint(); return; }
+  if (name === 'new-team') { ui.modal = { kind: 'team' }; paint(); return; }
+  if (name === 'open-team') { ui.teamId = el.dataset.id || ''; ui.view = 'team'; ui.modal = null; paint(); return; }
+  if (name === 'open-team-pages') {
+    const team = (ws.teams || []).find((item) => item.id === el.dataset.id);
+    if (!team) return;
+    const space = teamSpace(ws, team);
+    ui.spaceId = space.id;
+    ui.articleId = '';
+    ui.wikiEdit = false;
+    ui.view = 'knowledge';
+    paint();
+    return;
+  }
+  if (name === 'add-team-page') {
+    const team = (ws.teams || []).find((item) => item.id === el.dataset.id);
+    const title = document.querySelector('#team-page-title')?.value.trim() || '';
+    if (!team || !title) { toast(message(new Error('name-required'))); return; }
+    mutate(() => {
+      const page = addPage(ws, { spaceId: teamSpace(ws, team).id, title }, actor());
+      ui.spaceId = page.spaceId;
+      ui.articleId = page.id;
+      ui.wikiEdit = true;
+      ui.view = 'knowledge';
+    });
+    return;
+  }
+  if (name === 'add-team-member') {
+    const userId = document.querySelector('#team-add-user')?.value || '';
+    if (userId) mutate(() => setTeamMember(ws, el.dataset.team, userId, 'member', actor()));
+    return;
+  }
+  if (name === 'remove-team-member') { mutate(() => setTeamMember(ws, el.dataset.team, el.dataset.id, '', actor())); return; }
+  if (name === 'delete-team') {
+    const team = (ws.teams || []).find((item) => item.id === el.dataset.id);
+    if (!team) return;
+    confirm(L(`팀 "${team.name}"을(를) 삭제할까요? 팀 페이지는 회사 공용 공간으로 옮겨집니다.`, `Delete the team "${team.name}"? Its pages move to the company space.`), 'delete-team', team.id, { glyph: 'trash', ko: '삭제', en: 'Delete', danger: true });
+    return;
+  }
   if (name === 'open-project-settings') {
     const target = (ws.projects || []).find((item) => item.id === (el.dataset.id || current?.id));
     if (!target || !allowed(ws, target, actor(), 'admin')) {
@@ -1676,8 +1757,8 @@ function onAction(el) {
   if (name === 'add-participant' || name === 'remove-participant') {
     const target = ui.modal?.kind === 'participants' ? (ws.projects || []).find((item) => item.id === ui.modal.projectId) : null;
     if (!target || !el.dataset.id || el.dataset.id === target.leadId) return;
-    const role = name === 'remove-participant' ? '' : roleForAccess(el.dataset.access === 'edit' ? 'edit' : 'read');
-    mutate(() => setMember(ws, target.id, el.dataset.id, role, actor()));
+    const access = name === 'remove-participant' ? '' : (['view', 'edit', 'lead'].includes(el.dataset.access) ? el.dataset.access : 'view');
+    mutate(() => setProjectAccess(ws, target.id, el.dataset.id, access, actor()));
     return;
   }
   if (name === 'new-issue') { if (ensureProject()) { ui.modal = { kind: 'issue', typeId: 'story' }; paint(); } return; }
@@ -1807,7 +1888,7 @@ function onAction(el) {
     if (!canDeleteProject(ws, target, actor())) { toast(L('과제는 관리자만 삭제할 수 있습니다.', 'Only an administrator may delete a project.')); return; }
     if ((ws.projects || []).some((item) => item.parentId === target.id)) { toast(message(new Error('project-has-children'))); return; }
     const issues = (target.issues || []).length;
-    confirm(L(`과제 "${target.name}" (${target.key})를 삭제할까요? 이슈 ${issues}개와 이 과제의 문서, 지식 자료, 승인도 함께 지워집니다.`, `Delete the project "${target.name}" (${target.key})? Its ${issues} issues, documents, knowledge articles and approvals go with it.`), 'delete-project', target.id, { glyph: 'trash', ko: '삭제', en: 'Delete', danger: true });
+    confirm(L(`과제 "${target.name}" (${target.key})를 삭제할까요? 이슈 ${issues}개와 이 과제의 문서, 페이지, 승인도 함께 지워집니다.`, `Delete the project "${target.name}" (${target.key})? Its ${issues} issues, documents, pages and approvals go with it.`), 'delete-project', target.id, { glyph: 'trash', ko: '삭제', en: 'Delete', danger: true });
     return;
   }
   if (name === 'archive-project') { mutate(() => setArchived(ws, el.dataset.id, el.dataset.on !== '0', actor())); return; }
@@ -1897,6 +1978,20 @@ function onChange(event) {
   }
   if (el.dataset.live) return;
   const current = project();
+  if (el.dataset.teamMember && el.dataset.team) { mutate(() => setTeamMember(ws, el.dataset.team, el.dataset.teamMember, el.value === 'lead' ? 'lead' : 'member', actor())); return; }
+  if (el.dataset.teamField && el.dataset.team) { mutate(() => updateTeam(ws, el.dataset.team, { [el.dataset.teamField]: el.value }, actor())); return; }
+  if (el.dataset.projectTeam) { mutate(() => moveProjectToTeam(ws, el.dataset.projectTeam, el.value, actor())); return; }
+  if (el.dataset.methodProject) { mutate(() => setProjectMethod(ws, el.dataset.methodProject, el.value, el.checked, actor())); return; }
+  if (el.matches('[data-project-type]')) {
+    // A new project's type suggests its methods; the person can still change them.
+    const suggested = new Set(DEFAULT_METHODS[el.value] || []);
+    for (const box of el.form?.querySelectorAll('input[name="methods"]') || []) {
+      box.checked = suggested.has(box.value);
+      box.closest('.method-option')?.classList.toggle('on', box.checked);
+    }
+    return;
+  }
+  if (el.name === 'methods' && el.closest('.method-option')) { el.closest('.method-option').classList.toggle('on', el.checked); return; }
   if (el.dataset.choose === 'space') { ui.spaceId = el.value; ui.articleId = ''; ui.wikiEdit = false; paint(); return; }
   if (el.dataset.choose === 'page-parent') { mutate(() => movePage(ws, el.dataset.id, el.value, actor())); return; }
   if (el.dataset.choose === 'page-status') { mutate(() => setPageStatus(ws, el.dataset.id, el.value, actor())); return; }
@@ -1968,7 +2063,7 @@ function onChange(event) {
   if (el.dataset.participant && ui.modal?.kind === 'participants') {
     const target = (ws.projects || []).find((item) => item.id === ui.modal.projectId);
     if (!target || el.dataset.participant === target.leadId) return;
-    mutate(() => setMember(ws, target.id, el.dataset.participant, roleForAccess(el.value === 'edit' ? 'edit' : 'read'), actor()));
+    mutate(() => setProjectAccess(ws, target.id, el.dataset.participant, ['view', 'edit', 'lead'].includes(el.value) ? el.value : 'view', actor()));
     return;
   }
   if (el.dataset.userActive) { mutate(() => setUserActive(ws, el.dataset.userActive, el.checked)); return; }
@@ -2364,8 +2459,8 @@ function mount() {
   });
 }
 
-const FREE_VIEWS = new Set(['home', 'help', 'settings', 'users', 'projects', 'extensions', 'people']);
-const NO_PROJECT_VIEWS = new Set([...FREE_VIEWS, 'knowledge', 'documents', 'calendar', 'plans']);
+const FREE_VIEWS = new Set(['home', 'help', 'settings', 'users', 'projects', 'extensions', 'people', 'teams', 'team']);
+const NO_PROJECT_VIEWS = new Set([...FREE_VIEWS, 'knowledge', 'documents', 'calendar', 'plans', 'teams', 'team']);
 
 function listedIssueIds() {
   const ids = [];

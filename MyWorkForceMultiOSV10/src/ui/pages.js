@@ -9,6 +9,8 @@ import { noticeChecked } from '../domain/notices.js';
 import { allowed, isWorkspaceAdmin, orderedProjects, projectAncestors } from '../domain/permissions.js';
 import { visiblePage } from '../domain/wiki.js';
 import { activeSprint, canDeleteProject, findIssue, movesFrom } from '../domain/store.js';
+import { projectMethods, teamOfProject } from '../domain/teams.js';
+import { methodChecks, teamsView, teamView } from './teams.js';
 import { dateInputValue, formatDuration } from '../domain/util.js';
 import { CUSTOM_KEYS } from '../themes.js';
 import { avatar, badge, byId, empty, esc, formatWhen, icon, L, nameOf, options, pageHead, panelFrame, person, safeColor, typeBadge, userOptions } from './bits.js';
@@ -31,7 +33,7 @@ function queried(ctx, sort) {
 
 function need(ctx, title) {
   if (ctx.project) return '';
-  return `<div class="page">${pageHead(title, '', ctx.ui.view)}<p>${L('과제 홈에서 프로젝트를 만드세요.', 'Create a project from Project home.')}</p><button type="button" class="button primary" data-action="go" data-view="home">${icon('home')}<span>${esc(navLabel('home'))}</span></button></div>`;
+  return `<div class="page">${pageHead(title, '', ctx.ui.view)}<p>${L('과제 홈에서 과제를 만드세요.', 'Create a project from Project home.')}</p><button type="button" class="button primary" data-action="go" data-view="home">${icon('home')}<span>${esc(navLabel('home'))}</span></button></div>`;
 }
 
 export function showRight(ctx) {
@@ -51,6 +53,8 @@ export function renderView(ctx) {
   if (ctx.ui.view === 'project-settings') return projectSettings(ctx);
   if (ctx.ui.view === 'users') return usersAdmin(ctx);
   if (ctx.ui.view === 'projects') return projectsAdmin(ctx);
+  if (ctx.ui.view === 'teams') return teamsView(ctx);
+  if (ctx.ui.view === 'team') return teamView(ctx);
   const missing = need(ctx, navLabel(ctx.ui.view));
   if (missing) return missing;
   const views = { board, backlog, roadmap, issues, queues, dashboard, reports, releases, components, filters, people, health, notifications, settings, issue };
@@ -63,7 +67,7 @@ function home(ctx) {
     return `<div class="page home empty-home"><div class="center-empty">${icon('home')}
       <p>${L('과제를 생성하거나 여세요.', 'Create or open a project.')}</p>
       <div class="page-actions">
-        ${action('new-project', 'plus', '새 프로젝트', 'New project', '', true)}
+        ${action('new-project', 'plus', '새 과제', 'New project', '', true)}
         ${action('open-file', 'folder', '열기', 'Open')}
         ${action('browse-examples', 'box', '예제 고르기', 'Choose an example')}
         ${action('start-tutorial', 'play', '튜토리얼', 'Tutorial')}
@@ -89,21 +93,21 @@ function home(ctx) {
     return `<button type="button" class="project-card${project.id === ctx.ws.activeProjectId ? ' active' : ''}" data-action="activate" data-id="${esc(project.id)}"><b>${icon('folder')}${esc(project.key)}</b><span>${esc(project.name)}</span><small>${parent ? `${esc(parent.key)} · ` : ''}${project.issues.length} · ${esc(kind)}</small></button>`;
   }).join('');
   return `<div class="page home">
-    <div class="hero"><img src="./icon.png" alt="" width="48" height="48"><div><h1>${icon('home')}MyWorkForce</h1><p>${L('이슈, 보드, 스프린트, 로드맵, 대시보드, 보고서를 한 작업 공간에서 다룹니다.', 'Issues, boards, sprints, the roadmap, dashboards and reports in one workspace.')}</p></div></div>
-    <div class="page-actions">
-      <button type="button" class="button primary" data-action="new-project">${icon('plus')}${L('새 프로젝트', 'New project')}</button>
+    ${pageHead(L('과제 홈', 'Project home'), `<button type="button" class="button primary" data-action="new-project">${icon('plus')}<span>${L('새 과제', 'New project')}</span></button>`, 'home')}
+    <div class="page-lead"><p>${L('이슈, 보드, 스프린트, 로드맵, 대시보드, 보고서를 한 작업 공간에서 다룹니다.', 'Issues, boards, sprints, the roadmap, dashboards and reports in one workspace.')}</p></div>
+    <div class="page-actions page-actions-left">
       <button type="button" class="button" data-action="open-file">${icon('folder')}${L('열기', 'Open')}</button>
       <button type="button" class="button" data-action="browse-examples">${icon('box')}${L('예제 고르기', 'Choose an example')}</button>
       <button type="button" class="button" data-action="start-tutorial">${icon('play')}${L('튜토리얼', 'Tutorial')}</button>
       <button type="button" class="button" data-action="empty-workspace">${icon('close')}${L('빈 작업 공간', 'Empty workspace')}</button>
     </div>
-    <h2>${L('프로젝트', 'Projects')}</h2>
+    <h2>${icon('folder')}<span>${L('과제', 'Projects')}</span></h2>
     ${finderBar(ctx, [
       { id: 'kind', label: L('종류', 'Kind'), options: [{ id: 'software', label: L('소프트웨어', 'Software') }, { id: 'business', label: L('업무', 'Business') }, { id: 'service', label: L('서비스', 'Service') }] },
       { id: 'state', label: L('상태', 'State'), options: [{ id: 'active', label: L('사용', 'Active') }, { id: 'archived', label: L('보관', 'Archived') }] },
     ])}
     <div class="card-grid">${cards || empty(L('아직 없습니다.', 'Nothing here yet.'))}</div>
-    ${ctx.project ? `<h2>${L('최근 활동', 'Recent activity')}</h2><div class="feed">${feed(ctx, 8)}</div>` : ''}
+    ${ctx.project ? `<h2>${icon('bolt')}<span>${L('최근 활동', 'Recent activity')}</span></h2><div class="feed panel-card">${feed(ctx, 8)}</div>` : ''}
   </div>`;
 }
 
@@ -284,7 +288,7 @@ function reports(ctx) {
   const tabs = [['burndown', L('번다운', 'Burndown')], ['velocity', L('속도', 'Velocity')], ['flow', L('누적 흐름', 'Cumulative flow')], ['created', L('생성과 해결', 'Created and resolved')], ['pie', L('분포', 'Distribution')], ['time', L('시간', 'Time')], ['sprint', L('스프린트', 'Sprint')], ['control', L('제어', 'Control')], ['epic', L('에픽 번다운', 'Epic burndown')]];
   const glyphs = { burndown: 'chart', velocity: 'bolt', flow: 'workflow', created: 'plus', pie: 'chart', time: 'clock', sprint: 'play', control: 'columns', epic: 'epic' };
   const nav = `<div class="tabs">${tabs.map(([id, label]) => `<button type="button" class="tab${ctx.ui.report === id ? ' active' : ''}" data-action="report" data-id="${id}">${icon(glyphs[id])}<span>${label}</span></button>`).join('')}</div>`;
-  return `<div class="page">${pageHead(L('보고서', 'Reports'), '', 'reports')}${finderBar(ctx, issueFacets(ctx))}${nav}<div class="report">${reportBody(ctx)}</div></div>`;
+  return `<div class="page">${pageHead(L('보고서', 'Reports'), '', 'reports')}${finderBar(ctx, issueFacets(ctx))}${nav}<div class="report panel-card">${reportBody(ctx)}</div></div>`;
 }
 
 function reportBody(ctx) {
@@ -429,24 +433,25 @@ function usersAdmin(ctx) {
   const project = ctx.project;
   const find = screenFind(ctx);
   const rows = ctx.ws.users.filter((user) => {
-    const member = project?.members?.find((item) => item.userId === user.id);
-    if (!matchesText(find.q, user.name, user.login, user.email, user.phone, user.jobTitle, user.team)) return false;
-    if (find.role && (member?.role || '') !== find.role) return false;
+    const teams = (ctx.ws.teams || []).filter((team) => (team.members || []).some((item) => item.userId === user.id));
+    if (!matchesText(find.q, user.name, user.login, user.email, user.phone, user.jobTitle, ...teams.map((team) => team.name))) return false;
+    if (find.team && !teams.some((team) => team.id === find.team)) return false;
     if (find.active === 'yes' && user.active === false) return false;
     if (find.active === 'no' && user.active !== false) return false;
     return true;
   }).map((user) => {
-    const member = project?.members?.find((item) => item.userId === user.id);
-    const role = project ? `<td><select data-member="${esc(user.id)}">${options(ROLES, member?.role || '', L('역할 없음', 'No role'))}</select></td>` : '';
-    return `<tr><td>${avatar(user)} ${esc(user.name)}</td><td>${esc(user.jobTitle || '')}</td><td>${esc(user.team || '')}</td><td>${esc(user.phone || '')}</td><td>${esc(user.login || '')}</td><td>${esc(user.email || '')}</td>${role}<td><input type="checkbox" data-user-active="${esc(user.id)}" ${user.active !== false ? 'checked' : ''}></td><td><button type="button" class="icon-button" data-action="edit-profile" data-id="${esc(user.id)}">${icon('pencil')}</button></td></tr>`;
+    const teams = (ctx.ws.teams || []).filter((team) => (team.members || []).some((item) => item.userId === user.id));
+    const role = '';
+    const teamChips = teams.map((team) => `<button type="button" class="chip" data-action="open-team" data-id="${esc(team.id)}">${icon('team')}${esc(team.name)}</button>`).join(' ');
+    return `<tr><td>${avatar(user)} ${esc(user.name)}</td><td>${esc(user.jobTitle || '')}</td><td>${teamChips || `<span class="muted">${esc(user.team || '')}</span>`}</td><td>${esc(user.phone || '')}</td><td>${esc(user.login || '')}</td><td>${esc(user.email || '')}</td>${role}<td><input type="checkbox" data-user-active="${esc(user.id)}" ${user.active !== false ? 'checked' : ''}></td><td><button type="button" class="icon-button" data-action="edit-profile" data-id="${esc(user.id)}">${icon('pencil')}</button></td></tr>`;
   }).join('');
-  const roleHead = project ? `<th>${L('역할', 'Role')}</th>` : '';
-  return `<div class="page">${pageHead(L('사용자', 'Users'), `<button type="button" class="button" data-action="new-user">${icon('plus')}${L('사용자', 'User')}</button><button type="button" class="button" data-action="new-group">${icon('people')}${L('그룹', 'Group')}</button><button type="button" class="button" data-action="set-password">${icon('lock')}${L('암호', 'Password')}</button>`, 'users')}
+  const roleHead = '';
+  return `<div class="page">${pageHead(L('사용자', 'Users'), `<button type="button" class="button" data-action="go" data-view="teams">${icon('team')}<span>${L('팀', 'Teams')}</span></button><button type="button" class="button" data-action="set-password">${icon('key')}<span>${L('암호', 'Password')}</span></button><button type="button" class="button primary" data-action="new-user">${icon('plus')}<span>${L('새 사용자', 'New user')}</span></button>`, 'users')}
     ${finderBar(ctx, [
-      { id: 'role', label: L('역할', 'Role'), options: ROLES.map((role) => ({ id: role.id, label: nameOf(role) })) },
+      { id: 'team', label: L('팀', 'Team'), options: (ctx.ws.teams || []).map((team) => ({ id: team.id, label: team.name })) },
       { id: 'active', label: L('사용', 'Active'), options: [{ id: 'yes', label: L('사용', 'Active') }, { id: 'no', label: L('중지', 'Inactive') }] },
     ])}
-    <p class="muted">${project ? L('선택한 과제의 역할을 바꿉니다. 사용 칸은 이 작업 공간의 로그인입니다.', 'The role is for the open project. The Active box is the sign-in for this workspace.') : L('과제를 연 뒤 그 과제의 역할을 정할 수 있습니다.', 'Open a project to set a role on it.')}</p>
+    <p class="muted">${L('회사의 모든 계정입니다. 팀을 누르면 그 팀으로 가고, 과제의 보기·편집·책임자 권한은 과제의 사람과 권한에서 정합니다. 사용 칸을 끄면 로그인할 수 없습니다.', 'Every account in the company. A team opens that team; View, Edit and Lead on a project are set in its People & access. Turning Active off stops the sign-in.')}</p>
     <table class="data"><tr><th>${L('이름', 'Name')}</th><th>${L('직급', 'Title')}</th><th>${L('팀', 'Team')}</th><th>${L('휴대폰', 'Phone')}</th><th>${L('아이디', 'Account')}</th><th>${L('메일', 'Email')}</th>${roleHead}<th>${L('사용', 'Active')}</th><th></th></tr>${rows}</table>
   </div>`;
 }
@@ -471,7 +476,7 @@ function projectsAdmin(ctx) {
     const name = manage ? `<input data-managed="name" data-id="${esc(project.id)}" value="${esc(project.name)}" aria-label="${esc(L('이름', 'Name'))}">` : esc(project.name);
     const lead = manage ? `<select data-managed="lead" data-id="${esc(project.id)}" aria-label="${esc(L('책임자', 'Lead'))}">${userOptions(ctx.ws, project.leadId, '')}</select>` : esc(leadName(project.leadId));
     const archive = manage ? ` <button type="button" class="small-button" data-action="archive-project" data-id="${esc(project.id)}" data-on="${project.archived ? '0' : '1'}">${icon(project.archived ? 'restore' : 'box')}<span>${project.archived ? L('보관 해제', 'Unarchive') : L('보관', 'Archive')}</span></button>` : '';
-    const participants = manage ? ` <button type="button" class="small-button" data-action="project-participants" data-id="${esc(project.id)}">${icon('people')}<span>${L('참여자', 'Participants')}</span></button>` : '';
+    const participants = manage ? ` <button type="button" class="small-button" data-action="project-participants" data-id="${esc(project.id)}">${icon('people')}<span>${L('사람과 권한', 'People & access')}</span></button>` : '';
     const configure = manage ? ` <button type="button" class="small-button" data-action="open-project-settings" data-id="${esc(project.id)}">${icon('settings')}<span>${L('설정', 'Settings')}</span></button>` : '';
     const remove = canDeleteProject(ctx.ws, project, ctx.user?.id) ? ` <button type="button" class="small-button danger" data-action="delete-project" data-id="${esc(project.id)}" title="${esc(L('관리자만 삭제할 수 있습니다.', 'Only an administrator may delete.'))}">${icon('trash')}<span>${L('삭제', 'Delete')}</span></button>` : '';
     const child = manage ? ` <button type="button" class="small-button" data-action="new-project" data-parent="${esc(project.id)}">${icon('subtask')}<span>${L('하위 과제', 'Sub-project')}</span></button>` : '';
@@ -479,17 +484,18 @@ function projectsAdmin(ctx) {
       <td class="nest" style="padding-left:${8 + depth * 16}px">${esc(project.key)}</td>
       <td>${name}</td>
       <td>${esc(typeName(project.type))}</td>
+      <td>${esc((ctx.ws.teams || []).find((team) => team.id === project.teamId)?.name || '')}</td>
       <td>${lead}</td>
       <td>${project.archived ? L('보관', 'Archived') : L('사용', 'Active')}</td>
       <td><button type="button" class="small-button" data-action="activate" data-id="${esc(project.id)}">${icon('folder')}<span>${L('열기', 'Open')}</span></button>${child}${participants}${configure}${archive}${remove}</td>
     </tr>`;
   }).join('');
-  return `<div class="page">${pageHead(L('과제', 'Projects'), `<button type="button" class="button primary" data-action="new-project">${icon('plus')}${L('새 과제', 'New project')}</button>`, 'projects')}
+  return `<div class="page">${pageHead(L('과제', 'Projects'), `<button type="button" class="button primary" data-action="new-project">${icon('plus')}<span>${L('새 과제', 'New project')}</span></button>`, 'projects')}
     ${finderBar(ctx, [
       { id: 'kind', label: L('종류', 'Kind'), options: [{ id: 'software', label: L('소프트웨어', 'Software') }, { id: 'business', label: L('업무', 'Business') }, { id: 'service', label: L('서비스', 'Service') }] },
       { id: 'state', label: L('상태', 'State'), options: [{ id: 'active', label: L('사용', 'Active') }, { id: 'archived', label: L('보관', 'Archived') }] },
     ])}
-    <table class="data"><tr><th>${L('키', 'Key')}</th><th>${L('이름', 'Name')}</th><th>${L('종류', 'Type')}</th><th>${L('책임자', 'Lead')}</th><th>${L('상태', 'State')}</th><th></th></tr>${rows || `<tr><td colspan="6">${L('과제가 없습니다.', 'There are no projects.')}</td></tr>`}</table>
+    <table class="data"><tr><th>${L('키', 'Key')}</th><th>${L('이름', 'Name')}</th><th>${L('종류', 'Type')}</th><th>${L('팀', 'Team')}</th><th>${L('책임자', 'Lead')}</th><th>${L('상태', 'State')}</th><th></th></tr>${rows || `<tr><td colspan="7">${L('과제가 없습니다.', 'There are no projects.')}</td></tr>`}</table>
   </div>`;
 }
 
@@ -512,10 +518,10 @@ function people(ctx) {
   const groups = ctx.ws.groups.map((group) => `<article class="panel-card"><header><b>${esc(nameOf(group))}</b></header><div class="checks">${ctx.ws.users.map((user) => `<label class="check"><input type="checkbox" data-group="${esc(group.id)}" data-user="${esc(user.id)}" ${(group.userIds || []).includes(user.id) ? 'checked' : ''}>${esc(user.name)}</label>`).join('')}</div></article>`).join('');
   return `<div class="page">${pageHead(L('사람', 'People'), `<button type="button" class="button" data-action="new-user">${icon('plus')}${L('사람', 'Person')}</button><button type="button" class="button" data-action="new-group">${icon('people')}${L('그룹', 'Group')}</button><button type="button" class="button" data-action="set-password">${icon('lock')}${L('암호', 'Password')}</button>`, 'people')}
     ${finderBar(ctx, [
-      { id: 'role', label: L('역할', 'Role'), options: ROLES.map((role) => ({ id: role.id, label: nameOf(role) })) },
+      { id: 'team', label: L('팀', 'Team'), options: (ctx.ws.teams || []).map((team) => ({ id: team.id, label: team.name })) },
       { id: 'active', label: L('사용', 'Active'), options: [{ id: 'yes', label: L('사용', 'Active') }, { id: 'no', label: L('중지', 'Inactive') }] },
     ])}
-    <p class="muted">${L('책임자는 항상 관리자입니다. 위 선택은 이 프로젝트의 역할입니다.', 'The lead is always an administrator. The choice above is the role on this project.')}</p>
+    <p class="muted">${L('책임자는 항상 관리자입니다. 위 선택은 이 과제의 역할입니다.', 'The lead is always an administrator. The choice above is the role on this project.')}</p>
     <table class="data"><tr><th>${L('이름', 'Name')}</th><th>${L('직급', 'Title')}</th><th>${L('팀', 'Team')}</th><th>${L('휴대폰', 'Phone')}</th><th>${L('메일', 'Email')}</th><th>${L('역할', 'Role')}</th><th>${L('사용', 'Active')}</th><th></th></tr>${rows}</table>
     <h2>${L('그룹', 'Groups')}</h2><div class="card-grid">${groups}</div></div>`;
 }
@@ -634,17 +640,22 @@ function projectConfiguration(ctx, project) {
   const statuses = project.statuses.map((status) => `<li>${badge(nameOf(status), status.color)} <button type="button" class="icon-button" data-action="delete-status" data-id="${esc(status.id)}">${icon('trash')}</button></li>`).join('');
   const rules = project.rules.map((rule) => `<li>${esc(nameOf(rule))} <button type="button" class="icon-button" data-action="delete-rule" data-id="${esc(rule.id)}">${icon('trash')}</button></li>`).join('');
   const fields = project.fields.map((field) => `<li>${esc(nameOf(field))} <small>${esc(field.type)}</small> <button type="button" class="icon-button" data-action="delete-field" data-id="${esc(field.id)}">${icon('trash')}</button></li>`).join('');
-  return `<section><h2>${L('프로젝트', 'Project')}</h2>
-      <label class="form-row"><span>${L('이름', 'Name')}</span><input data-project="name" value="${esc(project.name)}"></label>
-      <label class="form-row"><span>${L('설명', 'Description')}</span><textarea data-project="description" rows="3">${esc(project.description || '')}</textarea></label>
-      <label class="form-row"><span>${L('책임자', 'Lead')}</span><select data-project="leadId">${userOptions(ctx.ws, project.leadId, '')}</select></label>
-      <label class="form-row"><span>${L('상위 과제', 'Parent project')}</span><select data-project="parentId">${parentOptions(ctx, project)}</select></label>
+  const team = teamOfProject(ctx.ws, project);
+  const teamChoices = (ctx.ws.teams || []).map((item) => `<option value="${esc(item.id)}"${item.id === team?.id ? ' selected' : ''}>${esc(item.name)}</option>`).join('');
+  return `<section><h2>${icon('folder')}<span>${L('과제', 'Project')}</span></h2>
+      <label class="form-row"><span>${icon('tag')}${L('이름', 'Name')}</span><input data-project="name" value="${esc(project.name)}"></label>
+      <label class="form-row"><span>${icon('pencil')}${L('설명', 'Description')}</span><textarea data-project="description" rows="3">${esc(project.description || '')}</textarea></label>
+      <label class="form-row"><span>${icon('team')}${L('팀', 'Team')}</span><select data-project-team="${esc(project.id)}">${teamChoices}</select></label>
+      <label class="form-row"><span>${icon('shield')}${L('책임자', 'Lead')}</span><select data-project="leadId">${userOptions(ctx.ws, project.leadId, '')}</select></label>
+      <label class="form-row"><span>${icon('subtask')}${L('상위 과제', 'Parent project')}</span><select data-project="parentId">${parentOptions(ctx, project)}</select></label>
       <label class="check"><input type="checkbox" data-project="allowAnyTransition" ${project.allowAnyTransition !== false ? 'checked' : ''}> ${L('보드에서 어떤 상태로든 옮길 수 있음', 'Cards on the board may move to any status')}</label>
-      <button type="button" class="button" data-action="${project.archived ? 'unarchive' : 'archive'}">${icon(project.archived ? 'restore' : 'box')}<span>${project.archived ? L('보관 해제', 'Unarchive') : L('프로젝트 보관', 'Archive project')}</span></button>
+      <div class="page-actions"><button type="button" class="button" data-action="${project.archived ? 'unarchive' : 'archive'}">${icon(project.archived ? 'restore' : 'box')}<span>${project.archived ? L('보관 해제', 'Unarchive') : L('과제 보관', 'Archive project')}</span></button>
+      <button type="button" class="button" data-action="project-participants" data-id="${esc(project.id)}">${icon('people')}<span>${L('사람과 권한', 'People & access')}</span></button></div>
     </section>
-    <section><h2>${L('작업 흐름', 'Workflow')}</h2><ul class="plain">${statuses}</ul><button type="button" class="small-button" data-action="new-status">${icon('workflow')}<span>${L('상태 추가', 'Add status')}</span></button><ul class="plain">${transitions}</ul><button type="button" class="small-button" data-action="new-transition">${icon('workflow')}<span>${L('전이 추가', 'Add transition')}</span></button></section>
-    <section><h2>${L('필드', 'Fields')}</h2><ul class="plain">${fields}</ul><button type="button" class="small-button" data-action="new-field">${icon('tag')}<span>${L('필드 추가', 'Add field')}</span></button></section>
-    <section><h2>${L('자동화', 'Automation')}</h2><ul class="plain">${rules}</ul><button type="button" class="small-button" data-action="new-rule">${icon('bolt')}<span>${L('규칙 추가', 'Add a rule')}</span></button></section>
+    <section><h2>${icon('layers')}<span>${L('관리 방법', 'Management methods')}</span></h2><p class="muted">${L('이 과제를 어떻게 진행할지 고릅니다. 고른 방법의 화면만 왼쪽 탐색에 나옵니다.', 'Choose how this project is run. Only the chosen methods appear in the navigation.')}</p>${methodChecks(projectMethods(project), `data-method-project="${esc(project.id)}"`)}</section>
+    <section><h2>${icon('workflow')}<span>${L('작업 흐름', 'Workflow')}</span></h2><ul class="plain">${statuses}</ul><button type="button" class="small-button" data-action="new-status">${icon('workflow')}<span>${L('상태 추가', 'Add status')}</span></button><ul class="plain">${transitions}</ul><button type="button" class="small-button" data-action="new-transition">${icon('workflow')}<span>${L('전이 추가', 'Add transition')}</span></button></section>
+    <section><h2>${icon('tag')}<span>${L('필드', 'Fields')}</span></h2><ul class="plain">${fields}</ul><button type="button" class="small-button" data-action="new-field">${icon('tag')}<span>${L('필드 추가', 'Add field')}</span></button></section>
+    <section><h2>${icon('bolt')}<span>${L('자동화', 'Automation')}</span></h2><ul class="plain">${rules}</ul><button type="button" class="small-button" data-action="new-rule">${icon('bolt')}<span>${L('규칙 추가', 'Add a rule')}</span></button></section>
     ${screenSection(project)}`;
 }
 
@@ -656,7 +667,8 @@ function projectSettings(ctx) {
     return `<div class="page">${pageHead(title, '', 'project-settings')}<p>${L('권한이 없습니다.', 'You do not have permission.')}</p></div>`;
   }
   const blocks = [
-    ['project', L('프로젝트', 'Project')],
+    ['project', L('과제', 'Project')],
+    ['methods', L('관리 방법', 'Management methods')],
     ['workflow', L('작업 흐름', 'Workflow')],
     ['fields', L('필드', 'Fields')],
     ['rules', L('자동화', 'Automation')],
@@ -670,7 +682,7 @@ function projectSettings(ctx) {
     if (find.section && !titleText.includes(blocks.find((item) => item[0] === find.section)?.[1] || '')) return false;
     return keepBlock(find.q, part);
   }).join('');
-  return `<div class="page settings">${pageHead(title, '', 'project-settings')}${finderBar(ctx, [{ id: 'section', label: L('분류', 'Section'), options: blocks.map(([id, label]) => ({ id, label })) }])}${shown || empty(L('찾는 설정이 없습니다.', 'No setting matches.'))}</div>`;
+  return `<div class="page settings">${pageHead(title, '', 'project-settings')}${finderBar(ctx, [{ id: 'section', label: L('분류', 'Section'), options: blocks.map(([id, label]) => ({ id, label })) }])}${shown ? `<div class="settings-grid">${shown}</div>` : empty(L('찾는 설정이 없습니다.', 'No setting matches.'))}</div>`;
 }
 
 function settings(ctx) {
@@ -680,14 +692,29 @@ function settings(ctx) {
     ['computer', L('이 컴퓨터', 'This computer'), startupOptions(ctx)],
     ['database', L('데이터베이스', 'Database'), databaseSettings(ctx)],
     ['mail', L('메일', 'Mail'), mailSettings(ctx)],
-    ['look', L('모양', 'Appearance'), `<section><h2>${L('모양', 'Appearance')}</h2>
-      <label class="form-row"><span>${L('글자 크기', 'Text size')}</span><input data-font="size" type="number" min="12" max="20" value="${esc(ctx.settings.fontSize)}"></label>
+    ['look', L('모양', 'Appearance'), `<section><h2>${icon('palette')}<span>${L('모양', 'Appearance')}</span></h2>
+      <label class="form-row"><span>${icon('file')}${L('글자 크기', 'Text size')}</span><input data-font="size" type="number" min="12" max="20" value="${esc(ctx.settings.fontSize)}"></label>
       <button type="button" class="button" data-action="edit-custom-theme">${icon('settings')}<span>${L('사용자 정의 테마 설정', 'Custom theme settings')}</span></button>
       ${colors}
     </section>`],
   ];
   const find = screenFind(ctx);
-  const shown = blocks.filter((item) => !find.section || find.section === item[0]).map((item) => keepBlock(find.q, item[2])).join('');
+  // Related settings sit together: each group is a heading over a grid of cards.
+  const groups = [
+    ['general', 'settings', L('일반', 'General'), ['start', 'look']],
+    ['account', 'user', L('이 컴퓨터와 로그인', 'This computer and sign-in'), ['computer']],
+    ['data', 'database', L('데이터', 'Data'), ['database']],
+    ['notify', 'bell', L('알림', 'Notifications'), ['mail']],
+  ];
+  const html = (id) => {
+    const item = blocks.find((block) => block[0] === id);
+    if (!item || (find.section && find.section !== id)) return '';
+    return keepBlock(find.q, item[2]);
+  };
+  const shown = groups.map(([id, glyph, title, ids]) => {
+    const body = ids.map(html).join('');
+    return body.trim() ? `<div class="settings-group" data-group="${id}"><h2 class="settings-group-title">${icon(glyph)}<span>${title}</span></h2><div class="settings-grid">${body}</div></div>` : '';
+  }).join('');
   return `<div class="page settings">${pageHead(L('설정', 'Settings'), '', 'settings')}
     ${finderBar(ctx, [{ id: 'section', label: L('분류', 'Section'), options: blocks.map(([id, label]) => ({ id, label })) }])}
     ${shown || empty(L('찾는 설정이 없습니다.', 'No setting matches.'))}

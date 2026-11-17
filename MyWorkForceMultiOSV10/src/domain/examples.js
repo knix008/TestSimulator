@@ -158,7 +158,7 @@ export const EXAMPLES = [
     line('request', '픽업 시간 변경', 'Change the pickup time', 'review', 'low'),
     line('task', '진열 사진 교체', 'Refresh the display photos', 'done', 'low'),
   ] },
-  { id: 'research', key: 'RLAB', type: 'software', ko: '연구소', en: 'Research lab', about: ['실험 도구와 데이터 파이프라인을 소프트웨어 프로젝트로 다룹니다.', 'Lab tools and the data pipeline as a software project.'], article: ['실험 기록 형식', 'How to log a run'], issues: [
+  { id: 'research', key: 'RLAB', type: 'software', ko: '연구소', en: 'Research lab', about: ['실험 도구와 데이터 파이프라인을 소프트웨어 과제로 다룹니다.', 'Lab tools and the data pipeline as a software project.'], article: ['실험 기록 형식', 'How to log a run'], issues: [
     line('epic', '샘플 추적', 'Sample tracking', 'backlog', 'high'),
     line('story', '측정값 가져오기', 'Import measurements', 'progress', 'high'),
     line('bug', '시간대 밀림', 'Timestamps shift by a day', 'todo', 'highest'),

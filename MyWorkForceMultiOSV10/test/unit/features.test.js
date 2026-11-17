@@ -674,7 +674,7 @@ describe('Screens', () => {
   }
 
   const screens = [
-    ['home', 'MyWorkForce'],
+    ['home', 'Project home'],
     ['board', 'Scrum board'],
     ['backlog', 'Backlog'],
     ['roadmap', 'Roadmap'],
@@ -691,7 +691,8 @@ describe('Screens', () => {
     ['queues', 'Queues'],
     ['help', 'Guide'],
     ['issue', '카드 결제'],
-    ['knowledge', 'Knowledge'],
+    ['knowledge', 'Pages'],
+    ['teams', 'Teams'],
     ['documents', 'Documents'],
     ['calendar', 'Work calendar'],
     ['portal', 'Customer portal'],
@@ -703,7 +704,7 @@ describe('Screens', () => {
     home: 'home', board: 'board', backlog: 'backlog', roadmap: 'roadmap', issues: 'issues', queues: 'list',
     dashboard: 'dashboard', reports: 'chart', releases: 'release', components: 'component', filters: 'filter',
     people: 'people', health: 'alert', notifications: 'bell', settings: 'settings', help: 'help',
-    knowledge: 'box', documents: 'file', calendar: 'calendar', portal: 'request', plans: 'roadmap', extensions: 'bolt',
+    knowledge: 'book', teams: 'team', documents: 'file', calendar: 'calendar', portal: 'request', plans: 'roadmap', extensions: 'bolt',
   };
 
   test('the tutorial window asks to start and whether to show again', () => {
@@ -843,8 +844,10 @@ describe('Screens', () => {
     assert.match(nav, /panel-header/);
     assert.match(nav, /data-icon="list"/);
     assert.match(nav, /data-icon="foldLeft"/);
-    assert.match(nav, /Work/);
-    assert.match(nav, /Review/);
+    // Company → my work (teams, projects, this project) → administrator.
+    assert.match(nav, /Company/);
+    assert.match(nav, /My work/);
+    assert.match(nav, /data-view="teams"/);
     assert.match(nav, /Project home/);
     assert.match(menu, /menubar-home[\s\S]*?>Start</);
     assert.match(menu, /data-action="menubar-home"[^>]*disabled/);
@@ -869,7 +872,7 @@ describe('Screens', () => {
     assert.match(login, /<span>Password<\/span>/);
     assert.doesNotMatch(login, /admin/);
     assert.doesNotMatch(login, /pick-login/);
-    assert.match(nav, /User menu/);
+    assert.match(nav, /My work/);
     assert.match(nav, /data-view="projects"/);
     const ownProjects = renderView({ ...ctx, ui: { ...ctx.ui, view: 'projects' } });
     assert.match(ownProjects, /data-action="new-project"/);
@@ -893,8 +896,9 @@ describe('Screens', () => {
     assert.match(renderView({ ...manager, ui: { ...ctx.ui, view: 'project-settings' } }), /data-project="name"/);
     ctx.ui.modal = { kind: 'participants', projectId: ctx.project.id, query: '' };
     const participants = renderModal(ctx);
-    assert.match(participants, /Read only/);
-    assert.match(participants, /Can edit/);
+    // People & access: View, Edit or Lead.
+    assert.match(participants, /People &amp; access|People & access/);
+    for (const level of ['view', 'edit', 'lead']) assert.match(participants, new RegExp(`value="${level}"`));
     assert.match(participants, /Team/);
     assert.match(participants, /Other people/);
     assert.match(participants, /id="participant-search"/);
@@ -909,7 +913,7 @@ describe('Screens', () => {
     admin.user = { ...admin.user, login: 'admin', active: true };
     admin.ui.ready = true;
     const managed = renderNav(admin);
-    assert.match(managed, /User menu/);
+    assert.match(managed, /My work/);
     assert.match(managed, /Administrator menu/);
     assert.match(managed, /data-view="users"/);
     assert.match(managed, /data-view="projects"/);

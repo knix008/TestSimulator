@@ -65,9 +65,9 @@ export function primary(action, label, extra = '', glyph = 'check') {
 /** The same glyph the left panel uses for each screen. */
 export const NAV_GLYPH = {
   home: 'home', board: 'board', backlog: 'backlog', roadmap: 'roadmap', issues: 'issues', queues: 'list', portal: 'request',
-  dashboard: 'dashboard', reports: 'chart', knowledge: 'box', documents: 'file', calendar: 'calendar', plans: 'roadmap',
+  dashboard: 'dashboard', reports: 'chart', knowledge: 'book', documents: 'file', calendar: 'calendar', plans: 'roadmap',
   releases: 'release', components: 'component', filters: 'filter', health: 'alert', people: 'people', users: 'people', projects: 'folder', extensions: 'bolt',
-  notifications: 'bell', settings: 'settings', 'project-settings': 'settings', help: 'help',
+  notifications: 'bell', settings: 'settings', 'project-settings': 'settings', help: 'help', teams: 'team', team: 'team',
 };
 
 export function pageHead(title, actions = '', view = '') {

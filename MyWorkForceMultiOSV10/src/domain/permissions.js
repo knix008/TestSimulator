@@ -96,8 +96,14 @@ export function roleForAccess(access) {
   return access === 'edit' ? 'developer' : 'viewer';
 }
 
-/** People in the lead's groups. When the lead is in none, every grouped person counts as the team. */
+/** People in the lead's teams. When the lead is in none, every person in a team counts. */
 export function sharesTeam(ws, leadId, userId) {
+  const teams = ws?.teams || [];
+  if (teams.length) {
+    const inTeam = (team, id) => team.leadId === id || (team.members || []).some((member) => member.userId === id);
+    const leadTeams = teams.filter((team) => inTeam(team, leadId));
+    return (leadTeams.length ? leadTeams : teams).some((team) => inTeam(team, userId));
+  }
   const groups = ws?.groups || [];
   const leadGroups = groups.filter((group) => (group.userIds || []).includes(leadId));
   const pool = leadGroups.length ? leadGroups : groups;

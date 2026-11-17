@@ -27,7 +27,7 @@ export function sampleWorkspace(now = Date.now()) {
   };
   const shop = newProject(ws, {
     name: '온라인 쇼핑몰', key: 'SHOP', type: 'software', leadId: 'u1',
-    description: '결제, 배송, 회원 기능을 스프린트로 나누어 만드는 소프트웨어 프로젝트입니다.',
+    description: '결제, 배송, 회원 기능을 스프린트로 나누어 만드는 소프트웨어 과제입니다.',
   });
   shop.id = 'p-shop';
   shop.members = [

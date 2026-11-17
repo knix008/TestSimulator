@@ -1,5 +1,6 @@
 import { FORMS, visibleDocuments } from '../domain/documents.js';
 import { canEditPage, expandPage, pagesIn, trashedPages } from '../domain/wiki.js';
+import { visibleSpaces } from '../domain/teams.js';
 import { CREATE_FIELDS, MODULES, WEEK_DAYS, calendarOf, moduleOn, planItems } from '../domain/services.js';
 import { renderMarkdown } from '../domain/markdown.js';
 import { badge, button, empty, esc, formatWhen, icon, L, nameOf, options, pageHead, person } from './bits.js';
@@ -22,8 +23,15 @@ function pageTree(pages, parentId, activeId, depth) {
   return pages.filter((page) => page.kind !== 'blog' && (page.parentId || '') === parentId).map((page) => `<div class="wiki-node" style="padding-left:${depth * 14}px"><button type="button" class="link-row${page.id === activeId ? ' active' : ''}" data-action="open-article" data-id="${esc(page.id)}">${icon('book')}<b>${esc(page.title)}</b></button>${pageTree(pages, page.id, activeId, depth + 1)}</div>`).join('');
 }
 
+const SCOPE = {
+  company: ['회사 공용', 'Company', 'globe'],
+  team: ['팀', 'Teams', 'team'],
+  project: ['과제', 'Projects', 'folder'],
+};
+
 export function knowledgeView(ctx) {
-  const spaces = ctx.ws.spaces || [];
+  // Pages live in spaces: the company's (everyone), each team's (its members) and each project's (its people).
+  const spaces = visibleSpaces(ctx.ws, ctx.user?.id);
   const space = spaces.find((item) => item.id === ctx.ui.spaceId) || spaces.find((item) => item.projectId && item.projectId === ctx.project?.id) || spaces[0];
   if (space && ctx.ui.spaceId !== space.id) ctx.ui.spaceId = space.id;
   const pages = space ? pagesIn(ctx.ws, space.id, ctx.user?.id) : [];
@@ -39,7 +47,11 @@ export function knowledgeView(ctx) {
   const open = pages.find((page) => page.id === ctx.ui.articleId) || shared || (!query ? pages[0] : null);
   const canEdit = open && canEditPage(open, ctx.user?.id);
   const watching = open && (open.watchers || []).includes(ctx.user?.id);
-  const spaceOptions = spaces.map((item) => `<option value="${esc(item.id)}"${item.id === space?.id ? ' selected' : ''}>${esc(item.key)} · ${esc(item.name)}</option>`).join('');
+  const spaceOptions = Object.entries(SCOPE).map(([scope, [ko, en]]) => {
+    const list = spaces.filter((item) => (item.scope || 'company') === scope);
+    return list.length ? `<optgroup label="${esc(L(ko, en))}">${list.map((item) => `<option value="${esc(item.id)}"${item.id === space?.id ? ' selected' : ''}>${esc(item.key)} · ${esc(item.name)}</option>`).join('')}</optgroup>` : '';
+  }).join('');
+  const scope = SCOPE[space?.scope || 'company'] || SCOPE.company;
   const blogs = shown.filter((page) => page.kind === 'blog').map((page) => `<button type="button" class="link-row${page.id === open?.id ? ' active' : ''}" data-action="open-article" data-id="${esc(page.id)}">${icon('spark')}<b>${esc(page.title)}</b></button>`).join('');
   const tree = query
     ? shown.filter((page) => page.kind !== 'blog').map((page) => `<button type="button" class="link-row${page.id === open?.id ? ' active' : ''}" data-action="open-article" data-id="${esc(page.id)}">${icon('book')}<b>${esc(page.title)}</b></button>`).join('')
@@ -82,20 +94,20 @@ export function knowledgeView(ctx) {
     <div class="inline"><input id="page-quote" placeholder="${esc(L('인용할 문장', 'Quote'))}"><input id="page-comment" placeholder="${esc(L('의견', 'Comment'))}"><button type="button" class="button" data-action="comment-page" data-id="${esc(open.id)}">${icon('comment')}<span>${L('남기기', 'Add')}</span></button></div>
     ${versions ? `<h2>${L('이전 판', 'Earlier versions')}</h2>${versions}` : ''}</article>` : '';
   const trash = space ? trashedPages(ctx.ws, space.id, ctx.user?.id).map((page) => `<div class="link-row"><span>${esc(page.title)}</span><button type="button" class="small-button" data-action="restore-trashed" data-id="${esc(page.id)}">${icon('restore')}<span>${L('되돌리기', 'Restore')}</span></button><button type="button" class="small-button" data-action="purge-page" data-id="${esc(page.id)}">${icon('trash')}<span>${L('삭제', 'Delete')}</span></button></div>`).join('') : '';
-  return `<div class="page">${pageHead(L('지식 자료', 'Knowledge'), `<button type="button" class="button" data-action="add-blog">${icon('spark')}<span>${L('소식', 'News')}</span></button><button type="button" class="button" data-action="add-board">${icon('board')}<span>${L('칠판', 'Board')}</span></button><button type="button" class="button" data-action="add-table">${icon('columns')}<span>${L('표', 'Table')}</span></button>${button('add-article', L('페이지', 'Page'))}`, 'knowledge')}
+  return `<div class="page">${pageHead(`${L('페이지', 'Pages')}${space ? ` <small class="muted space-scope">${icon(scope[2])}${esc(L(scope[0], scope[1]))} · ${esc(space.name)}</small>` : ''}`, `<button type="button" class="button" data-action="add-blog">${icon('spark')}<span>${L('소식', 'News')}</span></button><button type="button" class="button" data-action="add-board">${icon('board')}<span>${L('칠판', 'Board')}</span></button><button type="button" class="button" data-action="add-table">${icon('columns')}<span>${L('표', 'Table')}</span></button>${button('add-article', L('페이지', 'Page'))}`, 'knowledge')}
     <div class="inline"><select data-choose="space" title="${esc(L('공간', 'Space'))}">${spaceOptions}</select>${finderBar(ctx, [
       { id: 'kind', label: L('종류', 'Kind'), options: [{ id: 'page', label: L('페이지', 'Page') }, { id: 'blog', label: L('소식', 'News') }, { id: 'board', label: L('칠판', 'Board') }, { id: 'table', label: L('표', 'Table') }] },
       { id: 'status', label: L('상태', 'Status'), options: [{ id: 'draft', label: L('초안', 'Draft') }, { id: 'review', label: L('검토', 'Review') }, { id: 'current', label: L('게시', 'Published') }] },
     ])}<input id="share-open" value="${esc(ctx.ui.shareToken || '')}" placeholder="${esc(L('공개 링크', 'Public link'))}"><button type="button" class="button" data-action="open-share">${icon('link')}<span>${L('열기', 'Open')}</span></button></div>
     <div class="split-page"><div class="wiki-tree"><h2>${L('페이지', 'Pages')}</h2>${tree || empty(L('페이지가 없습니다.', 'There are no pages.'))}<h2>${L('소식', 'News')}</h2>${blogs || empty(L('소식이 없습니다.', 'There is no news.'))}${trash ? `<h2>${L('휴지통', 'Trash')}</h2>${trash}` : ''}</div>${reader}</div>
-    <div class="inline"><input id="article-title" placeholder="${esc(L('새 페이지 제목', 'New page title'))}"><button type="button" class="button" data-action="add-article">${icon('plus')}<span>${L('추가', 'Add')}</span></button></div>
+    <div class="form-cards"><section class="panel-card"><header><b>${icon('plus')}<span>${L('새 페이지', 'New page')}</span></b></header><div class="inline"><input id="article-title" placeholder="${esc(L('새 페이지 제목', 'New page title'))}"><button type="button" class="button" data-action="add-article">${icon('plus')}<span>${L('추가', 'Add')}</span></button></div>
     <textarea id="article-body" rows="4" placeholder="${esc(L('Markdown. [[toc]] [[children]] [[include:제목]]', 'Markdown. [[toc]] [[children]] [[include:Title]]'))}"></textarea>
-    <div class="inline"><input id="space-name" placeholder="${esc(L('새 공간 이름', 'New space name'))}"><input id="space-key" placeholder="KEY"><button type="button" class="button" data-action="add-space">${icon('folder')}<span>${L('공간', 'Space')}</span></button></div></div>`;
+    </section><section class="panel-card"><header><b>${icon('globe')}<span>${L('새 회사 공간', 'New company space')}</span></b></header><p class="muted">${L('팀과 과제 공간은 팀과 과제를 만들 때 생깁니다.', 'Team and project spaces come with their teams and projects.')}</p><div class="inline"><input id="space-name" placeholder="${esc(L('공간 이름', 'Space name'))}"><input id="space-key" placeholder="KEY"><button type="button" class="button" data-action="add-space">${icon('plus')}<span>${L('만들기', 'Create')}</span></button></div></section></div></div>`;
 }
 
 const SHARE = {
   private: ['나만', 'Only me'],
-  project: ['프로젝트', 'Project'],
+  project: ['과제', 'Project'],
   workspace: ['모두', 'Everyone'],
 };
 
@@ -147,7 +159,7 @@ export function documentsView(ctx) {
     : `<div class="split-page"><div>${list || empty(tab === 'mine' ? L('만든 문서가 없습니다.', 'You have no documents.') : L('공유된 문서가 없습니다.', 'Nothing is shared.'))}</div>${editor}</div>`;
   const docFacets = [
     { id: 'template', label: L('양식', 'Form'), options: FORMS.map((item) => ({ id: item.id, label: nameOf(item) })) },
-    { id: 'share', label: L('공유', 'Share'), options: [{ id: 'private', label: L('나만', 'Only me') }, { id: 'project', label: L('프로젝트', 'Project') }, { id: 'workspace', label: L('모두', 'Everyone') }] },
+    { id: 'share', label: L('공유', 'Share'), options: [{ id: 'private', label: L('나만', 'Only me') }, { id: 'project', label: L('과제', 'Project') }, { id: 'workspace', label: L('모두', 'Everyone') }] },
   ];
   return `<div class="page">${pageHead(L('문서', 'Documents'), '', 'documents')}<div class="tabs">${tabs}</div>${finderBar(ctx, docFacets)}${body}</div>`;
 }
@@ -165,13 +177,13 @@ export function calendarView(ctx) {
     <p class="muted">${L('장애와 요청의 기한은 고른 달력의 근무 시간으로 셉니다. 달력을 고르지 않으면 24시간을 셉니다.', 'Time limits for incidents and requests follow the selected calendar. With no calendar, they use 24-hour time.')}</p>
     <div class="card-grid">${cards || empty(L('달력이 없습니다.', 'There is no calendar.'))}</div>
     ${current ? `<div class="cal-grid">${grid}</div><h2>${L('휴일', 'Holidays')}</h2><ul class="plain">${holidays || `<li>${L('없습니다.', 'None.')}</li>`}</ul>` : ''}
-    <div class="inline"><input id="calendar-name" placeholder="${esc(L('이름', 'Name'))}"><input id="calendar-zone" value="Asia/Seoul" placeholder="${esc(L('시간대', 'Time zone'))}"><button type="button" class="button" data-action="add-calendar">${icon('calendar')}<span>${L('달력 추가', 'Add a calendar')}</span></button></div>
-    <div class="inline"><input id="holiday" type="date"><button type="button" class="button" data-action="add-holiday" ${current ? '' : 'disabled'}>${icon('calendar')}<span>${L('휴일 추가', 'Add a holiday')}</span></button></div></div>`;
+    <div class="form-cards"><section class="panel-card"><header><b>${icon('plus')}<span>${L('새 달력', 'New calendar')}</span></b></header><div class="inline"><input id="calendar-name" placeholder="${esc(L('이름', 'Name'))}"><input id="calendar-zone" value="Asia/Seoul" placeholder="${esc(L('시간대', 'Time zone'))}"><button type="button" class="button" data-action="add-calendar">${icon('calendar')}<span>${L('달력 추가', 'Add a calendar')}</span></button></div></section>
+    <section class="panel-card"><header><b>${icon('calendar')}<span>${L('휴일 추가', 'Add a holiday')}</span></b></header><div class="inline"><input id="holiday" type="date"><button type="button" class="button" data-action="add-holiday" ${current ? '' : 'disabled'}>${icon('plus')}<span>${L('추가', 'Add')}</span></button></div></section></div></div>`;
 }
 
 export function portalView(ctx) {
   const project = ctx.project;
-  if (!project) return `<div class="page">${pageHead(L('고객 포털', 'Customer portal'), '', 'portal')}${empty(L('프로젝트를 여세요.', 'Open a project.'))}</div>`;
+  if (!project) return `<div class="page">${pageHead(L('고객 포털', 'Customer portal'), '', 'portal')}${empty(L('과제를 여세요.', 'Open a project.'))}</div>`;
   const requests = project.issues.filter((issue) => (issue.typeId === 'request' || issue.typeId === 'incident') && issueVisible(ctx, issue));
   const rows = requests.map((issue) => `<button type="button" class="link-row" data-action="open-issue" data-id="${esc(issue.id)}">${icon('request')}<span class="key">${esc(issue.key)}</span><span>${esc(issue.summary)}</span>${badge(nameOf(project.statuses.find((status) => status.id === issue.statusId)), project.statuses.find((status) => status.id === issue.statusId)?.color)}</button>`).join('');
   return `<div class="page">${pageHead(L('고객 포털', 'Customer portal'), '', 'portal')}${finderBar(ctx, issueFacets(ctx, ['type', 'status', 'assignee']))}
@@ -194,7 +206,7 @@ export function plansView(ctx) {
     { id: 'kind', label: L('종류', 'Kind'), options: [{ id: 'version', label: L('버전', 'Version') }, { id: 'epic', label: L('에픽', 'Epic') }] },
     { id: 'project', label: L('과제', 'Project'), options: projects.map((key) => ({ id: key, label: key })) },
   ])}
-    <p class="muted">${L('프로젝트의 버전과 기한이 있는 에픽을 한 줄로 봅니다.', 'Versions and epics that have a due date, across projects.')}</p>
+    <p class="muted">${L('과제의 버전과 기한이 있는 에픽을 한 줄로 봅니다.', 'Versions and epics that have a due date, across projects.')}</p>
     ${rows || empty(L('날짜가 있는 계획이 없습니다.', 'Nothing has a date yet.'))}</div>`;
 }
 
@@ -236,10 +248,10 @@ export function extensionsView(ctx) {
   const sso = ctx.ws.sso || {};
   const area = find.area || '';
   const show = (id) => !area || area === id;
-  const moduleBlock = `<section><h2>${L('모듈', 'Modules')}</h2><p class="muted">${L('관리 프로그램이 나중에 패키지를 이 목록에 올립니다. 지금은 기본 모듈을 켜고 끕니다.', 'The administration app will publish packages into this list later. For now, turn the built-in modules on or off.')}</p><div class="checks">${modules}</div></section>`;
-  const hookBlock = `<section><h2>${L('웹훅', 'Webhooks')}</h2><p class="muted">${L('이슈 활동이 생기면 데이터 서비스가 이 주소로 JSON을 보냅니다.', 'When an issue changes, the data service posts JSON to this address.')}</p>${hooks}<div class="inline"><input id="hook-url" placeholder="https://example.com/hook"><input id="hook-events" placeholder="created,transition"><button type="button" class="button" data-action="add-webhook">${icon('bolt')}<span>${L('추가', 'Add')}</span></button></div></section>`;
-  const tokenBlock = `<section><h2>${L('외부 API', 'External API')}</h2><p class="muted">GET /api/rest/issues · GET /api/rest/articles · GET /api/rest/documents · Authorization: Bearer</p>${tokens}<div class="inline"><input id="token-name" placeholder="${esc(L('이름', 'Name'))}"><button type="button" class="button" data-action="add-token">${icon('lock')}<span>${L('토큰', 'Token')}</span></button></div></section>`;
-  const ssoBlock = `<section><h2>${L('로그인 공급자', 'Sign-in provider')}</h2><p class="muted">${L('발급자 주소가 있으면 그 공급자로 들어갑니다. 비어 있으면 이 작업 공간의 사람을 씁니다.', 'When an issuer is set, sign-in goes to that provider. Otherwise this workspace uses its own people.')}</p>
+  const moduleBlock = `<section><h2>${icon('layers')}<span>${L('모듈', 'Modules')}</span></h2><p class="muted">${L('관리 프로그램이 나중에 패키지를 이 목록에 올립니다. 지금은 기본 모듈을 켜고 끕니다.', 'The administration app will publish packages into this list later. For now, turn the built-in modules on or off.')}</p><div class="checks">${modules}</div></section>`;
+  const hookBlock = `<section><h2>${icon('link')}<span>${L('웹훅', 'Webhooks')}</span></h2><p class="muted">${L('이슈 활동이 생기면 데이터 서비스가 이 주소로 JSON을 보냅니다.', 'When an issue changes, the data service posts JSON to this address.')}</p>${hooks}<div class="inline"><input id="hook-url" placeholder="https://example.com/hook"><input id="hook-events" placeholder="created,transition"><button type="button" class="button" data-action="add-webhook">${icon('bolt')}<span>${L('추가', 'Add')}</span></button></div></section>`;
+  const tokenBlock = `<section><h2>${icon('key')}<span>${L('외부 API', 'External API')}</span></h2><p class="muted">GET /api/rest/issues · GET /api/rest/articles · GET /api/rest/documents · Authorization: Bearer</p>${tokens}<div class="inline"><input id="token-name" placeholder="${esc(L('이름', 'Name'))}"><button type="button" class="button" data-action="add-token">${icon('lock')}<span>${L('토큰', 'Token')}</span></button></div></section>`;
+  const ssoBlock = `<section><h2>${icon('login')}<span>${L('로그인 공급자', 'Sign-in provider')}</span></h2><p class="muted">${L('발급자 주소가 있으면 그 공급자로 들어갑니다. 비어 있으면 이 작업 공간의 사람을 씁니다.', 'When an issuer is set, sign-in goes to that provider. Otherwise this workspace uses its own people.')}</p>
       <label class="form-row"><span>${L('발급자', 'Issuer')}</span><input data-sso="issuer" value="${esc(sso.issuer || '')}" placeholder="https://idp.example.com"></label>
       <label class="form-row"><span>${L('클라이언트', 'Client')}</span><input data-sso="clientId" value="${esc(sso.clientId || '')}"></label>
       <label class="form-row"><span>${L('비밀', 'Secret')}</span><input data-sso="clientSecret" type="password" value="${esc(sso.clientSecret || '')}"></label>
@@ -250,12 +262,15 @@ export function extensionsView(ctx) {
       { id: 'area', label: L('분류', 'Section'), options: [{ id: 'modules', label: L('모듈', 'Modules') }, { id: 'hooks', label: L('웹훅', 'Webhooks') }, { id: 'tokens', label: L('토큰', 'Tokens') }, { id: 'mail', label: L('메일', 'Mail') }, { id: 'sso', label: L('로그인', 'Sign-in') }] },
       { id: 'state', label: L('모듈', 'Module'), options: [{ id: 'on', label: L('켜짐', 'On') }, { id: 'off', label: L('꺼짐', 'Off') }] },
     ])}
-    ${show('modules') ? keepBlock(find.q, moduleBlock) : ''}
-    ${show('hooks') ? keepBlock(find.q, hookBlock) : ''}
-    ${show('mail') ? keepBlock(find.q, mailSettings(ctx)) : ''}
-    ${show('tokens') ? keepBlock(find.q, tokenBlock) : ''}
-    ${show('sso') ? keepBlock(find.q, ssoBlock) : ''}
+    ${extensionGroup('features', 'layers', L('기능', 'Features'), [show('modules') ? keepBlock(find.q, moduleBlock) : ''])}
+    ${extensionGroup('connect', 'link', L('연동', 'Connections'), [show('hooks') ? keepBlock(find.q, hookBlock) : '', show('tokens') ? keepBlock(find.q, tokenBlock) : '', show('sso') ? keepBlock(find.q, ssoBlock) : ''])}
+    ${extensionGroup('notify', 'bell', L('알림', 'Notifications'), [show('mail') ? keepBlock(find.q, mailSettings(ctx)) : ''])}
   </div>`;
+}
+
+function extensionGroup(id, glyph, title, parts) {
+  const body = parts.join('');
+  return body.trim() ? `<div class="settings-group" data-group="${id}"><h2 class="settings-group-title">${icon(glyph)}<span>${title}</span></h2><div class="settings-grid">${body}</div></div>` : '';
 }
 
 export function approvalBlock(ctx, issue) {

@@ -7,7 +7,7 @@ function projectOf(ws, projectId) {
 }
 
 function spaceKey(ws, projectId) {
-  const base = projectOf(ws, projectId)?.key || 'TEAM';
+  const base = projectOf(ws, projectId)?.key || 'COMPANY';
   if (!(ws.spaces || []).some((item) => item.key === base)) return base;
   let n = 2;
   while (ws.spaces.some((item) => item.key === `${base}${n}`)) n += 1;
@@ -19,8 +19,9 @@ function makeSpace(ws, projectId, actorId = '') {
   const space = {
     id: uid('sp'),
     key: spaceKey(ws, projectId),
-    name: project?.name || '팀',
+    name: project?.name || '회사 공용',
     projectId: projectId || '',
+    scope: projectId ? 'project' : 'company',
     description: '',
     authorId: actorId || '',
     updated: nowIso(),
@@ -96,7 +97,8 @@ export function addSpace(ws, input, actorId) {
   if (!/^[A-Z][A-Z0-9]{1,9}$/.test(key)) throw new Error('key-invalid');
   if (ws.spaces.some((item) => item.key === key)) throw new Error('duplicate-key');
   const space = {
-    id: uid('sp'), key, name, projectId: input.projectId || '',
+    id: uid('sp'), key, name, projectId: input.projectId || '', teamId: input.teamId || '',
+    scope: input.teamId ? 'team' : (input.projectId ? 'project' : 'company'),
     description: String(input.description || ''), authorId: actorId || '', updated: nowIso(),
   };
   ws.spaces.push(space);

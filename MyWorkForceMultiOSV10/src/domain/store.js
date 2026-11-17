@@ -3,6 +3,7 @@ import { boardsFor, defaultFilters, defaultGadgets, defaultQueues, freshCatalog,
 import { deliver, setNotice, upgradeNotices } from './notices.js';
 import { allowed, isWorkspaceAdmin, rolesOf } from './permissions.js';
 import { ensureServices } from './services.js';
+import { DEFAULT_METHODS, ensureSpaceScopes, ensureTeams, isTeamMember, upgradeMethods } from './teams.js';
 import { isDoneStatus } from './reports.js';
 import { byId, clone, nowIso, uid } from './util.js';
 
@@ -105,6 +106,8 @@ export function upgradeProject(project) {
   project.archived = Boolean(project.archived);
   if (project.allowAnyTransition == null) project.allowAnyTransition = true;
   project.seq = project.seq || 0;
+  project.teamId = project.teamId || '';
+  upgradeMethods(project);
   for (const issue of project.issues) upgradeIssue(issue);
   return project;
 }
@@ -130,7 +133,11 @@ export function upgradeWorkspace(data) {
     ws.currentUserId = ws.users.find((user) => user.active !== false)?.id || ws.users[0].id;
   }
   if (!ws.projects.some((project) => project.id === ws.activeProjectId)) ws.activeProjectId = ws.projects[0]?.id || null;
-  return ensureServices(ws);
+  ensureServices(ws);
+  // Company → Teams → Projects, and the company / team / project page spaces.
+  ensureTeams(ws);
+  ensureSpaceScopes(ws);
+  return ws;
 }
 
 export function ensureAdmin(ws) {
@@ -196,6 +203,15 @@ export function newProject(ws, input, actorId) {
   const leadId = input.leadId || ws.currentUserId;
   if (!ws.users.some((user) => user.id === leadId)) throw new Error('not-found');
   const type = ['software', 'business', 'service'].includes(input.type) ? input.type : 'software';
+  // A project is made inside a team: the chosen one, the parent's, or the first team the actor is in.
+  const parentTeam = input.parentId ? (ws.projects || []).find((item) => item.id === input.parentId)?.teamId : '';
+  const teams = ws.teams || [];
+  const actor = (ws.users || []).find((user) => user.id === actorId);
+  const team = teams.find((item) => item.id === (input.teamId || parentTeam))
+    || teams.find((item) => isTeamMember(item, actorId || leadId)) || teams[0] || null;
+  if (input.teamId && !team) throw new Error('not-found');
+  if (team && actorId && !isWorkspaceAdmin(actor) && !isTeamMember(team, actorId)) throw new Error('permission');
+  const methods = Array.isArray(input.methods) && input.methods.length ? input.methods : DEFAULT_METHODS[type];
   const project = upgradeProject({
     id: uid('p'),
     key,
@@ -214,6 +230,8 @@ export function newProject(ws, input, actorId) {
     members: [{ userId: leadId, role: 'administrator' }],
     allowAnyTransition: true,
     parentId: '',
+    teamId: team?.id || '',
+    methods: [...methods],
   });
   if (input.parentId) {
     const parent = (ws.projects || []).find((item) => item.id === input.parentId);

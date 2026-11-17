@@ -5,6 +5,8 @@ import { allowed, isWorkspaceAdmin, orderedProjects, participantAccess, particip
 import { createFields, moduleOn } from '../domain/services.js';
 import { avatar, button, esc, icon, L, nameOf, NAV_GLYPH, options, panelFrame, primary, typeBadge, userOptions } from './bits.js';
 import { shortcutGroups } from './shortcuts.js';
+import { ACCESS, canManageTeam, isTeamMember, projectViews, teamOfProject, teamsOf, DEFAULT_METHODS } from '../domain/teams.js';
+import { methodChecks } from './teams.js';
 
 function item(action, glyph, label, extra = '', keys = '') {
   return `<button type="button" data-action="${action}" ${extra}>${icon(glyph)}<span>${label}</span>${keys ? `<kbd>${keys}</kbd>` : ''}</button>`;
@@ -51,14 +53,14 @@ export function renderMenubar(ctx) {
   const name = project ? esc(project.name) : '';
   const recent = (ctx.settings.recent || []).map((path) => item('open-recent', 'folder', esc(path.split(/[/\\]/).pop()), `data-path="${esc(path)}"`)).join('');
   const file = [
-    item('new-project', 'plus', L('새 프로젝트', 'New project'), '', 'Ctrl+Shift+N'),
+    item('new-project', 'plus', L('새 과제', 'New project'), '', 'Ctrl+Shift+N'),
     item('open-file', 'folder', L('열기', 'Open'), '', 'Ctrl+O'),
     item('save-file', 'save', L('저장', 'Save'), '', 'Ctrl+S'),
     item('save-as', 'save', L('다른 이름으로 저장', 'Save as'), '', 'Ctrl+Shift+S'),
     '<div class="sep"></div>',
     item('export-md', 'download', L('Markdown로 내보내기', 'Export Markdown')),
     item('export-csv', 'download', L('CSV로 내보내기', 'Export CSV')),
-    item('export-project', 'download', L('이 프로젝트만 내보내기', 'Export this project')),
+    item('export-project', 'download', L('이 과제만 내보내기', 'Export this project')),
     recent ? `<div class="sep"></div>${recent}` : '',
     '<div class="sep"></div>',
     item('print', 'printer', L('인쇄', 'Print'), '', 'Ctrl+P'),
@@ -102,7 +104,8 @@ export function renderMenubar(ctx) {
   const signedIn = Boolean(ctx.ui.loginUser);
   const administrator = isWorkspaceAdmin(ctx.user) && ctx.ui.ready ? [
     item('go', 'people', L('사용자', 'Users'), 'data-view="users"'),
-    item('go', 'people', L('사람', 'People'), 'data-view="people"'),
+    item('go', 'team', L('팀', 'Teams'), 'data-view="teams"'),
+    item('go', 'folder', L('과제', 'Projects'), 'data-view="projects"'),
     item('go', 'settings', L('설정', 'Settings'), 'data-view="settings"'),
     item('go', 'database', L('데이터베이스', 'Database'), 'data-view="settings"'),
     item('go', 'bolt', L('확장', 'Extensions'), 'data-view="extensions"'),
@@ -128,9 +131,9 @@ function navLabel(id) {
     issues: L('이슈', 'Issues'), queues: L('대기열', 'Queues'), dashboard: L('대시보드', 'Dashboard'), reports: L('보고서', 'Reports'),
     releases: L('릴리스', 'Releases'), components: L('구성 요소', 'Components'), filters: L('필터', 'Filters'), people: L('사람', 'People'),
     health: L('점검', 'Health'), notifications: L('알림', 'Notifications'), settings: L('설정', 'Settings'), help: L('도움말', 'Help'),
-    knowledge: L('지식 자료', 'Knowledge'), documents: L('문서', 'Documents'), calendar: L('근무 달력', 'Work calendar'), portal: L('고객 포털', 'Customer portal'),
+    knowledge: L('페이지', 'Pages'), documents: L('문서', 'Documents'), calendar: L('근무 달력', 'Work calendar'), portal: L('고객 포털', 'Customer portal'),
     users: L('사용자', 'Users'), projects: L('과제', 'Projects'), 'project-settings': L('과제 설정', 'Project settings'),
-    plans: L('교차 계획', 'Plan'), extensions: L('확장', 'Extensions'),
+    plans: L('교차 계획', 'Plan'), extensions: L('확장', 'Extensions'), teams: L('팀', 'Teams'), team: L('팀', 'Team'),
   };
   return names[id] || id;
 }
@@ -189,7 +192,7 @@ export function renderToolbar(ctx) {
   const rightOpen = ctx.settings.showRightPanel !== false;
   const panelButton = (id, glyph, open, ko, en, keys = '') => `<button type="button" class="tool-button${open ? ' active' : ''}" data-action="toggle-panel" data-id="${id}" title="${esc(`${L(ko, en)}${keys ? ` ${keys}` : ''}`)}" aria-label="${esc(L(ko, en))}" aria-pressed="${open ? 'true' : 'false'}">${icon(glyph)}</button>`;
   return `<div class="toolbar-inner">
-      <select data-choose="project" title="${esc(L('프로젝트', 'Project'))}">${options(projects, ctx.ws.activeProjectId, L('프로젝트 없음', 'No project'))}</select>
+      <select data-choose="project" title="${esc(L('과제', 'Project'))}">${options(projects, ctx.ws.activeProjectId, L('과제 없음', 'No project'))}</select>
       <label class="quick-search" title="Ctrl+F">${icon('search')}<input id="quick-search" value="${esc(ctx.ui.quick || '')}" placeholder="${esc(L('검색 또는 WQL', 'Search or WQL'))}"></label>
       <button type="button" class="tool-button" data-action="command-palette" title="${esc(L('이동', 'Go to'))} Ctrl+K">${icon('bolt')}</button>
       <span class="tool-sep"></span>
@@ -211,16 +214,15 @@ export function renderToolbar(ctx) {
     </div>`;
 }
 
-const NAV = [
-  ['work', ['home', 'projects', 'project-settings', 'board', 'backlog', 'roadmap', 'issues', 'queues', 'portal']],
-  ['look', ['dashboard', 'reports', 'knowledge', 'documents', 'calendar', 'plans', 'releases', 'components', 'filters', 'health']],
-];
+const COMPANY_NAV = ['teams', 'projects', 'knowledge', 'documents', 'calendar', 'plans'];
+/** A project's screens, in this order; projectViews() keeps the ones its management methods use. */
+const PROJECT_NAV = ['home', 'issues', 'board', 'backlog', 'roadmap', 'queues', 'portal', 'releases', 'components', 'filters', 'dashboard', 'reports', 'health', 'project-settings'];
 const GATED = { knowledge: 'knowledge', documents: 'documents', calendar: 'calendar', portal: 'portal', plans: 'plans' };
 
 function navButtons(ctx, items) {
   return items.filter((id) => {
     if (id === 'project-settings' && !allowed(ctx.ws, ctx.project, ctx.user?.id, 'admin')) return false;
-    return (id !== 'queues' || ctx.project?.type === 'service' || (ctx.project?.queues || []).length) && (!GATED[id] || moduleOn(ctx.ws, GATED[id]));
+    return !GATED[id] || moduleOn(ctx.ws, GATED[id]);
   }).map((id) => {
     const glyph = NAV_GLYPH[id];
     return `<button type="button" class="nav-button${ctx.ui.view === id ? ' active' : ''}" data-action="go" data-view="${id}">${icon(glyph)}<span>${esc(navLabel(id))}</span></button>`;
@@ -237,22 +239,41 @@ function projectNav(ctx) {
     return `<button type="button" class="nav-button nav-project${current ? ' active' : ''}" data-action="activate" data-id="${esc(project.id)}" style="padding-left:${8 + depth * 14}px" title="${esc(`${project.key} · ${project.name}`)}">${icon('folder')}<span><small>${esc(project.key)}</small> ${esc(project.name)}${esc(archived)}</span></button>`;
   }).join('');
   const empty = `<p class="muted nav-empty">${L('참여 중인 과제가 없습니다.', 'You are not in a project yet.')}</p>`;
-  return `<div class="nav-section">${L('참여 과제', 'My projects')}</div>${rows || empty}`;
+  return `<div class="nav-section">${icon('folder')}${L('참여 과제', 'My projects')}</div>${rows || empty}`;
+}
+
+function teamNav(ctx) {
+  const mine = teamsOf(ctx.ws, ctx.user?.id).filter((team) => isTeamMember(team, ctx.user?.id) || isWorkspaceAdmin(ctx.user));
+  if (!mine.length) return '';
+  const rows = mine.map((team) => {
+    const current = ctx.ui.view === 'team' && ctx.ui.teamId === team.id;
+    return `<button type="button" class="nav-button${current ? ' active' : ''}" data-action="open-team" data-id="${esc(team.id)}" title="${esc(team.name)}">${icon('team')}<span>${esc(team.name)}</span></button>`;
+  }).join('');
+  return `<div class="nav-section">${icon('team')}${L('내 팀', 'My teams')}</div>${rows}`;
+}
+
+/** The open project's screens: only those its management methods bring. */
+function currentProjectNav(ctx) {
+  const project = ctx.project;
+  if (!project) return `<div class="nav-section">${icon('folder')}${L('과제', 'Project')}</div>${navButtons(ctx, ['home'])}`;
+  const views = projectViews(project);
+  const items = PROJECT_NAV.filter((id) => id === 'project-settings' || views.has(id));
+  return `<div class="nav-section nav-current">${icon('play')}<span>${L('이 과제', 'This project')} · <b>${esc(project.key)}</b></span></div>${navButtons(ctx, items)}`;
 }
 
 export function renderNav(ctx) {
-  const sections = { work: L('작업', 'Work'), look: L('살펴보기', 'Review') };
-  const userMenus = NAV.map(([section, items]) => `<div class="nav-section">${sections[section]}</div>${navButtons(ctx, items)}`).join('');
   const admin = isWorkspaceAdmin(ctx.user);
-  const adminMenus = admin ? `<div class="nav-group nav-group-admin">${icon('settings')}<span>${L('관리자 메뉴', 'Administrator menu')}</span></div>${navButtons(ctx, ['users', 'settings'])}` : '';
-  const body = `${projectNav(ctx)}<div class="nav-group">${icon('user')}<span>${L('사용자 메뉴', 'User menu')}</span></div>${userMenus}${adminMenus}`;
+  const company = `<div class="nav-group">${icon('globe')}<span>${L('회사', 'Company')}</span></div>${navButtons(ctx, COMPANY_NAV)}`;
+  const work = `<div class="nav-group">${icon('user')}<span>${L('내 작업', 'My work')}</span></div>${teamNav(ctx)}${projectNav(ctx)}${currentProjectNav(ctx)}`;
+  const adminMenus = admin ? `<div class="nav-group nav-group-admin">${icon('settings')}<span>${L('관리자 메뉴', 'Administrator menu')}</span></div>${navButtons(ctx, ['users', 'settings', 'extensions'])}` : '';
+  const body = `${company}${work}${adminMenus}`;
   return panelFrame(ctx.settings.showLeftPanel !== false, 'left', 'list', L('탐색', 'Navigation'), `<div class="panel-body">${body}</div>`);
 }
 
 export function renderStatus(ctx) {
   const project = ctx.project;
   const count = project ? project.issues.length : 0;
-  const hint = ctx.ui.queryError ? L('질의 문법을 확인하세요.', 'Check the query syntax.') : (project ? L(`${count}개 이슈`, `${count} issues`) : L('프로젝트를 여세요.', 'Open a project.'));
+  const hint = ctx.ui.queryError ? L('질의 문법을 확인하세요.', 'Check the query syntax.') : (project ? L(`${count}개 이슈`, `${count} issues`) : L('과제를 여세요.', 'Open a project.'));
   const where = ctx.ui.connection?.engine || (ctx.ui.path ? ctx.ui.path.split(/[/\\]/).pop() : L('데이터베이스에 연결', 'Connect a database'));
   return `<span>${hint}</span><span class="grow"></span><span>${esc(project ? `${project.key} · ${nameOf(PROJECT_TYPES.find((type) => type.id === project.type))}` : '')}</span><span class="tool-sep"></span><span>${ctx.user ? avatar(ctx.user) : ''}${esc(ctx.user?.name || '')}</span><span>${esc(where)}</span>`;
 }
@@ -275,7 +296,7 @@ function aboutDialog(ctx) {
   ];
   const table = rows.map(([glyph, label, value]) => `<dt title="${esc(label)}">${icon(glyph)}<span>${esc(label)}</span></dt><dd title="${esc(value)}">${esc(value)}</dd>`).join('');
   const description = L(
-    '프로젝트와 이슈, 스프린트, 백로그, 로드맵, 대기열, 작업 달력, 지식, 문서, 보고서, 대시보드를 한 작업 공간에서 다룹니다. 이슈는 WQL로 고르고, 보드에서 상태를 옮기며, 권한과 작업 흐름, 자동화, 승인을 설정합니다. 문서는 회의록부터 릴리스 노트까지 양식으로 만들고, 지식은 공간과 페이지 트리로 정리합니다. 데이터베이스는 SQLite를 기본으로 하고 MySQL, MariaDB, SQL Server, PostgreSQL에 연결합니다. Windows, macOS, Linux, 웹에서 실행됩니다.',
+    '과제와 이슈, 스프린트, 백로그, 로드맵, 대기열, 작업 달력, 지식, 문서, 보고서, 대시보드를 한 작업 공간에서 다룹니다. 이슈는 WQL로 고르고, 보드에서 상태를 옮기며, 권한과 작업 흐름, 자동화, 승인을 설정합니다. 문서는 회의록부터 릴리스 노트까지 양식으로 만들고, 지식은 공간과 페이지 트리로 정리합니다. 데이터베이스는 SQLite를 기본으로 하고 MySQL, MariaDB, SQL Server, PostgreSQL에 연결합니다. Windows, macOS, Linux, 웹에서 실행됩니다.',
     'Projects, issues, sprints, the backlog, the roadmap, queues, the work calendar, knowledge, documents, reports and dashboards live in one workspace. WQL picks issues, the board moves their status, and permissions, workflow, automation and approvals are configured here. Documents start from forms such as meeting notes and release notes. Knowledge is organized in spaces and a page tree. The database is a SQLite file by default and connects to MySQL, MariaDB, SQL Server or PostgreSQL. It runs on Windows, macOS, Linux and the web.',
   );
   return `<div class="modal-back"><div class="modal about">${heading('info', L('프로그램 정보', 'About'))}<div class="about">
@@ -295,7 +316,9 @@ function participantsDialog(ctx, modal) {
   const project = (ctx.ws.projects || []).find((item) => item.id === modal.projectId);
   if (!project) return '';
   const lead = (ctx.ws.users || []).find((user) => user.id === project.leadId);
-  const accessName = (access) => (access === 'edit' ? L('편집', 'Can edit') : L('읽기', 'Read only'));
+  const accessName = (access) => { const level = ACCESS.find((item) => item.id === (access === 'read' ? 'view' : access)); return level ? L(level.ko, level.en) : ''; };
+  const accessOfRole = (role) => (role === 'administrator' ? 'lead' : (['developer', 'tester'].includes(role) ? 'edit' : 'view'));
+  const accessOptions = (current) => ACCESS.map((level) => `<option value="${level.id}"${level.id === current ? ' selected' : ''}>${esc(L(level.ko, level.en))}</option>`).join('');
   const inherited = [];
   const inheritedIds = new Set();
   for (const ancestor of projectAncestors(ctx.ws, project)) {
@@ -320,9 +343,9 @@ function participantsDialog(ctx, modal) {
   const memberRows = (project.members || []).filter((member) => member.userId !== project.leadId).map((member) => {
     const user = (ctx.ws.users || []).find((item) => item.id === member.userId);
     if (!user) return '';
-    const access = participantAccess(member.role);
+    const access = accessOfRole(member.role);
     return `<div class="participant-row">${avatar(user)}<span class="grow">${esc(user.name)} <small>${esc(user.login || user.email || '')}</small></span>
-      <select data-participant="${esc(user.id)}" aria-label="${esc(L('권한', 'Access'))}"><option value="read"${access === 'read' ? ' selected' : ''}>${esc(accessName('read'))}</option><option value="edit"${access === 'edit' ? ' selected' : ''}>${esc(accessName('edit'))}</option></select>
+      <select data-participant="${esc(user.id)}" aria-label="${esc(L('권한', 'Access'))}">${accessOptions(access)}</select>
       <button type="button" class="small-button" data-action="remove-participant" data-id="${esc(user.id)}">${icon('trash')}<span>${L('빼기', 'Remove')}</span></button></div>`;
   }).join('');
   const needle = String(modal.query || '').trim().toLowerCase();
@@ -335,11 +358,11 @@ function participantsDialog(ctx, modal) {
   const team = matches.filter((user) => sharesTeam(ctx.ws, project.leadId, user.id));
   const others = matches.filter((user) => !sharesTeam(ctx.ws, project.leadId, user.id));
   const choice = (user) => `<div class="participant-row">${avatar(user)}<span class="grow">${esc(user.name)} <small>${esc(user.login || user.email || '')}</small></span>
-    <button type="button" class="small-button" data-action="add-participant" data-id="${esc(user.id)}" data-access="read">${icon('eye')}<span>${L('읽기', 'Read only')}</span></button>
-    <button type="button" class="small-button" data-action="add-participant" data-id="${esc(user.id)}" data-access="edit">${icon('pencil')}<span>${L('편집', 'Can edit')}</span></button></div>`;
+    <button type="button" class="small-button" data-action="add-participant" data-id="${esc(user.id)}" data-access="view">${icon('eye')}<span>${L('보기', 'View')}</span></button>
+    <button type="button" class="small-button" data-action="add-participant" data-id="${esc(user.id)}" data-access="edit">${icon('pencil')}<span>${L('편집', 'Edit')}</span></button></div>`;
   const group = (title, glyph, people) => `<h3>${icon(glyph)}<span>${esc(title)}</span></h3>${people.map(choice).join('') || `<p class="muted">${L('없습니다.', 'None.')}</p>`}`;
-  return `<div class="modal-back"><div class="modal participants">${heading('people', L('참여자', 'Participants'))}
-    <p>${esc(project.name)} · ${esc(L('읽기는 보기만 할 수 있고, 편집은 이슈를 만들고 바꿀 수 있습니다.', 'Read only can look. Can edit can create and change issues.'))}</p>
+  return `<div class="modal-back"><div class="modal participants">${heading('people', L('사람과 권한', 'People & access'))}
+    <p>${esc(project.name)} · ${esc(L('보기는 읽기만 하고, 편집은 이슈와 페이지를 만들고 바꾸며, 책임자는 사람과 권한과 설정을 관리합니다. 과제 삭제는 관리자만 합니다.', 'View can read. Edit can create and change issues and pages. Lead manages people, access and settings. Only an administrator deletes a project.'))}</p>
     <div class="participant-row">${lead ? avatar(lead) : ''}<span class="grow">${esc(lead?.name || '')}</span><b>${esc(L('책임자', 'Lead'))}</b></div>
     ${memberRows || `<p class="muted">${L('추가된 참여자가 없습니다.', 'No one else is on this project yet.')}</p>`}
     ${inheritedRows ? `<h3>${icon('folder')}<span>${esc(L('상위 과제', 'Parent project'))}</span></h3>${inheritedRows}` : ''}
@@ -353,8 +376,19 @@ function dialog(title, body, submit, glyph = 'plus') {
   return `<div class="modal-back"><form class="modal">${heading(glyph, title)}<div class="modal-body">${body}</div><div class="modal-foot"><button type="button" class="button" data-action="modal-cancel">${icon('close')}<span>${L('취소', 'Cancel')}</span></button><button type="submit" class="button primary">${icon('check')}<span>${submit}</span></button></div></form></div>`;
 }
 
+/** Field name → icon, so each dialog row shows what it asks for. */
+const FIELD_GLYPH = {
+  name: 'tag', key: 'idCard', type: 'layers', parent: 'subtask', description: 'pencil', team: 'team', summary: 'tag',
+  priority: 'flag', assignee: 'user', reporter: 'user', sprint: 'backlog', epic: 'epic', component: 'component', version: 'release',
+  due: 'calendar', start: 'calendar', end: 'calendar', estimate: 'clock', labels: 'tag', email: 'globe', phone: 'phone',
+  jobTitle: 'idCard', role: 'shield', lead: 'shield', password: 'key', user: 'user', goal: 'flag', status: 'workflow', from: 'workflow', to: 'workflow',
+  query: 'filter', url: 'link', events: 'bell', title: 'tag', body: 'file', color: 'palette', category: 'box', field: 'tag',
+};
+
 function row(label, control) {
-  return `<label class="form-row"><span>${label}</span>${control}</label>`;
+  const name = /\bname="([^"]+)"/.exec(control)?.[1] || '';
+  const glyph = FIELD_GLYPH[name];
+  return `<label class="form-row"><span>${glyph ? icon(glyph) : ''}${label}</span>${control}</label>`;
 }
 
 function personFields(ctx, user = {}) {
@@ -407,15 +441,30 @@ export function renderModal(ctx) {
     return `<div class="modal-back"><form class="modal palette">${heading('search', L('이슈로 이동', 'Go to an issue'))}<input id="palette-search" data-palette="search" value="${esc(modal.query || '')}" placeholder="${esc(L('키 또는 요약', 'Key or summary'))}">${paletteItems(ctx, modal.query || '')}</form></div>`;
   }
   if (modal.kind === 'participants') return participantsDialog(ctx, modal);
+  if (modal.kind === 'team') {
+    return dialog(L('새 팀', 'New team'), [
+      row(L('이름', 'Name'), '<input name="name" required>'),
+      row(L('키', 'Key'), `<input name="key" maxlength="10" placeholder="${esc(L('비우면 자동', 'Automatic when empty'))}">`),
+      row(L('팀장', 'Lead'), `<select name="lead">${userOptions(ctx.ws, ctx.user?.id || '', '')}</select>`),
+      row(L('설명', 'Description'), '<textarea name="description" rows="3"></textarea>'),
+    ].join(''), L('만들기', 'Create'), 'team');
+  }
   if (modal.kind === 'project') {
     const parents = orderedProjects(ctx.ws).filter((item) => allowed(ctx.ws, item, ctx.user?.id, 'admin'));
     const parent = parents.length ? row(L('상위 과제', 'Parent project'), `<select name="parent"><option value="">${esc(L('없음', 'None'))}</option>${parents.map((item) => `<option value="${esc(item.id)}"${item.id === modal.parentId ? ' selected' : ''}>${esc(item.key)} · ${esc(item.name)}</option>`).join('')}</select>`) : '';
-    return dialog(L('새 프로젝트', 'New project'), [
+    const admin = isWorkspaceAdmin(ctx.user);
+    const teams = (ctx.ws.teams || []).filter((team) => admin || isTeamMember(team, ctx.user?.id));
+    const parentTeam = (ctx.ws.projects || []).find((item) => item.id === modal.parentId)?.teamId;
+    const chosenTeam = modal.teamId || parentTeam || (ctx.ui.view === 'team' ? ctx.ui.teamId : '') || teams[0]?.id || '';
+    const type = modal.type || 'software';
+    return dialog(L('새 과제', 'New project'), [
+      row(L('팀', 'Team'), `<select name="team">${teams.map((team) => `<option value="${esc(team.id)}"${team.id === chosenTeam ? ' selected' : ''}>${esc(team.name)}</option>`).join('')}</select>`),
       row(L('이름', 'Name'), '<input name="name" required>'),
       row(L('키', 'Key'), '<input name="key" required maxlength="10" placeholder="SHOP">'),
-      row(L('종류', 'Type'), `<select name="type">${options(PROJECT_TYPES, 'software')}</select>`),
+      row(L('종류', 'Type'), `<select name="type" data-project-type>${options(PROJECT_TYPES, type)}</select>`),
       parent,
       row(L('설명', 'Description'), '<textarea name="description" rows="3"></textarea>'),
+      `<div class="form-block"><span class="form-block-title">${icon('layers')}${L('관리 방법', 'Management methods')}</span>${methodChecks(modal.methods || DEFAULT_METHODS[type])}</div>`,
     ].join(''), L('만들기', 'Create'), 'folder');
   }
   if (modal.kind === 'issue' && project) {
@@ -540,7 +589,7 @@ export function renderContext(ctx) {
   return bar + [
     item('menubar-home', 'spark', L('시작', 'Start')),
     item('new-issue', 'plus', L('새 이슈', 'New issue')),
-    item('new-project', 'folder', L('새 프로젝트', 'New project')),
+    item('new-project', 'folder', L('새 과제', 'New project')),
     item('go', 'board', L('보드', 'Board'), 'data-view="board"'),
   ].join('');
 }

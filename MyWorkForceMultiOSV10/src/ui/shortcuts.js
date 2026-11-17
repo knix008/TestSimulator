@@ -20,7 +20,7 @@ let armedUntil = 0;
 export function shortcutGroups() {
   return [
     [L('파일', 'File'), [
-      ['Ctrl+Shift+N', L('새 프로젝트', 'New project')],
+      ['Ctrl+Shift+N', L('새 과제', 'New project')],
       ['Ctrl+O', L('열기', 'Open')],
       ['Ctrl+S', L('저장', 'Save')],
       ['Ctrl+Shift+S', L('다른 이름으로 저장', 'Save as')],
@@ -44,7 +44,7 @@ export function shortcutGroups() {
       ['Ctrl+5', L('이슈', 'Issues')],
       ['Ctrl+6', L('대시보드', 'Dashboard')],
       ['Ctrl+7', L('보고서', 'Reports')],
-      ['Ctrl+8', L('지식 자료', 'Knowledge')],
+      ['Ctrl+8', L('페이지', 'Pages')],
       ['Ctrl+9', L('문서', 'Documents')],
       ['Ctrl+0', L('근무 달력', 'Work calendar')],
       ['G H', L('과제 홈', 'Project home')],
@@ -53,7 +53,7 @@ export function shortcutGroups() {
       ['G I', L('이슈', 'Issues')],
       ['G D', L('대시보드', 'Dashboard')],
       ['G P', L('보고서', 'Reports')],
-      ['G K', L('지식 자료', 'Knowledge')],
+      ['G K', L('페이지', 'Pages')],
       ['G O', L('문서', 'Documents')],
       ['G C', L('근무 달력', 'Work calendar')],
       ['G N', L('알림', 'Notifications')],

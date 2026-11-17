@@ -25,7 +25,7 @@ const FIELD_NAMES = {
   due: 'due', 기한: 'due',
   watcher: 'watcher', 관찰: 'watcher',
   sla: 'sla',
-  project: 'project', 프로젝트: 'project',
+  project: 'project', 과제: 'project', 프로젝트: 'project',
   rank: 'rank', 순위: 'rank',
 };
 

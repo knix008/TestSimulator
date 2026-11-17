@@ -2,7 +2,7 @@ import { nowIso, uid } from './util.js';
 import { addPage, deletePage, ensureWiki } from './wiki.js';
 
 export const MODULES = [
-  { id: 'knowledge', ko: '지식 자료', en: 'Knowledge' },
+  { id: 'knowledge', ko: '페이지', en: 'Pages' },
   { id: 'calendar', ko: '근무 달력', en: 'Work calendar' },
   { id: 'portal', ko: '고객 포털', en: 'Customer portal' },
   { id: 'approvals', ko: '승인', en: 'Approvals' },

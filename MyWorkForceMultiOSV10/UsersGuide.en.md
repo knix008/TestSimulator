@@ -4,13 +4,25 @@ MyWorkForce keeps projects and issues in one workspace. The menu bar is the wind
 
 ## Start
 
-Sign in first. People in one company each use their own account and share the same projects and documents. The store is a SQLite file on this computer, or MySQL, MariaDB, SQL Server, or PostgreSQL. Choose it under **Database** in Settings. That store holds every project in the company. The data service listens on port `1481` for the company network, and the workspace stays closed until someone signs in.
+Press **Sign in** at the top of the start page to open the sign-in window. After a fresh install, sign in with the administrator account to set up people, teams and the database. People in one company each use their own account and share the same projects and documents. The store is a SQLite file on this computer, or MySQL, MariaDB, SQL Server, or PostgreSQL. Choose it under **Database** in Settings. That store holds every project in the company. Connecting creates the tables it needs and brings the schema up to date. A database missing on the server can be created, and the administrator checks the tables or gets an SQL script for a DBA on the **Schema** card. The installed program starts the data service itself. The data service listens on port `1481` for the company network, and the workspace stays closed until someone signs in.
 
 On the People screen you can enter and change a person's name, title, team, phone, email, and photo. Those personal details are encrypted in the store. A password set on the People screen is required the next time you enter. A workspace left in the browser can be imported from the start screen.
 
 **Talk** on the toolbar, or Talk in Help, opens MyWorkForce Talk. Its menus and buttons use colored icons. The left toolbar is icons only, and each icon shows its name when the pointer rests on it. Notices, people, invite, your details, and work also open the related screen in the main window. A notice opens its page there. Those icons open notices, talks, people, invites, and your details on the right. A person's name sits beside a round photo, and each person without a photo has their own picture. Pressing that row opens the person's details. After a personal talk is open, Invite adds more people to that talk. It shows the person details entered in the main app. You can change your own details there, and an administrator can change anyone's. Sign in with the same account to speak with one person, or choose two or more people for a group talk. Files travel in that talk. Work notices collect in each person's own Notices room, and **Confirm** is pressed by that person. Signing in on one program signs the other in with the same account, and signing out of one signs the other out. The installer adds both MyWorkForce and MyWorkForce Talk. Under **This computer** in Settings, choose to start MyWorkForce and Talk together at boot, and automatic sign-in. They stay one program: one notification-area icon, and closing either window closes the other. The account and password for automatic sign-in stay on this computer.
 
 **Mail** in Settings sends through a server outside this company. The host is an external address such as `smtp.example.com`. Port 587 is STARTTLS and port 465 is SSL. The password stays on this server. **Send a test** checks that a message arrives, and later notices leave through that server.
+
+## Company, teams, projects and pages
+
+MyWorkForce holds one company. The company works in **teams**, teams run **projects**, and what people should know is kept in **pages**.
+
+- **Teams**: people who work together. Open **Company → Teams** in the navigation to see the team cards; a card opens the team's projects, team pages and members. The administrator creates and deletes teams; the administrator and team leads rename a team and change its members. A team that still has projects cannot be deleted, and a deleted team's pages move to the company space.
+- **Projects**: made inside a team. Any member may start a project in their team, and whoever starts it becomes its lead. A project can be moved to another team in its settings.
+- **Management methods**: each project chooses how it is run. Turn on what you need from Issue list, Kanban, Scrum, Roadmap, Releases and Service queues, and **This project** in the navigation shows only those screens. Kanban and the issue list are methods like the others; at least one stays on.
+- **People & access**: each project lists its people with **View** (read only), **Edit** (create and change issues and pages) or **Lead** (manage people, access and settings). The main lead is always a lead. For now only the administrator deletes a project, and the program asks first; a project with sub-projects needs them moved or deleted before.
+- **Pages**: the place to share information and documents. The **Company** space is for everyone, a **team** space for its members, a **project** space for that project's people. A single page can be restricted further. The space picker on the Pages screen groups the spaces by company, team and project.
+
+Settings are shown as cards in groups: **General** (start page, appearance), **This computer and sign-in**, **Data** (database and schema) and **Notifications** (mail).
 
 ## Tutorial and examples
 
