@@ -1,0 +1,16 @@
+html, body { margin: 0; height: 100%; overflow: hidden; background: #000; user-select: none; }
+#app { position: fixed; inset: 0; }
+.overlay-canvas { position: absolute; inset: 0; width: 100vw; height: 100vh; cursor: crosshair; display: block; }
+.overlay-hint {
+  position: absolute; top: 24px; left: 50%; transform: translateX(-50%);
+  padding: 9px 16px; border-radius: 999px; pointer-events: none;
+  background: rgba(14, 18, 24, 0.82); color: #e8eef5; border: 1px solid rgba(255, 255, 255, 0.14);
+  font: 13px/1.3 'Segoe UI', system-ui, -apple-system, 'Noto Sans KR', sans-serif;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35); transition: opacity 0.2s;
+}
+.overlay-hint.faded { opacity: 0; }
+.overlay-hint kbd { font: inherit; padding: 1px 6px; border-radius: 4px; background: rgba(255, 255, 255, 0.14); }
+.overlay-size {
+  position: absolute; padding: 3px 8px; border-radius: 4px; pointer-events: none;
+  background: #0b6aa2; color: #fff; font: 12px/1.4 Consolas, 'SF Mono', monospace;
+}
