@@ -61,6 +61,9 @@ export async function readPlanPicture(image, { metresPerPixel, method = "auto", 
   // The best reading, with the windows the others found where it has only thin frame lines.
   const best = found.length > 1 ? borrowWindows(found[pickDetection(found)], found) : found[0];
   if (!best) return EMPTY;
+  // A door drawn beside a window often reads as one wide opening (the pier between them is too short to be a
+  // wall): a door swing at either end of a wide "window" splits it into the door and the window.
+  splitDoorsFromWindows(best, image, metresPerPixel);
   // Furniture (MySketchBook's plan-furniture.js): sofas, beds, tables, wardrobes, toilets, baths, plants, rugs …
   // by their size, fill, colour, room and the walls they stand against.
   let furniture = [];
@@ -73,6 +76,69 @@ export async function readPlanPicture(image, { metresPerPixel, method = "auto", 
 }
 
 const rad = (deg) => (deg * Math.PI) / 180;
+
+/**
+ * Door swings inside wide window openings (in place on `result`): at either end of a window wider than 1.4 m, on
+ * either side of its wall, a quarter arc of a door's width from the hinge and the open leaf drawn in ink (darker or
+ * lighter than the picture's background) make that end a door; the rest stays a window.
+ */
+export function splitDoorsFromWindows(result, image, mpp) {
+  if (!image || !result || !result.openings || !result.walls) return 0;
+  const { data, width: W, height: H } = image;
+  const lum = (i) => 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+  // The background: the commonest brightness (paper, or a dark screen).
+  const hist = new Array(32).fill(0);
+  for (let i = 0; i < data.length; i += 4 * 7) hist[Math.min(31, lum(i) >> 3)]++;
+  const bg = hist.indexOf(Math.max(...hist)) * 8 + 4;
+  const inked = (x, y) => {
+    const px = Math.round(x / mpp), py = Math.round(y / mpp);
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+      const X = px + dx, Y = py + dy;
+      if (X < 0 || Y < 0 || X >= W || Y >= H) continue;
+      if (Math.abs(lum((Y * W + X) * 4) - bg) > 70) return true;
+    }
+    return false;
+  };
+  const share = (pts) => pts.filter(([x, y]) => inked(x, y)).length / pts.length;
+  const out = [];
+  let split = 0;
+  for (const o of result.openings) {
+    const w = typeof o.wall === "number" ? result.walls[o.wall] : result.walls.find((x) => x.id === o.wall);
+    if (!w || o.kind !== "window" || !(o.width > 1.4)) { out.push(o); continue; }
+    const L = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]) || 1;
+    const u = [(w.b[0] - w.a[0]) / L, (w.b[1] - w.a[1]) / L], n = [-u[1], u[0]];
+    const s0 = o.offset - o.width / 2, s1 = o.offset + o.width / 2, th = (w.thickness || 0.15) / 2;
+    let best = null;
+    for (const [end, dir] of [[s0, 1], [s1, -1]]) for (const side of [1, -1]) for (let wd = 0.7; wd <= Math.min(1.2, o.width - 0.3) + 1e-9; wd += 0.05) {
+      const hx = w.a[0] + u[0] * end + n[0] * side * th, hy = w.a[1] + u[1] * end + n[1] * side * th;
+      const arc = [], leaf = [];
+      for (let k = 1; k <= 14; k++) {
+        const a = rad(8 + (74 * k) / 14);
+        arc.push([hx + wd * (Math.cos(a) * dir * u[0] + Math.sin(a) * side * n[0]), hy + wd * (Math.cos(a) * dir * u[1] + Math.sin(a) * side * n[1])]);
+      }
+      for (let k = 1; k <= 8; k++) { const f = 0.15 + (0.8 * k) / 8; leaf.push([hx + n[0] * side * wd * f, hy + n[1] * side * wd * f]); }
+      const sa = share(arc), sl = share(leaf);
+      // Not just ink everywhere (furniture, hatching): the inside of the swing is mostly clear.
+      const inside = [];
+      for (let k = 1; k <= 6; k++) { const a = rad(20 + 8 * k); inside.push([hx + wd * 0.55 * (Math.cos(a) * dir * u[0] + Math.sin(a) * side * n[0]), hy + wd * 0.55 * (Math.cos(a) * dir * u[1] + Math.sin(a) * side * n[1])]); }
+      const si = share(inside);
+      const score = sa * 0.7 + sl * 0.3 - si * 0.5;
+      if (sa >= 0.6 && (sl >= 0.4 || sa >= 0.8) && si <= 0.5 && (!best || score > best.score)) best = { end, dir, side, wd, score };
+    }
+    if (!best) { out.push(o); continue; }
+    const pier = 0.1;
+    const door = { ...o, kind: "door", item: "door-single", width: best.wd, offset: best.end + (best.dir * best.wd) / 2, height: 2.1, sill: 0, side: best.side > 0 ? "left" : "right" };
+    // The hinge at this end: openingOf() reads (side !== "right") === (hinge === "left") as the wall's start.
+    const atStart = best.dir > 0;
+    door.hinge = (door.side !== "right") === atStart ? "left" : "right";
+    out.push(door);
+    const r0 = atStart ? best.end + best.wd + pier : s0, r1 = atStart ? s1 : best.end - best.wd - pier;
+    if (r1 - r0 >= 0.4) out.push({ ...o, offset: (r0 + r1) / 2, width: r1 - r0 });
+    split++;
+  }
+  result.openings = out;
+  return split;
+}
 const turn = (p, a) => [p[0] * Math.cos(a) - p[1] * Math.sin(a), p[0] * Math.sin(a) + p[1] * Math.cos(a)];
 
 /** Plan point (mm) of a point of the underlay's picture given in picture metres (`k`: plan mm per picture metre). */
@@ -158,6 +224,19 @@ export function placePicturePlan(result, u, { level, pictureWidth, metresPerPixe
  * on: the index of the piece it stands on, if any }) as this app's furniture on `level`: the item is a catalogue kind, or MySketchBook's id ("sb-<id>"). A piece turned
  * by θ faces (sin θ, cos θ); this app's rot r faces (−sin r, cos r): r = −θ, plus the underlay's and the straightening turn.
  */
+/**
+ * The height (mm) of a small thing found at `w` × `d` (mm) — a lamp, a vase, a plant, a screen — that the drawing
+ * shows bigger or smaller than catalogue entry `def`: it keeps its proportions (a screen with its width). null for
+ * the rest (a bed or a sofa drawn longer is not taller; a floor lamp or a ceiling light keeps its height).
+ */
+export function scaledHeight(def, w, d) {
+  const screen = /(^|-)(tv|monitor)($|-)/.test(def.kind) && !/console|stand|cabinet|mount|bracket/.test(def.kind);
+  const small = /^(Lighting|Decor|Plants)$/.test(def.cat) || /plant/.test(def.kind);
+  if ((!screen && !small) || /floor-lamp|pendant|ceiling|chandelier|sconce|wall/.test(def.kind) || !def.w || !def.d || !def.h) return null;
+  const f = screen ? w / def.w : Math.sqrt((w * d) / (def.w * def.d));
+  return Math.min(2400, Math.round(def.h * Math.min(2.5, Math.max(0.4, f)))); // under a ceiling
+}
+
 export function placeFurniture(list, { u, k, toPlan, angle = 0, level }) {
   const c = underlayPoint(u, [u.w / 2, u.h / 2], 1).map((v) => v / 1000);
   const about = (p) => { if (!angle) return p; const s = Math.sin(angle), co = Math.cos(angle), x = p[0] - c[0], y = p[1] - c[1]; return [c[0] + x * co - y * s, c[1] + x * s + y * co]; };
@@ -173,7 +252,8 @@ export function placeFurniture(list, { u, k, toPlan, angle = 0, level }) {
     // A small thing found on another (a lamp on a nightstand, a TV on its console) stands on that one's top.
     const host = f.on != null ? placed.get(f.on) : null;
     const extra = host ? { elevation: (host.elevation || 0) + (host.h || 0) } : f.elevation != null ? { elevation: Math.round(f.elevation * 1000) } : {};
-    const piece = { ...makeFurniture(def.kind, Math.round(q[0] * 1000), Math.round(q[1] * 1000), { rot, w, d, ...extra }), id: uid("u"), level };
+    const h = scaledHeight(def, w, d);
+    const piece = { ...makeFurniture(def.kind, Math.round(q[0] * 1000), Math.round(q[1] * 1000), { rot, w, d, ...(h ? { h } : {}), ...extra }), id: uid("u"), level };
     placed.set(i, piece);
     out.push(piece);
   });

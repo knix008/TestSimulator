@@ -91,3 +91,30 @@ test("apt104-furniture-lines-en: the living room's sliding window, lamps and TVs
   assert.ok(on("sb-table-lamp", "nightstand").length >= 2, "table lamps on the nightstands");
   assert.ok(on("sb-tv", "sb-tv-console").length >= 1, "a TV on its console");
 });
+// Which way the doors open is what the picture draws: a bathroom door beside a wooden floor and a door over a striped
+// one (once read off the floor's colour and stripes, not the drawn arc and leaf).
+for (const [id, cx, cz, hinge, open, width] of [
+  ["apt59-interior", 8.8, 7.02, [8.8, 7.42], [1, 0], 800],
+  ["apt74-tower-cad", 9.4, 2.25, [9.4, 2.7], [1, 0], 900],
+]) {
+  test(`${id}: the door at (${cx}, ${cz}) opens the way it is drawn`, async () => {
+    const s = index.pictures.find((x) => x.id === id);
+    const png = PNG.sync.read(fs.readFileSync(path.join(dir, s.file)));
+    const image = { data: new Uint8ClampedArray(png.data), width: png.width, height: png.height };
+    const mpp = s.widthMetres / png.width;
+    const r = await readPlanPicture(image, { metresPerPixel: mpp, templates: null });
+    const u = { x: 0, y: 0, w: s.widthMetres * 1000, h: (s.widthMetres * 1000 * png.height) / png.width, rot: 0 };
+    const out = placePicturePlan(r, u, { level: "L", pictureWidth: png.width, metresPerPixel: mpp });
+    const walls = new Map(out.walls.map((w) => [w.id, w]));
+    const doors = out.openings.filter((o) => o.kind === "door").map((o) => {
+      const w = walls.get(o.wall); const L = Math.hypot(w.x2 - w.x1, w.y2 - w.y1); const d = [(w.x2 - w.x1) / L, (w.y2 - w.y1) / L];
+      const hu = o.hinge === "end" ? o.at + o.width / 2 : o.at - o.width / 2;
+      return { o, c: [(w.x1 + d[0] * o.at) / 1000, (w.y1 + d[1] * o.at) / 1000], h: [(w.x1 + d[0] * hu) / 1000, (w.y1 + d[1] * hu) / 1000], v: [-d[1] * o.side, d[0] * o.side] };
+    });
+    const door = doors.find((x) => Math.hypot(x.c[0] - cx, x.c[1] - cz) < 0.5);
+    assert.ok(door, `a door at (${cx}, ${cz}) among ${doors.map((x) => x.c.map((v) => v.toFixed(2)).join(",")).join(" / ")}`);
+    assert.ok(Math.hypot(door.h[0] - hinge[0], door.h[1] - hinge[1]) < 0.15, `hinged at ${hinge} (got ${door.h.map((v) => v.toFixed(2))})`);
+    assert.ok(door.v[0] * open[0] + door.v[1] * open[1] > 0.9, `opens to ${open} (got ${door.v.map((v) => v.toFixed(2))})`);
+    assert.ok(Math.abs(door.o.width - width) <= 100, `${width} wide (got ${door.o.width})`);
+  });
+}

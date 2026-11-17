@@ -388,6 +388,26 @@ export class PlanEditor {
     const p = this.store.project;
     if (h.handle !== undefined) {
       const obj = findItem(p, h.obj.id).obj;
+      if (h.kind === "furniture" && typeof h.handle === "string") {
+        // A corner of a piece: it follows the pointer, the opposite corner stays; Shift keeps the proportions (and the height with them).
+        if (!d.f0) d.f0 = { x: obj.x, y: obj.y, w: obj.w, d: obj.d, h: obj.h };
+        const f0 = d.f0, i = +h.handle.slice(1);
+        const [a, b] = [[-1, -1], [1, -1], [1, 1], [-1, 1]][i];
+        const r = ((obj.rot || 0) * Math.PI) / 180, c = Math.cos(r), sn = Math.sin(r);
+        const toWorld = (u, v, cx, cy) => [cx + u * c - v * sn, cy + u * sn + v * c];
+        const opp = toWorld((-a * f0.w) / 2, (-b * f0.d) / 2, f0.x, f0.y);
+        const s = this.snapAt(x, y, { onWall: false, endpoints: false, grid: this.app.settings.snap !== false ? this.grid / 2 : 0 });
+        const dx = s.x - opp[0], dy = s.y - opp[1];
+        let w = Math.max(50, (dx * c + dy * sn) * a), dd = Math.max(50, (-dx * sn + dy * c) * b), hh = f0.h;
+        if (e.shiftKey) { const k = Math.max(w / f0.w, dd / f0.d); w = f0.w * k; dd = f0.d * k; hh = Math.max(20, f0.h * k); }
+        obj.w = Math.round(w); obj.d = Math.round(dd); obj.h = Math.round(hh);
+        [obj.x, obj.y] = toWorld((a * obj.w) / 2, (b * obj.d) / 2, opp[0], opp[1]).map(Math.round);
+        this.cursor = s;
+        this.app.setHint(`${t("Size")}: ${obj.w} × ${obj.d} × ${obj.h} mm  (Shift: ${t("keep the proportions")})`);
+        this.store.preview();
+        this.request();
+        return;
+      }
       if (h.kind === "walls") {
         const other = h.handle ? [obj.x1, obj.y1] : [obj.x2, obj.y2];
         const ex = h.handle ? [obj.x2, obj.y2] : [obj.x1, obj.y1];

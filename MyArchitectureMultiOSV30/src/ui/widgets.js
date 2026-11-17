@@ -466,6 +466,11 @@ export function stepper(value, { min = -Infinity, max = Infinity, step = 1, valu
     if (d) { e.preventDefault(); move(d); }
   });
   if (editable) {
+    // A click into the number selects it: typing replaces it (the mouse-up that follows would drop the selection).
+    let fresh = false;
+    out.addEventListener("focus", () => { fresh = true; out.select(); });
+    out.addEventListener("mouseup", (e) => { if (fresh) { e.preventDefault(); fresh = false; } });
+    out.addEventListener("blur", () => { fresh = false; });
     out.addEventListener("change", () => {
       const n = parseFloat(String(out.value).replace(",", "."));
       if (!Number.isFinite(n)) { render(); return; }

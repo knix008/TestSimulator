@@ -308,6 +308,39 @@ export function renderRight(app, host) {
   addCollapse(app, host, "right");
 }
 
+/**
+ * The size of a piece of furniture, any size the user types (plan and 3D properties): width, depth and height;
+ * "Keep proportions" scales the other two with the one changed; a scale in % for all three; back to the catalogue
+ * size. Each change is one undo step. Returns grid cells (label, control, …) for a prop-grid.
+ */
+export function furnitureSizeFields(app, obj) {
+  const keep = () => !!app.settings.keepFurnitureRatio;
+  const id = obj.id;
+  const edit = (label, fn) => app.store.edit(t("Edit {field}", { field: label }), (p) => { const f = p.furniture.find((x) => x.id === id); if (!f) return false; fn(f); return true; });
+  const dim = (label, key, min) => {
+    const el = stepper(+obj[key] || 0, { step: 10, min, max: 1e6, editable: true, format: (v) => String(Math.round(v)),
+      onChange: (v) => edit(label, (f) => {
+        const old = +f[key] || 1, nv = Math.max(min, Math.round(v));
+        if (keep()) { const k = nv / old; for (const kk of ["w", "d", "h"]) if (kk !== key) f[kk] = Math.max(kk === "h" ? 1 : 10, Math.round((+f[kk] || 0) * k)); }
+        f[key] = nv;
+      }) });
+    el.dataset.field = label;
+    return [h("span", { title: label }, label), el];
+  };
+  const scale = stepper(100, { step: 10, min: 5, max: 1000, editable: true, format: (v) => `${Math.round(v)} %`,
+    onChange: (v) => { const k = v / 100; if (Math.abs(k - 1) < 1e-6) return; edit(t("Scale"), (f) => { f.w = Math.max(10, Math.round(f.w * k)); f.d = Math.max(10, Math.round(f.d * k)); f.h = Math.max(1, Math.round(f.h * k)); }); } });
+  scale.dataset.field = t("Scale");
+  const def = furnitureDef(obj.kind);
+  const reset = h("button", { class: "btn small", type: "button", "data-size-reset": "1", disabled: !def || (def.w === obj.w && def.d === obj.d && def.h === obj.h),
+    onclick: () => def && edit(t("Default size"), (f) => { f.w = def.w; f.d = def.d; f.h = def.h; }) }, h("span", { html: icon("refresh", 13) }), t("Default size"));
+  return [
+    ...dim(t("Width"), "w", 10), ...dim(t("Depth"), "d", 10), ...dim(t("Height"), "h", 1),
+    h("span", {}, ""), checkbox(keep(), t("Keep proportions"), { onChange: (v) => { app.settings.keepFurnitureRatio = v; app.saveSettings(); } }),
+    h("span", { title: t("Scale") }, t("Scale")), scale,
+    h("span", {}, ""), reset,
+  ];
+}
+
 // A labelled field bound to the project through store.edit (one undo step each).
 function bindField(app, label, getter, setter, opts = {}) {
   if (opts.type === "number") {
@@ -456,9 +489,7 @@ function inspector(app, body) {
       ...bindField(app, "X", () => obj.x, (v) => { obj.x = v; }, mmS(10, -1e9)),
       ...bindField(app, "Y", () => obj.y, (v) => { obj.y = v; }, mmS(10, -1e9)),
       ...bindField(app, t("Rotation"), () => obj.rot || 0, (v) => { obj.rot = ((v % 360) + 360) % 360; }, deg),
-      ...bindField(app, t("Width"), () => obj.w, (v) => { obj.w = Math.max(10, v); }, mmS(10, 10)),
-      ...bindField(app, t("Depth"), () => obj.d, (v) => { obj.d = Math.max(10, v); }, mmS(10, 10)),
-      ...bindField(app, t("Height"), () => obj.h, (v) => { obj.h = Math.max(1, v); }, mmS(10, 1)),
+      ...furnitureSizeFields(app, obj),
       ...bindField(app, t("Elevation"), () => obj.elevation || 0, (v) => { obj.elevation = v; }, mmS(10, -1e5)),
       ...(obj.kind !== "model" ? bindField(app, t("Colour"), () => obj.color || "#8a9bb0", (v) => { obj.color = v; }, { type: "color", palette: INTERIOR_PALETTE }) : []));
     if (isLight(obj)) lightFields(app, obj, grid, act);

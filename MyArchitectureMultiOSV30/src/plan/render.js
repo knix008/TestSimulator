@@ -557,12 +557,14 @@ export function drawPlan(ctx, p, th, opts) {
   }
 
   // Selection and hover outlines.
-  const hl = (ids, color, width) => {
+  const hl = (ids, color, width, fill = null) => {
     ctx.strokeStyle = color;
     ctx.lineWidth = lw * width;
+    ctx.fillStyle = fill || "transparent";
+    const filled = (pts) => { poly(ctx, pts); if (fill) ctx.fill(); ctx.stroke(); };
     for (const w of walls) if (ids.has(w.id)) { const ol = outlines.get(w.id); if (ol) { poly(ctx, ol.poly); ctx.stroke(); } }
-    for (const r of rooms) if (ids.has(r.id)) { poly(ctx, r.pts); ctx.stroke(); }
-    for (const f of on(p.furniture)) if (ids.has(f.id)) { poly(ctx, furnitureCorners(f)); ctx.stroke(); }
+    for (const r of rooms) if (ids.has(r.id)) filled(r.pts);
+    for (const f of on(p.furniture)) if (ids.has(f.id)) filled(furnitureCorners(f));
     for (const c of on(p.columns)) if (ids.has(c.id)) { poly(ctx, furnitureCorners({ ...c, h: 0 })); ctx.stroke(); }
     for (const s of on(p.stairs)) if (ids.has(s.id)) { poly(ctx, stairGeometry(s).outline); ctx.stroke(); }
     for (const r of on(p.roofs)) if (ids.has(r.id)) { poly(ctx, r.pts); ctx.stroke(); }
@@ -581,14 +583,26 @@ export function drawPlan(ctx, p, th, opts) {
       for (const s of openingSpans(p, w)) {
         if (!ids.has(s.o.id)) continue;
         const t = w.thickness / 2 + 40;
-        poly(ctx, [wallPoint(w, s.u1, -t), wallPoint(w, s.u2, -t), wallPoint(w, s.u2, t), wallPoint(w, s.u1, t)]);
-        ctx.stroke();
+        filled([wallPoint(w, s.u1, -t), wallPoint(w, s.u2, -t), wallPoint(w, s.u2, t), wallPoint(w, s.u1, t)]);
       }
     }
   };
   if (!o.print) {
     if (o.hover && !sel.has(o.hover)) hl(new Set([o.hover]), alpha(th.hover, 0.7), 2);
-    if (sel.size) hl(sel, th.select, 2.5);
+    if (sel.size) {
+      // A wide soft halo, a tint inside, then the outline itself.
+      ctx.save(); ctx.lineJoin = "round";
+      hl(sel, alpha(th.select, 0.28), 9);
+      hl(sel, th.select, 3.2, alpha(th.select, 0.13));
+      // Corner marks on the selected pieces of furniture and columns (where to grab).
+      const s = 5 * o.px;
+      ctx.fillStyle = th.select;
+      for (const f of [...on(p.furniture), ...on(p.columns)]) {
+        if (!sel.has(f.id)) continue;
+        for (const [x, y] of furnitureCorners({ ...f, h: f.h || 0 })) ctx.fillRect(x - s, y - s, 2 * s, 2 * s);
+      }
+      ctx.restore();
+    }
     for (const is of o.issues || []) {
       if (is.level !== L) continue;
       ctx.strokeStyle = th.issue;

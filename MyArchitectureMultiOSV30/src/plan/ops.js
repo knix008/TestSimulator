@@ -24,6 +24,14 @@ export function hitTest(p, level, x, y, tol, { selected = new Set(), layersHidde
     if (dist(x, y, w.x1, w.y1) <= tol * 1.5) return { kind: "walls", obj: w, handle: 0 };
     if (dist(x, y, w.x2, w.y2) <= tol * 1.5) return { kind: "walls", obj: w, handle: 1 };
   }
+  // The corners of one selected piece of furniture: drag one to resize it ("c0" … "c3", furnitureCorners' order).
+  if (selected.size === 1) {
+    for (const f of on(p.furniture, level)) {
+      if (!selected.has(f.id) || f.kind === "component") continue;
+      const i = furnitureCorners(f).findIndex(([cx, cy]) => dist(x, y, cx, cy) <= tol * 1.5);
+      if (i >= 0) return { kind: "furniture", obj: f, handle: `c${i}` };
+    }
+  }
   for (const r of [...on(p.rooms, level), ...on(p.roofs, level), ...on(p.solids || [], level).filter((s) => !s.mesh)]) { // a mesh mass is reshaped in 3D, not by its corners
     if (!selected.has(r.id)) continue;
     const i = r.pts.findIndex(([px, py]) => dist(x, y, px, py) <= tol * 1.5);

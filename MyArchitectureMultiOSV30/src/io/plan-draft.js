@@ -140,12 +140,19 @@ export function polygonCentre(points) {
 
 /** World centres of the openings of a wall (taken before its ends move). */
 function openingCentres(draft, wall) {
-  return draft.openings.filter((o) => o.wall === wall.id).map((o) => ({ op: o, c: pointAlong(wall, o.offset) }));
+  return draft.openings.filter((o) => o.wall === wall.id).map((o) => ({ op: o, c: pointAlong(wall, o.offset), d: wallDir(wall) }));
 }
-/** Puts openings back at their plan positions on the (moved) wall, kept inside it. */
+/**
+ * Puts openings back at their plan positions on the (moved) wall, kept inside it. A wall that now runs the other way
+ * (two merged into one, a → b reversed) has its left and right swapped: the door keeps opening into the same room
+ * (its hinge, seen from the side it opens to, stays the same jamb).
+ */
 function restoreOpenings(wall, saved) {
-  const L = wallLength(wall);
-  for (const { op, c } of saved) op.offset = Math.max(Math.min(op.width / 2, L / 2), Math.min(L - Math.min(op.width / 2, L / 2), alongOf(wall, c)));
+  const L = wallLength(wall); const d = wallDir(wall);
+  for (const { op, c, d: was } of saved) {
+    op.offset = Math.max(Math.min(op.width / 2, L / 2), Math.min(L - Math.min(op.width / 2, L / 2), alongOf(wall, c)));
+    if (was && dot(was, d) < 0 && op.side) op.side = op.side === 'right' ? 'left' : 'right';
+  }
 }
 
 /** Sets one end of a wall (curved walls lose their arc: they are straight pieces from then on). */

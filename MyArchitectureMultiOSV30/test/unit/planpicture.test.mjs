@@ -9,7 +9,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { PNG } from "pngjs";
-import { readPlanPicture, placePicturePlan, underlayPoint, turnUnderlay, openingOf } from "../../src/io/planpicture.js";
+import { readPlanPicture, placePicturePlan, underlayPoint, turnUnderlay, openingOf, placeFurniture, scaledHeight } from "../../src/io/planpicture.js";
+import { furnitureDef } from "../../src/lib/furniture.js";
 import { parseProject, newProject } from "../../src/core/project.js";
 import { pointInPolygon } from "../../src/core/geom.js";
 
@@ -116,4 +117,19 @@ describe("plan picture samples", () => {
       }
     });
   }
+});
+
+test("small things found in a picture keep the size they are drawn at, their height in proportion", () => {
+  const u = { x: 0, y: 0, w: 10000, h: 8000, rot: 0 };
+  const place = (item, size) => placeFurniture([{ item, position: [2, 2], rotation: 0, size }], { u, k: 1, toPlan: (q) => q, level: "L" })[0];
+  const lamp = furnitureDef("sb-table-lamp"); // 360 × 360 × 600
+  const big = place("table-lamp", [0.48, 0.48]); const small = place("table-lamp", [0.24, 0.24]);
+  assert.equal(big.w, 480); assert.equal(small.w, 240);
+  assert.equal(big.h, Math.round(lamp.h * 480 / 360), "a bigger lamp is taller");
+  assert.equal(small.h, Math.round(lamp.h * 240 / 360), "a smaller one shorter");
+  const tv = place("tv", [1.0, 0.24]);
+  assert.equal(tv.h, Math.round(furnitureDef("sb-tv").h * 1000 / furnitureDef("sb-tv").w), "a screen scales with its width");
+  assert.equal(place("floor-lamp-tripod", [0.4, 0.4]).h, furnitureDef("sb-floor-lamp-tripod").h, "a floor lamp keeps its height");
+  assert.ok(place("fiddle-leaf-fig", [1.6, 1.6]).h <= 2400, "a big plant stays under the ceiling");
+  assert.equal(scaledHeight(furnitureDef("nightstand"), 600, 400), null, "furniture is not made taller for being drawn wider");
 });

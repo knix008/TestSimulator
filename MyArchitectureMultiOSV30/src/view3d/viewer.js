@@ -1370,7 +1370,7 @@ export function createViewer(container, options = {}) {
     let m = hlMats.get(base);
     if (!m) {
       m = base.clone();
-      if (m.emissive) { m.emissive = new THREE.Color(0x2a7fff); m.emissiveIntensity = 0.6; }
+      if (m.emissive) { m.emissive = new THREE.Color(0x2a7fff); m.emissiveIntensity = 1.1; }
       else m.color = new THREE.Color(0x7fb5ff);
       hlMats.set(base, m);
     }
@@ -1379,13 +1379,35 @@ export function createViewer(container, options = {}) {
 
   // The material before highlighting is kept on the mesh, so styles and
   // highlights can be switched in any order.
+  // The selection's frames: a box round each selected thing, drawn over everything (behind a wall too).
+  const selFrames = new THREE.Group();
+  selFrames.name = "selection";
+  scene.add(selFrames);
+  const frameMat = new THREE.LineBasicMaterial({ color: 0x2f8cff, depthTest: false, transparent: true, opacity: 0.95 });
   function applyHighlight() {
+    const boxes = new Map();
     building.traverse((o) => {
       if (!o.isMesh) return;
       const on = highlighted.has(o.userData.id);
       if (on && !o.userData.hl) { o.userData.hl = o.material; o.material = highlightMaterial(o.material); }
       else if (!on && o.userData.hl) { o.material = o.userData.hl; o.userData.hl = null; }
+      if (on && o.geometry) {
+        let b = boxes.get(o.userData.id);
+        if (!b) boxes.set(o.userData.id, (b = new THREE.Box3()));
+        o.updateWorldMatrix(true, false);
+        if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+        b.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld));
+      }
     });
+    for (const c of [...selFrames.children]) { selFrames.remove(c); c.geometry.dispose(); }
+    for (const b of boxes.values()) {
+      if (b.isEmpty()) continue;
+      b.expandByScalar(0.02);
+      const frame = new THREE.Box3Helper(b, 0x2f8cff);
+      frame.material = frameMat;
+      frame.renderOrder = 999;
+      selFrames.add(frame);
+    }
     batcher.show(ownMeshIds());
     dirty = true;
   }
@@ -1783,8 +1805,10 @@ export function createViewer(container, options = {}) {
 
   function screenshot() {
     setLowRes(false); // pictures always at the full resolution
+    const frames = selFrames.visible; selFrames.visible = false; // the selection is not part of the picture
     prepareFrame();
     renderer.render(scene, camera);
+    selFrames.visible = frames;
     return sk.composite(canvas); // with the style's watermark
   }
 
@@ -1912,6 +1936,7 @@ export function createViewer(container, options = {}) {
     const hidden = [];
     const hide = (o) => { if (o.visible) { o.visible = false; hidden.push(o); } };
     for (const c of helpers.children) if (c !== ground) hide(c);
+    hide(selFrames);
     hide(batcher.group);
     scene.traverse((o) => {
       if (o === scene || !o.visible) return;

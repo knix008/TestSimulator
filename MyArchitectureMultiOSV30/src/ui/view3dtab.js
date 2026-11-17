@@ -14,6 +14,7 @@ import { sunPosition, daylight } from "../core/sun.js";
 import { switchLamps, lampSummary } from "./lights.js";
 import { SketchupUI } from "./skui.js";
 import { createScaleBar } from "./scalebar.js";
+import { furnitureSizeFields } from "./panels.js";
 import { createTour } from "./tour.js";
 import { materialPicker } from "./matpicker.js";
 import { isDoor, isOpen, setDoors } from "../core/doors.js";
@@ -693,6 +694,9 @@ export class View3DTab {
         h("div", { class: "prop-actions" },
           h("button", { class: "btn small", onclick: () => this.app.crossProbe([o.id], "plan") }, h("span", { html: icon("floorplan", 14) }), t("Show in plan")),
           h("button", { class: "btn small", onclick: () => this.app.editProperties(item.kind, o) }, h("span", { html: icon("settings", 14) }), t("Properties…"))));
+      if (item.kind === "furniture" && o.kind !== "component") {
+        body.append(h("div", { class: "prop-section" }, t("Size")), h("div", { class: "prop-grid", "data-size-3d": o.id }, ...furnitureSizeFields(this.app, o)));
+      }
       if (item.kind === "openings" && isDoor(o)) {
         const open = isOpen(o, this.opts.openDoors);
         body.append(h("div", { class: "prop-actions" },
