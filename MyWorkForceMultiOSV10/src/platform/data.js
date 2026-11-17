@@ -4,17 +4,41 @@ const PROFILE = 'myworkforce-session-user';
 const AUTO = 'myworkforce-autologin';
 const OPEN = 'myworkforce-open';
 
+const LOCAL_SERVICE = 'http://127.0.0.1:1481';
+
+/** The desktop program's own page (tauri.localhost on Windows, tauri:// elsewhere), not a web page. */
+function desktopPage() {
+  try {
+    const { hostname = '', protocol = '' } = globalThis.location || {};
+    return Boolean(globalThis.__TAURI_INTERNALS__) || protocol === 'tauri:' || /(^|\.)tauri\.localhost$/i.test(hostname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Where the data service is. The installed program starts one on this computer, so the desktop window
+ * always uses 127.0.0.1; a web page uses the computer it was loaded from.
+ */
 function defaultDataUrl() {
+  if (desktopPage()) return LOCAL_SERVICE;
   try {
     const host = globalThis.location?.hostname;
     if (host) return `http://${host}:1481`;
   } catch { /* opened without a page address */ }
-  return 'http://127.0.0.1:1481';
+  return LOCAL_SERVICE;
+}
+
+/** An address built from the desktop page's own host by an older version: it never reaches the service. */
+function unusable(url) {
+  return /^https?:\/\/([^/]*\.)?tauri\.localhost(:|\/|$)/i.test(String(url || ''));
 }
 
 export function dataUrl() {
   try {
-    return (localStorage.getItem(KEY) || defaultDataUrl()).replace(/\/$/, '');
+    const saved = localStorage.getItem(KEY) || '';
+    if (saved && unusable(saved)) localStorage.removeItem(KEY);
+    return ((saved && !unusable(saved) ? saved : '') || defaultDataUrl()).replace(/\/$/, '');
   } catch {
     return defaultDataUrl();
   }
@@ -116,16 +140,28 @@ export function watchSharedSession(onChange) {
 
 export function rememberDataUrl(url) {
   const next = String(url || '').trim().replace(/\/$/, '');
-  if (!next) return;
-  localStorage.setItem(KEY, next);
+  if (!next || unusable(next)) return;
+  // The default is not pinned, so it can follow where the program runs; only a chosen server is kept.
+  try {
+    if (next === defaultDataUrl()) localStorage.removeItem(KEY);
+    else localStorage.setItem(KEY, next);
+  } catch { /* storage is off: the default is used */ }
 }
 
 async function call(path, options = {}) {
   const token = sessionToken();
-  const response = await fetch(`${dataUrl()}${path}`, {
-    ...options,
-    headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}), ...(options.headers || {}) },
-  });
+  let response;
+  try {
+    response = await fetch(`${dataUrl()}${path}`, {
+      ...options,
+      headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}), ...(options.headers || {}) },
+    });
+  } catch (cause) {
+    // Nothing answered at all (not started yet, stopped, or a wrong address).
+    const error = new Error('service');
+    error.detail = `${dataUrl()} · ${cause?.message || cause}`;
+    throw error;
+  }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     const error = new Error(data.error || 'connect');
@@ -136,6 +172,19 @@ async function call(path, options = {}) {
 }
 
 export const dataStatus = () => call('/api/status');
+
+/** Waits until the data service answers (the installed program starts it together with the window). */
+export async function waitForService(timeoutMs = 20000) {
+  const until = Date.now() + timeoutMs;
+  for (;;) {
+    try {
+      return await dataStatus();
+    } catch (error) {
+      if (error?.message !== 'service' || Date.now() > until) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    }
+  }
+}
 export const connectData = (config) => call('/api/connect', { method: 'POST', body: JSON.stringify(config || { engine: 'sqlite' }) });
 export const loadWorkspace = () => call('/api/workspace');
 export const saveWorkspace = (workspace) => call('/api/workspace', { method: 'PUT', body: JSON.stringify({ workspace, revision: Number(workspace?.revision) || 0 }) });

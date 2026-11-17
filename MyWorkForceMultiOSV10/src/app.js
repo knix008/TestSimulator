@@ -22,7 +22,7 @@ import {
 } from './domain/store.js';
 import { writingExport } from './domain/markdown.js';
 import { fromDateInput, parseDuration, uid } from './domain/util.js';
-import { changeOwnPassword, schemaSql, schemaStatus, setUserPassword, upgradeSchema } from './platform/data.js';
+import { changeOwnPassword, schemaSql, schemaStatus, setUserPassword, upgradeSchema, waitForService } from './platform/data.js';
 import { decorateIcons } from './ui/autoicons.js';
 import { htmlToMarkdown } from './domain/htmlmd.js';
 import { renderMarkdown } from './domain/markdown.js';
@@ -75,6 +75,7 @@ const ERRORS = {
   'engine-unknown': ['지원하지 않는 데이터베이스입니다.', 'That database is not supported.'],
   'project-required': ['과제를 연 뒤에 그 과제와 공유하세요.', 'Open a project before sharing with it.'],
   connect: ['데이터베이스에 연결하지 못했습니다.', 'Could not connect to the database.'],
+  service: ['데이터 서비스에 연결하지 못했습니다. 프로그램이 데이터 서비스를 시작하는 중일 수 있으니 잠시 뒤 다시 시도하세요.', 'The data service did not answer. The program may still be starting it; try again in a moment.'],
   'password-change': ['처음 로그인했습니다. 계속하려면 새 암호를 정하세요.', 'This is your first sign-in. Choose a new password to continue.'],
   'password-weak': ['암호는 6자 이상이어야 합니다.', 'A password needs at least 6 characters.'],
   'password-same': ['지금 암호와 다른 암호를 정하세요.', 'Choose a password different from the current one.'],
@@ -345,7 +346,10 @@ async function pullWorkspace() {
   finally { pulling = false; }
 }
 
+let statusRetry = 0;
+
 async function refreshStatus() {
+  clearTimeout(statusRetry);
   try {
     const status = await dataStatus();
     if (status.connected && sessionToken()) {
@@ -370,6 +374,7 @@ async function refreshStatus() {
   } catch {
     ui.status = { listening: false };
   }
+  if (ui.status?.listening === false) statusRetry = setTimeout(() => { refreshStatus().catch(() => {}); }, 2000);
   if (!ui.ready) paint();
 }
 
@@ -2741,6 +2746,8 @@ export async function start() {
   ui.ready = false;
   try { ui.localBackup = Boolean(await loadLocal()); } catch { ui.localBackup = false; }
   try { pendingFiles = await startupFiles() || []; } catch { pendingFiles = []; }
+  paint();
+  try { await waitForService(isDesktop() ? 30000 : 3000); } catch { /* the start page says it did not answer, and keeps trying */ }
   await refreshStatus();
   if (settings.launchAtStartup) setLaunchAtStartup(true).catch(() => {});
   if (!(await adoptSharedSession())) await autoSignIn();

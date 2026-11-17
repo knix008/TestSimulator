@@ -1,6 +1,6 @@
 import './talk.css';
 import { icon } from '../icons.js';
-import { changeOwnPassword, chatMessages, chatPeople, chatProfile, chatRooms, checkChat, currentSession, fetchChatFile, inviteChat, loginSession, logoutSession, openChat, postChat, postChatFile, rememberLogin, rememberProfile, saveChatProfile, savedLogin, sessionProfile, sessionToken, watchSharedSession } from '../platform/data.js';
+import { waitForService, changeOwnPassword, chatMessages, chatPeople, chatProfile, chatRooms, checkChat, currentSession, fetchChatFile, inviteChat, loginSession, logoutSession, openChat, postChat, postChatFile, rememberLogin, rememberProfile, saveChatProfile, savedLogin, sessionProfile, sessionToken, watchSharedSession } from '../platform/data.js';
 import { installTooltips } from '../ui/tooltip.js';
 import { openMain } from '../platform/native.js';
 
@@ -32,6 +32,7 @@ const text = {
       'password-same': '지금 암호와 다른 암호를 정하세요.',
       'password-mismatch': '새 암호 두 칸이 서로 다릅니다.',
       connect: '데이터 서비스에 연결하지 못했습니다.',
+      service: '데이터 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도하세요.',
       permission: '권한이 없습니다.',
     },
     signIn: '로그인',
@@ -100,6 +101,7 @@ const text = {
       'password-same': 'Choose a password different from the current one.',
       'password-mismatch': 'The two new password boxes do not match.',
       connect: 'Could not reach the data service.',
+      service: 'The data service did not answer. Try again in a moment.',
       permission: 'You do not have permission.',
     },
     signIn: 'Sign in',
@@ -802,6 +804,8 @@ document.querySelector('#app').addEventListener('keydown', (event) => {
 });
 
 async function boot() {
+  // The installed program starts the data service together with this window: wait for it first.
+  try { await waitForService(30000); } catch { /* signing in says it did not answer */ }
   if (!sessionToken()) {
     try {
       const settings = JSON.parse(localStorage.getItem('myworkforce-settings') || '{}');
