@@ -107,6 +107,52 @@ function filled(comp, w, h, wall = null) {
   return Int32Array.from(out);
 }
 
+/**
+ * The rectangle (in the walls' frame, turned by `angle`) an ink component runs round, as the room pixels inside it —
+ * or null when the component already encloses most of it (`enclosed` pixels), is not furniture-sized, or its ink
+ * does not follow the rectangle's four sides (three sides nearly all the way).
+ */
+function rectangleOf(comp, enclosed, { w, m, angle, roomOf }) {
+  const c = Math.cos(angle); const s = Math.sin(angle);
+  const N = comp.pixels.length;
+  const us = new Float32Array(N); const vs = new Float32Array(N);
+  let u0 = Infinity; let u1 = -Infinity; let v0 = Infinity; let v1 = -Infinity;
+  for (let k = 0; k < N; k++) {
+    const i = comp.pixels[k]; const x = i % w + 0.5; const y = (i / w | 0) + 0.5;
+    const u = x * c + y * s; const v = -x * s + y * c;
+    us[k] = u; vs[k] = v;
+    if (u < u0) u0 = u; if (u > u1) u1 = u; if (v < v0) v0 = v; if (v > v1) v1 = v;
+  }
+  const du = u1 - u0; const dv = v1 - v0;
+  if (du * m < 0.3 || dv * m < 0.3 || du * m > 4.5 || dv * m > 4.5) return null;
+  if (enclosed >= du * dv * 0.6) return null;
+  // Which stretches (2 px bins) of each side have ink within the band along it.
+  const band = Math.max(2, 0.05 / m);
+  const sides = [du, du, dv, dv].map((L) => new Uint8Array(Math.max(1, Math.ceil(L / 2) + 1)));
+  for (let k = 0; k < N; k++) {
+    const u = us[k] - u0; const v = vs[k] - v0;
+    if (v <= band) sides[0][Math.floor(u / 2)] = 1;
+    if (dv - v <= band) sides[1][Math.floor(u / 2)] = 1;
+    if (u <= band) sides[2][Math.floor(v / 2)] = 1;
+    if (du - u <= band) sides[3][Math.floor(v / 2)] = 1;
+  }
+  const cover = sides.map((a) => a.reduce((t, b) => t + b, 0) / a.length);
+  // Three sides at least (a door swing or a neighbour can hide one).
+  const sorted = [...cover].sort((p, q) => q - p);
+  if (sorted[2] < 0.7 || cover.reduce((t, b) => t + b, 0) / 4 < 0.62) return null;
+  // The room pixels inside the rectangle (walls left out).
+  const out = [];
+  const xs = [0, du].flatMap((a) => [0, dv].map((b) => (u0 + a) * c - (v0 + b) * s));
+  const ys = [0, du].flatMap((a) => [0, dv].map((b) => (u0 + a) * s + (v0 + b) * c));
+  const X0 = Math.max(0, Math.floor(Math.min(...xs))); const X1 = Math.min(w - 1, Math.ceil(Math.max(...xs)));
+  const Y0 = Math.max(0, Math.floor(Math.min(...ys))); const Y1 = Math.min(roomOf.length / w - 1, Math.ceil(Math.max(...ys)));
+  for (let y = Y0; y <= Y1; y++) for (let x = X0; x <= X1; x++) {
+    const u = (x + 0.5) * c + (y + 0.5) * s; const v = -(x + 0.5) * s + (y + 0.5) * c;
+    if (u >= u0 && u <= u1 && v >= v0 && v <= v1 && roomOf[y * w + x] >= 0) out.push(y * w + x);
+  }
+  return out.length >= du * dv * 0.6 ? Int32Array.from(out) : null;
+}
+
 // ───────────────────────── the scene: rooms, floor colours, ink, solid colour, candidates
 
 /**
@@ -115,7 +161,7 @@ function filled(comp, w, h, wall = null) {
  * their swings are left out. Candidates: outlined things (line components with what they enclose) and solid colour
  * patches, as pixel index arrays.
  */
-export function furnitureScene(image, { metresPerPixel: m, rooms, doors = [], rest = null, walls = [] }) {
+export function furnitureScene(image, { metresPerPixel: m, rooms, doors = [], rest = null, walls = [], angle = 0 }) {
   const { width: w, height: h } = image;
   const { gray, rgb } = channels(image);
   const n = w * h;
@@ -204,7 +250,26 @@ export function furnitureScene(image, { metresPerPixel: m, rooms, doors = [], re
   // Outlined: each line component with what it encloses.
   const inkClosed = morph(morph(ink, w, h, 1, false), w, h, 1, true);
   const wall = Uint8Array.from(roomOf, (v) => (v < 0 ? 1 : 0));
-  for (const comp of components(inkClosed, w, h, px(0.02))) candidates.push({ pixels: filled(comp, w, h, wall), kind: 'outline' });
+  // Symbols: small open drawings that enclose nothing (a floor lamp's three legs, a stand's cross), roughly square.
+  const symbols = [];
+  for (const comp of components(inkClosed, w, h, Math.max(6, px(0.004)))) {
+    const bw = comp.x1 - comp.x0 + 1; const bh = comp.y1 - comp.y0 + 1;
+    if (!between(bw * m, 0.3, 0.75) || !between(bh * m, 0.3, 0.75) || Math.max(bw, bh) / Math.min(bw, bh) > 1.4) continue;
+    if (comp.pixels.length > bw * bh * 0.22) continue;
+    const inside = filled(comp, w, h, wall);
+    if (inside.length > bw * bh * 0.35) continue;
+    const cx = (comp.x0 + comp.x1 + 1) / 2; const cy = (comp.y0 + comp.y1 + 1) / 2;
+    const room = roomOf[Math.floor(cy) * w + Math.floor(cx)];
+    if (room >= 0) symbols.push({ centre: [cx * m, cy * m], size: [bw * m, bh * m], room });
+  }
+  for (const comp of components(inkClosed, w, h, px(0.02))) {
+    const inside = filled(comp, w, h, wall);
+    candidates.push({ pixels: inside, kind: 'outline' });
+    // An outline with gaps (a label or a door swing drawn across it, soft edges in a colour plan) encloses little:
+    // when its ink runs round most of a rectangle, that rectangle is a candidate too (a bed, a sofa, a table).
+    const box = rectangleOf(comp, inside.length, { w, m, angle, roomOf });
+    if (box) candidates.push({ pixels: box, kind: 'outline' });
+  }
   // Solid: coloured patches (thin floor joints opened away), with the outline pixels around them.
   const solidOpen = morph(morph(solid, w, h, 1, true), w, h, 1, false);
   for (const comp of components(solidOpen, w, h, px(0.05))) candidates.push({ pixels: comp.pixels, kind: 'solid' });
@@ -221,7 +286,7 @@ export function furnitureScene(image, { metresPerPixel: m, rooms, doors = [], re
     }
     edge[y * w + x] = Math.min(1, best / 400);
   }
-  return { width: w, height: h, rgb, ink, solid, blocked, edge, roomOf, floor, candidates: candidates.filter((c) => c.pixels.length >= px(0.06)) };
+  return { width: w, height: h, rgb, ink, solid, blocked, edge, roomOf, floor, symbols, candidates: candidates.filter((c) => c.pixels.length >= px(0.06)) };
 }
 
 // ───────────────────────── shape of a pixel set
@@ -481,8 +546,10 @@ export function matchShape(f, ctx, templates, sample) {
  * score }] in picture metres (x right, z down). `result`: the recognised walls and openings of the same picture
  * (picture metres); `angle`: the walls' direction (radians; 0 for a square picture); `templates`: (item) → its top view
  * (io/plan-templates.js) — with them the items are matched by what they look like, without them by the size rules.
+ * Small things found on others (a lamp on a nightstand) carry `on` (the host's index) and `elevation` (its top, m).
+ * `trace`: an array that collects how every candidate was named (for debugging).
  */
-export function detectFurniture(image, { metresPerPixel: m, result, angle = 0, templates = null }) {
+export function detectFurniture(image, { metresPerPixel: m, result, angle = 0, templates = null, trace = null }) {
   if (!result?.walls?.length) return [];
   const built = planEntities({ ...result, texts: [] }, { level: 'f', keepLeftovers: false });
   const rooms = built.rooms;
@@ -497,7 +564,7 @@ export function detectFurniture(image, { metresPerPixel: m, result, angle = 0, t
   const xs = built.walls.flatMap((v) => [v.a[0], v.b[0]]); const zs = built.walls.flatMap((v) => [v.a[1], v.b[1]]);
   const t = Math.max(...built.walls.map((v) => v.thickness)) / 2;
   const rest = [[Math.min(...xs) + t, Math.min(...zs) + t], [Math.max(...xs) - t, Math.min(...zs) + t], [Math.max(...xs) - t, Math.max(...zs) - t], [Math.min(...xs) + t, Math.max(...zs) - t]];
-  const scene = furnitureScene(image, { metresPerPixel: m, rooms: rooms.map((r) => r.points), doors, rest, walls: built.walls });
+  const scene = furnitureScene(image, { metresPerPixel: m, rooms: rooms.map((r) => r.points), doors, rest, walls: built.walls, angle });
   const n = scene.width * scene.height;
   // Distance from a point to the nearest wall face (m).
   const wallAt = (p) => {
@@ -598,6 +665,7 @@ export function detectFurniture(image, { metresPerPixel: m, result, angle = 0, t
       const weight = parts.reduce((s, p) => s + p.weight, 0);
       if (weight > pick.weight * 1.15) pick = { items: parts.flatMap((p) => p.items), weight };
     }
+    trace?.push({ f: node.f, ctx, name, whole: pick.items.length === 1 && pick.items[0].f === node.f, kids: node.children.length });
     return pick;
   };
   const choose = () => {
@@ -678,5 +746,99 @@ export function detectFurniture(image, { metresPerPixel: m, result, angle = 0, t
     if (Math.abs(Math.sin(turn)) > 0.7) p.size = [p.size[1], p.size[0]];
     p.rotation = c.rotation;
   }
-  return placed.map(({ box, ...p }) => p);
+  // A "TV console" with seat cushions drawn right against its front is a sofa's back (the rest of the sofa, its seats,
+  // was found as nothing or as something else): a sofa there, the back plus the seats' usual depth.
+  const ca0 = Math.cos(angle); const sa0 = Math.sin(angle);
+  for (const p of placed) {
+    if (p.item !== 'tv-console') continue;
+    const [u0, v0, u1, v1] = p.box;
+    const front = [Math.sin(p.rotation), Math.cos(p.rotation)];
+    const fu = front[0] * ca0 + front[1] * sa0; const fv = -front[0] * sa0 + front[1] * ca0; // front in the walls' frame
+    const alongU = Math.abs(fu) < Math.abs(fv); // the console runs along u (its front points along v)
+    // The strip just in front (5 … 35 cm), in the frame; what covers it: shapes that are not the console or around it.
+    const strip = alongU
+      ? [u0 + (u1 - u0) * 0.1, fv > 0 ? v1 + 0.05 : v0 - 0.35, u1 - (u1 - u0) * 0.1, fv > 0 ? v1 + 0.35 : v0 - 0.05]
+      : [fu > 0 ? u1 + 0.05 : u0 - 0.35, v0 + (v1 - v0) * 0.1, fu > 0 ? u1 + 0.35 : u0 - 0.05, v1 - (v1 - v0) * 0.1];
+    const others = shapes.filter((s) => s.area < 3 && (s.u1 < u0 + 0.02 || s.u0 > u1 - 0.02 || s.v1 < v0 + 0.02 || s.v0 > v1 - 0.02)
+      && s.u0 < strip[2] && s.u1 > strip[0] && s.v0 < strip[3] && s.v1 > strip[1]);
+    if (!others.length) continue;
+    const covered = new Uint8Array(n);
+    for (const s of others) for (const i of s.pixels) covered[i] = 1;
+    let all = 0; let hit = 0;
+    for (let a = strip[0]; a <= strip[2]; a += Math.max(m, 0.02)) for (let b = strip[1]; b <= strip[3]; b += Math.max(m, 0.02)) {
+      const x = Math.floor((a * ca0 - b * sa0) / m); const y = Math.floor((a * sa0 + b * ca0) / m);
+      if (x < 0 || y < 0 || x >= scene.width || y >= scene.height) continue;
+      all++; if (covered[y * scene.width + x]) hit++;
+    }
+    if (!all || hit / all < 0.6) continue;
+    const width = p.size[0]; const depth = Math.min(1.1, p.size[1] + 0.55);
+    const shift = (depth - p.size[1]) / 2;
+    p.item = width < 1.8 ? 'sofa-loveseat' : 'sofa-modern';
+    p.params = { width, depth };
+    p.position = [p.position[0] + front[0] * shift, p.position[1] + front[1] * shift];
+    p.size = [width, depth];
+    p.box = alongU ? [u0, fv > 0 ? v0 : v0 - (depth - p.box[3] + p.box[1]), u1, fv > 0 ? v0 + depth : v1] : [fu > 0 ? u0 : u1 - depth, v0, fu > 0 ? u0 + depth : u1, v1];
+  }
+  // Small things standing on what was found, where the picture draws something on it: a lamp on a nightstand or a
+  // dresser, a TV on its console, a vase on a coffee table, a monitor on a desk. Their own shape inside the host's
+  // footprint (the ink inside it, away from its border; things this small are no candidates of their own) gives the
+  // place: the biggest drawing in there of the right size.
+  const accessories = [];
+  const ca = Math.cos(angle); const sa = Math.sin(angle);
+  placed.forEach((host, hi) => {
+    const spec = ON_TOP[host.item];
+    if (!spec) return;
+    const inset = Math.max(0.03, 3 * m);
+    const [hu0, hv0, hu1, hv1] = [host.box[0] + inset, host.box[1] + inset, host.box[2] - inset, host.box[3] - inset];
+    if (hu1 - hu0 < 0.1 || hv1 - hv0 < 0.1) return;
+    // The host's inside as a local mask of ink pixels (frame box → picture pixels).
+    const corners = [[hu0, hv0], [hu1, hv0], [hu1, hv1], [hu0, hv1]].map(([u, v]) => [(u * ca - v * sa) / m, (u * sa + v * ca) / m]);
+    const X0 = Math.max(0, Math.floor(Math.min(...corners.map((q) => q[0])))); const X1 = Math.min(scene.width - 1, Math.ceil(Math.max(...corners.map((q) => q[0]))));
+    const Y0 = Math.max(0, Math.floor(Math.min(...corners.map((q) => q[1])))); const Y1 = Math.min(scene.height - 1, Math.ceil(Math.max(...corners.map((q) => q[1]))));
+    const bw = X1 - X0 + 1; const bh = Y1 - Y0 + 1;
+    if (bw < 3 || bh < 3) return;
+    const local = new Uint8Array(bw * bh);
+    for (let y = Y0; y <= Y1; y++) for (let x = X0; x <= X1; x++) {
+      const u = (x + 0.5) * m * ca + (y + 0.5) * m * sa; const v = -(x + 0.5) * m * sa + (y + 0.5) * m * ca;
+      if (u >= hu0 && u <= hu1 && v >= hv0 && v <= hv1 && scene.ink[y * scene.width + x]) local[(y - Y0) * bw + (x - X0)] = 1;
+    }
+    // Dashed and dotted drawings (a lamp's shade ring) hold together when closed a little.
+    const closed = morph(morph(local, bw, bh, 2, false), bw, bh, 2, true);
+    let best = null;
+    for (const comp of components(closed, bw, bh, 4)) {
+      const us = []; const vs = [];
+      for (const j of comp.pixels) { const x = (j % bw) + X0 + 0.5; const y = ((j / bw) | 0) + Y0 + 0.5; us.push(x * m * ca + y * m * sa); vs.push(-x * m * sa + y * m * ca); }
+      const du = Math.max(...us) - Math.min(...us) + m; const dv = Math.max(...vs) - Math.min(...vs) + m;
+      const long = Math.max(du, dv); const short = Math.min(du, dv);
+      if (!between(long, spec.long[0], spec.long[1]) || !between(short, spec.short[0], spec.short[1])) continue;
+      if (!best || long * short > best.long * best.short) {
+        const cu = (Math.max(...us) + Math.min(...us)) / 2; const cv = (Math.max(...vs) + Math.min(...vs)) / 2;
+        best = { long, short, centre: [cu * ca - cv * sa, cu * sa + cv * ca] };
+      }
+    }
+    if (!best) return;
+    accessories.push({ item: spec.item, params: {}, position: best.centre, rotation: host.rotation, size: spec.size(best), score: 0.5, on: hi, elevation: spec.elevation });
+  });
+  // Floor lamps: a small open symbol standing free in a dry room — not on anything found, not a room's name.
+  for (const sym of scene.symbols) {
+    if (wet[sym.room] || kinds[sym.room] === 'storage') continue;
+    const u = sym.centre[0] * ca + sym.centre[1] * sa; const v = -sym.centre[0] * sa + sym.centre[1] * ca;
+    if (placed.some((p) => u >= p.box[0] - 0.1 && u <= p.box[2] + 0.1 && v >= p.box[1] - 0.1 && v <= p.box[3] + 0.1)) continue;
+    if (centres[sym.room] && Math.hypot(sym.centre[0] - centres[sym.room][0], sym.centre[1] - centres[sym.room][1]) <= 0.9) continue;
+    if (wallAt(sym.centre).dist < 0.12) continue;
+    accessories.push({ item: 'floor-lamp-tripod', params: {}, position: sym.centre, rotation: angle ? -angle : 0, size: [0.55, 0.55], score: 0.45 });
+  }
+  return [...placed, ...accessories].map(({ box, ...p }) => p);
 }
+
+/**
+ * What stands on a piece of furniture (by the host's item): the item, the size range of its drawn shape (m), its
+ * footprint from the shape, and the host's top (m: the item stands there; `on` is the host's index in the list).
+ */
+const ON_TOP = {
+  nightstand: { item: 'table-lamp', long: [0.15, 0.5], short: [0.12, 0.5], size: () => [0.36, 0.36], elevation: 0.55 },
+  dresser: { item: 'table-lamp', long: [0.15, 0.5], short: [0.12, 0.5], size: () => [0.36, 0.36], elevation: 0.82 },
+  'tv-console': { item: 'tv', long: [0.7, 2.0], short: [0.04, 0.4], size: (s) => [s.long, 0.24], elevation: 0.5 },
+  'coffee-table': { item: 'vase-stems', long: [0.15, 0.6], short: [0.12, 0.6], size: () => [0.48, 0.42], elevation: 0.4 },
+  desk: { item: 'monitor', long: [0.35, 0.9], short: [0.05, 0.35], size: (s) => [s.long, 0.2], elevation: 0.74 },
+};

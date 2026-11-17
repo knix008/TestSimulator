@@ -27,6 +27,8 @@ const GROUP = {
   nightstand: 'nightstand', armchair: 'chair', 'lounge-chair': 'chair', 'office-chair': 'chair', toilet: 'toilet', 'washbasin-vanity': 'basin', 'shower-booth': 'shower', bathtub: 'bath',
   'kitchen-base-cabinet': 'kitchen', 'kitchen-sink-counter': 'kitchen', refrigerator: 'fridge', 'washing-machine': 'laundry', dryer: 'laundry',
   'fiddle-leaf-fig': 'plant', monstera: 'plant', 'olive-tree': 'plant', rug: 'rug',
+  // Small things: on the furniture (a lamp on a nightstand, a TV on its console, a vase, a monitor) and floor lamps.
+  'table-lamp': 'lamp', tv: 'tv', 'vase-stems': 'vase', monitor: 'monitor', 'floor-lamp-tripod': 'floor-lamp', 'floor-lamp-arc': 'floor-lamp',
 };
 const WALL_GROUPS = new Set(['bed', 'storage', 'sofa', 'toilet', 'basin', 'kitchen', 'fridge', 'nightstand', 'desk']);
 const BY_ID = new Map(PARAMETRIC_ITEMS.map((i) => [i.id, i]));

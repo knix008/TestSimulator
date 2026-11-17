@@ -114,7 +114,8 @@ export function planEntities(result, { level, shift = [0, 0], elevation = 0, kee
   const bounds = xs.length ? { min: [Math.min(...xs), Math.min(...zs)], max: [Math.max(...xs), Math.max(...zs)] } : null;
   // Furniture (recognised in a picture, or the level's own objects cleaned up in 2D): library objects on the level.
   const objects = (result.furniture ?? []).filter((f) => f.item).map((f) => {
-    const { y = 0, rx = 0, rz = 0, ...keep } = f.keep ?? {};
+    // A small thing found on another (a lamp on a nightstand) stands at that one's top (`elevation`, m).
+    const { y = f.elevation ?? 0, rx = 0, rz = 0, ...keep } = f.keep ?? {};
     return { tag: 'untagged', name: '', materials: {}, scale: [1, 1, 1], ...keep, id: newId('ob'), level, item: f.item, params: { ...(f.params ?? {}) }, position: [f.position[0] + shift[0], y, f.position[1] + shift[1]], rotation: [rx, f.rotation ?? 0, rz] };
   });
   return { walls, openings, rooms, guides, objects, bounds };

@@ -18,7 +18,7 @@ import { readDxf, flattenDxf, dxfUnits, extentOf, dxfToPlan, layerStats, SKIP_LA
 import { readSvgPlan, svgUnits, svgToPlan } from '../io/plan-svg.js';
 import { recognizePlan } from '../io/plan-recognize.js';
 import { applyPlan, floorForName, scalePlanLevel } from '../io/plan-build.js';
-import { detectImageWalls, MAX_DETECT_SIZE, wallsOnly } from '../io/plan-image.js';
+import { detectImageWalls, MAX_DETECT_SIZE, wallsOnly, borrowWindows } from '../io/plan-image.js';
 import { dwgToDxf, dwgVersion, isDwgName, desktopDwgConverter, wasmDwgConverter } from '../io/plan-dwg.js';
 import { isPdfName, openPdf, pdfPages, readPdfPage, pdfScale, pdfToPlan, POINT_METRES } from '../io/plan-pdf.js';
 import { isIfcName, readIfc } from '../io/plan-ifc.js';
@@ -667,7 +667,8 @@ export function createPlanImport(app) {
           let raw = found[0];
           if (found.length > 1) {
             await step('progress.step.chooseWalls');
-            raw = found[pickDetection(found.map((r) => placeResult(r, bg)))];
+            // The best reading, with the windows the others found where it has only thin frame lines.
+            raw = borrowWindows(found[pickDetection(found.map((r) => placeResult(r, bg)))], found);
           }
           // Furniture in the rooms of the chosen walls (io/plan-furniture.js), on the picture as it is.
           if (raw.walls.length) {
