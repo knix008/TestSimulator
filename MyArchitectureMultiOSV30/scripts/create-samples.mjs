@@ -61,6 +61,16 @@ function bimElements(b, { slabType = "floor-concrete-250", groundType = "floor-i
 const curtainTypes = (p) => { for (const wt of DEFAULT_CURTAIN_TYPES) if (!p.wallTypes.some((x) => x.id === wt.id)) p.wallTypes.push(JSON.parse(JSON.stringify(wt))); };
 
 // ---------------------------------------------------------------- builder
+// A lift car and its landing entrance in front of the car's open side (item +y);
+// `furn` places furniture (the builder's, or a turned wing's).
+function liftAt(furn, level, kind, x, y, rot = 0, extra = {}) {
+  const def = furnitureDef(kind), w = extra.w ?? def.w, d = extra.d ?? def.d;
+  const k = d / 2 + 135, a = (rot * Math.PI) / 180, ew = w + 100;
+  const car = furn(level, kind, x, y, rot, extra);
+  furn(level, ew > 1900 ? "liftEntranceWide" : "liftEntrance", Math.round(x - k * Math.sin(a)), Math.round(y + k * Math.cos(a)), rot, { w: ew });
+  return car;
+}
+
 function builder(title, meta = {}) {
   const p = newProject(title);
   Object.assign(p.meta, { author: "SHKWON", company: "MyArchitecture", ...meta });
@@ -86,6 +96,7 @@ function builder(title, meta = {}) {
     furn(level, kind, x, y, rot = 0, extra = {}) { const f = { id: uid("u"), level, ...makeFurniture(kind, x, y), rot, ...extra }; p.furniture.push(f); return f; },
     // A light fixture; ceiling lamps hang under the ceiling of their level.
     lamp(level, kind, x, y, rot = 0, extra = {}) { const lv = p.levels.find((l) => l.id === level); return api.furn(level, kind, x, y, rot, { elevation: mountElevation(furnitureDef(kind), lv ? lv.height : 2800), ...extra }); },
+    lift: (level, kind, x, y, rot = 0, extra = {}) => liftAt(api.furn, level, kind, x, y, rot, extra),
     stair(level, x, y, rot, length, width = 1000, steps = 16) { p.stairs.push({ id: uid("s"), level, x, y, rot, length, width, steps }); },
     column(level, x, y, size = 400, shape = "rect") { p.columns.push({ id: uid("c"), level, x, y, w: size, d: size, rot: 0, shape }); },
     roof(level, kind = "gable", pitch = 30, overhang = 500) {
@@ -106,8 +117,22 @@ function builder(title, meta = {}) {
 const samples = [];
 // Props from the furniture library in every room (scripts/sample-dress.mjs).
 const { dress } = await import(pathToFileURL(path.join(root, "scripts/sample-dress.mjs")).href);
+// The ground of each sample in 3D (core/ground.js): [surface, shape, colour of a plain ground].
+const GROUNDS = {
+  "01": ["pavers", "square"], "02": ["concrete", "square"], "03": ["lawn", "plot"], "04": ["asphalt", "square"], "05": ["snow", "hills"],
+  "06": ["gravel", "plot"], "07": ["plain", "disc", "#d9d3c5"], "08": ["lawn-lush", "plot"], "09": ["plain", "square", "#e3e7ec"], "10": ["stone-slabs", "horizon"],
+  "11": ["brick-paving", "square"], "12": ["lawn", "plot"], "13": ["meadow", "plot"], "14": ["terracotta", "plot"], "15": ["plain", "disc", "#e9e4d8"],
+  "16": ["lawn-lush", "hills"], "17": ["brick-paving", "plot"], "18": ["meadow", "hills"], "19": ["lawn", "plot"], "20": ["sand", "disc"],
+  "21": ["deck", "square"], "22": ["dry-grass", "horizon"], "23": ["lawn", "horizon"], "24": ["dry-grass", "horizon"], "25": ["soil", "horizon"],
+  "26": ["meadow", "horizon"], "27": ["gravel", "horizon"], "28": ["leaves", "hills"], "29": ["stone-slabs", "square"], "30": ["lawn", "plot"],
+  "31": ["asphalt", "plot"], "32": ["lawn-lush", "horizon"], "33": ["pavers", "horizon"], "34": ["lawn", "horizon"], "35": ["meadow", "plot"],
+  "36": ["concrete", "hills"], "37": ["mulch", "square"], "38": ["stone-slabs", "disc"], "39": ["terracotta", "square"], "40": ["deck", "square"],
+};
+
 function add(file, b, info) {
   const p = normalizeProject(b.p);
+  const gr = GROUNDS[file.slice(0, 2)];
+  if (gr) p.style3d = { ...p.style3d, groundType: gr[0], groundShape: gr[1], ...(gr[2] ? { ground: gr[2] } : {}) };
   p.view.level = p.levels[0].id;
   dress(p, [...file].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7));
   const { docs, ...rest } = info;
@@ -533,7 +558,7 @@ function table4(b, L, kind, x, y, w = 1400, d = 800) {
       b.column(L, gx, gy, li < 3 ? 700 : 600, gx === 0 || gx === W || gy === 0 || gy === D ? "rect" : "round");
     }
     // Lifts and toilets on every floor.
-    b.furn(L, "liftCar", 17375, 13750, 180, { w: 1300, d: 1300 }); b.furn(L, "liftCar", 19125, 13750, 180, { w: 1300, d: 1300 });
+    b.lift(L, "liftCar", 17375, 13750, 180, { w: 1300, d: 1300 }); b.lift(L, "liftCarSmall", 19125, 13750, 180, { w: 1300, d: 1300 });
     b.furn(L, "toiletCubicle", 20650, 9930, 0); b.furn(L, "toiletCubicle", 21700, 9930, 0);
     b.furn(L, "urinal", 20500, 11740, 180); b.furn(L, "urinal", 21000, 11740, 180); b.furn(L, "washbasin", 21900, 11690, 180);
     b.furn(L, "toiletCubicle", 20650, 14070, 180); b.furn(L, "toiletCubicle", 21700, 14070, 180); b.furn(L, "vanity2", 21100, 12370, 0, { w: 1500 });
@@ -615,7 +640,7 @@ function table4(b, L, kind, x, y, w = 1400, d = 800) {
     b.door(c2, 1000, 1000, { type: "sliding" }); b.door(c2, 3000, 1000, { type: "sliding" });
     if (!top) b.stair(L, W + 800, 3000, 90, li === 0 ? 4600 : 4200, 1200, li === 0 ? 24 : 18);
     const names = [[W + 2000, 3000, "Stairs", "concrete"], [W + 2000, 8000, "Lift lobby", "tile-grey"], [W + 1000, 12000, "Lift", "concrete"], [W + 3000, 12000, "Lift", "concrete"]];
-    b.furn(L, "liftCar", W + 1000, 12000, 180, { w: 1500, d: 1500 }); b.furn(L, "liftCar", W + 3000, 12000, 180, { w: 1500, d: 1500 });
+    b.lift(L, "liftCar", W + 1000, 12000, 180, { w: 1500, d: 1500 }); b.lift(L, "liftFreight", W + 3000, 12000, 180, { w: 1500, d: 1500 });
     if (li === 0) {
       // Ground floor: supermarket, café and a clothing shop; residents enter from the east.
       b.door(e, 8000, 1600, { type: "double" });
@@ -728,7 +753,7 @@ function corridorFloor(b, L, { len, dn, cw, ds, north, south, ext = {}, part = {
     const into = (d) => (north ? back + d : back - d);
     switch (r.kind) {
       case "stair": b.stair(L, cx, cy, 90, 4600, 1300, 22); break;
-      case "lift": b.furn(L, "liftCar", cx, into(1300), rot, { w: 1400, d: 2400 }); break;
+      case "lift": b.lift(L, "liftBed", cx, into(1350), rot, { w: 1500, d: 2400 }); break;
       case "reception": b.furn(L, "reception", cx, front + (north ? -1400 : 1400), rot + 180, { w: 3600 }); b.furn(L, "officeChair", cx - 900, front + (north ? -2400 : 2400), rot); b.furn(L, "officeChair", cx + 900, front + (north ? -2400 : 2400), rot); b.furn(L, "filing", x1 + 300, into(350), rot); b.furn(L, "filing", x1 + 850, into(350), rot); b.furn(L, "printer", x2 - 400, into(350), rot); break;
       case "waiting": for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) b.furn(L, "waitingChairs", x1 + 1300 + i * 2200, into(900 + j * 1500), rot); b.furn(L, "vending", x2 - 500, into(500), rot); b.furn(L, "plant", x2 - 400, into(2000)); b.furn(L, "tvUnit", x2 - 300, cy + 1500, 270, { w: 1400 }); break;
       case "exam": b.furn(L, "examTable", x1 + 600, cy, 0); b.furn(L, "desk", x2 - 900, into(450), rot); b.furn(L, "officeChair", x2 - 900, into(1150), rot + 180); b.furn(L, "chair", x2 - 1700, into(1200), rot + 180); b.furn(L, "washbasin", x2 - 400, front + (north ? -400 : 400), 270); b.furn(L, "medCabinet", x1 + 700, into(300), rot); break;
@@ -1514,7 +1539,7 @@ function corridorFloor(b, L, { len, dn, cw, ds, north, south, ext = {}, part = {
     const into = (d) => (north ? back + d : back - d);
     switch (r.kind) {
       case "stair": if (L !== top) b.stair(L, cx, cy, 90, L === G ? 6400 : L === P2 ? 6000 : 4600, 1300, L === G ? 26 : L === P2 ? 24 : 19); break;
-      case "lift": b.furn(L, "liftCar", cx - 900, into(1300), rot, { w: 1500, d: 1500 }); b.furn(L, "liftCar", cx + 900, into(1300), rot, { w: 1500, d: 1500 }); break;
+      case "lift": b.lift(L, "liftCarLarge", cx - 900, into(1300), rot, { w: 1600, d: 1500 }); b.lift(L, "liftCarLarge", cx + 900, into(1300), rot, { w: 1600, d: 1500 }); break;
       case "guest": {
         // A bathroom pod by the corridor, the bed against the façade.
         const x0 = x1 - 200, c = north ? dn : dn + cw, s = north ? -1 : 1, Y = (d) => c + s * d;
@@ -1625,7 +1650,7 @@ function corridorFloor(b, L, { len, dn, cw, ds, north, south, ext = {}, part = {
       for (const x of [3000, 7500, 12000]) b.window(n, x, 2400, { sill: 900, height: 2000 });
     }
     if (!last) b.stair(L, 30000, 13500, 90, 7000, 1500, ground ? 26 : 24);
-    b.furn(L, "liftCar", 34000, 10200, 0, { w: 1500, d: 1500 }); b.furn(L, "liftCar", 36000, 10200, 0, { w: 1500, d: 1500 });
+    b.lift(L, "liftGlass", 34000, 10200, 0, { w: 1500, d: 1500 }); b.lift(L, "liftGlass", 36000, 10200, 0, { w: 1500, d: 1500 });
     const names = [[7500, 4500, ground ? "Children's library" : "Reading room", "carpet"], [7500, 13500, ground ? "Exhibition" : "Reading room", ground ? "oak" : "carpet"],
       [34500, 4500, ground ? "Café" : "Reading room", ground ? "oak" : "carpet"], [30000, 13500, "Stairs", "concrete"], [35000, 13500, "Lifts", "marble"],
       [39500, 11250, "Toilets (men)", "tile-white"], [39500, 15750, "Toilets (women)", "tile-white"], [21000, 19500, ground ? "Corridor" : "Gallery", "oak"],
@@ -1766,7 +1791,7 @@ function corridorFloor(b, L, { len, dn, cw, ds, north, south, ext = {}, part = {
       const k2 = b.wall(L, [ox, 14000], [ox + 4000, 14000], 200, { type: "concrete-200" });
       sl(k1, 2000); sl(k2, 2000, 1400);
       b.stair(L, ox + 800, 3000, 90, ground ? 5200 : 4600, 1200, ground ? 26 : 19);
-      b.furn(L, "liftCar", ox + 1100, 7400, 180, { w: 1500, d: 1500 }); b.furn(L, "liftCar", ox + 2900, 7400, 180, { w: 1500, d: 1500 });
+      b.lift(L, "liftCar", ox + 1100, 7400, 180, { w: 1500, d: 1500 }); b.lift(L, "liftCar", ox + 2900, 7400, 180, { w: 1500, d: 1500 });
       names.push([ox + 2000, 3000, "Stairs", "concrete"], [ox + 2000, 10000, "Lifts", "marble"], [ox + 2000, 19000, ground ? "Residents' lobby" : "Lobby", "marble"]);
       if (ground) { b.door(s, PW - ox - 2000, 1800, { type: "double" }); b.furn(L, "planter", ox + 2000, 16000, 0); }
       else { sl(cw, 19000, 1600); sl(ce, 19000, 1600); }
@@ -1800,7 +1825,7 @@ function corridorFloor(b, L, { len, dn, cw, ds, north, south, ext = {}, part = {
     b.wall(L, [ox + 4000, 0], [ox + 4000, 6000], 250, { type: "concrete-200" });
     b.wall(L, [ox + 4000, 8000], [ox + 4000, TD], 250, { type: "concrete-200" });
     sl(k1, 2000); sl(k2, 2000, 1400);
-    b.furn(L, "liftCar", ox + 1100, 9400, 0, { w: 1500, d: 1500 }); b.furn(L, "liftCar", ox + 2900, 9400, 0, { w: 1500, d: 1500 });
+    b.lift(L, "liftCar", ox + 1100, 9400, 0, { w: 1500, d: 1500 }); b.lift(L, "liftCar", ox + 2900, 9400, 0, { w: 1500, d: 1500 });
     const names = [[ox + 2000, 3000, "Stairs", "concrete"], [ox + 2000, 11000, "Lifts", "marble"], [ox + 14000, 7000, "Corridor", "tile-grey"]];
     for (let u = 0; u < 2; u++) {
       const x = ox + 4000 + u * 10000;
@@ -1870,6 +1895,7 @@ function turned(b, ox, oy, q = 0) {
     furn: (L, kind, x, y, rot = 0, extra = {}) => b.furn(L, kind, ...T([x, y]), (rot + 270 * q) % 360, extra),
     lamp: (L, kind, x, y, rot = 0, extra = {}) => b.lamp(L, kind, ...T([x, y]), (rot + 270 * q) % 360, extra),
     stair: (L, x, y, rot, ...r) => b.stair(L, ...T([x, y]), (rot + 90 * q) % 360, ...r),
+    lift: (L, kind, x, y, rot = 0, extra = {}) => liftAt(t.furn, L, kind, x, y, rot, extra),
     column: (L, x, y, ...r) => b.column(L, ...T([x, y]), ...r),
   };
   return t;
@@ -1908,7 +1934,7 @@ function corridorAt(b, L, { ox = 0, oy = 0, len, dn, cw, ds, north, south, ext =
 // Room list entries for the samples below.
 const R = (w, name, kind, floor = "carpet", extra = {}) => ({ w, name, kind, floor, ...extra });
 const STAIRS = (w, stair) => ({ w, name: "Stairs", kind: "stair", floor: "concrete", window: 1500, stair });
-const LIFTS = (w = 4000) => ({ w, name: "Lifts", kind: "lift", floor: "marble", window: false, door: 1600, doorAt: w / 2 });
+const LIFTS = (w = 4000, lift = "liftCar", size = [1500, 1500]) => ({ w, name: "Lifts", kind: "lift", floor: "marble", window: false, door: 1600, doorAt: w / 2, lift, size });
 const LINK = (w = 4000) => ({ w, name: "Link", kind: "none", floor: "tile-grey", window: false, door: 1800, doorAt: w / 2 });
 const FLAT = () => [R(5200, "Living room", "living", "oak", { doorAt: 1000 }), R(3600, "Bedroom", "bedroom", "oak", { inner: true }), R(2400, "Bathroom", "bathroom", "tile-white", { inner: true, window: 900 })];
 
@@ -1926,7 +1952,7 @@ function fitter(b) {
     };
     switch (r.kind) {
       case "stair": if (r.stair) b.stair(L, x1 + 1100, cy, 90, ...r.stair); break;
-      case "lift": { const k = w >= 3300 ? 2 : 1; for (let i = 0; i < k; i++) b.furn(L, "liftCar", k === 2 ? cx + (i ? 850 : -850) : cx, into(900), rot, { w: 1500, d: 1500 }); break; }
+      case "lift": { const [cw2, cd2] = r.size || [1500, 1500], k = w >= 2 * cw2 + 300 ? 2 : 1; for (let i = 0; i < k; i++) b.lift(L, r.lift || "liftCar", k === 2 ? cx + (i ? 1 : -1) * (cw2 / 2 + 100) : cx, into(150 + cd2 / 2), rot, { w: cw2, d: cd2 }); break; }
       case "office": {
         const rows = Math.max(1, Math.floor(d / 3400)), cols = Math.max(1, Math.floor((w - 3000) / 1400) + 1);
         for (let j = 0; j < rows; j++) deskPairs(b, L, cx - (cols - 1) * 700, cy + (j - (rows - 1) / 2) * 3400, cols);
@@ -2026,9 +2052,12 @@ const flatRoof = (p, level, pts, overhang = 0) => p.roofs.push({ id: uid("f"), l
       b.door(w, D - 18000, 3000, { type: "sliding", height: 2700 }); b.door(e, 18000, 3000, { type: "sliding", height: 2700 });
       names.push([W / 2, 18000, "Atrium", "marble"]);
       for (const x of [6000, 18000, 30000, 42000]) { b.furn(L, "planter", x, 15000, 0); b.furn(L, "bench", x, 21000, 180, { w: 2400 }); }
-      for (const x of [12000, 24000, 36000]) b.furn(L, "tree", x, 18000, 0, { w: 2400, d: 2400, h: 6000 });
+      for (const x of [10000, 30000, 38000]) b.furn(L, "tree", x, 18000, 0, { w: 2400, d: 2400, h: 6000 });
+      // Up and down escalators from the atrium floor to the bridge on 2F (rise 4500 at 30°).
+      const run = Math.round(4500 * Math.sqrt(3)), ed = run + 2600;
+      b.furn(L, "escalatorPair", BX1 - 200 + 1300 - ed / 2, 18000, 270, { d: ed, h: 5500 });
     } else {
-      for (const x of [BX1, BX2]) b.wall(L, [x, A1], [x, A2], 120, glass);
+      for (const x of [BX1, BX2]) { const bw = b.wall(L, [x, A1], [x, A2], 120, glass); if (li === 1 && x === BX1) b.door(bw, (A2 - A1) / 2, 3200, { kind: "opening", type: "none", height: 1000 }); }
       for (const g of [gn, gs]) b.door(g, (BX1 + BX2) / 2, BX2 - BX1 - 400, { kind: "opening", type: "none", height: 1000 });
       names.push([(BX1 + BX2) / 2, 18000, "Bridge", "oak"]);
     }
@@ -2067,8 +2096,8 @@ const flatRoof = (p, level, pts, overhang = 0) => p.roofs.push({ id: uid("f"), l
     const ground = L === G;
     const exam = (k) => Array.from({ length: k }, () => R(4000, ground ? "Exam room" : "Consultation", "exam", "tile-white"));
     const north = ground
-      ? [STAIRS(5000, stairOf(G)), LIFTS(), R(12000, "Entrance hall", "lobby", "marble", { window: false }), R(10000, "Waiting area", "waiting", "marble"), ...exam(4), R(13000, "Emergency", "ward", "tile-grey")]
-      : [STAIRS(5000, null), LIFTS(), R(12000, "Outpatient waiting", "waiting", "marble"), ...exam(6), R(15000, "Administration", "office")];
+      ? [STAIRS(5000, stairOf(G)), LIFTS(4000, "liftBed", [1600, 2400]), R(12000, "Entrance hall", "lobby", "marble", { window: false }), R(10000, "Waiting area", "waiting", "marble"), ...exam(4), R(13000, "Emergency", "ward", "tile-grey")]
+      : [STAIRS(5000, null), LIFTS(4000, "liftBed", [1600, 2400]), R(12000, "Outpatient waiting", "waiting", "marble"), ...exam(6), R(15000, "Administration", "office")];
     const south = [R(4000, "Toilets", "toilet", "tile-white"), R(6500, ground ? "Imaging" : "Endoscopy", "imaging", "tile-grey"), LINK(), R(6000, "Laboratory", "lab", "tile-white"),
       R(6500, ground ? "Pharmacy" : "Consultation", ground ? "pharmacy" : "exam", "tile-grey"), R(6000, "Staff room", "staff", "oak"), R(6500, "Office", "office"),
       R(6000, ground ? "Day surgery" : "Operating theatre", ground ? "ward" : "imaging", "tile-grey"), LINK(), R(6500, "Recovery", "ward", "tile-grey"), R(4000, "Toilets", "toilet", "tile-white")];
@@ -2081,7 +2110,7 @@ const flatRoof = (p, level, pts, overhang = 0) => p.roofs.push({ id: uid("f"), l
     for (const ox of WINGS) {
       const tb = turned(b, ox, PD, 1);
       corridorAt(tb, L, { len: WL, dn: 7000, cw: 2400, ds: 7000, ext, part, fit: fitter(tb), entrance: false, skip: podium ? ["w"] : [],
-        north: [...Array.from({ length: 5 }, () => R(5600, "Ward", "ward", "tile-grey")), LIFTS(3000), STAIRS(5000, stairOf(L))],
+        north: [...Array.from({ length: 5 }, () => R(5600, "Ward", "ward", "tile-grey")), LIFTS(3000, "liftBed", [1600, 2400]), STAIRS(5000, stairOf(L))],
         south: [R(8000, "Nurse station", "nurse", "tile-grey"), ...Array.from({ length: 4 }, () => R(5600, "Ward", "ward", "tile-grey")), R(5600, "Toilets", "toilet", "tile-white")] });
     }
   }

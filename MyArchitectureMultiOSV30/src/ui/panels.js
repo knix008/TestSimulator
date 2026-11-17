@@ -61,14 +61,60 @@ export function renderLeft(app, host) {
   host.innerHTML = "";
   if (app.tab === "start") return undefined;
   if (!app.settings.showLeft) return rail(app, host, "left", app.tab === "3d" ? "cube" : app.tab === "views" ? "tree" : "sofa", app.tab === "3d" ? t("3D view options") : app.tab === "views" ? t("Project Browser") : t("Furniture library"));
-  // Project Browser (src/views/browser.js): on top in the plan and 3D, the whole panel in Views & sheets.
-  if (app.views && (app.tab === "plan" || app.tab === "3d" || app.tab === "views")) app.views.renderLeft(host);
-  if (app.tab === "plan") renderLibrary(app, host);
-  if (app.tab === "3d") app.v3d.renderPanel(host);
+  // Tabs keep the panel short: the plan has the furniture library and the
+  // Project Browser (src/views/browser.js); 3D its view options, the model
+  // (tags, components, materials …), the lights, the library and the browser.
+  // Views & sheets: the browser is the whole panel.
+  if (app.tab === "views") { if (app.views) app.views.renderLeft(host); }
+  else if (app.tab === "plan") {
+    const cur = panelTabs(app, host, "left", [["library", "sofa", t("Furniture library")], ["explorer", "tree", t("Project Browser")]]);
+    if (cur === "library") renderLibrary(app, host);
+    else if (app.views) app.views.renderLeft(host);
+  } else if (app.tab === "3d") {
+    const cur = panelTabs(app, host, "left", [["view", "cube", t("View")], ["model", "skOutliner", t("Model")], ["lights", "bulb", t("Lights")], ["library", "sofa", t("Furniture"), t("Furniture library")], ["explorer", "tree", t("Browser"), t("Project Browser")]]);
+    if (cur === "library") renderLibrary(app, host);
+    else if (cur === "explorer") { if (app.views) app.views.renderLeft(host); }
+    else render3dPanels(app, host, cur);
+  }
   foldPanels(app, host);
   addCollapse(app, host, "left");
   requestAnimationFrame(() => { if (host.isConnected) app.setLeftMin(leftNeed(host)); });
   return undefined;
+}
+
+// A row of tabs at the top of a side panel; the chosen one is remembered per
+// view (settings.panelTab_<side>_<tab>). Returns the id of the tab to show.
+export function panelTabs(app, host, side, defs, badges = {}) {
+  const key = `panelTab_${side}_${app.tab}`;
+  let cur = app.settings[key];
+  if (!defs.some((d) => d[0] === cur)) cur = defs[0][0];
+  const redraw = () => (side === "left" ? renderLeft(app, host) : renderRight(app, host));
+  host.append(h("div", { class: "panel-tabs", role: "tablist", "data-panel-tabs": side },
+    ...defs.map(([id, ic, label, tip]) => h("button", { class: `panel-tab ${id === cur ? "on" : ""}`, type: "button", role: "tab", "aria-selected": String(id === cur), "data-panel-tab": id, title: tip || label,
+      onclick: () => { if (id === cur) return; app.settings[key] = id; app.saveSettings(); redraw(); } },
+      h("span", { class: "pt-ico", html: icon(ic, 14) }), h("span", { class: "pt-label" }, label), badges[id] ? h("span", { class: `pt-badge ${badges[id][1] || ""}` }, String(badges[id][0])) : null))));
+  return cur;
+}
+
+// The 3D view's panels into its tabs (by the icon of each panel's head): the
+// view (scenes, levels, what to show, section, sun, style, camera, animation),
+// the model (tags, components, outliner, materials, section planes, entity
+// info) and the lights. A tool's own panel (paint bucket, smoove, tape) shows
+// on every tab while the tool is on.
+const GROUP_3D = { scenes: "view", levels: "view", eye: "view", section: "view", sunlight: "view", skStyle: "view", camera: "view", skVideo: "view",
+  bulb: "lights", skTag: "model", skComponent: "model", skOutliner: "model", material: "model", skSection: "model", info: "model" };
+const TOOL_3D = new Set(["bucket", "skSmoove", "tape"]);
+function render3dPanels(app, host, cur) {
+  const all = h("div");
+  app.v3d.renderPanel(all);
+  for (const el of [...all.children]) {
+    const head = el.querySelector(":scope > .panel-head");
+    const k = head ? head.dataset.key : "";
+    const editing = k === "skComponent" && head.querySelector(".ph-title") && head.querySelector(".ph-title").textContent === t("Editing component");
+    const g = TOOL_3D.has(k) || editing ? cur : GROUP_3D[k] || "view";
+    if (g === cur) host.append(el);
+  }
+  if (!host.querySelector(".panel")) host.append(h("div", { class: "empty-note" }, cur === "lights" ? t("No lights yet: add lamps from the furniture library (Lighting).") : t("Nothing here yet.")));
 }
 
 // The narrowest the left panel can be without cutting off what it shows: the
@@ -219,7 +265,16 @@ export function renderRight(app, host) {
     return;
   }
   if (app.tab === "3d") { app.v3d.renderInspector(host); addCollapse(app, host, "right"); return; }
-  if (app.views && app.views.renderRight(host)) { if (app.tab === "plan") host.append(issuesPanel(app)); addCollapse(app, host, "right"); return; }
+  if (app.tab === "plan") {
+    // Two tabs: what is selected, and the model check (its count on the tab).
+    const e = app.checkIssues.filter((i) => i.severity === "error").length, w = app.checkIssues.length - e;
+    const cur = panelTabs(app, host, "right", [["props", "list", t("Properties")], ["check", "modelcheck", t("Model check")]], (e || w) ? { check: [e || w, e ? "" : "warn"] } : {});
+    if (cur === "check") host.append(issuesPanel(app));
+    else if (!(app.views && app.views.renderRight(host))) { const insp = h("div", { class: "panel" }, panelHead("list", t("Properties"))); const body = h("div", { class: "panel-body" }); insp.append(body); inspector(app, body); host.append(insp); }
+    addCollapse(app, host, "right");
+    return;
+  }
+  if (app.views && app.views.renderRight(host)) { addCollapse(app, host, "right"); return; }
   const insp = h("div", { class: "panel" });
   insp.append(panelHead("list", t("Properties")));
   const body = h("div", { class: "panel-body" });

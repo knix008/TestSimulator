@@ -2126,6 +2126,17 @@ try {
     const want = ["hero", "actions", "recent", "templates", "theme", "side", "samples"];
     return (want.every((c) => r.cards.includes(c)) && r.on && r.themes >= 40 && r.actions >= 11 && r.dots === 6) || fail(r);
   });
+  await step("start page: one card per row, samples under 새로 시작, theme and background last, the program card fixed", async () => {
+    const r = await app(`app.setTab("start"); await new Promise((r) => setTimeout(r, 400));
+      const els = [...document.querySelectorAll(".start-card")];
+      const box = (el) => el.getBoundingClientRect();
+      const board = document.querySelector(".start-card").parentElement.getBoundingClientRect();
+      const order = els.slice().sort((a, b) => box(a).top - box(b).top).map((c) => c.dataset.card);
+      const hero = document.querySelector('[data-card="hero"]');
+      return { order, full: els.every((el) => Math.abs(box(el).width - board.width) < 4), heroHandle: !!hero.querySelector(".card-handle, .card-resize"), others: els.filter((el) => el !== hero).every((el) => el.querySelector(".card-handle") && el.querySelector(".card-resize")) };`);
+    const want = ["hero", "banner", "actions", "recent", "templates", "samples", "plans", "theme", "side"].filter((id) => r.order.includes(id));
+    return (JSON.stringify(r.order) === JSON.stringify(want) && r.full && !r.heroHandle && r.others) || fail(r);
+  });
   await step("새로 시작: six groups of nine tiles; a blank preset opens with its storeys and grid", async () => {
     await app(`app.setTab("start"); return 1`); await sleep(300);
     const g = await app(`return [...document.querySelectorAll('[data-card="templates"] .template-group')].map((s) => s.querySelectorAll(".template-tile").length)`);

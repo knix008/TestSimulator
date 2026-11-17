@@ -64,8 +64,12 @@ export async function wallsFromPicture(app, { underlay = null, ask = true, optio
   const { readPlanPicture, placePicturePlan, MAX_DETECT_SIZE } = await import("../io/planpicture.js");
   // A small window with the progress (the reading takes a second or a few).
   const status = h("div", { class: "field-hint", "data-picture-status": "1" }, t("Reading the picture…"));
+  const fill = h("div", { class: "pp-fill" });
+  const pct = h("span", { class: "pp-pct" }, "0%");
+  const bar = (f) => { fill.style.width = `${Math.round(f * 100)}%`; pct.textContent = `${Math.round(f * 100)}%`; };
   let cancelled = false; let closeProgress = () => {};
-  const progress = modal({ icon: "underlay", title: t("Walls from plan image"), width: 420, body: h("div", {}, status), closeOnBackdrop: false,
+  const progress = modal({ icon: "underlay", title: t("Walls from plan image"), width: 420, closeOnBackdrop: false,
+    body: h("div", { class: "picture-progress" }, status, h("div", { class: "pp-bar" }, fill), h("div", { class: "pp-foot" }, pct)),
     buttons: [{ label: t("Cancel"), value: "cancel" }], onOpen: (_box, close) => { closeProgress = close; } });
   progress.then((v) => { if (v !== "done") cancelled = true; });
   const breathe = () => new Promise((r) => setTimeout(r, 16));
@@ -73,12 +77,14 @@ export async function wallsFromPicture(app, { underlay = null, ask = true, optio
   try {
     await breathe();
     const { image } = await pixelsOf(u, MAX_DETECT_SIZE);
+    bar(0.1);
     const metresPerPixel = u.w / 1000 / image.width;
     const result = await readPlanPicture(image, {
       metresPerPixel, method: opts.method,
-      step: async (i, n) => { status.textContent = n > 1 ? t("Finding walls ({i} of {n})…", { i: i + 1, n }) : t("Finding walls…"); await breathe(); if (cancelled) throw new Error("cancelled"); },
+      step: async (i, n) => { status.textContent = n > 1 ? t("Finding walls ({i} of {n})…", { i: i + 1, n }) : t("Finding walls…"); bar(0.1 + (0.8 * i) / Math.max(1, n)); await breathe(); if (cancelled) throw new Error("cancelled"); },
     });
     if (cancelled) return null;
+    status.textContent = t("Placing walls, doors and rooms…"); bar(0.92); await breathe();
     out = placePicturePlan(result, u, { level, pictureWidth: image.width, metresPerPixel, straighten: opts.straighten, roomName: (area, i) => suggestRoomName(area, i, t) });
   } catch (e) {
     if (cancelled) return null;

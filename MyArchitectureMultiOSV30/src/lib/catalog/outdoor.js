@@ -1,4 +1,5 @@
 // Outdoor and garden, trees and shrubs, vehicles and people (scale figures).
+import { VEHICLES } from "./vehicles.js";
 import { B, C, S, L, E, T, R, G, SB, item, variant, table, sofa, crown, pot, leaves, figure, four, taperLeg, move, place, smoothProfile, rrect, ellipsePts, rng, clamp } from "./common.js";
 
 // ---------------------------------------------------------------- trees
@@ -18,28 +19,6 @@ const palm = (w, d, h) => [T([[0, 0, 0], [w * 0.05, 0, h * 0.4], [w * 0.12, 0, h
 
 // ---------------------------------------------------------------- vehicles
 // A car from its side profile (u along the length from the back, v up), with a cabin, wheels and lights.
-function car(w, d, h, o = {}) {
-  const k = o.k || {}, out = [];
-  const wr = clamp(h * 0.22, 280, 420); // wheel radius
-  const body = o.body || [[-d / 2, 0.3 * h], [-d / 2 + 40, 0.6 * h], [-d / 2 + 0.1 * d, 0.64 * h], [d / 2 - 0.22 * d, 0.62 * h], [d / 2 - 0.04 * d, 0.52 * h], [d / 2, 0.36 * h], [d / 2 - 30, 0.2 * h], [-d / 2 + 30, 0.2 * h]];
-  const cabin = o.cabin || [[-d / 2 + 0.12 * d, 0.62 * h], [-d / 2 + 0.26 * d, 0.98 * h], [d / 2 - 0.4 * d, 0.98 * h], [d / 2 - 0.24 * d, 0.62 * h]];
-  out.push(E(0, 0, 0, body, w, "main", { axis: "x", b: 60, m: "gloss" }));
-  out.push(E(0, 0, 0, cabin, w * 0.86, "screen", { axis: "x", b: 40 }));
-  // Roof panel and pillars in the body colour.
-  const roofY1 = cabin[1][0] + 60, roofY2 = cabin[2][0] - 60;
-  out.push(B(0, (roofY1 + roofY2) / 2, cabin[1][1] - 25, w * 0.82, roofY2 - roofY1, 35, "main", 0, { b: 15, m: "gloss" }));
-  for (const s of [-1, 1]) {
-    for (const yy of [-d / 2 + 0.25 * d, d / 2 - 0.25 * d]) {
-      out.push(R(s * (w / 2 - 110), yy, wr, wr * 0.74, wr * 0.27, "tyre", { axis: "x" }));
-      out.push(C(s * (w / 2 - 175), yy, wr, wr * 0.55, 70, "chrome", wr * 0.55, { ty: 90 * 1, plan: false }));
-    }
-    out.push(G(B(s * (w / 2 - 220), d / 2 - 30, 0.5 * h, 300, 50, 70, "white", 20, { plan: false }), 0.4));
-    out.push(G(B(s * (w / 2 - 200), -d / 2 + 25, 0.52 * h, 320, 40, 70, "red", 20, { plan: false }), 0.4));
-    out.push(B(s * (w / 2 + 0), cabin[3][0] - 80, 0.63 * h, 60, 120, 70, "main", 20, { plan: false }));
-  }
-  out.push(B(0, d / 2 - 15, 0.25 * h, w * 0.5, 30, 0.12 * h, "dark", 10, { plan: false }));
-  return out;
-}
 const bicycle = (w, d, h, c = "main") => {
   const r = 340, y1 = -d / 2 + r + 10, y2 = d / 2 - r - 10;
   return [
@@ -99,11 +78,7 @@ export default [
   item("rocks", "Outdoor", "Landscape rocks", 1500, 1000, 600, "granite", (w, d, h) => [S(-w * 0.15, 0, h * 0.25, Math.min(w, d) * 0.45, "main", { sz: 0.7, sy: 0.8, m: "concrete" }), S(w * 0.3, d * 0.15, h * 0.12, Math.min(w, d) * 0.22, "concrete", { sz: 0.7, m: "concrete" }), S(w * 0.3, -d * 0.25, h * 0.08, Math.min(w, d) * 0.15, "main", { sz: 0.6, m: "concrete" })]),
   item("bambooGrove", "Outdoor", "Bamboo clump", 1200, 1200, 4000, "leaf3", (w, d, h) => { const r = rng(17), out = []; for (let i = 0; i < 14; i++) { const x = (r() - 0.5) * w * 0.5, y = (r() - 0.5) * d * 0.5; out.push(T([[x, y, 0], [x * 1.4, y * 1.4, h * 0.9]], 22, "bamboo", { plan: false })); out.push(S(x * 1.5, y * 1.5, h * (0.8 + r() * 0.1), w * 0.18, i % 2 ? "leaf3" : "leaf", { sz: 1.6, plan: true })); } return out; }),
   // ---------------------------------------------------------------- vehicles
-  item("car", "Vehicles", "Car", 1800, 4500, 1500, "red", (w, d, h) => car(w, d, h), { tags: "sedan" }),
-  item("carHatch", "Vehicles", "Compact hatchback", 1750, 4000, 1480, "blue", (w, d, h) => car(w, d, h, { cabin: [[-d / 2 + 0.04 * d, 0.62 * h], [-d / 2 + 0.1 * d, 0.98 * h], [d / 2 - 0.42 * d, 0.98 * h], [d / 2 - 0.26 * d, 0.62 * h]], body: [[-d / 2, 0.3 * h], [-d / 2 + 20, 0.62 * h], [-d / 2 + 0.06 * d, 0.64 * h], [d / 2 - 0.22 * d, 0.62 * h], [d / 2 - 0.04 * d, 0.52 * h], [d / 2, 0.36 * h], [d / 2 - 30, 0.2 * h], [-d / 2 + 30, 0.2 * h]] })),
-  item("carSUV", "Vehicles", "SUV", 1950, 4750, 1750, "charcoal", (w, d, h) => car(w, d, h, { cabin: [[-d / 2 + 0.05 * d, 0.6 * h], [-d / 2 + 0.08 * d, 0.98 * h], [d / 2 - 0.38 * d, 0.98 * h], [d / 2 - 0.24 * d, 0.6 * h]], body: [[-d / 2, 0.3 * h], [-d / 2 + 20, 0.6 * h], [-d / 2 + 0.06 * d, 0.62 * h], [d / 2 - 0.22 * d, 0.62 * h], [d / 2 - 0.03 * d, 0.56 * h], [d / 2, 0.4 * h], [d / 2 - 30, 0.22 * h], [-d / 2 + 30, 0.22 * h]] })),
-  item("van", "Vehicles", "Delivery van", 2050, 5400, 2500, "white", (w, d, h) => car(w, d, h, { cabin: [[d / 2 - 0.3 * d, 0.55 * h], [d / 2 - 0.3 * d, 0.85 * h], [d / 2 - 0.2 * d, 0.85 * h], [d / 2 - 0.12 * d, 0.55 * h]], body: [[-d / 2, 0.15 * h], [-d / 2, 0.98 * h], [d / 2 - 0.25 * d, 0.98 * h], [d / 2 - 0.12 * d, 0.55 * h], [d / 2 - 0.02 * d, 0.45 * h], [d / 2, 0.25 * h], [d / 2 - 30, 0.13 * h], [-d / 2 + 30, 0.13 * h]] })),
-  item("bus", "Vehicles", "City bus", 2550, 12000, 3200, "yellow", (w, d, h) => [...car(w, d, h, { body: [[-d / 2, 0.12 * h], [-d / 2, 0.95 * h], [-d / 2 + 100, h], [d / 2 - 100, h], [d / 2, 0.95 * h], [d / 2, 0.12 * h]], cabin: [[-d / 2 + 300, 0.45 * h], [-d / 2 + 300, 0.85 * h], [d / 2 + 20, 0.85 * h], [d / 2 + 20, 0.3 * h], [d / 2 - 1500, 0.3 * h], [d / 2 - 1500, 0.45 * h]] }).filter((p) => !(p.t === "box" && p.b === 15))]),
+  ...VEHICLES,
   item("motorbike", "Vehicles", "Motorcycle", 800, 2100, 1150, "black", (w, d, h) => [...[-d / 2 + 330, d / 2 - 330].flatMap((y) => [R(0, y, 320, 250, 70, "tyre", { axis: "x" }), C(-60, y, 320, 200, 120, "chrome", 200, { ty: 90, plan: false })]), SB(0, 0, 450, 300, 700, 300, "main", 0.4, { m: "gloss" }), SB(0, -0.12 * d, 650, 260, 650, 120, "black", 0.4, { m: "leather" }), T([[0, -d / 2 + 330, 320], [0, -0.1 * d, 550]], 25, "chrome"), T([[0, d / 2 - 330, 320], [0, d / 2 - 520, 950]], 25, "chrome"), T([[-w / 2 + 30, d / 2 - 560, h - 20], [0, d / 2 - 520, 950], [w / 2 - 30, d / 2 - 560, h - 20]], 15, "black", { smooth: true }), G(S(0, d / 2 - 470, 850, 90, "white", { sy: 0.6, plan: false }), 0.5), T([[w * 0.3, -0.15 * d, 300], [w * 0.3, -d / 2 + 200, 420]], 45, "chrome")]),
   item("bicycle", "Vehicles", "Bicycle", 600, 1750, 1050, "teal", (w, d, h) => bicycle(w, d, h)),
   item("scooter", "Vehicles", "Kick scooter", 450, 1100, 1150, "black", (w, d, h) => [...[-d / 2 + 100, d / 2 - 100].map((y) => R(0, y, 100, 80, 20, "tyre", { axis: "x" })), B(0, -0.05 * d, 110, 150, d * 0.65, 40, "main", 20), T([[0, d / 2 - 100, 100], [0, d / 2 - 160, h - 20]], 20, "steel"), T([[-w / 2 + 20, d / 2 - 160, h - 20], [w / 2 - 20, d / 2 - 160, h - 20]], 15, "black")]),

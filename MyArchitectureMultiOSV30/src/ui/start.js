@@ -17,7 +17,7 @@ import { h, slider, progressPopup } from "./widgets.js";
 import { loadSampleIndex, loadSampleText } from "./dialogs.js";
 import { parseProject } from "../core/project.js";
 import { PLAN_THEMES, drawPlan, planBounds } from "../plan/render.js";
-import { COLS, ROW, GAP, cardsOf, place, compact, autoArrange, swapVertical, layoutValue, rowsFor, boxOf, cellAt, spanFor, fullColumns } from "./startlayout.js";
+import { COLS, ROW, GAP, cardsOf, place as placeAny, compact, autoArrange, swapVertical as swapAny, pinTop, layoutValue, rowsFor, boxOf, cellAt, spanFor, fullColumns } from "./startlayout.js";
 import { AnimatedBackground, ANIMATION_KINDS, ANIMATION_ICONS, ANIMATION_NAMES, DEFAULT_START_BACKGROUND, themeColors } from "./startbg.js";
 import { START_GROUPS, START_TILE_COUNT } from "./starttemplates.js";
 import { allThemes, uiTokens } from "./themes.js";
@@ -35,11 +35,17 @@ const TIPS = [
   "Right-click anything for the actions that apply to it.",
 ];
 
-// Cards in reading order (MyUMLMaker's start board): the hero, the tutorial
-// banner, 바로 가기 and recent projects side by side, 새로 시작, themes and
-// the background side by side, then the sample gallery.
-export const CARD_IDS = ["hero", "banner", "actions", "recent", "templates", "theme", "side", "samples"];
-export const DEFAULT_SPAN = { hero: 3, banner: 3, actions: 2, recent: 1, templates: 3, theme: 2, side: 1, samples: 3 };
+// Cards in reading order (MyUMLMaker's start board): the program card (fixed:
+// no move, no resize), the tutorial banner, 바로 가기, recent projects,
+// 새로 시작 with the samples right under it, the 2D → 3D examples, and last
+// the theme and the background. By default every card takes a whole row.
+export const CARD_IDS = ["hero", "banner", "actions", "recent", "templates", "samples", "plans", "theme", "side"];
+export const DEFAULT_SPAN = { hero: 3, banner: 3, actions: 3, recent: 3, templates: 3, samples: 3, plans: 3, theme: 3, side: 3 };
+export const FIXED_CARD = "hero";
+// Saved layouts of an older default arrangement are packed afresh once.
+const LAYOUT_REV = 4;
+const place = (cards, id, target) => pinTop(placeAny(cards, id, target), FIXED_CARD);
+const swapVertical = (cards, id, dir) => pinTop(swapAny(cards, id, dir), FIXED_CARD);
 
 // The card handle (moves the card): three horizontal rows of dots.
 const MOVE_ICON = '<svg class="ico" data-tone="pink" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none" aria-hidden="true"><circle cx="5" cy="7" r="1.6"/><circle cx="9.67" cy="7" r="1.6"/><circle cx="14.33" cy="7" r="1.6"/><circle cx="19" cy="7" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="9.67" cy="12" r="1.6"/><circle cx="14.33" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/><circle cx="5" cy="17" r="1.6"/><circle cx="9.67" cy="17" r="1.6"/><circle cx="14.33" cy="17" r="1.6"/><circle cx="19" cy="17" r="1.6"/></svg>';
@@ -82,6 +88,7 @@ export class StartPage {
     this.board = board;
     this.cards = new Map();
     const samplesGrid = h("div", { class: "sample-grid" });
+    this.plansHost = h("div", { class: "plan-sample-host" });
     const defs = this.cardDefs(samplesGrid);
     for (const id of this.visibleIds()) {
       const d = defs[id];
@@ -116,6 +123,11 @@ export class StartPage {
     this.watch();
     this.startAnimation();
     fullRows(samplesGrid, 210, 10);
+    import("./plansamples.js").then((m) => m.fillPlanSamples(this.app, this.plansHost)).then((n) => {
+      const head = this.cards && this.cards.get("plans") && this.cards.get("plans").querySelector(".card-head");
+      if (head && n && !head.querySelector(".card-note")) head.insertBefore(h("span", { class: "card-note" }, String(n)), head.querySelector(".grow").nextSibling);
+      this.measure();
+    }).catch(() => {});
     this.fillSamples(samplesGrid).catch(() => {}).finally(() => {
       this.measure();
       requestAnimationFrame(() => requestAnimationFrame(() => { if (this.board === board) board.classList.toggle("no-anim", app.settings.animations === false); }));
@@ -153,8 +165,8 @@ export class StartPage {
     // A label line, the bar with − / + under it (the card may be one column narrow).
     // The background follows the bar as it moves; the setting is saved once it settles.
     const row = (ic, label, control, unit = "") => h("div", { class: "start-setting" }, h("div", { class: "start-speed" }, h("span", { class: "si", html: toned(ic, 14) }), h("span", {}, label)), h("div", { class: "start-ctl" }, control, unit ? h("span", { class: "unit" }, unit) : null));
-    const step = (key, min, max, stp, fmt) => {
-      const el = slider(+bg[key] || 0, { min, max, step: stp, format: fmt,
+    const step = (key, min, max, stp, fmt, unit = "") => {
+      const el = slider(+bg[key] || 0, { min, max, step: stp, format: fmt, unit,
         onInput: (v) => { this.app.settings.startBackground = { ...this.bg, [key]: v }; this.applyBackground(); },
         onChange: (v) => { this.saveBg({ [key]: v }); this.applyBackground(); } });
       el.dataset.bgSetting = key;
@@ -216,10 +228,14 @@ export class StartPage {
       theme: { icon: "palette", title: t("Theme"), extra: h("button", { class: "start-btn small", title: t("Themes…"), onclick: () => app.run("view.themes") }, h("span", { class: "si", html: toned("settings", 13) }), h("span", {}, t("Themes…"))),
         body: [h("div", { class: "theme-groups" }, themeGroup("dark", "moon", t("Dark themes")), themeGroup("light", "sun", t("Light themes")))] },
       side: { icon: "image", title: t("Background"), body: [kinds,
-        row("zoomIn", t("Speed"), step("speed", 0, 300, 10, (v) => `${v}`), "%"),
-        row("eye", t("Transparency"), step("transparency", 0, 100, 5, (v) => `${v}`), "%"),
-        row("refresh", t("Shuffle every"), step("shuffleSec", 0, 600, 5, (v) => `${v}`), t("s")),
+        // Speed, transparency and the shuffle interval side by side on one line.
+        h("div", { class: "start-settings" },
+          row("zoomIn", t("Speed"), step("speed", 0, 300, 10, (v) => `${v}`, "%")),
+          row("eye", t("Transparency"), step("transparency", 0, 100, 5, (v) => `${v}`, "%")),
+          row("refresh", t("Shuffle every"), step("shuffleSec", 0, 600, 5, (v) => `${v}`, t("s")))),
         h("label", { class: "start-check" }, h("input", { type: "checkbox", checked: !!bg.random, onchange: (e) => this.saveBg({ random: e.target.checked }) }), h("span", {}, t("A random background at each start")))] },
+      plans: { icon: "underlay", title: t("2D → 3D examples"), extra: h("button", { class: "start-btn small", title: t("2D → 3D examples…"), onclick: () => app.run("file.planSamples") }, h("span", { class: "si", html: toned("underlay", 13) }), h("span", {}, t("Open in a window"))),
+        body: [h("p", { class: "plan-sample-intro" }, t("Floor plans as pictures (listing plans, brochures, CAD prints, blueprints, sketches, phone photos, faxes, scans, interior plans) and CAD / BIM drawings. Click one: it becomes walls, doors, windows and rooms, gets a roof and opens in 3D.")), this.plansHost] },
       samples: { icon: "sample", title: t("Samples"), titleCount: true, extra: h("button", { class: "start-btn small", title: t("Browse samples"), onclick: () => app.run("file.samples") }, h("span", { class: "si", html: toned("sample", 13) }), h("span", {}, t("Browse samples"))), body: [samplesGrid] },
     };
   }
@@ -232,6 +248,8 @@ export class StartPage {
   }
 
   cardElement(id, d) {
+    // The program card stays where it is: no handle, no resize corner.
+    if (id === FIXED_CARD) return h("section", { class: `start-card ${d.cls || id} ${d.bare ? "bare" : ""} fixed`, "data-card": id }, h("div", { class: "card-body" }, ...d.body));
     const handle = h("button", { class: "card-handle", type: "button", title: `${t("Move the card")} (Alt+←↑↓→ · Alt+Shift: ${t("Resize the card")})`, "aria-label": t("Move the card"), "data-handle": id, html: MOVE_ICON });
     handle.addEventListener("pointerdown", (e) => this.startMove(e, id));
     handle.addEventListener("keydown", (e) => this.keyMove(e, id));
@@ -248,7 +266,7 @@ export class StartPage {
   // A layout saved before 바로 가기 and the theme card existed is packed afresh.
   saved() {
     const l = this.bg.layout;
-    return cardsOf(l && l.cards && l.cards.actions ? l : null, this.visibleIds(), DEFAULT_SPAN, this.measured);
+    return pinTop(cardsOf(l && l.cards && l.cards.actions && l.rev === LAYOUT_REV ? l : null, this.visibleIds(), DEFAULT_SPAN, this.measured), FIXED_CARD);
   }
 
   // Puts every card (but `skip`, the one under the pointer) at its cell.
@@ -286,7 +304,7 @@ export class StartPage {
   }
 
   saveLayout(cards) {
-    this.saveBg({ layout: layoutValue(compact(cards)) });
+    this.saveBg({ layout: { ...layoutValue(compact(pinTop(cards, FIXED_CARD))), rev: LAYOUT_REV } });
     this.relayout();
   }
 
@@ -554,14 +572,16 @@ export class StartPage {
     const saved = this.savedThumbs()[file];
     if (saved && saved.sig === sig && saved.url) { this.renders.set(file, saved.url); this.paint3d(this.canvasOf.get(file) || canvas, saved.url); return; }
     const w = await this.thumbWorker();
-    if (!w) { this.thumb(file, canvas).then(() => this.queue3d(file, canvas)); return; }
+    // Without a GPU the 3D previews would take the CPU from everything else: the plan pictures only.
+    const soft = (await import("../view3d/softgl.js")).softwareWebGL();
+    if (!w) { this.thumb(file, canvas).then(() => { if (!soft) this.queue3d(file, canvas); }); return; }
     this.jobs = this.jobs || new Map();
     if (this.jobs.has(file)) return; // already on its way (the page was drawn again)
     const id = `${file}#${++this.jobSeq}`;
-    this.jobs.set(file, { id, file, sig, title, want3d: w.webgl });
+    this.jobs.set(file, { id, file, sig, title, want3d: w.webgl && !soft, soft });
     this.jobTotal = (this.jobTotal || 0) + 1;
     this.showProgress();
-    w.worker.postMessage({ id, text, w: canvas.width, h: canvas.height, want3d: w.webgl });
+    w.worker.postMessage({ id, text, w: canvas.width, h: canvas.height, want3d: w.webgl && !soft });
   }
 
   // The worker, started once; null when this browser cannot run it.
@@ -611,7 +631,7 @@ export class StartPage {
       this.jobs.delete(job.file);
       this.jobDone = (this.jobDone || 0) + 1;
       // No 3D in the worker (no WebGL there): the page draws the 3D ones itself.
-      if (m.done && !job.want3d && canvas) this.queue3d(job.file, canvas);
+      if (m.done && !job.want3d && !job.soft && canvas) this.queue3d(job.file, canvas);
       this.showProgress(job.title);
     }
   }

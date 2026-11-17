@@ -61,7 +61,8 @@ export function pickLamps(lamps, eye, { cap = LAMP_CAP, clip = null } = {}) {
 // leaking far through floors (lamps cast no shadows).
 export const lampRange = (lamp) => Math.max(5, Math.min(25, Math.sqrt(Math.max(1, lamp.lumens)) * 0.22));
 
-export function createLampRig(THREE, scene) {
+// cap: how many lamps light the scene at once (fewer without a GPU: every light costs each pixel).
+export function createLampRig(THREE, scene, { cap = LAMP_CAP } = {}) {
   const group = new THREE.Group();
   group.name = "lamp-lights";
   scene.add(group);
@@ -72,7 +73,7 @@ export function createLampRig(THREE, scene) {
   // Grow the pool (never shrinks: a shrink would recompile the shaders too).
   function ensure(type, n) {
     const list = pool[type];
-    while (list.length < Math.min(n, LAMP_CAP[type])) {
+    while (list.length < Math.min(n, cap[type])) {
       let l;
       if (type === "spot") {
         l = new THREE.SpotLight(0xffffff, 0, 10, Math.PI / 6, 0.45, 2);
@@ -96,7 +97,7 @@ export function createLampRig(THREE, scene) {
 
   // Place the pool on the lamps nearest to the eye.
   function update(eye, opts = {}) {
-    const pick = pickLamps(lamps, eye, opts);
+    const pick = pickLamps(lamps, eye, { cap, ...opts });
     const key = `${pick.point.map((l) => l.id).join()}|${pick.spot.map((l) => l.id).join()}|${opts.dim ?? 1}`;
     if (key === lastKey) return false;
     lastKey = key;

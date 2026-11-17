@@ -10,6 +10,7 @@ import * as THREE from "../vendor/three/three.module.js";
 import { OrbitControls } from "../vendor/three/addons/OrbitControls.js";
 import { buildBuilding, makeMaterials, modelExtent, glowMaterial, M } from "./build.js";
 import { createLampRig, collectLamps } from "./lamps.js";
+import { softwareWebGL } from "./softgl.js";
 import { createSketchupLayer } from "./sklayer.js";
 import { createBatcher, HIDDEN_LAYER } from "./batch.js";
 import { pullForward, EDGE_DEPTH_PULL, GROUND_OFFSET, rankedMaterial, rankOf, nearPlane } from "./depth.js";
@@ -119,10 +120,20 @@ function base64ToBytes(b64) {
   return out;
 }
 
+export { softwareWebGL };
+
 export function createViewer(container, options = {}) {
   const opts = { ...DEFAULT_OPTIONS, ...options };
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: false, stencil: true }); // stencil: filled section cuts (sklayer.js)
-  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  // Without a GPU WebGL runs on the CPU (SwiftShader, llvmpipe, Microsoft Basic Render): every pixel counts,
+  // so no multisampling, one pixel per CSS pixel, fewer while moving, and a smaller shadow map.
+  const software = softwareWebGL();
+  const renderer = new THREE.WebGLRenderer({ antialias: !software, alpha: false, preserveDrawingBuffer: false, stencil: true }); // stencil: filled section cuts (sklayer.js)
+  // Adaptive resolution: while the view moves (orbit, pan, zoom, walk, a flight) and frames come slowly,
+  // it is drawn with fewer pixels; when it stops, one sharp frame at the full ratio follows (moving() below).
+  const fullRatio = software ? 1 : Math.min(2, window.devicePixelRatio || 1);
+  const lowRatio = software ? 0.6 : Math.max(0.75, Math.min(fullRatio, fullRatio * 0.55));
+  let lowRes = false;
+  renderer.setPixelRatio(fullRatio);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
@@ -187,7 +198,7 @@ export function createViewer(container, options = {}) {
   scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xfff4e2, 2.4);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(4096, 4096);
+  sun.shadow.mapSize.set(software ? 1024 : 4096, software ? 1024 : 4096);
   sun.shadow.bias = -0.0003;
   sun.shadow.normalBias = 0.03;
   // The sun's shadow does not depend on the camera: it is drawn again only when
@@ -201,7 +212,7 @@ export function createViewer(container, options = {}) {
   persp.add(headlight, headlight.target);
   scene.add(persp, ortho);
   // Light fixtures: a capped pool of real lights on the nearest lit lamps.
-  const lampRig = createLampRig(THREE, scene);
+  const lampRig = createLampRig(THREE, scene, software ? { cap: { point: 3, spot: 1 } } : {}); // software WebGL: the nearest few lamps
 
   const content = new THREE.Group(); // the building: what gets exported
   content.name = "model";
@@ -1211,7 +1222,7 @@ export function createViewer(container, options = {}) {
     const id = hit.object.userData.id;
     if (!highlighted.has(id) && lastPickId !== id) return false;
     const g = furnitureGroupOf(hit.object, id);
-    if (!g || !g.getObjectByName("lamp")) return false;
+    if (!g) return false; // any selected piece of furniture (lamps and the rest) slides on the floor
     lampDrag = { id, group: g, pos0: g.position.clone(), start: hit.point.clone(), plane: new THREE.Plane(new THREE.Vector3(0, 1, 0), -hit.point.y), dx: 0, dy: 0, moved: false };
     unbatch([id]);
     controls.enabled = false;
@@ -1600,6 +1611,19 @@ export function createViewer(container, options = {}) {
 
   let lastT = performance.now();
   let lastFrame = { calls: 0, triangles: 0 }; // what the last main pass drew
+  function setLowRes(on) {
+    if (on === lowRes || lowRatio >= fullRatio) return;
+    lowRes = on;
+    renderer.setPixelRatio(on ? lowRatio : fullRatio); // setSize again inside: the canvas keeps its CSS size
+    dirty = true;
+  }
+  // Two slow moving frames in a row (under ~40 fps) → fewer pixels; 160 ms without movement → sharp again.
+  let slow = 0, lastMove = 0;
+  function viewMoved(now, frameMs) {
+    lastMove = now;
+    slow = frameMs > 25 ? slow + 1 : Math.max(0, slow - 1);
+    if (slow >= 2) setLowRes(true);
+  }
   const frameCallbacks = new Set(); // after each drawn frame (the scale bar follows the zoom)
   renderer.setAnimationLoop((now) => {
     if (disposed) return;
@@ -1614,6 +1638,9 @@ export function createViewer(container, options = {}) {
     const zoomed = !driven && opts.navMode !== "walk" && stepSmoothZoom();
     const changed = (!driven && opts.navMode !== "walk" && controls.update()) || zoomed;
     if (changed && camera === ortho) syncOrtho();
+    const movingNow = changed || !!anim || walk.keys.size > 0 || driven;
+    if (movingNow && modelShown) viewMoved(now, dt * 1000);
+    else if (lowRes && now - lastMove > 160) setLowRes(false); // still: the sharp frame (setLowRes sets dirty)
     if (changed || dirty || anim || walk.keys.size) {
       if (!hasEnvironment) { dirty = true; return; } // skyEnvironment
       if (shadersStale) warmShaders();
@@ -1657,7 +1684,9 @@ export function createViewer(container, options = {}) {
   function setOptions(o = {}) {
     const prev = { ...opts };
     Object.assign(opts, o);
-    const changed = (k) => k in o && JSON.stringify(o[k]) !== JSON.stringify(prev[k]);
+    // Sets (levels, hidden tags) by their contents: JSON.stringify writes every Set as "{}".
+    const key = (v) => JSON.stringify(v instanceof Set ? [...v].sort() : v);
+    const changed = (k) => k in o && key(o[k]) !== key(prev[k]);
     if (["openDoors", "forceOpenDoors", "furniture", "roofs", "levels", "phase", "hiddenTags"].some(changed)) rebuild();
     else if (["style", "edges", "edgeColor", "profiles", "profileWidth", "colorByTag"].some(changed)) applyStyle();
     if (changed("section")) applyClipping();
@@ -1718,6 +1747,14 @@ export function createViewer(container, options = {}) {
   }
 
   // Saved views (scenes): camera, target and projection.
+  /** Where the pointer ray meets the horizontal plane at height y (m): [x, z] in metres, or null. */
+  function floorPoint(clientX, clientY, y = 0) {
+    const p = rayFrom(clientX, clientY).intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -y), new THREE.Vector3());
+    return p ? [p.x, p.z] : null;
+  }
+  /** The orbit target on the plane at height y (the middle of the view): [x, z] metres. */
+  const viewCentre = () => [controls.target.x, controls.target.z];
+
   function getCamera() {
     return { pos: camera.position.toArray().map((v) => +v.toFixed(4)), target: controls.target.toArray().map((v) => +v.toFixed(4)), ortho: camera === ortho };
   }
@@ -1745,6 +1782,7 @@ export function createViewer(container, options = {}) {
   function onPick(cb) { pickCallbacks.add(cb); return () => pickCallbacks.delete(cb); }
 
   function screenshot() {
+    setLowRes(false); // pictures always at the full resolution
     prepareFrame();
     renderer.render(scene, camera);
     return sk.composite(canvas); // with the style's watermark
@@ -1870,6 +1908,7 @@ export function createViewer(container, options = {}) {
   // hidden from the screen only by a layer, are traced instead) and the
   // selection glow. Returns restore().
   function photoPrep() {
+    setLowRes(false);
     const hidden = [];
     const hide = (o) => { if (o.visible) { o.visible = false; hidden.push(o); } };
     for (const c of helpers.children) if (c !== ground) hide(c);
@@ -1897,5 +1936,7 @@ export function createViewer(container, options = {}) {
     get three() { return { THREE, scene, camera, renderer, controls, content, building }; },
     // Draw one frame now, prepared like the screen's (tests read its pixels).
     renderNow: () => { prepareFrame(); renderer.render(scene, camera); return { near: persp.near, far: persp.far }; },
+    floorPoint, viewCentre,
+    resolution: () => ({ ratio: renderer.getPixelRatio(), full: fullRatio, low: lowRes, software }),
   };
 }

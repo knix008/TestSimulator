@@ -303,6 +303,7 @@ export function mountElevation(def, levelHeight = 2800) {
   if (!def) return 0;
   if (def.mount === "ceiling") return Math.max(0, levelHeight - def.h);
   if (def.mount === "wall") return def.elev ?? 1800;
+  if (def.mount === "surface") return def.elev ?? 750; // MySketchBook's items made to stand on a table or a counter
   return 0;
 }
 

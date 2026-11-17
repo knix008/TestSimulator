@@ -32,14 +32,42 @@ function themeSwatch(app, th, onPick) {
   return b;
 }
 
-export function themeGallery(app) {
+// The themes, picked by a click (applied at once): the user's own themes
+// (new, edit, delete), the dark and the light ones, and "follow the system".
+// The Settings window's Themes tab and the Themes window (themeGallery).
+export function themePanel(app) {
   const body = h("div", { class: "theme-gallery" });
   const draw = () => {
     body.innerHTML = "";
     const pick = (th) => { app.setSetting("theme", th.id); draw(); };
+    const custom = allThemes().filter((x) => x.custom);
+    const own = (th) => {
+      const sw = themeSwatch(app, th, pick);
+      sw.dataset.customTheme = th.id;
+      sw.append(h("span", { class: "theme-swatch-tools" },
+        h("span", { class: "icon-btn", role: "button", title: t("Edit"), "data-edit-theme": th.id, html: icon("symbolEdit", 12), onclick: async (e) => {
+          e.stopPropagation();
+          // The editor saves the changed theme as a new one: the old one goes.
+          if (await customThemeEditor(app, th)) app.setSetting("customThemes", (app.settings.customThemes || []).filter((c) => c.id !== th.id));
+          draw();
+        } }),
+        h("span", { class: "icon-btn", role: "button", title: t("Delete"), html: icon("trash", 12), onclick: async (e) => {
+          e.stopPropagation();
+          if (!(await confirmDialog(t("Delete the theme \"{name}\"?", { name: th.name[getLanguage()] || th.name.en })))) return;
+          app.setSetting("customThemes", (app.settings.customThemes || []).filter((c) => c.id !== th.id));
+          if (app.settings.theme === th.id) app.setSetting("theme", "midnight");
+          draw();
+        } })));
+      return sw;
+    };
+    body.append(h("div", { class: "theme-group-title" }, t("Custom themes"), h("span", { class: "theme-group-count" }, String(custom.length))),
+      h("div", { class: "theme-grid4" }, ...custom.map(own),
+        h("button", { class: "theme-swatch theme-new", "data-new-theme": "1", title: t("New custom theme…"), onclick: async () => { await customThemeEditor(app); draw(); } },
+          h("span", { class: "theme-chip theme-chip-new", html: icon("plus", 16) }), h("span", { class: "theme-name" }, t("New custom theme…")))));
     for (const mode of ["dark", "light"]) {
-      body.append(h("div", { class: "theme-group-title" }, mode === "dark" ? t("Dark themes") : t("Light themes")),
-        h("div", { class: "theme-grid4" }, ...THEMES.filter((x) => x.mode === mode).map((th) => themeSwatch(app, th, pick))));
+      const list = THEMES.filter((x) => x.mode === mode);
+      body.append(h("div", { class: "theme-group-title" }, mode === "dark" ? t("Dark themes") : t("Light themes"), h("span", { class: "theme-group-count" }, String(list.length))),
+        h("div", { class: "theme-grid4" }, ...list.map((th) => themeSwatch(app, th, pick))));
     }
     const sys = checkbox(app.settings.theme === "system", t("Follow the system light/dark setting (uses the last dark and light themes you picked)"), {
       onChange: (v) => {
@@ -51,7 +79,11 @@ export function themeGallery(app) {
     body.append(h("div", { class: "theme-sys" }, sys));
   };
   draw();
-  return modal({ icon: "palette", title: t("Themes"), width: 760, body, buttons: [{ label: t("Close"), value: null, primary: true }] });
+  return body;
+}
+
+export function themeGallery(app) {
+  return modal({ icon: "palette", title: t("Themes"), width: 900, body: themePanel(app), buttons: [{ label: t("Close"), value: null, primary: true }] });
 }
 
 // Theme dropdown under the palette button: dark, light and custom themes.
@@ -472,7 +504,6 @@ export async function settingsDialog(app) {
     libraryRow(app),
   );
   const appearance = h("div", { class: "form-grid" },
-    field(t("Theme"), h("div", { style: { display: "flex", gap: "8px", alignItems: "center" } }, h("span", {}, app.themeLabel()), h("button", { class: "btn small", onclick: () => themeGallery(app) }, t("Themes…")))),
     field(t("Interface size"), num("uiScale", { values: [0.8, 0.9, 1, 1.1, 1.25, 1.4, 1.5], format: (v) => `${Math.round(v * 100)}%` })),
     field(t("Animations"), chk("animations", t("Animate dialogs, menus and the start page"))),
     field(t("Hints"), chk("showHints", t("Show tool hints on the canvas"))),
@@ -511,9 +542,9 @@ export async function settingsDialog(app) {
     field(t("Default paper"), sel("defaultPaper", ["A4", "A3", "A2", "A1", "A0", "Letter", "Tabloid"])),
   );
   const ok = await modal({ icon: "settings",
-    title: t("Settings"), width: 760, className: "settings-modal",
+    title: t("Settings"), width: 900, className: "settings-modal",
     body: tabs([
-      { id: "g", label: t("General"), body: general }, { id: "a", label: t("Appearance"), body: appearance }, { id: "u", label: t("Units & grid"), body: unitsGrid },
+      { id: "g", label: t("General"), body: general }, { id: "t", label: t("Themes"), body: themePanel(app) }, { id: "a", label: t("Appearance"), body: appearance }, { id: "u", label: t("Units & grid"), body: unitsGrid },
       { id: "p", label: t("Floor plan"), body: plan }, { id: "v", label: t("3D view"), body: view3d }, { id: "o", label: t("Output"), body: output },
     ]),
     buttons: [{ label: t("Reset to defaults"), value: "reset", left: true }, { label: t("Cancel"), value: false }, { label: t("OK"), value: true, primary: true }],
@@ -527,7 +558,9 @@ export async function settingsDialog(app) {
   }
   if (!ok) return;
   const langChanged = s.lang !== app.settings.lang;
-  app.settings = { ...app.settings, ...s };
+  const { theme, customThemes, systemDark, systemLight, ...rest } = s;
+  void theme; void customThemes; void systemDark; void systemLight;
+  app.settings = { ...app.settings, ...rest };
   if (langChanged) app.setSetting("lang", s.lang);
   app.applySettings();
 }
@@ -875,7 +908,7 @@ export function showWelcome(app) {
 // is the same setting as Settings › General › Tutorial popup and the switch
 // at the top of the start page (tutorialAtStart).
 export function tutorialPrompt(app) {
-  const tone = (name, c) => icon(name, 18).replace("<svg ", `<svg data-tone="${c}" `);
+  const tone = (name, c) => icon(name, 18, "", c);
   const steps = [
     ["wall", "blue", t("Walls, doors and windows"), t("Draw a house on the plan with the keyboard and mouse")],
     ["levels", "indigo", t("Levels, stairs and the roof"), t("Stack storeys, connect them and close the top")],

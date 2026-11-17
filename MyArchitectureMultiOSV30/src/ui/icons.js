@@ -236,15 +236,57 @@ const P = {
   catCar: '<path d="M3 15v-3l2-5h14l2 5v3"/><path d="M3 15h18v3H3z"/><circle cx="7" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/><path d="M5 12h14"/>',
   catPerson: '<circle cx="12" cy="5" r="2.5"/><path d="M8 22l1-8-2-1 1-5h8l1 5-2 1 1 8"/>',
   catOffice: '<rect x="3" y="4" width="18" height="11" rx="1.5"/><path d="M9 20h6M12 15v5"/>',
+  catLift: '<rect x="4" y="3" width="16" height="18" rx="1"/><path d="M12 3v18"/><path d="M6.5 10l2.5-3 2.5 3M13 7l2.5 3L18 7"/>',
   catOther: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/>',
   catAll: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
   viewTiles: '<rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/>',
   viewRows: '<rect x="3" y="4" width="5" height="5" rx="1"/><path d="M11 6.5h10"/><rect x="3" y="15" width="5" height="5" rx="1"/><path d="M11 17.5h10"/>',
 };
 
-export function icon(name, size = 18, extraClass = "") {
+// ---------------------------------------------------------------- colours
+// Every icon is coloured (as MyUMLMaker's src/icon-tones.js): meaning decides
+// where it can (delete is red, open is amber …); the others take a steady
+// colour from their name, so one icon looks the same everywhere. style/app.css
+// maps each tone to a colour for dark and light themes, and lets icons on solid
+// buttons (primary, danger, a hovered menu item) take the button's text colour.
+export const ICON_TONES = ["blue", "sky", "indigo", "purple", "pink", "red", "orange", "amber", "yellow", "green", "teal", "cyan", "slate", "brown"];
+
+const BY_MEANING = [
+  [/^(trash|close|error|stop)$/, "red"],
+  [/^(new|plus|play|check|sample)$/, "green"],
+  [/^(zoomIn|zoomOut|zoomFit|search)$/, "green"],
+  [/^(open|folder|history|file)$/, "amber"],
+  [/^(save|saveAs)$/, "indigo"],
+  [/^(import|export|dxf|underlay|image)$/, "teal"],
+  [/^(undo|redo|refresh|chevron\w*|arrow\w*)$/, "sky"],
+  [/^(palette|material|bucket|text)$/, "pink"],
+  [/^(settings|keyboard|dots|grid|command)$/, "slate"],
+  [/^(info|help|library)$/, "blue"],
+  [/^(bulb\w*|sunlight|sun|warning)$/, "yellow"],
+  [/^(print|camera|model3d|cube)$/, "purple"],
+  [/^(home|globe|walk|tour)$/, "orange"],
+  [/^(tree|leaf)$/, "green"],
+  [/^(bim|levels|building)$/, "indigo"],
+];
+
+const VARIETY = ["blue", "sky", "indigo", "purple", "pink", "orange", "amber", "green", "teal", "cyan", "brown"];
+const hash = (name) => { let h = 7; for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; };
+
+const cache = new Map();
+/** The hue of an icon (always one of ICON_TONES). */
+export function toneOf(name) {
+  if (cache.has(name)) return cache.get(name);
+  const tone = (BY_MEANING.find(([re]) => re.test(name)) || [])[1] || VARIETY[hash(name) % VARIETY.length];
+  cache.set(name, tone);
+  return tone;
+}
+
+/** An icon (SVG markup). extraClass "mono": no colour of its own (it follows
+ *  the text, for icons whose colour shows a state); tone: a colour of choice. */
+export function icon(name, size = 18, extraClass = "", tone = null) {
   const body = P[name] || P.dots;
-  return `<svg class="ico ${extraClass}" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+  const hue = extraClass.split(" ").includes("mono") ? "" : ` data-tone="${tone || toneOf(name)}"`;
+  return `<svg class="ico ${extraClass}"${hue} viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
 }
 
 export const ICON_NAMES = Object.keys(P);

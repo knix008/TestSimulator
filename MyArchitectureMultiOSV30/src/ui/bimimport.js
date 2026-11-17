@@ -31,6 +31,7 @@ async function sh3dOptions(f) {
     packed = isZip(f.bytes) && zipEntries(f.bytes).some((e) => !/^(Home|Home\.xml|ContentDigests)$/.test(e.name));
   } catch { packed = false; }
   if (!packed) return { models: "catalog" };
+  if (f.noAsk) return { models: sh3dModels }; // an example (2D → 3D examples): the last choice, no question
   const opts = { models: sh3dModels };
   const body = h("div", { class: "form-grid" },
     field(t("Furniture, lights and roofs"), select(opts.models, [["file", t("Use the file's 3D models")], ["catalog", t("Use MyArchitecture furniture shapes")]], { onChange: (v) => { opts.models = v; } })),

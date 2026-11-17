@@ -14,11 +14,11 @@ import { allFurniture, furnitureDef, FURNITURE_CATEGORIES } from "../lib/furnitu
 import * as userlib from "./userlib.js";
 
 export const CATEGORY_ICONS = {
-  all: "catAll", fav: "star", mine: "userLib", recent: "history", project: "folder", models: "model3d",
+  all: "catAll", fav: "star", mine: "userLib", recent: "history", project: "folder", models: "model3d", used: "layers",
   Living: "sofa", Dining: "catDining", Kitchen: "catKitchen", Bedroom: "catBed", Kids: "catKids", Bathroom: "catBath",
   Office: "catOffice", Electronics: "catTv", Lighting: "bulb", Decor: "catDecor", Plants: "catPlant", Outdoor: "catOutdoor",
   Vehicles: "catCar", People: "catPerson", Commercial: "catShop", Restaurant: "catRestaurant", Healthcare: "catHealth",
-  School: "catSchool", Fitness: "catFitness", Building: "building", Other: "catOther",
+  School: "catSchool", Fitness: "catFitness", Building: "building", "Lifts & escalators": "catLift", Storage: "box3d", Other: "catOther",
 };
 export const categoryIcon = (key) => CATEGORY_ICONS[key] || "furniture";
 
@@ -42,19 +42,23 @@ export function kindThumb(app, kind, w, hh, fallback) {
   const i = sprite ? sprite.index[kind] : undefined;
   if (i === undefined) return fallback(kind, w, hh, app.themeName());
   const k = w / sprite.w;
-  const col = i % sprite.cols, row = Math.floor(i / sprite.cols);
-  return h("span", { class: "lib-thumb", style: { width: `${w}px`, height: `${hh}px`, backgroundImage: `url(${SPRITE})`, backgroundSize: `${sprite.cols * sprite.w * k}px auto`, backgroundPosition: `${-col * sprite.w * k}px ${-row * sprite.h * k}px` } });
+  // Pages of perPage cells: thumbs.webp, thumbs-1.webp, …
+  const per = sprite.perPage || Infinity, page = Math.floor(i / per), j = i % per;
+  const col = j % sprite.cols, row = Math.floor(j / sprite.cols);
+  const url = page ? SPRITE.replace(".webp", `-${page}.webp`) : SPRITE;
+  return h("span", { class: "lib-thumb", style: { width: `${w}px`, height: `${hh}px`, backgroundImage: `url(${url})`, backgroundSize: `${sprite.cols * sprite.w * k}px auto`, backgroundPosition: `${-col * sprite.w * k}px ${-row * sprite.h * k}px` } });
 }
 
 // ---------------------------------------------------------------- chips
 // The natural width of the widest chip (they stretch to fill their rows).
 export function chipNaturalWidth(chips) {
   let w = 0;
+  // The chips sit in grid tracks (they stretch to the track): measure each at its own width.
   for (const c of chips.children) {
-    const flex = c.style.flex;
-    c.style.flex = "none";
+    const width = c.style.width;
+    c.style.width = "max-content";
     w = Math.max(w, c.getBoundingClientRect().width);
-    c.style.flex = flex;
+    c.style.width = width;
   }
   return Math.ceil(w);
 }
@@ -88,10 +92,16 @@ export function renderLibrary(app, host, { groupBox, thumb, rerender }) {
   panel.append(h("div", { class: "search" }, h("span", { html: icon("search", 15) }), search));
   const chips = h("div", { class: "chips" });
   const mine = userlib.userEntries(app);
-  const cats = [["", t("All"), "all"], ["fav", t("Favourites"), "fav"], ["mine", t("My library"), "mine"], ...FURNITURE_CATEGORIES.map((c) => [c, t(c), c])];
-  for (const [key, label, ic] of cats) {
-    chips.append(h("button", { class: `chip ${state.category === key ? "on" : ""}`, "data-chip": key || "all", title: label, onclick: () => { state.category = key; rerender(); } },
-      h("span", { class: "chip-ico", html: icon(categoryIcon(ic), 13) }), h("span", { class: "chip-label" }, label)));
+  // How many of each item this project has placed (all levels): kind, or model:<id> for imported models.
+  const used = new Map();
+  for (const f of p.furniture) { const k = f.kind === "model" ? `model:${f.model}` : f.kind; used.set(k, (used.get(k) || 0) + 1); }
+  const all = allFurniture();
+  const perCat = new Map();
+  for (const d of all) perCat.set(d.cat, (perCat.get(d.cat) || 0) + 1);
+  const cats = [["", t("All"), "all", all.length + mine.length], ["used", t("In this project"), "used", used.size], ["fav", t("Favourites"), "fav", fav.size], ["mine", t("My library"), "mine", mine.length], ...FURNITURE_CATEGORIES.map((c) => [c, t(c), c, perCat.get(c) || 0])];
+  for (const [key, label, ic, n] of cats) {
+    chips.append(h("button", { class: `chip ${state.category === key ? "on" : ""}`, "data-chip": key || "all", title: `${label} (${n})`, onclick: () => { state.category = key; rerender(); } },
+      h("span", { class: "chip-ico", html: icon(categoryIcon(ic), 13) }), h("span", { class: "chip-label" }, label), h("span", { class: "chip-count" }, String(n))));
   }
   panel.append(chips);
   requestAnimationFrame(() => { const w = chipNaturalWidth(chips); if (w) chips.style.setProperty("--chip-w", `${w + 2}px`); });
@@ -105,10 +115,12 @@ export function renderLibrary(app, host, { groupBox, thumb, rerender }) {
     const pic = o.thumbUrl ? h("img", { class: "lib-thumb", src: o.thumbUrl, alt: "", draggable: "false", style: tiles ? { width: "80px", height: "64px" } : { width: "44px", height: "35px" } })
       : o.kind ? kindThumb(app, o.kind, tiles ? 80 : 44, tiles ? 64 : 35, thumb)
         : h("span", { class: "lib-thumb lib-ico", html: icon(o.icon || "model3d", tiles ? 34 : 24) });
-    const star = h("button", { class: `lib-fav ${fav.has(o.key) ? "on" : ""}`, title: fav.has(o.key) ? t("Remove from favourites") : t("Add to favourites"), html: icon(fav.has(o.key) ? "starFill" : "star", 13), "data-fav": o.key });
+    const star = h("button", { class: `lib-fav ${fav.has(o.key) ? "on" : ""}`, title: fav.has(o.key) ? t("Remove from favourites") : t("Add to favourites"), html: icon(fav.has(o.key) ? "starFill" : "star", 13, "mono"), "data-fav": o.key });
     star.addEventListener("click", (e) => { e.stopPropagation(); toggleFav(o.key); });
-    if (tiles) el.append(pic, h("div", { class: "nm" }, o.name), star);
-    else el.append(pic, h("div", {}, h("div", { class: "nm" }, o.name), h("div", { class: "ds" }, o.sub)), star);
+    const n = used.get(o.key) || 0;
+    const badge = n ? h("span", { class: "lib-count", title: t("{n} in this project", { n }), "data-count": o.key }, `×${n}`) : null;
+    if (tiles) el.append(pic, h("div", { class: "nm" }, o.name), star, badge || "");
+    else el.append(pic, h("div", {}, h("div", { class: "nm" }, o.name), h("div", { class: "ds" }, o.sub)), badge || "", star);
     el.addEventListener("click", () => o.place());
     el.addEventListener("dragstart", (e) => { e.dataTransfer.setData("text/x-myarch-furniture", o.key); e.dataTransfer.effectAllowed = "copy"; });
     el.addEventListener("contextmenu", (e) => { e.preventDefault(); e.stopPropagation(); contextMenu(o.menu(), e.clientX, e.clientY); });
@@ -123,7 +135,10 @@ export function renderLibrary(app, host, { groupBox, thumb, rerender }) {
   const favItem = (key) => ({ label: fav.has(key) ? t("Remove from favourites") : t("Add to favourites"), icon: fav.has(key) ? "starFill" : "star", action: () => toggleFav(key) });
   const builtIn = (d) => ({
     key: d.kind, kind: d.kind, name: t(d.name), sub: `${d.w} × ${d.d} × ${d.h}`, tip: `${t(d.name)} — ${d.w} × ${d.d} × ${d.h} mm`,
-    place: () => { app.setTab("plan"); app.plan.setTool("furniture", { kind: d.kind }); app.plan.canvas.focus(); },
+    place: () => {
+      if (app.tab === "3d" && app.v3d && app.v3d.viewer) { const at = app.v3d.floorPointMm(); if (at) { app.v3d.placeAt(d.kind, ...at); return; } }
+      app.setTab("plan"); app.plan.setTool("furniture", { kind: d.kind }); app.plan.canvas.focus();
+    },
     menu: () => [{ label: t("Place"), icon: "plus", action: () => { app.setTab("plan"); app.plan.setTool("furniture", { kind: d.kind }); } }, favItem(d.kind)],
   });
   const entryItem = (e, own) => ({
@@ -160,6 +175,10 @@ export function renderLibrary(app, host, { groupBox, thumb, rerender }) {
       const recent = (st.recentFurniture || []).map(byKey).filter(Boolean);
       if (recent.length) groups.push(["recent", t("Recently used"), recent]);
     }
+    if (cat === "used") {
+      const items = [...used.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => (k.startsWith("model:") ? (() => { const m = p.models.find((x) => `model:${x.id}` === k); return m ? modelItem(m) : null; })() : byKey(k))).filter(Boolean).filter((o) => match(`${o.name} ${o.key}`));
+      groups.push(["used", `${t("In this project")} · ${t("{n} pieces", { n: p.furniture.length })}`, items]);
+    }
     if (cat === "fav") groups.push(["fav", t("Favourites"), [...fav].map(byKey).filter(Boolean).filter((o) => match(`${o.name} ${o.key}`))]);
     // My library (grouped by their categories when it is the chosen chip).
     const mineHit = mine.filter((e) => match(`${e.name} ${e.cat} ${t(e.cat)}`) && (!cat || cat === "mine" || cat === e.cat));
@@ -167,11 +186,11 @@ export function renderLibrary(app, host, { groupBox, thumb, rerender }) {
       const byCat = new Map();
       for (const e of mineHit) { if (!byCat.has(e.cat)) byCat.set(e.cat, []); byCat.get(e.cat).push(entryItem(e, true)); }
       for (const [c, items] of byCat) groups.push([`mine:${c}`, `${t("My library")} · ${t(c)}`, items]);
-    } else if (mineHit.length && cat !== "fav") groups.push(["mine", t("My library"), mineHit.map((e) => entryItem(e, true))]);
+    } else if (mineHit.length && cat !== "fav" && cat !== "used") groups.push(["mine", t("My library"), mineHit.map((e) => entryItem(e, true))]);
     // This project's library items that are not in mine (made on another computer).
     const proj = userlib.projectEntries(p).filter((e) => !mine.some((m) => m.id === e.id) && match(`${e.name} ${e.cat}`) && (!cat || cat === e.cat || cat === "mine"));
-    if (proj.length && cat !== "fav") groups.push(["project", t("This project's library items"), proj.map((e) => entryItem({ ...e, models: p.models }, false))]);
-    if (cat !== "fav" && cat !== "mine") {
+    if (proj.length && cat !== "fav" && cat !== "used") groups.push(["project", t("This project's library items"), proj.map((e) => entryItem({ ...e, models: p.models }, false))]);
+    if (cat !== "fav" && cat !== "mine" && cat !== "used") {
       const byCat = new Map();
       for (const d of allFurniture()) {
         if (cat && d.cat !== cat) continue;

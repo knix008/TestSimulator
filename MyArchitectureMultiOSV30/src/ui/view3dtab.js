@@ -4,6 +4,7 @@
 
 import { t } from "./i18n.js";
 import { icon } from "./icons.js";
+import { freeSpot } from "../core/placement.js";
 import { h, panelHead, toast, checkbox, select, field, stepper, contextMenu, modal } from "./widgets.js";
 import { levelById, findItem, wallHeight } from "../core/project.js";
 import { materialsFor, materialColor, materialById } from "../lib/materials.js";
@@ -105,13 +106,18 @@ export class View3DTab {
       const m = this.lampMove;
       this.lampMove = null;
       const g = app.settings.snap !== false ? 10 : 1;
-      app.store.edit(t("Move light"), (pr) => {
+      let moved = false;
+      app.store.edit(this.isLamp(m.id) ? t("Move light") : t("Move furniture"), (pr) => {
         const it = findItem(pr, m.id);
         if (!it) return false;
         it.obj.x = Math.round((m.x0 + ev.dx) / g) * g;
         it.obj.y = Math.round((m.y0 + ev.dy) / g) * g;
+        // Not into a wall or another piece: the nearest free spot.
+        const spot = freeSpot(pr, it.obj, { origin: [m.x0, m.y0] });
+        if (spot && spot.moved) { it.obj.x = spot.x; it.obj.y = spot.y; moved = true; }
         return true;
       });
+      if (moved) toast(t("Moved to the nearest free spot (it would have hit a wall or furniture)."), "info", 3000);
       this.app.setHint(this.hintText());
       this.markDirty();
       return;
@@ -170,6 +176,7 @@ export class View3DTab {
         this.opts.ground = st.ground3d !== false;
         this.viewer = createViewer(wrap, { ...this.opts, ...this.settingOpts(), ...this.sk.viewerOpts(), levels: this.levelSet(), translate: t });
         this.viewer.onTool((ev) => this.onTool(ev));
+        this.bindLibraryDrop(this.viewer.three.renderer.domElement);
         // Scale bar at the orbit target's distance (a perspective has no one scale).
         this.scaleBar = createScaleBar(this.app, this.host, { view: "3d", pxPerMm: () => this.viewer.pxPerMetre() / 1000, target: () => this.viewer.three.renderer.domElement, shown: () => !!this.opts.scaleBar, imperial: () => this.app.settings.units3d === "ft", note: t("measured at the centre of rotation") });
         this.viewer.onFrame(() => this.scaleBar.update());
@@ -233,7 +240,7 @@ export class View3DTab {
     const groups = lightGroups(p, { name: (f) => f.name || t((furnitureDef(f.kind) || {}).name || f.kind) });
     if (!groups.length) return;
     const total = groups.reduce((s, g) => s + g.total, 0), on = groups.reduce((s, g) => s + g.on, 0);
-    const sw = (ids, isOn, title, attrs = {}) => h("button", { class: `icon-btn lamp-sw ${isOn ? "on" : ""}`, title, html: icon(isOn ? "bulb" : "bulbOff", 14), ...attrs,
+    const sw = (ids, isOn, title, attrs = {}) => h("button", { class: `icon-btn lamp-sw ${isOn ? "on" : ""}`, title, html: icon(isOn ? "bulb" : "bulbOff", 14, "mono"), ...attrs,
       onclick: (e) => { e.preventDefault(); e.stopPropagation(); switchLamps(this.app, ids, !isOn); this.app.renderLeft(); } }); // in a room's summary: switch, do not fold
     const panel = h("div", { class: "panel", "data-lights-panel": "1" }, panelHead("bulb", t("Lights"), h("small", { class: "light-count", title: t("Lights on / all lights") }, `${on}/${total}`), h("div", { class: "grow" }),
       h("button", { class: "icon-btn", title: t("All lights on"), "data-lights-all": "on", html: icon("bulbRays", 14), onclick: () => { switchLamps(this.app, lampIds(groups), true); this.app.renderLeft(); } }),
@@ -246,7 +253,7 @@ export class View3DTab {
           h("summary", {}, h("span", { class: "grow" }, r.name || t("Not in a room")), h("small", {}, `${r.on} / ${r.total}`), sw(lampIds(groups, { level: g.level, room: r.id }), r.on > 0, r.on ? t("Switch the room's lights off") : t("Switch the room's lights on"), { "data-lights-room": r.id || "none" })));
         for (const l of r.lamps) {
           const row = h("div", { class: `light-row ${l.on ? "on" : ""} ${this.app.plan.sel.has(l.id) ? "sel" : ""}`, "data-lamp-row": l.id, title: t("Click to select it; the bulb switches it") },
-            sw([l.id], l.on, l.on ? t("Switch light off") : t("Switch light on"), { "data-lamp-switch": l.id }), h("span", { class: "grow" }, l.name), h("small", {}, `${l.lumens} lm`));
+            h("span", { class: "grow" }, l.name), h("small", {}, `${l.lumens} lm`), sw([l.id], l.on, l.on ? t("Switch light off") : t("Switch light on"), { "data-lamp-switch": l.id })); // every switch in one column at the right
           row.addEventListener("click", () => { this.app.onSelection("3d", [l.id]); this.highlight([l.id]); this.app.renderLeft(); });
           room.append(row);
         }
@@ -426,10 +433,76 @@ export class View3DTab {
     this.app.updateStatus();
   }
 
+  /** A library item placed in 3D at plan point (x, y) mm on the plan's current level (its tool's snapping and mounting, then a free spot). */
+  placeAt(key, x, y) {
+    const app = this.app;
+    if (key.startsWith("user:")) {
+      import("./userlib.js").then((userlib) => {
+        const entry = userlib.findEntry(app, key.slice(5));
+        if (entry) userlib.placeEntry(app, entry.models && entry.models.length ? entry : { ...entry, models: app.store.project.models.filter((m) => entry.items.some((f) => f.model === m.id)) }, [x, y]);
+      });
+      return;
+    }
+    app.plan.setTool("furniture", key.startsWith("model:") ? { kind: "model", model: key.slice(6) } : { kind: key });
+    app.plan.pointerPlace("down", { button: 0, shiftKey: false }, x, y);
+    const id = [...app.plan.sel][0];
+    if (id) { app.onSelection("3d", [id]); this.highlight([id]); app.setHint(t("Placed. Drag it to move it; it keeps clear of walls and furniture.")); }
+  }
+  /** Plan point (mm) on the plan's level under the pointer, or the middle of the view. */
+  floorPointMm(clientX = null, clientY = null) {
+    const v = this.viewer;
+    if (!v) return null;
+    const lv = this.app.store.project.levels.find((l) => l.id === this.app.plan.level) || this.app.store.project.levels[0];
+    const y = (lv ? lv.elevation : 0) / 1000;
+    const p = clientX === null ? v.viewCentre() : v.floorPoint(clientX, clientY, y);
+    return p ? [Math.round(p[0] * 1000), Math.round(p[1] * 1000)] : null;
+  }
+  /** Drops from the library onto the 3D view. */
+  bindLibraryDrop(canvas) {
+    canvas.addEventListener("dragover", (e) => { if ([...e.dataTransfer.types].includes("text/x-myarch-furniture")) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } });
+    canvas.addEventListener("drop", (e) => {
+      const key = e.dataTransfer.getData("text/x-myarch-furniture");
+      if (!key) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const at = this.floorPointMm(e.clientX, e.clientY);
+      if (at) this.placeAt(key, ...at);
+    });
+  }
+
   setLevelVisible(id, on) {
     if (on) this.hiddenLevels.delete(id); else this.hiddenLevels.add(id);
     if (this.viewer) this.viewer.setOptions({ levels: this.levelSet() });
     this.app.renderLeft();
+  }
+
+  // Floor by floor: only the given levels are shown (each level's own walls,
+  // floor, furniture; the floors above are gone, so the rooms are open to view).
+  showLevels(ids) {
+    const keep = new Set(ids);
+    this.hiddenLevels.clear();
+    for (const l of this.app.store.project.levels) if (!keep.has(l.id)) this.hiddenLevels.add(l.id);
+    if (this.viewer) this.viewer.setOptions({ levels: this.levelSet() });
+    this.app.renderLeft();
+    this.app.updateStatus();
+  }
+  /** Only this level. */
+  soloLevel(id) { this.showLevels([id]); }
+  /** This level and every level below it (a cut-away above it). */
+  levelsUpTo(id) {
+    const ls = this.app.store.project.levels, lv = ls.find((l) => l.id === id);
+    if (lv) this.showLevels(ls.filter((l) => l.elevation <= lv.elevation + 1).map((l) => l.id));
+  }
+  showAllLevels() { this.showLevels(this.app.store.project.levels.map((l) => l.id)); }
+  /** The level shown alone, if exactly one is. */
+  soloId() { const v = [...this.levelSet()]; return v.length === 1 ? v[0] : null; }
+  /** The next level up (dir 1) or down (−1) on its own; from all levels it starts at the lowest / highest. */
+  stepLevel(dir) {
+    const ls = this.app.store.project.levels.slice().sort((a, b) => a.elevation - b.elevation);
+    if (!ls.length) return;
+    const cur = ls.findIndex((l) => l.id === this.soloId());
+    const i = cur < 0 ? (dir > 0 ? 0 : ls.length - 1) : Math.max(0, Math.min(ls.length - 1, cur + dir));
+    this.soloLevel(ls[i].id);
   }
 
   onKey(e, down) {
@@ -533,9 +606,19 @@ export class View3DTab {
     host.append(scenes);
 
     const panel = h("div", { class: "panel" });
-    panel.append(panelHead("levels", t("Levels")));
-    const body = h("div", { class: "panel-body" });
-    for (const lv of p.levels.slice().reverse()) body.append(h("div", {}, checkbox(!this.hiddenLevels.has(lv.id), `${lv.name}  (${(lv.elevation / 1000).toFixed(2)} m)`, { onChange: (v) => this.setLevelVisible(lv.id, v) })));
+    const ibtn = (ic, title, onclick, attrs = {}) => h("button", { class: "icon-btn", type: "button", title, "aria-label": title, html: icon(ic, 14), onclick, ...attrs });
+    const multi = p.levels.length > 1, solo = this.soloId();
+    panel.append(panelHead("levels", t("Levels"), h("div", { class: "grow" }), ...(multi ? [
+      ibtn("arrowDown", t("The level below, on its own"), () => this.stepLevel(-1), { "data-level-step": "down" }),
+      ibtn("arrowUp", t("The level above, on its own"), () => this.stepLevel(1), { "data-level-step": "up" }),
+      ibtn("catAll", t("Show all levels"), () => this.showAllLevels(), { "data-level-all": "1" })] : [])));
+    const body = h("div", { class: "panel-body level-list" });
+    for (const lv of p.levels.slice().reverse()) {
+      body.append(h("div", { class: `level-row ${solo === lv.id ? "solo" : ""}`, "data-level-row": lv.id },
+        h("span", { class: "grow" }, checkbox(!this.hiddenLevels.has(lv.id), `${lv.name}  (${(lv.elevation / 1000).toFixed(2)} m)`, { onChange: (v) => this.setLevelVisible(lv.id, v) })),
+        multi ? ibtn("eye", t("Only this level in 3D"), () => this.soloLevel(lv.id), { "data-level-solo": lv.id, class: `icon-btn ${solo === lv.id ? "on" : ""}` }) : "",
+        multi ? ibtn("layers", t("This level and the levels below (cut away above)"), () => this.levelsUpTo(lv.id), { "data-level-upto": lv.id }) : ""));
+    }
     panel.append(body);
     host.append(panel);
 

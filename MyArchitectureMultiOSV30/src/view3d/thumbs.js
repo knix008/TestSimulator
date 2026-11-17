@@ -59,6 +59,7 @@ export function createThumbRenderer(THREE, { width = 160, height = 128, dir = [0
   };
 
   async function render(furniture, models = []) {
+    if (furniture.some((f) => String(f.kind).startsWith("sb-"))) await (await import("./sbitems.js")).loadSb();
     const mini = normalizeProject(newProject("piece"));
     mini.levels = [{ id: "lv", name: "1F", elevation: 0, height: 100000, slab: 0 }];
     mini.view.level = "lv";

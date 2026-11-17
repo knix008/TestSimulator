@@ -18,6 +18,7 @@ import { partNeedsOwnGeometry, partGeometry, classOf, classNameOf, surfaceTextur
 import { materialById, materialColor, paintPattern, DEFAULT_MATERIAL } from "../lib/materials.js";
 import { presetSurface } from "./presetmat.js";
 import { doorAngle } from "../core/doors.js";
+import { sbGroup, sbIdOf, loadSb } from "./sbitems.js";
 import { phaseVisible } from "../plan/render.js";
 import { buildSolid, buildComponent, buildOpeningComponent, skVisible } from "./skbuild.js";
 import { setProjectMaterials } from "../lib/materials.js";
@@ -674,9 +675,27 @@ export function buildBuilding(THREE, p, mats, opts = {}) {
             }).catch(() => {});
           }
         } else if (f.kind === "component") g = buildComponent(THREE, mats, p, f, compCache); // a component instance (skbuild.js)
-        else g = furnitureGroup(THREE, mats, f, lod);
+        else if (sbIdOf(f.kind)) {
+          // MySketchBook's parametric items (sbitems.js): built at once when the builders are loaded, else a box until then.
+          g = sbGroup(THREE, mats, f);
+          if (!g) {
+            g = new THREE.Group();
+            const ph = boxMesh(THREE, f.w * M, f.h * M, f.d * M, mats.color("#b8b0a4", { opacity: 0.5 }));
+            ph.position.y = (f.h * M) / 2;
+            g.add(ph);
+            const holder = g;
+            loadSb().then(() => {
+              const real = sbGroup(THREE, mats, f);
+              if (!real) return;
+              holder.remove(ph);
+              for (const c of [...real.children]) holder.add(c);
+              tag(holder, f.id, "furniture", lv.id);
+              if (opts.onAsync) opts.onAsync();
+            }).catch(() => {});
+          }
+        } else g = furnitureGroup(THREE, mats, f, lod);
         const lamp = g.getObjectByName("lamp");
-        if (lamp) lamp.userData.lamp.floor = base * M; // the section cut keeps lamps whose floor is below it
+        if (lamp && lamp.userData.lamp) lamp.userData.lamp.floor = base * M; // the section cut keeps lamps whose floor is below it
         g.position.set(f.x * M, (base + (f.elevation || 0)) * M, f.y * M);
         g.rotation.y = (-(f.rot || 0) * Math.PI) / 180;
         g.name = `${f.kind} ${f.id}`;

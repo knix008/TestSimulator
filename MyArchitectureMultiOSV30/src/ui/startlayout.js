@@ -112,6 +112,18 @@ export function cardsOf(saved, ids, defaultSpan, measured = {}, fallbackRows = 8
   return compact(resolve(cards, null));
 }
 
+/** Card `id` (the program card) stays on top at full width; the others keep their
+ *  places below it (compacted). Moving or resizing never pushes it down. */
+export function pinTop(cards, id) {
+  const top = cards[id];
+  if (!top) return cards;
+  const rest = {};
+  for (const [k, c] of Object.entries(cards)) if (k !== id) rest[k] = c;
+  const out = { [id]: { ...top, col: 0, row: 0, w: COLS } };
+  for (const [k, c] of Object.entries(compact(rest))) out[k] = { ...c, row: c.row + top.h };
+  return out;
+}
+
 /** The live / final result of putting card `id` at `target`: pushed down, then compacted. */
 export function place(cards, id, target) {
   return compact(resolve({ ...cards, [id]: { ...cards[id], ...target } }, id));

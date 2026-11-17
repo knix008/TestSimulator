@@ -11,6 +11,7 @@ import { roomAtPoint, detectRooms, buildingOutlines, suggestRoomName } from "../
 import { furnitureDef, makeFurniture, drawFurniturePlan, drawLightSymbol, furnitureCorners, isLight, mountElevation } from "../lib/furniture.js";
 import { PLAN_THEMES, drawPlan, planBounds, stairGeometry, roomColor } from "./render.js";
 import * as ops from "./ops.js";
+import { freeSpot } from "../core/placement.js";
 import { ELEMENT_TOOLS, OPEN_CHAIN_TOOLS, pointerElement, finishElementChain, renderElementOverlay, stairFromClicks, ensureCurtainType } from "./element-tools.js";
 import { dragElementHandle, elementHandles, PTS_KINDS } from "./elements.js";
 import { elementMenuItems } from "../ui/elements.js";
@@ -661,6 +662,10 @@ export class PlanEditor {
     }
     const id = uid("u");
     const item = { ...JSON.parse(JSON.stringify(g)), id, level: this.level, ...this.mountedAt(g.kind) };
+    // Not into a wall or another piece: the nearest free spot (pieces at other heights do not count).
+    const spot = freeSpot(this.p, item);
+    if (!spot) { toast(t("There is no free space for it here."), "warn", 3500); return; }
+    if (spot.moved) { item.x = spot.x; item.y = spot.y; toast(t("Moved to the nearest free spot (it would have hit a wall or furniture)."), "info", 3000); }
     this.store.edit(isLight(item) ? t("Add light") : t("Add furniture"), (p) => { p.furniture.push(item); });
     if (g.kind !== "model") { this.app.settings.lastFurniture = g.kind; this.app.recordRecentFurniture(g.kind); }
     if (isLight(item)) this.app.settings.lastLight = g.kind;

@@ -1025,7 +1025,25 @@ fn on_window_event(window: &Window, event: &WindowEvent) {
   }
 }
 
+/// Without a GPU (a virtual machine, remote desktop, a driver on the block list)
+/// Chromium no longer falls back to software WebGL by itself: SwiftShader has to
+/// be allowed, or the 3D view, the start page's 3D background and the
+/// thumbnails get no WebGL at all. Added to the arguments already there (the
+/// GUI tests put the DevTools port in the same variable).
+fn allow_software_webgl() {
+  if cfg!(target_os = "windows") {
+    const KEY: &str = "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS";
+    let cur = std::env::var(KEY).unwrap_or_default();
+    if !cur.contains("--enable-unsafe-swiftshader") {
+      // Tauri's own defaults are kept too: an argument list in the variable replaces them.
+      let defaults = if cur.contains("--disable-features") { "" } else { "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection" };
+      std::env::set_var(KEY, format!("{cur} {defaults} --enable-unsafe-swiftshader").trim().replace("  ", " "));
+    }
+  }
+}
+
 pub fn run() {
+  allow_software_webgl();
   let dir = config_dir();
   let _ = std::fs::create_dir_all(&dir);
   let mut builder = tauri::Builder::default();

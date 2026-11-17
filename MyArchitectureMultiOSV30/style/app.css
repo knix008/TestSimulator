@@ -247,17 +247,31 @@ html.titlebar-wrap .titlebar > * { height: var(--titlebar-h); }
 
 /* Category chips, icon and name. --chip-w is the widest chip (src/ui/library.js) so no name is cut;
    they wrap and the chips of every row stretch to the panel's edge, so no row ends in a gap. */
-.chips { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 10px 6px; }
+/* Tabs at the top of a side panel: equal columns, icon over a short label. */
+.panel-tabs { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; padding: 6px 8px 4px; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 2; background: var(--panel); }
+.panel-tab { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; padding: 4px 2px 5px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--muted); font-size: 11px; line-height: 1.2; cursor: pointer; }
+.panel-tab .pt-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel-tab:hover { color: var(--text); background: var(--hover); }
+.panel-tab.on { color: var(--accent); background: var(--accent-soft); border-color: transparent; font-weight: 600; }
+.panel-tab .pt-badge { position: absolute; top: 1px; right: 4px; min-width: 15px; padding: 0 4px; border-radius: 8px; background: var(--danger, #e5534b); color: #fff; font-size: 10px; line-height: 15px; font-weight: 600; }
+.panel-tab .pt-badge.warn { background: var(--warn, #d29922); }
+.chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--chip-w, 72px), 1fr)); gap: 4px; padding: 0 10px 6px; }
 .chip { flex: 1 1 var(--chip-w, 72px); display: inline-flex; align-items: center; justify-content: flex-start; gap: 5px; min-width: 0; border: 1px solid var(--line); background: var(--panel2); border-radius: 12px; padding: 2px 7px; font-size: 11.5px; line-height: 16px; color: var(--muted); cursor: pointer; text-align: left; white-space: nowrap; }
 .chip .chip-ico { display: flex; flex: none; color: var(--accent); opacity: .85; }
 /* Icon and label start at the left edge, so chips of different label lengths line up in columns. */
 .chip .chip-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.chip .chip-count { margin-left: auto; padding-left: 4px; flex: none; font-size: 10.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.chip.on .chip-count { color: inherit; opacity: .8; }
 .chip:hover { color: var(--text); border-color: var(--line2); }
+/* How many of an item the project has: a pill on the tile's top-left corner, at the row's end in the list. */
+.lib-count { flex: none; padding: 0 5px; border-radius: 8px; background: var(--accent); color: #fff; font-size: 10.5px; line-height: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.lib-tile .lib-count { position: absolute; top: 3px; left: 3px; }
+.lib-item:not(.lib-tile) .lib-count { margin-left: auto; margin-right: 22px; }
 .chip.on { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
 
 .lib-list { overflow: auto; flex: 1; min-height: 0; padding: 0 0 6px; }
 /* Pictures: tiles that wrap and stretch to fill each row. */
-.lib-tiles { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 8px 6px; }
+.lib-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 4px; padding: 2px 8px 6px; }
 .lib-item.lib-tile { position: relative; flex: 1 1 86px; min-width: 86px; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 3px 5px; border: 1px solid transparent; border-radius: 6px; cursor: grab; user-select: none; }
 .lib-item.lib-tile:hover { background: var(--hover); border-color: var(--line); }
 .lib-tile .nm { width: 100%; font-size: 11px; line-height: 1.25; text-align: center; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: keep-all; overflow-wrap: anywhere; }
@@ -299,7 +313,8 @@ html.titlebar-wrap .titlebar > * { height: var(--titlebar-h); }
 .prop-grid .input { width: 100%; min-width: 0; }
 .prop-title { font-weight: 700; font-size: 14px; margin: 2px 0 2px; display: flex; align-items: center; gap: 6px; }
 .prop-sub { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
-.prop-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.prop-actions { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px; margin-top: 10px; }
+.prop-actions > .btn { justify-content: flex-start; min-width: 0; }
 .prop-section { margin: 12px 0 6px; font-size: 11px; color: var(--faint); text-transform: uppercase; letter-spacing: .6px; font-weight: 700; }
 
 .issue-list { display: flex; flex-direction: column; }
@@ -510,6 +525,13 @@ table.grid td.num { text-align: right; font-family: var(--mono); }
 .sample-card b { display: block; margin-bottom: 3px; }
 .sample-card small { color: var(--muted); display: block; line-height: 1.45; }
 .sample-card .tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 7px; }
+/* 2D → 3D examples: the plan picture's thumbnail, groups for pictures and drawings. */
+.sample-card img.plan-thumb { width: 100%; aspect-ratio: 460 / 260; object-fit: contain; display: block; background: #fbfaf6; }
+.plan-sample-group { display: flex; align-items: center; gap: 6px; margin: 10px 0 8px; font-size: 13px; font-weight: 600; }
+.plan-sample-group:first-child { margin-top: 0; }
+.plan-sample-intro { margin: 0 0 10px; color: var(--muted); font-size: 12.5px; }
+.plan-sample-dialog { max-height: 70vh; overflow: auto; padding-right: 4px; }
+.plan-sample-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
 .sample-card .tags span { font-size: 10.5px; padding: 0 6px; border-radius: 8px; background: var(--panel3); color: var(--muted); }
 .recent-list { display: flex; flex-direction: column; gap: 2px; }
 .recent-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; cursor: pointer; border: 0; background: transparent; text-align: left; }
@@ -622,6 +644,12 @@ table.grid td.num { text-align: right; font-family: var(--mono); }
 /* theme gallery (20 dark + 20 light, no scrolling) */
 .theme-group-title { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--faint); font-weight: 700; margin: 2px 0 6px; }
 .theme-grid4 { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; margin-bottom: 12px; }
+.theme-group-title .theme-group-count { margin-left: 6px; font-weight: 400; }
+.theme-swatch { position: relative; }
+.theme-swatch-tools { position: absolute; top: 2px; right: 2px; display: none; gap: 1px; }
+.theme-swatch:hover .theme-swatch-tools, .theme-swatch:focus-within .theme-swatch-tools { display: flex; }
+.theme-swatch-tools .icon-btn { width: 20px; height: 20px; background: var(--panel); }
+.theme-chip.theme-chip-new { display: flex; align-items: center; justify-content: center; background: var(--panel2); color: var(--accent); border: 1px dashed var(--line2); }
 .theme-swatch { display: flex; align-items: center; gap: 7px; height: 30px; padding: 0 7px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel2); color: var(--text); cursor: pointer; min-width: 0; }
 .theme-swatch:hover { border-color: var(--accent); }
 .theme-swatch.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
@@ -689,6 +717,10 @@ html[data-theme="light"] {
 .ico[data-tone="cyan"] { color: var(--tone-cyan); }
 .ico[data-tone="slate"] { color: var(--tone-slate); }
 .ico[data-tone="brown"] { color: var(--tone-brown); }
+/* On a solid button or a highlighted row the icon takes the text colour (readable on the fill); disabled ones are grey. */
+.btn.primary .ico[data-tone], .btn.danger .ico[data-tone], .start-btn.primary .ico[data-tone],
+.menu-item:hover:not(:disabled) .ico[data-tone], .stepper-btn:hover:not(:disabled) .ico[data-tone] { color: inherit; }
+:disabled .ico[data-tone], .disabled .ico[data-tone] { filter: grayscale(1); }
 
 #view-start { overflow: hidden; }
 .start-anim { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
@@ -799,17 +831,23 @@ html[data-theme="light"] .start-card { box-shadow: 0 8px 24px rgba(30, 40, 60, .
 /* themes and background */
 .theme-groups { display: flex; flex-direction: column; gap: 10px; }
 .theme-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(126px, 1fr)); gap: 5px; }
-.bg-kinds { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+.bg-kinds { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 5px; }
 .bg-kind { display: flex; align-items: center; gap: 7px; width: 100%; height: 30px; padding: 0 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; min-width: 0; text-align: left; }
 .bg-kind > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bg-kind:hover { background: var(--hover); border-color: var(--accent); }
 .bg-kind.on { border: 2px solid var(--accent); padding: 0 8px; background: var(--accent-soft); font-weight: 600; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
 .theme-tile .theme-chip { flex: none; }
 .start-speed { display: flex; align-items: center; gap: 6px; margin: 10px 0 4px; font-size: 12.5px; }
+/* The background's speed, transparency and shuffle: three on one line, each label beside its bar. */
+.start-settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 6px 22px; margin-top: 10px; }
+.start-settings .start-setting { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.start-settings .start-speed { margin: 0; flex: none; white-space: nowrap; }
+.start-settings .start-speed > span:nth-child(2) { flex: none; }
+.start-settings .start-ctl { flex: 1 1 auto; min-width: 0; }
 .start-speed > span:nth-child(2) { flex: 1; }
 .start-ctl { display: flex; align-items: center; gap: 6px; }
 .start-ctl .stepper, .start-ctl .slider { flex: 1 1 auto; min-width: 0; }
-.slider { display: grid; grid-template-columns: 26px minmax(40px, 1fr) 26px auto; align-items: center; gap: 8px; height: 28px; outline: none; border-radius: 6px; }
+.slider { display: grid; grid-template-columns: 26px minmax(40px, 1fr) auto 26px; align-items: center; gap: 8px; height: 28px; outline: none; border-radius: 6px; }
 .slider:focus-visible { box-shadow: 0 0 0 2px var(--accent-soft); }
 .slider-btn { width: 26px; height: 26px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel2); color: var(--text); font-size: 15px; font-weight: 600; line-height: 1; cursor: pointer; padding: 0; user-select: none; }
 .slider-btn:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
@@ -819,7 +857,8 @@ html[data-theme="light"] .start-card { box-shadow: 0 8px 24px rgba(30, 40, 60, .
 .slider-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: var(--accent); pointer-events: none; }
 .slider-thumb { position: absolute; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--accent); border: 2px solid var(--panel); box-shadow: 0 1px 3px rgba(0, 0, 0, .35); pointer-events: none; }
 .slider.dragging .slider-thumb, .slider:focus-visible .slider-thumb { transform: scale(1.15); }
-.slider-val { min-width: 32px; text-align: right; font-variant-numeric: tabular-nums; font-size: 12px; }
+.slider-val { width: 68px; min-width: 0; height: 24px; padding: 0 4px; box-sizing: border-box; text-align: center; font: inherit; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--text); background: var(--input-bg, var(--panel2)); border: 1px solid var(--line); border-radius: 5px; outline: none; }
+.slider-val:focus { border-color: var(--accent); }
 .start-ctl .unit { color: var(--muted); font-size: 12px; min-width: 18px; }
 .start-check { display: flex; align-items: center; gap: 6px; font-size: 12.5px; cursor: pointer; margin-top: 8px; }
 .start-check input { accent-color: var(--accent); }
@@ -1016,6 +1055,13 @@ html.toolbar-wrap { --toolbar-h: auto; }
 .progress-popup .pp-fill { height: 100%; width: 0; border-radius: 3px; background: var(--accent); transition: width .25s ease; }
 .progress-popup .pp-foot { display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .progress-popup.finished .pp-fill { background: var(--ok, #3fb950); }
+.picture-progress .pp-bar { height: 6px; margin-top: 10px; border-radius: 3px; background: var(--panel2); overflow: hidden; }
+.picture-progress .pp-fill { height: 100%; width: 0; border-radius: 3px; background: var(--accent); transition: width .25s ease; }
+.picture-progress .pp-foot { margin-top: 4px; text-align: right; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* Work of unknown length: a bar that keeps moving, no count. */
+.progress-popup.busy .pp-foot { visibility: hidden; height: 4px; margin: 0; }
+.progress-popup.busy:not(.finished) .pp-fill { width: 35% !important; animation: pp-busy 1.3s ease-in-out infinite; }
+@keyframes pp-busy { from { transform: translateX(-110%); } to { transform: translateX(300%); } }
 
 
 /* ------------------------------------------------------------ automatic walk-through (src/ui/tour.js)
@@ -1055,7 +1101,13 @@ body.tour-on .floating-hint { bottom: calc(var(--bottom-h, 0px) + 74px); }
 
 /* Lights panel (ui/view3dtab.js renderLights) */
 .light-list { padding: 0 6px 6px; } /* no own scroll bar: the side panel scrolls; big projects fold their rooms */
+/* 3D levels: the checkbox, then the "only this level" and "up to here" buttons in two aligned columns. */
+.level-list .level-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 2px; min-height: 26px; border-radius: 4px; }
+.level-list .level-row.solo { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.level-list .level-row .icon-btn.on { color: var(--accent); }
+.panel-body.flush.light-list { padding: 0 8px 6px 10px; }
 .light-level, .light-room > summary, .light-row { display: flex; align-items: center; gap: 6px; min-height: 26px; font-size: 12px; }
+.light-level small, .light-room > summary small, .light-row small { min-width: 58px; text-align: right; }
 .light-level { font-weight: 600; border-bottom: 1px solid var(--line); margin-top: 4px; }
 .light-room > summary { cursor: pointer; color: var(--muted); padding-left: 2px; }
 .light-row { padding-left: 14px; border-radius: 4px; cursor: pointer; }

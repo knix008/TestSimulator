@@ -5,7 +5,7 @@
 import { Store } from "./store.js";
 import { t, setLanguage, getLanguage, onLanguage } from "./i18n.js";
 import { icon } from "./icons.js";
-import { h, modal, confirmDialog, promptDialog, toast, contextMenu, closeMenus, quickPick, anyModalOpen, setDialogWindows, openDialogWindows, dialogIconHint } from "./widgets.js";
+import { h, modal, confirmDialog, promptDialog, toast, contextMenu, closeMenus, quickPick, anyModalOpen, setDialogWindows, openDialogWindows, dialogIconHint, withBusy } from "./widgets.js";
 import * as platform from "./platform.js";
 import { PlanEditor, PLAN_TOOLS } from "../plan/editor.js";
 import { PLAN_THEMES } from "../plan/render.js";
@@ -415,6 +415,7 @@ class App {
       const w = this.checkIssues.length - e;
       toast(e || w ? t("Model check: {e} errors, {w} warnings", { e, w }) : t("Model check passed — no problems found."), e ? "error" : w ? "warn" : "ok");
       this.settings.showRight = true;
+      this.settings.panelTab_right_plan = "check"; // the right panel shows its Model check tab
       // The bottom panel opens on its Problems tab.
       this.settings.showBottom = true;
       this.settings.bottomTab = "problems";
@@ -605,6 +606,11 @@ class App {
   async openFileObject(f, { confirmed = false } = {}) {
     const ext = (f.name.split(".").pop() || "").toLowerCase();
     const kind = IMPORT_TYPES[ext];
+    // A big drawing, BIM file or model takes a while: a progress popup (not for a quick one).
+    if (kind && kind !== "closed" && kind !== "project" && !this._importing) {
+      this._importing = true;
+      try { return await withBusy("import", { title: t("Importing {name}", { name: f.name }), icon: "import", what: t("Reading the file…") }, () => this.openFileObject(f, { confirmed })); } finally { this._importing = false; }
+    }
     try {
       if (f.path && kind && kind !== "closed" && kind !== "project") this.addRecent(f.path, f.name);
       if (kind === "project") {
@@ -796,6 +802,7 @@ class App {
     const toPlan = () => { if (this.tab !== "plan") this.setTab("plan"); };
     // File
     C("file.new", "New project", "new", "Ctrl+N", () => this.newProject());
+    C("file.planSamples", "2D → 3D examples…", "underlay", "", async () => (await import("./plansamples.js")).planSamplesDialog(this));
     C("file.open", "Open…", "open", "Ctrl+O", () => this.open());
     C("file.import", "Import (DXF, IFC, 3D models, images…)…", "import", "Ctrl+I", () => this.importAny());
     C("file.importDxf", "Import DXF drawing…", "dxf", "", () => this.importAny("dxf"));
@@ -951,7 +958,7 @@ class App {
   // (the plan toolbar and the 3D toolbar), so the menu bar would only repeat it.
   buildMenus() {
     const M = {
-      File: ["file.new", "file.open", "file.samples", "file.recent", "file.clearRecent", "-", "file.save", "file.saveAs", "file.close", "-", "file.import", "@import", "@export", "-", "file.print", "file.props", "-", "file.exit"],
+      File: ["file.new", "file.open", "file.samples", "file.planSamples", "file.recent", "file.clearRecent", "-", "file.save", "file.saveAs", "file.close", "-", "file.import", "@import", "@export", "-", "file.print", "file.props", "-", "file.exit"],
       Edit: ["edit.undo", "edit.redo", "edit.history", "-", "edit.cut", "edit.copy", "edit.paste", "edit.duplicate", "edit.delete", "-", "edit.selectAll", "edit.find", "-", "edit.rotate", "edit.mirror", "edit.mirrorV", "edit.scale", "edit.offset", "-", "edit.group", "edit.ungroup", "edit.properties", "-", "furniture.register", "furniture.registerModel", "furniture.exportLibrary", "furniture.importLibrary"],
       View: ["view.start", "view.plan", "view.3d", "v3d.tour", "v3d.photo", "v3d.ground", "-", "view.zoomIn", "view.zoomOut", "view.fit", "view.pan", "-", "view.grid", "view.rulers", "view.scaleBar", "view.snap", "view.ortho", "-", "view.dims", "view.furniture", "view.areas", "view.ghost", "view.underlays", "-", "view.phaseAll", "view.phaseNew", "view.phaseExisting", "-", "view.left", "view.bottom", "view.right", "-", "view.themes", "view.themeDark", "view.themeLight", "view.themeSystem", "-", "view.langKo", "view.langEn"],
       Build: ["build.detectRooms", "build.wallsFromPicture", "build.cleanupWalls", "build.autoRoof", "build.autoDims", "-", "build.addLevel", "build.levelProps", "build.defaults", "build.layers", "-", "build.check", "build.schedules"],

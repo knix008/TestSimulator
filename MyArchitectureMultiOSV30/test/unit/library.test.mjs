@@ -34,6 +34,7 @@ describe("the built-in catalogue", () => {
   test("the thumbnail sprite has a picture of every item (npm run build:furniture)", () => {
     const j = JSON.parse(fs.readFileSync(path.join(root, "assets/furniture/thumbs.json"), "utf8"));
     assert.ok(fs.statSync(path.join(root, "assets/furniture/thumbs.webp")).size > 10000);
+    for (let i = 1; i < (j.pages || 1); i++) assert.ok(fs.statSync(path.join(root, `assets/furniture/thumbs-${i}.webp`)).size > 10000, `page ${i}`);
     for (const d of allFurniture()) assert.ok(Number.isInteger(j.index[d.kind]), `thumbnail of ${d.kind}`);
     assert.ok(j.w > 0 && j.h > 0 && j.cols > 0);
   });

@@ -7,6 +7,7 @@ import { KO_ELEMENTS } from "./i18n-ko-elements.js";
 import { KO_DESIGN } from "./i18n-ko-design.js";
 import { KO_START } from "./i18n-ko-start.js";
 import { KO_FURNITURE } from "./i18n-ko-furniture.js";
+import { KO_SKETCHBOOK } from "./i18n-ko-sketchbook.js";
 import { presetNamesKo } from "../lib/presetmaterials.js";
 
 export const KO = {
@@ -14,6 +15,7 @@ export const KO = {
   ...KO_ELEMENTS, // slabs, beams, railings, stairs by type, curtain walls, types, design options
   ...KO_DESIGN, // material library and picker, interior design
   ...KO_START, // start page, 새로 시작 presets, start-up tutorial popup
+  ...KO_SKETCHBOOK, // MySketchBook's library items (the app's own names below win)
   ...KO_FURNITURE, // furniture library: categories, catalogue items, my library
   // document tabs (src/ui/doctabs.js)
   "All open drawings": "열린 도면 모두 보기",
@@ -1251,6 +1253,47 @@ export const KO = {
   "Display table": "진열대",
   "Double vanity": "2인 세면대",
   "Elevator car": "엘리베이터 카",
+  "In this project": "사용 중",
+  "{n} in this project": "이 프로젝트에 {n}개",
+  "{n} pieces": "{n}개",
+  "Browser": "탐색기",
+  "Model": "모델",
+  "No lights yet: add lamps from the furniture library (Lighting).": "아직 조명이 없습니다. 가구 라이브러리의 조명에서 추가하세요.",
+  "Nothing here yet.": "아직 아무것도 없습니다.",
+  "Ambulance": "구급차",
+  "Box truck": "탑차 (박스 트럭)",
+  "City electric car": "소형 전기차",
+  "Convertible roadster": "오픈카 (로드스터)",
+  "Fire engine": "소방차",
+  "Minivan": "미니밴",
+  "Patrol car": "순찰차",
+  "Pickup truck": "픽업트럭",
+  "School bus": "스쿨버스",
+  "Sports coupe": "스포츠 쿠페",
+  "Taxi": "택시",
+  "There is no free space for it here.": "여기에는 놓을 빈 자리가 없습니다.",
+  "Moved to the nearest free spot (it would have hit a wall or furniture).": "벽이나 가구와 겹쳐서 가장 가까운 빈 자리로 옮겼습니다.",
+  "Placed. Drag it to move it; it keeps clear of walls and furniture.": "놓았습니다. 끌어서 옮길 수 있고, 벽과 가구를 피해 자리를 잡습니다.",
+  "Move furniture": "가구 옮기기",
+  "2D → 3D examples": "2D 도면 → 3D 예제",
+  "2D → 3D examples…": "2D 도면 → 3D 예제…",
+  "Open in a window": "창으로 열기",
+  "Plan pictures": "평면도 그림",
+  "CAD and BIM drawings": "CAD·BIM 도면",
+  "Picture": "그림",
+  "CAD drawing": "CAD 도면",
+  "Floor plans as pictures (listing plans, brochures, CAD prints, blueprints, sketches, phone photos, faxes, scans, interior plans) and CAD / BIM drawings. Click one: it becomes walls, doors, windows and rooms, gets a roof and opens in 3D.": "그림으로 된 평면도(부동산 평면도, 분양 홍보물, CAD 출력, 청사진, 스케치, 휴대폰 사진, 팩스, 스캔, 인테리어 평면도)와 CAD·BIM 도면입니다. 하나를 누르면 벽·문·창·방이 되고 지붕을 얹어 3D로 열립니다.",
+  "{name}: turned into walls, doors, windows and rooms. Fix what is missing in the plan.": "{name}: 벽, 문, 창, 방으로 바꿨습니다. 빠진 것은 평면도에서 고치세요.",
+  "The example could not be opened.": "예제를 열 수 없습니다.",
+  "Importing {name}": "{name} 가져오는 중",
+  "Reading the file…": "파일을 읽는 중…",
+  "Placing walls, doors and rooms…": "벽, 문, 방을 놓는 중…",
+  "Delete the theme \"{name}\"?": "\"{name}\" 테마를 지울까요?",
+  "The level below, on its own": "아래층만 보기",
+  "The level above, on its own": "위층만 보기",
+  "Show all levels": "모든 층 보기",
+  "Only this level in 3D": "이 층만 3D로 보기",
+  "This level and the levels below (cut away above)": "이 층과 아래층 보기 (위층 걷어내기)",
   "Examination table": "진료 침대",
   "Exercise bike": "실내 자전거",
   "Fire hose cabinet": "옥내 소화전함",

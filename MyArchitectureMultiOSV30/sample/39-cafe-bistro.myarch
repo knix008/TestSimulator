@@ -31,7 +31,7 @@
  },
  "levels": [
   {
-   "id": "lvatjpg0sn4mn",
+   "id": "lvx2h2p0ss1yu",
    "name": "1F",
    "elevation": 0,
    "height": 3200,
@@ -202,8 +202,8 @@
  ],
  "walls": [
   {
-   "id": "watjpg0sn5x2",
-   "level": "lvatjpg0sn4mn",
+   "id": "wx2h2p0ss27i",
+   "level": "lvx2h2p0ss1yu",
    "x1": 0,
    "y1": 0,
    "x2": 16000,
@@ -213,8 +213,8 @@
    "phase": "new"
   },
   {
-   "id": "watjpg0sn6d7",
-   "level": "lvatjpg0sn4mn",
+   "id": "wx2h2p0ss35g",
+   "level": "lvx2h2p0ss1yu",
    "x1": 16000,
    "y1": 0,
    "x2": 16000,
@@ -224,8 +224,8 @@
    "phase": "new"
   },
   {
-   "id": "watjpg0sn75y",
-   "level": "lvatjpg0sn4mn",
+   "id": "wx2h2p0ss4ye",
+   "level": "lvx2h2p0ss1yu",
    "x1": 16000,
    "y1": 11000,
    "x2": 0,
@@ -235,8 +235,8 @@
    "phase": "new"
   },
   {
-   "id": "watjpg0sn8kl",
-   "level": "lvatjpg0sn4mn",
+   "id": "wx2h2p0ss5t2",
+   "level": "lvx2h2p0ss1yu",
    "x1": 0,
    "y1": 11000,
    "x2": 0,
@@ -246,8 +246,8 @@
    "phase": "new"
   },
   {
-   "id": "watjpg0sn9a6",
-   "level": "lvatjpg0sn4mn",
+   "id": "wx2h2p0ss6m6",
+   "level": "lvx2h2p0ss1yu",
    "x1": 11000,
    "y1": 0,
    "x2": 11000,
@@ -257,8 +257,8 @@
    "phase": "new"
   },
   {
-   "id": "watjpg0snawd",
-   "level": "lvatjpg0sn4mn",
+   "id": "wx2h2p0ss78r",
+   "level": "lvx2h2p0ss1yu",
    "x1": 11000,
    "y1": 6500,
    "x2": 16000,
@@ -268,8 +268,8 @@
    "phase": "new"
   },
   {
-   "id": "watjpg0snbka",
-   "level": "lvatjpg0sn4mn",
+   "id": "wx2h2p0ss8in",
+   "level": "lvx2h2p0ss1yu",
    "x1": 11000,
    "y1": 8750,
    "x2": 16000,
@@ -281,8 +281,8 @@
  ],
  "openings": [
   {
-   "id": "oatjpg0sncsj",
-   "wall": "watjpg0sn75y",
+   "id": "ox2h2p0ss97b",
+   "wall": "wx2h2p0ss4ye",
    "kind": "door",
    "type": "double",
    "at": 10500,
@@ -294,8 +294,8 @@
    "phase": "new"
   },
   {
-   "id": "oatjpg0snd75",
-   "wall": "watjpg0sn75y",
+   "id": "ox2h2p0ssaw0",
+   "wall": "wx2h2p0ss4ye",
    "kind": "window",
    "type": "fixed",
    "at": 14000,
@@ -307,8 +307,8 @@
    "phase": "new"
   },
   {
-   "id": "oatjpg0snero",
-   "wall": "watjpg0sn75y",
+   "id": "ox2h2p0ssb8i",
+   "wall": "wx2h2p0ss4ye",
    "kind": "window",
    "type": "fixed",
    "at": 7000,
@@ -320,8 +320,8 @@
    "phase": "new"
   },
   {
-   "id": "oatjpg0snfgf",
-   "wall": "watjpg0sn5x2",
+   "id": "ox2h2p0sscvg",
+   "wall": "wx2h2p0ss27i",
    "kind": "window",
    "type": "casement",
    "at": 2500,
@@ -333,8 +333,8 @@
    "phase": "new"
   },
   {
-   "id": "oatjpg0sng7v",
-   "wall": "watjpg0sn5x2",
+   "id": "ox2h2p0ssd9y",
+   "wall": "wx2h2p0ss27i",
    "kind": "window",
    "type": "casement",
    "at": 6000,
@@ -346,8 +346,8 @@
    "phase": "new"
   },
   {
-   "id": "oatjpg0snh9a",
-   "wall": "watjpg0sn5x2",
+   "id": "ox2h2p0ssex9",
+   "wall": "wx2h2p0ss27i",
    "kind": "window",
    "type": "casement",
    "at": 9000,
@@ -359,8 +359,8 @@
    "phase": "new"
   },
   {
-   "id": "oatjpg0snio2",
-   "wall": "watjpg0sn8kl",
+   "id": "ox2h2p0ssfqz",
+   "wall": "wx2h2p0ss5t2",
    "kind": "window",
    "type": "casement",
    "at": 8000,
@@ -372,8 +372,8 @@
    "phase": "new"
   },
   {
-   "id": "oatjpg0snj94",
-   "wall": "watjpg0sn8kl",
+   "id": "ox2h2p0ssgp8",
+   "wall": "wx2h2p0ss5t2",
    "kind": "window",
    "type": "casement",
    "at": 5000,
@@ -385,8 +385,8 @@
    "phase": "new"
   },
   {
-   "id": "oatjpg0snk2b",
-   "wall": "watjpg0sn6d7",
+   "id": "ox2h2p0ssh5a",
+   "wall": "wx2h2p0ss35g",
    "kind": "window",
    "type": "casement",
    "at": 3000,
@@ -398,8 +398,8 @@
    "phase": "new"
   },
   {
-   "id": "oatjpg0snlm8",
-   "wall": "watjpg0sn6d7",
+   "id": "ox2h2p0ssiom",
+   "wall": "wx2h2p0ss35g",
    "kind": "window",
    "type": "casement",
    "at": 7600,
@@ -411,8 +411,8 @@
    "phase": "new"
   },
   {
-   "id": "oatjpg0snmdr",
-   "wall": "watjpg0sn6d7",
+   "id": "ox2h2p0ssjku",
+   "wall": "wx2h2p0ss35g",
    "kind": "window",
    "type": "casement",
    "at": 9850,
@@ -424,8 +424,8 @@
    "phase": "new"
   },
   {
-   "id": "oatjpg0snnv0",
-   "wall": "watjpg0sn9a6",
+   "id": "ox2h2p0sskun",
+   "wall": "wx2h2p0ss6m6",
    "kind": "door",
    "type": "sliding",
    "at": 5000,
@@ -437,8 +437,8 @@
    "phase": "new"
   },
   {
-   "id": "oatjpg0sno1d",
-   "wall": "watjpg0sn9a6",
+   "id": "ox2h2p0ssl4e",
+   "wall": "wx2h2p0ss6m6",
    "kind": "door",
    "type": "sliding",
    "at": 7600,
@@ -450,8 +450,8 @@
    "phase": "new"
   },
   {
-   "id": "oatjpg0snp5z",
-   "wall": "watjpg0sn9a6",
+   "id": "ox2h2p0ssmty",
+   "wall": "wx2h2p0ss6m6",
    "kind": "door",
    "type": "sliding",
    "at": 9900,
@@ -465,8 +465,8 @@
  ],
  "rooms": [
   {
-   "id": "ratjpg0snqct",
-   "level": "lvatjpg0sn4mn",
+   "id": "rx2h2p0ssnj7",
+   "level": "lvx2h2p0ss1yu",
    "name": "Restaurant",
    "pts": [
     [
@@ -490,8 +490,8 @@
    "phase": "new"
   },
   {
-   "id": "ratjpg0snry8",
-   "level": "lvatjpg0sn4mn",
+   "id": "rx2h2p0ssohs",
+   "level": "lvx2h2p0ss1yu",
    "name": "Kitchen",
    "pts": [
     [
@@ -515,8 +515,8 @@
    "phase": "new"
   },
   {
-   "id": "ratjpg0sns0r",
-   "level": "lvatjpg0sn4mn",
+   "id": "rx2h2p0sspzq",
+   "level": "lvx2h2p0ss1yu",
    "name": "Toilet (men)",
    "pts": [
     [
@@ -540,8 +540,8 @@
    "phase": "new"
   },
   {
-   "id": "ratjpg0sntkc",
-   "level": "lvatjpg0sn4mn",
+   "id": "rx2h2p0ssq8m",
+   "level": "lvx2h2p0ss1yu",
    "name": "Toilet (women)",
    "pts": [
     [
@@ -569,8 +569,8 @@
  "stairs": [],
  "furniture": [
   {
-   "id": "uatjpg0snu3h",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0ssr6b",
+   "level": "lvx2h2p0ss1yu",
    "kind": "barCounter",
    "x": 10555,
    "y": 2600,
@@ -583,8 +583,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0snvqj",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0ssscq",
+   "level": "lvx2h2p0ss1yu",
    "kind": "barStool",
    "x": 9955,
    "y": 1700,
@@ -597,8 +597,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0snw25",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0ssto0",
+   "level": "lvx2h2p0ss1yu",
    "kind": "barStool",
    "x": 9955,
    "y": 2600,
@@ -611,8 +611,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0snxcr",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0ssu52",
+   "level": "lvx2h2p0ss1yu",
    "kind": "barStool",
    "x": 9955,
    "y": 3500,
@@ -625,8 +625,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0snyhu",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0ssvlw",
+   "level": "lvx2h2p0ss1yu",
    "kind": "espresso",
    "x": 10555,
    "y": 1700,
@@ -639,8 +639,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0snz47",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0sswwj",
+   "level": "lvx2h2p0ss1yu",
    "kind": "wineGlasses",
    "x": 10555,
    "y": 3400,
@@ -653,8 +653,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0so0ue",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0ssxhu",
+   "level": "lvx2h2p0ss1yu",
    "kind": "cafeSet",
    "x": 1800,
    "y": 2200,
@@ -667,8 +667,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0so16q",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0ssyg0",
+   "level": "lvx2h2p0ss1yu",
    "kind": "pendantGlobe",
    "x": 1800,
    "y": 2200,
@@ -686,8 +686,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0so2wx",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0sszz7",
+   "level": "lvx2h2p0ss1yu",
    "kind": "cafeSet",
    "x": 4200,
    "y": 2200,
@@ -700,8 +700,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0so3jw",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0st008",
+   "level": "lvx2h2p0ss1yu",
    "kind": "pendantGlobe",
    "x": 4200,
    "y": 2200,
@@ -719,8 +719,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0so48b",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0st1uh",
+   "level": "lvx2h2p0ss1yu",
    "kind": "cafeSet",
    "x": 6600,
    "y": 2200,
@@ -733,8 +733,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0so52x",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0st2m8",
+   "level": "lvx2h2p0ss1yu",
    "kind": "pendantGlobe",
    "x": 6600,
    "y": 2200,
@@ -752,8 +752,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0so60d",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0st398",
+   "level": "lvx2h2p0ss1yu",
    "kind": "cafeSet",
    "x": 1800,
    "y": 5200,
@@ -766,8 +766,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0so7c3",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0st46d",
+   "level": "lvx2h2p0ss1yu",
    "kind": "pendantGlobe",
    "x": 1800,
    "y": 5200,
@@ -785,8 +785,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0so8aa",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0st5gc",
+   "level": "lvx2h2p0ss1yu",
    "kind": "cafeSet",
    "x": 4200,
    "y": 5200,
@@ -799,8 +799,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0so9u1",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0st63c",
+   "level": "lvx2h2p0ss1yu",
    "kind": "pendantGlobe",
    "x": 4200,
    "y": 5200,
@@ -818,8 +818,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0soamr",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0st7so",
+   "level": "lvx2h2p0ss1yu",
    "kind": "cafeSet",
    "x": 6600,
    "y": 5200,
@@ -832,8 +832,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0sobd8",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0st8sy",
+   "level": "lvx2h2p0ss1yu",
    "kind": "pendantGlobe",
    "x": 6600,
    "y": 5200,
@@ -851,8 +851,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0socfn",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0st9ca",
+   "level": "lvx2h2p0ss1yu",
    "kind": "booth",
    "x": 900,
    "y": 8200,
@@ -865,8 +865,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0sodql",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0sta7h",
+   "level": "lvx2h2p0ss1yu",
    "kind": "pendantRattan",
    "x": 900,
    "y": 8200,
@@ -884,8 +884,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0soeac",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0stb6g",
+   "level": "lvx2h2p0ss1yu",
    "kind": "booth",
    "x": 2600,
    "y": 8200,
@@ -898,8 +898,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0sofk0",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0stcpg",
+   "level": "lvx2h2p0ss1yu",
    "kind": "pendantRattan",
    "x": 2600,
    "y": 8200,
@@ -917,8 +917,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0soggm",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0stdw5",
+   "level": "lvx2h2p0ss1yu",
    "kind": "highTop",
    "x": 8500,
    "y": 8000,
@@ -931,8 +931,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0sohyf",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0steor",
+   "level": "lvx2h2p0ss1yu",
    "kind": "pendantCluster",
    "x": 8500,
    "y": 8000,
@@ -950,8 +950,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0soit4",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0stfpo",
+   "level": "lvx2h2p0ss1yu",
    "kind": "plantPalm",
    "x": 600,
    "y": 5900,
@@ -964,8 +964,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0soj4m",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0stgqf",
+   "level": "lvx2h2p0ss1yu",
    "kind": "oliveTree",
    "x": 9900,
    "y": 10200,
@@ -978,8 +978,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0sokz1",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0sth4e",
+   "level": "lvx2h2p0ss1yu",
    "kind": "wallClock",
    "x": 5500,
    "y": 150,
@@ -992,8 +992,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0sol2e",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0stikg",
+   "level": "lvx2h2p0ss1yu",
    "kind": "sinkCounter",
    "x": 11900,
    "y": 425,
@@ -1006,8 +1006,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0somuy",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0stjqy",
+   "level": "lvx2h2p0ss1yu",
    "kind": "counter",
    "x": 13450,
    "y": 425,
@@ -1020,8 +1020,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0sonxc",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0stkki",
+   "level": "lvx2h2p0ss1yu",
    "kind": "range",
    "x": 15200,
    "y": 525,
@@ -1034,8 +1034,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0sooxt",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0stl3b",
+   "level": "lvx2h2p0ss1yu",
    "kind": "prepTable",
    "x": 13500,
    "y": 3200,
@@ -1048,8 +1048,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0sop9a",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0stmno",
+   "level": "lvx2h2p0ss1yu",
    "kind": "fridgeFrench",
    "x": 15500,
    "y": 5000,
@@ -1062,8 +1062,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0soqj1",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0stn1w",
+   "level": "lvx2h2p0ss1yu",
    "kind": "panelLight",
    "x": 12500,
    "y": 3000,
@@ -1081,8 +1081,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0sorl0",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0sto1q",
+   "level": "lvx2h2p0ss1yu",
    "kind": "panelLight",
    "x": 14500,
    "y": 3000,
@@ -1100,8 +1100,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0sos2d",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0stpbt",
+   "level": "lvx2h2p0ss1yu",
    "kind": "toilet",
    "x": 15575,
    "y": 7625,
@@ -1114,8 +1114,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0sotxp",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0stq4i",
+   "level": "lvx2h2p0ss1yu",
    "kind": "washbasin",
    "x": 13000,
    "y": 6800,
@@ -1128,8 +1128,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0souyp",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0strfc",
+   "level": "lvx2h2p0ss1yu",
    "kind": "toilet",
    "x": 15575,
    "y": 9850,
@@ -1142,8 +1142,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0sovvf",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0sts7d",
+   "level": "lvx2h2p0ss1yu",
    "kind": "washbasin",
    "x": 13000,
    "y": 10650,
@@ -1156,8 +1156,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0sow65",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0stt4e",
+   "level": "lvx2h2p0ss1yu",
    "kind": "downlight",
    "x": 13500,
    "y": 7600,
@@ -1176,8 +1176,8 @@
    "phase": "new"
   },
   {
-   "id": "uatjpg0soxs5",
-   "level": "lvatjpg0sn4mn",
+   "id": "ux2h2p0stu73",
+   "level": "lvx2h2p0ss1yu",
    "kind": "downlight",
    "x": 13500,
    "y": 9850,
@@ -1196,7 +1196,7 @@
    "phase": "new"
   },
   {
-   "id": "uatjph0spgem",
+   "id": "ux2h2q0sudrl",
    "kind": "wineBottle",
    "x": 10310.18376301974,
    "y": 3716.187343392521,
@@ -1206,10 +1206,10 @@
    "h": 300,
    "elevation": 1100,
    "color": null,
-   "level": "lvatjpg0sn4mn"
+   "level": "lvx2h2p0ss1yu"
   },
   {
-   "id": "uatjph0spib2",
+   "id": "ux2h2q0sufei",
    "kind": "knifeBlock",
    "x": 14071.398450739216,
    "y": 545,
@@ -1219,10 +1219,10 @@
    "h": 330,
    "elevation": 900,
    "color": null,
-   "level": "lvatjpg0sn4mn"
+   "level": "lvx2h2p0ss1yu"
   },
   {
-   "id": "uatjph0spjn5",
+   "id": "ux2h2q0sug0i",
    "kind": "kettle",
    "x": 13172.414655741304,
    "y": 565,
@@ -1232,10 +1232,10 @@
    "h": 250,
    "elevation": 900,
    "color": null,
-   "level": "lvatjpg0sn4mn"
+   "level": "lvx2h2p0ss1yu"
   },
   {
-   "id": "uatjph0spkoj",
+   "id": "ux2h2q0suhho",
    "kind": "plantPalm",
    "x": 835,
    "y": 10165,
@@ -1245,10 +1245,10 @@
    "h": 1700,
    "elevation": 0,
    "color": null,
-   "level": "lvatjpg0sn4mn"
+   "level": "lvx2h2p0ss1yu"
   },
   {
-   "id": "uatjph0spler",
+   "id": "ux2h2q0sui1o",
    "kind": "plantFiddle",
    "x": 735,
    "y": 735,
@@ -1258,10 +1258,10 @@
    "h": 1800,
    "elevation": 0,
    "color": null,
-   "level": "lvatjpg0sn4mn"
+   "level": "lvx2h2p0ss1yu"
   },
   {
-   "id": "uatjph0spmej",
+   "id": "ux2h2q0sujrg",
    "kind": "trashCan",
    "x": 11485,
    "y": 6015,
@@ -1271,10 +1271,10 @@
    "h": 650,
    "elevation": 0,
    "color": null,
-   "level": "lvatjpg0sn4mn"
+   "level": "lvx2h2p0ss1yu"
   },
   {
-   "id": "uatjph0spng7",
+   "id": "ux2h2q0suk6s",
    "kind": "laundryBasket",
    "x": 11535,
    "y": 7035,
@@ -1284,10 +1284,10 @@
    "h": 550,
    "elevation": 0,
    "color": null,
-   "level": "lvatjpg0sn4mn"
+   "level": "lvx2h2p0ss1yu"
   },
   {
-   "id": "uatjph0spopw",
+   "id": "ux2h2q0sulrf",
    "kind": "plantBathroom",
    "x": 15415,
    "y": 9270,
@@ -1297,10 +1297,10 @@
    "h": 450,
    "elevation": 0,
    "color": null,
-   "level": "lvatjpg0sn4mn"
+   "level": "lvx2h2p0ss1yu"
   },
   {
-   "id": "uatjph0sppxv",
+   "id": "ux2h2q0suml2",
    "kind": "wallPlates",
    "x": 11100,
    "y": 3275,
@@ -1310,13 +1310,13 @@
    "h": 600,
    "elevation": 1300,
    "color": null,
-   "level": "lvatjpg0sn4mn"
+   "level": "lvx2h2p0ss1yu"
   }
  ],
  "roofs": [
   {
-   "id": "fatjpg0sp0l9",
-   "level": "lvatjpg0sn4mn",
+   "id": "fx2h2p0stxb3",
+   "level": "lvx2h2p0ss1yu",
    "pts": [
     [
      -125,
@@ -1345,8 +1345,8 @@
  ],
  "dimensions": [
   {
-   "id": "katjpg0soy5r",
-   "level": "lvatjpg0sn4mn",
+   "id": "kx2h2p0stv1f",
+   "level": "lvx2h2p0ss1yu",
    "x1": 0,
    "y1": 0,
    "x2": 16000,
@@ -1356,8 +1356,8 @@
    "phase": "new"
   },
   {
-   "id": "katjpg0sozxj",
-   "level": "lvatjpg0sn4mn",
+   "id": "kx2h2p0stwgd",
+   "level": "lvx2h2p0ss1yu",
    "x1": 0,
    "y1": 11000,
    "x2": 0,
@@ -1372,8 +1372,8 @@
  "underlays": [],
  "slabs": [
   {
-   "id": "slatjpg0sp17s",
-   "level": "lvatjpg0sn4mn",
+   "id": "slx2h2p0sty1u",
+   "level": "lvx2h2p0ss1yu",
    "pts": [
     [
      -125,
@@ -1404,8 +1404,8 @@
  ],
  "ceilings": [
   {
-   "id": "clatjph0sp2wv",
-   "level": "lvatjpg0sn4mn",
+   "id": "clx2h2p0stzmw",
+   "level": "lvx2h2p0ss1yu",
    "pts": [
     [
      125,
@@ -1431,8 +1431,8 @@
    "thickness": 20
   },
   {
-   "id": "clatjph0sp3v9",
-   "level": "lvatjpg0sn4mn",
+   "id": "clx2h2p0su09h",
+   "level": "lvx2h2p0ss1yu",
    "pts": [
     [
      11075,
@@ -1467,7 +1467,7 @@
  "solids": [],
  "scenes": [
   {
-   "id": "scatjph0sp4j1",
+   "id": "scx2h2p0su1qa",
    "name": "Overview",
    "camera": {
     "pos": [
@@ -1487,7 +1487,7 @@
    "phase": "all"
   },
   {
-   "id": "scatjph0sp5mc",
+   "id": "scx2h2p0su2yx",
    "name": "Dining room",
    "camera": {
     "pos": [
@@ -1507,7 +1507,7 @@
    "phase": "all"
   },
   {
-   "id": "scatjph0sp6t2",
+   "id": "scx2h2p0su392",
    "name": "Bar",
    "camera": {
     "pos": [
@@ -1527,7 +1527,7 @@
    "phase": "all"
   },
   {
-   "id": "scatjph0sp74d",
+   "id": "scx2h2p0su4db",
    "name": "Kitchen",
    "camera": {
     "pos": [
@@ -1548,7 +1548,7 @@
   }
  ],
  "view": {
-  "level": "lvatjpg0sn4mn"
+  "level": "lvx2h2p0ss1yu"
  },
  "libraryItems": [],
  "slabTypes": [],
@@ -1557,7 +1557,7 @@
  "structures": [],
  "views": [
   {
-   "id": "vatjpj0spqzv",
+   "id": "vx2h2r0sunwd",
    "kind": "section",
    "name": "Section A-A",
    "scale": 100,
@@ -1583,7 +1583,7 @@
    }
   },
   {
-   "id": "vatjpj0sprwa",
+   "id": "vx2h2r0suobg",
    "kind": "section",
    "name": "Section B-B",
    "scale": 100,
@@ -1609,7 +1609,7 @@
    }
   },
   {
-   "id": "vatjpj0spstx",
+   "id": "vx2h2r0sup4l",
    "kind": "elevation",
    "name": "South elevation",
    "scale": 100,
@@ -1634,7 +1634,7 @@
    "angle": -90
   },
   {
-   "id": "vatjpj0spt3o",
+   "id": "vx2h2r0suqdv",
    "kind": "elevation",
    "name": "North elevation",
    "scale": 100,
@@ -1659,7 +1659,7 @@
    "angle": 90
   },
   {
-   "id": "vatjpj0spu61",
+   "id": "vx2h2r0surmq",
    "kind": "elevation",
    "name": "East elevation",
    "scale": 100,
@@ -1684,7 +1684,7 @@
    "angle": 180
   },
   {
-   "id": "vatjpj0spv8y",
+   "id": "vx2h2r0suss5",
    "kind": "elevation",
    "name": "West elevation",
    "scale": 100,
@@ -1709,7 +1709,7 @@
    "angle": 0
   },
   {
-   "id": "vatjpj0spwsk",
+   "id": "vx2h2r0sut2t",
    "kind": "schedule",
    "name": "Room schedule",
    "scale": 100,
@@ -1739,7 +1739,7 @@
    "calc": []
   },
   {
-   "id": "vatjpj0spxhv",
+   "id": "vx2h2r0suudy",
    "kind": "schedule",
    "name": "Door schedule",
    "scale": 100,
@@ -1770,7 +1770,7 @@
    "calc": []
   },
   {
-   "id": "vatjpj0spy4q",
+   "id": "vx2h2r0suv2z",
    "kind": "schedule",
    "name": "Sheet list",
    "scale": 100,
@@ -1800,7 +1800,7 @@
    "calc": []
   },
   {
-   "id": "vatjpj0spz6i",
+   "id": "vx2h2r0suw0e",
    "kind": "legend",
    "name": "Wall types legend",
    "scale": 20,
@@ -1817,7 +1817,7 @@
  ],
  "sheets": [
   {
-   "id": "shatjph0spdvj",
+   "id": "shx2h2p0suaqg",
    "number": "A101",
    "name": "Floor plan — 1F",
    "paper": "A3",
@@ -1831,8 +1831,8 @@
    },
    "viewports": [
     {
-     "id": "vpatjph0sperz",
-     "view": "pl-lvatjpg0sn4mn",
+     "id": "vpx2h2p0subp1",
+     "view": "pl-lvx2h2p0ss1yu",
      "x": 0,
      "y": 0,
      "fit": true
@@ -1842,7 +1842,7 @@
    "auto": true
   },
   {
-   "id": "shatjpj0sq8gs",
+   "id": "shx2h2r0sv5nm",
    "number": "A001",
    "name": "Cover and drawing list",
    "paper": "A1",
@@ -1856,13 +1856,13 @@
    },
    "viewports": [
     {
-     "id": "vpatjpj0sq9g1",
-     "view": "vatjpj0spy4q",
+     "id": "vpx2h2r0sv6jl",
+     "view": "vx2h2r0suv2z",
      "x": 67,
      "y": 30
     },
     {
-     "id": "vpatjpk0sqcwr",
+     "id": "vpx2h2r0sv99m",
      "view": "3d-default",
      "x": 166,
      "y": 53
@@ -1873,7 +1873,7 @@
    ]
   },
   {
-   "id": "shatjpk0sqdql",
+   "id": "shx2h2r0sva7s",
    "number": "A201",
    "name": "Sections",
    "paper": "A1",
@@ -1887,14 +1887,14 @@
    },
    "viewports": [
     {
-     "id": "vpatjpk0sqe97",
-     "view": "vatjpj0spqzv",
+     "id": "vpx2h2r0svbqq",
+     "view": "vx2h2r0sunwd",
      "x": 124,
      "y": 50
     },
     {
-     "id": "vpatjpk0sqf06",
-     "view": "vatjpj0sprwa",
+     "id": "vpx2h2r0svchs",
+     "view": "vx2h2r0suobg",
      "x": 299,
      "y": 50
     }
@@ -1904,7 +1904,7 @@
    ]
   },
   {
-   "id": "shatjpk0sqg4t",
+   "id": "shx2h2r0svdb6",
    "number": "A301",
    "name": "Elevations",
    "paper": "A1",
@@ -1918,26 +1918,26 @@
    },
    "viewports": [
     {
-     "id": "vpatjpk0sqht1",
-     "view": "vatjpj0spstx",
+     "id": "vpx2h2r0svewv",
+     "view": "vx2h2r0sup4l",
      "x": 124,
      "y": 50
     },
     {
-     "id": "vpatjpk0sqif5",
-     "view": "vatjpj0spt3o",
+     "id": "vpx2h2r0svfp3",
+     "view": "vx2h2r0suqdv",
      "x": 324,
      "y": 50
     },
     {
-     "id": "vpatjpk0sqjw8",
-     "view": "vatjpj0spu61",
+     "id": "vpx2h2r0svg75",
+     "view": "vx2h2r0surmq",
      "x": 499,
      "y": 50
     },
     {
-     "id": "vpatjpk0sqk6a",
-     "view": "vatjpj0spv8y",
+     "id": "vpx2h2r0svhcd",
+     "view": "vx2h2r0suss5",
      "x": 99,
      "y": 138
     }
@@ -1947,7 +1947,7 @@
    ]
   },
   {
-   "id": "shatjpk0sqlxu",
+   "id": "shx2h2r0sviea",
    "number": "A601",
    "name": "Schedules and legend",
    "paper": "A1",
@@ -1961,20 +1961,20 @@
    },
    "viewports": [
     {
-     "id": "vpatjpk0sqmr9",
-     "view": "vatjpj0spwsk",
+     "id": "vpx2h2r0svjwj",
+     "view": "vx2h2r0sut2t",
      "x": 66,
      "y": 45
     },
     {
-     "id": "vpatjpk0sqntt",
-     "view": "vatjpj0spxhv",
+     "id": "vpx2h2r0svkjz",
+     "view": "vx2h2r0suudy",
      "x": 161,
      "y": 39
     },
     {
-     "id": "vpatjpk0sqoou",
-     "view": "vatjpj0spz6i",
+     "id": "vpx2h2r0svlmy",
+     "view": "vx2h2r0suw0e",
      "x": 291,
      "y": 62
     }
@@ -1986,8 +1986,8 @@
  ],
  "annotations": [
   {
-   "id": "anatjpj0sq0bm",
-   "view": "vatjpj0spqzv",
+   "id": "anx2h2r0suxki",
+   "view": "vx2h2r0sunwd",
    "kind": "dim",
    "pts": [
     [
@@ -2002,8 +2002,8 @@
    "offset": -600
   },
   {
-   "id": "anatjpj0sq1zf",
-   "view": "vatjpj0spqzv",
+   "id": "anx2h2r0suygv",
+   "view": "vx2h2r0sunwd",
    "kind": "spot",
    "x": 9625,
    "y": 0,
@@ -2011,8 +2011,8 @@
    "dy": -600
   },
   {
-   "id": "anatjpj0sq2o4",
-   "view": "vatjpj0spqzv",
+   "id": "anx2h2r0suzai",
+   "view": "vx2h2r0sunwd",
    "kind": "note",
    "x": 13475,
    "y": -4000,
@@ -2026,40 +2026,40 @@
    ]
   },
   {
-   "id": "anatjpj0sq3y2",
-   "view": "pl-lvatjpg0sn4mn",
+   "id": "anx2h2r0sv05f",
+   "view": "pl-lvx2h2p0ss1yu",
    "kind": "tag",
-   "target": "ratjpg0snqct",
+   "target": "rx2h2p0ssnj7",
    "dx": 0,
    "dy": 0
   },
   {
-   "id": "anatjpj0sq406",
-   "view": "pl-lvatjpg0sn4mn",
+   "id": "anx2h2r0sv1so",
+   "view": "pl-lvx2h2p0ss1yu",
    "kind": "tag",
-   "target": "ratjpg0snry8",
+   "target": "rx2h2p0ssohs",
    "dx": 0,
    "dy": 0
   },
   {
-   "id": "anatjpj0sq5dh",
-   "view": "pl-lvatjpg0sn4mn",
+   "id": "anx2h2r0sv2eu",
+   "view": "pl-lvx2h2p0ss1yu",
    "kind": "tag",
-   "target": "ratjpg0sns0r",
+   "target": "rx2h2p0sspzq",
    "dx": 0,
    "dy": 0
   },
   {
-   "id": "anatjpj0sq6vm",
-   "view": "pl-lvatjpg0sn4mn",
+   "id": "anx2h2r0sv3s7",
+   "view": "pl-lvx2h2p0ss1yu",
    "kind": "tag",
-   "target": "ratjpg0sntkc",
+   "target": "rx2h2p0ssq8m",
    "dx": 0,
    "dy": 0
   },
   {
-   "id": "anatjpj0sq7pq",
-   "view": "vatjpj0spqzv",
+   "id": "anx2h2r0sv4tc",
+   "view": "vx2h2r0sunwd",
    "kind": "cloud",
    "pts": [
     [
@@ -2099,11 +2099,11 @@
    "id": "ps-all",
    "name": "Planning set",
    "sheets": [
-    "shatjph0spdvj",
-    "shatjpj0sq8gs",
-    "shatjpk0sqdql",
-    "shatjpk0sqg4t",
-    "shatjpk0sqlxu"
+    "shx2h2p0suaqg",
+    "shx2h2r0sv5nm",
+    "shx2h2r0sva7s",
+    "shx2h2r0svdb6",
+    "shx2h2r0sviea"
    ]
   }
  ],
@@ -2242,7 +2242,7 @@
   "fogDensity": 1,
   "environment": "",
   "envBackground": false,
-  "groundType": "plain",
-  "groundShape": "disc"
+  "groundType": "terracotta",
+  "groundShape": "square"
  }
 }

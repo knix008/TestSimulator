@@ -71,22 +71,30 @@ try {
   }
   // Compose the sprite / sheet in the page.
   const compose = `(async () => {
-    const R = window.__renders, kinds = Object.keys(R.items), cols = ${cols}, cw = ${cw}, ch = ${ch}, sheet = ${sheet ? "true" : "false"};
+    const R = window.__renders, kinds = Object.keys(R.items), cw = ${cw}, ch = ${ch}, sheet = ${sheet ? "true" : "false"};
     const { furnitureDef } = await import("/src/lib/furniture.js");
     const lab = sheet ? 34 : 0;
-    const rows = Math.ceil(kinds.length / cols);
-    const c = document.createElement("canvas"); c.width = cols * cw; c.height = rows * (ch + lab);
-    const g = c.getContext("2d");
-    if (sheet) { g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); }
+    // The library sprite in pages of 512 cells (16 columns): one picture of thousands does not encode.
+    const cols = ${cols}, perPage = sheet ? kinds.length : cols * 32;
+    const pages = [];
+    let c = null, g = null;
     const index = {};
     for (let i = 0; i < kinds.length; i++) {
+      if (i % perPage === 0) {
+        if (c) pages.push(c.toDataURL(sheet ? "image/png" : "image/webp", 0.9));
+        const n = Math.min(perPage, kinds.length - i);
+        c = document.createElement("canvas"); c.width = cols * cw; c.height = Math.ceil(n / cols) * (ch + lab);
+        g = c.getContext("2d");
+        if (sheet) { g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); }
+      }
       const img = new Image(); img.src = R.items[kinds[i]]; await img.decode();
-      const x = (i % cols) * cw, y = Math.floor(i / cols) * (ch + lab);
+      const j = i % perPage, x = (j % cols) * cw, y = Math.floor(j / cols) * (ch + lab);
       g.drawImage(img, x, y);
       index[kinds[i]] = i;
       if (sheet) { const d = furnitureDef(kinds[i]); g.fillStyle = "#222"; g.font = "bold 13px Segoe UI"; g.fillText(kinds[i], x + 6, y + ch + 14); g.font = "12px Segoe UI"; g.fillStyle = "#666"; g.fillText((d.cat + " · " + d.name).slice(0, 44), x + 6, y + ch + 29); g.strokeStyle = "#ddd"; g.strokeRect(x + 0.5, y + 0.5, cw - 1, ch + lab - 1); }
     }
-    return JSON.stringify({ data: c.toDataURL(sheet ? "image/png" : "image/webp", 0.9), index, cols, cw, ch });
+    if (c) pages.push(c.toDataURL(sheet ? "image/png" : "image/webp", 0.9));
+    return JSON.stringify({ pages, index, cols, cw, ch, perPage });
   })()`;
   const r = await evaluate(compose);
   if (r.result.exceptionDetails) throw new Error(r.result.exceptionDetails.exception?.description || r.result.exceptionDetails.text);
@@ -99,7 +107,8 @@ try {
   try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* still held */ }
 }
 
-const buf = Buffer.from(result.data.split(",")[1], "base64");
+const bufs = result.pages.map((d) => Buffer.from(d.split(",")[1], "base64"));
+const buf = bufs[0];
 if (sheet) {
   fs.mkdirSync(path.dirname(path.resolve(sheet)), { recursive: true });
   fs.writeFileSync(path.resolve(sheet), buf);
@@ -107,7 +116,9 @@ if (sheet) {
 } else {
   const dir = path.join(root, "assets", "furniture");
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, "thumbs.webp"), buf);
-  fs.writeFileSync(path.join(dir, "thumbs.json"), JSON.stringify({ cols: result.cols, w: result.cw, h: result.ch, index: result.index }) + "\n");
-  console.log(`thumbnails: ${Object.keys(result.index).length} items → assets/furniture/thumbs.webp (${(buf.length / 1024).toFixed(0)} KB)`);
+  // thumbs.webp, thumbs-1.webp, …: pages of perPage cells (library.js kindThumb).
+  for (const f of fs.readdirSync(dir)) if (/^thumbs(-\d+)?\.webp$/.test(f)) fs.rmSync(path.join(dir, f));
+  bufs.forEach((b, i) => fs.writeFileSync(path.join(dir, i ? `thumbs-${i}.webp` : "thumbs.webp"), b));
+  fs.writeFileSync(path.join(dir, "thumbs.json"), JSON.stringify({ cols: result.cols, w: result.cw, h: result.ch, perPage: result.perPage, pages: bufs.length, index: result.index }) + "\n");
+  console.log(`thumbnails: ${Object.keys(result.index).length} items → assets/furniture/thumbs*.webp (${bufs.length} pages, ${(bufs.reduce((s, b) => s + b.length, 0) / 1024).toFixed(0)} KB)`);
 }

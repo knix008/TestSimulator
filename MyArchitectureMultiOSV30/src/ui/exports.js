@@ -5,7 +5,7 @@
 
 import { t, getLanguage } from "./i18n.js";
 import { icon } from "./icons.js";
-import { h, modal, toast, field, select, checkbox, tabs, stepper } from "./widgets.js";
+import { h, modal, toast, field, select, checkbox, tabs, stepper, withBusy } from "./widgets.js";
 import * as platform from "./platform.js";
 import { SvgContext } from "./svgctx.js";
 import { importReport } from "./dialogs.js";
@@ -271,7 +271,7 @@ export async function exportDxfFile(app) {
   if (app.setSetting && opts.version !== app.settings.dxfVersion) app.setSetting("dxfVersion", opts.version);
   const levels = opts.all ? p.levels : [levelById(p, opts.level)];
   for (const lv of levels) {
-    const text = exportDxf(p, { level: lv.id, version: opts.version });
+    const text = await withBusy("export", { title: t("Export DXF (AutoCAD)…"), icon: "dxf", now: true, what: lv.name }, () => exportDxf(p, { level: lv.id, version: opts.version }));
     const r = await platform.saveTextFile({ name: `${baseName(app)}-${lv.name}.dxf`, text, filters: [{ name: "DXF", extensions: ["dxf"] }] });
     if (!r) return;
     toast(t("Saved {name}", { name: r.name }), "ok");
@@ -291,7 +291,7 @@ export async function exportDwgFile(app) {
   const { exportDwg } = await import("../io/dwgwrite.js");
   const levels = opts.all ? p.levels : [levelById(p, opts.level)];
   for (const lv of levels) {
-    const bytes = exportDwg(p, { level: lv.id });
+    const bytes = await withBusy("export", { title: t("Export DWG (AutoCAD)…"), icon: "dxf", now: true, what: lv.name }, () => exportDwg(p, { level: lv.id }));
     const r = await platform.saveBinaryFile({ name: `${baseName(app)}-${lv.name}.dwg`, bytes, filters: [{ name: "DWG", extensions: ["dwg"] }] });
     if (!r) return;
     toast(t("Saved {name}", { name: r.name }), "ok");
@@ -314,13 +314,15 @@ export async function exportIfcFile(app) {
     // ifcXML is written from the IFC4 / IFC2X3 schema tables only.
     if (ifcOpts.schema === "IFC4X3") { ifcOpts.schema = "IFC4"; toast(t("ifcXML has no IFC4.3 schema here: written as IFC4."), "warn", 5000); }
     const { exportIfcXml } = await import("../io/ifcxml.js");
-    r = await platform.saveTextFile({ name: `${baseName(app)}.ifcxml`, text: exportIfcXml(p, ifcOpts), filters: [{ name: "ifcXML", extensions: ["ifcxml"] }] });
+    const text = await withBusy("export", { title: t("Export IFC (BIM)…"), icon: "bim", now: true, what: "ifcXML" }, () => exportIfcXml(p, ifcOpts));
+    r = await platform.saveTextFile({ name: `${baseName(app)}.ifcxml`, text, filters: [{ name: "ifcXML", extensions: ["ifcxml"] }] });
   } else if (opts.format === "ifczip") {
     const { exportIfcZip } = await import("../io/ifczip.js");
-    const bytes = await exportIfcZip(p, { ...ifcOpts, name: baseName(app) });
+    const bytes = await withBusy("export", { title: t("Export IFC (BIM)…"), icon: "bim", now: true, what: "IFC ZIP" }, () => exportIfcZip(p, { ...ifcOpts, name: baseName(app) }));
     r = await platform.saveBinaryFile({ name: `${baseName(app)}.ifczip`, bytes, filters: [{ name: "IFC ZIP", extensions: ["ifczip"] }] });
   } else {
-    r = await platform.saveTextFile({ name: `${baseName(app)}.ifc`, text: exportIfc(p, ifcOpts), filters: [{ name: "IFC", extensions: ["ifc"] }] });
+    const text = await withBusy("export", { title: t("Export IFC (BIM)…"), icon: "bim", now: true, what: ifcOpts.schema }, () => exportIfc(p, ifcOpts));
+    r = await platform.saveTextFile({ name: `${baseName(app)}.ifc`, text, filters: [{ name: "IFC", extensions: ["ifc"] }] });
   }
   if (r) toast(t("Saved {name}", { name: r.name }), "ok");
 }
@@ -355,16 +357,17 @@ export async function export3dDialog(app) {
     h("p", { class: "field-hint" }, t("Only what is visible in the 3D view is exported (hidden levels, furniture or roofs are left out)."))));
   const ok = await modal({ icon: "cube", title: t("Export 3D model"), width: 640, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Export"), value: true, primary: true }] });
   if (!ok) return;
-  await export3d(app, opts.format, opts.unit);
+  await withBusy("export", { title: t("Export 3D model"), icon: "cube", now: true, what: opts.format.toUpperCase() }, (busy) => export3d(app, opts.format, opts.unit, busy));
 }
 
-export async function export3d(app, format, unit = "m") {
+export async function export3d(app, format, unit = "m", busy = null) {
   const v = await app.v3d.ensure();
   if (!v) { toast(t("3D view is not available."), "error"); return null; }
   app.v3d.syncModel();
   const scale = unit === "mm" ? 1000 : 1;
   const base = baseName(app);
   const save = async (name, data, filterName, ext) => {
+    if (busy) busy.end(); // the file is made: the save dialog comes next
     const r = typeof data === "string"
       ? await platform.saveTextFile({ name, text: data, filters: [{ name: filterName, extensions: [ext] }] })
       : await platform.saveBinaryFile({ name, bytes: data, filters: [{ name: filterName, extensions: [ext] }] });

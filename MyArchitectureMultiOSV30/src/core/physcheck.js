@@ -23,7 +23,7 @@ export const MIN_DOOR = 700;
 /** Gaps between a wall end and another wall that are drawing mistakes (mm). */
 export const WALL_GAP = 300;
 // Furniture meant to stand outside or that is not furniture in a room.
-const OUTSIDE_OK = new Set(["Outdoor", "Vehicles", "People", "Plants", "Building"]);
+const OUTSIDE_OK = new Set(["Outdoor", "Vehicles", "People", "Plants", "Building", "Lifts & escalators"]);
 // Not something that blocks a window (they stand in front of one on purpose or let light through).
 const NOT_BLOCKING = new Set(["Plants", "Lighting", "People", "Decor"]);
 

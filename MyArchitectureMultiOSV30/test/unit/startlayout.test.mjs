@@ -3,7 +3,7 @@
 // gliding drag and resize use.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { COLS, ROW, GAP, overlaps, cardsOf, place, compact, autoArrange, swapVertical, layoutValue, boxOf, cellAt, spanFor, rowsFor } from "../../src/ui/startlayout.js";
+import { COLS, ROW, GAP, overlaps, cardsOf, place, compact, autoArrange, swapVertical, pinTop, layoutValue, boxOf, cellAt, spanFor, rowsFor } from "../../src/ui/startlayout.js";
 
 // The start page's cards (src/ui/start.js CARD_IDS / DEFAULT_SPAN).
 const IDS = ["hero", "banner", "actions", "recent", "templates", "theme", "side", "samples"];
@@ -112,4 +112,34 @@ test("the samples grid keeps every row full", async () => {
     assert.ok(c * 210 + (c - 1) * 10 <= Math.max(w, 210), `width ${w}: ${c} columns do not fit`);
   }
   assert.equal(fullColumns(3, 2000, 210, 10), 3, "fewer cells than fit: one row");
+});
+
+// The start page's arrangement since 1.0.3 (start.js CARD_IDS / DEFAULT_SPAN / FIXED_CARD):
+// one card per row, the samples under 새로 시작, theme and background last, the program card pinned.
+const IDS3 = ["hero", "banner", "actions", "recent", "templates", "samples", "plans", "theme", "side"];
+const SPAN3 = Object.fromEntries(IDS3.map((id) => [id, 3]));
+const rowOrder = (c) => Object.keys(c).sort((a, b) => c[a].row - c[b].row);
+
+test("one card per row by default: samples right under 새로 시작, theme and background at the bottom", () => {
+  const c = pinTop(cardsOf(null, IDS3, SPAN3, M), "hero");
+  assert.ok(noOverlap(c));
+  assert.deepEqual(rowOrder(c), IDS3);
+  for (const id of IDS3) assert.deepEqual([c[id].col, c[id].w], [0, COLS], id);
+  const auto = pinTop(autoArrange(IDS3, SPAN3, M), "hero");
+  assert.deepEqual(rowOrder(auto), IDS3, "the Arrange command gives the same order");
+});
+
+test("the program card is pinned: a card dropped or swapped above it goes below it, its size stays", () => {
+  const c = pinTop(cardsOf(null, IDS3, SPAN3, M), "hero");
+  const dropped = pinTop(place(c, "side", { col: 0, row: 0 }), "hero");
+  assert.deepEqual([dropped.hero.row, dropped.hero.col, dropped.hero.w, dropped.hero.h], [0, 0, COLS, c.hero.h]);
+  assert.ok(noOverlap(dropped));
+  assert.ok(Object.keys(dropped).filter((k) => k !== "hero").every((k) => dropped[k].row >= dropped.hero.h));
+  const swapped = pinTop(swapVertical(c, "banner", -1), "hero");
+  assert.equal(swapped.hero.row, 0);
+  assert.ok(swapped.banner.row >= swapped.hero.h && noOverlap(swapped));
+  // A saved layout that put the program card half-width lower down: back on top, full width.
+  const odd = pinTop({ ...c, hero: { ...c.hero, col: 1, row: 40, w: 1 } }, "hero");
+  assert.deepEqual([odd.hero.col, odd.hero.row, odd.hero.w], [0, 0, COLS]);
+  assert.ok(noOverlap(odd));
 });

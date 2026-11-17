@@ -485,20 +485,22 @@ export function stepper(value, { min = -Infinity, max = Infinity, step = 1, valu
 // A bar (filled like a progress bar) between − and + buttons. Drag or click
 // the bar, hold a button, or use the arrow keys. onInput fires while it moves,
 // onChange once it settles (pointer let go, a click, a key).
-export function slider(value, { min = 0, max = 100, step = 1, format = (v) => String(v), onInput, onChange } = {}) {
+// [−] bar [value unit] [+]: the decrease and increase buttons on either side, the
+// number with its unit in a box between the bar and +, centred; a number can be typed there.
+export function slider(value, { min = 0, max = 100, step = 1, format = (v) => String(v), unit = "", onInput, onChange } = {}) {
   let v = Math.min(max, Math.max(min, Number(value) || 0));
   const fill = h("span", { class: "slider-fill" });
   const thumb = h("span", { class: "slider-thumb" });
   const track = h("span", { class: "slider-track" }, fill, thumb);
-  const out = h("span", { class: "slider-val" });
+  const out = h("input", { class: "slider-val", type: "text", inputmode: "decimal", spellcheck: "false", "aria-label": t("Value") });
   const dec = h("button", { class: "slider-btn", type: "button", title: t("Decrease"), "aria-label": t("Decrease"), "data-step": "-1", html: icon("minus", 13) });
   const inc = h("button", { class: "slider-btn", type: "button", title: t("Increase"), "aria-label": t("Increase"), "data-step": "1", html: icon("plus", 13) });
-  const el = h("div", { class: "slider", tabindex: "0", role: "slider", "aria-valuemin": String(min), "aria-valuemax": String(max) }, dec, track, inc, out);
+  const el = h("div", { class: "slider", tabindex: "0", role: "slider", "aria-valuemin": String(min), "aria-valuemax": String(max) }, dec, track, out, inc);
   const render = () => {
     const pct = max > min ? ((v - min) / (max - min)) * 100 : 0;
     fill.style.width = `${pct}%`;
     thumb.style.left = `${pct}%`;
-    out.textContent = format(v);
+    if (document.activeElement !== out) out.value = unit ? `${format(v)} ${unit}` : format(v);
     el.setAttribute("aria-valuenow", String(v));
     dec.disabled = v <= min + 1e-9;
     inc.disabled = v >= max - 1e-9;
@@ -532,6 +534,16 @@ export function slider(value, { min = 0, max = 100, step = 1, format = (v) => St
     b.addEventListener("pointerdown", () => { stop(); timer = setTimeout(() => { b.dataset.held = "1"; timer = setInterval(() => set(v + dir * step, false), 90); }, 450); });
     for (const ev of ["pointerup", "pointerleave", "pointercancel"]) b.addEventListener(ev, stop);
   }
+  // A typed number (the unit may be left on or off): Enter or leaving the box takes it.
+  const typed = () => { const n = parseFloat(String(out.value).replace(",", ".")); if (Number.isFinite(n)) set(n, true); render(); };
+  out.addEventListener("focus", () => { out.value = format(v); out.select(); });
+  out.addEventListener("blur", typed);
+  out.addEventListener("keydown", (e) => {
+    e.stopPropagation(); // typing: neither the slider's arrows nor editor shortcuts
+    if (e.key === "Enter") { e.preventDefault(); typed(); out.select(); }
+    else if (e.key === "Escape") { e.preventDefault(); out.blur(); }
+    else if (e.key === "ArrowUp" || e.key === "ArrowDown") { e.preventDefault(); set(v + (e.key === "ArrowUp" ? step : -step), true); out.value = format(v); out.select(); }
+  });
   el.addEventListener("keydown", (e) => {
     e.stopPropagation(); // editor shortcuts must not fire while moving a value
     const d = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1, PageDown: -10, PageUp: 10 }[e.key];
@@ -586,6 +598,32 @@ export function panelHead(ic, title, ...extra) {
 // It never blocks the app; × only hides it (the work goes on). One popup per
 // key; several stack upwards.
 const progressPopups = new Map();
+/**
+ * Long work of unknown length (an import, an export, a conversion): a progress
+ * popup with a moving bar while fn(busy) runs. It shows after `delay` ms (quick
+ * work shows nothing) and waits while a dialog is open; `now` shows it at once.
+ * busy.stage(text) names the step; await busy.show() before synchronous work
+ * (the popup is painted first); busy.end() before a save dialog.
+ */
+export async function withBusy(key, { title = "", icon: ic = "refresh", what = "", delay = 400, now = false } = {}, fn) {
+  let pp = null, ended = false, timer = 0;
+  const open = () => {
+    if (ended || pp) return;
+    if (stack.length) { timer = setTimeout(open, 250); return; } // a dialog asks something first
+    pp = progressPopup(key, { title, icon: ic });
+    pp.el.classList.add("busy");
+    pp.set(0, 0, what);
+  };
+  const paint = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const busy = {
+    stage(text) { what = text; if (pp) pp.el.querySelector(".pp-label").textContent = text; },
+    async show(text) { if (text !== undefined) busy.stage(text); clearTimeout(timer); open(); await paint(); },
+    end(msg = null) { if (ended) return; ended = true; clearTimeout(timer); if (pp) { if (msg) pp.finish(msg); else pp.close(); } },
+  };
+  if (now) await busy.show(); else timer = setTimeout(open, delay);
+  try { return await fn(busy); } finally { busy.end(t("Done")); }
+}
+
 export function progressPopup(key, { title = "", icon: ic = "refresh" } = {}) {
   if (progressPopups.has(key)) return progressPopups.get(key);
   let host = document.getElementById("progress-popups");
