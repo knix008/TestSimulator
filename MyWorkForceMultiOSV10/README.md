@@ -25,9 +25,9 @@ npm start
 | `npm run server` | 데이터 서비스. 개발 서버가 같이 띄웁니다 |
 | `npm run build:web` | `dist/` 정적 파일 |
 | `npm run build:icons` | 앱 아이콘 |
-| `npm run build:win` | Windows 설치 파일 |
-| `npm run build:mac` | macOS 설치 파일 |
-| `npm run build:linux` | Linux 패키지 |
+| `npm run build:win` | Windows 설치 파일 `MyWorkForce-Setup-<버전>.exe` 를 만들어 프로젝트 루트와 `release/` 에 복사합니다 |
+| `npm run build:mac` | macOS 설치 파일 `MyWorkForce-<버전>-<arch>.dmg` (루트와 `release/`) |
+| `npm run build:linux` | Linux 패키지 `.deb`, `.rpm`, `.AppImage` (루트와 `release/`) |
 | `npm run stage` | 설치본에 넣을 데이터 서비스와 Node를 `src-tauri/runtime/`에 준비하고, 빈 폴더에서 한 번 띄워 확인합니다. 빌드가 먼저 실행합니다 |
 | `npm run clean` | 빌드 결과, 설치 파일, 준비한 데이터 서비스, 테스트 결과, 캐시를 지웁니다. `-- --dry-run` 은 지울 목록만 보여 줍니다 |
 | `npm run clean:all` | `clean` 에 더해 `node_modules/` 도 지웁니다. 다음에는 `npm install` 부터 합니다 |
