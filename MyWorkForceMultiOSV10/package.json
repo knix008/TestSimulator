@@ -19,7 +19,9 @@
     "build:win": "tauri build --bundles nsis",
     "build:mac": "tauri build --bundles dmg",
     "build:linux": "tauri build --bundles deb,rpm,appimage",
-    "build:all": "tauri build"
+    "build:all": "tauri build",
+    "clean": "node scripts/clean.mjs",
+    "clean:all": "node scripts/clean.mjs --all"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.8.0",
