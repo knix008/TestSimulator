@@ -203,6 +203,10 @@ html.titlebar-wrap .titlebar > * { height: var(--titlebar-h); }
 .menu-root { display: inline-flex; align-items: center; gap: 5px; }
 .menu-root-ico { display: inline-flex; opacity: .85; }
 .tabbar:empty { display: none; }
+/* The left panel's hide button at the right end of its tabs (panels.js addCollapse): its own narrow column. */
+/* The tabs share the row; the hide button (panels.js addCollapse) keeps the right end, whatever the view. */
+.panel-tabs > .panel-tab { flex: 1 1 0; }
+.panel-tabs > .collapse-btn { flex: none; align-self: center; width: 28px; height: 28px; margin-left: auto; }
 .toolbar .group-label { font-size: 11px; color: var(--faint); margin: 0 4px 0 2px; white-space: nowrap; }
 .toolbar select.input { height: 28px; padding: 0 6px; }
 .layer-chip { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
@@ -258,7 +262,7 @@ html.titlebar-wrap .titlebar > * { height: var(--titlebar-h); }
 /* Category chips, icon and name. --chip-w is the widest chip (src/ui/library.js) so no name is cut;
    they wrap and the chips of every row stretch to the panel's edge, so no row ends in a gap. */
 /* Tabs at the top of a side panel: equal columns, icon over a short label. */
-.panel-tabs { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; padding: 6px 8px 4px; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 2; background: var(--panel); }
+.panel-tabs { display: flex; align-items: stretch; gap: 2px; padding: 6px 8px 4px; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 2; background: var(--panel); }
 .panel-tab { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; padding: 4px 2px 5px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--muted); font-size: 11px; line-height: 1.2; cursor: pointer; }
 .panel-tab .pt-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .panel-tab:hover { color: var(--text); background: var(--hover); }

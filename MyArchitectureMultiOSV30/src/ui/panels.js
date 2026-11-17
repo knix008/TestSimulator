@@ -219,16 +219,18 @@ function foldPanels(app, host) {
 // The collapsed side panel: icon and vertical title; a click opens it again.
 function rail(app, host, side, ic, title, badge = null) {
   host.append(h("button", { class: `side-rail ${side}`, title: t("Show {name}", { name: title }), "data-rail": side, onclick: () => app.run(side === "left" ? "view.left" : "view.right") },
-    h("span", { class: "rail-ico", html: icon(side === "left" ? "chevronRight" : "chevronLeft", 14) }),
+    h("span", { class: "rail-ico", html: icon(side === "left" ? "panelLeftOpen" : "panelRightOpen", 16) }),
     h("span", { class: "rail-ico", html: icon(ic, 18) }),
     badge ? h("span", { class: `badge ${badge[1]}` }, String(badge[0])) : null,
     h("span", { class: "rail-title" }, title)));
 }
 
 function addCollapse(app, host, side) {
-  const head = host.querySelector(".panel-head");
+  // Either side panel: at the right end of its row of tabs; a panel without tabs: at the right end of its first head.
+  const tabs = host.querySelector(`[data-panel-tabs="${side}"]`);
+  const head = tabs || host.querySelector(".panel-head");
   if (!head) return;
-  head.append(h("button", { class: "icon-btn collapse-btn", title: t("Hide the panel"), "data-collapse": side, html: icon(side === "left" ? "chevronLeft" : "chevronRight", 14), onclick: () => app.run(side === "left" ? "view.left" : "view.right") }));
+  head.append(h("button", { class: "icon-btn collapse-btn", title: t("Hide the panel"), "data-collapse": side, html: icon(side === "left" ? "panelLeftClose" : "panelRightClose", 16), onclick: () => app.run(side === "left" ? "view.left" : "view.right") }));
 }
 
 // A folding group of the library: a head (arrow, icon, title, count) and the

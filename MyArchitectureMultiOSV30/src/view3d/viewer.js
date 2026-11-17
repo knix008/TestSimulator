@@ -234,6 +234,7 @@ export function createViewer(container, options = {}) {
   let project = null;
   let extent = { x1: -5000, y1: -5000, x2: 5000, y2: 5000, top: 3000 };
   let ground = null;
+  const GROUND_Y = -0.05; // the ground plane (m): far enough below the floors (0) for the grid between them
   let grid = null;
   let axes = null;
   let dims = null;
@@ -242,6 +243,26 @@ export function createViewer(container, options = {}) {
   // The model's box for the near plane (fitNear); measured again after a change.
   const modelBox = new THREE.Box3();
   let modelBoxStale = true;
+  // The box of what is drawn: hidden levels are built but not shown (build.js), and Box3.expandByObject counts
+  // hidden objects too. Counted, the floors above made the camera seem inside the model, the near plane fell to
+  // 3 cm and the floor, its slab and the ground flickered as the view turned.
+  const _vb = new THREE.Box3();
+  function visibleBox(root, box) {
+    root.updateWorldMatrix(true, true);
+    const walk = (o) => {
+      if (!o.visible) return;
+      if ((o.isMesh || o.isLine || o.isPoints) && o.geometry) {
+        if (o.isInstancedMesh) { if (o.computeBoundingBox) o.computeBoundingBox(); if (o.boundingBox) box.union(_vb.copy(o.boundingBox).applyMatrix4(o.matrixWorld)); }
+        else {
+          if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+          box.union(_vb.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld));
+        }
+      }
+      for (const c of o.children) walk(c);
+    };
+    walk(root);
+    return box;
+  }
   // The building's matrices: walked again only after a rebuild or an edit
   // (updateMatrices). Tools that move a part update it themselves
   // (updateMatrixWorld(true)), and the batched originals do not move.
@@ -661,7 +682,10 @@ export function createViewer(container, options = {}) {
     else material = rankedMaterial(mats.surface(type.material, opts.groundColor || "#9aa68a"), 6); // behind the site's own surfaces
     const g = new THREE.Mesh(geo, material);
     g.rotation.x = -Math.PI / 2;
-    g.position.set(L.cx, -0.02, L.cz);
+    // Below the floors, the grid and the axes with room to spare (depth precision): the ground −50 mm, the grid
+    // −30 mm, the axes −25 mm, a room's floor 0. The grid used to be 2–3 mm above the floors: with the levels
+    // above hidden, the ground floor and the grid lines took turns to show while the view turned (flicker).
+    g.position.set(L.cx, GROUND_Y, L.cz);
     g.receiveShadow = true;
     g.name = "ground";
     g.userData.shared = !!type.material && material.name !== "ground";
@@ -745,7 +769,7 @@ export function createViewer(container, options = {}) {
     grid.name = "grid";
     grid.add(lineSegs(minor, dark ? 0x8a93a3 : 0x5a6472, dark ? 0.18 : 0.16));
     grid.add(ribbons(maj, GRID_MAJOR_PX / px, dark ? 0xaeb6c2 : 0x4d5765, dark ? 0.4 : 0.34));
-    grid.position.y = 0.002;
+    grid.position.y = GROUND_Y + 0.02; // under every floor, clear of the ground
     const h0 = major * 0.18;
     // The scale numbers (opts.labels: they can be hidden, the lines stay).
     if (opts.labels !== false) for (let k = -n / 5; k <= n / 5; k += Math.max(1, Math.ceil(n / 5 / 6))) {
@@ -793,7 +817,7 @@ export function createViewer(container, options = {}) {
       // Like the numbers: hidden behind the building, seen through it in X-ray.
       l.material.depthTest = !labelsSeeThrough();
       l.userData.label3d = true;
-      l.position.y = 0.006; // just above the ground, no flicker
+      l.position.y = GROUND_Y + 0.025; // above the ground and the grid, below the floors: no flicker
       l.renderOrder = 9;
       axes.add(l);
       const s = labelSprite(name, hex, size * 1.6);
@@ -1511,9 +1535,9 @@ export function createViewer(container, options = {}) {
   // millimetres apart stay apart; inside a room it comes back to 3 cm.
   function fitNear() {
     if (camera !== persp) return;
-    if (modelBoxStale) { modelBox.makeEmpty().expandByObject(content); modelBoxStale = false; }
+    if (modelBoxStale) { visibleBox(content, modelBox.makeEmpty()); modelBoxStale = false; }
     const pos = camera.position;
-    const near = nearPlane({ boxDistance: modelBox.isEmpty() ? Infinity : modelBox.distanceToPoint(pos), groundHeight: pos.y + 0.02, max: Math.max(0.03, persp.far / 1000) });
+    const near = nearPlane({ boxDistance: modelBox.isEmpty() ? Infinity : modelBox.distanceToPoint(pos), groundHeight: pos.y - GROUND_Y, max: Math.max(0.03, persp.far / 1000) });
     if (Math.abs(near - persp.near) > persp.near * 0.02) { persp.near = near; persp.updateProjectionMatrix(); }
   }
 

@@ -121,6 +121,11 @@ const P = {
   panelLeft: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M5 8h2M5 11h2"/>',
   panelRight: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="M17 8h2M17 11h2"/>',
   panelBottom: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 14h18"/><path d="M6 17h5"/>',
+  // Side panels: hide (the arrow towards the edge) and show (away from it), the panel's edge drawn as in panelLeft / panelRight.
+  panelLeftClose: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M16 9l-3 3 3 3"/>',
+  panelLeftOpen: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M13 9l3 3-3 3"/>',
+  panelRightClose: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="M8 9l3 3-3 3"/>',
+  panelRightOpen: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="M11 9l-3 3 3 3"/>',
   symbolEdit: '<rect x="7" y="5" width="10" height="14" rx="1"/><path d="M3 8h4M3 12h4M3 16h4M17 8h4M17 12h4"/>',
   footprintEdit: '<rect x="4" y="4" width="16" height="16" rx="1" stroke-dasharray="2 2"/><rect x="6" y="8" width="3" height="2"/><rect x="6" y="14" width="3" height="2"/><rect x="15" y="8" width="3" height="2"/><rect x="15" y="14" width="3" height="2"/>',
   gerber: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 17V9l4 4 4-4v8"/>',
