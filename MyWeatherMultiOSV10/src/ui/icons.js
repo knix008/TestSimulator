@@ -68,7 +68,11 @@ const PATHS = {
 };
 
 export function gripIcon() {
-  return '<svg class="grip-svg" viewBox="0 0 14 14" aria-hidden="true"><path d="M13 3 3 13M13 7.5 7.5 13M13 12l-1 1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+  // A triangle of dots in the bottom-right corner: 1 + 2 + 3 dots, right edge and bottom edge flush.
+  const dots = [[12, 2], [12, 7], [7, 7], [12, 12], [7, 12], [2, 12]]
+    .map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.4"/>`)
+    .join("");
+  return `<svg class="grip-svg" viewBox="0 0 14 14" aria-hidden="true"><g fill="currentColor">${dots}</g></svg>`;
 }
 
 const COLOR = {
