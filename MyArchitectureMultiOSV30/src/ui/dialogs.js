@@ -2,6 +2,7 @@
 // layers, schedules, find, history, samples, help and About. Import/export
 // and printing live in exports.js.
 
+import { DOOR_TYPES, DOOR_STYLES } from "../core/doors.js";
 import { t, getLanguage } from "./i18n.js";
 import { elementScheduleTabs } from "./elements.js";
 import { icon } from "./icons.js";
@@ -221,7 +222,8 @@ export async function itemProperties(app, kind, obj) {
     title = obj.kind === "window" ? t("Window properties") : t("Door properties");
     body = h("div", { class: "form-grid" },
       field(t("Kind"), select(draft.kind, [["door", t("Door")], ["window", t("Window")], ["opening", t("Opening")]], { onChange: (v) => { draft.kind = v; } })),
-      field(t("Type"), select(draft.type, [["single", t("Single")], ["double", t("Double")], ["sliding", t("Sliding")], ["garage", t("Garage")], ["casement", t("Casement")], ["fixed", t("Fixed")]], { onChange: (v) => { draft.type = v; } })),
+      field(t("Type"), select(draft.type, obj.kind === "door" ? DOOR_TYPES.map(([id, n]) => [id, t(n)]) : [["casement", t("Casement")], ["fixed", t("Fixed")], ["sliding", t("Sliding")]], { onChange: (v) => { draft.type = v; } })),
+      obj.kind === "door" ? field(t("Style"), select(draft.style || "auto", DOOR_STYLES.map(([id, n]) => [id, t(n)]), { onChange: (v) => { draft.style = v === "auto" ? undefined : v; } })) : null,
       numField(t("Width"), draft, "width", { step: 50, min: 200 }),
       numField(t("Height"), draft, "height", { step: 50, min: 200 }),
       numField(t("Sill height"), draft, "sill", { step: 50 }),
@@ -419,7 +421,7 @@ export async function defaultsDialog(app) {
     numField(t("Door width"), draft, "doorWidth", { step: 50 }), numField(t("Door height"), draft, "doorHeight", { step: 50 }),
     numField(t("Window width"), draft, "windowWidth", { step: 50 }), numField(t("Window height"), draft, "windowHeight", { step: 50 }),
     numField(t("Window sill"), draft, "windowSill", { step: 50 }), numField(t("Text size"), draft, "textSize"),
-    field(t("Door type"), select(s.doorType || "single", [["single", t("Single")], ["double", t("Double")], ["sliding", t("Sliding")]], { onChange: (v) => { draft.doorType = v; } })),
+    field(t("Door type"), select(s.doorType || "single", DOOR_TYPES.filter(([id]) => id !== "garage").map(([id, n]) => [id, t(n)]), { onChange: (v) => { draft.doorType = v; } })),
     field(t("Window type"), select(s.windowType || "casement", [["casement", t("Casement")], ["fixed", t("Fixed")], ["sliding", t("Sliding")]], { onChange: (v) => { draft.windowType = v; } })),
     field(t("Wall material"), materialPicker(s.wallMaterial || "plaster", { uses: ["wall"], onChange: (v) => { draft.wallMaterial = v; } })),
     field(t("Floor material"), materialPicker(s.floorMaterial || "oak", { uses: ["floor"], onChange: (v) => { draft.floorMaterial = v; } })),

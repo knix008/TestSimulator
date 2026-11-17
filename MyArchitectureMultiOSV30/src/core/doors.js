@@ -5,6 +5,21 @@
 // door it passes (`force`). Sliding doors slide instead of turning (the same
 // angle says how far: 0 closed, 90 fully open). Pure.
 
+/** How a door opens: [id, English name]. Swing doors turn on hinges; the rest slide, fold or roll. */
+export const DOOR_TYPES = [
+  ["single", "Single"], ["double", "Double"], ["sliding", "Sliding"], ["pocket", "Pocket (slides into the wall)"],
+  ["barn", "Barn (slides on the wall)"], ["folding", "Folding (bifold)"], ["garage", "Garage"],
+];
+/** What a door looks like: [id, English name]; "auto" = by its place (an inner door, an entrance door, French doors). */
+export const DOOR_STYLES = [
+  ["auto", "Automatic"], ["panel", "Panel"], ["flush", "Flush"], ["glass", "Glass"], ["halfglass", "Half glass"],
+  ["louvered", "Louvered"], ["plank", "Plank (barn)"], ["steel", "Steel"], ["fire", "Fire door"], ["entrance", "Entrance"],
+];
+/** A door that turns on hinges (swings into the room: door checks, swing symbols). */
+export const isSwingDoor = (o) => !!o && o.kind === "door" && (!o.type || o.type === "single" || o.type === "double");
+/** Doors that slide (along or into the wall). */
+export const isSlidingDoor = (o) => !!o && o.kind === "door" && ["sliding", "pocket", "barn"].includes(o.type);
+
 export const OPEN_ANGLE = 75; // what "Open doors" opens a door to
 export const MAX_ANGLE = 110;
 

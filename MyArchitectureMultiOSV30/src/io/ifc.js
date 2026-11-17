@@ -25,7 +25,7 @@ import { isCurtainWall, roomOnSlab } from "../core/elements/geometry.js";
 import { activeModel } from "../core/elements/model.js";
 import { triangulateFace, isClosed as meshClosed } from "../core/mesh.js";
 
-const DOOR_TYPES = ["single", "double", "sliding", "garage"];
+const DOOR_TYPES = ["single", "double", "sliding", "garage", "pocket", "barn", "folding"];
 const WINDOW_TYPES = ["casement", "fixed", "sliding"];
 
 // ================================================================ STEP writing
@@ -232,7 +232,8 @@ const STYLES = {
 
 function doorOperation(o) {
   if (o.type === "double") return "DOUBLE_DOOR_SINGLE_SWING";
-  if (o.type === "sliding") return "SLIDING_TO_LEFT";
+  if (o.type === "sliding" || o.type === "pocket" || o.type === "barn") return "SLIDING_TO_LEFT";
+  if (o.type === "folding") return "FOLDING_TO_LEFT";
   if (o.type === "garage") return "ROLLINGUP";
   return o.hinge === "end" ? "SINGLE_SWING_RIGHT" : "SINGLE_SWING_LEFT";
 }
@@ -2004,6 +2005,7 @@ class IfcReader {
       else if (op.startsWith("DOUBLE_DOOR_SLIDING") || op.startsWith("SLIDING")) o.type = "sliding";
       else if (op.startsWith("DOUBLE")) o.type = "double";
       else if (op === "ROLLINGUP") o.type = "garage";
+      else if (op.startsWith("FOLDING")) o.type = "folding";
       if (op.endsWith("_RIGHT") && !op.includes("DOUBLE")) o.hinge = "end";
     }
     this.openings.push(this.applyBim(o, fillerId, openingId));

@@ -224,6 +224,29 @@ function drawOpening(ctx, w, s, th, lw, tag, o) {
       const half = width / 2;
       line(P(s.u1, 25), P(s.u1 + half + 50, 25));
       line(P(s.u2 - half - 50, -25), P(s.u2, -25));
+    } else if (op.type === "pocket") {
+      // The leaf across the opening, its pocket in the wall dashed.
+      ctx.lineWidth = lw * 2;
+      line(P(s.u1, 0), P(s.u2, 0));
+      ctx.lineWidth = lw;
+      ctx.setLineDash([lw * 5, lw * 3]);
+      line(P(s.u1 - width, 0), P(s.u1, 0));
+      ctx.setLineDash([]);
+    } else if (op.type === "barn") {
+      // The leaf on the wall face beside the opening's side, its rail running on past it.
+      const v = (op.side || 1) * (t + 40);
+      ctx.lineWidth = lw * 2;
+      line(P(s.u1 - 40, v), P(s.u2 + 40, v));
+      ctx.lineWidth = lw;
+      ctx.setLineDash([lw * 5, lw * 3]);
+      line(P(s.u1 - width, v + (op.side || 1) * 40), P(s.u2 + 40, v + (op.side || 1) * 40));
+      ctx.setLineDash([]);
+    } else if (op.type === "folding") {
+      // Two pairs of leaves folded half open (a zigzag) on the side the door opens to.
+      ctx.lineWidth = lw * 1.5;
+      const q = width / 4, side = op.side || 1, d = q * 0.8;
+      const pts = [P(s.u1, face), P(s.u1 + q, face + side * d), P(s.u1 + 2 * q, face), P(s.u1 + 3 * q, face + side * d), P(s.u2, face)];
+      for (let i = 0; i + 1 < pts.length; i++) line(pts[i], pts[i + 1]);
     } else if (op.type === "garage") {
       ctx.setLineDash([lw * 6, lw * 4]);
       line(P(s.u1, face), P(s.u2, face));

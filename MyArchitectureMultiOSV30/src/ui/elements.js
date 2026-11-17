@@ -5,6 +5,7 @@
 // with type parameters, slab and curtain-wall types, materials with thermal
 // properties), design options, arrays and beam systems.
 
+import { DOOR_TYPES, DOOR_STYLES } from "../core/doors.js";
 import { t } from "./i18n.js";
 import { icon } from "./icons.js";
 import { h, modal, select, stepper, input, field, checkbox, tabs, toast, contextMenu, promptDialog, confirmDialog } from "./widgets.js";
@@ -485,10 +486,10 @@ export async function typeCatalogDialog(app, { tab = null, typeId = null } = {})
     } else {
       const pr = ty.params;
       for (const k of [...TYPE_PARAMS[cat], ...(TYPE_DEFAULTS[cat] || [])]) {
-        if (k === "type") rows.push(sel(pr, k, cat === "door" ? [["single", t("Single")], ["double", t("Double")], ["sliding", t("Sliding")], ["garage", t("Garage")]] : [["casement", t("Casement")], ["fixed", t("Fixed")], ["sliding", t("Sliding")]]));
+        if (k === "type") rows.push(sel(pr, k, cat === "door" ? DOOR_TYPES.map(([id, n]) => [id, t(n)]) : [["casement", t("Casement")], ["fixed", t("Fixed")], ["sliding", t("Sliding")]]));
         else if (k === "shape") rows.push(sel(pr, k, [["rect", t("Rectangular")], ["round", t("Round")]]));
         else if (k === "profile") rows.push(sel(pr, k, tr(PROFILE_LABEL)));
-        else if (k === "style") rows.push(sel(pr, k, tr(STYLE_LABEL)));
+        else if (k === "style") rows.push(sel(pr, k, cat === "door" ? DOOR_STYLES.map(([id, n]) => [id, t(n)]) : tr(STYLE_LABEL)));
         else if (k === "material") rows.push(sel(pr, k, MATERIALS.filter((m) => m.use.some((u) => ["wall", "structure", "frame"].includes(u))).map((m) => [m.id, t(m.name)])));
         else if (k === "kind") rows.push(sel(pr, k, allFurniture().map((d) => [d.kind, t(d.name)])));
         else if (k === "color") rows.push(field(t("Colour"), input(pr.color || "#8a9bb0", { type: "color", onChange: (v) => { pr.color = v; } })));

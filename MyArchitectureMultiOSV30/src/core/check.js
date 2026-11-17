@@ -2,6 +2,7 @@
 // the project returning [{severity, code, key, vars, x, y, ids, level}], where
 // `key` is the English message template (translated by the UI with t(key, vars)).
 
+import { isSwingDoor } from "./doors.js";
 import { wallLength, wallHeight, openingTags, levelAbove } from "./project.js";
 import { wallFrame, wallPoint, openingSpans, wallOutlines } from "./walls.js";
 import { roomArea } from "./rooms.js";
@@ -130,7 +131,7 @@ export function runCheck(p, { level = null } = {}) {
       const fw = wallFrame(w);
       for (const s of openingSpans(p, w)) {
         const o = s.o;
-        if (o.kind !== "door" || o.type === "sliding" || o.type === "garage") continue;
+        if (!isSwingDoor(o)) continue;
         // Swing quarter: the hinge jamb, the leaf length and the side it opens to.
         const hingeU = o.hinge === "end" ? s.u2 : s.u1;
         const [hx, hy] = wallPoint(w, hingeU, (o.side * w.thickness) / 2);

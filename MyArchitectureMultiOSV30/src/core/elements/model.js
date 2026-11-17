@@ -82,7 +82,7 @@ function normalizeCurtainType(wt) {
 // the instance (position, swing side, sill …) stays an instance parameter.
 export const TYPE_CATEGORIES = ["door", "window", "column", "beam", "furniture", "railing"];
 export const TYPE_PARAMS = {
-  door: ["type", "width", "height", "frameWidth", "frameDepth"],
+  door: ["type", "style", "width", "height", "frameWidth", "frameDepth"],
   window: ["type", "width", "height", "frameWidth", "frameDepth"],
   column: ["shape", "w", "d", "material"],
   beam: ["profile", "w", "h", "material"],
@@ -107,6 +107,21 @@ export const DEFAULT_TYPES = [
   { id: "door-double-1600", category: "door", name: "Double door 1600 × 2100", params: { type: "double", width: 1600, height: 2100, frameWidth: 70, frameDepth: 0 } },
   { id: "door-sliding-1800", category: "door", name: "Sliding glass door 1800 × 2200", params: { type: "sliding", width: 1800, height: 2200, frameWidth: 50, frameDepth: 0 } },
   { id: "door-garage-2400", category: "door", name: "Garage door 2400 × 2100", params: { type: "garage", width: 2400, height: 2100, frameWidth: 60, frameDepth: 0 } },
+  // One of each kind of door: how it opens and what it looks like.
+  { id: "door-panel-900", category: "door", name: "Panel door 900 × 2100", params: { type: "single", style: "panel", width: 900, height: 2100, frameWidth: 60, frameDepth: 0 } },
+  { id: "door-flush-900", category: "door", name: "Flush door 900 × 2100", params: { type: "single", style: "flush", width: 900, height: 2100, frameWidth: 60, frameDepth: 0 } },
+  { id: "door-glass-900", category: "door", name: "Glass door 900 × 2100", params: { type: "single", style: "glass", width: 900, height: 2100, frameWidth: 50, frameDepth: 0 } },
+  { id: "door-halfglass-900", category: "door", name: "Half-glass door 900 × 2100", params: { type: "single", style: "halfglass", width: 900, height: 2100, frameWidth: 60, frameDepth: 0 } },
+  { id: "door-louvered-800", category: "door", name: "Louvered door 800 × 2100", params: { type: "single", style: "louvered", width: 800, height: 2100, frameWidth: 60, frameDepth: 0 } },
+  { id: "door-entrance-1000", category: "door", name: "Entrance door 1000 × 2200", params: { type: "single", style: "entrance", width: 1000, height: 2200, frameWidth: 70, frameDepth: 0 } },
+  { id: "door-steel-1000", category: "door", name: "Steel security door 1000 × 2100", params: { type: "single", style: "steel", width: 1000, height: 2100, frameWidth: 70, frameDepth: 0 } },
+  { id: "door-fire-1000", category: "door", name: "Fire door 1000 × 2100", params: { type: "single", style: "fire", width: 1000, height: 2100, frameWidth: 70, frameDepth: 0 } },
+  { id: "door-french-1500", category: "door", name: "French doors 1500 × 2200", params: { type: "double", style: "glass", width: 1500, height: 2200, frameWidth: 60, frameDepth: 0 } },
+  { id: "door-double-entrance-1800", category: "door", name: "Double entrance door 1800 × 2400", params: { type: "double", style: "entrance", width: 1800, height: 2400, frameWidth: 80, frameDepth: 0 } },
+  { id: "door-pocket-800", category: "door", name: "Pocket door 800 × 2100", params: { type: "pocket", style: "flush", width: 800, height: 2100, frameWidth: 50, frameDepth: 0 } },
+  { id: "door-barn-1000", category: "door", name: "Barn door 1000 × 2200", params: { type: "barn", style: "plank", width: 1000, height: 2200, frameWidth: 50, frameDepth: 0 } },
+  { id: "door-bifold-800", category: "door", name: "Bifold door 800 × 2100", params: { type: "folding", style: "louvered", width: 800, height: 2100, frameWidth: 50, frameDepth: 0 } },
+  { id: "door-auto-1800", category: "door", name: "Automatic sliding glass door 1800 × 2200", params: { type: "sliding", style: "glass", width: 1800, height: 2200, frameWidth: 60, frameDepth: 0 } },
   { id: "win-casement-1200", category: "window", name: "Casement window 1200 × 1200", params: { type: "casement", width: 1200, height: 1200, frameWidth: 60, frameDepth: 90, sill: 900 } },
   { id: "win-fixed-1800", category: "window", name: "Fixed window 1800 × 1500", params: { type: "fixed", width: 1800, height: 1500, frameWidth: 50, frameDepth: 90, sill: 800 } },
   { id: "win-sliding-1500", category: "window", name: "Sliding window 1500 × 1200", params: { type: "sliding", width: 1500, height: 1200, frameWidth: 60, frameDepth: 90, sill: 900 } },

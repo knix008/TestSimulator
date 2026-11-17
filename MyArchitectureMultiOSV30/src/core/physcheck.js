@@ -5,6 +5,7 @@
 // just short of another. Called by runCheck (core/check.js) per level with its
 // `add`; core/fixes.js offers a repair for each. Pure, mm.
 
+import { isSwingDoor } from "./doors.js";
 import { wallFrame, wallPoint, openingSpans, wallOutlines } from "./walls.js";
 import { furnitureCorners, furnitureDef } from "../lib/furniture.js";
 import { pointInPolygon, pointSegDist, segIntersect } from "./geom.js";
@@ -33,7 +34,7 @@ const NOT_BLOCKING = new Set(["Plants", "Lighting", "People", "Decor"]);
  */
 export function doorSwing(w, span) {
   const o = span.o;
-  if (o.kind !== "door" || o.type === "sliding" || o.type === "garage") return null;
+  if (!isSwingDoor(o)) return null;
   const f = wallFrame(w);
   const side = o.side === -1 ? -1 : 1;
   const leaves = o.type === "double" ? [[span.u1, 1, (span.u2 - span.u1) / 2], [span.u2, -1, (span.u2 - span.u1) / 2]] : [[o.hinge === "end" ? span.u2 : span.u1, o.hinge === "end" ? -1 : 1, span.u2 - span.u1]];

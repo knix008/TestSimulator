@@ -233,7 +233,7 @@ class GbxmlWriter {
           const oz0 = z0 + o.sill, oz1 = Math.min(z1, z0 + o.sill + o.height);
           if (u2 - u1 < 10 || oz1 - oz0 < 10) continue;
           let type2;
-          if (o.kind === "door") type2 = o.type === "sliding" ? "SlidingDoor" : "NonSlidingDoor";
+          if (o.kind === "door") type2 = ["sliding", "pocket", "barn"].includes(o.type) ? "SlidingDoor" : "NonSlidingDoor";
           else if (o.kind === "window") type2 = o.type === "fixed" ? "FixedWindow" : "OperableWindow";
           else type2 = "Air";
           s.openings.push({ id: this.nid("op"), type: type2, name: o.name || `${o.kind} ${o.id}`, loop: facing([P(u1, oz0), P(u2, oz0), P(u2, oz1), P(u1, oz1)], out), w: (u2 - u1) / 1000, h: (oz1 - oz0) / 1000 });

@@ -362,88 +362,203 @@ function openingMeshes(THREE, mats, w, s, base, opts) {
   }
   const leafT = 40;
   const leafH = o.height - fw;
+  const f = wallFrame(w);
+  const rotY = -Math.atan2(f.d[1], f.d[0]);
+  // A point of the wall (u along it, v across it, mm) → plan metres [x, z].
+  const at = (u, v) => [(w.x1 + f.d[0] * u + f.n[0] * v) * M, (w.y1 + f.d[1] * u + f.n[1] * v) * M];
   const outsideWall = /ext|curtain/i.test(w.typeId || w.type || "") || t >= 250;
-  const leafMat = o.type === "garage" ? mats.color("#c7ccd2", { rough: 0.5, metal: 0.3 })
-    : o.type === "double" || outsideWall ? mats.door() // wood: French doors, entrance doors
+  const type = o.type || "single";
+  const metal = mats.color("#b9bcc0", { rough: 0.25, metal: 0.9 });
+  if (type === "garage") {
+    const steel = mats.color("#c7ccd2", { rough: 0.5, metal: 0.3 });
+    for (let k = 0; k < 4; k++) g.add(boxInWall(THREE, w, steel, uc, 0, z0 + (k * leafH) / 4 + 5, width - 2 * fw, leafT, leafH / 4 - 10));
+    return g;
+  }
+  // The leaf's look (core/doors.js DOOR_STYLES); "auto" by the type and the wall: glazed French and sliding doors,
+  // a plank barn door, a louvered bifold, a solid entrance door in an outside wall, else a white panel door.
+  const style = o.style && o.style !== "auto" ? o.style
+    : type === "double" || type === "sliding" ? "glass" : type === "barn" ? "plank" : type === "folding" ? "louvered" : outsideWall ? "entrance" : "panel";
+  const wood = mats.door();
+  const leafMat = style === "plank" ? mats.color("#6e4b30", { rough: 0.75 })
+    : style === "steel" ? mats.color("#8e969e", { rough: 0.35, metal: 0.6 })
+    : style === "fire" ? mats.color("#a8432f", { rough: 0.5 })
+    : style === "entrance" || style === "glass" || outsideWall || type === "double" ? wood
     : mats.color("#f2f0ea", { rough: 0.45 }); // inner doors: white paint
-  if (o.type === "garage") {
-    for (let k = 0; k < 4; k++) g.add(boxInWall(THREE, w, leafMat, uc, 0, z0 + (k * leafH) / 4 + 5, width - 2 * fw, leafT, leafH / 4 - 10));
-    return g;
-  }
-  if (o.type === "sliding") {
-    const half = (width - 2 * fw) / 2;
-    const glassLeaf = (u, v) => {
-      g.add(boxInWall(THREE, w, frame, u, v, z0, half + 40, 50, leafH));
-      const gl = boxInWall(THREE, w, mats.glass(), u, v, z0 + 60, half - 80, 14, leafH - 120);
-      g.add(gl);
+  // Raised panels a shade apart from the leaf, so they read as panels.
+  const panelMat = leafMat === wood ? mats.color("#7a5236", { rough: 0.55 }) : mats.color("#e2ded5", { rough: 0.5 });
+
+  /**
+   * One leaf: a group whose origin is the bottom of its hinge (or near) edge, the leaf running along local x to
+   * dir × len, y up to H, centred on z (z = the wall's left normal once placed). `handle`: lever (roses and
+   * levers on both faces), pull (a bar), recess (a flush pull), knob, or none — on `faces` (±z); `hinges` on the
+   * hinge edge.
+   */
+  const buildLeaf = (len, H, dir, { handle = "lever", hinges = true, faces = [-1, 1] } = {}) => {
+    const grp = new THREE.Group();
+    const part = (mat, x, y, z, sx, sy, sz) => { const b = boxMesh(THREE, sx * M, sy * M, sz * M, mat); b.position.set(dir * x * M, y * M, z * M); grp.add(b); return b; };
+    const glass = (x, y, sx, sy, sz = 14) => { const gl = part(mats.glass(), x, y, 0, sx, sy, sz); gl.userData.glass = true; return gl; };
+    const sw = Math.max(50, Math.min(100, len * 0.14)); // stile width
+    // A frame of stiles and rails ([y centre, height] each) round open fields filled by the caller.
+    const frameOf = (rails) => {
+      part(leafMat, sw / 2, H / 2, 0, sw, H, leafT);
+      part(leafMat, len - sw / 2, H / 2, 0, sw, H, leafT);
+      for (const [y, sy] of rails) part(leafMat, len / 2, y, 0, len - 2 * sw + 2, sy, leafT);
     };
-    // An open sliding door: its first leaf slides over the second (90° = fully open).
-    const slide = Math.min(1, doorAngle(o, opts.openDoors, { force: opts.forceOpenDoors }) / 90) * (half - 60);
-    // The moving leaf in a group of its own, so the walk-through can slide it.
-    const all = g;
+    const solid = () => part(leafMat, len / 2, H / 2, 0, len, H, leafT);
+    const raised = (y1, y2, x1 = 0.5) => { for (const sg of [-1, 1]) part(panelMat, len * x1, (y1 + y2) / 2, sg * (leafT / 2 + 6), Math.max(40, len - 2 * sw - 60), y2 - y1, 12); };
+    if (style === "flush") solid();
+    else if (style === "panel") { solid(); raised(H * 0.08, H * 0.47); raised(H * 0.53, H * 0.92); }
+    else if (style === "entrance") { solid(); raised(H * 0.12, H * 0.62); glass(len / 2, H * 0.81, Math.min(300, len - 300), H * 0.22, leafT + 4); }
+    else if (style === "glass") { frameOf([[H - 50, 100], [100, 200], [H * 0.55, 50]]); glass(len / 2, H / 2, len - 2 * sw + 10, H - 300); }
+    else if (style === "halfglass") {
+      // Glass above the lock rail, a panel below.
+      const mid = H * 0.5;
+      frameOf([[H - 50, 100], [100, 200], [mid, 120]]);
+      part(leafMat, len / 2, (200 + mid - 60) / 2, 0, len - 2 * sw + 2, mid - 60 - 200, 20);
+      raised(260, mid - 120);
+      glass(len / 2, (mid + 60 + H - 100) / 2, len - 2 * sw + 10, H - 100 - mid - 60 + 10);
+    } else if (style === "louvered") {
+      // Angled slats between the rails (air passes: closets, utility rooms, bifolds).
+      const mid = H * 0.5;
+      frameOf([[H - 50, 100], [75, 150], [mid, 60]]);
+      for (let y = 150 + 32; y < H - 100 - 20; y += 52) {
+        if (Math.abs(y - mid) < 50) continue;
+        part(leafMat, len / 2, y, 0, len - 2 * sw + 2, 48, 7).rotation.x = 0.75;
+      }
+    } else if (style === "plank") {
+      // Boards (grooves on both faces) with a Z brace: two ledges and a diagonal.
+      solid();
+      const groove = mats.color("#3d2a1b", { rough: 0.9 });
+      const boards = Math.max(2, Math.round(len / 150));
+      for (let k = 1; k < boards; k++) for (const sg of [-1, 1]) part(groove, (k * len) / boards, H / 2, sg * (leafT / 2 + 0.6), 8, H - 4, 2);
+      const brace = mats.color("#5a3b24", { rough: 0.75 });
+      const y1 = H * 0.15, y2 = H * 0.85, dx = len - 2 * 90, dy = y2 - y1;
+      for (const sg of [-1, 1]) {
+        part(brace, len / 2, y1, sg * (leafT / 2 + 11), len - 40, 140, 20);
+        part(brace, len / 2, y2, sg * (leafT / 2 + 11), len - 40, 140, 20);
+        part(brace, len / 2, H / 2, sg * (leafT / 2 + 11), Math.hypot(dx, dy - 140), 120, 20).rotation.z = dir * Math.atan2(dy - 140, dx);
+      }
+    } else if (style === "steel") {
+      // Metal, with kick plates and a stiffening line across.
+      solid();
+      const plate = mats.color("#6f767d", { rough: 0.3, metal: 0.8 });
+      for (const sg of [-1, 1]) { part(plate, len / 2, 150, sg * (leafT / 2 + 1.5), len - 60, 260, 3); part(plate, len / 2, H * 0.62, sg * (leafT / 2 + 1), len - 160, 18, 2); }
+    } else if (style === "fire") {
+      // A solid leaf with a narrow vision panel, and a closer on the head.
+      solid();
+      glass(len * 0.55, H * 0.62, Math.min(160, len * 0.2), Math.min(850, H * 0.4), leafT + 4);
+      part(mats.color("#2c2f33", { rough: 0.4, metal: 0.5 }), 260, H - 60, (o.side || 1) * (leafT / 2 + 30), 300, 60, 50);
+    } else solid();
+    // Handles.
+    for (const sg of faces) {
+      const z = sg * (leafT / 2 + 8);
+      if (handle === "lever") { part(metal, len - 75, 1000, z, 52, 52, 10); part(metal, len - 75 - 55, 1000, sg * (leafT / 2 + 30), 130, 20, 20); }
+      else if (handle === "pull") { part(metal, len - 110, 1050, sg * (leafT / 2 + 35), 22, 450, 22); for (const y of [840, 1260]) part(metal, len - 110, y, sg * (leafT / 2 + 18), 18, 18, 36); }
+      else if (handle === "recess") part(mats.color("#3a3c40", { rough: 0.4, metal: 0.6 }), len - 60, 1000, sg * (leafT / 2 + 0.6), 30, 160, 2);
+      else if (handle === "knob") part(metal, len - 60, 1000, sg * (leafT / 2 + 14), 34, 34, 28);
+    }
+    if (hinges) for (const y of [180, H / 2, H - 180]) part(metal, 4, y, 0, 8, 100, leafT + 6);
+    return grp;
+  };
+  // A part placed on the wall: origin at (u, v) on the floor of the opening, local x along the wall.
+  const place = (obj, u, v, z = z0) => { const [x, y] = at(u, v); obj.position.set(x, z * M, y); obj.rotation.y = rotY; return obj; };
+  // Each door its own angle (core/doors.js), else the view's "Open doors"; the walk-through opens them all.
+  const angle = doorAngle(o, opts.openDoors, { force: opts.forceOpenDoors });
+  const open = (angle * Math.PI) / 180;
+  const side = o.side || 1;
+  const inner = width - 2 * fw;
+  // A sliding part in its own group with what the walk-through needs (userData.slide: plan direction, the most it
+  // slides and how far it is now, metres).
+  const slider = (dirSign, max, now) => {
     const moving = new THREE.Group();
-    g = moving;
-    glassLeaf(s.u1 + fw + half / 2 + slide, 25);
-    g = all;
-    const f = wallFrame(w);
-    moving.userData.slide = { d: [f.d[0], f.d[1]], max: (half - 60) * M, a: slide * M };
+    moving.userData.slide = { d: [f.d[0] * dirSign, f.d[1] * dirSign], max: max * M, a: now * M };
     g.add(moving);
-    glassLeaf(s.u2 - fw - half / 2, -25);
+    return moving;
+  };
+  const frac = Math.min(1, angle / 90);
+
+  if (type === "sliding") {
+    // Two leaves on two tracks: the first slides over the second (90° = fully open).
+    const half = inner / 2, len = half + 40;
+    const slide = frac * (half - 60);
+    const moving = slider(1, half - 60, slide);
+    moving.add(place(buildLeaf(len, leafH, 1, { handle: "pull", hinges: false }), s.u1 + fw - 20 + slide, 25));
+    g.add(place(buildLeaf(len, leafH, 1, { handle: "pull", hinges: false }), s.u2 - fw - len + 20, -25));
     return g;
   }
-  // What kind of door: glazed French doors (double), a solid entrance door in an outside wall (thick or an
-  // "ext" wall type), else a white two-panel inner door.
-  const outside = /ext|curtain/i.test(w.typeId || w.type || "") || t >= 250;
-  const style = o.type === "double" ? "french" : outside ? "entrance" : "inner";
-  // Each door its own angle (core/doors.js), else the view's "Open doors"; the walk-through opens them all.
-  const open = (doorAngle(o, opts.openDoors, { force: opts.forceOpenDoors }) * Math.PI) / 180;
-  const leaf = (hingeU, len, dir) => {
-    // Pivot at the hinge on the swing-side face, leaf closed along ±u.
-    const f = wallFrame(w);
-    const side = o.side || 1;
-    const v = side * (t / 2 - leafT / 2);
-    const hx = w.x1 + f.d[0] * hingeU + f.n[0] * v;
-    const hy = w.y1 + f.d[1] * hingeU + f.n[1] * v;
-    const pivot = new THREE.Group();
-    pivot.position.set(hx * M, z0 * M, hy * M);
-    pivot.rotation.y = -Math.atan2(f.d[1], f.d[0]);
-    const m = boxMesh(THREE, len * M, leafH * M, leafT * M, leafMat);
-    m.position.set((dir * len * M) / 2, (leafH * M) / 2, 0);
-    pivot.add(m);
-    // On the leaf (local: x along it from the hinge, y up, z through it): mm → a box centred at (x, y, z).
-    const part = (mat, x, y, z, sx, sy, sz) => { const b = boxMesh(THREE, sx * M, sy * M, sz * M, mat); b.position.set(dir * x * M, y * M, z * M); pivot.add(b); return b; };
-    const metal = mats.color("#b9bcc0", { rough: 0.25, metal: 0.9 });
-    if (style === "french") {
-      // Glazed: a rail-and-stile frame round two glass panes.
-      const gl = part(mats.glass(), len / 2, leafH / 2, 0, len - 140, leafH - 300, 14);
-      gl.userData.glass = true;
-      m.visible = false; // the stiles and rails below stand in for the solid leaf
-      for (const [x, y, sx, sy] of [[35, leafH / 2, 70, leafH], [len - 35, leafH / 2, 70, leafH], [len / 2, leafH - 50, len, 100], [len / 2, 100, len, 200], [len / 2, leafH * 0.55, len, 50]]) part(leafMat, x, y, 0, sx, sy, leafT);
-    } else {
-      // Panels on both faces (12 mm proud): two on an inner door, one with a glass light on an entrance door.
-      const panels = style === "entrance" ? [[0.12, 0.62]] : [[0.08, 0.47], [0.53, 0.92]];
-      // A shade apart from the leaf, so the panels read as panels.
-      const panelMat = style === "entrance" ? mats.color("#7a5236", { rough: 0.55 }) : mats.color("#e2ded5", { rough: 0.5 });
-      for (const sg of [-1, 1]) for (const [a, b] of panels) part(panelMat, len / 2, leafH * (a + b) / 2, sg * (leafT / 2 + 6), len - 200, leafH * (b - a), 12);
-      if (style === "entrance") { const gl = part(mats.glass(), len / 2, leafH * 0.81, 0, Math.min(300, len - 300), leafH * 0.22, leafT + 4); gl.userData.glass = true; }
+  if (type === "pocket") {
+    // One leaf in the middle of the wall that slides into it (a pocket beside the opening, on the hinge side).
+    const atEnd = o.hinge === "end";
+    const slide = frac * (inner - 80);
+    const moving = slider(atEnd ? 1 : -1, inner - 80, slide);
+    const u = atEnd ? s.u1 + fw + slide : s.u1 + fw - slide;
+    moving.add(place(buildLeaf(inner, leafH, 1, { handle: "recess", hinges: false }), u, 0));
+    return g;
+  }
+  if (type === "barn") {
+    // A leaf hung on a rail on the wall's face, wider than the opening; it slides along the wall beside it.
+    const atEnd = o.hinge === "end";
+    const len = inner + 2 * fw + 100, H = o.height + 40;
+    const v = side * (t / 2 + 15 + 25 + leafT / 2);
+    const slide = frac * (len - 60);
+    const dirSign = atEnd ? 1 : -1;
+    const rail = mats.color("#2d2f33", { rough: 0.35, metal: 0.8 });
+    // The rail runs over the opening and the wall the leaf slides onto.
+    const r0 = atEnd ? s.u1 - 60 : s.u1 - len - 20, r1 = atEnd ? s.u2 + len + 20 : s.u2 + 60;
+    g.add(boxInWall(THREE, w, rail, (r0 + r1) / 2, side * (t / 2 + 12), z0 + H + 70, r1 - r0, 24, 40));
+    for (const u of [r0 + 15, r1 - 15]) g.add(boxInWall(THREE, w, rail, u, side * (t / 2 + 6), z0 + H + 50, 30, 12, 80));
+    const moving = slider(dirSign, len - 60, slide);
+    const u = s.u1 - 50 + dirSign * slide;
+    // Its back faces the wall: the pull on the room side only.
+    moving.add(place(buildLeaf(len, H, 1, { handle: "pull", hinges: false, faces: [side] }), u, v, z0 + 10));
+    // Hangers: straps from the leaf's top to wheels on the rail.
+    for (const k of [0.15, 0.85]) {
+      moving.add(boxInWall(THREE, w, rail, u + len * k, v, z0 + H - 140, 40, leafT + 10, 220));
+      moving.add(boxInWall(THREE, w, rail, u + len * k, side * (t / 2 + 30), z0 + H + 60, 70, 20, 70));
     }
-    // Lever handles with their roses on both faces, 1 m up; three hinges on the hinge edge.
-    for (const sg of [-1, 1]) {
-      const z = sg * (leafT / 2 + 8);
-      part(metal, len - 75, 1000, z, 52, 52, 10);
-      part(metal, len - 75 - 55, 1000, sg * (leafT / 2 + 30), 130, 20, 20);
-    }
-    for (const y of [180, leafH / 2, leafH - 180]) part(metal, 4, y, 0, 8, 100, leafT + 6);
+    return g;
+  }
+  if (type === "folding") {
+    // Bifold: pairs of panels hinged together; the first turns on the jamb, the second folds back against it
+    // (its pivot rides on the first and turns twice as far the other way, so the pair runs along a track).
+    const fold = (hingeU, len, dir) => {
+      const pw = len / 2, v = side * (t / 2 - leafT / 2);
+      const a = Math.min(open, (85 * Math.PI) / 180);
+      const p1 = place(new THREE.Group(), hingeU, v);
+      p1.add(buildLeaf(pw, leafH, dir, { handle: "none" }));
+      // The second pivot sits on the face it folds towards, so the folded pair stacks instead of overlapping.
+      const c = -side * leafT / 2;
+      const p2 = new THREE.Group();
+      p2.position.set(dir * pw * M, 0, c * M);
+      const l2 = buildLeaf(pw, leafH, dir, { handle: "knob", hinges: false });
+      l2.position.z = -c * M;
+      p2.add(l2);
+      p1.add(p2);
+      p1.userData.leaf = { y0: p1.rotation.y, k: -dir * side, a };
+      p2.userData.leaf = { y0: 0, k: 2 * dir * side, a };
+      p1.rotateY(-a * dir * side);
+      p2.rotation.y = 2 * dir * side * a;
+      g.add(p1);
+    };
+    g.add(boxInWall(THREE, w, metal, uc, side * (t / 2 - leafT / 2), z0 + leafH + 2, inner, 30, 16));
+    if (inner > 1100) { fold(s.u1 + fw, inner / 2, 1); fold(s.u2 - fw, inner / 2, -1); }
+    else if (o.hinge === "end") fold(s.u2 - fw, inner, -1);
+    else fold(s.u1 + fw, inner, 1);
+    return g;
+  }
+  // Swing doors: each leaf turns on its hinge at the swing-side face.
+  const swing = (hingeU, len, dir) => {
+    const pivot = place(new THREE.Group(), hingeU, side * (t / 2 - leafT / 2));
+    pivot.add(buildLeaf(len, leafH, dir));
     // Local +z is the wall's left normal; a positive turn about y swings +x
     // towards −z, so the sign makes the leaf open towards `side`.
     pivot.userData.leaf = { y0: pivot.rotation.y, k: -dir * side, a: open };
     pivot.rotateY(-open * dir * side);
     g.add(pivot);
   };
-  const inner = width - 2 * fw;
-  if (o.type === "double") { leaf(s.u1 + fw, inner / 2, 1); leaf(s.u2 - fw, inner / 2, -1); }
-  else if (o.hinge === "end") leaf(s.u2 - fw, inner, -1);
-  else leaf(s.u1 + fw, inner, 1);
+  if (type === "double") { swing(s.u1 + fw, inner / 2, 1); swing(s.u2 - fw, inner / 2, -1); }
+  else if (o.hinge === "end") swing(s.u2 - fw, inner, -1);
+  else swing(s.u1 + fw, inner, 1);
   return g;
 }
 

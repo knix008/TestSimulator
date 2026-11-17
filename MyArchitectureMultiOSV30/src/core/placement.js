@@ -5,7 +5,7 @@
 // chair beside a table. Used when furniture is placed or dragged in the plan
 // and in 3D. Pure (no DOM): the unit tests use it.
 import { wallOutlines } from "./walls.js";
-import { furnitureCorners, furnitureDef } from "../lib/furniture.js";
+import { furnitureCorners, furnitureDef, isLight } from "../lib/furniture.js";
 import { pointInPolygon, segIntersect } from "./geom.js";
 
 // A polygon pulled `mm` towards its centre (a touch is no overlap; 5 mm whatever the size).
@@ -76,16 +76,136 @@ export function freeSpot(p, f, { step = 50, maxR = 4000, ignore = new Set(), obs
 }
 
 /**
- * Pieces just added (recognised in a plan, pasted …) settle one by one into the nearest free spot, but no further
- * than `maxR` mm (what is drawn stays where it was drawn). Changes `p` in place; returns how many moved.
+ * Pieces just added (recognised in a plan, pasted …) settle one by one: a piece drawn near a wall goes against
+ * its face (not into it; turned square to it when nearly so), then into the nearest free spot, but no further than
+ * `maxR` mm (what is drawn stays where it was drawn). Changes `p` in place; returns how many moved.
  */
-export function settlePieces(p, ids, { maxR = 600 } = {}) {
+export function settlePieces(p, ids, { maxR = 600, snap = 150 } = {}) {
   let moved = 0;
   for (const id of ids) {
     const f = p.furniture.find((x) => x.id === id);
     if (!f) continue;
+    if (snap > 0 && !passable(f) && !isLight(f) && f.kind !== "component" && f.w > 0 && f.d > 0) {
+      const a = alignToWalls(f, p.walls.filter((w) => w.level === f.level), { snap });
+      if (a.x !== f.x || a.y !== f.y || a.rot !== (f.rot || 0)) { f.x = a.x; f.y = a.y; f.rot = a.rot; moved++; }
+    }
     const s = freeSpot(p, f, { maxR, step: 25 });
     if (s && s.moved) { f.x = s.x; f.y = s.y; moved++; }
   }
   return moved;
+}
+
+/**
+ * A piece against the walls (as MySketchBook does it): a piece whose side is within `snap` mm of a wall face is
+ * pulled onto the face, and one inside a wall is pushed out to it — it never stands in a wall. With `align`, a
+ * piece near a wall turns to the nearest right angle to it (when it is within ~30° or already touching), so a
+ * side lies along the wall. `f`: { x, y, w, d, rot (degrees) }; walls: { x1, y1, x2, y2, thickness }.
+ * Returns { x, y, rot } (rounded mm and degrees).
+ */
+export function alignToWalls(f, walls, { snap = 160, gap = 0, align = true, pull = true } = {}) {
+  let x = f.x, y = f.y, rot = f.rot || 0;
+  const hw = Math.max(5, (f.w || 0) / 2), hd = Math.max(5, (f.d || 0) / 2);
+  // How far the piece reaches along a direction (its corners: x along (cos, sin) × w/2, y along (−sin, cos) × d/2).
+  const span = (dir, r) => { const a = (r * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a); return Math.abs(dir[0] * c + dir[1] * s) * hw + Math.abs(-dir[0] * s + dir[1] * c) * hd; };
+  for (let pass = 0; pass < 2; pass++) {
+    for (const w of walls || []) {
+      const L = Math.hypot(w.x2 - w.x1, w.y2 - w.y1);
+      if (!(L > 1)) continue;
+      const u = [(w.x2 - w.x1) / L, (w.y2 - w.y1) / L], n = [-u[1], u[0]];
+      const half = (w.thickness || 200) / 2;
+      const along = (x - w.x1) * u[0] + (y - w.y1) * u[1];
+      // Beside the wall (not beyond its ends: a piece past a wall's end is not against it).
+      if (along < -span(u, rot) + 20 || along > L + span(u, rot) - 20) continue;
+      let signed = (x - w.x1) * n[0] + (y - w.y1) * n[1];
+      let face = half + span(n, rot) + gap;
+      const band = pass === 0 && pull ? snap : 0;
+      if (Math.abs(signed) > face + band) continue;
+      const side = signed < 0 ? -1 : 1;
+      if (align && pass === 0) {
+        // The wall's direction in degrees; the piece's rotation that is a multiple of 90° from it and nearest.
+        const base = (Math.atan2(u[1], u[0]) * 180) / Math.PI;
+        const k = Math.round((rot - base) / 90);
+        const best = base + k * 90;
+        const diff = Math.abs(rot - best);
+        if (diff > 0.01 && (diff < 31 || Math.abs(signed) < face + 40)) rot = ((Math.round(best * 10) / 10) % 360 + 360) % 360;
+        face = half + span(n, rot) + gap;
+      }
+      // Pass 2 only pushes out of a wall; pass 1 also pulls in from the snap band.
+      if (pass === 1 && Math.abs(signed) >= face - 0.5) continue;
+      const to = side * face - signed;
+      x += n[0] * to; y += n[1] * to;
+      signed = side * face;
+    }
+  }
+  return { x: Math.round(x), y: Math.round(y), rot };
+}
+
+/**
+ * Pieces where a move, a resize or an edit left them: they must not stand in a wall or on another piece. A piece
+ * near a wall goes against it (alignToWalls; one piece also turns to it); then, if anything still hits a wall or
+ * another piece, the pieces go together (a moved group keeps its layout) to the nearest free spot — inside a room
+ * when they were (`origins`: id → [x, y] before the move). When nothing is free within `maxR` mm they go back to
+ * `origins`. Typed values (properties) and resizes pass snap 0 and align false: only out of a wall. Changes `p` in place. Returns { moved, back, ids } — moved: they had to go elsewhere than dropped
+ * (not counting the snap to a wall); back: they went back where they were.
+ */
+export function settleMoved(p, ids, { origins = null, maxR = 4000, step = 25, snap = 160, align = true } = {}) {
+  const pieces = (ids || []).map((id) => p.furniture.find((f) => f.id === id)).filter((f) => f && !passable(f) && f.w > 0 && f.d > 0 && f.kind !== "component");
+  if (!pieces.length) return { moved: false, back: false, ids: [] };
+  const out = { moved: false, back: false, ids: pieces.map((f) => f.id) };
+  const byLevel = new Map();
+  for (const f of pieces) { if (!byLevel.has(f.level)) byLevel.set(f.level, []); byLevel.get(f.level).push(f); }
+  for (const [level, list] of byLevel) {
+    const walls = p.walls.filter((w) => w.level === level);
+    const obs = obstacles(p, level, new Set(list.map((f) => f.id)));
+    // 1. Against the walls. One piece snaps and turns; a group moves by the largest push any of its pieces needs
+    //    (so nothing is left in a wall), pulled to a wall only when one piece alone stands by it.
+    const snappable = list.filter((f) => !isLight(f));
+    if (list.length === 1 && snappable.length === 1) {
+      const f = list[0], a = alignToWalls(f, walls, { snap, align, pull: snap > 0 });
+      f.x = a.x; f.y = a.y; f.rot = a.rot;
+    } else if (snappable.length) {
+      let best = null;
+      for (const f of snappable) {
+        const a = alignToWalls(f, walls, { snap: 0, align: false, pull: false });
+        const dx = a.x - f.x, dy = a.y - f.y, m = Math.hypot(dx, dy);
+        if (m > 0 && (!best || m > best.m)) best = { dx, dy, m };
+      }
+      if (best) for (const f of list) { f.x += best.dx; f.y += best.dy; }
+    }
+    // 2. Still in a wall or on another piece: the nearest free spot for the whole set.
+    const rooms = (p.rooms || []).filter((r) => r.level === level && r.pts && r.pts.length >= 3);
+    const inRoom = (x, y) => rooms.some((r) => pointInPolygon(x, y, r.pts));
+    const indoors = rooms.length > 0 && list.some((f) => inRoom(f.x, f.y) || (origins && origins[f.id] && inRoom(...origins[f.id])));
+    // Each moved piece against the others of the set too (a resized piece may now reach its neighbour in the group).
+    const okAt = (dx, dy) => {
+      for (const f of list) {
+        const g = { ...f, x: f.x + dx, y: f.y + dy };
+        if (indoors && !inRoom(g.x, g.y)) return false;
+        if (collides(g, obs)) return false;
+      }
+      return true;
+    };
+    if (okAt(0, 0)) continue;
+    let spot = null;
+    for (let r = step; r <= maxR && !spot; r += step) {
+      const n = Math.max(8, Math.round((2 * Math.PI * r) / step));
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2, dx = Math.round(Math.cos(a) * r), dy = Math.round(Math.sin(a) * r);
+        if (okAt(dx, dy)) { spot = [dx, dy]; break; }
+      }
+    }
+    if (spot) {
+      for (const f of list) { f.x += spot[0]; f.y += spot[1]; }
+      out.moved = true;
+      // A single piece pushed off: against the wall again if that is still free.
+      if (list.length === 1 && snappable.length === 1) {
+        const f = list[0], a = alignToWalls(f, walls, { snap: 60, align: false });
+        if (!collides({ ...f, x: a.x, y: a.y }, obs) && (!indoors || inRoom(a.x, a.y))) { f.x = a.x; f.y = a.y; }
+      }
+    } else if (origins && list.every((f) => origins[f.id])) {
+      for (const f of list) { f.x = origins[f.id][0]; f.y = origins[f.id][1]; if (origins[f.id][2] !== undefined) f.rot = origins[f.id][2]; }
+      out.back = true;
+    }
+  }
+  return out;
 }

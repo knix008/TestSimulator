@@ -4,7 +4,7 @@
 
 import { t } from "./i18n.js";
 import { icon } from "./icons.js";
-import { freeSpot } from "../core/placement.js";
+import { settleMoved } from "../core/placement.js";
 import { h, panelHead, toast, checkbox, select, field, stepper, contextMenu, modal } from "./widgets.js";
 import { levelById, findItem, wallHeight } from "../core/project.js";
 import { materialsFor, materialColor, materialById } from "../lib/materials.js";
@@ -113,9 +113,9 @@ export class View3DTab {
         if (!it) return false;
         it.obj.x = Math.round((m.x0 + ev.dx) / g) * g;
         it.obj.y = Math.round((m.y0 + ev.dy) / g) * g;
-        // Not into a wall or another piece: the nearest free spot.
-        const spot = freeSpot(pr, it.obj, { origin: [m.x0, m.y0] });
-        if (spot && spot.moved) { it.obj.x = spot.x; it.obj.y = spot.y; moved = true; }
+        // Against a wall near it, never in a wall or on another piece: the nearest free spot.
+        const r = settleMoved(pr, [m.id], { origins: { [m.id]: [m.x0, m.y0] } });
+        if (r.moved || r.back) moved = true;
         return true;
       });
       if (moved) toast(t("Moved to the nearest free spot (it would have hit a wall or furniture)."), "info", 3000);

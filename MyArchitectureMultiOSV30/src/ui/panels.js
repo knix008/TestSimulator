@@ -4,6 +4,7 @@
 //   right: plan → properties of the selection (every number is a − / + stepper)
 //          and the model check issues; 3D → the picked object
 
+import { DOOR_TYPES, DOOR_STYLES } from "../core/doors.js";
 import { t, getLanguage } from "./i18n.js";
 import { icon } from "./icons.js";
 import { h, panelHead, input, select, checkbox, stepper, toast } from "./widgets.js";
@@ -19,6 +20,7 @@ import { PLAN_THEMES } from "../plan/render.js";
 import { levelSummary } from "../core/schedule.js";
 import { ifcGuid } from "../io/ifc.js";
 import { elementPanel } from "./elements.js";
+import { settleMoved } from "../core/placement.js";
 import { renderLibrary as renderFurnitureLibrary, categoryIcon, chipNaturalWidth } from "./library.js";
 import { adviceFor } from "../core/fixes.js";
 
@@ -313,10 +315,22 @@ export function renderRight(app, host) {
  * "Keep proportions" scales the other two with the one changed; a scale in % for all three; back to the catalogue
  * size. Each change is one undo step. Returns grid cells (label, control, …) for a prop-grid.
  */
+// What settling a piece did, said once (a size, position or rotation change may push it off a wall or a piece).
+function settleNotice(r) {
+  if (r.back) toast(t("There is no free space for it here."), "warn", 3500);
+  else if (r.moved) toast(t("Moved to the nearest free spot (it would have hit a wall or furniture)."), "info", 3000);
+}
+// A furniture field whose change may make the piece hit a wall or another piece (X, Y, rotation).
+const placeField = (app, obj, label, getter, setter, opts) => bindField(app, label, getter, (v) => {
+  const o = [obj.x, obj.y, obj.rot];
+  setter(v);
+  settleNotice(settleMoved(app.store.project, [obj.id], { origins: { [obj.id]: o }, snap: 0, align: false }));
+}, opts);
+
 export function furnitureSizeFields(app, obj) {
   const keep = () => !!app.settings.keepFurnitureRatio;
   const id = obj.id;
-  const edit = (label, fn) => app.store.edit(t("Edit {field}", { field: label }), (p) => { const f = p.furniture.find((x) => x.id === id); if (!f) return false; fn(f); return true; });
+  const edit = (label, fn) => app.store.edit(t("Edit {field}", { field: label }), (p) => { const f = p.furniture.find((x) => x.id === id); if (!f) return false; const o = [f.x, f.y, f.rot], size = [f.w, f.d, f.h]; fn(f); const r = settleMoved(p, [id], { origins: { [id]: o }, snap: 0, align: false }); if (r.back) [f.w, f.d, f.h] = size; settleNotice(r); return true; });
   const dim = (label, key, min) => {
     const el = stepper(+obj[key] || 0, { step: 10, min, max: 1e6, editable: true, format: (v) => String(Math.round(v)),
       onChange: (v) => edit(label, (f) => {
@@ -448,11 +462,12 @@ function inspector(app, body) {
   } else if (kind === "openings") {
     const w = p.walls.find((x) => x.id === obj.wall);
     const tag = openingTags(p).get(obj.id);
-    const typeOpts = obj.kind === "window" ? [["casement", t("Casement")], ["fixed", t("Fixed")], ["sliding", t("Sliding")]] : obj.kind === "door" ? [["single", t("Single")], ["double", t("Double")], ["sliding", t("Sliding")], ["garage", t("Garage")]] : [["none", "—"]];
+    const typeOpts = obj.kind === "window" ? [["casement", t("Casement")], ["fixed", t("Fixed")], ["sliding", t("Sliding")]] : obj.kind === "door" ? DOOR_TYPES.map(([id, n]) => [id, t(n)]) : [["none", "—"]];
     title(obj.kind === "window" ? "window" : "door", `${tag}  ${obj.kind === "window" ? t("Window") : obj.kind === "door" ? t("Door") : t("Opening")}`, `${obj.width} × ${obj.height} mm${obj.sill ? ` · ${t("sill")} ${obj.sill}` : ""}`);
     grid.append(
       ...bindField(app, t("Kind"), () => obj.kind, (v) => { obj.kind = v; obj.type = v === "window" ? "casement" : v === "door" ? "single" : "none"; if (v === "door" || v === "opening") obj.sill = 0; else if (!obj.sill) obj.sill = p.defaults.windowSill; }, { options: [["door", t("Door")], ["window", t("Window")], ["opening", t("Opening")]] }),
       ...bindField(app, t("Type"), () => obj.type, (v) => { obj.type = v; }, { options: typeOpts }),
+      ...(obj.kind === "door" ? bindField(app, t("Style"), () => obj.style || "auto", (v) => { obj.style = v === "auto" ? undefined : v; }, { options: DOOR_STYLES.map(([id, n]) => [id, t(n)]) }) : []),
       ...bindField(app, t("Width"), () => obj.width, (v) => { obj.width = Math.max(200, Math.min(v, w ? wallLength(w) : v)); }, mmS(50, 200)),
       ...bindField(app, t("Height"), () => obj.height, (v) => { obj.height = Math.max(200, v); }, mmS(50, 200)),
       ...bindField(app, t("Sill height"), () => obj.sill, (v) => { obj.sill = Math.max(0, v); }, mmS(50, 0)),
@@ -486,9 +501,9 @@ function inspector(app, body) {
     const def = furnitureDef(obj.kind);
     title(obj.kind === "model" ? "model3d" : "sofa", obj.name || (def ? t(def.name) : obj.kind), `${obj.w} × ${obj.d} × ${obj.h} mm`);
     grid.append(
-      ...bindField(app, "X", () => obj.x, (v) => { obj.x = v; }, mmS(10, -1e9)),
-      ...bindField(app, "Y", () => obj.y, (v) => { obj.y = v; }, mmS(10, -1e9)),
-      ...bindField(app, t("Rotation"), () => obj.rot || 0, (v) => { obj.rot = ((v % 360) + 360) % 360; }, deg),
+      ...placeField(app, obj, "X", () => obj.x, (v) => { obj.x = v; }, mmS(10, -1e9)),
+      ...placeField(app, obj, "Y", () => obj.y, (v) => { obj.y = v; }, mmS(10, -1e9)),
+      ...placeField(app, obj, t("Rotation"), () => obj.rot || 0, (v) => { obj.rot = ((v % 360) + 360) % 360; }, deg),
       ...furnitureSizeFields(app, obj),
       ...bindField(app, t("Elevation"), () => obj.elevation || 0, (v) => { obj.elevation = v; }, mmS(10, -1e5)),
       ...(obj.kind !== "model" ? bindField(app, t("Colour"), () => obj.color || "#8a9bb0", (v) => { obj.color = v; }, { type: "color", palette: INTERIOR_PALETTE }) : []));

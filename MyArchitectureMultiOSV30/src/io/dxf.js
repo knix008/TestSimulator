@@ -1497,7 +1497,7 @@ function exportOpening(W, w, s, tag, wallLayer = "A-WALL") {
     const g = Math.min(30, t * 0.3);
     W.line(L, P(s.u1, g), P(s.u2, g));
     W.line(L, P(s.u1, -g), P(s.u2, -g));
-    if (op.type === "sliding") W.line(L, P(s.u1, 0), P((s.u1 + s.u2) / 2 + 40, 0));
+    if (["sliding", "pocket", "barn"].includes(op.type)) W.line(L, P(s.u1, 0), P((s.u1 + s.u2) / 2 + 40, 0));
   } else if (op.kind === "opening") {
     W.line(wallLayer, P(s.u1, t), P(s.u2, t), { linetype: "HIDDEN" });
     W.line(wallLayer, P(s.u1, -t), P(s.u2, -t), { linetype: "HIDDEN" });
@@ -1518,14 +1518,14 @@ function exportOpening(W, w, s, tag, wallLayer = "A-WALL") {
       while (sweep < -Math.PI) sweep += 2 * Math.PI;
       W.arc(L, hinge[0], hinge[1], len, a0 / DEG, (a0 + sweep) / DEG, sweep < 0);
     };
-    if (op.type === "sliding") {
+    if (["sliding", "pocket", "barn"].includes(op.type)) {
       const half = width / 2;
       W.line(L, P(s.u1, 25), P(s.u1 + half + 50, 25));
       W.line(L, P(s.u2 - half - 50, -25), P(s.u2, -25));
     } else if (op.type === "garage") {
       W.line(L, P(s.u1, face), P(s.u2, face), { linetype: "DASHED" });
       W.line(L, P(s.u1, face + side * 600), P(s.u2, face + side * 600), { linetype: "DASHED" });
-    } else if (op.type === "double") {
+    } else if (op.type === "double" || op.type === "folding") {
       leaf(s.u1, width / 2, 1);
       leaf(s.u2, width / 2, -1);
     } else if (op.hinge === "end") leaf(s.u2, width, -1);

@@ -11,7 +11,7 @@ import { roomAtPoint, detectRooms, buildingOutlines, suggestRoomName } from "../
 import { furnitureDef, makeFurniture, drawFurniturePlan, drawLightSymbol, furnitureCorners, isLight, mountElevation } from "../lib/furniture.js";
 import { PLAN_THEMES, drawPlan, planBounds, stairGeometry, roomColor } from "./render.js";
 import * as ops from "./ops.js";
-import { freeSpot } from "../core/placement.js";
+import { freeSpot, settleMoved } from "../core/placement.js";
 import { isOpen } from "../core/doors.js";
 import { ELEMENT_TOOLS, OPEN_CHAIN_TOOLS, pointerElement, finishElementChain, renderElementOverlay, stairFromClicks, ensureCurtainType } from "./element-tools.js";
 import { dragElementHandle, elementHandles, PTS_KINDS } from "./elements.js";
@@ -371,10 +371,33 @@ export class PlanEditor {
       if (this.drag) {
         const d = this.drag;
         this.drag = null;
-        if (d.moved) this.store.commit();
+        if (d.moved) { this.settleDrop(d); this.store.commit(); }
         this.request();
       }
     }
+  }
+
+  // A drag of furniture ended: while dragging a piece may pass through walls and other pieces; where it stops it
+  // goes against a wall near it and never stays in a wall or on another piece (core/placement.js settleMoved).
+  settleDrop(d) {
+    const p = this.store.project;
+    const h = d.hit;
+    let ids, origins = {};
+    if (h.handle !== undefined) {
+      if (h.kind !== "furniture" || typeof h.handle !== "string" || !d.f0) return;
+      ids = [h.obj.id];
+      origins[h.obj.id] = [d.f0.x, d.f0.y];
+    } else {
+      ids = p.furniture.filter((f) => this.sel.has(f.id)).map((f) => f.id);
+      if (!ids.length || !(d.applied[0] || d.applied[1])) return;
+      // Walls moved with the pieces carry them along: those pieces are where they belong.
+      if (p.walls.some((w) => this.sel.has(w.id))) return;
+      for (const f of p.furniture) if (this.sel.has(f.id)) origins[f.id] = [f.x - d.applied[0], f.y - d.applied[1]];
+    }
+    const r = settleMoved(p, ids, h.handle !== undefined ? { origins, snap: 0, align: false } : { origins });
+    if (r.back && h.handle !== undefined) { const f = p.furniture.find((x) => x.id === h.obj.id); if (f) { f.w = d.f0.w; f.d = d.f0.d; f.h = d.f0.h; } }
+    if (r.back) toast(t("There is no free space for it here."), "warn", 3500);
+    else if (r.moved) toast(t("Moved to the nearest free spot (it would have hit a wall or furniture)."), "info", 3000);
   }
 
   dragMove(x, y, e) {
