@@ -1,56 +1,14 @@
-# Dependencies
 node_modules/
-
-# Build output (Vite)
 dist/
-
-# electron-builder output
 release/
-
-# Generated icons (from assets/icon.svg via scripts/generate-icons.mjs)
-build/icons/
-
-# Generated build metadata (scripts/generate-build-info.mjs)
-src/build-info.json
-
-# Installer artifacts copied to the project root
-*.exe
-*.dmg
-*.AppImage
-*.deb
-*.rpm
-*.snap
-*.zip
-
-# Exported documents saved into the repo by mistake. The app writes .md too,
-# but those are the user's real documents — never blanket-ignore *.md here.
-*.doc
-*.docx
-*.mht
-*.pdf
-
-# Temp / scratch (screenshots, export temp, one-off test harnesses). Anything
-# starting with "_" at the root is a throwaway — that is the convention here.
-_*.png
-_*.mjs
-_*.js
-_*.html
-*.tmp
-scripts/test-*.cjs
-
-# Logs
+test-results/
+src-tauri/target/
+src-tauri/gen/
+/MyMarkDownMaker-*.exe
+/MyMarkDownMaker-*.msi
+/MyMarkDownMaker-*.dmg
+/MyMarkDownMaker-*.deb
+/MyMarkDownMaker-*.rpm
+/MyMarkDownMaker-*.AppImage
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Local environment overrides
-.env
-.env.*
-
-# OS / editor
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-*.swp
+.vite/

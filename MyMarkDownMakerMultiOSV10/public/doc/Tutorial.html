@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MyMarkDownMaker — 따라하기</title>
+<style>
+  :root { color-scheme: light dark; --bg: #ffffff; --text: #1f2328; --muted: #59636e; --accent: #2f63d8; --border: #d0d7de; --code: #f3f5f8; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #16191f; --text: #e6e9ef; --muted: #9aa4b2; --accent: #7aa7ff; --border: #343a46; --code: #222731; } }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.65 "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; }
+  .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 20px 24px; }
+  main { min-width: 0; max-width: 860px; padding: 8px 0 60px; }
+  nav.toc { position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); overflow: auto; font-size: 14px; padding: 8px 8px 8px 0; border-right: 1px solid var(--border); }
+  nav.toc .toc-title { font-weight: 700; color: var(--muted); font-size: 12px; letter-spacing: .04em; margin: 0 0 8px 10px; }
+  nav.toc ul { list-style: none; margin: 0; padding: 0; }
+  nav.toc li a { display: block; padding: 3px 10px; border-left: 2px solid transparent; color: var(--text); text-decoration: none; border-radius: 0 6px 6px 0; }
+  nav.toc li a:hover { background: var(--code); }
+  nav.toc li a.active { border-left-color: var(--accent); color: var(--accent); font-weight: 600; }
+  nav.toc li.h3 a { padding-left: 24px; color: var(--muted); font-size: 13px; }
+  @media (max-width: 760px) { .layout { grid-template-columns: 1fr; padding: 12px; } nav.toc { position: static; max-height: none; border: 1px solid var(--border); border-radius: 10px; } }
+  @media print { nav.toc { display: none; } .layout { display: block; } }
+  h1 { font-size: 1.9em; margin: 0 0 18px; }
+  h2 { font-size: 1.45em; margin: 34px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.15em; margin: 26px 0 8px; color: var(--accent); }
+  p, li { color: var(--text); }
+  code { padding: 1px 6px; border-radius: 5px; background: var(--code); font-family: Consolas, "D2Coding", monospace; font-size: 0.92em; }
+  table { border-collapse: collapse; margin: 10px 0 18px; }
+  th, td { border: 1px solid var(--border); padding: 5px 12px; text-align: left; }
+  th { background: var(--code); }
+  .step { margin: 0 0 14px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; }
+  .step b { color: var(--accent); }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body><div class="layout">
+<nav class="toc" aria-label="목차"><p class="toc-title">목차</p><ul><li class="h2"><a href="#start">시작 화면</a></li><li class="h3"><a href="#step-welcome">1. MyMarkDownMaker</a></li><li class="h3"><a href="#step-actions">2. 시작하기</a></li><li class="h3"><a href="#step-samples">3. 샘플 문서</a></li><li class="h3"><a href="#step-background">4. 움직이는 배경</a></li><li class="h3"><a href="#step-home">5. 시작 화면 버튼</a></li><li class="h2"><a href="#document">문서 만들기</a></li><li class="h3"><a href="#step-files">6. 파일 목록</a></li><li class="h3"><a href="#step-mergeOptions">7. 병합 옵션</a></li><li class="h3"><a href="#step-structure">8. 구조</a></li><li class="h3"><a href="#step-figures">9. 그림</a></li><li class="h3"><a href="#step-preview">10. 미리보기</a></li><li class="h3"><a href="#step-edit">11. 편집</a></li><li class="h3"><a href="#step-split">12. 나란히 보기</a></li><li class="h2"><a href="#export">다듬고 내보내기</a></li><li class="h3"><a href="#step-properties">13. 문서 속성</a></li><li class="h3"><a href="#step-pages">14. 페이지 구성</a></li><li class="h3"><a href="#step-export">15. 내보내기</a></li><li class="h3"><a href="#step-bottom">16. 문제 · 메시지 · 정보</a></li><li class="h3"><a href="#step-status">17. 상태 표시줄</a></li><li class="h2"><a href="#help">설정과 도움말</a></li><li class="h3"><a href="#step-theme">18. 테마</a></li><li class="h3"><a href="#step-settings">19. 설정</a></li><li class="h3"><a href="#step-shortcuts">20. 단축키</a></li><li class="h3"><a href="#step-finish">21. 끝</a></li></ul></nav>
+<main>
+<h1>MyMarkDownMaker — 따라하기</h1>
+<p class="muted">프로그램 안의 따라하기(도움말 › 따라하기, F11)와 같은 단계입니다.</p>
+<h2 id="start">시작 화면</h2>
+<div class="step"><h3 id="step-welcome">1. MyMarkDownMaker</h3><p>여러 Markdown 파일을 하나의 문서로 병합하고, 구조를 보며 번호를 매기고, 표지와 목차를 붙여 HTML · PDF · Word 로 내보내는 프로그램입니다.</p></div>
+<div class="step"><h3 id="step-actions">2. 시작하기</h3><p>폴더 추가는 폴더(와 하위 폴더)의 Markdown 파일을 모두 가져옵니다. 파일 추가, 새 문서, 저장한 문서 열기도 여기서 합니다.</p></div>
+<div class="step"><h3 id="step-samples">3. 샘플 문서</h3><p>샘플을 누르면 몇 개의 파일이 하나의 문서로 병합되어 열립니다. 어떤 파일도 바뀌지 않습니다.</p></div>
+<div class="step"><h3 id="step-background">4. 움직이는 배경</h3><p>시작 화면의 배경은 16가지 문서 장면 중에서 고르거나 자동으로 바뀌게 할 수 있습니다. 카드는 끌어서 옮기고 크기를 바꿀 수 있습니다.</p></div>
+<div class="step"><h3 id="step-home">5. 시작 화면 버튼</h3><p>메뉴 막대 왼쪽의 시작 버튼으로 언제든 이 화면과 문서 사이를 오갑니다.</p></div>
+<h2 id="document">문서 만들기</h2>
+<div class="step"><h3 id="step-files">6. 파일 목록</h3><p>병합할 파일입니다. 체크를 끄면 빠지고, 손잡이를 끌거나 ▲▼ 로 순서를 바꿉니다. 바꾸는 즉시 다시 병합됩니다.</p></div>
+<div class="step"><h3 id="step-mergeOptions">7. 병합 옵션</h3><p>하위 폴더 포함, 파일명 헤더, 병합할 때 번호 매기기를 켜고 끕니다. 번호 다시 매기기(F7)와 다시 병합(F5)도 여기 있습니다.</p></div>
+<div class="step"><h3 id="step-structure">8. 구조</h3><p>문서의 헤딩 트리입니다. 항목을 누르면 편집기나 미리보기에서 그 위치로 갑니다.</p></div>
+<div class="step"><h3 id="step-figures">9. 그림</h3><p>문서의 모든 그림입니다. 크기를 문서 폭의 비율로 바꾸면 미리보기와 모든 내보내기에 반영됩니다.</p></div>
+<div class="step"><h3 id="step-preview">10. 미리보기</h3><p>표지, 목차, 그림 목차와 본문을 내보내기와 같은 모양으로 보여 줍니다. Ctrl+휠로 확대합니다.</p></div>
+<div class="step"><h3 id="step-edit">11. 편집</h3><p>병합된 문서를 직접 고칩니다. 위의 서식 막대와 Ctrl+B, Ctrl+1…5 같은 단축키를 씁니다. 실행 취소(Ctrl+Z)는 파일 목록 변경도 되돌립니다.</p></div>
+<div class="step"><h3 id="step-split">12. 나란히 보기</h3><p>왼쪽에서 고치고 오른쪽에서 결과를 봅니다. 가운데 경계선을 끌어 폭을 나눕니다.</p></div>
+<h2 id="export">다듬고 내보내기</h2>
+<div class="step"><h3 id="step-properties">13. 문서 속성</h3><p>표지 제목·버전·작성자·날짜, 목차와 그림 목차, 페이지 번호, 머리글과 바닥글, 내보내기 글꼴을 여기서 바로 바꿉니다.</p></div>
+<div class="step"><h3 id="step-pages">14. 페이지 구성</h3><p>표지, 목차, 그림 목차, 페이지 번호, 머리글, 바닥글을 한 번에 켜고 끄며, 본문 글자 크기를 바꿉니다.</p></div>
+<div class="step"><h3 id="step-export">15. 내보내기</h3><p>Markdown, HTML, PDF, Word 로 내보냅니다. PDF 와 인쇄의 목차에는 실제 페이지 번호가 들어갑니다.</p></div>
+<div class="step"><h3 id="step-bottom">16. 문제 · 메시지 · 정보</h3><p>건너뛴 헤딩 수준, 찾지 못한 그림, 닫히지 않은 코드 블록 같은 문제를 보여 줍니다. 누르면 그 줄로 갑니다.</p></div>
+<div class="step"><h3 id="step-status">17. 상태 표시줄</h3><p>파일, 헤딩, 그림 수와 분량, 저장 여부, 글꼴, 확대 비율, 테마와 언어를 보여 줍니다.</p></div>
+<h2 id="help">설정과 도움말</h2>
+<div class="step"><h3 id="step-theme">18. 테마</h3><p>다크 20개, 라이트 20개 테마와 직접 만드는 테마가 있습니다. ▾ 로 목록을 엽니다.</p></div>
+<div class="step"><h3 id="step-settings">19. 설정</h3><p>일반, 시작 화면, 테마, 글꼴, 배경, 병합, 표지·목차, 내보내기 글꼴, 머리글·바닥글, 최근 목록, 단축키를 탭으로 나눠 둡니다.</p></div>
+<div class="step"><h3 id="step-shortcuts">20. 단축키</h3><p>자주 쓰는 기능은 모두 단축키가 있습니다.</p></div>
+<div class="step"><h3 id="step-finish">21. 끝</h3><p>튜토리얼은 도움말 메뉴나 툴바 오른쪽 버튼(F11)으로 다시 볼 수 있습니다.</p></div>
+
+</main></div>
+<script>
+  // the section being read is marked in the contents
+  const links = [...document.querySelectorAll('nav.toc a')];
+  const mark = () => { let current = null; for (const a of links) { const h = document.getElementById(decodeURIComponent(a.hash.slice(1))); if (h && h.getBoundingClientRect().top < 120) current = a; } links.forEach((a) => a.classList.toggle('active', a === current)); };
+  addEventListener('scroll', mark, { passive: true }); mark();
+</script></body>
+</html>

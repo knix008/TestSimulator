@@ -3,7 +3,8 @@
 // reference so the Web / Electron builds behave identically.
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import { expandImageRefs, imageRefName, srcBaseName } from './images';
+import { expandImageRefs, imageRefName, srcBaseName } from './images.js';
+import { DEFAULT_EXPORT_SETTINGS, HEADING_LEVELS } from '../domain/docsettings.js';
 
 // ── Document front-matter sections ────────────────────────
 // The merged document carries its cover, contents and figure index as ordinary
@@ -508,46 +509,7 @@ export function sanitizeExportName(name) {
 // Default export/appearance settings (typography + header/footer/page number).
 // Every setting the app remembers between runs, export and merge alike: one
 // store, one place that persists it, one settings window that edits it.
-export const DEFAULT_EXPORT_SETTINGS = {
-  // ── How the files are collected and joined (the toolbar's left half) ──
-  sortOrder: 'nameAsc',      // nameAsc | nameDesc | dateNewest | dateOldest | custom
-  recursive: true,           // include Markdown files in sub-folders
-  insertFileHeaders: false,  // put a "## <relative path>" heading before each file
-  numberHeadings: true,      // hierarchical heading numbers (1, 1.1, 1.1.1 …)
-
-  // ── How the document is laid out and exported ──
-  fontFamily: '',        // '' = system default stack
-  fontSizePt: 10,
-  lineHeight: 1.5,       // export line spacing
-  coverPage: true,       // auto-generated cover page
-  coverTitle: '',        // user-entered cover title ('' = use document title)
-  coverAuthor: '',       // cover: author
-  coverDate: '',         // cover: date ('' = today's date)
-  coverVersion: '',      // cover: version number
-  coverTitleFont: '',    // cover title font ('' = the export font)
-  coverTitleSizePt: 0,   // cover title size in pt (0 = automatic, 2.7em)
-  coverTitleAlign: 'center',
-  coverMetaAlign: 'center', // version / author / date block alignment
-  coverShowVersion: true, // show version on the cover
-  coverShowAuthor: true,  // show author on the cover
-  coverShowDate: true,    // show date on the cover
-  tocPage: true,         // separate index / table-of-contents page
-  tocPageNumbers: true,  // show a right-aligned page number per index entry
-  tocPageMap: null,      // { 'h-<index>': page } from a pagination pass (baked)
-  figurePage: true,      // separate figure index page (skipped when there are
-                         // no images in the document)
-  figurePageNumbers: true, // show a right-aligned page number per figure entry
-  figurePageMap: null,   // { 'fig-<index>': page } from a pagination pass
-  showHeader: true,      // use the header text at all (toolbar toggle)
-  headerText: '',
-  headerAlign: 'center', // left | center | right
-  showFooter: true,      // use the footer text at all (toolbar toggle)
-  footerText: '',
-  footerAlign: 'center',
-  showPageNumber: true,
-  pageNumberPos: 'bottom-right', // {top|bottom}-{left|center|right}
-  pageNumberOnCover: false,      // show the page number on the cover page too
-};
+export { DEFAULT_EXPORT_SETTINGS };
 
 // Builds a CSS font-family stack from a chosen family (may be empty).
 // The same stack for a style="…" attribute: the family name is single-quoted so
@@ -574,6 +536,39 @@ export function runningFooterText(s) {
   return s.showFooter !== false ? String(s.footerText || '').trim() : '';
 }
 
+// ── The logo (company logo and the like): every page's header / footer, and the cover.
+const LOGO_OK = /^data:image\/(png|gif|jpe?g|webp|avif|bmp|svg\+xml);base64,/i;
+export const hasLogo = (s) => LOGO_OK.test(String(s.logoImage || ''));
+/** The logo's size in millimetres at `heightMm` (its own proportions; 2:1 when they are unknown). */
+export function logoSizeMm(s, heightMm) {
+  const ratio = Number(s.logoWidth) > 0 && Number(s.logoHeight) > 0 ? Number(s.logoWidth) / Number(s.logoHeight) : 2;
+  const h = Math.max(3, Number(heightMm) || 10);
+  return [Math.round(h * ratio * 10) / 10, h];
+}
+/**
+ * The logo as an SVG of a fixed size in millimetres around the picture: a margin box shows `content: url(…)` at the
+ * picture's own size, and wrapped like this it prints at the size asked for, sharp at any resolution.
+ */
+function logoSvgUrl(s, heightMm) {
+  const [w, h] = logoSizeMm(s, heightMm);
+  const W = Number(s.logoWidth) > 0 ? Number(s.logoWidth) : w * 10;
+  const H = Number(s.logoHeight) > 0 ? Number(s.logoHeight) : h * 10;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${w}mm" height="${h}mm" viewBox="0 0 ${W} ${H}">`
+    + `<image width="${W}" height="${H}" href="${s.logoImage}" xlink:href="${s.logoImage}"/></svg>`;
+  return `url("data:image/svg+xml;base64,${utf8Base64(svg)}")`;
+}
+function utf8Base64(text) {
+  const bytes = new TextEncoder().encode(text);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+/** The logo as an <img> (cover, Word header / footer). */
+function logoImg(s, heightMm, cls = '') {
+  const [w, h] = logoSizeMm(s, heightMm);
+  return `<img class="${cls}" src="${s.logoImage}" alt="" style="width:${w}mm;height:${h}mm" width="${Math.round(w * 3.78)}" height="${Math.round(h * 3.78)}">`;
+}
+
 // @page margin-box CSS for header/footer text and the page-number counter.
 // Best-effort for HTML/print/web-PDF; Electron PDF uses printToPDF templates.
 function buildPageMarginCss(s, family, hasCover) {
@@ -584,6 +579,10 @@ function buildPageMarginCss(s, family, hasCover) {
   if (headerText) add(`top-${s.headerAlign}`, cssString(headerText));
   if (footerText) add(`bottom-${s.footerAlign}`, cssString(footerText));
   if (s.showPageNumber) add(s.pageNumberPos, 'counter(page)');
+  // The logo comes first in its slot (before the text or the number that share it).
+  const logo = hasLogo(s);
+  if (logo && s.logoHeader) (slots[`top-${s.logoHeaderAlign || 'left'}`] ||= []).unshift(logoSvgUrl(s, s.logoHeightMm));
+  if (logo && s.logoFooter) (slots[`bottom-${s.logoFooterAlign || 'left'}`] ||= []).unshift(logoSvgUrl(s, s.logoHeightMm));
 
   const boxes = Object.entries(slots).map(([slot, parts]) =>
     `@${slot}{content:${parts.join(' " " ')};font-family:${family};font-size:9pt;color:#555}`);
@@ -593,7 +592,9 @@ function buildPageMarginCss(s, family, hasCover) {
   let css = `@page{size:A4;margin:18mm 16mm;${boxes.join('')}}`;
   // Hide the page number on the cover (first) page when requested.
   if (boxes.length && hasCover && s.showPageNumber && !s.pageNumberOnCover) {
-    css += `@page:first{@${s.pageNumberPos}{content:""}}`;
+    // Only the number goes: the rest of its slot (a logo, a text) stays on the cover.
+    const rest = (slots[s.pageNumberPos] ?? []).filter((part) => part !== 'counter(page)');
+    css += `@page:first{@${s.pageNumberPos}{content:${rest.length ? rest.join(' " " ') : '""'}}}`;
   }
   return css;
 }
@@ -650,6 +651,8 @@ function buildWordRunningBlocks(s, hasCover) {
   const make = (withNumber) => {
     const top = {};
     const bottom = {};
+    if (hasLogo(s) && s.logoHeader) put(top, s.logoHeaderAlign || 'left', logoImg(s, s.logoHeightMm));
+    if (hasLogo(s) && s.logoFooter) put(bottom, s.logoFooterAlign || 'left', logoImg(s, s.logoHeightMm));
     put(top, s.headerAlign || 'center', escapeHtml(runningHeaderText(s)));
     put(bottom, s.footerAlign || 'center', escapeHtml(runningFooterText(s)));
     if (withNumber && s.showPageNumber) {
@@ -831,7 +834,7 @@ function replaceSection(markdown, id, content) {
 // the preview, the PDF and the .doc.
 function renderCoverHtml(coverMd, opts = {}) {
   if (!String(coverMd || '').trim()) return '';
-  const { titleFont, titleSizePt, titleAlign = 'center', metaAlign = 'center', breakBefore } = opts;
+  const { titleFont, titleSizePt, titleAlign = 'center', metaAlign = 'center', breakBefore, logo = null } = opts;
   let inner = renderHtml(coverMd, { anchors: false });
   const title = [
     `text-align:${titleAlign}`,
@@ -845,8 +848,10 @@ function renderCoverHtml(coverMd, opts = {}) {
   // text-align reliably, so the alignment goes on each element AND the wrapper.
   inner = inner.replace(/<(p|ul|ol|li|blockquote|h[2-6])(\s|>)/gi,
     `<$1 style="text-align:${metaAlign}"$2`);
-  return `<div class="cover${breakBefore ? ' pb' : ''}" id="sec-cover">`
-    + `<div class="cover-inner" style="text-align:${metaAlign}">${inner}</div></div>`;
+  // The logo: at the top of the page, just above the title (the middle), or at the bottom.
+  const logoBlock = (where) => (logo && logo.position === where ? `<div class="cover-logo cover-logo-${where}" style="text-align:${where === 'middle' ? titleAlign : 'center'}">${logo.html}</div>` : '');
+  return `<div class="cover${breakBefore ? ' pb' : ''}${logo ? ` with-logo logo-${logo.position}` : ''}" id="sec-cover">${logoBlock('top')}`
+    + `<div class="cover-inner" style="text-align:${metaAlign}">${logoBlock('middle')}${inner}</div>${logoBlock('bottom')}</div>`;
 }
 
 // Renders a contents / figure-index block — a Markdown list of `[text](#anchor)`
@@ -863,8 +868,11 @@ function renderCoverHtml(coverMd, opts = {}) {
 //   pageMap     – { 'h-<n>' | 'fig-<n>': page } from a pagination pass. When
 //                 absent the cell is left empty for the paged PDF renderer.
 //   extraClass  – extra class on the wrapper (e.g. 'figure-index').
+/** The run of dots a leader cell clips to its width. */
+const LEADER_DOTS = '·'.repeat(400);
+
 function renderIndexHtml(blockMd, opts = {}) {
-  const { withPageNo, breakBefore, pageMap, extraClass = '', id = '' } = opts;
+  const { withPageNo, breakBefore, pageMap, extraClass = '', id = '', leaders = true, forWord = false } = opts;
   const lines = String(blockMd || '').split('\n');
   let label = '';
   const rows = [];
@@ -900,7 +908,11 @@ function renderIndexHtml(blockMd, opts = {}) {
     const pg = n != null ? String(n) : '';
     rows.push(`<tr class="toc-item${isL1 ? ' toc-l1' : ''}">`
       + `<td class="toc-c-title" style="${titleStyle}">${title}</td>`
-      + `<td class="toc-c-dots"></td>`
+      + (!leaders ? `<td class="toc-c-dots"></td>`
+        // Word ignores the positioning the dots need: a dotted rule there.
+        : forWord ? `<td class="toc-c-dots" style="border-bottom:1.5pt dotted #8a8a8a"></td>`
+          // Middle dots, centred on the line, as many as fit (the span never widens the cell).
+          : `<td class="toc-c-dots leader"><span class="toc-leader" aria-hidden="true">${LEADER_DOTS}</span></td>`)
       + `<td class="toc-c-pg"${isL1 ? ' style="font-weight:bold;color:#111"' : ''}>${isL1 ? `<b>${pg}</b>` : pg}</td>`
       + `</tr>`);
   }
@@ -1012,7 +1024,9 @@ function breakLongTokens(text) {
 //                 empty cell is what the paged.js PDF pass fills in live); the
 //                 preview never does, because it is not paginated.
 function renderFrontMatter(doc, s, pageMap, withNumbers) {
+  const leaders = s.tocLeaders !== false;
   const cover = renderCoverHtml(doc.cover, {
+    logo: hasLogo(s) && s.coverLogo ? { html: logoImg(s, s.coverLogoHeightMm, 'cover-logo-img'), position: s.coverLogoPosition || 'middle' } : null,
     titleFont: s.coverTitleFont,
     titleSizePt: s.coverTitleSizePt,
     titleAlign: s.coverTitleAlign || 'center',
@@ -1022,6 +1036,8 @@ function renderFrontMatter(doc, s, pageMap, withNumbers) {
     withPageNo: withNumbers && s.tocPageNumbers !== false,
     breakBefore: !!cover,
     pageMap,
+    leaders,
+    forWord: Boolean(s.forWord),
     id: 'sec-toc',
   });
   // The figure index follows the heading index on its own page. It exists only
@@ -1030,6 +1046,8 @@ function renderFrontMatter(doc, s, pageMap, withNumbers) {
     withPageNo: withNumbers && s.figurePageNumbers !== false,
     breakBefore: !!(cover || toc),
     pageMap,
+    leaders,
+    forWord: Boolean(s.forWord),
     extraClass: 'figure-index',
     id: 'sec-figures',
   });
@@ -1039,6 +1057,25 @@ function renderFrontMatter(doc, s, pageMap, withNumbers) {
 // Wraps a merged document into a standalone, styled HTML document (for export).
 // The cover / contents / figure index come from the document's own front-matter
 // sections, so whatever the user edited in the Edit tab is what gets exported.
+/**
+ * Every chapter (a top-level heading of the body) starts on a new page — not the first one, which follows the
+ * cover or contents (already a new page) or opens the document. Word needs its own break element.
+ */
+function chapterPageBreaks(html, forWord) {
+  let first = true;
+  return html.replace(/<h1(\s[^>]*)?>/gi, (tag, attrs = '') => {
+    if (first) { first = false; return tag; }
+    if (forWord) return `<br clear="all" style="mso-special-character:line-break;page-break-before:always"><h1${attrs}>`;
+    return `<h1${attrs.replace(/\sclass="([^"]*)"/, ' class="$1 chapter-start"')}${/\sclass=/.test(attrs) ? '' : ' class="chapter-start"'}>`;
+  });
+}
+
+/** CSS for the heading sizes the user set (pt per level) inside `scope`; automatic levels are left alone. */
+export function headingSizeCss(s, scope) {
+  const sizes = s.headingSizes ?? {};
+  return HEADING_LEVELS.filter((h) => Number(sizes[h]) > 0).map((h) => `${scope} ${h}{font-size:${Number(sizes[h])}pt !important}`).join('');
+}
+
 export function toStandaloneHtml(markdown, title = 'Document', settings = {}) {
   const s = { ...DEFAULT_EXPORT_SETTINGS, ...settings };
   const doc = splitDocument(markdown);
@@ -1063,7 +1100,8 @@ export function toStandaloneHtml(markdown, title = 'Document', settings = {}) {
   const appName = s.appName || 'MyMarkDownMaker';
   const front = cover || toc || figIndex;
   // Content always starts on a fresh page when a cover or index precedes it.
-  const content = `<div class="doc-content${front ? ' pb' : ''}">${body}</div>`;
+  const chapters = s.chapterBreak ? chapterPageBreaks(body, s.forWord) : body;
+  const content = `<div class="doc-content${front ? ' pb' : ''}${s.chapterBreak ? ' chapter-breaks' : ''}">${chapters}</div>`;
   // Word (.doc) needs the Office namespaces + ProgId so it opens as a Word
   // document and renders base64 images, page breaks and the cover/index.
   const htmlOpen = s.forWord
@@ -1137,6 +1175,13 @@ ${wordMeta}
      the page number flush right (no dotted leader). */
   .toc-c-title{white-space:nowrap;padding-right:.5em}
   .toc-c-dots{width:100%;min-width:1.5em}
+  .chapter-start{break-before:page;page-break-before:always}
+  .cover-logo{margin:0 0 2.2em}
+  .cover-logo-top{margin:0 0 5em}
+  .cover-logo-bottom{margin:6em 0 0}
+  .cover-logo img{display:inline-block;max-width:100%;object-fit:contain}
+  .toc-c-dots.leader{position:relative;padding:0 .35em !important}
+  .toc-leader{position:absolute;left:.35em;right:.35em;top:50%;transform:translateY(-50%);overflow:hidden;white-space:nowrap;letter-spacing:.28em;line-height:1;color:#8a8a8a;font-weight:400}
   .toc-c-pg{white-space:nowrap;text-align:right;color:#555;padding-left:.5em;font-variant-numeric:tabular-nums}
   .toc-l1>.toc-c-title{font-weight:600}
   /* H1 (top-level) page numbers are bold and dark so they stand out. */
@@ -1146,6 +1191,7 @@ ${wordMeta}
      them wrap collapses the title cell against the full-width spacer next to it,
      which stacks the text one character per line. */
   ${coverScreen}
+  ${headingSizeCss(s, '.doc-content')}
   ${pageCss}
 </style>
 </head><body>
@@ -1161,11 +1207,13 @@ ${pageBody}
 export function renderPreviewHtml(markdown, settings = {}) {
   const s = { ...DEFAULT_EXPORT_SETTINGS, ...settings };
   const doc = splitDocument(markdown);
-  const { cover, toc, figIndex } = renderFrontMatter(doc, s, null);
-  const body = renderHtml(doc.body, {
+  const pageMap = s.tocPageMap || s.figurePageMap || null;
+  const { cover, toc, figIndex } = renderFrontMatter(doc, s, pageMap, true);
+  let body = renderHtml(doc.body, {
     figureCaptions: !!doc.figures,
     figureLabel: s.figureLabel || 'Figure',
   });
+  if (s.chapterBreak) body = chapterPageBreaks(body, false);
   return [cover, toc, figIndex, `<div class="doc-content">${body}</div>`]
     .filter(Boolean).join('\n');
 }

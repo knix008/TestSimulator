@@ -4,12 +4,12 @@ import {
   toStandaloneHtml, buildMergedMarkdownDocument, documentExportBaseName,
   sanitizeExportName, splitDocument, getFigures, PAGE_CONTENT_PX, DEFAULT_EXPORT_SETTINGS,
   runningHeaderText, runningFooterText,
-} from './markdown';
-import { imageDisplaySrc } from './images';
+} from './markdown.js';
+import { imageDisplaySrc, imageRefName, resolveImageRef } from './images.js';
 import {
   saveText, exportPdf as platformExportPdf, computeTocPageMap, printDocument as platformPrint,
   canWriteInPlace, writeTextTo,
-} from './platform';
+} from './platform.js';
 
 // Resolve the export base name: user-provided name wins, else first heading.
 function baseNameFor(markdown, baseName) {
@@ -84,6 +84,36 @@ async function resolvePageMap(markdown, base, s, sizes) {
     tocPageMap: null, figurePageMap: null,
   }), sizes);
   return computeTocPageMap(measureHtml);
+}
+
+/**
+ * Markdown with its pictures as separate files: every embedded picture (an mmm-img reference or a data: URI)
+ * becomes a file in `folder` next to the .md, linked relatively. → { text, files: [{ name, data (base64) }] }.
+ */
+export function markdownWithImageFiles(markdown, folder) {
+  const files = [];
+  const names = new Set();
+  const byData = new Map();
+  const EXT = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'image/bmp': 'bmp', 'image/svg+xml': 'svg', 'image/tiff': 'tif', 'image/x-icon': 'ico', 'image/avif': 'avif' };
+  const fileFor = (uri, wanted) => {
+    const m = /^data:(image\/[a-z0-9.+-]+);base64,(.*)$/is.exec(uri);
+    if (!m) return null;
+    const data = m[2].replace(/\s+/g, '');
+    const key = `${data.length}:${data.slice(0, 80)}:${data.slice(-40)}`;
+    if (byData.has(key)) return byData.get(key);
+    const ext = EXT[m[1].toLowerCase()] ?? 'png';
+    let stem = String(wanted || '').replace(/\.[a-z0-9]+$/i, '').replace(/[\\/:*?"<>|#%\s]+/g, '-').replace(/^-+|-+$/g, '') || `image-${files.length + 1}`;
+    let name = `${stem}.${ext}`;
+    for (let n = 2; names.has(name.toLowerCase()); n++) name = `${stem}-${n}.${ext}`;
+    names.add(name.toLowerCase());
+    files.push({ name, data });
+    const link = `${encodeURI(folder)}/${encodeURI(name)}`;
+    byData.set(key, link);
+    return link;
+  };
+  let text = String(markdown || '').replace(/mmm-img:\d+/g, (ref) => fileFor(resolveImageRef(ref) ?? '', imageRefName(ref)) ?? ref);
+  text = text.replace(/data:image\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=\s]+/gi, (uri) => fileFor(uri, '') ?? uri);
+  return { text: buildMergedMarkdownDocument(text), files };
 }
 
 export async function exportMarkdown(markdown, baseName) {
@@ -163,6 +193,14 @@ export async function printDocument(markdown, settings = {}, baseName) {
     ),
     pdfOptions: { paged: true, fallback: pdfHeaderFooterOptions(s) },
   });
+}
+
+/** The print window's document: the same paginated HTML as the PDF (its pass fills the page numbers). */
+export async function buildPrintHtml(markdown, settings = {}, baseName) {
+  const s = { ...DEFAULT_EXPORT_SETTINGS, ...settings, tocPageNumbers: settings.tocPage !== false, figurePageNumbers: settings.figurePage !== false };
+  const base = baseNameFor(markdown, baseName);
+  const sizes = await measureImages(markdown);
+  return fitImages(toStandaloneHtml(markdown, base, { ...s, tocPageMap: null, figurePageMap: null }), sizes);
 }
 
 export async function exportWord(markdown, settings = {}, baseName) {

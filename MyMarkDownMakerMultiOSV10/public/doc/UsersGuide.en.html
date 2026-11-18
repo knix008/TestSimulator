@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MyMarkDownMaker — User’s Guide</title>
+<style>
+  :root { color-scheme: light dark; --bg: #ffffff; --text: #1f2328; --muted: #59636e; --accent: #2f63d8; --border: #d0d7de; --code: #f3f5f8; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #16191f; --text: #e6e9ef; --muted: #9aa4b2; --accent: #7aa7ff; --border: #343a46; --code: #222731; } }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.65 "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; }
+  .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 20px 24px; }
+  main { min-width: 0; max-width: 860px; padding: 8px 0 60px; }
+  nav.toc { position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); overflow: auto; font-size: 14px; padding: 8px 8px 8px 0; border-right: 1px solid var(--border); }
+  nav.toc .toc-title { font-weight: 700; color: var(--muted); font-size: 12px; letter-spacing: .04em; margin: 0 0 8px 10px; }
+  nav.toc ul { list-style: none; margin: 0; padding: 0; }
+  nav.toc li a { display: block; padding: 3px 10px; border-left: 2px solid transparent; color: var(--text); text-decoration: none; border-radius: 0 6px 6px 0; }
+  nav.toc li a:hover { background: var(--code); }
+  nav.toc li a.active { border-left-color: var(--accent); color: var(--accent); font-weight: 600; }
+  nav.toc li.h3 a { padding-left: 24px; color: var(--muted); font-size: 13px; }
+  @media (max-width: 760px) { .layout { grid-template-columns: 1fr; padding: 12px; } nav.toc { position: static; max-height: none; border: 1px solid var(--border); border-radius: 10px; } }
+  @media print { nav.toc { display: none; } .layout { display: block; } }
+  h1 { font-size: 1.9em; margin: 0 0 18px; }
+  h2 { font-size: 1.45em; margin: 34px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.15em; margin: 26px 0 8px; color: var(--accent); }
+  p, li { color: var(--text); }
+  code { padding: 1px 6px; border-radius: 5px; background: var(--code); font-family: Consolas, "D2Coding", monospace; font-size: 0.92em; }
+  table { border-collapse: collapse; margin: 10px 0 18px; }
+  th, td { border: 1px solid var(--border); padding: 5px 12px; text-align: left; }
+  th { background: var(--code); }
+  .step { margin: 0 0 14px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; }
+  .step b { color: var(--accent); }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body><div class="layout">
+<nav class="toc" aria-label="Contents"><p class="toc-title">Contents</p><ul><li class="h3"><a href="#what-it-does">What it does</a></li><li class="h3"><a href="#installing">Installing</a></li><li class="h3"><a href="#the-window">The window</a></li><li class="h3"><a href="#the-start-page">The start page</a></li><li class="h3"><a href="#collecting-files">Collecting files</a></li><li class="h3"><a href="#the-file-list">The file list</a></li><li class="h3"><a href="#merge-options">Merge options</a></li><li class="h3"><a href="#editing-and-preview">Editing and preview</a></li><li class="h3"><a href="#structure-and-figures">Structure and figures</a></li><li class="h3"><a href="#document-properties-right-panel">Document properties (right panel)</a></li><li class="h3"><a href="#saving-and-exporting">Saving and exporting</a></li><li class="h3"><a href="#pictures">Pictures</a></li><li class="h3"><a href="#each-chapter-on-a-new-page-heading-sizes">Each chapter on a new page, heading sizes</a></li><li class="h3"><a href="#logo">Logo</a></li><li class="h3"><a href="#contents">Contents</a></li><li class="h3"><a href="#the-print-window">The print window</a></li><li class="h3"><a href="#pictures-in-a-markdown-export">Pictures in a Markdown export</a></li><li class="h3"><a href="#undo">Undo</a></li><li class="h3"><a href="#problems-messages-information">Problems · messages · information</a></li><li class="h3"><a href="#appearance">Appearance</a></li><li class="h3"><a href="#shortcuts">Shortcuts</a></li></ul></nav>
+<main>
+<h1>MyMarkDownMaker — User’s Guide</h1>
+<h3 id="what-it-does">What it does</h3>
+<p>MyMarkDownMaker merges many Markdown (.md) files into one document. It shows the document's structure (the heading tree) and its pictures, numbers the headings 1, 1.1, 1.1.1 …, and exports it with a cover, contents and a list of figures to Markdown, HTML, PDF and Word. It works the same on Windows, macOS, Linux and in a web browser.</p>
+<h3 id="installing">Installing</h3>
+<ul>
+<li>Run the Windows installer <code>MyMarkDownMaker-Setup-&lt;version&gt;.exe</code>.</li>
+<li>First choose the <b>installer language</b> (한국어 / English). The program opens in that language the first time it starts; later, change it with the flag button on the toolbar or in Settings › General.</li>
+<li>When an earlier MyMarkDownMaker is installed, the installer asks whether to <b>remove it completely and install again</b>. Yes removes the earlier program and its shortcuts and installs; the next question decides whether to delete the user data (settings, recent lists, window place). No stops the installation without changing anything.</li>
+<li>The Shortcuts page creates a desktop and a Start menu shortcut; the Start menu also gets the user's guide.</li>
+</ul>
+<h3 id="the-window">The window</h3>
+<table><thead><tr><th>Part</th><th>What it does</th></tr></thead><tbody><tr><td>Menu bar</td><td>The Start button, the File · Edit · Format · Document · View · Help menus, the document name, the window buttons</td></tr><tr><td>Toolbar</td><td>The commands used most. In a narrow window the last groups move into the » menu</td></tr><tr><td>Left panel</td><td>Files · Structure · Figures</td></tr><tr><td>Centre</td><td>Edit · Preview · Side by side</td></tr><tr><td>Right panel</td><td>Document properties: cover, pages, export font, merging</td></tr><tr><td>Bottom panel</td><td>Problems · Messages · Information</td></tr><tr><td>Status bar</td><td>Files, headings and pictures, length, saved or not, font, zoom, theme, language, clock</td></tr></tbody></table>
+<h3 id="the-start-page">The start page</h3>
+<p>At start a moving document background (a page being typed, files merging into one, an outline being numbered and 13 more) shows behind a board of cards. Drag a card by its handle, resize it from its bottom-right corner; Arrange puts them back.</p>
+<ul>
+<li><b>Get started</b>: add folder, add files, new document, open document, continue, tutorial, settings, about, quit</li>
+<li><b>Recent</b>: files and folders used lately (desktop)</li>
+<li><b>Sample documents</b>: a user's manual, a quarterly report, an API reference — in the program language; no file is changed</li>
+<li><b>Moving background</b>: the scene, speed, card opacity, automatic change</li>
+</ul>
+<h3 id="collecting-files">Collecting files</h3>
+<ul>
+<li><b>Add folder</b> (Ctrl+Shift+O): adds every Markdown file of a folder; with <b>Include sub-folders</b> on, its sub-folders too. Files and folders whose names start with a dot are skipped.</li>
+<li><b>Add files</b> (Ctrl+Shift+A): pick .md / .markdown files.</li>
+<li><b>Dropping</b> files and folders on the window adds them too.</li>
+<li>Local pictures the Markdown links to (png, jpg, gif, webp, svg, bmp, tif, ico, avif) are embedded. The editor shows a short reference such as <code>mmm-img:1</code>; the preview and every export carry the real picture.</li>
+</ul>
+<h3 id="the-file-list">The file list</h3>
+<ul>
+<li>Untick a file to leave it out of the merge. Tick all / untick all / remove the ticked files are buttons.</li>
+<li>Drag the grip or use ▲▼ to change the order; the order then becomes &quot;Custom&quot;.</li>
+<li>Order: name A → Z / Z → A, newest / oldest first, custom.</li>
+<li>When the list or the merge options change, the document is merged again at once — until you <b>edit it yourself</b>: then your edits are kept, the automatic merge stops and &quot;Merge again needed&quot; shows. <b>Merge again</b> (F5) builds it from the sources.</li>
+</ul>
+<h3 id="merge-options">Merge options</h3>
+<table><thead><tr><th>Option</th><th>Meaning</th></tr></thead><tbody><tr><td>Include sub-folders</td><td>Adding a folder also collects the files of its sub-folders</td></tr><tr><td>Insert file name headings</td><td>A <code>## relative path</code> heading before each file</td></tr><tr><td>Number headings when merging</td><td>Every heading gets 1, 1.1, 1.1.1 …</td></tr><tr><td>Renumber headings (F7)</td><td>Fresh numbers while editing; the contents follow</td></tr></tbody></table>
+<h3 id="editing-and-preview">Editing and preview</h3>
+<ul>
+<li><b>Edit</b> (Alt+1): edit the merged document itself; Markdown marks are coloured. The formatting bar has headings 1–5, bold, italic, strikethrough, inline code, lists, numbered lists, task lists, quote, link, insert picture, code block, table and rule.</li>
+<li><b>Preview</b> (Alt+2): the cover, contents, list of figures and body in the export's font and size. Click a contents entry to go there.</li>
+<li><b>Side by side</b> (Alt+3): edit on the left, see the result on the right. Drag the divider to share the width; double-click it for half and half.</li>
+<li>Zoom: Ctrl+= / Ctrl+-, Ctrl+wheel, Ctrl+0 for 100%. Zoom is for the screen only; exports are not affected.</li>
+<li>Find / replace: Ctrl+F.</li>
+<li>The contents and the list of figures follow the headings and pictures on their own.</li>
+</ul>
+<h3 id="structure-and-figures">Structure and figures</h3>
+<ul>
+<li>The <b>Structure</b> tab shows the cover, contents, list of figures and the body's heading tree. Click an entry to select its line in the editor or to scroll the preview there.</li>
+<li>The <b>Figures</b> tab shows every picture. − / + sets its size to 10–100% of the page width; it is written into the Markdown as <code>&quot;w=60%&quot;</code> and reaches the preview and the exports.</li>
+</ul>
+<h3 id="document-properties-right-panel">Document properties (right panel)</h3>
+<ul>
+<li><b>Document</b>: the export file name, the saved file, the length.</li>
+<li><b>Cover</b>: cover on/off, cover title (empty: the document's first heading), version, author, date (empty: today), title alignment.</li>
+<li><b>Pages</b>: contents, list of figures, page numbers and their position, header, footer.</li>
+<li><b>Export font</b>: a font of this computer, body size, line spacing — used by the preview and every export.</li>
+<li><b>Merging</b>: numbering, sub-folders, file name headings.</li>
+</ul>
+<h3 id="saving-and-exporting">Saving and exporting</h3>
+<ul>
+<li><b>Save</b> (Ctrl+S): saves the document as Markdown (.md). Only the first save asks where; later saves write the same file. <b>Save as</b> is Ctrl+Shift+S.</li>
+<li><b>Open document</b> (Ctrl+O): opens a saved .md document as it is (no merging) to keep editing it.</li>
+<li><b>Export</b> (Ctrl+E): Markdown, HTML, PDF, Word (.doc). PDF and printing lay the document out in A4 pages, put the real page numbers into the contents and the list of figures, and print the header, footer and page numbers. HTML and Word get the computed page numbers too. After exporting, open the file or its folder at once.</li>
+<li><b>Print</b> (Ctrl+P): opens the print window (see &quot;The print window&quot; below).</li>
+<li>In a web browser saving and exporting are downloads; make a PDF with &quot;Save as PDF&quot; in the print dialog.</li>
+</ul>
+<h3 id="pictures">Pictures</h3>
+<ul>
+<li>In the editor pictures show <b>as pictures</b> and move like one character (the caret steps over them, Backspace deletes them whole). The picture button of the formatting bar or View › Show › &quot;Show pictures in the editor&quot; shows their Markdown text instead.</li>
+<li>Drag the handle at a picture's bottom-right corner to resize it (10–100% of the page width, 5% steps). The size is written as <code>&quot;w=60%&quot;</code> and used by the preview and every export.</li>
+<li><b>Drop</b> picture files from the file manager onto the editor: they go where they were dropped. Dropped elsewhere on the window, they go to the caret.</li>
+<li>Right-click a picture (editor or preview) for sizes 25/50/75/100%, original size, edit caption, replace with another picture, save picture as file, copy Markdown and delete.</li>
+</ul>
+<h3 id="each-chapter-on-a-new-page-heading-sizes">Each chapter on a new page, heading sizes</h3>
+<ul>
+<li>With <b>Each chapter on a new page</b> on (toolbar), every top-level heading starts a new page (PDF, print, Word). The preview marks the page breaks with a dashed line.</li>
+<li>In the right panel › Export font, <b>Size of</b> picks the body, chapter (heading 1), section (heading 2), subsection (heading 3), heading 4 or heading 5, and the stepper sets its size. Clicking a heading in the preview or the structure tab picks its level. ↻ goes back to the automatic size (follows the body size).</li>
+</ul>
+<h3 id="logo">Logo</h3>
+<ul>
+<li>Choose a picture such as PNG, GIF, JPG, WEBP or AVIF in the right panel's <b>Logo</b> section or in Settings › Logo (1.5 MB at most).</li>
+<li>In the header or footer it goes on every page, left, centre or right, at the height you set (mm), beside the header text of the same place.</li>
+<li>On the cover it goes at the top, the centre (just above the title) or the bottom, with a height of its own.</li>
+</ul>
+<h3 id="contents">Contents</h3>
+<p>Contents and list-of-figures entries are joined to their page numbers by dots centred on the line (·····) (Settings › Cover &amp; contents › Dotted leaders). Page numbers come from laying the document out in A4 pages; the preview shows them a moment later too.</p>
+<h3 id="the-print-window">The print window</h3>
+<p>Print (Ctrl+P) opens the program's print window. Choose the printer, copies, colour or black &amp; white, paper (A4, A3, A5, B5, Letter, Legal), orientation, margins, the pages to print (all / a range such as 1-3, 5) and the document parts (cover, contents, list of figures, page numbers, header, footer) on the left; the preview on the right is laid out again at once. <b>Print</b> sends it straight to the chosen printer, with no dialog. Printers that make a file, such as &quot;Microsoft Print to PDF&quot;, ask where to save the PDF. <b>Save as PDF</b> and <b>System dialog…</b> are there too.</p>
+<h3 id="pictures-in-a-markdown-export">Pictures in a Markdown export</h3>
+<p>Exporting a document with pictures to Markdown asks whether to put the pictures <b>inside the file</b> (Base64) or <b>save them as separate files</b>. Separate files go into a <code>&lt;file name&gt;_images</code> folder beside the .md, which links to them. The choice becomes the default next time.</p>
+<h3 id="undo">Undo</h3>
+<p>Ctrl+Z / Ctrl+Y undo and redo typing and also adding, removing, reordering and ticking files, renumbering, merging again and picture sizes. Quick typing is one step.</p>
+<h3 id="problems-messages-information">Problems · messages · information</h3>
+<p>The <b>Problems</b> tab of the bottom panel lists skipped heading levels, empty headings, repeated headings, pictures not found, links without an address, unclosed code blocks, empty files and files without a heading. Click one to go to its line. <b>Messages</b> keeps the notices and errors so far, <b>Information</b> sums the document up.</p>
+<h3 id="appearance">Appearance</h3>
+<ul>
+<li>Themes: 20 dark, 20 light, one that follows the system and one of your own. The palette button picks one at random; ▾ lists them all.</li>
+<li>Every icon has a colour of its own by meaning.</li>
+<li>Settings › Font sets the program font, size and weight and the editor text size.</li>
+<li>The window's place and size and the panel widths are kept for the next start.</li>
+</ul>
+<h3 id="shortcuts">Shortcuts</h3>
+<table><thead><tr><th>Keys</th><th>Action</th></tr></thead><tbody><tr><td>Ctrl+N / Ctrl+O</td><td>New document / open document</td></tr><tr><td>Ctrl+Shift+O / Ctrl+Shift+A</td><td>Add folder / add files</td></tr><tr><td>Ctrl+S / Ctrl+Shift+S</td><td>Save / save as</td></tr><tr><td>Ctrl+E / Ctrl+P</td><td>Export / print</td></tr><tr><td>Ctrl+Z / Ctrl+Y</td><td>Undo / redo</td></tr><tr><td>Ctrl+F</td><td>Find / replace</td></tr><tr><td>Ctrl+B / Ctrl+I / Ctrl+K</td><td>Bold / italic / link</td></tr><tr><td>Ctrl+1 … Ctrl+5</td><td>Headings 1–5 (while editing)</td></tr><tr><td>Alt+1 / Alt+2 / Alt+3</td><td>Edit / preview / side by side</td></tr><tr><td>F5 / F7</td><td>Merge again / renumber headings</td></tr><tr><td>Ctrl+Shift+1 / 2, Ctrl+J</td><td>Left / right / bottom panel</td></tr><tr><td>Ctrl+Shift+L</td><td>Switch language</td></tr><tr><td>Ctrl+Shift+H</td><td>Start page</td></tr><tr><td>Ctrl+, / F1 / F11</td><td>Settings / about / tutorial</td></tr></tbody></table>
+</main></div>
+<script>
+  // the section being read is marked in the contents
+  const links = [...document.querySelectorAll('nav.toc a')];
+  const mark = () => { let current = null; for (const a of links) { const h = document.getElementById(decodeURIComponent(a.hash.slice(1))); if (h && h.getBoundingClientRect().top < 120) current = a; } links.forEach((a) => a.classList.toggle('active', a === current)); };
+  addEventListener('scroll', mark, { passive: true }); mark();
+</script></body>
+</html>
