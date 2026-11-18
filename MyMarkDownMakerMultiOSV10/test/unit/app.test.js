@@ -169,3 +169,108 @@ test('recent list: newest first, no duplicates (paths compare case- and slash-in
   assert.equal(list.filter((x) => /11\.md$/i.test(x.path)).length, 1);
   assert.equal(removeRecent(list, 'C:\\docs\\11.md').length, 9);
 });
+
+// ───────────────────────── later additions: export with picture files, print setup, heading sizes, logo settings
+
+const { markdownWithImageFiles } = await import('../../src/lib/export.js');
+const { registerImage, clearImages } = await import('../../src/lib/images.js');
+const { normalizePrint, sheetOf, parseRanges, rangesText, pageCss, withPageCss } = await import('../../src/print/printwin.js');
+
+test('Markdown export with picture files: references and data URIs become files in <name>_images, linked relatively', () => {
+  clearImages();
+  const ref = registerImage('data:image/png;base64,AAAA', 'my chart.png');
+  const text = `# A\n\n![one](${ref})\n\n![two](data:image/jpeg;base64,BBBB)\n\n![again](${ref})\n`;
+  const { text: out, files } = markdownWithImageFiles(text, 'Report_images');
+  assert.deepEqual(files.map((f) => f.name), ['my-chart.png', 'image-2.jpg']);
+  assert.equal(files[0].data, 'AAAA');
+  assert.match(out, /!\[one\]\(Report_images\/my-chart\.png\)/);
+  assert.match(out, /!\[two\]\(Report_images\/image-2\.jpg\)/);
+  assert.match(out, /!\[again\]\(Report_images\/my-chart\.png\)/, 'the same picture is written once');
+  assert.ok(!/mmm-img:|data:image/.test(out));
+});
+
+test('print setup: papers, orientation, ranges and the page CSS that follows the document\'s own', () => {
+  const p = normalizePrint({ paper: 'A5', orientation: 'landscape', copies: 500, margins: 'wide', range: 'x' });
+  assert.deepEqual(sheetOf(p), [210, 148]);
+  assert.equal(p.copies, 99);
+  assert.equal(p.range, 'all');
+  assert.deepEqual(parseRanges('1-3, 5, 7-', 9), [1, 2, 3, 5, 7, 8, 9]);
+  assert.equal(parseRanges('3-1', 9), null);
+  assert.equal(parseRanges('a', 9), null);
+  assert.equal(rangesText([1, 2, 3, 5, 7, 8]), '1-3,5,7-8');
+  assert.match(pageCss(p), /@page\{size:210mm 148mm;margin:25mm 25mm\}/);
+  assert.match(pageCss({ ...p, color: 'gray' }), /grayscale/);
+  const html = withPageCss('<html><head><style>@page{size:A4}</style></head><body></body></html>', p);
+  assert.ok(html.indexOf('data-print-setup') > html.indexOf('@page{size:A4}'), 'after the document\'s own @page');
+});
+
+test('heading sizes per level: only the set levels get CSS, inside the given scope', () => {
+  assert.equal(md.headingSizeCss({ headingSizes: { h1: 20, h2: 0, h3: 13.5 } }, '.doc-content'), '.doc-content h1{font-size:20pt !important}.doc-content h3{font-size:13.5pt !important}');
+  assert.equal(md.headingSizeCss({}, '#x'), '');
+});
+
+test('document settings: logo, chapter breaks, leaders, heading sizes and Markdown pictures are repaired', () => {
+  const s = normalizeDocSettings({ logoImage: 'javascript:alert(1)', logoHeightMm: 99, coverLogoPosition: 'side', logoHeaderAlign: 'up', headingSizes: { h1: 3, h2: 200, h3: 'x' }, mdPictures: 'zip', chapterBreak: 'yes' });
+  assert.equal(s.logoImage, '');
+  assert.equal(s.logoHeightMm, 30);
+  assert.equal(s.coverLogoPosition, 'middle');
+  assert.equal(s.logoHeaderAlign, 'left');
+  assert.deepEqual([s.headingSizes.h1, s.headingSizes.h2, s.headingSizes.h3], [6, 96, 0]);
+  assert.equal(s.mdPictures, 'embed');
+  assert.equal(s.chapterBreak, false);
+  assert.equal(s.tocLeaders, true);
+  assert.equal(normalizeDocSettings({ logoImage: 'data:image/png;base64,AA' }).logoImage, 'data:image/png;base64,AA');
+  assert.equal(normalizeSettings({ previewMode: 'book' }, 'ko').previewMode, 'flow');
+});
+
+test('popup events: each popup only takes its own, so a hidden menu does not come back for the progress window', async () => {
+  // A fake Tauri: like the real one, every listener of an event gets it, whichever window it was sent to.
+  const listeners = [];
+  const sent = [];
+  const callbacks = new Map();
+  let ids = 0;
+  const saved = globalThis.window;
+  globalThis.window = {
+    addEventListener() {},
+    __TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener() {} },
+    __TAURI_INTERNALS__: {
+      transformCallback: (callback) => { ids += 1; callbacks.set(ids, callback); return ids; },
+      invoke: async (cmd, args) => {
+        if (cmd === 'plugin:event|listen') { listeners.push({ event: args.event, id: args.handler }); return listeners.length; }
+        if (cmd === 'plugin:event|emit_to') {
+          sent.push(args);
+          for (const l of listeners) if (l.event === args.event) callbacks.get(l.id)({ event: args.event, payload: args.payload });
+          return null;
+        }
+        if (cmd === 'open_popup' || cmd === 'hide_popup') return null;
+        return null;
+      },
+    },
+  };
+  try {
+    const { PopupHost, forPopup } = await import('../../src/platform/popups.js');
+    // The popup side (popup.js): a menu ignores what is meant for the progress window.
+    assert.equal(forPopup('menu', 'progress'), false);
+    assert.equal(forPopup('menu', 'menu'), true);
+    assert.equal(forPopup('menu', undefined), true);
+    // The host side: messages to a popup say whom they are for, and the host does not take them as a popup's.
+    const host = new PopupHost();
+    await host.init();
+    const results = [];
+    host.receive = (message) => results.push(message);
+    await host.post('progress', { type: 'refresh' });
+    assert.equal(sent.at(-1).payload.to, 'progress');
+    assert.deepEqual(sent.at(-1).target, { kind: 'AnyLabel', label: 'popup-progress' });
+    assert.deepEqual(results, [], 'a message to a popup is not one from a popup');
+    await globalThis.window.__TAURI_INTERNALS__.invoke('plugin:event|emit_to', { target: { kind: 'AnyLabel', label: 'main' }, event: 'popup-message', payload: { kind: 'menu', type: 'result', data: { id: 'x' } } });
+    assert.equal(results.length, 1);
+    // The menu's choice runs once its window has hidden itself (or after a short wait at most).
+    const started = Date.now();
+    const hidden = host.whenHidden('menu', 1000);
+    await globalThis.window.__TAURI_INTERNALS__.invoke('plugin:event|emit_to', { target: { kind: 'AnyLabel', label: 'main' }, event: 'popup-hidden', payload: 'menu' });
+    await hidden;
+    assert.ok(Date.now() - started < 500);
+  } finally {
+    globalThis.window = saved;
+  }
+});

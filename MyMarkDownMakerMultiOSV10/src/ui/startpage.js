@@ -1,6 +1,7 @@
 // Start page: shown when the app starts (if enabled) and from the Home button. A moving background from
 // the world of documents behind a board of translucent cards that can be moved and resized
-// (ui/startboard.js places them): the hero, what to do (action tiles), recent files and folders, the
+// (ui/startboard.js places them) under the program's title (fixed: it is not a card and cannot be moved or
+// resized): what to do (action tiles), recent files and folders, the
 // sample documents and the moving background. No side or bottom panels here: the cards use the window.
 import appIcon from '../../assets/icon-256.png';
 import { escapeHtml } from './dom.js';
@@ -91,7 +92,6 @@ export function startPageHtml(app) {
       <button class="button primary big" data-start="tutorial" title="${escapeHtml(t('start.tutorialStart'))}">${icon('tutorial')}<span>${escapeHtml(t('start.tutorialStart'))}</span></button>
     </div>`;
   const cards = [
-    card('hero', '', '', hero, { bare: true, classes: 'start-hero' }),
     card('actions', 'launcher', t('start.actions'), actionsBody(app)),
     settings.startShowRecent === false ? '' : card('recent', 'recent', t('start.recentCard'), recentBody(app, settings)),
     settings.startShowSamples === false ? '' : card('samples', 'samples', t('start.samples'), samplesBody(), { extra: `<span class="start-card-note">${SAMPLE_IDS.length}</span>` }),
@@ -107,6 +107,7 @@ export function startPageHtml(app) {
           <button class="start-btn" data-start="arrange" title="${escapeHtml(t('start.arrangeTip'))}">${icon('launcher')}<span>${escapeHtml(t('start.arrange'))}</span></button>
         </div>
         ${settings.tutorialDone || settings.startShowTutorialBanner === false ? '' : `<div class="start-banner">${icon('bulb')}<span>${escapeHtml(t('start.tutorialBanner'))}</span><button class="small-button" data-start="tutorial" title="${escapeHtml(t('start.tutorialStart'))}">${icon('play')}<span>${escapeHtml(t('start.tutorialGo'))}</span></button></div>`}
+        <section class="start-hero start-hero-fixed" aria-label="MyMarkDownMaker">${hero}</section>
         <div class="start-board">${cards.join('')}</div>
         <footer class="start-foot">
           ${icon('info')}<span class="grow">MyMarkDownMaker v${escapeHtml(version)}</span>

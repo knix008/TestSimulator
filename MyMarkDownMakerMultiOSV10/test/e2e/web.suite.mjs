@@ -5,14 +5,16 @@ import assert from 'node:assert/strict';
 export const cases = [
   {
     group: 'Start page',
-    name: 'Card board: hero, actions, recent, samples and background cards over the moving background',
+    name: 'Card board: fixed title above the actions, recent, samples and background cards over the moving background',
     desktop: true,
     async run(app) {
       const r = await app.run(`await T.reset(); await T.until(() => document.querySelector('.start-board .start-card'), 8000, 'cards');
         const cards = [...document.querySelectorAll('.start-board > .start-card')].map((c) => c.dataset.card);
         const canvas = document.querySelector('#start-page canvas.start-bg');
-        return { cards, canvas: Boolean(canvas && canvas.width > 0), panels: ['#left-panel', '#right-panel', '#bottom-panel'].map((s) => T.rect(s)?.visible ?? false), samples: document.querySelectorAll('.start-card.samples .start-tile').length, actions: document.querySelectorAll('.start-card.actions .start-tile').length, scenes: document.querySelectorAll('.start-card.background .anim-chip').length };`);
-      for (const id of ['hero', 'actions', 'recent', 'samples', 'background']) assert.ok(r.cards.includes(id), `card ${id}`);
+        return { cards, canvas: Boolean(canvas && canvas.width > 0), panels: ['#left-panel', '#right-panel', '#bottom-panel'].map((s) => T.rect(s)?.visible ?? false), samples: document.querySelectorAll('.start-card.samples .start-tile').length, actions: document.querySelectorAll('.start-card.actions .start-tile').length, hero: Boolean(document.querySelector('.start-hero-fixed')), heroHandle: Boolean(document.querySelector('.start-hero-fixed [data-card-handle]')), heroResize: Boolean(document.querySelector('.start-hero-fixed [data-card-resize]')), scenes: document.querySelectorAll('.start-card.background .anim-chip').length };`);
+      for (const id of ['actions', 'recent', 'samples', 'background']) assert.ok(r.cards.includes(id), `card ${id}`);
+      assert.ok(!r.cards.includes('hero'), 'the title is not a card');
+      assert.ok(r.hero && !r.heroHandle && !r.heroResize, 'the title cannot be moved or resized');
       assert.ok(r.canvas, 'moving background canvas');
       assert.deepEqual(r.panels, [false, false, false], 'no side or bottom panels on the start page');
       assert.equal(r.samples, 3);
@@ -210,13 +212,13 @@ export const cases = [
   },
   {
     group: 'Popups',
-    name: 'Theme drop-down: system · custom · custom settings on one row, then 20 dark and 20 light themes',
+    name: 'Theme drop-down: custom · custom settings on one row (no system setting), then 20 dark and 20 light themes',
     async run(app) {
       const r = await app.run(`await T.reset({ workspace: true }); A.run('themeMenu'); await T.popupReady('menu');
         const d = T.popupDoc('menu'); const row = d.querySelector('.menu-columns.menu-row'); const cols = d.querySelectorAll('.menu-columns:not(.menu-row) .menu-column');
         const tops = row ? [...row.querySelectorAll('.menu-item')].map((x) => Math.round(x.getBoundingClientRect().top)) : [];
         return { row: tops.length, same: new Set(tops).size === 1, dark: cols[0]?.querySelectorAll('.menu-item').length, light: cols[1]?.querySelectorAll('.menu-item').length };`);
-      assert.equal(r.row, 3);
+      assert.equal(r.row, 2);
       assert.ok(r.same, 'one line');
       assert.equal(r.dark, 20);
       assert.equal(r.light, 20);

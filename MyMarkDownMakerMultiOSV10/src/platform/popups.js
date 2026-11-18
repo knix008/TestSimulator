@@ -16,7 +16,7 @@ import { emitTo, invoke, isDesktop, listen } from './native.js';
  * or empty space. Fixed; confirm, about, welcome and prompt then follow their content height (fitHeight). */
 export const POPUPS = {
   // measured: every tab, Korean and English, fits without scrolling or clipping at 880 × 560 (a little room added)
-  settings: { width: 920, height: 640 },
+  settings: { width: 960, height: 730 },
   about: { width: 740, height: 600 },
   confirm: { width: 540, height: 270 },
   error: { width: 720, height: 500 },
@@ -43,6 +43,12 @@ export function popupParams(kind) {
   }
 }
 
+/**
+ * Tauri hands an event to every window listening for it, whichever window it was sent to. A popup takes a
+ * host message or a refresh only when it is its own (`to` / the refresh's kind; none = an old sender).
+ */
+export const forPopup = (kind, target) => target == null || target === kind;
+
 export class PopupHost {
   constructor() {
     this.actions = new Map();
@@ -52,6 +58,7 @@ export class PopupHost {
     this.inline = false;
     this.opened = [];
     this.drawn = new Map();
+    this.hiddenWaiters = new Map();
     this.open = this.open.bind(this);
   }
 
@@ -67,14 +74,33 @@ export class PopupHost {
     });
   }
 
+  /**
+   * Resolves once the popup window `kind` has hidden itself (after sending its result it does), or after
+   * `timeout` ms. In frames (web) the popup is gone already.
+   */
+  whenHidden(kind, timeout = 400) {
+    if (this.useFrames) return Promise.resolve();
+    return new Promise((resolve) => {
+      const done = () => { clearTimeout(timer); resolve(); };
+      const timer = setTimeout(done, timeout);
+      this.hiddenWaiters.set(kind, [...(this.hiddenWaiters.get(kind) ?? []), done]);
+    });
+  }
+
   get useFrames() {
     return !isDesktop() || this.inline;
   }
 
   async init() {
     if (isDesktop()) {
-      await listen('popup-message', (message) => this.receive(message, false));
-      await listen('popup-hidden', (kind) => { if (!this.reopenedSinceResult(kind)) this.settle(kind, null); });
+      // Messages sent to a popup (`to`) reach this window too: only the popups' own count here.
+      await listen('popup-message', (message) => { if (message?.to == null) this.receive(message, false); });
+      await listen('popup-hidden', (kind) => {
+        const waiters = this.hiddenWaiters.get(kind) ?? [];
+        this.hiddenWaiters.delete(kind);
+        waiters.forEach((done) => done());
+        if (!this.reopenedSinceResult(kind)) this.settle(kind, null);
+      });
     }
     window.addEventListener('message', (event) => {
       if (event.origin === location.origin && event.data?.mymarkdownmaker) this.receive(event.data, true);
@@ -163,7 +189,7 @@ export class PopupHost {
       frame.querySelector('iframe')?.contentWindow?.postMessage({ mymarkdownmakerHost: true, ...message }, location.origin);
       return Promise.resolve();
     }
-    if (isDesktop()) return emitTo(`popup-${kind}`, 'popup-message', message).catch(() => {});
+    if (isDesktop()) return emitTo(`popup-${kind}`, 'popup-message', { ...message, to: kind }).catch(() => {});
     return Promise.resolve();
   }
 

@@ -347,3 +347,45 @@
 .preview .chapter-start { margin-top: 2.2em; padding-top: 1.4em; border-top: 1px dashed var(--border); }
 .prop-control .segmented { flex: 1; }
 .prop-section.flash { box-shadow: 0 0 0 2px var(--accent); transition: box-shadow .3s; }
+.start-hero-fixed { margin: 0 0 14px; }
+
+/* Start page tools row: the start-up check box and the two buttons share one height and one baseline. */
+.start-tools { align-items: center; }
+.start-tools .start-btn, .start-tools .start-btn.check-row { height: 32px; margin: 0; font-size: inherit; line-height: 1; box-sizing: border-box; }
+.start-tools .start-btn input[type="checkbox"] { margin: 0; width: 15px; height: 15px; accent-color: var(--accent); }
+
+/* Settings window: every tab visible — 12 tabs in two even rows of six, no scrolling strip. */
+.popup-settings .tabs { flex-wrap: nowrap; }
+.popup-settings .tabs-strip { display: grid !important; grid-template-columns: repeat(6, minmax(0, 1fr)); overflow: visible !important; gap: 2px 4px; width: 100%; }
+.popup-settings .tabs-strip .tab { justify-content: center; min-width: 0; border-radius: 8px; }
+.popup-settings .tabs-strip .tab span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.popup-settings .tabs-nav { display: none !important; }
+
+/* Page views: the pages as they print, in a frame on the grey desk. */
+.md-paged { position: relative; flex: 1; min-height: 0; background: #d9dce2; }
+.md-paged[hidden], .md-preview-scroll[hidden] { display: none; }
+.paged-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #d9dce2; }
+.paged-busy { position: absolute; right: 14px; top: 12px; display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: color-mix(in srgb, var(--surface) 92%, transparent); box-shadow: 0 2px 10px color-mix(in srgb, #000 20%, transparent); font-size: .9em; }
+.paged-busy .icon.big { width: 18px; height: 18px; }
+.paged-busy[hidden] { display: none; }
+
+/* Panel switches in the menu bar, just left of the window buttons. */
+.menubar-panels { display: inline-flex; align-items: center; gap: 2px; padding: 0 8px 0 6px; margin-right: 4px; border-right: 1px solid var(--hairline, var(--border)); flex: none; }
+.menubar-panels .tool-button.mini { width: 30px; height: 26px; border-radius: 7px; }
+.menubar-panels .tool-button.mini .icon { width: 17px; height: 17px; }
+.menubar-panels .tool-button.active { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.menubar-panels .tool-button:hover:not(:disabled) { background: color-mix(in srgb, var(--text) 8%, transparent); }
+
+/* Moving a picture: the picture fades, a caret shows where it will go. */
+.md-editor .cm-picture { cursor: grab; }
+.md-editor .cm-picture.dragging { opacity: .45; }
+.cm-picture-drop { position: fixed; z-index: 50; width: 3px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); pointer-events: none; }
+.cm-picture-drop[hidden] { display: none; }
+
+/* Moving a file in the list: its silhouette follows the pointer; the row waits, faded, at its old place. */
+.file-ghost { position: fixed; left: 0; top: 0; z-index: 60; margin: 0 !important; pointer-events: none; opacity: .88; background: var(--surface) !important; border: 1px solid var(--accent) !important; border-radius: 10px; box-shadow: 0 12px 28px -6px color-mix(in srgb, #000 35%, transparent), 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent) !important; rotate: -1.2deg; }
+.file-ghost .file-actions { display: none; }
+.file-row.dragging { opacity: .35; border-style: dashed !important; }
+
+/* Settings tabs: icon and label at the left of each tab. */
+.popup-settings .tabs-strip .tab { justify-content: flex-start !important; text-align: left; padding-left: 12px; gap: 7px; }

@@ -371,6 +371,10 @@ const base = {
   logoClear: '<rect x="3" y="3" width="13" height="13" rx="3"/><path d="M6.5 12.5l2-4.5 1.8 3 1.2-1.5 1.5 3"/><path d="M15.5 15.5l5 5M20.5 15.5l-5 5"/>',
   // Each chapter on a new page: a page, a break, the next page.
   chapterBreak: '<path d="M6 3h12v6H6z"/><path d="M3 12h3M9 12h2M14 12h2M19 12h2" stroke-width="2"/><path d="M6 15h12v6H6z"/><path d="M9 18h6" opacity="0.6"/>',
+  // Preview modes: one long continuous sheet, page by page, two pages side by side.
+  viewFlow: '<path d="M6 2h12v20H6z"/><path d="M9 6h6M9 9.5h6M9 13h4M9 16.5h6" opacity="0.7"/><path d="M3 9v6M21 9v6" stroke-dasharray="1.5 2"/>',
+  viewPages: '<rect x="6" y="2" width="12" height="9" rx="1"/><rect x="6" y="13" width="12" height="9" rx="1"/><path d="M9 5h6M9 7.5h4M9 16h6M9 18.5h4" opacity="0.7"/>',
+  viewSpread: '<rect x="2" y="4" width="9" height="16" rx="1"/><rect x="13" y="4" width="9" height="16" rx="1"/><path d="M4.5 8h4M4.5 11h4M4.5 14h3M15.5 8h4M15.5 11h4M15.5 14h3" opacity="0.7"/>',
   folderAdd: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 10.5v6M9 13.5h6"/>',
   filesAdd: '<path d="M8 3h7l4 4v9a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M15 3v4h4"/><path d="M4 7v13a1 1 0 0 0 1 1h9"/><path d="M13 9.5v5M10.5 12h5"/>',
   docNew: '<path d="M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M8.5 13h2l1.5-2 1.5 4 1.5-2h1"/>',

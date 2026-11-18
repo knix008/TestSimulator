@@ -1,6 +1,6 @@
 [package]
 name = "mymarkdownmaker"
-version = "1.0.0"
+version = "1.0.1"
 description = "Merge Markdown files, number headings and export them"
 authors = ["SHKWON <knix008@naver.com>"]
 edition = "2021"

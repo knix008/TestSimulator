@@ -97,6 +97,8 @@ export function defaultSettings(language = 'ko') {
     centerTab: 'preview',
     docZoom: 100,
     editorFontSize: 14,
+    // The preview: one continuous sheet ('flow'), real pages one under another ('pages') or two side by side ('spread').
+    previewMode: 'flow',
     // Split view: the editor's share of the width (percent).
     splitShare: 50,
     // The Markdown marks bar above the editor.
@@ -156,6 +158,7 @@ export function normalizeSettings(raw = {}, language) {
   s.editorFontSize = clamp(s.editorFontSize, EDITOR_FONT.min, EDITOR_FONT.max, base.editorFontSize);
   s.doc = normalizeDocSettings(s.doc);
   s.splitShare = clamp(s.splitShare, 20, 80, 50);
+  s.previewMode = ['flow', 'pages', 'spread'].includes(s.previewMode) ? s.previewMode : 'flow';
   s.rightWidth = clamp(s.rightWidth, PANEL_MIN.right, 800, base.rightWidth);
   s.bottomHeight = clamp(s.bottomHeight, PANEL_MIN.bottom, 2000, base.bottomHeight);
   s.dateFormat = DATE_FORMATS.includes(s.dateFormat) ? s.dateFormat : base.dateFormat;

@@ -1,7 +1,7 @@
 {
   "name": "mymarkdownmaker",
   "productName": "MyMarkDownMaker",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Merge many Markdown files into one document, see its structure, number its headings and export it (Markdown, HTML, PDF, Word) — Windows, macOS, Linux (Tauri) and the web.",
   "author": "SHKWON <knix008@naver.com>",

@@ -4,7 +4,7 @@
 // right-click opens the picture's own menu, and pictures can be dropped in from outside.
 //
 //   pictureExtension({ resolve(src) → displayable URL, onResize(pos, percent), onContext(event, pos),
-//                      onDropFiles(files, pos) })
+//                      onDropFiles(files, pos), onMove(from, to, target) })
 import { Decoration, EditorView, MatchDecorator, ViewPlugin, WidgetType } from '@codemirror/view';
 
 const PICTURE = /!\[([^\]\n]*)\]\(\s*<?([^)\s"<>]+)>?\s*(?:"([^"\n]*)")?\s*\)/g;
@@ -72,14 +72,49 @@ class PictureWidget extends WidgetType {
       grip.addEventListener('pointercancel', up);
     });
     box.addEventListener('contextmenu', (event) => { event.preventDefault(); event.stopPropagation(); this.hooks.onContext?.(event, view.posAtDOM(box)); });
-    box.addEventListener('mousedown', (event) => {
+    // Press selects the picture (one character: Delete removes it, typing replaces it); dragging it moves it
+    // to where it is dropped in the text, shown by a caret that follows the pointer.
+    box.addEventListener('pointerdown', (event) => {
       if (event.button !== 0 || event.target === grip) return;
-      // A click selects the picture (as one character), so Delete removes it and typing replaces it.
       event.preventDefault();
-      const pos = view.posAtDOM(box);
-      const end = view.state.doc.lineAt(pos).text.slice(pos - view.state.doc.lineAt(pos).from).match(/^!\[[^\]\n]*\]\([^)\n]*\)/)?.[0].length ?? 0;
-      view.dispatch({ selection: { anchor: pos, head: pos + end } });
+      event.stopPropagation();
+      const from = view.posAtDOM(box);
+      const line = view.state.doc.lineAt(from);
+      const length = line.text.slice(from - line.from).match(/^!\[[^\]\n]*\]\([^)\n]*\)/)?.[0].length ?? 0;
+      view.dispatch({ selection: { anchor: from, head: from + length } });
       view.focus();
+      if (!length) return;
+      const startX = event.clientX;
+      const startY = event.clientY;
+      let dragging = false;
+      let target = null;
+      const caret = document.createElement('div');
+      caret.className = 'cm-picture-drop';
+      const move = (e) => {
+        if (!dragging) {
+          if (Math.hypot(e.clientX - startX, e.clientY - startY) < 5) return;
+          dragging = true;
+          box.classList.add('dragging');
+          document.body.append(caret);
+          document.body.style.cursor = 'grabbing';
+        }
+        target = view.posAtCoords({ x: e.clientX, y: e.clientY });
+        const at = target == null ? null : view.coordsAtPos(target);
+        caret.hidden = !at || (target > from && target < from + length);
+        if (at) Object.assign(caret.style, { left: `${at.left - 1}px`, top: `${at.top}px`, height: `${Math.max(16, at.bottom - at.top)}px` });
+      };
+      const up = () => {
+        window.removeEventListener('pointermove', move, true);
+        window.removeEventListener('pointerup', up, true);
+        window.removeEventListener('pointercancel', up, true);
+        caret.remove();
+        box.classList.remove('dragging');
+        document.body.style.cursor = '';
+        if (dragging && target != null && (target <= from || target >= from + length) && target !== from && target !== from + length) this.hooks.onMove?.(from, from + length, target);
+      };
+      window.addEventListener('pointermove', move, true);
+      window.addEventListener('pointerup', up, true);
+      window.addEventListener('pointercancel', up, true);
     });
     return box;
   }

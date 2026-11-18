@@ -22,7 +22,7 @@ import { getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
 import * as native from './platform/native.js';
 import { PopupHost } from './platform/popups.js';
-import { applyFont, applyTheme, customTheme, DARK_THEMES, LIGHT_THEMES, randomThemeId, resolveTheme, SYSTEM, themeName } from './themes.js';
+import { applyFont, applyTheme, customTheme, DARK_THEMES, LIGHT_THEMES, randomThemeId, resolveTheme, themeName } from './themes.js';
 import { escapeHtml, frameThrottle, isMac, keyLabel, pointerDrag } from './ui/dom.js';
 import { AnimatedBackground } from './ui/background.js';
 import { startPageHtml } from './ui/startpage.js';
@@ -38,7 +38,7 @@ import { computePageMap } from './lib/paginate.js';
 import { clearImages, embedImages, imageDisplaySrc, IMAGE_EXTS, registerImage, resolveRelPath, srcBaseName } from './lib/images.js';
 import { buildPrintHtml, exportHtml, exportMarkdown, exportPdf, exportWord, markdownWithImageFiles, printDocument, saveMarkdownTo } from './lib/export.js';
 import { canWriteInPlace, configurePlatform, presetSavePath, printDirect, printToPdfFile } from './lib/platform.js';
-import { withPageCss } from './print/printwin.js';
+import { layoutPreview, normalizePrint, sheetOf } from './print/printwin.js';
 
 const root = document.querySelector('#app');
 const desktop = native.isDesktop();
@@ -147,6 +147,7 @@ async function ensureEditor() {
         onResize: (pos, percent) => resizePictureAt(pos, percent),
         onContext: (event, pos) => contextMenu(event, 'picture', { pos }),
         onDropFiles: (files, pos) => insertPictureFiles(files, pos),
+        onMove: (from, to, target) => movePicture(from, to, target),
       },
       callbacks: {
         onInput: () => { markEdited(); if (!composing) settleIn(SETTLE_IDLE_MS); },
@@ -263,9 +264,25 @@ function restore(snap) {
   d.edited = snap.edited;
   d.stale = snap.stale;
   d.mergeSeq += 1;
-  fillEditor({ reveal: firstDiff(before, snap.text) });
-  textChanged({ generated: false });
+  fillEditor({ reveal: changedOffset(before, snap.text) });
+  // The contents and figure index follow the restored headings again (they are generated, never a step).
+  textChanged({ generated: true });
   renderToolbarState();
+}
+
+/**
+ * Where the caret goes after Undo / Redo: the first change in the document's body. The contents and figure index
+ * at the top are rewritten on their own after an edit, so the first difference of the whole text is usually up
+ * there — the caret would jump to the top instead of to the change.
+ */
+function changedOffset(before, after) {
+  const ob = splitDocument(before).body;
+  const nb = splitDocument(after).body;
+  if (ob !== nb && nb) {
+    const start = after.lastIndexOf(nb);
+    if (start >= 0) return start + firstDiff(ob, nb);
+  }
+  return firstDiff(before, after);
 }
 
 function undo() {
@@ -1043,6 +1060,17 @@ async function insertPictureFiles(files, pos = null) {
 
 const figureAtPos = (pos) => getFigures(currentText()).find((f) => pos >= f.start && pos < f.start + f.length) ?? null;
 
+/** A picture dragged to another place in the text (one Undo step); it stays selected there. */
+function movePicture(from, to, target) {
+  settleNow();
+  const text = currentText();
+  const piece = text.slice(from, to);
+  if (!/^!\[/.test(piece)) return;
+  const rest = text.slice(0, from) + text.slice(to);
+  const at = target > to ? target - piece.length : target;
+  changeText('figureMove', rest.slice(0, at) + piece + rest.slice(at), { start: at, end: at + piece.length });
+}
+
 function resizePictureAt(pos, percent) {
   const figure = figureAtPos(pos);
   if (figure) resizeFigure(figure, percent);
@@ -1248,6 +1276,7 @@ function setZoom(value) {
   updateSettings({ docZoom: zoom }, { quiet: true });
   applyEditorLook();
   applyPreviewLook();
+  applyPagedLook();
   renderToolbarState();
   renderStatus();
 }
@@ -1291,6 +1320,7 @@ const toggleDoc = (key) => updateDoc({ [key]: !D()[key] });
 const toggle = (key) => updateSettings({ [key]: !state.settings[key] });
 const docOn = (key) => () => D()[key] !== false;
 const viewCommand = (tab, glyph) => ({ icon: glyph, label: `view.${tab}`, key: { edit: 'Alt+1', preview: 'Alt+2', split: 'Alt+3' }[tab], enabled: hasDoc, checked: () => hasDoc() && state.settings.centerTab === tab, run: () => setCenterTab(tab) });
+const pageViewCommand = (mode, glyph) => ({ icon: glyph, label: `view.${mode}`, key: { flow: 'Alt+4', pages: 'Alt+5', spread: 'Alt+6' }[mode], enabled: hasDoc, checked: () => hasDoc() && state.settings.previewMode === mode, run: () => setPreviewMode(mode) });
 const mark = (id) => { const entry = MARKS.find((m) => Array.isArray(m) && m[0] === id); return { icon: entry[1], label: `md.${id}`, enabled: hasDoc, run: entry[2] }; };
 
 const commands = {
@@ -1349,6 +1379,9 @@ const commands = {
   'view:edit': viewCommand('edit', 'editMode'),
   'view:preview': viewCommand('preview', 'preview'),
   'view:split': viewCommand('split', 'splitView'),
+  'page:flow': pageViewCommand('flow', 'viewFlow'),
+  'page:pages': pageViewCommand('pages', 'viewPages'),
+  'page:spread': pageViewCommand('spread', 'viewSpread'),
   zoomIn: { icon: 'zoomIn', label: 'action.zoomIn', key: 'Ctrl+=', enabled: () => hasDoc() && state.settings.docZoom < DOC_ZOOM.max, run: () => setZoom(state.settings.docZoom + DOC_ZOOM.step) },
   zoomOut: { icon: 'zoomOut', label: 'action.zoomOut', key: 'Ctrl+-', enabled: () => hasDoc() && state.settings.docZoom > DOC_ZOOM.min, run: () => setZoom(state.settings.docZoom - DOC_ZOOM.step) },
   zoomReset: { icon: 'zoomReset', label: 'action.zoomReset', key: 'Ctrl+0', enabled: () => hasDoc() && state.settings.docZoom !== 100, run: () => setZoom(100) },
@@ -1404,7 +1437,7 @@ async function run(id, context) {
 const SUBMENUS = {
   exportAs: { icon: 'exportFile', items: ['exportMd', 'exportHtml', 'exportPdf', 'exportWord'] },
   headings: { icon: 'heading1', items: ['md:h1', 'md:h2', 'md:h3', 'md:h4', 'md:h5'] },
-  views: { icon: 'preview', items: ['view:edit', 'view:preview', 'view:split', '-', 'left:files', 'left:structure', 'left:figures'] },
+  views: { icon: 'preview', items: ['view:edit', 'view:preview', 'view:split', '-', 'page:flow', 'page:pages', 'page:spread', '-', 'left:files', 'left:structure', 'left:figures'] },
   zoom: { icon: 'zoomIn', items: ['zoomIn', 'zoomOut', 'zoomReset', '-', 'editorFontUp', 'editorFontDown'] },
   show: { icon: 'eye', items: ['leftPanel', 'rightPanel', 'bottomPanel', 'statusBar', 'markBar', 'pictures', '-', 'showProblems', 'showMessages', 'showInformation'] },
   appearance: { icon: 'palette', items: ['theme', 'themeMenu', 'language', '-', 'shuffleBackground', 'backgroundImage', 'clearBackground'] },
@@ -1426,9 +1459,11 @@ const TOOLBAR = [
   ['undo', 'redo'],
   ['recursive', 'fileHeaders', 'numberHeadings', 'renumber', 'remerge'],
   ['coverPage', 'tocPage', 'figurePage', 'chapterBreak', 'pageNumbers', 'pageHeader', 'pageFooter', 'chooseLogo', 'docFont'],
-  ['view:edit', 'view:preview', 'view:split', 'zoomOut', 'zoomValue', 'zoomIn'],
-  ['leftPanel', 'bottomPanel', 'rightPanel'],
+  ['view:edit', 'view:preview', 'view:split'],
+  ['page:flow', 'page:pages', 'page:spread', 'zoomOut', 'zoomValue', 'zoomIn'],
 ];
+/** The panel switches sit in the menu bar, left of the window buttons. */
+const MENUBAR_PANELS = ['leftPanel', 'bottomPanel', 'rightPanel'];
 const TOOLBAR_RIGHT = ['tutorial', 'themeSplit', 'language', 'settings', 'about'];
 const LABELED = new Set(['addFolder', 'addFiles', 'exportMenu']);
 /** Main command of a toolbar entry (compound entries: what the » menu lists). */
@@ -1452,7 +1487,8 @@ function renderShell() {
               <div id="editor-host" class="md-editor"></div>
             </div>
             <div class="splitter vertical md-split" data-split="center" role="separator" aria-orientation="vertical"></div>
-            <div class="md-pane md-preview-pane"><div id="preview-scroll" class="md-preview-scroll"><article id="preview" class="preview markdown-body"></article></div></div>
+            <div class="md-pane md-preview-pane"><div id="preview-scroll" class="md-preview-scroll"><article id="preview" class="preview markdown-body"></article></div>
+              <div id="paged-host" class="md-paged" hidden><iframe class="paged-frame" title="${escapeHtml(t('view.pages'))}"></iframe><div class="paged-busy" hidden>${icon('hourglass', 'icon big')}<span>${escapeHtml(t('print.layingOut'))}</span></div></div></div>
           </div>
           <div id="start-page" hidden></div>
           <div class="drop-overlay" aria-hidden="true"><div>${icon('drop')}<span>${escapeHtml(t('drop.hint'))}</span></div></div>
@@ -1482,7 +1518,8 @@ function renderMenubar() {
   const button = (id, glyph, key) => `<button class="window-button ${id === 'close' ? 'close' : ''}" data-window="${id}" title="${escapeHtml(t(key))}" aria-label="${escapeHtml(t(key))}">${icon(glyph)}</button>`;
   const controls = desktop ? `<div class="window-controls">${button('minimize', 'winMinimize', 'window.minimize')}${state.maximized ? button('maximize', 'winRestore', 'window.restore') : button('maximize', 'winMaximize', 'window.maximize')}${button('close', 'winClose', 'window.close')}</div>` : '';
   const projectName = '<span class="menubar-project" data-window-drag><span class="app-brand-project-name" data-window-drag></span><span class="app-brand-dirty" data-window-drag>●</span></span>';
-  menubar.innerHTML = brand + home + Object.keys(MENUS).map((name) => `<button class="menubar-item ${state.openMenu === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true" title="${escapeHtml(t(`menu.${name}`))}">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('') + projectName + `<div class="menubar-drag" data-window-drag></div>${controls}`;
+  const panels = `<div class="menubar-panels" role="group" aria-label="${escapeHtml(t('submenu.show'))}">${MENUBAR_PANELS.map((id) => `<button class="tool-button mini menubar-panel" data-command="${id}" title="${escapeHtml(commandTip(id))}" aria-label="${escapeHtml(t(commands[id].label))}" aria-pressed="${Boolean(commands[id].checked())}">${icon(commands[id].icon)}</button>`).join('')}</div>`;
+  menubar.innerHTML = brand + home + Object.keys(MENUS).map((name) => `<button class="menubar-item ${state.openMenu === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true" title="${escapeHtml(t(`menu.${name}`))}">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('') + projectName + `<div class="menubar-drag" data-window-drag></div>${panels}${controls}`;
   renderTitleProject();
 }
 
@@ -1572,7 +1609,7 @@ function showToolbarMore(button) {
 }
 
 function renderToolbarState() {
-  for (const el of root.querySelectorAll('#toolbar [data-command], #tabs [data-command], .md-markbar [data-command], #left-panel [data-command]')) {
+  for (const el of root.querySelectorAll('#toolbar [data-command], #menubar [data-command], #tabs [data-command], .md-markbar [data-command], #left-panel [data-command]')) {
     const id = el.dataset.command;
     el.disabled = !commandEnabled(id);
     const checked = commands[id]?.checked?.();
@@ -1598,7 +1635,7 @@ function updateMinimumWidth() {
   const right = root.querySelector('.toolbar-right');
   if (!left || !right) return;
   requestAnimationFrame(() => {
-    const menus = [...root.querySelectorAll('.app-brand, .menubar-item, .window-controls')].reduce((sum, el) => sum + el.offsetWidth + 2, 48);
+    const menus = [...root.querySelectorAll('.app-brand, .menubar-item, .menubar-panels, .window-controls')].reduce((sum, el) => sum + el.offsetWidth + 2, 48);
     const width = Math.ceil(Math.max(menus, right.scrollWidth + 360));
     const screenWidth = window.screen?.availWidth || Infinity;
     const min = Math.min(screenWidth, Math.max(width, 900));
@@ -1754,6 +1791,10 @@ function renderPreview() {
   const host = root.querySelector('#preview');
   if (!host || !state.doc || state.showStart) return;
   if (!['preview', 'split'].includes(state.settings.centerTab)) return;
+  const paged = state.settings.previewMode !== 'flow';
+  root.querySelector('#preview-scroll').hidden = paged;
+  root.querySelector('#paged-host').hidden = !paged;
+  if (paged) { schedulePagedView(); return; }
   const body = state.doc.text;
   const key = JSON.stringify([D(), lang(), pageMap.key === pageMapKey() ? pageMap.map : null]);
   if (body === previewText && key === previewKey) { applyPreviewLook(); return; }
@@ -1766,6 +1807,63 @@ function renderPreview() {
   if (scroller) scroller.scrollTop = scroll;
   applyPreviewLook();
   schedulePageMap();
+}
+
+/** The preview mode (continuous · pages · two pages side by side). */
+function setPreviewMode(mode) {
+  updateSettings({ previewMode: mode }, { quiet: true });
+  if (!['preview', 'split'].includes(state.settings.centerTab)) setCenterTab('preview');
+  renderPreview();
+  renderToolbarState();
+}
+
+/** The page views: the document laid out in pages exactly as it prints (paged.js, the print window's setup). */
+let pagedKey = '';
+let pagedTimer = 0;
+let pagedRunning = false;
+function schedulePagedView() {
+  clearTimeout(pagedTimer);
+  const frame = root.querySelector('.paged-frame');
+  const key = JSON.stringify([state.doc?.text ?? '', D(), lang(), state.settings.print ?? null]);
+  if (key === pagedKey && frame?.contentDocument?.querySelector('.pagedjs_page')) { applyPagedLook(); return; }
+  pagedTimer = setTimeout(async () => {
+    if (pagedRunning) { schedulePagedView(); return; }
+    const d = state.doc;
+    if (!d || state.settings.previewMode === 'flow') return;
+    pagedRunning = true;
+    const busy = root.querySelector('.paged-busy');
+    busy.hidden = false;
+    try {
+      const top = frame.contentWindow?.scrollY ?? 0;
+      const html = await buildPrintHtml(d.text, exportOpts(), exportName());
+      await layoutPreview(frame, html, normalizePrint(state.settings.print));
+      pagedKey = key;
+      applyPagedLook();
+      frame.contentWindow?.scrollTo(0, top);
+    } catch (error) {
+      console.warn('page view', error);
+    } finally {
+      pagedRunning = false;
+      busy.hidden = true;
+    }
+  }, pagedKey ? 700 : 50);
+}
+
+/** One page or two pages a row, at the zoom of the toolbar (100 %: the pages fit the width). */
+function applyPagedLook() {
+  const frame = root.querySelector('.paged-frame');
+  const doc = frame?.contentDocument;
+  if (!doc?.documentElement || !doc.querySelector('.pagedjs_page')) return;
+  const spread = state.settings.previewMode === 'spread';
+  const pagePx = (sheetOf(normalizePrint(state.settings.print))[0] * 96) / 25.4;
+  const fit = Math.min(1.25, (frame.clientWidth - 64) / (spread ? pagePx * 2 + 24 : pagePx));
+  doc.documentElement.style.zoom = String(Math.max(0.2, fit * (state.settings.docZoom / 100)));
+  const pages = doc.querySelector('.pagedjs_pages');
+  if (pages) {
+    pages.style.cssText = spread
+      ? `display:grid !important;grid-template-columns:repeat(2, ${Math.ceil(pagePx)}px);justify-content:center;gap:24px !important;padding:24px 0 40px !important`
+      : '';
+  }
 }
 
 /** After the text settles, the document is laid out in A4 pages once (paged.js, in a hidden frame) to number the contents. */
@@ -2183,8 +2281,8 @@ async function openThemePicker(anchor) {
   handlers['custom:theme-edit'] = () => popups.open('settings', { tab: 'appearance', themeGroup: 'custom' });
   handlers['custom:theme-random'] = () => updateSettings({ theme: randomThemeId(current) });
   const items = [
-    // one row: follow the system · the custom theme · its settings
-    { columns: [[item(SYSTEM, 'monitor')], [item(customTheme(state.settings.customTheme), 'palette')], [{ id: 'custom:theme-edit', label: t('theme.customSettings'), icon: 'gear' }]], row: true },
+    // one row: the custom theme · its settings
+    { columns: [[item(customTheme(state.settings.customTheme), 'palette')], [{ id: 'custom:theme-edit', label: t('theme.customSettings'), icon: 'gear' }]], row: true },
     { separator: true },
     { columns: [DARK_THEMES.map((x) => item(x)), LIGHT_THEMES.map((x) => item(x))], heads: [t('theme.darkGroup', { count: DARK_THEMES.length }), t('theme.lightGroup', { count: LIGHT_THEMES.length })], headIcons: ['moon', 'sun'] },
     { separator: true },
@@ -2363,6 +2461,10 @@ async function showMenu(items, anchor, name = 'context', context = {}) {
     const at = result.at ?? anchor;
     return showMenu(menuItems(SUBMENUS[key].items), { x: at.x, y: at.y, flipY: at.flipY ?? at.y }, name, { ...context, header: { icon: SUBMENUS[key].icon, title: t(`submenu.${key}`) } });
   }
+  // The menu window hides itself just after sending its choice; a command that opens a dialog right away
+  // (the save dialog of an export) would hold that up and the menu would stay on screen behind it until the
+  // dialog closes. Wait for it to be gone first.
+  await popups.whenHidden('menu');
   if (id.startsWith('custom:')) return context.handlers?.[id]?.();
   return run(id, context);
 }
@@ -2609,10 +2711,24 @@ function bindEvents() {
     const rows = [...list.querySelectorAll('.file-row')];
     const row = rows[from];
     let to = from;
+    // The silhouette: a see-through copy of the row that follows the pointer while the row itself waits faded.
+    const rect = row.getBoundingClientRect();
+    const grabX = event.clientX - rect.left;
+    const grabY = event.clientY - rect.top;
+    let ghost = null;
     row.classList.add('dragging');
     pointerDrag(event, {
       cursor: 'grabbing',
       move: (dx, dy, e) => {
+        if (!ghost) {
+          ghost = row.cloneNode(true);
+          ghost.classList.remove('dragging');
+          ghost.classList.add('file-ghost');
+          ghost.removeAttribute('data-file');
+          ghost.style.width = `${rect.width}px`;
+          document.body.append(ghost);
+        }
+        ghost.style.transform = `translate(${e.clientX - grabX}px, ${e.clientY - grabY}px)`;
         to = rows.findIndex((r) => { const rect = r.getBoundingClientRect(); return e.clientY < rect.top + rect.height / 2; });
         if (to < 0) to = rows.length;
         if (to > from) to -= 1;
@@ -2620,7 +2736,7 @@ function bindEvents() {
         const mark = rows[to];
         if (mark) mark.classList.add(to > from ? 'drop-after' : 'drop-before');
       },
-      end: (e, moved) => { row.classList.remove('dragging'); for (const r of rows) r.classList.remove('drop-before', 'drop-after'); if (moved) reorderFile(from, Math.max(0, Math.min(rows.length - 1, to))); },
+      end: (e, moved) => { ghost?.remove(); row.classList.remove('dragging'); for (const r of rows) r.classList.remove('drop-before', 'drop-after'); if (moved) reorderFile(from, Math.max(0, Math.min(rows.length - 1, to))); },
     });
   });
 
@@ -2719,7 +2835,7 @@ function bindEvents() {
     setZoom(state.settings.docZoom + (event.deltaY < 0 ? DOC_ZOOM.step : -DOC_ZOOM.step));
   }, { passive: false });
 
-  window.addEventListener('resize', frameThrottle(() => { fitToolbar(); if (desktop && state.minWidth && window.innerWidth < state.minWidth - 1) native.setMinimumSize(state.minWidth, 600).catch(() => {}); }));
+  window.addEventListener('resize', frameThrottle(() => { fitToolbar(); applyPagedLook(); if (desktop && state.minWidth && window.innerWidth < state.minWidth - 1) native.setMinimumSize(state.minWidth, 600).catch(() => {}); }));
   document.addEventListener('keydown', onKeyDown, true);
 
   window.addEventListener('storage', (event) => {
@@ -2761,7 +2877,7 @@ function onKeyDown(event) {
   const inEditor = Boolean(event.target.closest?.('#editor-host'));
   const editing = !inEditor && event.target.closest?.('input, textarea, select, [contenteditable="true"]');
   const mod = event.ctrlKey || event.metaKey;
-  if (event.altKey && !mod && ['1', '2', '3'].includes(key) && hasDoc()) { event.preventDefault(); run(['view:edit', 'view:preview', 'view:split'][Number(key) - 1]); return; }
+  if (event.altKey && !mod && ['1', '2', '3', '4', '5', '6'].includes(key) && hasDoc()) { event.preventDefault(); run(['view:edit', 'view:preview', 'view:split', 'page:flow', 'page:pages', 'page:spread'][Number(key) - 1]); return; }
   if (mod && !event.altKey) {
     if (editing && ['x', 'c', 'v', 'z', 'y', 'a'].includes(key)) return;
     // In the editor its own keys win (Ctrl+B, Ctrl+1…5 …, editor.js); Ctrl+F opens its find panel.

@@ -13,7 +13,7 @@ import { COVER_LOGO_HEIGHT, COVER_LOGO_POSITIONS, LOGO_HEIGHT, ALIGNS, COVER_TIT
 import { getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
 import * as native from './platform/native.js';
-import { POPUPS, popupParams } from './platform/popups.js';
+import { forPopup, POPUPS, popupParams } from './platform/popups.js';
 import {
   applyFont, applyTheme, contrast, CUSTOM, CUSTOM_KEYS, customFrom, DARK_THEMES, LIGHT_THEMES, resolveTheme, SYSTEM, themeName,
 } from './themes.js';
@@ -501,7 +501,7 @@ export const SHORTCUT_LIST = [
   ['Ctrl+N', 'action.newDoc'], ['Ctrl+O', 'action.openDoc'], ['Ctrl+Shift+O', 'action.addFolder'], ['Ctrl+Shift+A', 'action.addFiles'], ['Ctrl+S', 'action.save'], ['Ctrl+Shift+S', 'action.saveAs'],
   ['Ctrl+E', 'action.export'], ['Ctrl+P', 'action.print'], ['Ctrl+W', 'action.closeDoc'], ['Ctrl+Z', 'action.undo'], ['Ctrl+Y', 'action.redo'], ['Ctrl+F', 'action.find'],
   ['Ctrl+B', 'md.bold'], ['Ctrl+I', 'md.italic'], ['Ctrl+K', 'md.link'], ['Ctrl+1…5', 'shortcut.headings'], ['F5', 'action.remerge'], ['F7', 'action.renumber'],
-  ['Alt+1 / 2 / 3', 'shortcut.views'], ['Ctrl+= / Ctrl+-', 'shortcut.zoom'], ['Ctrl+0', 'action.zoomReset'], ['Ctrl+Shift+1 / 2', 'shortcut.panels'], ['Ctrl+J', 'action.bottomPanel'],
+  ['Alt+1 … 6', 'shortcut.views'], ['Ctrl+= / Ctrl+-', 'shortcut.zoom'], ['Ctrl+0', 'action.zoomReset'], ['Ctrl+Shift+1 / 2', 'shortcut.panels'], ['Ctrl+J', 'action.bottomPanel'],
   ['Ctrl+Shift+L', 'action.language'], ['Ctrl+Shift+H', 'action.startPage'], ['Ctrl+Shift+B', 'action.shuffleBackground'], ['Ctrl+R', 'action.recent'], ['Ctrl+,', 'action.settings'],
   ['F11', 'action.tutorial'], ['F1', 'action.about'], ['Esc', 'shortcut.escape'],
 ];
@@ -1335,8 +1335,10 @@ function refresh() {
 }
 
 if (desktop) {
-  native.listen('popup-message', onHostMessage);
-  native.listen('popup-refresh', () => refresh());
+  // Tauri delivers these to every window that listens, whichever one they were sent to: each popup only
+  // takes its own (a hidden menu that redrew for the progress window's refresh would show itself again).
+  native.listen('popup-message', (message) => { if (forPopup(kind, message?.to)) onHostMessage(message); });
+  native.listen('popup-refresh', (target) => { if (forPopup(kind, target)) refresh(); });
   if (kind === 'progress') {
     // The elapsed seconds keep counting during a long step that sends no news (the job is still alive).
     setInterval(() => {
