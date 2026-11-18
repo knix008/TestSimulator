@@ -1,6 +1,6 @@
 # MyWorkForce User's Guide
 
-MyWorkForce keeps a company's work in one place. **Projects** and **issues** plan and track what has to be done (boards, backlog, sprints, roadmap, timeline), and **pages** in **workspaces** hold what people need to know, written together. Everyone in the company signs in with their own account and sees the same data. A companion chat program, **MyWorkForce Talk**, comes with it.
+MyWorkForce keeps a company's work in one place. **Projects** and **issues** plan and track what has to be done (boards, backlog, sprints, roadmap, timeline), and **pages** in **workspaces** hold what people need to know, written together. Everyone in the company signs in with their own account and sees the same data. A companion chat program, **MyWorkForce Chatting**, comes with it.
 
 Read the chapters in order from the contents on the left, or jump to the one you need. **Find** at the top searches the guide, **−/+** changes the text size (Ctrl + / Ctrl −), **한국어 / English** switches the language, and **Print** puts it on paper or into a PDF. The pictures are the program's real screens; click one to see it filling the window.
 
@@ -8,9 +8,9 @@ Read the chapters in order from the contents on the left, or jump to the one you
 
 ### Installing and running
 
-The installer first asks for the language: **한국어** or **English**. The installation runs in that language, and the first start afterwards opens MyWorkForce, Talk and the tray menu in it. Change it later with the language button on the toolbar (Ctrl+Shift+L).
+The installer first asks for the language: **한국어** or **English**. The installation runs in that language, and the first start afterwards opens MyWorkForce, Chatting and the tray menu in it. Change it later with the language button on the toolbar (Ctrl+Shift+L).
 
-The installer puts **MyWorkForce** and **MyWorkForce Talk** in the Start menu. The program starts its own data service (port `1481` inside the company), so there is nothing else to run. In a web browser, open the address your administrator gives you.
+The installer puts **MyWorkForce** and **MyWorkForce Chatting** in the Start menu. The program starts its own data service (port `1481` inside the company), so there is nothing else to run. In a web browser, open the address your administrator gives you.
 
 ### Signing in
 
@@ -42,7 +42,7 @@ Drag a card by its handle and resize it from its bottom-right corner. The backgr
 | Part | Contents |
 | --- | --- |
 | Menu bar | Start, File, Edit, View, Issue, Plan, Help, Admin; it is also the title bar, and at its right end (left of Minimize) are the buttons that show and hide the left and right panels |
-| Toolbar | Project picker, search box, **magnifier** (search everything), Go to (Ctrl+K), new issue, notifications, Talk, who is signed in, sign out, language, theme, About |
+| Toolbar | Project picker, search box, **magnifier** (search everything), Go to (Ctrl+K), new issue, notifications, Chatting, who is signed in, sign out, language, theme, About |
 | Left navigation | Sections: **Company** (teams, projects, documents, work calendar, plan), **Workspaces** (workspaces with their page trees, new workspace), **My work** (my teams, my projects), **This project** (the open project's screens), **Administrator menu**. Click a section title to fold it; folded sections stay folded next time |
 | Centre | The chosen screen |
 | Right panel | Details and properties of the chosen issue, page or workspace, in sections like the left panel; click a section title to fold it, and folded sections stay folded next time |
@@ -191,15 +191,15 @@ The **magnifier** on the toolbar (Ctrl+Shift+F) opens **Search everything**: pro
 - Click a result to go there; files can be downloaded straight away.
 - Words in the toolbar search box plus Enter open the same search; WQL such as `status = done` opens the issue list.
 
-## Notifications and Talk
+## Notifications and Chatting
 
 ### Notifications
 
 The bell on the toolbar shows how many notifications are unread. **Notifications** lists project notices (assignment, comments, status changes, watched pages) and company notices (mentions, changes to company and team pages). Click one to open its issue or page; **Mark all read** clears them. **Notification settings** below choose what each project, page, document and issue sends.
 
-### MyWorkForce Talk
+### MyWorkForce Chatting
 
-**Talk** on the toolbar opens MyWorkForce Talk: chat with one person or a group and send files. The icon column on the left is notices, talks, people, invite, my details, language, the work program, password and sign out.
+**Chatting** on the toolbar opens MyWorkForce Chatting: chat with one person or a group and send files. The icon column on the left is notices, talks, people, invite, my details, language, the work program, password and sign out.
 
 - Work notices pile up in each person's own **Notices** room. Each starts with what happened, such as "You were mentioned" or "Page comment"; click it to open the issue or page in the main window (pages open ready to write).
 - In messages, `@` brings up the list of people, and `@name` stands out.
@@ -282,7 +282,7 @@ Printing happens in a print window of its own. Choices on the left change the pr
 **Settings** and **About** open in windows of their own. Look, fonts, language and the start page changed in the settings window apply to the main window at once.
 
 
-Settings come as grouped cards: **General** (start page, background, look, font, theme), **This computer and sign-in** (start MyWorkForce and Talk with the computer, automatic sign-in, sign-in lock), **Data** (database and schema) and **Notifications** (mail server).
+Settings come as grouped cards: **General** (start page, background, look, font, theme), **This computer and sign-in** (start MyWorkForce and Chatting with the computer, automatic sign-in, sign-in lock), **Data** (database and schema) and **Notifications** (mail server).
 
 - **Sign-in lock** (administrators): how long an account waits after 5 failed sign-ins in a row — 10, 20 or 30 minutes, 1, 2, 3, 6 or 12 hours, 1, 2 or 7 days, or **Custom…** in minutes, hours or days. It cannot be shorter than 10 minutes; the longest is 30 days. **Refresh** lists the accounts locked now and **Unlock** lets one sign in again at once.
 - **Database**: SQLite on this computer by default, or MySQL, MariaDB, SQL Server or PostgreSQL. The first connection creates any missing tables and brings the schema up to date (with **Create the database if it is missing** it creates the database too). Administrators see the tables and get SQL for a DBA on the **Schema** card.

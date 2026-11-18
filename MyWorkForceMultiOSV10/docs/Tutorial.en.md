@@ -68,7 +68,7 @@ This document walks through MyWorkForce's main features with the **Online shop**
 1. Click the **magnifier** on the toolbar (Ctrl+Shift+F) and search for `payment`. Projects, issues, pages, comments and files come back by kind.
 2. Click a result to go there.
 3. When a colleague calls you with `@name`, the bell on the toolbar gets a number; click the notice under **Notifications** to go to the page.
-4. Open MyWorkForce Talk with **Talk** to see your notices room and chats.
+4. Open MyWorkForce Chatting with **Chatting** to see your notices room and chats.
 
 ## 10. Next steps
 

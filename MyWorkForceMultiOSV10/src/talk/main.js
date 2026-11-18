@@ -7,7 +7,7 @@ import { openMain } from '../platform/native.js';
 
 const text = {
   ko: {
-    product: 'MyWorkForce Talk',
+    product: 'MyWorkForce 대화방',
     hint: '같은 회사 사람과 대화하고, 작업 알림을 받습니다.',
     account: 'ID',
     password: 'Password',
@@ -39,7 +39,7 @@ const text = {
     signIn: '로그인',
     signOut: '로그아웃',
     notices: '알림',
-    talks: '대화',
+    talks: '대화방',
     people: '사람',
     group: '단체 대화',
     groupName: '대화 이름',
@@ -80,8 +80,8 @@ const text = {
     },
   },
   en: {
-    product: 'MyWorkForce Talk',
-    hint: 'Talk with people in this company and receive work notices.',
+    product: 'MyWorkForce Chatting',
+    hint: 'Chat with people in this company and receive work notices.',
     account: 'ID',
     password: 'Password',
     changeTitle: 'Choose a new password',
@@ -112,10 +112,10 @@ const text = {
     signIn: 'Sign in',
     signOut: 'Sign out',
     notices: 'Notices',
-    talks: 'Talks',
+    talks: 'Chats',
     people: 'People',
     group: 'Group talk',
-    groupName: 'Talk name',
+    groupName: 'Chat name',
     create: 'Create',
     needTwo: 'Choose at least two people.',
     empty: 'Choose a talk, or press a person.',
@@ -145,7 +145,7 @@ const text = {
     inviteHint: 'Invite more people into this personal talk.',
     inviteNeed: 'Choose a personal talk first.',
     inviteDone: 'Invited.',
-    back: 'Talks',
+    back: 'Chats',
     openPage: 'Open this page',
     kinds: {
       created: 'New issue', assign: 'Assignment', comment: 'Issue comment', transition: 'Status change', worklog: 'Work logged',

@@ -95,8 +95,11 @@ export function renderMenubar(ctx) {
     item('new-sprint', 'play', L('스프린트 만들기', 'New sprint'), '', 'Ctrl+Shift+P'),
     item('go', 'roadmap', L('로드맵', 'Roadmap'), 'data-view="roadmap"', 'Ctrl+4'),
   ].join('');
+  const chat = [
+    item('open-talk', 'comment', L('대화방 열기', 'Open Chatting'), '', ''),
+    item('go', 'bell', L('알림', 'Notifications'), 'data-view="notifications"'),
+  ].join('');
   const help = [
-    item('open-talk', 'comment', L('대화', 'Talk'), '', ''),
     item('open-guide', 'book', L('사용 설명서', "User's guide"), 'data-id="guide"', 'F1'),
     item('open-guide', 'play', L('튜토리얼 문서', 'Tutorial document'), 'data-id="tutorial"'),
     item('open-guide', 'filter', L('WQL 설명서', 'WQL guide'), 'data-id="wql"'),
@@ -131,6 +134,7 @@ export function renderMenubar(ctx) {
     ${menu(ctx, 'view', L('보기', 'View'), 'eye', view)}
     ${menu(ctx, 'issue', L('이슈', 'Issue'), 'issues', issue)}
     ${menu(ctx, 'plan', L('계획', 'Plan'), 'roadmap', plan)}
+    ${menu(ctx, 'chat', L('대화방', 'Chatting'), 'comment', chat)}
     ${menu(ctx, 'help', L('도움말', 'Help'), 'help', help)}
     </span>
     ${administrator ? `<span class="menubar-split"></span>${menu(ctx, 'admin', L('관리자', 'Administrator'), 'settings', administrator, ' menu-admin')}` : ''}
@@ -214,7 +218,7 @@ export function renderToolbar(ctx) {
       <button type="button" class="tool-button" data-action="new-issue" title="${esc(L('새 이슈', 'New issue'))} · Ctrl+N" aria-label="${esc(L('새 이슈', 'New issue'))}">${icon('plus')}</button>
       <span class="grow"></span>
       <button type="button" class="tool-button" data-action="go" data-view="notifications" title="${esc(L('알림', 'Notifications'))}" aria-label="${esc(L('알림', 'Notifications'))}">${icon('bell')}${unread ? `<i class="dot">${unread}</i>` : ''}</button>
-      <button type="button" class="tool-button" data-action="open-talk" title="${esc(L('대화 프로그램 열기', 'Open Talk'))}" aria-label="${esc(L('대화', 'Talk'))}">${icon('comment')}</button>
+      <button type="button" class="tool-button" data-action="open-talk" title="${esc(L('대화방 열기', 'Open Chatting'))}" aria-label="${esc(L('대화방', 'Chatting'))}">${icon('comment')}</button>
       <span class="signed-in" title="${esc(`${L('로그인한 사람', 'Signed in')}: ${ctx.user?.name || ''}${ctx.user?.login ? ` (${ctx.user.login})` : ''}`)}">${ctx.user ? avatar(ctx.user) : ''}</span>
       <button type="button" class="tool-button" data-action="sign-out" title="${esc(L('로그아웃', 'Sign out'))}" aria-label="${esc(L('로그아웃', 'Sign out'))}">${icon('logout')}</button>
       <button type="button" class="tool-button" data-action="language" title="${esc(L('언어: 한국어 → English', 'Language: English → 한국어'))} · Ctrl+Shift+L" aria-label="${esc(L('언어', 'Language'))}">${icon('globe')}</button>

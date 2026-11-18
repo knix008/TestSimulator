@@ -41,8 +41,8 @@ export function startupFields(ctx) {
   const settings = ctx.settings || {};
   const saved = savedLogin() || {};
   const account = saved.account || ctx.ui?.loginAccount || '';
-  return `<p class="muted">${L('부팅할 때 MyWorkForce와 Talk을 함께 열고, 저장한 계정으로 들어갑니다.', 'When the system starts, open MyWorkForce and Talk together, and sign in with the saved account.')}</p>
-    <label class="check"><input type="checkbox" data-setting="launchAtStartup" ${settings.launchAtStartup ? 'checked' : ''}>${L('부팅할 때 MyWorkForce와 Talk을 실행', 'Start MyWorkForce and Talk when the system starts')}</label>
+  return `<p class="muted">${L('부팅할 때 MyWorkForce와 대화방을 함께 열고, 저장한 계정으로 들어갑니다.', 'When the system starts, open MyWorkForce and Chatting together, and sign in with the saved account.')}</p>
+    <label class="check"><input type="checkbox" data-setting="launchAtStartup" ${settings.launchAtStartup ? 'checked' : ''}>${L('부팅할 때 MyWorkForce와 대화방을 실행', 'Start MyWorkForce and Chatting when the system starts')}</label>
     <label class="check"><input type="checkbox" data-setting="autoLogin" ${settings.autoLogin ? 'checked' : ''}>${L('시작할 때 자동 로그인', 'Sign in when the program opens')}</label>
     <label class="form-row"><span>${L('계정', 'Account')}</span><input data-autologin="account" value="${esc(account)}" autocomplete="username"></label>
     <label class="form-row"><span>${L('암호', 'Password')}</span><input data-autologin="password" type="password" placeholder="${esc(saved.password ? L('저장됨', 'Saved') : '')}" autocomplete="new-password"></label>`;

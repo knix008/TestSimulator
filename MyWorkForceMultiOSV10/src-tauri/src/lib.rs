@@ -107,10 +107,19 @@ fn quit_all(app: &tauri::AppHandle) {
     app.exit(0);
 }
 
+/// The main window's close ends the program. The chat window's close ends it only when the chat window is the
+/// program's only window (started from its own shortcut); with the main window open it closes just itself.
 fn bind_close(window: &tauri::WebviewWindow) {
     let app = window.app_handle().clone();
+    let label = window.label().to_string();
     window.on_window_event(move |event| {
         if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            if QUITTING.load(Ordering::SeqCst) {
+                return;
+            }
+            if label == "talk" && app.get_webview_window("main").is_some() {
+                return;
+            }
             api.prevent_close();
             quit_all(&app);
         }
@@ -124,7 +133,7 @@ fn open_talk_window(app: &tauri::AppHandle) -> Result<(), String> {
         window.set_focus().map_err(|error| error.to_string())?;
         return Ok(());
     }
-    let title = format!("MyWorkForce Talk v{}", app.package_info().version);
+    let title = tr!("MyWorkForce 대화방 v{}", "MyWorkForce Chatting v{}", app.package_info().version);
     let builder = WebviewWindowBuilder::new(app, "talk", WebviewUrl::App("chat.html".into()))
         .title(title)
         .inner_size(980.0, 720.0)
@@ -198,7 +207,7 @@ fn install_tray(app: &tauri::AppHandle) -> Result<(), String> {
         return Ok(());
     }
     let show_main = MenuItem::with_id(app, "show-main", "MyWorkForce", true, None::<&str>).map_err(|error| error.to_string())?;
-    let show_talk = MenuItem::with_id(app, "show-talk", "MyWorkForce Talk", true, None::<&str>).map_err(|error| error.to_string())?;
+    let show_talk = MenuItem::with_id(app, "show-talk", if i18n::english() { "MyWorkForce Chatting" } else { "MyWorkForce 대화방" }, true, None::<&str>).map_err(|error| error.to_string())?;
     let quit = MenuItem::with_id(app, "quit", if i18n::english() { "Quit" } else { "종료" }, true, None::<&str>).map_err(|error| error.to_string())?;
     if let Ok(mut guard) = QUIT_ITEM.lock() {
         *guard = Some(quit.clone());

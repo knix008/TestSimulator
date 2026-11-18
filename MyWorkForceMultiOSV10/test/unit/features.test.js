@@ -772,7 +772,7 @@ describe('Screens', () => {
     assert.doesNotMatch(renderView(context('project-settings')), /id="server-form"/);
     assert.match(html, /data-setting="launchAtStartup"/);
     assert.match(html, /data-setting="autoLogin"/);
-    assert.match(html, /Start MyWorkForce and Talk when the system starts/);
+    assert.match(html, /Start MyWorkForce and Chatting when the system starts/);
     assert.match(html, /Sign in when the program opens/);
     assert.doesNotMatch(html, /data-setting="launchAtStartup" checked/);
     assert.doesNotMatch(html, /data-setting="autoLogin" checked/);

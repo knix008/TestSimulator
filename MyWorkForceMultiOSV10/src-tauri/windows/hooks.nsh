@@ -19,11 +19,28 @@
   FileClose $1
   Pop $1
   Pop $0
-  CreateShortcut "$SMPROGRAMS\$AppStartMenuFolder\MyWorkForce Talk.lnk" "$INSTDIR\${MAINBINARYNAME}.exe" "--talk"
-  CreateShortcut "$DESKTOP\MyWorkForce Talk.lnk" "$INSTDIR\${MAINBINARYNAME}.exe" "--talk"
+  ; The chat program's shortcuts ("대화방" / "Chatting"); the earlier "Talk" ones go.
+  Delete "$SMPROGRAMS\$AppStartMenuFolder\MyWorkForce Talk.lnk"
+  Delete "$DESKTOP\MyWorkForce Talk.lnk"
+  Delete "$SMPROGRAMS\$AppStartMenuFolder\MyWorkForce 대화방.lnk"
+  Delete "$DESKTOP\MyWorkForce 대화방.lnk"
+  Delete "$SMPROGRAMS\$AppStartMenuFolder\MyWorkForce Chatting.lnk"
+  Delete "$DESKTOP\MyWorkForce Chatting.lnk"
+  StrCmp $LANGUAGE 1042 0 mwf_chat_en
+    CreateShortcut "$SMPROGRAMS\$AppStartMenuFolder\MyWorkForce 대화방.lnk" "$INSTDIR\${MAINBINARYNAME}.exe" "--talk"
+    CreateShortcut "$DESKTOP\MyWorkForce 대화방.lnk" "$INSTDIR\${MAINBINARYNAME}.exe" "--talk"
+    Goto mwf_chat_done
+  mwf_chat_en:
+  CreateShortcut "$SMPROGRAMS\$AppStartMenuFolder\MyWorkForce Chatting.lnk" "$INSTDIR\${MAINBINARYNAME}.exe" "--talk"
+  CreateShortcut "$DESKTOP\MyWorkForce Chatting.lnk" "$INSTDIR\${MAINBINARYNAME}.exe" "--talk"
+  mwf_chat_done:
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL
   Delete "$SMPROGRAMS\$AppStartMenuFolder\MyWorkForce Talk.lnk"
   Delete "$DESKTOP\MyWorkForce Talk.lnk"
+  Delete "$SMPROGRAMS\$AppStartMenuFolder\MyWorkForce 대화방.lnk"
+  Delete "$DESKTOP\MyWorkForce 대화방.lnk"
+  Delete "$SMPROGRAMS\$AppStartMenuFolder\MyWorkForce Chatting.lnk"
+  Delete "$DESKTOP\MyWorkForce Chatting.lnk"
 !macroend
