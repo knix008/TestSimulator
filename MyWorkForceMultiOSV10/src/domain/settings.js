@@ -83,6 +83,18 @@ export function saveSettings() {
 }
 
 /** First launch after an installer reset marker: preferences return to defaults once per token. */
+/** Applies the installer's language once (by its token), over the language kept from an earlier install. */
+export function applyInstallLanguage(language, token) {
+  const settings = loadSettings();
+  if (language !== 'ko' && language !== 'en') return settings;
+  const seen = globalThis.localStorage?.getItem('myworkforce-install-language');
+  if (token && seen === token) return settings;
+  settings.language = language;
+  saveSettings();
+  if (token) globalThis.localStorage?.setItem('myworkforce-install-language', token);
+  return settings;
+}
+
 export function applyInstall(token, language) {
   const settings = loadSettings();
   if (token && globalThis.localStorage?.getItem('myworkforce-install') !== token) {

@@ -1,11 +1,12 @@
 import './styles.css';
 import { start } from './app.js';
 import { startViewer } from './ui/docwindow.js';
-import { applyInstall, loadSettings } from './domain/settings.js';
+import { applyInstall, applyInstallLanguage, loadSettings } from './domain/settings.js';
 import { setLanguage } from './i18n.js';
 import { applyFont, applyTheme, resolveTheme } from './themes.js';
 
-const settings = applyInstall(globalThis.__MYWORKFORCE_INSTALL_RESET__, globalThis.__MYWORKFORCE_INSTALL_LANGUAGE__);
+applyInstall(globalThis.__MYWORKFORCE_INSTALL_RESET__, globalThis.__MYWORKFORCE_INSTALL_LANGUAGE__);
+const settings = applyInstallLanguage(globalThis.__MYWORKFORCE_INSTALL_LANGUAGE__, globalThis.__MYWORKFORCE_INSTALL_LANGUAGE_TOKEN__);
 loadSettings();
 setLanguage(settings.language);
 const dark = globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches;

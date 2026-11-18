@@ -49,6 +49,28 @@ fn app_info(app: tauri::AppHandle) -> AppInfo {
     }
 }
 
+/// The language chosen in the installer, read once (the installer's marker is removed when read), as
+/// "ko" or "en" with a token so each window applies it only once.
+static INSTALL_LANGUAGE: std::sync::OnceLock<Option<(String, String)>> = std::sync::OnceLock::new();
+
+fn install_language(app: &tauri::AppHandle) -> Option<(String, String)> {
+    INSTALL_LANGUAGE
+        .get_or_init(|| {
+            let path = window_state::state_file(app)?;
+            let language = window_state::take_install_language(&path)?;
+            // The program's own words (tray menu, dialogs) follow it straight away.
+            i18n::set_english(language == "en");
+            let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|time| time.as_millis()).unwrap_or(0);
+            Some((language.to_string(), format!("{language}-{stamp}")))
+        })
+        .clone()
+}
+
+/// The script that tells a window the installer's language (none when there is no new one).
+fn install_language_script(app: &tauri::AppHandle) -> Option<String> {
+    install_language(app).map(|(language, token)| format!("window.__MYWORKFORCE_INSTALL_LANGUAGE__ = '{language}'; window.__MYWORKFORCE_INSTALL_LANGUAGE_TOKEN__ = '{token}';"))
+}
+
 #[tauri::command]
 fn set_language(language: String) {
     i18n::set_english(language == "en");
@@ -103,11 +125,16 @@ fn open_talk_window(app: &tauri::AppHandle) -> Result<(), String> {
         return Ok(());
     }
     let title = format!("MyWorkForce Talk v{}", app.package_info().version);
-    let window = WebviewWindowBuilder::new(app, "talk", WebviewUrl::App("chat.html".into()))
+    let builder = WebviewWindowBuilder::new(app, "talk", WebviewUrl::App("chat.html".into()))
         .title(title)
         .inner_size(980.0, 720.0)
         .min_inner_size(720.0, 480.0)
-        .center()
+        .center();
+    let builder = match install_language_script(app) {
+        Some(script) => builder.initialization_script(script),
+        None => builder,
+    };
+    let window = builder
         .build()
         .map_err(|error| error.to_string())?;
     bind_close(&window);
@@ -123,7 +150,6 @@ fn open_main_window(app: &tauri::AppHandle) -> Result<(), String> {
     }
     let state_path = window_state::state_file(app);
     let install_reset = state_path.as_deref().and_then(window_state::take_install_reset);
-    let install_language = state_path.as_deref().and_then(window_state::take_install_language);
     let placement = state_path.as_deref().and_then(|path| window_state::saved_placement(app, path));
     let title = format!("MyWorkForce v{}", app.package_info().version);
     let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
@@ -141,8 +167,8 @@ fn open_main_window(app: &tauri::AppHandle) -> Result<(), String> {
         )),
         None => builder,
     };
-    let builder = match install_language {
-        Some(language) => builder.initialization_script(format!("window.__MYWORKFORCE_INSTALL_LANGUAGE__ = '{language}';")),
+    let builder = match install_language_script(app) {
+        Some(script) => builder.initialization_script(script),
         None => builder,
     };
     let builder = match placement {
@@ -323,6 +349,8 @@ pub fn run() {
                 let state = app.state::<Mutex<AppState>>();
                 state.lock().expect("startup files").startup_files = files::startup_paths(std::env::args().skip(1));
             }
+            // The installer's language first: the windows and the tray menu all start in it.
+            let _ = install_language(app.handle());
             let talk_only = std::env::args().any(|arg| arg == "--talk");
             if talk_only {
                 open_talk_window(app.handle())?;

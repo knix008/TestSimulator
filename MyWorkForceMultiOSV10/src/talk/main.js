@@ -237,6 +237,16 @@ function rememberFaces() {
 }
 
 function loadLanguage() {
+  // Talk may be the first window after installing: it takes the installer's language too.
+  const installed = globalThis.__MYWORKFORCE_INSTALL_LANGUAGE__;
+  const token = globalThis.__MYWORKFORCE_INSTALL_LANGUAGE_TOKEN__;
+  try {
+    if ((installed === 'ko' || installed === 'en') && localStorage.getItem('myworkforce-install-language') !== token) {
+      const kept = JSON.parse(localStorage.getItem('myworkforce-settings') || '{}');
+      localStorage.setItem('myworkforce-settings', JSON.stringify({ ...kept, language: installed }));
+      if (token) localStorage.setItem('myworkforce-install-language', token);
+    }
+  } catch { /* storage is off: the default language is used */ }
   try {
     const settings = JSON.parse(localStorage.getItem('myworkforce-settings') || '{}');
     state.language = settings.language === 'en' ? 'en' : 'ko';

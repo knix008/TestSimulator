@@ -8,6 +8,8 @@ Read the chapters in order from the contents on the left, or jump to the one you
 
 ### Installing and running
 
+The installer first asks for the language: **한국어** or **English**. The installation runs in that language, and the first start afterwards opens MyWorkForce, Talk and the tray menu in it. Change it later with the language button on the toolbar (Ctrl+Shift+L).
+
 The installer puts **MyWorkForce** and **MyWorkForce Talk** in the Start menu. The program starts its own data service (port `1481` inside the company), so there is nothing else to run. In a web browser, open the address your administrator gives you.
 
 ### Signing in
