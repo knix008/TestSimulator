@@ -36,11 +36,11 @@ Drag a card by its handle and resize it from its bottom-right corner. The backgr
 
 | Part | Contents |
 | --- | --- |
-| Menu bar | Start, File, Edit, View, Issue, Plan, Help, Admin; it is also the title bar |
-| Toolbar | Project picker, search box, **magnifier** (search everything), Go to (Ctrl+K), new issue, notifications, Talk, who is signed in, sign out, language, panels, theme, About |
-| Left navigation | **Company** (teams, projects, workspaces with their page trees, documents, work calendar, plan), **My work** (my teams, my projects, this project's screens), **Administrator menu** |
+| Menu bar | Start, File, Edit, View, Issue, Plan, Help, Admin; it is also the title bar, and at its right end (left of Minimize) are the buttons that show and hide the left and right panels |
+| Toolbar | Project picker, search box, **magnifier** (search everything), Go to (Ctrl+K), new issue, notifications, Talk, who is signed in, sign out, language, theme, About |
+| Left navigation | Sections: **Company** (teams, projects, documents, work calendar, plan), **Workspaces** (workspaces with their page trees, new workspace), **My work** (my teams, my projects), **This project** (the open project's screens), **Administrator menu**. Click a section title to fold it; folded sections stay folded next time |
 | Centre | The chosen screen |
-| Right panel | Details and properties of the chosen issue, page or workspace |
+| Right panel | Details and properties of the chosen issue, page or workspace, in sections like the left panel; click a section title to fold it, and folded sections stay folded next time |
 | Status bar | Issue count, project type, who is signed in, database |
 
 Hover a toolbar icon to see its name and shortcut. Ctrl+Shift+1 and Ctrl+Shift+2 fold the left and right panels.
@@ -122,7 +122,13 @@ What people need to know goes on **pages** in **workspaces**. The company worksp
 
 **Company → Workspaces** in the left navigation lists every workspace you can see. The arrow before **Workspaces** folds the list, and the arrow before each workspace folds its page tree. **New workspace** at the bottom (or **+** on the Workspaces row) shows a name box: type a name and press Enter (Esc cancels); the key is chosen for you.
 
-Click a workspace to open its home in the centre (description, page search, pages, recently updated) and its **Workspace properties** in the right panel. There you change the name, the description and **Who sees it** (the whole company, one team or one project), see the key, creator, page count and last change, restore or delete pages in the **Trash**, and **Delete the workspace**. Its creator and administrators change these. A workspace that still has pages cannot be deleted.
+Click a workspace to open its home in the centre (description, page search, pages, recently updated) and its **Workspace properties** in the right panel. There you change the name, the description and **Who sees it** (the whole company, one team or one project), see the key, creator, page count and last change, restore or delete pages in the **Trash**, and **Delete the workspace**. Its creator and administrators change these. **Delete the workspace** removes every page in it (the trash too), and says how many first; it cannot be undone.
+
+### The right-click menu and deleting
+
+**Right-click a page** in the left navigation or a child page list for Open, New child page, Make a copy, Export as HTML and **Move to the trash**. **Right-click a workspace** for Open, New page, Properties and **Delete the workspace**. The trash button at the right of a page's path line deletes it too. Delete appears only for people allowed to do it (anyone who may edit the page; a workspace's creator and administrators).
+
+A page moved to the trash takes its child pages with it, and they come back together. The trash is in the workspace properties (right panel), where pages are restored or deleted for good.
 
 ### New pages and templates
 

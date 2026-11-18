@@ -3,10 +3,10 @@ import { CUSTOM_KEYS, DARK_THEMES, LIGHT_THEMES, themeName } from '../themes.js'
 import { PROJECT_TYPES, ROLES } from '../domain/catalog.js';
 import { allowed, isWorkspaceAdmin, orderedProjects, participantAccess, participatingProjects, projectAncestors, sharesTeam } from '../domain/permissions.js';
 import { createFields, moduleOn } from '../domain/services.js';
-import { avatar, button, esc, icon, L, nameOf, NAV_GLYPH, options, panelFrame, primary, typeBadge, userOptions } from './bits.js';
+import { avatar, button, esc, foldBox, icon, L, nameOf, NAV_GLYPH, options, panelFrame, primary, typeBadge, userOptions } from './bits.js';
 import { shortcutGroups } from './shortcuts.js';
 import { ACCESS, canManageTeam, isTeamMember, projectViews, teamOfProject, teamsOf, visibleSpaces, DEFAULT_METHODS } from '../domain/teams.js';
-import { pagesIn } from '../domain/wiki.js';
+import { canEditPage, pagesIn } from '../domain/wiki.js';
 import { spaceOpen, workspacePageTree } from './extra.js';
 import { templatePicker } from './templates.js';
 import { methodChecks } from './teams.js';
@@ -100,11 +100,15 @@ export function renderMenubar(ctx) {
     item('shortcuts', 'bolt', L('단축키', 'Shortcuts'), '', '?'),
     item('about', 'info', L('정보', 'About'), '', 'Ctrl+Shift+A'),
   ].join('');
-  const controls = ctx.desktop ? `<div class="window-controls">
+  const leftOpen = ctx.settings?.showLeftPanel !== false;
+  const rightOpen = ctx.settings?.showRightPanel !== false;
+  const panelToggle = (id, glyph, open, ko, en, keys) => `<button type="button" class="window-button panel-toggle${open ? ' active' : ''}" data-action="toggle-panel" data-id="${id}" title="${esc(`${L(ko, en)} · ${keys}`)}" aria-label="${esc(L(ko, en))}" aria-pressed="${open ? 'true' : 'false'}">${icon(glyph)}</button>`;
+  const panels = ctx.ui.ready ? `<span class="panel-toggles">${panelToggle('left', 'panelLeft', leftOpen, '왼쪽 패널', 'Left panel', 'Ctrl+Shift+1')}${panelToggle('right', 'panelRight', rightOpen, '오른쪽 패널', 'Right panel', 'Ctrl+Shift+2')}</span>` : '';
+  const controls = ctx.desktop ? `<div class="window-controls">${panels}
       <button type="button" class="window-button" data-window="minimize" title="${esc(L('최소화', 'Minimize'))}">${icon('minus')}</button>
       <button type="button" class="window-button" data-window="maximize" title="${esc(L('최대화', 'Maximize'))}">${icon(ctx.ui.maximized ? 'restore' : 'square')}</button>
       <button type="button" class="window-button close" data-window="close" title="${esc(L('닫기', 'Close'))}">${icon('close')}</button>
-    </div>` : '';
+    </div>` : (panels ? `<div class="window-controls">${panels}</div>` : '');
   const homeOn = !ctx.ui.ready;
   const signedIn = Boolean(ctx.ui.loginUser);
   const administrator = isWorkspaceAdmin(ctx.user) && ctx.ui.ready ? [
@@ -196,9 +200,6 @@ export function renderToolbar(ctx) {
   const unread = (ctx.project ? ctx.project.notifications.filter((item) => item.userId === ctx.user?.id && !item.read).length : 0)
     + (ctx.ws.inbox || []).filter((item) => item.userId === ctx.user?.id && !item.read).length;
   const currentName = themeName(ctx.settings.theme, getLanguage());
-  const leftOpen = ctx.settings.showLeftPanel !== false;
-  const rightOpen = ctx.settings.showRightPanel !== false;
-  const panelButton = (id, glyph, open, ko, en, keys = '') => `<button type="button" class="tool-button${open ? ' active' : ''}" data-action="toggle-panel" data-id="${id}" title="${esc(`${L(ko, en)}${keys ? ` ${keys}` : ''}`)}" aria-label="${esc(L(ko, en))}" aria-pressed="${open ? 'true' : 'false'}">${icon(glyph)}</button>`;
   return `<div class="toolbar-inner">
       <select data-choose="project" title="${esc(L('과제', 'Project'))}">${options(projects, ctx.ws.activeProjectId, L('과제 없음', 'No project'))}</select>
       <label class="quick-search" title="Ctrl+F">${icon('search')}<input id="quick-search" value="${esc(ctx.ui.quick || '')}" placeholder="${esc(L('검색 또는 WQL', 'Search or WQL'))}"></label>
@@ -212,8 +213,6 @@ export function renderToolbar(ctx) {
       <span class="signed-in" title="${esc(`${L('로그인한 사람', 'Signed in')}: ${ctx.user?.name || ''}${ctx.user?.login ? ` (${ctx.user.login})` : ''}`)}">${ctx.user ? avatar(ctx.user) : ''}</span>
       <button type="button" class="tool-button" data-action="sign-out" title="${esc(L('로그아웃', 'Sign out'))}" aria-label="${esc(L('로그아웃', 'Sign out'))}">${icon('logout')}</button>
       <button type="button" class="tool-button" data-action="language" title="${esc(L('언어: 한국어 → English', 'Language: English → 한국어'))} · Ctrl+Shift+L" aria-label="${esc(L('언어', 'Language'))}">${icon('globe')}</button>
-      ${panelButton('left', 'panelLeft', leftOpen, '왼쪽 패널', 'Left panel', 'Ctrl+Shift+1')}
-      ${panelButton('right', 'panelRight', rightOpen, '오른쪽 패널', 'Right panel', 'Ctrl+Shift+2')}
       <span class="theme-anchor theme-split">
         <button type="button" class="tool-button" data-action="theme-random" title="${esc(L('테마 바꾸기', 'Change the theme'))} · ${esc(currentName)} · Ctrl+Shift+B" aria-label="${esc(L('테마 바꾸기', 'Change the theme'))}">${icon('palette')}</button>
         <button type="button" class="tool-button split-arrow" data-action="theme-menu" title="${esc(L('테마 설정', 'Theme settings'))}" aria-label="${esc(L('테마 설정', 'Theme settings'))}" aria-haspopup="true" aria-expanded="${ctx.ui.popover === 'theme' || ctx.ui.popover === 'theme-custom' ? 'true' : 'false'}">${icon('chevronDown')}</button>
@@ -263,29 +262,20 @@ function teamNav(ctx) {
 /** The open project's screens: only those its management methods bring. */
 function currentProjectNav(ctx) {
   const project = ctx.project;
-  if (!project) return `<div class="nav-section">${icon('folder')}${L('과제', 'Project')}</div>${navButtons(ctx, ['home'])}`;
+  if (!project) return `<p class="muted nav-empty">${L('열린 과제가 없습니다.', 'No project is open.')}</p>${navButtons(ctx, ['home'])}`;
   const views = projectViews(project);
   const items = PROJECT_NAV.filter((id) => id === 'project-settings' || views.has(id));
-  return `<div class="nav-section nav-current">${icon('play')}<span>${L('이 과제', 'This project')} · <b>${esc(project.key)}</b></span></div>${navButtons(ctx, items)}`;
+  return `<p class="nav-project-name" title="${esc(project.name)}">${esc(project.name)}</p>${navButtons(ctx, items)}`;
 }
 
-/** The workspaces under "Workspaces": open one, add a page to it with +, and make a new workspace. */
 /**
- * "Workspaces" in the left navigation: the heading folds the list open and shut; each workspace folds open
- * to its pages (and their child pages); a new workspace is made here by typing its name.
+ * The workspaces section: each workspace folds open to its pages (and their child pages); a new workspace
+ * is made here by typing its name.
  */
 function workspaceNav(ctx) {
-  if (!moduleOn(ctx.ws, 'knowledge') || !ctx.user) return navButtons(ctx, ['knowledge']);
   const order = { company: 0, team: 1, project: 2 };
   const spaces = visibleSpaces(ctx.ws, ctx.user.id).slice().sort((a, b) => (order[a.scope || 'company'] ?? 0) - (order[b.scope || 'company'] ?? 0));
-  const folded = Boolean(ctx.ui.navWsFolded);
   const onPages = ctx.ui.view === 'knowledge';
-  const head = `<div class="nav-ws-head${onPages && !ctx.ui.articleId && !ctx.ui.spaceId ? ' active' : ''}">
-    <button type="button" class="nav-fold" data-action="toggle-nav-workspaces" aria-expanded="${folded ? 'false' : 'true'}" title="${esc(folded ? L('펼치기', 'Expand') : L('접기', 'Collapse'))}">${icon(folded ? 'chevronRight' : 'chevronDown')}</button>
-    <button type="button" class="nav-button${onPages ? ' active' : ''}" data-action="go" data-view="knowledge">${icon(NAV_GLYPH.knowledge)}<span>${esc(navLabel('knowledge'))}</span><small class="nav-count">${spaces.length}</small></button>
-    <button type="button" class="nav-sub-add shown" data-action="ws-create-start" title="${esc(L('새 작업 공간', 'New workspace'))}" aria-label="${esc(L('새 작업 공간', 'New workspace'))}">${icon('plus')}</button>
-  </div>`;
-  if (folded) return head;
   const openPage = onPages ? ctx.ui.articleId : '';
   const rows = spaces.map((space) => {
     const open = spaceOpen(ctx, space, onPages ? ctx.ui.spaceId : '');
@@ -302,15 +292,29 @@ function workspaceNav(ctx) {
   const create = ctx.ui.wsCreating
     ? `<div class="nav-ws-create"><input id="nav-ws-name" value="${esc(ctx.ui.wsDraft || '')}" placeholder="${esc(L('새 작업 공간 이름', 'New workspace name'))}" aria-label="${esc(L('새 작업 공간 이름', 'New workspace name'))}" maxlength="60"><button type="button" class="nav-sub-add shown" data-action="create-workspace" title="${esc(L('만들기 (Enter)', 'Create (Enter)'))}" aria-label="${esc(L('만들기', 'Create'))}">${icon('check')}</button><button type="button" class="nav-sub-add shown" data-action="ws-create-cancel" title="${esc(L('취소 (Esc)', 'Cancel (Esc)'))}" aria-label="${esc(L('취소', 'Cancel'))}">${icon('close')}</button></div>`
     : `<button type="button" class="nav-sub-new" data-action="ws-create-start">${icon('plus')}<span>${L('새 작업 공간', 'New workspace')}</span></button>`;
-  return `${head}<div class="nav-subs">${rows}${create}</div>`;
+  return `<div class="nav-subs">${rows}${create}</div>`;
+}
+
+/** One section of the navigation: a title that folds it, an optional count and button, and its contents. */
+function navSection(ctx, id, glyph, title, body, { count = null, extra = '', tone = '' } = {}) {
+  return foldBox(ctx, 'nav', id, `${icon(glyph)}<span>${title}</span>${count != null ? `<small class="nav-count">${count}</small>` : ''}`, body, { extra, tone });
 }
 
 export function renderNav(ctx) {
   const admin = isWorkspaceAdmin(ctx.user);
-  const company = `<div class="nav-group">${icon('globe')}<span>${L('회사', 'Company')}</span></div>${navButtons(ctx, ['teams', 'projects'])}${workspaceNav(ctx)}${navButtons(ctx, ['documents', 'calendar', 'plans'])}`;
-  const work = `<div class="nav-group">${icon('user')}<span>${L('내 작업', 'My work')}</span></div>${teamNav(ctx)}${projectNav(ctx)}${currentProjectNav(ctx)}`;
-  const adminMenus = admin ? `<div class="nav-group nav-group-admin">${icon('settings')}<span>${L('관리자 메뉴', 'Administrator menu')}</span></div>${navButtons(ctx, ['users', 'settings', 'extensions'])}` : '';
-  const body = `${company}${work}${adminMenus}`;
+  const sections = [];
+  sections.push(navSection(ctx, 'company', 'globe', esc(L('회사', 'Company')), navButtons(ctx, ['teams', 'projects', 'documents', 'calendar', 'plans'])));
+  if (moduleOn(ctx.ws, 'knowledge') && ctx.user) {
+    const spaces = visibleSpaces(ctx.ws, ctx.user.id);
+    const add = `<button type="button" class="nav-sect-add" data-action="ws-create-start" title="${esc(L('새 작업 공간', 'New workspace'))}" aria-label="${esc(L('새 작업 공간', 'New workspace'))}">${icon('plus')}</button>`;
+    sections.push(navSection(ctx, 'spaces', 'layers', esc(L('작업 공간', 'Workspaces')), workspaceNav(ctx), { count: spaces.length, extra: add, tone: ctx.ui.view === 'knowledge' ? 'current' : '' }));
+  }
+  sections.push(navSection(ctx, 'work', 'user', esc(L('내 작업', 'My work')), `${teamNav(ctx)}${projectNav(ctx)}`));
+  const project = ctx.project;
+  const projectTitle = project ? `${esc(L('이 과제', 'This project'))} <b class="nav-key">${esc(project.key)}</b>` : esc(L('이 과제', 'This project'));
+  sections.push(navSection(ctx, 'project', 'folder', projectTitle, currentProjectNav(ctx)));
+  if (admin) sections.push(navSection(ctx, 'admin', 'settings', esc(L('관리자 메뉴', 'Administrator menu')), navButtons(ctx, ['users', 'settings', 'extensions']), { tone: 'admin' }));
+  const body = sections.join('');
   return panelFrame(ctx.settings.showLeftPanel !== false, 'left', 'list', L('탐색', 'Navigation'), `<div class="panel-body">${body}</div>`);
 }
 
@@ -673,6 +677,33 @@ export function renderContext(ctx) {
   if (!menu) return '';
   // A menu is its list of items: no title bar and no close button (Esc or a click outside closes it).
   const bar = '';
+  if (menu.kind === 'page') {
+    const page = (ctx.ws.articles || []).find((item) => item.id === menu.id);
+    if (!page) return '';
+    const canEdit = canEditPage(page, ctx.user?.id);
+    const id = `data-id="${esc(page.id)}"`;
+    return bar + [
+      item('open-article', 'book', L('열기', 'Open'), `${id} data-space="${esc(page.spaceId)}"`),
+      canEdit && (page.kind || 'page') === 'page' ? item('add-child', 'plus', L('하위 페이지 만들기', 'New child page'), id) : '',
+      item('copy-page', 'copy', L('복사본 만들기', 'Make a copy'), id),
+      item('export-page', 'download', L('HTML로 내보내기', 'Export as HTML'), `${id} data-format="html"`),
+      canEdit ? '<div class="sep"></div>' : '',
+      canEdit ? item('delete-article', 'trash', L('휴지통으로 삭제', 'Move to the trash'), `${id} class="danger"`) : '',
+    ].join('');
+  }
+  if (menu.kind === 'workspace') {
+    const space = (ctx.ws.spaces || []).find((item) => item.id === menu.id);
+    if (!space) return '';
+    const manage = isWorkspaceAdmin(ctx.user) || space.authorId === ctx.user?.id;
+    const id = `data-id="${esc(space.id)}"`;
+    return bar + [
+      item('open-workspace', 'layers', L('열기', 'Open'), id),
+      item('add-page', 'plus', L('새 페이지', 'New page'), `data-space="${esc(space.id)}"`),
+      item('edit-workspace', 'settings', L('속성', 'Properties'), id),
+      manage ? '<div class="sep"></div>' : '',
+      manage ? item('delete-workspace', 'trash', L('작업 공간 삭제', 'Delete the workspace'), `${id} class="danger"`) : '',
+    ].join('');
+  }
   if (menu.kind === 'start-help') {
     return bar + [
       item('show-welcome', 'spark', L('시작 안내 창', 'Welcome window')),

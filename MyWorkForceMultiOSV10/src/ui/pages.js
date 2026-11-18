@@ -13,7 +13,7 @@ import { projectMethods, teamOfProject } from '../domain/teams.js';
 import { methodChecks, teamsView, teamView } from './teams.js';
 import { dateInputValue, formatDuration } from '../domain/util.js';
 import { CUSTOM_KEYS } from '../themes.js';
-import { avatar, badge, byId, empty, esc, formatWhen, icon, L, nameOf, options, pageHead, panelFrame, person, safeColor, typeBadge, userOptions } from './bits.js';
+import { avatar, badge, byId, empty, esc, foldBox, formatWhen, icon, L, nameOf, options, pageHead, panelFrame, person, safeColor, typeBadge, userOptions } from './bits.js';
 import { navLabel } from './chrome.js';
 import { BACKGROUND_INTERVALS, BACKGROUNDS, knownBackground } from './background.js';
 import { databaseSettings, startupOptions } from './start.js';
@@ -809,7 +809,8 @@ export function renderRight(ctx) {
   if (!showRight(ctx)) return '';
   let glyph = 'issues';
   let title = L('이슈', 'Issue');
-  let inner = ctx.ui.view === 'knowledge' ? '' : preview(ctx);
+  const issueBox = () => foldBox(ctx, 'side', 'issue-preview', `${icon('issues')}<span>${L('고른 이슈', 'Chosen issue')}</span>`, preview(ctx));
+  let inner = ctx.ui.view === 'knowledge' ? '' : issueBox();
   if (ctx.ui.view === 'knowledge') {
     const page = openPageOf(ctx);
     glyph = page ? 'info' : 'layers';
@@ -819,7 +820,8 @@ export function renderRight(ctx) {
     glyph = 'epic';
     title = L('에픽', 'Epics');
     const epics = ctx.project.issues.filter((issue) => issue.typeId === 'epic');
-    inner = `<button type="button" class="nav-button${ctx.ui.epicId ? '' : ' active'}" data-action="epic-filter" data-id="">${icon('epic')}<span>${L('모든 에픽', 'All epics')}</span></button>${epics.map((epic) => `<button type="button" class="nav-button${ctx.ui.epicId === epic.id ? ' active' : ''}" data-action="epic-filter" data-id="${esc(epic.id)}">${icon('epic')}<span>${esc(epic.summary)}</span></button>`).join('')}${preview(ctx)}`;
+    const epicList = `<button type="button" class="nav-button${ctx.ui.epicId ? '' : ' active'}" data-action="epic-filter" data-id="">${icon('epic')}<span>${L('모든 에픽', 'All epics')}</span></button>${epics.map((epic) => `<button type="button" class="nav-button${ctx.ui.epicId === epic.id ? ' active' : ''}" data-action="epic-filter" data-id="${esc(epic.id)}">${icon('epic')}<span>${esc(epic.summary)}</span></button>`).join('')}`;
+    inner = `${foldBox(ctx, 'side', 'epics', `${icon('epic')}<span>${L('에픽', 'Epics')}</span><small class="nav-count">${epics.length}</small>`, epicList)}${issueBox()}`;
   } else if (ctx.ui.view === 'issue') {
     glyph = 'list';
     title = L('세부 사항', 'Details');
@@ -852,33 +854,35 @@ function fields(ctx) {
     return prop(nameOf(field), control);
   }).join('');
   const watching = (issue.watchers || []).includes(ctx.user?.id);
-  return `<div class="props">
+  const box = (id, glyph, title, body, count = null) => foldBox(ctx, 'side', id, `${icon(glyph)}<span>${title}</span>${count != null ? `<small class="nav-count">${count}</small>` : ''}`, body);
+  return `<div class="props">${box('issue-main', 'workflow', L('상태와 담당', 'Status and people'), `
     ${sla ? `<p class="banner${sla.breached && byId(project.statuses, issue.statusId)?.category !== 'done' ? ' bad' : ''}">${L('기한', 'Limit')} ${esc(formatWhen(new Date(sla.due).toISOString()))} · ${sla.hours}h</p>` : ''}
     <div class="wrap">${moves}</div>
     ${prop(L('상태', 'Status'), `<select data-field="statusId">${options(project.statuses, issue.statusId)}</select>`)}
     ${prop(L('해결', 'Resolution'), `<select data-field="resolutionId">${options(project.resolutions, issue.resolutionId, L('없음', 'None'))}</select>`)}
     ${prop(L('우선순위', 'Priority'), `<select data-field="priorityId">${options(project.priorities, issue.priorityId)}</select>`)}
     ${prop(L('담당', 'Assignee'), `<select data-field="assigneeId">${userOptions(ctx.ws, issue.assigneeId)}</select>`)}
-    ${prop(L('보고자', 'Reporter'), `<select data-field="reporterId">${userOptions(ctx.ws, issue.reporterId, '')}</select>`)}
+    ${prop(L('보고자', 'Reporter'), `<select data-field="reporterId">${userOptions(ctx.ws, issue.reporterId, '')}</select>`)}`)}
+    ${box('issue-plan', 'backlog', L('계획', 'Planning'), `
     ${prop(L('에픽', 'Epic'), `<select data-field="epicId">${options(project.issues.filter((item) => item.typeId === 'epic'), issue.epicId, L('없음', 'None'))}</select>`)}
     ${prop(L('스프린트', 'Sprint'), `<select data-field="sprintId">${options(project.sprints.filter((sprint) => sprint.state !== 'closed' || sprint.id === issue.sprintId), issue.sprintId, L('없음', 'None'))}</select>`)}
     ${prop(L('포인트', 'Points'), `<input data-field="storyPoints" data-parse="number" value="${issue.storyPoints ?? ''}">`)}
     ${prop(L('추정', 'Estimate'), `<input data-field="originalEstimate" data-parse="duration" value="${esc(dur(issue.originalEstimate))}">`)}
     ${prop(L('남음', 'Remaining'), `<input data-field="remainingEstimate" data-parse="duration" value="${esc(dur(issue.remainingEstimate))}">`)}
-    ${prop(L('기록', 'Logged'), `<span>${esc(dur(issue.timeSpent))}</span>`)}
+    ${prop(L('기록', 'Logged'), `<span>${esc(dur(issue.timeSpent))}</span>`)}`)}
+    ${box('issue-dates', 'calendar', L('날짜와 라벨', 'Dates and labels'), `
     ${prop(L('시작', 'Start'), `<input type="date" data-field="start" data-parse="date" value="${esc(dateInputValue(issue.start))}">`)}
     ${prop(L('기한', 'Due'), `<input type="date" data-field="due" data-parse="date" value="${esc(dateInputValue(issue.due))}">`)}
     ${prop(L('라벨', 'Labels'), `<input data-field="labels" data-parse="labels" value="${esc((issue.labels || []).join(', '))}">`)}
-    ${prop(L('환경', 'Environment'), `<input data-field="environment" data-live value="${esc(issue.environment || '')}">`)}
-    <h3>${L('구성 요소', 'Components')}</h3><div class="checks">${checks(project.components, 'componentIds')}</div>
-    <h3>${L('수정 버전', 'Fix versions')}</h3><div class="checks">${checks(project.versions, 'fixVersionIds')}</div>
-    ${custom}
-    <h3>${L('관찰', 'Watchers')}</h3><div class="avatars">${(issue.watchers || []).map((id) => avatar(person(ctx.ws, id))).join('')}</div>
-    <button type="button" class="small-button" data-action="toggle-watch">${icon('eye')}<span>${watching ? L('관찰 그만', 'Stop watching') : L('관찰', 'Watch')}</span></button>
-    <h3>${L('첨부', 'Attachments')}</h3>
-    ${(issue.attachments || []).map((file) => `<div class="link-row"><a class="file-link" href="${esc(file.data)}" data-file="${esc(file.id)}" data-name="${esc(file.name)}" download="${esc(file.name)}">${esc(file.name)}</a><button type="button" class="icon-button" data-action="remove-attachment" data-id="${esc(file.id)}">${icon('trash')}</button></div>`).join('')}
-    <button type="button" class="small-button" data-action="pick-attachment">${icon('paperclip')}<span>${L('파일 추가', 'Add a file')}</span></button>
-    <div class="page-actions"><button type="button" class="button" data-action="clone-issue">${icon('copy')}<span>${L('복제', 'Clone')}</span></button><button type="button" class="button danger" data-action="delete-issue">${icon('trash')}<span>${L('삭제', 'Delete')}</span></button></div>
+    ${prop(L('환경', 'Environment'), `<input data-field="environment" data-live value="${esc(issue.environment || '')}">`)}`)}
+    ${box('issue-components', 'component', L('구성 요소', 'Components'), `<div class="checks">${checks(project.components, 'componentIds') || `<p class="muted">${L('구성 요소가 없습니다.', 'There are no components.')}</p>`}</div>`, (issue.componentIds || []).length)}
+    ${box('issue-versions', 'release', L('수정 버전', 'Fix versions'), `<div class="checks">${checks(project.versions, 'fixVersionIds') || `<p class="muted">${L('버전이 없습니다.', 'There are no versions.')}</p>`}</div>`, (issue.fixVersionIds || []).length)}
+    ${custom ? box('issue-fields', 'tag', L('사용자 정의 필드', 'Custom fields'), custom) : ''}
+    ${box('issue-watchers', 'eye', L('관찰', 'Watchers'), `<div class="avatars">${(issue.watchers || []).map((id) => avatar(person(ctx.ws, id))).join('')}</div>
+    <button type="button" class="small-button" data-action="toggle-watch">${icon('eye')}<span>${watching ? L('관찰 그만', 'Stop watching') : L('관찰', 'Watch')}</span></button>`, (issue.watchers || []).length)}
+    ${box('issue-files', 'paperclip', L('첨부', 'Attachments'), `${(issue.attachments || []).map((file) => `<div class="link-row"><a class="file-link" href="${esc(file.data)}" data-file="${esc(file.id)}" data-name="${esc(file.name)}" download="${esc(file.name)}">${esc(file.name)}</a><button type="button" class="icon-button" data-action="remove-attachment" data-id="${esc(file.id)}">${icon('trash')}</button></div>`).join('')}
+    <button type="button" class="small-button" data-action="pick-attachment">${icon('paperclip')}<span>${L('파일 추가', 'Add a file')}</span></button>`, (issue.attachments || []).length)}
+    ${box('issue-actions', 'settings', L('이슈 작업', 'Issue actions'), `<div class="page-actions"><button type="button" class="button" data-action="clone-issue">${icon('copy')}<span>${L('복제', 'Clone')}</span></button><button type="button" class="button danger" data-action="delete-issue">${icon('trash')}<span>${L('삭제', 'Delete')}</span></button></div>`)}
   </div>`;
 }
 

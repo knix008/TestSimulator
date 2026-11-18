@@ -3,7 +3,7 @@ import { canEditPage, expandPage, pagesIn, trashedPages } from '../domain/wiki.j
 import { visibleSpaces } from '../domain/teams.js';
 import { CREATE_FIELDS, MODULES, WEEK_DAYS, calendarOf, moduleOn, planItems } from '../domain/services.js';
 import { renderMarkdown } from '../domain/markdown.js';
-import { avatar, badge, button, empty, esc, formatWhen, icon, L, nameOf, options, pageHead, person } from './bits.js';
+import { avatar, badge, button, empty, esc, foldBox, formatWhen, icon, L, nameOf, options, pageHead, person } from './bits.js';
 import { isWorkspaceAdmin } from '../domain/permissions.js';
 import { markMentions } from './mentions.js';
 import { expandIssueMacros } from './issue-macros.js';
@@ -242,7 +242,7 @@ export function knowledgeView(ctx) {
       <button type="button" class="small-button${reading ? ' primary' : ''}" data-action="page-mode" data-id="read">${icon('eye')}<span>${L('미리 보기', 'Preview')}</span></button>
     </div>` : '';
   const article = `<article class="panel-card doc-page">
-    <nav class="doc-crumbs" aria-label="${esc(L('위치', 'Location'))}">${icon('layers')}${crumbs.map((item, at) => (at ? `<span class="crumb-sep">›</span>${item}` : item)).join('')}<span class="grow"></span><span id="live-people" class="live-people" hidden></span>${mode}</nav>
+    <nav class="doc-crumbs" aria-label="${esc(L('위치', 'Location'))}">${icon('layers')}${crumbs.map((item, at) => (at ? `<span class="crumb-sep">›</span>${item}` : item)).join('')}<span class="grow"></span><span id="live-people" class="live-people" hidden></span>${mode}${canEdit ? `<button type="button" class="icon-button doc-trash" data-action="delete-article" data-id="${esc(open.id)}" title="${esc(L('휴지통으로 삭제', 'Move to the trash'))}" aria-label="${esc(L('휴지통으로 삭제', 'Move to the trash'))}">${icon('trash')}</button>` : ''}</nav>
     ${editor ? '' : `<h1 class="doc-title">${esc(open.title)}</h1>`}
     ${freshEdit ? `<p class="banner">${esc(L(`${person(ctx.ws, open.editorId)?.name || ''} 님도 이 페이지를 쓰고 있습니다.`, `${person(ctx.ws, open.editorId)?.name || 'Someone'} is also writing this page.`))}</p>` : ''}
     ${compare}
@@ -263,13 +263,24 @@ export function openSpaceOf(ctx) {
   return spaces.find((item) => item.id === ctx.ui.spaceId) || null;
 }
 
+/**
+ * Turns a panel's titled sections (<section data-fold="id"><h3>title</h3>…</section>) into foldable boxes,
+ * the same as the left navigation's.
+ */
+function foldSections(ctx, html) {
+  return html.replace(/<section data-fold="([^"]+)"([^>]*)><h3>([\s\S]*?)<\/h3>([\s\S]*?)<\/section>/g, (_match, id, attrs, head, body) => foldBox(ctx, 'side', id, head, body, { attrs }));
+}
+
 /** The right panel beside a workspace: its name, description, who sees it, its trash, and deleting it. */
 export function spaceInfoPanel(ctx) {
+  return foldSections(ctx, spaceInfoHtml(ctx));
+}
+
+function spaceInfoHtml(ctx) {
   const space = openSpaceOf(ctx);
   if (!space) return '';
   const manage = isWorkspaceAdmin(ctx.user) || space.authorId === ctx.user?.id;
   const pages = pagesIn(ctx.ws, space.id, ctx.user?.id);
-  const all = (ctx.ws.articles || []).filter((page) => page.spaceId === space.id);
   const trash = trashedPages(ctx.ws, space.id, ctx.user?.id);
   const teams = (ctx.ws.teams || []);
   const projects = (ctx.ws.projects || []).filter((item) => !item.archived);
@@ -284,18 +295,18 @@ export function spaceInfoPanel(ctx) {
       ${projects.length ? `<optgroup label="${esc(L('과제 — 과제 사람만', 'A project — its people'))}">${projects.map((item) => `<option value="project:${esc(item.id)}"${where === `project:${item.id}` ? ' selected' : ''}>${esc(item.key)} · ${esc(item.name)}</option>`).join('')}</optgroup>` : ''}
     </select>`;
   return `<div class="page-info space-info">
-    <section><h3>${icon('layers')}<span>${L('작업 공간', 'Workspace')}</span></h3>
+    <section data-fold="space-main"><h3>${icon('layers')}<span>${L('작업 공간', 'Workspace')}</span></h3>
       ${manage ? `<label class="prop"><span>${L('이름', 'Name')}</span><input data-space-field="name" data-id="${esc(space.id)}" value="${esc(space.name)}" aria-label="${esc(L('이름', 'Name'))}"></label>
       <label class="prop prop-top"><span>${L('설명', 'Description')}</span><textarea data-space-field="description" data-id="${esc(space.id)}" rows="4" placeholder="${esc(L('이 작업 공간에 무엇을 모으는지', 'What this workspace gathers'))}">${esc(space.description || '')}</textarea></label>
       <label class="prop"><span>${L('보는 사람', 'Who sees it')}</span>${whereSelect}</label>` : `${row('tag', L('이름', 'Name'), esc(space.name))}${row('eye', L('보는 사람', 'Who sees it'), esc(`${scopeName} · ${whereText}`))}`}
     </section>
-    <section><h3>${icon('info')}<span>${L('정보', 'Details')}</span></h3>
+    <section data-fold="space-details"><h3>${icon('info')}<span>${L('정보', 'Details')}</span></h3>
       ${row('idCard', L('키', 'Key'), esc(space.key))}
       ${row('user', L('만든 사람', 'Created by'), esc(person(ctx.ws, space.authorId)?.name || L('없음', 'None')))}
       ${row('book', L('페이지', 'Pages'), String(pages.length))}
       ${row('clock', L('마지막 변경', 'Last change'), latest ? `${esc(formatWhen(latest.updated))}<small>${esc(latest.title)}</small>` : esc(L('없음', 'None')))}
     </section>
-    <section><h3>${icon('plus')}<span>${L('만들기', 'Create')}</span></h3>
+    <section data-fold="space-create"><h3>${icon('plus')}<span>${L('만들기', 'Create')}</span></h3>
       <div class="info-actions">
         <button type="button" class="small-button primary" data-action="add-page" data-space="${esc(space.id)}">${icon('book')}<span>${L('새 페이지', 'New page')}</span></button>
         <button type="button" class="small-button" data-action="add-blog" data-space="${esc(space.id)}">${icon('spark')}<span>${L('소식', 'News')}</span></button>
@@ -303,10 +314,10 @@ export function spaceInfoPanel(ctx) {
         <button type="button" class="small-button" data-action="add-table" data-space="${esc(space.id)}">${icon('columns')}<span>${L('표', 'Table')}</span></button>
       </div>
     </section>
-    <section><h3>${icon('trash')}<span>${L('휴지통', 'Trash')}</span><span class="chip">${trash.length}</span></h3>
+    <section data-fold="space-trash"><h3>${icon('trash')}<span>${L('휴지통', 'Trash')}</span><span class="chip">${trash.length}</span></h3>
       ${trash.length ? trash.map((page) => `<div class="version-row"><span class="version-text"><b>${esc(page.title)}</b><small>${esc(formatWhen(page.updated))}</small></span><button type="button" class="icon-button" data-action="restore-trashed" data-id="${esc(page.id)}" title="${esc(L('되돌리기', 'Restore'))}" aria-label="${esc(L('되돌리기', 'Restore'))}">${icon('restore')}</button><button type="button" class="icon-button" data-action="purge-page" data-id="${esc(page.id)}" title="${esc(L('영구 삭제', 'Delete for good'))}" aria-label="${esc(L('영구 삭제', 'Delete for good'))}">${icon('trash')}</button></div>`).join('') : `<p class="muted">${L('휴지통이 비어 있습니다.', 'The trash is empty.')}</p>`}
     </section>
-    ${manage ? `<section><button type="button" class="small-button danger" data-action="delete-workspace" data-id="${esc(space.id)}" ${all.length ? `title="${esc(L('페이지를 모두 지우고 휴지통을 비워야 지울 수 있습니다', 'Delete every page and empty the trash first'))}"` : ''}>${icon('trash')}<span>${L('작업 공간 삭제', 'Delete the workspace')}</span></button></section>` : ''}
+    ${manage ? `<section class="side-foot"><button type="button" class="small-button danger" data-action="delete-workspace" data-id="${esc(space.id)}">${icon('trash')}<span>${L('작업 공간 삭제', 'Delete the workspace')}</span></button></section>` : ''}
   </div>`;
 }
 
@@ -322,6 +333,10 @@ export function openPageOf(ctx) {
 
 /** The right panel beside an open page: where it sits, who made it, its state, sharing, exports and versions. */
 export function pageInfoPanel(ctx) {
+  return foldSections(ctx, pageInfoHtml(ctx));
+}
+
+function pageInfoHtml(ctx) {
   const open = openPageOf(ctx);
   if (!open) return '';
   const canEdit = canEditPage(open, ctx.user?.id);
@@ -339,7 +354,7 @@ export function pageInfoPanel(ctx) {
   const versions = (open.versions || []).map((version, at) => `<div class="version-row"><span class="version-no">v${(open.versions || []).length - at}</span><span class="version-text"><b>${esc(version.title)}</b><small>${esc(person(ctx.ws, version.authorId)?.name || '')} · ${esc(formatWhen(version.at))}</small></span><button type="button" class="icon-button" data-action="compare-page" data-id="${esc(open.id)}" data-from="${esc(version.id)}" data-to="current" title="${esc(L('지금과 비교', 'Compare with now'))}" aria-label="${esc(L('지금과 비교', 'Compare with now'))}">${icon('columns')}</button>${canEdit ? `<button type="button" class="icon-button" data-action="restore-page" data-id="${esc(open.id)}" data-version="${esc(version.id)}" title="${esc(L('이 판으로 되돌리기', 'Restore this version'))}" aria-label="${esc(L('되돌리기', 'Restore'))}">${icon('restore')}</button>` : ''}</div>`).join('');
   const openInline = (open.comments || []).filter((comment) => comment.inline && !comment.resolved && !comment.replyTo).length;
   return `<div class="page-info">
-    <section><h3>${icon('info')}<span>${L('페이지 정보', 'Page details')}</span></h3>
+    <section data-fold="page-details"><h3>${icon('info')}<span>${L('페이지 정보', 'Page details')}</span></h3>
       ${row('layers', L('작업 공간', 'Workspace'), esc(space?.name || ''))}
       ${row('book', L('종류', 'Kind'), esc(kindName))}
       ${row('user', L('만든 사람', 'Created by'), esc(person(ctx.ws, open.authorId)?.name || ''))}
@@ -348,11 +363,11 @@ export function pageInfoPanel(ctx) {
       ${row('restore', L('판', 'Versions'), String((open.versions || []).length + 1))}
       <div class="info-row">${icon('tag')}<span>${L('라벨', 'Labels')}</span><b>${(open.labels || []).map((label) => badge(label, '#0f9f6e')).join(' ') || esc(L('없음', 'None'))}</b></div>
     </section>
-    ${canEdit ? `<section><h3>${icon('settings')}<span>${L('상태와 위치', 'State and place')}</span></h3>
+    ${canEdit ? `<section data-fold="page-place"><h3>${icon('settings')}<span>${L('상태와 위치', 'State and place')}</span></h3>
       <label class="prop"><span>${L('상태', 'Status')}</span><select data-choose="page-status" data-id="${esc(open.id)}">${['draft', 'review', 'current'].map((id) => `<option value="${id}"${open.status === id ? ' selected' : ''}>${statusName[id]}</option>`).join('')}</select></label>
       ${open.kind !== 'blog' ? `<label class="prop"><span>${L('상위 페이지', 'Parent')}</span><select data-choose="page-parent" data-id="${esc(open.id)}"><option value="">${L('최상위', 'Top')}</option>${pages.filter((page) => page.kind !== 'blog' && page.id !== open.id && !pageAncestor(pages, page, open.id)).map((page) => `<option value="${esc(page.id)}"${page.id === open.parentId ? ' selected' : ''}>${esc(page.title)}</option>`).join('')}</select></label>` : ''}
-    </section>` : `<section>${row('flag', L('상태', 'Status'), esc(statusName[open.status] || statusName.current))}</section>`}
-    <section><h3>${icon('bolt')}<span>${L('함께하기', 'Together')}</span></h3>
+    </section>` : `<section data-fold="page-place"><h3>${icon('settings')}<span>${L('상태', 'Status')}</span></h3>${row('flag', L('상태', 'Status'), esc(statusName[open.status] || statusName.current))}</section>`}
+    <section data-fold="page-together"><h3>${icon('bolt')}<span>${L('함께하기', 'Together')}</span></h3>
       <div class="info-actions">
         <button type="button" class="small-button${liked ? ' primary' : ''}" data-action="like-page" data-id="${esc(open.id)}">${icon('flag')}<span>${L('좋아요', 'Like')} ${(open.likes || []).length}</span></button>
         <button type="button" class="small-button${watching ? ' primary' : ''}" data-action="watch-page" data-id="${esc(open.id)}">${icon('bell')}<span>${watching ? L('관찰 중', 'Watching') : L('관찰', 'Watch')}</span></button>
@@ -360,7 +375,7 @@ export function pageInfoPanel(ctx) {
         <button type="button" class="small-button" data-action="jump" data-target="page-files">${icon('paperclip')}<span>${L('파일', 'Files')} ${(open.attachments || []).length}</span></button>
       </div>
     </section>
-    <section><h3>${icon('lock')}<span>${L('권한과 공유', 'Access & sharing')}</span></h3>
+    <section data-fold="page-access"><h3>${icon('lock')}<span>${L('권한과 공유', 'Access & sharing')}</span></h3>
       ${row('lock', L('제한', 'Restricted'), open.restricted ? esc(L('켜짐', 'On')) : esc(L('꺼짐', 'Off')))}
       ${row('pencil', L('편집자', 'Editors'), named(open.editors))}
       ${row('eye', L('읽는 사람', 'Readers'), named(open.readers))}
@@ -372,7 +387,7 @@ export function pageInfoPanel(ctx) {
       <div class="info-grant"><select id="page-editor" aria-label="${esc(L('편집자', 'Editor'))}">${people}</select><button type="button" class="small-button" data-action="grant-edit" data-id="${esc(open.id)}">${icon('pencil')}<span>${L('편집자로', 'As editor')}</span></button></div>
       <div class="info-grant"><select id="page-reader" aria-label="${esc(L('읽는 사람', 'Reader'))}">${people}</select><button type="button" class="small-button" data-action="grant-read" data-id="${esc(open.id)}">${icon('eye')}<span>${L('읽는 사람으로', 'As reader')}</span></button></div>` : ''}
     </section>
-    <section><h3>${icon('download')}<span>${L('내보내기', 'Export')}</span></h3>
+    <section data-fold="page-export"><h3>${icon('download')}<span>${L('내보내기', 'Export')}</span></h3>
       <div class="info-actions">
         <button type="button" class="small-button" data-action="export-page" data-id="${esc(open.id)}" data-format="html">${icon('download')}<span>HTML</span></button>
         <button type="button" class="small-button" data-action="export-page" data-id="${esc(open.id)}" data-format="doc">${icon('file')}<span>${L('워드', 'Word')}</span></button>
@@ -382,7 +397,7 @@ export function pageInfoPanel(ctx) {
         ${canEdit ? `<button type="button" class="small-button danger" data-action="delete-article" data-id="${esc(open.id)}">${icon('trash')}<span>${L('휴지통으로', 'To trash')}</span></button>` : ''}
       </div>
     </section>
-    <section id="page-versions"><h3>${icon('restore')}<span>${L('이전 판', 'Earlier versions')}</span><span class="chip">${(open.versions || []).length}</span></h3>
+    <section data-fold="page-versions" id="page-versions"><h3>${icon('restore')}<span>${L('이전 판', 'Earlier versions')}</span><span class="chip">${(open.versions || []).length}</span></h3>
       ${versions || `<p class="muted">${L('아직 이전 판이 없습니다.', 'No earlier versions yet.')}</p>`}
     </section>
   </div>`;

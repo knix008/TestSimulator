@@ -998,3 +998,56 @@ p.muted > .icon:first-child { width: 15px; height: 15px; margin-right: 5px; vert
 .nav-ws-create input { flex: 1; min-width: 0; height: 26px; padding: 0 6px; font-size: 0.93em; }
 .page-info .prop-top { align-items: start; }
 .page-info textarea { width: 100%; resize: vertical; }
+/* The left navigation in sections, each with a title that folds it. */
+.nav-sect { margin: 0 6px 6px; border: 1px solid var(--border); border-radius: 10px; background: color-mix(in srgb, var(--surface) 70%, transparent); overflow: hidden; }
+.nav-sect-head { display: flex; align-items: center; gap: 2px; padding: 2px 4px 2px 2px; background: color-mix(in srgb, var(--text) 4%, transparent); border-bottom: 1px solid var(--border); }
+.nav-sect.folded .nav-sect-head { border-bottom: 0; }
+.nav-sect-toggle { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; padding: 6px 6px; border: 0; border-radius: 7px; background: none; color: var(--text); font: inherit; font-weight: 700; font-size: 0.92em; text-align: left; cursor: pointer; }
+.nav-sect-toggle:hover { background: var(--hover); }
+.nav-sect-toggle > .icon:first-child { width: 13px; height: 13px; color: var(--muted); }
+.nav-sect-toggle > .icon + .icon { width: 16px; height: 16px; }
+.nav-sect-toggle > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-sect-toggle .nav-key { margin-left: 4px; padding: 0 5px; border-radius: 4px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-size: 0.85em; }
+.nav-sect-add { display: grid; place-items: center; flex: none; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--muted); cursor: pointer; }
+.nav-sect-add:hover { background: var(--hover); color: var(--accent); }
+.nav-sect-add .icon { width: 15px; height: 15px; }
+.nav-sect-body { display: grid; gap: 1px; padding: 4px 4px 6px; }
+.nav-sect-body .nav-section { margin: 6px 6px 2px; }
+.nav-sect-body .nav-section:first-child { margin-top: 2px; }
+.nav-sect.current { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.nav-sect.admin .nav-sect-toggle { color: var(--accent); }
+.nav-sect-body .nav-subs { margin: 0; padding-left: 0; border-left: 0; }
+.nav-project-name { margin: 2px 8px 4px; color: var(--muted); font-size: 0.85em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel-body { padding-top: 6px; }
+/* The right panel in the same foldable sections. */
+.side .nav-sect { margin: 0 0 8px; }
+.side .nav-sect-body { padding: 8px 10px 10px; gap: 6px; }
+.page-info .nav-sect { padding: 0; border: 1px solid var(--border); }
+.page-info .nav-sect:last-child { border-bottom: 1px solid var(--border); }
+.page-info .nav-sect-body { display: grid; gap: 6px; }
+.page-info .side-foot { padding: 4px 2px; border: 0; }
+.props .nav-sect-body .prop { margin: 0; }
+.side .nav-sect-toggle .chip { margin-left: auto; }
+/* Panel buttons in the title bar, just left of Minimize. */
+.panel-toggles { display: flex; align-items: stretch; margin-right: 6px; padding-right: 6px; border-right: 1px solid var(--border); }
+.window-button.panel-toggle { width: 40px; color: var(--muted); }
+.window-button.panel-toggle.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.window-button.panel-toggle:hover { background: var(--hover); color: var(--text); }
+.window-button.panel-toggle .icon { width: 17px; height: 17px; }
+.nav-sect-toggle > span.chip { flex: none; min-width: 0; margin-left: auto; }
+/* The centre uses all the room between the two panels. */
+.doc-body { max-width: none; }
+.ws-main { padding: 12px 14px 24px; }
+.ws-main > .doc-page { max-width: none; margin: 0; padding: 16px 20px; }
+.search-page { max-width: none; }
+.query-line { max-width: none; }
+.md img, img.md-image { max-width: 100%; }
+.doc-writing, .doc-source { min-height: max(360px, calc(100vh - 380px)); }
+.doc-child-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.doc-body table { width: 100%; }
+.doc-body th { text-align: left; }
+/* Deleting from a menu or a page. */
+.menu-pop button.danger, .menu-pop button.danger .icon { color: #d93a3a; }
+.menu-pop button.danger:hover { background: color-mix(in srgb, #d93a3a 12%, transparent); }
+.doc-crumbs .doc-trash { margin-left: 4px; color: var(--muted); }
+.doc-crumbs .doc-trash:hover { color: #d93a3a; }

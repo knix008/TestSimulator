@@ -835,10 +835,13 @@ describe('Screens', () => {
     assert.match(toolbar, /data-action="open-talk"/);
     assert.match(menu, /data-action="open-talk"/);
     assert.match(toolbar, /data-icon="info"/);
-    assert.match(toolbar, /data-action="toggle-panel" data-id="left"/);
-    assert.match(toolbar, /data-action="toggle-panel" data-id="right"/);
-    assert.match(toolbar, /data-icon="panelLeft"/);
-    assert.match(toolbar, /data-icon="panelRight"/);
+    // The panel buttons sit in the title bar, just left of Minimize, not on the toolbar.
+    assert.doesNotMatch(toolbar, /toggle-panel/);
+    const shell = renderMenubar({ ...ctx, desktop: true, ui: { ...ctx.ui, ready: true } });
+    assert.match(shell, /data-action="toggle-panel" data-id="left"/);
+    assert.match(shell, /data-action="toggle-panel" data-id="right"/);
+    assert.match(shell, /data-icon="panelLeft"/);
+    assert.ok(shell.indexOf('data-id="right"') < shell.indexOf('data-window="minimize"'));
     assert.ok(toolbar.indexOf('data-action="theme-menu"') < toolbar.indexOf('data-action="about"'));
     const nav = renderNav(ctx);
     assert.match(nav, /panel-header/);

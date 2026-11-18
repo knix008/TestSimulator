@@ -91,3 +91,19 @@ export function panelFrame(open, side, glyph, title, body = '') {
   const collapse = L(id === 'left' ? '왼쪽 패널 접기' : '오른쪽 패널 접기', id === 'left' ? 'Collapse the left panel' : 'Collapse the right panel');
   return `<div class="panel-header">${icon(glyph)}<span>${name}</span><button type="button" class="icon-button" data-action="toggle-panel" data-id="${id}" title="${escapeHtml(collapse)}" aria-label="${escapeHtml(collapse)}">${icon(id === 'left' ? 'foldLeft' : 'foldRight')}</button></div>${body}`;
 }
+
+/**
+ * A section of a side panel: a title bar that folds it, and its contents. `scope` is 'nav' (left panel)
+ * or 'side' (right panel); the folded sections of each are kept in the settings for the next start.
+ * `head` is the title's HTML (icon, words, a count chip).
+ */
+export function foldBox(ctx, scope, id, head, body, { extra = '', tone = '', attrs = '' } = {}) {
+  const folded = Boolean(ctx.settings?.[scope === 'side' ? 'sideFolded' : 'navFolded']?.[id]);
+  const label = folded ? L('펼치기', 'Expand') : L('접기', 'Collapse');
+  return `<section class="nav-sect${tone ? ` ${tone}` : ''}${folded ? ' folded' : ''}" data-${scope === 'side' ? 'side' : 'nav'}-section="${escapeHtml(id)}" ${attrs}>
+    <header class="nav-sect-head">
+      <button type="button" class="nav-sect-toggle" data-action="toggle-nav-section" data-scope="${scope}" data-id="${escapeHtml(id)}" aria-expanded="${folded ? 'false' : 'true'}" title="${escapeHtml(label)}">${icon(folded ? 'chevronRight' : 'chevronDown')}${head}</button>${extra}
+    </header>
+    ${folded ? '' : `<div class="nav-sect-body">${body}</div>`}
+  </section>`;
+}

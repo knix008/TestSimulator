@@ -3,7 +3,7 @@ import { describe, test } from 'node:test';
 import { sampleWorkspace } from '../../src/domain/sample.js';
 import { addArticle } from '../../src/domain/services.js';
 import { blankWorkspace } from '../../src/domain/store.js';
-import { addColumn, addPage, addRow, addShape, addSpace, attachPage, commentPage, copyPage, deletePage, deletePageComment, deleteSpace, editPageComment, suggestSpaceKey, updateSpace, expandPage, likePage, movePage, pageByShare, pageDocument, restorePage, restoreTrashed, searchPages, setPageStatus, shareLink, updatePage, visiblePage, watchPage } from '../../src/domain/wiki.js';
+import { purgePage, trashedPages, addColumn, addPage, addRow, addShape, addSpace, attachPage, commentPage, copyPage, deletePage, deletePageComment, deleteSpace, editPageComment, suggestSpaceKey, updateSpace, expandPage, likePage, movePage, pageByShare, pageDocument, restorePage, restoreTrashed, searchPages, setPageStatus, shareLink, updatePage, visiblePage, watchPage } from '../../src/domain/wiki.js';
 
 describe('Wiki', () => {
   test('puts an article in a space and keeps a page tree', () => {
@@ -100,7 +100,7 @@ test('makes a workspace from a name alone and keys it automatically', () => {
     assert.equal(team.scope, 'team');
   });
 
-  test('renames a workspace and deletes it only when empty', () => {
+  test('renames a workspace and deletes it with its pages', () => {
     const ws = blankWorkspace();
     const space = addSpace(ws, { name: 'Drafts' }, 'u1');
     assert.throws(() => updateSpace(ws, space.id, { name: 'Other' }, 'u2'), /permission/);
@@ -110,13 +110,30 @@ test('makes a workspace from a name alone and keys it automatically', () => {
     assert.equal(space.name, 'By admin');
     assert.throws(() => updateSpace(ws, space.id, { name: ' ' }, 'u1'), /name-required/);
     const page = addPage(ws, { spaceId: space.id, title: 'One' }, 'u1');
-    assert.throws(() => deleteSpace(ws, space.id, 'u1'), /space-not-empty/);
-    deletePage(ws, page.id, 'u1');
-    assert.throws(() => deleteSpace(ws, space.id, 'u1'), /space-not-empty/);
-    ws.articles = ws.articles.filter((item) => item.id !== page.id);
+    const gone = addPage(ws, { spaceId: space.id, title: 'Two' }, 'u1');
+    deletePage(ws, gone.id, 'u1');
     assert.throws(() => deleteSpace(ws, space.id, 'u2'), /permission/);
-    deleteSpace(ws, space.id, 'u1');
+    assert.equal(deleteSpace(ws, space.id, 'u1'), 2);
     assert.equal(ws.spaces.some((item) => item.id === space.id), false);
+    assert.equal(ws.articles.some((item) => item.id === page.id || item.id === gone.id), false);
+  });
+
+  test('trashes a page with its child pages and brings them back together', () => {
+    const ws = blankWorkspace();
+    const space = addSpace(ws, { name: 'Book', key: 'BOOK' }, 'u1');
+    const top = addPage(ws, { spaceId: space.id, title: 'Chapter' }, 'u1');
+    const child = addPage(ws, { spaceId: space.id, parentId: top.id, title: 'Section' }, 'u1');
+    const grand = addPage(ws, { spaceId: space.id, parentId: child.id, title: 'Detail' }, 'u1');
+    deletePage(ws, top.id, 'u1');
+    assert.equal(child.trashed && grand.trashed, true);
+    assert.deepEqual(trashedPages(ws, space.id, 'u1').map((item) => item.id), [top.id]);
+    restoreTrashed(ws, top.id, 'u1');
+    assert.equal(top.trashed || child.trashed || grand.trashed, false);
+    deletePage(ws, top.id, 'u1');
+    restoreTrashed(ws, child.id, 'u1');
+    assert.equal(child.parentId, '');
+    purgePage(ws, top.id, 'u1');
+    assert.equal(ws.articles.some((item) => item.id === top.id), false);
   });
 
   test('adds files to a page list without touching its text', () => {

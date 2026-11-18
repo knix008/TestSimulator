@@ -152,12 +152,14 @@ export function updateSpace(ws, spaceId, patch, actorId, admin = false) {
   return space;
 }
 
-/** Removes a workspace that holds no pages (pages in the trash count until they are deleted). */
+/** Removes a workspace and every page in it (the trash too). Its maker or an administrator; returns how many pages went. */
 export function deleteSpace(ws, spaceId, actorId, admin = false) {
   const space = mustSpace(ws, spaceId);
   if (!admin && space.authorId !== actorId) throw new Error('permission');
-  if (ws.articles.some((page) => page.spaceId === space.id)) throw new Error('space-not-empty');
+  const before = ws.articles.length;
+  ws.articles = ws.articles.filter((page) => page.spaceId !== space.id);
   ws.spaces = ws.spaces.filter((item) => item.id !== space.id);
+  return before - ws.articles.length;
 }
 
 function spaceFor(ws, input) {
@@ -321,27 +323,53 @@ export function movePage(ws, pageId, parentId, actorId) {
   return page;
 }
 
+/** The pages under a page, at any depth (not counting pages already in the trash on their own). */
+export function pageDescendants(ws, pageId) {
+  return descendants(ws, pageId);
+}
+
+/** Moves a page to the trash, with its child pages; they come back together when it is restored. */
 export function deletePage(ws, pageId, actorId) {
   const page = mustPage(ws, pageId);
   if (!canEditPage(page, actorId)) throw new Error('permission');
+  const at = nowIso();
   page.trashed = true;
-  page.updated = nowIso();
+  page.trashedWith = '';
+  page.updated = at;
+  for (const child of descendants(ws, pageId)) {
+    if (child.trashed) continue;
+    child.trashed = true;
+    child.trashedWith = pageId;
+    child.updated = at;
+  }
   return page;
 }
 
 export function restoreTrashed(ws, pageId, actorId) {
   const page = mustPage(ws, pageId);
   if (!page.trashed) throw new Error('not-found');
-  if (page.authorId !== actorId && !(page.editors || []).includes(actorId)) throw new Error('permission');
+  if (page.authorId !== actorId && !(page.editors || []).includes(actorId) && !canEditPage({ ...page, trashed: false }, actorId)) throw new Error('permission');
   page.trashed = false;
+  page.trashedWith = '';
+  // A child page brought back on its own, while its parent stays in the trash, goes to the top.
+  const parent = ws.articles.find((item) => item.id === page.parentId);
+  if (parent?.trashed) page.parentId = '';
   page.updated = nowIso();
+  for (const child of ws.articles) {
+    if (child.trashed && child.trashedWith === pageId) {
+      child.trashed = false;
+      child.trashedWith = '';
+      child.updated = page.updated;
+    }
+  }
   return page;
 }
 
 export function purgePage(ws, pageId, actorId) {
   const page = mustPage(ws, pageId);
-  if (!page.trashed || (page.authorId !== actorId && !(page.editors || []).includes(actorId))) throw new Error('permission');
-  ws.articles = ws.articles.filter((item) => item.id !== pageId);
+  if (!page.trashed || (page.authorId !== actorId && !(page.editors || []).includes(actorId) && !canEditPage({ ...page, trashed: false }, actorId))) throw new Error('permission');
+  // The child pages that went to the trash with it go for good with it.
+  ws.articles = ws.articles.filter((item) => item.id !== pageId && !(item.trashed && item.trashedWith === pageId));
 }
 
 /**
@@ -422,7 +450,8 @@ export function pagesIn(ws, spaceId, userId) {
 }
 
 export function trashedPages(ws, spaceId, userId) {
-  return (ws.articles || []).filter((page) => page.spaceId === spaceId && page.trashed && (page.authorId === userId || (page.editors || []).includes(userId)));
+  // Pages that went with a parent come back with it, so only the page that was deleted is listed.
+  return (ws.articles || []).filter((page) => page.spaceId === spaceId && page.trashed && !page.trashedWith && (page.authorId === userId || (page.editors || []).includes(userId) || canEditPage({ ...page, trashed: false }, userId)));
 }
 
 export function copyPage(ws, pageId, actorId) {

@@ -15,7 +15,7 @@ import { TEMPLATE_GROUPS, templateBody, templateById } from './domain/page-templ
 import { issueMacrosToMarkdown } from './domain/issue-macros.js';
 import { shiftedDates } from './domain/dependencies.js';
 import { timelineTodayX } from './ui/timeline.js';
-import { addColumn, addPage, addRow, addShape, addSpace, attachPage, commentPage, copyPage, deletePageComment, canEditPage, deleteSpace, editPageComment, resolvePageComment, updateSpace, expandPage, likePage, markEditing, movePage, pageByShare, purgePage, removePageFile, removeShape, restorePage, restoreTrashed, setPageAccess, setPageStatus, shareLink, updatePage, watchPage } from './domain/wiki.js';
+import { addColumn, addPage, addRow, addShape, addSpace, attachPage, commentPage, copyPage, deletePageComment, canEditPage, deleteSpace, editPageComment, pageDescendants, resolvePageComment, updateSpace, expandPage, likePage, markEditing, movePage, pageByShare, purgePage, removePageFile, removeShape, restorePage, restoreTrashed, setPageAccess, setPageStatus, shareLink, updatePage, watchPage } from './domain/wiki.js';
 import { addArticle, addCalendar, addToken, addWebhook, authorizationUrl, csvIssueRows, decideApproval, deleteArticle, deleteToken, deleteWebhook, openApproval } from './domain/services.js';
 import { loadSettings, PANEL_MAX, PANEL_MIN, rememberPath, saveSettings } from './domain/settings.js';
 import {
@@ -68,7 +68,6 @@ const ERRORS = {
   'file-invalid': ['이 파일은 작업 공간이 아닙니다.', 'This file is not a workspace.'],
   'attachment-big': ['첨부는 700KB 이하만 넣을 수 있습니다.', 'Attachments must be 700KB or smaller.'],
   'dependency-cycle': ['이렇게 연결하면 서로를 기다리게 됩니다. 순서를 확인하세요.', 'That link would make the issues wait for each other. Check the order.'],
-  'space-not-empty': ['페이지가 남아 있는 작업 공간는 지울 수 없습니다. 페이지를 지우고 휴지통도 비우세요.', 'A workspace with pages cannot be deleted. Delete its pages and empty its trash first.'],
   'photo-invalid': ['사진은 이미지 파일이어야 합니다.', 'The photo must be an image file.'],
   'self-link': ['이슈를 자기 자신에게 연결할 수 없습니다.', 'An issue cannot be linked to itself.'],
   query: ['질의 문법을 확인하세요.', 'Check the query syntax.'],
@@ -1775,6 +1774,17 @@ function runConfirmed() {
     paint();
     return;
   }
+  if (modal.action === 'delete-article') {
+    const page = (ws.articles || []).find((item) => item.id === modal.id);
+    if (!page) { paint(); return; }
+    flushPageSave();
+    mutate(() => {
+      deleteArticle(ws, page.id, actor());
+      const gone = new Set([page.id, ...pageDescendants(ws, page.id).map((item) => item.id)]);
+      if (gone.has(ui.articleId)) { ui.articleId = ''; ui.wikiEdit = false; ui.spaceId = page.spaceId; }
+    });
+    return;
+  }
   if (modal.action === 'delete-workspace') {
     const admin = isWorkspaceAdmin(ws.users.find((user) => user.id === actor()));
     mutate(() => {
@@ -1996,7 +2006,7 @@ function onAction(el) {
   }
   if (name === 'new-workspace' || name === 'ws-create-start') {
     ui.wsCreating = true;
-    ui.navWsFolded = false;
+    if (settings.navFolded?.spaces) { settings.navFolded = { ...settings.navFolded, spaces: false }; saveSettings(); }
     if (settings.showLeftPanel === false) { settings.showLeftPanel = true; saveSettings(); }
     paint();
     document.querySelector('#nav-ws-name')?.focus();
@@ -2019,13 +2029,23 @@ function onAction(el) {
     });
     return;
   }
-  if (name === 'toggle-nav-workspaces') { ui.navWsFolded = !ui.navWsFolded; paint(); return; }
+  if (name === 'toggle-nav-section') {
+    // A section of the left navigation folds open or shut; the choice is kept for the next start.
+    const id = el.dataset.id;
+    const key = el.dataset.scope === 'side' ? 'sideFolded' : 'navFolded';
+    settings[key] = { ...(settings[key] || {}), [id]: !settings[key]?.[id] };
+    saveSettings();
+    paint();
+    return;
+  }
   if (name === 'edit-workspace') { ui.spaceId = el.dataset.id; ui.articleId = ''; ui.view = 'knowledge'; if (settings.showRightPanel === false) { settings.showRightPanel = true; saveSettings(); } paint(); document.querySelector('#right [data-space-field="name"]')?.focus(); return; }
   if (name === 'delete-workspace') {
     const space = (ws.spaces || []).find((item) => item.id === el.dataset.id);
     if (!space) return;
-    if ((ws.articles || []).some((page) => page.spaceId === space.id)) { toast(message(new Error('space-not-empty'))); return; }
-    confirm(L(`작업 공간 '${space.name}'을(를) 지울까요?`, `Delete the workspace '${space.name}'?`), 'delete-workspace', space.id);
+    ui.context = null;
+    const count = (ws.articles || []).filter((page) => page.spaceId === space.id).length;
+    const pages = count ? L(` 안의 페이지 ${count}개(휴지통 포함)도 함께 지워지며 되돌릴 수 없습니다.`, ` Its ${count} pages (the trash too) go with it, for good.`) : '';
+    confirm(L(`작업 공간 '${space.name}'을(를) 지울까요?${pages}`, `Delete the workspace '${space.name}'?${pages}`), 'delete-workspace', space.id, { ko: '작업 공간 삭제', en: 'Delete the workspace', glyph: 'trash', danger: true });
     return;
   }
   if (name === 'open-workspace') {
@@ -2247,10 +2267,12 @@ function onAction(el) {
     return;
   }
   if (name === 'delete-article') {
-    mutate(() => {
-      deleteArticle(ws, el.dataset.id, actor());
-      if (ui.articleId === el.dataset.id) { ui.articleId = ''; ui.wikiEdit = false; }
-    });
+    const page = (ws.articles || []).find((item) => item.id === el.dataset.id);
+    if (!page) return;
+    ui.context = null;
+    const kids = pageDescendants(ws, page.id).filter((item) => !item.trashed).length;
+    const more = kids ? L(` 하위 페이지 ${kids}개도 함께 옮겨집니다.`, ` Its ${kids} child pages go with it.`) : '';
+    confirm(L(`'${page.title}' 페이지를 휴지통으로 옮길까요?${more} 작업 공간 속성의 휴지통에서 되돌릴 수 있습니다.`, `Move the page '${page.title}' to the trash?${more} It can be restored from the trash in the workspace properties.`), 'delete-article', page.id, { ko: '휴지통으로', en: 'Move to the trash', glyph: 'trash', danger: true });
     return;
   }
   if (name === 'add-calendar') {
@@ -3064,6 +3086,16 @@ function mount() {
         x: event.clientX,
         y: event.clientY,
       };
+      ui.menu = null;
+      ui.popover = null;
+      paint();
+      return;
+    }
+    const pageRow = event.target.closest('[data-action="open-article"][data-id]');
+    const spaceRow = !pageRow && event.target.closest('[data-action="open-workspace"][data-id]');
+    if (pageRow || spaceRow) {
+      event.preventDefault();
+      ui.context = { kind: pageRow ? 'page' : 'workspace', id: (pageRow || spaceRow).dataset.id, x: event.clientX, y: event.clientY };
       ui.menu = null;
       ui.popover = null;
       paint();

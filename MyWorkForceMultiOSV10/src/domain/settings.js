@@ -19,6 +19,10 @@ export const DEFAULTS = {
   fontWeight: 400,
   fontStyle: 'normal',
   showLeftPanel: true,
+  /** Sections of the left navigation that are folded shut: { company, spaces, work, project, admin }. */
+  navFolded: {},
+  /** Sections of the right panel that are folded shut, by section id. */
+  sideFolded: {},
   showRightPanel: true,
   leftWidth: PANEL_MIN,
   rightWidth: PANEL_MIN,
@@ -51,6 +55,8 @@ export function loadSettings() {
     ...stored,
     recent: Array.isArray(stored.recent) ? stored.recent.filter((item) => typeof item === 'string').slice(0, 8) : [],
     fontSize: Number(stored.fontSize) || DEFAULTS.fontSize,
+    navFolded: stored.navFolded && typeof stored.navFolded === 'object' && !Array.isArray(stored.navFolded) ? { ...stored.navFolded } : {},
+    sideFolded: stored.sideFolded && typeof stored.sideFolded === 'object' && !Array.isArray(stored.sideFolded) ? { ...stored.sideFolded } : {},
     leftWidth: panelWidth(stored.leftWidth),
     rightWidth: panelWidth(stored.rightWidth),
     showStartPage: stored.showStartPage !== false,
