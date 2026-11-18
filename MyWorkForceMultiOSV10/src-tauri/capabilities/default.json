@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Main window of MyWorkForce",
-  "windows": ["main", "talk", "doc-*"],
+  "windows": ["main", "talk", "doc-*", "tool-*"],
   "permissions": [
     "core:default",
     "core:window:allow-show",

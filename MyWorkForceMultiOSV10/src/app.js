@@ -29,6 +29,9 @@ import {
 import { writingExport } from './domain/markdown.js';
 import { fromDateInput, parseDuration, uid } from './domain/util.js';
 import { auditLog, encryptionKey, testConnection } from './platform/data.js';
+import { openToolWindow } from './platform/native.js';
+import { PRINT_CONTENT_KEY } from './ui/printwin.js';
+import { refreshSettings, SETTINGS_KEY } from './domain/settings.js';
 import { bindListViews, arrangedColumns, sortedRows } from './ui/listview.js';
 import { AUDIT_COLUMNS, actionLabel, auditSummary, formatTime } from './ui/audit.js';
 import { changeOwnPassword, leavePage, livePage, releaseSignInLock, schemaSql, schemaStatus, setUserPassword, signInLocks, upgradeSchema, waitForService } from './platform/data.js';
@@ -684,6 +687,7 @@ async function enterWorkspace(body) {
   ui.returnView = '';
   undo = [];
   redo = [];
+  offerWelcome();
   paint();
   applyMainRequest();
   const file = pendingFiles.shift();
@@ -711,8 +715,8 @@ function openRequested(request) {
       for (const item of ws.inbox || []) if (item.userId === actor() && item.pageId === page.id) item.read = true;
     }
   } else if (request.documentId || request.view === 'documents') {
-    ui.docId = request.documentId || '';
-    ui.view = 'documents';
+    if (request.documentId) openDocTab(request.documentId);
+    else { ui.docId = ''; ui.view = 'documents'; }
   } else if (request.view === 'issue' || request.issueId || request.issueKey) {
     const host = projects.find((item) => (item.issues || []).some((issue) => issue.id === request.issueId || (request.issueKey && issue.key === request.issueKey))) || named || project();
     if (host) ws.activeProjectId = host.id;
@@ -1175,6 +1179,7 @@ async function companySignIn() {
     const session = await loginSession(ui.loginAccount, ui.loginPassword);
     clearLoginMessage();
     ui.loginLock = 0;
+    askTutorial = true;
     if (settings.autoLogin) rememberLogin(ui.loginAccount, typed || savedLogin()?.password || '');
     ui.loginPassword = '';
     ui.loginUser = session.user.id;
@@ -1344,12 +1349,107 @@ function context() {
   };
 }
 
-let welcomeSeen = false;
+/** Set by a sign-in: the next time the workspace opens, ask whether to run the tutorial. */
+let askTutorial = false;
 
+/** Asks whether to run the tutorial (Settings → Start page turns the question off). */
 function offerWelcome() {
-  if (welcomeSeen || ui.ready || !ui.loginUser || settings.showWelcome === false || ui.modal) return;
-  welcomeSeen = true;
+  if (!askTutorial || !ui.loginUser) return;
+  askTutorial = false;
+  if (settings.showWelcome === false || Number.isInteger(ui.tutorial)) return;
+  if (ui.modal && ui.modal.kind !== 'login') return;
   ui.modal = { kind: 'welcome' };
+}
+
+/** The sign-in window, when nobody is signed in and nothing else is open. */
+function askSignIn() {
+  if (ui.loginUser || ui.reading || (ui.modal && ui.modal.kind !== 'login')) return;
+  ui.modal = { kind: 'login', next: 'gate' };
+}
+
+let docPreviewTimer = 0;
+
+/** '' in the main window; 'settings' in the settings window (index.html?tool=settings). */
+let windowMode = '';
+
+const TOOL_TITLES = { print: ['인쇄', 'Print'], settings: ['설정', 'Settings'], about: ['프로그램 정보', 'About'] };
+
+/** Opens a tool window of its own: print, settings or about. */
+function openTool(kind) {
+  const [ko, en] = TOOL_TITLES[kind] || [kind, kind];
+  return openToolWindow(kind, getLanguage() === 'en' ? 'en' : 'ko', `MyWorkForce — ${L(ko, en)}`).catch((error) => toast(message(error)));
+}
+
+/** The screen's content without its buttons and inputs: what a print of "this screen" shows. */
+function printableView() {
+  const view = document.querySelector('#view');
+  if (!view) return '';
+  const copy = view.cloneNode(true);
+  for (const el of copy.querySelectorAll('button, input, select, textarea, .finder, .page-actions, .tabs, .lv-resize, .doc-tabbar, .doc-files, .doc-head .doc-meta')) {
+    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+      const text = document.createElement('span');
+      text.textContent = el.value || '';
+      if (el.value && !['checkbox', 'radio', 'range', 'color'].includes(el.type)) el.replaceWith(text); else el.remove();
+      continue;
+    }
+    if (el.tagName === 'SELECT') { const text = document.createElement('span'); text.textContent = el.selectedOptions?.[0]?.textContent || ''; el.replaceWith(text); continue; }
+    el.remove();
+  }
+  return copy.innerHTML;
+}
+
+/**
+ * Print: the document or page being written (its finished text), otherwise the screen in view. The print window
+ * (its own window) lays it out on paper, with the printer, page setup and a preview.
+ */
+function printCurrent() {
+  let title = '';
+  let subtitle = '';
+  let html = '';
+  if (ui.view === 'documents' && ui.docId) {
+    const doc = (ws.documents || []).find((item) => item.id === ui.docId);
+    if (doc) {
+      title = doc.title || L('문서', 'Document');
+      subtitle = [(ws.users || []).find((user) => user.id === doc.authorId)?.name, doc.issueKey].filter(Boolean).join(' · ');
+      html = `<h1>${esc(title)}</h1>${renderMarkdown(doc.body || '', doc.attachments || [])}`;
+    }
+  } else if (ui.view === 'knowledge' && ui.articleId) {
+    const page = (ws.articles || []).find((item) => item.id === ui.articleId);
+    if (page) {
+      title = page.title || L('페이지', 'Page');
+      subtitle = (ws.spaces || []).find((space) => space.id === page.spaceId)?.name || '';
+      html = `<h1>${esc(title)}</h1>${renderMarkdown(currentPageBody() || page.body || '')}`;
+    }
+  }
+  if (!html) {
+    title = document.querySelector('#view .page-head h1, #view h1, #view h2')?.textContent?.trim() || 'MyWorkForce';
+    subtitle = project()?.name || '';
+    html = printableView();
+  }
+  try {
+    localStorage.setItem(PRINT_CONTENT_KEY, JSON.stringify({ title, subtitle, html, at: Date.now(), lang: getLanguage() }));
+  } catch {
+    toast(L('인쇄할 내용이 너무 큽니다.', 'The content is too large to print.'));
+    return;
+  }
+  openTool('print');
+}
+
+/** Opens a document in a tab of its own (or brings its tab forward). */
+function openDocTab(id) {
+  if (!id) return;
+  // A tab already open stays where it is; a new one goes at the end.
+  if (!(ui.docTabs || []).includes(id)) ui.docTabs = [...(ui.docTabs || []), id];
+  ui.docId = id;
+  ui.view = 'documents';
+}
+
+/** Closes a document tab; the tab beside it (or the list) comes forward. */
+function closeDocTab(id) {
+  const tabs = ui.docTabs || [];
+  const at = tabs.indexOf(id);
+  ui.docTabs = tabs.filter((item) => item !== id);
+  if (ui.docId === id) ui.docId = ui.docTabs[Math.min(at, ui.docTabs.length - 1)] || '';
 }
 
 function signedOut(name, el) {
@@ -1511,6 +1611,8 @@ function bindPanelSplitters() {
 }
 
 function paint() {
+  if (windowMode === 'settings') ui.view = 'settings';
+  if (windowMode === 'settings') queueMicrotask(() => { document.title = `MyWorkForce — ${L('설정', 'Settings')}`; });
   const ctx = context();
   const app = document.querySelector('#app');
   applyPanelWidths();
@@ -1524,7 +1626,6 @@ function paint() {
     const reading = ui.reading && DOC_KINDS[ui.reading];
     if (reading && (ui.modal?.kind === 'login' || ui.modal?.kind === 'welcome')) ui.modal = null;
     if (!reading && ui.loginUser && ui.modal?.kind === 'login') ui.modal = null;
-    if (!reading && ui.loginUser) offerWelcome();
     if (reading) {
       stopStartBackground();
       document.querySelector('#view').innerHTML = readingHtml(ui.reading);
@@ -1547,7 +1648,7 @@ function paint() {
   stopStartBackground();
   // The audit log reads itself the first time its screen opens.
   if (ui.view === 'audit' && !ui.audit?.loaded && !ui.audit?.loading) setTimeout(() => { loadAudit(); }, 0);
-  if (ui.modal?.kind === 'welcome' || (ui.modal?.kind === 'login' && ui.loginUser)) ui.modal = null;
+  if (ui.modal?.kind === 'login' && ui.loginUser) ui.modal = null;
   // Views that need no open project stay put (a fresh install has none yet, and the administrator
   // must still reach Settings, Users and Projects to make one).
   if (!ctx.project && !NO_PROJECT_VIEWS.has(ui.view)) ui.view = 'home';
@@ -1559,7 +1660,7 @@ function paint() {
   const skipQuery = document.activeElement?.id === 'issue-query';
   const skipLive = Boolean(document.activeElement?.dataset?.live);
   const skipDoc = Boolean(document.activeElement?.dataset?.doc);
-  const skipPage = ['page-title', 'page-body', 'page-labels', 'page-comment', 'comment-edit', 'reply-text', 'page-doc', 'doc-link-url', 'global-search'].includes(document.activeElement?.id);
+  const skipPage = ['page-title', 'page-body', 'page-labels', 'page-comment', 'comment-edit', 'reply-text', 'page-doc', 'doc-link-url', 'global-search', 'doc-title', 'doc-body', 'doc-issue'].includes(document.activeElement?.id);
   app.classList.toggle('no-right', !showRight(ctx));
   app.classList.toggle('fold-left', settings.showLeftPanel === false);
   app.classList.toggle('fold-right', showRight(ctx) && settings.showRightPanel === false);
@@ -2004,6 +2105,7 @@ function onAction(el) {
   if (['save-page', 'page-source', 'wiki-edit', 'add-child', 'add-page', 'pick-page-file', 'open-article', 'open-workspace', 'toggle-workspace', 'toggle-page', 'new-workspace'].includes(name) && ['page-doc', 'page-title', 'page-body'].includes(document.activeElement?.id)) document.activeElement.blur();
   // Sending or leaving a comment: the comment boxes hold their repaint only while someone types in them.
   if (['search-tab', 'open-hit', 'open-search'].includes(name) && document.activeElement?.id === 'global-search') document.activeElement.blur();
+  if (['doc-tab', 'open-doc', 'close-doc', 'doc-step', 'doc-mode', 'share-doc', 'delete-doc', 'pick-doc-file', 'remove-doc-file', 'go'].includes(name) && ['doc-title', 'doc-body', 'doc-issue'].includes(document.activeElement?.id)) document.activeElement.blur();
   if (['comment-page', 'save-page-comment', 'cancel-page-comment', 'edit-page-comment', 'send-reply', 'cancel-reply', 'reply-page-comment', 'resolve-page-comment'].includes(name) && ['page-comment', 'comment-edit', 'page-quote', 'reply-text'].includes(document.activeElement?.id)) document.activeElement.blur();
   if (ui.pageDirty && !['page-source', 'insert-mention', 'pick-page-file', 'save-page'].includes(name)) flushPageSave();
   if (signedOut(name, el)) {
@@ -2062,6 +2164,8 @@ function onAction(el) {
     ui.opened = false;
     ui.reading = null;
     ui.modal = null;
+    // Signed out: the sign-in window opens again.
+    askSignIn();
     paint();
     return;
   }
@@ -2107,6 +2211,12 @@ function onAction(el) {
   }
   if (name === 'start-tutorial') {
     if (ui.connecting) return;
+    if (ui.loginUser) {
+      ui.modal = null;
+      if ((ws.projects || []).length) confirm(L('튜토리얼은 쇼핑몰 예제로 작업 공간을 바꿉니다. 계속할까요?', 'The tutorial replaces the workspace with the shop example. Continue?'), 'start-tutorial');
+      else beginTutorial();
+      return;
+    }
     ui.modal = { kind: 'login', next: 'tutorial' };
     paint();
     return;
@@ -2435,17 +2545,28 @@ function onAction(el) {
   if (name === 'purge-page') { mutate(() => { purgePage(ws, el.dataset.id, actor()); if (ui.articleId === el.dataset.id) ui.articleId = ''; }); return; }
   if (name === 'delete-page-comment') { mutate(() => deletePageComment(ws, el.dataset.id, el.dataset.comment, actor())); return; }
   if (name === 'restore-page') { mutate(() => restorePage(ws, el.dataset.id, el.dataset.version, actor())); return; }
-  if (name === 'doc-tab') { ui.docTab = el.dataset.id || 'forms'; ui.view = 'documents'; paint(); return; }
+  if (name === 'doc-tab') { ui.docTab = el.dataset.id || 'forms'; ui.docId = ''; ui.view = 'documents'; paint(); return; }
   if (name === 'use-form') {
     mutate(() => {
       const doc = createDocument(ws, { templateId: el.dataset.id, projectId: project()?.id || '', lang: getLanguage() }, actor());
-      ui.docId = doc.id;
       ui.docTab = 'mine';
-      ui.view = 'documents';
+      openDocTab(doc.id);
     });
     return;
   }
-  if (name === 'open-doc') { ui.docId = el.dataset.id; ui.view = 'documents'; paint(); return; }
+  if (name === 'open-doc') { openDocTab(el.dataset.id); paint(); return; }
+  if (name === 'close-doc') { closeDocTab(el.dataset.id); paint(); return; }
+  if (name === 'doc-step') {
+    // < > beside the tabs: the previous or next open document, round the row.
+    const tabs = (ui.docTabs || []).filter((id) => (ws.documents || []).some((doc) => doc.id === id));
+    if (!tabs.length) return;
+    const at = Math.max(0, tabs.indexOf(ui.docId));
+    ui.docId = tabs[(at + Number(el.dataset.step || 1) + tabs.length) % tabs.length];
+    paint();
+    document.querySelector('.doc-tab.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    return;
+  }
+  if (name === 'doc-mode') { ui.docMode = el.dataset.id || 'split'; paint(); return; }
   if (name === 'share-doc') {
     mutate(() => {
       const fields = {
@@ -2459,7 +2580,7 @@ function onAction(el) {
     return;
   }
   if (name === 'delete-doc') {
-    mutate(() => { deleteDocument(ws, el.dataset.id, actor()); if (ui.docId === el.dataset.id) ui.docId = ''; });
+    mutate(() => { deleteDocument(ws, el.dataset.id, actor()); closeDocTab(el.dataset.id); });
     return;
   }
   if (name === 'delete-article') {
@@ -2538,6 +2659,8 @@ function onAction(el) {
     return;
   }
   if (name === 'go') {
+    // Settings open in a window of their own (in that window the page itself is the settings).
+    if (el.dataset.view === 'settings' && !windowMode) { openTool('settings'); return; }
     ui.view = el.dataset.view || 'home';
     if (!ui.ready && ui.view === 'settings') { ui.returnView = 'settings'; connectLocal(); return; }
     if (ui.view === 'settings') refreshSchema();
@@ -2701,7 +2824,7 @@ function onAction(el) {
   if (name === 'export-md') { exportText('md'); return; }
   if (name === 'export-csv') { exportText('csv'); return; }
   if (name === 'export-project') { exportText('project'); return; }
-  if (name === 'print') { window.print(); return; }
+  if (name === 'print') { printCurrent(); return; }
   if (name === 'undo') { if (undo.length) { redo.push(structuredClone(ws)); ws = undo.pop(); if (ui.path) ui.dirty = true; scheduleSave(); paint(); } return; }
   if (name === 'redo') { if (redo.length) { undo.push(structuredClone(ws)); ws = redo.pop(); if (ui.path) ui.dirty = true; scheduleSave(); paint(); } return; }
   if (name === 'start-menu') {
@@ -2722,7 +2845,7 @@ function onAction(el) {
   }
   if (name === 'start-arrange') { startCards?.arrange?.(); return; }
   if (name === 'show-welcome') { ui.context = null; ui.modal = { kind: 'welcome' }; paint(); return; }
-  if (name === 'about') { ui.modal = { kind: 'about' }; paint(); appInfo().then((info) => { ui.about = info; const modal = document.querySelector('#modal'); if (modal) { modal.dataset.kind = ''; paint(); } }); return; }
+  if (name === 'about') { openTool('about'); return; }
   if (name === 'copy-about') {
     const lines = [...document.querySelectorAll('#about-rows dt')].map((row) => `${row.textContent.trim()}: ${row.nextElementSibling?.textContent.trim() || ''}`);
     navigator.clipboard?.writeText(lines.join('\n')).then(() => toast(L('복사했습니다.', 'Copied.'))).catch(() => toast(L('복사하지 못했습니다.', 'Could not copy.')));
@@ -3220,6 +3343,17 @@ function onInput(event) {
     doc.updated = new Date().toISOString();
     if (ui.path) ui.dirty = true;
     scheduleSave();
+    if (el.dataset.doc === 'body') {
+      clearTimeout(docPreviewTimer);
+      docPreviewTimer = setTimeout(() => {
+        const preview = document.querySelector('#doc-preview');
+        if (preview) preview.innerHTML = renderMarkdown(doc.body || '', doc.attachments || []);
+      }, 150);
+    }
+    if (el.dataset.doc === 'title') {
+      const label = document.querySelector('.doc-tab.active .doc-tab-open span');
+      if (label) label.textContent = el.value || L('(제목 없음)', '(untitled)');
+    }
     return;
   }
   if (el.dataset.participantSearch != null && ui.modal?.kind === 'participants') {
@@ -3275,9 +3409,8 @@ function openHit(hit) {
   }
   if (hit.kind === 'documents' || hit.on === 'document') {
     activate(hit.project);
-    ui.docId = hit.kind === 'documents' ? hit.id : hit.doc;
     ui.docTab = hit.mine ? 'mine' : 'shared';
-    ui.view = 'documents';
+    openDocTab(hit.kind === 'documents' ? hit.id : hit.doc);
     paint();
     return;
   }
@@ -3771,6 +3904,7 @@ function runShortcut(hit, event) {
       return;
     }
     if (!FREE_VIEWS.has(hit.view) && !ensureProject()) return;
+    if (hit.view === 'settings' && !windowMode) { openTool('settings'); return; }
     ui.view = hit.view;
     paint();
     return;
@@ -3801,7 +3935,54 @@ function runShortcut(hit, event) {
   onAction({ dataset: { action: hit.id } });
 }
 
-export async function start() {
+/** The settings window (index.html?tool=settings): the settings page alone, with the main window's sign-in. */
+async function startSettingsWindow() {
+  windowMode = 'settings';
+  document.body.classList.add('tool-window', 'settings-window');
+  document.title = `MyWorkForce — ${L('설정', 'Settings')}`;
+  mount();
+  ui.dataUrl = dataUrl();
+  ui.view = 'settings';
+  paint();
+  try { await waitForService(isDesktop() ? 30000 : 3000); } catch { /* shown below */ }
+  await refreshStatus();
+  if (!sessionToken()) {
+    document.querySelector('#view').innerHTML = `<div class="page"><h1>${esc(L('설정', 'Settings'))}</h1><p>${esc(L('메인 창에서 로그인한 뒤 설정을 여세요.', 'Sign in in the main window, then open Settings.'))}</p></div>`;
+    return;
+  }
+  try {
+    const data = await currentSession();
+    ui.loginUser = data.user.id;
+    ui.loginAccount = data.user.login || '';
+    ui.unlocked = true;
+    ui.opened = true;
+    const loaded = await loadWorkspace();
+    ws = upgradeWorkspace(loaded.workspace || {});
+    ui.ready = true;
+    ui.view = 'settings';
+    refreshSchema();
+    paint();
+  } catch (error) {
+    document.querySelector('#view').innerHTML = `<div class="page"><h1>${esc(L('설정', 'Settings'))}</h1><p class="danger-text">${esc(message(error))}</p></div>`;
+    return;
+  }
+  // Signed out in the main window: this window has nothing to show any more.
+  watchSharedSession(() => { if (!sessionToken()) window.close(); });
+  setInterval(() => { pullWorkspace().catch(() => {}); }, 4000);
+}
+
+export async function start(options = {}) {
+  if (options.tool === 'settings') return startSettingsWindow();
+  // Settings changed in the settings window: this window follows (theme, font, language, start page…).
+  window.addEventListener('storage', (event) => {
+    if (event.key !== SETTINGS_KEY) return;
+    const before = settings.language;
+    refreshSettings();
+    applyTheme(resolveTheme(settings.theme, prefersDark(), settings.customTheme));
+    applyFont(settings);
+    if (settings.language !== before) { setLanguage(settings.language); setBackendLanguage(settings.language); }
+    paint();
+  });
   if (settings.backgroundRandom) {
     settings.background = nextBackground(settings.background);
     saveSettings();
@@ -3817,6 +3998,8 @@ export async function start() {
   await refreshStatus();
   if (settings.launchAtStartup) setLaunchAtStartup(true).catch(() => {});
   if (!(await adoptSharedSession())) await autoSignIn();
+  // Nobody signed in (and no automatic sign-in): the sign-in window opens by itself.
+  askSignIn();
   if (!ui.ready) paint();
   watchSharedSession(() => { adoptSharedSession().catch(() => {}); });
   watchMainRequest(() => { applyMainRequest(); });

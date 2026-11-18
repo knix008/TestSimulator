@@ -33,3 +33,25 @@ describe('Installer language', () => {
     assert.equal(applyInstallLanguage(undefined, undefined).language, before);
   });
 });
+
+describe('Installer language dialog', () => {
+  const read = async (file) => (await import('node:fs')).readFileSync(new URL(`../../${file}`, import.meta.url));
+
+  test('the installer offers Korean and English and asks every time, even after an earlier installation', async () => {
+    const conf = JSON.parse(String(await read('src-tauri/tauri.conf.json')));
+    const nsis = conf.bundle.windows.nsis;
+    assert.deepEqual(nsis.languages, ['Korean', 'English']);
+    assert.equal(nsis.displayLanguageSelector, true);
+    const hooks = await read('src-tauri/windows/hooks.nsh');
+    // A remembered language would otherwise skip the question for good.
+    assert.match(String(hooks), /^﻿?!define MUI_LANGDLL_ALWAYSSHOW$/m);
+    // Korean text in the hooks needs the BOM, or makensis reads it in the system code page.
+    assert.deepEqual([...hooks.subarray(0, 3)], [0xef, 0xbb, 0xbf]);
+  });
+
+  test('the chosen language is handed to the program for its first start', async () => {
+    const hooks = String(await read('src-tauri/windows/hooks.nsh'));
+    assert.match(hooks, /StrCmp \$LANGUAGE 1042/);
+    assert.match(hooks, /install-language/);
+  });
+});

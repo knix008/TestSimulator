@@ -1,6 +1,7 @@
 mod core;
 mod files;
 mod i18n;
+pub mod printing;
 mod window_state;
 
 use serde::Serialize;
@@ -291,6 +292,77 @@ fn open_doc_window(app: tauri::AppHandle, kind: String, lang: String, title: Str
     Ok(())
 }
 
+/// Tool windows (label `tool-<kind>`): printing, settings and the program information. Each is an ordinary
+/// window of its own (system title bar, taskbar button), not a dialog inside the main window; its place and
+/// size are remembered (window-state.tool-<kind>.json). The page is index.html?tool=<kind>.
+const TOOL_KINDS: &[(&str, f64, f64, f64, f64, bool)] = &[
+    // kind, width, height, min width, min height, resizable
+    ("print", 1240.0, 860.0, 980.0, 640.0, true),
+    ("settings", 1120.0, 820.0, 760.0, 540.0, true),
+    ("about", 600.0, 640.0, 600.0, 640.0, false),
+];
+
+#[tauri::command]
+fn open_tool_window(app: tauri::AppHandle, kind: String, lang: String, title: String) -> Result<(), String> {
+    let Some(&(_, width, height, min_width, min_height, resizable)) = TOOL_KINDS.iter().find(|item| item.0 == kind) else {
+        return Err(format!("unknown window {kind}"));
+    };
+    let label = format!("tool-{kind}");
+    if let Some(window) = app.get_webview_window(&label) {
+        let _ = window.unminimize();
+        window.show().map_err(|error| error.to_string())?;
+        window.set_focus().map_err(|error| error.to_string())?;
+        return Ok(());
+    }
+    let lang = if lang == "en" { "en" } else { "ko" };
+    let state_path = window_state::state_file(&app).map(|path| path.with_file_name(format!("window-state.{label}.json")));
+    let placement = if resizable { state_path.as_deref().and_then(|path| window_state::saved_placement(&app, path)) } else { None };
+    let url = WebviewUrl::App(format!("index.html?tool={kind}&lang={lang}").into());
+    let mut builder = WebviewWindowBuilder::new(&app, &label, url)
+        .title(title)
+        .resizable(resizable)
+        .min_inner_size(min_width, min_height);
+    if let Some(script) = install_language_script(&app) {
+        builder = builder.initialization_script(&script);
+    }
+    let builder = match placement {
+        Some((state, scale)) => builder
+            .position(f64::from(state.x) / scale, f64::from(state.y) / scale)
+            .inner_size(f64::from(state.width) / scale, f64::from(state.height) / scale)
+            .maximized(state.maximized),
+        None => builder.inner_size(width, height).center(),
+    };
+    let window = builder.build().map_err(|error| error.to_string())?;
+    if let (Some(path), true) = (state_path, resizable) {
+        window_state::track(&window, path);
+    }
+    Ok(())
+}
+
+/// The system print dialog for the calling window (when the printers cannot be listed).
+#[tauri::command]
+fn print_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    window.print().map_err(|error| tr!("인쇄를 시작할 수 없습니다: {error}", "Could not start printing: {error}"))
+}
+
+/// The printers of this computer (none on other systems: the print window uses the system dialog).
+#[tauri::command]
+fn list_printers() -> printing::PrinterList {
+    printing::printers()
+}
+
+/// Prints the calling window's pages straight to the chosen printer, with no dialog.
+#[tauri::command]
+async fn print_direct(window: tauri::WebviewWindow, job: printing::PrintJob) -> Result<(), String> {
+    printing::print(&window, job).await
+}
+
+/// The same pages saved as a PDF file.
+#[tauri::command]
+async fn print_pages_to_pdf(window: tauri::WebviewWindow, job: printing::PrintJob, path: String) -> Result<(), String> {
+    printing::print_to_pdf(&window, job, path).await
+}
+
 #[tauri::command]
 fn open_talk(app: tauri::AppHandle) -> Result<(), String> {
     open_talk_window(&app)
@@ -370,7 +442,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![app_info, set_language, startup_files, read_text_file, write_text_file, workspace_file, open_talk, open_main, open_doc_window, open_browser, set_talk_autostart])
+        .invoke_handler(tauri::generate_handler![app_info, set_language, startup_files, read_text_file, write_text_file, workspace_file, open_talk, open_main, open_doc_window, open_tool_window, print_window, list_printers, print_direct, print_pages_to_pdf, open_browser, set_talk_autostart])
         .build(tauri::generate_context!())
         .expect("error while building MyWorkForce")
         .run(|_app, event| {

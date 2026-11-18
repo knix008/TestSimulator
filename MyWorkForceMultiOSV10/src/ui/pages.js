@@ -621,7 +621,7 @@ function startSettings(ctx) {
   const flag = (key, glyph, ko, en) => `<label class="check">${icon(glyph)}<input type="checkbox" data-setting="${key}" ${settings[key] !== false ? 'checked' : ''}>${L(ko, en)}</label>`;
   return `<section><h2>${icon('home')}<span>${L('시작 화면', 'Start page')}</span></h2>
       ${flag('showStartPage', 'spark', '프로그램을 열면 시작 화면을 표시', 'Show the start page when the program opens')}
-      ${flag('showWelcome', 'play', '시작할 때 이 창을 다시 보여주기', 'Show this window again at start')}
+      ${flag('showWelcome', 'play', '로그인 후 튜토리얼 실행 여부 묻기', 'Ask whether to run the tutorial after signing in')}
       ${flag('startShowProjects', 'folder', '과제 표시', 'Show projects')}
       ${flag('startShowExamples', 'box', '예제 표시', 'Show examples')}
       ${flag('startShowBackground', 'spark', '배경 고르기 표시', 'Show the background picker')}

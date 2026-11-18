@@ -2,7 +2,7 @@
 
 MyWorkForce keeps a company's work in one place. **Projects** and **issues** plan and track what has to be done (boards, backlog, sprints, roadmap, timeline), and **pages** in **workspaces** hold what people need to know, written together. Everyone in the company signs in with their own account and sees the same data. A companion chat program, **MyWorkForce Talk**, comes with it.
 
-Read the chapters in order from the contents on the left, or jump to the one you need. **Find** at the top searches the guide, **한국어 / English** switches the language, and **Print** puts it on paper or into a PDF.
+Read the chapters in order from the contents on the left, or jump to the one you need. **Find** at the top searches the guide, **−/+** changes the text size (Ctrl + / Ctrl −), **한국어 / English** switches the language, and **Print** puts it on paper or into a PDF. The pictures are the program's real screens; click one to see it filling the window.
 
 ## Getting started
 
@@ -209,6 +209,11 @@ The bell on the toolbar shows how many notifications are unread. **Notifications
 
 The **Documents** screen makes documents from forms: meeting notes, decisions, specifications, requirements, test reports, release notes, retrospectives, status reports, designs, incident reports, procedures, handovers, weekly reports and proposals. Only the writer edits a document; share it with **Only me**, **Project** or **Everyone**. An issue key ties it to that issue; export as HTML, Word, PDF or Markdown.
 
+- Documents use the whole screen. **Shared** and **Mine** are lists: click a heading to sort, drag its edge to resize, drag the heading to move the column.
+- A document opens in a tab at the top. Keep several open and switch by their tabs; **<** and **>** on the right go to the previous or next one. × closes a tab.
+- Title, form, author, last change, issue and sharing sit at the top of the editor. The text shows as **Edit**, **Side by side** (Markdown left, preview right) or **Preview**; the preview follows as you type.
+- **Print** opens the print window.
+
 ## Reviewing the work
 
 - **Dashboard**: add or remove gadgets (my issues, activity, sprint, distribution, created and resolved).
@@ -240,7 +245,7 @@ The full grammar is in **Help → WQL guide**.
 | Save, Save as | Keep the workspace in a file (on the web: a download) |
 | Export Markdown, CSV | The issue list as a table |
 | Export this project | One project and its people |
-| Print | Print the screen |
+| Print | Opens the print window: the document or page being written, otherwise the screen in view (Ctrl+P) |
 | Change password, Sign out | Your account |
 
 ## Settings and administration
@@ -262,7 +267,20 @@ Administrators create people on **Users** and set their account and a temporary 
 - Search by category, event, person (ID), dates and words. Results are a list: click a heading to sort (again to reverse), drag a heading's right edge to resize, drag a heading to move the column — a silhouette of the column and the place it will land show while dragging. Sort, widths and order are remembered on this computer.
 - Click a row for its details below; **Save as CSV** saves the list as shown.
 
+### The print window
+
+Printing happens in a print window of its own. Choices on the left change the preview on the right at once.
+
+- **Printer**: one of this computer's printers, and the number of **copies**. It prints straight to that printer; a file printer such as "Print to PDF" saves a PDF file instead.
+- **Pages**: all, the current page, or chosen pages (e.g. 1-3, 5). Pages left out are dimmed in the preview.
+- **Page setup**: paper (A3, A4, A5, B4, B5, Letter, Legal, Tabloid), orientation, margins (none, narrow, normal, wide or custom — top, right, bottom and left in mm), scale (30–300%), colour or greyscale.
+- **Header and footer**: the title on top, page numbers and the date below.
+- Turn the preview with **<** **>** or PageUp/PageDown; **Fit width** and **100%** change its size. **Save as PDF** makes a PDF of the same pages.
+
 ### Settings
+
+**Settings** and **About** open in windows of their own. Look, fonts, language and the start page changed in the settings window apply to the main window at once.
+
 
 Settings come as grouped cards: **General** (start page, background, look, font, theme), **This computer and sign-in** (start MyWorkForce and Talk with the computer, automatic sign-in, sign-in lock), **Data** (database and schema) and **Notifications** (mail server).
 

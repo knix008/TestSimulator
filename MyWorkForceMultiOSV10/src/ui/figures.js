@@ -1,3 +1,4 @@
+import { getLanguage } from '../i18n.js';
 import { esc, L } from './bits.js';
 
 const GUIDE = {
@@ -214,9 +215,31 @@ function plain(value) {
 }
 
 /** A small picture of one screen, used beside a guide, tutorial, or query section. */
+// Screenshots of the program (npm run guide:shots → src/assets/guide/<id>.<ko|en>.jpg). Vite turns the glob
+// into the pictures' addresses; outside Vite (unit tests) there are none and the sketches are drawn.
+let SHOTS = {};
+try {
+  SHOTS = import.meta.glob('../assets/guide/*.jpg', { eager: true, query: '?url', import: 'default' });
+} catch {
+  SHOTS = {};
+}
+/** The sub-figures of the query language share the issue list's picture. */
+const SHOT_OF = { 'wql-fields': 'wql', 'wql-ops': 'wql', 'wql-fn': 'wql', 'wql-order': 'wql' };
+
+/** The screenshot for a figure in the reader's language (or the Korean one), if there is one. */
+export function shotUrl(id) {
+  const name = SHOT_OF[id] || id;
+  const lang = getLanguage() === 'en' ? 'en' : 'ko';
+  return SHOTS[`../assets/guide/${name}.${lang}.jpg`] || SHOTS[`../assets/guide/${name}.ko.jpg`] || '';
+}
+
 export function figure(id, label, options = {}) {
-  const draw = SCENES[id] || SCENES.shell;
   const caption = options.caption === false ? '' : `<figcaption>${esc(label)}</figcaption>`;
+  const url = options.sketch ? '' : shotUrl(id);
+  if (url) {
+    return `<figure class="doc-figure shot"><img src="${esc(url)}" alt="${esc(label)}" loading="lazy" data-zoom-shot title="${esc(L('눌러서 크게 보기', 'Click to enlarge'))}">${caption}</figure>`;
+  }
+  const draw = SCENES[id] || SCENES.shell;
   return `<figure class="doc-figure"><svg viewBox="0 0 320 150" role="img" aria-label="${esc(label)}">${draw()}</svg>${caption}</figure>`;
 }
 

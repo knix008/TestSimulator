@@ -75,6 +75,20 @@ export function loadSettings() {
   return current;
 }
 
+/**
+ * Reads the settings again from storage into the same object (another window of this program changed them:
+ * the settings window). Returns that object.
+ */
+export function refreshSettings() {
+  const keep = current;
+  current = null;
+  const fresh = loadSettings();
+  if (keep) { for (const key of Object.keys(keep)) delete keep[key]; Object.assign(keep, fresh); current = keep; }
+  return current;
+}
+
+export const SETTINGS_KEY = KEY;
+
 export function saveSettings() {
   const settings = loadSettings();
   try {

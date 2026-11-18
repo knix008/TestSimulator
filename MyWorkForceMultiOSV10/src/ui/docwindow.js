@@ -11,6 +11,14 @@ import { getLanguage, setLanguage } from '../i18n.js';
 import { icon } from '../icons.js';
 import { esc, L } from './bits.js';
 import { illustrate } from './figures.js';
+import { openToolWindow } from '../platform/native.js';
+import { PRINT_CONTENT_KEY } from './printwin.js';
+
+const SIZE_KEY = 'myworkforce-doc-size';
+const SIZES = [12, 13, 14, 15, 16, 18, 20, 22];
+function savedSize() {
+  try { const value = Number(localStorage.getItem(SIZE_KEY)); return SIZES.includes(value) ? value : 15; } catch { return 15; }
+}
 
 export const DOC_KINDS = {
   guide: { glyph: 'book', ko: '사용 설명서', en: "User's guide" },
@@ -157,8 +165,31 @@ export function startViewer(asked) {
   let lang = params.get('lang') === 'en' ? 'en' : 'ko';
   let hits = [];
   let hit = -1;
+  let size = savedSize();
 
   const title = () => L(info.ko, info.en);
+
+  function setSize(step) {
+    const at = SIZES.indexOf(size);
+    size = SIZES[Math.max(0, Math.min(SIZES.length - 1, (at < 0 ? 3 : at) + step))];
+    try { localStorage.setItem(SIZE_KEY, String(size)); } catch { /* storage off */ }
+    const body = root.querySelector('#doc-body');
+    if (body) body.style.fontSize = `${size}px`;
+    const out = root.querySelector('[data-doc-size]');
+    if (out) out.textContent = `${size}px`;
+  }
+
+  /** Print: the guide through the print window (printer, page setup and preview), like everything else. */
+  function print() {
+    const body = root.querySelector('#doc-body');
+    const html = body ? body.innerHTML.replace(/<mark class="find-hit[^"]*">([\s\S]*?)<\/mark>/g, '$1') : '';
+    try {
+      localStorage.setItem(PRINT_CONTENT_KEY, JSON.stringify({ title: `MyWorkForce — ${title()}`, subtitle: '', html, at: Date.now(), lang }));
+      openToolWindow('print', lang, `MyWorkForce — ${L('인쇄', 'Print')}`).catch(() => window.print());
+    } catch {
+      window.print();
+    }
+  }
 
   function chapters() {
     const body = root.querySelector('#doc-body');
@@ -183,13 +214,15 @@ export function startViewer(asked) {
         <span class="viewer-find">${icon('search')}<input type="search" data-doc-find placeholder="${esc(L('찾기', 'Find'))}" aria-label="${esc(L('문서에서 찾기', 'Find in the document'))}"><output data-doc-count></output>
           <button type="button" class="icon-button" data-doc="find-prev" title="${esc(L('이전 찾기', 'Previous match'))}">${icon('undo')}</button>
           <button type="button" class="icon-button" data-doc="find-next" title="${esc(L('다음 찾기', 'Next match'))}">${icon('redo')}</button></span>
+        <span class="viewer-size" title="${esc(L('글자 크기', 'Text size'))}"><button type="button" class="icon-button" data-doc="smaller" aria-label="${esc(L('글자 작게', 'Smaller text'))}">−</button><output data-doc-size>${size}px</output><button type="button" class="icon-button" data-doc="larger" aria-label="${esc(L('글자 크게', 'Larger text'))}">+</button></span>
         <button type="button" class="button" data-doc="lang" data-id="${lang === 'en' ? 'ko' : 'en'}">${icon('globe')}<span>${lang === 'en' ? '한국어' : 'English'}</span></button>
         <button type="button" class="button" data-doc="print">${icon('printer')}<span>${L('인쇄', 'Print')}</span></button>
       </header>
       <div class="doc-split">
         <nav class="doc-toc" aria-label="${esc(L('목차', 'Contents'))}"><b>${esc(L('목차', 'Contents'))}</b><ol data-doc-toc></ol></nav>
-        <article class="md doc-read" id="doc-body">${documentHtml(kind, lang)}</article>
+        <article class="md doc-read" id="doc-body" style="font-size:${size}px">${documentHtml(kind, lang)}</article>
       </div>
+      <div class="shot-zoom" hidden><img alt=""><span class="shot-zoom-hint">${esc(L('누르거나 Esc로 닫기', 'Click or Esc to close'))}</span></div>
     </div>`;
     const select = root.querySelector('[data-doc-chapter]');
     select.innerHTML = chaptersOf();
@@ -277,9 +310,16 @@ export function startViewer(asked) {
   root.addEventListener('click', (event) => {
     const go = event.target.closest('[data-doc-go]');
     if (go) { event.preventDefault(); document.getElementById(go.dataset.docGo)?.scrollIntoView({ block: 'start', behavior: 'smooth' }); return; }
+    // A screenshot: the whole window shows it; another click (or Esc) closes it.
+    const shot = event.target.closest('[data-zoom-shot]');
+    const zoom = root.querySelector('.shot-zoom');
+    if (shot && zoom) { zoom.querySelector('img').src = shot.src; zoom.hidden = false; return; }
+    if (zoom && !zoom.hidden && event.target.closest('.shot-zoom')) { zoom.hidden = true; return; }
     const button = event.target.closest('[data-doc]');
     if (!button) return;
-    if (button.dataset.doc === 'print') { window.print(); return; }
+    if (button.dataset.doc === 'print') { print(); return; }
+    if (button.dataset.doc === 'smaller') { setSize(-1); return; }
+    if (button.dataset.doc === 'larger') { setSize(1); return; }
     if (button.dataset.doc === 'lang') {
       lang = button.dataset.id === 'en' ? 'en' : 'ko';
       const next = new URL(location.href);
@@ -300,7 +340,12 @@ export function startViewer(asked) {
   root.addEventListener('input', (event) => {
     if (event.target.matches('[data-doc-find]')) find(event.target.value);
   });
-  root.addEventListener('keydown', (event) => {
+  document.addEventListener('keydown', (event) => {
+    const zoom = root.querySelector('.shot-zoom');
+    if (event.key === 'Escape' && zoom && !zoom.hidden) { zoom.hidden = true; return; }
+    if ((event.ctrlKey || event.metaKey) && (event.key === '+' || event.key === '=')) { event.preventDefault(); setSize(1); return; }
+    if ((event.ctrlKey || event.metaKey) && event.key === '-') { event.preventDefault(); setSize(-1); return; }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'p') { event.preventDefault(); print(); return; }
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
       event.preventDefault();
       root.querySelector('[data-doc-find]')?.focus();

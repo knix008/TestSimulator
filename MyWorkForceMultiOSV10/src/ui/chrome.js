@@ -330,7 +330,7 @@ export function renderStatus(ctx) {
   return `<span>${hint}</span><span class="grow"></span><span>${esc(project ? `${project.key} · ${nameOf(PROJECT_TYPES.find((type) => type.id === project.type))}` : '')}</span><span class="tool-sep"></span><span>${ctx.user ? avatar(ctx.user) : ''}${esc(ctx.user?.name || '')}</span><span>${esc(where)}</span>`;
 }
 
-function aboutDialog(ctx) {
+export function aboutDialog(ctx) {
   const info = ctx.ui.about || {};
   const version = info.version || ctx.version || '';
   const parsed = info.buildDate ? new Date(info.buildDate) : null;
@@ -528,7 +528,7 @@ export function renderModal(ctx) {
   }
   if (modal.kind === 'welcome') {
     const again = ctx.settings?.showWelcome !== false;
-    return `<div class="modal-back"><div class="modal welcome">${heading('play', L('튜토리얼', 'Tutorial'))}<p>${esc(L('시작할 때 튜토리얼을 실행할까요? 쇼핑몰 예제로 주요 화면을 둘러봅니다. 나중에 시작 화면에서도 시작할 수 있습니다.', 'Run the tutorial at start? It walks the main screens with the shop example. You can also start it later from the start page.'))}</p><p>${esc(L('사용 설명서와 튜토리얼 문서는 로그인하지 않아도 이 창에서 볼 수 있습니다.', 'You can read the user guide and the tutorial document in this window without signing in.'))}</p><div class="page-actions"><button type="button" class="button" data-action="open-guide" data-id="guide">${icon('book')}<span>${L('사용 설명서', "User's guide")}</span></button><button type="button" class="button" data-action="open-guide" data-id="tutorial">${icon('play')}<span>${L('튜토리얼 문서', 'Tutorial document')}</span></button></div><label class="check welcome-again">${icon('play')}<input type="checkbox" data-setting="showWelcome" ${again ? 'checked' : ''}>${L('시작할 때 이 창을 다시 보여주기', 'Show this window again at start')}</label><div class="modal-foot"><button type="button" class="button" data-action="modal-cancel">${icon('close')}<span>${L('나중에', 'Later')}</span></button><button type="button" class="button primary" data-action="start-tutorial">${icon('play')}<span>${L('튜토리얼 시작', 'Start the tutorial')}</span></button></div></div></div>`;
+    return `<div class="modal-back"><div class="modal welcome">${heading('play', L('튜토리얼', 'Tutorial'))}<p>${esc(L('로그인했습니다. 튜토리얼을 실행할까요? 쇼핑몰 예제로 주요 화면을 둘러봅니다. 튜토리얼은 지금 작업 공간을 예제로 바꾸므로, 과제가 있으면 한 번 더 묻습니다. 나중에 시작 화면에서도 시작할 수 있습니다.', 'You are signed in. Run the tutorial? It walks the main screens with the shop example. The tutorial replaces the workspace with the example, so it asks again if you have projects. You can also start it later from the start page.'))}</p><p>${esc(L('튜토리얼을 실행하지 않고 사용 설명서나 튜토리얼 문서만 읽을 수도 있습니다.', 'You can also just read the user guide or the tutorial document.'))}</p><div class="page-actions"><button type="button" class="button" data-action="open-guide" data-id="guide">${icon('book')}<span>${L('사용 설명서', "User's guide")}</span></button><button type="button" class="button" data-action="open-guide" data-id="tutorial">${icon('play')}<span>${L('튜토리얼 문서', 'Tutorial document')}</span></button></div><label class="check welcome-again">${icon('play')}<input type="checkbox" data-setting="showWelcome" ${again ? 'checked' : ''}>${L('다음에 로그인할 때도 이 창 보여주기', 'Show this window again at the next sign-in')}</label><p class="muted welcome-hint">${icon('settings')}${esc(L('설정 → 시작 화면에서 다시 켜거나 끌 수 있습니다.', 'Turn it on or off later in Settings → Start page.'))}</p><div class="modal-foot"><button type="button" class="button" data-action="modal-cancel">${icon('close')}<span>${L('나중에', 'Later')}</span></button><button type="button" class="button primary" data-action="start-tutorial">${icon('play')}<span>${L('튜토리얼 시작', 'Start the tutorial')}</span></button></div></div></div>`;
   }
   if (modal.kind === 'shortcuts') {
     // A wide window of a fixed size: the groups flow over four columns so every shortcut shows at once.
@@ -743,7 +743,7 @@ export function renderContext(ctx) {
       toggle('startShowExamples', 'box', '예제 카드 보이기', 'Show the examples card'),
       toggle('startShowBackground', 'spark', '배경 카드 보이기', 'Show the background card'),
       '<div class="sep"></div>',
-      toggle('showWelcome', 'spark', '시작할 때 안내 창 보이기', 'Show the welcome window at start'),
+      toggle('showWelcome', 'play', '로그인 후 튜토리얼 실행 여부 묻기', 'Ask about the tutorial after signing in'),
       toggle('showStartPage', 'home', '시작할 때 시작 화면 표시', 'Show the start page at launch'),
     ].join('');
   }

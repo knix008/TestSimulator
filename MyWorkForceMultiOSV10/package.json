@@ -21,7 +21,8 @@
     "build:linux": "node scripts/build.mjs linux",
     "build:all": "node scripts/build.mjs all",
     "clean": "node scripts/clean.mjs",
-    "clean:all": "node scripts/clean.mjs --all"
+    "clean:all": "node scripts/clean.mjs --all",
+    "guide:shots": "node scripts/guide-shots.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.8.0",

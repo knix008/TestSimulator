@@ -716,7 +716,8 @@ describe('Screens', () => {
     assert.match(html, /data-action="start-tutorial"/);
     assert.match(html, /data-action="open-guide" data-id="guide"/);
     assert.match(html, /data-action="open-guide" data-id="tutorial"/);
-    assert.match(html, /without signing in/);
+    assert.match(html, /You are signed in. Run the tutorial/);
+    assert.match(html, /Show this window again at the next sign-in/);
     ctx.ui.modal = { kind: 'login', next: 'tutorial' };
     const gate = renderModal(ctx);
     assert.match(gate, /Sign in as a registered user to run the tutorial/);
@@ -731,7 +732,7 @@ describe('Screens', () => {
     assert.match(locked, /data-action="open-guide" data-id="tutorial"/);
     // The sign-in window opens from the Sign in button and can always be closed.
     assert.match(locked, /data-action="modal-cancel"/);
-    assert.match(html, /Show this window again at start/);
+    assert.match(html, /Settings → Start page/);
     assert.match(html, /Later/);
   });
 
@@ -756,7 +757,7 @@ describe('Screens', () => {
     assert.match(html, /Show the start page when the program opens/);
     assert.match(html, /data-setting="startShowBackground"/);
     assert.match(html, /data-setting="showWelcome"/);
-    assert.match(html, /Show this window again at start/);
+    assert.match(html, /Ask whether to run the tutorial after signing in/);
     assert.match(html, /data-action="start-screen"/);
     assert.match(html, /data-bg="kind"/);
     assert.match(html, /data-bg="speed"/);

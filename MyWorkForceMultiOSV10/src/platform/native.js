@@ -56,6 +56,19 @@ export function openBrowser(url) {
 
 /** The user's guide, the tutorial document or the WQL guide in a window of its own (desktop: an OS window). */
 export const openDocWindow = (kind, lang, title) => invoke('open_doc_window', { kind, lang, title });
+/** A tool window of its own (print, settings, about): an OS window on the desktop, a browser window on the web. */
+export function openToolWindow(kind, lang, title) {
+  if (isDesktop()) return invoke('open_tool_window', { kind, lang, title });
+  const size = { print: [1240, 860], settings: [1120, 820], about: [600, 640] }[kind] || [1000, 760];
+  const opened = window.open(`${location.pathname}?tool=${kind}&lang=${lang}`, `myworkforce-${kind}`, `width=${size[0]},height=${size[1]}`);
+  opened?.focus?.();
+  return Promise.resolve();
+}
+/** Printing: the printers of this computer (none on the web or other systems), straight to a printer, to a PDF file. */
+export const listPrinters = () => (isDesktop() ? invoke('list_printers') : Promise.resolve({ printers: [], defaultPrinter: '', filePrinters: [] }));
+export const printDirect = (job) => invoke('print_direct', { job });
+export const printPagesToPdf = (job, path) => invoke('print_pages_to_pdf', { job, path });
+export const printWindow = () => (isDesktop() ? invoke('print_window') : Promise.resolve(window.print()));
 
 export function openMain(target = {}, options = {}) {
   requestMain(target);

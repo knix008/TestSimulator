@@ -9,6 +9,7 @@ import { markMentions } from './mentions.js';
 import { expandIssueMacros } from './issue-macros.js';
 import { diffLines, diffStats } from '../domain/diff.js';
 import { finderBar, issueFacets, issueVisible, keepBlock, matchesText, screenFind } from './finder.js';
+import { renderListView } from './listview.js';
 
 const DAY = { mon: ['월', 'Mon'], tue: ['화', 'Tue'], wed: ['수', 'Wed'], thu: ['목', 'Thu'], fri: ['금', 'Fri'], sat: ['토', 'Sat'], sun: ['일', 'Sun'] };
 
@@ -409,13 +410,12 @@ const SHARE = {
   workspace: ['모두', 'Everyone'],
 };
 
-export function documentsView(ctx) {
-  const tab = ctx.ui.docTab || 'forms';
-  const tabs = [['shared', 'globe', L('공유', 'Shared')], ['mine', 'user', L('내 문서', 'Mine')], ['forms', 'file', L('양식', 'Forms')]].map(([id, glyph, label]) => `<button type="button" class="tab${tab === id ? ' active' : ''}" data-action="doc-tab" data-id="${id}">${icon(glyph)}<span>${label}</span></button>`).join('');
+/** The documents a person can open: shared ones (with the project or everyone) or their own. */
+function documentRows(ctx, tab) {
   const find = screenFind(ctx);
   const mine = (ctx.ws.documents || []).filter((doc) => doc.authorId === ctx.user?.id);
   const shared = visibleDocuments(ctx.ws, ctx.user?.id, ctx.project?.id).filter((doc) => doc.visibility !== 'private');
-  const rows = (tab === 'mine' ? mine : shared).filter((doc) => {
+  return (tab === 'mine' ? mine : shared).filter((doc) => {
     const form = FORMS.find((item) => item.id === doc.templateId);
     const author = person(ctx.ws, doc.authorId)?.name || '';
     if (!matchesText(find.q, doc.title, nameOf(form), author, doc.issueKey)) return false;
@@ -423,43 +423,117 @@ export function documentsView(ctx) {
     if (find.share && doc.visibility !== find.share) return false;
     return true;
   });
-  const list = rows.map((doc) => {
-    const form = FORMS.find((item) => item.id === doc.templateId);
-    const share = SHARE[doc.visibility] || SHARE.private;
-    return `<button type="button" class="link-row${doc.id === ctx.ui.docId ? ' active' : ''}" data-action="open-doc" data-id="${esc(doc.id)}">${icon('file')}<b>${esc(doc.title)}</b><small>${esc(nameOf(form) || '')} · ${esc(person(ctx.ws, doc.authorId)?.name || '')} · ${esc(L(share[0], share[1]))}</small></button>`;
-  }).join('');
-  const open = rows.find((doc) => doc.id === ctx.ui.docId) || null;
-  const owner = open && open.authorId === ctx.user?.id;
-  const gallery = FORMS.filter((item) => matchesText(find.q, nameOf(item), item.id) && (!find.template || item.id === find.template)).map((item) => `<button type="button" class="panel-card" data-action="use-form" data-id="${esc(item.id)}">${icon(item.id === 'deliverable' ? 'spark' : 'file')}<b>${esc(nameOf(item))}</b><small class="muted">${item.id === 'deliverable' ? esc(L('결과물을 등록하고 공유합니다.', 'Register a deliverable and share it.')) : esc(L('이 양식으로 문서 만들기', 'Start a document from this form'))}</small></button>`).join('');
-  const shareButtons = owner ? ['private', 'project', 'workspace'].map((id) => {
-    const pair = SHARE[id];
-    const glyph = id === 'private' ? 'lock' : id === 'project' ? 'people' : 'globe';
-    const disabled = id === 'project' && !open.projectId ? 'disabled' : '';
-    return `<button type="button" class="small-button${open.visibility === id ? ' primary' : ''}" data-action="share-doc" data-id="${esc(open.id)}" data-visibility="${id}" ${disabled}>${icon(glyph)}<span>${esc(L(pair[0], pair[1]))}</span></button>`;
-  }).join('') : '';
-  const docFiles = (open?.attachments || []).map((file) => `<div class="link-row">${icon('paperclip')}<a class="file-link" href="${esc(file.data || '')}" data-file="${esc(file.id)}" data-name="${esc(file.name)}" download="${esc(file.name)}">${esc(file.name)}</a>${owner ? `<button type="button" class="icon-button" data-action="remove-doc-file" data-id="${esc(open.id)}" data-file="${esc(file.id)}">${icon('trash')}</button>` : ''}</div>`).join('');
-  const editor = open ? `<article class="panel-card"><header><b>${esc(open.title)}</b>
-      <button type="button" class="small-button" data-action="export-doc" data-id="${esc(open.id)}" data-format="html">${icon('download')}<span>HTML</span></button>
-      <button type="button" class="small-button" data-action="export-doc" data-id="${esc(open.id)}" data-format="doc">${icon('file')}<span>${L('워드', 'Word')}</span></button>
-      <button type="button" class="small-button" data-action="export-doc" data-id="${esc(open.id)}" data-format="pdf">${icon('printer')}<span>PDF</span></button>
-      <button type="button" class="small-button" data-action="export-doc" data-id="${esc(open.id)}" data-format="md">${icon('file')}<span>Markdown</span></button>
-      ${owner ? `<button type="button" class="icon-button" data-action="delete-doc" data-id="${esc(open.id)}">${icon('trash')}</button>` : ''}</header>
-      <p class="muted">${esc(nameOf(FORMS.find((item) => item.id === open.templateId)) || '')} · ${esc(person(ctx.ws, open.authorId)?.name || '')}</p>
-      ${owner ? `<div class="inline">${shareButtons}</div>
-        <input id="doc-title" data-doc="title" value="${esc(open.title)}" placeholder="${esc(L('제목', 'Title'))}">
-        <input id="doc-issue" data-doc="issueKey" value="${esc(open.issueKey || '')}" placeholder="${esc(L('이슈 키', 'Issue key'))}">
-        <textarea id="doc-body" data-doc="body" rows="12">${esc(open.body || '')}</textarea>` : ''}
-      <div class="md">${renderMarkdown(open.body || '', open.attachments || [])}</div>
-      <h2>${L('첨부', 'Attachments')}</h2>${docFiles || empty(L('첨부가 없습니다.', 'There are no attachments.'))}
-      ${owner ? `<div class="inline"><button type="button" class="button" data-action="pick-doc-file" data-id="${esc(open.id)}" data-kind="image">${icon('image')}<span>${L('이미지', 'Image')}</span></button><button type="button" class="button" data-action="pick-doc-file" data-id="${esc(open.id)}" data-kind="file">${icon('paperclip')}<span>${L('파일', 'File')}</span></button></div>` : ''}</article>` : '';
-  const body = tab === 'forms'
-    ? `<p class="muted">${L('양식을 고르면 내 문서로 만들어집니다. 공유하기 전에는 만든 사람만 봅니다.', 'A form becomes your document. Until you share it, only you can see it.')}</p><div class="card-grid">${gallery}</div>`
-    : `<div class="split-page"><div>${list || empty(tab === 'mine' ? L('만든 문서가 없습니다.', 'You have no documents.') : L('공유된 문서가 없습니다.', 'Nothing is shared.'))}</div>${editor}</div>`;
+}
+
+/**
+ * Documents use the whole page. The list (shared / mine) is a list view; a document opens in a tab of its
+ * own above the editor, and several open documents sit side by side as tabs with < > to move between them.
+ * Title, form, author, issue and sharing are in the editor's own header, not in a side column.
+ */
+export function documentsView(ctx) {
+  const tab = ctx.ui.docTab || 'forms';
+  const all = ctx.ws.documents || [];
+  const openIds = (ctx.ui.docTabs || []).filter((id) => all.some((doc) => doc.id === id));
+  const active = openIds.includes(ctx.ui.docId) ? ctx.ui.docId : '';
+  const strip = docTabStrip(ctx, tab, openIds, active);
+  if (active) {
+    const doc = all.find((item) => item.id === active);
+    return `<div class="page doc-page doc-page-open">${strip}${documentEditor(ctx, doc)}</div>`;
+  }
+  const find = screenFind(ctx);
   const docFacets = [
     { id: 'template', label: L('양식', 'Form'), options: FORMS.map((item) => ({ id: item.id, label: nameOf(item) })) },
     { id: 'share', label: L('공유', 'Share'), options: [{ id: 'private', label: L('나만', 'Only me') }, { id: 'project', label: L('과제', 'Project') }, { id: 'workspace', label: L('모두', 'Everyone') }] },
   ];
-  return `<div class="page">${pageHead(L('문서', 'Documents'), '', 'documents')}<div class="tabs">${tabs}</div>${finderBar(ctx, docFacets)}${body}</div>`;
+  let body;
+  if (tab === 'forms') {
+    const gallery = FORMS.filter((item) => matchesText(find.q, nameOf(item), item.id) && (!find.template || item.id === find.template)).map((item) => `<button type="button" class="panel-card form-card" data-action="use-form" data-id="${esc(item.id)}">${icon(item.id === 'deliverable' ? 'spark' : 'file')}<b>${esc(nameOf(item))}</b><small class="muted">${item.id === 'deliverable' ? esc(L('결과물을 등록하고 공유합니다.', 'Register a deliverable and share it.')) : esc(L('이 양식으로 문서 만들기', 'Start a document from this form'))}</small></button>`).join('');
+    body = `<p class="muted">${L('양식을 고르면 내 문서로 만들어지고 새 탭에서 열립니다. 공유하기 전에는 만든 사람만 봅니다.', 'A form becomes your document and opens in a new tab. Until you share it, only you can see it.')}</p><div class="card-grid form-grid">${gallery}</div>`;
+  } else {
+    const rows = documentRows(ctx, tab);
+    const share = (doc) => SHARE[doc.visibility] || SHARE.private;
+    const columns = [
+      { id: 'title', label: L('제목', 'Title'), width: 320, value: (doc) => doc.title || '', html: (doc) => `${icon('file')} <b>${esc(doc.title || L('(제목 없음)', '(untitled)'))}</b>` },
+      { id: 'form', label: L('양식', 'Form'), width: 140, value: (doc) => nameOf(FORMS.find((item) => item.id === doc.templateId)) || '' },
+      { id: 'author', label: L('작성자', 'Author'), width: 140, value: (doc) => person(ctx.ws, doc.authorId)?.name || '' },
+      { id: 'share', label: L('공유', 'Shared'), width: 110, value: (doc) => L(share(doc)[0], share(doc)[1]) },
+      { id: 'issue', label: L('이슈', 'Issue'), width: 110, value: (doc) => doc.issueKey || '' },
+      { id: 'files', label: L('첨부', 'Files'), width: 80, align: 'right', value: (doc) => (doc.attachments || []).length },
+      { id: 'updated', label: L('수정', 'Updated'), width: 170, value: (doc) => doc.updated || doc.created || '', html: (doc) => esc(formatWhen(doc.updated || doc.created || '')) },
+    ];
+    body = renderListView({
+      id: 'documents',
+      columns,
+      rows,
+      state: ctx.settings?.listViews?.documents || { sort: { col: 'updated', dir: 'desc' } },
+      empty: tab === 'mine' ? L('만든 문서가 없습니다. "양식"에서 만드세요.', 'You have no documents. Make one from Forms.') : L('공유된 문서가 없습니다.', 'Nothing is shared.'),
+      rowAttrs: (doc) => `data-action="open-doc" data-id="${esc(doc.id)}" title="${esc(L('눌러서 탭으로 열기', 'Click to open in a tab'))}"`,
+    });
+  }
+  return `<div class="page doc-page">${strip}${finderBar(ctx, docFacets)}${body}</div>`;
+}
+
+/** The tab row: the three lists, then one tab per open document; < > on the right move between them. */
+function docTabStrip(ctx, tab, openIds, active) {
+  const lists = [['shared', 'globe', L('공유', 'Shared')], ['mine', 'user', L('내 문서', 'Mine')], ['forms', 'file', L('양식', 'Forms')]]
+    .map(([id, glyph, label]) => `<button type="button" class="tab doc-list-tab${!active && tab === id ? ' active' : ''}" data-action="doc-tab" data-id="${id}">${icon(glyph)}<span>${label}</span></button>`).join('');
+  const docs = openIds.map((id) => {
+    const doc = (ctx.ws.documents || []).find((item) => item.id === id);
+    return `<span class="tab doc-tab${id === active ? ' active' : ''}" role="tab" aria-selected="${id === active ? 'true' : 'false'}"><button type="button" class="doc-tab-open" data-action="open-doc" data-id="${esc(id)}" title="${esc(doc.title || '')}">${icon('file')}<span>${esc(doc.title || L('(제목 없음)', '(untitled)'))}</span></button><button type="button" class="doc-tab-close" data-action="close-doc" data-id="${esc(id)}" title="${esc(L('탭 닫기', 'Close the tab'))}" aria-label="${esc(L('탭 닫기', 'Close the tab'))}">${icon('close')}</button></span>`;
+  }).join('');
+  const many = openIds.length > 1;
+  const steps = openIds.length ? `<span class="doc-tab-steps">
+      <button type="button" class="icon-button" data-action="doc-step" data-step="-1" ${many ? '' : 'disabled'} title="${esc(L('이전 문서 탭', 'Previous document tab'))}" aria-label="${esc(L('이전 문서 탭', 'Previous document tab'))}">&lt;</button>
+      <button type="button" class="icon-button" data-action="doc-step" data-step="1" ${many ? '' : 'disabled'} title="${esc(L('다음 문서 탭', 'Next document tab'))}" aria-label="${esc(L('다음 문서 탭', 'Next document tab'))}">&gt;</button>
+    </span>` : '';
+  return `<div class="doc-tabbar">${pageHeadInline(L('문서', 'Documents'))}<div class="tabs doc-lists">${lists}</div><div class="doc-tabs" role="tablist">${docs}</div>${steps}</div>`;
+}
+
+function pageHeadInline(title) {
+  return `<h1 class="doc-tabbar-title">${icon('file')}<span>${esc(title)}</span></h1>`;
+}
+
+/** One document filling the page: its own header (title, form, author, issue, sharing, export) over the text and its preview. */
+function documentEditor(ctx, open) {
+  const owner = open.authorId === ctx.user?.id;
+  const form = nameOf(FORMS.find((item) => item.id === open.templateId)) || '';
+  const author = person(ctx.ws, open.authorId)?.name || '';
+  const shareButtons = ['private', 'project', 'workspace'].map((id) => {
+    const pair = SHARE[id];
+    const glyph = id === 'private' ? 'lock' : id === 'project' ? 'people' : 'globe';
+    const disabled = !owner || (id === 'project' && !open.projectId) ? 'disabled' : '';
+    return `<button type="button" class="small-button${open.visibility === id ? ' primary' : ''}" data-action="share-doc" data-id="${esc(open.id)}" data-visibility="${id}" ${disabled}>${icon(glyph)}<span>${esc(L(pair[0], pair[1]))}</span></button>`;
+  }).join('');
+  const exportButtons = [['html', 'download', 'HTML'], ['doc', 'file', L('워드', 'Word')], ['pdf', 'printer', 'PDF'], ['md', 'file', 'Markdown']]
+    .map(([format, glyph, label]) => `<button type="button" class="small-button" data-action="export-doc" data-id="${esc(open.id)}" data-format="${format}">${icon(glyph)}<span>${label}</span></button>`).join('');
+  const files = (open.attachments || []).map((file) => `<span class="doc-file">${icon('paperclip')}<a class="file-link" href="${esc(file.data || '')}" data-file="${esc(file.id)}" data-name="${esc(file.name)}" download="${esc(file.name)}">${esc(file.name)}</a>${owner ? `<button type="button" class="icon-button" data-action="remove-doc-file" data-id="${esc(open.id)}" data-file="${esc(file.id)}" title="${esc(L('첨부 지우기', 'Remove'))}">${icon('trash')}</button>` : ''}</span>`).join('');
+  const mode = ctx.ui.docMode || 'split';
+  const modes = owner ? [['edit', 'pencil', L('편집', 'Edit')], ['split', 'columns', L('나란히', 'Side by side')], ['read', 'eye', L('미리보기', 'Preview')]]
+    .map(([id, glyph, label]) => `<button type="button" class="small-button${mode === id ? ' primary' : ''}" data-action="doc-mode" data-id="${id}">${icon(glyph)}<span>${label}</span></button>`).join('') : '';
+  const preview = `<div class="doc-preview md" id="doc-preview">${renderMarkdown(open.body || '', open.attachments || [])}</div>`;
+  const text = `<textarea id="doc-body" class="doc-source" data-doc="body" spellcheck="false" placeholder="${esc(L('Markdown으로 씁니다. # 제목, - 목록, **굵게**', 'Write in Markdown. # heading, - list, **bold**'))}">${esc(open.body || '')}</textarea>`;
+  const area = !owner ? preview : mode === 'edit' ? text : mode === 'read' ? preview : `${text}${preview}`;
+  return `<article class="doc-editor-full${owner ? '' : ' read-only'} mode-${owner ? mode : 'read'}" data-doc-id="${esc(open.id)}">
+    <header class="doc-head">
+      ${owner ? `<input id="doc-title" class="doc-title-input" data-doc="title" value="${esc(open.title)}" placeholder="${esc(L('제목', 'Title'))}">` : `<h2 class="doc-title-input">${esc(open.title)}</h2>`}
+      <div class="doc-meta">
+        <span class="chip">${icon('file')}${esc(form)}</span>
+        <span class="chip">${icon('user')}${esc(author)}</span>
+        <span class="muted">${icon('clock')}${esc(formatWhen(open.updated || open.created || ''))}</span>
+        <label class="doc-issue">${icon('link')}<span>${L('이슈', 'Issue')}</span><input id="doc-issue" data-doc="issueKey" value="${esc(open.issueKey || '')}" placeholder="${esc(L('이슈 키', 'Issue key'))}" ${owner ? '' : 'readonly'}></label>
+        <span class="doc-share">${shareButtons}</span>
+        <span class="grow"></span>
+        ${modes ? `<span class="doc-modes">${modes}</span>` : ''}
+        <button type="button" class="small-button" data-action="print" title="${esc(L('인쇄 (Ctrl+P)', 'Print (Ctrl+P)'))}">${icon('printer')}<span>${L('인쇄', 'Print')}</span></button>
+        <span class="doc-export">${exportButtons}</span>
+        ${owner ? `<button type="button" class="icon-button" data-action="delete-doc" data-id="${esc(open.id)}" title="${esc(L('문서 삭제', 'Delete the document'))}">${icon('trash')}</button>` : ''}
+      </div>
+    </header>
+    <div class="doc-body-area">${area}</div>
+    <footer class="doc-files">${icon('paperclip')}<b>${L('첨부', 'Attachments')}</b>${files || `<span class="muted">${L('없음', 'None')}</span>`}
+      ${owner ? `<span class="grow"></span><button type="button" class="small-button" data-action="pick-doc-file" data-id="${esc(open.id)}" data-kind="image">${icon('image')}<span>${L('이미지', 'Image')}</span></button><button type="button" class="small-button" data-action="pick-doc-file" data-id="${esc(open.id)}" data-kind="file">${icon('paperclip')}<span>${L('파일', 'File')}</span></button>` : ''}
+    </footer>
+  </article>`;
 }
 
 export function calendarView(ctx) {
