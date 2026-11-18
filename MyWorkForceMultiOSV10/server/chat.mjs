@@ -77,9 +77,11 @@ export function noticeTarget(workspace, actorId, message) {
     const note = (item.notifications || []).find((entry) => entry.id === noticeId);
     if (note) { project = item; found = note; break; }
   }
-  const pageId = found?.pageId || (workspace?.articles || []).find((page) => (found?.kind === 'page' || found?.kind === 'page-comment') && page.title && page.title === found.issueKey)?.id || '';
+  // A company inbox notice (a mention, or a company or team page) has no project.
+  if (!found) found = (workspace?.inbox || []).find((entry) => entry.id === noticeId && entry.userId === actorId) || null;
+  const pageId = found?.pageId || (workspace?.articles || []).find((page) => (found?.kind === 'page' || found?.kind === 'page-comment' || found?.kind === 'mention') && page.title && page.title === found.issueKey)?.id || '';
   const documentId = found?.documentId || (workspace?.documents || []).find((doc) => found?.kind === 'document' && doc.title === found.issueKey && (!project || doc.projectId === project.id))?.id || '';
-  const issueKind = found?.kind && !['page', 'page-comment', 'document'].includes(found.kind);
+  const issueKind = found?.kind && !['page', 'page-comment', 'mention', 'document'].includes(found.kind);
   const view = pageId ? 'knowledge' : documentId ? 'documents' : (found?.issueId || (issueKind && found?.issueKey)) ? 'issue' : 'notifications';
   return {
     view,

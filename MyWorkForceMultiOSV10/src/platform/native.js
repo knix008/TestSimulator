@@ -54,6 +54,9 @@ export function openBrowser(url) {
   return invoke('open_browser', { url: target }).catch(() => { window.open(target, '_blank', 'noopener'); });
 }
 
+/** The user's guide, the tutorial document or the WQL guide in a window of its own (desktop: an OS window). */
+export const openDocWindow = (kind, lang, title) => invoke('open_doc_window', { kind, lang, title });
+
 export function openMain(target = {}, options = {}) {
   requestMain(target);
   if (options.focus === false) return Promise.resolve();

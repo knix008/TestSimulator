@@ -224,3 +224,7 @@ export async function fetchChatFile(id) {
   if (!response.ok) throw new Error('not-found');
   return response.blob();
 }
+
+/** Writing a page together: send the text you have (with the version it started from); get the merged text. */
+export const livePage = (body) => call('/api/live/page', { method: 'POST', body: JSON.stringify(body || {}) });
+export const leavePage = (pageId) => call('/api/live/leave', { method: 'POST', body: JSON.stringify({ pageId }), keepalive: true });

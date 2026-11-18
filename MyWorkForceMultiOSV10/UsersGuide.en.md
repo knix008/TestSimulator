@@ -1,153 +1,290 @@
-# User's guide
+# MyWorkForce User's Guide
 
-MyWorkForce keeps projects and issues in one workspace. The menu bar is the window title. The left side picks a screen and the right side edits the selected issue.
+MyWorkForce keeps a company's work in one place. **Projects** and **issues** plan and track what has to be done (boards, backlog, sprints, roadmap, timeline), and **pages** in **workspaces** hold what people need to know, written together. Everyone in the company signs in with their own account and sees the same data. A companion chat program, **MyWorkForce Talk**, comes with it.
 
-## Start
+Read the chapters in order from the contents on the left, or jump to the one you need. **Find** at the top searches the guide, **한국어 / English** switches the language, and **Print** puts it on paper or into a PDF.
 
-Press **Sign in** at the top of the start page to open the sign-in window. After a fresh install, sign in with the administrator account to set up people, teams and the database. People in one company each use their own account and share the same projects and documents. The store is a SQLite file on this computer, or MySQL, MariaDB, SQL Server, or PostgreSQL. Choose it under **Database** in Settings. That store holds every project in the company. Connecting creates the tables it needs and brings the schema up to date. A database missing on the server can be created, and the administrator checks the tables or gets an SQL script for a DBA on the **Schema** card. The installed program starts the data service itself. The data service listens on port `1481` for the company network, and the workspace stays closed until someone signs in.
+## Getting started
 
-On the People screen you can enter and change a person's name, title, team, phone, email, and photo. Those personal details are encrypted in the store. A password set on the People screen is required the next time you enter. A workspace left in the browser can be imported from the start screen.
+### Installing and running
 
-**Talk** on the toolbar, or Talk in Help, opens MyWorkForce Talk. Its menus and buttons use colored icons. The left toolbar is icons only, and each icon shows its name when the pointer rests on it. Notices, people, invite, your details, and work also open the related screen in the main window. A notice opens its page there. Those icons open notices, talks, people, invites, and your details on the right. A person's name sits beside a round photo, and each person without a photo has their own picture. Pressing that row opens the person's details. After a personal talk is open, Invite adds more people to that talk. It shows the person details entered in the main app. You can change your own details there, and an administrator can change anyone's. Sign in with the same account to speak with one person, or choose two or more people for a group talk. Files travel in that talk. Work notices collect in each person's own Notices room, and **Confirm** is pressed by that person. Signing in on one program signs the other in with the same account, and signing out of one signs the other out. The installer adds both MyWorkForce and MyWorkForce Talk. Under **This computer** in Settings, choose to start MyWorkForce and Talk together at boot, and automatic sign-in. They stay one program: one notification-area icon, and closing either window closes the other. The account and password for automatic sign-in stay on this computer.
+The installer puts **MyWorkForce** and **MyWorkForce Talk** in the Start menu. The program starts its own data service (port `1481` inside the company), so there is nothing else to run. In a web browser, open the address your administrator gives you.
 
-**Mail** in Settings sends through a server outside this company. The host is an external address such as `smtp.example.com`. Port 587 is STARTTLS and port 465 is SSL. The password stays on this server. **Send a test** checks that a message arrives, and later notices leave through that server.
+### Signing in
 
-## Company, teams, projects and pages
+**Sign in** at the top of the start page, or **Sign in** on the **Start** card, opens the sign-in window. Enter your account and password.
 
-MyWorkForce holds one company. The company works in **teams**, teams run **projects**, and what people should know is kept in **pages**.
+- **Close** (×) on the sign-in window closes it, and the start page stays usable. The guides, the tutorial document, the background, the language and About need no sign-in.
+- Real work, such as opening a project or a page or starting the tutorial, always needs a sign-in; the sign-in window opens again then.
+- A password set by the administrator is temporary: change it at the first sign-in before anything else opens. Passwords have at least 6 characters; change yours any time under **File → Change password**.
+- A fresh install has the administrator account `admin`, which chooses a new password at the first sign-in.
 
-- **Teams**: people who work together. Open **Company → Teams** in the navigation to see the team cards; a card opens the team's projects, team pages and members. The administrator creates and deletes teams; the administrator and team leads rename a team and change its members. A team that still has projects cannot be deleted, and a deleted team's pages move to the company space.
-- **Projects**: made inside a team. Any member may start a project in their team, and whoever starts it becomes its lead. A project can be moved to another team in its settings.
-- **Management methods**: each project chooses how it is run. Turn on what you need from Issue list, Kanban, Scrum, Roadmap, Releases and Service queues, and **This project** in the navigation shows only those screens. Kanban and the issue list are methods like the others; at least one stays on.
-- **People & access**: each project lists its people with **View** (read only), **Edit** (create and change issues and pages) or **Lead** (manage people, access and settings). The main lead is always a lead. For now only the administrator deletes a project, and the program asks first; a project with sub-projects needs them moved or deleted before.
-- **Pages**: the place to share information and documents. The **Company** space is for everyone, a **team** space for its members, a **project** space for that project's people. A single page can be restricted further. The space picker on the Pages screen groups the spaces by company, team and project.
+### The start page
 
-Pages are written like documents. **Edit** shows a large title and a formatting bar (headings 1-3, bold, italic, strikethrough, code, lists, quote, code block, divider, link, table, table of contents, child page list, image, file), and the text looks as it will be read. It is kept as Markdown; the button at the right end of the bar opens the Markdown source. Put **child pages** under a page to split it into chapters and sections; the path above the title leads back up.
-
-Accounts: on the **Users** screen the administrator sets the **ID** and the **password** when creating or editing a person. A password given by the administrator is temporary: at the first sign-in the person must choose their own before anything else opens. The first administrator password after installing works the same way. Passwords have at least 6 characters and can be changed any time under **File → Change password**.
-
-Settings are shown as cards in groups: **General** (start page, appearance), **This computer and sign-in**, **Data** (database and schema) and **Notifications** (mail).
-
-## Tutorial and examples
-
-The start screen opens the tutorial, the user guide, the query language and the examples. The database is in Settings.
-
-**Start the tutorial** opens the shop example and follows the coach in the corner. The order is Home, the board, the backlog, a query, the roadmap, knowledge, the work calendar, reports and this guide. The last step closes the coach.
-
-There are more than twenty examples, mixing software, business and service projects. The sentence on each card says what that workspace is about. Choosing a card replaces the workspace with that example. If projects already exist, it asks first. When the workspace has a password, type it on the start screen before opening an example.
-
-**Choose an example** on Home returns to the same list. **Tutorial** starts the coach again.
-
-## Files
-
-| Menu | What it does |
+| Part | What it does |
 | --- | --- |
-| New project | Creates a software, business or service project. The key is 2–10 characters and starts with a capital letter. |
-| Open | Opens a `.mwf` or JSON workspace. |
-| Save | Writes the current path. If there is no path, it asks for one. |
-| Save as | Writes a new file. |
-| Export Markdown | Saves the issue list as a table. |
-| Export CSV | Saves the same list for a spreadsheet. |
-| Export this project | Saves one project and the people related to it. |
+| Top row | **Show the start page at launch**, **Start page settings** (which cards and the welcome window), **Auto arrange** (lay the cards out without gaps) |
+| Program card | Name and version, **User guide**, **Tutorial document**, the **Help** menu, **Start the tutorial** |
+| Start | Tutorial, documents, examples, Enter (or Sign in), welcome window, shortcuts, language, About |
+| Projects | The projects you take part in; click one to go in |
+| Examples | 30 software, business and service examples; a card replaces the workspace with that example |
+| Background | 24 animated backgrounds, speed, random at start, change automatically |
 
-On the web, Save downloads a file and Open uses the file picker. Dropping a file on the window opens it too. Work is also kept on this device automatically.
+Drag a card by its handle and resize it from its bottom-right corner. The background can be changed without signing in.
 
-**Choose an example** on Home returns to the example list on the start screen. **Empty workspace** clears the projects.
+## The window
+
+| Part | Contents |
+| --- | --- |
+| Menu bar | Start, File, Edit, View, Issue, Plan, Help, Admin; it is also the title bar |
+| Toolbar | Project picker, search box, **magnifier** (search everything), Go to (Ctrl+K), new issue, notifications, Talk, who is signed in, sign out, language, panels, theme, About |
+| Left navigation | **Company** (teams, projects, workspaces with their page trees, documents, work calendar, plan), **My work** (my teams, my projects, this project's screens), **Administrator menu** |
+| Centre | The chosen screen |
+| Right panel | Details and properties of the chosen issue, page or workspace |
+| Status bar | Issue count, project type, who is signed in, database |
+
+Hover a toolbar icon to see its name and shortcut. Ctrl+Shift+1 and Ctrl+Shift+2 fold the left and right panels.
+
+## Company, teams and projects
+
+MyWorkForce holds one company. The company has **teams**, and teams run **projects**.
+
+### Teams
+
+**Company → Teams** shows a card per team; open one to see its projects, team pages and members. Administrators create and delete teams; administrators and team leads rename them and change members. A team with projects cannot be deleted.
+
+### Creating and opening projects
+
+**New project** (Ctrl+Shift+N) asks for a name, a key (2–10 characters starting with a capital letter), a type (software, business, service) and a team. Whoever creates it leads it. A row in **Projects** or a project card on a team page opens with **Open** or a **double-click**.
+
+### How a project is run
+
+Each project picks its methods: issue list, kanban, scrum, roadmap, releases, service queues. Only the screens of the chosen methods appear under **This project**. The roadmap method brings the **Timeline** too.
+
+### People and access
+
+Each project gives people **View** (read only), **Edit** (create and change issues and pages) or **Lead** (people, access and settings). Only administrators delete projects.
 
 ## Issues
 
-Create one with the Issue button or Ctrl+N. Set the type, summary, description, priority, assignee, epic, sprint and points. A sub-task needs its parent issue open first.
+### Creating
 
-On the issue screen, edit the summary. The description is Markdown, and Preview shows the result. In a comment, `@name` notifies that person. A work log accepts `90`, `1h 30m`, `1.5h` or `2d`. A day is 8 hours, so `2d` is 960 minutes.
+Use **+** on the toolbar or Ctrl+N. Set the type, summary, description, priority, assignee, epic, sprint and points. Sub-tasks are made from an open parent issue.
 
-The right side changes status, resolution, assignee, points, estimates, the due date, labels, components, fix versions and custom fields. Watchers and attachments are there too. An attachment must be 700KB or smaller.
+### The issue screen
 
-On the issue list, click a column to sort. Select several rows to change their status or assignee together. Ctrl+K finds an issue by key or summary. J and K move through the issues on screen, and Enter opens the selected one.
+Edit the summary in place; the description is Markdown. The tabs are **Description, Comments, Work log, History, Links**. `@name` in a comment notifies that person. Log work as `90`, `1h 30m`, `1.5h` or `2d` (a day is 8 hours).
 
-## Planning
+The right panel changes status, resolution, assignee, reporter, epic, sprint, points, estimate, **start**, **due**, labels, components, fix versions and custom fields; watchers and attachments (700KB a file) are there too.
 
-The scrum board shows only the active sprint. Drag a card to another column to change its status. A progress column with a limit gets a red border when the limit is passed.
+### Links and dependencies
 
-Drag from the backlog into a sprint. Start a future sprint, then complete it from the board. Unfinished issues go to the backlog or to another sprint.
+The **Links** tab connects issues: **blocks**, **relates to**, **duplicates**, **clones**. "A blocks B" means B waits for A.
 
-The roadmap shows how much of each epic is done. Releases mark a version shipped, and components group issues.
+- While an earlier issue is still open, the issue shows **Waiting for** in red at the top, and its board card shows a lock.
+- Links that would make issues wait for each other (A blocks B and B blocks A) are refused.
 
-## Review
+### Lists and bulk changes
 
-The search box and the category menus at the top of each screen show only the matching items. The choices depend on the screen: type, status, assignee, form, role, and so on.
+On **Issues**, click a column heading to sort, and select several issues to change status or assignee at once. The search box and filters (type, status, priority, assignee) narrow the list; the query box accepts WQL (see the WQL chapter). CSV import is here too.
 
-The dashboard adds and removes gadgets. Reports cover burndown, velocity, cumulative flow, created versus resolved, pies, time and the sprint. If any issue has points, an issue without points counts as zero. If none have points, each issue counts as one.
+## Boards and backlog
 
-Filters store the WQL from the issue screen under a name. Health lists a sub-task with no parent, a done issue with no resolution, an unassigned sprint issue, a breached time limit and a blocked issue.
+### Boards
 
-A service project has queues. Notifications tell watchers about assignments, comments and status changes.
+A scrum board shows the active sprint; a kanban board shows every issue. Drag a card to another column to change its status; a column over its limit gets a red border. **Double-click a card** to open its issue. The picker at the top splits the board into lanes by assignee, epic or priority.
 
-Knowledge is organized in spaces. A space holds a page tree and news posts. A page can contain child pages. A news post stands alone. The body is Markdown. Labels find a page, and comments hold the discussion. Each save keeps the earlier version so it can be restored. Watching a page sends a notification when it changes. When the author restricts a page, only that person can see it.
+### Backlog and sprints
 
-A page can hold images and files. An image appears in the article. A file appears as a link with its name. Clicking the image or the file link downloads that file, and the right-click menu has Download as well. Export writes HTML, Word, PDF, or Markdown. Clicking a link to another site asks whether to open it in the browser.
+Drag issues from the backlog into a sprint, then **Start** a planned sprint. **Complete** sends unfinished issues to the backlog or the next sprint. Backlog rows open with a double-click too; the right panel narrows the backlog to one epic.
+
+## Roadmap and timeline
+
+### Roadmap
+
+Each epic shows how much of its work is done.
+
+### Timeline
+
+The project's issues as bars on a time axis, grouped under their epics (issues without an epic come last).
+
+- A bar runs from the issue's **start** to its **due** date. Without dates it is estimated from its sprint, or a week from when it was made, and drawn dashed.
+- **Drag a bar** to move its dates; **drag an end** to change its length.
+- Hover a bar to see a dot on its right; **drag the dot onto another bar** to make that issue wait for this one.
+- Arrows are dependencies. When an earlier issue ends after the next one should start, the **arrow turns red** and a warning shows at the top.
+- At the top choose **Days / Weeks / Months**, **Today**, and **Undated issues too**. Click a name to open the issue.
+
+## Workspaces and pages
+
+What people need to know goes on **pages** in **workspaces**. The company workspace is for everyone, a team workspace for its members, a project workspace for that project's people.
+
+### Making a workspace
+
+**Company → Workspaces** in the left navigation lists every workspace you can see. The arrow before **Workspaces** folds the list, and the arrow before each workspace folds its page tree. **New workspace** at the bottom (or **+** on the Workspaces row) shows a name box: type a name and press Enter (Esc cancels); the key is chosen for you.
+
+Click a workspace to open its home in the centre (description, page search, pages, recently updated) and its **Workspace properties** in the right panel. There you change the name, the description and **Who sees it** (the whole company, one team or one project), see the key, creator, page count and last change, restore or delete pages in the **Trash**, and **Delete the workspace**. Its creator and administrators change these. A workspace that still has pages cannot be deleted.
+
+### New pages and templates
+
+**+** on a workspace row makes a page; **+** on a page row makes a child page under it. A new page starts in the **Templates** window:
+
+- Forty templates in eight groups (meetings, product, engineering, operations & IT, project management, people & HR, sales/marketing/customers, general work): meeting notes, retrospective, PRD, technical design, incident postmortem, runbook, project plan, risk register, onboarding, OKRs, campaign plan, FAQ, how-to guide, weekly report and more.
+- Click a template to preview it; **Create from this template** or a double-click opens the filled-in page. **Blank page** starts with a title only.
+
+### Writing
+
+A page opens **ready to write**. Changes **save by themselves** ("Saved" shows under the editor); **Save** or Ctrl+S saves at once, and moving to another page saves first. **Preview** shows the page as readers see it, with live issue lists and highlighted mentions.
+
+The formatting bar has undo, body text, headings 1–3, bold, italic, strikethrough, code, bulleted and numbered lists, quote, code block, divider, link, table, table of contents, child page list, **insert issues**, **mention someone**, image and file. The button at the far right edits the Markdown source directly.
+
+### Issues inside pages
+
+**Insert issues** → **One issue** with a key (e.g. `PAY-12`) puts that issue in as a chip with its status. **Query list** with a project and WQL (e.g. `status != done`) puts in a table of the matching issues. Both are live every time the page is read, and a click opens the issue. In the text they are `[[issue:PAY-12]]` and `[[issues:PAY | status != done]]`.
+
+### Mentions
+
+Type `@` in the page or a comment to get a list of people; pick one with the arrows and Enter to insert `@name` and notify them. Only people who can see the page are told.
+
+### The page panel
+
+The right panel shows the page: workspace, kind, creator, last update, views, versions, labels, status (draft, review, published), parent page, like and watch, access and sharing (restriction, editors, readers, public link), export (HTML, Word, PDF, Markdown), copy, trash, and **Earlier versions**.
+
+### Versions and comparison
+
+Every save keeps the earlier text as a version (one person's automatic saves within ten minutes count as one). **Compare** on a version shows what changed: removed lines red, added lines green; choose the two versions at the top. **Restore** goes back to a version.
+
+## Comments, files and writing together
+
+### Comments and replies
+
+Write under **Comments** and post with **Comment** or Ctrl+Enter. Each comment can have **replies**; writers edit or delete their own.
+
+### Inline comments
+
+Select text in a page to get a **Comment** button. Such a comment is tied to that passage, which is highlighted in yellow. Click the highlight to reach the comment, or the comment's quote to reach the passage. **Resolve** removes the highlight when the discussion is over; **Reopen** brings it back.
+
+### Files
+
+Drop files on a page's **Files** area, or use **Add files** to add several at once. Each file may be up to 700KB; larger ones are named and skipped. The image and file buttons on the formatting bar put files into the text.
+
+### Writing together
+
+When several people open the same page they write it **together**. "Writing with …" shows beside the path, and other people's changes appear on your screen within about a second. Changes to different lines are all kept; when two people change the same line at once, both versions stay so they can be tidied. The caret stays where you are typing.
+
+## Search everything
+
+The **magnifier** on the toolbar (Ctrl+Shift+F) opens **Search everything**: projects, issues, workspaces, pages, documents, comments, files, people and teams in one search, grouped by kind.
+
+- **All** shows five of each kind; the other tabs show the whole kind. Matching words are highlighted.
+- Several words find only what contains them all. Nothing you may not see is shown.
+- Click a result to go there; files can be downloaded straight away.
+- Words in the toolbar search box plus Enter open the same search; WQL such as `status = done` opens the issue list.
+
+## Notifications and Talk
+
+### Notifications
+
+The bell on the toolbar shows how many notifications are unread. **Notifications** lists project notices (assignment, comments, status changes, watched pages) and company notices (mentions, changes to company and team pages). Click one to open its issue or page; **Mark all read** clears them. **Notification settings** below choose what each project, page, document and issue sends.
+
+### MyWorkForce Talk
+
+**Talk** on the toolbar opens MyWorkForce Talk: chat with one person or a group and send files. The icon column on the left is notices, talks, people, invite, my details, language, the work program, password and sign out.
+
+- Work notices pile up in each person's own **Notices** room. Each starts with what happened, such as "You were mentioned" or "Page comment"; click it to open the issue or page in the main window (pages open ready to write).
+- In messages, `@` brings up the list of people, and `@name` stands out.
+- Signing in on one side signs in the other with the same account; signing out of one signs out of both.
 
 ## Documents
 
-The Documents screen starts a meeting note, decision, specification, requirements list, test report, release note, retrospective, status report, design brief, incident report, procedure, handover, weekly report, or proposal from a form. The deliverable form is where a person registers something they made.
+The **Documents** screen makes documents from forms: meeting notes, decisions, specifications, requirements, test reports, release notes, retrospectives, status reports, designs, incident reports, procedures, handovers, weekly reports and proposals. Only the writer edits a document; share it with **Only me**, **Project** or **Everyone**. An issue key ties it to that issue; export as HTML, Word, PDF or Markdown.
 
-Only the author edits a document. Until it is shared, only the author sees it. Sharing with the project lets people who open that project read it. Sharing with everyone lets anyone in the workspace read it. An issue key keeps the document next to that issue. A document takes images and files too, and exports as HTML, Word, PDF, or Markdown.
+## Reviewing the work
 
-## Settings
+- **Dashboard**: add or remove gadgets (my issues, activity, sprint, distribution, created and resolved).
+- **Reports**: burndown, velocity, cumulative flow, created and resolved, distribution, time, sprint, control chart, epic burndown.
+- **Filters**: keep the issue query under a name.
+- **Health**: sub-tasks without a parent, done without a resolution, overdue and blocked issues.
+- **Queues**: a service project's requests with their time limits (SLA).
 
-Change the project name, description and lead, allow any status from the board, or archive the project. An archived project allows browsing and administration only.
+## WQL
 
-Add statuses and transitions under Workflow. A status that issues still use cannot be removed. Fields and automation rules are added here too. A rule runs when an issue is created or moved to a status, and then assigns, sets a priority, adds a label or adds a watcher.
+WQL is the query language for choosing issues. **You do not have to learn it.** For most work the search box and filters on each screen, and Search everything, are enough. WQL helps with complex conditions, saved filters and queues, and issue lists inside pages.
 
-Text size and custom colours are here as well. KO / EN and the sun icon on the toolbar switch language and theme.
+| Example | Meaning |
+| --- | --- |
+| `status != done` | Issues not finished |
+| `assignee = currentUser()` | Issues assigned to me |
+| `type = bug AND priority = highest` | The most urgent bugs |
+| `text ~ "refund"` | Issues whose summary or description mentions "refund" |
+| `status != done ORDER BY due ASC` | Open issues by due date |
+
+The full grammar is in **Help → WQL guide**.
+
+## The File menu
+
+| Menu | What it does |
+| --- | --- |
+| New project | A software, business or service project |
+| Open | A `.mwf` or JSON workspace; dropping one on the window opens it too |
+| Save, Save as | Keep the workspace in a file (on the web: a download) |
+| Export Markdown, CSV | The issue list as a table |
+| Export this project | One project and its people |
+| Print | Print the screen |
+| Change password, Sign out | Your account |
+
+## Settings and administration
+
+### Accounts and people
+
+Administrators create people on **Users** and set their account and a temporary password. Name, title, team, phone, email and photo are kept encrypted. Turning **Active** off stops a person from signing in.
+
+### Settings
+
+Settings come as grouped cards: **General** (start page, background, look, font, theme), **This computer and sign-in** (start MyWorkForce and Talk with the computer, automatic sign-in), **Data** (database and schema) and **Notifications** (mail server).
+
+- **Database**: SQLite on this computer, or MySQL, MariaDB, SQL Server or PostgreSQL. Connecting creates the tables and brings the schema up to date; administrators see the tables and get SQL for a DBA on the **Schema** card.
+- **Mail**: a mail server outside the company (587 for STARTTLS, 465 for SSL); **Send a test** checks it.
+
+### Project settings
+
+Name, description, lead, methods, archive, workflow (statuses and transitions), custom fields and automation rules (set the assignee, priority, labels or watchers when an issue is created or moves). A status still in use cannot be deleted.
 
 ## Shortcuts
 
-Only Ctrl combinations work while typing. Press G, then a letter, to change screens. The same list opens from Help, Shortcuts.
+In text boxes only Ctrl combinations work. The full list is also under **Help → Shortcuts** (?).
 
-| Key | Action |
+| Keys | Action |
 | --- | --- |
 | Ctrl+Shift+N | New project |
-| Ctrl+O | Open |
-| Ctrl+S | Save |
-| Ctrl+Shift+S | Save as |
-| Ctrl+P | Print |
-| Ctrl+Shift+H | Start page |
-| Ctrl+Z | Undo |
-| Ctrl+Y | Redo |
-| Ctrl+Shift+Z | Redo |
-| Ctrl+F | Find |
-| / | Focus search |
-| Enter | Run the search, or open the selected issue |
+| Ctrl+N, C | New issue |
+| Ctrl+O, Ctrl+S, Ctrl+Shift+S | Open, Save (the page when one is being written), Save as |
+| Ctrl+Z, Ctrl+Y | Undo, Redo |
+| Ctrl+F, / | Toolbar search box |
+| Ctrl+Shift+F | Search everything |
 | Ctrl+K | Go to an issue |
-| Ctrl+1 | Project home |
-| Ctrl+2 | Board |
-| Ctrl+3 | Backlog |
-| Ctrl+4 | Roadmap |
-| Ctrl+5 | Issues |
-| Ctrl+6 | Dashboard |
-| Ctrl+7 | Reports |
-| Ctrl+8 | Knowledge |
+| Ctrl+1 … Ctrl+7 | Project home, board, backlog, roadmap, issues, dashboard, reports |
 | Ctrl+9 | Documents |
-| Ctrl+0 | Work calendar |
 | G then H, B, A, I | Project home, board, backlog, issues |
-| J | Next issue |
-| K | Previous issue |
-| Esc | Close a dialog or leave the issue |
-| Ctrl+N | New issue |
-| C | New issue |
-| Ctrl+D | Clone |
-| Delete | Delete |
+| J, K, Enter | Next issue, previous issue, open the chosen issue |
+| Ctrl+D, Delete | Clone, delete an issue |
 | Ctrl+Shift+T | Sub-task |
-| Ctrl+Shift+M | Comments |
-| Ctrl+Enter | Add the comment |
+| Ctrl+Enter | Post a comment or reply |
 | Ctrl+Shift+P | New sprint |
-| Ctrl+Shift+1 | Left panel |
-| Ctrl+Shift+2 | Right panel |
-| Ctrl+Shift+L | Language |
-| Ctrl+Shift+B | Change the theme |
+| Ctrl+Shift+1, Ctrl+Shift+2 | Left, right panel |
+| Ctrl+Shift+L, Ctrl+Shift+B | Language, theme |
 | Ctrl+, | Settings |
-| F1 | User guide |
-| ? | Shortcuts |
-| Ctrl+Shift+A | About |
+| F1, ?, Ctrl+Shift+A | User guide, shortcuts, About |
+| Esc | Close a window, leave an issue |
 
-Undo keeps 40 workspace changes. Language and theme are not undone.
+Undo covers the last 40 changes to the workspace; language and theme are not undone.
+
+## Troubleshooting
+
+| Problem | What to do |
+| --- | --- |
+| The sign-in window keeps opening | Work such as projects and pages needs a sign-in. To stay on the start page, close the sign-in window |
+| "Someone else saved first" | Someone saved the same data first and the latest was reopened; repeat your last change |
+| A page shows "Saving…" for a long time | Check the connection to the data service; the page saves by itself when it is back |
+| An issue table shows "Not available" | You do not take part in that project, or the query has a mistake |
+| A file will not go in | Each file may be up to 700KB |
+| The data service did not answer | Restart the installed program; on the web, ask the administrator for the server address |

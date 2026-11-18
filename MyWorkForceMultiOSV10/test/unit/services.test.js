@@ -117,7 +117,7 @@ describe('Start screen', () => {
     assert.match(html, /data-action="open-guide" data-id="tutorial"/);
     assert.match(html, /data-action="open-guide" data-id="wql"/);
     assert.match(html, /class="start-bg"/);
-    assert.equal((html.match(/data-action="pick-background"/g) || []).length, 21);
+    assert.equal((html.match(/data-action="pick-background"/g) || []).length, 24);
     assert.match(html, /data-action="shuffle-background"/);
     assert.match(html, /data-bg="speed"/);
     // The sign-in form lives in the sign-in window, not on the start page.

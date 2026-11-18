@@ -3,7 +3,11 @@ import { canEditPage, expandPage, pagesIn, trashedPages } from '../domain/wiki.j
 import { visibleSpaces } from '../domain/teams.js';
 import { CREATE_FIELDS, MODULES, WEEK_DAYS, calendarOf, moduleOn, planItems } from '../domain/services.js';
 import { renderMarkdown } from '../domain/markdown.js';
-import { badge, button, empty, esc, formatWhen, icon, L, nameOf, options, pageHead, person } from './bits.js';
+import { avatar, badge, button, empty, esc, formatWhen, icon, L, nameOf, options, pageHead, person } from './bits.js';
+import { isWorkspaceAdmin } from '../domain/permissions.js';
+import { markMentions } from './mentions.js';
+import { expandIssueMacros } from './issue-macros.js';
+import { diffLines, diffStats } from '../domain/diff.js';
 import { finderBar, issueFacets, issueVisible, keepBlock, matchesText, screenFind } from './finder.js';
 
 const DAY = { mon: ['월', 'Mon'], tue: ['화', 'Tue'], wed: ['수', 'Wed'], thu: ['목', 'Thu'], fri: ['금', 'Fri'], sat: ['토', 'Sat'], sun: ['일', 'Sun'] };
@@ -19,98 +23,369 @@ function pageAncestor(pages, page, ancestorId) {
   return false;
 }
 
-function pageTree(pages, parentId, activeId, depth) {
-  return pages.filter((page) => page.kind !== 'blog' && (page.parentId || '') === parentId).map((page) => `<div class="wiki-node" style="padding-left:${depth * 14}px"><button type="button" class="link-row${page.id === activeId ? ' active' : ''}" data-action="open-article" data-id="${esc(page.id)}">${icon('book')}<b>${esc(page.title)}</b></button>${pageTree(pages, page.id, activeId, depth + 1)}</div>`).join('');
-}
-
 const SCOPE = {
   company: ['회사 공용', 'Company', 'globe'],
   team: ['팀', 'Teams', 'team'],
   project: ['과제', 'Projects', 'folder'],
 };
 
+const KIND_GLYPH = { page: 'book', blog: 'spark', board: 'board', table: 'columns' };
+
+/** The workspace's badge: the first letter of its name. */
+function spaceMark(space) {
+  return ([...String(space.name || space.key || '?').trim()][0] || '?').toUpperCase();
+}
+
+function fileSize(bytes) {
+  const n = Number(bytes) || 0;
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(n < 10240 ? 1 : 0)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function fileGlyph(file) {
+  return /^image\//i.test(file.mime || '') ? 'image' : 'file';
+}
+
+/** Is this workspace unfolded in the left tree? The one in use is, unless it was folded by hand. */
+export function spaceOpen(ctx, space, currentId) {
+  const marks = ctx.ui.wsOpen || {};
+  return marks[space.id] ?? space.id === currentId;
+}
+
+/** The left tree's pages under one parent, each with a fold arrow when it has children and a + for a child page. */
+function sideTree(ctx, space, pages, parentId, openId, depth) {
+  const folds = ctx.ui.pageFold || {};
+  return pages.filter((page) => page.kind !== 'blog' && (page.parentId || '') === parentId).map((page) => {
+    const kids = pages.some((item) => item.kind !== 'blog' && item.parentId === page.id);
+    const folded = Boolean(kids && folds[page.id]);
+    const canEdit = canEditPage(page, ctx.user?.id);
+    const caret = kids
+      ? `<button type="button" class="ws-caret" data-action="toggle-page" data-id="${esc(page.id)}" aria-expanded="${folded ? 'false' : 'true'}" title="${esc(folded ? L('펼치기', 'Expand') : L('접기', 'Collapse'))}">${icon(folded ? 'chevronRight' : 'chevronDown')}</button>`
+      : '<span class="ws-caret-gap"></span>';
+    const add = canEdit && page.kind === 'page' ? `<button type="button" class="ws-add" data-action="add-child" data-id="${esc(page.id)}" title="${esc(L('하위 페이지 추가', 'Add a child page'))}" aria-label="${esc(L('하위 페이지 추가', 'Add a child page'))}">${icon('plus')}</button>` : '';
+    const row = `<div class="ws-row ws-page${page.id === openId ? ' active' : ''}" style="--depth:${depth + 1}">${caret}<button type="button" class="ws-name" data-action="open-article" data-id="${esc(page.id)}" data-space="${esc(space.id)}">${icon(KIND_GLYPH[page.kind] || 'book')}<span>${esc(page.title)}</span>${page.status === 'draft' ? `<small class="ws-tag">${L('초안', 'Draft')}</small>` : ''}</button>${add}</div>`;
+    return row + (folded ? '' : sideTree(ctx, space, pages, page.id, openId, depth + 1));
+  }).join('');
+}
+
+/** One workspace's pages as a tree (and its news), for the left navigation under that workspace. */
+export function workspacePageTree(ctx, space, openId = '') {
+  const pages = pagesIn(ctx.ws, space.id, ctx.user?.id);
+  const tree = sideTree(ctx, space, pages, '', openId, 0);
+  const news = pages.filter((page) => page.kind === 'blog').map((page) => `<div class="ws-row ws-page${page.id === openId ? ' active' : ''}" style="--depth:1"><span class="ws-caret-gap"></span><button type="button" class="ws-name" data-action="open-article" data-id="${esc(page.id)}" data-space="${esc(space.id)}">${icon('spark')}<span>${esc(page.title)}</span></button></div>`).join('');
+  const none = !tree && !news ? `<div class="ws-row ws-empty" style="--depth:1"><span class="ws-caret-gap"></span><button type="button" class="ws-name muted" data-action="add-page" data-space="${esc(space.id)}">${icon('plus')}<span>${L('첫 페이지 만들기', 'Create the first page')}</span></button></div>` : '';
+  return tree + news + none;
+}
+
+/** A workspace with no page chosen: its name, what it is for, and its top pages and latest changes. */
+function workspaceHome(ctx, space, pages) {
+  const find = screenFind(ctx);
+  const words = find.q.trim().toLowerCase();
+  const filtering = Boolean(words || find.kind);
+  const found = filtering ? pages.filter((page) => (!find.kind || (page.kind || 'page') === find.kind) && (!words || `${page.title} ${page.body} ${(page.labels || []).join(' ')}`.toLowerCase().includes(words))) : [];
+  const scope = SCOPE[space.scope || 'company'] || SCOPE.company;
+  const top = pages.filter((page) => page.kind !== 'blog' && !page.parentId);
+  const recent = [...pages].sort((a, b) => String(b.updated || '').localeCompare(String(a.updated || ''))).slice(0, 8);
+  const card = (page) => `<button type="button" class="doc-child" data-action="open-article" data-id="${esc(page.id)}">${icon(KIND_GLYPH[page.kind] || 'book')}<b>${esc(page.title)}</b><small>${esc(person(ctx.ws, page.authorId)?.name || '')} · ${esc(formatWhen(page.updated))}</small></button>`;
+  return `<article class="panel-card doc-page ws-home">
+    <nav class="doc-crumbs">${icon(scope[2])}<span>${esc(L(scope[0], scope[1]))}</span><span class="crumb-sep">›</span><span>${esc(space.key)}</span></nav>
+    <header class="doc-head"><h1 class="doc-title"><span class="ws-badge big">${esc(spaceMark(space))}</span>${esc(space.name)}</h1><span class="grow"></span>
+      <button type="button" class="small-button primary" data-action="add-page" data-space="${esc(space.id)}">${icon('plus')}<span>${L('새 페이지', 'New page')}</span></button>
+      <button type="button" class="small-button" data-action="add-blog" data-space="${esc(space.id)}">${icon('spark')}<span>${L('소식', 'News')}</span></button>
+      <button type="button" class="small-button" data-action="add-board" data-space="${esc(space.id)}">${icon('board')}<span>${L('칠판', 'Board')}</span></button>
+      <button type="button" class="small-button" data-action="add-table" data-space="${esc(space.id)}">${icon('columns')}<span>${L('표', 'Table')}</span></button>
+    </header>
+    ${space.description ? `<div class="md doc-body">${renderMarkdown(space.description)}</div>` : `<p class="muted">${L('이 작업 공간에 팀의 문서를 페이지로 모읍니다. 페이지 아래에 하위 페이지를 만들어 장과 절처럼 나눌 수 있습니다.', 'Gather documents here as pages. Pages can hold child pages, like chapters and sections.')}</p>`}
+    ${finderBar(ctx, [{ id: 'kind', label: L('종류', 'Kind'), options: [{ id: 'page', label: L('페이지', 'Page') }, { id: 'blog', label: L('소식', 'News') }, { id: 'board', label: L('칠판', 'Board') }, { id: 'table', label: L('표', 'Table') }] }])}
+    ${filtering ? `<section class="doc-children"><h2>${icon('search')}<span>${L('찾은 페이지', 'Pages found')}</span><span class="chip">${found.length}</span></h2>${found.length ? `<div class="doc-child-grid">${found.map(card).join('')}</div>` : `<p class="muted">${L('맞는 페이지가 없습니다.', 'No page matches.')}</p>`}</section>` : ''}
+    <section class="doc-children"><h2>${icon('book')}<span>${L('페이지', 'Pages')}</span><span class="chip">${top.length}</span></h2>
+      ${top.length ? `<div class="doc-child-grid">${top.map(card).join('')}</div>` : `<p class="muted">${L('아직 페이지가 없습니다.', 'No pages yet.')}</p>`}
+    </section>
+    ${recent.length ? `<section class="doc-children"><h2>${icon('clock')}<span>${L('최근 바뀐 페이지', 'Recently updated')}</span></h2>${recent.map((page) => `<button type="button" class="link-row" data-action="open-article" data-id="${esc(page.id)}">${icon(KIND_GLYPH[page.kind] || 'book')}<b>${esc(page.title)}</b><small>${esc(person(ctx.ws, page.versions?.[0]?.authorId || page.authorId)?.name || '')} · ${esc(formatWhen(page.updated))}</small></button>`).join('')}</section>` : ''}
+  </article>`;
+}
+
+/** The page's files: a card per file, a drop area, and buttons to add more. */
+function pageFiles(ctx, page, canEdit) {
+  const list = (page.attachments || []).map((file) => `<div class="file-card">
+      <span class="file-glyph">${/^image\//i.test(file.mime || '') && file.data ? `<img src="${esc(file.data)}" alt="">` : icon(fileGlyph(file))}</span>
+      <span class="file-text"><a class="file-link" href="${esc(file.data || '')}" data-file="${esc(file.id)}" data-name="${esc(file.name)}" download="${esc(file.name)}">${esc(file.name)}</a><small>${esc(fileSize(file.size))}${file.authorId ? ` · ${esc(person(ctx.ws, file.authorId)?.name || '')}` : ''}${file.created ? ` · ${esc(formatWhen(file.created))}` : ''}</small></span>
+      <a class="icon-button" href="${esc(file.data || '')}" download="${esc(file.name)}" title="${esc(L('내려받기', 'Download'))}" aria-label="${esc(L('내려받기', 'Download'))}">${icon('download')}</a>
+      ${canEdit ? `<button type="button" class="icon-button" data-action="remove-page-file" data-id="${esc(page.id)}" data-file="${esc(file.id)}" title="${esc(L('파일 삭제', 'Remove the file'))}" aria-label="${esc(L('파일 삭제', 'Remove the file'))}">${icon('trash')}</button>` : ''}
+    </div>`).join('');
+  const drop = canEdit ? `<div class="file-drop" data-page-drop="${esc(page.id)}">${icon('paperclip')}<span>${L('파일을 여기로 끌어 놓거나', 'Drop files here or')}</span><button type="button" class="small-button" data-action="pick-page-file" data-id="${esc(page.id)}" data-kind="file" data-embed="0">${icon('plus')}<span>${L('파일 추가', 'Add files')}</span></button><small class="muted">${L('파일 하나에 700KB까지', 'Up to 700KB a file')}</small></div>` : '';
+  return `<section class="doc-section" id="page-files"><h2>${icon('paperclip')}<span>${L('파일', 'Files')}</span><span class="chip">${(page.attachments || []).length}</span></h2>
+    ${list ? `<div class="file-grid">${list}</div>` : (canEdit ? '' : empty(L('파일이 없습니다.', 'There are no files.')))}
+    ${drop}
+  </section>`;
+}
+
+/**
+ * The page's comments as threads: each comment with its replies under it. An inline comment shows the
+ * passage it is about, leads back to it in the text, and can be resolved (then its highlight goes away).
+ */
+function pageComments(ctx, page) {
+  const editing = ctx.ui.commentEdit || '';
+  const replying = ctx.ui.replyTo || '';
+  const canEdit = canEditPage(page, ctx.user?.id);
+  const all = page.comments || [];
+  const one = (comment, reply) => {
+    const who = person(ctx.ws, comment.authorId);
+    const mine = comment.authorId === ctx.user?.id;
+    const canDelete = mine || page.authorId === ctx.user?.id;
+    if (editing === comment.id && mine) {
+      return `<article class="comment editing${reply ? ' reply' : ''}" data-comment-id="${esc(comment.id)}"><header>${avatar(who)}<b>${esc(who?.name || '')}</b></header>
+        <textarea id="comment-edit" rows="3">${esc(comment.body || '')}</textarea>
+        <div class="inline"><span class="grow"></span><button type="button" class="small-button" data-action="cancel-page-comment">${icon('close')}<span>${L('취소', 'Cancel')}</span></button><button type="button" class="small-button primary" data-action="save-page-comment" data-id="${esc(page.id)}" data-comment="${esc(comment.id)}">${icon('save')}<span>${L('저장', 'Save')}</span></button></div></article>`;
+    }
+    const inline = comment.inline && !reply;
+    const state = inline ? (comment.resolved
+      ? `<span class="chip resolved">${icon('check')}${L('해결됨', 'Resolved')}</span>`
+      : `<span class="chip inline-chip">${icon('quote')}${L('본문 댓글', 'Inline')}</span>`) : '';
+    const resolve = inline && (mine || canEdit)
+      ? `<button type="button" class="small-button" data-action="resolve-page-comment" data-id="${esc(page.id)}" data-comment="${esc(comment.id)}" data-on="${comment.resolved ? '0' : '1'}">${icon(comment.resolved ? 'restore' : 'check')}<span>${comment.resolved ? L('다시 열기', 'Reopen') : L('해결', 'Resolve')}</span></button>`
+      : '';
+    const quote = comment.quote
+      ? (inline && !comment.resolved
+        ? `<button type="button" class="comment-quote" data-action="jump-inline" data-comment="${esc(comment.id)}" title="${esc(L('본문에서 보기', 'Show it in the page'))}">${esc(comment.quote)}</button>`
+        : `<blockquote>${esc(comment.quote)}</blockquote>`)
+      : '';
+    return `<article class="comment${reply ? ' reply' : ''}${comment.resolved ? ' is-resolved' : ''}${ctx.ui.inlineActive === comment.id ? ' flash' : ''}" data-comment-id="${esc(comment.id)}"><header>${avatar(who)}<b>${esc(who?.name || '')}</b><small>${esc(formatWhen(comment.created))}${comment.edited ? ` · ${L('고침', 'edited')}` : ''}</small>${state}<span class="grow"></span>
+      ${resolve}
+      ${!reply ? `<button type="button" class="icon-button" data-action="reply-page-comment" data-comment="${esc(comment.id)}" title="${esc(L('답글', 'Reply'))}" aria-label="${esc(L('답글', 'Reply'))}">${icon('comment')}</button>` : ''}
+      ${mine ? `<button type="button" class="icon-button" data-action="edit-page-comment" data-comment="${esc(comment.id)}" title="${esc(L('고치기', 'Edit'))}" aria-label="${esc(L('고치기', 'Edit'))}">${icon('pencil')}</button>` : ''}
+      ${canDelete ? `<button type="button" class="icon-button" data-action="delete-page-comment" data-id="${esc(page.id)}" data-comment="${esc(comment.id)}" title="${esc(L('삭제', 'Delete'))}" aria-label="${esc(L('삭제', 'Delete'))}">${icon('trash')}</button>` : ''}</header>
+      ${quote}<div class="md">${markMentions(renderMarkdown(comment.body || ''), ctx.ws.users)}</div></article>`;
+  };
+  const threads = all.filter((comment) => !comment.replyTo).map((comment) => {
+    const replies = all.filter((item) => item.replyTo === comment.id).map((item) => one(item, true)).join('');
+    const box = replying === comment.id
+      ? `<div class="reply-box"><textarea id="reply-text" rows="2" placeholder="${esc(L('답글. @이름으로 사람을 부릅니다.', 'Reply. @name mentions someone.'))}"></textarea><div class="inline"><span class="grow"></span><button type="button" class="small-button" data-action="cancel-reply">${icon('close')}<span>${L('취소', 'Cancel')}</span></button><button type="button" class="small-button primary" data-action="send-reply" data-id="${esc(page.id)}" data-comment="${esc(comment.id)}">${icon('comment')}<span>${L('답글 남기기', 'Reply')}</span></button></div></div>`
+      : '';
+    return `<div class="comment-thread">${one(comment, false)}${replies || box ? `<div class="comment-replies">${replies}${box}</div>` : ''}</div>`;
+  }).join('');
+  const open = all.filter((comment) => comment.inline && !comment.resolved && !comment.replyTo).length;
+  return `<section class="doc-section" id="page-comments"><h2>${icon('comment')}<span>${L('댓글', 'Comments')}</span><span class="chip">${all.length}</span>${open ? `<span class="chip inline-chip">${icon('quote')}${L(`본문 댓글 ${open}`, `${open} inline`)}</span>` : ''}</h2>
+    <p class="muted comment-hint">${L('본문에서 글을 골라 그 부분에 댓글을 달 수 있습니다.', 'Select text in the page to comment on that passage.')}</p>
+    ${threads || `<p class="muted">${L('첫 댓글을 남기세요.', 'Be the first to comment.')}</p>`}
+    <div class="comment-box">${avatar(ctx.user)}<div class="comment-input">
+      <textarea id="page-comment" rows="3" placeholder="${esc(L('댓글을 쓰세요. @이름으로 사람을 부르고, Ctrl+Enter로 남깁니다.', 'Write a comment. @name mentions someone; Ctrl+Enter posts it.'))}"></textarea>
+      <div class="inline"><input id="page-quote" placeholder="${esc(L('인용할 문장 (선택)', 'Quote (optional)'))}"><button type="button" class="button primary" data-action="comment-page" data-id="${esc(page.id)}">${icon('comment')}<span>${L('댓글 남기기', 'Comment')}</span></button></div>
+    </div></div>
+  </section>`;
+}
+
+/** Two versions of a page side by side as one list: removed lines red, added lines green. */
+function versionCompare(ctx, page) {
+  const pick = ctx.ui.pageCompare;
+  const all = [{ id: 'current', title: page.title, body: page.body, at: page.updated, authorId: page.authorId }, ...(page.versions || [])];
+  const label = (item, at) => (item.id === 'current' ? L('지금', 'Now') : `v${all.length - at} · ${formatWhen(item.at)}`);
+  const from = all.find((item) => item.id === pick.from) || all[1] || all[0];
+  const to = all.find((item) => item.id === pick.to) || all[0];
+  const choose = (field, chosen) => `<select data-choose="compare-${field}" data-id="${esc(page.id)}">${all.map((item, at) => `<option value="${esc(item.id)}"${item.id === chosen.id ? ' selected' : ''}>${esc(label(item, at))}</option>`).join('')}</select>`;
+  const titleLine = from.title !== to.title ? `<p class="diff-title"><del>${esc(from.title)}</del> → <ins>${esc(to.title)}</ins></p>` : '';
+  const parts = diffLines(from.body, to.body);
+  const stats = diffStats(parts);
+  // Long runs of unchanged lines fold to three lines of context on each side.
+  const rows = [];
+  parts.forEach((part, at) => {
+    if (part.type === 'same') {
+      const near = parts.slice(Math.max(0, at - 3), at + 4).some((other) => other.type !== 'same');
+      if (!near) { if (rows.at(-1) !== '…') rows.push('…'); return; }
+    }
+    rows.push(part);
+  });
+  const body = rows.map((row) => (row === '…'
+    ? '<div class="diff-line fold">⋯</div>'
+    : `<div class="diff-line ${row.type}"><span class="diff-mark">${row.type === 'add' ? '+' : row.type === 'del' ? '−' : ''}</span><span>${esc(row.text) || '&nbsp;'}</span></div>`)).join('');
+  return `<section class="version-compare">
+    <header><b>${icon('columns')}<span>${L('판 비교', 'Compare versions')}</span></b>${choose('from', from)}<span>→</span>${choose('to', to)}
+      <span class="diff-stats"><ins>+${stats.added}</ins> <del>−${stats.removed}</del></span><span class="grow"></span>
+      <button type="button" class="icon-button" data-action="compare-close" title="${esc(L('닫기', 'Close'))}" aria-label="${esc(L('닫기', 'Close'))}">${icon('close')}</button></header>
+    ${titleLine}
+    <div class="diff-body">${stats.added || stats.removed ? body : `<p class="muted">${L('본문이 같습니다.', 'The text is the same.')}</p>`}</div>
+  </section>`;
+}
+
 export function knowledgeView(ctx) {
-  // Pages live in spaces: the company's (everyone), each team's (its members) and each project's (its people).
+  // Pages live in workspaces (spaces): the company's (everyone), each team's (its members), each project's (its people)
+  // and any number made by hand. The left navigation lists them with their pages; this screen shows one, and
+  // the right panel holds the workspace's or the page's properties.
   const spaces = visibleSpaces(ctx.ws, ctx.user?.id);
   const space = spaces.find((item) => item.id === ctx.ui.spaceId) || spaces.find((item) => item.projectId && item.projectId === ctx.project?.id) || spaces[0];
   if (space && ctx.ui.spaceId !== space.id) ctx.ui.spaceId = space.id;
   const pages = space ? pagesIn(ctx.ws, space.id, ctx.user?.id) : [];
-  const find = screenFind(ctx);
-  const query = find.q.trim().toLowerCase();
-  const shown = pages.filter((page) => {
-    if (query && !`${page.title} ${page.body} ${(page.labels || []).join(' ')}`.toLowerCase().includes(query)) return false;
-    if (find.kind && (page.kind || 'page') !== find.kind) return false;
-    if (find.status && (page.status || 'current') !== find.status) return false;
-    return true;
-  });
   const shared = ctx.ui.shareToken ? (ctx.ws.articles || []).find((page) => page.shareToken === ctx.ui.shareToken && !page.trashed) : null;
-  const open = pages.find((page) => page.id === ctx.ui.articleId) || shared || (!query ? pages[0] : null);
-  const canEdit = open && canEditPage(open, ctx.user?.id);
-  const watching = open && (open.watchers || []).includes(ctx.user?.id);
-  const spaceOptions = Object.entries(SCOPE).map(([scope, [ko, en]]) => {
-    const list = spaces.filter((item) => (item.scope || 'company') === scope);
-    return list.length ? `<optgroup label="${esc(L(ko, en))}">${list.map((item) => `<option value="${esc(item.id)}"${item.id === space?.id ? ' selected' : ''}>${esc(item.key)} · ${esc(item.name)}</option>`).join('')}</optgroup>` : '';
-  }).join('');
-  const scope = SCOPE[space?.scope || 'company'] || SCOPE.company;
-  const blogs = shown.filter((page) => page.kind === 'blog').map((page) => `<button type="button" class="link-row${page.id === open?.id ? ' active' : ''}" data-action="open-article" data-id="${esc(page.id)}">${icon('spark')}<b>${esc(page.title)}</b></button>`).join('');
-  const tree = query
-    ? shown.filter((page) => page.kind !== 'blog').map((page) => `<button type="button" class="link-row${page.id === open?.id ? ' active' : ''}" data-action="open-article" data-id="${esc(page.id)}">${icon('book')}<b>${esc(page.title)}</b></button>`).join('')
-    : pageTree(shown, '', open?.id, 0);
-  const labels = (open?.labels || []).map((label) => badge(label, '#0f9f6e')).join(' ');
-  const statusName = { draft: L('초안', 'Draft'), review: L('검토', 'Review'), current: L('게시', 'Published') };
-  const liked = open && (open.likes || []).includes(ctx.user?.id);
-  const freshEdit = open?.editorId && open.editorId !== ctx.user?.id && Date.now() - Date.parse(open.editorAt || 0) < 120000;
-  const comments = (open?.comments || []).map((comment) => `<article class="comment"><header><b>${esc(person(ctx.ws, comment.authorId)?.name || '')}</b><small>${esc(formatWhen(comment.created))}</small>${comment.authorId === ctx.user?.id || open.authorId === ctx.user?.id ? `<button type="button" class="icon-button" data-action="delete-page-comment" data-id="${esc(open.id)}" data-comment="${esc(comment.id)}">${icon('trash')}</button>` : ''}</header>${comment.quote ? `<blockquote>${esc(comment.quote)}</blockquote>` : ''}<div class="md">${renderMarkdown(comment.body || '')}</div></article>`).join('');
-  const versions = (open?.versions || []).slice(0, 8).map((version) => `<button type="button" class="link-row" data-action="restore-page" data-id="${esc(open.id)}" data-version="${esc(version.id)}">${icon('restore')}<span>${esc(version.title)}</span><small>${esc(formatWhen(version.at))}</small></button>`).join('');
-  const files = (open?.attachments || []).map((file) => `<div class="link-row">${icon('paperclip')}<a class="file-link" href="${esc(file.data || '')}" data-file="${esc(file.id)}" data-name="${esc(file.name)}" download="${esc(file.name)}">${esc(file.name)}</a>${canEdit ? `<button type="button" class="icon-button" data-action="remove-page-file" data-id="${esc(open.id)}" data-file="${esc(file.id)}">${icon('trash')}</button>` : ''}</div>`).join('');
-  const people = (ctx.ws.users || []).filter((user) => user.active !== false && user.id !== open?.authorId).map((user) => `<option value="${esc(user.id)}">${esc(user.name)}</option>`).join('');
-  const editor = open && ctx.ui.wikiEdit && canEdit ? docEditor(ctx, open) : '';
-  const board = open?.kind === 'board' ? `<div class="card-grid">${(open.shapes || []).map((shape) => `<div class="panel-card"><b>${esc(shape.text)}</b>${canEdit ? `<button type="button" class="icon-button" data-action="remove-shape" data-id="${esc(open.id)}" data-shape="${esc(shape.id)}">${icon('trash')}</button>` : ''}</div>`).join('')}</div>${canEdit ? `<div class="inline"><input id="shape-text" placeholder="${esc(L('상자', 'Box'))}"><button type="button" class="button" data-action="add-shape" data-id="${esc(open.id)}">${icon('plus')}<span>${L('상자', 'Box')}</span></button></div>` : ''}` : '';
-  const table = open?.kind === 'table' ? `<table class="data"><thead><tr>${(open.columns || []).map((column) => `<th>${esc(column)}</th>`).join('')}</tr></thead><tbody>${(open.rows || []).map((row) => `<tr>${(open.columns || []).map((column) => `<td>${esc(row[column] || '')}</td>`).join('')}</tr>`).join('')}</tbody></table>${canEdit ? `<div class="inline"><input id="column-name" placeholder="${esc(L('열', 'Column'))}"><button type="button" class="button" data-action="add-column" data-id="${esc(open.id)}">${icon('plus')}<span>${L('열', 'Column')}</span></button></div><div class="inline"><input id="row-cells" placeholder="${esc(L('칸을 쉼표로', 'Cells, separated by commas'))}"><button type="button" class="button" data-action="add-row" data-id="${esc(open.id)}">${icon('plus')}<span>${L('행', 'Row')}</span></button></div>` : ''}` : '';
-  const crumbs = open ? [space?.name || '', ...pageTrail(pages, open).map((page) => `<button type="button" class="crumb" data-action="open-article" data-id="${esc(page.id)}">${esc(page.title)}</button>`)] : [];
-  const children = open ? pages.filter((page) => page.parentId === open.id && page.kind !== 'blog') : [];
-  const childList = open && open.kind !== 'blog' && !editor ? `<section class="doc-children"><h2>${icon('layers')}<span>${L('하위 페이지', 'Child pages')}</span><span class="chip">${children.length}</span></h2>
-      ${children.length ? `<div class="doc-child-grid">${children.map((page) => `<button type="button" class="doc-child" data-action="open-article" data-id="${esc(page.id)}">${icon('book')}<b>${esc(page.title)}</b><small>${esc(person(ctx.ws, page.authorId)?.name || '')} · ${esc(formatWhen(page.updated))}</small></button>`).join('')}</div>` : `<p class="muted">${L('하위 페이지가 없습니다. 이 페이지 아래에 장, 절처럼 나눠 쓸 페이지를 만들 수 있습니다.', 'No child pages yet. Add pages under this one, like chapters and sections.')}</p>`}
-      ${canEdit ? `<button type="button" class="button" data-action="add-child" data-id="${esc(open.id)}">${icon('plus')}<span>${L('하위 페이지 추가', 'Add a child page')}</span></button>` : ''}
+  const open = pages.find((page) => page.id === ctx.ui.articleId) || shared || null;
+  if (!space) {
+    return `<div class="ws-layout solo"><div class="ws-main"><div class="center-empty">${icon('layers')}<p>${L('작업 공간을 만들어 페이지를 모으세요.', 'Create a workspace to gather pages.')}</p><button type="button" class="button primary" data-action="ws-create-start">${icon('plus')}<span>${L('새 작업 공간', 'New workspace')}</span></button></div></div></div>`;
+  }
+  if (!open) return `<div class="ws-layout solo"><div class="ws-main">${workspaceHome(ctx, space, pages)}</div></div>`;
+  const canEdit = canEditPage(open, ctx.user?.id);
+  // A page opens ready to write for anyone who may edit it; "Preview" shows it as readers see it
+  // (with live issue lists and highlighted mentions).
+  const reading = !canEdit || ctx.ui.pageView === 'read';
+  const editor = reading ? '' : docEditor(ctx, open);
+  const freshEdit = open.editorId && open.editorId !== ctx.user?.id && Date.now() - Date.parse(open.editorAt || 0) < 120000;
+  const compare = ctx.ui.pageCompare?.pageId === open.id ? versionCompare(ctx, open) : '';
+  const board = open.kind === 'board' ? `<div class="card-grid">${(open.shapes || []).map((shape) => `<div class="panel-card"><b>${esc(shape.text)}</b>${canEdit ? `<button type="button" class="icon-button" data-action="remove-shape" data-id="${esc(open.id)}" data-shape="${esc(shape.id)}">${icon('trash')}</button>` : ''}</div>`).join('')}</div>${canEdit ? `<div class="inline"><input id="shape-text" placeholder="${esc(L('상자', 'Box'))}"><button type="button" class="button" data-action="add-shape" data-id="${esc(open.id)}">${icon('plus')}<span>${L('상자', 'Box')}</span></button></div>` : ''}` : '';
+  const table = open.kind === 'table' ? `<table class="data"><thead><tr>${(open.columns || []).map((column) => `<th>${esc(column)}</th>`).join('')}</tr></thead><tbody>${(open.rows || []).map((row) => `<tr>${(open.columns || []).map((column) => `<td>${esc(row[column] || '')}</td>`).join('')}</tr>`).join('')}</tbody></table>${canEdit ? `<div class="inline"><input id="column-name" placeholder="${esc(L('열', 'Column'))}"><button type="button" class="button" data-action="add-column" data-id="${esc(open.id)}">${icon('plus')}<span>${L('열', 'Column')}</span></button></div><div class="inline"><input id="row-cells" placeholder="${esc(L('칸을 쉼표로', 'Cells, separated by commas'))}"><button type="button" class="button" data-action="add-row" data-id="${esc(open.id)}">${icon('plus')}<span>${L('행', 'Row')}</span></button></div>` : ''}` : '';
+  const crumbs = [`<button type="button" class="crumb" data-action="open-workspace" data-id="${esc(space.id)}">${esc(space.name)}</button>`, ...pageTrail(pages, open).map((page) => `<button type="button" class="crumb" data-action="open-article" data-id="${esc(page.id)}">${esc(page.title)}</button>`)];
+  const children = pages.filter((page) => page.parentId === open.id && page.kind !== 'blog');
+  const childList = open.kind !== 'blog' ? `<section class="doc-children"><h2>${icon('layers')}<span>${L('하위 페이지', 'Child pages')}</span><span class="chip">${children.length}</span></h2>
+      ${children.length ? `<div class="doc-child-grid">${children.map((page) => `<button type="button" class="doc-child" data-action="open-article" data-id="${esc(page.id)}">${icon(KIND_GLYPH[page.kind] || 'book')}<b>${esc(page.title)}</b><small>${esc(person(ctx.ws, page.authorId)?.name || '')} · ${esc(formatWhen(page.updated))}</small></button>`).join('')}</div>` : `<p class="muted">${L('하위 페이지가 없습니다. 이 페이지 아래에 장, 절처럼 나눠 쓸 페이지를 만들 수 있습니다.', 'No child pages yet. Add pages under this one, like chapters and sections.')}</p>`}
+      ${canEdit && open.kind === 'page' ? `<button type="button" class="button" data-action="add-child" data-id="${esc(open.id)}">${icon('plus')}<span>${L('하위 페이지 추가', 'Add a child page')}</span></button>` : ''}
     </section>` : '';
-  const reader = open ? `<article class="panel-card doc-page">
-    <nav class="doc-crumbs" aria-label="${esc(L('위치', 'Location'))}">${icon('book')}${crumbs.map((item, at) => (at ? `<span class="crumb-sep">›</span>${item}` : `<span>${esc(item)}</span>`)).join('')}</nav>
-    <header class="doc-head">${editor ? '' : `<h1 class="doc-title">${esc(open.title)}</h1>`}<span class="grow"></span>
-      <button type="button" class="small-button${liked ? ' primary' : ''}" data-action="like-page" data-id="${esc(open.id)}">${icon('flag')}<span>${(open.likes || []).length}</span></button>
-      <button type="button" class="small-button${watching ? ' primary' : ''}" data-action="watch-page" data-id="${esc(open.id)}">${icon('bell')}<span>${watching ? L('관찰 중', 'Watching') : L('관찰', 'Watch')}</span></button>
-      ${open.authorId === ctx.user?.id ? `<button type="button" class="small-button${open.restricted ? ' primary' : ''}" data-action="restrict-page" data-id="${esc(open.id)}">${icon('lock')}<span>${open.restricted ? L('제한됨', 'Restricted') : L('제한', 'Restrict')}</span></button>` : ''}
-      <button type="button" class="small-button" data-action="copy-page" data-id="${esc(open.id)}">${icon('copy')}<span>${L('복사', 'Copy')}</span></button>
-      <button type="button" class="small-button" data-action="export-page" data-id="${esc(open.id)}" data-format="html">${icon('download')}<span>HTML</span></button>
-      <button type="button" class="small-button" data-action="export-page" data-id="${esc(open.id)}" data-format="doc">${icon('file')}<span>${L('워드', 'Word')}</span></button>
-      <button type="button" class="small-button" data-action="export-page" data-id="${esc(open.id)}" data-format="pdf">${icon('printer')}<span>PDF</span></button>
-      <button type="button" class="small-button" data-action="export-page" data-id="${esc(open.id)}" data-format="md">${icon('file')}<span>Markdown</span></button>
-      ${canEdit && !editor ? `<button type="button" class="small-button primary" data-action="wiki-edit" data-id="${esc(open.id)}">${icon('pencil')}<span>${L('편집', 'Edit')}</span></button>` : ''}
-      ${open.kind !== 'blog' && canEdit ? `<button type="button" class="small-button" data-action="add-child" data-id="${esc(open.id)}">${icon('plus')}<span>${L('하위 페이지', 'Child page')}</span></button>` : ''}
-      ${canEdit ? `<button type="button" class="icon-button" data-action="delete-article" data-id="${esc(open.id)}">${icon('trash')}</button>` : ''}
-    </header>
-    <p class="muted doc-meta">${badge(statusName[open.status] || statusName.current, open.status === 'draft' ? '#f5a524' : open.status === 'review' ? '#3a6cf0' : '#30a46c')} ${open.kind === 'blog' ? L('소식', 'News') : open.kind === 'board' ? L('칠판', 'Board') : open.kind === 'table' ? L('표', 'Table') : L('페이지', 'Page')} · ${esc(person(ctx.ws, open.authorId)?.name || '')} · ${L('조회', 'Views')} ${open.views || 0}${labels ? ` · ${labels}` : ''}</p>
-    ${freshEdit ? `<p class="banner">${esc(L(`${person(ctx.ws, open.editorId)?.name || ''} 님이 편집 중입니다.`, `${person(ctx.ws, open.editorId)?.name || 'Someone'} is editing this page.`))}</p>` : ''}
-    ${canEdit ? `<label class="form-row"><span>${L('상태', 'Status')}</span><select data-choose="page-status" data-id="${esc(open.id)}">${['draft', 'review', 'current'].map((id) => `<option value="${id}"${open.status === id ? ' selected' : ''}>${statusName[id]}</option>`).join('')}</select></label>` : ''}
-    ${open.authorId === ctx.user?.id ? `<div class="inline"><select id="page-editor">${people}</select><button type="button" class="small-button" data-action="grant-edit" data-id="${esc(open.id)}">${icon('pencil')}<span>${L('편집자', 'Editor')}</span></button><select id="page-reader">${people}</select><button type="button" class="small-button" data-action="grant-read" data-id="${esc(open.id)}">${icon('eye')}<span>${L('읽는 사람', 'Reader')}</span></button><button type="button" class="small-button" data-action="share-link" data-id="${esc(open.id)}" data-on="${open.shareToken ? '0' : '1'}">${icon('link')}<span>${open.shareToken ? L('링크 끄기', 'Turn off the link') : L('공개 링크', 'Public link')}</span></button></div>${open.shareToken ? `<p class="muted">${esc(open.shareToken)}</p>` : ''}` : ''}
-    ${canEdit && open.kind !== 'blog' ? `<label class="form-row"><span>${L('상위', 'Parent')}</span><select data-choose="page-parent" data-id="${esc(open.id)}"><option value="">${L('최상위', 'Top')}</option>${pages.filter((page) => page.kind !== 'blog' && page.id !== open.id && !pageAncestor(pages, page, open.id)).map((page) => `<option value="${esc(page.id)}"${page.id === open.parentId ? ' selected' : ''}>${esc(page.title)}</option>`).join('')}</select></label>` : ''}
-    ${editor || `<div class="md doc-body">${renderMarkdown(expandPage(ctx.ws, open), open.attachments || [])}</div>`}
+  const mode = canEdit ? `<div class="seg doc-mode" role="group" aria-label="${esc(L('보기', 'View'))}">
+      <button type="button" class="small-button${reading ? '' : ' primary'}" data-action="page-mode" data-id="edit">${icon('pencil')}<span>${L('편집', 'Edit')}</span></button>
+      <button type="button" class="small-button${reading ? ' primary' : ''}" data-action="page-mode" data-id="read">${icon('eye')}<span>${L('미리 보기', 'Preview')}</span></button>
+    </div>` : '';
+  const article = `<article class="panel-card doc-page">
+    <nav class="doc-crumbs" aria-label="${esc(L('위치', 'Location'))}">${icon('layers')}${crumbs.map((item, at) => (at ? `<span class="crumb-sep">›</span>${item}` : item)).join('')}<span class="grow"></span><span id="live-people" class="live-people" hidden></span>${mode}</nav>
+    ${editor ? '' : `<h1 class="doc-title">${esc(open.title)}</h1>`}
+    ${freshEdit ? `<p class="banner">${esc(L(`${person(ctx.ws, open.editorId)?.name || ''} 님도 이 페이지를 쓰고 있습니다.`, `${person(ctx.ws, open.editorId)?.name || 'Someone'} is also writing this page.`))}</p>` : ''}
+    ${compare}
+    ${editor || `<div class="md doc-body reading" data-page="${esc(open.id)}">${expandIssueMacros(markMentions(renderMarkdown(expandPage(ctx.ws, open), open.attachments || []), ctx.ws.users), ctx, open)}</div>`}
     ${board}${table}
     ${childList}
-    <h2>${L('첨부', 'Attachments')}</h2>${files || empty(L('첨부가 없습니다.', 'There are no attachments.'))}
-    ${canEdit ? `<div class="inline"><button type="button" class="button" data-action="pick-page-file" data-id="${esc(open.id)}" data-kind="image">${icon('image')}<span>${L('이미지', 'Image')}</span></button><button type="button" class="button" data-action="pick-page-file" data-id="${esc(open.id)}" data-kind="file">${icon('paperclip')}<span>${L('파일', 'File')}</span></button></div>` : ''}
-    <h2>${L('의견', 'Comments')}</h2>${comments || empty(L('의견이 없습니다.', 'There are no comments.'))}
-    <div class="inline"><input id="page-quote" placeholder="${esc(L('인용할 문장', 'Quote'))}"><input id="page-comment" placeholder="${esc(L('의견', 'Comment'))}"><button type="button" class="button" data-action="comment-page" data-id="${esc(open.id)}">${icon('comment')}<span>${L('남기기', 'Add')}</span></button></div>
-    ${versions ? `<h2>${L('이전 판', 'Earlier versions')}</h2>${versions}` : ''}</article>` : '';
-  const trash = space ? trashedPages(ctx.ws, space.id, ctx.user?.id).map((page) => `<div class="link-row"><span>${esc(page.title)}</span><button type="button" class="small-button" data-action="restore-trashed" data-id="${esc(page.id)}">${icon('restore')}<span>${L('되돌리기', 'Restore')}</span></button><button type="button" class="small-button" data-action="purge-page" data-id="${esc(page.id)}">${icon('trash')}<span>${L('삭제', 'Delete')}</span></button></div>`).join('') : '';
-  return `<div class="page">${pageHead(`${L('페이지', 'Pages')}${space ? ` <small class="muted space-scope">${icon(scope[2])}${esc(L(scope[0], scope[1]))} · ${esc(space.name)}</small>` : ''}`, `<button type="button" class="button" data-action="add-blog">${icon('spark')}<span>${L('소식', 'News')}</span></button><button type="button" class="button" data-action="add-board">${icon('board')}<span>${L('칠판', 'Board')}</span></button><button type="button" class="button" data-action="add-table">${icon('columns')}<span>${L('표', 'Table')}</span></button>${button('add-article', L('페이지', 'Page'))}`, 'knowledge')}
-    <div class="inline"><select data-choose="space" title="${esc(L('공간', 'Space'))}">${spaceOptions}</select>${finderBar(ctx, [
-      { id: 'kind', label: L('종류', 'Kind'), options: [{ id: 'page', label: L('페이지', 'Page') }, { id: 'blog', label: L('소식', 'News') }, { id: 'board', label: L('칠판', 'Board') }, { id: 'table', label: L('표', 'Table') }] },
-      { id: 'status', label: L('상태', 'Status'), options: [{ id: 'draft', label: L('초안', 'Draft') }, { id: 'review', label: L('검토', 'Review') }, { id: 'current', label: L('게시', 'Published') }] },
-    ])}<input id="share-open" value="${esc(ctx.ui.shareToken || '')}" placeholder="${esc(L('공개 링크', 'Public link'))}"><button type="button" class="button" data-action="open-share">${icon('link')}<span>${L('열기', 'Open')}</span></button></div>
-    <div class="split-page"><div class="wiki-tree"><h2>${L('페이지', 'Pages')}</h2>${tree || empty(L('페이지가 없습니다.', 'There are no pages.'))}<h2>${L('소식', 'News')}</h2>${blogs || empty(L('소식이 없습니다.', 'There is no news.'))}${trash ? `<h2>${L('휴지통', 'Trash')}</h2>${trash}` : ''}</div>${reader}</div>
-    <div class="form-cards"><section class="panel-card"><header><b>${icon('plus')}<span>${L('새 페이지', 'New page')}</span></b></header><div class="inline"><input id="article-title" placeholder="${esc(L('새 페이지 제목', 'New page title'))}"><button type="button" class="button" data-action="add-article">${icon('plus')}<span>${L('추가', 'Add')}</span></button></div>
-    <textarea id="article-body" rows="4" placeholder="${esc(L('Markdown. [[toc]] [[children]] [[include:제목]]', 'Markdown. [[toc]] [[children]] [[include:Title]]'))}"></textarea>
-    </section><section class="panel-card"><header><b>${icon('globe')}<span>${L('새 회사 공간', 'New company space')}</span></b></header><p class="muted">${L('팀과 과제 공간은 팀과 과제를 만들 때 생깁니다.', 'Team and project spaces come with their teams and projects.')}</p><div class="inline"><input id="space-name" placeholder="${esc(L('공간 이름', 'Space name'))}"><input id="space-key" placeholder="KEY"><button type="button" class="button" data-action="add-space">${icon('plus')}<span>${L('만들기', 'Create')}</span></button></div></section></div></div>`;
+    ${pageFiles(ctx, open, canEdit)}
+    ${pageComments(ctx, open)}</article>`;
+  return `<div class="ws-layout solo"><div class="ws-main">${article}</div></div>`;
+}
+
+const WHERE = (space) => (space.scope === 'team' && space.teamId ? `team:${space.teamId}` : space.scope === 'project' && space.projectId ? `project:${space.projectId}` : '');
+
+/** The workspace shown on the Pages screen (when no page is open), if the signed-in person may see it. */
+export function openSpaceOf(ctx) {
+  if (ctx.ui.view !== 'knowledge') return null;
+  const spaces = visibleSpaces(ctx.ws, ctx.user?.id);
+  return spaces.find((item) => item.id === ctx.ui.spaceId) || null;
+}
+
+/** The right panel beside a workspace: its name, description, who sees it, its trash, and deleting it. */
+export function spaceInfoPanel(ctx) {
+  const space = openSpaceOf(ctx);
+  if (!space) return '';
+  const manage = isWorkspaceAdmin(ctx.user) || space.authorId === ctx.user?.id;
+  const pages = pagesIn(ctx.ws, space.id, ctx.user?.id);
+  const all = (ctx.ws.articles || []).filter((page) => page.spaceId === space.id);
+  const trash = trashedPages(ctx.ws, space.id, ctx.user?.id);
+  const teams = (ctx.ws.teams || []);
+  const projects = (ctx.ws.projects || []).filter((item) => !item.archived);
+  const where = WHERE(space);
+  const scopeName = { company: L('회사 전체', 'Whole company'), team: L('팀', 'Team'), project: L('과제', 'Project') }[space.scope || 'company'];
+  const whereText = space.scope === 'team' ? (teams.find((team) => team.id === space.teamId)?.name || '') : space.scope === 'project' ? (projects.find((item) => item.id === space.projectId)?.name || '') : L('모두 봅니다', 'Everyone');
+  const row = (glyph, label, value) => `<div class="info-row">${icon(glyph)}<span>${esc(label)}</span><b>${value}</b></div>`;
+  const latest = [...pages].sort((a, b) => String(b.updated || '').localeCompare(String(a.updated || '')))[0];
+  const whereSelect = `<select data-space-field="where" data-id="${esc(space.id)}" aria-label="${esc(L('보는 사람', 'Who sees it'))}">
+      <option value=""${where ? '' : ' selected'}>${esc(L('회사 전체 — 모두', 'Whole company — everyone'))}</option>
+      ${teams.length ? `<optgroup label="${esc(L('팀 — 팀원만', 'A team — its members'))}">${teams.map((team) => `<option value="team:${esc(team.id)}"${where === `team:${team.id}` ? ' selected' : ''}>${esc(team.name)}</option>`).join('')}</optgroup>` : ''}
+      ${projects.length ? `<optgroup label="${esc(L('과제 — 과제 사람만', 'A project — its people'))}">${projects.map((item) => `<option value="project:${esc(item.id)}"${where === `project:${item.id}` ? ' selected' : ''}>${esc(item.key)} · ${esc(item.name)}</option>`).join('')}</optgroup>` : ''}
+    </select>`;
+  return `<div class="page-info space-info">
+    <section><h3>${icon('layers')}<span>${L('작업 공간', 'Workspace')}</span></h3>
+      ${manage ? `<label class="prop"><span>${L('이름', 'Name')}</span><input data-space-field="name" data-id="${esc(space.id)}" value="${esc(space.name)}" aria-label="${esc(L('이름', 'Name'))}"></label>
+      <label class="prop prop-top"><span>${L('설명', 'Description')}</span><textarea data-space-field="description" data-id="${esc(space.id)}" rows="4" placeholder="${esc(L('이 작업 공간에 무엇을 모으는지', 'What this workspace gathers'))}">${esc(space.description || '')}</textarea></label>
+      <label class="prop"><span>${L('보는 사람', 'Who sees it')}</span>${whereSelect}</label>` : `${row('tag', L('이름', 'Name'), esc(space.name))}${row('eye', L('보는 사람', 'Who sees it'), esc(`${scopeName} · ${whereText}`))}`}
+    </section>
+    <section><h3>${icon('info')}<span>${L('정보', 'Details')}</span></h3>
+      ${row('idCard', L('키', 'Key'), esc(space.key))}
+      ${row('user', L('만든 사람', 'Created by'), esc(person(ctx.ws, space.authorId)?.name || L('없음', 'None')))}
+      ${row('book', L('페이지', 'Pages'), String(pages.length))}
+      ${row('clock', L('마지막 변경', 'Last change'), latest ? `${esc(formatWhen(latest.updated))}<small>${esc(latest.title)}</small>` : esc(L('없음', 'None')))}
+    </section>
+    <section><h3>${icon('plus')}<span>${L('만들기', 'Create')}</span></h3>
+      <div class="info-actions">
+        <button type="button" class="small-button primary" data-action="add-page" data-space="${esc(space.id)}">${icon('book')}<span>${L('새 페이지', 'New page')}</span></button>
+        <button type="button" class="small-button" data-action="add-blog" data-space="${esc(space.id)}">${icon('spark')}<span>${L('소식', 'News')}</span></button>
+        <button type="button" class="small-button" data-action="add-board" data-space="${esc(space.id)}">${icon('board')}<span>${L('칠판', 'Board')}</span></button>
+        <button type="button" class="small-button" data-action="add-table" data-space="${esc(space.id)}">${icon('columns')}<span>${L('표', 'Table')}</span></button>
+      </div>
+    </section>
+    <section><h3>${icon('trash')}<span>${L('휴지통', 'Trash')}</span><span class="chip">${trash.length}</span></h3>
+      ${trash.length ? trash.map((page) => `<div class="version-row"><span class="version-text"><b>${esc(page.title)}</b><small>${esc(formatWhen(page.updated))}</small></span><button type="button" class="icon-button" data-action="restore-trashed" data-id="${esc(page.id)}" title="${esc(L('되돌리기', 'Restore'))}" aria-label="${esc(L('되돌리기', 'Restore'))}">${icon('restore')}</button><button type="button" class="icon-button" data-action="purge-page" data-id="${esc(page.id)}" title="${esc(L('영구 삭제', 'Delete for good'))}" aria-label="${esc(L('영구 삭제', 'Delete for good'))}">${icon('trash')}</button></div>`).join('') : `<p class="muted">${L('휴지통이 비어 있습니다.', 'The trash is empty.')}</p>`}
+    </section>
+    ${manage ? `<section><button type="button" class="small-button danger" data-action="delete-workspace" data-id="${esc(space.id)}" ${all.length ? `title="${esc(L('페이지를 모두 지우고 휴지통을 비워야 지울 수 있습니다', 'Delete every page and empty the trash first'))}"` : ''}>${icon('trash')}<span>${L('작업 공간 삭제', 'Delete the workspace')}</span></button></section>` : ''}
+  </div>`;
+}
+
+/** The open page, if the Pages screen shows one the signed-in person may read. */
+export function openPageOf(ctx) {
+  if (ctx.ui.view !== 'knowledge' || !ctx.ui.articleId) return null;
+  const page = (ctx.ws.articles || []).find((item) => item.id === ctx.ui.articleId);
+  if (!page || page.trashed) return null;
+  if (ctx.ui.shareToken && page.shareToken === ctx.ui.shareToken) return page;
+  const space = visibleSpaces(ctx.ws, ctx.user?.id).find((item) => item.id === page.spaceId);
+  return space && pagesIn(ctx.ws, space.id, ctx.user?.id).some((item) => item.id === page.id) ? page : null;
+}
+
+/** The right panel beside an open page: where it sits, who made it, its state, sharing, exports and versions. */
+export function pageInfoPanel(ctx) {
+  const open = openPageOf(ctx);
+  if (!open) return '';
+  const canEdit = canEditPage(open, ctx.user?.id);
+  const owner = open.authorId === ctx.user?.id;
+  const pages = pagesIn(ctx.ws, open.spaceId, ctx.user?.id);
+  const space = (ctx.ws.spaces || []).find((item) => item.id === open.spaceId);
+  const statusName = { draft: L('초안', 'Draft'), review: L('검토', 'Review'), current: L('게시', 'Published') };
+  const kindName = { blog: L('소식', 'News'), board: L('칠판', 'Board'), table: L('표', 'Table'), page: L('페이지', 'Page') }[open.kind] || L('페이지', 'Page');
+  const liked = (open.likes || []).includes(ctx.user?.id);
+  const watching = (open.watchers || []).includes(ctx.user?.id);
+  const lastBy = open.versions?.[0]?.authorId || open.authorId;
+  const row = (glyph, label, value) => `<div class="info-row">${icon(glyph)}<span>${esc(label)}</span><b>${value}</b></div>`;
+  const people = (ctx.ws.users || []).filter((user) => user.active !== false && user.id !== open.authorId).map((user) => `<option value="${esc(user.id)}">${esc(user.name)}</option>`).join('');
+  const named = (ids) => (ids || []).map((id) => person(ctx.ws, id)?.name).filter(Boolean).map(esc).join(', ') || esc(L('없음', 'None'));
+  const versions = (open.versions || []).map((version, at) => `<div class="version-row"><span class="version-no">v${(open.versions || []).length - at}</span><span class="version-text"><b>${esc(version.title)}</b><small>${esc(person(ctx.ws, version.authorId)?.name || '')} · ${esc(formatWhen(version.at))}</small></span><button type="button" class="icon-button" data-action="compare-page" data-id="${esc(open.id)}" data-from="${esc(version.id)}" data-to="current" title="${esc(L('지금과 비교', 'Compare with now'))}" aria-label="${esc(L('지금과 비교', 'Compare with now'))}">${icon('columns')}</button>${canEdit ? `<button type="button" class="icon-button" data-action="restore-page" data-id="${esc(open.id)}" data-version="${esc(version.id)}" title="${esc(L('이 판으로 되돌리기', 'Restore this version'))}" aria-label="${esc(L('되돌리기', 'Restore'))}">${icon('restore')}</button>` : ''}</div>`).join('');
+  const openInline = (open.comments || []).filter((comment) => comment.inline && !comment.resolved && !comment.replyTo).length;
+  return `<div class="page-info">
+    <section><h3>${icon('info')}<span>${L('페이지 정보', 'Page details')}</span></h3>
+      ${row('layers', L('작업 공간', 'Workspace'), esc(space?.name || ''))}
+      ${row('book', L('종류', 'Kind'), esc(kindName))}
+      ${row('user', L('만든 사람', 'Created by'), esc(person(ctx.ws, open.authorId)?.name || ''))}
+      ${row('clock', L('마지막 수정', 'Last updated'), `${esc(formatWhen(open.updated))}<small>${esc(person(ctx.ws, lastBy)?.name || '')}</small>`)}
+      ${row('eye', L('조회', 'Views'), String(open.views || 0))}
+      ${row('restore', L('판', 'Versions'), String((open.versions || []).length + 1))}
+      <div class="info-row">${icon('tag')}<span>${L('라벨', 'Labels')}</span><b>${(open.labels || []).map((label) => badge(label, '#0f9f6e')).join(' ') || esc(L('없음', 'None'))}</b></div>
+    </section>
+    ${canEdit ? `<section><h3>${icon('settings')}<span>${L('상태와 위치', 'State and place')}</span></h3>
+      <label class="prop"><span>${L('상태', 'Status')}</span><select data-choose="page-status" data-id="${esc(open.id)}">${['draft', 'review', 'current'].map((id) => `<option value="${id}"${open.status === id ? ' selected' : ''}>${statusName[id]}</option>`).join('')}</select></label>
+      ${open.kind !== 'blog' ? `<label class="prop"><span>${L('상위 페이지', 'Parent')}</span><select data-choose="page-parent" data-id="${esc(open.id)}"><option value="">${L('최상위', 'Top')}</option>${pages.filter((page) => page.kind !== 'blog' && page.id !== open.id && !pageAncestor(pages, page, open.id)).map((page) => `<option value="${esc(page.id)}"${page.id === open.parentId ? ' selected' : ''}>${esc(page.title)}</option>`).join('')}</select></label>` : ''}
+    </section>` : `<section>${row('flag', L('상태', 'Status'), esc(statusName[open.status] || statusName.current))}</section>`}
+    <section><h3>${icon('bolt')}<span>${L('함께하기', 'Together')}</span></h3>
+      <div class="info-actions">
+        <button type="button" class="small-button${liked ? ' primary' : ''}" data-action="like-page" data-id="${esc(open.id)}">${icon('flag')}<span>${L('좋아요', 'Like')} ${(open.likes || []).length}</span></button>
+        <button type="button" class="small-button${watching ? ' primary' : ''}" data-action="watch-page" data-id="${esc(open.id)}">${icon('bell')}<span>${watching ? L('관찰 중', 'Watching') : L('관찰', 'Watch')}</span></button>
+        <button type="button" class="small-button" data-action="jump" data-target="page-comments">${icon('comment')}<span>${L('댓글', 'Comments')} ${(open.comments || []).length}${openInline ? ` · ${L('본문', 'inline')} ${openInline}` : ''}</span></button>
+        <button type="button" class="small-button" data-action="jump" data-target="page-files">${icon('paperclip')}<span>${L('파일', 'Files')} ${(open.attachments || []).length}</span></button>
+      </div>
+    </section>
+    <section><h3>${icon('lock')}<span>${L('권한과 공유', 'Access & sharing')}</span></h3>
+      ${row('lock', L('제한', 'Restricted'), open.restricted ? esc(L('켜짐', 'On')) : esc(L('꺼짐', 'Off')))}
+      ${row('pencil', L('편집자', 'Editors'), named(open.editors))}
+      ${row('eye', L('읽는 사람', 'Readers'), named(open.readers))}
+      ${owner ? `<div class="info-actions">
+        <button type="button" class="small-button${open.restricted ? ' primary' : ''}" data-action="restrict-page" data-id="${esc(open.id)}">${icon('lock')}<span>${open.restricted ? L('제한 풀기', 'Unrestrict') : L('제한', 'Restrict')}</span></button>
+        <button type="button" class="small-button" data-action="share-link" data-id="${esc(open.id)}" data-on="${open.shareToken ? '0' : '1'}">${icon('link')}<span>${open.shareToken ? L('공개 링크 끄기', 'Turn off the link') : L('공개 링크', 'Public link')}</span></button>
+      </div>
+      ${open.shareToken ? `<p class="muted info-token">${esc(open.shareToken)}</p>` : ''}
+      <div class="info-grant"><select id="page-editor" aria-label="${esc(L('편집자', 'Editor'))}">${people}</select><button type="button" class="small-button" data-action="grant-edit" data-id="${esc(open.id)}">${icon('pencil')}<span>${L('편집자로', 'As editor')}</span></button></div>
+      <div class="info-grant"><select id="page-reader" aria-label="${esc(L('읽는 사람', 'Reader'))}">${people}</select><button type="button" class="small-button" data-action="grant-read" data-id="${esc(open.id)}">${icon('eye')}<span>${L('읽는 사람으로', 'As reader')}</span></button></div>` : ''}
+    </section>
+    <section><h3>${icon('download')}<span>${L('내보내기', 'Export')}</span></h3>
+      <div class="info-actions">
+        <button type="button" class="small-button" data-action="export-page" data-id="${esc(open.id)}" data-format="html">${icon('download')}<span>HTML</span></button>
+        <button type="button" class="small-button" data-action="export-page" data-id="${esc(open.id)}" data-format="doc">${icon('file')}<span>${L('워드', 'Word')}</span></button>
+        <button type="button" class="small-button" data-action="export-page" data-id="${esc(open.id)}" data-format="pdf">${icon('printer')}<span>PDF</span></button>
+        <button type="button" class="small-button" data-action="export-page" data-id="${esc(open.id)}" data-format="md">${icon('codeBlock')}<span>Markdown</span></button>
+        <button type="button" class="small-button" data-action="copy-page" data-id="${esc(open.id)}">${icon('copy')}<span>${L('복사본', 'Copy')}</span></button>
+        ${canEdit ? `<button type="button" class="small-button danger" data-action="delete-article" data-id="${esc(open.id)}">${icon('trash')}<span>${L('휴지통으로', 'To trash')}</span></button>` : ''}
+      </div>
+    </section>
+    <section id="page-versions"><h3>${icon('restore')}<span>${L('이전 판', 'Earlier versions')}</span><span class="chip">${(open.versions || []).length}</span></h3>
+      ${versions || `<p class="muted">${L('아직 이전 판이 없습니다.', 'No earlier versions yet.')}</p>`}
+    </section>
+  </div>`;
 }
 
 const SHARE = {
@@ -326,7 +601,7 @@ const DOC_TOOLS = [
   ['p', 'paragraph', '본문', 'Body text', ''], ['h1', 'h1', '제목 1', 'Heading 1', ''], ['h2', 'h2', '제목 2', 'Heading 2', ''], ['h3', 'h3', '제목 3', 'Heading 3', ''], '|',
   ['bold', 'bold', '굵게', 'Bold', 'Ctrl+B'], ['italic', 'italic', '기울임', 'Italic', 'Ctrl+I'], ['strike', 'strike', '취소선', 'Strikethrough', ''], ['code', 'code', '코드', 'Inline code', ''], '|',
   ['ul', 'list', '글머리 목록', 'Bulleted list', ''], ['ol', 'listNumber', '번호 목록', 'Numbered list', ''], ['quote', 'quote', '인용', 'Quote', ''], ['pre', 'codeBlock', '코드 블록', 'Code block', ''], ['hr', 'divider', '구분선', 'Divider', ''], '|',
-  ['link', 'link', '링크', 'Link', ''], ['table', 'table', '표', 'Table', ''], ['toc', 'toc', '목차 넣기', 'Insert a table of contents', ''], ['children', 'layers', '하위 페이지 목록 넣기', 'Insert the child page list', ''],
+  ['link', 'link', '링크', 'Link', ''], ['table', 'table', '표', 'Table', ''], ['toc', 'toc', '목차 넣기', 'Insert a table of contents', ''], ['children', 'layers', '하위 페이지 목록 넣기', 'Insert the child page list', ''], ['issue', 'issues', '이슈 넣기 (한 이슈 또는 질의 목록)', 'Insert issues (one issue or a query list)', ''],
 ];
 
 /** A page in edit mode: title, formatting bar, the document itself, and Markdown source on request. */
@@ -341,10 +616,17 @@ function docEditor(ctx, page) {
     <input id="page-title" class="doc-title-input" value="${esc(draft?.title ?? page.title)}" placeholder="${esc(L('제목', 'Title'))}" aria-label="${esc(L('제목', 'Title'))}">
     <div class="doc-toolbar" role="toolbar" aria-label="${esc(L('서식', 'Formatting'))}">${tools}
       <span class="doc-tool-sep"></span>
+      <button type="button" class="doc-tool" data-action="insert-mention" title="${esc(L('사람 언급 (@)', 'Mention someone (@)'))}" aria-label="${esc(L('사람 언급', 'Mention someone'))}">${icon('user')}</button>
       <button type="button" class="doc-tool" data-action="pick-page-file" data-id="${esc(page.id)}" data-kind="image" title="${esc(L('이미지 넣기', 'Insert an image'))}" aria-label="${esc(L('이미지', 'Image'))}">${icon('image')}</button>
       <button type="button" class="doc-tool" data-action="pick-page-file" data-id="${esc(page.id)}" data-kind="file" title="${esc(L('파일 첨부', 'Attach a file'))}" aria-label="${esc(L('파일', 'File'))}">${icon('paperclip')}</button>
       <span class="grow"></span>
       <button type="button" class="doc-tool${source ? ' active' : ''}" data-action="page-source" title="${esc(source ? L('문서로 쓰기', 'Write as a document') : L('Markdown 원본 보기', 'Show the Markdown source'))}" aria-pressed="${source ? 'true' : 'false'}">${icon('codeBlock')}</button>
+    </div>
+    <div class="doc-issue-bar" hidden>
+      <select id="doc-issue-mode" aria-label="${esc(L('넣을 것', 'What to insert'))}"><option value="one">${L('이슈 하나', 'One issue')}</option><option value="list">${L('질의 목록', 'Query list')}</option></select>
+      <select id="doc-issue-project" aria-label="${esc(L('과제', 'Project'))}">${(ctx.ws.projects || []).filter((item) => !item.archived).map((item) => `<option value="${esc(item.key)}"${item.id === ctx.project?.id ? ' selected' : ''}>${esc(item.key)} · ${esc(item.name)}</option>`).join('')}</select>
+      <input id="doc-issue-text" placeholder="${esc(L('이슈 키 (예: PAY-12) 또는 WQL (예: status != done)', 'Issue key (e.g. PAY-12) or WQL (e.g. status != done)'))}" aria-label="${esc(L('이슈 키 또는 질의', 'Issue key or query'))}">
+      <button type="button" class="small-button" data-format="issue-apply">${icon('check')}<span>${L('넣기', 'Insert')}</span></button>
     </div>
     <div class="doc-link-bar" hidden><input id="doc-link-url" placeholder="https://" aria-label="${esc(L('링크 주소', 'Link address'))}"><button type="button" class="small-button" data-format="link-apply">${icon('check')}<span>${L('넣기', 'Insert')}</span></button></div>
     <div id="page-doc" class="md doc-body doc-writing" contenteditable="true" spellcheck="true" data-page="${esc(page.id)}" ${source ? 'hidden' : ''}>${html}</div>
@@ -352,8 +634,8 @@ function docEditor(ctx, page) {
     <div class="doc-edit-foot">
       <label class="form-row"><span>${icon('tag')}${L('라벨', 'Labels')}</span><input id="page-labels" value="${esc((page.labels || []).join(' '))}" placeholder="${esc(L('띄어쓰기로 나눕니다', 'Separated by spaces'))}"></label>
       <span class="grow"></span>
-      <button type="button" class="button" data-action="wiki-edit" data-on="0">${icon('close')}<span>${L('취소', 'Cancel')}</span></button>
-      <button type="button" class="button primary" data-action="save-page" data-id="${esc(page.id)}">${icon('save')}<span>${L('저장', 'Save')}</span></button>
+      <span id="page-save-state" class="save-state" aria-live="polite">${esc(L('바뀐 내용은 저절로 저장됩니다', 'Changes save by themselves'))}</span>
+      <button type="button" class="button primary" data-action="save-page" data-id="${esc(page.id)}" title="Ctrl+S">${icon('save')}<span>${L('저장', 'Save')}</span></button>
     </div>
   </div>`;
 }

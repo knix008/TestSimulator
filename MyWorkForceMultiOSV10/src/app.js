@@ -3,13 +3,19 @@ import guideKo from '../UsersGuide.md?raw';
 import wqlEn from '../docs/WQL.en.md?raw';
 import wqlKo from '../docs/WQL.md?raw';
 import { toCsv, toMarkdown } from './domain/export.js';
-import { setNotice } from './domain/notices.js';
+import { markInboxRead, setNotice } from './domain/notices.js';
+import { bindMentions } from './ui/mentions.js';
+import { bindInline, highlightInline } from './ui/inline.js';
 import { allowed, isWorkspaceAdmin, roleForAccess } from './domain/permissions.js';
 import { exampleWorkspace } from './domain/examples.js';
 import { sampleWorkspace } from './domain/sample.js';
 import { TUTORIAL } from './domain/tutorial.js';
 import { attachDocument, createDocument, deleteDocument, removeDocumentFile, shareDocument, updateDocument } from './domain/documents.js';
-import { addColumn, addPage, addRow, addShape, addSpace, attachPage, commentPage, copyPage, deletePageComment, expandPage, likePage, markEditing, movePage, pageByShare, purgePage, removePageFile, removeShape, restorePage, restoreTrashed, setPageAccess, setPageStatus, shareLink, updatePage, watchPage } from './domain/wiki.js';
+import { TEMPLATE_GROUPS, templateBody, templateById } from './domain/page-templates.js';
+import { issueMacrosToMarkdown } from './domain/issue-macros.js';
+import { shiftedDates } from './domain/dependencies.js';
+import { timelineTodayX } from './ui/timeline.js';
+import { addColumn, addPage, addRow, addShape, addSpace, attachPage, commentPage, copyPage, deletePageComment, canEditPage, deleteSpace, editPageComment, resolvePageComment, updateSpace, expandPage, likePage, markEditing, movePage, pageByShare, purgePage, removePageFile, removeShape, restorePage, restoreTrashed, setPageAccess, setPageStatus, shareLink, updatePage, watchPage } from './domain/wiki.js';
 import { addArticle, addCalendar, addToken, addWebhook, authorizationUrl, csvIssueRows, decideApproval, deleteArticle, deleteToken, deleteWebhook, openApproval } from './domain/services.js';
 import { loadSettings, PANEL_MAX, PANEL_MIN, rememberPath, saveSettings } from './domain/settings.js';
 import {
@@ -22,7 +28,8 @@ import {
 } from './domain/store.js';
 import { writingExport } from './domain/markdown.js';
 import { fromDateInput, parseDuration, uid } from './domain/util.js';
-import { changeOwnPassword, schemaSql, schemaStatus, setUserPassword, upgradeSchema, waitForService } from './platform/data.js';
+import { changeOwnPassword, leavePage, livePage, schemaSql, schemaStatus, setUserPassword, upgradeSchema, waitForService } from './platform/data.js';
+import { createLiveWriter, shiftedOffset, writeKeepingCaret } from './ui/live.js';
 import { decorateIcons } from './ui/autoicons.js';
 import { htmlToMarkdown } from './domain/htmlmd.js';
 import { renderMarkdown } from './domain/markdown.js';
@@ -30,10 +37,10 @@ import { installTooltips } from './ui/tooltip.js';
 import { createTeam, deleteTeam, DEFAULT_METHODS, moveProjectToTeam, setProjectAccess, setProjectMethod, setTeamMember, teamSpace, updateTeam } from './domain/teams.js';
 import { clearMainRequest, clearSavedLogin, connectData, currentSession, dataStatus, dataUrl, hashPassword, loadWorkspace, loginSession, logoutSession, readMainRequest, rememberDataUrl, rememberLogin, rememberSession, savedLogin, saveWorkspace, sendTestMail, sessionToken, unlockData, watchMainRequest, watchSharedSession } from './platform/data.js';
 import { getLanguage, L, setLanguage } from './i18n.js';
-import { appInfo, chooseOpen, chooseSave, dragWindow, errorText, isDesktop, openBrowser, openTalk, readTextFile, resizeWindow, setBackendLanguage, setLaunchAtStartup, setWindowTheme, showMain, startupFiles, windowControl, writeTextFile } from './platform/native.js';
+import { appInfo, chooseOpen, chooseSave, dragWindow, errorText, isDesktop, openBrowser, openDocWindow, openTalk, readTextFile, resizeWindow, setBackendLanguage, setLaunchAtStartup, setWindowTheme, showMain, startupFiles, windowControl, writeTextFile } from './platform/native.js';
 import { loadLocal, saveLocal } from './platform/storage.js';
 import { applyFont, applyTheme, customFrom, randomThemeId, resolveTheme } from './themes.js';
-import { esc, icon } from './ui/bits.js';
+import { avatar as avatarHtml, esc, icon } from './ui/bits.js';
 import { figure } from './ui/figures.js';
 import { paletteItems, renderContext, renderMenubar, renderModal, renderNav, renderStatus, renderToolbar } from './ui/chrome.js';
 import { ADMIN_VIEWS, takeShortcut } from './ui/shortcuts.js';
@@ -60,6 +67,8 @@ const ERRORS = {
   'transition-blocked': ['이 상태로는 옮길 수 없습니다.', 'That move is not allowed.'],
   'file-invalid': ['이 파일은 작업 공간이 아닙니다.', 'This file is not a workspace.'],
   'attachment-big': ['첨부는 700KB 이하만 넣을 수 있습니다.', 'Attachments must be 700KB or smaller.'],
+  'dependency-cycle': ['이렇게 연결하면 서로를 기다리게 됩니다. 순서를 확인하세요.', 'That link would make the issues wait for each other. Check the order.'],
+  'space-not-empty': ['페이지가 남아 있는 작업 공간는 지울 수 없습니다. 페이지를 지우고 휴지통도 비우세요.', 'A workspace with pages cannot be deleted. Delete its pages and empty its trash first.'],
   'photo-invalid': ['사진은 이미지 파일이어야 합니다.', 'The photo must be an image file.'],
   'self-link': ['이슈를 자기 자신에게 연결할 수 없습니다.', 'An issue cannot be linked to itself.'],
   query: ['질의 문법을 확인하세요.', 'Check the query syntax.'],
@@ -165,12 +174,331 @@ function currentPageBody() {
   return document.querySelector('#page-body')?.value ?? '';
 }
 
+function readDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+/** Adds files to a page's file list (not into its text). Too-big files are named and skipped; the rest go in. */
+async function attachPageFiles(pageId, files, embed) {
+  const list = [...(files || [])];
+  if (!list.length) return;
+  const tooBig = list.filter((file) => file.size > 700_000);
+  const fit = list.filter((file) => file.size <= 700_000);
+  const loaded = [];
+  for (const file of fit) {
+    try { loaded.push({ name: file.name, mime: file.type, size: file.size, data: await readDataUrl(file) }); } catch (error) { fail(error); }
+  }
+  if (loaded.length) {
+    mutate(() => {
+      if (document.querySelector('#page-body') && ui.wikiEdit) {
+        ui.pageDraft = null;
+        updatePage(ws, pageId, { title: document.querySelector('#page-title')?.value, body: currentPageBody(), labels: document.querySelector('#page-labels')?.value }, actor());
+      }
+      for (const item of loaded) attachPage(ws, pageId, item, actor(), { embed });
+    });
+  }
+  if (tooBig.length) toast(`${message(new Error('attachment-big'))} ${tooBig.map((file) => file.name).join(', ')}`);
+  else if (loaded.length) toast(L(`파일 ${loaded.length}개를 넣었습니다.`, `Added ${loaded.length} file${loaded.length > 1 ? 's' : ''}.`));
+}
+
+function scrollTimelineToToday() {
+  const chart = document.querySelector('[data-tl-chart]');
+  if (chart) chart.scrollLeft = Math.max(0, timelineTodayX(chart) - chart.clientWidth / 3);
+}
+
+/**
+ * Dragging on the timeline: a bar (or one of its ends) moves its dates by whole days; the dot at a bar's
+ * right drawn onto another bar makes that issue wait for this one. A press without a move opens the issue.
+ */
+function bindTimeline() {
+  let drag = null;
+  const svgPoint = (svg, event) => {
+    const box = svg.getBoundingClientRect();
+    return { x: event.clientX - box.left, y: event.clientY - box.top };
+  };
+  document.addEventListener('pointerdown', (event) => {
+    const target = event.target.closest?.('[data-tl-drag], [data-tl-link]');
+    const svg = target?.closest('.tl-svg');
+    if (!target || !svg || event.button !== 0) return;
+    const group = target.closest('[data-tl-issue]');
+    event.preventDefault();
+    const start = svgPoint(svg, event);
+    if (target.dataset.tlLink) {
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('class', 'tl-drag-line');
+      line.setAttribute('x1', target.getAttribute('cx'));
+      line.setAttribute('y1', target.getAttribute('cy'));
+      line.setAttribute('x2', target.getAttribute('cx'));
+      line.setAttribute('y2', target.getAttribute('cy'));
+      svg.appendChild(line);
+      drag = { kind: 'link', fromId: target.dataset.tlLink, line, svg };
+    } else {
+      drag = { kind: 'move', edge: target.dataset.tlDrag, id: group.dataset.tlIssue, group, svg, start, px: Number(svg.dataset.tlPx) || 30, moved: false };
+    }
+    try { target.setPointerCapture?.(event.pointerId); } catch { /* a pointer the browser does not track */ }
+  });
+  document.addEventListener('pointermove', (event) => {
+    if (!drag) return;
+    const at = svgPoint(drag.svg, event);
+    if (drag.kind === 'link') {
+      drag.line.setAttribute('x2', at.x);
+      drag.line.setAttribute('y2', at.y);
+      for (const bar of drag.svg.querySelectorAll('.tl-bar.drop')) bar.classList.remove('drop');
+      const under = document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-tl-issue]');
+      if (under && under.dataset.tlIssue !== drag.fromId) under.classList.add('drop');
+      return;
+    }
+    const dx = at.x - drag.start.x;
+    if (Math.abs(dx) > 3) drag.moved = true;
+    const days = Math.round(dx / drag.px);
+    drag.days = days;
+    const rect = drag.group.querySelector('.tl-rect');
+    if (!drag.box) drag.box = { x: Number(rect.getAttribute('x')), w: Number(rect.getAttribute('width')) };
+    const shift = days * drag.px;
+    if (drag.edge === 'both') drag.group.setAttribute('transform', `translate(${shift},0)`);
+    else if (drag.edge === 'start') { rect.setAttribute('x', drag.box.x + Math.min(shift, drag.box.w - drag.px)); rect.setAttribute('width', Math.max(drag.px, drag.box.w - shift)); }
+    else rect.setAttribute('width', Math.max(drag.px, drag.box.w + shift));
+  });
+  document.addEventListener('pointerup', (event) => {
+    if (!drag) return;
+    const done = drag;
+    drag = null;
+    const current = project();
+    if (!current) return;
+    if (done.kind === 'link') {
+      done.line.remove();
+      const under = document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-tl-issue]');
+      if (under && under.dataset.tlIssue !== done.fromId) mutate(() => addLink(ws, current.id, done.fromId, 'blocks', under.dataset.tlIssue, actor()));
+      else paint();
+      return;
+    }
+    if (!done.moved) {
+      const open = document.createElement('button');
+      open.dataset.action = 'open-issue';
+      open.dataset.id = done.id;
+      onAction(open);
+      return;
+    }
+    const issue = findIssue(current, done.id);
+    if (!issue || !done.days) { paint(); return; }
+    mutate(() => updateIssue(ws, current.id, issue.id, shiftedDates(current, issue, done.days, done.edge), actor()));
+  });
+}
+
+let autosaveTimer = 0;
+
+/** Who else is writing the open page, shown beside its path. */
+function showWriters(editors) {
+  const box = document.querySelector('#live-people');
+  if (!box) return;
+  const others = (editors || []).filter((item) => item.id !== actor());
+  box.hidden = !others.length;
+  box.innerHTML = others.length
+    ? `${others.map((item) => avatarHtml(ws.users.find((user) => user.id === item.id) || { name: item.name })).join('')}<span>${esc(L(`${others.map((item) => item.name).join(', ')} 님과 함께 쓰는 중`, `Writing with ${others.map((item) => item.name).join(', ')}`))}</span>`
+    : '';
+}
+
+let liveRefresh = false;
+
+/** After the server saved a page being written together, the rest of the workspace is brought up to date quietly. */
+async function refreshAfterLive(revision) {
+  if (liveRefresh || saveTimer || saving || !revision || revision <= (Number(ws.revision) || 0)) return;
+  liveRefresh = true;
+  try {
+    const loaded = await loadWorkspace();
+    if (loaded.workspace && Number(loaded.workspace.revision) > (Number(ws.revision) || 0) && !saveTimer && !saving) {
+      ws = upgradeWorkspace(loaded.workspace);
+      paint();
+    }
+  } catch { /* the next turn tries again */ }
+  finally { liveRefresh = false; }
+}
+
+const liveWriter = createLiveWriter({
+  read: () => {
+    const editor = document.querySelector('#view .doc-editor');
+    if (!editor || ui.view !== 'knowledge') return null;
+    return { pageId: editor.dataset.page, text: currentPageBody(), title: document.querySelector('#page-title')?.value ?? '' };
+  },
+  write: (text) => {
+    const editor = document.querySelector('#view .doc-editor');
+    const page = (ws.articles || []).find((item) => item.id === editor?.dataset.page);
+    if (!editor || !page) return;
+    if (ui.pageSource) {
+      const box = document.querySelector('#page-body');
+      if (!box) return;
+      const caret = box.selectionStart;
+      const old = box.value;
+      box.value = text;
+      if (document.activeElement === box) { const at = shiftedOffset(old, text, caret); box.setSelectionRange(at, at); }
+    } else {
+      const doc = document.querySelector('#page-doc');
+      if (!doc) return;
+      writeKeepingCaret(doc, renderMarkdown(text, page.attachments || []), text, doc.textContent);
+      ui.pageDraft = { id: page.id, title: document.querySelector('#page-title')?.value ?? page.title, html: doc.innerHTML };
+    }
+  },
+  writeTitle: (title) => { const box = document.querySelector('#page-title'); if (box && document.activeElement !== box) box.value = title; },
+  send: livePage,
+  leave: leavePage,
+  report: (turn) => {
+    if (!turn.live) {
+      // Back to saving here: whatever is in the editor is saved now.
+      showWriters([]);
+      if (turn.pageId) { ui.pageDirty = turn.pageId; flushPageSave(); }
+      return;
+    }
+    showWriters(turn.editors);
+    const page = (ws.articles || []).find((item) => item.id === turn.pageId);
+    if (page) { page.body = turn.text; page.title = turn.title; }
+    setSaveState(turn.error ? message(new Error(turn.error)) : turn.saved ? L('저장됨 · 함께 쓰기', 'Saved · live') : L('저장 중…', 'Saving…'), Boolean(turn.error));
+    for (const name of document.querySelectorAll(`.ws-name[data-id="${CSS.escape(turn.pageId)}"] > span`)) name.textContent = turn.title;
+    if (turn.saved) refreshAfterLive(turn.revision);
+  },
+});
+
+/** The live link follows the editor on screen: it starts with an open page and stops when the page closes. */
+function syncLive() {
+  const editor = document.querySelector('#view .doc-editor');
+  if (editor && ui.ready && sessionToken() && liveWriter.enabled) {
+    const page = (ws.articles || []).find((item) => item.id === editor.dataset.page);
+    if (page) liveWriter.start(page.id, page);
+  } else if (liveWriter.active) liveWriter.stop();
+}
+
+function setSaveState(text, bad = false) {
+  const box = document.querySelector('#page-save-state');
+  if (!box) return;
+  box.textContent = text;
+  box.classList.toggle('bad', bad);
+}
+
+/** Notes that the page being written has changed and saves it a moment after typing stops. */
+function pageTyped() {
+  const pageId = document.querySelector('.doc-editor')?.dataset.page;
+  if (!pageId) return;
+  if (liveWriter.active && liveWriter.pageId === pageId) {
+    setSaveState(L('저장 중…', 'Saving…'));
+    liveWriter.nudge();
+    return;
+  }
+  ui.pageDirty = pageId;
+  setSaveState(L('저장 중…', 'Saving…'));
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(() => { flushPageSave(); }, 1500);
+}
+
+/**
+ * Saves the page being written (without redrawing the screen, so the caret stays). Returns false when it
+ * could not be saved (an empty title, or no right to edit); the writing stays, marked unsaved.
+ */
+function flushPageSave() {
+  clearTimeout(autosaveTimer);
+  const pageId = ui.pageDirty;
+  if (!pageId) return true;
+  if (liveWriter.active && liveWriter.pageId === pageId) { ui.pageDirty = ''; liveWriter.nudge(); return true; }
+  const page = (ws.articles || []).find((item) => item.id === pageId);
+  const editor = document.querySelector(`.doc-editor[data-page="${CSS.escape(pageId)}"]`);
+  if (!page || !editor) { ui.pageDirty = ''; return true; }
+  const title = document.querySelector('#page-title')?.value ?? page.title;
+  const labels = document.querySelector('#page-labels')?.value;
+  try {
+    updatePage(ws, pageId, { title, body: currentPageBody(), labels }, actor(), { coalesce: true });
+  } catch (error) {
+    setSaveState(message(error), true);
+    return false;
+  }
+  ui.pageDirty = '';
+  ui.pageDraft = null;
+  scheduleSave();
+  const time = new Date().toLocaleTimeString(getLanguage() === 'en' ? 'en' : 'ko', { hour: '2-digit', minute: '2-digit' });
+  setSaveState(L(`저장됨 · ${time}`, `Saved · ${time}`));
+  // The page's name in the tree follows its title without a redraw.
+  for (const name of document.querySelectorAll(`.ws-name[data-id="${CSS.escape(pageId)}"] > span, .doc-crumbs .crumb[data-id="${CSS.escape(pageId)}"]`)) name.textContent = page.title;
+  return true;
+}
+
+/** Draws the open dialog again (paintModal leaves a dialog of the same kind alone). */
+function repaintModal() {
+  const box = document.querySelector('#modal');
+  const scroll = box?.querySelector('.tpl-cards')?.scrollTop || 0;
+  const typed = box?.querySelector('#template-find')?.value || '';
+  if (box) box.dataset.kind = '';
+  paint();
+  const cards = document.querySelector('#modal .tpl-cards');
+  if (cards) cards.scrollTop = scroll;
+  const find = document.querySelector('#modal #template-find');
+  if (find && typed) { find.value = typed; filterTemplates(typed); }
+}
+
+/** Hides the template cards that do not match what is typed in the picker's search box. */
+function filterTemplates(text) {
+  const words = String(text || '').toLowerCase().split(/\s+/).filter(Boolean);
+  for (const card of document.querySelectorAll('#modal .tpl-card')) {
+    card.hidden = !words.every((word) => (card.dataset.text || '').includes(word));
+  }
+}
+
+/** The label a page made from a template gets: its kind of work, in the language in use. */
+function templateLabel(template, english) {
+  const group = TEMPLATE_GROUPS.find((item) => item.id === template.group);
+  return group ? (english ? group.en.split(/[ &,]/)[0] : group.ko.split('·')[0]) : template.group;
+}
+
+/** Makes the page (blank or from a template) under a workspace or a parent page and opens it for writing. */
+function createPageFrom(spaceId, parentId, templateId) {
+  const template = templateId && templateId !== 'blank' ? templateById(templateId) : null;
+  const english = getLanguage() === 'en';
+  ui.modal = null;
+  mutate(() => {
+    const page = addPage(ws, {
+      spaceId, parentId,
+      title: template ? (english ? template.en : template.ko) : (english ? 'New page' : '새 페이지'),
+      body: template ? templateBody(template, english ? 'en' : 'ko') : '',
+      labels: template ? [templateLabel(template, english)] : [],
+    }, actor());
+    ui.spaceId = page.spaceId;
+    ui.wsOpen = { ...(ui.wsOpen || {}), [page.spaceId]: true };
+    if (parentId) ui.pageFold = { ...(ui.pageFold || {}), [parentId]: false };
+    ui.articleId = page.id;
+    ui.wikiEdit = true;
+    ui.pageDraft = null;
+    ui.pageSource = false;
+    ui.view = 'knowledge';
+    ui.pageView = 'edit';
+  });
+  requestAnimationFrame(() => { const title = document.querySelector('#page-title'); title?.focus(); title?.select?.(); });
+}
+
 let linkRange = null;
 
 /** One formatting command on the page being written. */
 function formatPage(format) {
   const doc = document.querySelector('#page-doc');
   if (!doc) return;
+  if (format === 'issue-apply') {
+    // One issue goes in as a chip where the caret is; a list goes in as its own paragraph.
+    const mode = document.querySelector('#doc-issue-mode')?.value || 'one';
+    const key = document.querySelector('#doc-issue-project')?.value || '';
+    const typed = (document.querySelector('#doc-issue-text')?.value || '').replace(/[\[\]]/g, '').trim();
+    document.querySelector('.doc-issue-bar')?.setAttribute('hidden', '');
+    doc.focus();
+    if (linkRange) { const sel = getSelection(); sel.removeAllRanges(); sel.addRange(linkRange); }
+    linkRange = null;
+    if (mode === 'one') {
+      const issueKey = /^[A-Za-z][A-Za-z0-9]*-\d+$/.test(typed) ? typed.toUpperCase() : (/^\d+$/.test(typed) && key ? `${key}-${typed}` : '');
+      if (!issueKey) { toast(L('이슈 키를 적으세요. 예: PAY-12', 'Type an issue key, such as PAY-12.')); return; }
+      document.execCommand('insertText', false, `[[issue:${issueKey}]] `);
+    } else {
+      document.execCommand('insertHTML', false, `<p>[[issues:${key}${typed ? ` | ${typed.replace(/[<>&]/g, (ch) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[ch]))}` : ''}]]</p><p><br></p>`);
+    }
+    return;
+  }
   if (format === 'link-apply') {
     const url = document.querySelector('#doc-link-url')?.value.trim() || '';
     document.querySelector('.doc-link-bar')?.setAttribute('hidden', '');
@@ -200,6 +528,14 @@ function formatPage(format) {
   }
   if (format === 'toc' || format === 'children') {
     document.execCommand('insertHTML', false, `<p>[[${format}]]</p>`);
+    return;
+  }
+  if (format === 'issue') {
+    const sel = getSelection();
+    linkRange = sel?.rangeCount ? sel.getRangeAt(0).cloneRange() : null;
+    document.querySelector('.doc-issue-bar')?.removeAttribute('hidden');
+    const input = document.querySelector('#doc-issue-text');
+    if (input) { input.value = ''; input.focus(); }
     return;
   }
   if (format === 'link') {
@@ -286,6 +622,17 @@ function openRequested(request) {
   if (request.pageId || request.view === 'knowledge') {
     ui.articleId = request.pageId || '';
     ui.view = 'knowledge';
+    // Its workspace opens with it (ready to write, as a page opened here would), and the company
+    // inbox notices about it count as read.
+    const page = (ws.articles || []).find((item) => item.id === request.pageId);
+    ui.pageView = 'edit';
+    ui.pageDraft = null;
+    ui.wikiEdit = Boolean(page && canEditPage(page, actor()));
+    if (page) {
+      ui.spaceId = page.spaceId;
+      ui.wsOpen = { ...(ui.wsOpen || {}), [page.spaceId]: true };
+      for (const item of ws.inbox || []) if (item.userId === actor() && item.pageId === page.id) item.read = true;
+    }
   } else if (request.documentId || request.view === 'documents') {
     ui.docId = request.documentId || '';
     ui.view = 'documents';
@@ -329,7 +676,7 @@ async function pullWorkspace() {
   if (pulling || !ui.ready || !sessionToken() || ui.modal || saveTimer || saving) return;
   const active = document.activeElement;
   if (active && (['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName) || active.isContentEditable)) return;
-  if (ui.wikiEdit) return;
+  if (ui.wikiEdit && ui.view === 'knowledge') return;
   pulling = true;
   try {
     const status = await dataStatus();
@@ -841,7 +1188,10 @@ function signedOut(name, el) {
   if (ui.loginUser || ui.ready) return false;
   if (name === 'sign-in' || name === 'pick-login' || name === 'open-login' || name === 'modal-cancel') return false;
   if (name === 'close-reading' || name === 'reader-lang' || name === 'reader-print') return false;
-  if ((name === 'open-guide' || name === 'help-doc' || name === 'start-tab') && ['guide', 'tutorial'].includes(el?.dataset?.id || 'guide')) return false;
+  // The start page's own tools and help work before signing in.
+  if (['start-menu', 'start-setting', 'start-arrange', 'about', 'shortcuts', 'show-welcome', 'language', 'pick-background', 'shuffle-background'].includes(name)) return false;
+  if ((name === 'open-guide' || name === 'help-doc') && ['guide', 'tutorial', 'wql'].includes(el?.dataset?.id || 'guide')) return false;
+  if (name === 'start-tab' && ['guide', 'tutorial'].includes(el?.dataset?.id || 'guide')) return false;
   return true;
 }
 
@@ -852,12 +1202,20 @@ function showReading(kind) {
   paint();
 }
 
+/**
+ * The user's guide, the tutorial document and the WQL guide always open in a window of their own (an OS
+ * window on the desktop, a browser window on the web), signed in or not. Only if no window can open does
+ * the document show inside this window.
+ */
 function presentDocument(kind) {
   if (!DOC_KINDS[kind]) return;
-  const id = kind === 'wql' ? 'wql' : kind;
-  if (!ui.ready && (id === 'guide' || id === 'tutorial')) { showReading(id); return; }
-  if (ui.loginUser && !isDesktop() && openDocument(id)) return;
-  showReading(id);
+  const lang = getLanguage() === 'en' ? 'en' : 'ko';
+  ui.context = null;
+  if (isDesktop()) {
+    openDocWindow(kind, lang, `MyWorkForce — ${L(DOC_KINDS[kind].ko, DOC_KINDS[kind].en)}`).catch(() => showReading(kind));
+    return;
+  }
+  if (!openDocument(kind)) showReading(kind);
 }
 
 function showStartPage(show) {
@@ -1025,17 +1383,18 @@ function paint() {
     ui.boardId = ctx.project.boards.find((board) => board.type === 'scrum')?.id || ctx.project.boards[0]?.id || null;
   }
   const skipSearch = document.activeElement?.id === 'quick-search';
+  const skipNav = document.activeElement?.id === 'nav-ws-name';
   const skipQuery = document.activeElement?.id === 'issue-query';
   const skipLive = Boolean(document.activeElement?.dataset?.live);
   const skipDoc = Boolean(document.activeElement?.dataset?.doc);
-  const skipPage = ['page-title', 'page-body', 'page-labels', 'page-comment', 'page-doc', 'doc-link-url'].includes(document.activeElement?.id);
+  const skipPage = ['page-title', 'page-body', 'page-labels', 'page-comment', 'comment-edit', 'reply-text', 'page-doc', 'doc-link-url', 'global-search'].includes(document.activeElement?.id);
   app.classList.toggle('no-right', !showRight(ctx));
   app.classList.toggle('fold-left', settings.showLeftPanel === false);
   app.classList.toggle('fold-right', showRight(ctx) && settings.showRightPanel === false);
   if (ui.view !== 'issues') ui.queryError = null;
   document.querySelector('#menubar').innerHTML = renderMenubar(ctx);
   if (!skipSearch) document.querySelector('#toolbar').innerHTML = renderToolbar(ctx);
-  document.querySelector('#left').innerHTML = renderNav(ctx);
+  if (!skipNav) document.querySelector('#left').innerHTML = renderNav(ctx);
   if (ui.reading && DOC_KINDS[ui.reading]) {
     app.classList.add('no-right');
     document.querySelector('#view').innerHTML = readingHtml(ui.reading);
@@ -1046,8 +1405,14 @@ function paint() {
     document.querySelector('#right').innerHTML = showRight(ctx) ? renderRight(ctx) : '';
     decorateIcons(document.querySelector('#view'));
     decorateIcons(document.querySelector('#right'));
+    const reading = document.querySelector('#view .doc-body.reading') || document.querySelector('#view #page-doc:not([hidden])');
+    if (reading) {
+      const page = (ws.articles || []).find((item) => item.id === reading.dataset.page);
+      if (page) highlightInline(reading, page.comments, ui.inlineActive || '');
+    }
   }
   document.querySelector('#statusbar').innerHTML = renderStatus(ctx);
+  syncLive();
   paintModal(ctx);
   paintCoach();
   paintContext(ctx);
@@ -1253,6 +1618,23 @@ function submitModal(form) {
       return;
     }
     if (modal.kind === 'group') { addGroup(ws, value('name'), actor(), current?.id); return; }
+    if (modal.kind === 'workspace') {
+      if (modal.spaceId) {
+        updateSpace(ws, modal.spaceId, { name: value('name'), description: String(data.get('description') ?? '') }, actor(), admin);
+        return;
+      }
+      const where = value('where');
+      const space = addSpace(ws, {
+        name: value('name'), key: value('key'), description: String(data.get('description') ?? ''),
+        teamId: where.startsWith('team:') ? where.slice(5) : '', projectId: where.startsWith('project:') ? where.slice(8) : '',
+      }, actor());
+      ui.spaceId = space.id;
+      ui.articleId = '';
+      ui.wikiEdit = false;
+      ui.wsOpen = { ...(ui.wsOpen || {}), [space.id]: true };
+      ui.view = 'knowledge';
+      return;
+    }
     if (modal.kind === 'team') {
       const team = createTeam(ws, { name: value('name'), key: value('key'), description: value('description'), leadId: value('lead') }, actor());
       ui.teamId = team.id;
@@ -1393,6 +1775,14 @@ function runConfirmed() {
     paint();
     return;
   }
+  if (modal.action === 'delete-workspace') {
+    const admin = isWorkspaceAdmin(ws.users.find((user) => user.id === actor()));
+    mutate(() => {
+      deleteSpace(ws, modal.id, actor(), admin);
+      if (ui.spaceId === modal.id) { ui.spaceId = ''; ui.articleId = ''; }
+    });
+    return;
+  }
   if (modal.action === 'delete-team') {
     mutate(() => { deleteTeam(ws, modal.id, actor()); ui.view = 'teams'; ui.teamId = ''; });
     return;
@@ -1414,7 +1804,11 @@ function runConfirmed() {
 function onAction(el) {
   const name = el.dataset.action;
   // Leaving the page being written: its repaint is held back only while someone types in it.
-  if (['save-page', 'page-source', 'wiki-edit', 'add-child', 'pick-page-file', 'open-article'].includes(name) && ['page-doc', 'page-title', 'page-body'].includes(document.activeElement?.id)) document.activeElement.blur();
+  if (['save-page', 'page-source', 'wiki-edit', 'add-child', 'add-page', 'pick-page-file', 'open-article', 'open-workspace', 'toggle-workspace', 'toggle-page', 'new-workspace'].includes(name) && ['page-doc', 'page-title', 'page-body'].includes(document.activeElement?.id)) document.activeElement.blur();
+  // Sending or leaving a comment: the comment boxes hold their repaint only while someone types in them.
+  if (['search-tab', 'open-hit', 'open-search'].includes(name) && document.activeElement?.id === 'global-search') document.activeElement.blur();
+  if (['comment-page', 'save-page-comment', 'cancel-page-comment', 'edit-page-comment', 'send-reply', 'cancel-reply', 'reply-page-comment', 'resolve-page-comment'].includes(name) && ['page-comment', 'comment-edit', 'page-quote', 'reply-text'].includes(document.activeElement?.id)) document.activeElement.blur();
+  if (ui.pageDirty && !['page-source', 'insert-mention', 'pick-page-file', 'save-page'].includes(name)) flushPageSave();
   if (signedOut(name, el)) {
     ui.modal = { kind: 'login', next: 'gate' };
     paint();
@@ -1573,18 +1967,105 @@ function onAction(el) {
     return;
   }
   if (name === 'add-child') {
+    const parent = (ws.articles || []).find((item) => item.id === el.dataset.id);
+    if (!parent) return;
+    ui.modal = { kind: 'page-template', spaceId: parent.spaceId, parentId: parent.id, pick: 'blank', group: 'all' };
+    paint();
+    return;
+  }
+  if (name === 'template-group' || name === 'template-pick') {
+    if (ui.modal?.kind !== 'page-template') return;
+    if (name === 'template-group') ui.modal.group = el.dataset.id || 'all';
+    else ui.modal.pick = el.dataset.id || 'blank';
+    repaintModal();
+    return;
+  }
+  if (name === 'template-use') {
+    const modal = ui.modal;
+    if (modal?.kind !== 'page-template') return;
+    createPageFrom(modal.spaceId, modal.parentId || '', el.dataset.id || modal.pick || 'blank');
+    return;
+  }
+  if (name === 'add-page') {
+    // A new top page in a workspace: first pick a template (or a blank page).
+    const spaceId = el.dataset.space || ui.spaceId;
+    if (!(ws.spaces || []).some((space) => space.id === spaceId)) return;
+    ui.modal = { kind: 'page-template', spaceId, parentId: '', pick: 'blank', group: 'all' };
+    paint();
+    return;
+  }
+  if (name === 'new-workspace' || name === 'ws-create-start') {
+    ui.wsCreating = true;
+    ui.navWsFolded = false;
+    if (settings.showLeftPanel === false) { settings.showLeftPanel = true; saveSettings(); }
+    paint();
+    document.querySelector('#nav-ws-name')?.focus();
+    return;
+  }
+  if (name === 'ws-create-cancel') { ui.wsCreating = false; ui.wsDraft = ''; paint(); return; }
+  if (name === 'create-workspace') {
+    const typed = (document.querySelector('#nav-ws-name')?.value ?? ui.wsDraft ?? '').trim();
+    if (!typed) { toast(message(new Error('name-required'))); document.querySelector('#nav-ws-name')?.focus(); return; }
+    document.activeElement?.blur?.();
     mutate(() => {
-      const page = addPage(ws, { spaceId: ui.spaceId, parentId: el.dataset.id, title: getLanguage() === 'en' ? 'New page' : '새 페이지' }, actor());
-      ui.articleId = page.id;
-      ui.wikiEdit = true;
+      const space = addSpace(ws, { name: typed }, actor());
+      ui.wsCreating = false;
+      ui.wsDraft = '';
+      ui.spaceId = space.id;
+      ui.articleId = '';
+      ui.wikiEdit = false;
+      ui.wsOpen = { ...(ui.wsOpen || {}), [space.id]: true };
+      ui.view = 'knowledge';
     });
     return;
   }
+  if (name === 'toggle-nav-workspaces') { ui.navWsFolded = !ui.navWsFolded; paint(); return; }
+  if (name === 'edit-workspace') { ui.spaceId = el.dataset.id; ui.articleId = ''; ui.view = 'knowledge'; if (settings.showRightPanel === false) { settings.showRightPanel = true; saveSettings(); } paint(); document.querySelector('#right [data-space-field="name"]')?.focus(); return; }
+  if (name === 'delete-workspace') {
+    const space = (ws.spaces || []).find((item) => item.id === el.dataset.id);
+    if (!space) return;
+    if ((ws.articles || []).some((page) => page.spaceId === space.id)) { toast(message(new Error('space-not-empty'))); return; }
+    confirm(L(`작업 공간 '${space.name}'을(를) 지울까요?`, `Delete the workspace '${space.name}'?`), 'delete-workspace', space.id);
+    return;
+  }
+  if (name === 'open-workspace') {
+    ui.spaceId = el.dataset.id;
+    ui.articleId = '';
+    ui.shareToken = '';
+    ui.wikiEdit = false;
+    ui.wsOpen = { ...(ui.wsOpen || {}), [el.dataset.id]: true };
+    ui.view = 'knowledge';
+    paint();
+    return;
+  }
+  if (name === 'toggle-workspace') {
+    const space = (ws.spaces || []).find((item) => item.id === el.dataset.id);
+    if (!space) return;
+    const marks = ui.wsOpen || {};
+    const now = marks[space.id] ?? space.id === ui.spaceId;
+    ui.wsOpen = { ...marks, [space.id]: !now };
+    paint();
+    return;
+  }
+  if (name === 'toggle-page') {
+    const folds = ui.pageFold || {};
+    ui.pageFold = { ...folds, [el.dataset.id]: !folds[el.dataset.id] };
+    paint();
+    return;
+  }
+  if (name === 'edit-page-comment') { ui.commentEdit = el.dataset.comment; paint(); document.querySelector('#comment-edit')?.focus(); return; }
+  if (name === 'cancel-page-comment') { ui.commentEdit = ''; paint(); return; }
+  if (name === 'save-page-comment') {
+    mutate(() => { editPageComment(ws, el.dataset.id, el.dataset.comment, document.querySelector('#comment-edit')?.value || '', actor()); ui.commentEdit = ''; });
+    return;
+  }
+  if (name === 'jump') { document.getElementById(el.dataset.target || '')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
   if (name === 'add-blog' || name === 'add-board' || name === 'add-table') {
     const kind = name === 'add-board' ? 'board' : name === 'add-table' ? 'table' : 'blog';
     const title = kind === 'board' ? L('칠판', 'Board') : kind === 'table' ? L('표', 'Table') : L('새 소식', 'News');
     mutate(() => {
-      const page = addPage(ws, { spaceId: ui.spaceId, kind, title }, actor());
+      const page = addPage(ws, { spaceId: el.dataset.space || ui.spaceId, kind, title }, actor());
+      ui.spaceId = page.spaceId;
       ui.articleId = page.id;
       ui.wikiEdit = kind === 'blog';
       ui.view = 'knowledge';
@@ -1603,10 +2084,25 @@ function onAction(el) {
   if (name === 'open-article') {
     if (el.dataset.space) ui.spaceId = el.dataset.space;
     ui.articleId = el.dataset.id;
-    ui.wikiEdit = false;
+    // The pages above the one opened unfold in the left tree so it can be seen there.
+    const folds = { ...(ui.pageFold || {}) };
+    const seen = new Set();
+    let up = (ws.articles || []).find((item) => item.id === el.dataset.id);
+    while (up?.parentId && !seen.has(up.parentId)) { seen.add(up.parentId); folds[up.parentId] = false; up = (ws.articles || []).find((item) => item.id === up.parentId); }
+    ui.pageFold = folds;
+    if (up?.spaceId) ui.wsOpen = { ...(ui.wsOpen || {}), [up.spaceId]: true };
     ui.view = 'knowledge';
+    ui.pageView = 'edit';
+    ui.pageDraft = null;
+    ui.pageSource = false;
+    if (ui.pageCompare?.pageId !== el.dataset.id) ui.pageCompare = null;
     const page = (ws.articles || []).find((item) => item.id === el.dataset.id);
-    if (page) { page.views = (page.views || 0) + 1; scheduleSave(); }
+    ui.wikiEdit = Boolean(page && canEditPage(page, actor()));
+    if (page) {
+      page.views = (page.views || 0) + 1;
+      if (ui.wikiEdit) markEditing(ws, page.id, actor(), true);
+      scheduleSave();
+    }
     paint();
     return;
   }
@@ -1622,18 +2118,17 @@ function onAction(el) {
     return;
   }
   if (name === 'save-page') {
-    const body = currentPageBody();
-    mutate(() => {
-      updatePage(ws, el.dataset.id, {
-        title: document.querySelector('#page-title')?.value,
-        body,
-        labels: document.querySelector('#page-labels')?.value,
-      }, actor());
-      markEditing(ws, el.dataset.id, actor(), false);
-      ui.wikiEdit = false;
-      ui.pageDraft = null;
-      ui.pageSource = false;
-    });
+    // Saving keeps the page open for writing; the tree, the title and the panel catch up.
+    if (!ui.pageDirty) ui.pageDirty = el.dataset.id;
+    if (flushPageSave()) { paint(); setSaveState(L('저장했습니다', 'Saved')); }
+    return;
+  }
+  if (name === 'page-mode') {
+    flushPageSave();
+    ui.pageView = el.dataset.id === 'read' ? 'read' : 'edit';
+    ui.wikiEdit = ui.pageView === 'edit';
+    ui.pageDraft = null;
+    paint();
     return;
   }
   if (name === 'page-source') {
@@ -1670,7 +2165,10 @@ function onAction(el) {
     if (!writing) return;
     const title = document.querySelector(name === 'export-doc' ? '#doc-title' : '#page-title')?.value || writing.title;
     const typed = document.querySelector(name === 'export-doc' ? '#doc-body' : '#page-body')?.value;
-    const body = typed != null ? typed : (name === 'export-doc' ? writing.body : expandPage(ws, writing));
+    const english = getLanguage() === 'en';
+    const me = ws.users.find((user) => user.id === actor());
+    const pageProject = name === 'export-doc' ? '' : ((ws.spaces || []).find((space) => space.id === writing.spaceId)?.projectId || '');
+    const body = issueMacrosToMarkdown(ws, typed != null ? typed : (name === 'export-doc' ? writing.body : expandPage(ws, writing)), me, pageProject, english);
     exportWriting(title, body, writing.attachments || [], el.dataset.format || 'html');
     return;
   }
@@ -1678,8 +2176,11 @@ function onAction(el) {
     ui.pageAttach = el.dataset.id;
     ui.attachTarget = name === 'pick-doc-file' ? 'doc' : 'page';
     ui.attachKind = el.dataset.kind || 'file';
+    ui.attachEmbed = el.dataset.embed !== '0';
     const input = document.querySelector('#file-attach');
     input.accept = ui.attachKind === 'image' ? 'image/*' : '';
+    // The page's file list takes several files at once; the editor's buttons put one into the text.
+    input.multiple = ui.attachTarget === 'page' && !ui.attachEmbed;
     input.click();
     return;
   }
@@ -1856,7 +2357,7 @@ function onAction(el) {
     return;
   }
   if (name === 'modal-cancel') {
-    if (!ui.loginUser && !ui.ready) { ui.modal = { kind: 'login', next: 'gate' }; paint(); return; }
+    if (!ui.loginUser && !ui.ready && ui.modal?.kind !== 'login') { ui.modal = { kind: 'login', next: 'gate' }; paint(); return; }
     ui.modal = null;
     paint();
     return;
@@ -1956,7 +2457,12 @@ function onAction(el) {
   if (name === 'open-file') { confirm(L('현재 작업 공간을 파일 내용으로 바꿀까요?', 'Replace the workspace with the file?'), 'open-file'); return; }
   if (name === 'load-sample') { confirm(L('예제 작업 공간으로 바꿀까요?', 'Replace the workspace with the example?'), 'load-sample'); return; }
   if (name === 'empty-workspace') { confirm(L('빈 작업 공간으로 바꿀까요?', 'Replace the workspace with an empty one?'), 'empty'); return; }
-  if (name === 'save-file') { saveFile(false); return; }
+  if (name === 'save-file') {
+    // Ctrl+S on a page being written saves the page.
+    if (document.querySelector('#page-doc, #page-body:not([hidden])') && ui.view === 'knowledge') { const button = document.querySelector('[data-action="save-page"]'); if (button) onAction(button); return; }
+    saveFile(false);
+    return;
+  }
   if (name === 'save-as') { saveFile(true); return; }
   if (name === 'export-md') { exportText('md'); return; }
   if (name === 'export-csv') { exportText('csv'); return; }
@@ -1964,6 +2470,24 @@ function onAction(el) {
   if (name === 'print') { window.print(); return; }
   if (name === 'undo') { if (undo.length) { redo.push(structuredClone(ws)); ws = undo.pop(); if (ui.path) ui.dirty = true; scheduleSave(); paint(); } return; }
   if (name === 'redo') { if (redo.length) { undo.push(structuredClone(ws)); ws = redo.pop(); if (ui.path) ui.dirty = true; scheduleSave(); paint(); } return; }
+  if (name === 'start-menu') {
+    // The start page's drop-down menus open under their button.
+    const box = el.getBoundingClientRect?.();
+    ui.context = { kind: el.dataset.id, x: box ? box.left : 40, y: box ? box.bottom + 4 : 40 };
+    paint();
+    return;
+  }
+  if (name === 'start-setting') {
+    const key = el.dataset.id;
+    if (!['startShowProjects', 'startShowExamples', 'startShowBackground', 'showWelcome', 'showStartPage'].includes(key)) return;
+    settings[key] = settings[key] === false;
+    saveSettings();
+    ui.context = null;
+    paint();
+    return;
+  }
+  if (name === 'start-arrange') { startCards?.arrange?.(); return; }
+  if (name === 'show-welcome') { ui.context = null; ui.modal = { kind: 'welcome' }; paint(); return; }
   if (name === 'about') { ui.modal = { kind: 'about' }; paint(); appInfo().then((info) => { ui.about = info; const modal = document.querySelector('#modal'); if (modal) { modal.dataset.kind = ''; paint(); } }); return; }
   if (name === 'copy-about') {
     const lines = [...document.querySelectorAll('#about-rows dt')].map((row) => `${row.textContent.trim()}: ${row.nextElementSibling?.textContent.trim() || ''}`);
@@ -1978,6 +2502,9 @@ function onAction(el) {
     return;
   }
   if (name === 'shortcuts') { ui.modal = { kind: 'shortcuts' }; paint(); return; }
+  if (name === 'open-search') { openSearch(document.querySelector('#quick-search')?.value || ui.searchText || ''); return; }
+  if (name === 'search-tab') { ui.searchTab = el.dataset.id || 'all'; paint(); document.querySelector('#view')?.scrollTo?.(0, 0); return; }
+  if (name === 'open-hit') { openHit(el.dataset); return; }
   if (name === 'focus-search') {
     const box = document.querySelector(ui.view === 'issues' ? '#issue-query' : '#quick-search');
     box?.focus();
@@ -1987,6 +2514,63 @@ function onAction(el) {
   if (name === 'command-palette') { if (ensureProject()) { ui.modal = { kind: 'palette', query: '' }; paint(); } return; }
   if (name === 'help-doc') { ui.help = el.dataset.id || 'guide'; ui.view = 'help'; paint(); return; }
   if (name === 'open-recent') { readTextFile(el.dataset.path).then((text) => ingest(text, el.dataset.path)).catch(fail); return; }
+  // These work with or without an open project.
+  if (name === 'mark-all-read') { if (current) markAllRead(current, actor()); markInboxRead(ws, actor()); scheduleSave(); paint(); return; }
+  if (name === 'resolve-page-comment') {
+    mutate(() => { resolvePageComment(ws, el.dataset.id, el.dataset.comment, el.dataset.on === '1', actor()); if (el.dataset.on === '1' && ui.inlineActive === el.dataset.comment) ui.inlineActive = ''; });
+    return;
+  }
+  if (name === 'jump-inline') {
+    ui.inlineActive = el.dataset.comment;
+    paint();
+    document.querySelector(`.inline-mark[data-comment="${CSS.escape(el.dataset.comment)}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    return;
+  }
+  if (name === 'reply-page-comment') { ui.replyTo = el.dataset.comment; paint(); document.querySelector('#reply-text')?.focus(); return; }
+  if (name === 'cancel-reply') { ui.replyTo = ''; paint(); return; }
+  if (name === 'send-reply') {
+    const text = document.querySelector('#reply-text')?.value || '';
+    mutate(() => { commentPage(ws, el.dataset.id, text, actor(), '', { replyTo: el.dataset.comment }); ui.replyTo = ''; });
+    return;
+  }
+  if (name === 'timeline-scale') { ui.timelineScale = el.dataset.id || 'week'; paint(); scrollTimelineToToday(); return; }
+  if (name === 'timeline-today') { scrollTimelineToToday(); return; }
+  if (name === 'timeline-all') { ui.timelineAll = ui.timelineAll === false; paint(); return; }
+  if (name === 'compare-page') {
+    ui.pageCompare = { pageId: el.dataset.id, from: el.dataset.from, to: el.dataset.to || 'current' };
+    ui.versionsOpen = true;
+    paint();
+    document.querySelector('.version-compare')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    return;
+  }
+  if (name === 'compare-close') { ui.pageCompare = null; paint(); return; }
+  if (name === 'insert-mention') {
+    // Types "@" where the caret is in the page being written, which brings up the list of people.
+    const doc = document.querySelector('#page-doc');
+    if (!doc || doc.hidden) return;
+    doc.focus();
+    document.execCommand('insertText', false, '@');
+    doc.dispatchEvent(new Event('input', { bubbles: true }));
+    return;
+  }
+  if (name === 'open-inbox') {
+    // A company inbox notice: mark it read and open its page (at the comments for a comment).
+    const item = (ws.inbox || []).find((entry) => entry.id === el.dataset.id && entry.userId === actor());
+    if (!item) return;
+    markInboxRead(ws, actor(), item.id);
+    scheduleSave();
+    if (item.pageId && (ws.articles || []).some((page) => page.id === item.pageId && !page.trashed)) {
+      const open = document.createElement('button');
+      open.dataset.action = 'open-article';
+      open.dataset.id = item.pageId;
+      if (item.spaceId) open.dataset.space = item.spaceId;
+      onAction(open);
+      if (item.kind === 'page-comment' || item.where === 'comment') requestAnimationFrame(() => document.getElementById('page-comments')?.scrollIntoView({ block: 'start' }));
+      return;
+    }
+    paint();
+    return;
+  }
   if (!current) { ensureProject(); return; }
   if (name === 'transition') {
     const issue = findIssue(current, ui.issueId);
@@ -2067,7 +2651,6 @@ function onAction(el) {
   if (name === 'archive') { mutate(() => setArchived(ws, current.id, true, actor())); return; }
   if (name === 'unarchive') { mutate(() => setArchived(ws, current.id, false, actor())); return; }
   if (name === 'mark-read') { markRead(current, el.dataset.id, actor()); if (el.dataset.issue) { ui.issueId = el.dataset.issue; ui.view = 'issue'; } scheduleSave(); paint(); return; }
-  if (name === 'mark-all-read') { markAllRead(current, actor()); scheduleSave(); paint(); return; }
   if (name === 'toggle-preview') { ui.preview = !ui.preview; paint(); return; }
   if (name === 'edit-custom-theme') {
     const theme = resolveTheme(settings.theme === 'custom' ? 'light' : settings.theme, prefersDark(), settings.customTheme);
@@ -2118,6 +2701,7 @@ function onChange(event) {
   if (el.dataset.setting && ['showStartPage', 'showWelcome', 'startShowProjects', 'startShowExamples', 'startShowBackground'].includes(el.dataset.setting)) {
     settings[el.dataset.setting] = el.checked;
     saveSettings();
+    if (el.dataset.setting !== 'showStartPage') paint();
     return;
   }
   if (el.dataset.setting === 'launchAtStartup' || el.dataset.setting === 'autoLogin') {
@@ -2164,6 +2748,13 @@ function onChange(event) {
     return;
   }
   if (el.name === 'methods' && el.closest('.method-option')) { el.closest('.method-option').classList.toggle('on', el.checked); return; }
+  if (el.dataset.spaceField) {
+    // A workspace's name, description or audience, changed in the right panel.
+    const admin = isWorkspaceAdmin(ws.users.find((user) => user.id === actor()));
+    mutate(() => updateSpace(ws, el.dataset.id, { [el.dataset.spaceField]: el.value }, actor(), admin));
+    return;
+  }
+  if ((el.dataset.choose === 'compare-from' || el.dataset.choose === 'compare-to') && ui.pageCompare) { ui.pageCompare = { ...ui.pageCompare, [el.dataset.choose === 'compare-from' ? 'from' : 'to']: el.value }; paint(); return; }
   if (el.dataset.choose === 'space') { ui.spaceId = el.value; ui.articleId = ''; ui.wikiEdit = false; paint(); return; }
   if (el.dataset.choose === 'page-parent') { mutate(() => movePage(ws, el.dataset.id, el.value, actor())); return; }
   if (el.dataset.choose === 'page-status') { mutate(() => setPageStatus(ws, el.dataset.id, el.value, actor())); return; }
@@ -2276,8 +2867,10 @@ function onChange(event) {
 }
 
 function onInput(event) {
-  if (!ui.loginUser && !ui.ready) return;
+  if (event.target?.id === 'nav-ws-name') { ui.wsDraft = event.target.value; return; }
   const el = event.target;
+  // The background speed works on the start page before signing in; the rest waits for it.
+  if (!ui.loginUser && !ui.ready && el.dataset?.bg !== 'speed') return;
   if (el.dataset.bg === 'speed') {
     settings.backgroundSpeed = Number(el.value) || 0;
     const out = el.parentElement?.querySelector('output');
@@ -2298,6 +2891,7 @@ function onInput(event) {
     return;
   }
   if (el.id === 'issue-query') { ui.query = el.value; return; }
+  if (el.id === 'template-find') { filterTemplates(el.value); return; }
   if (el.id === 'screen-find') {
     ui.screenFind = ui.screenFind || {};
     ui.screenFind[ui.view] = { ...(ui.screenFind[ui.view] || {}), q: el.value };
@@ -2367,10 +2961,78 @@ function onInput(event) {
   }
 }
 
+/** Opens one search result where it lives: its project, issue, page, document, team or person. */
+function openHit(hit) {
+  const activate = (projectId) => {
+    if (projectId && (ws.projects || []).some((item) => item.id === projectId)) { ws.activeProjectId = projectId; ui.boardId = null; ui.selected = []; scheduleSave(); }
+  };
+  ui.modal = null;
+  if (hit.kind === 'projects') { activate(hit.id); ui.issueId = null; ui.view = 'board'; paint(); return; }
+  if (hit.kind === 'issues' || hit.on === 'issue') {
+    activate(hit.project);
+    ui.issueId = hit.kind === 'issues' ? hit.id : hit.issue;
+    ui.view = 'issue';
+    ui.issueTab = 'details';
+    paint();
+    return;
+  }
+  if (hit.kind === 'pages' || hit.on === 'page') {
+    const pageId = hit.kind === 'pages' ? hit.id : hit.page;
+    const open = document.createElement('button');
+    open.dataset.action = 'open-article';
+    open.dataset.id = pageId;
+    if (hit.space) open.dataset.space = hit.space;
+    onAction(open);
+    if (hit.kind !== 'pages') requestAnimationFrame(() => document.getElementById(hit.on === 'page' && hit.kind === 'comments' ? 'page-comments' : 'page-files')?.scrollIntoView({ block: 'start' }));
+    return;
+  }
+  if (hit.kind === 'documents' || hit.on === 'document') {
+    activate(hit.project);
+    ui.docId = hit.kind === 'documents' ? hit.id : hit.doc;
+    ui.docTab = hit.mine ? 'mine' : 'shared';
+    ui.view = 'documents';
+    paint();
+    return;
+  }
+  if (hit.kind === 'teams') { ui.teamId = hit.id; ui.view = 'team'; paint(); return; }
+  if (hit.kind === 'spaces') {
+    const open = document.createElement('button');
+    open.dataset.action = 'open-workspace';
+    open.dataset.id = hit.id;
+    onAction(open);
+    return;
+  }
+  if (hit.kind === 'people') {
+    const user = ws.users.find((item) => item.id === hit.id);
+    if (!user) return;
+    ui.profilePhoto = user.photo || '';
+    ui.modal = { kind: 'profile', userId: user.id };
+    paint();
+  }
+}
+
+function looksLikeWql(text) {
+  const raw = String(text || '').trim();
+  return /[=<>~]/.test(raw) || /\b(and|or|not|in|is|order)\b/i.test(raw);
+}
+
+/** The search screen with these words searched (empty: just the screen, ready for typing). */
+function openSearch(text) {
+  ui.searchText = String(text || '').trim();
+  ui.quick = ui.searchText;
+  if (!ui.searchText) ui.searchTab = 'all';
+  ui.view = 'search';
+  ui.modal = null;
+  paint();
+  const box = document.querySelector('#global-search');
+  box?.focus();
+  box?.select?.();
+}
+
 function searchFrom(text) {
   const raw = text.trim();
   if (!raw) return '';
-  if (/[=<>~]/.test(raw) || /\b(and|or|not|in|is|order)\b/i.test(raw)) return raw;
+  if (looksLikeWql(raw)) return raw;
   return `text ~ "${raw.replace(/"/g, '')}"`;
 }
 
@@ -2378,6 +3040,12 @@ function mount() {
   const gripLabel = esc(L('끌어서 창 크기 변경', 'Drag to resize the window'));
   document.querySelector('#app').innerHTML = `<header id="menubar"></header><div id="toolbar"></div><div id="workspace"><nav id="left"></nav><div class="splitter panel-split" data-split="left" role="separator" aria-orientation="vertical"></div><main id="view"></main><div class="splitter panel-split" data-split="right" role="separator" aria-orientation="vertical"></div><aside id="right"></aside></div><footer id="statusbar"></footer><div class="resize-grip${isDesktop() ? '' : ' static'}" ${isDesktop() ? `data-resize-grip role="separator" aria-label="${gripLabel}"` : 'aria-hidden="true"'} title="${gripLabel}">${gripIcon()}</div><div id="coach" hidden></div><div id="context" class="menu-pop" hidden></div><div id="modal" hidden></div><div id="toast" hidden role="status"></div><input id="file-open" type="file" accept=".mwf,.json,application/json" hidden><input id="file-attach" type="file" hidden>`;
   bindPanelSplitters();
+  bindMentions(() => ws.users || []);
+  bindTimeline();
+  bindInline({
+    send: (pageId, quote, text) => { mutate(() => { const comment = commentPage(ws, pageId, text, actor(), quote, { inline: true }); ui.inlineActive = comment.id; }); },
+    focus: (commentId) => { ui.inlineActive = commentId; paint(); document.querySelector(`[data-comment-id="${CSS.escape(commentId)}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }); },
+  });
   document.querySelector('[data-resize-grip]')?.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return;
     event.preventDefault();
@@ -2419,14 +3087,41 @@ function mount() {
     formatPage(tool.dataset.format);
   });
   document.body.addEventListener('keydown', (event) => {
+    if (event.target.id === 'nav-ws-name' && event.key === 'Enter') { event.preventDefault(); const button = document.querySelector('[data-action="create-workspace"]'); if (button) onAction(button); return; }
+    if (event.target.id === 'nav-ws-name' && event.key === 'Escape') { event.preventDefault(); event.target.blur(); ui.wsCreating = false; ui.wsDraft = ''; paint(); return; }
     if (event.target.id === 'doc-link-url' && event.key === 'Enter') { event.preventDefault(); formatPage('link-apply'); }
+    if (event.target.id === 'doc-issue-text' && event.key === 'Enter') { event.preventDefault(); formatPage('issue-apply'); }
+    if (event.target.id === 'doc-issue-text' && event.key === 'Escape') { event.stopPropagation(); document.querySelector('.doc-issue-bar')?.setAttribute('hidden', ''); }
     if (event.target.id === 'doc-link-url' && event.key === 'Escape') { event.stopPropagation(); document.querySelector('.doc-link-bar')?.setAttribute('hidden', ''); }
   });
   document.body.addEventListener('input', (event) => {
+    if (['page-doc', 'page-title', 'page-labels', 'page-body'].includes(event.target.id) && event.target.closest('.doc-editor')) pageTyped();
     if (event.target.id !== 'page-doc' && !(event.target.id === 'page-title' && ui.wikiEdit)) return;
     const doc = document.querySelector('#page-doc');
     if (!doc || ui.pageSource) return;
     ui.pageDraft = { id: doc.dataset.page, title: document.querySelector('#page-title')?.value, html: doc.innerHTML };
+  });
+  // A project row or card opens on a double-click, like its Open button (not when the click lands on a control in it).
+  document.body.addEventListener('dblclick', (event) => {
+    const tpl = event.target.closest?.('#modal .tpl-card');
+    if (tpl && ui.modal?.kind === 'page-template') { createPageFrom(ui.modal.spaceId, ui.modal.parentId || '', tpl.dataset.id); return; }
+    // A card on a scrum or kanban board (or a backlog row) opens its issue on a double-click.
+    const card = event.target.closest?.('[data-card]');
+    if (card && !event.target.closest('input, select, textarea, a')) {
+      window.getSelection?.()?.removeAllRanges();
+      const open = document.createElement('button');
+      open.dataset.action = 'open-issue';
+      open.dataset.id = card.dataset.card;
+      onAction(open);
+      return;
+    }
+    const row = event.target.closest?.('[data-open-project]');
+    if (!row || event.target.closest('button, a, input, select, textarea, label, [contenteditable="true"]')) return;
+    window.getSelection?.()?.removeAllRanges();
+    const open = document.createElement('button');
+    open.dataset.action = 'activate';
+    open.dataset.id = row.dataset.openProject;
+    onAction(open);
   });
   document.body.addEventListener('click', (event) => {
     const hadContext = Boolean(ui.context) && !event.target.closest('#context');
@@ -2479,6 +3174,14 @@ function mount() {
     if (server) { event.preventDefault(); connectServer(server); return; }
     const login = event.target.closest('[data-login]');
     if (login) { event.preventDefault(); onAction({ dataset: { action: 'sign-in' }, form: login }); return; }
+    const finder = event.target.closest('[data-search-form]');
+    if (finder) {
+      event.preventDefault();
+      const box = finder.querySelector('#global-search');
+      box?.blur();
+      openSearch(box?.value ?? '');
+      return;
+    }
     const form = event.target.closest('#modal form');
     if (!form) return;
     event.preventDefault();
@@ -2585,11 +3288,44 @@ function mount() {
     event.target.value = '';
     if (file) ingest(await file.text(), null);
   });
+  // Files dropped on a page's file area join that page's file list.
+  document.body.addEventListener('dragover', (event) => {
+    const zone = event.target.closest?.('[data-page-drop]');
+    if (!zone || ![...(event.dataTransfer?.types || [])].includes('Files')) return;
+    event.preventDefault();
+    zone.classList.add('over');
+  });
+  document.body.addEventListener('dragleave', (event) => {
+    const zone = event.target.closest?.('[data-page-drop]');
+    if (zone && !zone.contains(event.relatedTarget)) zone.classList.remove('over');
+  });
+  document.body.addEventListener('drop', (event) => {
+    const zone = event.target.closest?.('[data-page-drop]');
+    const files = [...(event.dataTransfer?.files || [])];
+    if (!zone || !files.length) return;
+    event.preventDefault();
+    event.stopPropagation();
+    zone.classList.remove('over');
+    // A box still being typed in holds the repaint back; the files should show at once.
+    if (['page-comment', 'comment-edit', 'page-quote'].includes(document.activeElement?.id)) document.activeElement.blur();
+    attachPageFiles(zone.dataset.pageDrop, files, false);
+  });
   document.querySelector('#file-attach').addEventListener('change', async (event) => {
-    const file = event.target.files?.[0];
+    const picked = [...(event.target.files || [])];
+    const file = picked[0];
     event.target.value = '';
+    event.target.multiple = false;
     const current = project();
     if (!file) return;
+    if (ui.pageAttach && (ui.attachTarget || 'page') === 'page' && ui.attachEmbed === false) {
+      const pageId = ui.pageAttach;
+      ui.pageAttach = '';
+      ui.attachTarget = '';
+      ui.attachKind = '';
+      ui.attachEmbed = true;
+      attachPageFiles(pageId, picked, false);
+      return;
+    }
     if (ui.pageAttach) {
       const pageId = ui.pageAttach;
       const target = ui.attachTarget || 'page';
@@ -2597,6 +3333,7 @@ function mount() {
       ui.pageAttach = '';
       ui.attachTarget = '';
       ui.attachKind = '';
+      ui.attachEmbed = true;
       if (kind === 'image' && file.type && !/^image\//i.test(file.type)) {
         toast(L('이미지 파일을 고르세요.', 'Choose an image file.'));
         return;
@@ -2640,6 +3377,10 @@ function mount() {
     mutate(() => addAttachment(ws, current.id, ui.issueId, { name: file.name, mime: file.type, size: file.size, data }, actor()));
   });
   document.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && ['page-comment', 'comment-edit', 'reply-text'].includes(event.target?.id)) {
+      const send = document.querySelector({ 'page-comment': '[data-action="comment-page"]', 'comment-edit': '[data-action="save-page-comment"]', 'reply-text': '[data-action="send-reply"]' }[event.target.id]);
+      if (send) { event.preventDefault(); onAction(send); return; }
+    }
     const hit = takeShortcut(event);
     if (!hit) return;
     if (hit.id !== 'run-search') event.preventDefault();
@@ -2649,8 +3390,8 @@ function mount() {
   });
 }
 
-const FREE_VIEWS = new Set(['home', 'help', 'settings', 'users', 'projects', 'extensions', 'people', 'teams', 'team']);
-const NO_PROJECT_VIEWS = new Set([...FREE_VIEWS, 'knowledge', 'documents', 'calendar', 'plans', 'teams', 'team']);
+const FREE_VIEWS = new Set(['search', 'home', 'help', 'settings', 'users', 'projects', 'extensions', 'people', 'teams', 'team']);
+const NO_PROJECT_VIEWS = new Set([...FREE_VIEWS, 'notifications', 'knowledge', 'documents', 'calendar', 'plans', 'teams', 'team']);
 
 function listedIssueIds() {
   const ids = [];
@@ -2692,6 +3433,12 @@ function runShortcut(hit, event) {
     return;
   }
   if (hit.id === 'run-search') {
+    // Plain words in the toolbar box search everything; WQL goes to the issue list.
+    if (event.target.id === 'quick-search' && !looksLikeWql(event.target.value)) {
+      event.target.blur();
+      openSearch(event.target.value);
+      return;
+    }
     if (event.target.id === 'quick-search') ui.query = searchFrom(event.target.value);
     else ui.query = event.target.value;
     ui.view = 'issues';
@@ -2711,6 +3458,7 @@ function runShortcut(hit, event) {
     return;
   }
   if (hit.id === 'panel') { onAction({ dataset: { action: 'toggle-panel', id: hit.panel } }); return; }
+  if (hit.id === 'open-search') { onAction({ dataset: { action: 'open-search' } }); return; }
   if (hit.id === 'focus-search') { onAction({ dataset: { action: 'focus-search' } }); return; }
   if (hit.id === 'open-guide') { onAction({ dataset: { action: 'open-guide', id: 'guide' } }); return; }
   if (hit.id === 'comments') {

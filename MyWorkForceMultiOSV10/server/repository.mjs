@@ -169,7 +169,7 @@ export class Repository {
     this.cached = ws;
     await this.deliver(ws);
     for (const item of this.pendingNotes || []) {
-      const text = [item.project?.key, item.entry?.issueKey, item.entry?.kind].filter(Boolean).join(' · ');
+      const text = [item.project?.key || item.space?.name, item.entry?.issueKey, item.entry?.kind].filter(Boolean).join(' · ');
       try { await postNotice(this.engine, item.entry?.userId, item.entry?.id, text || 'update'); }
       catch (error) { console.error(error); }
     }
@@ -197,6 +197,16 @@ export class Repository {
         }
         if (project.notifications?.[0]) this.cursors.notification[project.id] = project.notifications[0].id;
       }
+    }
+    const inboxSeen = this.cursors.inbox;
+    if (inboxSeen === undefined) this.cursors.inbox = ws.inbox?.[0]?.id || '';
+    else {
+      for (const entry of ws.inbox || []) {
+        if (entry.id === inboxSeen) break;
+        const space = (ws.spaces || []).find((item) => item.id === entry.spaceId);
+        notes.push({ project: null, space, entry });
+      }
+      if (ws.inbox?.[0]) this.cursors.inbox = ws.inbox[0].id;
     }
     this.pendingActivity = activity;
     this.pendingNotes = notes;

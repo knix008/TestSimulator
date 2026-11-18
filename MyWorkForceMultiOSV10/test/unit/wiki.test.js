@@ -3,7 +3,7 @@ import { describe, test } from 'node:test';
 import { sampleWorkspace } from '../../src/domain/sample.js';
 import { addArticle } from '../../src/domain/services.js';
 import { blankWorkspace } from '../../src/domain/store.js';
-import { addColumn, addPage, addRow, addShape, addSpace, attachPage, commentPage, copyPage, deletePage, expandPage, likePage, movePage, pageByShare, pageDocument, restorePage, restoreTrashed, searchPages, setPageStatus, shareLink, updatePage, visiblePage, watchPage } from '../../src/domain/wiki.js';
+import { addColumn, addPage, addRow, addShape, addSpace, attachPage, commentPage, copyPage, deletePage, deletePageComment, deleteSpace, editPageComment, suggestSpaceKey, updateSpace, expandPage, likePage, movePage, pageByShare, pageDocument, restorePage, restoreTrashed, searchPages, setPageStatus, shareLink, updatePage, visiblePage, watchPage } from '../../src/domain/wiki.js';
 
 describe('Wiki', () => {
   test('puts an article in a space and keeps a page tree', () => {
@@ -85,5 +85,63 @@ describe('Wiki', () => {
     addRow(ws, table.id, ['Ada'], 'u1');
     assert.equal(table.rows[0].Name, 'Ada');
     assert.throws(() => addColumn(ws, table.id, 'Name', 'u1'), /duplicate-key/);
+  });
+test('makes a workspace from a name alone and keys it automatically', () => {
+    const ws = blankWorkspace();
+    const first = addSpace(ws, { name: 'Design notes' }, 'u1');
+    assert.equal(first.key, 'DESIGNNO');
+    const again = addSpace(ws, { name: 'Design notes' }, 'u1');
+    assert.equal(again.key, 'DESIGNNO2');
+    const korean = addSpace(ws, { name: '개발 문서' }, 'u1');
+    assert.match(korean.key, /^WSd*$/);
+    assert.equal(suggestSpaceKey(ws, '개발 문서'), korean.key === 'WS' ? 'WS2' : 'WS');
+    assert.equal(first.scope, 'company');
+    const team = addSpace(ws, { name: 'Team room', teamId: 't1' }, 'u1');
+    assert.equal(team.scope, 'team');
+  });
+
+  test('renames a workspace and deletes it only when empty', () => {
+    const ws = blankWorkspace();
+    const space = addSpace(ws, { name: 'Drafts' }, 'u1');
+    assert.throws(() => updateSpace(ws, space.id, { name: 'Other' }, 'u2'), /permission/);
+    updateSpace(ws, space.id, { name: 'Drafts 2', description: 'Rough work' }, 'u1');
+    assert.equal(space.name, 'Drafts 2');
+    updateSpace(ws, space.id, { name: 'By admin' }, 'u2', true);
+    assert.equal(space.name, 'By admin');
+    assert.throws(() => updateSpace(ws, space.id, { name: ' ' }, 'u1'), /name-required/);
+    const page = addPage(ws, { spaceId: space.id, title: 'One' }, 'u1');
+    assert.throws(() => deleteSpace(ws, space.id, 'u1'), /space-not-empty/);
+    deletePage(ws, page.id, 'u1');
+    assert.throws(() => deleteSpace(ws, space.id, 'u1'), /space-not-empty/);
+    ws.articles = ws.articles.filter((item) => item.id !== page.id);
+    assert.throws(() => deleteSpace(ws, space.id, 'u2'), /permission/);
+    deleteSpace(ws, space.id, 'u1');
+    assert.equal(ws.spaces.some((item) => item.id === space.id), false);
+  });
+
+  test('adds files to a page list without touching its text', () => {
+    const ws = blankWorkspace();
+    const space = addSpace(ws, { name: 'Files', key: 'FILE' }, 'u1');
+    const page = addPage(ws, { spaceId: space.id, title: 'Spec', body: 'Text' }, 'u1');
+    const file = attachPage(ws, page.id, { name: 'plan.pdf', mime: 'application/pdf', size: 10, data: 'data:application/pdf;base64,AA' }, 'u1', { embed: false });
+    assert.equal(page.body, 'Text');
+    assert.equal(page.attachments.length, 1);
+    assert.equal(file.authorId, 'u1');
+    updatePage(ws, page.id, { restricted: true }, 'u1');
+    assert.throws(() => attachPage(ws, page.id, { name: 'x.txt', size: 1, data: '' }, 'u2', { embed: false }), /permission/);
+  });
+
+  test('lets a commenter edit their own comment', () => {
+    const ws = blankWorkspace();
+    const space = addSpace(ws, { name: 'Talk', key: 'TALK' }, 'u1');
+    const page = addPage(ws, { spaceId: space.id, title: 'Topic' }, 'u1');
+    const comment = commentPage(ws, page.id, 'First', 'u2');
+    assert.throws(() => editPageComment(ws, page.id, comment.id, 'Changed', 'u1'), /permission/);
+    editPageComment(ws, page.id, comment.id, 'Second', 'u2');
+    assert.equal(page.comments[0].body, 'Second');
+    assert.ok(page.comments[0].edited);
+    assert.throws(() => editPageComment(ws, page.id, comment.id, '  ', 'u2'), /summary-required/);
+    deletePageComment(ws, page.id, comment.id, 'u1');
+    assert.equal(page.comments.length, 0);
   });
 });

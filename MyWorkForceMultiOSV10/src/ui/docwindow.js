@@ -4,11 +4,13 @@ import guideEn from '../../UsersGuide.en.md?raw';
 import guideKo from '../../UsersGuide.md?raw';
 import wqlEn from '../../docs/WQL.en.md?raw';
 import wqlKo from '../../docs/WQL.md?raw';
+import tutorialEn from '../../docs/Tutorial.en.md?raw';
+import tutorialKo from '../../docs/Tutorial.md?raw';
 import { renderMarkdown } from '../domain/markdown.js';
 import { getLanguage, setLanguage } from '../i18n.js';
 import { icon } from '../icons.js';
 import { esc, L } from './bits.js';
-import { illustrate, tutorialDocument } from './figures.js';
+import { illustrate } from './figures.js';
 
 export const DOC_KINDS = {
   guide: { glyph: 'book', ko: '사용 설명서', en: "User's guide" },
@@ -16,16 +18,15 @@ export const DOC_KINDS = {
   wql: { glyph: 'filter', ko: 'WQL 설명서', en: 'WQL guide' },
 };
 
-const MARKDOWN = { guide: { ko: guideKo, en: guideEn }, wql: { ko: wqlKo, en: wqlEn } };
+const MARKDOWN = { guide: { ko: guideKo, en: guideEn }, tutorial: { ko: tutorialKo, en: tutorialEn }, wql: { ko: wqlKo, en: wqlEn } };
 
 /** Illustrated HTML for one document in one language. */
 export function documentHtml(kind, language) {
   const lang = language === 'en' ? 'en' : 'ko';
   setLanguage(lang);
-  if (kind === 'tutorial') return tutorialDocument();
   const source = MARKDOWN[kind]?.[lang];
   if (!source) return '';
-  return illustrate(renderMarkdown(source), kind === 'wql' ? 'wql' : 'guide');
+  return illustrate(renderMarkdown(source), kind);
 }
 
 /** Opens the document in its own window. Returns false when the window did not open. */
@@ -143,7 +144,12 @@ export function prepareReader(root) {
 }
 
 /** Draws the document window when the page was opened with ?viewer=. Returns false for the main app. */
-export function startViewer(kind) {
+export function startViewer(asked) {
+  let kind = asked;
+  if (!kind) {
+    const label = globalThis.window?.__TAURI_INTERNALS__?.metadata?.currentWindow?.label || '';
+    if (label.startsWith('doc-')) kind = label.slice(4);
+  }
   const info = DOC_KINDS[kind];
   const root = document.querySelector('#app');
   if (!info || !root) return false;
@@ -180,12 +186,34 @@ export function startViewer(kind) {
         <button type="button" class="button" data-doc="lang" data-id="${lang === 'en' ? 'ko' : 'en'}">${icon('globe')}<span>${lang === 'en' ? '한국어' : 'English'}</span></button>
         <button type="button" class="button" data-doc="print">${icon('printer')}<span>${L('인쇄', 'Print')}</span></button>
       </header>
-      <article class="md doc-read" id="doc-body">${documentHtml(kind, lang)}</article>
+      <div class="doc-split">
+        <nav class="doc-toc" aria-label="${esc(L('목차', 'Contents'))}"><b>${esc(L('목차', 'Contents'))}</b><ol data-doc-toc></ol></nav>
+        <article class="md doc-read" id="doc-body">${documentHtml(kind, lang)}</article>
+      </div>
     </div>`;
     const select = root.querySelector('[data-doc-chapter]');
     select.innerHTML = chaptersOf();
+    drawContents();
     hits = [];
     hit = -1;
+  }
+
+/** The contents panel: every chapter (h2) with its sections (h3); the one being read is marked. */
+  function drawContents() {
+    const body = root.querySelector('#doc-body');
+    const list = root.querySelector('[data-doc-toc]');
+    if (!body || !list) return;
+    const heads = [...body.querySelectorAll('h2, h3')];
+    heads.forEach((head, index) => { head.id = head.id || `part-${index}`; });
+    list.innerHTML = heads.map((head) => `<li class="toc-${head.tagName.toLowerCase()}"><a href="#${esc(head.id)}" data-doc-go="${esc(head.id)}">${esc(head.textContent.trim())}</a></li>`).join('');
+    const mark = () => {
+      const top = body.getBoundingClientRect().top + 24;
+      let current = heads[0]?.id || '';
+      for (const head of heads) if (head.getBoundingClientRect().top <= top) current = head.id;
+      for (const link of list.querySelectorAll('a')) link.classList.toggle('active', link.dataset.docGo === current);
+    };
+    body.addEventListener('scroll', mark, { passive: true });
+    mark();
   }
 
   function chaptersOf() {
@@ -247,6 +275,8 @@ export function startViewer(kind) {
 
   paint();
   root.addEventListener('click', (event) => {
+    const go = event.target.closest('[data-doc-go]');
+    if (go) { event.preventDefault(); document.getElementById(go.dataset.docGo)?.scrollIntoView({ block: 'start', behavior: 'smooth' }); return; }
     const button = event.target.closest('[data-doc]');
     if (!button) return;
     if (button.dataset.doc === 'print') { window.print(); return; }

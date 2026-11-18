@@ -786,7 +786,7 @@ describe('Screens', () => {
     assert.match(notes, /data-notice="project"/);
     assert.match(notes, /Issues I watch/);
     assert.match(notes, /data-notice="page"/);
-    assert.equal((html.match(/<option value="(?:board|sprint|backlog|roadmap|calendar|pages|notes|queue|flow|links|people|hours|checks|milestones|lanes|priority|comments|archive|burndown|focus|pulse)"/g) || []).length, 21);
+    assert.equal((html.match(/<option value="(?:board|sprint|backlog|roadmap|calendar|pages|notes|queue|flow|links|people|hours|checks|milestones|lanes|priority|comments|archive|burndown|focus|pulse|timeline|together|finder)"/g) || []).length, 24);
   });
 
   for (const [view, needle] of screens) {

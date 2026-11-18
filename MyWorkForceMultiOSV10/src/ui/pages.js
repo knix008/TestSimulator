@@ -17,7 +17,10 @@ import { avatar, badge, byId, empty, esc, formatWhen, icon, L, nameOf, options, 
 import { navLabel } from './chrome.js';
 import { BACKGROUND_INTERVALS, BACKGROUNDS, knownBackground } from './background.js';
 import { databaseSettings, startupOptions } from './start.js';
-import { approvalBlock, calendarView, documentsView, extensionsView, knowledgeView, laneLabel, mailSettings, plansView, portalView, screenSection, swimlaneOptions } from './extra.js';
+import { approvalBlock, calendarView, documentsView, extensionsView, knowledgeView, openPageOf, openSpaceOf, pageInfoPanel, spaceInfoPanel, laneLabel, mailSettings, plansView, portalView, screenSection, swimlaneOptions } from './extra.js';
+import { searchView } from './search.js';
+import { timelineView } from './timeline.js';
+import { blockersOf } from '../domain/dependencies.js';
 import { finderBar, issueFacets, issueVisible, keepBlock, matchesText, screenFind } from './finder.js';
 
 const dur = (value) => formatDuration(value, getLanguage());
@@ -37,12 +40,15 @@ function need(ctx, title) {
 }
 
 export function showRight(ctx) {
+  if (ctx.ui.view === 'knowledge') return Boolean(openPageOf(ctx) || openSpaceOf(ctx));
   return Boolean(ctx.project) && ['board', 'backlog', 'issues', 'issue', 'roadmap', 'queues', 'health', 'filters', 'notifications'].includes(ctx.ui.view);
 }
 
 export function renderView(ctx) {
   if (ctx.ui.view === 'home') return home(ctx);
   if (ctx.ui.view === 'help') return help(ctx);
+  if (ctx.ui.view === 'search') return searchView(ctx);
+  if (ctx.ui.view === 'notifications' && !ctx.project) return notifications(ctx);
   if (ctx.ui.view === 'knowledge') return knowledgeView(ctx);
   if (ctx.ui.view === 'documents') return documentsView(ctx);
   if (ctx.ui.view === 'calendar') return calendarView(ctx);
@@ -57,7 +63,7 @@ export function renderView(ctx) {
   if (ctx.ui.view === 'team') return teamView(ctx);
   const missing = need(ctx, navLabel(ctx.ui.view));
   if (missing) return missing;
-  const views = { board, backlog, roadmap, issues, queues, dashboard, reports, releases, components, filters, people, health, notifications, settings, issue };
+  const views = { board, backlog, roadmap, timeline: timelineView, issues, queues, dashboard, reports, releases, components, filters, people, health, notifications, settings, issue };
   return (views[ctx.ui.view] || home)(ctx);
 }
 
@@ -153,7 +159,7 @@ function card(ctx, issue) {
   return `<article class="card${issue.id === ctx.ui.issueId ? ' selected' : ''}" draggable="true" data-card="${esc(issue.id)}" data-action="select-issue" data-id="${esc(issue.id)}">
     <div class="card-top">${typeBadge(ctx.project, issue.typeId)}<button type="button" class="key" data-action="open-issue" data-id="${esc(issue.id)}">${icon('issues')}${esc(issue.key)}</button></div>
     <p>${esc(issue.summary)}</p>
-    <div class="card-foot"><span class="pri" style="color:${safeColor(priority?.color)}">${esc(nameOf(priority))}</span>${points}${avatar(person(ctx.ws, issue.assigneeId))}</div>
+    <div class="card-foot">${blockersOf(ctx.project, issue).open.length ? `<span class="card-blocked" title="${esc(L('먼저 끝나야 할 이슈가 남았습니다', 'Waiting for another issue'))}">${icon('lock')}</span>` : ''}<span class="pri" style="color:${safeColor(priority?.color)}">${esc(nameOf(priority))}</span>${points}${avatar(person(ctx.ws, issue.assigneeId))}</div>
   </article>`;
 }
 
@@ -480,7 +486,7 @@ function projectsAdmin(ctx) {
     const configure = manage ? ` <button type="button" class="small-button" data-action="open-project-settings" data-id="${esc(project.id)}">${icon('settings')}<span>${L('설정', 'Settings')}</span></button>` : '';
     const remove = canDeleteProject(ctx.ws, project, ctx.user?.id) ? ` <button type="button" class="small-button danger" data-action="delete-project" data-id="${esc(project.id)}" title="${esc(L('관리자만 삭제할 수 있습니다.', 'Only an administrator may delete.'))}">${icon('trash')}<span>${L('삭제', 'Delete')}</span></button>` : '';
     const child = manage ? ` <button type="button" class="small-button" data-action="new-project" data-parent="${esc(project.id)}">${icon('subtask')}<span>${L('하위 과제', 'Sub-project')}</span></button>` : '';
-    return `<tr>
+    return `<tr class="open-row" data-open-project="${esc(project.id)}" title="${esc(L('두 번 누르면 엽니다', 'Double-click to open'))}">
       <td class="nest" style="padding-left:${8 + depth * 16}px">${esc(project.key)}</td>
       <td>${name}</td>
       <td>${esc(typeName(project.type))}</td>
@@ -561,16 +567,17 @@ function noticeSettings(ctx) {
     const on = (event, fallback) => noticeChecked(ctx.ws, userId, 'project', project.id, event, fallback);
     return `<div class="notice-row"><b>${esc(project.key)} ${esc(project.name)}</b>${noticeBox('project', project.id, 'watch', on('watch', true), '관찰하는 이슈', 'Issues I watch')}${noticeBox('project', project.id, 'created', on('created', false), '새 이슈', 'New issues')}${noticeBox('project', project.id, 'assign', on('assign', false), '담당', 'Assignment')}${noticeBox('project', project.id, 'comment', on('comment', false), '의견', 'Comments')}${noticeBox('project', project.id, 'transition', on('transition', false), '상태', 'Status')}${noticeBox('project', project.id, 'page', on('page', false), '페이지', 'Pages')}</div>`;
   }).join('');
-  const spaceIds = new Set((ctx.ws.spaces || []).filter((space) => space.projectId === ctx.project.id).map((space) => space.id));
-  const pages = (ctx.ws.articles || []).filter((page) => visiblePage(page, userId) && (spaceIds.has(page.spaceId) || page.projectId === ctx.project.id));
+  const projectId = ctx.project?.id || '';
+  const spaceIds = new Set((ctx.ws.spaces || []).filter((space) => projectId && space.projectId === projectId).map((space) => space.id));
+  const pages = projectId ? (ctx.ws.articles || []).filter((page) => visiblePage(page, userId) && (spaceIds.has(page.spaceId) || page.projectId === projectId)) : [];
   const pageRows = pages.map((page) => {
     const watching = (page.watchers || []).includes(userId);
     const on = (event) => noticeChecked(ctx.ws, userId, 'page', page.id, event, watching);
     return `<div class="notice-row"><b>${esc(page.title)}</b>${noticeBox('page', page.id, 'edit', on('edit'), '수정', 'Edits')}${noticeBox('page', page.id, 'comment', on('comment'), '의견', 'Comments')}</div>`;
   }).join('');
-  const documents = visibleDocuments(ctx.ws, userId, ctx.project.id).filter((doc) => !doc.projectId || doc.projectId === ctx.project.id);
+  const documents = projectId ? visibleDocuments(ctx.ws, userId, projectId).filter((doc) => !doc.projectId || doc.projectId === projectId) : [];
   const documentRows = documents.map((doc) => `<div class="notice-row"><b>${esc(doc.title)}</b>${noticeBox('document', doc.id, 'edit', noticeChecked(ctx.ws, userId, 'document', doc.id, 'edit', false), '내용', 'Content')}</div>`).join('');
-  const issues = ctx.project.issues.filter((issue) => (issue.watchers || []).includes(userId));
+  const issues = (ctx.project?.issues || []).filter((issue) => (issue.watchers || []).includes(userId));
   const issueRows = issues.map((issue) => {
     const on = (event) => noticeChecked(ctx.ws, userId, 'issue', issue.id, event, true);
     return `<div class="notice-row"><b>${esc(issue.key)}</b><span>${esc(issue.summary)}</span>${noticeBox('issue', issue.id, 'assign', on('assign'), '담당', 'Assignment')}${noticeBox('issue', issue.id, 'comment', on('comment'), '의견', 'Comments')}${noticeBox('issue', issue.id, 'transition', on('transition'), '상태', 'Status')}</div>`;
@@ -588,11 +595,17 @@ function noticeSettings(ctx) {
 
 function notifications(ctx) {
   const find = screenFind(ctx);
-  const items = ctx.project.notifications.filter((item) => item.userId === ctx.user?.id).filter((item) => {
+  const mine = [
+    ...(ctx.project?.notifications || []).filter((item) => item.userId === ctx.user?.id).map((item) => ({ item, inbox: false })),
+    ...(ctx.ws.inbox || []).filter((item) => item.userId === ctx.user?.id).map((item) => ({ item, inbox: true })),
+  ].sort((a, b) => String(b.item.at || '').localeCompare(String(a.item.at || '')));
+  const items = mine.filter(({ item }) => {
     if (find.read === 'unread' && item.read) return false;
     if (find.read === 'read' && !item.read) return false;
     return matchesText(find.q, activityText(ctx, item), item.issueKey);
-  }).map((item) => `<button type="button" class="link-row${item.read ? '' : ' unread'}" data-action="mark-read" data-id="${esc(item.id)}" data-issue="${esc(item.issueId || '')}">${icon('bell')}<span>${esc(activityText(ctx, item))}</span><small>${esc(formatWhen(item.at))}</small></button>`).join('');
+  }).map(({ item, inbox }) => (inbox
+    ? `<button type="button" class="link-row${item.read ? '' : ' unread'}" data-action="open-inbox" data-id="${esc(item.id)}">${icon(item.kind === 'mention' ? 'user' : 'book')}<span>${esc(activityText(ctx, item))}</span><small>${esc(formatWhen(item.at))}</small></button>`
+    : `<button type="button" class="link-row${item.read ? '' : ' unread'}" data-action="mark-read" data-id="${esc(item.id)}" data-issue="${esc(item.issueId || '')}">${icon('bell')}<span>${esc(activityText(ctx, item))}</span><small>${esc(formatWhen(item.at))}</small></button>`)).join('');
   return `<div class="page">${pageHead(L('알림', 'Notifications'), `<button type="button" class="button" data-action="mark-all-read">${icon('check')}<span>${L('모두 읽음', 'Mark all read')}</span></button>`, 'notifications')}${finderBar(ctx, [{ id: 'read', label: L('상태', 'State'), options: [{ id: 'unread', label: L('안 읽음', 'Unread') }, { id: 'read', label: L('읽음', 'Read') }] }])}${items || empty(L('알림이 없습니다.', 'There are no notifications.'))}${noticeSettings(ctx)}</div>`;
 }
 
@@ -739,6 +752,14 @@ function help(ctx) {
   </div>`;
 }
 
+/** What an issue is waiting for (open issues that block it) and what waits for it. */
+function blockedBanner(ctx, current) {
+  const waits = blockersOf(ctx.project, current).open;
+  if (!waits.length) return '';
+  const links = waits.map((other) => `<button type="button" class="key" data-action="open-issue" data-id="${esc(other.id)}">${esc(other.key)}</button> ${esc(other.summary)}`).join(', ');
+  return `<p class="banner bad blocked-banner">${icon('lock')}<span>${L('먼저 끝나야 할 이슈', 'Waiting for')}: ${links}</span></p>`;
+}
+
 function issue(ctx) {
   const current = findIssue(ctx.project, ctx.ui.issueId);
   if (!current) return `<div class="page">${empty(L('이슈를 고르세요.', 'Choose an issue.'))}</div>`;
@@ -747,6 +768,7 @@ function issue(ctx) {
   return `<div class="page issue">${finderBar(ctx)}
     <div class="issue-title">${typeBadge(ctx.project, current.typeId)}<span class="key">${esc(current.key)}</span></div>
     <input class="summary-input" data-field="summary" data-live value="${esc(current.summary)}">
+    ${blockedBanner(ctx, current)}
     <div class="tabs">${tabs.map(([id, glyph, label]) => `<button type="button" class="tab${ctx.ui.issueTab === id ? ' active' : ''}" data-action="issue-tab" data-id="${id}">${icon(glyph)}<span>${label}</span></button>`).join('')}</div>
     ${issueTab(ctx, current)}
     ${approvalBlock(ctx, current)}
@@ -787,8 +809,13 @@ export function renderRight(ctx) {
   if (!showRight(ctx)) return '';
   let glyph = 'issues';
   let title = L('이슈', 'Issue');
-  let inner = preview(ctx);
-  if (ctx.ui.view === 'backlog') {
+  let inner = ctx.ui.view === 'knowledge' ? '' : preview(ctx);
+  if (ctx.ui.view === 'knowledge') {
+    const page = openPageOf(ctx);
+    glyph = page ? 'info' : 'layers';
+    title = page ? L('페이지 정보', 'Page details') : L('작업 공간 속성', 'Workspace properties');
+    inner = page ? pageInfoPanel(ctx) : spaceInfoPanel(ctx);
+  } else if (ctx.ui.view === 'backlog') {
     glyph = 'epic';
     title = L('에픽', 'Epics');
     const epics = ctx.project.issues.filter((issue) => issue.typeId === 'epic');
@@ -839,6 +866,7 @@ function fields(ctx) {
     ${prop(L('추정', 'Estimate'), `<input data-field="originalEstimate" data-parse="duration" value="${esc(dur(issue.originalEstimate))}">`)}
     ${prop(L('남음', 'Remaining'), `<input data-field="remainingEstimate" data-parse="duration" value="${esc(dur(issue.remainingEstimate))}">`)}
     ${prop(L('기록', 'Logged'), `<span>${esc(dur(issue.timeSpent))}</span>`)}
+    ${prop(L('시작', 'Start'), `<input type="date" data-field="start" data-parse="date" value="${esc(dateInputValue(issue.start))}">`)}
     ${prop(L('기한', 'Due'), `<input type="date" data-field="due" data-parse="date" value="${esc(dateInputValue(issue.due))}">`)}
     ${prop(L('라벨', 'Labels'), `<input data-field="labels" data-parse="labels" value="${esc((issue.labels || []).join(', '))}">`)}
     ${prop(L('환경', 'Environment'), `<input data-field="environment" data-live value="${esc(issue.environment || '')}">`)}
@@ -869,7 +897,7 @@ function feed(ctx, count) {
 
 function activityText(ctx, item) {
   const who = person(ctx.ws, item.actorId)?.name || '';
-  const key = item.issueKey || findIssue(ctx.project, item.issueId)?.key || '';
+  const key = item.issueKey || (ctx.project ? findIssue(ctx.project, item.issueId)?.key : '') || '';
   if (item.kind === 'created') return L(`${who} 님이 ${key} 을(를) 만들었습니다`, `${who} created ${key}`);
   if (item.kind === 'comment') return L(`${who} 님이 ${key} 에 의견을 남겼습니다`, `${who} commented on ${key}`);
   if (item.kind === 'transition') return L(`${who} 님이 ${key} 의 상태를 바꿨습니다`, `${who} moved ${key}`);
@@ -880,6 +908,9 @@ function activityText(ctx, item) {
   if (item.kind === 'delete') return L(`${who} 님이 ${key} 을(를) 지웠습니다`, `${who} deleted ${key}`);
   if (item.kind === 'link') return L(`${who} 님이 ${key} 을(를) 연결했습니다`, `${who} linked ${key}`);
   if (item.kind === 'page') return L(`${who} 님이 「${key}」 페이지를 고쳤습니다`, `${who} updated the page ${key}`);
+  if (item.kind === 'mention') return item.where === 'comment'
+    ? L(`${who} 님이 「${key}」 페이지의 댓글에서 회원님을 언급했습니다`, `${who} mentioned you in a comment on ${key}`)
+    : L(`${who} 님이 「${key}」 페이지에서 회원님을 언급했습니다`, `${who} mentioned you on the page ${key}`);
   if (item.kind === 'page-comment') return L(`${who} 님이 「${key}」 페이지에 의견을 남겼습니다`, `${who} commented on the page ${key}`);
   if (item.kind === 'document') return L(`${who} 님이 「${key}」 문서를 고쳤습니다`, `${who} updated the document ${key}`);
   return L(`${who} 님이 ${key} 을(를) 고쳤습니다`, `${who} updated ${key}`);

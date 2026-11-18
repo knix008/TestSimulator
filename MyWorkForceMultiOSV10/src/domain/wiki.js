@@ -1,5 +1,6 @@
 import { writingEmbed, writingExport } from './markdown.js';
-import { deliver, setNotice } from './notices.js';
+import { deliver, inboxPush, setNotice } from './notices.js';
+import { canSeeSpace } from './teams.js';
 import { nowIso, uid } from './util.js';
 
 function projectOf(ws, projectId) {
@@ -89,11 +90,24 @@ export function canEditPage(page, userId) {
   return visiblePage(page, userId);
 }
 
+/** A free workspace key made from the name's Latin letters, or WS, WS2, WS3 … when it has none. */
+export function suggestSpaceKey(ws, name) {
+  const letters = String(name || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^[0-9]+/, '');
+  const base = (letters.length >= 2 ? letters : 'WS').slice(0, 8);
+  const taken = new Set((ws.spaces || []).map((item) => item.key));
+  if (!taken.has(base)) return base;
+  for (let n = 2; n < 1000; n += 1) {
+    const key = `${base}${n}`.slice(0, 10);
+    if (!taken.has(key)) return key;
+  }
+  return uid('WS').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+}
+
 export function addSpace(ws, input, actorId) {
   ensureWiki(ws);
   const name = String(input.name || '').trim();
   if (!name) throw new Error('name-required');
-  const key = String(input.key || '').trim().toUpperCase();
+  const key = String(input.key || '').trim().toUpperCase() || suggestSpaceKey(ws, name);
   if (!/^[A-Z][A-Z0-9]{1,9}$/.test(key)) throw new Error('key-invalid');
   if (ws.spaces.some((item) => item.key === key)) throw new Error('duplicate-key');
   const space = {
@@ -103,6 +117,47 @@ export function addSpace(ws, input, actorId) {
   };
   ws.spaces.push(space);
   return space;
+}
+
+function mustSpace(ws, spaceId) {
+  ensureWiki(ws);
+  const space = ws.spaces.find((item) => item.id === spaceId);
+  if (!space) throw new Error('not-found');
+  return space;
+}
+
+/** Renames a workspace or changes its description: its maker or an administrator. */
+export function updateSpace(ws, spaceId, patch, actorId, admin = false) {
+  const space = mustSpace(ws, spaceId);
+  if (!admin && space.authorId !== actorId) throw new Error('permission');
+  if (patch.name != null) {
+    const name = String(patch.name).trim();
+    if (!name) throw new Error('name-required');
+    space.name = name;
+  }
+  if (patch.description != null) space.description = String(patch.description);
+  if (patch.where != null) {
+    const where = String(patch.where);
+    const [kind, id] = where.includes(':') ? where.split(':') : ['company', ''];
+    if (kind === 'team') {
+      if (!(ws.teams || []).some((team) => team.id === id)) throw new Error('not-found');
+      Object.assign(space, { scope: 'team', teamId: id, projectId: '' });
+    } else if (kind === 'project') {
+      if (!(ws.projects || []).some((project) => project.id === id)) throw new Error('not-found');
+      Object.assign(space, { scope: 'project', projectId: id, teamId: '' });
+    } else Object.assign(space, { scope: 'company', teamId: '', projectId: '' });
+    for (const page of ws.articles) if (page.spaceId === space.id) page.projectId = space.projectId || '';
+  }
+  space.updated = nowIso();
+  return space;
+}
+
+/** Removes a workspace that holds no pages (pages in the trash count until they are deleted). */
+export function deleteSpace(ws, spaceId, actorId, admin = false) {
+  const space = mustSpace(ws, spaceId);
+  if (!admin && space.authorId !== actorId) throw new Error('permission');
+  if (ws.articles.some((page) => page.spaceId === space.id)) throw new Error('space-not-empty');
+  ws.spaces = ws.spaces.filter((item) => item.id !== space.id);
 }
 
 function spaceFor(ws, input) {
@@ -175,24 +230,65 @@ function descendants(ws, pageId) {
 function tell(ws, page, actorId, event) {
   const space = ws.spaces.find((item) => item.id === page.spaceId);
   const project = projectOf(ws, space?.projectId);
-  if (!project) return;
-  deliver(ws, project, page.watchers, {
-    actorId, issueId: '', issueKey: page.title, kind: event === 'comment' ? 'page-comment' : 'page',
-  }, { pageId: page.id, event });
+  const kind = event === 'comment' ? 'page-comment' : 'page';
+  if (project) {
+    deliver(ws, project, page.watchers, { actorId, issueId: '', issueKey: page.title, kind }, { pageId: page.id, event });
+    return;
+  }
+  // A company or team page has no project, so its watchers hear about it in the company inbox.
+  const readers = (page.watchers || []).filter((userId) => canSeeSpace(ws, space, userId) && visiblePage(page, userId));
+  inboxPush(ws, readers, { actorId, issueId: '', issueKey: page.title, kind, pageId: page.id, spaceId: page.spaceId });
 }
 
-export function updatePage(ws, pageId, patch, actorId) {
+/** The people named as @Name in a text (the longest names first, so "Kim Ann" wins over "Kim"). */
+export function mentionsIn(ws, text) {
+  const source = String(text || '');
+  if (!source.includes('@')) return [];
+  const users = (ws.users || []).filter((user) => user.active !== false && user.name).sort((a, b) => b.name.length - a.name.length);
+  const found = [];
+  let rest = source;
+  for (const user of users) {
+    const tag = `@${user.name}`;
+    if (rest.includes(tag)) {
+      found.push(user.id);
+      rest = rest.split(tag).join(' ');
+    }
+  }
+  return found;
+}
+
+/** Tells the people mentioned on a page who can see it; returns their ids. */
+function tellMentioned(ws, page, ids, actorId, where) {
+  const space = ws.spaces.find((item) => item.id === page.spaceId);
+  const readers = ids.filter((userId) => userId !== actorId && canSeeSpace(ws, space, userId) && visiblePage(page, userId));
+  inboxPush(ws, readers, { actorId, issueId: '', issueKey: page.title, kind: 'mention', where, pageId: page.id, spaceId: page.spaceId });
+  return readers;
+}
+
+/**
+ * Changes a page. Each change keeps the text before it as a version — except that with `coalesce`
+ * (the editor saving by itself) one person's saves within ten minutes stay one version, and the
+ * watchers hear about that run of edits once.
+ */
+export function updatePage(ws, pageId, patch, actorId, { coalesce = false } = {}) {
   const page = mustPage(ws, pageId);
   if (!canEditPage(page, actorId)) throw new Error('permission');
   const title = patch.title != null ? String(patch.title).trim() : page.title;
   if (!title) throw new Error('name-required');
   const body = patch.body != null ? String(patch.body) : page.body;
   if (title !== page.title || body !== page.body) {
-    page.versions.unshift({ id: uid('pv'), title: page.title, body: page.body, authorId: actorId || '', at: nowIso() });
-    if (page.versions.length > 30) page.versions.length = 30;
+    const before = new Set(mentionsIn(ws, page.body));
+    const sameRun = coalesce && page.lastEditBy === actorId && Date.now() - Date.parse(page.lastEditAt || 0) < 600_000;
+    if (!sameRun) {
+      page.versions.unshift({ id: uid('pv'), title: page.title, body: page.body, authorId: actorId || '', at: nowIso() });
+      if (page.versions.length > 30) page.versions.length = 30;
+    }
+    page.lastEditBy = actorId || '';
+    page.lastEditAt = nowIso();
     page.title = title;
     page.body = body;
-    tell(ws, page, actorId, 'edit');
+    if (!sameRun) tell(ws, page, actorId, 'edit');
+    tellMentioned(ws, page, mentionsIn(ws, body).filter((id) => !before.has(id)), actorId, 'page');
   }
   if (patch.published != null) page.published = Boolean(patch.published);
   if (patch.restricted != null) {
@@ -248,15 +344,50 @@ export function purgePage(ws, pageId, actorId) {
   ws.articles = ws.articles.filter((item) => item.id !== pageId);
 }
 
-export function commentPage(ws, pageId, body, actorId, quote = '') {
+/**
+ * Adds a comment. `quote` is a passage of the page; with `inline` the comment is tied to that passage
+ * in the text (shown highlighted there) until someone resolves it.
+ */
+export function commentPage(ws, pageId, body, actorId, quote = '', { inline = false, replyTo = '' } = {}) {
   const page = mustPage(ws, pageId);
   if (!visiblePage(page, actorId)) throw new Error('permission');
   const text = String(body || '').trim();
   if (!text) throw new Error('summary-required');
-  const comment = { id: uid('pc'), authorId: actorId || '', body: text, quote: String(quote || '').slice(0, 180), created: nowIso() };
+  const passage = String(quote || '').replace(/\s+/g, ' ').trim().slice(0, 500);
+  if (inline && !passage) throw new Error('summary-required');
+  const parent = replyTo ? page.comments.find((item) => item.id === replyTo) : null;
+  if (replyTo && !parent) throw new Error('not-found');
+  const comment = { id: uid('pc'), authorId: actorId || '', body: text, quote: parent ? '' : passage, created: nowIso() };
+  if (inline && !parent) { comment.inline = true; comment.resolved = false; }
+  if (parent) comment.replyTo = parent.id;
   page.comments.push(comment);
   page.updated = nowIso();
   tell(ws, page, actorId, 'comment');
+  tellMentioned(ws, page, mentionsIn(ws, text), actorId, 'comment');
+  return comment;
+}
+
+/** Marks an inline comment resolved (its highlight goes away) or opens it again. Anyone who can edit the page, or its writer. */
+export function resolvePageComment(ws, pageId, commentId, resolved, actorId) {
+  const page = mustPage(ws, pageId);
+  const comment = (page.comments || []).find((item) => item.id === commentId);
+  if (!comment || !comment.inline) throw new Error('not-found');
+  if (comment.authorId !== actorId && !canEditPage(page, actorId)) throw new Error('permission');
+  comment.resolved = Boolean(resolved);
+  comment.resolvedBy = resolved ? actorId : '';
+  comment.resolvedAt = resolved ? nowIso() : '';
+  return comment;
+}
+
+export function editPageComment(ws, pageId, commentId, body, actorId) {
+  const page = mustPage(ws, pageId);
+  const comment = (page.comments || []).find((item) => item.id === commentId);
+  if (!comment) throw new Error('not-found');
+  if (comment.authorId !== actorId) throw new Error('permission');
+  const text = String(body || '').trim();
+  if (!text) throw new Error('summary-required');
+  comment.body = text;
+  comment.edited = nowIso();
   return comment;
 }
 
@@ -265,7 +396,7 @@ export function deletePageComment(ws, pageId, commentId, actorId) {
   const comment = (page.comments || []).find((item) => item.id === commentId);
   if (!comment) throw new Error('not-found');
   if (comment.authorId !== actorId && page.authorId !== actorId) throw new Error('permission');
-  page.comments = page.comments.filter((item) => item.id !== commentId);
+  page.comments = page.comments.filter((item) => item.id !== commentId && item.replyTo !== commentId);
 }
 
 export function watchPage(ws, pageId, actorId) {
@@ -349,13 +480,17 @@ export function pageByShare(ws, token) {
   return (ws.articles || []).find((page) => page.shareToken && page.shareToken === key && !page.trashed) || null;
 }
 
-export function attachPage(ws, pageId, file, actorId) {
+/**
+ * Adds a file to a page. From the editor (embed on, the default) it also goes into the text;
+ * from the page's file list (embed: false) it only joins the list.
+ */
+export function attachPage(ws, pageId, file, actorId, { embed = true } = {}) {
   const page = mustPage(ws, pageId);
   if (!canEditPage(page, actorId)) throw new Error('permission');
   if ((file.size || 0) > 700_000 || String(file.data || '').length > 1_200_000) throw new Error('attachment-big');
-  const item = { id: uid('f'), name: file.name || 'file', mime: file.mime || '', size: file.size || 0, data: file.data || '', created: nowIso() };
+  const item = { id: uid('f'), name: file.name || 'file', mime: file.mime || '', size: file.size || 0, data: file.data || '', created: nowIso(), authorId: actorId || '' };
   page.attachments.push(item);
-  page.body = `${page.body || ''}\n\n${writingEmbed(item)}\n`;
+  if (embed) page.body = `${page.body || ''}\n\n${writingEmbed(item)}\n`;
   page.updated = nowIso();
   return item;
 }

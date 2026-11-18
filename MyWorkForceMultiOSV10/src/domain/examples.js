@@ -179,6 +179,48 @@ export const EXAMPLES = [
     line('task', '의상 피팅', 'Costume fitting', 'review', 'medium'),
     line('story', '공연 당일 동선', 'Show-day traffic plan', 'done', 'high'),
   ] },
+  { id: 'bank', key: 'BANK', type: 'software', ko: '모바일 뱅킹 앱', en: 'Mobile banking app', about: ['이체, 인증, 보안 결함을 스프린트로 나눕니다.', 'Transfers, sign-in and security fixes in sprints.'], article: ['보안 점검 목록', 'Security checklist'], issues: [
+    line('epic', '간편 이체', 'Quick transfers', 'backlog', 'high'),
+    line('story', '생체 인증 로그인', 'Biometric sign-in', 'progress', 'highest'),
+    line('bug', '이체 한도 표시 오류', 'Transfer limit shows wrong', 'todo', 'highest'),
+    line('story', '거래 내역 검색', 'Search the transaction history', 'review', 'medium'),
+    line('task', '앱 스토어 설명 갱신', 'Update the store listing', 'done', 'low'),
+  ] },
+  { id: 'saas', key: 'SAAS', type: 'software', ko: 'B2B SaaS 플랫폼', en: 'B2B SaaS platform', about: ['요금제, 관리자 화면, 고객 결함을 로드맵에 놓습니다.', 'Plans, the admin console and customer bugs on a roadmap.'], article: ['온보딩 절차', 'Onboarding steps'], issues: [
+    line('epic', '팀 요금제', 'Team plan', 'backlog', 'high'),
+    line('story', 'SSO 로그인', 'Single sign-on', 'progress', 'high'),
+    line('bug', '청구서 통화 표기 오류', 'Invoice shows the wrong currency', 'todo', 'highest'),
+    line('story', '사용량 대시보드', 'Usage dashboard', 'review', 'medium'),
+    line('task', '데이터 보존 정책 문서', 'Data retention policy page', 'done', 'low'),
+  ] },
+  { id: 'iot', key: 'IOTH', type: 'software', ko: '스마트홈 IoT', en: 'Smart home IoT', about: ['펌웨어, 앱 연동, 기기 결함을 릴리스로 묶습니다.', 'Firmware, app pairing and device defects grouped by release.'], article: ['펌웨어 배포 순서', 'Firmware rollout order'], issues: [
+    line('epic', '음성 비서 연동', 'Voice assistant support', 'backlog', 'high'),
+    line('story', '기기 자동 등록', 'Automatic device pairing', 'progress', 'high'),
+    line('bug', '조명 예약이 꺼지지 않음', 'Light schedule never turns off', 'todo', 'highest'),
+    line('task', '펌웨어 2.1 서명', 'Sign firmware 2.1', 'review', 'high'),
+    line('task', '배터리 소모 측정', 'Measure battery drain', 'done', 'medium'),
+  ] },
+  { id: 'ai', key: 'AIML', type: 'software', ko: 'AI 추천 서비스', en: 'AI recommendations', about: ['모델 학습, 평가, 서빙 결함을 실험 단위로 추적합니다.', 'Model training, evaluation and serving issues per experiment.'], article: ['모델 평가 기준', 'Model evaluation bar'], issues: [
+    line('epic', '개인화 추천 v2', 'Personalised recommendations v2', 'backlog', 'high'),
+    line('story', '학습 데이터 정제', 'Clean the training data', 'progress', 'high'),
+    line('bug', '추천 응답 지연', 'Recommendation latency spikes', 'todo', 'highest'),
+    line('task', 'A/B 실험 설계', 'Design the A/B test', 'review', 'medium'),
+    line('task', '모델 카드 작성', 'Write the model card', 'done', 'low'),
+  ] },
+  { id: 'web', key: 'WEBR', type: 'software', ko: '회사 웹사이트 개편', en: 'Website redesign', about: ['화면 개편, 콘텐츠 이전, 접근성 결함을 스프린트로 닫습니다.', 'New pages, content migration and accessibility fixes in sprints.'], article: ['콘텐츠 작성 원칙', 'Content style guide'], issues: [
+    line('epic', '새 메인 화면', 'New home page', 'backlog', 'high'),
+    line('story', '블로그 이전', 'Move the blog', 'progress', 'medium'),
+    line('bug', '모바일 메뉴가 닫히지 않음', 'Mobile menu will not close', 'todo', 'highest'),
+    line('task', '접근성 점검', 'Accessibility audit', 'review', 'high'),
+    line('task', '검색 엔진 설정', 'Search engine settings', 'done', 'low'),
+  ] },
+  { id: 'hr', key: 'HRON', type: 'business', ko: '인사 채용', en: 'Hiring and onboarding', about: ['채용 공고, 면접, 입사 준비를 단계별 보드에서 봅니다.', 'Job posts, interviews and onboarding on a board of stages.'], article: ['면접 진행 안내', 'Interview guide'], issues: [
+    line('story', '백엔드 개발자 공고', 'Backend developer posting', 'progress', 'high'),
+    line('task', '면접 일정 조율', 'Schedule the interviews', 'todo', 'high'),
+    line('task', '입사자 장비 준비', 'Get equipment ready for new hires', 'todo', 'medium'),
+    line('bug', '지원서 첨부 누락', 'Application attachments went missing', 'review', 'highest'),
+    line('story', '온보딩 첫 주 일정', 'First-week onboarding plan', 'done', 'medium'),
+  ] },
 ];
 
 function text(lang, ko, en) {

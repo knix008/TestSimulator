@@ -2,6 +2,7 @@ import './talk.css';
 import { icon } from '../icons.js';
 import { waitForService, changeOwnPassword, chatMessages, chatPeople, chatProfile, chatRooms, checkChat, currentSession, fetchChatFile, inviteChat, loginSession, logoutSession, openChat, postChat, postChatFile, rememberLogin, rememberProfile, saveChatProfile, savedLogin, sessionProfile, sessionToken, watchSharedSession } from '../platform/data.js';
 import { installTooltips } from '../ui/tooltip.js';
+import { bindMentions } from '../ui/mentions.js';
 import { openMain } from '../platform/native.js';
 
 const text = {
@@ -73,6 +74,10 @@ const text = {
     inviteDone: '초대했습니다.',
     back: '대화 목록',
     openPage: '이 페이지 열기',
+    kinds: {
+      created: '새 이슈', assign: '담당 변경', comment: '이슈 의견', transition: '상태 변경', worklog: '작업 시간 기록',
+      page: '페이지 수정', 'page-comment': '페이지 댓글', mention: '회원님을 언급했습니다', document: '문서 수정', link: '이슈 연결', delete: '삭제',
+    },
   },
   en: {
     product: 'MyWorkForce Talk',
@@ -142,6 +147,10 @@ const text = {
     inviteDone: 'Invited.',
     back: 'Talks',
     openPage: 'Open this page',
+    kinds: {
+      created: 'New issue', assign: 'Assignment', comment: 'Issue comment', transition: 'Status change', worklog: 'Work logged',
+      page: 'Page updated', 'page-comment': 'Page comment', mention: 'You were mentioned', document: 'Document updated', link: 'Issue linked', delete: 'Deleted',
+    },
   },
 };
 
@@ -402,6 +411,26 @@ function profileCard() {
   </form>`;
 }
 
+/** A notice reads "place · title · kind"; the kind becomes words in the language in use. */
+function noticeBody(message) {
+  const parts = String(message.body || '').split(' · ');
+  const kinds = text[state.language].kinds || {};
+  const code = parts.length > 1 ? parts.at(-1) : '';
+  if (!kinds[code]) return esc(message.body);
+  const label = kinds[code];
+  const rest = parts.slice(0, -1).map(esc).join(' · ');
+  return `<span class="notice-kind${code === 'mention' ? ' mention' : ''}">${esc(label)}</span> ${rest}`;
+}
+
+/** @Name of a known person stands out in a message (the text is already escaped). */
+function markMentionsIn(html) {
+  if (!html.includes('@')) return html;
+  const names = state.people.map((person) => esc(person.name || '')).filter(Boolean).sort((a, b) => b.length - a.length);
+  if (!names.length) return html;
+  const pattern = new RegExp(`@(${names.map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'g');
+  return html.replace(pattern, '<span class="mention">@$1</span>');
+}
+
 function messageHtml() {
   const messages = state.messages.map((message) => {
     const mine = message.userId === state.self ? ' mine' : '';
@@ -412,7 +441,7 @@ function messageHtml() {
     const file = message.kind === 'file'
       ? `<a href="#" data-file="${esc(message.fileId)}" data-name="${esc(message.fileName)}">${icon('file')}<span>${esc(message.fileName || message.body)}</span></a>`
       : '';
-    const body = message.kind === 'file' ? file : esc(message.body);
+    const body = message.kind === 'file' ? file : message.kind === 'notice' ? noticeBody(message) : markMentionsIn(esc(message.body));
     const confirm = message.kind === 'notice'
       ? (message.checked
         ? `<button type="button" class="quiet" disabled>${icon('check')}<span>${esc(t('confirmed'))}</span></button>`
@@ -804,6 +833,8 @@ document.querySelector('#app').addEventListener('keydown', (event) => {
 });
 
 async function boot() {
+  // @name in a message: the same list of people as in the main program.
+  bindMentions(() => state.people || []);
   // The installed program starts the data service together with this window: wait for it first.
   try { await waitForService(30000); } catch { /* signing in says it did not answer */ }
   if (!sessionToken()) {

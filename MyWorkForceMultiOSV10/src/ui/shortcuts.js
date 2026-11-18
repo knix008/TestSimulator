@@ -32,6 +32,7 @@ export function shortcutGroups() {
       ['Ctrl+Y', L('다시 실행', 'Redo')],
       ['Ctrl+Shift+Z', L('다시 실행', 'Redo')],
       ['Ctrl+F', L('검색', 'Find')],
+      ['Ctrl+Shift+F', L('전체 검색', 'Search everything')],
       ['/', L('검색 칸으로 이동', 'Focus search')],
       ['Enter', L('검색 실행', 'Run the search')],
     ]],
@@ -105,6 +106,7 @@ function ctrlCommand(lower, shift, code) {
   if (!shift && lower === 'k') return { id: 'command-palette' };
   if (!shift && lower === 'd') return { id: 'clone-issue' };
   if (!shift && lower === 'f') return { id: 'focus-search' };
+  if (shift && lower === 'f') return { id: 'open-search' };
   if (!shift && lower === ',') return { id: 'go', view: 'settings' };
   if (shift && lower === 'h') return { id: 'menubar-home' };
   if (shift && lower === 'l') return { id: 'language' };

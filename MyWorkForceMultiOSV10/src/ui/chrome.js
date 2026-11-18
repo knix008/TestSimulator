@@ -5,7 +5,10 @@ import { allowed, isWorkspaceAdmin, orderedProjects, participantAccess, particip
 import { createFields, moduleOn } from '../domain/services.js';
 import { avatar, button, esc, icon, L, nameOf, NAV_GLYPH, options, panelFrame, primary, typeBadge, userOptions } from './bits.js';
 import { shortcutGroups } from './shortcuts.js';
-import { ACCESS, canManageTeam, isTeamMember, projectViews, teamOfProject, teamsOf, DEFAULT_METHODS } from '../domain/teams.js';
+import { ACCESS, canManageTeam, isTeamMember, projectViews, teamOfProject, teamsOf, visibleSpaces, DEFAULT_METHODS } from '../domain/teams.js';
+import { pagesIn } from '../domain/wiki.js';
+import { spaceOpen, workspacePageTree } from './extra.js';
+import { templatePicker } from './templates.js';
 import { methodChecks } from './teams.js';
 
 function item(action, glyph, label, extra = '', keys = '') {
@@ -72,6 +75,7 @@ export function renderMenubar(ctx) {
     item('undo', 'undo', L('실행 취소', 'Undo'), '', 'Ctrl+Z'),
     item('redo', 'redo', L('다시 실행', 'Redo'), '', 'Ctrl+Y'),
     item('focus-search', 'search', L('검색', 'Find'), '', 'Ctrl+F'),
+    item('open-search', 'search', L('전체 검색', 'Search everything'), '', 'Ctrl+Shift+F'),
   ].join('');
   const viewGlyph = { home: 'home', board: 'board', backlog: 'backlog', issues: 'issues', dashboard: 'dashboard', reports: 'chart', documents: 'file', help: 'help' };
   const viewKeys = { home: 'Ctrl+1', board: 'Ctrl+2', backlog: 'Ctrl+3', issues: 'Ctrl+5', dashboard: 'Ctrl+6', reports: 'Ctrl+7', documents: 'Ctrl+9' };
@@ -132,9 +136,11 @@ function navLabel(id) {
     issues: L('이슈', 'Issues'), queues: L('대기열', 'Queues'), dashboard: L('대시보드', 'Dashboard'), reports: L('보고서', 'Reports'),
     releases: L('릴리스', 'Releases'), components: L('구성 요소', 'Components'), filters: L('필터', 'Filters'), people: L('사람', 'People'),
     health: L('점검', 'Health'), notifications: L('알림', 'Notifications'), settings: L('설정', 'Settings'), help: L('도움말', 'Help'),
-    knowledge: L('페이지', 'Pages'), documents: L('문서', 'Documents'), calendar: L('근무 달력', 'Work calendar'), portal: L('고객 포털', 'Customer portal'),
+    knowledge: L('작업 공간', 'Workspaces'), documents: L('문서', 'Documents'), calendar: L('근무 달력', 'Work calendar'), portal: L('고객 포털', 'Customer portal'),
     users: L('사용자', 'Users'), projects: L('과제', 'Projects'), 'project-settings': L('과제 설정', 'Project settings'),
     plans: L('교차 계획', 'Plan'), extensions: L('확장', 'Extensions'), teams: L('팀', 'Teams'), team: L('팀', 'Team'),
+    search: L('전체 검색', 'Search everything'),
+    timeline: L('타임라인', 'Timeline'),
   };
   return names[id] || id;
 }
@@ -187,7 +193,8 @@ export function renderToolbar(ctx) {
     const depth = projectAncestors(ctx.ws, project).length;
     return { id: project.id, name: `${depth ? '– '.repeat(depth) : ''}${project.key} · ${project.name}` };
   });
-  const unread = ctx.project ? ctx.project.notifications.filter((item) => item.userId === ctx.user?.id && !item.read).length : 0;
+  const unread = (ctx.project ? ctx.project.notifications.filter((item) => item.userId === ctx.user?.id && !item.read).length : 0)
+    + (ctx.ws.inbox || []).filter((item) => item.userId === ctx.user?.id && !item.read).length;
   const currentName = themeName(ctx.settings.theme, getLanguage());
   const leftOpen = ctx.settings.showLeftPanel !== false;
   const rightOpen = ctx.settings.showRightPanel !== false;
@@ -195,6 +202,7 @@ export function renderToolbar(ctx) {
   return `<div class="toolbar-inner">
       <select data-choose="project" title="${esc(L('과제', 'Project'))}">${options(projects, ctx.ws.activeProjectId, L('과제 없음', 'No project'))}</select>
       <label class="quick-search" title="Ctrl+F">${icon('search')}<input id="quick-search" value="${esc(ctx.ui.quick || '')}" placeholder="${esc(L('검색 또는 WQL', 'Search or WQL'))}"></label>
+      <button type="button" class="tool-button${ctx.ui.view === 'search' ? ' active' : ''}" data-action="open-search" title="${esc(L('전체 검색', 'Search everything'))} · Ctrl+Shift+F" aria-label="${esc(L('전체 검색', 'Search everything'))}">${icon('search')}</button>
       <button type="button" class="tool-button" data-action="command-palette" title="${esc(L('이동', 'Go to'))} · Ctrl+K" aria-label="${esc(L('이동', 'Go to'))}">${icon('bolt')}</button>
       <span class="tool-sep"></span>
       <button type="button" class="tool-button" data-action="new-issue" title="${esc(L('새 이슈', 'New issue'))} · Ctrl+N" aria-label="${esc(L('새 이슈', 'New issue'))}">${icon('plus')}</button>
@@ -215,9 +223,8 @@ export function renderToolbar(ctx) {
     </div>`;
 }
 
-const COMPANY_NAV = ['teams', 'projects', 'knowledge', 'documents', 'calendar', 'plans'];
 /** A project's screens, in this order; projectViews() keeps the ones its management methods use. */
-const PROJECT_NAV = ['home', 'issues', 'board', 'backlog', 'roadmap', 'queues', 'portal', 'releases', 'components', 'filters', 'dashboard', 'reports', 'health', 'project-settings'];
+const PROJECT_NAV = ['home', 'issues', 'board', 'backlog', 'roadmap', 'timeline', 'queues', 'portal', 'releases', 'components', 'filters', 'dashboard', 'reports', 'health', 'project-settings'];
 const GATED = { knowledge: 'knowledge', documents: 'documents', calendar: 'calendar', portal: 'portal', plans: 'plans' };
 
 function navButtons(ctx, items) {
@@ -262,9 +269,45 @@ function currentProjectNav(ctx) {
   return `<div class="nav-section nav-current">${icon('play')}<span>${L('이 과제', 'This project')} · <b>${esc(project.key)}</b></span></div>${navButtons(ctx, items)}`;
 }
 
+/** The workspaces under "Workspaces": open one, add a page to it with +, and make a new workspace. */
+/**
+ * "Workspaces" in the left navigation: the heading folds the list open and shut; each workspace folds open
+ * to its pages (and their child pages); a new workspace is made here by typing its name.
+ */
+function workspaceNav(ctx) {
+  if (!moduleOn(ctx.ws, 'knowledge') || !ctx.user) return navButtons(ctx, ['knowledge']);
+  const order = { company: 0, team: 1, project: 2 };
+  const spaces = visibleSpaces(ctx.ws, ctx.user.id).slice().sort((a, b) => (order[a.scope || 'company'] ?? 0) - (order[b.scope || 'company'] ?? 0));
+  const folded = Boolean(ctx.ui.navWsFolded);
+  const onPages = ctx.ui.view === 'knowledge';
+  const head = `<div class="nav-ws-head${onPages && !ctx.ui.articleId && !ctx.ui.spaceId ? ' active' : ''}">
+    <button type="button" class="nav-fold" data-action="toggle-nav-workspaces" aria-expanded="${folded ? 'false' : 'true'}" title="${esc(folded ? L('펼치기', 'Expand') : L('접기', 'Collapse'))}">${icon(folded ? 'chevronRight' : 'chevronDown')}</button>
+    <button type="button" class="nav-button${onPages ? ' active' : ''}" data-action="go" data-view="knowledge">${icon(NAV_GLYPH.knowledge)}<span>${esc(navLabel('knowledge'))}</span><small class="nav-count">${spaces.length}</small></button>
+    <button type="button" class="nav-sub-add shown" data-action="ws-create-start" title="${esc(L('새 작업 공간', 'New workspace'))}" aria-label="${esc(L('새 작업 공간', 'New workspace'))}">${icon('plus')}</button>
+  </div>`;
+  if (folded) return head;
+  const openPage = onPages ? ctx.ui.articleId : '';
+  const rows = spaces.map((space) => {
+    const open = spaceOpen(ctx, space, onPages ? ctx.ui.spaceId : '');
+    const active = onPages && ctx.ui.spaceId === space.id && !ctx.ui.articleId;
+    const count = pagesIn(ctx.ws, space.id, ctx.user.id).length;
+    const mark = ([...String(space.name || space.key || '?').trim()][0] || '?').toUpperCase();
+    const row = `<div class="nav-sub${active ? ' active' : ''}${onPages && ctx.ui.spaceId === space.id ? ' current' : ''}">
+      <button type="button" class="nav-sub-caret" data-action="toggle-workspace" data-id="${esc(space.id)}" aria-expanded="${open ? 'true' : 'false'}" title="${esc(open ? L('접기', 'Collapse') : L('펼치기', 'Expand'))}">${icon(open ? 'chevronDown' : 'chevronRight')}</button>
+      <button type="button" class="nav-sub-open" data-action="open-workspace" data-id="${esc(space.id)}" title="${esc(space.name)}"><span class="ws-badge">${esc(mark)}</span><span class="nav-sub-name">${esc(space.name)}</span><small>${count}</small></button>
+      <button type="button" class="nav-sub-add" data-action="add-page" data-space="${esc(space.id)}" title="${esc(L('이 작업 공간에 새 페이지', 'New page in this workspace'))}" aria-label="${esc(L('새 페이지', 'New page'))}">${icon('plus')}</button>
+    </div>`;
+    return row + (open ? `<div class="nav-ws-tree">${workspacePageTree(ctx, space, openPage)}</div>` : '');
+  }).join('');
+  const create = ctx.ui.wsCreating
+    ? `<div class="nav-ws-create"><input id="nav-ws-name" value="${esc(ctx.ui.wsDraft || '')}" placeholder="${esc(L('새 작업 공간 이름', 'New workspace name'))}" aria-label="${esc(L('새 작업 공간 이름', 'New workspace name'))}" maxlength="60"><button type="button" class="nav-sub-add shown" data-action="create-workspace" title="${esc(L('만들기 (Enter)', 'Create (Enter)'))}" aria-label="${esc(L('만들기', 'Create'))}">${icon('check')}</button><button type="button" class="nav-sub-add shown" data-action="ws-create-cancel" title="${esc(L('취소 (Esc)', 'Cancel (Esc)'))}" aria-label="${esc(L('취소', 'Cancel'))}">${icon('close')}</button></div>`
+    : `<button type="button" class="nav-sub-new" data-action="ws-create-start">${icon('plus')}<span>${L('새 작업 공간', 'New workspace')}</span></button>`;
+  return `${head}<div class="nav-subs">${rows}${create}</div>`;
+}
+
 export function renderNav(ctx) {
   const admin = isWorkspaceAdmin(ctx.user);
-  const company = `<div class="nav-group">${icon('globe')}<span>${L('회사', 'Company')}</span></div>${navButtons(ctx, COMPANY_NAV)}`;
+  const company = `<div class="nav-group">${icon('globe')}<span>${L('회사', 'Company')}</span></div>${navButtons(ctx, ['teams', 'projects'])}${workspaceNav(ctx)}${navButtons(ctx, ['documents', 'calendar', 'plans'])}`;
   const work = `<div class="nav-group">${icon('user')}<span>${L('내 작업', 'My work')}</span></div>${teamNav(ctx)}${projectNav(ctx)}${currentProjectNav(ctx)}`;
   const adminMenus = admin ? `<div class="nav-group nav-group-admin">${icon('settings')}<span>${L('관리자 메뉴', 'Administrator menu')}</span></div>${navButtons(ctx, ['users', 'settings', 'extensions'])}` : '';
   const body = `${company}${work}${adminMenus}`;
@@ -465,13 +508,36 @@ export function renderModal(ctx) {
     return `<div class="modal-back"><div class="modal welcome">${heading('play', L('튜토리얼', 'Tutorial'))}<p>${esc(L('시작할 때 튜토리얼을 실행할까요? 쇼핑몰 예제로 주요 화면을 둘러봅니다. 나중에 시작 화면에서도 시작할 수 있습니다.', 'Run the tutorial at start? It walks the main screens with the shop example. You can also start it later from the start page.'))}</p><p>${esc(L('사용 설명서와 튜토리얼 문서는 로그인하지 않아도 이 창에서 볼 수 있습니다.', 'You can read the user guide and the tutorial document in this window without signing in.'))}</p><div class="page-actions"><button type="button" class="button" data-action="open-guide" data-id="guide">${icon('book')}<span>${L('사용 설명서', "User's guide")}</span></button><button type="button" class="button" data-action="open-guide" data-id="tutorial">${icon('play')}<span>${L('튜토리얼 문서', 'Tutorial document')}</span></button></div><label class="check welcome-again">${icon('play')}<input type="checkbox" data-setting="showWelcome" ${again ? 'checked' : ''}>${L('시작할 때 이 창을 다시 보여주기', 'Show this window again at start')}</label><div class="modal-foot"><button type="button" class="button" data-action="modal-cancel">${icon('close')}<span>${L('나중에', 'Later')}</span></button><button type="button" class="button primary" data-action="start-tutorial">${icon('play')}<span>${L('튜토리얼 시작', 'Start the tutorial')}</span></button></div></div></div>`;
   }
   if (modal.kind === 'shortcuts') {
-    const rows = shortcutGroups().map(([title, items]) => `<tr class="shortcut-group"><th colspan="2">${esc(title)}</th></tr>${items.map(([key, label]) => `<tr><td><kbd>${esc(key)}</kbd></td><td>${esc(label)}</td></tr>`).join('')}`).join('');
-    return `<div class="modal-back"><div class="modal shortcut-modal">${heading('bolt', L('단축키', 'Shortcuts'))}<p class="muted">${L('글자를 입력하는 칸에서는 Ctrl 조합만 동작합니다. G를 누른 뒤 글자를 누르면 화면이 바뀝니다.', 'Only Ctrl combinations work while typing. Press G, then a letter, to change screens.')}</p><table class="data">${rows}</table><div class="modal-foot"><button type="button" class="button primary popup-close" data-action="modal-cancel">${icon('close')}<span>${L('닫기', 'Close')}</span></button></div></div></div>`;
+    // A wide window of a fixed size: the groups flow over four columns so every shortcut shows at once.
+    const groups = shortcutGroups().map(([title, items]) => `<section class="shortcut-set"><h4>${esc(title)}</h4>${items.map(([key, label]) => `<div class="shortcut-row"><kbd>${esc(key)}</kbd><span>${esc(label)}</span></div>`).join('')}</section>`).join('');
+    return `<div class="modal-back"><div class="modal shortcut-modal" role="dialog" aria-label="${esc(L('단축키', 'Shortcuts'))}">${heading('bolt', L('단축키', 'Shortcuts'))}<p class="muted">${L('글자를 입력하는 칸에서는 Ctrl 조합만 동작합니다. G를 누른 뒤 글자를 누르면 화면이 바뀝니다.', 'Only Ctrl combinations work while typing. Press G, then a letter, to change screens.')}</p><div class="shortcut-cols">${groups}</div><div class="modal-foot"><button type="button" class="button primary popup-close" data-action="modal-cancel">${icon('close')}<span>${L('닫기', 'Close')}</span></button></div></div></div>`;
   }
   if (modal.kind === 'palette') {
     return `<div class="modal-back"><form class="modal palette">${heading('search', L('이슈로 이동', 'Go to an issue'))}<input id="palette-search" data-palette="search" value="${esc(modal.query || '')}" placeholder="${esc(L('키 또는 요약', 'Key or summary'))}">${paletteItems(ctx, modal.query || '')}</form></div>`;
   }
   if (modal.kind === 'participants') return participantsDialog(ctx, modal);
+  if (modal.kind === 'page-template') return templatePicker(ctx);
+  if (modal.kind === 'workspace') {
+    const space = modal.spaceId ? (ctx.ws.spaces || []).find((item) => item.id === modal.spaceId) : null;
+    if (space) {
+      return dialog(L('작업 공간', 'Workspace'), [
+        row(L('이름', 'Name'), `<input name="name" required value="${esc(space.name)}">`),
+        row(L('설명', 'Description'), `<textarea name="description" rows="3">${esc(space.description || '')}</textarea>`),
+      ].join(''), L('저장', 'Save'), 'layers');
+    }
+    // Who sees it: everybody in the company, one team's members, or one project's people.
+    const teams = teamsOf(ctx.ws, ctx.user?.id);
+    const projects = orderedProjects(ctx.ws).filter((item) => !item.archived && participatingProjects(ctx.ws, ctx.user?.id).some((mine) => mine.id === item.id));
+    const where = `<select name="where"><option value="">${esc(L('회사 전체 — 모두 봅니다', 'The whole company — everyone sees it'))}</option>
+      ${teams.length ? `<optgroup label="${esc(L('팀 — 팀원만', 'A team — its members'))}">${teams.map((team) => `<option value="team:${esc(team.id)}">${esc(team.name)}</option>`).join('')}</optgroup>` : ''}
+      ${projects.length ? `<optgroup label="${esc(L('과제 — 과제 사람만', 'A project — its people'))}">${projects.map((item) => `<option value="project:${esc(item.id)}">${esc(item.key)} · ${esc(item.name)}</option>`).join('')}</optgroup>` : ''}</select>`;
+    return dialog(L('새 작업 공간', 'New workspace'), [
+      row(L('이름', 'Name'), `<input name="name" required placeholder="${esc(L('예: 개발 문서', 'e.g. Engineering docs'))}">`),
+      row(L('키', 'Key'), `<input name="key" maxlength="10" placeholder="${esc(L('비우면 자동', 'Automatic when empty'))}">`),
+      row(L('보는 사람', 'Who sees it'), where),
+      row(L('설명', 'Description'), '<textarea name="description" rows="3"></textarea>'),
+    ].join(''), L('만들기', 'Create'), 'layers');
+  }
   if (modal.kind === 'team') {
     return dialog(L('새 팀', 'New team'), [
       row(L('이름', 'Name'), '<input name="name" required>'),
@@ -607,6 +673,30 @@ export function renderContext(ctx) {
   if (!menu) return '';
   // A menu is its list of items: no title bar and no close button (Esc or a click outside closes it).
   const bar = '';
+  if (menu.kind === 'start-help') {
+    return bar + [
+      item('show-welcome', 'spark', L('시작 안내 창', 'Welcome window')),
+      item('start-tutorial', 'play', L('튜토리얼', 'Tutorial')),
+      item('open-guide', 'file', L('튜토리얼 문서', 'Tutorial document'), 'data-id="tutorial"'),
+      item('open-guide', 'book', L('사용 설명서', 'User guide'), 'data-id="guide"'),
+      item('open-guide', 'filter', L('WQL 설명서', 'WQL guide'), 'data-id="wql"'),
+      '<div class="sep"></div>',
+      item('shortcuts', 'key', L('단축키', 'Shortcuts')),
+      item('about', 'info', L('프로그램 정보', 'About')),
+    ].join('');
+  }
+  if (menu.kind === 'start-settings') {
+    const on = (key) => ctx.settings?.[key] !== false;
+    const toggle = (key, glyph, ko, en) => item('start-setting', on(key) ? 'check' : glyph, L(ko, en), `data-id="${key}" role="menuitemcheckbox" aria-checked="${on(key) ? 'true' : 'false'}"`);
+    return bar + [
+      toggle('startShowProjects', 'folder', '과제 카드 보이기', 'Show the projects card'),
+      toggle('startShowExamples', 'box', '예제 카드 보이기', 'Show the examples card'),
+      toggle('startShowBackground', 'spark', '배경 카드 보이기', 'Show the background card'),
+      '<div class="sep"></div>',
+      toggle('showWelcome', 'spark', '시작할 때 안내 창 보이기', 'Show the welcome window at start'),
+      toggle('showStartPage', 'home', '시작할 때 시작 화면 표시', 'Show the start page at launch'),
+    ].join('');
+  }
   if (menu.kind === 'file') {
     return bar + item('download-file', 'download', L('다운로드', 'Download'), `data-file="${esc(menu.id || '')}" data-name="${esc(menu.name || '')}" data-src="${esc(menu.src || '')}"`);
   }

@@ -183,12 +183,21 @@ export function renderStart(ctx) {
     tile('open-guide', 'book', L('사용 설명서', 'User guide'), L('메뉴, 이슈, 계획, 문서를 별도의 창에서 설명합니다.', 'Menus, issues, planning and documents, in their own window.'), 'data-id="guide"'),
     tile('open-guide', 'filter', L('WQL 설명서', 'WQL guide'), L('작업 질의 문법을 별도의 창에서 봅니다.', 'The query language, in its own window.'), 'data-id="wql"'),
     tile('start-tab', 'box', L('예제', 'Examples'), L(`${EXAMPLES.length}개의 작업 공간`, `${EXAMPLES.length} workspaces`), 'data-id="examples"'),
-    ui.loginUser ? tile('connect-local', 'play', L('들어가기', 'Enter'), L('이 컴퓨터의 SQLite 파일로 들어갑니다.', 'Enter the SQLite file on this computer.')) : '',
+    ui.loginUser ? tile('connect-local', 'play', L('들어가기', 'Enter'), L('이 컴퓨터의 SQLite 파일로 들어갑니다.', 'Enter the SQLite file on this computer.')) : tile('shuffle-background', 'spark', L('다른 배경', 'Another background'), L('시작 화면 배경을 무작위로 바꿉니다.', 'Pick a random start page background.')),
+    tile('show-welcome', 'spark', L('시작 안내 창', 'Welcome window'), L('처음 안내와 튜토리얼 시작을 다시 봅니다.', 'See the first-run welcome again.')),
+    tile('shortcuts', 'key', L('단축키', 'Shortcuts'), L('자주 쓰는 키를 한눈에 봅니다.', 'Every keyboard shortcut at a glance.')),
+    tile('language', 'globe', L('English', '한국어'), L('화면 언어를 영어로 바꿉니다.', 'Show the program in Korean.')),
+    tile('about', 'info', L('프로그램 정보', 'About'), L('버전과 빌드 정보를 봅니다.', 'Version and build details.')),
   ].join('');
   return `<div class="start-page" data-tab="${esc(tab)}">
     <canvas class="start-bg" aria-hidden="true"></canvas>
     <div class="start-scroll">
       <div class="start-inner">
+        <div class="start-tools">
+          <label class="start-btn start-startup" title="${esc(L('프로그램을 열면 이 시작 화면을 먼저 보여 줍니다', 'Show this start page when the program opens'))}"><input type="checkbox" data-setting="showStartPage" ${settings.showStartPage !== false ? 'checked' : ''}><span>${L('시작할 때 시작 화면 표시', 'Show the start page at launch')}</span></label>
+          <button type="button" class="start-btn" data-action="start-menu" data-id="start-settings" aria-haspopup="true" title="${esc(L('시작 화면에 보일 카드와 안내 창을 고릅니다', 'Choose the cards and the welcome window of the start page'))}">${icon('settings')}<span>${L('시작 화면 설정', 'Start page settings')}</span>${icon('chevronDown')}</button>
+          <button type="button" class="start-btn" data-action="start-arrange" title="${esc(L('카드를 빈틈없이 다시 놓습니다', 'Lay the cards out again without gaps'))}">${icon('columns')}<span>${L('자동 정렬', 'Auto arrange')}</span></button>
+        </div>
         <section class="start-card start-hero">
           <img class="start-icon" src="./icon.png" alt="">
           <div class="start-hero-text">
@@ -198,6 +207,8 @@ export function renderStart(ctx) {
           <div class="start-hero-actions">
             ${heroAccount(ctx)}
             <button type="button" class="button big" data-action="open-guide" data-id="guide">${icon('book')}<span>${L('사용 설명서', 'User guide')}</span></button>
+            <button type="button" class="button big" data-action="open-guide" data-id="tutorial">${icon('file')}<span>${L('튜토리얼 문서', 'Tutorial document')}</span></button>
+            <button type="button" class="button big" data-action="start-menu" data-id="start-help" aria-haspopup="true" title="${esc(L('도움말: 시작 안내 창, 튜토리얼, 튜토리얼 문서, 사용 설명서, WQL 설명서, 단축키, 프로그램 정보', 'Help: welcome window, tutorial, tutorial document, user guide, WQL guide, shortcuts, about'))}">${icon('help')}<span>${L('도움말', 'Help')}</span>${icon('chevronDown')}</button>
             <button type="button" class="button big primary" data-action="start-tutorial" ${ui.connecting ? 'disabled' : ''}>${icon('play')}<span>${L('튜토리얼 시작', 'Start the tutorial')}</span></button>
           </div>
         </section>

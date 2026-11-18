@@ -1,7 +1,8 @@
 // Moving backgrounds for the start page. Twenty-one of them, one for each part of the
 // work: the board, a sprint, the backlog, the roadmap, the calendar, knowledge pages,
 // notes, a queue, the flow, links, people, working hours, checks, milestones, lanes,
-// priority, comments, the archive, a burndown, focus, and the live pulse.
+// priority, comments, the archive, a burndown, focus, the live pulse, a timeline with dependencies,
+// two people writing one page, and a search sweeping over cards.
 // Colours follow the theme. The animation pauses while the window is hidden.
 
 export const BACKGROUNDS = [
@@ -26,6 +27,9 @@ export const BACKGROUNDS = [
   { id: 'burndown', ko: '번다운', en: 'Burndown', icon: 'chart' },
   { id: 'focus', ko: '집중', en: 'Focus', icon: 'spark' },
   { id: 'pulse', ko: '현황', en: 'Pulse', icon: 'dashboard' },
+  { id: 'timeline', ko: '타임라인', en: 'Timeline', icon: 'table' },
+  { id: 'together', ko: '함께 쓰기', en: 'Writing together', icon: 'pencil' },
+  { id: 'finder', ko: '검색', en: 'Search', icon: 'search' },
 ];
 
 export const BACKGROUND_IDS = BACKGROUNDS.map((item) => item.id);
@@ -483,7 +487,92 @@ export class WorkBackground {
       c.fill();
     }
   }
+
+  timeline(c, w, h, time, colors) {
+    // Bars on a time axis, each starting where the one it waits for ends, joined by arrows.
+    const rows = 7;
+    const slide = (time * 18) % (w * 0.1);
+    c.strokeStyle = rgba(colors.text, 0.08);
+    c.lineWidth = 1;
+    for (let x = -slide; x < w; x += w * 0.1) { c.beginPath(); c.moveTo(x, h * 0.12); c.lineTo(x, h * 0.9); c.stroke(); }
+    let end = w * 0.08;
+    for (let i = 0; i < rows; i += 1) {
+      const y = h * (0.16 + i * 0.1);
+      const length = w * (0.12 + 0.06 * ((i * 7) % 3)) * (0.9 + 0.1 * Math.sin(time * 0.6 + i));
+      const start = end + w * 0.01;
+      c.fillStyle = rgba(i % 2 ? colors.accent : colors.chart, 0.42);
+      round(c, start - slide, y, length, h * 0.045, 6);
+      c.fill();
+      if (i > 0) {
+        c.strokeStyle = rgba(colors.text, 0.25);
+        c.beginPath();
+        c.moveTo(end - slide, y - h * 0.055 + h * 0.022);
+        c.lineTo(end - slide + w * 0.005, y - h * 0.055 + h * 0.022);
+        c.lineTo(end - slide + w * 0.005, y + h * 0.022);
+        c.lineTo(start - slide, y + h * 0.022);
+        c.stroke();
+      }
+      end = start + length;
+      if (end > w * 0.92) end = w * 0.08;
+    }
+    const today = w * (0.5 + 0.3 * Math.sin(time * 0.15));
+    c.strokeStyle = rgba('#d93a3a', 0.35);
+    c.setLineDash([6, 5]);
+    c.beginPath(); c.moveTo(today, h * 0.1); c.lineTo(today, h * 0.9); c.stroke();
+    c.setLineDash([]);
+  }
+
+  together(c, w, h, time, colors) {
+    // A page with two writers: lines grow under two blinking cursors of different colours.
+    const left = w * 0.22;
+    const width = w * 0.56;
+    c.fillStyle = rgba(colors.dark ? '#ffffff' : '#ffffff', colors.dark ? 0.05 : 0.5);
+    round(c, left - w * 0.03, h * 0.1, width + w * 0.06, h * 0.8, 14);
+    c.fill();
+    const lines = 12;
+    const writers = [{ line: Math.floor(time * 0.5) % lines, tone: colors.accent }, { line: (Math.floor(time * 0.5) + 6) % lines, tone: '#1f9d55' }];
+    for (let i = 0; i < lines; i += 1) {
+      const y = h * (0.16 + i * 0.058);
+      const full = width * (0.55 + 0.4 * (((i * 37) % 10) / 10));
+      const writer = writers.find((item) => item.line === i);
+      const grow = writer ? full * ((time * 0.5) % 1) : full;
+      c.fillStyle = rgba(writer ? writer.tone : colors.text, writer ? 0.45 : 0.14);
+      round(c, left, y, Math.max(4, grow), h * 0.018, 3);
+      c.fill();
+      if (writer && Math.sin(time * 6) > -0.3) {
+        c.fillStyle = rgba(writer.tone, 0.9);
+        c.fillRect(left + grow + 3, y - h * 0.008, 2, h * 0.034);
+        round(c, left + grow + 6, y - h * 0.03, w * 0.035, h * 0.022, 4);
+        c.fill();
+      }
+    }
+  }
+
+  finder(c, w, h, time, colors) {
+    // Rows of cards; a magnifier drifts over them and the cards it passes light up by kind.
+    const cols = 6;
+    const rows = 4;
+    const lens = { x: w * (0.5 + 0.38 * Math.sin(time * 0.23)), y: h * (0.5 + 0.28 * Math.sin(time * 0.31 + 1)) };
+    const tones = [colors.accent, colors.chart, '#1f9d55', '#f5a524'];
+    for (let r = 0; r < rows; r += 1) {
+      for (let k = 0; k < cols; k += 1) {
+        const x = w * (0.08 + k * 0.145);
+        const y = h * (0.14 + r * 0.19);
+        const near = Math.hypot(x + w * 0.06 - lens.x, y + h * 0.06 - lens.y) < Math.min(w, h) * 0.18;
+        c.fillStyle = rgba(near ? tones[(r + k) % tones.length] : colors.text, near ? 0.45 : 0.08);
+        round(c, x, y, w * 0.12, h * 0.13, 10);
+        c.fill();
+      }
+    }
+    const radius = Math.min(w, h) * 0.11;
+    c.strokeStyle = rgba(colors.accent, 0.7);
+    c.lineWidth = 5;
+    c.beginPath(); c.arc(lens.x, lens.y, radius, 0, Math.PI * 2); c.stroke();
+    c.beginPath(); c.moveTo(lens.x + radius * 0.72, lens.y + radius * 0.72); c.lineTo(lens.x + radius * 1.5, lens.y + radius * 1.5); c.stroke();
+    c.lineWidth = 1;
+  }
 }
+
 
 function round(c, x, y, w, h, r) {
   const radius = Math.min(r, w / 2, h / 2);

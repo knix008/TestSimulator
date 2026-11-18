@@ -66,7 +66,7 @@ export function teamView(ctx) {
     const access = admin ? 'lead' : accessOf(ws, project, me);
     const lead = person(ws, project.leadId);
     const manageProject = admin || access === 'lead' || isTeamLead(team, me);
-    return `<div class="team-project${project.archived ? ' archived' : ''}">
+    return `<div class="team-project open-row${project.archived ? ' archived' : ''}" data-open-project="${esc(project.id)}" title="${esc(L('두 번 누르면 엽니다', 'Double-click to open'))}">
       <div class="team-project-head">${icon('folder')}<b>${esc(project.name)}</b><span class="chip">${esc(project.key)}</span>${accessChip(access)}${project.archived ? `<span class="chip">${icon('box')}${L('보관', 'Archived')}</span>` : ''}</div>
       <div class="team-project-meta">${lead ? `${avatar(lead)}<span>${esc(lead.name)}</span>` : ''}<span class="muted">${L(`이슈 ${(project.issues || []).length}개`, `${(project.issues || []).length} issues`)}</span></div>
       <div class="chips">${methodChips(project)}</div>

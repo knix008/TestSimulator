@@ -131,6 +131,8 @@ fn open_main_window(app: &tauri::AppHandle) -> Result<(), String> {
         .decorations(false)
         .shadow(true)
         .min_inner_size(1100.0, 640.0)
+        // Files dropped on a page (or a .mwf on the window) go to the page itself, not to Tauri.
+        .disable_drag_drop_handler()
         .visible(false);
     let builder = match install_reset {
         Some(token) => builder.initialization_script(format!(
@@ -224,6 +226,45 @@ fn open_browser(url: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Document windows (label `doc-<kind>`): the user's guide, the tutorial document and the WQL guide.
+/// Each is an ordinary window with the system title bar and its own taskbar button, not owned by the main
+/// window; its place and size are remembered (window-state.doc-<kind>.json).
+const DOC_KINDS: &[&str] = &["guide", "tutorial", "wql"];
+
+#[tauri::command]
+fn open_doc_window(app: tauri::AppHandle, kind: String, lang: String, title: String) -> Result<(), String> {
+    if !DOC_KINDS.contains(&kind.as_str()) {
+        return Err(format!("unknown document {kind}"));
+    }
+    let label = format!("doc-{kind}");
+    if let Some(window) = app.get_webview_window(&label) {
+        let _ = window.unminimize();
+        window.show().map_err(|error| error.to_string())?;
+        window.set_focus().map_err(|error| error.to_string())?;
+        return Ok(());
+    }
+    let lang = if lang == "en" { "en" } else { "ko" };
+    let state_path = window_state::state_file(&app).map(|path| path.with_file_name(format!("window-state.{label}.json")));
+    let placement = state_path.as_deref().and_then(|path| window_state::saved_placement(&app, path));
+    let url = WebviewUrl::App(format!("index.html?viewer={kind}&lang={lang}").into());
+    let builder = WebviewWindowBuilder::new(&app, &label, url)
+        .title(title)
+        .resizable(true)
+        .min_inner_size(640.0, 420.0);
+    let builder = match placement {
+        Some((state, scale)) => builder
+            .position(f64::from(state.x) / scale, f64::from(state.y) / scale)
+            .inner_size(f64::from(state.width) / scale, f64::from(state.height) / scale)
+            .maximized(state.maximized),
+        None => builder.inner_size(1180.0, 820.0).center(),
+    };
+    let window = builder.build().map_err(|error| error.to_string())?;
+    if let Some(path) = state_path {
+        window_state::track(&window, path);
+    }
+    Ok(())
+}
+
 #[tauri::command]
 fn open_talk(app: tauri::AppHandle) -> Result<(), String> {
     open_talk_window(&app)
@@ -301,7 +342,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![app_info, set_language, startup_files, read_text_file, write_text_file, workspace_file, open_talk, open_main, open_browser, set_talk_autostart])
+        .invoke_handler(tauri::generate_handler![app_info, set_language, startup_files, read_text_file, write_text_file, workspace_file, open_talk, open_main, open_doc_window, open_browser, set_talk_autostart])
         .build(tauri::generate_context!())
         .expect("error while building MyWorkForce")
         .run(|_app, event| {

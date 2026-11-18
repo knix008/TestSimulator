@@ -7,6 +7,7 @@ import { isWorkspaceAdmin } from '../src/domain/permissions.js';
 import { ensureAdmin, updateProfile, upgradeWorkspace, userByAccount } from '../src/domain/store.js';
 import { checkMessage, inviteMembers, listMessages, listRooms, noticeTarget, openRoom, postFile, postMessage, readFile } from './chat.mjs';
 import { createDatabase } from './engine.mjs';
+import { createLive } from './live.mjs';
 import { checkPassword, hashPassword, openRepository } from './repository.mjs';
 import { schemaScript } from './schema.mjs';
 
@@ -34,6 +35,8 @@ function storeSessions() {
 const sessions = loadSessions();
 
 let repository = null;
+// Pages being written together; tied to the open database.
+let live = null;
 
 function send(res, status, body) {
   const payload = JSON.stringify(body);
@@ -109,8 +112,10 @@ async function connect(config) {
     sessions.clear();
     storeSessions();
   }
+  if (live) await live.flush().catch(() => {});
   if (repository) await repository.close().catch(() => {});
   repository = opened;
+  live = createLive(opened);
   remember(next);
   opened.lastConnect = { createdDatabase, sessionsReset: moved, ...(opened.engine.schemaChanges || {}) };
   return opened;
@@ -316,6 +321,20 @@ const server = createServer(async (req, res) => {
       if (!body.workspace) return send(res, 400, { error: 'file-invalid' });
       await repository.writeWorkspace(body.workspace, body.revision, { trusted: Boolean(signedAdmin(req)) });
       return send(res, 200, { saved: true, revision: repository.cached?.revision || 0 });
+    }
+    if (req.method === 'POST' && (url.pathname === '/api/live/page' || url.pathname === '/api/live/leave')) {
+      // Writing a page together: send what you have, get the merged text and who else is writing.
+      const user = signedUser(req);
+      if (!user) return send(res, 401, { error: 'permission' });
+      if (!live) return send(res, 503, { error: 'connect' });
+      const body = await readBody(req);
+      try {
+        if (url.pathname === '/api/live/leave') return send(res, 200, await live.leave(user, String(body.pageId || '')));
+        return send(res, 200, live.sync(user, body));
+      } catch (error) {
+        const code = error?.message || 'failed';
+        return send(res, code === 'not-found' ? 404 : code === 'permission' ? 403 : 400, { error: code });
+      }
     }
     if (req.method === 'POST' && url.pathname === '/api/unlock') {
       const body = await readBody(req);

@@ -1,6 +1,7 @@
 import { applyRules } from './automation.js';
 import { boardsFor, defaultFilters, defaultGadgets, defaultQueues, freshCatalog, ROLES } from './catalog.js';
 import { deliver, setNotice, upgradeNotices } from './notices.js';
+import { wouldCycle } from './dependencies.js';
 import { allowed, isWorkspaceAdmin, rolesOf } from './permissions.js';
 import { ensureServices } from './services.js';
 import { DEFAULT_METHODS, ensureSpaceScopes, ensureTeams, isTeamMember, upgradeMethods } from './teams.js';
@@ -11,7 +12,7 @@ const ADMIN_PASSWORD = '1ad2eacc16cdeeeb72ee7b81fd6f7bfe:ae787768c29cc63daf18162
 
 const EDITABLE = new Set([
   'summary', 'description', 'environment', 'typeId', 'priorityId', 'assigneeId', 'reporterId',
-  'epicId', 'parentId', 'sprintId', 'storyPoints', 'originalEstimate', 'remainingEstimate', 'due',
+  'epicId', 'parentId', 'sprintId', 'storyPoints', 'originalEstimate', 'remainingEstimate', 'start', 'due',
   'rank', 'resolutionId', 'labels', 'componentIds', 'fixVersionIds', 'affectsVersionIds', 'fields',
 ]);
 
@@ -78,6 +79,7 @@ export function upgradeIssue(issue) {
   issue.resolutionId = issue.resolutionId || '';
   issue.environment = issue.environment || '';
   issue.due = issue.due || '';
+  issue.start = issue.start || '';
   return issue;
 }
 
@@ -345,6 +347,7 @@ export function makeIssue(project, partial, actorId) {
     remainingEstimate: partial.remainingEstimate ?? null,
     timeSpent: partial.timeSpent ?? 0,
     environment: partial.environment || '',
+    start: partial.start || '',
     due: partial.due || '',
     created: partial.created || nowIso(),
     updated: partial.updated || partial.created || nowIso(),
@@ -512,6 +515,8 @@ export function addLink(ws, projectId, fromId, type, toRef, actorId) {
   if (!to) throw new Error('not-found');
   if (to.id === from.id) throw new Error('self-link');
   if (from.links.some((link) => link.type === type && link.direction === 'out' && link.otherId === to.id)) return;
+  // "A blocks B" may not close a loop (B already blocking A, directly or through others).
+  if (type === 'blocks' && wouldCycle(project, from.id, to.id)) throw new Error('dependency-cycle');
   const id = uid('l');
   from.links.push({ id, type, direction: 'out', otherId: to.id });
   to.links.push({ id, type, direction: 'in', otherId: from.id });

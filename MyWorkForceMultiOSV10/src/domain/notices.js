@@ -10,7 +10,34 @@ export const NOTICE_EVENTS = {
 
 export function upgradeNotices(ws) {
   ws.notices = Array.isArray(ws.notices) ? ws.notices : [];
+  ws.inbox = Array.isArray(ws.inbox) ? ws.inbox : [];
   return ws;
+}
+
+/**
+ * The company-wide inbox: notices that belong to no project, such as a mention on a company or team page.
+ * Entries have the same shape as a project's notifications, so the same lists and Talk show them.
+ */
+export function inboxPush(ws, userIds, entry) {
+  ws.inbox = Array.isArray(ws.inbox) ? ws.inbox : [];
+  const at = nowIso();
+  const sent = [];
+  for (const userId of new Set((userIds || []).filter(Boolean))) {
+    if (userId === entry.actorId) continue;
+    const item = { id: uid('n'), userId, read: false, at, issueKey: entry.issueKey || '', ...entry };
+    ws.inbox.unshift(item);
+    sent.push(item);
+  }
+  if (ws.inbox.length > 500) ws.inbox.length = 500;
+  return sent;
+}
+
+export function inboxOf(ws, userId) {
+  return (ws.inbox || []).filter((item) => item.userId === userId);
+}
+
+export function markInboxRead(ws, userId, id = '') {
+  for (const item of ws.inbox || []) if (item.userId === userId && (!id || item.id === id)) item.read = true;
 }
 
 export function noticeOf(ws, userId, scope, targetId) {

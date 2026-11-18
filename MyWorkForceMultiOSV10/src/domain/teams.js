@@ -14,7 +14,7 @@ export const METHODS = [
   { id: 'issues', glyph: 'issues', ko: '이슈 목록', en: 'Issue list', views: ['issues', 'filters'], aboutKo: '이슈를 목록과 질의로 관리합니다.', aboutEn: 'Track work as issues in lists and queries.' },
   { id: 'kanban', glyph: 'board', ko: '칸반', en: 'Kanban', views: ['board'], aboutKo: '열을 따라 카드를 옮기며 흐름을 봅니다.', aboutEn: 'Move cards across columns and watch the flow.' },
   { id: 'scrum', glyph: 'backlog', ko: '스크럼', en: 'Scrum', views: ['backlog', 'board'], aboutKo: '백로그와 스프린트로 일정한 주기를 돕니다.', aboutEn: 'Work in sprints planned from a backlog.' },
-  { id: 'roadmap', glyph: 'roadmap', ko: '로드맵', en: 'Roadmap', views: ['roadmap'], aboutKo: '에픽과 기간을 시간 축에 놓습니다.', aboutEn: 'Lay epics out on a timeline.' },
+  { id: 'roadmap', glyph: 'roadmap', ko: '로드맵', en: 'Roadmap', views: ['roadmap', 'timeline'], aboutKo: '에픽과 이슈를 시간 축에 놓고 의존 관계를 잇습니다.', aboutEn: 'Lay epics and issues out on a timeline with their dependencies.' },
   { id: 'releases', glyph: 'release', ko: '릴리스', en: 'Releases', views: ['releases', 'components'], aboutKo: '버전과 구성 요소로 결과물을 묶습니다.', aboutEn: 'Group the work into versions and components.' },
   { id: 'service', glyph: 'request', ko: '서비스 대기열', en: 'Service queues', views: ['queues', 'portal'], aboutKo: '요청을 대기열과 고객 포털로 받습니다.', aboutEn: 'Take requests through queues and a customer portal.' },
 ];

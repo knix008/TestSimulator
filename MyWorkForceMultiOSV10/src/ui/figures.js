@@ -1,7 +1,32 @@
-import { TUTORIAL } from '../domain/tutorial.js';
 import { esc, L } from './bits.js';
 
 const GUIDE = {
+  시작하기: 'start',
+  'Getting started': 'start',
+  '화면 구성': 'shell',
+  'The window': 'shell',
+  '회사, 팀, 과제': 'home',
+  'Company, teams and projects': 'home',
+  '보드와 백로그': 'board',
+  'Boards and backlog': 'board',
+  '로드맵과 타임라인': 'roadmap',
+  'Roadmap and timeline': 'roadmap',
+  '작업 공간과 페이지': 'knowledge',
+  'Workspaces and pages': 'knowledge',
+  '댓글, 파일, 함께 쓰기': 'knowledge',
+  'Comments, files and writing together': 'knowledge',
+  '전체 검색': 'shell',
+  'Search everything': 'shell',
+  '알림과 Talk': 'shell',
+  'Notifications and Talk': 'shell',
+  'Reviewing the work': 'reports',
+  WQL: 'wql',
+  '파일 메뉴': 'files',
+  'The File menu': 'files',
+  '설정과 관리': 'settings',
+  'Settings and administration': 'settings',
+  '문제 해결': 'shell',
+  Troubleshooting: 'shell',
   시작: 'start',
   Start: 'start',
   '튜토리얼과 예제': 'tutorial',
@@ -34,6 +59,9 @@ const WQL = {
   정렬: 'wql-order',
   Order: 'wql-order',
 };
+
+/** Pictures for the tutorial document's numbered chapters. */
+const TUTORIAL_FIGURES = { 1: 'start', 2: 'tutorial', 3: 'board', 4: 'issues', 5: 'backlog', 6: 'roadmap', 7: 'knowledge', 8: 'knowledge', 9: 'shell', 10: 'home' };
 
 const rect = (x, y, w, h, fill, rx = 4) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${fill}"/>`;
 
@@ -192,18 +220,14 @@ export function figure(id, label, options = {}) {
   return `<figure class="doc-figure"><svg viewBox="0 0 320 150" role="img" aria-label="${esc(label)}">${draw()}</svg>${caption}</figure>`;
 }
 
-/** The tutorial document: every step beside a picture of that screen. */
-export function tutorialDocument() {
-  return `<ol class="start-steps">${TUTORIAL.map((step, index) => `<li class="doc-step">${figure(step.view, L(step.ko, step.en))}<div><b>${index + 1}. ${esc(L(step.ko, step.en))}</b><span>${esc(L(step.bodyKo, step.bodyEn))}</span></div></li>`).join('')}</ol>`;
-}
-
 /** Place a picture beside every section of a rendered guide or query page. */
 export function illustrate(html, kind = 'guide') {
   const map = kind === 'wql' ? WQL : GUIDE;
   const fallback = kind === 'wql' ? 'wql' : 'shell';
   return String(html || '').split(/(?=<h2>)/).filter((chunk) => chunk.trim()).map((chunk) => {
     const title = plain(chunk.match(/<h2>([\s\S]*?)<\/h2>/)?.[1] || '');
-    const id = map[title] || fallback;
+    // The tutorial's chapters are numbered ("3. …"): the number picks the picture.
+    const id = kind === 'tutorial' ? (TUTORIAL_FIGURES[Number(/^(\d+)\./.exec(title)?.[1])] || 'start') : (map[title] || fallback);
     return `<section class="doc-block">${figure(id, title || (kind === 'wql' ? 'WQL' : 'MyWorkForce'))}<div class="doc-copy">${chunk}</div></section>`;
   }).join('');
 }
