@@ -22,7 +22,7 @@ use windows::Win32::Graphics::Gdi::{
 };
 use windows::Win32::Foundation::SIZE;
 use windows::Win32::UI::Shell::{IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF, SIIGBF_RESIZETOFIT, SIIGBF_THUMBNAILONLY};
-use windows::Win32::Storage::FileSystem::{GetFileAttributesW, SetFileAttributesW, FILE_FLAGS_AND_ATTRIBUTES};
+use windows::Win32::Storage::FileSystem::{GetFileAttributesW, SetFileAttributesW, FILE_FLAGS_AND_ATTRIBUTES, WIN32_FIND_DATAW};
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoTaskMemFree, IPersistFile, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED, STGM_READ};
 use windows::Win32::System::Diagnostics::Debug::{ReadProcessMemory, WriteProcessMemory};
 use windows::Win32::System::Memory::{VirtualAllocEx, VirtualFreeEx, MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_READWRITE};
@@ -710,7 +710,9 @@ pub fn read_shortcut(path: &str) -> Option<Link> {
         let w = wide(path);
         file.Load(PCWSTR(w.as_ptr()), STGM_READ).ok()?;
         let mut target = [0u16; 1024];
-        let _ = link.GetPath(&mut target, std::ptr::null_mut(), SLGP_RAWPATH.0 as u32);
+        // 바로가기는 만들 때 대상의 속성도 함께 적어 둔다. 대상이 없어진 뒤에도 폴더였는지 알 수 있다.
+        let mut found = WIN32_FIND_DATAW::default();
+        let _ = link.GetPath(&mut target, &mut found, SLGP_RAWPATH.0 as u32);
         let mut icon = [0u16; 1024];
         let mut index = 0i32;
         let _ = link.GetIconLocation(&mut icon, &mut index);
@@ -720,7 +722,41 @@ pub fn read_shortcut(path: &str) -> Option<Link> {
         }
         // 펼치지 않은 %SystemRoot% 같은 것은 펼친다.
         let target = expand(&target);
-        Some(Link { target, icon: decode_utf16(&icon), icon_index: index })
+        let folder = link_names_folder(&target, found.dwFileAttributes);
+        Some(Link { target, icon: decode_utf16(&icon), icon_index: index, folder })
+    }
+}
+
+// 적힌 속성이 없으면(다른 도구가 만든 바로가기) 지금 있는 것을 보고, 그것도 없으면 확장자로 가린다.
+fn link_names_folder(target: &str, attributes: u32) -> bool {
+    const FILE_ATTRIBUTE_DIRECTORY: u32 = 0x10;
+    if attributes != 0 {
+        return attributes & FILE_ATTRIBUTE_DIRECTORY != 0;
+    }
+    let path = std::path::Path::new(target);
+    if path.exists() {
+        return path.is_dir();
+    }
+    path.extension().is_none()
+}
+
+// 대상이 옮겨졌거나 이름이 바뀌었으면 Windows 의 링크 추적으로 찾아 바로가기를 고친다.
+// 찾지 못하면 None. 묻는 창은 띄우지 않고, 디스크를 뒤지는 찾기도 하지 않는다.
+pub fn resolve_shortcut(path: &str) -> Option<String> {
+    use windows::Win32::UI::Shell::{SLR_NOSEARCH, SLR_NO_UI, SLR_UPDATE};
+    prepare_com();
+    unsafe {
+        let link: IShellLinkW = CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER).ok()?;
+        let file: IPersistFile = link.cast().ok()?;
+        let w = wide(path);
+        file.Load(PCWSTR(w.as_ptr()), STGM_READ).ok()?;
+        // 높은 16비트는 SLR_NO_UI 일 때 기다릴 시간(ms)이다.
+        let flags = (1000u32 << 16) | (SLR_NO_UI.0 | SLR_NOSEARCH.0 | SLR_UPDATE.0) as u32;
+        link.Resolve(HWND(std::ptr::null_mut()), flags).ok()?;
+        let mut target = [0u16; 1024];
+        link.GetPath(&mut target, std::ptr::null_mut(), 0).ok()?;
+        let target = expand(&decode_utf16(&target));
+        (!target.is_empty() && std::path::Path::new(&target).exists()).then_some(target)
     }
 }
 
@@ -1554,6 +1590,13 @@ impl Desktop for WinDesktop {
         read_shortcut(path)
     }
 
+    fn resolve_shortcut(&self, path: &str) -> Option<String> {
+        if !path.to_lowercase().ends_with(".lnk") {
+            return None;
+        }
+        resolve_shortcut(path)
+    }
+
     // 탐색기가 바탕화면에 그리는 이름 그대로 (확장자 감춤, localized 이름까지).
     fn display_name(&self, path: &str) -> String {
         if path.is_empty() {
@@ -1972,6 +2015,54 @@ fn unused(_: BOOL, _: GUID, _: PWSTR, _: HBITMAP) {}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // 탐색기가 만드는 것과 같은 진짜 .lnk 를 임시 폴더에 만든다.
+    fn make_shortcut(at: &str, target: &str) {
+        prepare_com();
+        unsafe {
+            let link: IShellLinkW = CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER).unwrap();
+            let t = wide(target);
+            link.SetPath(PCWSTR(t.as_ptr())).unwrap();
+            let file: IPersistFile = link.cast().unwrap();
+            let w = wide(at);
+            file.Save(PCWSTR(w.as_ptr()), true).unwrap();
+        }
+    }
+
+    #[test]
+    fn shortcuts_remember_whether_they_pointed_at_a_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_string_lossy().to_string();
+        let folder = join(&root, "Projects");
+        let doc = join(&root, "report.txt");
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::write(&doc, "x").unwrap();
+        let (to_folder, to_doc) = (join(&root, "Projects.lnk"), join(&root, "Report.lnk"));
+        make_shortcut(&to_folder, &folder);
+        make_shortcut(&to_doc, &doc);
+        std::fs::remove_dir_all(&folder).unwrap();
+        std::fs::remove_file(&doc).unwrap();
+        let f = read_shortcut(&to_folder).unwrap();
+        let d = read_shortcut(&to_doc).unwrap();
+        assert!(f.folder, "folder shortcut read as a file: {f:?}");
+        assert!(!d.folder, "file shortcut read as a folder: {d:?}");
+        assert_eq!(resolve_shortcut(&to_doc), None, "a deleted file was resolved");
+    }
+
+    #[test]
+    fn a_shortcut_follows_a_renamed_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_string_lossy().to_string();
+        let doc = join(&root, "report.txt");
+        let renamed = join(&root, "report-final.txt");
+        std::fs::write(&doc, "x").unwrap();
+        let link = join(&root, "Report.lnk");
+        make_shortcut(&link, &doc);
+        std::fs::rename(&doc, &renamed).unwrap();
+        let found = resolve_shortcut(&link).expect("link tracking did not find the renamed file");
+        assert!(crate::pathx::same(&found, &renamed), "{found}");
+        assert!(crate::pathx::same(&read_shortcut(&link).unwrap().target, &renamed), "shortcut was not updated");
+    }
 
     #[test]
     fn parses_registry_icon_specs() {

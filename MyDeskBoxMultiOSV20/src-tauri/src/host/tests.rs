@@ -929,26 +929,93 @@ fn a_program_that_comes_back_during_an_update_keeps_its_shortcut() {
 }
 
 #[test]
-fn a_shortcut_broken_before_start_is_kept_while_its_folder_remains() {
+fn a_shortcut_broken_before_start_also_goes_to_the_recycle_bin() {
     let (k, link, exe) = box_with_app_link();
+    // 설치 폴더에 설정과 다른 프로그램이 남아 있어도, 가리키던 것이 없으면 지운 것이다.
+    fs::write(join(&dirname(&exe), "other.exe"), "").unwrap();
     fs::remove_file(&exe).unwrap();
     k.refresh();
+    assert_eq!(k.fence(0).items.len(), 1, "removed before the grace period");
     age_missing(&k, &link);
     k.refresh();
-    assert_eq!(k.fence(0).items.len(), 1, "removed a shortcut never seen working");
-    fs::remove_dir_all(dirname(&exe)).unwrap();
-    k.refresh();
-    assert!(k.fence(0).items.is_empty(), "kept a shortcut whose install folder is gone");
+    assert!(k.fence(0).items.is_empty(), "kept a shortcut whose program is gone");
+    assert_eq!(k.ui.st().trashed, vec![link]);
 }
 
 #[test]
-fn shortcuts_to_documents_or_unreachable_drives_are_never_removed() {
+fn a_shortcut_to_a_deleted_document_goes_to_the_recycle_bin() {
     let dir = room();
     let doc = join(&dir, "report.txt");
-    let k = open_one(json!({ "items": [real_item(&room(), "Report.lnk"), real_item(&room(), "Net.lnk")] }));
+    fs::write(&doc, "").unwrap();
+    let k = open_one(json!({ "items": [real_item(&room(), "Report.lnk")] }));
+    let link = k.fence(0).items[0].path.clone();
+    k.desk.link(&link, &doc);
+    k.refresh();
+    fs::remove_file(&doc).unwrap();
+    k.refresh();
+    assert_eq!(k.fence(0).items.len(), 1, "removed before the grace period");
+    age_missing(&k, &link);
+    k.refresh();
+    assert!(k.fence(0).items.is_empty(), "kept a shortcut whose document is gone");
+    assert_eq!(k.ui.st().trashed, vec![link]);
+}
+
+#[test]
+fn shortcuts_to_folders_stay_even_when_the_folder_is_gone() {
+    let folder = join(&room(), "Projects");
+    fs::create_dir_all(&folder).unwrap();
+    let k = open_one(json!({ "items": [real_item(&room(), "Projects.lnk")] }));
+    let link = k.fence(0).items[0].path.clone();
+    k.desk.link_folder(&link, &folder);
+    k.refresh();
+    fs::remove_dir_all(&folder).unwrap();
+    k.refresh();
+    age_missing(&k, &link);
+    k.refresh();
+    assert_eq!(k.fence(0).items.len(), 1, "removed a folder shortcut");
+    assert!(k.ui.st().trashed.is_empty());
+}
+
+#[test]
+fn a_shortcut_to_a_file_held_in_a_box_is_not_broken() {
+    // 바탕화면의 보고서를 박스에 담으면 바로가기가 가리키던 자리에서 빠진다. 지운 것이 아니다.
+    let desk = room();
+    let doc = join(&desk, "report.txt");
+    let held = real_item(&room(), "report.txt");
+    let k = open_one(json!({ "items": [real_item(&room(), "Report.lnk"), { "name": "report.txt", "path": held["path"], "home": desk }] }));
+    let link = k.fence(0).items.iter().find(|i| i.path.ends_with(".lnk")).unwrap().path.clone();
+    k.desk.link(&link, &doc);
+    age_missing(&k, &link);
+    k.refresh();
+    assert_eq!(k.fence(0).items.len(), 2, "removed a shortcut whose file is only in a box");
+    assert!(k.ui.st().trashed.is_empty());
+}
+
+#[test]
+fn a_shortcut_whose_file_moved_follows_it_instead_of_being_removed() {
+    let dir = room();
+    let doc = join(&dir, "report.txt");
+    let moved = join(&dir, "report-final.txt");
+    fs::write(&moved, "").unwrap();
+    let k = open_one(json!({ "items": [real_item(&room(), "Report.lnk")] }));
+    let link = k.fence(0).items[0].path.clone();
+    k.desk.link(&link, &doc);
+    k.desk.relink(&link, &moved);
+    k.refresh();
+    age_missing(&k, &link);
+    k.refresh();
+    assert_eq!(k.fence(0).items.len(), 1, "removed a shortcut that link tracking could fix");
+    assert!(k.ui.st().trashed.is_empty());
+    k.refresh();
+    assert!(!k.h().link_gone.contains_key(&link), "fixed shortcut still counted as missing");
+}
+
+#[test]
+fn shortcuts_on_unreachable_drives_are_never_removed() {
+    let k = open_one(json!({ "items": [real_item(&room(), "Net.lnk"), real_item(&room(), "Usb.lnk")] }));
     let items = k.fence(0).items.clone();
-    k.desk.link(&items[0].path, &doc);
-    k.desk.link(&items[1].path, "\\\\server\\apps\\tool.exe");
+    k.desk.link(&items[0].path, "\\\\server\\apps\\tool.exe");
+    k.desk.link(&items[1].path, "Q:\\Tools\\tool.exe");
     for item in &items {
         age_missing(&k, &item.path);
     }

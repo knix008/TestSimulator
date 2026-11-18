@@ -36,6 +36,7 @@ pub struct State {
     pub grid: Option<DeskGrid>,
     pub concealed: HashSet<String>,
     pub links: Vec<(String, Link)>,
+    pub resolved: Vec<(String, String)>,
     pub flags: Vec<(String, FileFlags)>,
     pub recycle: i64,
     pub names: Vec<(String, String)>,
@@ -74,6 +75,13 @@ impl FakeDesktop {
     }
     pub fn link(&self, path: &str, target: &str) {
         self.st().links.push((path.to_string(), Link { target: target.to_string(), ..Default::default() }));
+    }
+    pub fn link_folder(&self, path: &str, target: &str) {
+        self.st().links.push((path.to_string(), Link { target: target.to_string(), folder: true, ..Default::default() }));
+    }
+    // 링크 추적이 바로가기를 새 자리로 고친 것처럼.
+    pub fn relink(&self, path: &str, target: &str) {
+        self.st().resolved.push((path.to_string(), target.to_string()));
     }
 }
 
@@ -124,7 +132,14 @@ impl Desktop for FakeDesktop {
         self.st().icon.clone()
     }
     fn shortcut_link(&self, path: &str) -> Option<Link> {
-        self.st().links.iter().find(|(p, _)| p == path).map(|(_, l)| l.clone())
+        self.st().links.iter().rev().find(|(p, _)| p == path).map(|(_, l)| l.clone())
+    }
+    fn resolve_shortcut(&self, path: &str) -> Option<String> {
+        let to = self.st().resolved.iter().find(|(p, _)| p == path).map(|(_, t)| t.clone())?;
+        let mut st = self.st();
+        let old = st.links.iter().rev().find(|(p, _)| p == path).map(|(_, l)| l.clone()).unwrap_or_default();
+        st.links.push((path.to_string(), Link { target: to.clone(), ..old }));
+        Some(to)
     }
     fn display_name(&self, path: &str) -> String {
         self.st().names.iter().find(|(p, _)| p == path).map(|(_, n)| n.clone()).unwrap_or_default()

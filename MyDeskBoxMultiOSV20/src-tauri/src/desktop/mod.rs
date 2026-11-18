@@ -37,6 +37,8 @@ pub struct Link {
     pub target: String,
     pub icon: String,
     pub icon_index: i32,
+    // 폴더를 가리키는가. 대상이 없어진 뒤에도 바로가기에 적힌 속성으로 안다.
+    pub folder: bool,
 }
 
 // 바탕화면 아이콘 격자 (DIP).
@@ -95,6 +97,10 @@ pub trait Desktop: Send + Sync {
         None
     }
     fn shortcut_link(&self, _path: &str) -> Option<Link> {
+        None
+    }
+    // 대상이 옮겨진 바로가기를 고쳐 그 새 자리를 준다. 찾지 못하면 None.
+    fn resolve_shortcut(&self, _path: &str) -> Option<String> {
         None
     }
     fn display_name(&self, _path: &str) -> String {

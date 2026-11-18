@@ -115,8 +115,7 @@ pub struct Host {
     pub(crate) fresh_queue: VecDeque<String>,
     pub(crate) draining: bool,
     pub(crate) last_bin: Option<String>,
-    // 가리키는 프로그램이 있는 것을 본 바로가기, 그리고 그 프로그램이 처음 안 보인 때.
-    pub(crate) link_alive: HashSet<String>,
+    // 가리키는 것이 처음 안 보인 바로가기와 그때.
     pub(crate) link_gone: HashMap<String, f64>,
     pub(crate) next_label: u64,
     pub(crate) seed: u64,
@@ -154,7 +153,6 @@ impl Host {
             fresh_queue: VecDeque::new(),
             draining: false,
             last_bin: None,
-            link_alive: HashSet::new(),
             link_gone: HashMap::new(),
             next_label: 0,
             seed: now_ms() as u64 ^ 0x9e37_79b9_7f4a_7c15,
