@@ -86,6 +86,9 @@ test('Windows 설치 프로그램 — 언어·사용자별 설치·훅·라이�
   const bytes = fs.readFileSync(hookPath);
   assert.deepEqual([...bytes.subarray(0, 3)], [0xef, 0xbb, 0xbf], 'NSIS 훅은 UTF-8 BOM 이어야 한글이 깨지지 않는다');
   const hooks = bytes.toString('utf8');
+  // 언어 선택 창은 지난번 언어가 레지스트리에 있어도 매번 뜨고, 두 언어를 모두 보여 준다.
+  assert.match(hooks, /^!define MUI_LANGDLL_ALWAYSSHOW\s*$/m, '설치 언어 선택 창을 항상 띄운다');
+  assert.match(hooks, /^!define MUI_LANGDLL_ALLLANGUAGES\s*$/m, '코드 페이지와 상관없이 한국어·영어를 모두 보인다');
   // 훅은 Tauri 의 정의보다 먼저 읽히므로 이름을 그대로 적는다 — 설정과 같아야 한다.
   assert.ok(hooks.includes(`!define MC_IDENTIFIER "${conf.identifier}"`));
   assert.ok(hooks.includes(`Uninstall\\${conf.productName}"`), 'Tauri 제거 키 이름이 productName 과 다르다');

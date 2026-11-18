@@ -17,6 +17,16 @@
 
 !include nsDialogs.nsh
 
+; ── 설치 언어 선택 (한국어 / English) ──
+; tauri.conf.json 의 displayLanguageSelector 로 시작할 때 언어 선택 창이 뜨지만,
+; MUI2 는 고른 언어를 HKCU\Software\SHKWON\MyClock "Installer Language" 에 적어 두고
+; 다음 실행부터는 창을 건너뛴다. 매번 고를 수 있게 항상 띄운다 (지난번 언어가 기본 선택).
+!define MUI_LANGDLL_ALWAYSSHOW
+; 시스템 코드 페이지와 맞지 않는 언어도 목록에서 빼지 않는다 (영어 Windows 에서도 한국어 표시).
+!define MUI_LANGDLL_ALLLANGUAGES
+!define MUI_LANGDLL_WINDOWTITLE "MyClock Setup"
+!define MUI_LANGDLL_INFO "설치 언어를 선택하세요.$\r$\nPlease select the installer language."
+
 !define MC_IDENTIFIER "com.shkwon.myclock"
 !define MC_DATA_DIR "MyClockMultiOS"
 !define MC_UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\MyClock"
