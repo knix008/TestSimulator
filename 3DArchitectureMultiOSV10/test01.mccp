@@ -1,0 +1,19 @@
+{
+  "format": "mycodechecker-project",
+  "version": 1,
+  "name": "test01",
+  "key": "test01",
+  "source": ".",
+  "settings": {
+    "mainBranch": "main",
+    "exclusions": [],
+    "excludeDirs": [
+      "assets",
+      "docs",
+      "electron",
+      "python",
+      "sample"
+    ]
+  },
+  "savedAt": "2026-11-13T06:00:29.507Z"
+}
