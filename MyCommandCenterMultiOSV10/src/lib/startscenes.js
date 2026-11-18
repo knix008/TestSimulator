@@ -1,9 +1,9 @@
-// The 20 moving 3D start-screen worlds (src/lib/start3d/) and how fast they play.
+// The 18 moving 3D start-screen worlds (src/lib/start3d/) and how fast they play.
 // One speed scales the camera, the objects and the sky together.
 
 export const START_SCENES = [
   'valley', 'ocean', 'dusk', 'forest', 'lake', 'sunrise', 'mountains', 'dunes', 'rain', 'snow',
-  'aurora', 'stars', 'nebula', 'city', 'fireflies', 'petals', 'embers', 'bokeh', 'ribbons', 'geometry',
+  'aurora', 'stars', 'nebula', 'city', 'fireflies', 'petals', 'embers', 'bokeh',
 ];
 
 export const START_SCENE_DEFAULT = 'valley';

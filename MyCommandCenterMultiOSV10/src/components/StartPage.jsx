@@ -23,8 +23,7 @@ const BEGIN = [
   ['newFolder', 'folderNew', 'new_folder', 'start_new_folder_text'],
   ['search', 'search', 'search', 'start_search_text'],
   ['terminal', 'terminal', 'terminal', 'start_terminal_text'],
-  ['settings', 'settings', 'settings', 'start_settings_text'],
-  ['about', 'info', 'about', 'start_about_text'],
+  ['dockSearch', 'searchDock', 'dock_search', 'start_dock_search_text'],
 ];
 
 const TASKS = [
@@ -38,6 +37,20 @@ const TASKS = [
   ['print', 'print', 'print', 'start_desc_print'],
   ['hotlist', 'star', 'hotlist', 'start_desc_hotlist'],
   ['newTab', 'tabNew', 'tab_new', 'start_desc_tab'],
+  ['newFile', 'fileNew', 'new_file', 'start_desc_new_file'],
+  ['edit', 'edit', 'edit_file', 'start_desc_edit'],
+  ['rename', 'rename', 'ctx_rename', 'start_desc_rename_one'],
+  ['trash', 'trash', 'ctx_trash', 'start_desc_trash'],
+  ['preview', 'image', 'preview', 'start_desc_preview'],
+  ['properties', 'properties', 'ctx_properties', 'start_desc_properties'],
+  ['selectPattern', 'select', 'sel_pattern', 'start_desc_select'],
+  ['swapPanels', 'swap', 'swap_panels', 'start_desc_swap'],
+  ['dirHistory', 'history', 'dir_history', 'start_desc_history'],
+  ['drives', 'drive', 'drives', 'start_desc_drives'],
+  ['splitToggle', 'splitH', 'split_toggle', 'start_desc_split'],
+  ['tabToOther', 'tabs', 'tab_to_other', 'start_desc_tab_other'],
+  ['refresh', 'refresh', 'refresh', 'start_desc_refresh'],
+  ['undo', 'undo', 'undo', 'start_desc_undo'],
 ];
 
 const GRIP = (
@@ -214,6 +227,8 @@ export function StartPage({
   useEffect(() => {
     const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
     board.current = startBoard(boardRef.current, { saved: layout, reduced, onSave: (next) => saveLayout.current?.(next) });
+    // Startup timeline: the first frame with the cards on screen.
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => setTimeout(() => performance.mark?.('cc-start-painted'), 0));
     return () => { board.current?.destroy(); board.current = null; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const name = t('appName');
@@ -228,7 +243,6 @@ export function StartPage({
               <input type="checkbox" checked={showAtLaunch !== false} onChange={(e) => onBackground({ startAtLaunch: e.target.checked })} />
               <span>{t('start_at_launch')}</span>
             </label>
-            <button type="button" className="start-btn" title={t('settings')} onClick={() => onRun('settings')}><Icon name="settings" size={15} /><span>{t('settings')}</span></button>
             <button type="button" className="start-btn" title={t('start_arrange_tip')} onClick={() => board.current?.arrange()}><Icon name="grid" size={15} /><span>{t('start_arrange')}</span></button>
           </div>
           {/* The title card is fixed: always on top, full width, no move handle and no resize corner. */}

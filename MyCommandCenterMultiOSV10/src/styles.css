@@ -125,8 +125,6 @@ button:disabled { cursor: default; opacity: 0.45; }
 .start-swatch[data-scene='petals'], .start-bg[data-scene='petals'] { background: linear-gradient(180deg, #7eb6e0 0%, #f0c0d0 55%, #3a6a32 100%); }
 .start-swatch[data-scene='embers'], .start-bg[data-scene='embers'] { background: linear-gradient(180deg, #1a100c 0%, #c04020 55%, #f0a040 100%); }
 .start-swatch[data-scene='bokeh'], .start-bg[data-scene='bokeh'] { background: linear-gradient(180deg, #101820 0%, #3080a0 50%, #e0c080 100%); }
-.start-swatch[data-scene='ribbons'], .start-bg[data-scene='ribbons'] { background: linear-gradient(135deg, #2040c0 0%, #e04080 50%, #40c0a0 100%); }
-.start-swatch[data-scene='geometry'], .start-bg[data-scene='geometry'] { background: linear-gradient(180deg, #10141c 0%, #4060c0 55%, #e0e8f0 100%); }
 .start-scroll { position: absolute; inset: 0; overflow: auto; }
 /* A moving background behind a board of translucent cards that can be moved and resized (lib/startboard.js). */
 .start { --start-card-alpha: 80%; max-width: 1240px; margin: 0 auto; padding: 12px 20px 14px; display: flex; flex-direction: column; gap: 10px; }
@@ -232,7 +230,7 @@ button:disabled { cursor: default; opacity: 0.45; }
 
 /* Background card (and the settings start-screen tab): scenes, transparency, speed, card opacity. */
 .start-scenes { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 5px; }
-.settings-pane .start-scenes { grid-template-columns: repeat(10, minmax(0, 1fr)); }
+.settings-pane .start-scenes { grid-template-columns: repeat(9, minmax(0, 1fr)); }
 .settings-pane .start-scene { height: 24px; font-size: 11px; padding: 0 6px; }
 .start-swatch { width: 14px; height: 14px; flex: none; border-radius: 4px; border: 1px solid rgba(0, 0, 0, 0.28); }
 .start-launch { margin: 0 0 6px; font-size: 12px; }

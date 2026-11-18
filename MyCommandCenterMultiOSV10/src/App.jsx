@@ -48,6 +48,8 @@ function stripArchiveExt(name) {
 
 const MAX_LOG = 2000;
 const RECENT_DIRS_MAX = 10;   // File › recent folders
+// Start-screen buttons that open a window and leave the start screen in place.
+const START_WINDOW_ACTIONS = new Set(['manual', 'about', 'settings']);
 let logSeq = 0;
 
 // Text of an error for the log tab (the dialog shows the full details).
@@ -183,6 +185,7 @@ export default function App() {
     (async () => {
       // Both at once: the first screen waits for the two of them.
       const [i, saved] = await Promise.all([call('app.info'), call('session.load')]);
+      performance.mark?.('cc-boot-data');   // startup timeline: core answered (see StartPage / startbg marks)
       call('term.shells').then(setShells).catch(() => {});
       setSeparator(i.sep);
       setInfo(i);
@@ -1372,7 +1375,9 @@ export default function App() {
           onRecentClear={() => { saveSession({ recentDirs: [] }); setStatus(t('recent_cleared')); }}
           onRun={(id) => {
             if (id === 'tutorial') { tutSnap.current = { dock: !!session.dockVisible }; setTutorial(true); return; }
-            if (id === 'manual') { onAction('manual'); return; }
+            // The guide, about and settings open their own window over the start screen: the start
+            // screen stays (it does not switch to the file panels).
+            if (START_WINDOW_ACTIONS.has(id)) { onAction(id); return; }
             setStartOpen(false); if (id !== 'files') onAction(id);
           }}
         />

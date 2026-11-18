@@ -4,7 +4,7 @@
 // and light. Every clock runs at its own speed from Settings, so any of them
 // can be slowed, sped up or held while the others keep going.
 import { modelMatrix } from './gl.js';
-import { blossomTree, box, cone, MeshBuilder, pine, roundTree, seeds, solid, SOLID_KINDS, tube } from './meshes.js';
+import { blossomTree, box, cone, MeshBuilder, pine, roundTree, seeds, solid, tube } from './meshes.js';
 import { groundUnder, riverMiddle, TERRAIN, terrainHeight } from './terrain.js';
 
 const TAU = Math.PI * 2;
@@ -507,26 +507,6 @@ const SCENES = {
     },
   },
 
-  ribbons: {
-    build: (kit, rnd) => ({ phase: rnd() * TAU, dust: kit.cloud(seeds(500, 81)) }),
-    draw(k, s, t, tone) {
-      const { c, dark, accent } = tone;
-      const a = s.phase + t.camera * 0.03;
-      const eye = [Math.cos(a) * 30, Math.sin(t.camera * 0.05) * 6, Math.sin(a) * 30];
-      const zenith = dark ? c([0.02, 0.02, 0.06], 0.3) : c([0.84, 0.88, 0.96], 0.2);
-      const horizon = dark ? c([0.1, 0.06, 0.16], 0.4) : c([0.99, 0.95, 0.92], 0.2);
-      const sun = sunDir(0.5, 0.7);
-      k.camera(eye, [0, 0, 0], { fov: 0.95 });
-      k.begin(horizon);
-      k.sky(skyOf({ zenith, horizon, sun, sunColor: [0, 0, 0], sunSize: 0, glow: 0, stars: dark ? 0.3 : 0, space: 1, haze: 0, time: t.sky, spin: t.sky * 0.01 }));
-      const pairs = [[accent, turned(accent)], [[1, 0.55, 0.3], accent], [turned(turned(accent)), [0.95, 0.9, 1]], [[0.3, 0.8, 1], [0.8, 0.3, 1]], [accent, [1, 0.85, 0.4]], [[0.35, 1, 0.75], turned(accent)]];
-      pairs.forEach(([ca, cb], i) => {
-        k.ribbon({ uMode: 0, uIndex: i, uRadius: 9 + (i % 3) * 1.5, uWidth: 2.4, uTime: t.objects, uSun: sun, uColorA: ca, uColorB: cb, uAlpha: dark ? 0.75 : 0.85 }, { blend: dark ? 'add' : 'alpha' });
-      });
-      k.points(s.dust, { uCenter: [0, 0, 0], uBox: [50, 30, 50], uVel: [0.3, 0.5, 0.1], uWobble: [0.8, 0.8, 0.8], uWobbleFreq: 0.4, uTime: t.objects, uSize: 0.08, uTwinkle: 0.6, uColorA: dark ? [1, 1, 1] : accent, uColorB: turned(accent), uAlpha: 0.7 }, { blend: dark ? 'add' : 'alpha' });
-    },
-  },
-
   embers: {
     build(kit, rnd) {
       const ground = { mode: TERRAIN.hills, amp: 4, freq: 0.03, seed: [rnd() * 50, rnd() * 50] };
@@ -661,56 +641,6 @@ const SCENES = {
       k.solid(s.trees, trees, { ground: s.ground });
       k.solid(s.grass, { ...trees, uWind: 0.12 }, { ground: s.ground });
       k.points(s.flies, { uCenter: [eye[0], 1.4, eye[2]], uBox: [44, 3.5, 44], uVel: [0.2, 0, 0.1], uWobble: [1.2, 0.5, 1.2], uWobbleFreq: 0.35, uBlink: 1, uTime: t.objects, uSize: 0.3, uColorA: c([0.85, 1, 0.35], 0.15), uColorB: [1, 0.9, 0.4] });
-    },
-  },
-
-  geometry: {
-    build(kit, rnd) {
-      const solids = SOLID_KINDS.map((kind) => {
-        const b = new MeshBuilder();
-        solid(b, kind, [1, 1, 1], rnd);
-        return kit.mesh(b);
-      });
-      const items = Array.from({ length: 22 }, (_, i) => ({
-        kind: i % SOLID_KINDS.length,
-        orbit: 5 + rnd() * 10,
-        angle: rnd() * TAU,
-        y: 2.5 + rnd() * 7,
-        size: 0.9 + rnd() * 1.4,
-        spin: [0.2 + rnd() * 0.5, 0.1 + rnd() * 0.4, rnd() * 0.3],
-        color: Math.floor(rnd() * 4),
-        phase: rnd() * TAU,
-      }));
-      return { phase: rnd() * TAU, solids, items };
-    },
-    draw(k, s, t, tone) {
-      const { c, dark, accent } = tone;
-      const a = s.phase + t.camera * 0.03;
-      const eye = [Math.cos(a) * 24, 7 + Math.sin(t.camera * 0.06) * 2.5, Math.sin(a) * 24];
-      const zenith = dark ? c([0.05, 0.06, 0.1], 0.3) : c([0.82, 0.85, 0.92], 0.15);
-      const horizon = dark ? c([0.15, 0.15, 0.22], 0.3) : c([0.97, 0.96, 0.95], 0.1);
-      const sun = sunDir(a + 0.8 + t.sky * 0.02, 0.65);
-      const palette = [accent, turned(accent), [1, 0.78, 0.35], dark ? [0.9, 0.92, 0.98] : [0.25, 0.28, 0.35]];
-      const env = { sun, sunColor: [0.85, 0.85, 0.85], ambient: dark ? [0.25, 0.25, 0.32] : [0.45, 0.45, 0.5], fog: horizon, fogRange: [40, 110] };
-      const sky = skyOf({ zenith, horizon, sun, sunColor: [0, 0, 0], sunSize: 0, glow: 0, haze: 0.2, time: t.sky });
-      k.camera(eye, [0, 4.5, 0], { fov: 0.95, level: 0 });
-      const drawSolids = () => {
-        for (const item of s.items) {
-          const ang = item.angle + t.objects * 0.08 * (item.orbit < 9 ? 1 : -0.7);
-          const pos = [Math.cos(ang) * item.orbit, item.y + Math.sin(t.objects * 0.6 + item.phase) * 0.6, Math.sin(ang) * item.orbit];
-          modelMatrix(k.model, pos, t.objects * item.spin[0] + item.phase, t.objects * item.spin[1], t.objects * item.spin[2], item.size);
-          k.solid(s.solids[item.kind], { ...light(env), uTint: palette[item.color], uEmit: 0.12, uRim: scale(mix(accent, [1, 1, 1], 0.5), 0.35) }, { model: k.model });
-        }
-      };
-      k.begin(horizon);
-      k.sky(sky);
-      k.beginMirror();
-      k.sky(sky);
-      drawSolids();
-      k.endMirror();
-      const floor = dark ? c([0.06, 0.06, 0.09], 0.2) : c([0.75, 0.76, 0.8], 0.1);
-      k.water({ uSpan: 240, uWave: 0, uRipple: 0, uTime: t.objects, uSun: sun, uSunColor: [1, 1, 1], uDeep: floor, uShallow: floor, uZenith: zenith, uHorizon: horizon, uFog: horizon, uFogRange: env.fogRange, uMirror: 0.6, uSpec: 0.4, uShine: 400 });
-      drawSolids();
     },
   },
 

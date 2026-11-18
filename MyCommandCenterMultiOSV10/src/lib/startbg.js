@@ -160,10 +160,30 @@ export class StartBackground {
     }
     this.kind = this.choice().scene;
     this.showSnap(this.kind);
-    this.ensureGl();
-    this.resize();
-    this.applySize();
-    this.start();
+    // The start page paints first. Creating the WebGL context (~300 ms on some machines), building the
+    // scene's meshes (~100 ms) and the first draw each run in a task of their own after that paint,
+    // so the cards appear and answer clicks at once while the snapshot / swatch colours stand in.
+    this.cancelBoot();
+    const step = (fn) => { this.boot = setTimeout(() => { this.boot = 0; if (this.wanted && this.host) fn(); }, 0); };
+    this.bootFrame = requestAnimationFrame(() => {
+      this.bootFrame = 0;
+      step(() => {
+        this.ensureGl();
+        if (!this.gl) return;
+        this.resize();
+        step(() => {
+          if (this.kit) { try { this.stateOf(this.kind); } catch { /* draw() reports it */ } }
+          step(() => { this.applySize(); this.start(); });
+        });
+      });
+    });
+  }
+
+  cancelBoot() {
+    if (this.bootFrame) cancelAnimationFrame(this.bootFrame);
+    if (this.boot) clearTimeout(this.boot);
+    this.bootFrame = 0;
+    this.boot = 0;
   }
 
   /** Scene or speed changed. Speeds are read every frame; a new scene or a still picture is applied now. */
@@ -216,6 +236,7 @@ export class StartBackground {
     if (!this.captured.has(this.kind) && (!this.running || now - this.shownAt > SNAP_AFTER_MS)) this.saveSnap(this.kind);
     if (this.canvas.classList.contains('is-pending')) {
       this.canvas.classList.remove('is-pending');
+      performance.mark?.('cc-start-bg-shown');
       if (this.snap) setTimeout(() => this.dropSnap(), 450);   // after the canvas's fade-in
     }
   }
@@ -307,6 +328,7 @@ export class StartBackground {
 
   dispose() {
     this.wanted = false;
+    this.cancelBoot();
     this.stop();
     this.themeWatch?.disconnect();
     this.resizeObserver?.disconnect();

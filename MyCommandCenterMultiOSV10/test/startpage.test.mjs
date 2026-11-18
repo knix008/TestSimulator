@@ -93,8 +93,8 @@ function LiveStart({ recent = [], initial = {}, log }) {
 }
 
 test('twenty moving 3D worlds, and a missing choice falls back to the valley', () => {
-  assert.equal(START_SCENES.length, 20);
-  assert.equal(new Set(START_SCENES).size, 20);
+  assert.equal(START_SCENES.length, 18);
+  assert.equal(new Set(START_SCENES).size, 18);
   assert.equal(startSceneId('nope'), 'valley');
   assert.equal(startSceneId('ocean'), 'ocean');
   for (const id of START_SCENES) {
@@ -155,7 +155,7 @@ test('the start page lists the ways to begin, the tasks, and at most ten recent 
     assert.ok(buttonNamed(begin, '튜토리얼'));
     assert.ok(buttonNamed(begin, '사용 설명'));
     assert.ok(buttonNamed(begin, '파일 관리'));
-    assert.equal(begin.querySelectorAll('button').length, 9);
+    assert.equal(begin.querySelectorAll('button').length, 8);
     const tasks = view.host.querySelector('.task-grid');
     for (const name of ['복사', '이동', '압축', '압축 해제', '다중 이름 바꾸기', '폴더 비교', '보기', '인쇄', '즐겨찾는 폴더', '새 탭']) {
       assert.ok(buttonNamed(tasks, name), name);
@@ -203,6 +203,10 @@ test('choosing a landscape, transparency and speed updates the page and leaves t
     assert.equal(bg().getAttribute('data-scene'), 'valley');
     assert.equal(bg().style.getPropertyValue('--start-opacity'), '0.55');
     assert.ok(bg().classList.contains('is-still'));
+    // The 3D picture starts after the page has painted (lib/startbg.js show()), not in the same task.
+    assert.equal(bg().querySelector('canvas'), null);
+    assert.equal(bg().classList.contains('start-bg-fallback'), false);
+    await act(async () => { await new Promise((r) => setTimeout(r, 120)); });
     assert.ok(bg().querySelector('canvas') || bg().classList.contains('start-bg-fallback'));
     assert.ok(buttonNamed(view.host, '계곡').classList.contains('on'));
 
@@ -530,6 +534,27 @@ test('the title card shows the name with a small version beside it and groups th
     assert.equal(docs.querySelector('.primary'), null);
     assert.equal(page.host.querySelector('[data-card="scenes"] .start-card-note').textContent, String(START_SCENES.length));
     assert.equal(page.host.querySelectorAll('.start-speed-label svg').length, 3);
+  } finally {
+    await page.unmount();
+  }
+});
+
+test('the guide, about and settings buttons open their window and keep the start screen', () => {
+  const app = fs.readFileSync(path.join(rootDir, 'src/App.jsx'), 'utf8');
+  assert.match(app, /START_WINDOW_ACTIONS = new Set\(\['manual', 'about', 'settings'\]\)/);
+  assert.match(app, /if \(START_WINDOW_ACTIONS\.has\(id\)\) \{ onAction\(id\); return; \}/);
+});
+
+test('the tasks card holds 24 tasks (four full rows) and the arrange button is "자동 정렬"', async () => {
+  setLanguage('ko');
+  const page = await mount(React.createElement(StartPage, { onBackground() {}, onRun() {} }));
+  try {
+    const tasks = page.host.querySelectorAll('[data-card="tasks"] .task-card');
+    assert.equal(tasks.length, 24);
+    for (const tile of tasks) assert.doesNotMatch(tile.textContent, /start_desc_|undefined/);
+    assert.equal(page.host.querySelector('[data-card="tasks"] .start-card-note').textContent, '24');
+    assert.ok(buttonNamed(page.host.querySelector('.start-tools'), '자동 정렬'));
+    assert.equal(page.host.querySelectorAll('.start-scene').length, 18);
   } finally {
     await page.unmount();
   }
