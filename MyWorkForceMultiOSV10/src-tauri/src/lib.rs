@@ -365,12 +365,12 @@ async fn print_pages_to_pdf(window: tauri::WebviewWindow, job: printing::PrintJo
 }
 
 #[tauri::command]
-fn open_talk(app: tauri::AppHandle) -> Result<(), String> {
+async fn open_talk(app: tauri::AppHandle) -> Result<(), String> {
     open_talk_window(&app)
 }
 
 #[tauri::command]
-fn open_main(app: tauri::AppHandle) -> Result<(), String> {
+async fn open_main(app: tauri::AppHandle) -> Result<(), String> {
     open_main_window(&app)
 }
 
