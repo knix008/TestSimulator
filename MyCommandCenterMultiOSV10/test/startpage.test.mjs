@@ -502,10 +502,15 @@ test('every icon is drawn in a colour of its own, brighter on dark themes, with 
   assert.equal(hasWash('folder'), true);
   assert.equal(hasWash('close'), false);
   assert.equal(hasWash('regex'), false);
-  const css = document.getElementById('cc-icon-colors').textContent;
-  assert.match(css, /:where\(svg\[data-tone="red"\]\)\{color:#f87171\}/);
-  assert.match(css, /:where\(\[data-mode="light"\] svg\[data-tone="red"\]\)\{color:#dc2626\}/);
-  assert.match(css, /svg\[data-wash\]/);
+  // The rules are in styles.css, word for word what ICON_TONES gives: the installed app's CSP blocks a
+  // <style> element added at run time, so the colours must not come from one.
+  const { iconToneCss } = await import('../src/components/Icons.jsx');
+  const sheet = fs.readFileSync(path.join(rootDir, 'src/styles.css'), 'utf8').replace(/\r\n/g, '\n');
+  for (const line of iconToneCss().split('\n')) assert.ok(sheet.includes(line), `styles.css lacks: ${line}`);
+  assert.match(iconToneCss(), /:where\(svg\[data-tone="red"\]\) \{ color: #f87171; \}/);
+  assert.match(iconToneCss(), /:where\(\[data-mode="light"\] svg\[data-tone="red"\]\) \{ color: #dc2626; \}/);
+  const iconsSrc = fs.readFileSync(path.join(rootDir, 'src/components/Icons.jsx'), 'utf8');
+  assert.doesNotMatch(iconsSrc, /createElement\(['"]style['"]\)/);
   const view = await mount(React.createElement('div', null,
     React.createElement(Icon, { name: 'folder' }),
     React.createElement(Icon, { name: 'close' }),

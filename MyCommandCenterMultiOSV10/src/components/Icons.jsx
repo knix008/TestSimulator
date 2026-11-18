@@ -148,16 +148,16 @@ export function hasWash(name) {
   return shape.type === 'path' && /[zZ]\s*$/.test(shape.props.d || '');
 }
 
-// Installed once per page (every window that draws an icon imports this module).
-if (typeof document !== 'undefined' && !document.getElementById('cc-icon-colors')) {
-  const style = document.createElement('style');
-  style.id = 'cc-icon-colors';
-  style.textContent = [
-    ...Object.entries(ICON_TONES).map(([tone, [dark]]) => `:where(svg[data-tone="${tone}"]){color:${dark}}`),
-    ...Object.entries(ICON_TONES).map(([tone, [, light]]) => `:where([data-mode="light"] svg[data-tone="${tone}"]){color:${light}}`),
-    ':where(svg[data-wash]) > :where(:first-child){fill:color-mix(in srgb, currentColor 16%, transparent)}',
+// The colour rules live in styles.css ("icon tones"), written out from ICON_TONES by iconToneCss() and
+// kept equal by test/startpage.test.mjs. They are NOT added with a <style> element at run time: the
+// installed app's CSP carries hashes, so 'unsafe-inline' is ignored and such an element is blocked
+// (every icon then took the text colour). A stylesheet file is always allowed.
+export function iconToneCss() {
+  return [
+    ...Object.entries(ICON_TONES).map(([tone, [dark]]) => `:where(svg[data-tone="${tone}"]) { color: ${dark}; }`),
+    ...Object.entries(ICON_TONES).map(([tone, [, light]]) => `:where([data-mode="light"] svg[data-tone="${tone}"]) { color: ${light}; }`),
+    ':where(svg[data-wash]) > :where(:first-child) { fill: color-mix(in srgb, currentColor 16%, transparent); }',
   ].join('\n');
-  (document.head || document.documentElement).appendChild(style);
 }
 
 // Flags for the language toggle (the flag of the language you switch TO).
