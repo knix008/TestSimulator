@@ -166,6 +166,9 @@ async function call(path, options = {}) {
   if (!response.ok) {
     const error = new Error(data.error || 'connect');
     error.detail = data.detail || '';
+    // What else the service said (a failed sign-in: tries left, or until when the account waits).
+    error.info = data;
+    error.status = response.status;
     throw error;
   }
   return data;
@@ -203,6 +206,15 @@ export function logoutSession() {
 export const unlockData = (userId, password) => call('/api/unlock', { method: 'POST', body: JSON.stringify({ userId, password }) });
 export const changeOwnPassword = (current, next) => call('/api/account/password', { method: 'POST', body: JSON.stringify({ current, next }) });
 export const setUserPassword = (userId, password, mustChange = true) => call('/api/users/password', { method: 'POST', body: JSON.stringify({ userId, password, mustChange }) });
+export const testConnection = (config) => call('/api/connect/test', { method: 'POST', body: JSON.stringify(config || { engine: 'sqlite' }) });
+export const encryptionKey = () => call('/api/encryption?reveal=1');
+export const signInLocks = () => call('/api/lockouts');
+/** The audit log, newest first: { category, action, actor, from, to, q, limit }. */
+export const auditLog = (filter = {}) => {
+  const query = new URLSearchParams(Object.entries(filter).filter(([, value]) => value !== '' && value != null).map(([key, value]) => [key, String(value)]));
+  return call(`/api/audit${query.toString() ? `?${query}` : ''}`);
+};
+export const releaseSignInLock = (account) => call('/api/lockouts', { method: 'POST', body: JSON.stringify({ account }) });
 export const schemaStatus = () => call('/api/schema');
 export const upgradeSchema = () => call('/api/schema', { method: 'POST', body: JSON.stringify({ action: 'upgrade' }) });
 export const schemaSql = (engine) => call(`/api/schema/sql?engine=${encodeURIComponent(engine || '')}`);

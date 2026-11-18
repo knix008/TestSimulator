@@ -7,7 +7,11 @@ export const ROLE_PERMISSIONS = {
 };
 
 export function isWorkspaceAdmin(user) {
-  return String(user?.login || '').toLowerCase() === 'admin' && user?.active !== false;
+  if (!user || user.active === false) return false;
+  // The administrator is marked, so the administrator may change their ID. A workspace from before
+  // the mark knew the administrator by the ID "admin" (upgradeWorkspace sets the mark).
+  if (typeof user.admin === 'boolean') return user.admin;
+  return String(user.login || '').toLowerCase() === 'admin';
 }
 
 /** Ancestors from the nearest parent upward. A broken or repeated link stops the walk. */

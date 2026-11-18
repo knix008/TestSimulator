@@ -1,7 +1,8 @@
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { describeMail, webhookPayload } from '../src/domain/services.js';
+import { isWorkspaceAdmin } from '../src/domain/permissions.js';
 import { postNotice } from './chat.mjs';
-import { loadPrivacyKey, openUsers, openValue, seal, sealUsers } from './privacy.mjs';
+import { checkMatches, keyFingerprint, loadPrivacyKey, openUsers, openValue, seal, sealCheck, sealUsers } from './privacy.mjs';
 import { ensureSchema, inspectSchema, openEngine } from './engine.mjs';
 
 export function hashPassword(password) {
@@ -53,7 +54,8 @@ export class Repository {
   async readWorkspace() {
     const rows = rowsOf(await this.engine.query('SELECT body FROM workspace_document WHERE id = ?', ['main']));
     if (!rows[0]?.body) return null;
-    const ws = JSON.parse(rows[0].body);
+    // Sealed with the database's key; a body from before encryption is plain JSON and is sealed at the next save.
+    const ws = JSON.parse(openValue(rows[0].body, this.privacyKey));
     openUsers(ws.users, this.privacyKey);
     for (const message of ws.mailOutbox || []) message.to = openValue(message.to, this.privacyKey);
     return ws;
@@ -79,10 +81,15 @@ export class Repository {
       if (older && older !== user) {
         user.passwordHash = older.passwordHash || '';
         user.mustChangePassword = Boolean(older.mustChangePassword);
-        if (!trusted) user.login = older.login || '';
+        if (!trusted) {
+          user.login = older.login || '';
+          // Who is administrator is the administrator's to decide.
+          user.admin = isWorkspaceAdmin(older);
+        }
       } else if (!older && !trusted) {
         delete user.passwordHash;
         user.mustChangePassword = false;
+        user.admin = false;
       }
       const login = String(user.login || '').toLowerCase();
       if (login) {
@@ -90,10 +97,20 @@ export class Repository {
         taken.add(login);
       }
     }
-    if (!trusted && previous && !(ws.users || []).some((user) => String(user.login || '').toLowerCase() === 'admin')) {
-      // The administrator account cannot be removed by someone else's save.
-      const admin = previous.users?.find((user) => String(user.login || '').toLowerCase() === 'admin');
-      if (admin) ws.users.push(structuredClone(admin));
+    if (!trusted && previous) {
+      // An administrator account cannot be removed by someone else's save.
+      for (const admin of (previous.users || []).filter((user) => user.admin === true || (typeof user.admin !== 'boolean' && isWorkspaceAdmin(user)))) {
+        if (!(ws.users || []).some((user) => user.id === admin.id)) ws.users.push(structuredClone(admin));
+      }
+    }
+    if (previous && (previous.users || []).some((user) => isWorkspaceAdmin(user)) && !(ws.users || []).some((user) => isWorkspaceAdmin(user))) {
+      // Somebody must still be able to run the company.
+      throw new Error('admin-required');
+    }
+    if (!trusted && previous) {
+      // The sign-in lock policy is the administrator's to change.
+      if (previous.security) ws.security = structuredClone(previous.security);
+      else delete ws.security;
     }
     if (ws.mail && typeof ws.mail === 'object' && !ws.mail.password && previous?.mail?.password) {
       ws.mail.password = previous.mail.password;
@@ -122,36 +139,37 @@ export class Repository {
     const stored = structuredClone(ws);
     sealUsers(stored.users, this.privacyKey);
     for (const message of stored.mailOutbox || []) message.to = seal(message.to, this.privacyKey);
+    const lock = (value) => seal(value == null ? '' : String(value), this.privacyKey);
     await this.engine.transaction(async (query) => {
       await query('DELETE FROM workspace_document WHERE id = ?', ['main']);
-      await query('INSERT INTO workspace_document (id, body, saved_at) VALUES (?, ?, ?)', ['main', JSON.stringify(stored), savedAt]);
+      await query('INSERT INTO workspace_document (id, body, saved_at) VALUES (?, ?, ?)', ['main', lock(JSON.stringify(stored)), savedAt]);
       await query('DELETE FROM documents', []);
       for (const doc of ws.documents || []) {
-        await query('INSERT INTO documents (id, project_id, template_id, title, body, author_id, visibility, issue_key, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [doc.id, doc.projectId || '', doc.templateId || '', doc.title || '', doc.body || '', doc.authorId || '', doc.visibility || 'private', doc.issueKey || '', doc.updated || savedAt]);
+        await query('INSERT INTO documents (id, project_id, template_id, title, body, author_id, visibility, issue_key, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [doc.id, doc.projectId || '', doc.templateId || '', lock(doc.title), lock(doc.body), doc.authorId || '', doc.visibility || 'private', doc.issueKey || '', doc.updated || savedAt]);
       }
       await query('DELETE FROM articles', []);
       for (const article of ws.articles || []) {
-        await query('INSERT INTO articles (id, project_id, title, body, published, author_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)', [article.id, article.projectId || '', article.title || '', article.body || '', article.published === false ? 0 : 1, article.authorId || '', article.updated || savedAt]);
+        await query('INSERT INTO articles (id, project_id, title, body, published, author_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)', [article.id, article.projectId || '', lock(article.title), lock(article.body), article.published === false ? 0 : 1, article.authorId || '', article.updated || savedAt]);
       }
       await query('DELETE FROM calendars', []);
       for (const calendar of ws.calendars || []) {
-        await query('INSERT INTO calendars (id, name, timezone, week_json, holidays_json) VALUES (?, ?, ?, ?, ?)', [calendar.id, calendar.name || '', calendar.timezone || '', JSON.stringify(calendar.week || {}), JSON.stringify(calendar.holidays || [])]);
+        await query('INSERT INTO calendars (id, name, timezone, week_json, holidays_json) VALUES (?, ?, ?, ?, ?)', [calendar.id, lock(calendar.name), calendar.timezone || '', lock(JSON.stringify(calendar.week || {})), lock(JSON.stringify(calendar.holidays || []))]);
       }
       await query('DELETE FROM approvals', []);
       for (const approval of ws.approvals || []) {
-        await query('INSERT INTO approvals (id, project_id, issue_id, status_id, requester_id, approver_id, state, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [approval.id, approval.projectId || '', approval.issueId || '', approval.statusId || '', approval.requesterId || '', approval.approverId || '', approval.state || '', approval.comment || '', approval.created || savedAt]);
+        await query('INSERT INTO approvals (id, project_id, issue_id, status_id, requester_id, approver_id, state, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [approval.id, approval.projectId || '', approval.issueId || '', approval.statusId || '', approval.requesterId || '', approval.approverId || '', approval.state || '', lock(approval.comment), approval.created || savedAt]);
       }
       await query('DELETE FROM webhooks', []);
       for (const hook of ws.webhooks || []) {
-        await query('INSERT INTO webhooks (id, url, events, secret, enabled) VALUES (?, ?, ?, ?, ?)', [hook.id, hook.url || '', (hook.events || []).join(','), hook.secret || '', hook.enabled === false ? 0 : 1]);
+        await query('INSERT INTO webhooks (id, url, events, secret, enabled) VALUES (?, ?, ?, ?, ?)', [hook.id, lock(hook.url), (hook.events || []).join(','), lock(hook.secret), hook.enabled === false ? 0 : 1]);
       }
       await query('DELETE FROM mail_outbox', []);
       for (const message of stored.mailOutbox || []) {
-        await query('INSERT INTO mail_outbox (id, to_addr, subject, body, state, created_at) VALUES (?, ?, ?, ?, ?, ?)', [message.id, message.to || '', message.subject || '', message.body || '', message.state || 'queued', message.created || savedAt]);
+        await query('INSERT INTO mail_outbox (id, to_addr, subject, body, state, created_at) VALUES (?, ?, ?, ?, ?, ?)', [message.id, message.to || '', lock(message.subject), lock(message.body), message.state || 'queued', message.created || savedAt]);
       }
       await query('DELETE FROM api_tokens', []);
       for (const token of ws.apiTokens || []) {
-        await query('INSERT INTO api_tokens (id, name, token, created_at) VALUES (?, ?, ?, ?)', [token.id, token.name || '', token.token || '', token.created || savedAt]);
+        await query('INSERT INTO api_tokens (id, name, token, created_at) VALUES (?, ?, ?, ?)', [token.id, lock(token.name), lock(token.token), token.created || savedAt]);
       }
       await query('DELETE FROM accounts', []);
       for (const user of stored.users || []) {
@@ -160,7 +178,7 @@ export class Repository {
       await query('DELETE FROM issue_index', []);
       for (const project of ws.projects || []) {
         for (const issue of project.issues || []) {
-          await query('INSERT INTO issue_index (id, project_id, issue_key, summary, type_id, status_id, assignee_id) VALUES (?, ?, ?, ?, ?, ?, ?)', [issue.id, project.id, issue.key || '', issue.summary || '', issue.typeId || '', issue.statusId || '', issue.assigneeId || '']);
+          await query('INSERT INTO issue_index (id, project_id, issue_key, summary, type_id, status_id, assignee_id) VALUES (?, ?, ?, ?, ?, ?, ?)', [issue.id, project.id, issue.key || '', lock(issue.summary), issue.typeId || '', issue.statusId || '', issue.assigneeId || '']);
         }
       }
       await query('DELETE FROM app_meta WHERE meta_key = ?', ['cursors']);
@@ -332,10 +350,72 @@ export class Repository {
   async close() { await this.engine.close(); }
 }
 
+/**
+ * Whether `key` is the key this database is sealed with:
+ *   'new'      — nothing stored yet (the key is written at the first connection)
+ *   'match'    — the check value opens
+ *   'legacy'   — stored before the check value existed, and the sealed values that are there open
+ *   'mismatch' — sealed by another data service's key
+ */
+export async function keyState(engine, key) {
+  let check = '';
+  try { check = rowsOf(await engine.query('SELECT meta_value FROM app_meta WHERE meta_key = ?', ['key_check']))[0]?.meta_value || ''; }
+  catch { return 'new'; }
+  if (check) return checkMatches(check, key) ? 'match' : 'mismatch';
+  let text = '';
+  try { text = rowsOf(await engine.query('SELECT body FROM workspace_document WHERE id = ?', ['main']))[0]?.body || ''; }
+  catch { return 'new'; }
+  if (!text) return 'new';
+  const sample = text.startsWith('mwf1:') ? text : (String(text).match(/"(mwf1:[A-Za-z0-9+/=]+)"/) || [])[1];
+  if (!sample) return 'legacy';
+  try { openValue(sample, key); return 'legacy'; } catch { return 'mismatch'; }
+}
+
+/** Seals what an older database kept as plain text (chat), once. The workspace is sealed at its next save. */
+async function sealLegacy(engine, key) {
+  const lock = (value) => seal(value == null ? '' : String(value), key);
+  const plain = (value) => value != null && value !== '' && !String(value).startsWith('mwf1:');
+  const lower = (record) => Object.fromEntries(Object.entries(record || {}).map(([name, value]) => [name.toLowerCase(), value]));
+  for (const item of rowsOf(await engine.query('SELECT id, body, file_name FROM chat_messages', [])).map(lower)) {
+    if (plain(item.body) || plain(item.file_name)) await engine.query('UPDATE chat_messages SET body = ?, file_name = ? WHERE id = ?', [plain(item.body) ? lock(item.body) : item.body, plain(item.file_name) ? lock(item.file_name) : item.file_name, item.id]);
+  }
+  for (const item of rowsOf(await engine.query('SELECT id, name, data FROM chat_files', [])).map(lower)) {
+    if (plain(item.data) || plain(item.name)) await engine.query('UPDATE chat_files SET name = ?, data = ? WHERE id = ?', [plain(item.name) ? lock(item.name) : item.name, plain(item.data) ? lock(item.data) : item.data, item.id]);
+  }
+  for (const item of rowsOf(await engine.query('SELECT id, name FROM chat_rooms', [])).map(lower)) {
+    if (plain(item.name)) await engine.query('UPDATE chat_rooms SET name = ? WHERE id = ?', [lock(item.name), item.id]);
+  }
+}
+
 export async function openRepository(config) {
   const engine = await openEngine(config);
   const privacyKey = config.privacyKey || (config.dataDir ? loadPrivacyKey(config.dataDir) : randomBytes(32));
+  let state;
+  try {
+    state = await keyState(engine, privacyKey);
+    if (state === 'mismatch') {
+      // Another data service sealed this database: its key must be imported, or nothing could be read.
+      const error = new Error('key-mismatch');
+      error.detail = keyFingerprint(privacyKey);
+      throw error;
+    }
+  } catch (error) {
+    await engine.close().catch(() => {});
+    throw error;
+  }
+  engine.privacyKey = privacyKey;
   const repository = new Repository(engine, config, privacyKey);
   await repository.prepare();
+  if (state !== 'match') {
+    if (state === 'legacy') {
+      await sealLegacy(engine, privacyKey);
+      if (repository.cached) await repository.writeWorkspace(repository.cached);
+    }
+    await engine.transaction(async (query) => {
+      await query('DELETE FROM app_meta WHERE meta_key = ?', ['key_check']);
+      await query('INSERT INTO app_meta (meta_key, meta_value) VALUES (?, ?)', ['key_check', sealCheck(privacyKey)]);
+    });
+  }
+  repository.keyFingerprint = keyFingerprint(privacyKey);
   return repository;
 }

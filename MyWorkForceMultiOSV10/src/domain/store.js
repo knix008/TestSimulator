@@ -123,7 +123,7 @@ export function upgradeWorkspace(data) {
   ws.groups = Array.isArray(ws.groups) ? ws.groups : [];
   ws.projects = Array.isArray(ws.projects) ? ws.projects : [];
   if (!ws.users.length) {
-    const admin = { id: uid('u'), name: '관리자', login: 'admin', email: '', active: true, passwordHash: ADMIN_PASSWORD };
+    const admin = { id: uid('u'), name: '관리자', login: 'admin', email: '', active: true, admin: true, passwordHash: ADMIN_PASSWORD };
     ws.users.push(admin);
     ws.currentUserId = admin.id;
   }
@@ -142,18 +142,43 @@ export function upgradeWorkspace(data) {
   return ws;
 }
 
+/**
+ * Every workspace has an administrator, marked with `admin: true` (the ID is free to change). A workspace
+ * from before the mark gets it on the account with the ID "admin". Only a workspace with no administrator
+ * at all — a new installation — gets the first account, admin / admin, which must change its password.
+ */
 export function ensureAdmin(ws) {
   let changed = false;
-  let admin = (ws.users || []).find((user) => String(user.login || '').toLowerCase() === 'admin');
-  if (!admin) admin = (ws.users || []).find((user) => user.name === '관리자' || String(user.name || '').toLowerCase() === 'admin');
-  if (!admin) {
-    ws.users.push({ id: 'u-admin', name: '관리자', login: 'admin', email: '', active: true, passwordHash: ADMIN_PASSWORD });
-    return true;
+  const users = ws.users || (ws.users = []);
+  const unmarked = (user) => typeof user.admin !== 'boolean';
+  let admins = users.filter((user) => user.admin === true);
+  if (!admins.length) {
+    const legacy = users.find((user) => unmarked(user) && String(user.login || '').toLowerCase() === 'admin')
+      || users.find((user) => unmarked(user) && !user.login && (user.name === '관리자' || String(user.name || '').toLowerCase() === 'admin'));
+    if (legacy) {
+      legacy.admin = true;
+      if (!legacy.login) legacy.login = 'admin';
+      admins = [legacy];
+      changed = true;
+    }
   }
-  if (admin.login !== 'admin') { admin.login = 'admin'; changed = true; }
+  if (!admins.length) {
+    const taken = new Set(users.map((user) => String(user.login || '').toLowerCase()));
+    let login = 'admin';
+    for (let n = 2; taken.has(login); n += 1) login = `admin${n}`;
+    const first = { id: users.some((user) => user.id === 'u-admin') ? uid('u') : 'u-admin', name: '관리자', login, email: '', active: true, admin: true, passwordHash: ADMIN_PASSWORD };
+    users.push(first);
+    admins = [first];
+    changed = true;
+  }
+  for (const user of users) {
+    if (unmarked(user)) { user.admin = false; changed = true; }
+  }
+  const admin = admins[0];
   if (!admin.name) { admin.name = '관리자'; changed = true; }
   if (!admin.passwordHash && !admin.hasPassword) { admin.passwordHash = ADMIN_PASSWORD; changed = true; }
-  if (admin.active === false) { admin.active = true; changed = true; }
+  // At least one administrator can always sign in.
+  if (!admins.some((user) => user.active !== false)) { admin.active = true; changed = true; }
   return changed;
 }
 
@@ -737,7 +762,7 @@ export function updateProfile(ws, userId, input, actorId) {
 
 /**
  * Sets a person's login ID (administrator only). IDs are 2-32 letters, digits, '.', '_' or '-', unique
- * regardless of case; "admin" belongs to the administrator account and nobody else.
+ * regardless of case. The administrator's own ID can change as well.
  */
 export function setLogin(ws, userId, login, actorId) {
   const actor = (ws.users || []).find((item) => item.id === actorId);
@@ -746,11 +771,20 @@ export function setLogin(ws, userId, login, actorId) {
   if (!user) throw new Error('not-found');
   const next = String(login || '').trim();
   if (!/^[A-Za-z0-9._-]{2,32}$/.test(next)) throw new Error('login-invalid');
-  const isAdmin = String(user.login || '').toLowerCase() === 'admin';
-  if (isAdmin && next.toLowerCase() !== 'admin') throw new Error('login-admin');
-  if (!isAdmin && next.toLowerCase() === 'admin') throw new Error('duplicate-login');
+  // The administrator may change their ID too: being administrator is a mark, not the ID "admin".
   if ((ws.users || []).some((item) => item.id !== user.id && String(item.login || '').toLowerCase() === next.toLowerCase())) throw new Error('duplicate-login');
   user.login = next;
+  return user;
+}
+
+/** Makes a person an administrator or not (administrators only). At least one active administrator stays. */
+export function setAdmin(ws, userId, on, actorId) {
+  const actor = (ws.users || []).find((item) => item.id === actorId);
+  if (!isWorkspaceAdmin(actor)) throw new Error('permission');
+  const user = (ws.users || []).find((item) => item.id === userId);
+  if (!user) throw new Error('not-found');
+  if (!on && !(ws.users || []).some((item) => item.id !== user.id && isWorkspaceAdmin(item))) throw new Error('admin-required');
+  user.admin = Boolean(on);
   return user;
 }
 
@@ -758,6 +792,8 @@ export function setUserActive(ws, userId, active) {
   const user = ws.users.find((item) => item.id === userId);
   if (!user) throw new Error('not-found');
   if (!active && ws.users.filter((item) => item.active !== false).length <= 1) throw new Error('permission');
+  // The last administrator who can sign in stays able to.
+  if (!active && user.admin === true && !ws.users.some((item) => item.id !== user.id && item.admin === true && item.active !== false)) throw new Error('admin-required');
   user.active = Boolean(active);
 }
 

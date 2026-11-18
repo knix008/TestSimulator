@@ -7,7 +7,7 @@
 //   {{BODY}}  a long text column (JSON, message bodies, files)
 //   {{INT}}   an integer column
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export const TABLES = [
   { name: 'app_meta', sql: `CREATE TABLE app_meta (
@@ -138,6 +138,18 @@ export const TABLES = [
     status_id {{TEXT}} NOT NULL,
     assignee_id {{TEXT}} NOT NULL
   )` },
+  // Every change to administrator rights and accounts, kept as a log (who, when, what). Detail is sealed.
+  { name: 'audit_log', sql: `CREATE TABLE audit_log (
+    id {{KEY}} PRIMARY KEY,
+    created_at {{KEY}} NOT NULL,
+    category {{TEXT}} NOT NULL,
+    actor_id {{TEXT}} NOT NULL,
+    actor_login {{TEXT}} NOT NULL,
+    action {{TEXT}} NOT NULL,
+    target_id {{TEXT}} NOT NULL,
+    detail {{BODY}} NOT NULL,
+    source {{TEXT}} NOT NULL
+  )` },
 ];
 
 export const TABLE_NAMES = TABLES.map((table) => table.name);
@@ -148,12 +160,14 @@ export const INDEXES = [
   { name: 'ix_documents_project', table: 'documents', columns: ['project_id'] },
   { name: 'ix_approvals_issue', table: 'approvals', columns: ['issue_id'] },
   { name: 'ix_chat_messages_room', table: 'chat_messages', columns: ['room_id', 'created_at'] },
+  { name: 'ix_audit_log_at', table: 'audit_log', columns: ['created_at'], version: 3 },
 ];
 
 /** What each version adds. Version 1 is the tables themselves. */
 export const MIGRATIONS = [
   { version: 1, ko: '기본 표', en: 'Base tables', statements: () => [] },
-  { version: 2, ko: '조회 색인', en: 'Lookup indexes', statements: () => INDEXES.map((index) => `CREATE INDEX ${index.name} ON ${index.table} (${index.columns.join(', ')})`) },
+  { version: 2, ko: '조회 색인', en: 'Lookup indexes', statements: () => INDEXES.filter((index) => !index.version).map((index) => `CREATE INDEX ${index.name} ON ${index.table} (${index.columns.join(', ')})`) },
+  { version: 3, ko: '관리 기록', en: 'Administration log', statements: () => INDEXES.filter((index) => index.version === 3).map((index) => `CREATE INDEX ${index.name} ON ${index.table} (${index.columns.join(', ')})`) },
 ];
 
 function types(engine) {

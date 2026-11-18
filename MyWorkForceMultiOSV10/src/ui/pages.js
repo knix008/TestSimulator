@@ -13,12 +13,14 @@ import { projectMethods, teamOfProject } from '../domain/teams.js';
 import { methodChecks, teamsView, teamView } from './teams.js';
 import { dateInputValue, formatDuration } from '../domain/util.js';
 import { CUSTOM_KEYS } from '../themes.js';
+import { formatCountdown, formatLockMinutes, LOCK_ATTEMPTS, LOCK_CHOICES, LOCK_MIN_MINUTES, lockPolicy } from '../domain/signin-lock.js';
 import { avatar, badge, byId, empty, esc, foldBox, formatWhen, icon, L, nameOf, options, pageHead, panelFrame, person, safeColor, typeBadge, userOptions } from './bits.js';
 import { navLabel } from './chrome.js';
 import { BACKGROUND_INTERVALS, BACKGROUNDS, knownBackground } from './background.js';
 import { databaseSettings, startupOptions } from './start.js';
 import { approvalBlock, calendarView, documentsView, extensionsView, knowledgeView, openPageOf, openSpaceOf, pageInfoPanel, spaceInfoPanel, laneLabel, mailSettings, plansView, portalView, screenSection, swimlaneOptions } from './extra.js';
 import { searchView } from './search.js';
+import { auditView } from './audit.js';
 import { timelineView } from './timeline.js';
 import { blockersOf } from '../domain/dependencies.js';
 import { finderBar, issueFacets, issueVisible, keepBlock, matchesText, screenFind } from './finder.js';
@@ -58,6 +60,7 @@ export function renderView(ctx) {
   if (ctx.ui.view === 'settings') return settings(ctx);
   if (ctx.ui.view === 'project-settings') return projectSettings(ctx);
   if (ctx.ui.view === 'users') return usersAdmin(ctx);
+  if (ctx.ui.view === 'audit') return auditView(ctx);
   if (ctx.ui.view === 'projects') return projectsAdmin(ctx);
   if (ctx.ui.view === 'teams') return teamsView(ctx);
   if (ctx.ui.view === 'team') return teamView(ctx);
@@ -449,7 +452,7 @@ function usersAdmin(ctx) {
     const teams = (ctx.ws.teams || []).filter((team) => (team.members || []).some((item) => item.userId === user.id));
     const role = '';
     const teamChips = teams.map((team) => `<button type="button" class="chip" data-action="open-team" data-id="${esc(team.id)}">${icon('team')}${esc(team.name)}</button>`).join(' ');
-    return `<tr><td>${avatar(user)} ${esc(user.name)}</td><td>${esc(user.jobTitle || '')}</td><td>${teamChips || `<span class="muted">${esc(user.team || '')}</span>`}</td><td>${esc(user.phone || '')}</td><td>${esc(user.login || '')}${user.mustChangePassword ? ` <span class="chip access-view" title="${esc(L('다음 로그인 때 새 암호를 정해야 합니다.', 'Must choose a new password at the next sign-in.'))}">${icon('key')}${L('암호 변경 필요', 'Must change password')}</span>` : ''}</td><td>${esc(user.email || '')}</td>${role}<td><input type="checkbox" data-user-active="${esc(user.id)}" ${user.active !== false ? 'checked' : ''}></td><td><button type="button" class="icon-button" data-action="edit-profile" data-id="${esc(user.id)}">${icon('pencil')}</button></td></tr>`;
+    return `<tr><td>${avatar(user)} ${esc(user.name)}</td><td>${esc(user.jobTitle || '')}</td><td>${teamChips || `<span class="muted">${esc(user.team || '')}</span>`}</td><td>${esc(user.phone || '')}</td><td>${esc(user.login || '')}${user.mustChangePassword ? ` <span class="chip access-view" title="${esc(L('다음 로그인 때 새 암호를 정해야 합니다.', 'Must choose a new password at the next sign-in.'))}">${icon('key')}${L('암호 변경 필요', 'Must change password')}</span>` : ''}</td><td>${esc(user.email || '')}</td>${role}<td><label class="check admin-check" title="${esc(L('관리자 권한', 'Administrator rights'))}"><input type="checkbox" data-user-admin="${esc(user.id)}" ${isWorkspaceAdmin({ ...user, active: true }) ? 'checked' : ''}>${icon('shield')}</label></td><td><input type="checkbox" data-user-active="${esc(user.id)}" ${user.active !== false ? 'checked' : ''}></td><td><button type="button" class="icon-button" data-action="edit-profile" data-id="${esc(user.id)}">${icon('pencil')}</button></td></tr>`;
   }).join('');
   const roleHead = '';
   return `<div class="page">${pageHead(L('사용자', 'Users'), `<button type="button" class="button" data-action="go" data-view="teams">${icon('team')}<span>${L('팀', 'Teams')}</span></button><button type="button" class="button" data-action="set-password">${icon('key')}<span>${L('암호', 'Password')}</span></button><button type="button" class="button primary" data-action="new-user">${icon('plus')}<span>${L('새 사용자', 'New user')}</span></button>`, 'users')}
@@ -458,7 +461,7 @@ function usersAdmin(ctx) {
       { id: 'active', label: L('사용', 'Active'), options: [{ id: 'yes', label: L('사용', 'Active') }, { id: 'no', label: L('중지', 'Inactive') }] },
     ])}
     <p class="muted">${L('회사의 모든 계정입니다. 팀을 누르면 그 팀으로 가고, 과제의 보기·편집·책임자 권한은 과제의 사람과 권한에서 정합니다. 사용 칸을 끄면 로그인할 수 없습니다.', 'Every account in the company. A team opens that team; View, Edit and Lead on a project are set in its People & access. Turning Active off stops the sign-in.')}</p>
-    <table class="data"><tr><th>${L('이름', 'Name')}</th><th>${L('직급', 'Title')}</th><th>${L('팀', 'Team')}</th><th>${L('휴대폰', 'Phone')}</th><th>${L('아이디', 'Account')}</th><th>${L('메일', 'Email')}</th>${roleHead}<th>${L('사용', 'Active')}</th><th></th></tr>${rows}</table>
+    <table class="data"><tr><th>${L('이름', 'Name')}</th><th>${L('직급', 'Title')}</th><th>${L('팀', 'Team')}</th><th>${L('휴대폰', 'Phone')}</th><th>${L('아이디', 'Account')}</th><th>${L('메일', 'Email')}</th>${roleHead}<th>${L('관리자', 'Admin')}</th><th>${L('사용', 'Active')}</th><th></th></tr>${rows}</table>
   </div>`;
 }
 
@@ -698,11 +701,48 @@ function projectSettings(ctx) {
   return `<div class="page settings">${pageHead(title, '', 'project-settings')}${finderBar(ctx, [{ id: 'section', label: L('분류', 'Section'), options: blocks.map(([id, label]) => ({ id, label })) }])}${shown ? `<div class="settings-grid">${shown}</div>` : empty(L('찾는 설정이 없습니다.', 'No setting matches.'))}</div>`;
 }
 
+/** How long an account waits after too many failed sign-ins in a row; locked accounts and their release. */
+export function signInLockSettings(ctx) {
+  const policy = lockPolicy(ctx.ws);
+  const lang = getLanguage();
+  const admin = isWorkspaceAdmin(ctx.user);
+  const off = admin ? '' : 'disabled';
+  const custom = Boolean(ctx.ui.lockCustom) || !LOCK_CHOICES.includes(policy.minutes);
+  const choices = LOCK_CHOICES.map((minutes) => `<option value="${minutes}" ${!custom && minutes === policy.minutes ? 'selected' : ''}>${esc(formatLockMinutes(minutes, lang))}</option>`).join('')
+    + `<option value="custom" ${custom ? 'selected' : ''}>${esc(L('직접 정하기…', 'Custom…'))}</option>`;
+  const unit = ctx.ui.lockUnit || (policy.minutes % 1440 === 0 ? 'day' : policy.minutes % 60 === 0 ? 'hour' : 'minute');
+  const per = { minute: 1, hour: 60, day: 1440 }[unit] || 1;
+  const amount = Math.max(1, Math.round(policy.minutes / per));
+  const units = [['minute', L('분', 'minutes')], ['hour', L('시간', 'hours')], ['day', L('일', 'days')]]
+    .map(([id, label]) => `<option value="${id}" ${id === unit ? 'selected' : ''}>${esc(label)}</option>`).join('');
+  const customRow = custom ? `<div class="form-row"><span>${L('직접 정한 시간', 'Custom wait')}</span><span class="login-lock-custom"><input type="number" data-lock="amount" min="1" step="1" value="${esc(amount)}" ${off}><select data-lock="unit" ${off}>${units}</select></span></div>` : '';
+  const now = Date.now();
+  const locks = (ctx.ui.signinLocks || []).filter((item) => item.until > now);
+  const list = admin
+    ? `<h3>${icon('lock')}<span>${L('잠긴 계정', 'Locked accounts')}</span></h3>
+      ${ctx.ui.signinLocks == null ? `<p class="muted">${L('"새로 고침"을 누르면 지금 잠긴 계정을 봅니다.', 'Press Refresh to see the accounts locked now.')}</p>`
+        : locks.length ? `<div class="login-lock-list">${locks.map((item) => `<div class="link-row"><b>${esc(item.account)}</b><small>${esc(L(`${formatCountdown(item.until - now, 'ko')} 남음`, `${formatCountdown(item.until - now, 'en')} left`))}</small><button type="button" class="small-button" data-action="release-signin-lock" data-account="${esc(item.account)}">${icon('unlock')}<span>${L('잠금 풀기', 'Unlock')}</span></button></div>`).join('')}</div>`
+        : empty(L('잠긴 계정이 없습니다.', 'No account is locked.'))}
+      <button type="button" class="button" data-action="refresh-signin-locks">${icon('undo')}<span>${L('새로 고침', 'Refresh')}</span></button>`
+    : `<p class="muted">${icon('info')}${L('관리자만 바꿀 수 있습니다.', 'Only an administrator can change this.')}</p>`;
+  return `<section class="signin-lock-card"><h2>${icon('lock')}<span>${L('로그인 잠금', 'Sign-in lock')}</span></h2>
+    <p class="muted">${esc(L(
+      `로그인을 ${LOCK_ATTEMPTS}번 연달아 실패하면 그 계정은 정한 시간 동안 로그인할 수 없습니다. ${formatLockMinutes(LOCK_MIN_MINUTES, 'ko')}보다 짧게 정할 수 없습니다.`,
+      `After ${LOCK_ATTEMPTS} failed sign-ins in a row, the account waits this long before it may try again. It cannot be shorter than ${formatLockMinutes(LOCK_MIN_MINUTES, 'en')}.`,
+    ))}</p>
+    <label class="form-row"><span>${L('기다리는 시간', 'Wait')}</span><select data-lock="choice" ${off}>${choices}</select></label>
+    ${customRow}
+    <p class="muted">${icon('clock')}<span>${esc(L(`지금 설정: ${formatLockMinutes(policy.minutes, 'ko')}`, `Now: ${formatLockMinutes(policy.minutes, 'en')}`))}</span></p>
+    ${list}
+  </section>`;
+}
+
 function settings(ctx) {
   const colors = ctx.settings.customTheme ? CUSTOM_KEYS.map((key) => `<label class="form-row"><span>${esc(key)}</span><input type="color" data-custom-color="${esc(key)}" value="${esc(ctx.settings.customTheme[key] || '#888888')}"></label>`).join('') : '';
   const blocks = [
     ['start', L('시작 화면', 'Start page'), startSettings(ctx)],
     ['computer', L('이 컴퓨터', 'This computer'), startupOptions(ctx)],
+    ['signin', L('로그인 잠금', 'Sign-in lock'), signInLockSettings(ctx)],
     ['database', L('데이터베이스', 'Database'), databaseSettings(ctx)],
     ['mail', L('메일', 'Mail'), mailSettings(ctx)],
     ['look', L('모양', 'Appearance'), `<section><h2>${icon('palette')}<span>${L('모양', 'Appearance')}</span></h2>
@@ -715,7 +755,7 @@ function settings(ctx) {
   // Related settings sit together: each group is a heading over a grid of cards.
   const groups = [
     ['general', 'settings', L('일반', 'General'), ['start', 'look']],
-    ['account', 'user', L('이 컴퓨터와 로그인', 'This computer and sign-in'), ['computer']],
+    ['account', 'user', L('이 컴퓨터와 로그인', 'This computer and sign-in'), ['computer', 'signin']],
     ['data', 'database', L('데이터', 'Data'), ['database']],
     ['notify', 'bell', L('알림', 'Notifications'), ['mail']],
   ];

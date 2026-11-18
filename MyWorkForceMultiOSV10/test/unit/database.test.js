@@ -30,10 +30,14 @@ describe('Database', () => {
     const loaded = await repository.readWorkspace();
     assert.equal(loaded.projects.length, 2);
     assert.equal(loaded.articles[0].title, '결제 안내');
+    // What people wrote is sealed in the tables, and opens with the database's key.
     const articles = await repository.engine.query('SELECT title FROM articles', []);
-    assert.equal(articles[0].title, '결제 안내');
+    assert.ok(articles[0].title.startsWith('mwf1:'));
+    assert.equal(openValue(articles[0].title, repository.privacyKey), '결제 안내');
     const documents = await repository.engine.query('SELECT title, visibility FROM documents', []);
-    assert.equal(documents[0].title, '결과물');
+    assert.equal(openValue(documents[0].title, repository.privacyKey), '결과물');
+    const raw = await repository.engine.query('SELECT body FROM workspace_document', []);
+    assert.ok(raw[0].body.startsWith('mwf1:') && !raw[0].body.includes('결제'), 'the workspace document is sealed as a whole');
     assert.equal(documents[0].visibility, 'workspace');
     const issues = await repository.engine.query('SELECT issue_key FROM issue_index WHERE issue_key = ?', ['SHOP-1']);
     assert.equal(issues.length, 1);

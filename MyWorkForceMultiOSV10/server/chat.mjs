@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { openValue, seal } from './privacy.mjs';
 
 export const FILE_LIMIT = 8 * 1024 * 1024;
 
@@ -9,6 +10,15 @@ function row(record) {
 }
 
 const nowIso = () => new Date().toISOString();
+
+// What people wrote (message text, names, files) is sealed with the database's key (engine.privacyKey).
+const lock = (engine, value) => seal(value == null ? '' : String(value), engine.privacyKey);
+const SEALED = ['body', 'name', 'file_name', 'data'];
+const opened = (engine) => (record) => {
+  const out = row(record);
+  for (const key of SEALED) if (typeof out[key] === 'string') out[key] = openValue(out[key], engine.privacyKey);
+  return out;
+};
 const freshId = (prefix) => `${prefix}-${randomBytes(8).toString('hex')}`;
 
 async function memberOf(engine, roomId, userId) {
@@ -25,11 +35,11 @@ async function assertMember(engine, roomId, userId) {
 
 async function roomOf(engine, roomId, actorId, people) {
   const rooms = await engine.query('SELECT id, name, kind, created_at FROM chat_rooms WHERE id = ?', [roomId]);
-  const room = row(rooms[0]);
+  const room = opened(engine)(rooms[0]);
   if (!room.id) throw new Error('not-found');
   const members = (await engine.query('SELECT user_id, last_read FROM chat_members WHERE room_id = ?', [roomId])).map(row);
   const mine = members.find((item) => item.user_id === actorId);
-  const latest = (await engine.query('SELECT body, kind, created_at, user_id FROM chat_messages WHERE room_id = ? ORDER BY created_at DESC LIMIT 1', [roomId])).map(row)[0] || null;
+  const latest = (await engine.query('SELECT body, kind, created_at, user_id FROM chat_messages WHERE room_id = ? ORDER BY created_at DESC LIMIT 1', [roomId])).map(opened(engine))[0] || null;
   const unread = room.kind === 'notices'
     ? (await engine.query(
       `SELECT m.id AS id FROM chat_messages m
@@ -103,7 +113,7 @@ export async function postNotice(engine, userId, noticeId, text) {
   if (existing.length) return;
   await engine.query(
     'INSERT INTO chat_messages (id, room_id, user_id, kind, body, file_id, file_name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    [id, roomId, 'myworkforce', 'notice', String(text || '').slice(0, 500), '', '', nowIso()],
+    [id, roomId, 'myworkforce', 'notice', lock(engine, String(text || '').slice(0, 500)), '', '', nowIso()],
   );
 }
 
@@ -121,7 +131,7 @@ async function findDirect(engine, left, right) {
 async function createRoom(engine, actorId, kind, name, members) {
   const id = freshId('room');
   const created = nowIso();
-  await engine.query('INSERT INTO chat_rooms (id, name, kind, created_at) VALUES (?, ?, ?, ?)', [id, name, kind, created]);
+  await engine.query('INSERT INTO chat_rooms (id, name, kind, created_at) VALUES (?, ?, ?, ?)', [id, lock(engine, name), kind, created]);
   for (const userId of members) {
     await engine.query('INSERT INTO chat_members (room_id, user_id, last_read) VALUES (?, ?, ?)', [id, userId, '']);
   }
@@ -197,7 +207,7 @@ export async function listMessages(engine, actorId, roomId, after = '') {
   const rows = after
     ? await engine.query('SELECT id, room_id, user_id, kind, body, file_id, file_name, created_at FROM chat_messages WHERE room_id = ? AND created_at > ? ORDER BY created_at ASC', [roomId, after])
     : await engine.query('SELECT id, room_id, user_id, kind, body, file_id, file_name, created_at FROM chat_messages WHERE room_id = ? ORDER BY created_at DESC LIMIT 80', [roomId]);
-  const messages = rows.map(mapMessage);
+  const messages = rows.map(opened(engine)).map(mapMessage);
   if (!after) messages.reverse();
   const checks = new Set((await engine.query('SELECT message_id FROM chat_checks WHERE user_id = ?', [actorId])).map((item) => row(item).message_id));
   for (const message of messages) message.checked = checks.has(message.id);
@@ -228,7 +238,7 @@ export async function postMessage(engine, actorId, roomId, body) {
   const created = nowIso();
   await engine.query(
     'INSERT INTO chat_messages (id, room_id, user_id, kind, body, file_id, file_name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    [id, roomId, actorId, 'text', text.slice(0, 4000), '', '', created],
+    [id, roomId, actorId, 'text', lock(engine, text.slice(0, 4000)), '', '', created],
   );
   return { id, roomId, userId: actorId, kind: 'text', body: text.slice(0, 4000), fileId: '', fileName: '', at: created };
 }
@@ -244,17 +254,17 @@ export async function postFile(engine, actorId, roomId, input) {
   const created = nowIso();
   await engine.query(
     'INSERT INTO chat_files (id, name, mime, size_bytes, data, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-    [fileId, name, mime, bytes.length, bytes.toString('base64'), created],
+    [fileId, lock(engine, name), mime, bytes.length, lock(engine, bytes.toString('base64')), created],
   );
   await engine.query(
     'INSERT INTO chat_messages (id, room_id, user_id, kind, body, file_id, file_name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    [messageId, roomId, actorId, 'file', name, fileId, name, created],
+    [messageId, roomId, actorId, 'file', lock(engine, name), fileId, lock(engine, name), created],
   );
   return { id: messageId, roomId, userId: actorId, kind: 'file', body: name, fileId, fileName: name, at: created };
 }
 
 export async function readFile(engine, actorId, fileId) {
-  const rows = (await engine.query('SELECT id, name, mime, data FROM chat_files WHERE id = ?', [fileId])).map(row);
+  const rows = (await engine.query('SELECT id, name, mime, data FROM chat_files WHERE id = ?', [fileId])).map(opened(engine));
   const file = rows[0];
   if (!file?.id) throw new Error('not-found');
   const linked = (await engine.query('SELECT room_id FROM chat_messages WHERE file_id = ?', [fileId])).map(row);

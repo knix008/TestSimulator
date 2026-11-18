@@ -16,10 +16,13 @@ The installer puts **MyWorkForce** and **MyWorkForce Talk** in the Start menu. T
 
 **Sign in** at the top of the start page, or **Sign in** on the **Start** card, opens the sign-in window. Enter your account and password.
 
-- **Close** (×) on the sign-in window closes it, and the start page stays usable. The guides, the tutorial document, the background, the language and About need no sign-in.
+- **Close** (×) on the sign-in window closes it, and the start page stays usable. Without signing in you can use only the user guide, the tutorial document, the start-page background, the language and About. Examples, opening or dropping files, shortcuts and settings all open the sign-in window.
+- With no database connected to the data service nobody can sign in. Only then, on the computer the data service runs on, the sign-in window offers **Database settings** to set the database up first.
 - Real work, such as opening a project or a page or starting the tutorial, always needs a sign-in; the sign-in window opens again then.
 - A password set by the administrator is temporary: change it at the first sign-in before anything else opens. Passwords have at least 6 characters; change yours any time under **File → Change password**.
 - A fresh install has the administrator account `admin`, which chooses a new password at the first sign-in.
+- When a sign-in fails, the sign-in window says why (wrong password, account not registered) and how many tries are left before the lock.
+- After **5 failed sign-ins in a row**, the account waits for the set time (10 minutes by default). The sign-in window counts the time down every second, and even the right password is refused meanwhile. Restarting the program does not lift the lock.
 
 ### The start page
 
@@ -246,11 +249,28 @@ The full grammar is in **Help → WQL guide**.
 
 Administrators create people on **Users** and set their account and a temporary password. Name, title, team, phone, email and photo are kept encrypted. Turning **Active** off stops a person from signing in.
 
+- Turning **Admin** on gives that person administrator rights. There can be several administrators; the last one who can sign in cannot lose the rights or be turned off.
+- A new installation's administrator is `admin` / `admin`, who chooses a new password at the first sign-in.
+- Administrators can change their own ID too: on **Users**, press the pencil on your own row and change the ID; the next sign-in uses it. Change the password with **Change my password** in the same window or **File → Change password**.
+
+### Audit log
+
+**Audit log** in the administrator menu shows what the database recorded, kept encrypted.
+
+- **Administrator changes**: the first administrator, administrator rights given or removed, users created or deleted, IDs changed, accounts turned on or off, passwords set by an administrator, the sign-in lock wait changed or a lock released, databases connected, the encryption key viewed.
+- **User activity**: sign-ins, failed sign-ins (why, and tries left), locks, sign-outs, own password changes, and the projects, issues and pages each save created, changed or deleted.
+- Search by category, event, person (ID), dates and words. Results are a list: click a heading to sort (again to reverse), drag a heading's right edge to resize, drag a heading to move the column — a silhouette of the column and the place it will land show while dragging. Sort, widths and order are remembered on this computer.
+- Click a row for its details below; **Save as CSV** saves the list as shown.
+
 ### Settings
 
-Settings come as grouped cards: **General** (start page, background, look, font, theme), **This computer and sign-in** (start MyWorkForce and Talk with the computer, automatic sign-in), **Data** (database and schema) and **Notifications** (mail server).
+Settings come as grouped cards: **General** (start page, background, look, font, theme), **This computer and sign-in** (start MyWorkForce and Talk with the computer, automatic sign-in, sign-in lock), **Data** (database and schema) and **Notifications** (mail server).
 
-- **Database**: SQLite on this computer, or MySQL, MariaDB, SQL Server or PostgreSQL. Connecting creates the tables and brings the schema up to date; administrators see the tables and get SQL for a DBA on the **Schema** card.
+- **Sign-in lock** (administrators): how long an account waits after 5 failed sign-ins in a row — 10, 20 or 30 minutes, 1, 2, 3, 6 or 12 hours, 1, 2 or 7 days, or **Custom…** in minutes, hours or days. It cannot be shorter than 10 minutes; the longest is 30 days. **Refresh** lists the accounts locked now and **Unlock** lets one sign in again at once.
+- **Database**: SQLite on this computer by default, or MySQL, MariaDB, SQL Server or PostgreSQL. The first connection creates any missing tables and brings the schema up to date (with **Create the database if it is missing** it creates the database too). Administrators see the tables and get SQL for a DBA on the **Schema** card.
+  - **Test connection** tries the typed settings without leaving the database in use: whether it connects and how fast, whether the connection is encrypted with TLS, the schema state (missing tables are created when you connect), and whether the encryption key matches.
+  - **Encryption at rest**: projects, documents, pages, chat, mail and people are encrypted with AES-256-GCM before they reach the database — the same for all five kinds. Data saved before encryption is encrypted at the first connection.
+  - **A database on its own server**: server databases are reached **encrypted with TLS** by default; with a publicly signed certificate also turn on **Verify the server's certificate**. When a data service is reinstalled or another one is added, copy the key from the first service's **Encryption at rest → Show the key** into the new one's **Encryption key** and connect. The key is remembered for that database. Without the key the data cannot be read, so keep it somewhere safe.
 - **Mail**: a mail server outside the company (587 for STARTTLS, 465 for SSL); **Send a test** checks it.
 
 ### Project settings
@@ -291,6 +311,9 @@ Undo covers the last 40 changes to the workspace; language and theme are not und
 | Problem | What to do |
 | --- | --- |
 | The sign-in window keeps opening | Work such as projects and pages needs a sign-in. To stay on the start page, close the sign-in window |
+| Sign-in is refused with a countdown | 5 failed sign-ins in a row locked the account. Wait for the time to pass, or an administrator unlocks it in **Settings → Sign-in lock** |
+| "Encrypted with another data service's key" | Copy the key from the first data service's **Show the key** into **Encryption key** and connect |
+| "The database server does not support TLS" | Turn TLS on at the database server. Only if you must, turn off **Encrypt the connection with TLS** |
 | "Someone else saved first" | Someone saved the same data first and the latest was reopened; repeat your last change |
 | A page shows "Saving…" for a long time | Check the connection to the data service; the page saves by itself when it is back |
 | An issue table shows "Not available" | You do not take part in that project, or the query has a mistake |

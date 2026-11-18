@@ -10,6 +10,7 @@ import { canEditPage, pagesIn } from '../domain/wiki.js';
 import { spaceOpen, workspacePageTree } from './extra.js';
 import { templatePicker } from './templates.js';
 import { methodChecks } from './teams.js';
+import { databaseSettings } from './start.js';
 
 function item(action, glyph, label, extra = '', keys = '') {
   return `<button type="button" data-action="${action}" ${extra}>${icon(glyph)}<span>${label}</span>${keys ? `<kbd>${keys}</kbd>` : ''}</button>`;
@@ -26,7 +27,9 @@ export function loginForm(ctx, ids = {}) {
   const layout = ids.layout === 'stack' ? 'stack' : 'row';
   const busy = ctx.ui.connecting;
   const reveal = `<label class="check password-reveal"><input type="checkbox" data-reveal="password">${icon('eye')}<span>${L('비밀번호 표시', 'Show password')}</span></label>`;
+  // Why the last sign-in failed, or how long a locked account waits; app.js writes it in place.
   return `<form class="login-form login-${layout}" data-login>
+    <p class="login-error" role="alert" aria-live="assertive" hidden></p>
     <div class="login-grid">
       <label class="login-field" for="${accountId}"><span class="login-label">${icon('idCard')}<span>ID</span></span><input id="${accountId}" name="account" value="${esc(account)}" autocomplete="username" spellcheck="false" autocapitalize="off"></label>
       <label class="login-field" for="${passwordId}"><span class="login-label">${icon('key')}<span>Password</span></span><input id="${passwordId}" name="password" type="password" autocomplete="current-password"></label>
@@ -118,6 +121,7 @@ export function renderMenubar(ctx) {
     item('go', 'settings', L('설정', 'Settings'), 'data-view="settings"'),
     item('go', 'database', L('데이터베이스', 'Database'), 'data-view="settings"'),
     item('go', 'bolt', L('확장', 'Extensions'), 'data-view="extensions"'),
+    item('go', 'list', L('감사 로그', 'Audit log'), 'data-view="audit"'),
   ].join('') : '';
   return `<div class="app-brand" data-window-drag><img class="app-brand-icon" src="./icon.png" alt="" data-window-drag><span class="app-brand-name" data-window-drag>MyWorkForce</span><span class="app-brand-version" data-window-drag>v${esc(ctx.version)}</span></div>
     <button type="button" class="menubar-item menubar-home${homeOn ? ' current' : ''}" data-action="menubar-home" aria-pressed="${homeOn ? 'true' : 'false'}" ${signedIn ? '' : 'disabled'} title="${esc(signedIn ? L('시작 화면을 열고, 다시 누르면 작업 공간으로 돌아갑니다.', 'Opens the start page. Press again to return to the workspace.') : L('로그인한 뒤에 시작 화면과 작업 공간을 오갈 수 있습니다.', 'Sign in before switching between the start page and the workspace.'))} Ctrl+Shift+H">${icon('spark')}<span>${L('시작', 'Start')}</span></button>
@@ -142,7 +146,7 @@ function navLabel(id) {
     health: L('점검', 'Health'), notifications: L('알림', 'Notifications'), settings: L('설정', 'Settings'), help: L('도움말', 'Help'),
     knowledge: L('작업 공간', 'Workspaces'), documents: L('문서', 'Documents'), calendar: L('근무 달력', 'Work calendar'), portal: L('고객 포털', 'Customer portal'),
     users: L('사용자', 'Users'), projects: L('과제', 'Projects'), 'project-settings': L('과제 설정', 'Project settings'),
-    plans: L('교차 계획', 'Plan'), extensions: L('확장', 'Extensions'), teams: L('팀', 'Teams'), team: L('팀', 'Team'),
+    plans: L('교차 계획', 'Plan'), extensions: L('확장', 'Extensions'), audit: L('감사 로그', 'Audit log'), teams: L('팀', 'Teams'), team: L('팀', 'Team'),
     search: L('전체 검색', 'Search everything'),
     timeline: L('타임라인', 'Timeline'),
   };
@@ -313,7 +317,7 @@ export function renderNav(ctx) {
   const project = ctx.project;
   const projectTitle = project ? `${esc(L('이 과제', 'This project'))} <b class="nav-key">${esc(project.key)}</b>` : esc(L('이 과제', 'This project'));
   sections.push(navSection(ctx, 'project', 'folder', projectTitle, currentProjectNav(ctx)));
-  if (admin) sections.push(navSection(ctx, 'admin', 'settings', esc(L('관리자 메뉴', 'Administrator menu')), navButtons(ctx, ['users', 'settings', 'extensions']), { tone: 'admin' }));
+  if (admin) sections.push(navSection(ctx, 'admin', 'settings', esc(L('관리자 메뉴', 'Administrator menu')), navButtons(ctx, ['users', 'settings', 'extensions', 'audit']), { tone: 'admin' }));
   const body = sections.join('');
   return panelFrame(ctx.settings.showLeftPanel !== false, 'left', 'list', L('탐색', 'Navigation'), `<div class="panel-body">${body}</div>`);
 }
@@ -443,10 +447,18 @@ function accountFields(ctx, user = {}, isNew = false) {
   if (!isWorkspaceAdmin(ctx.user)) {
     return user.id && user.id === ctx.user?.id ? `<div class="form-block"><button type="button" class="button" data-action="change-password">${icon('key')}<span>${L('내 암호 바꾸기', 'Change my password')}</span></button></div>` : '';
   }
-  const isAdminAccount = String(user.login || '').toLowerCase() === 'admin';
   const state = user.id ? (user.mustChangePassword ? L('다음 로그인 때 암호를 바꿔야 합니다.', 'Must change the password at the next sign-in.') : '') : '';
+  const idRow = row(L('아이디', 'ID'), `<input name="login" required pattern="[A-Za-z0-9._-]{2,32}" value="${esc(user.login || '')}" autocomplete="off" spellcheck="false">`);
+  if (user.id && user.id === ctx.user?.id) {
+    // The administrator's own account: the ID changes here, the password with the current one.
+    return `<div class="form-block"><span class="form-block-title">${icon('idCard')}${L('내 계정', 'My account')}</span>
+      ${idRow}
+      <p class="muted">${icon('info')}${L('다음 로그인부터 바뀐 아이디를 씁니다.', 'The new ID is used from the next sign-in.')}</p>
+      <button type="button" class="button" data-action="change-password">${icon('key')}<span>${L('내 암호 바꾸기', 'Change my password')}</span></button>
+    </div>`;
+  }
   return `<div class="form-block"><span class="form-block-title">${icon('idCard')}${L('계정', 'Account')}</span>
-    ${row(L('아이디', 'ID'), `<input name="login" required pattern="[A-Za-z0-9._-]{2,32}" value="${esc(user.login || '')}" autocomplete="off" spellcheck="false" ${isAdminAccount ? 'readonly' : ''}>`)}
+    ${idRow}
     ${row(isNew ? L('처음 암호', 'First password') : L('새 암호', 'New password'), `<input name="password" type="password" minlength="6" autocomplete="new-password" ${isNew ? 'required' : `placeholder="${esc(L('바꿀 때만 입력', 'Only to change it'))}"`}>`)}
     <label class="check"><input type="checkbox" name="mustChange" checked>${L('다음 로그인 때 자기 암호로 바꾸게 하기', 'Make them choose their own at the next sign-in')}</label>
     ${state ? `<p class="muted">${icon('alert')}${esc(state)}</p>` : ''}
@@ -505,7 +517,14 @@ export function renderModal(ctx) {
     const error = ctx.ui.startError ? `<p class="danger-text">${esc(ctx.ui.startError)}</p>` : '';
     const docs = gate ? `<div class="page-actions login-docs"><button type="button" class="button" data-action="open-guide" data-id="guide">${icon('book')}<span>${L('사용 설명서', "User's guide")}</span></button><button type="button" class="button" data-action="open-guide" data-id="tutorial">${icon('play')}<span>${L('튜토리얼 문서', 'Tutorial document')}</span></button></div>` : '';
     const head = heading('login', L('로그인', 'Sign in'));
-    return `<div class="modal-back"><div class="modal login-modal">${head}<p>${esc(lead)}</p>${error}${docs}${loginForm(ctx, { account: 'dialog-account', password: 'dialog-password', layout: 'stack' })}</div></div>`;
+    // No database yet: accounts live in it, so on the data service's own computer it is set up first.
+    const setup = ctx.ui.status?.setup
+      ? `<p class="login-error note">${esc(L('데이터베이스에 연결되어 있지 않아 로그인할 수 없습니다. 먼저 데이터베이스를 설정하세요.', 'No database is connected, so nobody can sign in. Set up the database first.'))}</p><div class="page-actions"><button type="button" class="button primary" data-action="open-db-setup">${icon('database')}<span>${L('데이터베이스 설정', 'Database settings')}</span></button></div>`
+      : '';
+    return `<div class="modal-back"><div class="modal login-modal">${head}<p>${esc(lead)}</p>${error}${setup}${docs}${loginForm(ctx, { account: 'dialog-account', password: 'dialog-password', layout: 'stack' })}</div></div>`;
+  }
+  if (modal.kind === 'db-setup') {
+    return `<div class="modal-back"><div class="modal db-setup-modal">${heading('database', L('데이터베이스 설정', 'Database settings'))}${databaseSettings(ctx)}</div></div>`;
   }
   if (modal.kind === 'welcome') {
     const again = ctx.settings?.showWelcome !== false;

@@ -164,9 +164,44 @@ export function databaseMissing(error) {
   return /unknown database|database ".+" does not exist|cannot open database/i.test(String(error?.message || ''));
 }
 
+/** A TLS failure in words the settings page can explain: the server has no TLS, or its certificate is not trusted. */
+export function tlsProblem(error) {
+  const text = `${error?.code || ''} ${error?.message || ''}`;
+  if (/HANDSHAKE_NO_SSL_SUPPORT|does not support (ssl|secure)|SSL is not (enabled|supported)/i.test(text)) return 'tls-unsupported';
+  if (/SSL off|require_secure_transport|requires? (an )?(SSL|secure|encrypted) (connection|transport)/i.test(text)) return 'tls-required';
+  if (/self[- ]signed|unable to (get|verify) .*certificate|certificate (has expired|verify failed)|CERT_|altnames|ERR_TLS_CERT/i.test(text)) return 'tls-certificate';
+  return '';
+}
+
 /** A database name that is safe to put in CREATE DATABASE. */
 export function validDatabaseName(name) {
   return /^[A-Za-z_][A-Za-z0-9_$-]{0,63}$/.test(String(name || ''));
+}
+
+/** TLS to a database on its own server: on unless turned off; the certificate is checked only when asked (self-signed is common inside a company). */
+function tlsOptions(config) {
+  if (config.tls === false) return undefined;
+  return { rejectUnauthorized: Boolean(config.tlsVerify) };
+}
+
+/** Whether this session to the server is encrypted, as the server itself reports it (null when it cannot tell). */
+export async function tlsState(engine) {
+  try {
+    if (engine.engine === 'mysql' || engine.engine === 'mariadb') {
+      const rows = await engine.query("SHOW SESSION STATUS LIKE 'Ssl_cipher'", []);
+      const cipher = String(rows[0]?.Value ?? rows[0]?.value ?? '');
+      return { on: Boolean(cipher), cipher };
+    }
+    if (engine.engine === 'postgres') {
+      const rows = await engine.query('SELECT ssl, cipher FROM pg_stat_ssl WHERE pid = pg_backend_pid()', []);
+      return { on: Boolean(rows[0]?.ssl), cipher: String(rows[0]?.cipher || '') };
+    }
+    if (engine.engine === 'mssql') {
+      const rows = await engine.query('SELECT encrypt_option FROM sys.dm_exec_connections WHERE session_id = @@SPID', []);
+      return { on: String(rows[0]?.encrypt_option || '').toUpperCase() === 'TRUE', cipher: '' };
+    }
+  } catch { /* the account may not see the status */ }
+  return null;
 }
 
 async function connectTo(engine, config, database) {
@@ -174,7 +209,7 @@ async function connectTo(engine, config, database) {
     const mysql = await load('mysql2/promise');
     const pool = mysql.createPool({
       host: config.host, port: Number(config.port) || 3306, user: config.user, password: config.password || '',
-      database: database || undefined, connectionLimit: 4, charset: 'utf8mb4',
+      database: database || undefined, connectionLimit: 4, charset: 'utf8mb4', ssl: tlsOptions(config),
     });
     return new MysqlEngine(pool, engine);
   }
@@ -182,14 +217,14 @@ async function connectTo(engine, config, database) {
     const pg = await load('pg');
     const pool = new pg.Pool({
       host: config.host, port: Number(config.port) || 5432, user: config.user, password: config.password || '',
-      database: database || undefined, max: 4,
+      database: database || undefined, max: 4, ssl: tlsOptions(config),
     });
     return new PostgresEngine(pool);
   }
   const mssql = await load('mssql');
   const pool = await mssql.default.connect({
     server: config.host, port: Number(config.port) || 1433, user: config.user, password: config.password || '',
-    database: database || undefined, options: { trustServerCertificate: true, encrypt: Boolean(config.encrypt) },
+    database: database || undefined, options: { encrypt: config.tls !== false, trustServerCertificate: !config.tlsVerify },
   });
   return new MssqlEngine(pool, mssql.default);
 }
@@ -326,6 +361,8 @@ export async function openEngine(config) {
     if (opened) await opened.close().catch(() => {});
     if (error?.message === 'driver-missing' || error?.message === 'engine-unknown') throw error;
     if (databaseMissing(error)) throw fail(error, 'database-missing');
+    const tls = tlsProblem(error);
+    if (tls) throw fail(error, tls);
     throw fail(error);
   }
   if (config.schema !== false) {

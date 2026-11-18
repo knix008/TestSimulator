@@ -68,6 +68,8 @@ export function loadSettings() {
     backgroundRandom: stored.backgroundRandom === true,
     launchAtStartup: stored.launchAtStartup === true,
     autoLogin: stored.autoLogin === true,
+    // List views (the audit log…): column order, widths and sort, per list.
+    listViews: stored.listViews && typeof stored.listViews === 'object' ? stored.listViews : {},
     backgroundInterval: [0, 15, 30, 60, 120, 300].includes(Number(stored.backgroundInterval)) ? Number(stored.backgroundInterval) : 0,
   };
   return current;

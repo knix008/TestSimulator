@@ -23,12 +23,16 @@ import {
   addUser, addVersion, addWorklog, blankWorkspace, cloneIssue, completeSprint, createIssue, createSprint, deleteComment, ensureAdmin, updateProfile,
   canDeleteProject, deleteFilter, deleteIssue, deleteProject, deleteRule, deleteWorklog, findIssue, markAllRead, markRead, mergeProject, newProject,
   projectDocument, rankIssues, readDocument,   releaseVersion, removeAttachment, removeField, removeGadget, removeLink,
-  removeStatus, removeTransition, saveFilter, setArchived, setCustomField, setMember, setUserActive,
+  removeStatus, removeTransition, saveFilter, setAdmin, setArchived, setCustomField, setMember, setUserActive,
   startSprint, toggleGroupUser, toggleWatch, transitionGate, updateIssue, updateProject, upgradeWorkspace, userByAccount, workspaceDocument,
 } from './domain/store.js';
 import { writingExport } from './domain/markdown.js';
 import { fromDateInput, parseDuration, uid } from './domain/util.js';
-import { changeOwnPassword, leavePage, livePage, schemaSql, schemaStatus, setUserPassword, upgradeSchema, waitForService } from './platform/data.js';
+import { auditLog, encryptionKey, testConnection } from './platform/data.js';
+import { bindListViews, arrangedColumns, sortedRows } from './ui/listview.js';
+import { AUDIT_COLUMNS, actionLabel, auditSummary, formatTime } from './ui/audit.js';
+import { changeOwnPassword, leavePage, livePage, releaseSignInLock, schemaSql, schemaStatus, setUserPassword, signInLocks, upgradeSchema, waitForService } from './platform/data.js';
+import { clampLockMinutes, formatCountdown, formatLockMinutes, LOCK_ATTEMPTS, LOCK_MAX_MINUTES, LOCK_MIN_MINUTES } from './domain/signin-lock.js';
 import { createLiveWriter, shiftedOffset, writeKeepingCaret } from './ui/live.js';
 import { decorateIcons } from './ui/autoicons.js';
 import { htmlToMarkdown } from './domain/htmlmd.js';
@@ -78,6 +82,13 @@ const ERRORS = {
   password: ['암호가 맞지 않습니다.', 'That password does not match.'],
   conflict: ['다른 사람이 먼저 저장했습니다. 최신 내용을 다시 열었습니다.', 'Someone else saved first. The latest workspace is open.'],
   'not-registered': ['등록된 사용자가 아닙니다.', 'That account is not registered.'],
+  'key-mismatch': ['이 데이터베이스는 다른 데이터 서비스의 키로 암호화되어 있습니다. 그 서비스의 설정 → 데이터베이스에서 키를 복사해 "암호화 키"에 넣고 다시 연결하세요.', "This database is encrypted with another data service's key. Copy the key from that service's Settings → Database, put it in \"Encryption key\" and connect again."],
+  'tls-unsupported': ['DB 서버가 TLS를 지원하지 않습니다. 서버에서 TLS를 켜는 것이 원칙이며, 꼭 필요하면 "TLS로 암호화해 연결"을 끄고 연결하세요.', 'The database server does not support TLS. Turn TLS on at the server; only if you must, turn off "Encrypt the connection with TLS".'],
+  'tls-required': ['DB 서버가 암호화된 연결만 받습니다. "TLS로 암호화해 연결"을 켜세요.', 'The database server accepts encrypted connections only. Turn on "Encrypt the connection with TLS".'],
+  'tls-certificate': ['DB 서버의 인증서를 확인하지 못했습니다. 자체 서명 인증서라면 "서버 인증서 확인"을 끄세요.', "The database server's certificate could not be verified. For a self-signed certificate, turn off \"Verify the server's certificate\"."],
+  'key-invalid': ['암호화 키 형식이 맞지 않습니다 (32바이트 base64 또는 hex).', 'The encryption key is not valid (32 bytes, base64 or hex).'],
+  'database-missing': ['데이터베이스가 없습니다. "없으면 데이터베이스 만들기"를 켜고 다시 연결하세요.', 'The database does not exist. Turn on "Create the database if it is missing" and connect again.'],
+  locked: ['로그인을 여러 번 연달아 실패해 잠시 로그인할 수 없습니다.', 'Too many failed sign-ins in a row; sign-in waits for a while.'],
   'sso-required': ['발급자 주소와 클라이언트가 필요합니다.', 'An issuer and a client are required.'],
   'driver-missing': ['그 데이터베이스 드라이버가 설치되어 있지 않습니다.', 'That database driver is not installed.'],
   'engine-unknown': ['지원하지 않는 데이터베이스입니다.', 'That database is not supported.'],
@@ -90,7 +101,7 @@ const ERRORS = {
   'password-mismatch': ['새 암호 두 칸이 서로 다릅니다.', 'The two new password boxes do not match.'],
   'password-required': ['처음 암호를 입력하세요.', 'Enter a first password.'],
   'login-invalid': ['아이디는 2~32자의 영문자, 숫자, ., _, - 만 쓸 수 있습니다.', 'An ID is 2-32 letters, digits, ".", "_" or "-".'],
-  'login-admin': ['관리자 계정의 아이디는 admin 으로 둡니다.', 'The administrator account keeps the ID admin.'],
+  'admin-required': ['로그인할 수 있는 관리자가 한 명은 있어야 합니다.', 'At least one administrator must be able to sign in.'],
   'duplicate-login': ['같은 아이디가 이미 있습니다.', 'That ID is already taken.'],
   'duplicate-team': ['같은 이름의 팀이 있습니다.', 'A team with that name already exists.'],
   'team-has-projects': ['과제가 있는 팀은 삭제할 수 없습니다. 과제를 다른 팀으로 옮기거나 삭제하세요.', 'A team with projects cannot be deleted. Move or delete its projects first.'],
@@ -161,6 +172,71 @@ function toast(text) {
 function fail(error) {
   if (error?.message === 'password-change' && ui.loginUser) { askNewPassword(''); return; }
   toast(message(error));
+}
+
+let loginTimer = 0;
+
+/**
+ * A sign-in that did not work, told in the sign-in window: why, how many tries are left before the lock,
+ * or — when locked — how long to wait. The window is not redrawn, so the line is written in place.
+ */
+function signInFailure(error) {
+  const info = error?.info || {};
+  if (error?.message === 'locked') {
+    ui.loginLock = Number(info.until) || Date.now() + (Number(info.seconds) || 600) * 1000;
+    ui.loginLockAttempts = Number(info.attempts) || LOCK_ATTEMPTS;
+    ui.loginError = '';
+  } else {
+    ui.loginLock = 0;
+    const why = message(error);
+    let text = L(`로그인에 실패했습니다. ${why}`, `Sign-in failed. ${why}`);
+    const left = Number(info.remaining);
+    if (Number.isFinite(left) && left > 0) {
+      text += ` ${L(
+        `${left}번 더 실패하면 ${formatLockMinutes(info.minutes, 'ko')} 동안 로그인할 수 없습니다.`,
+        `After ${left} more failed ${left > 1 ? 'tries' : 'try'}, sign-in waits ${formatLockMinutes(info.minutes, 'en')}.`,
+      )}`;
+    }
+    ui.loginError = text;
+  }
+  syncLoginForms();
+  // Shake the message again on every failure, so a second wrong password is noticed too.
+  for (const line of document.querySelectorAll('.login-error')) { line.style.animation = 'none'; void line.offsetWidth; line.style.animation = ''; }
+  const box = document.querySelector('#modal [data-login] [name="password"]');
+  if (box && error?.message !== 'service') { box.value = ''; if (!ui.loginLock) box.focus(); }
+  toast(ui.loginLock ? lockText() : ui.loginError);
+}
+
+function lockText() {
+  const left = formatCountdown(ui.loginLock - Date.now(), getLanguage());
+  const times = ui.loginLockAttempts || LOCK_ATTEMPTS;
+  return L(`로그인을 ${times}번 연달아 실패해 잠겼습니다. ${left} 뒤에 다시 로그인할 수 있습니다.`, `${times} failed sign-ins in a row; sign-in is locked. Try again in ${left}.`);
+}
+
+/** Writes the sign-in message into every sign-in form, and keeps the button off while locked. */
+function syncLoginForms() {
+  clearTimeout(loginTimer);
+  if (ui.loginLock && ui.loginLock <= Date.now()) {
+    ui.loginLock = 0;
+    ui.loginError = '';
+    ui.loginNote = L('이제 다시 로그인할 수 있습니다.', 'You can sign in again now.');
+  }
+  const locked = Boolean(ui.loginLock);
+  const text = locked ? lockText() : ui.loginError || ui.loginNote || '';
+  for (const box of document.querySelectorAll('.login-error')) {
+    box.hidden = !text;
+    box.textContent = text;
+    box.classList.toggle('locked', locked);
+    box.classList.toggle('note', !locked && !ui.loginError && Boolean(ui.loginNote));
+  }
+  for (const button of document.querySelectorAll('.login-submit')) button.disabled = locked || ui.connecting;
+  if (locked) loginTimer = setTimeout(syncLoginForms, 1000 - (Date.now() % 1000) + 5);
+}
+
+function clearLoginMessage() {
+  ui.loginError = '';
+  ui.loginNote = '';
+  if (ui.loginLock && ui.loginLock <= Date.now()) ui.loginLock = 0;
 }
 
 let saving = false;
@@ -565,6 +641,8 @@ function replaceWorkspace(next) {
     out = upgradeWorkspace(out);
   }
   out.revision = revision;
+  // The company's sign-in lock policy is not part of an example.
+  if (ws?.security && !out.security) out.security = structuredClone(ws.security);
   return out;
 }
 
@@ -702,9 +780,9 @@ async function refreshStatus() {
       const loaded = await loadWorkspace();
       const body = loaded.workspace;
       if (body) {
-        const hadPassword = (body.users || []).some((user) => user.login === 'admin' && user.passwordHash);
+        const hadPassword = (body.users || []).some((user) => isWorkspaceAdmin(user) && user.passwordHash);
         const upgraded = upgradeWorkspace(body);
-        if (!hadPassword && upgraded.users.some((user) => user.login === 'admin' && user.passwordHash)) await saveWorkspace(upgraded);
+        if (!hadPassword && upgraded.users.some((user) => isWorkspaceAdmin(user) && user.passwordHash)) await saveWorkspace(upgraded);
         status.people = upgraded.users.filter((user) => user.active !== false).map((user) => ({
           id: user.id, name: user.name || '', login: user.login || '', email: user.email || '', hasPassword: Boolean(user.passwordHash),
         }));
@@ -727,9 +805,9 @@ async function refreshStatus() {
 async function afterConnect(password) {
   const loaded = await loadWorkspace();
   const body = loaded.workspace || {};
-  const hadPassword = (body.users || []).some((user) => user.login === 'admin' && user.passwordHash);
+  const hadPassword = (body.users || []).some((user) => isWorkspaceAdmin(user) && user.passwordHash);
   const upgraded = upgradeWorkspace(body);
-  if (!hadPassword && upgraded.users.some((user) => user.login === 'admin' && user.passwordHash)) await saveWorkspace(upgraded);
+  if (!hadPassword && upgraded.users.some((user) => isWorkspaceAdmin(user) && user.passwordHash)) await saveWorkspace(upgraded);
   const chosen = userByAccount(upgraded.users, ui.loginAccount) || upgraded.users.find((user) => user.id === ui.loginUser) || null;
   if (ui.loginAccount && !chosen) throw new Error('not-found');
   if (chosen?.passwordHash) {
@@ -770,6 +848,79 @@ async function connectLocal() {
   }
 }
 
+/** The connection typed in Settings → Database. */
+function serverFormConfig(form) {
+  const data = new FormData(form);
+  const value = (key) => String(data.get(key) || '').trim();
+  return {
+    engine: value('engine') || 'mysql', host: value('host'), port: value('port'),
+    database: value('database'), user: value('user'), password: String(data.get('password') || ''),
+    tls: data.get('tls') === 'on', tlsVerify: data.get('tlsVerify') === 'on',
+    encryptionKey: value('encryptionKey'),
+  };
+}
+
+/** Tries the typed connection without switching to it, and shows what it found under the form. */
+async function testServerForm() {
+  const form = document.querySelector('#server-form');
+  if (!form || ui.dbTesting) return;
+  const config = serverFormConfig(form);
+  ui.dbDraft = config;
+  ui.dbTesting = true;
+  ui.dbTest = null;
+  paint();
+  try {
+    const service = String(new FormData(form).get('service') || '').trim();
+    if (service) rememberDataUrl(service);
+    ui.dbTest = await testConnection(config);
+  } catch (error) {
+    ui.dbTest = { ok: false, error: error?.message || 'connect', detail: message(error) };
+  }
+  ui.dbTesting = false;
+  paint();
+  document.querySelector('.db-test')?.scrollIntoView({ block: 'nearest' });
+}
+
+/** Reads the audit log with the screen's filter. */
+async function loadAudit() {
+  const filter = ui.audit?.filter || {};
+  ui.audit = { ...(ui.audit || {}), filter, loading: true, error: '' };
+  paint();
+  try {
+    const result = await auditLog({ ...filter, limit: 500 });
+    ui.audit = { ...ui.audit, entries: result.entries || [], people: result.people || {}, loaded: true, loading: false };
+  } catch (error) {
+    ui.audit = { ...ui.audit, loading: false, loaded: true, error: message(error) };
+  }
+  paint();
+}
+
+/** The audit entries as shown (column order and sort of the list) in a CSV file. */
+async function exportAudit() {
+  const audit = ui.audit || {};
+  const columns = arrangedColumns(AUDIT_COLUMNS(audit.people || {}), settings.listViews?.audit || {});
+  const rows = sortedRows(audit.entries || [], columns, (settings.listViews?.audit || { sort: { col: 'at', dir: 'desc' } }).sort);
+  const cell = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+  const text = [columns.map((column) => cell(column.label)).join(','), ...rows.map((row) => columns.map((column) => {
+    if (column.id === 'at') return cell(formatTime(row.at));
+    if (column.id === 'action') return cell(actionLabel(row.action));
+    if (column.id === 'summary') return cell(auditSummary(row, audit.people || {}));
+    return cell(column.value ? column.value(row) : row[column.id]);
+  }).join(','))].join('\r\n');
+  const filename = `audit-${new Date().toISOString().slice(0, 10)}.csv`;
+  try {
+    // A BOM so spreadsheet programs read the Korean correctly.
+    if (isDesktop()) {
+      const path = await chooseSave(filename, ['csv']);
+      if (!path) return;
+      await writeTextFile(path, `\ufeff${text}`);
+    } else download(`\ufeff${text}`, filename, 'text/csv');
+    toast(L('감사 로그를 저장했습니다.', 'The audit log is saved.'));
+  } catch (error) {
+    fail(error);
+  }
+}
+
 async function connectServer(form) {
   const data = new FormData(form);
   const value = (key) => String(data.get(key) || '').trim();
@@ -779,12 +930,20 @@ async function connectServer(form) {
   ui.startError = '';
   paint();
   try {
-    const result = await connectData({
-      engine: value('engine') || 'mysql', host: value('host'), port: value('port'),
-      database: value('database'), user: value('user'), password: value('password'),
-      createDatabase: data.get('createDatabase') === 'on',
-    });
+    const result = await connectData({ ...serverFormConfig(form), createDatabase: data.get('createDatabase') === 'on' });
+    ui.dbDraft = null;
+    ui.dbTest = null;
     ui.connection = result;
+    if (!ui.loginUser) {
+      // A first setup before anyone signed in: now that there is a database, sign in to it.
+      ui.connecting = false;
+      ui.startError = '';
+      await refreshStatus();
+      ui.modal = { kind: 'login', next: 'gate' };
+      ui.loginNote = L('데이터베이스에 연결했습니다. 로그인하세요.', 'Connected to the database. Sign in.');
+      paint();
+      return;
+    }
     ui.schema = result.schema || null;
     toast(connectSummary(result));
     if (result.sessionsReset) {
@@ -808,6 +967,8 @@ async function connectServer(form) {
   } catch (error) {
     ui.connecting = false;
     ui.startError = message(error);
+    // What was typed stays in the form, so a wrong value is fixed rather than typed again.
+    ui.dbDraft = serverFormConfig(form);
     if (!ui.ready) ui.ready = false;
     paint();
   }
@@ -1006,12 +1167,14 @@ async function companySignIn() {
   paint();
   try {
     if (!ui.status?.connected) {
-      try { ui.connection = await connectData({ engine: 'sqlite' }); }
+      try { ui.connection = await connectData({}); }
       catch (error) { if (error?.message !== 'permission') throw error; }
     }
     if (!ui.connection && ui.status?.engine) ui.connection = { engine: ui.status.engine, database: ui.status.database || '' };
     const typed = ui.loginPassword;
     const session = await loginSession(ui.loginAccount, ui.loginPassword);
+    clearLoginMessage();
+    ui.loginLock = 0;
     if (settings.autoLogin) rememberLogin(ui.loginAccount, typed || savedLogin()?.password || '');
     ui.loginPassword = '';
     ui.loginUser = session.user.id;
@@ -1027,15 +1190,21 @@ async function companySignIn() {
   } catch (error) {
     ui.connecting = false;
     ui.loginPassword = '';
-    ui.startError = message(error);
+    // The failure is told where the person signs in: the sign-in window (opened for a failed automatic sign-in too).
+    ui.startError = '';
+    if (ui.modal?.kind !== 'login') ui.modal = { kind: 'login', next: 'gate' };
     paint();
+    signInFailure(error);
   }
 }
 
 async function ensureStore() {
   if (ui.connection) return;
   rememberDataUrl(ui.dataUrl || dataUrl());
-  ui.connection = await connectData({ engine: 'sqlite' });
+  // The database already open in the data service is the one to use; only a service without one connects.
+  const status = await dataStatus().catch(() => null);
+  if (status?.connected) { ui.connection = { engine: status.engine || '', database: status.database || '' }; return; }
+  ui.connection = await connectData({});
 }
 
 async function assertUnlocked() {
@@ -1184,7 +1353,9 @@ function offerWelcome() {
 }
 
 function signedOut(name, el) {
-  if (ui.loginUser || ui.ready) return false;
+  if (ui.loginUser) return false;
+  // With no database connected nobody can sign in; on the data service's own computer the database is set up first.
+  if (ui.status?.setup && ['open-db-setup', 'test-connection', 'schema-sql'].includes(name)) return false;
   if (name === 'sign-in' || name === 'pick-login' || name === 'open-login' || name === 'modal-cancel') return false;
   if (name === 'close-reading' || name === 'reader-lang' || name === 'reader-print') return false;
   // The start page's own tools and help work before signing in.
@@ -1374,6 +1545,8 @@ function paint() {
   startCards?.destroy();
   startCards = null;
   stopStartBackground();
+  // The audit log reads itself the first time its screen opens.
+  if (ui.view === 'audit' && !ui.audit?.loaded && !ui.audit?.loading) setTimeout(() => { loadAudit(); }, 0);
   if (ui.modal?.kind === 'welcome' || (ui.modal?.kind === 'login' && ui.loginUser)) ui.modal = null;
   // Views that need no open project stay put (a fresh install has none yet, and the administrator
   // must still reach Settings, Users and Projects to make one).
@@ -1422,12 +1595,13 @@ function paintModal(ctx) {
   const modal = document.querySelector('#modal');
   if (!modal) return;
   const kind = ui.modal?.kind || '';
-  if (modal.dataset.kind === kind) return;
+  if (modal.dataset.kind === kind) { syncLoginForms(); return; }
   modal.innerHTML = kind ? renderModal(ctx) : '';
   decorateIcons(modal);
   modal.hidden = !kind;
   modal.dataset.kind = kind;
   if (kind) modal.querySelector('input, textarea, select')?.focus();
+  syncLoginForms();
 }
 
 function paintContext(ctx) {
@@ -1507,6 +1681,10 @@ async function pickAndLoad() {
 }
 
 function ingest(text, path) {
+  if (!ui.loginUser || !ui.ready) {
+    if (!ui.loginUser) { ui.modal = { kind: 'login', next: 'gate' }; paint(); }
+    return;
+  }
   let data;
   try { data = JSON.parse(text); } catch { fail(new Error('file-invalid')); return; }
   let doc;
@@ -1611,7 +1789,16 @@ function submitModal(form) {
     }
     if (modal.kind === 'profile') {
       updateProfile(ws, modal.userId, { name: value('name'), email: value('email'), phone: value('phone'), jobTitle: value('jobTitle'), team: value('team'), photo: ui.profilePhoto || '' }, actor());
-      if (admin && data.has('login')) setLogin(ws, modal.userId, value('login'), actor());
+      if (admin && data.has('login')) {
+        setLogin(ws, modal.userId, value('login'), actor());
+        if (modal.userId === ui.loginUser && ui.loginAccount !== value('login')) {
+          // My own ID changed: the next sign-in (and an automatic one) uses the new ID.
+          ui.loginAccount = value('login');
+          const saved = savedLogin();
+          if (saved?.account) rememberLogin(ui.loginAccount, saved.password || '');
+          toast(L(`아이디를 ${ui.loginAccount}(으)로 바꿨습니다. 다음 로그인부터 이 아이디를 씁니다.`, `Your ID is now ${ui.loginAccount}. Use it from the next sign-in.`));
+        }
+      }
       passwordFor = modal.userId;
       ui.profilePhoto = '';
       return;
@@ -1844,15 +2031,24 @@ function onAction(el) {
     const form = el.form || document.querySelector(ui.modal?.kind === 'login' ? '#modal [data-login]' : '[data-login]');
     ui.loginAccount = form?.querySelector('[name="account"]')?.value.trim() || '';
     ui.loginPassword = form?.querySelector('[name="password"]')?.value || '';
+    if (ui.loginLock > Date.now()) { syncLoginForms(); toast(lockText()); return; }
+    clearLoginMessage();
+    syncLoginForms();
     if (ui.modal?.kind === 'login' && ui.modal.next === 'tutorial') {
       confirmRegistered(ui.loginAccount, ui.loginPassword).then(() => {
         ui.loginPassword = '';
+        clearLoginMessage();
         if ((ws.projects || []).length) confirm(L('튜토리얼은 쇼핑몰 예제로 작업 공간을 바꿉니다. 계속할까요?', 'The tutorial replaces the workspace with the shop example. Continue?'), 'start-tutorial');
         else beginTutorial();
-      }).catch((error) => fail(error));
+      }).catch((error) => (error?.message === 'password-change' ? fail(error) : signInFailure(error)));
       return;
     }
-    if (!ui.loginAccount) { toast(L('로그인 ID를 입력하세요.', 'Enter a login ID.')); return; }
+    if (!ui.loginAccount) {
+      ui.loginError = L('로그인 ID를 입력하세요.', 'Enter a login ID.');
+      syncLoginForms();
+      toast(ui.loginError);
+      return;
+    }
     companySignIn();
     return;
   }
@@ -2317,6 +2513,22 @@ function onAction(el) {
     return;
   }
   if (name === 'set-password') { ui.modal = { kind: 'password' }; paint(); return; }
+  if (name === 'test-connection') { testServerForm(); return; }
+  if (name === 'audit-select') { ui.auditSelected = ui.auditSelected === el.dataset.id ? '' : el.dataset.id; paint(); return; }
+  if (name === 'audit-reset') { ui.audit = { ...(ui.audit || {}), filter: {} }; loadAudit(); return; }
+  if (name === 'audit-export') { exportAudit(); return; }
+  if (name === 'open-db-setup') { ui.modal = { kind: 'db-setup' }; paint(); return; }
+  if (name === 'show-encryption-key') {
+    encryptionKey().then((result) => { ui.encryptionKey = result.key || ''; paint(); }).catch((error) => toast(message(error)));
+    return;
+  }
+  if (name === 'hide-encryption-key') { ui.encryptionKey = ''; paint(); return; }
+  if (name === 'copy-encryption-key') {
+    navigator.clipboard?.writeText(ui.encryptionKey || '').then(() => toast(L('키를 복사했습니다. 안전한 곳에 보관하세요.', 'The key is copied. Keep it somewhere safe.'))).catch(() => toast(L('복사하지 못했습니다. 키를 직접 선택해 복사하세요.', 'Could not copy. Select the key and copy it.')));
+    return;
+  }
+  if (name === 'refresh-signin-locks') { refreshSignInLocks(); return; }
+  if (name === 'release-signin-lock') { refreshSignInLocks(el.dataset.account || ''); return; }
   if (name === 'import-csv') { if (ensureProject()) { ui.modal = { kind: 'csv' }; paint(); } return; }
   if (name === 'open-current-project') {
     if (!ui.ready) return;
@@ -2385,7 +2597,7 @@ function onAction(el) {
     return;
   }
   if (name === 'confirm-yes') { runConfirmed(); return; }
-  if (name === 'open-login') { ui.startError = ''; ui.modal = { kind: 'login', next: 'gate' }; paint(); document.querySelector('#dialog-account')?.focus(); return; }
+  if (name === 'open-login') { ui.startError = ''; clearLoginMessage(); ui.modal = { kind: 'login', next: 'gate' }; paint(); document.querySelector('#dialog-account')?.focus(); return; }
   if (name === 'new-project') { ui.modal = { kind: 'project', parentId: el.dataset.parent || '', teamId: el.dataset.team || '' }; paint(); return; }
   if (name === 'new-team') { ui.modal = { kind: 'team' }; paint(); return; }
   if (name === 'open-team') { ui.teamId = el.dataset.id || ''; ui.view = 'team'; ui.modal = null; paint(); return; }
@@ -2686,6 +2898,45 @@ function onAction(el) {
   }
 }
 
+/** Settings → Sign-in lock: a listed wait, or a custom number of minutes, hours or days. */
+function changeLockWait(el) {
+  if (!isWorkspaceAdmin((ws.users || []).find((user) => user.id === actor()))) return;
+  const setMinutes = (wanted) => {
+    const minutes = clampLockMinutes(wanted);
+    if (wanted < LOCK_MIN_MINUTES) toast(L(`${formatLockMinutes(LOCK_MIN_MINUTES, 'ko')}보다 짧게 정할 수 없어 ${formatLockMinutes(LOCK_MIN_MINUTES, 'ko')}으로 정했습니다.`, `A wait cannot be shorter than ${formatLockMinutes(LOCK_MIN_MINUTES, 'en')}; it is set to ${formatLockMinutes(LOCK_MIN_MINUTES, 'en')}.`));
+    else if (wanted > LOCK_MAX_MINUTES) toast(L(`가장 긴 시간은 ${formatLockMinutes(LOCK_MAX_MINUTES, 'ko')}입니다.`, `The longest wait is ${formatLockMinutes(LOCK_MAX_MINUTES, 'en')}.`));
+    ws.security = { ...(ws.security || {}), lockMinutes: minutes };
+    scheduleSave();
+  };
+  if (el.dataset.lock === 'choice') {
+    if (el.value === 'custom') { ui.lockCustom = true; paint(); return; }
+    ui.lockCustom = false;
+    ui.lockUnit = '';
+    setMinutes(Number(el.value));
+    paint();
+    return;
+  }
+  const card = el.closest('.signin-lock-card');
+  const unit = card?.querySelector('[data-lock="unit"]')?.value || 'minute';
+  const amount = Number(card?.querySelector('[data-lock="amount"]')?.value);
+  ui.lockCustom = true;
+  ui.lockUnit = unit;
+  if (!Number.isFinite(amount) || amount <= 0) { paint(); return; }
+  setMinutes(Math.round(amount * ({ minute: 1, hour: 60, day: 1440 }[unit] || 1)));
+  paint();
+}
+
+async function refreshSignInLocks(account = '') {
+  try {
+    const result = account ? await releaseSignInLock(account) : await signInLocks();
+    ui.signinLocks = result.locked || [];
+    if (account) toast(L(`${account} 계정의 잠금을 풀었습니다.`, `${account} can sign in again.`));
+  } catch (error) {
+    toast(message(error));
+  }
+  paint();
+}
+
 function onChange(event) {
   const el = event.target;
   if (el.matches('[data-profile-photo]')) {
@@ -2713,7 +2964,11 @@ function onChange(event) {
     if (input) input.type = el.checked ? 'text' : 'password';
     return;
   }
-  if (!ui.loginUser && !ui.ready) { ui.modal = { kind: 'login', next: 'gate' }; paint(); return; }
+  if (!ui.loginUser) {
+    // Signed out, only the database form of a first setup takes input.
+    if (ui.status?.setup && el.closest('#server-form')) return;
+    ui.modal = { kind: 'login', next: 'gate' }; paint(); return;
+  }
   if (el.dataset.facet) {
     ui.screenFind = ui.screenFind || {};
     ui.screenFind[ui.view] = { ...(ui.screenFind[ui.view] || {}), [el.dataset.facet]: el.value };
@@ -2807,6 +3062,7 @@ function onChange(event) {
     scheduleSave();
     return;
   }
+  if (el.dataset.lock) { changeLockWait(el); return; }
   if (el.dataset.sso) { ws.sso[el.dataset.sso] = el.value; scheduleSave(); return; }
   if (el.dataset.screen && current) {
     if (!allowed(ws, current, actor(), 'admin')) return;
@@ -2852,6 +3108,15 @@ function onChange(event) {
     return;
   }
   if (el.dataset.userActive) { mutate(() => setUserActive(ws, el.dataset.userActive, el.checked)); return; }
+  if (el.dataset.userAdmin) {
+    // Administrator rights: the data service logs the change with who made it.
+    const ok = mutate(() => setAdmin(ws, el.dataset.userAdmin, el.checked, actor()));
+    if (ok !== false) {
+      const user = ws.users.find((item) => item.id === el.dataset.userAdmin);
+      toast(el.checked ? L(`${user?.login || ''}에게 관리자 권한을 줬습니다.`, `${user?.login || ''} is now an administrator.`) : L(`${user?.login || ''}의 관리자 권한을 뺐습니다.`, `${user?.login || ''} is no longer an administrator.`));
+    }
+    return;
+  }
   if (el.dataset.group && el.dataset.user) { mutate(() => toggleGroupUser(ws, el.dataset.group, el.dataset.user)); return; }
   if (el.dataset.font === 'size') {
     settings.fontSize = Math.min(20, Math.max(12, Number(el.value) || 13));
@@ -2892,7 +3157,7 @@ function onInput(event) {
   if (event.target?.id === 'nav-ws-name') { ui.wsDraft = event.target.value; return; }
   const el = event.target;
   // The background speed works on the start page before signing in; the rest waits for it.
-  if (!ui.loginUser && !ui.ready && el.dataset?.bg !== 'speed') return;
+  if (!ui.loginUser && el.dataset?.bg !== 'speed') return;
   if (el.dataset.bg === 'speed') {
     settings.backgroundSpeed = Number(el.value) || 0;
     const out = el.parentElement?.querySelector('output');
@@ -3199,11 +3464,28 @@ function mount() {
       paint();
     }
   });
+  // List views (the audit log): sort, column widths and order, kept per list in this computer's settings.
+  bindListViews({
+    read: (id) => settings.listViews?.[id] || (id === 'audit' ? { sort: { col: 'at', dir: 'desc' } } : {}),
+    write: (id, state) => { settings.listViews = { ...(settings.listViews || {}), [id]: state }; saveSettings(); },
+    repaint: () => paint(),
+  });
   document.body.addEventListener('change', onChange);
   document.body.addEventListener('input', onInput);
   document.body.addEventListener('submit', (event) => {
     const server = event.target.closest('#server-form');
     if (server) { event.preventDefault(); connectServer(server); return; }
+    const auditForm = event.target.closest('#audit-form');
+    if (auditForm) {
+      event.preventDefault();
+      const data = new FormData(auditForm);
+      const filter = {};
+      for (const key of ['category', 'action', 'actor', 'from', 'to', 'q']) filter[key] = String(data.get(key) || '').trim();
+      ui.audit = { ...(ui.audit || {}), filter };
+      ui.auditSelected = '';
+      loadAudit();
+      return;
+    }
     const login = event.target.closest('[data-login]');
     if (login) { event.preventDefault(); onAction({ dataset: { action: 'sign-in' }, form: login }); return; }
     const finder = event.target.closest('[data-search-form]');
@@ -3422,7 +3704,7 @@ function mount() {
   });
 }
 
-const FREE_VIEWS = new Set(['search', 'home', 'help', 'settings', 'users', 'projects', 'extensions', 'people', 'teams', 'team']);
+const FREE_VIEWS = new Set(['search', 'home', 'help', 'settings', 'users', 'projects', 'extensions', 'people', 'teams', 'team', 'audit']);
 const NO_PROJECT_VIEWS = new Set([...FREE_VIEWS, 'notifications', 'knowledge', 'documents', 'calendar', 'plans', 'teams', 'team']);
 
 function listedIssueIds() {
@@ -3446,9 +3728,13 @@ function stepIssue(delta) {
 }
 
 function runShortcut(hit, event) {
+  if (!ui.loginUser && hit.id !== 'escape' && hit.id !== 'run-search') {
+    if (!ui.modal) { ui.modal = { kind: 'login', next: 'gate' }; paint(); }
+    return;
+  }
   if (hit.id === 'escape') {
     if (ui.modal?.forced) return;
-    if (!ui.loginUser && !ui.ready) {
+    if (!ui.loginUser) {
       // Signed out: Esc closes an open menu or the sign-in window.
       if (ui.menu || ui.context || ui.modal) { ui.menu = null; ui.context = null; ui.modal = null; paint(); }
       return;

@@ -31,16 +31,16 @@ describe('Schema', () => {
     const temp = tempFile();
     const old = new DatabaseSync(temp.file);
     // The tables as the earlier release made them, with a saved workspace and no schema_version row.
-    for (const table of TABLES) old.exec(createTable('sqlite', table));
+    for (const table of TABLES.filter((item) => item.name !== 'audit_log')) old.exec(createTable('sqlite', table));
     old.prepare('INSERT INTO workspace_document (id, body, saved_at) VALUES (?, ?, ?)').run('main', '{"users":[]}', 'then');
     old.close();
     const engine = await openEngine({ engine: 'sqlite', file: temp.file, schema: false });
     const before = await inspectSchema(engine);
     assert.equal(before.version, 1);
     assert.equal(before.ready, false);
-    assert.deepEqual(before.pending.map((step) => step.version), [2]);
+    assert.deepEqual(before.pending.map((step) => step.version), [2, 3]);
     const changes = await ensureSchema(engine);
-    assert.deepEqual(changes, { created: [], applied: [2] });
+    assert.deepEqual(changes, { created: ['audit_log'], applied: [2, 3] });
     const after = await inspectSchema(engine);
     assert.equal(after.ready, true);
     assert.equal(after.tables.find((table) => table.name === 'workspace_document').rows, 1);

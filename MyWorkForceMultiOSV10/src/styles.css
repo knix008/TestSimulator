@@ -491,6 +491,65 @@ ul.plain li { display: flex; align-items: center; gap: 6px; padding: 4px 0; bord
 .login-stack .login-label { justify-content: flex-start; }
 .login-stack .login-submit { grid-column: 1 / -1; width: 100%; height: 38px; margin-top: 4px; font-size: 1.02em; }
 .login-stack .password-reveal { grid-column: 2; }
+.login-error { margin: 0; padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--danger) 55%, transparent); border-left-width: 4px; border-radius: 8px; background: color-mix(in srgb, var(--danger) 12%, var(--surface)); color: var(--danger); font-weight: 600; line-height: 1.45; animation: login-error-in 0.28s ease; }
+.login-error[hidden] { display: none; }
+.login-error.locked { font-variant-numeric: tabular-nums; }
+.login-error.note { border-color: color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--text); font-weight: 500; }
+@keyframes login-error-in { 0% { transform: translateX(0); } 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-2px); } 100% { transform: translateX(0); } }
+@media (prefers-reduced-motion: reduce) { .login-error { animation: none; } }
+.login-lock-custom { display: flex; gap: 6px; align-items: center; }
+.login-lock-custom input { width: 90px; }
+.login-lock-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.db-test { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--surface) 92%, var(--accent)); }
+.db-test b { display: inline-flex; align-items: center; gap: 6px; }
+.db-test ul { margin: 6px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.db-test li { display: flex; align-items: flex-start; gap: 6px; line-height: 1.4; overflow-wrap: anywhere; }
+.db-test li.ok .icon { color: var(--ok, #2f9e44); }
+.db-test li.bad { color: var(--danger); }
+.db-test li.warn .icon { color: #d97706; }
+.key-reveal { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.key-reveal code { flex: 1 1 100%; padding: 6px 8px; border-radius: 6px; background: var(--surface-2, rgba(127,127,127,.12)); overflow-wrap: anywhere; user-select: all; }
+/* List view: sortable headings, resizable and movable columns. */
+.lv { overflow: auto; max-width: 100%; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.lv-table { table-layout: fixed; border-collapse: separate; border-spacing: 0; min-width: 100%; }
+.lv-table th, .lv-table td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 6px 10px; border-bottom: 1px solid var(--line); text-align: left; }
+.lv-table th { position: sticky; top: 0; z-index: 1; background: color-mix(in srgb, var(--surface) 90%, var(--accent)); font-weight: 650; cursor: pointer; user-select: none; touch-action: none; }
+.lv-table th:hover { background: color-mix(in srgb, var(--surface) 80%, var(--accent)); }
+.lv-table th.sorted { color: var(--accent); }
+.lv-table th.right, .lv-table td.right { text-align: right; }
+.lv-head { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; overflow: hidden; }
+.lv-label { overflow: hidden; text-overflow: ellipsis; }
+.lv-arrow { font-size: 10px; }
+.lv-resize { position: absolute; top: 0; right: -4px; width: 9px; height: 100%; cursor: col-resize; z-index: 2; }
+.lv-resize::after { content: ''; position: absolute; top: 20%; bottom: 20%; left: 4px; width: 1px; background: var(--line); }
+.lv-resize:hover::after { background: var(--accent); width: 2px; }
+.lv-table th { position: sticky; }
+.lv-table tbody tr { cursor: pointer; }
+.lv-table tbody tr:hover td { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.lv-table tbody tr.selected td { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.lv-table .lv-moving { opacity: 0.35; }
+.lv-empty { padding: 12px; margin: 0; }
+.lv-ghost { position: fixed; z-index: 9999; pointer-events: none; opacity: 0.9; border: 1px solid var(--accent); border-radius: 6px; background: var(--surface); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28); overflow: hidden; }
+.lv-ghost-head { padding: 6px 10px; font-weight: 650; background: color-mix(in srgb, var(--surface) 75%, var(--accent)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lv-ghost-cell { padding: 6px 10px; border-top: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; }
+.lv-drop { position: fixed; z-index: 9998; width: 3px; border-radius: 2px; background: var(--accent); pointer-events: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
+body.lv-dragging, body.lv-dragging * { cursor: grabbing !important; }
+body.lv-resizing, body.lv-resizing * { cursor: col-resize !important; user-select: none; }
+.audit-filters { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px 14px; align-items: center; margin: 10px 0; }
+.audit-filters .audit-words { grid-column: span 2; }
+.audit-filters .page-actions { grid-column: 1 / -1; }
+.audit-count { margin: 6px 0; }
+.audit-page .lv { max-height: calc(100vh - 360px); min-height: 220px; }
+.audit-detail { margin-top: 10px; }
+.audit-dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 8px 0 0; }
+.audit-dl dt { font-weight: 650; color: var(--muted); }
+.audit-dl dd { margin: 0; overflow-wrap: anywhere; }
+.audit-json { margin: 0; padding: 8px; border-radius: 6px; background: var(--surface-2, rgba(127,127,127,.1)); max-height: 260px; overflow: auto; font-size: 12px; }
+.chip.audit-admin { background: color-mix(in srgb, #d97706 18%, transparent); }
+.chip.audit-user { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.mono { font-variant-numeric: tabular-nums; }
+.admin-check { display: inline-flex; align-items: center; gap: 4px; margin: 0; }
+.db-setup-modal { width: min(1100px, calc(100vw - 32px)); max-height: calc(100vh - 40px); overflow: auto; }
 .login-modal { width: min(460px, calc(100vw - 32px)); }
 .login-modal > p { margin: 0 0 12px; color: var(--muted); line-height: 1.5; }
 .login-modal .login-form { padding: 0; }

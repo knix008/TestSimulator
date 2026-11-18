@@ -88,12 +88,77 @@ export function schemaPanel(ctx) {
   </section>`;
 }
 
+const KEY_STATES = {
+  new: ['새 데이터베이스입니다. 처음 연결할 때 이 데이터 서비스의 키로 암호화합니다.', 'A new database. The first connection encrypts it with this data service\'s key.'],
+  match: ['이 데이터 서비스의 키로 열립니다.', "It opens with this data service's key."],
+  legacy: ['암호화 전에 저장된 데이터가 있습니다. 연결하면 이 키로 암호화합니다.', 'It holds data saved before encryption. Connecting encrypts it with this key.'],
+  mismatch: ['다른 데이터 서비스의 키로 암호화되어 있습니다. 그 키를 "암호화 키"에 넣어야 연결할 수 있습니다.', 'It is encrypted with another data service\'s key. Put that key in "Encryption key" to connect.'],
+};
+
+/** What "Test connection" found, line by line. */
+function testReport(report) {
+  if (!report) return '';
+  const line = (ok, text) => `<li class="${ok === true ? 'ok' : ok === false ? 'bad' : 'warn'}">${icon(ok === true ? 'check' : ok === false ? 'alert' : 'info')}<span>${esc(text)}</span></li>`;
+  const rows = [];
+  if (!report.ok) {
+    const why = report.error === 'database-missing'
+      ? L('데이터베이스가 없습니다. "없으면 데이터베이스 만들기"를 켜고 연결하면 만듭니다.', 'The database does not exist. Turn on "Create the database if it is missing" and connect to create it.')
+      : report.error === 'driver-missing' ? L('그 데이터베이스 드라이버가 설치되어 있지 않습니다.', 'That database driver is not installed.')
+        : report.error === 'tls-unsupported' ? L('DB 서버가 TLS를 지원하지 않습니다. 서버에서 TLS를 켜세요. 꼭 필요하면 "TLS로 암호화해 연결"을 끌 수 있습니다.', 'The database server does not support TLS. Turn TLS on at the server; only if you must, turn off "Encrypt the connection with TLS".')
+        : report.error === 'tls-required' ? L('DB 서버가 암호화된 연결만 받습니다. "TLS로 암호화해 연결"을 켜세요.', 'The server accepts encrypted connections only. Turn on "Encrypt the connection with TLS".')
+        : report.error === 'tls-certificate' ? L('서버 인증서를 확인하지 못했습니다. 자체 서명 인증서라면 "서버 인증서 확인"을 끄세요.', "The server's certificate could not be verified. For a self-signed one, turn off \"Verify the server's certificate\".")
+        : report.error === 'key-invalid' ? L('암호화 키 형식이 맞지 않습니다 (32바이트 base64 또는 hex).', 'The encryption key is not valid (32 bytes, base64 or hex).')
+          : L('연결하지 못했습니다.', 'Could not connect.');
+    rows.push(line(report.error === 'database-missing' ? null : false, why));
+    if (report.detail) rows.push(line(false, report.detail));
+  } else {
+    rows.push(line(true, L(`연결했습니다 (${report.ms} ms).`, `Connected (${report.ms} ms).`)));
+    if (report.engine !== 'sqlite') {
+      if (report.tls?.on) rows.push(line(true, L(`연결이 TLS로 암호화되어 있습니다${report.tls.cipher ? ` (${report.tls.cipher})` : ''}.`, `The connection is encrypted with TLS${report.tls.cipher ? ` (${report.tls.cipher})` : ''}.`)));
+      else if (report.tls) rows.push(line(false, L('연결이 암호화되어 있지 않습니다. 서버에서 TLS를 켜고 "TLS로 암호화해 연결"을 켜세요.', 'The connection is not encrypted. Turn TLS on at the server and turn on "Encrypt the connection with TLS".')));
+      else rows.push(line(null, L('연결 암호화 여부를 서버가 알려주지 않았습니다.', 'The server did not say whether the connection is encrypted.')));
+    }
+    const schema = report.schema || {};
+    if (schema.newer) rows.push(line(false, L(`이 프로그램보다 새 스키마입니다 (버전 ${schema.version}). 프로그램을 업데이트하세요.`, `The schema is newer than this program (version ${schema.version}). Update the program.`)));
+    else if (schema.ready) rows.push(line(true, L(`스키마가 최신입니다 (버전 ${schema.version}).`, `The schema is up to date (version ${schema.version}).`)));
+    else if ((schema.missing || []).length) rows.push(line(null, L(`표가 ${schema.missing.length}개 없습니다. 연결하면 자동으로 만듭니다.`, `${schema.missing.length} tables are missing. Connecting creates them.`)));
+    else rows.push(line(null, L(`스키마를 버전 ${schema.expected}(으)로 올려야 합니다. 연결하면 자동으로 올립니다.`, `The schema needs version ${schema.expected}. Connecting upgrades it.`)));
+    const state = KEY_STATES[report.key?.state];
+    if (state) rows.push(line(report.key.state === 'mismatch' ? false : true, `${L(state[0], state[1])} · ${L('키 지문', 'Key fingerprint')} ${report.key.fingerprint}`));
+    if (report.current) rows.push(line(true, L('지금 쓰고 있는 데이터베이스입니다.', 'This is the database in use now.')));
+  }
+  return `<div class="db-test" role="status"><b>${icon('bolt')}${L('연결 시험 결과', 'Connection test')}</b><ul>${rows.join('')}</ul></div>`;
+}
+
+/** The key the stored data is encrypted with: its fingerprint, and for the administrator the key itself to carry to another data service. */
+function encryptionPanel(ctx) {
+  const ui = ctx.ui || {};
+  const info = ui.status?.encryption;
+  if (!info) return '';
+  const admin = isWorkspaceAdmin(ctx.user);
+  const shown = ui.encryptionKey
+    ? `<div class="key-reveal"><code>${esc(ui.encryptionKey)}</code><button type="button" class="button" data-action="copy-encryption-key">${icon('copy')}<span>${L('복사', 'Copy')}</span></button><button type="button" class="button" data-action="hide-encryption-key">${icon('eye')}<span>${L('숨기기', 'Hide')}</span></button></div>`
+    : '';
+  return `<section class="panel-card encryption-card">
+    <header><b>${icon('lock')}${L('저장 데이터 암호화', 'Encryption at rest')}</b><span class="schema-badge ok">${icon('check')}${esc(info.algorithm)}</span></header>
+    <p>${L('과제, 문서, 페이지, 대화, 메일, 사람 정보는 데이터베이스에 넣기 전에 암호화합니다. SQLite, MySQL, MariaDB, PostgreSQL, SQL Server 모두 같습니다.', 'Projects, documents, pages, chat, mail and people are encrypted before they reach the database — the same for SQLite, MySQL, MariaDB, PostgreSQL and SQL Server.')}</p>
+    <p class="muted">${icon('key')}<span>${L('키 지문', 'Key fingerprint')}: <code>${esc(info.fingerprint)}</code></span></p>
+    <p class="muted">${L('데이터베이스를 별도 서버에 두고 데이터 서비스를 다시 설치하거나 하나 더 둘 때는, 이 키를 그 데이터 서비스의 "암호화 키"에 넣습니다. 키를 잃으면 데이터를 읽을 수 없으니 안전한 곳에 보관하세요.', 'When the database is on its own server and a data service is reinstalled or added, put this key in that service\'s "Encryption key". Without the key the data cannot be read, so keep it somewhere safe.')}</p>
+    ${admin ? (shown || `<button type="button" class="button" data-action="show-encryption-key">${icon('key')}<span>${L('키 보기', 'Show the key')}</span></button>`) : ''}
+  </section>`;
+}
+
 /** SQLite file and the server connection. Shown from Settings. */
 export function databaseSettings(ctx) {
   const ui = ctx.ui || {};
   const status = ui.status;
   const saved = status?.saved;
-  const engines = ENGINES.map((engine) => `<option value="${engine.id}" ${saved?.engine === engine.id ? 'selected' : ''}>${esc(L(engine.ko, engine.en))}${engine.port ? ` · ${engine.port}` : ''}</option>`).join('');
+  const draft = ui.dbDraft || {};
+  const pick = (key, fallback) => (draft[key] != null ? draft[key] : fallback);
+  const chosen = pick('engine', saved?.engine);
+  const tlsOn = pick('tls', saved?.tls !== false);
+  const tlsVerify = pick('tlsVerify', Boolean(saved?.tlsVerify));
+  const engines = ENGINES.map((engine) => `<option value="${engine.id}" ${chosen === engine.id ? 'selected' : ''}>${esc(L(engine.ko, engine.en))}${engine.port ? ` · ${engine.port}` : ''}</option>`).join('');
   const error = ui.startError ? `<p class="danger-text">${esc(ui.startError)}</p>` : '';
   const offline = status?.listening === false ? `<p class="danger-text">${L('데이터 서비스에 연결하지 못했습니다. 주소와 실행 여부를 확인하세요.', 'The data service did not answer. Check the address and that it is running.')}</p>` : '';
   return `<section><h2>${icon('database')}<span>${L('데이터베이스', 'Database')}</span></h2>
@@ -111,19 +176,25 @@ export function databaseSettings(ctx) {
         <header><b>${icon('globe')}${L('서버 데이터베이스', 'Server database')}</b></header>
         <label class="form-row"><span>${L('데이터 서비스', 'Data service')}</span><input name="service" value="${esc(ui.dataUrl || 'http://127.0.0.1:1481')}"></label>
         <label class="form-row"><span>${L('종류', 'Engine')}</span><select name="engine">${engines}</select></label>
-        <label class="form-row"><span>${L('호스트', 'Host')}</span><input name="host" value="${esc(saved?.host || '127.0.0.1')}"></label>
-        <label class="form-row"><span>${L('포트', 'Port')}</span><input name="port" value="${esc(saved?.port || '')}" placeholder="3306"></label>
-        <label class="form-row"><span>${L('데이터베이스', 'Database')}</span><input name="database" value="${esc(saved?.database || '')}"></label>
-        <label class="form-row"><span>${L('사용자', 'User')}</span><input name="user" value="${esc(saved?.user || '')}"></label>
-        <label class="form-row"><span>${L('암호', 'Password')}</span><input name="password" type="password"></label>
+        <label class="form-row"><span>${L('호스트', 'Host')}</span><input name="host" value="${esc(pick('host', saved?.host || '127.0.0.1'))}"></label>
+        <label class="form-row"><span>${L('포트', 'Port')}</span><input name="port" value="${esc(pick('port', saved?.port || ''))}" placeholder="${esc(String(engineById(chosen)?.port || 3306))}"></label>
+        <label class="form-row"><span>${L('데이터베이스', 'Database')}</span><input name="database" value="${esc(pick('database', saved?.database || ''))}"></label>
+        <label class="form-row"><span>${L('사용자', 'User')}</span><input name="user" value="${esc(pick('user', saved?.user || ''))}" autocomplete="off"></label>
+        <label class="form-row"><span>${L('암호', 'Password')}</span><input name="password" type="password" value="${esc(draft.password || '')}" autocomplete="new-password" placeholder="${esc(saved?.user ? L('비우면 저장된 암호', 'Empty keeps the saved one') : '')}"></label>
+        <label class="check"><input type="checkbox" name="tls" ${tlsOn ? 'checked' : ''}>${icon('lock')}<span>${L('TLS로 암호화해 연결 (권장)', 'Encrypt the connection with TLS (recommended)')}</span></label>
+        <label class="check"><input type="checkbox" name="tlsVerify" ${tlsVerify ? 'checked' : ''}>${icon('check')}<span>${L('서버 인증서 확인 (공인 인증서일 때)', "Verify the server's certificate (when it is publicly signed)")}</span></label>
+        <label class="form-row"><span>${L('암호화 키', 'Encryption key')}</span><input name="encryptionKey" type="password" value="${esc(draft.encryptionKey || '')}" autocomplete="off" spellcheck="false" placeholder="${esc(L('다른 데이터 서비스가 쓰던 DB일 때만', 'Only for a database another data service uses'))}"></label>
         <label class="form-row"><span>${L('작업 공간 암호', 'Workspace password')}</span><input name="unlock" type="password" placeholder="${esc(L('사람마다 암호가 있을 때만', 'Only when a person has a password'))}"></label>
         <label class="check"><input type="checkbox" name="createDatabase" checked>${icon('plus')}<span>${L('없으면 데이터베이스 만들기', 'Create the database if it is missing')}</span></label>
         <p class="muted">${L('연결하면 필요한 표를 만들고 스키마를 최신 버전으로 올립니다. 계정에 만들기 권한이 없으면 SQL 스크립트를 DBA에게 전달하세요.', 'Connecting creates the tables it needs and brings the schema up to date. If the account may not create tables, give the SQL script to your DBA.')}</p>
         <div class="page-actions">
           <button type="submit" class="button primary" ${ui.connecting ? 'disabled' : ''}>${icon('link')}<span>${L('연결', 'Connect')}</span></button>
+          <button type="button" class="button" data-action="test-connection" ${ui.dbTesting ? 'disabled' : ''}>${icon(ui.dbTesting ? 'clock' : 'bolt')}<span>${ui.dbTesting ? L('시험 중…', 'Testing…') : L('연결 시험', 'Test connection')}</span></button>
           <button type="button" class="button" data-action="schema-sql">${icon('code')}<span>${L('SQL 스크립트', 'SQL script')}</span></button>
         </div>
+        ${testReport(ui.dbTest)}
       </form>
+      ${encryptionPanel(ctx)}
       ${schemaPanel(ctx)}
     </div></section>`;
 }

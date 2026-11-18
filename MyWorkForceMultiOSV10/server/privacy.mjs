@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -15,6 +15,50 @@ export function loadPrivacyKey(dir) {
   const key = randomBytes(32);
   writeFileSync(file, key, { mode: 0o600 });
   return key;
+}
+
+/** A short name for a key, to compare two data services without showing the key: "3fa2-91c0-…". */
+export function keyFingerprint(key) {
+  const hex = createHash('sha256').update(key).digest('hex').slice(0, 16);
+  return hex.match(/.{4}/g).join('-');
+}
+
+/** A key typed or pasted by the administrator (base64 or hex of 32 bytes). */
+export function parseKey(text) {
+  const value = String(text || '').trim();
+  let key = null;
+  if (/^[0-9a-f]{64}$/i.test(value)) key = Buffer.from(value, 'hex');
+  else if (/^[A-Za-z0-9+/=_-]{43,44}$/.test(value)) key = Buffer.from(value.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+  if (!key || key.length !== 32) throw new Error('key-invalid');
+  return key;
+}
+
+/**
+ * The key a database is sealed with. A database on its own server may already be sealed by another data
+ * service: its key is imported once and kept here per database (keys.json); everything else uses this
+ * service's own key (privacy.key).
+ */
+export function keyFor(dir, store) {
+  try {
+    const ring = JSON.parse(readFileSync(join(dir, 'keys.json'), 'utf8'));
+    if (ring[store]) return parseKey(ring[store]);
+  } catch { /* no imported keys */ }
+  return loadPrivacyKey(dir);
+}
+
+export function rememberKeyFor(dir, store, key) {
+  let ring = {};
+  try { ring = JSON.parse(readFileSync(join(dir, 'keys.json'), 'utf8')); } catch { /* first one */ }
+  ring[store] = Buffer.from(key).toString('base64');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, 'keys.json'), JSON.stringify(ring, null, 2), { mode: 0o600 });
+}
+
+const CHECK = 'myworkforce-key-check';
+export const sealCheck = (key) => seal(CHECK, key);
+/** Does this key open the database's check value? */
+export function checkMatches(sealed, key) {
+  try { return openValue(sealed, key) === CHECK; } catch { return false; }
 }
 
 export function seal(value, key) {
