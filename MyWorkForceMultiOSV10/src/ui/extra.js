@@ -3,7 +3,7 @@ import { canEditPage, expandPage, pagesIn, trashedPages } from '../domain/wiki.j
 import { visibleSpaces } from '../domain/teams.js';
 import { CREATE_FIELDS, MODULES, WEEK_DAYS, calendarOf, moduleOn, planItems } from '../domain/services.js';
 import { renderMarkdown } from '../domain/markdown.js';
-import { avatar, badge, button, empty, esc, foldBox, formatWhen, icon, L, nameOf, options, pageHead, person } from './bits.js';
+import { avatar, backButton, badge, button, empty, esc, itemActions, foldBox, formatWhen, icon, L, nameOf, options, pageHead, person } from './bits.js';
 import { isWorkspaceAdmin } from '../domain/permissions.js';
 import { markMentions } from './mentions.js';
 import { expandIssueMacros } from './issue-macros.js';
@@ -243,7 +243,7 @@ export function knowledgeView(ctx) {
       <button type="button" class="small-button${reading ? ' primary' : ''}" data-action="page-mode" data-id="read">${icon('eye')}<span>${L('미리 보기', 'Preview')}</span></button>
     </div>` : '';
   const article = `<article class="panel-card doc-page">
-    <nav class="doc-crumbs" aria-label="${esc(L('위치', 'Location'))}">${icon('layers')}${crumbs.map((item, at) => (at ? `<span class="crumb-sep">›</span>${item}` : item)).join('')}<span class="grow"></span><span id="live-people" class="live-people" hidden></span>${mode}${canEdit ? `<button type="button" class="icon-button doc-trash" data-action="delete-article" data-id="${esc(open.id)}" title="${esc(L('휴지통으로 삭제', 'Move to the trash'))}" aria-label="${esc(L('휴지통으로 삭제', 'Move to the trash'))}">${icon('trash')}</button>` : ''}</nav>
+    <nav class="doc-crumbs" aria-label="${esc(L('위치', 'Location'))}">${icon('layers')}${crumbs.map((item, at) => (at ? `<span class="crumb-sep">›</span>${item}` : item)).join('')}<span class="grow"></span><span id="live-people" class="live-people" hidden></span>${mode}${itemActions(canEdit ? { action: 'save-page', attrs: `data-id="${esc(open.id)}"` } : null, { action: 'close-page', attrs: `data-id="${esc(open.id)}"` })}${canEdit ? `<button type="button" class="icon-button doc-trash" data-action="delete-article" data-id="${esc(open.id)}" title="${esc(L('휴지통으로 삭제', 'Move to the trash'))}" aria-label="${esc(L('휴지통으로 삭제', 'Move to the trash'))}">${icon('trash')}</button>` : ''}</nav>
     ${editor ? '' : `<h1 class="doc-title">${esc(open.title)}</h1>`}
     ${freshEdit ? `<p class="banner">${esc(L(`${person(ctx.ws, open.editorId)?.name || ''} 님도 이 페이지를 쓰고 있습니다.`, `${person(ctx.ws, open.editorId)?.name || 'Someone'} is also writing this page.`))}</p>` : ''}
     ${compare}
@@ -467,7 +467,8 @@ export function documentsView(ctx) {
       rows,
       state: ctx.settings?.listViews?.documents || { sort: { col: 'updated', dir: 'desc' } },
       empty: tab === 'mine' ? L('만든 문서가 없습니다. "양식"에서 만드세요.', 'You have no documents. Make one from Forms.') : L('공유된 문서가 없습니다.', 'Nothing is shared.'),
-      rowAttrs: (doc) => `data-action="open-doc" data-id="${esc(doc.id)}" title="${esc(L('눌러서 탭으로 열기', 'Click to open in a tab'))}"`,
+      rowAttrs: (doc) => `data-action="select-doc" data-id="${esc(doc.id)}" data-open-doc="${esc(doc.id)}" title="${esc(L('눌러서 고르고, 두 번 눌러 열기', 'Click to choose, double-click to open'))}"`,
+      selected: (doc) => doc.id === ctx.ui.docSelected,
     });
   }
   return `<div class="page doc-page">${strip}${finderBar(ctx, docFacets)}${body}</div>`;
@@ -491,6 +492,28 @@ function docTabStrip(ctx, tab, openIds, active) {
 
 function pageHeadInline(title) {
   return `<h1 class="doc-tabbar-title">${icon('file')}<span>${esc(title)}</span></h1>`;
+}
+
+/** The document chosen in the list, on the right: what it is and the start of its text; Open and Print. */
+export function documentPreview(ctx) {
+  const doc = (ctx.ws.documents || []).find((item) => item.id === ctx.ui.docSelected);
+  if (!doc) return empty(L('목록에서 문서를 고르면 여기에 나옵니다. 두 번 누르면 엽니다.', 'Choose a document in the list to see it here. Double-click to open it.'));
+  const form = nameOf(FORMS.find((item) => item.id === doc.templateId)) || '';
+  const share = SHARE[doc.visibility] || SHARE.private;
+  const rows = [
+    ['file', L('양식', 'Form'), form],
+    ['user', L('작성자', 'Author'), person(ctx.ws, doc.authorId)?.name || ''],
+    ['globe', L('공유', 'Shared'), L(share[0], share[1])],
+    ['link', L('이슈', 'Issue'), doc.issueKey || '—'],
+    ['clock', L('수정', 'Updated'), formatWhen(doc.updated || doc.created || '')],
+    ['paperclip', L('첨부', 'Files'), String((doc.attachments || []).length)],
+  ].map(([glyph, label, value]) => `<dt>${icon(glyph)}<span>${esc(label)}</span></dt><dd>${esc(value)}</dd>`).join('');
+  return `<div class="doc-side">
+    <h3 class="doc-side-title">${esc(doc.title || L('(제목 없음)', '(untitled)'))}</h3>
+    <div class="page-actions doc-side-actions"><button type="button" class="button primary" data-action="open-doc" data-id="${esc(doc.id)}">${icon('file')}<span>${L('열기', 'Open')}</span></button><button type="button" class="button" data-action="print-doc" data-id="${esc(doc.id)}">${icon('printer')}<span>${L('인쇄', 'Print')}</span></button></div>
+    <dl class="doc-side-meta">${rows}</dl>
+    <div class="md doc-side-preview">${renderMarkdown(doc.body || '', doc.attachments || [])}</div>
+  </div>`;
 }
 
 /** One document filling the page: its own header (title, form, author, issue, sharing, export) over the text and its preview. */
@@ -523,12 +546,12 @@ function documentEditor(ctx, open) {
         <label class="doc-issue">${icon('link')}<span>${L('이슈', 'Issue')}</span><input id="doc-issue" data-doc="issueKey" value="${esc(open.issueKey || '')}" placeholder="${esc(L('이슈 키', 'Issue key'))}" ${owner ? '' : 'readonly'}></label>
         <span class="doc-share">${shareButtons}</span>
         <span class="grow"></span>
-        ${modes ? `<span class="doc-modes">${modes}</span>` : ''}
         <button type="button" class="small-button" data-action="print" title="${esc(L('인쇄 (Ctrl+P)', 'Print (Ctrl+P)'))}">${icon('printer')}<span>${L('인쇄', 'Print')}</span></button>
         <span class="doc-export">${exportButtons}</span>
         ${owner ? `<button type="button" class="icon-button" data-action="delete-doc" data-id="${esc(open.id)}" title="${esc(L('문서 삭제', 'Delete the document'))}">${icon('trash')}</button>` : ''}
       </div>
     </header>
+    <div class="tabs item-tabs doc-mode-row">${modes ? `<span class="doc-modes">${modes}</span>` : ''}${itemActions(owner ? { action: 'save-doc', attrs: `data-id="${esc(open.id)}"` } : null, { action: 'close-doc', attrs: `data-id="${esc(open.id)}"` })}</div>
     <div class="doc-body-area">${area}</div>
     <footer class="doc-files">${icon('paperclip')}<b>${L('첨부', 'Attachments')}</b>${files || `<span class="muted">${L('없음', 'None')}</span>`}
       ${owner ? `<span class="grow"></span><button type="button" class="small-button" data-action="pick-doc-file" data-id="${esc(open.id)}" data-kind="image">${icon('image')}<span>${L('이미지', 'Image')}</span></button><button type="button" class="small-button" data-action="pick-doc-file" data-id="${esc(open.id)}" data-kind="file">${icon('paperclip')}<span>${L('파일', 'File')}</span></button>` : ''}
@@ -724,7 +747,6 @@ function docEditor(ctx, page) {
       <label class="form-row"><span>${icon('tag')}${L('라벨', 'Labels')}</span><input id="page-labels" value="${esc((page.labels || []).join(' '))}" placeholder="${esc(L('띄어쓰기로 나눕니다', 'Separated by spaces'))}"></label>
       <span class="grow"></span>
       <span id="page-save-state" class="save-state" aria-live="polite">${esc(L('바뀐 내용은 저절로 저장됩니다', 'Changes save by themselves'))}</span>
-      <button type="button" class="button primary" data-action="save-page" data-id="${esc(page.id)}" title="Ctrl+S">${icon('save')}<span>${L('저장', 'Save')}</span></button>
     </div>
   </div>`;
 }

@@ -188,7 +188,8 @@ textarea { width: 100%; resize: vertical; }
 #view { min-width: 0; min-height: 0; overflow: auto; background: var(--bg); }
 #view:has(.doc-window) { display: flex; flex-direction: column; overflow: hidden; }
 #view > .doc-window { flex: 1; min-height: 0; }
-.nav-section { margin: 10px 8px 4px; font-size: 0.75em; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+/* "My teams" / "My projects": group labels at the same size as the items under them (like the workspace rows). */
+.nav-section { display: flex; align-items: center; gap: 8px; margin: 10px 8px 4px; padding: 0 0 0 0; font-size: 1em; font-weight: 600; letter-spacing: normal; text-transform: none; color: var(--muted); }
 .nav-group { display: flex; align-items: center; gap: 6px; margin: 4px 8px 2px; padding: 8px 4px 2px; border-top: 1px solid var(--border); font-weight: 700; }
 .panel-body > .nav-group:first-child { border-top: 0; padding-top: 2px; }
 .nav-group-admin { margin-top: 12px; color: var(--accent); }
@@ -378,7 +379,7 @@ ul.plain li { display: flex; align-items: center; gap: 6px; padding: 4px 0; bord
 .form-row > span:first-child .icon { width: 15px; height: 15px; flex: none; }
 .form-block { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
 .form-block-title { display: inline-flex; align-items: center; gap: 6px; font-weight: 650; }
-.nav-section .icon { width: 13px; height: 13px; margin-right: 4px; vertical-align: -2px; }
+.nav-section .icon { width: 16px; height: 16px; margin: 0; }
 .nav-current b { color: var(--accent); }
 .settings-group-title { display: flex; align-items: center; gap: 8px; margin: 6px 0 10px; padding-bottom: 6px; font-size: 1.05em; border-bottom: 1px solid var(--border); }
 .settings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; align-items: start; }
@@ -872,7 +873,7 @@ p.muted > .icon:first-child { width: 15px; height: 15px; margin-right: 5px; vert
 .nav-sub:hover { background: var(--hover); }
 .nav-sub.active { background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .nav-sub.active .nav-sub-name { color: var(--accent); font-weight: 650; }
-.nav-sub-open { display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0; padding: 4px 6px; border: 0; background: none; color: inherit; font: inherit; font-size: 0.95em; text-align: left; cursor: pointer; }
+.nav-sub-open { display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0; padding: 4px 6px; border: 0; background: none; color: inherit; font: inherit; font-size: 1em; text-align: left; cursor: pointer; }
 .nav-sub-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-sub-open small { flex: none; color: var(--muted); font-size: 11px; }
 .nav-sub-add { display: grid; place-items: center; flex: none; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 5px; background: none; color: var(--muted); cursor: pointer; opacity: 0; }
@@ -1242,3 +1243,33 @@ body.settings-window [data-action="start-screen"] { display: none !important; }
 .viewer-size { display: inline-flex; align-items: center; gap: 2px; }
 .viewer-size output { min-width: 42px; text-align: center; font-variant-numeric: tabular-nums; color: var(--muted); }
 .viewer-size .icon-button { font-weight: 700; }
+
+/* Moving cards (ui/carddrag.js): the silhouette follows the pointer, the card stays dimmed, a dashed box shows where it lands. */
+.card-ghost { position: fixed; z-index: 9999; pointer-events: none; margin: 0; opacity: 0.85; transform: rotate(2deg); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28); border-color: var(--accent) !important; box-sizing: border-box; background: var(--surface); }
+.card-dragging { opacity: 0.35; }
+.card-placeholder { box-sizing: border-box; margin: 0 0 8px; border: 2px dashed var(--accent); border-radius: 8px; background: color-mix(in srgb, var(--accent) 8%, transparent); }
+[data-drop].drop-over { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: -2px; }
+body.cards-dragging, body.cards-dragging * { cursor: grabbing !important; user-select: none; }
+[data-drop] [data-card] { touch-action: none; }
+.flag { display: inline-block; flex: none; border-radius: 2px; box-shadow: 0 0 0 1px rgba(0,0,0,.12); vertical-align: -2px; }
+
+/* "Back" on item screens, and the chosen document / audit entry in the right panel. */
+.item-bar { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
+.back-button .icon { width: 15px; height: 15px; }
+.doc-side { display: grid; gap: 10px; padding: 4px 2px; }
+.doc-side-title { margin: 0; font-size: 1.1em; overflow-wrap: anywhere; }
+.doc-side-actions { margin: 0; justify-content: flex-start; }
+.doc-side-meta { display: grid; grid-template-columns: max-content 1fr; gap: 4px 10px; margin: 0; }
+.doc-side-meta dt { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); }
+.doc-side-meta dd { margin: 0; overflow-wrap: anywhere; }
+.doc-side-preview { max-height: 46vh; overflow: auto; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); font-size: 0.92em; }
+.audit-side { display: grid; gap: 6px; padding: 4px 2px; }
+.audit-side h3, .audit-side h4 { margin: 0; }
+.doc-side-preview h1, .doc-side-preview h2, .doc-side-preview h3 { font-size: 1.02em; margin: 0.6em 0 0.3em; }
+
+/* Every editor's tab or mode row ends with Save and Close. */
+.item-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.item-tabs .item-actions, .doc-crumbs .item-actions { display: inline-flex; gap: 6px; margin-left: auto; }
+.doc-crumbs .item-actions { margin-left: 8px; }
+.doc-mode-row { margin: 0; padding: 6px 12px; border-bottom: 1px solid var(--line); }
+.doc-mode-row .doc-modes { display: inline-flex; gap: 4px; }

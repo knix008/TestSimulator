@@ -8,7 +8,7 @@
 // paper's width, so the preview and the paper are the same pages.
 
 import { L } from '../i18n.js';
-import { listPrinters, printDirect, printPagesToPdf, printWindow, chooseSave, errorText, isDesktop } from '../platform/native.js';
+import { listPrinters, printDirect, printPagesToPdf, printWindow, chooseSave, closeThisWindow, errorText, isDesktop } from '../platform/native.js';
 import { esc, icon } from './bits.js';
 
 export const PRINT_CONTENT_KEY = 'myworkforce-print-content';
@@ -366,7 +366,7 @@ function bind() {
     if (el.dataset.zoom) { state.fit = el.dataset.zoom === 'fit'; state.zoom = state.fit ? state.zoom : 1; render(); return; }
     if (el.dataset.act === 'print') { doPrint(); return; }
     if (el.dataset.act === 'pdf') { savePdf(); return; }
-    if (el.dataset.act === 'close') window.close();
+    if (el.dataset.act === 'close') closeThisWindow();
   });
   app.addEventListener('change', (event) => {
     const el = event.target;
@@ -381,7 +381,7 @@ function bind() {
   document.addEventListener('keydown', (event) => {
     if (event.key === 'PageDown') { event.preventDefault(); turn(1); }
     if (event.key === 'PageUp') { event.preventDefault(); turn(-1); }
-    if (event.key === 'Escape') window.close();
+    if (event.key === 'Escape') closeThisWindow();
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'p') { event.preventDefault(); doPrint(); }
   });
   window.addEventListener('resize', () => fitPreview());

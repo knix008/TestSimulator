@@ -29,10 +29,11 @@ import {
 import { writingExport } from './domain/markdown.js';
 import { fromDateInput, parseDuration, uid } from './domain/util.js';
 import { auditLog, encryptionKey, testConnection } from './platform/data.js';
-import { openToolWindow } from './platform/native.js';
+import { closeThisWindow, openToolWindow } from './platform/native.js';
 import { PRINT_CONTENT_KEY } from './ui/printwin.js';
 import { refreshSettings, SETTINGS_KEY } from './domain/settings.js';
 import { bindListViews, arrangedColumns, sortedRows } from './ui/listview.js';
+import { bindCardDrag } from './ui/carddrag.js';
 import { AUDIT_COLUMNS, actionLabel, auditSummary, formatTime } from './ui/audit.js';
 import { changeOwnPassword, leavePage, livePage, releaseSignInLock, schemaSql, schemaStatus, setUserPassword, signInLocks, upgradeSchema, waitForService } from './platform/data.js';
 import { clampLockMinutes, formatCountdown, formatLockMinutes, LOCK_ATTEMPTS, LOCK_MAX_MINUTES, LOCK_MIN_MINUTES } from './domain/signin-lock.js';
@@ -754,7 +755,7 @@ function applyMainRequest() {
 let pulling = false;
 
 async function pullWorkspace() {
-  if (pulling || !ui.ready || !sessionToken() || ui.modal || saveTimer || saving) return;
+  if (pulling || !ui.ready || !sessionToken() || ui.modal || saveTimer || saving || ui.dragId) return;
   const active = document.activeElement;
   if (active && (['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName) || active.isContentEditable)) return;
   if (ui.wikiEdit && ui.view === 'knowledge') return;
@@ -1096,8 +1097,7 @@ async function changeMyPassword(form) {
     ui.modal = null;
     toast(L('암호를 바꿨습니다.', 'Your password is changed.'));
     if (modal.forced && !ui.ready) {
-      const loaded = await loadWorkspace();
-      await enterWorkspace(loaded.workspace || {});
+      await afterSignIn();
       return;
     }
     paint();
@@ -1143,10 +1143,8 @@ async function adoptSharedSession() {
       askNewPassword('');
       return true;
     }
-    if (settings.showStartPage === false && ui.status?.connected) {
-      const loaded = await loadWorkspace();
-      await enterWorkspace(loaded.workspace || {});
-    } else paint();
+    if (ui.status?.connected) await afterSignIn();
+    else paint();
     return true;
   } catch {
     rememberSession('');
@@ -1190,8 +1188,7 @@ async function companySignIn() {
       askNewPassword(typed);
       return;
     }
-    const loaded = await loadWorkspace();
-    await enterWorkspace(loaded.workspace || {});
+    await afterSignIn();
   } catch (error) {
     ui.connecting = false;
     ui.loginPassword = '';
@@ -1369,6 +1366,48 @@ function askSignIn() {
 
 let docPreviewTimer = 0;
 
+/** A second click on the same item within a moment: a double-click, counted here because the first click redraws. */
+let lastPick = { kind: '', id: '', at: 0 };
+function secondClick(kind, id) {
+  const now = Date.now();
+  const again = lastPick.kind === kind && lastPick.id === id && now - lastPick.at < 450;
+  lastPick = again ? { kind: '', id: '', at: 0 } : { kind, id, at: now };
+  return again;
+}
+
+/** The screens visited, for "Back" (the last 30). */
+let shownScreen = null;
+let goingBack = false;
+const screenOf = () => ({ view: ui.view, issueId: ui.issueId, teamId: ui.teamId, docId: ui.docId, articleId: ui.articleId, spaceId: ui.spaceId, boardId: ui.boardId });
+const sameScreen = (a, b) => a && b && a.view === b.view && (a.view !== 'issue' || a.issueId === b.issueId) && (a.view !== 'team' || a.teamId === b.teamId) && (a.view !== 'documents' || a.docId === b.docId) && (a.view !== 'knowledge' || a.articleId === b.articleId);
+
+function rememberScreen() {
+  if (!ui.ready || windowMode) return;
+  const now = screenOf();
+  if (shownScreen && !sameScreen(shownScreen, now) && !goingBack) {
+    ui.screenHistory = [...(ui.screenHistory || []), shownScreen].slice(-30);
+  }
+  goingBack = false;
+  shownScreen = now;
+}
+
+/** "Back": the screen before this one (the board when there is none). */
+function goBack() {
+  const history = ui.screenHistory || [];
+  let previous = history.pop();
+  while (previous && sameScreen(previous, screenOf())) previous = history.pop();
+  ui.screenHistory = history;
+  goingBack = true;
+  if (!previous) {
+    if (ui.view === 'documents' && ui.docId) { ui.docId = ''; paint(); return; }
+    ui.view = project() ? 'board' : 'home';
+  } else {
+    Object.assign(ui, previous);
+    if (previous.view === 'documents' && previous.docId && !(ui.docTabs || []).includes(previous.docId)) ui.docId = '';
+  }
+  paint();
+}
+
 /** '' in the main window; 'settings' in the settings window (index.html?tool=settings). */
 let windowMode = '';
 
@@ -1486,6 +1525,16 @@ function presentDocument(kind) {
     return;
   }
   if (!openDocument(kind)) showReading(kind);
+}
+
+/**
+ * Where a sign-in lands: the workspace is loaded either way (so the start page and the workspace switch at once),
+ * then Settings → Start page → "Show the start page when the program opens" picks the start page or the main screen.
+ */
+async function afterSignIn() {
+  const loaded = await loadWorkspace();
+  await enterWorkspace(loaded.workspace || {});
+  if (settings.showStartPage !== false) showStartPage(true);
 }
 
 function showStartPage(show) {
@@ -1612,6 +1661,7 @@ function bindPanelSplitters() {
 
 function paint() {
   if (windowMode === 'settings') ui.view = 'settings';
+  rememberScreen();
   if (windowMode === 'settings') queueMicrotask(() => { document.title = `MyWorkForce — ${L('설정', 'Settings')}`; });
   const ctx = context();
   const app = document.querySelector('#app');
@@ -2102,10 +2152,10 @@ function runConfirmed() {
 function onAction(el) {
   const name = el.dataset.action;
   // Leaving the page being written: its repaint is held back only while someone types in it.
-  if (['save-page', 'page-source', 'wiki-edit', 'add-child', 'add-page', 'pick-page-file', 'open-article', 'open-workspace', 'toggle-workspace', 'toggle-page', 'new-workspace'].includes(name) && ['page-doc', 'page-title', 'page-body'].includes(document.activeElement?.id)) document.activeElement.blur();
+  if (['save-page', 'close-page', 'page-source', 'wiki-edit', 'add-child', 'add-page', 'pick-page-file', 'open-article', 'open-workspace', 'toggle-workspace', 'toggle-page', 'new-workspace'].includes(name) && ['page-doc', 'page-title', 'page-body'].includes(document.activeElement?.id)) document.activeElement.blur();
   // Sending or leaving a comment: the comment boxes hold their repaint only while someone types in them.
   if (['search-tab', 'open-hit', 'open-search'].includes(name) && document.activeElement?.id === 'global-search') document.activeElement.blur();
-  if (['doc-tab', 'open-doc', 'close-doc', 'doc-step', 'doc-mode', 'share-doc', 'delete-doc', 'pick-doc-file', 'remove-doc-file', 'go'].includes(name) && ['doc-title', 'doc-body', 'doc-issue'].includes(document.activeElement?.id)) document.activeElement.blur();
+  if (['doc-tab', 'open-doc', 'close-doc', 'save-doc', 'doc-step', 'doc-mode', 'share-doc', 'delete-doc', 'pick-doc-file', 'remove-doc-file', 'go'].includes(name) && ['doc-title', 'doc-body', 'doc-issue'].includes(document.activeElement?.id)) document.activeElement.blur();
   if (['comment-page', 'save-page-comment', 'cancel-page-comment', 'edit-page-comment', 'send-reply', 'cancel-reply', 'reply-page-comment', 'resolve-page-comment'].includes(name) && ['page-comment', 'comment-edit', 'page-quote', 'reply-text'].includes(document.activeElement?.id)) document.activeElement.blur();
   if (ui.pageDirty && !['page-source', 'insert-mention', 'pick-page-file', 'save-page'].includes(name)) flushPageSave();
   if (signedOut(name, el)) {
@@ -2443,6 +2493,15 @@ function onAction(el) {
     paint();
     return;
   }
+  if (name === 'close-page') {
+    // Close: what was written is saved, then the workspace's home shows.
+    if (!ui.pageDirty) ui.pageDirty = el.dataset.id;
+    flushPageSave();
+    ui.articleId = '';
+    ui.wikiEdit = false;
+    paint();
+    return;
+  }
   if (name === 'save-page') {
     // Saving keeps the page open for writing; the tree, the title and the panel catch up.
     if (!ui.pageDirty) ui.pageDirty = el.dataset.id;
@@ -2556,6 +2615,22 @@ function onAction(el) {
   }
   if (name === 'open-doc') { openDocTab(el.dataset.id); paint(); return; }
   if (name === 'close-doc') { closeDocTab(el.dataset.id); paint(); return; }
+  // The list: a click chooses (shown on the right), a double-click or Open opens it in a tab.
+  if (name === 'select-doc') {
+    if (secondClick('doc', el.dataset.id)) { openDocTab(el.dataset.id); paint(); return; }
+    ui.docSelected = el.dataset.id;
+    paint();
+    return;
+  }
+  if (name === 'save-doc') { document.activeElement?.blur?.(); flushSave().then(() => toast(L('저장했습니다.', 'Saved.'))).catch(fail); return; }
+  if (name === 'doc-back') { ui.docSelected = ui.docId || ui.docSelected; ui.docId = ''; paint(); return; }
+  if (name === 'print-doc') {
+    const keep = ui.docId;
+    ui.docId = el.dataset.id;
+    printCurrent();
+    ui.docId = keep;
+    return;
+  }
   if (name === 'doc-step') {
     // < > beside the tabs: the previous or next open document, round the row.
     const tabs = (ui.docTabs || []).filter((id) => (ws.documents || []).some((doc) => doc.id === id));
@@ -2635,6 +2710,7 @@ function onAction(el) {
   }
   if (name === 'set-password') { ui.modal = { kind: 'password' }; paint(); return; }
   if (name === 'test-connection') { testServerForm(); return; }
+  if (name === 'go-back') { goBack(); return; }
   if (name === 'audit-select') { ui.auditSelected = ui.auditSelected === el.dataset.id ? '' : el.dataset.id; paint(); return; }
   if (name === 'audit-reset') { ui.audit = { ...(ui.audit || {}), filter: {} }; loadAudit(); return; }
   if (name === 'audit-export') { exportAudit(); return; }
@@ -2677,7 +2753,15 @@ function onAction(el) {
   }
   if (name === 'activate') { ws.activeProjectId = el.dataset.id; ui.issueId = null; ui.selected = []; ui.boardId = null; ui.view = 'board'; scheduleSave(); paint(); return; }
   if (name === 'open-issue') { ui.issueId = el.dataset.id; ui.view = 'issue'; ui.issueTab = 'details'; ui.modal = null; paint(); return; }
-  if (name === 'select-issue') { ui.issueId = el.dataset.id; paint(); return; }
+  if (name === 'select-issue') {
+    if (secondClick('issue', el.dataset.id)) { onAction({ dataset: { action: 'open-issue', id: el.dataset.id } }); return; }
+    ui.issueId = el.dataset.id;
+    paint();
+    return;
+  }
+  // Save and Close of an opened issue (a card): the changes are saved, Close returns to where it was opened from.
+  if (name === 'save-issue') { flushSave().then(() => toast(L('저장했습니다.', 'Saved.'))).catch(fail); return; }
+  if (name === 'close-issue') { flushSave().catch(() => {}); goBack(); return; }
   if (name === 'issue-tab') { ui.issueTab = el.dataset.id; paint(); return; }
   if (name === 'theme-random') {
     settings.theme = randomThemeId(settings.theme);
@@ -3535,6 +3619,8 @@ function mount() {
   document.body.addEventListener('dblclick', (event) => {
     const tpl = event.target.closest?.('#modal .tpl-card');
     if (tpl && ui.modal?.kind === 'page-template') { createPageFrom(ui.modal.spaceId, ui.modal.parentId || '', tpl.dataset.id); return; }
+    const docRow = event.target.closest?.('[data-open-doc]');
+    if (docRow) { window.getSelection?.()?.removeAllRanges(); openDocTab(docRow.dataset.openDoc); paint(); return; }
     // A card on a scrum or kanban board (or a backlog row) opens its issue on a double-click.
     const card = event.target.closest?.('[data-card]');
     if (card && !event.target.closest('input, select, textarea, a')) {
@@ -3677,34 +3763,18 @@ function mount() {
     if (event.target.closest('button, a, input, select, textarea')) return;
     dragWindow();
   });
-  document.body.addEventListener('dragstart', (event) => {
-    const card = event.target.closest('[data-card]');
-    if (!card || card.classList.contains('start-card')) return;
-    ui.dragId = card.dataset.card;
-    event.dataTransfer?.setData('text/plain', ui.dragId);
-    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+  // Cards on the boards and rows in the backlog move with the pointer: a silhouette follows it and a dashed
+  // placeholder shows where the card lands (ui/carddrag.js). The data is saved when it is dropped.
+  bindCardDrag({
+    canStart: () => Boolean(ui.loginUser) && !ui.modal,
+    onStart: (id) => { ui.dragId = id; },
+    onEnd: () => { ui.dragId = null; },
+    onDrop: (zone, ids, dragged) => dropCard(zone, ids, dragged),
   });
-  document.body.addEventListener('dragover', (event) => {
-    const zone = event.target.closest('[data-drop]');
-    if (!zone || !ui.dragId) return;
-    event.preventDefault();
-    const list = zone.querySelector('[data-cards]');
-    const card = document.querySelector(`[data-card="${CSS.escape(ui.dragId)}"]`);
-    if (!list || !card) return;
-    const next = [...list.querySelectorAll('[data-card]')].find((item) => item !== card && event.clientY < item.getBoundingClientRect().top + item.getBoundingClientRect().height / 2);
-    list.insertBefore(card, next || null);
-  });
-  document.body.addEventListener('drop', (event) => {
-    const zone = event.target.closest('[data-drop]');
-    if (!zone || !ui.dragId) return;
-    event.preventDefault();
-    const list = zone.querySelector('[data-cards]');
-    const ids = [...(list?.querySelectorAll('[data-card]') || [])].map((item) => item.dataset.card);
+  function dropCard(zone, ids, dragged) {
     const statusId = zone.dataset.status || '';
     const sprinting = zone.hasAttribute('data-sprint');
     const sprintId = zone.dataset.sprint || '';
-    const dragged = ui.dragId;
-    ui.dragId = null;
     const current = project();
     if (!current) return;
     mutate(() => {
@@ -3720,7 +3790,7 @@ function mount() {
       if (Object.keys(patch).length) updateIssue(ws, current.id, dragged, patch, actor());
       rankIssues(current, ids);
     });
-  });
+  }
   window.addEventListener('dragover', (event) => {
     if ([...(event.dataTransfer?.types || [])].includes('Files')) event.preventDefault();
   });
@@ -3967,7 +4037,7 @@ async function startSettingsWindow() {
     return;
   }
   // Signed out in the main window: this window has nothing to show any more.
-  watchSharedSession(() => { if (!sessionToken()) window.close(); });
+  watchSharedSession(() => { if (!sessionToken()) closeThisWindow(); });
   setInterval(() => { pullWorkspace().catch(() => {}); }, 4000);
 }
 

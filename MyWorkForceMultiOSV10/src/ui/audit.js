@@ -81,6 +81,26 @@ export const AUDIT_COLUMNS = (people = {}) => [
   { id: 'source', label: L('출처', 'Source'), width: 220, value: (row) => row.source || '', html: (row) => `<span class="muted">${esc(row.source || '')}</span>` },
 ];
 
+/** The chosen entry of the audit log, for the right panel. */
+export function auditDetail(ctx) {
+  const audit = ctx.ui.audit || {};
+  const people = audit.people || {};
+  const chosen = (audit.entries || []).find((entry) => entry.id === ctx.ui.auditSelected);
+  if (!chosen) return `<p class="empty">${esc(L('목록에서 기록을 고르면 여기에 나옵니다.', 'Choose an entry in the list to see it here.'))}</p>`;
+  return `<section class="audit-side">
+    <h3>${esc(actionLabel(chosen.action))}</h3>
+    <p class="muted">${esc(formatTime(chosen.at))} · <span class="chip ${chosen.category === 'admin' ? 'audit-admin' : 'audit-user'}">${esc(chosen.category === 'admin' ? L('관리자', 'Admin') : L('사용자', 'User'))}</span></p>
+    <dl class="audit-dl">
+      <dt>${L('한 사람', 'By')}</dt><dd>${esc(chosen.actorLogin || L('(프로그램 / 로그인 전)', '(program / signed out)'))}${chosen.actorId ? ` <span class="muted">${esc(chosen.actorId)}</span>` : ''}</dd>
+      <dt>${L('대상', 'Target')}</dt><dd>${esc(people[chosen.targetId]?.login || '')} <span class="muted">${esc(chosen.targetId || '')}</span></dd>
+      <dt>${L('요약', 'Summary')}</dt><dd>${esc(auditSummary(chosen, people))}</dd>
+      <dt>${L('출처', 'Source')}</dt><dd>${esc(chosen.source || '')}</dd>
+    </dl>
+    <h4>${esc(L('자세한 내용', 'Details'))}</h4>
+    <pre class="audit-json">${esc(JSON.stringify(chosen.detail || {}, null, 2))}</pre>
+  </section>`;
+}
+
 export function auditView(ctx) {
   if (!isWorkspaceAdmin(ctx.user)) {
     return `<div class="page">${pageHead(L('감사 로그', 'Audit log'), '', 'audit')}<p>${L('관리자만 볼 수 있습니다.', 'Only an administrator can see it.')}</p></div>`;
@@ -104,16 +124,8 @@ export function auditView(ctx) {
       <button type="button" class="button" data-action="audit-export" ${entries.length ? '' : 'disabled'}>${icon('download')}<span>${L('CSV로 저장', 'Save as CSV')}</span></button>
     </div>
   </form>`;
-  const chosen = entries.find((entry) => entry.id === ctx.ui.auditSelected);
-  const detail = chosen ? `<section class="audit-detail panel-card"><header><b>${icon('info')}${esc(actionLabel(chosen.action))}</b><span class="muted">${esc(formatTime(chosen.at))}</span></header>
-    <dl class="audit-dl">
-      <dt>${L('한 사람', 'By')}</dt><dd>${esc(chosen.actorLogin || L('(프로그램 / 로그인 전)', '(program / signed out)'))}${chosen.actorId ? ` <span class="muted">${esc(chosen.actorId)}</span>` : ''}</dd>
-      <dt>${L('대상', 'Target')}</dt><dd>${esc(people[chosen.targetId]?.login || '')} <span class="muted">${esc(chosen.targetId || '')}</span></dd>
-      <dt>${L('출처', 'Source')}</dt><dd>${esc(chosen.source || '')}</dd>
-      <dt>${L('내용', 'Details')}</dt><dd><pre class="audit-json">${esc(JSON.stringify(chosen.detail || {}, null, 2))}</pre></dd>
-    </dl></section>` : '';
   const error = audit.error ? `<p class="danger-text">${icon('alert')}<span>${esc(audit.error)}</span></p>` : '';
-  const count = audit.loaded ? `<p class="muted audit-count">${esc(L(`${entries.length}건${entries.length >= 500 ? ' (최근 500건까지)' : ''} · 행을 누르면 자세히 봅니다. 머리글을 누르면 정렬, 가장자리를 끌면 폭, 머리글을 끌면 순서를 바꿉니다.`, `${entries.length} entries${entries.length >= 500 ? ' (newest 500)' : ''} · Click a row for details. Click a heading to sort, drag its edge to resize, drag the heading to move the column.`))}</p>` : '';
+  const count = audit.loaded ? `<p class="muted audit-count">${esc(L(`${entries.length}건${entries.length >= 500 ? ' (최근 500건까지)' : ''} · 행을 누르면 오른쪽에 자세히 나옵니다. 머리글을 누르면 정렬, 가장자리를 끌면 폭, 머리글을 끌면 순서를 바꿉니다.`, `${entries.length} entries${entries.length >= 500 ? ' (newest 500)' : ''} · Click a row to see it on the right. Click a heading to sort, drag its edge to resize, drag the heading to move the column.`))}</p>` : '';
   const list = renderListView({
     id: 'audit',
     columns: AUDIT_COLUMNS(people),
@@ -125,5 +137,5 @@ export function auditView(ctx) {
   });
   return `<div class="page audit-page">${pageHead(L('감사 로그', 'Audit log'), '', 'audit')}
     <p class="muted">${L('관리자 권한과 계정에 관한 모든 변경, 그리고 사용자의 로그인과 작업이 데이터베이스에 기록됩니다. 기록 내용은 암호화되어 저장됩니다.', 'Every change to administrator rights and accounts, and what people do — sign-ins and work — is written to the database, encrypted.')}</p>
-    ${form}${error}${count}${list}${detail}</div>`;
+    ${form}${error}${count}${list}</div>`;
 }

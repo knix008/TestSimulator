@@ -223,8 +223,8 @@ try {
 } catch {
   SHOTS = {};
 }
-/** The sub-figures of the query language share the issue list's picture. */
-const SHOT_OF = { 'wql-fields': 'wql', 'wql-ops': 'wql', 'wql-fn': 'wql', 'wql-order': 'wql' };
+/** Figure ids that use another figure's picture (the query language's sections keep their syntax sketches). */
+const SHOT_OF = {};
 
 /** The screenshot for a figure in the reader's language (or the Korean one), if there is one. */
 export function shotUrl(id) {

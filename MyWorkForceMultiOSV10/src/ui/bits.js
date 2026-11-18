@@ -76,6 +76,21 @@ export function pageHead(title, actions = '', view = '') {
   return `<div class="page-head"><h1>${mark}${title}</h1><div class="page-actions">${actions}</div></div>`;
 }
 
+/**
+ * Save and Close for an item being edited (issue, page, document): they sit at the right end of the editor's
+ * tab or mode row, the same on every editor. save / close: { action, attrs }; save may be null (read only).
+ */
+export function itemActions(save, close) {
+  const saveButton = save ? `<button type="button" class="button primary" data-action="${save.action}" ${save.attrs || ''} title="${escapeHtml(L('저장', 'Save'))} · Ctrl+S">${icon('save')}<span>${escapeHtml(L('저장', 'Save'))}</span></button>` : '';
+  const closeButton = `<button type="button" class="button" data-action="${close.action}" ${close.attrs || ''} title="${escapeHtml(L('닫기', 'Close'))}">${icon('close')}<span>${escapeHtml(L('닫기', 'Close'))}</span></button>`;
+  return `<span class="item-actions">${saveButton}${closeButton}</span>`;
+}
+
+/** "← Back": returns to the screen before this one (app.js keeps the way here). */
+export function backButton(label = '', action = 'go-back', extra = '') {
+  return `<button type="button" class="button back-button" data-action="${action}" ${extra} title="${escapeHtml(L('이전 화면으로', 'Back to the previous screen'))}">${icon('chevronLeft')}<span>${escapeHtml(label || L('이전', 'Back'))}</span></button>`;
+}
+
 export function empty(text) {
   return `<p class="empty">${escapeHtml(text)}</p>`;
 }

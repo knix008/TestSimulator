@@ -210,6 +210,7 @@ export function renderToolbar(ctx) {
       <button type="button" class="tool-button${ctx.ui.view === 'search' ? ' active' : ''}" data-action="open-search" title="${esc(L('전체 검색', 'Search everything'))} · Ctrl+Shift+F" aria-label="${esc(L('전체 검색', 'Search everything'))}">${icon('search')}</button>
       <button type="button" class="tool-button" data-action="command-palette" title="${esc(L('이동', 'Go to'))} · Ctrl+K" aria-label="${esc(L('이동', 'Go to'))}">${icon('bolt')}</button>
       <span class="tool-sep"></span>
+      <button type="button" class="tool-button" data-action="print" title="${esc(L('인쇄', 'Print'))} · Ctrl+P" aria-label="${esc(L('인쇄', 'Print'))}">${icon('printer')}</button>
       <button type="button" class="tool-button" data-action="new-issue" title="${esc(L('새 이슈', 'New issue'))} · Ctrl+N" aria-label="${esc(L('새 이슈', 'New issue'))}">${icon('plus')}</button>
       <span class="grow"></span>
       <button type="button" class="tool-button" data-action="go" data-view="notifications" title="${esc(L('알림', 'Notifications'))}" aria-label="${esc(L('알림', 'Notifications'))}">${icon('bell')}${unread ? `<i class="dot">${unread}</i>` : ''}</button>

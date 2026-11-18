@@ -11,6 +11,7 @@ import { getLanguage, setLanguage } from '../i18n.js';
 import { icon } from '../icons.js';
 import { esc, L } from './bits.js';
 import { illustrate } from './figures.js';
+import { flag } from './flags.js';
 import { openToolWindow } from '../platform/native.js';
 import { PRINT_CONTENT_KEY } from './printwin.js';
 
@@ -61,7 +62,7 @@ export function readingHtml(kind) {
       <span class="viewer-find">${icon('search')}<input type="search" data-doc-find placeholder="${esc(L('찾기', 'Find'))}" aria-label="${esc(L('문서에서 찾기', 'Find in the document'))}"><output data-doc-count></output>
         <button type="button" class="icon-button" data-doc="find-prev" title="${esc(L('이전 찾기', 'Previous match'))}">${icon('undo')}</button>
         <button type="button" class="icon-button" data-doc="find-next" title="${esc(L('다음 찾기', 'Next match'))}">${icon('redo')}</button></span>
-      <button type="button" class="button" data-action="reader-lang">${icon('globe')}<span>${lang === 'en' ? '한국어' : 'English'}</span></button>
+      <button type="button" class="button" data-action="reader-lang">${flag(lang === 'en' ? 'ko' : 'en')}<span>${lang === 'en' ? '한국어' : 'English'}</span></button>
       <button type="button" class="button" data-action="reader-print">${icon('printer')}<span>${L('인쇄', 'Print')}</span></button>
       <button type="button" class="button" data-action="close-reading">${icon('close')}<span>${L('닫기', 'Close')}</span></button>
     </header>
@@ -215,7 +216,7 @@ export function startViewer(asked) {
           <button type="button" class="icon-button" data-doc="find-prev" title="${esc(L('이전 찾기', 'Previous match'))}">${icon('undo')}</button>
           <button type="button" class="icon-button" data-doc="find-next" title="${esc(L('다음 찾기', 'Next match'))}">${icon('redo')}</button></span>
         <span class="viewer-size" title="${esc(L('글자 크기', 'Text size'))}"><button type="button" class="icon-button" data-doc="smaller" aria-label="${esc(L('글자 작게', 'Smaller text'))}">−</button><output data-doc-size>${size}px</output><button type="button" class="icon-button" data-doc="larger" aria-label="${esc(L('글자 크게', 'Larger text'))}">+</button></span>
-        <button type="button" class="button" data-doc="lang" data-id="${lang === 'en' ? 'ko' : 'en'}">${icon('globe')}<span>${lang === 'en' ? '한국어' : 'English'}</span></button>
+        <button type="button" class="button" data-doc="lang" data-id="${lang === 'en' ? 'ko' : 'en'}">${flag(lang === 'en' ? 'ko' : 'en')}<span>${lang === 'en' ? '한국어' : 'English'}</span></button>
         <button type="button" class="button" data-doc="print">${icon('printer')}<span>${L('인쇄', 'Print')}</span></button>
       </header>
       <div class="doc-split">

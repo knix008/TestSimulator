@@ -105,6 +105,14 @@ export async function windowControl(action) {
   return win.isMaximized();
 }
 
+/** Closes this window: the OS window on the desktop (the web's window.close() does not close it there).*/
+export async function closeThisWindow() {
+  if (!isDesktop()) { window.close(); return; }
+  const win = getCurrentWindow();
+  try { await win.close(); } catch { /* fall through */ }
+  try { await win.destroy(); } catch { /* already closed */ }
+}
+
 export async function dragWindow() {
   if (isDesktop()) await getCurrentWindow().startDragging();
 }

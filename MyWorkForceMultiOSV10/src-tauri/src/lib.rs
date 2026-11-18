@@ -101,9 +101,8 @@ fn quit_all(app: &tauri::AppHandle) {
     if QUITTING.swap(true, Ordering::SeqCst) {
         return;
     }
-    for (_, window) in app.webview_windows() {
-        let _ = window.destroy();
-    }
+    // app.exit closes every window itself. Destroying them one by one from inside a window's close event could
+    // stall on Windows, leaving the program running after its close button.
     core::stop();
     app.exit(0);
 }
@@ -258,8 +257,9 @@ fn open_browser(url: String) -> Result<(), String> {
 /// window; its place and size are remembered (window-state.doc-<kind>.json).
 const DOC_KINDS: &[&str] = &["guide", "tutorial", "wql"];
 
+/// Async: on Windows a window created from a synchronous command can deadlock WebView2 (a blank window).
 #[tauri::command]
-fn open_doc_window(app: tauri::AppHandle, kind: String, lang: String, title: String) -> Result<(), String> {
+async fn open_doc_window(app: tauri::AppHandle, kind: String, lang: String, title: String) -> Result<(), String> {
     if !DOC_KINDS.contains(&kind.as_str()) {
         return Err(format!("unknown document {kind}"));
     }
@@ -302,8 +302,9 @@ const TOOL_KINDS: &[(&str, f64, f64, f64, f64, bool)] = &[
     ("about", 600.0, 640.0, 600.0, 640.0, false),
 ];
 
+/// Async for the same reason as open_doc_window.
 #[tauri::command]
-fn open_tool_window(app: tauri::AppHandle, kind: String, lang: String, title: String) -> Result<(), String> {
+async fn open_tool_window(app: tauri::AppHandle, kind: String, lang: String, title: String) -> Result<(), String> {
     let Some(&(_, width, height, min_width, min_height, resizable)) = TOOL_KINDS.iter().find(|item| item.0 == kind) else {
         return Err(format!("unknown window {kind}"));
     };
@@ -432,7 +433,9 @@ pub fn run() {
             install_tray(app.handle())?;
             // The data service the windows sign in to (port 1481). Its database lives in the app data folder.
             let resources = app.path().resource_dir().ok();
-            match app.path().app_data_dir() {
+            // MYWORKFORCE_CONFIG_DIR (tests) keeps a test run away from the real data, as it does for the window state.
+            let data_root = std::env::var_os("MYWORKFORCE_CONFIG_DIR").map(std::path::PathBuf::from).map(Ok).unwrap_or_else(|| app.path().app_data_dir());
+            match data_root {
                 Ok(dir) => {
                     if let Err(error) = core::start(resources, &dir.join("data")) {
                         eprintln!("[data service] {error}");

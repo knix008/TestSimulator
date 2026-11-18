@@ -14,13 +14,14 @@ import { methodChecks, teamsView, teamView } from './teams.js';
 import { dateInputValue, formatDuration } from '../domain/util.js';
 import { CUSTOM_KEYS } from '../themes.js';
 import { formatCountdown, formatLockMinutes, LOCK_ATTEMPTS, LOCK_CHOICES, LOCK_MIN_MINUTES, lockPolicy } from '../domain/signin-lock.js';
-import { avatar, badge, byId, empty, esc, foldBox, formatWhen, icon, L, nameOf, options, pageHead, panelFrame, person, safeColor, typeBadge, userOptions } from './bits.js';
+import { avatar, backButton, badge, byId, empty, esc, itemActions, foldBox, formatWhen, icon, L, nameOf, options, pageHead, panelFrame, person, safeColor, typeBadge, userOptions } from './bits.js';
 import { navLabel } from './chrome.js';
 import { BACKGROUND_INTERVALS, BACKGROUNDS, knownBackground } from './background.js';
 import { databaseSettings, startupOptions } from './start.js';
 import { approvalBlock, calendarView, documentsView, extensionsView, knowledgeView, openPageOf, openSpaceOf, pageInfoPanel, spaceInfoPanel, laneLabel, mailSettings, plansView, portalView, screenSection, swimlaneOptions } from './extra.js';
 import { searchView } from './search.js';
-import { auditView } from './audit.js';
+import { auditDetail, auditView } from './audit.js';
+import { documentPreview } from './extra.js';
 import { timelineView } from './timeline.js';
 import { blockersOf } from '../domain/dependencies.js';
 import { finderBar, issueFacets, issueVisible, keepBlock, matchesText, screenFind } from './finder.js';
@@ -43,6 +44,9 @@ function need(ctx, title) {
 
 export function showRight(ctx) {
   if (ctx.ui.view === 'knowledge') return Boolean(openPageOf(ctx) || openSpaceOf(ctx));
+  // Lists: the chosen item shows on the right.
+  if (ctx.ui.view === 'documents') return !ctx.ui.docId && (ctx.ui.docTab || 'forms') !== 'forms';
+  if (ctx.ui.view === 'audit') return true;
   return Boolean(ctx.project) && ['board', 'backlog', 'issues', 'issue', 'roadmap', 'queues', 'health', 'filters', 'notifications'].includes(ctx.ui.view);
 }
 
@@ -159,7 +163,7 @@ function board(ctx) {
 function card(ctx, issue) {
   const priority = byId(ctx.project.priorities, issue.priorityId);
   const points = issue.storyPoints != null ? `<span class="pts">${esc(issue.storyPoints)}</span>` : '';
-  return `<article class="card${issue.id === ctx.ui.issueId ? ' selected' : ''}" draggable="true" data-card="${esc(issue.id)}" data-action="select-issue" data-id="${esc(issue.id)}">
+  return `<article class="card${issue.id === ctx.ui.issueId ? ' selected' : ''}" data-card="${esc(issue.id)}" data-action="select-issue" data-id="${esc(issue.id)}">
     <div class="card-top">${typeBadge(ctx.project, issue.typeId)}<button type="button" class="key" data-action="open-issue" data-id="${esc(issue.id)}">${icon('issues')}${esc(issue.key)}</button></div>
     <p>${esc(issue.summary)}</p>
     <div class="card-foot">${blockersOf(ctx.project, issue).open.length ? `<span class="card-blocked" title="${esc(L('먼저 끝나야 할 이슈가 남았습니다', 'Waiting for another issue'))}">${icon('lock')}</span>` : ''}<span class="pri" style="color:${safeColor(priority?.color)}">${esc(nameOf(priority))}</span>${points}${avatar(person(ctx.ws, issue.assigneeId))}</div>
@@ -190,7 +194,7 @@ function backlog(ctx) {
 
 function row(ctx, issue) {
   const epic = findIssue(ctx.project, issue.epicId);
-  return `<div class="issue-row${issue.id === ctx.ui.issueId ? ' selected' : ''}" draggable="true" data-card="${esc(issue.id)}" data-action="select-issue" data-id="${esc(issue.id)}">
+  return `<div class="issue-row${issue.id === ctx.ui.issueId ? ' selected' : ''}" data-card="${esc(issue.id)}" data-action="select-issue" data-id="${esc(issue.id)}">
     ${typeBadge(ctx.project, issue.typeId)}
     <button type="button" class="key" data-action="open-issue" data-id="${esc(issue.id)}">${icon('issues')}${esc(issue.key)}</button>
     <span class="summary">${esc(issue.summary)}</span>
@@ -809,7 +813,7 @@ function issue(ctx) {
     <div class="issue-title">${typeBadge(ctx.project, current.typeId)}<span class="key">${esc(current.key)}</span></div>
     <input class="summary-input" data-field="summary" data-live value="${esc(current.summary)}">
     ${blockedBanner(ctx, current)}
-    <div class="tabs">${tabs.map(([id, glyph, label]) => `<button type="button" class="tab${ctx.ui.issueTab === id ? ' active' : ''}" data-action="issue-tab" data-id="${id}">${icon(glyph)}<span>${label}</span></button>`).join('')}</div>
+    <div class="tabs item-tabs">${tabs.map(([id, glyph, label]) => `<button type="button" class="tab${ctx.ui.issueTab === id ? ' active' : ''}" data-action="issue-tab" data-id="${id}">${icon(glyph)}<span>${label}</span></button>`).join('')}${itemActions({ action: 'save-issue', attrs: `data-id="${esc(current.id)}"` }, { action: 'close-issue', attrs: `data-id="${esc(current.id)}"` })}</div>
     ${issueTab(ctx, current)}
     ${approvalBlock(ctx, current)}
     ${children.length ? `<h3>${current.typeId === 'epic' ? L('안의 이슈', 'Issues inside') : L('하위 작업', 'Sub-tasks')}</h3>${issueLines(ctx, children)}` : ''}
@@ -866,6 +870,14 @@ export function renderRight(ctx) {
     glyph = 'list';
     title = L('세부 사항', 'Details');
     inner = fields(ctx);
+  } else if (ctx.ui.view === 'documents') {
+    glyph = 'file';
+    title = L('문서', 'Document');
+    inner = documentPreview(ctx);
+  } else if (ctx.ui.view === 'audit') {
+    glyph = 'info';
+    title = L('기록 내용', 'Entry');
+    inner = auditDetail(ctx);
   }
   return panelFrame(ctx.settings.showRightPanel !== false, 'right', glyph, title, `<div class="side">${inner}</div>`);
 }
