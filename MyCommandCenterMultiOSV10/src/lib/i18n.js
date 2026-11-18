@@ -2,7 +2,7 @@
 import { useSyncExternalStore } from 'react';
 
 const ko = {
-  appName: 'Command Center V1.0',
+  appName: 'MyCommandCenter V1.0',
   ready: '{app} 준비 완료',
   menu_file: '파일(F)', menu_edit: '편집(E)', menu_view: '보기(V)', menu_archive: '압축(C)', menu_info: '정보(I)',
   new_folder: '새 폴더', new_file: '새 파일', quit: '종료',
@@ -235,7 +235,7 @@ const ko = {
   start_manual: '사용 설명', start_manual_text: '그림과 함께 기능을 찾습니다', manual_title: 'MyCommandCenter 사용 설명서',
   tut_next: '다음', tut_prev: '이전', tut_exit: '끝내기', tut_finish: '마치기', tut_count: '{n} / {total}',
   tut_ch_start: '시작 화면', tut_ch_files: '파일 작업', tut_ch_tools: '메뉴와 도구',
-  tut_welcome_title: 'Command Center 사용법', tut_welcome_text: '이 안내가 화면에서 해당하는 곳을 짚어 가며 한 단계씩 알려 줍니다. 다음으로 진행하고, 이전으로 돌아가며, 끝내기로 언제든 닫습니다. 파일을 지우거나 옮기지는 않습니다.',
+  tut_welcome_title: 'MyCommandCenter 사용법', tut_welcome_text: '이 안내가 화면에서 해당하는 곳을 짚어 가며 한 단계씩 알려 줍니다. 다음으로 진행하고, 이전으로 돌아가며, 끝내기로 언제든 닫습니다. 파일을 지우거나 옮기지는 않습니다.',
   tut_begin_title: '시작하기', tut_begin_text: '파일 관리는 두 패널로 돌아갑니다. 사용 설명, 홈 폴더, 새 폴더, 검색, 터미널, 설정, 프로그램 정보도 여기서 바로 엽니다.',
   tut_tasks_title: '작업 바로 가기', tut_tasks_text: '복사, 이동, 압축, 압축 해제, 이름 바꾸기, 폴더 비교, 보기, 인쇄, 즐겨찾기, 새 탭. 누르면 패널로 돌아가 그 명령을 실행합니다.',
   tut_recent_title: '최근 폴더', tut_recent_text: '두 패널에서 열었던 폴더입니다. 최대 10개까지 보이며, 이름을 누르면 활성 패널에서 그 폴더가 열립니다. 각 줄의 × 로 하나만 지우고, 폴더 기록 모두 지우기로 비웁니다. 아래 팁은 하루에 하나씩 바뀝니다.',
@@ -252,7 +252,7 @@ const ko = {
 };
 
 const en = {
-  appName: 'Command Center V1.0',
+  appName: 'MyCommandCenter V1.0',
   ready: '{app} ready',
   menu_file: 'File', menu_edit: 'Edit', menu_view: 'View', menu_archive: 'Archive', menu_info: 'Info',
   new_folder: 'New Folder', new_file: 'New File', quit: 'Quit',
@@ -332,7 +332,7 @@ const en = {
   props_title: 'File info', props_name: 'Name', props_path: 'Path', props_size: 'Size', props_type: 'Type', props_modified: 'Modified', props_perm: 'Permissions', props_contents: 'Contents', props_contents_val: '{dirs} folders, {files} files', props_link: 'Link target',
   error_title: 'Error', open_failed: 'The file could not be opened.', open_unsupported: 'Opening files is disabled on this server (--allow-open).',
   cannot_open_dir: 'Cannot open folder: {msg}',
-  lang_toggle: '한', theme: 'Theme', next_theme: 'Next theme', tip_theme: 'Choose a theme (20 dark, 20 light)', tip_next_theme: 'Switch to the next theme: {theme}', tip_language: '한국어 / English', tip_about: 'About Command Center',
+  lang_toggle: '한', theme: 'Theme', next_theme: 'Next theme', tip_theme: 'Choose a theme (20 dark, 20 light)', tip_next_theme: 'Switch to the next theme: {theme}', tip_language: '한국어 / English', tip_about: 'About MyCommandCenter',
   theme_dark: 'Dark', theme_light: 'Light', theme_custom_empty: 'No custom themes yet. Add them in Settings › Theme.',
   win_min: 'Minimize', win_max: 'Maximize', win_restore: 'Restore', win_close: 'Close',
   units_kb: 'KB', units_mb: 'MB', units_gb: 'GB',
@@ -485,7 +485,7 @@ const en = {
   start_manual: 'Guide', start_manual_text: 'Find a feature, with pictures', manual_title: 'MyCommandCenter User Guide',
   tut_next: 'Next', tut_prev: 'Previous', tut_exit: 'End', tut_finish: 'Finish', tut_count: '{n} / {total}',
   tut_ch_start: 'Start page', tut_ch_files: 'Working with files', tut_ch_tools: 'Menus and tools',
-  tut_welcome_title: 'How to use Command Center', tut_welcome_text: 'This tour points at the part of the window each step is about. Next moves on, Previous goes back, and End closes it at any time. It does not delete or move your files.',
+  tut_welcome_title: 'How to use MyCommandCenter', tut_welcome_text: 'This tour points at the part of the window each step is about. Next moves on, Previous goes back, and End closes it at any time. It does not delete or move your files.',
   tut_begin_title: 'Ways to begin', tut_begin_text: 'File manager returns to the two panels. The guide, home folder, new folder, search, terminal, settings and about open from here too.',
   tut_tasks_title: 'Task shortcuts', tut_tasks_text: 'Copy, move, compress, extract, rename, compare folders, view, print, favourites and a new tab. Choosing one returns to the panels and runs that command.',
   tut_recent_title: 'Recent folders', tut_recent_text: 'Folders the two panels have opened, up to ten. A name opens that folder in the active panel. × removes one, and Clear folder history removes them all. The tip below changes once a day.',

@@ -110,8 +110,12 @@ fn locate_core(resources: Option<PathBuf>) -> Result<CoreLaunch, String> {
         cwd: root,
     });
     let found = if cfg!(debug_assertions) { source.or(bundled) } else { bundled.or(source) };
-    found.ok_or_else(|| "The core files are missing (runtime/ next to the program). Reinstall Command Center.".into())
+    found.ok_or_else(|| "The core files are missing (runtime/ next to the program). Reinstall MyCommandCenter.".into())
 }
+
+/// The folder name the program used before it was renamed to MyCommandCenter.
+/// config_dir() moves that folder to the new name once, so settings survive.
+const LEGACY_CONFIG_NAME: &str = "Command Center";
 
 fn config_dir() -> PathBuf {
     if let Ok(p) = std::env::var("CC_CONFIG_DIR") {
@@ -119,18 +123,22 @@ fn config_dir() -> PathBuf {
             return PathBuf::from(p);
         }
     }
-    if cfg!(windows) {
-        return PathBuf::from(std::env::var("APPDATA").unwrap_or_else(|_| ".".into())).join("Command Center");
-    }
-    if cfg!(target_os = "macos") {
-        return PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| ".".into()))
+    let base = if cfg!(windows) {
+        PathBuf::from(std::env::var("APPDATA").unwrap_or_else(|_| ".".into()))
+    } else if cfg!(target_os = "macos") {
+        PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| ".".into()))
             .join("Library")
             .join("Application Support")
-            .join("Command Center");
+    } else {
+        let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
+        PathBuf::from(std::env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| format!("{home}/.config")))
+    };
+    let dir = base.join("MyCommandCenter");
+    let legacy = base.join(LEGACY_CONFIG_NAME);
+    if !dir.exists() && legacy.is_dir() {
+        let _ = std::fs::rename(&legacy, &dir);
     }
-    let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
-    let base = std::env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| format!("{home}/.config"));
-    PathBuf::from(base).join("Command Center")
+    dir
 }
 
 fn free_port() -> Result<u16, String> {
@@ -304,7 +312,7 @@ fn saved_theme_background() -> Option<tauri::window::Color> {
 
 // A second process cannot share the first process's WebView2 profile.
 // Each launch gets its own folder, named by process id, so several
-// Command Center windows can run at the same time.
+// MyCommandCenter windows can run at the same time.
 static WINDOW_SHIFT: AtomicI32 = AtomicI32::new(0);
 
 fn prepare_webview_data_dir() {
@@ -313,7 +321,7 @@ fn prepare_webview_data_dir() {
         if std::env::var_os("WEBVIEW2_USER_DATA_FOLDER").is_some() {
             return;
         }
-        let root = std::env::temp_dir().join("CommandCenter-webview");
+        let root = std::env::temp_dir().join("MyCommandCenter-webview");
         let _ = std::fs::create_dir_all(&root);
         let mine = std::process::id();
         let dir = root.join(mine.to_string());
@@ -419,7 +427,7 @@ fn main() {
             }
         })
         .build(context)
-        .expect("error while building Command Center")
+        .expect("error while building MyCommandCenter")
         .run(|app, event| {
             if let tauri::RunEvent::Exit = event {
                 if let Some(state) = app.try_state::<Arc<CoreState>>() {

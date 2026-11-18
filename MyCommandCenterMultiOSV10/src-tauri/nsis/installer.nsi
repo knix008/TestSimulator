@@ -1,5 +1,6 @@
 Unicode true
-; An existing Command Center install is removed completely before the new files
+; An existing MyCommandCenter install (or one of the old name, Command Center)
+; is removed completely before the new files
 ; are copied. The wizard asks whether to delete user data. Silent and passive
 ; installs remove the program and keep the data.
 ManifestDPIAware true
@@ -325,11 +326,16 @@ Function UninstallPrevious
  remove_user_data:
  ${If} $RemoveUserData = 1
  SetShellVarContext current
+ RmDir /r "$APPDATA\${PRODUCTNAME}"
+ RmDir /r "$LOCALAPPDATA\${PRODUCTNAME}"
+ RmDir /r "$APPDATA\${BUNDLEID}"
+ RmDir /r "$LOCALAPPDATA\${BUNDLEID}"
+ ; folders of the old name (Command Center) and of the web version
  RmDir /r "$APPDATA\Command Center"
  RmDir /r "$APPDATA\CommandCenter"
  RmDir /r "$LOCALAPPDATA\Command Center"
- RmDir /r "$APPDATA\${BUNDLEID}"
- RmDir /r "$LOCALAPPDATA\${BUNDLEID}"
+ RmDir /r "$APPDATA\com.shkwon.commandcenter"
+ RmDir /r "$LOCALAPPDATA\com.shkwon.commandcenter"
  DeleteRegKey SHCTX "${MANUPRODUCTKEY}"
  DeleteRegKey /ifempty SHCTX "${MANUKEY}"
  DeleteRegValue HKCU "${MANUPRODUCTKEY}" "Installer Language"
@@ -443,7 +449,7 @@ LangString deleteUserData ${LANG_ENGLISH} "Delete user data (settings, themes, r
 ; installs do not ask. The choice is stored so the uninstaller uses it too,
 ; and the app starts in it (see Section Install).
 !define MUI_LANGDLL_ALWAYSSHOW
-!define MUI_LANGDLL_WINDOWTITLE "Command Center"
+!define MUI_LANGDLL_WINDOWTITLE "${PRODUCTNAME}"
 !define MUI_LANGDLL_INFO "설치와 프로그램 언어를 선택하세요.$\r$\nSelect the language to use."
 Function SelectInstallLanguage
  StrCpy $LANGUAGE ${LANG_KOREAN}
@@ -622,6 +628,35 @@ Section WebView2
  ${EndIf}
 SectionEnd
 
+; The program was called "Command Center" before it became MyCommandCenter.
+; That install has its own uninstall key, so the reinstall page does not see
+; it. Remove it silently (program, shortcuts, registry). Its settings folder
+; is kept: the app moves it to the new name on its first start.
+!define LEGACY_PRODUCTNAME "Command Center"
+!define LEGACY_UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${LEGACY_PRODUCTNAME}"
+!macro RemoveLegacyInstallFrom ROOT
+ ReadRegStr $R1 ${ROOT} "${LEGACY_UNINSTKEY}" "UninstallString"
+ ${If} $R1 != ""
+  ReadRegStr $R2 ${ROOT} "${LEGACY_UNINSTKEY}" "InstallLocation"
+  ${WordReplace} "$R2" '"' "" "+" $R2
+  ClearErrors
+  ${If} $R2 != ""
+   ExecWait '$R1 /S _?=$R2' $0
+   Delete "$R2\uninstall.exe"
+   RMDir "$R2"
+  ${Else}
+   ExecWait '$R1 /S' $0
+  ${EndIf}
+  DeleteRegKey ${ROOT} "${LEGACY_UNINSTKEY}"
+  DeleteRegKey ${ROOT} "Software\${MANUFACTURER}\${LEGACY_PRODUCTNAME}"
+  DeleteRegKey /ifempty ${ROOT} "Software\${MANUFACTURER}"
+ ${EndIf}
+!macroend
+Function RemoveLegacyInstall
+ !insertmacro RemoveLegacyInstallFrom HKCU
+ !insertmacro RemoveLegacyInstallFrom HKLM
+FunctionEnd
+
 Section Install
  SetOutPath $INSTDIR
 
@@ -630,6 +665,8 @@ Section Install
  !endif
 
  !insertmacro CheckIfAppIsRunning "$INSTDIR\${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
+
+ Call RemoveLegacyInstall
 
  ; Copy main executable
  File "${MAINBINARYSRCPATH}"
@@ -891,11 +928,16 @@ Section Uninstall
  DeleteRegKey /ifempty HKCU "${MANUKEY}"
 
  SetShellVarContext current
+ RmDir /r "$APPDATA\${PRODUCTNAME}"
+ RmDir /r "$LOCALAPPDATA\${PRODUCTNAME}"
+ RmDir /r "$APPDATA\${BUNDLEID}"
+ RmDir /r "$LOCALAPPDATA\${BUNDLEID}"
+ ; folders of the old name (Command Center) and of the web version
  RmDir /r "$APPDATA\Command Center"
  RmDir /r "$APPDATA\CommandCenter"
  RmDir /r "$LOCALAPPDATA\Command Center"
- RmDir /r "$APPDATA\${BUNDLEID}"
- RmDir /r "$LOCALAPPDATA\${BUNDLEID}"
+ RmDir /r "$APPDATA\com.shkwon.commandcenter"
+ RmDir /r "$LOCALAPPDATA\com.shkwon.commandcenter"
  ${EndIf}
 
  !ifmacrodef NSIS_HOOK_POSTUNINSTALL

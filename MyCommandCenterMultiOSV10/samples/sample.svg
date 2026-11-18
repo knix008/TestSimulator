@@ -3,5 +3,5 @@
   <rect width="320" height="240" fill="url(#g)"/>
   <circle cx="160" cy="120" r="70" fill="none" stroke="#fff" stroke-width="10" opacity="0.9"/>
   <rect x="120" y="110" width="80" height="20" rx="4" fill="#ffd54f"/>
-  <text x="160" y="222" text-anchor="middle" font-family="Arial" font-size="20" fill="#fff">Command Center </text>
+  <text x="160" y="222" text-anchor="middle" font-family="Arial" font-size="20" fill="#fff">MyCommandCenter </text>
 </svg>

@@ -2,7 +2,7 @@
 // desktop / the browser).
 //
 //   out   — a row is dragged. The desktop starts a native OS drag, so the files
-//           can land on Explorer / Finder, the desktop, or another Command Center
+//           can land on Explorer / Finder, the desktop, or another MyCommandCenter
 //           window. The browser carries the paths for the other panel and, for a
 //           single file, a DownloadURL.
 //   in    — a drop on a panel: paths of our own (the other panel, or the
@@ -16,7 +16,7 @@
 // and the original stays where it was.
 import { isElectron, isTauri, droppedFilePath, startNativeDrag, apiUrl, dragMoveRequested } from './backend';
 
-const MIME_PATHS = 'application/x-commandcenter-paths';
+const MIME_PATHS = 'application/x-mycommandcenter-paths';
 
 // The paths of the drag this window started (a native drag has no data of its own to read at the drop).
 let dragging = null;
@@ -31,7 +31,7 @@ export function beginDrag(ev, entries) {
   if (isElectron || isTauri) {
     ev.preventDefault();
     // Shift at the start is the move gesture the OS drop target sees (Explorer, Finder,
-    // another Command Center window). The drop back onto one of our panels reads Shift
+    // another MyCommandCenter window). The drop back onto one of our panels reads Shift
     // again, at the moment it lands. The paths stay known briefly after the native drag
     // returns: the drop can arrive a moment later.
     const move = !!(ev.shiftKey && !ev.ctrlKey && !ev.metaKey);

@@ -38,10 +38,19 @@ const DEFAULTS = {
   termScrollback: 10000, // lines kept per terminal transcript
 };
 
-function defaultConfigDir(appName = 'CommandCenter') {
-  if (process.platform === 'win32') return path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), appName);
-  if (process.platform === 'darwin') return path.join(os.homedir(), 'Library', 'Application Support', appName);
-  return path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), appName);
+// legacyName: the folder used before the rename to MyCommandCenter. It is moved
+// to the new name once, so the web version keeps its settings.
+function defaultConfigDir(appName = 'MyCommandCenter', legacyName = appName === 'MyCommandCenter' ? 'CommandCenter' : '') {
+  let base;
+  if (process.platform === 'win32') base = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+  else if (process.platform === 'darwin') base = path.join(os.homedir(), 'Library', 'Application Support');
+  else base = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
+  const dir = path.join(base, appName);
+  const legacy = legacyName ? path.join(base, legacyName) : '';
+  try {
+    if (legacy && !fs.existsSync(dir) && fs.statSync(legacy).isDirectory()) fs.renameSync(legacy, dir);
+  } catch { /* no legacy folder, or it is in use: start fresh */ }
+  return dir;
 }
 
 class Session {

@@ -1,8 +1,8 @@
-# Command Center — 기능 명세 (2026-09-16 기준, 최신)
+# MyCommandCenter — 기능 명세 (2026-09-16 기준, 최신)
 
 > 본 문서는 구현된 기능의 인벤토리입니다. 새 기능이 추가되면 함께 갱신합니다.
 
-Windows · macOS · Linux · 웹용 듀얼 패널 파일 관리자 **Command Center V1.0** 에 현재 구현되어 있는 기능의 전체 목록입니다.
+Windows · macOS · Linux · 웹용 듀얼 패널 파일 관리자 **MyCommandCenter V1.0** 에 현재 구현되어 있는 기능의 전체 목록입니다.
 사용법은 [UsersGuide.md](UsersGuide.md), 그림이 있는 설명은 [doc/index.html](doc/index.html), 내부 구조는 [Architecture.md](Architecture.md)를 보세요.
 
 ---
@@ -76,7 +76,7 @@ Windows · macOS · Linux · 웹용 듀얼 패널 파일 관리자 **Command Cen
 | 패널 터미널 | 패널 경로 줄의 터미널 단추 | 그 패널의 폴더에서 터미널을 엶 |
 | 사용 설명서 인쇄 | 설명서 머리줄의 인쇄 단추 | 독립 인쇄 창(종이 모양 미리 보기 + 인쇄/닫기) |
 | 클립보드 잘라내기 / 복사 / 붙여넣기 | Ctrl+X / Ctrl+C / Ctrl+V · 우클릭 메뉴 · 편집 메뉴 | 잘라내면 붙여넣을 때 이동, 복사하면 붙여넣을 때 복사. 우클릭 메뉴에 잘라내기·복사·붙여넣기. Windows 에서는 탐색기와 파일 클립보드를 주고받음(`file://` 텍스트도 함께) |
-| 드래그 & 드롭 | 마우스 | 항목을 **반대 패널·폴더 행·`..`·다른 Command Center 창**에 끌어다 놓기(기본 복사, **Shift** = 이동). **밖 → 안**: 탐색기/Finder/바탕화면의 파일·폴더를 패널에 놓으면 복사(놓을 때 Shift = 이동. 웹은 서버로 업로드, 폴더 구조 유지). **안 → 밖**: 항목을 탐색기/Finder/다른 창으로 끌어내기(데스크톱은 네이티브 드래그, 끌기 시작할 때 Shift = 이동. 웹은 파일 하나를 다운로드 — Chromium) |
+| 드래그 & 드롭 | 마우스 | 항목을 **반대 패널·폴더 행·`..`·다른 MyCommandCenter 창**에 끌어다 놓기(기본 복사, **Shift** = 이동). **밖 → 안**: 탐색기/Finder/바탕화면의 파일·폴더를 패널에 놓으면 복사(놓을 때 Shift = 이동. 웹은 서버로 업로드, 폴더 구조 유지). **안 → 밖**: 항목을 탐색기/Finder/다른 창으로 끌어내기(데스크톱은 네이티브 드래그, 끌기 시작할 때 Shift = 이동. 웹은 파일 하나를 다운로드 — Chromium) |
 | 열기 | Enter · 더블클릭 | 폴더는 들어갑니다. 파일은 시스템 기본 앱으로 열거나 실행(분할 압축 파일은 자동 결합 해제). 한 번 클릭은 선택 + 이미지·동영상·오디오 미리 보기(설정이 켜져 있으면). 웹에서 다른 PC 로 열 때는 `--allow-open` 필요. 기본 앱은 PowerShell `Invoke-Item` / `open` / `xdg-open` |
 | 텍스트 파일 열기 규칙 | 설정 › 파일 열기 | 확장자 목록에 있는 텍스트 파일은 **시스템 기본 프로그램 / 내장 뷰어 / 내장 편집기 / 지정한 프로그램**(찾아보기로 선택) 중 설정한 방법으로 열림 |
 | **보기** | F3 | § 6 내장 뷰어 |
@@ -246,7 +246,7 @@ Windows · macOS · Linux · 웹용 듀얼 패널 파일 관리자 **Command Cen
 
 | 항목 | 내용 |
 |---|---|
-| 데스크톱 | Tauri 2 + React 18 + Vite 5. 창은 Tauri, 파일 작업은 그 프로세스가 띄운 `server/server.js`. `npm run tauri:build` 가 현재 OS 의 번들(`src-tauri/target/release/bundle/`). 세션은 `%APPDATA%\Command Center` · `~/Library/Application Support/Command Center` · `~/.config/Command Center` |
+| 데스크톱 | Tauri 2 + React 18 + Vite 5. 창은 Tauri, 파일 작업은 그 프로세스가 띄운 `server/server.js`. `npm run tauri:build` 가 현재 OS 의 번들(`src-tauri/target/release/bundle/`). 세션은 `%APPDATA%\MyCommandCenter` · `~/Library/Application Support/MyCommandCenter` · `~/.config/MyCommandCenter` |
 | 웹 | `server/server.js`(Node `http` 만 사용)가 UI 와 `/api/*` 제공. `--port` · `--host` · `--token`(Bearer / `?token=`) · `--allow-open`. 같은 화면으로 **서버 컴퓨터**의 파일 관리, 터미널도 서버에서 실행 |
 | 공통 코어 | `core/`(파일 작업 · 압축 · 작업 큐 · 세션 · 터미널)를 데스크톱과 웹이 그대로 공유 |
 | 아이콘 | 입체 슬랩(위에서 비추는 조명 · 측면 · 바닥 그림자) 위의 명령 프롬프트 글리프 `>_` + 가운데로 모이는 네 노드("모든 명령이 한곳에") — `assets/icon.svg` 에서 `npm run generate:icons` 가 `src-tauri/icons/` 와 웹 파비콘을 만듭니다 |

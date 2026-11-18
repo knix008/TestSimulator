@@ -1,7 +1,7 @@
 {
-  "name": "commandcenter",
+  "name": "mycommandcenter",
   "version": "1.0.3",
-  "description": "Command Center — dual-panel file manager for Windows, macOS, Linux and the web (Tauri desktop shell, copy/move between panels, archives with split volumes, search).",
+  "description": "MyCommandCenter — dual-panel file manager for Windows, macOS, Linux and the web (Tauri desktop shell, copy/move between panels, archives with split volumes, search).",
   "author": {
     "name": "SHKWON",
     "email": "knix008@naver.com"

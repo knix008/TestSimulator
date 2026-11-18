@@ -1,4 +1,4 @@
-# Command Center (CommandCenterMultiOSV10)
+# MyCommandCenter (MyCommandCenterMultiOSV10)
 
 Windows · macOS · Linux · **웹** 용 듀얼 패널 파일 관리자.
 [CommandCenterGTKv10](../CommandCenterGTKv10) (GTK3, Linux/macOS) 를 참고하여 Tauri 2 + React 18 + Vite 5 로
@@ -46,7 +46,7 @@ npm run dev        # Vite 만: http://127.0.0.1:5185 (API 프록시). 데스크�
 npm run web        # 빌드 후 웹 버전: http://127.0.0.1:5186 (브라우저가 열립니다)
 ```
 
-데스크톱 세션은 OS 의 앱 데이터 폴더 `Command Center` 에 저장됩니다. `CC_CONFIG_DIR=<폴더>` 를 주면 그 폴더를 씁니다. Node 실행 파일은 `node` 이며, 다른 바이너리를 쓰려면 `CC_NODE` 를 지정합니다.
+데스크톱 세션은 OS 의 앱 데이터 폴더 `MyCommandCenter` 에 저장됩니다. `CC_CONFIG_DIR=<폴더>` 를 주면 그 폴더를 씁니다. Node 실행 파일은 `node` 이며, 다른 바이너리를 쓰려면 `CC_NODE` 를 지정합니다.
 
 ### 웹 버전
 
@@ -66,7 +66,7 @@ node server/server.js --host 0.0.0.0 --token 비밀값 --allow-open      # + 더
 하나로 묶은 서버(`src-tauri/runtime/`, `scripts/stage-runtime.mjs`)가 들어 있어, 설치한 컴퓨터에는 Node·Rust 가 없어도 됩니다.
 
 ```bash
-npm run build:win     # Windows NSIS 설치 파일 → 프로젝트 루트에 복사
+npm run build:win     # Windows NSIS 설치 파일(MyCommandCenter_<버전>_x64-setup.exe) → 프로젝트 루트에 복사
 npm run tauri:build   # src-tauri/target/release/bundle/ 아래 (Windows: NSIS·MSI, macOS: .app/.dmg, Linux: deb·AppImage 등)
 ```
 
@@ -79,9 +79,13 @@ Windows 설치 파일은 시작할 때 **한국어 / English** 를 고르게 합
 
 세션·설정은 설치 후에도 같은 폴더에 남습니다.
 
-- **Windows** — `%APPDATA%\Command Center`
-- **Linux** — `~/.config/Command Center`
-- **macOS** — `~/Library/Application Support/Command Center`
+- **Windows** — `%APPDATA%\MyCommandCenter`
+- **Linux** — `~/.config/MyCommandCenter`
+- **macOS** — `~/Library/Application Support/MyCommandCenter`
+
+이 프로그램의 예전 이름은 **Command Center** 입니다. 새 설치 파일은 예전 이름으로 설치된 프로그램(바로 가기·등록 정보 포함)을
+조용히 제거한 뒤 설치하고, 앱은 처음 시작할 때 예전 설정 폴더(`Command Center`, 웹 버전은 `CommandCenter`)를 새 이름으로 옮겨
+설정을 그대로 이어 씁니다.
 
 ```bash
 npm run clean         # dist/ release/ build/icons/ src-tauri/target/ src-tauri/gen/ 와 루트의 설치 파일 삭제

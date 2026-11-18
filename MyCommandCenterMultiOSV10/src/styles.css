@@ -1,4 +1,4 @@
-/* Command Center — 30 themes set from src/themes.js as CSS variables on :root.
+/* MyCommandCenter — 30 themes set from src/themes.js as CSS variables on :root.
    The values here are the "midnight" defaults shown until the session loads. */
 :root {
   --bg: #12161c;

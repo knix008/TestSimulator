@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Command Center — web version.
+// MyCommandCenter — web version.
 //
 // Serves the built UI (dist/) and exposes core/api.js over HTTP, so the same
 // dual-panel file manager runs in a browser against the file system of the
@@ -302,7 +302,7 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, HOST, () => {
   const shown = HOST === '0.0.0.0' ? 'localhost' : HOST;
   const urlStr = `http://${shown}:${PORT}/${TOKEN ? `?token=${encodeURIComponent(TOKEN)}` : ''}`;
-  console.log(`[web] Command Center web version: ${urlStr}`);
+  console.log(`[web] MyCommandCenter web version: ${urlStr}`);
   if (!fs.existsSync(path.join(distDir, 'index.html'))) console.log('[web] dist/ is missing — run `npm run build` (or `npm run web`).');
   if (!LOOPBACK && !TOKEN) console.log('[web] WARNING: listening on a non-loopback interface without --token.');
   if (!ALLOW_OPEN) console.log('[web] Opening files with their application is off on a non-loopback host (pass --allow-open to enable).');

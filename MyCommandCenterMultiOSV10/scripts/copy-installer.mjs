@@ -1,6 +1,6 @@
 // After `npm run build:win`, put the NSIS setup exe in the project root.
 // The bundle stays under src-tauri/target (or CARGO_TARGET_DIR). The root
-// copy is the file to hand out: Command Center_<version>_<arch>-setup.exe.
+// copy is the file to hand out: MyCommandCenter_<version>_<arch>-setup.exe.
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';

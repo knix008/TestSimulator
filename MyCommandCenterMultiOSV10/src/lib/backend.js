@@ -442,7 +442,7 @@ const SINGLETON_KINDS = new Set(['viewer', 'editor', 'preview', 'info', 'multiRe
 const QUIET_KINDS = new Set(['preview']);   // re-used without taking the focus (it follows double-clicks in the file list)
 let bus = null;
 function channel() {
-  if (!bus && typeof BroadcastChannel !== 'undefined') { try { bus = new BroadcastChannel('command-center'); } catch { bus = null; } }
+  if (!bus && typeof BroadcastChannel !== 'undefined') { try { bus = new BroadcastChannel('mycommandcenter'); } catch { bus = null; } }
   return bus;
 }
 

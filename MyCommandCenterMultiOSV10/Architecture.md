@@ -1,4 +1,4 @@
-# Command Center — 내부 구조
+# MyCommandCenter — 내부 구조
 
 ## 1. 한눈에 보기
 
@@ -77,9 +77,9 @@ UI runJob('ops.transfer', …)            core: jobs.run(kind, meta, fn)
 
 Tauri 2 가 창을 엽니다. 파일 작업은 Rust 안에 다시 만들지 않고, 기동할 때 `node server/server.js` 를 자식으로 띄웁니다.
 
-- `src/main.rs`: 프로젝트 루트(`server/server.js` 가 있는 폴더)를 찾고, 빈 포트를 고른 뒤 `node`(또는 `CC_NODE`)로 `server.js --port <port> --host 127.0.0.1 --token <token> --no-open` 을 실행합니다. 환경 변수는 `CC_HOST_NAME=tauri`, `CC_CONFIG_DIR`(Windows `%APPDATA%/Command Center`, macOS Application Support, Linux XDG — 예전에 쓰던 세션 폴더), `CC_NO_OPEN=1`. 준비 여부는 stdout 이 아니라 `POST /api/app.info` 를 최대 30초 동안 두드려 확인합니다. 창이 닫히면 `POST /api/app.shutdown` 후 자식을 끝냅니다. Windows 자식은 콘솔 창 없이 뜹니다.
+- `src/main.rs`: 프로젝트 루트(`server/server.js` 가 있는 폴더)를 찾고, 빈 포트를 고른 뒤 `node`(또는 `CC_NODE`)로 `server.js --port <port> --host 127.0.0.1 --token <token> --no-open` 을 실행합니다. 환경 변수는 `CC_HOST_NAME=tauri`, `CC_CONFIG_DIR`(Windows `%APPDATA%/MyCommandCenter`, macOS Application Support, Linux XDG — 예전에 쓰던 세션 폴더), `CC_NO_OPEN=1`. 준비 여부는 stdout 이 아니라 `POST /api/app.info` 를 최대 30초 동안 두드려 확인합니다. 창이 닫히면 `POST /api/app.shutdown` 후 자식을 끝냅니다. Windows 자식은 콘솔 창 없이 뜹니다.
 - 명령: `host_config` 가 `{origin, token, error}` 를 돌려주고, 페이지는 그 origin 으로 `/api` 를 호출합니다(Vite 개발 서버의 프록시와는 다른 프로세스). `bus_post` 는 `cc-bus` 이벤트로 메인 창과 도구 창에 메시지를 돌립니다.
-- `tauri.conf.json`: 제품명 Command Center, 식별자 `com.shkwon.commandcenter`, 개발 URL `http://127.0.0.1:5185`, 배포 프론트 `../dist`. `beforeDevCommand` / `beforeBuildCommand` 는 `scripts/tauri-before-dev.mjs` · `tauri-before-build.mjs`(포트 정리, SVG 동기화, 빌드 정보, Vite). 메인 창 1280×800, 최소 1149×713. 아이콘은 `src-tauri/icons/`.
+- `tauri.conf.json`: 제품명 MyCommandCenter, 식별자 `com.shkwon.mycommandcenter`, 개발 URL `http://127.0.0.1:5185`, 배포 프론트 `../dist`. `beforeDevCommand` / `beforeBuildCommand` 는 `scripts/tauri-before-dev.mjs` · `tauri-before-build.mjs`(포트 정리, SVG 동기화, 빌드 정보, Vite). 메인 창 1280×800, 최소 1149×713. 아이콘은 `src-tauri/icons/`.
 - 도구 창은 Tauri `WebviewWindow`(`src/lib/backend.js` 의 `openTauriWindow`). 종류마다 라벨 `tool-<kind>` 하나. 미리 보기는 항상 위이고 포커스를 가져가지 않습니다. 인자는 웹과 같이 `localStorage` 의 `cc-win:<id>`. 종류별 기본 크기: viewer/editor 960×720, preview 720×560, info 660×720, multiRename 920×680, search 760×600, settings 는 내용 높이, about 560×400.
 - 폴더·파일 고르기는 `@tauri-apps/plugin-dialog`. 메뉴는 페이지 안 메뉴입니다. 디렉터리 변경과 작업 진행은 웹과 같이 폴링합니다. 미디어·다운로드·업로드는 `/api/media` · `/api/download` · `/api/upload`. 인쇄는 웹뷰의 인쇄 대화상자입니다. 밖으로 끌어다 놓기는 DownloadURL 입니다.
 - `server/server.js` 는 `CC_HOST_NAME=tauri` 이면 루프백에서 열기를 허용하고, Windows 에서는 휴지통(PowerShell SendToRecycleBin), 인쇄는 `fsops.printWithDefaultApp` 을 연결합니다.
@@ -88,7 +88,7 @@ Tauri 2 가 창을 엽니다. 파일 작업은 Rust 안에 다시 만들지 않�
 
 `node:http` 만 사용합니다. `GET` 은 `dist/` 정적 파일(SPA 폴백 — `/?win=viewer&id=…` 도 같은 `index.html`), `POST /api/<name>` 은 JSON 본문을 `api.call` 로 넘깁니다.
 `GET /api/media?path=`(`streamMedia`: `MEDIA_TYPES`/`IMAGE_TYPES` 파일만, Range → 206·HEAD·416·415; 뷰어의 `<video>`/`<audio>`/스트리밍 이미지). `--host` `--port` `--token`(Bearer / `?token=`) 옵션, 기본 루프백 바인딩. 브라우저 세션 저장은 `session.js` 의 XDG/AppData 경로.
-도구 창은 브라우저 팝업(`window.open`)이며 인자는 `localStorage`(`cc-win:<id>`), 창 간 메시지는 `BroadcastChannel('command-center')`; 메인 페이지가 닫히면(`beforeunload`) 자기가 연 팝업을 닫습니다.
+도구 창은 브라우저 팝업(`window.open`)이며 인자는 `localStorage`(`cc-win:<id>`), 창 간 메시지는 `BroadcastChannel('mycommandcenter')`; 메인 페이지가 닫히면(`beforeunload`) 자기가 연 팝업을 닫습니다.
 
 ## 5. src/ — UI
 

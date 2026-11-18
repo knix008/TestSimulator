@@ -385,7 +385,7 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
     setCutPaths(c.move && c.paths.length ? new Set(c.paths) : new Set());
   }), []);
 
-  // OS drops (Explorer, Finder, another Command Center window) do not arrive as HTML drops.
+  // OS drops (Explorer, Finder, another MyCommandCenter window) do not arrive as HTML drops.
   // The listener in App re-dispatches them; the panel under the cursor takes the files.
   const sortedRef = useRef(sorted);
   const pathRef = useRef(path);

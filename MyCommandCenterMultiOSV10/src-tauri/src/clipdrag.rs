@@ -1,7 +1,7 @@
 // Files leaving and entering the window, and the shell file clipboard.
 //
 // Drag out — `start_file_drag` hands the paths to the OS (the `drag` crate), so
-// Explorer, Finder and another Command Center window can take them. Shift held
+// Explorer, Finder and another MyCommandCenter window can take them. Shift held
 // as the drag starts asks for a move; otherwise the drag is a copy.
 //
 // Clipboard — on Windows, Cut and Copy publish a real file list (CF_HDROP) plus

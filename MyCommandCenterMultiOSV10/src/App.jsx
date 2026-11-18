@@ -1,4 +1,4 @@
-// Command Center — application shell.
+// MyCommandCenter — application shell.
 //
 // Two FilePanels side by side, the menu bar / toolbar / status bar, the
 // bottom dock (operation log + terminal tabs) and every action that needs a
@@ -1299,7 +1299,7 @@ export default function App() {
   }), [session, startOpen, selCount, selIsDir, selImage, extractable, active, info, dockTab, dockSearch, terms, history.version]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Same markup as the splash in index.html, so the window shows one screen until the panels are drawn.
-  if (!session) return <div className="boot-splash"><img src="./icon.svg" alt="" /><span>{status || 'Command Center'}</span><i /></div>;
+  if (!session) return <div className="boot-splash"><img src="./icon.svg" alt="" /><span>{status || 'MyCommandCenter'}</span><i /></div>;
 
   const panelProps = (side) => ({
     side,

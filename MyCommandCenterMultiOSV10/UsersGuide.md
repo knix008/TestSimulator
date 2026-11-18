@@ -1,4 +1,4 @@
-# Command Center 사용 설명서
+# MyCommandCenter 사용 설명서
 
 그림과 함께 보는 설명은 [doc/index.html](doc/index.html) 입니다. 브라우저에서 바로 열리고, 시작 화면의 **사용 설명**에서도 같은 문서를 검색해서 볼 수 있습니다.
 
@@ -85,7 +85,7 @@
 | 영구 삭제 | Shift+Delete | 확인 후 **영구 삭제** (메뉴·버튼은 없습니다) |
 | 터미널 | 각 패널 경로 줄의 터미널 단추 | 그 패널의 폴더에서 아래 패널에 터미널을 엽니다 |
 | 클립보드 잘라내기 / 복사 / 붙여넣기 | Ctrl+X / Ctrl+C / Ctrl+V · 우클릭 메뉴 · 편집 메뉴 | 잘라낸 뒤 붙여넣으면 항목이 이동하고, 복사한 뒤 붙여넣으면 복사됩니다. 우클릭 메뉴에 잘라내기·복사·붙여넣기가 있습니다. Windows 에서는 탐색기에서 잘라 낸 파일도 여기로 붙여넣을 수 있고, 여기서 잘라 낸 파일을 탐색기에 붙여넣을 수 있습니다. |
-| 드래그 & 드롭 | 마우스 | 선택한 항목을 반대 패널, 폴더 행(`..` 포함), 다른 Command Center 창에 끌어다 놓으면 복사되고, **Shift** 를 누른 채 놓으면 이동합니다. 탐색기/Finder/바탕화면에서 패널로 끌어와도 같습니다(웹은 서버로 업로드). 패널의 항목을 탐색기/Finder/다른 창으로 끌어낼 수 있습니다(끌기 시작할 때 Shift 를 누르고 있으면 이동, 웹은 파일 하나를 다운로드). |
+| 드래그 & 드롭 | 마우스 | 선택한 항목을 반대 패널, 폴더 행(`..` 포함), 다른 MyCommandCenter 창에 끌어다 놓으면 복사되고, **Shift** 를 누른 채 놓으면 이동합니다. 탐색기/Finder/바탕화면에서 패널로 끌어와도 같습니다(웹은 서버로 업로드). 패널의 항목을 탐색기/Finder/다른 창으로 끌어낼 수 있습니다(끌기 시작할 때 Shift 를 누르고 있으면 이동, 웹은 파일 하나를 다운로드). |
 | 모두 선택 | Ctrl+A | |
 | 파일 정보 보기 | Alt+Enter | 이름·위치·종류·크기·시간·권한/속성에 더해 **파일 안의 정보**(이미지 크기·EXIF·DICOM/TIFF 태그, 텍스트 인코딩·줄 수, 압축 파일 여부)와 **해시**(MD5/SHA-1/SHA-256) — 우클릭 메뉴 › 파일 정보 보기 (→ 아래) |
 | 미리 보기 | 한 번 클릭 · 파일 메뉴 | 이미지·동영상·오디오를 한 번 클릭하면 **미리 보기 창**이 열립니다. 파일 메뉴 · 우클릭의 미리 보기는 다른 파일도 엽니다 (→ 아래) |
@@ -294,7 +294,7 @@ cat 이름.zip 이름.z01 이름.z02 > 이름-full.zip
 
 | 항목 | 내용 |
 |---|---|
-| 프리셋 | 기본(Command Center) · Powerline · Agnoster · Paradox · 최소 · 단순 텍스트 · 버블 · Robby Russell · Pure · Star · 슬림 · Material · 클래식 · 레인보우 · 오션 · 모노 — 카드를 클릭하면 바로 적용 |
+| 프리셋 | 기본(MyCommandCenter) · Powerline · Agnoster · Paradox · 최소 · 단순 텍스트 · 버블 · Robby Russell · Pure · Star · 슬림 · Material · 클래식 · 레인보우 · 오션 · 모노 — 카드를 클릭하면 바로 적용 |
 | oh-my-posh 테마 | JSON 을 붙여넣거나 파일(`*.omp.json`)을 골라 **가져오기**. path · git · session · shell · os · time · status/exit · executiontime · root · text 세그먼트와 색·템플릿·`background_templates`·팔레트가 그대로 옮겨지고, 지원하지 않는 세그먼트(battery, node …)는 건너뛰며 안내합니다. **JSON 복사**로 현재 프롬프트를 oh-my-posh 형식으로 내보낼 수 있습니다 |
 | 세그먼트 종류 | 경로 · git · 사용자@호스트 · 셸 · OS · 시각 · 종료 코드 · 실행 시간 · 관리자 · 텍스트 |
 | 스타일 | 파워라인(화살표 — CSS 로 그리므로 Nerd Font 가 없어도 됨) · 일반 · 다이아몬드(둥근 캡슐) |
@@ -374,9 +374,9 @@ npm run web                    # http://127.0.0.1:5186
 
 | 환경 | 위치 |
 |---|---|
-| Windows | `%APPDATA%\Command Center\session.json` |
-| macOS | `~/Library/Application Support/Command Center/session.json` |
-| Linux | `~/.config/Command Center/session.json` |
-| 웹 서버 | `~/.config/CommandCenter/session.json` (Windows: `%APPDATA%\CommandCenter`) |
+| Windows | `%APPDATA%\MyCommandCenter\session.json` |
+| macOS | `~/Library/Application Support/MyCommandCenter/session.json` |
+| Linux | `~/.config/MyCommandCenter/session.json` |
+| 웹 서버 | `~/.config/MyCommandCenter/session.json` (Windows: `%APPDATA%\MyCommandCenter`) |
 
 좌/우 경로, 분할 위치, 정렬, 설정의 모든 값(언어·테마·글꼴·열 표시·파일 열기 규칙·뷰어/편집기·창·터미널 …), 창 위치, 도구 창별 위치와 크기, 하단 패널 표시 여부와 높이, 즐겨찾는 폴더, 마지막 선택 패턴이 저장됩니다.

@@ -16,7 +16,7 @@ export const PROMPT_VERSION = 1;
 export const SEGMENT_TYPES = ['path', 'git', 'session', 'shell', 'os', 'time', 'status', 'executiontime', 'root', 'text'];
 export const SEGMENT_STYLES = ['powerline', 'plain', 'diamond'];
 
-// Colours by git state (the classic Command Center prompt): used when a git
+// Colours by git state (the classic MyCommandCenter prompt): used when a git
 // segment's background (or foreground) is 'auto', and — while the prompt's
 // `git_state_colors` is on — for the git segment of any preset.
 export const GIT_STATE_COLORS = { conflict: '#D62828', staged: '#FFD700', modified: '#FF5C5C', ahead: '#FF9F43', behind: '#7cc4ff', uptodate: '#7CFC8B', none: '#7CFC8B' };
@@ -36,7 +36,7 @@ const seg = (type, extra) => ({ type, style: 'powerline', powerline_symbol: '\ue
 
 export const PRESETS = {
   default: {
-    label: '기본 (Command Center)', labelEn: 'Default (Command Center)',
+    label: '기본 (MyCommandCenter)', labelEn: 'Default (MyCommandCenter)',
     config: {
       version: PROMPT_VERSION, final_space: true, newline: false, palette: {},
       blocks: [{ type: 'prompt', alignment: 'left', segments: [
@@ -684,7 +684,7 @@ export function renderPrompt(config, state, theme) {
 export const SAMPLE_STATES = {
   // short values for the small preset cards — a clean repository, so each prompt shows its own colours
   mini: { cwd: 'C:\\Users\\me\\src', home: 'C:\\Users\\me', git: { repo: true, branch: 'main', upstream: 'origin/main', ahead: 0, behind: 0, staged: 0, changed: 0, untracked: 0, conflicts: 0, stashes: 0 }, user: 'me', host: 'pc', shell: 'pwsh', platform: 'win32', rc: 0, ms: 1500, now: new Date(2026, 8, 16, 10, 5, 42) },
-  clean: { cwd: 'C:\\Home\\Projects\\CommandCenter', home: 'C:\\Users\\user', git: { repo: true, branch: 'main', upstream: 'origin/main', ahead: 0, behind: 0, staged: 0, changed: 0, untracked: 0, conflicts: 0, stashes: 0 }, user: 'user', host: 'desktop', shell: 'pwsh', platform: 'win32', rc: 0, ms: 120, now: new Date(2026, 8, 16, 10, 5, 42) },
-  dirty: { cwd: 'C:\\Home\\Projects\\CommandCenter\\src\\components', home: 'C:\\Users\\user', git: { repo: true, branch: 'feature/tabs', upstream: 'origin/feature/tabs', ahead: 2, behind: 0, staged: 1, changed: 3, untracked: 1, conflicts: 0, stashes: 1 }, user: 'user', host: 'desktop', shell: 'pwsh', platform: 'win32', rc: 1, ms: 3200, now: new Date(2026, 8, 16, 10, 5, 42) },
+  clean: { cwd: 'C:\\Home\\Projects\\MyCommandCenter', home: 'C:\\Users\\user', git: { repo: true, branch: 'main', upstream: 'origin/main', ahead: 0, behind: 0, staged: 0, changed: 0, untracked: 0, conflicts: 0, stashes: 0 }, user: 'user', host: 'desktop', shell: 'pwsh', platform: 'win32', rc: 0, ms: 120, now: new Date(2026, 8, 16, 10, 5, 42) },
+  dirty: { cwd: 'C:\\Home\\Projects\\MyCommandCenter\\src\\components', home: 'C:\\Users\\user', git: { repo: true, branch: 'feature/tabs', upstream: 'origin/feature/tabs', ahead: 2, behind: 0, staged: 1, changed: 3, untracked: 1, conflicts: 0, stashes: 1 }, user: 'user', host: 'desktop', shell: 'pwsh', platform: 'win32', rc: 1, ms: 3200, now: new Date(2026, 8, 16, 10, 5, 42) },
   plain: { cwd: 'C:\\Users\\user\\Downloads', home: 'C:\\Users\\user', git: { repo: false }, user: 'user', host: 'desktop', shell: 'pwsh', platform: 'win32', rc: 0, ms: 40, now: new Date(2026, 8, 16, 10, 5, 42) },
 };

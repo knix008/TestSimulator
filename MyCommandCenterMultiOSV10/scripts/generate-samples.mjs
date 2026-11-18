@@ -18,7 +18,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const out = path.join(root, 'samples');
 fs.mkdirSync(out, { recursive: true });
 
-// ── The picture: a Command Center badge (gradient, ring, bars) — 320 × 240 ──
+// ── The picture: a MyCommandCenter badge (gradient, ring, bars) — 320 × 240 ──
 const W = 320, H = 240;
 function picture(frame = 0) {
   const hue = (frame * 40) % 360;
@@ -27,7 +27,7 @@ function picture(frame = 0) {
   <rect width="${W}" height="${H}" fill="url(#g)"/>
   <circle cx="${W / 2}" cy="${H / 2}" r="70" fill="none" stroke="#fff" stroke-width="10" opacity="0.9"/>
   <rect x="${W / 2 - 40}" y="${H / 2 - 10}" width="80" height="20" rx="4" fill="#ffd54f"/>
-  <text x="${W / 2}" y="${H - 18}" text-anchor="middle" font-family="Arial" font-size="20" fill="#fff">Command Center ${frame ? `#${frame + 1}` : ''}</text>
+  <text x="${W / 2}" y="${H - 18}" text-anchor="middle" font-family="Arial" font-size="20" fill="#fff">MyCommandCenter ${frame ? `#${frame + 1}` : ''}</text>
 </svg>`);
 }
 
@@ -145,10 +145,10 @@ function pdf() {
   const stream = (content) => `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}\nendstream`;
   add('<< /Type /Catalog /Pages 2 0 R >>');                                                 // 1
   add('<< /Type /Pages /Kids [5 0 R 7 0 R] /Count 2 >>');                                   // 2
-  add('<< /Producer (Command Center samples) /Title (Command Center sample PDF) >>');       // 3
+  add('<< /Producer (MyCommandCenter samples) /Title (MyCommandCenter sample PDF) >>');       // 3
   add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');                            // 4
   add(page(6));                                                                              // 5
-  add(stream('0.23 0.49 0.84 rg 60 700 475 60 re f 1 1 1 rg BT /F1 28 Tf 80 720 Td (Command Center) Tj ET 0 0 0 rg BT /F1 14 Tf 60 660 Td (Sample PDF, page 1 of 2) Tj 0 -24 Td (Shown by the built-in PDF viewer of the host.) Tj ET'));   // 6
+  add(stream('0.23 0.49 0.84 rg 60 700 475 60 re f 1 1 1 rg BT /F1 28 Tf 80 720 Td (MyCommandCenter) Tj ET 0 0 0 rg BT /F1 14 Tf 60 660 Td (Sample PDF, page 1 of 2) Tj 0 -24 Td (Shown by the built-in PDF viewer of the host.) Tj ET'));   // 6
   add(page(8));                                                                              // 7
   add(stream('0 0 0 rg BT /F1 20 Tf 60 760 Td (Page 2) Tj /F1 12 Tf 0 -30 Td (The end.) Tj ET'));   // 8
   let doc = '%PDF-1.4\n%\xe2\xe3\xcf\xd3\n';
@@ -182,7 +182,7 @@ app.whenReady().then(async () => {
       osc.frequency.value = 523; osc.connect(dest); osc.start(); stream = dest.stream;
     } else {
       const c = document.getElementById('c'); const g = c.getContext('2d'); stream = c.captureStream(30);
-      let f = 0; const draw = () => { const hue = (f++ * 3) % 360; g.fillStyle = 'hsl(' + hue + ',70%,40%)'; g.fillRect(0, 0, 320, 240); g.strokeStyle = '#fff'; g.lineWidth = 10; g.beginPath(); g.arc(160, 120, 70, 0, Math.PI * 2); g.stroke(); g.fillStyle = '#ffd54f'; g.fillRect(120, 110, 80, 20); g.fillStyle = '#fff'; g.font = '20px Arial'; g.textAlign = 'center'; g.fillText('Command Center', 160, 222); };
+      let f = 0; const draw = () => { const hue = (f++ * 3) % 360; g.fillStyle = 'hsl(' + hue + ',70%,40%)'; g.fillRect(0, 0, 320, 240); g.strokeStyle = '#fff'; g.lineWidth = 10; g.beginPath(); g.arc(160, 120, 70, 0, Math.PI * 2); g.stroke(); g.fillStyle = '#ffd54f'; g.fillRect(120, 110, 80, 20); g.fillStyle = '#fff'; g.font = '20px Arial'; g.textAlign = 'center'; g.fillText('MyCommandCenter', 160, 222); };
       draw(); setInterval(draw, 33);
     }
     const rec = new MediaRecorder(stream, { mimeType: \${audio} ? 'audio/webm;codecs=opus' : 'video/webm;codecs=vp9' });

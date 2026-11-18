@@ -19,7 +19,7 @@ function tmpdir(name) {
 function makeTree(root) {
   const src = path.join(root, '자료 폴더');
   fs.mkdirSync(path.join(src, 'sub', 'deeper'), { recursive: true });
-  fs.writeFileSync(path.join(src, '한글 이름.txt'), '안녕하세요 Command Center\n'.repeat(50));
+  fs.writeFileSync(path.join(src, '한글 이름.txt'), '안녕하세요 MyCommandCenter\n'.repeat(50));
   fs.writeFileSync(path.join(src, 'sub', 'data.bin'), crypto.randomBytes(300_000));
   fs.writeFileSync(path.join(src, 'sub', 'deeper', 'x'.repeat(120) + '.txt'), 'long name');
   fs.writeFileSync(path.join(root, 'single.txt'), 'top-level file');

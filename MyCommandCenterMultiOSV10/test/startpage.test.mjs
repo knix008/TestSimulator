@@ -361,7 +361,7 @@ test('the title card is fixed: no move handle, no resize corner, not on the card
   try {
     const hero = page.host.querySelector('.start-head');
     assert.ok(hero, 'the title card is shown');
-    assert.match(hero.textContent, /Command Center|커맨드|Center/i);
+    assert.match(hero.textContent, /MyCommandCenter/);
     assert.equal(hero.querySelector('.card-handle, [data-card-handle], .card-resize, [data-card-resize]'), null);
     assert.equal(hero.hasAttribute('data-card'), false);
     assert.equal(hero.closest('.start-board'), null);
