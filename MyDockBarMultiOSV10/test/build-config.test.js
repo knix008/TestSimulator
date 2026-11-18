@@ -71,6 +71,18 @@ describe('the installer', () => {
     assert.ok(/--updated/.test(removal), 'the Electron uninstaller would decide about the data itself');
   });
 
+  it('asks for the language every time and hands it to the dock', () => {
+    const nsis = CONF.bundle.windows.nsis;
+    assert.strictEqual(nsis.displayLanguageSelector, true, 'the installer does not ask for a language');
+    assert.ok(/^!define MUI_LANGDLL_ALWAYSSHOW/m.test(HOOKS), 'a reinstall skips the language dialog');
+    const post = HOOKS.slice(HOOKS.indexOf('!macro NSIS_HOOK_POSTINSTALL'), HOOKS.indexOf('!macroend', HOOKS.indexOf('!macro NSIS_HOOK_POSTINSTALL')));
+    assert.ok(/\$LANGUAGE == 1042[\s\S]{0,60}"ko"[\s\S]{0,60}"en"/.test(post), 'the chosen language is not written');
+    assert.ok(post.includes('$APPDATA\\${MDB_DATA_DIR}\\${MDB_LOCALE_FILE}'), 'written somewhere the dock does not look');
+    const file = HOOKS.match(/!define MDB_LOCALE_FILE "([^"]+)"/)[1];
+    const rust = fs.readFileSync(path.join(ROOT, 'src-tauri', 'src', 'config.rs'), 'utf8');
+    assert.ok(rust.includes(`INSTALLER_LOCALE_FILE: &str = "${file}"`), 'the dock reads a different file name');
+  });
+
   it('never uses a Tauri define inside a Function', () => {
     // The hooks are read before Tauri defines them; inside a Function they are
     // still undefined and the uninstaller build fails.

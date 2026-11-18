@@ -22,6 +22,17 @@
 
 !include nsDialogs.nsh
 
+; The language dialog (tauri.conf.json: displayLanguageSelector) is asked
+; every time. Without this, MUI skips it whenever an earlier install left its
+; "Installer Language" in the registry, and a reinstall could not change it.
+; The remembered language is still the one preselected.
+!define MUI_LANGDLL_ALWAYSSHOW
+
+; The language picked there is handed to the dock: it reads this file from its
+; data folder on the next start, sets its own language to match, and deletes
+; it (src-tauri/src/config.rs, take_installer_locale).
+!define MDB_LOCALE_FILE "installer-locale.txt"
+
 !define MDB_IDENTIFIER "com.suhokwon.mydockbar"
 !define MDB_DATA_DIR "MyDockBar"
 !define MDB_EXE "MyDockBar.exe"
@@ -317,6 +328,27 @@ FunctionEnd
 !macroend
 
 !macro NSIS_HOOK_POSTINSTALL
+  ; Hand the installer's language to the dock. Not on an update, a passive or a
+  ; silent install: nobody picked a language there, and the dock's own setting
+  ; must not be overwritten by a default.
+  ${If} $UpdateMode <> 1
+  ${AndIf} $PassiveMode <> 1
+  ${AndIfNot} ${Silent}
+    SetShellVarContext current
+    CreateDirectory "$APPDATA\${MDB_DATA_DIR}"
+    ; 1042 = Korean; everything else is English.
+    ${If} $LANGUAGE == 1042
+      StrCpy $R0 "ko"
+    ${Else}
+      StrCpy $R0 "en"
+    ${EndIf}
+    ClearErrors
+    FileOpen $R1 "$APPDATA\${MDB_DATA_DIR}\${MDB_LOCALE_FILE}" w
+    ${IfNot} ${Errors}
+      FileWrite $R1 $R0
+      FileClose $R1
+    ${EndIf}
+  ${EndIf}
   System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
 !macroend
 

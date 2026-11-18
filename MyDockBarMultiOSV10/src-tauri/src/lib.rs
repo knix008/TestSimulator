@@ -1158,6 +1158,11 @@ fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
   let _ = std::fs::create_dir_all(&dir);
   let mut config = Config::new(dir.clone());
   config.load();
+  // The language picked in the Windows installer becomes the dock's language.
+  if let Some(locale) = config::take_installer_locale(&dir) {
+    config.patch(&json!({ "locale": locale }));
+    config.save_now();
+  }
   let dock_cfg = config.dock().clone();
   let start_with_os = truthy(&config.get()["startWithOS"]);
 

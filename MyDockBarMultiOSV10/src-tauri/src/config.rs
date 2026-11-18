@@ -52,6 +52,21 @@ pub fn merge(base: &Value, src: &Value) -> Value {
   Value::Object(out)
 }
 
+/// The file the Windows installer leaves in the data folder with the language
+/// picked in its language dialog ("ko" or "en"). See `windows/hooks.nsh`.
+pub const INSTALLER_LOCALE_FILE: &str = "installer-locale.txt";
+
+/// The language the installer was run in, if it left one: read once and
+/// deleted, so a language changed later in the dock is not undone on the next
+/// start. Anything unreadable or unsupported is ignored (and still deleted).
+pub fn take_installer_locale(dir: &Path) -> Option<&'static str> {
+  let path = dir.join(INSTALLER_LOCALE_FILE);
+  let raw = fs::read_to_string(&path).ok()?;
+  let _ = fs::remove_file(&path);
+  let code = raw.trim_start_matches('\u{feff}').trim().to_ascii_lowercase();
+  crate::i18n::SUPPORTED.iter().copied().find(|l| *l == code)
+}
+
 pub struct Config {
   pub dir: PathBuf,
   pub file: PathBuf,
@@ -181,6 +196,34 @@ pub fn text(value: &Value) -> String {
 mod tests {
   use super::*;
   use serde_json::json;
+
+  fn temp_dir(name: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("mydockbar-locale-{name}-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    dir
+  }
+
+  #[test]
+  fn takes_the_installer_language_once() {
+    let dir = temp_dir("once");
+    fs::write(dir.join(INSTALLER_LOCALE_FILE), "ko").unwrap();
+    assert_eq!(take_installer_locale(&dir), Some("ko"));
+    assert!(!dir.join(INSTALLER_LOCALE_FILE).exists(), "the file is left behind and would undo a later change");
+    assert_eq!(take_installer_locale(&dir), None);
+    fs::write(dir.join(INSTALLER_LOCALE_FILE), "\u{feff}EN\r\n").unwrap();
+    assert_eq!(take_installer_locale(&dir), Some("en"));
+    let _ = fs::remove_dir_all(&dir);
+  }
+
+  #[test]
+  fn ignores_an_unsupported_installer_language() {
+    let dir = temp_dir("bad");
+    fs::write(dir.join(INSTALLER_LOCALE_FILE), "fr").unwrap();
+    assert_eq!(take_installer_locale(&dir), None);
+    assert!(!dir.join(INSTALLER_LOCALE_FILE).exists());
+    let _ = fs::remove_dir_all(&dir);
+  }
 
   #[test]
   fn keeps_keys_the_patch_does_not_mention() {
