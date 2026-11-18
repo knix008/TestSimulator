@@ -169,11 +169,15 @@ button:disabled { cursor: default; opacity: 0.45; }
 .tut-prompt-again { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--fg-muted); cursor: pointer; }
 .tut-prompt-again input { margin: 0; accent-color: var(--accent); }
 .start-card-hero > .card-body { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; row-gap: 12px; }
-.start-logo { width: 64px; height: 64px; flex: none; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.3)); }
+.start-logo { width: 76px; height: 76px; flex: none; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.3)); }
 .start-hero-text { flex: 1 1 260px; min-width: 0; }
-.start-hero-text h1 { margin: 0; font-size: 24px; line-height: 1.2; font-weight: 700; }
+/* MyMarkDownMaker's title: the name, the version small in the accent colour beside it. */
+.start-hero-text h1 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; margin: 0; font-size: 26px; line-height: 1.2; font-weight: 700; }
+.start-hero-text h1 small { font-size: 13px; font-weight: 700; color: var(--accent); }
 .start-hero-text p { margin: 4px 0 0; color: var(--fg-muted); font-size: 13px; line-height: 1.5; }
-.start-hero-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin-left: auto; }
+.start-hero-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; margin-left: auto; }
+/* The document buttons are one group, set off from the tutorial by a line. */
+.start-docs { display: flex; flex-wrap: wrap; gap: 6px; padding-right: 10px; border-right: 1px solid var(--border); }
 .start-big { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-panel); color: var(--fg); cursor: pointer; font-size: 13px; white-space: nowrap; }
 .start-big:hover { border-color: var(--accent); background: var(--bg-hover); }
 .start-big.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
@@ -187,6 +191,10 @@ button:disabled { cursor: default; opacity: 0.45; }
 .action-card:focus-visible, .task-card:focus-visible { outline: 2px solid var(--accent); }
 .action-card[data-primary] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--bg-panel)); }
 .action-icon, .task-icon { display: grid; place-items: center; width: 26px; height: 26px; color: var(--accent); }
+/* Sub-headings and buttons with a coloured icon in front of the word. */
+.recent-clear, .start-speed-reset { display: inline-flex; align-items: center; gap: 5px; }
+.start-speed-label { display: inline-flex; align-items: center; gap: 6px; }
+.start-speed-label svg { flex: none; }
 .action-text, .task-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .action-text b, .task-text b { font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .action-text small, .task-text small, .start-muted { color: var(--fg-muted); }

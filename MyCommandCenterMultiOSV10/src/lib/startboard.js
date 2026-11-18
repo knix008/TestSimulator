@@ -26,7 +26,8 @@ export function startBoard(host, { saved, onSave, reduced = false }) {
       const card = cardEl(id);
       card.style.gridColumn = `${cell.col + 1} / span ${cell.w}`;
       card.style.gridRow = `${cell.row + 1} / span ${cell.h}`;
-      card.style.height = cell.fit ? '' : `${cell.h * ROW - GAP}px`;
+      // A fit card keeps its own height unless alignRows stretched it to the row's tallest neighbour.
+      card.style.height = cell.fit && !cell.stretch ? '' : `${cell.h * ROW - GAP}px`;
       card.classList.toggle('fit', cell.fit);
       card.classList.toggle('fixed-height', !cell.fit);
     }
@@ -44,10 +45,15 @@ export function startBoard(host, { saved, onSave, reduced = false }) {
     rects = now;
   }
 
-  /** Fit cards take the height of their content, measured in rows. */
+  /** The height every card's content needs, in rows: fit cards take it, sized cards never go below it. */
   function measure() {
     const next = {};
-    for (const card of host.querySelectorAll(':scope > .start-card.fit')) next[card.dataset.card] = rowsFor(card.offsetHeight);
+    const cards = [...host.querySelectorAll(':scope > .start-card')];
+    // Read the natural height: without the stretched / chosen height and without the inner scroll box.
+    const kept = cards.map((card) => [card, card.style.height, card.classList.contains('fixed-height')]);
+    for (const [card] of kept) { card.style.height = ''; card.classList.remove('fixed-height'); }
+    for (const card of cards) next[card.dataset.card] = rowsFor(card.offsetHeight);
+    for (const [card, height, fixed] of kept) { card.style.height = height; card.classList.toggle('fixed-height', fixed); }
     // Growing always applies; shrinking by a single row does not, so a card whose height
     // depends on where compaction put it cannot flip between two heights.
     const time = performance.now();
@@ -136,7 +142,7 @@ export function startBoard(host, { saved, onSave, reduced = false }) {
       const next = cellAt(last.x - offX, last.y - offY, cell.w);
       if (next.col !== target.col || next.row !== target.row) {
         target = next;
-        pending = place(saved0, id, target);
+        pending = place(saved0, id, target, measured);
         paint(true);
         showDrop();
       }
@@ -145,7 +151,7 @@ export function startBoard(host, { saved, onSave, reduced = false }) {
       drop.remove();
       card.classList.remove('drag-origin');
       pending = null;
-      if (ended.type === 'pointerup' && (target.col !== cell.col || target.row !== cell.row)) save(place(saved0, id, target));
+      if (ended.type === 'pointerup' && (target.col !== cell.col || target.row !== cell.row)) save(place(saved0, id, target, measured));
       else paint(true);
     });
   }
@@ -168,13 +174,13 @@ export function startBoard(host, { saved, onSave, reduced = false }) {
       const h = Math.max(4, Math.round((rect.height + moved.clientY - startY + GAP) / ROW));
       if (w !== target.w || h !== target.h) {
         target = { w, h };
-        pending = place(saved0, id, { ...target, fit: false });
+        pending = place(saved0, id, { ...target, fit: false }, measured);
         paint(true);
       }
     }, (ended) => {
       card.classList.remove('resizing');
       pending = null;
-      if (ended.type === 'pointerup' && (target.w !== cell.w || target.h !== cell.h)) save(place(saved0, id, { ...target, fit: false }));
+      if (ended.type === 'pointerup' && (target.w !== cell.w || target.h !== cell.h)) save(place(saved0, id, { ...target, fit: false }, measured));
       else paint(true);
     });
   }
@@ -189,7 +195,7 @@ export function startBoard(host, { saved, onSave, reduced = false }) {
   };
   const onDoubleClick = (event) => {
     const corner = event.target.closest('[data-card-resize]');
-    if (corner) save(place(current(), corner.dataset.cardResize, { fit: true }));
+    if (corner) save(place(current(), corner.dataset.cardResize, { fit: true }, measured));
   };
   host.addEventListener('pointerdown', onPointerDown);
   host.addEventListener('dblclick', onDoubleClick);
@@ -205,6 +211,10 @@ export function startBoard(host, { saved, onSave, reduced = false }) {
   };
   const observer = globalThis.ResizeObserver ? new ResizeObserver(later) : null;
   if (observer) { for (const id of ids) observer.observe(cardEl(id)); observer.observe(host); }
+  // A stretched or sized card keeps its box when its content changes (a recent folder added or
+  // removed, the tip opened): watch the content too.
+  const mutations = globalThis.MutationObserver ? new MutationObserver(later) : null;
+  mutations?.observe(host, { childList: true, subtree: true, characterData: true });
 
   paint();
   measure();
@@ -214,6 +224,7 @@ export function startBoard(host, { saved, onSave, reduced = false }) {
     arrange() { save(autoArrange(ids, START_CARD_SPAN, measured)); },
     destroy() {
       observer?.disconnect();
+      mutations?.disconnect();
       if (frame) globalThis.cancelAnimationFrame?.(frame);
       frame = 0;
       host.removeEventListener('pointerdown', onPointerDown);

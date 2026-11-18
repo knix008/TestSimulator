@@ -97,40 +97,66 @@ const paths = {
   panelBottom: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 14h18" /></>,
   skip: <><path d="M5 5l9 7-9 7z" /><path d="M18 5v14" /></>,
   stop: <><rect x="6" y="6" width="12" height="12" rx="1.5" /></>,
+  speed: <><path d="M4 18a8 8 0 1 1 16 0" /><path d="M12 18l4-6" /><path d="M7 14h.01M12 10h.01M17 14h.01" /></>,
+  opacity: <><circle cx="9" cy="12" r="6" /><circle cx="15" cy="12" r="6" strokeDasharray="2.5 2" /></>,
 };
 
-// Every icon has its own colour (user request: all icons in colour). Mid-tone hues that read on both
-// dark and light themes. The rules are wrapped in :where() so they weigh nothing: a rule that colours an
-// icon on purpose (.ic-folder = the theme's folder colour, a danger dialog's red title icon, a checked
+// Every icon has its own colour (user request: all icons colourful, the way MyMarkDownMaker draws them).
+// Each icon names a tone; a tone is a bright shade on dark themes and a deeper one on light themes
+// (<html data-mode>, set by applyTheme), and an icon whose first shape encloses something gets a light
+// wash of its colour inside. The rules are wrapped in :where() so they weigh nothing: a rule that colours
+// an icon on purpose (.ic-folder = the theme's folder colour, a danger dialog's red title icon, a checked
 // item's accent tick) still wins, while a colour merely inherited from the button / menu row does not.
-const C = {
-  blue: '#3b82f6', sky: '#0ea5e9', teal: '#14b8a6', green: '#22a35a', lime: '#65a30d', amber: '#e59e0b',
-  orange: '#f97316', red: '#e5484d', pink: '#e0479e', purple: '#8b5cf6', indigo: '#6366f1', slate: '#64748b', brown: '#b7791f',
+export const ICON_TONES = {
+  blue: ['#60a5fa', '#2563eb'], sky: ['#38bdf8', '#0284c7'], indigo: ['#a5b4fc', '#4f46e5'], purple: ['#c084fc', '#9333ea'],
+  pink: ['#f472b6', '#db2777'], red: ['#f87171', '#dc2626'], orange: ['#fb923c', '#ea580c'], amber: ['#fbbf24', '#b86e00'],
+  yellow: ['#facc15', '#a16207'], green: ['#4ade80', '#16a34a'], teal: ['#2dd4bf', '#0d9488'], cyan: ['#22d3ee', '#0891b2'],
+  slate: ['#a8b3c4', '#526075'], brown: ['#d6a26b', '#92400e'],
 };
-const ICON_COLORS = {
-  folder: C.amber, folderOpen: C.amber, folderNew: C.amber, file: C.sky, fileNew: C.sky,
-  copy: C.blue, move: C.indigo, delete: C.red, trash: C.red, search: C.teal, home: C.orange, refresh: C.green,
-  archive: C.brown, extract: C.brown, rename: C.purple, paste: C.teal, cut: C.pink, open: C.blue,
-  properties: C.sky, info: C.sky, help: C.purple, book: C.indigo, tree: C.green, sun: C.amber, moon: C.indigo,
-  language: C.teal, chevronRight: C.blue, chevronLeft: C.blue, chevronDown: C.blue, up: C.green, close: C.red,
-  winMin: C.slate, winMax: C.slate, winRestore: C.slate, quit: C.red, check: C.green, settings: C.slate,
-  disc: C.purple, network: C.teal, usb: C.indigo, drive: C.slate, edit: C.orange, eye: C.teal, palette: C.pink,
-  clipboard: C.brown, link: C.sky, terminal: C.green, log: C.slate, gitBranch: C.orange, plus: C.green,
-  eraser: C.pink, undo: C.blue, redo: C.blue, star: C.amber, history: C.purple, view: C.teal, swap: C.indigo,
-  compare: C.purple, multiRename: C.purple, select: C.blue, print: C.indigo, portrait: C.sky, landscape: C.sky,
-  video: C.pink, audio: C.purple, warning: C.amber, image: C.green, zoomIn: C.teal, zoomOut: C.teal, fit: C.teal,
-  actual: C.teal, rotateL: C.indigo, rotateR: C.indigo, save: C.blue, wrap: C.slate, hex: C.slate,
-  contentSearch: C.teal, exact: C.slate, regex: C.purple, caseAa: C.indigo, searchDock: C.teal, splitH: C.indigo,
-  splitV: C.indigo, play: C.green, pause: C.amber, dragHandle: C.slate, grid: C.blue, tabs: C.sky, tabNew: C.sky,
-  panelLeft: C.green, panelBottom: C.green, skip: C.amber, stop: C.red,
+const ICON_TONE_OF = {
+  folder: 'amber', folderOpen: 'amber', folderNew: 'amber', file: 'sky', fileNew: 'green',
+  copy: 'cyan', move: 'indigo', delete: 'red', trash: 'red', search: 'green', home: 'orange', refresh: 'sky',
+  archive: 'brown', extract: 'brown', rename: 'pink', paste: 'cyan', cut: 'pink', open: 'amber',
+  properties: 'blue', info: 'blue', help: 'purple', book: 'indigo', tree: 'green', sun: 'yellow', moon: 'indigo',
+  language: 'orange', chevronRight: 'sky', chevronLeft: 'sky', chevronDown: 'sky', up: 'green', close: 'red',
+  winMin: 'slate', winMax: 'slate', winRestore: 'slate', quit: 'red', check: 'green', settings: 'slate',
+  disc: 'purple', network: 'teal', usb: 'indigo', drive: 'slate', edit: 'orange', eye: 'teal', palette: 'pink',
+  clipboard: 'brown', link: 'orange', terminal: 'green', log: 'slate', gitBranch: 'orange', plus: 'green',
+  eraser: 'pink', undo: 'sky', redo: 'sky', star: 'yellow', history: 'amber', view: 'teal', swap: 'indigo',
+  compare: 'purple', multiRename: 'purple', select: 'blue', print: 'purple', portrait: 'sky', landscape: 'sky',
+  video: 'pink', audio: 'purple', warning: 'yellow', image: 'purple', zoomIn: 'green', zoomOut: 'green', fit: 'teal',
+  actual: 'teal', rotateL: 'indigo', rotateR: 'indigo', save: 'indigo', wrap: 'slate', hex: 'brown',
+  contentSearch: 'teal', exact: 'slate', regex: 'purple', caseAa: 'pink', searchDock: 'teal', splitH: 'indigo',
+  splitV: 'indigo', play: 'green', pause: 'amber', dragHandle: 'slate', grid: 'blue', tabs: 'sky', tabNew: 'green',
+  panelLeft: 'teal', panelBottom: 'teal', skip: 'amber', stop: 'red', speed: 'orange', opacity: 'cyan',
 };
-export const iconColor = (name) => ICON_COLORS[name] || ICON_COLORS.file;
+export const ICON_NAMES = Object.keys(paths);
+export const iconTone = (name) => ICON_TONE_OF[name] || ICON_TONE_OF.file;
+export const iconColor = (name, mode = 'dark') => ICON_TONES[iconTone(name)][mode === 'light' ? 1 : 0];
+
+// The icon's first shape gets a light wash of its colour when it encloses something (a box, a circle,
+// a closed path) and has no fill of its own.
+const ENCLOSING = new Set(['rect', 'circle', 'ellipse']);
+function firstShape(name) {
+  const kids = paths[name]?.props?.children;
+  return Array.isArray(kids) ? kids[0] : kids;
+}
+export function hasWash(name) {
+  const shape = firstShape(name);
+  if (!shape || typeof shape.type !== 'string' || shape.props.fill) return false;
+  if (ENCLOSING.has(shape.type)) return true;
+  return shape.type === 'path' && /[zZ]\s*$/.test(shape.props.d || '');
+}
 
 // Installed once per page (every window that draws an icon imports this module).
 if (typeof document !== 'undefined' && !document.getElementById('cc-icon-colors')) {
   const style = document.createElement('style');
   style.id = 'cc-icon-colors';
-  style.textContent = Object.entries(ICON_COLORS).map(([n, c]) => `:where(svg.icon-${n}){color:${c}}`).join('\n');
+  style.textContent = [
+    ...Object.entries(ICON_TONES).map(([tone, [dark]]) => `:where(svg[data-tone="${tone}"]){color:${dark}}`),
+    ...Object.entries(ICON_TONES).map(([tone, [, light]]) => `:where([data-mode="light"] svg[data-tone="${tone}"]){color:${light}}`),
+    ':where(svg[data-wash]) > :where(:first-child){fill:color-mix(in srgb, currentColor 16%, transparent)}',
+  ].join('\n');
   (document.head || document.documentElement).appendChild(style);
 }
 
@@ -174,9 +200,10 @@ export function Flag({ country, width = 22, className = '' }) {
 }
 
 export function Icon({ name, size = 16, className = '', style }) {
+  const known = paths[name] ? name : 'file';
   return (
-    <svg {...base} width={size} height={size} className={`icon icon-${name} ${className}`} style={style} aria-hidden="true">
-      {paths[name] || paths.file}
+    <svg {...base} width={size} height={size} className={`icon icon-${name} ${className}`} style={style} data-tone={iconTone(name)} data-wash={hasWash(known) ? '' : undefined} aria-hidden="true">
+      {paths[known]}
     </svg>
   );
 }

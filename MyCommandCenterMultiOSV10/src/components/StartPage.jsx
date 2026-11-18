@@ -44,12 +44,12 @@ const GRIP = (
   <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="20" cy="20" r="2" /><circle cx="14" cy="20" r="2" /><circle cx="20" cy="14" r="2" /><circle cx="8" cy="20" r="2" /><circle cx="14" cy="14" r="2" /><circle cx="20" cy="8" r="2" /></svg>
 );
 
-function SpeedRow({ label, value, onChange, suffix = '', min = 0, max = 100 }) {
+function SpeedRow({ label, icon, value, onChange, suffix = '', min = 0, max = 100 }) {
   const step = (by) => onChange(Math.min(max, Math.max(min, value + by)));
   const shown = `${value}${suffix}`;
   return (
     <div className="start-speed">
-      <span>{label}</span>
+      <span className="start-speed-label">{icon && <Icon name={icon} size={15} />}{label}</span>
       <button type="button" className="num-btn" aria-label={`${label} ${t('start_less')}`} title={t('start_less')} disabled={value <= min} onClick={() => step(-5)}>−</button>
       <input type="range" min={min} max={max} step="5" value={value} aria-label={label} aria-valuemin={min} aria-valuemax={max} aria-valuenow={value} aria-valuetext={shown} onChange={(e) => onChange(Number(e.target.value))} />
       <button type="button" className="num-btn" aria-label={`${label} ${t('start_more')}`} title={t('start_more')} disabled={value >= max} onClick={() => step(5)}>+</button>
@@ -67,7 +67,7 @@ export function RecentFolders({ recent = [], onOpen, onRemove, onClear }) {
       <div className="recent-head">
         <Icon name="history" size={16} />
         <span>{t('start_recent')}</span>
-        <button type="button" className="recent-clear" disabled={!list.length} onClick={onClear}>{t('recent_dirs_clear')}</button>
+        <button type="button" className="recent-clear" disabled={!list.length} title={t('recent_dirs_clear')} onClick={onClear}><Icon name="eraser" size={13} /><span>{t('recent_dirs_clear')}</span></button>
       </div>
       {list.length ? (
         <ul className="recent-list">
@@ -89,6 +89,11 @@ function clamp(n, min, max, fallback) {
   const x = Number(n);
   if (!Number.isFinite(x)) return fallback;
   return Math.min(max, Math.max(min, x));
+}
+
+// The title card shows the bare name with the version beside it ("MyCommandCenter v1.0.3").
+function productName(name) {
+  return String(name || '').replace(/\s+V\d+(\.\d+)*$/i, '');
 }
 
 function folderLabel(path) {
@@ -165,12 +170,12 @@ export function StartBackgroundControls({ scene, transparency, motion, cardOpaci
         ))}
       </div>
       <div className="start-speeds">
-        <SpeedRow label={t('start_transparency')} value={fade} suffix="%" onChange={(n) => onChange({ startTransparency: n })} />
-        <SpeedRow label={t('start_motion')} value={pace} onChange={(n) => onChange({ startMotion: n })} />
+        <SpeedRow label={t('start_transparency')} icon="eye" value={fade} suffix="%" onChange={(n) => onChange({ startTransparency: n })} />
+        <SpeedRow label={t('start_motion')} icon="speed" value={pace} onChange={(n) => onChange({ startMotion: n })} />
         {cardOpacity !== undefined && (
-          <SpeedRow label={t('start_card_opacity')} value={clamp(cardOpacity, 20, 100, START_CARD_OPACITY_DEFAULT)} suffix="%" min={20} max={100} onChange={(n) => onChange({ startCardOpacity: n })} />
+          <SpeedRow label={t('start_card_opacity')} icon="opacity" value={clamp(cardOpacity, 20, 100, START_CARD_OPACITY_DEFAULT)} suffix="%" min={20} max={100} onChange={(n) => onChange({ startCardOpacity: n })} />
         )}
-        <button type="button" className="start-speed-reset" onClick={() => onChange({ startTransparency: 0, startMotion: START_MOTION_DEFAULT, ...(cardOpacity !== undefined ? { startCardOpacity: START_CARD_OPACITY_DEFAULT } : {}) })}>{t('start_speed_reset')}</button>
+        <button type="button" className="start-speed-reset" onClick={() => onChange({ startTransparency: 0, startMotion: START_MOTION_DEFAULT, ...(cardOpacity !== undefined ? { startCardOpacity: START_CARD_OPACITY_DEFAULT } : {}) })}><Icon name="rotateL" size={13} /><span>{t('start_speed_reset')}</span></button>
       </div>
     </div>
   );
@@ -229,14 +234,16 @@ export function StartPage({
           {/* The title card is fixed: always on top, full width, no move handle and no resize corner. */}
           <section className="start-card start-card-hero start-head bare fixed-card" aria-label={name}>
             <div className="card-body">
-              <img src="./icon.svg" alt="" className="start-logo" width={64} height={64} draggable={false} />
+              <img src="./icon.svg" alt="" className="start-logo" width={76} height={76} draggable={false} />
               <div className="start-hero-text">
-                <h1>{name}</h1>
+                <h1><span>{productName(name)}</span>{version && <small>v{version}</small>}</h1>
                 <p>{t('start_lead')}</p>
               </div>
               <div className="start-hero-actions">
-                <button type="button" className="start-big" title={t('start_manual_text')} onClick={() => onRun('manual')}><Icon name="book" size={16} /><span>{t('start_manual')}</span></button>
-                <button type="button" className="start-big" title={t('start_about_text')} onClick={() => onRun('about')}><Icon name="info" size={16} /><span>{t('about')}</span></button>
+                <div className="start-docs" role="group">
+                  <button type="button" className="start-big" title={t('start_manual_text')} onClick={() => onRun('manual')}><Icon name="book" size={16} /><span>{t('start_manual')}</span></button>
+                  <button type="button" className="start-big" title={t('start_about_text')} onClick={() => onRun('about')}><Icon name="info" size={16} /><span>{t('about')}</span></button>
+                </div>
                 <button type="button" className="start-big primary" title={t('start_tutorial_text')} onClick={() => onRun('tutorial')}><Icon name="play" size={16} /><span>{t('start_tutorial')}</span></button>
               </div>
             </div>
@@ -246,7 +253,7 @@ export function StartPage({
               <div className="start-actions">
                 {BEGIN.map(([id, icon, title, text, primary]) => (
                   <button key={id} type="button" className="action-card" data-primary={primary ? '' : undefined} title={t(text)} onClick={() => onRun(id)}>
-                    <span className="action-icon"><Icon name={icon} size={18} /></span>
+                    <span className="action-icon"><Icon name={icon} size={20} /></span>
                     <span className="action-text"><b>{t(title)}</b><small>{t(text)}</small></span>
                   </button>
                 ))}
@@ -260,13 +267,13 @@ export function StartPage({
               <div className="task-grid">
                 {TASKS.map(([id, icon, title, text]) => (
                   <button key={id} type="button" className="task-card" title={t(text)} onClick={() => onRun(id)}>
-                    <span className="task-icon"><Icon name={icon} size={18} /></span>
+                    <span className="task-icon"><Icon name={icon} size={20} /></span>
                     <span className="task-text"><b>{t(title)}</b><small>{t(text)}</small></span>
                   </button>
                 ))}
               </div>
             </Card>
-            <Card id="scenes" icon="image" title={t('start_background')} group="scenes">
+            <Card id="scenes" icon="image" title={t('start_background')} group="scenes" extra={<span className="start-card-note">{START_SCENES.length}</span>}>
               <StartBackgroundControls scene={current} transparency={fade} motion={motion} cardOpacity={alpha} launch={false} onChange={onBackground} />
             </Card>
           </div>

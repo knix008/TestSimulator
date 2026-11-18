@@ -468,3 +468,69 @@ test('the harmless "ResizeObserver loop" notice never opens the error dialog', a
   const tour = fs.readFileSync(path.join(rootDir, 'src/components/Tutorial.jsx'), 'utf8');
   assert.match(tour, /new ResizeObserver\(later\)/);
 });
+
+test('cards side by side on one row line up at the bottom (MyMarkDownMaker board)', async () => {
+  const { alignRows, autoArrange, layoutValue } = await import('../src/lib/startlayout.js');
+  const { START_CARD_SPAN } = await import('../src/lib/startboard.js');
+  const ids = Object.keys(START_CARD_SPAN);
+  // The begin card is taller than the recent card beside it: the recent card stretches to match.
+  const cards = autoArrange(ids, START_CARD_SPAN, { begin: 12, recent: 6, tasks: 7, scenes: 9 });
+  assert.equal(cards.begin.row, cards.recent.row);
+  assert.equal(cards.recent.h, 12);
+  assert.equal(cards.recent.stretch, true);
+  assert.equal(cards.tasks.row, 12);
+  // A card the user sized is never shorter than its content.
+  const sized = alignRows({ a: { col: 0, row: 0, w: 1, h: 3, fit: false } }, { a: 7 });
+  assert.equal(sized.a.h, 7);
+  // The saved form keeps no stretch: a fit card is measured again next time.
+  assert.equal('stretch' in layoutValue(cards).cards.recent, false);
+});
+
+test('every icon is drawn in a colour of its own, brighter on dark themes, with a light wash', async () => {
+  const { ICON_NAMES, ICON_TONES, Icon, iconColor, iconTone, hasWash } = await import('../src/components/Icons.jsx');
+  for (const name of ICON_NAMES) {
+    const tone = iconTone(name);
+    assert.ok(ICON_TONES[tone], `${name} has a tone`);
+    assert.notEqual(iconColor(name, 'dark'), iconColor(name, 'light'), name);
+  }
+  assert.equal(iconTone('delete'), 'red');
+  assert.equal(iconTone('folder'), 'amber');
+  assert.equal(hasWash('folder'), true);
+  assert.equal(hasWash('close'), false);
+  assert.equal(hasWash('regex'), false);
+  const css = document.getElementById('cc-icon-colors').textContent;
+  assert.match(css, /:where\(svg\[data-tone="red"\]\)\{color:#f87171\}/);
+  assert.match(css, /:where\(\[data-mode="light"\] svg\[data-tone="red"\]\)\{color:#dc2626\}/);
+  assert.match(css, /svg\[data-wash\]/);
+  const view = await mount(React.createElement('div', null,
+    React.createElement(Icon, { name: 'folder' }),
+    React.createElement(Icon, { name: 'close' }),
+    React.createElement(Icon, { name: 'no-such-icon' })));
+  try {
+    const [folder, close, unknown] = view.host.querySelectorAll('svg');
+    assert.equal(folder.getAttribute('data-tone'), 'amber');
+    assert.equal(folder.hasAttribute('data-wash'), true);
+    assert.equal(close.hasAttribute('data-wash'), false);
+    assert.equal(unknown.getAttribute('data-tone'), iconTone('file'));
+  } finally {
+    await view.unmount();
+  }
+});
+
+test('the title card shows the name with a small version beside it and groups the document buttons', async () => {
+  setLanguage('ko');
+  const log = { patches: [], run: null, recent: null };
+  const page = await mount(React.createElement(StartPage, { version: '1.0.3', onBackground() {}, onRun(id) { log.run = id; } }));
+  try {
+    const h1 = page.host.querySelector('.start-head h1');
+    assert.equal(h1.querySelector('span').textContent, 'MyCommandCenter');
+    assert.equal(h1.querySelector('small').textContent, 'v1.0.3');
+    const docs = page.host.querySelector('.start-head .start-docs');
+    assert.equal(docs.querySelectorAll('button').length, 2);
+    assert.equal(docs.querySelector('.primary'), null);
+    assert.equal(page.host.querySelector('[data-card="scenes"] .start-card-note').textContent, String(START_SCENES.length));
+    assert.equal(page.host.querySelectorAll('.start-speed-label svg').length, 3);
+  } finally {
+    await page.unmount();
+  }
+});
