@@ -352,17 +352,21 @@ function renderThemePicker() {
       <span class="theme-name">${escapeHtml(themeName(theme.id, L()))}</span>${current === theme.id ? icon('check', 'icon check') : ''}
     </button>`).join('')}
   </div>`;
-  root.innerHTML = frame({
-    glyph: 'palette', title: t('theme.pickTitle'),
-    body: `<div class="theme-picker">
+  // A dropdown, not a window: no title bar, no close button (a click outside or Esc closes it).
+  setOsTitle(t('theme.pickTitle'));
+  root.innerHTML = `<div class="popup popup-theme theme-dropdown" role="dialog" aria-label="${escapeHtml(t('theme.pickTitle'))}">
+    <div class="theme-picker">
       <div class="picker-top">
         <button class="picker-item ${current === SYSTEM ? 'active' : ''}" data-pick-theme="${SYSTEM}" title="${escapeHtml(themeName(SYSTEM, L()))}">${icon('sun')}<span class="theme-name">${escapeHtml(themeName(SYSTEM, L()))}</span>${current === SYSTEM ? icon('check', 'icon check') : ''}</button>
         <button class="picker-item ${current === CUSTOM ? 'active' : ''}" data-pick-theme="${CUSTOM}" title="${escapeHtml(themeName(CUSTOM, L()))}">${icon('palette')}<span class="theme-name">${escapeHtml(themeName(CUSTOM, L()))}</span>${current === CUSTOM ? icon('check', 'icon check') : ''}</button>
       </div>
       <div class="picker-columns">${column('moon', t('theme.darkGroup', { count: DARK_THEMES.length }), DARK_THEMES)}${column('sun', t('theme.lightGroup', { count: LIGHT_THEMES.length }), LIGHT_THEMES)}</div>
-    </div>`,
-    foot: `<button class="button small" data-action="edit-custom" title="${escapeHtml(t('settings.editCustom'))}">${icon('edit')}<span>${escapeHtml(t('settings.editCustom'))}</span></button><button class="button small" data-action="random-theme" title="${escapeHtml(t('action.themeRandom'))}">${icon('dice')}<span>${escapeHtml(t('action.themeRandom'))}</span></button><span class="grow"></span>${button('close', t('common.close'), 'close')}`,
-  });
+      <div class="picker-bottom">
+        <button class="picker-item" data-action="edit-custom" title="${escapeHtml(t('settings.editCustom'))}">${icon('edit')}<span class="theme-name">${escapeHtml(t('settings.editCustom'))}</span></button>
+        <button class="picker-item" data-action="random-theme" title="${escapeHtml(t('action.themeRandom'))}">${icon('dice')}<span class="theme-name">${escapeHtml(t('action.themeRandom'))}</span></button>
+      </div>
+    </div>
+  </div>`;
   const anchor = P().anchor;
   if (anchor && !state.placed) {
     state.placed = true;

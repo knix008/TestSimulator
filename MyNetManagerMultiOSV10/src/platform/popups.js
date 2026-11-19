@@ -22,7 +22,7 @@ export const POPUPS = {
   progress: { width: 480, height: 180 },
   recent: { width: 800, height: 510 },
   menu: { width: 300, height: 200 },
-  theme: { width: 620, height: 680 },
+  theme: { width: 620, height: 588 },
   welcome: { width: 640, height: 470 },
   color: { width: 300, height: 300 },
   prompt: { width: 560, height: 260 },

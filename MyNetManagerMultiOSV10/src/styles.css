@@ -556,6 +556,13 @@ html.is-popup, html.is-popup body { background: var(--surface); overflow: hidden
 .preview-chip { padding: 3px 10px; border-radius: 6px; font-size: 0.86em; }
 .popup-theme .popup-body { padding: 8px 12px; }
 .theme-picker { display: flex; flex-direction: column; gap: 6px; height: 100%; }
+/* The toolbar's theme dropdown: a menu-like panel without a title bar or close button. */
+.popup.theme-dropdown { padding: 8px; border-radius: 8px; }
+.theme-dropdown .picker-columns { flex: none; }
+.theme-dropdown .theme-picker { height: auto; }
+.picker-bottom { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; margin-top: 2px; padding-top: 6px; border-top: 1px solid var(--border); }
+.picker-bottom .picker-item { height: 28px; }
+.web-popup.web-popup-theme { border-radius: 8px; }
 .picker-top { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .picker-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; flex: 1; min-height: 0; }
 .picker-column h3 { display: flex; align-items: center; gap: 6px; margin: 2px 0 4px; font-size: 0.8em; color: var(--muted); text-transform: uppercase; }

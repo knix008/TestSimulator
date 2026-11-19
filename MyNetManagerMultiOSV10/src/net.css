@@ -208,7 +208,9 @@ html[data-mode="dark"] .pl-row:hover { filter: brightness(1.12); }
 
 /* ───────────────────────── network map */
 
-.net-map { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--surface); }
+/* Its size comes from .pane-map (flex: 0 0 var(--map-width), min-width): a flex or min-width here would win over it
+   (same specificity, later rule) and the splitter could not resize the map. */
+.net-map { display: flex; flex-direction: column; background: var(--surface); }
 .nm-head { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--hairline); }
 /* A narrow map pane clips its title and tools; the fold button at the right end always stays. */
 .nm-title { font-weight: 600; flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
