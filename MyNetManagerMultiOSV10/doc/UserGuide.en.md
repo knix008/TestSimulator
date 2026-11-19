@@ -122,9 +122,10 @@ Its syntax is different from display filters (see [Display filters](#display-fil
 | `not arp and not icmp` | everything except ARP and ICMP |
 
 Under the capture filter box are **preset capture filters** (with **All** and **None** first): TCP, UDP, Web (80, 443), DNS (53), DHCP, ARP, ICMP,
-IPv6, VLAN and No broadcast or multicast. Like the display filter presets they combine with **OR** (TCP and DNS make
+IPv6, VLAN and Broadcast Multicast. Like the display filter presets they combine with **OR** (TCP and DNS make
 `tcp or port 53`); a highlighted button pressed again takes only its condition out, and a filter typed in the box
-stays. The capture filter of the **Capture Options** window has the same buttons.
+stays. **Broadcast Multicast** is a switch: on (the default) lets those packets in, off adds
+`not broadcast and not multicast` with **AND** (`tcp and (not broadcast and not multicast)`). The capture filter of the **Capture Options** window has the same buttons.
 
 ### The demo interface
 
@@ -354,10 +355,13 @@ are hidden, not deleted.
   **Add filter button…** makes a new one from the current filter.
 - Under the bar is a row of **preset filters**. **All** at the front turns every button on (all ORed together) and
   **None** turns them all off (a filter typed in the box stays). Then come TCP, UDP, HTTP, TLS, **TLS 1.0**, **TLS 1.1**, **TLS 1.2**,
-  **TLS 1.3**, QUIC, DNS, DHCP, ARP, ICMP, TCP SYN, Retransmissions, TCP problems, Broadcast, No ARP and DNS. Presets combine with **OR**, because most of them can
+  **TLS 1.3**, QUIC, DNS, DHCP, ARP, ICMP, TCP SYN, Retransmissions, TCP problems, Broadcast, ARP DNS. Presets combine with **OR**, because most of them can
   never match the same packet: **DNS** applies `dns`, then **UDP** makes it `dns or udp` (packets that match either
   are shown) and both stay highlighted. Only pressing a highlighted button again takes its condition out. A filter
   already typed in the box is kept (`(frame.len > 60) or dns`). Any other filter is typed in the box as before.
+- The last button, **ARP DNS**, is a switch: on (the default) lets ARP and DNS packets in, off adds
+  `not arp and not dns` with **AND**. With **UDP** on and ARP DNS off the filter is
+  `udp and (not arp and not dns)` — UDP packets that are not DNS. **All** turns the switch on too; **None** leaves it as it is.
 - **TLS versions**: the Protocol column shows the version negotiated for each session (*TLSv1.2*, *TLSv1.3* …). TLS
   1.3 records still carry 0x0303 (1.2) in their header, so `tls.record.version` cannot tell them apart; the version
   buttons filter on the column, as in Wireshark: `_ws.col.protocol == "TLSv1.3"`. `_ws.col.protocol` and

@@ -52,6 +52,7 @@ export const FEATURES = [
   { name: 'Network map from the traffic (routers, hosts, external hosts, layouts)', cases: ['map.draw'] },
   { name: 'Selecting a map node or link shows only its packets', cases: ['map.selectFilters', 'map.clickReal'] },
   { name: 'Network map export (SVG, PNG)', cases: ['map.export'] },
+  { name: 'Network map follows the panel width (splitter drag, slow or fast)', cases: ['map.resize'] },
   // Panels, analysis results, report
   { name: 'Navigator panel (findings, protocols, talkers)', cases: ['panels.navigator'] },
   { name: 'Problems, log and analysis results panel', cases: ['panels.bottom'] },

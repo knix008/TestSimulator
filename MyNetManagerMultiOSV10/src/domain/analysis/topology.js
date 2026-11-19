@@ -75,6 +75,7 @@ export function buildTopology(frames, summaries, getDissection, options = {}) {
   const hosts = new Map(); // ip → host record
   const macs = new Map(); // mac → { ips:Set, offLink:Set, packets, bytes, names:Set, vendor }
   const pairs = new Map(); // "a|b" → { a, b, packets, bytes, protocols:Map, viaMac }
+  const arpPairs = new Map(); // "a|b" → the same, for ARP between two addresses (no IP header to pair them)
   const names = new Map(); // ip → Set(names)
   const dhcpServers = new Set();
   const routerHints = new Set(); // macs seen as routers (ICMPv6 RA, DHCP router option owner)
@@ -125,7 +126,26 @@ export function buildTopology(frames, summaries, getDissection, options = {}) {
     // ARP: the sender's MAC owns the sender's IP (the most reliable on-link evidence).
     const arpMac = str(first(d, 'arp.src.hw_mac'));
     const arpIp = str(first(d, 'arp.src.proto_ipv4'));
-    if (arpMac && arpIp && !isUnspecified(arpIp)) { macRec(arpMac).ips.add(arpIp); host(arpIp).macs.add(arpMac); }
+    if (arpMac && arpIp && !isUnspecified(arpIp)) {
+      macRec(arpMac).ips.add(arpIp);
+      const h = host(arpIp);
+      h.macs.add(arpMac);
+      h.arp = true;
+      h.packets += 1; h.bytes += length; h.sent += length;
+      h.first = Math.min(h.first, time); h.last = Math.max(h.last, time);
+      h.protocols.set(proto, (h.protocols.get(proto) ?? 0) + 1);
+      // Who-has / is-at between two addresses is traffic between them: a host seen only in ARP still gets
+      // its link (drawn once the other end is a node too — a scanned address nobody answers for is not).
+      const target = str(first(d, 'arp.dst.proto_ipv4'));
+      if (target && target !== arpIp && !isUnspecified(target)) {
+        const key = arpIp < target ? `${arpIp}|${target}` : `${target}|${arpIp}`;
+        let pair = arpPairs.get(key);
+        if (!pair) { pair = { a: arpIp < target ? arpIp : target, b: arpIp < target ? target : arpIp, packets: 0, bytes: 0, protocols: new Map(), viaMacs: new Set(), arp: true }; arpPairs.set(key, pair); }
+        pair.packets += 1;
+        pair.bytes += length;
+        pair.protocols.set(proto, (pair.protocols.get(proto) ?? 0) + 1);
+      }
+    }
 
     // DHCP: the server, the router option, the client's host name and address.
     if (first(d, 'dhcp.type') != null || d.layers?.includes('dhcp')) {
@@ -226,7 +246,8 @@ export function buildTopology(frames, summaries, getDissection, options = {}) {
     add({
       id: `host:${h.ip}`, kind: guessKind(h), ip: h.ip, macs: [...h.macs], name: nameOf(h.ip), label: h.ip, packets: h.packets, bytes: h.bytes,
       sent: h.sent, received: h.received, roles: rolesText(h), subnet: subnetOf(h.ip), protocols: topProtocols(h.protocols), first: h.first, last: h.last,
-      vendor: [...h.macs].map((mac) => macs.get(mac)?.vendor).find(Boolean) ?? '', filter: `${v(h.ip)}.addr == ${h.ip}`,
+      vendor: [...h.macs].map((mac) => macs.get(mac)?.vendor).find(Boolean) ?? '',
+      filter: h.arp ? `${v(h.ip)}.addr == ${h.ip} || arp.src.proto_ipv4 == ${h.ip} || arp.dst.proto_ipv4 == ${h.ip}` : `${v(h.ip)}.addr == ${h.ip}`,
     });
   }
 
@@ -298,6 +319,11 @@ export function buildTopology(frames, summaries, getDissection, options = {}) {
     } else {
       addLink(a, b, pair, both);
     }
+  }
+  for (const pair of arpPairs.values()) {
+    const a = nodeOfIp(pair.a);
+    const b = nodeOfIp(pair.b);
+    addLink(a, b, pair, `arp.src.proto_ipv4 == ${pair.a} && arp.dst.proto_ipv4 == ${pair.b} || arp.src.proto_ipv4 == ${pair.b} && arp.dst.proto_ipv4 == ${pair.a}`);
   }
   const links = [...linkMap.values()].map((link) => {
     const filters = [...link.filters];

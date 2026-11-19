@@ -454,6 +454,31 @@ test('map.clickReal', 'A real mouse click on a map node filters the packet list'
   await run(`await A.actions.applyDisplayFilter(''); A.view().map.clearSelection(); return true;`);
 });
 
+test('map.resize', 'Dragging the map splitter slowly (a few pixels per step) lays the map out again and keeps every node inside the panel', async () => {
+  await openSample('mixed-office-lan');
+  const start = await run(`A.actions.updateSettings({ showNetMap: true, mapWidth: 520 }); await until(() => qa('.nm-node').length > 5); await sleep(400);
+    const R = A.view().root; // the active tab's view (earlier samples keep their own, hidden)
+    window.__mapInside = () => { const c = R.querySelector('.pane-map .nm-canvas').getBoundingClientRect(); const dots = [...R.querySelectorAll('.pane-map .nm-dot')].map((d) => d.getBoundingClientRect());
+      return { canvas: Math.round(c.width), out: dots.filter((b) => b.left < c.left - 1 || b.right > c.right + 1 || b.top < c.top - 1 || b.bottom > c.bottom + 1).length, dots: dots.length }; };
+    const sb = R.querySelector('[data-pane-split="map"]').getBoundingClientRect();
+    return { x: sb.left + sb.width / 2, y: sb.top + sb.height / 2, before: window.__mapInside() };`);
+  // A slow drag of the real splitter with the mouse: 5 px per step to the right (narrower), then back.
+  const drag = async (dx) => {
+    let x = await E(`(() => { const b = window.__mynetmanager.view().root.querySelector('[data-pane-split="map"]').getBoundingClientRect(); return b.left + b.width / 2; })()`);
+    await page.mouse('mousePressed', x, start.y);
+    for (let i = 0; i < 56; i++) { x += dx; await page.mouse('mouseMoved', x, start.y); await sleep(16); }
+    await page.mouse('mouseReleased', x, start.y);
+    await sleep(500);
+    return E('window.__mapInside()');
+  };
+  const narrow = await drag(5);
+  const wide = await drag(-5);
+  const r = { before: start.before, narrow, wide };
+  assert(r.narrow.canvas < r.before.canvas - 100, `the panel did not get narrower: ${JSON.stringify(r)}`);
+  assert(r.narrow.dots > 5 && r.narrow.out === 0, `narrow: ${r.narrow.out} of ${r.narrow.dots} nodes outside the ${r.narrow.canvas} px panel`);
+  assert(r.wide.out === 0, `wide again: ${r.wide.out} of ${r.wide.dots} nodes outside the ${r.wide.canvas} px panel`);
+});
+
 test('map.export', 'The map exports as SVG and PNG', async () => {
   await openSample('dns-queries');
   const r = await run(`window.__downloads = []; A.actions.updateSettings({ showNetMap: true }); await until(() => qa('.nm-node').length);
@@ -652,22 +677,29 @@ test('filter.presets', 'Preset filters (display bar, start page and Capture Opti
   const total = await openSample('dns-queries');
   // Start from an empty filter box: a typed filter would (rightly) be kept and ORed with the presets.
   const r = await run(`await A.actions.applyDisplayFilter(''); A.view().setFilterText(''); await sleep(150);
-    const presets = qa('[data-df-preset]').map((b) => b.dataset.dfPreset); const click = async (f) => { q('[data-df-preset="' + f + '"]').click(); await sleep(250); return { text: q('.df-input').value, on: qa('[data-df-preset].on').map((b) => b.dataset.dfPreset), shown: A.doc().displayed.length }; };
+    const presets = qa('[data-df-preset]').map((b) => b.dataset.dfPreset); const click = async (f) => { q('[data-df-preset="' + f + '"]').click(); await sleep(250); return { text: q('.df-input').value, on: qa('[data-df-preset].on:not(.preset-switch)').map((b) => b.dataset.dfPreset), shown: A.doc().displayed.length }; };
     const one = await click('dns'); const two = await click('udp'); const back = await click('dns'); const none = await click('udp');
     A.view().setFilterText('frame.len > 60'); await A.actions.applyDisplayFilter('frame.len > 60'); await sleep(200); const typed = await click('dns');
     await A.actions.applyDisplayFilter(''); A.view().setFilterText('');
     // All turns every preset on (ORed), None every preset off.
     q('[data-df-preset="*all"]').click(); await sleep(400); const allOn = { on: qa('[data-df-preset].on:not(.preset-all)').length, presets: qa('[data-df-preset]:not(.preset-all):not(.preset-none)').length, allPressed: q('[data-df-preset="*all"]').classList.contains('on') };
     q('[data-df-preset="*none"]').click(); await sleep(400); const noneText = q('.df-input').value;
+    // ARP DNS is a switch: on (pressed) lets ARP and DNS in, off keeps them out — ANDed with the other presets.
+    await A.actions.applyDisplayFilter(''); A.view().setFilterText(''); await sleep(150);
+    const sw = 'not arp and not dns'; const swPressed = () => q('[data-df-preset="' + sw + '"]').classList.contains('on');
+    const swStart = swPressed(); const swOff = await click(sw); swOff.pressed = swPressed(); const swUdp = await click('udp'); const swOn = await click(sw); swOn.pressed = swPressed();
     await A.actions.applyDisplayFilter('');
     A.actions.updateSettings({ captureFilter: '' }, { quiet: true }); A.actions.showStartPage(true); await until(() => q('[data-capture-preset]'));
     q('[data-capture-preset="tcp"]').click(); await sleep(150); q('[data-capture-preset="port 53"]').click(); await sleep(150);
-    const start = { filter: A.state.settings.captureFilter, on: qa('[data-capture-preset].on').length, box: q('[data-start-capture-filter]').value };
+    const start = { filter: A.state.settings.captureFilter, on: qa('[data-capture-preset].on:not(.preset-switch)').length, box: q('[data-start-capture-filter]').value };
     A.run('captureOptions'); await until(() => pop('capopts')?.querySelector('[data-action="cap-preset"]'));
     pop('capopts').querySelector('[data-action="cap-preset"][data-value="tcp"]').click(); await sleep(200);
-    const capopts = { filter: pop('capopts').querySelector('[data-net="captureFilter"]').value, on: pop('capopts').querySelectorAll('[data-action="cap-preset"].on').length };
+    const capopts = { filter: pop('capopts').querySelector('[data-net="captureFilter"]').value, on: pop('capopts').querySelectorAll('[data-action="cap-preset"].on:not(.preset-switch)').length };
     await A.popups.close('capopts'); A.actions.updateSettings({ captureFilter: '' }, { quiet: true });
-    return { presets, one, two, back, none, typed, start, capopts, allOn, noneText };`);
+    return { presets, one, two, back, none, typed, start, capopts, allOn, noneText, swStart, swOff, swUdp, swOn };`);
+  assert(r.swStart && !r.swOff.pressed && r.swOff.text === 'not arp and not dns' && r.swOff.shown < total, `ARP DNS off: ${JSON.stringify(r.swOff)}`);
+  assert(r.swUdp.text === 'udp and (not arp and not dns)' && r.swUdp.shown < r.swOff.shown, `udp with ARP DNS off: ${JSON.stringify(r.swUdp)}`);
+  assert(r.swOn.pressed && r.swOn.text === 'udp', `ARP DNS on again: ${JSON.stringify(r.swOn)}`);
   assert(r.presets.length >= 10 && r.presets.includes('tcp') && r.presets.includes('http'), `presets: ${r.presets}`);
   assert(r.one.text === 'dns' && r.one.shown > 0 && r.one.shown < total, `one: ${JSON.stringify(r.one)}`);
   assert(r.two.text === 'dns or udp' && r.two.on.length === 2 && r.two.shown >= r.one.shown, `two presets are not ORed: ${JSON.stringify(r.two)}`);

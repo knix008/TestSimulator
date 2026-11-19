@@ -37,29 +37,47 @@ export class NetMap {
 
   destroy() { this.resizeObserver.disconnect(); this.host.innerHTML = ''; this.host.classList.remove('net-map'); }
 
+  /**
+   * The canvas changed size (splitter, window, panel shown again): lay the map out for the new size
+   * and fit it in. Compared with the size of the last layout, not the last event — a slow splitter
+   * drag moves a few pixels per event and must still redraw. Nodes the user dragged keep their places
+   * (only the fit follows the new size).
+   */
   measure() {
     const rect = this.canvas.getBoundingClientRect();
     if (rect.width < 10 || rect.height < 10) return;
-    const changed = Math.abs(rect.width - this.size.width) > 40 || Math.abs(rect.height - this.size.height) > 40;
     this.size = { width: rect.width, height: rect.height };
-    if (changed && this.topology && !this.userMoved) this.layout();
+    if (!this.topology) return;
+    const last = this.laidOutFor;
+    if (last && Math.abs(last.width - rect.width) < 2 && Math.abs(last.height - rect.height) < 2) return;
+    cancelAnimationFrame(this.measureFrame);
+    this.measureFrame = requestAnimationFrame(() => {
+      if (!this.userMoved) this.layout();
+      else this.laidOutFor = { ...this.size };
+      this.fit();
+    });
   }
 
   /** New topology (another capture, more packets, other options). keepPlaces: nodes stay where they were. */
   setTopology(topology, { keepPlaces = false } = {}) {
     const old = this.positions;
+    const oldView = { ...this.view };
     this.topology = topology;
     if (!keepPlaces) this.userMoved = false;
     this.layout();
     if (keepPlaces) for (const [id, p] of old) if (this.positions.has(id)) this.positions.set(id, p);
     if (this.selected && !this.findSelected()) this.selected = null;
     this.render();
+    // A new map is fitted into the panel (it may be narrower than the layout); an update keeps the zoom.
+    if (keepPlaces && old.size) { this.view = oldView; this.applyView(); } else this.fit();
   }
 
   layout() {
     if (!this.topology) return;
     const { width, height } = this.size;
+    // A narrow panel still gets room to spread the nodes; fit() then scales the map down into it.
     this.positions = layoutTopology(this.topology, { width: Math.max(500, width), height: Math.max(400, height), mode: this.app.settings().netmapLayout });
+    this.laidOutFor = { ...this.size };
     this.view = { x: 0, y: 0, k: 1 };
     this.render();
   }
