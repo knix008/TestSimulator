@@ -277,6 +277,15 @@ Every edit can be **undone** (Ctrl+Z) and **redone** (Ctrl+Y) — 200 steps per 
 - **Sort**: table order, largest first, smallest first, by name (by the first series; the table keeps its order).
 - **At most**: draws only that many items from the start (with sorting: "top 10").
 
+### Data to draw (Data tab)
+
+- **Chart the selected cells** (Ctrl+Shift+R): drag over cells in the table below and press it to draw only that part. The
+  range shows as "A4:C8" and the cells outside it fade. **Chart the whole table** goes back.
+- **New chart from the selection** opens a new chart with a copy of the chosen cells.
+- **Series in**: **Columns (vertical)** makes each column a series (data typed down), **Rows (horizontal)** each row (data typed
+  across: names in the first column, categories in the header).
+- The cells can be edited at any time; the chart changes at once.
+
 ### Style tab
 
 ![Style tab](images/en/06-style-tab.png)
@@ -289,6 +298,16 @@ Every edit can be **undone** (Ctrl+Z) and **redone** (Ctrl+Y) — 200 steps per 
 - **Text**: text size (0.6×–2×) and font (empty: the default font).
 
 ![Palettes](images/en/23-palette.png)
+
+#### Fine look (Style tab)
+
+- **Titles**: size, colour and weight of the title and subtitle.
+- **Legend**: position (top, bottom, left, right, **own spot**, hidden), across / down of the own spot (%), text size and colour,
+  marker (square, circle, line), a box. **Drag the legend** on the chart with the mouse to put it anywhere (own spot).
+- **Plot area**: background, border, outer margin. **Text**: size and colour of the text in the chart.
+- **Auto** next to a colour brings back the colour of the chart theme and the program theme.
+- Every number is a **[−] value unit [+]** field: hold a button to keep stepping, or type the value. Some may be left empty
+  for "automatic" (minimum, maximum, tick step …).
 
 ### Axes tab
 
@@ -305,6 +324,14 @@ Every edit can be **undone** (Ctrl+Z) and **redone** (Ctrl+Y) — 200 steps per 
 
 Charts without axes (pie, treemap, Sankey …) show only the number format.
 
+#### Axis look (Axes tab)
+
+- **Axis titles**: X, Y (and second axis) titles, shown or not, size, colour. **Double-click** an axis title on the chart to
+  edit it (empty brings back the automatic title).
+- **Range**: minimum, maximum, **tick step**, begin at zero, linear or log scale.
+- **Axis look**: axis line colour and width, tick label colour and size, X and Y tick labels shown or not.
+- **Grid**: horizontal and vertical grid lines, grid colour, width and style (as the chart theme, solid, dashed, dotted), label angle.
+
 ### Series tab
 
 ![Series tab](images/en/07-series-tab.png)
@@ -314,6 +341,20 @@ Charts without axes (pie, treemap, Sankey …) show only the number format.
   regression; point at it for the equation and R²).
 - **Bars**: corner radius, gap between bars.
 - **Data labels**: show values; label position for pies (outside: name and share / inside: share).
+
+#### Mixed charts (Series tab)
+
+Choose for each series how it is drawn (chart default, columns, line, smooth line, step line, area, points, lollipops) and its
+**value axis** (left, right) to draw two or more charts in one (for example columns + line + area with a right axis). Column, line,
+smooth, step, area, combo and lollipop charts can be mixed; choosing a mix on a chart that cannot (pie, stacked or sideways
+charts) opens a window that says why. **Clear the mix** goes back. **Marks** sets the opacity and outline of every mark.
+
+#### Right-click menus
+
+The menu fits what was clicked: the legend (hide a series, its colour, legend position, box), an axis title (edit, show, axis
+settings), an axis or its labels (axis settings, grid lines, tick labels), the title (edit, title look), a mark (hide its series,
+colour, how it is drawn, labels, trend line) or an empty spot (the whole chart). Chart, table and tab menus always offer
+**Copy · Export · Print**.
 
 ### More tab
 
@@ -443,6 +484,7 @@ bar, and the **language** with the flag button or Ctrl+Shift+L (한국어 ↔ En
 | Ctrl+Z / Ctrl+Y (Ctrl+Shift+Z) | Undo / Redo |
 | Ctrl+Enter / Ctrl+Shift+Enter | Add row / Add column |
 | Ctrl+Shift+T | Swap rows and columns |
+| Ctrl+Shift+R | Chart the selected cells |
 | Ctrl+Shift+I | Data statistics |
 | Ctrl+L | Data labels |
 | Ctrl+Shift+G | Move legend |
@@ -493,9 +535,12 @@ Excel, Markdown, HTML and XML.
 ## Installing and building
 
 - Web: `npm install`, then `npm run dev` (development server at `http://localhost:1476`) or `npm run build:webapp`.
-- Desktop development run: `npm start`.
+- Windows setup: the installer first opens an **installation language** window (titled "MyChartMaster 1.0.0", the program
+  icon in its title bar). Choose Korean or English and press OK: the installation runs in that language and the program opens
+  in it at its first start afterwards (a language chosen later in Settings is kept). Cancel ends without changing anything.
 - Installers: `npm run build:win` (NSIS .exe), `npm run build:mac` (.dmg), `npm run build:linux` (.deb, .rpm,
   .AppImage), `npm run build:all` (everything this OS can build). They are copied to `release/` and the project root.
-- Tests: `npm test` (unit, Rust, web E2E, desktop E2E); quickly: `npm run test:quick`.
+- Tests: `npm test` (unit, texts, Rust, web E2E, tutorial, desktop E2E + the installation language window); quickly:
+  `npm run test:quick`. The results end in an aligned colour table (pass, fail, skip, total, pass-rate bar, time per category).
 - One installation at a time: installing removes an earlier one and asks whether to delete the old user data.
   Several copies of the program can run at once.

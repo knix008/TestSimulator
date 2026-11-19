@@ -22,6 +22,7 @@
     "build:webapp": "node scripts/build.mjs web",
     "build:all": "npm run build:docs && node scripts/build.mjs all",
     "build:icons": "node scripts/render-icons.mjs",
+    "build:icon3d": "node scripts/make-icon.mjs && node scripts/render-icons.mjs",
     "build:docs": "node scripts/build-docs.mjs",
     "doc:images": "node scripts/doc-images.mjs",
     "tutorial:video": "node scripts/tutorial-video.mjs",

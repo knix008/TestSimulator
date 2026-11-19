@@ -114,19 +114,34 @@ function line(text = '') {
   if (active) spin(spinnerText);
 }
 
+// Column widths of the live lines and of the result tables (terminal cells; wide Hangul counts as two).
+const COLUMNS = Math.max(100, Math.min(160, process.stdout.columns || 140));
+const GROUP_W = 26;
+const TIME_W = 9;
+const NAME_W = COLUMNS - (2 + 10 + 1 + 3 + 1 + 1 + 1 + GROUP_W + 2 + 2 + TIME_W) - 1;
+
+/** One live result line: [elapsed]  n  ✔  group  test  time — every part in its own column. */
+function liveLine(count, elapsedMs, result) {
+  const mark = result.skipped ? c.gray('○') : result.ok ? c.green('✔') : c.red('✖');
+  const tone = result.skipped ? c.gray : result.ok ? (x) => x : c.red;
+  const group = c.gray(fit(result.group ?? '', GROUP_W));
+  const name = tone(fit(result.name, NAME_W));
+  const time = timeColor(result.ms)(formatMs(result.ms).padStart(TIME_W));
+  const why = result.skipped && typeof result.skipped === 'string' ? c.gray(` — ${result.skipped}`) : '';
+  return `  ${c.gray(`[${formatMs(elapsedMs).padStart(8)}]`)} ${c.gray(String(count).padStart(3))} ${mark} ${group}  ${name}  ${time}${why}`;
+}
+
 function makeReporter(category, results, categoryStart) {
   let count = 0;
   return (result) => {
     count += 1;
     results.push(result);
-    const mark = result.skipped ? c.gray('○') : result.ok ? c.green('✔') : c.red('✖');
-    const name = result.skipped ? c.gray(result.name) : result.ok ? result.name : c.red(result.name);
-    const group = result.group ? c.gray(`${result.group} › `) : '';
-    const elapsed = c.gray(`[${formatMs(performance.now() - categoryStart).padStart(8)}]`);
-    line(`  ${elapsed} ${c.gray(String(count).padStart(3))} ${mark} ${group}${name} ${timeColor(result.ms)(`(${formatMs(result.ms)})`)}${result.skipped && typeof result.skipped === 'string' ? c.gray(` — ${result.skipped}`) : ''}`);
-    for (const note of result.notes ?? []) line(`        ${c.gray(`ℹ ${note}`)}`);
+    line(liveLine(count, performance.now() - categoryStart, result));
+    // Notes and errors sit under the test name column.
+    const indent = ' '.repeat(2 + 10 + 1 + 3 + 1 + 1 + 1 + GROUP_W + 2);
+    for (const note of result.notes ?? []) line(`${indent}${c.gray(`ℹ ${note}`)}`);
     if (!result.ok && result.error) {
-      for (const errorLine of String(result.error).split('\n').slice(0, 12)) line(`        ${c.red(errorLine)}`);
+      for (const errorLine of String(result.error).split('\n').slice(0, 12)) line(`${indent}${c.red(errorLine)}`);
     }
     spin(`${category.title} running… (${count} done)`);
   };
@@ -163,7 +178,9 @@ function runJs(folder, names = null) {
 async function runI18n(report) {
   const start = performance.now();
   const { output, code } = await exec(process.execPath, [path.join(root, 'scripts', 'i18n-check.mjs')]);
-  const lines = output.replace(/\r/g, '').split('\n');
+  // Colour codes (FORCE_COLOR) are dropped before the lines are read.
+  // eslint-disable-next-line no-control-regex
+  const lines = output.replace(/\r/g, '').replace(/\x1b\[[0-9;]*m/g, '').split('\n');
   const ms = performance.now() - start;
   const checks = [
     ['missing in ko:', 'no used key missing in Korean', (t) => /:\s*0\s*$/.test(t)],
@@ -415,8 +432,10 @@ for (const category of CATEGORIES.filter((item) => selected.includes(item.id))) 
 stopSpin();
 
 // Results: one table per category, columns aligned — failures first, then slowest first.
-const width = Math.min(78, Math.max(30, ...summary.flatMap(({ results }) => results.map((r) => cells(`${r.group ? `${r.group} › ` : ''}${r.name}`)))));
-const rule = (text) => c.bold(`${'━'.repeat(4)} ${text} ${'━'.repeat(Math.max(4, width + 40 - cells(text)))}`);
+// The tables: Status | Group | Test | Time | Bar, each a fixed width.
+const BAR_W = 16;
+const width = COLUMNS - (3 + 7 + 2 + GROUP_W + 2 + 2 + TIME_W + 2 + BAR_W) - 1;
+const rule = (text) => c.bold(`${'━'.repeat(4)} ${text} ${'━'.repeat(Math.max(4, COLUMNS - 6 - cells(text)))}`);
 line();
 line(rule('Results (by category · failures first · slowest first)'));
 for (const { category, results, ms } of summary) {
@@ -424,23 +443,40 @@ for (const { category, results, ms } of summary) {
   const status = failed.length ? c.inverseRed(' FAIL ') : c.inverseGreen(' PASS ');
   line();
   line(`${status} ${c.bold(category.tint(category.title))} ${c.gray(`(${results.length} tests · ${formatMs(ms)})`)}`);
-  line(c.gray(`   ${'Status'.padEnd(7)}  ${fit('Group › Test', width)}  ${'Time'.padStart(9)}  Bar`));
+  line(c.gray(`   ${'Status'.padEnd(7)}  ${fit('Group', GROUP_W)}  ${fit('Test', width)}  ${'Time'.padStart(TIME_W)}  Bar`));
+  line(c.gray(`   ${'─'.repeat(7)}  ${'─'.repeat(GROUP_W)}  ${'─'.repeat(width)}  ${'─'.repeat(TIME_W)}  ${'─'.repeat(BAR_W)}`));
   const sorted = [...results].sort((a, b) => Number(a.ok) - Number(b.ok) || Number(Boolean(a.skipped)) - Number(Boolean(b.skipped)) || b.ms - a.ms);
   const slowest = Math.max(1, ...sorted.map((r) => r.ms));
   for (const result of sorted) {
-    const label = `${result.group ? `${result.group} › ` : ''}${result.name}`;
-    const padded = fit(label, width);
+    const padded = fit(result.name, width);
     const mark = result.skipped ? c.gray('○ SKIP ') : result.ok ? c.green('✔ PASS ') : c.red('✖ FAIL ');
-    const bar = '█'.repeat(Math.max(1, Math.round((result.ms / slowest) * 16)));
+    const bar = '█'.repeat(Math.max(1, Math.round((result.ms / slowest) * BAR_W)));
     const text = result.skipped ? c.gray(padded) : result.ok ? padded : c.red(padded);
-    line(`   ${mark}  ${text}  ${timeColor(result.ms)(formatMs(result.ms).padStart(9))}  ${timeColor(result.ms)(bar)}`);
+    line(`   ${mark}  ${c.gray(fit(result.group ?? '', GROUP_W))}  ${text}  ${timeColor(result.ms)(formatMs(result.ms).padStart(TIME_W))}  ${timeColor(result.ms)(bar)}`);
   }
 }
 
 line();
-line(c.bold('┌──────────────────────────────┬────────┬────────┬────────┬────────┬────────────┐'));
-line(c.bold('│ Category                     │  Pass  │  Fail  │  Skip  │  Total │    Time    │'));
-line(c.bold('├──────────────────────────────┼────────┼────────┼────────┼────────┼────────────┤'));
+// ── Summary: one coloured row per category, every value in its own column (terminal cells).
+const SUM = { name: 30, num: 7, rate: 22, time: 11 };
+const frame = c.cyan;
+const cell = (text, width, align = 'right') => (align === 'left' ? fit(text, width) : `${' '.repeat(Math.max(0, width - cells(text)))}${text}`);
+const border = (l, m, r) => frame(`${l}${'─'.repeat(SUM.name + 2)}${m}${['─'.repeat(SUM.num + 2), '─'.repeat(SUM.num + 2), '─'.repeat(SUM.num + 2), '─'.repeat(SUM.num + 2), '─'.repeat(SUM.rate + 2), '─'.repeat(SUM.time + 2)].join(m)}${r}`);
+const bar = c.cyan('│');
+/** Pass rate as a bar and a percentage: green when everything passed, yellow with skips, red with failures. */
+const rateBar = (ok, bad, skip, totalCount) => {
+  const share = totalCount ? ok / totalCount : 1;
+  const filled = Math.round(share * (SUM.rate - 7));
+  const tone = bad ? c.red : skip ? c.yellow : c.green;
+  return `${tone('█'.repeat(filled))}${c.gray('░'.repeat(SUM.rate - 7 - filled))} ${tone(`${(share * 100).toFixed(share === 1 ? 0 : 1)}%`.padStart(6))}`;
+};
+const row = (name, ok, bad, skip, totalCount, ms, { bold = false, tint = (x) => x } = {}) => {
+  const strong = bold ? c.bold : (x) => x;
+  return `${bar} ${strong(tint(cell(name, SUM.name, 'left')))} ${bar} ${strong(c.green(cell(String(ok), SUM.num)))} ${bar} ${strong((bad ? c.red : c.gray)(cell(String(bad), SUM.num)))} ${bar} ${strong((skip ? c.yellow : c.gray)(cell(String(skip), SUM.num)))} ${bar} ${strong(c.white(cell(String(totalCount), SUM.num)))} ${bar} ${rateBar(ok, bad, skip, totalCount)} ${bar} ${strong(timeColor(ms)(cell(formatMs(ms), SUM.time)))} ${bar}`;
+};
+line(border('┌', '┬', '┐'));
+line(`${bar} ${c.bold(c.cyan(cell('Category', SUM.name, 'left')))} ${bar} ${c.bold(c.green(cell('Pass', SUM.num)))} ${bar} ${c.bold(c.red(cell('Fail', SUM.num)))} ${bar} ${c.bold(c.yellow(cell('Skip', SUM.num)))} ${bar} ${c.bold(c.white(cell('Total', SUM.num)))} ${bar} ${c.bold(c.cyan(cell('Pass rate', SUM.rate, 'left')))} ${bar} ${c.bold(c.cyan(cell('Time', SUM.time)))} ${bar}`);
+line(border('├', '┼', '┤'));
 let passed = 0;
 let failedTotal = 0;
 let skippedTotal = 0;
@@ -453,18 +489,20 @@ for (const { category, results, ms } of summary) {
   failedTotal += bad;
   skippedTotal += skippedCount;
   total += results.length;
-  line(`│ ${category.tint(fit(category.title, 28))} │ ${c.green(String(ok).padStart(6))} │ ${(bad ? c.red : c.gray)(String(bad).padStart(6))} │ ${c.gray(String(skippedCount).padStart(6))} │ ${String(results.length).padStart(6)} │ ${formatMs(ms).padStart(10)} │`);
+  line(row(category.title, ok, bad, skippedCount, results.length, ms, { tint: category.tint }));
 }
-line(c.bold('├──────────────────────────────┼────────┼────────┼────────┼────────┼────────────┤'));
-line(`│ ${c.bold(fit('Total', 28))} │ ${c.green(c.bold(String(passed).padStart(6)))} │ ${(failedTotal ? c.red : c.gray)(c.bold(String(failedTotal).padStart(6)))} │ ${c.gray(c.bold(String(skippedTotal).padStart(6)))} │ ${c.bold(String(total).padStart(6))} │ ${c.bold(formatMs(performance.now() - totalStart).padStart(10))} │`);
-line(c.bold('└──────────────────────────────┴────────┴────────┴────────┴────────┴────────────┘'));
+line(border('├', '┼', '┤'));
+line(row('Total', passed, failedTotal, skippedTotal, total, performance.now() - totalStart, { bold: true }));
+line(border('└', '┴', '┘'));
 line();
 if (failedTotal) {
+  // The failed tests in columns: category, group, test, and the first line of the reason under them.
   line(`${c.inverseRed(c.bold(` ✖ ${failedTotal} failed `))} ${c.red('Failed tests (first line of the reason):')}`);
+  line(c.gray(`   ${cell('Category', 12, 'left')}  ${cell('Group', GROUP_W, 'left')}  Test`));
   for (const { category, results } of summary) for (const result of results.filter((r) => !r.ok)) {
-    line(c.red(`   • [${category.id}] ${result.group ? `${result.group} › ` : ''}${result.name}`));
+    line(`   ${category.tint(cell(category.id, 12, 'left'))}  ${c.gray(cell(result.group ?? '', GROUP_W, 'left'))}  ${c.red(fit(result.name, width))}`);
     const reason = String(result.error ?? '').split('\n').map((x) => x.trim()).find(Boolean);
-    if (reason) line(c.gray(`       ${reason.slice(0, 160)}`));
+    if (reason) line(c.gray(`   ${' '.repeat(12)}  ${' '.repeat(GROUP_W)}  ↳ ${fit(reason, width - 2)}`));
   }
 } else {
   line(`${c.inverseGreen(c.bold(` ✔ All tests passed (${passed}${skippedTotal ? `, ${skippedTotal} skipped` : ''}) `))}`);

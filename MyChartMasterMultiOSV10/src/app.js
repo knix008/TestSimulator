@@ -9,7 +9,7 @@ import { blankTable, SAMPLE_GROUPS, SAMPLES, starterFor } from './domain/chart/s
 import { CHART_GROUPS, CHART_IDS, chartName, chartType } from './domain/chart/types.js';
 import { chartDataTable, renderChart } from './domain/chart/render.js';
 import { CHART_THEMES, chartTheme, palette, PALETTES } from './domain/chart/palettes.js';
-import { cellText, columnStats, deleteColumns, deleteRows, insertColumn, insertRow, matchingRows, parseNumber, renameColumn, setCell, sortRows, transpose, cloneTable, inferTypes, normalizeCell, columnLetter } from './domain/data/table.js';
+import { cellText, createTable, columnStats, deleteColumns, deleteRows, insertColumn, insertRow, matchingRows, parseNumber, renameColumn, setCell, sortRows, transpose, cloneTable, inferTypes, normalizeCell, columnLetter } from './domain/data/table.js';
 import { detectFormat, importData, importPasted, IMPORT_EXTENSIONS, splitDelimited } from './domain/data/importers.js';
 import { DATA_FORMATS, exportData, toXlsx } from './domain/data/exporters.js';
 import { chartSvg, CHART_FORMATS, exportChart } from './domain/export/chartexport.js';
@@ -382,6 +382,45 @@ function setChartTheme(id) {
   notify('info', t('notice.chartTheme', { name: t(`chartTheme.${theme.id}`) }));
 }
 
+/**
+ * The chart draws only the cells chosen with the mouse in the grid (or, with newChart, a new chart is made from them).
+ * One selected cell is not enough: the whole column(s) of that cell are meant then.
+ */
+function chartFromSelection({ newChart: asNew = false } = {}) {
+  const doc = activeDoc();
+  if (!doc) return;
+  const sel = gridSel();
+  const single = sel.r0 === sel.r1 && sel.c0 === sel.c1;
+  if (single) { notify('warn', t('notice.selectCells')); return; }
+  if (asNew) {
+    const cols = doc.table.columns.slice(sel.c0, sel.c1 + 1);
+    const rows = doc.table.rows.slice(sel.r0, sel.r1 + 1).map((r) => r.slice(sel.c0, sel.c1 + 1));
+    const table = inferTypes(createTable(cols.map((c) => c.name), rows));
+    const created = new ChartDoc({ name: `${stripExtension(doc.name)} (${t('grid.selectionShort')}).mychart`, table, chart: { type: doc.chart.type, title: doc.chart.title, options: { ...doc.chart.options, hidden: [], seriesTypes: {}, seriesAxis: {} } } });
+    addDoc(created);
+    notify('info', t('notice.newFromSelection', { rows: rows.length, cols: cols.length }));
+    return;
+  }
+  doc.setDataView({ dataRange: { r0: sel.r0, r1: sel.r1, c0: sel.c0, c1: sel.c1 } });
+  refreshView({ grid: true });
+  notify('info', t('notice.chartFromSelection', { range: rangeName(doc.chart.dataRange) }));
+}
+
+/** "B2:D7"-style name of a data range (row 1 is the header row, as in a spreadsheet). */
+function rangeName(r) {
+  if (!r) return '';
+  const col = (c) => { let s = ''; let n = c + 1; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
+  return `${col(r.c0)}${r.r0 + 2}:${col(r.c1)}${r.r1 + 2}`;
+}
+
+function setSeriesIn(seriesIn) {
+  const doc = activeDoc();
+  if (!doc || (doc.chart.seriesIn ?? 'columns') === seriesIn) return;
+  doc.setDataView({ seriesIn });
+  refreshView({ grid: true });
+  notify('info', t(seriesIn === 'rows' ? 'notice.seriesInRows' : 'notice.seriesInColumns'));
+}
+
 function setChartType(type) {
   const doc = activeDoc();
   if (!doc || !CHART_IDS.includes(type)) return;
@@ -491,10 +530,19 @@ function pasteBlock(r, c, text) {
   changeTable(inferTypes(table), { message: t('notice.pasted', { rows: block.length, cols: width }) });
 }
 
-async function editText(which) {
+async function editText(which, axis = null) {
   const doc = activeDoc();
   if (!doc) return;
-  if (which === 'axis') { setInspectorTab('axes'); if (!state.settings.showRightPanel) updateSettings({ showRightPanel: true }); return; }
+  if (which === 'axis') {
+    // Double-click on an axis title: type its new text (empty brings back the automatic one).
+    const key = { x: 'xTitle', y: 'yTitle', y2: 'y2Title' }[axis];
+    if (!key) { setInspectorTab('axes'); if (!state.settings.showRightPanel) updateSettings({ showRightPanel: true }); return; }
+    const shown = state.view?.canvas?.querySelector(`.axis-title[data-axis="${axis}"]`)?.textContent ?? '';
+    const result = await popups.open('prompt', { icon: 'axisIcon', title: t(`inspector.${key}`), label: t(`inspector.${key}`), value: doc.chart.options[key] || shown });
+    if (result?.value == null) return;
+    setOption(key, result.value.trim());
+    return;
+  }
   const result = await popups.open('prompt', { icon: 'chartTitle', title: t(which === 'subtitle' ? 'inspector.subtitle' : 'inspector.title'), label: t(which === 'subtitle' ? 'inspector.subtitle' : 'inspector.title'), value: doc.chart[which] ?? '' });
   if (result?.value == null) return;
   doc.setChart({ [which]: result.value });
@@ -731,6 +779,11 @@ const commands = {
   renameColumn: { icon: 'edit', label: 'action.renameColumn', enabled: hasDoc, run: () => renameColumnPrompt(gridSel().c0) },
   sortAsc: { icon: 'sortAsc', label: 'action.sortAsc', enabled: () => hasDoc() && activeDoc().table.rows.length > 1, run: () => sortBy(1) },
   sortDesc: { icon: 'sortDesc', label: 'action.sortDesc', enabled: () => hasDoc() && activeDoc().table.rows.length > 1, run: () => sortBy(-1) },
+  chartFromSelection: { icon: 'chartRange', label: 'action.chartFromSelection', key: 'Ctrl+Shift+R', enabled: hasDoc, run: () => chartFromSelection() },
+  newChartFromSelection: { icon: 'newChart', label: 'action.newChartFromSelection', enabled: hasDoc, run: () => chartFromSelection({ newChart: true }) },
+  clearDataRange: { icon: 'dataGrid', label: 'action.clearDataRange', enabled: () => Boolean(activeDoc()?.chart.dataRange), run: () => { activeDoc().setDataView({ dataRange: null }); refreshView({ grid: true }); notify('info', t('notice.wholeTable')); } },
+  seriesInColumns: { icon: 'seriesIcon', label: 'action.seriesInColumns', enabled: hasDoc, checked: () => activeDoc()?.chart.seriesIn !== 'rows', run: () => setSeriesIn('columns') },
+  seriesInRows: { icon: 'transpose', label: 'action.seriesInRows', enabled: hasDoc, checked: () => activeDoc()?.chart.seriesIn === 'rows', run: () => setSeriesIn('rows') },
   transpose: { icon: 'transpose', label: 'action.transpose', key: 'Ctrl+Shift+T', enabled: () => hasDoc() && activeDoc().table.columns.length > 1, run: () => changeTable(transpose(activeDoc().table), { message: t('notice.transposed') }) },
   clearCells: { icon: 'clear', label: 'action.clearCells', enabled: hasDoc, run: () => clearCells(gridSel()) },
   dataStats: { icon: 'dataStats', label: 'action.dataStats', key: 'Ctrl+Shift+I', enabled: hasDoc, run: () => popups.open('datastats', { name: activeDoc().name }) },
@@ -742,7 +795,7 @@ const commands = {
   editTitle: { icon: 'chartTitle', label: 'action.editTitle', enabled: hasDoc, run: () => editText('title') },
   toggleLabels: { icon: 'dataLabelsToggle', label: 'action.toggleLabels', key: 'Ctrl+L', enabled: hasDoc, checked: () => Boolean(opt('dataLabels')), run: () => setOption('dataLabels', !opt('dataLabels')) },
   cycleLegend: { icon: 'legendIcon', label: 'action.cycleLegend', key: 'Ctrl+Shift+G', enabled: hasDoc, run: () => cycleLegend() },
-  ...Object.fromEntries(['top', 'bottom', 'left', 'right', 'none'].map((p) => [`legend:${p}`, { icon: 'legendIcon', label: `pos.${p}`, enabled: hasDoc, checked: () => opt('legend') === p, run: () => setOption('legend', p) }])),
+  ...Object.fromEntries(['top', 'bottom', 'left', 'right', 'custom', 'none'].map((p) => [`legend:${p}`, { icon: 'legendIcon', label: `pos.${p}`, enabled: hasDoc, checked: () => opt('legend') === p, run: () => setOption('legend', p) }])),
   toggleGrid: { icon: 'grid', label: 'action.toggleGrid', enabled: hasDoc, checked: () => Boolean(opt('gridLines')), run: () => setOption('gridLines', !opt('gridLines')) },
   toggleTrend: { icon: 'trendline', label: 'action.toggleTrend', enabled: hasDoc, checked: () => Boolean(opt('trendline')), run: () => setOption('trendline', !opt('trendline')) },
   paletteMenu: { icon: 'palette', label: 'action.paletteMenu', key: 'Ctrl+K', enabled: hasDoc, run: (context) => openPalette(context?.element) },
@@ -812,7 +865,7 @@ const SUBMENUS = {
   copyAs: { icon: 'copy', items: ['copyImage', 'copySvg', 'copyData', 'copyCells'] },
   columnType: { icon: 'typeNumber', items: ['colType:number', 'colType:text', 'colType:date'] },
   ...Object.fromEntries(CHART_GROUPS.map((g) => [`types:${g.id}`, { icon: g.icon, items: CHART_IDS.filter((id) => chartType(id).group === g.id).map((id) => `type:${id}`) }])),
-  legend: { icon: 'legendIcon', items: ['legend:top', 'legend:bottom', 'legend:left', 'legend:right', 'legend:none'] },
+  legend: { icon: 'legendIcon', items: ['legend:top', 'legend:bottom', 'legend:left', 'legend:right', 'legend:custom', 'legend:none'] },
   chartThemes: { icon: 'chartTheme', items: CHART_THEMES.map((c) => `chartTheme:${c.id}`) },
   palettes: { icon: 'palette', items: [...PALETTES.slice(0, 12).map((p) => `palette:${p.id}`), '-', 'paletteMenu'] },
   chartBackground: { icon: 'fillColor', items: ['bg:theme', 'bg:chart', 'bg:white', 'bg:transparent'] },
@@ -825,7 +878,7 @@ const MENUS = {
   file: ['newChart', 'newBlank', 'open', 'recent', sub('sampleList'), '-', 'closeTab', 'closeAll', '-', 'save', 'saveAs', '-', 'exportChart', sub('exportAs'), sub('exportData'), '-', 'print', '-', 'startPage', 'exit'],
   edit: ['undo', 'redo', '-', sub('copyAs'), 'pasteCells', 'clearCells', '-', 'duplicateChart', '-', 'settings'],
   view: [sub('panels'), sub('zoom'), '-', 'toggleTooltips', 'toggleAnimation', '-', sub('appearance')],
-  data: ['importData', 'replaceData', 'pasteData', '-', 'addRow', 'addColumn', 'deleteRows', 'deleteColumns', 'renameColumn', sub('columnType'), '-', 'sortAsc', 'sortDesc', 'transpose', '-', 'dataStats', sub('exportData')],
+  data: ['importData', 'replaceData', 'pasteData', '-', 'chartFromSelection', 'newChartFromSelection', 'clearDataRange', 'seriesInColumns', 'seriesInRows', '-', 'addRow', 'addColumn', 'deleteRows', 'deleteColumns', 'renameColumn', sub('columnType'), '-', 'sortAsc', 'sortDesc', 'transpose', '-', 'dataStats', sub('exportData')],
   chart: [...CHART_GROUPS.map((g) => sub(`types:${g.id}`)), 'prevType', 'nextType', '-', 'editTitle', 'toggleLabels', sub('legend'), 'toggleGrid', 'toggleTrend', '-', sub('chartThemes'), sub('palettes'), sub('chartBackground'), 'resetStyle', '-', 'showInspector'],
   help: ['welcome', 'tutorial', 'tutorialDoc', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
 };
@@ -1363,13 +1416,48 @@ function contextMenu(event, kind, payload = {}) {
   const anchor = { x: point.x + 1, y: point.y + 1, flipY: point.y };
   const doc = activeDoc();
   if (kind === 'chart') {
-    const items = [...menuItems(['editTitle', 'toggleLabels', sub('legend'), 'toggleGrid', 'toggleTrend', '-', sub('chartThemes'), sub('palettes'), sub('chartBackground'), 'resetStyle', '-', 'copyImage', 'copySvg', 'exportChart', sub('exportAs'), 'print', '-', 'prevType', 'nextType'])];
-    if (payload.series != null && doc) items.unshift({ id: 'custom:hide', label: t('context.hideSeries'), icon: 'deselect' }, { id: 'custom:series', label: t('context.seriesColor'), icon: 'fillColor' }, { separator: true });
+    const part = payload.part ?? 'plot';
+    const o = doc?.chart.options ?? {};
+    const panel = (tab) => () => { setInspectorTab(tab); if (!state.settings.showRightPanel) updateSettings({ showRightPanel: true }); };
+    const toggleOpt = (key, on) => setOption(key, !on);
+    const custom = (id, label, glyph, extra = {}) => ({ id: `custom:${id}`, label, icon: glyph, ...extra });
+    // The part's own commands first …
+    let own = [];
+    if (part === 'legend') {
+      own = [
+        ...(payload.series != null ? [custom('hide', t('context.hideSeries'), 'deselect'), custom('series', t('context.seriesColor'), 'fillColor'), { separator: true }] : []),
+        ...menuItems([sub('legend')]),
+        custom('legendBox', t('inspector.legendBox'), 'stop', { checked: Boolean(o.legendBox) }),
+        custom('legendStyle', t('context.legendSettings'), 'legendIcon'),
+      ];
+    } else if (part === 'axisTitle') {
+      own = [custom('editAxis', t('context.editAxisTitle'), 'edit'), custom('hideAxisTitles', t('inspector.showAxisTitles'), 'axisIcon', { checked: o.showAxisTitles !== false }), custom('axisSettings', t('context.axisSettings'), 'gear')];
+    } else if (part === 'axis') {
+      own = [custom('axisSettings', t('context.axisSettings'), 'axisIcon'), ...menuItems(['toggleGrid']), custom('xLabels', t('inspector.showXLabels'), 'axisIcon', { checked: o.showXLabels !== false }), custom('yLabels', t('inspector.showYLabels'), 'axisIcon', { checked: o.showYLabels !== false })];
+    } else if (part === 'title') {
+      own = [...menuItems(['editTitle']), custom('titleStyle', t('context.titleSettings'), 'chartTitle')];
+    } else if (part === 'mark' && payload.series != null) {
+      own = [custom('hide', t('context.hideSeries'), 'deselect'), custom('series', t('context.seriesColor'), 'fillColor'), custom('mix', t('context.drawSeriesAs'), 'chartCombo'), ...menuItems(['toggleLabels', 'toggleTrend'])];
+    } else {
+      own = menuItems(['editTitle', 'toggleLabels', sub('legend'), 'toggleGrid', 'toggleTrend', '-', sub('chartThemes'), sub('palettes'), sub('chartBackground'), 'resetStyle', '-', 'prevType', 'nextType']);
+    }
+    // … then always what can be done with the picture: copy, export, print.
+    const items = [...own, { separator: true }, ...menuItems(['copyImage', 'copySvg', 'exportChart', sub('exportAs'), 'print'])];
     const handlers = {
       'custom:hide': () => { const hidden = new Set(doc.chart.options.hidden.map(Number)); hidden.add(payload.series); setOption('hidden', [...hidden]); },
-      'custom:series': () => { setInspectorTab('series'); if (!state.settings.showRightPanel) updateSettings({ showRightPanel: true }); },
+      'custom:series': panel('series'),
+      'custom:mix': panel('series'),
+      'custom:legendBox': () => toggleOpt('legendBox', o.legendBox),
+      'custom:legendStyle': panel('style'),
+      'custom:titleStyle': panel('style'),
+      'custom:editAxis': () => editText('axis', payload.axis),
+      'custom:hideAxisTitles': () => toggleOpt('showAxisTitles', o.showAxisTitles !== false),
+      'custom:axisSettings': panel('axes'),
+      'custom:xLabels': () => toggleOpt('showXLabels', o.showXLabels !== false),
+      'custom:yLabels': () => toggleOpt('showYLabels', o.showYLabels !== false),
     };
-    return showMenu(items, anchor, 'context', { handlers, header: { icon: chartType(doc?.chart.type).icon, title: doc?.chart.title || chartName(doc?.chart.type, lang()) } });
+    const titles = { legend: t('inspector.legend'), axisTitle: t('context.axisTitle'), axis: t('context.axis'), title: t('inspector.title'), mark: doc?.chart.mapping?.values?.length ? t('context.series') : null };
+    return showMenu(items, anchor, 'context', { handlers, header: { icon: chartType(doc?.chart.type).icon, title: (part !== 'plot' && titles[part]) || doc?.chart.title || chartName(doc?.chart.type, lang()) } });
   }
   if (kind === 'grid') {
     const c = payload.col;
@@ -1383,7 +1471,7 @@ function contextMenu(event, kind, payload = {}) {
       'custom:asCategory': () => setMapping({ category: c }),
       'custom:asSeries': () => { const values = new Set(doc.chart.mapping.values ?? []); if (values.has(c)) values.delete(c); else values.add(c); setMapping({ values: [...values].sort((a, b) => a - b) }); },
     };
-    return showMenu([...roleItems, ...menuItems(['copyCells', 'pasteCells', 'clearCells', '-', 'addRow', 'addColumn', 'deleteRows', 'deleteColumns', '-', 'renameColumn', sub('columnType'), 'sortAsc', 'sortDesc', '-', 'transpose', 'dataStats'])], anchor, 'context', { handlers, header: { icon: 'dataGrid', title: payload.header ? name : `${columnLetter(c ?? 0)}${(payload.row ?? 0) + 1}` } });
+    return showMenu([...roleItems, ...menuItems(['chartFromSelection', 'newChartFromSelection', 'clearDataRange', '-', 'copyCells', 'pasteCells', 'clearCells', '-', 'addRow', 'addColumn', 'deleteRows', 'deleteColumns', '-', 'renameColumn', sub('columnType'), 'sortAsc', 'sortDesc', '-', 'transpose', 'dataStats', '-', sub('exportData'), 'exportChart', 'print'])], anchor, 'context', { handlers, header: { icon: 'dataGrid', title: payload.header ? name : `${columnLetter(c ?? 0)}${(payload.row ?? 0) + 1}` } });
   }
   if (kind === 'type') {
     const type = chartType(payload.id);
@@ -1492,9 +1580,14 @@ function setDropActive(active) {
 // ───────────────────────── the chart view's link to the app
 
 /** The role a column plays in the active chart (the grid's header badge). */
-function roleOf(c) {
+function roleOf(col) {
   const doc = activeDoc();
   if (!doc) return null;
+  // Roles are columns of the chart's view: none when the series run along rows, shifted by a data range.
+  if (doc.chart.seriesIn === 'rows') return null;
+  const range = doc.chart.dataRange;
+  if (range && (col < range.c0 || col > range.c1)) return null;
+  const c = range ? col - range.c0 : col;
   const m = doc.chart.mapping;
   const k = (m.values ?? []).indexOf(c);
   if (k >= 0) return { label: t('role.series', { n: k + 1 }), short: `Y${(m.values?.length ?? 0) > 1 ? k + 1 : ''}`, color: renderColor(doc, k) };
@@ -1530,7 +1623,8 @@ const viewApi = {
     if (mark?.row != null) state.view?.grid.setActive(mark.row, doc.chart.mapping.values?.[mark.series ?? 0] ?? 0);
     state.view?.drawChart();
   },
-  onEditText: (which) => editText(which),
+  onEditText: (which, axis) => editText(which, axis),
+  onLegendMove: (x, y) => { const doc = activeDoc(); if (!doc) return; doc.setChart({ options: { legend: 'custom', legendX: x, legendY: y } }, { merge: 'legend-move' }); refreshView({ inspector: true }); },
   onZoom: (direction) => zoom(direction),
   onContext: (event, kind, payload) => contextMenu(event, kind, payload),
   gridFilter: () => activeDoc()?.gridFilter ?? '',
@@ -1542,6 +1636,8 @@ const viewApi = {
     settings: () => state.settings,
     rows: () => { const doc = activeDoc(); return doc ? matchingRows(doc.table, doc.gridFilter) : []; },
     roleOf,
+    inChart: (row, col) => { const r = activeDoc()?.chart.dataRange; return !r || (row >= r.r0 && row <= r.r1 && col >= r.c0 && col <= r.c1); },
+    hasRange: () => Boolean(activeDoc()?.chart.dataRange),
     onEdit: (r, c, text) => { const doc = activeDoc(); if (doc) changeTable(setCell(doc.table, r, c, text)); },
     onRename: (c, name) => { const doc = activeDoc(); if (doc) changeTable(renameColumn(doc.table, c, name)); },
     onPaste: (r, c, text) => pasteBlock(r, c, text),
@@ -1558,6 +1654,9 @@ const viewApi = {
     onTab: (id) => setInspectorTab(id),
     onType: (id) => setChartType(id),
     onOption: (key, value, merge, live) => setOption(key, value, merge, live),
+    rangeName: (r) => rangeName(r),
+    onCannotMix: (type) => ask({ icon: 'info', title: t('mix.title'), message: t('mix.refused', { name: chartName(type, lang()) }), buttons: [{ id: 'ok', label: t('common.ok'), primary: true }] }),
+    onLegendMove: (x, y) => { const doc = activeDoc(); if (!doc) return; doc.setChart({ options: { legend: 'custom', legendX: x, legendY: y } }, { merge: 'legend-move' }); refreshView({ inspector: true }); },
     onChart: (patch, merge) => { const doc = activeDoc(); if (!doc) return; doc.setChart(patch, { merge }); refreshView({ inspector: !merge }); },
     onMapping: (patch) => setMapping(patch),
     onRename: (c, name) => { const doc = activeDoc(); if (doc && name.trim()) changeTable(renameColumn(doc.table, c, name.trim())); },
@@ -1627,6 +1726,8 @@ function bindEvents() {
     });
   }
   bindSteppers(root, (key, value) => {
+    // The inspector's numbers (opt:<option>): each step changes the chart at once; steps in a row are one undo step.
+    if (key.startsWith('opt:')) { setOption(key.slice(4), value, key, true); return; }
     if (key === 'animationSpeed') updateSettings({ animationSpeed: value }, { quiet: true });
     if (key === 'startCardOpacity') { updateSettings({ startCardOpacity: value }, { quiet: true }); root.querySelector('.start-inner')?.style.setProperty('--start-card-alpha', `${value}%`); }
   });
@@ -1643,7 +1744,7 @@ function bindEvents() {
 const SHORTCUTS = [
   ['n', false, false, 'newChart'], ['o', false, false, 'open'], ['s', false, false, 'save'], ['s', true, false, 'saveAs'], ['w', false, false, 'closeTab'], ['p', false, false, 'print'], ['q', false, false, 'exit'],
   ['i', false, false, 'importData'], ['e', false, false, 'exportChart'], ['c', true, false, 'copyImage'], ['z', false, false, 'undo'], ['y', false, false, 'redo'], ['z', true, false, 'redo'],
-  ['v', true, false, 'pasteData'], ['enter', false, false, 'addRow'], ['enter', true, false, 'addColumn'], ['t', true, false, 'transpose'], ['i', true, false, 'dataStats'],
+  ['v', true, false, 'pasteData'], ['r', true, false, 'chartFromSelection'], ['enter', false, false, 'addRow'], ['enter', true, false, 'addColumn'], ['t', true, false, 'transpose'], ['i', true, false, 'dataStats'],
   ['l', false, false, 'toggleLabels'], ['g', true, false, 'cycleLegend'], ['k', false, false, 'paletteMenu'], ['[', false, false, 'prevType'], [']', false, false, 'nextType'],
   ['=', false, false, 'zoomIn'], ['+', false, false, 'zoomIn'], ['-', false, false, 'zoomOut'], ['0', false, false, 'zoomFit'],
   ['l', true, false, 'language'], ['h', true, false, 'startPage'], ['p', true, false, 'settings'], ['j', false, false, 'bottomPanel'], ['1', true, false, 'leftPanel'], ['!', true, false, 'leftPanel'], ['2', true, false, 'rightPanel'], ['@', true, false, 'rightPanel'],

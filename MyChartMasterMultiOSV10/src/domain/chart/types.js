@@ -171,6 +171,12 @@ export const CARTESIAN = new Set(['column', 'bar', 'line', 'area', 'stackedColum
   'dumbbell', 'rangeColumn', 'pareto', 'meanError', 'streamgraph', 'rangeArea', 'density', 'ecdf', 'stripPlot', 'violin', 'priceBand', 'bollinger', 'dotHistogram']);
 /** Renderers that need at least two value series (two groups to compare, a matrix, a ranking). */
 export const TWO_SERIES = new Set(['butterfly', 'slope', 'bump', 'correlation', 'scatterMatrix', 'dumbbell']);
+/** Chart renderers whose series can each be drawn their own way (columns, lines, areas, points …) on shared axes. */
+export const COMBINABLE = new Set(['column', 'line', 'spline', 'stepLine', 'area', 'combo', 'lollipop']);
+/** The ways a series of a mixed chart can be drawn. */
+export const SERIES_KINDS = ['column', 'line', 'spline', 'step', 'area', 'points', 'lollipop'];
+/** Whether a chart type can mix ways of drawing (vertical, unstacked category charts). */
+export const canMix = (id) => COMBINABLE.has(baseType(id)) && !chartType(id).preset?.horizontal;
 export const HORIZONTAL = new Set(['bar', 'stackedBar', 'percentBar']);
 export const STACKED = new Set(['stackedColumn', 'stackedBar', 'stackedArea']);
 export const PERCENT = new Set(['percentColumn', 'percentBar', 'percentArea']);

@@ -6,6 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { connect, root } from './desktop.harness.mjs';
+import { appVersion, buildStub, installerTestable, runStub } from './installer.mjs';
 import { CHART_TYPES } from '../../src/domain/chart/types.js';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -127,7 +128,39 @@ test('start.layout', 'Start page in the program window: New chart full width, Re
   assert(r.full && r.under && !r.tall && r.tiles === CHART_TYPES.length, JSON.stringify(r));
 });
 
-const GROUPS = { app: 'Launch', files: 'Files', export: 'Output', popups: 'Popups', print: 'Printing', docs: 'Help', chart: 'Charts', start: 'Start page' };
+// ───────────────────────── installer: the language window, and the program starting in that language
+
+test('installer.languageWindow', 'Installer language window: title = name and version, the program icon in its title bar, choosing English', async () => {
+  if (!installerTestable()) return 'skip';
+  const stub = buildStub();
+  try {
+    const r = runStub(stub, 1033, path.join(root, 'test-results', 'desktop', 'installer-language.png'));
+    assert(r.window, 'no language window');
+    assert(r.title === `MyChartMaster ${appVersion()}`, `title "${r.title}"`);
+    assert(r.small !== 0 && r.big !== 0, `title bar icon ${r.small} / ${r.big}`);
+    assert(r.closed && r.chosen === '1033', `English chosen → ${r.chosen}`);
+  } finally { fs.rmSync(stub.dir, { recursive: true, force: true }); }
+});
+
+test('installer.languageChoice', 'Installer language window: Korean installs in Korean, Cancel stops before anything happens', async () => {
+  if (!installerTestable()) return 'skip';
+  const stub = buildStub();
+  try {
+    const ko = runStub(stub, 1042);
+    assert(ko.closed && ko.chosen === '1042', `Korean chosen → ${ko.chosen}`);
+    const cancel = runStub(stub, 0);
+    assert(cancel.closed && cancel.chosen === null, `Cancel went on (${cancel.chosen})`);
+  } finally { fs.rmSync(stub.dir, { recursive: true, force: true }); }
+});
+
+test('installer.programLanguage', 'After installing, the program starts in the installation language (once; the marker is used up)', async () => {
+  const r = await run(`return { language: A.state.settings.language, menu: document.querySelector('#menubar [data-menu="file"]')?.textContent.trim() };`);
+  assert(r.language === app.installLanguage, `started in ${r.language}, installed in ${app.installLanguage}`);
+  assert(/File/.test(r.menu ?? ''), `menu "${r.menu}"`);
+  assert(!fs.existsSync(app.languageMarker), 'the installer marker was not used up');
+});
+
+const GROUPS = { installer: 'Installer', app: 'Launch', files: 'Files', export: 'Output', popups: 'Popups', print: 'Printing', docs: 'Help', chart: 'Charts', start: 'Start page' };
 export const desktopCases = CASES.map((item) => ({
   group: GROUPS[item.id.split('.')[0]] ?? item.id.split('.')[0],
   name: `${item.id} — ${item.name}`,

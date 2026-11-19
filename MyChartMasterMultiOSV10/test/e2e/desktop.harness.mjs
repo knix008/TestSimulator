@@ -37,7 +37,9 @@ export async function connect(target) {
 }
 
 export class DesktopApp {
-  constructor() {
+  /** installLanguage: the start is the first one after an installation in that language (the installer's marker). */
+  constructor({ installLanguage = 'en' } = {}) {
+    this.installLanguage = installLanguage;
     this.out = path.join(root, 'test-results', 'desktop');
     this.notes = [];
     this.seen = 0;
@@ -51,12 +53,22 @@ export class DesktopApp {
     this.notes.push(path.relative(root, this.program));
     this.temp = fs.mkdtempSync(path.join(os.tmpdir(), 'mychartmaster-desktop-'));
     this.port = 9500 + Math.floor(Math.random() * 300);
+    // As the installer leaves it (hooks.nsh › MumWriteLanguage), in this run's own data folder.
+    if (this.installLanguage) {
+      const data = path.join(this.temp, 'config');
+      fs.mkdirSync(data, { recursive: true });
+      fs.writeFileSync(path.join(data, 'install-language'), this.installLanguage);
+      this.languageMarker = path.join(data, 'install-language');
+    }
     this.child = spawn(this.program, [], {
       env: {
         ...process.env, MYCHARTMASTER_MULTI: '1',
         WEBVIEW2_USER_DATA_FOLDER: path.join(this.temp, 'webview'),
         WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${this.port} --disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection`,
         APPDATA: path.join(this.temp, 'appdata'), LOCALAPPDATA: path.join(this.temp, 'localappdata'),
+        // Tauri finds the app's folders through Windows (not APPDATA): the program's own overrides keep the window
+        // place, the installer markers, the data files and the instance lock inside this run's temp folder.
+        MYCHARTMASTER_CONFIG_DIR: path.join(this.temp, 'config'), MYCHARTMASTER_DATA_DIR: path.join(this.temp, 'data'), MYCHARTMASTER_LOCK_DIR: path.join(this.temp, 'lock'),
       },
       stdio: 'ignore',
     });

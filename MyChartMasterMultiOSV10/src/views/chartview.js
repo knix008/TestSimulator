@@ -145,6 +145,7 @@ export class ChartView {
     box.innerHTML = `<span class="ch-grid-count">${escapeHtml(t('grid.count', { rows: doc.table.rows.length, cols: doc.table.columns.length }))}</span>
       ${tool('addRow', 'addRow')}${tool('addColumn', 'addColumn')}${tool('deleteRows', 'deleteRow')}${tool('deleteColumns', 'deleteColumn')}
       <span class="tool-sep"></span>${tool('sortAsc', 'sortAsc')}${tool('sortDesc', 'sortDesc')}${tool('transpose', 'transpose')}
+      <span class="tool-sep"></span>${tool('chartFromSelection', 'chartRange')}${tool('clearDataRange', 'dataGrid')}${tool(doc.chart.seriesIn === 'rows' ? 'seriesInColumns' : 'seriesInRows', doc.chart.seriesIn === 'rows' ? 'seriesIcon' : 'transpose')}
       <span class="tool-sep"></span>${tool('pasteData', 'pasteData')}${tool('importData', 'importData')}${tool('dataStats', 'dataStats')}
       <label class="ch-grid-filter" title="${escapeHtml(t('grid.filterTip'))}">${icon('filter')}<input type="search" data-grid-filter value="${escapeHtml(this.api.gridFilter())}" placeholder="${escapeHtml(t('grid.filter'))}" spellcheck="false" /></label>`;
   }
@@ -207,14 +208,50 @@ export class ChartView {
       const type = event.target.closest('[data-chart-type]');
       if (type) { this.animateNext = true; this.api.onType(type.dataset.chartType); return; }
       const legend = event.target.closest('[data-legend]');
+      // A legend that was just dragged does not also toggle the series it was grabbed by.
+      if (this.legendDragged) { this.legendDragged = false; return; }
       if (legend && legend.dataset.legend !== '') { this.api.onLegend(Number(legend.dataset.legend)); return; }
       const markEl = event.target.closest('.ch-canvas .mark');
       if (markEl) { this.api.onMark({ series: markEl.dataset.s === '' ? null : Number(markEl.dataset.s), row: markEl.dataset.r === '' ? null : Number(markEl.dataset.r) }); return; }
       if (event.target.closest('.ch-stage') && !event.target.closest('.ch-canvas text')) this.api.onMark(null);
     });
+    // Drag the legend anywhere on the chart: it becomes a free legend at that spot (Style tab › Legend › Own spot).
+    r.addEventListener('pointerdown', (event) => {
+      const group = event.target.closest('.ch-canvas g.legend');
+      if (!group || event.button !== 0) return;
+      const svg = group.ownerSVGElement;
+      const box = group.querySelector('.legend-box');
+      if (!svg || !box) return;
+      const scale = svg.viewBox.baseVal.width / svg.getBoundingClientRect().width || 1;
+      const start = { x: event.clientX, y: event.clientY, bx: Number(box.getAttribute('x')), by: Number(box.getAttribute('y')) };
+      let moved = false;
+      const move = (e) => {
+        const dx = (e.clientX - start.x) * scale;
+        const dy = (e.clientY - start.y) * scale;
+        if (!moved && Math.hypot(dx, dy) < 4 * scale) return;
+        moved = true;
+        group.setAttribute('transform', `translate(${dx} ${dy})`);
+        group.classList.add('dragging');
+      };
+      const up = (e) => {
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        if (!moved) return;
+        this.legendDragged = true;
+        setTimeout(() => { this.legendDragged = false; }, 0);
+        const w = svg.viewBox.baseVal.width;
+        const h = svg.viewBox.baseVal.height;
+        const x = Math.round(Math.max(0, Math.min(100, ((start.bx + (e.clientX - start.x) * scale) / w) * 100)) * 10) / 10;
+        const y = Math.round(Math.max(0, Math.min(100, ((start.by + (e.clientY - start.y) * scale) / h) * 100)) * 10) / 10;
+        this.api.onLegendMove(x, y);
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+      event.preventDefault();
+    });
     r.addEventListener('dblclick', (event) => {
       const title = event.target.closest('.chart-title, .chart-subtitle, .axis-title');
-      if (title) this.api.onEditText(title.classList.contains('chart-title') ? 'title' : title.classList.contains('chart-subtitle') ? 'subtitle' : 'axis');
+      if (title) this.api.onEditText(title.classList.contains('chart-title') ? 'title' : title.classList.contains('chart-subtitle') ? 'subtitle' : 'axis', title.dataset.axis ?? null);
       else if (event.target.closest('.ch-canvas') && !event.target.closest('.mark')) this.api.onEditText('title');
     });
     r.addEventListener('input', (event) => {
@@ -234,7 +271,16 @@ export class ChartView {
       this.api.onZoom(event.deltaY < 0 ? 1 : -1);
     }, { passive: false });
     r.addEventListener('contextmenu', (event) => {
-      if (event.target.closest('.ch-stage')) { event.preventDefault(); const m = event.target.closest('.mark'); this.api.onContext(event, 'chart', m ? { series: m.dataset.s === '' ? null : Number(m.dataset.s) } : {}); }
+      if (event.target.closest('.ch-stage')) {
+        event.preventDefault();
+        // What was clicked decides the menu: legend, axis title, axis, chart title, a mark (its series) or the plot.
+        const t = event.target;
+        const m = t.closest('.mark');
+        const legendItem = t.closest('[data-legend]');
+        const axisTitle = t.closest('.axis-title');
+        const part = t.closest('g.legend') ? 'legend' : axisTitle ? 'axisTitle' : t.closest('.tick, .cat, line.axis, line.grid') ? 'axis' : t.closest('.chart-title, .chart-subtitle') ? 'title' : m ? 'mark' : 'plot';
+        this.api.onContext(event, 'chart', { part, series: m && m.dataset.s !== '' ? Number(m.dataset.s) : legendItem && legendItem.dataset.legend !== '' ? Number(legendItem.dataset.legend) : null, row: m && m.dataset.r !== '' ? Number(m.dataset.r) : null, axis: axisTitle?.dataset.axis ?? null });
+      }
       else if (event.target.closest('[data-chart-type]')) { event.preventDefault(); this.api.onContext(event, 'type', { id: event.target.closest('[data-chart-type]').dataset.chartType }); }
     });
     // Splitters: drag to resize the panels (sizes are settings).

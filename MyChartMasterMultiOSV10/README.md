@@ -40,6 +40,15 @@ Linux (Tauri 2). Its window, menus, toolbar, start page and popup windows follow
   chalkboard …) set the palette, fonts, grid and their own paper, apart from the program's theme. The chart's
   background follows the program's theme by default (light or dark), and series colours are adjusted to stay readable
   on it (at least 3:1 contrast); the chart theme's paper, white, transparent or any colour can be chosen instead.
+- **Mixed charts** — each series drawn its own way (columns, line, smooth, step, area, points, lollipops) on a left or
+  right axis, so two or more charts are drawn together; charts that cannot mix explain why in a popup.
+- **Every detail adjustable** — title and subtitle size, colour and weight; legend position (also dragged with the mouse to any
+  spot), text size and colour, marker, box; axis line colour and width, tick label colour, size and visibility, tick step;
+  axis title text (double-click on the chart), colour and size; grid colour, width and style; plot background and border,
+  margin; mark opacity and outline; text in the chart. Every number is a [−] value unit [+] stepper; the panel and the
+  Settings window read in two straight columns. Right-click menus fit the part clicked and always offer Export and Print.
+- **Part of the data, either direction** — chart only the cells selected with the mouse (or make a new chart of them), and
+  read series from columns (data typed down) or rows (data typed across).
 - **Data grid**: a virtualised spreadsheet (100 000 rows scroll smoothly) with keyboard editing, range selection,
   copy and paste of Excel ranges, add / delete / rename / sort / transpose, column types (number, text, date), find
   rows, data statistics (count, sum, mean, median, min, max, standard deviation), and 200 undo steps per chart.

@@ -94,6 +94,7 @@ export const CHART_ICONS_MORE = {
   chartDotHistogram: `${BASE}${D(6, 19, 1.3)}${D(10, 19, 1.3)}${D(10, 15.5, 1.3)}${D(14, 19, 1.3)}${D(14, 15.5, 1.3)}${D(14, 12, 1.3)}${D(14, 8.5, 1.3)}${D(18, 19, 1.3)}${D(18, 15.5, 1.3)}`,
   chartRidgeline: '<path d="M2 9c3 0 4-5 7-5s3 5 5 5" fill="currentColor" fill-opacity=".25"/><path d="M2 14c4 0 4-5 8-5s4 5 6 5h6"/><path d="M2 19c5 0 6-4 9-4s4 4 11 4" fill="currentColor" fill-opacity=".4"/><path d="M2 9h12M2 14h20M2 19h20" opacity=".45"/>',
   // ── commands
+  chartRange: '<rect x="3" y="3" width="18" height="18" rx="1.5"/><path d="M3 9h18M9 3v18" opacity=".45"/><rect x="9" y="9" width="9" height="9" fill="currentColor" fill-opacity=".35" stroke-dasharray="2 1.5"/><path d="M11 16v-2M13.5 16v-4M16 16v-3"/>',
   chartTheme: '<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M6 15l3-4 3 2 4-5 2 2"/><circle cx="7" cy="20.5" r="1" fill="currentColor"/><circle cx="12" cy="20.5" r="1" fill="currentColor" fill-opacity=".6"/><circle cx="17" cy="20.5" r="1" fill="currentColor" fill-opacity=".3"/>',
   // ── gallery groups
   groupRelation: `<path d="M7 7l10 3M7 7l3 10M17 10l-7 7"/><circle cx="7" cy="7" r="3" ${F}/><circle cx="17" cy="10" r="2.5" ${F}/><circle cx="10" cy="17" r="2.5" ${F}/>`,

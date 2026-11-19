@@ -7,8 +7,8 @@
 // chart = { type, title, subtitle, mapping: { category, values: [], x, y, size, label, group, open, high, low,
 //           close, source, target }, options: { …defaultOptions() } }
 // Marks carry data-s (series), data-r (row) and data-tip (hover text); legend items carry data-legend.
-import { cellText, labelsOf, numberColumns, numbersOf, parseNumber, quantile, textColumns } from '../data/table.js';
-import { autoMapping, BY_ROW, CARTESIAN, chartType, HORIZONTAL, PERCENT, STACKED } from './types.js';
+import { cellText, inferTypes, labelsOf, numberColumns, numbersOf, parseNumber, quantile, textColumns, transpose } from '../data/table.js';
+import { autoMapping, BY_ROW, CARTESIAN, chartType, COMBINABLE, HORIZONTAL, PERCENT, SERIES_KINDS, STACKED } from './types.js';
 import { chartTheme, darken, lighten, mix, rampColor, readableOn, seriesColor } from './palettes.js';
 import { EXTRA_DRAW } from './render-extra.js';
 
@@ -25,17 +25,61 @@ export function defaultOptions() {
     bins: 0, trendline: false, secondAxis: false, waterfallTotal: true,
     ramp: 'blues', gaugeMin: '', gaugeMax: '', border: false, upColor: '#16a34a', downColor: '#dc2626',
     note: '', width: 1024, height: 640,
+    // Fine settings (Style and Axes tabs). '' colours follow the chart theme and the program theme.
+    titleSize: 20, titleColor: '', titleBold: true, subtitleSize: 13, subtitleColor: '',
+    legendX: 70, legendY: 12, legendFontSize: 12, legendColor: '', legendBox: false, legendSwatch: 'square',
+    axisColor: '', axisWidth: 1, tickColor: '', tickSize: 11, showXLabels: true, showYLabels: true, yStep: '',
+    showAxisTitles: true, axisTitleColor: '', axisTitleSize: 12.5,
+    gridColor: '', gridWidth: 1, gridStyle: 'theme',
+    plotBackground: '', plotBorder: false, padding: 16, markOpacity: 1, markStroke: 0, markStrokeColor: '',
+    textScale: 1, textColor: '',
+    // Mixed charts: how each series is drawn and which value axis it uses ({ [series index]: kind / 'right' }).
+    seriesTypes: {}, seriesAxis: {},
   };
 }
 
 /** A chart description with every gap filled (type, mapping that fits the table, options). */
+/** A valid data range of the table ({ r0, r1, c0, c1 }, inclusive) or null for the whole table. */
+export function dataRangeOf(table, range) {
+  if (!range || typeof range !== 'object' || !table?.columns?.length) return null;
+  const n = (v, hi) => Math.max(0, Math.min(hi, Math.round(Number(v))));
+  if (![range.r0, range.r1, range.c0, range.c1].every((v) => Number.isFinite(Number(v)))) return null;
+  const rows = Math.max(0, table.rows.length - 1);
+  const cols = table.columns.length - 1;
+  const r = { r0: n(Math.min(range.r0, range.r1), rows), r1: n(Math.max(range.r0, range.r1), rows), c0: n(Math.min(range.c0, range.c1), cols), c1: n(Math.max(range.c0, range.c1), cols) };
+  return r.r0 === 0 && r.c0 === 0 && r.r1 >= table.rows.length - 1 && r.c1 >= cols ? null : r;
+}
+
+const VIEWS = new WeakMap();
+/**
+ * The table a chart reads: only its data range (rows and columns chosen with the mouse in the grid) and, with
+ * series in rows, turned on its side (the first column's cells become the column names). Cached per table.
+ */
+export function chartTable(table, chart) {
+  if (!table) return table;
+  const range = dataRangeOf(table, chart?.dataRange);
+  const rows = chart?.seriesIn === 'rows';
+  if (!range && !rows) return table;
+  const key = `${range ? `${range.r0},${range.r1},${range.c0},${range.c1}` : ''}|${rows}`;
+  const cache = VIEWS.get(table);
+  if (cache?.key === key) return cache.view;
+  let view = table;
+  if (range) view = { ...table, columns: table.columns.slice(range.c0, range.c1 + 1).map((c) => ({ ...c })), rows: table.rows.slice(range.r0, range.r1 + 1).map((r) => r.slice(range.c0, range.c1 + 1)) };
+  if (rows && view.columns.length) view = inferTypes(transpose(view));
+  VIEWS.set(table, { key, view });
+  return view;
+}
+
 export function normalizeChart(chart, table) {
   const type = chartType(chart?.type).id;
   const options = { ...defaultOptions(), ...(chart?.options ?? {}) };
   if (!Array.isArray(options.hidden)) options.hidden = [];
   if (!options.colors || typeof options.colors !== 'object') options.colors = {};
-  const mapping = autoMapping(table, type, chart?.mapping ?? null);
-  return { type, title: String(chart?.title ?? ''), subtitle: String(chart?.subtitle ?? ''), mapping, options };
+  for (const key of ['seriesTypes', 'seriesAxis']) if (!options[key] || typeof options[key] !== 'object' || Array.isArray(options[key])) options[key] = {};
+  const dataRange = dataRangeOf(table, chart?.dataRange);
+  const seriesIn = chart?.seriesIn === 'rows' ? 'rows' : 'columns';
+  const mapping = autoMapping(chartTable(table, { dataRange, seriesIn }), type, chart?.mapping ?? null);
+  return { type, title: String(chart?.title ?? ''), subtitle: String(chart?.subtitle ?? ''), mapping, options, dataRange, seriesIn };
 }
 
 // ───────────────────────── numbers and text
@@ -222,16 +266,25 @@ export function chartColors(options, theme = {}) {
   const appText = bgOption === 'theme' || bg === 'none' ? theme.text : null;
   const text = appText && (readableOn(appText) === '#ffffff') !== dark ? appText : own ? ct.text : dark ? '#e5e7eb' : '#1f2937';
   const muted = bgOption === 'theme' && theme.muted && (readableOn(theme.muted) === '#ffffff') !== dark ? theme.muted : own ? ct.muted : dark ? '#9ca3af' : '#6b7280';
+  const hex = (v) => (/^#[0-9a-f]{6}$/i.test(String(v ?? '')) ? v : null);
+  const gridDash = { solid: '', dashed: '5 4', dotted: '1.5 3' }[options.gridStyle] ?? ct.gridDash ?? '';
   return {
-    bg, base, text, dark, font: ct.font ?? '', gridDash: ct.gridDash ?? '', muted,
-    grid: own ? ct.grid : dark ? 'rgba(255,255,255,0.12)' : 'rgba(15,23,42,0.1)',
-    axis: own ? ct.axis : dark ? 'rgba(255,255,255,0.35)' : 'rgba(15,23,42,0.35)',
+    bg, base, text, dark, font: ct.font ?? '', gridDash, muted,
+    grid: hex(options.gridColor) ?? (own ? ct.grid : dark ? 'rgba(255,255,255,0.12)' : 'rgba(15,23,42,0.1)'),
+    axis: hex(options.axisColor) ?? (own ? ct.axis : dark ? 'rgba(255,255,255,0.35)' : 'rgba(15,23,42,0.35)'),
+    tick: hex(options.tickColor) ?? muted,
+    catText: hex(options.tickColor) ?? text,
+    axisTitle: hex(options.axisTitleColor) ?? muted,
+    title: hex(options.titleColor) ?? text,
+    subtitle: hex(options.subtitleColor) ?? muted,
+    legendText: hex(options.legendColor) ?? text,
+    label: hex(options.textColor) ?? text,
   };
 }
 
 export function renderChart(doc, view = {}) {
-  const table = doc.table;
-  const chart = normalizeChart(doc.chart ?? {}, table);
+  const chart = normalizeChart(doc.chart ?? {}, doc.table);
+  const table = chartTable(doc.table, chart);
   const width = Math.max(120, Math.round(view.width ?? 800));
   const height = Math.max(90, Math.round(view.height ?? 500));
   const def = chartType(chart.type);
@@ -252,22 +305,23 @@ export function renderChart(doc, view = {}) {
   const align = o.titleAlign === 'left' ? 'start' : o.titleAlign === 'right' ? 'end' : 'middle';
   const tx = align === 'start' ? 20 * fs : align === 'end' ? width - 20 * fs : width / 2;
   if (chart.title) {
-    const size = 20 * fs;
+    const size = (Number(o.titleSize) || 20) * fs;
     top += size;
-    out.push(`<text class="chart-title" x="${r2(tx)}" y="${r2(top)}" text-anchor="${align}" font-size="${r2(size)}" font-weight="700" fill="${colors.text}">${esc(fitText(chart.title, width - 40, size))}</text>`);
+    out.push(`<text class="chart-title" x="${r2(tx)}" y="${r2(top)}" text-anchor="${align}" font-size="${r2(size)}" font-weight="${o.titleBold === false ? 500 : 700}" fill="${colors.title}">${esc(fitText(chart.title, width - 40, size))}</text>`);
     top += 6 * fs;
   }
   if (chart.subtitle) {
-    const size = 13 * fs;
+    const size = (Number(o.subtitleSize) || 13) * fs;
     top += size;
-    out.push(`<text class="chart-subtitle" x="${r2(tx)}" y="${r2(top)}" text-anchor="${align}" font-size="${r2(size)}" fill="${colors.muted}">${esc(fitText(chart.subtitle, width - 40, size))}</text>`);
+    out.push(`<text class="chart-subtitle" x="${r2(tx)}" y="${r2(top)}" text-anchor="${align}" font-size="${r2(size)}" fill="${colors.subtitle}">${esc(fitText(chart.subtitle, width - 40, size))}</text>`);
     top += 6 * fs;
   }
   if (o.note) {
     const size = 11 * fs;
     out.push(`<text class="chart-note" x="${r2(width - 12 * fs)}" y="${r2(height - 8 * fs)}" text-anchor="end" font-size="${r2(size)}" fill="${colors.muted}">${esc(fitText(o.note, width - 30, size))}</text>`);
   }
-  const area = { x: 16 * fs, y: top + 10 * fs, w: width - 32 * fs, h: height - top - 10 * fs - (o.note ? 26 : 14) * fs };
+  const pad = Math.max(0, Math.min(120, Number.isFinite(Number(o.padding)) ? Number(o.padding) : 16)) * fs;
+  const area = { x: pad, y: top + 10 * fs, w: width - 2 * pad, h: height - top - 10 * fs - (o.note ? 26 : 14) * fs };
   let data;
   try {
     data = extract(ctx);
@@ -277,10 +331,22 @@ export function renderChart(doc, view = {}) {
   if (data.error) {
     out.push(`<text x="${width / 2}" y="${height / 2}" text-anchor="middle" font-size="${r2(14 * fs)}" fill="${colors.muted}">${esc(data.error)}</text>`);
   } else {
+    // The legend is drawn after the chart (so a legend moved over the plot stays on top), in the room it took.
+    const legendOut = [];
+    const saved = ctx.out;
+    ctx.out = legendOut;
     const plot = placeLegend(ctx, area, data.legend);
+    ctx.out = saved;
+    if (/^#[0-9a-f]{6}$/i.test(String(o.plotBackground ?? ''))) out.push(`<rect class="plot-bg" x="${r2(plot.x)}" y="${r2(plot.y)}" width="${r2(plot.w)}" height="${r2(plot.h)}" fill="${o.plotBackground}"/>`);
+    if (o.plotBorder) out.push(`<rect class="plot-border" x="${r2(plot.x)}" y="${r2(plot.y)}" width="${r2(plot.w)}" height="${r2(plot.h)}" fill="none" stroke="${colors.axis}" stroke-width="${r2(Number(o.axisWidth) || 1)}"/>`);
     const draw = DRAW[drawn.type] ?? EXTRA_DRAW[drawn.type] ?? drawCartesian;
     draw(ctx, plot, data);
+    out.push(...legendOut);
   }
+  const gw = Math.max(0, Number.isFinite(Number(o.gridWidth)) ? Number(o.gridWidth) : 1);
+  const aw = Math.max(0, Number.isFinite(Number(o.axisWidth)) ? Number(o.axisWidth) : 1);
+  const widths = (part) => part.replace(/<(line|polygon|path) class="(grid|axis|zero)"(?![^>]*stroke-width)/g, (m, tag, cls) => `${m} stroke-width="${r2(cls === 'grid' ? gw : aw)}"`);
+  for (let i = 0; i < out.length; i++) if (out[i].includes('class="grid"') || out[i].includes('class="axis"') || out[i].includes('class="zero"')) out[i] = widths(out[i]);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" class="chart-svg${view.animate ? ' animate' : ''}" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" font-family="${esc(font)}" role="img" aria-label="${esc(chart.title || chartType(chart.type)[lang])}">${ctx.defs.length ? `<defs>${ctx.defs.join('')}</defs>` : ''}${out.join('')}</svg>`;
   return { svg, width, height, marks: ctx.marks, legend: ctx.legend, warnings: ctx.warnings, chart, error: data.error ?? null };
 }
@@ -337,23 +403,50 @@ function placeLegend(ctx, area, items) {
   const { o, fs, colors, out } = ctx;
   ctx.legend = items.map((it) => ({ name: it.name, color: it.color, hidden: Boolean(it.hidden) }));
   if (!items.length || o.legend === 'none') return area;
-  const size = 12 * fs;
-  const sw = 12 * fs;
+  const size = Math.max(6, Math.min(40, Number(o.legendFontSize) || 12)) * fs;
+  const sw = size;
   const gap = 18 * fs;
   const itemWidth = (it) => sw + 6 * fs + Math.min(textWidth(it.name, size), 200 * fs);
   const rowH = size + 8 * fs;
+  const parts = [];
+  const swatch = (it, x, y) => {
+    const top = y - sw + 2 * fs;
+    if (o.legendSwatch === 'circle') return `<circle cx="${r2(x + sw / 2)}" cy="${r2(top + sw / 2)}" r="${r2(sw / 2)}" fill="${it.color}"/>`;
+    if (o.legendSwatch === 'line') return `<line x1="${r2(x)}" x2="${r2(x + sw)}" y1="${r2(top + sw / 2)}" y2="${r2(top + sw / 2)}" stroke="${it.color}" stroke-width="${r2(3 * fs)}" stroke-linecap="round"/>`;
+    return `<rect x="${r2(x)}" y="${r2(top)}" width="${r2(sw)}" height="${r2(sw)}" rx="${r2(3 * fs)}" fill="${it.color}"/>`;
+  };
   const draw = (it, x, y) => {
     const label = fitText(it.name, 200 * fs, size);
-    out.push(`<g class="legend-item${it.hidden ? ' off' : ''}" data-legend="${it.static ? '' : it.index}" opacity="${it.hidden ? 0.4 : 1}" style="cursor:pointer"><rect x="${r2(x)}" y="${r2(y - sw + 2 * fs)}" width="${r2(sw)}" height="${r2(sw)}" rx="${r2(3 * fs)}" fill="${it.color}"/><text x="${r2(x + sw + 6 * fs)}" y="${r2(y)}" font-size="${r2(size)}" fill="${colors.text}"${it.hidden ? ' text-decoration="line-through"' : ''}>${esc(label)}</text></g>`);
+    parts.push(`<g class="legend-item${it.hidden ? ' off' : ''}" data-legend="${it.static ? '' : it.index}" opacity="${it.hidden ? 0.4 : 1}" style="cursor:pointer">${swatch(it, x, y)}<text x="${r2(x + sw + 6 * fs)}" y="${r2(y)}" font-size="${r2(size)}" fill="${colors.legendText ?? colors.text}"${it.hidden ? ' text-decoration="line-through"' : ''}>${esc(label)}</text></g>`);
   };
+  /** The legend as one group (it can be dragged), with a box behind it when asked or when it floats. */
+  const finish = (box, where) => {
+    const boxed = o.legendBox || where === 'custom';
+    const back = boxed ? `<rect class="legend-box" x="${r2(box.x)}" y="${r2(box.y)}" width="${r2(box.w)}" height="${r2(box.h)}" rx="${r2(6 * fs)}" fill="${colors.base}" fill-opacity="0.92" stroke="${colors.grid}"/>` : `<rect class="legend-box" x="${r2(box.x)}" y="${r2(box.y)}" width="${r2(box.w)}" height="${r2(box.h)}" fill="transparent"/>`;
+    out.push(`<g class="legend" data-legend-place="${where}" style="cursor:move">${back}${parts.join('')}</g>`);
+  };
+  if (o.legend === 'custom') {
+    // Free spot (dragged with the mouse or typed in the Style tab): the top left corner in % of the chart, a column of items.
+    const w = Math.max(...items.map(itemWidth)) + 18 * fs;
+    const list = items.slice(0, Math.max(1, Math.floor((ctx.height - 20 * fs) / rowH)));
+    const h = list.length * rowH + 10 * fs;
+    const x = Math.max(2, Math.min(ctx.width - w - 2, ((Number(o.legendX) || 0) / 100) * ctx.width));
+    const y = Math.max(2, Math.min(ctx.height - h - 2, ((Number(o.legendY) || 0) / 100) * ctx.height));
+    let yy = y + 5 * fs + size;
+    for (const it of list) { draw(it, x + 9 * fs, yy); yy += rowH; }
+    finish({ x, y, w, h }, 'custom');
+    return area;
+  }
   if (o.legend === 'left' || o.legend === 'right') {
     const w = Math.min(area.w * 0.35, Math.max(...items.map(itemWidth)) + 10 * fs);
     const shown = Math.max(1, Math.floor(area.h / rowH));
     const list = items.slice(0, shown);
     const total = list.length * rowH;
-    let y = area.y + Math.max(0, (area.h - total) / 2) + size;
+    const y0 = area.y + Math.max(0, (area.h - total) / 2);
+    let y = y0 + size;
     const x = o.legend === 'left' ? area.x : area.x + area.w - w;
     for (const it of list) { draw({ ...it, name: fitText(it.name, w - sw - 10 * fs, size) }, x, y); y += rowH; }
+    finish({ x: x - 4 * fs, y: y0 - 4 * fs, w: w + 8 * fs, h: total + 8 * fs }, o.legend);
     return o.legend === 'left' ? { x: area.x + w + 10 * fs, y: area.y, w: area.w - w - 10 * fs, h: area.h } : { x: area.x, y: area.y, w: area.w - w - 10 * fs, h: area.h };
   }
   // Top / bottom: rows of items, centred, at most three rows.
@@ -366,19 +459,30 @@ function placeLegend(ctx, area, items) {
     lineW += w;
   }
   const blockH = rows.length * rowH + 6 * fs;
-  let y = o.legend === 'top' ? area.y + size : area.y + area.h - blockH + size + 6 * fs;
+  const place = o.legend === 'top' ? 'top' : 'bottom';
+  const y0 = place === 'top' ? area.y : area.y + area.h - blockH + 6 * fs;
+  let y = y0 + size;
+  let minX = Infinity;
+  let maxX = -Infinity;
   for (const row of rows) {
     const total = row.reduce((a, it) => a + itemWidth(it) + gap, -gap);
     let x = area.x + (area.w - total) / 2;
+    minX = Math.min(minX, x);
+    maxX = Math.max(maxX, x + total);
     for (const it of row) { draw(it, x, y); x += itemWidth(it) + gap; }
     y += rowH;
   }
-  return o.legend === 'top' ? { x: area.x, y: area.y + blockH, w: area.w, h: area.h - blockH } : { x: area.x, y: area.y, w: area.w, h: area.h - blockH };
+  finish({ x: minX - 8 * fs, y: y0 - 4 * fs, w: maxX - minX + 16 * fs, h: rows.length * rowH + 4 * fs }, place);
+  return place === 'top' ? { x: area.x, y: area.y + blockH, w: area.w, h: area.h - blockH } : { x: area.x, y: area.y, w: area.w, h: area.h - blockH };
 }
 
 /** One mark: data attributes for the app (selection, tips), a <title> in exports. */
 function mark(ctx, tag, attrs, tip, s, r) {
   ctx.marks++;
+  const op = Number(ctx.o.markOpacity);
+  if (Number.isFinite(op) && op < 1 && attrs.opacity == null) attrs = { ...attrs, opacity: Math.max(0.05, op) };
+  const sw = Number(ctx.o.markStroke);
+  if (sw > 0 && !/\b(line|link|hit|connect)\b/.test(attrs.class ?? '') && attrs.fill && attrs.fill !== 'none' && attrs.fill !== 'transparent') attrs = { ...attrs, stroke: /^#[0-9a-f]{6}$/i.test(ctx.o.markStrokeColor ?? '') ? ctx.o.markStrokeColor : ctx.colors.text, 'stroke-width': sw * ctx.fs };
   const a = Object.entries(attrs).map(([k, v]) => `${k}="${typeof v === 'number' ? r2(v) : esc(v)}"`).join(' ');
   const data = `class="mark${attrs.class ? ` ${attrs.class}` : ''}" data-s="${s ?? ''}" data-r="${r ?? ''}" data-tip="${esc(tip)}"`;
   const body = ctx.titles && tip ? `<title>${esc(tip)}</title>` : '';
@@ -387,7 +491,7 @@ function mark(ctx, tag, attrs, tip, s, r) {
 
 function label(ctx, x, y, text, { anchor = 'middle', color = null, size = 11, weight = 500, baseline = '' } = {}) {
   if (text === '' || text == null) return;
-  ctx.out.push(`<text class="data-label" x="${r2(x)}" y="${r2(y)}" text-anchor="${anchor}" font-size="${r2(size * ctx.fs)}" font-weight="${weight}" fill="${color ?? ctx.colors.text}"${baseline ? ` dominant-baseline="${baseline}"` : ''}>${esc(text)}</text>`);
+  ctx.out.push(`<text class="data-label" x="${r2(x)}" y="${r2(y)}" text-anchor="${anchor}" font-size="${r2(size * ctx.fs * (Number(ctx.o.textScale) || 1))}" font-weight="${weight}" fill="${color ?? ctx.colors.label ?? ctx.colors.text}"${baseline ? ` dominant-baseline="${baseline}"` : ''}>${esc(text)}</text>`);
 }
 
 // ───────────────────────── cartesian charts (axes)
@@ -412,13 +516,17 @@ function valueScale(ctx, min, max, from, to, { forceZero = true, axis = 'y' } = 
   const t = niceTicks(lo, hi, count);
   const a = userMin ?? t.min;
   const b = userMax ?? t.max;
-  const ticks = t.ticks.filter((v) => v >= a - 1e-9 && v <= b + 1e-9);
+  let ticks = t.ticks.filter((v) => v >= a - 1e-9 && v <= b + 1e-9);
+  // A tick step chosen in the Axes tab (value axis): every multiple of it in the range (at most 200).
+  const stepOption = axis !== 'x' ? parseNumber(o.yStep) : null;
+  if (stepOption > 0 && (b - a) / stepOption <= 200) { ticks = []; for (let v = Math.ceil((a - 1e-9) / stepOption) * stepOption; v <= b + 1e-9; v += stepOption) ticks.push(Number(v.toPrecision(12))); }
   return { min: a, max: b, ticks, map: (v) => from + ((v - a) / (b - a || 1)) * (to - from), base: Math.max(a, Math.min(b, 0)) };
 }
 
 /** Category labels along an axis: rotated or thinned when they would overlap; returns the room they take. */
 function categoryLabelRoom(ctx, labels, band, horizontal) {
-  const size = 11.5 * ctx.fs;
+  const size = (Number(ctx.o.tickSize) || 11) * 1.05 * ctx.fs;
+  if (ctx.o.showXLabels === false) return { width: 6 * ctx.fs, height: 6 * ctx.fs, angle: 0, every: Infinity, size, maxLen: 0 };
   const widest = Math.max(0, ...labels.map((l) => textWidth(l, size)));
   if (horizontal) return { width: Math.min(widest, 180 * ctx.fs) + 10 * ctx.fs, angle: 0, every: 1, size };
   const angleOption = ctx.o.xLabelAngle;
@@ -432,9 +540,9 @@ function categoryLabelRoom(ctx, labels, band, horizontal) {
   return { height: room, angle, every, size, maxLen };
 }
 
-function drawAxisTitle(ctx, text, x, y, rotate = 0) {
-  if (!text) return;
-  ctx.out.push(`<text class="axis-title" x="${r2(x)}" y="${r2(y)}" text-anchor="middle" font-size="${r2(12.5 * ctx.fs)}" font-weight="600" fill="${ctx.colors.muted}"${rotate ? ` transform="rotate(${rotate} ${r2(x)} ${r2(y)})"` : ''}>${esc(text)}</text>`);
+function drawAxisTitle(ctx, text, x, y, rotate = 0, axis = rotate === -90 ? 'y' : rotate === 90 ? 'y2' : 'x') {
+  if (!text || ctx.o.showAxisTitles === false) return;
+  ctx.out.push(`<text class="axis-title" data-axis="${axis}" x="${r2(x)}" y="${r2(y)}" text-anchor="middle" font-size="${r2((Number(ctx.o.axisTitleSize) || 12.5) * ctx.fs)}" font-weight="600" fill="${ctx.colors.axisTitle ?? ctx.colors.muted}"${rotate ? ` transform="rotate(${rotate} ${r2(x)} ${r2(y)})"` : ''}>${esc(text)}</text>`);
 }
 
 /**
@@ -443,7 +551,9 @@ function drawAxisTitle(ctx, text, x, y, rotate = 0) {
  */
 function axes(ctx, plot, { categories, min, max, horizontal = false, forceZero = true, percent = false, y2 = null, numericX = null }) {
   const { fs, colors, o, out } = ctx;
-  const tickSize = 11 * fs;
+  const tickSize = (Number(o.tickSize) || 11) * fs;
+  const showY = o.showYLabels !== false;
+  const showX = o.showXLabels !== false;
   const yTitle = o.yTitle;
   const xTitle = o.xTitle;
   let left = plot.x + (horizontal ? (xTitle ? 18 * fs : 0) : (yTitle ? 20 * fs : 0));
@@ -457,13 +567,13 @@ function axes(ctx, plot, { categories, min, max, horizontal = false, forceZero =
   let xScale = null;
   if (numericX) {
     const xs0 = valueScale(ctx, numericX.min, numericX.max, 0, 1, { forceZero: false, axis: 'x' });
-    const leftW = Math.max(...vs0.ticks.map((v) => textWidth(tickText(v), tickSize))) + 10 * fs;
+    const leftW = showY ? Math.max(...vs0.ticks.map((v) => textWidth(tickText(v), tickSize))) + 10 * fs : 6 * fs;
     left += leftW;
-    bottom -= tickSize + 10 * fs;
+    bottom -= showX ? tickSize + 10 * fs : 6 * fs;
     xScale = valueScale(ctx, numericX.min, numericX.max, left, right, { forceZero: false, axis: 'x' });
     void xs0;
   } else if (!horizontal) {
-    const leftW = Math.max(...vs0.ticks.map((v) => textWidth(tickText(v), tickSize))) + 10 * fs;
+    const leftW = showY ? Math.max(...vs0.ticks.map((v) => textWidth(tickText(v), tickSize))) + 10 * fs : 6 * fs;
     left += leftW;
     if (y2) right -= Math.max(...valueScale(ctx, y2.min, y2.max, 0, 1, { axis: 'y2' }).ticks.map((v) => textWidth(formatValue(v, o, ctx.lang, { tick: true }), tickSize))) + 10 * fs;
     catRoom = categoryLabelRoom(ctx, categories, (right - left) / Math.max(1, categories.length), false);
@@ -471,7 +581,7 @@ function axes(ctx, plot, { categories, min, max, horizontal = false, forceZero =
   } else {
     catRoom = categoryLabelRoom(ctx, categories, 0, true);
     left += catRoom.width;
-    bottom -= tickSize + 10 * fs;
+    bottom -= showY ? tickSize + 10 * fs : 6 * fs;
   }
   const vs = numericX || !horizontal ? valueScale(ctx, min, max, bottom, topY, { forceZero }) : valueScale(ctx, min, max, left, right - 10 * fs, { forceZero, axis: 'x' });
   // Grid and value ticks.
@@ -479,10 +589,10 @@ function axes(ctx, plot, { categories, min, max, horizontal = false, forceZero =
     const p = vs.map(v);
     if (!horizontal || numericX) {
       if (o.gridLines) out.push(`<line class="grid" x1="${r2(left)}" x2="${r2(right)}" y1="${r2(p)}" y2="${r2(p)}" stroke="${colors.grid}"${colors.gridDash ? ` stroke-dasharray="${colors.gridDash}"` : ''}/>`);
-      out.push(`<text class="tick" x="${r2(left - 7 * fs)}" y="${r2(p + tickSize * 0.35)}" text-anchor="end" font-size="${r2(tickSize)}" fill="${colors.muted}">${esc(tickText(v))}</text>`);
+      if (showY) out.push(`<text class="tick" x="${r2(left - 7 * fs)}" y="${r2(p + tickSize * 0.35)}" text-anchor="end" font-size="${r2(tickSize)}" fill="${colors.tick}">${esc(tickText(v))}</text>`);
     } else {
       if (o.gridLines) out.push(`<line class="grid" y1="${r2(topY)}" y2="${r2(bottom)}" x1="${r2(p)}" x2="${r2(p)}" stroke="${colors.grid}"${colors.gridDash ? ` stroke-dasharray="${colors.gridDash}"` : ''}/>`);
-      out.push(`<text class="tick" x="${r2(p)}" y="${r2(bottom + tickSize + 6 * fs)}" text-anchor="middle" font-size="${r2(tickSize)}" fill="${colors.muted}">${esc(tickText(v))}</text>`);
+      if (showY) out.push(`<text class="tick" x="${r2(p)}" y="${r2(bottom + tickSize + 6 * fs)}" text-anchor="middle" font-size="${r2(tickSize)}" fill="${colors.tick}">${esc(tickText(v))}</text>`);
     }
   }
   let band = null;
@@ -490,7 +600,7 @@ function axes(ctx, plot, { categories, min, max, horizontal = false, forceZero =
     for (const v of xScale.ticks) {
       const p = xScale.map(v);
       if (o.xGridLines) out.push(`<line class="grid" y1="${r2(topY)}" y2="${r2(bottom)}" x1="${r2(p)}" x2="${r2(p)}" stroke="${colors.grid}"${colors.gridDash ? ` stroke-dasharray="${colors.gridDash}"` : ''}/>`);
-      out.push(`<text class="tick" x="${r2(p)}" y="${r2(bottom + tickSize + 6 * fs)}" text-anchor="middle" font-size="${r2(tickSize)}" fill="${colors.muted}">${esc(formatValue(v, o, ctx.lang, { tick: true }))}</text>`);
+      if (showX) out.push(`<text class="tick" x="${r2(p)}" y="${r2(bottom + tickSize + 6 * fs)}" text-anchor="middle" font-size="${r2(tickSize)}" fill="${colors.tick}">${esc(formatValue(v, o, ctx.lang, { tick: true }))}</text>`);
     }
     out.push(`<line class="axis" x1="${r2(left)}" x2="${r2(right)}" y1="${r2(bottom)}" y2="${r2(bottom)}" stroke="${colors.axis}"/>`);
   } else {
@@ -501,16 +611,16 @@ function axes(ctx, plot, { categories, min, max, horizontal = false, forceZero =
     band = { from, step, center: (i) => from + step * (i + 0.5), n };
     // Category labels.
     categories.forEach((name, i) => {
-      if (i % catRoom.every) return;
+      if (!showX || i % catRoom.every) return;
       const c = band.center(i);
       if (o.xGridLines) out.push(horizontal ? `<line class="grid" x1="${r2(left)}" x2="${r2(right)}" y1="${r2(c)}" y2="${r2(c)}" stroke="${colors.grid}"${colors.gridDash ? ` stroke-dasharray="${colors.gridDash}"` : ''}/>` : `<line class="grid" y1="${r2(topY)}" y2="${r2(bottom)}" x1="${r2(c)}" x2="${r2(c)}" stroke="${colors.grid}"${colors.gridDash ? ` stroke-dasharray="${colors.gridDash}"` : ''}/>`);
       if (horizontal) {
-        out.push(`<text class="cat" x="${r2(left - 8 * fs)}" y="${r2(c + catRoom.size * 0.35)}" text-anchor="end" font-size="${r2(catRoom.size)}" fill="${colors.text}">${esc(fitText(name, catRoom.width - 10 * fs, catRoom.size))}</text>`);
+        out.push(`<text class="cat" x="${r2(left - 8 * fs)}" y="${r2(c + catRoom.size * 0.35)}" text-anchor="end" font-size="${r2(catRoom.size)}" fill="${colors.catText}">${esc(fitText(name, catRoom.width - 10 * fs, catRoom.size))}</text>`);
       } else if (catRoom.angle) {
         const y = bottom + 10 * fs;
-        out.push(`<text class="cat" x="${r2(c)}" y="${r2(y)}" text-anchor="end" font-size="${r2(catRoom.size)}" fill="${colors.text}" transform="rotate(-${catRoom.angle} ${r2(c)} ${r2(y)})" dominant-baseline="middle">${esc(fitText(name, catRoom.maxLen, catRoom.size))}</text>`);
+        out.push(`<text class="cat" x="${r2(c)}" y="${r2(y)}" text-anchor="end" font-size="${r2(catRoom.size)}" fill="${colors.catText}" transform="rotate(-${catRoom.angle} ${r2(c)} ${r2(y)})" dominant-baseline="middle">${esc(fitText(name, catRoom.maxLen, catRoom.size))}</text>`);
       } else {
-        out.push(`<text class="cat" x="${r2(c)}" y="${r2(bottom + catRoom.size + 6 * fs)}" text-anchor="middle" font-size="${r2(catRoom.size)}" fill="${colors.text}">${esc(fitText(name, step * catRoom.every - 4, catRoom.size))}</text>`);
+        out.push(`<text class="cat" x="${r2(c)}" y="${r2(bottom + catRoom.size + 6 * fs)}" text-anchor="middle" font-size="${r2(catRoom.size)}" fill="${colors.catText}">${esc(fitText(name, step * catRoom.every - 4, catRoom.size))}</text>`);
       }
     });
     out.push(horizontal ? `<line class="axis" x1="${r2(left)}" x2="${r2(left)}" y1="${r2(topY)}" y2="${r2(bottom)}" stroke="${colors.axis}"/>` : `<line class="axis" x1="${r2(left)}" x2="${r2(right)}" y1="${r2(bottom)}" y2="${r2(bottom)}" stroke="${colors.axis}"/>`);
@@ -524,13 +634,13 @@ function axes(ctx, plot, { categories, min, max, horizontal = false, forceZero =
   let vs2 = null;
   if (y2) {
     vs2 = valueScale(ctx, y2.min, y2.max, bottom, topY, { axis: 'y2' });
-    for (const v of vs2.ticks) out.push(`<text class="tick" x="${r2(right + 7 * fs)}" y="${r2(vs2.map(v) + tickSize * 0.35)}" text-anchor="start" font-size="${r2(tickSize)}" fill="${colors.muted}">${esc(formatValue(v, o, ctx.lang, { tick: true }))}</text>`);
+    for (const v of vs2.ticks) if (showY) out.push(`<text class="tick" x="${r2(right + 7 * fs)}" y="${r2(vs2.map(v) + tickSize * 0.35)}" text-anchor="start" font-size="${r2(tickSize)}" fill="${colors.tick}">${esc(formatValue(v, o, ctx.lang, { tick: true }))}</text>`);
     drawAxisTitle(ctx, o.y2Title, plot.x + plot.w - 8 * fs, (topY + bottom) / 2, 90);
   }
   // Axis titles.
   if (horizontal && !numericX) {
-    drawAxisTitle(ctx, xTitle, plot.x + 8 * fs, (topY + bottom) / 2, -90);
-    drawAxisTitle(ctx, yTitle, (left + right) / 2, plot.y + plot.h - 4 * fs);
+    drawAxisTitle(ctx, xTitle, plot.x + 8 * fs, (topY + bottom) / 2, -90, 'x');
+    drawAxisTitle(ctx, yTitle, (left + right) / 2, plot.y + plot.h - 4 * fs, 0, 'y');
   } else {
     drawAxisTitle(ctx, yTitle, plot.x + 8 * fs, (topY + bottom) / 2, -90);
     drawAxisTitle(ctx, xTitle, (left + right) / 2, plot.y + plot.h - 4 * fs);
@@ -552,6 +662,9 @@ function drawCartesian(ctx, plot, data) {
   const series = visible(data.series);
   const n = data.categories.length;
   if (!series.length) { label(ctx, plot.x + plot.w / 2, plot.y + plot.h / 2, L(ctx, '모든 계열이 숨겨져 있습니다', 'Every series is hidden'), { color: ctx.colors.muted, size: 13 }); return; }
+  // Series drawn in their own ways (Series tab › Draw as): the mixed chart.
+  const kinds = seriesKinds(ctx, series);
+  if (kinds) { drawMixed(ctx, plot, data, series, kinds); return; }
   const totals = data.categories.map((_, i) => series.reduce((a, s) => a + Math.abs(s.values[i] ?? 0), 0));
   const valueAt = (s, i) => {
     const v = s.values[i];
@@ -695,6 +808,110 @@ function drawCartesian(ctx, plot, data) {
     if (w > 1) {
       const pts = s.values.map((v, i) => { const win = s.values.slice(Math.max(0, i - w + 1), i + 1).filter((x) => x != null); return i >= w - 1 && win.length ? [band.center(i), scale.map(win.reduce((a, b) => a + b, 0) / win.length)] : null; }).filter(Boolean);
       if (pts.length > 1) out.push(`<path class="ma" d="${linePath(pts, 'smooth')}" fill="none" stroke="${darken(s.color, 0.3)}" stroke-width="${r2(2 * fs)}" stroke-dasharray="${r2(3 * fs)} ${r2(3 * fs)}"><title>${esc(`${s.name} — ${w}`)}</title></path>`);
+    }
+  }
+}
+
+// ───────────────────────── mixed charts (two or more ways of drawing on one pair of axes)
+
+/** How each series of a combinable chart is drawn by default (before the Series tab's "Draw as"). */
+function defaultKind(type, o, si) {
+  if (type === 'combo') return si === 0 ? 'column' : 'line';
+  if (type === 'lollipop') return 'lollipop';
+  if (type === 'area') return 'area';
+  if (type === 'spline' || (type === 'line' && o.smooth)) return 'spline';
+  if (type === 'stepLine') return 'step';
+  if (type === 'line') return o.lineWidth === 0 ? 'points' : 'line';
+  return 'column';
+}
+
+/** The kind of each visible series when the user mixed kinds (null when every series keeps the chart's own way). */
+function seriesKinds(ctx, series) {
+  const { chart, o } = ctx;
+  const own = o.seriesTypes && typeof o.seriesTypes === 'object' ? o.seriesTypes : {};
+  const right = o.seriesAxis && typeof o.seriesAxis === 'object' ? o.seriesAxis : {};
+  if (!COMBINABLE.has(chart.type) || o.horizontal) return null;
+  const kinds = series.map((s, si) => (SERIES_KINDS.includes(own[s.index]) ? own[s.index] : defaultKind(chart.type, o, si)));
+  const changed = series.some((s, si) => kinds[si] !== defaultKind(chart.type, o, si) || right[s.index] === 'right');
+  return changed ? kinds : null;
+}
+
+/**
+ * A chart whose series are drawn in different ways (columns, lines, smooth or step lines, areas, points, lollipops)
+ * on the same category axis; series set to the right axis share a second value axis.
+ */
+function drawMixed(ctx, plot, data, series, kinds) {
+  const { o, fs, out } = ctx;
+  const n = data.categories.length;
+  const right = o.seriesAxis && typeof o.seriesAxis === 'object' ? o.seriesAxis : {};
+  const onRight = series.map((s) => right[s.index] === 'right');
+  const leftValues = series.flatMap((s, k) => (onRight[k] ? [] : finite(s.values)));
+  const rightValues = series.flatMap((s, k) => (onRight[k] ? finite(s.values) : []));
+  const all = leftValues.length ? leftValues : rightValues;
+  const forceZero = kinds.some((k) => k === 'column' || k === 'area' || k === 'lollipop') || o.beginAtZero !== false;
+  const y2 = rightValues.length && leftValues.length ? { min: Math.min(0, ...rightValues), max: Math.max(0, ...rightValues) } : null;
+  const ax = axes(ctx, plot, { categories: data.categories, min: Math.min(...all), max: Math.max(...all), forceZero, y2 });
+  const { band, vs } = ax;
+  const scaleOf = (k) => (onRight[k] && ax.vs2 ? ax.vs2 : vs);
+  const fmt = (v) => formatValue(v, o, ctx.lang);
+  const lw = (Number.isFinite(Number(o.lineWidth)) && Number(o.lineWidth) > 0 ? Number(o.lineWidth) : 2.5) * fs;
+  const opacity = Number.isFinite(Number(o.areaOpacity)) ? Math.max(0, Math.min(1, Number(o.areaOpacity))) : 0.35;
+  const order = series.map((s, k) => k);
+  // Areas first (behind everything), then columns, lollipops, lines and points.
+  for (const k of order.filter((k) => kinds[k] === 'area')) {
+    const s = series[k];
+    const scale = scaleOf(k);
+    const top = s.values.map((v, i) => [band.center(i), scale.map(v ?? 0), i]);
+    const zero = scale.map(scale.log ? scale.min : scale.base ?? 0);
+    out.push(mark(ctx, 'path', { d: `${linePath(top, o.smooth ? 'smooth' : 'line')}L${r2(top[top.length - 1][0])},${r2(zero)}L${r2(top[0][0])},${r2(zero)}Z`, fill: s.color, 'fill-opacity': opacity, stroke: 'none', class: 'area' }, s.name, s.index, ''));
+    out.push(`<path class="line" d="${linePath(top, o.smooth ? 'smooth' : 'line')}" fill="none" stroke="${s.color}" stroke-width="${r2(lw * 0.8)}"/>`);
+    for (const [x, y, i] of top) out.push(mark(ctx, 'circle', { cx: x, cy: y, r: 6 * fs, fill: 'transparent', class: 'hit' }, tipOf(ctx, s.name, data.categories[i], s.values[i]), s.index, data.order[i]));
+  }
+  const columns = order.filter((k) => kinds[k] === 'column');
+  if (columns.length) {
+    const inner = band.step * (1 - Math.max(0, Math.min(0.9, Number(o.barGap) || 0)));
+    const bw = inner / columns.length;
+    const radius = Math.max(0, Number(o.barRadius) || 0) * fs;
+    columns.forEach((k, j) => {
+      const s = series[k];
+      const scale = scaleOf(k);
+      for (let i = 0; i < n; i++) {
+        const v = s.values[i];
+        if (v == null) continue;
+        const p0 = scale.map(scale.log ? scale.min : 0);
+        const p1 = scale.map(v);
+        const x = band.from + band.step * i + (band.step - inner) / 2 + j * bw;
+        const w = Math.max(1, bw - (columns.length > 1 ? 2 * fs : 0));
+        out.push(mark(ctx, 'rect', { x, y: Math.min(p0, p1), width: w, height: Math.abs(p1 - p0), rx: Math.min(radius, w / 2, Math.abs(p1 - p0) / 2), fill: s.color, class: 'bar' }, tipOf(ctx, s.name, data.categories[i], v), s.index, data.order[i]));
+        if (o.dataLabels) label(ctx, x + w / 2, p1 + (v >= 0 ? -5 : 13) * fs, fmt(v), { size: 10.5 });
+      }
+    });
+  }
+  const pops = order.filter((k) => kinds[k] === 'lollipop');
+  pops.forEach((k, j) => {
+    const s = series[k];
+    const scale = scaleOf(k);
+    for (let i = 0; i < n; i++) {
+      const v = s.values[i];
+      if (v == null) continue;
+      const c = band.from + band.step * i + band.step * ((j + 0.5) / pops.length) * 0.7 + band.step * 0.15;
+      out.push(`<line x1="${r2(c)}" x2="${r2(c)}" y1="${r2(scale.map(0))}" y2="${r2(scale.map(v))}" stroke="${s.color}" stroke-width="${r2(2 * fs)}"/>`);
+      out.push(mark(ctx, 'circle', { cx: c, cy: scale.map(v), r: Math.max(3, (Number(o.markerSize) || 4) * 1.6) * fs, fill: s.color, class: 'dot' }, tipOf(ctx, s.name, data.categories[i], v), s.index, data.order[i]));
+    }
+  });
+  for (const k of order.filter((k) => ['line', 'spline', 'step', 'points'].includes(kinds[k]))) {
+    const s = series[k];
+    const scale = scaleOf(k);
+    const kind = kinds[k];
+    const pts = s.values.map((v, i) => (v == null ? null : [band.center(i), scale.map(v), i])).filter(Boolean);
+    if (kind !== 'points' && pts.length > 1) {
+      out.push(`<path class="mark line" data-s="${s.index}" data-r="" data-tip="${esc(s.name)}" d="${linePath(pts, kind === 'spline' ? 'smooth' : kind === 'step' ? 'step' : 'line')}" fill="none" stroke="${s.color}" stroke-width="${r2(lw)}" stroke-linejoin="round" stroke-linecap="round"/>`);
+      ctx.marks++;
+    }
+    for (const [x, y, i] of pts) {
+      const dot = kind === 'points' || o.markers;
+      out.push(mark(ctx, 'circle', dot ? { cx: x, cy: y, r: (Number(o.markerSize) || 4) * fs * (kind === 'points' ? 1.4 : 1), fill: kind === 'points' ? s.color : ctx.colors.base, stroke: s.color, 'stroke-width': 2 * fs, class: 'dot' } : { cx: x, cy: y, r: 7 * fs, fill: 'transparent', class: 'hit' }, tipOf(ctx, s.name, data.categories[i], s.values[i]), s.index, data.order[i]));
+      if (o.dataLabels) label(ctx, x, y - 9 * fs, fmt(s.values[i]), { size: 10.5 });
     }
   }
 }
@@ -1324,11 +1541,12 @@ const DRAW = {
 /** The chart's data as a small table (the export documents put it under the picture). */
 export function chartDataTable(doc) {
   const chart = normalizeChart(doc.chart ?? {}, doc.table);
+  const view = chartTable(doc.table, chart);
   const used = new Set([chart.mapping.category, chart.mapping.label, chart.mapping.group, chart.mapping.x, chart.mapping.y, chart.mapping.size, chart.mapping.open, chart.mapping.high, chart.mapping.low, chart.mapping.close, chart.mapping.source, chart.mapping.target, chart.mapping.start, chart.mapping.end, chart.mapping.goal, ...(chart.mapping.values ?? [])].filter((c) => c != null));
   const cols = [...used].sort((a, b) => a - b);
   return {
-    columns: cols.map((c) => ({ label: doc.table.columns[c].name, num: doc.table.columns[c].type === 'number' })),
-    rows: doc.table.rows.map((r) => ({ cells: cols.map((c) => cellText(r[c])) })),
+    columns: cols.map((c) => ({ label: view.columns[c].name, num: view.columns[c].type === 'number' })),
+    rows: view.rows.map((r) => ({ cells: cols.map((c) => cellText(r[c])) })),
   };
 }
 

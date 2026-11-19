@@ -92,6 +92,9 @@ export function bindSteppers(root, onChange) {
     repeat = { timeout: setTimeout(() => { repeat.interval = setInterval(() => step(button), 70); }, 400) };
   });
   for (const type of ['pointerup', 'pointerleave', 'pointercancel', 'blur']) root.addEventListener(type, stop, true);
+  // Let go anywhere (outside the window too, or the window loses focus): the repeat stops.
+  const view = root.ownerDocument?.defaultView ?? globalThis;
+  for (const type of ['pointerup', 'pointercancel', 'blur']) view.addEventListener?.(type, stop, true);
   root.addEventListener('click', (event) => {
     // Keyboard activation (Enter / Space on the button) arrives as a click without a pointer.
     const button = event.target.closest('.stepper-button');

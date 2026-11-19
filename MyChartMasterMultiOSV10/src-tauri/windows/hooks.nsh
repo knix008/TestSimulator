@@ -34,10 +34,10 @@
 ;  the Start menu one the folder page is skipped; the desktop one replaces the
 ;  template's check box on the finish page. Silent (/S) and passive (/P)
 ;  installs keep Tauri's behaviour (both, or none with /NS).
-; Language: the selector opens at every installation with both languages. The template
-;  remembers the last choice in the registry, and NSIS then skips the selector unless
-;  MUI_LANGDLL_ALWAYSSHOW is defined; without MUI_LANGDLL_ALLLANGUAGES it also hides languages
-;  outside the system's code page (and with one left, the whole selector). The choice goes to
+; Language: the selector opens first, at every installation, with both languages (MumLangDialog, below: a
+;  task dialog titled "MyChartMaster <version>" with the program icon in its title bar, replacing MUI's
+;  language dialog, which has no icon there; test/e2e/installer.mjs compiles it into a stub and checks it).
+;  OK installs in that language, Cancel stops before anything is changed. The choice goes to
 ;  %APPDATA%\com.shkwon.mychartmaster\install-language, which the next start reads (once): the
 ;  program opens in the language of the installation. Silent and passive installs choose nothing
 ;  and write nothing, so an update keeps the user's language.
@@ -83,11 +83,117 @@
 !define /IfNDef MUM_SD_ASK IDNO
 !define /IfNDef MUM_SD_RUNNING IDCANCEL
 
-; The language selector: always shown, always with both languages, in both languages.
+; ── The installation language
+; The selector opens at every installation (not silent or passive ones) with both languages. It is our own window,
+; not MUI's (whose title bar has no icon): a Windows task dialog titled with the program's name and version, the
+; program icon in its title bar and beside the text, the explanation, and 한국어 / English as choices (the system's
+; language preselected). OK installs in that language; Cancel stops before anything is changed. The program then
+; starts in the same language (MumWriteLanguage → install-language → window_state.rs).
+; The task dialog lives in Common Controls 6, which the installer's manifest asks for here (also giving the
+; installer's pages their modern look).
+XPStyle on
 !define MUI_LANGDLL_ALWAYSSHOW
 !define MUI_LANGDLL_ALLLANGUAGES
-!define MUI_LANGDLL_WINDOWTITLE "언어 / Language"
-!define MUI_LANGDLL_INFO "설치와 프로그램에 사용할 언어를 고르십시오.$\nChoose the language of the installer and the program."
+; MUI's macro, expanded by the template inside .onInit (where ${PRODUCTNAME}, ${VERSION} and $PassiveMode exist).
+!ifmacrodef MUI_LANGDLL_DISPLAY
+!macroundef MUI_LANGDLL_DISPLAY
+!endif
+!macro MUI_LANGDLL_DISPLAY
+  ; The uninstaller (MUI_UNGETLANGUAGE) asks nothing: it speaks the installation's language (remembered by the
+  ; template) or the system's.
+  !ifndef __UNINSTALL__
+    ${If} $PassiveMode <> 1
+      StrCpy $MumLangTitle "${PRODUCTNAME} ${VERSION}"
+      Call MumLangDialog
+    ${EndIf}
+  !endif
+!macroend
+; The title of the language window ("MyChartMaster 1.0.0").
+Var MumLangTitle
+; The installer's icon resource (the program icon, tauri.conf.json › bundle › windows › nsis › installerIcon).
+!define /IfNDef MUM_LANG_ICON_ID 103
+
+Function MumLangDialog
+  IfSilent mumLangEnd
+  Push $0
+  Push $1
+  Push $2
+  Push $3
+  Push $4
+  Push $5
+  Push $6
+  Push $7
+  Push $8
+  Push $9
+  Push $R0
+  Push $R2
+  Push $R3
+  ; The program icon: a large one beside the text, a small one for the title bar.
+  System::Call 'kernel32::GetModuleHandleW(p 0) p .r9'
+  System::Call 'user32::LoadImageW(p r9, p ${MUM_LANG_ICON_ID}, i 1, i 32, i 32, i 0) p .r8'
+  System::Call 'user32::LoadImageW(p r9, p ${MUM_LANG_ICON_ID}, i 1, i 16, i 16, i 0) p .r7'
+  ; The choices (TASKDIALOG_BUTTON is packed: { int id; PCWSTR text }); the system's language preselected.
+  System::Call '*(i 1042, w "한국어 (Korean)", i 1033, w "English")p .r1'
+  StrCpy $6 1033
+  ${If} $LANGUAGE == 1042
+    StrCpy $6 1042
+  ${EndIf}
+  ; HRESULT CALLBACK (HWND, UINT notification, WPARAM, LPARAM, LONG_PTR): "callbackN" arrives in $R2, the result comes
+  ; from the stack. Its address goes into the structure through an identity call (MulDiv(x, 1, 1) = x; the installer
+  ; is 32-bit, so a pointer fits an int).
+  System::Get '(p .r4, i .r5, p, p, p) isR2'
+  Pop $R0
+  System::Call 'kernel32::MulDiv(k R0, i 1, i 1) i .r3'
+  ; TASKDIALOGCONFIG (packed): flags 0x0A = TDF_USE_HICON_MAIN | TDF_ALLOW_DIALOG_CANCELLATION; buttons 9 = OK | Cancel.
+  !if ${NSIS_PTR_SIZE} > 4
+    StrCpy $0 160
+  !else
+    StrCpy $0 96
+  !endif
+  System::Call '*(i r0, p 0, p r9, i 0x0A, i 9, w "$MumLangTitle", p r8, w "설치 언어 / Installation language", w "설치에 사용할 언어를 고르십시오. 설치한 뒤 ${MUM_NAME} 도 이 언어로 실행됩니다.$\n$\nSelect the language for the installation. ${MUM_NAME} will then start in this language.", i 0, p 0, i 0, i 2, p r1, i r6, p 0, p 0, p 0, p 0, p 0, p 0, p r3, p 0, i 0)p .r2'
+  StrCpy $R2 ""
+  System::Call 'comctl32::TaskDialogIndirect(p r2, *i .r0, *i .r6, p 0) i .r9'
+  mumLangLoop:
+    StrCpy $R3 $R2 8
+    StrCmp $R3 "callback" 0 mumLangDone
+    ${If} $5 == 0
+      ; TDN_CREATED: WM_SETICON, ICON_SMALL (0) for the title bar, ICON_BIG (1) for Alt+Tab.
+      SendMessage $4 0x0080 0 $7
+      SendMessage $4 0x0080 1 $8
+    ${EndIf}
+    Push 0
+    StrCpy $R2 ""
+    System::Call "$R0"
+    Goto mumLangLoop
+  mumLangDone:
+  System::Free $R0
+  System::Free $1
+  System::Free $2
+  ; OK (IDOK = 1): the chosen language; Cancel or Esc (IDCANCEL = 2): the installation stops. When the window could
+  ; not open at all ($9 = an error HRESULT), the installation goes on in the system's language.
+  ${If} $9 == 0
+  ${AndIf} $0 <> 1
+    Quit
+  ${EndIf}
+  ${If} $6 == 1042
+  ${OrIf} $6 == 1033
+    StrCpy $LANGUAGE $6
+  ${EndIf}
+  Pop $R3
+  Pop $R2
+  Pop $R0
+  Pop $9
+  Pop $8
+  Pop $7
+  Pop $6
+  Pop $5
+  Pop $4
+  Pop $3
+  Pop $2
+  Pop $1
+  Pop $0
+  mumLangEnd:
+FunctionEnd
 
 ; 1042 = Korean, 1033 = English (the installer's two languages).
 LangString MumAskReinstall 1042 "이전에 설치한 MyChartMaster 가 있습니다.$\n$R9$\n$\n이전 프로그램을 완전히 삭제하고 다시 설치할까요?$\n$\n예: 이전 프로그램과 바로가기를 지우고 새로 설치합니다. 사용자 데이터는 다음 질문에서 정합니다.$\n아니오: 설치를 그만둡니다."

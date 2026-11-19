@@ -461,7 +461,7 @@ async function checkRecent() {
 export const SHORTCUT_LIST = [
   ['Ctrl+N', 'action.newChart'], ['Ctrl+O', 'action.open'], ['Ctrl+S', 'action.save'], ['Ctrl+Shift+S', 'action.saveAs'], ['Ctrl+W', 'action.closeTab'], ['Ctrl+P', 'action.print'], ['Ctrl+Q', 'action.exit'],
   ['Ctrl+I', 'action.importData'], ['Ctrl+E', 'action.exportChart'], ['Ctrl+Shift+C', 'action.copyImage'], ['Ctrl+Z', 'action.undo'], ['Ctrl+Y / Ctrl+Shift+Z', 'action.redo'],
-  ['Ctrl+Shift+V', 'action.pasteData'], ['Ctrl+Enter', 'action.addRow'], ['Ctrl+Shift+Enter', 'action.addColumn'], ['Ctrl+Shift+T', 'action.transpose'], ['Ctrl+Shift+I', 'action.dataStats'],
+  ['Ctrl+Shift+V', 'action.pasteData'], ['Ctrl+Enter', 'action.addRow'], ['Ctrl+Shift+Enter', 'action.addColumn'], ['Ctrl+Shift+T', 'action.transpose'], ['Ctrl+Shift+R', 'action.chartFromSelection'], ['Ctrl+Shift+I', 'action.dataStats'],
   ['Ctrl+L', 'action.toggleLabels'], ['Ctrl+Shift+G', 'action.cycleLegend'], ['Ctrl+K', 'action.paletteMenu'], ['Ctrl+[ / Ctrl+]', 'action.prevType'],
   ['Ctrl+= / Ctrl+-', 'action.zoomIn'], ['Ctrl+0', 'action.zoomFit'], ['Ctrl+Shift+1 / 2', 'action.leftPanel'], ['Ctrl+J', 'action.bottomPanel'], ['Ctrl+Tab', 'tabs.next'],
   ['Ctrl+Shift+L', 'action.language'], ['Ctrl+Shift+H', 'action.startPage'], ['Ctrl+Shift+P', 'action.settings'], ['F11', 'action.tutorial'], ['F1', 'action.about'],

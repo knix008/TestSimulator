@@ -54,6 +54,17 @@ export class ChartDoc {
     this.dirty = true;
   }
 
+  /**
+   * Which part of the table the chart reads (`dataRange`: { r0, r1, c0, c1 } or null) and how (`seriesIn`: 'columns'
+   * or 'rows'). The column roles are found again for the new view; hidden series and mixed kinds start over.
+   */
+  setDataView(patch) {
+    this.remember();
+    const options = { ...this.chart.options, hidden: [], seriesTypes: {}, seriesAxis: {} };
+    this.chart = normalizeChart({ ...this.chart, ...patch, mapping: null, options }, this.table);
+    this.dirty = true;
+  }
+
   /** Another chart type: the mapping is made again from the data (keeping what fits). */
   setType(type) {
     if (!CHART_IDS.includes(type) || type === this.chart.type) return false;

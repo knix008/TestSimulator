@@ -278,7 +278,7 @@ test('inspector.style', 'Titles, legend position, palette window and background'
 test('inspector.axes', 'Axis title, maximum, log scale and number format', async () => {
   const r = await run(`A.api.setInspectorTab('axes'); await sleep(50);
     const set = (sel, v, ev = 'change') => { const el = q(sel); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event(ev, { bubbles: true })); };
-    set('[data-opt="yTitle"]', 'Sales'); set('[data-opt="yMax"]', '1000'); set('[data-opt="suffix"]', 'M'); await sleep(80);
+    set('[data-opt="yTitle"]', 'Sales'); set('.stepper[data-stepper="opt:yMax"] .stepper-value', '1000'); set('[data-opt="suffix"]', 'M'); await sleep(80);
     const ticks = qa('.ch-canvas .tick').map((x) => x.textContent);
     return { title: qa('.ch-canvas .axis-title').map((x) => x.textContent), top: ticks.some((x) => /1,?000M/.test(x)) };`);
   assert(r.title.includes('Sales') && r.top, JSON.stringify(r));
@@ -300,7 +300,7 @@ test('inspector.series', 'Series colour, hide, data labels, trend line', async (
 
 test('inspector.more', 'Type settings (donut hole, heat map ramp) and chart size', async () => {
   const r = await run(`A.actions.setChartType('donut'); A.api.setInspectorTab('more'); await sleep(50);
-    const hole = q('[data-opt="innerRadius"]'); hole.value = '0.8'; hole.dispatchEvent(new Event('input', { bubbles: true })); hole.dispatchEvent(new Event('change', { bubbles: true }));
+    const hole = q('.stepper[data-stepper="opt:innerRadius"] .stepper-value'); hole.value = '0.8'; hole.dispatchEvent(new Event('input', { bubbles: true })); hole.dispatchEvent(new Event('change', { bubbles: true }));
     q('[data-ins-size="1080x1080"]').click(); await sleep(80);
     return { hole: doc().chart.options.innerRadius, size: [doc().chart.options.width, doc().chart.options.height], svg: [svg().getAttribute('width'), svg().getAttribute('height')], label: q('.ch-size').textContent };`);
   assert(r.hole === 0.8 && r.size.join() === '1080,1080' && r.svg.join() === '1080,1080' && /1080/.test(r.label), JSON.stringify(r));
@@ -626,6 +626,188 @@ test('export.transparency', 'Export window: transparent background offered for P
   assert(files.jpg?.[3] === 255 && files.jpg[0] > 240 && files.jpg[1] > 240 && files.jpg[2] > 240, `jpeg corner ${files.jpg}`);
 });
 
+// ───────────────────────── right panel: steppers, alignment, fine settings
+
+test('panel.steppers', 'Every number in the right panel is a − value unit + stepper; steps change the chart at once', async () => {
+  await closeAll();
+  await openSample('monthly-sales');
+  const r = await run(`const out = { raw: 0, steppers: 0 };
+    for (const tab of ['data', 'style', 'axes', 'series', 'more']) { A.api.setInspectorTab(tab); await sleep(80); out.raw += qa('.ins-body input[type=number], .ins-body input[type=range]').length; out.steppers += qa('.ins-body .stepper').length;
+      for (const st of qa('.ins-body .stepper')) { const kids = [...st.children].map((c) => c.className.split(' ')[0]); if (kids[0] !== 'stepper-button' || kids[1] !== 'stepper-value' || kids.at(-1) !== 'stepper-button') out.order = kids.join(','); } }
+    A.api.setInspectorTab('style'); await sleep(80);
+    const size = () => Number(q('.ch-canvas .chart-title').getAttribute('font-size'));
+    const before = size(); const plus = q('.stepper[data-stepper="opt:titleSize"] [data-step-dir="1"]');
+    plus.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 })); window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true })); await sleep(120);
+    const after = size(); const stored = doc().chart.options.titleSize;
+    await sleep(700); const settled = doc().chart.options.titleSize; // released outside the panel: no more steps
+    A.api.setInspectorTab('axes'); await sleep(80);
+    const field = q('.stepper[data-stepper="opt:yMax"] .stepper-value'); field.value = '300'; field.dispatchEvent(new Event('change', { bubbles: true })); await sleep(80); const yMax = doc().chart.options.yMax;
+    const top = Math.max(...qa('.ch-canvas .tick').map((t) => Number(t.textContent.replace(/[^0-9.-]/g, '')) || 0));
+    field.value = ''; field.dispatchEvent(new Event('change', { bubbles: true })); await sleep(80);
+    return { ...out, before, after, stored, settled, yMax, top, auto: doc().chart.options.yMax };`);
+  assert(r.raw === 0 && r.steppers >= 15 && !r.order, `${r.raw} plain number inputs, ${r.steppers} steppers ${r.order ?? ''}`);
+  assert(r.stored === 21 && r.after > r.before, `title size ${r.before} → ${r.after} (stored ${r.stored})`);
+  assert(r.settled === 21, `the stepper kept stepping after the button was let go: ${r.settled}`);
+  assert(r.yMax === 300 && r.top === 300 && r.auto === '', JSON.stringify(r));
+});
+
+test('panel.aligned', 'Right panel and Settings: every label and every control start on one vertical line', async () => {
+  const panel = await run(`const out = {}; for (const tab of ['data', 'style', 'axes', 'series', 'more']) { A.api.setInspectorTab(tab); await sleep(80);
+      const rows = qa('.ins-body .ins-row:not(.block)').filter((r) => r.offsetParent);
+      out[tab] = { labels: [...new Set(rows.map((r) => Math.round(r.querySelector('.ins-label').getBoundingClientRect().left)))], controls: [...new Set(rows.map((r) => Math.round((r.querySelector('.ins-control > *') ?? r.querySelector('.ins-control')).getBoundingClientRect().left)))] }; }
+    return out;`);
+  for (const [tab, x] of Object.entries(panel)) assert(x.labels.length === 1 && x.controls.length === 1, `${tab}: labels at ${x.labels}, controls at ${x.controls}`);
+  const settings = await run(`A.popups.open('settings', { tab: 'charts' }); await until(() => pop('settings')?.querySelector('[data-action="tab"]')); const out = {};
+    for (const b of [...pop('settings').querySelectorAll('[data-action="tab"]')]) { b.click(); await sleep(150); const d = pop('settings'); const tab = b.dataset.value ?? b.dataset.tab;
+      const rows = [...d.querySelectorAll('.row')].filter((r) => r.querySelector('.row-control > *') && r.offsetParent);
+      const lefts = [...new Set(rows.map((r) => Math.round(r.querySelector('.row-control > *').getBoundingClientRect().left)))];
+      const widths = [...new Set(rows.map((r) => r.querySelector('.row-control > *')).filter((el) => el.matches('.stepper, select')).map((el) => Math.round(el.getBoundingClientRect().width)))];
+      out[tab] = { lefts, widths, raw: d.querySelectorAll('input[type=number], input[type=range]').length }; }
+    await A.popups.closeAll(); return out;`);
+  for (const [tab, x] of Object.entries(settings)) {
+    if (!x.lefts.length) continue;
+    assert(x.lefts.length === 1 && x.widths.length <= 1 && !x.raw, `Settings ${tab}: controls at ${x.lefts}, widths ${x.widths}, ${x.raw} plain number inputs`);
+  }
+});
+
+test('panel.fine', 'Fine settings reach the picture: titles, legend, axes, ticks, grid, plot area, marks, text', async () => {
+  await closeAll();
+  await openSample('monthly-sales');
+  const r = await run(`const set = (o) => { doc().setChart({ options: o }); A.api.refresh?.(); };
+    const draw = async (o) => { for (const [k, v] of Object.entries(o)) A.actions.setOption(k, v); await sleep(80); return svg(); };
+    let s = await draw({ titleColor: '#7c3aed', titleSize: 30, titleBold: false, subtitleColor: '#0d9488' });
+    const title = q('.ch-canvas .chart-title'); const sub = q('.ch-canvas .chart-subtitle');
+    const titles = [title.getAttribute('fill'), title.getAttribute('font-weight'), sub.getAttribute('fill')];
+    s = await draw({ axisColor: '#dc2626', axisWidth: 3, tickColor: '#2563eb', tickSize: 16, gridColor: '#f59e0b', gridWidth: 2, gridStyle: 'dashed' });
+    const axis = q('.ch-canvas line.axis'); const tick = q('.ch-canvas .tick'); const grid = q('.ch-canvas line.grid');
+    const axes = [axis.getAttribute('stroke'), axis.getAttribute('stroke-width'), tick.getAttribute('fill'), tick.getAttribute('font-size') > 14, grid.getAttribute('stroke'), grid.getAttribute('stroke-width'), grid.getAttribute('stroke-dasharray')];
+    s = await draw({ yStep: 25 }); const ticks = qa('.ch-canvas .tick').map((t) => Number(t.textContent.replace(/[^0-9.-]/g, ''))).filter(Number.isFinite);
+    s = await draw({ showYLabels: false, showXLabels: false }); const hidden = [qa('.ch-canvas .tick').length, qa('.ch-canvas .cat').length];
+    s = await draw({ showYLabels: true, showXLabels: true, yTitle: 'Sales', axisTitleColor: '#be123c', axisTitleSize: 18 }); const at = q('.ch-canvas .axis-title[data-axis="y"]');
+    const axisTitle = [at?.textContent, at?.getAttribute('fill'), Number(at?.getAttribute('font-size')) > 16];
+    s = await draw({ showAxisTitles: false }); const noTitles = qa('.ch-canvas .axis-title').length;
+    s = await draw({ plotBackground: '#f1f5f9', plotBorder: true, padding: 40, markOpacity: 0.5, markStroke: 2, markStrokeColor: '#111827' });
+    const bar = q('.ch-canvas .mark.bar'); const plot = [!!q('.ch-canvas .plot-bg'), !!q('.ch-canvas .plot-border'), bar.getAttribute('opacity'), bar.getAttribute('stroke')];
+    s = await draw({ legend: 'custom', legendX: 10, legendY: 20, legendBox: true, legendFontSize: 18, legendColor: '#047857', legendSwatch: 'circle' });
+    const lg = q('.ch-canvas g.legend'); const box = lg.querySelector('.legend-box'); const vb = svg().viewBox.baseVal;
+    const legend = [lg.dataset.legendPlace, Math.round((Number(box.getAttribute('x')) / vb.width) * 100), Math.round((Number(box.getAttribute('y')) / vb.height) * 100), box.getAttribute('fill') !== 'transparent', !!lg.querySelector('circle'), lg.querySelector('text').getAttribute('fill')];
+    s = await draw({ dataLabels: true, textScale: 1.5, textColor: '#9a3412' }); const dl = q('.ch-canvas .data-label');
+    const text = [dl.getAttribute('fill'), Number(dl.getAttribute('font-size')) > 14];
+    return { titles, axes, ticks, hidden, axisTitle, noTitles, plot, legend, text };`);
+  assert(r.titles.join() === '#7c3aed,500,#0d9488', `titles ${r.titles}`);
+  assert(r.axes[0] === '#dc2626' && r.axes[1] === '3' && r.axes[2] === '#2563eb' && r.axes[3] && r.axes[4] === '#f59e0b' && r.axes[5] === '2' && r.axes[6] === '5 4', `axes ${r.axes}`);
+  assert(r.ticks.length > 3 && r.ticks.every((v) => v % 25 === 0), `ticks ${r.ticks}`);
+  assert(r.hidden[0] === 0 && r.hidden[1] === 0, `hidden tick labels ${r.hidden}`);
+  assert(r.axisTitle[0] === 'Sales' && r.axisTitle[1] === '#be123c' && r.axisTitle[2] && r.noTitles === 0, `axis title ${r.axisTitle} / ${r.noTitles}`);
+  assert(r.plot.join() === 'true,true,0.5,#111827', `plot ${r.plot}`);
+  assert(r.legend[0] === 'custom' && Math.abs(r.legend[1] - 10) <= 1 && Math.abs(r.legend[2] - 20) <= 1 && r.legend[3] && r.legend[4] && r.legend[5] === '#047857', `legend ${r.legend}`);
+  assert(r.text[0] === '#9a3412' && r.text[1], `text ${r.text}`);
+});
+
+test('chart.legendDrag', 'The legend is dragged with the mouse to any spot (its click does not hide a series)', async () => {
+  await closeAll();
+  await openSample('monthly-sales');
+  const r = await run(`const lg = q('.ch-canvas g.legend'); const item = lg.querySelector('[data-legend]'); const b = item.getBoundingClientRect();
+    const x = b.left + 5; const y = b.top + 5;
+    item.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: x, clientY: y }));
+    window.dispatchEvent(new PointerEvent('pointermove', { clientX: x - 200, clientY: y - 250 }));
+    window.dispatchEvent(new PointerEvent('pointerup', { clientX: x - 200, clientY: y - 250 }));
+    item.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: x - 200, clientY: y - 250 })); await sleep(120);
+    const o = doc().chart.options; return { legend: o.legend, x: o.legendX, y: o.legendY, hidden: o.hidden.length, place: q('.ch-canvas g.legend')?.dataset.legendPlace, panel: (A.api.setInspectorTab('style'), await sleep(80), !!q('.stepper[data-stepper="opt:legendX"]')) };`);
+  assert(r.legend === 'custom' && r.place === 'custom' && r.x > 0 && r.y > 0 && r.y < 80, JSON.stringify(r));
+  assert(r.hidden === 0, 'the drag also hid a series');
+  assert(r.panel, 'the Style tab shows no legend X / Y for the free spot');
+  const undo = await run(`A.actions.undo(); await sleep(80); return doc().chart.options.legend;`);
+  assert(undo === 'bottom', `undo → ${undo}`);
+});
+
+test('chart.axisTitleEdit', 'Double-clicking an axis title edits it (empty brings back the automatic title)', async () => {
+  await closeAll();
+  await openSample('height-weight');
+  const r = await run(`const t = q('.ch-canvas .axis-title[data-axis="x"]'); const before = t?.textContent;
+    t.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); await until(() => pop('prompt')?.querySelector('input'));
+    const d = pop('prompt'); const input = d.querySelector('[data-draft="value"]') ?? d.querySelector('input'); const shown = input.value; input.value = 'Height in cm'; input.dispatchEvent(new Event('input', { bubbles: true }));
+    d.querySelector('[data-action="prompt-apply"]').click(); await until(() => doc().chart.options.xTitle === 'Height in cm'); await sleep(80);
+    return { before, shown, after: q('.ch-canvas .axis-title[data-axis="x"]')?.textContent };`).catch((e) => ({ error: e.message }));
+  assert(!r.error, r.error);
+  assert(r.before && r.shown === r.before && r.after === 'Height in cm', JSON.stringify(r));
+});
+
+test('menus.chartParts', 'Right-click menus fit the part clicked (legend, axis title, axis, title, mark, plot) and always offer Export and Print', async () => {
+  await closeAll();
+  await openSample('monthly-sales');
+  await run(`A.actions.setOption('yTitle', 'Sales'); await sleep(80); return 1;`);
+  const r = await run(`const out = {};
+    const open = async (el, name) => { const b = el.getBoundingClientRect(); el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: b.left + 2, clientY: b.top + 2 }));
+      await until(() => pop('menu')?.querySelector('.menu-item'), 5000).catch(() => null); const d = pop('menu');
+      out[name] = d ? [...d.querySelectorAll('.menu-item')].map((x) => x.dataset.id ?? x.dataset.item ?? x.textContent.trim()) : []; await A.popups.closeAll(); await sleep(60); };
+    await open(q('.ch-canvas g.legend [data-legend]'), 'legend'); await open(q('.ch-canvas .axis-title[data-axis="y"]'), 'axisTitle'); await open(q('.ch-canvas .tick'), 'axis');
+    await open(q('.ch-canvas .chart-title'), 'title'); await open(q('.ch-canvas .mark.bar'), 'mark'); await open(q('.ch-canvas .chart-bg'), 'plot');
+    await open(q('.dg-cell'), 'cell'); await open(q('[data-tab]'), 'tab'); return out;`);
+  const has = (list, text) => list.some((x) => String(x).includes(text));
+  for (const [part, list] of Object.entries(r)) {
+    assert(list.length >= 3, `${part}: ${list.length} items`);
+    assert(has(list, 'print') || has(list, '인쇄') || has(list, 'Print'), `${part} menu has no Print: ${list.join(' | ')}`);
+    assert(has(list, 'export') || has(list, '내보내기') || has(list, 'Export'), `${part} menu has no Export: ${list.join(' | ')}`);
+  }
+  assert(has(r.legend, 'legendBox') || has(r.legend, 'Legend box') || has(r.legend, '범례 상자'), `legend menu ${r.legend}`);
+  assert(has(r.axisTitle, 'editAxis') || has(r.axisTitle, 'Edit axis') || has(r.axisTitle, '축 제목 고치기'), `axis title menu ${r.axisTitle}`);
+  assert(has(r.mark, 'hide') || has(r.mark, 'Hide') || has(r.mark, '숨기기'), `mark menu ${r.mark}`);
+});
+
+test('chart.mixed', 'Two or more ways of drawing together (columns + line + area, right axis); impossible mixes say so in a popup', async () => {
+  await closeAll();
+  await openSample('monthly-sales');
+  const r = await run(`A.api.setInspectorTab('series'); await sleep(80);
+    const pick = (sel, v) => { sel.value = v; sel.dispatchEvent(new Event('change', { bubbles: true })); };
+    pick(q('select[data-series-kind="1"]'), 'line'); await sleep(80); pick(q('select[data-series-kind="2"]'), 'area'); await sleep(80); pick(q('select[data-series-axis="2"]'), 'right'); await sleep(120);
+    const shape = { bars: qa('.ch-canvas .mark.bar').length, lines: qa('.ch-canvas path.mark.line').length, areas: qa('.ch-canvas .mark.area').length, rightTicks: qa('.ch-canvas .tick[text-anchor="start"]').length };
+    const o = doc().chart.options; const stored = [o.seriesTypes[1], o.seriesTypes[2], o.seriesAxis[2]];
+    // A stacked chart cannot mix: the popup says so and nothing changes.
+    A.actions.setChartType('stackedColumn'); await sleep(120); A.api.setInspectorTab('series'); await sleep(80); const beforeRefused = JSON.stringify(doc().chart.options.seriesTypes);
+    pick(q('select[data-series-kind="0"]'), 'line'); const popup = await until(() => pop('confirm')?.querySelector('.confirm-message'), 4000).then((m) => m.textContent, () => '');
+    await A.popups.closeAll(); return { shape, stored, popup, before: beforeRefused, after: JSON.stringify(doc().chart.options.seriesTypes) };`);
+  assert(r.shape.bars === 12 && r.shape.lines >= 1 && r.shape.areas >= 1 && r.shape.rightTicks >= 3, `mixed picture ${JSON.stringify(r.shape)}`);
+  assert(r.stored.join() === 'line,area,right', `stored ${r.stored}`);
+  assert(r.popup.length > 10, 'no popup for an impossible mix');
+  assert(r.after === r.before, `the refused mix changed the chart: ${r.before} → ${r.after}`);
+});
+
+test('data.range', 'Chart the cells selected with the mouse; the rest fade; whole table again; a new chart from the selection', async () => {
+  await closeAll();
+  await openSample('monthly-sales');
+  const r = await run(`const grid = A.view().grid; grid.setActive(2, 0); grid.setActive(6, 2, { extend: true }); await sleep(60);
+    await A.run('chartFromSelection'); await sleep(150);
+    const range = doc().chart.dataRange; const cats = qa('.ch-canvas .cat').map((c) => c.textContent);
+    const bars = qa('.ch-canvas .mark.bar').length; const faded = qa('.dg-cell.out-chart').length; const lit = qa('.dg-cell.in-chart').length;
+    A.api.setInspectorTab('data'); await sleep(60); const label = q('.ins-range-name')?.textContent;
+    await A.run('clearDataRange'); await sleep(100); const whole = [doc().chart.dataRange, qa('.ch-canvas .mark.bar').length];
+    grid.setActive(0, 0); grid.setActive(3, 1, { extend: true }); const n = A.state.docs.length; await A.run('newChartFromSelection'); await sleep(150);
+    const made = [A.state.docs.length - n, doc().table.rows.length, doc().table.columns.length, qa('.ch-canvas .mark').length > 0];
+    return { range, cats, bars, faded, lit, label, whole, made };`);
+  assert(JSON.stringify(r.range) === '{"r0":2,"r1":6,"c0":0,"c1":2}', `range ${JSON.stringify(r.range)}`);
+  assert(r.cats.length === 5 && r.bars === 10, `chart of the selection: ${r.cats.length} categories, ${r.bars} bars`);
+  assert(r.faded > 0 && r.lit === 15, `grid shading: ${r.lit} in, ${r.faded} out`);
+  assert(r.label === 'A4:C8', `range name ${r.label}`);
+  assert(r.whole[0] == null && r.whole[1] === 36, `whole table ${r.whole}`);
+  assert(r.made.join() === '1,4,2,true', `new chart from selection ${r.made}`);
+});
+
+test('data.orientation', 'Data typed across (series in rows) and down (series in columns) both draw', async () => {
+  await closeAll();
+  // A table typed across: the first column names the series, the months run along the header.
+  const across = await run(`for (const d of [...A.state.docs]) await A.actions.closeDoc(d, { force: true });
+    A.api.importText('Region,Jan,Feb,Mar,Apr\\nNorth,10,12,15,14\\nSouth,8,9,11,13\\nEast,5,7,6,9\\n', 'across.csv'); await until(() => pop('import')?.querySelector('[data-action="import-ok"]'));
+    pop('import').querySelector('[data-action="import-ok"]').click(); await until(() => svg()); await sleep(100);
+    const down = { cats: qa('.ch-canvas .cat').map((c) => c.textContent), legend: qa('.ch-canvas .legend-item').length };
+    await A.run('seriesInRows'); await sleep(150);
+    const rows = { cats: qa('.ch-canvas .cat').map((c) => c.textContent), legend: [...qa('.ch-canvas .legend-item text')].map((t) => t.textContent), bars: qa('.ch-canvas .mark.bar').length, seriesIn: doc().chart.seriesIn };
+    await A.run('seriesInColumns'); await sleep(100); return { down, rows, back: doc().chart.seriesIn };`);
+  assert(across.down.cats.join() === 'North,South,East' && across.down.legend === 4, `series in columns ${JSON.stringify(across.down)}`);
+  assert(across.rows.cats.join() === 'Jan,Feb,Mar,Apr' && across.rows.legend.join() === 'North,South,East' && across.rows.bars === 12 && across.rows.seriesIn === 'rows', `series in rows ${JSON.stringify(across.rows)}`);
+  assert(across.back === 'columns', 'back to columns');
+});
+
 // ───────────────────────── menus, shortcuts, context menus
 
 test('menus.chartGroups', 'Chart menu: one submenu per group, 108 types in all, every item named and enabled', async () => {
@@ -738,7 +920,7 @@ export async function panelTypeCases(ctx) {
 
 // ───────────────────────── export
 
-const GROUP_NAMES = { start: 'Start page', chrome: 'Window', popups: 'Popups', chart: 'Charts', grid: 'Data grid', data: 'Data', inspector: 'Inspector', import: 'Input files', export: 'Output', print: 'Printing', files: 'Files', look: 'Look', help: 'Help', menus: 'Menus', theme: 'Chart themes' };
+const GROUP_NAMES = { panel: 'Right panel', start: 'Start page', chrome: 'Window', popups: 'Popups', chart: 'Charts', grid: 'Data grid', data: 'Data', inspector: 'Inspector', import: 'Input files', export: 'Output', print: 'Printing', files: 'Files', look: 'Look', help: 'Help', menus: 'Menus', theme: 'Chart themes' };
 const passedIds = new Set();
 const ranIds = new Set();
 const wrap = (item) => ({

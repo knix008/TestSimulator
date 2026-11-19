@@ -110,7 +110,7 @@ export class DataGrid {
         const inSel = !ghost && sel && rowIndex >= sel.r0 && rowIndex <= sel.r1 && i >= sel.c0 && i <= sel.c1;
         const active = rowIndex === this.active.row && i === this.active.col;
         const bad = !ghost && c.type === 'number' && v != null && typeof v !== 'number';
-        return `<div class="dg-cell ${c.type === 'number' ? 'num' : ''} ${active ? 'active' : ''} ${inSel ? 'sel' : ''} ${bad ? 'bad' : ''}" data-row="${rowIndex}" data-col="${i}">${escapeHtml(cellText(v))}</div>`;
+        return `<div class="dg-cell ${c.type === 'number' ? 'num' : ''} ${active ? 'active' : ''} ${inSel ? 'sel' : ''} ${bad ? 'bad' : ''} ${this.api.hasRange?.() ? (this.api.inChart(rowIndex, i) ? 'in-chart' : 'out-chart') : ''}" data-row="${rowIndex}" data-col="${i}">${escapeHtml(cellText(v))}</div>`;
       }).join('');
       html.push(`<div class="dg-row ${ghost ? 'ghost' : ''} ${rowIndex === this.active.row ? 'current' : ''}" style="top:${k * rh}px;height:${rh}px;grid-template-columns:${this.template}" data-row="${rowIndex}"><div class="dg-rownum" data-rownum="${rowIndex}">${ghost ? '+' : rowIndex + 1}</div>${cells}<div></div></div>`);
     }
