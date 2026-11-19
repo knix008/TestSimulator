@@ -27,11 +27,11 @@ const targets = {
 
 const requested = process.argv[2] === 'all' || !process.argv[2] ? host : process.argv[2];
 if (!targets[requested]) {
-  console.error(`알 수 없는 대상: ${process.argv[2]} (win | mac | linux | all)`);
+  console.error(`Unknown target: ${process.argv[2]} (win | mac | linux | all)`);
   process.exit(1);
 }
 if (requested !== host) {
-  console.error(`${requested} 설치 파일은 ${requested === 'win' ? 'Windows' : requested === 'mac' ? 'macOS' : 'Linux'} 에서 만들어야 합니다 (Tauri는 교차 빌드를 지원하지 않습니다).`);
+  console.error(`The ${requested} installer must be built on ${requested === 'win' ? 'Windows' : requested === 'mac' ? 'macOS' : 'Linux'} (Tauri does not cross-compile).`);
   process.exit(1);
 }
 
@@ -62,8 +62,8 @@ const assets = fs.readdirSync(path.join(root, 'dist', 'assets')).filter((file) =
 const embedded = binary ? fs.readFileSync(binary).toString('latin1') : '';
 const missing = assets.filter((file) => !embedded.includes(`/assets/${file}`));
 if (!binary || !assets.length || missing.length) {
-  console.error(`\n프로그램에 웹 페이지가 들어가지 않았습니다 (${binary ? path.basename(binary) : '실행 파일 없음'}: 빠진 파일 ${missing.length}/${assets.length}개).`);
-  console.error('빌드 중에 dist/ 가 다시 만들어진 것 같습니다. 다른 vite build 가 끝난 뒤 다시 빌드하세요.');
+  console.error(`\nThe web page was not embedded in the program (${binary ? path.basename(binary) : 'no executable'}: ${missing.length}/${assets.length} files missing).`);
+  console.error('dist/ seems to have been rebuilt during the build. Build again after the other vite build finishes.');
   process.exit(1);
 }
 
@@ -96,7 +96,7 @@ for (const kind of fs.existsSync(bundleDir) ? fs.readdirSync(bundleDir) : []) {
 }
 
 if (!collected.length) {
-  console.error('설치 파일을 찾지 못했습니다. 위 Tauri 빌드 로그를 확인하세요.');
+  console.error('No installer was found. Check the Tauri build log above.');
   process.exit(1);
 }
-console.log(`\n설치 파일 (release/ 와 프로젝트 루트):\n${collected.map((file) => `  ${file}`).join('\n')}`);
+console.log(`\nInstallers (in release/ and the project root):\n${collected.map((file) => `  ${file}`).join('\n')}`);

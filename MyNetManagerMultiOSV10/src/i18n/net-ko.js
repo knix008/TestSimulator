@@ -138,7 +138,7 @@ export default {
   'netmap.labels.name': '이름', 'netmap.labels.ip': 'IP 주소', 'netmap.labels.mac': 'MAC 주소', 'netmap.showExternal': '외부 호스트 보이기', 'netmap.showMulticast': '멀티캐스트·브로드캐스트 보이기',
   'netmap.fit': '전체 보기', 'netmap.refresh': '다시 만들기', 'netmap.export': '그림으로 저장…', 'netmap.exportMessage': '네트워크 맵을 어떤 형식으로 저장할까요?',
   'netmap.noHosts': 'IP 트래픽이 없어 그릴 호스트가 없습니다', 'netmap.noCapture': '캡처를 열면 트래픽으로 네트워크 구조를 그립니다', 'netmap.internet': '인터넷',
-  'netmap.stats': '호스트 {hosts} · 라우터 {routers} · 외부 {external} · 연결 {links}', 'netmap.hint': '노드나 연결을 클릭하면 관련 패킷만 보입니다', 'netmap.showAll': '모든 패킷 보기',
+  'netmap.stats': '호스트 {hosts} · 라우터 {routers} · 외부 {external} · 연결 {links}', 'netmap.hint': '노드나 연결을 클릭하면 관련 패킷만 보입니다', 'netmap.showAll': '모든 패킷 보기', 'netmap.filterMatch': '필터에 맞는 노드 {nodes} · 연결 {links}',
   'netmap.packets': '패킷', 'netmap.kind': '종류', 'netmap.kind.router': '라우터/게이트웨이', 'netmap.kind.host': '호스트', 'netmap.kind.server': '서버', 'netmap.kind.external': '외부 호스트',
   'netmap.kind.internet': '인터넷 (기타)', 'netmap.kind.multicast': '멀티캐스트', 'netmap.kind.printer': '프린터', 'netmap.kind.phone': 'IP 전화', 'netmap.kind.iot': 'IoT 장치',
   'netmap.name': '이름', 'netmap.vendor': '제조사', 'netmap.roles': '역할', 'netmap.traffic': '트래픽', 'netmap.protocols': '프로토콜', 'netmap.members': '묶인 호스트', 'netmap.link': '연결',

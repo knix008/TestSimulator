@@ -229,6 +229,10 @@ html[data-mode="dark"] .pl-row:hover { filter: brightness(1.12); }
 .nm-link.selected .nm-line { stroke: var(--accent); stroke-dasharray: 8 5; animation: nm-flow 0.8s linear infinite; }
 @keyframes nm-flow { to { stroke-dashoffset: -13; } }
 .nm-link.dim, .nm-node.dim { opacity: 0.22; }
+.nm-subnet.dim { opacity: 0.35; }
+.nm-link.match .nm-line { stroke: var(--accent); }
+.nm-node.match .nm-dot { stroke-width: 3.2; }
+.nm-node.match .nm-label { font-weight: 600; }
 .nm-node { cursor: pointer; outline: none; }
 .nm-dot { fill: var(--surface); stroke: var(--accent); stroke-width: 2.2; }
 .nm-halo { fill: transparent; stroke: transparent; stroke-width: 3; }

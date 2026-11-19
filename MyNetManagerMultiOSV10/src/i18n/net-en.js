@@ -138,7 +138,7 @@ export default {
   'netmap.labels.name': 'Name', 'netmap.labels.ip': 'IP address', 'netmap.labels.mac': 'MAC address', 'netmap.showExternal': 'Show external hosts', 'netmap.showMulticast': 'Show multicast and broadcast',
   'netmap.fit': 'Fit', 'netmap.refresh': 'Rebuild', 'netmap.export': 'Save as Picture…', 'netmap.exportMessage': 'Save the network map as:',
   'netmap.noHosts': 'No IP traffic, so no hosts to draw', 'netmap.noCapture': 'Open a capture to draw the network from its traffic', 'netmap.internet': 'Internet',
-  'netmap.stats': '{hosts} hosts · {routers} routers · {external} external · {links} links', 'netmap.hint': 'Click a node or a link to show only its packets', 'netmap.showAll': 'Show all packets',
+  'netmap.stats': '{hosts} hosts · {routers} routers · {external} external · {links} links', 'netmap.hint': 'Click a node or a link to show only its packets', 'netmap.showAll': 'Show all packets', 'netmap.filterMatch': 'Matching the filter: {nodes} nodes · {links} links',
   'netmap.packets': 'packets', 'netmap.kind': 'Kind', 'netmap.kind.router': 'Router / gateway', 'netmap.kind.host': 'Host', 'netmap.kind.server': 'Server', 'netmap.kind.external': 'External host',
   'netmap.kind.internet': 'Internet (others)', 'netmap.kind.multicast': 'Multicast', 'netmap.kind.printer': 'Printer', 'netmap.kind.phone': 'IP phone', 'netmap.kind.iot': 'IoT device',
   'netmap.name': 'Name', 'netmap.vendor': 'Vendor', 'netmap.roles': 'Roles', 'netmap.traffic': 'Traffic', 'netmap.protocols': 'Protocols', 'netmap.members': 'Hosts grouped', 'netmap.link': 'link',

@@ -18,6 +18,7 @@ export class NetMap {
     this.positions = new Map();
     this.view = { x: 0, y: 0, k: 1 };
     this.selected = null; // { type: 'node' | 'link', id }
+    this.match = null; // { nodes: Set, links: Set } while a display filter is on (matchTopology)
     this.size = { width: 900, height: 640 };
     host.classList.add('net-map');
     host.innerHTML = `<header class="nm-head panel-header">${icon('paneMap')}<span class="nm-title"></span>
@@ -101,6 +102,10 @@ export class NetMap {
     const focusIds = new Set();
     if (sel && this.selected.type === 'node') { focusIds.add(sel.id); for (const l of topo.links) if (l.source === sel.id || l.target === sel.id) { focusIds.add(l.source); focusIds.add(l.target); } }
     if (sel && this.selected.type === 'link') { focusIds.add(sel.source); focusIds.add(sel.target); }
+    // A display filter is on: only what its packets touch stays strong (the map's own pick included).
+    const match = this.match;
+    const nodeDim = (n) => (match ? !match.nodes.has(n.id) : Boolean(sel) && !focusIds.has(n.id));
+    const linkDim = (l, on) => (match ? !match.links.has(l.id) : Boolean(sel) && !on && !(this.selected.type === 'node' && (l.source === sel.id || l.target === sel.id)));
     const maxBytes = Math.max(1, ...topo.links.map((l) => l.bytes));
     // Subnet hulls: a soft rounded box around each subnet's nodes.
     this.world.querySelector('.nm-subnets').innerHTML = topo.subnets.filter((sub) => sub.id !== 'external' && sub.id !== 'multicast').map((sub) => {
@@ -111,7 +116,8 @@ export class NetMap {
       const y0 = Math.min(...points.map((p) => p.y)) - pad;
       const x1 = Math.max(...points.map((p) => p.x)) + pad;
       const y1 = Math.max(...points.map((p) => p.y)) + pad;
-      return `<g class="nm-subnet" data-subnet="${escapeHtml(sub.id)}"><rect x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" rx="22"/><text x="${x0 + 12}" y="${y0 + 18}">${escapeHtml(sub.id)}</text></g>`;
+      const subDim = match && !sub.nodes.some((id) => match.nodes.has(id));
+      return `<g class="nm-subnet ${subDim ? 'dim' : ''}" data-subnet="${escapeHtml(sub.id)}"><rect x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" rx="22"/><text x="${x0 + 12}" y="${y0 + 18}">${escapeHtml(sub.id)}</text></g>`;
     }).join('');
     this.world.querySelector('.nm-links').innerHTML = topo.links.map((l) => {
       const a = this.positions.get(l.source);
@@ -119,18 +125,18 @@ export class NetMap {
       if (!a || !b) return '';
       const width = 1.2 + 5 * Math.sqrt(l.bytes / maxBytes);
       const on = this.selected?.type === 'link' && this.selected.id === l.id;
-      const dim = sel && !on && !(this.selected.type === 'node' && (l.source === sel.id || l.target === sel.id));
-      return `<g class="nm-link ${on ? 'selected' : ''} ${dim ? 'dim' : ''}" data-link="${escapeHtml(l.id)}"><line class="nm-hit" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/><line class="nm-line" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" style="stroke-width:${width.toFixed(1)}px"/></g>`;
+      const dim = linkDim(l, on);
+      return `<g class="nm-link ${on ? 'selected' : ''} ${dim ? 'dim' : match ? 'match' : ''}" data-link="${escapeHtml(l.id)}"><line class="nm-hit" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/><line class="nm-line" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" style="stroke-width:${width.toFixed(1)}px"/></g>`;
     }).join('');
     this.world.querySelector('.nm-nodes').innerHTML = topo.nodes.map((n) => {
       const p = this.positions.get(n.id);
       if (!p) return '';
       const r = this.radius(n);
       const on = this.selected?.type === 'node' && this.selected.id === n.id;
-      const dim = sel && !focusIds.has(n.id);
+      const dim = nodeDim(n);
       const glyph = icon(KIND_ICON[n.kind] ?? 'netHost').replace('<svg ', `<svg x="${p.x - r * 0.62}" y="${p.y - r * 0.62}" width="${r * 1.24}" height="${r * 1.24}" `);
       const label = this.label(n);
-      return `<g class="nm-node kind-${n.kind} ${on ? 'selected' : ''} ${dim ? 'dim' : ''}" data-node="${escapeHtml(n.id)}" tabindex="0" role="button" aria-label="${escapeHtml(label)}">
+      return `<g class="nm-node kind-${n.kind} ${on ? 'selected' : ''} ${dim ? 'dim' : match ? 'match' : ''}" data-node="${escapeHtml(n.id)}" tabindex="0" role="button" aria-label="${escapeHtml(label)}">
         <circle class="nm-halo" cx="${p.x}" cy="${p.y}" r="${r + 6}"/><circle class="nm-dot" cx="${p.x}" cy="${p.y}" r="${r}"/>${glyph}
         <text class="nm-label" x="${p.x}" y="${p.y + r + 14}">${escapeHtml(label.length > 28 ? `${label.slice(0, 27)}…` : label)}</text></g>`;
     }).join('');
@@ -147,8 +153,13 @@ export class NetMap {
     const stats = t('netmap.stats', { hosts: topo.stats.hosts, routers: topo.stats.routers, external: topo.stats.external, links: topo.links.length });
     foot.innerHTML = sel
       ? `<span class="nm-sel">${icon(this.selected.type === 'node' ? KIND_ICON[sel.kind] ?? 'netHost' : 'link')}<b>${escapeHtml(this.selected.type === 'node' ? this.label(sel) : `${this.labelOf(sel.source)} ↔ ${this.labelOf(sel.target)}`)}</b><span class="muted">${escapeHtml(`${sel.packets} ${t('netmap.packets')} · ${fmtBytes(sel.bytes)}`)}</span></span><span class="grow"></span><button class="small-button" data-nm="clear">${icon('filterClear')}<span>${escapeHtml(t('netmap.showAll'))}</span></button>`
-      : `<span class="muted">${escapeHtml(stats)}</span><span class="grow"></span><span class="muted">${escapeHtml(t('netmap.hint'))}</span>`;
+      : this.match
+        ? `<span class="nm-sel">${icon('filterApply')}<span class="muted">${escapeHtml(t('netmap.filterMatch', { nodes: this.match.nodes.size, links: this.match.links.size }))}</span></span><span class="grow"></span><button class="small-button" data-nm="clear">${icon('filterClear')}<span>${escapeHtml(t('netmap.showAll'))}</span></button>`
+        : `<span class="muted">${escapeHtml(stats)}</span><span class="grow"></span><span class="muted">${escapeHtml(t('netmap.hint'))}</span>`;
   }
+
+  /** The display filter's hits on the map (null: no filter, everything drawn strong). */
+  setMatch(match) { this.match = match; this.render(); }
 
   labelOf(id) { const n = this.topology?.nodes.find((x) => x.id === id); return n ? this.label(n) : id; }
 

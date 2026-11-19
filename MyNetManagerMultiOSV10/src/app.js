@@ -12,7 +12,7 @@ import { sampleIcon } from './ui/startpage.js';
 import { FIELDS, PROTOCOLS } from './domain/dissect/index.js';
 import { checkFilter, conversationFilter, filterForNode, setDefaultFields, suggestFields, validateFilter } from './domain/filter/index.js';
 import { COLORING_RULES, darkColors } from './domain/filter/coloring.js';
-import { buildTopology } from './domain/analysis/topology.js';
+import { buildTopology, matchTopology } from './domain/analysis/topology.js';
 import { buildReport, createAnalyzer } from './domain/analysis/findings.js';
 import { DOC_FORMATS, exportDocument, toLines } from './domain/export/docexport.js';
 import { defaultPrintOptions } from './print/packets.js';
@@ -525,6 +525,7 @@ async function applyDisplayFilter(text, { fromMap = false } = {}) {
   state.filter = { text: trimmed, status: trimmed ? 'valid' : 'empty', error: '' };
   if (trimmed) updateSettings({ recentDisplayFilters: pushRecentFilter(state.settings.recentDisplayFilters, trimmed) }, { quiet: true });
   if (!fromMap) state.view?.map.clearSelection();
+  updateMapMatch(doc);
   if (doc.selected >= 0 && !doc.displayed.includes(doc.selected)) doc.selected = doc.displayed[0] ?? -1;
   if (doc.selected < 0 && doc.displayed.length) doc.selected = doc.displayed[0];
   computeRelations(doc);
@@ -582,8 +583,20 @@ function refreshMap({ keepPlaces = false } = {}) {
     const topology = buildTopology(doc.frames, doc.summaries, (i) => doc.dissectOnce(i), { showExternal: s.netmapShowExternal, showMulticast: s.netmapShowMulticast, indices });
     topology.sampled = step > 1;
     doc.topology = topology;
-    if (doc === activeDoc()) state.view?.map.setTopology(topology, { keepPlaces });
+    if (doc === activeDoc()) { state.view?.map.setTopology(topology, { keepPlaces }); updateMapMatch(doc); }
   }, keepPlaces ? 600 : 30);
+}
+
+/** A display filter is on: the map draws only the hosts and links its packets touch strong, the rest faded. */
+function updateMapMatch(doc = activeDoc()) {
+  const map = state.view?.map;
+  if (!map || doc !== activeDoc()) return;
+  if (!doc?.filterText || !doc.topology) { map.setMatch(null); return; }
+  // Big results: up to 50 000 of the shown packets, spread over the list.
+  const shown = doc.displayed;
+  const step = Math.max(1, Math.floor(shown.length / 50000));
+  const indices = step > 1 ? shown.filter((_, i) => i % step === 0) : shown;
+  map.setMatch(matchTopology(doc.topology, indices, (i) => doc.dissectOnce(i)));
 }
 
 function onMapSelect(selection) {

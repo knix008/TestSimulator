@@ -417,7 +417,7 @@ export function build({ withVideo = false } = {}) {
     const { html, toc, title } = markdownToHtml(markdown, input);
     const output = path.join(docsDir, info.output);
     fs.writeFileSync(output, page({ ...info, title: title || info.title, html, toc }));
-    written.push({ output, note: exists ? info.input : `${info.input} 없음 → 안내 페이지 (placeholder)` });
+    written.push({ output, note: exists ? info.input : `${info.input} missing → placeholder page` });
   }
   // Web build: public/docs/ (served at ./docs/).
   fs.rmSync(path.join(publicDocs, 'images'), { recursive: true, force: true });
@@ -475,7 +475,7 @@ export function writeRootGuide() {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { written, images, video } = build({ withVideo: process.argv.includes('--with-video') });
-  console.log('문서 HTML:');
+  console.log('Document HTML:');
   for (const { output, note } of written) console.log(`  ${path.relative(root, output).split(path.sep).join('/')}  (${kb(fs.statSync(output).size)}) ← ${note}`);
-  console.log(`public/docs/ 에 복사: HTML ${PAGES.length}개, 튜토리얼 그림 ${images.length}개${video.length ? `, 튜토리얼 동영상 ${video.length}개 파일` : ' (튜토리얼 동영상은 --with-video 일 때만)'}`);
+  console.log(`Copied to public/docs/: ${PAGES.length} HTML pages, ${images.length} tutorial images${video.length ? `, ${video.length} tutorial video files` : ' (tutorial videos only with --with-video)'}`);
 }

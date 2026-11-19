@@ -260,9 +260,19 @@ export function buildTopology(frames, summaries, getDissection, options = {}) {
 
   const nodeOfIp = (ip) => routerOfIp.get(ip) ?? nodeById.get(`host:${ip}`) ?? nodeById.get(`ext:${ip}`) ?? nodeById.get(`group:${ip}`) ?? (internet && internet.members.includes(ip) ? internet : null);
   const linkMap = new Map();
+  // What each address pair / MAC / address lands on in the drawing: the filter highlight (matchTopology).
+  const pairHits = new Map();
+  const hitsOf = (pair) => {
+    const key = `${pair.a}|${pair.b}`;
+    if (!pairHits.has(key)) pairHits.set(key, { nodes: new Set(), links: new Set() });
+    return pairHits.get(key);
+  };
   const addLink = (from, to, pair, filter) => {
+    if (from) hitsOf(pair).nodes.add(from.id);
+    if (to) hitsOf(pair).nodes.add(to.id);
     if (!from || !to || from === to) return;
     const key = from.id < to.id ? `${from.id}|${to.id}` : `${to.id}|${from.id}`;
+    hitsOf(pair).links.add(key);
     let link = linkMap.get(key);
     if (!link) { link = { id: key, source: from.id, target: to.id, packets: 0, bytes: 0, protocols: new Map(), filters: new Set() }; linkMap.set(key, link); }
     link.packets += pair.packets;
@@ -307,10 +317,56 @@ export function buildTopology(frames, summaries, getDissection, options = {}) {
     filter: subnet.id === 'external' || subnet.id === 'multicast' ? null : /\//.test(subnet.id) && !subnet.id.includes(':') ? `ip.addr == ${subnet.id}` : null,
   }));
 
+  const macHits = new Map();
+  const ipHits = new Map();
+  const put = (map, key, id) => { if (!key) return; if (!map.has(key)) map.set(key, new Set()); map.get(key).add(id); };
+  for (const node of nodes) {
+    put(macHits, node.mac, node.id);
+    for (const mac of node.macs ?? []) put(macHits, mac, node.id);
+    put(ipHits, node.ip, node.id);
+    for (const ip of node.ips ?? []) put(ipHits, ip, node.id);
+    for (const ip of node.members ?? []) put(ipHits, ip, node.id);
+  }
+
   return {
     nodes, links, subnets,
-    stats: { packets: totalPackets, bytes: totalBytes, nonIp, hosts: localHosts.length, routers: routerMacs.size, external: externals.length, hiddenExternal: hiddenExternal.length },
+    lookup: { pairs: pairHits, macs: macHits, ips: ipHits },
+    stats:{ packets: totalPackets, bytes: totalBytes, nonIp, hosts: localHosts.length, routers: routerMacs.size, external: externals.length, hiddenExternal: hiddenExternal.length },
   };
+}
+
+/**
+ * The nodes and links that the given frames (the packets a display filter kept) touch, so the map can
+ * draw them strong and fade the rest. Returns { nodes: Set<id>, links: Set<id>, packets }.
+ */
+export function matchTopology(topology, indices, getDissection) {
+  const nodes = new Set();
+  const links = new Set();
+  const lookup = topology?.lookup;
+  if (!lookup) return { nodes, links, packets: 0 };
+  const addAll = (set, ids) => { if (ids) for (const id of ids) set.add(id); };
+  let packets = 0;
+  for (const index of indices) {
+    let d;
+    try { d = getDissection(index); } catch { continue; }
+    if (!d) continue;
+    packets += 1;
+    const ipSrc = str(first(d, 'ip.src') ?? first(d, 'ipv6.src'));
+    const ipDst = str(first(d, 'ip.dst') ?? first(d, 'ipv6.dst'));
+    if (ipSrc && ipDst) {
+      const hit = lookup.pairs.get(ipSrc < ipDst ? `${ipSrc}|${ipDst}` : `${ipDst}|${ipSrc}`);
+      if (hit) { addAll(nodes, hit.nodes); addAll(links, hit.links); continue; }
+    }
+    // Pairs the (sampled) map never saw, ARP and other non-IP frames: the ends by address, then by MAC.
+    let found = false;
+    for (const ip of [ipSrc, ipDst, str(first(d, 'arp.src.proto_ipv4')), str(first(d, 'arp.dst.proto_ipv4'))]) {
+      const ids = ip && lookup.ips.get(ip);
+      if (ids) { addAll(nodes, ids); found = true; }
+    }
+    if (found) continue;
+    for (const mac of [str(first(d, 'eth.src')), str(first(d, 'eth.dst'))]) addAll(nodes, mac && lookup.macs.get(mac));
+  }
+  return { nodes, links, packets };
 }
 
 function topProtocols(map, limit = 6) {

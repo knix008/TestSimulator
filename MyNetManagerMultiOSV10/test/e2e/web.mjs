@@ -424,6 +424,25 @@ test('map.selectFilters', 'Clicking a node or a link shows only its packets; cli
   assert(r.after === r.total, 'clearing the selection did not show all packets');
 });
 
+test('map.filterHighlight', 'A display filter typed in the filter bar draws only the matching hosts and links strong on the map', async () => {
+  await openSample('mixed-office-lan');
+  const r = await run(`A.actions.updateSettings({ showNetMap: true }); await until(() => qa('.nm-node').length > 5); const map = A.view().map;
+    const host = map.topology.nodes.find((n) => n.kind === 'host' && n.ip && !n.ip.includes(':'));
+    await A.actions.applyDisplayFilter('ip.addr == ' + host.ip); await until(() => qa('.nm-node.dim').length);
+    const strong = qa('.nm-node:not(.dim)').map((n) => n.dataset.node); const dim = qa('.nm-node.dim').length; const strongLinks = qa('.nm-link:not(.dim)').map((l) => l.dataset.link);
+    const selected = qa('.nm-node.selected').length; const foot = q('.nm-foot').textContent;
+    await A.actions.applyDisplayFilter('tcp'); await sleep(200); const tcpStrong = qa('.nm-node:not(.dim)').length;
+    await A.actions.applyDisplayFilter(''); await sleep(200);
+    return { hostId: host.id, strong, dim, strongLinks, selected, foot, tcpStrong, total: qa('.nm-node').length, afterDim: qa('.nm-node.dim, .nm-link.dim').length };`);
+  assert(r.strong.includes(r.hostId), `the filtered host is not strong: ${JSON.stringify(r.strong)}`);
+  assert(r.dim > 0 && r.strong.length < r.total, `nothing faded: strong ${r.strong.length} / ${r.total}`);
+  assert(r.strongLinks.length > 0 && r.strongLinks.every((id) => id.split('|').includes(r.hostId) || id.includes('router:')), `strong links: ${JSON.stringify(r.strongLinks)}`);
+  assert(r.selected === 0, 'a typed filter selected a node on the map');
+  assert(/\d/.test(r.foot), `footer: ${r.foot}`);
+  assert(r.tcpStrong > 0, 'tcp filter faded every node');
+  assert(r.afterDim === 0, `clearing the filter left ${r.afterDim} faded items`);
+});
+
 test('map.clickReal', 'A real mouse click on a map node filters the packet list', async () => {
   await openSample('mixed-office-lan');
   await run(`A.actions.updateSettings({ showNetMap: true }); await until(() => qa('.nm-node').length > 5); A.view().map.fit(); await sleep(200); return true;`);
