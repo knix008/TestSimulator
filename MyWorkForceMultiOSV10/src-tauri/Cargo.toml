@@ -20,6 +20,8 @@ tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-autostart = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-single-instance = "2"
+# AVIF pictures for exports (the web view has no AV1 encoder).
+ravif = { version = "0.13", default-features = false, features = ["threading"] }
 
 # Printing straight to a printer (the same versions as Tauri's own WebView2).
 [target.'cfg(windows)'.dependencies]

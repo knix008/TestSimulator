@@ -1,0 +1,10 @@
+﻿ID,Key,Summary,Description,Category,Verification,Source,Acceptance criteria,Rationale,Parent,Status,Priority
+SYS-1,BPMF-8,혈압 측정,기기는 위팔 커프로 수축기·이완기 혈압과 맥박을 측정해야 한다.,functional,test,제품 요구 사항서 PRD-2.1,,,,done,high
+SYS-1.1,BPMF-9,측정 정확도,"평균 오차는 ±5 mmHg, 표준 편차는 8 mmHg 이하여야 한다.",performance,test,ISO 81060-2,임상 시험 85명 비교 결과,,SYS-1,done,high
+SYS-1.2,BPMF-10,측정 시간,한 번의 측정은 40초 안에 끝나야 한다.,performance,test,,,,SYS-1,done,high
+SYS-2,BPMF-11,안전,기기는 사용자에게 해가 되는 압력을 가하지 않아야 한다.,safety,test,위험 분석 RA-04,,,,done,high
+SYS-2.1,BPMF-12,과압 배기,커프 압력이 300 mmHg에 이르면 3초 안에 배기해야 한다.,safety,test,,막힌 커프 시험 10회 모두 통과,,SYS-2,done,high
+SYS-2.2,BPMF-13,측정 제한 시간,측정이 180초를 넘으면 중단하고 배기해야 한다.,safety,test,,,,SYS-2,done,high
+SYS-3,BPMF-14,앱 연동,측정값은 블루투스 LE로 휴대폰 앱에 보내야 한다.,interface,test,,,,,done,high
+SYS-4,BPMF-15,기록 저장,사용자 2명 × 60회 기록을 전원 없이 보관해야 한다.,functional,inspection,,,,,done,high
+REG-1,BPMF-16,표시 사항,"포장과 기기에 허가 번호, 제조 번호, 사용 기한을 표시해야 한다.",regulatory,inspection,의료기기법 시행규칙,,,,done,high

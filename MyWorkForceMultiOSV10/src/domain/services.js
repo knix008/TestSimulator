@@ -330,7 +330,7 @@ export function epicBurndown(project, epic, now = Date.now()) {
     days.push({ t, remaining, total });
     if (t >= end) break;
   }
-  return { total, days };
+  return { total, days, pointed };
 }
 
 export function parseCsv(text) {

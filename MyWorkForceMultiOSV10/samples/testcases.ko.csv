@@ -1,0 +1,12 @@
+﻿ID,Key,Summary,Level,Kind,Precondition,Step,Action,Data,Expected,Verifies,Last result
+TC-01,BPMF-17,기준 혈압계 비교 시험,system,manual,"교정된 기준 혈압계, 시험 대상자 5명",1,대상자를 5분 쉬게 한다,,,SYS-1.1,pass
+,,,,,,2,기준기와 번갈아 3회 측정,,차이를 기록,,
+,,,,,,3,평균 오차 계산,,±5 mmHg 이내,,
+TC-02,BPMF-18,측정 시간 측정,system,automated,,1,시뮬레이터로 120/80 신호 입력,"120/80, 72 bpm",40초 안에 결과 표시,SYS-1.2,pass
+TC-03,BPMF-19,막힌 커프 과압 시험,system,manual,커프 출구를 막는다,1,측정 시작,,압력이 오른다,SYS-2.1,fail
+,,,,,,2,압력 기록계를 본다,,300 mmHg에서 3초 안에 배기,,
+TC-04,BPMF-20,180초 제한 시험,system,automated,,1,측정을 멈추지 않는 신호 입력,,180초에 중단·배기,SYS-2.2,pass
+TC-05,BPMF-21,앱 전송 시험,integration,manual,,1,앱과 짝을 맺는다,,연결됨,SYS-3,fail
+,,,,,,2,측정한다,,앱에 같은 값이 한 번 보인다,,
+,,,,,,3,연결을 끊고 다시 잇는다,,기록이 중복되지 않는다,,
+TC-06,BPMF-22,표시 사항 검사,acceptance,manual,,1,포장과 기기 표시를 점검표와 대조,,모든 항목 일치,REG-1,blocked

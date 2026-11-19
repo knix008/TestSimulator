@@ -30,7 +30,8 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "runtime/": "runtime/"
+      "runtime/": "runtime/",
+      "../samples/": "samples/"
     },
     "fileAssociations": [
       {

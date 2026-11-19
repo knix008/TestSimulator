@@ -67,7 +67,8 @@ export function burndown(project, sprint, now = Date.now()) {
     });
     if (t >= end) break;
   }
-  return { start, end, total, days };
+  // pointed: the work is counted in story points (else in issues), for the chart's axis.
+  return { start, end, total, days, pointed: issues.some((issue) => Number(issue.storyPoints) > 0) };
 }
 
 export function velocity(project) {
@@ -117,30 +118,63 @@ export function createdResolved(project, now = Date.now(), weeks = 8) {
   return rows;
 }
 
-export function pie(project, issues, field) {
-  const groups = new Map();
-  for (const issue of issues) {
-    let key = 'none';
-    if (field === 'status') key = issue.statusId || 'none';
-    else if (field === 'priority') key = issue.priorityId || 'none';
-    else if (field === 'type') key = issue.typeId || 'none';
-    else if (field === 'assignee') key = issue.assigneeId || 'unassigned';
-    groups.set(key, (groups.get(key) || 0) + 1);
-  }
-  return [...groups.entries()].map(([id, value]) => ({ id, value }));
+/** Fields issues can be grouped by in reports, distributions and lists. */
+export const GROUP_FIELDS = ['status', 'priority', 'type', 'assignee', 'reporter', 'epic', 'sprint', 'component', 'version', 'label', 'resolution'];
+
+/** The group keys of one issue for a field ('none' / 'unassigned' when empty; components, versions and labels may give several). */
+export function groupKeys(issue, field) {
+  const one = (value, empty = 'none') => [value || empty];
+  const many = (list) => (list && list.length ? [...new Set(list)] : ['none']);
+  if (field === 'status') return one(issue.statusId);
+  if (field === 'priority') return one(issue.priorityId);
+  if (field === 'type') return one(issue.typeId);
+  if (field === 'assignee') return one(issue.assigneeId, 'unassigned');
+  if (field === 'reporter') return one(issue.reporterId, 'unassigned');
+  if (field === 'epic') return one(issue.typeId === 'epic' ? issue.id : issue.epicId);
+  if (field === 'sprint') return one(issue.sprintId);
+  if (field === 'component') return many(issue.componentIds);
+  if (field === 'version') return many(issue.fixVersionIds);
+  if (field === 'label') return many(issue.labels);
+  if (field === 'resolution') return one(issue.resolutionId);
+  return ['none'];
 }
 
-export function timeReport(project, issues) {
-  const rows = new Map();
+/** Issues in groups for a field, in the order the project lists the values (empty group last). */
+export function groupIssues(project, issues, field) {
+  const groups = new Map();
   for (const issue of issues) {
-    const id = issue.assigneeId || 'unassigned';
-    const row = rows.get(id) || { userId: id, original: 0, remaining: 0, spent: 0 };
-    row.original += Number(issue.originalEstimate) || 0;
-    row.remaining += Number(issue.remainingEstimate) || 0;
-    row.spent += Number(issue.timeSpent) || 0;
-    rows.set(id, row);
+    for (const key of groupKeys(issue, field)) {
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(issue);
+    }
   }
-  return [...rows.values()];
+  const order = {
+    status: project.statuses, priority: project.priorities, type: project.issueTypes, sprint: project.sprints,
+    component: project.components, version: project.versions, resolution: project.resolutions,
+    epic: (project.issues || []).filter((issue) => issue.typeId === 'epic'),
+  }[field];
+  const rank = (key) => {
+    if (key === 'none' || key === 'unassigned') return Number.MAX_SAFE_INTEGER;
+    const at = (order || []).findIndex((item) => item.id === key);
+    return at < 0 ? Number.MAX_SAFE_INTEGER - 1 : at;
+  };
+  return [...groups.entries()].map(([id, list]) => ({ id, issues: list })).sort((a, b) => rank(a.id) - rank(b.id) || String(a.id).localeCompare(String(b.id)));
+}
+
+export function pie(project, issues, field) {
+  return groupIssues(project, issues, field).map((group) => ({ id: group.id, value: group.issues.length }));
+}
+
+/** Estimates, remaining and logged time per group (by person unless another field is given). */
+export function timeReport(project, issues, field = 'assignee') {
+  return groupIssues(project, issues, field).map((group) => ({
+    id: group.id,
+    userId: field === 'assignee' ? group.id : undefined,
+    count: group.issues.length,
+    original: group.issues.reduce((sum, issue) => sum + (Number(issue.originalEstimate) || 0), 0),
+    remaining: group.issues.reduce((sum, issue) => sum + (Number(issue.remainingEstimate) || 0), 0),
+    spent: group.issues.reduce((sum, issue) => sum + (Number(issue.timeSpent) || 0), 0),
+  }));
 }
 
 export function sprintReport(project, sprint) {

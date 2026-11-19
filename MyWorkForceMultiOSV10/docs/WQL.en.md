@@ -11,6 +11,8 @@ assignee = currentUser() sprint = openSprints()
 
 key, summary, description, text, comment, type, status, priority, resolution, assignee, reporter, label, component, version, sprint, epic, parent, points, created, updated, due, watcher, sla, project, rank. Korean names work as well. `text` searches the key, summary, description, environment and comments together.
 
+Requirements and tests: `coverage` (failed, blocked, uncovered, notrun, partial, passed, other), `result` (pass, fail, blocked, notrun — a test case's last result), `suspect` (true / false), `category`, `verification`, `level`.
+
 ## Operators
 
 `= != ~ !~ > >= < <=`, `IN`, `NOT IN`, `IS EMPTY`, `IS NOT EMPTY`, `NOT`, `AND`, `OR` and parentheses. `~` matches a part of the text.

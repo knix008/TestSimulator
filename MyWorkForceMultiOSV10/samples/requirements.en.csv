@@ -1,0 +1,10 @@
+﻿ID,Key,Summary,Description,Category,Verification,Source,Acceptance criteria,Rationale,Parent,Status,Priority
+SYS-1,BPMF-8,Blood-pressure measurement,The device shall measure systolic and diastolic pressure and pulse with an upper-arm cuff.,functional,test,Product requirements PRD-2.1,,,,done,high
+SYS-1.1,BPMF-9,Measurement accuracy,Mean error shall be within ±5 mmHg with a standard deviation of 8 mmHg or less.,performance,test,ISO 81060-2,Clinical comparison on 85 subjects,,SYS-1,done,high
+SYS-1.2,BPMF-10,Measurement time,A reading shall finish within 40 seconds.,performance,test,,,,SYS-1,done,high
+SYS-2,BPMF-11,Safety,The device shall never apply harmful pressure.,safety,test,Risk analysis RA-04,,,,done,high
+SYS-2.1,BPMF-12,Over-pressure venting,The cuff shall vent within 3 s when pressure reaches 300 mmHg.,safety,test,,All 10 blocked-cuff runs pass,,SYS-2,done,high
+SYS-2.2,BPMF-13,Measurement time limit,A reading running past 180 s shall stop and vent.,safety,test,,,,SYS-2,done,high
+SYS-3,BPMF-14,App connection,Readings shall be sent to the phone app over Bluetooth LE.,interface,test,,,,,done,high
+SYS-4,BPMF-15,Reading memory,The device shall keep 60 readings for each of 2 users without power.,functional,inspection,,,,,done,high
+REG-1,BPMF-16,Labelling,"The box and the device shall show the approval number, lot and expiry.",regulatory,inspection,Medical device regulation,,,,done,high

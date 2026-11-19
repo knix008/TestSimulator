@@ -97,6 +97,74 @@ fn write_text_file(path: String, content: String) -> Result<(), String> {
     files::write_text(std::path::Path::new(&path), content.as_bytes())
 }
 
+async fn blocking<T: Send + 'static>(work: impl FnOnce() -> Result<T, String> + Send + 'static) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(work)
+        .await
+        .map_err(|error| tr!("작업 실행 실패: {error}", "The task failed: {error}"))?
+}
+
+fn percent_decode(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let Some(Ok(value)) = text.get(i + 1..i + 3).map(|hex| u8::from_str_radix(hex, 16)) {
+                out.push(value);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// Writes the raw request body (an exported Word, Excel or PDF file, or a picture) to the file named in the
+/// URI-encoded `path` header. Raw bytes over the IPC: no base64.
+#[tauri::command]
+async fn write_binary_file(request: tauri::ipc::Request<'_>) -> Result<(), String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err(tr!("데이터 형식이 잘못되었습니다", "The data has the wrong form"));
+    };
+    let path = request
+        .headers()
+        .get("path")
+        .and_then(|value| value.to_str().ok())
+        .map(percent_decode)
+        .ok_or_else(|| tr!("파일 경로가 없습니다", "No file path"))?;
+    let bytes = bytes.clone();
+    blocking(move || files::write_text(std::path::Path::new(&path), &bytes)).await
+}
+
+/// Encodes RGBA pixels (the raw request body; `width`, `height` and `quality` headers) as an AVIF file.
+/// The web view cannot write AVIF itself (Chromium has no AV1 encoder), so ravif does it here.
+#[tauri::command]
+async fn encode_avif(request: tauri::ipc::Request<'_>) -> Result<tauri::ipc::Response, String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err(tr!("데이터 형식이 잘못되었습니다", "The data has the wrong form"));
+    };
+    let number = |name: &str| request.headers().get(name).and_then(|value| value.to_str().ok()).and_then(|value| value.parse::<usize>().ok());
+    let (width, height) = (number("width").unwrap_or(0), number("height").unwrap_or(0));
+    let quality = number("quality").unwrap_or(80).clamp(1, 100) as f32;
+    if width == 0 || height == 0 || bytes.len() != width * height * 4 {
+        return Err(tr!("그림 크기가 맞지 않습니다", "The picture size does not match its pixels"));
+    }
+    let pixels: Vec<ravif::RGBA8> = bytes.chunks_exact(4).map(|p| ravif::RGBA8::new(p[0], p[1], p[2], p[3])).collect();
+    let encoded = blocking(move || {
+        ravif::Encoder::new()
+            .with_quality(quality)
+            .with_alpha_quality(quality)
+            .with_speed(6)
+            .encode_rgba(ravif::Img::new(&pixels[..], width, height))
+            .map(|image| image.avif_file)
+            .map_err(|error| tr!("AVIF로 저장할 수 없습니다: {error}", "Could not write AVIF: {error}"))
+    })
+    .await?;
+    Ok(tauri::ipc::Response::new(encoded))
+}
+
 fn quit_all(app: &tauri::AppHandle) {
     if QUITTING.swap(true, Ordering::SeqCst) {
         return;
@@ -136,8 +204,9 @@ fn open_talk_window(app: &tauri::AppHandle) -> Result<(), String> {
     let title = tr!("MyWorkForce 대화방 v{}", "MyWorkForce Chatting v{}", app.package_info().version);
     let builder = WebviewWindowBuilder::new(app, "talk", WebviewUrl::App("chat.html".into()))
         .title(title)
-        .inner_size(980.0, 720.0)
-        .min_inner_size(720.0, 480.0)
+        // A messenger-sized window (the user asked for a narrow one).
+        .inner_size(420.0, 700.0)
+        .min_inner_size(320.0, 420.0)
         .center();
     let builder = match install_language_script(app) {
         Some(script) => builder.initialization_script(script),
@@ -454,7 +523,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![app_info, set_language, startup_files, read_text_file, write_text_file, workspace_file, open_talk, open_main, open_doc_window, open_tool_window, print_window, list_printers, print_direct, print_pages_to_pdf, open_browser, set_talk_autostart])
+        .invoke_handler(tauri::generate_handler![app_info, set_language, startup_files, read_text_file, write_text_file, write_binary_file, encode_avif, workspace_file, open_talk, open_main, open_doc_window, open_tool_window, print_window, list_printers, print_direct, print_pages_to_pdf, open_browser, set_talk_autostart])
         .build(tauri::generate_context!())
         .expect("error while building MyWorkForce")
         .run(|_app, event| {

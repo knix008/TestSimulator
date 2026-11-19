@@ -5,9 +5,10 @@ import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialo
 
 export const isDesktop = () => Boolean(globalThis.window?.__TAURI_INTERNALS__);
 
-export function invoke(command, args) {
+export function invoke(command, args, options) {
   if (!isDesktop()) return Promise.reject(new Error('desktop-only'));
-  return tauriInvoke(command, args);
+  // options carries headers for commands that take raw bytes (write_binary_file, encode_avif).
+  return options ? tauriInvoke(command, args, options) : tauriInvoke(command, args);
 }
 
 export const errorText = (error) => (error instanceof Error ? error.message : typeof error === 'string' ? error : String(error ?? ''));
@@ -34,6 +35,13 @@ export const setBackendLanguage = (language) => (isDesktop() ? invoke('set_langu
 export const startupFiles = () => (isDesktop() ? invoke('startup_files') : Promise.resolve([]));
 export const readTextFile = (path) => invoke('read_text_file', { path });
 export const writeTextFile = (path, content) => invoke('write_text_file', { path, content });
+/** Writes bytes (Uint8Array) to a file: the path goes in a header, the bytes as the raw body. */
+export const writeBinaryFile = (path, bytes) => invoke('write_binary_file', bytes, { headers: { path: encodeURIComponent(path) } });
+/** RGBA pixels → an AVIF file (desktop: ravif in lib.rs; the web view cannot write AVIF). */
+export async function encodeAvif(width, height, rgba, quality = 80) {
+  const result = await invoke('encode_avif', rgba, { headers: { width: String(width), height: String(height), quality: String(quality) } });
+  return new Uint8Array(result);
+}
 export const workspaceFile = () => invoke('workspace_file');
 export async function setLaunchAtStartup(enabled) {
   if (!isDesktop()) return false;
@@ -84,8 +92,8 @@ export function openTalk() {
   return invoke('open_talk').catch(() => popup());
 }
 
-export async function chooseOpen() {
-  return (await openDialog({ multiple: false, filters: [{ name: 'MyWorkForce', extensions: ['mwf', 'json'] }] })) || null;
+export async function chooseOpen(filters = [{ name: 'MyWorkForce', extensions: ['mwf', 'json'] }]) {
+  return (await openDialog({ multiple: false, filters })) || null;
 }
 
 export async function chooseSave(filename, extensions = ['mwf']) {

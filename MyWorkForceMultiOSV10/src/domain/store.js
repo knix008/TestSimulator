@@ -7,6 +7,8 @@ import { ensureServices } from './services.js';
 import { DEFAULT_METHODS, ensureSpaceScopes, ensureTeams, isTeamMember, upgradeMethods } from './teams.js';
 import { isDoneStatus } from './reports.js';
 import { byId, clone, nowIso, uid } from './util.js';
+import { ensureQualityTypes, upgradeQualityIssue } from './requirements.js';
+import { ensureSchedule } from './schedule.js';
 
 const ADMIN_PASSWORD = '1ad2eacc16cdeeeb72ee7b81fd6f7bfe:ae787768c29cc63daf18162c8b7869b4edba6dc449d4650323b8d2bd605650c2';
 
@@ -14,6 +16,7 @@ const EDITABLE = new Set([
   'summary', 'description', 'environment', 'typeId', 'priorityId', 'assigneeId', 'reporterId',
   'epicId', 'parentId', 'sprintId', 'storyPoints', 'originalEstimate', 'remainingEstimate', 'start', 'due',
   'rank', 'resolutionId', 'labels', 'componentIds', 'fixVersionIds', 'affectsVersionIds', 'fields',
+  'req', 'test', 'exec',
 ]);
 
 function mustProject(ws, projectId) {
@@ -80,6 +83,8 @@ export function upgradeIssue(issue) {
   issue.environment = issue.environment || '';
   issue.due = issue.due || '';
   issue.start = issue.start || '';
+  // Requirements, test cases and test executions carry their structured part (requirements.js).
+  upgradeQualityIssue(issue);
   return issue;
 }
 
@@ -110,6 +115,9 @@ export function upgradeProject(project) {
   project.seq = project.seq || 0;
   project.teamId = project.teamId || '';
   upgradeMethods(project);
+  ensureQualityTypes(project);
+  // The schedule (Gantt plan) is kept apart from the issues (schedule.js).
+  ensureSchedule(project);
   for (const issue of project.issues) upgradeIssue(issue);
   return project;
 }
@@ -383,6 +391,9 @@ export function makeIssue(project, partial, actorId) {
     attachments: partial.attachments || [],
     history: partial.history || [],
     fields: partial.fields ? { ...partial.fields } : {},
+    ...(partial.req ? { req: clone(partial.req) } : {}),
+    ...(partial.test ? { test: clone(partial.test) } : {}),
+    ...(partial.exec ? { exec: clone(partial.exec) } : {}),
   });
   project.issues.push(issue);
   return issue;
@@ -467,6 +478,7 @@ export function updateIssue(ws, projectId, issueId, patch, actorId) {
     }
   }
   if (statusId && statusId !== issue.statusId) applyStatus(ws, project, issue, statusId, actorId);
+  upgradeQualityIssue(issue);
   return issue;
 }
 

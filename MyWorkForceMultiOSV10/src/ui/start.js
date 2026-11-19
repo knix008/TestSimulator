@@ -1,4 +1,6 @@
 import { EXAMPLES } from '../domain/examples.js';
+import { flag } from './flags.js';
+import { getLanguage } from '../i18n.js';
 import { savedLogin } from '../platform/data.js';
 import { engineById, ENGINES } from '../domain/engines.js';
 import { isWorkspaceAdmin } from '../domain/permissions.js';
@@ -23,7 +25,9 @@ function startProjects(ctx) {
 }
 
 function tile(action, glyph, title, tip, extra = '') {
-  return `<button type="button" class="start-tile" data-action="${action}" ${extra}><span class="start-tile-icon">${icon(glyph)}</span><b>${esc(title)}</b><small>${esc(tip)}</small></button>`;
+  // The language tile shows the flag of the language it switches to.
+  const mark = action === 'language' ? flag(getLanguage() === 'en' ? 'ko' : 'en') : icon(glyph);
+  return `<button type="button" class="start-tile" data-action="${action}" ${extra}><span class="start-tile-icon">${mark}</span><b>${esc(title)}</b><small>${esc(tip)}</small></button>`;
 }
 
 function card(id, glyph, title, body, hidden = '', note = '') {

@@ -22,7 +22,8 @@
     "build:all": "node scripts/build.mjs all",
     "clean": "node scripts/clean.mjs",
     "clean:all": "node scripts/clean.mjs --all",
-    "guide:shots": "node scripts/guide-shots.mjs"
+    "guide:shots": "node scripts/guide-shots.mjs",
+    "samples": "node scripts/generate-samples.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.8.0",

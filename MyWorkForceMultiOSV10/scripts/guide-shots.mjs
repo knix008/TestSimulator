@@ -4,6 +4,7 @@
 // and drives headless Edge (or Chrome) through each screen in Korean and in English. The pictures land in
 // src/assets/guide/<id>.<ko|en>.jpg, where src/ui/figures.js picks them up (a missing one falls back to the
 // drawn sketch). Run it again after a screen changes, then rebuild.
+//   --only=a,b   take just these pictures      --out=<folder>   write them somewhere else (for checking a change)
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import net from 'node:net';
@@ -13,8 +14,12 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 // Forward slashes for Vite on Windows: with backslashes some modules load a second time, and a second copy of
 // the language module keeps the first language.
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..').replace(/\\/g, '/');
-const outDir = path.join(root, 'src', 'assets', 'guide');
+// The drive letter in upper case as well: with "c:" some imports resolve to "C:" and load a second time
+// through /@fs/, again with a language module of their own.
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..').replace(/\\/g, '/').replace(/^[a-z]:/, (drive) => drive.toUpperCase());
+const argValue = (name) => process.argv.find((arg) => arg.startsWith(`--${name}=`))?.slice(name.length + 3) || '';
+const outDir = argValue('out') ? path.resolve(argValue('out')) : path.join(root, 'src', 'assets', 'guide');
+const only = new Set(argValue('only').split(',').filter(Boolean));
 mkdirSync(outDir, { recursive: true });
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const free = () => new Promise((resolve) => { const probe = net.createServer(); probe.listen(0, '127.0.0.1', () => { const { port } = probe.address(); probe.close(() => resolve(port)); }); });
@@ -55,11 +60,11 @@ const first = await call('/api/session', 'POST', { account: 'admin', password: '
 await call('/api/account/password', 'POST', { current: 'admin', next: 'Guide-Shots-1' }, first.token);
 const { token } = await call('/api/session', 'POST', { account: 'admin', password: 'Guide-Shots-1' });
 
-async function loadExample(lang) {
+async function loadExample(lang, id = 'shop') {
   const { exampleWorkspace } = await import(pathToFileURL(path.join(root, 'src/domain/examples.js')).href);
   const { upgradeWorkspace } = await import(pathToFileURL(path.join(root, 'src/domain/store.js')).href);
   const current = (await call('/api/workspace', 'GET', null, token)).workspace;
-  const example = upgradeWorkspace(exampleWorkspace('shop', Date.now(), lang));
+  const example = upgradeWorkspace(exampleWorkspace(id, Date.now(), lang));
   // The signed-in administrator stays who they are (the server keeps the password by id).
   const me = current.users.find((user) => user.login === 'admin');
   const twin = example.users.find((user) => user.login === 'admin') || example.users.find((user) => user.admin);
@@ -113,6 +118,28 @@ const SHOTS = [
   { id: 'issues', steps: [go('issues')] },
   { id: 'wql', steps: [go('issues'), `const box = document.querySelector('#quick-search'); if (!box) return false; box.value = 'status != Done ORDER BY priority DESC'; box.dispatchEvent(new Event('input', { bubbles: true })); box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await new Promise((r) => setTimeout(r, 900)); return true;`] },
   { id: 'reports', steps: [go('reports')] },
+  // Requirements traceability and test management (the shop example has a small specification and a test run).
+  // "check: true" pictures are not in the guide; take them with --only=… --out=… to look at those screens.
+  { id: 'requirements', check: true, steps: [go('requirements')] },
+  { id: 'trace', steps: [go('trace'), click('[data-action="trace-mode"][data-id="list"]')] },
+  { id: 'trace-grid', check: true, steps: [go('trace'), click('[data-action="trace-mode"][data-id="grid"]')], after: click('[data-action="trace-mode"][data-id="list"]') },
+  { id: 'requirement', check: true, steps: [go('requirements'), 'const keys = document.querySelectorAll(\'#view .q-table [data-action="open-issue"]\'); const el = keys[3]; if (!el) return false; el.click(); await new Promise((r) => setTimeout(r, 900)); return true;'] },
+  { id: 'tests', check: true, steps: [go('tests')] },
+  { id: 'testcase', check: true, steps: [go('tests'), click('#view .q-table [data-action="open-issue"]')] },
+  { id: 'testrun', check: true, steps: [go('executions'), click('#view .q-exec')] },
+  // Schedule (construction example) and planner (in-car example, switched to Scrum).
+  { id: 'schedule', example: 'site', steps: [go('schedule')] },
+  { id: 'planner', example: 'car', steps: [go('planner'), click('[data-action="planner-mode"][data-id="month"]')] },
+  { id: 'schedule-car', check: true, example: 'car', steps: [go('schedule')] },
+  { id: 'plan-switch', check: true, example: 'site', steps: [go('schedule'), click('[data-action="plan-switch"][data-mode="scrum"]')], after: closeAll },
+  { id: 'planner-week', check: true, example: 'car', steps: [go('planner'), click('[data-action="planner-mode"][data-id="week"]')] },
+  { id: 'planner-day', check: true, example: 'site', steps: [go('planner'), click('[data-action="planner-mode"][data-id="day"]')] },
+  { id: 'planner-year', check: true, example: 'car', steps: [go('planner'), click('[data-action="planner-mode"][data-id="year"]')] },
+  { id: 'report-pie', check: true, steps: [go('reports'), click('[data-action="report"][data-id="pie"]')] },
+  { id: 'report-time', check: true, steps: [go('reports'), click('[data-action="report"][data-id="time"]'), "const s = document.querySelector('[data-report-group]'); if (!s) return false; s.value = 'type'; s.dispatchEvent(new Event('change', { bubbles: true })); await new Promise((r) => setTimeout(r, 700)); return true;"] },
+  { id: 'dashboard', check: true, steps: [go('dashboard')] },
+  { id: 'issues-group', check: true, steps: [go('issues'), "const s = document.querySelector('[data-issue-group]'); if (!s) return false; s.value = 'status'; s.dispatchEvent(new Event('change', { bubbles: true })); await new Promise((r) => setTimeout(r, 700)); return true;"] },
+  { id: 'issue-format', check: true, steps: [go('requirements'), click('[data-action="new-quality"][data-type="requirement"]')], after: closeAll },
   // Pages: the workspace that has pages (the last in the left tree, the example's own), then its first page.
   {
     id: 'knowledge',
@@ -167,7 +194,10 @@ try {
     await loadExample(lang);
     await openApp(lang);
     for (const item of SHOTS) {
+      if (only.size ? !only.has(item.id) : item.check) continue;
       let ok = true;
+      // A picture of another example loads it first, and the shop example again afterwards.
+      if (item.example) { await loadExample(lang, item.example); await openApp(lang); }
       try {
         if (item.page) { await openApp(lang, item.page); await wait(1500); }
         else {
@@ -180,7 +210,7 @@ try {
         if (item.after) await run(item.after);
         if (item.back) await run(`const home = document.querySelector('[data-action="menubar-home"]'); if (home && !document.querySelector('#app').classList.contains('on-start')) {} else if (home) home.click(); await new Promise((r) => setTimeout(r, 800)); return true;`);
         // The tutorial replaced the workspace with its own copy of the example: load ours again.
-        if (item.reload) { await loadExample(lang); await openApp(lang); }
+        if (item.reload || item.example) { await loadExample(lang); await openApp(lang); }
         if (item.page) await openApp(lang);
       } catch (error) {
         missed += 1;
