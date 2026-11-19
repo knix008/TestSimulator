@@ -1,4 +1,5 @@
 import { nowIso, uid } from './util.js';
+import { isHoliday } from './holidays.js';
 import { addPage, deletePage, ensureWiki } from './wiki.js';
 
 export const MODULES = [
@@ -90,6 +91,8 @@ export function addCalendar(ws, input) {
   const calendar = {
     id: uid('cal'), name, timezone: input.timezone || 'Asia/Seoul',
     week: input.week || defaultWeek(), holidays: Array.isArray(input.holidays) ? input.holidays : [],
+    // Public holidays of this country count as days off (holidays.js; 'none' for none).
+    country: input.country || 'KR',
   };
   ws.calendars.push(calendar);
   return calendar;
@@ -113,7 +116,7 @@ export function atWork(calendar, ms) {
   if (!calendar) return true;
   const parts = partsInZone(ms, calendar.timezone);
   const stamp = `${parts.year}-${parts.month}-${parts.day}`;
-  if ((calendar.holidays || []).includes(stamp)) return false;
+  if ((calendar.holidays || []).includes(stamp) || isHoliday(calendar.country || 'KR', Date.parse(`${stamp}T00:00:00Z`))) return false;
   const window = calendar.week?.[WEEK_NAME[parts.weekday]];
   if (!window) return false;
   const minutes = Number(parts.hour) * 60 + Number(parts.minute);
@@ -141,7 +144,7 @@ export function addBusinessHours(calendar, startMs, hours) {
   while (left > 0 && cursor < end) {
     const parts = partsInZone(cursor, calendar?.timezone);
     const stamp = `${parts.year}-${parts.month}-${parts.day}`;
-    const window = (calendar?.holidays || []).includes(stamp) ? null : calendar?.week?.[WEEK_NAME[parts.weekday]];
+    const window = (calendar?.holidays || []).includes(stamp) || (calendar && isHoliday(calendar.country || 'KR', Date.parse(`${stamp}T00:00:00Z`))) ? null : calendar?.week?.[WEEK_NAME[parts.weekday]];
     if (!window) {
       const midnight = zoned(calendar?.timezone, Number(parts.year), Number(parts.month), Number(parts.day), 0, 0);
       cursor = midnight + 86400000;

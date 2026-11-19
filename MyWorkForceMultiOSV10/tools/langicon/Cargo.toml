@@ -1,0 +1,16 @@
+[package]
+name = "langicon"
+version = "1.0.0"
+edition = "2021"
+description = "Gives the installer's language dialog its title-bar icon"
+publish = false
+
+# No dependencies: a few Win32 calls declared by hand keep the helper tiny.
+[dependencies]
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

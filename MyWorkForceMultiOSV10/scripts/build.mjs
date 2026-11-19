@@ -42,6 +42,16 @@ if (process.platform === 'win32') {
   spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { stdio: 'ignore' });
 }
 
+// The installer's language dialog gets its title-bar icon from a small helper (tools/langicon, see
+// src-tauri/windows/hooks.nsh). It is built here and placed next to hooks.nsh, where the installer takes it from.
+if (requested === 'win') {
+  const crate = path.join(root, 'tools', 'langicon');
+  console.log('> cargo build --release (tools/langicon)');
+  const helper = spawnSync(process.platform === 'win32' ? 'cargo.exe' : 'cargo', ['build', '--release', '--manifest-path', path.join(crate, 'Cargo.toml')], { cwd: crate, stdio: 'inherit' });
+  if (helper.status !== 0) process.exit(helper.status ?? 1);
+  fs.copyFileSync(path.join(crate, 'target', 'release', 'langicon.exe'), path.join(root, 'src-tauri', 'windows', 'langicon.exe'));
+}
+
 const bundleDir = path.join(root, 'src-tauri', 'target', 'release', 'bundle');
 const started = Date.now();
 const bundles = targets[requested].bundles;

@@ -12,6 +12,7 @@
 // People who only plan never need issues. "Switch to Kanban / Scrum" (schedule-apply.js) turns the plan into
 // issues, sprints and a board; tasks then remember their issue and show its progress.
 import { byId, uid } from './util.js';
+import { isHoliday } from './holidays.js';
 
 export const DAY = 86_400_000;
 export const DEP_TYPES = ['FS', 'SS', 'FF', 'SF'];
@@ -41,6 +42,8 @@ export function isWorkDay(calendar, ms) {
   const key = WEEK_KEYS[new Date(ms).getUTCDay()];
   if (calendar) {
     if ((calendar.holidays || []).includes(isoDay(ms))) return false;
+    // The calendar's country's public holidays are days off too (holidays.js; 'none' turns them off).
+    if (isHoliday(calendar.country || 'KR', dayOf(ms))) return false;
     return Boolean(calendar.week?.[key]);
   }
   return key !== 'sat' && key !== 'sun';
