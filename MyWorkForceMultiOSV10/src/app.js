@@ -20,28 +20,34 @@ import {
   parseRequirementCsv, parseTestCaseCsv, recordResult, removeExecTest, removeStep, requirementsCsv, setExecVersion, setRequirementField,
   setTestField, testCasesCsv, toReqIF, traceCsv, traceMarkdown, updateStep,
 } from './domain/requirements.js';
-import sampleReqKo from '../samples/requirements.ko.csv?raw';
-import samplePlanXmlKo from '../samples/schedule.ko.xml?raw';
-import samplePlanXmlEn from '../samples/schedule.en.xml?raw';
-import samplePlanCsvKo from '../samples/schedule.ko.csv?raw';
-import samplePlanCsvEn from '../samples/schedule.en.csv?raw';
 import {
   addTask, clearBaseline, computeSchedule, dayOf as planDay, deleteTask, ensureSchedule, importSchedule, indentTask, isoDay, moveTask, parseProjectXml,
   parseScheduleCsv, saveBaseline, toProjectXml, toScheduleCsv, updateTask, WorkDays,
 } from './domain/schedule.js';
 import { applyConversion } from './domain/schedule-apply.js';
-import { exportDocument } from './domain/export/docexport.js';
-import { encodeCanvas, imageMime, svgToCanvas } from './domain/export/images.js';
-import { exportFor, fileBase } from './domain/export/views.js';
+// Loaded on first use (kept out of the main bundle): the export writers and the sample files.
+const loadExport = () => Promise.all([import('./domain/export/docexport.js'), import('./domain/export/images.js'), import('./domain/export/views.js')]);
+const SAMPLE_FILES = {
+  'req.ko': () => import('../samples/requirements.ko.csv?raw'),
+  'req.en': () => import('../samples/requirements.en.csv?raw'),
+  'tests.ko': () => import('../samples/testcases.ko.csv?raw'),
+  'tests.en': () => import('../samples/testcases.en.csv?raw'),
+  'plan-xml.ko': () => import('../samples/schedule.ko.xml?raw'),
+  'plan-xml.en': () => import('../samples/schedule.en.xml?raw'),
+  'plan-csv.ko': () => import('../samples/schedule.ko.csv?raw'),
+  'plan-csv.en': () => import('../samples/schedule.en.csv?raw'),
+};
+function insertSample(boxSelector, name) {
+  const box = document.querySelector(boxSelector);
+  if (!box) return;
+  SAMPLE_FILES[`${name}.${getLanguage() === 'en' ? 'en' : 'ko'}`]().then((file) => { box.value = file.default; }).catch(fail);
+}
 import { participatingProjects } from './domain/permissions.js';
 import { COLS as CG_COLS, GAP as CG_GAP, ROW as CG_ROW, moveCard, resizeCard } from './ui/cardgrid.js';
 import { encodeAvif, writeBinaryFile } from './platform/native.js';
 import { plannerState, plannerStep } from './ui/planner.js';
 import { calendarOf } from './domain/services.js';
 import { parseCsvTable, parseXml } from './domain/requirements.js';
-import sampleReqEn from '../samples/requirements.en.csv?raw';
-import sampleTestsKo from '../samples/testcases.ko.csv?raw';
-import sampleTestsEn from '../samples/testcases.en.csv?raw';
 import { addColumn, addPage, addRow, addShape, addSpace, attachPage, commentPage, copyPage, deletePageComment, canEditPage, deleteSpace, editPageComment, pageDescendants, resolvePageComment, updateSpace, expandPage, likePage, markEditing, movePage, pageByShare, purgePage, removePageFile, removeShape, restorePage, restoreTrashed, setPageAccess, setPageStatus, shareLink, updatePage, watchPage } from './domain/wiki.js';
 import { addArticle, addCalendar, addToken, addWebhook, authorizationUrl, csvIssueRows, decideApproval, deleteArticle, deleteToken, deleteWebhook, openApproval } from './domain/services.js';
 import { loadSettings, PANEL_MAX, PANEL_MIN, rememberPath, saveSettings } from './domain/settings.js';
@@ -2162,6 +2168,7 @@ async function saveExportFiles(files) {
 
 /** Exports the screen: HTML, Markdown (pictures embedded or linked), PDF, Word, Excel, or the picture itself. */
 async function runExport(opts) {
+  const [{ exportDocument }, { encodeCanvas, imageMime, svgToCanvas }, { exportFor, fileBase }] = await loadExport();
   const ctx = context();
   const spec = exportFor({ ws, project: ctx.project, ui, user: ctx.user, now: Date.now(), lang: getLanguage(), projectIds: participatingProjects(ws, actor()).map((item) => item.id) }, opts.view);
   const base = fileBase(spec.title);
@@ -3453,7 +3460,17 @@ function onAction(el) {
     saveCardBoard(board, layout);
     return;
   }
-  if (name === 'export-view') { ui.modal = { kind: 'export-view', view: ui.view, format: 'pdf', image: 'png', withImage: true, mdImages: 'embed' }; paint(); return; }
+  if (name === 'export-view') {
+    const view = ui.view;
+    loadExport().then(([, , { exportFor }]) => {
+      const ctx = context();
+      let spec = null;
+      try { spec = exportFor({ ws, project: ctx.project, ui, user: ctx.user, now: Date.now(), lang: getLanguage(), projectIds: participatingProjects(ws, actor()).map((item) => item.id) }, view); } catch { spec = null; }
+      ui.modal = { kind: 'export-view', view, format: 'pdf', image: 'png', withImage: true, mdImages: 'embed', title: spec?.title || '', hasPicture: Boolean(spec?.svg), picture: spec?.picture || '' };
+      paint();
+    }).catch(fail);
+    return;
+  }
   // ── Planner (works without a project too) ──
   if (name === 'planner-mode') { setPlanner({ mode: el.dataset.id }); return; }
   if (name === 'planner-scope') { setPlanner({ scope: el.dataset.id }); return; }
@@ -3569,9 +3586,7 @@ function onAction(el) {
   if (name === 'plan-import') { ui.modal = { kind: 'plan-import' }; paint(); return; }
   if (name === 'plan-import-file') { pickPlanFile(); return; }
   if (name === 'plan-import-sample') {
-    const box = document.querySelector('#plan-import-text');
-    const en = getLanguage() === 'en';
-    if (box) box.value = el.dataset.kind === 'csv' ? (en ? samplePlanCsvEn : samplePlanCsvKo) : (en ? samplePlanXmlEn : samplePlanXmlKo);
+    insertSample('#plan-import-text', el.dataset.kind === 'csv' ? 'plan-csv' : 'plan-xml');
     return;
   }
   if (name === 'plan-switch') {
@@ -3593,9 +3608,7 @@ function onAction(el) {
   if (name === 'quality-import') { ui.modal = { kind: 'quality-import', target: el.dataset.kind === 'tests' ? 'tests' : 'req' }; paint(); return; }
   if (name === 'quality-import-file') { pickQualityFile(); return; }
   if (name === 'quality-import-sample') {
-    const box = document.querySelector('#quality-import-text');
-    const en = getLanguage() === 'en';
-    if (box) box.value = ui.modal?.target === 'tests' ? (en ? sampleTestsEn : sampleTestsKo) : (en ? sampleReqEn : sampleReqKo);
+    insertSample('#quality-import-text', ui.modal?.target === 'tests' ? 'tests' : 'req');
     return;
   }
   if (name === 'trace-mode') { ui.traceMode = el.dataset.id === 'grid' ? 'grid' : 'list'; paint(); return; }

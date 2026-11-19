@@ -661,6 +661,8 @@ describe('Screens', () => {
     const ws = sampleWorkspace(NOW);
     const project = ws.projects.find((item) => item.key === (view === 'queues' ? 'SUP' : 'SHOP'));
     ws.activeProjectId = project.id;
+    // The settings screen is seen as an administrator (sign-in lock, database and mail are theirs).
+    if (view === 'settings') ws.users[0].admin = true;
     const ui = {
       view, boardId: 'board-scrum', issueId: 'i9', query: 'type = bug', quick: '', sort: null, selected: [],
       epicId: '', queueId: project.queues[0]?.id || '', report: 'burndown', help: 'guide', modal: null,
@@ -750,6 +752,21 @@ describe('Screens', () => {
     assert.equal((renderView(issues).match(/data-action="open-issue"/g) || []).length, 0);
     const knowledge = context('knowledge');
     assert.match(renderView(knowledge), /data-facet="kind"/);
+  });
+
+  test('settings: a person without the administrator mark sees only their own settings', () => {
+    const ctx = context('settings');
+    ctx.ws.users[0].admin = false;
+    ctx.user = ctx.ws.users[0];
+    const html = renderView(ctx);
+    assert.match(html, /My settings/);
+    assert.match(html, /show when you sign in as an administrator/);
+    assert.match(html, /data-setting="showWelcome"/);
+    assert.doesNotMatch(html, /data-mail="host"/);
+    assert.doesNotMatch(html, /Server database/);
+    const admin = renderView(context('settings'));
+    assert.match(admin, /Administrator settings/);
+    assert.match(admin, /data-mail="host"/);
   });
 
   test('the settings page configures the start page and its background', () => {

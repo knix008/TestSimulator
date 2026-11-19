@@ -1588,3 +1588,6 @@ table.q-runs input { width: 100%; min-width: 80px; }
 .critical-mode .plan-bar.critical .plan-rect { stroke-width: 2; }
 .critical-mode .plan-row:not(.critical):not(.summary) td { opacity: 0.6; }
 .plan-svg .plan-slack { font-size: 10.5px; fill: #30a46c; font-weight: 600; }
+.settings-role { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 99px; border: 1px solid var(--border); color: var(--muted); font-size: 0.92em; }
+.settings-role.admin { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.settings-admin-note { margin: 0 0 10px; }

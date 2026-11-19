@@ -52,6 +52,17 @@ export default defineConfig({
         main: path.resolve(root, 'index.html'),
         talk: path.resolve(root, 'chat.html'),
       },
+      output: {
+        // Separate, cacheable pieces: the libraries, the guide texts and the page templates. Modules that import
+        // the store stay with the program so no chunk waits on another in a loop.
+        manualChunks(id) {
+          const file = id.replace(/\\/g, '/');
+          if (file.includes('/node_modules/')) return 'vendor';
+          if (/\.md(\?raw)?$/.test(file)) return 'docs';
+          if (/\/src\/domain\/(page-templates|tutorial)\.js$/.test(file)) return 'templates';
+          return undefined;
+        },
+      },
     },
   },
 });

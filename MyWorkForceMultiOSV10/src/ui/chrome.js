@@ -14,7 +14,6 @@ import { flag } from './flags.js';
 import { switchDialogBody } from './schedule.js';
 import { planConversion } from '../domain/schedule-apply.js';
 import { calendarOf } from '../domain/services.js';
-import { exportFor } from '../domain/export/views.js';
 import { methodChecks } from './teams.js';
 import { databaseSettings } from './start.js';
 
@@ -237,6 +236,7 @@ export function renderToolbar(ctx) {
         <button type="button" class="tool-button split-arrow" data-action="theme-menu" title="${esc(L('테마 설정', 'Theme settings'))}" aria-label="${esc(L('테마 설정', 'Theme settings'))}" aria-haspopup="true" aria-expanded="${ctx.ui.popover === 'theme' || ctx.ui.popover === 'theme-custom' ? 'true' : 'false'}">${icon('chevronDown')}</button>
         ${themePopover(ctx)}
       </span>
+      <button type="button" class="tool-button" data-action="go" data-view="settings" title="${esc(L('설정', 'Settings'))} · Ctrl+," aria-label="${esc(L('설정', 'Settings'))}">${icon('settings')}</button>
       <button type="button" class="tool-button" data-action="about" title="${esc(L('프로그램 정보', 'About'))} · Ctrl+Shift+A" aria-label="${esc(L('프로그램 정보', 'About'))}">${icon('info')}</button>
     </div>`;
 }
@@ -651,9 +651,9 @@ export function renderModal(ctx) {
   }
   if (modal.kind === 'export-view') {
     // Export this screen (src/domain/export): a document format, or the screen's picture.
-    let spec = null;
-    try { spec = exportFor({ ws: ctx.ws, project, ui: ctx.ui, user: ctx.user, now: ctx.now, lang: getLanguage() }, modal.view); } catch { spec = null; }
-    const hasPicture = Boolean(spec?.svg);
+    // The title and whether there is a picture were worked out when the dialog opened (app.js, export-view).
+    const spec = modal.title ? { title: modal.title, picture: modal.picture } : null;
+    const hasPicture = Boolean(modal.hasPicture);
     const formats = [['html', 'globe', 'HTML'], ['markdown', 'file', 'Markdown'], ['pdf', 'printer', 'PDF'], ['docx', 'file', L('Word', 'Word')], ['xlsx', 'table', L('Excel', 'Excel')], ...(hasPicture ? [['image', 'image', L('그림', 'Picture')]] : [])];
     const pick = (name, value, current, glyph, label) => `<label class="export-choice${value === current ? ' active' : ''}"><input type="radio" name="${name}" value="${value}" data-export-opt="${name}" ${value === current ? 'checked' : ''}>${icon(glyph)}<span>${esc(label)}</span></label>`;
     const format = formats.some(([id]) => id === modal.format) ? modal.format : 'pdf';

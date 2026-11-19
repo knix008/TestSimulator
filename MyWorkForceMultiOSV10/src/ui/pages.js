@@ -887,6 +887,11 @@ function settings(ctx) {
       ${colors}
     </section>`],
   ];
+  // Company-wide settings (sign-in lock, the database, mail) are the administrator's: a person signed in
+  // without the administrator mark sees only their own settings.
+  const admin = isWorkspaceAdmin(ctx.user);
+  const ADMIN_ONLY = new Set(['signin', 'database', 'mail']);
+  const allowedBlocks = blocks.filter(([id]) => admin || !ADMIN_ONLY.has(id));
   const find = screenFind(ctx);
   // Related settings sit together: each group is a heading over a grid of cards.
   const groups = [
@@ -896,7 +901,7 @@ function settings(ctx) {
     ['notify', 'bell', L('알림', 'Notifications'), ['mail']],
   ];
   const html = (id) => {
-    const item = blocks.find((block) => block[0] === id);
+    const item = allowedBlocks.find((block) => block[0] === id);
     if (!item || (find.section && find.section !== id)) return '';
     return keepBlock(find.q, item[2]);
   };
@@ -904,8 +909,13 @@ function settings(ctx) {
     const body = ids.map(html).join('');
     return body.trim() ? `<div class="settings-group" data-group="${id}"><h2 class="settings-group-title">${icon(glyph)}<span>${title}</span></h2><div class="settings-grid">${body}</div></div>` : '';
   }).join('');
-  return `<div class="page settings">${pageHead(L('설정', 'Settings'), '', 'settings')}
-    ${finderBar(ctx, [{ id: 'section', label: L('분류', 'Section'), options: blocks.map(([id, label]) => ({ id, label })) }])}
+  const role = admin
+    ? `<span class="settings-role admin">${icon('shield')}<span>${L('관리자 설정', 'Administrator settings')}</span></span>`
+    : `<span class="settings-role">${icon('user')}<span>${L('내 설정', 'My settings')}</span></span>`;
+  const note = admin ? '' : `<p class="banner settings-admin-note">${icon('lock')}<span>${L('로그인 잠금, 데이터베이스, 메일 설정은 관리자로 로그인해야 보입니다.', 'Sign-in lock, database and mail settings show when you sign in as an administrator.')}</span></p>`;
+  return `<div class="page settings">${pageHead(L('설정', 'Settings'), role, 'settings')}
+    ${note}
+    ${finderBar(ctx, [{ id: 'section', label: L('분류', 'Section'), options: allowedBlocks.map(([id, label]) => ({ id, label })) }])}
     ${shown || empty(L('찾는 설정이 없습니다.', 'No setting matches.'))}
   </div>`;
 }
