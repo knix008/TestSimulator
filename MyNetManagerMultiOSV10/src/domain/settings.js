@@ -143,6 +143,8 @@ export function defaultSettings(language = 'ko') {
     captureMonitor: false,
     captureBufferMb: 2,
     captureFilter: '',
+    // At start-up, ask to set live capture up (Npcap / libpcap / BPF rights) when it cannot work here.
+    captureSetupAsk: true,
     captureStopPackets: 0,
     captureStopSeconds: 0,
     captureStopMegabytes: 0,
@@ -231,6 +233,7 @@ export function normalizeSettings(raw = {}, language) {
   s.columns = normalizeColumns(s.columns);
   s.captureInterface = typeof s.captureInterface === 'string' ? s.captureInterface : '';
   s.captureFilter = typeof s.captureFilter === 'string' ? s.captureFilter : '';
+  s.captureSetupAsk = s.captureSetupAsk !== false;
   s.captureSnaplen = clamp(s.captureSnaplen, 64, 262144, base.captureSnaplen);
   s.captureBufferMb = clamp(s.captureBufferMb, 1, 1024, base.captureBufferMb);
   s.captureStopPackets = clamp(s.captureStopPackets, 0, 1e9, 0);

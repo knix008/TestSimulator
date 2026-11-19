@@ -37,6 +37,32 @@ export function installNetPopups(c) {
     action('stats-request', { statKind, options, displayedOnly: Boolean(net.draft?.displayedOnly) });
   };
 
+  /**
+   * Settings › Capture, first rows: the capture library this system has (Npcap / libpcap / BPF rights), a button that
+   * installs it — or installs it again — and whether to ask at start-up when live capture cannot work. The main window
+   * does the setup (app.js setupCapture) and sends the new state back ('capture-setup-info').
+   */
+  const captureSetupRows = () => {
+    const desktop = native.isDesktop?.() ?? Boolean(globalThis.__TAURI_INTERNALS__);
+    if (desktop && net.captureSetup === undefined) {
+      net.captureSetup = null;
+      native.invoke('capture_setup_info').then((info) => { net.captureSetup = info; render(); }).catch(() => { net.captureSetup = false; render(); });
+    }
+    const info = net.captureSetup;
+    const status = !desktop ? t('setup.webOnly')
+      : info === null || info === undefined ? t('setup.checking')
+        : info === false ? t('setup.unknown')
+          : info.needed === 'install' ? t(`setup.status.missing.${info.tool}`, null, t('setup.status.missing.libpcap'))
+            : info.needed === 'permission' ? t(`setup.status.permission.${info.tool}`, null, t('setup.status.permission.libpcap'))
+              : t('setup.status.ready', { version: info.version ?? '' });
+    const installed = Boolean(info && !info.needed);
+    return [
+      row('interfaces', t('setup.library'), `<span class="setup-status ${info?.needed ? 'warn' : installed ? 'ok' : ''}" id="capture-setup-status">${escapeHtml(status)}</span>`),
+      row('download', t('setup.action'), `${button('capture-setup', t(installed ? 'setup.reinstall' : 'setup.install'), 'download', 'small', '', desktop && info ? '' : 'disabled')}${installed ? `<span class="muted setup-note">${escapeHtml(t('setup.noNeed'))}</span>` : ''}`),
+      toggle('captureSetupAsk', t('setup.askAtStart'), 'bulb'),
+    ];
+  };
+
   const loadingHtml = () => `<div class="net-loading">${icon('hourglass')}<span>${escapeHtml(t('stats.loading'))}</span></div>`;
   const errorHtml = (text) => `<div class="net-loading error">${icon('error')}<span>${escapeHtml(text)}</span></div>`;
 
@@ -860,6 +886,7 @@ export function installNetPopups(c) {
       row('columns', t('action.columnPrefs'), button('open-columns', t('action.columnPrefs'), 'columns', 'small')),
     ].join(''),
     capture: () => [
+      ...captureSetupRows(),
       toggle('capturePromisc', t('capopts.promisc'), 'interfaces'),
       toggle('captureMonitor', t('capopts.monitor'), 'ifWifi'),
       row('ruler', t('capopts.snaplen'), numberField('captureSnaplen', s().captureSnaplen, 64, 262144, 1024, 'B', t('capopts.snaplen'))),
@@ -928,6 +955,7 @@ export function installNetPopups(c) {
       // capture options
       case 'cap-iface': update({ captureInterface: value }); return undefined;
       case 'cap-refresh': return action('refresh-interfaces');
+      case 'capture-setup': return action('capture-setup', { reinstall: Boolean(net.captureSetup && !net.captureSetup.needed) });
       case 'cap-preset': update({ captureFilter: togglePreset(s().captureFilter, value, CAPTURE_PRESETS) }); net.draft.filterCheck = null; return render();
       case 'cap-check': return action('capture-filter-check', { filter: s().captureFilter, linktype: d.interfaces.find((i) => i.id === s().captureInterface)?.linktype ?? 1 });
       case 'cap-start': return close({ start: true });
@@ -1096,6 +1124,7 @@ export function installNetPopups(c) {
     if (m?.type === 'fields') { net.protocols = m.protocols ?? []; if (m.fields) net.fields = m.fields; render(); return true; }
     if (m?.type === 'coloring') { net.colorRules = (m.rules ?? []).map((r) => ({ ...r })); net.colorDefaults = m.defaults ?? []; render(); return true; }
     if (m?.type === 'interfaces' && net.draft) { net.draft.interfaces = m.interfaces ?? []; net.draft.backend = m.backend; render(); return true; }
+    if (m?.type === 'capture-setup-info') { net.captureSetup = m.info ?? false; render(); return true; }
     if (m?.type === 'capture-filter-check' && net.draft) { net.draft.filterCheck = { ok: m.ok, error: m.error }; render(); return true; }
     if (m?.type === 'filter-check') {
       if (m.id === 'expr' && net.draft) { net.draft.check = { status: m.status, error: m.error }; const box = root.querySelector('.expr-preview'); if (box) { box.classList.remove('valid', 'invalid', 'deprecated', 'empty'); box.classList.add(m.status); box.querySelector('.muted').textContent = m.error ?? ''; } }

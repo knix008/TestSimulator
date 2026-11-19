@@ -177,6 +177,22 @@ ICMP, IPv6, VLAN, 브로드캐스트·멀티캐스트 제외. 디스플레이 �
 
 이것이 없으면 캡처 카드에 *실제 캡처를 쓸 수 없습니다 … 데모 인터페이스는 언제나 쓸 수 있습니다.*가 나옵니다.
 
+**프로그램이 직접 준비합니다.** 실제 캡처를 쓸 수 없으면 프로그램이 시작할 때 한 번 묻습니다(**설치** / **나중에** /
+**다시 묻지 않기** / **명령 복사**). 캡처 카드의 **캡처 준비하기** 단추와 **설정 › 캡처**에서도 언제든 할 수 있습니다.
+
+| 시스템 | 프로그램이 하는 일 |
+| --- | --- |
+| Windows | npcap.com에서 최신 **Npcap**을 내려받아, 서명이 Npcap 개발사(Nmap Software LLC)의 올바른 서명인지 확인한 뒤 관리자 권한으로 설치 프로그램을 엽니다(WinPcap 호환 모드, 루프백 캡처 선택). 무료판 Npcap은 자동 설치를 허용하지 않으므로 설치 창에서 [다음]을 몇 번 누릅니다. 끝나면 다시 시작하지 않아도 바로 캡처할 수 있습니다. |
+| Linux | 시스템 암호 창(pkexec)으로, 없으면 패키지 관리자(apt, dnf, yum, zypper, pacman, apk)로 **libpcap**을 설치하고 이 프로그램에 캡처 권한(`cap_net_raw`, `cap_net_admin`)을 줍니다. 권한은 다시 시작하면 적용되며, 프로그램이 다시 시작할지 묻습니다. |
+| macOS | 관리자 암호 창으로 관리자 그룹이 `/dev/bpf*`를 읽고 쓸 수 있게 합니다. 지금 바로, 그리고 켤 때마다(시작 데몬, Wireshark의 ChmodBPF와 같은 방식). |
+
+**설정 › 캡처**의 맨 위에는 **캡처 라이브러리**의 상태(예: *준비됨 — Npcap 1.90*, *Npcap이 설치되어 있지 않습니다*),
+**설치** / **다시 설치** 단추, **실제 캡처를 쓸 수 없으면 시작할 때 묻기** 스위치가 있습니다. 이미 설치되어 있으면
+*이미 설치되어 있어 다시 설치하지 않아도 됩니다*가 함께 나옵니다. 이때 **다시 설치**는 npcap.com의 최신판과 비교해
+**더 새 버전이 있을 때만** 설치 창을 열고, 같으면 아무 창도 열지 않습니다(Linux / macOS는 이미 준비되어 있으면 아무것도 하지
+않음 — 새 버전은 시스템의 패키지 관리자가 담당). 자동으로 할 수 없는 컴퓨터에서는
+**명령 복사**로 직접 실행할 명령을 복사합니다.
+
 #### 주 창
 
 ![캡처를 연 주 창](doc/images/ko/04-main-window.png)
@@ -778,7 +794,7 @@ macOS에서는 Ctrl 대신 Cmd를 씁니다. **도움말 › 단축키**(설정 
 
 | 문제 | 해결 방법 |
 | --- | --- |
-| 캡처 카드에 데모 인터페이스만 있고 *실제 캡처를 쓸 수 없습니다*가 나옴 | Windows: <https://npcap.com> 에서 Npcap을 설치하고 **새로 고침**. Linux / macOS: libpcap 설치. |
+| 캡처 카드에 데모 인터페이스만 있고 *실제 캡처를 쓸 수 없습니다*가 나옴 | 캡처 카드의 **캡처 준비하기**(또는 **설정 › 캡처 › 설치**)를 누르면 프로그램이 Npcap / libpcap / 권한을 준비합니다. 직접 하려면: Windows는 <https://npcap.com> 에서 Npcap 설치 뒤 **새로 고침**, Linux / macOS는 libpcap 설치. |
 | *libpcap/Npcap 라이브러리를 찾을 수 없습니다* | 위와 같음. Windows는 Npcap 설치 뒤 MyNetManager를 다시 시작. |
 | *캡처 권한이 없습니다* | Linux: `sudo setcap cap_net_raw,cap_net_admin=eip <mynetmanager 경로>`(업데이트할 때마다 다시) 또는 root로 실행. macOS: 사용자에게 `/dev/bpf*` 권한. Windows: Npcap을 "Restrict Npcap driver's access to Administrators only"로 설치했다면 관리자 권한으로 실행. |
 | *인터페이스가 꺼져 있습니다* / *인터페이스가 없습니다* | 어댑터를 연결하거나 켜고 **새로 고침**. |
@@ -986,6 +1002,22 @@ the capture stops by itself with a notice. A live capture is a new, unsaved docu
 | Web | Real interfaces cannot be captured in a browser; use the demo interface, the samples or files. |
 
 Without these the Capture card says *Live capture is unavailable … The demo interface always works.*
+
+**The program sets this up itself.** When live capture cannot work, it asks once at start-up (**Install** / **Later** /
+**Don’t Ask Again** / **Copy Command**); **Set Up Capture** on the Capture card and **Settings › Capture** do it any time.
+
+| System | What the program does |
+| --- | --- |
+| Windows | Downloads the newest **Npcap** from npcap.com, accepts it only with a valid signature from the Npcap publisher (Nmap Software LLC) and opens its installer as administrator (WinPcap-compatible mode and loopback capture chosen). The free Npcap allows no silent install, so press Next a few times in its window. Capture works as soon as it is done — no restart. |
+| Linux | Through the system password prompt (pkexec): installs **libpcap** with the package manager when it is missing (apt, dnf, yum, zypper, pacman, apk) and gives this program the capture rights (`cap_net_raw`, `cap_net_admin`). The rights apply when the program starts again; it offers to restart. |
+| macOS | Through the administrator password prompt: gives the admin group read and write access to `/dev/bpf*`, now and at every start (a launch daemon, like Wireshark’s ChmodBPF). |
+
+At the top of **Settings › Capture** are the **Capture library** state (such as *Ready — Npcap 1.90* or *Npcap is not
+installed*), the **Install** / **Reinstall** button and the switch **Ask at start-up when live capture cannot work**.
+When it is installed, *Installed already — no need to reinstall* shows beside the button: **Reinstall** then compares with
+the newest Npcap on npcap.com and opens the installer **only when there is a newer version** — otherwise no window
+opens (on Linux / macOS nothing is done when all is in place; newer versions come with the system's package manager). On a
+computer that cannot do it automatically, **Copy Command** copies the command to run yourself.
 
 #### The main window
 
@@ -1598,7 +1630,7 @@ On macOS, Cmd takes the place of Ctrl. **Help › Keyboard Shortcuts** (Settings
 
 | Problem | What to do |
 | --- | --- |
-| The Capture card lists only the demo interface and says *Live capture is unavailable* | Windows: install Npcap from <https://npcap.com>, then **Refresh**. Linux / macOS: install libpcap. |
+| The Capture card lists only the demo interface and says *Live capture is unavailable* | Press **Set Up Capture** on the Capture card (or **Settings › Capture › Install**): the program sets up Npcap / libpcap / the rights. By hand: Windows — install Npcap from <https://npcap.com>, then **Refresh**; Linux / macOS — install libpcap. |
 | *The libpcap / Npcap library was not found* | As above; on Windows restart MyNetManager after installing Npcap. |
 | *No permission to capture* | Linux: `sudo setcap cap_net_raw,cap_net_admin=eip <path to mynetmanager>` (again after every update), or run as root. macOS: give your user access to `/dev/bpf*`. Windows: Npcap installed with "Restrict Npcap driver's access to Administrators only" needs the program to run as administrator. |
 | *The interface is down* / *No such interface* | Connect or enable the adapter and press **Refresh**. |

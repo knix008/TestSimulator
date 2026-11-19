@@ -75,7 +75,7 @@ function captureBody(app, settings) {
     </div>`;
   }).join('');
   return `<label class="start-filter" title="${escapeHtml(t('start.captureFilterTip'))}">${icon('captureFilterIcon')}<span>${escapeHtml(t('start.captureFilter'))}</span><input type="text" data-start-capture-filter value="${escapeHtml(settings.captureFilter)}" placeholder="${escapeHtml(t('start.captureFilterPlaceholder'))}" spellcheck="false" autocomplete="off" /></label>${presetButtons(CAPTURE_PRESETS, settings.captureFilter, { t, icon, escapeHtml, attr: 'data-capture-preset', label: t('capopts.presets'), i18n: 'capturePreset' })}
-    ${note ? `<div class="start-empty">${icon('info')}<span>${escapeHtml(note)}</span></div>` : ''}
+    ${note ? `<div class="start-empty">${icon('info')}<span>${escapeHtml(note)}</span>${backend && backend.available === false && backend.error !== 'web' ? `<button class="start-btn small" data-start="capture-setup" title="${escapeHtml(t('setup.button'))}">${icon('download')}<span>${escapeHtml(t('setup.button'))}</span></button>` : ''}</div>` : ''}
     <div class="start-list iface-list">${rows}</div>`;
 }
 

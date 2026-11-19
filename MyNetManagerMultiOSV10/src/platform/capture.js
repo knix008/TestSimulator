@@ -41,6 +41,26 @@ export async function interfaceActivity() {
   return call('capture_activity');
 }
 
+/**
+ * What live capture needs here: { os, needed: 'install' | 'permission' | null, tool: 'npcap' | 'libpcap' | 'bpf',
+ * installed, version, automatic, manual } — null in the browser.
+ */
+export async function captureSetupInfo() {
+  if (!isTauri()) return null;
+  return call('capture_setup_info');
+}
+
+/** Installs or repairs live capture (Npcap / libpcap / BPF rights) → { ok, restart, message }. */
+export async function runCaptureSetup(reinstall = false) {
+  return call('capture_setup', { reinstall });
+}
+
+/** Each setup step as it starts: handler({ step: 'find' | 'download' | 'verify' | 'install' | 'permission' | 'check', detail }). */
+export async function onCaptureSetup(handler) {
+  if (!isTauri()) return () => {};
+  return listen('capture-setup', (event) => handler(event.payload));
+}
+
 /** BPF capture filter check → { ok, error } (an empty filter is ok). */
 export async function checkCaptureFilter(linktype, filter) {
   if (!isTauri()) return { ok: true, error: null };

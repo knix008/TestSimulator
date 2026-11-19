@@ -180,6 +180,12 @@ async fn write_binary_file(app: AppHandle, request: tauri::ipc::Request<'_>) -> 
     blocking(move || files::write_with_progress(Path::new(&path), &bytes, reporter(&app, op))).await
 }
 
+/// Starts the program again (after a capture setup that only applies to a new process: Linux capabilities).
+#[tauri::command]
+fn restart_app(app: AppHandle) {
+    app.restart();
+}
+
 /// Encodes RGBA pixels (the raw request body; `width`, `height` and `quality` headers) as an AVIF
 /// file. The web view cannot write AVIF itself (Chromium has no AV1 encoder), so ravif does it here.
 #[tauri::command]
@@ -823,6 +829,9 @@ pub fn run() {
             capture::capture_backend,
             capture::capture_interfaces,
             capture::capture_activity,
+            capture::capture_setup_info,
+            capture::capture_setup,
+            restart_app,
             capture::capture_check_filter,
             capture::capture_start,
             capture::capture_stop,

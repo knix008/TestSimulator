@@ -180,6 +180,31 @@ test('print.printers', 'The print window lists the printers (no page is sent to 
   assert(r.options >= 1 || r.printed.job.printer === '', 'no printer list and no fallback');
 });
 
+test('capture.setup', 'Live capture setup: this PC is ready; Reinstall asks first (Cancel installs nothing); Settings shows the library', async () => {
+  const info = await run(`return await window.__TAURI_INTERNALS__.invoke('capture_setup_info');`);
+  assert(info && info.needed === null && info.installed && info.version, `setup info: ${JSON.stringify(info)}`);
+  // Reinstall → the question (a confirm popup) with Install again / Copy command / Cancel; answer Cancel.
+  await run(`window.__setupDone = A.actions.setupCapture({ reinstall: true }).then((v) => { window.__setupResult = v; }); return true;`);
+  let confirm = null;
+  for (const end = Date.now() + 15000; !confirm && Date.now() < end;) {
+    for (const t of (await targets()).filter((x) => x.type === 'page')) {
+      const win = await Promise.race([connect(t), sleep(3000).then(() => null)]).catch(() => null);
+      if (!win) continue;
+      const label = await Promise.race([win.evaluate('window.__TAURI_INTERNALS__?.metadata?.currentWindow?.label ?? ""'), sleep(2000).then(() => '')]).catch(() => '');
+      if (label === 'popup-confirm') { confirm = win; break; }
+      win.close();
+    }
+    if (!confirm) await sleep(300);
+  }
+  assert(confirm, 'no question before the reinstall');
+  const buttons = await confirm.evaluate(`(async () => { for (let i = 0; i < 40 && !document.querySelector('[data-action="choice"]'); i++) await new Promise((r) => setTimeout(r, 100)); return [...document.querySelectorAll('[data-action="choice"]')].map((b) => b.dataset.value); })()`);
+  await confirm.evaluate(`document.querySelector('[data-action="choice"][data-value="cancel"]').click(); true`);
+  confirm.close();
+  const result = await run(`await window.__setupDone; return window.__setupResult;`);
+  assert(['cancel', 'manual', 'go'].every((b) => buttons.includes(b)), `buttons: ${buttons}`);
+  assert(result === false, `cancel still ran the setup: ${result}`);
+});
+
 test('docs.window', "The user's guide opens in its own window", async () => {
   await run(`A.run('userGuide'); return true;`);
   const deadline = Date.now() + 15000;

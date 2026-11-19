@@ -299,6 +299,9 @@ html[data-mode="dark"] .pl-row:hover { filter: brightness(1.12); }
 .net-table tr.sev-warn td:first-child { box-shadow: inset 4px 0 0 #f5a524; }
 .net-table tr.sev-note td:first-child { box-shadow: inset 4px 0 0 #2f9cf0; }
 .net-table tr.sev-chat td:first-child { box-shadow: inset 4px 0 0 #8b98a9; }
+/* Settings › Capture: the capture library's state. */
+.setup-status.ok { color: var(--success, #16a34a); font-weight: 600; }
+.setup-status.warn { color: var(--danger, #dc2626); font-weight: 600; }
 /* Export: a format list and its button, side by side (statistics and print windows). */
 .net-export { display: inline-flex; align-items: center; gap: 4px; }
 .net-export select { height: 28px; }

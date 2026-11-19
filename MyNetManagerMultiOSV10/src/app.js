@@ -29,7 +29,7 @@ import { switchFlag } from './flags.js';
 import { getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
 import * as native from './platform/native.js';
-import { captureBackend, interfaceActivity, listInterfaces, onCaptureStopped, startCapture } from './platform/capture.js';
+import { captureBackend, captureSetupInfo, interfaceActivity, listInterfaces, onCaptureSetup, onCaptureStopped, runCaptureSetup, startCapture } from './platform/capture.js';
 import { PopupHost } from './platform/popups.js';
 import { applyFont, applyTheme, randomThemeId, resolveTheme, themeName } from './themes.js';
 import { escapeHtml, isMac, keyLabel } from './ui/dom.js';
@@ -749,6 +749,75 @@ async function refreshInterfaces({ quiet = true } = {}) {
   }
   if (state.showStart || !activeDoc()) renderStartPage();
   return state.interfaces;
+}
+
+// ───────────────────────── setting up live capture (Npcap / libpcap / BPF rights)
+
+/**
+ * Makes live capture work on this computer, after asking: Windows downloads and installs Npcap, Linux installs
+ * libpcap and gives the program the capture rights, macOS gives access to /dev/bpf* (src-tauri capture/setup.rs).
+ * `startup`: the question at start-up, which offers "don't ask again". `reinstall`: also when all is in place.
+ */
+async function setupCapture({ reinstall = false, startup = false } = {}) {
+  if (!desktop) return false;
+  const info = await captureSetupInfo().catch(() => null);
+  if (!info) return false;
+  if (!reinstall && !info.needed) { notify('success', t('setup.ready', { version: info.version ?? '' })); return true; }
+  const what = reinstall ? 'reinstall' : info.needed;
+  const buttons = [
+    ...(startup ? [{ id: 'never', label: t('setup.never') }] : []),
+    { id: 'cancel', label: t(startup ? 'setup.later' : 'confirm.cancel') },
+    { id: 'manual', label: t('setup.manual'), icon: 'copy' },
+    ...(info.automatic ? [{ id: 'go', label: t(reinstall ? 'setup.reinstall' : 'setup.install'), icon: 'download', primary: true }] : []),
+  ];
+  const choice = await ask({
+    icon: 'interfaces',
+    title: t(`setup.title.${info.os}`, null, t('setup.title.other')),
+    message: [t(`setup.why.${what}`), t(`setup.how.${info.os}`, null, t('setup.how.other')), info.automatic ? '' : t('setup.noAuto')].filter(Boolean).join('\n\n'),
+    buttons,
+  });
+  if (choice === 'never') { updateSettings({ captureSetupAsk: false }, { quiet: true }); notify('info', t('setup.neverNote')); return false; }
+  if (choice === 'manual') { await copyText(info.manual, t('setup.manualWhat')); return false; }
+  if (choice !== 'go') return false;
+  addLog('info', t('setup.started'));
+  const stop = await onCaptureSetup((s) => { const text = t(`setup.step.${s.step}`, { detail: s.detail ?? '' }); notify('info', text); addLog('info', text); }).catch(() => () => {});
+  let result;
+  try {
+    result = await runCaptureSetup(reinstall);
+  } catch (error) {
+    result = { ok: false, restart: false, message: native.errorText(error) };
+  } finally {
+    stop?.();
+  }
+  if (!result.ok) {
+    if (result.message === 'cancelled') { notify('info', t('setup.cancelled')); addLog('info', t('setup.cancelled')); return false; }
+    addLog('error', t('setup.failed', { message: result.message }));
+    showError('setup.failedTitle', Object.assign(new Error(result.message), { stack: info.manual }), t('setup.manualHint', { command: info.manual }));
+    return false;
+  }
+  // Installed already (and as new as there is): nothing was opened or changed.
+  if (String(result.message).startsWith('uptodate:')) {
+    const version = result.message.slice('uptodate:'.length);
+    notify('success', t('setup.upToDate', { version }));
+    addLog('info', t('setup.upToDate', { version }));
+    return true;
+  }
+  addLog('success', t('setup.done', { message: result.message }));
+  if (result.restart) {
+    const again = await ask({ icon: 'refresh', title: t('setup.restartTitle'), message: t('setup.restartMessage'), buttons: [{ id: 'later', label: t('setup.later') }, { id: 'restart', label: t('setup.restartNow'), icon: 'refresh', primary: true }] });
+    if (again === 'restart') native.invoke('restart_app').catch(() => {});
+    return true;
+  }
+  await refreshInterfaces({ quiet: false });
+  notify('success', t('setup.doneNotice', { count: Math.max(0, state.interfaces.length - 1) }));
+  return true;
+}
+
+/** At start-up: when live capture cannot work here, ask once (unless the user said not to). */
+async function offerCaptureSetup() {
+  if (!desktop || !state.settings.captureSetupAsk) return;
+  const info = await captureSetupInfo().catch(() => null);
+  if (info?.needed) setupCapture({ startup: true });
 }
 
 // ───────────────────────── interface activity lights (start page, capture card)
@@ -1777,6 +1846,7 @@ async function onStartAction(target) {
     case 'capture': updateSettings({ captureInterface: value }, { quiet: true }); return startLiveCapture(value);
     case 'pick-interface': updateSettings({ captureInterface: value }, { quiet: true }); return renderStartPage();
     case 'capture-options': return openCaptureOptions();
+    case 'capture-setup': return setupCapture();
     case 'refresh-interfaces': return run('refreshInterfaces');
     case 'arrange': return startCards?.arrange();
     case 'pick-theme': return updateSettings({ theme: value });
@@ -2515,6 +2585,8 @@ function bindPopupActions() {
   popups.on('open-columns-window', () => popups.open('columns', {}));
   popups.on('columns-changed', () => { state.settings = loadSettings(globalThis.localStorage); state.view?.list.render(); });
   popups.on('redissect', () => { state.settings = loadSettings(globalThis.localStorage); return redissectAll(); });
+  // Settings › Capture: install / reinstall live capture, then tell the window what is there now.
+  popups.on('capture-setup', async (data, kind) => { await setupCapture({ reinstall: Boolean(data.reinstall) }); popups.post(kind, { type: 'capture-setup-info', info: await captureSetupInfo().catch(() => null) }); });
   popups.on('refresh-interfaces', async (data, kind) => { await refreshInterfaces({ quiet: false }); popups.post(kind, { type: 'interfaces', interfaces: state.interfaces, backend: state.backend }); });
   popups.on('capture-filter-check', async (data, kind) => {
     let result = { ok: true };
@@ -2612,7 +2684,7 @@ async function start() {
   native.setBackendLanguage(state.settings.language);
   applySettings({});
   await loadBackground();
-  refreshInterfaces();
+  refreshInterfaces().then(() => setTimeout(offerCaptureSetup, 1500));
   if (desktop) {
     appWindow.onCloseRequested(async (event) => {
       if (state.quitting) return;
@@ -2674,7 +2746,7 @@ window.__mynetmanager = {
   doc: () => activeDoc(),
   actions: {
     openPath, openCaptureBytes, openSample, saveDoc, closeDoc, selectFrame, applyDisplayFilter, startLiveCapture, stopLiveCapture, restartLiveCapture, refreshInterfaces,
-    updateSettings, showStartPage, showError, runAnalysis, openReport, togglePanel, addLog, mergeFile, openWithDialog, copyAs, findPacket, printPackets, openFilterExpression, goRow, goHistory, goConversation, applyConversationFilter, filterFromNode, openMenubarMenu, contextMenu, refreshMap, onMapSelect, exportDissections, followCurrent, openStats, startTutorial, toScreen,
+    updateSettings, showStartPage, showError, runAnalysis, setupCapture, openReport, togglePanel, addLog, mergeFile, openWithDialog, copyAs, findPacket, printPackets, openFilterExpression, goRow, goHistory, goConversation, applyConversationFilter, filterFromNode, openMenubarMenu, contextMenu, refreshMap, onMapSelect, exportDissections, followCurrent, openStats, startTutorial, toScreen,
   },
   domain: { FIELDS, PROTOCOLS, SAMPLES, writePcapng, buildTopology, createAnalyzer, buildReport, tutorialSteps: () => TUTORIAL_STEPS.length },
   tutorial: () => tutorial,

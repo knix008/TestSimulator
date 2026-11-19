@@ -758,6 +758,15 @@ test('help.welcomeOnStart', 'The welcome window (start the tutorial?) shows only
   assert(r.closed, 'the welcome window stayed open over a capture');
 });
 
+test('capture.setupSettings', 'Settings › Capture: the capture library state, Install / Reinstall and the start-up question', async () => {
+  const r = await run(`A.popups.open('settings', { tab: 'capture' }); const doc = await until(() => pop('settings')?.querySelector('#capture-setup-status') && pop('settings'));
+    const status = doc.querySelector('#capture-setup-status').textContent; const button = doc.querySelector('[data-action="capture-setup"]'); const ask = doc.querySelector('[data-setting="captureSetupAsk"], input[data-toggle="captureSetupAsk"], [data-key="captureSetupAsk"]');
+    await A.popups.close('settings'); return { status, button: !!button, disabled: button?.disabled, ask: !!ask || /captureSetupAsk/.test(doc.body.innerHTML) };`);
+  assert(r.button && r.ask, `rows missing: ${JSON.stringify(r)}`);
+  // The web version captures only the demo interface: it says so, and the install button is off.
+  assert(r.disabled && r.status.length > 5, `web state: ${JSON.stringify(r)}`);
+});
+
 test('i18n.noRawKeys', 'No untranslated text keys anywhere, in Korean and English', async () => {
   await openSample('mixed-office-lan');
   const r = await run(`const KEY = /\b(action|menu|submenu|settings|start|status|notice|filter|stats|chart|follow|panel|report|finding|netmap|capopts|column|print|export|coloring|expr|decodeAs|protocols|tutorial|welcome|recent|common|props|severity|log|time|precision|context|copy|error|tip|window|tabs|details|bytes|packetList|expert|sampleGroup|capture)\.[a-zA-Z][a-zA-Z0-9._-]*\b/;

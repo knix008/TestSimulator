@@ -173,6 +173,22 @@ the capture stops by itself with a notice. A live capture is a new, unsaved docu
 
 Without these the Capture card says *Live capture is unavailable … The demo interface always works.*
 
+**The program sets this up itself.** When live capture cannot work, it asks once at start-up (**Install** / **Later** /
+**Don’t Ask Again** / **Copy Command**); **Set Up Capture** on the Capture card and **Settings › Capture** do it any time.
+
+| System | What the program does |
+| --- | --- |
+| Windows | Downloads the newest **Npcap** from npcap.com, accepts it only with a valid signature from the Npcap publisher (Nmap Software LLC) and opens its installer as administrator (WinPcap-compatible mode and loopback capture chosen). The free Npcap allows no silent install, so press Next a few times in its window. Capture works as soon as it is done — no restart. |
+| Linux | Through the system password prompt (pkexec): installs **libpcap** with the package manager when it is missing (apt, dnf, yum, zypper, pacman, apk) and gives this program the capture rights (`cap_net_raw`, `cap_net_admin`). The rights apply when the program starts again; it offers to restart. |
+| macOS | Through the administrator password prompt: gives the admin group read and write access to `/dev/bpf*`, now and at every start (a launch daemon, like Wireshark’s ChmodBPF). |
+
+At the top of **Settings › Capture** are the **Capture library** state (such as *Ready — Npcap 1.90* or *Npcap is not
+installed*), the **Install** / **Reinstall** button and the switch **Ask at start-up when live capture cannot work**.
+When it is installed, *Installed already — no need to reinstall* shows beside the button: **Reinstall** then compares with
+the newest Npcap on npcap.com and opens the installer **only when there is a newer version** — otherwise no window
+opens (on Linux / macOS nothing is done when all is in place; newer versions come with the system's package manager). On a
+computer that cannot do it automatically, **Copy Command** copies the command to run yourself.
+
 ## The main window
 
 ![The main window with a capture open](images/en/04-main-window.png)
@@ -784,7 +800,7 @@ On macOS, Cmd takes the place of Ctrl. **Help › Keyboard Shortcuts** (Settings
 
 | Problem | What to do |
 | --- | --- |
-| The Capture card lists only the demo interface and says *Live capture is unavailable* | Windows: install Npcap from <https://npcap.com>, then **Refresh**. Linux / macOS: install libpcap. |
+| The Capture card lists only the demo interface and says *Live capture is unavailable* | Press **Set Up Capture** on the Capture card (or **Settings › Capture › Install**): the program sets up Npcap / libpcap / the rights. By hand: Windows — install Npcap from <https://npcap.com>, then **Refresh**; Linux / macOS — install libpcap. |
 | *The libpcap / Npcap library was not found* | As above; on Windows restart MyNetManager after installing Npcap. |
 | *No permission to capture* | Linux: `sudo setcap cap_net_raw,cap_net_admin=eip <path to mynetmanager>` (again after every update), or run as root. macOS: give your user access to `/dev/bpf*`. Windows: Npcap installed with "Restrict Npcap driver's access to Administrators only" needs the program to run as administrator. |
 | *The interface is down* / *No such interface* | Connect or enable the adapter and press **Refresh**. |

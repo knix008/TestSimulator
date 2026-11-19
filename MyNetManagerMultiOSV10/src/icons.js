@@ -12,6 +12,8 @@ const base = {
   saveAs: '<path d="M5 4h11l3 3v5"/><path d="M5 4v15a1 1 0 0 0 1 1h5M8 4v5h7V4"/><path d="M14 20l1-3 5-5 2 2-5 5z"/>',
   saveAll: '<path d="M8 2h9l3 3v10a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M10 2v4h6V2"/><path d="M4 7v13a1 1 0 0 0 1 1h11"/>',
   template: '<rect x="4" y="3" width="16" height="18" rx="2" stroke-dasharray="3 2"/><path d="M8 8h8M8 12h5M8 16h6"/>',
+  // An arrow down into a tray: fetch and install (capture setup).
+  download: '<path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/>',
   importFile: '<path d="M14 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M3 12h11M10 8l4 4-4 4"/>',
   exportFile: '<path d="M10 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"/><path d="M10 12h11M17 8l4 4-4 4"/>',
   exportImage: '<rect x="3" y="4" width="14" height="13" rx="2"/><circle cx="8" cy="9" r="1.6"/><path d="M17 13l-4-3-7 7"/><path d="M15 21h7M19 18l3 3-3 3"/>',

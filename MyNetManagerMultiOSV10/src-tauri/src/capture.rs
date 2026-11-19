@@ -53,6 +53,7 @@
 //! filter_invalid, rfmon_unsupported, iface_not_up, findalldevs_failed, capture_error, not_found, invalid_argument, internal.
 
 mod activity;
+mod setup;
 mod pcap;
 
 pub use pcap::{BackendInfo, CaptureError, FilterCheck, Interface, StartOptions, Stats};
@@ -152,6 +153,23 @@ pub async fn capture_backend() -> Result<BackendInfo, CaptureError> {
 #[tauri::command]
 pub async fn capture_interfaces() -> Result<Vec<Interface>, CaptureError> {
     blocking(pcap::interfaces).await
+}
+
+/// What live capture needs on this computer (Settings › Capture, the start-up question).
+#[tauri::command]
+pub async fn capture_setup_info() -> Result<setup::SetupInfo, CaptureError> {
+    blocking(|| Ok(setup::info())).await
+}
+
+/// Installs or repairs live capture for this system (asked first in the window); each step is a "capture-setup" event.
+#[tauri::command]
+pub async fn capture_setup<R: Runtime>(app: AppHandle<R>, reinstall: Option<bool>) -> Result<setup::SetupResult, CaptureError> {
+    let reinstall = reinstall.unwrap_or(false);
+    blocking(move || {
+        let report = |step: setup::SetupStep| { let _ = app.emit("capture-setup", step); };
+        Ok(setup::run(reinstall, &report))
+    })
+    .await
 }
 
 /// Packet counters of every interface from the system (start page: which interfaces carry traffic right now).

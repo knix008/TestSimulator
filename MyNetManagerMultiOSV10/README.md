@@ -16,7 +16,9 @@ macOS and Linux (Tauri 2).
 
 ## Features
 
-- **Live capture** through libpcap / Npcap: interface list with addresses, BPF capture filters (saved filters,
+- **Live capture** through libpcap / Npcap — set up by the program itself when missing (after asking; Windows:
+  downloads and verifies Npcap, Linux: libpcap + capture rights via pkexec, macOS: /dev/bpf access), with reinstall
+  in Settings: interface list with addresses and activity lights, BPF capture filters (saved filters,
   check, preset buttons that combine with OR), promiscuous and monitor mode, snapshot length, buffer size, auto-stop
   by packets / time / size, restart.
   A **demo interface** produces realistic LAN traffic anywhere, without permissions (also in the web version).
