@@ -2,6 +2,8 @@ import { sampleWorkspace } from './sample.js';
 import { addArticle, addCalendar, ensureServices } from './services.js';
 import { makeIssue, newProject } from './store.js';
 import { shiftIso } from './util.js';
+import { addQualitySample, DEVICE_QUALITY } from './quality-samples.js';
+import { addSampleSchedule, CAR_SCHEDULE, SCHOOL_SCHEDULE, SITE_SCHEDULE } from './schedule-samples.js';
 
 const PEOPLE = [
   ['u1', '김서연', 'seoyeon@example.com'],
@@ -25,20 +27,8 @@ export const EXAMPLES = [
     line('request', '진료 기록 사본', 'Copy of the chart', 'review', 'medium'),
     line('task', '대기 안내문 교체', 'Replace the waiting-room notice', 'done', 'low'),
   ] },
-  { id: 'school', key: 'SCHL', type: 'business', ko: '학교 행사', en: 'School fair', about: ['학예회 준비와 부스, 안내 방송을 칸반으로 나눕니다.', 'A school fair planned on a kanban board.'], article: ['행사 당일 순서', 'Fair day order'], issues: [
-    line('story', '무대 순서 확정', 'Lock the stage order', 'progress', 'high'),
-    line('task', '부스 자리 배치', 'Lay out the booths', 'todo', 'medium'),
-    line('task', '안내 방송 원고', 'Write the announcements', 'review', 'medium'),
-    line('bug', '티켓 번호 중복', 'Duplicate ticket numbers', 'todo', 'highest'),
-    line('story', '학부모 안내장', 'Letter to families', 'done', 'low'),
-  ] },
-  { id: 'site', key: 'SITE', type: 'business', ko: '건설 현장', en: 'Construction site', about: ['안전 점검과 자재, 공정 확인을 현장 단위로 적습니다.', 'Safety checks, materials and progress on a job site.'], article: ['안전 수칙', 'Safety rules'], issues: [
-    line('task', '오전 안전 점검', 'Morning safety round', 'progress', 'highest'),
-    line('task', '철근 입고 확인', 'Confirm the rebar delivery', 'todo', 'high'),
-    line('bug', '비계 발판 흔들림', 'Scaffold plank is loose', 'todo', 'highest'),
-    line('story', '3층 콘크리트 타설', 'Pour the third-floor slab', 'review', 'high'),
-    line('task', '일일 사진 정리', 'File the daily photos', 'done', 'low'),
-  ] },
+  { id: 'school', key: 'SCHL', type: 'business', ko: '학교 행사', en: 'School fair', about: ['일정에서 칸반으로 전환한 행사 준비: 다가오는 일은 할 일로, 나중 일은 백로그에 있습니다.', 'A fair planned as a schedule, then switched to Kanban: soon work is in To Do, later work in the backlog.'], article: ['행사 당일 순서', 'Fair day order'], issues: [], schedule: SCHOOL_SCHEDULE, scheduleApply: 'kanban', scheduleStartDaysAgo: 6 },
+  { id: 'site', key: 'SITE', type: 'business', ko: '건설 현장', en: 'Construction site', about: ['착공부터 준공까지 공정을 MS-Project처럼 간트 차트로 관리합니다. 일정만 쓰는 과제입니다.', 'Groundwork to handover on a Gantt chart, like Microsoft Project. A schedule-only project.'], article: ['안전 수칙', 'Safety rules'], issues: [], schedule: SITE_SCHEDULE, scheduleOnly: true },
   { id: 'kitchen', key: 'KICH', type: 'service', ko: '식당 주방', en: 'Restaurant kitchen', about: ['주문 누락과 재료 요청을 서비스 대기열로 받습니다.', 'Missing orders and supply requests in a service queue.'], article: ['오늘의 메뉴', "Today's menu"], issues: [
     line('incident', '홀 주문 누락', 'A dining-room order was missed', 'progress', 'highest'),
     line('request', '채소 추가 발주', 'Reorder vegetables', 'todo', 'high'),
@@ -200,12 +190,41 @@ export const EXAMPLES = [
     line('task', '펌웨어 2.1 서명', 'Sign firmware 2.1', 'review', 'high'),
     line('task', '배터리 소모 측정', 'Measure battery drain', 'done', 'medium'),
   ] },
+  { id: 'device', key: 'BPMF', type: 'software', ko: '혈압계 펌웨어 (요구 사항 추적)', en: 'Blood-pressure monitor (traceability)', about: ['요구 사항 명세, 테스트 케이스, 테스트 실행, 결함을 추적 매트릭스로 잇습니다.', 'A requirements specification traced to the work, test cases, test runs and defects.'], article: ['검증 계획', 'Verification plan'], quality: DEVICE_QUALITY, issues: [
+    line('epic', '펌웨어 1.0', 'Firmware 1.0', 'backlog', 'high'),
+    line('story', '오실로메트릭 측정 알고리즘', 'Oscillometric algorithm', 'done', 'high'),
+    line('story', '밸브 제어와 과압 배기', 'Valve control and venting', 'progress', 'highest'),
+    line('story', '블루투스 LE 전송', 'Bluetooth LE transfer', 'review', 'medium'),
+    line('task', '표시 사항 도안', 'Label artwork', 'todo', 'medium'),
+  ] },
   { id: 'ai', key: 'AIML', type: 'software', ko: 'AI 추천 서비스', en: 'AI recommendations', about: ['모델 학습, 평가, 서빙 결함을 실험 단위로 추적합니다.', 'Model training, evaluation and serving issues per experiment.'], article: ['모델 평가 기준', 'Model evaluation bar'], issues: [
     line('epic', '개인화 추천 v2', 'Personalised recommendations v2', 'backlog', 'high'),
     line('story', '학습 데이터 정제', 'Clean the training data', 'progress', 'high'),
     line('bug', '추천 응답 지연', 'Recommendation latency spikes', 'todo', 'highest'),
     line('task', 'A/B 실험 설계', 'Design the A/B test', 'review', 'medium'),
     line('task', '모델 카드 작성', 'Write the model card', 'done', 'low'),
+  ] },
+  { id: 'robot', key: 'ROBT', type: 'software', ko: '물류 로봇 제어', en: 'Warehouse robot control', about: ['경로 계획, 충전, 안전 정지 결함을 스프린트로 다룹니다.', 'Path planning, charging and safety-stop defects in sprints.'], article: ['현장 시험 절차', 'Field test procedure'], issues: [
+    line('epic', '다중 로봇 경로 계획', 'Multi-robot path planning', 'backlog', 'high'),
+    line('story', '자동 충전 복귀', 'Return to charger automatically', 'progress', 'high'),
+    line('bug', '교차로에서 두 로봇이 멈춤', 'Two robots deadlock at a crossing', 'todo', 'highest'),
+    line('story', '비상 정지 원격 해제', 'Remote release of the emergency stop', 'review', 'high'),
+    line('task', '라이다 드라이버 갱신', 'Update the lidar driver', 'done', 'medium'),
+  ] },
+  { id: 'elearn', key: 'LERN', type: 'software', ko: '온라인 학습 플랫폼', en: 'Online learning platform', about: ['강의 재생, 퀴즈, 수료증 기능을 스프린트로 나눕니다.', 'Video lessons, quizzes and certificates planned in sprints.'], article: ['강의 등록 안내', 'Course publishing guide'], issues: [
+    line('epic', '수료증 발급', 'Certificates', 'backlog', 'medium'),
+    line('story', '퀴즈 자동 채점', 'Automatic quiz grading', 'progress', 'high'),
+    line('bug', '모바일에서 영상 이어 보기 실패', 'Resume playback fails on mobile', 'todo', 'highest'),
+    line('story', '강의 노트 내려받기', 'Download lesson notes', 'review', 'medium'),
+    line('task', '자막 파일 형식 정리', 'Tidy the subtitle formats', 'done', 'low'),
+  ] },
+  { id: 'car', key: 'CARX', type: 'software', ko: '차량 인포테인먼트', en: 'In-car infotainment', about: ['일정에서 스크럼으로 전환한 과제: 작업이 이슈와 2주 스프린트가 되었습니다.', 'Planned as a schedule, then switched to Scrum: tasks became issues in two-week sprints.'], article: ['무선 업데이트 절차', 'OTA update procedure'], issues: [], schedule: CAR_SCHEDULE, scheduleApply: 'scrum' },
+  { id: 'data', key: 'DPLT', type: 'software', ko: '데이터 플랫폼', en: 'Data platform', about: ['수집 파이프라인, 데이터 품질, 대시보드 결함을 추적합니다.', 'Ingestion pipelines, data quality and dashboard issues.'], article: ['데이터 품질 규칙', 'Data quality rules'], issues: [
+    line('epic', '실시간 수집 파이프라인', 'Real-time ingestion pipeline', 'backlog', 'high'),
+    line('story', '주문 데이터 매일 적재', 'Load orders every day', 'progress', 'high'),
+    line('bug', '시간대가 어긋난 집계', 'Totals shifted by a time zone', 'todo', 'highest'),
+    line('task', '데이터 사전 정리', 'Write the data dictionary', 'review', 'medium'),
+    line('story', '매출 대시보드', 'Sales dashboard', 'done', 'medium'),
   ] },
   { id: 'web', key: 'WEBR', type: 'software', ko: '회사 웹사이트 개편', en: 'Website redesign', about: ['화면 개편, 콘텐츠 이전, 접근성 결함을 스프린트로 닫습니다.', 'New pages, content migration and accessibility fixes in sprints.'], article: ['콘텐츠 작성 원칙', 'Content style guide'], issues: [
     line('epic', '새 메인 화면', 'New home page', 'backlog', 'high'),
@@ -244,7 +263,9 @@ function build(spec, now, lang) {
   });
   project.id = `p-${spec.id}`;
   project.members = PEOPLE.map(([id], index) => ({ userId: id, role: index === 0 ? 'administrator' : index < 3 ? 'developer' : index === 3 ? 'tester' : 'customer' }));
-  const sprint = spec.type === 'software' ? project.sprints[0] : null;
+  // A project planned as a schedule gets its sprints from the schedule.
+  if (spec.schedule) project.sprints = [];
+  const sprint = spec.type === 'software' && !spec.schedule ? project.sprints[0] : null;
   if (sprint) {
     sprint.state = 'active';
     sprint.name = text(lang, '이번 스프린트', 'Current sprint');
@@ -269,6 +290,11 @@ function build(spec, now, lang) {
       updated: shiftIso(now, -6 + index),
     }, 'u1');
   });
+  if (spec.schedule) {
+    addSampleSchedule(project, spec.schedule, { lang, now, people: PEOPLE.map(([id]) => id), apply: spec.scheduleApply || '', ws, startDaysAgo: spec.scheduleStartDaysAgo ?? 20 });
+    if (spec.scheduleOnly) project.methods = ['schedule'];
+  }
+  if (spec.quality) addQualitySample(project, spec.quality, { lang, now, people: PEOPLE.map(([id]) => id) });
   ensureServices(ws);
   addArticle(ws, { projectId: project.id, title: text(lang, spec.article[0], spec.article[1]), body: text(lang, spec.about[0], spec.about[1]) }, 'u1');
   const calendar = addCalendar(ws, { name: text(lang, '기본 근무', 'Working hours'), timezone: 'Asia/Seoul' });

@@ -1,0 +1,12 @@
+﻿ID,Key,Summary,Level,Kind,Precondition,Step,Action,Data,Expected,Verifies,Last result
+TC-01,BPMF-17,Comparison with a reference monitor,system,manual,"Calibrated reference monitor, 5 subjects",1,Rest the subject for 5 minutes,,,SYS-1.1,pass
+,,,,,,2,"Measure 3 times, alternating with the reference",,Differences recorded,,
+,,,,,,3,Compute the mean error,,Within ±5 mmHg,,
+TC-02,BPMF-18,Reading duration,system,automated,,1,Feed a 120/80 signal from the simulator,"120/80, 72 bpm",Result within 40 s,SYS-1.2,pass
+TC-03,BPMF-19,Blocked-cuff over-pressure test,system,manual,Block the cuff outlet,1,Start a reading,,Pressure rises,SYS-2.1,fail
+,,,,,,2,Watch the pressure logger,,Vents within 3 s at 300 mmHg,,
+TC-04,BPMF-20,180-second limit test,system,automated,,1,Feed a signal that never settles,,Stops and vents at 180 s,SYS-2.2,pass
+TC-05,BPMF-21,App transfer test,integration,manual,,1,Pair with the app,,Connected,SYS-3,fail
+,,,,,,2,Take a reading,,The same value shows once in the app,,
+,,,,,,3,Disconnect and reconnect,,No duplicate readings,,
+TC-06,BPMF-22,Labelling inspection,acceptance,manual,,1,Check the labels against the checklist,,Every item matches,REG-1,blocked

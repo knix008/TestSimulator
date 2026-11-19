@@ -15,7 +15,9 @@ describe('Examples', () => {
       const ws = exampleWorkspace(item.id, NOW, 'en');
       assert.ok(ws.projects.length >= 1, item.id);
       const issues = ws.projects.reduce((sum, project) => sum + project.issues.length, 0);
-      assert.ok(issues >= 4, item.id);
+      // A schedule-only example has tasks instead of issues.
+      if (item.scheduleOnly) assert.ok(ws.projects[0].schedule.tasks.length >= 4 && issues === 0, item.id);
+      else assert.ok(issues >= 4, item.id);
       assert.ok((ws.articles || []).length >= 1, item.id);
       assert.ok((ws.calendars || []).length >= 1, item.id);
       if (item.id !== 'shop' && item.type === 'software') {

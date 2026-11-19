@@ -9,8 +9,8 @@ import { addPage, addSpace, attachPage, commentPage, updatePage } from '../../sr
 
 describe('Page templates', () => {
   test('offers forty templates, five in each of eight groups, with unique ids', () => {
-    assert.equal(PAGE_TEMPLATES.length, 40);
-    assert.equal(new Set(PAGE_TEMPLATES.map((item) => item.id)).size, 40);
+    assert.equal(PAGE_TEMPLATES.length, 45);
+    assert.equal(new Set(PAGE_TEMPLATES.map((item) => item.id)).size, 45);
     for (const group of TEMPLATE_GROUPS) assert.equal(PAGE_TEMPLATES.filter((item) => item.group === group.id).length, 5, group.id);
     for (const item of PAGE_TEMPLATES) {
       assert.ok(item.ko && item.en && item.about?.[0] && item.about?.[1], item.id);

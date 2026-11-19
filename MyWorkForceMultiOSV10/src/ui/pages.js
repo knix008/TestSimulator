@@ -2,7 +2,8 @@ import { GADGETS, LINK_TYPES, ROLES } from '../domain/catalog.js';
 import { getLanguage } from '../i18n.js';
 import { renderMarkdown } from '../domain/markdown.js';
 import { runQuery } from '../domain/query.js';
-import { burndown, createdResolved, cumulativeFlow, inspect, pie, slaState, sprintReport, timeReport, velocity } from '../domain/reports.js';
+import { burndown, createdResolved, cumulativeFlow, GROUP_FIELDS, groupIssues, inspect, pie, slaState, sprintReport, timeReport, velocity } from '../domain/reports.js';
+import { cardGrid } from './cardgrid.js';
 import { calendarOf, controlChart, epicBurndown, groupLanes } from '../domain/services.js';
 import { visibleDocuments } from '../domain/documents.js';
 import { noticeChecked } from '../domain/notices.js';
@@ -23,6 +24,9 @@ import { searchView } from './search.js';
 import { auditDetail, auditView } from './audit.js';
 import { documentPreview } from './extra.js';
 import { timelineView } from './timeline.js';
+import { executionsView, qualityBlock, requirementsView, testsView, traceView } from './quality.js';
+import { scheduleView } from './schedule.js';
+import { plannerView } from './planner.js';
 import { blockersOf } from '../domain/dependencies.js';
 import { finderBar, issueFacets, issueVisible, keepBlock, matchesText, screenFind } from './finder.js';
 
@@ -47,7 +51,7 @@ export function showRight(ctx) {
   // Lists: the chosen item shows on the right.
   if (ctx.ui.view === 'documents') return !ctx.ui.docId && (ctx.ui.docTab || 'forms') !== 'forms';
   if (ctx.ui.view === 'audit') return true;
-  return Boolean(ctx.project) && ['board', 'backlog', 'issues', 'issue', 'roadmap', 'queues', 'health', 'filters', 'notifications'].includes(ctx.ui.view);
+  return Boolean(ctx.project) && ['board', 'backlog', 'issues', 'issue', 'roadmap', 'queues', 'health', 'filters', 'notifications', 'requirements', 'trace', 'tests', 'executions'].includes(ctx.ui.view);
 }
 
 export function renderView(ctx) {
@@ -68,9 +72,11 @@ export function renderView(ctx) {
   if (ctx.ui.view === 'projects') return projectsAdmin(ctx);
   if (ctx.ui.view === 'teams') return teamsView(ctx);
   if (ctx.ui.view === 'team') return teamView(ctx);
+  // The planner works with or without an open project (then: the person's own work everywhere).
+  if (ctx.ui.view === 'planner') return plannerView(ctx);
   const missing = need(ctx, navLabel(ctx.ui.view));
   if (missing) return missing;
-  const views = { board, backlog, roadmap, timeline: timelineView, issues, queues, dashboard, reports, releases, components, filters, people, health, notifications, settings, issue };
+  const views = { board, backlog, roadmap, timeline: timelineView, issues, queues, dashboard, reports, releases, components, filters, people, health, notifications, settings, issue, requirements: requirementsView, trace: traceView, tests: testsView, executions: executionsView, schedule: scheduleView };
   return (views[ctx.ui.view] || home)(ctx);
 }
 
@@ -141,6 +147,7 @@ function board(ctx) {
         ${!sprint && future ? `<button type="button" class="button primary" data-action="start-sprint" data-id="${esc(future.id)}">${icon('play')}<span>${L('스프린트 시작', 'Start sprint')}</span></button>` : ''}
         ${current?.type === 'scrum' ? `<button type="button" class="button" data-action="new-sprint">${icon('play')}<span>${L('스프린트', 'Sprint')}</span></button>` : ''}
         ${swimlaneOptions(ctx.ui.swimlane)}
+        <button type="button" class="button" data-action="export-view">${icon('download')}<span>${L('내보내기', 'Export')}</span></button>
       </div>
     </div>`;
   if (current?.type === 'scrum' && !sprint) {
@@ -188,7 +195,7 @@ function backlog(ctx) {
     </section>`;
   }).join('');
   const closed = project.sprints.filter((sprint) => sprint.state === 'closed');
-  return `<div class="page">${pageHead(L('백로그', 'Backlog'), `<button type="button" class="button" data-action="new-sprint">${icon('plus')}${L('스프린트', 'Sprint')}</button>`, 'backlog')}${finderBar(ctx, issueFacets(ctx))}${body}
+  return `<div class="page">${pageHead(L('백로그', 'Backlog'), `<button type="button" class="button" data-action="export-view">${icon('download')}<span>${L('내보내기', 'Export')}</span></button><button type="button" class="button" data-action="new-sprint">${icon('plus')}${L('스프린트', 'Sprint')}</button>`, 'backlog')}${finderBar(ctx, issueFacets(ctx))}${body}
     ${closed.length ? `<p class="muted">${L('완료한 스프린트', 'Completed sprints')}: ${closed.map((sprint) => esc(sprint.name)).join(', ')}</p>` : ''}</div>`;
 }
 
@@ -225,7 +232,7 @@ function issues(ctx) {
     const mark = ctx.ui.sort?.field === field ? (ctx.ui.sort.dir === 'asc' ? ' ↑' : ' ↓') : '';
     return `<th><button type="button" data-action="sort" data-field="${field}">${icon('columns')}<span>${labels[field]}${mark}</span></button></th>`;
   }).join('')}</tr>`;
-  const body = result.issues.slice(0, 400).map((issue) => {
+  const rowHtml = (issue) => {
     const status = byId(project.statuses, issue.statusId);
     const priority = byId(project.priorities, issue.priorityId);
     const sprint = byId(project.sprints, issue.sprintId);
@@ -240,16 +247,22 @@ function issues(ctx) {
       <td>${esc(sprint?.name || '')}</td>
       <td>${issue.storyPoints ?? ''}</td>
     </tr>`;
-  }).join('');
+  };
+  // Grouped: a heading row per group with its count and points (an issue with two labels is in both).
+  const groupField = GROUP_FIELDS.includes(ctx.ui.issueGroup) ? ctx.ui.issueGroup : '';
+  const shown = result.issues.slice(0, 400);
+  const body = groupField
+    ? groupIssues(project, shown, groupField).map((group) => `<tr class="group-row"><td colspan="9">${icon('layers')}<b>${esc(groupLabel(ctx, groupField, group.id))}</b><span class="muted">${group.issues.length}${L('개', '')} · ${group.issues.reduce((sum, issue) => sum + (Number(issue.storyPoints) || 0), 0)}pt</span></td></tr>${group.issues.map(rowHtml).join('')}`).join('')
+    : shown.map(rowHtml).join('');
   const bulk = selected.size ? `<div class="bulk"><b>${selected.size}</b>
       <select data-bulk="status">${options(project.statuses, '', L('상태 변경', 'Change status'))}</select>
       <select data-bulk="assignee">${userOptions(ctx.ws, '', L('담당 변경', 'Assign'))}</select>
       <button type="button" class="small-button" data-action="clear-selection">${icon('close')}<span>${L('선택 해제', 'Clear')}</span></button>
     </div>` : '';
   const note = result.issues.length > 400 ? `<p class="muted">${L('400개까지 표시합니다.', 'Showing the first 400.')}</p>` : '';
-  return `<div class="page">${pageHead(L('이슈', 'Issues'), `<button type="button" class="button" data-action="import-csv">${icon('download')}${L('CSV 가져오기', 'Import CSV')}</button><button type="button" class="button primary" data-action="new-issue">${icon('plus')}${L('이슈', 'Issue')}</button>`, 'issues')}
+  return `<div class="page">${pageHead(L('이슈', 'Issues'), `<button type="button" class="button" data-action="export-view">${icon('download')}<span>${L('내보내기', 'Export')}</span></button><button type="button" class="button" data-action="import-csv">${icon('download')}${L('CSV 가져오기', 'Import CSV')}</button><button type="button" class="button primary" data-action="new-issue">${icon('plus')}${L('이슈', 'Issue')}</button>`, 'issues')}
     ${finderBar(ctx, issueFacets(ctx))}
-    <div class="query-line"><label class="quick-search">${icon('filter')}<input id="issue-query" value="${esc(ctx.ui.query || '')}" placeholder="${esc(L('WQL. 예: type = bug AND status != done', 'WQL. Example: type = bug AND status != done'))}"></label><button type="button" class="button" data-action="open-guide" data-id="wql">${icon('book')}<span>${L('WQL 설명서', 'WQL guide')}</span></button></div>
+    <div class="query-line"><label class="quick-search">${icon('filter')}<input id="issue-query" value="${esc(ctx.ui.query || '')}" placeholder="${esc(L('WQL. 예: type = bug AND status != done', 'WQL. Example: type = bug AND status != done'))}"></label><button type="button" class="button" data-action="open-guide" data-id="wql">${icon('book')}<span>${L('WQL 설명서', 'WQL guide')}</span></button>${groupSelect('data-issue-group', ctx.ui.issueGroup || 'none')}</div>
     ${bulk}${note}<div class="table-wrap"><table class="data">${head}${body}</table></div>
     ${result.error ? `<p class="danger-text">${L('질의 문법을 확인하세요.', 'Check the query syntax.')}</p>` : `<p class="muted">${result.issues.length}</p>`}</div>`;
 }
@@ -277,8 +290,11 @@ function issueLines(ctx, issues) {
 function dashboard(ctx) {
   const project = ctx.project;
   const find = screenFind(ctx);
-  const cards = (project.dashboard || []).filter((gadget) => !find.gadget || gadget.type === find.gadget).map((gadget) => `<section class="gadget"><header><b>${esc(nameOf(GADGETS.find((item) => item.id === gadget.type)))}</b><button type="button" class="icon-button" data-action="remove-gadget" data-id="${esc(gadget.id)}">${icon('close')}</button></header>${gadgetBody(ctx, gadget.type)}</section>`).join('');
-  return `<div class="page">${pageHead(L('대시보드', 'Dashboard'), `<select data-choose="gadget">${options(GADGETS, '', L('가젯 추가', 'Add a gadget'))}</select>`, 'dashboard')}${finderBar(ctx, [{ id: 'gadget', label: L('가젯', 'Gadget'), options: GADGETS.map((item) => ({ id: item.id, label: nameOf(item) })) }])}<div class="gadget-grid">${cards || empty(L('가젯이 없습니다.', 'There are no gadgets.'))}</div></div>`;
+  // Gadgets are cards: move, resize and enlarge them; × removes the gadget (cardgrid.js).
+  const gadgetGlyph = { mine: 'user', sprint: 'play', statusPie: 'workflow', priorityPie: 'flag', activity: 'bolt', created: 'plus' };
+  const gadgets = (project.dashboard || []).filter((gadget) => !find.gadget || gadget.type === find.gadget);
+  const cards = gadgets.length ? cardGrid(ctx, `dashboard:${project.id}`, gadgets.map((gadget) => ({ id: gadget.id, glyph: gadgetGlyph[gadget.type], title: nameOf(GADGETS.find((item) => item.id === gadget.type)), w: ['statusPie', 'priorityPie'].includes(gadget.type) ? 4 : 6, h: 9, closeAction: 'remove-gadget', body: gadgetBody(ctx, gadget.type) }))) : '';
+  return `<div class="page">${pageHead(L('대시보드', 'Dashboard'), `<select data-choose="gadget">${options(GADGETS, '', L('가젯 추가', 'Add a gadget'))}</select>`, 'dashboard')}${finderBar(ctx, [{ id: 'gadget', label: L('가젯', 'Gadget'), options: GADGETS.map((item) => ({ id: item.id, label: nameOf(item) })) }])}${cards || empty(L('가젯이 없습니다.', 'There are no gadgets.'))}</div>`;
 }
 
 function gadgetBody(ctx, type) {
@@ -297,11 +313,56 @@ function gadgetBody(ctx, type) {
   return '';
 }
 
+/** Report tabs in groups: sprints, flow, distribution and time, epics. */
+const REPORT_GROUPS = [
+  ['sprint', ['스프린트', 'Sprints'], [['burndown', 'chart', ['번다운', 'Burndown']], ['velocity', 'bolt', ['속도', 'Velocity']], ['sprint', 'play', ['스프린트 보고서', 'Sprint report']]]],
+  ['flow', ['흐름', 'Flow'], [['flow', 'workflow', ['누적 흐름', 'Cumulative flow']], ['created', 'plus', ['생성과 해결', 'Created and resolved']], ['control', 'columns', ['제어 차트', 'Control chart']]]],
+  ['spread', ['분포와 시간', 'Distribution and time'], [['pie', 'chart', ['분포', 'Distribution']], ['time', 'clock', ['시간', 'Time tracking']]]],
+  ['epic', ['에픽', 'Epics'], [['epic', 'epic', ['에픽 번다운', 'Epic burndown']]]],
+];
+
+/** Fields the group-by choice offers, with their names. */
+const GROUP_LABEL = {
+  none: ['묶지 않음', 'No grouping'], status: ['상태', 'Status'], priority: ['우선순위', 'Priority'], type: ['유형', 'Type'], assignee: ['담당', 'Assignee'], reporter: ['보고자', 'Reporter'],
+  epic: ['에픽', 'Epic'], sprint: ['스프린트', 'Sprint'], component: ['구성 요소', 'Component'], version: ['수정 버전', 'Fix version'], label: ['라벨', 'Label'], resolution: ['해결', 'Resolution'],
+};
+
+function groupSelect(attr, value, withNone = true) {
+  const ids = [...(withNone ? ['none'] : []), ...GROUP_FIELDS];
+  return `<label class="group-by" title="${esc(L('항목을 분류해서 묶습니다.', 'Group the items by a field.'))}">${icon('layers')}<span>${L('묶기', 'Group by')}</span><select ${attr}>${ids.map((id) => `<option value="${id}"${id === value ? ' selected' : ''}>${esc(L(...GROUP_LABEL[id]))}</option>`).join('')}</select></label>`;
+}
+
+/** The name of one group value of a field. */
+export function groupLabel(ctx, field, id) {
+  const project = ctx.project;
+  if (id === 'none' || id === 'unassigned') return field === 'assignee' || field === 'reporter' ? L('담당 없음', 'Unassigned') : L('없음', 'None');
+  if (field === 'status') return nameOf(byId(project.statuses, id)) || id;
+  if (field === 'priority') return nameOf(byId(project.priorities, id)) || id;
+  if (field === 'type') return nameOf(byId(project.issueTypes, id)) || id;
+  if (field === 'assignee' || field === 'reporter') return person(ctx.ws, id)?.name || id;
+  if (field === 'epic') { const epic = findIssue(project, id); return epic ? `${epic.key} ${epic.summary}` : id; }
+  if (field === 'sprint') return byId(project.sprints, id)?.name || id;
+  if (field === 'component') return byId(project.components, id)?.name || id;
+  if (field === 'version') return byId(project.versions, id)?.name || id;
+  if (field === 'resolution') return nameOf(byId(project.resolutions, id)) || id;
+  return id;
+}
+
+function groupColor(ctx, field, id, index) {
+  const project = ctx.project;
+  const colors = ['#3a6cf0', '#30a46c', '#f5a524', '#e5484d', '#7c3aed', '#0ea5e9', '#64748b', '#db2777', '#0d9488', '#ea580c', '#4f46e5', '#84cc16'];
+  if (id === 'none' || id === 'unassigned') return '#94a3b8';
+  const own = field === 'status' ? byId(project.statuses, id)?.color : field === 'priority' ? byId(project.priorities, id)?.color : field === 'type' ? byId(project.issueTypes, id)?.color : '';
+  return safeColor(own || colors[index % colors.length]);
+}
+
 function reports(ctx) {
-  const tabs = [['burndown', L('번다운', 'Burndown')], ['velocity', L('속도', 'Velocity')], ['flow', L('누적 흐름', 'Cumulative flow')], ['created', L('생성과 해결', 'Created and resolved')], ['pie', L('분포', 'Distribution')], ['time', L('시간', 'Time')], ['sprint', L('스프린트', 'Sprint')], ['control', L('제어', 'Control')], ['epic', L('에픽 번다운', 'Epic burndown')]];
-  const glyphs = { burndown: 'chart', velocity: 'bolt', flow: 'workflow', created: 'plus', pie: 'chart', time: 'clock', sprint: 'play', control: 'columns', epic: 'epic' };
-  const nav = `<div class="tabs">${tabs.map(([id, label]) => `<button type="button" class="tab${ctx.ui.report === id ? ' active' : ''}" data-action="report" data-id="${id}">${icon(glyphs[id])}<span>${label}</span></button>`).join('')}</div>`;
-  return `<div class="page">${pageHead(L('보고서', 'Reports'), '', 'reports')}${finderBar(ctx, issueFacets(ctx))}${nav}<div class="report panel-card">${reportBody(ctx)}</div></div>`;
+  const current = ctx.ui.report || 'burndown';
+  const nav = `<div class="tabs tab-groups">${REPORT_GROUPS.map(([gid, name, items]) => `<span class="tab-group" data-group="${gid}"><small>${esc(L(...name))}</small><span class="tab-group-items">${items.map(([id, glyph, label]) => `<button type="button" class="tab${current === id ? ' active' : ''}" data-action="report" data-id="${id}">${icon(glyph)}<span>${esc(L(...label))}</span></button>`).join('')}</span></span>`).join('')}</div>`;
+  // Reports that list issues can group them.
+  const grouping = ['sprint', 'time', 'control'].includes(current) ? groupSelect('data-report-group', ctx.ui.reportGroup || (current === 'time' ? 'assignee' : 'none'), current !== 'time') : '';
+  const body = current === 'pie' ? reportBody(ctx) : `<div class="report panel-card">${reportBody(ctx)}</div>`;
+  return `<div class="page">${pageHead(L('보고서', 'Reports'), grouping, 'reports')}${finderBar(ctx, issueFacets(ctx))}${nav}${body}</div>`;
 }
 
 function reportBody(ctx) {
@@ -316,23 +377,43 @@ function reportBody(ctx) {
     return stacked(rows);
   }
   if (ctx.ui.report === 'created') return bars(createdResolved(project, ctx.now).map((row) => ({ label: formatWhen(row.to), a: row.created, b: row.resolved })), ['#3a6cf0', '#30a46c']);
-  if (ctx.ui.report === 'pie') return `<div class="split-page">${pieBlock(ctx, 'status')}${pieBlock(ctx, 'priority')}${pieBlock(ctx, 'type')}</div>`;
+  if (ctx.ui.report === 'pie') {
+    // One card per field: move, resize, enlarge or hide each (cardgrid.js); every chart fits its card.
+    const fields = [['status', 'workflow', 4], ['priority', 'flag', 4], ['type', 'layers', 4], ['assignee', 'user', 6], ['epic', 'epic', 6], ['sprint', 'backlog', 4], ['component', 'component', 4], ['label', 'tag', 4]];
+    return cardGrid(ctx, `report-pie:${project.id}`, fields.map(([field, glyph, w]) => ({ id: field, glyph, title: L(...GROUP_LABEL[field]), w, h: 9, body: pieBlock(ctx, field) })));
+  }
   if (ctx.ui.report === 'time') {
-    const rows = timeReport(project, project.issues.filter((issue) => issueVisible(ctx, issue)));
-    return `<table class="data"><tr><th>${L('담당', 'Assignee')}</th><th>${L('추정', 'Estimate')}</th><th>${L('남음', 'Remaining')}</th><th>${L('기록', 'Logged')}</th></tr>
-      ${rows.map((row) => `<tr><td>${esc(row.userId === 'unassigned' ? L('없음', 'None') : person(ctx.ws, row.userId)?.name || '')}</td><td>${esc(dur(row.original))}</td><td>${esc(dur(row.remaining))}</td><td>${esc(dur(row.spent))}</td></tr>`).join('')}</table>`;
+    const field = GROUP_FIELDS.includes(ctx.ui.reportGroup) ? ctx.ui.reportGroup : 'assignee';
+    const rows = timeReport(project, project.issues.filter((issue) => issueVisible(ctx, issue)), field);
+    return `<table class="data"><tr><th>${esc(L(...GROUP_LABEL[field]))}</th><th>${L('이슈', 'Issues')}</th><th>${L('추정', 'Estimate')}</th><th>${L('남음', 'Remaining')}</th><th>${L('기록', 'Logged')}</th></tr>
+      ${rows.map((row) => `<tr><td>${esc(groupLabel(ctx, field, row.id))}</td><td>${row.count}</td><td>${esc(dur(row.original))}</td><td>${esc(dur(row.remaining))}</td><td>${esc(dur(row.spent))}</td></tr>`).join('')}</table>`;
   }
   if (ctx.ui.report === 'sprint') {
     const sprint = project.sprints.find((item) => item.state === 'active') || project.sprints.filter((item) => item.state === 'closed').at(-1);
     const report = sprintReport(project, sprint);
     if (!report) return empty(L('스프린트가 없습니다.', 'There is no sprint.'));
     const list = (ids) => ids.map((id) => findIssue(project, id)).filter((issue) => issue && issueVisible(ctx, issue)).map((issue) => `<button type="button" class="link-row" data-action="open-issue" data-id="${esc(issue.id)}">${icon('issues')}<span class="key">${esc(issue.key)}</span><span>${esc(issue.summary)}</span></button>`).join('') || empty(L('없음', 'None'));
-    return `<h2>${esc(sprint.name)}</h2><p>${report.pointsDone} / ${report.pointsTotal}</p><h3>${L('완료', 'Completed')}</h3>${list(report.completed)}<h3>${L('남음', 'Remaining')}</h3>${list(report.incomplete)}`;
+    const field = GROUP_FIELDS.includes(ctx.ui.reportGroup) ? ctx.ui.reportGroup : 'none';
+    const grouped = (ids) => {
+      if (field === 'none') return list(ids);
+      const issues = ids.map((id) => findIssue(project, id)).filter(Boolean);
+      return groupIssues(project, issues, field).map((group) => `<div class="group-block"><h4 class="group-head">${esc(groupLabel(ctx, field, group.id))}<small class="nav-count">${group.issues.length}</small></h4>${list(group.issues.map((issue) => issue.id))}</div>`).join('');
+    };
+    return `<h2>${esc(sprint.name)}</h2><p>${report.pointsDone} / ${report.pointsTotal}</p><h3>${L('완료', 'Completed')}</h3>${grouped(report.completed)}<h3>${L('남음', 'Remaining')}</h3>${grouped(report.incomplete)}`;
   }
   if (ctx.ui.report === 'control') {
     const data = controlChart(project, ctx.now);
     const points = data.points.filter((point) => issueVisible(ctx, findIssue(project, point.id)));
     if (!points.length) return empty(L('완료까지 상태가 바뀐 이슈가 없습니다.', 'No issue has moved through to done.'));
+    const field = GROUP_FIELDS.includes(ctx.ui.reportGroup) ? ctx.ui.reportGroup : 'none';
+    if (field !== 'none') {
+      // Average cycle time per group.
+      const groups = groupIssues(project, points.map((point) => findIssue(project, point.id)).filter(Boolean), field).map((group) => {
+        const days = group.issues.map((issue) => points.find((point) => point.id === issue.id)?.days || 0);
+        return { label: groupLabel(ctx, field, group.id), a: days.reduce((sum, v) => sum + v, 0) / Math.max(1, days.length), b: data.average };
+      });
+      return `<p>${L('평균', 'Average')} ${data.average.toFixed(1)} ${L('일', 'days')} · ${esc(L(...GROUP_LABEL[field]))}${L('별 평균', ' averages')}</p>${bars(groups, ['#3a6cf0', '#94a3b8'])}`;
+    }
     return `<p>${L('평균', 'Average')} ${data.average.toFixed(1)} ${L('일', 'days')}</p>${bars(points.slice(0, 16).map((point) => ({ label: point.key, a: point.days, b: data.average })), ['#3a6cf0', '#94a3b8'])}`;
   }
   if (ctx.ui.report === 'epic') {
@@ -340,28 +421,86 @@ function reportBody(ctx) {
     const epic = epics.find((issue) => issue.id === ctx.ui.epicId) || epics[0];
     const data = epicBurndown(project, epic, ctx.now);
     if (!data) return empty(L('에픽이 없습니다.', 'There is no epic.'));
-    return `<p>${esc(epic.key)} ${esc(epic.summary)} · ${Math.round(data.total)}</p>${lineChart(data.days.map((day) => ({ ideal: day.total, remaining: day.remaining })))}`;
+    const unitText = data.pointed ? L('남은 포인트', 'Points remaining') : L('남은 이슈 수', 'Issues remaining');
+    return `<p>${esc(epic.key)} ${esc(epic.summary)} · ${L('합계', 'Total')} ${Math.round(data.total)}</p>${lineChart(data.days.map((day) => ({ t: day.t, ideal: day.total, remaining: day.remaining })), { unit: unitText, idealLabel: L('전체 범위', 'Total scope'), actualLabel: L('남은 작업', 'Remaining work'), now: ctx.now })}`;
   }
   const sprint = project.sprints.find((item) => item.state === 'active');
   const data = burndown(project, sprint, ctx.now);
   if (!data) return empty(L('진행 중인 스프린트의 시작과 끝이 필요합니다.', 'The active sprint needs a start and an end.'));
-  return `<p>${esc(sprint.name)} · ${L('합계', 'Total')} ${Math.round(data.total)}</p>${lineChart(data.days)}`;
+  const unitText = data.pointed ? L('남은 스토리 포인트', 'Story points remaining') : L('남은 이슈 수', 'Issues remaining');
+  return `<p>${esc(sprint.name)} · ${esc(formatWhen(sprint.start))} – ${esc(formatWhen(sprint.end))} · ${L('합계', 'Total')} ${Math.round(data.total)}${data.pointed ? L(' 포인트', ' points') : L('개', ' issues')}</p>${lineChart(data.days, { unit: unitText, idealLabel: L('이상적인 추세', 'Guideline'), actualLabel: L('남은 작업', 'Remaining work'), now: ctx.now })}`;
 }
 
-function lineChart(days) {
-  const width = 640;
-  const height = 220;
-  const pad = 28;
-  const max = Math.max(1, ...days.map((day) => Math.max(day.ideal || 0, day.remaining || 0)));
-  const x = (index) => pad + (days.length === 1 ? 0 : (index / (days.length - 1)) * (width - pad * 2));
-  const y = (value) => height - pad - (value / max) * (height - pad * 2);
-  const path = (pick, color, dash) => {
-    const points = days.map((day, index) => ({ index, value: pick(day) })).filter((point) => point.value != null);
-    if (!points.length) return '';
-    const d = points.map((point, index) => `${index ? 'L' : 'M'}${x(point.index).toFixed(1)},${y(point.value).toFixed(1)}`).join(' ');
-    return `<path d="${d}" fill="none" stroke="${color}" stroke-width="2"${dash ? ' stroke-dasharray="5 4"' : ''}/>`;
+/** A round step for about `count` axis ticks up to `max` (1, 2, 5 × 10ⁿ). */
+function niceStep(max, count = 5) {
+  const raw = Math.max(1e-9, max / count);
+  const power = 10 ** Math.floor(Math.log10(raw));
+  const unit = [1, 2, 5, 10].find((n) => n * power >= raw) * power;
+  return Math.max(unit, max <= 5 ? 1 : unit);
+}
+
+/**
+ * A burndown chart as usually drawn: days along the x axis (dates, weekends shaded), remaining work up the y
+ * axis with gridlines and its unit, the ideal guideline dashed from the total down to zero, the actual remaining
+ * work as a line with a dot per day, a "today" marker, and the legend above.
+ * days = [{ t, ideal, remaining }] (remaining is null for days still to come).
+ */
+function lineChart(days, { unit = '', idealLabel = '', actualLabel = '', now = Date.now() } = {}) {
+  const width = 760;
+  const height = 300;
+  const left = 54;
+  const right = 18;
+  const top = 14;
+  const bottom = 48;
+  const plotW = width - left - right;
+  const plotH = height - top - bottom;
+  const peak = Math.max(1, ...days.map((day) => Math.max(day.ideal || 0, day.remaining || 0)));
+  const step = niceStep(peak);
+  const max = Math.ceil(peak / step) * step;
+  const x = (index) => left + (days.length === 1 ? plotW / 2 : (index / (days.length - 1)) * plotW);
+  const y = (value) => top + plotH - (value / max) * plotH;
+  const date = (t) => { const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()}`; };
+  const parts = [];
+  // Weekends.
+  const slot = days.length > 1 ? plotW / (days.length - 1) : plotW;
+  days.forEach((day, index) => {
+    const weekday = day.t ? new Date(day.t).getDay() : 1;
+    if (weekday === 0 || weekday === 6) parts.push(`<rect x="${(x(index) - slot / 2).toFixed(1)}" y="${top}" width="${slot.toFixed(1)}" height="${plotH}" class="chart-weekend"/>`);
+  });
+  // Y axis: gridlines, values, title.
+  for (let value = 0; value <= max + 1e-9; value += step) {
+    const gy = y(value).toFixed(1);
+    parts.push(`<line x1="${left}" y1="${gy}" x2="${width - right}" y2="${gy}" class="${value === 0 ? 'chart-axis' : 'chart-grid'}"/><text x="${left - 8}" y="${(Number(gy) + 4).toFixed(1)}" class="chart-tick" text-anchor="end">${Number(value.toFixed(2))}</text>`);
+  }
+  parts.push(`<line x1="${left}" y1="${top}" x2="${left}" y2="${top + plotH}" class="chart-axis"/>`);
+  if (unit) parts.push(`<text x="14" y="${top + plotH / 2}" class="chart-title" text-anchor="middle" transform="rotate(-90 14 ${top + plotH / 2})">${esc(unit)}</text>`);
+  // X axis: a tick per day, a date label on about eight of them, title.
+  const every = Math.max(1, Math.ceil(days.length / 8));
+  days.forEach((day, index) => {
+    const gx = x(index).toFixed(1);
+    parts.push(`<line x1="${gx}" y1="${top + plotH}" x2="${gx}" y2="${top + plotH + 4}" class="chart-axis"/>`);
+    if (index % every === 0 || index === days.length - 1) parts.push(`<text x="${gx}" y="${top + plotH + 17}" class="chart-tick" text-anchor="middle">${esc(day.t ? date(day.t) : String(index + 1))}</text>`);
+  });
+  parts.push(`<text x="${left + plotW / 2}" y="${height - 6}" class="chart-title" text-anchor="middle">${esc(L('날짜', 'Date'))}</text>`);
+  // Today.
+  const todayIndex = days.findIndex((day, index) => day.t && new Date(day.t).toDateString() === new Date(now).toDateString() && index >= 0);
+  if (todayIndex >= 0) parts.push(`<line x1="${x(todayIndex).toFixed(1)}" y1="${top}" x2="${x(todayIndex).toFixed(1)}" y2="${top + plotH}" class="chart-today"/><text x="${(x(todayIndex) + 4).toFixed(1)}" y="${top + 10}" class="chart-today-text">${esc(L('오늘', 'Today'))}</text>`);
+  // Lines.
+  const line = (pick, cls) => {
+    const points = days.map((day, index) => ({ index, value: pick(day), day })).filter((point) => point.value != null);
+    if (!points.length) return { path: '', points };
+    return { path: `<path d="${points.map((point, k) => `${k ? 'L' : 'M'}${x(point.index).toFixed(1)},${y(point.value).toFixed(1)}`).join(' ')}" class="${cls}"/>`, points };
   };
-  return `<svg class="chart" viewBox="0 0 ${width} ${height}">${path((day) => day.ideal, '#94a3b8', true)}${path((day) => day.remaining, '#3a6cf0', false)}</svg>`;
+  const ideal = line((day) => day.ideal, 'chart-ideal');
+  const actual = line((day) => day.remaining, 'chart-actual');
+  parts.push(ideal.path, actual.path);
+  for (const point of actual.points) {
+    parts.push(`<circle cx="${x(point.index).toFixed(1)}" cy="${y(point.value).toFixed(1)}" r="3.5" class="chart-dot"><title>${esc(`${point.day.t ? date(point.day.t) : point.index + 1} · ${actualLabel} ${Number(point.value.toFixed(2))}${point.day.ideal != null ? ` · ${idealLabel} ${Number(point.day.ideal.toFixed(2))}` : ''}`)}</title></circle>`);
+  }
+  const last = actual.points[actual.points.length - 1];
+  if (last) parts.push(`<text x="${(x(last.index) + 6).toFixed(1)}" y="${(y(last.value) - 6).toFixed(1)}" class="chart-value">${Number(last.value.toFixed(2))}</text>`);
+  const legend = `<div class="chart-legend"><span><i class="lg-ideal"></i>${esc(idealLabel)}</span><span><i class="lg-actual"></i>${esc(actualLabel)}</span>${todayIndex >= 0 ? `<span><i class="lg-today"></i>${esc(L('오늘', 'Today'))}</span>` : ''}<span><i class="lg-weekend"></i>${esc(L('주말', 'Weekend'))}</span></div>`;
+  return `${legend}<svg class="chart burndown-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(`${idealLabel} / ${actualLabel}`)}">${parts.join('')}</svg>`;
 }
 
 function bars(rows, colors) {
@@ -376,30 +515,23 @@ function stacked(rows) {
 
 function pieBlock(ctx, field) {
   const slices = pie(ctx.project, ctx.project.issues.filter((issue) => issue.typeId !== 'epic' && issueVisible(ctx, issue)), field);
-  const colors = ['#3a6cf0', '#30a46c', '#f5a524', '#e5484d', '#7c3aed', '#0ea5e9', '#64748b', '#db2777'];
-  const painted = slices.map((slice, index) => {
-    const status = byId(ctx.project.statuses, slice.id);
-    const priority = byId(ctx.project.priorities, slice.id);
-    const type = byId(ctx.project.issueTypes, slice.id);
-    const user = person(ctx.ws, slice.id);
-    const label = slice.id === 'unassigned' || slice.id === 'none' ? L('없음', 'None') : (nameOf(status || priority || type) || user?.name || slice.id);
-    const color = status?.color || priority?.color || type?.color || colors[index % colors.length];
-    return { ...slice, label, color: safeColor(color) };
-  });
+  if (!slices.length) return empty(L('이슈가 없습니다.', 'There are no issues.'));
+  const painted = slices.map((slice, index) => ({ ...slice, label: groupLabel(ctx, field, slice.id), color: groupColor(ctx, field, slice.id, index) }));
   const total = painted.reduce((sum, slice) => sum + slice.value, 0) || 1;
   let angle = -Math.PI / 2;
   const paths = painted.map((slice) => {
     const delta = (slice.value / total) * Math.PI * 2;
     const start = angle;
     angle += delta;
-    if (slice.value === total) return `<circle cx="70" cy="70" r="64" fill="${slice.color}"/>`;
+    const title = `<title>${esc(`${slice.label} · ${slice.value} (${Math.round((slice.value / total) * 100)}%)`)}</title>`;
+    if (slice.value === total) return `<circle cx="70" cy="70" r="64" fill="${slice.color}">${title}</circle>`;
     const arc = (value) => [70 + 64 * Math.cos(value), 70 + 64 * Math.sin(value)];
     const [x1, y1] = arc(start);
     const [x2, y2] = arc(angle);
-    return `<path d="M70,70 L${x1},${y1} A64,64 0 ${delta > Math.PI ? 1 : 0} 1 ${x2},${y2} Z" fill="${slice.color}"/>`;
+    return `<path d="M70,70 L${x1},${y1} A64,64 0 ${delta > Math.PI ? 1 : 0} 1 ${x2},${y2} Z" fill="${slice.color}">${title}</path>`;
   }).join('');
-  const legend = painted.map((slice) => `<li><i style="background:${slice.color}"></i>${esc(slice.label)} <b>${slice.value}</b></li>`).join('');
-  return `<div class="pie"><svg viewBox="0 0 140 140">${paths}</svg><ul>${legend}</ul></div>`;
+  const legend = painted.map((slice) => `<li title="${esc(slice.label)}"><i style="background:${slice.color}"></i><span>${esc(slice.label)}</span><b>${slice.value}</b><small>${Math.round((slice.value / total) * 100)}%</small></li>`).join('');
+  return `<div class="pie"><svg viewBox="0 0 140 140" preserveAspectRatio="xMidYMid meet">${paths}<circle cx="70" cy="70" r="30" class="pie-hole"/><text x="70" y="75" text-anchor="middle" class="pie-total">${total}</text></svg><ul>${legend}</ul></div>`;
 }
 
 function releases(ctx) {
@@ -755,6 +887,11 @@ function settings(ctx) {
       ${colors}
     </section>`],
   ];
+  // Company-wide settings (sign-in lock, the database, mail) are the administrator's: a person signed in
+  // without the administrator mark sees only their own settings.
+  const admin = isWorkspaceAdmin(ctx.user);
+  const ADMIN_ONLY = new Set(['signin', 'database', 'mail']);
+  const allowedBlocks = blocks.filter(([id]) => admin || !ADMIN_ONLY.has(id));
   const find = screenFind(ctx);
   // Related settings sit together: each group is a heading over a grid of cards.
   const groups = [
@@ -764,7 +901,7 @@ function settings(ctx) {
     ['notify', 'bell', L('알림', 'Notifications'), ['mail']],
   ];
   const html = (id) => {
-    const item = blocks.find((block) => block[0] === id);
+    const item = allowedBlocks.find((block) => block[0] === id);
     if (!item || (find.section && find.section !== id)) return '';
     return keepBlock(find.q, item[2]);
   };
@@ -772,8 +909,13 @@ function settings(ctx) {
     const body = ids.map(html).join('');
     return body.trim() ? `<div class="settings-group" data-group="${id}"><h2 class="settings-group-title">${icon(glyph)}<span>${title}</span></h2><div class="settings-grid">${body}</div></div>` : '';
   }).join('');
-  return `<div class="page settings">${pageHead(L('설정', 'Settings'), '', 'settings')}
-    ${finderBar(ctx, [{ id: 'section', label: L('분류', 'Section'), options: blocks.map(([id, label]) => ({ id, label })) }])}
+  const role = admin
+    ? `<span class="settings-role admin">${icon('shield')}<span>${L('관리자 설정', 'Administrator settings')}</span></span>`
+    : `<span class="settings-role">${icon('user')}<span>${L('내 설정', 'My settings')}</span></span>`;
+  const note = admin ? '' : `<p class="banner settings-admin-note">${icon('lock')}<span>${L('로그인 잠금, 데이터베이스, 메일 설정은 관리자로 로그인해야 보입니다.', 'Sign-in lock, database and mail settings show when you sign in as an administrator.')}</span></p>`;
+  return `<div class="page settings">${pageHead(L('설정', 'Settings'), role, 'settings')}
+    ${note}
+    ${finderBar(ctx, [{ id: 'section', label: L('분류', 'Section'), options: allowedBlocks.map(([id, label]) => ({ id, label })) }])}
     ${shown || empty(L('찾는 설정이 없습니다.', 'No setting matches.'))}
   </div>`;
 }
@@ -845,7 +987,7 @@ function issueTab(ctx, issue) {
     }).join('');
     return `${list}<div class="inline"><select id="link-type">${options(LINK_TYPES, 'relates')}</select><input id="link-key" placeholder="SHOP-1"><button type="button" class="button" data-action="add-link">${icon('link')}<span>${L('연결', 'Link')}</span></button></div>`;
   }
-  return `<div class="desc-tools"><button type="button" class="small-button" data-action="toggle-preview">${icon(ctx.ui.preview ? 'pencil' : 'eye')}<span>${ctx.ui.preview ? L('편집', 'Edit') : L('미리 보기', 'Preview')}</span></button></div>
+  return `${qualityBlock(ctx, issue)}<div class="desc-tools"><button type="button" class="small-button" data-action="toggle-preview">${icon(ctx.ui.preview ? 'pencil' : 'eye')}<span>${ctx.ui.preview ? L('편집', 'Edit') : L('미리 보기', 'Preview')}</span></button></div>
     ${ctx.ui.preview ? `<article class="md">${renderMarkdown(issue.description || '')}</article>` : `<textarea data-field="description" data-live rows="12">${esc(issue.description || '')}</textarea>`}`;
 }
 

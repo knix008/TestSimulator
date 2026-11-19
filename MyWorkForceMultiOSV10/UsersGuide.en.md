@@ -119,6 +119,100 @@ The project's issues as bars on a time axis, grouped under their epics (issues w
 - Arrows are dependencies. When an earlier issue ends after the next one should start, the **arrow turns red** and a warning shows at the top.
 - At the top choose **Days / Weeks / Months**, **Today**, and **Undated issues too**. Click a name to open the issue.
 
+## Schedule
+
+Turn on **Schedule** under the project's **Management methods** (new software and business projects have it already) to get the **Schedule** screen: a task table on the left and a Gantt chart on the right, like Microsoft Project. Schedule tasks are kept apart from issues, and a project can use the schedule alone (the **Construction site** example).
+
+- Add rows with **Task / Subtask / Milestone**; indent and outdent with ⇥ ⇤ (Alt+Shift+→ ←), move with ↑ ↓ (Alt+Shift+↑ ↓). A row with rows under it is a summary task.
+- **Duration** is in working days (0 = milestone). Weekends and the work calendar's holidays are skipped.
+- **Predecessors** name rows: `3` (start after it finishes), `3FS+2d` (two days later), `4SS` (start together), `5FF` (finish together), `6SF`. Separate several with `;`. A link that would make tasks wait for each other is refused.
+- A date in **Start** keeps the task from starting earlier; clear it to follow the predecessors.
+- Dates are worked out again as you type, and the **critical path** — the tasks that move the end date — is red.
+- Drag a bar to move it and its end to change the duration; drag the dot on its right onto another bar to link them.
+- **Save baseline** keeps today's dates and later shows how many days a task slipped next to its finish.
+- **Import / MS-Project XML / CSV** exchange plans with Microsoft Project. `samples/` has sample schedules (`schedule.*.xml`, `schedule.*.csv`).
+
+### Switch to Kanban or Scrum
+
+**Switch to Kanban** and **Switch to Scrum** open a preview. Tasks become issues, top-level summaries epics, milestones release versions and dependencies "blocks" links.
+
+- **Scrum**: set the **sprint length** (days), the first sprint's start and the number of sprints. Each task goes into the sprint its start falls in; tasks after the last sprint stay in the backlog. The sprint that holds today can start right away.
+- **Kanban**: tasks starting within the window go to To Do, later ones to Backlog.
+- Switching again only updates what changed. Issues in progress or done keep their sprint and status, and their progress flows back into the schedule.
+- Rename sprints and change their dates in the **Sprint dates** table under the schedule.
+
+## Planner
+
+**Planner** on the left shows schedule tasks, issues, sprints and releases on a calendar. Switch **Day / Week / Month / Year** and move with ‹ **Today** ›.
+
+- Choose **This project / My work / All projects** and the kinds to show. Opened from the Company menu it shows your work without opening a project.
+- Day lists overdue, due, starting and ongoing work and adds a to-do for that day. Under the week each day's due work is listed. Year shades busier days darker; click a day to open it.
+- Click an item to open the issue or the schedule task.
+
+## Exporting a screen
+
+**Export** on the schedule, boards (Kanban and Scrum), backlog, planner, issue list and traceability matrix (or File menu, Ctrl+Shift+E) writes the screen to a file.
+
+| Format | Contents |
+| --- | --- |
+| HTML | One web page with the tables and the picture |
+| Markdown | Tables and the picture — **embedded in the file** or **saved as a file and linked** |
+| PDF | The picture on the first page, the tables after it (landscape when wide) |
+| Word (.docx) | Title, tables (header row repeated) and the picture |
+| Excel (.xlsx) | One sheet per table, header row frozen and filtered |
+| Picture | The Gantt chart, board, sprints or calendar as PNG · JPG · GIF · WEBP · AVIF · SVG |
+
+AVIF is written by the desktop program (browsers cannot write AVIF).
+
+## Requirements and testing
+
+Turn on **Requirements** and **Test management** under the project's **Management methods** to get four more screens on the left and three issue types (**Requirement**, **Test case**, **Test execution**). The example **Blood-pressure monitor (traceability)** and the shop sample both have them filled in.
+
+### Formats for new issues
+
+Pick a **Format** in the **New issue** window and the type and description are filled in for you.
+
+| Format | Type | What it holds |
+| --- | --- | --- |
+| Functional / performance / interface / security / regulatory requirement | Requirement | A "shall" statement, category, verification method, acceptance criteria |
+| Manual test case · Acceptance test (Given/When/Then) · Automated test case | Test case | Level, kind, precondition, steps (action, data, expected result), script |
+| Regression test run | Test execution | Version, environment, and a result, note and defects per test case |
+| Defect found by a test | Bug | Steps to reproduce, expected and actual result, the test that found it |
+
+### Requirements
+
+Above a requirement's description are its **external ID, category, verification method (test, inspection, analysis, demonstration), source, baseline, acceptance criteria and rationale**. **Trace** below lists its parent and child requirements, the work that implements it, its test cases with their last results, and its defects, and links new ones on the spot. The links mean:
+
+- story or task → **implements** → requirement
+- test case → **verifies** → requirement
+- child requirement → **refines** → parent requirement
+- test case or run → **found** → bug
+
+The **Requirements** screen lists them in specification order (1, 1.1, 1.2 …) and counts test coverage, pass rate, failures, requirements without a test and suspect ones at the top. A requirement changed after its last pass is marked **Suspect**. A requirement with children shows their combined result.
+
+### Traceability matrix
+
+One row per requirement: the work, the test cases with results, open defects and coverage. **Grid** turns it into a requirements × test cases table marked ✓ ✗ ! ○. Below it are **requirements without a test**, **tests without a requirement** and **tests never run**.
+
+### Test cases and test runs
+
+Add steps to a test case (↑ ↓ reorder them) and make a run of it with **Run this test**. **Run all** on the **Test cases** screen makes a run with every test.
+
+In a test run, press **Not run / Pass / Fail / Blocked** for each test and write a note. A failed or blocked test offers **Log a defect**, which makes a bug with the test's steps and links it to the test and the run. **Failed and not-run tests** adds just the tests that have not passed yet.
+
+### File formats and samples
+
+| File | Contents |
+| --- | --- |
+| Requirement CSV | ID, Key, Summary, Description, Category, Verification, Source, Acceptance criteria, Rationale, Parent, Status, Priority |
+| ReqIF (.reqif) | OMG Requirements Interchange Format 1.2, for other requirements tools; keeps the hierarchy |
+| Test case CSV | ID, Key, Summary, Level, Kind, Precondition, Step, Action, Data, Expected, Verifies, Last result — one row per step |
+| Traceability CSV / Markdown | Export only, for documents and reports |
+
+**Insert a sample** in the import window puts in the example specification. Rows whose ID or key already exists update that issue, so import a changed specification again. The program's `samples/` folder has Korean and English sample files (`requirements.*.csv`, `requirements.*.reqif`, `testcases.*.csv`, `traceability.*`). The **Requirements & testing** page templates are a requirements specification, a traceability matrix, a test plan, a test case specification and a test summary report.
+
+WQL finds them too: `coverage = failed`, `result = fail`, `suspect = true`, `category = safety`, `verification = inspection`, `level = system`.
+
 ## Workspaces and pages
 
 What people need to know goes on **pages** in **workspaces**. The company workspace is for everyone, a team workspace for its members, a project workspace for that project's people.

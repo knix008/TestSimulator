@@ -15,6 +15,39 @@ import { TEMPLATE_GROUPS, templateBody, templateById } from './domain/page-templ
 import { issueMacrosToMarkdown } from './domain/issue-macros.js';
 import { shiftedDates } from './domain/dependencies.js';
 import { timelineTodayX } from './ui/timeline.js';
+import {
+  addExecTests, addStep, attachDefect, ensureQualityTypes, formatPatch, importQualityRows, isTestCase, isTestExec, latestResults, moveStep, parseReqIF,
+  parseRequirementCsv, parseTestCaseCsv, recordResult, removeExecTest, removeStep, requirementsCsv, setExecVersion, setRequirementField,
+  setTestField, testCasesCsv, toReqIF, traceCsv, traceMarkdown, updateStep,
+} from './domain/requirements.js';
+import {
+  addTask, clearBaseline, computeSchedule, dayOf as planDay, deleteTask, ensureSchedule, importSchedule, indentTask, isoDay, moveTask, parseProjectXml,
+  parseScheduleCsv, saveBaseline, toProjectXml, toScheduleCsv, updateTask, WorkDays,
+} from './domain/schedule.js';
+import { applyConversion } from './domain/schedule-apply.js';
+// Loaded on first use (kept out of the main bundle): the export writers and the sample files.
+const loadExport = () => Promise.all([import('./domain/export/docexport.js'), import('./domain/export/images.js'), import('./domain/export/views.js')]);
+const SAMPLE_FILES = {
+  'req.ko': () => import('../samples/requirements.ko.csv?raw'),
+  'req.en': () => import('../samples/requirements.en.csv?raw'),
+  'tests.ko': () => import('../samples/testcases.ko.csv?raw'),
+  'tests.en': () => import('../samples/testcases.en.csv?raw'),
+  'plan-xml.ko': () => import('../samples/schedule.ko.xml?raw'),
+  'plan-xml.en': () => import('../samples/schedule.en.xml?raw'),
+  'plan-csv.ko': () => import('../samples/schedule.ko.csv?raw'),
+  'plan-csv.en': () => import('../samples/schedule.en.csv?raw'),
+};
+function insertSample(boxSelector, name) {
+  const box = document.querySelector(boxSelector);
+  if (!box) return;
+  SAMPLE_FILES[`${name}.${getLanguage() === 'en' ? 'en' : 'ko'}`]().then((file) => { box.value = file.default; }).catch(fail);
+}
+import { participatingProjects } from './domain/permissions.js';
+import { COLS as CG_COLS, GAP as CG_GAP, ROW as CG_ROW, moveCard, resizeCard } from './ui/cardgrid.js';
+import { encodeAvif, writeBinaryFile } from './platform/native.js';
+import { plannerState, plannerStep } from './ui/planner.js';
+import { calendarOf } from './domain/services.js';
+import { parseCsvTable, parseXml } from './domain/requirements.js';
 import { addColumn, addPage, addRow, addShape, addSpace, attachPage, commentPage, copyPage, deletePageComment, canEditPage, deleteSpace, editPageComment, pageDescendants, resolvePageComment, updateSpace, expandPage, likePage, markEditing, movePage, pageByShare, purgePage, removePageFile, removeShape, restorePage, restoreTrashed, setPageAccess, setPageStatus, shareLink, updatePage, watchPage } from './domain/wiki.js';
 import { addArticle, addCalendar, addToken, addWebhook, authorizationUrl, csvIssueRows, decideApproval, deleteArticle, deleteToken, deleteWebhook, openApproval } from './domain/services.js';
 import { loadSettings, PANEL_MAX, PANEL_MIN, rememberPath, saveSettings } from './domain/settings.js';
@@ -24,7 +57,7 @@ import {
   canDeleteProject, deleteFilter, deleteIssue, deleteProject, deleteRule, deleteWorklog, findIssue, markAllRead, markRead, mergeProject, newProject,
   projectDocument, rankIssues, readDocument,   releaseVersion, removeAttachment, removeField, removeGadget, removeLink,
   removeStatus, removeTransition, saveFilter, setAdmin, setArchived, setCustomField, setMember, setUserActive,
-  startSprint, toggleGroupUser, toggleWatch, transitionGate, updateIssue, updateProject, upgradeWorkspace, userByAccount, workspaceDocument,
+  startSprint, toggleGroupUser, toggleWatch, transitionGate, updateIssue, updateSprint, updateProject, upgradeWorkspace, userByAccount, workspaceDocument,
 } from './domain/store.js';
 import { writingExport } from './domain/markdown.js';
 import { fromDateInput, parseDuration, uid } from './domain/util.js';
@@ -285,6 +318,17 @@ async function attachPageFiles(pageId, files, embed) {
   else if (loaded.length) toast(L(`파일 ${loaded.length}개를 넣었습니다.`, `Added ${loaded.length} file${loaded.length > 1 ? 's' : ''}.`));
 }
 
+/** The schedule's chart opens at today once per project (later repaints keep the person's scroll). */
+function scrollScheduleOnce() {
+  if (ui.view !== 'schedule') return;
+  const chart = document.querySelector('.plan-chart');
+  const svg = chart?.querySelector('.plan-svg');
+  const key = `${ws.activeProjectId}:${ui.planScale || 'day'}`;
+  if (!chart || !svg || ui.planScrolled === key) return;
+  ui.planScrolled = key;
+  chart.scrollLeft = Math.max(0, ((planDay(Date.now()) - Number(svg.dataset.tlFrom)) / 86400000) * Number(svg.dataset.tlPx) - chart.clientWidth / 3);
+}
+
 function scrollTimelineToToday() {
   const chart = document.querySelector('[data-tl-chart]');
   if (chart) chart.scrollLeft = Math.max(0, timelineTodayX(chart) - chart.clientWidth / 3);
@@ -294,6 +338,110 @@ function scrollTimelineToToday() {
  * Dragging on the timeline: a bar (or one of its ends) moves its dates by whole days; the dot at a bar's
  * right drawn onto another bar makes that issue wait for this one. A press without a move opens the issue.
  */
+/** Card boards (src/ui/cardgrid.js): the layout as the board shows it now, merged into what is saved. */
+function cardDomLayout(boardEl) {
+  const board = boardEl.dataset.cgBoard;
+  const saved = settings.cardBoards?.[board] || {};
+  const cards = [...boardEl.querySelectorAll(':scope > [data-cg-card]')];
+  const order = cards.map((card) => card.dataset.cgCard);
+  const size = { ...(saved.size || {}) };
+  for (const card of cards) {
+    if (card.classList.contains('big')) continue;
+    const w = Number(/span (\d+)/.exec(card.style.gridColumn)?.[1]);
+    const h = Number(/span (\d+)/.exec(card.style.gridRow)?.[1]);
+    if (w && h) size[card.dataset.cgCard] = { w, h };
+  }
+  return { order: [...order, ...(saved.order || []).filter((id) => !order.includes(id))], size, hidden: [...(saved.hidden || [])], max: saved.max || '' };
+}
+
+function saveCardBoard(board, layout) {
+  settings.cardBoards = { ...(settings.cardBoards || {}), [board]: layout };
+  saveSettings();
+  paint();
+}
+
+/** Dragging a card by its handle onto another card, and resizing it from its corner grip. */
+function bindCardGrid() {
+  let drag = null;
+  document.addEventListener('pointerdown', (event) => {
+    const handle = event.target.closest?.('[data-cg-move], [data-cg-grip]');
+    if (!handle || event.button !== 0) return;
+    const card = handle.closest('[data-cg-card]');
+    const board = card?.closest('[data-cg-board]');
+    if (!card || !board) return;
+    event.preventDefault();
+    const rect = card.getBoundingClientRect();
+    if (handle.hasAttribute('data-cg-grip')) {
+      const style = getComputedStyle(board);
+      const gap = parseFloat(style.columnGap) || CG_GAP;
+      const colW = (board.clientWidth - gap * (CG_COLS - 1)) / CG_COLS;
+      drag = { kind: 'size', card, board, rect, x: event.clientX, y: event.clientY, colW, gap };
+    } else {
+      const ghost = card.cloneNode(true);
+      ghost.classList.add('cg-ghost');
+      ghost.style.width = `${rect.width}px`;
+      ghost.style.height = `${rect.height}px`;
+      ghost.style.left = `${rect.left}px`;
+      ghost.style.top = `${rect.top}px`;
+      document.body.appendChild(ghost);
+      card.classList.add('cg-origin');
+      drag = { kind: 'move', card, board, ghost, dx: event.clientX - rect.left, dy: event.clientY - rect.top, target: null, after: false };
+    }
+    try { handle.setPointerCapture?.(event.pointerId); } catch { /* not tracked */ }
+  });
+  document.addEventListener('pointermove', (event) => {
+    if (!drag) return;
+    if (drag.kind === 'size') {
+      const w = Math.max(3, Math.min(CG_COLS, Math.round((drag.rect.width + event.clientX - drag.x + drag.gap) / (drag.colW + drag.gap))));
+      const h = Math.max(5, Math.min(30, Math.round((drag.rect.height + event.clientY - drag.y + drag.gap) / (CG_ROW + drag.gap))));
+      drag.card.style.gridColumn = `span ${w}`;
+      drag.card.style.gridRow = `span ${h}`;
+      drag.card.classList.remove('big');
+      drag.size = { w, h };
+      return;
+    }
+    drag.ghost.style.left = `${event.clientX - drag.dx}px`;
+    drag.ghost.style.top = `${event.clientY - drag.dy}px`;
+    for (const item of drag.board.querySelectorAll('.cg-drop-before, .cg-drop-after')) item.classList.remove('cg-drop-before', 'cg-drop-after');
+    drag.ghost.hidden = true;
+    const under = document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-cg-card]');
+    drag.ghost.hidden = false;
+    if (under && under !== drag.card && under.parentElement === drag.board) {
+      const box = under.getBoundingClientRect();
+      drag.target = under.dataset.cgCard;
+      drag.after = event.clientX > box.left + box.width / 2;
+      under.classList.add(drag.after ? 'cg-drop-after' : 'cg-drop-before');
+    } else drag.target = null;
+  });
+  document.addEventListener('pointerup', () => {
+    if (!drag) return;
+    const done = drag;
+    drag = null;
+    const boardId = done.board.dataset.cgBoard;
+    if (done.kind === 'size') {
+      if (!done.size) return;
+      const layout = cardDomLayout(done.board);
+      if (layout.max === done.card.dataset.cgCard) layout.max = '';
+      saveCardBoard(boardId, resizeCard(layout, done.card.dataset.cgCard, done.size.w, done.size.h));
+      return;
+    }
+    done.ghost.remove();
+    done.card.classList.remove('cg-origin');
+    if (!done.target) { paint(); return; }
+    saveCardBoard(boardId, moveCard(cardDomLayout(done.board), done.card.dataset.cgCard, done.target, done.after));
+  });
+  // A double click on the grip gives the card its default size again.
+  document.addEventListener('dblclick', (event) => {
+    const grip = event.target.closest?.('[data-cg-grip]');
+    const card = grip?.closest('[data-cg-card]');
+    const board = card?.closest('[data-cg-board]');
+    if (!board) return;
+    const layout = cardDomLayout(board);
+    delete layout.size[card.dataset.cgCard];
+    saveCardBoard(board.dataset.cgBoard, layout);
+  });
+}
+
 function bindTimeline() {
   let drag = null;
   const svgPoint = (svg, event) => {
@@ -349,6 +497,41 @@ function bindTimeline() {
     drag = null;
     const current = project();
     if (!current) return;
+    // Bars of the schedule (Gantt) are tasks, not issues.
+    if (done.svg?.hasAttribute('data-plan-chart')) {
+      if (done.kind === 'link') {
+        done.line.remove();
+        const under = document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-plan-task]');
+        if (under && under.dataset.planTask !== done.fromId) {
+          const target = ensureSchedule(current).tasks.find((task) => task.id === under.dataset.planTask);
+          if (target && !target.preds.some((pred) => pred.id === done.fromId)) planMutate((cur) => updateTask(cur, target.id, { preds: [...target.preds, { id: done.fromId, type: ui.planLinkType || 'FS', lag: 0 }] }));
+          else paint();
+        } else paint();
+        return;
+      }
+      if (!done.moved) {
+        if (ui.planLinkMode) {
+          if (!ui.planLinkFrom || ui.planLinkFrom === done.id) { ui.planLinkFrom = ui.planLinkFrom === done.id ? null : done.id; paint(); return; }
+          const from = ui.planLinkFrom;
+          const target = ensureSchedule(current).tasks.find((item) => item.id === done.id);
+          ui.planLinkFrom = null;
+          if (target && !target.preds.some((pred) => pred.id === from)) planMutate((cur) => updateTask(cur, target.id, { preds: [...target.preds, { id: from, type: ui.planLinkType || 'FS', lag: 0 }] }));
+          else paint();
+          return;
+        }
+        ui.planTask = done.id; paint(); return;
+      }
+      const task = ensureSchedule(current).tasks.find((item) => item.id === done.id);
+      if (!task || !done.days) { paint(); return; }
+      if (done.edge === 'end') {
+        const days = new WorkDays(calendarOf(ws), ensureSchedule(current).start).between(task.start, isoDay(planDay(task.finish) + done.days * 86400000));
+        planMutate((cur) => updateTask(cur, task.id, { duration: Math.max(1, days) }));
+      } else {
+        planMutate((cur) => updateTask(cur, task.id, { fixedStart: isoDay(planDay(task.start) + done.days * 86400000) }));
+      }
+      ui.planTask = task.id;
+      return;
+    }
     if (done.kind === 'link') {
       done.line.remove();
       const under = document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-tl-issue]');
@@ -1724,7 +1907,12 @@ function paint() {
     prepareReader(document.querySelector('#view'));
     document.querySelector('#right').innerHTML = '';
   } else if (!skipLive && !skipQuery && !skipDoc && !skipPage) {
+    // The schedule's chart and table keep their scroll position when the screen is drawn again.
+    const keepChart = ui.view === 'schedule' ? document.querySelector('.plan-chart')?.scrollLeft : null;
+    const keepWrap = ui.view === 'schedule' ? document.querySelector('.plan-wrap')?.scrollTop : null;
     document.querySelector('#view').innerHTML = renderView(ctx);
+    if (keepChart != null) { const chart = document.querySelector('.plan-chart'); if (chart) chart.scrollLeft = keepChart; }
+    if (keepWrap != null) { const wrap = document.querySelector('.plan-wrap'); if (wrap) wrap.scrollTop = keepWrap; }
     document.querySelector('#right').innerHTML = showRight(ctx) ? renderRight(ctx) : '';
     decorateIcons(document.querySelector('#view'));
     decorateIcons(document.querySelector('#right'));
@@ -1735,6 +1923,7 @@ function paint() {
     }
   }
   document.querySelector('#statusbar').innerHTML = renderStatus(ctx);
+  scrollScheduleOnce();
   syncLive();
   paintModal(ctx);
   paintCoach();
@@ -1895,10 +2084,214 @@ async function exportText(kind) {
   } catch (error) { fail(error); }
 }
 
+/** Requirements and test files: CSV, ReqIF and the traceability matrix as CSV or Markdown. */
+async function exportQuality(kind) {
+  const current = project();
+  if (!current) return;
+  const lang = getLanguage();
+  const files = {
+    'req-csv': [() => requirementsCsv(current), `${current.key}-requirements.csv`, 'csv'],
+    reqif: [() => toReqIF(current), `${current.key}-requirements.reqif`, 'reqif'],
+    'test-csv': [() => testCasesCsv(current), `${current.key}-testcases.csv`, 'csv'],
+    'trace-csv': [() => traceCsv(current, lang), `${current.key}-traceability.csv`, 'csv'],
+    'trace-md': [() => traceMarkdown(current, lang), `${current.key}-traceability.md`, 'md'],
+  };
+  const [make, filename, ext] = files[kind] || files['trace-md'];
+  try {
+    const text = make();
+    if (isDesktop()) {
+      const path = await chooseSave(filename, [ext]);
+      if (!path) return;
+      await writeTextFile(path, text);
+    } else download(text, filename, ext === 'reqif' ? 'application/xml' : 'text/plain');
+    toast(L('내보냈습니다.', 'Exported.'));
+  } catch (error) { fail(error); }
+}
+
+/** Puts a CSV or ReqIF file's text into the import dialog. */
+async function pickQualityFile() {
+  const box = document.querySelector('#quality-import-text');
+  if (!box) return;
+  try {
+    if (isDesktop()) {
+      const path = await chooseOpen([{ name: 'CSV / ReqIF', extensions: ['csv', 'reqif', 'xml', 'txt'] }]);
+      if (!path) return;
+      box.value = await readTextFile(path);
+      return;
+    }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv,.reqif,.xml,.txt,text/csv,application/xml';
+    input.addEventListener('change', async () => {
+      const file = input.files?.[0];
+      if (file) box.value = await file.text();
+    });
+    input.click();
+  } catch (error) { fail(error); }
+}
+
+const EXT = { html: 'html', markdown: 'md', pdf: 'pdf', docx: 'docx', xlsx: 'xlsx', png: 'png', jpg: 'jpg', gif: 'gif', webp: 'webp', avif: 'avif', svg: 'svg' };
+const DOC_MIME = { html: 'text/html', markdown: 'text/markdown', pdf: 'application/pdf', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
+
+function base64Of(bytes) {
+  let text = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) text += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(text);
+}
+
+/**
+ * Saves the export's files: the first is chosen with the save window (desktop) and the rest go next to it
+ * (a Markdown file's pictures); in the browser each one downloads.
+ */
+async function saveExportFiles(files) {
+  if (isDesktop()) {
+    const [main, ...rest] = files;
+    const ext = main.name.split('.').pop();
+    let path = await chooseSave(main.name, [ext]);
+    if (!path) return '';
+    if (!new RegExp(`\\.${ext}$`, 'i').test(path)) path += `.${ext}`;
+    const folder = path.replace(/[\\/][^\\/]*$/, '');
+    const sep = path.includes('\\') ? '\\' : '/';
+    for (const file of [{ ...main, path }, ...rest.map((item) => ({ ...item, path: `${folder}${sep}${item.name}` }))]) {
+      if (typeof file.data === 'string') await writeTextFile(file.path, file.data);
+      else await writeBinaryFile(file.path, file.data);
+    }
+    return path;
+  }
+  for (const file of files) {
+    const url = URL.createObjectURL(new Blob([file.data], { type: file.mime || 'application/octet-stream' }));
+    saveDownload(file.name, url);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+  return files[0].name;
+}
+
+/** Exports the screen: HTML, Markdown (pictures embedded or linked), PDF, Word, Excel, or the picture itself. */
+async function runExport(opts) {
+  const [{ exportDocument }, { encodeCanvas, imageMime, svgToCanvas }, { exportFor, fileBase }] = await loadExport();
+  const ctx = context();
+  const spec = exportFor({ ws, project: ctx.project, ui, user: ctx.user, now: Date.now(), lang: getLanguage(), projectIds: participatingProjects(ws, actor()).map((item) => item.id) }, opts.view);
+  const base = fileBase(spec.title);
+  const format = opts.format || 'pdf';
+  const imageFormat = opts.image || 'png';
+  const wantPicture = Boolean(spec.svg) && (format === 'image' || (opts.withImage !== false && format !== 'xlsx'));
+  const canvas = wantPicture ? await svgToCanvas(spec.svg, { scale: 2, background: '#ffffff' }) : null;
+  const pictureBytes = async (kind) => (kind === 'svg' ? new TextEncoder().encode(spec.svg) : encodeCanvas(canvas, kind === 'jpg' ? 'jpg' : kind, { quality: 0.92, avif: isDesktop() ? encodeAvif : null }));
+  const mimeOf = (kind) => (kind === 'jpg' ? 'image/jpeg' : imageMime(kind));
+  if (format === 'image') {
+    const data = await pictureBytes(imageFormat);
+    return saveExportFiles([{ name: `${base}.${EXT[imageFormat]}`, data, mime: mimeOf(imageFormat) }]);
+  }
+  const doc = { title: spec.title, subtitle: spec.subtitle, blocks: [...spec.blocks] };
+  const extra = [];
+  if (wantPicture) {
+    const block = { type: 'image', caption: spec.picture || '' };
+    if (format === 'docx') block.dataUrl = canvas.toDataURL('image/png');
+    else if (format === 'pdf') block.jpeg = canvas.toDataURL('image/jpeg', 0.92);
+    else {
+      const data = await pictureBytes(imageFormat);
+      if (format === 'markdown' && opts.mdImages === 'link') {
+        const name = `${base}.${EXT[imageFormat]}`;
+        block.href = encodeURI(name);
+        extra.push({ name, data, mime: mimeOf(imageFormat) });
+      } else block.dataUrl = `data:${mimeOf(imageFormat)};base64,${base64Of(data)}`;
+    }
+    doc.blocks.unshift(block);
+  }
+  const data = exportDocument(doc, format, { lang: getLanguage() });
+  return saveExportFiles([{ name: `${base}.${EXT[format]}`, data, mime: DOC_MIME[format] }, ...extra]);
+}
+
+/** Changes the open project's schedule (permission "edit") and works its dates out again. */
+function planMutate(fn) {
+  const current = project();
+  if (!current) return false;
+  return mutate(() => {
+    if (!allowed(ws, current, actor(), 'edit')) throw new Error('permission');
+    fn(current);
+    computeSchedule(current, calendarOf(ws));
+  });
+}
+
+/** The schedule as Microsoft Project XML or CSV. */
+async function exportPlan(kind) {
+  const current = project();
+  if (!current) return;
+  const text = kind === 'csv' ? toScheduleCsv(current, ws, calendarOf(ws)) : toProjectXml(current, ws, calendarOf(ws));
+  const ext = kind === 'csv' ? 'csv' : 'xml';
+  const filename = `${current.key}-schedule.${ext}`;
+  try {
+    if (isDesktop()) {
+      const path = await chooseSave(filename, [ext]);
+      if (!path) return;
+      await writeTextFile(path, text);
+    } else download(text, filename, ext === 'xml' ? 'application/xml' : 'text/csv');
+    toast(L('내보냈습니다.', 'Exported.'));
+  } catch (error) { fail(error); }
+}
+
+async function pickPlanFile() {
+  const box = document.querySelector('#plan-import-text');
+  if (!box) return;
+  try {
+    if (isDesktop()) {
+      const path = await chooseOpen([{ name: 'Microsoft Project XML / CSV', extensions: ['xml', 'csv', 'txt'] }]);
+      if (path) box.value = await readTextFile(path);
+      return;
+    }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.xml,.csv,.txt,application/xml,text/csv';
+    input.addEventListener('change', async () => { const file = input.files?.[0]; if (file) box.value = await file.text(); });
+    input.click();
+  } catch (error) { fail(error); }
+}
+
+/** Planner state kept in ui.planner. */
+function setPlanner(patch) {
+  const state = plannerState(context());
+  ui.planner = { mode: state.mode, date: isoDay(state.date), scope: state.scope, kinds: state.kinds, ...patch };
+  paint();
+}
+
+/** Opens the "New issue" dialog with a format (and what to link the new issue to). */
+function newQualityIssue(typeId, extra = {}) {
+  const formatId = { requirement: 'req-functional', testcase: 'test-manual', testexec: 'exec-regression', bug: 'bug-from-test' }[typeId] || '';
+  const patch = formatPatch(formatId, getLanguage());
+  const current = project();
+  if (current && typeId !== 'bug') { ensureQualityTypes(current, true); scheduleSave(); }
+  ui.modal = { kind: 'issue', typeId, formatId, description: patch?.description || '', ...extra };
+  paint();
+}
+
+/** Makes a test run holding the given test cases and opens it. */
+function newExecution(testIds, summary) {
+  const current = project();
+  mutate(() => {
+    ensureQualityTypes(current, true);
+    const patch = formatPatch('exec-regression', getLanguage());
+    const exec = createIssue(ws, current.id, { ...patch, summary, assigneeId: actor() }, actor());
+    addExecTests(ws, current, exec, testIds, actor());
+    ui.issueId = exec.id;
+    ui.view = 'issue';
+    ui.issueTab = 'details';
+  });
+}
+
 function submitModal(form) {
   const modal = ui.modal;
   if (!modal) return;
   if (modal.kind === 'change-password') { changeMyPassword(form); return; }
+  // Export: no undo step, and the planner exports without a project.
+  if (modal.kind === 'export-view') {
+    const opts = { ...modal };
+    ui.modal = null;
+    paint();
+    runExport(opts).then((saved) => {
+      if (saved) toast(L(`내보냈습니다: ${String(saved).split(/[\\/]/).pop()}`, `Exported: ${String(saved).split(/[\\/]/).pop()}`));
+    }).catch(fail);
+    return;
+  }
   if (modal.kind === 'palette') {
     const first = document.querySelector('#palette-results [data-id]');
     if (first) { ui.issueId = first.dataset.id; ui.view = 'issue'; }
@@ -1980,12 +2373,23 @@ function submitModal(form) {
     }
     if (!current) throw new Error('not-found');
     if (modal.kind === 'issue') {
+      // A format (requirements.js ISSUE_FORMATS) brings the structured part of a requirement, test case or test run.
+      const shaped = formatPatch(value('format'), getLanguage()) || {};
+      const typeId = value('type') || shaped.typeId || 'task';
+      if (['requirement', 'testcase', 'testexec'].includes(typeId)) ensureQualityTypes(current, true);
       const issue = createIssue(ws, current.id, {
-        typeId: value('type') || 'task', summary: value('summary'), description: value('description'),
+        typeId, summary: value('summary'), description: value('description'),
         priorityId: value('priority') || 'medium', assigneeId: value('assignee'), epicId: value('epic'),
         sprintId: value('sprint'), storyPoints: value('points') === '' ? null : Number(value('points')),
         parentId: value('parent'),
+        ...(shaped.typeId === typeId ? { req: shaped.req, test: shaped.test, exec: shaped.exec } : {}),
       }, actor());
+      if (modal.refines) addLink(ws, current.id, issue.id, 'refines', modal.refines, actor());
+      if (modal.verifies) addLink(ws, current.id, issue.id, 'verifies', modal.verifies, actor());
+      if (modal.defectOf) {
+        const exec = current.issues.find((item) => item.id === modal.defectOf.execId);
+        if (exec) attachDefect(current, exec, modal.defectOf.testId, issue);
+      }
       ui.issueId = issue.id;
       ui.view = 'issue';
       return;
@@ -2004,6 +2408,40 @@ function submitModal(form) {
         name: value('name'), from: value('from'), to: value('to'), condition: value('condition'), role: value('role'),
         validator: value('validator'), approval: data.get('approval') != null, approverId: value('approver'),
       }, actor());
+      return;
+    }
+    if (modal.kind === 'plan-switch') {
+      const result = applyConversion(ws, current, modal.mode, modal.opts || {}, actor(), calendarOf(ws));
+      computeSchedule(current, calendarOf(ws));
+      ui.boardId = result.board;
+      ui.view = modal.mode === 'scrum' ? 'backlog' : 'board';
+      setTimeout(() => toast(L(`새 이슈 ${result.created} · 고친 이슈 ${result.updated} · 스프린트 ${result.sprints} · 연결 ${result.links}`, `New issues ${result.created} · updated ${result.updated} · sprints ${result.sprints} · links ${result.links}`)), 0);
+      return;
+    }
+    if (modal.kind === 'plan-import') {
+      if (!allowed(ws, current, actor(), 'edit')) throw new Error('permission');
+      const text = String(data.get('text') || '');
+      const imported = /^\s*</.test(text) ? parseProjectXml(text, parseXml) : parseScheduleCsv(parseCsvTable(text));
+      if (!imported.tasks.length) throw new Error('file-invalid');
+      const count = importSchedule(current, ws, imported, { replace: value('how') !== 'append' });
+      computeSchedule(current, calendarOf(ws));
+      ui.view = 'schedule';
+      setTimeout(() => toast(L(`작업 ${count}개를 가져왔습니다.`, `Imported ${count} tasks.`)), 0);
+      return;
+    }
+    if (modal.kind === 'quality-import') {
+      const text = String(data.get('text') || '');
+      const tests = modal.target === 'tests';
+      const rows = tests ? parseTestCaseCsv(text) : (/^\s*</.test(text) ? parseReqIF(text) : parseRequirementCsv(text));
+      if (!rows.length) throw new Error('file-invalid');
+      ensureQualityTypes(current, true);
+      const done = importQualityRows(current, rows, tests ? 'tests' : 'requirements', {
+        create: (partial) => createIssue(ws, current.id, partial, actor()),
+        update: (issue, patch) => updateIssue(ws, current.id, issue.id, patch, actor()),
+        link: (fromId, type, toId) => addLink(ws, current.id, fromId, type, toId, actor()),
+      });
+      ui.view = tests ? 'tests' : 'requirements';
+      setTimeout(() => toast(L(`추가 ${done.added} · 갱신 ${done.changed} · 연결 ${done.linked}`, `Added ${done.added} · updated ${done.changed} · linked ${done.linked}`)), 0);
       return;
     }
     if (modal.kind === 'csv') {
@@ -3012,6 +3450,58 @@ function onAction(el) {
     paint();
     return;
   }
+  if (name === 'cg-max' || name === 'cg-hide' || name === 'cg-reset') {
+    const board = el.dataset.board;
+    const boardEl = document.querySelector(`[data-cg-board="${CSS.escape(board)}"]`);
+    if (name === 'cg-reset') { const next = { ...(settings.cardBoards || {}) }; delete next[board]; settings.cardBoards = next; saveSettings(); paint(); return; }
+    const layout = boardEl ? cardDomLayout(boardEl) : { order: [], size: {}, hidden: [], max: '' };
+    if (name === 'cg-max') layout.max = layout.max === el.dataset.id ? '' : el.dataset.id;
+    else { layout.hidden = [...new Set([...layout.hidden, el.dataset.id])]; if (layout.max === el.dataset.id) layout.max = ''; }
+    saveCardBoard(board, layout);
+    return;
+  }
+  if (name === 'export-view') {
+    const view = ui.view;
+    loadExport().then(([, , { exportFor }]) => {
+      const ctx = context();
+      let spec = null;
+      try { spec = exportFor({ ws, project: ctx.project, ui, user: ctx.user, now: Date.now(), lang: getLanguage(), projectIds: participatingProjects(ws, actor()).map((item) => item.id) }, view); } catch { spec = null; }
+      ui.modal = { kind: 'export-view', view, format: 'pdf', image: 'png', withImage: true, mdImages: 'embed', title: spec?.title || '', hasPicture: Boolean(spec?.svg), picture: spec?.picture || '' };
+      paint();
+    }).catch(fail);
+    return;
+  }
+  // ── Planner (works without a project too) ──
+  if (name === 'planner-mode') { setPlanner({ mode: el.dataset.id }); return; }
+  if (name === 'planner-scope') { setPlanner({ scope: el.dataset.id }); return; }
+  if (name === 'planner-today') { setPlanner({ date: isoDay(planDay(Date.now())) }); return; }
+  if (name === 'planner-step') { const state = plannerState(context()); setPlanner({ date: isoDay(plannerStep(state, Number(el.dataset.delta))) }); return; }
+  if (name === 'planner-go') { setPlanner({ date: el.dataset.date, mode: el.dataset.mode || 'day' }); return; }
+  if (name === 'planner-open') {
+    const projectId = el.dataset.project;
+    if (projectId && projectId !== ws.activeProjectId && (ws.projects || []).some((item) => item.id === projectId)) { ws.activeProjectId = projectId; ui.boardId = null; ui.selected = []; scheduleSave(); }
+    const kind = el.dataset.kind;
+    if (kind === 'issue') { ui.issueId = el.dataset.id; ui.view = 'issue'; ui.issueTab = 'details'; }
+    else if (kind === 'task' || kind === 'milestone') { ui.planTask = el.dataset.id; ui.view = 'schedule'; }
+    else if (kind === 'sprint') ui.view = 'backlog';
+    else if (kind === 'version') ui.view = 'releases';
+    paint();
+    return;
+  }
+  if (name === 'planner-add') {
+    const box = document.querySelector('#planner-new');
+    const text = String(box?.value || '').trim();
+    if (!text) { box?.focus(); return; }
+    if (!current) { ensureProject(); return; }
+    const boards = ['issues', 'kanban', 'scrum', 'service'].some((method) => (current.methods || []).includes(method));
+    if (!boards && (current.methods || []).includes('schedule')) {
+      planMutate((cur) => { const task = addTask(cur, { name: text, duration: 1 }); updateTask(cur, task.id, { fixedStart: el.dataset.date, assigneeId: actor() }); });
+      return;
+    }
+    const due = fromDateInput(el.dataset.date);
+    mutate(() => { createIssue(ws, current.id, { typeId: 'task', summary: text, start: due, due, statusId: 'todo', assigneeId: actor() }, actor()); });
+    return;
+  }
   if (!current) { ensureProject(); return; }
   if (name === 'transition') {
     const issue = findIssue(current, ui.issueId);
@@ -3040,6 +3530,141 @@ function onAction(el) {
     return;
   }
   if (name === 'delete-worklog') { mutate(() => deleteWorklog(ws, current.id, ui.issueId, el.dataset.id, actor())); return; }
+  // ── Schedule (Gantt) ──
+  if (name === 'plan-select') { ui.planTask = el.dataset.id; paint(); return; }
+  if (name === 'plan-add') {
+    planMutate((current) => {
+      const task = addTask(current, {
+        afterId: ui.planTask && ensureSchedule(current).tasks.some((item) => item.id === ui.planTask) ? ui.planTask : '',
+        child: el.dataset.child === '1', milestone: el.dataset.milestone === '1',
+        name: el.dataset.milestone === '1' ? L('마일스톤', 'Milestone') : L('새 작업', 'New task'), duration: el.dataset.milestone === '1' ? 0 : 5,
+      });
+      ui.planTask = task.id;
+    });
+    requestAnimationFrame(() => { const box = document.querySelector(`[data-plan-field="name"][data-task="${ui.planTask}"]`); if (box) { box.focus(); box.select(); } });
+    return;
+  }
+  if (name === 'plan-indent' && ui.planTask) { planMutate((current) => indentTask(current, ui.planTask, Number(el.dataset.delta))); return; }
+  if (name === 'plan-move' && ui.planTask) { planMutate((current) => moveTask(current, ui.planTask, Number(el.dataset.delta))); return; }
+  if (name === 'plan-delete' && ui.planTask) {
+    const task = ensureSchedule(current).tasks.find((item) => item.id === ui.planTask);
+    if (task) { planMutate((cur) => { deleteTask(cur, task.id); }); ui.planTask = null; }
+    return;
+  }
+  if (name === 'plan-baseline') { planMutate((cur) => saveBaseline(cur)); toast(L('지금 날짜를 기준선으로 저장했습니다.', 'Saved the current dates as the baseline.')); return; }
+  if (name === 'plan-baseline-clear') { planMutate((cur) => clearBaseline(cur)); return; }
+  if (name === 'plan-scale') { ui.planScale = el.dataset.id; paint(); return; }
+  if (name === 'plan-link-mode') { ui.planLinkMode = !ui.planLinkMode; ui.planLinkFrom = null; paint(); return; }
+  if (name === 'plan-link-type') { ui.planLinkType = el.dataset.id; paint(); return; }
+  if (name === 'plan-critical') { ui.planCritical = !ui.planCritical; paint(); return; }
+  if (name === 'plan-link-pick') { const key = `${el.dataset.task}|${el.dataset.pred}`; ui.planLinkPick = ui.planLinkPick === key ? null : key; paint(); return; }
+  if (name === 'plan-unlink') {
+    if (ui.planLinkPick) {
+      const [taskId, predId] = ui.planLinkPick.split('|');
+      const task = ensureSchedule(current).tasks.find((item) => item.id === taskId);
+      ui.planLinkPick = null;
+      if (task) planMutate((cur) => updateTask(cur, task.id, { preds: task.preds.filter((pred) => pred.id !== predId) }));
+      return;
+    }
+    if (!ui.planTask) return;
+    const id = ui.planTask;
+    planMutate((cur) => {
+      for (const task of ensureSchedule(cur).tasks) {
+        if (task.id === id) updateTask(cur, task.id, { preds: [] });
+        else if (task.preds.some((pred) => pred.id === id)) updateTask(cur, task.id, { preds: task.preds.filter((pred) => pred.id !== id) });
+      }
+    });
+    return;
+  }
+  if (name === 'plan-today') { const chart = document.querySelector('.plan-chart'); const svg = chart?.querySelector('.plan-svg'); if (chart && svg) chart.scrollLeft = Math.max(0, ((planDay(Date.now()) - Number(svg.dataset.tlFrom)) / 86400000) * Number(svg.dataset.tlPx) - chart.clientWidth / 3); return; }
+  if (name === 'plan-step') {
+    const schedule = ensureSchedule(current);
+    planMutate(() => { schedule.sprintDays = Math.max(1, Math.min(90, schedule.sprintDays + Number(el.dataset.delta))); });
+    return;
+  }
+  if (name === 'plan-export') { exportPlan(el.dataset.kind); return; }
+  if (name === 'plan-import') { ui.modal = { kind: 'plan-import' }; paint(); return; }
+  if (name === 'plan-import-file') { pickPlanFile(); return; }
+  if (name === 'plan-import-sample') {
+    insertSample('#plan-import-text', el.dataset.kind === 'csv' ? 'plan-csv' : 'plan-xml');
+    return;
+  }
+  if (name === 'plan-switch') {
+    const schedule = ensureSchedule(current);
+    ui.modal = { kind: 'plan-switch', mode: el.dataset.mode === 'scrum' ? 'scrum' : 'kanban', opts: { sprintDays: schedule.sprintDays, sprintStart: schedule.sprintStart || schedule.start, sprintCount: 0, startCurrent: true, windowDays: schedule.sprintDays, sprintName: L('스프린트', 'Sprint') } };
+    paint();
+    return;
+  }
+  if (name === 'switch-step' && ui.modal?.kind === 'plan-switch') {
+    const key = el.dataset.id;
+    const opts = ui.modal.opts;
+    opts[key] = Math.max(key === 'sprintCount' ? 0 : 1, Math.min(key === 'sprintCount' ? 52 : 90, (Number(opts[key]) || 0) + Number(el.dataset.delta)));
+    repaintModal();
+    return;
+  }
+  // ── Requirements and tests ──
+  if (name === 'new-quality') { newQualityIssue(el.dataset.type || 'requirement'); return; }
+  if (name === 'quality-export') { exportQuality(el.dataset.kind); return; }
+  if (name === 'quality-import') { ui.modal = { kind: 'quality-import', target: el.dataset.kind === 'tests' ? 'tests' : 'req' }; paint(); return; }
+  if (name === 'quality-import-file') { pickQualityFile(); return; }
+  if (name === 'quality-import-sample') {
+    insertSample('#quality-import-text', ui.modal?.target === 'tests' ? 'tests' : 'req');
+    return;
+  }
+  if (name === 'trace-mode') { ui.traceMode = el.dataset.id === 'grid' ? 'grid' : 'list'; paint(); return; }
+  if (name === 'exec-new-all') {
+    const tests = current.issues.filter(isTestCase).map((test) => test.id);
+    newExecution(tests, `${L('전체 테스트 실행', 'Full test run')} ${new Date().toLocaleDateString(getLanguage() === 'en' ? 'en-US' : 'ko-KR')}`);
+    return;
+  }
+  if (name === 'exec-new-for') {
+    const test = current.issues.find((item) => item.id === el.dataset.id);
+    if (test) newExecution([test.id], `${test.key} ${L('실행', 'run')}`);
+    return;
+  }
+  const qualityIssue = ui.issueId ? current.issues.find((item) => item.id === ui.issueId) : null;
+  if (qualityIssue) {
+    if (name === 'add-step') { mutate(() => addStep(ws, current, qualityIssue, {}, actor())); return; }
+    if (name === 'remove-step') { mutate(() => removeStep(ws, current, qualityIssue, el.dataset.id, actor())); return; }
+    if (name === 'move-step') { mutate(() => moveStep(ws, current, qualityIssue, el.dataset.id, Number(el.dataset.delta) || 0, actor())); return; }
+    if (name === 'req-new-child') { newQualityIssue('requirement', { refines: qualityIssue.id }); return; }
+    if (name === 'req-new-test') { newQualityIssue('testcase', { verifies: qualityIssue.id }); return; }
+    if (name === 'req-link') {
+      const box = document.querySelector(el.dataset.type === 'verifies' ? '#req-test-key' : '#req-impl-key');
+      const key = String(box?.value || '').trim().toLowerCase();
+      const other = current.issues.find((item) => item.key.toLowerCase() === key || item.id === key);
+      if (!other) { fail(new Error('not-found')); return; }
+      mutate(() => addLink(ws, current.id, other.id, el.dataset.type === 'verifies' ? 'verifies' : 'implements', qualityIssue.id, actor()));
+      return;
+    }
+    if (name === 'test-link-req') {
+      mutate(() => addLink(ws, current.id, qualityIssue.id, 'verifies', document.querySelector('#test-req-key')?.value || '', actor()));
+      return;
+    }
+    if (name === 'run-result') { mutate(() => recordResult(ws, current, qualityIssue, el.dataset.id, { result: el.dataset.result }, actor())); return; }
+    if (name === 'exec-remove') { mutate(() => removeExecTest(ws, current, qualityIssue, el.dataset.id, actor())); return; }
+    if (name === 'exec-add-tests') {
+      const refs = String(document.querySelector('#exec-test-keys')?.value || '').split(/[\s,;]+/).filter(Boolean);
+      mutate(() => addExecTests(ws, current, qualityIssue, refs, actor()));
+      return;
+    }
+    if (name === 'exec-add-all') { mutate(() => addExecTests(ws, current, qualityIssue, current.issues.filter(isTestCase).map((test) => test.id), actor())); return; }
+    if (name === 'exec-add-open') {
+      const results = latestResults(current);
+      mutate(() => addExecTests(ws, current, qualityIssue, current.issues.filter((test) => isTestCase(test) && results.get(test.id)?.result !== 'pass').map((test) => test.id), actor()));
+      return;
+    }
+    if (name === 'exec-defect' && isTestExec(qualityIssue)) {
+      const test = current.issues.find((item) => item.id === el.dataset.id);
+      const run = qualityIssue.exec?.runs?.find((item) => item.testId === el.dataset.id);
+      const patch = formatPatch('bug-from-test', getLanguage());
+      const steps = (test?.test?.steps || []).map((step, index) => `${index + 1}. ${step.action}${step.data ? ` (${step.data})` : ''}`).join('\n');
+      const description = `${patch.description.replace(/1\. …\n2\. …/, steps || '1. …')}${test ? ` ${test.key}` : ''}${run?.note ? `\n\n> ${run.note}` : ''}`;
+      ui.modal = { kind: 'issue', typeId: 'bug', formatId: 'bug-from-test', description, defectOf: { execId: qualityIssue.id, testId: el.dataset.id } };
+      paint();
+      return;
+    }
+  }
   if (name === 'add-link') {
     const type = document.querySelector('#link-type')?.value || 'relates';
     const key = document.querySelector('#link-key')?.value || '';
@@ -3071,7 +3696,7 @@ function onAction(el) {
     paint();
     return;
   }
-  if (name === 'report') { ui.report = el.dataset.id; paint(); return; }
+  if (name === 'report') { if (ui.report !== el.dataset.id) ui.reportGroup = ''; ui.report = el.dataset.id; paint(); return; }
   if (name === 'queue') { ui.queueId = el.dataset.id; paint(); return; }
   if (name === 'epic-filter') { ui.epicId = el.dataset.id || ''; paint(); return; }
   if (name === 'remove-gadget') { mutate(() => removeGadget(current, el.dataset.id)); return; }
@@ -3222,6 +3847,24 @@ function onChange(event) {
   if (el.dataset.teamField && el.dataset.team) { mutate(() => updateTeam(ws, el.dataset.team, { [el.dataset.teamField]: el.value }, actor())); return; }
   if (el.dataset.projectTeam) { mutate(() => moveProjectToTeam(ws, el.dataset.projectTeam, el.value, actor())); return; }
   if (el.dataset.methodProject) { mutate(() => setProjectMethod(ws, el.dataset.methodProject, el.value, el.checked, actor())); return; }
+  if (el.matches('[data-issue-format]') && ui.modal?.kind === 'issue') {
+    // Choosing a format fills the type and the description of the new issue.
+    const patch = formatPatch(el.value, getLanguage());
+    const form = el.closest('form');
+    ui.modal.formatId = el.value;
+    if (patch && form) {
+      const type = form.querySelector('[name="type"]');
+      const current = project();
+      if (current && ['requirement', 'testcase', 'testexec'].includes(patch.typeId)) ensureQualityTypes(current, true);
+      if (type && type.tagName === 'SELECT') {
+        if (![...type.options].some((option) => option.value === patch.typeId)) type.insertAdjacentHTML('beforeend', `<option value="${esc(patch.typeId)}">${esc(patch.typeId)}</option>`);
+        type.value = patch.typeId;
+      }
+      const description = form.querySelector('[name="description"]');
+      if (description) description.value = patch.description;
+    }
+    return;
+  }
   if (el.matches('[data-project-type]')) {
     // A new project's type suggests its methods; the person can still change them.
     const suggested = new Set(DEFAULT_METHODS[el.value] || []);
@@ -3355,6 +3998,61 @@ function onChange(event) {
     mutate(() => setCustomField(ws, current.id, ui.issueId, el.dataset.custom, value, actor()));
     return;
   }
+  // Schedule cells and settings, the switch dialog, sprint dates, planner filters.
+  if (el.dataset.planField && el.dataset.task && current) {
+    const field = el.dataset.planField;
+    const value = field === 'percent' || field === 'points' ? Number(el.value) || 0 : el.value;
+    planMutate((cur) => updateTask(cur, el.dataset.task, { [field]: value }));
+    return;
+  }
+  if (el.dataset.planSetting && current) {
+    const schedule = ensureSchedule(current);
+    planMutate(() => {
+      if (el.dataset.planSetting === 'start' && el.value) schedule.start = el.value;
+      if (el.dataset.planSetting === 'sprintDays') schedule.sprintDays = Math.max(1, Math.min(90, Number(el.value) || 14));
+    });
+    return;
+  }
+  if (el.dataset.cgShow && el.value) {
+    const board = el.dataset.cgShow;
+    const saved = settings.cardBoards?.[board] || {};
+    saveCardBoard(board, { ...saved, hidden: (saved.hidden || []).filter((id) => id !== el.value) });
+    return;
+  }
+  if ('reportGroup' in el.dataset) { ui.reportGroup = el.value; paint(); return; }
+  if ('issueGroup' in el.dataset) { ui.issueGroup = el.value === 'none' ? '' : el.value; paint(); return; }
+  if (el.dataset.exportOpt && ui.modal?.kind === 'export-view') {
+    const key = el.dataset.exportOpt;
+    ui.modal[key] = el.type === 'checkbox' ? el.checked : el.value;
+    repaintModal();
+    return;
+  }
+  if (el.dataset.switch && ui.modal?.kind === 'plan-switch') {
+    const key = el.dataset.switch;
+    ui.modal.opts[key] = el.type === 'checkbox' ? el.checked : el.value;
+    repaintModal();
+    return;
+  }
+  if (el.dataset.sprintField && el.dataset.sprint && current) {
+    const field = el.dataset.sprintField;
+    const value = field === 'name' ? el.value : fromDateInput(el.value);
+    mutate(() => updateSprint(ws, current.id, el.dataset.sprint, { [field]: value }, actor()));
+    return;
+  }
+  if (el.dataset.plannerKind) {
+    const state = plannerState(context());
+    const kinds = new Set(state.kinds);
+    if (el.checked) kinds.add(el.dataset.plannerKind); else kinds.delete(el.dataset.plannerKind);
+    setPlanner({ kinds: [...kinds] });
+    return;
+  }
+  // Requirement, test case and test run fields (requirements.js).
+  const qualityIssue = current && ui.issueId ? current.issues.find((item) => item.id === ui.issueId) : null;
+  if (qualityIssue && el.dataset.req) { mutate(() => setRequirementField(ws, current, qualityIssue, el.dataset.req, el.value, actor())); return; }
+  if (qualityIssue && el.dataset.test) { mutate(() => setTestField(ws, current, qualityIssue, el.dataset.test, el.value, actor())); return; }
+  if (qualityIssue && el.dataset.step) { mutate(() => updateStep(ws, current, qualityIssue, el.dataset.step, { [el.dataset.stepField]: el.value }, actor())); return; }
+  if (qualityIssue && el.dataset.runNote) { mutate(() => recordResult(ws, current, qualityIssue, el.dataset.runNote, { note: el.value }, actor())); return; }
+  if (qualityIssue && 'execVersion' in el.dataset) { mutate(() => setExecVersion(ws, current, qualityIssue, el.value, actor())); return; }
   if (el.dataset.field && current && ui.issueId) {
     mutate(() => updateIssue(ws, current.id, ui.issueId, { [el.dataset.field]: readControl(el) }, actor()));
   }
@@ -3546,6 +4244,7 @@ function mount() {
   bindPanelSplitters();
   bindMentions(() => ws.users || []);
   bindTimeline();
+  bindCardGrid();
   bindInline({
     send: (pageId, quote, text) => { mutate(() => { const comment = commentPage(ws, pageId, text, actor(), quote, { inline: true }); ui.inlineActive = comment.id; }); },
     focus: (commentId) => { ui.inlineActive = commentId; paint(); document.querySelector(`[data-comment-id="${CSS.escape(commentId)}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }); },
@@ -3894,6 +4593,28 @@ function mount() {
     mutate(() => addAttachment(ws, current.id, ui.issueId, { name: file.name, mime: file.type, size: file.size, data }, actor()));
   });
   document.addEventListener('keydown', (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.shiftKey && !event.altKey && event.key.toLowerCase() === 'e' && !ui.modal && ui.loginUser) {
+      event.preventDefault();
+      onAction({ dataset: { action: 'export-view' } });
+      return;
+    }
+    if (event.key === 'Escape' && ui.view === 'schedule' && (ui.planLinkFrom || ui.planLinkPick || ui.planLinkMode) && !ui.modal) {
+      event.preventDefault();
+      if (ui.planLinkFrom || ui.planLinkPick) { ui.planLinkFrom = null; ui.planLinkPick = null; } else ui.planLinkMode = false;
+      paint();
+      return;
+    }
+    // Schedule outline like Microsoft Project: Alt+Shift+→/← indent/outdent, ↑/↓ move.
+    if (ui.view === 'schedule' && ui.planTask && event.altKey && event.shiftKey && !ui.modal) {
+      const map = { ArrowRight: ['plan-indent', 1], ArrowLeft: ['plan-indent', -1], ArrowUp: ['plan-move', -1], ArrowDown: ['plan-move', 1] };
+      const hit = map[event.key];
+      if (hit) {
+        event.preventDefault();
+        document.activeElement?.blur?.();
+        onAction({ dataset: { action: hit[0], delta: String(hit[1]) } });
+        return;
+      }
+    }
     if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && ['page-comment', 'comment-edit', 'reply-text'].includes(event.target?.id)) {
       const send = document.querySelector({ 'page-comment': '[data-action="comment-page"]', 'comment-edit': '[data-action="save-page-comment"]', 'reply-text': '[data-action="send-reply"]' }[event.target.id]);
       if (send) { event.preventDefault(); onAction(send); return; }
@@ -3907,8 +4628,8 @@ function mount() {
   });
 }
 
-const FREE_VIEWS = new Set(['search', 'home', 'help', 'settings', 'users', 'projects', 'extensions', 'people', 'teams', 'team', 'audit']);
-const NO_PROJECT_VIEWS = new Set([...FREE_VIEWS, 'notifications', 'knowledge', 'documents', 'calendar', 'plans', 'teams', 'team']);
+const FREE_VIEWS = new Set(['search', 'home', 'help', 'settings', 'users', 'projects', 'extensions', 'people', 'teams', 'team', 'audit', 'planner']);
+const NO_PROJECT_VIEWS = new Set([...FREE_VIEWS, 'notifications', 'knowledge', 'documents', 'calendar', 'plans', 'teams', 'team', 'planner']);
 
 function listedIssueIds() {
   const ids = [];

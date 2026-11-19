@@ -8,6 +8,7 @@
 //   Pages     a space is scoped to the company (everyone), a team (its members) or a project (its people).
 import { isWorkspaceAdmin, participatesIn, rolesOf } from './permissions.js';
 import { nowIso, uid } from './util.js';
+import { ensureQualityTypes } from './requirements.js';
 
 /** How a project can be run. `views` are the screens the method brings into the project's navigation. */
 export const METHODS = [
@@ -17,14 +18,17 @@ export const METHODS = [
   { id: 'roadmap', glyph: 'roadmap', ko: '로드맵', en: 'Roadmap', views: ['roadmap', 'timeline'], aboutKo: '에픽과 이슈를 시간 축에 놓고 의존 관계를 잇습니다.', aboutEn: 'Lay epics and issues out on a timeline with their dependencies.' },
   { id: 'releases', glyph: 'release', ko: '릴리스', en: 'Releases', views: ['releases', 'components'], aboutKo: '버전과 구성 요소로 결과물을 묶습니다.', aboutEn: 'Group the work into versions and components.' },
   { id: 'service', glyph: 'request', ko: '서비스 대기열', en: 'Service queues', views: ['queues', 'portal'], aboutKo: '요청을 대기열과 고객 포털로 받습니다.', aboutEn: 'Take requests through queues and a customer portal.' },
+  { id: 'schedule', glyph: 'roadmap', ko: '일정 계획', en: 'Schedule', views: ['schedule'], aboutKo: 'MS-Project처럼 작업, 기간, 선행 관계로 일정을 짜고 간트 차트로 봅니다. 칸반이나 스크럼으로 전환할 수 있습니다.', aboutEn: 'Plan tasks, durations and dependencies on a Gantt chart, like Microsoft Project, and switch to Kanban or Scrum when ready.' },
+  { id: 'requirements', glyph: 'flag', ko: '요구 사항 추적', en: 'Requirements', views: ['requirements', 'trace'], aboutKo: '요구 사항을 구현 이슈와 테스트에 이어 추적 매트릭스로 봅니다.', aboutEn: 'Trace requirements to the work and the tests in a matrix.' },
+  { id: 'testing', glyph: 'check', ko: '테스트 관리', en: 'Test management', views: ['tests', 'executions'], aboutKo: '테스트 케이스와 단계, 실행 결과, 발견한 결함을 관리합니다.', aboutEn: 'Test cases with steps, test runs, results and the defects they find.' },
 ];
 
 /** Screens every project has, whatever its methods. */
-export const PROJECT_VIEWS = ['home', 'dashboard', 'reports', 'health'];
+export const PROJECT_VIEWS = ['home', 'planner', 'dashboard', 'reports', 'health'];
 
 export const DEFAULT_METHODS = {
-  software: ['issues', 'scrum', 'kanban', 'roadmap', 'releases'],
-  business: ['issues', 'kanban'],
+  software: ['issues', 'scrum', 'kanban', 'roadmap', 'releases', 'schedule'],
+  business: ['issues', 'kanban', 'schedule'],
   service: ['issues', 'service'],
 };
 
@@ -59,6 +63,7 @@ export function upgradeMethods(project) {
   for (const board of project.boards || []) if (board.type === 'kanban' || board.type === 'scrum') methods.add(board.type);
   if ((project.queues || []).length) methods.add('service');
   project.methods = METHODS.map((method) => method.id).filter((id) => methods.has(id));
+  ensureQualityTypes(project);
   return project;
 }
 
@@ -337,5 +342,6 @@ export function setProjectMethod(ws, projectId, methodId, on, actorId) {
   else methods.delete(methodId);
   if (!methods.size) throw new Error('method-required');
   project.methods = METHODS.map((method) => method.id).filter((id) => methods.has(id));
+  ensureQualityTypes(project);
   return project;
 }

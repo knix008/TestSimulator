@@ -68,7 +68,7 @@ export function startBoard(host, { saved, onSave }) {
     return { col: Math.max(0, Math.min(COLS - w, Math.round((x - rect.left) / (size + GAP)))), row: Math.max(0, Math.round((y - rect.top) / ROW)) };
   };
   const autoScroll = (event) => {
-    const scroller = host.closest('#view') || host.closest('.start-scroll');
+    const scroller = host.closest('.start-scroll') || host.closest('#view');
     if (!scroller) return;
     const rect = scroller.getBoundingClientRect();
     if (event.clientY > rect.bottom - 36) scroller.scrollTop += 14;

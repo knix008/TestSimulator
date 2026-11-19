@@ -9,6 +9,11 @@ import { ACCESS, canManageTeam, isTeamMember, projectViews, teamOfProject, teams
 import { canEditPage, pagesIn } from '../domain/wiki.js';
 import { spaceOpen, workspacePageTree } from './extra.js';
 import { templatePicker } from './templates.js';
+import { formatPicker } from './quality.js';
+import { flag } from './flags.js';
+import { switchDialogBody } from './schedule.js';
+import { planConversion } from '../domain/schedule-apply.js';
+import { calendarOf } from '../domain/services.js';
 import { methodChecks } from './teams.js';
 import { databaseSettings } from './start.js';
 
@@ -64,6 +69,7 @@ export function renderMenubar(ctx) {
     item('save-file', 'save', L('저장', 'Save'), '', 'Ctrl+S'),
     item('save-as', 'save', L('다른 이름으로 저장', 'Save as'), '', 'Ctrl+Shift+S'),
     '<div class="sep"></div>',
+    item('export-view', 'download', L('이 화면 내보내기…', 'Export this screen…'), '', 'Ctrl+Shift+E'),
     item('export-md', 'download', L('Markdown로 내보내기', 'Export Markdown')),
     item('export-csv', 'download', L('CSV로 내보내기', 'Export CSV')),
     item('export-project', 'download', L('이 과제만 내보내기', 'Export this project')),
@@ -153,6 +159,9 @@ function navLabel(id) {
     plans: L('교차 계획', 'Plan'), extensions: L('확장', 'Extensions'), audit: L('감사 로그', 'Audit log'), teams: L('팀', 'Teams'), team: L('팀', 'Team'),
     search: L('전체 검색', 'Search everything'),
     timeline: L('타임라인', 'Timeline'),
+    requirements: L('요구 사항', 'Requirements'), trace: L('추적 매트릭스', 'Traceability'),
+    tests: L('테스트 케이스', 'Test cases'), executions: L('테스트 실행', 'Test runs'),
+    schedule: L('일정 계획', 'Schedule'), planner: L('할 일 달력', 'Planner'),
   };
   return names[id] || id;
 }
@@ -221,18 +230,19 @@ export function renderToolbar(ctx) {
       <button type="button" class="tool-button" data-action="open-talk" title="${esc(L('대화방 열기', 'Open Chatting'))}" aria-label="${esc(L('대화방', 'Chatting'))}">${icon('comment')}</button>
       <span class="signed-in" title="${esc(`${L('로그인한 사람', 'Signed in')}: ${ctx.user?.name || ''}${ctx.user?.login ? ` (${ctx.user.login})` : ''}`)}">${ctx.user ? avatar(ctx.user) : ''}</span>
       <button type="button" class="tool-button" data-action="sign-out" title="${esc(L('로그아웃', 'Sign out'))}" aria-label="${esc(L('로그아웃', 'Sign out'))}">${icon('logout')}</button>
-      <button type="button" class="tool-button" data-action="language" title="${esc(L('언어: 한국어 → English', 'Language: English → 한국어'))} · Ctrl+Shift+L" aria-label="${esc(L('언어', 'Language'))}">${icon('globe')}</button>
+      <button type="button" class="tool-button" data-action="language" title="${esc(L('언어: 한국어 → English', 'Language: English → 한국어'))} · Ctrl+Shift+L" aria-label="${esc(L('언어', 'Language'))}">${flag(getLanguage() === 'en' ? 'ko' : 'en')}</button>
       <span class="theme-anchor theme-split">
         <button type="button" class="tool-button" data-action="theme-random" title="${esc(L('테마 바꾸기', 'Change the theme'))} · ${esc(currentName)} · Ctrl+Shift+B" aria-label="${esc(L('테마 바꾸기', 'Change the theme'))}">${icon('palette')}</button>
         <button type="button" class="tool-button split-arrow" data-action="theme-menu" title="${esc(L('테마 설정', 'Theme settings'))}" aria-label="${esc(L('테마 설정', 'Theme settings'))}" aria-haspopup="true" aria-expanded="${ctx.ui.popover === 'theme' || ctx.ui.popover === 'theme-custom' ? 'true' : 'false'}">${icon('chevronDown')}</button>
         ${themePopover(ctx)}
       </span>
+      <button type="button" class="tool-button" data-action="go" data-view="settings" title="${esc(L('설정', 'Settings'))} · Ctrl+," aria-label="${esc(L('설정', 'Settings'))}">${icon('settings')}</button>
       <button type="button" class="tool-button" data-action="about" title="${esc(L('프로그램 정보', 'About'))} · Ctrl+Shift+A" aria-label="${esc(L('프로그램 정보', 'About'))}">${icon('info')}</button>
     </div>`;
 }
 
 /** A project's screens, in this order; projectViews() keeps the ones its management methods use. */
-const PROJECT_NAV = ['home', 'issues', 'board', 'backlog', 'roadmap', 'timeline', 'queues', 'portal', 'releases', 'components', 'filters', 'dashboard', 'reports', 'health', 'project-settings'];
+const PROJECT_NAV = ['home', 'schedule', 'planner', 'issues', 'board', 'backlog', 'roadmap', 'timeline', 'queues', 'portal', 'releases', 'components', 'requirements', 'trace', 'tests', 'executions', 'filters', 'dashboard', 'reports', 'health', 'project-settings'];
 const GATED = { knowledge: 'knowledge', documents: 'documents', calendar: 'calendar', portal: 'portal', plans: 'plans' };
 
 function navButtons(ctx, items) {
@@ -312,7 +322,7 @@ function navSection(ctx, id, glyph, title, body, { count = null, extra = '', ton
 export function renderNav(ctx) {
   const admin = isWorkspaceAdmin(ctx.user);
   const sections = [];
-  sections.push(navSection(ctx, 'company', 'globe', esc(L('회사', 'Company')), navButtons(ctx, ['teams', 'projects', 'documents', 'calendar', 'plans'])));
+  sections.push(navSection(ctx, 'company', 'globe', esc(L('회사', 'Company')), navButtons(ctx, ['teams', 'projects', 'planner', 'documents', 'calendar', 'plans'])));
   if (moduleOn(ctx.ws, 'knowledge') && ctx.user) {
     const spaces = visibleSpaces(ctx.ws, ctx.user.id);
     const add = `<button type="button" class="nav-sect-add" data-action="ws-create-start" title="${esc(L('새 작업 공간', 'New workspace'))}" aria-label="${esc(L('새 작업 공간', 'New workspace'))}">${icon('plus')}</button>`;
@@ -595,9 +605,10 @@ export function renderModal(ctx) {
   if (modal.kind === 'issue' && project) {
     const show = new Set(createFields(project));
     return dialog(L('새 이슈', 'New issue'), [
+      row(L('형식', 'Format'), formatPicker(modal.formatId || '')),
       show.has('type') ? row(L('유형', 'Type'), `<select name="type">${options(project.issueTypes, modal.typeId || 'story')}</select>`) : '<input type="hidden" name="type" value="task">',
       row(L('요약', 'Summary'), '<input name="summary" required>'),
-      show.has('description') ? row(L('설명', 'Description'), '<textarea name="description" rows="4"></textarea>') : '',
+      show.has('description') ? row(L('설명', 'Description'), `<textarea name="description" rows="6">${esc(modal.description || '')}</textarea>`) : '',
       show.has('priority') ? row(L('우선순위', 'Priority'), `<select name="priority">${options(project.priorities, 'medium')}</select>`) : '',
       show.has('assignee') ? row(L('담당', 'Assignee'), `<select name="assignee">${userOptions(ctx.ws, ctx.user?.id || '')}</select>`) : '',
       show.has('epic') ? row(L('에픽', 'Epic'), `<select name="epic">${options(project.issues.filter((issue) => issue.typeId === 'epic'), modal.epicId || '', L('없음', 'None'))}</select>`) : '',
@@ -637,6 +648,49 @@ export function renderModal(ctx) {
       `<label class="check"><input type="checkbox" name="approval"> ${L('승인이 필요함', 'Needs approval')}</label>`,
       row(L('승인자', 'Approver'), `<select name="approver">${userOptions(ctx.ws, '', L('아무나', 'Anyone'))}</select>`),
     ].join(''), L('추가', 'Add'), 'workflow');
+  }
+  if (modal.kind === 'export-view') {
+    // Export this screen (src/domain/export): a document format, or the screen's picture.
+    // The title and whether there is a picture were worked out when the dialog opened (app.js, export-view).
+    const spec = modal.title ? { title: modal.title, picture: modal.picture } : null;
+    const hasPicture = Boolean(modal.hasPicture);
+    const formats = [['html', 'globe', 'HTML'], ['markdown', 'file', 'Markdown'], ['pdf', 'printer', 'PDF'], ['docx', 'file', L('Word', 'Word')], ['xlsx', 'table', L('Excel', 'Excel')], ...(hasPicture ? [['image', 'image', L('그림', 'Picture')]] : [])];
+    const pick = (name, value, current, glyph, label) => `<label class="export-choice${value === current ? ' active' : ''}"><input type="radio" name="${name}" value="${value}" data-export-opt="${name}" ${value === current ? 'checked' : ''}>${icon(glyph)}<span>${esc(label)}</span></label>`;
+    const format = formats.some(([id]) => id === modal.format) ? modal.format : 'pdf';
+    const imageFormats = [['png', 'PNG'], ['jpg', 'JPG'], ['gif', 'GIF'], ['webp', 'WEBP'], ['avif', 'AVIF'], ['svg', 'SVG']];
+    const docTakesPicture = hasPicture && format !== 'xlsx' && format !== 'image';
+    const imageChoice = hasPicture && (format === 'image' || ((format === 'html' || format === 'markdown') && modal.withImage !== false));
+    const body = `
+      <p class="muted">${esc(spec ? spec.title : L('이 화면은 내보낼 수 없습니다.', 'This screen cannot be exported.'))}</p>
+      <div class="export-group"><span class="form-block-title">${icon('download')}${L('형식', 'Format')}</span><div class="export-choices">${formats.map(([id, glyph, label]) => pick('format', id, format, glyph, label)).join('')}</div></div>
+      ${docTakesPicture ? `<label class="check"><input type="checkbox" data-export-opt="withImage" ${modal.withImage !== false ? 'checked' : ''}> ${esc(L(`${spec.picture || '그림'}을 함께 넣기`, `Include the ${spec.picture || 'picture'}`))}</label>` : ''}
+      ${format === 'xlsx' ? `<p class="muted">${esc(L('표마다 시트 하나를 만듭니다 (그림은 넣지 않습니다).', 'One sheet per table (pictures are left out).'))}</p>` : ''}
+      ${format === 'docx' || format === 'pdf' ? `<p class="muted">${esc(format === 'docx' ? L('그림은 Word가 읽는 PNG로 넣습니다.', 'Pictures go in as PNG, which Word reads.') : L('그림은 JPEG로 넣습니다.', 'Pictures go in as JPEG.'))}</p>` : ''}
+      ${imageChoice ? `<div class="export-group"><span class="form-block-title">${icon('image')}${L('그림 형식', 'Picture format')}</span><div class="export-choices">${imageFormats.map(([id, label]) => pick('image', id, modal.image || 'png', 'image', label)).join('')}</div></div>` : ''}
+      ${format === 'markdown' && hasPicture && modal.withImage !== false ? `<div class="export-group"><span class="form-block-title">${icon('link')}${L('Markdown의 그림', 'Pictures in Markdown')}</span><div class="export-choices">${pick('mdImages', 'embed', modal.mdImages || 'embed', 'paperclip', L('문서 안에 포함', 'Embed in the file'))}${pick('mdImages', 'link', modal.mdImages || 'embed', 'link', L('파일로 저장하고 링크', 'Save as a file and link it'))}</div></div>` : ''}`;
+    return dialog(L('내보내기', 'Export'), body, L('내보내기', 'Export'), 'download');
+  }
+  if (modal.kind === 'plan-switch' && project) {
+    let body;
+    try { body = switchDialogBody(ctx, planConversion(ctx.ws, project, modal.mode, modal.opts || {}, calendarOf(ctx.ws))); } catch { body = `<p class="danger-text">${L('일정을 확인하세요.', 'Check the schedule.')}</p>`; }
+    return dialog(modal.mode === 'scrum' ? L('스크럼으로 전환', 'Switch to Scrum') : L('칸반으로 전환', 'Switch to Kanban'), body, modal.mode === 'scrum' ? L('스크럼 보드 만들기', 'Make the Scrum board') : L('칸반 보드 만들기', 'Make the Kanban board'), modal.mode === 'scrum' ? 'backlog' : 'board');
+  }
+  if (modal.kind === 'plan-import') {
+    return dialog(L('일정 가져오기', 'Import a schedule'), `<p class="muted">${esc(L('Microsoft Project XML(.xml) 또는 CSV(ID, WBS, Name, Duration, Predecessors, Resource …) 를 넣습니다. 담당은 이름이나 메일이 같은 사람에게 맞춥니다.', 'Paste Microsoft Project XML (.xml) or CSV (ID, WBS, Name, Duration, Predecessors, Resource …). Resources are matched to people by name or email.'))}</p>
+      <div class="page-actions page-actions-left"><button type="button" class="small-button" data-action="plan-import-file">${icon('folder')}<span>${L('파일 열기', 'Open a file')}</span></button><button type="button" class="small-button" data-action="plan-import-sample" data-kind="xml">${icon('box')}<span>${L('XML 샘플', 'XML sample')}</span></button><button type="button" class="small-button" data-action="plan-import-sample" data-kind="csv">${icon('box')}<span>${L('CSV 샘플', 'CSV sample')}</span></button></div>
+      <textarea name="text" id="plan-import-text" rows="12" required></textarea>
+      <label class="check"><input type="radio" name="how" value="replace" checked> ${L('지금 일정을 바꿉니다', 'Replace the current schedule')}</label>
+      <label class="check"><input type="radio" name="how" value="append"> ${L('지금 일정 뒤에 붙입니다', 'Add after the current schedule')}</label>`, L('가져오기', 'Import'), 'download');
+  }
+  if (modal.kind === 'quality-import') {
+    const tests = modal.target === 'tests';
+    const help = tests
+      ? 'ID, Key, Summary, Level, Kind, Precondition, Step, Action, Data, Expected, Verifies'
+      : 'ID, Key, Summary, Description, Category, Verification, Source, Acceptance criteria, Rationale, Parent — ' + L('또는 ReqIF (.reqif) 파일', 'or a ReqIF (.reqif) file');
+    return dialog(tests ? L('테스트 케이스 가져오기', 'Import test cases') : L('요구 사항 가져오기', 'Import requirements'), `<p class="muted">${esc(help)}</p>
+      <p class="muted">${esc(L('같은 ID나 키가 이미 있으면 새로 만들지 않고 고칩니다.', 'Rows whose ID or key already exists update that issue instead of adding a copy.'))}</p>
+      <div class="page-actions page-actions-left"><button type="button" class="small-button" data-action="quality-import-file">${icon('folder')}<span>${L('파일 열기', 'Open a file')}</span></button><button type="button" class="small-button" data-action="quality-import-sample">${icon('box')}<span>${L('샘플 넣기', 'Insert a sample')}</span></button></div>
+      <textarea name="text" id="quality-import-text" rows="12" required></textarea>`, L('가져오기', 'Import'), 'download');
   }
   if (modal.kind === 'csv') {
     return dialog(L('CSV 가져오기', 'Import CSV'), `<p class="muted">summary, type, priority, status, assignee, labels, description</p><textarea name="csv" rows="8" required></textarea>`, L('가져오기', 'Import'), 'download');

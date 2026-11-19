@@ -1,6 +1,7 @@
 import { addArticle, addCalendar, ensureServices } from './services.js';
 import { makeIssue, newProject } from './store.js';
 import { shiftIso, uid } from './util.js';
+import { addQualitySample, SHOP_QUALITY } from './quality-samples.js';
 
 function moved(when, from, to, actor = 'u2') {
   return [{ id: uid('h'), at: when, actorId: actor, field: 'status', from, to }];
@@ -93,6 +94,9 @@ export function sampleWorkspace(now = Date.now()) {
   add({ id: 'i20', key: 'SHOP-20', typeId: 'feature', summary: '위시리스트', statusId: 'backlog', priorityId: 'medium', assigneeId: '', reporterId: 'u1', epicId: 'i1', storyPoints: 5, rank: 200, created: at(-1) });
   add({ id: 'i21', key: 'SHOP-21', typeId: 'story', summary: '알림 설정', statusId: 'done', resolutionId: 'fixed', priorityId: 'low', assigneeId: 'u2', reporterId: 'u1', sprintId: 's3', storyPoints: 2, rank: 210, created: at(-5), updated: at(-4), history: moved(at(-4), 'progress', 'done') });
   add({ id: 'i22', key: 'SHOP-22', typeId: 'story', summary: '주문 확인 메일', statusId: 'done', resolutionId: 'fixed', priorityId: 'medium', assigneeId: 'u3', reporterId: 'u1', sprintId: 's3', storyPoints: 3, componentIds: ['c-pay'], rank: 220, created: at(-4), updated: at(-1, 9), history: moved(at(-1, 9), 'review', 'done', 'u3') });
+
+  // Requirements, test cases and a test run, traced to the stories above.
+  addQualitySample(shop, SHOP_QUALITY, { lang: 'ko', now, people: ['u1', 'u2', 'u3', 'u4'] });
 
   shop.activity = [
     { id: 'a1', at: at(-1), actorId: 'u2', issueId: 'i9', issueKey: 'SHOP-9', kind: 'worklog', minutes: 90 },

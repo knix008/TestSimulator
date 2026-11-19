@@ -1,4 +1,5 @@
 import { slaState, isDoneStatus } from './reports.js';
+import { COVERAGE, latestResults, REQ_CATEGORIES, RESULTS, TEST_LEVELS, traceOf, VERIFY_METHODS } from './requirements.js';
 
 const FIELD_NAMES = {
   key: 'key', 키: 'key',
@@ -27,6 +28,12 @@ const FIELD_NAMES = {
   sla: 'sla',
   project: 'project', 과제: 'project', 프로젝트: 'project',
   rank: 'rank', 순위: 'rank',
+  coverage: 'coverage', 커버리지: 'coverage',
+  result: 'result', 결과: 'result',
+  category: 'category', 분류: 'category',
+  verification: 'verification', 검증: 'verification',
+  level: 'level', 수준: 'level',
+  suspect: 'suspect', 재검증: 'suspect',
 };
 
 const PRIORITY_RANK = { highest: 5, high: 4, medium: 3, low: 2, lowest: 1, 최고: 5, 높음: 4, 보통: 3, 낮음: 2, 최저: 1 };
@@ -313,6 +320,27 @@ function fieldValue(ws, project, issue, field, ctx) {
     }
     case 'project': add(project.key, project.name, project.id); break;
     case 'rank': number = Number(issue.rank) || 0; add(String(number)); break;
+    // Requirements and tests (requirements.js): coverage of a requirement, last result of a test case.
+    case 'coverage': {
+      if (issue.typeId !== 'requirement') break;
+      const state = traceOf(project, issue, ctx.results || (ctx.results = latestResults(project))).coverage;
+      const item = named(COVERAGE, state);
+      add(state, item?.ko, item?.en);
+      break;
+    }
+    case 'suspect':
+      if (issue.typeId === 'requirement') add(traceOf(project, issue, ctx.results || (ctx.results = latestResults(project))).suspect ? 'true' : 'false');
+      break;
+    case 'result': {
+      if (issue.typeId !== 'testcase') break;
+      const state = (ctx.results || (ctx.results = latestResults(project))).get(issue.id)?.result || 'notrun';
+      const item = named(RESULTS, state);
+      add(state, item?.ko, item?.en);
+      break;
+    }
+    case 'category': { const item = named(REQ_CATEGORIES, issue.req?.category); if (item) add(item.id, item.ko, item.en); break; }
+    case 'verification': { const item = named(VERIFY_METHODS, issue.req?.method); if (item) add(item.id, item.ko, item.en); break; }
+    case 'level': { const item = named(TEST_LEVELS, issue.test?.level); if (item) add(item.id, item.ko, item.en); break; }
     default: {
       const defined = (project.fields || []).find((item) => item.id === field || item.name === field || item.ko === field || item.en === field);
       if (defined) {

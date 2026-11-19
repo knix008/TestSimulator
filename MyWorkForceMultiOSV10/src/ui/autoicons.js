@@ -67,7 +67,7 @@ function add(el, glyph) {
 export function decorateIcons(root) {
   if (!root?.querySelectorAll) return;
   for (const el of root.querySelectorAll('.form-row > span:first-child, h2, h3, label.check')) {
-    if (el.querySelector('svg') || el.closest('.bg-grid, .about-table, .reader, .md')) continue;
+    if (el.querySelector('svg') || el.closest('.bg-grid, .about-table, .reader, .md, .pl-filters, .plan-table, .plan-settings')) continue;
     const text = (el.textContent || '').trim();
     if (!text) continue;
     const glyph = glyphFor(text);

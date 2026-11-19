@@ -19,3 +19,5 @@ data/
 .DS_Store
 Thumbs.db
 desktop.ini
+tools/langicon/target/
+src-tauri/windows/langicon.exe

@@ -1,4 +1,4 @@
-// Ready-made pages to start from: forty templates in eight kinds of work, in Korean and English.
+// Ready-made pages to start from: forty-five templates in nine kinds of work, in Korean and English.
 // A line is either one string (the same in both languages) or [Korean, English].
 
 export const TEMPLATE_GROUPS = [
@@ -10,6 +10,7 @@ export const TEMPLATE_GROUPS = [
   { id: 'people', icon: 'people', ko: '인사·조직', en: 'People & HR' },
   { id: 'business', icon: 'chart', ko: '영업·마케팅·고객', en: 'Sales, marketing & customers' },
   { id: 'general', icon: 'book', ko: '일반 업무', en: 'General work' },
+  { id: 'quality', icon: 'flag', ko: '요구 사항·테스트', en: 'Requirements & testing' },
 ];
 
 const T = (id, group, icon, name, about, lines) => ({ id, group, icon, ko: name[0], en: name[1], about, lines });
@@ -341,6 +342,53 @@ export const PAGE_TEMPLATES = [
     H2('참고', 'Notes'), P('', ''),
   ]),
 ];
+
+// ── Requirements & testing ── (the same shapes as the requirement / test case formats in requirements.js)
+PAGE_TEMPLATES.push(
+  T('srs', 'quality', 'flag', ['요구 사항 명세서 (SRS)', 'Requirements specification (SRS)'], ['범위, 용어, 기능·비기능 요구 사항, 추적', 'Scope, terms, functional and non-functional requirements, trace'], [
+    ...INFO([['문서 번호', 'Document no.'], ['버전', 'Version'], ['작성자', 'Author'], ['승인', 'Approved by']]), B,
+    H2('1. 목적과 범위', '1. Purpose and scope'), P('이 시스템이 무엇을 하고 무엇을 하지 않는지 적습니다.', 'What the system does and does not do.'), B,
+    H2('2. 용어', '2. Terms'), ROW([['용어', 'Term'], ['뜻', 'Meaning']]), SEP(2), ROW([['', ''], ['', '']]), B,
+    H2('3. 기능 요구 사항', '3. Functional requirements'),
+    ROW([['ID', 'ID'], ['요구 사항 ("시스템은 …해야 한다")', 'Requirement ("The system shall …")'], ['우선순위', 'Priority'], ['검증 방법', 'Verification'], ['수용 기준', 'Acceptance criteria']]), SEP(5),
+    ROW([['FR-1', 'FR-1'], ['', ''], ['높음', 'High'], ['시험', 'Test'], ['', '']]), ROW([['FR-2', 'FR-2'], ['', ''], ['보통', 'Medium'], ['시험', 'Test'], ['', '']]), B,
+    H2('4. 비기능 요구 사항', '4. Non-functional requirements'),
+    ROW([['ID', 'ID'], ['분류', 'Category'], ['요구 사항', 'Requirement'], ['목표값', 'Target'], ['검증 방법', 'Verification']]), SEP(5),
+    ROW([['NFR-1', 'NFR-1'], ['성능', 'Performance'], ['', ''], ['', ''], ['분석', 'Analysis']]), ROW([['NFR-2', 'NFR-2'], ['보안', 'Security'], ['', ''], ['', ''], ['시험', 'Test']]), B,
+    H2('5. 인터페이스', '5. Interfaces'), LI('외부 시스템과 형식', 'External systems and formats'), B,
+    H2('6. 추적', '6. Traceability'), P('요구 사항마다 "요구 사항" 이슈를 만들고 구현 이슈와 테스트 케이스를 연결합니다. 과제의 추적 매트릭스에서 전체를 봅니다.', 'Make a Requirement issue for each row, link the work and the test cases to it, and read the whole trace in the project’s traceability matrix.'),
+  ]),
+  T('trace-matrix', 'quality', 'table', ['요구 사항 추적 매트릭스', 'Traceability matrix'], ['요구 사항 → 설계 → 구현 → 테스트 → 결과', 'Requirement → design → work → tests → results'], [
+    ...INFO([['과제', 'Project'], ['기준 버전', 'Baseline'], ['작성일', 'Date']]), B,
+    ROW([['요구 사항', 'Requirement'], ['설계', 'Design'], ['구현 이슈', 'Implemented by'], ['테스트 케이스', 'Test cases'], ['결과', 'Result'], ['결함', 'Defects']]), SEP(6),
+    ROW([['FR-1', 'FR-1'], ['', ''], ['', ''], ['', ''], ['', ''], ['', '']]), ROW([['FR-2', 'FR-2'], ['', ''], ['', ''], ['', ''], ['', ''], ['', '']]), B,
+    H2('빈틈', 'Gaps'), TODO('테스트가 없는 요구 사항', 'Requirements without a test'), TODO('요구 사항이 없는 테스트', 'Tests without a requirement'), TODO('재검증이 필요한 요구 사항', 'Requirements that need re-testing'), B,
+    P('과제의 "추적 매트릭스" 화면에서 Markdown으로 내보내면 이 표가 실제 데이터로 채워집니다.', 'Export Markdown from the project’s Traceability screen to get this table filled with live data.'),
+  ]),
+  T('test-plan', 'quality', 'check', ['테스트 계획서', 'Test plan'], ['범위, 방법, 환경, 일정, 시작·종료 기준', 'Scope, approach, environment, schedule, entry and exit criteria'], [
+    ...INFO([['대상 버전', 'Version under test'], ['책임자', 'Owner'], ['기간', 'Dates']]), B,
+    H2('범위', 'Scope'), LI('포함', 'In scope'), LI('제외', 'Out of scope'), B,
+    H2('방법', 'Approach'), ROW([['수준', 'Level'], ['방식', 'How'], ['담당', 'Owner']]), SEP(3), ROW([['단위', 'Unit'], ['자동', 'Automated'], ['', '']]), ROW([['통합', 'Integration'], ['자동', 'Automated'], ['', '']]), ROW([['시스템', 'System'], ['수동', 'Manual'], ['', '']]), ROW([['인수', 'Acceptance'], ['수동', 'Manual'], ['', '']]), B,
+    H2('환경', 'Environment'), LI('장비와 빌드', 'Devices and builds'), B,
+    H2('시작 기준', 'Entry criteria'), TODO('빌드가 배포됨', 'Build deployed'), TODO('테스트 케이스 검토 완료', 'Test cases reviewed'), B,
+    H2('종료 기준', 'Exit criteria'), TODO('높음 이상 결함 0건', 'No open high or highest defects'), TODO('요구 사항 커버리지 100%', '100% requirement coverage'), TODO('통과율 95% 이상', 'Pass rate 95% or more'), B,
+    H2('위험', 'Risks'), LI('', ''),
+  ]),
+  T('test-case-spec', 'quality', 'list', ['테스트 케이스 명세서', 'Test case specification'], ['ID, 목적, 전제 조건, 단계, 기대 결과', 'ID, purpose, precondition, steps, expected results'], [
+    ...INFO([['테스트 ID', 'Test ID'], ['검증 대상 요구 사항', 'Verifies'], ['수준', 'Level'], ['방식', 'Manual / automated']]), B,
+    H2('목적', 'Purpose'), P('', ''), B,
+    H2('전제 조건', 'Precondition'), LI('', ''), B,
+    H2('단계', 'Steps'), ROW([['#', '#'], ['동작', 'Action'], ['데이터', 'Data'], ['기대 결과', 'Expected result']]), SEP(4), ROW([['1', '1'], ['', ''], ['', ''], ['', '']]), ROW([['2', '2'], ['', ''], ['', ''], ['', '']]), ROW([['3', '3'], ['', ''], ['', ''], ['', '']]), B,
+    P('같은 형식의 "테스트 케이스" 이슈를 만들면 테스트 실행에서 결과를 기록할 수 있습니다.', 'A Test case issue has the same shape and records its results in test runs.'),
+  ]),
+  T('test-report', 'quality', 'chart', ['테스트 결과 보고서', 'Test summary report'], ['실행 요약, 통과율, 결함, 결론', 'Run summary, pass rate, defects, conclusion'], [
+    ...INFO([['대상 버전', 'Version'], ['테스트 실행', 'Test runs'], ['기간', 'Dates'], ['작성자', 'Author']]), B,
+    H2('요약', 'Summary'), ROW([['전체', 'Total'], ['통과', 'Pass'], ['실패', 'Fail'], ['막힘', 'Blocked'], ['실행 안 함', 'Not run']]), SEP(5), ROW([['', ''], ['', ''], ['', ''], ['', ''], ['', '']]), B,
+    H2('요구 사항 커버리지', 'Requirement coverage'), P('추적 매트릭스의 커버리지와 통과율을 옮겨 적습니다.', 'Copy the coverage and pass rate from the traceability matrix.'), B,
+    H2('열린 결함', 'Open defects'), ROW([['키', 'Key'], ['요약', 'Summary'], ['우선순위', 'Priority'], ['영향', 'Impact']]), SEP(4), ROW([['', ''], ['', ''], ['', ''], ['', '']]), B,
+    H2('결론', 'Conclusion'), TODO('출시 가능', 'Ready to release'), TODO('조건부 출시', 'Release with conditions'), TODO('출시 보류', 'Hold the release'),
+  ]),
+);
 
 /** The template's Markdown in one language ('ko' or 'en'). */
 export function templateBody(template, language = 'ko') {

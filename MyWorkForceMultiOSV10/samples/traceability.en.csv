@@ -1,0 +1,10 @@
+﻿No.,Requirement,Summary,Category,Verification,Implemented by,Test cases,Results,Open defects,Coverage,Suspect
+1,BPMF-8,Blood-pressure measurement,Functional,Test,,,,,Passed,
+1.1,BPMF-9,Measurement accuracy,Performance,Test,,BPMF-17,BPMF-17:pass,,Passed,
+1.2,BPMF-10,Measurement time,Performance,Test,BPMF-2,BPMF-18,BPMF-18:pass,,Passed,
+2,BPMF-11,Safety,Safety,Test,,,,,Failed,
+2.1,BPMF-12,Over-pressure venting,Safety,Test,BPMF-3,BPMF-19,BPMF-19:fail,BPMF-6,Failed,
+2.2,BPMF-13,Measurement time limit,Safety,Test,BPMF-3,BPMF-20,BPMF-20:pass,,Passed,yes
+3,BPMF-14,App connection,Interface,Test,BPMF-4,BPMF-21,BPMF-21:fail,BPMF-7,Failed,
+4,BPMF-15,Reading memory,Functional,Inspection,,,,,Verified otherwise,
+5,BPMF-16,Labelling,Regulatory,Inspection,,BPMF-22,BPMF-22:blocked,,Blocked,

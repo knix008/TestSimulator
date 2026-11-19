@@ -128,4 +128,5 @@ export function icon(name) {
 export const TYPE_ICON = {
   epic: 'epic', story: 'story', task: 'task', bug: 'bug', subtask: 'subtask',
   improvement: 'spark', feature: 'spark', incident: 'alert', request: 'request',
+  requirement: 'flag', testcase: 'check', testexec: 'play',
 };

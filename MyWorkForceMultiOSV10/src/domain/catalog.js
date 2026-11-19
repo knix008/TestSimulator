@@ -1,4 +1,5 @@
 import { clone, uid } from './util.js';
+import { QUALITY_LINKS } from './requirements.js';
 
 export const DEFAULT_TYPES = [
   { id: 'epic', ko: '에픽', en: 'Epic', color: '#7c3aed' },
@@ -55,6 +56,8 @@ export const LINK_TYPES = [
   { id: 'relates', ko: '관련', en: 'relates to', inverseKo: '관련', inverseEn: 'relates to' },
   { id: 'duplicates', ko: '중복', en: 'duplicates', inverseKo: '다음에 중복', inverseEn: 'is duplicated by' },
   { id: 'clones', ko: '복제', en: 'clones', inverseKo: '다음에서 복제', inverseEn: 'is cloned by' },
+  // Requirements traceability: implements / verifies / refines / found (requirements.js).
+  ...QUALITY_LINKS,
 ];
 
 export const ROLES = [

@@ -11,6 +11,8 @@ assignee = currentUser() sprint = openSprints()
 
 키, 요약, 설명, 텍스트, 의견, 유형, 상태, 우선순위, 해결, 담당, 보고자, 라벨, 구성 요소, 버전, 스프린트, 에픽, 상위, 포인트, 생성, 수정, 기한, 관찰, sla, 과제(프로젝트), 순위. 영어 이름도 같습니다. `text` 는 키, 요약, 설명, 환경, 의견을 함께 봅니다.
 
+요구 사항과 테스트: `coverage` (failed, blocked, uncovered, notrun, partial, passed, other), `result` (pass, fail, blocked, notrun — 테스트 케이스의 최근 결과), `suspect` (true / false), `category`, `verification`, `level`. 한국어 이름(커버리지, 결과, 재검증, 분류, 검증, 수준)도 됩니다.
+
 ## 연산
 
 `= != ~ !~ > >= < <=`, `IN`, `NOT IN`, `IS EMPTY`, `IS NOT EMPTY`, `NOT`, `AND`, `OR`, 괄호. `~` 는 일부를 포함합니다.

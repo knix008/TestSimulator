@@ -1,5 +1,6 @@
 import './talk.css';
 import { icon } from '../icons.js';
+import { flag } from '../ui/flags.js';
 import { waitForService, changeOwnPassword, chatMessages, chatPeople, chatProfile, chatRooms, checkChat, currentSession, fetchChatFile, inviteChat, loginSession, logoutSession, openChat, postChat, postChatFile, rememberLogin, rememberProfile, saveChatProfile, savedLogin, sessionProfile, sessionToken, watchSharedSession } from '../platform/data.js';
 import { installTooltips } from '../ui/tooltip.js';
 import { bindMentions } from '../ui/mentions.js';
@@ -334,7 +335,7 @@ function shell() {
         ${railButton('invite', 'plus', t('invite'))}
         <span class="grow"></span>
         ${railButton('profile', 'user', t('mine'))}
-        <button type="button" class="rail-button" data-action="language" title="${esc(t('language'))}" aria-label="${esc(t('language'))}">${icon('globe')}</button>
+        <button type="button" class="rail-button" data-action="language" title="${esc(t('language'))}" aria-label="${esc(t('language'))}">${flag(state.language === 'en' ? 'ko' : 'en')}</button>
         <button type="button" class="rail-button" data-action="work" title="${esc(t('work'))}" aria-label="${esc(t('work'))}">${icon('folder')}</button>
         ${railButton('password', 'key', t('changePassword'))}
         <button type="button" class="rail-button" data-action="sign-out" title="${esc(t('signOut'))}" aria-label="${esc(t('signOut'))}">${icon('logout')}</button>
@@ -441,8 +442,30 @@ function markMentionsIn(html) {
   return html.replace(pattern, '<span class="mention">@$1</span>');
 }
 
+/** "오후 3:05" / "3:05 PM" beside a bubble, and the day line between days, like a messenger. */
+function clockOf(at) {
+  const time = Date.parse(at || '');
+  if (!Number.isFinite(time)) return '';
+  return new Date(time).toLocaleTimeString(state.language === 'en' ? 'en-US' : 'ko-KR', { hour: 'numeric', minute: '2-digit' });
+}
+
+function dayLineOf(at) {
+  const time = Date.parse(at || '');
+  if (!Number.isFinite(time)) return '';
+  return new Date(time).toLocaleDateString(state.language === 'en' ? 'en-US' : 'ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+}
+
 function messageHtml() {
+  let lastDay = '';
+  let lastSender = '';
   const messages = state.messages.map((message) => {
+    const day = dayLineOf(message.at);
+    const dayLine = day && day !== lastDay ? `<div class="day-line"><span>${esc(day)}</span></div>` : '';
+    if (dayLine) lastSender = '';
+    lastDay = day || lastDay;
+    // Messages in a row from the same person share one face and name, as in a messenger.
+    const sameRun = message.kind !== 'notice' && lastSender === message.userId;
+    lastSender = message.kind === 'notice' ? '' : message.userId;
     const mine = message.userId === state.self ? ' mine' : '';
     const notice = message.kind === 'notice' ? ' notice' : '';
     const sender = state.people.find((person) => person.id === message.userId);
@@ -458,7 +481,11 @@ function messageHtml() {
         : `<button type="button" data-action="check-notice" data-id="${esc(message.id)}">${icon('check')}<span>${esc(t('confirm'))}</span></button>`)
       : '';
     const target = message.kind === 'notice' ? ` data-open-notice="${esc(message.id)}" title="${esc(t('openPage'))}"` : '';
-    return `<article class="bubble${mine}${notice}${message.checked ? ' checked' : ''}"${target}><div class="who">${whoFace}<span>${esc(who)}</span></div><p>${body}</p>${confirm}</article>`;
+    const clock = `<time class="clock">${esc(clockOf(message.at))}</time>`;
+    if (notice) return `${dayLine}<article class="bubble${mine}${notice}${message.checked ? ' checked' : ''}"${target}><div class="who">${whoFace}<span>${esc(who)}</span>${clock}</div><p>${body}</p>${confirm}</article>`;
+    const face = mine ? '' : `<span class="msg-face">${sameRun ? '' : whoFace}</span>`;
+    const name = mine || sameRun ? '' : `<div class="msg-name">${esc(who)}</div>`;
+    return `${dayLine}<div class="msg${mine}${sameRun ? ' run' : ''}">${face}<div class="msg-col">${name}<div class="msg-line"><article class="bubble${mine}"><p>${body}</p></article>${clock}</div></div></div>`;
   }).join('');
   const room = state.rooms.find((item) => item.id === state.roomId);
   const banner = room?.kind === 'notices' ? `<p class="notice-note">${icon('bell')}<span>${esc(t('personal'))}</span></p>` : '';
