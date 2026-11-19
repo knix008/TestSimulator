@@ -1,0 +1,355 @@
+// Platform boundary. The desktop app (Tauri) calls the Rust backend; the web
+// build uses browser APIs (File System Access when available, downloads
+// otherwise, IndexedDB for large data). Everything platform-specific is here.
+import { convertFileSrc, invoke as tauriInvoke } from '@tauri-apps/api/core';
+import { emitTo as tauriEmitTo, listen as tauriListen } from '@tauri-apps/api/event';
+import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
+import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog';
+import { t } from '../i18n.js';
+import { idbDelete, idbGet, idbSet } from './idb.js';
+
+// A popup shown as a frame inside the main window (web build, tutorial) works like the web build.
+const framed = Boolean(new URLSearchParams(globalThis.location?.search ?? '').get('popup'));
+export const isDesktop = () => Boolean(globalThis.window?.__TAURI_INTERNALS__) && !framed;
+
+export function invoke(command, args, options) {
+  if (!isDesktop()) return Promise.reject(new Error(t('web.desktopOnly')));
+  return tauriInvoke(command, args, options);
+}
+
+/** Readable text of anything thrown (Rust errors arrive as strings). */
+export const errorText = (error) => (error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error) ?? String(error));
+
+const BUILD = {
+  version: typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0',
+  commit: typeof __BUILD_COMMIT__ === 'string' ? __BUILD_COMMIT__ : 'dev',
+  date: typeof __BUILD_DATE__ === 'string' ? __BUILD_DATE__ : new Date().toISOString(),
+};
+
+export async function appInfo() {
+  if (isDesktop()) {
+    const info = await invoke('app_info');
+    return { ...info, web: false, buildDate: new Date(info.buildTime * 1000).toISOString(), uiBuild: BUILD };
+  }
+  return {
+    name: 'MyChartMaster', version: BUILD.version, commit: BUILD.commit, buildDate: BUILD.date, target: 'web (browser)',
+    profile: import.meta.env?.MODE ?? 'production', tauri: '-', rustc: '-', os: navigator.userAgentData?.platform ?? navigator.platform ?? 'web',
+    arch: '-', web: true, uiBuild: BUILD,
+  };
+}
+
+export const setBackendLanguage = (language) => (isDesktop() ? invoke('set_language', { language }).catch(() => {}) : Promise.resolve());
+export const startupFiles = () => (isDesktop() ? invoke('startup_files') : Promise.resolve([]));
+/** { first, others }: several copies may run; only the first restores and keeps the session. */
+export const instanceInfo = () => (isDesktop() ? invoke('instance_info') : Promise.resolve({ first: true, others: 0 }));
+
+// ───────────────────────── events between windows
+
+export async function listen(event, handler) {
+  if (!isDesktop()) return () => {};
+  return tauriListen(event, (message) => handler(message.payload));
+}
+
+export const emitTo = (target, event, payload) => (isDesktop() ? tauriEmitTo(target, event, payload) : Promise.resolve());
+
+// ───────────────────────── files (desktop)
+
+export const readTextFile = (path, op) => invoke('read_text_file', { path, op });
+export const writeTextFile = (path, content, op) => invoke('write_text_file', { path, content, op });
+export const pathsExist = (paths) => (isDesktop() ? invoke('paths_exist', { paths }) : Promise.resolve(paths.map(() => true)));
+
+/** Files this program opens: its own charts and data tables. */
+export const CHART_EXTENSIONS = ['mychart', 'csv', 'tsv', 'tab', 'txt', 'json', 'xlsx', 'xlsm', 'ods', 'xml', 'html', 'htm', 'md'];
+const OPEN_FILTERS = () => [
+  { name: 'Charts and data (*.mychart, *.csv, *.xlsx, *.ods, *.json, *.tsv, *.xml, *.html, *.md)', extensions: CHART_EXTENSIONS },
+  { name: 'MyChartMaster (*.mychart)', extensions: ['mychart'] },
+  { name: 'Excel (*.xlsx)', extensions: ['xlsx', 'xlsm'] },
+  { name: 'CSV / TSV / Text (*.csv, *.tsv, *.txt)', extensions: ['csv', 'tsv', 'tab', 'txt'] },
+  { name: 'JSON (*.json)', extensions: ['json'] },
+  { name: 'All files (*.*)', extensions: ['*'] },
+];
+/** Save types: charts, data, pictures, documents. */
+export const SAVE_TYPES = {
+  mychart: { name: 'MyChartMaster (*.mychart)', extensions: ['mychart'] },
+  xlsx: { name: 'Excel (*.xlsx)', extensions: ['xlsx'] },
+  tsv: { name: 'TSV (*.tsv)', extensions: ['tsv'] },
+  txt: { name: 'Plain text (*.txt)', extensions: ['txt'] },
+  csv: { name: 'CSV (*.csv)', extensions: ['csv'] },
+  json: { name: 'JSON (*.json)', extensions: ['json'] },
+  png: { name: 'PNG (*.png)', extensions: ['png'] },
+  svg: { name: 'SVG (*.svg)', extensions: ['svg'] },
+  html: { name: 'HTML (*.html)', extensions: ['html', 'htm'] },
+  md: { name: 'Markdown (*.md)', extensions: ['md'] },
+  pdf: { name: 'PDF (*.pdf)', extensions: ['pdf'] },
+  docx: { name: 'Word (*.docx)', extensions: ['docx'] },
+  jpg: { name: 'JPEG (*.jpg)', extensions: ['jpg', 'jpeg'] },
+  gif: { name: 'GIF (*.gif)', extensions: ['gif'] },
+  webp: { name: 'WebP (*.webp)', extensions: ['webp'] },
+  avif: { name: 'AVIF (*.avif)', extensions: ['avif'] },
+  any: { name: 'All files (*.*)', extensions: ['*'] },
+};
+const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif', 'ico'];
+
+// Tests answer the system file dialogs through these (E2E only; normal use never sets them).
+const testPick = (name) => {
+  const queue = globalThis.window?.[name];
+  return Array.isArray(queue) && queue.length ? { value: queue.shift() } : null;
+};
+
+/** Open dialog with given filters ([{ name, extensions }]); multiple → array. */
+export async function chooseFiles(defaultPath, filters, multiple = true) {
+  const picked = testPick('__mychartmasterOpenPicks');
+  if (picked) return [].concat(picked.value ?? []);
+  const result = await openDialog({ multiple, directory: false, defaultPath: defaultPath ?? undefined, filters });
+  if (!result) return [];
+  return Array.isArray(result) ? result : [result];
+}
+
+export async function chooseFilesToOpen(defaultPath) {
+  const picked = testPick('__mychartmasterOpenPicks');
+  if (picked) return [].concat(picked.value ?? []);
+  const result = await openDialog({ multiple: true, directory: false, defaultPath: defaultPath ?? undefined, filters: OPEN_FILTERS() });
+  if (!result) return [];
+  return Array.isArray(result) ? result : [result];
+}
+
+/** Save dialog for one of SAVE_TYPES (the first listed is preselected). */
+/** A CSV / text file with data (org chart, link data). */
+export async function chooseDataFile(defaultPath) {
+  const picked = testPick('__mychartmasterDataPicks');
+  if (picked) return [].concat(picked.value ?? []);
+  const result = await openDialog({ multiple: false, directory: false, defaultPath: defaultPath ?? undefined, filters: [{ name: 'CSV / TSV / Text (*.csv, *.tsv, *.txt)', extensions: ['csv', 'tsv', 'txt'] }] });
+  if (!result) return [];
+  return Array.isArray(result) ? result : [result];
+}
+
+export async function chooseSavePath(defaultPath, types = ['mychart']) {
+  const picked = testPick('__mychartmasterSavePicks');
+  if (picked) return picked.value;
+  return (await saveDialog({ defaultPath: defaultPath ?? undefined, filters: types.map((type) => SAVE_TYPES[type]) })) ?? null;
+}
+
+export async function chooseFolder(defaultPath) {
+  const result = await openDialog({ multiple: false, directory: true, defaultPath: defaultPath ?? undefined });
+  return Array.isArray(result) ? result[0] ?? null : result ?? null;
+}
+
+export async function chooseImage(defaultPath) {
+  const picked = testPick('__mychartmasterImagePicks');
+  if (picked) return picked.value;
+  const result = await openDialog({ multiple: false, directory: false, defaultPath: defaultPath ?? undefined, filters: [{ name: 'Images', extensions: IMAGE_EXTENSIONS }] });
+  return Array.isArray(result) ? result[0] ?? null : result ?? null;
+}
+
+export const writeBase64File = (path, data, op) => invoke('write_base64_file', { path, data, op });
+/** Binary file contents as base64 (pictures). */
+export const readBase64File = (path, op) => invoke('read_base64_file', { path, op });
+
+/** A binary file as a Uint8Array: raw bytes over the IPC, no base64. */
+export async function readBinaryFile(path, op = '') {
+  const result = await invoke('read_binary_file', { path, op });
+  return result instanceof ArrayBuffer ? new Uint8Array(result) : new Uint8Array(result);
+}
+/** Writes bytes (Uint8Array) to a file; the path goes in a header, the bytes as the raw body. */
+export const writeBinaryFile = (path, bytes, op = '') => invoke('write_binary_file', bytes, { headers: { path: encodeURIComponent(path), op } });
+
+/** RGBA pixels → an AVIF file (desktop: ravif in lib.rs; the web view cannot write AVIF). */
+export async function encodeAvif(width, height, rgba, quality = 80) {
+  const result = await invoke('encode_avif', rgba, { headers: { width: String(width), height: String(height), quality: String(quality) } });
+  return new Uint8Array(result);
+}
+
+export const openDocument = (name) => (isDesktop() ? invoke('open_document', { name }) : Promise.resolve(globalThis.open(`./docs/${name}`, '_blank')));
+export const openExternal = (target) => (isDesktop() ? invoke('open_external', { target }) : Promise.resolve(globalThis.open(target, '_blank', 'noopener')));
+
+// ───────────────────────── files (web)
+
+export const hasFileSystemAccess = () => typeof globalThis.showOpenFilePicker === 'function';
+
+const WEB_ACCEPT = '.mychart,.csv,.tsv,.tab,.txt,.json,.xlsx,.xlsm,.ods,.xml,.html,.htm,.md';
+const WEB_TYPES = [{ description: 'Charts and data', accept: { 'application/octet-stream': WEB_ACCEPT.split(',') } }];
+
+/** Web: lets the user pick chart and data files; returns [{ name, content: Uint8Array, handle, size }]. */
+export async function pickFilesWeb() {
+  // E2E: files handed over by the test ({ name, content: Uint8Array }) instead of a file picker.
+  const queued = testPick('__mychartmasterWebFiles');
+  if (queued) return [].concat(queued.value ?? []).map((file) => ({ handle: null, size: file.content?.length ?? 0, ...file }));
+  if (hasFileSystemAccess()) {
+    let handles;
+    try {
+      handles = await globalThis.showOpenFilePicker({ id: 'mychartmaster', multiple: true, types: WEB_TYPES, excludeAcceptAllOption: false });
+    } catch (error) {
+      if (error?.name === 'AbortError') return [];
+      throw error;
+    }
+    return Promise.all(handles.map(async (handle) => {
+      const file = await handle.getFile();
+      return { name: file.name, content: new Uint8Array(await file.arrayBuffer()), handle, size: file.size };
+    }));
+  }
+  const files = await pickWithInput(WEB_ACCEPT, true);
+  return Promise.all(files.map(async (file) => ({ name: file.name, content: new Uint8Array(await file.arrayBuffer()), handle: null, size: file.size })));
+}
+
+export function pickWithInput(accept, multiple = false) {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = accept;
+    input.multiple = multiple;
+    input.style.display = 'none';
+    input.addEventListener('change', () => { resolve([...(input.files ?? [])]); input.remove(); });
+    input.addEventListener('cancel', () => { resolve([]); input.remove(); });
+    document.body.append(input);
+    input.click();
+  });
+}
+
+/** Web save: back into the file's handle, a save picker, or a download. Returns { name, handle }. */
+export async function saveFileWeb(content, { name, handle, saveAs, mime = 'application/octet-stream' }) {
+  if (handle && !saveAs && typeof handle.createWritable === 'function') {
+    await writeHandle(handle, content);
+    return { name: handle.name, handle };
+  }
+  if (typeof globalThis.showSaveFilePicker === 'function') {
+    let picked;
+    try {
+      const extension = `.${String(name).split('.').pop()}`;
+      picked = await globalThis.showSaveFilePicker({ id: 'mychartmaster', suggestedName: name, types: [{ description: 'MyChartMaster', accept: { [mime]: [extension] } }] });
+    } catch (error) {
+      if (error?.name === 'AbortError') return null;
+      throw error;
+    }
+    await writeHandle(picked, content);
+    return { name: picked.name, handle: picked };
+  }
+  const url = URL.createObjectURL(content instanceof Blob ? content : new Blob([content], { type: mime }));
+  const link = Object.assign(document.createElement('a'), { href: url, download: name });
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  return { name, handle: null };
+}
+
+async function writeHandle(handle, text) {
+  if (handle.requestPermission && (await handle.queryPermission?.({ mode: 'readwrite' })) !== 'granted') {
+    await handle.requestPermission({ mode: 'readwrite' });
+  }
+  const writable = await handle.createWritable();
+  await writable.write(text);
+  await writable.close();
+}
+
+export const storeWebHandle = (key, handle) => idbSet(`handle:${key}`, handle).catch(() => {});
+export const loadWebHandle = (key) => idbGet(`handle:${key}`).catch(() => null);
+export const forgetWebHandle = (key) => idbDelete(`handle:${key}`).catch(() => {});
+
+// ───────────────────────── background image
+
+export const importBackground = (path, op) => invoke('import_background', { path, op });
+
+export async function storeWebBackground(file) {
+  await idbSet('background', file);
+}
+
+export async function clearBackground() {
+  if (isDesktop()) return invoke('remove_background');
+  return idbDelete('background').catch(() => {});
+}
+
+let webBackgroundUrl = null;
+/** URL for the stored background image, or null. */
+export async function backgroundUrl(settings) {
+  if (!settings.backgroundImage) return null;
+  if (isDesktop()) {
+    const allowed = await invoke('allow_background', { path: settings.backgroundImage }).catch(() => false);
+    return allowed ? convertFileSrc(settings.backgroundImage) : null;
+  }
+  const blob = await idbGet('background').catch(() => null);
+  if (!blob) return null;
+  if (webBackgroundUrl) URL.revokeObjectURL(webBackgroundUrl);
+  webBackgroundUrl = URL.createObjectURL(blob);
+  return webBackgroundUrl;
+}
+
+// ───────────────────────── fonts
+
+const WEB_FONT_CANDIDATES = ['Arial', 'Arial Black', 'Bahnschrift', 'Calibri', 'Cambria', 'Candara', 'Comic Sans MS', 'Consolas', 'Constantia', 'Corbel',
+  'Courier New', 'Georgia', 'Helvetica', 'Helvetica Neue', 'Impact', 'Lucida Console', 'Malgun Gothic', '맑은 고딕', 'Gulim', '굴림', 'Dotum', '돋움', 'Batang', '바탕',
+  'Gungsuh', 'Nanum Gothic', '나눔고딕', 'Noto Sans KR', 'Noto Serif KR', 'Apple SD Gothic Neo', 'AppleGothic', 'Menlo', 'Monaco', 'Palatino Linotype', 'Segoe UI',
+  'Segoe Print', 'Segoe Script', 'Tahoma', 'Times New Roman', 'Trebuchet MS', 'Verdana', 'Ubuntu', 'DejaVu Sans', 'Liberation Sans', 'Cantarell', 'Roboto', 'Inter'];
+
+export async function listFonts() {
+  if (isDesktop()) return invoke('list_fonts');
+  if (typeof globalThis.queryLocalFonts === 'function') {
+    try {
+      const fonts = await globalThis.queryLocalFonts();
+      const families = [...new Set(fonts.map((font) => font.family))].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+      if (families.length) return families;
+    } catch { /* permission denied: fall back to probing */ }
+  }
+  return WEB_FONT_CANDIDATES.filter((family) => {
+    try { return document.fonts.check(`12px "${family}"`) && fontInstalled(family); } catch { return false; }
+  });
+}
+
+/** document.fonts.check() is true for unknown fonts too; compare rendered widths against fallbacks. */
+function fontInstalled(family) {
+  const canvas = fontInstalled.canvas ?? (fontInstalled.canvas = document.createElement('canvas'));
+  const context = canvas.getContext('2d');
+  const sample = 'mmmmmmmmmmlli가나다WW';
+  return ['monospace', 'serif', 'sans-serif'].some((fallback) => {
+    context.font = `32px ${fallback}`;
+    const base = context.measureText(sample).width;
+    context.font = `32px "${family}", ${fallback}`;
+    return context.measureText(sample).width !== base;
+  });
+}
+
+// ───────────────────────── window
+
+export const setWindowTheme = (dark) => (isDesktop() ? getCurrentWindow().setTheme(dark ? 'dark' : 'light').catch(() => {}) : Promise.resolve());
+
+/**
+ * The window's minimum size (the toolbar's width, which changes with the language). A maximized or full-screen
+ * window keeps its size: setting a minimum (or a size) then makes Windows restore it to a normal window, so the
+ * minimum waits until the window is restored again (applyPendingMinimumSize).
+ */
+let pendingMinimum = null;
+export async function setMinimumSize(width, height) {
+  if (!isDesktop()) return;
+  const appWindow = getCurrentWindow();
+  const [maximized, fullscreen] = await Promise.all([appWindow.isMaximized().catch(() => false), appWindow.isFullscreen().catch(() => false)]);
+  if (maximized || fullscreen) { pendingMinimum = { width, height }; return; }
+  pendingMinimum = null;
+  await appWindow.setMinSize(new LogicalSize(width, height));
+  // An already narrower window grows to the new minimum at once.
+  if (window.innerWidth < width - 1) await appWindow.setSize(new LogicalSize(width, Math.max(height, window.innerHeight)));
+}
+
+/** The minimum that waited while the window was maximized or full screen (app.js calls it once it is restored). */
+export function applyPendingMinimumSize() {
+  if (!pendingMinimum) return Promise.resolve();
+  const { width, height } = pendingMinimum;
+  return setMinimumSize(width, height);
+}
+
+/** The computer's printers: { printers, defaultPrinter }; none in the browser and outside Windows. */
+export const listPrinters = () => (isDesktop() ? invoke('list_printers') : Promise.resolve({ printers: [], defaultPrinter: '' }));
+/** Prints this window's print view straight to a printer, with no dialog. job: { printer, copies, widthMm, heightMm }. */
+export const printDirect = (job) => invoke('print_direct', { job });
+export const printWindow = () => (isDesktop() ? invoke('print_window') : Promise.resolve(window.print()));
+export const quitApp = () => (isDesktop() ? invoke('quit_app') : Promise.resolve());
+
+// ───────────────────────── clipboard
+
+export async function clipboardWrite(text) {
+  if (isDesktop()) return invoke('clipboard_write', { text });
+  return navigator.clipboard.writeText(text);
+}
+
+export async function clipboardRead() {
+  if (isDesktop()) return invoke('clipboard_read');
+  return navigator.clipboard.readText();
+}

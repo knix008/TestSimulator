@@ -1,0 +1,164 @@
+{
+ "format": "mychart",
+ "version": 1,
+ "app": "MyChartMaster",
+ "created": "2025-01-01T00:00:00.000Z",
+ "modified": "2025-01-01T00:00:00.000Z",
+ "chart": {
+  "type": "line",
+  "title": "월평균 기온 (°C)",
+  "subtitle": "",
+  "mapping": {
+   "category": 0,
+   "values": [
+    1,
+    2,
+    3
+   ]
+  },
+  "options": {
+   "palette": "vivid",
+   "colors": {},
+   "background": "white",
+   "fontScale": 1,
+   "fontFamily": "",
+   "titleAlign": "center",
+   "legend": "bottom",
+   "hidden": [],
+   "dataLabels": false,
+   "labelPosition": "auto",
+   "numberFormat": "auto",
+   "decimals": -1,
+   "prefix": "",
+   "suffix": "°",
+   "xTitle": "",
+   "yTitle": "",
+   "y2Title": "",
+   "yMin": "",
+   "yMax": "",
+   "yScale": "linear",
+   "beginAtZero": false,
+   "gridLines": true,
+   "xGridLines": false,
+   "xLabelAngle": "auto",
+   "sort": "none",
+   "maxItems": 0,
+   "lineWidth": 2.5,
+   "markers": true,
+   "markerSize": 4,
+   "areaOpacity": 0.35,
+   "barRadius": 4,
+   "barGap": 0.28,
+   "innerRadius": 0.58,
+   "startAngle": 0,
+   "sliceGap": 1,
+   "bins": 0,
+   "trendline": false,
+   "secondAxis": false,
+   "waterfallTotal": true,
+   "ramp": "blues",
+   "gaugeMin": "",
+   "gaugeMax": "",
+   "border": false,
+   "upColor": "#16a34a",
+   "downColor": "#dc2626",
+   "note": "",
+   "width": 1024,
+   "height": 640
+  }
+ },
+ "data": {
+  "columns": [
+   {
+    "name": "월",
+    "type": "text"
+   },
+   {
+    "name": "서울",
+    "type": "number"
+   },
+   {
+    "name": "부산",
+    "type": "number"
+   },
+   {
+    "name": "제주",
+    "type": "number"
+   }
+  ],
+  "rows": [
+   [
+    "1월",
+    -1.5,
+    4.5,
+    7.5
+   ],
+   [
+    "2월",
+    0.4,
+    5.9,
+    8.7
+   ],
+   [
+    "3월",
+    5.5,
+    9.8,
+    12
+   ],
+   [
+    "4월",
+    12.5,
+    15,
+    16.5
+   ],
+   [
+    "5월",
+    19.5,
+    20.3,
+    21
+   ],
+   [
+    "6월",
+    24.6,
+    24.1,
+    24.3
+   ],
+   [
+    "7월",
+    26.5,
+    25.5,
+    25.5
+   ],
+   [
+    "8월",
+    24.6,
+    24.1,
+    24.3
+   ],
+   [
+    "9월",
+    19.5,
+    20.3,
+    21
+   ],
+   [
+    "10월",
+    12.5,
+    15,
+    16.5
+   ],
+   [
+    "11월",
+    5.5,
+    9.8,
+    12
+   ],
+   [
+    "12월",
+    0.4,
+    5.9,
+    8.7
+   ]
+  ]
+ }
+}

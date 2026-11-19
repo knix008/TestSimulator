@@ -1,0 +1,142 @@
+{
+ "format": "mychart",
+ "version": 1,
+ "app": "MyChartMaster",
+ "created": "2025-01-01T00:00:00.000Z",
+ "modified": "2025-01-01T00:00:00.000Z",
+ "chart": {
+  "type": "percentBar",
+  "title": "고객 만족도 조사",
+  "subtitle": "",
+  "mapping": {
+   "category": 0,
+   "values": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ]
+  },
+  "options": {
+   "palette": "sunset",
+   "colors": {},
+   "background": "white",
+   "fontScale": 1,
+   "fontFamily": "",
+   "titleAlign": "center",
+   "legend": "bottom",
+   "hidden": [],
+   "dataLabels": true,
+   "labelPosition": "auto",
+   "numberFormat": "auto",
+   "decimals": -1,
+   "prefix": "",
+   "suffix": "",
+   "xTitle": "",
+   "yTitle": "",
+   "y2Title": "",
+   "yMin": "",
+   "yMax": "",
+   "yScale": "linear",
+   "beginAtZero": true,
+   "gridLines": true,
+   "xGridLines": false,
+   "xLabelAngle": "auto",
+   "sort": "none",
+   "maxItems": 0,
+   "lineWidth": 2.5,
+   "markers": true,
+   "markerSize": 4,
+   "areaOpacity": 0.35,
+   "barRadius": 4,
+   "barGap": 0.28,
+   "innerRadius": 0.58,
+   "startAngle": 0,
+   "sliceGap": 1,
+   "bins": 0,
+   "trendline": false,
+   "secondAxis": false,
+   "waterfallTotal": true,
+   "ramp": "blues",
+   "gaugeMin": "",
+   "gaugeMax": "",
+   "border": false,
+   "upColor": "#16a34a",
+   "downColor": "#dc2626",
+   "note": "",
+   "width": 1024,
+   "height": 640
+  }
+ },
+ "data": {
+  "columns": [
+   {
+    "name": "문항",
+    "type": "text"
+   },
+   {
+    "name": "매우 불만",
+    "type": "number"
+   },
+   {
+    "name": "불만",
+    "type": "number"
+   },
+   {
+    "name": "보통",
+    "type": "number"
+   },
+   {
+    "name": "만족",
+    "type": "number"
+   },
+   {
+    "name": "매우 만족",
+    "type": "number"
+   }
+  ],
+  "rows": [
+   [
+    "가격",
+    5,
+    12,
+    25,
+    38,
+    20
+   ],
+   [
+    "품질",
+    6,
+    15,
+    24,
+    40,
+    19
+   ],
+   [
+    "배송",
+    7,
+    18,
+    23,
+    42,
+    18
+   ],
+   [
+    "상담",
+    8,
+    12,
+    22,
+    44,
+    17
+   ],
+   [
+    "앱 사용성",
+    9,
+    15,
+    21,
+    46,
+    16
+   ]
+  ]
+ }
+}

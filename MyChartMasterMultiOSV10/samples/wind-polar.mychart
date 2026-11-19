@@ -1,0 +1,114 @@
+{
+ "format": "mychart",
+ "version": 1,
+ "app": "MyChartMaster",
+ "created": "2025-01-01T00:00:00.000Z",
+ "modified": "2025-01-01T00:00:00.000Z",
+ "chart": {
+  "type": "polarArea",
+  "title": "풍향별 빈도 (일)",
+  "subtitle": "",
+  "mapping": {
+   "category": 0,
+   "values": [
+    1
+   ]
+  },
+  "options": {
+   "palette": "vivid",
+   "colors": {},
+   "background": "white",
+   "fontScale": 1,
+   "fontFamily": "",
+   "titleAlign": "center",
+   "legend": "none",
+   "hidden": [],
+   "dataLabels": false,
+   "labelPosition": "auto",
+   "numberFormat": "auto",
+   "decimals": -1,
+   "prefix": "",
+   "suffix": "",
+   "xTitle": "",
+   "yTitle": "",
+   "y2Title": "",
+   "yMin": "",
+   "yMax": "",
+   "yScale": "linear",
+   "beginAtZero": true,
+   "gridLines": true,
+   "xGridLines": false,
+   "xLabelAngle": "auto",
+   "sort": "none",
+   "maxItems": 0,
+   "lineWidth": 2.5,
+   "markers": true,
+   "markerSize": 4,
+   "areaOpacity": 0.35,
+   "barRadius": 4,
+   "barGap": 0.28,
+   "innerRadius": 0.58,
+   "startAngle": 0,
+   "sliceGap": 1,
+   "bins": 0,
+   "trendline": false,
+   "secondAxis": false,
+   "waterfallTotal": true,
+   "ramp": "blues",
+   "gaugeMin": "",
+   "gaugeMax": "",
+   "border": false,
+   "upColor": "#16a34a",
+   "downColor": "#dc2626",
+   "note": "",
+   "width": 1024,
+   "height": 640
+  }
+ },
+ "data": {
+  "columns": [
+   {
+    "name": "방위",
+    "type": "text"
+   },
+   {
+    "name": "일수",
+    "type": "number"
+   }
+  ],
+  "rows": [
+   [
+    "북",
+    62
+   ],
+   [
+    "북동",
+    30
+   ],
+   [
+    "동",
+    18
+   ],
+   [
+    "남동",
+    25
+   ],
+   [
+    "남",
+    41
+   ],
+   [
+    "남서",
+    55
+   ],
+   [
+    "서",
+    78
+   ],
+   [
+    "북서",
+    56
+   ]
+  ]
+ }
+}

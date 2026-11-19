@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-mychart">
+    <comment>MyChartMaster chart</comment>
+    <comment xml:lang="ko">MyChartMaster 차트</comment>
+    <icon name="application-x-mychart"/>
+    <glob pattern="*.mychart"/>
+  </mime-type>
+</mime-info>

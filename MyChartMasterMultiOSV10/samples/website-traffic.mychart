@@ -1,0 +1,186 @@
+{
+ "format": "mychart",
+ "version": 1,
+ "app": "MyChartMaster",
+ "created": "2025-01-01T00:00:00.000Z",
+ "modified": "2025-01-01T00:00:00.000Z",
+ "chart": {
+  "type": "spline",
+  "title": "주간 방문자 수",
+  "subtitle": "",
+  "mapping": {
+   "category": 0,
+   "values": [
+    1
+   ]
+  },
+  "options": {
+   "palette": "vivid",
+   "colors": {},
+   "background": "white",
+   "fontScale": 1,
+   "fontFamily": "",
+   "titleAlign": "center",
+   "legend": "bottom",
+   "hidden": [],
+   "dataLabels": false,
+   "labelPosition": "auto",
+   "numberFormat": "auto",
+   "decimals": -1,
+   "prefix": "",
+   "suffix": "",
+   "xTitle": "",
+   "yTitle": "",
+   "y2Title": "",
+   "yMin": "",
+   "yMax": "",
+   "yScale": "linear",
+   "beginAtZero": true,
+   "gridLines": true,
+   "xGridLines": false,
+   "xLabelAngle": "auto",
+   "sort": "none",
+   "maxItems": 0,
+   "lineWidth": 2.5,
+   "markers": false,
+   "markerSize": 4,
+   "areaOpacity": 0.35,
+   "barRadius": 4,
+   "barGap": 0.28,
+   "innerRadius": 0.58,
+   "startAngle": 0,
+   "sliceGap": 1,
+   "bins": 0,
+   "trendline": true,
+   "secondAxis": false,
+   "waterfallTotal": true,
+   "ramp": "blues",
+   "gaugeMin": "",
+   "gaugeMax": "",
+   "border": false,
+   "upColor": "#16a34a",
+   "downColor": "#dc2626",
+   "note": "",
+   "width": 1024,
+   "height": 640
+  }
+ },
+ "data": {
+  "columns": [
+   {
+    "name": "주",
+    "type": "text"
+   },
+   {
+    "name": "방문자",
+    "type": "number"
+   }
+  ],
+  "rows": [
+   [
+    "W1",
+    4415
+   ],
+   [
+    "W2",
+    5117
+   ],
+   [
+    "W3",
+    4941
+   ],
+   [
+    "W4",
+    5319
+   ],
+   [
+    "W5",
+    4624
+   ],
+   [
+    "W6",
+    5445
+   ],
+   [
+    "W7",
+    5095
+   ],
+   [
+    "W8",
+    4913
+   ],
+   [
+    "W9",
+    5022
+   ],
+   [
+    "W10",
+    5941
+   ],
+   [
+    "W11",
+    6026
+   ],
+   [
+    "W12",
+    5723
+   ],
+   [
+    "W13",
+    5747
+   ],
+   [
+    "W14",
+    5928
+   ],
+   [
+    "W15",
+    6075
+   ],
+   [
+    "W16",
+    6325
+   ],
+   [
+    "W17",
+    6422
+   ],
+   [
+    "W18",
+    6191
+   ],
+   [
+    "W19",
+    6337
+   ],
+   [
+    "W20",
+    6772
+   ],
+   [
+    "W21",
+    6426
+   ],
+   [
+    "W22",
+    6628
+   ],
+   [
+    "W23",
+    6373
+   ],
+   [
+    "W24",
+    7059
+   ],
+   [
+    "W25",
+    7231
+   ],
+   [
+    "W26",
+    6897
+   ]
+  ]
+ }
+}

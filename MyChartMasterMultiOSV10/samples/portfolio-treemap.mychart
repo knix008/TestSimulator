@@ -1,0 +1,132 @@
+{
+ "format": "mychart",
+ "version": 1,
+ "app": "MyChartMaster",
+ "created": "2025-01-01T00:00:00.000Z",
+ "modified": "2025-01-01T00:00:00.000Z",
+ "chart": {
+  "type": "treemap",
+  "title": "투자 포트폴리오",
+  "subtitle": "",
+  "mapping": {
+   "group": 0,
+   "category": 1,
+   "values": [
+    2
+   ]
+  },
+  "options": {
+   "palette": "vivid",
+   "colors": {},
+   "background": "white",
+   "fontScale": 1,
+   "fontFamily": "",
+   "titleAlign": "center",
+   "legend": "none",
+   "hidden": [],
+   "dataLabels": false,
+   "labelPosition": "auto",
+   "numberFormat": "auto",
+   "decimals": -1,
+   "prefix": "",
+   "suffix": "",
+   "xTitle": "",
+   "yTitle": "",
+   "y2Title": "",
+   "yMin": "",
+   "yMax": "",
+   "yScale": "linear",
+   "beginAtZero": true,
+   "gridLines": true,
+   "xGridLines": false,
+   "xLabelAngle": "auto",
+   "sort": "none",
+   "maxItems": 0,
+   "lineWidth": 2.5,
+   "markers": true,
+   "markerSize": 4,
+   "areaOpacity": 0.35,
+   "barRadius": 4,
+   "barGap": 0.28,
+   "innerRadius": 0.58,
+   "startAngle": 0,
+   "sliceGap": 1,
+   "bins": 0,
+   "trendline": false,
+   "secondAxis": false,
+   "waterfallTotal": true,
+   "ramp": "blues",
+   "gaugeMin": "",
+   "gaugeMax": "",
+   "border": false,
+   "upColor": "#16a34a",
+   "downColor": "#dc2626",
+   "note": "",
+   "width": 1024,
+   "height": 640
+  }
+ },
+ "data": {
+  "columns": [
+   {
+    "name": "자산군",
+    "type": "text"
+   },
+   {
+    "name": "종목",
+    "type": "text"
+   },
+   {
+    "name": "평가액",
+    "type": "number"
+   }
+  ],
+  "rows": [
+   [
+    "주식",
+    "반도체",
+    320
+   ],
+   [
+    "주식",
+    "자동차",
+    140
+   ],
+   [
+    "주식",
+    "바이오",
+    90
+   ],
+   [
+    "주식",
+    "인터넷",
+    110
+   ],
+   [
+    "채권",
+    "국채",
+    260
+   ],
+   [
+    "채권",
+    "회사채",
+    120
+   ],
+   [
+    "대체투자",
+    "리츠",
+    80
+   ],
+   [
+    "대체투자",
+    "금",
+    60
+   ],
+   [
+    "현금",
+    "예금",
+    70
+   ]
+  ]
+ }
+}

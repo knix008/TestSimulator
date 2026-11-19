@@ -1,0 +1,137 @@
+{
+ "format": "mychart",
+ "version": 1,
+ "app": "MyChartMaster",
+ "created": "2025-01-01T00:00:00.000Z",
+ "modified": "2025-01-01T00:00:00.000Z",
+ "chart": {
+  "type": "sankey",
+  "title": "에너지 흐름 (단위: PJ)",
+  "subtitle": "",
+  "mapping": {
+   "source": 0,
+   "target": 1,
+   "values": [
+    2
+   ]
+  },
+  "options": {
+   "palette": "vivid",
+   "colors": {},
+   "background": "white",
+   "fontScale": 1,
+   "fontFamily": "",
+   "titleAlign": "center",
+   "legend": "none",
+   "hidden": [],
+   "dataLabels": true,
+   "labelPosition": "auto",
+   "numberFormat": "auto",
+   "decimals": -1,
+   "prefix": "",
+   "suffix": "",
+   "xTitle": "",
+   "yTitle": "",
+   "y2Title": "",
+   "yMin": "",
+   "yMax": "",
+   "yScale": "linear",
+   "beginAtZero": true,
+   "gridLines": true,
+   "xGridLines": false,
+   "xLabelAngle": "auto",
+   "sort": "none",
+   "maxItems": 0,
+   "lineWidth": 2.5,
+   "markers": true,
+   "markerSize": 4,
+   "areaOpacity": 0.35,
+   "barRadius": 4,
+   "barGap": 0.28,
+   "innerRadius": 0.58,
+   "startAngle": 0,
+   "sliceGap": 1,
+   "bins": 0,
+   "trendline": false,
+   "secondAxis": false,
+   "waterfallTotal": true,
+   "ramp": "blues",
+   "gaugeMin": "",
+   "gaugeMax": "",
+   "border": false,
+   "upColor": "#16a34a",
+   "downColor": "#dc2626",
+   "note": "",
+   "width": 1024,
+   "height": 640
+  }
+ },
+ "data": {
+  "columns": [
+   {
+    "name": "출발",
+    "type": "text"
+   },
+   {
+    "name": "도착",
+    "type": "text"
+   },
+   {
+    "name": "양",
+    "type": "number"
+   }
+  ],
+  "rows": [
+   [
+    "석유",
+    "수송",
+    140
+   ],
+   [
+    "석유",
+    "산업",
+    60
+   ],
+   [
+    "가스",
+    "발전",
+    70
+   ],
+   [
+    "가스",
+    "가정",
+    50
+   ],
+   [
+    "석탄",
+    "발전",
+    90
+   ],
+   [
+    "원자력",
+    "발전",
+    80
+   ],
+   [
+    "재생",
+    "발전",
+    40
+   ],
+   [
+    "발전",
+    "산업",
+    120
+   ],
+   [
+    "발전",
+    "가정",
+    90
+   ],
+   [
+    "발전",
+    "손실",
+    70
+   ]
+  ]
+ }
+}

@@ -1,0 +1,164 @@
+{
+ "format": "mychart",
+ "version": 1,
+ "app": "MyChartMaster",
+ "created": "2025-01-01T00:00:00.000Z",
+ "modified": "2025-01-01T00:00:00.000Z",
+ "chart": {
+  "type": "column",
+  "title": "2025년 월별 매출",
+  "subtitle": "단위: 백만 원",
+  "mapping": {
+   "category": 0,
+   "values": [
+    1,
+    2,
+    3
+   ]
+  },
+  "options": {
+   "palette": "vivid",
+   "colors": {},
+   "background": "white",
+   "fontScale": 1,
+   "fontFamily": "",
+   "titleAlign": "center",
+   "legend": "bottom",
+   "hidden": [],
+   "dataLabels": false,
+   "labelPosition": "auto",
+   "numberFormat": "auto",
+   "decimals": -1,
+   "prefix": "",
+   "suffix": "",
+   "xTitle": "",
+   "yTitle": "",
+   "y2Title": "",
+   "yMin": "",
+   "yMax": "",
+   "yScale": "linear",
+   "beginAtZero": true,
+   "gridLines": true,
+   "xGridLines": false,
+   "xLabelAngle": "auto",
+   "sort": "none",
+   "maxItems": 0,
+   "lineWidth": 2.5,
+   "markers": true,
+   "markerSize": 4,
+   "areaOpacity": 0.35,
+   "barRadius": 4,
+   "barGap": 0.28,
+   "innerRadius": 0.58,
+   "startAngle": 0,
+   "sliceGap": 1,
+   "bins": 0,
+   "trendline": false,
+   "secondAxis": false,
+   "waterfallTotal": true,
+   "ramp": "blues",
+   "gaugeMin": "",
+   "gaugeMax": "",
+   "border": false,
+   "upColor": "#16a34a",
+   "downColor": "#dc2626",
+   "note": "",
+   "width": 1024,
+   "height": 640
+  }
+ },
+ "data": {
+  "columns": [
+   {
+    "name": "월",
+    "type": "text"
+   },
+   {
+    "name": "가전",
+    "type": "number"
+   },
+   {
+    "name": "모바일",
+    "type": "number"
+   },
+   {
+    "name": "액세서리",
+    "type": "number"
+   }
+  ],
+  "rows": [
+   [
+    "1월",
+    120,
+    112,
+    35
+   ],
+   [
+    "2월",
+    141,
+    105,
+    44
+   ],
+   [
+    "3월",
+    148,
+    89,
+    33
+   ],
+   [
+    "4월",
+    141,
+    101,
+    39
+   ],
+   [
+    "5월",
+    130,
+    136,
+    51
+   ],
+   [
+    "6월",
+    133,
+    156,
+    41
+   ],
+   [
+    "7월",
+    151,
+    145,
+    43
+   ],
+   [
+    "8월",
+    174,
+    132,
+    57
+   ],
+   [
+    "9월",
+    186,
+    150,
+    49
+   ],
+   [
+    "10월",
+    181,
+    185,
+    47
+   ],
+   [
+    "11월",
+    170,
+    200,
+    62
+   ],
+   [
+    "12월",
+    168,
+    185,
+    57
+   ]
+  ]
+ }
+}

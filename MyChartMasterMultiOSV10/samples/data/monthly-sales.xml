@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sales>
+  <month name="1월"><appliances>120</appliances><mobile>112</mobile><accessories>35</accessories></month>
+  <month name="2월"><appliances>141</appliances><mobile>105</mobile><accessories>44</accessories></month>
+  <month name="3월"><appliances>148</appliances><mobile>89</mobile><accessories>33</accessories></month>
+  <month name="4월"><appliances>141</appliances><mobile>101</mobile><accessories>39</accessories></month>
+  <month name="5월"><appliances>130</appliances><mobile>136</mobile><accessories>51</accessories></month>
+  <month name="6월"><appliances>133</appliances><mobile>156</mobile><accessories>41</accessories></month>
+  <month name="7월"><appliances>151</appliances><mobile>145</mobile><accessories>43</accessories></month>
+  <month name="8월"><appliances>174</appliances><mobile>132</mobile><accessories>57</accessories></month>
+  <month name="9월"><appliances>186</appliances><mobile>150</mobile><accessories>49</accessories></month>
+  <month name="10월"><appliances>181</appliances><mobile>185</mobile><accessories>47</accessories></month>
+  <month name="11월"><appliances>170</appliances><mobile>200</mobile><accessories>62</accessories></month>
+  <month name="12월"><appliances>168</appliances><mobile>185</mobile><accessories>57</accessories></month>
+</sales>

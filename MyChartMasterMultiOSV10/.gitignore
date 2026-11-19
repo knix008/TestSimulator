@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+src-tauri/target/
+src-tauri/gen/
+
+# Installers (npm run build:win / build:mac / build:linux / build:all)
+release/
+/MyChartMaster-*.exe
+/MyChartMaster-*.msi
+/MyChartMaster-*.dmg
+/MyChartMaster-*.deb
+/MyChartMaster-*.rpm
+/MyChartMaster-*.AppImage
+
+# Generated documents (npm run build:docs from doc/)
+docs/
+public/docs/
+
+# Test runs (npm test)
+test-results/
+*.log
+
+# Editors and OS files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+

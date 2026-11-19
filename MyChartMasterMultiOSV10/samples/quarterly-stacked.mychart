@@ -1,0 +1,116 @@
+{
+ "format": "mychart",
+ "version": 1,
+ "app": "MyChartMaster",
+ "created": "2025-01-01T00:00:00.000Z",
+ "modified": "2025-01-01T00:00:00.000Z",
+ "chart": {
+  "type": "stackedColumn",
+  "title": "분기별 판매 채널",
+  "subtitle": "",
+  "mapping": {
+   "category": 0,
+   "values": [
+    1,
+    2,
+    3
+   ]
+  },
+  "options": {
+   "palette": "vivid",
+   "colors": {},
+   "background": "white",
+   "fontScale": 1,
+   "fontFamily": "",
+   "titleAlign": "center",
+   "legend": "bottom",
+   "hidden": [],
+   "dataLabels": true,
+   "labelPosition": "auto",
+   "numberFormat": "auto",
+   "decimals": -1,
+   "prefix": "",
+   "suffix": "",
+   "xTitle": "",
+   "yTitle": "",
+   "y2Title": "",
+   "yMin": "",
+   "yMax": "",
+   "yScale": "linear",
+   "beginAtZero": true,
+   "gridLines": true,
+   "xGridLines": false,
+   "xLabelAngle": "auto",
+   "sort": "none",
+   "maxItems": 0,
+   "lineWidth": 2.5,
+   "markers": true,
+   "markerSize": 4,
+   "areaOpacity": 0.35,
+   "barRadius": 4,
+   "barGap": 0.28,
+   "innerRadius": 0.58,
+   "startAngle": 0,
+   "sliceGap": 1,
+   "bins": 0,
+   "trendline": false,
+   "secondAxis": false,
+   "waterfallTotal": true,
+   "ramp": "blues",
+   "gaugeMin": "",
+   "gaugeMax": "",
+   "border": false,
+   "upColor": "#16a34a",
+   "downColor": "#dc2626",
+   "note": "",
+   "width": 1024,
+   "height": 640
+  }
+ },
+ "data": {
+  "columns": [
+   {
+    "name": "분기",
+    "type": "text"
+   },
+   {
+    "name": "온라인",
+    "type": "number"
+   },
+   {
+    "name": "매장",
+    "type": "number"
+   },
+   {
+    "name": "도매",
+    "type": "number"
+   }
+  ],
+  "rows": [
+   [
+    "Q1",
+    120,
+    210,
+    80
+   ],
+   [
+    "Q2",
+    145,
+    198,
+    95
+   ],
+   [
+    "Q3",
+    170,
+    186,
+    80
+   ],
+   [
+    "Q4",
+    195,
+    174,
+    95
+   ]
+  ]
+ }
+}

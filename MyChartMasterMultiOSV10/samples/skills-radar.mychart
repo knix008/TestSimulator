@@ -1,0 +1,117 @@
+{
+ "format": "mychart",
+ "version": 1,
+ "app": "MyChartMaster",
+ "created": "2025-01-01T00:00:00.000Z",
+ "modified": "2025-01-01T00:00:00.000Z",
+ "chart": {
+  "type": "radar",
+  "title": "지원자 역량 평가",
+  "subtitle": "",
+  "mapping": {
+   "category": 0,
+   "values": [
+    1,
+    2
+   ]
+  },
+  "options": {
+   "palette": "vivid",
+   "colors": {},
+   "background": "white",
+   "fontScale": 1,
+   "fontFamily": "",
+   "titleAlign": "center",
+   "legend": "bottom",
+   "hidden": [],
+   "dataLabels": false,
+   "labelPosition": "auto",
+   "numberFormat": "auto",
+   "decimals": -1,
+   "prefix": "",
+   "suffix": "",
+   "xTitle": "",
+   "yTitle": "",
+   "y2Title": "",
+   "yMin": 0,
+   "yMax": 10,
+   "yScale": "linear",
+   "beginAtZero": true,
+   "gridLines": true,
+   "xGridLines": false,
+   "xLabelAngle": "auto",
+   "sort": "none",
+   "maxItems": 0,
+   "lineWidth": 2.5,
+   "markers": true,
+   "markerSize": 4,
+   "areaOpacity": 0.35,
+   "barRadius": 4,
+   "barGap": 0.28,
+   "innerRadius": 0.58,
+   "startAngle": 0,
+   "sliceGap": 1,
+   "bins": 0,
+   "trendline": false,
+   "secondAxis": false,
+   "waterfallTotal": true,
+   "ramp": "blues",
+   "gaugeMin": "",
+   "gaugeMax": "",
+   "border": false,
+   "upColor": "#16a34a",
+   "downColor": "#dc2626",
+   "note": "",
+   "width": 1024,
+   "height": 640
+  }
+ },
+ "data": {
+  "columns": [
+   {
+    "name": "역량",
+    "type": "text"
+   },
+   {
+    "name": "지원자 A",
+    "type": "number"
+   },
+   {
+    "name": "지원자 B",
+    "type": "number"
+   }
+  ],
+  "rows": [
+   [
+    "기술",
+    9,
+    6
+   ],
+   [
+    "소통",
+    6,
+    9
+   ],
+   [
+    "리더십",
+    5,
+    8
+   ],
+   [
+    "창의성",
+    8,
+    6
+   ],
+   [
+    "문제 해결",
+    9,
+    7
+   ],
+   [
+    "협업",
+    7,
+    9
+   ]
+  ]
+ }
+}

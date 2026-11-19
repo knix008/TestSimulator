@@ -1,0 +1,65 @@
+// The features of MyChartMaster (the user's requirements and every function of the program) and the web E2E cases
+// (test/e2e/web.suite.mjs) that prove each one. Its last case fails when a feature has no case or a failing one.
+// Features proven by other categories are marked with `by` (unit tests, the desktop suite).
+export const FEATURES = [
+  // Start page and window (the same style and structure as MyNetManager)
+  { name: 'Start page card board (move, resize, arrange)', cases: ['start.cards', 'start.arrange'] },
+  { name: 'Program information card fixed (no move, no resize)', cases: ['start.cards'] },
+  { name: 'Start page background of moving charts (20 kinds)', cases: ['start.background'] },
+  { name: 'New chart of any type from the start page', cases: ['start.newChart', 'start.typesDraw'] },
+  { name: 'New chart card spans the whole row, Recent items right under it', cases: ['start.layout'] },
+  { name: 'Start page buttons: icon and label on one line, left-aligned', cases: ['start.tilesOneLine'] },
+  { name: 'Every chart type has its own icon', cases: ['start.distinctIcons'] },
+  { name: 'Same number of types in every group, no half-empty rows at any width', cases: ['start.rowsFull'] },
+  { name: 'Title-row menus (File … Help) and Home', cases: ['chrome.menus'] },
+  { name: 'Colourful icons on every button', cases: ['chrome.toolbar'] },
+  { name: 'Toolbar never clipped, no horizontal scroll', cases: ['chrome.toolbar'] },
+  { name: 'Panels fold from the title row and their own title bars, and resize', cases: ['chrome.panels'] },
+  { name: 'Popup windows in the shared style (frame, tabs, steppers, buttons)', cases: ['popups.all'] },
+  // Charts
+  { name: '108 chart types in 9 groups of 12 each (menus, gallery, start page rows full)', cases: ['chart.types', 'menus.chartGroups'] },
+  { name: 'A chart theme per chart, apart from the program theme', cases: ['theme.chartTheme', 'theme.settings'] },
+  { name: 'Chart background follows the program theme, colours stay readable', cases: ['theme.background'] },
+  { name: 'Every menu item, shortcut and right-click menu works', cases: ['menus.everyItem', 'menus.shortcuts', 'menus.context'] },
+  { name: 'Value tips on hover', cases: ['chart.tips'] },
+  { name: 'Legend hides and shows series', cases: ['chart.legend'] },
+  { name: 'Click a mark to select its series and row', cases: ['chart.select'] },
+  { name: 'Edit titles on the chart', cases: ['chart.titleEdit'] },
+  { name: 'Zoom (fit, in, out, Ctrl+wheel)', cases: ['chart.zoom'] },
+  // Data grid
+  { name: 'Grid editing with the keyboard', cases: ['grid.edit', 'grid.keys'] },
+  { name: 'Paste spreadsheet ranges into the grid', cases: ['grid.paste'] },
+  { name: 'Rows and columns: add, delete, rename, sort, transpose, type', cases: ['grid.rowsCols', 'grid.rename'] },
+  { name: 'Find rows in the grid', cases: ['grid.filter'] },
+  { name: 'Undo and redo', cases: ['grid.undo'] },
+  { name: 'Data statistics', cases: ['data.stats'] },
+  // Inspector
+  { name: 'Column roles and chart type in the inspector', cases: ['inspector.data'] },
+  { name: 'Titles, legend, palette, background, fonts', cases: ['inspector.style'] },
+  { name: 'Axes: titles, range, log scale, number format', cases: ['inspector.axes'] },
+  { name: 'Series colours, visibility, lines, bars, labels, trend lines', cases: ['inspector.series'] },
+  { name: 'Type settings and chart size', cases: ['inspector.more'] },
+  // Input files
+  { name: 'Import CSV / TSV with a preview (header, delimiter, encoding, decimal)', cases: ['import.preview'] },
+  { name: 'Import Excel, OpenDocument, JSON, XML, HTML, Markdown', cases: ['import.formats'] },
+  { name: 'Paste a table as a new chart', cases: ['import.paste'] },
+  { name: "Replace a chart's data", cases: ['import.replace'] },
+  { name: 'Drop files on the window', cases: ['import.drop'] },
+  // Output
+  { name: 'Export pictures: PNG, JPEG, WebP, GIF, SVG (AVIF on the desktop)', cases: ['export.pictures'] },
+  { name: 'Transparent background offered where the format keeps it (PNG, WebP, GIF, AVIF, SVG, HTML)', cases: ['export.transparency'] },
+  { name: 'Export documents: PDF, HTML, Word, Markdown', cases: ['export.documents'] },
+  { name: 'Export data: CSV, TSV, JSON, Markdown, HTML, Excel', cases: ['export.data'] },
+  { name: 'Export window with preview, size, scale, background', cases: ['export.window'] },
+  { name: 'Copy the chart picture', cases: ['export.copy'] },
+  { name: 'Print (own window, paper, preview, data pages, prints at once)', cases: ['print.window'] },
+  { name: 'Save and open .mychart', cases: ['files.saveOpen'] },
+  { name: 'Several charts in tabs', cases: ['files.tabs'] },
+  // Look and help
+  { name: 'Themes and layouts', cases: ['look.theme'] },
+  { name: 'Korean and English everywhere (no raw keys)', cases: ['look.language'] },
+  { name: 'Interactive tutorial (every step)', by: 'tutorial', cases: [] },
+  { name: "User's guide and tutorial documents", cases: ['help.docs'] },
+  { name: 'Data parsing, chart rendering, PDF and file formats', by: 'unit', cases: [] },
+  { name: 'Desktop program (window, popups as OS windows, files)', by: 'desktop', cases: [] },
+];

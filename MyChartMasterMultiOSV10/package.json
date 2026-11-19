@@ -1,0 +1,42 @@
+{
+  "name": "mychartmaster",
+  "productName": "MyChartMaster",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Chart maker for Web, Windows, macOS and Linux (Tauri) — 31 chart types from CSV, TSV, Excel, ODS, JSON, XML, HTML and Markdown data; edit in a grid; style; export PNG, JPEG, WebP, GIF, AVIF, SVG, PDF, HTML, Word, Markdown, CSV and Excel; print",
+  "author": "SHKWON <knix008@naver.com>",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "dev": "vite",
+    "build:web": "vite build",
+    "preview": "vite preview --port 4186 --strictPort",
+    "tauri": "tauri",
+    "test": "node scripts/test.mjs",
+    "test:quick": "node scripts/test.mjs --quick",
+    "test:unit": "node scripts/test.mjs --only unit,i18n,rust",
+    "test:e2e": "node scripts/test.mjs --only web,tutorial,desktop",
+    "build:win": "npm run build:docs && node scripts/build.mjs win",
+    "build:mac": "npm run build:docs && node scripts/build.mjs mac",
+    "build:linux": "npm run build:docs && node scripts/build.mjs linux",
+    "build:webapp": "node scripts/build.mjs web",
+    "build:all": "npm run build:docs && node scripts/build.mjs all",
+    "build:icons": "node scripts/render-icons.mjs",
+    "build:docs": "node scripts/build-docs.mjs",
+    "doc:images": "node scripts/doc-images.mjs",
+    "tutorial:video": "node scripts/tutorial-video.mjs",
+    "samples": "node scripts/make-samples.mjs",
+    "clean": "node scripts/clean.mjs",
+    "clean:all": "node scripts/clean.mjs --all",
+    "i18n:check": "node scripts/i18n-check.mjs",
+    "test:js": "node scripts/test.mjs --only unit"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.8.0",
+    "@tauri-apps/plugin-dialog": "^2.4.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.0",
+    "vite": "^7.1.7"
+  }
+}

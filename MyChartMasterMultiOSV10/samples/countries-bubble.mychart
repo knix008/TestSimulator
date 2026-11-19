@@ -1,0 +1,165 @@
+{
+ "format": "mychart",
+ "version": 1,
+ "app": "MyChartMaster",
+ "created": "2025-01-01T00:00:00.000Z",
+ "modified": "2025-01-01T00:00:00.000Z",
+ "chart": {
+  "type": "bubble",
+  "title": "1인당 소득과 기대수명",
+  "subtitle": "",
+  "mapping": {
+   "x": 2,
+   "y": 3,
+   "size": 4,
+   "label": 0,
+   "group": 1
+  },
+  "options": {
+   "palette": "vivid",
+   "colors": {},
+   "background": "white",
+   "fontScale": 1,
+   "fontFamily": "",
+   "titleAlign": "center",
+   "legend": "bottom",
+   "hidden": [],
+   "dataLabels": true,
+   "labelPosition": "auto",
+   "numberFormat": "auto",
+   "decimals": -1,
+   "prefix": "",
+   "suffix": "",
+   "xTitle": "1인당 소득 (천 달러)",
+   "yTitle": "기대수명 (세)",
+   "y2Title": "",
+   "yMin": "",
+   "yMax": "",
+   "yScale": "linear",
+   "beginAtZero": true,
+   "gridLines": true,
+   "xGridLines": false,
+   "xLabelAngle": "auto",
+   "sort": "none",
+   "maxItems": 0,
+   "lineWidth": 2.5,
+   "markers": true,
+   "markerSize": 4,
+   "areaOpacity": 0.35,
+   "barRadius": 4,
+   "barGap": 0.28,
+   "innerRadius": 0.58,
+   "startAngle": 0,
+   "sliceGap": 1,
+   "bins": 0,
+   "trendline": false,
+   "secondAxis": false,
+   "waterfallTotal": true,
+   "ramp": "blues",
+   "gaugeMin": "",
+   "gaugeMax": "",
+   "border": false,
+   "upColor": "#16a34a",
+   "downColor": "#dc2626",
+   "note": "",
+   "width": 1024,
+   "height": 640
+  }
+ },
+ "data": {
+  "columns": [
+   {
+    "name": "국가",
+    "type": "text"
+   },
+   {
+    "name": "대륙",
+    "type": "text"
+   },
+   {
+    "name": "소득",
+    "type": "number"
+   },
+   {
+    "name": "수명",
+    "type": "number"
+   },
+   {
+    "name": "인구",
+    "type": "number"
+   }
+  ],
+  "rows": [
+   [
+    "A-land",
+    "Asia",
+    34,
+    83.5,
+    52
+   ],
+   [
+    "B-land",
+    "Asia",
+    12,
+    76.1,
+    140
+   ],
+   [
+    "C-land",
+    "Europe",
+    46,
+    81.2,
+    83
+   ],
+   [
+    "D-land",
+    "Europe",
+    39,
+    82.4,
+    67
+   ],
+   [
+    "E-land",
+    "Americas",
+    63,
+    78.5,
+    330
+   ],
+   [
+    "F-land",
+    "Americas",
+    9,
+    75.3,
+    210
+   ],
+   [
+    "G-land",
+    "Africa",
+    3,
+    64.2,
+    110
+   ],
+   [
+    "H-land",
+    "Africa",
+    6.5,
+    69.8,
+    60
+   ],
+   [
+    "I-land",
+    "Oceania",
+    55,
+    83.1,
+    26
+   ],
+   [
+    "J-land",
+    "Asia",
+    2.3,
+    70.6,
+    1400
+   ]
+  ]
+ }
+}
