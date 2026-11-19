@@ -24,6 +24,7 @@
     "build:icons": "node scripts/render-icons.mjs",
     "build:docs": "node scripts/build-docs.mjs",
     "doc:images": "node scripts/doc-images.mjs",
+    "tutorial:video": "node scripts/tutorial-video.mjs",
     "samples": "node scripts/make-samples.mjs",
     "clean": "node scripts/clean.mjs",
     "clean:all": "node scripts/clean.mjs --all",

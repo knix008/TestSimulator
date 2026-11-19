@@ -94,6 +94,8 @@ export async function launch(url, { width = 1600, height = 1000, language = 'en'
     if (msg.method === 'Runtime.exceptionThrown') page.errors.push(msg.params.exceptionDetails?.exception?.description ?? msg.params.exceptionDetails?.text ?? 'exception');
     if (msg.method === 'Runtime.consoleAPICalled' && msg.params.type === 'error') page.console.push(msg.params.args.map((a) => a.value ?? a.description ?? '').join(' '));
   });
+  /** Calls handler(params) for every `method` event of this page (e.g. Page.screencastFrame). */
+  page.on = (method, handler) => browser.listeners.add((msg) => { if (msg.sessionId === sessionId && msg.method === method) handler(msg.params); });
   await page.send('Runtime.enable');
   await page.send('Page.enable');
   await page.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
