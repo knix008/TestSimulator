@@ -8,7 +8,8 @@
 // Categories
 //   js       node:test over test/unit/*.test.mjs (dissectors, pcap, filters, statistics, app modules)
 //   witness  test/witness/*.test.mjs — our dissectors and filters against tshark (skipped without Wireshark)
-//   rust     cargo test --lib in src-tauri (files, capture core, printing)
+//   rust     cargo test --lib in src-tauri (files, capture core, printing), the live loopback capture tests included
+//            (#[ignore] for a plain `cargo test`; they need Npcap / libpcap, which the desktop suite needs too)
 //   web      test/e2e/web.mjs — the web build driven in headless Edge/Chrome over CDP, every feature
 //   desktop  test/e2e/desktop.mjs — the real program (debug build) over WebView2 CDP
 // The output of every tool is re-laid out as aligned, coloured result lines (test/e2e/report.mjs) and kept
@@ -28,7 +29,7 @@ const testFiles = (dir) => (fs.existsSync(path.join(root, 'test', dir)) ? fs.rea
 const CATEGORIES = [
   { id: 'js', title: 'JS unit tests', cmd: [process.execPath, ['--test', REPORTER, '--test-concurrency=1', ...testFiles('unit')]], cwd: root },
   { id: 'witness', title: 'tshark witness (dissectors, filters)', cmd: [process.execPath, ['--test', REPORTER, '--test-concurrency=1', ...testFiles('witness')]], cwd: root },
-  { id: 'rust', title: 'Rust desktop shell and capture', cmd: ['cargo', ['test', '--lib', '--', '--test-threads=1']], cwd: path.join(root, 'src-tauri') },
+  { id: 'rust', title: 'Rust desktop shell and capture', cmd: ['cargo', ['test', '--lib', '--', '--include-ignored', '--test-threads=1']], cwd: path.join(root, 'src-tauri') },
   { id: 'web', title: 'E2E: web (headless browser)', cmd: [process.execPath, ['test/e2e/web.mjs']], cwd: root },
   { id: 'desktop', title: 'E2E: desktop (real app)', cmd: [process.execPath, ['test/e2e/desktop.mjs']], cwd: root },
 ];

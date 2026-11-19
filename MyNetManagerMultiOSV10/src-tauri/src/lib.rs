@@ -603,9 +603,14 @@ fn place_popup(window: WebviewWindow, x: f64, y: f64, width: f64, height: f64, f
 
 /// Hides a popup but keeps it for the next time (menus open instantly that way).
 #[tauri::command]
-fn hide_popup(app: AppHandle, kind: String) {
+/// Hides a popup. `quiet`: a menu hiding itself before it sends its choice — the main window is not told it
+/// closed (that would cancel the choice on its way); otherwise "popup-hidden" settles a popup closed without one.
+fn hide_popup(app: AppHandle, kind: String, quiet: Option<bool>) {
     if let Some(window) = app.get_webview_window(&format!("popup-{kind}")) {
         let _ = window.hide();
+    }
+    if quiet.unwrap_or(false) {
+        return;
     }
     if let Some(main) = app.get_webview_window("main") {
         let _ = main.emit_to("main", "popup-hidden", kind);
@@ -817,6 +822,7 @@ pub fn run() {
             raise_test_panic,
             capture::capture_backend,
             capture::capture_interfaces,
+            capture::capture_activity,
             capture::capture_check_filter,
             capture::capture_start,
             capture::capture_stop,

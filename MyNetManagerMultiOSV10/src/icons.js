@@ -64,7 +64,8 @@ const base = {
   panelBottom: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 12h18"/><path d="M12 14.2v2.4"/><circle cx="12" cy="18.2" r="0.4"/>',
   // A problem list: a triangle with "!" and two lines.
   problems: '<path d="M7 3l5 9H2z"/><path d="M7 6.5v2.3M7 10.4v.1"/><path d="M14 6h7M14 11h7M3 16h18M3 20h12"/>',
-  palette: '<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.9-.6-1.3-.6-2.1 0-1 .8-1.6 1.8-1.6H17a4 4 0 0 0 4-4C21 6.7 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10" cy="7" r="1.2"/><circle cx="14.5" cy="7" r="1.2"/>',
+  // A painter's palette: the board with its thumb hole, and four dabs of paint.
+  palette: '<path d="M12 3C7 3 3 6.8 3 11.5S7 20 12 20c1.2 0 1.9-.8 1.9-1.8 0-.6-.3-1-.6-1.4-.3-.4-.6-.8-.6-1.4 0-1 .8-1.7 1.8-1.7h2.2c2.4 0 4.3-1.8 4.3-4.1C21 6.3 17 3 12 3z"/><circle cx="16.3" cy="11.2" r="1.3"/><circle cx="7.3" cy="11.6" r="1.4" fill="currentColor"/><circle cx="9.3" cy="7.4" r="1.4" fill="currentColor"/><circle cx="13.6" cy="6.6" r="1.4" fill="currentColor"/><circle cx="8.9" cy="15.4" r="1.4" fill="currentColor"/>',
   dice: '<rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="8.5" cy="8.5" r="1.1" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.1" fill="currentColor"/><circle cx="12" cy="12" r="1.1" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1.1" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1.1" fill="currentColor"/>',
   chevronDown: '<path d="M5 9l7 7 7-7"/>',
   globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3z"/>',

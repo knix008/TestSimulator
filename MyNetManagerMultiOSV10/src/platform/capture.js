@@ -35,6 +35,12 @@ export async function listInterfaces() {
   return call('capture_interfaces');
 }
 
+/** [{ name, packets }] — every interface's packet counter from the system (no capture); [] in the browser. */
+export async function interfaceActivity() {
+  if (!isTauri()) return [];
+  return call('capture_activity');
+}
+
 /** BPF capture filter check → { ok, error } (an empty filter is ok). */
 export async function checkCaptureFilter(linktype, filter) {
   if (!isTauri()) return { ok: true, error: null };

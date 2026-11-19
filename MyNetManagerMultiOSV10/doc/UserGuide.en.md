@@ -104,7 +104,9 @@ capture, or one with new comments) is marked with a dot, and the program asks be
 ### Interfaces and the capture filter
 
 The **Capture** card on the start page lists the network interfaces (Ethernet, Wi-Fi, loopback, virtual adapters…)
-with their addresses. Click an interface to choose it; double-click it, or press its ▶ button, to start capturing on
+with their addresses. The **light** in front of each shows whether packets are moving on it now: **blinking green** =
+packets in the last second, **blinking red** = none, grey = still checking (the system's interface counters, read every
+second — no capture needed). The demo interface is always green. Click an interface to choose it; double-click it, or press its ▶ button, to start capturing on
 it. **Refresh** reads the list again (**Capture › Refresh Interfaces**).
 
 The **Capture filter** box above the list takes a BPF capture filter, such as `tcp port 443` or `host 192.168.0.10`.
@@ -119,7 +121,7 @@ Its syntax is different from display filters (see [Display filters](#display-fil
 | `udp port 53 or udp port 67` | DNS and DHCP |
 | `not arp and not icmp` | everything except ARP and ICMP |
 
-Under the capture filter box are **preset capture filters**: TCP, UDP, Web (80, 443), DNS (53), DHCP, ARP, ICMP,
+Under the capture filter box are **preset capture filters** (with **All** and **None** first): TCP, UDP, Web (80, 443), DNS (53), DHCP, ARP, ICMP,
 IPv6, VLAN and No broadcast or multicast. Like the display filter presets they combine with **OR** (TCP and DNS make
 `tcp or port 53`); a highlighted button pressed again takes only its condition out, and a filter typed in the box
 stays. The capture filter of the **Capture Options** window has the same buttons.
@@ -334,7 +336,8 @@ are hidden, not deleted.
   (manage saved filters), **Add filter button…** and the saved filters themselves.
 - **Filter buttons** (such as **TCP problems**) at the right of the bar apply a saved filter with one click.
   **Add filter button…** makes a new one from the current filter.
-- Under the bar is a row of **preset filters**: TCP, UDP, HTTP, TLS, **TLS 1.0**, **TLS 1.1**, **TLS 1.2**,
+- Under the bar is a row of **preset filters**. **All** at the front turns every button on (all ORed together) and
+  **None** turns them all off (a filter typed in the box stays). Then come TCP, UDP, HTTP, TLS, **TLS 1.0**, **TLS 1.1**, **TLS 1.2**,
   **TLS 1.3**, QUIC, DNS, DHCP, ARP, ICMP, TCP SYN, Retransmissions, TCP problems, Broadcast, No ARP and DNS. Presets combine with **OR**, because most of them can
   never match the same packet: **DNS** applies `dns`, then **UDP** makes it `dns or udp` (packets that match either
   are shown) and both stay highlighted. Only pressing a highlighted button again takes its condition out. A filter

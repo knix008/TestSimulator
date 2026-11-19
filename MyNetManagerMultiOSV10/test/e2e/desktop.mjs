@@ -186,7 +186,8 @@ test('docs.window', "The user's guide opens in its own window", async () => {
   let found = null;
   while (!found && Date.now() < deadline) {
     for (const t of (await targets()).filter((x) => x.type === 'page')) {
-      const win = await connect(t).catch(() => null);
+      // A hidden popup's page can take very long to accept a connection: give each one 3 s, not the whole wait.
+      const win = await Promise.race([connect(t), sleep(3000).then(() => null)]).catch(() => null);
       if (!win) continue;
       // A hidden popup can be slow to answer: ask each window briefly.
       const label = await Promise.race([win.evaluate('window.__TAURI_INTERNALS__?.metadata?.currentWindow?.label ?? ""'), sleep(2000).then(() => '')]).catch(() => '');

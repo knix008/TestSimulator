@@ -50,6 +50,13 @@ async function close(value = null) {
 }
 
 async function hide(value = null) {
+  // A menu disappears first and then sends its choice: the choice may open another window (Print…, Expert
+  // Information), and the menu stayed on screen until that window was up (1–3 s) when it hid afterwards.
+  if (desktop && kind === 'menu') {
+    await native.invoke('hide_popup', { kind, quiet: true }).catch(() => {});
+    await result(value);
+    return;
+  }
   await result(value);
   if (desktop) await native.invoke('hide_popup', { kind }).catch(() => {});
   else send('hide');
@@ -686,6 +693,9 @@ function placeMenuWindow(x, y, width, height, flipY = null) {
 
 /** Sizes the popup to the open panels (plus their shadow margin) and puts each panel at its place. */
 function layoutMenus() {
+  // A chosen or dismissed menu stays hidden: a late hover (opening or closing a submenu) laid it out again and
+  // place_popup showed it over the window the choice had just opened.
+  if (!menuOpen) return;
   const left = Math.min(...menuPanels.map((p) => p.x)) - MENU_MARGIN;
   const top = Math.min(...menuPanels.map((p) => p.y)) - MENU_MARGIN;
   const right = Math.max(...menuPanels.map((p) => p.x + p.w)) + MENU_MARGIN;
@@ -702,6 +712,9 @@ function renderMenu() {
   const p = P();
   // Created ahead of time (prewarm) or reopened without a menu: stay hidden.
   if (p.prewarm || !Array.isArray(p.items) || !shownOnce()) return;
+  // The opening this menu already answered (chosen or dismissed) is never shown again, whatever renders it later
+  // (cached parameters): only a new opening — a new `at` — shows the menu.
+  if (!menuOpen && p.at != null && p.at === answeredAt) return;
   setOsTitle(p.header?.title);
   clearTimeout(menuTimer);
   // Items only: no name/icon header row (the name stays the window title and the accessible name).
@@ -777,6 +790,8 @@ function openSubmenu(row, focusFirst = false) {
 
 let menuOpen = false;
 let menuShownAt = null;
+/** The `at` of the opening the menu last answered (chooseMenu): renderMenu never shows that opening again. */
+let answeredAt = null;
 const loadedAt = Date.now();
 function shownOnce() {
   const at = Number(P().at) || 0;
@@ -789,6 +804,7 @@ async function chooseMenu(id, row = null) {
   if (item?.classList.contains('has-sub') && openSubmenu(item, true)) return;
   menuOpen = false;
   clearTimeout(menuTimer);
+  answeredAt = menuShownAt;
   forgetMenu();
   // A group without its items (should not happen): the host opens them in a menu just right of the row.
   if (item?.classList.contains('has-sub')) {

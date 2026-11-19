@@ -616,14 +616,15 @@ test('chrome.toolbarExtras', 'Toolbar: Print ends the file group, the text size 
 
 test('chrome.foldRails', 'Folded side panels are narrow rails with a vertical title; the map has its fold button at the right', async () => {
   await openSample('mixed-office-lan');
-  const r = await run(`A.actions.updateSettings({ showNetMap: true, showLeftPanel: true, paneLayout: 'bytes-right', showBytes: true }); await until(() => q('.pane-map [data-fold="map"]'));
-    const tools = q('.pane-map .nm-tools'); const lastFold = tools.lastElementChild?.dataset.fold;
+  const r = await run(`A.actions.updateSettings({ showNetMap: true, showLeftPanel: true, paneLayout: 'bytes-right', showBytes: true }); await until(() => q('.pane-map .nm-tools')?.children.length && q('.pane-map').getBoundingClientRect().width > 0); await sleep(300);
+    const mapWidth = A.state.settings.mapWidth; const lastFold = q('.pane-map .nm-head').lastElementChild?.dataset.fold; A.actions.updateSettings({ mapWidth: 260 }); await until(() => q('.pane-map .nm-tools')?.children.length); await sleep(400); const fb = q('.pane-map [data-fold="map"]').getBoundingClientRect(); const pane = q('.pane-map').getBoundingClientRect(); const foldInside = fb.width > 0 && fb.right <= pane.right + 0.5 && fb.right <= innerWidth + 0.5; const foldAt = Math.round(fb.left) + '–' + Math.round(fb.right) + ' px, pane ends at ' + Math.round(pane.right) + ', window ' + innerWidth;
     A.actions.updateSettings({ showLeftPanel: false, showBytes: false }); await sleep(250);
     const rail = q('.rail-left').getBoundingClientRect().width; const title = getComputedStyle(q('.rail-left .rail-title')).writingMode;
     const strip = q('.pane-bytes').getBoundingClientRect().width; const stripTitle = getComputedStyle(q('.pane-bytes .pane-title')).writingMode;
-    A.actions.updateSettings({ showLeftPanel: true, showBytes: true, paneLayout: 'stack', showNetMap: false }); await sleep(150);
-    return { lastFold, rail, title, strip, stripTitle };`);
+    A.actions.updateSettings({ showLeftPanel: true, showBytes: true, paneLayout: 'stack', showNetMap: false, mapWidth }); await sleep(150);
+    return { lastFold, foldInside, foldAt, rail, title, strip, stripTitle };`);
   assert(r.lastFold === 'map', 'the map header has no fold button at its right end');
+  assert(r.foldInside, `the map fold button is cut off when the map pane is narrow: ${r.foldAt}`);
   assert(r.rail <= 28 && r.strip <= 28, `rail ${r.rail}px, strip ${r.strip}px`);
   assert(r.title === 'vertical-rl' && r.stripTitle === 'vertical-rl', `titles: ${r.title}, ${r.stripTitle}`);
 });
@@ -635,6 +636,10 @@ test('filter.presets', 'Preset filters (display bar, start page and Capture Opti
     const presets = qa('[data-df-preset]').map((b) => b.dataset.dfPreset); const click = async (f) => { q('[data-df-preset="' + f + '"]').click(); await sleep(250); return { text: q('.df-input').value, on: qa('[data-df-preset].on').map((b) => b.dataset.dfPreset), shown: A.doc().displayed.length }; };
     const one = await click('dns'); const two = await click('udp'); const back = await click('dns'); const none = await click('udp');
     A.view().setFilterText('frame.len > 60'); await A.actions.applyDisplayFilter('frame.len > 60'); await sleep(200); const typed = await click('dns');
+    await A.actions.applyDisplayFilter(''); A.view().setFilterText('');
+    // All turns every preset on (ORed), None every preset off.
+    q('[data-df-preset="*all"]').click(); await sleep(400); const allOn = { on: qa('[data-df-preset].on:not(.preset-all)').length, presets: qa('[data-df-preset]:not(.preset-all):not(.preset-none)').length, allPressed: q('[data-df-preset="*all"]').classList.contains('on') };
+    q('[data-df-preset="*none"]').click(); await sleep(400); const noneText = q('.df-input').value;
     await A.actions.applyDisplayFilter('');
     A.actions.updateSettings({ captureFilter: '' }, { quiet: true }); A.actions.showStartPage(true); await until(() => q('[data-capture-preset]'));
     q('[data-capture-preset="tcp"]').click(); await sleep(150); q('[data-capture-preset="port 53"]').click(); await sleep(150);
@@ -643,7 +648,7 @@ test('filter.presets', 'Preset filters (display bar, start page and Capture Opti
     pop('capopts').querySelector('[data-action="cap-preset"][data-value="tcp"]').click(); await sleep(200);
     const capopts = { filter: pop('capopts').querySelector('[data-net="captureFilter"]').value, on: pop('capopts').querySelectorAll('[data-action="cap-preset"].on').length };
     await A.popups.close('capopts'); A.actions.updateSettings({ captureFilter: '' }, { quiet: true });
-    return { presets, one, two, back, none, typed, start, capopts };`);
+    return { presets, one, two, back, none, typed, start, capopts, allOn, noneText };`);
   assert(r.presets.length >= 10 && r.presets.includes('tcp') && r.presets.includes('http'), `presets: ${r.presets}`);
   assert(r.one.text === 'dns' && r.one.shown > 0 && r.one.shown < total, `one: ${JSON.stringify(r.one)}`);
   assert(r.two.text === 'dns or udp' && r.two.on.length === 2 && r.two.shown >= r.one.shown, `two presets are not ORed: ${JSON.stringify(r.two)}`);
@@ -651,6 +656,8 @@ test('filter.presets', 'Preset filters (display bar, start page and Capture Opti
   assert(r.typed.text === '(frame.len > 60) or dns', `typed filter OR preset: "${r.typed.text}"`);
   assert(r.start.filter === 'tcp or port 53' && r.start.on === 2 && r.start.box === 'tcp or port 53', `start page capture presets: ${JSON.stringify(r.start)}`);
   assert(r.capopts.filter === 'port 53' && r.capopts.on === 1, `Capture Options presets: ${JSON.stringify(r.capopts)}`);
+  assert(r.allOn.on === r.allOn.presets && r.allOn.allPressed, `All: ${JSON.stringify(r.allOn)}`);
+  assert(r.noneText === '', `None left "${r.noneText}"`);
 });
 
 test('stats.listTools', 'Expert information: filters on top, striped rows, heading sort in the tree, expand / collapse all', async () => {
@@ -728,6 +735,27 @@ test('filter.tlsVersions', 'TLS 1.0–1.3 presets: _ws.col.protocol keeps exactl
       const doc = A.doc(); out[v] = { shown: doc.displayed.length, wrong: doc.displayed.filter((i) => doc.summary(i).protocol !== v).length }; }
     await A.actions.applyDisplayFilter(''); return out;`);
   for (const [v, x] of Object.entries(r)) assert(x.shown > 0 && x.wrong === 0, `${v}: ${JSON.stringify(x)}`);
+});
+
+test('start.activityLights', 'Capture card: every interface has an activity light; the demo interface blinks green', async () => {
+  const r = await run(`A.actions.showStartPage(true); await until(() => q('#start-page [data-led]'));
+    await until(() => q('#start-page [data-led="demo"]').classList.contains('on'), 4000);
+    const rows = qa('#start-page .iface-row').length; const leds = qa('#start-page .iface-row [data-led]').length;
+    const demo = q('#start-page [data-led="demo"]'); const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches; return { rows, leds, on: demo.classList.contains('on'), colour: getComputedStyle(demo).backgroundColor, anim: getComputedStyle(demo).animationName, reduced, label: demo.getAttribute('aria-label') };`);
+  assert(r.rows > 0 && r.rows === r.leds, `rows ${r.rows}, lights ${r.leds}`);
+  // Green; blinking unless the system asks for reduced motion (the headless browser may).
+  assert(r.on && r.colour === 'rgb(34, 197, 94)' && (r.reduced || r.anim === 'iface-blink'), `demo light: ${JSON.stringify(r)}`);
+});
+
+test('help.welcomeOnStart', 'The welcome window (start the tutorial?) shows only over the start page', async () => {
+  await openSample('dns-queries');
+  const r = await run(`A.actions.showStartPage(false); await sleep(150); const before = !q('#start-page').hidden;
+    A.run('welcome'); await until(() => pop('welcome')?.querySelector('.popup-body')); const startShown = !q('#start-page').hidden;
+    await A.actions.openSample('dns-queries'); await sleep(400); const closed = !A.popups.isOpen('welcome') && !q('.web-popup-welcome');
+    return { before, startShown, closed };`);
+  assert(!r.before, 'the start page was showing before the test');
+  assert(r.startShown, 'Help › Welcome did not bring the start page to the front');
+  assert(r.closed, 'the welcome window stayed open over a capture');
 });
 
 test('i18n.noRawKeys', 'No untranslated text keys anywhere, in Korean and English', async () => {

@@ -74,11 +74,21 @@ export function activePresets(text, presets) {
   return presets.filter(([, f]) => parts.some((p) => same(p, f))).map(([, f]) => f);
 }
 
-/** The filter after pressing one preset: added as one more OR part, or (when it is on) taken out. Other parts stay. */
+/** The two buttons before the presets: every preset on (ALL) and every preset off (NONE). */
+export const ALL = '*all';
+export const NONE = '*none';
+
+/**
+ * The filter after pressing one preset: added as one more OR part, or (when it is on) taken out. ALL turns every
+ * preset on, NONE every preset off; typed parts that are not presets stay in every case.
+ */
 export function togglePreset(text, filter, presets) {
   const whole = String(text ?? '').trim();
   let parts = presets.some(([, f]) => same(f, whole)) ? [whole] : orParts(whole).map(unwrap);
-  if (parts.some((p) => same(p, filter))) parts = parts.filter((p) => !same(p, filter));
+  const isPreset = (p) => presets.some(([, f]) => same(f, p));
+  if (filter === ALL) parts = [...parts.filter((p) => !isPreset(p)), ...presets.map(([, f]) => f)];
+  else if (filter === NONE) parts = parts.filter((p) => !isPreset(p));
+  else if (parts.some((p) => same(p, filter))) parts = parts.filter((p) => !same(p, filter));
   else parts = [...parts, filter];
   // Parentheses only around a part with operators of its own ("port 53" stays bare, "frame.len > 60" does not).
   const wrap = (p) => (parts.length > 1 && /\b(or|and|not)\b|&&|\|\||!|[=<>~]/i.test(p) ? `(${p})` : p);
@@ -88,5 +98,7 @@ export function togglePreset(text, filter, presets) {
 /** The preset row's HTML: one toggle button per preset, `data-<attr>` carrying the filter. */
 export function presetButtons(presets, text, { t, icon, escapeHtml, attr = 'data-preset', label = '', i18n = 'filterPreset' }) {
   const on = new Set(activePresets(text, presets));
-  return `<div class="filter-presets" role="toolbar" aria-label="${escapeHtml(label)}">${presets.map(([name, filter, glyph]) => `<button type="button" class="filter-preset ${on.has(filter) ? 'on' : ''}" ${attr}="${escapeHtml(filter)}" title="${escapeHtml(filter)}" aria-pressed="${on.has(filter)}">${icon(glyph)}<span>${escapeHtml(t(`${i18n}.${name}`))}</span></button>`).join('')}</div>`;
+  const all = on.size === presets.length;
+  const special = [[ALL, 'all', 'check', all], [NONE, 'none', 'close', false]].map(([value, name, glyph, pressed]) => `<button type="button" class="filter-preset preset-${name} ${pressed ? 'on' : ''}" ${attr}="${escapeHtml(value)}" title="${escapeHtml(t(`${i18n}.${name}`))}" ${name === 'all' ? `aria-pressed="${pressed}"` : ''} ${name === 'none' && !on.size ? 'disabled' : ''}>${icon(glyph)}<span>${escapeHtml(t(`${i18n}.${name}`))}</span></button>`).join('');
+  return `<div class="filter-presets" role="toolbar" aria-label="${escapeHtml(label)}">${special}<span class="preset-sep" aria-hidden="true"></span>${presets.map(([name, filter, glyph]) => `<button type="button" class="filter-preset ${on.has(filter) ? 'on' : ''}" ${attr}="${escapeHtml(filter)}" title="${escapeHtml(filter)}" aria-pressed="${on.has(filter)}">${icon(glyph)}<span>${escapeHtml(t(`${i18n}.${name}`))}</span></button>`).join('')}</div>`;
 }

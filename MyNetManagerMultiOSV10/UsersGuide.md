@@ -109,7 +109,9 @@ Ping 펄스, 위성 링크, 트래픽 히트맵, 패킷 목록, 무선 스펙트
 ##### 인터페이스와 캡처 필터
 
 시작 화면의 **캡처** 카드에는 네트워크 인터페이스(이더넷, Wi-Fi, 루프백, 가상 어댑터…)와 그 주소가
-나옵니다. 인터페이스를 클릭하면 고르고, 두 번 클릭하거나 ▶ 단추를 누르면 그 인터페이스에서 캡처를
+나옵니다. 줄 앞의 **불빛**은 지금 그 인터페이스로 패킷이 오가는지 보여 줍니다: **초록으로 깜빡임** = 지난 1초 동안
+패킷이 오감, **빨강으로 깜빡임** = 패킷 없음, 회색 = 확인 중(운영 체제의 인터페이스 카운터를 1초마다 읽으며, 캡처하지
+않아도 됩니다). 데모 인터페이스는 언제나 초록입니다. 인터페이스를 클릭하면 고르고, 두 번 클릭하거나 ▶ 단추를 누르면 그 인터페이스에서 캡처를
 시작합니다. **새로 고침**은 목록을 다시 읽습니다(**캡처 › 인터페이스 새로 고침**).
 
 목록 위의 **캡처 필터** 칸에는 `tcp port 443`, `host 192.168.0.10` 같은 BPF 캡처 필터를 적습니다. 캡처 필터는
@@ -124,7 +126,7 @@ Ping 펄스, 위성 링크, 트래픽 히트맵, 패킷 목록, 무선 스펙트
 | `udp port 53 or udp port 67` | DNS와 DHCP |
 | `not arp and not icmp` | ARP와 ICMP를 뺀 모든 패킷 |
 
-캡처 필터 칸 아래에는 **미리 설정된 캡처 필터** 단추가 있습니다: TCP, UDP, 웹(80·443), DNS(53), DHCP, ARP,
+캡처 필터 칸 아래에는 **미리 설정된 캡처 필터** 단추가 있습니다(맨 앞에 **전체 선택**·**전체 취소**): TCP, UDP, 웹(80·443), DNS(53), DHCP, ARP,
 ICMP, IPv6, VLAN, 브로드캐스트·멀티캐스트 제외. 디스플레이 필터의 미리 설정된 필터처럼 **OR 조건**으로 겹칩니다
 (TCP와 DNS를 누르면 `tcp or port 53`). 강조된 단추를 다시 누르면 그 조건만 빠지고, 칸에 직접 적은 필터는
 그대로 남습니다. **캡처 옵션** 창의 캡처 필터에도 같은 단추가 있습니다.
@@ -336,7 +338,8 @@ HTTP …) 트리로 보여 줍니다. [대괄호] 줄은 MyNetManager가 계산�
   **필터 단추 추가…**, 그리고 저장한 필터들.
 - 막대 오른쪽의 **필터 단추**(예: **TCP problems**)는 저장한 필터를 한 번에 적용합니다. **필터 단추 추가…**로
   지금 필터를 단추로 만듭니다.
-- 막대 아래 줄에는 **미리 설정된 필터** 단추가 늘어서 있습니다: TCP, UDP, HTTP, TLS, **TLS 1.0**, **TLS 1.1**,
+- 막대 아래 줄에는 **미리 설정된 필터** 단추가 늘어서 있습니다. 맨 앞의 **전체 선택**은 모든 단추를 켜고(모두 OR로 합침), **전체 취소**는
+  모두 끕니다(입력 칸에 직접 적은 필터는 남음). 이어서 TCP, UDP, HTTP, TLS, **TLS 1.0**, **TLS 1.1**,
   **TLS 1.2**, **TLS 1.3**, QUIC, DNS, DHCP, ARP, ICMP, TCP SYN, 재전송, TCP 문제, 브로드캐스트, ARP·DNS 제외. 단추는 **OR 조건**으로 겹칩니다: **DNS**를
   누르면 `dns`, 이어서 **UDP**를 누르면 `dns or udp`가 적용되어 둘 중 하나에 맞는 패킷이 모두 보이고, 켜진
   단추는 강조됩니다. 강조된 단추를 다시 누르면 그 조건만 빠집니다. 입력 칸에 이미 적어 둔 필터가 있으면 거기에
@@ -915,7 +918,9 @@ capture, or one with new comments) is marked with a dot, and the program asks be
 ##### Interfaces and the capture filter
 
 The **Capture** card on the start page lists the network interfaces (Ethernet, Wi-Fi, loopback, virtual adapters…)
-with their addresses. Click an interface to choose it; double-click it, or press its ▶ button, to start capturing on
+with their addresses. The **light** in front of each shows whether packets are moving on it now: **blinking green** =
+packets in the last second, **blinking red** = none, grey = still checking (the system's interface counters, read every
+second — no capture needed). The demo interface is always green. Click an interface to choose it; double-click it, or press its ▶ button, to start capturing on
 it. **Refresh** reads the list again (**Capture › Refresh Interfaces**).
 
 The **Capture filter** box above the list takes a BPF capture filter, such as `tcp port 443` or `host 192.168.0.10`.
@@ -930,7 +935,7 @@ Its syntax is different from display filters (see [Display filters](#display-fil
 | `udp port 53 or udp port 67` | DNS and DHCP |
 | `not arp and not icmp` | everything except ARP and ICMP |
 
-Under the capture filter box are **preset capture filters**: TCP, UDP, Web (80, 443), DNS (53), DHCP, ARP, ICMP,
+Under the capture filter box are **preset capture filters** (with **All** and **None** first): TCP, UDP, Web (80, 443), DNS (53), DHCP, ARP, ICMP,
 IPv6, VLAN and No broadcast or multicast. Like the display filter presets they combine with **OR** (TCP and DNS make
 `tcp or port 53`); a highlighted button pressed again takes only its condition out, and a filter typed in the box
 stays. The capture filter of the **Capture Options** window has the same buttons.
@@ -1145,7 +1150,8 @@ are hidden, not deleted.
   (manage saved filters), **Add filter button…** and the saved filters themselves.
 - **Filter buttons** (such as **TCP problems**) at the right of the bar apply a saved filter with one click.
   **Add filter button…** makes a new one from the current filter.
-- Under the bar is a row of **preset filters**: TCP, UDP, HTTP, TLS, **TLS 1.0**, **TLS 1.1**, **TLS 1.2**,
+- Under the bar is a row of **preset filters**. **All** at the front turns every button on (all ORed together) and
+  **None** turns them all off (a filter typed in the box stays). Then come TCP, UDP, HTTP, TLS, **TLS 1.0**, **TLS 1.1**, **TLS 1.2**,
   **TLS 1.3**, QUIC, DNS, DHCP, ARP, ICMP, TCP SYN, Retransmissions, TCP problems, Broadcast, No ARP and DNS. Presets combine with **OR**, because most of them can
   never match the same packet: **DNS** applies `dns`, then **UDP** makes it `dns or udp` (packets that match either
   are shown) and both stay highlighted. Only pressing a highlighted button again takes its condition out. A filter

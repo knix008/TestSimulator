@@ -37,6 +37,8 @@
 .filter-preset .icon { width: 13px; height: 13px; }
 .filter-preset:hover { border-color: var(--accent); background: var(--hover); }
 .filter-preset.on { border-color: var(--accent); background: var(--soft-accent); font-weight: 600; }
+.filter-preset:disabled { opacity: 0.45; cursor: default; }
+.preset-sep { width: 1px; align-self: stretch; margin: 2px 2px; background: var(--border); }
 .cap-view.no-filterbar .cap-filterbar { display: none; }
 .df-field { position: relative; flex: 1; min-width: 200px; display: flex; align-items: center; gap: 4px; padding: 0 4px 0 8px; height: 30px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); transition: background-color 0.12s, border-color 0.12s; }
 .df-field:focus-within { box-shadow: var(--ring); border-color: var(--accent); }
@@ -54,7 +56,7 @@
 .df-option:hover, .df-option.active { background: var(--soft-accent); }
 
 .cap-main { flex: 1; min-height: 0; display: flex; }
-.cap-center { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.cap-center { flex: 1; min-width: 360px; min-height: 0; display: flex; flex-direction: column; }
 .cap-panes { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .pane { min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; background: var(--surface); }
 .pane-list { flex: 0 0 var(--list-share); }
@@ -70,7 +72,8 @@
 .side-split, .map-split { flex: 0 0 5px; cursor: col-resize; background: var(--panel); }
 .splitter:hover { background: color-mix(in srgb, var(--accent) 40%, transparent); }
 .pane-left { flex: 0 0 var(--left-width); border-right: 1px solid var(--hairline); }
-.pane-map { flex: 0 0 var(--map-width); min-width: 260px; border-left: 1px solid var(--hairline); display: flex; }
+/* clip, not hidden: a clipped pane cannot be scrolled sideways (focusing its fold button once shifted the whole header). */
+.pane-map { flex: 0 0 var(--map-width); min-width: 260px; border-left: 1px solid var(--hairline); display: flex; overflow: clip; }
 .pane-bottom { flex: 0 0 var(--bottom-height); border-top: 1px solid var(--hairline); }
 .cap-view.no-filterbar .cap-filterbar { display: none; }
 .cap-view.no-list .pane-list, .cap-view.no-list [data-pane-split="list"] { display: none; }
@@ -120,7 +123,10 @@
 .nav-empty { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 18px; color: var(--muted); }
 
 /* Bottom panel: tabs in its title bar, a tool row, a table that fills it. */
-.bottom-tools { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.bottom-tools { display: inline-flex; align-items: center; gap: 8px; min-width: 0; flex: 0 1 auto; overflow: hidden; }
+/* Every panel title bar keeps its fold button: the title and tools shrink and clip, the button never moves out. */
+.pane-head > .pane-fold, .nm-head > .pane-fold { flex: none; }
+.pane-head > .pane-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bottom-tabs { display: inline-flex; gap: 2px; }
 .bottom-tab { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; border: 1px solid transparent; border-radius: 7px; background: none; color: var(--muted); font-weight: 600; cursor: pointer; }
 .bottom-tab:hover { background: var(--hover); color: var(--text); }
@@ -204,8 +210,10 @@ html[data-mode="dark"] .pl-row:hover { filter: brightness(1.12); }
 
 .net-map { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--surface); }
 .nm-head { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--hairline); }
-.nm-title { font-weight: 600; flex: 1; }
-.nm-tools { display: inline-flex; align-items: center; gap: 2px; }
+/* A narrow map pane clips its title and tools; the fold button at the right end always stays. */
+.nm-title { font-weight: 600; flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nm-tools { display: inline-flex; align-items: center; gap: 2px; flex: 0 1 auto; min-width: 0; overflow: hidden; }
+.nm-fold { flex: none; }
 .nm-tools select { max-width: 130px; }
 .nm-tools .icon-button.active { background: var(--soft-accent); color: var(--accent); }
 .nm-canvas { position: relative; flex: 1; min-height: 0; overflow: hidden; background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--accent) 6%, var(--surface)), var(--surface)); }
@@ -251,6 +259,12 @@ html[data-mode="dark"] .pl-row:hover { filter: brightness(1.12); }
 .start-filter input { flex: 1; min-width: 0; height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); font-family: var(--mono); }
 .iface-list { max-height: 360px; overflow: auto; }
 .iface-row.on { background: var(--soft-accent); border-radius: 8px; }
+/* Activity light: green blinking = packets right now, red blinking = none, grey = not known (yet). */
+.iface-led { flex: none; width: 9px; height: 9px; margin: 0 2px 0 6px; border-radius: 50%; background: var(--muted); opacity: 0.45; }
+.iface-led.on { background: #22c55e; opacity: 1; box-shadow: 0 0 6px #22c55e; animation: iface-blink 0.9s ease-in-out infinite; }
+.iface-led.off { background: #ef4444; opacity: 1; box-shadow: 0 0 4px #ef4444; animation: iface-blink 1.8s ease-in-out infinite; }
+@keyframes iface-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .iface-led.on, .iface-led.off { animation: none; } }
 .iface-row.on .name { color: var(--accent); }
 .iface-row.down { opacity: 0.6; }
 .capture-go .icon { color: #1f8ef1; }

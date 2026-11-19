@@ -312,12 +312,28 @@ function fontInstalled(family) {
 
 export const setWindowTheme = (dark) => (isDesktop() ? getCurrentWindow().setTheme(dark ? 'dark' : 'light').catch(() => {}) : Promise.resolve());
 
+/**
+ * The window's minimum size (the toolbar's width, which changes with the language). A maximized or full-screen
+ * window keeps its size: setting a minimum (or a size) then makes Windows restore it to a normal window, so the
+ * minimum waits until the window is restored again (applyPendingMinimumSize).
+ */
+let pendingMinimum = null;
 export async function setMinimumSize(width, height) {
   if (!isDesktop()) return;
   const appWindow = getCurrentWindow();
+  const [maximized, fullscreen] = await Promise.all([appWindow.isMaximized().catch(() => false), appWindow.isFullscreen().catch(() => false)]);
+  if (maximized || fullscreen) { pendingMinimum = { width, height }; return; }
+  pendingMinimum = null;
   await appWindow.setMinSize(new LogicalSize(width, height));
   // An already narrower window grows to the new minimum at once.
   if (window.innerWidth < width - 1) await appWindow.setSize(new LogicalSize(width, Math.max(height, window.innerHeight)));
+}
+
+/** The minimum that waited while the window was maximized or full screen (app.js calls it once it is restored). */
+export function applyPendingMinimumSize() {
+  if (!pendingMinimum) return Promise.resolve();
+  const { width, height } = pendingMinimum;
+  return setMinimumSize(width, height);
 }
 
 /** The computer's printers: { printers, defaultPrinter }; none in the browser and outside Windows. */

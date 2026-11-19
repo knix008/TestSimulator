@@ -77,6 +77,8 @@ export const FEATURES = [
   { name: 'Pictures as PNG, JPEG, WebP, GIF, AVIF, SVG; Markdown pictures inside or linked', cases: ['export.images'] },
   { name: 'Print and export from the right-click menu of a packet, its details, its bytes, the list and a tab', cases: ['export.contextMenus'] },
   { name: 'TLS versions told apart: TLS 1.0–1.3 presets and _ws.col.protocol / _ws.col.info column fields', cases: ['filter.tlsVersions'], },
+  { name: 'Capture card activity lights: green blinking with packets, red blinking without (system counters)', cases: ['start.activityLights'] },
+  { name: 'The welcome window (tutorial offer) only over the start page', cases: ['help.welcomeOnStart'] },
   { name: 'Korean and English everywhere (no untranslated keys)', cases: ['i18n.noRawKeys'] },
   { name: 'No errors in the page', cases: ['errors.none'] },
 ];

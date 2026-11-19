@@ -1152,7 +1152,7 @@ html.popup-kind-color body, html.popup-kind-color #app { background: var(--surfa
 .props .check-row { margin: 4px 0; }
 
 /* Settings: short rows side by side in two columns; notes, samples and wide controls take the full width. */
-.settings-general, .settings-start, .settings-background, .settings-drawing, .settings-defaults, .settings-font { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px; align-content: start; }
+.settings-general, .settings-start, .settings-background, .settings-drawing, .settings-defaults, .settings-font { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; }
 .settings-page > .row { --label-col: 280px; }
 .settings-page > .row:has(> .row-label > span:empty), .settings-page > .font-sample, .settings-page > .row.full { grid-column: 1 / -1; }
 
@@ -1352,6 +1352,11 @@ html.popup-kind-color body, html.popup-kind-color #app { background: var(--surfa
 /* ───────────────────────── tab bar: the project, then a tab per diagram */
 #tabs[hidden] { display: none; }
 
+/* Settings: one column, every label in one column and every value control starting at the same line; the value
+   controls of a kind are one width — number fields (whatever their unit), lists and text boxes — so nothing looks ragged. */
+.popup-settings .stepper .stepper-unit { width: 34px; justify-content: flex-start; padding: 0 0 0 4px; box-sizing: border-box; }
+.popup-settings .stepper:not(:has(.stepper-unit)) .stepper-value { width: 96px; }
+.popup-settings .row-control > select, .popup-settings .row-control > input[type="text"]:not(.stepper-value), .popup-settings .row-control > input:not([type]) { flex: 0 0 300px !important; width: 300px; max-width: 100% !important; }
 /* Settings: a long label (English) wraps onto a second line instead of being cut off. */
 .popup-settings .row-label > span { white-space: normal; line-height: 1.25; }
 
@@ -1687,6 +1692,14 @@ select.dd-select { background-repeat: no-repeat; background-position: 8px center
 .print-options .row { min-height: 28px; }
 .print-options .row:has(> .row-label):not(:has(.switch-wrap)) { padding: 3px 0; gap: 2px; }
 .print-options .row-label { font-size: 0.92em; }
+/* Every option row: its label in one column, its control in the next — switches, lists and text boxes all start at
+   the same line and lists / text boxes are one width (labels above controls and switches pushed right looked ragged). */
+.print-options .row.row:has(> .row-label) {
+  display: grid !important; grid-template-columns: 112px minmax(0, 1fr); align-items: center; column-gap: 8px; padding: 3px 0;
+}
+.print-options .row:has(> .row-label) .row-label > span { white-space: normal; line-height: 1.2; }
+.print-options .row:has(> .row-label) .row-control { justify-self: stretch; justify-content: flex-start; min-width: 0; }
+.print-options .row:has(.switch-wrap) .row-control { justify-self: start; }
 
 /* ───────── the icon window */
 .icon-picker { display: flex; flex-direction: column; height: 100%; min-height: 0; gap: 8px; padding: 10px 14px; }

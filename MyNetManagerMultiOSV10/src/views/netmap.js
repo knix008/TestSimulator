@@ -21,7 +21,7 @@ export class NetMap {
     this.size = { width: 900, height: 640 };
     host.classList.add('net-map');
     host.innerHTML = `<header class="nm-head panel-header">${icon('paneMap')}<span class="nm-title"></span>
-      <span class="nm-tools"></span></header>
+      <span class="nm-tools"></span><button class="icon-button pane-fold nm-fold" data-fold="map">${icon('panelRight')}</button></header>
       <div class="nm-canvas"><svg class="nm-svg" role="img"><g class="nm-world"><g class="nm-subnets"></g><g class="nm-links"></g><g class="nm-nodes"></g></g></svg>
         <div class="nm-empty" hidden></div><div class="nm-tip" hidden></div><div class="nm-legend"></div></div>
       <footer class="nm-foot"></footer>`;
@@ -91,8 +91,7 @@ export class NetMap {
       <button class="icon-button ${s.netmapShowMulticast ? 'active' : ''}" data-nm="multicast" aria-pressed="${s.netmapShowMulticast}" title="${escapeHtml(t('netmap.showMulticast'))}">${icon('netMulticast')}</button>
       <button class="icon-button" data-nm="fit" title="${escapeHtml(t('netmap.fit'))}">${icon('fitPage')}</button>
       <button class="icon-button" data-nm="refresh" title="${escapeHtml(t('netmap.refresh'))}">${icon('refresh')}</button>
-      <button class="icon-button" data-nm="export" title="${escapeHtml(t('netmap.export'))}">${icon('netExportImage')}</button>
-      <button class="icon-button pane-fold" data-fold="map" title="${escapeHtml(t('panel.fold', { name: t('netmap.title') }))}" aria-label="${escapeHtml(t('panel.fold', { name: t('netmap.title') }))}" aria-expanded="true">${icon('panelRight')}</button>`;
+      <button class="icon-button" data-nm="export" title="${escapeHtml(t('netmap.export'))}">${icon('netExportImage')}</button>`;
     const empty = this.host.querySelector('.nm-empty');
     empty.hidden = Boolean(topo?.nodes.length);
     empty.innerHTML = `${icon('paneMap')}<span>${escapeHtml(topo ? t('netmap.noHosts') : t('netmap.noCapture'))}</span>`;

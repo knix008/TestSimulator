@@ -106,9 +106,7 @@ export class CaptureView {
       button.setAttribute('aria-label', tip);
       button.setAttribute('aria-expanded', String(Boolean(shown[which])));
     }
-    // The map's own title bar carries a fold button too (views/netmap.js draws that bar).
-    const mapTools = r.querySelector('.nm-tools');
-    if (mapTools && !mapTools.querySelector('[data-fold]')) mapTools.insertAdjacentHTML('beforeend', `<button class="icon-button pane-fold" data-fold="map">${icon(FOLD_ICONS.map)}</button>`);
+    // The map's title bar has its own fold button (views/netmap.js), outside its tools so a narrow map never hides it.
   }
 
   /** Everything again (another doc, columns or settings changed). */

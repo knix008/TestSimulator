@@ -29,7 +29,7 @@ import { switchFlag } from './flags.js';
 import { getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
 import * as native from './platform/native.js';
-import { captureBackend, listInterfaces, onCaptureStopped, startCapture } from './platform/capture.js';
+import { captureBackend, interfaceActivity, listInterfaces, onCaptureStopped, startCapture } from './platform/capture.js';
 import { PopupHost } from './platform/popups.js';
 import { applyFont, applyTheme, randomThemeId, resolveTheme, themeName } from './themes.js';
 import { escapeHtml, isMac, keyLabel } from './ui/dom.js';
@@ -751,6 +751,50 @@ async function refreshInterfaces({ quiet = true } = {}) {
   return state.interfaces;
 }
 
+// ───────────────────────── interface activity lights (start page, capture card)
+
+/** Each interface's last packet counter and whether it moved in the last second (true / false; null = not known yet). */
+const activity = { counts: new Map(), moving: new Map(), timer: null, busy: false };
+
+/** Reads the system's interface counters every second while the start page is on screen. */
+function watchActivity() {
+  if (activity.timer) return;
+  activity.timer = setInterval(pollActivity, 1000);
+  pollActivity();
+}
+
+async function pollActivity() {
+  if (activity.busy || document.hidden || !(state.showStart || !activeDoc())) return;
+  activity.busy = true;
+  try {
+    const list = desktop && state.backend?.available ? await interfaceActivity().catch(() => []) : [];
+    const now = new Map(list.map((a) => [a.name, a.packets]));
+    for (const iface of state.interfaces) {
+      // The demo interface makes packets whenever it is captured: it is always ready.
+      if (iface.kind === 'demo') { activity.moving.set(iface.id, true); continue; }
+      const count = now.get(iface.id);
+      const before = activity.counts.get(iface.id);
+      activity.moving.set(iface.id, count == null || before == null ? null : count > before);
+      if (count != null) activity.counts.set(iface.id, count);
+    }
+  } finally {
+    activity.busy = false;
+  }
+  paintActivity();
+}
+
+/** Puts the lights on the rows of the capture card (also right after the start page is drawn again). */
+function paintActivity() {
+  for (const led of root.querySelectorAll('#start-page [data-led]')) {
+    const moving = activity.moving.get(led.dataset.led);
+    led.classList.toggle('on', moving === true);
+    led.classList.toggle('off', moving === false);
+    const label = t(moving === true ? 'start.ifaceActive' : moving === false ? 'start.ifaceIdle' : 'start.ifaceUnknown');
+    led.setAttribute('aria-label', label);
+    led.title = label;
+  }
+}
+
 const captureDocs = () => state.docs.filter((doc) => doc.capture);
 const capturing = () => Boolean(activeDoc()?.capture) || captureDocs().length > 0;
 
@@ -1280,7 +1324,7 @@ const commands = {
   bytesEbcdic: { icon: 'paneBytes', label: 'action.bytesEbcdic', checked: () => state.settings.bytesEncoding === 'ebcdic', run: () => { updateSettings({ bytesEncoding: 'ebcdic' }); state.view?.bytes.render(); } },
   packetWindow: { icon: 'showPacketWindow', label: 'action.packetWindow', enabled: hasSel, run: () => openStats('packet', { index: activeDoc().selected }) },
   reload: { icon: 'reload', label: 'action.reload', key: 'Ctrl+R', enabled: () => hasDoc() && !activeDoc().capture, run: async () => { const doc = activeDoc(); if (doc.path) { await closeDoc(doc, { force: !doc.dirty }); await openPath(doc.path); } else { await runPass(doc, (o) => doc.redissect(dissectPrefs(), o)); refreshAfterChange(doc); refreshMap(); } } },
-  theme: { icon: 'dice', label: 'action.theme', run: () => updateSettings({ theme: randomThemeId(state.settings.theme) }) },
+  theme: { icon: 'palette', label: 'action.theme', run: () => updateSettings({ theme: randomThemeId(state.settings.theme) }) },
   themeMenu: { icon: 'palette', label: 'action.themeChoose', run: (context) => openThemePicker(context?.anchor) },
   language: { icon: 'globe', label: 'action.language', key: 'Ctrl+Shift+L', run: () => updateSettings({ language: lang() === 'ko' ? 'en' : 'ko' }) },
   shuffleBackground: { icon: 'dice', label: 'action.shuffleBackground', run: () => shuffleBackground() },
@@ -1512,6 +1556,8 @@ async function trackMaximized() {
   const update = async () => {
     const maximized = await appWindow.isMaximized().catch(() => false);
     if (maximized !== state.maximized) { state.maximized = maximized; renderMenubar(); }
+    // Back to a normal window: the minimum size that waited while maximized / full screen applies now.
+    if (!maximized) native.applyPendingMinimumSize().catch(() => {});
   };
   await update();
   appWindow.onResized(() => update()).catch(() => {});
@@ -1570,10 +1616,35 @@ function updateMinimumWidth() {
   const right = root.querySelector('.toolbar-right');
   if (!left || !right) return;
   requestAnimationFrame(() => {
+    // The width a row needs, measured by the browser itself: laid out at its content width for a moment (the
+    // spacer and drag area shrink to nothing), so every gap, margin, padding and border counts. Adding the parts up
+    // by hand missed some, and the window could get narrow enough to cut About and the close button.
+    const natural = (row) => {
+      if (!row) return 0;
+      const before = row.style.width;
+      const flexBefore = row.style.flex;
+      row.style.width = 'max-content';
+      row.style.flex = 'none';
+      const w = row.getBoundingClientRect().width;
+      row.style.width = before;
+      row.style.flex = flexBefore;
+      return w;
+    };
     const toolbar = root.querySelector('#toolbar');
-    const style = getComputedStyle(toolbar);
-    const menus = [...root.querySelectorAll('.app-brand, .app-brand-project, .menubar-item, .panel-toggles, .window-controls')].reduce((sum, el) => sum + el.offsetWidth + 2, 48);
-    const width = Math.ceil(Math.max(menus, left.scrollWidth + right.scrollWidth + 24 + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + 2));
+    const ts = getComputedStyle(toolbar);
+    const tools = natural(root.querySelector('.toolbar-inner')) + parseFloat(ts.paddingLeft) + parseFloat(ts.paddingRight) + parseFloat(ts.borderLeftWidth) + parseFloat(ts.borderRightWidth);
+    const menus = natural(root.querySelector('#menubar'));
+    // The panes side by side: a pane that does not shrink at its width, one that shrinks at its CSS minimum (the
+    // packet list column 360 px, the map 260 px), rails and splitters as they are — so every panel's fold button
+    // stays on screen too.
+    const main = root.querySelector('.cap-main');
+    const panes = main && main.offsetParent ? [...main.children].reduce((sum, el) => {
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none') return sum;
+      return sum + (cs.flexShrink === '0' ? el.getBoundingClientRect().width : parseFloat(cs.minWidth) || 0) + parseFloat(cs.marginLeft) + parseFloat(cs.marginRight);
+    }, 0) : 0;
+    // 4 px to spare, so rounding never cuts the last button (About, the close button).
+    const width = Math.ceil(Math.max(menus, tools, panes) + 4);
     if (Math.abs(width - state.minWidth) < 1) return;
     state.minWidth = width;
     document.documentElement.style.setProperty('--min-width', `${width}px`);
@@ -1653,6 +1724,8 @@ function renderAll() {
   renderStatus();
   updateBackgroundState();
   if (state.view && !state.showStart) state.view.refresh();
+  // The welcome window (start the tutorial?) belongs to the start page: it goes when a capture takes its place.
+  if (!(state.showStart || !activeDoc()) && popups.isOpen('welcome')) popups.close('welcome');
 }
 
 // ───────────────────────── start page
@@ -1678,6 +1751,8 @@ function renderStartPage() {
   canvas.classList.toggle('static', state.settings.backgroundKind !== 'animated');
   host.querySelector('.start-scroll').style.setProperty('--start-image', state.backgroundUrl && state.settings.backgroundKind === 'image' ? `url("${state.backgroundUrl}")` : 'none');
   host.classList.toggle('with-image', Boolean(state.backgroundUrl) && state.settings.backgroundKind === 'image');
+  paintActivity();
+  watchActivity();
 }
 
 function showStartPage(show = true) {
@@ -2463,7 +2538,15 @@ async function startTutorial(options = {}) {
   await tutorial.start(options);
 }
 
-async function openWelcome() {
+/**
+ * The welcome window, which offers the tutorial. Only over the start page: on its own at start-up only when the start
+ * page is showing (not over a capture opened from the command line or a restored session); from Help › Welcome the
+ * start page comes to the front first.
+ */
+async function openWelcome({ auto = false } = {}) {
+  const onStart = state.showStart || !activeDoc();
+  if (!onStart && auto) return;
+  if (!onStart) showStartPage(true);
   updateSettings({ tutorialOffered: true }, { quiet: true });
   const result = await popups.open('welcome', {});
   if (result?.choice === 'tutorial') startTutorial();
@@ -2575,7 +2658,7 @@ async function start() {
     await appWindow.setFocus();
     setTimeout(() => popups.prewarm('menu'), 400);
   }
-  if (state.settings.showWelcome && !globalThis.__MYNETMANAGER_NO_WELCOME && !new URLSearchParams(location.search).has('nowelcome')) setTimeout(openWelcome, 600);
+  if (state.settings.showWelcome && !globalThis.__MYNETMANAGER_NO_WELCOME && !new URLSearchParams(location.search).has('nowelcome')) setTimeout(() => openWelcome({ auto: true }), 600);
 }
 
 // Test hook: the E2E suites drive the app through this (no effect on normal use).

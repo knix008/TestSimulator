@@ -52,6 +52,7 @@
 //! Errors reject with { code, message }; codes: no_library, permission, no_such_device, activate_failed,
 //! filter_invalid, rfmon_unsupported, iface_not_up, findalldevs_failed, capture_error, not_found, invalid_argument, internal.
 
+mod activity;
 mod pcap;
 
 pub use pcap::{BackendInfo, CaptureError, FilterCheck, Interface, StartOptions, Stats};
@@ -151,6 +152,12 @@ pub async fn capture_backend() -> Result<BackendInfo, CaptureError> {
 #[tauri::command]
 pub async fn capture_interfaces() -> Result<Vec<Interface>, CaptureError> {
     blocking(pcap::interfaces).await
+}
+
+/// Packet counters of every interface from the system (start page: which interfaces carry traffic right now).
+#[tauri::command]
+pub async fn capture_activity() -> Result<Vec<activity::Activity>, CaptureError> {
+    blocking(|| Ok(activity::activity())).await
 }
 
 #[tauri::command]

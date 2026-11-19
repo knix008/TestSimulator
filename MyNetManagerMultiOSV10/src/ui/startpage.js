@@ -67,7 +67,9 @@ function captureBody(app, settings) {
       : backend.available === false ? t('start.noBackend', { error: backend.error ?? '' }) : '';
   const rows = interfaces.map((iface) => {
     const on = settings.captureInterface === iface.id;
-    return `<div class="start-row iface-row ${on ? 'on' : ''} ${iface.up === false ? 'down' : ''}" title="${escapeHtml([iface.friendly, iface.description, ...(iface.addresses ?? [])].filter(Boolean).join('\n'))}">
+    // The light: green and blinking while packets come and go on the interface, red and blinking while none do
+    // (app.js paintActivity reads the system's counters every second); grey until the second reading.
+    return `<div class="start-row iface-row ${on ? 'on' : ''} ${iface.up === false ? 'down' : ''}" title="${escapeHtml([iface.friendly, iface.description, ...(iface.addresses ?? [])].filter(Boolean).join('\n'))}"><span class="iface-led" data-led="${escapeHtml(iface.id)}" role="img" aria-label="${escapeHtml(t('start.ifaceUnknown'))}"></span>
       <button class="start-link" data-start="pick-interface" data-value="${escapeHtml(iface.id)}" aria-pressed="${on}">${icon(IFACE_ICON[iface.kind] ?? 'ifEthernet')}<span class="name">${escapeHtml(iface.friendly)}</span><span class="path">${escapeHtml((iface.addresses ?? []).slice(0, 2).join(' · ') || iface.description || '')}</span></button>
       <button class="icon-button capture-go" data-start="capture" data-value="${escapeHtml(iface.id)}" title="${escapeHtml(t('start.captureOn', { name: iface.friendly }))}" aria-label="${escapeHtml(t('start.captureOn', { name: iface.friendly }))}">${icon('captureStart')}</button>
     </div>`;
