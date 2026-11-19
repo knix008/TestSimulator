@@ -14,7 +14,7 @@ import { getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
 import { switchFlag } from './flags.js';
 import * as native from './platform/native.js';
-import { POPUPS, popupParams } from './platform/popups.js';
+import { POPUPS, popupKey, popupParams } from './platform/popups.js';
 import {
   applyFont, applyTheme, contrast, CUSTOM, CUSTOM_KEYS, customFrom, DARK_THEMES, LIGHT_THEMES, resolveTheme, SYSTEM, themeName,
 } from './themes.js';
@@ -714,6 +714,20 @@ function renderMenu() {
   // The host keeps the menu on the screen (and opens it above `flipY` when there is no room below).
   placeMenuWindow(anchor.x - MENU_MARGIN, anchor.y - MENU_MARGIN, main.w + 2 * MENU_MARGIN, main.h + 2 * MENU_MARGIN, anchor.flipY != null ? anchor.flipY + MENU_MARGIN : null);
   menuOpen = true;
+  menuShownAt = p.at;
+}
+
+/**
+ * A closed menu forgets its items, so that nothing but a new opening shows it again: the pooled menu
+ * window is refreshed (the host's prewarm after a reload) and reloaded (development) with the
+ * last parameters still stored, and used to come back with the last context menu. Only the
+ * parameters of the menu that was shown are cleared: the host may already have stored the next one.
+ */
+function forgetMenu() {
+  try {
+    const stored = popupParams(kind);
+    if (Array.isArray(stored.items) && stored.at === menuShownAt) globalThis.localStorage?.setItem(popupKey(kind), JSON.stringify({ ...stored, items: null }));
+  } catch { /* storage unavailable: nothing to forget */ }
 }
 
 const panelLevel = (element) => Number(element?.closest('.popup-menu')?.dataset.level ?? 0);
@@ -762,6 +776,7 @@ function openSubmenu(row, focusFirst = false) {
 }
 
 let menuOpen = false;
+let menuShownAt = null;
 const loadedAt = Date.now();
 function shownOnce() {
   const at = Number(P().at) || 0;
@@ -774,6 +789,7 @@ async function chooseMenu(id, row = null) {
   if (item?.classList.contains('has-sub') && openSubmenu(item, true)) return;
   menuOpen = false;
   clearTimeout(menuTimer);
+  forgetMenu();
   // A group without its items (should not happen): the host opens them in a menu just right of the row.
   if (item?.classList.contains('has-sub')) {
     const rect = item.getBoundingClientRect();

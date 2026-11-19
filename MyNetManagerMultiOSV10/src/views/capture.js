@@ -3,6 +3,7 @@
 // (right). Every panel has a title bar with a fold button; the side panels fold to a slim rail, the
 // bottom panel and the details / bytes panes to their title bar. Splitters between them; the shares
 // and widths are settings.
+import { DISPLAY_PRESETS, presetButtons, togglePreset } from '../domain/filter/presets.js';
 import { escapeHtml } from '../ui/dom.js';
 import { icon } from '../icons.js';
 import { PacketList } from './packetlist.js';
@@ -152,6 +153,7 @@ export class CaptureView {
       </div>
       <button class="tool-button" data-df="expression" title="${escapeHtml(t('action.filterExpression'))}" aria-label="${escapeHtml(t('action.filterExpression'))}">${icon('filterExpression')}</button>
       <span class="df-buttons">${f.buttons.map((b, i) => `<button class="small-button df-saved" data-df="saved" data-index="${i}" title="${escapeHtml(b.filter)}">${icon('filterApply')}<span>${escapeHtml(t(`filterDefault.${b.name}`, null, b.name))}</span></button>`).join('')}</span>
+      <div class="df-presets">${presetButtons(DISPLAY_PRESETS, f.applied ? f.text : '', { t, icon, escapeHtml, attr: 'data-df-preset', label: t('filter.presets') })}</div>
       <div class="df-suggest" hidden role="listbox"></div>
       ${f.applied ? `<span class="df-state" title="${escapeHtml(t('filter.appliedTip'))}">${icon('filterApply')}<span>${escapeHtml(t('filter.applied', { shown: f.shown, total: f.total }))}</span></span>` : ''}`;
     if (keep) {
@@ -240,12 +242,21 @@ export class CaptureView {
       if (option) { event.preventDefault(); this.acceptSuggestion(Number(option.dataset.option)); }
     });
     bar.addEventListener('click', (event) => {
+      // A preset adds itself to the filter as one more OR part, or takes itself out (presets.js).
+      const preset = event.target.closest('[data-df-preset]');
+      if (preset) {
+        const filter = togglePreset(this.filterText(), preset.dataset.dfPreset, DISPLAY_PRESETS);
+        this.setFilterText(filter);
+        this.app.onFilterApply(filter);
+        return;
+      }
       const button = event.target.closest('[data-df]');
       if (!button) return;
       const kind = button.dataset.df;
       if (kind === 'apply') this.app.onFilterApply(this.filterText());
       else if (kind === 'clear') { this.setFilterText(''); this.app.onFilterApply(''); }
       else if (kind === 'saved') this.app.onFilterAction('saved', button, Number(button.dataset.index));
+
       else this.app.onFilterAction(kind, button);
     });
   }

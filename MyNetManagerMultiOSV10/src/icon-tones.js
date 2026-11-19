@@ -3,6 +3,9 @@
 // looks the same everywhere and the toolbox and explorer are not all one hue.
 export const ICON_TONES = ['blue', 'sky', 'indigo', 'purple', 'pink', 'red', 'orange', 'amber', 'yellow', 'green', 'teal', 'cyan', 'slate', 'brown'];
 
+// Capture controls read like a player's: start, restart and the options green, stop red.
+const EXACT = { captureStart: 'green', captureRestart: 'green', captureOptions: 'green', captureStop: 'red' };
+
 const BY_MEANING = [
   [/trash|delete|remove|close|exit|clear|error|danger|^x$|power|stop|bad/i, 'red'],
   [/^(fileNew|new|add|plus|play|run|check|ok|success|start|tutorial$)/i, 'green'],
@@ -28,6 +31,7 @@ const cache = new Map();
 /** The hue of an icon (always one of ICON_TONES). */
 export function toneOf(name) {
   if (cache.has(name)) return cache.get(name);
+  if (EXACT[name]) { cache.set(name, EXACT[name]); return EXACT[name]; }
   // Diagram kinds, elements and backgrounds are pictures of things, not commands: no meaning in their names.
   const picture = /^(net|proto|if|anim|line|layout|align)/i.test(name);
   const tone = (!picture && BY_MEANING.find(([pattern]) => pattern.test(name))?.[1]) || VARIETY[hash(name) % VARIETY.length];

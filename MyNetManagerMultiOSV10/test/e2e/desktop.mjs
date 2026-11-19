@@ -12,14 +12,16 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { c, heading, resultLine, totalsLine } from './report.mjs';
+import { c, groupLine, grouped, groupOf, heading, resultLine, totalsLine } from './report.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const out = path.join(root, 'test-results', 'desktop');
 fs.mkdirSync(out, { recursive: true });
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const exeName = process.platform === 'win32' ? 'MyNetManager.exe' : 'MyNetManager';
-const exe = [path.join(root, 'src-tauri', 'target', 'debug', exeName), path.join(root, 'src-tauri', 'target', 'debug', exeName.toLowerCase())].find((p) => fs.existsSync(p));
+// MYNETMANAGER_E2E_EXE: a program built elsewhere (an isolated target folder with its page built in), so the suite
+// neither needs the development server that target/debug's `npm start` build loads from, nor touches that build.
+const exe = [process.env.MYNETMANAGER_E2E_EXE, path.join(root, 'src-tauri', 'target', 'debug', exeName), path.join(root, 'src-tauri', 'target', 'debug', exeName.toLowerCase())].filter(Boolean).find((p) => fs.existsSync(p));
 
 if (process.platform !== 'win32') {
   console.log(heading('E2E desktop'));
@@ -31,7 +33,7 @@ if (!exe) {
   const r = spawnSync(process.execPath, [path.join(root, 'node_modules', '@tauri-apps', 'cli', 'tauri.js'), 'build', '--debug', '--no-bundle'], { cwd: root, stdio: 'inherit' });
   if (r.status !== 0) process.exit(1);
 }
-const program = [path.join(root, 'src-tauri', 'target', 'debug', exeName)].find((p) => fs.existsSync(p));
+const program = [process.env.MYNETMANAGER_E2E_EXE, path.join(root, 'src-tauri', 'target', 'debug', exeName)].filter(Boolean).find((p) => fs.existsSync(p));
 
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'mynetmanager-desktop-'));
 const port = 9500 + Math.floor(Math.random() * 300);
@@ -202,7 +204,9 @@ test('errors.none', 'No page errors in the main window', async () => {
   assert(!main.errors.length, main.errors.slice(0, 3).join(' | '));
 });
 
-for (const item of CASES) {
+let lastGroup = '';
+for (const item of grouped(CASES)) {
+  if (groupOf(item.id) !== lastGroup) { lastGroup = groupOf(item.id); console.log(groupLine(item.id)); }
   const started = performance.now();
   try {
     const outcome = await item.fn();

@@ -2,6 +2,7 @@
 // board of translucent cards that can be moved and resized (ui/startboard.js places them): what to
 // do (launcher tiles), where to capture (the interfaces, with a capture filter), recent files and
 // folders, the sample captures, and how it looks (theme, moving background).
+import { CAPTURE_PRESETS, presetButtons } from '../domain/filter/presets.js';
 import appIcon from '../../assets/icon-256.png';
 import { escapeHtml } from './dom.js';
 import { animationIcon, hasIcon, icon } from '../icons.js';
@@ -71,7 +72,7 @@ function captureBody(app, settings) {
       <button class="icon-button capture-go" data-start="capture" data-value="${escapeHtml(iface.id)}" title="${escapeHtml(t('start.captureOn', { name: iface.friendly }))}" aria-label="${escapeHtml(t('start.captureOn', { name: iface.friendly }))}">${icon('captureStart')}</button>
     </div>`;
   }).join('');
-  return `<label class="start-filter" title="${escapeHtml(t('start.captureFilterTip'))}">${icon('captureFilterIcon')}<span>${escapeHtml(t('start.captureFilter'))}</span><input type="text" data-start-capture-filter value="${escapeHtml(settings.captureFilter)}" placeholder="${escapeHtml(t('start.captureFilterPlaceholder'))}" spellcheck="false" autocomplete="off" /></label>
+  return `<label class="start-filter" title="${escapeHtml(t('start.captureFilterTip'))}">${icon('captureFilterIcon')}<span>${escapeHtml(t('start.captureFilter'))}</span><input type="text" data-start-capture-filter value="${escapeHtml(settings.captureFilter)}" placeholder="${escapeHtml(t('start.captureFilterPlaceholder'))}" spellcheck="false" autocomplete="off" /></label>${presetButtons(CAPTURE_PRESETS, settings.captureFilter, { t, icon, escapeHtml, attr: 'data-capture-preset', label: t('capopts.presets'), i18n: 'capturePreset' })}
     ${note ? `<div class="start-empty">${icon('info')}<span>${escapeHtml(note)}</span></div>` : ''}
     <div class="start-list iface-list">${rows}</div>`;
 }
@@ -95,14 +96,16 @@ function recentBody(app, settings) {
 function samplesBody(samples, groups, L) {
   const known = new Set(groups.map((g) => g.id));
   const all = [...groups, ...(samples.some((x) => !known.has(x.group)) ? [{ id: 'other', ko: t('sampleGroup.other'), en: t('sampleGroup.other') }] : [])];
-  return `<div class="sample-groups">${all.map((group) => {
-    const items = samples.filter((sample) => (group.id === 'other' ? !known.has(sample.group) : sample.group === group.id));
-    if (!items.length) return '';
-    return `<section class="sample-group" data-sample-group="${group.id}">
-      <h3>${icon(GROUP_ICONS[group.id] ?? 'samples')}<span>${escapeHtml(group[L] ?? group.en ?? group.id)}</span><span class="sample-count">${items.length}</span></h3>
-      <div class="sample-tiles">${items.map((sample) => tile('sample', sampleIcon(sample), sample[L]?.[0] ?? sample.id, sample[L]?.[1] ?? '', { value: sample.id })).join('')}</div>
-    </section>`;
-  }).join('')}</div>`;
+  // One grid of equal tiles, in group order; the group is named in each tile's tip. An "Open…" tile
+  // makes the count 30, which 2, 3, 5 and 6 columns divide, so every row is full (styles.css picks the columns).
+  const tiles = all.flatMap((group) => samples
+    .filter((sample) => (group.id === 'other' ? !known.has(sample.group) : sample.group === group.id))
+    .map((sample) => {
+      const html = tile('sample', sampleIcon(sample), sample[L]?.[0] ?? sample.id, sample[L]?.[1] ?? '', { value: sample.id });
+      return html.replace(/title="([^"]*)"/, (_, tip) => `data-sample-group="${group.id}" title="${escapeHtml(group[L] ?? group.en ?? group.id)} · ${tip}"`);
+    }));
+  const open = tiles.length % 30 === 29 ? [tile('open', 'folderOpen', t('action.open'), t('start.tipOpen'))] : [];
+  return `<div class="sample-tiles-box"><div class="sample-tiles">${[...tiles, ...open].join('')}</div></div>`;
 }
 
 function themeBody(settings, L) {

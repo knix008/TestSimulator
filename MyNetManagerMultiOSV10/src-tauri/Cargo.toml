@@ -22,6 +22,8 @@ tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2"
 # Live capture: libpcap / Npcap loaded at run time (src/capture.rs), no SDK at build time.
 libloading = "0.8"
+# AVIF pictures (the web view has no AV1 encoder): pure Rust, no assembler needed.
+ravif = { version = "0.13", default-features = false, features = ["threading"] }
 
 # Printing straight to a printer (the same versions as Tauri's own WebView2).
 [target.'cfg(windows)'.dependencies]

@@ -205,18 +205,20 @@ const bytesText = (n) => (n >= 1e9 ? `${(n / 1e9).toFixed(2)} GB` : n >= 1e6 ? `
 /**
  * A report document. data: { title, file, analysis, log: [{ time, level, text }], hierarchy?: rows, conversations?: rows },
  * sections: Set of 'overview' | 'findings' | 'problems' | 'protocols' | 'talkers' | 'log'. t(key, params) translates.
- * Returns { html, markdown, lines } (lines: plain text for the print window).
+ * Returns { html, markdown, lines, blocks, title } (lines: plain text for the print window; blocks: docexport.js).
  */
 export function buildReport(data, sections, t) {
   const a = data.analysis;
   const md = [];
   const html = [];
   const lines = [];
+  const blocks = [];
   const date = new Date().toLocaleString();
-  const h = (level, text) => { md.push(`${'#'.repeat(level)} ${text}`, ''); html.push(`<h${level}>${esc(text)}</h${level}>`); lines.push(level === 1 ? text.toUpperCase() : text, level === 1 ? '='.repeat(Math.min(80, text.length)) : '-'.repeat(Math.min(80, text.length))); };
-  const p = (text) => { md.push(text, ''); html.push(`<p>${esc(text)}</p>`); lines.push(text, ''); };
+  const h = (level, text) => { if (level > 1) blocks.push({ type: 'h', level, text }); md.push(`${'#'.repeat(level)} ${text}`, ''); html.push(`<h${level}>${esc(text)}</h${level}>`); lines.push(level === 1 ? text.toUpperCase() : text, level === 1 ? '='.repeat(Math.min(80, text.length)) : '-'.repeat(Math.min(80, text.length))); };
+  const p = (text) => { blocks.push({ type: 'p', text }); md.push(text, ''); html.push(`<p>${esc(text)}</p>`); lines.push(text, ''); };
   const table = (heads, rows) => {
     if (!rows.length) { p(t('report.none')); return; }
+    blocks.push({ type: 'table', columns: heads.map((label) => ({ label: String(label) })), rows: rows.map((r) => ({ cells: r.map((c) => String(c ?? '')) })) });
     md.push(`| ${heads.join(' | ')} |`, `| ${heads.map(() => '---').join(' | ')} |`, ...rows.map((r) => `| ${r.map((c) => String(c).replace(/\|/g, '\\|')).join(' | ')} |`), '');
     html.push(`<table><thead><tr>${heads.map((x) => `<th>${esc(x)}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`);
     const widths = heads.map((x, i) => Math.min(40, Math.max(String(x).length, ...rows.map((r) => String(r[i]).length))));
@@ -263,5 +265,6 @@ h1{font-size:24px;border-bottom:3px solid #2b6cf6;padding-bottom:6px}h2{font-siz
 table{border-collapse:collapse;width:100%;margin:8px 0 16px;font-size:13px}th,td{border:1px solid #d5dbe6;padding:5px 8px;text-align:left;vertical-align:top}
 th{background:#eef3fc}tr:nth-child(even) td{background:#f8fafd}td:last-child{font-family:Consolas,"D2Coding",monospace;font-size:12px}
 @media print{body{margin:0;max-width:none}}</style></head><body>${html.join('\n')}<p style="color:#7a8599;font-size:12px">MyNetManager</p></body></html>`;
-  return { html: page, markdown: md.join('\n'), lines };
+  // blocks: the same report for docexport.js (PDF, Word); its title is the first heading.
+  return { html: page, markdown: md.join('\n'), lines, blocks, title: t('report.heading', { title: data.title }) };
 }

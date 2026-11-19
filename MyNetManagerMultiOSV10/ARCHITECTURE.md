@@ -179,6 +179,54 @@ dnsStats, flowGraph, expertInfo, followStream(kind: 'tcp'|'udp'|'tls'|'http', st
 { chunks:[{dir, frame, data}], client, server }, exportText/Csv/Json/Pdml/Psml, exportObjects('http'|'tftp'|...),
 resolvedAddresses.
 
+### Documents and pictures — `src/domain/export/`
+
+- `docexport.js`: one document model `{ title, subtitle?, note?, blocks: [h | p | table | pre | image] }` (shorthands:
+  `columns`+`rows`, `pre`, `images`) written by `toMarkdown`, `toHtml`, `toLines` (print window; wide characters count
+  two columns), `toDocx` (stored ZIP, real Word tables with a repeated header, PNG pictures) and `toPdf` (A4, the
+  reader's built-in Korean CID font `HYGoThic-Medium`, no embedded font). `exportDocument(doc, format)` picks one;
+  `DOC_FORMATS` gives extension, save type and mime. Used by the statistics windows (`doc-print` / `doc-export`
+  actions with the rows as shown), the print window (`print-export`), the analysis report (`buildReport().blocks`)
+  and graph windows (picture + numbers). Markdown pictures: inside as data URLs, or with `href` = a file saved
+  beside the Markdown (app.js `exportDoc`, `imageMode: 'link'`).
+- `images.js`: `IMAGE_FORMATS` (PNG, JPEG, WebP, GIF, AVIF, SVG), `svgToCanvas`, `encodeCanvas` (the canvas's own
+  encoder; GIF by its own median-cut + LZW encoder; AVIF by the canvas where it can, else the desktop's
+  `encode_avif` command — ravif in lib.rs; Chromium/WebView2 has no AV1 encoder). app.js `saveImage` asks for the
+  format.
+
+### Column fields and Wireshark 4.6 parity notes
+
+- `_ws.col.protocol` / `_ws.col.info` (protocol `_ws.col`, "Wireshark Columns"): `dissect()` puts the first-pass
+  columns in `fields`; `CaptureDoc.withColumns` replaces them with the row's summary made with the whole file known,
+  so a filter on a column picks exactly the rows the list shows. That is how TLS versions are told apart
+  (`_ws.col.protocol == "TLSv1.3"`) — TLS 1.3 records carry 0x0303 like 1.2.
+- HiPerConTracer (icmpv6.js): like TShark 4.6, ICMPv6 echo data of 16 bytes or more after the ping timestamp is read
+  as a HiPerConTracer header (send time: big-endian ns since 1976-09-29). ICMPv4 echo data is left as data.
+- TFTP (udpapps.js): both directions of a transfer are TFTP, also the client's packets to the server's new port
+  (TShark 4.6; older versions left those as data).
+
+### Test output — `scripts/test.mjs`, `test/reporter.mjs`, `test/e2e/report.mjs`
+
+node:test runs with `test/reporter.mjs` (one "▶ group" per test file, `--test-concurrency=1` so groups never
+interleave); cargo results get a heading per module; the E2E suites print one per case-id area (`grouped`,
+`groupLine`). The runner counts every result for its group and prints the summary table (Skipped column, pass-rate
+bar) and a "By group" table. SKIP is grey, never yellow.
+
+### Filter presets — `src/domain/filter/presets.js`
+
+`DISPLAY_PRESETS` and `CAPTURE_PRESETS` ([i18n name, filter, icon]) are buttons under the display filter bar, the
+start page's capture filter and Capture Options. They combine with **OR** and keep no state: `activePresets(text)`
+reads which are on from the top-level `or` / `||` parts of the text (`orParts`, outside parentheses and quotes),
+`togglePreset(text, filter)` adds or removes exactly one part (parentheses only around parts with operators), so
+typed text stays and pressing one preset never turns another off.
+
+### Pooled menu window
+
+The desktop menu is one pooled OS window (`popup-menu`), refreshed by `open_popup` (also by the startup prewarm) and
+reloaded in development. Its items live in localStorage (`mynetmanager.popup.menu`). A closed menu forgets them
+(`popup.js forgetMenu`, `PopupHost.hideMenu`), so only a new opening can show it — otherwise a refresh or reload
+brought the last context menu back by itself.
+
 ### Live capture — Rust `src-tauri/src/capture.rs`, JS `src/platform/capture.js`
 
 libpcap is loaded at run time (`libloading`): Windows `%SystemRoot%\System32\Npcap\wpcap.dll`

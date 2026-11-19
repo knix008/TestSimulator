@@ -14,6 +14,10 @@ import { checkFilter, conversationFilter, filterForNode, setDefaultFields, sugge
 import { COLORING_RULES, darkColors } from './domain/filter/coloring.js';
 import { buildTopology } from './domain/analysis/topology.js';
 import { buildReport, createAnalyzer } from './domain/analysis/findings.js';
+import { DOC_FORMATS, exportDocument, toLines } from './domain/export/docexport.js';
+import { defaultPrintOptions } from './print/packets.js';
+import { encodeCanvas, IMAGE_FORMATS, imageMime, svgToCanvas } from './domain/export/images.js';
+import { CAPTURE_PRESETS, togglePreset } from './domain/filter/presets.js';
 import { followFilter, followFilterOut } from './domain/analysis/follow.js';
 import { addRecent, loadRecent, loadRecentDirs, removeRecent, storeRecent, storeRecentDirs } from './domain/recent.js';
 import {
@@ -594,25 +598,34 @@ function onMapSelect(selection) {
   return applyDisplayFilter(filter, { fromMap: true });
 }
 
+/**
+ * Saves a drawing (standalone SVG text) as a picture: the person picks PNG, JPEG, WebP, GIF, AVIF or SVG.
+ * AVIF needs the desktop program when the web view cannot write it (images.js).
+ */
+async function saveImage(svg, name, { title = t('image.save'), message = t('image.saveMessage'), background = '#ffffff', format = null } = {}) {
+  const choice = format ?? await ask({
+    icon: 'exportImage', title, message,
+    buttons: [{ id: 'cancel', label: t('confirm.cancel') }, ...IMAGE_FORMATS.map(([id, label]) => ({ id, label, icon: id === 'svg' ? 'svgFile' : 'imageFormat', primary: id === 'png' }))],
+  });
+  if (!IMAGE_FORMATS.some(([id]) => id === choice)) return undefined;
+  const mime = imageMime(choice);
+  if (choice === 'svg') return saveExport(`${name}.svg`, 'svg', svg, mime);
+  try {
+    // JPEG and GIF have no transparency: the drawing's own background goes under it.
+    const canvas = await svgToCanvas(svg, { scale: 2, background: choice === 'jpg' || choice === 'gif' ? background : '' });
+    const bytes = await encodeCanvas(canvas, choice, { avif: desktop ? native.encodeAvif : null });
+    return saveExport(`${name}.${choice}`, choice, bytes, mime);
+  } catch (error) {
+    return showError('error.export', error, `${name}.${choice}`);
+  }
+}
+
 async function exportMap() {
   if (!state.view) return;
   const theme = resolveTheme(state.settings.theme, prefersDark(), state.settings.customTheme).colors;
   const svg = state.view.map.svgText({ bg: theme.bg, text: theme.text, muted: theme.muted, accent: theme.accent, border: theme.border, link: theme.muted, node: theme.surface, subnet: `${theme.accent}14` });
-  const choice = await ask({ icon: 'netExportImage', title: t('netmap.export'), message: t('netmap.exportMessage'), buttons: [{ id: 'cancel', label: t('confirm.cancel') }, { id: 'svg', label: 'SVG', icon: 'svgFile' }, { id: 'png', label: 'PNG', icon: 'imageFormat', primary: true }] });
   const name = `${fileSafe(stripExtension(activeDoc()?.name ?? 'capture'))}-map`;
-  if (choice === 'svg') return saveExport(`${name}.svg`, 'svg', svg, 'image/svg+xml');
-  if (choice !== 'png') return undefined;
-  const image = new Image();
-  image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-  await image.decode();
-  const canvas = document.createElement('canvas');
-  canvas.width = image.width * 2;
-  canvas.height = image.height * 2;
-  const context = canvas.getContext('2d');
-  context.scale(2, 2);
-  context.drawImage(image, 0, 0);
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-  return saveExport(`${name}.png`, 'png', new Uint8Array(await blob.arrayBuffer()), 'image/png');
+  return saveImage(svg, name, { title: t('netmap.export'), message: t('netmap.exportMessage'), background: theme.bg });
 }
 
 // ───────────────────────── automatic analysis (bottom panel, navigator, reports)
@@ -644,6 +657,40 @@ async function runAnalysis(doc = activeDoc()) {
   return doc.analysis;
 }
 
+/**
+ * Saves a document (docexport.js) as HTML, Markdown, PDF or Word. Markdown images are written into the
+ * file (data URLs) or, with imageMode 'link', saved as files beside it and linked by name.
+ */
+async function exportDoc(doc, format, { imageMode = 'embed' } = {}) {
+  const [ext, type, mime] = DOC_FORMATS[format] ?? DOC_FORMATS.html;
+  const base = fileSafe(stripExtension(doc.title || 'document'));
+  const images = doc.images ?? [];
+  const linked = format === 'markdown' && imageMode === 'link' && images.length;
+  const names = images.map((img, i) => `${base}-${i + 1}.${img.ext ?? 'png'}`);
+  let content;
+  try {
+    content = exportDocument(linked ? { ...doc, images: images.map((img, i) => ({ ...img, href: names[i] })) } : doc, format, { lang: lang() });
+  } catch (error) { return showError('error.export', error); }
+  if (!linked) return saveExport(`${base}.${ext}`, type, content, mime);
+  // Linked images: the Markdown first (its folder decides where the pictures go), then each picture.
+  const bytes = (dataUrl) => Uint8Array.from(atob(dataUrl.split(',')[1] ?? ''), (ch) => ch.charCodeAt(0));
+  if (desktop) {
+    const path = await native.chooseSavePath(`${state.settings.lastDirectory ? `${state.settings.lastDirectory}/` : ''}${base}.${ext}`, [type, 'any']);
+    if (!path) return false;
+    const dir = directoryOf(path);
+    try {
+      await native.writeTextFile(path, content);
+      for (let i = 0; i < images.length; i++) await native.writeBinaryFile(`${dir}/${names[i]}`, bytes(images[i].dataUrl));
+    } catch (error) { return showError('error.export', error); }
+    rememberDirectory(dir);
+    notify('success', t('notice.exported', { name: baseName(path) }));
+    return true;
+  }
+  await saveExport(`${base}.${ext}`, type, content, mime);
+  for (let i = 0; i < images.length; i++) await native.saveFileWeb(new Blob([bytes(images[i].dataUrl)], { type: images[i].mime ?? 'image/png' }), { name: names[i], saveAs: false, mime: images[i].mime ?? 'image/png' });
+  return true;
+}
+
 const REPORT_SECTIONS = ['overview', 'findings', 'protocols', 'talkers', 'problems', 'log'];
 
 async function openReport() {
@@ -660,6 +707,11 @@ async function openReport() {
     return popups.open('print', { doc: doc.name, report: true, count: 1, displayed: 1, marked: 0, selected: 0 });
   }
   if (choice.format === 'markdown') return saveExport(`${base}.md`, 'md', report.markdown, 'text/markdown');
+  // PDF and Word: the same report through docexport.js (the generated-on line becomes the subtitle).
+  if (choice.format === 'pdf' || choice.format === 'docx') {
+    const [first, ...rest] = report.blocks;
+    return exportDoc({ title: report.title, subtitle: first?.type === 'p' ? first.text : '', blocks: first?.type === 'p' ? rest : report.blocks }, choice.format);
+  }
   return saveExport(`${base}.html`, 'html', report.html, 'text/html');
 }
 
@@ -1083,11 +1135,48 @@ function refreshAfterChange(doc = activeDoc()) {
 
 // ───────────────────────── print
 
-/** File › Print: the print window (its own window) asks for the packet lines with 'print-request'. */
-function printPackets() {
+/**
+ * Print… and Export ▸ (HTML, Markdown, PDF, Word) for one part of the capture in a context menu: the right-clicked
+ * packet, its details, its bytes, or the packet list. `preset` is the print model's options for that part (range,
+ * summary, details, bytes); the print window opens with them, and an export writes the same lines.
+ */
+function partMenu(preset, title) {
+  const formats = [['html', 'protoWeb'], ['markdown', 'notes'], ['pdf', 'exportReport'], ['docx', 'exportFile']];
+  const enabled = Boolean(activeDoc());
+  return {
+    items: [
+      { separator: true },
+      { id: 'custom:part:print', label: t('context.print'), icon: 'print', disabled: !enabled },
+      {
+        id: 'submenu:partExport', label: t('context.export'), icon: 'exportFile', submenu: true, disabled: !enabled,
+        children: formats.map(([id, glyph]) => ({ id: `custom:part:export:${id}`, label: t(`docExport.${id}`), icon: glyph })),
+      },
+    ],
+    handlers: {
+      'custom:part:print': () => printPackets(preset),
+      ...Object.fromEntries(formats.map(([id]) => [`custom:part:export:${id}`, () => exportPart(preset, title, id)])),
+    },
+  };
+}
+
+/** One part of the capture (partMenu) as a document: the same lines the print window would print. */
+function exportPart(preset, title, format) {
   const doc = activeDoc();
   if (!doc) return undefined;
-  return popups.open('print', { doc: doc.name, count: doc.count, displayed: doc.displayed.length, marked: doc.marked.size, selected: doc.selected + 1 });
+  let model;
+  try {
+    model = analysis.printModel(doc, { ...defaultPrintOptions(), ...preset, settings: state.settings, expanded: state.view?.details.expanded, t });
+  } catch (error) { return showError('error.export', error); }
+  const lines = model.packets.flatMap((packet, i) => (i ? ['', ...packet.lines] : packet.lines));
+  return exportDoc({ title: title || doc.name, subtitle: doc.name, pre: lines }, format);
+}
+
+/** File › Print: the print window (its own window) asks for the packet lines with 'print-request'. */
+function printPackets(preset = null) {
+  const doc = activeDoc();
+  if (!doc) return undefined;
+  // preset (context menus): what to print — that packet, its details, its bytes or the list — over the saved options.
+  return popups.open('print', { doc: doc.name, count: doc.count, displayed: doc.displayed.length, marked: doc.marked.size, selected: doc.selected + 1, preset });
 }
 
 // ───────────────────────── commands
@@ -1356,10 +1445,10 @@ const MENUS = {
 const MENU_ICONS = { file: 'file', edit: 'edit', view: 'eye', go: 'goPacket', capture: 'captureStart', analyze: 'filterApply', statistics: 'ioGraph', telephony: 'protoVoip', wireless: 'ifWifi', tools: 'tools', help: 'question' };
 
 const TOOLBAR = [
+  ['open', 'save', 'closeTab', 'reload', 'print'],
   ['captureStart', 'captureStop', 'captureRestart', 'captureOptions'],
-  ['open', 'save', 'closeTab', 'reload'],
   ['findPacket', 'goBack', 'goForward', 'goPacket', 'goFirst', 'goLast', 'autoScroll'],
-  ['colorize', 'textZoomIn', 'textZoomOut', 'textZoomReset', 'resizeColumns'],
+  ['colorize', 'textZoomOut', 'textZoomValue', 'textZoomIn', 'textZoomReset', 'resizeColumns'],
   ['expertInfo', 'protocolHierarchy', 'conversations', 'ioGraph', 'netMap'],
 ];
 const TOOLBAR_RIGHT = ['tutorial', 'themeSplit', 'language', 'settings', 'about'];
@@ -1388,7 +1477,8 @@ function renderMenubar() {
   const menubar = root.querySelector('#menubar');
   const onStart = state.showStart || !activeDoc();
   const home = `<button class="menubar-item menubar-home ${onStart ? 'current' : ''}" data-home title="${escapeHtml(t('tip.home'))}" aria-label="${escapeHtml(t('menu.home'))}" aria-pressed="${onStart}">${icon('home')}<span>${escapeHtml(t('menu.home'))}</span></button><span class="menubar-sep" aria-hidden="true"></span>`;
-  const brand = `<div class="app-brand" data-window-drag title="${escapeHtml(`MyNetManager v${VERSION}`)}"><img class="app-brand-icon" src="${APP_ICON}" alt="" data-window-drag /><span class="app-brand-name" data-window-drag>MyNetManager</span><span class="app-brand-version" data-window-drag>v${escapeHtml(VERSION)}</span><span class="app-brand-project" data-window-drag><span class="app-brand-project-name" data-window-drag></span><span class="app-brand-dirty" data-window-drag>●</span></span></div>`;
+  const brand = `<div class="app-brand" data-window-drag title="${escapeHtml(`MyNetManager v${VERSION}`)}"><img class="app-brand-icon" src="${APP_ICON}" alt="" data-window-drag /><span class="app-brand-name" data-window-drag>MyNetManager</span><span class="app-brand-version" data-window-drag>v${escapeHtml(VERSION)}</span></div>`;
+  const project = `<span class="app-brand-project" data-window-drag><span class="app-brand-project-name" data-window-drag></span><span class="app-brand-dirty" data-window-drag>●</span></span>`;
   const button = (id, glyph, key) => `<button class="window-button ${id === 'close' ? 'close' : ''}" data-window="${id}" title="${escapeHtml(t(key))}" aria-label="${escapeHtml(t(key))}">${icon(glyph)}</button>`;
   const onCapture = !state.showStart && Boolean(activeDoc());
   const panelButton = (command) => `<button class="window-button panel-toggle ${commands[command].checked() ? 'active' : ''}" data-command="${command}" title="${escapeHtml(commandTip(command))}" aria-label="${escapeHtml(t(commands[command].label))}" aria-pressed="${commands[command].checked()}" ${onCapture ? '' : 'disabled'}>${icon(commands[command].icon)}</button>`;
@@ -1396,7 +1486,7 @@ function renderMenubar() {
   const controls = desktop ? `${panels}<div class="window-controls">${button('minimize', 'winMinimize', 'window.minimize')}${state.maximized ? button('maximize', 'winRestore', 'window.restore') : button('maximize', 'winMaximize', 'window.maximize')}${button('close', 'winClose', 'window.close')}</div>` : panels;
   menubar.innerHTML = brand + home + Object.keys(MENUS).map((name) => `
     <button class="menubar-item ${state.openMenu === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true" title="${escapeHtml(t(`menu.${name}`))}">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('')
-    + `<div class="menubar-drag" data-window-drag></div>${controls}`;
+    + `${project}<div class="menubar-drag" data-window-drag></div>${controls}`;
   renderTitleProject();
 }
 
@@ -1438,6 +1528,8 @@ function renderToolbar() {
     return `<button class="tool-button ${extra}" data-command="${id}" title="${escapeHtml(commandTip(id))}" aria-label="${escapeHtml(t(command.label))}">${glyph}</button>`;
   };
   const button = (id) => {
+    // The packet list's text size between A− and A+ (pixels); a click puts it back to 100 %.
+    if (id === 'textZoomValue') return `<button class="tool-button tool-value" data-command="textZoomReset" data-zoom-value title="${escapeHtml(commandTip('textZoomReset'))}" aria-label="${escapeHtml(t('action.textZoomReset'))}">${escapeHtml(textSizeLabel())}</button>`;
     if (id === 'themeSplit') return `<span class="split-button">${plain('theme')}<button class="tool-button split-arrow" data-command="themeMenu" title="${escapeHtml(commandTip('themeMenu'))}" aria-label="${escapeHtml(t('action.themeChoose'))}" aria-haspopup="true">${icon('chevronDown')}</button></span>`;
     // The two commands everybody looks for by name: start a capture, and the network map.
     if (id === 'captureStart' || id === 'netMap') return `<button class="tool-button tool-labeled ${id === 'captureStart' ? 'capture-start' : ''}" data-command="${id}" title="${escapeHtml(commandTip(id))}" aria-label="${escapeHtml(t(commands[id].label))}">${icon(commands[id].icon)}<span>${escapeHtml(t(id === 'captureStart' ? 'action.captureStartShort' : 'action.netMapShort'))}</span></button>`;
@@ -1462,6 +1554,14 @@ function renderToolbarState() {
     if (checked !== undefined) element.setAttribute('aria-pressed', String(Boolean(checked)));
   }
   root.querySelector('#toolbar')?.classList.toggle('is-capturing', Boolean(activeDoc()?.capture));
+  const zoomValue = root.querySelector('#toolbar [data-zoom-value]');
+  if (zoomValue) { zoomValue.textContent = textSizeLabel(); zoomValue.disabled = false; }
+}
+
+/** The packet list's text size as shown: the font size times the zoom, e.g. "13px". */
+function textSizeLabel() {
+  const px = (state.settings.fontSize * state.settings.textZoom) / 100;
+  return `${Number.isInteger(px) ? px : px.toFixed(1)}px`;
 }
 
 /** The window can never be so narrow that toolbar buttons or menus are hidden. */
@@ -1472,7 +1572,7 @@ function updateMinimumWidth() {
   requestAnimationFrame(() => {
     const toolbar = root.querySelector('#toolbar');
     const style = getComputedStyle(toolbar);
-    const menus = [...root.querySelectorAll('.app-brand, .menubar-item, .panel-toggles, .window-controls')].reduce((sum, el) => sum + el.offsetWidth + 2, 48);
+    const menus = [...root.querySelectorAll('.app-brand, .app-brand-project, .menubar-item, .panel-toggles, .window-controls')].reduce((sum, el) => sum + el.offsetWidth + 2, 48);
     const width = Math.ceil(Math.max(menus, left.scrollWidth + right.scrollWidth + 24 + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + 2));
     if (Math.abs(width - state.minWidth) < 1) return;
     state.minWidth = width;
@@ -1677,7 +1777,7 @@ function tickStartBackground() {
 }
 
 function shuffleBackground() {
-  const next = (startBackground ?? appBackground)?.shuffle() ?? 'aurora';
+  const next = (startBackground ?? appBackground)?.shuffle() ?? 'packetflow';
   updateSettings({ animation: next, backgroundKind: 'animated' });
   notify('info', t('notice.animation', { name: t(`animation.${next}`) }));
 }
@@ -1894,16 +1994,21 @@ function contextMenu(event, kind, payload = {}) {
   const point = toScreen(event.clientX, event.clientY);
   const anchor = { x: point.x + 1, y: point.y + 1, flipY: point.y };
   if (kind === 'packet') {
-    return showMenu(menuItems(['markPacket', 'ignorePacket', 'timeReference', 'timeShift', 'packetComment', '-', sub('applyFilter'), sub('prepareFilter'), sub('conversationFilter'), '-', sub('copy'), '-', 'decodeAs', 'packetWindow', sub('follow'), '-', 'firewallRules']), anchor, 'context', { header: { icon: 'packet', title: t('context.packet', { no: payload.index + 1 }) } });
+    const part = partMenu({ range: 'selected', summary: true, columnHeader: true, details: 'displayed', bytes: false }, t('context.packet', { no: payload.index + 1 }));
+    return showMenu(menuItems(['markPacket', 'ignorePacket', 'timeReference', 'timeShift', 'packetComment', '-', sub('applyFilter'), sub('prepareFilter'), sub('conversationFilter'), '-', sub('copy'), '-', 'decodeAs', 'packetWindow', sub('follow'), '-', 'firewallRules']).concat(part.items), anchor, 'context', { handlers: part.handlers, header: { icon: 'packet', title: t('context.packet', { no: payload.index + 1 }) } });
   }
   if (kind === 'details') {
-    return showMenu(menuItems(['expandSub', 'collapseSub', 'expandAll', 'collapseAll', '-', 'applyAsColumn', sub('applyFilter'), sub('prepareFilter'), sub('conversationFilter'), '-', sub('copy'), 'exportBytes', '-', 'decodeAs', sub('follow'), 'goRelated']), anchor, 'context', { header: { icon: 'paneDetails', title: payload.node?.abbrev ?? t('context.details') } });
+    const part = partMenu({ range: 'selected', summary: false, details: 'displayed', bytes: false }, t('context.details'));
+    return showMenu(menuItems(['expandSub', 'collapseSub', 'expandAll', 'collapseAll', '-', 'applyAsColumn', sub('applyFilter'), sub('prepareFilter'), sub('conversationFilter'), '-', sub('copy'), 'exportBytes', '-', 'decodeAs', sub('follow'), 'goRelated']).concat(part.items), anchor, 'context', { handlers: part.handlers, header: { icon: 'paneDetails', title: payload.node?.abbrev ?? t('context.details') } });
   }
   if (kind === 'bytes') {
-    return showMenu(menuItems(['bytesHex', 'bytesBits', '-', 'bytesAscii', 'bytesEbcdic', '-', 'copyHexDump', 'copyHex', 'copyNodeBytes', 'exportBytes']), anchor, 'context', { header: { icon: 'paneBytes', title: t('context.bytes') } });
+    const part = partMenu({ range: 'selected', summary: false, details: 'none', bytes: true }, t('context.bytes'));
+    return showMenu(menuItems(['bytesHex', 'bytesBits', '-', 'bytesAscii', 'bytesEbcdic', '-', 'copyHexDump', 'copyHex', 'copyNodeBytes', 'exportBytes']).concat(part.items), anchor, 'context', { handlers: part.handlers, header: { icon: 'paneBytes', title: t('context.bytes') } });
   }
   if (kind === 'header') {
     const columns = state.settings.columns;
+    // The packet list as shown (displayed packets, summary lines).
+    const listPart = partMenu({ range: 'displayed', summary: true, columnHeader: true, details: 'none', bytes: false }, t('context.packetList'));
     const items = [
       ...columns.map((c) => ({ id: `custom:col:${c.id}`, label: columnTitle(c, t), icon: 'columns', checked: c.visible })),
       { separator: true },
@@ -1911,6 +2016,7 @@ function contextMenu(event, kind, payload = {}) {
       ...(payload.column ? [{ id: 'custom:fitone', label: t('columns.fitOne', { name: columnTitle(payload.column, t) }), icon: 'resizeColumns' }, { id: 'custom:remove', label: t('columns.remove', { name: columnTitle(payload.column, t) }), icon: 'trash', disabled: payload.column.kind !== 'field' }] : []),
       { id: 'custom:prefs', label: t('action.columnPrefs'), icon: 'columns' },
       { id: 'custom:reset', label: t('columns.reset'), icon: 'refresh' },
+      ...listPart.items,
     ];
     const handlers = {
       ...Object.fromEntries(columns.map((c) => [`custom:col:${c.id}`, () => updateColumns(columns.map((x) => (x.id === c.id ? { ...x, visible: !x.visible } : x)))])),
@@ -1919,13 +2025,82 @@ function contextMenu(event, kind, payload = {}) {
       'custom:remove': () => updateColumns(columns.filter((x) => x.id !== payload.column.id)),
       'custom:prefs': () => popups.open('columns', {}),
       'custom:reset': () => updateColumns(DEFAULT_COLUMNS.map((c) => ({ ...c }))),
+      ...listPart.handlers,
     };
     return showMenu(items, anchor, 'context', { handlers, header: { icon: 'columns', title: t('context.columns') } });
   }
   if (kind === 'tab') {
     const doc = state.docs.find((d) => d.id === payload.id);
-    const handlers = { 'custom:close': () => closeDoc(doc), 'custom:others': async () => { for (const d of state.docs.filter((x) => x !== doc)) if (!(await closeDoc(d))) return; } };
-    return showMenu([{ id: 'custom:close', label: t('action.closeTab'), icon: 'closeTab' }, { id: 'custom:others', label: t('tabs.closeOthers'), icon: 'closeAll', disabled: state.docs.length < 2 }], anchor, 'context', { handlers, header: { icon: 'packets', title: doc?.name ?? '' } });
+    // Print / export work on the active capture: right-clicking another tab brings it to the front first.
+    if (doc && doc !== activeDoc()) activate(doc.id);
+    const part = partMenu({ range: 'displayed', summary: true, columnHeader: true, details: 'none', bytes: false }, doc?.name ?? '');
+    const handlers = { 'custom:close': () => closeDoc(doc), 'custom:others': async () => { for (const d of state.docs.filter((x) => x !== doc)) if (!(await closeDoc(d))) return; }, ...part.handlers };
+    return showMenu([{ id: 'custom:close', label: t('action.closeTab'), icon: 'closeTab' }, { id: 'custom:others', label: t('tabs.closeOthers'), icon: 'closeAll', disabled: state.docs.length < 2 }, ...part.items], anchor, 'context', { handlers, header: { icon: 'packets', title: doc?.name ?? '' } });
+  }
+  if (kind === 'start-sample') {
+    const sample = SAMPLES.find((s) => s.id === payload.id);
+    if (!sample) return undefined;
+    const handlers = { 'custom:open': () => openSample(sample.id), 'custom:copyName': () => copyText(`${sample.id}.pcapng`, t('context.fileName')) };
+    return showMenu([
+      { id: 'custom:open', label: t('context.openSample'), icon: 'folderOpen' },
+      { id: 'custom:copyName', label: t('context.copyFileName'), icon: 'copy' },
+      { separator: true },
+      ...menuItems(['open', sub('sampleList')]),
+    ], anchor, 'context', { handlers, header: { icon: 'samples', title: sample[lang()]?.[0] ?? sample.id } });
+  }
+  if (kind === 'start-recent') {
+    const { path, folder } = payload;
+    const handlers = {
+      'custom:open': () => (folder ? openWithDialog(path) : openRecent(path)),
+      'custom:copy': () => copyText(path, t('context.path')),
+      'custom:remove': () => onStartAction({ dataset: { start: folder ? 'remove-folder' : 'remove-recent', value: path } }),
+    };
+    return showMenu([
+      { id: 'custom:open', label: t(folder ? 'context.openInFolder' : 'context.openFile'), icon: folder ? 'folder' : 'folderOpen' },
+      { id: 'custom:copy', label: t('context.copyPath'), icon: 'copy' },
+      { separator: true },
+      { id: 'custom:remove', label: t(folder ? 'recent.removeFolder' : 'recent.remove'), icon: 'close' },
+    ], anchor, 'context', { handlers, header: { icon: folder ? 'recentFolder' : 'recent', title: baseName(path) || path } });
+  }
+  if (kind === 'start') {
+    const handlers = {
+      'custom:arrange': () => startCards?.arrange(),
+      'custom:startSettings': () => popups.open('settings', { tab: 'start' }),
+      'custom:shuffle': () => shuffleBackground(),
+      'custom:theme': () => popups.open('settings', { tab: 'appearance' }),
+    };
+    return showMenu([
+      ...menuItems(['open', 'captureOptions', 'captureStart']),
+      { separator: true },
+      { id: 'custom:arrange', label: t('start.arrange'), icon: 'launcher' },
+      { id: 'custom:shuffle', label: t('context.shuffleBackground'), icon: 'sparkles' },
+      { id: 'custom:theme', label: t('start.themeSettings'), icon: 'palette' },
+      { id: 'custom:startSettings', label: t('start.settings'), icon: 'gear' },
+      { separator: true },
+      ...menuItems(['tutorial', 'about']),
+    ], anchor, 'context', { handlers, header: { icon: 'home', title: t('menu.home') } });
+  }
+  if (kind === 'interface') {
+    // Start page → capture card: right-click on an interface row.
+    const iface = state.interfaces.find((i) => i.id === payload.id);
+    if (!iface) return undefined;
+    const addresses = (iface.addresses ?? []).join('\n');
+    const items = [
+      { id: 'custom:start', label: t('start.captureOn', { name: iface.friendly }), icon: 'captureStart', disabled: Boolean(activeDoc()?.capture) },
+      { id: 'custom:select', label: t('context.selectInterface'), icon: 'check', checked: state.settings.captureInterface === iface.id },
+      { separator: true },
+      { id: 'custom:copyName', label: t('context.copyInterfaceName'), icon: 'copy' },
+      { id: 'custom:copyAddresses', label: t('context.copyInterfaceAddresses'), icon: 'copy', disabled: !addresses },
+      { separator: true },
+      ...menuItems(['captureOptions', 'captureFilters', 'refreshInterfaces']),
+    ];
+    const handlers = {
+      'custom:start': () => startLiveCapture(iface.id),
+      'custom:select': () => { updateSettings({ captureInterface: iface.id }, { quiet: true }); renderStartPage(); },
+      'custom:copyName': () => copyText(iface.friendly, t('context.interfaceName')),
+      'custom:copyAddresses': () => copyText(addresses, t('context.interfaceAddresses')),
+    };
+    return showMenu(items, anchor, 'context', { handlers, header: { icon: 'interfaces', title: iface.friendly } });
   }
   return undefined;
 }
@@ -2098,6 +2273,9 @@ function bindEvents() {
       return openMenubarMenu(name);
     }
     if (target.closest('[data-home]')) return showStartPage(!state.showStart || !activeDoc());
+    // Start page, capture card: a capture filter preset joins the filter as one more OR part (presets.js).
+    const capturePreset = target.closest('[data-capture-preset]');
+    if (capturePreset) { updateSettings({ captureFilter: togglePreset(state.settings.captureFilter, capturePreset.dataset.capturePreset, CAPTURE_PRESETS) }, { quiet: true }); return renderStartPage(); }
     const start = target.closest('[data-start]');
     if (start && !start.disabled) return onStartAction(start);
     if (target.closest('[data-cancel-pass]')) { activeDoc()?.busy?.abort(); return undefined; }
@@ -2135,6 +2313,24 @@ function bindEvents() {
   root.addEventListener('contextmenu', (event) => {
     const tab = event.target.closest('[data-tab]');
     if (tab) { event.preventDefault(); contextMenu(event, 'tab', { id: tab.dataset.tab }); return; }
+    const ifaceRow = event.target.closest('.iface-row')?.querySelector('[data-start="pick-interface"]');
+    if (ifaceRow) {
+      event.preventDefault();
+      // Right-click also selects the row, like a list in a file manager.
+      if (state.settings.captureInterface !== ifaceRow.dataset.value) { updateSettings({ captureInterface: ifaceRow.dataset.value }, { quiet: true }); renderStartPage(); }
+      contextMenu(event, 'interface', { id: ifaceRow.dataset.value });
+      return;
+    }
+    // The rest of the start page: a menu for what is under the pointer (a sample, a recent file or folder), else the page's own.
+    if (event.target.closest('#start-page') && !event.target.closest('input, textarea, select')) {
+      event.preventDefault();
+      const sample = event.target.closest('[data-start="sample"]');
+      if (sample) { contextMenu(event, 'start-sample', { id: sample.dataset.value }); return; }
+      const recent = event.target.closest('.start-row')?.querySelector('[data-start="open-recent"], [data-start="open-folder"]');
+      if (recent) { contextMenu(event, 'start-recent', { path: recent.dataset.value, folder: recent.dataset.start === 'open-folder' }); return; }
+      contextMenu(event, 'start', {});
+      return;
+    }
     if (!event.target.closest('input, textarea')) event.preventDefault();
   });
   if (desktop) {
@@ -2211,14 +2407,22 @@ function bindPopupActions() {
     const doc = activeDoc();
     let model = { title: '', packets: [] };
     try {
-      if (data.report && state.printReport) model = { title: t('report.heading', { title: doc?.name ?? '' }), packets: [{ no: 0, lines: state.printReport }] };
+      if (data.report && state.printReport) model = { title: state.printTitle ?? t('report.heading', { title: doc?.name ?? '' }), packets: [{ no: 0, lines: state.printReport }] };
       else if (doc) model = analysis.printModel(doc, { ...data, settings: state.settings, expanded: state.view?.details.expanded, t });
     } catch (error) { showError('error.print', error); }
     popups.post(kind, { type: 'print-data', model });
   });
+  // A statistics window's table (docexport.js): printed through the print window, or saved as a document.
+  popups.on('doc-print', (data) => {
+    state.printReport = toLines(data.doc);
+    state.printTitle = data.doc.title;
+    return popups.open('print', { doc: data.doc.subtitle || data.doc.title, report: true, count: 1, displayed: 1, marked: 0, selected: 0 });
+  });
+  popups.on('doc-export', (data) => exportDoc(data.doc, data.format, data));
   popups.on('printed', (data) => notify('success', t('notice.printed', { sheets: data.sheets ?? 0 })));
   popups.on('apply-filter', (data) => { if (!activeDoc()) return; state.view.setFilterText(data.filter); if (data.prepare) state.view.focusFilter(); else applyDisplayFilter(data.filter); });
   popups.on('go-packet', (data) => { const doc = activeDoc(); if (doc && data.no >= 1 && data.no <= doc.count) { if (!doc.displayed.includes(data.no - 1)) { state.view.setFilterText(''); applyDisplayFilter('').then(() => selectFrame(doc, data.no - 1, { reveal: true })); } else selectFrame(doc, data.no - 1, { reveal: true }); } });
+  popups.on('save-image', (data) => saveImage(String(data.svg ?? ''), fileSafe(stripExtension(data.name || 'graph')), { background: data.background ?? '#ffffff' }));
   popups.on('save-text', (data) => saveExport(fileSafe(data.name || 'export.txt'), data.type ?? 'txt', String(data.text ?? ''), data.mime ?? 'text/plain'));
   popups.on('save-bytes', (data) => saveExport(fileSafe(data.name || 'object.bin'), data.type ?? 'any', analysis.objectBytes(activeDoc(), data), data.mime ?? 'application/octet-stream'));
   popups.on('copy-text', (data) => copyText(String(data.text ?? ''), data.what));

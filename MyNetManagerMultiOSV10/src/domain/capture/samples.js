@@ -15,8 +15,7 @@ export const SAMPLE_GROUPS = [
   { id: 'names', ko: '이름 서비스', en: 'Name services' },
   { id: 'troubleshooting', ko: '문제 해결', en: 'Troubleshooting' },
   { id: 'lan', ko: '라우팅·LAN', en: 'Routing & LAN' },
-  { id: 'iot', ko: 'IoT·산업', en: 'IoT & industrial' },
-  { id: 'voip', ko: 'VoIP', en: 'VoIP' },
+  { id: 'iot', ko: 'IoT·산업·VoIP', en: 'IoT, industrial & VoIP' },
 ];
 
 const mixed = {

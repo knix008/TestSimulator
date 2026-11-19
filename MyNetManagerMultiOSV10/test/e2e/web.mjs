@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launch, serve } from './browser.mjs';
-import { c, heading, resultLine, totalsLine } from './report.mjs';
+import { c, groupLine, grouped, groupOf, heading, resultLine, totalsLine } from './report.mjs';
 import { FEATURES } from './features.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -565,6 +565,169 @@ test('time.shift', 'Time shift moves every packet time', async () => {
 });
 
 
+// ───────────────────────── 2026-11-19 additions: start page, context menus, statistics lists, export, pictures
+
+test('start.samplesGrid', 'Sample captures: one grid of equal tiles, every row full', async () => {
+  const r = await run(`A.actions.showStartPage(true); await until(() => q('.sample-tiles .start-tile')); await sleep(200);
+    const grid = q('.sample-tiles'); const tiles = [...grid.children]; const columns = getComputedStyle(grid).gridTemplateColumns.split(' ').length;
+    const sizes = new Set(tiles.map((el) => Math.round(el.getBoundingClientRect().width) + 'x' + Math.round(el.getBoundingClientRect().height)));
+    return { count: tiles.length, columns, sizes: [...sizes] };`);
+  assert(r.count % r.columns === 0, `${r.count} tiles in ${r.columns} columns leave a row half empty`);
+  assert(r.sizes.length === 1, `tile sizes differ: ${r.sizes}`);
+});
+
+test('start.backgrounds', 'Twenty network-themed moving backgrounds, each one drawing', async () => {
+  const r = await run(`A.actions.showStartPage(true); await until(() => qa('[data-start="animation"]').length);
+    const kinds = qa('[data-start="animation"]').map((b) => b.dataset.value); const drawn = [];
+    for (const kind of kinds) { q('[data-start="animation"][data-value="' + kind + '"]').click(); await sleep(250); drawn.push(kind); }
+    return { kinds, drawn };`);
+  assert(r.kinds.length === 20, `kinds: ${r.kinds.length}`);
+  for (const kind of ['packetflow', 'hexdump', 'radar', 'sequence', 'layers', 'packetlist', 'spectrum']) assert(r.kinds.includes(kind), `no ${kind} background`);
+});
+
+test('start.contextMenus', 'Right-click on the start page: a menu for an interface, a sample and the page; a closed menu forgets its items', async () => {
+  const r = await run(`A.actions.showStartPage(true); await until(() => q('.iface-row .start-link'));
+    const fire = (el) => el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 300, clientY: 300 }));
+    const items = async () => { const doc = await until(() => pop('menu')?.querySelector('.menu-item') && pop('menu')); const ids = [...doc.querySelectorAll('.menu-item')].map((e) => e.dataset.id); await A.popups.hideMenu(); await sleep(120); return ids; };
+    fire(q('.iface-row .start-link')); const iface = await items();
+    const stored = JSON.parse(localStorage.getItem('mynetmanager.popup.menu') || '{}').items ?? null;
+    fire(q('.start-card-samples [data-start="sample"]')); const sample = await items();
+    fire(q('.start-hero')); const start = await items();
+    return { iface, stored, sample, start };`);
+  assert(r.iface.includes('custom:start') && r.iface.includes('custom:select'), `interface menu: ${r.iface}`);
+  assert(r.stored === null, 'the closed menu still has its items (it could come back)');
+  assert(r.sample.includes('custom:open'), `sample menu: ${r.sample}`);
+  assert(r.start.includes('custom:arrange') && r.start.includes('custom:startSettings'), `start page menu: ${r.start}`);
+});
+
+test('chrome.toolbarExtras', 'Toolbar: Print ends the file group, the text size shows in px between A− and A+', async () => {
+  await openSample('mixed-office-lan');
+  const r = await run(`const groups = qa('#toolbar .toolbar-left .tool-group'); const file = [...groups[0].querySelectorAll('[data-command]')].map((b) => b.dataset.command);
+    const zoomGroup = groups.find((g) => g.querySelector('[data-zoom-value]')); const order = [...zoomGroup.children].map((b) => b.dataset.zoomValue !== undefined ? 'value' : b.dataset.command);
+    const before = q('#toolbar [data-zoom-value]').textContent; A.run('textZoomIn'); await sleep(150); const after = q('#toolbar [data-zoom-value]').textContent; A.run('textZoomReset'); await sleep(100);
+    const capture = groups[1].querySelector('[data-command="captureStart"] .icon')?.dataset.tone; const stop = groups[1].querySelector('[data-command="captureStop"] .icon')?.dataset.tone;
+    return { file, order, before, after, capture, stop };`);
+  assert(r.file[0] === 'open' && r.file.at(-1) === 'print', `file group: ${r.file}`);
+  const v = r.order.indexOf('value');
+  assert(r.order[v - 1] === 'textZoomOut' && r.order[v + 1] === 'textZoomIn', `zoom order: ${r.order}`);
+  assert(/^\d+(\.\d)?px$/.test(r.before) && r.after !== r.before, `size: ${r.before} → ${r.after}`);
+  assert(r.capture === 'green' && r.stop === 'red', `capture ${r.capture}, stop ${r.stop}`);
+});
+
+test('chrome.foldRails', 'Folded side panels are narrow rails with a vertical title; the map has its fold button at the right', async () => {
+  await openSample('mixed-office-lan');
+  const r = await run(`A.actions.updateSettings({ showNetMap: true, showLeftPanel: true, paneLayout: 'bytes-right', showBytes: true }); await until(() => q('.pane-map [data-fold="map"]'));
+    const tools = q('.pane-map .nm-tools'); const lastFold = tools.lastElementChild?.dataset.fold;
+    A.actions.updateSettings({ showLeftPanel: false, showBytes: false }); await sleep(250);
+    const rail = q('.rail-left').getBoundingClientRect().width; const title = getComputedStyle(q('.rail-left .rail-title')).writingMode;
+    const strip = q('.pane-bytes').getBoundingClientRect().width; const stripTitle = getComputedStyle(q('.pane-bytes .pane-title')).writingMode;
+    A.actions.updateSettings({ showLeftPanel: true, showBytes: true, paneLayout: 'stack', showNetMap: false }); await sleep(150);
+    return { lastFold, rail, title, strip, stripTitle };`);
+  assert(r.lastFold === 'map', 'the map header has no fold button at its right end');
+  assert(r.rail <= 28 && r.strip <= 28, `rail ${r.rail}px, strip ${r.strip}px`);
+  assert(r.title === 'vertical-rl' && r.stripTitle === 'vertical-rl', `titles: ${r.title}, ${r.stripTitle}`);
+});
+
+test('filter.presets', 'Preset filters (display bar, start page and Capture Options capture filters) combine with OR; another press never turns one off', async () => {
+  const total = await openSample('dns-queries');
+  const r = await run(`const presets = qa('[data-df-preset]').map((b) => b.dataset.dfPreset); const click = async (f) => { q('[data-df-preset="' + f + '"]').click(); await sleep(250); return { text: q('.df-input').value, on: qa('[data-df-preset].on').map((b) => b.dataset.dfPreset), shown: A.doc().displayed.length }; };
+    const one = await click('dns'); const two = await click('udp'); const back = await click('dns'); const none = await click('udp');
+    await A.actions.applyDisplayFilter('frame.len > 60'); await sleep(200); const typed = await click('dns');
+    await A.actions.applyDisplayFilter('');
+    A.actions.updateSettings({ captureFilter: '' }, { quiet: true }); A.actions.showStartPage(true); await until(() => q('[data-capture-preset]'));
+    q('[data-capture-preset="tcp"]').click(); await sleep(150); q('[data-capture-preset="port 53"]').click(); await sleep(150);
+    const start = { filter: A.state.settings.captureFilter, on: qa('[data-capture-preset].on').length, box: q('[data-start-capture-filter]').value };
+    A.run('captureOptions'); await until(() => pop('capopts')?.querySelector('[data-action="cap-preset"]'));
+    pop('capopts').querySelector('[data-action="cap-preset"][data-value="tcp"]').click(); await sleep(200);
+    const capopts = { filter: pop('capopts').querySelector('[data-net="captureFilter"]').value, on: pop('capopts').querySelectorAll('[data-action="cap-preset"].on').length };
+    await A.popups.close('capopts'); A.actions.updateSettings({ captureFilter: '' }, { quiet: true });
+    return { presets, one, two, back, none, typed, start, capopts };`);
+  assert(r.presets.length >= 10 && r.presets.includes('tcp') && r.presets.includes('http'), `presets: ${r.presets}`);
+  assert(r.one.text === 'dns' && r.one.shown > 0 && r.one.shown < total, `one: ${JSON.stringify(r.one)}`);
+  assert(r.two.text === 'dns or udp' && r.two.on.length === 2 && r.two.shown >= r.one.shown, `two presets are not ORed: ${JSON.stringify(r.two)}`);
+  assert(r.back.text === 'udp' && r.none.text === '', `turning presets off: "${r.back.text}", "${r.none.text}"`);
+  assert(r.typed.text === '(frame.len > 60) or dns', `typed filter OR preset: "${r.typed.text}"`);
+  assert(r.start.filter === 'tcp or port 53' && r.start.on === 2 && r.start.box === 'tcp or port 53', `start page capture presets: ${JSON.stringify(r.start)}`);
+  assert(r.capopts.filter === 'port 53' && r.capopts.on === 1, `Capture Options presets: ${JSON.stringify(r.capopts)}`);
+});
+
+test('stats.listTools', 'Expert information: filters on top, striped rows, heading sort in the tree, expand / collapse all', async () => {
+  await openSample('tcp-retransmissions');
+  const r = await run(`A.actions.openStats('expert'); const doc = await until(() => pop('stats')?.querySelector('.net-table tbody tr') && pop('stats'));
+    const bar = doc.querySelector('.net-filterbar'); const wrap = doc.querySelector('.net-table-wrap'); const barFirst = bar && (bar.compareDocumentPosition(wrap) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    const inFoot = !!doc.querySelector('.popup-foot [data-net="query"], .popup-foot [data-action="net-apply"]');
+    const rows = () => pop('stats').querySelectorAll('.net-table tbody tr').length; const all = rows();
+    const bg = [...pop('stats').querySelectorAll('.net-table tbody tr')].slice(0, 2).map((tr) => getComputedStyle(tr).backgroundColor);
+    pop('stats').querySelector('[data-action="net-collapse-all"]').click(); await sleep(150); const collapsed = rows();
+    pop('stats').querySelector('[data-action="net-expand-all"]').click(); await sleep(150); const expanded = rows();
+    const th = pop('stats').querySelector('th[data-action="net-sort"]:last-child'); th.click(); await sleep(150); const sorted = pop('stats').querySelector('th.asc, th.desc') != null;
+    await A.popups.close('stats'); return { barFirst, inFoot, all, bg, collapsed, expanded, sorted };`);
+  assert(r.barFirst && !r.inFoot, 'the filter controls are not above the list');
+  assert(r.bg[0] !== r.bg[1], `rows are not striped: ${r.bg}`);
+  assert(r.collapsed < r.all && r.expanded === r.all, `rows ${r.all}, collapsed ${r.collapsed}, expanded ${r.expanded}`);
+  assert(r.sorted, 'a heading click did not sort the tree');
+});
+
+test('export.documents', 'Statistics, the print window and the report print and export as HTML, Markdown, PDF and Word', async () => {
+  await openSample('mixed-office-lan');
+  const r = await run(`window.__downloads = []; A.actions.openStats('conversations'); await until(() => pop('stats')?.querySelector('[data-action="net-export"]'));
+    for (const format of ['html', 'markdown', 'pdf', 'docx']) { const s = pop('stats').querySelector('[data-net="exportFormat"]'); s.value = format; s.dispatchEvent(new Event('change', { bubbles: true })); await sleep(120); pop('stats').querySelector('[data-action="net-export"]').click(); await sleep(400); }
+    pop('stats').querySelector('[data-action="net-print"]').click(); const printed = await until(() => pop('print')?.querySelector('.pp-sheet')) != null; await A.popups.close('print'); await A.popups.close('stats');
+    A.run('print'); await until(() => pop('print')?.querySelector('[data-action="print-export"]')); const ps = pop('print').querySelector('[data-net="exportFormat"]'); ps.value = 'docx'; ps.dispatchEvent(new Event('change', { bubbles: true })); await sleep(120);
+    pop('print').querySelector('[data-action="print-export"]').click(); await sleep(600); await A.popups.close('print');
+    const report = A.run('report'); const rd = await until(() => pop('report')?.querySelector('[data-net-seg="format"][data-value="pdf"], [data-value="pdf"]') && pop('report')); rd.querySelector('[data-value="pdf"]').click(); await sleep(100); rd.querySelector('[data-action="report-ok"]').click(); await report; await sleep(600);
+    return { downloads: window.__downloads, printed };`);
+  for (const ext of ['.html', '.md', '.pdf', '.docx']) assert(r.downloads.some((n) => n.endsWith(ext)), `no ${ext}: ${r.downloads}`);
+  assert(r.downloads.filter((n) => n.endsWith('.docx')).length >= 2, `print window Word export missing: ${r.downloads}`);
+  assert(r.downloads.some((n) => /report.*\.pdf$/.test(n)), `report PDF missing: ${r.downloads}`);
+  assert(r.printed, 'statistics print did not open the print window');
+});
+
+test('export.images', 'Pictures save as PNG, JPEG, WebP, GIF and SVG; a graph exports to Markdown with its picture inside or linked', async () => {
+  await openSample('dns-queries');
+  const r = await run(`window.__downloads = []; A.actions.updateSettings({ showNetMap: true }); await until(() => qa('.nm-node').length);
+    for (const choice of ['png', 'jpg', 'webp', 'gif', 'svg']) { const p = A.view().map.app.onExport(); const b = await until(() => pop('confirm')?.querySelector('[data-value="' + choice + '"]')); b.click(); await p; await sleep(250); }
+    const offered = await (async () => { const p = A.view().map.app.onExport(); const doc = await until(() => pop('confirm')?.querySelector('[data-value="avif"]') && pop('confirm')); const ids = [...doc.querySelectorAll('[data-action="choice"]')].map((b) => b.dataset.value); doc.querySelector('[data-value="cancel"]').click(); await p; return ids; })();
+    A.actions.updateSettings({ showNetMap: false });
+    A.actions.openStats('iograph'); await until(() => pop('chart')?.querySelector('.net-chart-svg') && pop('chart').querySelector('[data-net="exportFormat"]'));
+    const s = pop('chart').querySelector('[data-net="exportFormat"]'); s.value = 'markdown'; s.dispatchEvent(new Event('change', { bubbles: true })); await until(() => pop('chart').querySelector('[data-net="imageMode"]'));
+    const mode = pop('chart').querySelector('[data-net="imageMode"]'); mode.value = 'link'; mode.dispatchEvent(new Event('change', { bubbles: true })); await sleep(80);
+    pop('chart').querySelector('[data-action="graph-export"]').click(); await sleep(1200); await A.popups.close('chart');
+    return { downloads: window.__downloads, offered };`);
+  for (const ext of ['.png', '.jpg', '.webp', '.gif', '.svg']) assert(r.downloads.some((n) => n.endsWith(`-map${ext}`)), `no map${ext}: ${r.downloads}`);
+  assert(r.offered.includes('avif'), `AVIF is not offered: ${r.offered}`);
+  assert(r.downloads.some((n) => n.endsWith('.md')) && r.downloads.some((n) => /-1\.png$/.test(n)), `linked Markdown export: ${r.downloads}`);
+});
+
+test('export.contextMenus', 'Right-click on a packet, its details, its bytes or a tab: Print… opens the print window for that part, Export saves it', async () => {
+  await openSample('mixed-office-lan');
+  const r = await run(`window.__downloads = []; A.actions.selectFrame(A.doc(), 4); await sleep(150);
+    const fire = (el) => el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 400, clientY: 300 }));
+    const menu = async () => until(() => pop('menu')?.querySelector('[data-id="custom:part:print"]') && pop('menu'));
+    const exportAs = async (format) => { const m = await menu(); m.querySelector('[data-id="submenu:partExport"]').click(); const item = await until(() => pop('menu')?.querySelector('[data-id="custom:part:export:' + format + '"]')); item.click(); await sleep(500); };
+    const found = {};
+    fire(q('.pl-row[data-index="4"]')); found.packet = !!(await menu()); await exportAs('pdf');
+    fire(q('.details-tree .dt-row')); found.details = !!(await menu()); await exportAs('docx');
+    fire(q('.by-scroll')); found.bytes = !!(await menu()); await exportAs('markdown');
+    fire(q('#tabs [data-tab]')); found.tab = !!(await menu()); await exportAs('html');
+    fire(q('.pl-row[data-index="4"]')); (await menu()).querySelector('[data-id="custom:part:print"]').click();
+    const doc = await until(() => pop('print')?.querySelector('.pp-sheet') && pop('print'));
+    const range = doc.querySelector('[data-print-range]:checked')?.dataset.printRange;
+    await A.popups.close('print');
+    return { found, downloads: window.__downloads, range };`);
+  for (const [where, ok] of Object.entries(r.found)) assert(ok, `no Print… in the ${where} menu`);
+  for (const ext of ['.pdf', '.docx', '.md', '.html']) assert(r.downloads.some((n) => n.endsWith(ext)), `no ${ext}: ${r.downloads}`);
+  assert(r.range === 'selected', `the print window did not open on the right-clicked packet: range ${r.range}`);
+});
+
+test('filter.tlsVersions', 'TLS 1.0–1.3 presets: _ws.col.protocol keeps exactly the rows whose Protocol column names that version', async () => {
+  await openSample('mixed-office-lan');
+  const r = await run(`const out = {}; for (const v of ['TLSv1.2', 'TLSv1.3']) { await A.actions.applyDisplayFilter(''); qa('[data-df-preset]').find((b) => b.dataset.dfPreset.endsWith('"' + v + '"')).click(); await sleep(400);
+      const doc = A.doc(); out[v] = { shown: doc.displayed.length, wrong: doc.displayed.filter((i) => doc.summary(i).protocol !== v).length }; }
+    await A.actions.applyDisplayFilter(''); return out;`);
+  for (const [v, x] of Object.entries(r)) assert(x.shown > 0 && x.wrong === 0, `${v}: ${JSON.stringify(x)}`);
+});
+
 test('i18n.noRawKeys', 'No untranslated text keys anywhere, in Korean and English', async () => {
   await openSample('mixed-office-lan');
   const r = await run(`const KEY = /\b(action|menu|submenu|settings|start|status|notice|filter|stats|chart|follow|panel|report|finding|netmap|capopts|column|print|export|coloring|expr|decodeAs|protocols|tutorial|welcome|recent|common|props|severity|log|time|precision|context|copy|error|tip|window|tabs|details|bytes|packetList|expert|sampleGroup|capture)\.[a-zA-Z][a-zA-Z0-9._-]*\b/;
@@ -597,7 +760,9 @@ const only = process.env.MYNETMANAGER_E2E_ONLY ? new RegExp(process.env.MYNETMAN
 const chosen = CASES.filter((x) => !only || only.test(x.id) || only.test(x.name));
 console.log(heading('E2E web', c.dim(`(${chosen.length} cases)`)));
 const results = [];
-for (const item of chosen) {
+let lastGroup = '';
+for (const item of grouped(chosen)) {
+  if (groupOf(item.id) !== lastGroup) { lastGroup = groupOf(item.id); console.log(groupLine(item.id)); }
   const started = performance.now();
   const errorsBefore = page.errors.length;
   try {

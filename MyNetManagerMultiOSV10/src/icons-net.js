@@ -3,10 +3,10 @@
 export const NET_ICONS = {
   tools: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>',
   // ── capture
-  captureStart: '<path d="M5 20c2-6 4-12 9-16 0 6 2 10 5 13"/><path d="M3 20h18"/><circle cx="14" cy="10" r="1" fill="currentColor"/>',
-  captureStop: '<rect x="5" y="5" width="14" height="14" rx="2.5"/>',
-  captureRestart: '<path d="M4 12a8 8 0 1 0 2.5-5.8"/><path d="M4 4v4h4"/><path d="M10 9l5 3-5 3z"/>',
-  captureOptions: '<path d="M5 20c2-6 4-12 9-16 0 6 2 10 5 13"/><path d="M3 20h9"/><circle cx="18" cy="18" r="2.5"/><path d="M18 14v1.5M18 20.5V22M14 18h1.5M20.5 18H22"/>',
+  captureStart: '<path d="M7 4.5v15l12.5-7.5z" fill="currentColor"/>',
+  captureStop: '<rect x="5.5" y="5.5" width="13" height="13" rx="2.5" fill="currentColor"/>',
+  captureRestart: '<path d="M4 12a8 8 0 1 0 2.5-5.8"/><path d="M4 4v4h4"/><path d="M10 8.5v7l5.5-3.5z" fill="currentColor"/>',
+  captureOptions: '<path d="M4 3.5v12l9.5-6z" fill="currentColor"/><circle cx="17.5" cy="17.5" r="2.3"/><path d="M17.5 13.5v1.2M17.5 20.3v1.2M13.5 17.5h1.2M20.3 17.5h1.2M14.7 14.7l.9.9M19.4 19.4l.9.9M14.7 20.3l.9-.9M19.4 15.6l.9-.9"/>',
   captureFilterIcon: '<path d="M3 5h18l-7 8v6l-4 2v-8z"/><path d="M17 3l2 2"/>',
   ifEthernet: '<rect x="4" y="6" width="16" height="12" rx="2"/><path d="M8 18v-4h8v4M9 10h1M12 10h1M15 10h1"/>',
   ifWifi: '<path d="M3 9a13 13 0 0 1 18 0M6 12.5a8.5 8.5 0 0 1 12 0M9 16a4 4 0 0 1 6 0"/><circle cx="12" cy="19" r="1" fill="currentColor"/>',

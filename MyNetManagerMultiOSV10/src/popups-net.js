@@ -7,11 +7,15 @@
 // Data: a statistics popup asks the main window ('stats-request' { statKind, options, displayedOnly })
 // and gets { type: 'stats-data', result } back (src/analysis-bridge.js makes the result).
 import { loadSavedFilters, storeSavedFilters } from './domain/filters-store.js';
+import { svgToCanvas } from './domain/export/images.js';
+import { CAPTURE_PRESETS, presetButtons, togglePreset } from './domain/filter/presets.js';
 import { COLUMN_KINDS, DEFAULT_COLUMNS, PANE_LAYOUTS, PRINT_KEY, TIME_FORMATS, TIME_PRECISIONS } from './domain/settings.js';
 import { defaultPrintOptions, FONT_SIZES, layoutPrint, MARGINS, PAPERS, paperSize, PRINT_DETAILS, PRINT_RANGES } from './print/packets.js';
 
 const PALETTE = ['#1f77b4', '#d62728', '#2ca02c', '#ff7f0e', '#9467bd', '#8c564b', '#e377c2', '#17becf', '#7f7f7f', '#bcbd22'];
 const fmtBytes = (n) => (n >= 1e9 ? `${(n / 1e9).toFixed(2)} GB` : n >= 1e6 ? `${(n / 1e6).toFixed(2)} MB` : n >= 1e3 ? `${(n / 1e3).toFixed(1)} kB` : `${n} B`);
+/** Export formats offered in the statistics and print windows, with their icons (docexport.js writes them). */
+const DOC_FORMAT_LIST = [['html', 'protoWeb'], ['markdown', 'notes'], ['pdf', 'exportReport'], ['docx', 'exportFile']];
 const fmtNumber = (value, fmt) => {
   if (value == null || value === '') return '';
   if (typeof value !== 'number') return String(value);
@@ -67,19 +71,29 @@ export function installNetPopups(c) {
     else if (r && !net.loading) body = statBody(r);
     const tabs = r?.tabs ? tabsHtml(r.tabs.map((tab) => [tab.id, tab.icon ?? 'conversations', tab.count != null ? `${tab.label} · ${tab.count}` : tab.label]), r.tab ?? net.draft.tab ?? r.tabs[0].id, 'stat-tab') : '';
     const canFilter = r?.view === 'table' || r?.view === 'tree';
-    const foot = [
+    // The filter controls sit above the list: what to count, the search box, the display filter
+    // from the selected row and, for a tree, expand / collapse all.
+    const filterBar = [
       p.statKind !== 'packet' && p.statKind !== 'firewall' ? `<label class="check-inline" title="${escapeHtml(t('stats.displayedOnly'))}"><input type="checkbox" data-net="displayedOnly" ${net.draft.displayedOnly ? 'checked' : ''} /><span>${escapeHtml(t('stats.displayedOnly'))}</span></label>` : '',
       canFilter ? `<span class="net-search">${icon('search')}<input type="text" data-net="query" value="${escapeHtml(net.query)}" placeholder="${escapeHtml(t('stats.search'))}" aria-label="${escapeHtml(t('stats.search'))}" /></span>` : '',
+      r?.view === 'tree' && !r.error ? button('net-expand-all', t('action.expandAll'), 'expandAll', 'small') + button('net-collapse-all', t('action.collapseAll'), 'collapseAll', 'small') : '',
       '<span class="grow"></span>',
       canFilter ? button('net-prepare', t('stats.prepareFilter'), 'filterPrepare', 'small', '', net.selectedRow?.filter ? '' : 'disabled') : '',
       canFilter ? button('net-apply', t('stats.applyFilter'), 'filterApply', 'small', '', net.selectedRow?.filter ? '' : 'disabled') : '',
+    ].join('');
+    const top = filterBar.replace('<span class="grow"></span>', '') ? `<div class="net-filterbar">${filterBar}</div>` : '';
+    const canDocument = r && !r.error && r.view !== 'objects';
+    const foot = [
+      canDocument ? button('net-print', t('action.print'), 'print', 'small') : '',
+      canDocument ? exportControls('net-export') : '',
+      '<span class="grow"></span>',
       r?.view === 'objects' ? button('net-save-all', t('stats.saveAll'), 'save', 'small', '', r.rows?.length ? '' : 'disabled') : '',
       r && !r.error ? button('net-copy', t('stats.copy'), 'copy', 'small') : '',
       r && !r.error ? button('net-save', t('stats.saveAs'), 'save', 'small') : '',
       button('net-refresh', t('stats.refresh'), 'refresh', 'small'),
       button('close', t('common.close'), 'close'),
     ].join('');
-    root.innerHTML = frame({ glyph, title: `${titleText}${p.doc ? ` — ${p.doc}` : ''}`, tabs, body: `<div class="net-stats">${body}</div>`, foot });
+    root.innerHTML = frame({ glyph, title: `${titleText}${p.doc ? ` — ${p.doc}` : ''}`, tabs, body: `<div class="net-stats">${top}${body}</div>`, foot });
     ready();
   }
 
@@ -95,33 +109,84 @@ export function installNetPopups(c) {
     return tableHtml(r);
   }
 
-  /** A sortable table (or a tree when rows have depth) with a filter box; a click selects a row. */
-  function tableHtml(r) {
-    const columns = r.columns;
+  /**
+   * The export format (remembered while the window is open) and the button that exports with it. A window
+   * with pictures (graphs) adds, for Markdown, whether the pictures go inside the file or beside it, linked.
+   */
+  const exportControls = (actionName, { images = false } = {}) => `<span class="net-export">${images && (net.exportFormat ?? 'html') === 'markdown' ? `<select data-net="imageMode" data-icon="imageFormat" aria-label="${escapeHtml(t('docExport.images'))}" title="${escapeHtml(t('docExport.images'))}"><option value="embed" data-icon="imageFormat" ${(net.imageMode ?? 'embed') === 'embed' ? 'selected' : ''}>${escapeHtml(t('docExport.imagesEmbed'))}</option><option value="link" data-icon="link" ${net.imageMode === 'link' ? 'selected' : ''}>${escapeHtml(t('docExport.imagesLink'))}</option></select>` : ''}<select data-net="exportFormat" data-icon="exportFile" aria-label="${escapeHtml(t('docExport.format'))}" title="${escapeHtml(t('docExport.format'))}">${DOC_FORMAT_LIST.map(([id, glyph]) => `<option value="${id}" data-icon="${glyph}" ${(net.exportFormat ?? 'html') === id ? 'selected' : ''}>${escapeHtml(t(`docExport.${id}`))}</option>`).join('')}</select>${button(actionName, t('docExport.export'), 'exportFile', 'small')}</span>`;
+
+  /** What the window shows, as a document for printing and exporting (docexport.js): the rows as they are on screen. */
+  function statDocument() {
+    const p = P();
+    const r = net.data;
+    const [, titleKey] = STAT_META[p.statKind] ?? ['', 'menu.statistics'];
+    const title = p.statKind === 'ipStats' && p.version === 6 ? t('action.ipv6Stats') : t(titleKey);
+    const subtitle = [p.doc, net.query.trim() ? `${t('stats.search')}: ${net.query.trim()}` : ''].filter(Boolean).join(' · ');
+    if (r.view === 'props') {
+      return { title, subtitle, columns: [{ label: t('docExport.item') }, { label: t('docExport.value') }], rows: r.sections.flatMap((sec) => [{ depth: 0, cells: [sec.title, ''] }, ...sec.rows.map(([k, v]) => ({ depth: 1, cells: [k, v] }))]) };
+    }
+    if (r.view === 'text') return { title, subtitle, columns: [{ label: title }], rows: String(r.text).split('\n').map((line) => ({ cells: [line] })) };
+    if (r.view === 'packet') return { title, subtitle, columns: [{ label: title }], rows: [...r.lines.map((l) => ({ depth: l.depth, cells: [l.text] })), { cells: [''] }, ...String(r.hex).split('\n').map((line) => ({ cells: [line] }))] };
+    const tree = r.view === 'tree';
+    return {
+      title,
+      subtitle,
+      note: r.note,
+      columns: r.columns.map((c) => ({ label: c.label, num: Boolean(c.num) })),
+      rows: visibleRows(r).map((row) => ({ depth: tree ? row.depth : 0, cells: r.columns.map((c) => String(fmtNumber(row.cells[c.id], c.fmt) ?? '')) })),
+    };
+  }
+
+  /** The rows as shown: searched, sorted and (for a tree) with collapsed rows' children hidden. */
+  function visibleRows(r) {
     const query = net.query.trim().toLowerCase();
     let rows = r.rows;
     const tree = r.view === 'tree';
+    const matches = (row) => Object.values(row.cells).some((v) => String(v ?? '').toLowerCase().includes(query));
+    const compare = net.sort ? (a, b) => {
+      const x = a.cells[net.sort.id];
+      const y = b.cells[net.sort.id];
+      const cmp = typeof x === 'number' && typeof y === 'number' ? x - y : String(x ?? '').localeCompare(String(y ?? ''), undefined, { numeric: true });
+      return net.sort.desc ? -cmp : cmp;
+    } : null;
     if (tree) {
-      // Hide the children of collapsed rows.
-      const out = [];
-      let hideBelow = Infinity;
+      // Rows come depth-first; rebuild the tree so a heading click sorts each row's children in
+      // place, a search keeps the ancestors of what it finds (opened), and collapsed rows hide theirs.
+      const roots = [];
+      const stack = [];
       for (const row of rows) {
-        if (row.depth > hideBelow) continue;
-        hideBelow = net.collapsed.has(row.id) ? row.depth : Infinity;
-        out.push(row);
+        const node = { row, kids: [] };
+        while (stack.length && stack[stack.length - 1].row.depth >= row.depth) stack.pop();
+        (stack.length ? stack[stack.length - 1].kids : roots).push(node);
+        stack.push(node);
       }
+      const hit = new Map();
+      const found = (node) => {
+        if (!hit.has(node)) hit.set(node, matches(node.row) || node.kids.some(found));
+        return hit.get(node);
+      };
+      const out = [];
+      const walk = (list) => {
+        for (const node of compare ? [...list].sort((a, b) => compare(a.row, b.row)) : list) {
+          if (query && !found(node)) continue;
+          out.push(node.row);
+          if (query || !net.collapsed.has(node.row.id)) walk(node.kids);
+        }
+      };
+      walk(roots);
       rows = out;
+    } else {
+      if (query) rows = rows.filter(matches);
+      if (compare) rows = [...rows].sort(compare);
     }
-    if (query) rows = rows.filter((row) => Object.values(row.cells).some((v) => String(v ?? '').toLowerCase().includes(query)));
-    if (net.sort && !tree) {
-      const { id, desc } = net.sort;
-      rows = [...rows].sort((a, b) => {
-        const x = a.cells[id];
-        const y = b.cells[id];
-        const cmp = typeof x === 'number' && typeof y === 'number' ? x - y : String(x ?? '').localeCompare(String(y ?? ''), undefined, { numeric: true });
-        return desc ? -cmp : cmp;
-      });
-    }
+    return rows;
+  }
+
+  /** A sortable table (or a tree when rows have depth) with a filter box; a click selects a row. */
+  function tableHtml(r) {
+    const columns = r.columns;
+    const tree = r.view === 'tree';
+    const rows = visibleRows(r);
     const limit = 3000;
     const shown = rows.slice(0, limit);
     const hasChildren = new Set();
@@ -165,7 +230,7 @@ export function installNetPopups(c) {
     root.innerHTML = frame({
       glyph: io ? 'ioGraph' : 'tcpGraph', title: `${t(io ? 'action.ioGraph' : 'action.tcpGraph')}${p.doc ? ` — ${p.doc}` : ''}`,
       body: `<div class="net-chart-layout"><div class="net-chart">${chart}</div><div class="net-chart-controls">${controls}</div></div>`,
-      foot: `<label class="check-inline"><input type="checkbox" data-net="displayedOnly" ${d.displayedOnly ? 'checked' : ''} /><span>${escapeHtml(t('stats.displayedOnly'))}</span></label><span class="grow"></span>${button('net-save-svg', t('chart.saveSvg'), 'exportImage', 'small')}${button('net-copy', t('stats.copy'), 'copy', 'small')}${button('net-refresh', t('stats.refresh'), 'refresh', 'small')}${button('close', t('common.close'), 'close')}`,
+      foot: `<label class="check-inline"><input type="checkbox" data-net="displayedOnly" ${d.displayedOnly ? 'checked' : ''} /><span>${escapeHtml(t('stats.displayedOnly'))}</span></label><span class="grow"></span>${button('net-save-svg', t('image.save'), 'exportImage', 'small')}${exportControls('graph-export', { images: true })}${button('net-copy', t('stats.copy'), 'copy', 'small')}${button('net-refresh', t('stats.refresh'), 'refresh', 'small')}${button('close', t('common.close'), 'close')}`,
     });
     ready();
   }
@@ -295,7 +360,7 @@ export function installNetPopups(c) {
       foot: `<label class="check-inline"><input type="checkbox" data-net="displayedOnly" ${d.displayedOnly ? 'checked' : ''} /><span>${escapeHtml(t('stats.displayedOnly'))}</span></label>
         ${select('data-net-sel', 'flowType', [['all', t('flow.all')], ['tcp', t('flow.tcp')]], d.flowType, t('flow.type'))}
         ${select('data-net-sel', 'addresses', [['any', t('flow.anyAddress')], ['network', t('flow.networkAddress')]], d.addresses, t('flow.addresses'))}
-        <span class="grow"></span>${button('net-save-svg', t('chart.saveSvg'), 'exportImage', 'small')}${button('net-copy', t('stats.copy'), 'copy', 'small')}${button('net-refresh', t('stats.refresh'), 'refresh', 'small')}${button('close', t('common.close'), 'close')}`,
+        <span class="grow"></span>${button('net-save-svg', t('image.save'), 'exportImage', 'small')}${exportControls('graph-export', { images: true })}${button('net-copy', t('stats.copy'), 'copy', 'small')}${button('net-refresh', t('stats.refresh'), 'refresh', 'small')}${button('close', t('common.close'), 'close')}`,
     });
     ready();
   }
@@ -350,6 +415,7 @@ export function installNetPopups(c) {
       body = `${d.backend && d.backend.available === false ? `<div class="net-banner">${icon('warning')}<span>${escapeHtml(d.backend.error === 'web' ? t('start.webCapture') : t('start.noBackend', { error: d.backend.error ?? '' }))}</span></div>` : ''}
         <div class="net-table-wrap short"><table class="net-table"><thead><tr><th></th><th>${escapeHtml(t('capopts.interface'))}</th><th>${escapeHtml(t('capopts.addresses'))}</th><th>${escapeHtml(t('capopts.state'))}</th></tr></thead><tbody>${list}</tbody></table></div>
         ${row('captureFilterIcon', t('capopts.filter'), `<span class="cap-filter ${fc ? (fc.ok ? 'valid' : 'invalid') : ''}"><input type="text" data-net="captureFilter" value="${escapeHtml(st.captureFilter)}" spellcheck="false" placeholder="${escapeHtml(t('start.captureFilterPlaceholder'))}" />${savedOptions.length ? `<select data-net-sel="savedCaptureFilter" title="${escapeHtml(t('capopts.saved'))}"><option value="">${escapeHtml(t('capopts.saved'))}</option>${savedOptions.map(([v, l]) => `<option value="${escapeHtml(v)}">${escapeHtml(l)}</option>`).join('')}</select>` : ''}</span>`)}
+        ${row('filterApply', t('capopts.presets'), presetButtons(CAPTURE_PRESETS, st.captureFilter, { t, icon, escapeHtml, attr: 'data-action="cap-preset" data-value', label: t('capopts.presets'), i18n: 'capturePreset' }))}
         ${fc && !fc.ok ? `<div class="net-banner error">${icon('error')}<span>${escapeHtml(fc.error ?? '')}</span></div>` : ''}
         ${toggle('capturePromisc', t('capopts.promisc'), 'interfaces')}
         ${toggle('captureMonitor', t('capopts.monitor'), 'ifWifi')}
@@ -615,7 +681,7 @@ export function installNetPopups(c) {
       let saved = {};
       try { saved = JSON.parse(globalThis.localStorage?.getItem(PRINT_KEY) ?? '{}') ?? {}; } catch { /* defaults */ }
       const p = P();
-      net.print = { ...defaultPrintOptions(), ...saved, range: p.displayed < p.count ? 'displayed' : 'all', custom: '' };
+      net.print = { ...defaultPrintOptions(), ...saved, range: p.displayed < p.count ? 'displayed' : 'all', custom: '', ...(p.preset ?? {}) };
     }
     return net.print;
   }
@@ -708,6 +774,7 @@ export function installNetPopups(c) {
         <span class="page-number" id="page-number">${escapeHtml(t('print.page', { n: count ? net.printPage + 1 : 0, total: count }))}</span>
         <button class="icon-button" data-action="print-page" data-value="1" title="${escapeHtml(t('print.next'))}" aria-label="${escapeHtml(t('print.next'))}" ${net.printPage >= count - 1 ? 'disabled' : ''}>${icon('chevronRight')}</button>
         <span class="grow"></span>
+        ${count ? exportControls('print-export') : ''}
         <button class="button primary" data-action="print-now" title="${escapeHtml(t('print.print'))}" ${count ? '' : 'disabled'}>${icon('print')}<span>${escapeHtml(t('print.print'))}</span></button>
         ${button('close', t('common.close'), 'close')}`,
     });
@@ -766,7 +833,7 @@ export function installNetPopups(c) {
       body: `<div class="settings-page">
         <h3 class="section-title">${icon('list')}${escapeHtml(t('report.sections'))}</h3>
         <div class="report-sections">${(p.sections ?? Object.keys(REPORT_ICONS)).map((id) => `<label class="check-inline"><input type="checkbox" data-report-section="${id}" ${d.sections.has(id) ? 'checked' : ''} />${icon(REPORT_ICONS[id] ?? 'list')}<span>${escapeHtml(t(`report.section.${id}`))}</span></label>`).join('')}</div>
-        ${row('reportHtml', t('report.format'), segmented('format', [['html', 'HTML', 'reportHtml'], ['markdown', 'Markdown', 'reportMarkdown'], ['print', t('action.print'), 'print']], d.format, 'data-net-seg'))}
+        ${row('reportHtml', t('report.format'), segmented('format', [['html', 'HTML', 'reportHtml'], ['markdown', 'Markdown', 'reportMarkdown'], ['pdf', 'PDF', 'exportReport'], ['docx', 'Word', 'exportFile'], ['print', t('action.print'), 'print']], d.format, 'data-net-seg'))}
         <p class="muted">${escapeHtml(t('report.hint'))}</p>
       </div>`,
       foot: `<span class="grow"></span>${button('close', t('common.cancel'), 'close')}${button('report-ok', t(d.format === 'print' ? 'action.print' : 'export.save'), d.format === 'print' ? 'print' : 'save', 'primary', '', d.sections.size ? '' : 'disabled')}`,
@@ -825,6 +892,11 @@ export function installNetPopups(c) {
       case 'net-tab': d.tab = value; return render();
       case 'net-sort': net.sort = net.sort?.id === value ? (net.sort.desc ? null : { id: value, desc: true }) : { id: value, desc: false }; return render();
       case 'net-toggle': event.stopPropagation(); if (net.collapsed.has(value)) net.collapsed.delete(value); else net.collapsed.add(value); return render();
+      case 'net-print': return net.data && !net.data.error ? action('doc-print', { doc: statDocument() }) : undefined;
+      case 'net-export': return net.data && !net.data.error ? action('doc-export', { doc: statDocument(), format: net.exportFormat ?? 'html' }) : undefined;
+      case 'print-export': return net.printModel?.packets?.length ? action('doc-export', { doc: { title: net.printModel.title || P().doc || t('action.print'), subtitle: P().doc ?? '', pre: net.printModel.packets.flatMap((pk, i) => (i ? ['', ...pk.lines] : pk.lines)) }, format: net.exportFormat ?? 'html' }) : undefined;
+      case 'net-expand-all': net.collapsed.clear(); return render();
+      case 'net-collapse-all': (net.data?.rows ?? []).forEach((row, i, all) => { if (all[i + 1]?.depth > row.depth) net.collapsed.add(row.id); }); return render();
       case 'net-row': {
         net.selectedRow = net.data?.rows?.find((r) => String(r.id) === value) ?? null;
         if (event.detail >= 2 && net.selectedRow?.no) action('select-node', { no: net.selectedRow.no });
@@ -844,7 +916,8 @@ export function installNetPopups(c) {
         const csv = net.data.view === 'table' || net.data.view === 'tree' || net.data.view === 'objects';
         return action('save-text', { name: `${P().statKind}.${csv ? 'csv' : 'txt'}`, text: csv ? `﻿${tableCsv(net.data)}` : tableCsv(net.data), type: csv ? 'csv' : 'txt', mime: csv ? 'text/csv' : 'text/plain' });
       }
-      case 'net-save-svg': { const svg = root.querySelector('.net-chart-svg, .flow-svg'); return svg ? action('save-text', { name: `${P().statKind ?? 'graph'}.svg`, text: svgStandalone(svg), type: 'svg', mime: 'image/svg+xml' }) : undefined; }
+      case 'net-save-svg': { const svg = root.querySelector('.net-chart-svg, .flow-svg'); return svg ? action('save-image', { name: `${P().statKind ?? kind}`, svg: svgStandalone(svg) }) : undefined; }
+      case 'graph-export': return graphExport();
       case 'net-save-object': { const r = net.data.rows.find((x) => String(x.id) === value); return r ? action('save-bytes', { objectKind: P().objectKind, id: r.id, name: r.cells.filename || `object-${r.id}`, type: 'any' }) : undefined; }
       case 'net-save-all': return net.data.rows.forEach((r) => action('save-bytes', { objectKind: P().objectKind, id: r.id, name: r.cells.filename || `object-${r.id}`, type: 'any' }));
       case 'net-series-add': d.series.push({ name: t('chart.newSeries'), filter: '', color: PALETTE[d.series.length % PALETTE.length], style: 'line', calc: 'packets', field: '', on: true }); return render();
@@ -855,6 +928,7 @@ export function installNetPopups(c) {
       // capture options
       case 'cap-iface': update({ captureInterface: value }); return undefined;
       case 'cap-refresh': return action('refresh-interfaces');
+      case 'cap-preset': update({ captureFilter: togglePreset(s().captureFilter, value, CAPTURE_PRESETS) }); net.draft.filterCheck = null; return render();
       case 'cap-check': return action('capture-filter-check', { filter: s().captureFilter, linktype: d.interfaces.find((i) => i.id === s().captureInterface)?.linktype ?? 1 });
       case 'cap-start': return close({ start: true });
       // colouring
@@ -930,6 +1004,8 @@ export function installNetPopups(c) {
   function change(target) {
     const d = net.draft;
     const field = target.dataset.net;
+    if (field === 'exportFormat') { net.exportFormat = target.value; return render(); }
+    if (field === 'imageMode') { net.imageMode = target.value; return undefined; }
     if (field === 'displayedOnly' && d) {
       d.displayedOnly = target.checked;
       net.data = null;
@@ -1044,6 +1120,20 @@ export function installNetPopups(c) {
   }
 
   const chartCsv = (r) => r.series.map((x) => `${x.name}\n${x.points.map(([px, py]) => `${px},${py}`).join('\n')}`).join('\n\n');
+  /** A graph window as a document: the picture (PNG) and its numbers as a table (docexport.js). */
+  async function graphExport() {
+    const svg = root.querySelector('.net-chart-svg, .flow-svg');
+    if (!svg || !net.data || net.data.error) return undefined;
+    const title = root.querySelector('#popup-title span')?.textContent || t('menu.statistics');
+    const canvas = await svgToCanvas(svgStandalone(svg), { scale: 2, background: '#ffffff' });
+    const r = net.data;
+    let table = null;
+    if (kind === 'flowgraph' && r.rows) table = { columns: [{ label: t('flow.time') }, { label: t('flow.from') }, { label: t('flow.to') }, { label: t('flow.label') }], rows: r.rows.map((x) => ({ cells: [String(x.time), r.nodes[x.from], r.nodes[x.to], x.label] })) };
+    else if (r.series) table = { columns: [{ label: t('chart.series') }, { label: 'X', num: true }, { label: 'Y', num: true }], rows: r.series.flatMap((x) => x.points.map(([px, py]) => ({ cells: [x.name, String(px), String(py)] }))) };
+    const doc = { title, subtitle: P().doc ?? '', images: [{ dataUrl: canvas.toDataURL('image/png'), caption: title, ext: 'png', mime: 'image/png' }], ...(table ?? {}) };
+    return action('doc-export', { doc, format: net.exportFormat ?? 'html', imageMode: net.imageMode ?? 'embed' });
+  }
+
   const svgStandalone = (svg) => {
     const clone = svg.cloneNode(true);
     clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');

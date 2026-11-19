@@ -83,6 +83,11 @@ export const SAVE_TYPES = {
   html: { name: 'HTML (*.html)', extensions: ['html', 'htm'] },
   md: { name: 'Markdown (*.md)', extensions: ['md'] },
   pdf: { name: 'PDF (*.pdf)', extensions: ['pdf'] },
+  docx: { name: 'Word (*.docx)', extensions: ['docx'] },
+  jpg: { name: 'JPEG (*.jpg)', extensions: ['jpg', 'jpeg'] },
+  gif: { name: 'GIF (*.gif)', extensions: ['gif'] },
+  webp: { name: 'WebP (*.webp)', extensions: ['webp'] },
+  avif: { name: 'AVIF (*.avif)', extensions: ['avif'] },
   any: { name: 'All files (*.*)', extensions: ['*'] },
 };
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif', 'ico'];
@@ -149,6 +154,12 @@ export async function readBinaryFile(path, op = '') {
 }
 /** Writes bytes (Uint8Array) to a file; the path goes in a header, the bytes as the raw body. */
 export const writeBinaryFile = (path, bytes, op = '') => invoke('write_binary_file', bytes, { headers: { path: encodeURIComponent(path), op } });
+
+/** RGBA pixels → an AVIF file (desktop: ravif in lib.rs; the web view cannot write AVIF). */
+export async function encodeAvif(width, height, rgba, quality = 80) {
+  const result = await invoke('encode_avif', rgba, { headers: { width: String(width), height: String(height), quality: String(quality) } });
+  return new Uint8Array(result);
+}
 
 export const openDocument = (name) => (isDesktop() ? invoke('open_document', { name }) : Promise.resolve(globalThis.open(`./docs/${name}`, '_blank')));
 export const openExternal = (target) => (isDesktop() ? invoke('open_external', { target }) : Promise.resolve(globalThis.open(target, '_blank', 'noopener')));

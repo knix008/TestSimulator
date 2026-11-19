@@ -180,6 +180,33 @@ async fn write_binary_file(app: AppHandle, request: tauri::ipc::Request<'_>) -> 
     blocking(move || files::write_with_progress(Path::new(&path), &bytes, reporter(&app, op))).await
 }
 
+/// Encodes RGBA pixels (the raw request body; `width`, `height` and `quality` headers) as an AVIF
+/// file. The web view cannot write AVIF itself (Chromium has no AV1 encoder), so ravif does it here.
+#[tauri::command]
+async fn encode_avif(request: tauri::ipc::Request<'_>) -> Result<tauri::ipc::Response, String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err(tr!("데이터 형식이 잘못되었습니다", "The data has the wrong form"));
+    };
+    let number = |name: &str| request.headers().get(name).and_then(|value| value.to_str().ok()).and_then(|value| value.parse::<usize>().ok());
+    let (width, height) = (number("width").unwrap_or(0), number("height").unwrap_or(0));
+    let quality = number("quality").unwrap_or(80).clamp(1, 100) as f32;
+    if width == 0 || height == 0 || bytes.len() != width * height * 4 {
+        return Err(tr!("그림 크기가 맞지 않습니다", "The picture size does not match its pixels"));
+    }
+    let pixels: Vec<ravif::RGBA8> = bytes.chunks_exact(4).map(|p| ravif::RGBA8::new(p[0], p[1], p[2], p[3])).collect();
+    let encoded = blocking(move || {
+        ravif::Encoder::new()
+            .with_quality(quality)
+            .with_alpha_quality(quality)
+            .with_speed(6)
+            .encode_rgba(ravif::Img::new(&pixels[..], width, height))
+            .map(|image| image.avif_file)
+            .map_err(|error| tr!("AVIF로 저장할 수 없습니다: {error}", "Could not write AVIF: {error}"))
+    })
+    .await?;
+    Ok(tauri::ipc::Response::new(encoded))
+}
+
 fn percent_decode(text: &str) -> String {
     let bytes = text.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
@@ -763,6 +790,7 @@ pub fn run() {
             write_base64_file,
             read_binary_file,
             write_binary_file,
+            encode_avif,
             paths_exist,
             import_background,
             remove_background,

@@ -45,6 +45,8 @@ export const STEPS = [
   // ── display filters
   { id: 'filterBar', chapter: 'filter', target: '.cap-filterbar', dwell: 6000, async run(a) { await a.sample(); await a.filter(''); a.typeFilter('dns'); } },
   { id: 'filterApply', chapter: 'filter', target: '.pane-list', dwell: 6000, async run(a) { await a.sample(); await a.filter('dns'); } },
+  { id: 'filterPresets', chapter: 'filter', target: '.df-presets', dwell: 7000, async run(a) { await a.sample(); await a.filter('dns or udp'); } },
+  { id: 'tlsVersion', chapter: 'filter', target: '.pane-list', dwell: 7000, async run(a) { await a.sample(); await a.filter('_ws.col.protocol == "TLSv1.3"'); } },
   { id: 'filterInvalid', chapter: 'filter', target: '.cap-filterbar', async run(a) { await a.sample(); await a.filter(''); a.typeFilter('tcp.port == '); } },
   { id: 'filterFromField', chapter: 'filter', target: '.pane-details', dwell: 7000, async run(a) { await a.sample(); await a.filter(''); a.selectWhere('dns'); a.revealField('ip.dst'); } },
   { id: 'filterExpression', chapter: 'filter', target: '.web-popup-filterexpr', dwell: 6000, async run(a) { await a.sample(); await a.popup(() => a.app.run('filterExpression'), 'filterexpr'); } },
@@ -81,6 +83,7 @@ export const STEPS = [
   // ── files
   { id: 'save', chapter: 'files', target: '#toolbar [data-command="save"]', run: (a) => a.sample() },
   { id: 'export', chapter: 'files', target: '.web-popup-export', async run(a) { await a.sample(); await a.popup(() => a.app.run('exportText'), 'export'); } },
+  { id: 'printExport', chapter: 'files', target: '.web-popup-print', dwell: 7000, async run(a) { await a.sample(); await a.popup(() => a.app.run('print'), 'print'); } },
   { id: 'objects', chapter: 'files', target: '.web-popup-stats', async run(a) { await a.sample('http'); await a.popup(() => a.app.run('exportObjectsHttp'), 'stats'); } },
   // ── customize
   { id: 'theme', chapter: 'customize', target: '.split-button', dwell: 6000, async run(a) { await a.sample(); for (const theme of ['dark', 'light']) { a.app.updateSettings({ theme }); await sleep(900); } } },

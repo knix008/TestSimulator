@@ -54,9 +54,23 @@ The other cards form a board you can rearrange:
 | **Capture** | The capture filter box and the list of interfaces; **Refresh** and **Options** buttons |
 | **Recent** | **Recent files** and **Recent folders**, each with a clear button |
 | **Shortcuts** | Open…, Capture Options…, Display Filter Reference, Start the tutorial, Theme settings, the language switch (flag), Settings…, Start page settings, About…, Quit |
-| **Sample captures** | About 30 ready-made captures grouped by topic (Basics, Web, Name services, Troubleshooting, Routing & LAN, IoT & industrial, VoIP) |
+| **Sample captures** | The 29 sample captures together in one grid of equal tiles (in topic order: Basics, Web, Name services, Troubleshooting, Routing & LAN, IoT, industrial & VoIP; a tile's tooltip names its topic). With the **Open…** tile at the end there are 30, so every row is full at any card width (2, 3, 5 or 6 columns) |
 | **Theme** | Every dark and light theme as a tile, and **Theme settings** |
-| **Moving background** | The animated backgrounds, **Shuffle Background**, **Background Picture…**, motion speed, **Card opacity**, random at start and auto change |
+| **Moving background** | 20 network-themed moving backgrounds, **Shuffle Background**, **Background Picture…**, motion speed, **Card opacity**, random at start and auto change |
+
+The moving backgrounds all draw networks: packet flow, a three-tier network, a hex dump, signal waveforms, fiber
+optics, Wi-Fi signals, a scan radar, a throughput graph, an internet globe, a data center, a circuit board, a bit
+stream, a TCP flow graph, the OSI layers, ping pulses, satellite links, a traffic heatmap, a packet list, a radio
+spectrum and mesh routing. Their colours follow the theme.
+
+The **right-click menu** fits what is under the pointer:
+
+| Where | Menu |
+| --- | --- |
+| An interface in the Capture card | *Start capture on (interface)*, **Select This Interface**, **Copy Interface Name**, **Copy Addresses**, Capture Options…, Capture Filters…, Refresh Interfaces (the interface is selected too) |
+| A sample tile | **Open Sample**, **Copy File Name**, Open…, Open Sample Capture |
+| A recent file or folder | **Open** / **Open from This Folder…**, **Copy Path**, remove from the list |
+| Anywhere else | Open…, Capture Options…, Start Capture, **Arrange**, **Change Background**, **Theme settings**, **Start page settings**, Tutorial, About |
 
 Which cards and parts are shown is set in **Settings › Start page**.
 
@@ -104,6 +118,11 @@ Its syntax is different from display filters (see [Display filters](#display-fil
 | `tcp port 443` | TCP packets with source or destination port 443 |
 | `udp port 53 or udp port 67` | DNS and DHCP |
 | `not arp and not icmp` | everything except ARP and ICMP |
+
+Under the capture filter box are **preset capture filters**: TCP, UDP, Web (80, 443), DNS (53), DHCP, ARP, ICMP,
+IPv6, VLAN and No broadcast or multicast. Like the display filter presets they combine with **OR** (TCP and DNS make
+`tcp or port 53`); a highlighted button pressed again takes only its condition out, and a filter typed in the box
+stays. The capture filter of the **Capture Options** window has the same buttons.
 
 ### The demo interface
 
@@ -201,10 +220,10 @@ pointer rests on them.
 
 | Group | Buttons |
 | --- | --- |
-| Capture | **Capture** (start), Stop Capture, Restart Capture, Capture Options… |
-| File | Open…, Save, Close, Reload |
+| File | Open…, Save, Close, Reload, **Print…** |
+| Capture | **Capture** (green ▶, start), Stop Capture (red ■), Restart Capture, Capture Options… |
 | Go | Find Packet…, Go Back, Go Forward, Go to Packet…, First Packet, Last Packet, Auto Scroll in Live Capture |
-| View | Colorize Packet List, Zoom In, Zoom Out, Normal Size, Resize Columns |
+| View | Colorize Packet List, Zoom Out (A−), **the current text size** (such as `13px`; a click returns to normal size), Zoom In (A+), Normal Size, Resize Columns |
 | Analysis | Expert Information, Protocol Hierarchy, Conversations, I/O Graphs, **Network Map** |
 | Right side | Tutorial, Random Theme with ▾ (Choose Theme), the language flag, Settings…, About… |
 
@@ -221,8 +240,10 @@ The three buttons at the right of the title row show or hide the panels:
 | Bottom Panel (Problems, Log, Analysis) | problem list, log and analysis summary | Ctrl+J |
 | Right Panel (Network Map) | the network map | Ctrl+Shift+2 (also Ctrl+Shift+N) |
 
-Each panel also has a fold button in its own title bar. Folded side panels shrink to a slim rail you can click to
-unfold. The dividers between panes can be dragged to resize them.
+Each panel also has a fold / unfold button at the right end of its title bar (the network map has it after its tool
+buttons). A folded side panel shrinks to a 26-pixel rail with the panel's name written **vertically**; the rail's
+button unfolds it. With details and bytes side by side, a folded pane becomes the same rail. The dividers between
+panes can be dragged to resize them.
 
 ## Packet list
 
@@ -243,7 +264,20 @@ One row per packet, coloured by the [colouring rules](#colouring-rules). The def
 
 **Right-clicking a packet** opens the packet menu: Mark/Unmark Packet, Ignore/Unignore Packet, Set/Unset Time
 Reference, Time Shift…, Packet Comment…, Apply as Filter, Prepare as Filter, Conversation Filter, Copy, Decode As…,
-Show Packet in New Window, Follow and Firewall ACL Rules.
+Show Packet in New Window, Follow, Firewall ACL Rules, and **Print…** and **Export ▸** (HTML, Markdown, PDF, Word).
+
+**Print…** / **Export** in a right-click menu work on what was clicked:
+
+| Right-clicked | Printed or exported |
+| --- | --- |
+| A packet | its summary line and details (as displayed) |
+| The details | the packet's details tree (as displayed) |
+| The bytes | the packet's hex dump |
+| A column heading | the packet list (summary lines of the displayed packets) |
+| A tab | that capture's packet list (the tab comes to the front) |
+
+Print opens the print window with that range and format chosen (pick the printer and press **Print**); Export saves
+the same content to a file at once.
 
 | Feature | What it does | How |
 | --- | --- | --- |
@@ -300,6 +334,16 @@ are hidden, not deleted.
   (manage saved filters), **Add filter button…** and the saved filters themselves.
 - **Filter buttons** (such as **TCP problems**) at the right of the bar apply a saved filter with one click.
   **Add filter button…** makes a new one from the current filter.
+- Under the bar is a row of **preset filters**: TCP, UDP, HTTP, TLS, **TLS 1.0**, **TLS 1.1**, **TLS 1.2**,
+  **TLS 1.3**, QUIC, DNS, DHCP, ARP, ICMP, TCP SYN, Retransmissions, TCP problems, Broadcast, No ARP and DNS. Presets combine with **OR**, because most of them can
+  never match the same packet: **DNS** applies `dns`, then **UDP** makes it `dns or udp` (packets that match either
+  are shown) and both stay highlighted. Only pressing a highlighted button again takes its condition out. A filter
+  already typed in the box is kept (`(frame.len > 60) or dns`). Any other filter is typed in the box as before.
+- **TLS versions**: the Protocol column shows the version negotiated for each session (*TLSv1.2*, *TLSv1.3* …). TLS
+  1.3 records still carry 0x0303 (1.2) in their header, so `tls.record.version` cannot tell them apart; the version
+  buttons filter on the column, as in Wireshark: `_ws.col.protocol == "TLSv1.3"`. `_ws.col.protocol` and
+  `_ws.col.info` are the columns exactly as the packet list shows them (after the whole file is read), so the result
+  matches the list.
 - **{+}** opens the **Display Filter Expression…** window.
 - When a filter is applied the bar shows *Displayed N of M*, and so does the status bar.
 
@@ -404,8 +448,15 @@ conversation put together: the client's data in red, the server's in blue.
 **Analyze › Expert Information** (Ctrl+Shift+E) groups the problems the dissectors found — retransmissions,
 duplicate ACKs, lost segments, zero windows, malformed packets, protocol errors, and notes such as connection
 setup — by **severity** (Error, Warning, Note, Chat), **group** and **protocol**, with a count. Expand a group to see
-its packets; double-click a row to go to the packet. **Prepare as Filter** / **Apply as Filter** make a filter of the
-selected rows; **Limit to display filter** counts only the displayed packets.
+its packets; double-click a row to go to the packet. Rows are shaded in alternate colours.
+
+- The filter tools are **above** the list: **Limit to display filter** (count only the displayed packets), the
+  **search** box (shows the matching rows with their groups opened), **Expand All** / **Collapse All**, and
+  **Prepare as Filter** / **Apply as Filter** for the selected row.
+- A click on a heading sorts by that column (again: the other way, a third time: the original order). A tree is
+  sorted within each group, so its structure stays.
+- **Print…** and **Export** (HTML, Markdown, PDF, Word) at the bottom print or save the list as it is shown (search,
+  sort and folding included).
 
 ![Expert information](images/en/30-expert-info.png)
 
@@ -434,9 +485,16 @@ dissecting it. The values of the selected packet are offered first. The rules ar
 
 ## Statistics
 
-Every statistics window has **Limit to display filter** (count only the displayed packets), **Copy**, **Save As…**,
-**Recalculate** and **Close**; tables can be sorted by a click on a heading, and many have a search box and
-**Prepare as Filter** / **Apply as Filter** for the selected row.
+Every statistics window has its filter tools at the top — **Limit to display filter** (count only the displayed
+packets), a search box, **Prepare as Filter** / **Apply as Filter** for the selected row and, for a tree, **Expand All**
+/ **Collapse All** — and at the bottom **Print…**, **Export** (format: HTML, Markdown, PDF, Word), **Copy**,
+**Save As…**, **Recalculate** and **Close**. Tables sort by a click on a heading (trees within each group) and their
+rows are shaded in alternate colours.
+
+The I/O graph, TCP stream graph and flow graph windows add **Save as Picture…** (PNG, JPEG, WebP, GIF, AVIF, SVG)
+and **Export** (the picture and its numbers in one document). With **Markdown**, a **Markdown pictures** list appears:
+**Inside the document** (a data URL, one file) or **Saved as files, linked** (`name-1.png` saved beside the Markdown
+and linked by name).
 
 ### Capture file properties
 
@@ -545,8 +603,9 @@ item to filter the packet list by it; the tooltip shows the filter (*Click: …*
 
 **Statistics › Analysis Report…** (or **Report** in the bottom panel) writes the analysis as a document. Choose the
 **Contents** (**Overview**, **Findings**, **Protocols**, **Top talkers**, **Problem list**, **Log**) and the
-**Format**: **HTML** (opens in browsers and Word), **Markdown**, or **Print…** (goes to the print window), then press
-**Export…**.
+**Format**: **HTML** (opens in browsers and Word), **Markdown**, **PDF**, **Word** (.docx, tables as Word tables) or
+**Print…** (goes to the print window: choose the printer and **Print** prints at once; the print window can also
+export to the other formats), then press **Export…**.
 
 ![The analysis report window](images/en/34-report.png)
 
@@ -561,7 +620,9 @@ groups, and the links between them, sized by traffic.
 - **Layout**: **By subnet** (hosts grouped in their subnets around the gateway), **Force-directed** or **Radial**.
 - **Labels**: **Name**, **IP address** or **MAC address**.
 - Toggle **Show external hosts** and **Show multicast and broadcast**.
-- **Fit** shows the whole map; **Rebuild** lays it out again; **Save as Picture…** saves it as SVG or PNG.
+- **Fit** shows the whole map; **Rebuild** lays it out again; **Save as Picture…** saves it as **PNG**, **JPEG**,
+  **WebP**, **GIF**, **AVIF** or **SVG** (the desktop program writes AVIF itself; the web version only where the
+  browser can). The button at the far right folds the map.
 - The wheel zooms, dragging the background pans, and nodes can be dragged. Hovering a node or link shows its kind,
   name, vendor, roles (DNS server, web server, DHCP server …), traffic and protocols.
 - **Click a node** to show only that device's packets in the packet list; **click a link** to show only the packets
@@ -600,7 +661,8 @@ headings**, **Details** (None, All collapsed, As displayed, All expanded) and **
 
 ### Printing
 
-**File › Print…** (Ctrl+P) opens the print window — a window of its own with a live preview of the pages:
+**File › Print…** (Ctrl+P, the last button of the toolbar's file group) opens the print window — a window of its own
+with a live preview of the pages. **Print…** in a statistics window and in the analysis report opens the same window.
 
 - **Printer** — the desktop program prints straight to a printer you choose here; the web version opens the system
   print window.
@@ -609,7 +671,15 @@ headings**, **Details** (None, All collapsed, As displayed, All expanded) and **
 - **Paper** (size, Portrait / Landscape, margins), **Font size**, **Header and footer** with their texts.
 - The preview shows each page with ◀ ▶ to page through and how many pages and lines will be printed.
 
-**Print** prints at once, without a further dialog.
+**Print** prints at once, without a further dialog. **Export** beside it saves the same content as **HTML**,
+**Markdown**, **PDF** or **Word** (.docx):
+
+| Format | Contents |
+| --- | --- |
+| HTML | One file for a browser (rows shaded in alternate colours, a print style included) |
+| Markdown | Tables as Markdown tables, packet printouts as a code block; pictures inside or saved and linked |
+| PDF | A4 (landscape for wide tables), Hangul shown with the PDF viewer's own Korean font, page numbers |
+| Word | A .docx with the title, tables (the first row repeated on every page) and pictures |
 
 ![The print window](images/en/43-print.png)
 
@@ -672,7 +742,7 @@ the current language. Menus, windows, the guide and the tutorial all follow it.
 ## Tutorial
 
 **Help › Tutorial** (F11), the tutorial button on the toolbar, or **Start the tutorial** on the start page runs a
-guided tour of 39 steps in 9 chapters. It drives the real program with sample captures of its own; a card at the
+guided tour of 42 steps in 9 chapters. It drives the real program with sample captures of its own; a card at the
 bottom right shows each step with ◀ (*Previous step*), ▶ (*Auto play*), **Next**, a chapter list and ✕ (or Esc) to
 end it. The
 settings it changes are put back when it ends. The same tour is written up, with a picture of every step, in the

@@ -177,6 +177,11 @@ export class PopupHost {
 
   hideMenu() {
     this.settle('menu', null);
+    // Hidden from here: the menu forgets its items too (popup.js forgetMenu), so a refresh cannot bring it back.
+    try {
+      const stored = popupParams('menu');
+      if (Array.isArray(stored.items)) globalThis.localStorage?.setItem(popupKey('menu'), JSON.stringify({ ...stored, items: null }));
+    } catch { /* storage unavailable */ }
     if (this.frames.has('menu')) { this.removeFrame('menu'); return Promise.resolve(); }
     return isDesktop() ? invoke('hide_popup', { kind: 'menu' }).catch(() => {}) : Promise.resolve();
   }

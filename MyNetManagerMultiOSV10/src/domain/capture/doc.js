@@ -138,6 +138,7 @@ export class CaptureDoc {
     } catch (error) {
       d = { tree: [], columns: { protocol: 'ERROR', info: String(error?.message ?? error) }, fields: new Map(), layers: ['frame'], expert: [], sources: [{ name: `Frame (${frame.caplen} bytes)`, data: frame.data }] };
     }
+    this.withColumns(index, d);
     this.cache.set(index, d);
     if (this.cache.size > CACHE_SIZE) this.cache.delete(this.cache.keys().next().value);
     return d;
@@ -145,7 +146,21 @@ export class CaptureDoc {
 
   /** Dissection without keeping it (filters, statistics over every frame). */
   dissectOnce(index) {
-    return this.cache.get(index) ?? dissect(this.session, this.frames[index], { tree: true });
+    return this.cache.get(index) ?? this.withColumns(index, dissect(this.session, this.frames[index], { tree: true }));
+  }
+
+  /**
+   * `_ws.col.protocol` / `_ws.col.info` as the packet list shows them (the summary made with the whole file known),
+   * so a filter on a column picks exactly the rows that read so — e.g. a TLS 1.3 Client Hello reads TLSv1.3 only
+   * once its Server Hello is known.
+   */
+  withColumns(index, d) {
+    const s = this.summary(index);
+    if (s && d?.fields) {
+      d.fields.set('_ws.col.protocol', [{ abbrev: '_ws.col.protocol', type: 'string', value: String(s.protocol ?? ''), start: 0, length: 0 }]);
+      d.fields.set('_ws.col.info', [{ abbrev: '_ws.col.info', type: 'string', value: String(s.info ?? ''), start: 0, length: 0 }]);
+    }
+    return d;
   }
 
   matches(index) {

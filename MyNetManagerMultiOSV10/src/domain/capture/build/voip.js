@@ -288,7 +288,7 @@ function smb2Share() {
 }
 
 export const samples = [
-  { id: 'sip-call-rtp', group: 'voip', icon: 'phone', ko: ['SIP 통화와 RTP', 'REGISTER, INVITE부터 BYE까지 SIP 신호와 SDP로 협상한 G.711 RTP 음성 스트림'], en: ['SIP call with RTP', 'SIP signalling from REGISTER and INVITE to BYE, with SDP-negotiated G.711 RTP audio'], build: sipCall },
+  { id: 'sip-call-rtp', group: 'iot', icon: 'phone', ko: ['SIP 통화와 RTP', 'REGISTER, INVITE부터 BYE까지 SIP 신호와 SDP로 협상한 G.711 RTP 음성 스트림'], en: ['SIP call with RTP', 'SIP signalling from REGISTER and INVITE to BYE, with SDP-negotiated G.711 RTP audio'], build: sipCall },
   { id: 'mqtt-iot', group: 'iot', icon: 'sensor', ko: ['MQTT IoT', '센서가 브로커에 온도를 발행하고 대시보드가 구독하는 MQTT 세션'], en: ['MQTT IoT', 'A sensor publishing temperatures to a broker and a dashboard subscribing to them'], build: mqttIot },
   { id: 'modbus-tcp', group: 'iot', icon: 'factory', ko: ['Modbus/TCP', 'HMI가 PLC의 코일과 레지스터를 읽고 쓰며 예외 응답도 하나 포함'], en: ['Modbus/TCP', 'An HMI reading and writing PLC coils and registers, including one exception response'], build: modbusTcp },
   { id: 'coap', group: 'iot', icon: 'sensor', ko: ['CoAP 센서', '리소스 탐색, GET/PUT, Observe 알림과 4.04 오류가 있는 CoAP 교환'], en: ['CoAP sensors', 'CoAP resource discovery, GET/PUT, Observe notifications and a 4.04 error'], build: coapSensors },

@@ -676,6 +676,12 @@ export function dissect(session, frame, opts) {
   const ctx = run(session, frame, tree, false);
   const fields = new Map();
   if (tree) collect(ctx.roots, fields);
+  // Wireshark's column pseudo-fields: `_ws.col.protocol == "TLSv1.3"` picks every packet the Protocol column
+  // names so (TLS 1.3 records still carry 0x0303, so no header field tells the versions apart).
+  if (tree) {
+    fields.set('_ws.col.protocol', [{ abbrev: '_ws.col.protocol', type: 'string', value: String(ctx.protocol ?? ''), start: 0, length: 0 }]);
+    fields.set('_ws.col.info', [{ abbrev: '_ws.col.info', type: 'string', value: String(ctx.info ?? ''), start: 0, length: 0 }]);
+  }
   return {
     tree: ctx.roots,
     columns: {
@@ -710,6 +716,10 @@ registerProtocol({
     ['_ws.expert.group', 'Group', 'uint32', { base: 'hex' }],
     ['_ws.expert.severity', 'Severity level', 'uint32', { base: 'hex' }],
   ],
+});
+registerProtocol({
+  abbrev: '_ws.col', name: 'Wireshark Columns', short: 'Columns',
+  fields: [['_ws.col.protocol', 'Protocol', 'string'], ['_ws.col.info', 'Information', 'string']],
 });
 registerProtocol({
   abbrev: '_ws.malformed', name: 'Malformed Packet', short: 'Malformed',

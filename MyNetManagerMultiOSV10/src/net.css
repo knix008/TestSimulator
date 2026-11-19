@@ -29,7 +29,14 @@
 /* ───────────────────────── capture view layout */
 
 .cap-view { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--bg); --text-zoom: 1; }
-.cap-filterbar { position: relative; display: flex; align-items: center; gap: 6px; padding: 5px 8px; background: var(--toolbar); border-bottom: 1px solid var(--hairline); }
+.cap-filterbar { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 5px 8px; background: var(--toolbar); border-bottom: 1px solid var(--hairline); }
+/* Preset display filters: a row of buttons under the filter box (the box still takes any filter). */
+.df-presets { flex: 1 0 100%; order: 10; display: flex; flex-wrap: wrap; gap: 4px; }
+.filter-presets { display: flex; flex-wrap: wrap; gap: 4px; }
+.filter-preset { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); color: var(--text); font-size: 0.84em; cursor: pointer; white-space: nowrap; }
+.filter-preset .icon { width: 13px; height: 13px; }
+.filter-preset:hover { border-color: var(--accent); background: var(--hover); }
+.filter-preset.on { border-color: var(--accent); background: var(--soft-accent); font-weight: 600; }
 .cap-view.no-filterbar .cap-filterbar { display: none; }
 .df-field { position: relative; flex: 1; min-width: 200px; display: flex; align-items: center; gap: 4px; padding: 0 4px 0 8px; height: 30px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); transition: background-color 0.12s, border-color 0.12s; }
 .df-field:focus-within { box-shadow: var(--ring); border-color: var(--accent); }
@@ -69,8 +76,10 @@
 .cap-view.no-list .pane-list, .cap-view.no-list [data-pane-split="list"] { display: none; }
 
 /* Folded panels: the sides become a slim rail with the same fold button; the others keep their title bar. */
-.pane-rail { display: none; flex: 0 0 34px; flex-direction: column; align-items: center; gap: 8px; padding-top: 4px; background: var(--panel); border-left: 1px solid var(--hairline); border-right: 1px solid var(--hairline); }
-.rail-title { writing-mode: vertical-rl; font-weight: 600; font-size: 0.86em; color: var(--muted); }
+.pane-rail { display: none; flex: 0 0 26px; width: 26px; flex-direction: column; align-items: center; gap: 6px; padding-top: 3px; background: var(--panel); border-left: 1px solid var(--hairline); border-right: 1px solid var(--hairline); box-sizing: border-box; overflow: hidden; }
+/* The folded panel's name reads top to bottom (the shell's .rail-title in styles.css is a horizontal block: undo it here). */
+.pane-rail .rail-title, .pane-head .rail-title { display: block; width: auto; margin: 0; padding: 0; border: 0; writing-mode: vertical-rl; white-space: nowrap; font-weight: 600; font-size: 0.86em; letter-spacing: 0.04em; color: var(--muted); text-align: start; }
+.pane-rail .pane-fold { width: 22px; height: 22px; padding: 0; }
 .cap-view.fold-left .pane-left, .cap-view.fold-left .side-split { display: none; }
 .cap-view.fold-left .rail-left { display: flex; }
 .cap-view.fold-map .pane-map, .cap-view.fold-map .map-split { display: none; }
@@ -87,9 +96,12 @@
 .cap-view.fold-details.fold-bytes .pane-list { flex: 1 1 0; }
 .cap-view.fold-details.fold-bytes .cap-lower { flex: 0 0 auto; }
 /* Side by side, a folded pane is a narrow strip with its fold button. */
-.cap-view:not([data-layout="stack"]).fold-details .pane-details, .cap-view:not([data-layout="stack"]).fold-bytes .pane-bytes { flex: 0 0 34px; }
-.cap-view:not([data-layout="stack"]).fold-details .pane-details .pane-head > :not(.pane-fold), .cap-view:not([data-layout="stack"]).fold-bytes .pane-bytes .pane-head > :not(.pane-fold) { display: none; }
-.cap-view:not([data-layout="stack"]).fold-details .pane-details .pane-head, .cap-view:not([data-layout="stack"]).fold-bytes .pane-bytes .pane-head { justify-content: center; padding: 0; height: 100%; align-items: flex-start; padding-top: 4px; border-bottom: 0; }
+.cap-view:not([data-layout="stack"]).fold-details .pane-details, .cap-view:not([data-layout="stack"]).fold-bytes .pane-bytes { flex: 0 0 26px; min-width: 26px; }
+.cap-view:not([data-layout="stack"]).fold-details .pane-details .pane-head > :not(.pane-fold):not(.pane-title), .cap-view:not([data-layout="stack"]).fold-bytes .pane-bytes .pane-head > :not(.pane-fold):not(.pane-title) { display: none; }
+.cap-view:not([data-layout="stack"]).fold-details .pane-details .pane-head, .cap-view:not([data-layout="stack"]).fold-bytes .pane-bytes .pane-head { flex-direction: column; gap: 6px; }
+.cap-view:not([data-layout="stack"]).fold-details .pane-details .pane-title, .cap-view:not([data-layout="stack"]).fold-bytes .pane-bytes .pane-title { writing-mode: vertical-rl; white-space: nowrap; font-weight: 600; font-size: 0.86em; color: var(--muted); }
+.cap-view:not([data-layout="stack"]).fold-details .pane-details .pane-fold, .cap-view:not([data-layout="stack"]).fold-bytes .pane-bytes .pane-fold { width: 22px; height: 22px; padding: 0; order: -1; }
+.cap-view:not([data-layout="stack"]).fold-details .pane-details .pane-head, .cap-view:not([data-layout="stack"]).fold-bytes .pane-bytes .pane-head { justify-content: flex-start; padding: 0; height: 100%; align-items: center; padding-top: 3px; border-bottom: 0; }
 .pane-fold .icon { color: var(--accent); }
 .pane-fold[aria-expanded="false"] { background: var(--soft-accent); }
 
@@ -255,6 +267,8 @@ html[data-mode="dark"] .pl-row:hover { filter: brightness(1.12); }
 .net-table th.num, .net-table td.num { text-align: right; }
 .net-table th.asc, .net-table th.desc { color: var(--accent); }
 .net-table td { padding: 3px 8px; border-bottom: 1px solid var(--hairline); white-space: nowrap; max-width: 520px; overflow: hidden; text-overflow: ellipsis; }
+/* Alternate rows tinted so long lists are easy to follow across; hover and selection below win over it. */
+.net-table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--text) 5%, transparent); }
 .net-table tbody tr:hover { background: var(--hover); }
 .net-table tbody tr.selected { background: var(--soft-accent); box-shadow: inset 3px 0 0 var(--accent); }
 .net-table td.barcell { position: relative; }
@@ -271,6 +285,12 @@ html[data-mode="dark"] .pl-row:hover { filter: brightness(1.12); }
 .net-table tr.sev-warn td:first-child { box-shadow: inset 4px 0 0 #f5a524; }
 .net-table tr.sev-note td:first-child { box-shadow: inset 4px 0 0 #2f9cf0; }
 .net-table tr.sev-chat td:first-child { box-shadow: inset 4px 0 0 #8b98a9; }
+/* Export: a format list and its button, side by side (statistics and print windows). */
+.net-export { display: inline-flex; align-items: center; gap: 4px; }
+.net-export select { height: 28px; }
+/* Filter controls above a statistics list. */
+.net-filterbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; flex: none; }
+.net-filterbar .check-inline { margin-right: 4px; }
 .net-search { display: inline-flex; align-items: center; gap: 4px; padding: 0 6px; height: 28px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); }
 .net-search input { border: 0; outline: none; background: transparent; width: 180px; }
 .net-note, .net-more { padding: 6px 2px; font-size: 0.86em; }

@@ -25,8 +25,8 @@ export const BACKGROUND_KINDS = ['animated', 'image', 'none'];
 /** Choices for the start page's automatic background change (seconds; 0 = off). */
 export const ANIMATION_INTERVALS = [0, 15, 30, 60, 120, 300];
 export const ANIMATIONS = [
-  'aurora', 'waves', 'particles', 'constellation', 'bubbles', 'gridflow', 'flowchart', 'starfield', 'rain', 'snow',
-  'fireflies', 'ripples', 'coderain', 'hexagons', 'orbits', 'lava', 'spiral', 'confetti', 'nodes', 'ribbons',
+  'packetflow', 'topology', 'hexdump', 'waveform', 'fiber', 'wifi', 'radar', 'throughput', 'globe', 'datacenter',
+  'circuit', 'bitstream', 'sequence', 'layers', 'pings', 'satellites', 'heatmap', 'packetlist', 'spectrum', 'mesh',
 ];
 export const BACKGROUND_FITS = ['cover', 'contain', 'tile', 'center', 'stretch'];
 export const DATE_FORMATS = ['iso', 'ko', 'us', 'eu'];
@@ -77,7 +77,7 @@ export function defaultSettings(language = 'ko') {
     fontStyle: 'normal',
     zoom: 100,
     backgroundKind: 'animated',
-    animation: 'constellation',
+    animation: 'packetflow',
     animationSpeed: 100,
     animationRandom: true,
     animationInterval: 30,

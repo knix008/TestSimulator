@@ -76,6 +76,8 @@ html.is-popup #app { min-width: 0; display: block; }
   border: 1px solid transparent; border-radius: 7px; background: none; cursor: pointer; color: var(--text);
 }
 .tool-button.wide { width: auto; display: inline-flex; gap: 5px; padding: 0 7px; }
+/* The text size between A− and A+: a number with its unit, wide enough for "26.5px" so the toolbar does not shift. */
+.tool-button.tool-value { width: auto; min-width: 48px; padding: 0 5px; font-size: 0.86em; font-variant-numeric: tabular-nums; color: var(--text); border: 1px solid var(--border); }
 .tool-button .icon { width: 19px; height: 19px; }
 .tool-button .flag { width: 22px; height: 15px; border-radius: 2px; box-shadow: 0 0 0 1px var(--border); }
 .tool-button:hover:not(:disabled) { background: var(--hover); border-color: var(--border); }
@@ -1419,8 +1421,9 @@ html.popup-kind-color body, html.popup-kind-color #app { background: var(--surfa
 .app-brand-icon { width: 20px; height: 20px; flex: none; pointer-events: auto; }
 .app-brand-name { font-weight: 700; }
 .app-brand-version { color: var(--muted); font-size: 0.86em; }
-/* The open project after the name and version: a fixed width, … when longer, ● for unsaved changes. */
-.app-brand-project { display: inline-flex; align-items: center; gap: 4px; width: 220px; height: 20px; margin-left: 5px; padding: 0 8px; border-left: 1px solid var(--hairline, var(--border)); color: var(--text); font-weight: 600; box-sizing: border-box; overflow: hidden; }
+/* The open project after the menus: a fixed width, … when longer, ● for unsaved changes. */
+#menubar > .app-brand-project { align-self: center; }
+.app-brand-project { display: inline-flex; align-items: center; flex: none; cursor: default; gap: 4px; width: 220px; height: 20px; margin-left: 5px; padding: 0 8px; border-left: 1px solid var(--hairline, var(--border)); color: var(--text); font-weight: 600; box-sizing: border-box; overflow: hidden; }
 .app-brand-project-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-brand-dirty { display: none; flex: none; color: var(--warning); font-size: 10px; }
 .app-brand-project.dirty .app-brand-dirty { display: inline; }
@@ -1583,7 +1586,9 @@ select.dd-select { background-repeat: no-repeat; background-position: 8px center
 
 /* ───────── start page: a moving background behind a board of translucent, movable cards */
 .start-inner { --start-card-alpha: 80%; padding: 14px 22px 16px; gap: 10px; }
-.start-tools { display: flex; justify-content: flex-end; gap: 8px; }
+.start-tools { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+/* The startup check box is a .check-row too: drop its margin and smaller type so it lines up with the buttons beside it. */
+.start-tools > .start-startup { margin: 0; font-size: inherit; box-sizing: border-box; }
 .start-btn { display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 12px; border: 1px solid var(--border); border-radius: 6px; background: color-mix(in srgb, var(--surface) var(--start-card-alpha), transparent); color: var(--text); cursor: pointer; white-space: nowrap; min-width: 0; }
 .start-btn > span { overflow: hidden; text-overflow: ellipsis; }
 .start-btn > .icon { width: 15px; height: 15px; }
@@ -1641,7 +1646,14 @@ select.dd-select { background-repeat: no-repeat; background-position: 8px center
 .sample-group > h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--border); font-size: 0.92em; color: var(--muted); }
 .sample-group > h3 .icon { width: 15px; height: 15px; }
 .sample-count { margin-left: 2px; color: var(--muted); font-weight: normal; }
-.sample-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; }
+/* Samples: one grid of equal tiles. 30 tiles (29 samples + Open) in 2, 3, 5 or 6 columns, so every row is full. */
+/* Capture filter presets under the start page's capture filter box. */
+.start-card-capture .filter-presets { margin: 6px 0 8px; }
+.sample-tiles-box { container-type: inline-size; min-width: 0; }
+.sample-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+@container (min-width: 600px) { .sample-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@container (min-width: 960px) { .sample-tiles { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+@container (min-width: 1250px) { .sample-tiles { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 
 .bg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 5px; }
 .bg-tile, .anim-chip { display: flex; align-items: center; justify-content: flex-start; gap: 7px; min-width: 0; height: 32px; padding: 0 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--text); font-size: 0.92em; text-align: left; white-space: nowrap; cursor: pointer; }

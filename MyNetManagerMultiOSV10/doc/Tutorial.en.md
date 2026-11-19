@@ -1,6 +1,6 @@
 # MyNetManager Tutorial
 
-This tutorial walks through MyNetManager hands-on, in the same 9 chapters and 39 steps as the tour built into the
+This tutorial walks through MyNetManager hands-on, in the same 9 chapters and 42 steps as the tour built into the
 program (**Help › Tutorial**, F11). Every step has a picture of the program at that point and tells you what to do
 yourself. You need no network access or permissions: everything uses the sample captures that come with the
 program and the simulated demo interface.
@@ -50,7 +50,7 @@ You will capture with it in chapter 7.
 ![Step 4](images/en/63-tutorial-samples-card.png)
 
 The **Sample captures** card groups ready-made captures by topic — Basics, Web, Name services, Troubleshooting,
-Routing & LAN, IoT & industrial, VoIP. A click opens one in a new tab.
+Routing & LAN, IoT, industrial & VoIP. A click opens one in a new tab.
 
 ### Step 5. Recent
 
@@ -129,16 +129,32 @@ field names.
 **Try it:** press **Enter**. Only the DNS packets remain; the bar and the status bar show *Displayed N of 957*.
 ▾ lists recent filters and the bookmark button keeps filters you save.
 
-### Step 13. An invalid filter
+### Step 13. Preset filters
 
-![Step 13](images/en/72-tutorial-filter-invalid.png)
+![Step 13](images/en/72-tutorial-filter-presets.png)
+
+**Try it:** press **DNS** and then **UDP** under the filter bar. Both stay highlighted and the filter becomes `dns or udp`
+(OR — packets matching either are shown). Pressing a highlighted button again takes only its condition out. The capture
+filters of the Capture card and **Capture Options** have the same buttons.
+
+### Step 14. TLS by version
+
+![Step 14](images/en/73-tutorial-tls-version.png)
+
+**Try it:** press **TLS 1.3**, or apply `_ws.col.protocol == "TLSv1.3"`. Only the packets whose Protocol column reads
+*TLSv1.3* stay. The column shows the version negotiated for the session (TLS 1.3 records still say 0x0303 in their
+header), so this is the reliable way to tell the versions apart. There are **TLS 1.0**, **1.1** and **1.2** buttons too.
+
+### Step 15. An invalid filter
+
+![Step 15](images/en/74-tutorial-filter-invalid.png)
 
 **Try it:** type `tcp.port == ` (with nothing after `==`). The bar turns red; point at it to read why. Complete it as
 `tcp.port == 443` and it turns green.
 
-### Step 14. Filters from fields
+### Step 16. Filters from fields
 
-![Step 14](images/en/73-tutorial-filter-from-field.png)
+![Step 16](images/en/75-tutorial-filter-from-field.png)
 
 Right-click a field › **Apply as Filter** (or **Prepare as Filter**) builds a filter from its value, and the
 *…and Selected* / *…or Selected* variants combine it with the current one.
@@ -146,9 +162,9 @@ Right-click a field › **Apply as Filter** (or **Prepare as Filter**) builds a 
 **Try it:** clear the filter (✕), select packet 5, right-click **Destination Address** in the details ›
 **Apply as Filter** › **Selected**. The bar now holds `ip.dst == 192.168.0.1`.
 
-### Step 15. Filter expressions
+### Step 17. Filter expressions
 
-![Step 15](images/en/74-tutorial-filter-expression.png)
+![Step 17](images/en/76-tutorial-filter-expression.png)
 
 **Analyze › Display Filter Expression…** (or the {+} button) lets you pick a protocol, a field, a relation and a
 value; every registered field can be browsed here.
@@ -156,9 +172,9 @@ value; every registered field can be browsed here.
 **Try it:** choose **dns**, **dns.qry.name**, **contains**, type `wikipedia` as the value, then **Apply as
 Filter**.
 
-### Step 16. Coloring rules
+### Step 18. Coloring rules
 
-![Step 16](images/en/75-tutorial-coloring.png)
+![Step 18](images/en/77-tutorial-coloring.png)
 
 This step opens **TCP retransmissions and dup ACKs** and **View › Coloring Rules…**. The first matching rule from the
 top wins; Wireshark *colorfilters* files can be imported and exported.
@@ -168,9 +184,9 @@ colours bad TCP and see the black rows of the packet list change. Press **Defaul
 
 ## Chapter 4 — Analyze
 
-### Step 17. Expert information
+### Step 19. Expert information
 
-![Step 17](images/en/76-tutorial-expert.png)
+![Step 19](images/en/78-tutorial-expert.png)
 
 **Analyze › Expert Information** (Ctrl+Shift+E) collects retransmissions, duplicate ACKs, zero windows, malformed
 packets and more, by severity. Double-click a row to go to the packet. The **Problems** tab of the bottom panel lists
@@ -179,9 +195,9 @@ the same items packet by packet.
 **Try it:** in **TCP retransmissions and dup ACKs**, open the bottom panel's **Problems** tab and click a
 *Warning* row.
 
-### Step 18. Follow stream
+### Step 20. Follow stream
 
-![Step 18](images/en/77-tutorial-follow.png)
+![Step 20](images/en/79-tutorial-follow.png)
 
 **Try it:** open **HTTP page load**, select the first packet whose Info starts with `GET`, and choose **Analyze ›
 Follow › TCP Stream** (Ctrl+Alt+Shift+T).
@@ -189,89 +205,89 @@ Follow › TCP Stream** (Ctrl+Alt+Shift+T).
 The data of the TCP connection is put together: the client (browser) in red, the server in blue. **Show data as**
 switches to Hex Dump, C Arrays, YAML and more.
 
-### Step 19. Conversation filter
+### Step 21. Conversation filter
 
-![Step 19](images/en/78-tutorial-conversation-filter.png)
+![Step 21](images/en/80-tutorial-conversation-filter.png)
 
 Right-click a packet › **Conversation Filter** › **TCP** keeps only the packets of that TCP connection — here
 `ip.addr==192.168.0.10 && tcp.port==52344 && ip.addr==192.168.0.20 && tcp.port==80`. Choose **IPv4** for all traffic between the two hosts.
 
-### Step 20. Decode As
+### Step 22. Decode As
 
-![Step 20](images/en/79-tutorial-decode-as.png)
+![Step 22](images/en/81-tutorial-decode-as.png)
 
 **Analyze › Decode As…** makes traffic on a non-standard port dissect as the protocol you choose — for example a web
 server on port 8081 as HTTP. The values of the selected packet are offered first.
 
 ## Chapter 5 — Statistics
 
-### Step 21. Capture file properties
+### Step 23. Capture file properties
 
-![Step 21](images/en/80-tutorial-properties.png)
+![Step 23](images/en/82-tutorial-properties.png)
 
 **Statistics › Capture File Properties** — file format, time span, interfaces, packet counts and average rates.
 
-### Step 22. Protocol hierarchy
+### Step 24. Protocol hierarchy
 
-![Step 22](images/en/81-tutorial-hierarchy.png)
+![Step 24](images/en/83-tutorial-hierarchy.png)
 
 **Statistics › Protocol Hierarchy** — packets and bytes per protocol, as a tree.
 
 **Try it:** select the **Domain Name System** row and press **Apply as Filter**: the packet list shows only DNS.
 
-### Step 23. Conversations
+### Step 25. Conversations
 
-![Step 23](images/en/82-tutorial-conversations.png)
+![Step 25](images/en/84-tutorial-conversations.png)
 
 **Statistics › Conversations** — packets, bytes and durations per **Ethernet**, **IPv4**, **IPv6**, **TCP** and
 **UDP** conversation; the tabs switch the kind. Click a heading to sort, for example by **Bytes**.
 
-### Step 24. I/O graphs
+### Step 26. I/O graphs
 
-![Step 24](images/en/83-tutorial-io-graph.png)
+![Step 26](images/en/85-tutorial-io-graph.png)
 
 **Statistics › I/O Graphs** — packets or bytes over time. Each graph has its own display filter and calculation
 (SUM, MAX, AVG …).
 
 **Try it:** press **Add**, give the new graph the filter `dns` and a colour, and press **Draw**.
 
-### Step 25. Flow graph
+### Step 27. Flow graph
 
-![Step 25](images/en/84-tutorial-flow-graph.png)
+![Step 27](images/en/86-tutorial-flow-graph.png)
 
 **Statistics › Flow Graph** (here for **HTTP page load**) shows the packets between hosts as a sequence diagram: the
 TCP handshake, each `GET` and its `200 OK`. Click a row to go to its packet.
 
 ## Chapter 6 — Network map
 
-### Step 26. Network map
+### Step 28. Network map
 
-![Step 26](images/en/85-tutorial-net-map.png)
+![Step 28](images/en/87-tutorial-net-map.png)
 
 **Try it:** open **Mixed office LAN** again and press **Network Map** on the toolbar (Ctrl+Shift+N).
 
 Hosts, the gateway, servers and external hosts found in the traffic are drawn with their links, grouped by subnet
 around the gateway. **Layout** and **Labels** at the top of the map change how it is drawn.
 
-### Step 27. Filtering by a node
+### Step 29. Filtering by a node
 
-![Step 27](images/en/86-tutorial-net-map-select.png)
+![Step 29](images/en/88-tutorial-net-map-select.png)
 
 **Try it:** click the router (the gateway in the middle). Only that device's packets stay in the packet list; the
 filter bar shows the filter. Click it again, or **Show all packets**, to go back.
 
-### Step 28. Filtering by a link
+### Step 30. Filtering by a link
 
-![Step 28](images/en/87-tutorial-net-map-link.png)
+![Step 30](images/en/89-tutorial-net-map-link.png)
 
 **Try it:** click the thickest line. Only the packets between its two devices remain. The wheel zooms, dragging the
 background pans, and nodes can be dragged.
 
 ## Chapter 7 — Live capture
 
-### Step 29. Capture options
+### Step 31. Capture options
 
-![Step 29](images/en/88-tutorial-capture-options.png)
+![Step 31](images/en/90-tutorial-capture-options.png)
 
 **Capture › Capture Options…** (Ctrl+K) — interface, capture filter, promiscuous mode, snapshot length and, on the
 **Options** tab, auto-stop conditions.
@@ -279,78 +295,87 @@ background pans, and nodes can be dragged.
 **Try it:** choose **Demo traffic (simulated)**, set **Stop after time** to 10 seconds on the **Options** tab and
 press **Start Capture**.
 
-### Step 30. Live capture
+### Step 32. Live capture
 
-![Step 30](images/en/89-tutorial-capture-demo.png)
+![Step 32](images/en/91-tutorial-capture-demo.png)
 
 Capturing from the demo interface: packets are dissected as they arrive and the list scrolls to the end. The status
 bar shows *Capturing on Demo traffic (simulated)*.
 
-### Step 31. Stopping
+### Step 33. Stopping
 
-![Step 31](images/en/90-tutorial-capture-stop.png)
+![Step 33](images/en/92-tutorial-capture-stop.png)
 
 The **Stop Capture** button (or Ctrl+E) stops the capture; **Capture › Restart Capture** begins a new capture on the
 same interface. The **Capture** button (outlined) starts it again.
 
 ## Chapter 8 — Files
 
-### Step 32. Saving
+### Step 34. Saving
 
-![Step 32](images/en/91-tutorial-save.png)
+![Step 34](images/en/93-tutorial-save.png)
 
 **File › Save** (Ctrl+S) saves as pcapng, keeping comments; **Save as pcap…** writes classic pcap. Wireshark opens
 both as they are.
 
 **Try it:** save the demo capture from chapter 7, close its tab, and open it again from the **Recent** card.
 
-### Step 33. Exporting
+### Step 35. Exporting
 
-![Step 33](images/en/92-tutorial-export.png)
+![Step 35](images/en/94-tutorial-export.png)
 
 **File › Export Packet Dissections** — choose a range (all, displayed, marked, a range) and export as text, CSV, JSON,
 PDML or C arrays. **File › Export Specified Packets…** writes a smaller capture file.
 
-### Step 34. Export objects
+### Step 36. Printing and exporting
 
-![Step 34](images/en/93-tutorial-objects.png)
+![Step 36](images/en/95-tutorial-print-export.png)
+
+**Try it:** press **Print…** (Ctrl+P) at the end of the toolbar's file group. Choose a printer and **Print** prints at
+once, without a dialog. **Export** beside it saves the same content as **HTML**, **Markdown**, **PDF** or **Word**. A
+right-click on the packet list, the details or the bytes prints or exports just that part, and the statistics windows
+and the analysis report print and export the same way.
+
+### Step 37. Export objects
+
+![Step 37](images/en/96-tutorial-objects.png)
 
 **File › Export Objects › HTTP Objects…** (here for **HTTP page load**) finds the files carried over HTTP — the HTML
 page, the style sheet, the PNG logo, JSON — and saves one or all of them.
 
 ## Chapter 9 — Customize
 
-### Step 35. Themes
+### Step 38. Themes
 
-![Step 35](images/en/94-tutorial-theme.png)
+![Step 38](images/en/97-tutorial-theme.png)
 
 The dice button picks a random theme, ▾ chooses one. In dark themes the packet colours get darker too.
 
-### Step 36. Pane layout
+### Step 39. Pane layout
 
-![Step 36](images/en/95-tutorial-layout.png)
+![Step 39](images/en/98-tutorial-layout.png)
 
 **View › Panes and Bars** puts details and bytes side by side (**Details | Bytes**, **Bytes | Details**) or hides
 them; drag the dividers to resize. The panel buttons at the right of the title row show and hide the navigator, the
 bottom panel and the network map.
 
-### Step 37. Settings
+### Step 40. Settings
 
-![Step 37](images/en/96-tutorial-settings.png)
+![Step 40](images/en/99-tutorial-settings.png)
 
 **Edit › Settings…** — General, Start page, Theme, Font, Background, Layout, Capture, Resolution & analysis,
 Protocols, Recent and Shortcuts, tab by tab. Changes apply at once.
 
-### Step 38. Help
+### Step 41. Help
 
-![Step 38](images/en/97-tutorial-help.png)
+![Step 41](images/en/100-tutorial-help.png)
 
 The **Help** menu opens the user's guide, this tutorial document, the display filter reference and the keyboard
 shortcuts.
 
-### Step 39. Done
+### Step 42. Done
 
-![Step 39](images/en/98-tutorial-finish.png)
+![Step 42](images/en/101-tutorial-finish.png)
 
 That is the whole tour. The **Tutorial** button on the toolbar (F11) runs it again any time. Next, try your own
 capture files — or, in the desktop program, a real interface (see *Requirements for capturing real interfaces* in the

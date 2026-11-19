@@ -271,8 +271,9 @@ test('TFTP: request, data on a new server port, error', () => {
   assert.equal(ds[1].columns.info, 'Data Packet, Block: 1 (last)');
   assert.equal(v1(ds[1], 'tftp.destination_file'), 'boot.bin');
   assert.equal(ds[1].layers.at(-1), 'data');
-  // Wireshark leaves the client's ACKs to the server's new port as plain UDP data
-  assert.equal(ds[2].layers.at(-1), 'data');
+  // Wireshark 4.6 decodes the client's ACKs to the server's new port as TFTP too (older versions left plain data)
+  assert.equal(ds[2].layers.at(-1), 'tftp');
+  assert.equal(ds[2].columns.info, 'Acknowledgement, Block: 1');
   assert.equal(ds[3].columns.info, 'Error Code, Code: File not found, Message: File not found');
   assert.ok(ds[3].expert.some((e) => e.abbrev === 'tftp.error'));
 });

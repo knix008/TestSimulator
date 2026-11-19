@@ -91,7 +91,8 @@ export class NetMap {
       <button class="icon-button ${s.netmapShowMulticast ? 'active' : ''}" data-nm="multicast" aria-pressed="${s.netmapShowMulticast}" title="${escapeHtml(t('netmap.showMulticast'))}">${icon('netMulticast')}</button>
       <button class="icon-button" data-nm="fit" title="${escapeHtml(t('netmap.fit'))}">${icon('fitPage')}</button>
       <button class="icon-button" data-nm="refresh" title="${escapeHtml(t('netmap.refresh'))}">${icon('refresh')}</button>
-      <button class="icon-button" data-nm="export" title="${escapeHtml(t('netmap.export'))}">${icon('netExportImage')}</button>`;
+      <button class="icon-button" data-nm="export" title="${escapeHtml(t('netmap.export'))}">${icon('netExportImage')}</button>
+      <button class="icon-button pane-fold" data-fold="map" title="${escapeHtml(t('panel.fold', { name: t('netmap.title') }))}" aria-label="${escapeHtml(t('panel.fold', { name: t('netmap.title') }))}" aria-expanded="true">${icon('panelRight')}</button>`;
     const empty = this.host.querySelector('.nm-empty');
     empty.hidden = Boolean(topo?.nodes.length);
     empty.innerHTML = `${icon('paneMap')}<span>${escapeHtml(topo ? t('netmap.noHosts') : t('netmap.noCapture'))}</span>`;

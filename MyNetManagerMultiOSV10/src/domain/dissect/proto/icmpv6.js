@@ -164,7 +164,8 @@ registerProtocol({
         }
         ctx.setInfo(info);
         o = echoTimestamp(ctx, t, o + 4, end);
-        if (o < end) dataUnder(ctx, t, o, end);
+        if (end - o >= 16) hiPerConTracer(ctx, o, end);
+        else if (o < end) dataUnder(ctx, t, o, end);
         return end - off;
       }
       case 130: case 131: case 132: {
@@ -307,6 +308,28 @@ function echoTimestamp(ctx, t, o, end) {
   ctx.add(t, 'icmpv6.data_time', o, len, { sec, nsec: us * 1000 });
   ctx.gen(t, 'icmpv6.data_time_relative', (ctx.frame.sec - sec) + (ctx.frame.nsec - us * 1000) / 1e9);
   return o + len;
+}
+
+/**
+ * HiPerConTracer (Wireshark's heuristic on ICMPv6 echo data, not on ICMPv4): 16 bytes or more after the ping
+ * timestamp are read as its trace header — magic, send TTL, round, checksum tweak, then the send time in
+ * nanoseconds since 1976-09-29 (big-endian). It takes the rest of the payload, as Wireshark does.
+ */
+const HPCT_EPOCH = 212803200n; // 1976-09-29 00:00:00 UTC in seconds since 1970
+function hiPerConTracer(ctx, o, end) {
+  const d = ctx.d;
+  const ttl = d[o + 4];
+  const round = d[o + 5];
+  const ns = (BigInt(u32(d, o + 8)) << 32n) | BigInt(u32(d, o + 12));
+  const sec = ns / 1000000000n + HPCT_EPOCH;
+  const t = ctx.proto('hipercontracer', o, end - o, 'HiPerConTracer Trace Service');
+  ctx.add(t, 'hipercontracer.magic_number', o, 4, u32(d, o));
+  ctx.add(t, 'hipercontracer.send_ttl', o + 4, 1, ttl);
+  ctx.add(t, 'hipercontracer.round', o + 5, 1, round);
+  ctx.add(t, 'hipercontracer.checksum_tweak', o + 6, 2, u16(d, o + 6));
+  ctx.add(t, 'hipercontracer.send_timestamp', o + 8, 8, { sec: Number(sec), nsec: Number(ns % 1000000000n) });
+  ctx.setProtocol(`${ctx.protocol}, HiPerConTracer`);
+  ctx.appendInfo(` (SendTTL=${ttl}, Round=${round})`);
 }
 
 function dataUnder(ctx, parent, o, end) {
@@ -470,3 +493,15 @@ function match(ctx, type, id, seq) {
   }
   return { in: fd.icmp6In || 0, to: fd.icmp6To || 0, time: fd.icmp6Time || 0 };
 }
+
+registerProtocol({
+  abbrev: 'hipercontracer', name: 'HiPerConTracer Trace Service', short: 'HiPerConTracer',
+  fields: [
+    ['hipercontracer.magic_number', 'Magic Number', 'uint32', { base: 'hex' }],
+    ['hipercontracer.send_ttl', 'Send TTL', 'uint8'],
+    ['hipercontracer.round', 'Round', 'uint8'],
+    ['hipercontracer.checksum_tweak', 'Checksum Tweak', 'uint16', { base: 'hex' }],
+    ['hipercontracer.seq_number', 'Sequence Number', 'uint16'],
+    ['hipercontracer.send_timestamp', 'Send Time Stamp', 'abs_time'],
+  ],
+});

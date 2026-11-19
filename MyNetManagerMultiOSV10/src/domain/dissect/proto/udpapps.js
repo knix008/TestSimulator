@@ -488,10 +488,9 @@ registerProtocol({
         tr = st.get(ctx.net.dst + '/' + ctx.dstport) || st.get(ctx.net.src + '/' + ctx.srcport) || null;
       }
       fd.tftp = tr;
-      // Wireshark keeps the client's ACKs/data to the server's new port as plain UDP data
-      if (tr && op !== 1 && op !== 2 && ctx.net.src + '/' + ctx.srcport === tr.client) fd.tftpPlain = true;
+      // Wireshark 4.6 decodes both directions of a transfer as TFTP — also the client's ACKs and data to the
+      // server's new port (older versions left those as plain UDP data, which this dissector once copied).
     }
-    if (fd.tftpPlain) return false;
     ctx.setProtocol('TFTP');
     const t = ctx.proto('tftp', off, end - off, 'Trivial File Transfer Protocol');
     ctx.add(t, 'tftp.opcode', off, 2, op);

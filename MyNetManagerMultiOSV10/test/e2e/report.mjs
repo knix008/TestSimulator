@@ -37,7 +37,7 @@ export const formatTime = (ms) => (!Number.isFinite(ms) ? '' : ms < 1000 ? `${Ma
 
 /** One result line: "  ✔ PASS  name ……  12 ms"; a failure gets its reason on the next line. */
 export function resultLine({ status, name, ms, error, indent = 2 }) {
-  const badge = status === 'pass' ? c.green('✔ PASS') : status === 'fail' ? c.red('✖ FAIL') : c.yellow('○ SKIP');
+  const badge = status === 'pass' ? c.green('✔ PASS') : status === 'fail' ? c.red('✖ FAIL') : c.dim('○ SKIP');
   const room = NAME_WIDTH - (indent - 2);
   const label = status === 'fail' ? c.bold(fit(english(name), room)) : fit(english(name), room);
   const time = ms == null ? '' : c.dim(padStart(formatTime(ms), 9));
@@ -56,6 +56,22 @@ export function totalsLine(label, passed, failed) {
 }
 
 /** A section heading: "━━ [2/6] Title  (id) ━━━━━━━━━━". */
+/** The area of an E2E case id ("filter.presets" → "Filters"), shown as a "▶" heading above its cases. */
+const GROUP_TITLES = {
+  start: 'Start page', chrome: 'Window and toolbar', files: 'Files', list: 'Packet list and panes', filter: 'Filters',
+  analyze: 'Analysis', stats: 'Statistics', map: 'Network map', panels: 'Panels and report', print: 'Printing',
+  export: 'Print and export', capture: 'Live capture', look: 'Look and settings', help: 'Help and tutorial', time: 'Time',
+  i18n: 'Languages', errors: 'Page errors', app: 'Program', popups: 'Popup windows', docs: 'Documents',
+};
+export const groupOf = (id) => String(id).split('.')[0];
+export const groupLine = (id) => `\n  ${c.bold(c.blue(`▶ ${GROUP_TITLES[groupOf(id)] ?? groupOf(id)}`))}`;
+/** Cases in groups (each area where it first appears), the order inside a group kept. */
+export function grouped(cases) {
+  const first = new Map();
+  cases.forEach((item, i) => { if (!first.has(groupOf(item.id))) first.set(groupOf(item.id), i); });
+  return cases.map((item, i) => ({ item, i })).sort((a, b) => first.get(groupOf(a.item.id)) - first.get(groupOf(b.item.id)) || a.i - b.i).map(({ item }) => item);
+}
+
 export function heading(text, tag = '') {
   const head = ` ${text}${tag ? `  ${tag}` : ''} `;
   const line = `━━${head}${'━'.repeat(Math.max(4, NAME_WIDTH + 20 - width(head)))}`;

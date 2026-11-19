@@ -65,6 +65,18 @@ export const FEATURES = [
   { name: "User's guide and tutorial documents (own window, flags, print)", cases: ['help.documents'] },
   { name: 'Tutorial (every step)', cases: ['help.tutorial'] },
   { name: 'Time shift', cases: ['time.shift'] },
+  // 2026-11-19
+  { name: 'Sample captures in one grid of equal tiles, rows always full', cases: ['start.samplesGrid'] },
+  { name: 'Network-themed moving backgrounds (20)', cases: ['start.backgrounds'] },
+  { name: 'Context menus fit what is under the pointer (interface, sample, start page); a closed menu never comes back', cases: ['start.contextMenus'] },
+  { name: 'Toolbar: Print at the end of the file group, text size in px between A− and A+, green ▶ / red ■ capture', cases: ['chrome.toolbarExtras'] },
+  { name: 'Folded side panels: narrow rails with vertical titles; map fold button at the right', cases: ['chrome.foldRails'] },
+  { name: 'Preset filter buttons (display filter, capture filter on the start page and in Capture Options) that combine with OR, with free input', cases: ['filter.presets'] },
+  { name: 'Statistics lists: filters on top, striped rows, sortable trees, expand / collapse all', cases: ['stats.listTools'] },
+  { name: 'Print and export (HTML, Markdown, PDF, Word) from statistics, the print window and the report', cases: ['export.documents'] },
+  { name: 'Pictures as PNG, JPEG, WebP, GIF, AVIF, SVG; Markdown pictures inside or linked', cases: ['export.images'] },
+  { name: 'Print and export from the right-click menu of a packet, its details, its bytes, the list and a tab', cases: ['export.contextMenus'] },
+  { name: 'TLS versions told apart: TLS 1.0–1.3 presets and _ws.col.protocol / _ws.col.info column fields', cases: ['filter.tlsVersions'], },
   { name: 'Korean and English everywhere (no untranslated keys)', cases: ['i18n.noRawKeys'] },
   { name: 'No errors in the page', cases: ['errors.none'] },
 ];

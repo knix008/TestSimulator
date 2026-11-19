@@ -17,7 +17,8 @@ macOS and Linux (Tauri 2).
 ## Features
 
 - **Live capture** through libpcap / Npcap: interface list with addresses, BPF capture filters (saved filters,
-  check), promiscuous and monitor mode, snapshot length, buffer size, auto-stop by packets / time / size, restart.
+  check, preset buttons that combine with OR), promiscuous and monitor mode, snapshot length, buffer size, auto-stop
+  by packets / time / size, restart.
   A **demo interface** produces realistic LAN traffic anywhere, without permissions (also in the web version).
 - **Capture files**: pcapng (sections, comments, name records, interface statistics) and pcap, gzip-compressed
   captures, cut-short files, drag and drop, recent files, merge (append or chronological), save as pcapng or pcap.
@@ -29,21 +30,30 @@ macOS and Linux (Tauri 2).
 - **Packet list, details and bytes** panes: sortable and configurable columns (custom field columns), colouring
   rules (Wireshark *colorfilters* import / export), marks, ignore, time references, time shift, packet comments,
   ten time formats, stacked or side-by-side layouts.
-- **Display filters** with live validity colours, field suggestions, recent filters, bookmarks, filter buttons, a
+- **Display filters** with live validity colours, field suggestions, recent filters, bookmarks, filter buttons,
+  preset filter buttons (TCP, UDP, HTTP, DNS, TLS 1.0 / 1.1 / 1.2 / 1.3, retransmissions … combined with OR),
+  Wireshark's column fields (`_ws.col.protocol`, `_ws.col.info`), a
   filter expression builder, Apply / Prepare as Filter and conversation filters — operators, slices, sets, ranges
   and functions (`len`, `count`, `upper`, `lower` …).
 - **Analysis**: follow TCP / UDP / TLS / HTTP / HTTP/2 / QUIC streams, expert information, a Problems / Log /
   Analysis panel with automatic findings (retransmissions, DNS and HTTP errors, old TLS, clear-text credentials,
-  IP conflicts, rogue DHCP, port scans, broadcast storms …), and an analysis report in HTML, Markdown or print.
+  IP conflicts, rogue DHCP, port scans, broadcast storms …), and an analysis report in HTML, Markdown, PDF, Word or
+  print.
 - **Statistics**: capture file properties, resolved addresses, protocol hierarchy, conversations, endpoints, packet
   lengths, I/O graphs, flow graph, TCP stream graphs (Stevens, throughput, RTT, window), HTTP, DNS, IPv4 / IPv6,
-  port types, VoIP calls, SIP flows, RTP streams, WLAN traffic, firewall ACL rules, credentials.
+  port types, VoIP calls, SIP flows, RTP streams, WLAN traffic, firewall ACL rules, credentials. Lists have their
+  filter tools on top, striped rows, sortable trees with expand / collapse all, and print / export (HTML, Markdown,
+  PDF, Word).
 - **Network map** of hosts, gateways, servers and external hosts found in the traffic (by subnet, force-directed or
-  radial); clicking a node or link filters the packet list.
+  radial); clicking a node or link filters the packet list. Pictures (map and graphs) save as PNG, JPEG, WebP,
+  GIF, AVIF or SVG.
 - **Export** of specified packets, dissections (text, CSV, JSON, PDML, PSML, C arrays), selected bytes and objects
-  (HTTP, TFTP, IMF, FTP-DATA); **printing** in its own window with printer choice, page setup and live preview.
-- Frameless window with menus in the title row, coloured icon toolbar, card-board start page, 40 themes plus a
-  custom theme, moving backgrounds, Korean and English, a 39-step guided tutorial, user's guide and tutorial
+  (HTTP, TFTP, IMF, FTP-DATA); **printing** in its own window with printer choice (prints at once), page setup,
+  live preview and export to HTML, Markdown (pictures inside or linked), PDF and Word — written by the program itself,
+  no Office or PDF library needed.
+- Frameless window with menus in the title row, coloured icon toolbar (text size shown in px), card-board start page
+  with context menus, 40 themes plus a custom theme, 20 network-themed moving backgrounds, Korean and English (the
+  installer asks, the program starts in that language), a 42-step guided tutorial, user's guide and tutorial
   documents.
 
 ![Display filter suggestions](doc/images/en/11-filter-suggestions.png)
@@ -85,7 +95,7 @@ Requires Node.js 22+; the desktop builds also need Rust and the [Tauri 2 prerequ
 | `npm install` | install the dependencies |
 | `npm start` | run the desktop program in development (`tauri dev`; frees the dev server port first) |
 | `npm run dev` | run the web version on the Vite dev server |
-| `npm test` | every test by category: JS unit, tshark witness, Rust, web E2E, desktop E2E |
+| `npm test` | every test by category: JS unit, tshark witness, Rust, web E2E, desktop E2E — aligned result lines grouped under "▶" headings (test file, Rust module, E2E area), then a summary (passed, failed, skipped, time, pass rate), a "By group" table and the failed tests by name; `MYNETMANAGER_E2E_EXE` points the desktop suite at a build of its own |
 | `npm test -- --quick` | the fast part only (JS unit tests and witness; no builds, no browser) |
 | `npm run build:web` | the web app in `dist/` |
 | `npm run build:win` | Windows installer (`MyNetManager-Setup-<version>.exe`) |
@@ -112,7 +122,8 @@ src/
   domain/
     capture/                            pcap / pcapng reading and writing, packet builder, samples, demo traffic
     dissect/                            dissection engine and one module per protocol family
-    filter/                             display filter lexer, parser, compiler, suggestions, colouring rules
+    filter/                             display filter lexer, parser, compiler, suggestions, colouring rules, presets
+    export/                             documents (HTML, Markdown, PDF, Word) and pictures (PNG … GIF, AVIF)
     analysis/                           statistics, follow stream, expert info, export, findings, topology
   i18n/                                 Korean and English strings
 src-tauri/                              Rust: windows, popups, files, printing, capture (libpcap / Npcap)
@@ -126,6 +137,7 @@ The module contracts are described in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Documents
 
+- [UsersGuide.md](UsersGuide.md) — the user's guide in both languages in one file (written by `npm run build:docs`)
 - [User's Guide](doc/UserGuide.en.md) · [사용 설명서](doc/UserGuide.md)
 - [Tutorial](doc/Tutorial.en.md) · [튜토리얼](doc/Tutorial.md)
 - [Document index](doc/README.md)

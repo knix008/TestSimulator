@@ -117,7 +117,7 @@ registerProtocol({
     ['dns.dnskey.flags', 'Flags', 'uint16', { base: 'hex' }],
     ['dns.dnskey.flags.zone_key', 'Zone Key', 'bool', { mask: 0x100, bits: 16, tfs: ['This is the zone key for specified zone', 'This is not a zone key'] }],
     ['dns.dnskey.flags.key_revoked', 'Key Revoked', 'bool', { mask: 0x80, bits: 16, tfs: ['Yes', 'No'] }],
-    ['dns.dnskey.flags.secure_entry_point', 'Secure Entry Point', 'bool', { mask: 0x1, bits: 16, tfs: ['Yes', 'No'] }],
+    ['dns.dnskey.flags.secure_entry_point', 'Key Signing Key', 'bool', { mask: 0x1, bits: 16, tfs: ['Yes', 'No'] }],
     ['dns.dnskey.protocol', 'Protocol', 'uint8'],
     ['dns.dnskey.algorithm', 'Algorithm', 'uint8', { strings: ALGOS }],
     ['dns.dnskey.key_id', 'Key id', 'uint16'],

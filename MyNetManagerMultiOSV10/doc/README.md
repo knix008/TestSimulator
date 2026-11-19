@@ -3,7 +3,7 @@
 | Document | 한국어 | English |
 | --- | --- | --- |
 | User's guide · 사용 설명서 — every window, menu, setting and shortcut | [UserGuide.md](UserGuide.md) | [UserGuide.en.md](UserGuide.en.md) |
-| Tutorial · 튜토리얼 — 39 hands-on steps with the sample captures | [Tutorial.md](Tutorial.md) | [Tutorial.en.md](Tutorial.en.md) |
+| Tutorial · 튜토리얼 — 42 hands-on steps with the sample captures | [Tutorial.md](Tutorial.md) | [Tutorial.en.md](Tutorial.en.md) |
 
 - `images/ko/`, `images/en/` — the pictures of the documents, the same file names in both languages. They are taken
   from the real program by `npm run doc:images` (`scripts/doc-images.mjs`: builds the web app into a temporary
