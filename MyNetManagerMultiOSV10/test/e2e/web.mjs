@@ -630,9 +630,11 @@ test('chrome.foldRails', 'Folded side panels are narrow rails with a vertical ti
 
 test('filter.presets', 'Preset filters (display bar, start page and Capture Options capture filters) combine with OR; another press never turns one off', async () => {
   const total = await openSample('dns-queries');
-  const r = await run(`const presets = qa('[data-df-preset]').map((b) => b.dataset.dfPreset); const click = async (f) => { q('[data-df-preset="' + f + '"]').click(); await sleep(250); return { text: q('.df-input').value, on: qa('[data-df-preset].on').map((b) => b.dataset.dfPreset), shown: A.doc().displayed.length }; };
+  // Start from an empty filter box: a typed filter would (rightly) be kept and ORed with the presets.
+  const r = await run(`await A.actions.applyDisplayFilter(''); A.view().setFilterText(''); await sleep(150);
+    const presets = qa('[data-df-preset]').map((b) => b.dataset.dfPreset); const click = async (f) => { q('[data-df-preset="' + f + '"]').click(); await sleep(250); return { text: q('.df-input').value, on: qa('[data-df-preset].on').map((b) => b.dataset.dfPreset), shown: A.doc().displayed.length }; };
     const one = await click('dns'); const two = await click('udp'); const back = await click('dns'); const none = await click('udp');
-    await A.actions.applyDisplayFilter('frame.len > 60'); await sleep(200); const typed = await click('dns');
+    A.view().setFilterText('frame.len > 60'); await A.actions.applyDisplayFilter('frame.len > 60'); await sleep(200); const typed = await click('dns');
     await A.actions.applyDisplayFilter('');
     A.actions.updateSettings({ captureFilter: '' }, { quiet: true }); A.actions.showStartPage(true); await until(() => q('[data-capture-preset]'));
     q('[data-capture-preset="tcp"]').click(); await sleep(150); q('[data-capture-preset="port 53"]').click(); await sleep(150);

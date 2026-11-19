@@ -82,7 +82,8 @@ function relayout(raw) {
   let m = line.match(/^\s*([✔✖﹣])\s+(.+?)\s+\(([\d.]+)ms\)(?:\s+#\s*\w+)?$/);
   if (m) return resultLine({ status: note(m[1] === '✔' ? 'pass' : m[1] === '✖' ? 'fail' : 'skip', m[2]), name: m[2], ms: Number(m[3]), indent: 2 + lead });
   m = line.match(/^\s*▶\s+(.+)$/);
-  if (m) { tally.group = m[1].trim(); return `${lead ? ' '.repeat(2 + lead) : '\n  '}${c.bold(c.blue(`▶ ${m[1]}`))}`; }
+  // A group heading sits at the left margin with a blank line above it, however its tool indented it.
+  if (m) { tally.group = m[1].trim(); return `\n  ${c.bold(c.blue(`▶ ${m[1]}`))}`; }
   m = line.match(/^\s*ℹ\s+(\w+)\s+([\d.]+)$/);
   if (m) {
     const value = m[1] === 'fail' && Number(m[2]) > 0 ? c.red(m[2]) : m[1] === 'pass' ? c.green(m[2]) : m[2];
