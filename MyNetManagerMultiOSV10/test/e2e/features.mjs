@@ -1,0 +1,70 @@
+// The features of MyNetManager (Wireshark's features plus the user's own requirements) and the web E2E
+// cases (test/e2e/web.mjs) that prove each one. web.mjs fails when a feature has no case or a failing one.
+// Features proven by other categories are marked with `by` (unit tests, the tshark witness, the desktop suite).
+export const FEATURES = [
+  // Start page and window
+  { name: 'Start page card board (move, resize, arrange)', cases: ['start.cards', 'start.arrange'] },
+  { name: 'Program information card fixed (no move, no resize)', cases: ['start.cards'] },
+  { name: 'Title-row menus (File … Help) and Home', cases: ['chrome.menus'] },
+  { name: 'Colourful icons on every button', cases: ['chrome.toolbar', 'chrome.colours'] },
+  { name: 'Toolbar never clipped, no horizontal scroll', cases: ['chrome.toolbar'] },
+  { name: 'Close buttons turn red on hover', cases: ['chrome.closeRed'] },
+  { name: 'Panel fold buttons left of the window buttons and in every panel title bar (same icons)', cases: ['chrome.panelButtons'] },
+  { name: 'Panels aligned (same title bar height and inset)', cases: ['chrome.alignment'] },
+  { name: 'Number inputs as [−] value unit [+]', cases: ['chrome.steppers'] },
+  // Files
+  { name: 'Sample captures', cases: ['files.samples'] },
+  { name: 'Open capture files (pcap, pcapng)', cases: ['files.openMerge'] },
+  { name: 'Merge capture files', cases: ['files.openMerge'] },
+  { name: 'Save as pcapng and pcap', cases: ['files.saveExport'] },
+  { name: 'Export specified packets', cases: ['files.saveExport'] },
+  { name: 'Export dissections (text, CSV, JSON, PDML, PSML, C arrays)', cases: ['files.saveExport'] },
+  { name: 'Export objects (HTTP …)', cases: ['files.objects'] },
+  { name: 'Print packets (own window, printer, page setup, preview, prints at once)', cases: ['print.window'] },
+  // Packet views
+  { name: 'Packet list, details tree and bytes pane linked', cases: ['list.select'] },
+  { name: 'Columns: sort, hide, custom field columns, fit', cases: ['list.columns'] },
+  { name: 'Time display formats', cases: ['list.timeFormats'] },
+  { name: 'Mark, ignore, time reference, packet comments', cases: ['list.marks'] },
+  { name: 'Go to packet, first/last, back/forward, next in conversation', cases: ['list.navigation'] },
+  { name: 'Find packet (filter, hex, string)', cases: ['list.find'] },
+  { name: 'Copy (summary, details, hex dump, value, filter)', cases: ['list.copy'] },
+  { name: 'Text zoom, pane layouts, bytes as bits / EBCDIC', cases: ['list.zoomLayout'] },
+  // Filters, colouring
+  { name: 'Display filter bar (valid / invalid / deprecated colours, suggestions)', cases: ['filter.status'] },
+  { name: 'Display filters (Wireshark language, matches tshark)', cases: ['filter.apply'] },
+  { name: 'Apply / prepare as filter, conversation filters', cases: ['filter.fromField'] },
+  { name: 'Filter bookmarks, filter buttons, recent filters', cases: ['filter.bookmarks'] },
+  { name: 'Display filter expression window', cases: ['filter.expression'] },
+  { name: 'Colouring rules (edit, save, colorize on/off)', cases: ['filter.coloring'] },
+  // Analysis
+  { name: 'Follow TCP / UDP / HTTP / TLS stream', cases: ['analyze.follow'] },
+  { name: 'Expert information', cases: ['analyze.expert'] },
+  { name: 'Decode As, enabled protocols', cases: ['analyze.decodeProtocols'] },
+  // Statistics
+  { name: 'Capture file properties, resolved addresses, protocol hierarchy', cases: ['stats.windows'] },
+  { name: 'Conversations and endpoints (all kinds)', cases: ['stats.windows', 'stats.conversationsTabs'] },
+  { name: 'Packet lengths, HTTP, DNS, IPv4/IPv6, port types', cases: ['stats.windows'] },
+  { name: 'I/O graphs, flow graph', cases: ['stats.windows'] },
+  { name: 'TCP stream graphs (Stevens, throughput, RTT, window)', cases: ['stats.tcpGraph'] },
+  { name: 'Telephony (SIP, RTP), WLAN traffic, firewall rules, credentials', cases: ['stats.windows'] },
+  // Network map
+  { name: 'Network map from the traffic (routers, hosts, external hosts, layouts)', cases: ['map.draw'] },
+  { name: 'Selecting a map node or link shows only its packets', cases: ['map.selectFilters', 'map.clickReal'] },
+  { name: 'Network map export (SVG, PNG)', cases: ['map.export'] },
+  // Panels, analysis results, report
+  { name: 'Navigator panel (findings, protocols, talkers)', cases: ['panels.navigator'] },
+  { name: 'Problems, log and analysis results panel', cases: ['panels.bottom'] },
+  { name: 'Analysis report (HTML, Markdown, print)', cases: ['panels.report'] },
+  // Capture
+  { name: 'Live capture (start, restart, stop, save)', cases: ['capture.demo'] },
+  { name: 'Capture options (interfaces, filter, snaplen, auto-stop)', cases: ['capture.options', 'capture.autostop'] },
+  // Look, help
+  { name: 'Themes and Korean / English', cases: ['look.themeLanguage'] },
+  { name: 'Settings window (every tab), language flags', cases: ['look.settings'] },
+  { name: "User's guide and tutorial documents (own window, flags, print)", cases: ['help.documents'] },
+  { name: 'Tutorial (every step)', cases: ['help.tutorial'] },
+  { name: 'Time shift', cases: ['time.shift'] },
+  { name: 'Korean and English everywhere (no untranslated keys)', cases: ['i18n.noRawKeys'] },
+  { name: 'No errors in the page', cases: ['errors.none'] },
+];

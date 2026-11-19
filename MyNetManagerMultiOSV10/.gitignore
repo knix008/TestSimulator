@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+src-tauri/target/
+src-tauri/gen/
+
+# Installers (npm run build:win / build:mac / build:linux / build:all)
+release/
+/MyNetManager-*.exe
+/MyNetManager-*.msi
+/MyNetManager-*.dmg
+/MyNetManager-*.deb
+/MyNetManager-*.rpm
+/MyNetManager-*.AppImage
+
+# Generated documents (npm run build:docs from doc/)
+docs/
+public/docs/
+
+# Test runs (npm test)
+test-results/
+*.log
+
+# Editors and OS files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+

@@ -1,0 +1,42 @@
+{
+  "name": "mynetmanager",
+  "productName": "MyNetManager",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Network protocol analyzer (Wireshark style) for Web, Windows, macOS and Linux (Tauri) — live capture through libpcap/Npcap, pcap/pcapng files, protocol dissection, display filters, colouring rules, follow stream, statistics and export",
+  "author": "SHKWON <knix008@naver.com>",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "dev": "vite",
+    "build:web": "vite build",
+    "preview": "vite preview --port 4185 --strictPort",
+    "tauri": "tauri",
+    "test": "node scripts/test.mjs",
+    "test:quick": "node scripts/test.mjs --quick",
+    "test:unit": "node scripts/test.mjs --only js,rust",
+    "test:e2e": "node scripts/test.mjs --only web,desktop",
+    "build:win": "npm run build:docs && node scripts/build.mjs win",
+    "build:mac": "npm run build:docs && node scripts/build.mjs mac",
+    "build:linux": "npm run build:docs && node scripts/build.mjs linux",
+    "build:webapp": "node scripts/build.mjs web",
+    "build:all": "npm run build:docs && node scripts/build.mjs all",
+    "build:icons": "node scripts/render-icons.mjs",
+    "build:docs": "node scripts/build-docs.mjs",
+    "doc:images": "node scripts/doc-images.mjs",
+    "samples": "node scripts/make-samples.mjs",
+    "clean": "node scripts/clean.mjs",
+    "clean:all": "node scripts/clean.mjs --all",
+    "i18n:check": "node scripts/i18n-check.mjs",
+    "test:js": "node scripts/test.mjs --only js",
+    "test:witness": "node scripts/test.mjs --only witness"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.8.0",
+    "@tauri-apps/plugin-dialog": "^2.4.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.0",
+    "vite": "^7.1.7"
+  }
+}

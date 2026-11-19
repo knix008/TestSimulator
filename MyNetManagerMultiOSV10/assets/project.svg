@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#dfe8f5"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c7d6ec"/>
+      <stop offset="1" stop-color="#8fa8cc"/>
+    </linearGradient>
+    <linearGradient id="badge" x1="0" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#4fb3ff"/>
+      <stop offset="0.5" stop-color="#2b6cf6"/>
+      <stop offset="1" stop-color="#3a2bb8"/>
+    </linearGradient>
+    <linearGradient id="badgeSide" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1d2c8f"/>
+      <stop offset="1" stop-color="#120f52"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="drop" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="22" stdDeviation="22" flood-color="#0b0b3a" flood-opacity="0.35"/></filter>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#0b0b3a" flood-opacity="0.3"/></filter>
+  </defs>
+  <g filter="url(#drop)">
+    <path d="M226 70h400l208 208v666a36 36 0 0 1-36 36H226a36 36 0 0 1-36-36V106a36 36 0 0 1 36-36z" fill="url(#paper)"/>
+  </g>
+  <path d="M626 70v172a36 36 0 0 0 36 36h172z" fill="url(#fold)"/>
+  <g filter="url(#soft)">
+    <rect x="270" y="360" width="490" height="54" rx="14" fill="#a8f0c6"/>
+    <rect x="270" y="436" width="490" height="54" rx="14" fill="#d9d4ff"/>
+    <rect x="270" y="512" width="490" height="54" rx="14" fill="#ffc9c6"/>
+    <rect x="270" y="588" width="490" height="54" rx="14" fill="#bfe3ff"/>
+  </g>
+  <g filter="url(#drop)">
+    <rect x="246" y="722" width="540" height="200" rx="56" fill="url(#badgeSide)"/>
+    <rect x="246" y="700" width="540" height="200" rx="56" fill="url(#badge)"/>
+  </g>
+  <rect x="250" y="704" width="532" height="96" rx="52" fill="url(#shine)"/>
+  <text x="516" y="840" font-family="Segoe UI, Arial, sans-serif" font-size="118" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="4">PCAP</text>
+</svg>

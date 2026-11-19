@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-pcapng">
+    <comment>Packet capture (pcapng)</comment>
+    <comment xml:lang="ko">패킷 캡처 (pcapng)</comment>
+    <icon name="application-x-pcapng"/>
+    <glob pattern="*.pcapng"/>
+    <glob pattern="*.ntar"/>
+  </mime-type>
+  <mime-type type="application/vnd.tcpdump.pcap">
+    <comment>Packet capture (pcap)</comment>
+    <comment xml:lang="ko">패킷 캡처 (pcap)</comment>
+    <icon name="application-x-pcapng"/>
+    <glob pattern="*.pcap"/>
+    <glob pattern="*.cap"/>
+  </mime-type>
+</mime-info>
