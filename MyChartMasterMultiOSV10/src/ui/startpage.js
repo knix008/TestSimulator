@@ -9,7 +9,6 @@ import { animationIcon, hasIcon, icon } from '../icons.js';
 import { t, getLanguage } from '../i18n.js';
 import { ANIMATION_INTERVALS } from '../domain/settings.js';
 import { ANIMATION_KINDS } from './background.js';
-import { DARK_THEMES, LIGHT_THEMES } from '../themes.js';
 import { switchFlag } from '../flags.js';
 import { stepperHtml } from '../stepper.js';
 
@@ -87,13 +86,6 @@ function samplesBody(samples, groups, L) {
   return `<div class="sample-tiles-box"><div class="sample-tiles">${[...tiles, ...open].join('')}</div></div>`;
 }
 
-function themeBody(settings, L) {
-  const themeTile = (theme) => `<button type="button" role="radio" aria-checked="${settings.theme === theme.id}" class="bg-tile st-theme-tile ${settings.theme === theme.id ? 'on' : ''}" data-start="pick-theme" data-value="${theme.id}" title="${escapeHtml(theme.name[L])}">
-    <span class="st-theme-chip" aria-hidden="true" style="background:${theme.swatch[0]};border-color:${theme.swatch[2]}"><i style="background:${theme.swatch[1]}"></i><i style="background:${theme.swatch[2]}"></i></span><span>${escapeHtml(theme.name[L])}</span></button>`;
-  const group = (kind, glyph, label, themes) => `<section class="sample-group" data-theme-kind="${kind}"><h3>${icon(glyph)}<span>${escapeHtml(label)}</span><span class="sample-count">${themes.length}</span></h3><div class="bg-grid st-theme-tiles" role="radiogroup" aria-label="${escapeHtml(label)}">${themes.map(themeTile).join('')}</div></section>`;
-  return `<div class="sample-groups">${group('dark', 'moon', t('start.themeDark'), DARK_THEMES)}${group('light', 'sun', t('start.themeLight'), LIGHT_THEMES)}</div>`;
-}
-
 function backgroundBody(settings) {
   return `<div class="anim-chips bg-grid" role="radiogroup">${ANIMATION_KINDS.map((kind) => `<button class="anim-chip bg-tile ${settings.animation === kind && settings.backgroundKind === 'animated' ? 'active on' : ''}" data-start="animation" data-value="${kind}" role="radio" aria-checked="${settings.animation === kind}" title="${escapeHtml(t(`animation.${kind}`))}">${icon(animationIcon(kind))}<span>${escapeHtml(t(`animation.${kind}`))}</span></button>`).join('')}</div>
     <div class="start-controls">
@@ -131,7 +123,6 @@ export function startPageHtml(app) {
     settings.startShowRecent === false && settings.startShowFolders === false ? '' : card('recent', 'recent', t('start.recentCard'), recentBody(app, settings)),
     card('actions', 'launcher', t('start.actions'), actionsBody(L)),
     settings.startShowSamples === false ? '' : card('samples', 'samples', t('start.samples'), samplesBody(samples, app.sampleGroups(), L), { extra: `<span class="start-card-note">${samples.length}</span>` }),
-    card('theme', 'palette', t('start.theme'), themeBody(settings, L), { extra: `<button class="start-btn small" data-start="theme-settings" title="${escapeHtml(t('start.tipTheme'))}">${icon('gear')}<span>${escapeHtml(t('start.themeSettings'))}</span></button>` }),
     settings.startShowBackground === false ? '' : card('background', 'sparkles', t('start.background'), backgroundBody(settings)),
   ];
   return `

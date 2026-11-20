@@ -42,7 +42,6 @@ candles, heat map, Sankey, dashboard … twenty in all), and translucent cards s
 - **Recent items**: recently opened files and folders. × removes one; right-click copies the path.
 - **Shortcuts**: open, new chart, import data, paste as new chart, tutorial, theme, language, settings, about, exit.
 - **Sample charts**: 31 samples from business, finance, science and society. Every other type opens with example data of its own shape as a new chart.
-- **Theme**: pick a light or a dark theme at once.
 - **Moving background**: 20 backgrounds, shuffle, a background picture, speed, card opacity, automatic change.
 
 Drag a card by its handle (top left) and resize it by its corner (bottom right); **Arrange** puts them back.
@@ -223,9 +222,11 @@ series). **Chart › Previous / Next chart type** (Ctrl+[ and Ctrl+]) steps thro
 
 ### Chart themes
 
-Each chart has its own **chart theme** (Inspector › Style › Chart theme, **Chart › Chart theme**, or the chart's
-right-click menu). It is set apart from the program's theme (light, dark …) and changes the palette, the font, the
-grid and its own paper together. 21 of them: Classic · Office · Paper · Newspaper · Pastel · Ocean · Forest · Sunset · Corporate · Monochrome · Colour-blind safe · Solarized light · Nordic · Dark · Midnight · Slate · Solarized dark · Vampire · Neon · Blueprint · Chalkboard.
+Each chart has its own **chart theme** (top of Inspector › Style, **Chart › Chart theme**, or the chart's right-click
+menu). It is set apart from the program's theme (light, dark …) and changes the palette, the font, the grid and its
+own paper together. The Style tab shows **25 light** and **25 dark** themes, grouped, as small swatches (the name on
+hover); a click applies one at once. The **Custom** swatch at the end is a theme of your own: paper, text, muted text,
+grid and axis colours, palette and font (saved with the chart).
 
 The chart's **background follows the program's theme by default**: in a dark theme the chart paper turns dark, text,
 axes and grid lines turn light, and series colours are lightened or darkened as needed to keep at least 3:1 contrast
@@ -308,8 +309,16 @@ The editor is laid out like Excel:
   with their rows). **Filter** puts ▼ buttons in row 1 to choose the values to show, or to sort.
 - **Status bar**: Ready / Enter / Edit / Point, the selection's average, count, sum, min and max, the data size, and
   zoom (Ctrl+wheel).
-- **Sheet tabs**: the tabs at the bottom are the charts open in the main window; a tab switches the main window to
-  that chart, **+** makes a new blank chart.
+- **Sheet tabs**: the tabs at the top (under the toolbar) are the charts open in the main window; a tab switches the
+  main window to that chart, its × closes that chart (asking to save), **+** makes a new blank chart. With many tabs, **<**
+  **>** at the right end of the tab row move through them; the main window's chart tabs work the same way.
+- **Number formats (Excel format codes)**: **Custom…** in the number format list, or Ctrl+1, takes Excel format codes —
+  `0.00`, `#,##0`, `#,##0;[Red]-#,##0`, `0.0%`, `0.00E+00`, `"$"#,##0.00`, `#,##0,"K"`, `# ?/?`, `000000`, `yyyy-mm-dd`,
+  `h:mm AM/PM`, `[h]:mm`, `@` and so on, with a list of common codes and a preview. Excel files keep them both ways.
+- **Carries on with your work**: the editor opens on the chart and cells you were on in the main window (a cell being
+  typed in is kept); with no chart open it makes a new one. Closing the editor (Dock window, or closing it) puts the data
+  back in the main window's data grid (unfolding it if it was folded), carrying on from the editor's selection.
+- **No count limits**: rows, columns and imported rows have no limit (a 150 000-row file is read whole).
 - **Make chart**: with a range selected it makes a new chart tab from those cells (the first row names them); with
   one cell selected it uses the whole sheet (F11). **Chart only the selection** makes the current chart draw just
   the selected range.
@@ -321,7 +330,20 @@ The editor is laid out like Excel:
 - **Print**: **Print** (Ctrl+P) and **Print selection** show the cells on pages in the program's print window, with
   paper, orientation, margins, fit to page, **Gridlines** and **Row and column headings**.
 
+### Picking an element of the chart to style it on its own
+
+Anything drawn on the chart can be clicked: one bar, point or slice, the title, subtitle, legend, an axis title, the
+axis and its labels, the grid lines, the plot area, the data labels, the chart's background. The picked element is
+outlined on the chart and **its own properties** appear at the top of the properties panel — always with a **colour**
+box, and size, weight, text, outline or opacity as the element has them. One bar (point, slice) gets its own fill
+colour, outline colour, outline width and opacity (**Clear this item's own settings** takes them back), and the whole
+series' colour is right there too. All of it is saved with the chart and shows in exported pictures and prints. × or a
+click on an empty spot lets the element go.
+
 ## Properties panel
+
+The right panel never gets narrower than its controls need (340 px in Korean, 390 px in English): no control is cut
+or pushed onto a second line. A label longer than its column ends in "…"; hovering shows all of it.
 
 ### Data tab
 
@@ -494,9 +516,9 @@ with these settings on the clipboard. To skip the window, pick the format in **F
 
 ![Print window](images/en/22-print.png)
 
-**File › Print** (Ctrl+P) opens its own window: printer and copies (Windows), paper (A3, A4, A5, B4, B5, Letter, Legal,
+**File › Print** (Ctrl+P) opens its own window, every setting in one column on the left: printer and copies (Windows), paper (A3, A4, A5, B4, B5, Letter, Legal,
 Tabloid), orientation, margins, size (fit to page or actual size), header and footer and their text, the data table on
-the next pages. The page preview is on the right; **Print** prints at once on the chosen printer, without a system
+the next pages. The page preview is right beside them; **Print** prints at once on the chosen printer, without a system
 dialog (where no printer list is available, the system dialog opens). In the browser, the browser's print dialog opens.
 
 Wherever Print is pressed, the same separate print window opens: the toolbar, the File menu, Ctrl+P, the right-click menus of
@@ -518,7 +540,7 @@ The tabs of **Edit › Settings** (Ctrl+Shift+P):
 - **Background**: moving, picture or none; kind, speed, opacity, picture fit.
 - **Workspace**: grid position, the three panels, grid row height, value tips on charts, chart animation.
 - **New charts**: default palette, background, legend position, data labels, bar corners, width and height, chart font.
-- **Data import**: header row, delimiter, encoding, decimal mark, rows to import at most.
+- **Data import**: header row, delimiter, encoding, decimal mark (every row is read, with no limit).
 - **Recent**: manage the recent files and folders.
 - **Shortcuts**: every keyboard shortcut.
 

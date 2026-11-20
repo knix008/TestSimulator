@@ -388,6 +388,16 @@ async fn open_doc_window(app: AppHandle, kind: String, title: String, width: f64
     if let Some(path) = state_path {
         window_state::track(&window, path);
     }
+    // The data editor: however its window goes away (closed, crashed), the main window takes the data back into
+    // its grid. The page says so itself when it can (with its selection); this covers the case it cannot.
+    if kind == "sheet" {
+        let handle = app.clone();
+        window.on_window_event(move |event| {
+            if let tauri::WindowEvent::Destroyed = event {
+                let _ = handle.emit_to("main", "sheet-to-main", serde_json::json!({ "type": "closed" }));
+            }
+        });
+    }
     // Shown by the page once drawn; if the page never says so (a load error), shown anyway.
     let late = window.clone();
     std::thread::spawn(move || {

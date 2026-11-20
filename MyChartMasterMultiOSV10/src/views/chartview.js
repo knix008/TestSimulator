@@ -113,7 +113,7 @@ export class ChartView {
     r.classList.toggle('fold-right', !s.showRightPanel);
     r.classList.toggle('fold-bottom', !s.showBottomPanel);
     r.style.setProperty('--left-width', `${s.leftWidth}px`);
-    r.style.setProperty('--right-width', `${s.rightWidth}px`);
+    r.style.setProperty('--right-width', `${Math.max(s.rightWidth, this.inspector?.minWidth ?? 0)}px`);
     r.style.setProperty('--bottom-height', `${s.bottomHeight}px`);
     r.style.setProperty('--grid-width', `${s.gridWidth}px`);
     r.style.setProperty('--row-height', `${s.rowHeight}px`);
@@ -171,6 +171,36 @@ export class ChartView {
       <label class="ch-grid-filter" title="${escapeHtml(t('grid.filterTip'))}">${icon('filter')}<input type="search" data-grid-filter value="${escapeHtml(this.api.gridFilter())}" placeholder="${escapeHtml(t('grid.filter'))}" spellcheck="false" /></label>`;
   }
 
+  /**
+   * The chart element under a click: { kind: 'title' | 'subtitle' | 'legend' | 'axisTitle' | 'axis' | 'grid' |
+   * 'plot' | 'labels' | 'background', axis? }, or null outside the chart.
+   */
+  partAt(target) {
+    if (!target.closest('.ch-canvas')) return null;
+    const axisTitle = target.closest('.axis-title');
+    if (axisTitle) return { kind: 'axisTitle', axis: axisTitle.dataset.axis ?? 'x' };
+    if (target.closest('.chart-title')) return { kind: 'title' };
+    if (target.closest('.chart-subtitle')) return { kind: 'subtitle' };
+    if (target.closest('g.legend')) return { kind: 'legend' };
+    if (target.closest('.data-label')) return { kind: 'labels' };
+    if (target.closest('.tick, .cat, line.axis, .axis, .zero')) return { kind: 'axis' };
+    if (target.closest('.grid')) return { kind: 'grid' };
+    if (target.closest('.plot-bg, .plot-border')) return { kind: 'plot' };
+    return { kind: 'background' };
+  }
+
+  /** The picked element (a mark or another part) outlined on the chart. */
+  markPicked() {
+    const part = this.api.doc()?.selection?.part;
+    for (const el of this.canvas.querySelectorAll('.picked')) el.classList.remove('picked');
+    if (!part) return;
+    const sel = {
+      mark: `.mark[data-s="${part.series}"][data-r="${part.row}"]`, title: '.chart-title', subtitle: '.chart-subtitle', legend: 'g.legend',
+      axisTitle: `.axis-title[data-axis="${part.axis}"]`, axis: '.tick, .cat, line.axis', grid: '.grid', plot: '.plot-bg, .plot-border', labels: '.data-label', background: '.chart-bg',
+    }[part.kind];
+    if (sel) for (const el of this.canvas.querySelectorAll(sel)) el.classList.add('picked');
+  }
+
   /** The chart's colours for the theme background option. */
   drawChart() {
     const doc = this.api.doc();
@@ -184,6 +214,7 @@ export class ChartView {
     // The selected series stands out.
     const sel = doc.selection?.series;
     if (sel != null) for (const el of this.canvas.querySelectorAll(`.mark[data-s="${sel}"]`)) el.classList.add('selected');
+    this.markPicked();
     this.fit();
   }
 
@@ -234,7 +265,8 @@ export class ChartView {
       if (legend && legend.dataset.legend !== '') { this.api.onLegend(Number(legend.dataset.legend)); return; }
       const markEl = event.target.closest('.ch-canvas .mark');
       if (markEl) { this.api.onMark({ series: markEl.dataset.s === '' ? null : Number(markEl.dataset.s), row: markEl.dataset.r === '' ? null : Number(markEl.dataset.r) }); return; }
-      if (event.target.closest('.ch-stage') && !event.target.closest('.ch-canvas text')) this.api.onMark(null);
+      // Any other element of the chart is picked for editing in the panel (title, legend, axis, grid, plot …).
+      if (event.target.closest('.ch-stage')) this.api.onPick(this.partAt(event.target));
     });
     // Drag the legend anywhere on the chart: it becomes a free legend at that spot (Style tab › Legend › Own spot).
     r.addEventListener('pointerdown', (event) => {
@@ -321,7 +353,7 @@ export class ChartView {
         const dy = e.clientY - startY;
         const value = which === 'left' ? start + dx : which === 'right' ? start - dx : side ? start - dx : start - dy;
         const key = which === 'left' ? 'leftWidth' : which === 'right' ? 'rightWidth' : side ? 'gridWidth' : 'bottomHeight';
-        const limited = Math.round(Math.max(which === 'bottom' ? (side ? 240 : 90) : which === 'left' ? 180 : 260, Math.min(which === 'bottom' && !side ? this.root.clientHeight - 160 : 900, value)));
+        const limited = Math.round(Math.max(which === 'bottom' ? (side ? 240 : 90) : which === 'left' ? 180 : Math.max(260, this.inspector?.minWidth ?? 0), Math.min(which === 'bottom' && !side ? this.root.clientHeight - 160 : 900, value)));
         this.api.updateSettings({ [key]: limited }, { quiet: true });
         this.applyLayout();
       };

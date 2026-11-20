@@ -11,7 +11,7 @@ html.is-sheet #app, html.is-sheet #app:not(:empty) { display: block; min-width: 
 .sx-brand { display: flex; align-items: center; gap: 6px; padding-right: 8px; white-space: nowrap; }
 .sx-brand .icon { color: var(--tone-green, var(--accent)); width: 19px; height: 19px; }
 .sx-menus { display: flex; gap: 2px; }
-.sx-menu-button { border: 0; background: transparent; color: var(--text); padding: 5px 10px; border-radius: 6px; font: inherit; cursor: pointer; white-space: nowrap; }
+.sx-menu-button { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; color: var(--text); padding: 5px 10px; border-radius: 6px; font: inherit; cursor: pointer; white-space: nowrap; }
 .sx-menu-button:hover, .sx-menu-button.open { background: var(--hover); }
 .sx-link { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 0.88em; white-space: nowrap; max-width: 40vw; overflow: hidden; text-overflow: ellipsis; }
 .sx-link .icon { width: 15px; height: 15px; color: var(--tone-green, var(--accent)); }
@@ -110,14 +110,24 @@ html.is-sheet #app, html.is-sheet #app:not(:empty) { display: block; min-width: 
 .sx-cover-buttons { display: flex; gap: 8px; }
 .sx-cover-buttons .button, .sx-dialog .button, .sx-find .button, .sx-pop .button { display: inline-flex; align-items: center; gap: 6px; }
 
-/* sheet tabs and status bar */
-.sx-foot { flex: none; display: flex; flex-direction: column; background: var(--toolbar); border-top: 1px solid var(--border); }
-.sx-tabs { display: flex; align-items: stretch; gap: 2px; padding: 0 8px; height: 30px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; border-bottom: 1px solid var(--hairline); }
-.sx-tab { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid transparent; border-top: 0; border-radius: 0 0 8px 8px; background: transparent; color: var(--muted); font: inherit; cursor: pointer; white-space: nowrap; }
+/* sheet tabs (under the toolbar, as in the main window) and status bar */
+.sx-tabs { flex: none; display: flex; align-items: stretch; gap: 6px; padding: 0 6px 0 8px; height: 34px; box-sizing: border-box; background: var(--toolbar); border-bottom: 1px solid var(--border); }
+.sx-tabs-strip { flex: 1; min-width: 0; display: flex; align-items: flex-end; gap: 2px; padding-top: 4px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; scroll-behavior: smooth; }
+.sx-tabs-strip::-webkit-scrollbar { display: none; }
+.sx-tabs-nav { flex: none; margin-left: auto; display: flex; align-items: center; gap: 2px; padding-left: 6px; border-left: 1px solid var(--hairline); }
+.sx-tabs-scroll { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--text); cursor: pointer; }
+.sx-tabs-scroll:hover:not(:disabled) { background: var(--hover); border-color: var(--hairline); }
+.sx-tabs-scroll:disabled { opacity: 0.35; cursor: default; }
+.sx-tabs-scroll .icon { width: 16px; height: 16px; }
+.sx-tab { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 29px; padding: 0 4px 0 12px; border: 1px solid transparent; border-bottom: 0; border-radius: 8px 8px 0 0; background: transparent; color: var(--muted); cursor: pointer; white-space: nowrap; user-select: none; }
 .sx-tab .icon { width: 15px; height: 15px; }
 .sx-tab:hover { background: var(--hover); color: var(--text); }
-.sx-tab.active { background: var(--surface); color: var(--accent); font-weight: 600; border-color: var(--border); box-shadow: inset 0 -2px 0 var(--accent); }
-.sx-tab-add { border: 0; background: transparent; color: var(--muted); cursor: pointer; padding: 0 8px; }
+.sx-tab.active { position: relative; top: 1px; background: var(--surface); color: var(--accent); font-weight: 600; border-color: var(--border); box-shadow: inset 0 2px 0 var(--accent); }
+.sx-tab-close { display: grid; place-items: center; width: 20px; height: 20px; margin-left: 2px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--danger); cursor: pointer; opacity: 0.75; }
+.sx-tab-close .icon { width: 13px; height: 13px; color: var(--danger) !important; }
+.sx-tab-close:hover { opacity: 1; background: color-mix(in srgb, var(--danger) 16%, transparent); }
+.sx-tab-add { align-self: center; border: 0; background: transparent; color: var(--muted); cursor: pointer; padding: 0 8px; }
+.sx-foot { flex: none; display: flex; flex-direction: column; background: var(--toolbar); border-top: 1px solid var(--border); }
 .sx-status { display: flex; align-items: center; gap: 14px; height: 28px; padding: 0 10px; font-size: 0.88em; color: var(--muted); white-space: nowrap; }
 .sx-mode { min-width: 48px; color: var(--text); font-weight: 600; }
 .sx-stats { display: flex; gap: 14px; }
@@ -138,7 +148,7 @@ html.is-sheet #app, html.is-sheet #app:not(:empty) { display: block; min-width: 
 .sx-find-options label { display: inline-flex; align-items: center; gap: 4px; }
 
 /* menus, filter list */
-.sx-pop { position: fixed; z-index: 40; min-width: 240px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 9px; box-shadow: 0 10px 30px rgb(0 0 0 / 0.24); }
+.sx-pop { position: fixed; z-index: 40; max-height: calc(100vh - 8px); max-width: calc(100vw - 8px); overflow: auto; box-sizing: border-box; min-width: 240px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 9px; box-shadow: 0 10px 30px rgb(0 0 0 / 0.24); }
 .sx-pop hr { border: 0; border-top: 1px solid var(--hairline); margin: 4px 6px; }
 .sx-mi { display: grid; grid-template-columns: 20px 1fr auto 16px; align-items: center; gap: 8px; width: 100%; padding: 5px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; white-space: nowrap; }
 .sx-mi:hover:not(:disabled) { background: var(--soft-accent); }
@@ -181,3 +191,17 @@ html.is-sheet #app, html.is-sheet #app:not(:empty) { display: block; min-width: 
 .sx-toast-item.error .icon { color: var(--danger); }
 .sx-toast-item.success .icon { color: var(--tone-green, var(--accent)); }
 .sx-toast-item.out { opacity: 0; }
+.sx-menu-button .icon { width: 15px; height: 15px; }
+
+/* Custom number format dialog */
+.sx-fmt-preview { display: flex; flex-wrap: wrap; gap: 6px; }
+.sx-fmt-sample { display: grid; gap: 1px; min-width: 88px; padding: 4px 8px; border: 1px solid var(--hairline); border-radius: 6px; background: var(--surface); font-variant-numeric: tabular-nums; }
+.sx-fmt-sample small { color: var(--muted); font-size: 0.78em; }
+.sx-fmt-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; max-height: 280px; overflow: auto; padding: 4px; border: 1px solid var(--hairline); border-radius: 6px; }
+.sx-fmt-preset { display: flex; justify-content: space-between; gap: 8px; padding: 4px 8px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: var(--text); cursor: pointer; text-align: left; }
+.sx-fmt-preset:hover { background: var(--hover); }
+.sx-fmt-preset.on { border-color: var(--accent); background: var(--soft-accent); }
+.sx-fmt-preset code { font-family: "Cascadia Mono", Consolas, monospace; font-size: 0.85em; }
+.sx-fmt-preset span { color: var(--muted); white-space: nowrap; }
+.sx-hint { display: flex; gap: 6px; margin: 0; color: var(--muted); font-size: 0.86em; }
+.sx-hint .icon { width: 15px; height: 15px; flex: none; }

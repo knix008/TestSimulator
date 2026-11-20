@@ -7,7 +7,7 @@
 // chart = { type, title, subtitle, mapping: { category, values: [], x, y, size, label, group, open, high, low,
 //           close, source, target }, options: { …defaultOptions() } }
 // Marks carry data-s (series), data-r (row) and data-tip (hover text); legend items carry data-legend.
-import { cellText, inferTypes, labelsOf, numberColumns, numbersOf, parseNumber, quantile, textColumns, transpose } from '../data/table.js';
+import { cellText, inferTypes, labelsOf, maxOf, minOf, numberColumns, numbersOf, parseNumber, quantile, textColumns, transpose } from '../data/table.js';
 import { autoMapping, BY_ROW, CARTESIAN, chartType, COMBINABLE, HORIZONTAL, PERCENT, SERIES_KINDS, STACKED } from './types.js';
 import { chartTheme, darken, lighten, mix, rampColor, readableOn, seriesColor } from './palettes.js';
 import { EXTRA_DRAW } from './render-extra.js';
@@ -35,6 +35,8 @@ export function defaultOptions() {
     textScale: 1, textColor: '',
     // Mixed charts: how each series is drawn and which value axis it uses ({ [series index]: kind / 'right' }).
     seriesTypes: {}, seriesAxis: {},
+    // One bar, point or slice styled on its own ({ "series:row": { fill, stroke, strokeWidth, opacity } }).
+    pointStyles: {},
   };
 }
 
@@ -75,7 +77,7 @@ export function normalizeChart(chart, table) {
   const options = { ...defaultOptions(), ...(chart?.options ?? {}) };
   if (!Array.isArray(options.hidden)) options.hidden = [];
   if (!options.colors || typeof options.colors !== 'object') options.colors = {};
-  for (const key of ['seriesTypes', 'seriesAxis']) if (!options[key] || typeof options[key] !== 'object' || Array.isArray(options[key])) options[key] = {};
+  for (const key of ['seriesTypes', 'seriesAxis', 'pointStyles']) if (!options[key] || typeof options[key] !== 'object' || Array.isArray(options[key])) options[key] = {};
   const dataRange = dataRangeOf(table, chart?.dataRange);
   const seriesIn = chart?.seriesIn === 'rows' ? 'rows' : 'columns';
   const mapping = autoMapping(chartTable(table, { dataRange, seriesIn }), type, chart?.mapping ?? null);
@@ -197,8 +199,8 @@ export function squarify(items, x, y, w, h) {
   let row = [];
   const worst = (list, side) => {
     const sum = list.reduce((a, n) => a + n.area, 0);
-    const max = Math.max(...list.map((n) => n.area));
-    const min = Math.min(...list.map((n) => n.area));
+    const max = maxOf([...list.map((n) => n.area)]);
+    const min = minOf([...list.map((n) => n.area)]);
     return Math.max((side * side * max) / (sum * sum), (sum * sum) / (side * side * min));
   };
   const layoutRow = (list) => {
@@ -255,7 +257,7 @@ export const normalizeBackground = (v) => (BACKGROUNDS.includes(v) ? v : /^#[0-9
  * actually used (the chart theme's own when its paper is as dark / light as it).
  */
 export function chartColors(options, theme = {}) {
-  const ct = chartTheme(options.chartTheme);
+  const ct = chartTheme(options.chartTheme, options);
   const bgOption = normalizeBackground(options.background);
   const appBg = theme.surface ?? theme.bg ?? '#ffffff';
   const bg = bgOption === 'theme' ? appBg : bgOption === 'chart' ? ct.bg : bgOption === 'white' ? '#ffffff' : bgOption === 'transparent' ? 'none' : bgOption;
@@ -280,6 +282,29 @@ export function chartColors(options, theme = {}) {
     legendText: hex(options.legendColor) ?? text,
     label: hex(options.textColor) ?? text,
   };
+}
+
+const COLOR_RE = /^#[0-9a-f]{3,8}$/i;
+/**
+ * Marks of one data point (bar, point, slice … with data-s / data-r) styled as the user set them: fill and outline
+ * colours, outline width, opacity. Works for every kind of chart because every mark carries its series and row.
+ */
+export function pointStyled(svg, styles) {
+  return svg.replace(/<([a-z]+)((?:[^<>"]|"[^"]*")*?\bclass="mark[^"]*"(?:[^<>"]|"[^"]*")*?)(\/?)>/g, (m, tag, attrs, close) => {
+    const s = /\bdata-s="(\d+)"/.exec(attrs)?.[1];
+    const r = /\bdata-r="(\d+)"/.exec(attrs)?.[1];
+    const st = s != null && r != null ? styles[`${s}:${r}`] : null;
+    if (!st) return m;
+    const css = [];
+    if (COLOR_RE.test(st.fill ?? '')) css.push(`fill:${st.fill}`);
+    if (COLOR_RE.test(st.stroke ?? '')) css.push(`stroke:${st.stroke}`);
+    if (Number(st.strokeWidth) > 0) css.push(`stroke-width:${Number(st.strokeWidth)}px`);
+    if (st.opacity !== '' && st.opacity != null && Number.isFinite(Number(st.opacity))) css.push(`opacity:${Math.max(0, Math.min(1, Number(st.opacity)))}`);
+    if (!css.length) return m;
+    const style = /\bstyle="([^"]*)"/.exec(attrs);
+    const next = style ? attrs.replace(style[0], `style="${style[1]};${css.join(';')}"`) : `${attrs} style="${css.join(';')}"`;
+    return `<${tag}${next}${close}>`;
+  });
 }
 
 export function renderChart(doc, view = {}) {
@@ -347,6 +372,7 @@ export function renderChart(doc, view = {}) {
   const aw = Math.max(0, Number.isFinite(Number(o.axisWidth)) ? Number(o.axisWidth) : 1);
   const widths = (part) => part.replace(/<(line|polygon|path) class="(grid|axis|zero)"(?![^>]*stroke-width)/g, (m, tag, cls) => `${m} stroke-width="${r2(cls === 'grid' ? gw : aw)}"`);
   for (let i = 0; i < out.length; i++) if (out[i].includes('class="grid"') || out[i].includes('class="axis"') || out[i].includes('class="zero"')) out[i] = widths(out[i]);
+  if (o.pointStyles && Object.keys(o.pointStyles).length) for (let i = 0; i < out.length; i++) if (out[i].includes('class="mark')) out[i] = pointStyled(out[i], o.pointStyles);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" class="chart-svg${view.animate ? ' animate' : ''}" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" font-family="${esc(font)}" role="img" aria-label="${esc(chart.title || chartType(chart.type)[lang])}">${ctx.defs.length ? `<defs>${ctx.defs.join('')}</defs>` : ''}${out.join('')}</svg>`;
   return { svg, width, height, marks: ctx.marks, legend: ctx.legend, warnings: ctx.warnings, chart, error: data.error ?? null };
 }
@@ -427,7 +453,7 @@ function placeLegend(ctx, area, items) {
   };
   if (o.legend === 'custom') {
     // Free spot (dragged with the mouse or typed in the Style tab): the top left corner in % of the chart, a column of items.
-    const w = Math.max(...items.map(itemWidth)) + 18 * fs;
+    const w = maxOf([...items.map(itemWidth)]) + 18 * fs;
     const list = items.slice(0, Math.max(1, Math.floor((ctx.height - 20 * fs) / rowH)));
     const h = list.length * rowH + 10 * fs;
     const x = Math.max(2, Math.min(ctx.width - w - 2, ((Number(o.legendX) || 0) / 100) * ctx.width));
@@ -438,7 +464,7 @@ function placeLegend(ctx, area, items) {
     return area;
   }
   if (o.legend === 'left' || o.legend === 'right') {
-    const w = Math.min(area.w * 0.35, Math.max(...items.map(itemWidth)) + 10 * fs);
+    const w = Math.min(area.w * 0.35, maxOf([...items.map(itemWidth)]) + 10 * fs);
     const shown = Math.max(1, Math.floor(area.h / rowH));
     const list = items.slice(0, shown);
     const total = list.length * rowH;
@@ -527,7 +553,7 @@ function valueScale(ctx, min, max, from, to, { forceZero = true, axis = 'y' } = 
 function categoryLabelRoom(ctx, labels, band, horizontal) {
   const size = (Number(ctx.o.tickSize) || 11) * 1.05 * ctx.fs;
   if (ctx.o.showXLabels === false) return { width: 6 * ctx.fs, height: 6 * ctx.fs, angle: 0, every: Infinity, size, maxLen: 0 };
-  const widest = Math.max(0, ...labels.map((l) => textWidth(l, size)));
+  const widest = maxOf([0, ...labels.map((l) => textWidth(l, size))]);
   if (horizontal) return { width: Math.min(widest, 180 * ctx.fs) + 10 * ctx.fs, angle: 0, every: 1, size };
   const angleOption = ctx.o.xLabelAngle;
   let angle = angleOption === 'auto' ? (widest + 6 > band ? (widest > band * 3 ? 90 : 45) : 0) : Number(angleOption) || 0;
@@ -567,15 +593,15 @@ function axes(ctx, plot, { categories, min, max, horizontal = false, forceZero =
   let xScale = null;
   if (numericX) {
     const xs0 = valueScale(ctx, numericX.min, numericX.max, 0, 1, { forceZero: false, axis: 'x' });
-    const leftW = showY ? Math.max(...vs0.ticks.map((v) => textWidth(tickText(v), tickSize))) + 10 * fs : 6 * fs;
+    const leftW = showY ? maxOf([...vs0.ticks.map((v) => textWidth(tickText(v), tickSize))]) + 10 * fs : 6 * fs;
     left += leftW;
     bottom -= showX ? tickSize + 10 * fs : 6 * fs;
     xScale = valueScale(ctx, numericX.min, numericX.max, left, right, { forceZero: false, axis: 'x' });
     void xs0;
   } else if (!horizontal) {
-    const leftW = showY ? Math.max(...vs0.ticks.map((v) => textWidth(tickText(v), tickSize))) + 10 * fs : 6 * fs;
+    const leftW = showY ? maxOf([...vs0.ticks.map((v) => textWidth(tickText(v), tickSize))]) + 10 * fs : 6 * fs;
     left += leftW;
-    if (y2) right -= Math.max(...valueScale(ctx, y2.min, y2.max, 0, 1, { axis: 'y2' }).ticks.map((v) => textWidth(formatValue(v, o, ctx.lang, { tick: true }), tickSize))) + 10 * fs;
+    if (y2) right -= maxOf([...valueScale(ctx, y2.min, y2.max, 0, 1, { axis: 'y2' }).ticks.map((v) => textWidth(formatValue(v, o, ctx.lang, { tick: true }), tickSize))]) + 10 * fs;
     catRoom = categoryLabelRoom(ctx, categories, (right - left) / Math.max(1, categories.length), false);
     bottom -= catRoom.height;
   } else {
@@ -692,7 +718,7 @@ function drawCartesian(ctx, plot, data) {
     }
     if (secondary) {
       const vals = series.slice(1).flatMap((s) => finite(s.values));
-      y2 = { min: Math.min(0, ...vals), max: Math.max(0, ...vals) };
+      y2 = { min: minOf([0, ...vals]), max: maxOf([0, ...vals]) };
     }
   }
   if (!Number.isFinite(min)) { min = 0; max = 1; }
@@ -849,8 +875,8 @@ function drawMixed(ctx, plot, data, series, kinds) {
   const rightValues = series.flatMap((s, k) => (onRight[k] ? finite(s.values) : []));
   const all = leftValues.length ? leftValues : rightValues;
   const forceZero = kinds.some((k) => k === 'column' || k === 'area' || k === 'lollipop') || o.beginAtZero !== false;
-  const y2 = rightValues.length && leftValues.length ? { min: Math.min(0, ...rightValues), max: Math.max(0, ...rightValues) } : null;
-  const ax = axes(ctx, plot, { categories: data.categories, min: Math.min(...all), max: Math.max(...all), forceZero, y2 });
+  const y2 = rightValues.length && leftValues.length ? { min: minOf([0, ...rightValues]), max: maxOf([0, ...rightValues]) } : null;
+  const ax = axes(ctx, plot, { categories: data.categories, min: minOf([...all]), max: maxOf([...all]), forceZero, y2 });
   const { band, vs } = ax;
   const scaleOf = (k) => (onRight[k] && ax.vs2 ? ax.vs2 : vs);
   const fmt = (v) => formatValue(v, o, ctx.lang);
@@ -933,7 +959,7 @@ function drawWaterfall(ctx, plot, data) {
   s.values.forEach((v, i) => { const value = v ?? 0; steps.push({ a: run, b: run + value, v: value, kind: value >= 0 ? 'up' : 'down', cat: cats[i], row: data.order[i] }); run += value; });
   if (o.waterfallTotal) { steps.push({ a: 0, b: run, v: run, kind: 'total', cat: L(ctx, '합계', 'Total'), row: '' }); cats.push(L(ctx, '합계', 'Total')); }
   const all = steps.flatMap((x) => [x.a, x.b]);
-  const ax = axes(ctx, plot, { categories: cats, min: Math.min(0, ...all), max: Math.max(0, ...all) });
+  const ax = axes(ctx, plot, { categories: cats, min: minOf([0, ...all]), max: maxOf([0, ...all]) });
   const { band, vs } = ax;
   const w = band.step * (1 - (Number(o.barGap) || 0.28));
   steps.forEach((st, i) => {
@@ -964,7 +990,7 @@ function derivedOhlc(ctx, data) {
     if (!vals.length) { open.push(null); close.push(null); high.push(null); low.push(null); return; }
     const o = vals.length === 1 ? (rows[k - 1]?.at(-1) ?? vals[0]) : vals[0];
     const c = vals.at(-1);
-    open.push(o); close.push(c); high.push(Math.max(o, ...vals)); low.push(Math.min(o, ...vals));
+    open.push(o); close.push(c); high.push(maxOf([o, ...vals])); low.push(minOf([o, ...vals]));
   });
   return { open, high, low, close };
 }
@@ -1002,7 +1028,7 @@ function drawCandles(ctx, plot, data) {
   }
   const all = finite([...high, ...low, ...open, ...close]);
   if (!all.length) { label(ctx, plot.x + plot.w / 2, plot.y + plot.h / 2, L(ctx, '시가·고가·저가·종가 열을 고르세요', 'Choose open, high, low and close columns'), { color: ctx.colors.muted, size: 13 }); return; }
-  const ax = axes(ctx, plot, { categories: data.categories, min: Math.min(...all), max: Math.max(...all), forceZero: false });
+  const ax = axes(ctx, plot, { categories: data.categories, min: minOf([...all]), max: maxOf([...all]), forceZero: false });
   const { band, vs } = ax;
   const w = Math.max(2, band.step * 0.6);
   data.categories.forEach((cat, i) => {
@@ -1031,7 +1057,7 @@ function drawScatter(ctx, plot, data) {
   const ys = series.flatMap((s) => finite(s.values));
   const xv = finite(xs);
   if (!xv.length || !ys.length) { label(ctx, plot.x + plot.w / 2, plot.y + plot.h / 2, L(ctx, '점으로 찍을 숫자가 없습니다', 'No numbers to plot'), { color: ctx.colors.muted, size: 13 }); return; }
-  const ax = axes(ctx, plot, { categories: [], min: Math.min(...ys), max: Math.max(...ys), forceZero: false, numericX: { min: Math.min(...xv), max: Math.max(...xv) } });
+  const ax = axes(ctx, plot, { categories: [], min: minOf([...ys]), max: maxOf([...ys]), forceZero: false, numericX: { min: minOf([...xv]), max: maxOf([...xv]) } });
   drawAxisTitleDefaults(ctx, ax, m.x == null ? L(ctx, '행 순서', 'Row') : table.columns[m.x]?.name);
   const r = (Number(o.markerSize) || 4) * 1.3 * fs;
   if (o.quadrant) {
@@ -1058,7 +1084,7 @@ function drawScatter(ctx, plot, data) {
     });
     if (o.trendline) {
       const pts = s.values.map((y, i) => (y == null || xs[i] == null ? null : [xs[i], y])).filter(Boolean);
-      trend(ctx, s, pts, (x) => ax.xScale.map(x), (v) => ax.vs.map(v), [Math.min(...xv), Math.max(...xv)]);
+      trend(ctx, s, pts, (x) => ax.xScale.map(x), (v) => ax.vs.map(v), [minOf([...xv]), maxOf([...xv])]);
     }
   }
 }
@@ -1083,11 +1109,11 @@ function drawBubble(ctx, plot, data) {
   const yv = finite(ys);
   if (!xv.length || !yv.length) { label(ctx, plot.x + plot.w / 2, plot.y + plot.h / 2, L(ctx, 'X·Y·크기 열을 고르세요', 'Choose X, Y and size columns'), { color: ctx.colors.muted, size: 13 }); return; }
   const pad = (a, b) => { const d = (b - a) * 0.08 || 1; return [a - d, b + d]; };
-  const [x0, x1] = pad(Math.min(...xv), Math.max(...xv));
-  const [y0, y1] = pad(Math.min(...yv), Math.max(...yv));
+  const [x0, x1] = pad(minOf([...xv]), maxOf([...xv]));
+  const [y0, y1] = pad(minOf([...yv]), maxOf([...yv]));
   const ax = axes(ctx, plot, { categories: [], min: y0, max: y1, forceZero: false, numericX: { min: x0, max: x1 } });
   drawAxisTitleDefaults(ctx, ax, table.columns[m.x]?.name);
-  const smax = Math.max(1e-9, ...finite(ss).map(Math.abs));
+  const smax = maxOf([1e-9, ...finite(ss).map(Math.abs)]);
   const rmax = Math.min(ax.right - ax.left, ax.bottom - ax.top) * 0.09;
   const items = xs.map((x, i) => ({ i, x, y: ys[i], s: ss[i] ?? smax * 0.3 })).filter((p) => p.x != null && p.y != null).sort((a, b) => Math.abs(b.s) - Math.abs(a.s));
   for (const p of items) {
@@ -1108,8 +1134,8 @@ function drawHistogram(ctx, plot, data) {
   const series = visible(data.series);
   const all = series.flatMap((s) => finite(s.values));
   if (!all.length) { label(ctx, plot.x + plot.w / 2, plot.y + plot.h / 2, L(ctx, '숫자가 없습니다', 'No numbers'), { color: ctx.colors.muted, size: 13 }); return; }
-  const lo = Math.min(...all);
-  const hi = Math.max(...all);
+  const lo = minOf([...all]);
+  const hi = maxOf([...all]);
   const count = Number(o.bins) > 0 ? Math.min(200, Number(o.bins)) : Math.max(4, Math.min(40, Math.ceil(Math.log2(all.length) + 1)));
   const t = niceTicks(lo, hi, count);
   const width = t.step;
@@ -1121,7 +1147,7 @@ function drawHistogram(ctx, plot, data) {
   // Cumulative histogram: each bar counts every value up to the end of its bin.
   if (o.cumulativeBins) for (const list of counts) for (let k = 1; k < list.length; k++) list[k] += list[k - 1];
   const cats = bins.map((b, k) => `${formatValue(b, o, ctx.lang)}–${formatValue(edges[k + 1], o, ctx.lang)}`);
-  const ax = axes(ctx, plot, { categories: cats, min: 0, max: Math.max(1, ...counts.flat()) });
+  const ax = axes(ctx, plot, { categories: cats, min: 0, max: maxOf([1, ...counts.flat()]) });
   const { band, vs } = ax;
   const inner = band.step * 0.98;
   if (o.polygon) {
@@ -1161,7 +1187,7 @@ function drawBoxplot(ctx, plot, data) {
   });
   const all = stats.filter(Boolean).flatMap((x) => [x.lo, x.hi, ...x.outliers]);
   if (!all.length) { label(ctx, plot.x + plot.w / 2, plot.y + plot.h / 2, L(ctx, '숫자가 없습니다', 'No numbers'), { color: ctx.colors.muted, size: 13 }); return; }
-  const ax = axes(ctx, plot, { categories: series.map((s) => s.name), min: Math.min(...all), max: Math.max(...all), forceZero: false });
+  const ax = axes(ctx, plot, { categories: series.map((s) => s.name), min: minOf([...all]), max: maxOf([...all]), forceZero: false });
   const { band, vs } = ax;
   stats.forEach((st, i) => {
     if (!st) return;
@@ -1235,7 +1261,7 @@ function drawPie(ctx, plot, data) {
 function drawPolarArea(ctx, plot, data) {
   const { o, out, fs } = ctx;
   const slices = pieSlices(ctx, data);
-  const max = Math.max(1e-9, ...slices.map((x) => x.value));
+  const max = maxOf([1e-9, ...slices.map((x) => x.value)]);
   const cx = plot.x + plot.w / 2;
   const cy = plot.y + plot.h / 2;
   const R = Math.max(20, Math.min(plot.w, plot.h) / 2 - 24 * fs);
@@ -1269,7 +1295,7 @@ function drawRadar(ctx, plot, data) {
   const n = data.categories.length;
   if (n < 3) { label(ctx, plot.x + plot.w / 2, plot.y + plot.h / 2, L(ctx, '방사형 차트는 항목이 3개 이상 필요합니다', 'A radar chart needs at least three categories'), { color: ctx.colors.muted, size: 13 }); return; }
   const all = series.flatMap((s) => finite(s.values));
-  const t = niceTicks(Math.min(0, ...all), Math.max(1e-9, ...all), 4);
+  const t = niceTicks(minOf([0, ...all]), maxOf([1e-9, ...all]), 4);
   const lo = parseNumber(o.yMin) ?? t.min;
   const hi = parseNumber(o.yMax) ?? t.max;
   const cx = plot.x + plot.w / 2;
@@ -1306,7 +1332,7 @@ function drawGauge(ctx, plot, data) {
   const value = i >= 0 ? s.values[i] : 0;
   const name = i >= 0 ? data.categories[i] : s.name;
   const min = parseNumber(o.gaugeMin) ?? parseNumber(o.yMin) ?? 0;
-  const maxGuess = niceTicks(min, Math.max(value, ...finite(s.values)), 4).max;
+  const maxGuess = niceTicks(min, maxOf([value, ...finite(s.values)]), 4).max;
   const max = parseNumber(o.gaugeMax) ?? parseNumber(o.yMax) ?? maxGuess;
   const cx = plot.x + plot.w / 2;
   const R = Math.max(30, Math.min(plot.w / 2 - 30 * fs, plot.h - 60 * fs));
@@ -1336,8 +1362,8 @@ function drawFunnel(ctx, plot, data) {
   const { o, out, fs } = ctx;
   const slices = pieSlices(ctx, data);
   if (!slices.length) { label(ctx, plot.x + plot.w / 2, plot.y + plot.h / 2, L(ctx, '양수 값이 없습니다', 'No positive values'), { color: ctx.colors.muted, size: 13 }); return; }
-  const max = Math.max(...slices.map((x) => x.value));
-  const labelW = Math.min(plot.w * 0.3, Math.max(...slices.map((x) => textWidth(x.name, 12 * fs))) + 16 * fs);
+  const max = maxOf([...slices.map((x) => x.value)]);
+  const labelW = Math.min(plot.w * 0.3, maxOf([...slices.map((x) => textWidth(x.name, 12 * fs))]) + 16 * fs);
   const area = { x: plot.x + labelW, w: plot.w - labelW * 2, y: plot.y + 4 * fs, h: plot.h - 8 * fs };
   const step = area.h / slices.length;
   const cx = area.x + area.w / 2;
@@ -1443,11 +1469,11 @@ function drawHeatmap(ctx, plot, data) {
   const series = visible(data.series);
   const all = series.flatMap((s) => finite(s.values));
   if (!all.length) { label(ctx, plot.x + plot.w / 2, plot.y + plot.h / 2, L(ctx, '숫자가 없습니다', 'No numbers'), { color: ctx.colors.muted, size: 13 }); return; }
-  const lo = parseNumber(o.yMin) ?? Math.min(...all);
-  const hi = parseNumber(o.yMax) ?? Math.max(...all);
+  const lo = parseNumber(o.yMin) ?? minOf([...all]);
+  const hi = parseNumber(o.yMax) ?? maxOf([...all]);
   const size = 11 * fs;
-  const leftW = Math.min(plot.w * 0.3, Math.max(...data.categories.map((c) => textWidth(c, size))) + 12 * fs);
-  const topH = Math.min(120 * fs, Math.max(...series.map((s) => textWidth(s.name, size))) * (series.length > 6 ? 0.75 : 0) + size + 12 * fs);
+  const leftW = Math.min(plot.w * 0.3, maxOf([...data.categories.map((c) => textWidth(c, size))]) + 12 * fs);
+  const topH = Math.min(120 * fs, maxOf([...series.map((s) => textWidth(s.name, size))]) * (series.length > 6 ? 0.75 : 0) + size + 12 * fs);
   const scaleH = 26 * fs;
   const x0 = plot.x + leftW;
   const y0 = plot.y + topH;
@@ -1497,13 +1523,13 @@ function drawSankey(ctx, plot, data) {
     for (const l of links) { const a = nodes.get(l.a); const b = nodes.get(l.b); if (b.layer < a.layer + 1 && a.layer + 1 < names.length) { b.layer = a.layer + 1; moved = true; } }
     if (!moved) break;
   }
-  const layers = Math.max(...[...nodes.values()].map((n) => n.layer)) + 1;
+  const layers = maxOf([...[...nodes.values()].map((n) => n.layer)]) + 1;
   const nodeW = 14 * fs;
   const labelRoom = 90 * fs;
   const colX = (k) => plot.x + labelRoom * 0 + (layers === 1 ? 0 : (k / (layers - 1)) * (plot.w - nodeW - labelRoom)) + (k === layers - 1 && layers > 1 ? 0 : 0);
   const byLayer = Array.from({ length: layers }, (_, k) => [...nodes.values()].filter((n) => n.layer === k));
   const gap = 10 * fs;
-  const scale = Math.min(...byLayer.map((list) => (plot.h - gap * (list.length - 1)) / Math.max(1e-9, list.reduce((a, n) => a + Math.max(n.inV, n.outV), 0))));
+  const scale = minOf([...byLayer.map((list) => (plot.h - gap * (list.length - 1)) / Math.max(1e-9, list.reduce((a, n) => a + Math.max(n.inV, n.outV), 0)))]);
   byLayer.forEach((list, k) => {
     const total = list.reduce((a, n) => a + Math.max(n.inV, n.outV) * scale, 0) + gap * (list.length - 1);
     let y = plot.y + (plot.h - total) / 2;

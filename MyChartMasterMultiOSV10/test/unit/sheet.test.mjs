@@ -187,3 +187,28 @@ test('ChartDoc keeps the sheet extras through undo, redo and .mychart', () => {
   assert.equal(normalizeSheet({ formulas: { bad: '=1', '1,1': 'text' } }), null);
   assert.deepEqual(sheetCells(createTable(['A'], [[1]])), [['A'], [1]]);
 });
+
+test('Excel number format codes give what Excel shows', async () => {
+  const { formatCode, BUILTIN_FORMATS, FORMAT_PRESETS } = await import('../../src/domain/data/numfmt.js');
+  const cases = [
+    [1234.567, '0', '1235'], [1234.567, '0.00', '1234.57'], [1234.567, '#,##0', '1,235'], [1234.567, '#,##0.00', '1,234.57'],
+    [-1234.5, '#,##0;[Red]-#,##0', '-1,235'], [-1234.5, '#,##0;(#,##0)', '(1,235)'], [0.256, '0%', '26%'], [0.256, '0.0%', '25.6%'],
+    [12345, '0.00E+00', '1.23E+04'], [0.00012, '0.00E+00', '1.20E-04'], [1234.5, '"₩"#,##0', '₩1,235'], [1234.5, '#,##0"원"', '1,235원'],
+    [1234567, '#,##0,"천"', '1,235천'], [1234567, '#,##0,,', '1'], [1.5, '# ?/?', '1 1/2'], [42, '000000', '000042'], [3.1, '#.##', '3.1'],
+    [0, '#,##0;-#,##0;"zero"', 'zero'], [45352, 'yyyy-mm-dd', '2024-03-01'], ['2024-03-01', 'yyyy"년" m"월" d"일"', '2024년 3월 1일'],
+    [45352.5, 'yyyy-mm-dd hh:mm', '2024-03-01 12:00'], [0.75, 'h:mm AM/PM', '6:00 PM'], [1.5, '[h]:mm', '36:00'], [45352, 'd-mmm-yy', '1-Mar-24'],
+    ['abc', '@', 'abc'], ['abc', '0.00', 'abc'], [1234.5, 'General', '1234.5'], [150, '[>=100]"high";"low"', 'high'], [5, '[>=100]"high";"low"', 'low'],
+    [-5, '0.00_);(0.00)', '(5.00)'], [0.5, '#,##0.00', '0.50'], [0.5, '#.00', '.50'],
+  ];
+  for (const [v, code, want] of cases) assert.equal(formatCode(v, code).text, want, `${v} in ${code}`);
+  assert.equal(formatCode(-3, '#,##0;[Red]-#,##0').color, '#d92d20');
+  assert.equal(BUILTIN_FORMATS[4], '#,##0.00');
+  for (const code of FORMAT_PRESETS) assert.equal(typeof formatCode(1234.5, code).text, 'string', code);
+});
+
+test('xlsx number formats: written as codes, read back on the cells', async () => {
+  const t = createTable(['A', 'B'], [['x', 1234.5], ['y', -3]]);
+  const bytes = await toXlsx(t, { sheet: { formulas: {}, formats: { '1,1': { fmt: 'custom', code: '#,##0.00;[Red]-#,##0.00' }, '2,1': { fmt: 'thousands', dec: 0 } }, widths: {} } });
+  const out = await importData(bytes, 'x.xlsx');
+  assert.deepEqual(out.extras.formats, { '1,1': { fmt: 'custom', code: '#,##0.00;[Red]-#,##0.00' }, '2,1': { fmt: 'custom', code: '#,##0' } });
+});

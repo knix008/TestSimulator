@@ -1,5 +1,6 @@
 // Tutorial: a guided tour that runs the real app, chapter by chapter: the start page, a sample chart, the
-// chart types, the data grid, styling in the inspector, importing data, exporting and printing, and customizing.
+// chart types, the data grid, the data editor window (an Excel-like sheet of its own), styling in the inspector,
+// importing data, exporting and printing, and customizing.
 //
 // It works on sample charts of its own (tabs closed at the end without touching the user's charts); the settings
 // it changes are put back when it ends. While it runs, popups open inside the main window (so a screen
@@ -21,7 +22,7 @@ async function until(test, timeout = 6000) {
 }
 const ko = () => getLanguage() !== 'en';
 
-export const CHAPTERS = ['start', 'open', 'types', 'data', 'style', 'import', 'files', 'customize'];
+export const CHAPTERS = ['start', 'open', 'types', 'data', 'sheet', 'style', 'import', 'files', 'customize'];
 
 const TOUR_CSV = '지역,1분기,2분기\n서울,120,135\n부산,80,92\n대구,64,70\n인천,71,77\n';
 
@@ -53,7 +54,39 @@ export const STEPS = [
   { id: 'gridTools', chapter: 'data', target: '.ch-grid-tools', run: (a) => a.sample() },
   { id: 'sort', chapter: 'data', target: '.ch-stage', dwell: 6000, run: (a) => a.sample('regional-bars') },
   { id: 'dataStats', chapter: 'data', target: '.web-popup-datastats', dwell: 6000, async run(a) { await a.sample(); await a.popup(() => a.app.run('dataStats'), 'datastats'); } },
+  // ── the data editor window (src/sheet.js; a frame of the main window while the tour runs, so recordings show it)
+  { id: 'sheetDetach', chapter: 'sheet', target: '.pane-grid .pane-detach', dwell: 5000, run: (a) => a.sample() },
+  { id: 'sheetWindow', chapter: 'sheet', target: '.web-sheet', cardTop: true, dwell: 7000, async run(a) { await a.sheet(0); } },
+  { id: 'sheetType', chapter: 'sheet', target: '.web-sheet', cardTop: true, dwell: 6500, async run(a) { const X = await a.sheet(0); if (!X) return; X.select(1, 1); await a.typeCell(X, '180'); } },
+  { id: 'sheetFormula', chapter: 'sheet', target: '.web-sheet', cardTop: true, dwell: 8000, async run(a) {
+    const X = await a.sheet(1); if (!X) return; X.select(0, 4); await a.typeCell(X, a.ko() ? '합계' : 'Total'); X.select(1, 4); await a.typeCell(X, '=SUM(B2:D2', { hold: 1600 }); } },
+  { id: 'sheetFill', chapter: 'sheet', target: '.web-sheet', cardTop: true, dwell: 7000, async run(a) {
+    const X = await a.sheet(2); if (!X) return; X.selectBox({ r0: 1, r1: 1, c0: 4, c1: 4 }); await sleep(700); X.selectBox({ r0: 1, r1: 12, c0: 4, c1: 4 }); await sleep(500); await X.run('fillDown'); } },
+  { id: 'sheetFormat', chapter: 'sheet', target: '.web-sheet', cardTop: true, dwell: 7000, async run(a) {
+    const X = await a.sheet(3); if (!X) return; X.selectBox({ r0: 1, r1: 12, c0: 1, c1: 4 }); await sleep(400); await X.run('formatThousands'); await sleep(400);
+    X.selectBox({ r0: 0, r1: 0, c0: 0, c1: 4 }); await X.run('bold'); await sleep(300); await X.run('alignCenter'); } },
+  { id: 'sheetSort', chapter: 'sheet', target: '.web-sheet', cardTop: true, dwell: 7500, async run(a) {
+    const X = await a.sheet(4); if (!X) return; X.select(1, 4); await sleep(400); await X.run('sortDesc'); await sleep(900); await X.run('filter'); await sleep(300);
+    const button = X.el().layer.querySelector('[data-filter-col="0"]'); if (button) X.openFilterMenu(0, button); } },
+  { id: 'sheetCopy', chapter: 'sheet', target: '.web-sheet', cardTop: true, dwell: 6500, async run(a) {
+    const X = await a.sheet(4); if (!X) return; X.selectBox({ r0: 0, r1: 4, c0: 0, c1: 2 }); await X.run('copy'); await sleep(900); X.select(0, 6); X.pasteText(X.S.clip.text); } },
+  { id: 'sheetFind', chapter: 'sheet', target: '.web-sheet', cardTop: true, dwell: 6000, async run(a) {
+    const X = await a.sheet(4); if (!X) return; await X.run('replace'); const box = X.el().find.querySelector('[data-find="query"]'); for (const ch of (a.ko() ? '월' : 'Jan')) { box.value += ch; box.dispatchEvent(new box.ownerDocument.defaultView.Event('input', { bubbles: true })); await sleep(140); } } },
+  { id: 'sheetFiles', chapter: 'sheet', target: '.web-sheet', cardTop: true, dwell: 7000, async run(a) { const X = await a.sheet(4); if (!X) return; X.el().toolbar.ownerDocument.querySelector('[data-menu="file"]').click(); } },
+  { id: 'sheetPrint', chapter: 'sheet', target: '.web-popup-print', dwell: 7000, async run(a) { const X = await a.sheet(4); if (!X) return; await a.popup(() => X.run('print'), 'print'); } },
+  { id: 'sheetMakeChart', chapter: 'sheet', target: '.web-sheet', cardTop: true, dwell: 7000, async run(a) {
+    const X = await a.sheet(4); if (!X) return; X.selectBox({ r0: 0, r1: 6, c0: 0, c1: 2 }); await sleep(800); const before = a.app.state.docs.length;
+    X.el().toolbar.querySelector('.sx-make-chart')?.click(); await until(() => a.app.state.docs.length > before); a.track(a.app.state.active); } },
+  { id: 'sheetDock', chapter: 'sheet', target: '.pane-grid', dwell: 6000, async run(a) { if (!(await a.sheet(4))) return; await sleep(600); a.app.closeSheetWindow(); await sleep(300); } },
   // ── style
+  { id: 'themeTiles', chapter: 'style', target: '.ins-row-stack', dwell: 7000, async run(a) {
+    await a.sample(); a.tab('style');
+    for (const id of ['ember', 'pastel', 'midnight', 'classic']) { if (!a.app.state.docs.length) return; a.app.view?.api.inspector.onChartTheme(id); await sleep(900); } } },
+  { id: 'pickElement', chapter: 'style', target: '.ins-picked', dwell: 7500, async run(a) {
+    await a.sample(); a.tab('style');
+    a.app.view?.api.onMark({ series: 0, row: 3 }); await sleep(700);
+    a.app.view?.api.inspector.onPointStyle('fill', '#e11d48', false); await sleep(600);
+    a.app.view?.api.inspector.onPointStyle('strokeWidth', 2, false); a.app.view?.api.inspector.onPointStyle('stroke', '#111827', false); } },
   { id: 'titles', chapter: 'style', target: '.ch-inspector', dwell: 6000, async run(a) { await a.sample(); a.tab('style'); } },
   { id: 'palette', chapter: 'style', target: '.web-popup-palette', dwell: 6000, async run(a) { await a.sample(); await a.popup(() => a.app.run('paletteMenu'), 'palette'); } },
   { id: 'labels', chapter: 'style', target: '.ch-stage', dwell: 6000, async run(a) { await a.sample(); a.option('dataLabels', true); } },
@@ -99,9 +132,10 @@ export class Tutorial {
       app,
       async start() { if (!tutorial.active) return; await tutorial.closeAll(); app.showStartPage(true); await sleep(250); },
       /** A sample chart of the tour (by id), opened once and kept for the tour. */
-      async sample(id = 'monthly-sales') {
+      async sample(id = 'monthly-sales', { keepSheet = false } = {}) {
         if (!tutorial.active) return null;
         await tutorial.closeAll();
+        if (!keepSheet && app.sheetOpen()) app.closeSheetWindow();
         const samples = app.samples();
         const wanted = samples.find((x) => x.id === id) ?? samples[0];
         let doc = app.state.docs.find((d) => d.tourSample === wanted.id);
@@ -118,6 +152,39 @@ export class Tutorial {
         return doc;
       },
       async type(id) { if (tutorial.active) app.setChartType(id); await sleep(400); },
+      /**
+       * The data editor on the tour's sample, opened (as a frame) if needed, with the work of the earlier editor steps
+       * done again up to `stage` (the sample starts from its saved look at every step): 1 a typed value, 2 a total
+       * column with a formula, 3 filled down, 4 formatted. Returns the editor's test hooks.
+       */
+      async sheet(stage = 0) {
+        const doc = await helpers.sample('monthly-sales', { keepSheet: true });
+        if (!tutorial.active || !doc) return null;
+        if (!app.sheetOpen() || !app.sheetFrame()) { if (app.sheetOpen()) app.closeSheetWindow(); app.openSheetWindow(); }
+        await until(() => app.sheetFrame()?.__mychartmasterSheet?.S.docId === doc.id, 10000);
+        const X = app.sheetFrame()?.__mychartmasterSheet;
+        if (!X) return null;
+        X.resetView();
+        const put = (r, c, text) => { X.select(r, c); X.beginEdit('enter', ''); X.editText(text); X.commitEdit(); };
+        if (stage >= 1) put(1, 1, '180');
+        if (stage >= 2) { put(0, 4, ko() ? '합계' : 'Total'); put(1, 4, '=SUM(B2:D2)'); }
+        if (stage >= 3) { X.selectBox({ r0: 1, r1: 12, c0: 4, c1: 4 }); await X.run('fillDown'); }
+        if (stage >= 4) { X.selectBox({ r0: 1, r1: 12, c0: 1, c1: 4 }); await X.run('formatThousands'); X.selectBox({ r0: 0, r1: 0, c0: 0, c1: 4 }); await X.run('bold'); await X.run('alignCenter'); }
+        X.select(1, 0);
+        await sleep(200);
+        return X;
+      },
+      /** Types into the selected cell one character at a time (as a person would), then Enter unless `hold` (ms) keeps it open. */
+      async typeCell(X, text, { hold = 0 } = {}) {
+        if (!X) return;
+        X.beginEdit('enter', '');
+        for (let i = 1; i <= text.length; i++) { if (!tutorial.active) return; X.editText(text.slice(0, i)); await sleep(110); }
+        if (hold) { await sleep(hold); X.editText(`${text}${text.startsWith('=') ? ')' : ''}`); await sleep(300); }
+        X.commitEdit({ move: [1, 0] });
+        await sleep(200);
+      },
+      /** A chart the step made: closed with the tour's own charts at the end. */
+      track(id) { if (id) tutorial.docs.add(id); },
       tab(id) { app.setInspectorTab(id); },
       option(key, value) { app.setOption(key, value); },
       hover(selector) { const el = q(selector); if (el) el.classList.add('hover'); },
@@ -160,6 +227,7 @@ export class Tutorial {
     await this.running?.catch(() => {});
     this.running = null;
     await this.closeAll();
+    if (this.app.sheetOpen?.()) this.app.closeSheetWindow();
     this.app.popups.inline = false;
     this.layer.classList.remove('active');
     this.layer.innerHTML = '';
@@ -226,7 +294,7 @@ export class Tutorial {
       outline = `<div class="tour-outline" style="left:${left}px;top:${top}px;width:${right - left}px;height:${bottom - top}px"></div>`;
     }
     this.layer.innerHTML = `${outline}
-      <div class="tour-card" role="dialog" aria-label="${escapeHtml(t('tutorial.title'))}" style="right:${this.card.right}px;bottom:${this.card.bottom}px">
+      <div class="tour-card" role="dialog" aria-label="${escapeHtml(t('tutorial.title'))}" style="${step.cardTop ? 'right:18px;top:118px' : `right:${this.card.right}px;bottom:${this.card.bottom}px`}">
         <div class="tour-head" data-tour-drag title="${escapeHtml(t('tutorial.drag'))}">${icon('tutorial')}<b>${escapeHtml(t('tutorial.title'))}</b>
           <span class="tour-chapter">${escapeHtml(t(`tutorial.chapter.${chapter}`))} · ${chapterSteps.indexOf(step) + 1}/${chapterSteps.length}</span>
           <span class="grow"></span>

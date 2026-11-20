@@ -45,6 +45,30 @@ function iconUrl(name, color) {
 
 let openList = null;
 
+/**
+ * Puts an open list where all of it shows, whatever the window's size: below the owner, else above it, else moved
+ * up or down until it fits; never taller or wider than the window (it scrolls inside then); as wide as the owner.
+ */
+function placeList(el, owner) {
+  const view = owner.ownerDocument.defaultView;
+  const M = 4;
+  const r = owner.getBoundingClientRect();
+  const W = view.innerWidth;
+  const H = view.innerHeight;
+  Object.assign(el.style, { top: '', bottom: '', left: '', maxHeight: '', maxWidth: `${W - M * 2}px`, minWidth: `${Math.round(Math.min(r.width, W - M * 2))}px` });
+  const height = Math.min(el.scrollHeight, 420, H - M * 2);
+  el.style.maxHeight = `${height}px`;
+  const below = H - r.bottom - M - 2;
+  const above = r.top - M - 2;
+  let top;
+  if (height <= below) top = r.bottom + 2;
+  else if (height <= above) top = r.top - 2 - height;
+  else top = Math.max(M, Math.min(H - M - height, below >= above ? r.bottom + 2 : r.top - 2 - height));
+  const width = el.getBoundingClientRect().width;
+  el.style.top = `${Math.round(Math.max(M, Math.min(H - M - height, top)))}px`;
+  el.style.left = `${Math.round(Math.max(M, Math.min(r.left, W - width - M)))}px`;
+}
+
 function close({ focus = true } = {}) {
   if (!openList) return;
   const { el, owner } = openList;
@@ -70,16 +94,7 @@ function open(owner, items, current, choose, { filterText = '' } = {}) {
     ? `<div class="dd-group" role="presentation">${esc(item.group)}</div>`
     : `<div class="dd-item ${item.value === current ? 'chosen' : ''} ${item.disabled ? 'disabled' : ''}" role="option" aria-selected="${item.value === current}" data-value="${esc(item.value)}" title="${esc(item.label)}"${item.style ? ` style="${esc(item.style)}"` : ''}>${icon(item.icon)}<span>${esc(item.label)}</span>${item.value === current ? icon('check', 'icon dd-check') : ''}</div>`)).join('');
   doc.body.append(el);
-  // Placed below the owner, or above it when there is more room there; as wide as the owner at least; inside the window.
-  const r = owner.getBoundingClientRect();
-  const view = doc.defaultView;
-  const below = view.innerHeight - r.bottom - 6; const above = r.top - 6;
-  const up = below < Math.min(el.scrollHeight, 240) && above > below;
-  el.style.maxHeight = `${Math.max(120, Math.min(420, up ? above : below))}px`;
-  el.style.minWidth = `${Math.round(r.width)}px`;
-  const width = el.getBoundingClientRect().width;
-  el.style.left = `${Math.max(4, Math.min(r.left, view.innerWidth - width - 4))}px`;
-  if (up) el.style.bottom = `${Math.round(view.innerHeight - r.top + 2)}px`; else el.style.top = `${Math.round(r.bottom + 2)}px`;
+  placeList(el, owner);
   owner.setAttribute('aria-expanded', 'true');
   openList = { el, owner, choose, active: null };
   setActive(el.querySelector('.dd-item.chosen') ?? (query ? el.querySelector('.dd-item:not(.disabled)') : null));
@@ -236,6 +251,8 @@ function enhance(node) {
 export function installDropdowns(doc = document) {
   if (doc.__dropdowns) return;
   doc.__dropdowns = true;
+  // An open list follows the window when it is resized (it always shows whole).
+  (doc.defaultView ?? globalThis).addEventListener?.('resize', () => { if (openList) placeList(openList.el, openList.owner); });
   const start = () => {
     enhance(doc.body);
     new MutationObserver((records) => {

@@ -124,7 +124,6 @@ export function defaultSettings(language = 'ko') {
     importDelimiter: 'auto',
     importEncoding: 'auto',
     importDecimal: 'auto',
-    importMaxRows: 100000,
     // ── export
     exportFormat: 'png',
     exportScale: 2,
@@ -184,7 +183,6 @@ export function normalizeSettings(raw = {}, language) {
   s.importDelimiter = ['auto', ',', ';', '\t', '|', ' '].includes(s.importDelimiter) ? s.importDelimiter : 'auto';
   s.importEncoding = ['auto', 'utf-8', 'euc-kr', 'utf-16le', 'windows-1252'].includes(s.importEncoding) ? s.importEncoding : 'auto';
   s.importDecimal = ['auto', '.', ','].includes(s.importDecimal) ? s.importDecimal : 'auto';
-  s.importMaxRows = clamp(s.importMaxRows, 100, 1000000, base.importMaxRows);
   s.exportFormat = ['png', 'jpg', 'webp', 'gif', 'avif', 'svg', 'pdf', 'html', 'docx', 'markdown'].includes(s.exportFormat) ? s.exportFormat : 'png';
   s.exportScale = clamp(s.exportScale, 1, 4, 2);
   for (const key of ['showStartPage', 'showStatusBar', 'restoreSession', 'confirmDelete', 'statusClock', 'tutorialOffered', 'showWelcome', 'tutorialDone', 'animationOnStartOnly',

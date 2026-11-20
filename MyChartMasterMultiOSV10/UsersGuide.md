@@ -26,7 +26,7 @@ Word · Markdown 문서, CSV · Excel 데이터로 내보내고 인쇄합니다.
 
 | 부분 | 내용 |
 | --- | --- |
-| [시작 화면](#시작-화면) | 새 차트, 최근 항목, 바로 가기, 샘플, 테마, 움직이는 배경 |
+| [시작 화면](#시작-화면) | 새 차트, 최근 항목, 바로 가기, 샘플, 움직이는 배경 |
 | [주 창](#주-창) | 제목 줄, 메뉴, 툴바, 탭, 상태 표시줄 |
 | [차트 화면](#차트-화면) | 차트 종류 패널, 차트, 데이터 표, 속성 패널 |
 | [차트 종류](#차트-종류) | 108가지 차트와 각각이 쓰는 열, 차트 테마 |
@@ -53,7 +53,6 @@ Word · Markdown 문서, CSV · Excel 데이터로 내보내고 인쇄합니다.
 - **최근 항목**: 최근에 연 파일과 폴더. ×로 목록에서 빼고, 오른쪽 클릭으로 경로를 복사합니다.
 - **바로 가기**: 열기, 새 차트, 데이터 가져오기, 붙여넣어 새 차트, 튜토리얼, 테마, 언어, 설정, 정보, 끝내기.
 - **샘플 차트**: 비즈니스 · 금융 · 과학 · 사회 분야의 샘플 31개. 나머지 종류는 새 차트로 열면 그 종류에 맞는 예제 데이터가 들어 있습니다.
-- **테마**: 밝은 테마와 어두운 테마를 바로 고릅니다.
 - **움직이는 배경**: 20가지 배경, 무작위 바꾸기, 배경 그림, 속도, 카드 불투명도, 자동으로 바꾸는 간격.
 
 카드는 왼쪽 위 손잡이로 끌어 옮기고 오른쪽 아래 모서리로 크기를 바꿉니다. **자동 정렬**은 처음 배치로
@@ -233,9 +232,11 @@ Ctrl+Shift+2(속성)로 접고 펼칩니다. **보기 › 패널**에서 표를 
 
 ##### 차트 테마
 
-차트마다 **차트 테마**를 고릅니다(속성 › 스타일 › 차트 테마, **차트 › 차트 테마**, 차트의 오른쪽 클릭 메뉴). 차트 테마는
-프로그램 테마(라이트 · 다크 …)와 따로 정하며, 색 구성 · 글꼴 · 격자 모양 · 자기 바탕색을 함께 바꿉니다. 21가지:
-클래식 · 오피스 · 종이 · 신문 · 파스텔 · 바다 · 숲 · 노을 · 비즈니스 · 흑백 · 색각 친화 · 솔라라이즈드 밝게 · 북유럽 · 어둡게 · 한밤 · 슬레이트 · 솔라라이즈드 어둡게 · 뱀파이어 · 네온 · 청사진 · 칠판.
+차트마다 **차트 테마**를 고릅니다(속성 › 스타일 맨 위, **차트 › 차트 테마**, 차트의 오른쪽 클릭 메뉴). 차트 테마는
+프로그램 테마(라이트 · 다크 …)와 따로 정하며, 색 구성 · 글꼴 · 격자 모양 · 자기 바탕색을 함께 바꿉니다.
+스타일 탭에는 **밝은 테마 25가지**와 **어두운 테마 25가지**가 따로 모여 작은 견본으로 보이고(이름은 마우스를 올리면),
+누르는 즉시 차트에 적용됩니다. 맨 아래 **사용자 설정** 견본을 고르면 바탕 · 글자 · 흐린 글자 · 격자 · 축의 색, 색 구성,
+글꼴을 직접 정하는 나만의 테마가 됩니다(차트 파일에 함께 저장).
 
 차트의 **배경은 기본으로 프로그램 테마를 따릅니다**. 다크 테마로 바꾸면 차트 바탕도 어두워지고, 글자 · 축 · 격자는
 밝은 색이 되며, 계열 색은 바탕과의 명암비가 3:1 이상이 되도록 자동으로 밝기를 조절합니다. 배경은 **차트 테마 바탕**,
@@ -274,7 +275,82 @@ Ctrl+Shift+2(속성)로 접고 펼칩니다. **보기 › 패널**에서 표를 
 
 모든 편집은 **실행 취소**(Ctrl+Z) · **다시 실행**(Ctrl+Y)할 수 있습니다(차트마다 200단계).
 
+##### 데이터 편집 창 (분리된 창)
+
+![데이터 편집 창](doc/images/ko/26-sheet-window.png)
+
+표 제목 줄 오른쪽의 **창 분리** 아이콘, 도구 모음의 같은 아이콘, **데이터 › 데이터 편집 창 분리**(Ctrl+Shift+D)를
+누르면 데이터 표가 엑셀과 같은 **별도의 창**으로 떨어져 나옵니다. 데스크톱에서는 작업 표시줄 단추가 따로 있는
+창이라 다른 모니터로 옮겨 놓고 쓸 수 있고, 웹에서는 브라우저 창이 하나 더 열립니다. 이 창에서 고친 내용은
+주 창의 차트에 바로 그려지고, 실행 취소(Ctrl+Z)도 주 창과 같은 기록을 씁니다.
+
+![분리된 동안의 표 패널](doc/images/ko/27-sheet-detached.png)
+
+분리된 동안 주 창의 표 패널에는 안내가 보이며, **편집 창 보기**로 창을 앞으로 가져오고 **데이터 편집 창
+합치기**(또는 편집 창의 **창 합치기**, 창 닫기)로 표를 주 창에 되돌립니다.
+
+편집 창의 구성은 엑셀과 같습니다.
+
+- **메뉴**: 파일 · 편집 · 보기 · 삽입 · 서식 · 데이터. **도구 모음**은 새로 만들기 · 열기 · 저장 · 인쇄,
+  실행 취소 · 다시 실행, 잘라내기 · 복사 · 붙여넣기, 굵게 · 기울임꼴 · 밑줄 · 글꼴 색 · 채우기 색, 맞춤,
+  표시 형식(일반 · 숫자 · 쉼표 · 통화 · 백분율 · 지수 · 날짜 · 텍스트)과 자릿수, 행·열 삽입·삭제, 정렬 · 필터 ·
+  찾기, 자동 합계 · 함수 삽입, 그리고 **차트 만들기** 단추.
+- **이름 상자와 수식 입력줄**: 왼쪽에 셀 주소(B5, A1:C9 를 입력하면 그곳으로 이동), 오른쪽에 셀의 값이나
+  수식이 보이고 바로 고칠 수 있습니다.
+- **1행은 열 이름**입니다(차트의 계열·항목 이름). 데이터는 2행부터이며, 오른쪽이나 아래 빈 칸에 입력하면
+  표가 그만큼 늘어납니다.
+- **수식**: `=` 로 시작합니다. `=SUM(B2:B13)`, `=AVERAGE(B:B)`, `=IF(C2>100,"높음","낮음")`, `=VLOOKUP(...)`,
+  `$B$2` 같은 절대 참조, 다른 수식을 읽는 수식까지 100개가 넘는 함수를 씁니다. 수식을 입력하는 중 셀을
+  누르거나 끌면 그 주소가 들어가고, 함수 이름을 치면 목록이 뜹니다(Tab 으로 고름). 오류는 `#DIV/0!`,
+  `#REF!`, `#NAME?` 처럼 보이고, 자기 자신을 읽는 수식은 `#CIRC!` 입니다. 주 창의 표에서도 `=` 로 수식을 넣을
+  수 있고, 값이 바뀌면 수식이 다시 계산되어 차트가 바뀝니다.
+- **채우기 핸들**: 선택 영역 오른쪽 아래 작은 네모를 끌면 수식은 참조를 옮겨 가며, 숫자는 같은 간격으로,
+  `Q1` 같은 글자는 번호를 늘려 채웁니다. Ctrl+D(아래로) · Ctrl+R(오른쪽으로)도 같습니다.
+- **키보드**: 화살표 · Tab · Enter, Ctrl+화살표(데이터 끝으로), Ctrl+Home/End, F2(편집), Delete(지우기),
+  Esc(취소), Alt+Enter(셀 안 줄바꿈), Ctrl+B/I/U, Ctrl+F(찾기) · Ctrl+H(바꾸기) · Ctrl+G(이동),
+  Alt+=(자동 합계), Ctrl+Shift+L(필터). 한글은 셀을 고르고 바로 입력하면 됩니다.
+- **복사 · 붙여넣기**: Ctrl+C/X/V 는 엑셀과 주고받는 탭 구분 글을 씁니다. 프로그램 안에서 복사한 셀은 수식과
+  서식까지 붙고, **값만 붙여넣기**(Ctrl+Shift+V) · **서식만 붙여넣기**도 있습니다.
+- **열 너비**: 열 머리글 경계를 끌거나, 두 번 눌러 내용에 맞춥니다. 머리글을 누르면 열 전체, 행 번호를 누르면
+  행 전체를 고르고, 오른쪽 클릭 메뉴에 삽입 · 삭제 · 정렬 등이 있습니다.
+- **정렬과 필터**: 한 셀을 고른 채 정렬하면 표 전체를 그 열로 정렬합니다(수식과 서식이 행을 따라 움직임).
+  **필터**를 켜면 1행에 ▼ 단추가 생기고, 값 목록에서 보일 값을 고르거나 정렬합니다.
+- **상태 표시줄**: 준비 · 입력 · 편집 · 참조 상태, 고른 칸의 평균 · 개수 · 합계 · 최소 · 최대, 데이터 크기,
+  확대/축소(Ctrl+휠).
+- **시트 탭**: 위쪽(도구 모음 아래) 탭은 주 창에 열린 차트들입니다. 탭을 누르면 주 창에서도 그 차트로 바뀌고, 탭의 ×는
+  그 차트를 닫고(저장 여부를 물음), **+** 는 빈 새 차트를 만듭니다. 탭이 많으면 탭 줄 오른쪽 끝의 **<** **>** 로 넘겨 봅니다.
+  주 창의 차트 탭 줄도 같습니다.
+- **표시 형식(Excel 형식 코드)**: 표시 형식 목록의 **사용자 지정…** 또는 Ctrl+1 은 Excel 과 같은 형식 코드를 씁니다 —
+  `0.00`, `#,##0`, `#,##0;[Red]-#,##0`, `0.0%`, `0.00E+00`, `"₩"#,##0`, `#,##0,"천"`, `# ?/?`, `000000`, `yyyy-mm-dd`,
+  `yyyy"년" m"월" d"일"`, `h:mm AM/PM`, `[h]:mm`, `@` 등. 자주 쓰는 형식 목록과 미리 보기가 있고, Excel 파일로 저장하면
+  그대로 들어가며 Excel 파일의 형식도 읽어 옵니다.
+- **하던 작업 그대로**: 편집 창은 주 창에서 보던 차트와 고른 칸에서 시작하고(입력 중이던 값도 넣고), 열린 차트가 없으면
+  새 차트를 만듭니다. 편집 창을 닫으면(창 합치기 · 창 닫기) 데이터는 주 창의 데이터 표에 다시 놓이고(접혀 있던 표도 펼쳐짐),
+  편집 창에서 고르던 칸에서 이어집니다.
+- **개수 제한 없음**: 행 · 열 · 가져오는 행 수에 제한이 없습니다(15만 행 파일도 그대로 읽음).
+- **차트 만들기**: 범위를 고르고 누르면 그 칸들(첫 행이 이름)로 새 차트 탭이 생기고, 한 칸만 고른 채 누르면
+  시트 전체로 만듭니다(F11). **선택 영역만 차트에 그리기**는 지금 차트가 고른 범위만 그리게 합니다.
+- **열기와 저장**: **열기**(Ctrl+O)는 Excel(xlsx) · CSV · TSV · ODS · JSON · XML · HTML · Markdown 파일과
+  .mychart 를 새 시트(새 차트 탭)로 엽니다. 시트가 여럿인 통합 문서는 가져올 시트를 고릅니다. **파일에서
+  가져와 이 시트 바꾸기**는 지금 시트의 데이터를 바꿉니다. **저장**(Ctrl+S) · **다른 이름으로 저장**은
+  Excel · CSV · TSV · JSON · Markdown · HTML 로 씁니다. Excel 로 저장하면 수식 · 서식 · 열 너비도 함께 들어가고,
+  Excel 에서 만든 수식도 읽어 옵니다. **차트 저장**은 차트와 데이터를 .mychart 로 저장합니다(수식 · 서식 포함).
+- **인쇄**: **인쇄**(Ctrl+P) · **선택 영역 인쇄**는 프로그램의 인쇄 창에서 셀들을 쪽에 나눠 보여 줍니다.
+  용지 · 방향 · 여백 · 쪽 맞춤과 함께 **눈금선**, **행·열 번호** 인쇄를 고를 수 있습니다.
+
+##### 차트의 항목을 골라 따로 꾸미기
+
+차트에 그려진 것은 무엇이든 눌러 고를 수 있습니다: 막대 · 점 · 조각 하나, 차트 제목, 부제목, 범례, 축 제목, 축과 눈금,
+격자선, 그림 영역, 데이터 레이블, 차트 배경. 고른 항목은 차트에 윤곽이 보이고, 오른쪽 속성 패널 맨 위에 **그 항목만의
+속성**이 나타납니다 — 언제나 **색**(색 고르기 칸)이 있고, 항목에 따라 크기 · 굵기 · 글자 · 테두리 · 불투명도 등이 함께
+있습니다. 막대(점 · 조각) 하나는 채우기 색 · 테두리 색 · 테두리 두께 · 불투명도를 그것만 따로 정하고(**이 항목만의 설정
+지우기**로 되돌림), 같은 자리에서 그 계열 전체 색도 바꿉니다. 이렇게 정한 것은 차트 파일, 그림 내보내기, 인쇄에 그대로
+들어갑니다. × 또는 빈 곳을 누르면 선택이 풀립니다.
+
 #### 속성 패널
+
+오른쪽 패널은 설정 칸이 가려지거나 두 줄로 밀리지 않는 폭(한국어 340px, English 390px)보다 좁아지지 않습니다. 이름이
+칸보다 길면 끝이 "…"로 줄고, 마우스를 올리면 다 보입니다.
 
 ##### 데이터 탭
 
@@ -438,9 +514,9 @@ Ctrl+Shift+2(속성)로 접고 펼칩니다. **보기 › 패널**에서 표를 
 
 ![인쇄 창](doc/images/ko/22-print.png)
 
-**파일 › 인쇄**(Ctrl+P)는 자체 창을 엽니다: 프린터와 매수(Windows), 용지(A3 · A4 · A5 · B4 · B5 · Letter · Legal ·
+**파일 › 인쇄**(Ctrl+P)는 자체 창을 엽니다. 왼쪽 한 열에 모든 설정이 있습니다: 프린터와 매수(Windows), 용지(A3 · A4 · A5 · B4 · B5 · Letter · Legal ·
 Tabloid), 방향, 여백, 크기(쪽에 맞춤 · 원래 크기), 머리글 · 바닥글과 그 글, 다음 쪽에 데이터 표.
-오른쪽은 쪽 미리 보기이고, **인쇄**를 누르면 시스템 창 없이 고른 프린터로 바로 인쇄합니다(프린터 목록이 없는
+바로 옆이 쪽 미리 보기이고, **인쇄**를 누르면 시스템 창 없이 고른 프린터로 바로 인쇄합니다(프린터 목록이 없는
 환경에서는 시스템 인쇄 창). 웹에서는 브라우저의 인쇄 창이 열립니다.
 
 어디서 인쇄를 누르든 같은 인쇄 창이 따로 열립니다: 툴바 · 파일 메뉴 · Ctrl+P · 차트 · 표 · 탭의 오른쪽 클릭 메뉴, 그리고
@@ -460,7 +536,7 @@ Tabloid), 방향, 여백, 크기(쪽에 맞춤 · 원래 크기), 머리글 · �
 - **배경**: 움직이는 배경 · 그림 · 없음, 종류, 속도, 불투명도, 그림 맞추기.
 - **작업 화면**: 표 위치, 세 패널 보이기, 표 행 높이, 차트 값 풍선, 차트가 나타날 때 움직임.
 - **새 차트**: 기본 색 구성, 배경, 범례 위치, 데이터 레이블, 막대 모서리, 너비 · 높이, 차트 글꼴.
-- **데이터 가져오기**: 머리글 행, 구분자, 인코딩, 소수점, 가져올 최대 행 수.
+- **데이터 가져오기**: 머리글 행, 구분자, 인코딩, 소수점 (행 수 제한 없이 모두 가져옵니다).
 - **최근 기록**: 최근 파일 · 폴더 목록 관리.
 - **단축키**: 모든 바로 가기 키 목록.
 
@@ -487,6 +563,7 @@ Ctrl+Shift+L로 바꿉니다(한국어 ↔ English). 차트 배경을 "테마 �
 | Ctrl+Shift+T | 행과 열 바꾸기 |
 | Ctrl+Shift+R | 선택 영역으로 차트 그리기 |
 | Ctrl+Shift+I | 데이터 통계 |
+| Ctrl+Shift+D | 데이터 편집 창 분리 (별도 창) |
 | Ctrl+L | 데이터 레이블 |
 | Ctrl+Shift+G | 범례 위치 바꾸기 |
 | Ctrl+K | 색 구성 |
@@ -596,7 +673,6 @@ candles, heat map, Sankey, dashboard … twenty in all), and translucent cards s
 - **Recent items**: recently opened files and folders. × removes one; right-click copies the path.
 - **Shortcuts**: open, new chart, import data, paste as new chart, tutorial, theme, language, settings, about, exit.
 - **Sample charts**: 31 samples from business, finance, science and society. Every other type opens with example data of its own shape as a new chart.
-- **Theme**: pick a light or a dark theme at once.
 - **Moving background**: 20 backgrounds, shuffle, a background picture, speed, card opacity, automatic change.
 
 Drag a card by its handle (top left) and resize it by its corner (bottom right); **Arrange** puts them back.
@@ -777,9 +853,11 @@ series). **Chart › Previous / Next chart type** (Ctrl+[ and Ctrl+]) steps thro
 
 ##### Chart themes
 
-Each chart has its own **chart theme** (Inspector › Style › Chart theme, **Chart › Chart theme**, or the chart's
-right-click menu). It is set apart from the program's theme (light, dark …) and changes the palette, the font, the
-grid and its own paper together. 21 of them: Classic · Office · Paper · Newspaper · Pastel · Ocean · Forest · Sunset · Corporate · Monochrome · Colour-blind safe · Solarized light · Nordic · Dark · Midnight · Slate · Solarized dark · Vampire · Neon · Blueprint · Chalkboard.
+Each chart has its own **chart theme** (top of Inspector › Style, **Chart › Chart theme**, or the chart's right-click
+menu). It is set apart from the program's theme (light, dark …) and changes the palette, the font, the grid and its
+own paper together. The Style tab shows **25 light** and **25 dark** themes, grouped, as small swatches (the name on
+hover); a click applies one at once. The **Custom** swatch at the end is a theme of your own: paper, text, muted text,
+grid and axis colours, palette and font (saved with the chart).
 
 The chart's **background follows the program's theme by default**: in a dark theme the chart paper turns dark, text,
 axes and grid lines turn light, and series colours are lightened or darkened as needed to keep at least 3:1 contrast
@@ -820,7 +898,83 @@ median, minimum, maximum and standard deviation. Click a header to sort; **Copy 
 
 Every edit can be **undone** (Ctrl+Z) and **redone** (Ctrl+Y) — 200 steps per chart.
 
+##### The data editor window (detached)
+
+![The data editor window](doc/images/en/26-sheet-window.png)
+
+The **detach** icon at the right of the grid's title bar, the same icon on the toolbar, or **Data › Detach data
+editor window** (Ctrl+Shift+D) takes the data grid out into a **window of its own** that works like Excel. On the
+desktop it has its own taskbar button, so it can sit on another monitor; on the web it is a second browser
+window. What you change there is drawn in the chart at once, and undo (Ctrl+Z) shares the main window's history.
+
+![The grid panel while the editor is detached](doc/images/en/27-sheet-detached.png)
+
+While it is detached the grid panel says so: **Show editor** brings the window to the front, **Dock data editor
+window** (or **Dock window** in the editor, or closing it) puts the grid back into the main window.
+
+The editor is laid out like Excel:
+
+- **Menus**: File · Edit · View · Insert · Format · Data. The **toolbar**: new, open, save, print; undo, redo; cut,
+  copy, paste; bold, italic, underline, font and fill colour; alignment; number format (General, Number, Comma,
+  Currency, Percent, Scientific, Date, Text) and decimals; insert and delete rows and columns; sort, filter, find;
+  AutoSum and Insert function; and the **Make chart** button.
+- **Name box and formula bar**: the cell's address on the left (type B5 or A1:C9 to go there), its value or
+  formula on the right, editable.
+- **Row 1 holds the column names** (the chart's series and category names). The data starts at row 2; typing to
+  the right or below the data makes the table larger.
+- **Formulas** start with `=`: `=SUM(B2:B13)`, `=AVERAGE(B:B)`, `=IF(C2>100,"high","low")`, `=VLOOKUP(...)`,
+  absolute references such as `$B$2`, formulas reading other formulas — more than a hundred functions. While a
+  formula is typed, clicking or dragging over cells puts their address in, and typing a function name lists the
+  functions (Tab picks one). Errors show as `#DIV/0!`, `#REF!`, `#NAME?`; a formula that reads itself is `#CIRC!`.
+  The main window's grid takes `=` formulas too, and changing a value recalculates them and the chart.
+- **Fill handle**: drag the small square at the selection's corner — formulas move their references, numbers keep
+  their step, text such as `Q1` counts on. Ctrl+D (down) and Ctrl+R (right) do the same.
+- **Keyboard**: arrows, Tab, Enter, Ctrl+arrows (to the edge of the data), Ctrl+Home/End, F2 (edit), Delete
+  (clear), Esc (cancel), Alt+Enter (line break in a cell), Ctrl+B/I/U, Ctrl+F (find), Ctrl+H (replace), Ctrl+G
+  (go to), Alt+= (AutoSum), Ctrl+Shift+L (filter). Korean input starts right away in the selected cell.
+- **Copy and paste**: Ctrl+C/X/V use tab-separated text, as Excel does. Cells copied inside the program keep their
+  formulas and formats; **Paste values** (Ctrl+Shift+V) and **Paste formats** are there too.
+- **Column widths**: drag a column letter's border, or double-click it to fit the contents. A column letter selects
+  the column, a row number the row; the right-click menus insert, delete, sort and more.
+- **Sort and filter**: sorting with one cell selected sorts the whole table by its column (formulas and formats move
+  with their rows). **Filter** puts ▼ buttons in row 1 to choose the values to show, or to sort.
+- **Status bar**: Ready / Enter / Edit / Point, the selection's average, count, sum, min and max, the data size, and
+  zoom (Ctrl+wheel).
+- **Sheet tabs**: the tabs at the top (under the toolbar) are the charts open in the main window; a tab switches the
+  main window to that chart, its × closes that chart (asking to save), **+** makes a new blank chart. With many tabs, **<**
+  **>** at the right end of the tab row move through them; the main window's chart tabs work the same way.
+- **Number formats (Excel format codes)**: **Custom…** in the number format list, or Ctrl+1, takes Excel format codes —
+  `0.00`, `#,##0`, `#,##0;[Red]-#,##0`, `0.0%`, `0.00E+00`, `"$"#,##0.00`, `#,##0,"K"`, `# ?/?`, `000000`, `yyyy-mm-dd`,
+  `h:mm AM/PM`, `[h]:mm`, `@` and so on, with a list of common codes and a preview. Excel files keep them both ways.
+- **Carries on with your work**: the editor opens on the chart and cells you were on in the main window (a cell being
+  typed in is kept); with no chart open it makes a new one. Closing the editor (Dock window, or closing it) puts the data
+  back in the main window's data grid (unfolding it if it was folded), carrying on from the editor's selection.
+- **No count limits**: rows, columns and imported rows have no limit (a 150 000-row file is read whole).
+- **Make chart**: with a range selected it makes a new chart tab from those cells (the first row names them); with
+  one cell selected it uses the whole sheet (F11). **Chart only the selection** makes the current chart draw just
+  the selected range.
+- **Open and save**: **Open** (Ctrl+O) opens Excel (xlsx), CSV, TSV, ODS, JSON, XML, HTML, Markdown files and
+  .mychart as a new sheet (a new chart tab); a workbook with several sheets asks which one. **Import a file into
+  this sheet** replaces this sheet's data. **Save** (Ctrl+S) and **Save as** write Excel, CSV, TSV, JSON, Markdown
+  or HTML. Excel files keep the formulas, formats and column widths, and formulas made in Excel are read back.
+  **Save chart** saves the chart and its data as .mychart (formulas and formats included).
+- **Print**: **Print** (Ctrl+P) and **Print selection** show the cells on pages in the program's print window, with
+  paper, orientation, margins, fit to page, **Gridlines** and **Row and column headings**.
+
+##### Picking an element of the chart to style it on its own
+
+Anything drawn on the chart can be clicked: one bar, point or slice, the title, subtitle, legend, an axis title, the
+axis and its labels, the grid lines, the plot area, the data labels, the chart's background. The picked element is
+outlined on the chart and **its own properties** appear at the top of the properties panel — always with a **colour**
+box, and size, weight, text, outline or opacity as the element has them. One bar (point, slice) gets its own fill
+colour, outline colour, outline width and opacity (**Clear this item's own settings** takes them back), and the whole
+series' colour is right there too. All of it is saved with the chart and shows in exported pictures and prints. × or a
+click on an empty spot lets the element go.
+
 #### Properties panel
+
+The right panel never gets narrower than its controls need (340 px in Korean, 390 px in English): no control is cut
+or pushed onto a second line. A label longer than its column ends in "…"; hovering shows all of it.
 
 ##### Data tab
 
@@ -993,9 +1147,9 @@ with these settings on the clipboard. To skip the window, pick the format in **F
 
 ![Print window](doc/images/en/22-print.png)
 
-**File › Print** (Ctrl+P) opens its own window: printer and copies (Windows), paper (A3, A4, A5, B4, B5, Letter, Legal,
+**File › Print** (Ctrl+P) opens its own window, every setting in one column on the left: printer and copies (Windows), paper (A3, A4, A5, B4, B5, Letter, Legal,
 Tabloid), orientation, margins, size (fit to page or actual size), header and footer and their text, the data table on
-the next pages. The page preview is on the right; **Print** prints at once on the chosen printer, without a system
+the next pages. The page preview is right beside them; **Print** prints at once on the chosen printer, without a system
 dialog (where no printer list is available, the system dialog opens). In the browser, the browser's print dialog opens.
 
 Wherever Print is pressed, the same separate print window opens: the toolbar, the File menu, Ctrl+P, the right-click menus of
@@ -1017,7 +1171,7 @@ The tabs of **Edit › Settings** (Ctrl+Shift+P):
 - **Background**: moving, picture or none; kind, speed, opacity, picture fit.
 - **Workspace**: grid position, the three panels, grid row height, value tips on charts, chart animation.
 - **New charts**: default palette, background, legend position, data labels, bar corners, width and height, chart font.
-- **Data import**: header row, delimiter, encoding, decimal mark, rows to import at most.
+- **Data import**: header row, delimiter, encoding, decimal mark (every row is read, with no limit).
 - **Recent**: manage the recent files and folders.
 - **Shortcuts**: every keyboard shortcut.
 
@@ -1045,6 +1199,7 @@ bar, and the **language** with the flag button or Ctrl+Shift+L (한국어 ↔ En
 | Ctrl+Shift+T | Swap rows and columns |
 | Ctrl+Shift+R | Chart the selected cells |
 | Ctrl+Shift+I | Data statistics |
+| Ctrl+Shift+D | Detach the data editor window |
 | Ctrl+L | Data labels |
 | Ctrl+Shift+G | Move legend |
 | Ctrl+K | Colour palette |

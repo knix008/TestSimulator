@@ -3,7 +3,8 @@
 // tables, and MyChartMaster's own .mychart (which also carries the chart). Pure (no DOM), async because ZIP
 // entries are inflated by DecompressionStream.
 import { moveFormula, shiftFormula } from './formula.js';
-import { columnLetter, createTable, fromMatrix, inferTypes, coerceNumbers, uniqueNames } from './table.js';
+import { BUILTIN_FORMATS } from './numfmt.js';
+import { columnLetter, createTable, fromMatrix, inferTypes, coerceNumbers, maxOf, minOf, uniqueNames } from './table.js';
 import { isZip, readZip, zipText } from './zip.js';
 import { attr, childrenNamed, findAll, findFirst, localName, parseXml, textOf } from './xml.js';
 
@@ -150,7 +151,7 @@ export function parseJsonData(value, options = {}) {
     // { "A": [1, 2], "B": [3, 4] } — columns as arrays.
     const entries = Object.entries(data);
     if (entries.length && entries.every(([, v]) => Array.isArray(v))) {
-      const length = Math.max(...entries.map(([, v]) => v.length));
+      const length = maxOf(entries.map(([, v]) => v.length));
       return finishTable(createTable(entries.map(([k]) => k), Array.from({ length }, (_, i) => entries.map(([, v]) => v[i]))), options);
     }
     // { "Seoul": 9.7, "Busan": 3.4 } — one value per label.
@@ -194,7 +195,10 @@ export async function parseXlsx(bytes, { sheet = 0, ...options } = {}) {
   });
   if (!sheets.length) throw new Error('import.noSheets');
   const shared = findAll(parseXml(zipText(files, 'xl/sharedStrings.xml') ?? ''), 'si').map((si) => findAll(si, 't').map(textOf).join('') || textOf(si));
-  const dateStyles = xlsxDateStyles(parseXml(zipText(files, 'xl/styles.xml') ?? ''));
+  const stylesXml = parseXml(zipText(files, 'xl/styles.xml') ?? '');
+  const dateStyles = xlsxDateStyles(stylesXml);
+  const numberCodes = xlsxNumberFormats(stylesXml);
+  const formatAt = new Map();
   const index = Math.max(0, Math.min(sheets.length - 1, Number(sheet) || 0));
   const xml = parseXml(zipText(files, sheets[index].path) ?? '');
   const matrix = [];
@@ -218,6 +222,9 @@ export async function parseXlsx(bytes, { sheet = 0, ...options } = {}) {
         if (body) { formulaAt.set(`${r},${col}`, `=${body}`); if (attr(f, 't') === 'shared' && si != null) sharedMasters.set(si, { r, c: col, text: `=${body}` }); }
         else if (si != null && sharedMasters.has(si)) { const m = sharedMasters.get(si); formulaAt.set(`${r},${col}`, shiftFormula(m.text, r - m.r, col - m.c)); }
       }
+      // The cell's number format (not dates: those are read as date text).
+      const styleId = Number(attr(c, 's') ?? -1);
+      if (numberCodes.has(styleId) && !dateStyles.has(styleId)) formatAt.set(`${r},${col}`, numberCodes.get(styleId));
       let value = v ? textOf(v) : null;
       if (type === 's') value = shared[Number(value)] ?? '';
       else if (type === 'inlineStr') value = findAll(c, 't').map(textOf).join('');
@@ -234,12 +241,12 @@ export async function parseXlsx(bytes, { sheet = 0, ...options } = {}) {
   const dense = Array.from({ length: matrix.length }, (_, i) => matrix[i] ?? []);
   // Leading empty rows and columns (a table placed at C3) go.
   while (dense.length && !dense[0].some((v) => v != null && v !== '')) dense.shift();
-  const left = Math.min(...dense.map((r) => { const i = r.findIndex((v) => v != null && v !== ''); return i < 0 ? Infinity : i; }));
+  const left = minOf(dense.map((r) => { const i = r.findIndex((v) => v != null && v !== ''); return i < 0 ? Infinity : i; }));
   const rows = Number.isFinite(left) && left > 0 ? dense.map((r) => r.slice(left)) : dense;
   const table = fromMatrix(rows, options);
   // The formulas at their place in the data window's sheet (row 0: the column names).
   let extras = null;
-  if (formulaAt.size) {
+  if (formulaAt.size || formatAt.size) {
     const top = matrix.length - dense.length;
     const dc = Number.isFinite(left) ? left : 0;
     let filled = rows.length;
@@ -252,7 +259,14 @@ export async function parseXlsx(bytes, { sheet = 0, ...options } = {}) {
       const C = c - dc;
       if (R >= 1 && C >= 0 && C < table.columns.length) formulas[`${R},${C}`] = moveFormula(text, (headed ? 0 : 1) - top, -dc);
     }
-    if (Object.keys(formulas).length) extras = { formulas, formats: {}, widths: {} };
+    const formats = {};
+    for (const [key, code] of formatAt) {
+      const [r, c] = key.split(',').map(Number);
+      const R = r - top + (headed ? 0 : 1);
+      const C = c - dc;
+      if (R >= 1 && C >= 0 && C < table.columns.length) formats[`${R},${C}`] = { fmt: 'custom', code };
+    }
+    if (Object.keys(formulas).length || Object.keys(formats).length) extras = { formulas, formats, widths: {} };
   }
   return { table, sheets: sheets.map((s) => s.name), sheet: index, extras };
 }
@@ -272,6 +286,19 @@ function xlsxDateStyles(styles) {
   const xfs = findFirst(styles, 'cellXfs');
   const out = new Set();
   childrenNamed(xfs ?? {}, 'xf').forEach((xf, i) => { if (isDate(Number(attr(xf, 'numFmtId') ?? 0))) out.add(i); });
+  return out;
+}
+
+/** Number format codes of the cell styles that have one (not General): style index → code. */
+function xlsxNumberFormats(styles) {
+  const custom = new Map(findAll(styles, 'numFmt').map((f) => [Number(attr(f, 'numFmtId')), String(attr(f, 'formatCode') ?? '')]));
+  const xfs = findFirst(styles, 'cellXfs');
+  const out = new Map();
+  childrenNamed(xfs ?? {}, 'xf').forEach((xf, i) => {
+    const id = Number(attr(xf, 'numFmtId') ?? 0);
+    const code = custom.get(id) ?? BUILTIN_FORMATS[id];
+    if (id && code && !/^general$/i.test(code) && code !== '@') out.set(i, code);
+  });
   return out;
 }
 

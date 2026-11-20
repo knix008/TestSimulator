@@ -62,7 +62,31 @@ three minutes. Every feature is explained in detail in the [user's guide](UserGu
 2. Press **Paste as new chart** (Ctrl+Shift+V) on the toolbar. A new tab with a chart opens.
 3. One value column and a few rows: the program guessed a pie. Switch it to **Donut**.
 
-## 6. Style it
+## 6. The data editor — edit in a window of its own, like Excel
+
+![The data editor window](images/en/26-sheet-window.png)
+
+1. Press the **detach** icon at the right of the data grid's title bar (or the same icon on the toolbar, Ctrl+Shift+D).
+   The table moves into an Excel-like **window of its own**, carrying on with the chart and cells you were on (a new
+   chart is made when none is open). The grid panel in the main window says the data is being edited elsewhere.
+2. Select B2 in the editor, type `180` and press Enter: the chart in the main window changes at once. Try Ctrl+Z.
+3. Type `Total` in E1 and `=SUM(B2:D2)` in E2. While you type, the cells the formula reads are outlined in colour;
+   clicking cells puts their address in.
+4. With E2 selected, drag the small square at the selection's corner (the fill handle) down to E13 (or select E2:E13
+   and press Ctrl+D). The formula fills down with its references moved; the status bar shows average, count and sum.
+5. Select B2:E13 and press **Comma style**; select row 1 and press **Bold** and **Center**. Ctrl+1 (Custom format)
+   takes Excel format codes such as `#,##0;[Red]-#,##0`.
+6. Select a cell in column E and **Sort descending**; turn on the **Filter** and choose values with ▼ in row 1.
+7. Copy a range with Ctrl+C and paste it elsewhere with Ctrl+V — Excel works both ways. Try Ctrl+H to replace.
+8. The **File** menu opens Excel and CSV files (as a new sheet tab) and saves them. × on a tab at the top closes that
+   chart; with many tabs, **<** **>** at the right end move through them.
+9. **Print** (Ctrl+P) shows the cells on pages in the program's print window (gridlines and row and column headings).
+10. Select A1:C7 and press the blue **Make chart** button: a new chart tab is made from those cells.
+11. **Dock window** (or closing the editor) puts the data back into the main window's data grid.
+
+![The grid panel while the editor is detached](images/en/27-sheet-detached.png)
+
+## 7. Style it
 
 ![Style tab](images/en/06-style-tab.png)
 
@@ -78,7 +102,11 @@ three minutes. Every feature is explained in detail in the [user's guide](UserGu
 
 ![Series tab](images/en/07-series-tab.png)
 
-## 7. Axes and number format
+> **Style one element**: click one bar (or a point, slice, the title, legend, an axis, the grid or the background) and its
+> own properties appear at the top of the properties panel. Make one bar red with its fill colour. The chart theme swatches
+> at the top of the Style tab (25 light, 25 dark, custom) apply at once.
+
+## 8. Axes and number format
 
 ![Axes tab](images/en/05-combo-axes.png)
 
@@ -86,7 +114,7 @@ three minutes. Every feature is explained in detail in the [user's guide](UserGu
 2. Put 250 in **Maximum** to fix the scale; empty it again for automatic.
 3. Open the sample **Revenue and margin** (combo) and note that **Lines on a second axis** is on.
 
-## 8. Explore other chart types
+## 9. Explore other chart types
 
 Open these samples one after the other. The Data tab shows the columns each chart uses.
 
@@ -104,7 +132,7 @@ Open these samples one after the other. The Data tab shows the columns each char
 
 ![Sankey](images/en/12-sankey.png)
 
-## 9. Import a file
+## 10. Import a file
 
 ![Import window](images/en/21-import.png)
 
@@ -115,7 +143,7 @@ Open these samples one after the other. The Data tab shows the columns each char
 4. For a CSV whose Korean text looks garbled, set **Encoding** to EUC-KR.
 5. With a chart open, set **Import into** to "This chart" to replace only its data.
 
-## 10. Data statistics
+## 11. Data statistics
 
 ![Data statistics](images/en/24-datastats.png)
 
@@ -123,7 +151,7 @@ Open these samples one after the other. The Data tab shows the columns each char
 2. **Data › Data statistics** (Ctrl+Shift+I) shows each column's mean, median and standard deviation.
 3. Press **Copy table** and paste it into Excel.
 
-## 11. Save and export
+## 12. Save and export
 
 ![Export window](images/en/20-export.png)
 
@@ -136,7 +164,7 @@ Open these samples one after the other. The Data tab shows the columns each char
 7. **File › Export data › Excel** saves the table as xlsx.
 8. Copy the picture with Ctrl+Shift+C and paste it into a document or a chat.
 
-## 12. Print
+## 13. Print
 
 ![Print window](images/en/22-print.png)
 
@@ -144,7 +172,7 @@ Open these samples one after the other. The Data tab shows the columns each char
 2. Paper A4, landscape, turn on **Data table on the next pages**; page through the preview.
 3. **Print** prints at once, without a system dialog.
 
-## 13. Make it yours
+## 14. Make it yours
 
 1. Change the theme with the palette button on the toolbar (choose with the arrow next to it). In a dark theme, set
    the chart background to "Theme colour" and the chart turns dark too.

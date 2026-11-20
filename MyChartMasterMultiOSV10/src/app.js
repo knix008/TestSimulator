@@ -8,7 +8,7 @@ import { ChartDoc, newChartOptions } from './domain/chart/doc.js';
 import { blankTable, SAMPLE_GROUPS, SAMPLES, starterFor } from './domain/chart/samples.js';
 import { CHART_GROUPS, CHART_IDS, chartName, chartType } from './domain/chart/types.js';
 import { chartDataTable, renderChart } from './domain/chart/render.js';
-import { CHART_THEMES, chartTheme, palette, PALETTES } from './domain/chart/palettes.js';
+import { CHART_THEMES, chartTheme, CUSTOM_THEME_KEYS, palette, PALETTES } from './domain/chart/palettes.js';
 import { cellText, createTable, columnStats, deleteColumns, deleteRows, insertColumn, insertRow, matchingRows, parseNumber, renameColumn, setCell, sortRows, transpose, cloneTable, inferTypes, normalizeCell, columnLetter } from './domain/data/table.js';
 import { detectFormat, importData, importPasted, IMPORT_EXTENSIONS, splitDelimited } from './domain/data/importers.js';
 import { DATA_FORMATS, exportData, toXlsx } from './domain/data/exporters.js';
@@ -151,7 +151,7 @@ function persistSession() {
 
 const importOptions = (extra = {}) => ({
   header: state.settings.importHeader, delimiter: state.settings.importDelimiter, encoding: state.settings.importEncoding,
-  decimal: state.settings.importDecimal, maxRows: state.settings.importMaxRows, ...extra,
+  decimal: state.settings.importDecimal, ...extra,
 });
 
 /** A new chart for a table: the type guessed from the data unless given. */
@@ -379,13 +379,37 @@ function setOption(key, value, merge = null, live = false) {
 }
 
 /** A chart theme for the active chart: its look and its palette (the program's theme is left alone). */
+/** The picked element: outlined on the chart, its properties at the top of the panel (shown if folded). */
+function showPicked() {
+  if (!state.view) return;
+  if (activeDoc()?.selection.part && !state.settings.showRightPanel) updateSettings({ showRightPanel: true });
+  state.view.drawChart();
+  state.view.inspector.render();
+}
+
+/** One property of the picked data point ({ fill, stroke, strokeWidth, opacity }; '' takes it back). */
+function setPointStyle(key, value, live = false) {
+  const doc = activeDoc();
+  const part = doc?.selection.part;
+  if (!doc || part?.kind !== 'mark') return;
+  const id = `${part.series}:${part.row}`;
+  const styles = { ...(doc.chart.options.pointStyles ?? {}) };
+  const own = { ...(styles[id] ?? {}) };
+  if (value === '' || value == null) delete own[key]; else own[key] = value;
+  if (Object.keys(own).length) styles[id] = own; else delete styles[id];
+  setOption('pointStyles', styles, `point:${id}:${key}`, live);
+}
+
 function setChartTheme(id) {
   const doc = activeDoc();
   if (!doc) return;
-  const theme = chartTheme(id);
-  doc.setChart({ options: { chartTheme: theme.id, palette: theme.palette, colors: {} } }, { merge: 'chart-theme' });
+  // The custom theme starts from the theme the chart had, so choosing it changes nothing until it is edited.
+  const o = doc.chart.options;
+  const customTheme = id === 'custom' && !o.customTheme ? Object.fromEntries(CUSTOM_THEME_KEYS.map((key) => [key, chartTheme(o.chartTheme, o)[key] ?? ''])) : o.customTheme;
+  const theme = chartTheme(id, { ...o, customTheme });
+  doc.setChart({ options: { chartTheme: theme.id, palette: theme.palette, colors: {}, ...(customTheme ? { customTheme } : {}) } }, { merge: 'chart-theme' });
   refreshView({ inspector: true, grid: true });
-  notify('info', t('notice.chartTheme', { name: t(`chartTheme.${theme.id}`) }));
+  notify('info', t('notice.chartTheme', { name: theme.id === 'custom' ? t('chartTheme.custom') : t(`chartTheme.${theme.id}`) }));
 }
 
 /**
@@ -533,7 +557,7 @@ function pasteBlock(r, c, text) {
   const block = splitDelimited(String(text).replace(/\r?\n$/, ''), text.includes('\t') ? '\t' : ',');
   if (!block.length) return;
   const table = cloneTable(doc.table);
-  const width = Math.max(...block.map((row) => row.length));
+  const width = block.reduce((m, row) => Math.max(m, row.length), 0);
   while (table.columns.length < c + width) { table.columns.push({ name: columnLetter(table.columns.length), type: 'text' }); for (const row of table.rows) row.push(null); }
   block.forEach((cells, k) => {
     const rr = r + k;
@@ -803,7 +827,7 @@ const commands = {
   transpose: { icon: 'transpose', label: 'action.transpose', key: 'Ctrl+Shift+T', enabled: () => hasDoc() && activeDoc().table.columns.length > 1, run: () => changeTable(transpose(activeDoc().table), { message: t('notice.transposed'), sheet: null }) },
   clearCells: { icon: 'clear', label: 'action.clearCells', enabled: hasDoc, run: () => clearCells(gridSel()) },
   dataStats: { icon: 'dataStats', label: 'action.dataStats', key: 'Ctrl+Shift+I', enabled: hasDoc, run: () => popups.open('datastats', { name: activeDoc().name }) },
-  detachData: { icon: 'detachWindow', label: 'action.detachData', key: 'Ctrl+Shift+D', enabled: hasDoc, checked: () => sheetLink.open, run: () => openSheetWindow() },
+  detachData: { icon: 'detachWindow', label: 'action.detachData', key: 'Ctrl+Shift+D', checked: () => sheetLink.open, run: () => openSheetWindow() },
   attachData: { icon: 'attachWindow', label: 'action.attachData', enabled: () => sheetLink.open, run: () => closeSheetWindow() },
   ...Object.fromEntries(['number', 'text', 'date'].map((type) => [`colType:${type}`, { icon: { number: 'typeNumber', text: 'typeText', date: 'typeDate' }[type], label: `type.${type}`, enabled: hasDoc, checked: () => activeDoc()?.table.columns[gridSel().c0]?.type === type, run: () => setColumnType(gridSel().c0, type) }])),
   // Chart
@@ -1052,12 +1076,45 @@ function renderTabs() {
   const tabs = root.querySelector('#tabs');
   if (!tabs) return;
   tabs.hidden = !state.docs.length || state.showStart;
+  const keep = tabs.querySelector('.tab-strip')?.scrollLeft ?? 0;
   tabs.innerHTML = `<div class="tab-strip"><div class="tab-list" role="tablist">${state.docs.map((doc) => `
     <div class="tab ${doc.id === state.active ? 'active' : ''} ${doc.dirty ? 'dirty' : ''}" data-tab="${doc.id}" role="tab" aria-selected="${doc.id === state.active}" title="${escapeHtml(doc.path ?? doc.name)}">
       ${icon(chartType(doc.chart.type).icon)}<span class="tab-name">${escapeHtml(doc.name)}</span><span class="tab-dirty">●</span>
       <button class="tab-close" data-tab-close="${doc.id}" title="${escapeHtml(t('action.closeTab'))}" aria-label="${escapeHtml(t('action.closeTab'))}">${icon('close')}</button>
     </div>`).join('')}</div></div>
-    <button class="tab-add" data-command="newChart" title="${escapeHtml(commandTip('newChart'))}" aria-label="${escapeHtml(t('action.newChart'))}">${icon('plus')}</button>`;
+    <button class="tab-add" data-command="newChart" title="${escapeHtml(commandTip('newChart'))}" aria-label="${escapeHtml(t('action.newChart'))}">${icon('plus')}</button>
+    <span class="tab-nav">
+      <button class="tab-scroll" data-tabs-scroll="-1" title="${escapeHtml(t('tabs.left'))}" aria-label="${escapeHtml(t('tabs.left'))}">${icon('chevronLeft')}</button>
+      <button class="tab-scroll" data-tabs-scroll="1" title="${escapeHtml(t('tabs.right'))}" aria-label="${escapeHtml(t('tabs.right'))}">${icon('chevronRight')}</button>
+    </span>`;
+  // Any number of charts: the row scrolls, "<" ">" at its right end move it, the active tab is kept in view.
+  const strip = tabs.querySelector('.tab-strip');
+  strip.scrollLeft = keep;
+  strip.addEventListener('scroll', updateTabNav, { passive: true });
+  const active = strip.querySelector('.tab.active');
+  if (active) {
+    if (active.offsetLeft < strip.scrollLeft) strip.scrollLeft = active.offsetLeft;
+    else if (active.offsetLeft + active.offsetWidth > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = active.offsetLeft + active.offsetWidth - strip.clientWidth;
+  }
+  updateTabNav();
+}
+
+/** "<" ">" of the chart tabs: on only when tabs are out of view on that side. */
+function updateTabNav() {
+  const tabs = root.querySelector('#tabs');
+  const strip = tabs?.querySelector('.tab-strip');
+  if (!strip) return;
+  const [left, right] = tabs.querySelectorAll('[data-tabs-scroll]');
+  left.disabled = strip.scrollLeft <= 0;
+  right.disabled = strip.scrollLeft + strip.clientWidth >= strip.scrollWidth - 1;
+  tabs.classList.toggle('overflow', strip.scrollWidth > strip.clientWidth + 1);
+}
+
+function scrollTabRow(direction) {
+  const strip = root.querySelector('#tabs .tab-strip');
+  if (!strip) return;
+  strip.scrollLeft += direction * Math.max(160, strip.clientWidth * 0.6);
+  updateTabNav();
 }
 
 function cycleTab(direction) {
@@ -1631,10 +1688,42 @@ function syncSheet(force = false) {
   else sheetPost({ type: 'doc', id: doc.id, title: doc.chart.title, table: doc.table, sheet: doc.sheet, ...common });
 }
 
+/** The grid's selection in sheet rows (row 0 is the names row), for the data window to start from. */
+function gridSelectionForSheet() {
+  const grid = state.view?.grid;
+  if (!grid) return null;
+  const s = grid.selection();
+  return { active: { r: grid.active.row + 1, c: grid.active.col }, box: { r0: s.r0 + 1, r1: s.r1 + 1, c0: s.c0, c1: s.c1 } };
+}
+
+/** The data window's selection back in the grid (after docking). */
+function selectInGrid(selection) {
+  const grid = state.view?.grid;
+  const doc = activeDoc();
+  if (!grid || !doc || !selection?.active) return;
+  const row = (r) => Math.max(0, Math.min(doc.table.rows.length, r - 1));
+  const col = (c) => Math.max(0, Math.min(doc.table.columns.length - 1, c));
+  const b = selection.box ?? { r0: selection.active.r, r1: selection.active.r, c0: selection.active.c, c1: selection.active.c };
+  grid.setActive(row(selection.active.r), col(selection.active.c));
+  if (b.r0 !== b.r1 || b.c0 !== b.c1) {
+    const far = { row: selection.active.r === b.r0 ? row(b.r1) : row(b.r0), col: selection.active.c === b.c0 ? col(b.c1) : col(b.c0) };
+    grid.anchor = far;
+    grid.drawRows(true);
+  }
+}
+
+/**
+ * Opens the data window on the work in progress: the active chart, the cells selected in the grid, and a cell being
+ * typed in is kept first. With no chart open (or only the start page showing none), a new blank chart is made.
+ */
 async function openSheetWindow() {
+  popups.hideMenu();
+  state.view?.grid.commit();
+  if (!activeDoc()) newChart('column', { blank: true });
+  else if (state.showStart) activate(activeDoc().id);
   const doc = activeDoc();
   if (!doc) return;
-  popups.hideMenu();
+  sheetLink.selection = gridSelectionForSheet();
   if (sheetByTauri()) {
     const dark = resolveTheme(state.settings.theme, prefersDark(), state.settings.customTheme).dark;
     try {
@@ -1642,6 +1731,16 @@ async function openSheetWindow() {
     } catch (error) {
       showError('error.docWindow', error);
       return;
+    }
+  } else if (popups.inline) {
+    // The tutorial: the editor shows as a frame in the main window, so a screen recording shows it.
+    sheetLink.bc ??= new BroadcastChannel(`mychartmaster-sheet-${sheetLink.channel}`);
+    sheetLink.bc.onmessage = (event) => onSheetMessage(event.data);
+    if (!document.querySelector('.web-sheet')) {
+      const frame = document.createElement('div');
+      frame.className = 'web-sheet';
+      frame.innerHTML = `<iframe aria-label="${escapeHtml(t('sheet.title'))}" src="${location.pathname}?viewer=sheet&ch=${sheetLink.channel}"></iframe>`;
+      document.body.append(frame);
     }
   } else {
     sheetLink.bc ??= new BroadcastChannel(`mychartmaster-sheet-${sheetLink.channel}`);
@@ -1652,17 +1751,40 @@ async function openSheetWindow() {
   // The grid panel shows at once that the data is edited elsewhere; the window says hello when it is up.
   if (!sheetLink.open) { sheetLink.open = true; sheetLink.sent = null; state.view?.refresh(); renderToolbarState(); }
   syncSheet(true);
+  sendSelection();
+}
+
+/** The window is (back) on the active chart: it gets the grid's selection once. */
+function sendSelection() {
+  if (!sheetLink.selection || !activeDoc()) return;
+  sheetPost({ type: 'select', id: activeDoc().id, ...sheetLink.selection });
+}
+
+/**
+ * The data comes back into the main window's data panel (the editor window was closed or docked): the panel is
+ * shown even when it was folded or the layout was chart-only, and the grid carries on from the editor's selection.
+ */
+function returnDataToGrid(selection = null) {
+  document.querySelector('.web-sheet')?.remove();
+  sheetLink.open = false;
+  sheetLink.sent = null;
+  sheetLink.selection = null;
+  const patch = {};
+  if (!state.settings.showBottomPanel) patch.showBottomPanel = true;
+  if (state.settings.paneLayout === 'chart-only') patch.paneLayout = 'grid-bottom';
+  if (Object.keys(patch).length) updateSettings(patch);
+  if (activeDoc() && state.showStart) activate(activeDoc().id);
+  state.view?.refresh();
+  if (selection && selection.id === state.active) selectInGrid(selection);
+  renderToolbarState();
+  state.view?.grid.focus();
 }
 
 /** Brings the data back into the main window: the data window closes. */
 function closeSheetWindow() {
   if (!sheetLink.open) return;
   sheetPost({ type: 'close' });
-  sheetLink.open = false;
-  sheetLink.sent = null;
-  state.view?.refresh();
-  renderToolbarState();
-  state.view?.grid.focus();
+  returnDataToGrid();
 }
 
 function sheetDoc(id) {
@@ -1683,16 +1805,14 @@ function onSheetMessage(m) {
     case 'hello':
       if (!sheetLink.open) { sheetLink.open = true; state.view?.refresh(); renderToolbarState(); }
       syncSheet(true);
+      sendSelection();
       return;
     case 'closed':
-      if (!sheetLink.open) return;
-      sheetLink.open = false;
-      sheetLink.sent = null;
-      state.view?.refresh();
-      renderToolbarState();
-      return;
     case 'dock':
-      closeSheetWindow();
+      // Closing or docking the editor: the data goes back into the main window's data panel.
+      if (!sheetLink.open) return;
+      if (m.type === 'dock') sheetPost({ type: 'close' });
+      returnDataToGrid(m);
       return;
     case 'edit': {
       const doc = sheetDoc(m.id);
@@ -1715,6 +1835,13 @@ function onSheetMessage(m) {
     case 'activate':
       if (sheetDoc(m.id)) activate(m.id);
       return;
+    case 'close-tab': {
+      // A tab closed in the data window closes that chart (asking to save first); the window always keeps a sheet.
+      const doc = sheetDoc(m.id);
+      if (!doc) return;
+      closeDoc(doc).then((closed) => { if (closed && !state.docs.length && sheetLink.open) newChart('column', { blank: true }); syncSheet(true); });
+      return;
+    }
     case 'new-chart':
       newChart('column', { blank: true });
       return;
@@ -1825,10 +1952,14 @@ const viewApi = {
     const doc = activeDoc();
     if (!doc) return;
     doc.selection.series = mark?.series ?? null;
+    // One data point is picked: the panel shows its own properties (colour, outline, opacity).
+    doc.selection.part = mark && mark.series != null && mark.row != null ? { kind: 'mark', series: mark.series, row: mark.row } : mark && mark.series != null ? { kind: 'series', series: mark.series } : null;
+    showPicked();
     if (mark?.row != null) state.view?.grid.setActive(mark.row, doc.chart.mapping.values?.[mark.series ?? 0] ?? 0);
     state.view?.drawChart();
   },
   onEditText: (which, axis) => editText(which, axis),
+  onPick: (part) => { const doc = activeDoc(); if (!doc) return; doc.selection.part = part; doc.selection.series = null; showPicked(); },
   onLegendMove: (x, y) => { const doc = activeDoc(); if (!doc) return; doc.setChart({ options: { legend: 'custom', legendX: x, legendY: y } }, { merge: 'legend-move' }); refreshView({ inspector: true }); },
   onZoom: (direction) => zoom(direction),
   onContext: (event, kind, payload) => contextMenu(event, kind, payload),
@@ -1876,6 +2007,23 @@ const viewApi = {
     onRename: (c, name) => { const doc = activeDoc(); if (doc && name.trim()) changeTable(renameColumn(doc.table, c, name.trim())); },
     onPalette: (element) => openPalette(element),
     onChartTheme: (id) => setChartTheme(id),
+    onPick: (part) => { const doc = activeDoc(); if (!doc) return; doc.selection.part = part; if (!part) doc.selection.series = null; showPicked(); },
+    onPointStyle: (key, value, live) => setPointStyle(key, value, live),
+    // One colour (or the palette / font) of the chart's custom theme; the chart switches to it.
+    onCustomTheme: (key, value, live) => {
+      const doc = activeDoc();
+      if (!doc) return;
+      const o = doc.chart.options;
+      const base = o.customTheme ?? Object.fromEntries(CUSTOM_THEME_KEYS.map((k) => [k, chartTheme(o.chartTheme, o)[k] ?? '']));
+      const customTheme = { ...base, [key]: value };
+      doc.setChart({ options: { chartTheme: 'custom', customTheme, ...(key === 'palette' ? { palette: value, colors: {} } : {}) } }, { merge: live ? `custom-theme:${key}` : null });
+      refreshView({ inspector: !live });
+    },
+    seriesName: (k) => state.view?.last?.legend?.[k]?.name ?? '',
+    categoryName: (r) => { const doc = activeDoc(); if (!doc) return ''; const c = doc.chart.mapping.category; const range = doc.chart.dataRange; return c == null ? '' : cellText(doc.table.rows[(range?.r0 ?? 0) + r]?.[(range?.c0 ?? 0) + c]); },
+    seriesColor: (k) => { const doc = activeDoc(); return doc ? renderColor(doc, k) : '#3b82f6'; },
+    // The panel is at least as wide as its rows need (the main window's minimum width follows).
+    onMinWidth: () => { state.view?.applyLayout(); updateMinimumWidth(); },
   },
 };
 
@@ -1899,6 +2047,8 @@ function bindEvents() {
     if (tab) return activate(tab.dataset.tab);
     const win = target.closest('[data-window]');
     if (win) return windowButton(win.dataset.window);
+    const tabsScroll = target.closest('#tabs [data-tabs-scroll]');
+    if (tabsScroll) { scrollTabRow(Number(tabsScroll.dataset.tabsScroll)); return; }
     const command = target.closest('[data-command]');
     if (command && !command.disabled) {
       const id = command.dataset.command;
@@ -1954,7 +2104,7 @@ function bindEvents() {
     window.addEventListener('dragleave', (event) => { if (!event.relatedTarget) setDropActive(false); });
     window.addEventListener('drop', (event) => { event.preventDefault(); setDropActive(false); handleDroppedFiles([...(event.dataTransfer?.files ?? [])]); });
   }
-  window.addEventListener('resize', () => updateMinimumWidth());
+  window.addEventListener('resize', () => { updateMinimumWidth(); updateTabNav(); });
   setInterval(() => { const clock = root.querySelector('#status-clock'); if (clock) clock.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }, 15000);
 }
 
@@ -2099,6 +2249,11 @@ const appApi = {
   closeDoc,
   ask,
   openDocWindow,
+  openSheetWindow,
+  closeSheetWindow,
+  sheetOpen: () => sheetLink.open,
+  /** The data editor's page when it runs in a frame (tutorial): its window, or null. */
+  sheetFrame: () => document.querySelector('.web-sheet iframe')?.contentWindow ?? null,
   get view() { return state.view; },
 };
 

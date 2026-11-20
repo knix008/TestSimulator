@@ -118,7 +118,7 @@ export default {
   'settings.showTooltips': 'Value tips on charts', 'settings.animateCharts': 'Animate charts as they appear',
   'settings.chartPalette': 'Default palette', 'settings.chartBackground': 'Default background', 'settings.chartLegend': 'Default legend position', 'settings.chartDataLabels': 'Show data labels',
   'settings.chartRounded': 'Bar corners', 'settings.chartWidth': 'Default width', 'settings.chartHeight': 'Default height', 'settings.chartFont': 'Chart font',
-  'settings.chartsHint': 'Used by new charts and by charts of imported data. Existing charts keep their own settings.', 'settings.importMaxRows': 'Rows to import at most', 'settings.rowHeight': 'Grid row height',
+  'settings.chartsHint': 'Used by new charts and by charts of imported data. Existing charts keep their own settings.', 'settings.rowHeight': 'Grid row height',
 
   // ── notices, errors, status
   'notice.opened': 'Opened: {name}', 'notice.imported': 'Imported: {name} ({rows} rows × {cols} columns)', 'notice.sheets': 'This file has {count} sheets. Pick another with Data › Import data.',

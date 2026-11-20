@@ -351,7 +351,7 @@ body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-sel
 .ins-section { padding: 6px var(--pane-inset) 8px; border-bottom: 1px solid var(--hairline); }
 .ins-section h3 { display: flex; align-items: center; gap: 6px; margin: 4px 0 6px; font-size: 0.86em; font-weight: 700; color: var(--muted); }
 .ins-section h3 .icon { width: 15px; height: 15px; }
-.ins-row { display: grid; grid-template-columns: 112px minmax(0, 1fr); align-items: center; gap: 8px; min-height: 30px; }
+.ins-row { display: grid; grid-template-columns: var(--ins-label-w, 112px) minmax(0, 1fr); align-items: center; gap: 8px; min-height: 30px; }
 .ins-row.block { grid-template-columns: 1fr; align-items: start; padding: 2px 0; }
 .ins-label { color: var(--text); font-size: 0.9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ins-control { min-width: 0; display: flex; align-items: center; gap: 6px; }
@@ -516,3 +516,54 @@ input.ins-series-name:hover, input.ins-series-name:focus { border-color: var(--b
 .ps-table.grid th, .ps-table.grid td { border-color: #c4c9d1; }
 .ps-table .ps-names th { font-weight: 700; background: #f1f5f9; }
 .ps-table .ps-letters th, .ps-table th.ps-n { background: #eef1f5; color: #555; text-align: center; font-size: 0.9em; border-color: #c4c9d1; }
+
+/* The data editor as a frame in the main window while the tutorial runs (recorded with it) */
+.web-sheet { position: fixed; z-index: 900; left: 8px; bottom: 34px; width: min(1300px, calc(100vw - 16px)); height: min(560px, calc(100vh - 150px)); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 18px 50px rgb(0 0 0 / 0.32); background: var(--bg); }
+.web-sheet iframe { width: 100%; height: 100%; border: 0; display: block; }
+
+/* Panel tool rows never hide a button: when the panel is narrower than its tools (minimum window width, the grid
+   beside the chart) they wrap onto another row and the title bar grows. */
+.ch-stage-bar { flex-wrap: wrap; row-gap: 4px; overflow: visible; }
+.ch-view:not(.fold-bottom) .pane-grid > .pane-head { height: auto; flex-wrap: nowrap; align-items: flex-start; padding-top: 3px; padding-bottom: 3px; }
+.ch-view:not(.fold-bottom) .pane-grid > .pane-head > .icon, .ch-view:not(.fold-bottom) .pane-grid > .pane-head > .pane-title { margin-top: 5px; }
+.ch-view:not(.fold-bottom) .ch-grid-tools { flex: 1 1 0; flex-wrap: wrap; row-gap: 3px; overflow: visible; }
+.ch-view:not(.fold-bottom) .pane-grid > .pane-head > .grow { display: none; }
+
+/* Chart theme tiles (Style tab): small swatches in the row's control column; a click applies the theme at once */
+.ins-theme-pick { display: grid; gap: 4px; width: 100%; }
+.ins-theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(28px, 1fr)); gap: 3px; }
+.ins-theme-tile { position: relative; height: 24px; padding: 0; border: 1px solid color-mix(in srgb, var(--text) 18%, transparent); border-radius: 4px; cursor: pointer; overflow: hidden; }
+.ins-theme-tile:hover { outline: 1px solid var(--accent); }
+.ins-theme-tile.active { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ins-theme-tile b { position: absolute; left: 3px; top: 1px; font-size: 10px; line-height: 1; }
+.ins-theme-bars { position: absolute; right: 3px; bottom: 2px; display: flex; align-items: flex-end; gap: 1px; height: 14px; }
+.ins-theme-bars i { display: block; width: 3px; border-radius: 1px; }
+.ins-theme-current { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 0.86em; }
+.ins-theme-current .icon { width: 13px; height: 13px; }
+/* The chart theme row: its label above the tiles, which use the panel's full width; light themes, then dark ones */
+.ins-row.ins-row-stack { grid-template-columns: minmax(0, 1fr); align-items: start; gap: 4px; padding: 2px 0; }
+.ins-row-stack > .ins-control { display: block; }
+.ins-theme-group { display: grid; gap: 3px; }
+.ins-theme-group + .ins-theme-group { margin-top: 4px; }
+.ins-theme-kind { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 0.8em; }
+.ins-theme-kind .icon { width: 13px; height: 13px; }
+.ins-theme-kind small { margin-left: 2px; opacity: 0.8; }
+
+/* The chart element picked for editing: outlined on the chart, its section at the top of the panel */
+.ch-canvas .picked { filter: drop-shadow(0 0 1.5px var(--accent)) drop-shadow(0 0 3px var(--accent)); }
+.ch-canvas text.picked { paint-order: stroke; stroke: color-mix(in srgb, var(--accent) 35%, transparent); stroke-width: 3px; }
+.ins-section.ins-picked { border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--accent) 5%, var(--surface)); padding: 4px 8px 6px; margin: 6px 6px 8px; }
+.ins-picked h3 { display: flex; align-items: center; gap: 6px; }
+.ins-picked h3 .icon { color: var(--accent); }
+.ins-picked .ins-unpick { width: 22px; height: 22px; }
+.ins-picked .ins-unpick .icon { color: var(--danger); }
+.ins-picked .ins-control > input[type="range"] { flex: 1; min-width: 0; }
+.ins-picked .ins-control > output { min-width: 40px; text-align: right; color: var(--muted); font-size: 0.86em; }
+
+/* The custom chart theme: its colours, palette and font under the tiles while it is the chart's theme */
+.ins-custom-theme { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; margin-top: 4px; padding: 6px; border: 1px dashed var(--border); border-radius: 6px; }
+.ins-custom-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; font-size: 0.86em; }
+.ins-custom-row > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ins-custom-row.wide { grid-column: 1 / -1; }
+.ins-custom-row.wide > select, .ins-custom-row.wide > input { flex: 1; min-width: 0; height: 26px; }
+.ins-custom-row input[type="color"] { width: 36px; height: 22px; padding: 1px 2px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); }

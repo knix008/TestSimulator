@@ -2,10 +2,24 @@
 // or null (empty). Each column has a type the chart uses: 'number', 'date' (text that reads as a
 // date) or 'text'. Pure functions, no DOM: they run in the page and under Node (tests).
 
+/** The largest of `values` (any length; Math.max(...values) overflows the call stack on big tables), or `start`. */
+export function maxOf(values, start = -Infinity) {
+  let m = start;
+  for (const v of values) if (v > m) m = v;
+  return m;
+}
+
+/** The smallest of `values` (any length), or `start`. */
+export function minOf(values, start = Infinity) {
+  let m = start;
+  for (const v of values) if (v < m) m = v;
+  return m;
+}
+
 /** A table: `{ columns: [{ name, type }], rows: any[][] }` (every row as long as the columns). */
 export function createTable(names = [], rows = []) {
   const columns = names.map((name, i) => (typeof name === 'object' && name ? { name: String(name.name ?? `Column ${i + 1}`), type: name.type ?? 'text' } : { name: String(name ?? `Column ${i + 1}`), type: 'text' }));
-  const width = Math.max(columns.length, ...rows.map((r) => r.length), 0);
+  const width = maxOf(rows.map((r) => r.length), Math.max(columns.length, 0));
   while (columns.length < width) columns.push({ name: columnLetter(columns.length), type: 'text' });
   const table = { columns, rows: rows.map((r) => Array.from({ length: width }, (_, i) => normalizeCell(r[i]))) };
   return inferTypes(table);
@@ -140,7 +154,7 @@ export function trimTable(table) {
  */
 export function fromMatrix(matrix, { header = 'auto', decimal = 'auto', maxRows = Infinity } = {}) {
   const rows = matrix.filter((r) => Array.isArray(r));
-  const width = Math.max(0, ...rows.map((r) => r.length));
+  const width = maxOf(rows.map((r) => r.length), 0);
   let hasHeader = header === 'yes';
   if (header === 'auto' && rows.length > 1) {
     const first = rows[0];

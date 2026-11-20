@@ -26,6 +26,7 @@ import {
   insertCells, jumpEdge, normalizeSheet, pasteBlock, replaceIn, setInput, sheetCells, sortBox, tableFromCells, textBlock, usedSize,
 } from './domain/data/sheet.js';
 import { escapeHtml, keyLabel } from './ui/dom.js';
+import { formatCode, FORMAT_PRESETS } from './domain/data/numfmt.js';
 import './sheet.css';
 
 const params = new URLSearchParams(location.search);
@@ -162,6 +163,7 @@ function display(r, c) {
   if (S.showFormulas && formulaOf(r, c)) return formulaOf(r, c);
   const v = S.cells[r]?.[c] ?? null;
   const f = fmtOf(r, c);
+  if (f?.fmt === 'custom') return formatCode(v, f.code ?? 'General').text;
   return f?.fmt ? formatValue(v, { type: f.fmt, decimals: f.dec, symbol: f.sym }, lang()) : cellText(v);
 }
 
@@ -173,12 +175,13 @@ function renderShell() {
   root.innerHTML = `<div class="sx" role="application" aria-label="${escapeHtml(t('sheet.title'))}">
     <header class="sx-menubar">
       <span class="sx-brand">${icon('sheetWindow')}<b>${escapeHtml(t('sheet.title'))}</b></span>
-      <nav class="sx-menus" role="menubar">${Object.keys(MENUS).map((m) => `<button type="button" class="sx-menu-button" data-menu="${m}" role="menuitem" aria-haspopup="true">${escapeHtml(t(`sheet.menu.${m}`))}</button>`).join('')}</nav>
+      <nav class="sx-menus" role="menubar">${Object.keys(MENUS).map((m) => `<button type="button" class="sx-menu-button" data-menu="${m}" role="menuitem" aria-haspopup="true">${icon(MENU_ICONS[m])}<span>${escapeHtml(t(`sheet.menu.${m}`))}</span></button>`).join('')}</nav>
       <span class="grow"></span>
       <span class="sx-link" data-link></span>
       <button type="button" class="sx-dock button" data-cmd="dock" title="${escapeHtml(tipOf('dock'))}">${icon('attachWindow')}<span>${escapeHtml(t('sheet.dock'))}</span></button>
     </header>
     <div class="sx-toolbar" role="toolbar"></div>
+    <div class="sx-tabs" role="tablist"></div>
     <div class="sx-fbar">
       <input class="sx-namebox" type="text" spellcheck="false" autocomplete="off" title="${escapeHtml(t('sheet.nameBoxTip'))}" aria-label="${escapeHtml(t('sheet.nameBox'))}" />
       <span class="sx-fbar-buttons">
@@ -202,7 +205,6 @@ function renderShell() {
       <div class="sx-cover" hidden></div>
     </div>
     <footer class="sx-foot">
-      <div class="sx-tabs" role="tablist"></div>
       <div class="sx-status"></div>
     </footer>
     <div class="sx-find" hidden></div>
@@ -239,7 +241,7 @@ function renderShell() {
 }
 let el = null;
 
-const NUMBER_FORMATS = ['general', 'number', 'thousands', 'currency', 'percent', 'scientific', 'date', 'text'];
+const NUMBER_FORMATS = ['general', 'number', 'thousands', 'currency', 'percent', 'scientific', 'date', 'text', 'custom'];
 function renderToolbar() {
   const f = fmtOf(S.active.r, S.active.c) ?? {};
   const group = (html) => `<div class="sx-group">${html}</div>`;
@@ -259,6 +261,7 @@ function renderToolbar() {
     group(`<button type="button" class="sx-tool sx-make-chart" data-cmd="makeChart" title="${escapeHtml(tipOf('makeChart'))}" aria-label="${escapeHtml(labelOf('makeChart'))}">${icon('newChart')}<span>${escapeHtml(t('sheet.makeChartShort'))}</span></button>`),
   ].join('<span class="sx-sep" aria-hidden="true"></span>');
   updateToolbarState();
+  keepToolbarWhole();
 }
 
 function updateToolbarState() {
@@ -271,10 +274,13 @@ function updateToolbarState() {
 let minWidthDone = 0;
 function keepToolbarWhole() {
   if (!el) return;
-  const groups = [...el.toolbar.children].reduce((w, g) => w + g.getBoundingClientRect().width, 0);
   const style = getComputedStyle(el.toolbar);
-  const gaps = (el.toolbar.children.length - 1) * (parseFloat(style.columnGap) || 0);
-  const need = Math.ceil(groups + gaps + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + 4);
+  // The toolbar does not wrap: its last group's right edge is where its buttons end (also when it is cut off).
+  const last = el.toolbar.lastElementChild;
+  const toolbar = last ? last.getBoundingClientRect().right - el.toolbar.getBoundingClientRect().left + parseFloat(style.paddingRight) : 0;
+  const menubar = [...el.sx.querySelector('.sx-menubar').children].reduce((w, c) => w + (c.classList.contains('sx-link') ? 0 : c.getBoundingClientRect().width), 0) + 60;
+  const need = Math.ceil(Math.max(toolbar, menubar) + 2);
+  void style;
   if (Math.abs(need - minWidthDone) < 2) return;
   minWidthDone = need;
   // A browser window can be narrower: the page scrolls sideways then (the toolbar is never cut).
@@ -328,7 +334,8 @@ function draw() {
     if (f?.s) cls.push('s');
     if (f?.align) cls.push(`al-${f.align}`);
     if (formula) cls.push('fx');
-    const style = `left:${S.colX[c]}px;top:${top}px;width:${widthOf(c)}px;${f?.color ? `color:${f.color};` : ''}${f?.fill ? `background:${f.fill};` : ''}`;
+    const codeColor = f?.fmt === 'custom' && !f.color ? formatCode(v, f.code ?? 'General').color : null;
+    const style = `left:${S.colX[c]}px;top:${top}px;width:${widthOf(c)}px;${f?.color || codeColor ? `color:${f?.color || codeColor};` : ''}${f?.fill ? `background:${f.fill};` : ''}`;
     const filter = r === 0 && S.filter.on && c < usedSize(S.cells, S.sheet).cols ? `<button type="button" class="sx-fbtn ${S.filter.hidden[c]?.length ? 'active' : ''}" data-filter-col="${c}" title="${escapeHtml(t('sheet.filterTip'))}" aria-label="${escapeHtml(t('sheet.filterTip'))}">${icon(S.filter.hidden[c]?.length ? 'filter' : 'caretDown')}</button>` : '';
     return `<div class="${cls.join(' ')}" style="${style}" data-r="${r}" data-c="${c}"${formula ? ` title="${escapeHtml(formula)}"` : ''}><span>${escapeHtml(text)}</span>${filter}</div>`;
   };
@@ -382,7 +389,7 @@ function drawOverlay() {
   const box = (b, cls, extra = '') => { const r = rectOf(b); return `<div class="${cls}" style="left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px;${extra}"></div>`; };
   // References of the formula being typed, each in its colour.
   const text = S.editing ? S.editing.text : null;
-  if (text && isFormula(text)) formulaRanges(text, { rows: S.view.rows, cols: S.view.cols }).slice(0, 24).forEach((b, i) => parts.push(box(b, 'sx-ref', `--ref:${REF_COLORS[i % REF_COLORS.length]}`)));
+  if (text && isFormula(text)) formulaRanges(text, { rows: S.view.rows, cols: S.view.cols }).forEach((b, i) => parts.push(box(b, 'sx-ref', `--ref:${REF_COLORS[i % REF_COLORS.length]}`)));
   if (S.clip?.marquee) parts.push(box(S.clip.marquee, 'sx-marquee'));
   const s = sel();
   if (s.r0 !== s.r1 || s.c0 !== s.c1) parts.push(box(s, 'sx-sel'));
@@ -440,8 +447,38 @@ function renderStatus() {
 
 function renderTabs() {
   if (!el) return;
-  el.tabs.innerHTML = `${S.docs.map((d) => `<button type="button" class="sx-tab ${d.id === S.docId ? 'active' : ''}" data-tab="${escapeHtml(d.id)}" role="tab" aria-selected="${d.id === S.docId}" title="${escapeHtml(t('sheet.tabTip', { name: d.name }))}">${icon('sheetWindow')}<span>${escapeHtml(d.name.replace(/\.mychart$/i, ''))}${d.dirty ? ' •' : ''}</span></button>`).join('')}
-    <button type="button" class="sx-tab-add" data-cmd="newSheet" title="${escapeHtml(tipOf('newSheet'))}" aria-label="${escapeHtml(labelOf('newSheet'))}">${icon('plus')}</button>`;
+  const keep = el.tabs.querySelector('.sx-tabs-strip')?.scrollLeft ?? 0;
+  el.tabs.innerHTML = `<div class="sx-tabs-strip">${S.docs.map((d) => `<div class="sx-tab ${d.id === S.docId ? 'active' : ''}" data-tab="${escapeHtml(d.id)}" role="tab" aria-selected="${d.id === S.docId}" title="${escapeHtml(t('sheet.tabTip', { name: d.name }))}">${icon('sheetWindow')}<span>${escapeHtml(d.name.replace(/\.mychart$/i, ''))}${d.dirty ? ' •' : ''}</span><button type="button" class="sx-tab-close" data-tab-close="${escapeHtml(d.id)}" title="${escapeHtml(t('sheet.closeTab', { name: d.name }))}" aria-label="${escapeHtml(t('sheet.closeTab', { name: d.name }))}">${icon('close')}</button></div>`).join('')}
+    <button type="button" class="sx-tab-add" data-cmd="newSheet" title="${escapeHtml(tipOf('newSheet'))}" aria-label="${escapeHtml(labelOf('newSheet'))}">${icon('plus')}</button></div>
+    <span class="sx-tabs-nav">
+      <button type="button" class="sx-tabs-scroll" data-tabs-scroll="-1" title="${escapeHtml(t('tabs.left'))}" aria-label="${escapeHtml(t('tabs.left'))}">${icon('chevronLeft')}</button>
+      <button type="button" class="sx-tabs-scroll" data-tabs-scroll="1" title="${escapeHtml(t('tabs.right'))}" aria-label="${escapeHtml(t('tabs.right'))}">${icon('chevronRight')}</button>
+    </span>`;
+  const strip = el.tabs.querySelector('.sx-tabs-strip');
+  strip.scrollLeft = keep;
+  strip.addEventListener('scroll', updateTabsNav, { passive: true });
+  // The active tab is always in view.
+  const active = strip.querySelector('.sx-tab.active');
+  if (active) {
+    if (active.offsetLeft < strip.scrollLeft) strip.scrollLeft = active.offsetLeft;
+    else if (active.offsetLeft + active.offsetWidth > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = active.offsetLeft + active.offsetWidth - strip.clientWidth;
+  }
+  updateTabsNav();
+}
+
+/** "<" ">" at the right end of the tab row: on only when there are tabs out of view on that side. */
+function updateTabsNav() {
+  const strip = el?.tabs.querySelector('.sx-tabs-strip');
+  if (!strip) return;
+  const [left, right] = el.tabs.querySelectorAll('[data-tabs-scroll]');
+  left.disabled = strip.scrollLeft <= 0;
+  right.disabled = strip.scrollLeft + strip.clientWidth >= strip.scrollWidth - 1;
+}
+
+function scrollTabs(direction) {
+  const strip = el.tabs.querySelector('.sx-tabs-strip');
+  strip.scrollLeft += direction * Math.max(140, strip.clientWidth * 0.6);
+  updateTabsNav();
 }
 
 function renderLink() {
@@ -481,8 +518,8 @@ function refreshSelection() {
 // ───────────────────────── selection and scrolling
 
 function select(r, c, { extend = false, reveal = true } = {}) {
-  r = Math.max(0, Math.min(S.view.rows + 1000, r));
-  c = Math.max(0, Math.min(S.view.cols + 100, c));
+  r = Math.max(0, r);
+  c = Math.max(0, c);
   if (r >= S.view.rows - 1 || c >= S.view.cols - 1) { S.view.rows = Math.max(S.view.rows, r + 60); S.view.cols = Math.max(S.view.cols, c + 8); layout(); }
   S.active = { r, c };
   if (!extend) S.anchor = { r, c };
@@ -704,6 +741,14 @@ function receive(m) {
       renderAll();
       return;
     }
+    case 'select': {
+      // Carry on from the cells selected in the main window's grid.
+      if (m.id !== S.docId || !m.active) return;
+      const b = m.box ?? { r0: m.active.r, r1: m.active.r, c0: m.active.c, c1: m.active.c };
+      selectBox({ r0: Math.max(0, b.r0), r1: Math.max(0, b.r1), c0: Math.max(0, b.c0), c1: Math.max(0, b.c1) }, { r: Math.max(0, m.active.r), c: Math.max(0, m.active.c) });
+      focusGrid();
+      return;
+    }
     case 'state':
       S.connected = true;
       S.waiting = false;
@@ -746,7 +791,7 @@ function receive(m) {
 }
 
 async function closeWindow(tell = true) {
-  if (tell) await send({ type: 'closed' });
+  if (tell) { if (S.editing) commitEdit(); await send({ type: 'closed', id: S.docId, active: S.active, box: sel() }); }
   if (desktop) await appWindow.destroy().catch(() => appWindow.close().catch(() => {}));
   else globalThis.close();
 }
@@ -873,6 +918,32 @@ function clearCmd(what) {
   if (what !== 'values') renderToolbar();
 }
 
+/**
+ * Excel number format codes (Format › Custom format, Ctrl+1): the common codes to pick from, a code of your own, and
+ * a preview with the active cell's value and with a few sample numbers.
+ */
+function customFormatDialog(initial = null) {
+  if (!S.docId) return;
+  const f = fmtOf(S.active.r, S.active.c) ?? {};
+  const v = S.cells[S.active.r]?.[S.active.c];
+  const sample = typeof v === 'number' || (typeof v === 'string' && v !== '') ? v : 1234.5;
+  const current = initial ?? (f.fmt === 'custom' ? f.code : 'General');
+  const preview = (code) => [sample, -1234.5, 0, 0.256, 45352].map((x) => { const out = formatCode(x, code); return `<span class="sx-fmt-sample" ${out.color ? `style="color:${out.color}"` : ''}><small>${escapeHtml(typeof x === 'number' ? String(x) : x)}</small><b>${escapeHtml(out.text)}</b></span>`; }).join('');
+  dialog({
+    title: t('sheet.cmd.formatCustom'), glyph: 'numberFormat',
+    body: `<label class="sx-field"><span>${escapeHtml(t('sheet.formatCode'))}</span><input type="text" data-dialog-input data-format-code value="${escapeHtml(current)}" spellcheck="false" /></label>
+      <div class="sx-fmt-preview" data-format-preview>${preview(current)}</div>
+      <div class="sx-fmt-presets" role="listbox" aria-label="${escapeHtml(t('sheet.formatPresets'))}">${FORMAT_PRESETS.map((code) => `<button type="button" class="sx-fmt-preset ${code === current ? 'on' : ''}" data-format-preset="${escapeHtml(code)}" role="option" aria-selected="${code === current}"><code>${escapeHtml(code)}</code><span>${escapeHtml(formatCode(typeof sample === 'number' ? sample : 1234.5, code).text)}</span></button>`).join('')}</div>
+      <p class="sx-hint">${icon('info')}<span>${escapeHtml(t('sheet.formatHelp'))}</span></p>`,
+    ok: (box) => {
+      const code = box.querySelector('[data-format-code]').value.trim() || 'General';
+      setFormat(/^general$/i.test(code) ? { fmt: null, code: null, dec: null, sym: null } : { fmt: 'custom', code, dec: null, sym: null });
+      return true;
+    },
+  });
+  S.formatPreview = preview;
+}
+
 function setFormat(patch) {
   if (!S.docId) return;
   apply({ cells: S.cells, sheet: formatBox(S.sheet, sel(), patch) }, 'format');
@@ -883,6 +954,7 @@ function toggleFormat(key) {
   setFormat({ [key]: current ? null : true });
 }
 function setNumberFormat(type) {
+  if (type === 'custom') return customFormatDialog();
   if (type === 'general') return setFormat({ fmt: null, dec: null, sym: null });
   const patch = { fmt: type };
   if (type === 'currency') patch.sym = lang() === 'en' ? '$' : '₩';
@@ -969,7 +1041,7 @@ function autofit(cols) {
   const used = usedSize(S.cells, S.sheet);
   for (const c of cols) {
     let w = 40;
-    for (let r = 0; r < Math.min(used.rows, 5000); r++) w = Math.max(w, context.measureText(display(r, c)).width / S.zoom + (r === 0 ? 34 : 18));
+    for (let r = 0; r < used.rows; r++) w = Math.max(w, context.measureText(display(r, c)).width / S.zoom + (r === 0 ? 34 : 18));
     widths[c] = Math.round(Math.min(600, w));
   }
   apply({ cells: S.cells, sheet: { ...cloneSheet(S.sheet) ?? emptySheet(), widths } }, 'width');
@@ -1018,19 +1090,22 @@ function openFilterMenu(c, anchor) {
   if (!S.filter.on) { S.filter.on = true; }
   const used = usedSize(S.cells, S.sheet);
   const values = new Map();
-  for (let r = 1; r < used.rows; r++) { const d = display(r, c); values.set(d, (values.get(d) ?? 0) + 1); if (values.size > 1000) break; }
+  for (let r = 1; r < used.rows; r++) { const d = display(r, c); values.set(d, (values.get(d) ?? 0) + 1); }
   const list = [...values.keys()].sort((a, b) => a.localeCompare(b, lang(), { numeric: true }));
   const hidden = new Set(S.filter.hidden[c] ?? []);
   const rect = anchor.getBoundingClientRect();
   el.pop.hidden = false;
   el.pop.className = 'sx-pop sx-filter-pop';
-  el.pop.style.left = `${Math.min(rect.left, window.innerWidth - 300)}px`;
+  el.pop.style.left = `${Math.max(4, Math.min(rect.left, window.innerWidth - 300))}px`;
   el.pop.style.top = `${rect.bottom + 2}px`;
   el.pop.innerHTML = `<div class="sx-fp-head">${icon('filter')}<b>${escapeHtml(String(S.cells[0]?.[c] ?? columnLetter(c)))}</b></div>
     <div class="sx-fp-sort"><button type="button" class="button" data-fp="asc">${icon('sortAsc')}<span>${escapeHtml(labelOf('sortAsc'))}</span></button><button type="button" class="button" data-fp="desc">${icon('sortDesc')}<span>${escapeHtml(labelOf('sortDesc'))}</span></button></div>
     <input type="search" class="sx-fp-search" placeholder="${escapeHtml(t('sheet.filterSearch'))}" aria-label="${escapeHtml(t('sheet.filterSearch'))}" />
     <div class="sx-fp-list"><label class="sx-fp-all"><input type="checkbox" data-fp-all ${hidden.size ? '' : 'checked'} /><span>${escapeHtml(t('sheet.filterAll'))}</span></label>${list.map((v) => `<label><input type="checkbox" data-fp-value="${escapeHtml(v)}" ${hidden.has(v) ? '' : 'checked'} /><span>${escapeHtml(v === '' ? t('sheet.blank') : v)}</span><small>${values.get(v)}</small></label>`).join('')}</div>
     <div class="sx-fp-foot"><button type="button" class="button" data-fp="clear">${icon('filterClear')}<span>${escapeHtml(t('sheet.filterClear'))}</span></button><span class="grow"></span><button type="button" class="button primary" data-fp="ok">${escapeHtml(t('common.ok'))}</button><button type="button" class="button" data-fp="cancel">${escapeHtml(t('common.cancel'))}</button></div>`;
+  // The whole list shows, also in a short window: moved up when it would run off the bottom.
+  const h = el.pop.offsetHeight;
+  if (rect.bottom + 2 + h > window.innerHeight - 4) el.pop.style.top = `${Math.max(4, Math.min(rect.top - 2 - h, window.innerHeight - h - 4))}px`;
   S.menu = { kind: 'filter', col: c };
   el.pop.querySelector('.sx-fp-search').focus();
 }
@@ -1078,9 +1153,9 @@ function findStep(direction = 1) {
   const hits = findHits();
   if (!hits.length) { toast(t('sheet.notFound', { text: S.find.query })); return; }
   const { r, c } = S.active;
-  const order = (h) => h.r * 100000 + h.c;
-  const here = r * 100000 + c;
-  const next = direction > 0 ? hits.find((h) => order(h) > here) ?? hits[0] : [...hits].reverse().find((h) => order(h) < here) ?? hits[hits.length - 1];
+  const after = (h) => h.r > r || (h.r === r && h.c > c);
+  const before = (h) => h.r < r || (h.r === r && h.c < c);
+  const next = direction > 0 ? hits.find(after) ?? hits[0] : [...hits].reverse().find(before) ?? hits[hits.length - 1];
   select(next.r, next.c);
 }
 function replaceCmd(all) {
@@ -1310,7 +1385,7 @@ const COMMANDS = {
   saveChart: { icon: 'saveChart', enabled: has, run: () => send({ type: 'save-chart', id: S.docId }) },
   print: { icon: 'print', key: 'Ctrl+P', enabled: has, run: () => printCmd(false) },
   printSelection: { icon: 'sheetPrint', enabled: has, run: () => printCmd(true) },
-  dock: { icon: 'attachWindow', run: () => { send({ type: 'dock' }); closeWindow(false); } },
+  dock: { icon: 'attachWindow', run: async () => { if (S.editing) commitEdit(); await send({ type: 'dock', id: S.docId, active: S.active, box: sel() }); closeWindow(false); } },
   closeWindow: { icon: 'exit', key: 'Ctrl+W', run: () => closeWindow(true) },
   // Edit
   undo: { icon: 'undo', key: 'Ctrl+Z', enabled: () => has() && S.canUndo, run: () => { if (S.editing) cancelEdit(); send({ type: 'undo', id: S.docId }); } },
@@ -1358,6 +1433,7 @@ const COMMANDS = {
   formatPercent: { icon: 'formatPercent', key: 'Ctrl+Shift+5', enabled: has, run: () => setNumberFormat('percent') },
   formatThousands: { icon: 'formatThousands', enabled: has, run: () => setNumberFormat('thousands') },
   formatGeneral: { icon: 'numberFormat', enabled: has, run: () => setNumberFormat('general') },
+  formatCustom: { icon: 'numberFormat', key: 'Ctrl+1', enabled: has, run: () => customFormatDialog() },
   decimalMore: { icon: 'decimalMore', enabled: has, run: () => changeDecimals(1) },
   decimalLess: { icon: 'decimalLess', enabled: has, run: () => changeDecimals(-1) },
   autofit: { icon: 'fitWidth', enabled: has, run: () => { const s = sel(); autofit(Array.from({ length: s.c1 - s.c0 + 1 }, (_, i) => s.c0 + i)); } },
@@ -1378,9 +1454,10 @@ const MENUS = {
   edit: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'pasteValues', 'pasteFormats', '-', 'fillDown', 'fillRight', '-', 'clearContents', 'clearFormats', 'clearAll', '-', 'selectAll', 'find', 'replace', 'goTo'],
   view: ['zoomIn', 'zoomOut', 'zoom100', '-', 'freezeTop', 'gridlines', 'formulaBar', 'showFormulas'],
   insert: ['insertRows', 'insertRowsBelow', 'insertColumns', 'insertColumnsRight', '-', 'deleteRows', 'deleteColumns', '-', 'autoSum', 'insertFunction'],
-  format: ['bold', 'italic', 'underline', 'strike', '-', 'alignLeft', 'alignCenter', 'alignRight', '-', 'formatGeneral', 'formatThousands', 'formatCurrency', 'formatPercent', 'decimalMore', 'decimalLess', '-', 'autofit', 'clearFormats'],
+  format: ['bold', 'italic', 'underline', 'strike', '-', 'alignLeft', 'alignCenter', 'alignRight', '-', 'formatGeneral', 'formatThousands', 'formatCurrency', 'formatPercent', 'decimalMore', 'decimalLess', 'formatCustom', '-', 'autofit', 'clearFormats'],
   data: ['sortAsc', 'sortDesc', 'filter', 'clearFilter', '-', 'makeChart', 'chartRange', 'importReplace'],
 };
+const MENU_ICONS = { file: 'file', edit: 'edit', view: 'eye', insert: 'insertCells', format: 'fillColor', data: 'dataGrid' };
 const CONTEXT = ['cut', 'copy', 'paste', 'pasteValues', '-', 'insertRows', 'insertColumns', 'deleteRows', 'deleteColumns', '-', 'clearContents', 'clearFormats', '-', 'sortAsc', 'sortDesc', 'filter', '-', 'makeChart', 'chartRange', 'printSelection'];
 
 const labelOf = (id) => t(`sheet.cmd.${id}`);
@@ -1494,7 +1571,8 @@ function bind() {
   const body = el.body;
   body.addEventListener('wheel', (event) => { if (!(event.ctrlKey || event.metaKey)) return; event.preventDefault(); setZoom(S.zoom + (event.deltaY < 0 ? 0.1 : -0.1)); }, { passive: false });
   body.addEventListener('scroll', () => { queueDraw(); hideAutocomplete(); }, { passive: true });
-  new ResizeObserver(() => { queueDraw(); keepToolbarWhole(); }).observe(body);
+  new ResizeObserver(() => { queueDraw(); keepToolbarWhole(); updateTabsNav(); }).observe(body);
+  el.tabs.addEventListener('wheel', (event) => { const strip = el.tabs.querySelector('.sx-tabs-strip'); if (!strip || !event.deltaY) return; event.preventDefault(); strip.scrollLeft += event.deltaY; updateTabsNav(); }, { passive: false });
 
   el.editor.addEventListener('keydown', onGridKey);
   el.editor.addEventListener('compositionstart', () => { if (!S.editing) beginEdit('enter', ''); });
@@ -1629,8 +1707,14 @@ function bind() {
     if (target.closest('.sx-filter-pop')) { filterPopClick(target); return; }
     const cmd = target.closest('[data-cmd]');
     if (cmd && !cmd.disabled) { run(cmd.dataset.cmd); return; }
+    const tabsScroll = target.closest('[data-tabs-scroll]');
+    if (tabsScroll) { scrollTabs(Number(tabsScroll.dataset.tabsScroll)); return; }
+    const closeTab = target.closest('[data-tab-close]');
+    if (closeTab) { if (S.editing && S.docId === closeTab.dataset.tabClose) commitEdit(); send({ type: 'close-tab', id: closeTab.dataset.tabClose }); return; }
     const tab = target.closest('[data-tab]');
     if (tab) { if (S.editing) commitEdit(); send({ type: 'activate', id: tab.dataset.tab }); return; }
+    const preset = target.closest('[data-format-preset]');
+    if (preset) { const input = el.modal.querySelector('[data-format-code]'); input.value = preset.dataset.formatPreset; input.dispatchEvent(new Event('input', { bubbles: true })); for (const b of el.modal.querySelectorAll('[data-format-preset]')) b.classList.toggle('on', b === preset); return; }
     const dlg = target.closest('[data-dialog]');
     if (dlg) { closeDialog(dlg.dataset.dialog === 'ok'); return; }
     const findAct = target.closest('[data-find-act]')?.dataset.findAct;
@@ -1646,7 +1730,8 @@ function bind() {
     if (!target.closest('.sx-pop')) closePop();
   });
   root.addEventListener('pointerdown', (event) => { if (!event.target.closest('.sx-pop, [data-menu]')) closePop(); }, true);
-  root.addEventListener('dblclick', (event) => { if (event.target.closest('.sx-fn-list label')) closeDialog(true); });
+  root.addEventListener('auxclick', (event) => { const tab = event.button === 1 && event.target.closest('[data-tab]'); if (tab) { event.preventDefault(); send({ type: 'close-tab', id: tab.dataset.tab }); } });
+  root.addEventListener('dblclick', (event) => { if (event.target.closest('.sx-fn-list label, [data-format-preset]')) closeDialog(true); });
   root.addEventListener('change', (event) => {
     const target = event.target;
     if (target.matches('[data-number-format]')) { setNumberFormat(target.value); focusGrid(); }
@@ -1659,6 +1744,7 @@ function bind() {
     if (target.matches('[data-find="query"]')) { S.find.query = target.value; updateFindCount(); }
     else if (target.matches('[data-find="with"]')) S.find.with = target.value;
     else if (target.matches('[data-zoom]')) setZoom(Number(target.value) / 100);
+    else if (target.matches('[data-format-code]')) { const box = el.modal.querySelector('[data-format-preview]'); if (box && S.formatPreview) box.innerHTML = S.formatPreview(target.value || 'General'); }
     else if (target.matches('.sx-fp-search')) { const q = target.value.toLowerCase(); for (const label of el.pop.querySelectorAll('.sx-fp-list label:not(.sx-fp-all)')) label.hidden = Boolean(q) && !label.textContent.toLowerCase().includes(q); }
     else if (target.matches('.sx-fn-search')) { const q = target.value.toUpperCase(); let first = null; for (const label of el.modal.querySelectorAll('[data-fn-row]')) { label.hidden = Boolean(q) && !label.dataset.fnRow.includes(q) && !label.textContent.toUpperCase().includes(q); if (!label.hidden && !first) first = label; } if (first) first.querySelector('input').checked = true; }
   });
@@ -1799,10 +1885,10 @@ async function start() {
   if (desktop) {
     await getCurrentWebviewWindow().listen('sheet-to-window', (message) => receive(message.payload));
     // Closing the window with its title bar: the main window shows its grid again.
-    await appWindow.onCloseRequested(async () => { await send({ type: 'closed' }); });
+    await appWindow.onCloseRequested(async () => { if (S.editing) commitEdit(); await send({ type: 'closed', id: S.docId, active: S.active, box: sel() }); });
   } else if (bc) {
     bc.onmessage = (event) => receive(event.data);
-    window.addEventListener('pagehide', () => bc.postMessage({ type: 'closed' }));
+    window.addEventListener('pagehide', () => { if (S.editing) commitEdit(); bc.postMessage({ type: 'closed', id: S.docId, active: S.active, box: sel() }); });
   }
   send({ type: 'hello' });
   waitForMain();
@@ -1811,7 +1897,20 @@ async function start() {
   keepToolbarWhole();
 }
 
-// For the end-to-end tests.
-window.__mychartmasterSheet = { S, run, select, selectBox, beginEdit, commitEdit, cancelEdit, editText, pasteText, receive, display, sel, enabled, contentFor, openFilterMenu, el: () => el };
+/** Back to a plain view: no menu, find box, dialog, entry, filter or formula view (the tutorial between steps). */
+function resetView() {
+  closePop();
+  if (S.find.open) closeFind();
+  if (S.dialog) closeDialog(false);
+  cancelEdit();
+  S.filter = { on: false, hidden: {} };
+  S.showFormulas = false;
+  S.clip = null;
+  updateVisible();
+  renderAll();
+}
+
+// For the end-to-end tests and the tutorial.
+window.__mychartmasterSheet = { resetView,  S, run, select, selectBox, beginEdit, commitEdit, cancelEdit, editText, pasteText, receive, display, sel, enabled, contentFor, openFilterMenu, el: () => el, commands: COMMANDS, menus: MENUS, context: CONTEXT };
 
 start();

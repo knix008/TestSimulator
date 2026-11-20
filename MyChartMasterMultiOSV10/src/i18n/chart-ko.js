@@ -118,7 +118,7 @@ export default {
   'settings.showTooltips': '차트에 값 풍선 도움말', 'settings.animateCharts': '차트가 나타날 때 움직임',
   'settings.chartPalette': '기본 색 구성', 'settings.chartBackground': '기본 배경', 'settings.chartLegend': '기본 범례 위치', 'settings.chartDataLabels': '데이터 레이블 표시',
   'settings.chartRounded': '막대 모서리', 'settings.chartWidth': '기본 너비', 'settings.chartHeight': '기본 높이', 'settings.chartFont': '차트 글꼴',
-  'settings.chartsHint': '새로 만드는 차트와 가져온 데이터의 차트에 쓰입니다. 이미 있는 차트는 그대로입니다.', 'settings.importMaxRows': '가져올 최대 행 수', 'settings.rowHeight': '표 행 높이',
+  'settings.chartsHint': '새로 만드는 차트와 가져온 데이터의 차트에 쓰입니다. 이미 있는 차트는 그대로입니다.', 'settings.rowHeight': '표 행 높이',
 
   // ── notices, errors, status
   'notice.opened': '열었습니다: {name}', 'notice.imported': '가져왔습니다: {name} ({rows}행 × {cols}열)', 'notice.sheets': '이 파일에는 시트가 {count}개 있습니다. 다른 시트는 데이터 › 데이터 가져오기에서 고르세요.',

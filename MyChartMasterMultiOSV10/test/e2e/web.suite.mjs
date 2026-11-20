@@ -37,7 +37,8 @@ const b64 = (bytes) => Buffer.from(bytes).toString('base64');
 test('start.cards', 'Start page shows every card; the program card is fixed', async () => {
   const r = await run(`A.actions.showStartPage(true); await sleep(300);
     return { cards: qa('.start-board > .start-card').map((x) => x.dataset.card), hero: !!q('.fixed-hero'), heroHandle: !!q('.fixed-hero .card-handle, .fixed-hero .card-resize'), heroInBoard: !!q('.start-board .start-hero'), samples: qa('[data-start="sample"]').length, types: qa('[data-start="new-chart"]').length };`);
-  for (const id of ['newchart', 'recent', 'actions', 'samples', 'theme', 'background']) assert(r.cards.includes(id), `card ${id} missing`);
+  for (const id of ['newchart', 'recent', 'actions', 'samples', 'background']) assert(r.cards.includes(id), `card ${id} missing`);
+  assert(!r.cards.includes('theme'), 'the start page has no theme card (the user asked for it to go)');
   assert(r.hero && !r.heroHandle && !r.heroInBoard, 'program card must be fixed (no handle / resize, outside the board)');
   assert(r.samples === 31, `${r.samples} sample tiles`);
   assert(r.types === CHART_COUNT, `${r.types} new-chart tiles`);
@@ -614,9 +615,9 @@ test('theme.chartTheme', 'Each chart has its own chart theme (inspector, Chart m
   await closeAll();
   await openSample('monthly-sales');
   const r = await run(`A.api.setInspectorTab('style'); await sleep(60);
-    const sel = q('select[data-opt="chartTheme"]'); const options = [...sel.options].map((o) => o.value);
+    const options = qa('.ins-theme-tile[data-ins-theme]').map((b) => b.dataset.insTheme).filter((id) => id !== 'custom');
     const before = q('.ch-canvas .mark.bar').getAttribute('fill'); const appTheme = A.state.settings.theme;
-    sel.value = 'forest'; sel.dispatchEvent(new Event('change', { bubbles: true })); await until(() => doc().chart.options.chartTheme === 'forest');
+    q('[data-ins-theme="forest"]').click(); await until(() => doc().chart.options.chartTheme === 'forest');
     const after = q('.ch-canvas .mark.bar').getAttribute('fill');
     const first = doc(); A.actions.newChart('column'); await until(() => doc() !== first); const other = doc().chart.options.chartTheme; await A.actions.closeDoc(doc(), { force: true });
     await A.run('chartTheme:midnight'); const menu = A.menus.SUBMENUS.chartThemes.items.length; const viaMenu = doc().chart.options.chartTheme;
@@ -731,7 +732,7 @@ test('panel.steppers', 'Every number in the right panel is a − value unit + st
 
 test('panel.aligned', 'Right panel and Settings: every label and every control start on one vertical line', async () => {
   const panel = await run(`const out = {}; for (const tab of ['data', 'style', 'axes', 'series', 'more']) { A.api.setInspectorTab(tab); await sleep(80);
-      const rows = qa('.ins-body .ins-row:not(.block)').filter((r) => r.offsetParent);
+      const rows = qa('.ins-body .ins-row:not(.block):not(.ins-row-stack)').filter((r) => r.offsetParent && !r.closest('.ins-picked'));
       out[tab] = { labels: [...new Set(rows.map((r) => Math.round(r.querySelector('.ins-label').getBoundingClientRect().left)))], controls: [...new Set(rows.map((r) => Math.round((r.querySelector('.ins-control > *') ?? r.querySelector('.ins-control')).getBoundingClientRect().left)))] }; }
     return out;`);
   for (const [tab, x] of Object.entries(panel)) assert(x.labels.length === 1 && x.controls.length === 1, `${tab}: labels at ${x.labels}, controls at ${x.controls}`);
@@ -1007,17 +1008,24 @@ test('menus.gridItems', 'Every item of the grid right-click menu does its work o
 // over the same BroadcastChannel as a real browser window.
 
 const SHEET = `const openSheet = async () => {
+    // The harness keeps popups as frames (popups.inline): the editor then opens as a frame of the page (.web-sheet);
+    // otherwise its window.open address is recorded and opened in a frame here.
     await A.run('detachData');
-    const url = window.__opened.filter((u) => u.includes('viewer=sheet')).at(-1);
-    document.querySelector('#sheet-frame')?.remove();
-    const f = document.createElement('iframe');
-    f.id = 'sheet-frame';
-    f.style.cssText = 'position:fixed;left:0;top:0;width:1400px;height:860px;z-index:9999;border:0;background:#fff';
-    f.src = url;
-    document.body.append(f);
-    return until(() => f.contentWindow.__mychartmasterSheet?.S.docId && f.contentWindow, 10000);
+    let f = document.querySelector('.web-sheet iframe');
+    if (!f) {
+      const url = window.__opened.filter((u) => u.includes('viewer=sheet')).at(-1);
+      document.querySelector('#sheet-frame')?.remove();
+      f = document.createElement('iframe');
+      f.id = 'sheet-frame';
+      f.style.cssText = 'position:fixed;left:0;top:0;width:1400px;height:860px;z-index:9999;border:0;background:#fff';
+      f.src = url;
+      document.body.append(f);
+    }
+    const frame = f;
+    return until(() => frame.contentWindow.__mychartmasterSheet?.S.docId && frame.contentWindow, 10000);
   };
-  const closeSheet = async () => { const f = document.querySelector('#sheet-frame'); if (f) { f.contentWindow.__mychartmasterSheet?.run('dock'); await sleep(150); f.remove(); } await sleep(150); };
+  const sheetFrame = () => document.querySelector('.web-sheet iframe, #sheet-frame');
+  const closeSheet = async () => { const f = sheetFrame(); if (f) { f.contentWindow.__mychartmasterSheet?.run('dock'); await sleep(150); (f.closest('.web-sheet') ?? f).remove(); } await sleep(150); };
   const edit = async (W, r, c, text) => { const X = W.__mychartmasterSheet; X.select(r, c); X.beginEdit('enter', ''); X.editText(text); X.commitEdit(); await sleep(120); };`;
 const sheetRun = (body) => run(`${SHEET}\n${body}`);
 
@@ -1200,6 +1208,326 @@ test('sheet.makeChart', 'The data window makes a new chart from the selection or
   assert(r.whole, 'one cell selected: the whole sheet');
   assert(r.pages >= 1 && r.cells >= 48 && r.options, `print ${JSON.stringify(r)}`);
   await sheetRun('await closeSheet(); await A.popups.closeAll();');
+});
+
+test('sheet.continue', 'Opening the data editor carries on the work (chart, selection, a cell being typed); with no chart it makes one', async () => {
+  await closeAll();
+  // No chart open: the editor makes a new blank chart and opens on it.
+  const none = await sheetRun(`A.actions.showStartPage(true); await sleep(100);
+    const enabled = A.menus.enabled('detachData');
+    const W = await openSheet(); const X = W.__mychartmasterSheet;
+    return { enabled, docs: A.state.docs.length, start: A.state.showStart, linked: X.S.docId === doc().id };`);
+  assert(none.enabled && none.docs === 1 && !none.start && none.linked, `no chart: ${JSON.stringify(none)}`);
+  await sheetRun('await closeSheet();');
+  await closeAll();
+  await openSample('monthly-sales');
+  const r = await sheetRun(`const grid = A.view().grid;
+    // A cell being typed in the grid, and a range selected: the editor starts from there with the typed value kept.
+    grid.setActive(2, 1); grid.edit('999'); await sleep(50);
+    grid.anchor = { row: 2, col: 1 };
+    const W = await openSheet(); const X = W.__mychartmasterSheet;
+    await until(() => X.S.active.r === 3);
+    const kept = doc().table.rows[2][1] === 999 && X.S.cells[3][1] === 999;
+    const at = { r: X.S.active.r, c: X.S.active.c };
+    // Back: the grid carries on from the editor's selection.
+    X.select(7, 2);
+    return { kept, at, sel: true };`);
+  assert(r.kept, 'the value typed in the grid was lost');
+  assert(r.at.r === 3 && r.at.c === 1, `editor started at ${JSON.stringify(r.at)}`);
+  // Closing the editor (not docking) brings the data back into the main window's panel, even when it was folded.
+  const back = await sheetRun(`A.actions.updateSettings({ showBottomPanel: false });
+    const f = sheetFrame(); const X = f.contentWindow.__mychartmasterSheet;
+    X.beginEdit('enter', ''); X.editText('4321');
+    await X.run('closeWindow'); await sleep(250); (f.closest('.web-sheet') ?? f).remove();
+    const grid = A.view().grid;
+    return { open: A.sheetLink.open, shown: A.state.settings.showBottomPanel && !q('.ch-grid-body').hidden && !q('.ch-view').classList.contains('fold-bottom'),
+      typed: doc().table.rows[6][2] === 4321, active: [grid.active.row, grid.active.col] };`);
+  assert(!back.open && back.shown, `data not back in the panel: ${JSON.stringify(back)}`);
+  assert(back.typed, 'the cell being typed in the editor was lost on close');
+  assert(back.active[0] === 6 && back.active[1] === 2, `grid selection ${back.active}`);
+});
+
+test('sheet.tabs', 'Editor tabs sit at the top and close their chart', async () => {
+  await closeAll();
+  await openSample('monthly-sales');
+  await openSample('monthly-sales');
+  const r = await sheetRun(`const W = await openSheet(); const D = W.document;
+    const tabs = D.querySelector('.sx-tabs'); const toolbar = D.querySelector('.sx-toolbar'); const fbar = D.querySelector('.sx-fbar');
+    const top = tabs.getBoundingClientRect().top > toolbar.getBoundingClientRect().top && tabs.getBoundingClientRect().bottom <= fbar.getBoundingClientRect().top + 1 && !tabs.closest('footer');
+    const before = A.state.docs.length; const count = D.querySelectorAll('.sx-tab').length;
+    D.querySelectorAll('[data-tab-close]')[1].click(); await until(() => A.state.docs.length === before - 1);
+    await until(() => D.querySelectorAll('.sx-tab').length === count - 1);
+    // Closing the last tab leaves the editor with a new blank sheet.
+    D.querySelector('[data-tab-close]').click(); await until(() => A.state.docs.length === 1 && doc().table.rows.length < 20 && W.__mychartmasterSheet.S.docId === doc().id);
+    return { top, count, left: D.querySelectorAll('.sx-tab').length, closeButtons: D.querySelectorAll('[data-tab-close]').length };`);
+  assert(r.top, 'tabs are not under the toolbar');
+  assert(r.count === 2 && r.left === 1 && r.closeButtons === 1, JSON.stringify(r));
+  await sheetRun('await closeSheet();');
+});
+
+// Every command of the data editor (menus, toolbar, shortcuts, right-click menus) with what it must do. A command
+// added to sheet.js without a check here fails the case.
+test('sheet.everyCommand', 'Every data editor command works: file, edit, view, insert, format, data, window', async () => {
+  await closeAll();
+  await openSample('monthly-sales');
+  const csv = b64(new TextEncoder().encode('Name,Score\nKim,90\nLee,85\n'));
+  const r = await sheetRun(`let W = await openSheet(); let X = W.__mychartmasterSheet; let D = W.document;
+    const bytes = (b) => Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
+    const baseId = doc().id;
+    const downloads = [];
+    const hook = () => { W.showSaveFilePicker = undefined; W.HTMLAnchorElement.prototype.click = function () { if (this.download) downloads.push(this.download); }; };
+    hook();
+    const base = async () => { if (X.S.docId === baseId && doc().id === baseId) return; D.querySelector('[data-tab="' + baseId + '"]').click(); await until(() => doc().id === baseId && X.S.docId === baseId); };
+    const cell = (r, c) => X.S.cells[r]?.[c] ?? null;
+    const fmt = (r, c) => X.S.sheet.formats?.[r + ',' + c] ?? {};
+    const put = async (r, c, text) => { X.select(r, c); X.beginEdit('enter', ''); X.editText(text); X.commitEdit(); await sleep(60); };
+    const go = async (id) => { await X.run(id); await sleep(80); };
+    const okDialog = async () => { await until(() => D.querySelector('.sx-modal:not([hidden]) [data-dialog="ok"]')); D.querySelector('[data-dialog="ok"]').click(); await sleep(60); };
+    const checks = {
+      undo: async () => { await put(1, 1, '555'); await go('undo'); return cell(1, 1) !== 555 && doc().table.rows[0][1] !== 555; },
+      redo: async () => { await go('redo'); return cell(1, 1) === 555; },
+      copy: async () => { X.selectBox({ r0: 1, r1: 2, c0: 1, c1: 2 }); await go('copy'); return X.S.clip?.text.split('\\r\\n').length === 2 && !!X.S.clip.marquee; },
+      paste: async () => { X.select(20, 1); await go('paste'); return cell(20, 1) === cell(1, 1) && cell(21, 2) === cell(2, 2); },
+      cut: async () => { X.select(20, 1); await go('cut'); X.select(22, 5); await go('paste'); return cell(20, 1) == null && cell(22, 5) === cell(1, 1); },
+      pasteValues: async () => { await put(1, 5, '=B2*2'); X.select(1, 5); await go('copy'); X.select(3, 5); await go('pasteValues'); return cell(3, 5) === cell(1, 1) * 2 && !X.S.sheet.formulas['3,5']; },
+      pasteFormats: async () => { X.select(1, 1); await go('bold'); await go('copy'); X.select(2, 1); const v = cell(2, 1); await go('pasteFormats'); return fmt(2, 1).b === true && cell(2, 1) === v; },
+      clearContents: async () => { X.select(22, 5); await go('clearContents'); return cell(22, 5) == null; },
+      clearFormats: async () => { X.select(2, 1); await go('clearFormats'); return !fmt(2, 1).b; },
+      clearAll: async () => { X.select(1, 1); await go('clearAll'); return cell(1, 1) == null && !fmt(1, 1).b; },
+      selectAll: async () => { await go('selectAll'); const s = X.sel(); return s.r0 === 0 && s.c0 === 0 && s.r1 >= 12 && s.c1 >= 3; },
+      find: async () => { await go('find'); const ok = !D.querySelector('.sx-find').hidden && !D.querySelector('[data-find="with"]'); D.querySelector('[data-find-act="close"]').click(); return ok; },
+      replace: async () => { await go('replace'); const ok = !!D.querySelector('[data-find="with"]'); D.querySelector('[data-find-act="close"]').click(); return ok; },
+      goTo: async () => { const p = X.run('goTo'); await until(() => D.querySelector('[data-dialog-input]')); D.querySelector('[data-dialog-input]').value = 'C5'; await okDialog(); await p; return X.S.active.r === 4 && X.S.active.c === 2; },
+      fillDown: async () => { X.selectBox({ r0: 1, r1: 4, c0: 6, c1: 6 }); await put(1, 6, '7'); X.selectBox({ r0: 1, r1: 4, c0: 6, c1: 6 }); await go('fillDown'); return [1, 2, 3, 4].every((r) => cell(r, 6) === 7); },
+      fillRight: async () => { X.selectBox({ r0: 1, r1: 1, c0: 6, c1: 8 }); await go('fillRight'); return cell(1, 7) === 7 && cell(1, 8) === 7; },
+      zoomIn: async () => { await go('zoomIn'); return X.S.zoom > 1; },
+      zoomOut: async () => { await go('zoomOut'); await go('zoomOut'); return X.S.zoom < 1; },
+      zoom100: async () => { await go('zoom100'); return X.S.zoom === 1; },
+      freezeTop: async () => { const was = X.S.frozen; await go('freezeTop'); const now = X.S.frozen; await go('freezeTop'); return now === !was && X.S.frozen === was; },
+      gridlines: async () => { await go('gridlines'); const off = D.querySelector('.sx').classList.contains('no-grid'); await go('gridlines'); return off && !D.querySelector('.sx').classList.contains('no-grid'); },
+      formulaBar: async () => { await go('formulaBar'); const hidden = getComputedStyle(D.querySelector('.sx-fbar')).display === 'none'; await go('formulaBar'); return hidden; },
+      showFormulas: async () => { await go('showFormulas'); const shown = X.display(1, 5) === '=B2*2'; await go('showFormulas'); return shown && X.display(1, 5) !== '=B2*2'; },
+      insertRows: async () => { const n = doc().table.rows.length; X.select(3, 0); await go('insertRows'); return doc().table.rows.length === n + 1 && cell(3, 0) == null; },
+      insertRowsBelow: async () => { const n = doc().table.rows.length; X.select(3, 0); await go('insertRowsBelow'); return doc().table.rows.length === n + 1 && cell(4, 0) == null; },
+      deleteRows: async () => { const n = doc().table.rows.length; X.selectBox({ r0: 3, r1: 4, c0: 0, c1: 0 }); await go('deleteRows'); return doc().table.rows.length === n - 2; },
+      insertColumns: async () => { const n = doc().table.columns.length; X.select(1, 1); await go('insertColumns'); return doc().table.columns.length === n + 1 && cell(1, 1) == null; },
+      insertColumnsRight: async () => { const n = doc().table.columns.length; X.select(1, 1); await go('insertColumnsRight'); return doc().table.columns.length === n + 1 && cell(1, 2) == null; },
+      deleteColumns: async () => { const n = doc().table.columns.length; X.selectBox({ r0: 1, r1: 1, c0: 1, c1: 2 }); await go('deleteColumns'); return doc().table.columns.length === n - 2; },
+      autoSum: async () => { X.select(13, 2); await go('autoSum'); const text = X.S.editing?.text; X.commitEdit(); await sleep(60); return text === '=SUM(C2:C13)' && typeof cell(13, 2) === 'number'; },
+      insertFunction: async () => { const p = X.run('insertFunction'); await until(() => D.querySelector('.sx-fn-list')); D.querySelector('input[name="fn"][value="AVERAGE"]').checked = true; await okDialog(); await p; await sleep(60); const text = X.S.editing?.text; X.cancelEdit(); return text === '=AVERAGE('; },
+      bold: async () => { X.select(2, 2); await go('bold'); return fmt(2, 2).b === true; },
+      italic: async () => { await go('italic'); return fmt(2, 2).i === true; },
+      underline: async () => { await go('underline'); return fmt(2, 2).u === true; },
+      strike: async () => { await go('strike'); return fmt(2, 2).s === true && D.querySelector('.sx-cell[data-r="2"][data-c="2"]').classList.contains('s'); },
+      alignLeft: async () => { await go('alignLeft'); return fmt(2, 2).align === 'left'; },
+      alignCenter: async () => { await go('alignCenter'); return fmt(2, 2).align === 'center'; },
+      alignRight: async () => { await go('alignRight'); return fmt(2, 2).align === 'right'; },
+      formatCurrency: async () => { await go('formatCurrency'); return fmt(2, 2).fmt === 'currency' && /[₩$]/.test(X.display(2, 2)); },
+      formatPercent: async () => { await go('formatPercent'); return /%$/.test(X.display(2, 2)); },
+      formatThousands: async () => { await put(2, 2, '12345.678'); X.select(2, 2); await go('formatThousands'); return X.display(2, 2) === '12,345.68'; },
+      decimalMore: async () => { await go('decimalMore'); return X.display(2, 2) === '12,345.678'; },
+      decimalLess: async () => { await go('decimalLess'); await go('decimalLess'); return X.display(2, 2) === '12,345.7'; },
+      formatCustom: async () => { await put(2, 2, '-1234.5'); X.select(2, 2); const p = X.run('formatCustom'); await until(() => D.querySelector('[data-format-code]')); const box = D.querySelector('[data-format-code]'); box.value = '#,##0.00;[Red]-#,##0.00'; box.dispatchEvent(new W.Event('input', { bubbles: true })); const preview = D.querySelector('[data-format-preview]').textContent; await okDialog(); await p; await sleep(60); const c = D.querySelector('.sx-cell[data-r="2"][data-c="2"]'); const ok = X.display(2, 2) === '-1,234.50' && /rgb(217, 45, 32)/.test(c.getAttribute('style') ?? '') === false && /#d92d20/i.test(c.getAttribute('style') ?? '') && /1,234/.test(preview); await put(2, 2, '12345.678'); X.select(2, 2); await go('formatGeneral'); return ok; },
+      formatGeneral: async () => { await go('formatGeneral'); return X.display(2, 2) === '12345.678'; },
+      autofit: async () => { X.select(1, 0); await go('autofit'); return X.S.sheet.widths?.['0'] > 0; },
+      sortAsc: async () => { X.select(1, 3); await go('sortAsc'); const v = doc().table.rows.map((r) => r[3]).filter((x) => typeof x === 'number'); return v.every((x, i) => i === 0 || v[i - 1] <= x); },
+      sortDesc: async () => { X.select(1, 3); await go('sortDesc'); const v = doc().table.rows.map((r) => r[3]).filter((x) => typeof x === 'number'); return v.every((x, i) => i === 0 || v[i - 1] >= x); },
+      filter: async () => { await go('filter'); const on = X.S.filter.on && D.querySelectorAll('[data-filter-col]').length >= 3; X.S.filter.hidden = { 0: [X.display(2, 0)] }; await go('freezeTop'); await go('freezeTop'); return on; },
+      clearFilter: async () => { X.S.filter.hidden = { 0: [X.display(2, 0)] }; await go('filter'); await go('filter'); X.S.filter.hidden = { 0: [X.display(2, 0)] }; await go('zoom100'); X.S.filter.on = true; X.S.filter.hidden = { 0: [X.display(2, 0)] };
+        X.select(1, 0); X.openFilterMenu(0, D.querySelector('[data-filter-col="0"]') ?? D.body); D.querySelector('[data-fp="ok"]').click(); await sleep(60);
+        const hidden = !!X.S.vis; await go('clearFilter'); const ok = hidden && !X.S.vis; await go('filter'); return ok; },
+      chartRange: async () => { X.selectBox({ r0: 1, r1: 4, c0: 0, c1: 2 }); await go('chartRange'); await until(() => doc().chart.dataRange); const ok = doc().chart.dataRange.r0 === 0 && doc().chart.dataRange.r1 === 3; await A.run('clearDataRange'); return ok; },
+      saveFile: async () => { const p = X.run('saveFile'); await okDialog(); await p; await sleep(150); return downloads.at(-1)?.endsWith('.xlsx'); },
+      saveFileAs: async () => { const p = X.run('saveFileAs'); await until(() => D.querySelector('input[name="fmt"][value="csv"]')); D.querySelector('input[name="fmt"][value="csv"]').checked = true; await okDialog(); await p; await sleep(150); return downloads.at(-1)?.endsWith('.csv'); },
+      saveChart: async () => { const n = window.__downloads.length; await go('saveChart'); await until(() => window.__downloads.length > n); return window.__downloads.at(-1).name.endsWith('.mychart'); },
+      print: async () => { await go('print'); await until(() => pop('print')?.querySelector('.ps-table td')); const rows = pop('print').querySelectorAll('.print-sheet .ps-table tbody tr').length; await A.popups.close('print'); return rows >= 12; },
+      printSelection: async () => { X.selectBox({ r0: 1, r1: 3, c0: 0, c1: 1 }); await go('printSelection'); await until(() => pop('print')?.querySelector('.ps-table td')); const rows = pop('print').querySelectorAll('.print-sheet .ps-table tbody tr').length; await A.popups.close('print'); return rows === 3; },
+      makeChart: async () => { const n = A.state.docs.length; X.selectBox({ r0: 0, r1: 3, c0: 0, c1: 1 }); await go('makeChart'); await until(() => A.state.docs.length === n + 1); const ok = doc().table.rows.length === 3; await base(); return ok; },
+      newSheet: async () => { const n = A.state.docs.length; await go('newSheet'); await until(() => A.state.docs.length === n + 1 && X.S.docId === doc().id); return true; },
+      importReplace: async () => { await go('newSheet'); await until(() => doc().id !== baseId && X.S.docId === doc().id); W.__mychartmasterWebFiles = [{ name: 'scores.csv', content: bytes('${csv}') }]; await go('importReplace'); await until(() => doc().table.columns[0]?.name === 'Name'); const ok = doc().table.rows.length === 2; await base(); return ok; },
+      openFile: async () => { const n = A.state.docs.length; W.__mychartmasterWebFiles = [{ name: 'more.csv', content: bytes('${csv}') }]; await go('openFile'); await until(() => A.state.docs.length === n + 1); const ok = doc().table.columns[1].name === 'Score'; await base(); return ok; },
+      reconnect: async () => { await go('reconnect'); await until(() => X.S.connected && !X.S.waiting); return true; },
+      cancelEdit: async () => { X.select(1, 0); const v = cell(1, 0); X.beginEdit('enter', ''); X.editText('zzz'); await go('cancelEdit'); return !X.S.editing && cell(1, 0) === v; },
+      commitEdit: async () => { X.select(1, 0); X.beginEdit('enter', ''); X.editText('kept'); await go('commitEdit'); return !X.S.editing && doc().table.rows[0][0] === 'kept'; },
+      dock: async () => { await go('dock'); await sleep(150); return !A.sheetLink.open && !q('.ch-view').classList.contains('grid-detached'); },
+      closeWindow: async () => { W = await openSheet(); X = W.__mychartmasterSheet; D = W.document; hook(); await go('closeWindow'); await sleep(150); return !A.sheetLink.open; },
+    };
+    const ids = Object.keys(X.commands);
+    const unchecked = ids.filter((id) => !checks[id]);
+    const failed = [];
+    const order = [...Object.keys(checks).filter((id) => !['dock', 'closeWindow'].includes(id)), 'dock', 'closeWindow'];
+    for (const id of order) {
+      try {
+        if (id !== 'closeWindow') await base();
+        if (!(await checks[id]())) failed.push(id);
+      } catch (error) { failed.push(id + ': ' + (error?.message ?? error)); }
+    }
+    // Menus, toolbar and right-click menus name only existing commands; every menu opens.
+    W = await openSheet(); X = W.__mychartmasterSheet; D = W.document;
+    const missing = [...Object.values(X.menus).flat(), ...X.context, ...[...D.querySelectorAll('.sx-toolbar [data-cmd]')].map((b) => b.dataset.cmd)].filter((id) => id !== '-' && !X.commands[id]);
+    const menusOpen = [];
+    for (const m of Object.keys(X.menus)) { D.querySelector('[data-menu="' + m + '"]').click(); await sleep(30); menusOpen.push(D.querySelectorAll('.sx-pop .sx-mi').length === X.menus[m].filter((x) => x !== '-').length); D.body.click(); }
+    D.querySelector('.sx-body').dispatchEvent(new W.MouseEvent('contextmenu', { bubbles: true, clientX: 300, clientY: 300 })); await sleep(30);
+    const context = D.querySelectorAll('.sx-pop .sx-mi').length === X.context.filter((x) => x !== '-').length;
+    D.body.click();
+    // Shortcuts reach their commands.
+    const ed = X.el().editor;
+    const kd = (k, code, extra = {}) => ed.dispatchEvent(new W.KeyboardEvent('keydown', { key: k, code, bubbles: true, cancelable: true, ...extra }));
+    X.select(2, 1); kd('b', 'KeyB', { ctrlKey: true }); await sleep(60); const kb = fmt(2, 1).b === true;
+    kd('z', 'KeyZ', { ctrlKey: true }); await sleep(250); const kz = !X.S.sheet.formats?.['2,1']?.b;
+    kd('\`', 'Backquote', { ctrlKey: true }); const kf = X.S.showFormulas; kd('\`', 'Backquote', { ctrlKey: true });
+    kd('L', 'KeyL', { ctrlKey: true, shiftKey: true }); const kl = X.S.filter.on; kd('L', 'KeyL', { ctrlKey: true, shiftKey: true });
+    kd('a', 'KeyA', { ctrlKey: true }); const ka = X.sel().r1 >= 12;
+    await closeSheet();
+    return { unchecked, failed, missing, menusOpen, context, keys: { kb, kz, kf, kl, ka } };`);
+  assert(!r.unchecked.length, `commands without a check: ${r.unchecked.join(', ')}`);
+  assert(!r.failed.length, `failed: ${r.failed.join(' | ')}`);
+  assert(!r.missing.length, `menu or toolbar names unknown commands: ${r.missing.join(', ')}`);
+  assert(r.menusOpen.every(Boolean) && r.context, `menus ${JSON.stringify(r.menusOpen)} context ${r.context}`);
+  assert(Object.values(r.keys).every(Boolean), `shortcuts ${JSON.stringify(r.keys)}`);
+});
+
+test('sheet.noLimit', 'No limit on rows: a 150 001-row file is read whole, and the editor reaches and filters every row', async () => {
+  await closeAll();
+  const r = await sheetRun(`const lines = ['Id,Group,Value']; for (let i = 0; i < 150001; i++) lines.push(i + ',G' + (i % 1500) + ',' + (i % 97));
+    await A.actions.openBytes('big.csv', new TextEncoder().encode(lines.join(String.fromCharCode(10))));
+    await until(() => doc()?.table.rows.length > 0, 90000);
+    const rows = doc().table.rows.length;
+    const W = await openSheet(); const X = W.__mychartmasterSheet; const ed = X.el().editor;
+    await until(() => X.S.cells.length === rows + 1, 90000);
+    ed.dispatchEvent(new W.KeyboardEvent('keydown', { key: 'End', code: 'End', ctrlKey: true, bubbles: true, cancelable: true })); await sleep(100);
+    const end = X.S.active.r;
+    await X.run('filter'); X.openFilterMenu(1, W.document.querySelector('[data-filter-col="1"]') ?? W.document.body);
+    const values = W.document.querySelectorAll('.sx-filter-pop [data-fp-value]').length;
+    W.document.querySelector('[data-fp="cancel"]').click();
+    X.selectBox({ r0: 1, r1: rows, c0: 2, c1: 2 }); await sleep(100);
+    const status = W.document.querySelector('.sx-stats')?.textContent ?? '';
+    await closeSheet();
+    return { rows, end, values, status };`);
+  assert(r.rows === 150001, `${r.rows} rows read`);
+  assert(r.end === 150001, `Ctrl+End went to row ${r.end + 1}`);
+  assert(r.values === 1500, `${r.values} filter values`);
+  assert(/150,?001/.test(r.status), `status ${r.status}`);
+});
+
+// ───────────────────────── picking chart elements, chart themes, panel width, dropdowns, print layout, tab rows
+
+test('chart.pick', 'Every element of the chart can be picked and edited on its own, always with a colour', async () => {
+  await closeAll();
+  await openSample('monthly-sales');
+  const r = await run(`A.actions.setOption('dataLabels', true); A.actions.setOption('xTitle', 'Month'); await sleep(200);
+    const click = (el) => { el.dispatchEvent(new MouseEvent('click', { bubbles: true })); };
+    const out = {};
+    const parts = { title: '.chart-title', subtitle: '.chart-subtitle', legend: 'g.legend .legend-box', axisTitle: '.axis-title', axis: '.tick, .cat', grid: '.grid', labels: '.data-label', background: '.chart-bg' };
+    for (const [kind, sel] of Object.entries(parts)) {
+      const el = q('.ch-canvas ' + sel.split(', ').join(', .ch-canvas '));
+      if (!el) { out[kind] = 'missing'; continue; }
+      click(el); await sleep(80);
+      const part = doc().selection.part;
+      out[kind] = { kind: part?.kind, section: !!q('.ins-picked'), color: !!q('.ins-picked input[type="color"]'), outlined: qa('.ch-canvas .picked').length > 0 };
+    }
+    // One bar: its own colour, outline and opacity; the rest of the series keeps its colour.
+    click(q('.ch-canvas .mark[data-s="0"][data-r="2"]')); await sleep(80);
+    const fill = q('.ins-picked [data-point-opt="fill"]');
+    fill.value = '#ff0000'; fill.dispatchEvent(new Event('input', { bubbles: true })); fill.dispatchEvent(new Event('change', { bubbles: true }));
+    const width = q('.ins-picked [data-point-opt="strokeWidth"]'); width.value = '3'; width.dispatchEvent(new Event('change', { bubbles: true }));
+    await sleep(120);
+    const bar = q('.ch-canvas .mark[data-s="0"][data-r="2"]').getAttribute('style') ?? '';
+    const other = q('.ch-canvas .mark[data-s="0"][data-r="3"]').getAttribute('style') ?? '';
+    const saved = JSON.parse(doc().serialize()).chart.options.pointStyles;
+    // Title colour from its section.
+    click(q('.ch-canvas .chart-title')); await sleep(80);
+    const tc = q('.ins-picked input[type="color"][data-opt="titleColor"]'); tc.value = '#00aa00'; tc.dispatchEvent(new Event('change', { bubbles: true })); await sleep(120);
+    const titleFill = q('.ch-canvas .chart-title').getAttribute('fill');
+    q('.ins-picked [data-ins-action="unpick"]').click(); await sleep(60);
+    A.actions.undo(); A.actions.undo(); A.actions.undo();
+    return { out, bar, other, saved, titleFill, cleared: !q('.ins-picked') && !doc().selection.part };`);
+  for (const [kind, v] of Object.entries(r.out)) assert(v.kind === kind && v.section && v.color && v.outlined, `${kind}: ${JSON.stringify(v)}`);
+  assert(/fill:#ff0000/.test(r.bar) && /stroke-width:3px/.test(r.bar) && !/ff0000/.test(r.other), `bar ${r.bar} / ${r.other}`);
+  assert(r.saved?.['0:2']?.fill === '#ff0000', 'the bar\'s own style is not saved');
+  assert(/#00aa00/i.test(r.titleFill ?? ''), `title ${r.titleFill}`);
+  assert(r.cleared, 'unpick');
+});
+
+test('theme.tiles', 'Chart themes in the Style tab: light and dark grouped (same number), a click applies at once, a custom theme of your own', async () => {
+  await closeAll();
+  await openSample('monthly-sales');
+  const r = await run(`A.api.setInspectorTab('style'); await sleep(100);
+    const groups = qa('.ins-theme-group').map((g) => [g.dataset.themeKind, g.querySelectorAll('.ins-theme-tile').length]);
+    const label = q('.ins-row-stack > .ins-label'); const grid = q('.ins-row-stack .ins-theme-grid');
+    const above = label.getBoundingClientRect().bottom <= grid.getBoundingClientRect().top + 1;
+    q('[data-ins-theme="ember"]').click(); await sleep(150);
+    const ember = doc().chart.options.chartTheme;
+    q('[data-ins-theme="custom"]').click(); await sleep(150);
+    const custom = doc().chart.options.chartTheme;
+    const box = q('[data-custom-theme="bg"]'); box.value = '#123456'; box.dispatchEvent(new Event('change', { bubbles: true })); await sleep(120);
+    A.actions.setOption('background', 'chart'); await sleep(120);
+    const paper = q('.ch-canvas .chart-bg')?.getAttribute('fill');
+    const saved = JSON.parse(doc().serialize()).chart.options.customTheme?.bg;
+    return { groups, above, ember, custom, paper, saved };`);
+  const counts = Object.fromEntries(r.groups);
+  assert(counts.light >= 25 && counts.light === counts.dark && counts.custom === 1, JSON.stringify(r.groups));
+  assert(r.above, 'the label is not above the themes');
+  assert(r.ember === 'ember' && r.custom === 'custom', `${r.ember} ${r.custom}`);
+  assert(/#123456/i.test(r.paper ?? '') && r.saved === '#123456', `custom paper ${r.paper} ${r.saved}`);
+});
+
+test('inspector.minWidth', 'The right panel never gets narrower than its controls: no control wraps or is cut (labels end in …)', async () => {
+  await closeAll();
+  const bad = [];
+  for (const lang of ['ko', 'en']) {
+    for (const sample of ['monthly-sales', 'revenue-profit-combo']) {
+      await run(`A.actions.updateSettings({ language: '${lang}' }); return 1;`);
+      await openSample(sample);
+      const r = await run(`A.actions.updateSettings({ rightWidth: 150 }); await sleep(120); const out = [];
+        for (const tab of ['data', 'style', 'axes', 'series', 'more']) { A.api.setInspectorTab(tab); await sleep(80);
+          for (const row of qa('.ch-inspector-body .ins-row')) { const c = row.querySelector(':scope > .ins-control'); if (!c || !row.offsetParent) continue;
+            if (c.scrollWidth > c.clientWidth + 1) out.push(tab + ':' + row.title);
+            for (const seg of c.querySelectorAll('.segmented')) if (new Set([...seg.children].map((k) => Math.round(k.getBoundingClientRect().top))).size > 1) out.push(tab + ' wraps:' + row.title); } }
+        return { out, width: q('.ch-inspector').getBoundingClientRect().width, ellipsis: getComputedStyle(q('.ins-label')).textOverflow };`);
+      assert(r.width >= 330 && r.ellipsis === 'ellipsis', `${lang} width ${r.width} ${r.ellipsis}`);
+      bad.push(...r.out.map((x) => `${lang} ${sample} ${x}`));
+    }
+  }
+  await run(`A.actions.updateSettings({ language: 'en', rightWidth: 330 }); return 1;`);
+  assert(!bad.length, bad.slice(0, 6).join(' | '));
+});
+
+test('dropdown.fits', 'A dropdown list always shows whole inside the window, also in a small window near its edge', async () => {
+  await closeAll();
+  await openSample('monthly-sales');
+  const r = await run(`A.api.setInspectorTab('style'); await sleep(100);
+    const sel = qa('.ch-inspector-body select').at(-1); sel.scrollIntoView({ block: 'end' }); await sleep(80);
+    sel.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 })); await sleep(150);
+    const list = q('.dd-list'); if (!list) return { open: false };
+    const rect = list.getBoundingClientRect();
+    return { open: true, inside: rect.top >= 0 && rect.bottom <= innerHeight && rect.left >= 0 && rect.right <= innerWidth, scrolls: list.scrollHeight <= list.clientHeight + 1 || getComputedStyle(list).overflowY === 'auto' };`);
+  await run(`document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 })); return 1;`);
+  assert(r.open, 'the dropdown did not open');
+  assert(r.inside && r.scrolls, JSON.stringify(r));
+});
+
+test('print.layout', 'The print window: every setting in one column, the preview right beside it', async () => {
+  await closeAll();
+  await openSample('monthly-sales');
+  const r = await run(`A.run('print'); await until(() => pop('print')?.querySelector('.print-preview .pp-stage, .print-preview'));
+    await sleep(300); const p = pop('print');
+    const cols = [...p.querySelectorAll('.print-column')].map((c) => Math.round(c.getBoundingClientRect().left));
+    const options = p.querySelector('.print-options').getBoundingClientRect(); const preview = p.querySelector('.print-preview').getBoundingClientRect();
+    return { sameLeft: new Set(cols).size === 1, beside: Math.abs(preview.left - options.right) <= 2, scroll: p.querySelector('.print-options').scrollHeight <= p.querySelector('.print-options').clientHeight + 1 };`);
+  await run('await A.popups.closeAll(); return 1;');
+  assert(r.sameLeft && r.beside && r.scroll, JSON.stringify(r));
+});
+
+test('chrome.tabsNav', 'Any number of chart tabs: "<" ">" at the right end of the tab row scroll it', async () => {
+  await closeAll();
+  const r = await run(`for (let i = 0; i < 14; i++) A.actions.openSample(A.domain.SAMPLES[i].id); await sleep(400);
+    const nav = qa('#tabs [data-tabs-scroll]'); const strip = q('#tabs .tab-strip');
+    const right = nav[1].getBoundingClientRect().right; const row = q('#tabs').getBoundingClientRect().right;
+    const before = strip.scrollLeft; nav[0].click(); await sleep(500); const moved = strip.scrollLeft < before;
+    const activeVisible = (() => { const a = q('#tabs .tab.active').getBoundingClientRect(); const s = strip.getBoundingClientRect(); return a.left >= s.left - 1 && a.right <= s.right + 1; })();
+    return { count: nav.length, atRight: row - right < 12, moved, overflow: strip.scrollWidth > strip.clientWidth };`);
+  assert(r.count === 2 && r.atRight && r.overflow && r.moved, JSON.stringify(r));
 });
 
 /** One case per chart command: what it must change on the open chart. */

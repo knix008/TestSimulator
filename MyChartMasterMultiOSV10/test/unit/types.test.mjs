@@ -81,8 +81,8 @@ test('the roles of the new kinds are found by themselves', () => {
   assert.equal(chartType('bullet').roles.at(-1).id, 'goal');
 });
 
-test('chart themes: 21 of them, each draws every kind; the theme sets font, grid dash and palette', () => {
-  assert.ok(CHART_THEMES.length >= 20);
+test('chart themes: 42 of them, each draws every kind; the theme sets font, grid dash and palette', () => {
+  assert.ok(CHART_THEMES.length >= 42);
   for (const id of CHART_THEME_IDS) {
     const ct = chartTheme(id);
     assert.ok(palette(ct.palette).colors.length >= 6, id);

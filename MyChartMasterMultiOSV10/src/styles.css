@@ -131,8 +131,8 @@ html.is-popup #app { min-width: 0; display: block; }
 .icon-button:disabled { opacity: 0.35; cursor: default; }
 .icon-button.active { color: var(--accent); }
 .tab-add { align-self: center; }
-.tab-nav { display: none; align-items: center; gap: 2px; margin-left: auto; padding-left: 6px; border-left: 1px solid var(--border); }
-#tabs.overflow .tab-nav { display: inline-flex; }
+.tab-nav { display: inline-flex; flex: none; align-items: center; gap: 2px; margin-left: auto; padding-left: 6px; border-left: 1px solid var(--border); }
+.tab-strip { scroll-behavior: smooth; }
 .tab-scroll:disabled { opacity: 0.35; cursor: default; }
 
 /* workspace: left panel | splitter | center | splitter | right panel */
@@ -1736,3 +1736,9 @@ select.dd-select { background-repeat: no-repeat; background-position: 8px center
 .dt-groups .icon-group { display: block; }
 .dt-groups .icon-group > h3 { margin: 0 0 3px; }
 .icon-tile { width: 50px; height: 38px; }
+
+/* Print window: every setting in one column, the page preview right beside it (user's layout). */
+.print-view { grid-template-columns: 330px minmax(0, 1fr); }
+.print-options { grid-template-columns: minmax(0, 1fr); gap: 0; align-content: start; }
+.print-options .print-column { gap: 6px; }
+.print-options .print-column + .print-column { margin-top: 6px; }

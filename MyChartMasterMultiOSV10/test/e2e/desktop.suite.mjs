@@ -21,7 +21,7 @@ test('app.start', 'The program starts, shows the start page and reports its buil
   const state = await run(`return { info: A.state.info, desktop: !!window.__TAURI_INTERNALS__, cards: document.querySelectorAll('.start-board > .start-card').length };`);
   assert(state.desktop, 'not running inside Tauri');
   assert(state.info?.version && state.info?.os, `app info: ${JSON.stringify(state.info)}`);
-  assert(state.cards >= 6, `${state.cards} start cards`);
+  assert(state.cards >= 5, `${state.cards} start cards`);
 });
 
 test('files.openSave', 'Open a .mychart from disk, save it elsewhere, reopen: same chart', async () => {

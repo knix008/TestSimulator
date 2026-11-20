@@ -3,7 +3,7 @@
 // A2 the table's first data row. Ranges (B2:D9, whole columns B:D), absolute parts ($B$2), the usual operators
 // (+ − * / ^ & % and comparisons) and about a hundred functions. Errors are values (#DIV/0!, #REF!, #NAME? …)
 // that flow through the calculation; a cell that reads itself (directly or around a loop) is #CIRC!.
-import { columnLetter, parseDate, parseNumber } from './table.js';
+import { columnLetter, maxOf, minOf, parseDate, parseNumber } from './table.js';
 
 export const ERRORS = ['#NULL!', '#DIV/0!', '#VALUE!', '#REF!', '#NAME?', '#NUM!', '#N/A', '#CIRC!'];
 export class FormulaError {
@@ -428,8 +428,8 @@ const FUNCTIONS = {
   SUM: (a) => { const xs = numbers(a); return isError(xs) ? xs : xs.reduce((x, y) => x + y, 0); },
   PRODUCT: (a) => { const xs = numbers(a); return isError(xs) ? xs : xs.reduce((x, y) => x * y, 1); },
   AVERAGE: (a) => { const xs = numbers(a); return isError(xs) ? xs : xs.length ? xs.reduce((x, y) => x + y, 0) / xs.length : err('#DIV/0!'); },
-  MIN: (a) => { const xs = numbers(a); return isError(xs) ? xs : xs.length ? Math.min(...xs) : 0; },
-  MAX: (a) => { const xs = numbers(a); return isError(xs) ? xs : xs.length ? Math.max(...xs) : 0; },
+  MIN: (a) => { const xs = numbers(a); return isError(xs) ? xs : xs.length ? minOf(xs) : 0; },
+  MAX: (a) => { const xs = numbers(a); return isError(xs) ? xs : xs.length ? maxOf(xs) : 0; },
   COUNT: (a) => flat(a).filter(({ v, fromRange }) => (fromRange ? typeof v === 'number' : !isError(num(v)) && !blank(v))).length,
   COUNTA: (a) => flat(a).filter(({ v }) => !blank(v) && !(v && v.missing)).length,
   COUNTBLANK: (a) => flat(a).filter(({ v }) => blank(v)).length,
@@ -493,8 +493,8 @@ const FUNCTIONS = {
   COUNTIFS: (rest) => { const pairs = []; for (let i = 0; i + 1 < rest.length; i += 2) pairs.push([rest[i], rest[i + 1]]); return matchAll(pairs).filter(Boolean).length; },
   AVERAGEIF: ([range, crit, avgRange]) => { const ok = matchAll([[range, crit]]); const vs = cells(avgRange && !avgRange.missing ? avgRange : range); const xs = vs.filter((v, i) => ok[i] && typeof v === 'number'); return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : err('#DIV/0!'); },
   AVERAGEIFS: ([avgRange, ...rest]) => { const pairs = []; for (let i = 0; i + 1 < rest.length; i += 2) pairs.push([rest[i], rest[i + 1]]); const ok = matchAll(pairs); const xs = cells(avgRange).filter((v, i) => ok[i] && typeof v === 'number'); return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : err('#DIV/0!'); },
-  MAXIFS: ([r, ...rest]) => { const pairs = []; for (let i = 0; i + 1 < rest.length; i += 2) pairs.push([rest[i], rest[i + 1]]); const ok = matchAll(pairs); const xs = cells(r).filter((v, i) => ok[i] && typeof v === 'number'); return xs.length ? Math.max(...xs) : 0; },
-  MINIFS: ([r, ...rest]) => { const pairs = []; for (let i = 0; i + 1 < rest.length; i += 2) pairs.push([rest[i], rest[i + 1]]); const ok = matchAll(pairs); const xs = cells(r).filter((v, i) => ok[i] && typeof v === 'number'); return xs.length ? Math.min(...xs) : 0; },
+  MAXIFS: ([r, ...rest]) => { const pairs = []; for (let i = 0; i + 1 < rest.length; i += 2) pairs.push([rest[i], rest[i + 1]]); const ok = matchAll(pairs); const xs = cells(r).filter((v, i) => ok[i] && typeof v === 'number'); return xs.length ? maxOf(xs) : 0; },
+  MINIFS: ([r, ...rest]) => { const pairs = []; for (let i = 0; i + 1 < rest.length; i += 2) pairs.push([rest[i], rest[i + 1]]); const ok = matchAll(pairs); const xs = cells(r).filter((v, i) => ok[i] && typeof v === 'number'); return xs.length ? minOf(xs) : 0; },
   // ── lookup
   VLOOKUP: ([needle, table, col, approx]) => {
     if (!table?.range) return err('#REF!');
@@ -684,8 +684,8 @@ export function recalc(cells, formulas) {
   const busy = new Set();
   // Whole-column ranges reach the last row that has a value or a formula.
   const keyed = keys.map((k) => k.split(',').map(Number));
-  const maxRow = Math.max(out.length, ...keyed.map(([r]) => r + 1));
-  const maxCol = Math.max(0, ...out.map((r) => r.length), ...keyed.map(([, c]) => c + 1));
+  const maxRow = maxOf(keyed.map(([r]) => r + 1), out.length);
+  const maxCol = maxOf(keyed.map(([, c]) => c + 1), maxOf(out.map((r) => r.length), 0));
   const rows = () => maxRow;
   const width = () => maxCol;
   const trees = new Map();

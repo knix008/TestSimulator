@@ -119,6 +119,72 @@ export const CHART_THEMES = [
   T('neonDark', '네온', 'Neon', '#0a0a0a', '#f5f5f5', '#a3a3a3', 'rgba(255,255,255,0.08)', 'rgba(255,255,255,0.3)', 'neon'),
   T('blueprint', '청사진', 'Blueprint', '#0b3d91', '#e0ecff', '#a9c3f0', 'rgba(224,236,255,0.25)', 'rgba(224,236,255,0.6)', 'candy', { font: "Consolas, 'D2Coding', monospace", gridDash: '3 3' }),
   T('chalkboard', '칠판', 'Chalkboard', '#1f3a2e', '#f1f5f9', '#c7d2c9', 'rgba(241,245,249,0.15)', 'rgba(241,245,249,0.45)', 'candy', { font: "'Comic Sans MS', 'Nanum Pen Script', cursive", gridDash: '6 4' }),
+  // more light themes
+  T('rose', '장미', 'Rose', '#fff1f2', '#881337', '#9f1239', 'rgba(136,19,55,0.1)', 'rgba(136,19,55,0.4)', 'berry'),
+  T('lavender', '라벤더', 'Lavender', '#f5f3ff', '#4c1d95', '#6d28d9', 'rgba(76,29,149,0.1)', 'rgba(76,29,149,0.4)', 'pastel'),
+  T('mint', '민트', 'Mint', '#f0fdfa', '#134e4a', '#0f766e', 'rgba(19,78,74,0.1)', 'rgba(19,78,74,0.4)', 'ocean'),
+  T('sand', '모래', 'Sand', '#faf6ec', '#4a3f2a', '#8a7a5c', 'rgba(74,63,42,0.12)', 'rgba(74,63,42,0.4)', 'earth'),
+  T('sky', '하늘', 'Sky', '#eff6ff', '#1e3a8a', '#3b5bdb', 'rgba(30,58,138,0.1)', 'rgba(30,58,138,0.4)', 'cool'),
+  T('citrus', '시트러스', 'Citrus', '#fefce8', '#3f3a0b', '#7a6f1a', 'rgba(63,58,11,0.1)', 'rgba(63,58,11,0.4)', 'warm'),
+  T('tableau', '태블로', 'Tableau', '#ffffff', '#333333', '#777777', 'rgba(0,0,0,0.08)', 'rgba(0,0,0,0.35)', 'tableau'),
+  T('academic', '논문', 'Academic', '#ffffff', '#000000', '#444444', 'rgba(0,0,0,0.15)', '#000000', 'category10', { font: "'Times New Roman', 'Batang', serif", gridDash: '1 3' }),
+  T('minimal', '미니멀', 'Minimal', '#ffffff', '#374151', '#9ca3af', 'rgba(0,0,0,0.05)', 'rgba(0,0,0,0.2)', 'mono'),
+  T('candy', '사탕', 'Candy', '#fff7fb', '#6b2147', '#a0577e', 'rgba(107,33,71,0.1)', 'rgba(107,33,71,0.35)', 'candy'),
+  T('retro', '레트로', 'Retro', '#f4ecd8', '#3e2f1c', '#7d6748', 'rgba(62,47,28,0.14)', 'rgba(62,47,28,0.45)', 'retro', { font: "'Courier New', 'D2Coding', monospace" }),
+  T('highContrast', '고대비', 'High contrast', '#ffffff', '#000000', '#000000', 'rgba(0,0,0,0.25)', '#000000', 'colorblind'),
+  // more dark themes
+  T('charcoal', '숯', 'Charcoal', '#262626', '#f5f5f5', '#a3a3a3', 'rgba(245,245,245,0.1)', 'rgba(245,245,245,0.35)', 'vivid'),
+  T('deepSea', '심해', 'Deep sea', '#071a2b', '#d6ecff', '#7fa8c9', 'rgba(214,236,255,0.1)', 'rgba(214,236,255,0.35)', 'ocean'),
+  T('nightForest', '밤 숲', 'Night forest', '#0f1f17', '#e3f1e8', '#8fb39c', 'rgba(227,241,232,0.1)', 'rgba(227,241,232,0.35)', 'forest'),
+  T('ember', '잉걸불', 'Ember', '#1c1210', '#ffe8dc', '#c79a86', 'rgba(255,232,220,0.1)', 'rgba(255,232,220,0.35)', 'sunset'),
+  T('plum', '자두', 'Plum', '#2a1630', '#f6e8fb', '#c3a3cf', 'rgba(246,232,251,0.1)', 'rgba(246,232,251,0.35)', 'berry'),
+  T('terminal', '터미널', 'Terminal', '#000000', '#33ff66', '#1fae47', 'rgba(51,255,102,0.15)', 'rgba(51,255,102,0.45)', 'neon', { font: "Consolas, 'D2Coding', monospace" }),
+  T('officeDark', '오피스 어둡게', 'Office dark', '#1f1f1f', '#f0f0f0', '#a6a6a6', 'rgba(240,240,240,0.1)', 'rgba(240,240,240,0.35)', 'office'),
+  T('coffee', '커피', 'Coffee', '#2b211b', '#f3e9df', '#bfa995', 'rgba(243,233,223,0.1)', 'rgba(243,233,223,0.35)', 'earth'),
+  T('graphite', '흑연', 'Graphite', '#1b1d22', '#e6e8ec', '#9aa1ad', 'rgba(230,232,236,0.1)', 'rgba(230,232,236,0.35)', 'cool'),
+  T('aurora', '오로라', 'Aurora', '#0b1622', '#e6fff7', '#8cc7b5', 'rgba(230,255,247,0.1)', 'rgba(230,255,247,0.35)', 'forest'),
+  T('wine', '와인', 'Wine', '#240b12', '#fbe9ee', '#c9909e', 'rgba(251,233,238,0.1)', 'rgba(251,233,238,0.35)', 'berry'),
+  T('navy', '남색', 'Navy', '#0a1931', '#e3ecff', '#8fa7d6', 'rgba(227,236,255,0.1)', 'rgba(227,236,255,0.35)', 'corporate'),
+  T('tableauDark', '태블로 어둡게', 'Tableau dark', '#1e1e1e', '#eeeeee', '#9e9e9e', 'rgba(238,238,238,0.1)', 'rgba(238,238,238,0.35)', 'tableau'),
+  T('pastelDark', '파스텔 어둡게', 'Pastel dark', '#22212b', '#f1eff8', '#b5b1c9', 'rgba(241,239,248,0.1)', 'rgba(241,239,248,0.35)', 'pastel'),
+  T('desertNight', '사막의 밤', 'Desert night', '#231a12', '#fdf1e1', '#c9ad8c', 'rgba(253,241,225,0.1)', 'rgba(253,241,225,0.35)', 'warm'),
+  T('highContrastDark', '고대비 어둡게', 'High contrast dark', '#000000', '#ffffff', '#ffffff', 'rgba(255,255,255,0.3)', '#ffffff', 'colorblind'),
+  T('cyberpunk', '사이버펑크', 'Cyberpunk', '#120424', '#fdf0ff', '#c79ae0', 'rgba(253,240,255,0.1)', 'rgba(253,240,255,0.35)', 'neon', { gridDash: '2 4' }),
 ];
 export const CHART_THEME_IDS = CHART_THEMES.map((t) => t.id);
-export const chartTheme = (id) => CHART_THEMES.find((t) => t.id === id) ?? CHART_THEMES[0];
+/** Whether a chart theme has a dark paper (relative luminance under 0.35). */
+export function isDarkChartTheme(theme) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(theme.bg ?? '');
+  if (!m) return false;
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.35;
+}
+/** The chart themes grouped: light papers, then dark ones (the Style tab shows them so). */
+export const LIGHT_CHART_THEMES = CHART_THEMES.filter((t) => !isDarkChartTheme(t));
+export const DARK_CHART_THEMES = CHART_THEMES.filter((t) => isDarkChartTheme(t));
+/** The colours a custom chart theme sets (the Style tab edits them); the rest come from the classic theme. */
+export const CUSTOM_THEME_KEYS = ['bg', 'text', 'muted', 'grid', 'axis', 'palette', 'font'];
+const HEX = /^#[0-9a-f]{6}$/i;
+/** The custom chart theme of a chart's options (options.customTheme), complete. */
+export function customChartTheme(custom = {}) {
+  const base = CHART_THEMES[0];
+  const pick = (key) => (key === 'palette' ? (PALETTES.some((p) => p.id === custom.palette) ? custom.palette : base.palette) : key === 'font' ? String(custom.font ?? '') : HEX.test(String(custom[key] ?? '')) ? custom[key] : base[key]);
+  const theme = { id: 'custom', ko: '사용자 설정', en: 'Custom', ...Object.fromEntries(CUSTOM_THEME_KEYS.map((key) => [key, pick(key)])) };
+  if (!theme.font) delete theme.font;
+  return theme;
+}
+/** A theme colour as #rrggbb for a colour box: rgba() is blended over the paper it is drawn on. */
+export function colorBoxValue(color, paper = '#ffffff') {
+  const value = String(color ?? '').trim();
+  if (/^#[0-9a-f]{6}$/i.test(value)) return value.toLowerCase();
+  if (/^#[0-9a-f]{3}$/i.test(value)) return `#${value.slice(1).split('').map((ch) => ch + ch).join('')}`.toLowerCase();
+  const m = /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)$/i.exec(value);
+  if (!m) return '#000000';
+  const a = m[4] == null ? 1 : Number(m[4]);
+  const p = /^#([0-9a-f]{6})$/i.exec(paper)?.[1] ?? 'ffffff';
+  const under = [0, 2, 4].map((i) => parseInt(p.slice(i, i + 2), 16));
+  return `#${[1, 2, 3].map((k, i) => Math.round(Number(m[k]) * a + under[i] * (1 - a)).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/** A chart theme by id; 'custom' is the chart's own (options.customTheme). */
+export const chartTheme = (id, options = null) => (id === 'custom' ? customChartTheme(options?.customTheme) : CHART_THEMES.find((t) => t.id === id) ?? CHART_THEMES[0]);

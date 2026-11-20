@@ -2,7 +2,7 @@
 export const SHEET_ICONS = {
   // A grid lifting out of the panel into a window of its own / settling back into it.
   detachWindow: '<rect x="3" y="9" width="12" height="12" rx="1.5"/><path d="M3 13h12M7 9v12"/><path d="M11 3h10v10"/><path d="M21 3l-8 8"/>',
-  attachWindow: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15h18M9 15v6M15 15v6"/><path d="M15 4v7H8"/><path d="M15 11l-6-6"/>',
+  attachWindow: '<rect x="3" y="9" width="12" height="12" rx="1.5"/><path d="M3 13h12M7 9v12"/><path d="M21 3l-8 8"/><path d="M13 4v7h7"/>',
   sheetWindow: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 8h18M3 13h18M3 18h18M8 3v18M14 3v18"/>',
   autoSum: '<path d="M18 5H6l6 7-6 7h12"/>',
   functionIcon: '<path d="M14 4h-1.5a2.5 2.5 0 0 0-2.5 2.5V19a2 2 0 0 1-2 2H6"/><path d="M7 10h7"/><path d="M15 13l5 6M20 13l-5 6"/>',

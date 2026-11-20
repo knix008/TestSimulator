@@ -53,6 +53,7 @@ const xmlEsc = (text) => String(text).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;'
 /** Excel number format codes for the data window's formats (formula.js formatValue). */
 function numberFormatCode(fmt) {
   if (!fmt?.type || fmt.type === 'general') return null;
+  if (fmt.type === 'custom') return fmt.code && !/^general$/i.test(fmt.code) ? fmt.code : null;
   const decimals = fmt.decimals ?? (fmt.type === 'percent' ? 0 : 2);
   const tail = decimals > 0 ? `.${'0'.repeat(decimals)}` : '';
   switch (fmt.type) {
@@ -96,7 +97,7 @@ export async function toXlsx(table, { sheetName = 'Data', sheet = null } = {}) {
       const fontId = pick(fonts, font);
       const fillColor = argb(f.fill);
       const fillId = fillColor ? pick(fills, `<fill><patternFill patternType="solid"><fgColor rgb="${fillColor}"/><bgColor indexed="64"/></patternFill></fill>`) : 0;
-      const code = numberFormatCode({ type: f.fmt, decimals: f.dec, symbol: f.sym });
+      const code = numberFormatCode({ type: f.fmt, decimals: f.dec, symbol: f.sym, code: f.code });
       let numFmtId = 0;
       if (code) { let k = numFmts.indexOf(code); if (k < 0) { numFmts.push(code); k = numFmts.length - 1; } numFmtId = 164 + k; }
       const align = ['left', 'center', 'right'].includes(f.align) ? `<alignment horizontal="${f.align}"/>` : '';

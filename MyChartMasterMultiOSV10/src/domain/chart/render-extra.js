@@ -5,7 +5,7 @@
 // relations (chord, arc diagram, network, tree), finance and time (price band, Bollinger, Gantt, timeline) and
 // indicators (gauge grid, linear gauge, KPI cards). Pure SVG text like render.js; the shared pieces come from KIT.
 import { KIT, fitText, formatValue, linearFit, niceTicks, squarify, textWidth } from './render.js';
-import { labelsOf, numbersOf, parseDate, parseNumber, quantile } from '../data/table.js';
+import { labelsOf, maxOf, minOf, numbersOf, parseDate, parseNumber, quantile } from '../data/table.js';
 import { darken, lighten, mix, rampColor, readableOn, seriesColor } from './palettes.js';
 
 const fmt = (ctx, v, opts) => formatValue(v, ctx.o, ctx.lang, opts);
@@ -51,14 +51,14 @@ function drawDumbbell(ctx, plot, data) {
   const series = KIT.visible(data.series);
   if (!needSeries(ctx, plot, series)) return;
   const all = series.flatMap((s) => fin(s.values));
-  const ax = KIT.axes(ctx, plot, { categories: data.categories, min: Math.min(...all), max: Math.max(...all), horizontal: true, forceZero: false });
+  const ax = KIT.axes(ctx, plot, { categories: data.categories, min: minOf([...all]), max: maxOf([...all]), horizontal: true, forceZero: false });
   data.categories.forEach((cat, i) => {
     const vals = series.map((s) => s.values[i]).filter((v) => v != null);
     if (!vals.length) return;
     const y = ax.band.center(i);
-    out.push(`<line x1="${r2(ax.vs.map(Math.min(...vals)))}" x2="${r2(ax.vs.map(Math.max(...vals)))}" y1="${r2(y)}" y2="${r2(y)}" stroke="${ctx.colors.axis}" stroke-width="${r2(3 * fs)}" stroke-linecap="round"/>`);
+    out.push(`<line x1="${r2(ax.vs.map(minOf([...vals])))}" x2="${r2(ax.vs.map(maxOf([...vals])))}" y1="${r2(y)}" y2="${r2(y)}" stroke="${ctx.colors.axis}" stroke-width="${r2(3 * fs)}" stroke-linecap="round"/>`);
     for (const s of series) if (s.values[i] != null) out.push(KIT.mark(ctx, 'circle', { cx: ax.vs.map(s.values[i]), cy: y, r: 6 * fs, fill: s.color, stroke: bg(ctx), 'stroke-width': 1.5 * fs, class: 'dot' }, KIT.tipOf(ctx, s.name, cat, s.values[i]), s.index, data.order[i]));
-    if (ctx.o.dataLabels && vals.length > 1) KIT.label(ctx, ax.vs.map(Math.max(...vals)) + 10 * fs, y + 4 * fs, `Δ ${fmt(ctx, Math.max(...vals) - Math.min(...vals))}`, { anchor: 'start', size: 10, color: ctx.colors.muted });
+    if (ctx.o.dataLabels && vals.length > 1) KIT.label(ctx, ax.vs.map(maxOf([...vals])) + 10 * fs, y + 4 * fs, `Δ ${fmt(ctx, maxOf([...vals]) - minOf([...vals]))}`, { anchor: 'start', size: 10, color: ctx.colors.muted });
   });
 }
 
@@ -69,7 +69,7 @@ function drawRangeColumn(ctx, plot, data) {
   const all = fin([...low, ...high]);
   if (!all.length) return none(ctx, plot, '최솟값·최댓값 열을 고르세요', 'Choose low and high columns');
   const horizontal = Boolean(o.horizontal);
-  const ax = KIT.axes(ctx, plot, { categories: data.categories, min: Math.min(...all), max: Math.max(...all), horizontal, forceZero: false });
+  const ax = KIT.axes(ctx, plot, { categories: data.categories, min: minOf([...all]), max: maxOf([...all]), horizontal, forceZero: false });
   const w = ax.band.step * (1 - (Number(o.barGap) || 0.28));
   const color = seriesColor(o, 0);
   data.categories.forEach((cat, i) => {
@@ -92,7 +92,7 @@ function drawBullet(ctx, plot, data) {
   const r2 = KIT.r2;
   const s = data.series[0];
   const target = roleNumbers(ctx, data, 'goal');
-  const max = Math.max(...fin(s.values), ...fin(target), 1) * 1.1;
+  const max = maxOf([...fin(s.values), ...fin(target), 1]) * 1.1;
   const ax = KIT.axes(ctx, plot, { categories: data.categories, min: 0, max, horizontal: true });
   const shades = ctx.colors.dark ? ['#334155', '#3f4b5f', '#4b5870'] : ['#e5e7eb', '#d1d5db', '#bfc5cd'];
   data.categories.forEach((cat, i) => {
@@ -111,10 +111,10 @@ function drawProgressBars(ctx, plot, data) {
   const r2 = KIT.r2;
   const s = data.series[0];
   const vals = fin(s.values);
-  const max = parseNumber(o.gaugeMax) ?? (vals.every((v) => v <= 100) ? 100 : Math.max(...vals));
+  const max = parseNumber(o.gaugeMax) ?? (vals.every((v) => v <= 100) ? 100 : maxOf([...vals]));
   const n = data.categories.length;
   const rowH = Math.min(46 * fs, plot.h / Math.max(1, n));
-  const labelW = Math.min(plot.w * 0.3, Math.max(...data.categories.map((c) => textWidth(c, 12 * fs))) + 12 * fs);
+  const labelW = Math.min(plot.w * 0.3, maxOf([...data.categories.map((c) => textWidth(c, 12 * fs))]) + 12 * fs);
   const trackW = plot.w - labelW - 70 * fs;
   data.categories.forEach((cat, i) => {
     const y = plot.y + (plot.h - rowH * n) / 2 + i * rowH;
@@ -136,8 +136,8 @@ function drawButterfly(ctx, plot, data) {
   const a = series[0];
   // One number column: its bars on the left; a second column fills the right side.
   const b = series[1] ?? { ...a, index: '', name: '', values: a.values.map(() => null), color: ctx.colors.grid };
-  const max = Math.max(...fin(a.values).map(Math.abs), ...fin(b.values).map(Math.abs), 1);
-  const labelW = Math.min(plot.w * 0.22, Math.max(...data.categories.map((c) => textWidth(c, 11.5 * fs))) + 16 * fs);
+  const max = maxOf([...fin(a.values).map(Math.abs), ...fin(b.values).map(Math.abs), 1]);
+  const labelW = Math.min(plot.w * 0.22, maxOf([...data.categories.map((c) => textWidth(c, 11.5 * fs))]) + 16 * fs);
   const half = (plot.w - labelW) / 2;
   const cx = plot.x + half;
   const n = data.categories.length;
@@ -166,7 +166,7 @@ function drawPareto(ctx, plot, data) {
   const s = data.series[0];
   const rows = data.categories.map((c, i) => ({ c, v: s.values[i] ?? 0, row: data.order[i] })).sort((x, y) => y.v - x.v);
   const total = rows.reduce((a, r) => a + r.v, 0) || 1;
-  const ax = KIT.axes(ctx, plot, { categories: rows.map((r) => r.c), min: 0, max: Math.max(...rows.map((r) => r.v), 1), y2: { min: 0, max: 100 } });
+  const ax = KIT.axes(ctx, plot, { categories: rows.map((r) => r.c), min: 0, max: maxOf([...rows.map((r) => r.v), 1]), y2: { min: 0, max: 100 } });
   const w = ax.band.step * (1 - (Number(o.barGap) || 0.28));
   let run = 0;
   const pts = [];
@@ -217,7 +217,7 @@ function drawRadialBar(ctx, plot, data) {
   const { out, fs, o } = ctx;
   const s = data.series[0];
   const vals = fin(s.values);
-  const max = parseNumber(o.gaugeMax) ?? Math.max(...vals, 1);
+  const max = parseNumber(o.gaugeMax) ?? maxOf([...vals, 1]);
   const n = data.categories.length;
   const cx = plot.x + plot.w / 2;
   const cy = plot.y + plot.h / 2;
@@ -241,7 +241,7 @@ function drawRadialColumn(ctx, plot, data) {
   if (!needSeries(ctx, plot, series)) return;
   const n = data.categories.length;
   const totals = data.categories.map((_, i) => series.reduce((a, s) => a + Math.max(0, s.values[i] ?? 0), 0));
-  const max = Math.max(...totals, 1);
+  const max = maxOf([...totals, 1]);
   const cx = plot.x + plot.w / 2;
   const cy = plot.y + plot.h / 2;
   const R = Math.min(plot.w, plot.h) / 2 - 26 * fs;
@@ -273,7 +273,7 @@ function drawSmallMultiples(ctx, plot, data) {
   const cw = plot.w / cols;
   const ch = plot.h / rows;
   const all = series.flatMap((s) => fin(s.values));
-  const t = niceTicks(Math.min(0, ...all), Math.max(0, ...all), 3);
+  const t = niceTicks(minOf([0, ...all]), maxOf([0, ...all]), 3);
   series.forEach((s, k) => {
     const x0 = plot.x + (k % cols) * cw + 8 * fs;
     const y0 = plot.y + Math.floor(k / cols) * ch + 18 * fs;
@@ -301,7 +301,7 @@ function drawMeanError(ctx, plot, data) {
   const series = KIT.visible(data.series);
   if (!needSeries(ctx, plot, series)) return;
   const stats = series.map((s) => { const v = fin(s.values); return { s, m: mean(v), sd: stdev(v), n: v.length }; });
-  const ax = KIT.axes(ctx, plot, { categories: series.map((s) => s.name), min: Math.min(0, ...stats.map((x) => x.m - x.sd)), max: Math.max(...stats.map((x) => x.m + x.sd), 1) });
+  const ax = KIT.axes(ctx, plot, { categories: series.map((s) => s.name), min: minOf([0, ...stats.map((x) => x.m - x.sd)]), max: maxOf([...stats.map((x) => x.m + x.sd), 1]) });
   const w = ax.band.step * 0.5;
   stats.forEach((st, i) => {
     const x = ax.band.center(i);
@@ -322,7 +322,7 @@ function drawStreamgraph(ctx, plot, data) {
   if (!needSeries(ctx, plot, series)) return;
   const n = data.categories.length;
   const totals = data.categories.map((_, i) => series.reduce((a, s) => a + Math.max(0, s.values[i] ?? 0), 0));
-  const half = Math.max(...totals, 1) / 2;
+  const half = maxOf([...totals, 1]) / 2;
   const ax = KIT.axes(ctx, plot, { categories: data.categories, min: -half, max: half, forceZero: false });
   const lower = totals.map((t) => -t / 2);
   for (const s of series) {
@@ -345,7 +345,7 @@ function drawRangeArea(ctx, plot, data) {
   const { low, high } = lowHigh(ctx, data);
   const all = fin([...low, ...high]);
   if (!all.length) return none(ctx, plot, '최솟값·최댓값 열을 고르세요', 'Choose low and high columns');
-  const ax = KIT.axes(ctx, plot, { categories: data.categories, min: Math.min(...all), max: Math.max(...all), forceZero: false });
+  const ax = KIT.axes(ctx, plot, { categories: data.categories, min: minOf([...all]), max: maxOf([...all]), forceZero: false });
   const color = seriesColor(o, 0);
   const top = high.map((v, i) => [ax.band.center(i), ax.vs.map(v ?? 0)]);
   const bottom = low.map((v, i) => [ax.band.center(i), ax.vs.map(v ?? 0)]);
@@ -366,8 +366,8 @@ function drawSlope(ctx, plot, data) {
   const avg = mean(fin(a.values));
   const b = series.length > 1 ? series[series.length - 1] : { ...a, name: KIT.L(ctx, '평균', 'Average'), values: a.values.map((v) => (v == null ? null : avg)) };
   const all = fin([...a.values, ...b.values]);
-  const t = niceTicks(Math.min(...all), Math.max(...all), 5);
-  const labelW = Math.min(plot.w * 0.28, Math.max(...data.categories.map((c) => textWidth(c, 11 * fs))) + 60 * fs);
+  const t = niceTicks(minOf([...all]), maxOf([...all]), 5);
+  const labelW = Math.min(plot.w * 0.28, maxOf([...data.categories.map((c) => textWidth(c, 11 * fs))]) + 60 * fs);
   const x0 = plot.x + labelW;
   const x1 = plot.x + plot.w - labelW;
   const top = plot.y + 24 * fs;
@@ -407,7 +407,7 @@ function drawBump(ctx, plot, data) {
     const order = series.map((s, k) => ({ k, v: s.values[i] ?? -Infinity })).sort((x, y) => y.v - x.v);
     order.forEach((e, r) => { ranks[e.k][i] = r + 1; });
   }
-  const nameW = Math.max(...series.map((s) => textWidth(s.name, 11 * fs))) + 16 * fs;
+  const nameW = maxOf([...series.map((s) => textWidth(s.name, 11 * fs))]) + 16 * fs;
   const area = { ...plot, w: plot.w - nameW };
   const left = area.x + 26 * fs;
   const right = area.x + area.w;
@@ -432,13 +432,13 @@ function drawSparklines(ctx, plot, data) {
   const series = KIT.visible(data.series);
   if (!needSeries(ctx, plot, series)) return;
   const rowH = Math.min(60 * fs, plot.h / series.length);
-  const nameW = Math.min(plot.w * 0.25, Math.max(...series.map((s) => textWidth(s.name, 12 * fs))) + 12 * fs);
+  const nameW = Math.min(plot.w * 0.25, maxOf([...series.map((s) => textWidth(s.name, 12 * fs))]) + 12 * fs);
   const valW = 90 * fs;
   series.forEach((s, k) => {
     const y = plot.y + (plot.h - rowH * series.length) / 2 + k * rowH;
     const vals = fin(s.values);
-    const lo = Math.min(...vals);
-    const hi = Math.max(...vals);
+    const lo = minOf([...vals]);
+    const hi = maxOf([...vals]);
     const x0 = plot.x + nameW;
     const w = plot.w - nameW - valW;
     const map = (v) => y + rowH * 0.8 - ((v - lo) / (hi - lo || 1)) * rowH * 0.6;
@@ -538,10 +538,10 @@ function drawPackedCircles(ctx, plot, data) {
     placed.push({ x: pos[0], y: pos[1], r, it });
   }
   // Fit the cloud into the plot.
-  const minX = Math.min(...placed.map((p) => p.x - p.r));
-  const maxX = Math.max(...placed.map((p) => p.x + p.r));
-  const minY = Math.min(...placed.map((p) => p.y - p.r));
-  const maxY = Math.max(...placed.map((p) => p.y + p.r));
+  const minX = minOf([...placed.map((p) => p.x - p.r)]);
+  const maxX = maxOf([...placed.map((p) => p.x + p.r)]);
+  const minY = minOf([...placed.map((p) => p.y - p.r)]);
+  const maxY = maxOf([...placed.map((p) => p.y + p.r)]);
   const k = Math.min(plot.w / (maxX - minX || 1), plot.h / (maxY - minY || 1), 1.6);
   for (const p of placed) {
     const x = plot.x + plot.w / 2 + (p.x - (minX + maxX) / 2) * k;
@@ -672,8 +672,8 @@ function drawActivityRings(ctx, plot, data) {
 /** Series names on a category axis, values on the value axis: the frame of violin and strip plots. */
 function seriesAxes(ctx, plot, series) {
   const all = series.flatMap((s) => fin(s.values));
-  const pad = (Math.max(...all) - Math.min(...all)) * 0.05 || 1;
-  return KIT.axes(ctx, plot, { categories: series.map((s) => s.name), min: Math.min(...all) - pad, max: Math.max(...all) + pad, forceZero: false });
+  const pad = (maxOf([...all]) - minOf([...all])) * 0.05 || 1;
+  return KIT.axes(ctx, plot, { categories: series.map((s) => s.name), min: minOf([...all]) - pad, max: maxOf([...all]) + pad, forceZero: false });
 }
 
 function drawViolin(ctx, plot, data) {
@@ -686,7 +686,7 @@ function drawViolin(ctx, plot, data) {
     const v = fin(s.values).sort((a, b) => a - b);
     const grid = Array.from({ length: 50 }, (_, i) => ax.vs.min + ((ax.vs.max - ax.vs.min) * i) / 49);
     const dens = kde(v, grid);
-    const dmax = Math.max(...dens) || 1;
+    const dmax = maxOf([...dens]) || 1;
     const half = ax.band.step * 0.42;
     const cx = ax.band.center(k);
     const right = grid.map((y, i) => [cx + (dens[i] / dmax) * half, ax.vs.map(y)]);
@@ -737,12 +737,12 @@ function drawDensity(ctx, plot, data) {
   const series = KIT.visible(data.series).filter((s) => fin(s.values).length);
   if (!needSeries(ctx, plot, series)) return;
   const all = series.flatMap((s) => fin(s.values));
-  const lo = Math.min(...all);
-  const hi = Math.max(...all);
+  const lo = minOf([...all]);
+  const hi = maxOf([...all]);
   const pad = (hi - lo) * 0.15 || 1;
   const grid = Array.from({ length: 80 }, (_, i) => lo - pad + ((hi - lo + 2 * pad) * i) / 79);
   const curves = series.map((s) => kde(fin(s.values), grid));
-  const ax = KIT.axes(ctx, plot, { categories: [], min: 0, max: Math.max(...curves.flat()), numericX: { min: lo - pad, max: hi + pad } });
+  const ax = KIT.axes(ctx, plot, { categories: [], min: 0, max: maxOf([...curves.flat()]), numericX: { min: lo - pad, max: hi + pad } });
   series.forEach((s, k) => {
     const pts = grid.map((x, i) => [ax.xScale.map(x), ax.vs.map(curves[k][i])]);
     out.push(KIT.mark(ctx, 'path', { d: `${KIT.linePath(pts, 'smooth')}L${KIT.r2(pts[pts.length - 1][0])},${KIT.r2(ax.vs.map(0))}L${KIT.r2(pts[0][0])},${KIT.r2(ax.vs.map(0))}Z`, fill: s.color, 'fill-opacity': 0.3, stroke: s.color, 'stroke-width': 2 * fs, class: 'area' }, `${s.name}: ${KIT.L(ctx, '평균', 'mean')} ${fmt(ctx, mean(fin(s.values)))}`, s.index, ''));
@@ -755,7 +755,7 @@ function drawEcdf(ctx, plot, data) {
   const series = KIT.visible(data.series).filter((s) => fin(s.values).length);
   if (!needSeries(ctx, plot, series)) return;
   const all = series.flatMap((s) => fin(s.values));
-  const ax = KIT.axes(ctx, plot, { categories: [], min: 0, max: 1, percent: true, numericX: { min: Math.min(...all), max: Math.max(...all) } });
+  const ax = KIT.axes(ctx, plot, { categories: [], min: 0, max: 1, percent: true, numericX: { min: minOf([...all]), max: maxOf([...all]) } });
   series.forEach((s) => {
     const v = fin(s.values).sort((a, b) => a - b);
     const pts = v.map((x, i) => [ax.xScale.map(x), ax.vs.map((i + 1) / v.length)]);
@@ -768,8 +768,8 @@ function drawEcdf(ctx, plot, data) {
 
 /** Bins of the values of all series (nice edges, like the histogram's). */
 function binsOf(ctx, all) {
-  const lo = Math.min(...all);
-  const hi = Math.max(...all);
+  const lo = minOf([...all]);
+  const hi = maxOf([...all]);
   const count = Number(ctx.o.bins) > 0 ? Math.min(60, Number(ctx.o.bins)) : Math.max(4, Math.min(24, Math.ceil(Math.log2(all.length) + 1)));
   const t = niceTicks(lo, hi, count);
   const edges = [];
@@ -787,7 +787,7 @@ function drawDotHistogram(ctx, plot, data) {
   const n = edges.length - 1;
   const stacks = Array.from({ length: n }, () => []);
   series.forEach((s) => s.values.forEach((v, i) => { if (v != null && Number.isFinite(v)) stacks[index(v)].push({ s, v, row: data.order[i], cat: data.categories[i] }); }));
-  const most = Math.max(1, ...stacks.map((x) => x.length));
+  const most = maxOf([1, ...stacks.map((x) => x.length)]);
   const cats = edges.slice(0, -1).map((b, k) => `${fmt(ctx, b)}–${fmt(ctx, edges[k + 1])}`);
   const ax = KIT.axes(ctx, plot, { categories: cats, min: 0, max: most });
   const r = Math.max(1.5, Math.min(ax.band.step * 0.42, (ax.vs.map(0) - ax.vs.map(1)) * 0.45));
@@ -801,14 +801,14 @@ function drawRidgeline(ctx, plot, data) {
   const series = KIT.visible(data.series).filter((s) => fin(s.values).length);
   if (!needSeries(ctx, plot, series)) return;
   const all = series.flatMap((s) => fin(s.values));
-  const lo = Math.min(...all);
-  const hi = Math.max(...all);
+  const lo = minOf([...all]);
+  const hi = maxOf([...all]);
   const pad = (hi - lo) * 0.1 || 1;
   const t = niceTicks(lo - pad, hi + pad, Math.max(3, Math.round(plot.w / (110 * fs))));
   const grid = Array.from({ length: 90 }, (_, i) => t.min + ((t.max - t.min) * i) / 89);
   const curves = series.map((s) => kde(fin(s.values), grid));
-  const peak = Math.max(...curves.flat()) || 1;
-  const nameW = Math.min(plot.w * 0.22, Math.max(...series.map((s) => textWidth(s.name, 12 * fs))) + 14 * fs);
+  const peak = maxOf([...curves.flat()]) || 1;
+  const nameW = Math.min(plot.w * 0.22, maxOf([...series.map((s) => textWidth(s.name, 12 * fs))]) + 14 * fs);
   const x0 = plot.x + nameW;
   const x1 = plot.x + plot.w - 8 * fs;
   const bottom = plot.y + plot.h - 22 * fs;
@@ -836,8 +836,8 @@ function drawPunchCard(ctx, plot, data) {
   const series = KIT.visible(data.series);
   if (!needSeries(ctx, plot, series)) return;
   const all = fin(series.flatMap((s) => s.values)).map(Math.abs);
-  const max = Math.max(...all, 1e-9);
-  const leftW = Math.min(plot.w * 0.25, Math.max(...data.categories.map((c) => textWidth(c, 11 * fs))) + 12 * fs);
+  const max = maxOf([...all, 1e-9]);
+  const leftW = Math.min(plot.w * 0.25, maxOf([...data.categories.map((c) => textWidth(c, 11 * fs))]) + 12 * fs);
   const topH = 22 * fs;
   const cw = (plot.w - leftW) / series.length;
   const ch = (plot.h - topH) / Math.max(1, data.categories.length);
@@ -870,7 +870,7 @@ function drawCorrelation(ctx, plot, data) {
   const series = KIT.visible(data.series);
   if (!needSeries(ctx, plot, series)) return;
   const n = series.length;
-  const labelW = Math.min(plot.w * 0.25, Math.max(...series.map((s) => textWidth(s.name, 11 * fs))) + 12 * fs);
+  const labelW = Math.min(plot.w * 0.25, maxOf([...series.map((s) => textWidth(s.name, 11 * fs))]) + 12 * fs);
   const size = Math.min((plot.w - labelW) / n, (plot.h - labelW * 0.6) / n);
   const x0 = plot.x + labelW;
   const y0 = plot.y + Math.min(labelW * 0.6, 60 * fs);
@@ -895,7 +895,7 @@ function drawScatterMatrix(ctx, plot, data) {
   const size = Math.min(plot.w, plot.h) / n;
   const x0 = plot.x + (plot.w - size * n) / 2;
   const y0 = plot.y + (plot.h - size * n) / 2;
-  const ranges = series.map((s) => { const v = fin(s.values); return [Math.min(...v), Math.max(...v)]; });
+  const ranges = series.map((s) => { const v = fin(s.values); return [minOf([...v]), maxOf([...v])]; });
   series.forEach((a, i) => series.forEach((b, j) => {
     const x = x0 + j * size;
     const y = y0 + i * size;
@@ -926,8 +926,8 @@ function drawRowCalendar(ctx, plot, data) {
   const x0 = plot.x + (plot.w - cols * size) / 2;
   const y0 = plot.y + (plot.h - 7 * size) / 2;
   const vals = rows.map((d) => d.v);
-  const lo = Math.min(...vals);
-  const hi = Math.max(...vals);
+  const lo = minOf([...vals]);
+  const hi = maxOf([...vals]);
   rows.forEach((d, k) => {
     const tv = (d.v - lo) / (hi - lo || 1);
     const color = ctx.colors.dark ? mix(lighten(ctx.colors.base, 0.08), rampColor(o.ramp || 'greens', 0.75), 0.12 + 0.88 * tv) : rampColor(o.ramp || 'greens', tv);
@@ -943,16 +943,16 @@ function drawCalendarHeatmap(ctx, plot, data) {
   const days = data.categories.map((c, i) => ({ t: (/^\d{5}(\.\d+)?$/.test(c) ? (Number(c) - 25569) * 86400000 : parseDate(c)), v: s.values[i], row: data.order[i], c })).filter((d) => d.t != null && d.v != null);
   if (!days.length) return drawRowCalendar(ctx, plot, data);
   const day = 86400000;
-  const first = Math.min(...days.map((d) => d.t));
-  const last = Math.max(...days.map((d) => d.t));
+  const first = minOf([...days.map((d) => d.t)]);
+  const last = maxOf([...days.map((d) => d.t)]);
   const start = first - new Date(first).getUTCDay() * day;
   const weeks = Math.floor((last - start) / day / 7) + 1;
   const left = 30 * fs;
   const size = Math.min((plot.w - left) / weeks, (plot.h - 40 * fs) / 7, 40 * fs);
   const top = Math.max(20 * fs, (plot.h - 7 * size) / 2);
   const vals = days.map((d) => d.v);
-  const lo = Math.min(...vals);
-  const hi = Math.max(...vals);
+  const lo = minOf([...vals]);
+  const hi = maxOf([...vals]);
   const names = ctx.lang === 'en' ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] : ['일', '월', '화', '수', '목', '금', '토'];
   [1, 3, 5].forEach((d) => KIT.label(ctx, plot.x + left - 6 * fs, plot.y + top + d * size + size * 0.7, names[d], { anchor: 'end', size: 10, color: ctx.colors.muted }));
   let lastMonth = -1;
@@ -1022,7 +1022,7 @@ function drawArcDiagram(ctx, plot, data) {
   const r2 = KIT.r2;
   const { nodes, links } = flows(ctx, data);
   if (!links.length) return none(ctx, plot, '출발·도착·값 열을 고르세요', 'Choose source, target and value columns');
-  const max = Math.max(...links.map((l) => l.v));
+  const max = maxOf([...links.map((l) => l.v)]);
   const y = plot.y + plot.h * 0.75;
   const x = (i) => plot.x + 20 * fs + (i / Math.max(1, nodes.length - 1)) * (plot.w - 40 * fs);
   for (const l of links) {
@@ -1053,11 +1053,11 @@ function drawNetwork(ctx, plot, data) {
   }
   const xs = pos.map((p) => p.x);
   const ys = pos.map((p) => p.y);
-  const sx = (v) => plot.x + 40 * fs + ((v - Math.min(...xs)) / (Math.max(...xs) - Math.min(...xs) || 1)) * (plot.w - 80 * fs);
-  const sy = (v) => plot.y + 20 * fs + ((v - Math.min(...ys)) / (Math.max(...ys) - Math.min(...ys) || 1)) * (plot.h - 40 * fs);
-  const max = Math.max(...links.map((l) => l.v));
+  const sx = (v) => plot.x + 40 * fs + ((v - minOf([...xs])) / (maxOf([...xs]) - minOf([...xs]) || 1)) * (plot.w - 80 * fs);
+  const sy = (v) => plot.y + 20 * fs + ((v - minOf([...ys])) / (maxOf([...ys]) - minOf([...ys]) || 1)) * (plot.h - 40 * fs);
+  const max = maxOf([...links.map((l) => l.v)]);
   const weight = nodes.map((nm) => links.reduce((a, l) => a + (l.a === nm || l.b === nm ? l.v : 0), 0));
-  const wmax = Math.max(...weight);
+  const wmax = maxOf([...weight]);
   links.forEach((l, k) => { const [a, b] = idx[k]; out.push(KIT.mark(ctx, 'line', { x1: sx(pos[a].x), y1: sy(pos[a].y), x2: sx(pos[b].x), y2: sy(pos[b].y), stroke: ctx.colors.axis, 'stroke-opacity': 0.6, 'stroke-width': Math.max(1, (l.v / max) * 6 * fs), class: 'link' }, `${l.a} — ${l.b}: ${fmt(ctx, l.v)}`, 0, l.row)); });
   nodes.forEach((nm, i) => {
     const r = (6 + 12 * Math.sqrt(weight[i] / wmax)) * fs;
@@ -1111,7 +1111,7 @@ function drawPriceBand(ctx, plot, data) {
   const close = own ? roleNumbers(ctx, data, 'close') : derived.close;
   const all = fin([...high, ...low, ...close]);
   if (!all.length) return none(ctx, plot, '고가·저가·종가 열을 고르세요', 'Choose high, low and close columns');
-  const ax = KIT.axes(ctx, plot, { categories: data.categories, min: Math.min(...all), max: Math.max(...all), forceZero: false });
+  const ax = KIT.axes(ctx, plot, { categories: data.categories, min: minOf([...all]), max: maxOf([...all]), forceZero: false });
   const color = seriesColor(o, 0);
   const top = high.map((v, i) => [ax.band.center(i), ax.vs.map(v ?? 0)]);
   const bottom = low.map((v, i) => [ax.band.center(i), ax.vs.map(v ?? 0)]).reverse();
@@ -1129,7 +1129,7 @@ function drawBollinger(ctx, plot, data) {
   const bands = s.values.map((_, i) => { const win = fin(s.values.slice(Math.max(0, i - w + 1), i + 1)); if (i < w - 1 || win.length < 2) return null; const m = mean(win); const sd = stdev(win); return { m, hi: m + 2 * sd, lo: m - 2 * sd }; });
   const all = fin([...s.values, ...bands.flatMap((b) => (b ? [b.hi, b.lo] : []))]);
   if (!all.length) return none(ctx, plot, '숫자가 없습니다', 'No numbers');
-  const ax = KIT.axes(ctx, plot, { categories: data.categories, min: Math.min(...all), max: Math.max(...all), forceZero: false });
+  const ax = KIT.axes(ctx, plot, { categories: data.categories, min: minOf([...all]), max: maxOf([...all]), forceZero: false });
   const color = seriesColor(o, 0);
   const idx = bands.map((b, i) => (b ? i : -1)).filter((i) => i >= 0);
   if (idx.length > 1) {
@@ -1170,9 +1170,9 @@ function drawGantt(ctx, plot, data) {
   const groupNames = [...new Set(groups.filter(Boolean))];
   const all = fin([...start, ...end]);
   if (!all.length) return none(ctx, plot, '시작·끝 열(날짜 또는 숫자)을 고르세요', 'Choose start and end columns (dates or numbers)');
-  const lo = Math.min(...all);
-  const hi = Math.max(...all);
-  const labelW = Math.min(plot.w * 0.3, Math.max(...data.categories.map((c) => textWidth(c, 11.5 * fs))) + 14 * fs);
+  const lo = minOf([...all]);
+  const hi = maxOf([...all]);
+  const labelW = Math.min(plot.w * 0.3, maxOf([...data.categories.map((c) => textWidth(c, 11.5 * fs))]) + 14 * fs);
   const x0 = plot.x + labelW;
   const x1 = plot.x + plot.w - 10 * fs;
   const top = plot.y + 22 * fs;
@@ -1233,7 +1233,7 @@ function drawGaugeGrid(ctx, plot, data) {
   const lines = Math.ceil(rows.length / cols);
   const w = plot.w / cols;
   const h = plot.h / lines;
-  const max = parseNumber(ctx.o.gaugeMax) ?? niceTicks(0, Math.max(...rows.map((r) => r.v)), 4).max;
+  const max = parseNumber(ctx.o.gaugeMax) ?? niceTicks(0, maxOf([...rows.map((r) => r.v)]), 4).max;
   const saved = ctx.o;
   const savedFs = ctx.fs;
   ctx.o = { ...saved, gaugeMax: max };
@@ -1253,8 +1253,8 @@ function drawLinearGauge(ctx, plot, data) {
   const rows = data.categories.map((c, i) => ({ c, v: s.values[i], i })).filter((r) => r.v != null).slice(0, 10);
   if (!rows.length) return none(ctx, plot, '숫자가 없습니다', 'No numbers');
   const min = parseNumber(o.gaugeMin) ?? 0;
-  const max = parseNumber(o.gaugeMax) ?? niceTicks(min, Math.max(...rows.map((r) => r.v)), 4).max;
-  const labelW = Math.min(plot.w * 0.25, Math.max(...rows.map((r) => textWidth(r.c, 12 * fs))) + 12 * fs);
+  const max = parseNumber(o.gaugeMax) ?? niceTicks(min, maxOf([...rows.map((r) => r.v)]), 4).max;
+  const labelW = Math.min(plot.w * 0.25, maxOf([...rows.map((r) => textWidth(r.c, 12 * fs))]) + 12 * fs);
   const x0 = plot.x + labelW;
   const x1 = plot.x + plot.w - 70 * fs;
   const rowH = Math.min(70 * fs, plot.h / rows.length);

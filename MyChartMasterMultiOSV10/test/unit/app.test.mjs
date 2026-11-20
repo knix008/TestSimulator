@@ -13,12 +13,14 @@ import ko from '../../src/i18n/ko.js';
 import en from '../../src/i18n/en.js';
 import chartKo from '../../src/i18n/chart-ko.js';
 import chartEn from '../../src/i18n/chart-en.js';
+import sheetKo from '../../src/i18n/sheet-ko.js';
+import sheetEn from '../../src/i18n/sheet-en.js';
 import { hasIcon, animationIcon } from '../../src/icons.js';
 import { CHAPTERS, STEPS } from '../../src/ui/tutorial.js';
 
 const root = path.resolve(import.meta.dirname, '..', '..');
-const KO = { ...ko, ...chartKo };
-const EN = { ...en, ...chartEn };
+const KO = { ...ko, ...chartKo, ...sheetKo };
+const EN = { ...en, ...chartEn, ...sheetEn };
 const sampleDoc = (id = 'monthly-sales') => { const b = SAMPLES.find((s) => s.id === id).build('ko'); return new ChartDoc({ name: b.name, table: b.table, chart: b.chart }); };
 
 test('PDF with the picture: valid structure, image object, data pages, offsets', () => {
@@ -104,7 +106,9 @@ test('icons for every chart type, group, palette command and moving background',
 });
 
 test('tutorial: every step has its texts, a chapter and a target', () => {
-  assert.equal(STEPS.length, 35);
+  // 35 steps, 13 on the data editor window, 2 on chart themes and picking an element.
+  assert.equal(STEPS.length, 50);
+  assert.equal(STEPS.filter((s) => s.chapter === 'sheet').length, 13);
   assert.equal(new Set(STEPS.map((s) => s.id)).size, STEPS.length);
   for (const step of STEPS) {
     assert.ok(CHAPTERS.includes(step.chapter), step.id);

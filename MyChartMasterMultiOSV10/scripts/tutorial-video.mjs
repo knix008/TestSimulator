@@ -42,7 +42,8 @@ const dicts = {};
 for (const lang of ['ko', 'en']) {
   const base = (await import(pathToFileURL(path.join(root, 'src', 'i18n', `${lang}.js`)).href)).default;
   const extra = (await import(pathToFileURL(path.join(root, 'src', 'i18n', `chart-${lang}.js`)).href)).default;
-  dicts[lang] = { ...base, ...extra };
+  const sheet = (await import(pathToFileURL(path.join(root, 'src', 'i18n', `sheet-${lang}.js`)).href)).default;
+  dicts[lang] = { ...base, ...extra, ...sheet };
 }
 
 const server = await serve(webDir);

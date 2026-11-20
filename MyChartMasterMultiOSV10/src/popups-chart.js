@@ -503,7 +503,6 @@ export function installChartPopups(c) {
       row('csvFile', t('import.delimiter'), select('data-select', 'importDelimiter', [['auto', t('import.auto')], [',', t('import.comma')], [';', t('import.semicolon')], ['\t', t('import.tab')], ['|', t('import.pipe')], [' ', t('import.space')]], s().importDelimiter, t('import.delimiter'))),
       row('font', t('import.encoding'), select('data-select', 'importEncoding', [['auto', t('import.auto')], ['utf-8', 'UTF-8'], ['euc-kr', 'EUC-KR (CP949)'], ['utf-16le', 'UTF-16 LE'], ['windows-1252', 'Windows-1252']], s().importEncoding, t('import.encoding'))),
       row('typeNumber', t('import.decimal'), select('data-select', 'importDecimal', [['auto', t('import.auto')], ['.', '1,234.5'], [',', '1.234,5']], s().importDecimal, t('import.decimal'))),
-      row('dataGrid', t('settings.importMaxRows'), numberField('importMaxRows', s().importMaxRows, 100, 1000000, 1000, '', t('settings.importMaxRows'))),
     ].join(''),
   };
 

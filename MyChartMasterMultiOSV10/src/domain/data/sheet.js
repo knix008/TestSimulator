@@ -2,7 +2,7 @@
 // (Excel's row 1) and row r + 1 the table's row r. Beside the values a chart keeps its sheet extras in
 // `doc.sheet` = { formulas: { "r,c": "=…" }, formats: { "r,c": { b, i, u, s, align, fmt, dec, color, fill } },
 // widths: { c: px } } — saved in .mychart and in .xlsx. Pure functions, no DOM.
-import { cellText, columnLetter, createTable, normalizeCell, parseNumber, uniqueNames } from './table.js';
+import { cellText, columnLetter, createTable, maxOf, normalizeCell, parseNumber, uniqueNames } from './table.js';
 import { adjustFormula, isFormula, recalc, shiftFormula } from './formula.js';
 
 export const emptySheet = () => ({ formulas: {}, formats: {}, widths: {} });
@@ -198,7 +198,7 @@ export function pasteBlock(cells, sheet, block, target, mode = 'all') {
 export function textBlock(text, split) {
   const raw = String(text ?? '').replace(/\r?\n$/, '');
   const rows = split(raw, raw.includes('\t') ? '\t' : ',');
-  const cols = Math.max(1, ...rows.map((r) => r.length));
+  const cols = maxOf(rows.map((r) => r.length), 1);
   return { rows: rows.length || 1, cols, values: rows.map((r) => Array.from({ length: cols }, (_, i) => (r[i] == null || r[i] === '' ? null : r[i]))), formulas: {}, formats: {} };
 }
 
@@ -345,18 +345,16 @@ export function replaceIn(input, query, replacement, { matchCase = false, whole 
 }
 
 /** Statistics of the selected cells for the status bar: count of filled cells, numbers, sum, average, min, max. */
-export function boxStats(cells, box, limit = 200000) {
+export function boxStats(cells, box) {
   let count = 0;
   let numbers = 0;
   let sum = 0;
   let min = Infinity;
   let max = -Infinity;
-  let seen = 0;
   for (let r = box.r0; r <= box.r1 && r < cells.length; r++) {
     const row = cells[r];
     if (!row) continue;
     for (let c = box.c0; c <= box.c1 && c < row.length; c++) {
-      if (++seen > limit) break;
       const v = row[c];
       if (empty(v)) continue;
       count++;
@@ -369,7 +367,7 @@ export function boxStats(cells, box, limit = 200000) {
 /** The extent that holds data: { rows, cols } of the sheet (header row included), formulas counted. */
 export function usedSize(cells, sheet) {
   let rows = cells.length;
-  let cols = Math.max(1, ...cells.map((r) => r.length));
+  let cols = maxOf(cells.map((r) => r.length), 1);
   for (const key of Object.keys(sheet?.formulas ?? {})) { const [r, c] = splitKey(key); rows = Math.max(rows, r + 1); cols = Math.max(cols, c + 1); }
   return { rows, cols };
 }
