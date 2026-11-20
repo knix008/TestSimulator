@@ -290,3 +290,7 @@ button:has(> svg[data-icon="close"]):not(:has(> span)):not(:disabled):hover svg 
 .right-body .crop-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .right-body .crop-grid > .stepper { min-width: 0; margin-left: 0; }
 .right-body .crop-grid .stepper .stepper-button { width: 26px; }
+/* In a column (the font row) "flex: 1" would size the height, not the width: keep the stepper's own height. */
+.right-body .font-row > .stepper { flex: none; }
+.right-body .font-style { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; height: var(--ctl); }
+.right-body .font-style button { height: 100%; }

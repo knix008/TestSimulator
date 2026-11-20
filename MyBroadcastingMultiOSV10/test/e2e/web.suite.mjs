@@ -90,6 +90,17 @@ export const cases = [
       return { cards, live, tiles, formOpen, folded };`);
     if (r.cards !== 3 || !/00:00:0[1-9]/.test(r.live) || r.tiles !== 8 || !r.formOpen || !r.folded) throw new Error(JSON.stringify(r));
   } },
+  { group: 'Shell', name: '[F:shell.panels] [F:src.text] the right panel lines up: one control height, steppers fill their column, all −/+ buttons alike', run: async (app) => {
+    const r = await app.run(`await T.reset({ workspace: true }); const it = A.studio.c.scenes[0].items.find((x) => A.studio.c.sources[x.source].type === 'text_gdiplus'); A.studio.select([it.id]);
+      const look = async (tab) => { A.app.updateSettings({ rightTab: tab }); await T.sleep(300); const body = document.querySelector('#right-panel .right-body');
+        const steppers = [...body.querySelectorAll('.stepper')].filter((x) => !x.closest('.crop-grid'));
+        const heights = new Set([...steppers, ...body.querySelectorAll('.row-control select')].map((x) => Math.round(x.getBoundingClientRect().height)));
+        const buttons = new Set([...body.querySelectorAll('.stepper-button, .slider-step')].filter((x) => !x.closest('.crop-grid')).map((x) => Math.round(x.getBoundingClientRect().width)));
+        const widths = new Set(steppers.map((x) => Math.round(x.getBoundingClientRect().width)));
+        return { heights: [...heights], buttons: [...buttons], widths: [...widths], n: steppers.length }; };
+      return { props: await look('props'), transform: await look('transform') };`);
+    for (const [tab, v] of Object.entries(r)) if (v.n < 1 || v.heights.length !== 1 || v.buttons.length !== 1 || v.widths.length !== 1) throw new Error(tab + ': ' + JSON.stringify(v));
+  } },
   { group: 'Shell', name: '[F:set.general] settings: tabs one above the other on the left; labels and controls line up; hints are full lines', run: async (app) => {
     const r = await app.run(`await T.reset({ workspace: true }); A.popups.inline = true; A.popups.open('settings', { tab: 'output' }); await T.popupReady('settings'); await T.sleep(300);
       const d = T.popupDoc('settings'); const tabs = [...d.querySelectorAll('.side-tabs .side-tab')].map((b) => b.getBoundingClientRect());
