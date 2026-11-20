@@ -1,0 +1,40 @@
+/* Icon colours (icon-tones.js): a deeper shade per hue on light themes, a brighter one on
+   dark themes. Shared by the main window, the popups and the recording bar. */
+:root {
+  --tone-blue: #2563eb; --tone-sky: #0284c7; --tone-indigo: #4f46e5; --tone-purple: #9333ea; --tone-pink: #db2777; --tone-red: #dc2626; --tone-orange: #ea580c;
+  --tone-amber: #b86e00; --tone-yellow: #a16207; --tone-green: #15803d; --tone-teal: #0d9488; --tone-cyan: #0891b2; --tone-slate: #526075; --tone-brown: #92400e;
+}
+:root[data-theme-mode="dark"], .tones-dark, .viewer {
+  --tone-blue: #60a5fa; --tone-sky: #38bdf8; --tone-indigo: #a5b4fc; --tone-purple: #c084fc; --tone-pink: #f472b6; --tone-red: #f87171; --tone-orange: #fb923c;
+  --tone-amber: #fbbf24; --tone-yellow: #facc15; --tone-green: #4ade80; --tone-teal: #2dd4bf; --tone-cyan: #22d3ee; --tone-slate: #a8b3c4; --tone-brown: #d6a26b;
+}
+/* !important: the older rules gave whole areas one colour (muted, accent). */
+.icon[data-tone="blue"] { color: var(--tone-blue) !important; }
+.icon[data-tone="sky"] { color: var(--tone-sky) !important; }
+.icon[data-tone="indigo"] { color: var(--tone-indigo) !important; }
+.icon[data-tone="purple"] { color: var(--tone-purple) !important; }
+.icon[data-tone="pink"] { color: var(--tone-pink) !important; }
+.icon[data-tone="red"] { color: var(--tone-red) !important; }
+.icon[data-tone="orange"] { color: var(--tone-orange) !important; }
+.icon[data-tone="amber"] { color: var(--tone-amber) !important; }
+.icon[data-tone="yellow"] { color: var(--tone-yellow) !important; }
+.icon[data-tone="green"] { color: var(--tone-green) !important; }
+.icon[data-tone="teal"] { color: var(--tone-teal) !important; }
+.icon[data-tone="cyan"] { color: var(--tone-cyan) !important; }
+.icon[data-tone="slate"] { color: var(--tone-slate) !important; }
+.icon[data-tone="brown"] { color: var(--tone-brown) !important; }
+/* A light wash inside closed shapes, so the colour reads at a glance. */
+.icon[data-wash] > :first-child { fill: color-mix(in srgb, currentColor 16%, transparent); }
+
+/* On a solid coloured button the icon keeps that button's own (contrasting) colour. */
+.shutter-disc .icon[data-tone],
+.primary .icon[data-tone],
+.chip.on .icon[data-tone],
+.round-button.pause .icon[data-tone], .round-button.resume .icon[data-tone],
+.viewer-main .icon[data-tone], .viewer-button[data-viewer="stop"] .icon[data-tone],
+.tile-play .icon[data-tone], .tile-video .icon[data-tone], .start-recent-badge .icon[data-tone],
+.window-button.close:hover .icon[data-tone], .viewer-button[data-viewer="close"]:hover .icon[data-tone],
+.tile-action:hover .icon[data-tone], .start-recent-delete:hover .icon[data-tone],
+.recbar-button.pause .icon[data-tone], .recbar-button.resume .icon[data-tone], .recbar-button.stop .icon[data-tone] { color: inherit !important; }
+.shutter-disc .icon[data-wash] > :first-child, .primary .icon[data-wash] > :first-child, .recbar-button .icon[data-wash] > :first-child,
+.round-button .icon[data-wash] > :first-child, .viewer-main .icon[data-wash] > :first-child, .viewer-button[data-viewer="stop"] .icon[data-wash] > :first-child, .tile-play .icon[data-wash] > :first-child { fill: inherit; }

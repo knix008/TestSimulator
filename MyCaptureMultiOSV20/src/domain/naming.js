@@ -37,3 +37,12 @@ export function formatDuration(ms) {
   const seconds = total % 60;
   return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${pad(minutes)}:${pad(seconds)}`;
 }
+
+/** File extensions of a format: jpg also saves as .jpeg, tiff as .tif. */
+export const extensionsOf = (format) => ({ jpg: ['jpg', 'jpeg'], tiff: ['tiff', 'tif'] }[format] ?? [format]);
+
+/** The format a chosen file name asks for (by its extension), or `fallback`. */
+export function formatOfPath(path, formats, fallback) {
+  const extension = (String(path).split(/[\/]/).pop().split('.').slice(1).pop() ?? '').toLowerCase();
+  return formats.find((format) => extensionsOf(format).includes(extension)) ?? fallback;
+}

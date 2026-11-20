@@ -55,6 +55,7 @@ const DEMO = `(() => {
     { id: 'demo4', kind: 'image', path: 'C:\\\\Users\\\\me\\\\Pictures\\\\Capture_2026-11-17_09-40-18.jpg', thumbnail: picture(384, 240, 140, 'JPG'), width: 800, height: 600, bytes: 120000, at: now - 1e5 },
   ];
   s.missing = new Set();
+  s.demoGallery = true; // made-up paths: keep them in the history (no file check)
   s.windows = [
     ['Document - Editor', 'editor.exe', 30], ['Calculator', 'calc.exe', 200], ['Photos', 'photos.exe', 120], ['Terminal', 'terminal.exe', 260],
   ].map(([title, appName, hue], i) => ({ id: 9000 + i, title, appName, width: 1280 - i * 80, height: 800 - i * 40 }));

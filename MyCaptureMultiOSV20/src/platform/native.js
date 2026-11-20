@@ -26,6 +26,9 @@ export const savePending = (output, format, jpegQuality) => call('save_pending',
 export const copyPending = () => call('copy_pending');
 export const copyImageFile = (path) => call('copy_image_file', { path });
 export const copyText = (text) => call('copy_text', { text });
+export const readText = () => call('read_text');
+/** A saved image as PNG bytes (ArrayBuffer), for formats the webview cannot draw. */
+export const imagePng = (path) => call('image_png', { path });
 
 export const beginRegionSelect = () => call('begin_region_select');
 export const overlayReady = () => call('overlay_ready');

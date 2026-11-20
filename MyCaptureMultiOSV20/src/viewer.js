@@ -78,7 +78,7 @@ export class MediaViewer {
     this.host.innerHTML = `
       <div class="viewer-top">
         <span class="viewer-name" title="${escapeAttr(item.path)}">${icon(item.kind === 'video' ? 'video' : 'camera')}<span>${escapeAttr(name)}</span></span>
-        ${item.kind === 'image' ? `${button('copy', 'copy')}${button('save-as', 'save')}<span class="viewer-sep" aria-hidden="true"></span>` : ''}${button('external', 'open')}${button('reveal', 'folder')}${button('close', 'close')}
+        ${item.kind === 'image' ? `${button('copy', 'copy')}${button('save-as', 'save')}${button('print', 'print')}<span class="viewer-sep" aria-hidden="true"></span>` : ''}${button('external', 'open')}${button('reveal', 'folder')}${button('close', 'close')}
       </div>
       ${media}
       <p class="viewer-error" hidden>${t('viewer.error')}</p>
@@ -227,6 +227,7 @@ export class MediaViewer {
       case 'actual': this.actual(); break;
       case 'copy': this.handlers.onCopy?.(this.item); break;
       case 'save-as': this.handlers.onSaveAs?.(this.item); break;
+      case 'print': this.handlers.onPrint?.(this.item); break;
       case 'external': this.handlers.onOpenExternal(this.item); break;
       case 'reveal': this.handlers.onReveal(this.item); break;
       case 'close': this.handlers.onClose(); break;
@@ -269,7 +270,7 @@ export class MediaViewer {
 }
 
 const VIEWER_KEYS = {
-  copy: 'menu.copyImage', 'save-as': 'menu.saveAs',
+  copy: 'menu.copyImage', 'save-as': 'menu.saveAs', print: 'action.print',
   external: 'viewer.openExternal', reveal: 'result.reveal', close: 'viewer.close',
   play: 'viewer.play', pause: 'viewer.pause', stop: 'viewer.stop',
   'zoom-in': 'viewer.zoomIn', 'zoom-out': 'viewer.zoomOut', fit: 'viewer.fit', actual: 'viewer.actual',

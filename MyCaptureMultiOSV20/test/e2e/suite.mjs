@@ -3,6 +3,8 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -135,7 +137,7 @@ const AUDIT = `(() => {
   return bad;
 })()`;
 
-const SETTINGS_TABS = ['general', 'capture', 'record', 'mic', 'save', 'theme'];
+const SETTINGS_TABS = ['general', 'capture', 'record', 'mic', 'save', 'theme', 'start'];
 
 export const cases = [
   {
@@ -150,10 +152,10 @@ export const cases = [
     },
   },
   {
-    name: '메인 창은 화면 캡처에서 제외됨 (content protection)',
+    name: '메인 창은 평소 다른 캡처 프로그램으로 찍을 수 있음 (content protection 꺼짐)',
     run: async (app) => {
       if (process.platform !== 'win32') return;
-      assert.equal(displayAffinity(app), '17', 'WDA_EXCLUDEFROMCAPTURE (0x11) expected');
+      assert.equal(displayAffinity(app), '0', 'WDA_NONE: other capture tools can capture MyCapture');
     },
   },
   {
@@ -172,7 +174,7 @@ export const cases = [
       const [width, height] = pngSize(bytes);
       assert.deepEqual([width, height], [size.width, size.height], 'image size = window content size');
       assert.ok(await hasContent(app, `window.__mycapture.state.result.thumbnail`), 'the picture shows the window, not a blank frame');
-      if (process.platform === 'win32') assert.equal(displayAffinity(app), '17', 'protected again after capturing itself');
+      if (process.platform === 'win32') assert.equal(displayAffinity(app), '0', 'still capturable by other programs after capturing itself');
     },
   },
   {
@@ -199,7 +201,7 @@ export const cases = [
         const size = await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|inner_size', { label: 'main' })`);
         assert.ok(Math.abs(info.video.width - size.width) <= 1, `video ${info.video.width} wide, window content ${size.width}`);
       }
-      if (process.platform === 'win32') assert.equal(displayAffinity(app), '17', 'protected again after the recording');
+      if (process.platform === 'win32') assert.equal(displayAffinity(app), '0', 'capturable by other programs after the recording');
     },
   },
   {
@@ -489,25 +491,25 @@ export const cases = [
     },
   },
   {
-    name: '시작 화면 · 카드 보드, 빠른 시작, 테마 40개, 시작할 때 표시',
+    name: '시작 화면 · 카드 보드, 빠른 시작, 테마 카드 없음, 시작할 때 표시',
     run: async (app) => {
       await app.reset({ showStartScreen: true, theme: 'light-classic' });
       await app.main.waitFor(`!document.querySelector('#start-page').hidden && document.querySelectorAll('.start-card').length === 5`, { message: 'start screen at startup' });
       assert.ok(await app.main.eval(`getComputedStyle(document.querySelector('#toolbar')).display === 'none' && getComputedStyle(document.querySelector('#body')).display === 'none'`), 'toolbar and panels hidden');
       assert.equal(await app.main.eval(`document.querySelector('.start-hero .start-version').textContent`), 'v1.0.2');
       assert.equal(await app.main.eval(`document.querySelectorAll('.start-tile').length`), 6, 'six quick-start tiles');
-      assert.equal(await app.main.eval(`document.querySelectorAll('.start-theme').length`), 40, '20 dark + 20 light themes');
+      // Themes are not on the start screen (title bar menu and Settings have them).
+      assert.equal(await app.main.eval(`document.querySelectorAll('.start-theme, [data-card="themes"]').length`), 0, 'no themes card');
+      // The moving background draws behind the cards.
+      const frames = () => app.main.eval(`(() => { const c = document.querySelector('.start-bg-canvas'); return c && c.width > 100 && c.height > 100 ? 1 : 0; })()`);
+      assert.equal(await frames(), 1, 'background canvas sized to the page');
+      assert.ok(await app.main.eval(`(() => { const c = document.querySelector('.start-bg-canvas'); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; for (let i = 3; i < d.length; i += 4 * 97) if (d[i] > 0) return true; return false; })()`), 'background has something drawn');
       assert.equal(await app.main.eval(`document.querySelector('#bar [data-action="home"]').getAttribute('aria-pressed')`), 'true');
       // Cards never overlap and the name card is on top.
       const rects = JSON.parse(await app.main.eval(`JSON.stringify([...document.querySelectorAll('.start-card')].map((el) => { const r = el.getBoundingClientRect(); return { id: el.dataset.card, x: r.left, y: r.top, r: r.right, b: r.bottom }; }))`));
       assert.equal(rects[0].id, 'hero');
       assert.ok(rects.every((rect) => rect.id === 'hero' || rect.y >= rects[0].b), 'name card first');
       for (const a of rects) for (const b of rects) if (a.id < b.id) assert.ok(a.r <= b.x + 1 || b.r <= a.x + 1 || a.b <= b.y + 1 || b.b <= a.y + 1, `${a.id} overlaps ${b.id}`);
-
-      // A theme from the card applies at once.
-      await app.main.click('.start-theme[data-value="dark-navy"]');
-      assert.equal(await app.main.eval(`document.documentElement.dataset.theme`), 'dark-navy');
-      assert.ok(await app.main.eval(`document.querySelector('.start-theme[data-value="dark-navy"]').classList.contains('current')`));
 
       // Moving a card: drag the "tips" handle above the quick-start card.
       const handle = JSON.parse(await app.main.eval(`JSON.stringify((() => { const r = document.querySelector('[data-card-handle="tips"]').getBoundingClientRect(); const q = document.querySelector('.start-card-begin').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, tx: q.left + 20, ty: q.top + 4 }; })())`));
@@ -548,8 +550,432 @@ export const cases = [
       await app.notice(30000);
       await app.main.click('#bar [data-action="home"]');
       await app.main.waitFor(`document.querySelectorAll('.start-recent-item').length === 1`, { message: 'recent capture card' });
-      await app.main.click('.start-recent-item');
+      await app.main.click('.start-recent-open');
       await app.main.waitFor(`window.__mycapture.state.viewing && !document.querySelector('#viewer').hidden && document.querySelector('#start-page').hidden`, { message: 'viewer opens' });
+    },
+  },
+  {
+    name: '시작 화면 · 배경 설정 (장면 · 움직임 · 속도 · 투명도, 바로 반영)',
+    run: async (app) => {
+      await app.reset({ showStartScreen: true, theme: 'dark-midnight' });
+      await app.main.waitFor(`!document.querySelector('#start-page').hidden && document.querySelector('.start-bg-canvas')?.width > 100`, { message: 'start screen with its background' });
+      // A few pixels of the background (alpha only), and the whole picture as a fingerprint.
+      const inked = `(() => { const c = document.querySelector('.start-bg-canvas'); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4 * 53) if (d[i] > 0) n += 1; return n; })()`;
+      const picture = `document.querySelector('.start-bg-canvas').toDataURL()`;
+      assert.ok(await app.main.eval(inked) > 0, 'the default scene draws');
+
+      // The Background button opens Settings on the Start screen tab.
+      await app.main.click('.start-tools [data-action="start-background"]');
+      const settings = await app.popup('settings');
+      await settings.waitFor(`document.querySelector('.tab.active')?.dataset.value === 'start'`, { message: 'opens on the start screen tab' });
+      assert.equal(await settings.eval(`document.querySelectorAll('.start-bg-scene').length`), 24, 'twenty-four scenes');
+      assert.equal(await settings.eval(`document.querySelector('.start-bg-scene.current')?.dataset.value`), 'studio');
+      assert.equal(await settings.eval(`[...document.querySelectorAll('.start-bg-scene strong')].every((el) => el.textContent.trim() && el.scrollWidth <= el.clientWidth + 1)`), true, 'scene names shown whole');
+
+      // Each scene applies at once, and each looks different.
+      const looks = new Map();
+      for (const kind of ['region', 'film', 'lens', 'studio']) {
+        await settings.click(`.start-bg-scene[data-value="${kind}"]`);
+        await app.main.waitFor(`window.__mycapture.state.settings.startBgKind === '${kind}'`, { message: `${kind} reaches the main window` });
+        await sleep(150);
+        assert.ok(await app.main.eval(inked) > 0, `${kind} draws`);
+        looks.set(kind, await app.main.eval(picture));
+        assert.equal(await settings.eval(`document.querySelector('.start-bg-scene.current')?.dataset.value`), kind);
+      }
+      assert.equal(new Set(looks.values()).size, 4, 'four different pictures');
+
+      // Off: an empty canvas (the gradient shows), and the sliders are disabled.
+      await settings.click('[data-action="setting"][data-key="startBgMotion"][data-value="off"]');
+      await app.main.waitFor(`window.__mycapture.state.settings.startBgMotion === 'off'`);
+      await app.main.waitFor(`${inked} === 0`, { message: 'nothing drawn when off' });
+      assert.equal(await settings.eval(`[...document.querySelectorAll('[data-input^="startBg"]')].every((input) => input.disabled)`), true, 'sliders disabled when off');
+      // Still: a picture that does not move.
+      await settings.click('[data-action="setting"][data-key="startBgMotion"][data-value="still"]');
+      await app.main.waitFor(`window.__mycapture.state.settings.startBgMotion === 'still' && ${inked} > 0`, { message: 'still picture drawn' });
+      const still = await app.main.eval(picture);
+      await sleep(600);
+      assert.equal(await app.main.eval(picture), still, 'still: the picture does not change');
+      // Animated: it moves again.
+      await settings.click('[data-action="setting"][data-key="startBgMotion"][data-value="animated"]');
+      await app.main.waitFor(`window.__mycapture.state.settings.startBgMotion === 'animated'`);
+      const before = await app.main.eval(picture);
+      await sleep(500);
+      assert.notEqual(await app.main.eval(picture), before, 'animated: the picture changes');
+
+      // Speed and transparency sliders: live while dragging, shown in percent.
+      const drag = (key, value) => settings.eval(`(() => { const r = document.querySelector('[data-input="${key}"]'); r.value = '${value}'; r.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+      await drag('startBgSpeed', 200);
+      await app.main.waitFor(`window.__mycapture.state.settings.startBgSpeed === 200`, { message: 'speed reaches the main window while dragging' });
+      assert.equal(await settings.eval(`document.querySelector('[data-output="startBgSpeed"]').textContent`), '200%');
+      // Twice the speed: the clock runs about twice as fast as real time.
+      const t0 = await app.main.eval(`performance.now()`);
+      const c0 = await app.main.eval(`window.__mycapture.startBackground().time`);
+      await sleep(1000);
+      const rate = (await app.main.eval(`window.__mycapture.startBackground().time`) - c0) / ((await app.main.eval(`performance.now()`) - t0) / 1000);
+      assert.ok(rate > 1.5 && rate < 2.3, `200% speed runs at ${rate.toFixed(2)}×`);
+      await drag('startBgTransparency', 50);
+      await app.main.waitFor(`window.__mycapture.state.settings.startBgTransparency === 50 && document.querySelector('.start-bg-canvas').style.opacity === '0.5'`, { message: 'background transparency applied' });
+      assert.equal(await settings.eval(`document.querySelector('[data-output="startBgTransparency"]').textContent`), '50%');
+      await drag('startCardTransparency', 40);
+      await app.main.waitFor(`document.querySelector('.start-inner').style.getPropertyValue('--start-card-alpha') === '60%'`, { message: 'card transparency applied' });
+      // Change by itself (Settings).
+      await settings.click('[data-action="setting"][data-key="startBgShuffle"][data-value="30"]');
+      await app.main.waitFor(`window.__mycapture.state.settings.startBgShuffle === 30`);
+
+      // Reset: back to the defaults.
+      await settings.click('[data-action="start-bg-reset"]');
+      await app.main.waitFor(`(() => { const s = window.__mycapture.state.settings; return s.startBgKind === 'studio' && s.startBgMotion === 'animated' && s.startBgSpeed === 100 && s.startBgTransparency === 0 && s.startCardTransparency === 15 && s.startBgShuffle === 0; })()`, { message: 'reset to defaults' });
+      await settings.click('[data-action="close"]');
+      settings.close();
+
+      // Kept after a restart.
+      await app.reset({ showStartScreen: true, startBgKind: 'lens', startBgMotion: 'still' });
+      await app.main.waitFor(`!document.querySelector('#start-page').hidden && ${inked} > 0`);
+      assert.equal(await app.main.eval(`window.__mycapture.startBackground()?.settings().kind`), 'lens');
+      assert.equal(await app.main.eval(`window.__mycapture.startBackground()?.running`), false, 'still: not animating');
+      // Leaving the start screen stops the background.
+      await app.main.click('#bar [data-action="home"]');
+      assert.equal(await app.main.eval(`window.__mycapture.startBackground()`), null, 'background gone with the start screen');
+      await app.reset({});
+    },
+  },
+  {
+    name: '시작 화면 · 움직이는 배경 카드 (장면 24개 · 움직임 · 자동 바꾸기 · 속도 · 투명도, 설정 창과 동기화)',
+    run: async (app) => {
+      await app.reset({ showStartScreen: true, theme: 'light-classic' });
+      await app.main.waitFor(`document.querySelector('.start-card-background .bg-tile')`, { message: 'background card' });
+      const inked = `(() => { const c = document.querySelector('.start-bg-canvas'); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4 * 53) if (d[i] > 0) n += 1; return n; })()`;
+      const card = '.start-card-background';
+      const current = () => app.main.eval(`[...document.querySelectorAll('${card} .bg-tile.on')].map((el) => el.dataset.value).join()`);
+      assert.equal(await app.main.eval(`document.querySelectorAll('${card} .bg-tile').length`), 24, 'twenty-four scene tiles');
+      assert.equal(await app.main.eval(`[...document.querySelectorAll('${card} .bg-tile, ${card} [data-action="start-bg-motion"], ${card} .start-slider, ${card} [data-action="start-bg-reset"]')].every((el) => el.querySelector('svg.icon[data-tone]'))`), true, 'every control has a colour icon');
+      assert.equal(await current(), 'studio');
+      // A tile: the scene changes at once, the tile is marked, the board is not rebuilt.
+      await app.main.eval(`document.querySelector('${card}').dataset.mark = 'same'; 1`);
+      for (const kind of ['lens', 'film', 'region']) {
+        await app.main.click(`${card} .bg-tile[data-value="${kind}"]`);
+        await app.main.waitFor(`window.__mycapture.state.settings.startBgKind === '${kind}' && window.__mycapture.startBackground().settings().kind === '${kind}'`, { message: `${kind} chosen on the card` });
+        assert.equal(await current(), kind);
+      }
+      assert.equal(await app.main.eval(`document.querySelector('${card}').dataset.mark`), 'same', 'only the card body was refreshed');
+      // Motion: off clears the picture and disables the sliders; animated brings it back.
+      await app.main.click(`${card} [data-action="start-bg-motion"][data-value="off"]`);
+      await app.main.waitFor(`${inked} === 0`, { message: 'off from the card' });
+      // Off: speed and background transparency are off too; card transparency still applies.
+      assert.deepEqual(JSON.parse(await app.main.eval(`JSON.stringify([...document.querySelectorAll('${card} input[type=range]')].map((input) => [input.dataset.input, input.disabled]))`)), [['startBgSpeed', true], ['startBgTransparency', true], ['startCardTransparency', false]]);
+      await app.main.click(`${card} [data-action="start-bg-motion"][data-value="animated"]`);
+      await app.main.waitFor(`${inked} > 0 && window.__mycapture.startBackground().running`, { message: 'animated from the card' });
+      // Sliders: live, and the card is not rebuilt under the pointer.
+      await app.main.eval(`(() => { const r = document.querySelector('${card} [data-input="startBgSpeed"]'); r.dataset.mark = 'kept'; r.value = '250'; r.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+      await app.main.waitFor(`window.__mycapture.state.settings.startBgSpeed === 250`);
+      await sleep(300);
+      assert.equal(await app.main.eval(`document.querySelector('${card} [data-input="startBgSpeed"]').dataset.mark`), 'kept', 'slider element kept while dragging');
+      assert.equal(await app.main.eval(`document.querySelector('${card} [data-output="startBgSpeed"]').textContent`), '250%');
+      await app.main.eval(`(() => { const r = document.querySelector('${card} [data-input="startBgTransparency"]'); r.value = '30'; r.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+      await app.main.waitFor(`window.__mycapture.state.settings.startBgTransparency === 30 && document.querySelector('.start-bg-canvas').style.opacity === '0.7'`, { message: 'transparency from the card' });
+      await app.main.eval(`(() => { const r = document.querySelector('${card} [data-input="startCardTransparency"]'); r.value = '50'; r.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+      await app.main.waitFor(`document.querySelector('.start-inner').style.getPropertyValue('--start-card-alpha') === '50%'`, { message: 'card transparency from the card' });
+      // Another one: a different scene at random. Change by itself: every 30 s (checked with a short clock below).
+      const before = await current();
+      await app.main.click(`${card} [data-action="start-bg-random"]`);
+      await app.main.waitFor(`[...document.querySelectorAll('${card} .bg-tile.on')].map((el) => el.dataset.value).join() !== '${before}'`, { message: 'another scene' });
+      await app.main.click(`${card} [data-action="start-bg-auto"][data-value="30"]`);
+      assert.equal(await app.main.eval(`window.__mycapture.state.settings.startBgShuffle`), 30);
+      // The clock: nothing before 30 s, a new scene after.
+      const shown = await current();
+      assert.equal(await app.main.eval(`window.__mycapture.shuffleTick(Date.now() + 10000)`), false, 'not yet at 10 s');
+      assert.equal(await app.main.eval(`window.__mycapture.shuffleTick(Date.now() + 31000)`), true, 'changed after 30 s');
+      assert.notEqual(await current(), shown, 'a different scene');
+      // Still or off: it does not change by itself.
+      await app.main.click(`${card} [data-action="start-bg-motion"][data-value="still"]`);
+      assert.equal(await app.main.eval(`window.__mycapture.shuffleTick(Date.now() + 999999)`), false, 'no change while still');
+      await app.main.click(`${card} [data-action="start-bg-motion"][data-value="animated"]`);
+
+      // Card → Settings: the Settings window shows the card's choices.
+      const chosen = await current();
+      await app.main.click('.start-tools [data-action="start-background"]');
+      const settings = await app.popup('settings');
+      await settings.waitFor(`document.querySelector('.start-bg-scene.current')?.dataset.value === '${chosen}' && document.querySelector('[data-output="startBgSpeed"]')?.textContent === '250%' && document.querySelector('[data-output="startCardTransparency"]')?.textContent === '50%'`, { message: 'Settings shows the card choices' });
+      assert.equal(await settings.eval(`[...document.querySelectorAll('.start-bg-scene')].every((el) => el.querySelector('svg.icon[data-tone]'))`), true, 'scene buttons in Settings have icons');
+      // Settings → card: a change there shows on the card.
+      await settings.click('.start-bg-scene[data-value="lens"]');
+      await app.main.waitFor(`[...document.querySelectorAll('${card} .bg-tile.on')].map((el) => el.dataset.value).join() === 'lens'`, { message: 'card follows Settings' });
+      await settings.click('[data-action="setting"][data-key="startBgMotion"][data-value="still"]');
+      await app.main.waitFor(`document.querySelector('${card} [data-action="start-bg-motion"].on')?.dataset.value === 'still'`, { message: 'motion follows Settings' });
+      await settings.click('[data-action="close"]');
+      settings.close();
+      // Reset on the card.
+      await app.main.click(`${card} [data-action="start-bg-reset"]`);
+      await app.main.waitFor(`(() => { const s = window.__mycapture.state.settings; return s.startBgKind === 'studio' && s.startBgMotion === 'animated' && s.startBgSpeed === 100 && s.startBgTransparency === 0 && s.startCardTransparency === 15 && s.startBgShuffle === 0; })()`, { message: 'reset from the card' });
+      assert.equal(await current(), 'studio');
+      await app.reset({});
+    },
+  },
+  {
+    name: '다른 캡처 프로그램으로 캡처 가능 (시작 화면 · 팝업), 자체 녹화 중에만 제외',
+    run: async (app) => {
+      if (process.platform !== 'win32') return;
+      // The windows of the app process, as Windows sees them: 0 = any program can capture it.
+      const windows = () => JSON.parse(execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(path.dirname(fileURLToPath(import.meta.url)), 'window-affinity.ps1'), '-ProcessId', String(app.process.pid)]).toString() || '[]');
+      await app.reset({ showStartScreen: true });
+      await app.main.waitFor(`!document.querySelector('#start-page').hidden`);
+      await sleep(300);
+      let seen = windows();
+      assert.ok(seen.length >= 1, 'main window found');
+      assert.deepEqual(seen.map((w) => w.affinity), seen.map(() => 0), `start screen capturable by other programs: ${JSON.stringify(seen)}`);
+      // A popup too.
+      await app.main.click('[data-action="open-settings"]');
+      const settings = await app.popup('settings');
+      await sleep(300);
+      seen = windows();
+      assert.ok(seen.length >= 2, `main and settings windows: ${JSON.stringify(seen)}`);
+      assert.ok(seen.every((w) => w.affinity === 0), `settings window capturable: ${JSON.stringify(seen)}`);
+      await settings.click('[data-action="close"]');
+      settings.close();
+      // While MyCapture records a region of the screen (the main window stays on screen),
+      // it leaves itself out; afterwards it is capturable again.
+      const monitor = await app.main.eval(`window.__mycapture.state.monitors.find((m) => m.primary) ?? window.__mycapture.state.monitors[0]`);
+      await app.reset({ mode: 'record', engine: 'native', target: 'region', videoFormat: 'webm', microphone: false, region: { monitorId: monitor.id, x: 0, y: 0, width: 200, height: 160 } });
+      await app.clearNotice();
+      await app.main.click('[data-action="record"]');
+      await app.main.waitFor(`window.__mycapture.state.session.phase === 'recording'`, { timeout: 20000, message: 'recording' });
+      await sleep(400);
+      seen = windows();
+      assert.ok(seen.length >= 1 && seen.every((w) => w.affinity === 0x11), `left out while recording: ${JSON.stringify(seen)}`);
+      await app.main.click('[data-action="stop"]');
+      await app.notice(30000);
+      await sleep(300);
+      seen = windows();
+      assert.ok(seen.length >= 1 && seen.every((w) => w.affinity === 0), `capturable again after recording: ${JSON.stringify(seen)}`);
+      await app.reset({ mode: 'capture' });
+    },
+  },
+  {
+    name: '인쇄 · 별도 창 (미리 보기 · 용지 · 방향 · 여백 · 크기, TIFF, 동영상 제외)',
+    run: async (app) => {
+      // Nothing captured yet: the print button is off.
+      await app.reset({ mode: 'capture', target: 'monitor', monitorId: null, imageFormat: 'png' });
+      assert.equal(await app.main.eval(`document.querySelector('[data-action="print"]').disabled`), true, 'nothing to print yet');
+      await capture(app);
+      const { file } = checkFile(app, 'png');
+      await app.main.waitFor(`!document.querySelector('[data-action="print"]').disabled`, { message: 'print button on after a capture' });
+      assert.ok(await app.main.eval(`document.querySelector('[data-action="print"] svg.icon[data-tone]') !== null`), 'print button has a colour icon');
+      await app.main.click('[data-action="print"]');
+      const printWin = async () => {
+        const win = await app.popup('print');
+        // Never the real print dialog: count the calls instead.
+        await win.eval(`window.print = () => { window.__printed = (window.__printed || 0) + 1; }; 1`);
+        await win.waitFor(`document.querySelector('.print-preview-image')?.complete && document.querySelector('.print-preview-image').naturalWidth > 0`, { message: 'image in the preview' });
+        return win;
+      };
+      let win = await printWin();
+      // Its own resizable window, with every option iconed.
+      assert.equal(await win.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|is_resizable', { label: 'popup-print' })`), true, 'resizable window');
+      assert.equal(await win.eval(`document.querySelector('.print-file').textContent`), file.split(/[\\/]/).pop());
+      assert.deepEqual(await win.eval(`[...document.querySelectorAll('.print-options .segment:not([data-print="margin"]), .print-check, .print-label, .modal-foot button')].filter((el) => !el.querySelector('svg.icon[data-tone]')).map((el) => el.textContent.trim())`), [], 'every option has a colour icon (margins are plain numbers in mm)');
+      // Options change the preview and are remembered.
+      await win.click('[data-print="orientation"][data-value="landscape"]');
+      assert.equal(await win.eval(`document.querySelector('.print-page').dataset.landscape`), 'true');
+      await win.click('[data-print="paper"][data-value="Letter"]');
+      await win.click('[data-print="scale"][data-value="actual"]');
+      await win.waitFor(`document.querySelector('[data-print-size]').textContent.includes('100%')`, { message: 'actual size shown' });
+      await win.click('[data-print="margin"][data-value="20"]');
+      assert.deepEqual(JSON.parse(await win.eval(`localStorage.getItem('mycapture.print.v1')`)), { paper: 'Letter', orientation: 'landscape', margin: 20, scale: 'actual', percent: 100, header: true, footer: true, border: false });
+      // Percent: the slider only works in that mode.
+      assert.equal(await win.eval(`document.querySelector('[data-print-percent]').disabled`), true);
+      await win.click('[data-print="scale"][data-value="percent"]');
+      await win.eval(`(() => { const r = document.querySelector('[data-print-percent]'); r.value = '50'; r.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+      await win.waitFor(`document.querySelector('[data-print-size]').textContent.includes('50%')`, { message: '50% applied' });
+      // Header off, border on: the preview follows.
+      await win.click('[data-print-toggle="header"]');
+      await win.click('[data-print-toggle="border"]');
+      assert.equal(await win.eval(`document.querySelector('.print-page-head')`), null);
+      assert.equal(await win.eval(`document.querySelector('.print-preview-image').classList.contains('bordered')`), true);
+      // Print: the page at paper size, then the dialog (stubbed).
+      await win.click('[data-print-action="print"]');
+      await win.waitFor(`window.__printed === 1`, { message: 'print dialog asked for' });
+      assert.match(await win.eval(`document.querySelector('#print-page-rule').textContent`), /@page \{ size: 279\.4mm 215\.9mm; margin: 0; \}/, 'Letter landscape page');
+      const sheet = JSON.parse(await win.eval(`JSON.stringify({ style: document.querySelector('.print-sheet').getAttribute('style'), image: document.querySelector('.print-sheet-image').getAttribute('src') === document.querySelector('.print-preview-image').getAttribute('src'), head: Boolean(document.querySelector('.print-sheet-head')), foot: Boolean(document.querySelector('.print-sheet-foot')) })`));
+      assert.deepEqual(sheet, { style: 'width:279.400mm;height:215.900mm', image: true, head: false, foot: true });
+      // Defaults again.
+      await win.click('[data-print-action="reset"]');
+      assert.equal(await win.eval(`document.querySelector('[data-print="scale"].active').dataset.value`), 'fit');
+      await win.click('[data-action="close"]');
+      win.close();
+
+      // From the viewer's toolbar, and a TIFF (the webview cannot draw it: a PNG from the app).
+      await app.reset({ mode: 'capture', target: 'monitor', monitorId: null, imageFormat: 'tiff' }, { keepGallery: true });
+      await capture(app);
+      const tiff = checkFile(app, 'tiff').file;
+      // The history lists the newest last.
+      await app.main.click('#history .tile:last-child .tile-open');
+      await app.main.waitFor(`!document.querySelector('#viewer').hidden`);
+      await app.main.click('#viewer [data-viewer="print"]');
+      win = await printWin();
+      assert.equal(await win.eval(`document.querySelector('.print-file').textContent`), tiff.split(/[\\/]/).pop(), 'the viewed image');
+      assert.match(await win.eval(`document.querySelector('.print-preview-image').getAttribute('src')`), /^blob:/, 'TIFF shown through a PNG');
+      await win.click('[data-action="close"]');
+      win.close();
+      await app.main.eval(`document.querySelector('#viewer [data-viewer="close"]').click(); 1`);
+
+      // A video is not printed.
+      const video = { id: 'vid1', kind: 'video', path: file, width: 10, height: 10, durationMs: 1000 };
+      await app.main.eval(`localStorage.setItem('mycapture.gallery.v1', ${JSON.stringify(JSON.stringify([video]))}); 1`);
+      await app.reset({ mode: 'capture' }, { keepGallery: true });
+      await app.clearNotice();
+      await app.main.eval(`window.__mycapture.actions.print('vid1'); 1`);
+      await app.main.waitFor(`window.__mycapture.state.notice?.kind === 'warn'`, { message: 'a video is refused with a warning' });
+      assert.equal(await app.hasPopup('print'), false, 'no print window for a video');
+      await app.reset({ mode: 'capture' });
+    },
+  },
+  {
+    name: '시작 화면 · 우클릭 메뉴에 배경 설정 · 자동 정렬 · 최근 캡처 전체 삭제',
+    run: async (app) => {
+      await app.reset({ showStartScreen: true });
+      await app.main.waitFor(`!document.querySelector('#start-page').hidden`);
+      const box = JSON.parse(await app.main.eval(`JSON.stringify(document.querySelector('.start-tools').getBoundingClientRect())`));
+      const x = box.left + 10;
+      const y = box.top + box.height / 2;
+      await app.main.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'right', buttons: 2, clickCount: 1 });
+      await app.main.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'right', buttons: 0, clickCount: 1 });
+      const menu = await app.popup('menu');
+      const items = JSON.parse(await menu.eval(`JSON.stringify([...document.querySelectorAll('.menu-item')].map((item) => ({ value: item.dataset.value, disabled: item.disabled, icon: Boolean(item.querySelector('svg')) })))`));
+      const values = items.map((item) => item.value);
+      assert.ok(['start-background', 'start-arrange', 'gallery-clear', 'home'].every((value) => values.includes(value)), `start screen menu: ${values}`);
+      assert.ok(items.every((item) => item.icon), 'every item has an icon');
+      assert.equal(items.find((item) => item.value === 'gallery-clear').disabled, true, 'nothing to delete yet');
+      await menu.click('[data-value="start-background"]');
+      menu.close();
+      const settings = await app.popup('settings');
+      await settings.waitFor(`document.querySelector('.tab.active')?.dataset.value === 'start'`, { message: 'menu opens the background settings' });
+      await settings.click('[data-action="close"]');
+      settings.close();
+    },
+  },
+  {
+    name: '컬러 아이콘 · 메인 창 · 시작 화면 · 설정 창 · 우클릭 메뉴 (밝은 · 어두운 테마)',
+    run: async (app) => {
+      // Every visible icon is drawn in its tone's colour (except on solid coloured buttons).
+      const ICON_CHECK = `(() => {
+        const probe = document.createElement('i');
+        document.body.appendChild(probe);
+        const want = (tone) => { probe.style.color = 'var(--tone-' + tone + ')'; return getComputedStyle(probe).color; };
+        const exempt = '.shutter-disc, .primary, .chip.on, .round-button.pause, .round-button.resume, .viewer-main, .tile-play, .tile-video, .start-recent-badge, .recbar-button.pause, .recbar-button.resume, .recbar-button.stop, [data-viewer="stop"]';
+        const icons = [...document.querySelectorAll('svg.icon')].filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && !el.closest('[hidden]'); });
+        const wrong = [];
+        const hues = new Set();
+        for (const el of icons) {
+          if (!el.dataset.tone) { wrong.push('no tone: ' + el.outerHTML.slice(0, 60)); continue; }
+          if (el.closest(exempt)) continue;
+          const colour = getComputedStyle(el).color;
+          hues.add(colour);
+          if (colour !== want(el.dataset.tone)) wrong.push(el.dataset.icon + ' ' + colour + ' != ' + want(el.dataset.tone));
+        }
+        probe.remove();
+        return JSON.stringify({ count: icons.length, hues: hues.size, wrong: wrong.slice(0, 10) });
+      })()`;
+      const check = async (page, where, least) => {
+        const result = JSON.parse(await page.eval(ICON_CHECK));
+        assert.deepEqual(result.wrong, [], `${where}: icons in their colours`);
+        assert.ok(result.count >= least.count, `${where}: ${result.count} icons`);
+        assert.ok(result.hues >= least.hues, `${where}: ${result.hues} different colours`);
+        return result;
+      };
+      for (const theme of ['light-classic', 'dark-midnight']) {
+        await app.reset({ theme, showStartScreen: true, mode: 'capture' });
+        await app.main.waitFor(`!document.querySelector('#start-page').hidden`);
+        await check(app.main, `${theme} start screen`, { count: 15, hues: 6 });
+        await app.main.click('[data-action="start-close"]');
+        await check(app.main, `${theme} main window`, { count: 15, hues: 6 });
+        // Toolbar: every item (segments, chips, the format button) has a colour icon, in both modes.
+        for (const mode of ['capture', 'record']) {
+          await app.main.click(`[data-action="mode"][data-value="${mode}"]`);
+          await sleep(150);
+          const bare = await app.main.eval(`[...document.querySelectorAll('#toolbar .segment, #toolbar .chip, #toolbar .format-pick, #toolbar button')].filter((el) => !el.querySelector('svg.icon[data-tone]')).map((el) => el.textContent.trim() || el.className)`);
+          assert.deepEqual(bare, [], `${theme} ${mode} toolbar: items without an icon`);
+          assert.equal(await app.main.eval(`document.querySelectorAll('#toolbar select').length`), 0, 'no native drop-down in the toolbar');
+          await check(app.main, `${theme} ${mode} toolbar`, { count: mode === 'record' ? 18 : 8, hues: mode === 'record' ? 8 : 5 });
+        }
+        await app.main.click('[data-action="mode"][data-value="capture"]');
+        // The format button opens the app's own menu, one colour icon per format.
+        await app.main.click('#toolbar [data-action="format-menu"]');
+        const formats = await app.popup('menu');
+        await formats.waitFor(`document.querySelectorAll('.menu-item').length === 7`, { message: 'format menu' });
+        await check(formats, `${theme} format menu`, { count: 7, hues: 5 });
+        await formats.click('[data-value="image-format:webp"]');
+        formats.close();
+        await app.main.waitFor(`window.__mycapture.state.settings.imageFormat === 'webp' && document.querySelector('#toolbar .format-pick span').textContent === 'WEBP'`, { message: 'format chosen from the menu' });
+        // The shutter keeps its white icon on the accent disc.
+        assert.equal(await app.main.eval(`getComputedStyle(document.querySelector('.shutter-disc .icon')).color`), 'rgb(255, 255, 255)', 'shutter icon stays white');
+        // Light and dark themes use different shades of the same hue.
+        const trash = await app.main.eval(`(() => { const p = document.createElement('i'); p.style.color = 'var(--tone-red)'; document.body.appendChild(p); const c = getComputedStyle(p).color; p.remove(); return c; })()`);
+        assert.equal(trash, theme.startsWith('light') ? 'rgb(220, 38, 38)' : 'rgb(248, 113, 113)', `${theme}: red shade`);
+
+        // Settings window: every tab.
+        await app.main.click('[data-action="open-settings"]');
+        const settings = await app.popup('settings');
+        for (const tab of SETTINGS_TABS) {
+          await settings.click(`[data-action="settings-tab"][data-value="${tab}"]`);
+          await sleep(tab === 'mic' ? 400 : 100);
+          await check(settings, `${theme} settings/${tab}`, { count: 8, hues: 3 });
+          if (tab === 'capture') {
+            // The same format menu from Settings: the choice comes back to this window.
+            await settings.click('[data-action="format-menu"]');
+            const formats = await app.popup('menu');
+            await formats.waitFor(`document.querySelector('[data-value="image-format:png"]')`);
+            await formats.click('[data-value="image-format:png"]');
+            formats.close();
+            await settings.waitFor(`document.querySelector('.format-pick span')?.textContent === 'PNG'`, { message: 'format chosen in Settings' });
+            await app.main.waitFor(`window.__mycapture.state.settings.imageFormat === 'png'`, { message: 'and the main window follows' });
+          }
+        }
+        await settings.click('[data-action="close"]');
+        settings.close();
+
+        // Context menu.
+        const box = JSON.parse(await app.main.eval(`JSON.stringify(document.querySelector('#toolbar').getBoundingClientRect())`));
+        const x = box.left + 8;
+        const y = box.top + box.height / 2;
+        await app.main.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'right', buttons: 2, clickCount: 1 });
+        await app.main.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'right', buttons: 0, clickCount: 1 });
+        const menu = await app.popup('menu');
+        await check(menu, `${theme} context menu`, { count: 6, hues: 5 });
+        await menu.key('Escape');
+        menu.close();
+        await sleep(300);
+      }
+      await app.reset({});
+    },
+  },
+  {
+    name: '시작 화면 · 최근 캡처 개별 삭제 · 전체 삭제 (파일은 그대로)',
+    run: async (app) => {
+      await app.reset({ mode: 'capture', target: 'monitor', monitorId: null, imageFormat: 'png' });
+      for (let i = 0; i < 3; i += 1) {
+        await app.clearNotice();
+        await app.main.click('[data-action="capture"]');
+        await app.notice(30000);
+        await sleep(1100); // a different file name each time (seconds in the stem)
+      }
+      const files = fs.readdirSync(app.output).filter((name) => name.endsWith('.png'));
+      await app.main.click('#bar [data-action="home"]');
+      await app.main.waitFor(`document.querySelectorAll('.start-recent-item').length === 3`, { message: 'three recent captures' });
+      // Newest first.
+      const newest = await app.main.eval(`window.__mycapture.state.gallery[0].id`);
+      assert.equal(await app.main.eval(`document.querySelector('.start-recent-item').dataset.id`), newest, 'newest capture first');
+      // Delete one with its own button.
+      await app.main.click(`.start-recent-item[data-id="${newest}"] .start-recent-delete`);
+      await app.main.waitFor(`document.querySelectorAll('.start-recent-item').length === 2 && document.querySelectorAll('#history .tile').length === 2`, { message: 'one entry removed' });
+      assert.equal(await app.main.eval(`document.querySelector('#start-page').hidden`), false, 'still on the start screen');
+      // Delete all: asks first.
+      await app.main.click('.start-card-recent [data-action="gallery-clear"]');
+      const confirm = await app.popup('confirm');
+      await confirm.click('[data-action="gallery-clear-confirm"]');
+      confirm.close();
+      await app.main.waitFor(`document.querySelectorAll('.start-recent-item').length === 0 && document.querySelector('.start-card-recent .start-empty')`, { message: 'recent list emptied' });
+      assert.ok(await app.main.eval(`document.querySelector('.start-card-recent [data-action="gallery-clear"]').disabled`), 'delete all disabled when empty');
+      assert.ok(files.length >= 3 && files.every((name) => fs.existsSync(`${app.output}/${name}`)), 'saved files are not deleted');
     },
   },
   {
@@ -610,7 +1036,13 @@ export const cases = [
         await sleep(300);
         // In both languages ("Screen recording" is longer than "화면 녹화").
         for (const language of ['ko', 'en']) {
-          assert.deepEqual(await app.main.eval(AUDIT.replace("querySelectorAll('button,", "querySelectorAll('#bar button, .start-tools button, .start-hero button,")), [], `start screen (${language})`);
+          // The title bar and the top of the start screen (the rest scrolls; checked card by card below).
+          assert.deepEqual(await app.main.eval(AUDIT.replace("querySelectorAll('button, select, input[type=range], input[type=search], input[type=color], [data-resize]')", "querySelectorAll('#bar button, .start-tools button, .start-hero button')")), [], `start screen (${language})`);
+          // The moving background card, scrolled into view: every control visible and reachable.
+          await app.main.eval(`document.querySelector('.start-card-background').scrollIntoView({ block: 'end' }); 1`);
+          await sleep(200);
+          assert.deepEqual(JSON.parse(await app.main.eval(`JSON.stringify([...document.querySelectorAll('.start-card-background button, .start-card-background input')].map((el) => { const r = el.getBoundingClientRect(); const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return r.left < 0 || r.right > innerWidth + 0.5 || r.top < 0 || r.bottom > innerHeight + 0.5 ? 'outside ' + (el.dataset.value ?? el.dataset.input ?? el.dataset.action) : hit && (el === hit || el.contains(hit) || hit.closest('label')?.contains(el)) ? '' : 'covered ' + (el.dataset.value ?? el.dataset.input ?? el.dataset.action); }).filter(Boolean))`)), [], `background card at the minimum size (${language})`);
+          await app.main.eval(`document.querySelector('.start-scroll').scrollTop = 0; 1`);
           assert.ok(await app.main.eval(`(() => { const s = document.querySelector('.start-scroll'); return s.scrollWidth <= s.clientWidth + 1 && document.querySelector('.app').scrollWidth <= innerWidth + 1; })()`), `no sideways scrolling (${language})`);
           assert.ok(await app.main.eval(`[...document.querySelectorAll('.mode')].every((b) => b.getBoundingClientRect().height < 40)`), `mode labels on one line (${language})`);
           assert.ok(await app.main.eval(`(() => { const r = document.querySelector('.brand-name').getBoundingClientRect(); return r.width > 40 && r.right <= document.querySelector('.modes').getBoundingClientRect().left; })()`), `program name "MyCapture" visible in the title bar (${language})`);
@@ -670,7 +1102,13 @@ export const cases = [
     name: '캡처 기록 · 많으면 상하 스크롤, 우측 패널 접기 · 펼치기',
     run: async (app) => {
       const file = checkFile(app, 'png').file;
-      const items = Array.from({ length: 30 }, (_, index) => ({ id: `t${index}`, kind: index % 3 ? 'image' : 'video', path: `${file}?${index}`, width: 10, height: 10, durationMs: 1000 }));
+      // Real files: entries whose file does not exist are dropped from the history.
+      const copies = Array.from({ length: 30 }, (_, index) => {
+        const copy = file.replace(/\.png$/i, `-copy${index}.png`);
+        fs.copyFileSync(file, copy);
+        return copy;
+      });
+      const items = copies.map((path, index) => ({ id: `t${index}`, kind: index % 3 ? 'image' : 'video', path, width: 10, height: 10, durationMs: 1000 }));
       await app.main.eval(`localStorage.setItem('mycapture.gallery.v1', ${JSON.stringify(JSON.stringify(items))}); 1`);
       await app.reset({ mode: 'capture', historyCollapsed: false }, { keepGallery: true });
       await app.main.waitFor(`document.querySelectorAll('#history .tile').length === 30`);
@@ -788,7 +1226,7 @@ export const cases = [
     },
   },
   {
-    name: '캡처 기록 · 다시 열어도 유지, 사라진 파일은 표시',
+    name: '캡처 기록 · 다시 열어도 유지, 사라진 파일은 기록에서 빠짐',
     run: async (app) => {
       await app.reset({ mode: 'capture', target: 'monitor', monitorId: null, imageFormat: 'png' });
       await capture(app);
@@ -797,9 +1235,8 @@ export const cases = [
       await app.main.waitFor(`document.querySelectorAll('.tile').length === 1`, { message: 'history survives a restart' });
       fs.rmSync(file);
       await app.reset({ mode: 'capture' }, { keepGallery: true });
-      await app.main.waitFor(`document.querySelector('.tile.missing')`, { message: 'missing file is marked' });
-      await app.main.click('.tile [data-action="gallery-delete"]');
-      await app.main.waitFor(`document.querySelectorAll('.tile').length === 0`);
+      await app.main.waitFor(`document.querySelectorAll('.tile').length === 0 && window.__mycapture.state.gallery.length === 0`, { message: 'deleted file dropped from the history' });
+      assert.equal(JSON.parse(await app.main.eval(`localStorage.getItem('mycapture.gallery.v1')`)).length, 0, 'and from storage');
     },
   },
   {
@@ -1008,14 +1445,14 @@ export const cases = [
       const clipboard = execFileSync('powershell.exe', ['-NoProfile', '-Command', 'Get-Clipboard']).toString().trim();
       assert.equal(clipboard, file, 'the file path is on the clipboard');
       const commands = (list) => list.map((item) => item.command.split(':')[0]);
-      assert.ok(['copy-image', 'save-as'].every((name) => commands(items).includes(name)), `history: copy to clipboard and save as (${commands(items)})`);
+      assert.ok(['copy-image', 'save-as', 'print'].every((name) => commands(items).includes(name)), `history: copy to clipboard and save as (${commands(items)})`);
       // Viewer: copy and save as too.
       await app.main.click('#history .tile-open');
       await app.main.waitFor(`!document.querySelector('#viewer').hidden`);
       await rightClick('#viewer .viewer-canvas');
       menu = await app.popup('menu');
       const viewerItems = JSON.parse(await menu.eval(`JSON.stringify([...document.querySelectorAll('.menu-item')].map((item) => item.dataset.value))`));
-      assert.ok(['viewer:copy', 'viewer:save-as'].every((name) => viewerItems.includes(name)), `viewer menu: ${viewerItems}`);
+      assert.ok(['viewer:copy', 'viewer:save-as', 'viewer:print'].every((name) => viewerItems.includes(name)), `viewer menu: ${viewerItems}`);
       await app.clearNotice();
       await menu.click('[data-value="viewer:copy"]');
       menu.close();
@@ -1035,7 +1472,7 @@ export const cases = [
       await rightClick('.start-recent-item');
       menu = await app.popup('menu');
       const recentItems = JSON.parse(await menu.eval(`JSON.stringify([...document.querySelectorAll('.menu-item')].map((item) => item.dataset.value.split(':')[0]))`));
-      assert.ok(['view', 'copy-image', 'save-as', 'reveal'].every((name) => recentItems.includes(name)), `recent capture menu: ${recentItems}`);
+      assert.ok(['view', 'copy-image', 'save-as', 'print', 'reveal'].every((name) => recentItems.includes(name)), `recent capture menu: ${recentItems}`);
       await menu.click('[data-value^="view:"]');
       menu.close();
       await app.main.waitFor(`document.querySelector('#start-page').hidden && !document.querySelector('#viewer').hidden`, { message: 'view from the start screen menu' });
@@ -1054,13 +1491,94 @@ export const cases = [
       menu.close();
       await app.main.waitFor(`document.querySelectorAll('#history .tile').length === 0`);
       assert.ok(fs.existsSync(file), 'file kept');
-      // Text fields keep their own cut / copy / paste menu.
+      // Text fields: the app's own editing menu (colour icons), not the webview's.
       await app.main.click('[data-action="target"][data-value="window"]');
       await app.main.eval(`window.__menuEvents = []; 1`);
-      await rightClick('[data-input="windowFilter"]');
+      const field = '[data-input="windowFilter"]';
+      await app.main.eval(`(() => { const f = document.querySelector('${field}'); f.focus(); f.value = 'MyCapture'; f.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+      await sleep(200);
+      await app.main.eval(`(() => { const f = document.querySelector('${field}'); f.focus(); f.setSelectionRange(0, 2); return 1; })()`);
+      const textMenu = async () => {
+        // Right-click on the text itself: a right-click past its end moves the caret
+        // there (as in any browser) and the selection is gone.
+        const box = JSON.parse(await app.main.eval(`JSON.stringify(document.querySelector('${field}').getBoundingClientRect())`));
+        const padding = await app.main.eval(`parseFloat(getComputedStyle(document.querySelector('${field}')).paddingLeft)`);
+        const x = box.left + padding + 6;
+        const y = box.top + box.height / 2;
+        await app.main.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'right', buttons: 2, clickCount: 1 });
+        await app.main.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'right', buttons: 0, clickCount: 1 });
+        const opened = await app.popup('menu');
+        await opened.waitFor(`document.querySelector('[data-value="text:paste"]')`, { message: 'text menu' });
+        return opened;
+      };
+      menu = await textMenu();
+      assert.deepEqual(JSON.parse(await app.main.eval(`JSON.stringify(window.__menuEvents)`)), [true], 'search box: no native menu');
+      const textItems = JSON.parse(await menu.eval(`JSON.stringify([...document.querySelectorAll('.menu-item')].map((item) => ({ command: item.dataset.value, disabled: item.disabled, tone: item.querySelector('svg.icon')?.dataset.tone ?? '', colour: getComputedStyle(item.querySelector('svg.icon')).color })))`));
+      assert.deepEqual(textItems.map((item) => item.command), ['text:undo', 'text:cut', 'text:copy', 'text:paste', 'text:delete', 'text:select-all']);
+      assert.ok(textItems.every((item) => item.tone && !item.disabled), `every item has a colour icon and is enabled: ${JSON.stringify(textItems)}`);
+      assert.ok(new Set(textItems.map((item) => item.colour)).size >= 3, 'in several colours');
+      // UTF-8 out: the console code page would garble Korean text.
+      const clipboardText = () => execFileSync('powershell.exe', ['-NoProfile', '-Command', '[Console]::OutputEncoding = [Text.Encoding]::UTF8; Get-Clipboard -Raw']).toString('utf8').trim();
+      // Copy: the remembered selection, although the menu window took the focus.
+      await menu.click('[data-value="text:copy"]');
+      menu.close();
+      await sleep(400);
+      assert.equal(clipboardText(), 'My', 'copy from the text menu');
+      // Select all, then cut: the field is empty, the clipboard has it all.
+      menu = await textMenu();
+      await menu.click('[data-value="text:select-all"]');
+      menu.close();
+      await app.main.waitFor(`(() => { const f = document.querySelector('${field}'); return f.selectionStart === 0 && f.selectionEnd === 9; })()`, { message: 'select all' });
+      menu = await textMenu();
+      await menu.click('[data-value="text:cut"]');
+      menu.close();
+      await app.main.waitFor(`document.querySelector('${field}').value === '' && window.__mycapture.state.windowFilter === ''`, { message: 'cut empties the field (and the filter follows)' });
       await sleep(300);
-      assert.deepEqual(JSON.parse(await app.main.eval(`JSON.stringify(window.__menuEvents)`)), [false], 'search box: native menu');
-      await app.main.key('Escape');
+      assert.equal(clipboardText(), 'MyCapture', 'cut puts it on the clipboard');
+      // Paste puts it back.
+      menu = await textMenu();
+      await menu.click('[data-value="text:paste"]');
+      menu.close();
+      await app.main.waitFor(`document.querySelector('${field}').value === 'MyCapture'`, { message: 'paste from the text menu' });
+      await app.main.eval(`(() => { const f = document.querySelector('${field}'); f.value = ''; f.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+
+      // Popups: the guide's search box, selected guide text and the window itself.
+      await app.main.click('#bar [data-action="open-guide"]');
+      const guide = await app.popup('guide');
+      await guide.waitFor(`document.querySelector('.guide-doc p')`, { message: 'guide shown' });
+      const guideClick = async (selector) => {
+        const box = JSON.parse(await guide.eval(`JSON.stringify(document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect())`));
+        const x = box.left + Math.min(20, box.width / 2);
+        const y = box.top + Math.min(10, box.height / 2);
+        await guide.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'right', buttons: 2, clickCount: 1 });
+        await guide.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'right', buttons: 0, clickCount: 1 });
+        return app.popup('menu');
+      };
+      const values = (page) => page.eval(`[...document.querySelectorAll('.menu-item')].map((item) => item.dataset.value + (item.querySelector('svg.icon[data-tone]') ? '' : ' (no colour icon)'))`);
+      menu = await guideClick('.guide-search');
+      await menu.waitFor(`document.querySelector('[data-value="text:paste"]')`, { message: 'text menu in the guide search box' });
+      assert.ok((await values(menu)).every((value) => value.startsWith('text:') && !value.includes('no colour')), 'guide search: text menu with colour icons');
+      await menu.key('Escape');
+      menu.close();
+      await sleep(300);
+      // Selected guide text: Copy, then Close.
+      const selected = await guide.eval(`(() => { const p = document.querySelector('.guide-doc p'); const range = document.createRange(); range.selectNodeContents(p); const s = getSelection(); s.removeAllRanges(); s.addRange(range); return s.toString().trim(); })()`);
+      menu = await guideClick('.guide-doc p');
+      await menu.waitFor(`document.querySelector('[data-value="text:copy-selection"]')`, { message: 'copy for selected guide text' });
+      assert.deepEqual(await values(menu), ['text:copy-selection', 'popup-close']);
+      await menu.click('[data-value="text:copy-selection"]');
+      menu.close();
+      await sleep(400);
+      assert.equal(clipboardText().replace(/\s+/g, ' '), selected.replace(/\s+/g, ' '), 'selected guide text copied');
+      await guide.eval(`getSelection().removeAllRanges(); 1`);
+      menu = await guideClick('.guide-doc p');
+      await menu.waitFor(`document.querySelector('[data-value="popup-close"]')`);
+      assert.deepEqual(await values(menu), ['popup-close'], 'nothing selected: just Close');
+      await menu.click('[data-value="popup-close"]');
+      menu.close();
+      guide.close();
+      for (let i = 0; i < 30 && (await app.hasPopup('guide')); i += 1) await sleep(100);
+      assert.equal(await app.hasPopup('guide'), false, 'Close from the menu closes the guide');
     },
   },
   {
@@ -1187,7 +1705,7 @@ export const cases = [
       await sleep(300);
       const moved = await win('popup-settings', 'outer_position');
       assert.ok(moved.x >= main.x + main.width, 'settings window sits outside the main window');
-      assert.ok(await settings.eval(`document.querySelectorAll('.tab').length === 6`), 'and still works there');
+      assert.ok(await settings.eval(`document.querySelectorAll('.tab').length === ${SETTINGS_TABS.length}`), 'and still works there');
       await app.main.click('[data-action="open-about"]');
       await app.popup('about');
       await app.main.eval(`window.__mycapture.actions['win-close'](); 1`);

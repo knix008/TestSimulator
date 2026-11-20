@@ -15,6 +15,7 @@ export const POPUPS = {
   'theme-menu': { width: 460, height: 640 },
   menu: { width: 250, height: 300 }, // context menu; fitted to its items
   guide: { width: 980, height: 720 }, // user's guide; resizable
+  print: { width: 1000, height: 700 }, // print preview; resizable
 };
 
 export const popupKey = (kind) => `mycapture.popup.${kind}`;

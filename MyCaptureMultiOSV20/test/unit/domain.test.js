@@ -105,3 +105,21 @@ test('settings map to backend capture sources', () => {
   const region = { monitorId: 1, x: 2, y: 3, width: 4, height: 5 };
   assert.deepEqual(captureSource({ ...defaultSettings, target: 'region', region }), { kind: 'region', ...region });
 });
+
+test('saving: every format offered, and the type picked in the save dialog decides the format', async () => {
+  const { extensionsOf, formatOfPath } = await import('../../src/domain/naming.js');
+  const { IMAGE_FORMATS, VIDEO_FORMATS } = await import('../../src/domain/settings.js');
+  // PNG, JPG, GIF, WebP and AVIF at least (plus TIFF and BMP).
+  for (const format of ['png', 'jpg', 'gif', 'webp', 'avif']) assert.ok(IMAGE_FORMATS.includes(format), format);
+  assert.deepEqual(extensionsOf('jpg'), ['jpg', 'jpeg']);
+  assert.deepEqual(extensionsOf('tiff'), ['tiff', 'tif']);
+  assert.deepEqual(extensionsOf('webp'), ['webp']);
+  assert.equal(formatOfPath('C:\shots\a.PNG', IMAGE_FORMATS, 'jpg'), 'png');
+  assert.equal(formatOfPath('C:\shots\a.jpeg', IMAGE_FORMATS, 'png'), 'jpg');
+  assert.equal(formatOfPath('/home/me/a.tif', IMAGE_FORMATS, 'png'), 'tiff');
+  assert.equal(formatOfPath('C:\shots\a.avif', IMAGE_FORMATS, 'png'), 'avif');
+  assert.equal(formatOfPath('C:\shots\a', IMAGE_FORMATS, 'png'), 'png', 'no extension: the current format');
+  assert.equal(formatOfPath('C:\my.folder\a', IMAGE_FORMATS, 'gif'), 'gif', 'a dot in the folder is not an extension');
+  assert.equal(formatOfPath('C:\shots\a.mp3', IMAGE_FORMATS, 'png'), 'png', 'unknown: the current format');
+  assert.equal(formatOfPath('C:\v\r.webm', VIDEO_FORMATS, 'mp4'), 'webm');
+});
