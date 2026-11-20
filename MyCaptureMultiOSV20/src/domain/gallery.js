@@ -37,6 +37,15 @@ export function addToGallery(items, item) {
   return [entry, ...items.filter((existing) => existing.path !== entry.path)].slice(0, GALLERY_LIMIT);
 }
 
+/**
+ * Splits the history by whether each file still exists. `exists` maps path → boolean;
+ * a path it has no answer for (the list changed while asking) is kept.
+ */
+export function pruneMissing(items, exists) {
+  const gone = items.filter((item) => exists.get(item.path) === false).map((item) => item.id);
+  return { items: gone.length ? removeFromGallery(items, gone) : items, gone };
+}
+
 export function removeFromGallery(items, ids) {
   const remove = new Set(ids);
   return items.filter((item) => !remove.has(item.id));

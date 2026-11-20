@@ -3,24 +3,30 @@
 // live in localStorage, which the main window watches, so a change here shows
 // there at once — and changes made there show here.
 import './styles.css';
+import './icon-tones.css';
 import appIcon from '../assets/icon.svg';
-import { emit } from '@tauri-apps/api/event';
+import { emit, listen } from '@tauri-apps/api/event';
 import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { GALLERY_KEY, loadGallery, storeGallery } from './domain/gallery.js';
-import { defaultSettings, IMAGE_FORMATS, loadSettings, STORAGE_KEY, storeSettings } from './domain/settings.js';
+import {
+  defaultSettings, IMAGE_FORMATS, loadSettings, START_BG_KINDS, START_BG_MOTIONS, START_BG_SETTINGS, START_BG_SHUFFLE, START_BG_SPEED, START_BG_TRANSPARENCY, START_CARD_TRANSPARENCY, STORAGE_KEY, storeSettings,
+} from './domain/settings.js';
 import { getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
 import { listMicrophones, meterPosition, MicrophoneChain } from './platform/microphone.js';
-import { defaultDirectories, errorText, platformInfo, setBackendLanguage } from './platform/native.js';
+import { copyText, defaultDirectories, errorText, imagePng, platformInfo, previewUrl, readText, setBackendLanguage } from './platform/native.js';
+import { fieldItems, menuAnchor, rememberTarget, runTextCommand, selectionItems } from './textmenu.js';
 import { openPopup, popupKey, popupParams, SESSION_KEY } from './platform/popups.js';
 import { recordingSupport } from './platform/recorder.js';
 import {
   applyTheme, CUSTOM, CUSTOM_FIELDS, resolveTheme, SYSTEM, THEMES, themeName,
 } from './themes.js';
-import { escapeHtml, formatNote, settingRow, swatch, widgets } from './ui.js';
+import { escapeHtml, formatNote, openFormatMenu, settingRow, swatch, widgets } from './ui.js';
 import { renderMarkdown } from './domain/markdown.js';
+import { SCENE_ICONS, shuffleLabel } from './start.js';
+import { startPrintWindow } from './printwindow.js';
 import guideKo from '../doc/UsersGuide.md?raw';
 import guideEn from '../doc/UsersGuide.en.md?raw';
 import tutorialKo from '../doc/Tutorial.md?raw';
@@ -47,6 +53,7 @@ const state = {
 let micChain = null;
 let meterFrame = 0;
 let shown = false;
+let printWin = null; // the print window (printwindow.js), when this popup is one
 
 const s = () => state.settings;
 const ui = widgets(s);
@@ -72,9 +79,11 @@ const SETTINGS_TABS = [
   ['mic', 'mic', 'mic.name'],
   ['save', 'folder', 'save.label'],
   ['theme', 'palette', 'settings.theme'],
+  ['start', 'home', 'startBg.tab'],
 ];
 
 function render() {
+  if (kind === 'print') return printWin?.relabel();
   if (kind === 'guide') return renderGuide();
   if (kind === 'theme-menu') return renderThemeMenu();
   if (kind === 'menu') return renderContextMenu();
@@ -138,7 +147,7 @@ function settingsBody() {
   switch (state.tab) {
     case 'capture':
       return `
-        ${settingRow(t('tool.format'), ui.imageFormatSelect())}
+        ${settingRow(t('tool.format'), ui.imageFormatPicker())}
         ${settingRow(t('tool.jpgQuality'), ui.qualitySlider())}
         <p class="hint">${escapeHtml(formatNote(settings.imageFormat))}</p>
         <div class="toggles">${ui.toggle('copyToClipboard', t('tool.clipboard'), t('tool.clipboardTip'))}</div>`;
@@ -161,6 +170,8 @@ function settingsBody() {
         <div class="toggles">${ui.toggle('askPath', t('save.ask'), t('save.askDetail'), active)}</div>`;
     case 'theme':
       return themeSettingsBody();
+    case 'start':
+      return startSettingsBody();
     default:
       return `
         ${settingRow(t('settings.language'), ui.segmented('language', [['ko', '한국어'], ['en', 'English']], getLanguage()))}
@@ -168,6 +179,30 @@ function settingsBody() {
         ${settingRow(t('settings.panel'), ui.segmented('sidebarCollapsed', [['false', t('settings.panelOpen')], ['true', t('settings.panelClosed')]], String(settings.sidebarCollapsed)))}
         ${settingRow(t('settings.historyPanel'), ui.segmented('historyCollapsed', [['false', t('settings.panelOpen')], ['true', t('settings.panelClosed')]], String(settings.historyCollapsed)))}`;
   }
+}
+
+/**
+ * Start screen: shown at startup, and its moving background — the same choices as the
+ * start screen's background card: 24 scenes, motion, automatic change, speed, the
+ * background's and the cards' transparency.
+ */
+function startSettingsBody() {
+  const settings = s();
+  const off = settings.startBgMotion === 'off';
+  const slider = (key, range, label, disabled) => `<span class="quality">
+      <input type="range" min="${range.min}" max="${range.max}" step="${range.step}" value="${settings[key]}" data-input="${key}" aria-label="${label}" ${disabled ? 'disabled' : ''} />
+      <output data-output="${key}">${settings[key]}%</output>
+    </span>`;
+  const scenes = START_BG_KINDS.map((kind) => `<button class="start-bg-scene ${settings.startBgKind === kind ? 'current' : ''}" role="radio" aria-checked="${settings.startBgKind === kind}" data-action="setting" data-key="startBgKind" data-value="${kind}" title="${escapeHtml(t(`startBg.kind.${kind}.detail`))}">${icon(SCENE_ICONS[kind])}<span>${t(`startBg.kind.${kind}`)}</span></button>`).join('');
+  return `
+    <div class="toggles">${ui.toggle('showStartScreen', t('start.showOnStart'), t('startBg.showDetail'))}</div>
+    <div class="theme-group"><span class="setting-label">${t('startBg.scene')} <small>${START_BG_KINDS.length}</small></span><div class="start-bg-scenes" role="radiogroup" aria-label="${t('startBg.scene')}">${scenes}</div></div>
+    ${settingRow(t('startBg.motion'), ui.segmented('startBgMotion', START_BG_MOTIONS.map((motion) => [motion, t(`startBg.motion.${motion}`)]), settings.startBgMotion))}
+    ${settingRow(t('startBg.shuffle'), ui.segmented('startBgShuffle', START_BG_SHUFFLE.map((seconds) => [seconds, shuffleLabel(seconds)]), settings.startBgShuffle))}
+    ${settingRow(t('startBg.speed'), slider('startBgSpeed', START_BG_SPEED, t('startBg.speed'), off))}
+    ${settingRow(t('startBg.transparency'), slider('startBgTransparency', START_BG_TRANSPARENCY, t('startBg.transparency'), off))}
+    ${settingRow(t('startBg.cardTransparency'), slider('startCardTransparency', START_CARD_TRANSPARENCY, t('startBg.cardTransparency'), false))}
+    <div class="setting-actions"><button class="button small" data-action="start-bg-reset">${icon('refresh')}<span>${t('startBg.reset')}</span></button></div>`;
 }
 
 function themeSettingsBody() {
@@ -490,6 +525,7 @@ function close() {
 
 const actions = {
   close: () => close(),
+  'format-menu': (_value, button) => openFormatMenu(button, kind),
   'menu-run': async (command) => {
     await emit('mycapture-menu', { command, origin: state.params.origin ?? 'main' }).catch(() => {});
     close();
@@ -507,10 +543,14 @@ const actions = {
     } else if (key === 'customMode') {
       updateCustom({ mode: value });
     } else {
-      const parsed = key === 'fps' ? Number(value) : key === 'sidebarCollapsed' || key === 'historyCollapsed' ? value === 'true' : value;
+      const parsed = key === 'fps' || key === 'startBgShuffle' ? Number(value) : key === 'sidebarCollapsed' || key === 'historyCollapsed' ? value === 'true' : value;
       update({ [key]: parsed });
       if (key === 'engine' && value === 'native' && s().systemAudio) update({ systemAudio: false });
     }
+    render();
+  },
+  'start-bg-reset': () => {
+    update(Object.fromEntries(START_BG_SETTINGS.map((key) => [key, defaultSettings[key]])));
     render();
   },
   'choose-folder': async (value) => {
@@ -597,6 +637,8 @@ root.addEventListener('change', (event) => {
     syncMicChain();
   } else if (input.dataset.input === 'jpegQuality' || input.dataset.input === 'micGain') {
     update({ [input.dataset.input]: Number(input.value) });
+  } else if (['startBgSpeed', 'startBgTransparency', 'startCardTransparency'].includes(input.dataset.input)) {
+    update({ [input.dataset.input]: Number(input.value) });
   } else if (input.dataset.custom) {
     render();
   }
@@ -620,6 +662,10 @@ root.addEventListener('input', (event) => {
     const suffix = input.dataset.input === 'micGain' ? '%' : '';
     root.querySelectorAll(`[data-output="${input.dataset.input}"]`).forEach((output) => { output.textContent = `${input.value}${suffix}`; });
     if (input.dataset.input === 'micGain') micChain?.setGain(Number(input.value));
+  } else if (['startBgSpeed', 'startBgTransparency', 'startCardTransparency'].includes(input.dataset.input)) {
+    // The background follows the slider while it is dragged.
+    root.querySelectorAll(`[data-output="${input.dataset.input}"]`).forEach((output) => { output.textContent = `${input.value}%`; });
+    update({ [input.dataset.input]: Number(input.value) });
   }
 });
 
@@ -646,6 +692,8 @@ window.addEventListener('storage', (event) => {
   if (event.key === STORAGE_KEY) applySettingsFromStorage();
   else if (event.key === SESSION_KEY || event.key === GALLERY_KEY) render();
   else if (event.key === popupKey(kind)) {
+    // Print opened again for another image: start over with it.
+    if (kind === 'print') { location.reload(); return; }
     state.params = popupParams(kind);
     if (state.params.tab && state.params.tab !== state.tab) {
       state.tab = state.params.tab;
@@ -672,13 +720,62 @@ if (kind === 'theme-menu' || kind === 'menu') {
   });
 }
 
-// No browser context menu (Back, Reload, Inspect…) in popups; text fields keep theirs.
+// No browser context menu (Back, Reload, Inspect…) in popups: the app's own menu
+// instead, with colour icons — text editing in fields, Copy for selected text (the
+// guide), and Close. The menu and theme dropdown windows are menus themselves.
 window.addEventListener('contextmenu', (event) => {
-  if (!event.target.closest('input[type=text], input[type=search], textarea')) event.preventDefault();
+  event.preventDefault();
+  if (kind === 'menu' || kind === 'theme-menu') return;
+  const remembered = rememberTarget(event.target);
+  const items = remembered.field
+    ? fieldItems()
+    : [...selectionItems(), ...(remembered.selection ? [{ separator: true }] : []), { command: 'popup-close', icon: 'close', label: t('popup.close'), hint: 'Esc' }];
+  openPopup('menu', { params: { items, origin: kind }, anchor: menuAnchor(event, items) }).catch(() => {});
 });
+
+// A command chosen in a menu this window opened.
+if (kind !== 'menu' && kind !== 'theme-menu') {
+  listen('mycapture-menu', ({ payload }) => {
+    if (payload?.origin !== kind) return;
+    const [name, ...rest] = String(payload.command ?? '').split(':');
+    if (name === 'image-format') { update({ imageFormat: rest.join(':') }); render(); return; }
+    if (name === 'text') runTextCommand(rest.join(':'), { copy: copyText, read: readText }).catch(() => {});
+    else if (name === 'popup-close') close();
+  }).catch(() => {});
+}
+
+/** Loads an image for printing; its size from the decoded picture. */
+function decoded(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve({ url, width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => reject(new Error('decode'));
+    img.src = url;
+  });
+}
+
+/**
+ * A URL the print window can draw: the file itself, or — for formats the webview
+ * cannot show (TIFF) — a PNG of it made by the app.
+ */
+async function printableUrl(path) {
+  if (!path) throw new Error(t('print.nothing'));
+  const url = await previewUrl(path);
+  if (!url) throw new Error(t('gallery.missing'));
+  try {
+    return await decoded(url);
+  } catch {
+    const bytes = await imagePng(path);
+    return decoded(URL.createObjectURL(new Blob([bytes], { type: 'image/png' })));
+  }
+}
 
 async function initialize() {
   applyTheme(currentTheme());
+  if (kind === 'print') {
+    printWin = startPrintWindow({ root, params: state.params, loadUrl: printableUrl, ready });
+    return;
+  }
   render();
   if (kind === 'settings') {
     state.dirs = await defaultDirectories().catch(() => state.dirs);

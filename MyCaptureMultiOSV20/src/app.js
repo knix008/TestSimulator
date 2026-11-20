@@ -1,27 +1,32 @@
 import './styles.css';
+import './icon-tones.css';
 import appIcon from '../assets/icon.svg';
 import { version as packageVersion } from '../package.json';
 import { emit, listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { save as saveDialog } from '@tauri-apps/plugin-dialog';
-import { baseName, formatBytes, formatDuration, joinPath, timestampStem } from './domain/naming.js';
+import { baseName, extensionsOf, formatBytes, formatDuration, formatOfPath, joinPath, timestampStem } from './domain/naming.js';
 import { elapsedMs, initialSession, isActive, sessionReducer } from './domain/session.js';
-import { captureSource, IMAGE_FORMATS, loadSettings, LOSSY_FORMATS, STORAGE_KEY, storeSettings } from './domain/settings.js';
+import {
+  captureSource, defaultSettings, IMAGE_FORMATS, loadSettings, LOSSY_FORMATS, START_BG_KINDS, START_BG_SETTINGS, STORAGE_KEY, storeSettings, VIDEO_FORMATS,
+} from './domain/settings.js';
 import { copyImageAt, saveImageAs } from './platform/imagefile.js';
-import { addToGallery, GALLERY_KEY, loadGallery, removeFromGallery, storeGallery } from './domain/gallery.js';
+import { addToGallery, GALLERY_KEY, loadGallery, pruneMissing, removeFromGallery, storeGallery } from './domain/gallery.js';
 import { switchFlag } from './flags.js';
 import { getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
 import { MediaViewer } from './viewer.js';
 import { applyTheme, nextTheme, resolveTheme, SYSTEM, themeName } from './themes.js';
 import { openPopup, SESSION_KEY } from './platform/popups.js';
-import { escapeHtml, widgets } from './ui.js';
-import { startHtml } from './start.js';
+import { escapeHtml, openFormatMenu, widgets } from './ui.js';
+import { backgroundBody, backgroundKey, startHtml } from './start.js';
 import { startBoard } from './startboard.js';
+import { StartBackground } from './startbg.js';
+import { fieldItems, menuAnchor, rememberTarget, runTextCommand, selectionItems } from './textmenu.js';
 import {
   APP_SOURCE, beginRegionSelect, copyPending, copyText, defaultDirectories, errorText, grab, isDesktopShell, listSources,
   monitorInfo, openPath, platformInfo, recordingAbort, recordingFinish, recordingOpen, revealPath,
-  hideRecordingPanel, pathsExist, previewUrl, savePending, setBackendLanguage, setSelfRecording, showMain, showRecordingPanel, sourceThumbnail,
+  hideRecordingPanel, pathsExist, previewUrl, readText, savePending, setBackendLanguage, setSelfRecording, showMain, showRecordingPanel, sourceThumbnail,
 } from './platform/native.js';
 import { encoderWarm, recordingSupport, ScreenRecorder, warmUpEncoder } from './platform/recorder.js';
 
@@ -197,6 +202,8 @@ function render() {
 
 let board = null; // the start screen's card board (startboard.js)
 let startKey = ''; // what the start screen was last built from
+let startBackground = null; // the moving picture behind it (startbg.js)
+let startBgKey = ''; // what the background card was last built from
 
 /**
  * Builds the start screen when it is shown, or when something it shows changed
@@ -210,29 +217,91 @@ function renderStart() {
   if (!state.home) {
     board?.destroy();
     board = null;
+    startBackground?.destroy();
+    startBackground = null;
     startKey = '';
     return;
   }
   const settings = s();
   const key = JSON.stringify([getLanguage(), settings.theme, settings.customTheme, state.gallery.map((item) => item.id), [...state.missing], locked()]);
-  if (key === startKey && board) return;
+  if (key === startKey && board) {
+    // "Follow the system" can change the colours without changing the key, and the
+    // background settings (scene, motion, speed, strength) apply without a rebuild.
+    startBackground?.refresh();
+    startBackground?.sync();
+    refreshBackgroundCard();
+    applyCardTransparency();
+    return;
+  }
   const scroll = page.querySelector('.start-scroll')?.scrollTop ?? 0;
   startKey = key;
+  startBgKey = backgroundKey(settings);
   board?.destroy();
+  // The scene carries on where it was when the page is rebuilt (theme, language, history).
+  const time = startBackground?.time;
+  startBackground?.destroy();
   page.setAttribute('aria-label', t('start.title'));
   page.innerHTML = startHtml({
     appIcon, version: APP_VERSION, settings, language: getLanguage(), gallery: state.gallery, missing: state.missing, locked: locked(),
   });
   page.querySelector('.start-scroll').scrollTop = scroll;
+  applyCardTransparency();
+  lastSceneChange = Date.now();
   const reduced = Boolean(globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+  startBackground = new StartBackground(page.querySelector('.start-bg-canvas'), { time, reduced, settings: () => s() });
+  startBackground.start();
   board = startBoard(page.querySelector('.start-board'), { reduced });
 }
+
+/** The background card shows what the settings say (changed here or in Settings → Start). */
+function refreshBackgroundCard() {
+  const body = root.querySelector('#start-page .start-card-background .card-body');
+  const key = backgroundKey(s());
+  if (!body || key === startBgKey) return;
+  startBgKey = key;
+  body.innerHTML = backgroundBody(s());
+}
+
+/** The cards' see-through-ness over the moving background (Start screen settings). */
+function applyCardTransparency() {
+  root.querySelector('#start-page .start-inner')?.style.setProperty('--start-card-alpha', `${100 - s().startCardTransparency}%`);
+}
+
+/** A choice on the background card: stored (Settings sees it too) and shown at once. */
+function changeBackground(patch) {
+  if ('startBgKind' in patch) lastSceneChange = Date.now();
+  update(patch);
+  refreshBackgroundCard();
+  applyCardTransparency();
+  startBackground?.sync();
+}
+
+/** Another scene, at random (never the current one). */
+function randomScene(random = Math.random) {
+  const others = START_BG_KINDS.filter((kind) => kind !== s().startBgKind);
+  return others[Math.floor(random() * others.length) % others.length];
+}
+
+// The automatic scene change: while the start screen shows a moving background.
+let lastSceneChange = Date.now();
+/** One check of the automatic change (every second; `now` is given by tests). Returns true if it changed. */
+function shuffleTick(now = Date.now()) {
+  const settings = s();
+  if (!state.home || document.hidden || !settings.startBgShuffle || settings.startBgMotion !== 'animated') { lastSceneChange = now; return false; }
+  if (now - lastSceneChange < settings.startBgShuffle * 1000) return false;
+  changeBackground({ startBgKind: randomScene() });
+  lastSceneChange = now;
+  return true;
+}
+setInterval(() => shuffleTick(), 1000);
 
 function setHome(open) {
   if (state.home === open) return;
   if (open) closeViewer();
   state.home = open;
   render();
+  // Recent captures list only files that are still there.
+  if (open) checkGalleryFiles();
 }
 
 /** A quick-start tile: switch to that mode and target, leave the start screen, and get going. */
@@ -445,6 +514,10 @@ function renderSources() {
         </div>`;
   }
 
+  // The window list is rebuilt now and then (refresh on focus): the search box keeps
+  // its focus and selection across that (a context menu's Select all, for one).
+  const oldSearch = panel.querySelector('[data-input="windowFilter"]');
+  const keep = oldSearch ? { focused: document.activeElement === oldSearch, start: oldSearch.selectionStart, end: oldSearch.selectionEnd } : null;
   panel.innerHTML = `
     <div class="panel-head">
       <h2>${icon('target')}<span>${t('target.label')}</span></h2>
@@ -457,6 +530,11 @@ function renderSources() {
     ${settings.selfMode ? `<p class="hint">${t('self.hint')}</p>`
       : picker ? `<p class="hint">${t(settings.target === 'window' ? 'picker.hintWindow' : 'picker.hintMonitor')}</p>` : ''}
     <div class="source-body ${picker || settings.selfMode ? 'dimmed' : ''}">${body}</div>`;
+  const newSearch = panel.querySelector('[data-input="windowFilter"]');
+  if (keep && newSearch) {
+    if (keep.focused) newSearch.focus();
+    newSearch.setSelectionRange(keep.start ?? 0, keep.end ?? 0);
+  }
   if (settings.target === 'window') loadWindowThumbs();
 }
 
@@ -493,6 +571,7 @@ function renderStage() {
       onReveal: (item) => revealPath(item.path).catch(reportError),
       onCopy: (item) => copyGalleryImage(item.id),
       onSaveAs: (item) => saveGalleryImageAs(item.id),
+      onPrint: (item) => openPrint(item.id),
     });
   }
 
@@ -567,16 +646,17 @@ function captureActions() {
   const busy = Boolean(state.busy) || !desktop;
   const format = settings.imageFormat.toUpperCase();
   // Left of the shutter: the last capture to the clipboard (it stays in memory after saving).
+  const printLast = `<button class="round-button" data-action="print" title="${t('action.print')}" aria-label="${t('action.print')}" ${printTarget() && !state.busy ? '' : 'disabled'}>${icon('print')}</button>`;
   const copyLast = `<button class="round-button" data-action="copy-last" title="${t('action.copyLast')}" aria-label="${t('action.copyLast')}" ${state.result?.kind === 'image' && !state.busy ? '' : 'disabled'}>${icon('copy')}</button>`;
   if (settings.selfMode) {
-    return actionRow(copyLast, shutter('capture', 'camera', t('action.captureSelf', { format }), 'capture', busy), busyNote());
+    return actionRow(copyLast + printLast, shutter('capture', 'camera', t('action.captureSelf', { format }), 'capture', busy), busyNote());
   }
   const region = settings.target === 'region';
   const disabled = busy || (settings.target === 'window' && !selectedWindow());
   const again = region && settings.region
     ? `<button class="round-button" data-action="recapture-region" title="${t('action.recaptureRegion')}" aria-label="${t('action.recaptureRegion')}" ${busy ? 'disabled' : ''}>${icon('repeat')}</button>`
     : '';
-  return actionRow(copyLast, shutter('capture', 'camera', `${t(region ? 'action.captureRegion' : 'action.capture')} (${format})`, 'capture', disabled),
+  return actionRow(copyLast + printLast, shutter('capture', 'camera', `${t(region ? 'action.captureRegion' : 'action.capture')} (${format})`, 'capture', disabled),
     again + busyNote());
 }
 
@@ -652,6 +732,8 @@ function resultCard() {
 // ───────────────────────── capture history (right panel)
 
 function renderGallery() {
+  // The start screen's recent captures show the same list (rebuilt only when it changed).
+  renderStart();
   const host = root.querySelector('#history');
   if (!host) return;
   const items = state.gallery;
@@ -752,9 +834,9 @@ async function openViewer(id) {
   try {
     const url = await previewUrl(item.path);
     if (!url) {
-      state.missing.add(id);
-      renderGallery();
+      // Gone, or unreadable: if the file no longer exists, its entry goes too.
       notify('error', t('viewer.error'));
+      checkGalleryFiles();
       return;
     }
     viewer.show(item, url);
@@ -786,6 +868,29 @@ function deleteGalleryItems(ids) {
   notify('success', ids.length === 1 ? t('gallery.deleted', { name: baseName(items[0].path) }) : t('gallery.cleared', { count: items.length }));
 }
 
+/**
+ * What Print prints: the history entry `id`, else the image open in the viewer, else
+ * the last capture (once saved), else the newest image in the history. Videos are not printed.
+ */
+function printTarget(id) {
+  const image = (item) => (item?.kind === 'image' && item.path && !state.missing.has(item.id) ? item : null);
+  if (id) return image(galleryItem(id));
+  if (viewer?.open && state.viewing) return image(galleryItem(state.viewing));
+  if (state.result?.kind === 'image' && state.result.path) return { ...state.result, id: null };
+  return state.gallery.find((item) => image(item)) ?? null;
+}
+
+/** Opens the print window (its own window: preview, paper, orientation, margins, size). */
+function openPrint(id) {
+  const target = printTarget(id);
+  if (!target) {
+    const item = id ? galleryItem(id) : null;
+    notify('warn', t(item?.kind === 'video' ? 'print.video' : 'print.nothing'));
+    return;
+  }
+  openPopup('print', { params: { path: target.path, name: baseName(target.path), width: target.width, height: target.height } }).catch(reportError);
+}
+
 /** Puts a saved image from the history on the clipboard (any format, AVIF included). */
 async function copyGalleryImage(id) {
   const item = galleryItem(id);
@@ -807,15 +912,13 @@ async function saveGalleryImageAs(id) {
   // Offer the other formats first: the point is usually a different one.
   const format = IMAGE_FORMATS.find((value) => value !== (current === 'jpeg' ? 'jpg' : current === 'tif' ? 'tiff' : current)) ?? 'png';
   const stem = baseName(item.path).replace(/\.[^.]+$/, '');
-  const extensionsOf = (value) => ({ jpg: ['jpg', 'jpeg'], tiff: ['tiff', 'tif'] }[value] ?? [value]);
   const path = await saveDialog({
     title: t('saveAs.dialog'),
     defaultPath: joinPath(item.path.replace(/[\\/][^\\/]*$/, ''), `${stem}.${format}`, state.platform),
     filters: [format, ...IMAGE_FORMATS.filter((value) => value !== format)].map((value) => ({ name: value.toUpperCase(), extensions: extensionsOf(value) })),
   }).catch(reportError);
   if (!path) return;
-  const extension = (path.split('.').pop() ?? '').toLowerCase();
-  const chosen = IMAGE_FORMATS.find((value) => extensionsOf(value).includes(extension)) ?? format;
+  const chosen = formatOfPath(path, IMAGE_FORMATS, format);
   await task(t('busy.saving'), async () => {
     const saved = await saveImageAs(item.path, { kind: 'exact', path }, chosen, s().jpegQuality);
     await addGalleryItem({ kind: 'image', path: saved.path, thumbnail: item.thumbnail, width: item.width, height: item.height, bytes: saved.bytes });
@@ -823,14 +926,29 @@ async function saveGalleryImageAs(id) {
   });
 }
 
-/** Marks history entries whose file was moved or deleted outside MyCapture. */
+/**
+ * Drops history entries whose file was moved or deleted outside MyCapture: there is
+ * nothing left to show, so they leave the history and the start screen's recent list.
+ */
 async function checkGalleryFiles() {
-  if (!desktop || !state.gallery.length) return;
+  // demoGallery: npm run guide:images fills the history with made-up paths.
+  if (!desktop || !state.gallery.length || state.demoGallery) return;
+  let exists;
   try {
-    const exists = await pathsExist(state.gallery.map((item) => item.path));
-    state.missing = new Set(state.gallery.filter((_, index) => !exists[index]).map((item) => item.id));
-    renderGallery();
-  } catch { /* the strip still works without the marks */ }
+    const paths = state.gallery.map((item) => item.path);
+    const answer = await pathsExist(paths);
+    // The history may have changed while we asked; judge each path by its own answer.
+    exists = new Map(paths.map((path, index) => [path, answer[index]]));
+  } catch { return; /* the history still works unchecked */ }
+  const { items, gone } = pruneMissing(state.gallery, exists);
+  // Nothing gone: leave the lists alone (this runs on every focus; rebuilding them
+  // would swap the element under a right-click or a drag).
+  if (!gone.length) return;
+  if (gone.includes(state.viewing)) closeViewer();
+  state.gallery = items;
+  storeGallery(globalThis.localStorage, state.gallery);
+  renderGallery();
+  notify('info', t('gallery.pruned', { count: gone.length }));
 }
 
 // ───────────────────────── toolbar
@@ -844,7 +962,7 @@ function renderToolbar() {
 
   const groups = [selfModeChip(active), ...(settings.mode === 'capture'
     ? [
-      tool(t('tool.format'), ui.imageFormatSelect(), 'fileFormat'),
+      tool(t('tool.format'), ui.imageFormatPicker(), 'fileFormat'),
       LOSSY_FORMATS.includes(settings.imageFormat)
         ? tool(t('tool.quality'), ui.qualitySlider(), 'quality')
         : tool('', `<span class="tool-note">${icon('info')}<span>${escapeHtml(t(`format.note.${settings.imageFormat}`))}</span></span>`),
@@ -862,7 +980,7 @@ function renderToolbar() {
           <button class="chip chip-tail" data-action="open-mic" title="${t('tool.micSettings')}" aria-label="${t('tool.micSettings')}" ${active || !support.microphone ? 'disabled' : ''}>${icon('sliders')}</button>
         </span>
       </div>`,
-    ])];
+    ]), printTool(settings.mode === 'capture', active)];
 
   root.querySelector('#toolbar').innerHTML = groups.join('<span class="tool-divider" aria-hidden="true"></span>');
 }
@@ -875,6 +993,15 @@ function selfModeChip(disabled) {
   const on = s().selfMode;
   return `<div class="tool-chips"><button class="chip ${on ? 'on' : ''}" data-action="self-mode" aria-pressed="${on}"
     title="${escapeHtml(t('tool.selfModeTip'))}" ${disabled ? 'disabled' : ''}>${icon('self')}<span>${t('tool.selfMode')}</span></button></div>`;
+}
+
+/**
+ * Print (opens the print window), at the toolbar's right end. With its label in capture
+ * mode; icon only in record mode, where the toolbar is full (the name is in the tooltip).
+ */
+function printTool(labelled, disabled) {
+  const can = Boolean(printTarget()) && !disabled;
+  return `<div class="tool-chips tool-print-group"><button class="chip tool-print" data-action="print" title="${t('action.print')}" aria-label="${t('action.print')}" ${can ? '' : 'disabled'}>${icon('print')}${labelled ? `<span>${t('print.button')}</span>` : ''}</button></div>`;
 }
 
 /** One toolbar group: icon + label, then its control. */
@@ -1014,13 +1141,15 @@ async function chooseOutput(kind) {
   const stem = timestampStem(image ? 'Capture' : 'Recording');
   const directory = directoryFor(kind);
   if (!settings.askPath && directory) return { kind: 'folder', directory, stem };
-  const extensions = { jpg: ['jpg', 'jpeg'], tiff: ['tiff', 'tif'] }[extension] ?? [extension];
+  // Every format MyCapture writes (PNG, JPG, GIF, WebP, AVIF, TIFF, BMP — or MP4 / WebM),
+  // the current one first; the type picked in the dialog decides the format.
+  const formats = image ? IMAGE_FORMATS : VIDEO_FORMATS;
   const path = await saveDialog({
     title: t(image ? 'save.imageDialog' : 'save.videoDialog'),
     defaultPath: joinPath(directory, `${stem}.${extension}`, state.platform),
-    filters: [{ name: extension.toUpperCase(), extensions }],
+    filters: [extension, ...formats.filter((value) => value !== extension)].map((value) => ({ name: value.toUpperCase(), extensions: extensionsOf(value) })),
   });
-  return path ? { kind: 'exact', path } : null;
+  return path ? { kind: 'exact', path, format: formatOfPath(path, formats, extension) } : null;
 }
 
 function rememberDirectory(kind, output, path) {
@@ -1046,7 +1175,7 @@ async function saveResult(copied = false) {
     notify('info', t(copied ? 'notice.copiedNotSaved' : 'notice.saveCancelled'));
     return;
   }
-  const saved = await savePending(output, s().imageFormat, s().jpegQuality);
+  const saved = await savePending(output, output.format ?? s().imageFormat, s().jpegQuality);
   rememberDirectory('image', output, saved.path);
   state.result = { ...state.result, path: saved.path, bytes: saved.bytes };
   await addGalleryItem({ kind: 'image', path: saved.path, thumbnail: state.result.thumbnail, width: state.result.width, height: state.result.height, bytes: saved.bytes });
@@ -1183,7 +1312,7 @@ async function startRecording({ self = false } = {}) {
       notify('info', t('notice.recordCancelled'));
       return;
     }
-    opened = await recordingOpen(output, settings.videoFormat);
+    opened = await recordingOpen(output, output.format ?? settings.videoFormat);
     rememberDirectory('video', output, opened.path);
     recorder = candidate;
     recordingId = opened.id;
@@ -1319,6 +1448,13 @@ const actions = {
     notify('info', t('theme.changed', { name: themeName(currentTheme(), getLanguage()) }));
   },
   'theme-custom': () => openPopup('settings', { params: { tab: 'theme' } }).catch(reportError),
+  'format-menu': (_value, button) => openFormatMenu(button, 'main'),
+  'start-bg-kind': (value) => changeBackground({ startBgKind: value }),
+  'start-bg-motion': (value) => changeBackground({ startBgMotion: value }),
+  'start-bg-random': () => changeBackground({ startBgKind: randomScene() }),
+  'start-bg-auto': (value) => changeBackground({ startBgShuffle: Number(value) }),
+  'start-bg-reset': () => changeBackground(Object.fromEntries(START_BG_SETTINGS.map((key) => [key, defaultSettings[key]]))),
+  'start-background': () => openPopup('settings', { params: { tab: 'start' } }).catch(reportError),
   target: (value) => {
     closeViewer();
     update({ target: value });
@@ -1363,6 +1499,7 @@ const actions = {
   'gallery-open': (id) => openViewer(id),
   'gallery-copy': (id) => copyGalleryImage(id),
   'gallery-save-as': (id) => saveGalleryImageAs(id),
+  print: (id) => openPrint(id),
   'copy-last': () => copyPending().then(() => notify('success', t('notice.copied'))).catch(reportError),
   'gallery-reveal': (id) => revealPath(galleryItem(id)?.path).catch((error) => { reportError(error); checkGalleryFiles(); }),
   'gallery-delete': (id) => deleteGalleryItems([id]),
@@ -1414,6 +1551,13 @@ root.addEventListener('input', (event) => {
   const input = event.target;
   if (input.dataset.input === 'jpegQuality') {
     root.querySelectorAll('[data-output="jpegQuality"]').forEach((output) => { output.textContent = input.value; });
+  } else if (['startBgSpeed', 'startBgTransparency', 'startCardTransparency'].includes(input.dataset.input)) {
+    // The start card's sliders: live while dragged; the card is not rebuilt under the pointer.
+    root.querySelectorAll(`[data-output="${input.dataset.input}"]`).forEach((output) => { output.textContent = `${input.value}%`; });
+    update({ [input.dataset.input]: Number(input.value) });
+    startBgKey = backgroundKey(s());
+    applyCardTransparency();
+    startBackground?.sync();
   } else if (input.dataset.input === 'windowFilter') {
     state.windowFilter = input.value;
     const caret = input.selectionStart;
@@ -1445,6 +1589,7 @@ function contextItems(target) {
       ...(item.kind === 'image' ? [
         menuItem(`copy-image:${item.id}`, 'copy', 'menu.copyImage', { disabled: missing }),
         menuItem(`save-as:${item.id}`, 'save', 'menu.saveAs', { disabled: missing }),
+        menuItem(`print:${item.id}`, 'print', 'action.print', { disabled: missing }),
       ] : []),
       menuItem(`copy-path:${item.id}`, 'link', 'menu.copyPath'),
       SEP,
@@ -1457,7 +1602,7 @@ function contextItems(target) {
       ...(video
         ? [menuItem('viewer:play', 'play', 'viewer.play'), menuItem('viewer:pause', 'pause', 'viewer.pause'), menuItem('viewer:stop', 'stop', 'viewer.stop')]
         : [menuItem('viewer:zoom-in', 'zoomIn', 'viewer.zoomIn'), menuItem('viewer:zoom-out', 'zoomOut', 'viewer.zoomOut'), menuItem('viewer:fit', 'fit', 'viewer.fit'), menuItem('viewer:actual', 'actual', 'viewer.actual'),
-          SEP, menuItem('viewer:copy', 'copy', 'menu.copyImage'), menuItem('viewer:save-as', 'save', 'menu.saveAs')]),
+          SEP, menuItem('viewer:copy', 'copy', 'menu.copyImage'), menuItem('viewer:save-as', 'save', 'menu.saveAs'), menuItem('viewer:print', 'print', 'action.print')]),
       SEP,
       menuItem('viewer:external', 'open', 'viewer.openExternal'),
       menuItem('viewer:reveal', 'folder', 'result.reveal'),
@@ -1483,8 +1628,23 @@ function contextItems(target) {
       menuItem('select-region', 'region', 'region.select', { disabled: locked() }),
       ...(!recordMode && s().region ? [menuItem('recapture-region', 'repeat', 'action.recaptureRegion', { disabled: Boolean(state.busy) })] : []),
       ...(!recordMode ? [menuItem('copy-last', 'copy', 'action.copyLast', { disabled: state.result?.kind !== 'image' || Boolean(state.busy) })] : []),
+      menuItem('print', 'print', 'action.print', { disabled: !printTarget() }),
       SEP,
       menuItem('refresh', 'refresh', 'target.refresh', { disabled: locked() }),
+    ];
+  }
+  // The start screen itself: its background, its cards, its recent list.
+  if (target.closest('#start-page')) {
+    return [
+      menuItem('start-background', 'images', 'startBg.menu'),
+      menuItem('start-arrange', 'grid', 'start.arrange'),
+      menuItem('gallery-clear', 'trash', 'start.recentClear', { danger: true, disabled: !state.gallery.length }),
+      SEP,
+      menuItem('theme-next', 'palette', 'theme.next'),
+      menuItem('open-settings', 'gear', 'settings.title'),
+      menuItem('open-guide', 'book', 'guide.title'),
+      SEP,
+      menuItem('home', 'home', 'start.close'),
     ];
   }
   return [
@@ -1495,6 +1655,8 @@ function contextItems(target) {
     menuItem('sidebar', 'panelLeft', s().sidebarCollapsed ? 'bar.leftExpand' : 'bar.leftCollapse'),
     menuItem('history-panel', 'panelRight', s().historyCollapsed ? 'bar.rightExpand' : 'bar.rightCollapse'),
     SEP,
+    menuItem('print', 'print', 'action.print', { disabled: !printTarget() }),
+    SEP,
     menuItem('theme-next', 'palette', 'theme.next'),
     menuItem('open-settings', 'gear', 'settings.title'),
     menuItem('open-guide', 'book', 'guide.title'),
@@ -1503,19 +1665,14 @@ function contextItems(target) {
 }
 
 function showContextMenu(event) {
-  const items = contextItems(event.target);
-  if (!items.length || !desktop) return;
-  // Place it at the pointer, kept on the screen (it may extend past the window).
-  const width = 250;
-  const height = items.reduce((sum, item) => sum + (item.separator ? 9 : 32), 10);
-  const screenArea = window.screen;
-  const left = screenArea.availLeft ?? 0;
-  const top = screenArea.availTop ?? 0;
-  let x = window.screenX + event.clientX;
-  let y = window.screenY + event.clientY;
-  if (x + width > left + screenArea.availWidth) x -= width;
-  if (y + height > top + screenArea.availHeight) y = Math.max(top, y - height);
-  openPopup('menu', { params: { items, origin: 'main' }, anchor: { x, y } }).catch(reportError);
+  // A text field gets the editing menu; selected text gets Copy on top of the usual items.
+  const remembered = rememberTarget(event.target);
+  const items = remembered.field
+    ? fieldItems()
+    : [...selectionItems(), ...(remembered.selection ? [SEP] : []), ...contextItems(event.target)];
+  if (!items.length || items.every((item) => item.separator) || !desktop) return;
+  // Placed at the pointer, kept on the screen (it may extend past the window).
+  openPopup('menu', { params: { items, origin: 'main' }, anchor: menuAnchor(event, items) }).catch(reportError);
 }
 
 /** A command chosen in a context menu. */
@@ -1529,9 +1686,12 @@ function runMenuCommand(command) {
     case 'reveal': return item && revealPath(item.path).catch(reportError);
     case 'copy-image': return item && copyGalleryImage(item.id);
     case 'save-as': return item && saveGalleryImageAs(item.id);
+    case 'print': return openPrint(value || undefined);
     case 'copy-path': return item && copyText(item.path).then(() => notify('success', t('menu.pathCopied'))).catch(reportError);
     case 'delete': return deleteGalleryItems([value]);
     case 'viewer': return viewer?.command(value);
+    case 'image-format': return applySetting('imageFormat', value);
+    case 'text': return runTextCommand(value, { copy: copyText, read: readText }).catch(reportError);
     case 'mode': return actions.mode(value);
     case 'capture-source': {
       const [action, id] = value.split(':');
@@ -1546,9 +1706,9 @@ function runMenuCommand(command) {
   }
 }
 
+// Every right-click opens the app's own menu (colour icons), text fields included:
+// they get Undo / Cut / Copy / Paste / Delete / Select all instead of the webview's menu.
 root.addEventListener('contextmenu', (event) => {
-  // Text fields keep the normal cut / copy / paste menu.
-  if (event.target.closest('input[type=text], input[type=search], textarea')) return;
   event.preventDefault();
   showContextMenu(event);
 });
@@ -1599,6 +1759,8 @@ window.addEventListener('storage', (event) => {
 window.addEventListener('focus', () => {
   // Windows come and go while MyCapture is in the background.
   if (s().target === 'window' && !state.busy && !isActive(state.session)) refreshSources({ keepThumbs: true });
+  // Files may have been deleted meanwhile (Explorer, another program).
+  checkGalleryFiles();
 });
 
 async function initialize() {
@@ -1699,6 +1861,6 @@ async function quitAfterChoice(choice) {
 }
 
 // Test hook for the end-to-end suite (test/e2e): read-only state and a few entry points.
-window.__mycapture = { state, actions, t, render, files: { copyImageAt, saveImageAs } };
+window.__mycapture = { state, actions, t, render, files: { copyImageAt, saveImageAs }, startBackground: () => startBackground, shuffleTick };
 
 initialize();

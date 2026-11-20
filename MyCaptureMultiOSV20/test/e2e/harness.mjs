@@ -229,7 +229,7 @@ export class App {
 
   /** Reloads the main page with the given settings (and an output folder for auto-save). */
   async reset(settings = {}, { keepGallery = false } = {}) {
-    await this.main.eval(`Promise.all(['settings', 'about', 'confirm', 'theme-menu', 'guide'].map((kind) => window.__TAURI_INTERNALS__.invoke('close_popup', { kind }))).then(() => 1)`);
+    await this.main.eval(`Promise.all(['settings', 'about', 'confirm', 'theme-menu', 'guide', 'print'].map((kind) => window.__TAURI_INTERNALS__.invoke('close_popup', { kind }))).then(() => 1)`);
     const merged = { askPath: false, showStartScreen: false, imageDirectory: this.output, videoDirectory: this.output, language: 'ko', ...settings };
     await this.main.eval(`localStorage.setItem('mycapture.settings.v1', ${JSON.stringify(JSON.stringify(merged))}); ${keepGallery ? '' : "localStorage.removeItem('mycapture.gallery.v1');"} location.reload(); 1`);
     await sleep(400);

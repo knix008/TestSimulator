@@ -2,6 +2,7 @@
 // recorded. The main window owns the recording; this page only mirrors its
 // state ("recording-state" events) and sends commands back ("recbar-command").
 import './recbar.css';
+import './icon-tones.css';
 import { emit, listen } from '@tauri-apps/api/event';
 import { elapsedMs, initialSession } from './domain/session.js';
 import { formatDuration } from './domain/naming.js';
@@ -15,7 +16,7 @@ function render() {
   const paused = session.phase === 'paused';
   const stopping = session.phase === 'stopping';
   root.innerHTML = `
-    <div class="recbar" data-tauri-drag-region>
+    <div class="recbar tones-dark" data-tauri-drag-region>
       <span class="recbar-dot ${paused ? 'paused' : ''}" data-tauri-drag-region></span>
       <span class="recbar-state" data-tauri-drag-region>${t(stopping ? 'busy.finishing' : paused ? 'recbar.paused' : 'recbar.recording')}</span>
       <span class="recbar-time" id="time" data-tauri-drag-region>00:00</span>

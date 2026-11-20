@@ -14,7 +14,7 @@ export const GAP = 14;
 export const LAYOUT_VERSION = 1;
 export const LAYOUT_KEY = 'mycapture.startLayout.v1';
 /** Columns each card takes in the default arrangement. */
-export const SPAN = { hero: 3, begin: 3, recent: 2, tips: 1, themes: 3 };
+export const SPAN = { hero: 3, begin: 3, recent: 2, tips: 1, themes: 3, background: 3 };
 
 /** Move handle: three horizontal lines. */
 const HANDLE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg>';

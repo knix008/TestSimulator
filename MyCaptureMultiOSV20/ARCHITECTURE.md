@@ -40,9 +40,11 @@ MyCapture 는 **Tauri 2** 데스크톱 앱입니다. 화면을 읽고 파일을 
 두 겹으로 막는다.
 
 1. **이미지 캡처**: `grab` 명령이 메인 창을 숨기고(`hide`) 260 ms 기다린 뒤 화면을 읽고 다시 보인다(`show` + `set_focus`). 모든 OS 에서 동작한다.
-2. **녹화 · 미리보기**: 메인 창과 녹화 제어판은 `content_protected(true)` 로 만든다. Windows 10 2004+ 는 `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)`, macOS 는 `NSWindowSharingType::None`. 창은 사용자에게 보이지만 BitBlt · DXGI · WGC · getDisplayMedia 어디에도 찍히지 않는다. Linux 에는 같은 장치가 없어 녹화 시작 시 창을 최소화한다.
+2. **녹화**: 녹화가 진행되는 동안(자기 자신 녹화 제외) 메인 창과 팝업은 `content_protected` 가 켜지고(`shield_windows`, `apply_shield`), 녹화 제어판은 늘 켜져 있다. Windows 10 2004+ 는 `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)`, macOS 는 `NSWindowSharingType::None`. 창은 사용자에게 보이지만 BitBlt · DXGI · WGC · getDisplayMedia 어디에도 찍히지 않는다. Linux 에는 같은 장치가 없어 녹화 시작 시 창을 최소화한다.
 
-E2E 테스트가 `GetWindowDisplayAffinity == 0x11` 을 확인한다.
+평소에는 보호를 끄고 둔다: 다른 캡처 프로그램이 MyCapture(시작 화면 포함)를 찍을 수 있어야 한다. 화면 · 창 · 영역 캡처와 영역 선택 동안에는 메인 창을 숨기고 팝업도 보호한 뒤 원래대로 돌린다.
+
+E2E 테스트가 `GetWindowDisplayAffinity` 로 평소 0(다른 프로그램이 찍을 수 있음), 영역 녹화 중 0x11, 끝난 뒤 다시 0 인지 확인한다 (test/e2e/window-affinity.ps1).
 
 ## 3. 이미지 캡처 흐름
 

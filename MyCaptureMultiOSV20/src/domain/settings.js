@@ -7,6 +7,27 @@ export const IMAGE_FORMATS = ['jpg', 'png', 'gif', 'avif', 'webp', 'tiff', 'bmp'
 export const LOSSY_FORMATS = ['jpg', 'avif'];
 export const VIDEO_FORMATS = ['mp4', 'webm'];
 
+/**
+ * The start screen's background (startbg.js): which scene, whether it moves, how fast
+ * and how strongly it is drawn (percent).
+ */
+export const START_BG_KINDS = [
+  // MyCapture's own capture scenes (startbg.js) …
+  'studio', 'region', 'film', 'lens',
+  // … and twenty general ones, as in MyUMLMaker (startscenes.js).
+  'aurora', 'waves', 'particles', 'constellation', 'bubbles', 'gridflow', 'flowchart', 'starfield', 'rain', 'snow',
+  'fireflies', 'ripples', 'coderain', 'hexagons', 'orbits', 'lava', 'spiral', 'confetti', 'nodes', 'ribbons',
+];
+export const START_BG_MOTIONS = ['animated', 'still', 'off'];
+export const START_BG_SPEED = { min: 25, max: 300, step: 25 };
+/** How see-through the moving background is, and the cards over it (percent). */
+export const START_BG_TRANSPARENCY = { min: 0, max: 90, step: 5 };
+export const START_CARD_TRANSPARENCY = { min: 0, max: 80, step: 5 };
+/** Change the scene by itself every n seconds (0 = never). */
+export const START_BG_SHUFFLE = [0, 30, 60, 300];
+/** Every start screen background setting (reset puts these back). */
+export const START_BG_SETTINGS = ['startBgKind', 'startBgMotion', 'startBgSpeed', 'startBgTransparency', 'startCardTransparency', 'startBgShuffle'];
+
 /** Bumped when a default changes in a way existing settings should pick up. */
 export const SETTINGS_VERSION = 2;
 
@@ -37,6 +58,12 @@ export const defaultSettings = Object.freeze({
   sidebarCollapsed: false,
   historyCollapsed: false,
   showStartScreen: true, // the start screen opens with the program
+  startBgKind: 'studio',
+  startBgMotion: 'animated',
+  startBgSpeed: 100, // percent
+  startBgTransparency: 0, // percent
+  startCardTransparency: 15, // percent
+  startBgShuffle: 0, // seconds, 0 = off
   leftWidth: null, // px; null = default
   rightWidth: null,
 });
@@ -44,6 +71,12 @@ export const defaultSettings = Object.freeze({
 const oneOf = (value, options, fallback) => (options.includes(value) ? value : fallback);
 const bool = (value, fallback) => (typeof value === 'boolean' ? value : fallback);
 const uint = (value) => Number.isInteger(value) && value >= 0;
+/** A number in [min, max], rounded to the step; anything else → fallback. */
+const percent = (value, { min, max, step }, fallback) => {
+  const number = typeof value === 'number' || (typeof value === 'string' && value.trim()) ? Number(value) : NaN;
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(number / step) * step));
+};
 const width = (value) => (Number.isFinite(value) && value >= 120 && value <= 2000 ? Math.round(value) : null);
 
 function sanitizeRegion(region) {
@@ -86,6 +119,12 @@ export function sanitizeSettings(raw) {
     sidebarCollapsed: bool(value.sidebarCollapsed, d.sidebarCollapsed),
     historyCollapsed: bool(value.historyCollapsed, d.historyCollapsed),
     showStartScreen: bool(value.showStartScreen, d.showStartScreen),
+    startBgKind: oneOf(value.startBgKind, START_BG_KINDS, d.startBgKind),
+    startBgMotion: oneOf(value.startBgMotion, START_BG_MOTIONS, d.startBgMotion),
+    startBgSpeed: percent(value.startBgSpeed, START_BG_SPEED, d.startBgSpeed),
+    startBgTransparency: percent(value.startBgTransparency, START_BG_TRANSPARENCY, d.startBgTransparency),
+    startCardTransparency: percent(value.startCardTransparency, START_CARD_TRANSPARENCY, d.startCardTransparency),
+    startBgShuffle: oneOf(Number(value.startBgShuffle), START_BG_SHUFFLE, d.startBgShuffle),
     leftWidth: width(value.leftWidth),
     rightWidth: width(value.rightWidth),
   };

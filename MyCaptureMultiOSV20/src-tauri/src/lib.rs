@@ -162,12 +162,33 @@ fn store_pending(state: &AppState, image: RgbaImage) -> Result<Grabbed, String> 
     Ok(grabbed)
 }
 
-/// The main window is content-protected (left out of every capture). Capturing
-/// MyCapture itself lifts that for as long as the capture or recording lasts.
-fn set_capturable(app: &AppHandle, capturable: bool) {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.set_content_protected(!capturable);
+/// MyCapture's windows (the main window and its popups) can normally be captured by any
+/// program — screenshots of MyCapture, its start screen included, work like for any app.
+/// Only while MyCapture captures or records the screen itself are they left out of
+/// captures (Windows 10 2004+: WDA_EXCLUDEFROMCAPTURE, macOS: NSWindowSharingNone), so
+/// they never show up in their own pictures. The recording controls are always left out.
+fn shield_windows(app: &AppHandle, shielded: bool) {
+    for (label, window) in app.webview_windows() {
+        if label == "main" || label.starts_with("popup-") {
+            let _ = window.set_content_protected(shielded);
+        }
     }
+}
+
+/// Whether a new popup should start shielded (a screen recording is running).
+fn shielded_now(app: &AppHandle) -> bool {
+    let state = app.state::<AppState>();
+    let shared = lock(state.inner());
+    !shared.recordings.is_empty() && !shared.self_recording
+}
+
+/// Shielded exactly while a recording of something other than MyCapture itself runs.
+fn apply_shield(app: &AppHandle, state: &AppState) {
+    let shielded = {
+        let shared = lock(state);
+        !shared.recordings.is_empty() && !shared.self_recording
+    };
+    shield_windows(app, shielded);
 }
 
 /// Reads `source`; `Source::App` is the main window's own content as it is now.
@@ -202,23 +223,25 @@ fn grab_source(app: &AppHandle, source: Source) -> Result<RgbaImage, String> {
 #[tauri::command]
 async fn grab(app: AppHandle, state: State<'_, AppState>, source: Source) -> Result<Grabbed, String> {
     if source == Source::App {
-        // Capturing MyCapture itself: it stays where it is and is briefly unprotected.
+        // Capturing MyCapture itself: it stays where it is, capturable (lifted for a
+        // moment if a recording of the screen has it shielded).
         let recording = lock(state.inner()).self_recording;
         if !recording {
-            set_capturable(&app, true);
+            shield_windows(&app, false);
             tokio_sleep(SELF_SETTLE).await;
         }
         let handle = app.clone();
         let result = blocking(move || grab_source(&handle, source)).await;
-        if !recording {
-            set_capturable(&app, false);
-        }
+        apply_shield(&app, state.inner());
         return store_pending(state.inner(), result?);
     }
+    // The screen, a window or a region: MyCapture steps out of the picture (popups too).
+    shield_windows(&app, true);
     set_main_visible(&app, false);
     tokio_sleep(HIDE_SETTLE).await;
     let result = blocking(move || capture::grab(&source)).await;
     set_main_visible(&app, true);
+    apply_shield(&app, state.inner());
     store_pending(state.inner(), result?)
 }
 
@@ -282,6 +305,17 @@ async fn copy_text(text: String) -> Result<(), String> {
     .await
 }
 
+/// The clipboard's text, for Paste in the app's own text-field menu. Empty when the
+/// clipboard holds no text (an image, nothing).
+#[tauri::command]
+async fn read_text() -> Result<String, String> {
+    blocking(move || {
+        let mut clipboard = arboard::Clipboard::new().map_err(|error| tr!("클립보드를 열 수 없습니다: {error}", "Could not open the clipboard: {error}"))?;
+        Ok(clipboard.get_text().unwrap_or_default())
+    })
+    .await
+}
+
 /// Puts an image on the system clipboard (as a bitmap other programs can paste).
 fn image_to_clipboard(image: RgbaImage) -> Result<(), String> {
     let mut clipboard = arboard::Clipboard::new().map_err(|error| tr!("클립보드를 열 수 없습니다: {error}", "Could not open the clipboard: {error}"))?;
@@ -300,6 +334,22 @@ fn open_image(path: &Path) -> Result<RgbaImage, String> {
     image::open(path)
         .map(|image| image.into_rgba8())
         .map_err(|error| tr!("이미지를 열 수 없습니다: {error}", "Could not open the image: {error}"))
+}
+
+/// A saved image as PNG bytes, for the print window when the webview cannot show the
+/// format itself (TIFF). Raw bytes (ipc::Response): a JSON number array of a large
+/// screenshot would run the page out of memory.
+#[tauri::command]
+async fn image_png(path: PathBuf) -> Result<Response, String> {
+    blocking(move || {
+        let image = open_image(&path)?;
+        let mut bytes = Vec::new();
+        image::DynamicImage::ImageRgba8(image)
+            .write_to(&mut std::io::Cursor::new(&mut bytes), image::ImageFormat::Png)
+            .map_err(|error| tr!("PNG 변환 실패: {error}", "Converting to PNG failed: {error}"))?;
+        Ok(Response::new(bytes))
+    })
+    .await
 }
 
 /// Puts a saved image file on the clipboard (capture history, viewer).
@@ -391,9 +441,12 @@ fn close_overlays(app: &AppHandle) {
 #[tauri::command]
 async fn begin_region_select(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     close_overlays(&app);
+    shield_windows(&app, true);
     set_main_visible(&app, false);
     tokio_sleep(HIDE_SETTLE).await;
-    let shots = match blocking(capture::grab_each_monitor).await {
+    let shots = blocking(capture::grab_each_monitor).await;
+    apply_shield(&app, state.inner());
+    let shots = match shots {
         Ok(shots) => shots,
         Err(error) => {
             set_main_visible(&app, true);
@@ -546,7 +599,7 @@ async fn grab_frame(app: AppHandle, source: Source) -> Result<Response, String> 
 #[tauri::command]
 async fn set_self_recording(app: AppHandle, state: State<'_, AppState>, on: bool) -> Result<(), String> {
     lock(state.inner()).self_recording = on;
-    set_capturable(&app, on);
+    apply_shield(&app, state.inner());
     if on {
         tokio_sleep(SELF_SETTLE).await;
     }
@@ -561,17 +614,22 @@ struct OpenedRecording {
 }
 
 #[tauri::command]
-fn recording_open(state: State<'_, AppState>, output: Output, format: String) -> Result<OpenedRecording, String> {
+fn recording_open(app: AppHandle, state: State<'_, AppState>, output: Output, format: String) -> Result<OpenedRecording, String> {
     let format = match format.as_str() {
         "mp4" | "webm" => format,
         _ => return Err(tr!("지원하지 않는 녹화 형식입니다. MP4 또는 WebM을 선택하세요.", "Unsupported recording format. Choose MP4 or WebM.")),
     };
     let path = resolve_output(output, &format)?;
     let file = File::create(&path).map_err(|error| tr!("녹화 파일을 만들 수 없습니다: {error}", "Could not create the recording file: {error}"))?;
-    let mut shared = lock(&state);
-    shared.next_recording += 1;
-    let id = shared.next_recording;
-    shared.recordings.insert(id, Recording { file, path: path.clone(), format, bytes: 0 });
+    let id = {
+        let mut shared = lock(&state);
+        shared.next_recording += 1;
+        let id = shared.next_recording;
+        shared.recordings.insert(id, Recording { file, path: path.clone(), format, bytes: 0 });
+        id
+    };
+    // While the screen is recorded, MyCapture stays out of the picture.
+    apply_shield(&app, state.inner());
     Ok(OpenedRecording { id, path })
 }
 
@@ -629,17 +687,21 @@ fn fix_webm_duration(path: &Path, duration_ms: f64) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn recording_finish(state: State<'_, AppState>, id: u32, duration_ms: f64) -> Result<Saved, String> {
+async fn recording_finish(app: AppHandle, state: State<'_, AppState>, id: u32, duration_ms: f64) -> Result<Saved, String> {
     let recording = lock(&state).recordings.remove(&id).ok_or_else(|| tr!("녹화가 이미 끝났습니다.", "The recording has already ended."))?;
+    // Capturable again once the recording is over.
+    apply_shield(&app, state.inner());
     blocking(move || finalize_recording(recording, duration_ms)).await
 }
 
 #[tauri::command]
-fn recording_abort(state: State<'_, AppState>, id: u32) {
-    if let Some(recording) = lock(&state).recordings.remove(&id) {
+fn recording_abort(app: AppHandle, state: State<'_, AppState>, id: u32) {
+    let removed = lock(&state).recordings.remove(&id);
+    if let Some(recording) = removed {
         drop(recording.file);
         let _ = std::fs::remove_file(&recording.path);
     }
+    apply_shield(&app, state.inner());
 }
 
 #[tauri::command]
@@ -678,7 +740,7 @@ fn app_title(info: &tauri::PackageInfo) -> String {
     format!("MyCapture v{}.{}.{}", info.version.major, info.version.minor, info.version.patch)
 }
 
-const POPUP_KINDS: [&str; 6] = ["settings", "about", "confirm", "theme-menu", "menu", "guide"];
+const POPUP_KINDS: [&str; 7] = ["settings", "about", "confirm", "theme-menu", "menu", "guide", "print"];
 
 /// Opens a popup (settings, about, confirmation, theme dropdown) as its own OS
 /// window at screen position (x, y) in logical pixels, or brings it back. It is
@@ -701,18 +763,22 @@ async fn open_popup(app: AppHandle, kind: String, x: f64, y: f64, width: f64, he
     let mut builder = WebviewWindowBuilder::new(&app, &label, WebviewUrl::App("index.html".into()))
         .title(app_title(app.package_info()))
         .decorations(false)
-        // The user's guide is a reading window: it can be resized and maximized.
-        .resizable(kind == "guide")
+        // The user's guide and the print preview can be resized and maximized.
+        .resizable(kind == "guide" || kind == "print")
         .skip_taskbar(true)
         .shadow(true)
         .visible(false)
         .focused(true)
-        .content_protected(true)
+        // Capturable like any window, unless MyCapture is recording the screen right now.
+        .content_protected(shielded_now(&app))
         .position(x, y)
         .inner_size(width, height)
         .additional_browser_args(BROWSER_ARGS);
     if kind == "guide" {
         builder = builder.min_inner_size(560.0, 400.0);
+    }
+    if kind == "print" {
+        builder = builder.min_inner_size(820.0, 560.0);
     }
     if let Some(main) = app.get_webview_window("main") {
         builder = builder.parent(&main).map_err(|error| error.to_string())?;
@@ -840,10 +906,10 @@ pub fn run() {
                 // No OS title bar: the app's own top bar is the drag area and carries
                 // the minimize / maximize / close buttons (src/app.js renderBar).
                 .decorations(false)
-                // Excluded from every screen capture and recording (Windows 10 2004+:
-                // WDA_EXCLUDEFROMCAPTURE, macOS: NSWindowSharingNone), so previews and
-                // recordings never show MyCapture even while it stays on screen.
-                .content_protected(true)
+                // Capturable by other programs (screenshots of MyCapture, the start
+                // screen included). MyCapture leaves itself out of its own captures
+                // and recordings only while they run (shield_windows).
+                .content_protected(false)
                 .additional_browser_args(BROWSER_ARGS)
                 .build()?;
             permissions::allow_microphone(&main);
@@ -874,6 +940,8 @@ pub fn run() {
             copy_frame,
             save_frame,
             copy_text,
+            read_text,
+            image_png,
             begin_region_select,
             overlay_frame,
             overlay_ready,

@@ -3,7 +3,7 @@
 > Version **1.0.2** · Windows · macOS · Linux
 
 MyCapture saves a screen, a window or a region as an image, and records the screen to video.
-**The MyCapture window itself never shows up in captures or recordings.** To capture the MyCapture window, turn on the **MyCapture window** mode in the toolbar (end of chapter 4).
+**The MyCapture window itself never shows up in MyCapture's own captures or recordings.** Other capture tools (Snipping Tool and the like) can capture MyCapture, the start screen included; only while MyCapture records the screen is it left out of their captures too. To capture the MyCapture window, turn on the **MyCapture window** mode in the toolbar (end of chapter 4).
 
 New to MyCapture? Start with the [Tutorial (Tutorial.en.md)](Tutorial.en.md): in ten minutes you capture, record, browse the history and change the theme once each.
 This guide is also available inside the program: the 📖 **User's guide** button in the title bar, or the **User's guide** button on the start screen.
