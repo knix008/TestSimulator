@@ -42,6 +42,18 @@ if (process.platform === 'win32') {
   spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { stdio: 'ignore' });
 }
 
+// Windows installer: the helper that puts the program icon on the language selector's title bar
+// (tools/langicon → src-tauri/windows/langicon.exe, picked up by hooks.nsh). Without it the installer
+// is still built, with the selector as before.
+if (requested === 'win') {
+  const crate = path.join(root, 'tools', 'langicon');
+  console.log('> cargo build --release (tools/langicon)');
+  const helper = spawnSync('cargo', ['build', '--release', '--quiet'], { cwd: crate, stdio: 'inherit', shell: process.platform === 'win32' });
+  const built = path.join(crate, 'target', 'release', 'langicon.exe');
+  if (helper.status === 0 && fs.existsSync(built)) fs.copyFileSync(built, path.join(root, 'src-tauri', 'windows', 'langicon.exe'));
+  else console.warn('langicon could not be built: the language selector keeps its plain title bar');
+}
+
 const bundles = targets[requested].bundles;
 console.log(`> tauri build --bundles ${bundles.join(',')}`);
 const result = spawnSync(process.execPath, [path.join(root, 'node_modules', '@tauri-apps', 'cli', 'tauri.js'), 'build', '--bundles', bundles.join(',')], {

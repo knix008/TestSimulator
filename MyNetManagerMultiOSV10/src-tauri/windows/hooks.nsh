@@ -87,7 +87,69 @@
 !define MUI_LANGDLL_ALWAYSSHOW
 !define MUI_LANGDLL_ALLLANGUAGES
 !define MUI_LANGDLL_WINDOWTITLE "언어 / Language"
-!define MUI_LANGDLL_INFO "설치와 프로그램에 사용할 언어를 고르십시오.$\nChoose the language of the installer and the program."
+; LangDLL's dialog has a fixed size: two short lines, one per language, fit without being cut off.
+!define MUI_LANGDLL_INFO "설치와 프로그램의 언어를 고르십시오.$\nChoose the language of setup and the app."
+
+; The selector's title bar shows the program icon. LangDLL sets no icon on its dialog and the dialog is modal,
+; so a tiny helper (tools/langicon, built into langicon.exe here by scripts/build.mjs) is started just before
+; it opens: it waits for the dialog of this process, gives it the installer's icon (= the program icon) for the
+; dialog's DPI and exits. Without langicon.exe (a plain "tauri build") the selector is as before.
+; MUI_LANGDLL_DISPLAY below is MUI 2's own macro (Contrib\Modern UI 2\Localization.nsh) with that one step added.
+!if /FileExists "${__FILEDIR__}\langicon.exe"
+  !define MUM_LANGICON "${__FILEDIR__}\langicon.exe"
+!endif
+!macroundef MUI_LANGDLL_DISPLAY
+!macro MUI_LANGDLL_DISPLAY
+  !verbose push
+  !verbose ${MUI_VERBOSE}
+  !ifndef MUI_LANGDLL_LANGUAGES
+    !warning "MUI_LANGDLL_DISPLAY should only be used after inserting the MUI_LANGUAGE macro(s)"
+  !endif
+  !insertmacro MUI_LANGDLL_VARIABLES
+  !insertmacro MUI_DEFAULT MUI_LANGDLL_WINDOWTITLE "Installer Language"
+  !insertmacro MUI_DEFAULT MUI_LANGDLL_INFO "Please select a language."
+  !ifdef MUI_LANGDLL_REGISTRY_VARIABLES
+    ReadRegStr $mui.LangDLL.RegistryLanguage "${MUI_LANGDLL_REGISTRY_ROOT}" "${MUI_LANGDLL_REGISTRY_KEY}" "${MUI_LANGDLL_REGISTRY_VALUENAME}"
+    ${if} $mui.LangDLL.RegistryLanguage != ""
+      StrCpy $LANGUAGE $mui.LangDLL.RegistryLanguage
+    ${endif}
+  !endif
+  !ifdef NSIS_CONFIG_SILENT_SUPPORT
+    ${unless} ${Silent}
+  !endif
+  !ifndef MUI_LANGDLL_ALWAYSSHOW
+  !ifdef MUI_LANGDLL_REGISTRY_VARIABLES
+    ${if} $mui.LangDLL.RegistryLanguage == ""
+  !endif
+  !endif
+  !ifdef MUM_LANGICON
+    ; The icon helper, started (not waited for) right before the dialog.
+    InitPluginsDir
+    File "/oname=$PLUGINSDIR\langicon.exe" "${MUM_LANGICON}"
+    Push $R9 ; borrowed for the process id, given back below
+    System::Call "kernel32::GetCurrentProcessId() i .R9"
+    Exec '"$PLUGINSDIR\langicon.exe" $R9'
+    Pop $R9
+  !endif
+  !ifdef MUI_LANGDLL_ALLLANGUAGES
+    LangDLL::LangDialog "${MUI_LANGDLL_WINDOWTITLE}" "${MUI_LANGDLL_INFO}" A ${MUI_LANGDLL_LANGUAGES} ""
+  !else
+    LangDLL::LangDialog "${MUI_LANGDLL_WINDOWTITLE}" "${MUI_LANGDLL_INFO}" AC ${MUI_LANGDLL_LANGUAGES_CP} ""
+  !endif
+    Pop $LANGUAGE
+    ${if} $LANGUAGE == "cancel"
+      Abort
+    ${endif}
+  !ifndef MUI_LANGDLL_ALWAYSSHOW
+  !ifdef MUI_LANGDLL_REGISTRY_VARIABLES
+    ${endif}
+  !endif
+  !endif
+  !ifdef NSIS_CONFIG_SILENT_SUPPORT
+    ${endif}
+  !endif
+  !verbose pop
+!macroend
 
 ; 1042 = Korean, 1033 = English (the installer's two languages).
 LangString MumAskReinstall 1042 "이전에 설치한 MyNetManager 가 있습니다.$\n$R9$\n$\n이전 프로그램을 완전히 삭제하고 다시 설치할까요?$\n$\n예: 이전 프로그램과 바로가기를 지우고 새로 설치합니다. 사용자 데이터는 다음 질문에서 정합니다.$\n아니오: 설치를 그만둡니다."

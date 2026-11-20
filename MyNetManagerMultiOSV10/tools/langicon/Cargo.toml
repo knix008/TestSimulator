@@ -1,0 +1,16 @@
+[package]
+name = "langicon"
+version = "1.0.0"
+edition = "2021"
+description = "Puts the installer's icon on the title bar of NSIS's language selection dialog (LangDLL sets none)"
+publish = false
+
+# Not part of the app's workspace: built by scripts/build.mjs before the Windows installer.
+[workspace]
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
