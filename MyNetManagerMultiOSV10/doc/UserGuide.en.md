@@ -354,11 +354,12 @@ are hidden, not deleted.
 - **Filter buttons** (such as **TCP problems**) at the right of the bar apply a saved filter with one click.
   **Add filter button…** makes a new one from the current filter.
 - Under the bar is a row of **preset filters**. **All** at the front turns every button on (all ORed together) and
-  **None** turns them all off (a filter typed in the box stays). Then come TCP, UDP, HTTP, TLS, **TLS 1.0**, **TLS 1.1**, **TLS 1.2**,
+  **None** turns them all off. Then come TCP, UDP, HTTP, TLS, **TLS 1.0**, **TLS 1.1**, **TLS 1.2**,
   **TLS 1.3**, QUIC, DNS, DHCP, ARP, ICMP, TCP SYN, Retransmissions, TCP problems, Broadcast, ARP DNS. Presets combine with **OR**, because most of them can
   never match the same packet: **DNS** applies `dns`, then **UDP** makes it `dns or udp` (packets that match either
-  are shown) and both stay highlighted. Only pressing a highlighted button again takes its condition out. A filter
-  already typed in the box is kept (`(frame.len > 60) or dns`). Any other filter is typed in the box as before.
+  are shown) and both stay highlighted. Only pressing a highlighted button again takes its condition out. A button shows
+  only its own packets: a filter typed in the box or set by clicking the network map is replaced by the first press
+  (`frame.len > 60` + **DNS** → `dns`). Any other filter is typed in the box as before.
 - The last button, **ARP DNS**, is a switch: on (the default) lets ARP and DNS packets in, off adds
   `not arp and not dns` with **AND**. With **UDP** on and ARP DNS off the filter is
   `udp and (not arp and not dns)` — UDP packets that are not DNS. **All** turns the switch on too; **None** leaves it as it is.

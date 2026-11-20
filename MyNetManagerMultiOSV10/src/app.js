@@ -18,6 +18,7 @@ import { DOC_FORMATS, exportDocument, toLines } from './domain/export/docexport.
 import { defaultPrintOptions } from './print/packets.js';
 import { encodeCanvas, IMAGE_FORMATS, imageMime, svgToCanvas } from './domain/export/images.js';
 import { CAPTURE_PRESETS, togglePreset } from './domain/filter/presets.js';
+import { guessLinktype, IMPORT_LINKTYPES, packetsToPcap, parseHexDump } from './domain/capture/hexdump-import.js';
 import { followFilter, followFilterOut } from './domain/analysis/follow.js';
 import { addRecent, loadRecent, loadRecentDirs, removeRecent, storeRecent, storeRecentDirs } from './domain/recent.js';
 import {
@@ -194,19 +195,29 @@ function persistSession() {
 async function runPass(doc, task, labelKey = 'progress.dissect') {
   const controller = new AbortController();
   doc.busy = controller;
+  doc.busyKind = labelKey;
   const started = performance.now();
   let lastPaint = 0;
   const onProgress = (done, total) => {
+    if (doc.busy !== controller) return;
     state.progress = { label: t(labelKey), done, total, doc: doc.id };
     const now = performance.now();
     if (now - lastPaint > 120) { lastPaint = now; renderStatus(); if (doc === activeDoc() && now - started > 300) state.view?.list.draw(true); }
   };
+  const work = (async () => { await task({ onProgress, signal: controller.signal }); })();
+  doc.busyDone = work.catch(() => {});
   try {
-    await task({ onProgress, signal: controller.signal });
+    await work;
   } finally {
-    doc.busy = null;
-    state.progress = null;
-    renderStatus();
+    // A pass that was cancelled for a newer one must not clear the newer one's state (or it could no
+    // longer be cancelled, and two filter passes would run at once with the older one winning).
+    if (doc.busy === controller) {
+      doc.busy = null;
+      doc.busyKind = null;
+      doc.busyDone = null;
+      state.progress = null;
+      renderStatus();
+    }
   }
 }
 
@@ -512,10 +523,18 @@ async function applyDisplayFilter(text, { fromMap = false } = {}) {
   const doc = activeDoc();
   if (!doc) return false;
   const trimmed = String(text ?? '').trim();
+  // The newest request wins: an older filter pass is cancelled; a first pass (opening, Decode As) is
+  // waited for instead, since cancelling it would leave the capture half read.
+  const token = (doc.filterToken ?? 0) + 1;
+  doc.filterToken = token;
+  while (doc.busy && doc.busyKind !== 'progress.filter') {
+    await (doc.busyDone ?? nextTick());
+    if (doc.filterToken !== token) return false;
+  }
   doc.busy?.abort();
   let result;
   await runPass(doc, async (options) => { result = await doc.applyFilter(trimmed, options); }, 'progress.filter').catch((error) => { if (!error?.cancelled) throw error; });
-  if (!result) return false;
+  if (!result || doc.filterToken !== token) return false;
   if (!result.ok) {
     state.filter = { text: trimmed, status: 'invalid', error: result.error };
     state.view?.renderFilterBar();
@@ -596,7 +615,7 @@ function updateMapMatch(doc = activeDoc()) {
   const shown = doc.displayed;
   const step = Math.max(1, Math.floor(shown.length / 50000));
   const indices = step > 1 ? shown.filter((_, i) => i % step === 0) : shown;
-  map.setMatch(matchTopology(doc.topology, indices, (i) => doc.dissectOnce(i)));
+  map.setMatch(matchTopology(doc.topology, indices, (i) => doc.dissectOnce(i), (i) => doc.endsOf(i)));
 }
 
 function onMapSelect(selection) {
@@ -986,6 +1005,8 @@ async function stopLiveCapture(doc = activeDoc()) {
   try { doc.stats = (await capture.stop()) ?? doc.stats; } catch (error) { showError('error.captureStop', error); }
   doc.passNew();
   doc.live = false;
+  // Frames dissected while capturing may read differently now that the rest is known (reassembly).
+  doc.forgetFacts();
   refreshAfterChange(doc);
   refreshMap();
   runAnalysis(doc);
@@ -1204,6 +1225,21 @@ async function exportDissections(format) {
   } catch (error) {
     return showError('error.export', error);
   }
+}
+
+/** File › Import from Hex Dump: pasted hex dump text (text2pcap rules) opened as a new capture. */
+async function importHexDump(text = null) {
+  if (text == null) {
+    const result = await popups.open('prompt', { icon: 'paneBytes', title: t('action.importHexDump').replace(/…$/, ''), label: t('hexImport.label'), value: '', multiline: true });
+    text = result?.value;
+    if (text == null) return null;
+  }
+  const packets = parseHexDump(text);
+  if (!packets.length) { notify('error', t('hexImport.none')); return null; }
+  const linktype = guessLinktype(packets);
+  const doc = await openCaptureBytes(`${t('hexImport.name')}.pcap`, packetsToPcap(packets, { linktype }), { quiet: true });
+  if (doc) { doc.dirty = true; notify('success', t('hexImport.done', { count: packets.length, linktype: IMPORT_LINKTYPES.find((l) => l.id === linktype)?.name ?? linktype })); }
+  return doc;
 }
 
 async function mergeFile() {
@@ -1473,6 +1509,14 @@ const commands = {
   sipFlows: { icon: 'protoVoip', label: 'action.sipFlows', enabled: hasDoc, run: () => openStats('sip') },
   rtpStreams: { icon: 'protoVoip', label: 'action.rtpStreams', enabled: hasDoc, run: () => openStats('rtp') },
   wlanTraffic: { icon: 'ifWifi', label: 'action.wlanTraffic', enabled: hasDoc, run: () => openStats('wlan') },
+  importHexDump: { icon: 'paneBytes', label: 'action.importHexDump', run: () => importHexDump() },
+  serviceResponseTime: { icon: 'clock', label: 'action.serviceResponseTime', enabled: hasDoc, run: () => openStats('srt') },
+  multicastStreams: { icon: 'netCloud', label: 'action.multicastStreams', enabled: hasDoc, run: () => openStats('multicast') },
+  dhcpStats: { icon: 'netHost', label: 'action.dhcpStats', enabled: hasDoc, run: () => openStats('dhcp') },
+  sipStats: { icon: 'protoVoip', label: 'action.sipStats', enabled: hasDoc, run: () => openStats('sipStats') },
+  rtpAnalysis: { icon: 'protoVoip', label: 'action.rtpAnalysis', enabled: hasDoc, run: () => openStats('rtpAnalysis') },
+  macBlocks: { icon: 'netSwitch', label: 'action.macBlocks', enabled: hasDoc, run: () => openStats('macBlocks') },
+  supportedProtocols: { icon: 'protocolHierarchy', label: 'action.supportedProtocols', enabled: hasDoc, run: () => openStats('protocols') },
   // Tools
   firewallRules: { icon: 'protoLock', label: 'action.firewallRules', enabled: hasSel, run: () => openStats('firewall', { index: activeDoc().selected }) },
   credentials: { icon: 'protoLock', label: 'action.credentials', enabled: hasDoc, run: () => openStats('credentials') },
@@ -1556,16 +1600,16 @@ const SUBMENUS = {
 };
 const sub = (key) => ({ sub: key });
 const MENUS = {
-  file: ['open', 'recent', sub('sampleList'), 'merge', '-', 'closeTab', 'closeAll', '-', 'save', 'saveAs', 'savePcap', '-', 'exportSpecified', sub('exportDissections'), 'exportBytes', sub('exportObjects'), '-', 'print', '-', 'startPage', 'exit'],
+  file: ['open', 'recent', sub('sampleList'), 'merge', 'importHexDump', '-', 'closeTab', 'closeAll', '-', 'save', 'saveAs', 'savePcap', '-', 'exportSpecified', sub('exportDissections'), 'exportBytes', sub('exportObjects'), '-', 'print', '-', 'startPage', 'exit'],
   edit: [sub('copy'), '-', 'findPacket', 'findNext', 'findPrev', '-', sub('marks'), sub('ignores'), sub('timeRefs'), 'timeShift', '-', 'packetComment', 'deleteComments', '-', 'settings'],
   view: [sub('panes'), sub('timeFormat'), sub('nameResolution'), sub('zoom'), '-', 'colorize', 'coloringRules', 'resizeColumns', 'columnPrefs', '-', sub('tree'), sub('bytesAs'), 'packetWindow', 'reload', '-', sub('appearance')],
   go: ['goPacket', 'goFirst', 'goLast', 'goPrev', 'goNext', '-', 'goConversationPrev', 'goConversationNext', 'goRelated', '-', 'goBack', 'goForward', '-', 'autoScroll'],
   capture: ['captureOptions', 'captureStart', 'captureStop', 'captureRestart', '-', 'captureFilters', 'interfaces', 'refreshInterfaces'],
   analyze: ['displayFilters', 'filterExpression', 'focusFilter', '-', 'applyAsColumn', sub('applyFilter'), sub('prepareFilter'), sub('conversationFilter'), '-', 'enabledProtocols', 'decodeAs', '-', sub('follow'), '-', 'expertInfo'],
-  statistics: ['report', '-', 'captureProperties', 'resolvedAddresses', 'protocolHierarchy', 'conversations', 'endpoints', 'packetLengths', 'ioGraph', 'flowGraph', 'tcpGraph', '-', sub('http'), 'dnsStats', sub('ipStats'), '-', 'netMapWindow'],
-  telephony: ['voipCalls', 'sipFlows', 'rtpStreams'],
+  statistics: ['report', '-', 'captureProperties', 'resolvedAddresses', 'protocolHierarchy', 'conversations', 'endpoints', 'packetLengths', 'ioGraph', 'flowGraph', 'tcpGraph', '-', 'serviceResponseTime', 'multicastStreams', 'dhcpStats', sub('http'), 'dnsStats', sub('ipStats'), '-', 'netMapWindow'],
+  telephony: ['voipCalls', 'sipFlows', 'sipStats', '-', 'rtpStreams', 'rtpAnalysis'],
   wireless: ['wlanTraffic'],
-  tools: ['report', 'analyzeNow', '-', 'firewallRules', 'credentials', '-', 'settings'],
+  tools: ['report', 'analyzeNow', '-', 'firewallRules', 'credentials', 'macBlocks', '-', 'supportedProtocols', '-', 'settings'],
   help: ['welcome', 'tutorial', 'tutorialDoc', 'userGuide', 'filterReference', 'shortcuts', '-', 'settings', 'about'],
 };
 const MENU_ICONS = { file: 'file', edit: 'edit', view: 'eye', go: 'goPacket', capture: 'captureStart', analyze: 'filterApply', statistics: 'ioGraph', telephony: 'protoVoip', wireless: 'ifWifi', tools: 'tools', help: 'question' };

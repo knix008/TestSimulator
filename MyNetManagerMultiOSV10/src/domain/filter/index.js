@@ -51,10 +51,26 @@ function doCompile(text, fields, opts) {
       if (ref !== undefined) return fn(d, { ref });
       return fn(d, env);
     };
-    return { ok: true, empty: false, test, fieldsUsed: c.fieldsUsed, text, deprecated: dep, usesReference: /\$/.test(text) };
+    return { ok: true, empty: false, test, fieldsUsed: c.fieldsUsed, text, deprecated: dep, usesReference: /\$/.test(text), presence: presenceOnly(ast) };
   } catch (e) {
     if (e instanceof FilterError) return { ok: false, error: e.message, code: e.code, at: e.at, end: e.end, args: e.args, text };
     return { ok: false, error: String(e && e.message || e), code: FILTER_ERRORS.UNEXPECTED_TOKEN, at: 0, end: text.length, text };
+  }
+}
+
+/**
+ * True when the filter only asks which fields / protocols a packet has ("tcp or udp", "not arp and not
+ * dns", "tcp.analysis.retransmission"): and / or / xor / not over bare names, no comparisons, layers,
+ * slices or references. Such a filter gives the same answer on a packet's field names alone
+ * (CaptureDoc keeps them per packet), so it can run without dissecting the packet again.
+ */
+export function presenceOnly(ast) {
+  if (!ast) return false;
+  switch (ast.k) {
+    case 'and': case 'or': case 'xor': return presenceOnly(ast.a) && presenceOnly(ast.b);
+    case 'not': case 'paren': return presenceOnly(ast.a);
+    case 'word': return !ast.layer && !ast.rawBytes && /^[A-Za-z_][A-Za-z0-9_.-]*$/.test(ast.text);
+    default: return false;
   }
 }
 

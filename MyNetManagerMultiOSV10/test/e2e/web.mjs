@@ -169,6 +169,20 @@ test('files.openMerge', 'Open a capture file and merge another one into it', asy
   assert(result.opened === 'opened.pcapng' && result.openedCount > 0, `open: ${result.opened}`);
 });
 
+test('files.importHexDump', 'File › Import from Hex Dump: pasted hex dump text opens as a new capture with the same bytes', async () => {
+  await openSample('dns-queries');
+  const r = await run(`const src = A.doc(); const want = [0, 1].map((i) => [...src.frames[i].data]);
+    const hex = (bytes) => { const out = []; for (let i = 0; i < bytes.length; i += 16) out.push(i.toString(16).padStart(4, '0') + '  ' + bytes.slice(i, i + 16).map((b) => b.toString(16).padStart(2, '0')).join(' ')); return out.join('\\n'); };
+    const before = A.state.docs.length; A.run('importHexDump'); await until(() => pop('prompt')?.querySelector('textarea'));
+    const area = pop('prompt').querySelector('textarea'); area.value = want.map(hex).join('\\n\\n'); area.dispatchEvent(new Event('input', { bubbles: true }));
+    pop('prompt').querySelector('[data-action="prompt-apply"]').click(); await until(() => A.state.docs.length > before && A.doc() !== src && A.doc().count === 2);
+    const d = A.doc(); const same = want.every((w, i) => JSON.stringify([...d.frames[i].data]) === JSON.stringify(w)); const proto = d.summaries[0].protocol; const name = d.name;
+    await A.actions.closeDoc(d, { force: true }); return { same, proto, name, after: A.state.docs.length - before };`);
+  assert(r.same, 'imported bytes differ');
+  assert(r.proto === 'DNS', `first imported packet reads as ${r.proto}`);
+  assert(/\.pcap$/.test(r.name) && r.after === 0, `tab ${r.name}`);
+});
+
 test('files.saveExport', 'Save, Save as pcap, and every dissection export produce a file', async () => {
   await openSample('http-page-load');
   const r = await run(`window.__downloads = []; await A.actions.saveDoc(A.doc()); await A.actions.saveDoc(A.doc(), { saveAs: true, format: 'pcap' });
@@ -387,6 +401,26 @@ test('stats.conversationsTabs', 'Conversations and endpoints switch between Ethe
     const row = pop('stats').querySelector('tbody tr'); row.click(); await sleep(60); pop('stats').querySelector('[data-action="net-apply"]').click(); await sleep(400); const filter = q('.df-input').value; await A.popups.close('stats'); await A.actions.applyDisplayFilter(''); return { tabs, filter };`);
   assert(r.tabs.length >= 5, `tabs ${r.tabs}`);
   assert(/udp/.test(r.filter), `conversation row filter: ${r.filter}`);
+});
+
+test('stats.more', 'Service response time, UDP multicast streams, DHCP and SIP statistics, RTP stream analysis, MAC address blocks and supported protocols open from the menus with rows', async () => {
+  const cases = [['dns-queries', 'serviceResponseTime', 'DNS'], ['lan-name-services', 'multicastStreams', null], ['dhcp-lease', 'dhcpStats', 'Discover'], ['sip-call-rtp', 'sipStats', 'INVITE'],
+    ['sip-call-rtp', 'rtpAnalysis', null], ['mixed-office-lan', 'macBlocks', null], ['mixed-office-lan', 'supportedProtocols', 'tcp']];
+  for (const [sample, command, text] of cases) {
+    await openSample(sample);
+    const r = await run(`A.run('${command}'); await until(() => pop('stats')?.querySelector('tbody tr') || pop('stats')?.querySelector('.net-loading.error'), 15000);
+      const doc = pop('stats'); const rows = doc.querySelectorAll('tbody tr').length; const body = doc.querySelector('tbody')?.textContent ?? ''; const error = doc.querySelector('.net-loading.error')?.textContent ?? '';
+      if ('${command}' === 'supportedProtocols') { const box = doc.querySelector('[data-net="query"]'); box.value = 'tcp'; box.dispatchEvent(new Event('input', { bubbles: true })); await until(() => [...pop('stats').querySelectorAll('tbody tr')].some((tr) => [...tr.children].some((td) => td.textContent.trim() === 'tcp'))); }
+      const list = [...pop('stats').querySelectorAll('tbody tr')]; const pick = list.find((tr) => [...tr.children].some((td) => td.textContent.trim() === 'tcp')) ?? list[0]; pick.click(); await sleep(60); doc.querySelector('[data-action="net-apply"]')?.click(); await sleep(400);
+      const filter = q('.df-input').value; const shown = A.doc().displayed.length; await A.popups.close('stats'); await A.actions.applyDisplayFilter(''); return { rows, body: body.slice(0, 4000), error, filter, shown };`);
+    assert(!r.error && r.rows > 0, `${command} on ${sample}: ${r.error || 'no rows'}`);
+    if (text) assert(r.body.includes(text), `${command}: "${text}" missing`);
+    assert(r.filter && r.shown > 0, `${command}: the row filter "${r.filter}" shows ${r.shown} packets`);
+  }
+  const menus = await run(`const out = {}; for (const m of ['statistics', 'telephony', 'tools']) { A.actions.openMenubarMenu(m); await until(() => pop('menu')?.querySelector('.menu-item')); out[m] = [...pop('menu').querySelectorAll('.menu-item')].map((b) => b.dataset.id).join(','); await A.popups.hideMenu(); await sleep(80); } return out;`);
+  for (const c of ['serviceResponseTime', 'multicastStreams', 'dhcpStats']) assert(menus.statistics.includes(c), `Statistics menu lacks ${c}: ${menus.statistics}`);
+  for (const c of ['sipStats', 'rtpAnalysis']) assert(menus.telephony.includes(c), `Telephony menu lacks ${c}`);
+  for (const c of ['macBlocks', 'supportedProtocols']) assert(menus.tools.includes(c), `Tools menu lacks ${c}`);
 });
 
 test('stats.tcpGraph', 'TCP stream graphs draw every graph type', async () => {
@@ -675,11 +709,11 @@ test('chrome.foldRails', 'Folded side panels are narrow rails with a vertical ti
 
 test('filter.presets', 'Preset filters (display bar, start page and Capture Options capture filters) combine with OR; another press never turns one off', async () => {
   const total = await openSample('dns-queries');
-  // Start from an empty filter box: a typed filter would (rightly) be kept and ORed with the presets.
+  // Start from an empty filter box: a typed filter is replaced by the first preset press.
   const r = await run(`await A.actions.applyDisplayFilter(''); A.view().setFilterText(''); await sleep(150);
     const presets = qa('[data-df-preset]').map((b) => b.dataset.dfPreset); const click = async (f) => { q('[data-df-preset="' + f + '"]').click(); await sleep(250); return { text: q('.df-input').value, on: qa('[data-df-preset].on:not(.preset-switch)').map((b) => b.dataset.dfPreset), shown: A.doc().displayed.length }; };
     const one = await click('dns'); const two = await click('udp'); const back = await click('dns'); const none = await click('udp');
-    A.view().setFilterText('frame.len > 60'); await A.actions.applyDisplayFilter('frame.len > 60'); await sleep(200); const typed = await click('dns');
+    A.view().setFilterText('frame.len > 60'); await A.actions.applyDisplayFilter('frame.len > 60'); await sleep(200); const typed = await click('dns'); typed.after = A.doc().filterText;
     await A.actions.applyDisplayFilter(''); A.view().setFilterText('');
     // All turns every preset on (ORed), None every preset off.
     q('[data-df-preset="*all"]').click(); await sleep(400); const allOn = { on: qa('[data-df-preset].on:not(.preset-all)').length, presets: qa('[data-df-preset]:not(.preset-all):not(.preset-none)').length, allPressed: q('[data-df-preset="*all"]').classList.contains('on') };
@@ -704,7 +738,7 @@ test('filter.presets', 'Preset filters (display bar, start page and Capture Opti
   assert(r.one.text === 'dns' && r.one.shown > 0 && r.one.shown < total, `one: ${JSON.stringify(r.one)}`);
   assert(r.two.text === 'dns or udp' && r.two.on.length === 2 && r.two.shown >= r.one.shown, `two presets are not ORed: ${JSON.stringify(r.two)}`);
   assert(r.back.text === 'udp' && r.none.text === '', `turning presets off: "${r.back.text}", "${r.none.text}"`);
-  assert(r.typed.text === '(frame.len > 60) or dns', `typed filter OR preset: "${r.typed.text}"`);
+  assert(r.typed.text === 'dns' && r.typed.on.join() === 'dns', `a preset press shows only that preset (typed text replaced): "${r.typed.text}"`);
   assert(r.start.filter === 'tcp or port 53' && r.start.on === 2 && r.start.box === 'tcp or port 53', `start page capture presets: ${JSON.stringify(r.start)}`);
   assert(r.capopts.filter === 'port 53' && r.capopts.on === 1, `Capture Options presets: ${JSON.stringify(r.capopts)}`);
   assert(r.allOn.on === r.allOn.presets && r.allOn.allPressed, `All: ${JSON.stringify(r.allOn)}`);

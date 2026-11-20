@@ -361,11 +361,15 @@ export function buildTopology(frames, summaries, getDissection, options = {}) {
   };
 }
 
+/** The address fields matchTopology looks at, in the order getEnds(index) returns their values (CaptureDoc.endsOf). */
+export const MATCH_FIELDS = ['ip.src', 'ip.dst', 'ipv6.src', 'ipv6.dst', 'arp.src.proto_ipv4', 'arp.dst.proto_ipv4', 'eth.src', 'eth.dst'];
+
 /**
  * The nodes and links that the given frames (the packets a display filter kept) touch, so the map can
  * draw them strong and fade the rest. Returns { nodes: Set<id>, links: Set<id>, packets }.
+ * getEnds(index), when given, returns a frame's addresses (MATCH_FIELDS order) without dissecting it, or null.
  */
-export function matchTopology(topology, indices, getDissection) {
+export function matchTopology(topology, indices, getDissection, getEnds = null) {
   const nodes = new Set();
   const links = new Set();
   const lookup = topology?.lookup;
@@ -373,24 +377,30 @@ export function matchTopology(topology, indices, getDissection) {
   const addAll = (set, ids) => { if (ids) for (const id of ids) set.add(id); };
   let packets = 0;
   for (const index of indices) {
-    let d;
-    try { d = getDissection(index); } catch { continue; }
-    if (!d) continue;
+    // The packet's addresses in MATCH_FIELDS order: remembered ones (getEnds) or from its dissection.
+    let ends = getEnds?.(index) ?? null;
+    if (!ends) {
+      let d;
+      try { d = getDissection(index); } catch { continue; }
+      if (!d) continue;
+      ends = MATCH_FIELDS.map((name) => str(first(d, name)));
+    }
     packets += 1;
-    const ipSrc = str(first(d, 'ip.src') ?? first(d, 'ipv6.src'));
-    const ipDst = str(first(d, 'ip.dst') ?? first(d, 'ipv6.dst'));
+    const [ip4Src, ip4Dst, ip6Src, ip6Dst, arpSrc, arpDst, ethSrc, ethDst] = ends;
+    const ipSrc = ip4Src ?? ip6Src;
+    const ipDst = ip4Dst ?? ip6Dst;
     if (ipSrc && ipDst) {
       const hit = lookup.pairs.get(ipSrc < ipDst ? `${ipSrc}|${ipDst}` : `${ipDst}|${ipSrc}`);
       if (hit) { addAll(nodes, hit.nodes); addAll(links, hit.links); continue; }
     }
     // Pairs the (sampled) map never saw, ARP and other non-IP frames: the ends by address, then by MAC.
     let found = false;
-    for (const ip of [ipSrc, ipDst, str(first(d, 'arp.src.proto_ipv4')), str(first(d, 'arp.dst.proto_ipv4'))]) {
+    for (const ip of [ipSrc, ipDst, arpSrc, arpDst]) {
       const ids = ip && lookup.ips.get(ip);
       if (ids) { addAll(nodes, ids); found = true; }
     }
     if (found) continue;
-    for (const mac of [str(first(d, 'eth.src')), str(first(d, 'eth.dst'))]) addAll(nodes, mac && lookup.macs.get(mac));
+    for (const mac of [ethSrc, ethDst]) addAll(nodes, mac && lookup.macs.get(mac));
   }
   return { nodes, links, packets };
 }

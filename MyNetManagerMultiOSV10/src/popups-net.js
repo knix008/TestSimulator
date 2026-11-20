@@ -75,6 +75,8 @@ export function installNetPopups(c) {
     ipStats: ['endpoints', 'action.ipv4Stats'], ports: ['endpoints', 'action.portTypes'], expert: ['expertInfo', 'action.expertInfo'], objects: ['exportObjects', 'action.exportObjectsHttp'],
     packet: ['showPacketWindow', 'action.packetWindow'], firewall: ['protoLock', 'action.firewallRules'], credentials: ['protoLock', 'action.credentials'], sip: ['protoVoip', 'action.sipFlows'],
     rtp: ['protoVoip', 'action.rtpStreams'], wlan: ['ifWifi', 'action.wlanTraffic'],
+    srt: ['clock', 'action.serviceResponseTime'], multicast: ['netCloud', 'action.multicastStreams'], dhcp: ['netHost', 'action.dhcpStats'], sipStats: ['protoVoip', 'action.sipStats'],
+    rtpAnalysis: ['protoVoip', 'action.rtpAnalysis'], macBlocks: ['netSwitch', 'action.macBlocks'], protocols: ['protocolHierarchy', 'action.supportedProtocols'],
   };
 
   function statOptions() {

@@ -30,11 +30,15 @@ test('presets: pressing a preset that is on takes only that one out', () => {
   assert.equal(togglePreset(f, 'icmp || icmpv6', DISPLAY_PRESETS), '');
 });
 
-test('presets: a typed filter stays and the presets join it with OR', () => {
-  const f = togglePreset('frame.len > 60', 'dns', DISPLAY_PRESETS);
-  assert.equal(f, '(frame.len > 60) or dns');
-  assert.deepEqual(activePresets(f, DISPLAY_PRESETS), ['dns']);
-  assert.equal(togglePreset(f, 'dns', DISPLAY_PRESETS), 'frame.len > 60');
+test('presets: a press shows only that preset — typed text or a map selection is replaced, later presses OR', () => {
+  let f = togglePreset('frame.len > 60', 'dns', DISPLAY_PRESETS);
+  assert.equal(f, 'dns');
+  f = togglePreset(f, 'tcp', DISPLAY_PRESETS);
+  assert.equal(f, 'dns or tcp');
+  assert.deepEqual(activePresets(f, DISPLAY_PRESETS), ['tcp', 'dns']);
+  assert.equal(togglePreset('ip.addr == 192.168.0.42 || arp.src.proto_ipv4 == 192.168.0.42', 'udp', DISPLAY_PRESETS), 'udp');
+  assert.equal(togglePreset('(frame.len > 60) or dns', 'dns', DISPLAY_PRESETS), '', 'turning the only preset off clears the typed part too');
+  assert.equal(togglePreset('frame.len > 60', 'not arp and not dns', DISPLAY_PRESETS), 'not arp and not dns');
 });
 
 test('presets: capture filters (BPF) with "or" inside a preset stay one preset', () => {

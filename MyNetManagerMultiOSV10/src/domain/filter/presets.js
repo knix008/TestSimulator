@@ -1,8 +1,10 @@
 // Preset filters: buttons under every filter box (display filter bar, the start page's capture
 // filter, Capture Options). Presets combine with OR — most of them can never match the same packet,
 // so AND would mostly show nothing. Nothing is remembered: which presets are on is read back from
-// the filter text itself (its top-level "or" parts), so typed text stays and pressing one preset
-// never turns another off.
+// the filter text itself (its top-level "or" parts), so pressing one preset never turns another off.
+// The first press shows only that preset's packets: text that is not a preset (typed, or a network
+// map selection) is replaced, not OR-ed with — "ip.addr == 10.0.0.5" + TCP would show every TCP packet
+// plus the host's, which reads as "the button did nothing".
 //
 // A few presets are switches instead (fourth field 'exclude'): ON lets their packets in (the default,
 // nothing in the text), OFF keeps them out by AND-ing their filter onto the end of the text —
@@ -135,11 +137,12 @@ export const NONE = '*none';
  * The filter after pressing one preset: an OR preset is added as one more OR part, or (when it is on)
  * taken out; an exclude preset flips between letting its packets in and keeping them out. ALL turns
  * every preset on (nothing excluded), NONE turns the OR presets off and leaves the switches as they
- * are; typed parts that are not presets stay in every case.
+ * are. Parts that are not presets (typed text, a map selection) are dropped by every press.
  */
 export function togglePreset(text, filter, presets) {
   let { parts, excluded } = parse(text, presets);
   const isPreset = (p) => presets.some((q) => !isExclude(q) && same(q[1], p));
+  parts = parts.filter(isPreset);
   const exclude = presets.find((q) => isExclude(q) && same(q[1], filter));
   if (filter === ALL) { parts = [...parts.filter((p) => !isPreset(p)), ...presets.filter((q) => !isExclude(q)).map(([, f]) => f)]; excluded = []; }
   else if (filter === NONE) parts = parts.filter((p) => !isPreset(p));

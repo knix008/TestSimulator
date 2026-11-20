@@ -4,8 +4,11 @@
 import { createSession, dissect, FIELDS } from '../dissect/index.js';
 import { compileFilter } from '../filter/index.js';
 import { compileRules, matchColor } from '../filter/coloring.js';
+import { MATCH_FIELDS } from '../analysis/topology.js';
 
 const CACHE_SIZE = 400;
+/** What a remembered field name answers for "is this field there?" (filters on names only look at the count). */
+const PRESENT = Object.freeze([Object.freeze({ abbrev: '', type: 'none', value: null, start: 0, length: 0 })]);
 const SLICE_MS = 24;
 const nextTick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -36,6 +39,9 @@ export class CaptureDoc {
     this.selected = -1;
     this.history = { back: [], forward: [] };
     this.cache = new Map();
+    /** Per frame, once it has been dissected: { fields, layers, ends } (packetFacts) — shared between frames that look alike. */
+    this.facts = [];
+    this.factPool = new Map();
     this.colors = new Map();
     this.coloring = null;
     this.passed = 0;
@@ -141,12 +147,54 @@ export class CaptureDoc {
     this.withColumns(index, d);
     this.cache.set(index, d);
     if (this.cache.size > CACHE_SIZE) this.cache.delete(this.cache.keys().next().value);
+    if (!this.facts[index]) this.noteFacts(index, d);
     return d;
   }
 
   /** Dissection without keeping it (filters, statistics over every frame). */
   dissectOnce(index) {
-    return this.cache.get(index) ?? this.withColumns(index, dissect(this.session, this.frames[index], { tree: true }));
+    const hit = this.cache.get(index);
+    if (hit) return hit;
+    const d = this.withColumns(index, dissect(this.session, this.frames[index], { tree: true }));
+    if (!this.facts[index]) this.noteFacts(index, d);
+    return d;
+  }
+
+  /**
+   * Remembers what a filter on field names and the network map need of frame `index`: the names of its
+   * fields, its protocol layers and its addresses. Frames with the same names share one entry, so this
+   * costs about one pointer per frame. Dropped by redissect() and when the frame's comment changes.
+   */
+  noteFacts(index, d) {
+    if (!d?.fields) return;
+    const names = [];
+    for (const [name, nodes] of d.fields) if (nodes?.length) names.push(name);
+    names.sort();
+    const layers = Array.isArray(d.layers) ? d.layers : [];
+    const ends = MATCH_FIELDS.map((name) => { const v = d.fields.get(name)?.[0]?.value; return v == null ? null : String(v); });
+    const key = `${names.join(' ')}\u0001${layers.join(' ')}\u0001${ends.join(' ')}`;
+    let facts = this.factPool.get(key);
+    if (!facts) {
+      const set = new Set(names);
+      facts = { fields: { get: (name) => (set.has(name) ? PRESENT : undefined), has: (name) => set.has(name) }, layers, ends };
+      this.factPool.set(key, facts);
+    }
+    this.facts[index] = facts;
+  }
+
+  /** Forgets the remembered facts (the frames are dissected anew: other preferences, or a live capture has ended). */
+  forgetFacts() {
+    this.facts = [];
+    this.factPool.clear();
+  }
+
+  /** The addresses of frame `index` the network map matches on (topology.js MATCH_FIELDS order), or null before it was dissected. */
+  endsOf(index) { return this.facts[index]?.ends ?? null; }
+
+  /** A filter test for frame `index`: on its remembered field names when the filter asks for nothing else. */
+  testFrame(compiled, index) {
+    const facts = compiled.presence ? this.facts[index] : null;
+    return Boolean(compiled.test(facts ?? this.dissectOnce(index)));
   }
 
   /**
@@ -166,7 +214,7 @@ export class CaptureDoc {
   matches(index) {
     if (!this.filter) return true;
     try {
-      return Boolean(this.filter.test(this.dissectOnce(index)));
+      return this.testFrame(this.filter, index);
     } catch {
       return false;
     }
@@ -201,7 +249,7 @@ export class CaptureDoc {
     for (let i = 0; i < this.passed; i += 1) {
       if (signal?.aborted) throw Object.assign(new Error('cancelled'), { cancelled: true });
       let pass = false;
-      try { pass = Boolean(compiled.test(this.dissectOnce(i))); } catch { pass = false; }
+      try { pass = this.testFrame(compiled, i); } catch { pass = false; }
       if (pass) shown.push(i);
       const now = performance.now();
       if (now - last > SLICE_MS) {
@@ -225,6 +273,7 @@ export class CaptureDoc {
     this.displayed = [];
     this.passed = 0;
     this.cache.clear();
+    this.forgetFacts();
     this.colors.clear();
     const filter = this.filterText;
     this.filter = null;
@@ -267,6 +316,7 @@ export class CaptureDoc {
     if ((frame.comment ?? null) === value) return false;
     frame.comment = value;
     this.cache.delete(index);
+    this.facts[index] = undefined;
     this.dirty = true;
     return true;
   }
