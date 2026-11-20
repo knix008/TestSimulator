@@ -4,6 +4,7 @@
 import { NET_ICONS } from './icons-net.js';
 import { CHART_ICONS } from './icons-chart.js';
 import { CHART_ICONS_MORE } from './icons-chart-more.js';
+import { SHEET_ICONS } from './icons-sheet.js';
 import { toneOf } from './icon-tones.js';
 
 const base = {
@@ -341,7 +342,7 @@ const base = {
 
 /** The icon for a moving background kind (`bars` → `animBars`). */
 export const animationIcon = (kind) => `anim${kind[0].toUpperCase()}${kind.slice(1)}`;
-const paths = { ...base, ...NET_ICONS, ...CHART_ICONS, ...CHART_ICONS_MORE };
+const paths = { ...base, ...NET_ICONS, ...CHART_ICONS, ...CHART_ICONS_MORE, ...SHEET_ICONS };
 
 export const ICON_NAMES = Object.keys(paths);
 export const hasIcon = (name) => Object.hasOwn(paths, name);

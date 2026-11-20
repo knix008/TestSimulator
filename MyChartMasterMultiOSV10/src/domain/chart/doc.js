@@ -2,6 +2,7 @@
 // Saved as .mychart (JSON): { format: 'mychart', version: 1, data: table, chart, created, modified }.
 import { cloneTable, createTable, inferTypes } from '../data/table.js';
 import { CHART_IDS } from './types.js';
+import { cloneSheet, hasSheet, normalizeSheet } from '../data/sheet.js';
 import { defaultOptions, normalizeChart } from './render.js';
 
 let nextId = 1;
@@ -16,6 +17,8 @@ export class ChartDoc {
     this.sample = sample;
     this.table = table ?? createTable(['Category', 'Value'], []);
     this.chart = normalizeChart(chart, this.table);
+    /** Formulas, cell formats and column widths of the data window (domain/data/sheet.js), or null. */
+    this.sheet = null;
     this.dirty = false;
     this.undoStack = [];
     this.redoStack = [];
@@ -24,7 +27,7 @@ export class ChartDoc {
   }
 
   snapshot() {
-    return { table: cloneTable(this.table), chart: JSON.parse(JSON.stringify(this.chart)) };
+    return { table: cloneTable(this.table), chart: JSON.parse(JSON.stringify(this.chart)), sheet: cloneSheet(this.sheet) };
   }
 
   /** Records the state before a change (call before changing). `merge`: a run of the same edit is one undo step. */
@@ -38,9 +41,11 @@ export class ChartDoc {
     this.lastAt = now;
   }
 
-  setTable(table, { merge = null } = {}) {
+  /** `sheet`: the new sheet extras (formulas, formats, widths); left out, they stay as they were. */
+  setTable(table, { merge = null, sheet } = {}) {
     this.remember(merge);
     this.table = table;
+    if (sheet !== undefined) this.sheet = normalizeSheet(sheet);
     // The mapping stays where it still fits the new columns.
     this.chart = normalizeChart(this.chart, this.table);
     this.dirty = true;
@@ -84,6 +89,7 @@ export class ChartDoc {
     this.redoStack.push(this.snapshot());
     this.table = state.table;
     this.chart = state.chart;
+    this.sheet = state.sheet ?? null;
     this.dirty = true;
     this.lastMerge = null;
     return true;
@@ -95,13 +101,14 @@ export class ChartDoc {
     this.undoStack.push(this.snapshot());
     this.table = state.table;
     this.chart = state.chart;
+    this.sheet = state.sheet ?? null;
     this.dirty = true;
     this.lastMerge = null;
     return true;
   }
 
   toJSON() {
-    return { format: 'mychart', version: 1, app: 'MyChartMaster', created: this.created, modified: new Date().toISOString(), chart: this.chart, data: this.table };
+    return { format: 'mychart', version: 1, app: 'MyChartMaster', created: this.created, modified: new Date().toISOString(), chart: this.chart, data: this.table, ...(hasSheet(this.sheet) ? { sheet: this.sheet } : {}) };
   }
 
   serialize() {
@@ -116,6 +123,7 @@ export class ChartDoc {
     (raw.data.columns ?? []).forEach((c, i) => { if (c?.type && table.columns[i]) table.columns[i].type = c.type; });
     const doc = new ChartDoc({ name, path, handle, table, chart: raw.chart ?? {} });
     if (raw.created) doc.created = raw.created;
+    doc.sheet = normalizeSheet(raw.sheet);
     return doc;
   }
 }

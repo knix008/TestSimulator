@@ -497,3 +497,22 @@ input.ins-series-name:hover, input.ins-series-name:focus { border-color: var(--b
 .docp ul, .docp ol { margin: 0 0 6pt; padding-left: 16pt; }
 .docp li { margin: 1.5pt 0; }
 .docp hr { border: 0; border-top: 0.5pt solid #c9cfd8; margin: 10pt 0; }
+
+/* The data grid detached into its own window (src/sheet.js) */
+.ch-detached { display: grid; place-items: center; padding: 12px; overflow: auto; }
+.ch-detached[hidden], .ch-grid-body[hidden] { display: none !important; }
+.ch-view.grid-detached .ch-grid-tools { display: none; }
+.ch-detached-card { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; max-width: 720px; padding: 14px 18px; border: 1px dashed var(--border); border-radius: 12px; background: var(--surface); }
+.ch-detached-card > .icon { width: 34px; height: 34px; color: var(--accent); flex: none; }
+.ch-detached-card p { margin: 4px 0 0; color: var(--muted); }
+.ch-detached-buttons { display: flex; gap: 8px; }
+.ch-detached-buttons .button { display: inline-flex; align-items: center; gap: 6px; }
+.dg-cell.fx { color: var(--tone-indigo, var(--accent)); }
+
+/* Printing the data window's cells (popups-chart.js sheetPages) */
+.ps-body { flex: 1; min-height: 0; overflow: hidden; }
+.ps-table { border-collapse: collapse; table-layout: fixed; color: #111; font-family: "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }
+.ps-table th, .ps-table td { height: var(--ps-row); padding: 0 0.35em; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: left; font-weight: 400; border: 0.5px solid transparent; }
+.ps-table.grid th, .ps-table.grid td { border-color: #c4c9d1; }
+.ps-table .ps-names th { font-weight: 700; background: #f1f5f9; }
+.ps-table .ps-letters th, .ps-table th.ps-n { background: #eef1f5; color: #555; text-align: center; font-size: 0.9em; border-color: #c4c9d1; }

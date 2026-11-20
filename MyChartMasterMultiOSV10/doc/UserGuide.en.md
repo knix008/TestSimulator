@@ -266,6 +266,61 @@ median, minimum, maximum and standard deviation. Click a header to sort; **Copy 
 
 Every edit can be **undone** (Ctrl+Z) and **redone** (Ctrl+Y) — 200 steps per chart.
 
+### The data editor window (detached)
+
+![The data editor window](images/en/26-sheet-window.png)
+
+The **detach** icon at the right of the grid's title bar, the same icon on the toolbar, or **Data › Detach data
+editor window** (Ctrl+Shift+D) takes the data grid out into a **window of its own** that works like Excel. On the
+desktop it has its own taskbar button, so it can sit on another monitor; on the web it is a second browser
+window. What you change there is drawn in the chart at once, and undo (Ctrl+Z) shares the main window's history.
+
+![The grid panel while the editor is detached](images/en/27-sheet-detached.png)
+
+While it is detached the grid panel says so: **Show editor** brings the window to the front, **Dock data editor
+window** (or **Dock window** in the editor, or closing it) puts the grid back into the main window.
+
+The editor is laid out like Excel:
+
+- **Menus**: File · Edit · View · Insert · Format · Data. The **toolbar**: new, open, save, print; undo, redo; cut,
+  copy, paste; bold, italic, underline, font and fill colour; alignment; number format (General, Number, Comma,
+  Currency, Percent, Scientific, Date, Text) and decimals; insert and delete rows and columns; sort, filter, find;
+  AutoSum and Insert function; and the **Make chart** button.
+- **Name box and formula bar**: the cell's address on the left (type B5 or A1:C9 to go there), its value or
+  formula on the right, editable.
+- **Row 1 holds the column names** (the chart's series and category names). The data starts at row 2; typing to
+  the right or below the data makes the table larger.
+- **Formulas** start with `=`: `=SUM(B2:B13)`, `=AVERAGE(B:B)`, `=IF(C2>100,"high","low")`, `=VLOOKUP(...)`,
+  absolute references such as `$B$2`, formulas reading other formulas — more than a hundred functions. While a
+  formula is typed, clicking or dragging over cells puts their address in, and typing a function name lists the
+  functions (Tab picks one). Errors show as `#DIV/0!`, `#REF!`, `#NAME?`; a formula that reads itself is `#CIRC!`.
+  The main window's grid takes `=` formulas too, and changing a value recalculates them and the chart.
+- **Fill handle**: drag the small square at the selection's corner — formulas move their references, numbers keep
+  their step, text such as `Q1` counts on. Ctrl+D (down) and Ctrl+R (right) do the same.
+- **Keyboard**: arrows, Tab, Enter, Ctrl+arrows (to the edge of the data), Ctrl+Home/End, F2 (edit), Delete
+  (clear), Esc (cancel), Alt+Enter (line break in a cell), Ctrl+B/I/U, Ctrl+F (find), Ctrl+H (replace), Ctrl+G
+  (go to), Alt+= (AutoSum), Ctrl+Shift+L (filter). Korean input starts right away in the selected cell.
+- **Copy and paste**: Ctrl+C/X/V use tab-separated text, as Excel does. Cells copied inside the program keep their
+  formulas and formats; **Paste values** (Ctrl+Shift+V) and **Paste formats** are there too.
+- **Column widths**: drag a column letter's border, or double-click it to fit the contents. A column letter selects
+  the column, a row number the row; the right-click menus insert, delete, sort and more.
+- **Sort and filter**: sorting with one cell selected sorts the whole table by its column (formulas and formats move
+  with their rows). **Filter** puts ▼ buttons in row 1 to choose the values to show, or to sort.
+- **Status bar**: Ready / Enter / Edit / Point, the selection's average, count, sum, min and max, the data size, and
+  zoom (Ctrl+wheel).
+- **Sheet tabs**: the tabs at the bottom are the charts open in the main window; a tab switches the main window to
+  that chart, **+** makes a new blank chart.
+- **Make chart**: with a range selected it makes a new chart tab from those cells (the first row names them); with
+  one cell selected it uses the whole sheet (F11). **Chart only the selection** makes the current chart draw just
+  the selected range.
+- **Open and save**: **Open** (Ctrl+O) opens Excel (xlsx), CSV, TSV, ODS, JSON, XML, HTML, Markdown files and
+  .mychart as a new sheet (a new chart tab); a workbook with several sheets asks which one. **Import a file into
+  this sheet** replaces this sheet's data. **Save** (Ctrl+S) and **Save as** write Excel, CSV, TSV, JSON, Markdown
+  or HTML. Excel files keep the formulas, formats and column widths, and formulas made in Excel are read back.
+  **Save chart** saves the chart and its data as .mychart (formulas and formats included).
+- **Print**: **Print** (Ctrl+P) and **Print selection** show the cells on pages in the program's print window, with
+  paper, orientation, margins, fit to page, **Gridlines** and **Row and column headings**.
+
 ## Properties panel
 
 ### Data tab
@@ -491,6 +546,7 @@ bar, and the **language** with the flag button or Ctrl+Shift+L (한국어 ↔ En
 | Ctrl+Shift+T | Swap rows and columns |
 | Ctrl+Shift+R | Chart the selected cells |
 | Ctrl+Shift+I | Data statistics |
+| Ctrl+Shift+D | Detach the data editor window |
 | Ctrl+L | Data labels |
 | Ctrl+Shift+G | Move legend |
 | Ctrl+K | Colour palette |

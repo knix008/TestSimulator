@@ -267,7 +267,41 @@ test('installer.programLanguage', 'After installing, the program starts in the i
   assert(!fs.existsSync(app.languageMarker), 'the installer marker was not used up');
 });
 
-const GROUPS = { installer: 'Installer', app: 'Launch', files: 'Files', export: 'Output', popups: 'Popups', print: 'Printing', docs: 'Help', chart: 'Charts', start: 'Start page' };
+test('sheet.window', 'The data editor is an OS window of its own: edits and formulas reach the chart, undo is shared, it docks back', async () => {
+  await run(`A.actions.openSample(A.domain.SAMPLES[0].id); await until(() => document.querySelector('.ch-canvas svg')); await A.run('detachData'); return true;`);
+  const win = await windowByLabel('doc-sheet');
+  assert(win, 'no data editor window');
+  try {
+    const S = 'window.__mychartmasterSheet';
+    const ready = await win.evaluate(`(async () => { const end = Date.now() + 10000; while (Date.now() < end) { if (${S}?.S.docId) return true; await new Promise((r) => setTimeout(r, 100)); } return false; })()`);
+    assert(ready, 'the window got no data from the main window');
+    const detached = await run(`return A.sheetLink.open && document.querySelector('.ch-view').classList.contains('grid-detached');`);
+    assert(detached, 'the grid panel does not show the detached state');
+    await win.evaluate(`(async () => { const X = ${S}; X.select(1, 4); X.beginEdit('enter', ''); X.editText('=SUM(B2:D2)'); X.commitEdit(); })()`);
+    await sleep(800);
+    const r = await run(`const d = A.doc(); return { v: d.table.rows[0][4], want: d.table.rows[0][1] + d.table.rows[0][2] + d.table.rows[0][3], f: d.sheet?.formulas?.['1,4'] };`);
+    assert(r.v === r.want && r.f === '=SUM(B2:D2)', `formula ${JSON.stringify(r)}`);
+    await win.evaluate(`${S}.run('undo')`);
+    await sleep(800);
+    const undone = await run(`return A.doc().table.columns.length === 4 && !A.doc().sheet;`);
+    const shown = await win.evaluate(`${S}.S.cells[0].length === 4`);
+    assert(undone && shown, 'undo from the data editor');
+    await win.evaluate(`${S}.run('dock')`).catch(() => {});
+  } finally { win.close(); }
+  await sleep(1500);
+  const back = await run(`return !A.sheetLink.open && !document.querySelector('.ch-view').classList.contains('grid-detached');`);
+  assert(back, 'docking did not bring the grid back');
+  assert(!(await windowByLabel('doc-sheet', 2500)), 'the data editor window is still open');
+  // It opens again after being closed (a closed Tauri window must not stay registered).
+  await run(`await A.run('detachData'); return true;`);
+  const again = await windowByLabel('doc-sheet');
+  assert(again, 'the data editor did not open a second time');
+  again.close();
+  await run(`A.actions.closeSheetWindow(); return true;`);
+  await sleep(800);
+});
+
+const GROUPS = { installer: 'Installer', app: 'Launch', files: 'Files', export: 'Output', popups: 'Popups', print: 'Printing', docs: 'Help', chart: 'Charts', start: 'Start page', sheet: 'Data editor' };
 export const desktopCases = CASES.map((item) => ({
   group: GROUPS[item.id.split('.')[0]] ?? item.id.split('.')[0],
   name: `${item.id} — ${item.name}`,

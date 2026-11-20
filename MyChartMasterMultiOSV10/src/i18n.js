@@ -4,9 +4,11 @@ import koBase from './i18n/ko.js';
 import enBase from './i18n/en.js';
 import koChart from './i18n/chart-ko.js';
 import enChart from './i18n/chart-en.js';
+import koSheet from './i18n/sheet-ko.js';
+import enSheet from './i18n/sheet-en.js';
 
-const ko = { ...koBase, ...koChart };
-const en = { ...enBase, ...enChart };
+const ko = { ...koBase, ...koChart, ...koSheet };
+const en = { ...enBase, ...enChart, ...enSheet };
 
 export const DICTIONARIES = { ko, en };
 let language = 'ko';

@@ -12,6 +12,8 @@ import { CHART_THEMES, chartTheme, palette, PALETTES } from './domain/chart/pale
 import { cellText, createTable, columnStats, deleteColumns, deleteRows, insertColumn, insertRow, matchingRows, parseNumber, renameColumn, setCell, sortRows, transpose, cloneTable, inferTypes, normalizeCell, columnLetter } from './domain/data/table.js';
 import { detectFormat, importData, importPasted, IMPORT_EXTENSIONS, splitDelimited } from './domain/data/importers.js';
 import { DATA_FORMATS, exportData, toXlsx } from './domain/data/exporters.js';
+import { isFormula } from './domain/data/formula.js';
+import { cellKey, clearBox, cloneSheet, hasFormulas, hasSheet, normalizeSheet, recalcTable, setInput, sheetCells, shiftSheet, sortBox, tableFromCells } from './domain/data/sheet.js';
 import { chartSvg, CHART_FORMATS, exportChart } from './domain/export/chartexport.js';
 import { addRecent, loadRecent, loadRecentDirs, removeRecent, storeRecent, storeRecentDirs } from './domain/recent.js';
 import { ANIMATIONS, loadSettings, SESSION_KEY, storeSettings, zoomStep } from './domain/settings.js';
@@ -138,6 +140,7 @@ function refreshView(options) {
   renderTabs();
   renderStatus();
   renderToolbarState();
+  syncSheet();
 }
 
 function persistSession() {
@@ -172,6 +175,7 @@ async function openBytes(name, bytes, { path = null, handle = null, quiet = fals
       doc = new ChartDoc({ name: `${stripExtension(name)}.mychart`, table: result.table, chart: chartForTable(result.table, name) });
       doc.dirty = true;
       doc.source = { name, path, sheets: result.sheets ?? null };
+      doc.sheet = normalizeSheet(result.extras);
     }
   } catch (error) {
     if (!quiet) showError('error.open', error, path ?? name);
@@ -357,10 +361,12 @@ async function closeAll() {
 // ───────────────────────── editing the data and the chart
 
 /** Applies a new table to the active chart (one undo step). */
-function changeTable(table, { merge = null, message = null } = {}) {
+function changeTable(table, { merge = null, message = null, sheet } = {}) {
   const doc = activeDoc();
   if (!doc) return;
-  doc.setTable(table, { merge });
+  // The data window's formulas are calculated again after every change (sheet: new extras, null drops them).
+  const extras = sheet === undefined ? doc.sheet : sheet;
+  doc.setTable(recalcTable(table, extras), { merge, sheet: extras });
   refreshView({});
   if (message) notify('info', message);
 }
@@ -466,7 +472,7 @@ function addRow() {
   const doc = activeDoc();
   if (!doc) return;
   const at = Math.min(doc.table.rows.length, gridSel().r1 + 1);
-  changeTable(insertRow(doc.table, at));
+  changeTable(insertRow(doc.table, at), { sheet: shiftSheet(doc.sheet, { axis: 'row', at: at + 1, count: 1 }) });
   state.view?.grid.setActive(at, gridSel().c0);
 }
 
@@ -474,7 +480,7 @@ function addColumn() {
   const doc = activeDoc();
   if (!doc) return;
   const at = Math.min(doc.table.columns.length, gridSel().c1 + 1);
-  changeTable(insertColumn(doc.table, at, `${t('grid.newColumn')} ${columnLetter(at)}`));
+  changeTable(insertColumn(doc.table, at, `${t('grid.newColumn')} ${columnLetter(at)}`), { sheet: shiftSheet(doc.sheet, { axis: 'col', at, count: 1 }) });
   state.view?.grid.setActive(gridSel().r0, at);
 }
 
@@ -485,7 +491,7 @@ function deleteSelectedRows() {
   const rows = [];
   for (let r = s.r0; r <= Math.min(s.r1, doc.table.rows.length - 1); r++) rows.push(r);
   if (!rows.length) return;
-  changeTable(deleteRows(doc.table, rows), { message: t('notice.rowsDeleted', { count: rows.length }) });
+  changeTable(deleteRows(doc.table, rows), { message: t('notice.rowsDeleted', { count: rows.length }), sheet: shiftSheet(doc.sheet, { axis: 'row', at: rows[0] + 1, count: -rows.length }) });
 }
 
 function deleteSelectedColumns() {
@@ -495,14 +501,21 @@ function deleteSelectedColumns() {
   const cols = [];
   for (let c = s.c0; c <= s.c1; c++) cols.push(c);
   if (cols.length >= doc.table.columns.length) { notify('error', t('notice.lastColumn')); return; }
-  changeTable(deleteColumns(doc.table, cols), { message: t('notice.columnsDeleted', { count: cols.length }) });
+  changeTable(deleteColumns(doc.table, cols), { message: t('notice.columnsDeleted', { count: cols.length }), sheet: shiftSheet(doc.sheet, { axis: 'col', at: cols[0], count: -cols.length }) });
 }
 
 function sortBy(direction) {
   const doc = activeDoc();
   if (!doc) return;
   const c = gridSel().c0;
-  changeTable(sortRows(doc.table, c, direction, lang()), { message: t('notice.sorted', { name: doc.table.columns[c]?.name ?? '' }) });
+  const message = t('notice.sorted', { name: doc.table.columns[c]?.name ?? '' });
+  if (hasSheet(doc.sheet)) {
+    // Formulas and formats move with their rows (as in the data window).
+    const out = sortBox(sheetCells(doc.table), doc.sheet, { r0: 1, r1: doc.table.rows.length, c0: 0, c1: doc.table.columns.length - 1 }, c, direction, lang());
+    changeTable(tableFromCells(out.cells, out.sheet), { message, sheet: out.sheet });
+    return;
+  }
+  changeTable(sortRows(doc.table, c, direction, lang()), { message });
 }
 
 function clearCells(sel) {
@@ -510,7 +523,7 @@ function clearCells(sel) {
   if (!doc) return;
   const table = cloneTable(doc.table);
   for (let r = sel.r0; r <= Math.min(sel.r1, table.rows.length - 1); r++) for (let c = sel.c0; c <= sel.c1; c++) table.rows[r][c] = null;
-  changeTable(inferTypes(table));
+  changeTable(inferTypes(table), hasFormulas(doc.sheet) ? { sheet: clearBox(sheetCells(doc.table), doc.sheet, { r0: sel.r0 + 1, r1: sel.r1 + 1, c0: sel.c0, c1: sel.c1 }).sheet } : {});
 }
 
 /** A tab-separated block (copied from a spreadsheet) written into the grid from (r, c), growing it as needed. */
@@ -527,7 +540,9 @@ function pasteBlock(r, c, text) {
     while (table.rows.length <= rr) table.rows.push(Array(table.columns.length).fill(null));
     cells.forEach((v, j) => { const n = parseNumber(v); table.rows[rr][c + j] = v === '' ? null : n != null && /^[\s+\-−(]*[$€£¥₩]?[\d.,\s]+%?[)]?$/.test(v) ? n : normalizeCell(v); });
   });
-  changeTable(inferTypes(table), { message: t('notice.pasted', { rows: block.length, cols: width }) });
+  // Pasted values replace the formulas that were in those cells.
+  const sheet = hasFormulas(doc.sheet) ? clearBox(sheetCells(doc.table), doc.sheet, { r0: r + 1, r1: r + block.length, c0: c, c1: c + width - 1 }).sheet : undefined;
+  changeTable(inferTypes(table), { message: t('notice.pasted', { rows: block.length, cols: width }), sheet });
 }
 
 async function editText(which, axis = null) {
@@ -587,11 +602,12 @@ async function startImport(name, bytes, { path = null, replace = false } = {}) {
     if (!out.table.rows.length) throw new Error('import.empty');
     if (path) rememberDirectory(directoryOf(path));
     if (result.mode === 'replace' && activeDoc()) {
-      changeTable(out.table, { message: t('notice.dataReplaced', { name, rows: out.table.rows.length }) });
+      changeTable(out.table, { message: t('notice.dataReplaced', { name, rows: out.table.rows.length }), sheet: out.extras ?? null });
       return activeDoc();
     }
     const label = out.sheets?.length > 1 ? `${stripExtension(name)} - ${out.sheets[out.sheet]}` : stripExtension(name);
     const doc = new ChartDoc({ name: `${label}.mychart`, table: out.table, chart: chartForTable(out.table, label) });
+    doc.sheet = normalizeSheet(out.extras);
     doc.dirty = true;
     addDoc(doc);
     notify('success', t('notice.imported', { name, rows: out.table.rows.length, cols: out.table.columns.length }));
@@ -666,7 +682,7 @@ async function exportDataAs(format) {
   if (!doc) return undefined;
   const [ext, , mime] = DATA_FORMATS[format] ?? DATA_FORMATS.csv;
   try {
-    const content = format === 'xlsx' ? await toXlsx(doc.table, { sheetName: doc.chart.title || 'Data' }) : exportData(doc.table, format, { title: doc.chart.title });
+    const content = format === 'xlsx' ? await toXlsx(doc.table, { sheetName: doc.chart.title || 'Data', sheet: doc.sheet }) : exportData(doc.table, format, { title: doc.chart.title });
     return saveExport(`${exportBase(doc)}-data.${ext}`, ext, content, mime);
   } catch (error) {
     return showError('error.export', error);
@@ -784,9 +800,11 @@ const commands = {
   clearDataRange: { icon: 'dataGrid', label: 'action.clearDataRange', enabled: () => Boolean(activeDoc()?.chart.dataRange), run: () => { activeDoc().setDataView({ dataRange: null }); refreshView({ grid: true }); notify('info', t('notice.wholeTable')); } },
   seriesInColumns: { icon: 'seriesIcon', label: 'action.seriesInColumns', enabled: hasDoc, checked: () => activeDoc()?.chart.seriesIn !== 'rows', run: () => setSeriesIn('columns') },
   seriesInRows: { icon: 'transpose', label: 'action.seriesInRows', enabled: hasDoc, checked: () => activeDoc()?.chart.seriesIn === 'rows', run: () => setSeriesIn('rows') },
-  transpose: { icon: 'transpose', label: 'action.transpose', key: 'Ctrl+Shift+T', enabled: () => hasDoc() && activeDoc().table.columns.length > 1, run: () => changeTable(transpose(activeDoc().table), { message: t('notice.transposed') }) },
+  transpose: { icon: 'transpose', label: 'action.transpose', key: 'Ctrl+Shift+T', enabled: () => hasDoc() && activeDoc().table.columns.length > 1, run: () => changeTable(transpose(activeDoc().table), { message: t('notice.transposed'), sheet: null }) },
   clearCells: { icon: 'clear', label: 'action.clearCells', enabled: hasDoc, run: () => clearCells(gridSel()) },
   dataStats: { icon: 'dataStats', label: 'action.dataStats', key: 'Ctrl+Shift+I', enabled: hasDoc, run: () => popups.open('datastats', { name: activeDoc().name }) },
+  detachData: { icon: 'detachWindow', label: 'action.detachData', key: 'Ctrl+Shift+D', enabled: hasDoc, checked: () => sheetLink.open, run: () => openSheetWindow() },
+  attachData: { icon: 'attachWindow', label: 'action.attachData', enabled: () => sheetLink.open, run: () => closeSheetWindow() },
   ...Object.fromEntries(['number', 'text', 'date'].map((type) => [`colType:${type}`, { icon: { number: 'typeNumber', text: 'typeText', date: 'typeDate' }[type], label: `type.${type}`, enabled: hasDoc, checked: () => activeDoc()?.table.columns[gridSel().c0]?.type === type, run: () => setColumnType(gridSel().c0, type) }])),
   // Chart
   ...Object.fromEntries(CHART_IDS.map((id) => [`type:${id}`, { icon: chartType(id).icon, label: `chartType.${id}`, enabled: hasDoc, checked: () => activeDoc()?.chart.type === id, run: () => setChartType(id) }])),
@@ -869,7 +887,7 @@ const SUBMENUS = {
   chartThemes: { icon: 'chartTheme', items: CHART_THEMES.map((c) => `chartTheme:${c.id}`) },
   palettes: { icon: 'palette', items: [...PALETTES.slice(0, 12).map((p) => `palette:${p.id}`), '-', 'paletteMenu'] },
   chartBackground: { icon: 'fillColor', items: ['bg:theme', 'bg:chart', 'bg:white', 'bg:transparent'] },
-  panels: { icon: 'panelLeft', items: ['leftPanel', 'rightPanel', 'bottomPanel', 'statusBar', '-', 'layout:grid-bottom', 'layout:grid-right', 'layout:chart-only'] },
+  panels: { icon: 'panelLeft', items: ['leftPanel', 'rightPanel', 'bottomPanel', 'statusBar', '-', 'detachData', 'attachData', '-', 'layout:grid-bottom', 'layout:grid-right', 'layout:chart-only'] },
   zoom: { icon: 'zoomIn', items: ['zoomIn', 'zoomOut', 'zoomFit', 'zoom100'] },
   appearance: { icon: 'palette', items: ['theme', 'themeMenu', 'language', '-', 'shuffleBackground'] },
 };
@@ -878,7 +896,7 @@ const MENUS = {
   file: ['newChart', 'newBlank', 'open', 'recent', sub('sampleList'), '-', 'closeTab', 'closeAll', '-', 'save', 'saveAs', '-', 'exportChart', sub('exportAs'), sub('exportData'), '-', 'print', '-', 'startPage', 'exit'],
   edit: ['undo', 'redo', '-', sub('copyAs'), 'pasteCells', 'clearCells', '-', 'duplicateChart', '-', 'settings'],
   view: [sub('panels'), sub('zoom'), '-', 'toggleTooltips', 'toggleAnimation', '-', sub('appearance')],
-  data: ['importData', 'replaceData', 'pasteData', '-', 'chartFromSelection', 'newChartFromSelection', 'clearDataRange', 'seriesInColumns', 'seriesInRows', '-', 'addRow', 'addColumn', 'deleteRows', 'deleteColumns', 'renameColumn', sub('columnType'), '-', 'sortAsc', 'sortDesc', 'transpose', '-', 'dataStats', sub('exportData')],
+  data: ['detachData', 'attachData', '-', 'importData', 'replaceData', 'pasteData', '-', 'chartFromSelection', 'newChartFromSelection', 'clearDataRange', 'seriesInColumns', 'seriesInRows', '-', 'addRow', 'addColumn', 'deleteRows', 'deleteColumns', 'renameColumn', sub('columnType'), '-', 'sortAsc', 'sortDesc', 'transpose', '-', 'dataStats', sub('exportData')],
   chart: [...CHART_GROUPS.map((g) => sub(`types:${g.id}`)), 'prevType', 'nextType', '-', 'editTitle', 'toggleLabels', sub('legend'), 'toggleGrid', 'toggleTrend', '-', sub('chartThemes'), sub('palettes'), sub('chartBackground'), 'resetStyle', '-', 'showInspector'],
   help: ['welcome', 'tutorial', 'tutorialDoc', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
 };
@@ -888,7 +906,7 @@ const TOOLBAR = [
   ['newChart', 'open', 'save', 'closeTab', 'print'],
   ['undo', 'redo'],
   ['importData', 'pasteData', 'exportChart', 'copyImage'],
-  ['addRow', 'addColumn', 'sortAsc', 'sortDesc', 'transpose', 'dataStats'],
+  ['detachData', 'addRow', 'addColumn', 'sortAsc', 'sortDesc', 'transpose', 'dataStats'],
   ['prevType', 'nextType', 'toggleLabels', 'cycleLegend', 'paletteMenu'],
   ['zoomOut', 'zoomIn', 'zoomFit'],
 ];
@@ -1086,6 +1104,7 @@ function renderAll() {
   if (state.view && !state.showStart) state.view.refresh();
   renderToolbarState();
   if (!(state.showStart || !activeDoc()) && popups.isOpen('welcome')) popups.close('welcome');
+  syncSheet();
 }
 
 // ───────────────────────── start page
@@ -1575,6 +1594,194 @@ function setDropActive(active) {
   overlay.querySelector('span').textContent = t('drop.hint');
 }
 
+// ───────────────────────── the data window (sheet.js)
+
+/**
+ * The detached data editor: a window of its own that edits the active chart's table like a spreadsheet. This
+ * window keeps the data (and the undo history); the data window gets the table and sends back every change.
+ * Desktop: an OS window "doc-sheet" and Tauri events; web (and the tutorial's frames): a browser window and a
+ * BroadcastChannel named for this main window.
+ */
+const sheetLink = { open: false, sent: null, channel: Math.random().toString(36).slice(2, 10), bc: null };
+const sheetByTauri = () => desktop && !popups.inline;
+
+function sheetPost(message) {
+  if (sheetByTauri()) return native.emitTo('doc-sheet', 'sheet-to-window', message).catch(() => {});
+  sheetLink.bc?.postMessage(message);
+  return Promise.resolve();
+}
+
+const sheetDocs = () => state.docs.map((d) => ({ id: d.id, name: d.name, dirty: d.dirty }));
+
+/** Sends the active chart's data to the data window when it changed (force: always). */
+function syncSheet(force = false) {
+  if (!sheetLink.open) return;
+  const doc = activeDoc();
+  const s = sheetLink.sent;
+  if (!doc) {
+    if (force || s?.id !== null) { sheetLink.sent = { id: null }; sheetPost({ type: 'none' }); }
+    return;
+  }
+  const names = state.docs.map((d) => `${d.id}:${d.name}:${d.dirty ? 1 : 0}`).join('|');
+  const same = !force && s && s.id === doc.id && s.table === doc.table && s.sheet === doc.sheet;
+  if (same && s.names === names && s.undo === doc.canUndo() && s.redo === doc.canRedo()) return;
+  sheetLink.sent = { id: doc.id, table: doc.table, sheet: doc.sheet, names, undo: doc.canUndo(), redo: doc.canRedo() };
+  const common = { name: doc.name, docs: sheetDocs(), canUndo: doc.canUndo(), canRedo: doc.canRedo() };
+  if (same) sheetPost({ type: 'state', ...common });
+  else sheetPost({ type: 'doc', id: doc.id, title: doc.chart.title, table: doc.table, sheet: doc.sheet, ...common });
+}
+
+async function openSheetWindow() {
+  const doc = activeDoc();
+  if (!doc) return;
+  popups.hideMenu();
+  if (sheetByTauri()) {
+    const dark = resolveTheme(state.settings.theme, prefersDark(), state.settings.customTheme).dark;
+    try {
+      await native.invoke('open_doc_window', { kind: 'sheet', title: `${t('sheet.title')} — MyChartMaster`, width: 1320, height: 820, dark });
+    } catch (error) {
+      showError('error.docWindow', error);
+      return;
+    }
+  } else {
+    sheetLink.bc ??= new BroadcastChannel(`mychartmaster-sheet-${sheetLink.channel}`);
+    sheetLink.bc.onmessage = (event) => onSheetMessage(event.data);
+    const w = globalThis.open(`${location.pathname}?viewer=sheet&ch=${sheetLink.channel}`, `mychartmaster-sheet-${sheetLink.channel}`, 'popup,width=1320,height=820');
+    w?.focus?.();
+  }
+  // The grid panel shows at once that the data is edited elsewhere; the window says hello when it is up.
+  if (!sheetLink.open) { sheetLink.open = true; sheetLink.sent = null; state.view?.refresh(); renderToolbarState(); }
+  syncSheet(true);
+}
+
+/** Brings the data back into the main window: the data window closes. */
+function closeSheetWindow() {
+  if (!sheetLink.open) return;
+  sheetPost({ type: 'close' });
+  sheetLink.open = false;
+  sheetLink.sent = null;
+  state.view?.refresh();
+  renderToolbarState();
+  state.view?.grid.focus();
+}
+
+function sheetDoc(id) {
+  return state.docs.find((d) => d.id === id) ?? null;
+}
+
+/** A table that came in a message, made safe (any shape) and typed. */
+function messageTable(raw) {
+  const columns = Array.isArray(raw?.columns) ? raw.columns.map((c, i) => ({ name: String(c?.name ?? columnLetter(i)) })) : [{ name: 'A' }];
+  const rows = Array.isArray(raw?.rows) ? raw.rows.map((r) => (Array.isArray(r) ? r : [])) : [];
+  const table = createTable(columns.map((c) => c.name), rows);
+  return table;
+}
+
+function onSheetMessage(m) {
+  if (!m || typeof m !== 'object') return;
+  switch (m.type) {
+    case 'hello':
+      if (!sheetLink.open) { sheetLink.open = true; state.view?.refresh(); renderToolbarState(); }
+      syncSheet(true);
+      return;
+    case 'closed':
+      if (!sheetLink.open) return;
+      sheetLink.open = false;
+      sheetLink.sent = null;
+      state.view?.refresh();
+      renderToolbarState();
+      return;
+    case 'dock':
+      closeSheetWindow();
+      return;
+    case 'edit': {
+      const doc = sheetDoc(m.id);
+      if (!doc) return;
+      doc.setTable(messageTable(m.table), { sheet: m.sheet ?? null });
+      // The data window has this state already: only the undo buttons and tabs are sent back.
+      if (sheetLink.sent?.id === doc.id) sheetLink.sent = { ...sheetLink.sent, table: doc.table, sheet: doc.sheet };
+      if (doc.id === state.active && !state.showStart) refreshView({}); else { renderTabs(); syncSheet(); }
+      return;
+    }
+    case 'undo':
+    case 'redo': {
+      const doc = sheetDoc(m.id);
+      if (!doc) return;
+      if (doc[m.type]()) notify('info', t(m.type === 'undo' ? 'notice.undone' : 'notice.redone'));
+      if (doc.id === state.active && !state.showStart) refreshView({}); else renderTabs();
+      syncSheet(true);
+      return;
+    }
+    case 'activate':
+      if (sheetDoc(m.id)) activate(m.id);
+      return;
+    case 'new-chart':
+      newChart('column', { blank: true });
+      return;
+    case 'open-data': {
+      const table = messageTable(m.table);
+      const name = String(m.name ?? 'data');
+      const doc = new ChartDoc({ name: `${stripExtension(name)}.mychart`, table, chart: chartForTable(table, name) });
+      doc.sheet = normalizeSheet(m.sheet);
+      doc.dirty = true;
+      doc.source = { name, path: m.path ?? null };
+      addDoc(doc);
+      if (m.path) rememberRecent({ path: m.path });
+      notify('success', t('notice.imported', { name, rows: table.rows.length, cols: table.columns.length }));
+      return;
+    }
+    case 'open-chart': {
+      try {
+        const doc = ChartDoc.fromJSON(String(m.text ?? ''), { name: String(m.name ?? 'chart.mychart'), path: m.path ?? null });
+        addDoc(doc);
+        if (m.path) rememberRecent({ path: m.path });
+        notify('success', t('notice.opened', { name: doc.name }));
+      } catch (error) {
+        showError('error.open', error, m.name ?? '');
+      }
+      return;
+    }
+    case 'make-chart': {
+      const source = sheetDoc(m.id);
+      const table = inferTypes(createTable((m.names ?? []).map((n) => String(n ?? '')), Array.isArray(m.rows) ? m.rows : []));
+      const base = source ? stripExtension(source.name) : t('sheet.title');
+      const chart = source && m.range ? { type: source.chart.type, title: source.chart.title, options: { ...source.chart.options, hidden: [], seriesTypes: {}, seriesAxis: {} } } : chartForTable(table, base);
+      const doc = new ChartDoc({ name: `${base} (${m.range ?? ''}).mychart`, table, chart });
+      if (!CHART_IDS.includes(doc.chart.type)) doc.setType('column');
+      doc.dirty = true;
+      addDoc(doc);
+      notify('success', t('notice.chartFromSheet', { range: m.range ?? '', rows: table.rows.length, cols: table.columns.length }));
+      return;
+    }
+    case 'chart-range': {
+      const doc = sheetDoc(m.id);
+      const b = m.box;
+      if (!doc || !b) return;
+      if (doc.id !== state.active) activate(doc.id);
+      doc.setDataView({ dataRange: { r0: Math.max(0, b.r0), r1: Math.max(0, Math.min(b.r1, doc.table.rows.length - 1)), c0: Math.max(0, b.c0), c1: Math.max(0, Math.min(b.c1, doc.table.columns.length - 1)) } });
+      refreshView({ grid: true });
+      notify('info', t('notice.chartFromSelection', { range: rangeName(doc.chart.dataRange) }));
+      return;
+    }
+    case 'save-chart': {
+      const doc = sheetDoc(m.id);
+      if (doc) saveDoc(doc);
+      return;
+    }
+    case 'saved-data':
+      if (m.path) rememberRecent({ path: m.path });
+      return;
+    case 'print':
+      state.sheetPrint = m.data ?? null;
+      popups.open('print', { sheet: true, name: m.data?.title ?? '' });
+      return;
+    case 'error':
+      addLog('error', `${m.context ?? 'sheet'}: ${m.message ?? ''}`);
+      return;
+    default:
+  }
+}
+
 // ───────────────────────── the chart view's link to the app
 
 /** The role a column plays in the active chart (the grid's header badge). */
@@ -1636,7 +1843,16 @@ const viewApi = {
     roleOf,
     inChart: (row, col) => { const r = activeDoc()?.chart.dataRange; return !r || (row >= r.r0 && row <= r.r1 && col >= r.c0 && col <= r.c1); },
     hasRange: () => Boolean(activeDoc()?.chart.dataRange),
-    onEdit: (r, c, text) => { const doc = activeDoc(); if (doc) changeTable(setCell(doc.table, r, c, text)); },
+    onEdit: (r, c, text) => {
+      const doc = activeDoc();
+      if (!doc) return;
+      if (isFormula(text)) { const out = setInput(sheetCells(doc.table), doc.sheet, r + 1, c, text); changeTable(tableFromCells(out.cells, out.sheet), { sheet: out.sheet }); return; }
+      const key = cellKey(r + 1, c);
+      if (doc.sheet?.formulas?.[key]) { const sheet = cloneSheet(doc.sheet); delete sheet.formulas[key]; changeTable(setCell(doc.table, r, c, text), { sheet }); }
+      else changeTable(setCell(doc.table, r, c, text));
+    },
+    formulaAt: (r, c) => activeDoc()?.sheet?.formulas?.[cellKey(r + 1, c)] ?? null,
+    detached: () => sheetLink.open,
     onRename: (c, name) => { const doc = activeDoc(); if (doc) changeTable(renameColumn(doc.table, c, name)); },
     onPaste: (r, c, text) => pasteBlock(r, c, text),
     onClear: (sel) => clearCells(sel),
@@ -1804,6 +2020,7 @@ function bindPopupActions() {
   // Print in the user's guide or the tutorial document (viewer.js): the same separate print window, for that document.
   popups.on('doc-print', (data) => popups.open('print', { doc: { kind: DOC_KINDS[data.doc] ? data.doc : 'guide', lang: data.lang === 'en' ? 'en' : 'ko' } }));
   popups.on('print-request', (data, kind) => {
+    if (data.sheet) { popups.post(kind, { type: 'print-data', sheet: state.sheetPrint }); return; }
     const doc = activeDoc();
     if (!doc) return;
     const o = doc.chart.options;
@@ -1919,6 +2136,12 @@ async function start() {
       showError('error.fatal', error, fatal.location);
     });
   }
+  if (desktop) {
+    await native.listen('sheet-to-main', (message) => onSheetMessage(message));
+    // A data window left open from before this page loaded (a reload): it says hello again.
+    native.emitTo('doc-sheet', 'sheet-to-window', { type: 'ping' }).catch(() => {});
+  }
+  window.addEventListener('pagehide', () => sheetLink.bc?.postMessage({ type: 'bye' }));
   await restoreSession();
   trackMaximized();
   for (const path of await native.startupFiles().catch(() => [])) await openPath(path);
@@ -1951,7 +2174,9 @@ window.__mychartmaster = {
   actions: {
     openPath, openBytes, openSample, newChart, saveDoc, closeDoc, startImport, importText, pasteBlock, exportChartAs, exportDataAs, copyImage, setChartType, setOption, setMapping,
     updateSettings, showStartPage, showError, undo, redo, contextMenu, openMenubarMenu, startTutorial, toScreen, renderChart,
+    openSheetWindow, closeSheetWindow, onSheetMessage,
   },
+  sheetLink,
   domain: { SAMPLES, CHART_IDS, tutorialSteps: () => TUTORIAL_STEPS.length },
   tutorial: () => tutorial,
   isMac,

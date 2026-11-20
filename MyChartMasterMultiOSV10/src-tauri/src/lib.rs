@@ -343,7 +343,8 @@ async fn open_document(app: AppHandle, name: String) -> Result<PathBuf, String> 
 /// Document windows (label `doc-<kind>`): the user's guide, the tutorial document and the tutorial video
 /// (src/viewer.js). Each is an ordinary resizable window with the system title bar, not owned by the main
 /// window (it can go behind it and has its own taskbar button); the app ends with the main window anyway.
-const DOC_KINDS: &[&str] = &["guide", "tutorial", "video"];
+/// "sheet" is the data window (src/sheet.js): the active chart's table as a spreadsheet of its own.
+const DOC_KINDS: &[&str] = &["guide", "tutorial", "video", "sheet"];
 
 /// The tutorial video installed with the program (docs/video/), or MYCHARTMASTER_TUTORIAL_VIDEO (tests).
 const TUTORIAL_VIDEO: &str = "video/MyChartMaster-Tutorial.mp4";

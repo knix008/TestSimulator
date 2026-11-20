@@ -33,6 +33,13 @@ export const FEATURES = [
   { name: 'Find rows in the grid', cases: ['grid.filter'] },
   { name: 'Undo and redo', cases: ['grid.undo'] },
   { name: 'Data statistics', cases: ['data.stats'] },
+  // Data editor window (src/sheet.js)
+  { name: 'Data editor detaches into its own window (icon on the panel and the toolbar) and docks back', cases: ['sheet.detach'] },
+  { name: 'Data editor: formulas (SUM, AVERAGE, IF …), fill handle, recalculated from either window, saved', cases: ['sheet.formulas'] },
+  { name: 'Data editor: Excel-like keys, rows and columns, copy and paste, sort, formats, find and replace, AutoSum', cases: ['sheet.editing'] },
+  { name: 'Data editor: filter by value', cases: ['sheet.filter'] },
+  { name: 'Data editor: open Excel / CSV files and save Excel with formulas', cases: ['sheet.files'] },
+  { name: 'Data editor: make a chart from the selection, sheet tabs, print in the print window', cases: ['sheet.makeChart'] },
   // Inspector
   { name: 'Column roles and chart type in the inspector', cases: ['inspector.data'] },
   { name: 'Titles, legend, palette, background, fonts', cases: ['inspector.style'] },

@@ -132,6 +132,54 @@ export async function launch(url, { width = 1600, height = 1000, language = 'en'
     try { child.kill(); } catch { /* gone */ }
     try { fs.rmSync(profile, { recursive: true, force: true, maxRetries: 5 }); } catch { /* locked: the OS cleans temp */ }
   };
+  /**
+   * Another window of the same browser whose address contains `match` (a window the page opened with
+   * window.open): a page object with eval / waitFor / screenshot / mouse / click / key / insertText.
+   */
+  page.attachWindow = async (match, timeout = 15000) => {
+    const end = Date.now() + timeout;
+    let target = null;
+    while (!target && Date.now() < end) {
+      const { targetInfos } = await browser.send('Target.getTargets');
+      target = targetInfos.find((x) => x.type === 'page' && x.url.includes(match));
+      if (!target) await sleep(100);
+    }
+    if (!target) throw new Error(`No window at ${match}`);
+    const { sessionId: sid } = await browser.send('Target.attachToTarget', { targetId: target.targetId, flatten: true });
+    const other = { errors: [], targetId: target.targetId, send: (method, params) => browser.send(method, params, sid) };
+    browser.listeners.add((msg) => {
+      if (msg.sessionId === sid && msg.method === 'Runtime.exceptionThrown') other.errors.push(msg.params.exceptionDetails?.exception?.description ?? msg.params.exceptionDetails?.text ?? 'exception');
+    });
+    await other.send('Runtime.enable');
+    await other.send('Page.enable');
+    await other.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
+    other.eval = async (expression) => {
+      const r = await other.send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
+      if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? r.exceptionDetails.text);
+      return r.result.value;
+    };
+    other.waitFor = async (expression, wait = 15000) => {
+      const stop = Date.now() + wait;
+      while (Date.now() < stop) {
+        try { if (await other.eval(expression)) return true; } catch { /* not yet */ }
+        await sleep(80);
+      }
+      throw new Error(`Timed out waiting for: ${expression.slice(0, 120)}`);
+    };
+    other.screenshot = async (file) => {
+      const r = await other.send('Page.captureScreenshot', { format: 'png' });
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, Buffer.from(r.data, 'base64'));
+    };
+    other.mouse = async (type, x, y, extra = {}) => other.send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1, ...extra });
+    other.click = async (x, y, extra = {}) => { await other.mouse('mousePressed', x, y, extra); await other.mouse('mouseReleased', x, y, extra); };
+    other.key = async (key, { code = key, modifiers = 0, text } = {}) => {
+      await other.send('Input.dispatchKeyEvent', { type: 'keyDown', key, code, modifiers, text, windowsVirtualKeyCode: key === 'Enter' ? 13 : key === 'Tab' ? 9 : key === 'Escape' ? 27 : key === 'Delete' ? 46 : key.length === 1 ? key.toUpperCase().charCodeAt(0) : undefined });
+      await other.send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, modifiers });
+    };
+    other.insertText = (text) => other.send('Input.insertText', { text });
+    return other;
+  };
   await page.goto(url);
   return page;
 }

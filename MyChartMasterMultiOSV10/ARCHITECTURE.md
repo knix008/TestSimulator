@@ -112,6 +112,13 @@ reader's Korean CID font), html (`chartHtml`: inline SVG with a tooltip script a
 - `popups-chart.js` (export, import, print, palette, datastats + Settings tabs Layout, Charts, Data) asks the main
   window for data with actions (`chart-preview`, `import-preview`, `print-request`, `stats-request`) and gets
   `{ type: … }` messages back. Popup kinds must match `POPUP_KINDS` in `src-tauri/src/lib.rs` (a unit test checks).
+- `sheet.js` (+ `sheet.css`, `icons-sheet.js`, `i18n/sheet-{ko,en}.js`) is the **data editor window**: the active chart's table as an
+  Excel-like sheet in a window of its own (desktop `doc-sheet` through `open_doc_window`; web `index.html?viewer=sheet&ch=…`).
+  The main window owns the data and the undo history: it sends `{ type: 'doc' | 'state' | 'none' | 'close' | 'ping' }`
+  (Tauri event `sheet-to-window` / BroadcastChannel `mychartmaster-sheet-<ch>`), the window answers with `edit`, `undo`,
+  `redo`, `activate`, `make-chart`, `chart-range`, `open-data`, `open-chart`, `print`, `dock`, `closed` (`sheet-to-main`).
+  `domain/data/formula.js` (parser, ~110 functions, reference moves, number formats) and `domain/data/sheet.js`
+  (sheet rows = header row + table rows; formulas / formats / widths in `doc.sheet`, saved in .mychart and .xlsx).
 - `ui/background.js` draws the twenty chart animations on a canvas (30 fps, paused while hidden).
 
 ### Tests — `scripts/test.mjs`

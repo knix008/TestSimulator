@@ -139,7 +139,7 @@ export function installChartPopups(c) {
   function printOptions() {
     if (!ch.draft) {
       const saved = loadJson(PRINT_KEY);
-      ch.draft = { printer: '', copies: 1, paper: s().defaultPaper, orientation: s().defaultOrientation, margin: 'normal', fit: 'page', header: true, footer: true, headerText: '', footerText: '', includeData: false, ...saved };
+      ch.draft = { printer: '', copies: 1, paper: s().defaultPaper, orientation: s().defaultOrientation, margin: 'normal', fit: 'page', header: true, footer: true, headerText: '', footerText: '', includeData: false, sheetGrid: true, sheetHeadings: false, ...saved };
     }
     return ch.draft;
   }
@@ -265,10 +265,67 @@ export function installChartPopups(c) {
     return { pages, W, H };
   }
 
+  /**
+   * The data window's cells (P().sheet): rows split over pages with the names row repeated on each; columns
+   * shrink to the page width ("fit") or go on pages of their own ("actual"). Gridlines and row / column headings
+   * are choices.
+   */
+  function sheetPages(o) {
+    const m = ch.data?.sheet;
+    if (!m || !Array.isArray(m.rows)) return null;
+    const [pw, ph] = PAPER_MM[o.paper] ?? PAPER_MM.A4;
+    const W = o.orientation === 'landscape' ? ph : pw;
+    const H = o.orientation === 'landscape' ? pw : ph;
+    const margin = MARGINS_MM[o.margin] ?? 12;
+    const title = m.title || '';
+    const head = o.header ? `<div class="pc-head"><span>${escapeHtml(o.headerText || title)}</span><span>${escapeHtml(m.range ?? '')} · ${escapeHtml(new Date().toLocaleDateString())}</span></div>` : '';
+    const foot = (n, total) => (o.footer ? `<div class="pc-foot"><span>${escapeHtml(o.footerText || 'MyChartMaster')}</span><span>${n} / ${total}</span></div>` : '');
+    const availW = (W - margin * 2) * MM - 2;
+    const availH = (H - margin * 2 - (o.header ? 9 : 0) - (o.footer ? 9 : 0)) * MM - 6;
+    const headW = o.sheetHeadings ? 34 : 0;
+    const widths = (m.widths ?? []).map((w) => Math.max(24, Number(w) || 80));
+    const total = widths.reduce((a, b) => a + b, 0);
+    let scale = 1;
+    let groups = [];
+    if (o.fit === 'page') { scale = Math.min(1, availW / (total + headW)); groups = [widths.map((_, i) => i)]; }
+    else {
+      let group = [];
+      let used = headW;
+      widths.forEach((w, i) => { if (group.length && used + w > availW) { groups.push(group); group = []; used = headW; } group.push(i); used += w; });
+      if (group.length) groups.push(group);
+    }
+    const rowH = 20 * scale;
+    const names = m.rows[0]?.head ? m.rows[0] : null;
+    const body = names ? m.rows.slice(1) : m.rows;
+    const fixed = (o.sheetHeadings ? rowH : 0) + (names ? rowH : 0);
+    const perPage = Math.max(1, Math.floor((availH - fixed) / rowH));
+    const chunks = [];
+    for (let i = 0; i < Math.max(1, body.length); i += perPage) chunks.push(body.slice(i, i + perPage));
+    const cellHtml = (row, i, tag = 'td') => {
+      const st = row.styles?.[i];
+      const css = [st?.b ? 'font-weight:700' : '', st?.i ? 'font-style:italic' : '', st?.u || st?.s ? `text-decoration:${[st.u ? 'underline' : '', st.s ? 'line-through' : ''].join(' ').trim()}` : '', st?.color ? `color:${st.color}` : '', st?.fill ? `background:${st.fill}` : '', st?.align ? `text-align:${st.align}` : row.numbers?.[i] ? 'text-align:right' : ''].filter(Boolean).join(';');
+      return `<${tag}${css ? ` style="${escapeHtml(css)}"` : ''}>${escapeHtml(row.cells?.[i] ?? '')}</${tag}>`;
+    };
+    const tables = [];
+    for (const rows of chunks) {
+      for (const cols of groups) {
+        const colgroup = `<colgroup>${o.sheetHeadings ? `<col style="width:${headW * scale}px">` : ''}${cols.map((i) => `<col style="width:${widths[i] * scale}px">`).join('')}</colgroup>`;
+        const letters = o.sheetHeadings ? `<tr class="ps-letters"><th></th>${cols.map((i) => `<th>${escapeHtml(m.letters?.[i] ?? '')}</th>`).join('')}</tr>` : '';
+        const nameRow = names ? `<tr class="ps-names">${o.sheetHeadings ? `<th class="ps-n">${names.n}</th>` : ''}${cols.map((i) => cellHtml(names, i, 'th')).join('')}</tr>` : '';
+        const bodyRows = rows.map((row) => `<tr>${o.sheetHeadings ? `<th class="ps-n">${row.n}</th>` : ''}${cols.map((i) => cellHtml(row, i)).join('')}</tr>`).join('');
+        tables.push(`<table class="ps-table ${o.sheetGrid ? 'grid' : ''}" style="font-size:${(12 * scale).toFixed(2)}px;--ps-row:${rowH.toFixed(2)}px">${colgroup}<thead>${letters}${nameRow}</thead><tbody>${bodyRows}</tbody></table>`);
+      }
+    }
+    const style = `width:${W}mm;height:${H}mm;padding:${margin}mm`;
+    const pages = tables.map((html, k) => `<div class="pp-sheet pc-sheet" style="${style}">${head}<div class="ps-body">${html}</div>${foot(k + 1, tables.length)}</div>`);
+    return { pages, W, H };
+  }
+
   /** The sheets: page 1 the chart, then the data table split over pages (or the pages of a document). */
   function printPages() {
     const o = printOptions();
     if (P().doc) return documentPages(o);
+    if (P().sheet) return sheetPages(o);
     const m = ch.data;
     if (!m) return null;
     const [pw, ph] = PAPER_MM[o.paper] ?? PAPER_MM.A4;
@@ -297,7 +354,8 @@ export function installChartPopups(c) {
     const p = P();
     const o = printOptions();
     const isDoc = Boolean(p.doc);
-    if (!ch.requested && !isDoc) { ch.requested = true; action('print-request', {}); }
+    const isSheet = Boolean(p.sheet);
+    if (!ch.requested && !isDoc) { ch.requested = true; action('print-request', { sheet: isSheet }); }
     if (!ch.printers) {
       ch.printers = { printers: [], defaultPrinter: '' };
       native.listPrinters().then((list) => { ch.printers = list; if (list.printers.length) render(); }).catch(() => {});
@@ -308,7 +366,7 @@ export function installChartPopups(c) {
     ch.page = Math.max(0, Math.min(ch.page, count - 1));
     const sel = (key, values, label) => select('data-print', key, values, o[key], label);
     root.innerHTML = frame({
-      glyph: 'print', title: `${t('print.title')}${p.name ? ` — ${p.name}` : isDoc && DOC_KINDS[p.doc.kind] ? ` — ${t(DOC_KINDS[p.doc.kind].title)}` : ''}`,
+      glyph: 'print', title: `${t('print.title')}${p.name ? ` — ${p.name}` : isDoc && DOC_KINDS[p.doc.kind] ? ` — ${t(DOC_KINDS[p.doc.kind].title)}` : ''}${isSheet ? ` · ${t('sheet.title')}` : ''}`,
       body: `<div class="print-view">
         <div class="print-options">
           <div class="print-column">
@@ -321,6 +379,8 @@ export function installChartPopups(c) {
             row('pageSetup', t('print.orientation'), segmented('orientation', [['portrait', t('print.portrait'), 'file'], ['landscape', t('print.landscape'), 'pageSetup']], o.orientation, 'data-print-seg')),
             row('fitPage', t('print.margin'), sel('margin', Object.keys(MARGINS_MM).map((x) => [x, t(`print.margin.${x}`)]), t('print.margin'))),
             isDoc ? '' : row('fitView', t('print.fit'), segmented('fit', [['page', t('print.fitPage'), 'fitPage'], ['actual', t('print.actual'), 'chartSize']], o.fit, 'data-print-seg')),
+            isSheet ? check('data-print-toggle', 'sheetGrid', o.sheetGrid, t('print.gridlines'), 'grid') : '',
+            isSheet ? check('data-print-toggle', 'sheetHeadings', o.sheetHeadings, t('print.headings'), 'sheetWindow') : '',
           ])}
           </div>
           <div class="print-column">
@@ -329,7 +389,7 @@ export function installChartPopups(c) {
             row('edit', t('print.headerText'), `<input type="text" data-print-text="headerText" value="${escapeHtml(o.headerText)}" placeholder="${escapeHtml((isDoc ? ch.doc?.title : ch.data?.title) ?? '')}" />`),
             check('data-print-toggle', 'footer', o.footer, t('print.footer'), 'pageSetup'),
             row('edit', t('print.footerText'), `<input type="text" data-print-text="footerText" value="${escapeHtml(o.footerText)}" placeholder="MyChartMaster" />`),
-            isDoc ? '' : check('data-print-toggle', 'includeData', o.includeData, t('print.includeData'), 'dataGrid'),
+            isDoc || isSheet ? '' : check('data-print-toggle', 'includeData', o.includeData, t('print.includeData'), 'dataGrid'),
           ])}
           </div>
         </div>

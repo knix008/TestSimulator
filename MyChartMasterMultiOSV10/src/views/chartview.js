@@ -29,8 +29,9 @@ export class ChartView {
         </div>
         <div class="splitter grid-split" data-split="bottom" title="${escapeHtml(t('tip.splitter'))}"></div>
         <div class="pane pane-grid">
-          <div class="pane-head">${icon('dataGrid')}<span class="pane-title">${escapeHtml(t('grid.title'))}</span><span class="ch-grid-tools"></span><span class="grow"></span>${this.foldButton('bottom')}</div>
+          <div class="pane-head">${icon('dataGrid')}<span class="pane-title">${escapeHtml(t('grid.title'))}</span><span class="ch-grid-tools"></span><span class="grow"></span><span class="ch-detach-slot"></span>${this.foldButton('bottom')}</div>
           <div class="pane-body ch-grid-body"></div>
+          <div class="pane-body ch-detached" hidden></div>
         </div>
       </section>
       <div class="splitter map-split" data-split="right" title="${escapeHtml(t('tip.splitter'))}"></div>
@@ -66,6 +67,7 @@ export class ChartView {
   /** Everything again (another tab, settings, language). */
   refresh() {
     this.applyLayout();
+    this.applyDetached();
     this.renderGallery();
     this.renderStageBar();
     this.renderGridTools();
@@ -82,6 +84,25 @@ export class ChartView {
     if (grid) this.grid.refresh();
     if (inspector) this.inspector.render();
     this.renderGridTools();
+    this.applyDetached();
+  }
+
+  /** The data is edited in its own window (sheet.js): the grid panel says so and offers to bring it back. */
+  applyDetached() {
+    const t = this.api.t;
+    const detached = Boolean(this.api.grid.detached?.());
+    this.root.classList.toggle('grid-detached', detached);
+    const slot = this.host.querySelector('.ch-detach-slot');
+    const cmd = detached ? 'attachData' : 'detachData';
+    slot.innerHTML = `<button class="icon-button pane-detach" data-command="${cmd}" title="${escapeHtml(this.api.tip(cmd))}" aria-label="${escapeHtml(this.api.tip(cmd))}">${icon(detached ? 'attachWindow' : 'detachWindow')}</button>`;
+    const box = this.host.querySelector('.ch-detached');
+    box.hidden = !detached;
+    this.host.querySelector('.ch-grid-body').hidden = detached;
+    if (detached) {
+      const doc = this.api.doc();
+      box.innerHTML = `<div class="ch-detached-card">${icon('sheetWindow')}<div><b>${escapeHtml(t('sheet.detachedTitle'))}</b><p>${escapeHtml(t('sheet.detachedText', { rows: doc?.table.rows.length ?? 0, cols: doc?.table.columns.length ?? 0 }))}</p></div>
+        <span class="ch-detached-buttons"><button class="button" data-command="detachData" title="${escapeHtml(this.api.tip('detachData'))}">${icon('detachWindow')}<span>${escapeHtml(t('sheet.showWindow'))}</span></button><button class="button primary" data-command="attachData" title="${escapeHtml(this.api.tip('attachData'))}">${icon('attachWindow')}<span>${escapeHtml(t('action.attachData'))}</span></button></span></div>`;
+    }
   }
 
   applyLayout() {

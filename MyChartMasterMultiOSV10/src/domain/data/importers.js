@@ -2,6 +2,7 @@
 // column objects, Chart.js-style datasets), Excel .xlsx, OpenDocument .ods, XML records, HTML tables, Markdown
 // tables, and MyChartMaster's own .mychart (which also carries the chart). Pure (no DOM), async because ZIP
 // entries are inflated by DecompressionStream.
+import { moveFormula, shiftFormula } from './formula.js';
 import { columnLetter, createTable, fromMatrix, inferTypes, coerceNumbers, uniqueNames } from './table.js';
 import { isZip, readZip, zipText } from './zip.js';
 import { attr, childrenNamed, findAll, findFirst, localName, parseXml, textOf } from './xml.js';
@@ -197,6 +198,9 @@ export async function parseXlsx(bytes, { sheet = 0, ...options } = {}) {
   const index = Math.max(0, Math.min(sheets.length - 1, Number(sheet) || 0));
   const xml = parseXml(zipText(files, sheets[index].path) ?? '');
   const matrix = [];
+  // Formulas by sheet position; a shared formula's other cells take the first one's text, moved.
+  const formulaAt = new Map();
+  const sharedMasters = new Map();
   for (const row of findAll(xml, 'row')) {
     const r = Number(attr(row, 'r') ?? matrix.length + 1) - 1;
     const cells = [];
@@ -207,6 +211,13 @@ export async function parseXlsx(bytes, { sheet = 0, ...options } = {}) {
       next = col + 1;
       const type = attr(c, 't');
       const v = findFirst(c, 'v');
+      const f = findFirst(c, 'f');
+      if (f) {
+        const body = textOf(f).trim();
+        const si = attr(f, 'si');
+        if (body) { formulaAt.set(`${r},${col}`, `=${body}`); if (attr(f, 't') === 'shared' && si != null) sharedMasters.set(si, { r, c: col, text: `=${body}` }); }
+        else if (si != null && sharedMasters.has(si)) { const m = sharedMasters.get(si); formulaAt.set(`${r},${col}`, shiftFormula(m.text, r - m.r, col - m.c)); }
+      }
       let value = v ? textOf(v) : null;
       if (type === 's') value = shared[Number(value)] ?? '';
       else if (type === 'inlineStr') value = findAll(c, 't').map(textOf).join('');
@@ -225,7 +236,25 @@ export async function parseXlsx(bytes, { sheet = 0, ...options } = {}) {
   while (dense.length && !dense[0].some((v) => v != null && v !== '')) dense.shift();
   const left = Math.min(...dense.map((r) => { const i = r.findIndex((v) => v != null && v !== ''); return i < 0 ? Infinity : i; }));
   const rows = Number.isFinite(left) && left > 0 ? dense.map((r) => r.slice(left)) : dense;
-  return { table: fromMatrix(rows, options), sheets: sheets.map((s) => s.name), sheet: index };
+  const table = fromMatrix(rows, options);
+  // The formulas at their place in the data window's sheet (row 0: the column names).
+  let extras = null;
+  if (formulaAt.size) {
+    const top = matrix.length - dense.length;
+    const dc = Number.isFinite(left) ? left : 0;
+    let filled = rows.length;
+    while (filled > 0 && !rows[filled - 1].some((x) => x != null && x !== '')) filled--;
+    const headed = table.rows.length < filled;
+    const formulas = {};
+    for (const [key, text] of formulaAt) {
+      const [r, c] = key.split(',').map(Number);
+      const R = r - top + (headed ? 0 : 1);
+      const C = c - dc;
+      if (R >= 1 && C >= 0 && C < table.columns.length) formulas[`${R},${C}`] = moveFormula(text, (headed ? 0 : 1) - top, -dc);
+    }
+    if (Object.keys(formulas).length) extras = { formulas, formats: {}, widths: {} };
+  }
+  return { table, sheets: sheets.map((s) => s.name), sheet: index, extras };
 }
 
 /** "BC12" → 54 (zero-based column). */

@@ -1002,6 +1002,206 @@ test('menus.gridItems', 'Every item of the grid right-click menu does its work o
 
 // ───────────────────────── per-command cases
 
+// ───────────────────────── the data window (src/sheet.js), detached from the grid panel
+// window.open is recorded by the harness, so the window's page runs in a frame here; it talks to the main window
+// over the same BroadcastChannel as a real browser window.
+
+const SHEET = `const openSheet = async () => {
+    await A.run('detachData');
+    const url = window.__opened.filter((u) => u.includes('viewer=sheet')).at(-1);
+    document.querySelector('#sheet-frame')?.remove();
+    const f = document.createElement('iframe');
+    f.id = 'sheet-frame';
+    f.style.cssText = 'position:fixed;left:0;top:0;width:1400px;height:860px;z-index:9999;border:0;background:#fff';
+    f.src = url;
+    document.body.append(f);
+    return until(() => f.contentWindow.__mychartmasterSheet?.S.docId && f.contentWindow, 10000);
+  };
+  const closeSheet = async () => { const f = document.querySelector('#sheet-frame'); if (f) { f.contentWindow.__mychartmasterSheet?.run('dock'); await sleep(150); f.remove(); } await sleep(150); };
+  const edit = async (W, r, c, text) => { const X = W.__mychartmasterSheet; X.select(r, c); X.beginEdit('enter', ''); X.editText(text); X.commitEdit(); await sleep(120); };`;
+const sheetRun = (body) => run(`${SHEET}\n${body}`);
+
+test('sheet.detach', 'The data editor detaches into its own window and docks back', async () => {
+  await closeAll();
+  await openSample('monthly-sales');
+  const r = await sheetRun(`const icons = { toolbar: !!q('#toolbar [data-command="detachData"]'), pane: !!q('.pane-grid .pane-detach[data-command="detachData"]') };
+    const W = await openSheet();
+    const X = W.__mychartmasterSheet;
+    const placeholder = q('.ch-view').classList.contains('grid-detached') && !q('.ch-detached').hidden && q('.ch-grid-body').hidden;
+    const paneAttach = !!q('.pane-grid .pane-detach[data-command="attachData"]');
+    const names = X.S.cells[0].join(',') === doc().table.columns.map((c) => c.name).join(',');
+    const rows = X.S.cells.length - 1 === doc().table.rows.length;
+    const ui = { menus: W.document.querySelectorAll('[data-menu]').length, tools: W.document.querySelectorAll('.sx-toolbar [data-cmd]').length, make: !!W.document.querySelector('.sx-toolbar .sx-make-chart'), formula: !!W.document.querySelector('.sx-formula'), namebox: W.document.querySelector('.sx-namebox').value, tab: W.document.querySelectorAll('.sx-tab').length };
+    // The toolbar shows every button (never clipped).
+    const bar = W.document.querySelector('.sx-toolbar'); const last = [...bar.children].at(-1).getBoundingClientRect();
+    const whole = last.right <= bar.getBoundingClientRect().right + 1;
+    await closeSheet();
+    const back = !q('.ch-view').classList.contains('grid-detached') && !q('.ch-grid-body').hidden && !A.sheetLink.open;
+    return { icons, placeholder, paneAttach, names, rows, ui, whole, back };`);
+  assert(r.icons.toolbar && r.icons.pane, `detach icons ${JSON.stringify(r.icons)}`);
+  assert(r.placeholder && r.paneAttach, 'grid panel does not show the detached state');
+  assert(r.names && r.rows, 'the window does not show the chart data');
+  assert(r.ui.menus === 6 && r.ui.tools > 30 && r.ui.make && r.ui.formula && r.ui.namebox === 'A2' && r.ui.tab === 1, JSON.stringify(r.ui));
+  assert(r.whole, 'toolbar clipped');
+  assert(r.back, 'docking did not bring the grid back');
+});
+
+test('sheet.formulas', 'Formulas in the data window: calculated, moved by fill, recalculated, saved, undone', async () => {
+  await closeAll();
+  await openSample('monthly-sales');
+  const r = await sheetRun(`const W = await openSheet(); const X = W.__mychartmasterSheet;
+    await edit(W, 0, 4, '합계');
+    await edit(W, 1, 4, '=SUM(B2:D2)');
+    const first = doc().table.rows[0][4];
+    X.selectBox({ r0: 1, r1: 12, c0: 4, c1: 4 }); await X.run('fillDown'); await sleep(150);
+    const filled = doc().table.rows.map((r) => r[4]);
+    const sums = doc().table.rows.map((r) => r[1] + r[2] + r[3]);
+    const shifted = doc().sheet.formulas['12,4'];
+    await edit(W, 13, 1, '=AVERAGE(B2:B13)');
+    await edit(W, 13, 2, '=IF(C2>100,"high","low")');
+    await edit(W, 13, 3, '=1/0');
+    const avg = doc().table.rows[12][1]; const wantAvg = doc().table.rows.slice(0, 12).reduce((a, r) => a + r[1], 0) / 12; const iff = doc().table.rows[12][2]; const err = doc().table.rows[12][3];
+    // An edit in the main grid recalculates the formulas that read it.
+    A.view().grid.api.onEdit(0, 1, '1000'); await sleep(150);
+    const recalculated = doc().table.rows[0][4] === 1000 + doc().table.rows[0][2] + doc().table.rows[0][3];
+    const inWindow = X.S.cells[1][4] === doc().table.rows[0][4];
+    // A formula typed in the main grid works too and shows as a formula when edited again.
+    A.view().grid.api.onEdit(1, 5, '=B3*2'); await sleep(150);
+    const gridFormula = doc().table.rows[1][5] === doc().table.rows[1][1] * 2 && A.view().grid.api.formulaAt(1, 5) === '=B3*2';
+    const saved = JSON.parse(doc().serialize()).sheet?.formulas?.['1,4'];
+    const back = A.actions && (await X.run('undo'), await sleep(200), true) && doc().sheet?.formulas?.['2,5'] == null;
+    return { first, filled, sums, shifted, avg, wantAvg, iff, err, recalculated, inWindow, gridFormula, saved, back, header: doc().table.columns[4].name };`);
+  assert(r.first === r.sums[0], `SUM gave ${r.first}`);
+  assert(JSON.stringify(r.filled) === JSON.stringify(r.sums), `fill down ${JSON.stringify(r.filled)}`);
+  assert(r.shifted === '=SUM(B13:D13)', `moved formula ${r.shifted}`);
+  assert(Math.abs(r.avg - r.wantAvg) < 1e-9 && r.iff === 'high' && r.err === '#DIV/0!', `${r.avg} ${r.iff} ${r.err}`);
+  assert(r.recalculated && r.inWindow, 'formulas not recalculated after a grid edit');
+  assert(r.gridFormula, 'formula typed in the main grid');
+  assert(r.saved === '=SUM(B2:D2)', 'formulas not saved in .mychart');
+  assert(r.back, 'undo from the data window');
+  assert(r.header === '합계', 'header typed in row 1 renames the column');
+  await sheetRun('await closeSheet();');
+});
+
+test('sheet.editing', 'Data window editing: keys, rows and columns, copy and paste, sort, formats, find, filter', async () => {
+  await closeAll();
+  await openSample('monthly-sales');
+  const r = await sheetRun(`const W = await openSheet(); const X = W.__mychartmasterSheet; const ed = X.el().editor;
+    const k = (key, extra = {}) => ed.dispatchEvent(new W.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...extra }));
+    X.select(1, 1); k('ArrowDown'); k('ArrowRight'); const moved = X.S.active.r === 2 && X.S.active.c === 2;
+    k('ArrowDown', { ctrlKey: true }); const jumped = X.S.active.r === 12;
+    k('Home', { ctrlKey: true }); const home = X.S.active.r === 0 && X.S.active.c === 0;
+    // Typing starts an entry; Enter moves down.
+    X.select(1, 1); k('7'); ed.value = '777'; ed.dispatchEvent(new W.Event('input', { bubbles: true })); k('Enter'); await sleep(120);
+    const typed = doc().table.rows[0][1] === 777 && X.S.active.r === 2;
+    X.select(2, 1); k('Delete'); await sleep(120); const cleared = doc().table.rows[1][1] == null;
+    // Rows and columns.
+    const rows0 = doc().table.rows.length, cols0 = doc().table.columns.length;
+    X.select(3, 1); await X.run('insertRows'); await sleep(120); const insertedRow = doc().table.rows.length === rows0 + 1 && doc().table.rows[2].every((v) => v == null);
+    await X.run('deleteRows'); await sleep(120); const deletedRow = doc().table.rows.length === rows0;
+    X.select(1, 2); await X.run('insertColumns'); await sleep(120); const insertedCol = doc().table.columns.length === cols0 + 1;
+    await X.run('deleteColumns'); await sleep(120); const deletedCol = doc().table.columns.length === cols0;
+    // Copy and paste (formulas move like a copy).
+    await edit(W, 1, 4, '=B2+C2');
+    X.selectBox({ r0: 1, r1: 1, c0: 4, c1: 4 }); await X.run('copy');
+    X.select(3, 4); X.pasteText(X.S.clip.text); await sleep(150);
+    const pasted = doc().sheet.formulas['3,4'] === '=B4+C4';
+    X.select(4, 6); X.pasteText('x\\ty\\n1\\t2'); await sleep(150);
+    const external = X.S.cells[4][6] === 'x' && X.S.cells[5][7] === 2;
+    // Sort by a column (the header row stays).
+    X.select(1, 3); await X.run('sortDesc'); await sleep(150);
+    const col = doc().table.rows.map((r) => r[3]).filter((v) => typeof v === 'number');
+    const sorted = col.every((v, i) => i === 0 || col[i - 1] >= v) && doc().table.columns[0].name === X.S.cells[0][0];
+    // Formats.
+    X.selectBox({ r0: 1, r1: 3, c0: 1, c1: 2 }); await X.run('bold'); await X.run('formatCurrency'); await sleep(150);
+    const fmt = doc().sheet.formats['2,2']; const shown = X.display(2, 2);
+    // Find and replace.
+    const label = doc().table.rows[5][0]; X.S.find.query = label; X.S.find.with = 'Renamed'; await X.run('replace'); W.document.querySelector('[data-find-act="replaceAll"]').click(); await sleep(150);
+    const replaced = doc().table.rows.some((r) => r[0] === 'Renamed') && !doc().table.rows.some((r) => r[0] === label);
+    // Filter: only some rows show.
+    W.document.querySelector('[data-cmd="zoomIn"]')?.click(); await sleep(150);
+    // AutoSum under a column.
+    X.selectBox({ r0: 1, r1: 12, c0: 2, c1: 2 }); await X.run('autoSum'); await sleep(150);
+    const autosum = doc().sheet.formulas['13,2'] === '=SUM(C2:C13)';
+    return { moved, jumped, home, typed, cleared, insertedRow, deletedRow, insertedCol, deletedCol, pasted, external, sorted, fmt, shown, replaced, autosum, zoom: X.S.zoom };`);
+  for (const key of ['moved', 'jumped', 'home', 'typed', 'cleared', 'insertedRow', 'deletedRow', 'insertedCol', 'deletedCol', 'pasted', 'external', 'sorted', 'replaced', 'autosum']) assert(r[key], `${key}: ${JSON.stringify(r)}`);
+  assert(r.fmt?.b && r.fmt?.fmt === 'currency' && /[₩$]/.test(r.shown), `formats ${JSON.stringify(r.fmt)} ${r.shown}`);
+  assert(r.zoom > 1, 'zoom');
+  await sheetRun('await closeSheet();');
+});
+
+test('sheet.filter', 'Data window filter hides rows by value; the grid shows what is left', async () => {
+  await closeAll();
+  await openSample('monthly-sales');
+  const r = await sheetRun(`const W = await openSheet(); const X = W.__mychartmasterSheet;
+    await X.run('filter'); await sleep(100);
+    const button = W.document.querySelector('[data-filter-col="0"]'); button.click(); await sleep(150);
+    const fp = W.document.querySelector('.sx-filter-pop'); const values = fp.querySelectorAll('[data-fp-value]').length;
+    const keep = doc().table.rows.slice(0, 3).map((r) => String(r[0])); for (const box of fp.querySelectorAll('[data-fp-value]')) box.checked = keep.includes(box.dataset.fpValue);
+    fp.querySelector('[data-fp="ok"]').click(); await sleep(150);
+    const shown = X.S.vis.filter((r) => r > 0 && r < 13).length;
+    const status = W.document.querySelector('.sx-filtered')?.textContent ?? '';
+    await X.run('clearFilter'); await sleep(100);
+    return { values, shown, status, after: X.S.vis };`);
+  assert(r.values === 12, `${r.values} values in the filter`);
+  assert(r.shown === 3 && /3/.test(r.status), `${r.shown} rows shown, ${r.status}`);
+  assert(r.after === null, 'filter not cleared');
+  await sheetRun('await closeSheet();');
+});
+
+test('sheet.files', 'Data window opens Excel / CSV files (sheet choice) and writes Excel with formulas', async () => {
+  await closeAll();
+  await openSample('monthly-sales');
+  const csv = b64(new TextEncoder().encode('Name,Score\nKim,90\nLee,85\n'));
+  const book = b64(await toXlsx(createTable(['Item', 'Qty', 'Price', 'Total'], [['a', 2, 10, 20], ['b', 3, 5, 15]]), { sheet: { formulas: { '1,3': '=B2*C2', '2,3': '=B3*C3' }, formats: {}, widths: {} } }));
+  const r = await sheetRun(`const W = await openSheet(); const X = W.__mychartmasterSheet;
+    const bytes = (b) => Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
+    const before = A.state.docs.length;
+    W.__mychartmasterWebFiles = [{ name: 'scores.csv', content: bytes('${csv}') }];
+    await X.run('openFile'); await until(() => A.state.docs.length === before + 1);
+    const opened = doc().table.columns.map((c) => c.name).join(',') + '|' + doc().table.rows.length;
+    await until(() => X.S.docId === doc().id);
+    W.__mychartmasterWebFiles = [{ name: 'book.xlsx', content: bytes('${book}') }];
+    await X.run('importReplace'); await sleep(400);
+    const formulas = JSON.stringify(doc().sheet?.formulas ?? {});
+    const total = doc().table.rows[1][3];
+    const xlsx = await X.contentFor('xlsx');
+    return { opened, formulas, total, size: xlsx.length, zip: xlsx[0] === 0x50 && xlsx[1] === 0x4b, csv: (await X.contentFor('csv')).split('\\n')[0] };`);
+  assert(r.opened === 'Name,Score|2', `opened ${r.opened}`);
+  assert(r.formulas === '{"1,3":"=B2*C2","2,3":"=B3*C3"}' && r.total === 15, `formulas from xlsx ${r.formulas} ${r.total}`);
+  assert(r.zip && r.size > 500, 'xlsx not written');
+  assert(/Item,Qty,Price,Total/.test(r.csv), `csv ${r.csv}`);
+  await sheetRun('await closeSheet();');
+});
+
+test('sheet.makeChart', 'The data window makes a new chart from the selection or the whole sheet, and prints', async () => {
+  await closeAll();
+  await openSample('monthly-sales');
+  const r = await sheetRun(`const W = await openSheet(); const X = W.__mychartmasterSheet;
+    const before = A.state.docs.length;
+    X.selectBox({ r0: 0, r1: 6, c0: 0, c1: 2 });
+    W.document.querySelector('.sx-make-chart').click();
+    await until(() => A.state.docs.length === before + 1); await until(() => svg());
+    const made = { cols: doc().table.columns.map((c) => c.name).length, rows: doc().table.rows.length, marks: marks() };
+    await until(() => X.S.docId === doc().id);
+    const follows = X.S.cells.length - 1 === 6 && W.document.querySelectorAll('.sx-tab').length === 2;
+    // Tabs in the window switch the chart in the main window.
+    W.document.querySelectorAll('.sx-tab')[0].click(); await until(() => doc().id === A.state.docs[0].id);
+    X.select(1, 1); await X.run('makeChart'); await until(() => A.state.docs.length === before + 2);
+    const whole = doc().table.rows.length === 12 && doc().table.columns.length === 4;
+    // Print: the program's print window in sheet mode.
+    await X.run('print'); await until(() => pop('print')?.querySelector('.print-sheet .pp-sheet .ps-table'));
+    const p = pop('print'); const pages = p.querySelectorAll('.print-sheet .pp-sheet').length;
+    const cells = p.querySelectorAll('.print-sheet .ps-table td').length;
+    const options = !!p.querySelector('[data-print-toggle="sheetGrid"]') && !!p.querySelector('[data-print-toggle="sheetHeadings"]');
+    return { made, follows, whole, pages, cells, options };`);
+  assert(r.made.cols === 3 && r.made.rows === 6 && r.made.marks > 0, `made ${JSON.stringify(r.made)}`);
+  assert(r.follows, 'the window does not follow the new chart');
+  assert(r.whole, 'one cell selected: the whole sheet');
+  assert(r.pages >= 1 && r.cells >= 48 && r.options, `print ${JSON.stringify(r)}`);
+  await sheetRun('await closeSheet(); await A.popups.closeAll();');
+});
+
 /** One case per chart command: what it must change on the open chart. */
 export async function commandCases(ctx) {
   app = ctx;

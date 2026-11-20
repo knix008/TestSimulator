@@ -110,7 +110,8 @@ export class DataGrid {
         const inSel = !ghost && sel && rowIndex >= sel.r0 && rowIndex <= sel.r1 && i >= sel.c0 && i <= sel.c1;
         const active = rowIndex === this.active.row && i === this.active.col;
         const bad = !ghost && c.type === 'number' && v != null && typeof v !== 'number';
-        return `<div class="dg-cell ${c.type === 'number' ? 'num' : ''} ${active ? 'active' : ''} ${inSel ? 'sel' : ''} ${bad ? 'bad' : ''} ${this.api.hasRange?.() ? (this.api.inChart(rowIndex, i) ? 'in-chart' : 'out-chart') : ''}" data-row="${rowIndex}" data-col="${i}">${escapeHtml(cellText(v))}</div>`;
+        const fx = !ghost && this.api.formulaAt?.(rowIndex, i);
+        return `<div class="dg-cell ${c.type === 'number' ? 'num' : ''} ${active ? 'active' : ''} ${inSel ? 'sel' : ''} ${bad ? 'bad' : ''} ${fx ? 'fx' : ''} ${this.api.hasRange?.() ? (this.api.inChart(rowIndex, i) ? 'in-chart' : 'out-chart') : ''}" data-row="${rowIndex}" data-col="${i}"${fx ? ` title="${escapeHtml(fx)}"` : ''}>${escapeHtml(cellText(v))}</div>`;
       }).join('');
       html.push(`<div class="dg-row ${ghost ? 'ghost' : ''} ${rowIndex === this.active.row ? 'current' : ''}" style="top:${k * rh}px;height:${rh}px;grid-template-columns:${this.template}" data-row="${rowIndex}"><div class="dg-rownum" data-rownum="${rowIndex}">${ghost ? '+' : rowIndex + 1}</div>${cells}<div></div></div>`);
     }
@@ -270,7 +271,8 @@ export class DataGrid {
     if (!table) return;
     this.editing = { row: this.active.row, col: this.active.col, doc: this.api.doc()?.id };
     this.anchor = null;
-    this.editor.value = text ?? cellText(table.rows[this.active.row]?.[this.active.col]);
+    // A formula cell shows its formula while it is edited.
+    this.editor.value = text ?? this.api.formulaAt?.(this.active.row, this.active.col) ?? cellText(table.rows[this.active.row]?.[this.active.col]);
     this.editor.hidden = false;
     this.placeEditor();
     this.editor.focus();
@@ -297,7 +299,7 @@ export class DataGrid {
     if (this.destroyed || !this.table || editing.doc !== this.api.doc()?.id) return;
     if (cancel) { this.focus(); return; }
     if (editing.header) { if (value.trim() && value !== this.table.columns[editing.col]?.name) this.api.onRename(editing.col, value.trim()); }
-    else if (value !== cellText(this.table.rows[editing.row]?.[editing.col])) this.api.onEdit(editing.row, editing.col, value);
+    else if (value !== (this.api.formulaAt?.(editing.row, editing.col) ?? cellText(this.table.rows[editing.row]?.[editing.col]))) this.api.onEdit(editing.row, editing.col, value);
     this.focus();
   }
 

@@ -1,0 +1,28 @@
+// Icons of the data window (sheet.js) and of detaching it (24×24 stroke, currentColor), merged into icons.js.
+export const SHEET_ICONS = {
+  // A grid lifting out of the panel into a window of its own / settling back into it.
+  detachWindow: '<rect x="3" y="9" width="12" height="12" rx="1.5"/><path d="M3 13h12M7 9v12"/><path d="M11 3h10v10"/><path d="M21 3l-8 8"/>',
+  attachWindow: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15h18M9 15v6M15 15v6"/><path d="M15 4v7H8"/><path d="M15 11l-6-6"/>',
+  sheetWindow: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 8h18M3 13h18M3 18h18M8 3v18M14 3v18"/>',
+  autoSum: '<path d="M18 5H6l6 7-6 7h12"/>',
+  functionIcon: '<path d="M14 4h-1.5a2.5 2.5 0 0 0-2.5 2.5V19a2 2 0 0 1-2 2H6"/><path d="M7 10h7"/><path d="M15 13l5 6M20 13l-5 6"/>',
+  decimalMore: '<path d="M3 17h.01"/><circle cx="8.5" cy="14" r="3"/><circle cx="16" cy="14" r="3"/><path d="M14 5h7M18 2.5l3 2.5-3 2.5"/>',
+  decimalLess: '<path d="M3 17h.01"/><circle cx="8.5" cy="14" r="3"/><circle cx="16" cy="14" r="3"/><path d="M21 5h-7M17 2.5L14 5l3 2.5"/>',
+  formatCurrency: '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5c-.6-1-1.8-1.5-3.5-1.5-2 0-3.2 1-3.2 2.4 0 3.3 7 1.8 7 5.1 0 1.4-1.4 2.5-3.6 2.5-1.8 0-3.1-.7-3.7-1.8M12 5v2M12 17v2"/>',
+  formatPercent: '<circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/><path d="M19 5L5 19"/>',
+  formatThousands: '<path d="M4 16v-8l-2 2"/><path d="M8 19l1-3"/><path d="M12 9a2 2 0 1 1 4 0c0 2-4 3-4 6h4"/><path d="M19 8h3l-2 3a2 2 0 1 1-2 3"/>',
+  numberFormat: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 10v5M6 10.5L7 10M10.5 10h2.5l-2.5 5M15.5 11a1.4 1.4 0 0 1 2.8 0c0 1.5-2.8 2-2.8 4h2.8"/>',
+  freezeRow: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18" stroke-width="2.6"/><path d="M9 3v6M15 3v6"/><path d="M8 14l2 2 4-4"/>',
+  fillDown: '<rect x="5" y="3" width="14" height="6" rx="1"/><path d="M12 9v11M8 16l4 4 4-4"/>',
+  fillRight: '<rect x="3" y="5" width="6" height="14" rx="1"/><path d="M9 12h11M16 8l4 4-4 4"/>',
+  pasteValues: '<path d="M9 4H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h4"/><rect x="9" y="2.5" width="6" height="3" rx="1"/><path d="M15 4h2a2 2 0 0 1 2 2v3"/><path d="M13 13h8M13 17h8M13 21h5"/>',
+  insertCells: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h18M12 3v18"/><path d="M16.5 14.5v5M14 17h5"/>',
+  removeCells: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h18M12 3v18"/><path d="M14 17h5"/>',
+  wrapText: '<path d="M4 6h16M4 12h13a3 3 0 0 1 0 6h-4M4 18h5"/><path d="M15 16l-2 2 2 2"/>',
+  cellBorder: '<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 12h18M12 3v18" stroke-dasharray="2 2.5"/>',
+  sheetPrint: '<path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/><path d="M10 17h4M12 14v7"/>',
+  saveChart: '<path d="M5 4h11l3 3v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/><path d="M8 17v-3M11 17v-6M14 17v-4M17 17v-8"/>',
+  goToCell: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/><path d="M13 14h6M16.5 11.5L19 14l-2.5 2.5"/>',
+  clearAll: '<path d="M4 20h9"/><path d="M14.5 4.5l5 5-8 8H6.5v-5z"/><path d="M10 9l5 5"/>',
+  sheetZoom: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21M8 10.5h5M10.5 8v5"/>',
+};

@@ -22,7 +22,7 @@ for (const file of files) {
   for (const m of text.matchAll(/\bt\(\s*'([A-Za-z0-9_.:-]+)'/g)) used.add(m[1]);
   for (const m of text.matchAll(/\bt\(\s*`([^`]*\$\{[^`]*)`/g)) dynamic.push(m[1]);
   // Keys stored in tables: label: 'action.x', ['…', 'settings.x'], titleKey 'error.x'.
-  for (const m of text.matchAll(/'((?:action|settings|start|menu|submenu|progress|error|notice|tip|status|recent|confirm|stats|chart|chartType|export|import|context|copy|tabs|sampleGroup|window|common|tutorial|welcome|about|drop|format|dataFormat|type|pos|bg|layout|palette|role|inspector|grid|gallery)\.[A-Za-z0-9_.:-]+)'/g)) used.add(m[1]);
+  for (const m of text.matchAll(/'((?:action|settings|start|menu|submenu|progress|error|notice|tip|status|recent|confirm|stats|chart|chartType|export|import|context|copy|tabs|sampleGroup|window|common|tutorial|welcome|about|drop|format|dataFormat|type|pos|bg|layout|palette|role|inspector|grid|gallery|sheet)\.[A-Za-z0-9_.:-]+)'/g)) used.add(m[1]);
 }
 
 // Error codes (new Error('import.empty')) are looked up as error.<code>, and file names are not keys.
@@ -33,8 +33,8 @@ for (const key of [...used]) {
 }
 
 const load = async (lang) => (await import(`file://${path.join(root, 'src', 'i18n', `${lang}.js`).replace(/\\/g, '/')}`)).default;
-const ko = { ...(await load('ko')), ...(await load('chart-ko')) };
-const en = { ...(await load('en')), ...(await load('chart-en')) };
+const ko = { ...(await load('ko')), ...(await load('chart-ko')), ...(await load('sheet-ko')) };
+const en = { ...(await load('en')), ...(await load('chart-en')), ...(await load('sheet-en')) };
 const families = dynamic.map((d) => d.replace(/\$\{[^}]*\}/g, '*'));
 const familyRe = families.map((f) => new RegExp(`^${f.replace(/[.+?^()|[\]\\]/g, '\\$&').replace(/\*/g, '[^]*')}$`));
 const isUsed = (key) => used.has(key) || familyRe.some((re) => re.test(key));
@@ -49,6 +49,7 @@ if (enOnly.length) console.log(enOnly.join('\n'));
 console.log('ko keys missing in en:', Object.keys(ko).filter((k) => !(k in en)).join(', ') || 'none');
 console.log('en keys missing in ko:', Object.keys(en).filter((k) => !(k in ko)).join(', ') || 'none');
 const unused = Object.keys(ko).filter((key) => !isUsed(key));
+if (process.argv.includes('--unused')) console.log(unused.join('\n'));
 console.log('unused:', unused.length);
 if (process.argv.includes('--families')) console.log([...new Set(families)].sort().join('\n'));
 if (process.argv.includes('--prune')) {
