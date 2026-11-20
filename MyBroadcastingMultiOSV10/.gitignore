@@ -1,0 +1,14 @@
+node_modules/
+dist/
+release/
+test-results/
+src-tauri/target/
+src-tauri/gen/
+/MyBroadcasting-*.exe
+/MyBroadcasting-*.msi
+/MyBroadcasting-*.dmg
+/MyBroadcasting-*.deb
+/MyBroadcasting-*.rpm
+/MyBroadcasting-*.AppImage
+*.log
+.vite/

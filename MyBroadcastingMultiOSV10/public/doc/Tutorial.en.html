@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MyBroadcasting — Tutorial</title>
+<style>
+  :root { color-scheme: light dark; --bg: #ffffff; --text: #1f2328; --muted: #59636e; --accent: #2f63d8; --border: #d0d7de; --code: #f3f5f8; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #16191f; --text: #e6e9ef; --muted: #9aa4b2; --accent: #7aa7ff; --border: #343a46; --code: #222731; } }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.65 "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; }
+  .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 20px 24px; }
+  main { min-width: 0; max-width: 860px; padding: 8px 0 60px; }
+  nav.toc { position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); overflow: auto; font-size: 14px; padding: 8px 8px 8px 0; border-right: 1px solid var(--border); }
+  nav.toc .toc-title { font-weight: 700; color: var(--muted); font-size: 12px; letter-spacing: .04em; margin: 0 0 8px 10px; }
+  nav.toc ul { list-style: none; margin: 0; padding: 0; }
+  nav.toc li a { display: block; padding: 3px 10px; border-left: 2px solid transparent; color: var(--text); text-decoration: none; border-radius: 0 6px 6px 0; }
+  nav.toc li a:hover { background: var(--code); }
+  nav.toc li a.active { border-left-color: var(--accent); color: var(--accent); font-weight: 600; }
+  nav.toc li.h3 a { padding-left: 24px; color: var(--muted); font-size: 13px; }
+  @media (max-width: 760px) { .layout { grid-template-columns: 1fr; padding: 12px; } nav.toc { position: static; max-height: none; border: 1px solid var(--border); border-radius: 10px; } }
+  @media print { nav.toc { display: none; } .layout { display: block; } }
+  h1 { font-size: 1.9em; margin: 0 0 18px; }
+  h2 { font-size: 1.45em; margin: 34px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.15em; margin: 26px 0 8px; color: var(--accent); }
+  p, li { color: var(--text); }
+  code { padding: 1px 6px; border-radius: 5px; background: var(--code); font-family: Consolas, "D2Coding", monospace; font-size: 0.92em; }
+  table { border-collapse: collapse; margin: 10px 0 18px; }
+  th, td { border: 1px solid var(--border); padding: 5px 12px; text-align: left; }
+  th { background: var(--code); }
+  .step { margin: 0 0 14px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; }
+  .step b { color: var(--accent); }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body><div class="layout">
+<nav class="toc" aria-label="Contents"><p class="toc-title">Contents</p><ul><li class="h2"><a href="#start">Start page</a></li><li class="h3"><a href="#step-welcome">1. MyBroadcasting</a></li><li class="h3"><a href="#step-actions">2. Get started</a></li><li class="h3"><a href="#step-samples">3. Sample collections</a></li><li class="h3"><a href="#step-background">4. Moving backgrounds</a></li><li class="h3"><a href="#step-home">5. Start page button</a></li><li class="h2"><a href="#show">Building the show</a></li><li class="h3"><a href="#step-scenes">6. Scenes</a></li><li class="h3"><a href="#step-sources">7. Sources</a></li><li class="h3"><a href="#step-addSource">8. Add a source</a></li><li class="h3"><a href="#step-preview">9. Preview</a></li><li class="h3"><a href="#step-properties">10. Properties</a></li><li class="h3"><a href="#step-filters">11. Filters</a></li><li class="h3"><a href="#step-transform">12. Transform</a></li><li class="h3"><a href="#step-mixer">13. Audio mixer</a></li><li class="h3"><a href="#step-transitions">14. Transitions</a></li><li class="h2"><a href="#live">Going live</a></li><li class="h3"><a href="#step-studio">15. Studio mode</a></li><li class="h3"><a href="#step-multiview">16. Multiview</a></li><li class="h3"><a href="#step-outputs">17. Stream and record</a></li><li class="h3"><a href="#step-controls">18. Controls</a></li><li class="h3"><a href="#step-streamSettings">19. Stream settings</a></li><li class="h3"><a href="#step-outputSettings">20. Output settings</a></li><li class="h3"><a href="#step-status">21. Status bar</a></li><li class="h2"><a href="#help">Settings and help</a></li><li class="h3"><a href="#step-hotkeys">22. Hotkeys</a></li><li class="h3"><a href="#step-theme">23. Theme</a></li><li class="h3"><a href="#step-print">24. Printed reports</a></li><li class="h3"><a href="#step-finish">25. All set</a></li></ul></nav>
+<main>
+<h1>MyBroadcasting — Tutorial</h1>
+<p class="muted">The same steps the tutorial shows in the program (Help › Tutorial, F11).</p>
+<h2 id="start">Start page</h2>
+<div class="step"><h3 id="step-welcome">1. MyBroadcasting</h3><p>A personal broadcasting studio: build scenes, add sources, mix the sound, then go live or record. Step through with the card at the bottom right.</p></div>
+<div class="step"><h3 id="step-actions">2. Get started</h3><p>New collection, import (other broadcasting programs' scene files too), continue and the auto-configuration wizard live here.</p></div>
+<div class="step"><h3 id="step-samples">3. Sample collections</h3><p>Open a talk show, gaming, lecture, music, news or countdown sample with one click.</p></div>
+<div class="step"><h3 id="step-background">4. Moving backgrounds</h3><p>Pick one of 16 backgrounds, use a picture or change the speed. Drag the cards to move them.</p></div>
+<div class="step"><h3 id="step-home">5. Start page button</h3><p>This button switches between the start page and the studio at any time.</p></div>
+<h2 id="show">Building the show</h2>
+<div class="step"><h3 id="step-scenes">6. Scenes</h3><p>A scene is one screen of the show. Click to switch to it, drag to reorder, and use the buttons to add, remove and filter.</p></div>
+<div class="step"><h3 id="step-sources">7. Sources</h3><p>Screens, cameras, pictures, text and sound in the scene. Higher ones are drawn on top. The eye shows / hides, the lock locks.</p></div>
+<div class="step"><h3 id="step-addSource">8. Add a source</h3><p>The + button adds display / window / game capture, webcam, microphone, media, image, slide show, browser, text, colour or another scene. Dropping files works too.</p></div>
+<div class="step"><h3 id="step-preview">9. Preview</h3><p>Drag sources to move them, use the corners to resize (Shift: free, Alt: crop), the round handle to rotate. They snap to the edges and to other sources.</p></div>
+<div class="step"><h3 id="step-properties">10. Properties</h3><p>The selected source's settings. Changes show at once.</p></div>
+<div class="step"><h3 id="step-filters">11. Filters</h3><p>Chain video filters (chroma key, colour correction, LUT, mask, blur, scroll…) and audio filters (noise suppression, compressor, gate, equalizer…).</p></div>
+<div class="step"><h3 id="step-transform">12. Transform</h3><p>Set position, rotation, size, alignment, bounding box, crop and blending exactly; fit, stretch, center or flip.</p></div>
+<div class="step"><h3 id="step-mixer">13. Audio mixer</h3><p>Every source with sound has a meter, a fader, mute and monitoring. The gear opens advanced audio and filters.</p></div>
+<div class="step"><h3 id="step-transitions">14. Transitions</h3><p>Choose cut, fade, swipe, slide, stinger, fade to colour or luma wipe, and its duration.</p></div>
+<h2 id="live">Going live</h2>
+<div class="step"><h3 id="step-studio">15. Studio mode</h3><p>Prepare the next scene in the preview on the left, then send it to the program on the right with the Transition button or the T-bar.</p></div>
+<div class="step"><h3 id="step-multiview">16. Multiview</h3><p>See the preview, the program and eight scenes at once. Click a scene to pick it, double-click to transition.</p></div>
+<div class="step"><h3 id="step-outputs">17. Stream and record</h3><p>Start streaming, record (pause), replay buffer, virtual camera and screenshot. Active ones turn red.</p></div>
+<div class="step"><h3 id="step-controls">18. Controls</h3><p>Big buttons and the stream / recording times in one place.</p></div>
+<div class="step"><h3 id="step-streamSettings">19. Stream settings</h3><p>Pick Twitch, YouTube, CHZZK, SOOP, Kick, Facebook or a custom server (RTMP, RTMPS, SRT, RIST, WHIP) and enter the stream key.</p></div>
+<div class="step"><h3 id="step-outputSettings">20. Output settings</h3><p>Encoders, bitrates, recording format and folder, audio tracks, file splitting and the replay buffer.</p></div>
+<div class="step"><h3 id="step-status">21. Status bar</h3><p>Stream and recording times, bitrate, dropped frames, FPS, CPU and the problem count.</p></div>
+<h2 id="help">Settings and help</h2>
+<div class="step"><h3 id="step-hotkeys">22. Hotkeys</h3><p>Every action can have keys: outputs, scenes, showing sources, mute, push-to-talk, media controls. In the desktop app they work while another program is in front.</p></div>
+<div class="step"><h3 id="step-theme">23. Theme</h3><p>Pick one of 40 themes or your own.</p></div>
+<div class="step"><h3 id="step-print">24. Printed reports</h3><p>Print or save as PDF the scene rundown (with pictures), source list, audio setup, hotkey sheet, output settings, session log and feature list.</p></div>
+<div class="step"><h3 id="step-finish">25. All set</h3><p>Replay the tutorial any time with this button. The user's guide is in the Help menu.</p></div>
+
+</main></div>
+<script>
+  // the section being read is marked in the contents
+  const links = [...document.querySelectorAll('nav.toc a')];
+  const mark = () => { let current = null; for (const a of links) { const h = document.getElementById(decodeURIComponent(a.hash.slice(1))); if (h && h.getBoundingClientRect().top < 120) current = a; } links.forEach((a) => a.classList.toggle('active', a === current)); };
+  addEventListener('scroll', mark, { passive: true }); mark();
+</script></body>
+</html>

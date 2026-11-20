@@ -1,0 +1,49 @@
+{
+  "name": "mybroadcasting",
+  "productName": "MyBroadcasting",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Personal live streaming and recording studio : scenes, sources, filters, audio mixer, transitions, studio mode, recording, streaming — Windows, macOS, Linux (Tauri) and the web.",
+  "author": "SHKWON <knix008@naver.com>",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "dev": "vite",
+    "build:web": "vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "build:win": "node scripts/build.mjs win",
+    "build:mac": "node scripts/build.mjs mac",
+    "build:linux": "node scripts/build.mjs linux",
+    "build:all": "node scripts/build.mjs all",
+    "build:icons": "node scripts/render-icons.mjs",
+    "build:vcam": "node scripts/build-vcam.mjs",
+    "build:docs": "node scripts/build-docs.mjs",
+    "test": "node scripts/test.mjs",
+    "test:quick": "node scripts/test.mjs --quick",
+    "test:unit": "node scripts/test.mjs --only unit,i18n",
+    "test:web": "node scripts/test.mjs --only web",
+    "test:desktop": "node scripts/test.mjs --only desktop --desktop",
+    "i18n:check": "node scripts/i18n-check.mjs",
+    "smoke": "node scripts/smoke-web.mjs",
+    "clean": "node scripts/clean.mjs",
+    "clean:all": "node scripts/clean.mjs --all",
+    "relay": "node server/relay.mjs",
+    "viewers": "node server/viewers.mjs",
+    "test:features": "node scripts/test.mjs --only features"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-dialog": "^2.8.4",
+    "@tauri-apps/plugin-global-shortcut": "^2.4.1",
+    "hls.js": "^1.7.4",
+    "mediabunny": "^1.66.2",
+    "pagedjs": "^0.4.3"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.4",
+    "sharp": "^0.35.5",
+    "vite": "^7.3.8"
+  }
+}

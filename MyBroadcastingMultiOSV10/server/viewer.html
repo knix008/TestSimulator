@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MyBroadcasting · Live</title>
+<!-- The page a viewer opens to watch a MyBroadcasting show directly (Settings › Stream › "Direct viewing").
+     It is served by the program itself (desktop: src-tauri/src/viewers.rs, web: server/viewers.mjs). The
+     WebSocket on the same address carries only the WebRTC offer / answer / candidates; the picture and sound
+     come straight from the broadcasting computer. -->
+<style>
+  :root { color-scheme: dark; --bg: #0f1117; --panel: #181b24; --text: #eef0f6; --muted: #9aa1b2; --accent: #e5484d; --border: #2a2f3c; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif; }
+  body { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
+  header { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--border); }
+  header h1 { margin: 0; font-size: 16px; font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #3a3f4d; color: var(--muted); }
+  .badge.live { background: var(--accent); color: #fff; }
+  .badge.live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #fff; animation: blink 1.2s infinite; }
+  @keyframes blink { 50% { opacity: 0.25; } }
+  main { position: relative; display: grid; place-items: center; min-height: 0; padding: 12px; }
+  video { width: 100%; height: 100%; max-height: calc(100vh - 120px); object-fit: contain; background: #000; border-radius: 10px; }
+  .overlay { position: absolute; inset: 12px; display: grid; place-items: center; text-align: center; pointer-events: none; }
+  .overlay > div { pointer-events: auto; max-width: 420px; padding: 20px 24px; border-radius: 12px; background: rgba(15, 17, 23, 0.86); border: 1px solid var(--border); }
+  .overlay[hidden] { display: none; }
+  .overlay p { margin: 0 0 12px; color: var(--muted); }
+  .overlay b { display: block; margin-bottom: 6px; font-size: 17px; color: var(--text); }
+  form { display: flex; gap: 8px; justify-content: center; }
+  input { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; width: 180px; }
+  button { padding: 8px 14px; border-radius: 8px; border: 0; background: var(--accent); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+  button.quiet { background: #2f3442; }
+  footer { display: flex; align-items: center; gap: 12px; padding: 8px 16px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--border); background: var(--panel); }
+  footer .grow { flex: 1; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">MyBroadcasting</h1>
+  <span id="state" class="badge">…</span>
+</header>
+<main>
+  <video id="video" playsinline autoplay muted></video>
+  <div id="overlay" class="overlay"><div id="box"><b id="msgTitle"></b><p id="msgText"></p><div id="msgAction"></div></div></div>
+</main>
+<footer>
+  <span id="info"></span><span class="grow"></span>
+  <button id="sound" class="quiet" type="button" hidden></button>
+</footer>
+<script>
+(() => {
+  const ko = (navigator.language || '').toLowerCase().startsWith('ko');
+  document.documentElement.lang = ko ? 'ko' : 'en';
+  const T = ko ? {
+    connecting: '연결 중', live: '방송 중', waiting: '대기 중', ended: '끝남',
+    waitTitle: '방송을 기다리는 중', waitText: '방송이 시작되면 자동으로 나옵니다.',
+    codeTitle: '입장 코드', codeText: '방송하는 분이 알려 준 코드를 입력하세요.', codeWrong: '코드가 맞지 않습니다. 다시 입력하세요.', enter: '입장',
+    fullTitle: '자리가 없습니다', fullText: '시청자가 가득 찼습니다. 잠시 뒤에 다시 열어 보세요.',
+    lostTitle: '연결이 끊어졌습니다', lostText: '다시 연결하는 중입니다…',
+    endedTitle: '방송이 끝났습니다', endedText: '다시 시작하면 자동으로 이어집니다.',
+    soundOn: '🔊 소리 켜기', soundOff: '🔇 소리 끄기', tapSound: '화면을 누르면 소리가 나옵니다.',
+    via: '이 컴퓨터에서 직접 받는 방송',
+  } : {
+    connecting: 'Connecting', live: 'LIVE', waiting: 'Waiting', ended: 'Ended',
+    waitTitle: 'Waiting for the show', waitText: 'It appears here as soon as it starts.',
+    codeTitle: 'Access code', codeText: 'Enter the code the broadcaster gave you.', codeWrong: 'That code is not right. Try again.', enter: 'Enter',
+    fullTitle: 'No seats left', fullText: 'The show is full. Try again in a while.',
+    lostTitle: 'Connection lost', lostText: 'Reconnecting…',
+    endedTitle: 'The show has ended', endedText: 'It continues here automatically when it starts again.',
+    soundOn: '🔊 Sound on', soundOff: '🔇 Sound off', tapSound: 'Tap the picture for sound.',
+    via: 'Watching straight from the broadcaster\'s computer',
+  };
+  const $ = (id) => document.getElementById(id);
+  const video = $('video');
+  let ws = null, pc = null, code = new URLSearchParams(location.search).get('code') || '', retry = 0, ended = false;
+  $('info').textContent = T.via;
+
+  function state(kind) { const el = $('state'); el.className = `badge ${kind === 'live' ? 'live' : ''}`; el.textContent = T[kind] || kind; }
+  function message(title, text, action = '') {
+    $('overlay').hidden = !title;
+    $('msgTitle').textContent = title || ''; $('msgText').textContent = text || '';
+    $('msgAction').innerHTML = action;
+  }
+  function askCode(wrong) {
+    message(T.codeTitle, wrong ? T.codeWrong : T.codeText, `<form id="codeForm"><input id="code" autocomplete="off" autofocus /><button>${T.enter}</button></form>`);
+    $('codeForm').onsubmit = (e) => { e.preventDefault(); code = $('code').value.trim(); send({ type: 'hello', code }); };
+  }
+  function send(m) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); }
+  function sound() {
+    const b = $('sound');
+    b.hidden = !video.srcObject || !video.srcObject.getAudioTracks().length;
+    b.textContent = video.muted ? T.soundOn : T.soundOff;
+  }
+  $('sound').onclick = () => { video.muted = !video.muted; video.play().catch(() => {}); sound(); };
+  video.onclick = () => { if (video.muted) { video.muted = false; video.play().catch(() => {}); sound(); } };
+
+  function closePeer() { if (pc) { pc.close(); pc = null; } }
+  async function offer(m) {
+    closePeer();
+    pc = new RTCPeerConnection({ iceServers: m.iceServers || [] });
+    pc.onicecandidate = (e) => { if (e.candidate) send({ type: 'ice', candidate: e.candidate.toJSON() }); };
+    pc.ontrack = (e) => {
+      const stream = video.srcObject instanceof MediaStream ? video.srcObject : new MediaStream();
+      if (!stream.getTracks().includes(e.track)) stream.addTrack(e.track);
+      video.srcObject = stream;
+      video.play().catch(() => {});
+      sound();
+    };
+    pc.onconnectionstatechange = () => {
+      if (pc && pc.connectionState === 'connected') { state('live'); message(''); if (video.muted) $('info').textContent = `${T.via} · ${T.tapSound}`; }
+      if (pc && (pc.connectionState === 'failed')) { state('connecting'); send({ type: 'hello', code, again: true }); }
+    };
+    await pc.setRemoteDescription({ type: 'offer', sdp: m.sdp });
+    await pc.setLocalDescription(await pc.createAnswer());
+    send({ type: 'answer', sdp: pc.localDescription.sdp });
+  }
+
+  function connect() {
+    state('connecting');
+    ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
+    ws.onopen = () => { retry = 0; send({ type: 'hello', code }); };
+    ws.onmessage = async (e) => {
+      let m; try { m = JSON.parse(e.data); } catch { return; }
+      if (m.type === 'welcome') { if (m.title) { $('title').textContent = m.title; document.title = `${m.title} · Live`; } if (!m.live) { state('waiting'); message(T.waitTitle, T.waitText); } }
+      else if (m.type === 'denied') { if (m.reason === 'code') askCode(Boolean(code)); else if (m.reason === 'full') { state('waiting'); message(T.fullTitle, T.fullText); } }
+      else if (m.type === 'offer') { ended = false; await offer(m).catch((err) => console.error(err)); }
+      else if (m.type === 'ice' && pc) { await pc.addIceCandidate(m.candidate).catch(() => {}); }
+      else if (m.type === 'ended') { ended = true; closePeer(); video.srcObject = null; sound(); state('ended'); message(T.endedTitle, T.endedText); }
+      else if (m.type === 'count') { $('info').textContent = `${T.via} · 👥 ${m.viewers}`; }
+    };
+    ws.onclose = () => {
+      closePeer();
+      if (!ended) { state('connecting'); message(T.lostTitle, T.lostText); }
+      setTimeout(connect, Math.min(10000, 1000 * 2 ** retry++));
+    };
+  }
+  window.__viewer = { video, get pc() { return pc; } };
+  connect();
+})();
+</script>
+</body>
+</html>
