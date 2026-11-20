@@ -137,6 +137,7 @@ export class NetMap {
       const subDim = match && !sub.nodes.some((id) => match.nodes.has(id));
       return `<g class="nm-subnet ${subDim ? 'dim' : ''}" data-subnet="${escapeHtml(sub.id)}"><rect x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" rx="22"/><text x="${x0 + 12}" y="${y0 + 18}">${escapeHtml(sub.id)}</text></g>`;
     }).join('');
+    const nodeById = new Map(topo.nodes.map((n) => [n.id, n]));
     this.world.querySelector('.nm-links').innerHTML = topo.links.map((l) => {
       const a = this.positions.get(l.source);
       const b = this.positions.get(l.target);
@@ -144,7 +145,19 @@ export class NetMap {
       const width = 1.2 + 5 * Math.sqrt(l.bytes / maxBytes);
       const on = this.selected?.type === 'link' && this.selected.id === l.id;
       const dim = linkDim(l, on);
-      return `<g class="nm-link ${on ? 'selected' : ''} ${dim ? 'dim' : match ? 'match' : ''}" data-link="${escapeHtml(l.id)}"><line class="nm-hit" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/><line class="nm-line" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" style="stroke-width:${width.toFixed(1)}px"/></g>`;
+      // An arrowhead at each end that receives traffic (source → destination).
+      let arrow = '';
+      for (const end of l.into ?? (l.to ? [l.to] : [])) {
+        const [p, q] = end === l.target ? [a, b] : [b, a];
+        const len = Math.hypot(q.x - p.x, q.y - p.y) || 1;
+        const ux = (q.x - p.x) / len, uy = (q.y - p.y) / len;
+        const r = this.radius(nodeById.get(end) ?? { bytes: 0 }) + 3;
+        const size = 7 + width;
+        const tx = q.x - ux * r, ty = q.y - uy * r;
+        const bx = tx - ux * size, by = ty - uy * size;
+        arrow += `<polygon class="nm-arrow" points="${tx.toFixed(1)},${ty.toFixed(1)} ${(bx - uy * size * 0.55).toFixed(1)},${(by + ux * size * 0.55).toFixed(1)} ${(bx + uy * size * 0.55).toFixed(1)},${(by - ux * size * 0.55).toFixed(1)}"/>`;
+      }
+      return `<g class="nm-link ${l.toSelf ? 'to-self' : ''} ${on ? 'selected' : ''} ${dim ? 'dim' : match ? 'match' : ''}" data-link="${escapeHtml(l.id)}"><line class="nm-hit" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/><line class="nm-line" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" style="stroke-width:${width.toFixed(1)}px"/>${arrow}</g>`;
     }).join('');
     this.world.querySelector('.nm-nodes').innerHTML = topo.nodes.map((n) => {
       const p = this.positions.get(n.id);
@@ -153,8 +166,8 @@ export class NetMap {
       const on = this.selected?.type === 'node' && this.selected.id === n.id;
       const dim = nodeDim(n);
       const glyph = icon(KIND_ICON[n.kind] ?? 'netHost').replace('<svg ', `<svg x="${p.x - r * 0.62}" y="${p.y - r * 0.62}" width="${r * 1.24}" height="${r * 1.24}" `);
-      const label = this.label(n);
-      return `<g class="nm-node kind-${n.kind} ${on ? 'selected' : ''} ${dim ? 'dim' : match ? 'match' : ''}" data-node="${escapeHtml(n.id)}" tabindex="0" role="button" aria-label="${escapeHtml(label)}">
+      const label = n.self ? `${this.label(n)} · ${t('netmap.thisPc')}` : this.label(n);
+      return `<g class="nm-node kind-${n.kind} ${n.self ? 'self' : ''} ${on ? 'selected' : ''} ${dim ? 'dim' : match ? 'match' : ''}" data-node="${escapeHtml(n.id)}" tabindex="0" role="button" aria-label="${escapeHtml(label)}">
         <circle class="nm-halo" cx="${p.x}" cy="${p.y}" r="${r + 6}"/><circle class="nm-dot" cx="${p.x}" cy="${p.y}" r="${r}"/>${glyph}
         <text class="nm-label" x="${p.x}" y="${p.y + r + 14}">${escapeHtml(label.length > 28 ? `${label.slice(0, 27)}…` : label)}</text></g>`;
     }).join('');
@@ -173,7 +186,7 @@ export class NetMap {
       ? `<span class="nm-sel">${icon(this.selected.type === 'node' ? KIND_ICON[sel.kind] ?? 'netHost' : 'link')}<b>${escapeHtml(this.selected.type === 'node' ? this.label(sel) : `${this.labelOf(sel.source)} ↔ ${this.labelOf(sel.target)}`)}</b><span class="muted">${escapeHtml(`${sel.packets} ${t('netmap.packets')} · ${fmtBytes(sel.bytes)}`)}</span></span><span class="grow"></span><button class="small-button" data-nm="clear">${icon('filterClear')}<span>${escapeHtml(t('netmap.showAll'))}</span></button>`
       : this.match
         ? `<span class="nm-sel">${icon('filterApply')}<span class="muted">${escapeHtml(t('netmap.filterMatch', { nodes: this.match.nodes.size, links: this.match.links.size }))}</span></span><span class="grow"></span><button class="small-button" data-nm="clear">${icon('filterClear')}<span>${escapeHtml(t('netmap.showAll'))}</span></button>`
-        : `<span class="muted">${escapeHtml(stats)}</span><span class="grow"></span><span class="muted">${escapeHtml(t('netmap.hint'))}</span>`;
+        : `<span class="muted">${escapeHtml(stats)}</span><span class="grow"></span><span class="muted">${escapeHtml(topo.linkMode === 'toSelf' ? (topo.self?.length ? t('netmap.toSelfHint', { ip: topo.self.join(', ') }) : t('netmap.noSelf')) : topo.self?.length ? t('netmap.allHint', { ip: topo.self.join(', ') }) : t('netmap.hint'))}</span>`;
   }
 
   /** The display filter's hits on the map (null: no filter, everything drawn strong). */

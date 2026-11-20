@@ -690,6 +690,17 @@ The **Network Map** (toolbar button, Ctrl+Shift+N, or the right panel button) dr
 in the traffic: hosts, routers / gateways, servers, printers, IP phones, IoT devices, external hosts and multicast
 groups, and the links between them, sized by traffic.
 
+- **Lines join each source to its destination** (the default): traffic to this PC, from it and between other devices
+  all draw lines, with an arrow at the receiving end (both ends when traffic goes both ways). Traffic with the outside
+  runs through the router: PC → router (gateway) → external host. Lines that carry traffic to this PC are highlighted,
+  and this PC's node is marked **· This PC**.
+- **This PC** is the host chosen on the map, else the addresses of the interface being captured live, else it is found
+  from the traffic (the local address with the most peers). Right-click a host for **Make This Host "This PC"**, or
+  the background for **Find "This PC" from the Traffic** to go back.
+- **Lines: only traffic to this PC** in the right-click menu keeps only the lines to this PC (other devices stay as
+  nodes); **Lines: all traffic** comes back. Either way the packet list keeps every packet; clicking a line keeps only
+  that line's packets.
+
 ![The network map](images/en/35-network-map.png)
 
 - **Layout**: **By subnet** (hosts grouped in their subnets around the gateway), **Force-directed** or **Radial**.

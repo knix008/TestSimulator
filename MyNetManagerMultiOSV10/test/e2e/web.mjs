@@ -685,6 +685,28 @@ test('map.filterHighlight', 'A display filter typed in the filter bar draws only
   assert(r.afterDim === 0, `clearing the filter left ${r.afterDim} faded items`);
 });
 
+test('map.linksToSelf', 'Map lines: only traffic to this PC (arrows, "This PC" mark), or every source → destination (the default, arrows at the receivers, lines to this PC highlighted); another host can be this PC', async () => {
+  await openSample('mixed-office-lan');
+  const r = await run(`A.actions.updateSettings({ showNetMap: true, netmapLinks: 'toSelf' }); await until(() => A.view().root.querySelector('.pane-map .nm-node.self')); await sleep(200);
+    const R = A.view().root; const map = A.view().map;
+    const first = { self: R.querySelector('.nm-node.self').dataset.node, label: R.querySelector('.nm-node.self .nm-label').textContent, links: R.querySelectorAll('.nm-link').length, arrows: R.querySelectorAll('.nm-link .nm-arrow').length, foot: R.querySelector('.nm-foot').textContent };
+    const menu = async (el) => { const b = el.getBoundingClientRect(); el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: b.x + 5, clientY: b.y + 5 })); await until(() => pop('menu')?.querySelector('.menu-item')); return pop('menu'); };
+    let m = await menu(R.querySelector('.nm-node[data-node="host:192.168.0.23"]')); const ids = [...m.querySelectorAll('.menu-item')].map((x) => x.dataset.id);
+    m.querySelector('[data-id="custom:setSelf"]').click(); await until(() => R.querySelector('.nm-node.self')?.dataset.node === 'host:192.168.0.23', 5000); await sleep(200);
+    const moved = { self: R.querySelector('.nm-node.self').dataset.node, toOld: map.topology.links.filter((l) => l.to === 'host:192.168.0.42').length };
+    m = await menu(R.querySelector('.pane-map .nm-canvas') ?? R.querySelector('.pane-map')); m.querySelector('[data-id="custom:links:all"]').click(); await until(() => !map.topology.links.some((l) => l.to), 5000); await sleep(200);
+    const all = { links: R.querySelectorAll('.nm-link').length, arrows: R.querySelectorAll('.nm-link .nm-arrow').length, toSelf: R.querySelectorAll('.nm-link.to-self').length, bare: [...R.querySelectorAll('.nm-link')].filter((g) => !g.querySelector('.nm-arrow')).length, foot: R.querySelector('.nm-foot').textContent };
+    m = await menu(R.querySelector('.pane-map .nm-canvas') ?? R.querySelector('.pane-map')); m.querySelector('[data-id="custom:links:toSelf"]').click(); await until(() => map.topology.links.some((l) => l.to), 5000);
+    m = await menu(R.querySelector('.pane-map .nm-canvas') ?? R.querySelector('.pane-map')); m.querySelector('[data-id="custom:autoSelf"]').click(); await until(() => R.querySelector('.nm-node.self')?.dataset.node === 'host:192.168.0.42', 5000);
+    return { first, ids, moved, all, back: R.querySelector('.nm-node.self').dataset.node };`);
+  assert(r.first.self === 'host:192.168.0.42' && /내 PC|This PC/.test(r.first.label), `this PC: ${JSON.stringify(r.first)}`);
+  assert(r.first.links > 0 && r.first.arrows === r.first.links && /192\.168\.0\.42/.test(r.first.foot), `lines to this PC: ${JSON.stringify(r.first)}`);
+  assert(['custom:setSelf', 'custom:links:toSelf', 'custom:links:all'].every((id) => r.ids.includes(id)), `menu: ${r.ids}`);
+  assert(r.moved.self === 'host:192.168.0.23' && r.moved.toOld === 0, `another host as this PC: ${JSON.stringify(r.moved)}`);
+  assert(r.all.links > r.first.links && r.all.arrows >= r.all.links && r.all.bare === 0 && r.all.toSelf > 0 && r.all.toSelf < r.all.links && /→/.test(r.all.foot), `all traffic, source → destination: ${JSON.stringify(r.all)}`);
+  assert(r.back === 'host:192.168.0.42', 'found from the traffic again');
+});
+
 test('map.clickReal', 'A real mouse click on a map node filters the packet list', async () => {
   await openSample('mixed-office-lan');
   await run(`A.actions.updateSettings({ showNetMap: true }); await until(() => qa('.nm-node').length > 5); A.view().map.fit(); await sleep(200); return true;`);
@@ -1040,18 +1062,18 @@ test('filter.presetsEach', 'Each preset button (real click) shows exactly its pa
       if (!r.count) continue;
       // The office LAN sample when it has the packets (fewer tabs), else a sample where the filter keeps only some.
       const partial = r.count < doc.count;
-      if (!best || id === 'mixed-office-lan' || (best.id !== 'mixed-office-lan' && partial && (!best.partial || r.count > best.count))) best = { id, count: r.count, total: doc.count, partial };
+      if (!best || id === 'mixed-office-lan' || (best.id !== 'mixed-office-lan' && partial && (!best.partial || r.count > best.count))) best = { id, count: r.count, total: doc.count, partial, frames: [...doc.displayed] };
     }
     if (!best) continue; // TLS 1.0 / 1.1: no sample has them (presets-all.test.mjs)
     if (!plan.has(best.id)) plan.set(best.id, []);
-    plan.get(best.id).push({ filter, count: best.count, total: best.total });
+    plan.get(best.id).push({ filter, count: best.count, total: best.total, frames: best.frames });
   }
   const failures = [];
   let pressed = 0;
   for (const [id, list] of plan) {
     await openSample(id);
     await run(`A.actions.updateSettings({ showNetMap: true }); await A.actions.applyDisplayFilter(''); A.view().setFilterText(''); await until(() => A.view().root.querySelectorAll('.nm-node').length > 0, 8000).catch(() => {}); await sleep(200); return true;`);
-    for (const { filter, count, total } of list) {
+    for (const { filter, count, total, frames } of list) {
       const sel = JSON.stringify(`[data-df-preset=${JSON.stringify(filter)}]`);
       const box = await E(`(() => { const b = window.__mynetmanager.view().root.querySelector(${sel}); if (!b) return null; b.scrollIntoView({ block: 'nearest' }); const r = b.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
       if (!box) { failures.push(`${id}: no button for ${filter}`); continue; }
@@ -1060,9 +1082,14 @@ test('filter.presetsEach', 'Each preset button (real click) shows exactly its pa
       const r = await run(`const d = A.doc(); await until(() => d.filterText === ${JSON.stringify(filter)} && !d.busy, 15000); await sleep(150); const R = A.view().root;
         const rows = [...R.querySelectorAll('.pl-row')]; const wrongRows = rows.filter((row) => d.displayed[Number(row.dataset.row)] !== Number(row.dataset.index)).length;
         const status = document.querySelector('#statusbar')?.textContent ?? ''; const foot = R.querySelector('.nm-foot')?.textContent ?? '';
-        return { shown: d.displayed.length, rows: rows.length, wrongRows, status, foot, nodes: R.querySelectorAll('.nm-node').length, on: [...R.querySelectorAll('[data-df-preset].on:not(.preset-switch):not(.preset-all)')].map((b) => b.dataset.dfPreset) };`);
+        return { displayed: d.displayed.length < 5000 ? [...d.displayed] : [], shown: d.displayed.length, rows: rows.length, wrongRows, status, foot, nodes: R.querySelectorAll('.nm-node').length, on: [...R.querySelectorAll('[data-df-preset].on:not(.preset-switch):not(.preset-all)')].map((b) => b.dataset.dfPreset) };`);
       const why = [];
-      if (r.shown !== count) why.push(`${r.shown} packets shown, expected ${count}`);
+      if (r.shown !== count) {
+        // Name the frames that differ, so a mismatch points at a packet.
+        const want = new Set(frames), got = new Set(r.displayed);
+        const extra = r.displayed.filter((i) => !want.has(i)).slice(0, 5).map((i) => i + 1), missing = frames.filter((i) => !got.has(i)).slice(0, 5).map((i) => i + 1);
+        why.push(`${r.shown} packets shown, expected ${count} (extra: ${extra.join(',') || '-'}; missing: ${missing.join(',') || '-'})`);
+      }
       if (!r.rows || r.wrongRows) why.push(`${r.wrongRows} of ${r.rows} list rows are not the filtered packets`);
       if (!r.status.includes(String(count))) why.push(`status bar lacks ${count}`);
       if (r.on.length !== 1 || r.on[0] !== filter) why.push(`pressed buttons: ${r.on.join(' | ')}`);

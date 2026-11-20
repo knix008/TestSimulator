@@ -485,4 +485,13 @@ export default {
   'textMenu.paste': "붙여넣기",
   'textMenu.delete': "삭제",
   'textMenu.selectAll': "모두 선택",
+  'netmap.thisPc': "내 PC",
+  'netmap.linksToSelf': "선: 내 PC로 오는 트래픽만",
+  'netmap.linksAll': "선: 모든 트래픽",
+  'netmap.setSelf': "이 호스트를 \"내 PC\"로",
+  'netmap.autoSelf': "\"내 PC\"를 트래픽으로 찾기",
+  'netmap.selfSet': "{ip}을(를) 맵의 \"내 PC\"로 정했습니다",
+  'netmap.toSelfHint': "선: 내 PC({ip})로 오는 트래픽",
+  'netmap.noSelf': "내 PC로 오는 트래픽이 없습니다 — 호스트를 오른쪽 클릭해 정하세요",
+  'netmap.allHint': "선: 출발지 → 목적지 · 내 PC({ip})로 오는 선은 강조",
 };

@@ -789,11 +789,20 @@ function refreshMap({ keepPlaces = false } = {}) {
     const step = Math.max(1, Math.floor(doc.passed / 20000));
     const indices = [];
     for (let i = 0; i < doc.passed; i += step) indices.push(i);
-    const topology = buildTopology(doc.frames, doc.summaries, (i) => doc.dissectOnce(i), { showExternal: s.netmapShowExternal, showMulticast: s.netmapShowMulticast, indices });
+    // Lines: every source → destination (default), or only the traffic that comes to this PC (settings.netmapLinks), with this PC
+    // chosen on the map, else the live capture interface's own addresses, else found from the traffic.
+    const topology = buildTopology(doc.frames, doc.summaries, (i) => doc.dissectOnce(i), { showExternal: s.netmapShowExternal, showMulticast: s.netmapShowMulticast, indices, links: s.netmapLinks ?? 'all', self: selfAddresses(doc) });
     topology.sampled = step > 1;
     doc.topology = topology;
     if (doc === activeDoc()) { state.view?.map.setTopology(topology, { keepPlaces }); updateMapMatch(doc); }
   }, keepPlaces ? 600 : 30);
+}
+
+/** This PC's addresses for the map: picked on the map, else those of the live capture interface; null: from the traffic. */
+function selfAddresses(doc) {
+  if (doc.selfIps?.length) return doc.selfIps;
+  const own = (doc.iface?.addresses ?? []).map((a) => String(a).split('/')[0]).filter((a) => a && doc.iface?.kind !== 'demo' && !/^fe80/i.test(a));
+  return own.length ? own : null;
 }
 
 /** A display filter is on: the map draws only the hosts and links its packets touch strong, the rest faded. */
@@ -2263,7 +2272,7 @@ function applySettings(previous = {}) {
   if (s.theme !== previous.theme && previous.theme) notify('info', t('notice.theme', { name: themeName(s.theme, getLanguage()) }));
   if (s.theme !== previous.theme || s.customTheme !== previous.customTheme) for (const doc of state.docs) doc.setColoring(themedColoring(doc));
   if (s.showNetMap && !previous.showNetMap) setTimeout(() => refreshMap(), 50);
-  if (['netmapShowExternal', 'netmapShowMulticast'].some((key) => s[key] !== previous[key])) refreshMap();
+  if (['netmapShowExternal', 'netmapShowMulticast', 'netmapLinks'].some((key) => s[key] !== previous[key])) refreshMap();
   renderAll();
   updateMinimumWidth();
 }
@@ -2489,6 +2498,11 @@ function panelMenu(which, anchor, payload) {
       { separator: true },
       ...['name', 'ip', 'mac'].map((m) => ({ id: `custom:labels:${m}`, label: `${t('netmap.labels')}: ${t(`netmap.labels.${m}`)}`, icon: 'tag', checked: s.netmapLabels === m })),
       { separator: true },
+      { id: 'custom:links:toSelf', label: t('netmap.linksToSelf'), icon: 'link', checked: s.netmapLinks === 'toSelf' },
+      { id: 'custom:links:all', label: t('netmap.linksAll'), icon: 'link', checked: (s.netmapLinks ?? 'all') === 'all' },
+      ...(payload.type === 'node' && item?.ip && item.kind !== 'external' && item.kind !== 'internet' && !item.self ? [{ id: 'custom:setSelf', label: t('netmap.setSelf'), icon: 'netHost' }] : []),
+      ...(activeDoc()?.selfIps?.length ? [{ id: 'custom:autoSelf', label: t('netmap.autoSelf'), icon: 'refresh' }] : []),
+      { separator: true },
       { id: 'custom:external', label: t('netmap.showExternal'), icon: 'netCloud', checked: s.netmapShowExternal },
       { id: 'custom:multicast', label: t('netmap.showMulticast'), icon: 'netMulticast', checked: s.netmapShowMulticast },
       { separator: true },
@@ -2509,6 +2523,10 @@ function panelMenu(which, anchor, payload) {
       ...Object.fromEntries(['name', 'ip', 'mac'].map((m) => [`custom:labels:${m}`, () => { updateSettings({ netmapLabels: m }, { quiet: true }); map.render(); }])),
       'custom:external': () => updateSettings({ netmapShowExternal: !s.netmapShowExternal }),
       'custom:multicast': () => updateSettings({ netmapShowMulticast: !s.netmapShowMulticast }),
+      'custom:links:toSelf': () => updateSettings({ netmapLinks: 'toSelf' }),
+      'custom:links:all': () => updateSettings({ netmapLinks: 'all' }),
+      'custom:setSelf': () => { const doc = activeDoc(); if (doc) { doc.selfIps = [item.ip]; refreshMap({ keepPlaces: true }); notify('info', t('netmap.selfSet', { ip: item.ip })); } },
+      'custom:autoSelf': () => { const doc = activeDoc(); if (doc) { doc.selfIps = null; refreshMap({ keepPlaces: true }); } },
       'custom:fit': () => map.fit(),
       'custom:refresh': () => refreshMap(),
       ...Object.fromEntries(IMAGE_FORMATS.map(([id]) => [`custom:image:${id}`, () => exportMap({ format: id, transparent: Boolean(s.imageTransparent) })])),

@@ -468,3 +468,15 @@ html[data-mode="dark"] .follow-text .dir-1 { color: #b3cdff; background: #14233f
 .bottom-tab .icon, .bottom-tab .nav-count, .bottom-report .icon { flex: 0 0 auto; }
 .bottom-tab-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bottom-report { flex-shrink: 2; }
+
+/* Network map: arrowheads of the lines to this PC, and this PC's own node. */
+.nm-link .nm-arrow { fill: color-mix(in srgb, var(--muted) 80%, transparent); transition: fill 0.12s; }
+.nm-link:hover .nm-arrow, .nm-link.selected .nm-arrow, .nm-link.match .nm-arrow { fill: var(--accent); }
+.nm-link.dim .nm-arrow { opacity: 0.25; }
+.nm-node.self .nm-dot { stroke: var(--accent); stroke-width: 3.5px; }
+.nm-node.self .nm-halo { fill: color-mix(in srgb, var(--accent) 18%, transparent); }
+.nm-node.self .nm-label { font-weight: 700; }
+
+/* Network map: the lines that carry traffic to this PC stand out. */
+.nm-link.to-self .nm-line { stroke: color-mix(in srgb, var(--accent) 70%, var(--muted)); }
+.nm-link.to-self .nm-arrow { fill: color-mix(in srgb, var(--accent) 80%, transparent); }

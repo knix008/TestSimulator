@@ -83,6 +83,10 @@ export class CaptureDoc {
         last = performance.now();
       }
     }
+    // Frames dissected while the pass ran (the first rows, the selected packet) took their _ws.col columns
+    // from the first-pass summary; with every frame known the summary can differ (a ClientHello becomes
+    // TLSv1.3 once its ServerHello is seen), so the cached ones take the final columns.
+    if (!this.live && typeof this.session.summarize === 'function') for (const [index, d] of this.cache) this.withColumns(index, d);
     onProgress?.(this.passed, frames.length);
   }
 

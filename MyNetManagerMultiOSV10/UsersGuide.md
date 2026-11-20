@@ -681,6 +681,17 @@ Word에서 열림), **Markdown**, **PDF**, **Word**(.docx, 표는 Word 표로), 
 호스트, 라우터/게이트웨이, 서버, 프린터, IP 전화, IoT 장치, 외부 호스트, 멀티캐스트 묶음과 그 사이의 연결
 (트래픽에 따라 굵기가 다름).
 
+- **연결선은 출발지와 목적지를 잇습니다**(기본). 내 PC로 오는 것, 내 PC가 보내는 것, 다른 장치끼리 주고받는 것
+  모두 선이 되고, 화살표는 받는 쪽(목적지)을 가리킵니다(양쪽으로 주고받으면 양 끝에 화살표). 바깥 망과의
+  트래픽은 PC → 라우터(게이트웨이) → 외부 호스트처럼 라우터를 거쳐 이어집니다. 내 PC로 오는 트래픽이 지나는
+  선은 강조색이고, 내 PC 노드에는 **· 내 PC**가 붙습니다.
+- **내 PC**는 맵에서 고른 호스트, 없으면 실시간 캡처 중인 인터페이스의 주소, 그것도 없으면 트래픽에서 찾습니다
+  (가장 많은 상대와 주고받은 로컬 주소). 호스트를 오른쪽 클릭해 **이 호스트를 "내 PC"로**, 배경을 오른쪽
+  클릭해 **"내 PC"를 트래픽으로 찾기**로 되돌립니다.
+- 오른쪽 클릭 메뉴의 **선: 내 PC로 오는 트래픽만**은 내 PC로 오는 선만 남기고(나머지 장치는 노드로만),
+  **선: 모든 트래픽**으로 돌아옵니다. 어느 쪽이든 패킷 목록에는 모든 패킷이 그대로 있고, 선을 클릭하면 그
+  선의 패킷만 남습니다.
+
 ![네트워크 맵](doc/images/ko/35-network-map.png)
 
 - **배치**: **서브넷별**(게이트웨이 둘레에 서브넷별로 묶음), **힘 기반**, **방사형**.
@@ -1580,6 +1591,17 @@ export to the other formats), then press **Export…**.
 The **Network Map** (toolbar button, Ctrl+Shift+N, or the right panel button) draws the structure of the network found
 in the traffic: hosts, routers / gateways, servers, printers, IP phones, IoT devices, external hosts and multicast
 groups, and the links between them, sized by traffic.
+
+- **Lines join each source to its destination** (the default): traffic to this PC, from it and between other devices
+  all draw lines, with an arrow at the receiving end (both ends when traffic goes both ways). Traffic with the outside
+  runs through the router: PC → router (gateway) → external host. Lines that carry traffic to this PC are highlighted,
+  and this PC's node is marked **· This PC**.
+- **This PC** is the host chosen on the map, else the addresses of the interface being captured live, else it is found
+  from the traffic (the local address with the most peers). Right-click a host for **Make This Host "This PC"**, or
+  the background for **Find "This PC" from the Traffic** to go back.
+- **Lines: only traffic to this PC** in the right-click menu keeps only the lines to this PC (other devices stay as
+  nodes); **Lines: all traffic** comes back. Either way the packet list keeps every packet; clicking a line keeps only
+  that line's packets.
 
 ![The network map](doc/images/en/35-network-map.png)
 

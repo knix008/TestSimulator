@@ -485,4 +485,13 @@ export default {
   'textMenu.paste': "Paste",
   'textMenu.delete': "Delete",
   'textMenu.selectAll': "Select All",
+  'netmap.thisPc': "This PC",
+  'netmap.linksToSelf': "Lines: only traffic to this PC",
+  'netmap.linksAll': "Lines: all traffic",
+  'netmap.setSelf': "Make This Host \"This PC\"",
+  'netmap.autoSelf': "Find \"This PC\" from the Traffic",
+  'netmap.selfSet': "{ip} is \"This PC\" on the map",
+  'netmap.toSelfHint': "Lines: traffic to this PC ({ip})",
+  'netmap.noSelf': "No traffic to this PC: right-click a host to choose it",
+  'netmap.allHint': "Lines: source → destination · lines to this PC ({ip}) highlighted",
 };

@@ -68,10 +68,16 @@ const SERVICE_ROLES = {
 
 /**
  * Builds the map. `getDissection(index)` returns a full dissection (fields map).
- * options: { showExternal = true, showMulticast = false, maxExternal = 40, indices = null (all frames) }
+ * options: { showExternal = true, showMulticast = false, maxExternal = 40, indices = null (all frames),
+ *            links = 'all' | 'toSelf', self = [ip …] | null }
+ * links 'toSelf' (the program's map): lines only for traffic whose destination is this PC — `self`, or when
+ * that is not given the local address with the most peers (the capturing computer is in most conversations).
+ * What this PC sends elsewhere and traffic between other machines draw no line; their hosts stay as nodes.
+ * Lines then point at this PC (link.from → link.to); traffic from outside goes external → router → this PC.
  */
 export function buildTopology(frames, summaries, getDissection, options = {}) {
-  const { showExternal = true, showMulticast = false, maxExternal = 40, indices = null } = options;
+  const { showExternal = true, showMulticast = false, maxExternal = 40, indices = null, links: linkMode = 'all', self = null } = options;
+  const directed = new Map(); // "src>dst" → { src, dst, packets, bytes, protocols, viaMacs, arp? } (links 'toSelf')
   const hosts = new Map(); // ip → host record
   const macs = new Map(); // mac → { ips:Set, offLink:Set, packets, bytes, names:Set, vendor }
   const pairs = new Map(); // "a|b" → { a, b, packets, bytes, protocols:Map, viaMac }
@@ -144,6 +150,7 @@ export function buildTopology(frames, summaries, getDissection, options = {}) {
         pair.packets += 1;
         pair.bytes += length;
         pair.protocols.set(proto, (pair.protocols.get(proto) ?? 0) + 1);
+        countDirected(directed, arpIp, target, length, proto, null, null, true);
       }
     }
 
@@ -204,6 +211,7 @@ export function buildTopology(frames, summaries, getDissection, options = {}) {
     // The MAC on the local side of an off-link packet is the gateway.
     if (!isLocalAddress(ipSrc) && ethSrc) pair.viaMacs.add(ethSrc);
     if (!isLocalAddress(ipDst) && ethDst && !isGroupMac(ethDst)) pair.viaMacs.add(ethDst);
+    countDirected(directed, ipSrc, ipDst, length, proto, !isLocalAddress(ipSrc) ? ethSrc : null, !isLocalAddress(ipDst) && !isGroupMac(ethDst) ? ethDst : null, false);
   }
 
   // Routers: MACs that carry two or more off-link addresses, that announced themselves (RA), or that a
@@ -279,6 +287,23 @@ export function buildTopology(frames, summaries, getDissection, options = {}) {
     }
   }
 
+  // This PC: given, or the local unicast address with the most distinct peers (then the most packets).
+  let selfIps = (self ?? []).filter(Boolean).map(String);
+  if (!selfIps.length) {
+    const peers = new Map();
+    for (const pair of [...pairs.values(), ...arpPairs.values()]) {
+      for (const [me, other] of [[pair.a, pair.b], [pair.b, pair.a]]) {
+        if (!isLocalAddress(me) || isGroupAddress(me) || isUnspecified(me) || isGroupAddress(other) || routerOfIp.has(me)) continue;
+        if (!peers.has(me)) peers.set(me, new Set());
+        peers.get(me).add(other);
+      }
+    }
+    const best = [...peers.entries()].sort((x, y) => y[1].size - x[1].size || (hosts.get(y[0])?.packets ?? 0) - (hosts.get(x[0])?.packets ?? 0))[0];
+    selfIps = best ? [best[0]] : [];
+  }
+  const selfSet = new Set(selfIps);
+  for (const node of nodes) if ((node.ip && selfSet.has(node.ip)) || (node.ips ?? []).some((ip) => selfSet.has(ip))) node.self = true;
+
   const nodeOfIp = (ip) => routerOfIp.get(ip) ?? nodeById.get(`host:${ip}`) ?? nodeById.get(`ext:${ip}`) ?? nodeById.get(`group:${ip}`) ?? (internet && internet.members.includes(ip) ? internet : null);
   const linkMap = new Map();
   // What each address pair / MAC / address lands on in the drawing: the filter highlight (matchTopology).
@@ -288,7 +313,7 @@ export function buildTopology(frames, summaries, getDissection, options = {}) {
     if (!pairHits.has(key)) pairHits.set(key, { nodes: new Set(), links: new Set() });
     return pairHits.get(key);
   };
-  const addLink = (from, to, pair, filter) => {
+  const addLink = (from, to, pair, filter, directedLink = false) => {
     if (from) hitsOf(pair).nodes.add(from.id);
     if (to) hitsOf(pair).nodes.add(to.id);
     if (!from || !to || from === to) return;
@@ -296,12 +321,29 @@ export function buildTopology(frames, summaries, getDissection, options = {}) {
     hitsOf(pair).links.add(key);
     let link = linkMap.get(key);
     if (!link) { link = { id: key, source: from.id, target: to.id, packets: 0, bytes: 0, protocols: new Map(), filters: new Set() }; linkMap.set(key, link); }
+    if (directedLink) { link.from = from.id; link.to = to.id; }
     link.packets += pair.packets;
     link.bytes += pair.bytes;
     for (const [p, n] of pair.protocols) link.protocols.set(p, (link.protocols.get(p) ?? 0) + n);
     if (filter) link.filters.add(filter);
   };
-  for (const pair of pairs.values()) {
+  if (linkMode === 'toSelf') {
+    // Only what arrives at this PC: one line per sender (through the router for outside senders), pointing at it.
+    for (const rec of directed.values()) {
+      if (!selfSet.has(rec.dst) || selfSet.has(rec.src)) continue;
+      const me = nodeOfIp(rec.dst);
+      const from = nodeOfIp(rec.src);
+      const pair = rec.src < rec.dst ? { a: rec.src, b: rec.dst, packets: rec.packets, bytes: rec.bytes, protocols: rec.protocols } : { a: rec.dst, b: rec.src, packets: rec.packets, bytes: rec.bytes, protocols: rec.protocols };
+      if (rec.arp) { addLink(from, me, pair, `arp.src.proto_ipv4 == ${rec.src} && arp.dst.proto_ipv4 == ${rec.dst}`, true); continue; }
+      const toMe = `${v(rec.src)}.src == ${rec.src} && ${v(rec.dst)}.dst == ${rec.dst}`;
+      const via = !isLocalAddress(rec.src) ? [...rec.viaMacs].map((mac) => nodeById.get(`router:${mac}`)).find(Boolean) : null;
+      if (via) {
+        if (from) addLink(from, via, pair, toMe, true);
+        addLink(via, me, pair, `${toMe} && eth.src == ${via.mac}`, true);
+      } else addLink(from, me, pair, toMe, true);
+    }
+  }
+  for (const pair of linkMode === 'toSelf' ? [] : pairs.values()) {
     const a = nodeOfIp(pair.a);
     const b = nodeOfIp(pair.b);
     const aLocal = isLocalAddress(pair.a);
@@ -320,14 +362,31 @@ export function buildTopology(frames, summaries, getDissection, options = {}) {
       addLink(a, b, pair, both);
     }
   }
-  for (const pair of arpPairs.values()) {
+  for (const pair of linkMode === 'toSelf' ? [] : arpPairs.values()) {
     const a = nodeOfIp(pair.a);
     const b = nodeOfIp(pair.b);
     addLink(a, b, pair, `arp.src.proto_ipv4 == ${pair.a} && arp.dst.proto_ipv4 == ${pair.b} || arp.src.proto_ipv4 == ${pair.b} && arp.dst.proto_ipv4 == ${pair.a}`);
   }
+  // Every line: arrowheads at the end(s) that receive traffic, from source to destination along the drawn path
+  // (through the router for off-link traffic); lines that carry traffic to this PC are marked.
+  const linkOf = (p, q) => (p && q && p !== q ? linkMap.get(p.id < q.id ? `${p.id}|${q.id}` : `${q.id}|${p.id}`) : null);
+  for (const rec of directed.values()) {
+    const from = nodeOfIp(rec.src);
+    const to = nodeOfIp(rec.dst);
+    const router = (macsOf) => [...(macsOf ?? [])].map((mac) => nodeById.get(`router:${mac}`)).find(Boolean);
+    const via = rec.arp ? null : !isLocalAddress(rec.src) ? router(rec.viaMacs) : !isLocalAddress(rec.dst) ? router(rec.outMacs) : null;
+    const path = via && via !== from && via !== to ? [from, via, to] : [from, to];
+    for (let k = 0; k + 1 < path.length; k++) {
+      const link = linkOf(path[k], path[k + 1]);
+      if (!link) continue;
+      (link.into ??= new Set()).add(path[k + 1].id);
+      if (selfSet.has(rec.dst)) link.toSelf = true;
+    }
+  }
   const links = [...linkMap.values()].map((link) => {
+    if (link.to) { link.into = new Set([link.to]); link.toSelf = true; }
     const filters = [...link.filters];
-    return { ...link, protocols: topProtocols(link.protocols), filter: filters.length === 1 ? filters[0] : filters.slice(0, 30).map((f) => `(${f})`).join(' || ') };
+    return { ...link, into: link.into ? [...link.into] : [], protocols: topProtocols(link.protocols), filter: filters.length === 1 ? filters[0] : filters.slice(0, 30).map((f) => `(${f})`).join(' || ') };
   });
 
   // Subnets: the local hosts and routers grouped by /24 or /64.
@@ -355,10 +414,23 @@ export function buildTopology(frames, summaries, getDissection, options = {}) {
   }
 
   return {
-    nodes, links, subnets,
+    nodes, links, subnets, linkMode, self: selfIps, selfGiven: Boolean(self?.length),
     lookup: { pairs: pairHits, macs: macHits, ips: ipHits },
     stats:{ packets: totalPackets, bytes: totalBytes, nonIp, hosts: localHosts.length, routers: routerMacs.size, external: externals.length, hiddenExternal: hiddenExternal.length },
   };
+}
+
+/** Traffic from `src` to `dst` (for the 'toSelf' lines): packets, bytes, protocols, the router MAC it came through. */
+function countDirected(map, src, dst, length, proto, viaMac, outMac, arp) {
+  if (!src || !dst) return;
+  const key = `${arp ? 'arp:' : ''}${src}>${dst}`;
+  let rec = map.get(key);
+  if (!rec) { rec = { src, dst, packets: 0, bytes: 0, protocols: new Map(), viaMacs: new Set(), arp }; map.set(key, rec); }
+  rec.packets += 1;
+  rec.bytes += length;
+  rec.protocols.set(proto, (rec.protocols.get(proto) ?? 0) + 1);
+  if (viaMac && !isGroupMac(viaMac)) rec.viaMacs.add(viaMac);
+  if (outMac) (rec.outMacs ??= new Set()).add(outMac);
 }
 
 /** The address fields matchTopology looks at, in the order getEnds(index) returns their values (CaptureDoc.endsOf). */
