@@ -4,6 +4,7 @@
 // content is split into tabs or pages, and each item takes one line.
 // The network analysis popups (capture options, statistics, follow stream …) live in popups-net.js.
 import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import appIcon from '../assets/icon-256.png';
 import { loadRecent, loadRecentDirs, MAX_RECENT, removeRecent, storeRecent, storeRecentDirs } from './domain/recent.js';
 import {
@@ -21,6 +22,7 @@ import {
 import { bindSteppers, stepperHtml } from './stepper.js';
 import { intervalLabel } from './ui/startpage.js';
 import { installNetPopups } from './popups-net.js';
+import { savedRange, textCommand, textState, textTarget } from './ui/textmenu.js';
 
 const desktop = native.isDesktop();
 const appWindow = desktop ? getCurrentWindow() : null;
@@ -1027,9 +1029,19 @@ document.addEventListener('keydown', (event) => {
     }
   }
 });
+// Right-click: never the web view's own menu (it follows Windows' theme, not the program's). In a text box the
+// main window shows the app's text menu for it (app.js popupTextMenu) and sends the chosen command back.
+let textMenuTarget = null;
+let textMenuRange = null;
 document.addEventListener('contextmenu', (event) => {
-  if (!event.target.closest('textarea, input')) event.preventDefault();
+  event.preventDefault();
+  const el = textTarget(event.target);
+  if (!el || kind === 'menu') return;
+  textMenuTarget = el;
+  textMenuRange = savedRange(el);
+  action('text-menu', { x: event.screenX, y: event.screenY, state: textState(el) });
 });
+const popupClipboard = { write: (text) => native.clipboardWrite(text), read: () => native.clipboardRead().catch(() => '') };
 
 /**
  * The main window (undecorated) can take the activation back by itself right after a dropdown got it.
@@ -1109,6 +1121,14 @@ function onHostMessage(message) {
     /* handled by the network popups */
   } else if (message?.type === 'refresh') {
     refresh();
+  } else if (message?.type === 'text-command') {
+    // The popup may have redrawn meanwhile (a refresh, a settings change): the same box, found again.
+    let el = textMenuTarget;
+    if (el && !el.isConnected) {
+      const key = ['data-draft', 'data-net', 'data-bottom-query', 'data-net-sel', 'id', 'name'].find((a) => el.hasAttribute(a));
+      el = key ? root.querySelector(`${el.tagName.toLowerCase()}[${key}="${CSS.escape(el.getAttribute(key))}"]`) : root.querySelector(el.tagName.toLowerCase());
+    }
+    textCommand(el, message.id, popupClipboard, textMenuRange);
   }
 }
 
@@ -1137,8 +1157,12 @@ function refresh() {
 }
 
 if (desktop) {
-  native.listen('popup-message', onHostMessage);
-  native.listen('popup-refresh', () => refresh());
+  // Only this popup's own events: the main window sends them to "popup-<kind>" (emit_to / emitTo), but a
+  // global listen would hear every popup's — opening the context menu then reset an open dialog (refresh
+  // drops what was typed) and one popup's results reached the others.
+  const own = getCurrentWebviewWindow();
+  own.listen('popup-message', (event) => onHostMessage(event.payload));
+  own.listen('popup-refresh', (event) => { if (event.payload == null || event.payload === kind) refresh(); });
   if (kind === 'progress') {
     native.listen('io-progress', (progress) => {
       if (progress.op !== state.params.op) return;

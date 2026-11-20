@@ -478,4 +478,11 @@ export default {
   'image.transparentTip': "PNG, WebP, GIF, AVIF, SVG는 배경을 투명하게 저장합니다. JPEG는 투명을 지원하지 않아 항상 배경이 들어갑니다.",
   'image.transparentOn': "그림을 투명한 배경으로 저장합니다 (PNG, WebP, GIF, AVIF, SVG)",
   'image.transparentOff': "그림을 배경과 함께 저장합니다",
+  'textMenu.title': "텍스트",
+  'textMenu.undo': "실행 취소",
+  'textMenu.cut': "잘라내기",
+  'textMenu.copy': "복사",
+  'textMenu.paste': "붙여넣기",
+  'textMenu.delete': "삭제",
+  'textMenu.selectAll': "모두 선택",
 };

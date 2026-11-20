@@ -478,4 +478,11 @@ export default {
   'image.transparentTip': "PNG, WebP, GIF, AVIF and SVG keep the background transparent; JPEG cannot and always gets it.",
   'image.transparentOn': "Pictures are saved with a transparent background (PNG, WebP, GIF, AVIF, SVG)",
   'image.transparentOff': "Pictures are saved with the background",
+  'textMenu.title': "Text",
+  'textMenu.undo': "Undo",
+  'textMenu.cut': "Cut",
+  'textMenu.copy': "Copy",
+  'textMenu.paste': "Paste",
+  'textMenu.delete': "Delete",
+  'textMenu.selectAll': "Select All",
 };

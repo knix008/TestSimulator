@@ -25,6 +25,7 @@ import {
   ANIMATIONS, COLORING_KEY, DEFAULT_COLUMNS, loadSettings, normalizeSettings, pushRecentFilter, SESSION_KEY, storeSettings, TIME_FORMATS, zoomStep,
 } from './domain/settings.js';
 import { parseKeyLog } from './domain/dissect/proto/tls-decrypt.js';
+import { savedRange, textCommand, textMenuItems, textState, textTarget } from './ui/textmenu.js';
 import { buildProfile, LOCAL_SETTINGS, parseProfile, PROFILE_EXTENSION, profileText } from './domain/profile.js';
 import { DOC_KINDS, docLabel, docWindowTitle } from './domain/helpdocs.js';
 import { loadSavedFilters, storeSavedFilters } from './domain/filters-store.js';
@@ -2412,6 +2413,24 @@ function openMenubarMenu(name) {
   showMenu(menuItems(MENUS[name]), anchorBelow(element), name);
 }
 
+const appClipboard = { write: (text) => native.clipboardWrite(text), read: () => native.clipboardRead().catch(() => '') };
+
+/** Text boxes of the main window: the app's own Undo / Cut / Copy / Paste / Delete / Select All menu. */
+function textMenu(anchor, el) {
+  const items = textMenuItems(t, textState(el));
+  const saved = savedRange(el);
+  const handlers = Object.fromEntries(items.filter((i) => i.id).map((i) => [i.id, () => textCommand(el, i.id, appClipboard, saved)]));
+  return showMenu(items, anchor, 'context', { handlers, header: { icon: 'edit', title: t('textMenu.title') } });
+}
+
+/** The same menu for a text box in a popup window: the popup runs the chosen command itself. */
+function popupTextMenu(data, kind) {
+  const items = textMenuItems(t, data.state ?? {});
+  const anchor = { x: Math.round(data.x) + 1, y: Math.round(data.y) + 1, flipY: Math.round(data.y) };
+  const handlers = Object.fromEntries(items.filter((i) => i.id).map((i) => [i.id, () => popups.post(kind, { type: 'text-command', id: i.id })]));
+  return showMenu(items, anchor, 'context', { handlers, header: { icon: 'edit', title: t('textMenu.title') } });
+}
+
 /** A filter from a panel: the same choices as Apply / Prepare as Filter, plus copying it. */
 function filterChoices(filter, label = filter) {
   if (!filter) return { items: [], handlers: {} };
@@ -2570,6 +2589,7 @@ function contextMenu(event, kind, payload = {}) {
     };
     return showMenu(items, anchor, 'context', { handlers, header: { icon: 'columns', title: t('context.columns') } });
   }
+  if (kind === 'text') return textMenu(anchor, payload.el);
   if (kind === 'navigator') return panelMenu('navigator', anchor, payload);
   if (kind === 'netmap') return panelMenu('netmap', anchor, payload);
   if (kind === 'bottom') return panelMenu('bottom', anchor, payload);
@@ -2856,7 +2876,7 @@ function bindEvents() {
   });
   root.addEventListener('contextmenu', (event) => {
     // Side and bottom panels of a capture: a menu for the item under the pointer and the panel itself.
-    const pane = !event.target.closest('input, textarea, select') && event.target.closest('.pane-left, .pane-map, .pane-bottom');
+    const pane = !textTarget(event.target) && !event.target.closest('select') && event.target.closest('.pane-left, .pane-map, .pane-bottom');
     if (pane) {
       event.preventDefault();
       if (pane.classList.contains('pane-left')) {
@@ -2895,7 +2915,10 @@ function bindEvents() {
       contextMenu(event, 'start', {});
       return;
     }
-    if (!event.target.closest('input, textarea')) event.preventDefault();
+    // Text boxes: the app's menu (themed like the rest), not the web view's own.
+    const text = textTarget(event.target);
+    event.preventDefault();
+    if (text) contextMenu(event, 'text', { el: text });
   });
   if (desktop) {
     root.addEventListener('mousedown', (event) => {
@@ -2956,6 +2979,7 @@ function onKeyDown(event) {
 
 function bindPopupActions() {
   popups.on('error', (error) => showError('error.unexpected', error));
+  popups.on('text-menu', (data, kind) => popupTextMenu(data, kind));
   popups.on('report-error', (data) => showError(data.titleKey ?? 'error.unexpected', Object.assign(new Error(data.message), { stack: data.detail ?? '' }), data.context ?? ''));
   popups.on('choose-background', () => chooseBackground());
   popups.on('clear-background', () => removeBackground());

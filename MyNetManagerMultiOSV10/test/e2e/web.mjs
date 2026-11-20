@@ -603,6 +603,34 @@ test('map.exportTransparent', 'The network map saves as PNG, WebP, GIF, JPEG and
   assert(r.svgClear && r.svgSolid, 'SVG with and without its background rectangle');
 });
 
+test('chrome.textMenu', 'Text boxes get the app\'s themed edit menu (Undo, Cut, Copy, Paste, Delete, Select All), in the main window and in popups', async () => {
+  await openSample('dns-queries');
+  const r = await run(`window.__copied = []; let clip = 'pasted-text';
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: async (x) => { window.__copied.push(x); clip = x; }, readText: async () => clip }, configurable: true });
+    const R = A.view().root; const input = R.querySelector('.df-input');
+    A.view().setFilterText('dns.qry.name'); input.focus(); input.setSelectionRange(0, 3);
+    const menuAt = async (el, doc = document) => { const b = el.getBoundingClientRect(); const ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: b.x + 5, clientY: b.y + 5, screenX: window.screenX + b.x + 5, screenY: window.screenY + b.y + 5 }); el.dispatchEvent(ev); await until(() => pop('menu')?.querySelector('[data-id="custom:text:copy"]')); return { prevented: ev.defaultPrevented, ids: [...pop('menu').querySelectorAll('.menu-item')].map((x) => x.dataset.id), disabled: [...pop('menu').querySelectorAll('.menu-item[disabled], .menu-item.disabled, .menu-item[aria-disabled="true"]')].map((x) => x.dataset.id), theme: pop('menu').documentElement.dataset.theme }; };
+    const choose = async (id) => { pop('menu').querySelector('[data-id="' + id + '"]').click(); await sleep(250); };
+    const main = await menuAt(input); await choose('custom:text:copy'); const copied = window.__copied.at(-1);
+    await menuAt(input); await choose('custom:text:cut'); const afterCut = input.value;
+    input.setSelectionRange(input.value.length, input.value.length); await menuAt(input); await choose('custom:text:paste'); const afterPaste = input.value;
+    await menuAt(input); await choose('custom:text:selectAll'); const all = [input.selectionStart, input.selectionEnd, input.value.length];
+    // A popup's text area: the menu comes from the main window, the popup runs the command.
+    A.run('filterMacros'); await until(() => pop('prompt')?.querySelector('textarea')); const area = pop('prompt').querySelector('textarea'); area.value = 'abc'; area.setSelectionRange(3, 3); clip = 'XYZ'; Object.defineProperty(area.ownerDocument.defaultView.navigator, 'clipboard', { value: { writeText: async (x) => { clip = x; }, readText: async () => clip }, configurable: true });
+    const inPopup = await (async () => { const b = area.getBoundingClientRect(); const frame = document.querySelector('.web-popup-prompt iframe').getBoundingClientRect(); const ev = new (area.ownerDocument.defaultView.MouseEvent)('contextmenu', { bubbles: true, cancelable: true, clientX: b.x + 5, clientY: b.y + 5, screenX: window.screenX + frame.x + b.x + 5, screenY: window.screenY + frame.y + b.y + 5 }); area.dispatchEvent(ev); await until(() => pop('menu')?.querySelector('[data-id="custom:text:paste"]')); return ev.defaultPrevented; })();
+    await choose('custom:text:paste'); await sleep(200); const popupValue = pop('prompt').querySelector('textarea').value;
+    await A.popups.close('prompt'); A.view().setFilterText('');
+    return { main, copied, afterCut, afterPaste, all, inPopup, popupValue, mainTheme: document.documentElement.dataset.theme };`);
+  assert(r.main.prevented, 'the web view\'s own menu was not suppressed');
+  assert(['custom:text:undo', 'custom:text:cut', 'custom:text:copy', 'custom:text:paste', 'custom:text:delete', 'custom:text:selectAll'].every((id) => r.main.ids.includes(id)), `items: ${r.main.ids}`);
+  assert(r.main.theme === r.mainTheme, `menu theme ${r.main.theme}, window theme ${r.mainTheme}`);
+  assert(r.copied === 'dns', `copied "${r.copied}"`);
+  assert(r.afterCut === '.qry.name', `after Cut: "${r.afterCut}"`);
+  assert(r.afterPaste === '.qry.namedns', `after Paste: "${r.afterPaste}"`);
+  assert(r.all[0] === 0 && r.all[1] === r.all[2], `Select All: ${r.all}`);
+  assert(r.inPopup && r.popupValue === 'abcXYZ', `popup text area: ${r.inPopup} "${r.popupValue}"`);
+});
+
 test('stats.tcpGraph', 'TCP stream graphs draw every graph type', async () => {
   await openSample('tcp-retransmissions');
   const r = await run(`const d = A.doc(); A.actions.selectFrame(d, 4); A.run('tcpGraph'); await until(() => pop('chart')?.querySelector('svg circle, svg polyline, svg rect')); const doc = pop('chart');
