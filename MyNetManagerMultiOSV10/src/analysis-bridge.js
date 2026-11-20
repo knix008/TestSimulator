@@ -17,6 +17,7 @@ import {
 } from './domain/analysis/export.js';
 import { displayValue, formatTime } from './domain/capture/doc.js';
 import { parseRange } from './domain/analysis/ranges.js';
+import { packetBytesView } from './packet-bytes.js';
 import { dhcpStats, macBlocks, multicastStreams, rtpAnalysis, serviceResponseTime, sipStatistics, supportedProtocols } from './stats-more.js';
 
 export const hexDump = (data) => exportHexDump(data);
@@ -191,6 +192,7 @@ export function computeStat(kind, src, opts) {
     case 'rtpAnalysis': return rtpAnalysis(src, t);
     case 'macBlocks': return macBlocks(src, t);
     case 'protocols': return supportedProtocols(src, t);
+    case 'packetBytes': return packetBytesView(src.doc, opts, t);
     case 'objects': return objectsTable(src.doc, opts.objectKind ?? 'http', t);
     case 'follow': return follow(src, opts);
     default: return statsTable(kind, src, opts);

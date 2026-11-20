@@ -604,14 +604,19 @@ function renderProgress() {
   const p = P();
   const progress = state.progress ?? p.last ?? null;
   const percent = progress?.total ? Math.min(100, Math.round((progress.done / progress.total) * 100)) : null;
-  const bytes = progress && progress.total > 1000;
+  // Packet passes (display filter, dissection) count packets; file reads and writes count bytes.
+  const packets = (progress?.unit ?? p.unit) === 'packets';
+  const bytes = !packets && progress && progress.total > 1000;
+  const count = !progress ? t('progress.wait') : packets ? t('progress.packets', { done: progress.done.toLocaleString(), total: progress.total.toLocaleString() })
+    : bytes ? t('progress.bytes', { done: formatBytes(progress.done), total: formatBytes(progress.total) }) : t('progress.steps', { done: progress.done, total: progress.total });
   root.innerHTML = frame({
     glyph: 'hourglass', title: p.title ?? t('progress.wait'),
     body: `<div class="progress-view">
-      <div class="row">${icon('file')}<span class="path" title="${escapeHtml(p.name ?? '')}">${escapeHtml(p.name ?? '')}</span></div>
+      <div class="row">${icon(packets ? 'filterApply' : 'file')}<span class="path" title="${escapeHtml(p.name ?? '')}">${escapeHtml(p.name ?? '')}</span></div>
       <div data-scrolls class="progress-bar ${percent == null ? 'indeterminate' : ''}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent ?? 0}"><i style="width:${percent ?? 30}%"></i></div>
-      <div class="row muted"><span id="progress-text">${progress ? escapeHtml(bytes ? t('progress.bytes', { done: formatBytes(progress.done), total: formatBytes(progress.total) }) : t('progress.steps', { done: progress.done, total: progress.total })) : escapeHtml(t('progress.wait'))}</span><span class="grow"></span><b id="progress-percent">${percent == null ? '' : `${percent}%`}</b></div>
+      <div class="row muted"><span id="progress-text">${escapeHtml(count)}</span><span class="grow"></span><b id="progress-percent">${percent == null ? '' : `${percent}%`}</b></div>
     </div>`,
+    foot: p.cancellable ? `<span class="grow"></span>${button('progress-cancel', t('common.cancel'), 'close')}` : undefined,
   });
   ready();
 }
@@ -938,6 +943,8 @@ root.addEventListener('click', async (event) => {
     case 'close':
       if (kind === 'menu') return chooseMenu(null);
       if (kind === 'color') colorDone = true;
+      // Closing a filter's progress window cancels the filter (the window is the only sign it runs).
+      if (kind === 'progress' && P().cancellable) return close({ cancel: true });
       return close(kind === 'confirm' || kind === 'welcome' ? { choice: 'cancel' } : null);
     case 'tab': state.tab = value; return render();
     case 'tabs-scroll': return scrollPopupTabs(Number(value));
@@ -969,6 +976,7 @@ root.addEventListener('click', async (event) => {
     case 'edit-custom': pickerDone = true; await action('open-settings', { tab: 'appearance', themeGroup: 'custom' }); return close();
     case 'random-theme': { const all = [...LIGHT_THEMES, ...DARK_THEMES].map((theme) => theme.id).filter((id) => id !== s().theme); pickerDone = true; return close({ theme: all[Math.floor(Math.random() * all.length)] }); }
     case 'prompt-apply': return close({ value: d.value });
+    case 'progress-cancel': return close({ cancel: true });
     default: return net.click(target, event);
   }
 });
@@ -998,7 +1006,8 @@ document.addEventListener('keydown', (event) => {
     event.preventDefault();
     // A menu: Esc closes the innermost open submenu first.
     if (kind === 'menu') { if (!closeInnermostSubmenu()) chooseMenu(null); }
-    else if (kind !== 'progress') { if (kind === 'color') colorDone = true; close(kind === 'confirm' || kind === 'welcome' ? { choice: 'cancel' } : null); }
+    else if (kind === 'progress') { if (P().cancellable) close({ cancel: true }); }
+    else { if (kind === 'color') colorDone = true; close(kind === 'confirm' || kind === 'welcome' ? { choice: 'cancel' } : null); }
   }
   if (kind === 'menu') {
     if (event.key === 'ArrowDown') { event.preventDefault(); moveMenuFocus(1); }

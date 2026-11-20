@@ -76,13 +76,14 @@ export function installNetPopups(c) {
     packet: ['showPacketWindow', 'action.packetWindow'], firewall: ['protoLock', 'action.firewallRules'], credentials: ['protoLock', 'action.credentials'], sip: ['protoVoip', 'action.sipFlows'],
     rtp: ['protoVoip', 'action.rtpStreams'], wlan: ['ifWifi', 'action.wlanTraffic'],
     srt: ['clock', 'action.serviceResponseTime'], multicast: ['netCloud', 'action.multicastStreams'], dhcp: ['netHost', 'action.dhcpStats'], sipStats: ['protoVoip', 'action.sipStats'],
-    rtpAnalysis: ['protoVoip', 'action.rtpAnalysis'], macBlocks: ['netSwitch', 'action.macBlocks'], protocols: ['protocolHierarchy', 'action.supportedProtocols'],
+    packetBytes: ['paneBytes', 'action.showPacketBytes'], rtpAnalysis: ['protoVoip', 'action.rtpAnalysis'], macBlocks: ['netSwitch', 'action.macBlocks'], protocols: ['protocolHierarchy', 'action.supportedProtocols'],
   };
 
   function statOptions() {
     const p = P();
     const d = net.draft;
-    return { tab: d.tab, version: p.version, objectKind: p.objectKind, index: p.index, product: d.product, stream: d.stream };
+    return { tab: d.tab, version: p.version, objectKind: p.objectKind, index: p.index, product: d.product, stream: d.stream,
+      start: p.start, length: p.length, source: p.source, label: p.label, decodeAs: d.decodeAs, showAs: d.showAs };
   }
 
   function renderStats() {
@@ -130,8 +131,11 @@ export function installNetPopups(c) {
       return `<div class="net-props">${r.sections.map((sec) => `<section><h3 class="section-title">${icon(sec.icon ?? 'captureProperties')}${escapeHtml(sec.title)}</h3><dl>${sec.rows.map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd>`).join('')}</dl></section>`).join('')}</div>`;
     }
     if (r.view === 'text') {
-      const options = r.options ? `<div class="row net-text-opts">${segmented('net-product', r.options.map((o) => [o.id, o.label, 'protoLock']), r.option, 'data-net-seg')}</div>` : '';
-      return `${options}<pre class="net-text">${escapeHtml(r.text)}</pre>`;
+      const options = r.options ? `<div class="row net-text-opts">${segmented('product', r.options.map((o) => [o.id, o.label, 'protoLock']), r.option, 'data-net-seg')}</div>` : '';
+      // Rows of choices (Show Packet Bytes: Decode as, Show as), each sent back with the next request.
+      const choices = (r.choices ?? []).map((c) => `<div class="row net-text-opts net-choice" data-choice="${escapeHtml(c.key)}"><span class="muted net-choice-label">${escapeHtml(c.label)}</span>${segmented(c.key, c.options.map((o) => [o.id, o.label]), c.value, 'data-net-seg')}</div>`).join('');
+      const note = r.note && r.choices ? `<div class="muted net-note">${escapeHtml(r.note)}</div>` : '';
+      return `${options}${choices}${note}<pre class="net-text">${escapeHtml(r.text)}</pre>`;
     }
     if (r.view === 'packet') return `<div class="net-packet">${r.lines.map((line) => `<div class="dt-row" style="--depth:${line.depth}"><span class="dt-label">${escapeHtml(line.text)}</span></div>`).join('')}<pre class="net-text">${escapeHtml(r.hex)}</pre></div>`;
     return tableHtml(r);

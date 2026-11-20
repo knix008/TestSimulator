@@ -150,10 +150,41 @@ function loadColoring() {
 }
 
 /** Colouring rules with colours for the theme (a dark theme gets darker backgrounds). */
-function themedColoring() {
-  const rules = loadColoring();
+function themedColoring(doc = null) {
+  // View › Colorize Conversation rules of this capture come first, as in Wireshark.
+  const rules = [...(doc?.conversationColors ?? []), ...loadColoring()];
   const dark = resolveTheme(state.settings.theme, prefersDark(), state.settings.customTheme).dark;
   return dark ? darkColors(rules) : rules;
+}
+
+/** Wireshark's ten conversation colours (View › Colorize Conversation › Color 1 … 10). */
+const CONVERSATION_COLORS = ['#ffc0c0', '#ffc0ff', '#e0c0e0', '#c0c0ff', '#c0e0e0', '#c0ffff', '#c0ffc0', '#ffffc0', '#e0e0c0', '#e0e0e0'];
+
+/** Colours the conversation (eth, ip, ipv6, tcp, udp) of the selected packet with the next free colour. */
+function colorizeConversation(kind) {
+  const doc = activeDoc();
+  if (!doc || doc.selected < 0) return notify('info', t('notice.selectPacket'));
+  const filter = conversationFilter(kind, doc.dissection(doc.selected));
+  if (!filter) return notify('info', t('notice.noConversation', { kind: kind.toUpperCase() }));
+  const list = doc.conversationColors ?? (doc.conversationColors = []);
+  const existing = list.findIndex((r) => r.filter === filter);
+  if (existing >= 0) list.splice(existing, 1);
+  const used = new Set(list.map((r) => r.color));
+  const color = CONVERSATION_COLORS.findIndex((_, i) => !used.has(i + 1)) + 1 || (list.length % 10) + 1;
+  list.unshift({ name: t('colorConv.ruleName', { n: color, kind: kind.toUpperCase() }), filter, fg: '#000000', bg: CONVERSATION_COLORS[color - 1], color, conversation: true });
+  if (list.length > 10) list.length = 10;
+  doc.setColoring(themedColoring(doc));
+  redrawList();
+  notify('success', t('colorConv.done', { kind: kind.toUpperCase(), n: color }));
+  return color;
+}
+
+function resetConversationColors() {
+  const doc = activeDoc();
+  if (!doc) return;
+  doc.conversationColors = [];
+  doc.setColoring(themedColoring(doc));
+  redrawList();
 }
 
 
@@ -161,7 +192,7 @@ function themedColoring() {
 
 function addDoc(doc) {
   state.docs.push(doc);
-  doc.setColoring(themedColoring());
+  doc.setColoring(themedColoring(doc));
   activate(doc.id);
   return doc;
 }
@@ -191,24 +222,56 @@ function persistSession() {
   } catch { /* private mode */ }
 }
 
-/** Runs the first pass with progress in the status bar (and a progress popup for big files). */
-async function runPass(doc, task, labelKey = 'progress.dissect') {
+/**
+ * The progress popup of a long pass (a display filter, dissecting a big file): opened when the pass takes
+ * longer than PASS_POPUP_MS, with a Cancel button. A newer pass on the same capture (another filter pressed
+ * meanwhile) takes the open popup over, so it closes when the pass that is really running ends.
+ */
+const PASS_POPUP_MS = 400;
+let passPopup = null; // { owner: AbortController, doc: id }
+function showPassPopup(controller, doc, labelKey, name, last) {
+  passPopup = { owner: controller, doc: doc.id };
+  // Only a filter can be cancelled safely; a cancelled first pass would leave the capture half read.
+  popups.open('progress', { title: t(labelKey), name, unit: 'packets', cancellable: labelKey === 'progress.filter', last })
+    .then((result) => { if (result?.cancel) passPopup?.owner?.abort(); })
+    .catch(() => {});
+}
+function endPassPopup(controller) {
+  if (passPopup?.owner !== controller) return;
+  passPopup = null;
+  popups.post('progress', { type: 'done' });
+  setTimeout(() => { if (!passPopup) popups.close('progress'); }, 200);
+}
+
+/** Runs a pass over the frames with progress in the status bar, and a progress popup when it takes a while. */
+async function runPass(doc, task, labelKey = 'progress.dissect', { name = doc.name } = {}) {
   const controller = new AbortController();
   doc.busy = controller;
   doc.busyKind = labelKey;
   const started = performance.now();
   let lastPaint = 0;
+  let last = null;
+  if (passPopup?.doc === doc.id) passPopup.owner = controller;
+  const popupTimer = setTimeout(() => { if (doc.busy === controller && passPopup?.owner !== controller) showPassPopup(controller, doc, labelKey, name, last); }, PASS_POPUP_MS);
   const onProgress = (done, total) => {
     if (doc.busy !== controller) return;
     state.progress = { label: t(labelKey), done, total, doc: doc.id };
+    last = { done, total };
     const now = performance.now();
-    if (now - lastPaint > 120) { lastPaint = now; renderStatus(); if (doc === activeDoc() && now - started > 300) state.view?.list.draw(true); }
+    if (now - lastPaint > 120) {
+      lastPaint = now;
+      renderStatus();
+      if (passPopup?.owner === controller) popups.post('progress', { type: 'progress', done, total, unit: 'packets' });
+      if (doc === activeDoc() && now - started > 300) state.view?.list.draw(true);
+    }
   };
   const work = (async () => { await task({ onProgress, signal: controller.signal }); })();
   doc.busyDone = work.catch(() => {});
   try {
     await work;
   } finally {
+    clearTimeout(popupTimer);
+    endPassPopup(controller);
     // A pass that was cancelled for a newer one must not clear the newer one's state (or it could no
     // longer be cancelled, and two filter passes would run at once with the older one winning).
     if (doc.busy === controller) {
@@ -533,8 +596,17 @@ async function applyDisplayFilter(text, { fromMap = false } = {}) {
   }
   doc.busy?.abort();
   let result;
-  await runPass(doc, async (options) => { result = await doc.applyFilter(trimmed, options); }, 'progress.filter').catch((error) => { if (!error?.cancelled) throw error; });
-  if (!result || doc.filterToken !== token) return false;
+  await runPass(doc, async (options) => { result = await doc.applyFilter(trimmed, options); }, 'progress.filter', { name: trimmed || t('filter.cleared') }).catch((error) => { if (!error?.cancelled) throw error; });
+  if (doc.filterToken !== token) return false;
+  if (!result) {
+    if (doc !== activeDoc() || !state.docs.includes(doc)) return false;
+    // Cancelled (progress popup or status bar): the list keeps the filter it had, and so does the box.
+    state.view?.setFilterText(doc.filterText);
+    state.filter = { text: doc.filterText, status: doc.filterText ? 'valid' : 'empty', error: '' };
+    state.view?.renderFilterBar();
+    notify('info', t('filter.cancelled'));
+    return false;
+  }
   if (!result.ok) {
     state.filter = { text: trimmed, status: 'invalid', error: result.error };
     state.view?.renderFilterBar();
@@ -1509,6 +1581,9 @@ const commands = {
   sipFlows: { icon: 'protoVoip', label: 'action.sipFlows', enabled: hasDoc, run: () => openStats('sip') },
   rtpStreams: { icon: 'protoVoip', label: 'action.rtpStreams', enabled: hasDoc, run: () => openStats('rtp') },
   wlanTraffic: { icon: 'ifWifi', label: 'action.wlanTraffic', enabled: hasDoc, run: () => openStats('wlan') },
+  ...Object.fromEntries(['eth', 'ip', 'ipv6', 'tcp', 'udp'].map((k) => [`colorConv:${k}`, { icon: 'colorize', label: `conversationFilter.${k}`, enabled: () => hasSel() && conversationFilter(k, activeDoc().dissection(activeDoc().selected)) != null, run: () => colorizeConversation(k) }])),
+  resetConversationColors: { icon: 'close', label: 'action.resetColorization', enabled: () => Boolean(activeDoc()?.conversationColors?.length), run: () => resetConversationColors() },
+  showPacketBytes: { icon: 'paneBytes', label: 'action.showPacketBytes', enabled: hasSel, run: () => { const doc = activeDoc(); const node = state.view?.details.selected; const whole = !node?.length; return openStats('packetBytes', { index: doc.selected, start: whole ? null : node.start, length: whole ? null : node.length, source: whole ? 0 : node.source ?? 0, label: whole ? null : node.abbrev ?? null }); } },
   importHexDump: { icon: 'paneBytes', label: 'action.importHexDump', run: () => importHexDump() },
   serviceResponseTime: { icon: 'clock', label: 'action.serviceResponseTime', enabled: hasDoc, run: () => openStats('srt') },
   multicastStreams: { icon: 'netCloud', label: 'action.multicastStreams', enabled: hasDoc, run: () => openStats('multicast') },
@@ -1593,6 +1668,7 @@ const SUBMENUS = {
   appearance: { icon: 'palette', items: ['theme', 'themeMenu', 'language', '-', 'shuffleBackground'] },
   applyFilter: { icon: 'filterApply', items: ['applyFilter:selected', 'applyFilter:not', 'applyFilter:and', 'applyFilter:or', 'applyFilter:andNot', 'applyFilter:orNot'] },
   prepareFilter: { icon: 'filterPrepare', items: ['prepareFilter:selected', 'prepareFilter:not', 'prepareFilter:and', 'prepareFilter:or', 'prepareFilter:andNot', 'prepareFilter:orNot'] },
+  colorizeConversation: { icon: 'colorize', items: ['colorConv:eth', 'colorConv:ip', 'colorConv:ipv6', 'colorConv:tcp', 'colorConv:udp', '-', 'resetConversationColors'] },
   conversationFilter: { icon: 'conversations', items: ['conversation:eth', 'conversation:ip', 'conversation:ipv6', 'conversation:tcp', 'conversation:udp'] },
   follow: { icon: 'followStream', items: ['followTcp', 'followUdp', 'followTls', 'followHttp', 'followHttp2', 'followQuic'] },
   http: { icon: 'httpStats', items: ['httpCounter', 'httpRequests', 'httpLoad'] },
@@ -1602,10 +1678,10 @@ const sub = (key) => ({ sub: key });
 const MENUS = {
   file: ['open', 'recent', sub('sampleList'), 'merge', 'importHexDump', '-', 'closeTab', 'closeAll', '-', 'save', 'saveAs', 'savePcap', '-', 'exportSpecified', sub('exportDissections'), 'exportBytes', sub('exportObjects'), '-', 'print', '-', 'startPage', 'exit'],
   edit: [sub('copy'), '-', 'findPacket', 'findNext', 'findPrev', '-', sub('marks'), sub('ignores'), sub('timeRefs'), 'timeShift', '-', 'packetComment', 'deleteComments', '-', 'settings'],
-  view: [sub('panes'), sub('timeFormat'), sub('nameResolution'), sub('zoom'), '-', 'colorize', 'coloringRules', 'resizeColumns', 'columnPrefs', '-', sub('tree'), sub('bytesAs'), 'packetWindow', 'reload', '-', sub('appearance')],
+  view: [sub('panes'), sub('timeFormat'), sub('nameResolution'), sub('zoom'), '-', 'colorize', sub('colorizeConversation'), 'coloringRules', 'resizeColumns', 'columnPrefs', '-', sub('tree'), sub('bytesAs'), 'packetWindow', 'reload', '-', sub('appearance')],
   go: ['goPacket', 'goFirst', 'goLast', 'goPrev', 'goNext', '-', 'goConversationPrev', 'goConversationNext', 'goRelated', '-', 'goBack', 'goForward', '-', 'autoScroll'],
   capture: ['captureOptions', 'captureStart', 'captureStop', 'captureRestart', '-', 'captureFilters', 'interfaces', 'refreshInterfaces'],
-  analyze: ['displayFilters', 'filterExpression', 'focusFilter', '-', 'applyAsColumn', sub('applyFilter'), sub('prepareFilter'), sub('conversationFilter'), '-', 'enabledProtocols', 'decodeAs', '-', sub('follow'), '-', 'expertInfo'],
+  analyze: ['displayFilters', 'filterExpression', 'focusFilter', '-', 'applyAsColumn', sub('applyFilter'), sub('prepareFilter'), sub('conversationFilter'), '-', 'enabledProtocols', 'decodeAs', '-', sub('follow'), 'showPacketBytes', '-', 'expertInfo'],
   statistics: ['report', '-', 'captureProperties', 'resolvedAddresses', 'protocolHierarchy', 'conversations', 'endpoints', 'packetLengths', 'ioGraph', 'flowGraph', 'tcpGraph', '-', 'serviceResponseTime', 'multicastStreams', 'dhcpStats', sub('http'), 'dnsStats', sub('ipStats'), '-', 'netMapWindow'],
   telephony: ['voipCalls', 'sipFlows', 'sipStats', '-', 'rtpStreams', 'rtpAnalysis'],
   wireless: ['wlanTraffic'],
@@ -2040,7 +2116,7 @@ function applySettings(previous = {}) {
   }
   if (s.backgroundImage !== previous.backgroundImage) loadBackground();
   if (s.theme !== previous.theme && previous.theme) notify('info', t('notice.theme', { name: themeName(s.theme, getLanguage()) }));
-  if (s.theme !== previous.theme || s.customTheme !== previous.customTheme) for (const doc of state.docs) doc.setColoring(themedColoring());
+  if (s.theme !== previous.theme || s.customTheme !== previous.customTheme) for (const doc of state.docs) doc.setColoring(themedColoring(doc));
   if (s.showNetMap && !previous.showNetMap) setTimeout(() => refreshMap(), 50);
   if (['netmapShowExternal', 'netmapShowMulticast'].some((key) => s[key] !== previous[key])) refreshMap();
   renderAll();
@@ -2197,7 +2273,7 @@ function contextMenu(event, kind, payload = {}) {
   const anchor = { x: point.x + 1, y: point.y + 1, flipY: point.y };
   if (kind === 'packet') {
     const part = partMenu({ range: 'selected', summary: true, columnHeader: true, details: 'displayed', bytes: false }, t('context.packet', { no: payload.index + 1 }));
-    return showMenu(menuItems(['markPacket', 'ignorePacket', 'timeReference', 'timeShift', 'packetComment', '-', sub('applyFilter'), sub('prepareFilter'), sub('conversationFilter'), '-', sub('copy'), '-', 'decodeAs', 'packetWindow', sub('follow'), '-', 'firewallRules']).concat(part.items), anchor, 'context', { handlers: part.handlers, header: { icon: 'packet', title: t('context.packet', { no: payload.index + 1 }) } });
+    return showMenu(menuItems(['markPacket', 'ignorePacket', 'timeReference', 'timeShift', 'packetComment', '-', sub('applyFilter'), sub('prepareFilter'), sub('conversationFilter'), sub('colorizeConversation'), '-', sub('copy'), '-', 'decodeAs', 'packetWindow', 'showPacketBytes', sub('follow'), '-', 'firewallRules']).concat(part.items), anchor, 'context', { handlers: part.handlers, header: { icon: 'packet', title: t('context.packet', { no: payload.index + 1 }) } });
   }
   if (kind === 'details') {
     const part = partMenu({ range: 'selected', summary: false, details: 'displayed', bytes: false }, t('context.details'));
@@ -2633,11 +2709,11 @@ function bindPopupActions() {
   popups.on('coloring-request', (data, kind) => popups.post(kind, { type: 'coloring', rules: loadColoring(), defaults: COLORING_RULES }));
   popups.on('coloring-save', (data) => {
     try { globalThis.localStorage?.setItem(COLORING_KEY, JSON.stringify(data.rules ?? null)); } catch { /* full */ }
-    for (const doc of state.docs) doc.setColoring(themedColoring());
+    for (const doc of state.docs) doc.setColoring(themedColoring(doc));
     redrawList();
     notify('success', t('notice.coloringSaved'));
   });
-  popups.on('coloring-reset', () => { try { globalThis.localStorage?.removeItem(COLORING_KEY); } catch { /* none */ } for (const doc of state.docs) doc.setColoring(themedColoring()); redrawList(); });
+  popups.on('coloring-reset', () => { try { globalThis.localStorage?.removeItem(COLORING_KEY); } catch { /* none */ } for (const doc of state.docs) doc.setColoring(themedColoring(doc)); redrawList(); });
   popups.on('filters-changed', () => state.view?.renderFilterBar());
   popups.on('open-columns-window', () => popups.open('columns', {}));
   popups.on('columns-changed', () => { state.settings = loadSettings(globalThis.localStorage); state.view?.list.render(); });
