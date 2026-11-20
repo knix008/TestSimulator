@@ -444,6 +444,11 @@ Tabloid), orientation, margins, size (fit to page or actual size), header and fo
 the next pages. The page preview is on the right; **Print** prints at once on the chosen printer, without a system
 dialog (where no printer list is available, the system dialog opens). In the browser, the browser's print dialog opens.
 
+Wherever Print is pressed, the same separate print window opens: the toolbar, the File menu, Ctrl+P, the right-click menus of
+the chart, the table and the tabs, and **Print in the user's guide and tutorial document windows** (Ctrl+P). A document is laid
+out on pages of the chosen paper, orientation and margins (a heading stays with what follows, long tables split with their
+head repeated); the chart-only choices (size, data table) are not shown.
+
 ## Settings
 
 ![Settings window](images/en/25-settings.png)

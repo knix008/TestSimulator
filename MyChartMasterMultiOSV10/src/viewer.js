@@ -21,6 +21,7 @@ import { setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
 import { switchFlag } from './flags.js';
 import * as native from './platform/native.js';
+import { PopupHost } from './platform/popups.js';
 import { applyFont, applyTheme, resolveTheme } from './themes.js';
 
 const params = new URLSearchParams(location.search);
@@ -287,8 +288,20 @@ function focusFind() {
   input.select();
 }
 
-function printDoc() {
-  frame()?.contentWindow?.print();
+/**
+ * Print (button, Ctrl+P): the program's own print window — printer, paper, orientation, margins, header and footer,
+ * a page preview — for this document in its current language, as the toolbar's Print does for a chart. The main
+ * window opens it (desktop: an OS window of its own; tutorial: a frame there); a browser tab without the main
+ * window opens it in a frame of its own.
+ */
+let ownPopups = null;
+async function printDoc() {
+  if (kind === 'video') return;
+  const request = { action: 'doc-print', doc: kind, lang: state.lang };
+  if (inFrame) { toHost('action', request); return; }
+  if (osWindow) { native.emitTo('main', 'popup-message', { kind: `doc-${kind}`, type: 'action', data: request }).catch(() => {}); return; }
+  if (!ownPopups) { ownPopups = new PopupHost(); await ownPopups.init(); }
+  ownPopups.open('print', { doc: { kind, lang: state.lang } });
 }
 
 async function openExternal() {

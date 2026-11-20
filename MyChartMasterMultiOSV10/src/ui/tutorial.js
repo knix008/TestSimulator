@@ -97,9 +97,10 @@ export class Tutorial {
     const tutorial = this;
     const helpers = {
       app,
-      async start() { await tutorial.closeAll(); app.showStartPage(true); await sleep(250); },
+      async start() { if (!tutorial.active) return; await tutorial.closeAll(); app.showStartPage(true); await sleep(250); },
       /** A sample chart of the tour (by id), opened once and kept for the tour. */
       async sample(id = 'monthly-sales') {
+        if (!tutorial.active) return null;
         await tutorial.closeAll();
         const samples = app.samples();
         const wanted = samples.find((x) => x.id === id) ?? samples[0];
@@ -108,7 +109,7 @@ export class Tutorial {
           doc = await app.openSample(wanted.id);
           if (doc) { doc.tourSample = wanted.id; tutorial.docs.add(doc.id); }
         } else if (app.state.active !== doc.id || app.state.showStart) {
-          app.state.active = doc.id; app.state.showStart = false; app.renderAll();
+          app.activate(doc.id);
         }
         // The tour's own sample starts from its saved look every time.
         if (doc && doc.undoStack.length) { while (doc.undo()) { /* back to the start */ } doc.undoStack = []; doc.redoStack = []; app.refreshView(); }
@@ -116,11 +117,11 @@ export class Tutorial {
         await sleep(150);
         return doc;
       },
-      async type(id) { app.setChartType(id); await sleep(400); },
+      async type(id) { if (tutorial.active) app.setChartType(id); await sleep(400); },
       tab(id) { app.setInspectorTab(id); },
       option(key, value) { app.setOption(key, value); },
       hover(selector) { const el = q(selector); if (el) el.classList.add('hover'); },
-      popup(open, kind) { Promise.resolve(open()).catch(() => {}); return until(() => q(`.web-popup-${kind}`) && getComputedStyle(q(`.web-popup-${kind}`)).visibility !== 'hidden'); },
+      popup(open, kind) { if (!tutorial.active) return Promise.resolve(); Promise.resolve(open()).catch(() => {}); return until(() => q(`.web-popup-${kind}`) && getComputedStyle(q(`.web-popup-${kind}`)).visibility !== 'hidden'); },
       closeMenus: () => tutorial.closeAll(),
       ko,
     };
@@ -155,6 +156,9 @@ export class Tutorial {
     clearTimeout(this.timer);
     this.active = false;
     this.autoplay = false;
+    // A step still running (opening its sample, a popup …) finishes first; its helpers stop early once the tour is over.
+    await this.running?.catch(() => {});
+    this.running = null;
     await this.closeAll();
     this.app.popups.inline = false;
     this.layer.classList.remove('active');
@@ -168,8 +172,10 @@ export class Tutorial {
     const restore = { ...this.saved, tutorialDone: true, tutorialOffered: true };
     this.app.updateSettings(restore);
     const back = this.app.state.docs.find((item) => item.id === this.savedActive);
-    if (back) { this.app.state.active = back.id; this.app.state.showStart = this.savedStart; this.app.renderAll(); }
-    else this.app.showStartPage(true);
+    // Back to what was on screen before the tour: the user's chart (its view mounted again; the tour may have shown the
+    // start page or closed the view of its own sample) or the start page. Never an empty work area.
+    if (back && !this.savedStart) this.app.activate(back.id);
+    else { if (back) this.app.state.active = back.id; this.app.showStartPage(true); }
     this.app.notify('success', t('tutorial.ended'));
   }
 
@@ -183,7 +189,9 @@ export class Tutorial {
     this.busy = true;
     this.draw(step);
     try {
-      await step.run(this.helpers());
+      // Kept so that stop() can wait for a step still running before it puts the screen back.
+      this.running = Promise.resolve(step.run(this.helpers()));
+      await this.running;
     } catch (error) {
       console.error('tutorial step', step.id, error);
     }

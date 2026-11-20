@@ -1800,6 +1800,8 @@ function bindPopupActions() {
       popups.post(kind, { type: 'import-preview', error: message, format: detectFormat(pending.name, pending.bytes) });
     }
   });
+  // Print in the user's guide or the tutorial document (viewer.js): the same separate print window, for that document.
+  popups.on('doc-print', (data) => popups.open('print', { doc: { kind: DOC_KINDS[data.doc] ? data.doc : 'guide', lang: data.lang === 'en' ? 'en' : 'ko' } }));
   popups.on('print-request', (data, kind) => {
     const doc = activeDoc();
     if (!doc) return;
@@ -1872,6 +1874,8 @@ const appApi = {
   refreshView: () => refreshView(),
   openMenubarMenu,
   renderAll,
+  // Shows an open chart in the work area (its view mounted), as clicking its tab does.
+  activate: (id) => activate(id),
   renderToolbarState,
   anchorBelow,
   closeDoc,

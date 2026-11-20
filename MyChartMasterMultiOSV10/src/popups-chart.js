@@ -9,6 +9,7 @@
 import { EXPORT_KEY, PANE_LAYOUTS, PAPERS, PRINT_KEY } from './domain/settings.js';
 import { PALETTES } from './domain/chart/palettes.js';
 import { CHART_FORMATS, TRANSPARENT_FORMATS } from './domain/export/chartexport.js';
+import { DOC_KINDS, docUrl } from './domain/helpdocs.js';
 
 const FORMAT_ICONS = { png: 'imageFormat', jpg: 'imageFormat', webp: 'imageFormat', gif: 'imageFormat', avif: 'imageFormat', svg: 'svgFile', pdf: 'pdfFile', html: 'htmlFile', docx: 'reportWord', markdown: 'reportMarkdown' };
 const PAPER_MM = { A3: [297, 420], A4: [210, 297], A5: [148, 210], B4: [250, 353], B5: [176, 250], Letter: [215.9, 279.4], Legal: [215.9, 355.6], Tabloid: [279.4, 431.8] };
@@ -151,9 +152,123 @@ export function installChartPopups(c) {
     render();
   }
 
-  /** The sheets: page 1 the chart, then the data table split over pages. */
+  // ── documents (P().doc = { kind, lang }): the page is loaded here and laid out on sheets of the chosen paper.
+  const MM = 96 / 25.4;
+  const docKey = (o) => [o.paper, o.orientation, o.margin, o.header, o.footer].join('|');
+
+  /** The document's <main>: its HTML with image addresses made absolute, without the heading anchors. */
+  async function loadDocument(doc) {
+    const url = new URL(docUrl(doc.kind, doc.lang) ?? 'docs/UserGuide.html', location.href);
+    const html = await (await fetch(url)).text();
+    const page = new DOMParser().parseFromString(html, 'text/html');
+    const main = page.querySelector('main') ?? page.body;
+    for (const img of main.querySelectorAll('img')) { img.setAttribute('src', new URL(img.getAttribute('src'), url).href); img.removeAttribute('loading'); }
+    for (const a of main.querySelectorAll('.anchor')) a.remove();
+    return { title: main.querySelector('h1')?.textContent.trim() || page.title, html: main.innerHTML };
+  }
+
+  /**
+   * The document on sheets: its blocks are laid out at the sheet's text width, then put on pages by their measured
+   * heights. A heading stays with what follows it; a table or list taller than a page is split (a table repeats its
+   * head); an image is never taller than a page.
+   */
+  async function paginateDocument(content, o) {
+    const [pw, ph] = PAPER_MM[o.paper] ?? PAPER_MM.A4;
+    const W = o.orientation === 'landscape' ? ph : pw;
+    const H = o.orientation === 'landscape' ? pw : ph;
+    const margin = MARGINS_MM[o.margin] ?? 12;
+    const pageHeight = (H - margin * 2 - (o.header ? 9 : 0) - (o.footer ? 9 : 0)) * MM - 4;
+    const measure = document.createElement('div');
+    measure.className = 'docp docp-measure';
+    measure.style.width = `${(W - margin * 2) * MM}px`;
+    measure.style.setProperty('--docp-max-image', `${Math.floor(pageHeight * 0.85)}px`);
+    measure.innerHTML = content.html;
+    document.body.append(measure);
+    await Promise.all([...measure.querySelectorAll('img')].map((img) => (img.complete ? null : new Promise((done) => { img.onload = done; img.onerror = done; }))));
+    const heightOf = (el) => { const style = getComputedStyle(el); return el.getBoundingClientRect().height + parseFloat(style.marginTop) + parseFloat(style.marginBottom); };
+    const pieces = [];
+    for (const block of [...measure.children]) {
+      const h = heightOf(block);
+      const table = block.matches('table') ? block : block.querySelector(':scope > table');
+      if (h > pageHeight && table && table.tBodies[0]) {
+        // A long table: chunks of rows that fit, each with the table's head.
+        const head = table.tHead ? table.tHead.outerHTML : '';
+        const headH = table.tHead ? table.tHead.getBoundingClientRect().height : 0;
+        let rows = [];
+        let used = headH;
+        for (const tr of [...table.tBodies[0].rows]) {
+          const rh = tr.getBoundingClientRect().height;
+          if (rows.length && used + rh > pageHeight - 8) { pieces.push({ html: `<table>${head}<tbody>${rows.join('')}</tbody></table>`, h: used + 8 }); rows = []; used = headH; }
+          rows.push(tr.outerHTML);
+          used += rh;
+        }
+        if (rows.length) pieces.push({ html: `<table>${head}<tbody>${rows.join('')}</tbody></table>`, h: used + 8 });
+      } else if (h > pageHeight && block.matches('ul, ol')) {
+        // A long list: chunks of items that fit.
+        let items = [];
+        let used = 0;
+        const tag = block.tagName.toLowerCase();
+        for (const li of [...block.children]) {
+          const lh = heightOf(li);
+          if (items.length && used + lh > pageHeight - 8) { pieces.push({ html: `<${tag}>${items.join('')}</${tag}>`, h: used + 8 }); items = []; used = 0; }
+          items.push(li.outerHTML);
+          used += lh;
+        }
+        if (items.length) pieces.push({ html: `<${tag}>${items.join('')}</${tag}>`, h: used + 8 });
+      } else {
+        pieces.push({ html: block.outerHTML, h, heading: /^H[1-4]$/.test(block.tagName) });
+      }
+    }
+    measure.remove();
+    const pages = [];
+    let page = [];
+    let used = 0;
+    pieces.forEach((piece, i) => {
+      const next = pieces[i + 1];
+      // A heading moves to the next page when the block after it would not fit beside it.
+      const need = piece.heading && next ? piece.h + Math.min(next.h, pageHeight / 3) : piece.h;
+      if (page.length && used + need > pageHeight) { pages.push(page.join('')); page = []; used = 0; }
+      page.push(piece.html);
+      used += piece.h;
+    });
+    if (page.length) pages.push(page.join(''));
+    return { pages, W, H, margin };
+  }
+
+  /** The document's sheets for the current options (laid out again when paper, orientation, margin or header change). */
+  function documentPages(o) {
+    const p = P();
+    // The window is reused: another document or language starts over.
+    const which = `${p.doc.kind}|${p.doc.lang}`;
+    if (ch.docFor !== which) { ch.docFor = which; ch.doc = null; ch.docLoading = false; ch.docLayout = null; ch.docLaying = null; ch.docError = null; ch.page = 0; }
+    if (!ch.doc) {
+      if (!ch.docLoading) {
+        ch.docLoading = true;
+        loadDocument(p.doc).then((doc) => { ch.doc = doc; render(); }).catch((error) => { ch.docError = String(error?.message ?? error); render(); });
+      }
+      return null;
+    }
+    const key = docKey(o);
+    if (ch.docLayout?.key !== key) {
+      if (ch.docLaying !== key) {
+        ch.docLaying = key;
+        paginateDocument(ch.doc, o).then((layout) => { ch.docLayout = { key, ...layout }; render(); }).catch((error) => { ch.docError = String(error?.message ?? error); render(); });
+      }
+      if (!ch.docLayout) return null;
+    }
+    const { pages: contents, W, H, margin } = ch.docLayout;
+    const title = ch.doc.title;
+    const head = o.header ? `<div class="pc-head"><span>${escapeHtml(o.headerText || title)}</span><span>${escapeHtml(new Date().toLocaleDateString())}</span></div>` : '';
+    const foot = (n, total) => (o.footer ? `<div class="pc-foot"><span>${escapeHtml(o.footerText || 'MyChartMaster')}</span><span>${n} / ${total}</span></div>` : '');
+    const style = `width:${W}mm;height:${H}mm;padding:${margin}mm`;
+    const pages = contents.map((html, k) => `<div class="pp-sheet pc-sheet doc-sheet" style="${style}">${head}<div class="docp docp-page">${html}</div>${foot(k + 1, contents.length)}</div>`);
+    return { pages, W, H };
+  }
+
+  /** The sheets: page 1 the chart, then the data table split over pages (or the pages of a document). */
   function printPages() {
     const o = printOptions();
+    if (P().doc) return documentPages(o);
     const m = ch.data;
     if (!m) return null;
     const [pw, ph] = PAPER_MM[o.paper] ?? PAPER_MM.A4;
@@ -181,7 +296,8 @@ export function installChartPopups(c) {
   function renderPrint() {
     const p = P();
     const o = printOptions();
-    if (!ch.requested) { ch.requested = true; action('print-request', {}); }
+    const isDoc = Boolean(p.doc);
+    if (!ch.requested && !isDoc) { ch.requested = true; action('print-request', {}); }
     if (!ch.printers) {
       ch.printers = { printers: [], defaultPrinter: '' };
       native.listPrinters().then((list) => { ch.printers = list; if (list.printers.length) render(); }).catch(() => {});
@@ -192,7 +308,7 @@ export function installChartPopups(c) {
     ch.page = Math.max(0, Math.min(ch.page, count - 1));
     const sel = (key, values, label) => select('data-print', key, values, o[key], label);
     root.innerHTML = frame({
-      glyph: 'print', title: `${t('print.title')}${p.name ? ` — ${p.name}` : ''}`,
+      glyph: 'print', title: `${t('print.title')}${p.name ? ` — ${p.name}` : isDoc && DOC_KINDS[p.doc.kind] ? ` — ${t(DOC_KINDS[p.doc.kind].title)}` : ''}`,
       body: `<div class="print-view">
         <div class="print-options">
           <div class="print-column">
@@ -204,21 +320,21 @@ export function installChartPopups(c) {
             row('file', t('print.paper'), sel('paper', PAPERS.map((x) => [x, x]), t('print.paper'))),
             row('pageSetup', t('print.orientation'), segmented('orientation', [['portrait', t('print.portrait'), 'file'], ['landscape', t('print.landscape'), 'pageSetup']], o.orientation, 'data-print-seg')),
             row('fitPage', t('print.margin'), sel('margin', Object.keys(MARGINS_MM).map((x) => [x, t(`print.margin.${x}`)]), t('print.margin'))),
-            row('fitView', t('print.fit'), segmented('fit', [['page', t('print.fitPage'), 'fitPage'], ['actual', t('print.actual'), 'chartSize']], o.fit, 'data-print-seg')),
+            isDoc ? '' : row('fitView', t('print.fit'), segmented('fit', [['page', t('print.fitPage'), 'fitPage'], ['actual', t('print.actual'), 'chartSize']], o.fit, 'data-print-seg')),
           ])}
           </div>
           <div class="print-column">
           ${section('notes', t('print.tabHeader'), [
             check('data-print-toggle', 'header', o.header, t('print.header'), 'notes'),
-            row('edit', t('print.headerText'), `<input type="text" data-print-text="headerText" value="${escapeHtml(o.headerText)}" placeholder="${escapeHtml(ch.data?.title ?? '')}" />`),
+            row('edit', t('print.headerText'), `<input type="text" data-print-text="headerText" value="${escapeHtml(o.headerText)}" placeholder="${escapeHtml((isDoc ? ch.doc?.title : ch.data?.title) ?? '')}" />`),
             check('data-print-toggle', 'footer', o.footer, t('print.footer'), 'pageSetup'),
             row('edit', t('print.footerText'), `<input type="text" data-print-text="footerText" value="${escapeHtml(o.footerText)}" placeholder="MyChartMaster" />`),
-            check('data-print-toggle', 'includeData', o.includeData, t('print.includeData'), 'dataGrid'),
+            isDoc ? '' : check('data-print-toggle', 'includeData', o.includeData, t('print.includeData'), 'dataGrid'),
           ])}
           </div>
         </div>
         <div class="print-preview" id="print-preview">
-          ${layout ? `<div class="preview-stage pp-stage" data-w="${layout.W}" data-h="${layout.H}">${layout.pages[ch.page]}</div>` : `<div class="preview-empty">${icon('hourglass')}<span>${escapeHtml(t('stats.loading'))}</span></div>`}
+          ${layout ? `<div class="preview-stage pp-stage" data-w="${layout.W}" data-h="${layout.H}">${layout.pages[ch.page]}</div>` : ch.docError ? `<div class="preview-empty">${icon('error')}<span>${escapeHtml(ch.docError)}</span></div>` : `<div class="preview-empty">${icon('hourglass')}<span>${escapeHtml(t('stats.loading'))}</span></div>`}
         </div>
       </div>
       <div class="print-sheet" aria-hidden="true">${(layout?.pages ?? []).map((html) => `<div class="print-page">${html}</div>`).join('')}</div>`,
@@ -404,7 +520,7 @@ export function installChartPopups(c) {
     settingsTabs,
     enterActions: {},
     click, change, input, message, stepper, keydown: () => {},
-    refresh: () => { ch.draft = null; ch.preview = null; ch.data = null; ch.requested = false; ch.page = 0; ch.sort = null; },
+    refresh: () => { ch.draft = null; ch.preview = null; ch.data = null; ch.requested = false; ch.page = 0; ch.sort = null; ch.docFor = null; ch.doc = null; ch.docLayout = null; ch.docLaying = null; ch.docLoading = false; ch.docError = null; },
     resize: () => { if (kind === 'print') fitPrintPreview(); },
     state: ch,
     fitHeight,

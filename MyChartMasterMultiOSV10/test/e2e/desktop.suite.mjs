@@ -103,6 +103,44 @@ test('docs.window', "The user's guide opens in its own window", async () => {
 });
 
 
+/** The page target of a window by its Tauri label (doc-guide, popup-print …), connected, or null. */
+async function windowByLabel(wanted, ms = 15000) {
+  const deadline = Date.now() + ms;
+  while (Date.now() < deadline) {
+    for (const t of (await app.targets()).filter((x) => x.type === 'page')) {
+      const win = await Promise.race([connect(t), sleep(3000).then(() => null)]).catch(() => null);
+      if (!win) continue;
+      const label = await Promise.race([win.evaluate('window.__TAURI_INTERNALS__?.metadata?.currentWindow?.label ?? ""'), sleep(2000).then(() => '')]).catch(() => '');
+      if (label === wanted) return win;
+      win.close();
+    }
+    await sleep(300);
+  }
+  return null;
+}
+
+test('docs.print', "Print in the user's guide window opens the separate print window with the guide on pages (nothing is printed)", async () => {
+  await run(`A.run('userGuide'); return true;`);
+  const guide = await windowByLabel('doc-guide');
+  assert(guide, 'no guide window');
+  try {
+    const clicked = await guide.evaluate(`(async () => { const end = Date.now() + 10000; while (Date.now() < end) { const b = document.querySelector('[data-viewer="print"]'); if (b) { b.click(); return true; } await new Promise((r) => setTimeout(r, 200)); } return false; })()`);
+    assert(clicked, 'no Print button in the guide window');
+  } finally { guide.close(); }
+  const print = await windowByLabel('popup-print');
+  assert(print, 'no separate print window after Print in the guide');
+  try {
+    // The hook replaces real printing: no job may reach a printer.
+    await print.evaluate(`window.__mychartmasterPrintHook = (layout, job) => { window.__printed = { pages: layout.pages.length, job }; }; true`);
+    const r = await print.evaluate(`(async () => { const end = Date.now() + 20000; while (Date.now() < end && !document.querySelector('.pp-stage .doc-sheet')) await new Promise((r) => setTimeout(r, 200));
+      const pages = document.querySelectorAll('.print-sheet .print-page').length; const h1 = document.querySelector('.pp-stage .docp h1')?.textContent ?? '';
+      document.querySelector('[data-action="print-now"]')?.click(); await new Promise((r) => setTimeout(r, 400)); return { pages, h1, printed: window.__printed?.pages ?? 0 }; })()`);
+    assert(r.pages >= 10 && /MyChartMaster/.test(r.h1), `print window: ${JSON.stringify(r)}`);
+    assert(r.printed === r.pages, `printed ${r.printed} of ${r.pages} pages`);
+  } finally { print.close(); }
+  await run(`await A.popups.closeAll(); return true;`);
+});
+
 test('chart.allTypes', 'Each of the 108 chart types draws its starter data in the program window', async () => {
   const r = await run(`const bad = []; for (const id of A.domain.CHART_IDS) { A.actions.newChart(id); await until(() => document.querySelector('.ch-canvas svg') && A.doc()?.chart.type === id, 8000);
       if (!document.querySelectorAll('.ch-canvas .mark').length) bad.push(id); await A.actions.closeDoc(A.doc(), { force: true }); } return { n: A.domain.CHART_IDS.length, bad };`);

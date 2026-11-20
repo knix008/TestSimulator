@@ -422,7 +422,65 @@ test('export.copy', 'Copy the chart picture to the clipboard', async () => {
   assert(r.images.includes('image/png') && r.svg, JSON.stringify(r));
 });
 
+test('print.everywhere', 'Every Print in the main window (toolbar, Ctrl+P, File menu, chart / grid / tab menus) opens the separate print window', async () => {
+  await closeAll();
+  await openSample('monthly-sales');
+  const r = await run(`const out = {};
+    const opened = async (name, go) => { await A.popups.closeAll(); for (const el of qa('.web-popup')) el.remove(); A.popups.frames.clear(); await go(); out[name] = await until(() => pop('print')?.querySelector('[data-action="print-now"]'), 6000).then(() => true, () => false); };
+    await opened('toolbar', () => q('#toolbar [data-command="print"]').click());
+    await opened('ctrlP', () => document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', ctrlKey: true, bubbles: true, cancelable: true })));
+    await opened('fileMenu', async () => { A.actions.openMenubarMenu('file'); const d = await until(() => pop('menu')?.querySelector('.menu-item[data-id="print"], [data-item="print"]')); d.click(); });
+    for (const [name, sel] of [['chartMenu', '.ch-canvas .chart-bg'], ['gridMenu', '.dg-cell'], ['tabMenu', '[data-tab]']]) {
+      await opened(name, async () => { const el = q(sel); const b = el.getBoundingClientRect(); el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: b.left + 3, clientY: b.top + 3 }));
+        const item = await until(() => pop('menu')?.querySelector('.menu-item[data-id="print"], [data-item="print"]')); item.click(); });
+    }
+    await A.popups.closeAll(); return out;`);
+  const missing = Object.entries(r).filter(([, ok]) => !ok).map(([k]) => k);
+  assert(!missing.length, `no print window from: ${missing.join(', ')}`);
+});
+
+test('print.documents', "User's guide and tutorial document: Print and Ctrl+P open the separate print window with the document on pages", async () => {
+  await closeAll();
+  const r = await run(`const out = {};
+    for (const [docKind, lang] of [['guide', 'ko'], ['tutorial', 'en']]) {
+      await A.popups.closeAll(); for (const el of qa('.web-popup, .doc-test-frame')) el.remove(); A.popups.frames.clear();
+      // The document window as the program shows it in a frame (tutorial mode): viewer.js in an iframe of the main window.
+      const frame = document.createElement('iframe'); frame.className = 'doc-test-frame'; frame.style.cssText = 'position:fixed;left:0;top:0;width:900px;height:700px;z-index:1;opacity:0.01';
+      frame.src = location.pathname + '?viewer=' + docKind + '&lang=' + lang; document.body.append(frame);
+      const viewer = await until(() => frame.contentDocument?.querySelector('[data-viewer="print"]') && frame.contentDocument, 15000);
+      viewer.querySelector('[data-viewer="print"]').click();
+      const d = await until(() => pop('print')?.querySelector('.pp-stage .doc-sheet') && pop('print'), 20000);
+      const count = () => Number((pop('print').querySelector('#page-number')?.textContent.match(/(\\d+)\\D*$/) ?? [])[1] ?? 0); // the last number: '1 / 49', 'Page 1 of 49'
+      const first = { pages: count(), title: d.querySelector('.popup-title, .frame-title, h1, header')?.textContent ?? '', h1: d.querySelector('.pp-stage .docp h1')?.textContent ?? '', chartOnly: !!d.querySelector('[data-print-toggle="includeData"]'), img: d.querySelectorAll('.print-sheet .docp img').length };
+      // Smaller paper: more pages. Printing prints every page.
+      const paper = d.querySelector('select[data-print="paper"]'); paper.value = 'A5'; paper.dispatchEvent(new Event('change', { bubbles: true }));
+      await until(() => count() > first.pages, 20000).catch(() => null);
+      const a5 = count();
+      window.__printed = null; pop('print').querySelector('[data-action="print-now"]').click(); await until(() => window.__printed, 5000).catch(() => null);
+      const printed = window.__printed?.pages ?? 0;
+      const back = pop('print').querySelector('select[data-print="paper"]'); back.value = 'A4'; back.dispatchEvent(new Event('change', { bubbles: true })); await sleep(100);
+      await A.popups.closeAll(); for (const el of qa('.web-popup')) el.remove(); A.popups.frames.clear();
+      // Ctrl+P inside the document does the same.
+      frame.contentDocument.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', ctrlKey: true, bubbles: true, cancelable: true }));
+      const ctrlP = await until(() => pop('print')?.querySelector('.pp-stage .doc-sheet'), 20000).then(() => true, () => false);
+      await A.popups.closeAll(); frame.remove();
+      out[docKind] = { ...first, a5, printed, ctrlP };
+    }
+    for (const el of qa('.web-popup')) el.remove(); A.popups.frames.clear(); return out;`);
+  for (const [docKind, x] of Object.entries(r)) {
+    assert(x.pages >= 3, `${docKind}: ${x.pages} pages ${JSON.stringify(x)}`);
+    assert(/MyChartMaster/.test(x.h1), `${docKind}: first page shows "${x.h1}"`);
+    assert(!x.chartOnly, `${docKind}: chart-only options shown`);
+    assert(x.img > 0, `${docKind}: no pictures on the pages`);
+    assert(x.a5 > x.pages, `${docKind}: A5 gave ${x.a5} pages, A4 ${x.pages}`);
+    assert(x.printed === x.a5, `${docKind}: printed ${x.printed} of ${x.a5} pages`);
+    assert(x.ctrlP, `${docKind}: Ctrl+P did not open the print window`);
+  }
+});
+
 test('print.window', 'Print window: paper, orientation, preview pages, data pages, prints at once', async () => {
+  await closeAll();
+  await openSample('monthly-sales');
   const r = await run(`A.run('print'); await until(() => pop('print')?.querySelector('.pp-stage svg')); const d = pop('print');
     const one = d.querySelectorAll('.print-sheet .print-page').length;
     const t = d.querySelector('[data-print-toggle="includeData"]'); t.checked = true; t.dispatchEvent(new Event('change', { bubbles: true })); await sleep(150);
@@ -474,6 +532,25 @@ test('look.language', 'Korean and English: no raw keys anywhere in the window, m
     }
     A.actions.updateSettings({ language: 'en' }); return found;`);
   assert(!r.length, `raw keys: ${r.slice(0, 6).join(' | ')}`);
+});
+
+test('help.tutorialStop', 'Stopping the tutorial at any step (settled or mid-step) shows the chart that was open — never an empty window', async () => {
+  const total = await run(`return A.domain.tutorialSteps();`);
+  const bad = [];
+  for (const mode of ['settled', 'busy']) {
+    for (let i = 0; i < total; i++) {
+      const r = await run(`await A.popups.closeAll(); for (const d of [...A.state.docs]) await A.actions.closeDoc(d, { force: true });
+        A.actions.openSample('market-share'); await until(() => svg()); const own = doc().id;
+        await A.actions.startTutorial(); const t = A.tutorial(); await until(() => t.state().active);
+        if (${i} > 0) t.go(${i});
+        ${mode === 'settled' ? `await until(() => t.state().index === ${i} && !t.state().busy, 20000);` : 'await sleep(30);'}
+        await t.stop(); await sleep(300);
+        const start = q('#start-page'); const startShown = Boolean(start && !start.hidden && getComputedStyle(start).display !== 'none');
+        return { id: t.state().id, chart: Boolean(svg()), startShown, sameDoc: A.state.active === own, docs: A.state.docs.length, popups: document.querySelectorAll('.web-popup').length, tour: document.querySelector('#tutorial-layer.active') ? 1 : 0 };`);
+      if (!r.chart || r.startShown || !r.sameDoc || r.docs !== 1 || r.popups || r.tour) bad.push(`${mode} ${i} ${r.id}: ${JSON.stringify(r)}`);
+    }
+  }
+  assert(!bad.length, `${bad.length} stops left the window wrong:\n${bad.slice(0, 6).join('\n')}`);
 });
 
 test('help.docs', "User's guide and tutorial document open in their own windows", async () => {

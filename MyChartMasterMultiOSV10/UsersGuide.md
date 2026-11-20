@@ -443,6 +443,10 @@ Tabloid), 방향, 여백, 크기(쪽에 맞춤 · 원래 크기), 머리글 · �
 오른쪽은 쪽 미리 보기이고, **인쇄**를 누르면 시스템 창 없이 고른 프린터로 바로 인쇄합니다(프린터 목록이 없는
 환경에서는 시스템 인쇄 창). 웹에서는 브라우저의 인쇄 창이 열립니다.
 
+어디서 인쇄를 누르든 같은 인쇄 창이 따로 열립니다: 툴바 · 파일 메뉴 · Ctrl+P · 차트 · 표 · 탭의 오른쪽 클릭 메뉴, 그리고
+**사용 설명서와 튜토리얼 문서 창의 인쇄**(Ctrl+P). 문서를 인쇄할 때는 그 문서가 고른 용지 · 방향 · 여백에 맞게 쪽으로
+나뉘어 미리 보이고(제목은 다음 내용과 같은 쪽에, 긴 표는 머리줄을 반복하며 나뉨), 차트 전용 선택(크기, 데이터 표)은 없습니다.
+
 #### 설정
 
 ![설정 창](doc/images/ko/25-settings.png)
@@ -993,6 +997,11 @@ with these settings on the clipboard. To skip the window, pick the format in **F
 Tabloid), orientation, margins, size (fit to page or actual size), header and footer and their text, the data table on
 the next pages. The page preview is on the right; **Print** prints at once on the chosen printer, without a system
 dialog (where no printer list is available, the system dialog opens). In the browser, the browser's print dialog opens.
+
+Wherever Print is pressed, the same separate print window opens: the toolbar, the File menu, Ctrl+P, the right-click menus of
+the chart, the table and the tabs, and **Print in the user's guide and tutorial document windows** (Ctrl+P). A document is laid
+out on pages of the chosen paper, orientation and margins (a heading stays with what follows, long tables split with their
+head repeated); the chart-only choices (size, data table) are not shown.
 
 #### Settings
 
