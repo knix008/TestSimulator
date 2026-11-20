@@ -1,0 +1,106 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MyMechanics",
+  "mainBinaryName": "MyMechanics",
+  "version": "../package.json",
+  "identifier": "com.shkwon.mymechanics",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:5494",
+    "beforeBuildCommand": "npm run build:web",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "$APPDATA/**",
+          "$APPLOCALDATA/**",
+          "$APPCONFIG/**",
+          "$RESOURCE/doc/video/**"
+        ]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "publisher": "SHKWON",
+    "copyright": "Copyright (c) SHKWON (knix008@naver.com)",
+    "category": "Graphics and Design",
+    "shortDescription": "Parametric 3D mechanical CAD",
+    "longDescription": "Design mechanical parts and assemblies like SolidWorks: fully constrained 2D sketches with smart dimensions, feature-based parts on the OpenCASCADE B-rep kernel (extrude, revolve, cut, fillet, chamfer, shell, hole wizard, linear and circular patterns, mirror), a FeatureManager design tree with rollback, assemblies with mates and interference detection, 2D drawings with standard and isometric views, mass properties, and STEP / STL export.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "icons/project.ico": "project.ico",
+      "icons/project.icns": "project.icns",
+      "icons/project.png": "project.png",
+      "../doc/": "doc/",
+      "../licenses/": "licenses/"
+    },
+    "fileAssociations": [
+      {
+        "ext": [
+          "mymech"
+        ],
+        "name": "MyMechanics.Project",
+        "description": "MyMechanics Project",
+        "mimeType": "application/x-mymechanics",
+        "role": "Editor"
+      }
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": [
+          "Korean",
+          "English"
+        ],
+        "displayLanguageSelector": true,
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "windows/installerHeader.bmp",
+        "sidebarImage": "windows/installerSidebar.bmp",
+        "installerHooks": "windows/hooks.nsh",
+        "startMenuFolder": "MyMechanics"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    },
+    "linux": {
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0"
+        ],
+        "files": {
+          "/usr/share/mime/packages/mymechanics.xml": "linux/mymechanics.xml",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-mymechanics.png": "icons/project.png"
+        },
+        "postInstallScript": "linux/postinst.sh",
+        "postRemoveScript": "linux/postrm.sh"
+      },
+      "rpm": {
+        "depends": [
+          "webkit2gtk4.1",
+          "gtk3"
+        ],
+        "files": {
+          "/usr/share/mime/packages/mymechanics.xml": "linux/mymechanics.xml",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-mymechanics.png": "icons/project.png"
+        },
+        "postInstallScript": "linux/postinst.sh",
+        "postRemoveScript": "linux/postrm.sh"
+      }
+    }
+  }
+}

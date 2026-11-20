@@ -1,0 +1,163 @@
+[
+  {
+    "name": "start page shows its cards and 18 samples",
+    "wait": 1500,
+    "eval": "JSON.stringify({ cards: document.querySelectorAll('.start-card').length, samples: document.querySelectorAll('[data-start=\"sample\"]').length, tiles: document.querySelectorAll('.template-tile').length })",
+    "expect": "\"cards\":[5-6].*\"samples\":1[89].*\"tiles\":4"
+  },
+  {
+    "name": "kernel loads",
+    "eval": "window.__mymechanics.actions.ensureKernel().then(() => 'ready')",
+    "expect": "^ready$"
+  },
+  {
+    "name": "new part opens with planes and origin in the tree",
+    "eval": "window.__mymechanics.actions.newDocument('part').then(() => [...document.querySelectorAll('.tree-row .tree-label')].map((e) => e.textContent).join('|'))",
+    "expect": "정면.*윗면.*우측면.*원점",
+    "wait": 300
+  },
+  {
+    "name": "sketch on the Top plane",
+    "eval": "window.__mymechanics.run('sketch').then(() => { document.querySelector('[data-pm=\"sketchOn:top\"]').click(); return window.__mymechanics.state.editing?.mode; })",
+    "expect": "^sketch$",
+    "wait": 700
+  },
+  {
+    "name": "center rectangle drawn with the mouse",
+    "eval": "window.__mymechanics.run('sk:centerRect').then(() => { const vp = window.__mymechanics.viewport; const r = vp.canvas.getBoundingClientRect(); const o = vp.toScreen([0, 0, 0]); window.__pt = [o.x + r.left, o.y + r.top]; return 'ok'; })"
+  },
+  {
+    "mouse": [
+      {
+        "type": "mousePressed",
+        "x": "window.__pt[0]",
+        "y": "window.__pt[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__pt[0]",
+        "y": "window.__pt[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__pt[0] + 110",
+        "y": "window.__pt[1] - 70",
+        "delay": 30
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__pt[0] + 110",
+        "y": "window.__pt[1] - 70",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__pt[0] + 110",
+        "y": "window.__pt[1] - 70",
+        "button": "left"
+      }
+    ],
+    "wait": 300
+  },
+  {
+    "name": "rectangle lines exist and its centre is on the origin",
+    "eval": "(() => { const ed = window.__mymechanics.state.editing.editor; return JSON.stringify({ lines: ed.sketch.entities.filter((e) => e.type === 'line' && !e.construction).length, dof: ed.dof }); })()",
+    "expect": "\"lines\":4,\"dof\":2"
+  },
+  {
+    "name": "two smart dimensions fully define it",
+    "eval": "(() => { const m = window.__mymechanics; const ed = m.state.editing.editor; m.actions.updateSettings({ editDimOnCreate: false }, { quiet: true }); const lines = ed.sketch.entities.filter((e) => e.type === 'line' && !e.construction); ed.selection = [lines[0].id]; return ed.createDimension().then(() => { ed.selection = [lines[1].id]; return ed.createDimension(); }).then(() => ed.dof + ' labels=' + document.querySelectorAll('.vp-label.dim-label').length); })()",
+    "expect": "^0 labels=2$",
+    "wait": 300
+  },
+  {
+    "name": "changing a dimension resizes the sketch",
+    "eval": "(() => { const ed = window.__mymechanics.state.editing.editor; const d = ed.sketch.constraints.find((c) => c.type === 'distance'); d.value = 80; ed.solve(); const l = ed.sketch.entities.find((e) => e.id === d.a); const a = ed.sketch.entities.find((e) => e.id === l.p1); const b = ed.sketch.entities.find((e) => e.id === l.p2); return Math.round(Math.hypot(a.x - b.x, a.y - b.y)); })()",
+    "expect": "^80$"
+  },
+  {
+    "name": "exit sketch adds it to the tree",
+    "eval": "window.__mymechanics.run('exitSketch').then(() => window.__mymechanics.active().features.map((f) => f.type).join(','))",
+    "expect": "^sketch$",
+    "wait": 300
+  },
+  {
+    "name": "extrude 20 mm",
+    "eval": "window.__mymechanics.run('extrude').then(() => { const m = window.__mymechanics; m.actions.pmFieldChanged('depth', '20', 'length'); m.actions.acceptEditing(); return m.active().features.map((f) => f.name).join(','); })",
+    "expect": "스케치1,보스-돌출1",
+    "wait": 500
+  },
+  {
+    "name": "fillet the four vertical edges (picked in the view)",
+    "eval": "(async () => { const m = window.__mymechanics; await m.run('view:iso'); await new Promise((r) => setTimeout(r, 600)); await m.run('fillet'); const vp = m.viewport; const r = vp.canvas.getBoundingClientRect(); const edges = m.state.partEntry.edgeList.filter((ed) => { const d = ed.tangentAt(0.5); return Math.abs(d.y) > 0.9 * Math.hypot(d.x, d.y, d.z); }); for (const ed of edges) { const p = ed.pointAt(0.5); const s = vp.toScreen([p.x, p.y, p.z]); const hit = vp.pick(s.x + r.left, s.y + r.top, { kinds: ['edge'] }); if (hit) vp.options.onPick(hit, { clientX: s.x + r.left, clientY: s.y + r.top }); } m.actions.pmFieldChanged('radius', '4', 'length'); const n = m.state.editing.feature.edges.length; m.actions.acceptEditing(); return n + ' ' + m.active().features.at(-1).type; })()",
+    "expect": "^[34] fillet$",
+    "wait": 500
+  },
+  {
+    "name": "Hole Wizard: counterbore holes on the top face",
+    "eval": "(async () => { const m = window.__mymechanics; await m.run('hole'); const vp = m.viewport; const r = vp.canvas.getBoundingClientRect(); for (const x of [-20, 20]) { const s = vp.toScreen([x, 20, 0]); vp.options.onPick(vp.pick(s.x + r.left, s.y + r.top), { clientX: s.x + r.left, clientY: s.y + r.top }); } m.actions.pmSet('kind', 'counterbore'); const pts = m.state.editing.holeSketch.points.length; m.actions.acceptEditing(); return pts + ' ' + document.querySelectorAll('.tree-row.error').length; })()",
+    "expect": "^2 0$",
+    "wait": 500,
+    "shot": "web-part"
+  },
+  {
+    "name": "mass properties are computed",
+    "eval": "JSON.stringify(window.__mymechanics.actions.massPropertiesRows().rows.map((r) => r[2]))",
+    "expect": " g\".*mm³"
+  },
+  {
+    "name": "editing the extrude depth rebuilds everything after it",
+    "eval": "(() => { const m = window.__mymechanics; const f = m.active().features.find((x) => x.type === 'extrude'); m.actions.editFeature(f.id); m.actions.pmFieldChanged('depth', '30', 'length'); m.actions.acceptEditing(); const b = m.actions.buildPart(m.active()); const [lo, hi] = b.body.boundingBox.bounds; return Math.round(hi[1] - lo[1]) + ' errors=' + [...b.result.results.values()].filter((r) => r.ok === false).length; })()",
+    "expect": "^30 errors=0$",
+    "wait": 400
+  },
+  {
+    "name": "undo goes back to 20 mm",
+    "eval": "(() => { const m = window.__mymechanics; m.actions.undo(); const b = m.actions.buildPart(m.active()); const [lo, hi] = b.body.boundingBox.bounds; return Math.round(hi[1] - lo[1]); })()",
+    "expect": "^20$"
+  },
+  {
+    "name": "rollback bar leaves out later features",
+    "eval": "(() => { const m = window.__mymechanics; m.actions.rollbackTo(2); const n = document.querySelectorAll('.tree-row.rolled').length; m.actions.rollbackTo(null); return n; })()",
+    "expect": "^[1-9]"
+  },
+  {
+    "name": "a drawing of the part with four views",
+    "eval": "window.__mymechanics.actions.newDrawing().then(() => new Promise((r) => setTimeout(r, 800))).then(() => document.querySelectorAll('.drawing-paper svg .view').length)",
+    "expect": "^4$",
+    "wait": 300,
+    "shot": "web-drawing"
+  },
+  {
+    "name": "flange sample builds without errors",
+    "eval": "window.__mymechanics.actions.closeProject({ force: true }).then(() => window.__mymechanics.actions.openSampleAsk('flange')).then(() => document.querySelectorAll('.tree-row.tree-feature').length + ' ' + document.querySelectorAll('.tree-row.error').length)",
+    "expect": "^\\d+ 0$",
+    "wait": 600
+  },
+  {
+    "name": "shaft assembly: six mates hold, interference free",
+    "eval": "window.__mymechanics.actions.closeProject({ force: true }).then(() => window.__mymechanics.actions.openSampleAsk('shaftAssembly')).then(() => window.__mymechanics.active().mates.length + ' failed=' + window.__mymechanics.state.failedMates.size)",
+    "expect": "^6 failed=0$",
+    "wait": 600,
+    "shot": "web-assembly"
+  },
+  {
+    "name": "every menu has enabled items",
+    "eval": "JSON.stringify(Object.entries(window.__mymechanics.menus.MENUS).map(([k, items]) => [k, items.filter((i) => typeof i === 'string' && i !== '-' && window.__mymechanics.menus.enabled(i)).length]))",
+    "expect": "\"file\",[1-9]"
+  },
+  {
+    "name": "display styles switch",
+    "eval": "(async () => { const m = window.__mymechanics; for (const s of ['wireframe', 'hiddenRemoved', 'shaded', 'shadedEdges']) await m.run('style:' + s); return m.state.settings.displayStyle; })()",
+    "expect": "^shadedEdges$"
+  },
+  {
+    "name": "English UI",
+    "eval": "(async () => { await window.__mymechanics.run('language'); await new Promise((r) => setTimeout(r, 300)); const t = document.querySelector('[data-menu=\"insert\"]').textContent.trim(); await window.__mymechanics.run('language'); return t; })()",
+    "expect": "^Insert$"
+  }
+]

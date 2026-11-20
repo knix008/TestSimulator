@@ -1,0 +1,15 @@
+MyMechanics — third-party software
+
+This application includes the following open-source packages. Their licence texts are in this folder.
+Packages under the LGPL (OpenCASCADE via replicad-opencascadejs) are loaded from separate files (a WebAssembly module) and can be replaced.
+
+@tauri-apps/api 2.12.5 — Apache-2.0 OR MIT — https://github.com/tauri-apps/tauri#readme
+  tauri-apps-api.LICENSE-APACHE-2.0.txt, tauri-apps-api.LICENSE-MIT.txt
+@tauri-apps/plugin-dialog 2.8.4 — MIT OR Apache-2.0
+  tauri-apps-plugin-dialog.LICENSE.spdx.txt
+replicad 1.2.1 — MIT — https://replicad.xyz
+  replicad.LICENSE.txt
+replicad-opencascadejs 1.2.1 — LGPL-2.1-only
+  replicad-opencascadejs.LICENSE.txt
+three 0.187.0 — MIT — https://threejs.org/
+  three.LICENSE.txt
