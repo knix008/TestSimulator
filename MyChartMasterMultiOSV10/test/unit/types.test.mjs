@@ -82,7 +82,7 @@ test('the roles of the new kinds are found by themselves', () => {
 });
 
 test('chart themes: 42 of them, each draws every kind; the theme sets font, grid dash and palette', () => {
-  assert.ok(CHART_THEMES.length >= 42);
+  assert.ok(CHART_THEMES.length >= 60);
   for (const id of CHART_THEME_IDS) {
     const ct = chartTheme(id);
     assert.ok(palette(ct.palette).colors.length >= 6, id);

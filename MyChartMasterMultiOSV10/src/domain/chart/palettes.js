@@ -132,6 +132,11 @@ export const CHART_THEMES = [
   T('candy', '사탕', 'Candy', '#fff7fb', '#6b2147', '#a0577e', 'rgba(107,33,71,0.1)', 'rgba(107,33,71,0.35)', 'candy'),
   T('retro', '레트로', 'Retro', '#f4ecd8', '#3e2f1c', '#7d6748', 'rgba(62,47,28,0.14)', 'rgba(62,47,28,0.45)', 'retro', { font: "'Courier New', 'D2Coding', monospace" }),
   T('highContrast', '고대비', 'High contrast', '#ffffff', '#000000', '#000000', 'rgba(0,0,0,0.25)', '#000000', 'colorblind'),
+  T('peach', '복숭아', 'Peach', '#fff5ee', '#7a3b1e', '#a0674a', 'rgba(122,59,30,0.1)', 'rgba(122,59,30,0.4)', 'sunset'),
+  T('sage', '세이지', 'Sage', '#f4f7f0', '#2f3e2c', '#6b7d65', 'rgba(47,62,44,0.1)', 'rgba(47,62,44,0.4)', 'forest'),
+  T('arctic', '극지', 'Arctic', '#f5fbff', '#0f2a3d', '#5a7487', 'rgba(15,42,61,0.1)', 'rgba(15,42,61,0.4)', 'cool'),
+  T('blossom', '벚꽃', 'Blossom', '#fdf2f8', '#701a4f', '#a0527f', 'rgba(112,26,79,0.1)', 'rgba(112,26,79,0.35)', 'candy'),
+  T('linen', '리넨', 'Linen', '#faf7f2', '#3a3530', '#857b70', 'rgba(58,53,48,0.12)', 'rgba(58,53,48,0.4)', 'tableau', { gridDash: '3 3' }),
   // more dark themes
   T('charcoal', '숯', 'Charcoal', '#262626', '#f5f5f5', '#a3a3a3', 'rgba(245,245,245,0.1)', 'rgba(245,245,245,0.35)', 'vivid'),
   T('deepSea', '심해', 'Deep sea', '#071a2b', '#d6ecff', '#7fa8c9', 'rgba(214,236,255,0.1)', 'rgba(214,236,255,0.35)', 'ocean'),
@@ -150,6 +155,11 @@ export const CHART_THEMES = [
   T('desertNight', '사막의 밤', 'Desert night', '#231a12', '#fdf1e1', '#c9ad8c', 'rgba(253,241,225,0.1)', 'rgba(253,241,225,0.35)', 'warm'),
   T('highContrastDark', '고대비 어둡게', 'High contrast dark', '#000000', '#ffffff', '#ffffff', 'rgba(255,255,255,0.3)', '#ffffff', 'colorblind'),
   T('cyberpunk', '사이버펑크', 'Cyberpunk', '#120424', '#fdf0ff', '#c79ae0', 'rgba(253,240,255,0.1)', 'rgba(253,240,255,0.35)', 'neon', { gridDash: '2 4' }),
+  T('obsidian', '흑요석', 'Obsidian', '#0d0d12', '#ececf3', '#9a9aae', 'rgba(236,236,243,0.1)', 'rgba(236,236,243,0.35)', 'vivid'),
+  T('moss', '이끼', 'Moss', '#1a2318', '#e8f0e2', '#a3b59a', 'rgba(232,240,226,0.1)', 'rgba(232,240,226,0.35)', 'earth'),
+  T('twilight', '황혼', 'Twilight', '#1d1533', '#f0e9ff', '#ad9fd1', 'rgba(240,233,255,0.1)', 'rgba(240,233,255,0.35)', 'sunset'),
+  T('steel', '강철', 'Steel', '#1c232b', '#e4eaf0', '#94a3b4', 'rgba(228,234,240,0.1)', 'rgba(228,234,240,0.35)', 'category10', { gridDash: '4 4' }),
+  T('lava', '용암', 'Lava', '#1a0a05', '#fff0e6', '#d19a80', 'rgba(255,240,230,0.1)', 'rgba(255,240,230,0.35)', 'warm'),
 ];
 export const CHART_THEME_IDS = CHART_THEMES.map((t) => t.id);
 /** Whether a chart theme has a dark paper (relative luminance under 0.35). */

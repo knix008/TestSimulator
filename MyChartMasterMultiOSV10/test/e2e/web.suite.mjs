@@ -1456,6 +1456,7 @@ test('theme.tiles', 'Chart themes in the Style tab: light and dark grouped (same
     const groups = qa('.ins-theme-group').map((g) => [g.dataset.themeKind, g.querySelectorAll('.ins-theme-tile').length]);
     const label = q('.ins-row-stack > .ins-label'); const grid = q('.ins-row-stack .ins-theme-grid');
     const above = label.getBoundingClientRect().bottom <= grid.getBoundingClientRect().top + 1;
+    const rows = qa('.ins-theme-group[data-theme-kind] .ins-theme-grid').map((g) => { const tops = [...g.children].map((b) => Math.round(b.getBoundingClientRect().top)); const cols = tops.filter((y) => y === tops[0]).length; return { kind: g.parentElement.dataset.themeKind, n: tops.length, cols, lastRow: tops.filter((y) => y === tops[tops.length - 1]).length }; });
     q('[data-ins-theme="ember"]').click(); await sleep(150);
     const ember = doc().chart.options.chartTheme;
     q('[data-ins-theme="custom"]').click(); await sleep(150);
@@ -1464,10 +1465,11 @@ test('theme.tiles', 'Chart themes in the Style tab: light and dark grouped (same
     A.actions.setOption('background', 'chart'); await sleep(120);
     const paper = q('.ch-canvas .chart-bg')?.getAttribute('fill');
     const saved = JSON.parse(doc().serialize()).chart.options.customTheme?.bg;
-    return { groups, above, ember, custom, paper, saved };`);
+    return { groups, rows, above, ember, custom, paper, saved };`);
   const counts = Object.fromEntries(r.groups);
-  assert(counts.light >= 25 && counts.light === counts.dark && counts.custom === 1, JSON.stringify(r.groups));
+  assert(counts.light >= 30 && counts.light === counts.dark && counts.custom === 1, JSON.stringify(r.groups));
   assert(r.above, 'the label is not above the themes');
+  for (const g of r.rows.filter((x) => x.kind !== 'custom')) assert(g.lastRow === g.cols, `${g.kind}: ${g.n} themes leave the last row of ${g.cols} with ${g.lastRow}`);
   assert(r.ember === 'ember' && r.custom === 'custom', `${r.ember} ${r.custom}`);
   assert(/#123456/i.test(r.paper ?? '') && r.saved === '#123456', `custom paper ${r.paper} ${r.saved}`);
 });
