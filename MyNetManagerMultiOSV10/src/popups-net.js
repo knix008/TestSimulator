@@ -76,14 +76,14 @@ export function installNetPopups(c) {
     packet: ['showPacketWindow', 'action.packetWindow'], firewall: ['protoLock', 'action.firewallRules'], credentials: ['protoLock', 'action.credentials'], sip: ['protoVoip', 'action.sipFlows'],
     rtp: ['protoVoip', 'action.rtpStreams'], wlan: ['ifWifi', 'action.wlanTraffic'],
     srt: ['clock', 'action.serviceResponseTime'], multicast: ['netCloud', 'action.multicastStreams'], dhcp: ['netHost', 'action.dhcpStats'], sipStats: ['protoVoip', 'action.sipStats'],
-    packetBytes: ['paneBytes', 'action.showPacketBytes'], rtpAnalysis: ['protoVoip', 'action.rtpAnalysis'], macBlocks: ['netSwitch', 'action.macBlocks'], protocols: ['protocolHierarchy', 'action.supportedProtocols'],
+    packetBytes: ['paneBytes', 'action.showPacketBytes'], btDevices: ['ifBluetooth', 'action.btDevices'], btHciSummary: ['ifBluetooth', 'action.btHciSummary'], btAttServer: ['ifBluetooth', 'action.btAttServer'], packetDiagram: ['protocolHierarchy', 'action.packetDiagram'], rtpAnalysis: ['protoVoip', 'action.rtpAnalysis'], macBlocks: ['netSwitch', 'action.macBlocks'], protocols: ['protocolHierarchy', 'action.supportedProtocols'],
   };
 
   function statOptions() {
     const p = P();
     const d = net.draft;
     return { tab: d.tab, version: p.version, objectKind: p.objectKind, index: p.index, product: d.product, stream: d.stream,
-      start: p.start, length: p.length, source: p.source, label: p.label, decodeAs: d.decodeAs, showAs: d.showAs };
+      start: p.start, length: p.length, source: p.source, label: p.label, decodeAs: d.decodeAs, showAs: d.showAs, showValues: d.showValues };
   }
 
   function renderStats() {
@@ -93,7 +93,7 @@ export function installNetPopups(c) {
       request(p.statKind, statOptions());
     }
     const [glyph, titleKey] = STAT_META[p.statKind] ?? ['ioGraph', 'menu.statistics'];
-    const titleText = p.statKind === 'ipStats' && p.version === 6 ? t('action.ipv6Stats') : p.statKind === 'objects' ? t(`action.exportObjects${({ http: 'Http', tftp: 'Tftp', imf: 'Imf', 'ftp-data': 'Ftp' })[p.objectKind] ?? 'Http'}`) : t(titleKey);
+    const titleText = p.statKind === 'ipStats' && p.version === 6 ? t('action.ipv6Stats') : p.statKind === 'objects' ? t(`action.exportObjects${({ http: 'Http', tftp: 'Tftp', imf: 'Imf', 'ftp-data': 'Ftp' })[p.objectKind] ?? 'Http'}`) : t(titleKey).replace(/…$/, '');
     const r = net.data;
     let body = loadingHtml();
     if (r?.error) body = errorHtml(r.error);
@@ -137,6 +137,11 @@ export function installNetPopups(c) {
       const note = r.note && r.choices ? `<div class="muted net-note">${escapeHtml(r.note)}</div>` : '';
       return `${options}${choices}${note}<pre class="net-text">${escapeHtml(r.text)}</pre>`;
     }
+    if (r.view === 'diagram') {
+      const choices = (r.choices ?? []).map((c) => `<div class="row net-text-opts net-choice" data-choice="${escapeHtml(c.key)}"><span class="muted net-choice-label">${escapeHtml(c.label)}</span>${segmented(c.key, c.options.map((o) => [o.id, o.label]), c.value, 'data-net-seg')}</div>`).join('');
+      // The SVG is built by packet-diagram.js with every text escaped.
+      return `${choices}<div class="muted net-note">${escapeHtml(r.note ?? '')}</div><div class="pd-view">${r.sections.map((s) => `<section class="pd-section" data-proto="${escapeHtml(s.abbrev)}"><h3 class="section-title">${icon('protocolHierarchy')}${escapeHtml(s.title)}</h3>${s.svg}</section>`).join('')}</div>`;
+    }
     if (r.view === 'packet') return `<div class="net-packet">${r.lines.map((line) => `<div class="dt-row" style="--depth:${line.depth}"><span class="dt-label">${escapeHtml(line.text)}</span></div>`).join('')}<pre class="net-text">${escapeHtml(r.hex)}</pre></div>`;
     return tableHtml(r);
   }
@@ -157,7 +162,7 @@ export function installNetPopups(c) {
     if (r.view === 'props') {
       return { title, subtitle, columns: [{ label: t('docExport.item') }, { label: t('docExport.value') }], rows: r.sections.flatMap((sec) => [{ depth: 0, cells: [sec.title, ''] }, ...sec.rows.map(([k, v]) => ({ depth: 1, cells: [k, v] }))]) };
     }
-    if (r.view === 'text') return { title, subtitle, columns: [{ label: title }], rows: String(r.text).split('\n').map((line) => ({ cells: [line] })) };
+    if (r.view === 'text' || r.view === 'diagram') return { title, subtitle, columns: [{ label: title }], rows: String(r.text).split('\n').map((line) => ({ cells: [line] })) };
     if (r.view === 'packet') return { title, subtitle, columns: [{ label: title }], rows: [...r.lines.map((l) => ({ depth: l.depth, cells: [l.text] })), { cells: [''] }, ...String(r.hex).split('\n').map((line) => ({ cells: [line] }))] };
     const tree = r.view === 'tree';
     return {
@@ -239,7 +244,7 @@ export function installNetPopups(c) {
   const tableCsv = (r) => {
     const quote = (v) => { const text = String(v ?? ''); return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text; };
     if (r.view === 'props') return r.sections.flatMap((sec) => [sec.title, ...sec.rows.map(([k, v]) => `${quote(k)},${quote(v)}`), '']).join('\n');
-    if (r.view === 'text') return r.text;
+    if (r.view === 'text' || r.view === 'diagram') return r.text;
     if (r.view === 'packet') return `${r.lines.map((l) => `${'  '.repeat(l.depth)}${l.text}`).join('\n')}\n\n${r.hex}`;
     return [r.columns.map((col) => quote(col.label)).join(','), ...r.rows.map((row) => r.columns.map((col) => quote(row.view === 'tree' ? row.cells[col.id] : row.cells[col.id])).join(','))].join('\n');
   };

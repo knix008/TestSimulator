@@ -10,7 +10,7 @@ import { DemoTraffic } from './domain/capture/synth.js';
 import { SAMPLE_GROUPS, SAMPLES } from './domain/capture/samples.js';
 import { sampleIcon } from './ui/startpage.js';
 import { FIELDS, PROTOCOLS } from './domain/dissect/index.js';
-import { checkFilter, conversationFilter, filterForNode, setDefaultFields, suggestFields, validateFilter } from './domain/filter/index.js';
+import { checkFilter, conversationFilter, filterForNode, getFilterMacros, parseMacroLines, setDefaultFields, setFilterMacros, suggestFields, validateFilter } from './domain/filter/index.js';
 import { COLORING_RULES, darkColors } from './domain/filter/coloring.js';
 import { buildTopology, matchTopology } from './domain/analysis/topology.js';
 import { buildReport, createAnalyzer } from './domain/analysis/findings.js';
@@ -22,8 +22,10 @@ import { guessLinktype, IMPORT_LINKTYPES, packetsToPcap, parseHexDump } from './
 import { followFilter, followFilterOut } from './domain/analysis/follow.js';
 import { addRecent, loadRecent, loadRecentDirs, removeRecent, storeRecent, storeRecentDirs } from './domain/recent.js';
 import {
-  ANIMATIONS, COLORING_KEY, DEFAULT_COLUMNS, loadSettings, pushRecentFilter, SESSION_KEY, storeSettings, TIME_FORMATS, zoomStep,
+  ANIMATIONS, COLORING_KEY, DEFAULT_COLUMNS, loadSettings, normalizeSettings, pushRecentFilter, SESSION_KEY, storeSettings, TIME_FORMATS, zoomStep,
 } from './domain/settings.js';
+import { parseKeyLog } from './domain/dissect/proto/tls-decrypt.js';
+import { buildProfile, LOCAL_SETTINGS, parseProfile, PROFILE_EXTENSION, profileText } from './domain/profile.js';
 import { DOC_KINDS, docLabel, docWindowTitle } from './domain/helpdocs.js';
 import { loadSavedFilters, storeSavedFilters } from './domain/filters-store.js';
 import { switchFlag } from './flags.js';
@@ -45,6 +47,77 @@ import { displayValue } from './domain/capture/doc.js';
 import * as analysis from './analysis-bridge.js';
 
 setDefaultFields(FIELDS);
+
+// Analyze › Display Filter Macros: kept in this browser profile / program data, applied to every filter.
+const MACROS_KEY = 'mynetmanager.filterMacros';
+function loadFilterMacros() {
+  try { setFilterMacros(JSON.parse(globalThis.localStorage?.getItem(MACROS_KEY) ?? '[]')); } catch { setFilterMacros([]); }
+}
+loadFilterMacros();
+
+// ───────────────────────── configuration profiles as project files
+
+/** File › Save Profile…: the settings, colouring rules, saved filters and macros as one *.mynetprofile file. */
+async function saveProfile() {
+  const name = state.settings.profileName || t('profile.defaultName');
+  const profile = buildProfile({ name, settings: state.settings, coloring: loadColoring(), filters: loadSavedFilters(), macros: getFilterMacros() });
+  return saveExport(`${fileSafe(name)}.${PROFILE_EXTENSION}`, 'profile', profileText(profile), 'application/json');
+}
+
+/** File › Open Profile…: replaces the settings, colouring rules, saved filters and macros with a profile file's. */
+async function openProfile(picked = null) {
+  let file = picked;
+  try {
+    file = file ?? await native.pickProfile(state.settings.lastDirectory);
+  } catch (error) {
+    showError('error.open', error);
+    return false;
+  }
+  if (!file) return false;
+  const parsed = parseProfile(file.text);
+  const fileName = baseName(file.path ?? file.name ?? '');
+  if (!parsed.ok) { notify('error', t('profile.invalid', { name: fileName, error: parsed.error })); return false; }
+  const p = parsed.profile;
+  if (!picked) {
+    const choice = await ask({ icon: 'gear', title: t('action.openProfile').replace(/…$/, ''), message: t('profile.confirm', { name: p.name }), buttons: [{ id: 'cancel', label: t('confirm.cancel') }, { id: 'apply', label: t('profile.apply'), icon: 'check', primary: true }] });
+    if (choice !== 'apply') return false;
+  }
+  applyProfile(p);
+  notify('success', t('profile.applied', { name: p.name }));
+  return true;
+}
+
+function applyProfile(p) {
+  // Settings: the profile's, but what belongs to this computer stays.
+  const local = Object.fromEntries(Object.entries(state.settings).filter(([key]) => LOCAL_SETTINGS.has(key)));
+  const next = normalizeSettings({ ...state.settings, ...p.settings, ...local, profileName: p.name }, state.settings.language);
+  updateSettings({ ...next, profileName: p.name });
+  if (p.coloring) {
+    try { globalThis.localStorage?.setItem(COLORING_KEY, JSON.stringify(p.coloring)); } catch { /* full */ }
+    for (const doc of state.docs) doc.setColoring(themedColoring(doc));
+  }
+  if (p.filters) storeSavedFilters(p.filters);
+  if (p.macros) {
+    setFilterMacros(p.macros);
+    try { globalThis.localStorage?.setItem(MACROS_KEY, JSON.stringify(getFilterMacros())); } catch { /* full */ }
+  }
+  state.view?.renderFilterBar();
+  if (state.view) onFilterInput(state.view.filterText());
+  redrawList();
+  renderAll();
+}
+
+async function editFilterMacros() {
+  const current = getFilterMacros().map((m) => `${m.name} = ${m.text}`).join('\n');
+  const result = await popups.open('prompt', { icon: 'filterBookmark', title: t('action.filterMacros').replace(/…$/, ''), label: t('macros.label'), value: current || t('macros.example'), multiline: true });
+  if (result?.value == null) return null;
+  const { macros, errors } = parseMacroLines(result.value);
+  setFilterMacros(macros);
+  try { globalThis.localStorage?.setItem(MACROS_KEY, JSON.stringify(getFilterMacros())); } catch { /* full */ }
+  if (state.view) onFilterInput(state.view.filterText());
+  notify(errors.length ? 'error' : 'success', errors.length ? t('macros.badLines', { lines: errors.join(' | ') }) : t('macros.saved', { count: getFilterMacros().length }));
+  return getFilterMacros();
+}
 const root = document.querySelector('#app');
 const desktop = native.isDesktop();
 const appWindow = desktop ? getCurrentWindow() : null;
@@ -138,7 +211,51 @@ function dissectPrefs() {
     tcp: { relativeSeq: s.tcpRelativeSeq, analyze: s.tcpAnalyze },
     decodeAs: s.decodeAs,
     disabled: s.disabledProtocols,
+    tlsKeyLog: state.tlsKeyLog?.text ?? '',
   };
+}
+
+// ───────────────────────── TLS key log (Wireshark's "(Pre)-Master-Secret log filename")
+
+/** Loads an NSS key log (SSLKEYLOGFILE) and dissects every open capture again so TLS decrypts. */
+async function loadTlsKeyLog(picked = null) {
+  let file = picked;
+  try {
+    file = file ?? await native.pickKeyLog(state.settings.lastDirectory);
+  } catch (error) {
+    showError('error.open', error);
+    return false;
+  }
+  if (!file) return false;
+  const sessions = parseKeyLog(file.text).size;
+  const name = baseName(file.path ?? file.name ?? '');
+  if (!sessions) { notify('error', t('keylog.empty', { name })); return false; }
+  state.tlsKeyLog = { name, text: file.text, sessions };
+  // The desktop program reads the file again at the next start; the web version keeps it for this visit.
+  updateSettings({ tlsKeyLogFile: file.path ?? null }, { quiet: true });
+  await redissectAll();
+  notify('success', t('keylog.loaded', { name, sessions }));
+  renderAll();
+  return sessions;
+}
+
+async function forgetTlsKeyLog() {
+  state.tlsKeyLog = null;
+  updateSettings({ tlsKeyLogFile: null }, { quiet: true });
+  await redissectAll();
+  notify('info', t('keylog.forgotten'));
+  renderAll();
+}
+
+/** Desktop: the key log chosen last time, read again before captures open. */
+async function restoreTlsKeyLog() {
+  const path = state.settings.tlsKeyLogFile;
+  if (!desktop || !path) return;
+  try {
+    const text = await native.readTextFile(path);
+    const sessions = parseKeyLog(text).size;
+    if (sessions) state.tlsKeyLog = { name: baseName(path), text, sessions };
+  } catch { /* moved or deleted: decrypt nothing */ }
 }
 
 function loadColoring() {
@@ -1336,6 +1453,8 @@ async function mergeFile() {
   if (choice === 'cancel' || !choice) return;
   const ifaceBase = doc.file.interfaces.length;
   doc.file.interfaces.push(...other.interfaces);
+  // Keys inside the other file (Decryption Secrets Blocks) decrypt its TLS here too.
+  if (other.secrets?.length) doc.file.secrets = [...(doc.file.secrets ?? []), ...other.secrets];
   const added = other.frames.map((f) => ({ ...f, iface: (f.iface ?? 0) + ifaceBase }));
   const all = [...doc.frames, ...added];
   if (choice === 'time') all.sort((a, b) => a.sec - b.sec || a.nsec - b.nsec);
@@ -1540,6 +1659,7 @@ const commands = {
   interfaces: { icon: 'interfaces', label: 'action.interfaces', key: 'Ctrl+I', run: () => { showStartPage(true); refreshInterfaces({ quiet: false }); } },
   refreshInterfaces: { icon: 'refreshInterfaces', label: 'action.refreshInterfaces', run: async () => { await refreshInterfaces({ quiet: false }); notify('success', t('notice.interfaces', { count: state.interfaces.length - 1 })); } },
   // Analyze
+  filterMacros: { icon: 'filterBookmark', label: 'action.filterMacros', run: () => editFilterMacros() },
   displayFilters: { icon: 'filterBookmark', label: 'action.displayFilters', run: () => popups.open('filters', { which: 'display' }) },
   filterExpression: { icon: 'filterExpression', label: 'action.filterExpression', run: () => openFilterExpression() },
   focusFilter: { icon: 'filterBar', label: 'action.focusFilter', key: 'Ctrl+/', enabled: hasDoc, run: () => { if (!state.settings.showFilterBar) updateSettings({ showFilterBar: true }); state.view?.focusFilter(); } },
@@ -1583,8 +1703,16 @@ const commands = {
   wlanTraffic: { icon: 'ifWifi', label: 'action.wlanTraffic', enabled: hasDoc, run: () => openStats('wlan') },
   ...Object.fromEntries(['eth', 'ip', 'ipv6', 'tcp', 'udp'].map((k) => [`colorConv:${k}`, { icon: 'colorize', label: `conversationFilter.${k}`, enabled: () => hasSel() && conversationFilter(k, activeDoc().dissection(activeDoc().selected)) != null, run: () => colorizeConversation(k) }])),
   resetConversationColors: { icon: 'close', label: 'action.resetColorization', enabled: () => Boolean(activeDoc()?.conversationColors?.length), run: () => resetConversationColors() },
+  packetDiagram: { icon: 'protocolHierarchy', label: 'action.packetDiagram', enabled: hasSel, run: () => openStats('packetDiagram', { index: activeDoc().selected }) },
   showPacketBytes: { icon: 'paneBytes', label: 'action.showPacketBytes', enabled: hasSel, run: () => { const doc = activeDoc(); const node = state.view?.details.selected; const whole = !node?.length; return openStats('packetBytes', { index: doc.selected, start: whole ? null : node.start, length: whole ? null : node.length, source: whole ? 0 : node.source ?? 0, label: whole ? null : node.abbrev ?? null }); } },
+  tlsKeyLog: { icon: 'protoLock', label: 'action.tlsKeyLog', run: () => loadTlsKeyLog() },
+  tlsKeyLogForget: { icon: 'close', label: 'action.tlsKeyLogForget', enabled: () => Boolean(state.tlsKeyLog), run: () => forgetTlsKeyLog() },
+  saveProfile: { icon: 'save', label: 'action.saveProfile', run: () => saveProfile() },
+  openProfile: { icon: 'gear', label: 'action.openProfile', run: () => openProfile() },
   importHexDump: { icon: 'paneBytes', label: 'action.importHexDump', run: () => importHexDump() },
+  btAttServer: { icon: 'ifBluetooth', label: 'action.btAttServer', enabled: hasDoc, run: () => openStats('btAttServer') },
+  btDevices: { icon: 'ifBluetooth', label: 'action.btDevices', enabled: hasDoc, run: () => openStats('btDevices') },
+  btHciSummary: { icon: 'ifBluetooth', label: 'action.btHciSummary', enabled: hasDoc, run: () => openStats('btHciSummary') },
   serviceResponseTime: { icon: 'clock', label: 'action.serviceResponseTime', enabled: hasDoc, run: () => openStats('srt') },
   multicastStreams: { icon: 'netCloud', label: 'action.multicastStreams', enabled: hasDoc, run: () => openStats('multicast') },
   dhcpStats: { icon: 'netHost', label: 'action.dhcpStats', enabled: hasDoc, run: () => openStats('dhcp') },
@@ -1676,15 +1804,15 @@ const SUBMENUS = {
 };
 const sub = (key) => ({ sub: key });
 const MENUS = {
-  file: ['open', 'recent', sub('sampleList'), 'merge', 'importHexDump', '-', 'closeTab', 'closeAll', '-', 'save', 'saveAs', 'savePcap', '-', 'exportSpecified', sub('exportDissections'), 'exportBytes', sub('exportObjects'), '-', 'print', '-', 'startPage', 'exit'],
+  file: ['open', 'recent', sub('sampleList'), 'merge', 'importHexDump', '-', 'closeTab', 'closeAll', '-', 'save', 'saveAs', 'savePcap', '-', 'exportSpecified', sub('exportDissections'), 'exportBytes', sub('exportObjects'), '-', 'openProfile', 'saveProfile', '-', 'print', '-', 'startPage', 'exit'],
   edit: [sub('copy'), '-', 'findPacket', 'findNext', 'findPrev', '-', sub('marks'), sub('ignores'), sub('timeRefs'), 'timeShift', '-', 'packetComment', 'deleteComments', '-', 'settings'],
-  view: [sub('panes'), sub('timeFormat'), sub('nameResolution'), sub('zoom'), '-', 'colorize', sub('colorizeConversation'), 'coloringRules', 'resizeColumns', 'columnPrefs', '-', sub('tree'), sub('bytesAs'), 'packetWindow', 'reload', '-', sub('appearance')],
+  view: [sub('panes'), sub('timeFormat'), sub('nameResolution'), sub('zoom'), '-', 'colorize', sub('colorizeConversation'), 'coloringRules', 'resizeColumns', 'columnPrefs', '-', sub('tree'), sub('bytesAs'), 'packetWindow', 'packetDiagram', 'reload', '-', sub('appearance')],
   go: ['goPacket', 'goFirst', 'goLast', 'goPrev', 'goNext', '-', 'goConversationPrev', 'goConversationNext', 'goRelated', '-', 'goBack', 'goForward', '-', 'autoScroll'],
   capture: ['captureOptions', 'captureStart', 'captureStop', 'captureRestart', '-', 'captureFilters', 'interfaces', 'refreshInterfaces'],
-  analyze: ['displayFilters', 'filterExpression', 'focusFilter', '-', 'applyAsColumn', sub('applyFilter'), sub('prepareFilter'), sub('conversationFilter'), '-', 'enabledProtocols', 'decodeAs', '-', sub('follow'), 'showPacketBytes', '-', 'expertInfo'],
+  analyze: ['displayFilters', 'filterMacros', 'filterExpression', 'focusFilter', '-', 'applyAsColumn', sub('applyFilter'), sub('prepareFilter'), sub('conversationFilter'), '-', 'enabledProtocols', 'decodeAs', '-', 'tlsKeyLog', 'tlsKeyLogForget', '-', sub('follow'), 'showPacketBytes', '-', 'expertInfo'],
   statistics: ['report', '-', 'captureProperties', 'resolvedAddresses', 'protocolHierarchy', 'conversations', 'endpoints', 'packetLengths', 'ioGraph', 'flowGraph', 'tcpGraph', '-', 'serviceResponseTime', 'multicastStreams', 'dhcpStats', sub('http'), 'dnsStats', sub('ipStats'), '-', 'netMapWindow'],
   telephony: ['voipCalls', 'sipFlows', 'sipStats', '-', 'rtpStreams', 'rtpAnalysis'],
-  wireless: ['wlanTraffic'],
+  wireless: ['btAttServer', 'btDevices', 'btHciSummary', '-', 'wlanTraffic'],
   tools: ['report', 'analyzeNow', '-', 'firewallRules', 'credentials', 'macBlocks', '-', 'supportedProtocols', '-', 'settings'],
   help: ['welcome', 'tutorial', 'tutorialDoc', 'userGuide', 'filterReference', 'shortcuts', '-', 'settings', 'about'],
 };
@@ -2268,12 +2396,128 @@ function openMenubarMenu(name) {
   showMenu(menuItems(MENUS[name]), anchorBelow(element), name);
 }
 
+/** A filter from a panel: the same choices as Apply / Prepare as Filter, plus copying it. */
+function filterChoices(filter, label = filter) {
+  if (!filter) return { items: [], handlers: {} };
+  return {
+    items: [
+      { id: 'custom:apply', label: t('panelMenu.applyFilter'), icon: 'filterApply' },
+      { id: 'custom:applyAnd', label: t('panelMenu.applyAnd'), icon: 'filterApply' },
+      { id: 'custom:prepare', label: t('panelMenu.prepareFilter'), icon: 'filterPrepare' },
+      { id: 'custom:copyFilter', label: t('panelMenu.copyFilter'), icon: 'copyValue' },
+      { id: 'custom:copyLabel', label: t('panelMenu.copyText'), icon: 'copy', disabled: !label },
+      { separator: true },
+    ],
+    handlers: {
+      'custom:apply': () => { state.view?.setFilterText(filter); return applyDisplayFilter(filter); },
+      'custom:applyAnd': () => { const f = combineFilter(filter, 'and'); state.view?.setFilterText(f); return applyDisplayFilter(f); },
+      'custom:prepare': () => { state.view?.setFilterText(filter); state.view?.focusFilter(); },
+      'custom:copyFilter': () => copyText(filter, t('copy.filter')),
+      'custom:copyLabel': () => copyText(label, t('copy.value')),
+    },
+  };
+}
+
+/** Right-click menus of the side and bottom panels: what is under the pointer first, then the panel's own. */
+function panelMenu(which, anchor, payload) {
+  const view = state.view;
+  if (which === 'navigator') {
+    const pick = filterChoices(payload.filter, payload.label);
+    const items = [
+      ...pick.items,
+      { id: 'custom:expand', label: t('panelMenu.expandAll'), icon: 'expandAll' },
+      { id: 'custom:collapse', label: t('panelMenu.collapseAll'), icon: 'collapseAll' },
+      { separator: true },
+      ...menuItems(['analyzeNow', 'report', '-', 'expertInfo', 'protocolHierarchy', 'endpoints', '-', 'leftPanel']),
+    ];
+    const handlers = {
+      ...pick.handlers,
+      'custom:expand': () => { view.nav.open = new Set(['findings', 'protocols', 'talkers']); view.nav.render(); },
+      'custom:collapse': () => { view.nav.open = new Set(); view.nav.render(); },
+    };
+    return showMenu(items, anchor, 'context', { handlers, header: { icon: 'launcher', title: payload.label || t('panel.navigator') } });
+  }
+  if (which === 'netmap') {
+    const map = view?.map;
+    const s = state.settings;
+    const item = payload.type === 'node' ? map?.topology?.nodes.find((n) => n.id === payload.id) : payload.type === 'link' ? map?.topology?.links.find((l) => l.id === payload.id) : null;
+    const name = item ? (payload.type === 'node' ? map.label(item) : `${map.labelOf(item.source)} ↔ ${map.labelOf(item.target)}`) : '';
+    const pick = filterChoices(item?.filter, name);
+    const address = payload.type === 'node' ? [item?.ip, item?.mac ?? item?.macs?.[0]].filter(Boolean) : [];
+    const items = [
+      ...(item ? [{ id: 'custom:only', label: t('panelMenu.onlyItsPackets'), icon: 'filterApply' }] : []),
+      ...pick.items.filter((x) => x.id !== 'custom:apply'),
+      ...address.map((a, i) => ({ id: `custom:addr:${i}`, label: t('panelMenu.copyAddress', { address: a }), icon: 'copy' })),
+      ...(address.length ? [{ separator: true }] : []),
+      ...(map?.selected || map?.match ? [{ id: 'custom:all', label: t('netmap.showAll'), icon: 'filterClear' }, { separator: true }] : []),
+      ...['subnet', 'force', 'radial'].map((m) => ({ id: `custom:layout:${m}`, label: `${t('netmap.layout')}: ${t(`netmap.layout.${m}`)}`, icon: 'netLayout', checked: s.netmapLayout === m })),
+      { separator: true },
+      ...['name', 'ip', 'mac'].map((m) => ({ id: `custom:labels:${m}`, label: `${t('netmap.labels')}: ${t(`netmap.labels.${m}`)}`, icon: 'tag', checked: s.netmapLabels === m })),
+      { separator: true },
+      { id: 'custom:external', label: t('netmap.showExternal'), icon: 'netCloud', checked: s.netmapShowExternal },
+      { id: 'custom:multicast', label: t('netmap.showMulticast'), icon: 'netMulticast', checked: s.netmapShowMulticast },
+      { separator: true },
+      { id: 'custom:fit', label: t('netmap.fit'), icon: 'fitPage' },
+      { id: 'custom:refresh', label: t('netmap.refresh'), icon: 'refresh' },
+      { id: 'custom:export', label: t('netmap.export'), icon: 'netExportImage' },
+      { separator: true },
+      ...menuItems(['rightPanel']),
+    ];
+    const handlers = {
+      ...pick.handlers,
+      'custom:only': () => map.choose({ type: payload.type, id: payload.id }),
+      ...Object.fromEntries(address.map((a, i) => [`custom:addr:${i}`, () => copyText(a, t('copy.value'))])),
+      'custom:all': () => map.choose(null),
+      ...Object.fromEntries(['subnet', 'force', 'radial'].map((m) => [`custom:layout:${m}`, () => { updateSettings({ netmapLayout: m }, { quiet: true }); map.userMoved = false; map.layout(); map.fit(); }])),
+      ...Object.fromEntries(['name', 'ip', 'mac'].map((m) => [`custom:labels:${m}`, () => { updateSettings({ netmapLabels: m }, { quiet: true }); map.render(); }])),
+      'custom:external': () => updateSettings({ netmapShowExternal: !s.netmapShowExternal }),
+      'custom:multicast': () => updateSettings({ netmapShowMulticast: !s.netmapShowMulticast }),
+      'custom:fit': () => map.fit(),
+      'custom:refresh': () => refreshMap(),
+      'custom:export': () => map.app.onExport(),
+    };
+    return showMenu(items, anchor, 'context', { handlers, header: { icon: 'paneMap', title: name || t('netmap.title') } });
+  }
+  // Bottom panel: the row under the pointer (a problem, a finding, a log line), then the tabs and tools.
+  const bottom = view?.bottom;
+  const tab = bottom?.tab() ?? 'problems';
+  const rowItems = [];
+  const handlers = {};
+  if (payload.no) {
+    rowItems.push({ id: 'custom:go', label: t('panelMenu.goPacket', { no: payload.no }), icon: 'goPacket' });
+    handlers['custom:go'] = () => state.view && viewApi.bottom.onSelectPacket(payload.no);
+  }
+  const pick = filterChoices(payload.filter, payload.text);
+  rowItems.push(...pick.items);
+  Object.assign(handlers, pick.handlers);
+  if (payload.text && !payload.filter) {
+    rowItems.push({ id: 'custom:copyRow', label: t('panelMenu.copyText'), icon: 'copy' }, { separator: true });
+    handlers['custom:copyRow'] = () => copyText(payload.text, t('copy.value'));
+  }
+  const tabs = [['problems', 'expertInfo'], ['log', 'notes'], ['analysis', 'ioGraph']];
+  const items = [
+    ...rowItems,
+    ...tabs.map(([id, glyph]) => ({ id: `custom:tab:${id}`, label: t(`panel.${id}`), icon: glyph, checked: tab === id })),
+    { separator: true },
+    { id: 'custom:copyAll', label: t('panelMenu.copyAll'), icon: 'copy' },
+    ...(tab === 'log' ? [{ id: 'custom:clearLog', label: t('panel.clearLog'), icon: 'clearHistory', disabled: !state.log.length }] : []),
+    { separator: true },
+    ...menuItems(['report', 'expertInfo', 'analyzeNow', '-', 'bottomPanel']),
+  ];
+  Object.assign(handlers, {
+    ...Object.fromEntries(tabs.map(([id]) => [`custom:tab:${id}`, () => { updateSettings({ bottomTab: id }, { quiet: true }); bottom.render(); }])),
+    'custom:copyAll': () => copyText([...view.root.querySelectorAll('.pane-bottom .bottom-list tr')].map((tr) => [...tr.children].map((td) => td.textContent.trim()).join('\t')).join('\n'), t('panel.' + tab)),
+    'custom:clearLog': () => viewApi.bottom.onClearLog(),
+  });
+  return showMenu(items, anchor, 'context', { handlers, header: { icon: 'expertInfo', title: t(`panel.${tab}`) } });
+}
+
 function contextMenu(event, kind, payload = {}) {
   const point = toScreen(event.clientX, event.clientY);
   const anchor = { x: point.x + 1, y: point.y + 1, flipY: point.y };
   if (kind === 'packet') {
     const part = partMenu({ range: 'selected', summary: true, columnHeader: true, details: 'displayed', bytes: false }, t('context.packet', { no: payload.index + 1 }));
-    return showMenu(menuItems(['markPacket', 'ignorePacket', 'timeReference', 'timeShift', 'packetComment', '-', sub('applyFilter'), sub('prepareFilter'), sub('conversationFilter'), sub('colorizeConversation'), '-', sub('copy'), '-', 'decodeAs', 'packetWindow', 'showPacketBytes', sub('follow'), '-', 'firewallRules']).concat(part.items), anchor, 'context', { handlers: part.handlers, header: { icon: 'packet', title: t('context.packet', { no: payload.index + 1 }) } });
+    return showMenu(menuItems(['markPacket', 'ignorePacket', 'timeReference', 'timeShift', 'packetComment', '-', sub('applyFilter'), sub('prepareFilter'), sub('conversationFilter'), sub('colorizeConversation'), '-', sub('copy'), '-', 'decodeAs', 'packetWindow', 'packetDiagram', 'showPacketBytes', sub('follow'), '-', 'firewallRules']).concat(part.items), anchor, 'context', { handlers: part.handlers, header: { icon: 'packet', title: t('context.packet', { no: payload.index + 1 }) } });
   }
   if (kind === 'details') {
     const part = partMenu({ range: 'selected', summary: false, details: 'displayed', bytes: false }, t('context.details'));
@@ -2307,6 +2551,9 @@ function contextMenu(event, kind, payload = {}) {
     };
     return showMenu(items, anchor, 'context', { handlers, header: { icon: 'columns', title: t('context.columns') } });
   }
+  if (kind === 'navigator') return panelMenu('navigator', anchor, payload);
+  if (kind === 'netmap') return panelMenu('netmap', anchor, payload);
+  if (kind === 'bottom') return panelMenu('bottom', anchor, payload);
   if (kind === 'tab') {
     const doc = state.docs.find((d) => d.id === payload.id);
     // Print / export work on the active capture: right-clicking another tab brings it to the front first.
@@ -2589,6 +2836,26 @@ function bindEvents() {
     if (iface) startLiveCapture(iface.dataset.value);
   });
   root.addEventListener('contextmenu', (event) => {
+    // Side and bottom panels of a capture: a menu for the item under the pointer and the panel itself.
+    const pane = !event.target.closest('input, textarea, select') && event.target.closest('.pane-left, .pane-map, .pane-bottom');
+    if (pane) {
+      event.preventDefault();
+      if (pane.classList.contains('pane-left')) {
+        const item = event.target.closest('[data-nav-filter]');
+        return contextMenu(event, 'navigator', { filter: item?.dataset.navFilter || null, label: item?.querySelector('.nav-label')?.textContent ?? '' });
+      }
+      if (pane.classList.contains('pane-map')) {
+        const node = event.target.closest('[data-node]');
+        const link = !node && event.target.closest('[data-link]');
+        return contextMenu(event, 'netmap', node ? { type: 'node', id: node.dataset.node } : link ? { type: 'link', id: link.dataset.link } : {});
+      }
+      const row = event.target.closest('tr');
+      return contextMenu(event, 'bottom', {
+        no: row?.dataset.bottomNo ? Number(row.dataset.bottomNo) : null,
+        filter: row?.dataset.bottomFilter || null,
+        text: row && row.parentElement?.tagName === 'TBODY' ? [...row.children].map((td) => td.textContent.trim()).join('  ') : '',
+      });
+    }
     const tab = event.target.closest('[data-tab]');
     if (tab) { event.preventDefault(); contextMenu(event, 'tab', { id: tab.dataset.tab }); return; }
     const ifaceRow = event.target.closest('.iface-row')?.querySelector('[data-start="pick-interface"]');
@@ -2849,6 +3116,7 @@ async function start() {
       showError('error.fatal', error, fatal.location);
     });
   }
+  await restoreTlsKeyLog();
   await restoreSession();
   trackMaximized();
   for (const path of await native.startupFiles().catch(() => [])) await openPath(path);
@@ -2878,7 +3146,7 @@ window.__mynetmanager = {
   view: () => state.view,
   doc: () => activeDoc(),
   actions: {
-    openPath, openCaptureBytes, openSample, saveDoc, closeDoc, selectFrame, applyDisplayFilter, startLiveCapture, stopLiveCapture, restartLiveCapture, refreshInterfaces,
+    openPath, openCaptureBytes, openSample, saveDoc, openProfile, saveProfile, loadTlsKeyLog, forgetTlsKeyLog, closeDoc, selectFrame, applyDisplayFilter, startLiveCapture, stopLiveCapture, restartLiveCapture, refreshInterfaces,
     updateSettings, showStartPage, showError, runAnalysis, setupCapture, openReport, togglePanel, addLog, mergeFile, openWithDialog, copyAs, findPacket, printPackets, openFilterExpression, goRow, goHistory, goConversation, applyConversationFilter, filterFromNode, openMenubarMenu, contextMenu, refreshMap, onMapSelect, exportDissections, followCurrent, openStats, startTutorial, toScreen,
   },
   domain: { FIELDS, PROTOCOLS, SAMPLES, writePcapng, buildTopology, createAnalyzer, buildReport, tutorialSteps: () => TUTORIAL_STEPS.length },

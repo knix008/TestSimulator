@@ -164,7 +164,7 @@ registerProtocol({
         }
         ctx.setInfo(info);
         o = echoTimestamp(ctx, t, o + 4, end);
-        if (end - o >= 16) hiPerConTracer(ctx, o, end);
+        if (end - o >= 16 && looksLikeHiPerConTracer(ctx, o)) hiPerConTracer(ctx, o, end);
         else if (o < end) dataUnder(ctx, t, o, end);
         return end - off;
       }
@@ -316,6 +316,17 @@ function echoTimestamp(ctx, t, o, end) {
  * nanoseconds since 1976-09-29 (big-endian). It takes the rest of the payload, as Wireshark does.
  */
 const HPCT_EPOCH = 212803200n; // 1976-09-29 00:00:00 UTC in seconds since 1970
+/**
+ * A trace header carries its own send time (within a day of the capture time) and a TTL of at least 1; the usual ping fill
+ * bytes (10 11 12 … after the timestamp) decode to a time centuries away, and Wireshark shows them as data.
+ */
+function looksLikeHiPerConTracer(ctx, o) {
+  const d = ctx.d;
+  if (d[o + 4] === 0) return false;
+  const ns = (BigInt(u32(d, o + 8)) << 32n) | BigInt(u32(d, o + 12));
+  const sec = Number(ns / 1000000000n + HPCT_EPOCH);
+  return Math.abs(sec - ctx.frame.sec) <= 86400;
+}
 function hiPerConTracer(ctx, o, end) {
   const d = ctx.d;
   const ttl = d[o + 4];

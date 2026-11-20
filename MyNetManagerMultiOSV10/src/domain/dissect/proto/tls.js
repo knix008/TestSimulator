@@ -1,6 +1,7 @@
 // TLS and DTLS: records, handshake messages, extensions, X.509 certificates, JA3/JA4 fingerprints.
 // No decryption: encrypted records are shown as Wireshark shows them without keys.
-import { registerProtocol, u16, u24, u32, hexStr, ascii, utf8, hexPad, NULLNODE } from '../core.js';
+import { registerProtocol, getProtocol, u16, u24, u32, hexStr, ascii, utf8, hexPad, NULLNODE } from '../core.js';
+import { decryptRecord, handshakeTypes, nextTrafficKeys, prepareKeys } from './tls-decrypt.js';
 import * as T from './tls-tables.js';
 import { sha256 } from './quic-crypto.js';
 
@@ -137,6 +138,7 @@ const TLS = registerProtocol({
   fields: [
     ...sharedFields('tls'),
     ['tls.record.opaque_type', 'Opaque Type', 'uint8', { strings: T.CONTENT_TYPES }],
+    ['tls.decryption_failed', 'Not decrypted', 'string'],
     ['tls.extension.psk_ke_modes_length', 'PSK Key Exchange Modes Length', 'uint8'],
     ['tls.extension.psk_ke_mode', 'PSK Key Exchange Mode', 'uint8', { strings: T.PSK_KE_MODES }],
     ['tls.quic.parameter', 'Parameter', 'none'],
@@ -321,13 +323,14 @@ function dissectRecords(ctx, off, end, dtls) {
   if (!top) {
     top = ctx.proto(P, off, end - off, dtls ? 'Datagram Transport Layer Security' : 'Transport Layer Security');
     ctx.vars[P + 'Top'] = top;
-    ctx.vars[P + 'Rec'] = 0;
     ctx.gen(top, P + '.stream', c.index);
   }
   const hl = dtls ? 13 : 5;
   let o = off;
   while (o < end) {
-    const ri = ctx.vars[P + 'Rec']++;
+    // One index per record of the frame, across the PDUs TCP hands over one by one (a new tree each time):
+    // the per-record state of the first pass (encrypted? decrypted to what?) must not be shared between records.
+    const ri = ctx.vars[P + 'Rec'] = (ctx.vars[P + 'Rec'] ?? -1) + 1;
     if (end - o < hl || !validType(d[o]) || (!dtls && (d[o + 1] !== 3 || d[o + 2] > 4))) {
       // Not a record header: data continuing an earlier record we could not frame.
       const un = ctx.text(top, 'Ignored Unknown Record', o, end - o);
@@ -355,6 +358,7 @@ function dissectRecords(ctx, off, end, dtls) {
     const dir = direction(ctx, c);
     if (ctx.first && !rec) {
       rec = recs[ri] = { enc: c.ccs[dir] || (c.version === 0x0304 && type === 22 && !isPlainHello(d, bodyOff, len, dtls)) };
+      if (!dtls) firstPassDecrypt(ctx, c, dir, rec, type, d.subarray(o, o + hl), d.subarray(bodyOff, bodyOff + len));
     }
     if (!rec) rec = { enc: false };
     const verLabel = sessionVerName(c, rver, d, bodyOff, type, dtls);
@@ -370,6 +374,14 @@ function dissectRecords(ctx, off, end, dtls) {
       ctx.add(rn, P + '.record.length', o + hl - 2, 2, len);
     }
     let desc;
+    if (rec.dec && !dtls) {
+      desc = showDecrypted(ctx, rn, rec, c, type, bodyOff, len);
+      if (rn !== NULLNODE) rn.label = `${verLabel} Record Layer: ${desc}`;
+      // A decrypted HTTP / HTTP2 PDU names the Protocol column itself, as in Wireshark.
+      if (!(rec.dec.type === 23 && rec.proto && rec.pdus?.length)) setCol(ctx, c, dtls, rver);
+      o = bodyOff + len;
+      continue;
+    }
     switch (type) {
       case 20: {
         desc = 'Change Cipher Spec Protocol: Change Cipher Spec';
@@ -423,6 +435,130 @@ function dissectRecords(ctx, off, end, dtls) {
     o = bodyOff + len;
   }
   return end - off;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Decryption with a key log (tls-decrypt.js)
+
+/** First pass: decrypts an encrypted record in order and gathers application data into whole PDUs. */
+function firstPassDecrypt(ctx, c, dir, rec, type, header, body) {
+  if (c.version !== 0x0304 && type === 20) {
+    // Change Cipher Spec: this side's next records use the TLS 1.2 keys.
+    prepareKeys(ctx.session, c);
+    if (c.dec) c.dec[dir].active = true;
+    return;
+  }
+  const encrypted = c.version === 0x0304 ? type === 23 && c.srandom : c.ccs[dir] && (type === 21 || type === 22 || type === 23);
+  if (!encrypted || c.dec === undefined) return;
+  // No key for this session (or a cipher suite we cannot decrypt): the record reads as before, encrypted.
+  if (!c.dec) return;
+  const st = c.dec[dir];
+  if (c.version !== 0x0304 && !st.active) return;
+  const r = decryptRecord(st, c, header, body);
+  rec.dec = r;
+  if (r.error) return;
+  if (r.type === 22) {
+    const types = handshakeTypes(r.data);
+    nextTrafficKeys(st, types);
+    // TLS 1.3: the negotiated ALPN is in the (encrypted) EncryptedExtensions.
+    if (types[0] === 8 && !c.alpn) c.alpn = alpnOf(r.data);
+  } else if (r.type === 23) {
+    gatherAppData(ctx, c, dir, rec, r.data);
+  }
+}
+
+function alpnOf(data) {
+  // EncryptedExtensions: type(1) len(3) extensions_length(2) extensions…
+  for (let p = 6; p + 4 <= data.length;) {
+    const t = u16(data, p), l = u16(data, p + 2);
+    if (t === 16 && l >= 3) return ascii(data, p + 7, data[p + 6]);
+    p += 4 + l;
+  }
+  return null;
+}
+
+/** The protocol inside: HTTP/2 for ALPN h2, HTTP for http/1.x (or text that starts like HTTP), else none. */
+function innerProtocol(c, data) {
+  if (c.alpn === 'h2') return getProtocol('http2');
+  if (c.alpn && /^http\/1/.test(c.alpn)) return getProtocol('http');
+  const head = ascii(data, 0, Math.min(16, data.length));
+  return /^(GET|POST|PUT|HEAD|DELETE|OPTIONS|PATCH|CONNECT|TRACE) |^HTTP\/1\./.test(head) ? getProtocol('http') : null;
+}
+
+/** Application data of one direction joined into PDUs of the inner protocol (as Wireshark reassembles TLS). */
+function gatherAppData(ctx, c, dir, rec, data) {
+  const bufs = c.appBuf ?? (c.appBuf = [null, null]);
+  const pending = bufs[dir];
+  const proto = pending?.proto ?? innerProtocol(c, data);
+  if (!proto) { rec.pdus = [data]; return; }
+  let buf = pending ? concat(pending.data, data) : data;
+  rec.pdus = [];
+  rec.proto = proto.abbrev;
+  while (buf.length) {
+    let n = 0;
+    if (proto.tcpPdu) {
+      const pd = ctx.d;
+      ctx.d = buf;
+      try { n = proto.tcpPdu(ctx, 0, buf.length); } catch { n = 0; } finally { ctx.d = pd; }
+    }
+    if (n > 0 && n <= buf.length) { rec.pdus.push(buf.slice(0, n)); buf = buf.slice(n); continue; }
+    if (n === 0 || buf.length > 16 << 20) { rec.pdus.push(buf); buf = new Uint8Array(0); break; }
+    break; // the PDU continues in a later record
+  }
+  bufs[dir] = buf.length ? { data: buf, proto } : null;
+  if (!rec.pdus.length) rec.segment = true;
+}
+
+function concat(a, b) { const out = new Uint8Array(a.length + b.length); out.set(a); out.set(b, a.length); return out; }
+
+/** Display of a record decrypted on the first pass. Returns the record description. */
+function showDecrypted(ctx, rn, rec, c, type, bodyOff, len) {
+  const d = ctx.d;
+  const r = rec.dec;
+  // (The record header fields are already in the tree: dissectRecords adds them before this.)
+  if (r.error) {
+    const n = ctx.add(rn, 'tls.app_data', bodyOff, len, d.subarray(bodyOff, bodyOff + len), `Encrypted Application Data: ${len} bytes`);
+    ctx.gen(n, 'tls.decryption_failed', r.error, `[Not decrypted: ${r.error}]`);
+    ctx.pduInfo('tls', type === 22 ? 'Encrypted Handshake Message' : type === 21 ? 'Encrypted Alert' : 'Application Data');
+    return type === 22 ? 'Handshake Protocol: Encrypted Handshake Message' : type === 21 ? 'Encrypted Alert' : `Application Data Protocol: ${appProto(ctx, c) || 'Application Data'}`;
+  }
+  if (c.version === 0x0304) ctx.gen(rn, 'tls.record.content_type', r.type, `[Content Type: ${T.CONTENT_TYPES[r.type] || 'Unknown'} (${r.type})]`);
+  if (r.type === 23) ctx.add(rn, 'tls.app_data', bodyOff, len, d.subarray(bodyOff, bodyOff + len), `Encrypted Application Data: ${len} bytes`);
+  const label = `Decrypted TLS (${r.data.length} bytes)`;
+  switch (r.type) {
+    case 22:
+      return ctx.withSource(label, r.data, () => handshakeMessages(ctx, rn, 0, r.data.length, c, false, false));
+    case 21: {
+      return ctx.withSource(label, r.data, () => {
+        if (r.data.length < 2) return 'Alert';
+        const lv = r.data[0], ds = r.data[1];
+        const txt = `Alert (Level: ${T.ALERT_LEVEL[lv] || 'Unknown'}, Description: ${T.ALERT_DESC[ds] || 'Unknown'})`;
+        const an = ctx.add(rn, 'tls.alert_message', 0, 2, null);
+        ctx.add(an, 'tls.alert_message.level', 0, 1, lv);
+        ctx.add(an, 'tls.alert_message.desc', 1, 1, ds);
+        ctx.pduInfo('tls', txt);
+        return txt;
+      });
+    }
+    case 23: {
+      const proto = rec.proto ? getProtocol(rec.proto) : null;
+      const ap = proto ? proto.name : appProto(ctx, c);
+      if (ap) ctx.gen(rn, 'tls.app_data_proto', ap);
+      if (rec.segment) {
+        // Part of a PDU that a later record completes: Wireshark's Info says so (once per packet).
+        ctx.withSource(label, r.data, () => ctx.text(rn, '[TLS segment of a reassembled PDU]', 0, r.data.length));
+        if (ctx.info !== '[TLS segment of a reassembled PDU]') ctx.pduInfo('tls', '[TLS segment of a reassembled PDU]');
+      } else ctx.pduInfo('tls', 'Application Data');
+      ctx.vars.tls = true; // HTTP inside TLS: full request URIs start with https://
+      for (const pdu of rec.pdus ?? []) {
+        const name = pdu === r.data ? label : `Reassembled TLS (${pdu.length} bytes)`;
+        ctx.withSource(name, pdu, () => { if (!proto || ctx.call(proto, 0, pdu.length) === false) ctx.add(rn, 'data.data', 0, pdu.length, pdu); });
+      }
+      return `Application Data Protocol: ${ap || 'Application Data'}`;
+    }
+    default:
+      return T.CONTENT_TYPES[r.type] || 'Unknown';
+  }
 }
 
 function isPlainHello(d, o, len, dtls) {
@@ -530,6 +666,7 @@ function clientHello(ctx, hn, o, end, c, dtls, quic) {
     c.client = ctx.netSrc + ':' + ctx.srcport;
     c.serverPort = ctx.dstport;
     c.legacyVersion = ver;
+    if (!quic) c.crandom = d.slice(o + 2, o + 34);
   }
   const vn = ctx.add(hn, P + '.handshake.version', o, 2, ver);
   randomField(ctx, hn, P, o + 2, c);
@@ -590,6 +727,11 @@ function serverHello(ctx, hn, o, end, c, dtls, quic) {
     if (sv >= 0 && u16(d, sv + 2) >= 2) c.version = u16(d, sv + 4);
     const al = findExt(d, p2 + 3, end, 16);
     if (al >= 0) { const sl2 = d[al + 6]; c.alpn = ascii(d, al + 7, sl2); }
+    if (!quic) {
+      c.srandom = d.slice(o + 2, o + 34);
+      c.etm = findExt(d, p2 + 3, end, 22) >= 0; // encrypt_then_mac (RFC 7366)
+      if (c.version === 0x0304 && !dtls) prepareKeys(ctx.session, c);
+    }
   }
   randomField(ctx, hn, P, o + 2, c);
   ctx.add(hn, P + '.handshake.session_id_length', p, 1, sl);

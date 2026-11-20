@@ -339,7 +339,7 @@ export function formatProtocolHierarchy(tree, filter = '') {
 // ------------------------------------------------------------------------------------------------
 // Conversations and endpoints
 
-export const CONVERSATION_KINDS = ['eth', 'ipv4', 'ipv6', 'tcp', 'udp', 'sctp'];
+export const CONVERSATION_KINDS = ['eth', 'ipv4', 'ipv6', 'tcp', 'udp', 'sctp', 'bluetooth'];
 
 /**
  * Address tuples a packet contributes to a conversation kind (one per protocol layer, like Wireshark's
@@ -354,6 +354,14 @@ function tuples(kind, f, s, getD) {
         for (const n of topLayers(d, 'eth')) {
           const a = childValue(n, 'eth.src'), b = childValue(n, 'eth.dst');
           if (a !== undefined && b !== undefined) out.push({ src: String(a), dst: String(b), stream: childValue(n, 'eth.stream') });
+        }
+        break;
+      case 'bluetooth':
+        // host ↔ controller for HCI commands and events, adapter ↔ device (BD_ADDR) for ACL data, as Wireshark's tap.
+        for (const n of topLayers(d, 'bluetooth')) {
+          const a = childValue(n, 'bluetooth.src') ?? childValue(n, 'bluetooth.src_str');
+          const b = childValue(n, 'bluetooth.dst') ?? childValue(n, 'bluetooth.dst_str');
+          if (a !== undefined && b !== undefined) out.push({ src: String(a), dst: String(b) });
         }
         break;
       case 'ipv4': case 'ipv6': {
@@ -397,6 +405,10 @@ const hasPorts = (kind) => kind === 'tcp' || kind === 'udp' || kind === 'sctp';
 const addrField = { eth: 'eth.addr', ipv4: 'ip.addr', ipv6: 'ipv6.addr' };
 
 function convFilter(kind, r) {
+  if (kind === 'bluetooth') {
+    const one = (a) => (/^[0-9a-f]{2}(:[0-9a-f]{2}){5}$/i.test(a) ? `bluetooth.addr==${a}` : `bluetooth.addr_str=="${a}"`);
+    return `${one(r.addrA)} && ${one(r.addrB)}`;
+  }
   if (!hasPorts(kind)) return `${addrField[kind]}==${r.addrA} && ${addrField[kind]}==${r.addrB}`;
   const net = String(r.addrA).includes(':') ? 'ipv6' : 'ip';
   return `${net}.addr==${r.addrA} && ${kind}.port==${r.portA} && ${net}.addr==${r.addrB} && ${kind}.port==${r.portB}`;

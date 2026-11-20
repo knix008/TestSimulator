@@ -18,6 +18,8 @@ import {
 import { displayValue, formatTime } from './domain/capture/doc.js';
 import { parseRange } from './domain/analysis/ranges.js';
 import { packetBytesView } from './packet-bytes.js';
+import { btAttServer, btDevices, btHciSummary } from './stats-bluetooth.js';
+import { packetDiagramView } from './packet-diagram.js';
 import { dhcpStats, macBlocks, multicastStreams, rtpAnalysis, serviceResponseTime, sipStatistics, supportedProtocols } from './stats-more.js';
 
 export const hexDump = (data) => exportHexDump(data);
@@ -193,6 +195,10 @@ export function computeStat(kind, src, opts) {
     case 'macBlocks': return macBlocks(src, t);
     case 'protocols': return supportedProtocols(src, t);
     case 'packetBytes': return packetBytesView(src.doc, opts, t);
+    case 'btDevices': return btDevices(src, t);
+    case 'btHciSummary': return btHciSummary(src, t);
+    case 'btAttServer': return btAttServer(src, t);
+    case 'packetDiagram': return packetDiagramView(src.doc, opts, t);
     case 'objects': return objectsTable(src.doc, opts.objectKind ?? 'http', t);
     case 'follow': return follow(src, opts);
     default: return statsTable(kind, src, opts);
@@ -420,7 +426,7 @@ const STAT_ADAPTERS = {};
 // ───────────────────────── statistics adapters (stats.js results → popup views)
 
 const roundStat = (v) => (v == null || v === '' ? '-' : typeof v === 'number' && !Number.isInteger(v) ? v.toFixed(3) : String(v));
-const KIND_LABEL = { eth: 'Ethernet', ipv4: 'IPv4', ipv6: 'IPv6', tcp: 'TCP', udp: 'UDP', sctp: 'SCTP' };
+const KIND_LABEL = { eth: 'Ethernet', ipv4: 'IPv4', ipv6: 'IPv6', tcp: 'TCP', udp: 'UDP', sctp: 'SCTP', bluetooth: 'Bluetooth' };
 const statOpts = (src, extra = {}) => ({ fields: FIELDS, protocols: PROTOCOLS, ...extra });
 const absTime = (t) => (t && t.sec != null ? new Date(t.sec * 1000 + Math.floor((t.nsec ?? 0) / 1e6)).toLocaleString() : '-');
 const bytesText = (n) => (n >= 1e9 ? `${(n / 1e9).toFixed(2)} GB` : n >= 1e6 ? `${(n / 1e6).toFixed(2)} MB` : n >= 1e3 ? `${(n / 1e3).toFixed(1)} kB` : `${n} B`);

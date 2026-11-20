@@ -444,3 +444,17 @@ html[data-mode="dark"] .follow-text .dir-1 { color: #b3cdff; background: #14233f
 .report-sections { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 12px; margin-bottom: 10px; }
 .report-sections .icon { width: 16px; height: 16px; }
 .segment.active .nav-count, .bottom-tab.active .nav-count { background: color-mix(in srgb, currentColor 22%, transparent); color: inherit; }
+
+/* View › Packet Diagram and the choice rows of Show Packet Bytes */
+.net-choice { gap: 8px; flex-wrap: wrap; align-items: center; }
+.net-choice-label { min-width: 90px; }
+.net-note { padding: 2px 2px 6px; font-size: 0.9em; }
+.pd-view { flex: 1; overflow: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px 2px 10px; }
+.pd-section .section-title { margin: 0 0 6px; }
+.pd-svg { display: block; max-width: none; font-family: var(--mono); }
+.pd-box { fill: var(--surface); stroke: var(--border); }
+.pd-field:hover .pd-box { fill: var(--soft-accent); stroke: var(--accent); }
+.pd-name { fill: var(--text); font-size: 11px; text-anchor: middle; }
+.pd-bitno, .pd-offset, .pd-more { fill: var(--muted); font-size: 10px; }
+.pd-bitno { text-anchor: middle; }
+.pd-offset { text-anchor: end; }

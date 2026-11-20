@@ -19,7 +19,7 @@ export const POPUPS = {
   about: { width: 740, height: 600 },
   confirm: { width: 540, height: 270 },
   error: { width: 720, height: 500 },
-  progress: { width: 480, height: 180 },
+  progress: { width: 480, height: 236 },
   recent: { width: 800, height: 510 },
   menu: { width: 300, height: 200 },
   theme: { width: 620, height: 588 },

@@ -2,6 +2,7 @@
 import { registerProtocol, setFrameDissector, NULLNODE, protocolsString } from '../core.js';
 
 const ENCAP = { // LINKTYPE -> [WTAP encap number, name]
+  187: [41, 'Bluetooth H4'], 201: [99, 'Bluetooth H4 with linux header'],
   0: [15, 'NULL/Loopback'], 1: [1, 'Ethernet'], 9: [4, 'PPP'], 12: [7, 'Raw IP'], 14: [7, 'Raw IP'], 101: [7, 'Raw IP'],
   105: [20, 'IEEE 802.11 Wireless LAN'], 108: [15, 'NULL/Loopback'], 113: [25, 'Linux cooked-mode capture v1'],
   127: [23, 'IEEE 802.11 plus radiotap radio header'], 228: [129, 'Raw IPv4'], 229: [130, 'Raw IPv6'],
@@ -19,6 +20,7 @@ registerProtocol({
     ['frame.packet_flags', 'Packet flags', 'uint32', { base: 'hex' }],
     ['frame.packet_flags_direction', 'Direction', 'uint32', { base: 'hex', mask: 0x3, strings: FLAG_DIR, bits: 32 }],
     ['frame.encap_type', 'Encapsulation type', 'int16'],
+    ['frame.p2p_dir', 'Point-to-Point Direction', 'int8', { strings: { 0: 'Sent', 1: 'Received' } }],
     ['frame.time', 'Arrival Time', 'abs_time'],
     ['frame.time_utc', 'UTC Arrival Time', 'abs_time'],
     ['frame.time_epoch', 'Epoch Arrival Time', 'abs_time'],
@@ -86,6 +88,7 @@ function dissectFrame(ctx) {
     }
     const enc = ENCAP[fr.linktype] || [-1, `Unknown (LINKTYPE ${fr.linktype})`];
     ctx.add(top, 'frame.encap_type', 0, 0, enc[0], `Encapsulation type: ${enc[1]} (${enc[0]})`);
+    if (fr.p2pDir !== undefined) ctx.add(top, 'frame.p2p_dir', 0, 0, fr.p2pDir);
     const t = { sec: fr.sec, nsec: fr.nsec };
     ctx.add(top, 'frame.time', 0, 0, t);
     ctx.add(top, 'frame.time_utc', 0, 0, t);

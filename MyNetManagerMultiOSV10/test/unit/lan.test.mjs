@@ -311,7 +311,7 @@ test('LAN samples: metadata and expected protocols', () => {
     'ping-traceroute': ['icmp', 'udp'],
     'routing-protocols': ['ospf', 'bgp', 'rip', 'vrrp', 'hsrp'],
     'lan-control': ['stp', 'lldp', 'cdp', 'lacp', 'eapol'],
-    'wifi-80211': ['radiotap', 'wlan', 'eapol'],
+    'wifi-80211': ['radiotap', 'wlan', 'eapol', 'bthci_cmd', 'bthci_evt', 'btatt'],
     tunnels: ['gre', 'vxlan', 'geneve', 'mpls', 'pppoed', 'pppoes', 'lcp', 'pap', 'ipcp', 'esp'],
   };
   assert.deepEqual(L.samples.map((s) => s.id).sort(), Object.keys(want).sort());

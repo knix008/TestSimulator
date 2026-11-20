@@ -3,6 +3,7 @@
 import { samples as basics } from './build/basics.js';
 import { samples as web } from './build/web.js';
 import { samples as tls } from './build/tls.js';
+import { samples as tlsKeylog } from './build/tls-keylog.js';
 import { samples as names } from './build/names.js';
 import { samples as lan } from './build/lan.js';
 import { samples as voip } from './build/voip.js';
@@ -25,7 +26,7 @@ const mixed = {
   build: () => demoCapture({ seed: 7, rate: 40, seconds: 30 }),
 };
 
-const ALL = [mixed, ...basics, ...web, ...tls, ...names, ...lan, ...voip];
+const ALL = [mixed, ...basics, ...web, ...tls, ...tlsKeylog, ...names, ...lan, ...voip];
 const order = new Map(SAMPLE_GROUPS.map((g, i) => [g.id, i]));
 
 /** [{ id, group, icon, ko: [title, desc], en: [title, desc], build() → CaptureFile }] */

@@ -73,6 +73,7 @@ export const SAVE_TYPES = {
   txt: { name: 'Plain text (*.txt)', extensions: ['txt'] },
   csv: { name: 'CSV (*.csv)', extensions: ['csv'] },
   json: { name: 'JSON (*.json)', extensions: ['json'] },
+  profile: { name: 'MyNetManager profile (*.mynetprofile)', extensions: ['mynetprofile', 'json'] },
   pdml: { name: 'PDML (*.pdml, *.xml)', extensions: ['pdml', 'xml'] },
   psml: { name: 'PSML (*.psml, *.xml)', extensions: ['psml', 'xml'] },
   c: { name: 'C arrays (*.c)', extensions: ['c'] },
@@ -190,6 +191,30 @@ export async function pickCaptureFilesWeb() {
   }
   const files = await pickWithInput('.pcapng,.pcap,.cap,.ntar,.gz', true);
   return Promise.all(files.map(async (file) => ({ name: file.name, content: new Uint8Array(await file.arrayBuffer()), handle: null, size: file.size })));
+}
+
+/** A TLS key log (SSLKEYLOGFILE) to load: desktop → { path, text }, web → { name, text } (E2E: window.__mynetmanagerKeyLogPicks). */
+export async function pickKeyLog(defaultPath) {
+  const picked = testPick('__mynetmanagerKeyLogPicks');
+  if (picked) return picked.value;
+  if (isDesktop()) {
+    const [path] = await chooseFiles(defaultPath, [{ name: 'TLS key log (*.log, *.txt, *.keys)', extensions: ['log', 'txt', 'keys', 'keylog'] }, { name: 'All files', extensions: ['*'] }], false);
+    return path ? { path, text: await readTextFile(path) } : null;
+  }
+  const [file] = await pickWithInput('.log,.txt,.keys,.keylog', false);
+  return file ? { name: file.name, text: await file.text() } : null;
+}
+
+/** A profile file to open: desktop → { path }, web → { name, text } (E2E: window.__mynetmanagerProfilePicks). */
+export async function pickProfile(defaultPath) {
+  const picked = testPick('__mynetmanagerProfilePicks');
+  if (picked) return picked.value;
+  if (isDesktop()) {
+    const [path] = await chooseFiles(defaultPath, [SAVE_TYPES.profile], false);
+    return path ? { path, text: await readTextFile(path) } : null;
+  }
+  const [file] = await pickWithInput('.mynetprofile,.json', false);
+  return file ? { name: file.name, text: await file.text() } : null;
 }
 
 export function pickWithInput(accept, multiple = false) {

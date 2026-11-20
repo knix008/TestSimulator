@@ -52,9 +52,15 @@ const KEPT = [
   ['mixed-office-lan.pcapng', '*', '_ws.col.info',
     'Wireshark artifact: when a fast retransmission completes a reassembled TLS PDU, TLS appends ", Application Data" with a separator after the fenced "[TCP Fast Retransmission] " prefix'],
   ['*', '*', 'wlan.ssid', 'Empty SSID: tshark prints "<MISSING>", we keep an empty byte string'],
+  // The client's TFTP ACKs to the server's new port (after the OACK): tshark 4.6.9 leaves them as UDP data,
+  // we show them as TFTP Acknowledgements (filters.test.mjs KNOWN 'tftp' / 'data' says the same).
+  ...[14, 16, 18, 20].map((no) => ['udp-services.pcapng', no, '*', 'TFTP ACK after the OACK: data in tshark 4.6.9, a TFTP Acknowledgement here']),
+  // TLS 1.3 server packets with a New Session Ticket and then the decrypted HTTP response: Wireshark keeps the
+  // TLS protocol name and glues the Info texts without a separator (a column fence artifact); we show HTTP.
+  ...[12, 67].flatMap((no) => [['tls-keylog.pcapng', no, '_ws.col.protocol', 'Wireshark column artifact after a New Session Ticket'], ['tls-keylog.pcapng', no, '_ws.col.info', 'Wireshark column artifact after a New Session Ticket']]),
 ];
 function kept(file, no, field) {
-  return KEPT.some(([f, n, k]) => (f === '*' || f === file) && (n === '*' || n === no) && k === field);
+  return KEPT.some(([f, n, k]) => (f === '*' || f === file) && (n === '*' || n === no) && (k === '*' || k === field));
 }
 
 let fieldNames = null;

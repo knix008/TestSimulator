@@ -29,7 +29,7 @@ const WELL_KNOWN = {
   '33:33:00:00:00:01': 'IPv6mcast_01',
   '00:00:00:00:00:00': '00:00:00_00:00:00',
 };
-const EXTRA_OUI = { '000c29': 'VMware', '005056': 'VMware', '080027': 'PCSSystemtec', '525400': 'RealtekU', '00155d': 'Microsoft' };
+const EXTRA_OUI = { '001a7d': 'cyberblueLtd', 'f45eab': 'TexasInstrum', 'd8a01d': 'Espressif', '000c29': 'VMware', '005056': 'VMware', '080027': 'PCSSystemtec', '525400': 'RealtekU', '00155d': 'Microsoft' };
 const cache = new Map();
 
 /** Vendor short name for a MAC 'aa:bb:cc:dd:ee:ff', or null. */

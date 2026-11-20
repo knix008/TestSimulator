@@ -443,7 +443,7 @@ function utf8len(s) { let n = 0; for (let i = 0; i < s.length; i++) { const c = 
 // ------------------------------------------------------------------------------------------
 // Media types (Wireshark's "media_type" table)
 
-const TEXT_TYPES = new Set(['text/html', 'text/plain', 'text/css', 'text/xml', 'text/javascript', 'text/csv', 'text/markdown', 'text/x-component',
+const TEXT_TYPES = new Set(['text/html', 'text/plain', 'text/css', 'text/xml', 'text/javascript', // not text/csv, text/markdown: Wireshark's media_type table leaves those to 'media'
   'application/javascript', 'application/x-javascript', 'application/xml', 'application/xhtml+xml', 'application/rss+xml', 'application/atom+xml',
   'application/soap+xml', 'application/x-www-form-urlencoded-NOT', 'message/http', 'text/vnd.wap.wml', 'application/ecmascript', 'text/ecmascript']);
 
@@ -456,7 +456,7 @@ export function media(ctx, mime, off, end, short = 'HTTP') {
   const p = mime ? ctx.lookup('media_type', mime) : null;
   if (p) { const r = ctx.call(p, off, end, { mime, short }); if (r !== false) return; }
   if (mime === 'application/octet-stream') { ctx.data(off, end); return; }
-  if (mime && (TEXT_TYPES.has(mime) || mime.startsWith('text/'))) { textLines(ctx, off, end, mime); ctx.info += ` (${mime})`; return; }
+  if (mime && TEXT_TYPES.has(mime)) { textLines(ctx, off, end, mime); ctx.info += ` (${mime})`; return; }
   const n = ctx.proto('media', off, end - off, `Media Type${mime ? ': ' + mime : ''} (${end - off} bytes)`);
   ctx.add(n, 'media.type', off, end - off, ctx.d.subarray(off, end), `Media type: ${mime || 'application/octet-stream'} (${end - off} bytes)`);
   if (mime) ctx.info += ` (${mime})`;

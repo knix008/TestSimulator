@@ -31,6 +31,7 @@ import './proto/sip.js';
 import './proto/rtp.js';
 import './proto/smb.js';
 import './proto/iot.js';
+import './proto/bluetooth.js';
 
 export {
   createSession, dissect, FIELDS, PROTOCOLS, fieldInfo, registerProtocol, formatValue, formatLabel,

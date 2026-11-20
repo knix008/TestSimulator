@@ -23,6 +23,14 @@ export const DISPLAY_PRESETS = [
   ['dns', 'dns', 'dnsStats'], ['dhcp', 'dhcp || dhcpv6', 'netHost'], ['arp', 'arp', 'netSwitch'], ['icmp', 'icmp || icmpv6', 'protoRouting'],
   ['syn', 'tcp.flags.syn == 1 && tcp.flags.ack == 0', 'conversations'], ['retrans', 'tcp.analysis.retransmission', 'protoTrouble'],
   ['tcpProblems', 'tcp.analysis.flags && !tcp.analysis.window_update', 'protoTrouble'], ['broadcast', 'eth.dst == ff:ff:ff:ff:ff:ff', 'netCloud'],
+  // More protocols (2026-11-20).
+  ['ipv6', 'ipv6', 'protoRouting'], ['ssh', 'ssh', 'protoLock'], ['ftp', 'ftp || ftp-data', 'protoFile'], ['mail', 'smtp || pop || imap', 'protoMail'],
+  ['smb', 'smb || smb2', 'netServer'], ['voip', 'sip || rtp', 'protoVoip'], ['iot', 'mqtt || modbus || coap', 'netIot'], ['ntp', 'ntp', 'timeReference'],
+  ['snmp', 'snmp', 'netRouter'], ['names', 'mdns || llmnr || nbns', 'protoName'], ['routing', 'ospf || rip || bgp', 'netSubnet'], ['vlan', 'vlan', 'netSwitch'],
+  ['multicast', 'eth.dst.ig == 1 && eth.dst != ff:ff:ff:ff:ff:ff', 'netMulticast'], ['tlsHandshake', 'tls.handshake', 'protoLock'],
+  // More trouble signs.
+  ['tcpReset', 'tcp.flags.reset == 1', 'captureStop'], ['zeroWindow', 'tcp.analysis.zero_window', 'protoTrouble'], ['dupAck', 'tcp.analysis.duplicate_ack', 'protoTrouble'],
+  ['httpErrors', 'http.response.code >= 400', 'httpStats'], ['dnsErrors', 'dns.flags.rcode != 0', 'dnsStats'], ['unreachable', 'icmp.type == 3 || icmpv6.type == 1', 'protoTrouble'],
   ['arpDns', 'not arp and not dns', 'filterApply', EXCLUDE],
 ];
 

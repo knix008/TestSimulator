@@ -356,11 +356,12 @@ HTTP …) 트리로 보여 줍니다. [대괄호] 줄은 MyNetManager가 계산�
 - 막대 오른쪽의 **필터 단추**(예: **TCP problems**)는 저장한 필터를 한 번에 적용합니다. **필터 단추 추가…**로
   지금 필터를 단추로 만듭니다.
 - 막대 아래 줄에는 **미리 설정된 필터** 단추가 늘어서 있습니다. 맨 앞의 **전체 선택**은 모든 단추를 켜고(모두 OR로 합침), **전체 취소**는
-  모두 끕니다(입력 칸에 직접 적은 필터는 남음). 이어서 TCP, UDP, HTTP, TLS, **TLS 1.0**, **TLS 1.1**,
-  **TLS 1.2**, **TLS 1.3**, QUIC, DNS, DHCP, ARP, ICMP, TCP SYN, 재전송, TCP 문제, 브로드캐스트, ARP DNS. 단추는 **OR 조건**으로 겹칩니다: **DNS**를
+  모두 끕니다. 이어서 TCP, UDP, HTTP, TLS, **TLS 1.0**, **TLS 1.1**,
+  **TLS 1.2**, **TLS 1.3**, QUIC, DNS, DHCP, ARP, ICMP, TCP SYN, 재전송, TCP 문제, 브로드캐스트, IPv6, SSH, FTP, 메일, SMB, VoIP, IoT, NTP, SNMP, 이름 서비스, 라우팅, VLAN, 멀티캐스트, TLS 핸드셰이크, TCP RST, 제로 윈도, 중복 ACK, HTTP 오류, DNS 오류, 도달 불가, ARP DNS. 단추는 **OR 조건**으로 겹칩니다: **DNS**를
   누르면 `dns`, 이어서 **UDP**를 누르면 `dns or udp`가 적용되어 둘 중 하나에 맞는 패킷이 모두 보이고, 켜진
-  단추는 강조됩니다. 강조된 단추를 다시 누르면 그 조건만 빠집니다. 입력 칸에 이미 적어 둔 필터가 있으면 거기에
-  더해집니다(예: `(frame.len > 60) or dns`). 그 밖의 필터는 지금처럼 입력 칸에 직접 적습니다.
+  단추는 강조됩니다. 강조된 단추를 다시 누르면 그 조건만 빠집니다. 단추는 그 항목의 패킷만 보여 주므로, 입력 칸에
+  직접 적었거나 네트워크 맵을 클릭해 생긴 필터는 처음 누를 때 바뀝니다(예: `frame.len > 60`에서 **DNS** → `dns`).
+  그 밖의 필터는 지금처럼 입력 칸에 직접 적습니다.
 - 마지막 **ARP DNS** 단추는 스위치입니다: 켜져 있으면(기본) ARP·DNS 패킷이 포함되고, 끄면
   `not arp and not dns`가 **AND**로 붙어 빠집니다. 예: **UDP**만 켜고 ARP DNS를 끄면
   `udp and (not arp and not dns)` — DNS가 아닌 UDP 패킷만 보입니다. **전체 선택**은 이 스위치도 켜고,
@@ -371,6 +372,12 @@ HTTP …) 트리로 보여 줍니다. [대괄호] 줄은 MyNetManager가 계산�
   그대로(파일 전체를 본 뒤의 값)라서, 거른 결과가 목록의 열과 정확히 같습니다.
 - **{+}**는 **디스플레이 필터 식…** 창을 엽니다.
 - 필터가 적용되면 막대와 상태 표시줄에 *표시 N / 전체 M*이 나옵니다.
+- 필터를 거는 데 시간이 걸리면(큰 캡처) **진행률 창**이 떠서 지나간 패킷 수와 %를 보여 줍니다. **취소**(또는 ×, Esc)를
+  누르면 목록과 입력 칸은 이전 필터 그대로 남습니다. 프로토콜·필드 이름만 쓰는 필터(미리 설정된 단추 대부분)는 한 번
+  읽은 패킷의 필드 이름을 기억해 두므로 큰 캡처에서도 바로 걸립니다.
+- **분석 › 디스플레이 필터 매크로…**: 한 줄에 `이름 = 필터`(인자는 `$1`, `$2` …)로 매크로를 적어 두고, 필터에서
+  `${이름:인자1;인자2}` 또는 `$이름(인자1, 인자2)`로 씁니다. 예: `host = ip.addr == $1`이면 `${host:10.0.0.5}`는
+  `ip.addr == 10.0.0.5`가 됩니다. `${ip.src}`처럼 매크로 이름이 아닌 것은 필드 참조로 남습니다.
 
 ![잘못된 필터](doc/images/ko/12-filter-invalid.png)
 
@@ -493,6 +500,22 @@ contains, matches, in)와 **값**을 고릅니다(값에 이름이 있는 필드
 
 ![다르게 해석](doc/images/ko/39-decode-as.png)
 
+##### TLS 복호화 (키 로그)
+
+브라우저나 프로그램이 남긴 **키 로그**(SSLKEYLOGFILE 형식)가 있으면 HTTPS 같은 TLS 통신을 풀어서 봅니다.
+
+- **분석 › TLS 키 로그 파일…**로 키 로그를 고르면 열린 캡처를 모두 다시 해석해, 그 키로 암호화된 레코드를
+  복호화합니다. 데스크톱 프로그램은 다음에 시작할 때도 같은 파일을 다시 읽습니다. **TLS 키 로그 잊기**로 되돌립니다.
+- 캡처 파일 안에 키가 들어 있으면(pcapng의 Decryption Secrets Block — Wireshark의 `editcap --inject-secrets`로
+  넣은 것) 따로 고르지 않아도 바로 풀립니다. pcapng로 다시 저장해도 키가 남습니다.
+- 지원: TLS 1.3(AES-128-GCM, AES-256-GCM, ChaCha20-Poly1305), TLS 1.2(ECDHE/RSA/DHE와 AES-GCM, ChaCha20-Poly1305,
+  AES-CBC + SHA-1/SHA-256/SHA-384, encrypt-then-MAC). 키 로그의 `CLIENT_RANDOM`(TLS 1.2)과
+  `CLIENT_/SERVER_HANDSHAKE_TRAFFIC_SECRET`, `CLIENT_/SERVER_TRAFFIC_SECRET_0`(TLS 1.3) 줄을 씁니다.
+- 풀린 레코드는 세부 정보에서 내용(핸드셰이크, 경고, HTTP)으로 보이고, 바이트 창에 **Decrypted TLS** /
+  **Reassembled TLS** 탭이 생깁니다. 여러 레코드에 걸친 HTTP 응답은 하나로 합쳐 보이고, 앞 레코드는
+  *[TLS segment of a reassembled PDU]*로 표시됩니다. 키가 맞지 않으면 *Not decrypted*와 이유가 나옵니다.
+- 예제 **TLS 복호화 (키 로그)**에 TLS 1.3·1.2 세션 7개가 키와 함께 들어 있습니다.
+
 ##### 사용할 프로토콜
 
 **분석 › 사용할 프로토콜…**에서 프로토콜을 하나씩 끄거나(끈 프로토콜의 바이트는 데이터로 보임) 켭니다.
@@ -583,6 +606,21 @@ TCP 패킷을 고르고 **통계 › TCP 스트림 그래프**를 엽니다. **�
 - **통계 › HTTP**: **패킷 수**(메서드별 요청, 상태 코드별 응답), **요청**(호스트와 URI별), **부하 분포**(서버별).
 - **통계 › DNS**: 종류, rcode, opcode별 질의와 응답, 응답 시간.
 - **통계 › IP 통계**: **IPv4 통계**, **IPv6 통계**(주소별)와 **포트 종류**.
+- **통계 › 서비스 응답 시간**: DNS, HTTP, HTTP/2, SMB2, SNMP, IMAP, Modbus/TCP, CoAP의 요청에서 응답까지 걸린 시간을
+  프로토콜과 절차(질의 종류, 상태 코드, 명령)별로 호출 수, 최소·최대·평균·합으로 보여 줍니다.
+- **통계 › UDP 멀티캐스트 스트림**: 멀티캐스트 그룹으로 가는 UDP 흐름마다 패킷 수, 초당 패킷, 평균·최대 대역폭,
+  최대 버스트(100 ms 동안의 패킷 수).
+- **통계 › DHCP (BOOTP) 통계**: DHCP 메시지 종류(Discover, Offer, Request, ACK …)별 개수.
+- **전화 › SIP 통계**: 메서드별 요청, 종류(1xx~6xx)와 코드별 응답, 재전송 패킷. **전화 › RTP 스트림 분석**: 스트림마다
+  예상·손실 패킷, 순서 오류, 최대 간격, 최대·평균 지터(RFC 3550), 최대 시간 어긋남.
+- **도구 › MAC 주소 블록**: 캡처에 나온 하드웨어 주소와 제조사(OUI), 개별/그룹, 전역/로컬 관리 주소.
+  **도구 › 지원 프로토콜**: 해석할 수 있는 프로토콜과 필터 이름, 필드 수.
+- **무선 › Bluetooth 장치**: 캡처에 나온 BD_ADDR마다 제조사(OUI), 이름(광고 데이터), RSSI, 내 어댑터인지와 그 HCI/LMP 버전·제조사.
+  **무선 › Bluetooth HCI 요약**: 명령(그룹별), 이벤트(LE Meta는 하위 이벤트별), 상태 코드, 연결 끊김 이유, ACL 패킷 수.
+  **무선 › Bluetooth ATT 서버 속성**: ATT 탐색으로 알아낸 GATT 데이터베이스(핸들, UUID, 서비스·특성·디스크립터 이름).
+  Bluetooth HCI 캡처(LINKTYPE 187/201)는 HCI 명령·이벤트·ACL, L2CAP, ATT로 해석되고 ATT 핸들은
+  "(Heart Rate: Heart Rate Measurement)"처럼 이름으로 보입니다. **대화**와 **종단점**에도 Bluetooth 탭이 있습니다.
+  예제 **Wi-Fi와 Bluetooth**의 뒤쪽이 Bluetooth LE 세션입니다.
 - **전화**: **VoIP 통화**, **SIP 흐름**, **RTP 스트림**. **무선 › WLAN 트래픽**: 802.11 네트워크와 단말.
   **도구 › 방화벽 규칙**은 고른 패킷에 대한 방화벽 규칙을 만들고, **도구 › 자격 증명**은 캡처에서 찾은 평문
   로그인 정보를 보여 줍니다.
@@ -676,6 +714,15 @@ Word에서 열림), **Markdown**, **PDF**, **Word**(.docx, 표는 Word 표로), 
 - **파일 › 개체 내보내기**는 **HTTP**, **TFTP**, **메일(IMF)**, **FTP 데이터**로 오간 파일(그림, HTML 페이지,
   스크립트, 첨부 파일)을 찾아 하나(**저장**) 또는 모두(**모두 저장**) 저장합니다.
 - **편집 › 복사**는 요약, 세부 정보, JSON, 16진 덤프, 필드 하나를 글로 복사합니다.
+- **분석 › 패킷 바이트 보기…**: 세부 정보에서 고른 필드(없으면 패킷 전체)의 바이트를 **디코딩**(Base64, 16진 숫자,
+  퍼센트 인코딩, Quoted-printable, ROT-13)한 뒤 **보기 형식**(ASCII, 제어 문자 포함 ASCII, EBCDIC, 16진 덤프, C·Rust 배열,
+  원본 16진, UTF-8, UTF-16, JSON)으로 보여 줍니다.
+- **보기 › 패킷 다이어그램**: 고른 패킷의 헤더를 프로토콜마다 32비트 한 줄씩 칸으로 그립니다. 비트 필드(버전, 플래그)는
+  그 비트만 차지하고, **이름과 값**을 고르면 칸에 값도 나옵니다.
+- **보기 › 대화 색칠**: 고른 패킷의 Ethernet / IPv4 / IPv6 / TCP / UDP 대화를 색 1~10 중 다음 색으로 칠합니다(색칠
+  규칙보다 먼저 적용). **색칠 초기화**로 지웁니다.
+- **파일 › 16진 덤프에서 가져오기…**: `0000  00 1a a0 …` 꼴의 16진 덤프(오프셋 0에서 새 패킷, ASCII 열은 무시)나
+  한 줄짜리 16진 문자열을 붙여 넣으면 새 캡처로 엽니다. IPv4/IPv6 헤더로 시작하면 Raw IP, 아니면 Ethernet으로 읽습니다.
 
 ![HTTP 개체](doc/images/ko/42-export-objects.png)
 
@@ -1189,11 +1236,12 @@ are hidden, not deleted.
 - **Filter buttons** (such as **TCP problems**) at the right of the bar apply a saved filter with one click.
   **Add filter button…** makes a new one from the current filter.
 - Under the bar is a row of **preset filters**. **All** at the front turns every button on (all ORed together) and
-  **None** turns them all off (a filter typed in the box stays). Then come TCP, UDP, HTTP, TLS, **TLS 1.0**, **TLS 1.1**, **TLS 1.2**,
-  **TLS 1.3**, QUIC, DNS, DHCP, ARP, ICMP, TCP SYN, Retransmissions, TCP problems, Broadcast, ARP DNS. Presets combine with **OR**, because most of them can
+  **None** turns them all off. Then come TCP, UDP, HTTP, TLS, **TLS 1.0**, **TLS 1.1**, **TLS 1.2**,
+  **TLS 1.3**, QUIC, DNS, DHCP, ARP, ICMP, TCP SYN, Retransmissions, TCP problems, Broadcast, IPv6, SSH, FTP, Mail, SMB, VoIP, IoT, NTP, SNMP, Name services, Routing, VLAN, Multicast, TLS handshake, TCP RST, Zero window, Duplicate ACK, HTTP errors, DNS errors, Unreachable, ARP DNS. Presets combine with **OR**, because most of them can
   never match the same packet: **DNS** applies `dns`, then **UDP** makes it `dns or udp` (packets that match either
-  are shown) and both stay highlighted. Only pressing a highlighted button again takes its condition out. A filter
-  already typed in the box is kept (`(frame.len > 60) or dns`). Any other filter is typed in the box as before.
+  are shown) and both stay highlighted. Only pressing a highlighted button again takes its condition out. A button shows
+  only its own packets: a filter typed in the box or set by clicking the network map is replaced by the first press
+  (`frame.len > 60` + **DNS** → `dns`). Any other filter is typed in the box as before.
 - The last button, **ARP DNS**, is a switch: on (the default) lets ARP and DNS packets in, off adds
   `not arp and not dns` with **AND**. With **UDP** on and ARP DNS off the filter is
   `udp and (not arp and not dns)` — UDP packets that are not DNS. **All** turns the switch on too; **None** leaves it as it is.
@@ -1204,6 +1252,12 @@ are hidden, not deleted.
   matches the list.
 - **{+}** opens the **Display Filter Expression…** window.
 - When a filter is applied the bar shows *Displayed N of M*, and so does the status bar.
+- When a filter takes a while (big captures) a **progress window** shows the packets done and the percentage.
+  **Cancel** (or ×, Esc) keeps the list and the box on the previous filter. Filters made only of protocol and field names
+  (most preset buttons) use the field names remembered from the first read, so they apply at once even on big captures.
+- **Analyze › Display Filter Macros…**: write one macro per line as `name = filter` (`$1`, `$2` … for the
+  arguments) and use it as `${name:arg1;arg2}` or `$name(arg1, arg2)`. With `host = ip.addr == $1`,
+  `${host:10.0.0.5}` becomes `ip.addr == 10.0.0.5`. `${ip.src}`, which is no macro name, stays a field reference.
 
 ![An invalid filter](doc/images/en/12-filter-invalid.png)
 
@@ -1328,6 +1382,22 @@ dissecting it. The values of the selected packet are offered first. The rules ar
 
 ![Decode As](doc/images/en/39-decode-as.png)
 
+##### TLS decryption (key log)
+
+With a **key log** (SSLKEYLOGFILE format) written by a browser or program, TLS such as HTTPS is shown decrypted.
+
+- **Analyze › TLS Key Log File…** loads a key log and dissects every open capture again, decrypting the records those
+  keys belong to. The desktop program reads the same file again at the next start. **Forget TLS Key Log** undoes it.
+- Keys inside a capture file (a pcapng Decryption Secrets Block, as Wireshark's `editcap --inject-secrets` writes
+  them) decrypt at once, without choosing a file, and stay in the file when it is saved as pcapng.
+- Supported: TLS 1.3 (AES-128-GCM, AES-256-GCM, ChaCha20-Poly1305) and TLS 1.2 (ECDHE / RSA / DHE with AES-GCM,
+  ChaCha20-Poly1305, AES-CBC with SHA-1 / SHA-256 / SHA-384, encrypt-then-MAC), from the key log's `CLIENT_RANDOM`
+  (TLS 1.2) and `CLIENT_/SERVER_HANDSHAKE_TRAFFIC_SECRET`, `CLIENT_/SERVER_TRAFFIC_SECRET_0` (TLS 1.3) lines.
+- Decrypted records show their content (handshake, alerts, HTTP) in the details, and the bytes pane gets **Decrypted
+  TLS** / **Reassembled TLS** tabs. An HTTP response over several records is shown whole; the earlier records read
+  *[TLS segment of a reassembled PDU]*. With a wrong key the record says *Not decrypted* and why.
+- The sample **TLS decryption (key log)** has seven TLS 1.3 and 1.2 sessions with their keys.
+
 ##### Enabled protocols
 
 **Analyze › Enabled Protocols…** turns individual protocols off (their bytes are shown as data) or on, with
@@ -1421,6 +1491,24 @@ switches the direction. Gaps and repeated points in a Stevens graph show lost an
   URI) and **Load Distribution** (by server).
 - **Statistics › DNS**: queries and responses by type, rcode, opcode, and response times.
 - **Statistics › IP Statistics**: **IPv4 Statistics** and **IPv6 Statistics** (by address) and **Port Types**.
+- **Statistics › Service Response Time**: the time from request to response for DNS, HTTP, HTTP/2, SMB2, SNMP, IMAP,
+  Modbus/TCP and CoAP, by protocol and procedure (query type, status code, command): calls, min, max, average and sum.
+- **Statistics › UDP Multicast Streams**: per UDP flow to a multicast group, packets, packets per second, average and
+  maximum bandwidth and the maximum burst (packets within 100 ms).
+- **Statistics › DHCP (BOOTP) Statistics**: DHCP messages by type (Discover, Offer, Request, ACK …).
+- **Telephony › SIP Statistics**: requests by method, responses by class (1xx–6xx) and code, resent packets.
+  **Telephony › RTP Stream Analysis**: per stream expected and lost packets, sequence errors, max delta, max and mean
+  jitter (RFC 3550) and max skew.
+- **Tools › MAC Address Blocks**: the hardware addresses in the capture with their vendor (OUI), individual / group and
+  universal / local administration. **Tools › Supported Protocols**: the protocols the dissectors know, their filter
+  names and number of fields.
+- **Wireless › Bluetooth Devices**: every BD_ADDR in the capture with its vendor (OUI), name (from advertising data), RSSI,
+  and for the local adapter its HCI / LMP versions and manufacturer. **Wireless › Bluetooth HCI Summary**: commands by
+  group, events (LE Meta by sub event), status codes, disconnect reasons and ACL packets. **Wireless › Bluetooth ATT
+  Server Attributes**: the GATT database found by ATT discovery (handles, UUIDs, service / characteristic / descriptor names).
+  Bluetooth HCI captures (LINKTYPE 187 / 201) are dissected as HCI commands, events and ACL, L2CAP and ATT, and ATT handles
+  read "(Heart Rate: Heart Rate Measurement)". **Conversations** and **Endpoints** have a Bluetooth tab. The second part
+  of the sample **Wi-Fi and Bluetooth** is a Bluetooth LE session.
 - **Telephony**: **VoIP Calls**, **SIP Flows**, **RTP Streams**. **Wireless › WLAN Traffic**: 802.11 networks and
   stations. **Tools › Firewall ACL Rules** writes firewall rules for the selected packet; **Tools › Credentials**
   lists the clear-text logins found in the capture.
@@ -1514,6 +1602,17 @@ headings**, **Details** (None, All collapsed, As displayed, All expanded) and **
 - **File › Export Objects** finds the files carried over **HTTP**, **TFTP**, **IMF (Mail)** and **FTP-DATA** —
   pictures, HTML pages, scripts, attachments — and saves one (**Save**) or all (**Save All**).
 - **Edit › Copy** copies the summary, details, JSON, hex dump or a single field as text.
+
+- **Analyze › Show Packet Bytes…**: the bytes of the field selected in the details (or the whole packet), **decoded**
+  (Base64, hex digits, percent-encoding, quoted-printable, ROT-13) and **shown as** ASCII, ASCII & control, EBCDIC, hex dump,
+  C or Rust array, raw hex, UTF-8, UTF-16 or JSON.
+- **View › Packet Diagram**: the headers of the selected packet drawn per protocol in rows of 32 bits, one box per field;
+  bit fields (version, flags) take only their bits. **Names and values** puts the values in the boxes.
+- **View › Colorize Conversation**: paints the Ethernet / IPv4 / IPv6 / TCP / UDP conversation of the selected packet with
+  the next of colors 1–10 (before the colouring rules); **Reset Colorization** removes them.
+- **File › Import from Hex Dump…**: paste a hex dump (`0000  00 1a a0 …`, offset 0 starts a new packet, the ASCII
+  column is ignored) or one-line hex streams and it opens as a new capture — Raw IP when it starts with an IPv4 / IPv6
+  header, Ethernet otherwise.
 
 ![HTTP objects](doc/images/en/42-export-objects.png)
 

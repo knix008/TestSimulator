@@ -13,6 +13,62 @@ export { setDefaultFields, getDefaultFields } from './registry.js';
 const CACHE = new Map(); // text → compiled (per registry), bounded
 const CACHE_MAX = 200;
 
+// ───────────────────────── display filter macros (Analyze › Display Filter Macros)
+//
+// As Wireshark: "${name:arg1;arg2}" or "$name(arg1, arg2)" (or "${name}" without arguments) is replaced by
+// the macro's text with $1, $2 … replaced by the arguments, before the filter is compiled. "${ip.src}" with
+// no macro of that name stays a field reference.
+const MACROS = new Map();
+const MACRO_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/** Sets the macros: [{ name, text }] (names: letters, digits, underscores). */
+export function setFilterMacros(list) {
+  MACROS.clear();
+  for (const m of list ?? []) if (m && MACRO_NAME.test(String(m.name ?? '')) && String(m.text ?? '').trim()) MACROS.set(m.name, String(m.text).trim());
+  CACHE.clear();
+}
+
+export function getFilterMacros() { return [...MACROS].map(([name, text]) => ({ name, text })); }
+
+/** Parses "name = text" lines (# comments, blank lines skipped) → { macros: [{ name, text }], errors: [line] }. */
+export function parseMacroLines(text) {
+  const macros = [];
+  const errors = [];
+  for (const raw of String(text ?? '').split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*[=:]\s*(.+)$/.exec(line);
+    if (m) macros.push({ name: m[1], text: m[2].trim() }); else errors.push(line);
+  }
+  return { macros, errors };
+}
+
+/** The filter with every macro use replaced → { text } or { error, at, end }. */
+export function expandMacros(text, macros = MACROS) {
+  let out = String(text ?? '');
+  for (let pass = 0; pass < 8; pass++) {
+    let error = null;
+    let used = false;
+    const use = (match, name, args, at) => {
+      const body = macros.get(name);
+      if (body != null) used = true;
+      if (body == null) {
+        if (args != null) error = error ?? { error: `There is no display filter macro "${name}".`, at, end: at + match.length };
+        return match;
+      }
+      const list = args == null || args === '' ? [] : args.split(match.startsWith('${') ? ';' : ',').map((a) => a.trim());
+      return body.replace(/\$(\d+)/g, (m, n) => list[Number(n) - 1] ?? m);
+    };
+    const next = out
+      .replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)(?::([^}]*))?\}/g, (m, name, args, at) => use(m, name, args ?? null, at))
+      .replace(/\$([A-Za-z_][A-Za-z0-9_]*)\(([^)]*)\)/g, (m, name, args, at) => use(m, name, args, at));
+    if (error) return error;
+    if (!used) return { text: out };
+    out = next;
+  }
+  return { error: 'Display filter macros are nested too deeply (a macro uses itself?).', at: 0, end: String(text).length };
+}
+
 /**
  * Compile a display filter.
  * opts: { fields?: Map, reference?: Dissection (for ${field} references), unknownFields?: 'error'|'absent' }
@@ -22,6 +78,14 @@ const CACHE_MAX = 200;
  */
 export function compileFilter(text, opts = {}) {
   text = text == null ? '' : String(text);
+  if (MACROS.size && text.includes('$')) {
+    const expanded = expandMacros(text);
+    if (expanded.error) return { ok: false, error: expanded.error, code: FILTER_ERRORS.UNEXPECTED_TOKEN, at: expanded.at ?? 0, end: expanded.end ?? text.length, text };
+    if (expanded.text !== text) {
+      const r = compileFilter(expanded.text, opts);
+      return r.ok ? { ...r, text, expanded: expanded.text } : { ...r, text, expanded: expanded.text, error: `${r.error} (${expanded.text})`, at: 0, end: text.length };
+    }
+  }
   const fields = opts.fields || getDefaultFields();
   const key = text + '\u0000' + (opts.unknownFields || '');
   const cacheable = !opts.reference;

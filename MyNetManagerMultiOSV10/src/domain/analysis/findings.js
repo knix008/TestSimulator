@@ -102,13 +102,14 @@ export function createAnalyzer({ limitProblems = 20000 } = {}) {
       }
     }
 
-    // Cleartext credentials and protocols.
-    if (has(d, 'http.authorization') || has(d, 'http.authbasic')) { st.creds.push(no); st.credProtocols.add('HTTP'); }
-    for (const p of ['ftp', 'pop', 'imap', 'smtp']) {
+    // Cleartext credentials and protocols (not what was decrypted from TLS with a key log: that went encrypted).
+    const insideTls = has(d, 'tls');
+    if (!insideTls && (has(d, 'http.authorization') || has(d, 'http.authbasic'))) { st.creds.push(no); st.credProtocols.add('HTTP'); }
+    for (const p of insideTls ? [] : ['ftp', 'pop', 'imap', 'smtp']) {
       const cmd = String(first(d, `${p}.request.command`) ?? '').toUpperCase();
       if (cmd === 'PASS' || cmd === 'LOGIN' || cmd === 'AUTH' || cmd === 'USER') { st.creds.push(no); st.credProtocols.add(p.toUpperCase()); }
     }
-    for (const p of ['telnet', 'ftp', 'http', 'pop', 'imap', 'smtp', 'snmp', 'tftp']) if (has(d, p)) st.cleartext.set(p.toUpperCase(), (st.cleartext.get(p.toUpperCase()) ?? 0) + 1);
+    if (!insideTls) for (const p of ['telnet', 'ftp', 'http', 'pop', 'imap', 'smtp', 'snmp', 'tftp']) if (has(d, p)) st.cleartext.set(p.toUpperCase(), (st.cleartext.get(p.toUpperCase()) ?? 0) + 1);
 
     // ARP: one IP claimed by two MAC addresses.
     const arpIp = first(d, 'arp.src.proto_ipv4');

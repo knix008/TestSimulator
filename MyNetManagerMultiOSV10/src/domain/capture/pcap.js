@@ -84,10 +84,10 @@ function readPcap(b, name) {
     if (o + caplen > b.length) { trunc(f, `The capture file appears to have been cut short in the middle of a packet (frame ${frames.length + 1}).`); break; }
     const nsec = ns ? frac : frac * 1000;
     if (nsec > 999999999) { trunc(f, `The capture file appears to be damaged or corrupt: invalid timestamp in packet ${frames.length + 1}.`); break; }
-    frames.push({
+    frames.push(stripPseudoHeader({
       no: frames.length + 1, sec, nsec, caplen, len: Math.max(len, caplen),
       data: b.subarray(o, o + caplen), linktype, iface: 0, comment: null,
-    });
+    }));
     o += caplen;
   }
   return f;
@@ -95,29 +95,57 @@ function readPcap(b, name) {
 
 function trunc(f, msg) { f.truncated = true; f.error = msg; }
 
+/**
+ * Link types whose records start with a pseudo-header that is not part of the packet (as Wireshark's wiretap
+ * reads them): LINKTYPE_BLUETOOTH_HCI_H4_WITH_PHDR (201) — a 4-byte big-endian direction, 0 sent / 1 received.
+ * The direction goes to frame.p2pDir and the packet starts after it; writing puts it back.
+ */
+const PHDR_LEN = { 201: 4 };
+export function stripPseudoHeader(fr) {
+  const n = PHDR_LEN[fr.linktype];
+  if (!n || fr.p2pDir !== undefined || fr.data.length < n) return fr;
+  const d = fr.data;
+  fr.p2pDir = ((d[0] << 24) | (d[1] << 16) | (d[2] << 8) | d[3]) >>> 0 ? 1 : 0;
+  fr.data = d.subarray(n);
+  fr.caplen = Math.max(0, fr.caplen - n);
+  fr.len = Math.max(fr.caplen, fr.len - n);
+  return fr;
+}
+/** The bytes of a frame as the file stores them (pseudo-header in front). */
+function onDisk(fr) {
+  const n = PHDR_LEN[fr.linktype];
+  if (!n || fr.p2pDir === undefined) return { data: fr.data, len: fr.len };
+  const out = new Uint8Array(fr.data.length + n);
+  out[3] = fr.p2pDir ? 1 : 0;
+  out.set(fr.data, n);
+  return { data: out, len: fr.len + n };
+}
+
 export function writePcap(file, frames) {
   frames = frames || file.frames;
   const lt = frames.length ? frames[0].linktype : (file.interfaces[0]?.linktype ?? 1);
   const ns = (file.interfaces[0]?.tsresol ?? 6) === 9 || frames.some((fr) => fr.nsec % 1000 !== 0);
   const use = frames.filter((fr) => fr.linktype === lt);
   let size = 24;
-  for (const fr of use) size += 16 + fr.data.length;
+  const disk = use.map(onDisk);
+  for (const r of disk) size += 16 + r.data.length;
   const out = new Uint8Array(size);
   const dv = new DataView(out.buffer);
   dv.setUint32(0, ns ? PCAP_NS : PCAP_US, true);
   dv.setUint16(4, 2, true); dv.setUint16(6, 4, true);
-  const snap = Math.max(file.interfaces[0]?.snaplen || 0, ...use.map((fr) => fr.data.length), 0) || 262144;
+  const snap = Math.max(file.interfaces[0]?.snaplen || 0, ...disk.map((r) => r.data.length), 0) || 262144;
   dv.setUint32(16, snap, true);
   dv.setUint32(20, lt, true);
   let o = 24;
-  for (const fr of use) {
+  use.forEach((fr, i) => {
+    const r = disk[i];
     dv.setUint32(o, fr.sec >>> 0, true);
     dv.setUint32(o + 4, ns ? fr.nsec : Math.floor(fr.nsec / 1000), true);
-    dv.setUint32(o + 8, fr.data.length, true);
-    dv.setUint32(o + 12, Math.max(fr.len, fr.data.length), true);
-    out.set(fr.data, o + 16);
-    o += 16 + fr.data.length;
-  }
+    dv.setUint32(o + 8, r.data.length, true);
+    dv.setUint32(o + 12, Math.max(r.len, r.data.length), true);
+    out.set(r.data, o + 16);
+    o += 16 + r.data.length;
+  });
   return out;
 }
 
@@ -149,6 +177,8 @@ function readPcapng(b, name) {
   let sectionNo = 0;
   let ifaceInfo = [];     // per interface: { ups (BigInt units/sec), offset (sec) }
   f.names = [];
+  /** Decryption Secrets Blocks: [{ type: 'tls' | number, text }] (TLS key logs written by editcap --inject-secrets). */
+  f.secrets = [];
   f.interfaceStats = [];
   f.sections = [];
   const frames = f.frames;
@@ -276,7 +306,7 @@ function readPcapng(b, name) {
             else if (op.code === 6 && op.len === 4) fr.queue = dv.getUint32(op.o, le);
             else if (op.code === 3 && op.len > 1) fr.hash = { algo: b[op.o], value: b.slice(op.o + 1, op.o + op.len) };
           }
-          frames.push(fr);
+          frames.push(stripPseudoHeader(fr));
           break;
         }
         case 4: { // NRB
@@ -312,7 +342,14 @@ function readPcapng(b, name) {
           f.interfaceStats.push(st);
           break;
         }
-        default: break; // DSB, custom and unknown blocks are skipped
+        case 10: { // DSB: secrets type, secrets length, data
+          const type = dv.getUint32(body, le);
+          const n = dv.getUint32(body + 4, le);
+          const data = b.subarray(body + 8, Math.min(body + 8 + n, end));
+          f.secrets.push({ type: type === 0x544c534b ? 'tls' : type, text: TD.decode(data) });
+          break;
+        }
+        default: break; // custom and unknown blocks are skipped
       }
     } catch (e) {
       if (!(e instanceof RangeError)) throw e;
@@ -390,6 +427,14 @@ export function writePcapng(file, frames) {
     w.end(s);
     res.push(r & 0x80 ? 1n << BigInt(r & 0x7f) : 10n ** BigInt(r));
   }
+  // Decryption Secrets Blocks (before the packets they decrypt), TLS key logs as 'TLSK'.
+  for (const sec of file.secrets ?? []) {
+    if (sec.type !== 'tls' || !sec.text) continue;
+    const data = TE.encode(sec.text);
+    s = w.begin(10);
+    w.u32(0x544c534b); w.u32(data.length); w.bytes(data);
+    w.end(s);
+  }
   const offs = ifaces.map((i) => BigInt(i.tsoffset || 0));
   if (file.names && file.names.length) {
     s = w.begin(4);
@@ -411,8 +456,9 @@ export function writePcapng(file, frames) {
     const ts = (BigInt(fr.sec) - offs[id]) * ups + (BigInt(fr.nsec) * ups) / 1000000000n;
     s = w.begin(6);
     w.u32(id); w.u32(Number(ts >> 32n)); w.u32(Number(ts & 0xffffffffn));
-    w.u32(fr.data.length); w.u32(Math.max(fr.len, fr.data.length));
-    w.bytes(fr.data);
+    const r = onDisk(fr);
+    w.u32(r.data.length); w.u32(Math.max(r.len, r.data.length));
+    w.bytes(r.data);
     let any = false;
     if (fr.comment) { for (const c of String(fr.comment).split('\n')) w.optStr(1, c); any = true; }
     if (fr.flags != null) { const ob = new Uint8Array(4); new DataView(ob.buffer).setUint32(0, fr.flags, true); w.opt(2, ob); any = true; }

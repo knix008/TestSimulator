@@ -355,7 +355,7 @@ are hidden, not deleted.
   **Add filter button…** makes a new one from the current filter.
 - Under the bar is a row of **preset filters**. **All** at the front turns every button on (all ORed together) and
   **None** turns them all off. Then come TCP, UDP, HTTP, TLS, **TLS 1.0**, **TLS 1.1**, **TLS 1.2**,
-  **TLS 1.3**, QUIC, DNS, DHCP, ARP, ICMP, TCP SYN, Retransmissions, TCP problems, Broadcast, ARP DNS. Presets combine with **OR**, because most of them can
+  **TLS 1.3**, QUIC, DNS, DHCP, ARP, ICMP, TCP SYN, Retransmissions, TCP problems, Broadcast, IPv6, SSH, FTP, Mail, SMB, VoIP, IoT, NTP, SNMP, Name services, Routing, VLAN, Multicast, TLS handshake, TCP RST, Zero window, Duplicate ACK, HTTP errors, DNS errors, Unreachable, ARP DNS. Presets combine with **OR**, because most of them can
   never match the same packet: **DNS** applies `dns`, then **UDP** makes it `dns or udp` (packets that match either
   are shown) and both stay highlighted. Only pressing a highlighted button again takes its condition out. A button shows
   only its own packets: a filter typed in the box or set by clicking the network map is replaced by the first press
@@ -370,6 +370,12 @@ are hidden, not deleted.
   matches the list.
 - **{+}** opens the **Display Filter Expression…** window.
 - When a filter is applied the bar shows *Displayed N of M*, and so does the status bar.
+- When a filter takes a while (big captures) a **progress window** shows the packets done and the percentage.
+  **Cancel** (or ×, Esc) keeps the list and the box on the previous filter. Filters made only of protocol and field names
+  (most preset buttons) use the field names remembered from the first read, so they apply at once even on big captures.
+- **Analyze › Display Filter Macros…**: write one macro per line as `name = filter` (`$1`, `$2` … for the
+  arguments) and use it as `${name:arg1;arg2}` or `$name(arg1, arg2)`. With `host = ip.addr == $1`,
+  `${host:10.0.0.5}` becomes `ip.addr == 10.0.0.5`. `${ip.src}`, which is no macro name, stays a field reference.
 
 ![An invalid filter](images/en/12-filter-invalid.png)
 
@@ -494,6 +500,22 @@ dissecting it. The values of the selected packet are offered first. The rules ar
 
 ![Decode As](images/en/39-decode-as.png)
 
+### TLS decryption (key log)
+
+With a **key log** (SSLKEYLOGFILE format) written by a browser or program, TLS such as HTTPS is shown decrypted.
+
+- **Analyze › TLS Key Log File…** loads a key log and dissects every open capture again, decrypting the records those
+  keys belong to. The desktop program reads the same file again at the next start. **Forget TLS Key Log** undoes it.
+- Keys inside a capture file (a pcapng Decryption Secrets Block, as Wireshark's `editcap --inject-secrets` writes
+  them) decrypt at once, without choosing a file, and stay in the file when it is saved as pcapng.
+- Supported: TLS 1.3 (AES-128-GCM, AES-256-GCM, ChaCha20-Poly1305) and TLS 1.2 (ECDHE / RSA / DHE with AES-GCM,
+  ChaCha20-Poly1305, AES-CBC with SHA-1 / SHA-256 / SHA-384, encrypt-then-MAC), from the key log's `CLIENT_RANDOM`
+  (TLS 1.2) and `CLIENT_/SERVER_HANDSHAKE_TRAFFIC_SECRET`, `CLIENT_/SERVER_TRAFFIC_SECRET_0` (TLS 1.3) lines.
+- Decrypted records show their content (handshake, alerts, HTTP) in the details, and the bytes pane gets **Decrypted
+  TLS** / **Reassembled TLS** tabs. An HTTP response over several records is shown whole; the earlier records read
+  *[TLS segment of a reassembled PDU]*. With a wrong key the record says *Not decrypted* and why.
+- The sample **TLS decryption (key log)** has seven TLS 1.3 and 1.2 sessions with their keys.
+
 ### Enabled protocols
 
 **Analyze › Enabled Protocols…** turns individual protocols off (their bytes are shown as data) or on, with
@@ -587,6 +609,24 @@ switches the direction. Gaps and repeated points in a Stevens graph show lost an
   URI) and **Load Distribution** (by server).
 - **Statistics › DNS**: queries and responses by type, rcode, opcode, and response times.
 - **Statistics › IP Statistics**: **IPv4 Statistics** and **IPv6 Statistics** (by address) and **Port Types**.
+- **Statistics › Service Response Time**: the time from request to response for DNS, HTTP, HTTP/2, SMB2, SNMP, IMAP,
+  Modbus/TCP and CoAP, by protocol and procedure (query type, status code, command): calls, min, max, average and sum.
+- **Statistics › UDP Multicast Streams**: per UDP flow to a multicast group, packets, packets per second, average and
+  maximum bandwidth and the maximum burst (packets within 100 ms).
+- **Statistics › DHCP (BOOTP) Statistics**: DHCP messages by type (Discover, Offer, Request, ACK …).
+- **Telephony › SIP Statistics**: requests by method, responses by class (1xx–6xx) and code, resent packets.
+  **Telephony › RTP Stream Analysis**: per stream expected and lost packets, sequence errors, max delta, max and mean
+  jitter (RFC 3550) and max skew.
+- **Tools › MAC Address Blocks**: the hardware addresses in the capture with their vendor (OUI), individual / group and
+  universal / local administration. **Tools › Supported Protocols**: the protocols the dissectors know, their filter
+  names and number of fields.
+- **Wireless › Bluetooth Devices**: every BD_ADDR in the capture with its vendor (OUI), name (from advertising data), RSSI,
+  and for the local adapter its HCI / LMP versions and manufacturer. **Wireless › Bluetooth HCI Summary**: commands by
+  group, events (LE Meta by sub event), status codes, disconnect reasons and ACL packets. **Wireless › Bluetooth ATT
+  Server Attributes**: the GATT database found by ATT discovery (handles, UUIDs, service / characteristic / descriptor names).
+  Bluetooth HCI captures (LINKTYPE 187 / 201) are dissected as HCI commands, events and ACL, L2CAP and ATT, and ATT handles
+  read "(Heart Rate: Heart Rate Measurement)". **Conversations** and **Endpoints** have a Bluetooth tab. The second part
+  of the sample **Wi-Fi and Bluetooth** is a Bluetooth LE session.
 - **Telephony**: **VoIP Calls**, **SIP Flows**, **RTP Streams**. **Wireless › WLAN Traffic**: 802.11 networks and
   stations. **Tools › Firewall ACL Rules** writes firewall rules for the selected packet; **Tools › Credentials**
   lists the clear-text logins found in the capture.
@@ -680,6 +720,17 @@ headings**, **Details** (None, All collapsed, As displayed, All expanded) and **
 - **File › Export Objects** finds the files carried over **HTTP**, **TFTP**, **IMF (Mail)** and **FTP-DATA** —
   pictures, HTML pages, scripts, attachments — and saves one (**Save**) or all (**Save All**).
 - **Edit › Copy** copies the summary, details, JSON, hex dump or a single field as text.
+
+- **Analyze › Show Packet Bytes…**: the bytes of the field selected in the details (or the whole packet), **decoded**
+  (Base64, hex digits, percent-encoding, quoted-printable, ROT-13) and **shown as** ASCII, ASCII & control, EBCDIC, hex dump,
+  C or Rust array, raw hex, UTF-8, UTF-16 or JSON.
+- **View › Packet Diagram**: the headers of the selected packet drawn per protocol in rows of 32 bits, one box per field;
+  bit fields (version, flags) take only their bits. **Names and values** puts the values in the boxes.
+- **View › Colorize Conversation**: paints the Ethernet / IPv4 / IPv6 / TCP / UDP conversation of the selected packet with
+  the next of colors 1–10 (before the colouring rules); **Reset Colorization** removes them.
+- **File › Import from Hex Dump…**: paste a hex dump (`0000  00 1a a0 …`, offset 0 starts a new packet, the ASCII
+  column is ignored) or one-line hex streams and it opens as a new capture — Raw IP when it starts with an IPv4 / IPv6
+  header, Ethernet otherwise.
 
 ![HTTP objects](images/en/42-export-objects.png)
 

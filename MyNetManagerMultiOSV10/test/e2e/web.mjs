@@ -183,6 +183,26 @@ test('files.importHexDump', 'File › Import from Hex Dump: pasted hex dump text
   assert(/\.pcap$/.test(r.name) && r.after === 0, `tab ${r.name}`);
 });
 
+test('files.profile', 'File › Save Profile… writes settings, colouring rules, filters and macros to a project file; Open Profile… puts them back', async () => {
+  await openSample('dns-queries');
+  const r = await run(`const blobs = []; const make = URL.createObjectURL; URL.createObjectURL = (b) => { blobs.push(b); return make.call(URL, b); };
+    A.actions.updateSettings({ timeFormat: 'utc', resolveMac: false, profileName: 'Lab profile' }, { quiet: true });
+    localStorage.setItem('mynetmanager.coloring.v1', JSON.stringify([{ name: 'Lab DNS', filter: 'dns', fg: '#000000', bg: '#123456', enabled: true }]));
+    await A.run('saveProfile'); await until(() => blobs.length); URL.createObjectURL = make; const text = await blobs.at(-1).text(); const saved = window.__downloads.at(-1);
+    A.actions.updateSettings({ timeFormat: 'relative', resolveMac: true }, { quiet: true }); localStorage.removeItem('mynetmanager.coloring.v1'); const lang = A.state.settings.language;
+    window.__mynetmanagerProfilePicks = [{ name: 'Lab profile.mynetprofile', text }]; A.run('openProfile');
+    const apply = await until(() => pop('confirm')?.querySelector('[data-value="apply"]')); apply.click(); await until(() => A.state.settings.timeFormat === 'utc');
+    const after = { timeFormat: A.state.settings.timeFormat, resolveMac: A.state.settings.resolveMac, coloring: JSON.parse(localStorage.getItem('mynetmanager.coloring.v1'))[0]?.name, lang: A.state.settings.language === lang, color: A.doc().colorOf(A.doc().displayed.find((i) => A.doc().summaries[i].protocol === 'DNS'))?.bg };
+    window.__mynetmanagerProfilePicks = [{ name: 'bad.mynetprofile', text: '{"format":"x"}' }]; const bad = await A.actions.openProfile();
+    localStorage.removeItem('mynetmanager.coloring.v1'); A.actions.updateSettings({ timeFormat: 'relative', resolveMac: true, profileName: '' }, { quiet: true });
+    return { saved, json: JSON.parse(text), after, bad };`);
+  assert(/\.mynetprofile$/.test(r.saved), `saved as ${r.saved}`);
+  assert(r.json.format === 'mynetmanager-profile' && r.json.settings.timeFormat === 'utc' && r.json.coloring[0].name === 'Lab DNS' && !('lastDirectory' in r.json.settings), 'profile file content');
+  assert(r.after.timeFormat === 'utc' && r.after.resolveMac === false && r.after.coloring === 'Lab DNS' && r.after.lang, `after opening: ${JSON.stringify(r.after)}`);
+  assert(r.after.color === '#123456', `the profile's colouring rule paints DNS rows: ${r.after.color}`);
+  assert(r.bad === false, 'a file that is not a profile is refused');
+});
+
 test('files.saveExport', 'Save, Save as pcap, and every dissection export produce a file', async () => {
   await openSample('http-page-load');
   const r = await run(`window.__downloads = []; await A.actions.saveDoc(A.doc()); await A.actions.saveDoc(A.doc(), { saveAs: true, format: 'pcap' });
@@ -421,6 +441,118 @@ test('stats.more', 'Service response time, UDP multicast streams, DHCP and SIP s
   for (const c of ['serviceResponseTime', 'multicastStreams', 'dhcpStats']) assert(menus.statistics.includes(c), `Statistics menu lacks ${c}: ${menus.statistics}`);
   for (const c of ['sipStats', 'rtpAnalysis']) assert(menus.telephony.includes(c), `Telephony menu lacks ${c}`);
   for (const c of ['macBlocks', 'supportedProtocols']) assert(menus.tools.includes(c), `Tools menu lacks ${c}`);
+});
+
+test('filter.progressPopup', 'A filter that takes a while shows a progress popup (packets, %), Cancel keeps the previous filter, a finished filter closes it', async () => {
+  await openSample('mixed-office-lan');
+  const r = await run(`const d = A.doc(); const base = d.frames.slice(); for (let k = 0; k < 60; k++) for (const f of base) d.frames.push({ ...f, no: null }); await d.firstPass(); d.displayed = Array.from({ length: d.passed }, (_, i) => i); d.forgetFacts();
+    const total = d.passed; const input = () => A.view().root.querySelector('.df-input');
+    const type = (text) => { A.view().setFilterText(text); input().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); };
+    type('frame.len > 100'); await until(() => pop('progress')?.querySelector('#progress-text'), 6000); await sleep(400);
+    const shown = { text: pop('progress').querySelector('#progress-text').textContent, name: pop('progress').querySelector('.path').textContent, cancel: !!pop('progress').querySelector('[data-action="progress-cancel"]') };
+    pop('progress').querySelector('[data-action="progress-cancel"]').click(); await until(() => !d.busy && !pop('progress'), 8000);
+    const cancelled = { filter: d.filterText, box: input().value, shown: d.displayed.length };
+    type('frame.len > 100'); await until(() => d.filterText === 'frame.len > 100' && !d.busy, 30000); await until(() => !pop('progress'), 3000);
+    const done = { shown: d.displayed.length, popup: !!pop('progress') };
+    await A.actions.closeDoc(d, { force: true }); return { total, shown, cancelled, done };`);
+  assert(/\d/.test(r.shown.text) && /frame\.len > 100/.test(r.shown.name) && r.shown.cancel, `progress popup: ${JSON.stringify(r.shown)}`);
+  assert(r.cancelled.filter === '' && r.cancelled.box === '' && r.cancelled.shown === r.total, `after Cancel: ${JSON.stringify(r.cancelled)}`);
+  assert(r.done.shown > 0 && r.done.shown < r.total && !r.done.popup, `finished filter: ${JSON.stringify(r.done)}`);
+});
+
+test('tools.packetBytes', 'Show Packet Bytes: the selected field decoded and shown as ASCII, raw hex, C array …', async () => {
+  await openSample('http-page-load');
+  const r = await run(`const d = A.doc(); const i = d.frames.findIndex((_, k) => d.dissection(k).fields.has('http.request.method')); A.actions.selectFrame(d, i); await sleep(150);
+    A.run('showPacketBytes'); await until(() => pop('stats')?.querySelector('.net-text')); const whole = pop('stats').querySelector('.net-text').textContent;
+    const seg = (key, value) => pop('stats').querySelector('[data-net-seg="' + key + '"][data-value="' + value + '"]');
+    seg('showAs', 'raw').click(); await until(() => /^[0-9a-f]+$/.test(pop('stats').querySelector('.net-text')?.textContent ?? '')); const raw = pop('stats').querySelector('.net-text').textContent;
+    seg('showAs', 'carray').click(); await until(() => /packet_bytes/.test(pop('stats').querySelector('.net-text')?.textContent ?? '')); const carray = pop('stats').querySelector('.net-text').textContent;
+    const choices = pop('stats').querySelectorAll('.net-choice').length; await A.popups.close('stats'); return { whole: whole.slice(0, 200), raw: raw.length, len: d.frames[i].data.length, carray: carray.slice(0, 40), choices };`);
+  assert(/GET /.test(r.whole), `ASCII view: ${r.whole}`);
+  assert(r.raw === r.len * 2, `raw hex ${r.raw} for ${r.len} bytes`);
+  assert(r.carray.startsWith('char packet_bytes[]') && r.choices === 2, `C array / choices: ${r.carray} ${r.choices}`);
+});
+
+test('view.packetDiagram', 'Packet Diagram draws each header in rows of 32 bits, with names or names and values', async () => {
+  await openSample('tcp-3-way-handshake');
+  const r = await run(`A.actions.selectFrame(A.doc(), 0); await sleep(100); A.run('packetDiagram'); await until(() => pop('stats')?.querySelector('.pd-section svg'));
+    const doc = pop('stats'); const protos = [...doc.querySelectorAll('.pd-section')].map((s) => s.dataset.proto); const boxes = doc.querySelectorAll('.pd-field').length; const ipNames = [...doc.querySelectorAll('.pd-section[data-proto="ip"] .pd-name')].map((n) => n.textContent).join('|');
+    doc.querySelector('[data-net-seg="showValues"][data-value="on"]').click(); await until(() => [...pop('stats').querySelectorAll('.pd-section[data-proto="ip"] .pd-name')].some((n) => /: 64$/.test(n.textContent)));
+    const width = pop('stats').querySelector('.pd-section[data-proto="ip"] svg.pd-svg').getBoundingClientRect().width; await A.popups.close('stats'); return { protos, boxes, ipNames, width };`);
+  assert(['eth', 'ip', 'tcp'].every((p) => r.protos.includes(p)), `protocols: ${r.protos}`);
+  assert(r.boxes > 20 && /Version/.test(r.ipNames) && /Source Address/.test(r.ipNames), `boxes ${r.boxes}: ${r.ipNames}`);
+  assert(r.width > 600, `diagram width ${r.width}`);
+});
+
+test('view.colorizeConversation', 'Colorize Conversation paints the selected TCP conversation with color 1, Reset Colorization removes it', async () => {
+  await openSample('mixed-office-lan');
+  const r = await run(`const d = A.doc(); A.actions.updateSettings({ colorize: true, theme: 'light' }); const i = d.frames.findIndex((_, k) => d.dissection(k).fields.has('tcp.stream')); A.actions.selectFrame(d, i); await sleep(100);
+    const stream = d.dissection(i).fields.get('tcp.stream')[0].value; const other = d.frames.findIndex((_, k) => d.dissection(k).fields.get('tcp.stream')?.[0]?.value === stream && k !== i);
+    const foreign = d.frames.findIndex((_, k) => { const s = d.dissection(k).fields.get('tcp.stream')?.[0]?.value; return s != null && s !== stream; });
+    A.run('colorConv:tcp'); await sleep(200); const painted = { same: d.colorOf(other)?.bg, foreign: d.colorOf(foreign)?.bg ?? null, rules: d.conversationColors.length, name: d.colorOf(other)?.name };
+    A.actions.selectFrame(d, foreign); await sleep(80); A.run('colorConv:tcp'); await sleep(150); const second = d.colorOf(foreign)?.bg;
+    A.run('resetConversationColors'); await sleep(150); const after = { same: d.colorOf(other)?.bg ?? null, rules: d.conversationColors.length };
+    return { painted, second, after };`);
+  assert(r.painted.same === '#ffc0c0' && r.painted.rules === 1 && r.painted.foreign !== '#ffc0c0', `painted: ${JSON.stringify(r.painted)}`);
+  assert(r.second === '#ffc0ff', `the next conversation takes color 2: ${r.second}`);
+  assert(r.after.rules === 0 && r.after.same !== '#ffc0c0', `after reset: ${JSON.stringify(r.after)}`);
+});
+
+test('filter.macros', 'Display filter macros: defined in the macro window, used as ${name:arg} and $name(arg) in the filter bar', async () => {
+  await openSample('mixed-office-lan');
+  const r = await run(`A.run('filterMacros'); await until(() => pop('prompt')?.querySelector('textarea')); const area = pop('prompt').querySelector('textarea'); const example = area.value;
+    area.value = 'host = ip.addr == $1\\nweb = tcp.port in {80, 443}'; area.dispatchEvent(new Event('input', { bubbles: true })); pop('prompt').querySelector('[data-action="prompt-apply"]').click(); await sleep(300);
+    await A.actions.applyDisplayFilter('\${host:192.168.0.42}'); const viaMacro = A.doc().displayed.length;
+    await A.actions.applyDisplayFilter('ip.addr == 192.168.0.42'); const plain = A.doc().displayed.length;
+    await A.actions.applyDisplayFilter('$web() && $host(192.168.0.42)'); const both = A.doc().displayed.length;
+    const bad = await A.actions.applyDisplayFilter('\${nothere:1}');
+    A.run('filterMacros'); await until(() => pop('prompt')?.querySelector('textarea')); pop('prompt').querySelector('textarea').value = ''; pop('prompt').querySelector('textarea').dispatchEvent(new Event('input', { bubbles: true })); pop('prompt').querySelector('[data-action="prompt-apply"]').click(); await sleep(200);
+    await A.actions.applyDisplayFilter(''); A.view().setFilterText(''); return { example, viaMacro, plain, both, bad };`);
+  assert(/host = /.test(r.example), 'the macro window offers an example');
+  assert(r.viaMacro > 0 && r.viaMacro === r.plain, `macro shows ${r.viaMacro}, ip.addr shows ${r.plain}`);
+  assert(r.both > 0 && r.both <= r.plain, `$web() && $host(…): ${r.both}`);
+  assert(r.bad === false, 'an unknown macro is an invalid filter');
+});
+
+test('analyze.tlsKeylog', 'TLS decryption: keys in the file decrypt at once; Analyze › TLS Key Log File… decrypts, Forget hides it again', async () => {
+  await openSample('tls-keylog');
+  const r = await run(`const d = A.doc(); const http = async () => { await A.actions.applyDisplayFilter('http'); const n = A.doc().displayed.length; await A.actions.applyDisplayFilter(''); return n; };
+    const first = await http(); const i = d.frames.findIndex((_, k) => d.summary(k).info.startsWith('HTTP/1.1 200 OK  (text/csv)')); A.actions.selectFrame(d, i, { reveal: true }); await sleep(300);
+    const tabs = [...A.view().root.querySelectorAll('.bytes-tab, [data-source]')].map((t) => t.textContent.trim());
+    const findings = (d.analysis?.findings ?? []).map((f) => f.key);
+    const keys = d.file.secrets[0].text; d.file.secrets = [];
+    await A.actions.forgetTlsKeyLog(); const without = await http();
+    window.__mynetmanagerKeyLogPicks = [{ name: 'sslkeys.log', text: keys }]; await A.run('tlsKeyLog'); await until(() => !A.doc().busy); const loaded = await http();
+    const menu = await (async () => { A.actions.openMenubarMenu('analyze'); await until(() => pop('menu')?.querySelector('.menu-item')); const ids = [...pop('menu').querySelectorAll('.menu-item')].map((b) => b.dataset.id); await A.popups.hideMenu(); return ids; })();
+    window.__mynetmanagerKeyLogPicks = [{ name: 'notes.txt', text: 'hello\\nworld' }]; const bad = await A.actions.loadTlsKeyLog();
+    await A.actions.forgetTlsKeyLog(); await A.actions.closeDoc(d, { force: true });
+    return { first, tabs, findings, without, loaded, menu, bad };`);
+  assert(r.first === 14, `with the keys in the file: ${r.first} HTTP packets (7 requests, 7 responses)`);
+  assert(r.tabs.some((t) => /Reassembled TLS|Decrypted TLS/.test(t)), `bytes pane tabs: ${r.tabs.join(' | ')}`);
+  assert(!r.findings.includes('cleartextProtocols'), 'HTTP decrypted from TLS is not called cleartext');
+  assert(r.without === 0, `without keys: ${r.without} HTTP packets`);
+  assert(r.loaded === 14, `after loading the key log: ${r.loaded}`);
+  assert(r.menu.includes('tlsKeyLog') && r.menu.includes('tlsKeyLogForget'), 'Analyze menu');
+  assert(r.bad === false, 'a file without keys is refused');
+});
+
+test('stats.bluetooth', 'Wireless › Bluetooth Devices, HCI Summary and ATT Server Attributes, and the Bluetooth tab of Conversations, on a Bluetooth LE capture', async () => {
+  await openSample('wifi-80211');
+  const checks = [['btDevices', 'HR Sensor'], ['btHciSummary', 'LE Advertising Report'], ['btAttServer', 'Heart Rate Measurement']];
+  for (const [command, text] of checks) {
+    const r = await run(`A.run('${command}'); await until(() => pop('stats')?.querySelector('tbody tr'), 15000); const doc = pop('stats');
+      const rows = doc.querySelectorAll('tbody tr').length; const body = doc.querySelector('tbody').textContent;
+      const row = [...doc.querySelectorAll('tbody tr')].find((tr) => tr.textContent.includes(${JSON.stringify(text)})); row.click(); await sleep(60); doc.querySelector('[data-action="net-apply"]').click(); await sleep(400);
+      const shown = A.doc().displayed.length; const filter = A.view().root.querySelector('.df-input').value; await A.popups.close('stats'); await A.actions.applyDisplayFilter(''); return { rows, has: body.includes(${JSON.stringify(text)}), shown, filter };`);
+    assert(r.rows > 0 && r.has, `${command}: ${r.rows} rows, "${text}" ${r.has ? 'found' : 'missing'}`);
+    assert(r.shown > 0, `${command}: the row filter "${r.filter}" shows nothing`);
+  }
+  const conv = await run(`A.actions.openStats('conversations', { tab: 'bluetooth' }); await until(() => pop('stats')?.querySelector('[data-action="stat-tab"][data-value="bluetooth"]'));
+    pop('stats').querySelector('[data-action="stat-tab"][data-value="bluetooth"]').click(); await until(() => pop('stats').querySelector('.tab.active[data-value="bluetooth"]') && pop('stats').querySelector('tbody tr'));
+    const text = pop('stats').querySelector('tbody').textContent; const rows = pop('stats').querySelectorAll('tbody tr').length; await A.popups.close('stats'); return { rows, host: text.includes('controller') };`);
+  assert(conv.rows === 2 && conv.host, `Bluetooth conversations: ${JSON.stringify(conv)}`);
+  const menu = await run(`A.actions.openMenubarMenu('wireless'); await until(() => pop('menu')?.querySelector('.menu-item')); const ids = [...pop('menu').querySelectorAll('.menu-item')].map((b) => b.dataset.id); await A.popups.hideMenu(); return ids;`);
+  for (const c of ['btAttServer', 'btDevices', 'btHciSummary', 'wlanTraffic']) assert(menu.includes(c), `Wireless menu lacks ${c}`);
 });
 
 test('stats.tcpGraph', 'TCP stream graphs draw every graph type', async () => {
@@ -812,6 +944,63 @@ test('export.contextMenus', 'Right-click on a packet, its details, its bytes or 
   for (const [where, ok] of Object.entries(r.found)) assert(ok, `no Print… in the ${where} menu`);
   for (const ext of ['.pdf', '.docx', '.md', '.html']) assert(r.downloads.some((n) => n.endsWith(ext)), `no ${ext}: ${r.downloads}`);
   assert(r.range === 'selected', `the print window did not open on the right-clicked packet: range ${r.range}`);
+});
+
+// Every display filter preset, pressed with the real mouse on a sample where it finds packets: the packet list,
+// the status bar and the network map follow, and a second press clears it. Expected counts come from the
+// same filter run in Node on the sample (the tshark witness checks those counts against Wireshark).
+test('filter.presetsEach', 'Each preset button (real click) shows exactly its packets in the list, status bar and network map; pressing it again shows all', async () => {
+  const { SAMPLES } = await import('../../src/domain/capture/samples.js');
+  const { CaptureDoc } = await import('../../src/domain/capture/doc.js');
+  const { DISPLAY_PRESETS, EXCLUDE } = await import('../../src/domain/filter/presets.js');
+  const docs = [];
+  for (const s of SAMPLES) { const doc = new CaptureDoc({ name: s.id, file: s.build() }); await doc.firstPass(); docs.push([s.id, doc]); }
+  const plan = new Map(); // sample → [{ filter, count, total }]
+  for (const [, filter, , kind] of DISPLAY_PRESETS) {
+    if (kind === EXCLUDE) continue;
+    let best = null;
+    for (const [id, doc] of docs) {
+      const r = await doc.applyFilter(filter);
+      if (!r.count) continue;
+      // The office LAN sample when it has the packets (fewer tabs), else a sample where the filter keeps only some.
+      const partial = r.count < doc.count;
+      if (!best || id === 'mixed-office-lan' || (best.id !== 'mixed-office-lan' && partial && (!best.partial || r.count > best.count))) best = { id, count: r.count, total: doc.count, partial };
+    }
+    if (!best) continue; // TLS 1.0 / 1.1: no sample has them (presets-all.test.mjs)
+    if (!plan.has(best.id)) plan.set(best.id, []);
+    plan.get(best.id).push({ filter, count: best.count, total: best.total });
+  }
+  const failures = [];
+  let pressed = 0;
+  for (const [id, list] of plan) {
+    await openSample(id);
+    await run(`A.actions.updateSettings({ showNetMap: true }); await A.actions.applyDisplayFilter(''); A.view().setFilterText(''); await until(() => A.view().root.querySelectorAll('.nm-node').length > 0, 8000).catch(() => {}); await sleep(200); return true;`);
+    for (const { filter, count, total } of list) {
+      const sel = JSON.stringify(`[data-df-preset=${JSON.stringify(filter)}]`);
+      const box = await E(`(() => { const b = window.__mynetmanager.view().root.querySelector(${sel}); if (!b) return null; b.scrollIntoView({ block: 'nearest' }); const r = b.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+      if (!box) { failures.push(`${id}: no button for ${filter}`); continue; }
+      await page.click(box.x, box.y);
+      pressed += 1;
+      const r = await run(`const d = A.doc(); await until(() => d.filterText === ${JSON.stringify(filter)} && !d.busy, 15000); await sleep(150); const R = A.view().root;
+        const rows = [...R.querySelectorAll('.pl-row')]; const wrongRows = rows.filter((row) => d.displayed[Number(row.dataset.row)] !== Number(row.dataset.index)).length;
+        const status = document.querySelector('#statusbar')?.textContent ?? ''; const foot = R.querySelector('.nm-foot')?.textContent ?? '';
+        return { shown: d.displayed.length, rows: rows.length, wrongRows, status, foot, nodes: R.querySelectorAll('.nm-node').length, on: [...R.querySelectorAll('[data-df-preset].on:not(.preset-switch):not(.preset-all)')].map((b) => b.dataset.dfPreset) };`);
+      const why = [];
+      if (r.shown !== count) why.push(`${r.shown} packets shown, expected ${count}`);
+      if (!r.rows || r.wrongRows) why.push(`${r.wrongRows} of ${r.rows} list rows are not the filtered packets`);
+      if (!r.status.includes(String(count))) why.push(`status bar lacks ${count}`);
+      if (r.on.length !== 1 || r.on[0] !== filter) why.push(`pressed buttons: ${r.on.join(' | ')}`);
+      if (r.nodes && !/\d/.test(r.foot)) why.push('map footer has no match count');
+      if (why.length) failures.push(`${id} · ${filter}: ${why.join('; ')}`);
+      await page.click(box.x, box.y);
+      const back = await run(`const d = A.doc(); await until(() => d.filterText === '' && !d.busy, 15000); await sleep(100); return { shown: d.displayed.length, dim: A.view().root.querySelectorAll('.nm-node.dim').length };`);
+      if (back.shown !== total || back.dim) failures.push(`${id} · ${filter}: a second press left ${back.shown}/${total} packets, ${back.dim} faded nodes`);
+    }
+  }
+  assert(!failures.length, failures.slice(0, 8).join('\n'));
+  // Every preset but the ARP DNS switch and TLS 1.0 / 1.1 (no sample has them).
+  const expected = DISPLAY_PRESETS.filter((p) => p[3] !== EXCLUDE).length - 2;
+  assert(pressed === expected, `${pressed} of ${expected} presets pressed`);
 });
 
 test('filter.tlsVersions', 'TLS 1.0–1.3 presets: _ws.col.protocol keeps exactly the rows whose Protocol column names that version', async () => {

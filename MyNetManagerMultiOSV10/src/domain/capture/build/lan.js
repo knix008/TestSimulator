@@ -1,4 +1,5 @@
 // LAN / tunnel / routing / Wi-Fi packet builders and the sample captures that use them.
+import { appendBluetooth } from './bluetooth.js';
 import {
   bytes, te, be16, be24, be32, le16, le32, macBytes, ip4Bytes, ip6Bytes, checksum, ether, pad60, vlanTag,
   ipv4, ipv6, udp, icmp, icmpv6, udpFrame, tcpFrame, icmpFrame, arp, l2, Capture, TcpConversation, TCP, rng,
@@ -457,7 +458,8 @@ function wifiSample() {
   }
   cap.add(bytes(rt(-55), wlanHeader(0x48, 0x11, AP, STA, AP, (sseq = (sseq + 1) & 0xfff))), { dt: 0.2 });
   cap.add(sta(12, AP, AP, le16(3)), { dt: 2 });
-  return cap.file('wifi-80211.pcapng');
+  // A Bluetooth LE session on the same computer's HCI follows, as a second interface (build/bluetooth.js).
+  return appendBluetooth(cap.file('wifi-80211.pcapng'));
 }
 
 function tunnelsSample() {
@@ -515,6 +517,6 @@ export const samples = [
   { id: 'ping-traceroute', group: 'basics', icon: 'route', ko: ['Ping과 traceroute', '응답 하나가 사라진 ping과 TTL 초과·포트 도달 불가로 경로를 찾는 UDP traceroute'], en: ['Ping and traceroute', 'Ping with a lost reply and a UDP traceroute using TTL exceeded and port unreachable'], build: pingTraceSample },
   { id: 'routing-protocols', group: 'lan', icon: 'router', ko: ['라우팅 프로토콜', 'OSPF 인접 관계, BGP 세션, RIPv2 갱신, VRRP와 HSRP 헬로'], en: ['Routing protocols', 'OSPF adjacency, a BGP session, RIPv2 updates, VRRP and HSRP hellos'], build: routingSample },
   { id: 'lan-control', group: 'lan', icon: 'switch', ko: ['LAN 제어 프로토콜', '스위치 제어 평면: STP/RSTP, LLDP, CDP, LACP, 802.1X'], en: ['LAN control protocols', 'Switch control plane: STP/RSTP, LLDP, CDP, LACP and 802.1X'], build: lanControlSample },
-  { id: 'wifi-80211', group: 'lan', icon: 'wifi', ko: ['Wi-Fi 비콘', '모니터 모드 무선: 비콘, 프로브, 인증, 연결, WPA2 4-way 핸드셰이크와 암호화 데이터'], en: ['Wi-Fi beacons', 'Monitor-mode Wi-Fi: beacons, probing, authentication, association, WPA2 4-way handshake and encrypted data'], build: wifiSample },
+  { id: 'wifi-80211', group: 'lan', icon: 'wifi', ko: ['Wi-Fi와 Bluetooth', '모니터 모드 Wi-Fi(비콘, 프로브, 인증, 연결, WPA2 4-way 핸드셰이크)와 Bluetooth LE(스캔, 연결, GATT 탐색, 읽기·쓰기·알림)'], en: ['Wi-Fi and Bluetooth', 'Monitor-mode Wi-Fi (beacons, probing, association, WPA2 4-way handshake) and Bluetooth LE (scan, connection, GATT discovery, reads, writes, notifications)'], build: wifiSample },
   { id: 'tunnels', group: 'lan', icon: 'tunnel', ko: ['터널과 캡슐화', 'GRE, VXLAN, GENEVE, MPLS, PPPoE 세션 설정과 IPsec ESP'], en: ['Tunnels', 'GRE, VXLAN, GENEVE, MPLS, PPPoE session setup and IPsec ESP'], build: tunnelsSample },
 ];

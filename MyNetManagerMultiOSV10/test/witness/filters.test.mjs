@@ -14,6 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { DISPLAY_PRESETS } from '../../src/domain/filter/presets.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const TSHARK = [process.env.MYNETMANAGER_TSHARK, 'C:/Program Files/Wireshark/tshark.exe', '/usr/bin/tshark', '/usr/local/bin/tshark', '/opt/homebrew/bin/tshark', '/Applications/Wireshark.app/Contents/MacOS/tshark']
@@ -79,6 +80,9 @@ export const FILTERS = [
   'tcp.srcport < tcp.dstport', 'udp.srcport == udp.dstport', '_ws.expert', '_ws.malformed',
 ];
 
+// Every preset button of the filter bar is checked against tshark too (presets.js).
+for (const [, filter] of DISPLAY_PRESETS) if (!FILTERS.includes(filter)) FILTERS.push(filter);
+
 // filter → reason (or { files: [...], reason }) for differences caused by the dissectors.
 export const KNOWN = {
   'ip.hdr_len == 20': 'dissector: ip.hdr_len holds the header length in 32-bit words (5); Wireshark stores bytes (20)',
@@ -87,6 +91,9 @@ export const KNOWN = {
   tls: 'dissector: TLS records split over TCP segments are reassembled in a different frame than Wireshark',
   'http.request': { files: ['mixed-office-lan.pcapng'], reason: 'dissector: SSDP NOTIFY messages get http.request (Wireshark has no http.request on SSDP)' },
   '_ws.expert': 'dissector: expert items differ (missing ICMP/routing experts, extra QUIC/name-service ones)',
+  tftp: { files: ['udp-services.pcapng'], reason: 'dissector: the client\'s ACKs to the server\'s new port are TFTP Acknowledgements here; tshark 4.6.9 leaves them as data' },
+  data: { files: ['udp-services.pcapng'], reason: 'same as tftp: those ACKs are not data here' },
+  '_ws.col.protocol == "TLSv1.3"': { files: ['tls-keylog.pcapng'], reason: 'Wireshark keeps "TLSv1.3" in the Protocol column of packets with a New Session Ticket before the decrypted HTTP response (tshark.test.mjs KEPT); we show HTTP' },
 };
 
 const LUA = `
@@ -121,6 +128,14 @@ function tsharkMatches(file, filters, tmp) {
       const [i, v] = line.split('\t');
       if (v === 'ERR') res[i - 1] = 'ERR'; else if (res[i - 1] !== 'ERR') res[i - 1].push(Number(v));
     }
+    // Column fields (_ws.col.*) are compared as the Wireshark window shows them: after both passes (tshark -2),
+    // as our packet list does — a single-pass tap still sees a Client Hello as "TLSv1".
+    filters.forEach((flt, i) => {
+      if (!/_ws\.col\./.test(flt)) return;
+      try {
+        res[i] = execFileSync(TSHARK, ['-r', file, '-2', '-Y', flt, '-T', 'fields', '-e', 'frame.number'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).split(/\s+/).filter(Boolean).map(Number);
+      } catch { res[i] = 'ERR'; }
+    });
     return res;
   } catch {
     // no Lua: one -Y run per filter
@@ -193,9 +208,11 @@ test('display filters match tshark on the sample captures', { skip, timeout: 900
 });
 
 // Protocol hierarchy (-z io,phs) and TCP/UDP/IP conversations (-z conv,…) on a few captures.
-const STATS_FILES = ['http-page-load', 'dns-queries', 'tunnels', 'ftp-session', 'sip-call-rtp', 'ping-traceroute'];
+const STATS_FILES = ['http-page-load', 'dns-queries', 'tunnels', 'ftp-session', 'sip-call-rtp', 'ping-traceroute', 'wifi-80211'];
 // capture → reason when the dissectors' tree shape makes the hierarchy differ
-export const KNOWN_STATS = {};
+export const KNOWN_STATS = {
+  'wifi-80211.pcapng': 'dissector: 802.11 management frames are a "wlan.mgt" layer of their own here; Wireshark counts them under wlan only (the Bluetooth part of this capture matches)',
+};
 
 test('protocol hierarchy and conversations match tshark', { skip, timeout: 300000 }, async () => {
   const st = await import('../../src/domain/analysis/stats.js');
@@ -209,7 +226,7 @@ test('protocol hierarchy and conversations match tshark', { skip, timeout: 30000
     const tp = execFileSync(TSHARK, ['-r', file, '-q', '-z', 'io,phs'], { encoding: 'utf8' }).replace(/\r/g, '');
     const norm = (x) => x.split('\n').filter((l) => /frames:\d/.test(l)).map((l) => l.replace(/^(\s*)(\S+?)\s*frames:/, '$1$2 frames:').trimEnd()).join('\n');
     if (norm(phs) !== norm(tp) && !KNOWN_STATS[name]) problems.push(`${name} protocol hierarchy\n${norm(phs)}\n--- tshark\n${norm(tp)}`);
-    for (const kind of ['tcp', 'udp', 'ip', 'eth']) {
+    for (const kind of name.startsWith('wifi') ? ['bluetooth'] : ['tcp', 'udp', 'ip', 'eth']) {
       const ours = st.conversations(cap.frames, summaries, getD, { kind }).rows
         .map((r) => `${r.addrA}${r.portA != null ? ':' + r.portA : ''} ${r.addrB}${r.portB != null ? ':' + r.portB : ''} ${r.packetsBA} ${r.packetsAB} ${r.packets} ${r.bytes} ${r.relStart.toFixed(4)} ${r.duration.toFixed(4)}`).sort();
       const out = execFileSync(TSHARK, ['-r', file, '-q', '-z', `conv,${kind}`, '-N', 'n', '-o', 'nameres.mac_name:FALSE'], { encoding: 'utf8' }).replace(/\r/g, '');

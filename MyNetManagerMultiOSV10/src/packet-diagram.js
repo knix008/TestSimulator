@@ -34,13 +34,14 @@ export function diagramFields(proto) {
     const bit = node.start * 8 - base + (bits ? bits.offset : 0);
     const width = bits ? bits.width : node.length * 8;
     if (bit < 0 || width <= 0) return false;
-    out.push({ abbrev: node.abbrev, name: FIELDS.get(node.abbrev)?.name ?? node.abbrev, value: node.value, label: node.label, bit, bits: width });
+    out.push({ abbrev: node.abbrev, name: FIELDS.get(node.abbrev)?.name ?? (String(node.label ?? '').replace(BITS, '').split(':')[0].trim() || node.abbrev || '?'), value: node.value, label: node.label, bit, bits: width });
     return true;
   };
   for (const child of proto.children ?? []) {
     const kids = (child.children ?? []).filter((k) => !k.hidden && !k.generated && k.length);
     // A byte or word of flags is drawn as its bits when every part has a bit pattern (DSCP / ECN, TCP flags).
-    if (!labelBits(child.label, child.length) && kids.length && kids.every((k) => labelBits(k.label, k.length))) kids.forEach(add);
+    // (Not a 6-byte MAC address whose LG / IG bits are listed under it: that stays one box.)
+    if (!labelBits(child.label, child.length) && child.length <= 4 && kids.length && kids.every((k) => labelBits(k.label, k.length))) kids.forEach(add);
     else add(child);
   }
   // In bit order; a field overlapping one already placed (another view of the same bits) is left out.
@@ -83,7 +84,7 @@ function protocolSvg(proto, fields, { showValues }) {
     }
   }
   const cut = proto.length * 8 > totalBits ? `<text class="pd-more" x="${LEFT}" y="${height + 12}">… ${proto.length - totalBits / 8} more bytes</text>` : '';
-  return `<svg class="pd-svg" xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height + (cut ? 16 : 0)}" viewBox="0 0 ${width} ${height + (cut ? 16 : 0)}">${parts.join('')}${cut}</svg>`;
+  return `<svg class="pd-svg" xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height + (cut ? 16 : 0)}" style="width:${width}px;height:${height + (cut ? 16 : 0)}px" viewBox="0 0 ${width} ${height + (cut ? 16 : 0)}">${parts.join('')}${cut}</svg>`;
 }
 
 /**
@@ -100,10 +101,12 @@ export function packetDiagramView(doc, opts, t) {
     if (proto.type !== 'protocol' || proto.hidden || proto.generated || proto.abbrev === 'frame' || !proto.length) continue;
     const fields = diagramFields(proto);
     if (!fields.length) continue;
-    sections.push({ title: proto.label, abbrev: proto.abbrev, fields: fields.length, svg: protocolSvg(proto, fields, { showValues }) });
+    sections.push({ title: proto.label, abbrev: proto.abbrev, fields, svg: protocolSvg(proto, fields, { showValues }) });
   }
+  // The same as text (copy, save, print): each protocol, then its fields with their bit ranges.
+  const text = sections.map((s) => [s.title, ...s.fields.map((f) => `  ${String(f.bit).padStart(4)}–${String(f.bit + f.bits - 1).padEnd(5)} ${f.name}${showValues && f.value != null ? `: ${f.value}` : ''}`)].join('\n')).join('\n\n');
   return {
-    view: 'diagram', sections, note: t('packetDiagram.note', { frame: index + 1 }),
+    view: 'diagram', sections, text, note: t('packetDiagram.note', { frame: index + 1 }),
     choices: [{ key: 'showValues', label: t('packetDiagram.values'), value: showValues ? 'on' : 'off', options: [{ id: 'off', label: t('packetDiagram.namesOnly') }, { id: 'on', label: t('packetDiagram.withValues') }] }],
   };
 }
