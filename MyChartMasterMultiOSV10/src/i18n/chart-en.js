@@ -29,9 +29,9 @@ export default {
   'submenu.panels': 'Panels', 'submenu.zoom': 'Zoom', 'submenu.appearance': 'Appearance',
 
   // ── actions
-  'action.newChart': 'New chart', 'action.newChartShort': 'New chart', 'action.newBlank': 'New chart with an empty grid', 'action.open': 'Open…', 'action.recent': 'Recent files…',
+  'action.newChart': 'New chart', 'action.newBlank': 'New chart with an empty grid', 'action.open': 'Open…', 'action.recent': 'Recent files…',
   'action.closeTab': 'Close chart', 'action.closeAll': 'Close all charts', 'action.save': 'Save', 'action.saveAs': 'Save as…',
-  'action.exportChart': 'Export…', 'action.exportShort': 'Export', 'action.print': 'Print…', 'action.startPage': 'Start page', 'action.exit': 'Exit',
+  'action.exportChart': 'Export…', 'action.print': 'Print…', 'action.startPage': 'Start page', 'action.exit': 'Exit',
   'action.undo': 'Undo', 'action.redo': 'Redo', 'action.copyImage': 'Copy chart picture', 'action.copySvg': 'Copy SVG code', 'action.copyData': 'Copy whole table',
   'action.copyCells': 'Copy selected cells', 'action.pasteCells': 'Paste into cells', 'action.settings': 'Settings…',
   'action.importData': 'Import data…', 'action.replaceData': "Replace this chart's data…", 'action.pasteData': 'Paste as new chart',
@@ -54,7 +54,7 @@ export default {
   'gallery.title': 'Chart types', 'gallery.search': 'Find a chart type', 'gallery.none': 'No chart type matches.',
   'grid.title': 'Data', 'grid.count': '{rows} rows × {cols} columns', 'grid.filter': 'Find rows', 'grid.filterTip': 'Only rows containing this text show in the grid (the chart stays as it is)',
   'grid.headerTip': 'Click: select column · double-click: rename · right-click: role and type', 'grid.selectAll': 'Select all', 'grid.newColumn': 'New column', 'grid.columnName': 'Column name',
-  'stage.labels': 'Labels', 'stage.copy': 'Copy', 'stage.export': 'Export', 'zoom.fit': 'Fit', 'tip.splitter': 'Drag to resize',
+  'stage.copy': 'Copy', 'zoom.fit': 'Fit', 'tip.splitter': 'Drag to resize',
   'type.number': 'Number', 'type.text': 'Text', 'type.date': 'Date',
   'role.category': 'Category (X axis, names)', 'role.values': 'Value series', 'role.values1': 'Value', 'role.x': 'X value', 'role.y': 'Y value', 'role.size': 'Size', 'role.label': 'Label',
   'role.group': 'Group', 'role.open': 'Open', 'role.high': 'High', 'role.low': 'Low', 'role.close': 'Close', 'role.source': 'Source', 'role.target': 'Target', 'role.series': 'Series {n}',

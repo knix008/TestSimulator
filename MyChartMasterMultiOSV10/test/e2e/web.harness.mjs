@@ -50,6 +50,10 @@ export class WebApp {
   async start() {
     fs.mkdirSync(this.out, { recursive: true });
     if (this.build || !fs.existsSync(path.join(this.dist, 'index.html'))) {
+      // The user's guide and the tutorial document (public/docs/) are generated and not in git: a fresh checkout
+      // has none, and the build then served "not found" pages. Made from doc/ first (well under a second).
+      const docs = spawnSync(process.execPath, [path.join(root, 'scripts', 'build-docs.mjs')], { cwd: root, encoding: 'utf8' });
+      if (docs.status !== 0) throw new Error(`document build failed:\n${docs.stdout}\n${docs.stderr}`);
       const vite = path.join(root, 'node_modules', 'vite', 'bin', 'vite.js');
       const r = spawnSync(process.execPath, [vite, 'build', '--outDir', this.dist, '--emptyOutDir', '--logLevel', 'error'], { cwd: root, encoding: 'utf8' });
       if (r.status !== 0) throw new Error(`web build failed:\n${r.stdout}\n${r.stderr}`);

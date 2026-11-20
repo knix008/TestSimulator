@@ -29,9 +29,9 @@ export default {
   'submenu.panels': '패널', 'submenu.zoom': '확대/축소', 'submenu.appearance': '모양',
 
   // ── actions
-  'action.newChart': '새 차트', 'action.newChartShort': '새 차트', 'action.newBlank': '빈 표로 새 차트', 'action.open': '열기…', 'action.recent': '최근 파일…',
+  'action.newChart': '새 차트', 'action.newBlank': '빈 표로 새 차트', 'action.open': '열기…', 'action.recent': '최근 파일…',
   'action.closeTab': '차트 닫기', 'action.closeAll': '모든 차트 닫기', 'action.save': '저장', 'action.saveAs': '다른 이름으로 저장…',
-  'action.exportChart': '내보내기…', 'action.exportShort': '내보내기', 'action.print': '인쇄…', 'action.startPage': '시작 화면', 'action.exit': '끝내기',
+  'action.exportChart': '내보내기…', 'action.print': '인쇄…', 'action.startPage': '시작 화면', 'action.exit': '끝내기',
   'action.undo': '실행 취소', 'action.redo': '다시 실행', 'action.copyImage': '차트 그림 복사', 'action.copySvg': 'SVG 코드 복사', 'action.copyData': '표 전체 복사',
   'action.copyCells': '선택한 셀 복사', 'action.pasteCells': '셀에 붙여넣기', 'action.settings': '설정…',
   'action.importData': '데이터 가져오기…', 'action.replaceData': '이 차트의 데이터 바꾸기…', 'action.pasteData': '붙여넣어 새 차트',
@@ -54,7 +54,7 @@ export default {
   'gallery.title': '차트 종류', 'gallery.search': '차트 종류 찾기', 'gallery.none': '맞는 차트 종류가 없습니다.',
   'grid.title': '데이터', 'grid.count': '{rows}행 × {cols}열', 'grid.filter': '행 찾기', 'grid.filterTip': '이 글자가 들어 있는 행만 표에 보입니다 (차트는 그대로)',
   'grid.headerTip': '클릭: 열 선택 · 더블 클릭: 이름 바꾸기 · 오른쪽 클릭: 역할·형식', 'grid.selectAll': '모두 선택', 'grid.newColumn': '새 열', 'grid.columnName': '열 이름',
-  'stage.labels': '레이블', 'stage.copy': '복사', 'stage.export': '내보내기', 'zoom.fit': '맞춤', 'tip.splitter': '끌어서 크기를 바꿉니다',
+  'stage.copy': '복사', 'zoom.fit': '맞춤', 'tip.splitter': '끌어서 크기를 바꿉니다',
   'type.number': '숫자', 'type.text': '글자', 'type.date': '날짜',
   'role.category': '항목 (X축·이름)', 'role.values': '값 계열', 'role.values1': '값', 'role.x': 'X 값', 'role.y': 'Y 값', 'role.size': '크기', 'role.label': '이름표',
   'role.group': '묶음', 'role.open': '시가', 'role.high': '고가', 'role.low': '저가', 'role.close': '종가', 'role.source': '출발', 'role.target': '도착', 'role.series': '{n}번째 계열',

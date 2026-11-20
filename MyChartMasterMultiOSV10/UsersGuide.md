@@ -66,9 +66,9 @@ Word · Markdown 문서, CSV · Excel 데이터로 내보내고 인쇄합니다.
 - **제목 줄**: 프로그램 아이콘과 이름, 홈, 메뉴(파일 · 편집 · 보기 · 데이터 · 차트 · 도움말), 열린 차트 이름
   (저장하지 않았으면 ●), 패널 단추 세 개(차트 종류 · 데이터 표 · 속성), 데스크톱에서는 창 단추.
   빈 곳을 끌면 창이 움직이고, 두 번 누르면 최대화합니다.
-- **툴바**: 새 차트 · 열기 · 저장 · 닫기 · 인쇄 / 실행 취소 · 다시 실행 / 가져오기 · 붙여넣기 · **내보내기** ·
+- **툴바**(아이콘만, 이름은 마우스를 올리면 보임): 새 차트 · 열기 · 저장 · 닫기 · 인쇄 / 실행 취소 · 다시 실행 / 가져오기 · 붙여넣기 · **내보내기** ·
   그림 복사 / 행·열 추가 · 정렬 · 행과 열 바꾸기 · 통계 / 이전·다음 차트 종류 · 데이터 레이블 · 범례 · 색 구성 /
-  축소 · 배율 · 확대 · 맞춤. 오른쪽에 튜토리얼 · 테마 · 언어 · 설정 · 정보. 창을 줄여도 단추가 잘리지 않도록
+  축소 · 확대 · 창에 맞춤(배율은 상태 표시줄에). 오른쪽에 튜토리얼 · 테마 · 언어 · 설정 · 정보. 창을 줄여도 단추가 잘리지 않도록
   창의 최소 너비가 툴바에 맞춰집니다.
 - **탭**: 열린 차트마다 하나. 아이콘은 차트 종류, ●는 저장하지 않은 변경. 오른쪽 클릭으로 다른 탭 닫기 ·
   저장 · 복제 · 내보내기 · 인쇄. Ctrl+Tab으로 다음 탭.
@@ -609,9 +609,9 @@ The **Home** button in the title row (Ctrl+Shift+H) opens the start page at any 
 - **Title row**: the program icon and name, Home, the menus (File, Edit, View, Data, Chart, Help), the open chart's
   name (● when unsaved), three panel buttons (chart types, data grid, properties), and on the desktop the window
   buttons. Drag an empty part to move the window; double-click to maximize.
-- **Toolbar**: new chart, open, save, close, print / undo, redo / import, paste, **Export**, copy picture / add row
+- **Toolbar** (icons only; hover for the name): new chart, open, save, close, print / undo, redo / import, paste, **Export**, copy picture / add row
   and column, sort, swap rows and columns, statistics / previous and next chart type, data labels, legend, palette /
-  zoom out, zoom, zoom in, fit. On the right: tutorial, theme, language, settings, about. The window's minimum width
+  zoom out, zoom in, fit to window (the zoom level is in the status bar). On the right: tutorial, theme, language, settings, about. The window's minimum width
   follows the toolbar, so no button is ever cut off.
 - **Tabs**: one per open chart; the icon shows the chart type, ● unsaved changes. Right-click to close others,
   save, duplicate, export or print. Ctrl+Tab goes to the next tab.

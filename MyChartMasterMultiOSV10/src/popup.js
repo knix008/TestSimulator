@@ -1051,7 +1051,9 @@ bindSteppers(root, (key, value) => {
 window.addEventListener('blur', () => {
   if (kind !== 'menu' || !menuOpen) return;
   const lostAt = Date.now();
-  setTimeout(() => { if (!document.hasFocus() && menuOpen && !regainedFromMain(lostAt)) chooseMenu(null); }, 150);
+  // Only the opening that lost the focus closes: a right-click elsewhere may have opened the next one meanwhile.
+  const opening = menuShownAt;
+  setTimeout(() => { if (!document.hasFocus() && menuOpen && menuShownAt === opening && !regainedFromMain(lostAt)) chooseMenu(null); }, 150);
 });
 
 // OS windows: the header moves the popup (lib.rs window_drag starts the system move loop from the cursor).
@@ -1096,6 +1098,16 @@ function onHostMessage(message) {
     /* handled by the chart popups */
   } else if (message?.type === 'refresh') {
     refresh();
+  } else if (message?.type === 'dismiss' && kind === 'menu') {
+    // The host closed this opening (a click in the main window): it is over, without an answer (the host has
+    // settled it). Hidden from here, after this window's own last placing, so a newer opening is never hidden.
+    if (menuOpen && (message.at == null || message.at === menuShownAt)) {
+      menuOpen = false;
+      clearTimeout(menuTimer);
+      answeredAt = menuShownAt;
+      forgetMenu();
+      native.invoke('hide_popup', { kind, quiet: true }).catch(() => {});
+    }
   }
 }
 

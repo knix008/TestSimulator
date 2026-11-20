@@ -56,7 +56,76 @@ test('export.files', 'Exports written by the program: PNG, AVIF (Rust encoder), 
   assert(head('chart.docx').subarray(0, 2).toString('latin1') === 'PK' && head('data.xlsx').subarray(0, 2).toString('latin1') === 'PK', 'docx / xlsx');
 });
 
-test('popups.windows', 'Popups are OS windows of their own (settings, export, print)', async () => {
+test('menus.window', 'The right-click menu window: keeps the grid selection, closes on a press in the main window and after a choice, a second right-click keeps the new menu open', async () => {
+  await run(`await A.popups.closeAll(); for (const d of [...A.state.docs]) await A.actions.closeDoc(d, { force: true }); A.actions.openSample('monthly-sales'); await until(() => q('.dg-cell[data-row="3"][data-col="2"]')); await sleep(300); return true;`);
+  // A right-click as the grid sees it: the press (right button), then the contextmenu event on what is under the cursor.
+  const rightClick = (r, c) => run(`const el0 = q('.dg-cell[data-row="${r}"][data-col="${c}"]'); const b = el0.getBoundingClientRect(); const x = b.left + 3, y = b.top + 3;
+    el0.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 2, clientX: x, clientY: y }));
+    el0.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 2, clientX: x, clientY: y })); window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    const el = document.elementFromPoint(x, y); el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: x, clientY: y })); return true;`);
+  let menu = null;
+  const menuState = async () => {
+    if (!menu) {
+      const deadline = Date.now() + 15000;
+      // Popup windows load index.html and know their kind from the window label: ask each page which one it is.
+      while (!menu && Date.now() < deadline) {
+        for (const t of (await app.targets()).filter((x) => x.type === 'page')) {
+          const page = await connect(t).catch(() => null);
+          if (!page) continue;
+          const kind = await page.evaluate(`window.__mychartmasterPopup?.kind ?? null`).catch(() => null);
+          if (kind === 'menu') { menu = page; break; }
+          page.close();
+        }
+        if (!menu) await sleep(200);
+      }
+      assert(menu, 'no menu window');
+    }
+    // The OS window's own visibility (a hidden WebView2 may still report visibilityState "visible").
+    return menu.evaluate(`(async () => ({ visible: await window.__TAURI_INTERNALS__.invoke('plugin:window|is_visible', { label: 'popup-menu' }), items: document.querySelectorAll('.menu-item').length, title: document.title }))()`);
+  };
+  const waitMenu = async (visible, ms = 6000) => { const end = Date.now() + ms; let s = await menuState(); while (s.visible !== visible && Date.now() < end) { await sleep(100); s = await menuState(); } return s; };
+  try {
+    // 1. A range, then a right-click inside it: the range stays, the menu shows.
+    await run(`const g = A.view().grid; g.setActive(1, 1); g.setActive(3, 2, { extend: true }); return true;`);
+    await rightClick(2, 2);
+    const shown = await waitMenu(true);
+    const sel = await run(`const s = A.view().grid.selection(); return [s.r0, s.c0, s.r1, s.c1].join(',');`);
+    assert(shown.visible && shown.items > 5, `menu not shown: ${JSON.stringify(shown)}`);
+    assert(sel === '1,1,3,2', `selection after right-click: ${sel}`);
+    // 2. A press in the main window closes it (also when the menu never had the focus).
+    await run(`q('#toolbar').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 })); return true;`);
+    const closed = await waitMenu(false);
+    assert(!closed.visible && !(await run(`return A.popups.isOpen('menu');`)), `menu stayed after a press in the main window: ${JSON.stringify(closed)}`);
+    // 3. Choosing an item runs it on the selection and closes the menu.
+    await rightClick(2, 2);
+    await waitMenu(true);
+    await menu.evaluate(`document.querySelector('.menu-item[data-id="clearCells"]').click(); true`);
+    const chosen = await waitMenu(false);
+    const cleared = await run(`await sleep(200); const t = A.doc().table; return [1, 2, 3].every((r) => t.rows[r][1] == null && t.rows[r][2] == null);`);
+    assert(!chosen.visible, 'menu stayed after a choice');
+    assert(cleared, 'the chosen item did not clear the selected cells');
+    // 4. A right-click while the menu is open: the new menu shows and stays (the old one's late close must not hide it).
+    for (let round = 0; round < 5; round++) {
+      await rightClick(5, 1);
+      await waitMenu(true);
+      await rightClick(1, 0);
+      const second = await waitMenu(true);
+      await sleep(500);
+      const still = await menuState();
+      assert(second.visible && still.visible && (await run('return A.popups.isOpen("menu");')), 'round ' + round + ': second menu closed by itself ' + JSON.stringify(still));
+      // Its items are those of the cell right-clicked last (A2): choosing one works.
+      const found = await menu.evaluate(`(async () => { const end = Date.now() + 3000; let el = null; while (!(el = document.querySelector('.menu-item[data-id="sortAsc"]')) && Date.now() < end) await new Promise((r) => setTimeout(r, 50)); el?.click(); return !!el; })()`);
+      assert(found, 'round ' + round + ': no Sort item in the second menu');
+      const after = await waitMenu(false);
+      assert(!after.visible, 'round ' + round + ': second menu stayed after a choice');
+    }
+  } finally {
+    menu?.close();
+    await run(`await A.popups.closeAll(); return true;`).catch(() => {});
+  }
+});
+
+test('popups.windows','Popups are OS windows of their own (settings, export, print)', async () => {
   await run(`await A.actions.openSample('monthly-sales'); return true;`);
   for (const [open, label] of [[`A.popups.open('settings', { tab: 'charts' })`, 'popup=settings'], [`A.run('exportChart')`, 'popup=export'], [`A.run('print')`, 'popup=print']]) {
     await run(`${open}; return true;`);

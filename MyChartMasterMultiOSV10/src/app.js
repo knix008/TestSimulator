@@ -890,7 +890,7 @@ const TOOLBAR = [
   ['importData', 'pasteData', 'exportChart', 'copyImage'],
   ['addRow', 'addColumn', 'sortAsc', 'sortDesc', 'transpose', 'dataStats'],
   ['prevType', 'nextType', 'toggleLabels', 'cycleLegend', 'paletteMenu'],
-  ['zoomOut', 'zoomValue', 'zoomIn', 'zoomFit'],
+  ['zoomOut', 'zoomIn', 'zoomFit'],
 ];
 const TOOLBAR_RIGHT = ['tutorial', 'themeSplit', 'language', 'settings', 'about'];
 
@@ -972,10 +972,10 @@ function renderToolbar() {
     return `<button class="tool-button ${extra}" data-command="${id}" title="${escapeHtml(commandTip(id))}" aria-label="${escapeHtml(t(command.label))}">${glyph}</button>`;
   };
   const button = (id) => {
-    if (id === 'zoomValue') return `<button class="tool-button tool-value" data-command="zoomFit" data-zoom-value title="${escapeHtml(commandTip('zoomFit'))}" aria-label="${escapeHtml(t('action.zoomFit'))}">${escapeHtml(zoomLabel())}</button>`;
     if (id === 'themeSplit') return `<span class="split-button">${plain('theme')}<button class="tool-button split-arrow" data-command="themeMenu" title="${escapeHtml(commandTip('themeMenu'))}" aria-label="${escapeHtml(t('action.themeChoose'))}" aria-haspopup="true">${icon('chevronDown')}</button></span>`;
-    // The two commands everybody looks for by name: a new chart, and export.
-    if (id === 'newChart' || id === 'exportChart') return `<button class="tool-button tool-labeled ${id === 'newChart' ? 'tool-new' : 'tool-export'}" data-command="${id}" title="${escapeHtml(commandTip(id))}" aria-label="${escapeHtml(t(commands[id].label))}">${icon(commands[id].icon)}<span>${escapeHtml(t(id === 'newChart' ? 'action.newChartShort' : 'action.exportShort'))}</span></button>`;
+    // Icons only (the name is the tooltip); the two commands everybody looks for keep their colour.
+    if (id === 'newChart') return plain(id, 'tool-new');
+    if (id === 'exportChart') return plain(id, 'tool-export');
     return plain(id);
   };
   toolbar.innerHTML = `<div class="toolbar-inner">
@@ -991,13 +991,11 @@ function renderToolbarState() {
   for (const element of root.querySelectorAll('#toolbar [data-command], .ch-grid-tools [data-command], .ch-stage-bar [data-command]')) {
     const id = element.dataset.command;
     element.disabled = !commandEnabled(id);
-    element.title = commandTip(id);
+    element.title = element.dataset.tipState ? `${commandTip(id)} — ${element.dataset.tipState}` : commandTip(id);
     const checked = commands[id]?.checked?.();
     element.classList.toggle('active', Boolean(checked));
     if (checked !== undefined) element.setAttribute('aria-pressed', String(Boolean(checked)));
   }
-  const zoomValue = root.querySelector('#toolbar [data-zoom-value]');
-  if (zoomValue) { zoomValue.textContent = zoomLabel(); zoomValue.disabled = !hasDoc(); }
 }
 
 /** The window can never be so narrow that toolbar buttons or menus are hidden. */
@@ -1717,6 +1715,9 @@ function bindEvents() {
     if (!event.target.closest('input, textarea')) event.preventDefault();
   });
   if (desktop) {
+    // A press anywhere in the main window closes an open menu window. The menu also closes when it loses the
+    // focus, but a menu shown without getting the focus never loses it and stayed on the screen.
+    window.addEventListener('pointerdown', () => { if (!popups.useFrames && popups.isOpen('menu')) popups.hideMenu(); }, { capture: true });
     root.addEventListener('mousedown', (event) => {
       if (event.button !== 0) return;
       if (event.target.closest('[data-resize-grip]')) { event.preventDefault(); native.invoke('window_drag', { edge: 'bottomRight' }).catch(() => {}); return; }

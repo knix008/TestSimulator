@@ -20,7 +20,7 @@ export const FEATURES = [
   { name: '108 chart types in 9 groups of 12 each (menus, gallery, start page rows full)', cases: ['chart.types', 'menus.chartGroups'] },
   { name: 'A chart theme per chart, apart from the program theme', cases: ['theme.chartTheme', 'theme.settings'] },
   { name: 'Chart background follows the program theme, colours stay readable', cases: ['theme.background'] },
-  { name: 'Every menu item, shortcut and right-click menu works', cases: ['menus.everyItem', 'menus.shortcuts', 'menus.context'] },
+  { name: 'Every menu item, shortcut and right-click menu works', cases: ['menus.everyItem', 'menus.shortcuts', 'menus.context', 'menus.gridSelection', 'menus.gridItems'] },
   { name: 'Value tips on hover', cases: ['chart.tips'] },
   { name: 'Legend hides and shows series', cases: ['chart.legend'] },
   { name: 'Click a mark to select its series and row', cases: ['chart.select'] },

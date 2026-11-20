@@ -274,7 +274,9 @@ body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-sel
 .ch-size { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 0.86em; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ch-size .icon { width: 15px; height: 15px; }
 .ch-zoom { display: inline-flex; gap: 2px; }
-.ch-zoom-value { min-width: 54px; justify-content: center; }
+.ch-stage-bar .small-button.icon-only { justify-content: center; width: 28px; padding: 0; }
+/* Export stands out by a soft accent fill (as on the main toolbar): its coloured icon stays readable. */
+.ch-stage-bar .small-button.icon-only.primary { background: color-mix(in srgb, var(--accent) 14%, transparent); border-color: var(--accent); }
 .ch-stage { position: relative; flex: 1; min-height: 0; overflow: auto; display: grid; place-items: center; padding: 16px; box-sizing: border-box; outline: none;
   background-color: color-mix(in srgb, var(--panel) 70%, var(--bg));
   background-image: radial-gradient(color-mix(in srgb, var(--text) 10%, transparent) 1px, transparent 1px); background-size: 18px 18px; }

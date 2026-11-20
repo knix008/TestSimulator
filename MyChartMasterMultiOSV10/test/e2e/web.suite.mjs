@@ -73,15 +73,16 @@ test('chrome.menus', 'Title row: brand, Home and 6 menus; every menu opens with 
   assert(!r.bad.length, `raw keys in menus: ${r.bad.slice(0, 5)}`);
 });
 
-test('chrome.toolbar', 'Toolbar: coloured icons, nothing clipped at the minimum width, no sideways scroll', async () => {
+test('chrome.toolbar', 'Toolbar: coloured icons only (no text), nothing clipped at the minimum width, no sideways scroll', async () => {
   const r = await run(`const min = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--min-width'));
     const buttons = qa('#toolbar .tool-button'); const tones = qa('#toolbar .icon[data-tone]').length;
     const bar = q('#toolbar').getBoundingClientRect(); const clipped = buttons.filter((b) => b.getBoundingClientRect().right > bar.right + 1).length;
-    return { min, count: buttons.length, tones, clipped, labelled: qa('#toolbar .tool-labeled').map((b) => b.textContent.trim()), scroll: document.documentElement.scrollWidth - innerWidth };`);
+    return { min, count: buttons.length, tones, clipped, labelled: buttons.filter((b) => b.textContent.trim() || b.querySelector('span:not(.icon)')).map((b) => b.dataset.command + ':' + b.textContent.trim()), untitled: buttons.filter((b) => !b.title || !b.getAttribute('aria-label')).map((b) => b.dataset.command), scroll: document.documentElement.scrollWidth - innerWidth };`);
   assert(r.count >= 30 && r.tones >= 30, `${r.count} buttons, ${r.tones} coloured`);
   assert(r.min >= 900, `min width ${r.min}`);
   assert(!r.clipped && r.scroll <= 0, `clipped ${r.clipped}, scroll ${r.scroll}`);
-  assert(r.labelled.length === 2, `labelled: ${r.labelled}`);
+  assert(!r.labelled.length, `toolbar buttons with text: ${r.labelled}`);
+  assert(!r.untitled.length, `toolbar buttons without a tooltip or name: ${r.untitled}`);
 });
 
 test('chrome.panels', 'Panel buttons fold the gallery, grid and inspector; splitters resize', async () => {
@@ -165,12 +166,12 @@ test('chart.titleEdit', 'Double-clicking the title edits it', async () => {
   assert(r === 'Our sales', r);
 });
 
-test('chart.zoom', 'Zoom in, out, fit and Ctrl+wheel change the picture size', async () => {
+test('chart.zoom', 'Zoom in, out, fit and Ctrl+wheel change the picture size; the chart bar shows icons only', async () => {
   const r = await run(`const w = () => svg().getBoundingClientRect().width; const fit = w();
     A.run('zoomIn'); await sleep(80); const inW = w(); A.run('zoomOut'); A.run('zoomOut'); await sleep(80); const outW = w();
     q('.ch-stage').dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: -100, ctrlKey: true })); await sleep(80); const wheel = A.state.settings.textZoom;
-    A.run('zoomFit'); await sleep(80); return { fit, inW, outW, wheel, back: Math.abs(w() - fit) < 2, label: q('[data-zoom-value]').textContent };`);
-  assert(r.inW > r.outW && r.wheel > 0 && r.back, JSON.stringify(r));
+    A.run('zoomFit'); await sleep(80); return { fit, inW, outW, wheel, back: Math.abs(w() - fit) < 2, fitIcon: !!q('#toolbar [data-command="zoomFit"] svg') && !q('#toolbar [data-command="zoomFit"]').textContent.trim(), stageText: qa('.ch-stage-bar button').filter((b) => b.textContent.trim() || !b.title).map((b) => b.dataset.command), stageFit: !!q('.ch-stage-bar [data-command="zoomFit"] svg') };`);
+  assert(r.inW > r.outW && r.wheel > 0 && r.back && r.fitIcon && r.stageFit && !r.stageText.length, JSON.stringify(r));
 });
 
 // ───────────────────────── data grid
@@ -903,7 +904,7 @@ test('menus.everyItem', 'Every menu and submenu item is a command with a label a
     const walk = (items, where) => { for (const it of items) { if (it === '-') continue; if (typeof it === 'object') { if (it.sub !== 'sampleList' && !A.menus.SUBMENUS[it.sub]) bad.push(where + ': no submenu ' + it.sub); else if (A.menus.SUBMENUS[it.sub]) walk(A.menus.SUBMENUS[it.sub].items, where + '›' + it.sub); continue; }
       all.push(it); const c = A.commands[it]; if (!c) { bad.push(where + ': ' + it); continue; } if (!c.icon) bad.push(it + ': no icon'); const text = A.t(c.label); if (!text || text === c.label) bad.push(it + ': ' + c.label); } };
     for (const [m, items] of Object.entries(A.menus.MENUS)) walk(items, m);
-    for (const it of [...A.menus.TOOLBAR.flat(), ...A.menus.TOOLBAR_RIGHT.flat()]) if (it !== '-' && !A.commands[it] && !['zoomValue', 'themeSplit'].includes(it)) bad.push('toolbar: ' + it); // two widgets: the zoom box and the theme split button
+    for (const it of [...A.menus.TOOLBAR.flat(), ...A.menus.TOOLBAR_RIGHT.flat()]) if (it !== '-' && !A.commands[it] && it !== 'themeSplit') bad.push('toolbar: ' + it); // one widget: the theme split button
     return { n: all.length, bad };`);
   assert(r.n > 150, `${r.n} items`);
   assert(!r.bad.length, r.bad.slice(0, 10).join(' | '));
@@ -935,6 +936,68 @@ test('menus.context', 'Right-click menus: chart, grid cell, column header and ta
     await open(q('.ch-canvas svg'), 'chart'); await open(q('.dg-cell'), 'cell'); await open(q('.dg-hcell'), 'header'); await open(q('[data-tab]'), 'tab');
     return out;`);
   for (const [name, n] of Object.entries(r)) assert(n >= 3, `${name} menu has ${n} items (${JSON.stringify(r)})`);
+});
+
+/** In-page helpers for the grid's right-click cases: real presses on cells, the real menu frame, a fresh sample. */
+const GRID_CTX = `const cell = (r, c) => q('.dg-cell[data-row="' + r + '"][data-col="' + c + '"]');
+  const press = (el, button = 0, shift = false) => { const b = el.getBoundingClientRect(); el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button, shiftKey: shift, clientX: b.left + 3, clientY: b.top + 3 })); window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); };
+  const select = (r0, c0, r1, c1) => { press(cell(r0, c0)); press(cell(r1, c1), 0, true); };
+  const rightClick = async (el) => { const b = el.getBoundingClientRect(); press(el, 2); el = document.elementFromPoint(b.left + 3, b.top + 3) ?? el; el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: b.left + 3, clientY: b.top + 3 })); await until(() => pop('menu')?.querySelector('.menu-item'), 5000).catch(() => { throw new Error('no menu at ' + window.__gs?.step + ' frame=' + !!q('.web-popup-menu') + ' vis=' + q('.web-popup-menu')?.style.visibility + ' items=' + JSON.stringify(pop('menu')?.body?.innerHTML?.slice(0, 200))); }); };
+  const choose = async (...ids) => { for (const id of ids) { const item = await until(() => pop('menu')?.querySelector('.menu-item[data-id="' + id + '"]'), 3000).catch(() => null); if (!item) return 'missing ' + id; if (item.disabled) return 'disabled ' + id; item.click(); await sleep(40); } await until(() => !q('.web-popup-menu'), 3000).catch(() => null); await sleep(120); return q('.web-popup-menu') ? 'menu still open' : 'ok'; };
+  const sel = () => { const s = A.view().grid.selection(); return [s.r0, s.c0, s.r1, s.c1].join(','); };
+  const fresh = async () => { await A.popups.closeAll(); for (const d of [...A.state.docs]) await A.actions.closeDoc(d, { force: true }); A.actions.openSample('monthly-sales'); await until(() => svg()); await sleep(120); };
+  const T = () => doc().table;`;
+
+test('menus.gridSelection', 'Right-click inside a selected range, rows or columns keeps the selection for the menu', async () => {
+  await closeAll();
+  await openSample('monthly-sales');
+  const r = await run(`${GRID_CTX}
+    const out = {}; window.__gs = out;
+    out.step = 'range'; select(1, 1, 3, 2); await rightClick(cell(2, 2)); out.range = sel(); out.painted = qa('.dg-cell.sel').length; out.title = pop('menu')?.title ?? ''; await A.popups.closeAll(); await sleep(60);
+    out.step = 'rows'; press(q('[data-rownum="1"]')); press(q('[data-rownum="3"]'), 0, true); await rightClick(q('[data-rownum="2"]')); out.rows = sel(); await A.popups.closeAll(); await sleep(60);
+    out.step = 'column'; press(q('.dg-hcell[data-col="1"]')); await rightClick(q('.dg-hcell[data-col="1"]')); out.column = sel(); await A.popups.closeAll(); await sleep(60);
+    out.step = 'outside'; select(1, 1, 3, 2); await rightClick(cell(6, 0)); out.outside = sel(); await A.popups.closeAll(); await sleep(60);
+    out.lastRow = T().rows.length - 1; out.lastCol = T().columns.length - 1;
+    return out;`);
+  assert(r.range === '1,1,3,2' && r.painted === 6, `range lost on right-click: ${JSON.stringify(r)}`);
+  assert(r.rows === `1,0,3,${r.lastCol}`, `rows lost on right-click: ${JSON.stringify(r)}`);
+  assert(r.column === `0,1,${r.lastRow},1`, `column lost on right-click: ${JSON.stringify(r)}`);
+  assert(r.outside === '6,0,6,0', `a right-click outside the range must select that cell: ${JSON.stringify(r)}`);
+});
+
+test('menus.gridItems', 'Every item of the grid right-click menu does its work on the selected cells and closes the menu', async () => {
+  await closeAll();
+  const r = await run(`${GRID_CTX}
+    const out = {};
+    const step = async (name, prepare, ids, check) => { try { await fresh(); const before = await prepare(); const how = await choose(...ids); out[name] = how === 'ok' ? (await check(before)) || 'ok' : how; } catch (e) { out[name] = 'error ' + (e?.message ?? e); } };
+    let clip = ''; navigator.clipboard.writeText = async (t) => { clip = t; }; navigator.clipboard.readText = async () => '71\\t72\\r\\n73\\t74';
+    const popOpen = async (kind) => { const ok = await until(() => q('.web-popup-' + kind), 4000).then(() => true).catch(() => false); await A.popups.closeAll(); return ok ? '' : kind + ' popup did not open'; };
+    await step('asCategory', async () => { await rightClick(cell(0, 2)); }, ['custom:asCategory'], () => doc().chart.mapping.category === 2 ? '' : 'category ' + doc().chart.mapping.category);
+    await step('asSeries', async () => { await rightClick(cell(0, 1)); return doc().chart.mapping.values.includes(1); }, ['custom:asSeries'], (had) => doc().chart.mapping.values.includes(1) !== had ? '' : 'series not toggled');
+    await step('chartFromSelection', async () => { select(0, 0, 3, 1); await rightClick(cell(1, 1)); }, ['chartFromSelection'], () => JSON.stringify(doc().chart.dataRange) === JSON.stringify({ r0: 0, r1: 3, c0: 0, c1: 1 }) ? '' : 'range ' + JSON.stringify(doc().chart.dataRange));
+    await step('clearDataRange', async () => { select(0, 0, 3, 1); await A.run('chartFromSelection'); await sleep(50); await rightClick(cell(1, 1)); }, ['clearDataRange'], () => doc().chart.dataRange == null ? '' : 'range kept');
+    await step('newChartFromSelection', async () => { select(0, 0, 3, 1); await rightClick(cell(2, 1)); return A.state.docs.length; }, ['newChartFromSelection'], (n) => A.state.docs.length === n + 1 && T().rows.length === 4 && T().columns.length === 2 ? '' : 'docs ' + A.state.docs.length + ' rows ' + T().rows.length);
+    await step('copyCells', async () => { select(0, 1, 2, 2); await rightClick(cell(1, 1)); clip = ''; return A.view().grid.selectionText(); }, ['copyCells'], (want) => clip === want && clip.split('\\r\\n').length === 3 ? '' : 'copied ' + JSON.stringify(clip));
+    await step('pasteCells', async () => { select(1, 1, 2, 2); await rightClick(cell(2, 2)); }, ['pasteCells'], () => '');
+    out.pasteCells = out.pasteCells === 'ok' ? (await until(() => T().rows[1][1] === 71, 2000).then(() => [T().rows[1][1], T().rows[1][2], T().rows[2][1], T().rows[2][2]].join() === '71,72,73,74' ? 'ok' : 'pasted wrong').catch(() => 'not pasted ' + T().rows[1][1])) : out.pasteCells;
+    await step('clearCells', async () => { select(1, 1, 2, 2); await rightClick(cell(1, 2)); }, ['clearCells'], () => [T().rows[1][1], T().rows[1][2], T().rows[2][1], T().rows[2][2]].every((v) => v == null) ? '' : 'not cleared');
+    await step('addRow', async () => { select(1, 1, 2, 2); await rightClick(cell(2, 1)); return T().rows.length; }, ['addRow'], (n) => T().rows.length === n + 1 && T().rows[3].every((v) => v == null) ? '' : 'rows ' + T().rows.length);
+    await step('addColumn', async () => { select(1, 1, 2, 2); await rightClick(cell(2, 1)); return T().columns.length; }, ['addColumn'], (n) => T().columns.length === n + 1 && T().rows[0][3] == null ? '' : 'cols ' + T().columns.length);
+    await step('deleteRows', async () => { select(1, 1, 3, 1); await rightClick(cell(2, 1)); return { n: T().rows.length, next: JSON.stringify(T().rows[4]) }; }, ['deleteRows'], (b) => T().rows.length === b.n - 3 && JSON.stringify(T().rows[1]) === b.next ? '' : 'rows ' + T().rows.length);
+    await step('deleteColumns', async () => { select(1, 1, 1, 2); await rightClick(cell(1, 2)); return { n: T().columns.length, next: T().columns[3].name }; }, ['deleteColumns'], (b) => T().columns.length === b.n - 2 && T().columns[1].name === b.next ? '' : 'cols ' + T().columns.map((c) => c.name));
+    await step('renameColumn', async () => { await rightClick(q('.dg-hcell[data-col="2"]')); }, ['renameColumn'], async () => { const d = await until(() => pop('prompt')?.querySelector('input'), 4000).catch(() => null); if (!d) return 'prompt did not open'; const ok = d.value === T().columns[2].name; await A.popups.closeAll(); return ok ? '' : 'prompt shows ' + d.value; });
+    await step('columnType', async () => { await rightClick(cell(1, 2)); }, ['submenu:columnType', 'colType:text'], () => T().columns[2].type === 'text' ? '' : 'type ' + T().columns[2].type);
+    await step('sortAsc', async () => { await rightClick(cell(1, 2)); }, ['sortAsc'], () => T().rows.every((row, i, a) => i === 0 || row[2] >= a[i - 1][2]) ? '' : 'not ascending');
+    await step('sortDesc', async () => { await rightClick(cell(1, 2)); }, ['sortDesc'], () => T().rows.every((row, i, a) => i === 0 || row[2] <= a[i - 1][2]) ? '' : 'not descending');
+    await step('transpose', async () => { await rightClick(cell(1, 1)); return [T().rows.length, T().columns.length]; }, ['transpose'], ([rows, cols]) => T().columns.length === rows + 1 && T().rows.length === cols - 1 ? '' : 'size ' + T().rows.length + 'x' + T().columns.length);
+    await step('dataStats', async () => { await rightClick(cell(1, 1)); }, ['dataStats'], () => popOpen('datastats'));
+    await step('exportData', async () => { await rightClick(cell(1, 1)); window.__downloads.length = 0; }, ['submenu:exportData', 'exportData:csv'], async () => (await until(() => window.__downloads.length, 4000).catch(() => 0)) ? '' : 'nothing saved');
+    await step('exportChart', async () => { await rightClick(cell(1, 1)); }, ['exportChart'], () => popOpen('export'));
+    await step('print', async () => { await rightClick(cell(1, 1)); }, ['print'], () => popOpen('print'));
+    return out;`);
+  const bad = Object.entries(r).filter(([, v]) => v !== 'ok');
+  assert(Object.keys(r).length === 21, `${Object.keys(r).length} items tried`);
+  assert(!bad.length, bad.map(([k, v]) => `${k}: ${v}`).join(' | '));
 });
 
 // ───────────────────────── per-command cases

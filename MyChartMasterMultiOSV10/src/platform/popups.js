@@ -166,12 +166,17 @@ export class PopupHost {
   hideMenu() {
     this.settle('menu', null);
     // Hidden from here: the menu forgets its items too (popup.js forgetMenu), so a refresh cannot bring it back.
+    let at = null;
     try {
       const stored = popupParams('menu');
+      at = stored.at ?? null;
       if (Array.isArray(stored.items)) globalThis.localStorage?.setItem(popupKey('menu'), JSON.stringify({ ...stored, items: null }));
     } catch { /* storage unavailable */ }
     if (this.frames.has('menu')) { this.removeFrame('menu'); return Promise.resolve(); }
-    return isDesktop() ? invoke('hide_popup', { kind: 'menu' }).catch(() => {}) : Promise.resolve();
+    if (!isDesktop()) return Promise.resolve();
+    // The menu window hides itself (popup.js, "dismiss"), and only when it still shows this opening: a hide sent
+    // from here raced with the next opening's show (a right-click while a menu is open) and could hide the new menu.
+    return this.post('menu', { type: 'dismiss', at });
   }
 
   isOpen(kind) {

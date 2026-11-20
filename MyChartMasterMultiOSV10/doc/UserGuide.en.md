@@ -55,9 +55,9 @@ The **Home** button in the title row (Ctrl+Shift+H) opens the start page at any 
 - **Title row**: the program icon and name, Home, the menus (File, Edit, View, Data, Chart, Help), the open chart's
   name (● when unsaved), three panel buttons (chart types, data grid, properties), and on the desktop the window
   buttons. Drag an empty part to move the window; double-click to maximize.
-- **Toolbar**: new chart, open, save, close, print / undo, redo / import, paste, **Export**, copy picture / add row
+- **Toolbar** (icons only; hover for the name): new chart, open, save, close, print / undo, redo / import, paste, **Export**, copy picture / add row
   and column, sort, swap rows and columns, statistics / previous and next chart type, data labels, legend, palette /
-  zoom out, zoom, zoom in, fit. On the right: tutorial, theme, language, settings, about. The window's minimum width
+  zoom out, zoom in, fit to window (the zoom level is in the status bar). On the right: tutorial, theme, language, settings, about. The window's minimum width
   follows the toolbar, so no button is ever cut off.
 - **Tabs**: one per open chart; the icon shows the chart type, ● unsaved changes. Right-click to close others,
   save, duplicate, export or print. Ctrl+Tab goes to the next tab.

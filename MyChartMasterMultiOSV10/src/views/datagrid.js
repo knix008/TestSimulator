@@ -169,6 +169,12 @@ export class DataGrid {
     const head = event.target.closest('.dg-hcell');
     const rownum = event.target.closest('[data-rownum]');
     if (this.editing) this.commit();
+    // A right-click inside the selection keeps it: the context menu acts on the selected cells.
+    if (event.button === 2 && (cell || head || rownum) && this.insideSelection(cell, head, rownum)) {
+      event.preventDefault();
+      this.focus();
+      return;
+    }
     if (cell) {
       event.preventDefault();
       this.setActive(Number(cell.dataset.row), Number(cell.dataset.col), { extend: event.shiftKey, reveal: false });
@@ -198,6 +204,27 @@ export class DataGrid {
       this.drawRows(true);
       this.focus();
     }
+  }
+
+  /** Whether a cell, a column header or a row number lies in the current selection (a spanned one, or the active cell). */
+  insideSelection(cell, head, rownum) {
+    const s = this.selection();
+    const lastRow = Math.max(0, (this.table?.rows.length ?? 1) - 1);
+    const lastCol = Math.max(0, (this.table?.columns.length ?? 1) - 1);
+    if (cell) {
+      const r = Number(cell.dataset.row);
+      const c = Number(cell.dataset.col);
+      return r >= s.r0 && r <= s.r1 && c >= s.c0 && c <= s.c1;
+    }
+    if (head) {
+      const c = Number(head.dataset.col);
+      return Boolean(this.anchor) && s.r0 === 0 && s.r1 >= lastRow && c >= s.c0 && c <= s.c1;
+    }
+    if (rownum) {
+      const r = Number(rownum.dataset.rownum);
+      return Boolean(this.anchor) && s.c0 === 0 && s.c1 >= lastCol && r >= s.r0 && r <= s.r1;
+    }
+    return false;
   }
 
   dragSelect(event) {
@@ -352,7 +379,16 @@ export class DataGrid {
       if (!(r >= s.r0 && r <= s.r1 && c >= s.c0 && c <= s.c1)) this.setActive(r, c, { reveal: false });
       this.api.onContext(event, { row: r, col: c });
     } else if (head) this.api.onContext(event, { col: Number(head.dataset.col), header: true });
-    else if (rownum) { this.setActive(Number(rownum.dataset.rownum), this.active.col, { reveal: false }); this.api.onContext(event, { row: Number(rownum.dataset.rownum), col: this.active.col, wholeRow: true }); }
+    else if (rownum) {
+      // The mousedown already selected the whole row (or kept the rows that were selected): keep that.
+      const r = Number(rownum.dataset.rownum);
+      if (!this.insideSelection(null, null, rownum)) {
+        this.anchor = { row: r, col: 0 };
+        this.active = { row: r, col: Math.max(0, (this.table?.columns.length ?? 1) - 1) };
+        this.drawRows(true);
+      }
+      this.api.onContext(event, { row: r, col: this.selection().c0, wholeRow: true });
+    }
     else this.api.onContext(event, { row: this.active.row, col: this.active.col });
   }
 }

@@ -123,17 +123,17 @@ export class ChartView {
     const bar = this.host.querySelector('.ch-stage-bar');
     if (!doc) { bar.innerHTML = ''; return; }
     const o = doc.chart.options;
-    const zoom = s.textZoom ? `${s.textZoom}%` : t('zoom.fit');
-    const btn = (cmd, glyph, label, extra = '') => `<button class="small-button ${extra}" data-command="${cmd}" title="${escapeHtml(this.api.tip(cmd))}">${icon(glyph)}${label ? `<span>${escapeHtml(label)}</span>` : ''}</button>`;
+    // Icons only, as on the main toolbar: the name (and the current state) is the tooltip.
+    const btn = (cmd, glyph, state = '', extra = '') => { const tip = state ? `${this.api.tip(cmd)} — ${state}` : this.api.tip(cmd); return `<button class="small-button icon-only ${extra}" data-command="${cmd}" ${state ? `data-tip-state="${escapeHtml(state)}" ` : ''}title="${escapeHtml(tip)}" aria-label="${escapeHtml(tip)}">${icon(glyph)}</button>`; };
     bar.innerHTML = `
       <span class="ch-size" title="${escapeHtml(t('inspector.size'))}">${icon('chartSize')}<span>${o.width} × ${o.height}px</span></span>
-      <span class="ch-zoom">${btn('zoomOut', 'zoomOut', '')}<button class="small-button ch-zoom-value" data-command="zoomFit" title="${escapeHtml(this.api.tip('zoomFit'))}">${escapeHtml(zoom)}</button>${btn('zoomIn', 'zoomIn', '')}</span>
+      <span class="ch-zoom">${btn('zoomOut', 'zoomOut')}${btn('zoomIn', 'zoomIn')}${btn('zoomFit', 'fitView', s.textZoom ? `${s.textZoom}%` : '')}</span>
       <span class="grow"></span>
-      ${btn('toggleLabels', 'dataLabelsToggle', t('stage.labels'), o.dataLabels ? 'on' : '')}
+      ${btn('toggleLabels', 'dataLabelsToggle', '', o.dataLabels ? 'on' : '')}
       ${btn('cycleLegend', 'legendIcon', `${t('inspector.legend')}: ${t(`pos.${o.legend}`)}`)}
-      ${btn('paletteMenu', 'palette', t('inspector.palette'))}
-      ${btn('copyImage', 'copyImage', t('stage.copy'))}
-      ${btn('exportChart', 'exportChart', t('stage.export'), 'primary')}`;
+      ${btn('paletteMenu', 'palette')}
+      ${btn('copyImage', 'copyImage')}
+      ${btn('exportChart', 'exportChart', '', 'primary')}`;
   }
 
   renderGridTools() {

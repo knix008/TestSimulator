@@ -77,7 +77,6 @@ html.is-popup #app { min-width: 0; display: block; }
 }
 .tool-button.wide { width: auto; display: inline-flex; gap: 5px; padding: 0 7px; }
 /* The text size between A− and A+: a number with its unit, wide enough for "26.5px" so the toolbar does not shift. */
-.tool-button.tool-value { width: auto; min-width: 48px; padding: 0 5px; font-size: 0.86em; font-variant-numeric: tabular-nums; color: var(--text); border: 1px solid var(--border); }
 .tool-button .icon { width: 19px; height: 19px; }
 .tool-button .flag { width: 22px; height: 15px; border-radius: 2px; box-shadow: 0 0 0 1px var(--border); }
 .tool-button:hover:not(:disabled) { background: var(--hover); border-color: var(--border); }
@@ -1685,7 +1684,6 @@ select.dd-select { background-repeat: no-repeat; background-position: 8px center
 .start-foot > .icon { width: 15px; height: 15px; }
 
 /* ───────── the named Auto arrange button of the toolbar */
-.tool-button.tool-labeled { display: inline-flex; align-items: center; gap: 5px; width: auto; padding: 0 8px; white-space: nowrap; }
 
 /* ───────── fast tooltips (ui/tooltip.js) */
 .app-tooltip { position: fixed; z-index: 100000; max-width: min(420px, calc(100vw - 8px)); padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); box-shadow: 0 4px 14px var(--shadow); font-size: 0.92em; line-height: 1.4; white-space: pre-line; pointer-events: none; }
