@@ -89,6 +89,8 @@ export const FEATURES = [
   { name: 'Packet Diagram (headers in 32-bit rows, bit fields, values)', cases: ['view.packetDiagram'] },
   { name: 'Colorize Conversation (ten colours) and Reset Colorization', cases: ['view.colorizeConversation'] },
   { name: 'Display filter macros', cases: ['filter.macros'] },
+  { name: 'Right-click menus in the navigator, network map and bottom panel; bottom tabs on one line with "…"', cases: ['panels.contextMenus'] },
+  { name: 'Network map pictures (PNG, JPEG, WebP, GIF, AVIF, SVG) from its menu, with a transparent background option', cases: ['map.exportTransparent'] },
   { name: 'Bluetooth (HCI, L2CAP, ATT dissectors; Bluetooth Devices, HCI Summary, ATT Server Attributes; Bluetooth conversations)', cases: ['stats.bluetooth'] },
   { name: 'TLS decryption with a key log (TLS 1.2 / 1.3, AES-GCM, ChaCha20, AES-CBC; keys in the file or Analyze › TLS Key Log File…)', cases: ['analyze.tlsKeylog'] },
   { name: 'Every preset button filters the list, status bar and network map and clears on a second press', cases: ['filter.presetsEach'] },

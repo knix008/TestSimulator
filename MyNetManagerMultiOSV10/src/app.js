@@ -16,7 +16,7 @@ import { buildTopology, matchTopology } from './domain/analysis/topology.js';
 import { buildReport, createAnalyzer } from './domain/analysis/findings.js';
 import { DOC_FORMATS, exportDocument, toLines } from './domain/export/docexport.js';
 import { defaultPrintOptions } from './print/packets.js';
-import { encodeCanvas, IMAGE_FORMATS, imageMime, svgToCanvas } from './domain/export/images.js';
+import { encodeCanvas, IMAGE_FORMATS, imageMime, svgToCanvas, TRANSPARENT_FORMATS } from './domain/export/images.js';
 import { CAPTURE_PRESETS, togglePreset } from './domain/filter/presets.js';
 import { guessLinktype, IMPORT_LINKTYPES, packetsToPcap, parseHexDump } from './domain/capture/hexdump-import.js';
 import { followFilter, followFilterOut } from './domain/analysis/follow.js';
@@ -823,30 +823,46 @@ function onMapSelect(selection) {
  * Saves a drawing (standalone SVG text) as a picture: the person picks PNG, JPEG, WebP, GIF, AVIF or SVG.
  * AVIF needs the desktop program when the web view cannot write it (images.js).
  */
-async function saveImage(svg, name, { title = t('image.save'), message = t('image.saveMessage'), background = '#ffffff', format = null } = {}) {
-  const choice = format ?? await ask({
-    icon: 'exportImage', title, message,
-    buttons: [{ id: 'cancel', label: t('confirm.cancel') }, ...IMAGE_FORMATS.map(([id, label]) => ({ id, label, icon: id === 'svg' ? 'svgFile' : 'imageFormat', primary: id === 'png' }))],
-  });
+/**
+ * Saves a drawing as a picture. `svg` is the SVG text, or a function (transparent) → SVG text for drawings
+ * that can leave their background out: then the person can choose a transparent background (PNG, WebP,
+ * GIF, AVIF, SVG; JPEG always gets the background), remembered in settings.imageTransparent.
+ */
+async function saveImage(svg, name, { title = t('image.save'), message = t('image.saveMessage'), background = '#ffffff', format = null, transparent = null } = {}) {
+  const canTransparent = typeof svg === 'function';
+  let choice = format;
+  let clear = transparent ?? (canTransparent && Boolean(state.settings.imageTransparent));
+  if (!choice) {
+    const result = await popups.open('confirm', {
+      icon: 'exportImage', title, message,
+      check: canTransparent ? { label: t('image.transparent'), tip: t('image.transparentTip'), checked: clear } : null,
+      buttons: [{ id: 'cancel', label: t('confirm.cancel') }, ...IMAGE_FORMATS.map(([id, label]) => ({ id, label, icon: id === 'svg' ? 'svgFile' : 'imageFormat', primary: id === 'png' }))],
+    });
+    choice = result?.choice;
+    if (canTransparent && result?.check != null) { clear = result.check; updateSettings({ imageTransparent: clear }, { quiet: true }); }
+  }
   if (!IMAGE_FORMATS.some(([id]) => id === choice)) return undefined;
+  clear = canTransparent && clear && TRANSPARENT_FORMATS.includes(choice);
+  const text = canTransparent ? svg(clear) : svg;
   const mime = imageMime(choice);
-  if (choice === 'svg') return saveExport(`${name}.svg`, 'svg', svg, mime);
+  if (choice === 'svg') return saveExport(`${name}.svg`, 'svg', text, mime);
   try {
-    // JPEG and GIF have no transparency: the drawing's own background goes under it.
-    const canvas = await svgToCanvas(svg, { scale: 2, background: choice === 'jpg' || choice === 'gif' ? background : '' });
-    const bytes = await encodeCanvas(canvas, choice, { avif: desktop ? native.encodeAvif : null });
+    // JPEG has no transparency, and an opaque GIF needs a background: the drawing's own goes under it.
+    const canvas = await svgToCanvas(text, { scale: 2, background: clear ? '' : choice === 'jpg' || choice === 'gif' ? background : '' });
+    const bytes = await encodeCanvas(canvas, choice, { avif: desktop ? native.encodeAvif : null, transparent: clear });
     return saveExport(`${name}.${choice}`, choice, bytes, mime);
   } catch (error) {
     return showError('error.export', error, `${name}.${choice}`);
   }
 }
 
-async function exportMap() {
-  if (!state.view) return;
+/** The network map as a picture; `format` / `transparent` given (context menu) skip the format question. */
+async function exportMap({ format = null, transparent = null } = {}) {
+  if (!state.view) return undefined;
   const theme = resolveTheme(state.settings.theme, prefersDark(), state.settings.customTheme).colors;
-  const svg = state.view.map.svgText({ bg: theme.bg, text: theme.text, muted: theme.muted, accent: theme.accent, border: theme.border, link: theme.muted, node: theme.surface, subnet: `${theme.accent}14` });
+  const svg = (clear) => state.view.map.svgText({ bg: clear ? '' : theme.bg, text: theme.text, muted: theme.muted, accent: theme.accent, border: theme.border, link: theme.muted, node: theme.surface, subnet: `${theme.accent}14` });
   const name = `${fileSafe(stripExtension(activeDoc()?.name ?? 'capture'))}-map`;
-  return saveImage(svg, name, { title: t('netmap.export'), message: t('netmap.exportMessage'), background: theme.bg });
+  return saveImage(svg, name, { title: t('netmap.export'), message: t('netmap.exportMessage'), background: theme.bg, format, transparent });
 }
 
 // ───────────────────────── automatic analysis (bottom panel, navigator, reports)
@@ -2459,7 +2475,9 @@ function panelMenu(which, anchor, payload) {
       { separator: true },
       { id: 'custom:fit', label: t('netmap.fit'), icon: 'fitPage' },
       { id: 'custom:refresh', label: t('netmap.refresh'), icon: 'refresh' },
-      { id: 'custom:export', label: t('netmap.export'), icon: 'netExportImage' },
+      { separator: true },
+      ...IMAGE_FORMATS.map(([id, label]) => ({ id: `custom:image:${id}`, label: t('panelMenu.exportAs', { format: label }) + (TRANSPARENT_FORMATS.includes(id) && s.imageTransparent ? ` — ${t('image.transparentShort')}` : ''), icon: id === 'svg' ? 'svgFile' : 'netExportImage' })),
+      { id: 'custom:transparent', label: t('image.transparent'), icon: 'imageFormat', checked: Boolean(s.imageTransparent) },
       { separator: true },
       ...menuItems(['rightPanel']),
     ];
@@ -2474,7 +2492,8 @@ function panelMenu(which, anchor, payload) {
       'custom:multicast': () => updateSettings({ netmapShowMulticast: !s.netmapShowMulticast }),
       'custom:fit': () => map.fit(),
       'custom:refresh': () => refreshMap(),
-      'custom:export': () => map.app.onExport(),
+      ...Object.fromEntries(IMAGE_FORMATS.map(([id]) => [`custom:image:${id}`, () => exportMap({ format: id, transparent: Boolean(s.imageTransparent) })])),
+      'custom:transparent': () => { updateSettings({ imageTransparent: !s.imageTransparent }, { quiet: true }); notify('info', t(s.imageTransparent ? 'image.transparentOff' : 'image.transparentOn')); },
     };
     return showMenu(items, anchor, 'context', { handlers, header: { icon: 'paneMap', title: name || t('netmap.title') } });
   }
@@ -2506,7 +2525,7 @@ function panelMenu(which, anchor, payload) {
   ];
   Object.assign(handlers, {
     ...Object.fromEntries(tabs.map(([id]) => [`custom:tab:${id}`, () => { updateSettings({ bottomTab: id }, { quiet: true }); bottom.render(); }])),
-    'custom:copyAll': () => copyText([...view.root.querySelectorAll('.pane-bottom .bottom-list tr')].map((tr) => [...tr.children].map((td) => td.textContent.trim()).join('\t')).join('\n'), t('panel.' + tab)),
+    'custom:copyAll': () => copyText([...view.root.querySelectorAll('.pane-bottom .bottom-list tr')].map((tr) => [...tr.children].map((td) => td.textContent.trim()).join('\t')).join('\n'), t(`panel.${tab}`)),
     'custom:clearLog': () => viewApi.bottom.onClearLog(),
   });
   return showMenu(items, anchor, 'context', { handlers, header: { icon: 'expertInfo', title: t(`panel.${tab}`) } });

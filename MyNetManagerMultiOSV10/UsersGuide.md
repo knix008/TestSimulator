@@ -637,6 +637,8 @@ TCP 패킷을 고르고 **통계 › TCP 스트림 그래프**를 엽니다. **�
 
 ##### 탐색 (왼쪽 패널)
 
+- **오른쪽 클릭**: 항목 위에서는 필터로 적용 / (… 그리고) 적용 / 준비, 필터·글 복사, 어디서나 모든 구역 펼치기·접기,
+  다시 분석, 분석 보고서, 전문가 정보·프로토콜 계층·종단점, 패널 숨기기.
 ![탐색 패널](doc/images/ko/32-navigator.png)
 
 **탐색** 패널에는 접을 수 있는 세 부분이 있습니다: **분석 결과**(자동 분석이 찾은 문제, 심각도별),
@@ -645,6 +647,9 @@ TCP 패킷을 고르고 **통계 › TCP 스트림 그래프**를 엽니다. **�
 
 ##### 아래 패널: 문제, 로그, 분석 결과
 
+- 탭(문제, 로그, 분석 결과, 보고서)은 항상 한 줄이며, 자리가 모자라면 이름이 "…"로 줄고 마우스를 올리면 전체 이름이 보입니다.
+- **오른쪽 클릭**: 문제 줄은 그 패킷으로 이동, 분석 결과 줄은 필터로 적용·준비·복사, 로그 줄은 글 복사. 어디서나 탭 바꾸기,
+  목록 복사, 로그 지우기, 보고서, 전문가 정보, 다시 분석, 패널 숨기기.
 ![문제 탭](doc/images/ko/33-bottom-problems.png)
 
 - **문제** — 캡처의 모든 전문가 정보를 패킷마다 보여 주며, **전체 / 오류 / 경고 / 참고 / 대화** 단추와
@@ -668,6 +673,10 @@ Word에서 열림), **Markdown**, **PDF**, **Word**(.docx, 표는 Word 표로), 
 
 ##### 네트워크 맵 (오른쪽 패널)
 
+- **오른쪽 클릭**: 노드나 연결 위에서는 관련 패킷만 보기, 필터로 (… 그리고) 적용·준비·복사, 주소 복사. 어디서나 배치(서브넷별,
+  힘 기반, 방사형), 이름표(이름, IP, MAC), 외부 호스트·멀티캐스트 보이기, 전체 보기, 다시 만들기, 그리고 **PNG, JPEG,
+  WebP, GIF, AVIF, SVG로 내보내기**와 **배경 투명** 켜고 끄기. 배경 투명은 PNG·WebP·GIF·AVIF·SVG에 적용되고(JPEG는 항상 배경
+  포함), 맵 막대의 그림 저장 단추 창에도 같은 선택이 있습니다.
 **네트워크 맵**(툴바 단추, Ctrl+Shift+N, 오른쪽 패널 단추)은 트래픽에서 찾아낸 네트워크 구조를 그립니다:
 호스트, 라우터/게이트웨이, 서버, 프린터, IP 전화, IoT 장치, 외부 호스트, 멀티캐스트 묶음과 그 사이의 연결
 (트래픽에 따라 굵기가 다름).
@@ -1525,6 +1534,8 @@ switches the direction. Gaps and repeated points in a Stevens graph show lost an
 
 ##### Navigator (left panel)
 
+- **Right-click**: on an item, Apply as Filter / (… and selected) / Prepare, copy the filter or the text; anywhere,
+  expand or collapse all sections, analyze again, the analysis report, Expert Information, Protocol Hierarchy, Endpoints, hide the panel.
 ![The navigator](doc/images/en/32-navigator.png)
 
 The **Navigator** has three sections you can fold: **Findings** (the problems the automatic analysis found, by
@@ -1533,6 +1544,10 @@ item to filter the packet list by it; the tooltip shows the filter (*Click: …*
 
 ##### Bottom panel: Problems, Log, Analysis
 
+- The tabs (Problems, Log, Analysis, Report) always stay on one line; when there is no room their names end in "…" and
+  the tooltip shows the whole name.
+- **Right-click**: a problem row goes to its packet, an analysis row applies / prepares / copies its filter, a log row copies its
+  text; anywhere, switch tabs, copy the list, clear the log, the report, Expert Information, analyze again, hide the panel.
 ![The Problems tab](doc/images/en/33-bottom-problems.png)
 
 - **Problems** — every expert item of the capture, packet by packet, with **All / Error / Warning / Note / Chat**
@@ -1557,6 +1572,11 @@ export to the other formats), then press **Export…**.
 
 ##### Network map (right panel)
 
+- **Right-click**: on a node or link, show only its packets, apply (… and selected) / prepare / copy its filter, copy its
+  addresses; anywhere, the layout (by subnet, force, radial), labels (name, IP, MAC), external hosts and multicast, fit,
+  rebuild, **export as PNG, JPEG, WebP, GIF, AVIF or SVG** and **Transparent background** on or off. A transparent
+  background applies to PNG, WebP, GIF, AVIF and SVG (JPEG always has the background); the map bar's picture button
+  offers the same choice.
 The **Network Map** (toolbar button, Ctrl+Shift+N, or the right panel button) draws the structure of the network found
 in the traffic: hosts, routers / gateways, servers, printers, IP phones, IoT devices, external hosts and multicast
 groups, and the links between them, sized by traffic.

@@ -521,6 +521,7 @@ function renderConfirm() {
     glyph: p.icon ?? 'question', title: p.title ?? t('confirm.title'),
     body: `<div class="confirm">
       <div class="confirm-message">${icon(p.icon ?? 'question', 'icon big')}<p>${escapeHtml(p.message ?? '')}</p></div>
+      ${p.check ? `<label class="confirm-check" title="${escapeHtml(p.check.tip ?? '')}"><input type="checkbox" data-confirm-check ${p.check.checked ? 'checked' : ''} /><span>${escapeHtml(p.check.label)}</span></label>` : ''}
       ${shownItems.length ? `<ul class="confirm-items">${shownItems.map((item) => `<li title="${escapeHtml(item)}">${icon('diagram')}<span>${escapeHtml(item || '—')}</span></li>`).join('')}${items.length > shownItems.length ? `<li>… +${items.length - shownItems.length}</li>` : ''}</ul>` : ''}
     </div>`,
     foot: `<span class="grow"></span>${(p.buttons ?? [{ id: 'ok', label: t('common.ok'), primary: true }]).map((b) => `<button class="button ${b.primary ? 'primary' : ''} ${b.danger ? 'danger' : ''}" data-action="choice" data-value="${escapeHtml(b.id)}" title="${escapeHtml(b.label)}">${b.icon ? icon(b.icon) : ''}<span>${escapeHtml(b.label)}</span></button>`).join('')}`,
@@ -949,7 +950,7 @@ root.addEventListener('click', async (event) => {
     case 'tab': state.tab = value; return render();
     case 'tabs-scroll': return scrollPopupTabs(Number(value));
     case 'pager': { const [name, step] = value.split(':'); state.pager[name] = (state.pager[name] ?? 0) + Number(step); return render(); }
-    case 'choice': return close({ choice: value });
+    case 'choice': return close({ choice: value, check: root.querySelector('[data-confirm-check]')?.checked ?? null });
     case 'reset-settings': {
       const keep = { backgroundImage: s().backgroundImage, backgroundName: s().backgroundName, lastDirectory: s().lastDirectory, language: s().language, tutorialOffered: true, tutorialDone: s().tutorialDone };
       return update({ ...defaultSettings(s().language), ...keep });

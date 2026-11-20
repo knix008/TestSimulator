@@ -334,9 +334,11 @@ export class NetMap {
     const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
     style.textContent = `.nm-subnet rect{fill:${colors.subnet};stroke:${colors.border};stroke-dasharray:5 4}.nm-subnet text{fill:${colors.muted};font:12px sans-serif}.nm-line{stroke:${colors.link};stroke-linecap:round}.nm-hit{stroke:transparent}.nm-halo{fill:none}.nm-dot{fill:${colors.node};stroke:${colors.accent};stroke-width:2}.nm-label{fill:${colors.text};font:12px sans-serif;text-anchor:middle}.icon{color:${colors.accent}}`;
     clone.prepend(style);
-    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    Object.entries({ x: 0, y: 0, width: '100%', height: '100%', fill: colors.bg }).forEach(([k, v]) => bg.setAttribute(k, String(v)));
-    clone.prepend(bg);
+    if (colors.bg) { // no background: a transparent picture
+      const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      Object.entries({ x: 0, y: 0, width: '100%', height: '100%', fill: colors.bg }).forEach(([k, v]) => bg.setAttribute(k, String(v)));
+      clone.prepend(bg);
+    }
     return new XMLSerializer().serializeToString(clone);
   }
 }

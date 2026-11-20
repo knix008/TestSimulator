@@ -643,6 +643,8 @@ switches the direction. Gaps and repeated points in a Stevens graph show lost an
 
 ### Navigator (left panel)
 
+- **Right-click**: on an item, Apply as Filter / (… and selected) / Prepare, copy the filter or the text; anywhere,
+  expand or collapse all sections, analyze again, the analysis report, Expert Information, Protocol Hierarchy, Endpoints, hide the panel.
 ![The navigator](images/en/32-navigator.png)
 
 The **Navigator** has three sections you can fold: **Findings** (the problems the automatic analysis found, by
@@ -651,6 +653,10 @@ item to filter the packet list by it; the tooltip shows the filter (*Click: …*
 
 ### Bottom panel: Problems, Log, Analysis
 
+- The tabs (Problems, Log, Analysis, Report) always stay on one line; when there is no room their names end in "…" and
+  the tooltip shows the whole name.
+- **Right-click**: a problem row goes to its packet, an analysis row applies / prepares / copies its filter, a log row copies its
+  text; anywhere, switch tabs, copy the list, clear the log, the report, Expert Information, analyze again, hide the panel.
 ![The Problems tab](images/en/33-bottom-problems.png)
 
 - **Problems** — every expert item of the capture, packet by packet, with **All / Error / Warning / Note / Chat**
@@ -675,6 +681,11 @@ export to the other formats), then press **Export…**.
 
 ### Network map (right panel)
 
+- **Right-click**: on a node or link, show only its packets, apply (… and selected) / prepare / copy its filter, copy its
+  addresses; anywhere, the layout (by subnet, force, radial), labels (name, IP, MAC), external hosts and multicast, fit,
+  rebuild, **export as PNG, JPEG, WebP, GIF, AVIF or SVG** and **Transparent background** on or off. A transparent
+  background applies to PNG, WebP, GIF, AVIF and SVG (JPEG always has the background); the map bar's picture button
+  offers the same choice.
 The **Network Map** (toolbar button, Ctrl+Shift+N, or the right panel button) draws the structure of the network found
 in the traffic: hosts, routers / gateways, servers, printers, IP phones, IoT devices, external hosts and multicast
 groups, and the links between them, sized by traffic.

@@ -12,6 +12,8 @@ export const IMAGE_FORMATS = [
   ['avif', 'AVIF', 'image/avif'],
   ['svg', 'SVG', 'image/svg+xml'],
 ];
+/** Formats that can keep a transparent background (JPEG cannot; GIF keeps fully transparent pixels). */
+export const TRANSPARENT_FORMATS = ['png', 'webp', 'gif', 'avif', 'svg'];
 export const imageMime = (format) => IMAGE_FORMATS.find(([id]) => id === format)?.[2] ?? 'application/octet-stream';
 
 /** A standalone SVG drawn on a canvas, `scale` times its size, over `background` (JPEG and GIF have no transparency). */
@@ -40,10 +42,10 @@ async function canvasBytes(canvas, mime, quality) {
  * The picture's file bytes. `avif(width, height, rgba)` is the fallback AVIF writer (the desktop
  * program); without one, an engine that cannot write AVIF fails with a message saying so.
  */
-export async function encodeCanvas(canvas, format, { quality = 0.92, avif = null } = {}) {
+export async function encodeCanvas(canvas, format, { quality = 0.92, avif = null, transparent = false } = {}) {
   if (format === 'gif') {
     const { width, height } = canvas;
-    return encodeGif(width, height, canvas.getContext('2d').getImageData(0, 0, width, height).data);
+    return encodeGif(width, height, canvas.getContext('2d').getImageData(0, 0, width, height).data, { transparent });
   }
   const mime = imageMime(format);
   const own = await canvasBytes(canvas, mime, quality);
@@ -169,13 +171,35 @@ function lzwEncode(indices, minCodeSize, push) {
 }
 
 /** RGBA pixels → a GIF89a file (one frame, at most 256 colours). */
-export function encodeGif(width, height, rgba) {
-  const { palette, indices, count } = quantize(rgba, 256);
+export function encodeGif(width, height, rgba, { transparent = false } = {}) {
+  // Transparent: pixels under half opacity get their own palette entry, marked transparent in a Graphic
+  // Control Extension (GIF89a). The others are quantized into the remaining 255 colours.
+  const n = rgba.length >> 2;
+  let clear = null;
+  if (transparent) {
+    clear = new Uint8Array(n);
+    let any = false;
+    for (let i = 0; i < n; i++) if (rgba[i * 4 + 3] < 128) { clear[i] = 1; any = true; }
+    if (!any) clear = null;
+  }
+  let source = rgba;
+  if (clear) {
+    // Transparent pixels take an opaque neighbour's colour, so they do not use up palette entries.
+    source = Uint8ClampedArray.from(rgba);
+    let fill = [255, 255, 255];
+    for (let i = 0; i < n; i++) if (!clear[i]) { fill = [rgba[i * 4], rgba[i * 4 + 1], rgba[i * 4 + 2]]; break; }
+    for (let i = 0; i < n; i++) if (clear[i]) { source[i * 4] = fill[0]; source[i * 4 + 1] = fill[1]; source[i * 4 + 2] = fill[2]; }
+  }
+  const { palette, indices, count: colors } = quantize(source, clear ? 255 : 256);
+  const clearIndex = clear ? colors : -1;
+  if (clear) for (let i = 0; i < n; i++) if (clear[i]) indices[i] = clearIndex;
+  const count = clear ? colors + 1 : colors;
   let bits = 1;
   while ((1 << bits) < count) bits++;
   const palSize = 1 << bits;
   const bytes = [0x47, 0x49, 0x46, 0x38, 0x39, 0x61, width & 255, width >> 8, height & 255, height >> 8, 0x80 | ((bits - 1) << 4) | (bits - 1), 0, 0];
   for (let i = 0; i < palSize; i++) bytes.push(palette[i * 3] || 0, palette[i * 3 + 1] || 0, palette[i * 3 + 2] || 0);
+  if (clear) bytes.push(0x21, 0xf9, 0x04, 0x01, 0, 0, clearIndex, 0);
   bytes.push(0x2C, 0, 0, 0, 0, width & 255, width >> 8, height & 255, height >> 8, 0);
   const minCode = Math.max(2, bits);
   bytes.push(minCode);

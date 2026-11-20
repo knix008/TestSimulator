@@ -91,8 +91,8 @@ export class BottomPanel {
       ['log', 'notes', t('panel.log'), this.app.log().length],
       ['analysis', 'ioGraph', t('panel.analysis'), a ? a.findings.length : ''],
     ];
-    return `<span class="bottom-tabs" role="tablist">${tabs.map(([id, glyph, label, count]) => `<button class="bottom-tab ${this.tab() === id ? 'active' : ''}" data-bottom-tab="${id}" role="tab" aria-selected="${this.tab() === id}">${icon(glyph)}<span>${escapeHtml(label)}</span>${count !== '' ? `<span class="nav-count">${count}</span>` : ''}</button>`).join('')}</span>
-      <button class="small-button" data-bottom-action="report" title="${escapeHtml(t('action.report'))}">${icon('reportHtml')}<span>${escapeHtml(t('panel.report'))}</span></button>`;
+    return `<span class="bottom-tabs" role="tablist">${tabs.map(([id, glyph, label, count]) => `<button class="bottom-tab ${this.tab() === id ? 'active' : ''}" data-bottom-tab="${id}" role="tab" aria-selected="${this.tab() === id}" title="${escapeHtml(count !== '' ? `${label} (${count})` : label)}">${icon(glyph)}<span class="bottom-tab-label">${escapeHtml(label)}</span>${count !== '' ? `<span class="nav-count">${count}</span>` : ''}</button>`).join('')}</span>
+      <button class="small-button bottom-report" data-bottom-action="report" title="${escapeHtml(t('action.report'))}">${icon('reportHtml')}<span class="bottom-tab-label">${escapeHtml(t('panel.report'))}</span></button>`;
   }
 
   render() {

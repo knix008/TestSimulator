@@ -1738,3 +1738,6 @@ select.dd-select { background-repeat: no-repeat; background-position: 8px center
 .dt-groups .icon-group { display: block; }
 .dt-groups .icon-group > h3 { margin: 0 0 3px; }
 .icon-tile { width: 50px; height: 38px; }
+
+/* Confirm dialog: one option above the buttons (e.g. "Transparent background" when saving a picture). */
+.confirm-check { display: flex; align-items: center; gap: 8px; margin: 10px 0 2px; cursor: pointer; }

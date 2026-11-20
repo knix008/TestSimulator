@@ -458,3 +458,13 @@ html[data-mode="dark"] .follow-text .dir-1 { color: #b3cdff; background: #14233f
 .pd-bitno, .pd-offset, .pd-more { fill: var(--muted); font-size: 10px; }
 .pd-bitno { text-anchor: middle; }
 .pd-offset { text-anchor: end; }
+
+/* Bottom panel title bar: the tabs stay on one line; labels shrink to "…" when the panel is narrow. */
+.pane-bottom .pane-head { flex-wrap: nowrap; min-width: 0; }
+.pane-bottom .pane-head .bottom-tools { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; overflow: hidden; }
+.pane-bottom .pane-head > .grow { flex: 0 0 0; }
+.bottom-tabs { display: flex; flex: 0 1 auto; min-width: 0; overflow: hidden; }
+.bottom-tab, .bottom-report { flex: 0 1 auto; min-width: 0; white-space: nowrap; }
+.bottom-tab .icon, .bottom-tab .nav-count, .bottom-report .icon { flex: 0 0 auto; }
+.bottom-tab-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bottom-report { flex-shrink: 2; }

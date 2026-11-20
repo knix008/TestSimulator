@@ -555,6 +555,54 @@ test('stats.bluetooth', 'Wireless › Bluetooth Devices, HCI Summary and ATT Ser
   for (const c of ['btAttServer', 'btDevices', 'btHciSummary', 'wlanTraffic']) assert(menu.includes(c), `Wireless menu lacks ${c}`);
 });
 
+test('panels.contextMenus', 'Right-click menus in the navigator, the network map and the bottom panel; bottom tabs on one line with "…"', async () => {
+  await openSample('mixed-office-lan');
+  const r = await run(`A.actions.updateSettings({ showNetMap: true, showLeftPanel: true, showBottomPanel: true }); await until(() => A.view().root.querySelector('.pane-map .nm-node') && A.view().root.querySelector('.pane-left .nav-item:not([disabled])') && A.view().root.querySelector('.pane-bottom tbody tr'), 15000);
+    const R = A.view().root;
+    const menuFor = async (el) => { const b = el.getBoundingClientRect(); el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: b.x + 5, clientY: b.y + 5 })); await until(() => pop('menu')?.querySelector('.menu-item')); const ids = [...pop('menu').querySelectorAll('.menu-item')].map((x) => x.dataset.id); await A.popups.hideMenu(); await sleep(120); return ids; };
+    const left = await menuFor(R.querySelector('.pane-left .nav-item:not([disabled])'));
+    const leftEmpty = await menuFor(R.querySelector('.pane-left .pane-head'));
+    const node = await menuFor(R.querySelector('.pane-map .nm-node.kind-host'));
+    const mapEmpty = await menuFor(R.querySelector('.pane-map .nm-canvas') ?? R.querySelector('.pane-map'));
+    const row = await menuFor(R.querySelector('.pane-bottom tbody tr'));
+    const head = await menuFor(R.querySelector('.pane-bottom .pane-head'));
+    // Bottom tabs: one line; narrow → "…" with the full name in the tooltip.
+    const wide = [...R.querySelectorAll('.bottom-tab')].map((b) => Math.round(b.getBoundingClientRect().height));
+    A.actions.updateSettings({ mapWidth: 1100 }); await sleep(400);
+    const labels = [...R.querySelectorAll('.pane-bottom .bottom-tab-label')];
+    const narrow = { heights: [...R.querySelectorAll('.bottom-tab')].map((b) => Math.round(b.getBoundingClientRect().height)), cut: labels.some((l) => l.scrollWidth > l.clientWidth), ellipsis: getComputedStyle(labels[0]).textOverflow, titles: [...R.querySelectorAll('.bottom-tab')].every((b) => b.title) };
+    A.actions.updateSettings({ mapWidth: 520 }); await sleep(300);
+    return { left, leftEmpty, node, mapEmpty, row, head, wide, narrow };`);
+  assert(['custom:apply', 'custom:prepare', 'custom:copyFilter', 'custom:expand', 'leftPanel'].every((id) => r.left.includes(id)), `navigator item: ${r.left}`);
+  assert(r.leftEmpty.includes('custom:collapse') && !r.leftEmpty.includes('custom:apply'), `navigator panel: ${r.leftEmpty}`);
+  assert(['custom:only', 'custom:addr:0', 'custom:layout:force', 'custom:image:png', 'custom:image:avif', 'custom:image:gif', 'custom:image:jpg', 'custom:image:webp', 'custom:transparent'].every((id) => r.node.includes(id)), `map node: ${r.node}`);
+  assert(r.mapEmpty.includes('custom:fit') && !r.mapEmpty.includes('custom:only'), `map: ${r.mapEmpty}`);
+  assert(['custom:go', 'custom:tab:log', 'custom:copyAll', 'bottomPanel'].every((id) => r.row.includes(id)), `problem row: ${r.row}`);
+  assert(r.head.includes('custom:tab:analysis') && !r.head.includes('custom:go'), `bottom panel: ${r.head}`);
+  assert(r.wide.every((h) => h <= 30) && r.narrow.heights.every((h) => h <= 30), `tab heights (one line): ${r.wide} / ${r.narrow.heights}`);
+  assert(r.narrow.cut && r.narrow.ellipsis === 'ellipsis' && r.narrow.titles, `narrow tabs: ${JSON.stringify(r.narrow)}`);
+});
+
+test('map.exportTransparent', 'The network map saves as PNG, WebP, GIF, JPEG and SVG from its menu, with a transparent background when chosen', async () => {
+  await openSample('mixed-office-lan');
+  const r = await run(`A.actions.updateSettings({ showNetMap: true }); await until(() => A.view().root.querySelector('.pane-map .nm-node')); await sleep(200);
+    const blobs = []; const make = URL.createObjectURL; URL.createObjectURL = (b) => { blobs.push(b); return make.call(URL, b); };
+    const corner = async (blob) => { const bmp = await createImageBitmap(blob); const c = new OffscreenCanvas(bmp.width, bmp.height); const g = c.getContext('2d'); g.drawImage(bmp, 0, 0); return g.getImageData(1, 1, 1, 1).data[3]; };
+    const save = async (format, transparent) => { const n = blobs.length; A.actions.updateSettings({ imageTransparent: transparent }, { quiet: true });
+      const R = A.view().root; const el = R.querySelector('.pane-map .nm-node.kind-host'); const b = el.getBoundingClientRect(); el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: b.x + 5, clientY: b.y + 5 }));
+      await until(() => pop('menu')?.querySelector('[data-id="custom:image:' + format + '"]')); pop('menu').querySelector('[data-id="custom:image:' + format + '"]').click(); await until(() => blobs.length > n, 15000); return blobs.at(-1); };
+    const out = {};
+    for (const [f, tr] of [['png', true], ['png', false], ['webp', true], ['gif', true], ['gif', false], ['jpg', true]]) { const blob = await save(f, tr); out[f + (tr ? '-clear' : '-solid')] = { type: blob.type, alpha: await corner(blob) }; }
+    const svg = await (await save('svg', true)).text(); out.svgClear = !/<rect x="0" y="0" width="100%" height="100%"/.test(svg);
+    const svg2 = await (await save('svg', false)).text(); out.svgSolid = /<rect x="0" y="0" width="100%" height="100%"/.test(svg2);
+    URL.createObjectURL = make; A.actions.updateSettings({ imageTransparent: false }, { quiet: true }); return out;`);
+  assert(r['png-clear'].alpha === 0 && r['png-solid'].alpha === 255, `PNG: ${JSON.stringify([r['png-clear'], r['png-solid']])}`);
+  assert(r['webp-clear'].alpha === 0, `WebP: ${JSON.stringify(r['webp-clear'])}`);
+  assert(r['gif-clear'].alpha === 0 && r['gif-solid'].alpha === 255, `GIF: ${JSON.stringify([r['gif-clear'], r['gif-solid']])}`);
+  assert(r['jpg-clear'].alpha === 255, 'JPEG always has its background');
+  assert(r.svgClear && r.svgSolid, 'SVG with and without its background rectangle');
+});
+
 test('stats.tcpGraph', 'TCP stream graphs draw every graph type', async () => {
   await openSample('tcp-retransmissions');
   const r = await run(`const d = A.doc(); A.actions.selectFrame(d, 4); A.run('tcpGraph'); await until(() => pop('chart')?.querySelector('svg circle, svg polyline, svg rect')); const doc = pop('chart');
