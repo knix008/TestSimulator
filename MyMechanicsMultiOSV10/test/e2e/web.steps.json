@@ -247,7 +247,7 @@
   },
   {
     "name": "ui: every command while sketching",
-    "eval": "(async () => { const m = window.__mymechanics; await m.actions.closeProject({ force: true }); await m.actions.newDocument('part'); await m.run('sketch'); document.querySelector('[data-pm=\"sketchOn:top\"]').click(); await new Promise((r) => setTimeout(r, 400)); const failed = []; const done = new Set(); for (const id of Object.keys(m.commands).filter((k) => k.startsWith('sk:'))) { if (!m.menus.enabled(id)) continue; done.add(id); await m.run(id); await new Promise((r) => setTimeout(r, 60)); if (m.state.editing?.mode !== 'sketch') failed.push(`${id} left the sketch`); } return `${done.size} ${JSON.stringify(failed)}`; })()",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.closeProject({ force: true }); await m.actions.newDocument('part'); await m.run('sketch'); document.querySelector('[data-pm=\"sketchOn:top\"]').click(); await new Promise((r) => setTimeout(r, 400)); const failed = []; const done = new Set(); for (const id of Object.keys(m.commands).filter((k) => k.startsWith('sk:') && k !== 'sk:picture' /* opens the system file dialog */)) { if (!m.menus.enabled(id)) continue; done.add(id); await m.run(id); await new Promise((r) => setTimeout(r, 60)); if (m.state.editing?.mode !== 'sketch') failed.push(`${id} left the sketch`); } return `${done.size} ${JSON.stringify(failed)}`; })()",
     "expect": "^\\d{2} \\[\\]$",
     "wait": 200
   },

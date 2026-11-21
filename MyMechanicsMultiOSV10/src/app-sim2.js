@@ -9,6 +9,7 @@
 //     where used (cad/versions.js);
 //   assembly extras — assembly cuts and holes through components, belts and chains, sketch blocks, sketch
 //     pictures and library features (cad/asm-extra.js).
+import { pickWithInput } from './platform/native.js';
 import * as THREE from 'three';
 import './styles-sim.css';
 import { rep } from './cad/kernel.js';
@@ -728,19 +729,15 @@ export function createSim2Tools(ctx) {
     notify('success', t('asmx.exploded', { count: n }));
   }
 
-  function chooseImage() {
+  /** The system file dialog for an image; null when it is cancelled. */
+  async function chooseImage() {
+    const [file] = await pickWithInput('image/png,image/jpeg,image/webp,image/gif,image/bmp');
+    if (!file) return null;
     return new Promise((resolve) => {
-      const input = document.createElement('input');
-      input.type = 'file'; input.accept = 'image/png,image/jpeg,image/webp,image/gif,image/bmp';
-      input.addEventListener('change', () => {
-        const file = input.files?.[0];
-        if (!file) { resolve(null); return; }
-        const fr = new FileReader();
-        fr.onload = () => resolve({ src: String(fr.result), name: file.name });
-        fr.onerror = () => resolve(null);
-        fr.readAsDataURL(file);
-      });
-      input.click();
+      const fr = new FileReader();
+      fr.onload = () => resolve({ src: String(fr.result), name: file.name });
+      fr.onerror = () => resolve(null);
+      fr.readAsDataURL(file);
     });
   }
   const imageAspect = (src) => new Promise((resolve) => { const img = new Image(); img.onload = () => resolve(img.naturalHeight / Math.max(1, img.naturalWidth)); img.onerror = () => resolve(1); img.src = src; });
