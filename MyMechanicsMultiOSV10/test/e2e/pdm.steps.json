@@ -1,0 +1,83 @@
+[
+  {
+    "name": "pdm: kernel, an error collector and a new part",
+    "eval": "(async () => { const m = window.__mymechanics; window.__errs = []; window.addEventListener('error', (e) => window.__errs.push(e.message)); window.addEventListener('unhandledrejection', (e) => window.__errs.push(String(e.reason?.message ?? e.reason))); await m.actions.ensureKernel(); await m.actions.closeProject({ force: true }); await m.actions.newDocument('part'); return m.project ? 'ready' : 'no project'; })()",
+    "expect": "^ready$",
+    "wait": 300
+  },
+  {
+    "name": "pdm: the explorer opens with the connect page, then a browser vault is created",
+    "eval": "(async () => { const m = window.__mymechanics; const p = m.pdm; p.state.location = null; p.state.vault = null; p.openExplorer(); await new Promise((r) => setTimeout(r, 200)); const host = document.querySelector('#pdm-explorer'); if (!host || host.hidden) return 'no panel'; if (!host.querySelector('[data-pdm=\"createWeb\"]')) return 'no create button'; await p.connect({ kind: 'web', root: `e2e-${Date.now()}` }, { create: true, name: 'E2E vault', user: 'e2e-admin', password: 'e2e-pass' }); p.openExplorer('files'); await new Promise((r) => setTimeout(r, 150)); return `${p.vault().index.name}|${p.vault().role}|${host.querySelectorAll('[data-pdm^=\"tab:\"]').length}`; })()",
+    "expect": "^E2E vault\\|admin\\|3$",
+    "shot": "pdm-empty"
+  },
+  {
+    "name": "pdm: the open part is added to the vault (version 1, work in progress, revision A) and listed",
+    "eval": "(async () => { const m = window.__mymechanics; const p = m.pdm; m.actions.change('op.edit', (pr) => { pr.parts[0].partNo = 'E2E-1'; pr.parts[0].description = 'e2e part'; }); await p.checkInActive(); const f = p.vault().files[0]; const row = document.querySelector(`#pdm-explorer tr[data-pdm=\"sel:${f?.id}\"]`); return `${p.vault().files.length}|${f?.state}|${f?.revision}.${f?.version}|${Boolean(row)}|${p.linkedFile()?.id === f?.id}`; })()",
+    "expect": "^1\\|wip\\|A\\.1\\|true\\|true$"
+  },
+  {
+    "name": "pdm: a document from the vault is read-only until it is checked out",
+    "eval": "(async () => { const m = window.__mymechanics; const p = m.pdm; const f = p.vault().files[0]; const before = m.project.parts[0].description; m.actions.change('op.edit', (pr) => { pr.parts[0].description = 'blocked'; }); const blocked = m.project.parts[0].description === before; await p.action('sel', f.id); await p.action('checkOut'); const out = p.vault().file(f.id).checkout?.by; m.actions.change('op.edit', (pr) => { pr.parts[0].description = 'changed in app'; }); const changed = m.project.parts[0].description; return `${blocked}|${Boolean(out)}|${changed}`; })()",
+    "expect": "^true\\|true\\|changed in app$"
+  },
+  {
+    "name": "pdm: check-in from the app makes version 2 in the same revision and releases the lock",
+    "eval": "(async () => { const m = window.__mymechanics; const p = m.pdm; p.state.comment = 'from the app'; await p.checkInActive(); const f = p.vault().files[0]; return `${f.revision}.${f.version}|${f.checkout}|${f.versions.at(-1).comment}`; })()",
+    "expect": "^A\\.2\\|null\\|from the app$"
+  },
+  {
+    "name": "pdm: lifecycle buttons submit and approve; released files cannot be checked out",
+    "eval": "(async () => { const m = window.__mymechanics; const p = m.pdm; const f = p.vault().files[0]; await p.action('sel', f.id); const host = document.querySelector('#pdm-explorer'); const click = async (sel) => { const b = host.querySelector(sel); if (!b || b.disabled) return false; b.click(); for (let i = 0; i < 40 && p.state.busy; i++) await new Promise((r) => setTimeout(r, 50)); await new Promise((r) => setTimeout(r, 50)); return true; }; const s = await click('[data-pdm=\"tr:submit\"]'); const a = await click('[data-pdm=\"tr:approve\"]'); const x = p.vault().file(f.id); const co = host.querySelector('[data-pdm=\"checkOut\"]'); return `${s}|${a}|${x.state}|${co?.disabled}`; })()",
+    "expect": "^true\\|true\\|released\\|true$",
+    "shot": "pdm-released"
+  },
+  {
+    "name": "pdm: change order → approval → revise gives revision B",
+    "eval": "(async () => { const m = window.__mymechanics; const p = m.pdm; const v = p.vault(); const f = v.files[0]; const eco = await v.createChange('eco', { title: 'e2e change', files: [f.id] }); await v.submitChange(eco.id); const admin = v.user; await v.addUser('e2e-approver', 'approver-pass', 'approver'); const other = await (await import('/src/cad/vault.js')).Vault.login(v.store, { user: 'e2e-approver', password: 'approver-pass' }); await other.decideChange(eco.id, 'approve'); await v.refresh(); const r = await v.transition(f.id, 'revise'); return `${v.change(eco.id).status}|${r.state}|${r.revision}|${admin !== 'e2e-approver'}`; })()",
+    "expect": "^approved\\|wip\\|B\\|true$"
+  },
+  {
+    "name": "pdm: every tab and file sub-tab renders without errors",
+    "eval": "(async () => { const m = window.__mymechanics; const p = m.pdm; const host = document.querySelector('#pdm-explorer'); const seen = []; for (const sub of ['history', 'contains', 'whereUsed', 'bom', 'pack', 'events']) { await p.action('tab', 'files'); await p.action('sub', sub); seen.push(host.querySelector('.pdm-subtabs .segment.active')?.dataset.pdm === `sub:${sub}`); } await p.action('cmpA', '1'); await p.action('cmpB', '2'); await p.action('sub', 'history'); await p.action('compare'); const diff = Boolean(host.querySelector('.pdm-diff')); for (const tab of ['changes', 'settings', 'files']) { await p.action('tab', tab); seen.push(Boolean(host.querySelector('.pdm-group'))); } return `${seen.every(Boolean)}|${diff}|${window.__errs.length ? window.__errs.join(';') : 'no errors'}`; })()",
+    "expect": "^true\\|true\\|no errors$",
+    "shot": "pdm-tabs"
+  },
+  {
+    "name": "pdm: search by part number and state filters the list",
+    "eval": "(async () => { const p = window.__mymechanics.pdm; await p.action('adv'); p.field('q.partNumber', 'e2e-1'); const a = document.querySelectorAll('#pdm-explorer .pdm-table tbody tr').length; p.field('q.state', 'released'); const b = document.querySelectorAll('#pdm-explorer .pdm-table tbody tr').length; p.field('q.state', ''); p.field('q.partNumber', ''); await p.action('adv'); return `${a}|${b}`; })()",
+    "expect": "^1\\|0$"
+  },
+  {
+    "name": "pdm: logging out shows the login form; a wrong password is refused, the right one logs in",
+    "eval": "(async () => { const p = window.__mymechanics.pdm; const root = p.vault().store.root; p.logout(); p.openExplorer(); await new Promise((r) => setTimeout(r, 120)); const host = document.querySelector('#pdm-explorer'); const pwField = Boolean(host.querySelector('input[type=\"password\"][data-pdm-field=\"login.password\"]')); p.field('login.user', 'e2e-admin'); p.field('login.password', 'wrong'); await p.action('login'); const refused = !p.vault(); p.field('login.password', 'e2e-pass'); await p.action('login'); return `${pwField}|${refused}|${p.vault()?.user}|${p.vault()?.store.root === root}`; })()",
+    "expect": "^true\\|true\\|e2e-admin\\|true$",
+    "shot": "pdm-login"
+  },
+  {
+    "name": "pdm: a part file is referenced (not copied) into an assembly file; the tree shows the reference",
+    "eval": "(async () => { const m = window.__mymechanics; const p = m.pdm; const v = p.vault(); await v.addFile('E2E pin', JSON.stringify({ format: 'mymechanics', version: 1, name: 'E2E pin', units: 'mm', up: 'z', parts: [{ id: 'pp', name: 'Pin', partNo: 'PIN-1', description: 'pin v1', material: 'steel-1020', features: [] }], assemblies: [], drawings: [], active: { kind: 'part', id: 'pp' } })); await m.actions.closeProject({ force: true }); await m.actions.newDocument('assembly'); m.actions.cancelEditing({ quiet: true }); p.state.keepOut = true; await p.checkInActive(); const pin = v.files.find((f) => f.name === 'E2E pin.mymech'); await p.action('sel', pin.id); await p.insertSelected(); const stub = m.project.parts.find((x) => x.vaultRef?.fileId === pin.id); const asm = m.project.assemblies.find((a) => !a.vaultRef); await p.checkInActive({ keepOut: true }); const stored = JSON.parse(await v.latest(p.linkedFile().id)); const sp = stored.parts.find((x) => x.vaultRef?.fileId === pin.id); return `${Boolean(stub)}|${stub?.description}|${asm?.components.length}|${Object.keys(sp ?? {}).sort().join(',')}|${v.file(p.linkedFile().id).refs.includes(pin.id)}|${Boolean(document.querySelector('.pdm-tree-refs'))}`; })()",
+    "expect": "^true\\|pin v1\\|1\\|id,name,vaultRef\\|true\\|true$"
+  },
+  {
+    "name": "pdm: a change to the part file marks the reference out of date; updating brings it in",
+    "eval": "(async () => { const m = window.__mymechanics; const p = m.pdm; const v = p.vault(); const pin = v.files.find((f) => f.name === 'E2E pin.mymech'); await v.checkOut(pin.id); const t = JSON.parse(await v.latest(pin.id)); t.parts[0].description = 'pin v2'; await v.checkIn(pin.id, JSON.stringify(t)); await p.action('refresh'); await new Promise((r) => setTimeout(r, 80)); const old = Boolean(document.querySelector('.pdm-tree-ref.old')) && v.linkStatus(m.project).some((x) => x.outdated); await p.updateActiveLinks(); const stub = m.project.parts.find((x) => x.vaultRef?.fileId === pin.id); return `${old}|${stub.description}|${stub.vaultRef.resolved.version}|${v.linkStatus(m.project).some((x) => x.outdated)}`; })()",
+    "expect": "^true\\|pin v2\\|2\\|false$",
+    "shot": "pdm-refs"
+  },
+  {
+    "name": "pdm: the reference policy can be fixed to a version",
+    "eval": "(async () => { const m = window.__mymechanics; const p = m.pdm; const pin = p.vault().files.find((f) => f.name === 'E2E pin.mymech'); const stub = m.project.parts.find((x) => x.vaultRef?.fileId === pin.id); await p.setPolicy(stub.id, 'v1'); const s2 = m.project.parts.find((x) => x.vaultRef?.fileId === pin.id); return `${s2.vaultRef.policy}|${s2.vaultRef.version}|${s2.description}`; })()",
+    "expect": "^version\\|1\\|pin v1$"
+  },
+  {
+    "name": "pdm: Save on a vault document offers check-in; keeping it checked out makes a new version",
+    "eval": "(async () => { const m = window.__mymechanics; const p = m.pdm; const f = p.linkedFile(); const before = f.version; const old = m.popups.open.bind(m.popups); let asked = null; m.popups.open = async (name, params) => { if (name === 'confirm') { asked = params.buttons.map((b) => b.id).join(','); m.popups.open = old; return { choice: 'keep' }; } return old(name, params); }; await m.commands.save.run(); const g = p.vault().file(f.id); return `${asked}|${g.version > before}|${g.checkout?.by}`; })()",
+    "expect": "^cancel,local,release,keep\\|true\\|e2e-admin$"
+  },
+  {
+    "name": "pdm: the explorer closes with its close button",
+    "eval": "(async () => { const host = document.querySelector('#pdm-explorer'); host.querySelector('[data-pdm=\"close\"]').click(); await new Promise((r) => setTimeout(r, 80)); return `${host.hidden}|${window.__mymechanics.pdm.state.open}`; })()",
+    "expect": "^true\\|false$"
+  }
+]

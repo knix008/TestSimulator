@@ -3,6 +3,7 @@ pub mod fonts;
 pub mod i18n;
 pub mod instance;
 pub mod printing;
+pub mod vault;
 pub mod window_state;
 
 use serde::Serialize;
@@ -18,7 +19,7 @@ const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreen
 /// by the main window: it can sit outside the main window and closes with it.
 const POPUP_KINDS: &[&str] = &[
     "settings", "about", "confirm", "error", "progress", "recent", "menu", "theme", "welcome", "color", "prompt",
-    "importmodel", "importplan", "snapshot", "render", "renderresult", "material", "print",
+    "importmodel", "importplan", "snapshot", "render", "renderresult", "material", "print", "massprops", "interference",
 ];
 
 #[derive(Default)]
@@ -791,6 +792,15 @@ pub fn run() {
             print_pages_to_pdf,
             quit_app,
             raise_test_panic,
+            vault::vault_info,
+            vault::vault_read,
+            vault::vault_write,
+            vault::vault_create_exclusive,
+            vault::vault_remove_lock,
+            vault::vault_rename,
+            vault::vault_list,
+            vault::vault_export,
+            vault::vault_zip,
         ])
         .run(tauri::generate_context!())
         .expect("error while running MyMechanics");

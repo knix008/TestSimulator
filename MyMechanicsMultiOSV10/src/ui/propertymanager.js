@@ -13,6 +13,9 @@ import { SHEET_MORE_PM } from './pm-sheet-more.js';
 import { MOLD_MORE_PM } from './pm-eval-more.js';
 import { STD_PM } from './pm-std.js';
 
+/** Tapped hole sizes (ISO 261 coarse): [size, d, pitch] — the tap drill is d − P. */
+export const TAP_SIZES = [['M3', 3, 0.5], ['M4', 4, 0.7], ['M5', 5, 0.8], ['M6', 6, 1], ['M8', 8, 1.25], ['M10', 10, 1.5], ['M12', 12, 1.75], ['M16', 16, 2], ['M20', 20, 2.5], ['M24', 24, 3]];
+
 /** Hole Wizard sizes (ISO 273 medium clearance, ISO 4762 counterbores, 90° countersinks): [size, d, cbD, cbDepth, csD]. */
 export const HOLE_SIZES = [
   ['M3', 3.4, 6.5, 3.3, 6.3], ['M4', 4.5, 8, 4.4, 8.4], ['M5', 5.5, 10, 5.4, 10.4], ['M6', 6.6, 11, 6.4, 12.4], ['M8', 9, 15, 8.6, 16.4],
@@ -116,8 +119,9 @@ function featurePm(api) {
     parts.push(group('featShell', t('pm.parameters'), `${field(api, 'thickness', f.thickness, { label: t('pm.thickness'), min: 0.001 })}${pickBox(api, 'faces', items, t('pm.facesToRemove'), 'featShell')}`));
   } else if (f.type === 'hole') {
     const pts = e.holeSketch?.points ?? [];
-    parts.push(group('featHole', t('pm.holeType'), `${seg('kind', [['simple', t('hole.simple'), 'featHole'], ['counterbore', t('hole.counterbore'), 'featHole'], ['countersink', t('hole.countersink'), 'featHole']], f.kind)}
-      ${select('size', [['', t('hole.custom')], ...HOLE_SIZES.map(([s]) => [s, `${s} — ${t('hole.clearance')}`])], f.size ?? '', t('hole.size'))}
+    const tapped = f.kind === 'tapped';
+    parts.push(group('featHole', t('pm.holeType'), `${seg('kind', [['simple', t('hole.simple'), 'featHole'], ['counterbore', t('hole.counterbore'), 'featHole'], ['countersink', t('hole.countersink'), 'featHole'], ['tapped', t('hole.tapped'), 'featThread']], f.kind)}
+      ${tapped ? `${select('threadSize', TAP_SIZES.map(([s, d, p]) => [s, `${s} × ${p} — ${t('hole.tapDrill')} Ø${Math.round((d - p) * 10) / 10}`]), f.threadSize ?? 'M8', t('hole.threadSize'))}${field(api, 'threadDepth', f.threadDepth, { label: t('hole.threadDepth'), min: 0.1 })}${select('threadMode', [['auto', t('thread.mode.auto')], ['cosmetic', t('thread.mode.cosmetic')], ['modelled', t('thread.mode.modelled')]], f.threadMode ?? 'auto', t('thread.display'))}<p class="pm-note">${escapeHtml(t('hole.tapNote'))}</p>` : select('size', [['', t('hole.custom')], ...HOLE_SIZES.map(([s]) => [s, `${s} — ${t('hole.clearance')}`])], f.size ?? '', t('hole.size'))}
       ${field(api, 'diameter', f.diameter, { label: t('hole.diameter'), glyph: 'dimDiameter', min: 0.1 })}
       ${f.kind === 'counterbore' ? `${field(api, 'cbDiameter', f.cbDiameter, { label: t('hole.cbDiameter'), glyph: 'dimDiameter', min: 0.1 })}${field(api, 'cbDepth', f.cbDepth, { label: t('hole.cbDepth'), min: 0.1 })}` : ''}
       ${f.kind === 'countersink' ? `${field(api, 'csDiameter', f.csDiameter, { label: t('hole.csDiameter'), glyph: 'dimDiameter', min: 0.1 })}${field(api, 'csAngle', f.csAngle, { label: t('hole.csAngle'), unit: 'angle', glyph: 'dimAngle', min: 30 })}` : ''}`));

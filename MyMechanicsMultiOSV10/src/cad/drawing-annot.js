@@ -9,6 +9,8 @@
 // Dimensions and centre marks are in drawing-dims.js; this file assembles everything for one sheet.
 import { SHEETS, annotationPrimitives, scaleLabel } from './drawing.js';
 import { viewFrames, dimPrimitives, centerPrimitives, dimLabel } from './drawing-dims.js';
+import { primsBox } from './drawing-snap.js';
+import { textWidth } from './text-metrics.js';
 
 /** The annotation kinds drawn here (the base drawing code draws nothing for them). */
 export const DRW_KINDS = new Set(['drwDim', 'drwCenter', 'drwWeld', 'drwTable']);
@@ -23,7 +25,7 @@ export const DEFAULT_LAYER_COLOR = '#000000';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const n2 = (v) => String(Math.round(v * 1000) / 1000);
-const textW = (s, size) => String(s ?? '').length * size * 0.6;
+const textW = (s, size) => textWidth(s, size);
 const add2 = (a, b, k = 1) => [a[0] + b[0] * k, a[1] + b[1] * k];
 const unit2 = (a) => { const l = Math.hypot(a[0], a[1]); return l > 1e-12 ? [a[0] / l, a[1] / l] : [1, 0]; };
 
@@ -61,7 +63,7 @@ export function aciOf(hex) {
 }
 
 /** A DXF-safe layer name. */
-const RESERVED_LAYERS = new Set(['0', 'VISIBLE', 'HIDDEN', 'BORDER', 'HATCH', 'NOTES', 'TITLE', 'FORMAT', 'DIMENSIONS', 'CENTER', 'WELDS', 'TABLES']);
+const RESERVED_LAYERS = new Set(['0', 'VISIBLE', 'HIDDEN', 'BORDER', 'ZONES', 'HATCH', 'NOTES', 'TITLE', 'FORMAT', 'DIMENSIONS', 'CENTER', 'WELDS', 'TABLES']);
 /** A DXF-safe layer name of a user layer (never one of the sheet's own layers). */
 export const dxfLayerName = (name) => { const s = String(name || 'LAYER').toUpperCase().replace(/[^A-Z0-9_-]/g, '_').slice(0, 29) || 'LAYER'; return RESERVED_LAYERS.has(s) ? `L_${s}` : s; };
 
@@ -270,7 +272,7 @@ export function drwItems(sd, projections) {
 const OVERLAY_CSS = `<style>
     .dx-line{fill:none;stroke-width:.25;stroke-linejoin:round;stroke-linecap:round}.dx-thin{fill:none;stroke-width:.18;stroke-linecap:round}
     .dx-center{fill:none;stroke-width:.18;stroke-dasharray:6 1.2 1.2 1.2}.dx-dash{fill:none;stroke-width:.25;stroke-dasharray:1.6 1}
-    .dx-text{font-family:sans-serif}.dx-bold{font-weight:bold}.dx-format{font-family:sans-serif;fill:#000}
+    .dx-text{font-family:Roboto,sans-serif}.dx-bold{font-weight:bold}.dx-format{font-family:Roboto,sans-serif;fill:#000}
     .annotation.selected .dx-line,.annotation.selected .dx-thin,.annotation.selected .dx-center,.annotation.selected .dx-dash{stroke:#1e88e5}
     .annotation.selected .dx-fill,.annotation.selected .dx-text{fill:#1e88e5}
   </style>`;
@@ -397,4 +399,33 @@ export function drwDxf(dxf, sd, projections, { info = {}, labels = {}, layered =
 /** One line per annotation of ours (kind, layer, text): the annotations list and the tests. */
 export function drwSummary(sd) {
   return (sd.annotations ?? []).filter((a) => DRW_KINDS.has(a?.kind)).map((a) => ({ id: a.id, kind: a.kind, layer: a.layer ?? null, text: a.kind === 'drwDim' ? dimLabel(a) : a.kind === 'drwTable' ? (a.cells ?? []).flat().filter(Boolean).join(' ') : a.kind === 'drwWeld' ? `${a.symbol} ${a.size ?? ''}` : a.ctype }));
+}
+
+/**
+ * Where every annotation of the sheet drawing is, for dragging and snapping: [{ id, kind, anchor ([x, y] sheet mm:
+ * what moves with the drag — a note's (x, y), a smart dimension's text place; null for centre marks, which follow
+ * their geometry), box (sheet mm; the text of notes and dimensions, the whole symbol otherwise) }].
+ */
+export function annotationBoxes(sd, projections) {
+  const { scale, frames } = viewFrames(sd, projections ?? new Map());
+  const iso = (sd.format?.standard ?? 'ISO') !== 'ANSI';
+  const out = [];
+  for (const a of sd.annotations ?? []) {
+    if (!a?.id) continue;
+    let prims = []; let anchor = [Number(a.x) || 0, Number(a.y) || 0];
+    try {
+      if (a.kind === 'drwDim' || a.kind === 'drwCenter') {
+        const fr = frames.get(a.view);
+        if (!fr) continue;
+        prims = a.kind === 'drwDim' ? dimPrimitives(a, fr, { size: Number(a.size) > 0 ? Number(a.size) : 3.2 }) : centerPrimitives(a, fr);
+        anchor = a.kind === 'drwDim' ? [fr.place.cx + (Number(a.x) || 0), fr.place.cy + (Number(a.y) || 0)] : null;
+      } else if (a.kind === 'drwWeld') prims = weldPrimitives(a, { iso });
+      else if (a.kind === 'drwTable') prims = tablePrimitives(a);
+      else prims = annotationPrimitives(a, { scale });
+    } catch { prims = []; }
+    const textOnly = a.kind === 'note' || a.kind === 'drwDim' || a.kind === 'dimension';
+    const box = (textOnly ? primsBox(prims, 'text') : null) ?? primsBox(prims);
+    if (box) out.push({ id: a.id, kind: a.kind, anchor, box });
+  }
+  return out;
 }

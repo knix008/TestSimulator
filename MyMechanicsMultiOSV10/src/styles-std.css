@@ -27,6 +27,20 @@
 .route-colour.active { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
 .route-swatch { display: inline-block; width: 10px; height: 10px; margin-right: 4px; border-radius: 50%; background: var(--swatch); vertical-align: middle; }
 .route-bom td:nth-child(2), .route-bom td:nth-child(3) { text-align: center; }
+/* Route branches and harness tables. */
+.route-branch { display: flex; flex-direction: column; gap: 4px; padding: 6px 0; border-bottom: 1px dashed var(--border); }
+.route-branch .pm-row b { display: inline-flex; align-items: center; gap: 4px; }
+.route-branch-size { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.route-branch-size > input { width: 70px; }
+.harness-row { display: grid; gap: 3px; align-items: center; margin-bottom: 3px; }
+.harness-row.conn { grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) 44px 24px; }
+.harness-row.head { font-size: 0.8em; color: var(--muted); }
+.harness-wires { display: flex; flex-direction: column; gap: 4px; max-height: 320px; overflow: auto; }
+.harness-row.wire { grid-template-columns: repeat(5, minmax(0, 1fr)); padding-left: 6px; border-left: 4px solid var(--swatch); }
+.harness-row.wire > select, .harness-row.wire > input { min-width: 0; width: 100%; }
+.harness-row.wire > button { justify-self: end; }
+.harness-flat { border: 1px solid var(--border); border-radius: 4px; background: #fff; overflow: hidden; }
+.harness-flat svg { display: block; width: 100%; height: auto; }
 
 /* The render view: over the graphics area, the picture fitted in it. */
 .render-view { position: absolute; inset: 0; z-index: 6; display: grid; grid-template-rows: 1fr auto; background: color-mix(in srgb, var(--bg) 88%, #000); }
@@ -37,3 +51,19 @@
 .render-status { display: flex; align-items: center; gap: 8px; padding: 5px 12px; border-top: 1px solid var(--border); background: var(--panel); font-size: 0.86em; font-variant-numeric: tabular-nums; }
 .render-bar { flex: 1; max-width: 260px; height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
 .render-bar b { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 50%, #3ad29f)); }
+.render-bar.done b { background: #3ad29f; }
+.render-pct { min-width: 3.2em; color: var(--muted); }
+/* Path tracer: the region on the picture, the region being dragged, area lights and the appearance list. */
+.render-frame canvas { cursor: crosshair; }
+.render-box { position: absolute; pointer-events: none; border: 1.5px dashed #ffcc33; box-shadow: 0 0 0 1px rgb(0 0 0 / 0.45); border-radius: 1px; }
+.render-drag-box { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.render-light { padding: 4px 6px; margin: 4px 0; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); }
+.render-light-head { display: flex; align-items: center; gap: 6px; }
+.render-light-head .pm-check { flex: 1; }
+.render-light-head input[type="color"] { width: 28px; height: 22px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: none; }
+.render-bodies { display: grid; gap: 3px; max-height: 190px; overflow: auto; margin: 4px 0 6px; }
+.render-body { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; padding: 4px 7px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: inherit; font: inherit; font-size: 0.86em; text-align: left; cursor: pointer; }
+.render-body span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.render-body small { color: var(--muted); }
+.render-body:hover { border-color: var(--accent); background: var(--hover); }
+.render-body.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }

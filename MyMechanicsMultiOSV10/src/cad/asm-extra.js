@@ -2,7 +2,8 @@
 //   assembly features — cut-extrudes and holes made at assembly level through several components: the tool is
 //     a solid in assembly space (a rectangle or circle on a standard plane, extruded through or to a depth) and
 //     is cut from each chosen component's body in that component's own frame (the parts themselves stay as
-//     they are — the cut belongs to the assembly);
+//     they are — the cut belongs to the assembly); a sub-assembly's own cuts move with it, cuts reach the parts
+//     inside sub-assemblies, and mass properties, interference, drawings and mates all use the cut bodies;
 //   belts and chains — between two pulleys / sprockets (cylindrical faces of two components with parallel axes):
 //     the open-belt length 2C·cos β + r1(π + 2β) + r2(π − 2β), the path (two tangents, two arcs), a swept belt body
 //     as a triangle mesh, and for chains the number of links of a pitch (rounded up to even, the length follows);
@@ -12,7 +13,7 @@
 //   library features — a feature with its sketch saved as a library item and inserted on a picked planar face
 //     (the sketch is put on that face; ids are new).
 import { rep } from './kernel.js';
-import { quatToAxisAngle, quatConjugate, rotate } from './assembly.js';
+import { quatToAxisAngle, quatConjugate, rotate, composePlacement, flattenAssembly, placeShape } from './assembly.js';
 import { newSketchId, pointsOf, byId, ORIGIN } from './sketch.js';
 import { STD_PLANES, frame as makeFrame } from './features.js';
 
@@ -99,6 +100,91 @@ export function cutComponent(body, placement, features, compId, size = 1000) {
     try { shape = shape.cut(tool); } catch { /* the tool misses this body */ }
   }
   return shape;
+}
+
+const IDENT = { position: [0, 0, 0], rotation: [0, 0, 0, 1] };
+const composeP = (a, b) => composePlacement({ position: a.position, rotation: a.rotation }, { position: b.position, rotation: b.rotation });
+
+/**
+ * The assembly features that act on one part of a component: those of the assembly acting on the component
+ * itself, then — down a sub-assembly — those of every sub-assembly on the way acting on the component the path
+ * goes through (they belong to that sub-assembly and move with it). Returns [{ f, frame }], `frame` being the
+ * placement of the feature's own assembly in the top assembly's space. `compPlacement`: the component's
+ * placement (default its own).
+ */
+export function leafCutFeatures(project, asm, comp, leafPath = [], compPlacement = null) {
+  const out = [];
+  if (!asm || !comp || comp.suppressed) return out;
+  const take = (a, id, frame) => { for (const f of a?.asmFeatures ?? []) if (featureActsOn(f, id)) out.push({ f, frame }); };
+  take(asm, comp.id, IDENT);
+  let cur = comp.sub ? project?.assemblies?.find((x) => x.id === comp.sub) : null;
+  let pl = compPlacement ?? { position: comp.position ?? [0, 0, 0], rotation: comp.rotation ?? [0, 0, 0, 1] };
+  for (const id of leafPath) {
+    if (!cur) break;
+    take(cur, id, pl);
+    const node = cur.components.find((c) => c.id === id);
+    if (!node) break;
+    pl = composeP(pl, node);
+    cur = node.sub ? project?.assemblies?.find((x) => x.id === node.sub) : null;
+  }
+  return out;
+}
+
+/**
+ * A part's body with assembly cuts taken out, in the part's own frame. `leafPlacement`: the part's placement in
+ * the top assembly; `cuts`: from leafCutFeatures. The body is not consumed; with no cuts the body is returned.
+ */
+export function cutLeafBody(body, leafPlacement, cuts, size = 1000) {
+  if (!cuts?.length || !body) return body;
+  let shape = body.clone();
+  const inv = inversePlacement(leafPlacement);
+  for (const { f, frame } of cuts) {
+    let tool = asmFeatureTool(f, size);
+    if (frame && frame !== IDENT) tool = placed(tool, frame);
+    tool = placed(tool, inv);
+    try { shape = shape.cut(tool); } catch { /* the tool misses this body */ }
+  }
+  return shape;
+}
+
+/**
+ * Every part of an assembly placed in its space with the assembly cuts taken out (what mass properties,
+ * interference and drawings measure): [{ comp, path, part, placement, cut (bool), shape }]. `bodyOf(partId)` →
+ * the part's solid (not consumed). Hidden / suppressed components are skipped.
+ */
+export function assemblyCutShapes(project, asm, bodyOf, { size = 1000, includeHidden = false } = {}) {
+  const out = [];
+  for (const comp of asm?.components ?? []) {
+    if (comp.suppressed || (comp.hidden && !includeHidden)) continue;
+    const leaves = comp.sub ? flattenAssembly(project, project.assemblies.find((a) => a.id === comp.sub) ?? { components: [] }) : [{ path: [], part: comp.part, placement: IDENT }];
+    for (const leaf of leaves) {
+      const body = bodyOf(leaf.part);
+      if (!body) continue;
+      const placement = composeP(comp, leaf.placement);
+      const cuts = leafCutFeatures(project, asm, comp, leaf.path);
+      const local = cutLeafBody(body, placement, cuts, size);
+      out.push({ comp, path: leaf.path, part: leaf.part, placement, cut: cuts.length > 0, shape: placeShape(local, placement) });
+    }
+  }
+  return out;
+}
+
+/**
+ * Mass properties of an assembly with its cuts: { mass (kg), volume (mm³), centerOfMass, parts }.
+ * `densityOf(partId)` kg/m³.
+ */
+export function assemblyCutMass(project, asm, bodyOf, densityOf, opts = {}) {
+  const R = rep();
+  let mass = 0; let volume = 0; const com = [0, 0, 0];
+  const list = assemblyCutShapes(project, asm, bodyOf, opts);
+  for (const x of list) {
+    const vp = R.measureShapeVolumeProperties(x.shape);
+    const m = vp.volume * 1e-9 * densityOf(x.part);
+    mass += m; volume += vp.volume;
+    vp.centerOfMass.forEach((v, i) => { com[i] += v * m; });
+  }
+  if (mass > 0) for (let i = 0; i < 3; i++) com[i] /= mass;
+  return { mass, volume, centerOfMass: com, parts: list.length };
 }
 
 // ───────────────────────── belts and chains

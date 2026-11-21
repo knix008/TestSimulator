@@ -1,8 +1,10 @@
 // regenerate() builders of the standard-part and route features (std-types.js). Both add a body of their own
 // to the part (a compound with what was there), or join it to the body when `merge` is set.
 import { rep } from './kernel.js';
-import { stdShape, stdProblem, stdThread, designation } from './stdparts.js';
+import { stdShape, stdProblem, stdThreads, designation, STD_ITEMS } from './stdparts.js';
+import { wantsModelled } from './threads.js';
 import { routeSolid, routeBom, routePoints } from './routing.js';
+import { harnessSolid, harnessBom } from './harness.js';
 import { codeError } from './features.js';
 
 const AXIS_TURN = { z: null, '-z': [[1, 0, 0], 180], x: [[0, 1, 0], 90], '-x': [[0, 1, 0], -90], y: [[1, 0, 0], -90], '-y': [[1, 0, 0], 90] };
@@ -43,18 +45,24 @@ export function buildStdFeature(f, ctx) {
   if (f.type === 'stdPart') {
     const problem = stdProblem(f);
     if (problem) throw codeError(problem, { kind: f.kind });
-    const shape = placeStd(stdShape(f), f);
-    const th = stdThread(f);
-    const thread = th ? { ...th, centre: placeVec(th.centre, f, false), dir: placeVec(th.dir, f, true) } : null;
-    return { body: addBody(ctx, shape, f.merge), std: { designation: designation(f) }, ...(thread ? { thread } : {}) };
+    // Threads: modelled when the part says so (or follows the global option, 'auto'), else cosmetic.
+    const modelled = Boolean(STD_ITEMS[f.kind]?.threads) && wantsModelled(f.threads ?? 'auto');
+    let raw;
+    try { raw = stdShape(f, { modelled }); } catch (error) { throw codeError(error.code ?? (modelled ? 'thread-failed' : 'kernel'), { kind: f.kind }); }
+    const shape = placeStd(raw, f);
+    const threads = stdThreads(f, { modelled }).map((th) => ({ ...th, centre: placeVec(th.centre, f, false), dir: placeVec(th.dir, f, true) }));
+    return { body: addBody(ctx, shape, f.merge), std: { designation: designation(f), modelled }, ...(threads.length ? { thread: threads[0], threads } : {}) };
   }
   if (f.type === 'route') {
     const pts = routePoints(f, ctx.part.features);
     if (pts.length < 2) throw codeError('no-path');
-    let r;
-    try { r = routeSolid(f, ctx.part.features, stdShape); } catch (error) { throw codeError(error.code ?? 'route-failed', error.params ?? {}); }
-    const bom = routeBom(f, ctx.part.features, { measured: r.measured });
-    return { body: addBody(ctx, r.shape, false), route: { length: r.length, bom } };
+    let r; let bom;
+    try {
+      if (f.kind === 'harness') { r = harnessSolid(f, ctx.part.features); bom = harnessBom(r.model); }
+      else { r = routeSolid(f, ctx.part.features, stdShape); bom = routeBom(f, ctx.part.features, { measured: r.measured }); }
+    } catch (error) { throw codeError(error.code ?? 'route-failed', error.params ?? {}); }
+    // The colours of cables and harness pieces, by face (the part shows them; app.js bodySpec).
+    return { body: addBody(ctx, r.shape, false), route: { length: r.length, bom, colors: r.colors ?? [] } };
   }
   throw codeError('unknown-feature', { type: f.type });
 }

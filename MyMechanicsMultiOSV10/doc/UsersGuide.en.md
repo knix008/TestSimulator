@@ -203,7 +203,7 @@ Double-click a component to open its part tab. When a part changes, the assembly
 
 ## 10. Drawings
 
-From a part or an assembly, **Drawing › Make drawing** (or Standard 3 View) puts the front, top and right views and an isometric view on an A3 sheet (third-angle projection; first angle in Settings). The scale is chosen from the standard scales to fit the sheet. Hidden lines (dashed), overall dimensions and a title block (title, part number, material, mass, scale, drawn, checked, date, revision) are included. Drag views to move them; in the task pane set the sheet size (A4–A0, Letter, Tabloid), scale and projection, and add or remove views. Export **DXF** (layers VISIBLE, HIDDEN, BORDER, HATCH, NOTES) or **SVG**, or print (Ctrl+P).
+From a part or an assembly, **Drawing › Make drawing** (or Standard 3 View) puts the front, top and right views and an isometric view on an A3 sheet (third-angle projection; first angle in Settings). The scale is chosen from the standard scales to fit the sheet. Hidden lines (dashed), overall dimensions and a title block (title, part number, material, mass, scale, drawn, checked, date, revision) are included. Drag views to move them; in the task pane set the sheet size (A4–A0, Letter, Tabloid), scale and projection, and add or remove views. Export **DXF** (layers VISIBLE, HIDDEN, BORDER, HATCH, NOTES, DIMENSIONS, BREAKS, TABLES — everything the sheet shows, hole and revision tables and break lines included) or **SVG**, or print (Ctrl+P).
 
 ![Make drawing: front, top, right and isometric views, and the sheet settings in the task pane](images/en/tut-drawing-views.png)
 
@@ -267,3 +267,56 @@ Settings (Ctrl+,): General (language …), Start page, Theme (dark, light and yo
 
 ![Settings › Shortcuts tab: every shortcut](images/en/shortcuts.png)
 
+
+## 15. Vault (product data management)
+
+A vault is a file store several people share. Only the person who checked a file out can change it, every check-in keeps a version, and files are released through approval. **File › Vault Explorer** (or the Evaluate tab) opens the vault explorer on the right of the work area; it works with no document open.
+
+![The vault explorer: the open document's references, the files, the lifecycle of the selected file · vault references under the tree on the left](images/en/vault.png)
+
+### Making a vault and logging in
+
+- Desktop: **Open vault folder…** opens an existing vault, **New vault in folder…** makes one. A local folder or one on a shared drive both work. The folder gets `vault.json` (the index), `files/` (latest copies), `history/` (every version) and `.locks/` (lock files).
+- Web: the vault is kept in the browser (IndexedDB). Type a name and press **Create**.
+- Whoever makes the vault is its first admin and sets a user name and a password (4 characters or more). Passwords are stored only as PBKDF2-SHA-256 hashes.
+- You log in each time you open a vault; check-outs, approvals and change orders carry the logged-in name. Log out with the button in the header or on the Settings tab.
+- Admins add users (name, password, role), change roles, reset passwords and disable users on the **Settings** tab. Users can change their own password.
+
+| Role | Can |
+|---|---|
+| Viewer | look at and open files |
+| Editor | add files, check out / in, submit for approval, raise change requests |
+| Approver | what editors do + approve or reject files and change orders |
+| Admin | everything + break locks, set users, revision scheme and data cards |
+
+### Check-in and check-out
+
+1. With a document open, **Add to vault** puts it in as version 1, Work in progress, the first revision (A or 01). The document records its vault file, so a local copy opened later is still known as that vault document.
+2. A vault document is read-only until you check it out. **Check out and open** (or **Check Out from Vault**) creates a lock file; nobody else can check the file out.
+3. **Check In to Vault** makes a new version (no change, no new version). With **Keep checked out** you go on working.
+4. **Ctrl+S** on a vault document asks: check in (keep checked out / release) or **Save local copy**. A document not checked out to you can only be saved as a local copy.
+5. **Undo check-out** releases the lock without checking in. An admin can break someone else's lock.
+
+### Versions, revisions and lifecycle
+
+- The version goes up with every check-in (1, 2, 3 …); the revision (A, B, C … or 01, 02 …) only when a released file is revised. The revision scheme can change on the Settings tab until something is released.
+- Work in progress → Pending approval → Released → Obsolete. **Submit for approval** needs the required data card fields (part number, description); **Approve** is done by an approver other than the submitter, once every file the file uses is released. Released files cannot be checked out; to **Revise** one, an approved change order with that file is needed.
+- **Changes** tab: raise a change request (ECR); once approved, **Make change order** turns it into a change order (ECO). An order is submitted and needs the set number of approvals from other approvers. It closes when all its files are released again at a new revision.
+
+### References: using parts and assemblies of other files
+
+- Open an assembly, pick a file in the explorer and press **Insert from Vault**: its part (or sub-assembly) comes in as a **reference**. The vault stores only the reference; opening the document reads the referenced file's content. A sub-assembly brings its parts along, but Where used / Contains list them only through that sub-assembly.
+- Each reference follows the **Latest version**, the **Released version** or a **Fixed** version (Open document › vault references list).
+- When a referenced file (or a file it uses) changes, the **vault references** list under the FeatureManager tree and the explorer show ⚠. **Update References** brings in the new content (undoable).
+- A document that came in by reference cannot be changed here: check out its own file to change it.
+
+### Managing files
+
+- The **Where used** and **Contains** tabs show the files that use a file and the files it uses, as trees.
+- **Rename** also updates the reference names in the files that use it, as new versions (refused while one of them is checked out).
+- **Copy tree** copies a file and the files it uses as new files that point at each other.
+- **Pack and Go** collects a file and what it uses (optionally the drawings too) into a folder or a ZIP. References point at the new names, every file is filled in so it opens without the vault, and a `packandgo.json` list goes with them. Existing files are never overwritten.
+- The **History** tab compares two versions, opens an old version read-only, or rolls back to it (checked in as a new version).
+- The **BOM** tab shows an indented BOM and a parts-only BOM (total quantities), with part numbers, revisions and states from the vault files.
+- **Search** finds text in names, part numbers, descriptions, materials and properties; the filter button searches by part number, description, material, state and kind.
+- **Data cards**: part number, description, material, project, vendor, cost, finish, due date, critical part (drawings also sheet size and checked by). Admins add fields on the Settings tab.

@@ -3,7 +3,7 @@
 // holeOfFace() reads the kernel's faces; fastenerPlan() is plain maths. Coordinates are the part's own.
 import { isCylinder, normalize } from './refs.js';
 import { axisOfFace } from './assembly.js';
-import { fastenerSizeForHole, boltLengthFor, FLAT_WASHER, HEX_NUT, METRIC } from './stdparts.js';
+import { fastenerSizeForHole, boltLengthFor, FLAT_WASHER, SPRING_WASHER, METRIC, STD_ITEMS, nutHeight, COUNTERSUNK } from './stdparts.js';
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -71,28 +71,105 @@ export function holeOfFace(face, faces) {
   return { diameter: 2 * radius, radius, axis: { point: axis.point, dir }, ends, through, blind: !through && ends.some((e) => e.open), depth };
 }
 
+/** Bolt / screw kinds a smart fastener can use, and nut kinds. */
+export const FASTENER_KINDS = ['hexBolt', 'socketCap', 'countersunk', 'buttonHead'];
+export const NUT_KINDS = ['hexNut', 'hexNut2', 'thinNut', 'nylonNut'];
+
 /**
- * The fastener stack for a hole: { size, fit, bolt: { kind, size, length }, washer?, nut?, entry, exit,
- * grip } or { error }. `entry` (index of the end the bolt goes in) defaults to the open end whose normal
- * points most along `up` (world Z by default, mapped by the caller) — `prefer` forces one.
+ * The fastener stack for a hole: { size, fit, bolt: { kind, size, length }, washer?, springWasher?, nutWasher?,
+ * nut?, entry, exit, grip, stack } or { error }. `entry` (index of the end the bolt goes in) defaults to the open
+ * end whose normal points most along `up` (world Z by default, mapped by the caller) — `prefer` forces one.
+ * `grip` / `through` / `blindEnd` override the hole's own (a series of holes through stacked parts); `size` /
+ * `length` force the size and length (changed after inserting). `stack` lists the parts with the offset of
+ * their bearing face along the entry normal (0 = the entry face, negative = into the material; the nut side
+ * starts at −grip): [{ role, kind, size, at, flip }] — `flip`: the part faces back toward the entry.
  */
-export function fastenerPlan(hole, { kind = 'hexBolt', washer = true, nut = true, prefer = null, up = [0, 0, 1] } = {}) {
+export function fastenerPlan(hole, { kind = 'hexBolt', washer = true, nut = true, nutKind = 'hexNut', nutWasher = false, springWasher = false, prefer = null, up = [0, 0, 1], grip = null, through = null, size: forceSize = null, length: forceLength = null } = {}) {
   if (!hole) return { error: 'not-hole' };
   const open = hole.ends.map((e, i) => (e.open ? i : -1)).filter((i) => i >= 0);
   if (!open.length) return { error: 'no-entry' };
   const entry = prefer != null && open.includes(prefer) ? prefer : open.reduce((best, i) => (dot(hole.ends[i].normal, up) > dot(hole.ends[best].normal, up) + 1e-9 ? i : best), open[0]);
   const exit = 1 - entry;
-  const fit = fastenerSizeForHole(hole.diameter, { blind: !hole.through });
-  if (!fit) return { error: 'too-small' };
+  const isThrough = through ?? hole.through;
+  const fit = forceSize ? { size: forceSize, fit: 'forced' } : fastenerSizeForHole(hole.diameter, { blind: !isThrough });
+  if (!fit || !METRIC[fit.size]) return { error: 'too-small' };
   const { size } = fit;
-  const w = washer ? FLAT_WASHER[size].h : 0;
-  const withNut = Boolean(nut && hole.through);
-  const length = boltLengthFor(size, hole.depth, { washer: w, nut: withNut ? HEX_NUT[size].m : 0, blind: !hole.through });
+  const boltKind = STD_ITEMS[kind]?.screw ? kind : 'hexBolt';
+  const csk = boltKind === 'countersunk';
+  if (csk && !COUNTERSUNK[size]) return { error: 'too-large' };
+  if (!STD_ITEMS[boltKind].sizes.includes(size)) return { error: 'too-large' };
+  const g = grip ?? hole.depth;
+  const withWasher = Boolean(washer && !csk);
+  const withSpring = Boolean(springWasher && !csk);
+  const withNut = Boolean(nut && isThrough);
+  const nk = NUT_KINDS.includes(nutKind) && STD_ITEMS[nutKind].sizes.includes(size) ? nutKind : 'hexNut';
+  const hw = withWasher ? FLAT_WASHER[size].h : 0;
+  const hs = withSpring ? SPRING_WASHER[size].s : 0;
+  const hw2 = withNut && nutWasher ? FLAT_WASHER[size].h : 0;
+  const hn = withNut ? nutHeight(nk, size) : 0;
+  const auto = boltLengthFor(size, g + hw2, { washer: hw + hs, nut: hn, blind: !isThrough, kind: boltKind });
+  const lengths = STD_ITEMS[boltKind].lengths(size);
+  const length = forceLength && lengths.includes(Number(forceLength)) ? Number(forceLength) : auto;
+  const stack = [];
+  if (withWasher) stack.push({ role: 'washer', kind: 'flatWasher', size, at: 0, flip: false });
+  if (withSpring) stack.push({ role: 'springWasher', kind: 'springWasher', size, at: hw, flip: false });
+  stack.push({ role: 'bolt', kind: boltKind, size, length, at: hw + hs, flip: false });
+  if (withNut) {
+    if (hw2) stack.push({ role: 'nutWasher', kind: 'flatWasher', size, at: -g, flip: true });
+    stack.push({ role: 'nut', kind: nk, size, at: -g - hw2, flip: true });
+  }
   return {
-    size, fit: fit.fit, grip: hole.depth, entry, exit, through: hole.through,
-    bolt: { kind, size, length },
-    washer: washer ? { kind: 'flatWasher', size } : null,
-    nut: withNut ? { kind: 'hexNut', size } : null,
-    pitch: METRIC[size].p,
+    size, fit: fit.fit, grip: g, entry, exit, through: isThrough,
+    bolt: { kind: boltKind, size, length },
+    washer: withWasher ? { kind: 'flatWasher', size } : null,
+    springWasher: withSpring ? { kind: 'springWasher', size } : null,
+    nutWasher: hw2 ? { kind: 'flatWasher', size } : null,
+    nut: withNut ? { kind: nk, size } : null,
+    pitch: METRIC[size].p, stack, lengths,
+    // How far the bolt's end is past the nut (through) or short of the hole's bottom (blind).
+    protrusion: isThrough ? length - (hw + hs + g + hw2 + hn) : hw + hs + g - length,
   };
+}
+
+/**
+ * The holes of a pattern: the holes among `holes` (holeOfFace results) with the same diameter whose axis is
+ * parallel to `hole`'s and that open on the same plane as its entry end (a linear / circular pattern, or the
+ * points of one Hole Wizard feature). The picked hole comes first. Returns [{ hole, entry }].
+ */
+export function holePattern(hole, entry, holes, { tol = 1e-4 } = {}) {
+  const e = hole.ends[entry];
+  if (!e?.normal) return [{ hole, entry }];
+  const out = [{ hole, entry }];
+  for (const h of holes) {
+    if (h === hole || Math.abs(h.diameter - hole.diameter) > 1e-3) continue;
+    if (Math.abs(Math.abs(dot(h.axis.dir, hole.axis.dir)) - 1) > 1e-6) continue;
+    const k = h.ends.findIndex((x) => x.open && x.normal && dot(x.normal, e.normal) > 1 - 1e-6 && Math.abs(dot(sub(x.centre, e.centre), e.normal)) < tol);
+    if (k < 0) continue;
+    // The same hole found again (one cylinder split in several faces).
+    if (out.some((o) => len(sub(o.hole.ends[o.entry].centre, h.ends[k].centre)) < 1e-4)) continue;
+    out.push({ hole: h, entry: k });
+  }
+  return out;
+}
+
+/**
+ * A series of holes through stacked parts: `segments` are the holes on one axis as intervals along it, t
+ * measured from the picked hole's entry face into the material ([{ t0, t1, through, blind, diameter, … }]).
+ * From t = 0 the chain follows segments that start where the last one ended (within `gap`), as long as the last
+ * was open at its far end. Returns { chain, grip, through, last } — `through` when the last hole is open at its
+ * far end (a nut can go there), else the bolt screws into the last (blind, tapped) hole.
+ */
+export function holeSeries(segments, { gap = 0.05 } = {}) {
+  const sorted = [...segments].sort((a, b) => a.t0 - b.t0);
+  const first = sorted.find((s) => Math.abs(s.t0) <= gap);
+  if (!first) return { chain: [], grip: 0, through: false, last: null };
+  const chain = [first];
+  let end = first.t1;
+  while (chain.at(-1).through) {
+    const next = sorted.find((s) => !chain.includes(s) && Math.abs(s.t0 - end) <= gap);
+    if (!next) break;
+    chain.push(next); end = next.t1;
+  }
+  const last = chain.at(-1);
+  return { chain, grip: end, through: Boolean(last.through), last };
 }

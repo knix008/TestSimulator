@@ -7,6 +7,7 @@
 // Face results are by face index (body.faces order) with the face's hashCode, so the app can colour its mesh.
 import { rep } from './kernel.js';
 import { materialOf } from './materials.js';
+import { undercutBrep } from './mold-brep.js';
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -148,7 +149,7 @@ export function geometryCheck(body, { minEdge = 0.01, sliverRatio = 0.02, minAre
   return out;
 }
 
-// ───────────────────────── undercut analysis (on the display mesh)
+// ───────────────────────── undercut analysis (on the B-rep: mold-brep.js; a display mesh as the quick preview)
 
 function basisOf(dir) {
   const d = unit(dir);
@@ -158,13 +159,16 @@ function basisOf(dir) {
 }
 
 /**
- * Which faces a two-part mould pulled apart along `dir` can release. Every triangle centre is tested: facing the
+ * Which faces a two-part mould pulled apart along `dir` can release. Given the body (a solid) the analysis runs on
+ * the B-rep (mold-brep.js undercutBrep: faces split at their draft-zero curve, exact shadows, kernel rays; the
+ * result also has per-face area fractions). Given a display mesh, every triangle centre is tested: facing the
  * pull (+dir) it must see out along +dir, facing away along −dir; a wall parallel to the pull either way. Faces are
  * 'cavity' (released by the +dir half), 'core' (by the −dir half), 'straight' (parallel walls: need draft) or
  * 'undercut' (blocked both ways — the mould needs a side action). mesh = body.mesh() (faceGroups give the faces).
  * Returns { faces: Map faceId → class, counts: { cavity, core, straight, undercut }, undercut (count) }.
  */
 export function undercutAnalysis(mesh, dir, { angle = 0.5 } = {}) {
+  if (mesh?.wrapped && typeof mesh.faces !== 'undefined') return undercutBrep(mesh, dir, { angle });
   const V = mesh.vertices; const T = mesh.triangles;
   const { d, u, v } = basisOf(dir);
   const nT = T.length / 3;
@@ -313,6 +317,13 @@ export function compareParts(a, b, { featuresA = [], featuresB = [], tol = null 
 }
 
 // ───────────────────────── costing and sustainability
+// The Costing tool uses the process-based engine of costing.js (machining by features, sheet metal, casting,
+// moulding, per-operation breakdown, report). costEstimate() / sustainabilityReport() below are the quick block
+// estimate (stock box + removal rate) that the engine's machining rows refine; kept for callers without a B-rep.
+export {
+  partCost, partCO2, costSettings, co2Settings, autoProcess, recogniseHoles, turnedAxis, sheetBlank, projectedArea, costReportCsv, costReportHtml,
+  PROCESSES, COST_TABLE_DEFAULTS, CO2_TABLE_DEFAULTS, MATERIAL_GROUPS,
+} from './costing.js';
 
 /** Starting values of the cost estimate (editable; prices per kg in the user's currency, rates per hour). */
 export const COST_DEFAULTS = {

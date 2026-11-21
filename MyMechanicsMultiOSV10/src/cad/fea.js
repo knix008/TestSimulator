@@ -1,5 +1,11 @@
-// Voxel finite elements (linear static, thermal and modal studies), without the kernel:
-// linear static stress (analyse), steady-state heat conduction (thermal) and natural frequencies (modal).
+// Linear static stress (analyse), heat conduction (thermal) and natural frequencies (modal) of a part, without the kernel.
+//
+// By default these run on the tetrahedral finite-element engine (cad/fem): a tet mesh of the part (quadratic T10
+// elements by default, local refinement on faces, curved boundary elements), sparse IC(0)-CG or envelope LDLᵀ
+// solvers, consistent loads, stress recovery at the nodes, probes. Options: resolution (elements along the longest
+// side) or elementSize (mm), order (1 | 2), refine [{ faceIds, size }].
+//
+// mesher: 'voxel' keeps the older voxel model described below (analyseVoxel, thermalVoxel, modalVoxel).
 //
 // Method: the part's triangle mesh is voxelized on a uniform grid of cubes of side h (resolution
 // cubes along the longest side). A voxel is solid when its centre is inside the mesh, decided by
@@ -661,7 +667,7 @@ function clamp(mesh, fixtures, grid) {
  * Linear static analysis of a solid part. See the header for the method and units.
  * Returns displacements and von Mises stresses on the grid nodes and interpolated to the mesh vertices.
  */
-export function analyse(mesh, { material, fixtures = [], loads = [], gravity = null, resolution = 24, maxIter = 4000, tol = 1e-6, onProgress = null } = {}) {
+export function analyseVoxel(mesh, { material, fixtures = [], loads = [], gravity = null, resolution = 24, maxIter = 4000, tol = 1e-6, onProgress = null } = {}) {
   if (!fixtures.length) return failed('no-fixtures');
   if (!loads.length && !gravity) return failed('no-loads');
   const grid = buildGrid(mesh, resolution);
@@ -780,7 +786,7 @@ function failedThermal(error) {
  * Heat balance: heatFlowIn + fluxIn = heatFlowOut + convectionOut (up to solver tolerance), where
  * faceHeatFlow[i].value is the net heat leaving the body through temperatures[i]'s face (W, negative = entering).
  */
-export function thermal(mesh, { material = null, temperatures = [], fluxes = [], convections = [], resolution = 24, maxIter = 4000, tol = 1e-8, precond = true, onProgress = null } = {}) {
+export function thermalVoxel(mesh, { material = null, temperatures = [], fluxes = [], convections = [], resolution = 24, maxIter = 4000, tol = 1e-8, precond = true, onProgress = null } = {}) {
   if (!temperatures.length && !convections.length) return failedThermal('no-temperature');
   const grid = buildGrid(mesh, resolution);
   if (!grid) return failedThermal('empty');
@@ -923,7 +929,7 @@ function failedModal(error) {
  * solverIterations = total CG iterations. On 'not-converged' the latest estimates are still returned.
  * modes[i] is the per-input-vertex displacement xyz of mode i, scaled to max |u| = 1 (sign: largest component > 0).
  */
-export function modal(mesh, { material, fixtures = [], modes = 4, resolution = 20, maxIter = 60, tol = 1e-4, solverTol = 1e-5, subspace = null, precond: usePrecond = true, onProgress = null } = {}) {
+export function modalVoxel(mesh, { material, fixtures = [], modes = 4, resolution = 20, maxIter = 60, tol = 1e-4, solverTol = 1e-5, subspace = null, precond: usePrecond = true, onProgress = null } = {}) {
   if (!fixtures.length) return failedModal('no-fixtures');
   const grid = buildGrid(mesh, resolution);
   if (!grid) return failedModal('empty');
@@ -1037,3 +1043,43 @@ export function temperatureColor(value, min, max) {
 
 /** The solver's building blocks, for the studies built on top of the static one (fea-more.js: buckling, fatigue). */
 export const FEA_INTERNALS = { buildGrid, buildOperator, pcg, clamp, multigrid, vertexMap, interpolate, generalizedEigen, elasticity, strainMatrix, shapeGradients, GAUSS, faceNodes, tributary, vonMises };
+
+// ───────────────────────── the tetrahedral engine behind the public studies
+
+import { linearStatic } from './fem/static.js';
+import { heatStudy } from './fem/thermal.js';
+import { modalStudy } from './fem/modal.js';
+import { MATERIALS } from './materials.js';
+
+/** Mesh options from the study options (resolution = elements along the longest side, or elementSize in mm). */
+export const femMeshOptions = (o = {}) => ({ resolution: o.resolution ?? 16, size: o.elementSize ?? null, order: o.order ?? 2, refine: o.refine ?? [], grading: o.grading ?? 0.4 });
+
+/**
+ * Linear static analysis of a solid part. { material: { E MPa, nu, yield, density }, fixtures (face ids or
+ * { faceId, type: 'fixed' | 'roller' | 'displacement' | 'elastic', value, stiffness }), loads ({ faceId, force | pressure |
+ * torque | traction }), gravity (m/s²), resolution | elementSize, order, refine, mesher, onProgress }.
+ * Returns { ok, error, displacement, nodeStress (von Mises), stress (6 per node), vertexDisplacement, vertexStress,
+ * maxDisplacement, maxStress, minFactorOfSafety, reactions, model, ... }.
+ */
+export function analyse(mesh, opts = {}) {
+  if (opts.mesher === 'voxel') return analyseVoxel(mesh, opts);
+  const { material, fixtures = [], loads = [], gravity = null, onProgress = null } = opts;
+  return linearStatic({ bodies: [{ mesh, material }], fixtures, loads, gravity, mesh: femMeshOptions(opts), solver: opts.solver, onProgress: onProgress && ((f) => onProgress(f)), cancel: opts.cancel });
+}
+
+/** Heat conduction (steady, or transient with { transient: { duration, steps, initial } }) — see fem/thermal.js. */
+export function thermal(mesh, opts = {}) {
+  if (opts.mesher === 'voxel') return thermalVoxel(mesh, opts);
+  const { material = null, temperatures = [], fluxes = [], convections = [], generation = [], transient = null, onProgress = null } = opts;
+  const tp = thermalProperties(material);
+  const id = typeof material === 'string' ? material : material?.id;
+  const density = (material && typeof material === 'object' && material.density) || MATERIALS.find((m) => m.id === id)?.density || 7850;
+  return heatStudy({ bodies: [{ mesh, material: { k: tp.k, cp: tp.cp, density } }], temperatures, fluxes, convections, generation, transient, mesh: femMeshOptions(opts), onProgress: onProgress && ((f) => onProgress(f)), cancel: opts.cancel });
+}
+
+/** Natural frequencies (consistent mass, LOBPCG) — see fem/modal.js. */
+export function modal(mesh, opts = {}) {
+  if (opts.mesher === 'voxel') return modalVoxel(mesh, opts);
+  const { material, fixtures = [], modes = 4, onProgress = null } = opts;
+  return modalStudy({ bodies: [{ mesh, material }], fixtures, modes, mesh: femMeshOptions(opts), onProgress: onProgress && ((f) => onProgress(f)), cancel: opts.cancel });
+}

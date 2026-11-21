@@ -90,6 +90,8 @@ export const SAVE_TYPES = {
   zip: { name: 'ZIP (*.zip)', extensions: ['zip'] },
   json: { name: 'JSON (*.json)', extensions: ['json'] },
   csv: { name: 'CSV (*.csv)', extensions: ['csv'] },
+  nc: { name: 'G-code (*.nc, *.gcode, *.tap, *.ngc)', extensions: ['nc', 'gcode', 'tap', 'ngc'] },
+  html: { name: 'HTML (*.html)', extensions: ['html', 'htm'] },
   png: { name: 'PNG (*.png)', extensions: ['png'] },
   jpg: { name: 'JPEG (*.jpg)', extensions: ['jpg', 'jpeg'] },
   webp: { name: 'WebP (*.webp)', extensions: ['webp'] },

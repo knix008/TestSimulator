@@ -1,6 +1,8 @@
-// Two more simulation studies on the voxel model of fea.js:
+// Two more simulation studies:
 //
-// buckling(): linear (eigenvalue) buckling. The static study gives the stress σ of every element under the
+// buckling(): linear (eigenvalue) buckling — on the tetrahedral engine (fem/modal.js bucklingStudy: geometric stiffness
+//   from the static Gauss-point stresses, K φ = λ(−K_G)φ by LOBPCG); mesher: 'voxel' keeps the older voxel version
+//   (bucklingVoxel): The static study gives the stress σ of every element under the
 //   applied loads; the geometric stiffness K_G(σ) is formed element by element (K_G^e = h·Σ_kl σ_kl ∫ ∂N_a/∂ξ_k
 //   ∂N_b/∂ξ_l over the unit cube, the same block on x, y and z) and the load factors λ of K φ = λ (−K_G) φ are
 //   found by subspace iteration (each step solves K Y = −K_G X with multigrid-preconditioned CG, then Rayleigh–Ritz
@@ -12,7 +14,8 @@
 //   steels and iron keep Se below which life is infinite, other materials keep falling with the same slope).
 //   Loading: fully reversed (σa = σ) or zero-based (σa = σm = σ/2, Goodman correction σar = σa / (1 − σm/Su)).
 //   Damage = cycles / N (Miner's rule with one load block). Units: MPa, cycles.
-import { analyse, elementStiffness, FEA_INTERNALS } from './fea.js';
+import { analyseVoxel, elementStiffness, FEA_INTERNALS, femMeshOptions } from './fea.js';
+import { bucklingStudy } from './fem/modal.js';
 
 const { buildGrid, buildOperator, pcg, clamp, multigrid, vertexMap, interpolate, generalizedEigen, elasticity, strainMatrix, shapeGradients, GAUSS } = FEA_INTERNALS;
 
@@ -36,8 +39,17 @@ function failedBuckling(error) {
  * loadFactors (by size), modes (per input vertex xyz, max |u| = 1, for each load factor), staticResult, elements,
  * elementSize, iterations }.
  */
-export function buckling(mesh, { material, fixtures = [], loads = [], resolution = 20, modes = 1, maxIter = 40, tol = 1e-4, onProgress = null } = {}) {
-  const stat = analyse(mesh, { material, fixtures, loads, resolution, onProgress: onProgress && ((f) => onProgress(0.4 * f)) });
+export function buckling(mesh, opts = {}) {
+  if (opts.mesher !== 'voxel') {
+    const { material, fixtures = [], loads = [], modes = 1, onProgress = null } = opts;
+    return bucklingStudy({ bodies: [{ mesh, material }], fixtures, loads, modes, mesh: femMeshOptions(opts), onProgress: onProgress && ((f) => onProgress(f)), cancel: opts.cancel });
+  }
+  return bucklingVoxel(mesh, opts);
+}
+
+/** The older voxel buckling study (mesher: 'voxel'). */
+export function bucklingVoxel(mesh, { material, fixtures = [], loads = [], resolution = 20, modes = 1, maxIter = 40, tol = 1e-4, onProgress = null } = {}) {
+  const stat = analyseVoxel(mesh, { material, fixtures, loads, resolution, onProgress: onProgress && ((f) => onProgress(0.4 * f)) });
   if (stat.error && stat.error !== 'not-converged') return { ...failedBuckling(stat.error), staticResult: stat };
   const grid = buildGrid(mesh, resolution);
   if (!grid) return failedBuckling('empty');

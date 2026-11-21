@@ -547,40 +547,31 @@ export function createSim2Tools(ctx) {
     notify('success', t('asmx.featureMade', { name: f.name }));
   }
 
-  const cutCache = new Map();
-  /** Replaces the bodies of components that assembly features cut. */
+  /**
+   * Replaces the bodies of the parts that assembly features cut (sub-assembly parts too, and the sub-assemblies'
+   * own features) with the cut bodies — with their faces and edges, so the cut faces pick, highlight and take mates.
+   */
   function asmFeatureBodies(a) {
-    const feats = (a.asmFeatures ?? []).filter((f) => !f.suppressed);
-    if (!feats.length || !vp()) return;
-    const size = ctx.assemblySize(a);
+    const p0 = ctx.project();
+    const any = (x, seen = new Set()) => { if (!x || seen.has(x.id)) return false; seen.add(x.id); return (x.asmFeatures ?? []).some((f) => !f.suppressed) || x.components.some((c) => c.sub && any(p0.assemblies.find((s) => s.id === c.sub), seen)); };
+    if (!vp() || !any(a)) return false;
     for (const c of a.components) {
-      if (c.sub || c.hidden || !feats.some((f) => featureActsOn(f, c.id))) continue;
-      const p = ctx.project().parts.find((x) => x.id === c.part);
-      if (!p) continue;
-      const entry = ctx.buildPart(p);
-      if (!entry?.body) continue;
-      const pl = ctx.displayPlacement(a, c);
-      const key = `${entry.key}|${JSON.stringify([pl.position, pl.rotation, feats.filter((f) => featureActsOn(f, c.id))])}`;
-      if (!cutCache.has(key)) {
-        if (cutCache.size > 40) cutCache.clear();
-        let tess = null;
-        try {
-          const shape = cutComponent(entry.body, pl, feats, c.id, size);
-          const tol = Math.max(0.01, (entry.size ?? 100) / 400);
-          tess = { mesh: shape.mesh({ tolerance: tol, angularTolerance: 0.3 }), edges: shape.meshEdges({ tolerance: tol, angularTolerance: 0.3 }) };
-        } catch { tess = null; }
-        cutCache.set(key, tess);
+      if (c.hidden) continue;
+      for (const leaf of ctx.componentLeaves(c)) {
+        const entry = ctx.componentCut(c, leaf);
+        if (!entry?.mesh) continue;
+        const bk = leaf.path.length ? `comp:${c.id}/${leaf.path.join('/')}` : `comp:${c.id}`;
+        const old = vp().bodies.get(bk);
+        if (!old) continue;
+        const p = p0.parts.find((x) => x.id === leaf.part);
+        const matrix = old.mesh.matrix.clone();
+        const color = `#${old.baseColor.getHexString()}`;
+        vp().disposeBody(old); vp().bodies.delete(bk);
+        const mat = materialOf(p?.material);
+        vp().addBody({ key: bk, mesh: entry.mesh, edges: entry.edges, faceIndex: entry.faceIndex, edgeIndex: entry.edgeIndex, color, metal: mat.metal * 0.6, rough: mat.rough, matrix, partId: p?.id, material: p?.material });
       }
-      const tess = cutCache.get(key);
-      const bk = `comp:${c.id}`;
-      const old = vp().bodies.get(bk);
-      if (!tess || !old) continue;
-      const matrix = old.mesh.matrix.clone();
-      const color = `#${old.baseColor.getHexString()}`;
-      vp().disposeBody(old); vp().bodies.delete(bk);
-      const mat = materialOf(p.material);
-      vp().addBody({ key: bk, mesh: tess.mesh, edges: tess.edges, faceIndex: new Map(), edgeIndex: new Map(), color, metal: mat.metal * 0.6, rough: mat.rough, matrix });
     }
+    return true;
   }
 
   // ───────────────────────── belts and chains
@@ -866,10 +857,11 @@ export function createSim2Tools(ctx) {
       if (p && entry?.mesh && !sketchingNow) mbdDisplay(p, entry, lines, labels);
     } else if (kind === 'assembly') {
       const a = asm();
-      if (a) { asmFeatureBodies(a); beltBodies(a); }
+      const cutNow = a ? asmFeatureBodies(a) : false;
+      if (a) beltBodies(a);
       const e = editing();
       if (e?.mode === 'asmFeature') { try { const tool = asmFeatureTool(featureOf(e), ctx.assemblySize(a)); vp().setPreview({ mesh: tool.mesh({ tolerance: 0.5, angularTolerance: 0.4 }), cut: true }); } catch { /* bad profile */ } }
-      if (a?.asmFeatures?.length || a?.belts?.length) { vp().applyStyle(); vp().refreshHighlight(); }
+      if (cutNow || a?.belts?.length) { vp().applyStyle(); vp().refreshHighlight(); }
     }
     vp().setLines(linesGroup(), lines);
     if (!sketchingNow) vp().setLabels(labels);

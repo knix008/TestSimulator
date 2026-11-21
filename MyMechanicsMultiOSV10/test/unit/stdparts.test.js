@@ -10,6 +10,7 @@ import {
   pinChamfer, keyForShaft, stdMateRefs, stdProblem,
 } from '../../src/cad/stdparts.js';
 import { countSolids } from '../../src/cad/part-more.js';
+import { springWasherGeometry } from '../../src/cad/stdparts.js';
 
 await loadKernel();
 const R = rep();
@@ -33,7 +34,8 @@ test('size tables follow the standards (spot values)', () => {
   assert.deepEqual(STD_CATEGORIES.flatMap((c) => c.items).sort(), [...STD_KINDS].sort());
   for (const k of ['hexBolt', 'socketCap', 'hexNut', 'flatWasher', 'springWasher']) assert.deepEqual(STD_ITEMS[k].sizes, ['M3', 'M4', 'M5', 'M6', 'M8', 'M10', 'M12', 'M16', 'M20', 'M24']);
   assert.ok(STD_ITEMS.ballBearing.sizes.includes('6000') && STD_ITEMS.ballBearing.sizes.includes('6206'));
-  for (const k of STD_KINDS) { const [cols, rows] = sizeTable(k); assert.ok(cols.length >= 2 && rows.length >= 9, k); assert.ok(rows.every((r) => r.length === cols.length + 1), k); }
+  // Every item has a size table with a row per size (some standards cover fewer sizes: ISO 4766 M3–M12, ISO 7380 M3–M16).
+  for (const k of STD_KINDS) { const [cols, rows] = sizeTable(k); assert.ok(cols.length >= 2 && rows.length >= 3, k); assert.ok(rows.every((r) => r.length === cols.length + 1), k); }
 });
 
 test('bolt lengths come from the preferred series and the size range', () => {
@@ -75,26 +77,36 @@ test('hex nut ISO 4032 M10: height, flats and the minor-diameter bore', () => {
   assert.ok(v < upper && v > upper * 0.9, `volume ${v} vs ${upper}`);
 });
 
-test('washers: ISO 7089 exact annulus; DIN 127 B split ring', () => {
+test('washers: ISO 7089 exact annulus; DIN 127 B twisted split ring (b × s section on a helix, free height h)', () => {
   const w = stdShape({ kind: 'flatWasher', size: 'M8' });
   near(V(w), Math.PI * (8 * 8 - 4.2 * 4.2) * 1.6, 1e-6);
-  near(bbox(w).size[0], 16, 1e-4);
+  near(bbox(w).size[2], 1.6, 1e-4);
   const sp = stdShape({ kind: 'springWasher', size: 'M8' });
-  const g = SPRING_WASHER.M8;
-  const annulus = Math.PI * ((g.d2 / 2) ** 2 - (g.d1 / 2) ** 2) * g.s;
-  const v = V(sp);
-  assert.ok(v < annulus && v > annulus * 0.85, `spring washer ${v} vs ${annulus}`);
-  near(bbox(sp).size[2], g.s, 1e-4);
+  const g = springWasherGeometry('M8');
+  assert.equal(g.s, SPRING_WASHER.M8.s); assert.equal(g.h, 2 * g.s);
+  // Pappus for a screw sweep of an axial-plane section: V = b · s · r_m · swept angle.
+  near(V(sp), g.b * g.s * g.rm * g.sweep, 1e-4);
+  assert.equal(countSolids(sp), 1);
+  // The ends: one at z 0 … s, the other lifted by h − s (vertices, the box of a sweep is not tight).
+  const zs = sp.edges.flatMap((e) => [e.startPoint.z, e.endPoint.z]);
+  near(Math.min(...zs), 0, 1e-5); near(Math.max(...zs), g.h, 1e-5);
+  const rs = sp.edges.flatMap((e) => [Math.hypot(e.startPoint.x, e.startPoint.y), Math.hypot(e.endPoint.x, e.endPoint.y)]);
+  near(Math.min(...rs), g.d1 / 2, 1e-5); near(Math.max(...rs), g.d2 / 2, 1e-5);
 });
 
 test('deep-groove ball bearing 6204: envelope d × D × B, rings and balls', () => {
   const s = stdShape({ kind: 'ballBearing', size: '6204' });
   const b = bbox(s);
   near(b.size[0], 47, 1e-3); near(b.size[1], 47, 1e-3); near(b.size[2], 14, 1e-4);
-  const { count, Dw } = bearingBalls('6204');
+  // The catalogue ball set of a 6204: 8 balls of 5/16 in (7.938 mm) on the pitch circle (d + D) / 2.
+  const { count, Dw, pitch, innerGroove, outerGroove, innerShoulder, outerShoulder } = bearingBalls('6204');
   assert.equal(count, 8);
-  near(Dw, 8.1, 1e-6);
-  assert.equal(countSolids(s), 2 + count);
+  near(Dw, 7.938, 1e-9); near(pitch, 33.5, 1e-9);
+  // Raceway conformity 0.52 / 0.53 (a clearance between ball and groove), shoulders clear of the balls.
+  assert.ok(innerGroove > Dw / 2 && outerGroove > Dw / 2);
+  assert.ok(innerShoulder < pitch - Dw * 0.5 && outerShoulder > pitch + Dw * 0.5 && innerShoulder > pitch - Dw);
+  // Inner ring, outer ring, cage and the balls.
+  assert.equal(countSolids(s), 3 + count);
   const envelope = Math.PI * (23.5 ** 2 - 10 ** 2) * 14;
   const v = V(s);
   assert.ok(v < envelope * 0.9 && v > envelope * 0.5, `bearing ${v} of ${envelope}`);

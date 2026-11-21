@@ -12,3 +12,12 @@
 .drw-table-grid { display: flex; flex-direction: column; gap: 2px; overflow-x: auto; }
 .drw-table-row { display: flex; gap: 2px; }
 .drw-table-row .drw-cell { width: 70px; min-width: 50px; flex: 1; }
+/* Costing / Sustainability: the operation breakdown table and the folded rate tables (ui/pm-eval-more.js). */
+.cost-table { width: 100%; border-collapse: collapse; font-size: 11.5px; margin: 4px 0 6px; table-layout: fixed; }
+.cost-table th, .cost-table td { padding: 2px 4px; border-bottom: 1px solid color-mix(in srgb, currentColor 14%, transparent); text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cost-table th { font-weight: 600; opacity: 0.8; }
+.cost-table td.n, .cost-table th:nth-child(n+3) { text-align: right; font-variant-numeric: tabular-nums; width: 22%; }
+.cost-rates { margin: 4px 0; }
+.cost-rates > summary { display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px; opacity: 0.85; list-style: none; }
+.cost-rates > summary::-webkit-details-marker { display: none; }
+.cost-rates h5 { margin: 6px 0 2px; font-size: 12px; font-weight: 600; }

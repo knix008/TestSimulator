@@ -1,0 +1,38 @@
+/* Manufacturing add-ins: the CAM, plastics flow and inspection PropertyManager pages (app-cam.js, app-plastics.js, app-inspection.js). */
+.cam-tabs .pm-seg { display: flex; flex-wrap: wrap; gap: 2px; }
+.cam-tabs .segment { flex: 1 1 30%; min-width: 0; }
+.cam-list { display: grid; gap: 3px; max-height: 260px; overflow: auto; margin-bottom: 6px; }
+.cam-row { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 3px 6px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: inherit; font: inherit; font-size: 0.86em; text-align: left; cursor: pointer; }
+.cam-row .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cam-row:hover { border-color: var(--accent); background: var(--hover); }
+.cam-row.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+.cam-row.muted { opacity: 0.55; }
+.cam-row.error { border-color: var(--danger); }
+.cam-row .cam-op { display: flex; align-items: center; gap: 6px; border: none; background: none; color: inherit; font: inherit; padding: 0; cursor: pointer; text-align: left; }
+.cam-row .cam-op span:first-of-type { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cam-row .icon-button { flex: none; }
+.cam-gcode { max-height: 280px; overflow: auto; margin: 0; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font: 0.78em/1.35 ui-monospace, Consolas, monospace; white-space: pre; }
+.cam-overrides { margin: 6px 0; }
+.cam-overrides summary { cursor: pointer; color: var(--muted); font-size: 0.86em; }
+.pm-results li.error, .pm-note.fail { color: var(--danger); }
+.pm-results li.warn { color: color-mix(in srgb, var(--danger) 60%, var(--text)); }
+.pm-note.pass { color: color-mix(in srgb, #2e7d32 80%, var(--text)); }
+.pl-legend { display: flex; align-items: center; gap: 6px; margin: 6px 0; font-size: 0.8em; font-variant-numeric: tabular-nums; color: var(--muted); }
+.pl-ramp { flex: 1; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #264df2, #1accE6, #40cc4d, #f2d926, #e6332a); }
+.insp-table { display: grid; gap: 3px; max-height: 360px; overflow: auto; }
+.insp-row { display: grid; grid-template-columns: 30px 1fr 92px 18px; align-items: center; gap: 5px; padding: 3px 4px; border: 1px solid var(--border); border-left-width: 3px; border-radius: 6px; background: var(--surface); font-size: 0.84em; }
+.insp-row.pass { border-left-color: #2e7d32; }
+.insp-row.fail { border-left-color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface)); }
+.insp-row.open { border-left-color: #1565c0; }
+.insp-row.na { border-left-color: var(--muted); }
+.insp-row.active { border-color: var(--accent); }
+.insp-n { width: 26px; height: 26px; border: 1.5px solid currentColor; border-radius: 50%; background: var(--bg); color: var(--accent); font: inherit; font-weight: 700; cursor: pointer; padding: 0; }
+.insp-row.fail .insp-n { color: var(--danger); }
+.insp-char { display: grid; min-width: 0; }
+.insp-char b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.insp-char .icon { display: none; }
+.insp-char small { color: var(--muted); font-variant-numeric: tabular-nums; }
+.insp-meas { width: 100%; min-width: 0; font-variant-numeric: tabular-nums; }
+.insp-status { display: inline-flex; justify-content: center; }
+.insp-row.pass .insp-status { color: #2e7d32; }
+.insp-row.fail .insp-status { color: var(--danger); }

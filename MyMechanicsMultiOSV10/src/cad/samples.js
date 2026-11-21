@@ -73,7 +73,9 @@ export function builder(part) {
       part.features.push(f);
       return { kind: 'ref', id: f.id };
     },
-    add(type, params) { const f = createFeature(part, type, params); part.features.push(f); return f; },
+    // Sample threads keep the V-groove form they were measured with (test/fixtures/samples-yup-baseline.json);
+    // new threads made in the app are ISO threads.
+    add(type, params) { const f = createFeature(part, type, type === 'thread' ? { form: 'v', ...params } : params); part.features.push(f); return f; },
     /** Signatures of the built body's edges that `test(sig)` accepts. */
     edges(test) { const r = regenerate(part); return r.body ? r.body.edges.map(edgeSignature).filter(test) : []; },
     faces(test) { const r = regenerate(part); return r.body ? r.body.faces.map(faceSignature).filter(test) : []; },

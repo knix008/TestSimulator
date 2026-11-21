@@ -26,14 +26,14 @@ test('environment presets are complete and Z up (the sun above the horizon)', ()
 
 test('settings are normalised; resolutions follow the choice and the GPU limit', () => {
   assert.deepEqual(normalizeRenderSettings({}), { ...DEFAULT_RENDER, focus: 0 });
-  const s = normalizeRenderSettings({ env: 'nope', resolution: 'x', samples: 1e9, ground: 'lava', background: 'pink', dof: 1, aperture: -3, sunIntensity: 99 });
-  assert.equal(s.env, 'studio'); assert.equal(s.resolution, 'hd'); assert.equal(s.samples, 4096);
+  const s = normalizeRenderSettings({ env: 'nope', resolution: 'x', samples: 1e9, ground: 'lava', background: 'pink', dof: 1, fStop: -3, sunIntensity: 99, mode: 'x', bounces: 99, projection: 'fish' });
+  assert.equal(s.env, 'studio'); assert.equal(s.resolution, 'hd'); assert.equal(s.samples, 65536);
   assert.equal(s.ground, 'shadow'); assert.equal(s.background, 'env'); assert.equal(s.dof, true);
-  assert.equal(s.aperture, 0); assert.equal(s.sunIntensity, 10);
+  assert.equal(s.fStop, 0.5); assert.equal(s.sunIntensity, 10); assert.equal(s.mode, 'final'); assert.equal(s.bounces, 32); assert.equal(s.projection, 'view');
   assert.deepEqual(resolveResolution('fhd', 800, 600), { width: 1920, height: 1080 });
   assert.deepEqual(resolveResolution('view', 812.4, 533.6), { width: 812, height: 534 });
   assert.deepEqual(resolveResolution('qhd', 0, 0, 2048), { width: 2048, height: 1152 });
-  assert.deepEqual(Object.keys(RESOLUTIONS), ['view', 'hd', 'fhd', 'qhd', 'square']);
+  assert.deepEqual(Object.keys(RESOLUTIONS), ['view', 'small', 'hd', 'fhd', 'qhd', 'uhd', 'square', 'portrait']);
 });
 
 test('every engineering material maps to a look class and sane PBR values', () => {

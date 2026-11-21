@@ -10,9 +10,11 @@ import { sketchOf, combine, sizeAround, replicadPlane, codeError, loopDrawing, r
 import { SHEET_MORE_TYPES, SHEET_MORE_DEFAULTS, SHEET_MORE_NAMES } from './sheet-more-types.js';
 import { MOLD_MORE_TYPES, MOLD_MORE_DEFAULTS, MOLD_MORE_NAMES } from './mold-more-types.js';
 import { buildMoldMore, toolingSplitBySurfaces, undercutCount } from './mold-more.js';
+import { partingLoops } from './mold-brep.js';
 import { worldUp, worldFront } from './frame.js';
 import { makeHelixStable, makeCylinderStable, makeCircleStable } from './oriented.js';
 import { buildSheetMore } from './sheet-more.js';
+import { isoThread, threadSolid, cosmeticThread, parseThreadSize, wantsModelled } from './threads.js';
 
 export const ADVANCED_TYPES = [
   'sweep', 'loft', 'draft', 'rib', 'dome', 'helix', 'thread', 'wrap', 'thicken',
@@ -29,7 +31,7 @@ export const ADVANCED_DEFAULTS = {
   rib: () => ({ sketch: null, thickness: 3, flip: false }),
   dome: () => ({ faces: [], height: 5, reverse: false }),
   helix: () => ({ plane: { kind: 'std', name: 'top' }, center: [0, 0], radius: 10, pitch: 5, turns: 4, lefthand: false }),
-  thread: () => ({ edge: null, pitch: 1.5, length: 10, internal: 'auto', reverse: false, cosmetic: false, lefthand: false }),
+  thread: () => ({ edge: null, pitch: 1.5, length: 10, internal: 'auto', reverse: false, cosmetic: false, lefthand: false, form: 'iso', mode: 'auto' }),
   wrap: () => ({ sketch: null, face: null, depth: 1, op: 'emboss' }),
   thicken: () => ({ surface: null, thickness: 2, side: 'out', op: 'boss' }),
   surfaceExtrude: () => ({ sketch: null, depth: 20, midplane: false, reverse: false }),
@@ -356,9 +358,13 @@ function insideBody(body, p, r) {
 }
 
 /**
- * A thread on a cylindrical edge (a shaft's end or a hole's rim): a 60° V groove swept along a helix, cut
- * into the material for `length` from the edge. "auto" finds out whether it is a shaft (external) or a hole
- * (internal). A cosmetic thread changes no geometry (it is a note for drawings).
+ * A thread on a cylindrical edge (a shaft's end or a hole's rim), cut into the material for `length` from the
+ * edge. "auto" finds out whether it is a shaft (external) or a hole (internal).
+ *   form 'iso'  (new threads) an ISO metric thread: M d × P from `size` (or d from the shaft / the hole and the
+ *               pitch), cosmetic or modelled by `mode` ('auto' follows the global modelled-threads option,
+ *               'cosmetic', 'modelled'); modelled is the exact ISO 68-1 / 965-1 profile swept along the screw
+ *   no form     (older files) a 60° V groove, 0.6·P deep, faceted along the helix; `cosmetic` = a note only
+ * `cosmetic: true` always makes it cosmetic.
  */
 function buildThread(f, ctx) {
   const R = rep();
@@ -382,6 +388,7 @@ function buildThread(f, ctx) {
   if (f.internal === true || f.internal === 'internal') internal = true;
   if (f.internal === false || f.internal === 'external') internal = false;
   if (f.reverse) dir = mul(dir, -1);
+  if (f.form === 'iso') return buildIsoThread(f, ctx, { centre, dir, radius, P, L, internal });
   if (f.cosmetic) return { thread: { centre, dir, radius, pitch: P, length: L, internal } };
   // The groove is a V (60°, 0.6·P deep) swept along the helix, built from flat triangles (24 per turn): a
   // faceted solid the kernel's booleans handle reliably (smooth swept or twisted solids are often missed).
@@ -390,6 +397,59 @@ function buildThread(f, ctx) {
   const body = ctx.body.cut(tool.clone());
   if (!(before - R.measureVolume(body) > 1e-6 * Math.max(1, before))) throw codeError('thread-failed');
   return { tool, toolOp: 'cut', body, thread: { centre, dir, radius, pitch: P, length: L, internal } };
+}
+
+/**
+ * How far the shaft / hole of a circular edge runs along `dir` from its centre: the farthest coaxial circle of
+ * the same radius (the far end of the cylinder) — a modelled thread must end on that face, not past it.
+ */
+function cylinderRun(body, centre, dir, radius) {
+  let run = 0;
+  for (const e of body.edges) {
+    if (e.geomType !== 'CIRCLE') continue;
+    let c;
+    try { c = circleOfEdge(e); } catch { continue; }
+    if (Math.abs(c.radius - radius) > 1e-4 * Math.max(1, radius)) continue;
+    const off = sub(c.centre, centre); const along = dot(off, dir);
+    if (Math.hypot(...sub(off, mul(dir, along))) > 1e-4 * Math.max(1, radius)) continue;
+    run = Math.max(run, along);
+  }
+  return run;
+}
+
+/** An ISO metric thread on a shaft or in a hole: cosmetic (a thread record) or modelled (exact, threads.js). */
+function buildIsoThread(f, ctx, { centre, dir, radius, P, L, internal }) {
+  const R = rep();
+  const named = parseThreadSize(f.size);
+  // M d × P: the named size, else the shaft's diameter (external) or the hole's minor diameter plus the
+  // thread depth (internal, a hole drilled to D1).
+  const d = named?.d ?? (internal ? 2 * radius + 1.25 * (Math.sqrt(3) / 2) * P : 2 * radius);
+  const pitch = named ? (Number(f.pitch) > 0 ? Number(f.pitch) : named.P) : P;
+  let spec;
+  try { spec = isoThread(d, pitch); } catch { throw codeError('thread-size'); }
+  const run = cylinderRun(ctx.body, centre, dir, radius);
+  const length = run > 1e-6 ? Math.min(L, run) : L;
+  const modelled = f.cosmetic !== true && wantsModelled(f.mode ?? 'auto');
+  const record = cosmeticThread({ centre, dir, length, internal, d: spec.d, P: spec.P, radius, modelled, lefthand: Boolean(f.lefthand) });
+  if (!modelled) return { thread: record, threads: [record] };
+  const before = R.measureVolume(ctx.body);
+  let body;
+  try {
+    if (internal) {
+      const hole = threadSolid(spec, 'internal', { origin: centre, dir, length, lefthand: Boolean(f.lefthand) });
+      body = ctx.body.cut(hole, { simplify: false });
+    } else {
+      // The shaft over the threaded length is swapped for the threaded rod trimmed to it (its chamfers kept).
+      const zone = R.makeCylinder(radius + 0.3 * spec.P, length, centre, dir);
+      const piece = ctx.body.clone().intersect(zone.clone(), { simplify: false });
+      const rest = ctx.body.clone().cut(zone, { simplify: false });
+      const rod = threadSolid(spec, 'external', { origin: centre, dir, length, lefthand: Boolean(f.lefthand) }).intersect(piece, { simplify: false });
+      body = R.measureVolume(rest) > 1e-9 ? rest.fuse(rod, { optimisation: 'commonFace', simplify: false }) : rod;
+    }
+  } catch { throw codeError('thread-failed'); }
+  const removed = before - R.measureVolume(body);
+  if (!(removed > 1e-6 * Math.max(1, before))) throw codeError('thread-failed');
+  return { body, thread: record, threads: [record], removed };
 }
 
 // ───────────────────────── wrap
@@ -977,8 +1037,12 @@ function buildJog(f, ctx) {
 
 const AXIS_DIRS = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1], '-x': [-1, 0, 0], '-y': [0, -1, 0], '-z': [0, 0, -1] };
 
-/** Parting line: the edges where the faces turn from facing the pull direction to facing away from it. */
+/**
+ * Parting line: the outer loop between the faces the core forms and the rest, on the faces split at their
+ * draft-zero curves (mold-brep.js partingLoops); the face-centre rule below is the fallback.
+ */
 export function partingEdges(body, dir) {
+  try { const pl = partingLoops(body, dir); if (pl.outer >= 0) return pl.loops[pl.outer].map((r) => r.edge); } catch { /* the rule below */ }
   const facesOf = new Map();
   const sideOf = (face) => {
     try { const p = face.geomType === 'PLANE' ? face.center : face.pointOnSurface(0.5, 0.5); return dot(normalize(vec(face.normalAt(p))), dir); } catch { return 0; }

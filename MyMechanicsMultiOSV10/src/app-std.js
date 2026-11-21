@@ -2,31 +2,36 @@
 // (app.js hands in what they need, `ctx`, and calls the hooks):
 //   library   a PropertyManager page with categories, items, size / length choices and the size table; Insert
 //             adds the part to the assembly as a component (one part per size, reused) or to the part as a body
-//   fastener  pick a hole in an assembly: a bolt of the hole's size (and washer / nut) goes in with concentric
-//             and coincident mates
+//   fastener  pick a hole in an assembly: a bolt of the hole's size (washers, spring washer, nut) goes in with
+//             concentric and coincident mates (and a spin lock) — into every hole of the hole's pattern, through
+//             the holes of stacked parts on the same axis; each fastener is kept (assembly.fasteners) so its size,
+//             length and kind can be changed later
 //   routing   pipe / tube / cable routes: in a part a route feature (its own PropertyManager page, pm-std.js),
 //             in an assembly a route part placed at the origin, its points picked on the components' faces
-//   render    a photo-like picture of the view (view/render.js), progressive, saved through the export path
+//   render    a photo-like picture of the view (app-render.js: path tracer and raster preview), saved through the export path
 // The modelling is in cad/stdparts.js, cad/routing.js, cad/fastener.js (no DOM there).
 import './styles-std.css';
 import * as THREE from 'three';
 import { createPart } from './cad/document.js';
 import { createFeature, STD_PLANES, frame as makeFrame } from './cad/features.js';
-import { quatIdentity, quatFromAxisAngle, instanceName, mateEntityOfFace, placePoint, placeDir, quatConjugate, rotate } from './cad/assembly.js';
+import { quatIdentity, quatFromAxisAngle, instanceName, mateEntityOfFace, placePoint, placeDir, quatConjugate, rotate, composePlacement } from './cad/assembly.js';
 import { faceSignature } from './cad/refs.js';
-import { STD_ITEMS, STD_CATEGORIES, stdDefaults, designation, stdMateRefs, sizeOf } from './cad/stdparts.js';
+import { STD_ITEMS, STD_CATEGORIES, stdDefaults, designation, stdMateRefs, stdKey, GEAR_PARAMS } from './cad/stdparts.js';
 import { STD_DEFAULTS, ROUTE_ICONS } from './cad/std-types.js';
-import { routeBom, routeSolid, routeSection } from './cad/routing.js';
+import { routeBom, routeSolid, routeSection, faceOffsetPoint } from './cad/routing.js';
+import { harnessSolid, harnessBom, harnessModel, harnessFlat, harnessSvg, harnessDxf } from './cad/harness.js';
+import { editRouteTable, routeTableCommand, isRouteTableKey, ensureHarness } from './cad/route-edit.js';
 import { stdShape } from './cad/stdparts.js';
-import { holeOfFace, fastenerPlan } from './cad/fastener.js';
-import { PhotoRenderer, ENV_IDS, DEFAULT_RENDER, normalizeRenderSettings, pbrFor, materialClass } from './view/render.js';
+import { holeOfFace, fastenerPlan, holePattern, holeSeries, FASTENER_KINDS, NUT_KINDS } from './cad/fastener.js';
+import { createRenderTools } from './app-render.js';
 import { materialName } from './cad/materials.js';
-import { sizeControls, sizeTableHtml, stdSummary, placementGroup, routeSettings, routePoints as routePointsHtml, routeBomHtml, stdNames } from './ui/pm-std.js';
+import { sizeControls, sizeTableHtml, stdSummary, placementGroup, routeSettings, routePoints as routePointsHtml, routeBomHtml, stdNames, routeBranches, harnessTables, harnessResults, harnessLabels } from './ui/pm-std.js';
 import { escapeHtml } from './ui/dom.js';
+import { select as selectHtml } from './ui/propertymanager.js';
 import { icon } from './icons.js';
 
 const MODES = new Set(['stdLibrary', 'smartFastener', 'asmRoute', 'render']);
-const ROUTE_MATERIAL = { pipe: 'steel-1020', tube: 'copper', cable: 'rubber' };
+const ROUTE_MATERIAL = { pipe: 'steel-1020', tube: 'copper', cable: 'rubber', harness: 'rubber' };
 const round3 = (v) => Math.round(v * 1000) / 1000;
 
 export function createStdTools(ctx) {
@@ -52,13 +57,19 @@ export function createStdTools(ctx) {
 
   /** A project part for the library part (the same kind and size is one part, inserted again). */
   function libraryPart(pr, p, made) {
-    const key = JSON.stringify([p.kind, sizeOf(p), STD_ITEMS[p.kind].lengths ? Number(p.length) : 0, STD_ITEMS[p.kind].gear ? [Number(p.teeth), Number(p.width), Number(p.bore)] : 0]);
+    const key = stdKey(p);
     let found = pr.parts.find((x) => x.std === key) ?? made.find((x) => x.std === key);
     if (found) return found;
     const name = designation(p, names());
     found = createPart(name, { std: key, material: STD_ITEMS[p.kind].material, partNo: name, description: t(`std.item.${p.kind}`) });
     const params = { kind: p.kind, size: p.size, dn: p.dn, length: Number(p.length) || 0, x: 0, y: 0, z: 0, axis: 'z', angle: 0, merge: false };
-    if (STD_ITEMS[p.kind].gear) Object.assign(params, { module: Number(p.module), teeth: Math.round(Number(p.teeth)), width: Number(p.width), bore: Number(p.bore) || 0 });
+    const item = STD_ITEMS[p.kind];
+    if (item.threads) params.threads = p.threads ?? 'auto';
+    if (item.gear || item.pulley) {
+      for (const k of Object.keys(GEAR_PARAMS[p.kind])) params[k] = p[k] ?? GEAR_PARAMS[p.kind][k];
+      if (item.gear) params.module = Number(p.module);
+      params.teeth = Math.round(Number(params.teeth));
+    }
     found.features.push(createFeature(found, 'stdPart', params));
     made.push(found);
     return found;
@@ -131,6 +142,7 @@ export function createStdTools(ctx) {
     if (key === 'stdSize') {
       if (item.pipe) p.dn = value;
       else if (item.gear) p.module = Number(value);
+      else if (item.pulley) p.size = value;
       else {
         p.size = value;
         const list = item.lengths?.(String(value)) ?? [];
@@ -140,15 +152,19 @@ export function createStdTools(ctx) {
     }
     if (key === 'stdLength') { p.length = Number(value); return true; }
     if (key === 'stdModule') { p.module = Number(value); return true; }
+    if (key === 'stdThreads') { p.threads = value; return true; }
+    if (key === 'stdHand') { p.hand = value; return true; }
     return false;
   }
 
   // ───────────────────────── smart fasteners
 
+  const FASTENER_DEFAULTS = { kind: 'hexBolt', washer: true, springWasher: false, nutWasher: false, nut: true, nutKind: 'hexNut', pattern: true, series: true, lock: true, threads: 'auto' };
+
   function startFastener() {
     const a = asm();
     if (!a?.components.length) { notify('info', t('notice.assemblyOnly')); return; }
-    begin({ mode: 'smartFastener', kind: 'hexBolt', washer: true, nut: true, last: null, made: [] });
+    begin({ mode: 'smartFastener', ...FASTENER_DEFAULTS, last: null, made: [], group: a.fasteners?.at(-1)?.id ?? null });
     notify('info', t('fastener.pickHole'));
   }
 
@@ -168,80 +184,242 @@ export function createStdTools(ctx) {
     return quatFromAxisAngle(axis, (Math.acos(c) * 180) / Math.PI);
   }
 
+  const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+
+  /** World ↔ part frame of a picked component (and of a part inside a sub-assembly). */
+  function frames(topo) {
+    const toWorld = (p) => placePoint(topo.comp, topo.inner ? placePoint(topo.inner, p) : p);
+    const dirWorld = (d) => placeDir(topo.comp, topo.inner ? placeDir(topo.inner, d) : d);
+    const dirLocal = (d) => { let v = rotate(quatConjugate(topo.comp.rotation), d); if (topo.inner) v = rotate(quatConjugate(topo.inner.rotation), v); return v; };
+    return { toWorld, dirWorld, dirLocal };
+  }
+
+  /** Every hole of a part's faces (holeOfFace of each cylindrical face), with its face. */
+  function holesOf(faces) {
+    const out = [];
+    for (const f of faces ?? []) { try { const h = holeOfFace(f, faces); if (h) out.push({ ...h, face: f }); } catch { /* not a hole */ } }
+    return out;
+  }
+
+  /**
+   * The holes on the same axis in the other components (stacked parts): intervals along the entry normal into
+   * the material (t from the entry face), with the faces at their ends.
+   */
+  function seriesSegments(a, hostComp, axisPoint, n, minD) {
+    const segs = [];
+    for (const c of a.components) {
+      if (c.id === hostComp.id || c.hidden || !c.part) continue;
+      const entry = ctx.partEntry?.(c);
+      if (!entry?.faces) continue;
+      const topo = { comp: c, inner: null, path: [] };
+      const fr = frames(topo);
+      for (const h of holesOf(entry.faces)) {
+        if (h.diameter < minD) continue;
+        const dirW = fr.dirWorld(h.axis.dir);
+        if (Math.abs(Math.abs(dot3(dirW, n)) - 1) > 1e-5) continue;
+        const off = sub3(fr.toWorld(h.axis.point), axisPoint); const along = dot3(off, n);
+        if (Math.hypot(off[0] - n[0] * along, off[1] - n[1] * along, off[2] - n[2] * along) > 0.05) continue;
+        const ts = h.ends.map((e) => -dot3(sub3(fr.toWorld(e.centre), axisPoint), n));
+        const near = ts[0] <= ts[1] ? 0 : 1; const far = 1 - near;
+        // Open toward the entry (the bolt can come in) and, for a nut, open at the far end too.
+        if (!h.ends[near].open) continue;
+        segs.push({ topo, t0: ts[near], t1: ts[far], through: h.through, diameter: h.diameter, farFace: h.ends[far].face });
+      }
+    }
+    return segs;
+  }
+
+  /** The plan of a stored fastener spec. */
+  function planOf(spec) {
+    const hole = { diameter: spec.diameter, depth: spec.grip, through: spec.through, ends: [{ open: true, normal: [0, 0, 1], centre: [0, 0, 0] }, { open: spec.through, normal: [0, 0, -1], centre: [0, 0, -spec.grip] }] };
+    return fastenerPlan(hole, { ...spec.opts, kind: spec.kind, prefer: 0, grip: spec.grip, through: spec.through, size: spec.size ?? null, length: spec.length ?? null });
+  }
+
+  /**
+   * One fastener (a "spec": what it is and where — plain data, stored with the assembly so it can be made again
+   * with another size or length): its stack of components and the mates that hold it. Returns { plan, comps, mates }.
+   */
+  function insertStack(pr, a, spec, made) {
+    const plan = planOf(spec);
+    if (plan.error) return { plan, comps: [], mates: [] };
+    const n = spec.place.n; const q = rotationTo(n); const qf = rotationTo(n.map((v) => -v));
+    const comps = []; const mates = [];
+    const count = {};
+    const mate = (type, aRef, bRef, extra = {}) => { count[type] = (count[type] ?? a.mates.filter((m) => m.type === type).length) + 1; mates.push({ id: ctx.newId('mate'), type, aligned: 'anti', a: aRef, b: bRef, name: `${t(`mate.${type}`)}${count[type]}`, ...extra }); };
+    const at = (k) => spec.place.entry.map((v, i) => v + n[i] * k);
+    let headSide = null; let nutSide = null;
+    for (const item of plan.stack) {
+      const p = { ...stdDefaults(item.kind), size: item.size, ...(item.length ? { length: item.length } : {}) };
+      if (STD_ITEMS[item.kind].threads) p.threads = spec.threads ?? 'auto';
+      const lp = libraryPart(pr, p, made);
+      const c = { ...newComponent(a, lp, { position: at(item.at), rotation: [...(item.flip ? qf : q)] }), fixed: false };
+      a.components.push(c); comps.push(c);
+      const r = stdMateRefs(p);
+      mate('concentric', { comp: c.id, ...r.axis }, spec.host.axis);
+      if (item.flip) { mate('coincident', { comp: c.id, ...r.bottom }, nutSide ?? spec.host.exit); nutSide = { comp: c.id, ...r.top }; }
+      else { mate('coincident', { comp: c.id, ...r.bottom }, headSide ?? spec.host.entry); headSide = { comp: c.id, ...r.top }; }
+      if (spec.opts.lock && spec.host.spin) mate('parallel', { comp: c.id, ...r.spin }, spec.host.spin, { aligned: 'aligned' });
+    }
+    a.mates.push(...mates);
+    return { plan, comps, mates };
+  }
+
+  /** The fastener specs for a picked hole: one per hole of its pattern (or just it), each through its stack. */
+  function specsForHole(e, a, topo) {
+    const faces = topo.entry?.faces ?? [];
+    const hole = holeOfFace(topo.shape, faces);
+    if (!hole) return { error: 'notHole' };
+    const fr = frames(topo);
+    const base = fastenerPlan(hole, { kind: e.kind, washer: e.washer, nut: e.nut, up: fr.dirLocal([0, 0, 1]) });
+    if (base.error) return { error: base.error };
+    const all = holesOf(faces);
+    const picked = all.find((h) => h.face === topo.shape) ?? { ...hole, face: topo.shape };
+    const group = e.pattern ? holePattern(picked, base.entry, all) : [{ hole: picked, entry: base.entry }];
+    const specs = [];
+    for (const { hole: h, entry } of group) {
+      const en = h.ends[entry]; const ex = h.ends[1 - entry];
+      if (!en.face) continue;
+      const n = fr.dirWorld(en.normal);
+      const pEntry = fr.toWorld(en.centre);
+      const host = { axis: refOfFace(topo, h.face), entry: refOfFace(topo, en.face), exit: ex.face ? refOfFace(topo, ex.face) : null, spin: null };
+      // A plane through the hole's axis in the host's frame where the fastener's +X goes: its spin lock.
+      const xw = rotate(rotationTo(n), [1, 0, 0]);
+      host.spin = { comp: topo.comp.id, kind: 'plane', point: [...(topo.inner ? placePoint(topo.inner, h.axis.point) : h.axis.point)], dir: rotate(quatConjugate(topo.comp.rotation), xw), ...(topo.inner ? { path: topo.path } : {}) };
+      let grip = h.depth; let through = h.through; let diameter = h.diameter; let parts = [topo.comp.id];
+      if (e.series && h.through) {
+        const segs = [{ t0: 0, t1: h.depth, through: true, diameter: h.diameter, farFace: ex.face, topo }, ...seriesSegments(a, topo.comp, pEntry, n, h.diameter * 0.6)];
+        const ser = holeSeries(segs);
+        if (ser.chain.length > 1) {
+          grip = ser.grip; through = ser.through;
+          const last = ser.last;
+          if (through && last.farFace) host.exit = refOfFace(last.topo, last.farFace);
+          if (!through) diameter = last.diameter; // the bolt screws into the tapped hole of the last part
+          parts = ser.chain.map((sg) => sg.topo.comp.id);
+        }
+      }
+      specs.push({ kind: e.kind, size: null, length: null, threads: e.threads ?? 'auto', opts: { washer: e.washer, springWasher: e.springWasher, nutWasher: e.nutWasher, nut: e.nut, nutKind: e.nutKind, lock: e.lock }, host, place: { entry: pEntry, n }, grip, through, diameter, parts });
+    }
+    return { specs, hole };
+  }
+
   async function fastenerPick(hit) {
     const e = editing(); const a = asm();
     await ctx.ensureKernel();
     const topo = ctx.topoOf(hit);
     if (hit?.kind !== 'face' || !topo?.comp || !topo.shape) { notify('info', t('notice.pickComponentFace')); return null; }
-    const hole = holeOfFace(topo.shape, topo.entry?.faces ?? []);
-    if (!hole) { notify('warning', t('fastener.notHole')); return null; }
-    // Which end is "up": world +Z seen in the part's frame (the component's rotation, and a sub-assembly's).
-    const toLocal = (d) => { let v = rotate(quatConjugate(topo.comp.rotation), d); if (topo.inner) v = rotate(quatConjugate(topo.inner.rotation), v); return v; };
-    const plan = fastenerPlan(hole, { kind: e.kind, washer: e.washer, nut: e.nut, up: toLocal([0, 0, 1]) });
-    if (plan.error) { notify('warning', t(`fastener.${plan.error}`)); return null; }
-    const entry = hole.ends[plan.entry]; const exit = hole.ends[plan.exit];
-    if (!entry.face) { notify('warning', t('fastener.no-entry')); return null; }
-    // World placement of the joint.
-    const toWorld = (p) => placePoint(topo.comp, topo.inner ? placePoint(topo.inner, p) : p);
-    const dirWorld = (d) => placeDir(topo.comp, topo.inner ? placeDir(topo.inner, d) : d);
-    const n = dirWorld(entry.normal);
-    const q = rotationTo(n);
-    const pEntry = toWorld(entry.centre);
-    const holeAxis = refOfFace(topo, topo.shape);
-    const entryPlane = refOfFace(topo, entry.face);
-    const exitPlane = exit.face ? refOfFace(topo, exit.face) : null;
-    const comps = []; const mates = []; const made = [];
-    const count = {};
-    const mate = (type, aRef, bRef) => { count[type] = (count[type] ?? a.mates.filter((m) => m.type === type).length) + 1; mates.push({ id: ctx.newId('mate'), type, aligned: 'anti', a: aRef, b: bRef, name: `${t(`mate.${type}`)}${count[type]}` }); };
-    let washerComp = null;
+    const found = specsForHole(e, a, topo);
+    if (found.error) { notify('warning', t(found.error === 'notHole' ? 'fastener.notHole' : `fastener.${found.error}`)); return null; }
+    if (!found.specs.length) { notify('warning', t('fastener.no-entry')); return null; }
+    const made = []; const groups = []; const allComps = []; const allMates = [];
+    let firstPlan = null; let firstError = null;
     ctx.change('op.smartFastener', (pr) => {
-      const at = (p, k) => p.map((v, i) => v + n[i] * k);
-      const add = (p, position) => { const lp = libraryPart(pr, p, made); const c = { ...newComponent(a, lp, { position, rotation: [...q] }), fixed: false }; a.components.push(c); comps.push(c); return c; };
-      let seat = 0;
-      if (plan.washer) {
-        washerComp = add({ ...stdDefaults('flatWasher'), size: plan.size }, pEntry);
-        const r = stdMateRefs({ kind: 'flatWasher', size: plan.size });
-        mate('concentric', { comp: washerComp.id, ...r.axis }, holeAxis);
-        mate('coincident', { comp: washerComp.id, ...r.bottom }, entryPlane);
-        seat = r.top.point[2];
-      }
-      const bolt = add({ ...stdDefaults(plan.bolt.kind), size: plan.size, length: plan.bolt.length }, at(pEntry, seat));
-      const br = stdMateRefs(plan.bolt);
-      mate('concentric', { comp: bolt.id, ...br.axis }, holeAxis);
-      if (washerComp) mate('coincident', { comp: bolt.id, ...br.bottom }, { comp: washerComp.id, ...stdMateRefs({ kind: 'flatWasher', size: plan.size }).top });
-      else mate('coincident', { comp: bolt.id, ...br.bottom }, entryPlane);
-      if (plan.nut && exitPlane) {
-        const nr = stdMateRefs({ kind: 'hexNut', size: plan.size });
-        const nut = add({ ...stdDefaults('hexNut'), size: plan.size }, at(toWorld(exit.centre), -nr.top.point[2]));
-        mate('concentric', { comp: nut.id, ...nr.axis }, holeAxis);
-        mate('coincident', { comp: nut.id, ...nr.top }, exitPlane);
+      a.fasteners ??= [];
+      for (const spec of found.specs) {
+        const r = insertStack(pr, a, spec, made);
+        if (r.plan.error) { firstError ??= r.plan.error; continue; }
+        firstPlan ??= r.plan;
+        const g = { id: ctx.newId('fst'), name: designation(r.plan.bolt), comps: r.comps.map((c) => c.id), mates: r.mates.map((m) => m.id), spec };
+        a.fasteners.push(g); groups.push(g);
+        allComps.push(...r.comps); allMates.push(...r.mates);
       }
       for (const m of made) pr.parts.push(m);
-      a.mates.push(...mates);
     });
-    e.last = { plan, diameter: hole.diameter, depth: hole.depth, names: comps.map((c) => c.name) };
-    e.made.push(...comps.map((c) => c.name));
-    const failed = mates.filter((m) => state.failedMates.has(m.id));
-    notify(failed.length ? 'warning' : 'success', t('fastener.made', { bolt: designation(plan.bolt), count: comps.length }));
+    if (!firstPlan) { notify('warning', t(`fastener.${firstError ?? 'too-small'}`)); return null; }
+    e.group = groups[0]?.id ?? null;
+    e.last = { plan: firstPlan, diameter: found.hole.diameter, depth: firstPlan.grip, holes: groups.length, stacked: (found.specs[0]?.parts?.length ?? 1) > 1, names: allComps.map((c) => c.name) };
+    e.made.push(...allComps.map((c) => c.name));
+    const failed = allMates.filter((m) => state.failedMates.has(m.id));
+    notify(failed.length ? 'warning' : 'success', t('fastener.madeMany', { bolt: designation(firstPlan.bolt), count: allComps.length, holes: groups.length }));
     ctx.renderLeft();
-    return { plan, comps: comps.map((c) => c.id), mates: mates.map((m) => m.id) };
+    return { plan: firstPlan, comps: allComps.map((c) => c.id), mates: allMates.map((m) => m.id), groups: groups.map((g) => g.id) };
+  }
+
+  /** Removes a fastener's components and mates from the assembly (inside a change). */
+  function removeStack(a, g) {
+    const gone = new Set(g.comps);
+    a.components = a.components.filter((c) => !gone.has(c.id));
+    a.mates = a.mates.filter((m) => !g.mates.includes(m.id) && !gone.has(m.a?.comp) && !gone.has(m.b?.comp));
+  }
+
+  /**
+   * Changes a fastener after it was inserted — `change`: { size, length, kind, threads, opts } — its parts are
+   * made again on the same hole(s). A new size picks the length again unless one is given.
+   */
+  function editFastener(groupId, change = {}) {
+    const a = asm();
+    const g = a?.fasteners?.find((x) => x.id === groupId);
+    if (!g) return null;
+    const spec = { ...g.spec, ...change, opts: { ...g.spec.opts, ...(change.opts ?? {}) } };
+    if ((change.size || change.kind) && change.length === undefined) spec.length = null;
+    const check = planOf(spec);
+    if (check.error) { notify('warning', t(`fastener.${check.error}`)); return null; }
+    const made = [];
+    let result = null;
+    ctx.change('op.editFastener', (pr) => {
+      removeStack(a, g);
+      const r = insertStack(pr, a, spec, made);
+      for (const m of made) pr.parts.push(m);
+      Object.assign(g, { spec, name: designation(r.plan.bolt), comps: r.comps.map((c) => c.id), mates: r.mates.map((m) => m.id) });
+      result = r;
+    });
+    ctx.renderLeft();
+    return result ? { plan: result.plan, comps: result.comps.map((c) => c.id), mates: result.mates.map((m) => m.id) } : null;
+  }
+
+  function deleteFastener(groupId) {
+    const a = asm();
+    const g = a?.fasteners?.find((x) => x.id === groupId);
+    if (!g) return;
+    ctx.change('op.deleteFastener', () => { removeStack(a, g); a.fasteners = a.fasteners.filter((x) => x !== g); });
+    const e = editing();
+    if (e?.mode === 'smartFastener') e.group = a.fasteners.at(-1)?.id ?? null;
+    ctx.renderLeft();
   }
 
   function fastenerPm(e) {
-    const { pmHead, pmGroup, pmSeg } = ctx.pm;
+    const { pmHead, pmGroup } = ctx.pm;
+    const a = asm();
     const last = e.last;
-    const res = last ? pmGroup('check', t('fastener.result'), `<dl class="pm-results"><dt>${escapeHtml(t('fastener.hole'))}</dt><dd>${escapeHtml(`Ø${ctx.fmt(last.diameter, 2)} × ${ctx.fmt(last.depth, 2)} (${t(last.plan.through ? 'fastener.through' : 'fastener.blind')})`)}</dd><dt>${escapeHtml(t('fastener.fit'))}</dt><dd>${escapeHtml(t(`fastener.fit.${last.plan.fit}`))}</dd><dt>${escapeHtml(t('fastener.bolt'))}</dt><dd>${escapeHtml(designation(last.plan.bolt))}</dd></dl><ul class="pm-list">${last.names.map((x) => `<li>${icon('part', 'icon tiny')}<span>${escapeHtml(x)}</span></li>`).join('')}</ul>`) : '';
+    const check = (key, glyph, label) => `<label class="pm-check"><input type="checkbox" data-pm-toggle="${key}" ${e[key] ? 'checked' : ''}/>${icon(glyph)}<span>${escapeHtml(t(label))}</span></label>`;
+    const res = last ? pmGroup('check', t('fastener.result'), `<dl class="pm-results"><dt>${escapeHtml(t('fastener.hole'))}</dt><dd>${escapeHtml(`Ø${ctx.fmt(last.diameter, 2)} × ${ctx.fmt(last.depth, 2)} (${t(last.plan.through ? 'fastener.through' : 'fastener.blind')})`)}</dd><dt>${escapeHtml(t('fastener.fit'))}</dt><dd>${escapeHtml(t(`fastener.fit.${last.plan.fit}`))}</dd><dt>${escapeHtml(t('fastener.bolt'))}</dt><dd>${escapeHtml(designation(last.plan.bolt))}</dd><dt>${escapeHtml(t('fastener.holes'))}</dt><dd>${last.holes}${last.stacked ? ` · ${escapeHtml(t('fastener.stacked'))}` : ''}</dd></dl>`) : '';
+    const groups = a?.fasteners ?? [];
+    const sel = groups.find((g) => g.id === e.group) ?? null;
+    let editor = '';
+    if (sel) {
+      const plan = planOf(sel.spec);
+      const sizes = STD_ITEMS[sel.spec.kind]?.sizes ?? [];
+      editor = [
+        selectHtml('fastEditKind', FASTENER_KINDS.map((k) => [k, t(`std.item.${k}`), STD_ITEMS[k].icon]), sel.spec.kind, t('fastener.type')),
+        selectHtml('fastSize', sizes.map((s) => [s, s]), plan.size ?? '', t('fastener.size')),
+        selectHtml('fastLength', (plan.lengths ?? []).map((l) => [String(l), `${l} mm`]), String(plan.bolt?.length ?? ''), t('fastener.length')),
+        `<p class="pm-note">${escapeHtml(t('fastener.editNote'))}</p>`,
+        `<div class="pm-row"><button class="small-button" data-pm="fastener.delete" title="${escapeHtml(t('fastener.delete'))}">${icon('trash')}<span>${escapeHtml(t('fastener.delete'))}</span></button></div>`,
+      ].join('');
+    }
+    const list = groups.length ? `${selectHtml('fastGroup', groups.map((g, i) => [g.id, `${i + 1}. ${g.name}`, 'smartFastener']), e.group ?? '', t('fastener.inserted'))}${editor}` : `<p class="pm-note">${escapeHtml(t('fastener.none'))}</p>`;
     return [
       pmHead('smartFastener', t('cmd.smartFastener'), t('pm.help.smartFastener')),
-      pmGroup('hexBolt', t('fastener.type'), pmSeg('fastKind', [['hexBolt', t('std.item.hexBolt'), 'hexBolt'], ['socketCap', t('std.item.socketCap'), 'socketCap']], e.kind)),
-      pmGroup('flatWasher', t('fastener.stack'), `<label class="pm-check"><input type="checkbox" data-pm-toggle="washer" ${e.washer ? 'checked' : ''}/>${icon('flatWasher')}<span>${escapeHtml(t('fastener.washer'))}</span></label><label class="pm-check"><input type="checkbox" data-pm-toggle="nut" ${e.nut ? 'checked' : ''}/>${icon('hexNut')}<span>${escapeHtml(t('fastener.nut'))}</span></label><p class="pm-note">${escapeHtml(t('fastener.rules'))}</p>`),
+      pmGroup('hexBolt', t('fastener.type'), `${selectHtml('fastKind', FASTENER_KINDS.map((k) => [k, `${t(`std.item.${k}`)} (${STD_ITEMS[k].standard})`, STD_ITEMS[k].icon]), e.kind, t('fastener.type'))}${selectHtml('fastThreads', [['auto', t('thread.mode.auto')], ['cosmetic', t('thread.mode.cosmetic')], ['modelled', t('thread.mode.modelled')]], e.threads ?? 'auto', t('thread.display'))}`),
+      pmGroup('flatWasher', t('fastener.stack'), `${check('washer', 'flatWasher', 'fastener.washer')}${check('springWasher', 'springWasher', 'fastener.springWasher')}${check('nut', 'hexNut', 'fastener.nut')}${e.nut ? `${selectHtml('fastNutKind', NUT_KINDS.map((k) => [k, `${t(`std.item.${k}`)} (${STD_ITEMS[k].standard})`, STD_ITEMS[k].icon]), e.nutKind, t('fastener.nutKind'))}${check('nutWasher', 'flatWasher', 'fastener.nutWasher')}` : ''}<p class="pm-note">${escapeHtml(t('fastener.rules'))}</p>`),
+      pmGroup('featCirPattern', t('fastener.holesGroup'), `${check('pattern', 'featCirPattern', 'fastener.pattern')}${check('series', 'stackedHoles', 'fastener.series')}${check('lock', 'lockRotation', 'fastener.lock')}`),
       res,
+      pmGroup('smartFastener', t('fastener.edit'), list),
     ].join('');
   }
 
   // ───────────────────────── routing
 
-  const routeKinds = (kind) => ({ ...STD_DEFAULTS.route(), kind, points: kind === 'cable' ? [[0, 0, 0], [40, 30, 20], [90, 0, 50], [140, 40, 60]] : STD_DEFAULTS.route().points, ...(kind === 'tube' ? { bendRadius: 30 } : {}) });
+  const routeKinds = (kind) => {
+    const f = { ...STD_DEFAULTS.route(), kind, points: kind === 'cable' ? [[0, 0, 0], [40, 30, 20], [90, 0, 50], [140, 40, 60]] : kind === 'harness' ? [[0, 0, 20], [150, 0, 20], [300, 0, 20]] : STD_DEFAULTS.route().points, ...(kind === 'tube' ? { bendRadius: 30 } : {}), ...(kind === 'harness' ? { bendRadius: 20, diameter: 4 } : {}) };
+    return kind === 'harness' ? ensureHarness(f) : f;
+  };
+  /** A route's solid and BOM (harnesses have their own). */
+  const routeBuild = (f, features = []) => {
+    if (f.kind === 'harness') { const r = harnessSolid(f, features); return { r, bom: harnessBom(r.model) }; }
+    const r = routeSolid(f, features, stdShape);
+    return { r, bom: routeBom(f, features, { measured: r.measured }) };
+  };
 
   function startRoute(kind) {
     const pt = part(); const a = asm();
@@ -256,7 +434,7 @@ export function createStdTools(ctx) {
       return;
     }
     if (!a) { notify('info', t('std.needDocument')); return; }
-    begin({ mode: 'asmRoute', f: { ...routeKinds(kind), points: [] }, standoff: 0, error: null });
+    begin({ mode: 'asmRoute', f: { ...routeKinds(kind), points: [], ...(kind === 'harness' ? { branches: [], connectors: [], clips: [], wires: [] } : {}) }, standoff: 0, error: null });
     notify('info', t('route.pickPoints'));
   }
 
@@ -269,8 +447,8 @@ export function createStdTools(ctx) {
     const vp = ctx.viewport();
     if ((e.f.points?.length ?? 0) < 2) { vp?.setPreview(null); return; }
     try {
-      const r = routeSolid(e.f, [], stdShape);
-      e.bom = routeBom(e.f, [], { measured: r.measured });
+      const { r, bom } = routeBuild(e.f, []);
+      e.bom = bom;
       vp?.setPreview({ mesh: r.shape.mesh({ tolerance: 0.2, angularTolerance: 0.3 }) });
     } catch (error) {
       e.error = error.code ?? 'route-failed';
@@ -286,9 +464,12 @@ export function createStdTools(ctx) {
       pmHead(ROUTE_ICONS[e.f.kind], t(`cmd.${e.f.kind}Route`), t('pm.help.asmRoute')),
       routeSettings(A, e.f),
       routePointsHtml(A, e.f, { picking: true }),
+      routeBranches(A, e.f),
+      e.f.kind === 'harness' ? harnessTables(A, e.f, []) : '',
       pmGroup('pointTool', t('route.pickOptions'), pmNum('standoff', e.standoff, t('route.standoff'), 'smartDim', ctx.units())),
       e.error ? `<p class="pm-error">${icon('error')}<span>${escapeHtml(t(`rebuild.${e.error}`, null, e.error))}</span></p>` : '',
       routeBomHtml(A, e.bom),
+      harnessResults(A, e.f, e.bom, []),
     ].join('');
   }
 
@@ -298,13 +479,10 @@ export function createStdTools(ctx) {
     const topo = hit?.kind === 'face' ? ctx.topoOf(hit) : null;
     if (hit?.point && topo?.comp) {
       p = hit.point.slice();
-      if (e.standoff && !topo.inner && topo.shape) {
+      if (e.standoff && topo.shape) {
         try {
-          const c = topo.comp;
-          const local = rotate(quatConjugate(c.rotation), p.map((v, i) => v - c.position[i]));
-          const nl = topo.shape.normalAt(local);
-          const nw = placeDir(c, [nl.x, nl.y, nl.z]); const l = Math.hypot(...nw) || 1;
-          p = p.map((v, i) => v + (nw[i] / l) * e.standoff);
+          const placement = topo.inner ? composePlacement(topo.comp, topo.inner) : topo.comp;
+          p = faceOffsetPoint(p, placement, (local) => topo.shape.normalAt(local), e.standoff);
         } catch { /* no normal: the point itself */ }
       }
     } else {
@@ -334,7 +512,7 @@ export function createStdTools(ctx) {
     ctx.change('op.addRoute', (pr) => {
       const n = pr.parts.filter((x) => x.route).length + 1;
       const rp = createPart(`${kindName}${t('route.partSuffix')}${n}`, { route: true, material: ROUTE_MATERIAL[e.f.kind], color: e.f.kind === 'cable' ? e.f.color : null, description: t('route.partDescription') });
-      rp.features.push(createFeature(rp, 'route', { ...e.f, points: e.f.points.map((p) => [...p]) }));
+      rp.features.push(createFeature(rp, 'route', JSON.parse(JSON.stringify(e.f))));
       pr.parts.push(rp);
       comp = { id: ctx.newId('cmp'), part: rp.id, name: instanceName(a, rp.name, rp.id), position: [0, 0, 0], rotation: quatIdentity(), fixed: true };
       a.components.push(comp);
@@ -343,110 +521,10 @@ export function createStdTools(ctx) {
     return comp;
   }
 
-  // ───────────────────────── rendering
+  // ───────────────────────── rendering (app-render.js: path tracer, preview, appearances)
 
-  let photo = null;
-  let host = null;
-  const renderSettings = { ...DEFAULT_RENDER };
-  /** Test hook: a function (blob, name) that receives the saved picture instead of the save dialog. */
-  let saveHook = null;
-
-  function overlay() {
-    const vh = ctx.viewHost();
-    if (!vh) return null;
-    if (!host || !host.isConnected) {
-      host = document.createElement('div');
-      host.className = 'render-view';
-      host.innerHTML = '<div class="render-frame"></div><div class="render-status" role="status"></div>';
-      vh.append(host);
-    }
-    return host;
-  }
-
-  function hideOverlay() { photo?.stop(); host?.remove(); host = null; }
-
-  /** The view's bodies as the photo renderer takes them (shared geometry, the part's material). */
-  function sceneBodies() {
-    const vp = ctx.viewport();
-    const list = [];
-    const box = new THREE.Box3();
-    for (const b of vp?.bodies?.values() ?? []) {
-      if (String(b.key).startsWith('surf:') || b.mesh.visible === false || b.ghost) continue;
-      const matrix = b.mesh.matrixAutoUpdate ? b.mesh.matrixWorld.clone() : b.mesh.matrix.clone();
-      const pbr = pbrFor(b.material ?? 'steel-1020', b.color);
-      list.push({ geometry: b.mesh.geometry, matrix, pbr, key: b.key, material: b.material ?? 'steel-1020' });
-      b.mesh.geometry.computeBoundingBox();
-      box.union(b.mesh.geometry.boundingBox.clone().applyMatrix4(matrix));
-    }
-    return { list, box };
-  }
-
-  function startRender() {
-    const vp = ctx.viewport();
-    if (!vp || (!part() && !asm())) { notify('info', t('notice.noBody')); return; }
-    begin({ mode: 'render', status: null, settings: renderSettings });
-    rerender();
-  }
-
-  function rerender() {
-    const e = editing();
-    if (e?.mode !== 'render') return;
-    const vp = ctx.viewport();
-    const { list, box } = sceneBodies();
-    if (!list.length) { notify('info', t('notice.noBody')); return; }
-    const el = overlay();
-    try {
-      photo ??= new PhotoRenderer();
-    } catch (error) { notify('error', t('render.noWebgl')); ctx.cancelEditing({ quiet: true }); return; }
-    const frame = el.querySelector('.render-frame');
-    if (photo.canvas.parentElement !== frame) frame.append(photo.canvas);
-    const size = photo.setup({ bodies: list, camera: vp.camera, target: vp.target, box, settings: { ...normalizeRenderSettings(renderSettings), viewWidth: vp.width, viewHeight: vp.height } });
-    e.status = { count: 0, total: photo.settings.samples, ms: 0, done: false, ...size };
-    updateStatus();
-    photo.start({
-      onProgress: (s) => { Object.assign(e.status, s); updateStatus(); },
-      onDone: (s) => { Object.assign(e.status, s, { done: true }); updateStatus(); ctx.renderLeft(); },
-    });
-  }
-
-  function updateStatus() {
-    const e = editing();
-    const s = e?.status;
-    const el = host?.querySelector('.render-status');
-    if (!s || !el) return;
-    const pct = Math.round((100 * s.count) / Math.max(1, s.total));
-    el.innerHTML = `${icon(s.done ? 'check' : 'renderView', 'icon tiny')}<span>${escapeHtml(t(s.done ? 'render.done' : 'render.progress', { count: s.count, total: s.total, w: s.width, h: s.height, s: ctx.fmt((s.ms ?? 0) / 1000, 1) }))}</span><i class="render-bar"><b style="width:${pct}%"></b></i>`;
-    const out = document.querySelector('[data-render-progress]');
-    if (out) out.textContent = `${s.count} / ${s.total}`;
-  }
-
-  async function saveRender() {
-    if (!photo) return false;
-    photo.show();
-    const blob = await photo.toBlob();
-    const name = `${ctx.fileSafe(ctx.activeName() || 'render')}-render.png`;
-    if (saveHook) { saveHook(blob, name); notify('success', t('notice.exported', { name })); return true; }
-    return ctx.saveExport(name, 'png', blob, 'image/png');
-  }
-
-  function renderPm(e) {
-    const { pmHead, pmGroup, pmSeg, pmNum, pmButton } = ctx.pm;
-    const s = normalizeRenderSettings(renderSettings);
-    const s0 = e.status;
-    const classes = new Map();
-    for (const b of sceneBodies().list) { const c = materialClass(b.material); if (!classes.has(b.material)) classes.set(b.material, c); }
-    const mats = [...classes].map(([id, c]) => `<li>${icon('material', 'icon tiny')}<span>${escapeHtml(materialName(id, ctx.lang()))} → <b>${escapeHtml(t(`render.class.${c}`))}</b></span></li>`).join('');
-    return [
-      pmHead('renderView', t('cmd.renderView'), t('pm.help.renderView')),
-      pmGroup('environment', t('render.environment'), pmSeg('env', ENV_IDS.map((id) => [id, t(`render.env.${id}`)]), s.env)),
-      pmGroup('sun', t('render.lighting'), `${pmNum('sunIntensity', s.sunIntensity, t('render.sunIntensity'), 'sun')}${pmNum('softness', s.softness, t('render.softness'), 'groundShadow')}`),
-      pmGroup('groundShadow', t('render.groundBg'), `${pmSeg('ground', [['shadow', t('render.ground.shadow')], ['floor', t('render.ground.floor')], ['none', t('render.ground.none')]], s.ground)}${pmSeg('background', [['env', t('render.bg.env')], ['white', t('render.bg.white')], ['transparent', t('render.bg.transparent')]], s.background)}`),
-      pmGroup('depthOfField', t('render.dof'), `<label class="pm-check"><input type="checkbox" data-pm-toggle="dof" ${s.dof ? 'checked' : ''}/>${icon('depthOfField')}<span>${escapeHtml(t('render.dofOn'))}</span></label>${s.dof ? `${pmNum('aperture', s.aperture, t('render.aperture'), 'depthOfField')}${pmNum('focus', s.focus, t('render.focus'), 'smartDim', ctx.units())}<p class="pm-note">${escapeHtml(t('render.focusAuto'))}</p>` : ''}`),
-      pmGroup('resolution', t('render.quality'), `${pmSeg('resolution', [['view', t('render.res.view')], ['hd', '1280×720'], ['fhd', '1920×1080'], ['qhd', '2560×1440'], ['square', '1024²']], s.resolution)}${pmNum('samples', s.samples, t('render.samples'), 'resolution')}`),
-      pmGroup('material', t('render.materials'), `<ul class="pm-list">${mats}</ul>`),
-      pmGroup('renderView', t('render.output'), `<p class="pm-note">${escapeHtml(t('render.samplesDone'))}: <b data-render-progress>${s0 ? `${s0.count} / ${s0.total}` : '—'}</b></p><div class="pm-row">${pmButton('std.render', 'play', t('render.restart'), 'primary')}${pmButton('std.renderStop', 'stop', t('render.stop'))}${pmButton('std.renderSave', 'renderSave', t('render.save'))}</div>`),
-    ].join('');
-  }
+  const rnd = createRenderTools(ctx, { begin, editing });
+  const { startRender, rerender, saveRender } = rnd;
 
   // ───────────────────────── PropertyManager hooks
 
@@ -454,7 +532,7 @@ export function createStdTools(ctx) {
     if (e.mode === 'stdLibrary') return libraryPm(e);
     if (e.mode === 'smartFastener') return fastenerPm(e);
     if (e.mode === 'asmRoute') return asmRoutePm(e);
-    if (e.mode === 'render') return renderPm(e);
+    if (e.mode === 'render') return rnd.pm(e);
     return '';
   }
 
@@ -465,17 +543,23 @@ export function createStdTools(ctx) {
     return undefined;
   }
 
-  const RENDER_NUMS = { sunIntensity: [0, 10], softness: [0, 10], aperture: [0, 10], focus: [0, 1e7], samples: [1, 4096] };
   function field(key, raw, v) {
     const e = editing();
+    if (e.mode === 'render') return rnd.field(key, raw, v);
+    if (e.mode === 'asmRoute' && isRouteTableKey(key)) { if (editRouteTable(e.f, key, raw, v) === 'invalid') notify('error', t('notice.invalidValue', { text: raw })); ctx.renderLeft(); return; }
     if (v == null) { notify('error', t('notice.invalidValue', { text: raw })); ctx.renderLeft(); return; }
-    if (e.mode === 'render' && RENDER_NUMS[key]) { renderSettings[key] = Math.max(RENDER_NUMS[key][0], Math.min(RENDER_NUMS[key][1], key === 'samples' ? Math.round(v) : v)); ctx.renderLeft(); rerender(); return; }
     if (e.mode === 'stdLibrary') {
-      if (['teeth', 'width', 'bore', 'x', 'y', 'z', 'angle'].includes(key)) e.p[key] = key === 'teeth' ? Math.max(6, Math.min(400, Math.round(v))) : ['width'].includes(key) ? Math.max(0.1, v) : key === 'bore' ? Math.max(0, v) : v;
+      if (['teeth', 'mateTeeth'].includes(key)) e.p[key] = Math.max(e.p.kind === 'gearRack' ? 1 : 6, Math.min(400, Math.round(v)));
+      else if (['width', 'height'].includes(key)) e.p[key] = Math.max(0.1, v);
+      else if (key === 'bore') e.p[key] = Math.max(0, v);
+      else if (key === 'helixAngle') e.p[key] = Math.max(0, Math.min(45, v));
+      else if (['x', 'y', 'z', 'angle'].includes(key)) e.p[key] = v;
       ctx.renderLeft(); return;
     }
     if (e.mode === 'asmRoute') {
-      if (key.startsWith('pt3:')) { const [, i, j] = key.split(':').map(Number); if (e.f.points[i]) e.f.points[i][j] = v; }
+      if (isRouteTableKey(key)) { if (editRouteTable(e.f, key, raw, v) === 'invalid') notify('error', t('notice.invalidValue', { text: raw })); }
+      else if (key === 'fill' && v > 0) e.f.fill = Math.min(1, v);
+      else if (key === 'endAllowance' && v >= 0) e.f.endAllowance = v;
       else if (key === 'standoff') e.standoff = v;
       else if (['od', 'wall', 'bendRadius', 'diameter'].includes(key) && v > 0) e.f[key] = v;
       ctx.renderLeft(); return;
@@ -485,10 +569,11 @@ export function createStdTools(ctx) {
 
   function step(key, delta) {
     const e = editing();
-    const target = e.mode === 'stdLibrary' ? e.p : e.mode === 'asmRoute' ? e.f : e.mode === 'render' ? renderSettings : null;
+    if (e.mode === 'render') return rnd.step(key, delta);
+    const target = e.mode === 'stdLibrary' ? e.p : e.mode === 'asmRoute' ? e.f : null;
     if (!target || !Number.isFinite(Number(target[key]))) return;
     const cur = Number(target[key]);
-    const inc = key === 'teeth' ? 1 : key === 'angle' ? 15 : cur >= 20 ? 5 : 1;
+    const inc = key === 'teeth' || key === 'mateTeeth' || key === 'helixAngle' ? 1 : key === 'angle' ? 15 : cur >= 20 ? 5 : 1;
     field(key, String(cur + delta * inc), cur + delta * inc);
   }
 
@@ -499,14 +584,18 @@ export function createStdTools(ctx) {
       else if (!setStd(e.p, key, value)) e.p[key] = value;
       if (key === 'stdKind') e.category = STD_CATEGORIES.find((c) => c.items.includes(value))?.id ?? e.category;
     } else if (e.mode === 'smartFastener') { if (key === 'fastKind') e.kind = value; }
-    else if (e.mode === 'asmRoute') { if (key === 'drawPlane') e.drawPlane = value; else e.f[key] = value; }
-    else if (e.mode === 'render') { renderSettings[key] = value; ctx.renderLeft(); rerender(); return; }
+    else if (e.mode === 'asmRoute') {
+      if (key === 'drawPlane') e.drawPlane = value;
+      else if (isRouteTableKey(key)) editRouteTable(e.f, key, value, Number(value));
+      else { e.f[key] = value; if (key === 'kind' && value === 'harness') ensureHarness(e.f); }
+    }
+    else if (e.mode === 'render') { rnd.set(key, value); return; }
     ctx.renderLeft();
   }
 
   function toggle(key, checked) {
     const e = editing();
-    if (e.mode === 'render') { renderSettings[key] = checked; ctx.renderLeft(); rerender(); return; }
+    if (e.mode === 'render') { rnd.toggle(key, checked); return; }
     if (e.mode === 'stdLibrary') e.p[key] = checked;
     else e[key] = checked;
     ctx.renderLeft();
@@ -515,6 +604,24 @@ export function createStdTools(ctx) {
   /** Selects (data-pm-select) of the library page and of stdPart features; true when handled. */
   function select(key, value) {
     const e = editing();
+    if (e?.mode === 'smartFastener' && key.startsWith('fast')) {
+      if (key === 'fastKind') e.kind = value;
+      else if (key === 'fastNutKind') e.nutKind = value;
+      else if (key === 'fastThreads') e.threads = value;
+      else if (key === 'fastGroup') e.group = value || null;
+      else if (key === 'fastSize' && e.group) editFastener(e.group, { size: value });
+      else if (key === 'fastLength' && e.group) editFastener(e.group, { length: Number(value) });
+      else if (key === 'fastEditKind' && e.group) editFastener(e.group, { kind: value });
+      ctx.renderLeft();
+      return true;
+    }
+    if (e?.mode === 'render') return rnd.select(key, value);
+    if (isRouteTableKey(key)) {
+      const num = Number(value);
+      if (e?.mode === 'asmRoute') { editRouteTable(e.f, key, value, Number.isFinite(num) ? num : null); ctx.renderLeft(); return true; }
+      if (routeFeature(e)) { ctx.updateFeature((f) => { editRouteTable(f, key, value, Number.isFinite(num) ? num : null); }); return true; }
+      return false;
+    }
     if (!key.startsWith('std')) {
       if (e?.mode === 'asmRoute') { e.f[key] = value || null; ctx.renderLeft(); return true; }
       return false;
@@ -524,9 +631,23 @@ export function createStdTools(ctx) {
     return false;
   }
 
-  /** data-pm-set of a stdPart feature (size table rows). True when handled. */
+  const routeFeature = (e) => e?.mode === 'feature' && e.feature?.type === 'route';
+
+  /** Typed route table fields of a route feature (branch points, harness tables). True when handled. */
+  function featureField(key, raw, v) {
+    const e = editing();
+    if (!routeFeature(e) || !isRouteTableKey(key)) return false;
+    let bad = false;
+    ctx.updateFeature((f) => { if (editRouteTable(f, key, raw, v) === 'invalid') bad = true; });
+    if (bad) { notify('error', t('notice.invalidValue', { text: raw })); ctx.renderLeft(); }
+    return true;
+  }
+
+  /** data-pm-set of a stdPart feature (size table rows) or a route feature (swatches, harness kind). True when handled. */
   function featureSet(key, value) {
     const e = editing();
+    if (routeFeature(e) && isRouteTableKey(key)) { ctx.updateFeature((f) => { editRouteTable(f, key, value, Number(value)); }); return true; }
+    if (routeFeature(e) && key === 'kind') { ctx.updateFeature((f) => { f.kind = value; if (value === 'harness') { ensureHarness(f); f.bendRadius = Math.max(Number(f.bendRadius) || 0, 1); } }); return true; }
     if (e?.mode === 'feature' && e.feature.type === 'stdPart' && key.startsWith('std')) { ctx.updateFeature((f) => { setStd(f, key, value); }); return true; }
     return false;
   }
@@ -543,18 +664,40 @@ export function createStdTools(ctx) {
 
   /** Cleans up after a mode of ours ends (cancelEditing calls it). */
   function cleanup(e) {
-    if (e?.mode === 'render') hideOverlay();
+    if (e?.mode === 'render') rnd.cleanup(e);
     if (e?.mode === 'asmRoute') { ctx.viewport()?.setPreview(null); previewKey = ''; }
   }
 
-  const COMMAND_NAMES = new Set(['std.insert', 'std.render', 'std.renderStop', 'std.renderSave']);
-  function handles(name) { return COMMAND_NAMES.has(name) || (owns(editing()) && ['addPt3', 'delPt3', 'clear'].includes(name)); }
+  const COMMAND_NAMES = new Set(['std.insert', 'std.render', 'std.renderStop', 'std.renderSave', 'fastener.delete']);
+  function handles(name) { return COMMAND_NAMES.has(name) || rnd.handles(name) || (owns(editing()) && ['addPt3', 'delPt3', 'clear', 'routeEdit'].includes(name)) || (name === 'routeEdit' && routeFeature(editing())); }
+
+  /** The flattened harness of the route being edited, saved as SVG or DXF (export path, file dialog). */
+  function exportHarness(f, features, format) {
+    let flat;
+    try { flat = harnessFlat(harnessModel(f, features)); } catch (error) { notify('error', t(`rebuild.${error.code ?? 'route-failed'}`, null, error.code ?? '')); return undefined; }
+    const base = `${ctx.fileSafe(ctx.activeName() || 'harness')}-harness`;
+    if (format === 'dxf') return ctx.saveExport(`${base}.dxf`, 'dxf', harnessDxf(flat, { labels: harnessLabels(t) }), 'application/dxf');
+    return ctx.saveExport(`${base}.svg`, 'svg', harnessSvg(flat, { labels: harnessLabels(t) }), 'image/svg+xml');
+  }
+
+  function routeEdit(arg) {
+    const e = editing();
+    if (arg === 'exportSvg' || arg === 'exportDxf') {
+      const format = arg === 'exportDxf' ? 'dxf' : 'svg';
+      if (e?.mode === 'asmRoute') return exportHarness(e.f, [], format);
+      if (routeFeature(e)) return exportHarness(e.feature, part()?.features ?? [], format);
+      return undefined;
+    }
+    if (e?.mode === 'asmRoute') { routeTableCommand(e.f, arg); return ctx.renderLeft(); }
+    if (routeFeature(e)) ctx.updateFeature((f) => { routeTableCommand(f, arg); });
+    return undefined;
+  }
   function command(name, arg) {
     const e = editing();
     if (name === 'std.insert') return insertLibrary();
-    if (name === 'std.render') return rerender();
-    if (name === 'std.renderStop') { photo?.stop(); if (e?.status) { e.status.done = true; updateStatus(); } return undefined; }
-    if (name === 'std.renderSave') return saveRender();
+    if (name === 'fastener.delete') { if (e?.group) deleteFastener(e.group); return undefined; }
+    if (rnd.handles(name)) return rnd.command(name, arg);
+    if (name === 'routeEdit') return routeEdit(arg);
     if (e?.mode === 'asmRoute') {
       if (name === 'addPt3') { const last = e.f.points.at(-1) ?? [0, 0, 0]; e.f.points.push([last[0] + 50, last[1], last[2]]); }
       if (name === 'delPt3') e.f.points.splice(Number(arg), 1);
@@ -576,19 +719,21 @@ export function createStdTools(ctx) {
     pipeRoute: { icon: 'pipeRoute', label: 'cmd.pipeRoute', enabled: docOpen, run: () => startRoute('pipe') },
     tubeRoute: { icon: 'tubeRoute', label: 'cmd.tubeRoute', enabled: docOpen, run: () => startRoute('tube') },
     cableRoute: { icon: 'cableRoute', label: 'cmd.cableRoute', enabled: docOpen, run: () => startRoute('cable') },
+    harnessRoute: { icon: 'harnessRoute', label: 'cmd.harnessRoute', enabled: docOpen, run: () => startRoute('harness') },
     renderView: { icon: 'renderView', label: 'cmd.renderView', enabled: docOpen, checked: () => editing()?.mode === 'render', run: toggleMode('render', startRender) },
   };
 
   /** The CommandManager tab of these tools. */
-  const TAB = ['stdLibrary', 'smartFastener', '|', 'pipeRoute', 'tubeRoute', 'cableRoute', '|', 'renderView'];
-  const SUBMENU = { icon: 'stdLibrary', items: ['stdLibrary', 'smartFastener', '-', 'pipeRoute', 'tubeRoute', 'cableRoute'] };
+  const TAB = ['stdLibrary', 'smartFastener', '|', 'pipeRoute', 'tubeRoute', 'cableRoute', 'harnessRoute', '|', 'renderView'];
+  const SUBMENU = { icon: 'stdLibrary', items: ['stdLibrary', 'smartFastener', '-', 'pipeRoute', 'tubeRoute', 'cableRoute', 'harnessRoute'] };
 
   return {
-    commands, TAB, SUBMENU, owns, pm, pick, field, step, set, toggle, select, featureSet, accept, cleanup, handles, command, subject,
-    startLibrary, startRoute, insertLibrary, fastenerPick, rerender, saveRender,
-    get photo() { return photo; },
-    get renderSettings() { return renderSettings; },
-    setSaveHook(fn) { saveHook = fn; },
+    commands, TAB, SUBMENU, owns, pm, pick, field, step, set, toggle, select, featureSet, featureField, accept, cleanup, handles, command, subject,
+    startLibrary, startRoute, insertLibrary, fastenerPick, editFastener, deleteFastener, rerender, saveRender,
+    get photo() { return rnd.photo; },
+    get renderSettings() { return rnd.renderSettings; },
+    setSaveHook(fn) { rnd.setSaveHook(fn); },
+    render: rnd,
     routeSection,
   };
 }

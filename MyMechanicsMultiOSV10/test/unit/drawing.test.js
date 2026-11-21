@@ -54,14 +54,17 @@ function block() {
 const triArea = (t) => Math.abs((t[2] - t[0]) * (t[5] - t[1]) - (t[4] - t[0]) * (t[3] - t[1])) / 2;
 
 test('old drawings render exactly as the original module did (SVG and DXF)', () => {
-  // Hashes taken from the module before section / detail / annotation support was added.
+  // Hashes taken from the module before section / detail / annotation support was added (the SVG); the DXF ones
+  // since it also writes what the sheet shows around the views (overall view dimensions, the frame's zone marks);
+  // the SVG ones since the sheet names its font (Roboto, the font its texts are measured with) — the only change.
   const d = createDrawing({ id: 'd', name: 'D', source: { kind: 'part', id: 'p' }, title: { date: '2026-01-01' } });
   d.views.push({ id: 'v-left', type: 'left' }, { id: 'v-bottom', type: 'bottom' });
   const box = (w, h) => ({ visible: ['M 0 0 L 1 1', `M 0 0 L ${w} 0 L ${w} -${h} Z`], hidden: ['M 0 0 L 2 2'], box: { x0: 0, y0: 0, x1: w, y1: h } });
   const synthetic = new Map([['v-front', box(400, 100)], ['v-top', box(400, 80)], ['v-right', box(80, 100)], ['v-iso', box(300, 200)], ['v-left', box(80, 100)], ['v-bottom', box(400, 80)]]);
   delete d.annotations; delete d.bom; // files saved before these fields existed
-  assert.equal(sha(drawingSvg(d, synthetic, { labels: { 'view.top': 'TOP' }, info: { name: 'N' } })), 'dce34cc374ad5c039c8b9c8b379e06bea348926de7812a2fe4aab64dbf92d03e');
-  assert.equal(sha(drawingDxf(d, synthetic)), 'fee6834aaa0779b67b5c10a06bad7de8e25dba9b7626b0eb893ee73357033c4c');
+  assert.equal(sha(drawingSvg(d, synthetic, { labels: { 'view.top': 'TOP' }, info: { name: 'N' } })), '0b151d89b43232eddb8ace60c2b2c25a9ef9beb7d344f4c7319d56b2ad4754e5');
+  assert.equal(sha(drawingSvg(d, synthetic, { labels: { 'view.top': 'TOP' }, info: { name: 'N' } }).replaceAll('Roboto,', '')), 'dce34cc374ad5c039c8b9c8b379e06bea348926de7812a2fe4aab64dbf92d03e', 'without the font name: the original');
+  assert.equal(sha(drawingDxf(d, synthetic)), '0bcb0e154f4abf91043815d4206c01e5b61fcfb60deb728f355cbfc9f4e9b428');
 
   // A real part through the kernel, every standard view, then other sheet settings. The hashes were taken with
   // the Y-up cameras and the unturned block; the Z-up cameras see the turned block exactly the same way.
@@ -71,11 +74,11 @@ test('old drawings render exactly as the original module did (SVG and DXF)', () 
   const projections = new Map(k.views.map((v) => [v.id, projectView(body, v.type)]));
   assert.equal(sha(JSON.stringify([...projections].map(([id, p]) => [id, p.visible, p.hidden, p.box]))), 'c1278f22473afeb3e8f273e017161ce24d29c4ad2ac2abcacb9b391931a3b7f2');
   const labels = { 'view.front': '정면도', 'title.name': '이름' };
-  assert.equal(sha(drawingSvg(k, projections, { labels, info: { name: 'Box', material: 'Steel', mass: '1 g' }, selected: 'v-top' })), '8d5c17ecf51983c13269e2f3d09e9ae053ba79dd6d59084d1899e078e8935e60');
-  assert.equal(sha(drawingDxf(k, projections)), '60be95309cf61d8e2519543955d289f311d2148026e144b2b2e39ea3e83f6deb');
+  assert.equal(sha(drawingSvg(k, projections, { labels, info: { name: 'Box', material: 'Steel', mass: '1 g' }, selected: 'v-top' })), '0cd9e2ba36e5d5c25298654b074384dab80506eee8a48e6b575c1c442d52495a');
+  assert.equal(sha(drawingDxf(k, projections)), '3bf033d05ecf486716bbb0eda602028dff2b75ad1ffa0013016be77193ae850e');
   k.projection = 'first'; k.showHidden = false; k.showDims = false; k.autoScale = false; k.scale = 0.5; k.sheet = 'A4';
-  assert.equal(sha(drawingSvg(k, projections)), '2e5fd4ed0d51221edcb58fba708319b0ba249665cefe91a46814616db2ff54c9');
-  assert.equal(sha(drawingDxf(k, projections)), '5e017340e0b62f10101bb1a5ea20680d2ec10a4ebfee68587de7c1a83450d5ab');
+  assert.equal(sha(drawingSvg(k, projections)), '861b80ddd6ab083e9bb63b25d6026bc458cc525f82457c5dafbe5fe61172bb6e');
+  assert.equal(sha(drawingDxf(k, projections)), 'cc514b237454df21130238d6e829fbf643b90711fb89dd64f82d04e902137c95');
   // projectView with the view object of a standard view is the same projection.
   assert.deepEqual(projectView(body, 'front', { id: 'v', type: 'front' }), projections.get('v-front'));
   assert.equal(VIEW_TYPES.length, 8);

@@ -27,6 +27,7 @@
     "clean:all": "node scripts/clean.mjs --all",
     "build:docs": "node scripts/build-docs.mjs",
     "guide:images": "node scripts/make-guide-images.mjs",
+    "tutorial:video": "node scripts/make-tutorial-video.mjs",
     "i18n:check": "node scripts/i18n-check.mjs"
   },
   "dependencies": {

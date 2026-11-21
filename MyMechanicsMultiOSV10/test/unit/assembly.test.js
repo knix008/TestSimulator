@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import {
   solveMates, matesFor, quatIdentity, quatFromAxisAngle, placePoint, placeDir, rotate, twistAngle,
   captureLock, captureGear, captureMate, mateResiduals, mateComps, mateRefs, MATE_TYPES, MATE_REFS,
-  explodedPlacement, autoExplode, motionFrame, motionFrames, flattenAssembly, instanceName, relativePlacement,
+  explodedPlacement, autoExplode, motionFrame, motionFrames, motionCursor, flattenAssembly, instanceName, relativePlacement,
 } from '../../src/cad/assembly.js';
 
 const near = (a, b, tol = 1e-5) => assert.ok(Math.abs(a - b) <= tol, `${a} ≉ ${b}`);
@@ -176,6 +176,32 @@ test('gear ratio 2 through a motion study, past a full turn', () => {
   const rb0 = [...rev.components[2].rotation];
   const f = motionFrame(rev, 0.1, { size: 50 });
   sameAngle(twistAngle(f.placements.get('b').rotation, rb0, [0, 0, 1]), 2 * 2 * Math.PI * 0.1);
+});
+
+test('motion cursor (playback): same poses as solving each time from 0, frame cost does not grow with time', () => {
+  const asm = gearAssembly(2);
+  asm.motion = { duration: 4, motors: [{ id: 'mot', kind: 'rotary', comp: 'a', ref: ref('a', zAxis), speed: 60 }] };
+  const cursor = motionCursor(asm, { size: 50 });
+  // Forward in small steps, then a jump back (the loop restarting), then forward again.
+  const times = [0.05, 0.4, 0.9, 1.7, 2.6, 3.4, 0.2, 0.75];
+  for (const t of times) {
+    const got = cursor.at(t);
+    const want = motionFrame(asm, t, { size: 50 }).placements;
+    for (const id of ['a', 'b']) {
+      nearV(got.get(id).position, want.get(id).position, 1e-6);
+      const g = got.get(id).rotation; const w = want.get(id).rotation;
+      const dot = Math.abs(g.reduce((sum, v, i) => sum + v * w[i], 0));
+      near(dot, 1, 1e-6);
+    }
+  }
+  // A late frame right after the one before it does not solve the motion again from 0. Counted in mate solves
+  // (not milliseconds, which depend on the machine's load): stepping 1/30 s on is one small step.
+  const solves = (fn) => { const before = motionCursor.solveCount(); fn(); return motionCursor.solveCount() - before; };
+  const warm = motionCursor(asm, { size: 50 });
+  warm.at(3.5);
+  const late = solves(() => warm.at(3.5 + 1 / 30));
+  const fromZero = solves(() => motionCursor(asm, { size: 50 }).at(3.5 + 1 / 30));
+  assert.ok(late * 20 < fromZero, `stepping on took ${late} solves, from 0 ${fromZero}`);
 });
 
 test('motion frames: one placement map per frame', () => {

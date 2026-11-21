@@ -125,9 +125,15 @@ export const FIXTURES = {
       cbDepth: { with: { kind: 'counterbore' }, to: 9, m: 'V', dir: '-' },
       csDiameter: { with: { kind: 'countersink' }, to: 15, m: 'V', dir: '-' },
       csAngle: { with: { kind: 'countersink' }, to: 60, m: 'V', dir: '-' },
+      // A tapped hole's thread depth: the cosmetic thread record (the drill stays).
+      threadDepth: { with: { kind: 'tapped', diameter: 6.8, through: false, depth: 15 }, to: 8 },
     },
     bool: { through: { with: { depth: 8 }, m: 'V', dir: '+' } },
-    opt: { kind: ['counterbore', 'countersink'] },
+    opt: {
+      kind: ['counterbore', 'countersink', 'tapped'],
+      threadSize: { with: { kind: 'tapped', diameter: 6.8 }, values: ['M6'] },
+      threadMode: { with: { kind: 'tapped', diameter: 6.8, through: false, depth: 10, threadDepth: 6 }, values: ['modelled'] },
+    },
   },
   linearPattern: {
     make: (p, o) => {
@@ -223,9 +229,15 @@ export const FIXTURES = {
       // A short thread (the faceted groove is the slowest build here).
       return createFeature(p, 'thread', { edge: edgeSignature(edge), length: 4, ...o });
     },
-    num: { length: { to: 7, m: 'V', dir: '-' }, pitch: { to: 2 } },
-    bool: { cosmetic: { m: 'V', dir: '+' } },
-    opt: { internal: { skip: 'only overrides the automatic side detection: on a shaft "auto" already is external, and forcing "internal" cuts nothing (thread-failed, by design)' } },
+    // New threads are ISO threads, cosmetic by default ('auto' follows the global option, off here): the
+    // settings change the thread record; mode 'modelled' and the older V form cut the shaft.
+    num: { length: { to: 7 }, pitch: { to: 2 } },
+    bool: { cosmetic: { skip: 'the default ISO thread (mode auto, global option off) is cosmetic already; the modelled case is the mode choice' } },
+    opt: {
+      mode: ['modelled'],
+      form: ['v'],
+      internal: { skip: 'only overrides the automatic side detection: on a shaft "auto" already is external, and forcing "internal" cuts nothing (thread-failed, by design)' },
+    },
   },
   wrap: {
     make: (p, o) => {
@@ -624,6 +636,7 @@ export const FIXTURES = {
   partingSurface: {
     make: (p, o) => { moldPlate(p); return createFeature(p, 'partingSurface', o); },
     num: { distance: { to: 40, m: 'SA', dir: '+' } },
+    opt: { mode: { skip: 'the plate’s parting line is level, so the planar surface is used whatever the mode (mold-more.test.js covers the modes on a stepped part)' } },
   },
   stdPart: {
     make: (p, o) => createFeature(p, 'stdPart', { kind: 'hexBolt', size: 'M8', ...o }),
@@ -635,9 +648,20 @@ export const FIXTURES = {
       bore: { with: { kind: 'spurGear', size: '2' }, to: 12, m: 'V', dir: '-' },
       x: { to: 20, m: 'CX', dir: '+' }, y: { to: 20, m: 'CY', dir: '+' }, z: { to: 20, m: 'CZ', dir: '+' },
       angle: { with: { axis: 'x' }, to: 90 },
+      helixAngle: { with: { kind: 'helicalGear', size: '2' }, to: 25 },
+      mateTeeth: { with: { kind: 'bevelGear', size: '2' }, to: 30 },
+      height: { with: { kind: 'gearRack', size: '2' }, to: 25, m: 'V', dir: '+' },
     },
-    bool: { merge: { skip: 'joins the part to the body before it: there is no body in this fixture (an empty part gets the part either way)' } },
-    opt: { kind: ['socketCap', 'hexNut', 'flatWasher', 'springWasher'], size: ['M10'], axis: ['x'] },
+    bool: {
+      merge: { skip: 'joins the part to the body before it: there is no body in this fixture (an empty part gets the part either way)' },
+      keyway: { with: { kind: 'spurGear', size: '2', bore: 20 }, m: 'V', dir: '-' },
+    },
+    opt: {
+      kind: ['socketCap', 'hexNut', 'flatWasher', 'springWasher', 'countersunk', 'nylonNut', 'helicalGear'],
+      size: ['M10'], axis: ['x'],
+      hand: { with: { kind: 'helicalGear', size: '2' }, values: ['left'] },
+      threads: { with: { kind: 'thinNut', size: 'M3' }, values: ['modelled'] },
+    },
   },
   route: {
     make: (p, o) => createFeature(p, 'route', { kind: 'tube', bendRadius: 10, ...o }),
@@ -647,7 +671,7 @@ export const FIXTURES = {
       bendRadius: { to: 30 },
       diameter: { with: { kind: 'cable' }, to: 8, m: 'V', dir: '+' },
     },
-    opt: { kind: ['pipe', 'cable'], dn: { with: { kind: 'pipe' }, values: ['DN40'] }, fittings: { with: { kind: 'pipe' }, values: ['elbows'] }, flanges: { with: { kind: 'pipe' }, values: ['both'] } },
+    opt: { kind: ['pipe', 'cable', 'harness'], dn: { with: { kind: 'pipe' }, values: ['DN40'] }, fittings: { with: { kind: 'pipe' }, values: ['elbows'] }, flanges: { with: { kind: 'pipe' }, values: ['both'] } },
   },
 };
 

@@ -576,7 +576,7 @@ function motionRunner(assembly, { entity = (r) => r, size = 100 } = {}) {
       for (const m of coupled) captureGear(asm, m);
       const ti = time + (dt * i) / n;
       for (const x of motors) Object.assign(x.comp, motorPlacement(x.m, p0.get(x.comp.id), x.local, ti));
-      if (asm.mates.length) last = solveMates(asm, { entity, size });
+      if (asm.mates.length) { last = solveMates(asm, { entity, size }); motionSolves++; }
     }
     time = t;
     return last;
@@ -584,6 +584,28 @@ function motionRunner(assembly, { entity = (r) => r, size = 100 } = {}) {
   const placements = () => new Map(asm.components.map((c) => [c.id, clonePlacement(c)]));
   return { asm, advanceTo, placements };
 }
+
+/**
+ * A motion study that is played: frames asked for one after the other only move the solver on from the
+ * previous time (motionFrame starts again from 0 each call, which costs more the later the time).
+ * at(time) → Map compId → { position, rotation }; going back in time starts again from 0.
+ */
+let motionSolves = 0;
+export function motionCursor(assembly, opts = {}) {
+  let run = motionRunner(assembly, opts);
+  let now = 0;
+  return {
+    at(time) {
+      const t = Number(time) || 0;
+      if (t < now) { run = motionRunner(assembly, opts); now = 0; }
+      run.advanceTo(t);
+      now = t;
+      return run.placements();
+    },
+  };
+}
+/** Mate solves made by motion studies so far (tests check that playing does not start again from 0). */
+motionCursor.solveCount = () => motionSolves;
 
 /**
  * The assembly at time `time` (s) of its motion study (`assembly.motion.motors`; speeds in rpm or mm/s,

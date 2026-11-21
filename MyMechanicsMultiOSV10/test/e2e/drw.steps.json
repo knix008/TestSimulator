@@ -71,6 +71,76 @@
     "expect": "^true true true$"
   },
   {
+    "name": "drw: smart dimension in the isometric view: an edge picked",
+    "eval": "(async () => { const m = window.__mymechanics; if (m.state.editing?.mode !== 'drwDim') await m.run('drwSmartDim'); const d = m.active(); const v = d.views.find((x) => x.type === 'iso'); const g = document.querySelector('.drawing-paper svg [data-view=\"' + v.id + '\"]'); let best = null; for (const p of g.querySelectorAll('path.visible-line')) { const k = /^M\\s*(-?[\\d.e-]+)[\\s,]+(-?[\\d.e-]+)\\s*L\\s*(-?[\\d.e-]+)[\\s,]+(-?[\\d.e-]+)/.exec(p.getAttribute('d').trim()); if (!k) continue; const [a, b, c, e] = k.slice(1).map(Number); const L = Math.hypot(c - a, e - b); if (!best || L > best.L) best = { p, a, b, c, e, L }; } const q = new DOMPoint(best.a + (best.c - best.a) * 0.3, best.b + (best.e - best.b) * 0.3).matrixTransform(best.p.getScreenCTM()); window.__pt = [q.x, q.y]; window.__nDims = d.annotations.filter((x) => x.kind === 'drwDim').length; return m.state.editing?.mode; })()",
+    "expect": "^drwDim$"
+  },
+  {
+    "mouse": [
+      {
+        "type": "mousePressed",
+        "x": "window.__pt[0]",
+        "y": "window.__pt[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__pt[0]",
+        "y": "window.__pt[1]",
+        "button": "left"
+      }
+    ],
+    "wait": 500
+  },
+  {
+    "name": "drw: the isometric dimension measures the true 3D length (TL)",
+    "eval": "(() => { const d = window.__mymechanics.active(); const list = d.annotations.filter((x) => x.kind === 'drwDim'); const a = list.at(-1); const txt = [...document.querySelectorAll('.drawing-paper svg [data-annotation=\"' + a.id + '\"] text')].map((t) => t.textContent).join(' '); return (list.length - window.__nDims) + ' ' + Boolean(a.m3) + ' ' + txt; })()",
+    "expect": "^1 true (100|50|20) TL( |$)"
+  },
+  {
+    "name": "drw: drag a dimension while the smart dimension page is open",
+    "eval": "(() => { const m = window.__mymechanics; const d = m.active(); const a = d.annotations.filter((x) => x.kind === 'drwDim').at(-1); window.__drag = { id: a.id, x: a.x, y: a.y, n: d.annotations.length }; const r = document.querySelector('.drawing-paper svg [data-annotation=\"' + a.id + '\"] text').getBoundingClientRect(); window.__pt = [r.x + r.width / 2, r.y + r.height / 2]; return m.state.editing?.mode; })()",
+    "expect": "^drwDim$"
+  },
+  {
+    "mouse": [
+      {
+        "type": "mousePressed",
+        "x": "window.__pt[0]",
+        "y": "window.__pt[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__pt[0] + 15",
+        "y": "window.__pt[1] + 10",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__pt[0] + 45",
+        "y": "window.__pt[1] + 30",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__pt[0] + 45",
+        "y": "window.__pt[1] + 30",
+        "button": "left"
+      }
+    ],
+    "wait": 500
+  },
+  {
+    "name": "drw: the dimension moved, nothing was picked, the page stays open",
+    "eval": "(() => { const m = window.__mymechanics; const d = m.active(); const a = d.annotations.find((x) => x.id === window.__drag.id); const moved = Math.hypot(a.x - window.__drag.x, a.y - window.__drag.y) > 3; return moved + ' ' + (d.annotations.length - window.__drag.n) + ' ' + m.state.editing?.mode + ' ' + (m.state.editing?.picks?.length ?? 0); })()",
+    "expect": "^true 0 drwDim 0$"
+  },
+  {
     "name": "drw: weld symbol placed by clicking the sheet",
     "eval": "(async () => { const m = window.__mymechanics; await m.run('drwWeld'); window.__pt = window.__sheetToClient(60, 230); return m.state.editing?.mode; })()",
     "expect": "^drwWeld$"

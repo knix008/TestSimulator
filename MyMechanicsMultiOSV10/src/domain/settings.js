@@ -166,6 +166,8 @@ export function defaultSettings(language = 'ko') {
     showSketches: true,
     perspectiveView: false,
     meshQuality: 'normal',
+    /** Model ISO threads exactly in every feature set to 'auto' (slow); off: cosmetic threads. */
+    modelledThreads: false,
   };
 }
 
@@ -213,6 +215,7 @@ export function normalizeSettings(raw = {}, language) {
   s.projection = s.projection === 'first' ? 'first' : 'third';
   s.displayStyle = DISPLAY_STYLES.includes(s.displayStyle) ? s.displayStyle : base.displayStyle;
   s.meshQuality = ['coarse', 'normal', 'fine'].includes(s.meshQuality) ? s.meshQuality : 'normal';
+  s.modelledThreads = s.modelledThreads === true;
   s.leftDrag = s.leftDrag === 'select' ? 'select' : 'orbit';
   const sp = s.scaleBarPos;
   s.scaleBarPos = sp && Number.isFinite(sp.x) && Number.isFinite(sp.y) ? { x: Math.max(0, Math.min(1, sp.x)), y: Math.max(0, Math.min(1, sp.y)) } : null;

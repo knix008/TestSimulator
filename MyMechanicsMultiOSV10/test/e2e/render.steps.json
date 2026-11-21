@@ -1,0 +1,127 @@
+[
+  {
+    "until": "Boolean(window.__mymechanics?.std?.render)",
+    "timeout": 60000
+  },
+  {
+    "name": "render-lab: the path tracer compiles and draws (WebGL2, float targets)",
+    "eval": "(async () => {\n  const lab = await window.__mymechanics.std.render.lab();\n  const r = await lab.labRender('noise', { samples: 2, width: 32, height: 24 });\n  const t = r.tracer;\n  if (t.shaderError) throw new Error(t.shaderError);\n  const lum = lab.regionLum(r, 0, 0, 1, 1);\n  return JSON.stringify({ ok: lum > 0.02 && lum < 50, samples: t.count, mode: t.mode });\n})()",
+    "expect": "\"ok\":true,\"samples\":2"
+  },
+  {
+    "name": "render-lab: noise falls as samples add up (independent runs agree better at 64 than at 4 samples)",
+    "eval": "(async () => {\n  const lab = await window.__mymechanics.std.render.lab();\n  const o = { width: 48, height: 36 };\n  const a4 = await lab.labRender('noise', { ...o, samples: 4, seed: 1 }); const b4 = await lab.labRender('noise', { ...o, samples: 4, seed: 2 });\n  const e4 = lab.rmse(a4, b4);\n  const a64 = await lab.labRender('noise', { ...o, samples: 64, seed: 3 }); const b64 = await lab.labRender('noise', { ...o, samples: 64, seed: 4 });\n  const e64 = lab.rmse(a64, b64);\n  const ratio = e4 / e64;\n  if (!(ratio > 2.5)) throw new Error(`error 4 spp ${e4}, 64 spp ${e64}, ratio ${ratio}`);\n  return `ratio ${ratio.toFixed(2)} (ideal 4)`;\n})()",
+    "expect": "^ratio"
+  },
+  {
+    "name": "render-lab: clear glass refracts (IOR 1.0 is invisible, IOR 1.5 bends the checker behind it)",
+    "eval": "(async () => {\n  const lab = await window.__mymechanics.std.render.lab();\n  const o = { width: 64, height: 48, samples: 24 };\n  const none = await lab.labRender('glass', { ...o, hidden: true, seed: 1 });\n  const none2 = await lab.labRender('glass', { ...o, hidden: true, seed: 4 });\n  const air = await lab.labRender('glass', { ...o, ior: 1.0, seed: 2 });\n  const glass = await lab.labRender('glass', { ...o, ior: 1.5, seed: 3 });\n  const inside = [0.42, 0.35, 0.58, 0.65];\n  // Two renders of the empty scene differ by the noise only: IOR 1.0 must be no further off, IOR 1.5 much further.\n  const noise = lab.rmse(none2, none, inside);\n  const dAir = lab.rmse(air, none, inside); const dGlass = lab.rmse(glass, none, inside);\n  if (!(dAir < 1.5 * noise && dGlass > 2 * dAir && dGlass > 2 * noise)) throw new Error(`noise ${noise} air ${dAir} glass ${dGlass}`);\n  return `noise ${noise.toFixed(3)} air ${dAir.toFixed(3)} glass ${dGlass.toFixed(3)}`;\n})()",
+    "expect": "^noise"
+  },
+  {
+    "name": "render-lab: a mirror sphere reflects the environment (matches the reflected environment, changes with it)",
+    "eval": "(async () => {\n  const lab = await window.__mymechanics.std.render.lab();\n  const region = [0.46, 0.44, 0.54, 0.56];\n  const res = {};\n  for (const env of ['sunset', 'daylight']) {\n    const r = await lab.labRender('metal', { width: 64, height: 48, samples: 16, env });\n    const got = lab.regionMean(r, ...region).slice(0, 3);\n    const want = lab.mirrorExpected(env, region, 64, 48);\n    const err = Math.max(...got.map((v, i) => Math.abs(v - want[i]) / Math.max(0.05, want[i])));\n    if (!(err < 0.2)) throw new Error(`${env}: got ${got.map((v) => v.toFixed(3))} want ${want.map((v) => v.toFixed(3))}`);\n    res[env] = got[0] / Math.max(1e-4, got[2]);\n  }\n  if (!(res.sunset > res.daylight * 1.3)) throw new Error(`red/blue sunset ${res.sunset} daylight ${res.daylight}`);\n  return `red/blue sunset ${res.sunset.toFixed(2)} daylight ${res.daylight.toFixed(2)}`;\n})()",
+    "expect": "^red/blue"
+  },
+  {
+    "name": "render-lab: the cube casts a shadow on the shadow catcher, away from the sun",
+    "eval": "(async () => {\n  const lab = await window.__mymechanics.std.render.lab();\n  const r = await lab.labRender('shadow', { width: 64, height: 64, samples: 32 });\n  // Top view, 160 mm across: the studio sun is at azimuth 35°, the shadow toward 215°.\n  const at = (x, y) => [(x + 80) / 160, (80 - y) / 160];\n  const patch = ([fx, fy]) => lab.regionLum(r, fx - 0.03, fy - 0.03, fx + 0.03, fy + 0.03);\n  const shadow = patch(at(-27, -19)); const lit = patch(at(27, 19)); const far = patch(at(-70, 70));\n  if (!(shadow < 0.65 * lit && Math.abs(lit - far) < 0.25 * far)) throw new Error(`shadow ${shadow} lit ${lit} far ${far}`);\n  return `shadow/lit ${(shadow / lit).toFixed(2)}`;\n})()",
+    "expect": "^shadow/lit"
+  },
+  {
+    "name": "render-lab: depth of field blurs what is out of focus (thin lens, f/1.4)",
+    "eval": "(async () => {\n  const lab = await window.__mymechanics.std.render.lab();\n  const o = { width: 96, height: 72, samples: 24 };\n  const near = await lab.labRender('dof', { ...o, focus: 150 });\n  const far = await lab.labRender('dof', { ...o, focus: 600 });\n  const region = [0.12, 0.38, 0.33, 0.62];\n  const sNear = lab.sharpness(near, ...region); const sFar = lab.sharpness(far, ...region);\n  if (!(sNear > 1.6 * sFar)) throw new Error(`in focus ${sNear} out of focus ${sFar}`);\n  return `sharpness ratio ${(sNear / sFar).toFixed(2)}`;\n})()",
+    "expect": "^sharpness"
+  },
+  {
+    "name": "render-lab: the denoiser removes most of the noise of a few samples",
+    "eval": "(async () => {\n  const lab = await window.__mymechanics.std.render.lab();\n  const o = { width: 48, height: 36, samples: 4 };\n  const a = await lab.labRender('noise', { ...o, seed: 11, settings: { denoise: true } }); const da = a.tracer.denoisedImage();\n  const b = await lab.labRender('noise', { ...o, seed: 12, settings: { denoise: true } }); const db = b.tracer.denoisedImage();\n  const raw = lab.rmse(a, b); const dn = lab.rmse(da, db);\n  if (!(dn < 0.6 * raw)) throw new Error(`raw ${raw} denoised ${dn}`);\n  return `noise raw ${raw.toFixed(3)} denoised ${dn.toFixed(3)}`;\n})()",
+    "expect": "^noise raw"
+  },
+  {
+    "name": "render: an assembly sample opens",
+    "eval": "(async () => {\n  const m = window.__mymechanics;\n  await m.actions.ensureKernel();\n  await m.actions.closeProject({ force: true });\n  await m.actions.openSampleAsk('asmPillowLine');\n  await new Promise((r) => setTimeout(r, 1500));\n  return m.active()?.components ? `assembly ${m.active().components.length}` : 'no assembly';\n})()",
+    "expect": "^assembly [1-9]"
+  },
+  {
+    "name": "render: Render opens in Final mode (path tracing) with the page of settings",
+    "eval": "(async () => {\n  const m = window.__mymechanics;\n  Object.assign(m.std.renderSettings, { mode: 'final', resolution: 'small', samples: 6, denoise: true });\n  await m.run('renderView');\n  await new Promise((r) => setTimeout(r, 300));\n  const groups = [...document.querySelectorAll('.pm-group h4 span')].map((x) => x.textContent).length;\n  return `${m.state.editing?.mode} ${Boolean(document.querySelector('.render-view canvas'))} ${groups >= 9}`;\n})()",
+    "expect": "^render true true$"
+  },
+  {
+    "until": "window.__mymechanics.state.editing?.status?.done === true",
+    "timeout": 240000
+  },
+  {
+    "name": "render: the path traced picture is done, not blank, and is the tracer's",
+    "eval": "(async () => {\n  const m = window.__mymechanics;\n  const s = m.std.photo.stats();\n  const isTracer = m.std.photo === m.std.render.tracer;\n  if (!(s.mean > 30 && s.mean < 250 && s.std > 4)) throw new Error(JSON.stringify(s));\n  return JSON.stringify({ tracer: isTracer, width: s.width, height: s.height, samples: s.samples });\n})()",
+    "expect": "\"tracer\":true,\"width\":640,\"height\":360,\"samples\":6",
+    "shot": "render-final"
+  },
+  {
+    "name": "render: the window stays responsive while tracing (timer gaps)",
+    "eval": "(async () => {\n  const m = window.__mymechanics;\n  m.std.renderSettings.samples = 4000;\n  m.std.render.rerender();\n  await new Promise((r) => setTimeout(r, 1500));\n  let last = performance.now(); let worst = 0;\n  const id = setInterval(() => { const now = performance.now(); worst = Math.max(worst, now - last); last = now; }, 16);\n  await new Promise((r) => setTimeout(r, 2000));\n  clearInterval(id);\n  const running = m.std.render.tracer.running;\n  document.querySelector('[data-pm=\"std.renderStop\"]').click();\n  await new Promise((r) => setTimeout(r, 100));\n  const st = m.state.editing.status;\n  if (!(worst < 400)) throw new Error(`worst gap ${worst} ms`);\n  return `running ${running} stopped ${st.done && st.count < st.total}`;\n})()",
+    "expect": "^running true stopped true$"
+  },
+  {
+    "name": "render: an appearance preset on a body is stored in its part and undone",
+    "eval": "(async () => {\n  const m = window.__mymechanics;\n  const { list } = m.std.render.sceneBodies();\n  const b = list.find((x) => x.part);\n  m.state.editing.selected = b.key; m.state.editing.scope = 'part';\n  m.std.render.setAppearance('preset', 'chrome');\n  await new Promise((r) => setTimeout(r, 300));\n  const part = m.project.parts.find((p) => p.id === b.part.id);\n  const stored = part.appearance?.preset;\n  const after = m.std.render.sceneBodies().list.find((x) => x.key === b.key).appearance;\n  // Undo works outside a mode: leave Render, undo, come back.\n  await m.run('renderView');\n  await m.actions.undo();\n  await new Promise((r) => setTimeout(r, 300));\n  const undone = m.project.parts.find((p) => p.id === b.part.id).appearance?.preset ?? 'none';\n  await m.run('renderView');\n  await new Promise((r) => setTimeout(r, 300));\n  m.state.editing.selected = b.key;\n  return `${stored} ${after.metalness} ${after.class} ${undone}`;\n})()",
+    "expect": "^chrome 1 metal none$"
+  },
+  {
+    "name": "render: appearance fields (colour, roughness, transmission, IOR, emission, texture) are clamped and kept",
+    "eval": "(async () => {\n  const m = window.__mymechanics;\n  const e = m.state.editing;\n  const set = (k, v) => m.std.render.setAppearance(k, v);\n  set('color', '#ff8800'); set('roughness', 7); set('transmission', 0.5); set('ior', 1.33); set('emissiveIntensity', 2); set('emissive', '#00ff00'); set('texture', 'brushed');\n  await new Promise((r) => setTimeout(r, 300));\n  const b = m.std.render.sceneBodies().list.find((x) => x.key === e.selected);\n  const a = b.part.appearance;\n  return JSON.stringify([a.color, a.roughness, a.transmission, a.ior, a.emissiveIntensity, a.emissive, a.texture]);\n})()",
+    "expect": "^\\[\"#ff8800\",1,0\\.5,1\\.33,2,\"#00ff00\",\"brushed\"\\]$"
+  },
+  {
+    "name": "render: a picture texture loads without a dialog (test hook)",
+    "eval": "(async () => {\n  const m = window.__mymechanics;\n  const c = document.createElement('canvas'); c.width = 16; c.height = 16;\n  const g = c.getContext('2d'); g.fillStyle = '#c03'; g.fillRect(0, 0, 16, 16); g.fillStyle = '#fff'; g.fillRect(0, 0, 8, 8);\n  await m.std.render.setAppearanceImage(c.toDataURL('image/png'));\n  const e = m.state.editing;\n  const b = m.std.render.sceneBodies().list.find((x) => x.key === e.selected);\n  return `${b.appearance.texture} ${b.appearance.image?.slice(0, 11)}`;\n})()",
+    "expect": "^image data:image/"
+  },
+  {
+    "name": "render: area lights are added to the scene (type 3 in the light list)",
+    "eval": "(async () => {\n  const m = window.__mymechanics;\n  m.std.renderSettings.samples = 4;\n  document.querySelector('[data-pm=\"std.renderAddLight\"]').click();\n  await new Promise((r) => setTimeout(r, 1500));\n  const types = (m.std.render.tracer.lights ?? []).map((l) => l.A[0]);\n  return `${m.std.renderSettings.areaLights.length} ${types.includes(3)}`;\n})()",
+    "expect": "^1 true$"
+  },
+  {
+    "name": "render: a loaded HDR environment is used (test hook, no dialog)",
+    "eval": "(async () => {\n  const m = window.__mymechanics;\n  const lab = await m.std.render.lab();\n  await m.std.render.setEnvironmentHdr(lab.envHdr('daylight'), 'daylight.hdr');\n  await new Promise((r) => setTimeout(r, 1500));\n  return `${m.std.renderSettings.env} ${document.querySelector('[data-pm-set=\"env\"][data-value=\"custom\"]') ? 'listed' : 'missing'}`;\n})()",
+    "expect": "^custom listed$"
+  },
+  {
+    "until": "window.__mymechanics.state.editing?.status?.done === true",
+    "timeout": 240000
+  },
+  {
+    "name": "render: a render region renders only its tiles and keeps the rest of the picture",
+    "eval": "(async () => {\n  const m = window.__mymechanics;\n  const t = m.std.render.tracer;\n  const before = t.meanImage();\n  m.std.renderSettings.region = { x0: 0.25, y0: 0.25, x1: 0.5, y1: 0.5 };\n  m.std.renderSettings.env = 'sunset';\n  await m.std.render.rerender({ keepOutside: true });\n  await new Promise((r) => { const w = () => (m.state.editing?.status?.done ? r() : setTimeout(w, 100)); w(); });\n  const after = t.meanImage();\n  const W = after.width; const H = after.height;\n  let outsideSame = true; let insideChanged = 0;\n  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {\n    const i = (y * W + x) * 4; const fx = (x + 0.5) / W; const fy = 1 - (y + 0.5) / H;\n    const inside = fx > 0.25 && fx < 0.5 && fy > 0.25 && fy < 0.5;\n    const d = Math.abs(after.data[i] - before.data[i]) + Math.abs(after.data[i + 2] - before.data[i + 2]);\n    if (!inside && d > 1e-5) outsideSame = false;\n    if (inside && d > 1e-3) insideChanged += 1;\n  }\n  const tilesInside = t.tiles.every((tile) => tile.x >= Math.floor(W * 0.25) && tile.x + tile.w <= Math.ceil(W * 0.5) && tile.y >= Math.floor(H * 0.5) && tile.y + tile.h <= Math.ceil(H * 0.75));\n  m.std.renderSettings.region = null;\n  return `${outsideSame} ${insideChanged > 100} ${tilesInside}`;\n})()",
+    "expect": "^true true true$",
+    "shot": "render-region"
+  },
+  {
+    "name": "render: focus can be picked on the picture (distance to the body under the point)",
+    "eval": "(async () => {\n  const m = window.__mymechanics;\n  let hit = null;\n  for (let i = 1; i < 10 && !hit; i++) for (let j = 1; j < 10 && !hit; j++) hit = m.std.render.pickAt(i / 10, j / 10);\n  return hit && hit.distance > 0 && hit.key ? 'picked' : JSON.stringify(hit);\n})()",
+    "expect": "^picked$"
+  },
+  {
+    "name": "render: Preview mode still draws the fast raster picture",
+    "eval": "(async () => {\n  const m = window.__mymechanics;\n  Object.assign(m.std.renderSettings, { samples: 8, env: 'studio' });\n  m.actions.pmSet('mode', 'preview');\n  await new Promise((r) => { const w = () => (m.state.editing?.status?.done ? r() : setTimeout(w, 100)); setTimeout(w, 200); });\n  const s = m.std.photo.stats();\n  return `${m.std.photo === m.std.render.preview} ${s.mean > 20 && s.std > 2} ${JSON.stringify(s)}`;\n})()",
+    "expect": "^true true "
+  },
+  {
+    "name": "render: depth of field and orthographic projection re-render in Final mode",
+    "eval": "(async () => {\n  const m = window.__mymechanics;\n  m.std.renderSettings.samples = 4;\n  m.actions.pmSet('mode', 'final');\n  m.actions.pmToggle('dof', true);\n  m.actions.pmSet('projection', 'perspective');\n  await new Promise((r) => { const w = () => (m.state.editing?.status?.done ? r() : setTimeout(w, 100)); setTimeout(w, 300); });\n  const c = m.std.render.tracer.cam;\n  return `${c.ortho} ${c.lensRadius > 0} ${Math.round(c.focalLength)}`;\n})()",
+    "expect": "^false true \\d+$",
+    "shot": "render-dof"
+  },
+  {
+    "name": "render: Save image hands a PNG to the save path (test hook, no dialog)",
+    "eval": "(async () => {\n  const m = window.__mymechanics;\n  let got = null;\n  m.std.setSaveHook((blob, name) => { got = { size: blob.size, type: blob.type, name }; });\n  document.querySelector('[data-pm=\"std.renderSave\"]').click();\n  await new Promise((r) => setTimeout(r, 800));\n  m.std.setSaveHook(null);\n  return JSON.stringify(got);\n})()",
+    "expect": "\"type\":\"image/png\",\"name\":\"[^\"]*-render\\.png\""
+  },
+  {
+    "name": "render: closing the mode removes the picture",
+    "eval": "(async () => {\n  const m = window.__mymechanics;\n  Object.assign(m.std.renderSettings, { dof: false, projection: 'view', env: 'studio', areaLights: [] });\n  await m.run('renderView');\n  await new Promise((r) => setTimeout(r, 200));\n  return `${m.state.editing?.mode ?? 'none'} ${document.querySelectorAll('.render-view').length}`;\n})()",
+    "expect": "^none 0$"
+  }
+]

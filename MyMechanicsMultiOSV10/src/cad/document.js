@@ -77,6 +77,8 @@ export function normalizeProject(raw) {
   // Version history, check-out settings and sketch blocks (cad/versions.js, cad/asm-extra.js).
   for (const k of ['versions', 'sketchBlocks']) if (Array.isArray(raw[k])) p[k] = raw[k];
   if (raw.vault && typeof raw.vault === 'object') p.vault = raw.vault;
+  // The vault file this project is (cad/vault.js: vaultLink { vaultId, fileId, name }).
+  if (raw.vaultLink && typeof raw.vaultLink === 'object') p.vaultLink = raw.vaultLink;
   if (raw.lights) p.lights = raw.lights;
   if (raw.thumbnail) p.thumbnail = raw.thumbnail;
   if (raw.created) p.created = raw.created; // kept, so saving again does not lose when the project was made

@@ -89,3 +89,85 @@ test('the features in a rebuild: parting line → shut-off → parting surface �
   const r3 = regenerate(part(R.makeBox([0, 0, 0], [10, 10, 10]), [{ id: 'so', type: 'shutOff', name: 'SO', dir: '' }]));
   assert.equal(r3.results.get('so').error, 'no-openings');
 });
+
+const V = (s) => Math.abs(R.measureVolume(s));
+// Volume integrated to 1e-9 (the default integration is coarse on spline-bounded pieces).
+const preciseVolume = (s) => { const oc = R.getOC(); const g = new oc.GProp_GProps(); oc.BRepGProp.VolumeProperties(s.wrapped, g, 1e-9, false, false); const v = Math.abs(g.Mass()); g.delete(); return v; };
+const blockVol = (body, m) => { const [lo, hi] = body.boundingBox.bounds; return (hi[0] - lo[0] + 2 * m) * (hi[1] - lo[1] + 2 * m) * (hi[2] - lo[2] + 2 * m); };
+
+test('shut-off: a window in a side wall joins core and cavity and gets the patch (not the open bottom)', () => {
+  // A cup opening downward (pull +z): the core forms the inside, the window joins it to the outside.
+  const cup = R.makeBox([0, 0, 0], [40, 30, 20]).cut(R.makeBox([3, 3, -1], [37, 27, 17])).cut(R.makeBox([10, -1, 8], [30, 4, 14]));
+  const o = throughOpenings(cup, up, { height: 0 });
+  assert.equal(o.length, 1);
+  assert.ok(o[0].planar);
+  near(o[0].area, 20 * 6, 1e-6);
+  near(o[0].w, 11, 1e-9);
+  const ps = partingSurfaceOf(cup, up, 30);
+  assert.ok(ps.planar); near(ps.height, 0, 1e-9);
+  assert.throws(() => coreCavity(cup, { dir: up, surface: ps.surface, margin: 10 }), /not-parted/);
+  const cc = coreCavity(cup, { dir: up, surface: ps.surface, shutOffs: o.map((x) => x.patch), margin: 10 });
+  near(V(cc.core) + V(cc.cavity), blockVol(cup, 10) - V(cup), 1e-6);
+});
+
+test('shut-off: a round hole through a curved wall is closed by a filling surface', () => {
+  const tube = R.makeCylinder(15, 30, [0, 0, 0], [0, 0, 1]).cut(R.makeCylinder(12, 27, [0, 0, -1], [0, 0, 1])).cut(R.makeCylinder(4, 20, [0, -20, 15], [0, 1, 0]));
+  const o = throughOpenings(tube, up, { height: 0 });
+  assert.equal(o.length, 1);
+  assert.equal(o[0].planar, false, 'the hole’s rim on the cylinder is not flat');
+  assert.ok(o[0].area > Math.PI * 16, 'a little more than the hole’s cross-section (the patch bulges with the wall)');
+  const ps = partingSurfaceOf(tube, up, 30);
+  const cc = coreCavity(tube, { dir: up, surface: ps.surface, shutOffs: o.map((x) => x.patch), margin: 10 });
+  const expect = blockVol(tube, 10) - V(tube);
+  assert.ok(Math.abs(V(cc.core) + V(cc.cavity) - expect) < expect * 1e-6);
+});
+
+test('non-level parting lines: a stepped part parts with every surface mode, core and cavity exact', () => {
+  const step = R.makeBox([0, 0, 0], [20, 20, 10]).fuse(R.makeBox([20, 0, 5], [40, 20, 10]));
+  for (const mode of ['normal', 'tangent', 'ruled']) {
+    const ps = partingSurfaceOf(step, up, 30, { mode });
+    assert.equal(ps.planar, false);
+    assert.equal(ps.mode, mode);
+    assert.equal(ps.loop.length, 8);
+    const cc = coreCavity(step, { dir: up, surface: ps.surface, margin: 10 });
+    // Core: everything under the stepped line (z < 0 under the tall half, z < 5 under the short one).
+    near(V(cc.core), 60 * 40 * 10 + 30 * 40 * 5, 1e-3);
+    near(V(cc.cavity), 60 * 40 * 30 - V(cc.core) - 6000, 1e-3);
+  }
+  // Normal to the pull: the strips are flat across it (area: 6 strips + 2 risers + 4 corner fans of quarter discs).
+  const n = partingSurfaceOf(step, up, 30, { mode: 'normal' });
+  near(R.measureArea(n.surface), 30 * (20 + 20 + 20 + 20 + 20 + 20) + 2 * 5 * 30 + 4 * (30 * 30 * Math.sin(Math.PI / 6) / 2) * 3, 1e-6);
+});
+
+test('non-level parting lines: a rod lying across the pull is split at its silhouette and parts', () => {
+  const rod = R.makeCylinder(5, 40, [0, 0, 0], [1, 0, 0]);
+  const ps = partingSurfaceOf(rod, up, 30);
+  assert.equal(ps.planar, false);
+  assert.equal(ps.split, 1);
+  // Equator strips 2 × 40 × 30, the lower half circles swept out along the axis 2 × π·5·30, and 4 square corners
+  // closed by fans of three 30° triangles.
+  near(R.measureArea(ps.surface), 2 * 40 * 30 + 2 * Math.PI * 5 * 30 + 4 * 3 * (30 * 30 * Math.sin(Math.PI / 6) / 2), 1e-4);
+  const cc = coreCavity(rod, { dir: up, surface: ps.surface, margin: 10 });
+  // Core: the block under z = 0, less the lower half of the rod and the half-round troughs at both ends.
+  near(preciseVolume(cc.core), 60 * 30 * 15 - 750 * Math.PI, 1e-5);
+  near(preciseVolume(cc.core) + preciseVolume(cc.cavity), blockVol(rod, 10) - Math.PI * 25 * 40, 1e-5);
+  assert.ok(cc.core.boundingBox.bounds[1][2] <= 1e-6, 'nothing of the core rises above the equator');
+});
+
+test('parting surface mode in a rebuild: stepped part → tooling split by the following surface', () => {
+  const step = R.makeBox([0, 0, 0], [20, 20, 10]).fuse(R.makeBox([20, 0, 5], [40, 20, 10]));
+  const r = regenerate({ id: 'p', name: 'P', features: [
+    { id: 'im', type: 'import', name: 'I', brep: step.serialize() },
+    { id: 'pl', type: 'partingLine', name: 'PL', dir: 'z' },
+    { id: 'ps', type: 'partingSurface', name: 'PS', ...ADVANCED_DEFAULTS.partingSurface(), distance: 30 },
+    { id: 'ts', type: 'toolingSplit', name: 'TS', ...ADVANCED_DEFAULTS.toolingSplit(), dir: 'z', gap: 0, margin: 10 },
+  ] });
+  for (const id of ['pl', 'ps', 'ts']) assert.equal(r.results.get(id).ok, true, `${id}: ${r.results.get(id).error ?? ''}`);
+  assert.equal(ADVANCED_DEFAULTS.partingSurface().mode, 'normal');
+  const info = r.results.get('ps').partingSurface;
+  assert.equal(info.planar, false); assert.equal(info.mode, 'normal'); assert.equal(info.edges, 8);
+  assert.ok(r.results.get('ts').tooling.bySurface);
+  near(V(r.body), 60 * 40 * 30 - 6000, 1e-3);
+  // The parting line feature follows the step too (its edges at z = 0 and z = 5).
+  assert.equal(partingEdges(step, up).length, 8);
+});

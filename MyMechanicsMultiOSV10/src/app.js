@@ -17,6 +17,8 @@ import { sketchUse, STRUCTURAL_PROFILES, ADVANCED_TYPES } from './cad/advanced.j
 import { equationRows, addConfiguration, setSuppressedIn, designTableCsv, applyDesignTable, activeConfiguration, nextVariableName, evaluate, variableValues } from './cad/params.js';
 import { analyse as analyseFea, stressColor, thermal as analyseThermal, modal as analyseModal, temperatureColor } from './cad/fea.js';
 import { THREAD_SIZES } from './ui/pm-advanced.js';
+import { setModelledThreads } from './cad/threads.js';
+import { withThreadMarks } from './cad/drawing-threads.js';
 import { PART_MORE_TYPES, CURVE_TYPES, PART_MORE_ICONS } from './cad/part-more-types.js';
 import { countSolids } from './cad/part-more.js';
 import { importStlSolid } from './cad/stl.js';
@@ -26,14 +28,14 @@ import { SHEET_MORE_TYPES, SHEET_MORE_ICONS } from './cad/sheet-more-types.js';
 import { convertEntities, intersectionEntities, transformEntities } from './cad/sketch-more.js';
 import { syncSlider } from './ui/sliders.js';
 import { edgeSignature, faceSignature } from './cad/refs.js';
-import { solveMates, placeShape, interferences, mateEntityOfFace, quatIdentity, quatToAxisAngle, instanceName, quatFromAxisAngle, quatMultiply, captureMate, mateTouches, MATE_REFS, MATE_DEFAULTS, explodedPlacement, autoExplode, motionFrame, flattenAssembly, composePlacement, placePoint, placeDir } from './cad/assembly.js';
+import { solveMates, placeShape, interferences, mateEntityOfFace, quatIdentity, quatToAxisAngle, instanceName, quatFromAxisAngle, quatMultiply, captureMate, mateTouches, MATE_REFS, MATE_DEFAULTS, explodedPlacement, autoExplode, motionFrame, motionCursor, flattenAssembly, composePlacement, placePoint, placeDir } from './cad/assembly.js';
 import { projectView, drawingSvg, drawingDxf, layoutViews, SHEETS, projectionKey, bomRows, VIEW_CAMERAS } from './cad/drawing.js';
 import { MATERIALS, materialOf, materialName, massOf } from './cad/materials.js';
 import { SAMPLES, buildSample } from './cad/samples.js';
 import { Viewport, hitKey } from './view/viewport.js';
 import { SketchEditor } from './view/sketcher.js';
 import { treeHtml, featureIcon, MATE_ICONS } from './ui/tree.js';
-import { propertyManagerHtml, drawingPropsHtml, HOLE_SIZES } from './ui/propertymanager.js';
+import { propertyManagerHtml, drawingPropsHtml, HOLE_SIZES, TAP_SIZES } from './ui/propertymanager.js';
 import { startPageHtml, TEMPLATES } from './ui/startpage.js';
 import { startBoard } from './ui/startboard.js';
 import { AnimatedBackground } from './ui/background.js';
@@ -52,8 +54,12 @@ import { DOC_KINDS, docLabel, docWindowTitle } from './domain/helpdocs.js';
 import { PROGRESS_ICONS, PROGRESS_NAME_ICONS } from './ui/progressicons.js';
 import { createMoreTools } from './app-more.js';
 import { withSim2 } from './app-sim2.js';
+import { attachPdm } from './app-pdm.js';
 import { attachDrwTools } from './app-drw.js';
 import { createStdTools } from './app-std.js';
+import { attachMfgTools } from './app-mfg.js';
+import { routeBodyColours } from './cad/routing.js';
+import { leafCutFeatures, cutLeafBody } from './cad/asm-extra.js';
 
 const root = document.querySelector('#app');
 const desktop = native.isDesktop();
@@ -219,11 +225,13 @@ function buildPart(part, { upTo = undefined, features = null, slot = 'main' } = 
   const limit = upTo === undefined ? part.rollback ?? null : upTo;
   // Other parts this one inserts (Insert Part / Cavity) rebuild it when they change.
   const deps = feats.filter((f) => f.type === 'insertPart').map((f) => project()?.parts.find((x) => x.id === f.part)?.features ?? null);
-  const key = JSON.stringify([feats, limit, state.settings.meshQuality, part.flat ?? false, part.variables ?? null, part.configurations ?? null, part.config ?? null, deps]);
+  const key = JSON.stringify([feats, limit, state.settings.meshQuality, part.flat ?? false, part.variables ?? null, part.configurations ?? null, part.config ?? null, deps, Boolean(state.settings.modelledThreads)]);
   const cacheKey = `${part.id}:${slot}`;
   const cached = builds.get(cacheKey);
   if (cached?.key === key) return cached;
   const t0 = performance.now();
+  // Threads: modelled for features set to 'auto' when Settings › Modeling › Modelled threads is on.
+  setModelledThreads(Boolean(state.settings.modelledThreads));
   const result = regenerate({ ...part, features: feats }, { upTo: limit, project: project() });
   let tess = { mesh: null };
   try { tess = tessellate(result.body); } catch (error) { console.warn('tessellate', error); }
@@ -351,7 +359,7 @@ async function confirmReplace() {
     icon: 'save', title: t('confirm.replaceTitle'), message: t('confirm.replaceMessage', { name: docName(d) }),
     buttons: [{ id: 'cancel', label: t('confirm.cancel') }, { id: 'discard', label: t('confirm.discard'), icon: 'trash', danger: true }, { id: 'save', label: t('confirm.save'), icon: 'save', primary: true }],
   });
-  if (choice === 'save') return saveDoc();
+  if (choice === 'save') return Boolean(await commands.save.run());
   return choice === 'discard';
 }
 
@@ -531,7 +539,9 @@ function syncView() {
 
 function bodySpec(key, entry, part, extra = {}) {
   const mat = materialOf(part.material);
-  return { key, mesh: entry.mesh, edges: entry.edges, faceIndex: entry.faceIndex, edgeIndex: entry.edgeIndex, color: part.color || mat.color, metal: mat.metal * 0.6, rough: mat.rough, material: part.material, ...extra };
+  // Cables and harness pieces show their own colours on the part (route features' faces).
+  const routeColors = routeBodyColours(entry, part.color || mat.color);
+  return { key, mesh: entry.mesh, edges: entry.edges, faceIndex: entry.faceIndex, edgeIndex: entry.edgeIndex, color: part.color || mat.color, metal: mat.metal * 0.6, rough: mat.rough, material: part.material, partId: part.id, ...(routeColors ? { colors: routeColors } : {}), ...extra };
 }
 
 function syncPart(part) {
@@ -592,7 +602,8 @@ function syncPart(part) {
     } catch { /* face gone */ }
   }
   // Reference curves (helices) and cosmetic threads.
-  for (const c of entry.extras?.curves ?? []) lines.push({ segments: c.segments, color: '#9c4dcc', width: 1.8 });
+  // Hidden by the body like its edges (an internal thread or a helix inside a part must not show through it).
+  for (const c of entry.extras?.curves ?? []) lines.push({ segments: c.segments, color: '#9c4dcc', width: 1.8, depthTest: true });
   viewport.setLines('markers', lines);
 }
 
@@ -702,8 +713,10 @@ function mateEntityNow(ref) {
   const part = project().parts.find((p) => p.id === (leaf ? leaf.part : comp.part));
   if (!part) return null;
   if (ref.sig) {
+    // A face made by an assembly cut lives only on the cut body; the part's own faces are found on either.
+    const cut = componentCut(comp, leaf);
     const entry = buildPart(part);
-    const face = entry.faces?.find((f) => matchesSig(f, ref.sig));
+    const face = cut?.faces?.find((f) => matchesSig(f, ref.sig)) ?? entry.faces?.find((f) => matchesSig(f, ref.sig));
     if (face) {
       try {
         const ent = { comp: ref.comp, ...mateEntityOfFace(face, faceSignature) };
@@ -774,7 +787,8 @@ function topoOf(hit) {
   const leaf = path.length ? subassemblyLeaf(comp, path) : null;
   const part = project().parts.find((p) => p.id === (leaf ? leaf.part : comp.part));
   if (!part) return null;
-  const entry = buildPart(part);
+  // Cut by assembly features: the view shows the cut body, so its faces are the ones picked.
+  const entry = componentCut(comp, leaf) ?? buildPart(part);
   return { entry, part, comp, inner: leaf?.placement ?? null, path, shape: hit.kind === 'face' ? entry.faces?.[hit.index] : entry.edgeList?.[hit.index] };
 }
 
@@ -1517,6 +1531,32 @@ function drawingShape(d) {
   return { key: keys.join('|'), shape: shapes.length ? R.makeCompound(shapes) : null };
 }
 
+/** The cosmetic threads of a drawing's model in its coordinates (an assembly: every placed part's). */
+function drawingThreads(d) {
+  const src = findDocument(project(), d.source);
+  if (!src) return [];
+  const fromPart = (part, pl) => {
+    const out = [];
+    for (const r of buildPart(part).result.results.values()) {
+      for (const th of r.threads ?? (r.thread ? [r.thread] : [])) {
+        if (th.modelled || (r.tool && !r.threads)) continue;
+        out.push(pl ? { ...th, centre: placePoint(pl, th.centre), dir: placeDir(pl, th.dir) } : th);
+      }
+    }
+    return out;
+  };
+  if (d.source.kind === 'part') return fromPart(src, null);
+  const out = [];
+  for (const c of src.components ?? []) {
+    if (c.hidden) continue;
+    for (const leaf of componentLeaves(c)) {
+      const part = project().parts.find((p) => p.id === leaf.part);
+      if (part) out.push(...fromPart(part, composePlacement(c, leaf.placement)));
+    }
+  }
+  return out;
+}
+
 function drawingProjections(d) {
   const { key, shape } = drawingShape(d);
   const out = new Map();
@@ -1528,6 +1568,9 @@ function drawingProjections(d) {
     out.set(v.id, projectionCache.get(k));
   }
   if (projectionCache.size > 80) projectionCache.clear();
+  // Cosmetic threads drawn the standard way on the views (drawing-threads.js).
+  const threads = drawingThreads(d);
+  if (threads.length) for (const v of d.views) if (out.has(v.id)) out.set(v.id, withThreadMarks(out.get(v.id), v, threads));
   return more.adjust(d, out);
 }
 
@@ -1701,22 +1744,26 @@ function tessellateExtras(result, size) {
   };
   for (const [, wire] of result.curves ?? []) { try { out.curves.push({ segments: polylineSegments(wire.meshEdges(tol)) }); } catch { /* not shown */ } }
   for (const r of result.results?.values() ?? []) {
-    const th = r.thread;
-    if (!th || r.tool) continue;
-    // A cosmetic thread: circles at both ends of the threaded length (the minor diameter), like a drawing shows it.
-    const minor = th.internal ? th.radius + 0.54 * th.pitch : th.radius - 0.54 * th.pitch;
-    const u = Math.abs(th.dir[0]) < 0.9 ? [0, -th.dir[2], th.dir[1]] : [-th.dir[1], th.dir[0], 0];
-    const ul = Math.hypot(...u); const a = u.map((x) => x / ul);
-    const b = [th.dir[1] * a[2] - th.dir[2] * a[1], th.dir[2] * a[0] - th.dir[0] * a[2], th.dir[0] * a[1] - th.dir[1] * a[0]];
-    const seg = [];
-    for (const d of [0, th.length]) {
-      const c = th.centre.map((x, i) => x + th.dir[i] * d);
-      for (let i = 0; i < 48; i++) {
-        const p = (k) => { const ang = (k / 48) * Math.PI * 2; return c.map((x, j) => x + minor * (Math.cos(ang) * a[j] + Math.sin(ang) * b[j])); };
-        seg.push(...p(i), ...p(i + 1));
+    for (const th of r.threads ?? (r.thread ? [r.thread] : [])) {
+      // A modelled thread is in the solid; a cosmetic one is drawn: circles at both ends of the threaded
+      // length (the minor diameter of an external thread, the major of an internal one), like a drawing shows it.
+      if (th.modelled || (r.tool && !r.threads)) continue;
+      const rr = th.major ? (th.internal ? th.major / 2 : th.minor / 2) : th.internal ? th.radius + 0.54 * th.pitch : th.radius - 0.54 * th.pitch;
+      const u = Math.abs(th.dir[0]) < 0.9 ? [0, -th.dir[2], th.dir[1]] : [-th.dir[1], th.dir[0], 0];
+      const ul = Math.hypot(...u); const a = u.map((x) => x / ul);
+      const b = [th.dir[1] * a[2] - th.dir[2] * a[1], th.dir[2] * a[0] - th.dir[0] * a[2], th.dir[0] * a[1] - th.dir[1] * a[0]];
+      const seg = [];
+      // The end circles lie on the part's faces: moved a hair outwards so the face does not hide them half the time.
+      const lift = Math.max(0.01, size * 2e-4);
+      for (const d of [-lift, th.length + lift]) {
+        const c = th.centre.map((x, i) => x + th.dir[i] * d);
+        for (let i = 0; i < 48; i++) {
+          const pnt = (k) => { const ang = (k / 48) * Math.PI * 2; return c.map((x, j) => x + rr * (Math.cos(ang) * a[j] + Math.sin(ang) * b[j])); };
+          seg.push(...pnt(i), ...pnt(i + 1));
+        }
       }
+      out.curves.push({ segments: seg });
     }
-    out.curves.push({ segments: seg });
   }
   return out;
 }
@@ -1905,11 +1952,15 @@ function pickForMotion(hit) {
   change('op.motor', () => { asm.motion.motors = [...asm.motion.motors.filter((m) => m.comp !== ent.comp), { id: newId('motor'), kind: e.kind, comp: ent.comp, ref: ent, speed: e.speed }]; });
 }
 
+// The motion being played: one solver moved on frame by frame (see motionCursor), made again when the assembly
+// (its components, mates or motion study) changes.
+let motionPlay = null;
 function motionPose(time) {
   const asm = activeAssembly();
   if (!asm?.motion?.motors?.length) return null;
-  const r = motionFrame(asm, time, { entity: (ref) => mateEntityNow(ref), size: assemblySize(asm) });
-  return r.placements;
+  const key = JSON.stringify([asm.id, asm.components, asm.mates, asm.motion]);
+  if (motionPlay?.key !== key) motionPlay = { key, cursor: motionCursor(asm, { entity: (ref) => mateEntityNow(ref), size: assemblySize(asm) }) };
+  return motionPlay.cursor.at(time);
 }
 
 function showMotionTime(time) {
@@ -2045,12 +2096,40 @@ function subassemblyLeaf(comp, path) {
   return componentLeaves(comp).find((x) => x.path.join('/') === path.join('/')) ?? null;
 }
 
-/** Placed solids of a component (sub-assemblies give one per part). */
+const cutBuilds = new Map();
+/**
+ * A part of a component with the assembly cuts (asm-extra.js) taken out, in the part's own frame: an entry like
+ * buildPart's (body, mesh, faces, edgeList, faceIndex, edgeIndex, key) so the cut faces show, pick and take
+ * mates; null when no assembly feature acts on it. `leaf` as componentLeaves gives (default: the component's part).
+ */
+function componentCut(c, leaf = null) {
+  const p = project();
+  const asm = p?.assemblies.find((a) => a.components.includes(c));
+  if (!asm || !kernelReady()) return null;
+  const lf = leaf ?? { path: [], part: c.part, placement: IDENTITY };
+  const cuts = leafCutFeatures(p, asm, c, lf.path);
+  if (!cuts.length) return null;
+  const part = p.parts.find((x) => x.id === lf.part);
+  const entry = part && buildPart(part);
+  if (!entry?.body) return null;
+  const pl = composePlacement(c, lf.placement);
+  const size = assemblySize(asm);
+  const key = `${entry.key}|cut|${JSON.stringify([pl.position, pl.rotation, size, cuts.map((x) => [x.f, x.frame.position, x.frame.rotation])])}`;
+  if (!cutBuilds.has(key)) {
+    if (cutBuilds.size > 60) cutBuilds.clear();
+    let out = null;
+    try { const body = cutLeafBody(entry.body, pl, cuts, size); out = { ...tessellate(body), body, key, cut: true }; } catch { out = null; }
+    cutBuilds.set(key, out);
+  }
+  return cutBuilds.get(key);
+}
+
+/** Placed solids of a component (sub-assemblies give one per part), with the assembly cuts taken out. */
 function componentShapes(c) {
   const out = [];
   for (const leaf of componentLeaves(c)) {
     const part = project().parts.find((p) => p.id === leaf.part);
-    const b = part && buildPart(part);
+    const b = part && (componentCut(c, leaf) ?? buildPart(part));
     if (!b?.body) continue;
     const pl = composePlacement(c, leaf.placement);
     out.push({ shape: placeShape(b.body, pl), part, key: `${b.key}|${JSON.stringify([pl.position, pl.rotation])}` });
@@ -2680,25 +2759,44 @@ const commands = {
 // zebra / thickness, buckling and fatigue (app-more.js).
 const more = withSim2(createMoreTools, {
   state, t, notify, change, commit, syncView, renderAll, renderLeft, renderDrawing, renderToolbarState, fitView, fitDrawing, cancelEditing, ensureKernel, withProgress, ask, newId, fmt, fmtLen, parseLen, units, lang, popups,
-  viewport: () => viewport, project, activePart, activeAssembly, activeDrawing, topoOf, assemblySize, componentShapes, drawingShape, drawingProjections,
+  viewport: () => viewport, project, activePart, activeAssembly, activeDrawing, topoOf, assemblySize, componentShapes, componentCut, componentLeaves, drawingShape, drawingProjections,
   buildPart, displayPlacement, doc, projectThumbnail, activeKind, runCommand: (id, c) => run(id, c),
   pm: { pmHead, pmGroup, pmNum, pmSeg, pmList, pmButton, textInput },
 });
 Object.assign(commands, more.commands);
+// Product data management: the vault explorer, check-in / check-out, lifecycle, change orders, references,
+// Pack and Go (app-pdm.js); chained onto `more` (its read-only check, CommandManager tabs and menus).
+const pdm = attachPdm(more, {
+  state, t, notify, change, renderAll, ask, newId, project, doc, activeAssembly, saveExport,
+  insertComponent: (id) => insertComponent(id),
+  openVaultDoc: async (name, text) => { if (!(await confirmReplace())) return null; const d = new Doc(unpackProject(text), { name }); await busy('progress.open', name, () => setDoc(d), { delay: 150 }); return d; },
+});
+Object.assign(commands, pdm.commands);
+// Save on a document from the vault offers check-in or a local copy (app-pdm.js).
+commands.save = { ...commands.save, run: () => pdm.api.save(() => saveDoc()) };
 // Smart dimensions, model items, centre marks, welds, tables, layers, title block, sheet formats; more Evaluate
 // tools and the mold surfaces (app-drw.js), chained onto the hooks of `more`.
 const drwTools = attachDrwTools(more, {
   state, t, notify, change, syncView, renderAll, renderLeft, renderDrawing, renderToolbarState, fitDrawing, cancelEditing, newId, fmt, fmtLen, units, lang,
-  viewport: () => viewport, project, activePart, activeDrawing, topoOf, drawingShape, drawingProjections, drawingInfo, buildPart: (p) => buildPart(p), startFeature,
+  viewport: () => viewport, project, activePart, activeDrawing, topoOf, drawingShape, drawingProjections, drawingInfo, buildPart: (p, o) => buildPart(p, o), startFeature, saveExport,
   pm: { pmHead, pmGroup, pmNum, pmSeg, pmList, pmButton, textInput },
 });
 Object.assign(commands, drwTools.commands);
+// CAM, injection moulding flow and inspection (app-mfg.js), chained onto the hooks of `more` after app-drw.js.
+const mfgTools = attachMfgTools(more, {
+  state, t, notify, change, syncView, renderAll, renderLeft, renderDrawing, cancelEditing, ensureKernel, withProgress, newId, fmt, fmtLen, lang,
+  viewport: () => viewport, project, activePart, activeDrawing, activeKind, buildPart: (p) => buildPart(p), drawingProjections, saveExport,
+  drawingSvg: (d) => more.svg(d, { labels: drawingLabels(), info: drawingInfo(d), bomRows: drawingBom(d) }),
+  pm: { pmHead, pmGroup, pmNum, pmSeg, pmList, pmButton, textInput },
+});
+Object.assign(commands, mfgTools.commands);
 
 // Standard parts library, smart fasteners, pipe / tube / cable routes and photo rendering (app-std.js).
 const std = createStdTools({
   state, t, notify, change, commit, syncView, renderAll, renderLeft, cancelEditing, ensureKernel, newId, fmt, fmtLen, parseLen, units, lang, fitView, saveExport, fileSafe,
   viewport: () => viewport, viewHost: () => root.querySelector('#view-host'), activeName: () => active()?.name ?? '', project, activePart, activeAssembly, topoOf, assemblySize,
   beginFeature, updateFeature,
+  partEntry: (c) => { const pt = project()?.parts.find((x) => x.id === c.part); return pt ? buildPart(pt) : null; },
   pm: { pmHead, pmGroup, pmNum, pmSeg, pmList, pmButton, textInput },
 });
 Object.assign(commands, std.commands);
@@ -2826,6 +2924,8 @@ const COMMAND_TABS = {
 for (const [tab, ids] of Object.entries(more.TABS)) COMMAND_TABS[tab]?.push('|', ...ids);
 more.extendMenus(MENUS);
 COMMAND_TABS.stdTools = std.TAB;
+Object.assign(COMMAND_TABS, mfgTools.TABS);
+mfgTools.extendMenus(SUBMENUS, MENUS);
 SUBMENUS.stdRouting = std.SUBMENU;
 MENUS.insert.push('-', sub('stdRouting'));
 MENUS.view.splice(MENUS.view.indexOf('lights') + 1, 0, 'renderView');
@@ -2833,9 +2933,9 @@ MENUS.tools.splice(MENUS.tools.indexOf('motion') + 1, 0, '-', 'stdLibrary', 'sma
 
 function visibleCommandTabs() {
   const kind = activeKind();
-  if (kind === 'part') return ['features', 'sketch', 'surfaces', 'sheetMetal', 'weldments', 'mold', 'bodiesCurves', 'stdTools', 'evaluate', 'drawing'];
+  if (kind === 'part') return ['features', 'sketch', 'surfaces', 'sheetMetal', 'weldments', 'mold', 'bodiesCurves', 'stdTools', 'evaluate', 'drawing', 'cam', 'plastics'];
   if (kind === 'assembly') return ['assembly', 'stdTools', 'evaluate', 'drawing'];
-  if (kind === 'drawing') return ['drawing'];
+  if (kind === 'drawing') return ['drawing', 'inspection'];
   return [];
 }
 
@@ -3589,7 +3689,7 @@ function applySettings(previous = {}) {
     if (s.theme !== previous.theme || s.customTheme !== previous.customTheme) viewport.applyTheme();
     viewport.setStyle(s.displayStyle);
     if (s.perspectiveView !== previous.perspectiveView) viewport.setProjection(!s.perspectiveView);
-    if (['showPlanes', 'showOrigin', 'showSketches', 'meshQuality'].some((k) => s[k] !== previous[k])) { if (s.meshQuality !== previous.meshQuality) builds.clear(); syncView(); }
+    if (['showPlanes', 'showOrigin', 'showSketches', 'meshQuality', 'modelledThreads'].some((k) => s[k] !== previous[k])) { if (s.meshQuality !== previous.meshQuality) builds.clear(); syncView(); if (s.modelledThreads !== previous.modelledThreads && activeDrawing()) renderDrawing(); }
   }
   if (sketching()) state.editing.editor.render();
   renderAll();
@@ -3924,7 +4024,7 @@ async function requestExit() { if (desktop) return appWindow.close(); return und
 async function confirmExit() {
   if (!doc()?.dirty) return true;
   const choice = await ask({ kind: 'exit', icon: 'save', title: t('confirm.exitTitle'), message: t('confirm.exitMessage'), items: [docName()], buttons: [{ id: 'cancel', label: t('confirm.cancel') }, { id: 'discard', label: t('confirm.discard'), icon: 'trash', danger: true }, { id: 'save', label: t('confirm.save'), icon: 'save', primary: true }] });
-  if (choice === 'save') return saveDoc();
+  if (choice === 'save') return Boolean(await commands.save.run());
   return choice === 'discard';
 }
 
@@ -4063,6 +4163,7 @@ function pmFieldChanged(key, raw, unit) {
   if (e.mode === 'mate') { if (v != null) { if (['min', 'max', 'ratio', 'radius', 'pitch'].includes(key)) e.mate[key] = v; else e.mate.value = v; previewMate(); } return; }
   if (e.mode === 'lights') return lightsField(key, raw, parseLen(raw, 'number'));
   if (['simulation', 'motion', 'equations', 'configs'].includes(e.mode)) return customField(key, raw, v);
+  if (std.featureField(key, raw, v)) return;
   if (e.mode === 'feature' && key.startsWith('pt3:')) {
     const [, i, j] = key.split(':').map(Number);
     if (v == null) { notify('error', t('notice.invalidValue', { text: raw })); renderLeft(); return; }
@@ -4127,7 +4228,7 @@ function pmSet(key, value) {
   if (e?.mode !== 'feature') return;
   updateFeature((f) => {
     if (key === 'op') { f.op = value; f.name = createFeature(activePart(), f.type, { op: value }).name; if (value === 'cut' && f.type === 'extrude') { const sk = activePart().features.find((x) => x.id === f.sketch); if (sk) f.reverse = cutShouldReverse(activePart(), sk); } }
-    else if (key === 'kind') f.kind = value;
+    else if (key === 'kind') { f.kind = value; if (value === 'tapped' && f.type === 'hole') { const row = TAP_SIZES.find(([sz]) => sz === (f.threadSize ?? 'M8')); if (row) f.diameter = Math.round((row[1] - row[2]) * 10) / 10; } }
     else if (key === 'through') f.through = value === 'true';
     else if (key === 'dir1') f.direction = value === 'edge' ? { kind: 'edge', sig: f.direction?.sig ?? null } : { kind: 'axis', axis: value };
     else if (key === 'dir2axis') f.direction2 = { kind: 'axis', axis: value };
@@ -4171,6 +4272,12 @@ function pmSelect(key, value) {
   if (['simulation', 'motion', 'equations', 'configs'].includes(e?.mode)) return customSelect(key, value);
   if (more.owns(e)) return more.select?.(key, value);
   if (e?.mode !== 'feature') return;
+  if (key === 'threadSize' && e.feature?.type === 'hole') {
+    // A tapped hole: the tap drill (d − P) and a thread depth of 2 d (a drill deep enough for it).
+    const row = TAP_SIZES.find(([sz]) => sz === value);
+    updateFeature((f) => { f.threadSize = value; if (row) { const [, d, p] = row; f.diameter = Math.round((d - p) * 10) / 10; f.threadDepth = 2 * d; if (!f.through) f.depth = Math.max(Number(f.depth) || 0, 2 * d + 4 * p); } });
+    return;
+  }
   if (key === 'threadSize') {
     const row = THREAD_SIZES.find(([sz]) => sz === value);
     updateFeature((f) => { f.size = value || undefined; if (row) f.pitch = row[2]; });
@@ -4422,7 +4529,10 @@ function bindEvents() {
   // Annotations: drag to move (the leader end stays where it points).
   root.addEventListener('pointerdown', (event) => {
     const el = event.target.closest?.('#drawing-host [data-annotation]');
-    if (!el || event.button !== 0 || !activeDrawing() || state.drawingPlace) return;
+    if (!el || event.button !== 0 || !activeDrawing()) return;
+    // app-drw.js drags with snapping, also while a drawing tool's PropertyManager is open.
+    if (drwTools.annotationDrag?.(event, el)) return;
+    if (state.drawingPlace) return;
     event.stopPropagation();
     const d = activeDrawing();
     const id = el.dataset.annotation;
@@ -4738,6 +4848,8 @@ window.__mymechanics = {
   active: () => active(),
 };
 window.__mymechanics.sim2 = more.sim2;
+window.__mymechanics.mfg = mfgTools.api;
+window.__mymechanics.pdm = pdm.api;
 
 start()
   .catch((error) => showError('error.unexpected', error, 'start'))

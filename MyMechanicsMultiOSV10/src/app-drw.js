@@ -8,30 +8,58 @@
 //   mold — shut-off surfaces and parting surface features (their pages are in ui/pm-eval-more.js).
 // The modelling is in cad/drawing-dims.js, cad/drawing-annot.js, cad/evaluate-more.js and cad/mold-more.js.
 import './styles-drw.css';
+// The sheet's font (its texts are measured with the same font: cad/text-metrics.js).
+import '@fontsource/roboto/latin-400.css';
+import '@fontsource/roboto/latin-700.css';
 import { rep } from './cad/kernel.js';
 import { adoptToActiveSheet, sheetDrawing } from './cad/drawing-more.js';
 import { STANDARD_SCALES, scaleLabel } from './cad/drawing.js';
 import {
   DIM_TYPES, TOL_TYPES, FIT_CLASSES, viewFrames, viewAt, viewEntities, pickEntity, dimensionFromPicks, ordinateFromPicks, autoTextOffset,
-  isPictorial, centerItems, modelItemDims, dimLabel, formatNumber,
+  isPictorial, centerItems, modelItemDims, dimLabel, formatNumber, pickToTrue, insideDetail, modelGeometry, pictorialPick, pictorialDimension,
+  layoutDimLabels, ellipseSheet,
 } from './cad/drawing-dims.js';
+import { snapDrag, shiftBox } from './cad/drawing-snap.js';
 import {
   DRW_KINDS, WELD_SYMBOLS, WELD_SIDES, WELD_CONTOURS, STANDARDS, ISO_SHEETS, ANSI_SHEETS, drwSvg, drwDxf, injectSvg, annotationVisible, layerOf,
-  addLayer, removeLayer, createTable, resizeTable, applySheetFormat, layersOf,
+  addLayer, removeLayer, createTable, resizeTable, applySheetFormat, layersOf, annotationBoxes,
 } from './cad/drawing-annot.js';
 import {
-  deviationAnalysis, symmetryCheck, geometryCheck, undercutAnalysis, compareParts, costEstimate, sustainabilityReport, faceColours, RESULT_COLOURS,
+  deviationAnalysis, symmetryCheck, geometryCheck, undercutAnalysis, compareParts, faceColours, RESULT_COLOURS,
 } from './cad/evaluate-more.js';
+import { partCost, partCO2, costReportCsv, costReportHtml, PROCESSES } from './cad/costing.js';
 import { STD_PLANES } from './cad/features.js';
 import { materialName } from './cad/materials.js';
 import { evalPm, EVAL_KINDS, PULL_DIRS } from './ui/pm-eval-more.js';
 import { escapeHtml } from './ui/dom.js';
+import { fileSafe } from './domain/paths.js';
 import { icon } from './icons.js';
 
 const MODES = new Set(['drwDim', 'drwWeld', 'drwTable', 'drwLayers', 'drwTitle', 'drwFormat', 'evalMore']);
 const PLACE = 'drw';
 const AXIS = { x: [1, 0, 0], '-x': [-1, 0, 0], y: [0, 1, 0], '-y': [0, -1, 0], z: [0, 0, 1], '-z': [0, 0, -1] };
-const DIM_ICONS = { auto: 'smartDim', horizontal: 'dimHorizontal', vertical: 'dimVertical', aligned: 'dimAligned', radial: 'dimRadius', diameter: 'dimDiameter', angular: 'dimAngle', ordinate: 'dimOrdinate', chamfer: 'dimChamfer' };
+const DIM_ICONS = { auto: 'smartDim', horizontal: 'dimHorizontal', vertical: 'dimVertical', aligned: 'dimAligned', radial: 'dimRadius', diameter: 'dimDiameter', angular: 'dimAngle', ordinate: 'dimOrdinate', chamfer: 'dimChamfer', arclength: 'dimArcLength' };
+/** A rate typed in the Costing / Sustainability page: '' clears it (the default again), numbers, 'auto' setups, the currency, a speed table "t:speed, …". undefined = not valid. */
+function parseRate(path, raw) {
+  const text = String(raw ?? '').trim();
+  if (text === '') return null;
+  if (path === 'currency') return text.slice(0, 8);
+  if (path === 'machining.setups' && text.toLowerCase() === 'auto') return 'auto';
+  if (path === 'sheet.cutSpeed') {
+    const pairs = text.split(/[,;]/).map((x) => x.split(':').map((y) => Number(y.trim())));
+    return pairs.length && pairs.every((q) => q.length === 2 && q.every(Number.isFinite) && q[0] > 0 && q[1] > 0) ? pairs : undefined;
+  }
+  const v = Number(text);
+  return Number.isFinite(v) ? v : undefined;
+}
+/** Sets (or with null removes) the value at a dotted path, making the tables on the way. */
+function setPath(obj, path, value) {
+  const keys = path.split('.');
+  let o = obj;
+  for (const k of keys.slice(0, -1)) { if (!o[k] || typeof o[k] !== 'object' || Array.isArray(o[k])) o[k] = {}; o = o[k]; }
+  if (value == null) delete o[keys.at(-1)]; else o[keys.at(-1)] = value;
+  return obj;
+}
 const numOr = (v, d) => (v === '' || v == null || !Number.isFinite(Number(v)) ? d : Number(v));
 
 export function createDrwTools(ctx) {
@@ -98,18 +126,18 @@ export function createDrwTools(ctx) {
     const d = drw();
     if (!d) return;
     const sel0 = selectedAnn('drwDim');
-    begin('drwDim', { dtype: 'auto', picks: [], view: null, precision: sel0?.precision ?? '', tolType: sel0?.tol?.type ?? 'none', upper: sel0?.tol?.upper ?? 0.1, lower: sel0?.tol?.lower ?? 0.1, fit: sel0?.tol?.fit ?? 'H7', axis: 'x', editId: sel0?.id ?? null, ordinateId: null });
+    begin('drwDim', { dtype: 'auto', picks: [], view: null, precision: sel0?.precision ?? '', tolType: sel0?.tol?.type ?? 'none', upper: sel0?.tol?.upper ?? 0.1, lower: sel0?.tol?.lower ?? 0.1, fit: sel0?.tol?.fit ?? 'H7', axis: 'x', editId: sel0?.id ?? null, ordinateId: null, measure: sel0?.measure ?? 'true', trueMark: sel0?.trueMark !== false });
     notify('info', t('drwDim.pickHint'));
   }
 
   const tolOf = (e) => (e.tolType === 'none' ? { type: 'none' } : { type: e.tolType, upper: Number(e.upper) || 0, lower: Number(e.lower) || 0, fit: e.fit });
-  const pickLabel = (p) => (p.kind === 'point' ? t(p.of === 'center' ? 'drwDim.pickCenter' : 'drwDim.pickPoint') : p.kind === 'arc' ? `${t(p.full ? 'drwDim.pickCircle' : 'drwDim.pickArc')} R${formatNumber(p.r)}` : t('drwDim.pickEdge'));
+  const pickLabel = (p) => (p.kind === 'ellipse' ? t('drwDim.pickEllipse') : p.kind === 'curve' ? t('drwDim.pickCurve') : p.silhouette ? t('drwDim.pickSilhouette') : p.kind === 'point' ? t(p.of === 'center' ? 'drwDim.pickCenter' : 'drwDim.pickPoint') : p.kind === 'arc' || p.kind === 'circle' ? `${t(p.full ? 'drwDim.pickCircle' : 'drwDim.pickArc')} R${formatNumber(p.r)}` : t('drwDim.pickEdge'));
 
   function dimClick(e, at, hitAnn) {
     const d = drw();
     const hit = hitAnn ? ann(hitAnn) : null;
     if (hit?.kind === 'drwDim' && !e.picks.length) {
-      Object.assign(e, { editId: hit.id, precision: hit.precision ?? '', tolType: hit.tol?.type ?? 'none', upper: hit.tol?.upper ?? e.upper, lower: hit.tol?.lower ?? e.lower, fit: hit.tol?.fit ?? e.fit });
+      Object.assign(e, { editId: hit.id, precision: hit.precision ?? '', tolType: hit.tol?.type ?? 'none', upper: hit.tol?.upper ?? e.upper, lower: hit.tol?.lower ?? e.lower, fit: hit.tol?.fit ?? e.fit, measure: hit.measure ?? 'true', trueMark: hit.trueMark !== false });
       state.drawingSelected = hit.id;
       ctx.renderLeft(); ctx.renderDrawing();
       return;
@@ -117,12 +145,15 @@ export function createDrwTools(ctx) {
     const { frames: fr } = frames(d);
     const f = viewAt(fr, at[0], at[1]);
     if (!f) { notify('info', t('drwDim.pickInView')); return; }
-    if (isPictorial(f.v)) { notify('info', t('drwDim.notPictorial')); return; }
     if (e.view && e.view !== f.v.id) { e.picks = []; e.ordinateId = null; }
     e.view = f.v.id;
-    const q = f.fromSheet(at[0], at[1]);
-    const pick = pickEntity(viewEntities(f.p, { hidden: d.showHidden !== false }), q, 2.2 / f.s);
-    if (!pick) { notify('info', t('drwDim.nothingHere')); return; }
+    // Picked in the projection's own coordinates (a broken view is shortened), kept in the view's true ones.
+    const q = f.projAt(at[0], at[1]);
+    if (!insideDetail(f, q)) { notify('info', t('drwDim.outsideDetail')); return; }
+    const raw = pickEntity(viewEntities(f.p, { hidden: d.showHidden !== false && !f.pictorial }), q, 2.2 / f.s);
+    if (!raw) { notify('info', t('drwDim.nothingHere')); return; }
+    let pick = pickToTrue(f, raw);
+    if (f.pictorial) return pictorialClick(d, e, f, pick, f.toTrue(q[0], q[1]), fr);
     if (e.dtype === 'ordinate') {
       const o = e.ordinateId ? ann(e.ordinateId) : null;
       if (o && o.view === f.v.id) {
@@ -134,7 +165,7 @@ export function createDrwTools(ctx) {
       e.picks.push(pick);
       const g = ordinateFromPicks(e.picks, e.axis);
       if (g.error) { ctx.renderLeft(); ctx.renderDrawing(); return; }
-      const a = makeDim(d, f, g, e);
+      const a = makeDim(d, f, g, e, fr);
       e.ordinateId = a.id; e.picks = [];
       return;
     }
@@ -142,15 +173,41 @@ export function createDrwTools(ctx) {
     const g = dimensionFromPicks(e.picks, e.dtype);
     if (g.error === 'more' && e.picks.length < 2) { ctx.renderLeft(); ctx.renderDrawing(); return; }
     if (g.error) { notify('warning', t(`drwDim.error.${g.error}`, null, t('drwDim.error.more'))); e.picks = []; ctx.renderLeft(); ctx.renderDrawing(); return; }
-    makeDim(d, f, g, e);
+    makeDim(d, f, g, e, fr);
     e.picks = [];
   }
 
-  function makeDim(d, f, g, e) {
-    const a = { id: ctx.newId('dim'), kind: 'drwDim', view: f.v.id, ...g, tol: tolOf(e) };
+  /** The model's 3D edges for the pictorial views (cached per model state). */
+  let geomCache = { key: null, geom: null };
+  function modelGeom(d) {
+    const { key, shape } = ctx.drawingShape(d);
+    if (!shape) return null;
+    if (geomCache.key !== key || !geomCache.geom) { try { geomCache = { key, geom: modelGeometry(shape) }; } catch { geomCache = { key, geom: null }; } }
+    return geomCache.geom;
+  }
+
+  /** A click in an isometric / dimetric view: the pick matched to the model's 3D edges, the value measured in 3D. */
+  function pictorialClick(d, e, f, pick, q, fr) {
+    if (['horizontal', 'vertical', 'ordinate', 'chamfer'].includes(e.dtype)) { notify('warning', t('drwDim.error.pictorialType')); return; }
+    const pk = pictorialPick(pick, q, modelGeom(d), f.basis, 2.2 / f.s);
+    if (!pk) { notify('info', t('drwDim.noModelEdge')); return; }
+    e.picks.push(pk);
+    const g = pictorialDimension(e.picks, e.dtype, f.basis);
+    if (g.error === 'more' && e.picks.length < 2) { ctx.renderLeft(); ctx.renderDrawing(); return; }
+    if (g.error) { notify('warning', t(`drwDim.error.${g.error}`, null, t('drwDim.error.more'))); e.picks = []; ctx.renderLeft(); ctx.renderDrawing(); return; }
+    if (e.measure === 'projected') g.measure = 'projected';
+    if (e.trueMark === false) g.trueMark = false;
+    makeDim(d, f, g, e, fr);
+    e.picks = [];
+  }
+
+  function makeDim(d, f, g, e, fr = null) {
+    let a = { id: ctx.newId('dim'), kind: 'drwDim', view: f.v.id, ...g, tol: tolOf(e) };
     if (e.precision !== '' && e.precision != null) a.precision = Number(e.precision);
     if (d.activeLayer) a.layer = d.activeLayer;
     [a.x, a.y] = autoTextOffset(a, f);
+    // Its label clear of the other dimensions' labels on the sheet.
+    if (fr) { try { a = layoutDimLabels([a], fr, { existing: (sheetDrawing(d).annotations ?? []).filter((x) => x.kind === 'drwDim') }).dims[0]; } catch { /* where it was put */ } }
     ctx.change('op.annotation', () => { d.annotations = [...(d.annotations ?? []), a]; });
     state.drawingSelected = a.id; e.editId = a.id;
     notify('success', t('drwDim.made', { text: dimLabel(a) }));
@@ -164,7 +221,18 @@ export function createDrwTools(ctx) {
     edit(() => {
       a.tol = tolOf(e);
       if (e.precision === '' || e.precision == null) delete a.precision; else a.precision = Number(e.precision);
+      if (a.m3) { if (e.measure === 'projected') a.measure = 'projected'; else delete a.measure; if (e.trueMark === false) a.trueMark = false; else delete a.trueMark; }
     });
+  }
+
+  /** The pictorial-view options: show the true size (marked TL) or the projected size. */
+  function pictorialGroup(e, a) {
+    const { pmGroup, pmSeg } = ctx.pm;
+    const d = drw();
+    let pictorial = Boolean(a?.m3);
+    if (!pictorial && e.view && d) { try { pictorial = Boolean(frames(d).frames.get(e.view)?.pictorial); } catch { pictorial = false; } }
+    if (!pictorial) return '';
+    return pmGroup('dimTrueLength', t('drwDim.pictorial'), `${pmSeg('measure', [['true', t('drwDim.measureTrue'), 'dimTrueLength'], ['projected', t('drwDim.measureProjected'), 'dimProjected']], e.measure ?? 'true')}${check('trueMark', e.trueMark !== false, t('drwDim.trueMark'), 'dimTrueLength')}<p class="pm-note">${escapeHtml(t('drwDim.pictorialNote'))}</p>`);
   }
 
   function dimPm(e) {
@@ -179,6 +247,7 @@ export function createDrwTools(ctx) {
       pmGroup('smartDim', t('drwDim.type'), `${buttons('dtype', types, e.dtype)}${e.dtype === 'ordinate' ? ctx.pm.pmSeg('axis', [['x', t('drwDim.ordX')], ['y', t('drwDim.ordY')]], e.axis) : ''}`),
       pmGroup('select', t('drwDim.picks'), pmList('picks', e.picks.map(pickLabel), t('drwDim.picksList'), 'smartDim', true)),
       pmGroup('dimTolerance', t('drwDim.tolerance'), `${sel('precision', [['', t('drwDim.precisionAuto')], ...[0, 1, 2, 3, 4].map((k) => [String(k), k ? `0.${'0'.repeat(k - 1)}1` : '1'])], e.precision === '' || e.precision == null ? '' : String(e.precision), t('drwDim.precision'))}${sel('tolType', TOL_TYPES.map((k) => [k, t(`drwDim.tol.${k}`)]), e.tolType, t('drwDim.tolType'))}${tolFields}`),
+      pictorialGroup(e, a),
       a ? pmGroup('edit', t('drwDim.editing'), `<p class="pm-note">${icon('smartDim', 'icon tiny')}${escapeHtml(dimLabel(a))}</p><div class="pm-row">${pmButton('drw.delDim', 'trash', t('action.delete'))}</div>`) : '',
       pmGroup('autoDims', t('drwDim.more'), `<div class="pm-relations">${pmButton('drw.modelItems', 'modelItems', t('cmd.drwModelItems'))}${pmButton('drw.centerMarks', 'centerMarksAuto', t('cmd.drwCenterMarks'))}</div>`),
     ].join('');
@@ -198,7 +267,11 @@ export function createDrwTools(ctx) {
     const { frames: fr } = viewFrames(sd, ctx.drawingProjections(sd));
     const ids = new Set(sd.views.map((v) => v.id));
     const dims = modelItemDims(src, built.result.results, sd.views).filter((g) => fr.has(g.view));
-    const made = dims.map((g) => { const a = { id: ctx.newId('dim'), kind: 'drwDim', ...g }; if (d.activeLayer) a.layer = d.activeLayer; [a.x, a.y] = autoTextOffset(a, fr.get(g.view)); return a; });
+    const placed = dims.map((g) => { const a = { id: ctx.newId('dim'), kind: 'drwDim', ...g }; if (d.activeLayer) a.layer = d.activeLayer; [a.x, a.y] = autoTextOffset(a, fr.get(g.view)); return a; });
+    // Labels laid out so none overlaps another (small parts: the labels are bigger than the views).
+    const kept = (sd.annotations ?? []).filter((a) => a.kind === 'drwDim' && !(a.model && ids.has(a.view)));
+    let made = placed;
+    try { made = layoutDimLabels(placed, fr, { existing: kept }).dims; } catch { made = placed; }
     // Running it again refreshes them: the model items of these views made before go.
     ctx.change('op.annotation', () => { d.annotations = [...(d.annotations ?? []).filter((a) => !(a.kind === 'drwDim' && a.model && ids.has(a.view))), ...made]; });
     notify(made.length ? 'success' : 'info', made.length ? t('drw.modelItemsMade', { count: made.length }) : t('drw.modelItemsNone'));
@@ -327,6 +400,7 @@ export function createDrwTools(ctx) {
       pmGroup('sheetFormat', t('drwFormat.standard'), pmSeg('f:standard', STANDARDS.map((k) => [k, k]), std)),
       pmGroup('sheetFormat', t('drwFormat.size'), buttons('f:sheet', sizes, d.sheet)),
       pmGroup('drawing', t('drawing.projection'), `${pmSeg('f:projection', [['first', t('drawing.first')], ['third', t('drawing.third')]], d.projection ?? 'third')}${check('f:zones', d.format?.zones !== false && Boolean(d.format), t('drwFormat.zones'), 'grid')}`),
+      pmGroup('snapAlign', t('drwSnap.title'), `${check('f:snapAlign', d.snap?.align !== false, t('drwSnap.align'), 'snapAlign')}${sel('f:snapGrid', [['0', t('drwSnap.gridOff')], ...['1', '2', '5', '10'].map((g) => [g, `${g} mm`])], String(d.snap?.grid ?? 0), t('drwSnap.grid'))}<p class="pm-note">${escapeHtml(t('drwSnap.note'))}</p>`),
     ].join('');
   }
   function setFormat(key, value) {
@@ -372,9 +446,11 @@ export function createDrwTools(ctx) {
         byFace = new Map(r.faces.map((f) => [f.hash, f.problem ? (f.problem === 'sliver' || f.problem === 'shortEdge' ? C.warn : C.bad) : C.ok]));
         e.result = r;
       } else if (e.kind === 'undercut') {
-        const r = undercutAnalysis(entry.mesh, AXIS[e.dir] ?? AXIS.z);
+        const r = undercutAnalysis(body, AXIS[e.dir] ?? AXIS.z);
         byFace = new Map([...r.faces].map(([h, cls]) => [h, C[cls]]));
-        e.result = { counts: r.counts, undercut: r.undercut };
+        const areas = { cavity: 0, core: 0, straight: 0, undercut: 0 };
+        for (const x of r.details ?? []) for (const k of Object.keys(areas)) areas[k] += x.area * (x.fractions?.[k] ?? 0);
+        e.result = { counts: r.counts, undercut: r.undercut, split: r.split ?? 0, areas };
       } else if (e.kind === 'compare') {
         const other = ctx.project().parts.find((x) => x.id === e.other);
         if (!other) { e.result = null; e.error = 'drwEval.needOther'; }
@@ -388,16 +464,33 @@ export function createDrwTools(ctx) {
           }
         }
       } else if (e.kind === 'costing' || e.kind === 'sustain') {
-        const R = rep();
-        const volume = R.measureVolume(body); const area = R.measureArea(body);
-        const cost = costEstimate({ volume, area, bbox: body.boundingBox.bounds, material: p.material }, p.costing ?? {});
-        const co2 = sustainabilityReport({ partMass: cost.partMass, stockMass: cost.stockMass, timeMin: cost.timeMin, material: p.material }, p.sustain ?? {});
-        e.result = { cost, co2, material: materialName(p.material, ctx.lang()), volume, area };
+        const res = entry.result ?? {};
+        // Sheet metal: the flat pattern gives the blank (cut length, pierces); its own build slot keeps the view's.
+        let flat = null;
+        if (res.sheet && (p.costing?.process ?? 'auto') !== 'machining') { try { flat = ctx.buildPart({ ...p, flat: true }, { slot: 'costFlat' })?.body ?? null; } catch { flat = null; } }
+        const labels = { hole: t('cost.holeName'), end: t('cost.endName'), stock: t('cost.stock'), surface: t('cost.surface'), fillet: t('cost.filletName'), chamfer: t('cost.chamferName') };
+        const cost = partCost({ body, material: p.material, features: res.features ?? p.features, results: res.results, sheet: res.sheet, flat, labels }, p.costing ?? {});
+        const co2 = partCO2(cost, p.sustain ?? {});
+        // Faces of the recognised holes in the result colour, the rest muted.
+        if (cost.holes?.length || cost.edges?.length) { const faces = body.faces; byFace = new Map(); for (const h of cost.holes ?? []) for (const i of h.faces) if (faces[i]) byFace.set(faces[i].hashCode, C.info); for (const x of cost.edges ?? []) if (faces[x.face]) byFace.set(faces[x.face].hashCode, C.warn); }
+        e.result = { cost, co2, material: materialName(p.material, ctx.lang()), volume: cost.volume, area: cost.area };
       }
     } catch (error) { e.error = 'drwEval.failed'; e.result = null; console.warn('evaluate', error); }
     state.drwEval = byFace && entry.mesh ? { key: entry.key, colors: faceColours(entry.mesh, (h) => byFace.get(h) ?? null) } : null;
     ctx.syncView();
     ctx.renderLeft();
+  }
+
+  /** The cost / CO₂e breakdown saved as CSV or an HTML report (the app's export: a save dialog or a download). */
+  function exportCost(format) {
+    const e = editing(); const p = part();
+    const c = e?.result?.cost;
+    if (!c || !p) { notify('info', t('cost.noResult')); return undefined; }
+    const tr = (k) => t(k);
+    const base = `${fileSafe(p.name)}-cost`;
+    if (format === 'csv') return ctx.saveExport(`${base}.csv`, 'csv', `\uFEFF${costReportCsv(c, e.result.co2, tr)}`, 'text/csv');
+    const html = costReportHtml(c, e.result.co2, tr, { title: `${t('cmd.eval.costing')} — ${p.name}`, part: p.name, material: e.result.material, date: new Date().toLocaleString() });
+    return ctx.saveExport(`${base}.html`, 'html', html, 'text/html');
   }
 
   function colours(p, entry) {
@@ -456,9 +549,9 @@ export function createDrwTools(ctx) {
       const p = part();
       if (key.startsWith('cost:') || key.startsWith('co2:')) {
         const [scope, k] = key.split(':'); const store = scope === 'cost' ? 'costing' : 'sustain';
-        const v = raw === '' ? null : Number(raw);
-        if (raw !== '' && !Number.isFinite(v)) { notify('error', t('notice.invalidValue', { text: raw })); return ctx.renderLeft(); }
-        ctx.change('op.edit', () => { p[store] = { ...(p[store] ?? {}) }; if (v == null) delete p[store][k]; else p[store][k] = v; });
+        const v = parseRate(k, raw);
+        if (v === undefined) { notify('error', t('notice.invalidValue', { text: raw })); return ctx.renderLeft(); }
+        ctx.change('op.edit', () => { p[store] = setPath(JSON.parse(JSON.stringify(p[store] ?? {})), k, v); });
         return runEval();
       }
       if (['offset', 'minEdge', 'sliverRatio'].includes(key)) { const v = Number(raw); if (Number.isFinite(v)) e[key] = v; return runEval(); }
@@ -471,6 +564,7 @@ export function createDrwTools(ctx) {
     if (e.mode === 'drwDim') {
       if (key === 'dtype') { e.dtype = value; e.picks = []; e.ordinateId = null; }
       if (key === 'axis') { e.axis = value; e.ordinateId = null; }
+      if (key === 'measure') { e.measure = value; applyToEdited(e); }
       ctx.renderLeft(); return ctx.renderDrawing();
     }
     if (e.mode === 'drwWeld' && key.startsWith('w:')) { const w = ann(e.editId); if (w) edit(() => { w[key.slice(2)] = value; }); return undefined; }
@@ -484,14 +578,18 @@ export function createDrwTools(ctx) {
     const e = editing(); const d = drw();
     if (e.mode === 'drwDim') { if (['precision', 'tolType', 'fit'].includes(key)) { e[key] = value; applyToEdited(e); } return ctx.renderLeft(); }
     if (e.mode === 'drwLayers' && key.startsWith('assign:')) { const a = ann(key.slice(7)); if (a) ctx.change('op.edit', () => { if (value) a.layer = value; else delete a.layer; }); return undefined; }
+    if (e.mode === 'drwFormat' && key === 'f:snapGrid') return ctx.change('op.edit', () => { d.snap = { ...(d.snap ?? {}), grid: Number(value) || 0 }; });
     if (e.mode === 'drwTitle' && key === 'tb:scale') return ctx.change('op.edit', () => { if (value === 'auto') d.autoScale = true; else { d.autoScale = false; d.scale = Number(value); } });
     if (e.mode === 'evalMore' && key === 'other') { e.other = value; return runEval(); }
+    if (e.mode === 'evalMore' && key === 'costProcess') { const p = part(); ctx.change('op.edit', () => { p.costing = setPath({ ...(p.costing ?? {}) }, 'process', PROCESSES.includes(value) ? value : null); }); return runEval(); }
     return undefined;
   }
 
   function toggle(key, checked) {
     const e = editing(); const d = drw();
     if (e.mode === 'drwWeld' && key.startsWith('w:')) { const w = ann(e.editId); if (w) edit(() => { w[key.slice(2)] = checked; }); return undefined; }
+    if (e.mode === 'drwDim' && key === 'trueMark') { e.trueMark = checked; applyToEdited(e); return ctx.renderLeft(); }
+    if (e.mode === 'drwFormat' && key === 'f:snapAlign') return ctx.change('op.edit', () => { d.snap = { ...(d.snap ?? {}), align: checked }; });
     if (e.mode === 'drwLayers' && key.startsWith('layerVis:')) { const l = layersOf(d).find((x) => x.id === key.slice(9)); if (l) ctx.change('op.edit', () => { l.visible = checked; }); return undefined; }
     if (e.mode === 'drwFormat' && key === 'f:zones') return setFormat('zones', checked);
     return undefined;
@@ -499,7 +597,7 @@ export function createDrwTools(ctx) {
 
   function accept() { return finish(); }
 
-  const COMMAND_NAMES = new Set(['drw.modelItems', 'drw.centerMarks', 'drw.delDim', 'drw.weldTarget', 'drw.newWeld', 'drw.newTable', 'drw.addRow', 'drw.addCol', 'drw.delRow', 'drw.delCol', 'drw.addLayer', 'drw.delLayer', 'drw.assignAll']);
+  const COMMAND_NAMES = new Set(['drw.costCsv', 'drw.costHtml', 'drw.modelItems', 'drw.centerMarks', 'drw.delDim', 'drw.weldTarget', 'drw.newWeld', 'drw.newTable', 'drw.addRow', 'drw.addCol', 'drw.delRow', 'drw.delCol', 'drw.addLayer', 'drw.delLayer', 'drw.assignAll']);
   function handles(name) { return COMMAND_NAMES.has(name) || (name === 'clear' && owns(editing())); }
   function command(name, arg) {
     const e = editing(); const d = drw();
@@ -508,6 +606,7 @@ export function createDrwTools(ctx) {
       if (e?.mode === 'evalMore') { e.edges = []; ctx.viewport()?.setSelection([]); return runEval(); }
       return ctx.renderLeft();
     }
+    if (name === 'drw.costCsv' || name === 'drw.costHtml') return exportCost(name === 'drw.costCsv' ? 'csv' : 'html');
     if (name === 'drw.modelItems') return modelItems();
     if (name === 'drw.centerMarks') return centerMarks();
     if (name === 'drw.delDim') { const id = e?.editId; e.editId = null; return ctx.change('op.delete', () => { d.annotations = d.annotations.filter((a) => a.id !== id); }); }
@@ -544,6 +643,8 @@ export function createDrwTools(ctx) {
     if (!f) return '';
     return `<g class="dx-picks">${e.picks.map((p) => {
       if (p.kind === 'line') { const a = f.toSheet(...p.a); const b = f.toSheet(...p.b); return `<path d="M ${a[0]} ${a[1]} L ${b[0]} ${b[1]}" fill="none" stroke="#e91e63" stroke-width="0.8"/>`; }
+      if ((p.kind === 'ellipse' || p.kind === 'curve') && f.basis && p.pts3?.length) { const pts = p.pts3.map((q3) => f.toSheet(q3[0] * f.basis.x[0] + q3[1] * f.basis.x[1] + q3[2] * f.basis.x[2], q3[0] * f.basis.y[0] + q3[1] * f.basis.y[1] + q3[2] * f.basis.y[2])); return `<path d="M ${pts.map((q) => `${q[0]} ${q[1]}`).join(' L ')}" fill="none" stroke="#e91e63" stroke-width="0.8"/>`; }
+      if (p.kind === 'circle' && f.basis) { const pts = ellipseSheet({ c: p.c3, n: p.n3, r: p.r }, f, 64); return `<path d="M ${pts.map((q) => `${q[0]} ${q[1]}`).join(' L ')} Z" fill="none" stroke="#e91e63" stroke-width="0.8"/>`; }
       const c = f.toSheet(...(p.kind === 'point' ? p.p : p.c));
       const r = p.kind === 'arc' ? p.r * f.s : 1.2;
       return `<circle cx="${c[0]}" cy="${c[1]}" r="${r}" fill="none" stroke="#e91e63" stroke-width="0.8"/>`;
@@ -567,6 +668,73 @@ export function createDrwTools(ctx) {
     const out = base(plain, opts);
     const sd = sheetDrawing(d);
     return drwDxf(out, sd, ctx.drawingProjections(sd), { info: infoOf(d, opts.info ?? ctx.drawingInfo?.(d) ?? {}), labels: opts.labels ?? {}, layered: (sd.annotations ?? []).filter((a) => !DRW_KINDS.has(a?.kind) && layerOf(d, a)) });
+  }
+
+  // ───────────────────────── dragging annotations (with snapping)
+
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  /** Moves an annotation by (dx, dy) sheet mm: its text / symbol moves, a leader's end stays where it points. */
+  function moveAnnotation(a, dx, dy) {
+    const r = (v) => Math.round(v * 100) / 100;
+    a.x = r((Number(a.x) || 0) + dx); a.y = r((Number(a.y) || 0) + dy);
+    if (a.kind === 'dimension' && Array.isArray(a.a) && Array.isArray(a.b)) { a.a = [r(a.a[0] + dx), r(a.a[1] + dy)]; a.b = [r(a.b[0] + dx), r(a.b[1] + dy)]; }
+  }
+
+  /**
+   * pointerdown on an annotation of the sheet (app.js hands it over, also while a drawing tool's page is open):
+   * drag it, lining it up with the other annotations (anchors and box edges, guides shown) or the sheet's snap
+   * grid; Shift drags freely. A click without a drag goes on as a click (the tools pick with it). True when taken.
+   */
+  function annotationDrag(event, el) {
+    const d = drw();
+    const svg = el?.ownerSVGElement;
+    if (!d || !svg?.getScreenCTM) return false;
+    const id = el.dataset.annotation;
+    adoptToActiveSheet(d);
+    const a0 = (d.annotations ?? []).find((x) => x.id === id);
+    if (!a0 || a0.kind === 'drwCenter') return false;
+    event.stopPropagation();
+    const sd = sheetDrawing(d);
+    let boxes = [];
+    try { boxes = annotationBoxes(sd, ctx.drawingProjections(sd)).filter((b) => annotationVisible(d, (d.annotations ?? []).find((x) => x.id === b.id))); } catch { boxes = []; }
+    const mine = boxes.find((b) => b.id === id) ?? null;
+    const targets = boxes.filter((b) => b.id !== id && b.anchor);
+    const align = d.snap?.align !== false; const grid = Number(d.snap?.grid) || 0;
+    const pt = (e) => { const q = svg.createSVGPoint(); q.x = e.clientX; q.y = e.clientY; const r = q.matrixTransform(svg.getScreenCTM().inverse()); return [r.x, r.y]; };
+    const start = pt(event);
+    const guides = document.createElementNS(SVGNS, 'g');
+    guides.setAttribute('class', 'snap-guides');
+    svg.appendChild(guides);
+    let moved = false; let delta = [0, 0];
+    const move = (e) => {
+      const q = pt(e);
+      let dx = q[0] - start[0]; let dy = q[1] - start[1];
+      if (!moved && Math.hypot(dx, dy) <= 0.8) return;
+      moved = true;
+      let lines = [];
+      if (mine && !e.shiftKey && (align || grid)) {
+        const s = snapDrag({ anchor: mine.anchor ? [mine.anchor[0] + dx, mine.anchor[1] + dy] : null, box: shiftBox(mine.box, dx, dy) }, align ? targets : [], { tol: 2, grid });
+        dx += s.dx; dy += s.dy; lines = s.guides;
+      }
+      delta = [dx, dy];
+      el.setAttribute('transform', `translate(${dx} ${dy})`);
+      guides.innerHTML = lines.map((g) => (g.axis === 'x'
+        ? `<line x1="${g.at}" y1="${g.from - 3}" x2="${g.at}" y2="${g.to + 3}" stroke="#1e88e5" stroke-width="0.25" stroke-dasharray="1.5 1"/>`
+        : `<line x1="${g.from - 3}" y1="${g.at}" x2="${g.to + 3}" y2="${g.at}" stroke="#1e88e5" stroke-width="0.25" stroke-dasharray="1.5 1"/>`)).join('');
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
+      guides.remove();
+      if (!moved) return;
+      // The click that follows the drag is not a pick.
+      const swallow = (e) => { e.stopPropagation(); e.preventDefault(); };
+      window.addEventListener('click', swallow, { capture: true, once: true });
+      setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 0);
+      const [dx, dy] = delta;
+      ctx.change('op.annotation', () => { const a = (drw()?.annotations ?? []).find((x) => x.id === id); if (a) moveAnnotation(a, dx, dy); });
+    };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+    return true;
   }
 
   // ───────────────────────── commands
@@ -606,7 +774,7 @@ export function createDrwTools(ctx) {
     if (MENUS.tools) MENUS.tools.splice(i < 0 ? MENUS.tools.length : i + 1, 0, { sub: 'evalMore' });
   }
 
-  return { commands, TABS, owns, pm, pick, field, set, select, toggle, accept, handles, command, subject, colours, svg, dxf, sheetClick, extendMenus, runEval };
+  return { commands, TABS, owns, pm, pick, field, set, select, toggle, accept, handles, command, subject, colours, svg, dxf, sheetClick, extendMenus, runEval, annotationDrag };
 }
 
 /**
@@ -632,6 +800,7 @@ export function attachDrwTools(more, ctx) {
   more.svg = (d, opts = {}) => tools.svg(d, opts, o.svg);
   more.dxf = (d, opts = {}) => tools.dxf(d, opts, o.dxf);
   more.sheetClick = (event) => tools.sheetClick(event);
+  more.annotationDrag = (event, el) => tools.annotationDrag(event, el);
   for (const [tab, ids] of Object.entries(tools.TABS)) more.TABS[tab] = more.TABS[tab]?.length ? [...more.TABS[tab], '|', ...ids] : [...ids];
   return tools;
 }

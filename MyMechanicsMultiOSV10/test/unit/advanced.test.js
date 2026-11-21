@@ -106,13 +106,13 @@ test('helix as a sweep path (a spring) and a thread on a shaft', () => {
   const r = ok(part);
   const len = 2 * Math.hypot(2 * Math.PI * 10, 6);
   near(V(r.body), Math.PI * len, 0.08);
-  // Thread: an M10 shaft 20 long, threaded 10 from its top edge.
+  // Thread: an M10 shaft 20 long, threaded 10 from its top edge (modelled: a new thread is cosmetic by default).
   const shaft = newPart('q');
   const c = sketchOn(shaft, top, (k) => addCircle(k, 0, 0, 5));
   shaft.features.push(createFeature(shaft, 'extrude', { sketch: c.id, depth: 20 }));
   const r1 = regenerate(shaft);
   const edge = r1.body.edges.find((e) => e.geomType === 'CIRCLE' && e.pointAt(0).z > 19);
-  shaft.features.push(createFeature(shaft, 'thread', { edge: edgeSignature(edge), pitch: 1.5, length: 10 }));
+  shaft.features.push(createFeature(shaft, 'thread', { edge: edgeSignature(edge), pitch: 1.5, length: 10, mode: 'modelled' }));
   const r2 = ok(shaft);
   const removed = V(r1.body) - V(r2.body);
   assert.ok(removed > 10 && removed < Math.PI * 25 * 10 * 0.5, `thread removed ${removed}`);

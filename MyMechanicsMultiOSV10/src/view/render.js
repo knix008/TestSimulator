@@ -1,14 +1,19 @@
-// Photo rendering of the current view: a second WebGL renderer draws the model with physically based
-// materials (mapped from each part's engineering material) under procedural environment lighting, then
-// accumulates many jittered frames into a float buffer — sub-pixel jitter for anti-aliasing, a sun of finite
-// size and a hemisphere "sky" light that moves every frame for soft shadows and contact shadows on the
-// ground, and an aperture for depth of field. The average is tone mapped (ACES) for the picture.
+// Photo rendering of the current view, in two modes:
+//   Final    a progressive GPU path tracer (pt/pathtracer.js): unbiased Monte Carlo light transport over a BVH of
+//            the scene's triangles — indirect light, refraction through glass, glossy reflections, soft shadows
+//            from the sun and area lights, a shadow-catcher or reflective ground, a thin-lens camera for depth of
+//            field, a denoiser.
+//   Preview  the fast raster picture (PhotoRenderer below): physically based materials under the same
+//            procedural environment, many jittered frames accumulated in a float buffer — sub-pixel jitter for
+//            anti-aliasing, a sun of finite size and a hemisphere "sky" light that moves every frame for soft
+//            and contact shadows, an aperture for depth of field. The average is tone mapped (ACES).
 //
 // Z up: the ground is the XY plane under the model, the sky above +Z. Nothing is downloaded: the
-// environments are gradient domes with soft-box panels rendered into an environment map (PMREM).
+// environments are gradient domes with soft-box panels (an environment map; PMREM for the preview, an
+// equirect HDR with importance sampling for the path tracer).
 //
 // The pure parts (presets, material mapping, sample sequences, resolutions, settings) are exported for the
-// tests; PhotoRenderer needs WebGL.
+// tests; the renderers need WebGL.
 import * as THREE from 'three';
 import { materialOf } from '../cad/materials.js';
 
@@ -29,24 +34,74 @@ export const ENV_PRESETS = {
 export const ENV_IDS = Object.keys(ENV_PRESETS);
 
 /** Picture sizes: 'view' follows the graphics area. */
-export const RESOLUTIONS = { view: null, hd: [1280, 720], fhd: [1920, 1080], qhd: [2560, 1440], square: [1024, 1024] };
+export const RESOLUTIONS = { view: null, small: [640, 360], hd: [1280, 720], fhd: [1920, 1080], qhd: [2560, 1440], uhd: [3840, 2160], square: [1024, 1024], portrait: [1080, 1350] };
 
-export const DEFAULT_RENDER = { env: 'studio', resolution: 'hd', samples: 64, ground: 'shadow', background: 'env', dof: false, aperture: 0.5, focus: 0, sunIntensity: 1, softness: 1 };
+/** An area light of the render (a soft box around the model): direction from the model's centre, distance and size in model sizes. */
+export const DEFAULT_AREA_LIGHT = { on: true, color: '#ffffff', intensity: 8, az: 60, el: 45, distance: 1.2, width: 0.6, height: 0.6 };
+
+export const DEFAULT_RENDER = {
+  mode: 'final', env: 'studio', resolution: 'hd', samples: 256, timeLimit: 0, bounces: 8,
+  ground: 'shadow', background: 'env', reflections: true, floorReflect: 0.06, floorRoughness: 0.25,
+  projection: 'view', fov: 35, dof: false, fStop: 2.8, focus: 0,
+  sunIntensity: 1, softness: 1, envIntensity: 1, envRotation: 0, exposure: 1, tone: 'aces', sceneLights: true, areaLights: [],
+  denoise: true, denoiseStrength: 1, clamp: 0, caustics: 'fast', region: null, seed: 0,
+};
+
+const pick = (v, list, d) => (list.includes(v) ? v : d);
+const num = (v, d, lo, hi) => (v !== null && v !== '' && v !== undefined && Number.isFinite(Number(v)) ? Math.max(lo, Math.min(hi, Number(v))) : d);
+
+/** An area light with every value in range. */
+export function normalizeAreaLight(a = {}, i = 0) {
+  const d = DEFAULT_AREA_LIGHT;
+  return {
+    id: typeof a.id === 'string' && a.id ? a.id : `area${i + 1}`, on: a.on !== false, color: /^#[0-9a-f]{6}$/i.test(a.color ?? '') ? a.color : d.color,
+    intensity: num(a.intensity, d.intensity, 0, 1e5), az: num(a.az, d.az, -360, 360), el: num(a.el, d.el, -89, 89),
+    distance: num(a.distance, d.distance, 0.05, 100), width: num(a.width, d.width, 0.01, 50), height: num(a.height, d.height, 0.01, 50),
+  };
+}
+
+/** A render region (fractions of the picture from the top left) or null. */
+export function normalizeRegion(r) {
+  if (!r || typeof r !== 'object') return null;
+  const c = (v) => num(v, 0, 0, 1);
+  const x0 = Math.min(c(r.x0), c(r.x1)); const x1 = Math.max(c(r.x0), c(r.x1)); const y0 = Math.min(c(r.y0), c(r.y1)); const y1 = Math.max(c(r.y0), c(r.y1));
+  return x1 - x0 > 0.002 && y1 - y0 > 0.002 ? { x0, y0, x1, y1 } : null;
+}
 
 /** Settings with every value in range. */
 export function normalizeRenderSettings(s = {}) {
-  const n = (v, d, lo, hi) => (Number.isFinite(Number(v)) ? Math.max(lo, Math.min(hi, Number(v))) : d);
+  const D = DEFAULT_RENDER;
   return {
-    env: ENV_PRESETS[s.env] ? s.env : DEFAULT_RENDER.env,
-    resolution: s.resolution in RESOLUTIONS ? s.resolution : DEFAULT_RENDER.resolution,
-    samples: Math.round(n(s.samples, DEFAULT_RENDER.samples, 1, 4096)),
-    ground: ['shadow', 'floor', 'none'].includes(s.ground) ? s.ground : DEFAULT_RENDER.ground,
-    background: ['env', 'white', 'transparent'].includes(s.background) ? s.background : DEFAULT_RENDER.background,
+    mode: pick(s.mode, ['final', 'preview'], D.mode),
+    env: ENV_PRESETS[s.env] || s.env === 'custom' ? s.env : D.env,
+    resolution: s.resolution in RESOLUTIONS ? s.resolution : D.resolution,
+    samples: Math.round(num(s.samples, D.samples, 1, 65536)),
+    timeLimit: num(s.timeLimit, D.timeLimit, 0, 86400),
+    bounces: Math.round(num(s.bounces, D.bounces, 1, 32)),
+    ground: pick(s.ground, ['shadow', 'floor', 'none'], D.ground),
+    background: pick(s.background, ['env', 'white', 'transparent'], D.background),
+    reflections: s.reflections !== undefined ? Boolean(s.reflections) : D.reflections,
+    floorReflect: num(s.floorReflect, D.floorReflect, 0, 1),
+    floorRoughness: num(s.floorRoughness, D.floorRoughness, 0, 1),
+    projection: pick(s.projection, ['view', 'perspective', 'orthographic'], D.projection),
+    fov: num(s.fov, D.fov, 5, 120),
     dof: Boolean(s.dof),
-    aperture: n(s.aperture, DEFAULT_RENDER.aperture, 0, 10),
-    focus: n(s.focus, 0, 0, 1e7),
-    sunIntensity: n(s.sunIntensity, 1, 0, 10),
-    softness: n(s.softness, 1, 0, 10),
+    fStop: num(s.fStop, D.fStop, 0.5, 64),
+    focus: num(s.focus, 0, 0, 1e7),
+    sunIntensity: num(s.sunIntensity, 1, 0, 10),
+    softness: num(s.softness, 1, 0, 10),
+    envIntensity: num(s.envIntensity, D.envIntensity, 0, 100),
+    envRotation: num(s.envRotation, D.envRotation, -360, 360),
+    exposure: num(s.exposure, D.exposure, 0.01, 100),
+    tone: pick(s.tone, ['aces', 'linear'], D.tone),
+    sceneLights: s.sceneLights !== undefined ? Boolean(s.sceneLights) : D.sceneLights,
+    areaLights: (Array.isArray(s.areaLights) ? s.areaLights : []).slice(0, 8).map(normalizeAreaLight),
+    denoise: s.denoise !== undefined ? Boolean(s.denoise) : D.denoise,
+    denoiseStrength: num(s.denoiseStrength, D.denoiseStrength, 0.05, 10),
+    clamp: num(s.clamp, D.clamp, 0, 1e6),
+    caustics: pick(s.caustics, ['fast', 'physical'], D.caustics),
+    region: normalizeRegion(s.region),
+    seed: Math.round(num(s.seed, 0, 0, 1e9)),
   };
 }
 
@@ -229,6 +284,7 @@ export class PhotoRenderer {
       const mat = new THREE.MeshPhysicalMaterial({
         color: new THREE.Color(p.color), metalness: p.metalness, roughness: p.roughness, clearcoat: p.clearcoat, clearcoatRoughness: p.clearcoatRoughness,
         transmission: p.transmission, ior: p.ior, thickness: p.thickness, sheen: p.sheen, sheenRoughness: 0.8, specularIntensity: p.specularIntensity, side: THREE.DoubleSide,
+        emissive: new THREE.Color(p.emissive ?? '#000000'), emissiveIntensity: p.emissiveIntensity ?? 0,
         vertexColors: Boolean(b.geometry.getAttribute('color') && b.useVertexColors),
       });
       this.ownMaterials.push(mat);
@@ -314,9 +370,10 @@ export class PhotoRenderer {
     // Camera: sub-pixel jitter and the aperture.
     const cam = this.camera;
     cam.copy(this.baseCamera);
-    if (s.dof && s.aperture > 0) {
+    if (s.dof && s.fStop > 0) {
       const [ax, ay] = diskSample(i, 3, 7);
-      const r = (s.aperture / 100) * this.size;
+      const fov = cam.isPerspectiveCamera ? cam.fov : s.fov;
+      const r = (12 / Math.tan((fov * Math.PI) / 360)) / s.fStop / 2;
       const fwd = new THREE.Vector3(); cam.getWorldDirection(fwd);
       const right = new THREE.Vector3().crossVectors(fwd, cam.up).normalize();
       const up = new THREE.Vector3().crossVectors(right, fwd).normalize();

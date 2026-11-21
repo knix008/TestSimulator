@@ -20,6 +20,7 @@ export function renderCadSettings(api) {
     toggle('showSketches', t('settings.showSketches'), 'featSketch'),
     toggle('perspectiveView', t('settings.perspective'), 'perspective'),
     row('quality', t('settings.meshQuality'), segmented('meshQuality', [['coarse', t('quality.low')], ['normal', t('quality.medium')], ['fine', t('quality.high')]], set.meshQuality ?? 'normal')),
+    toggle('modelledThreads', t('settings.modelledThreads'), 'featThread'),
     `<h3 class="section-title">${icon('orbitTool')}${escapeHtml(t('settings.sectionNavigation'))}</h3>`,
     row('info', '', `<span class="muted">${escapeHtml(t('settings.mouseHelp'))}</span>`),
     toggle('invertZoom', t('settings.invertZoom'), 'zoomTool'),

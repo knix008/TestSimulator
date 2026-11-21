@@ -12,6 +12,7 @@ import { rep } from './kernel.js';
 import { drawingSvg, drawingDxf, layoutViews, viewBasis, hatchSegments, SHEETS, projectView } from './drawing.js';
 import { axisOfFace } from './assembly.js';
 import { isCylinder } from './refs.js';
+import { primsDxf, injectDxf } from './drawing-annot.js';
 
 const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -168,9 +169,14 @@ function arcPoints(x1, y1, rx, ry, phi, large, sweep, x2, y2) {
 const polylinesPath = (polys) => polys.filter((p) => p.length > 1).map((p) => `M ${p.map((q) => `${n2(q[0])} ${n2(q[1])}`).join(' L ')}`).join(' ');
 
 /** Applies a segment transform `seg(a, b) → [[a', b'], …]` (path coordinates) to every path; joins the pieces again. */
-function mapPaths(paths, seg) {
+function mapPaths(paths, seg, whole = null) {
   const out = [];
   for (const d of paths) {
+    // A path the change leaves whole (or only moves) keeps its arcs: circles stay circles for the dimensions.
+    const w = whole ? whole(flattenPath(d)) : null;
+    if (w === 'drop') continue;
+    if (w === 'keep') { out.push(d); continue; }
+    if (Array.isArray(w)) { out.push(translatePath(d, w[0], w[1])); continue; }
     const polys = [];
     for (const poly of flattenPath(d)) {
       let run = null;
@@ -185,6 +191,27 @@ function mapPaths(paths, seg) {
     if (p) out.push(p);
   }
   return out;
+}
+
+/** Path data (absolute M L H V C Q A Z) moved by (dx, dy) in path coordinates; arcs keep their radii and flags. */
+export function translatePath(d, dx, dy) {
+  const tokens = String(d).match(/[MLHVCQAZmlhvcqaz]|-?\d*\.?\d+(?:e[-+]?\d+)?/g) ?? [];
+  const out = []; let cmd = null; let i = 0;
+  const num = () => Number(tokens[i++]);
+  const xy = () => { const x = num(); const y = num(); out.push(n2(x + dx), n2(y + dy)); };
+  while (i < tokens.length) {
+    if (/[A-Za-z]/.test(tokens[i])) { cmd = tokens[i++]; out.push(cmd); if (cmd === 'Z' || cmd === 'z') continue; }
+    switch (cmd) {
+      case 'M': case 'L': xy(); break;
+      case 'H': out.push(n2(num() + dx)); break;
+      case 'V': out.push(n2(num() + dy)); break;
+      case 'C': xy(); xy(); xy(); break;
+      case 'Q': xy(); xy(); break;
+      case 'A': out.push(String(num()), String(num()), String(num()), String(num()), String(num())); xy(); break;
+      default: i++;
+    }
+  }
+  return out.join(' ');
 }
 
 /** Part of segment a–b with coordinate c (0 x, 1 y) in [lo, hi], or null. */
@@ -215,7 +242,8 @@ export function cropProjection(p, rect) {
   const box = { x0: Math.max(p.box.x0, rect.x0), y0: Math.max(p.box.y0, rect.y0), x1: Math.min(p.box.x1, rect.x1), y1: Math.min(p.box.y1, rect.y1) };
   if (!(box.x1 > box.x0 && box.y1 > box.y0)) return { ...p, visible: [], hidden: [], box: { x0: rect.x0, y0: rect.y0, x1: rect.x1, y1: rect.y1 }, cropped: rect };
   const map2 = (X, Y) => (X >= rect.x0 && X <= rect.x1 && Y >= rect.y0 && Y <= rect.y1 ? [X, Y] : null);
-  return { ...p, visible: mapPaths(p.visible, seg), hidden: mapPaths(p.hidden, seg), box, cropped: rect, map2: chain(p.map2, map2), trueW: p.trueW, trueH: p.trueH };
+  const inside = (polys) => (polys.every((poly) => poly.every(([x, y]) => x >= rect.x0 - 1e-9 && x <= rect.x1 + 1e-9 && -y >= rect.y0 - 1e-9 && -y <= rect.y1 + 1e-9)) ? 'keep' : null);
+  return { ...p, visible: mapPaths(p.visible, seg, inside), hidden: mapPaths(p.hidden, seg, inside), box, cropped: rect, map2: chain(p.map2, map2), trueW: p.trueW, trueH: p.trueH };
 }
 
 const chain = (first, second) => (first ? (X, Y) => { const q = first(X, Y); return q ? second(q[0], q[1]) : null; } : second);
@@ -261,15 +289,22 @@ export function breakProjection(p, span) {
   };
   const box = { ...p.box };
   if (c === 0) box.x1 -= shift; else box.y1 -= shift;
+  // Paths wholly on one side: kept, or moved by the shift.
+  const side = (polys) => {
+    const vs = polys.flat().map((q) => (c === 0 ? q[0] : -q[1]));
+    if (vs.every((v) => v <= span.from + 1e-9)) return 'keep';
+    if (vs.every((v) => v >= span.to - 1e-9)) return c === 0 ? [-shift, 0] : [0, shift];
+    return null;
+  };
   const map2 = (X, Y) => {
     const v = c === 0 ? X : Y;
     if (v > span.from && v < span.to) return null;
     return v >= span.to ? (c === 0 ? [X - shift, Y] : [X, Y - shift]) : [X, Y];
   };
   return {
-    ...p, visible: mapPaths(p.visible, seg), hidden: mapPaths(p.hidden, seg), box,
+    ...p, visible: mapPaths(p.visible, seg, side), hidden: mapPaths(p.hidden, seg, side), box,
     trueW: p.trueW ?? (p.box.x1 - p.box.x0), trueH: p.trueH ?? (p.box.y1 - p.box.y0),
-    breaks: [...(p.breaks ?? []), { axis: span.axis, at: span.from, gap }],
+    breaks: [...(p.breaks ?? []), { axis: span.axis, at: span.from, gap, to: span.to }],
     map2: chain(p.map2, map2),
   };
 }
@@ -455,26 +490,36 @@ function table(x, y, cols, rows, title, cls) {
 }
 
 /** Zig-zag break line across a view on the sheet, from a to b (sheet mm). */
-function zigzag(a, b) {
-  const L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (!(L > 0)) return '';
+export function zigzagPoints(a, b) {
+  const L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (!(L > 0)) return [];
   const d = [(b[0] - a[0]) / L, (b[1] - a[1]) / L]; const n = [-d[1], d[0]];
-  const m = L / 2; const pts = [a, [a[0] + d[0] * (m - 2), a[1] + d[1] * (m - 2)], [a[0] + d[0] * (m - 1) + n[0] * 2, a[1] + d[1] * (m - 1) + n[1] * 2], [a[0] + d[0] * (m + 1) - n[0] * 2, a[1] + d[1] * (m + 1) - n[1] * 2], [a[0] + d[0] * (m + 2), a[1] + d[1] * (m + 2)], b];
+  const m = L / 2; return [a, [a[0] + d[0] * (m - 2), a[1] + d[1] * (m - 2)], [a[0] + d[0] * (m - 1) + n[0] * 2, a[1] + d[1] * (m - 1) + n[1] * 2], [a[0] + d[0] * (m + 1) - n[0] * 2, a[1] + d[1] * (m + 1) - n[1] * 2], [a[0] + d[0] * (m + 2), a[1] + d[1] * (m + 2)], b];
+}
+
+function zigzag(a, b) {
+  const pts = zigzagPoints(a, b); if (!pts.length) return '';
   return `<path d="M ${pts.map((p) => `${n2(p[0])} ${n2(p[1])}`).join(' L ')}" class="break-line"/>`;
+}
+
+/** Points of a wavy closed outline of a rectangle (sheet mm). */
+export function wavyRectPoints(x0, y0, x1, y1) {
+  const pts = [];
+  const side = (a, b, k) => { for (let i = 0; i < 12; i++) { const t = i / 12; const w = Math.sin(t * Math.PI * 2 + k) * 0.8; const d = [b[0] - a[0], b[1] - a[1]]; const L = Math.hypot(...d) || 1; pts.push([a[0] + d[0] * t - (d[1] / L) * w, a[1] + d[1] * t + (d[0] / L) * w]); } };
+  side([x0, y0], [x1, y0], 0); side([x1, y0], [x1, y1], 1); side([x1, y1], [x0, y1], 2); side([x0, y1], [x0, y0], 3);
+  return pts;
 }
 
 /** Wavy closed outline of a rectangle (sheet mm), like a hand-drawn spline. */
 function wavyRect(x0, y0, x1, y1) {
-  const pts = [];
-  const side = (a, b, k) => { for (let i = 0; i < 12; i++) { const t = i / 12; const w = Math.sin(t * Math.PI * 2 + k) * 0.8; const d = [b[0] - a[0], b[1] - a[1]]; const L = Math.hypot(...d) || 1; pts.push([a[0] + d[0] * t - (d[1] / L) * w, a[1] + d[1] * t + (d[0] / L) * w]); } };
-  side([x0, y0], [x1, y0], 0); side([x1, y0], [x1, y1], 1); side([x1, y1], [x0, y1], 2); side([x0, y1], [x0, y0], 3);
+  const pts = wavyRectPoints(x0, y0, x1, y1);
   return `<path d="M ${pts.map((p) => `${n2(p[0])} ${n2(p[1])}`).join(' L ')} Z" class="brokenout-line"/>`;
 }
 
 const OVERLAY_CSS = `<style>
     .break-line{fill:none;stroke:#000;stroke-width:.35}.brokenout-line{fill:none;stroke:#000;stroke-width:.35}
     .tbl-frame{fill:#fff;stroke:#000;stroke-width:.5}.tbl-grid{stroke:#000;stroke-width:.2}
-    .tbl-head{font:bold 2.8px sans-serif;fill:#000}.tbl-cell{font:2.8px sans-serif;fill:#000}
-    .hole-tag{font:2.6px sans-serif;fill:#000}.sheet-name{font:3px sans-serif;fill:#444}
+    .tbl-head{font:bold 2.8px Roboto,sans-serif;fill:#000}.tbl-cell{font:2.8px Roboto,sans-serif;fill:#000}
+    .hole-tag{font:2.6px Roboto,sans-serif;fill:#000}.sheet-name{font:3px Roboto,sans-serif;fill:#444}
   </style>`;
 
 /**
@@ -543,7 +588,88 @@ export function sheetSvg(d, projections, opts = {}) {
   return extra ? svg.replace(/<\/svg>\s*$/, `${extra}\n</svg>`) : svg;
 }
 
-/** The active sheet as DXF (the views and annotations of that sheet). */
-export function sheetDxf(d, projections, opts = {}) {
-  return drawingDxf(d.sheetCount != null ? d : sheetDrawing(d), projections, opts);
+/** A table as primitives (frame, grid, title, header and cells), the layout table() draws. */
+function tablePrims(x, y, cols, rows, title) {
+  const rowH = 6; const w = cols.reduce((s, c) => s + c.w, 0);
+  const h = rowH * (rows.length + 1 + (title ? 1 : 0));
+  const out = [{ t: 'poly', pts: [[x, y], [x + w, y], [x + w, y + h], [x, y + h]], closed: true }];
+  let yy = y;
+  if (title) { out.push({ t: 'text', x: x + w / 2, y: yy + 4.3, text: String(title), size: 2.8, anchor: 'middle', bold: true }, { t: 'poly', pts: [[x, yy + rowH], [x + w, yy + rowH]] }); yy += rowH; }
+  const all = [cols.map((c) => c.label), ...rows];
+  all.forEach((r, i) => {
+    let xx = x;
+    cols.forEach((c, j) => {
+      const text = String(r[j] ?? '');
+      if (text) out.push({ t: 'text', x: xx + (c.align === 'start' ? 1.2 : c.w / 2), y: yy + 4.2, text, size: 2.8, anchor: c.align ?? 'middle', bold: !i });
+      xx += c.w;
+      if (j < cols.length - 1) out.push({ t: 'poly', pts: [[xx, yy], [xx, yy + rowH]] });
+    });
+    yy += rowH;
+    if (i < all.length - 1) out.push({ t: 'poly', pts: [[x, yy], [x + w, yy]] });
+  });
+  return out;
 }
+
+/**
+ * Everything overlaySvg() draws, as primitives for the DXF, grouped by layer: BREAKS (zig-zag break lines and
+ * broken-out outlines), HATCH (the broken-out hatching), TABLES (hole tags, the hole table, the revision table)
+ * and NOTES (the sheet name). Returns [{ layer, prims }] (only layers with something on them).
+ */
+export function overlayPrimitives(sd, projections, { labels = {}, holeRows = null } = {}) {
+  const [W, H] = SHEETS[sd.sheet] ?? SHEETS.A3;
+  const { scale, places } = layoutViews(sd, projections);
+  const breaks = []; const hatch = []; const tables = []; const notes = [];
+  for (const v of sd.views ?? []) {
+    const p = projections.get(v.id); const place = places.get(v.id);
+    if (!p || !place || v.kind === 'detail') continue;
+    const cx = (p.box.x0 + p.box.x1) / 2; const cy = (p.box.y0 + p.box.y1) / 2;
+    const toSheet = (X, Y) => [place.cx + (X - cx) * scale, place.cy + (cy - Y) * scale];
+    const zig = (a, b) => { const pts = zigzagPoints(a, b); if (pts.length) breaks.push({ t: 'poly', pts }); };
+    for (const br of p.breaks ?? []) {
+      if (br.axis === 'x') { for (const X of [br.at, br.at + br.gap]) zig(toSheet(X, p.box.y1 + 0.03 * (p.box.y1 - p.box.y0)), toSheet(X, p.box.y0 - 0.03 * (p.box.y1 - p.box.y0))); }
+      else for (const Y of [br.at, br.at + br.gap]) zig(toSheet(p.box.x0 - 0.03 * (p.box.x1 - p.box.x0), Y), toSheet(p.box.x1 + 0.03 * (p.box.x1 - p.box.x0), Y));
+    }
+    const m = p.map2 ?? ((X, Y) => [X, Y]);
+    if (p.brokenOut) {
+      const r = p.brokenOut.region;
+      const a = m(r.x0, r.y0); const b = m(r.x1, r.y1);
+      if (a && b) { const A = toSheet(a[0], a[1]); const B = toSheet(b[0], b[1]); breaks.push({ t: 'poly', pts: wavyRectPoints(Math.min(A[0], B[0]), Math.min(A[1], B[1]), Math.max(A[0], B[0]), Math.max(A[1], B[1])), closed: true }); }
+      for (const q of hatchSegments(p.brokenOut.triangles, 2.5 / scale, Number(v.hatchAngle) || 45)) {
+        const a2 = m(q[0], -q[1]); const b2 = m(q[2], -q[3]);
+        if (a2 && b2) hatch.push({ t: 'poly', pts: [toSheet(a2[0], a2[1]), toSheet(b2[0], b2[1])] });
+      }
+    }
+    if (holeRows && sd.holeTable?.view === v.id) {
+      for (const r of holeRows) { const q = m(r.X, r.Y); if (!q) continue; const [x, y] = toSheet(q[0], q[1]); tables.push({ t: 'text', x: x + 1.2, y: y - 1.2, text: r.tag, size: 2.6 }); }
+    }
+  }
+  if (holeRows && sd.holeTable) {
+    const ht = sd.holeTable;
+    const cols = [{ label: labels['holeTable.tag'] ?? 'TAG', w: 14 }, { label: labels['holeTable.x'] ?? 'X LOC', w: 22 }, { label: labels['holeTable.y'] ?? 'Y LOC', w: 22 }, { label: labels['holeTable.size'] ?? 'SIZE', w: 26 }];
+    tables.push(...tablePrims(Number.isFinite(ht.x) ? ht.x : 16, Number.isFinite(ht.y) ? ht.y : 16, cols, holeRows.map((r) => [r.tag, fmt(r.x), fmt(r.y), `Ø${fmt(r.diameter)}`]), labels['holeTable.title'] ?? 'HOLE TABLE'));
+  }
+  if (sd.revisionsShown && sd.revisionTable?.show && sd.revisions?.length) {
+    const cols = [{ label: labels['rev.rev'] ?? 'REV', w: 12 }, { label: labels['rev.description'] ?? 'DESCRIPTION', w: 62, align: 'start' }, { label: labels['rev.date'] ?? 'DATE', w: 22 }, { label: labels['rev.by'] ?? 'BY', w: 16 }];
+    const w = cols.reduce((s, c) => s + c.w, 0);
+    const rt = sd.revisionTable;
+    tables.push(...tablePrims(Number.isFinite(rt.x) ? rt.x : W - 12 - w, Number.isFinite(rt.y) ? rt.y : 12, cols, sd.revisions.map((r) => [r.rev, r.description, r.date, r.by]), labels['rev.title'] ?? 'REVISIONS'));
+  }
+  if (sd.sheetCount > 1) notes.push({ t: 'text', x: W - 12, y: H - 52, text: `${labels['sheet.label'] ?? 'SHEET'} ${sd.sheetIndex + 1} / ${sd.sheetCount}${sd.sheetName ? ` — ${sd.sheetName}` : ''}`, size: 3, anchor: 'end' });
+  return [['BREAKS', breaks], ['HATCH', hatch], ['TABLES', tables], ['NOTES', notes]].filter(([, prims]) => prims.length).map(([layer, prims]) => ({ layer, prims }));
+}
+
+/**
+ * The active sheet as DXF: the views and annotations of that sheet (drawingDxf()) plus everything overlaySvg()
+ * draws — break lines, broken-out outlines and hatching, the hole tags and table, the revision table and the
+ * sheet name (overlayPrimitives()). Options as sheetSvg().
+ */
+export function sheetDxf(d, projections, opts = {}) {
+  const sd = d.sheetCount != null ? d : sheetDrawing(d);
+  const base = drawingDxf(sd, projections, opts);
+  const [, H] = SHEETS[sd.sheet] ?? SHEETS.A3;
+  const groups = overlayPrimitives(sd, projections, opts);
+  if (!groups.length) return base;
+  const COLORS = { BREAKS: 7, HATCH: 8, TABLES: 7, NOTES: 7 };
+  return injectDxf(base, groups.map((g) => ({ name: g.layer, color: COLORS[g.layer] ?? 7 })), groups.flatMap((g) => primsDxf(g.prims, H, g.layer)));
+}
+

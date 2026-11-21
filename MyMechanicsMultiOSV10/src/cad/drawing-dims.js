@@ -11,11 +11,13 @@
 // coordinates (it follows the view when the view moves or the scale changes); its text sits at (x, y) sheet mm
 // from the view's centre on the sheet (dragging the annotation moves the text).
 import { rep } from './kernel.js';
-import { layoutViews, viewBasis } from './drawing.js';
+import { layoutViews, viewBasis, projectionResolver, viewMult } from './drawing.js';
+import { separateLabels, primsBox } from './drawing-snap.js';
+import { textWidth } from './text-metrics.js';
 import { isCylinder } from './refs.js';
 import { toWorld } from './features.js';
 
-export const DIM_TYPES = ['auto', 'horizontal', 'vertical', 'aligned', 'radial', 'diameter', 'angular', 'ordinate', 'chamfer'];
+export const DIM_TYPES = ['auto', 'horizontal', 'vertical', 'aligned', 'radial', 'diameter', 'angular', 'ordinate', 'chamfer', 'arclength'];
 export const TOL_TYPES = ['none', 'symmetric', 'bilateral', 'limits', 'fit', 'basic', 'reference'];
 
 const EPS = 1e-6;
@@ -141,7 +143,7 @@ export function pickEntity(entities, q, tol) {
     else if (e.t === 'curve') for (let k = 1; k < e.pts.length; k++) dd = Math.min(dd, segDist(q, e.pts[k - 1], e.pts[k]));
     if (dd <= bestD) {
       bestD = dd;
-      best = e.t === 'arc' ? { kind: 'arc', c: e.c, r: e.r, full: isFull(e), start: e.start, sweep: e.sweep } : e.t === 'line' ? { kind: 'line', a: e.a, b: e.b } : { kind: 'line', a: e.pts[0], b: e.pts.at(-1) };
+      best = e.t === 'arc' ? { kind: 'arc', c: e.c, r: e.r, full: isFull(e), start: e.start, sweep: e.sweep } : e.t === 'line' ? { kind: 'line', a: e.a, b: e.b } : { kind: 'line', a: e.pts[0], b: e.pts.at(-1), curve: true };
     }
   }
   return best;
@@ -183,6 +185,12 @@ const farEnd = (l, v) => (dist2(l.a, v) > dist2(l.b, v) ? l.a : l.b);
 export function dimensionFromPicks(picks, dtype = 'auto') {
   const [A, B] = picks;
   if (!A) return { error: 'more' };
+  if (dtype === 'arclength') {
+    // Along an arc (or round a circle): its length, the leader on the arc's middle.
+    if (A.kind !== 'arc' || B) return { error: 'needCurve' };
+    const sweep = A.full ? TAU : Math.abs(A.sweep); const mid = A.full ? 0 : A.start + A.sweep / 2;
+    return { dtype, c: A.c, r: A.r, at: [A.c[0] + A.r * Math.cos(mid), A.c[1] + A.r * Math.sin(mid)], length: A.r * sweep };
+  }
   if (dtype === 'radial' || dtype === 'diameter') {
     if (A.kind !== 'arc') return { error: 'needArc' };
     return { dtype, c: A.c, r: A.r, full: A.full };
@@ -238,12 +246,15 @@ const angleOf = (a, v, b) => {
 
 /** The measured value(s) of a dimension (model units; degrees for angles): a number, or a list for ordinates. */
 export function dimValue(a) {
+  // A pictorial view's dimension measures the model (unless it is set to show the projected size).
+  if (measuresTrue(a) || (a?.m3 && (a.dtype === 'radial' || a.dtype === 'diameter'))) { const v = value3(a); if (Number.isFinite(v)) return v; }
   switch (a?.dtype) {
     case 'horizontal': return Math.abs(a.p2[0] - a.p1[0]);
     case 'vertical': return Math.abs(a.p2[1] - a.p1[1]);
     case 'aligned': return dist2(a.p1, a.p2);
     case 'radial': return Number(a.r);
     case 'diameter': return 2 * Number(a.r);
+    case 'arclength': return Number(a.length);
     case 'angular': return angleOf(a.r1, a.v, a.r2);
     case 'chamfer': {
       // l1 is the chamfer, l2 the face it leaves: the distance along l2 and the angle between them.
@@ -256,6 +267,371 @@ export function dimValue(a) {
     case 'ordinate': return a.pts.map((p) => Math.abs(a.axis === 'y' ? p[1] - a.origin[1] : p[0] - a.origin[0]));
     default: return NaN;
   }
+}
+
+// ───────────────────────── pictorial (isometric / dimetric) views: dimensions in 3D
+
+const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const add3 = (a, b, k = 1) => [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k];
+const cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const len3 = (a) => Math.hypot(a[0], a[1], a[2]);
+const dist3 = (a, b) => len3(sub3(a, b));
+const unit3 = (a) => { const l = len3(a); return l > 1e-12 ? [a[0] / l, a[1] / l, a[2] / l] : [0, 0, 0]; };
+const V3 = (p) => (Array.isArray(p) ? p.slice(0, 3).map(Number) : [p.x, p.y, p.z]);
+
+/**
+ * The model's 3D geometry for dimensioning pictorial views:
+ *   vertices  [[x, y, z]] — edge end points;
+ *   lines     [{ a, b }];
+ *   circles   [{ c, n (unit axis), r, full, span (radians), length, pts (3D points along it) }] — arcs of one
+ *             circle (a full circle is often two half edges) merged, `full` when they go all the way round;
+ *   ellipses  [{ c, n, u (major axis), a (major radius), b (minor radius), full, length, pts }];
+ *   curves    [{ a, b (end points), length, pts }] — B-spline, Bezier and other curves (sampled);
+ *   cylinders [{ point, dir, r, lo, hi }] — cylindrical faces (their silhouettes are not edges of the model);
+ *   spheres   [{ c, r }] — spherical faces (their outline is a circle in every view).
+ * Needs the kernel.
+ */
+export function modelGeometry(shape) {
+  const R = rep(); const oc = R.getOC();
+  const vertices = []; const lines = []; const circles = []; const ellipses = []; const curves = []; const cylinders = []; const spheres = [];
+  const seen = new Set();
+  const addV = (p) => { const k = p.map((v) => Math.round(v * 1e5)).join(','); if (!seen.has(k)) { seen.add(k); vertices.push(p); } };
+  const samples = (e, n = 32) => { const out = []; for (let k = 0; k <= n; k++) { try { out.push(V3(e.pointAt(k / n))); } catch { /* skip */ } } return out; };
+  const lengthOf = (e) => { try { return Number(e.length); } catch { try { return R.measureLength(e); } catch { return NaN; } } };
+  for (const e of shape?.edges ?? []) {
+    let a; let b;
+    try { a = V3(e.startPoint); b = V3(e.endPoint); } catch { continue; }
+    let degenerate = false; try { degenerate = oc.BRep_Tool.Degenerated(e.wrapped); } catch { degenerate = false; }
+    if (degenerate) continue;
+    const type = e.geomType;
+    if (dist3(a, b) > EPS) { addV(a); addV(b); }
+    if (type === 'LINE') { if (dist3(a, b) > EPS) lines.push({ a, b }); continue; }
+    let ad = null;
+    try {
+      ad = new oc.BRepAdaptor_Curve(e.wrapped);
+      const span = Math.abs(ad.LastParameter() - ad.FirstParameter());
+      if (type === 'CIRCLE') {
+        const ci = ad.Circle(); const ax = ci.Axis(); const l = ax.Location(); const d = ax.Direction();
+        const c = [l.X(), l.Y(), l.Z()]; const n = unit3([d.X(), d.Y(), d.Z()]); const r = ci.Radius();
+        const same = circles.find((x) => dist3(x.c, c) < 1e-6 * Math.max(1, r) && Math.abs(x.r - r) < 1e-6 * Math.max(1, r) && Math.abs(Math.abs(dot3(x.n, n)) - 1) < 1e-6);
+        if (same) { same.span += span; same.pts.push(...samples(e, 24)); } else circles.push({ c, n, r, span, pts: samples(e, 24) });
+        continue;
+      }
+      if (type === 'ELLIPSE') {
+        const el = ad.Ellipse(); const ax = el.Axis(); const l = ax.Location(); const d = ax.Direction(); const xd = el.XAxis().Direction();
+        const c = [l.X(), l.Y(), l.Z()];
+        const same = ellipses.find((x) => dist3(x.c, c) < 1e-6 && Math.abs(x.a - el.MajorRadius()) < 1e-6 && Math.abs(x.b - el.MinorRadius()) < 1e-6);
+        if (same) { same.span += span; same.length += lengthOf(e); same.pts.push(...samples(e)); }
+        else ellipses.push({ c, n: unit3([d.X(), d.Y(), d.Z()]), u: unit3([xd.X(), xd.Y(), xd.Z()]), a: el.MajorRadius(), b: el.MinorRadius(), span, length: lengthOf(e), pts: samples(e) });
+        continue;
+      }
+    } catch { /* measured as a sampled curve below */ } finally { ad?.delete?.(); }
+    curves.push({ a, b, length: lengthOf(e), pts: samples(e) });
+  }
+  for (const face of shape?.faces ?? []) {
+    try {
+      if (isCylinder(face.geomType)) {
+        const ax = cylinderAxis(face);
+        if (!ax) continue;
+        // Its extent along the axis: the points of its edges (exact for the end circles and straight seams).
+        let lo = Infinity; let hi = -Infinity;
+        for (const e of face.edges) for (let k = 0; k <= 8; k++) { const s = dot3(sub3(V3(e.pointAt(k / 8)), ax.point), ax.dir); lo = Math.min(lo, s); hi = Math.max(hi, s); }
+        if (hi - lo > EPS) cylinders.push({ point: ax.point, dir: unit3(ax.dir), r: ax.r, lo, hi });
+      } else if (face.geomType === 'SPHERE') {
+        let ad = null;
+        try { ad = new oc.BRepAdaptor_Surface(face.wrapped, true); const sp = ad.Sphere(); const l = sp.Location(); const c = [l.X(), l.Y(), l.Z()]; const r = sp.Radius(); if (!spheres.some((s) => dist3(s.c, c) < 1e-6 && Math.abs(s.r - r) < 1e-6)) spheres.push({ c, r }); } finally { ad?.delete?.(); }
+      }
+    } catch { /* not measurable */ }
+  }
+  return {
+    vertices, lines,
+    circles: circles.map((x) => { const full = x.span >= TAU - 1e-4; const span = Math.min(TAU, x.span); return { c: x.c, n: x.n, r: x.r, full, span, length: x.r * span, pts: full ? [] : x.pts }; }),
+    ellipses: ellipses.map((x) => ({ ...x, full: x.span >= TAU - 1e-4 })),
+    curves, cylinders, spheres,
+  };
+}
+
+/** A 3D point in a view's 2D (basis from viewBasis()) and its depth toward the viewer. */
+const proj2 = (b, p) => [dot3(p, b.x), dot3(p, b.y)];
+const depthOf = (b, p) => dot3(p, b.dir);
+
+/** The 3D point on a plane (point c, normal n) whose projection is the 2D point q (null when seen edge-on). */
+function onPlane(b, c, n, q) {
+  const k = dot3(b.dir, n);
+  if (Math.abs(k) < 1e-6) return null;
+  const base = add3(mul3(b.x, q[0]), b.y, q[1]);
+  const t = dot3(sub3(c, base), n) / k;
+  return add3(base, b.dir, t);
+}
+const mul3 = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
+/** Distance (2D) from q to the projected polyline of 3D points. */
+const polyDist = (P, pts, q) => { let d = Infinity; for (let k = 1; k < pts.length; k++) d = Math.min(d, segDist(q, P(pts[k - 1]), P(pts[k]))); return pts.length === 1 ? dist2(q, P(pts[0])) : d; };
+
+/**
+ * A pick in a pictorial view (pickEntity() result, true 2D; `q` the clicked point) matched to the model's 3D
+ * geometry (modelGeometry()) seen through `basis`: the front-most thing that projects onto it within `tol`.
+ * Returns the pick with its 3D data, or null when nothing in the model is there:
+ *   { kind: 'point', p, p3 } — a vertex (or a circle's centre);
+ *   { kind: 'line', a, b, a3, b3, silhouette? } — a straight edge, or a cylinder's silhouette line (the generator
+ *     line the outline runs along; `silhouette` { point, dir, r, lo, hi } is the cylinder);
+ *   { kind: 'circle', c, r, full, span, length, c3, n3, pts3 } — a circle or an arc (an ellipse on the sheet), or a
+ *     sphere's outline (a circle facing the viewer);
+ *   { kind: 'ellipse', c, c3, n3, u3, ra, rb, full, length, pts3 } — an elliptical edge;
+ *   { kind: 'curve', a, b, a3, b3, length, pts3 } — a B-spline or other curve.
+ */
+export function pictorialPick(pick, q, geom, basis, tol) {
+  if (!pick || !geom || !basis) return null;
+  const P = (p) => proj2(basis, p);
+  const front = (list, score) => list.reduce((m, x) => (!m || depthOf(basis, score(x)) > depthOf(basis, score(m)) + 1e-9 ? x : m), null);
+  if (pick.kind === 'point') {
+    const at = pick.p;
+    const cands = geom.vertices.filter((v) => dist2(P(v), at) <= tol);
+    if (pick.of === 'center') cands.push(...geom.circles.filter((c) => dist2(P(c.c), at) <= tol).map((c) => c.c));
+    const v = front(cands, (x) => x);
+    if (v) return { kind: 'point', of: pick.of, p: P(v), p3: v };
+    // No vertex there: the end of one of the pieces a curve is drawn in — the curve itself (an arc, an ellipse …).
+    if (pick.of === 'center') return null;
+    return pictorialPick({ kind: 'line', curve: true, a: at, b: at }, q, geom, basis, tol);
+  }
+  const onCircle = (c, pt) => {
+    const X = onPlane(basis, c.c, c.n, pt); if (!X) return false;
+    const k = Math.max(0.2, Math.abs(dot3(basis.dir, c.n)));
+    if (Math.abs(dist3(X, c.c) - c.r) > tol / k) return false;
+    // An arc: the point must be on the part of the circle it covers.
+    return c.full || !c.pts?.length || polyDist(P, c.pts, pt) <= tol * 2;
+  };
+  const onEllipse = (el, pt) => {
+    const X = onPlane(basis, el.c, el.n, pt); if (!X) return false;
+    const d = sub3(X, el.c); const v = cross3(el.n, el.u);
+    const rho = Math.hypot(dot3(d, el.u) / el.a, dot3(d, v) / el.b);
+    const k = Math.max(0.2, Math.abs(dot3(basis.dir, el.n)));
+    if (Math.abs(rho - 1) * el.b > tol / k) return false;
+    return el.full || polyDist(P, el.pts, pt) <= tol * 2;
+  };
+  const pts = pick.kind === 'line' ? [q, pick.a, pick.b] : [q];
+  if (pick.kind === 'arc' || (pick.kind === 'line' && pick.curve)) {
+    // A circle seen at an angle is an ellipse on the sheet (a curve); seen end-on it stays a circle (an arc).
+    const circle = front(geom.circles.filter((c) => pts.every((pt) => onCircle(c, pt))), (x) => x.c);
+    if (circle) return { kind: 'circle', c: P(circle.c), r: circle.r, full: circle.full, span: circle.span, length: circle.length, c3: circle.c, n3: circle.n, pts3: circle.pts };
+    const el = front(geom.ellipses.filter((x) => pts.every((pt) => onEllipse(x, pt))), (x) => x.c);
+    if (el) return { kind: 'ellipse', c: P(el.c), c3: el.c, n3: el.n, u3: el.u, ra: el.a, rb: el.b, full: el.full, length: el.length, pts3: el.pts };
+    // A sphere's outline: a circle of its radius round its projected centre, facing the viewer.
+    const sp = front((geom.spheres ?? []).filter((s) => pts.every((pt) => Math.abs(dist2(pt, P(s.c)) - s.r) <= tol)), (x) => x.c);
+    if (sp) return { kind: 'circle', c: P(sp.c), r: sp.r, full: true, span: TAU, length: TAU * sp.r, c3: sp.c, n3: basis.dir, pts3: [], outline: 'sphere' };
+    const cu = front(geom.curves.filter((x) => pts.every((pt) => polyDist(P, x.pts, pt) <= tol)), (x) => x.pts[Math.floor(x.pts.length / 2)]);
+    if (cu) return { kind: 'curve', a: P(cu.a), b: P(cu.b), a3: cu.a, b3: cu.b, length: cu.length, pts3: cu.pts };
+    if (pick.kind === 'arc') return null;
+  }
+  if (pick.kind === 'line') {
+    const u = unit2(sub2(pick.b, pick.a));
+    const cands = geom.lines.filter((l) => {
+      const A = P(l.a); const B = P(l.b);
+      if (dist2(A, B) < EPS) return false;
+      const w = unit2(sub2(B, A));
+      if (Math.abs(cross2(u, w)) > 1e-3) return false;
+      return pts.every((pt) => segDist(pt, A, B) <= tol);
+    });
+    const l = front(cands, (x) => [(x.a[0] + x.b[0]) / 2, (x.a[1] + x.b[1]) / 2, (x.a[2] + x.b[2]) / 2]);
+    if (l) return { kind: 'line', a: P(l.a), b: P(l.b), a3: l.a, b3: l.b };
+    // A cylinder's silhouette: a line along its projected axis, its radius away (the outline is not a model edge).
+    const sils = [];
+    for (const cy of geom.cylinders ?? []) {
+      const s = unit3(cross3(cy.dir, basis.dir));
+      if (len3(s) < 1e-9) continue;
+      const A0 = add3(cy.point, cy.dir, cy.lo); const B0 = add3(cy.point, cy.dir, cy.hi);
+      for (const side of [1, -1]) {
+        const a3 = add3(A0, s, cy.r * side); const b3 = add3(B0, s, cy.r * side);
+        const A = P(a3); const B = P(b3);
+        if (dist2(A, B) < EPS || Math.abs(cross2(u, unit2(sub2(B, A)))) > 1e-3) continue;
+        if (pts.every((pt) => segDist(pt, A, B) <= tol)) sils.push({ a3, b3, cy });
+      }
+    }
+    const sl = front(sils, (x) => [(x.a3[0] + x.b3[0]) / 2, (x.a3[1] + x.b3[1]) / 2, (x.a3[2] + x.b3[2]) / 2]);
+    if (sl) return { kind: 'line', a: P(sl.a3), b: P(sl.b3), a3: sl.a3, b3: sl.b3, silhouette: sl.cy };
+    return null;
+  }
+  return null;
+}
+
+const foot3 = (p, a, b) => { const u = unit3(sub3(b, a)); return add3(a, u, dot3(sub3(p, a), u)); };
+const point3Of = (pk) => (pk.kind === 'point' ? pk.p3 : pk.kind === 'circle' || pk.kind === 'ellipse' ? pk.c3 : null);
+/** The nearest points of two 3D lines (null when parallel). */
+function closest3(a1, b1, a2, b2) {
+  const d1 = sub3(b1, a1); const d2 = sub3(b2, a2); const r = sub3(a1, a2);
+  const A = dot3(d1, d1); const B = dot3(d1, d2); const C = dot3(d2, d2); const D = dot3(d1, r); const E = dot3(d2, r);
+  const den = A * C - B * B;
+  if (Math.abs(den) < 1e-12 * A * C) return null;
+  const s = (B * E - C * D) / den; const t = (A * E - B * D) / den;
+  return [add3(a1, d1, s), add3(a2, d2, t)];
+}
+export const angle3 = (a, v, b) => { const u = unit3(sub3(a, v)); const w = unit3(sub3(b, v)); return (Math.acos(Math.max(-1, Math.min(1, dot3(u, w)))) * 180) / Math.PI; };
+
+/**
+ * A dimension of a pictorial view from its 3D picks (pictorialPick() results): the value is measured in the model
+ * (true length, true angle, true radius), the dimension is drawn on the sheet along the projected edge (aligned).
+ * Types: 'auto', 'aligned', 'radial', 'diameter', 'angular', 'arclength' (horizontal, vertical, ordinate and
+ * chamfer measure the sheet's directions and are refused: 'pictorialType').
+ *   circle / arc — diameter (full) or radius (an arc); arclength — its length along the arc;
+ *   ellipse — its major axis (true length; radial: the semi-major axis); arclength — its perimeter part;
+ *   curve — the true distance between its end points; arclength — its length along the curve;
+ *   silhouette line — the cylinder's true length; diameter / radial — the cylinder's diameter / radius; two
+ *     silhouettes of one cylinder — its diameter (the distance between them).
+ * Returns { dtype, …2D geometry, m3 } or { error }.
+ */
+export function pictorialDimension(picks, dtype, basis) {
+  const [A, B] = picks;
+  if (!A) return { error: 'more' };
+  if (['horizontal', 'vertical', 'ordinate', 'chamfer'].includes(dtype)) return { error: 'pictorialType' };
+  const P = (p) => proj2(basis, p);
+  const linear = (p1, p2) => (dist3(p1, p2) < EPS ? { error: 'zero' } : { dtype: 'aligned', p1: P(p1), p2: P(p2), m3: { p1, p2 } });
+  const circle = (c, type) => ({ dtype: type, c: c.c, r: c.r, full: c.full, start: 0, sweep: TAU, m3: { c: c.c3, n: c.n3, r: c.r, ...(c.pts3?.length ? { pts: c.pts3 } : {}) } });
+  const cylCircle = (cy, type) => { const c3 = add3(cy.point, cy.dir, cy.hi); return circle({ c: P(c3), r: cy.r, full: true, c3, n3: cy.dir }, type); };
+  const majorAxis = (e, half) => { const p1 = half ? e.c3 : add3(e.c3, e.u3, -e.ra); return linear(p1, add3(e.c3, e.u3, e.ra)); };
+  const along = (pk) => {
+    const pts = pk.pts3?.length ? pk.pts3 : null;
+    const mid3 = pts ? pts[Math.floor(pts.length / 2)] : add3(pk.c3, unit3(cross3(pk.n3, Math.abs(pk.n3[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0])), pk.r);
+    return { dtype: 'arclength', at: P(mid3), m3: { length: pk.length, at: mid3 } };
+  };
+  if (dtype === 'arclength') {
+    if (B) return { error: 'needCurve' };
+    if (['circle', 'ellipse', 'curve'].includes(A.kind) && Number.isFinite(A.length) && A.length > EPS) return along(A);
+    if (A.kind === 'line') return linear(A.a3, A.b3);
+    return { error: 'needCurve' };
+  }
+  if (dtype === 'radial' || dtype === 'diameter') {
+    if (A.kind === 'circle') return circle(A, dtype);
+    if (A.kind === 'ellipse') return majorAxis(A, dtype === 'radial');
+    if (A.kind === 'line' && A.silhouette) return cylCircle(A.silhouette, dtype);
+    return { error: 'needArc' };
+  }
+  const angular = (L1, L2) => {
+    const cl = closest3(L1.a3, L1.b3, L2.a3, L2.b3);
+    if (!cl) return { error: 'parallel' };
+    const v3 = [(cl[0][0] + cl[1][0]) / 2, (cl[0][1] + cl[1][1]) / 2, (cl[0][2] + cl[1][2]) / 2];
+    const far = (l) => (dist3(l.a3, v3) > dist3(l.b3, v3) ? l.a3 : l.b3);
+    const v = lineIntersection(L1.a, L1.b, L2.a, L2.b);
+    if (!v) return { error: 'parallel' };
+    const r1 = far(L1); const r2 = far(L2);
+    return { dtype: 'angular', l1: [L1.a, L1.b], l2: [L2.a, L2.b], v, r1: P(r1), r2: P(r2), m3: { v: v3, r1, r2 } };
+  };
+  if (dtype === 'angular') {
+    if (A.kind !== 'line') return { error: 'needLines' };
+    if (!B) return { error: 'more' };
+    if (B.kind !== 'line') return { error: 'needLines' };
+    return angular(A, B);
+  }
+  if (!B) {
+    if (A.kind === 'line' || A.kind === 'curve') return linear(A.a3, A.b3);
+    if (A.kind === 'circle') return circle(A, A.full ? 'diameter' : 'radial');
+    if (A.kind === 'ellipse') return majorAxis(A, false);
+    return { error: 'more' };
+  }
+  if (A.kind === 'line' && B.kind === 'line') {
+    const ua = unit3(sub3(A.b3, A.a3)); const ub = unit3(sub3(B.b3, B.a3));
+    if (len3(cross3(ua, ub)) > 1e-6) return dtype === 'auto' ? angular(A, B) : { error: 'notParallel' };
+    const m = [(A.a3[0] + A.b3[0]) / 2, (A.a3[1] + A.b3[1]) / 2, (A.a3[2] + A.b3[2]) / 2];
+    return linear(m, foot3(m, B.a3, B.b3));
+  }
+  const L = A.kind === 'line' ? A : B.kind === 'line' ? B : null;
+  const other = L === A ? B : A;
+  if (L && point3Of(other)) { const p = point3Of(other); return linear(p, foot3(p, L.a3, L.b3)); }
+  const p1 = point3Of(A) ?? (A.kind === 'curve' ? A.a3 : null); const p2 = point3Of(B) ?? (B.kind === 'curve' ? B.a3 : null);
+  if (p1 && p2) return linear(p1, p2);
+  return { error: 'more' };
+}
+
+/** True when the dimension's value comes from the model in 3D (a pictorial dimension measuring true size). */
+export const measuresTrue = (a) => Boolean(a?.m3) && a.measure !== 'projected';
+
+/** The value a pictorial dimension shows: true size in the model (default) or the projected (foreshortened) size. */
+function value3(a) {
+  const m = a.m3;
+  switch (a.dtype) {
+    case 'aligned': return dist3(m.p1, m.p2);
+    case 'radial': return Number(m.r);
+    case 'diameter': return 2 * Number(m.r);
+    case 'angular': return angle3(m.r1, m.v, m.r2);
+    case 'arclength': return Number(m.length);
+    default: return NaN;
+  }
+}
+
+/**
+ * The notation of a pictorial dimension after its value: ' TL' (true length, when `trueMark` is on — the default)
+ * for a true linear size, ' PROJ' for a projected (foreshortened) length or angle; '' otherwise.
+ */
+export function pictorialMark(a) {
+  if (!a?.m3 || (a.dtype !== 'aligned' && a.dtype !== 'angular')) return '';
+  if (a.measure === 'projected') return ' PROJ';
+  return a.dtype === 'aligned' && a.trueMark !== false ? ' TL' : '';
+}
+
+/** Sheet points of a 3D circle of a pictorial dimension (its ellipse on the sheet; an arc: its own points). */
+export function ellipseSheet(m3, fr, n = 96) {
+  const b = fr.basis;
+  if (Array.isArray(m3.pts) && m3.pts.length > 1) return m3.pts.map((p) => fr.toSheet(...proj2(b, p)));
+  const a0 = Math.abs(m3.n[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
+  const u = unit3(cross3(m3.n, a0)); const w = cross3(m3.n, u);
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const t = (i * TAU) / n;
+    const p = add3(add3(m3.c, u, m3.r * Math.cos(t)), w, m3.r * Math.sin(t));
+    out.push(fr.toSheet(...proj2(b, p)));
+  }
+  return out;
+}
+
+// ───────────────────────── labels of automatic dimensions without overlaps
+
+/** The box (sheet mm) of a dimension's text in its frame. */
+export function dimLabelBox(a, fr, size = 3.2) {
+  return primsBox(dimPrimitives(a, fr, { size }), 'text');
+}
+
+/** Where the text of a dimension moves when pushed out: away from what it measures (unit, sheet). */
+export function dimPushDir(a, fr) {
+  const S = (p) => fr.toSheet(p[0], p[1]);
+  const T = [fr.place.cx + (Number(a.x) || 0), fr.place.cy + (Number(a.y) || 0)];
+  let from;
+  if (a.p1 && a.p2) { const A = S(a.p1); const B = S(a.p2); from = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2]; if (a.dtype === 'horizontal') from = [T[0], from[1]]; if (a.dtype === 'vertical') from = [from[0], T[1]]; }
+  else if (a.at) from = S(a.at);
+  else if (a.c) from = S(a.c);
+  else if (a.v) from = S(a.v);
+  else if (a.l1) { const A = S(a.l1[0]); const B = S(a.l1[1]); from = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2]; }
+  else if (a.origin) from = S(a.origin);
+  else from = [fr.place.cx, fr.place.cy];
+  let d = sub2(T, from);
+  if (len2(d) < 1e-9) d = sub2(T, [fr.place.cx, fr.place.cy]);
+  if (len2(d) < 1e-9) d = [0, 1];
+  // Linear dimensions move square to what they measure (their text slides along the dimension line otherwise).
+  if (a.dtype === 'horizontal') d = [0, Math.sign(d[1]) || 1];
+  else if (a.dtype === 'vertical') d = [Math.sign(d[0]) || 1, 0];
+  else if (a.dtype === 'aligned' && a.p1 && a.p2) { const n = perp(unit2(sub2(S(a.p2), S(a.p1)))); d = dot2(n, d) < 0 ? [-n[0], -n[1]] : n; }
+  return unit2(d);
+}
+
+/**
+ * Text places for dimensions made automatically (model items) so that no two labels overlap, nor any label of
+ * `existing` dimensions: each dimension in turn moves its text out (a row of `step` mm at a time, away from what
+ * it measures) until its label is clear. `frames` from viewFrames(). Returns the dimensions with x, y updated
+ * (new objects) and their label boxes.
+ */
+export function layoutDimLabels(dims, frames, { existing = [], step = 4.5, pad = 0.8, size = 3.2 } = {}) {
+  const obstacles = existing.map((a) => { const fr = frames.get(a.view); return fr ? dimLabelBox(a, fr, Number(a.size) > 0 ? Number(a.size) : size) : null; }).filter(Boolean);
+  const items = dims.map((a) => {
+    const fr = frames.get(a.view);
+    if (!fr) return { boxAt: () => null };
+    const d = dimPushDir(a, fr);
+    const at = (k) => ({ ...a, x: (Number(a.x) || 0) + d[0] * step * k, y: (Number(a.y) || 0) + d[1] * step * k });
+    return { at, boxAt: (k) => dimLabelBox(at(k), fr, Number(a.size) > 0 ? Number(a.size) : size) };
+  });
+  const { steps, boxes } = separateLabels(items, { obstacles, pad });
+  const out = dims.map((a, i) => {
+    if (!items[i].at) return a;
+    const b = items[i].at(steps[i]);
+    return { ...a, x: Math.round(b.x * 100) / 100, y: Math.round(b.y * 100) / 100 };
+  });
+  return { dims: out, boxes, steps };
 }
 
 // ───────────────────────── values, precision and tolerances
@@ -321,11 +697,11 @@ export function fitDeviations(fit, size) {
 export function dimText(a, value) {
   const p = a.precision ?? null;
   const tp = a.tolPrecision ?? (p == null ? 2 : Math.max(Number(p), 2));
-  const prefix = a.dtype === 'diameter' ? 'Ø' : a.dtype === 'radial' ? 'R' : '';
+  const prefix = a.dtype === 'diameter' ? 'Ø' : a.dtype === 'radial' ? 'R' : a.dtype === 'arclength' ? '⌒' : '';
   const suffix = a.dtype === 'angular' ? '°' : '';
   const tol = a.tol ?? { type: 'none' };
   const up = Number(tol.upper) || 0; const low = Number(tol.lower) || 0;
-  const base = a.text != null && a.text !== '' ? String(a.text) : `${prefix}${formatNumber(value, p)}${suffix}`;
+  const base = a.text != null && a.text !== '' ? String(a.text) : `${prefix}${formatNumber(value, p)}${suffix}${pictorialMark(a)}`;
   const out = { main: base };
   switch (tol.type) {
     case 'symmetric': out.main = `${base} ±${formatNumber(Math.abs(up), tp)}${suffix}`; break;
@@ -356,27 +732,71 @@ export function dimLabel(a) {
 
 // ───────────────────────── the views on the sheet
 
+// ───────────────────────── broken views: true model 2D ↔ the shortened view
+
+/** One break { axis, at (from), gap, to } applied to a point: the far side moves up to the gap, the span shrinks into it. */
+function breakOne(b, q, inverse) {
+  const to = Number(b.to); const from = Number(b.at); const gap = Number(b.gap);
+  if (!(to > from) || !(gap > 0)) return q;
+  const c = b.axis === 'y' ? 1 : 0; const v = q[c];
+  const shift = to - from - gap;
+  let w = v;
+  if (!inverse) { if (v >= to) w = v - shift; else if (v > from) w = from + ((v - from) * gap) / (to - from); }
+  else if (v >= from + gap) w = v + shift; else if (v > from) w = from + ((v - from) * (to - from)) / gap;
+  const o = [q[0], q[1]]; o[c] = w; return o;
+}
+/** The point of the true (unbroken) view as the broken view draws it (breaks in the order they were made). */
+export const breakForward = (breaks, X, Y) => (breaks ?? []).reduce((q, b) => breakOne(b, q, false), [X, Y]);
+/** The true (unbroken) view point of a point of the broken view: its distances are the model's. */
+export const breakInverse = (breaks, X, Y) => [...(breaks ?? [])].reverse().reduce((q, b) => breakOne(b, q, true), [X, Y]);
+
 /**
- * Where every view of the sheet drawing is: Map viewId → { v, p, place, s, toSheet(X, Y), fromSheet(x, y) }
- * (model 2D ↔ sheet mm, y down). Detail views are left out (they have no geometry of their own).
+ * Where every view of the sheet drawing is: Map viewId → { v, p, place, s, base, basis, pictorial, detail, breaks,
+ * toSheet(X, Y), fromSheet(x, y), projAt(x, y), toTrue(X, Y) }. Dimension geometry is kept in the TRUE model 2D
+ * of the view (a broken view's far side where it really is): toSheet / fromSheet map it to and from the sheet
+ * (mm, y down) through the break; projAt gives the projection's own (shortened) coordinates under a sheet point,
+ * where the view's entities are, and toTrue turns those into true ones. A detail view is drawn at its own scale
+ * (s = sheet scale × its multiplier) from its parent's projection; `base` is the view whose camera it shows.
  */
 export function viewFrames(sd, projections) {
   const out = new Map();
   if (!projections?.size) return { scale: 1, frames: out };
   const { scale, places } = layoutViews(sd, projections);
-  for (const v of sd.views ?? []) {
-    const p = projections.get(v.id); const place = places.get(v.id);
-    if (!p || !place || v.kind === 'detail') continue;
+  const resolve = projectionResolver(sd, projections);
+  const views = sd.views ?? [];
+  const baseOf = (v) => { let w = v; for (let i = 0; i < 8 && w?.kind === 'detail'; i++) w = views.find((x) => x.id === w.parent && x.id !== w.id); return w && w.kind !== 'detail' ? w : null; };
+  for (const v of views) {
+    const p = resolve(v); const place = places.get(v.id);
+    if (!p || !place) continue;
     const cx = (p.box.x0 + p.box.x1) / 2; const cy = (p.box.y0 + p.box.y1) / 2;
-    const s = scale;
+    const s = scale * viewMult(v);
+    const base = baseOf(v);
+    const breaks = Array.isArray(p.breaks) ? p.breaks : [];
+    const raw = (X, Y) => [place.cx + (X - cx) * s, place.cy + (cy - Y) * s];
+    const projAt = (x, y) => [cx + (x - place.cx) / s, cy - (y - place.cy) / s];
     out.set(v.id, {
-      v, p, place, s, cx, cy,
-      toSheet: (X, Y) => [place.cx + (X - cx) * s, place.cy + (cy - Y) * s],
-      fromSheet: (x, y) => [cx + (x - place.cx) / s, cy - (y - place.cy) / s],
+      v, p, place, s, cx, cy, base, basis: base ? viewBasis(base) : null, pictorial: isPictorial(base), detail: p.detail ?? null, breaks,
+      toSheet: (X, Y) => raw(...breakForward(breaks, X, Y)),
+      fromSheet: (x, y) => breakInverse(breaks, ...projAt(x, y)),
+      projAt,
+      toTrue: (X, Y) => breakInverse(breaks, X, Y),
     });
   }
   return { scale, frames: out };
 }
+
+/** A pick (pickEntity(), in the projection's coordinates) in the view's true model 2D (through its breaks). */
+export function pickToTrue(fr, pick) {
+  if (!pick || !fr?.breaks?.length) return pick;
+  const T = (q) => fr.toTrue(q[0], q[1]);
+  if (pick.kind === 'point') return { ...pick, p: T(pick.p) };
+  if (pick.kind === 'arc') return { ...pick, c: T(pick.c) };
+  if (pick.kind === 'line') return { ...pick, a: T(pick.a), b: T(pick.b) };
+  return pick;
+}
+
+/** True when the projection point `q` is inside the detail view's circle (always true for other views). */
+export const insideDetail = (fr, q) => !fr?.detail || Math.hypot(q[0] - fr.detail.center[0], q[1] - fr.detail.center[1]) <= fr.detail.radius * 1.02;
 
 /** The view under a sheet point (its box with a margin), the nearest one when several overlap. */
 export function viewAt(frames, x, y, margin = 6) {
@@ -415,6 +835,9 @@ export function autoTextOffset(g, fr, gap = 9) {
     const V = S(g.v); const A = S(g.r1); const B = S(g.r2);
     const u = unit2(add2(unit2(sub2(A, V)), unit2(sub2(B, V))));
     at = add2(V, u, Math.min(dist2(A, V), dist2(B, V)) * 0.6 + 4);
+  } else if (g.dtype === 'arclength') {
+    const Q = S(g.at); let n = sub2(Q, mid); if (len2(n) < 1e-9) n = [1, -1];
+    at = add2(Q, unit2(n), gap);
   } else if (g.dtype === 'chamfer') {
     const A = S(g.l1[0]); const B = S(g.l1[1]);
     const m = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2];
@@ -430,7 +853,8 @@ export function autoTextOffset(g, fr, gap = 9) {
 
 // ───────────────────────── primitives (sheet mm, y down)
 
-const textW = (s, size) => String(s ?? '').length * size * 0.6;
+/** Width of a dimension text in the sheet's font (text-metrics.js). */
+const textW = (s, size) => textWidth(s, size);
 
 function arrow(tip, dir, L = 2.5, w = 0.8) {
   const d = unit2(dir); const n = perp(d);
@@ -508,14 +932,20 @@ export function dimPrimitives(a, fr, { size = 3.2 } = {}) {
     case 'radial': case 'diameter': {
       const C = S(a.c); const R = a.r * fr.s;
       const w = unit2(sub2(T, C));
-      const Pa = add2(C, w, R);
+      let Pa = add2(C, w, R); let Pb = add2(C, w, -R);
+      // A circle of a pictorial view is an ellipse on the sheet: the leader ends on it, toward the text.
+      if (a.m3?.n && fr.basis) {
+        const pts = ellipseSheet(a.m3, fr);
+        let k = 0; let best = -Infinity;
+        pts.forEach((q, i) => { const d = dot2(unit2(sub2(q, C)), w); if (d > best) { best = d; k = i; } });
+        Pa = pts[k]; Pb = pts[(k + pts.length / 2) % pts.length];
+      }
       const tx = dimText(a, value);
-      const outside = dist2(T, C) > R;
+      const outside = dist2(T, C) > dist2(Pa, C);
       const tw = textPrims(tx, [0, 0], 0, size).width;
       const shoulder = w[0] >= 0 ? 1 : -1;
       const S1 = add2(T, [shoulder * (tw + 1.5), 0]);
       if (a.dtype === 'diameter') {
-        const Pb = add2(C, w, -R);
         out.push({ t: 'poly', pts: outside ? [Pb, T, S1] : [Pb, Pa], cls: 'dx-thin' });
         out.push(arrow(Pa, outside ? [-w[0], -w[1]] : w), arrow(Pb, outside ? w : [-w[0], -w[1]]));
       } else {
@@ -539,6 +969,16 @@ export function dimPrimitives(a, fr, { size = 3.2 } = {}) {
       for (const [E, P, ang] of [[A, pa, ta], [B, pb, tb]]) if (dist2(E, V) < rho) out.push({ t: 'poly', pts: [add2(E, [Math.cos(ang), Math.sin(ang)], 1), add2(P, [Math.cos(ang), Math.sin(ang)], 1.5)], cls: 'dx-thin' });
       const mid = ta + d / 2; const tp = add2(V, [Math.cos(mid), Math.sin(mid)], rho + 1.2);
       out.push(...textPrims(dimText(a, value), tp, 0, size).prims);
+      break;
+    }
+    case 'arclength': {
+      // A leader from the text to the arc (or curve) it measures, the text on a shoulder.
+      const Q = S(a.at);
+      const tx = dimText(a, value);
+      const tw = textPrims(tx, [0, 0], 0, size).width;
+      const shoulder = T[0] >= Q[0] ? 1 : -1;
+      out.push({ t: 'poly', pts: [Q, T, add2(T, [shoulder * (tw + 1.5), 0])], cls: 'dx-thin' }, arrow(Q, sub2(Q, T)));
+      out.push(...textPrims(tx, [T[0] + (shoulder * (tw + 1.5)) / 2, T[1] - lift], 0, size).prims);
       break;
     }
     case 'chamfer': {

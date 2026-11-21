@@ -11,6 +11,7 @@
 import { rep } from './kernel.js';
 import { materialName } from './materials.js';
 import { frameTable, worldUp, worldFront } from './frame.js';
+import { textWidth as measureText } from './text-metrics.js';
 
 export const SHEETS = {
   A4: [297, 210], A3: [420, 297], A2: [594, 420], A1: [841, 594], A0: [1189, 841], Letter: [279.4, 215.9], Tabloid: [431.8, 279.4],
@@ -241,12 +242,12 @@ export function hatchSegments(triangles, spacing, angle = 45) {
 }
 
 /** Scale multiplier of a view relative to the sheet scale (a detail view: its `scale`, 2 by default). */
-const viewMult = (v) => (v?.kind === 'detail' ? (Number(v.scale) > 0 ? Number(v.scale) : 2) : 1);
+export const viewMult = (v) => (v?.kind === 'detail' ? (Number(v.scale) > 0 ? Number(v.scale) : 2) : 1);
 /** A view laid out and drawn the original way (no kind, a standard orientation). */
 const isPlainView = (v) => !v.kind && v.type !== 'custom';
 
 /** view → its projection; a detail view gets its parent's projection with a circle-sized box. */
-function projectionResolver(drawing, projections) {
+export function projectionResolver(drawing, projections) {
   const views = drawing.views ?? [];
   const memo = new Map();
   const get = (v, depth = 0) => {
@@ -260,7 +261,7 @@ function projectionResolver(drawing, projections) {
       const pc = [(pp.box.x0 + pp.box.x1) / 2, (pp.box.y0 + pp.box.y1) / 2];
       const center = Array.isArray(v.center) && v.center.length >= 2 && v.center.slice(0, 2).every(Number.isFinite) ? [Number(v.center[0]), Number(v.center[1])] : pc;
       const r = Number(v.radius) > 0 ? Number(v.radius) : Math.max(1e-3, 0.25 * Math.min(pp.box.x1 - pp.box.x0, pp.box.y1 - pp.box.y0));
-      out = { visible: pp.visible, hidden: pp.hidden, section: pp.section, box: { x0: center[0] - r, y0: center[1] - r, x1: center[0] + r, y1: center[1] + r }, detail: { center, radius: r } };
+      out = { visible: pp.visible, hidden: pp.hidden, section: pp.section, box: { x0: center[0] - r, y0: center[1] - r, x1: center[0] + r, y1: center[1] + r }, detail: { center, radius: r }, breaks: pp.breaks };
     }
     memo.set(v.id, out);
     return out;
@@ -348,6 +349,35 @@ const n2 = (v) => String(Math.round(v * 1000) / 1000);
 const idSafe = (s) => String(s ?? '').replace(/[^A-Za-z0-9_-]/g, '_');
 
 /** Overall dimensions of a (non-isometric) view: width under it, height left of it (a broken view: its true size, p.trueW / p.trueH). */
+/** viewDimensions() as primitives (sheet mm, y down) for the DXF: the same lines, arrows and texts. */
+export function viewDimensionPrims(p, place, scale) {
+  const w = p.box.x1 - p.box.x0; const h = p.box.y1 - p.box.y0;
+  const x0 = place.cx - (w * scale) / 2; const x1 = place.cx + (w * scale) / 2;
+  const y0 = place.cy - (h * scale) / 2; const y1 = place.cy + (h * scale) / 2;
+  const out = [];
+  const arrow = (x, y, dx, dy) => ({ t: 'fill', pts: [[x, y], [x - dx * 2.5 - dy * 0.8, y - dy * 2.5 + dx * 0.8], [x - dx * 2.5 + dy * 0.8, y - dy * 2.5 - dx * 0.8]] });
+  if (w > 1e-6) {
+    const y = y1 + 9;
+    out.push({ t: 'poly', pts: [[x0, y1 + 1.5], [x0, y + 2]] }, { t: 'poly', pts: [[x1, y1 + 1.5], [x1, y + 2]] }, { t: 'poly', pts: [[x0, y], [x1, y]] }, arrow(x0, y, -1, 0), arrow(x1, y, 1, 0));
+    out.push({ t: 'text', x: (x0 + x1) / 2, y: y - 1.2, text: fmt(p.trueW ?? w), size: 3.2, anchor: 'middle' });
+  }
+  if (h > 1e-6) {
+    const x = x0 - 9;
+    out.push({ t: 'poly', pts: [[x0 - 1.5, y0], [x - 2, y0]] }, { t: 'poly', pts: [[x0 - 1.5, y1], [x - 2, y1]] }, { t: 'poly', pts: [[x, y0], [x, y1]] }, arrow(x, y0, 0, -1), arrow(x, y1, 0, 1));
+    out.push({ t: 'text', x: x - 1.2, y: (y0 + y1) / 2, text: fmt(p.trueH ?? h), size: 3.2, anchor: 'middle', rot: -90 });
+  }
+  return out;
+}
+
+/** The zone marks of the frame as line pairs (sheet mm, y down), as zoneMarks() draws them. */
+export function zoneMarkLines(W, H) {
+  const out = [];
+  const cols = Math.round((W - 20) / 50); const rows = Math.round((H - 20) / 50);
+  for (let i = 1; i < cols; i++) { const x = 10 + ((W - 20) * i) / cols; out.push([[x, 10], [x, 13]], [[x, H - 13], [x, H - 10]]); }
+  for (let i = 1; i < rows; i++) { const y = 10 + ((H - 20) * i) / rows; out.push([[10, y], [13, y]], [[W - 13, y], [W - 10, y]]); }
+  return out;
+}
+
 function viewDimensions(p, place, scale) {
   const w = p.box.x1 - p.box.x0; const h = p.box.y1 - p.box.y0;
   const x0 = place.cx - (w * scale) / 2; const x1 = place.cx + (w * scale) / 2;
@@ -378,7 +408,8 @@ const add2 = (a, b, k = 1) => [a[0] + b[0] * k, a[1] + b[1] * k];
 const sub2 = (a, b) => [a[0] - b[0], a[1] - b[1]];
 const unit2 = (a) => { const l = Math.hypot(a[0], a[1]); return l > 1e-12 ? [a[0] / l, a[1] / l] : [1, 0]; };
 const pt2 = (p) => (Array.isArray(p) && p.length >= 2 && Number.isFinite(Number(p[0])) && Number.isFinite(Number(p[1])) ? [Number(p[0]), Number(p[1])] : null);
-const textWidth = (s, size) => String(s ?? '').length * size * 0.6;
+/** Width of a line of text in the sheet's font (text-metrics.js). */
+const textWidth = (s, size) => measureText(s, size);
 
 /** A filled arrowhead with its tip at `tip`, pointing along `dir`. */
 function arrowHead(tip, dir, L = 2.5, w = 0.8) {
@@ -586,8 +617,10 @@ export function annotationPrimitives(a, { scale = 1 } = {}) {
     case 'centermark': {
       const s = Number(a.size) > 0 ? Number(a.size) : 10;
       const h = s / 2; const c = Math.min(1.5, s / 6); const g = Math.min(2.5, s / 4);
+      // A small mark (no room for a gap and a 1 mm dash beyond the cross) is one plain cross over its whole size.
+      if (h - g < 1) return [{ t: 'poly', pts: [[x - h, y], [x + h, y]] }, { t: 'poly', pts: [[x, y - h], [x, y + h]] }];
       const out = [{ t: 'poly', pts: [[x - c, y], [x + c, y]] }, { t: 'poly', pts: [[x, y - c], [x, y + c]] }];
-      if (h > g) out.push({ t: 'poly', pts: [[x - h, y], [x - g, y]] }, { t: 'poly', pts: [[x + g, y], [x + h, y]] }, { t: 'poly', pts: [[x, y - h], [x, y - g]] }, { t: 'poly', pts: [[x, y + g], [x, y + h]] });
+      out.push({ t: 'poly', pts: [[x - h, y], [x - g, y]] }, { t: 'poly', pts: [[x + g, y], [x + h, y]] }, { t: 'poly', pts: [[x, y - h], [x, y - g]] }, { t: 'poly', pts: [[x, y + g], [x, y + h]] });
       return out;
     }
     case 'dimension': {
@@ -689,8 +722,8 @@ function bomPrimitives(rows, { x, y, labels = {} }) {
   for (const [i, col] of BOM_COLUMNS.entries()) {
     if (i) out.push({ t: 'poly', pts: [[cx, y], [cx, y + n * BOM_ROW_H]], cls: 'bom-grid' });
     const tx = col.anchor === 'middle' ? cx + col.w / 2 : cx + 1.2;
-    const fit = (s, size) => { const str = String(s ?? ''); const max = Math.max(1, Math.floor((col.w - 2) / (size * 0.6))); return str.length > max ? `${str.slice(0, max - 1)}…` : str; };
-    out.push({ t: 'text', x: tx, y: y + BOM_ROW_H - 1.9, text: fit(labels[col.label] ?? col.fallback, 2.4), size: 2.4, anchor: col.anchor ?? 'start', bold: true });
+    const fit = (s, size, bold = false) => { const str = String(s ?? ''); const room = col.w - 2; if (measureText(str, size, { bold }) <= room) return str; const chars = [...str]; while (chars.length > 1 && measureText(`${chars.join('')}…`, size, { bold }) > room) chars.pop(); return `${chars.join('')}…`; };
+    out.push({ t: 'text', x: tx, y: y + BOM_ROW_H - 1.9, text: fit(labels[col.label] ?? col.fallback, 2.4, true), size: 2.4, anchor: col.anchor ?? 'start', bold: true });
     rows.forEach((row, k) => out.push({ t: 'text', x: tx, y: y + (k + 2) * BOM_ROW_H - 1.8, text: fit(row[col.key], 2.8), size: 2.8, anchor: col.anchor ?? 'start' }));
     cx += col.w;
   }
@@ -814,10 +847,21 @@ const EXTRA_CSS = `<style>
     .detail-circle{fill:none;stroke:#000;stroke-width:.35}.cut-line{fill:none;stroke:#000;stroke-width:.25;stroke-dasharray:10 1.5 2 1.5}
     .cut-end{fill:none;stroke:#000;stroke-width:.7}.view-label-strong{font-weight:bold}
     .ann-line,.ann-frame{fill:none;stroke:#000;stroke-width:.25;stroke-linejoin:round;stroke-linecap:round}.ann-fill{fill:#000;stroke:none}
-    .ann-text{font-family:sans-serif;fill:#000}.ann-bold{font-weight:bold}
+    .ann-text{font-family:Roboto,sans-serif;fill:#000}.ann-bold{font-weight:bold}
     .annotation.selected .ann-line,.annotation.selected .ann-frame{stroke:#1e88e5}.annotation.selected .ann-fill{fill:#1e88e5}.annotation.selected .ann-text{fill:#1e88e5}
     .bom-frame{fill:none;stroke:#000;stroke-width:.5}.bom-grid{fill:none;stroke:#000;stroke-width:.2}
   </style>`;
+
+/** Cosmetic thread marks of a view (thin lines and three-quarter circles, the thick thread limit, hidden threads). */
+const THREAD_CSS = `
+  <style>.thread-line{fill:none;stroke:#000;stroke-width:.25}.thread-limit{fill:none;stroke:#000;stroke-width:.5}.thread-hidden{fill:none;stroke:#555;stroke-width:.25;stroke-dasharray:2 1.2}</style>`;
+
+function threadMarksSvg(p, hiddenOn) {
+  const t = p.threads;
+  if (!t) return '';
+  const path = (cls) => (d) => `<path d="${d}" class="${cls}" vector-effect="non-scaling-stroke"/>`;
+  return [...(t.thin ?? []).map(path('thread-line')), ...(t.thick ?? []).map(path('thread-limit')), ...(hiddenOn ? (t.hidden ?? []).map(path('thread-hidden')) : [])].join('');
+}
 
 /**
  * The drawing sheet as SVG (units: mm). `projections` (view id → projectView()), `labels` (texts in the UI
@@ -846,7 +890,7 @@ export function drawingSvg(drawing, projections, { labels = {}, info = {}, selec
       <rect x="${place.cx - w / 2 - 4}" y="${place.cy - h / 2 - 4}" width="${w + 8}" height="${h + 8}" class="view-box"/>
       <g transform="${t}">
         ${hiddenOn ? p.hidden.map((d) => `<path d="${d}" class="hidden-line" vector-effect="non-scaling-stroke"/>`).join('') : ''}
-        ${p.visible.map((d) => `<path d="${d}" class="visible-line" vector-effect="non-scaling-stroke"/>`).join('')}
+        ${p.visible.map((d) => `<path d="${d}" class="visible-line" vector-effect="non-scaling-stroke"/>`).join('')}${threadMarksSvg(p, hiddenOn)}
       </g>
       ${drawing.showDims !== false && v.type !== 'iso' && v.type !== 'dimetric' ? viewDimensions(p, place, scale) : ''}
       <text x="${place.cx}" y="${place.cy + h / 2 + (v.type === 'iso' || v.type === 'dimetric' || drawing.showDims === false ? 9 : 19)}" class="view-label" text-anchor="middle">${esc(labels[`view.${v.type}`] ?? v.type)}</text>${marks}
@@ -865,9 +909,9 @@ export function drawingSvg(drawing, projections, { labels = {}, info = {}, selec
     .visible-line{fill:none;stroke:#000;stroke-width:.5;stroke-linejoin:round;stroke-linecap:round}
     .hidden-line{fill:none;stroke:#555;stroke-width:.3;stroke-dasharray:2 1.2}
     .view-box{fill:transparent;stroke:none}.view.selected .view-box{stroke:#1e88e5;stroke-width:.4;stroke-dasharray:2 1}
-    .view-label{font:3.2px sans-serif;fill:#000}.dim-line,.dim-ext{stroke:#000;stroke-width:.18;fill:none}.dim-arrow{fill:#000}
-    .dim-text{font:3.2px sans-serif;fill:#000}.tb-label{font:2.2px sans-serif;fill:#444}.tb-value{font:3.4px sans-serif;fill:#000}.tb-title{font:bold 5px sans-serif;fill:#000}
-  </style>${fancy ? EXTRA_CSS : ''}
+    .view-label{font:3.2px Roboto,sans-serif;fill:#000}.dim-line,.dim-ext{stroke:#000;stroke-width:.18;fill:none}.dim-arrow{fill:#000}
+    .dim-text{font:3.2px Roboto,sans-serif;fill:#000}.tb-label{font:2.2px Roboto,sans-serif;fill:#444}.tb-value{font:3.4px Roboto,sans-serif;fill:#000}.tb-title{font:bold 5px Roboto,sans-serif;fill:#000}
+  </style>${fancy ? EXTRA_CSS : ''}${[...projections.values()].some((x) => x?.threads) ? THREAD_CSS : ''}
   <rect class="sheet-bg" x="0" y="0" width="${W}" height="${H}"/>
   <rect class="frame" x="10" y="10" width="${W - 20}" height="${H - 20}"/>
   ${zoneMarks(W, H)}
@@ -956,7 +1000,9 @@ export function drawingDxf(drawing, projections, { labels = {}, bomRows: bom = n
   const lines = [];
   const add = (layer, a, b) => lines.push(`0\nLINE\n8\n${layer}\n10\n${a[0].toFixed(4)}\n20\n${a[1].toFixed(4)}\n30\n0\n11\n${b[0].toFixed(4)}\n21\n${b[1].toFixed(4)}\n31\n0`);
   const notes = [];
+  const dimEnts = [];
   let hatched = false;
+  let threaded = false;
   for (const v of drawing.views) {
     const p = resolve(v); const place = places.get(v.id);
     if (!p || !place) continue;
@@ -969,7 +1015,12 @@ export function drawingDxf(drawing, projections, { labels = {}, bomRows: bom = n
     const seg = (layer, a, b) => { const c = clip(a, b); if (c) add(layer, map(c[0]), map(c[1])); };
     const emit = (layer, list) => { for (const d of list) for (const poly of pathPolylines(d)) for (let k = 1; k < poly.length; k++) seg(layer, poly[k - 1], poly[k]); };
     emit('VISIBLE', p.visible);
-    if (plain) { if (drawing.showHidden !== false && v.type !== 'iso') emit('HIDDEN', p.hidden); } else if (drawing.showHidden !== false && (v.kind === 'section' ? v.hidden === true : v.hidden !== false)) emit('HIDDEN', p.hidden);
+    if (p.threads && plain) {
+      emit('THREADS', p.threads.thin ?? []); emit('VISIBLE', p.threads.thick ?? []);
+      if (drawing.showHidden !== false && v.hidden !== false) emit('HIDDEN', p.threads.hidden ?? []);
+      if (p.threads.thin?.length) threaded = true;
+    }
+    if (plain) { if (drawing.showHidden !== false && v.hidden !== false && v.type !== 'iso' && v.type !== 'dimetric') emit('HIDDEN', p.hidden); } else if (drawing.showHidden !== false && (v.kind === 'section' ? v.hidden === true : v.hidden !== false)) emit('HIDDEN', p.hidden);
     if (!plain) {
       for (const q of hatchOf(p, s, v)) { hatched = true; seg('HATCH', [q[0], q[1]], [q[2], q[3]]); }
       const h = (p.box.y1 - p.box.y0) * s;
@@ -979,6 +1030,8 @@ export function drawingDxf(drawing, projections, { labels = {}, bomRows: bom = n
     }
     const marks = parentMarks(drawing, v, p, place, scale, labels);
     if (marks.length) notes.push(...primitivesDxf(marks, H));
+    // The overall dimensions the sheet shows under and left of the view.
+    if (drawing.showDims !== false && (plain ? v.type !== 'iso' && v.type !== 'dimetric' : !p.detail)) dimEnts.push(...primitivesDxf(viewDimensionPrims(p, place, s), H, 'DIMENSIONS'));
   }
   for (const a of Array.isArray(drawing.annotations) ? drawing.annotations : []) notes.push(...primitivesDxf(annotationPrimitives(a, { scale }), H));
   if (drawing.bom?.show && Array.isArray(bom)) {
@@ -987,10 +1040,16 @@ export function drawingDxf(drawing, projections, { labels = {}, bomRows: bom = n
   }
   const [W] = SHEETS[drawing.sheet] ?? SHEETS.A3;
   for (const [a, b] of [[[10, 10], [W - 10, 10]], [[W - 10, 10], [W - 10, H - 10]], [[W - 10, H - 10], [10, H - 10]], [[10, H - 10], [10, 10]]]) add('BORDER', a, b);
+  // The frame's zone marks on their own layer (BORDER stays the four frame lines).
+  const zones = zoneMarkLines(W, H);
+  for (const [a, b] of zones) add('ZONES', [a[0], H - a[1]], [b[0], H - b[1]]);
   const names = ['VISIBLE', 'HIDDEN', 'BORDER'];
   const colors = [7, 8, 7];
+  if (zones.length) { names.push('ZONES'); colors.push(7); }
   if (hatched) { names.push('HATCH'); colors.push(8); }
+  if (threaded) { names.push('THREADS'); colors.push(7); }
   if (notes.length) { names.push('NOTES'); colors.push(7); }
+  if (dimEnts.length) { names.push('DIMENSIONS'); colors.push(7); notes.push(...dimEnts); }
   const layers = names.map((name, i) => `0\nLAYER\n2\n${name}\n70\n0\n62\n${colors[i]}\n6\n${name === 'HIDDEN' ? 'HIDDEN' : 'CONTINUOUS'}`).join('\n');
   const entities = notes.length ? [...lines, ...notes] : lines;
   return `0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n70\n4\n0\nENDSEC\n0\nSECTION\n2\nTABLES\n0\nTABLE\n2\nLAYER\n70\n${names.length}\n${layers}\n0\nENDTAB\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n${entities.join('\n')}\n0\nENDSEC\n0\nEOF\n`;

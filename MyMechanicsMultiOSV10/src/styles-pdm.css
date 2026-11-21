@@ -1,0 +1,92 @@
+/* The vault explorer (app-pdm.js): a panel docked on the right of the work area. */
+.pdm-explorer { position: fixed; right: 0; top: 0; bottom: 0; width: min(600px, calc(100vw - 40px)); z-index: 40; display: flex; flex-direction: column; background: var(--panel, var(--surface)); color: var(--text); border-left: 1px solid var(--border); box-shadow: -6px 0 18px var(--shadow, rgba(0, 0, 0, 0.18)); font-size: 0.92em; }
+.pdm-explorer[hidden] { display: none; }
+.pdm-explorer.busy { cursor: progress; }
+.pdm-explorer.busy .pdm-body { opacity: 0.75; }
+.pdm-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--border); background: var(--toolbar, var(--surface)); }
+.pdm-head > .icon { width: 22px; height: 22px; flex: none; }
+.pdm-title { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.pdm-title .muted { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.86em; }
+.pdm-user { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; white-space: nowrap; }
+.pdm-user em { font-style: normal; color: var(--muted); font-size: 0.86em; }
+.pdm-close:hover { color: var(--danger); }
+.pdm-tabs, .pdm-subtabs { padding: 6px 10px; border-bottom: 1px solid var(--hairline, var(--border)); }
+.pdm-subtabs { padding: 6px 0; border: 0; }
+.pdm-seg { flex-wrap: wrap; }
+.pdm-body { flex: 1; overflow: auto; padding: 8px 10px 16px; }
+.pdm-group { border: 1px solid var(--hairline, var(--border)); border-radius: 8px; padding: 8px 10px; margin: 0 0 8px; background: var(--surface); }
+.pdm-group h4 { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; font-size: 0.95em; }
+.pdm-group h5 { margin: 8px 0 4px; font-size: 0.9em; color: var(--muted); }
+.pdm-row { display: flex; align-items: center; gap: 6px; margin: 4px 0; min-width: 0; }
+.pdm-row.wrap { flex-wrap: wrap; }
+.pdm-row .grow, .pdm-list .grow { flex: 1; min-width: 0; }
+.pdm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px 10px; margin: 4px 0; }
+.pdm-field { display: flex; flex-direction: column; gap: 2px; font-size: 0.9em; min-width: 0; }
+.pdm-field > span { color: var(--muted); }
+.pdm-field.required > span { color: var(--text); }
+.pdm-label { color: var(--muted); }
+.pdm-input { min-width: 0; padding: 3px 6px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg, var(--surface)); color: var(--text); font: inherit; }
+.pdm-input:disabled { opacity: 0.6; }
+.pdm-check { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.pdm-button { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface2, var(--surface)); color: var(--text); font: inherit; cursor: pointer; white-space: nowrap; }
+.pdm-button:hover:not(:disabled) { background: var(--hover); }
+.pdm-button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text, #fff); }
+.pdm-button:disabled { opacity: 0.45; cursor: default; }
+.pdm-icon.active { background: var(--soft-accent, var(--hover)); color: var(--accent); }
+.pdm-note { display: flex; gap: 6px; align-items: flex-start; margin: 4px 0; line-height: 1.35; }
+.pdm-note.warn { color: var(--warning); }
+.pdm-count { margin: 4px 0 0; font-size: 0.86em; }
+.pdm-table-wrap { overflow: auto; max-height: 320px; border: 1px solid var(--hairline, var(--border)); border-radius: 6px; }
+.pdm-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+.pdm-table th { position: sticky; top: 0; background: var(--surface2, var(--surface)); text-align: left; font-weight: 600; padding: 4px 6px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.pdm-table td { padding: 3px 6px; border-bottom: 1px solid var(--hairline, var(--border)); white-space: nowrap; }
+.pdm-table tbody tr { cursor: pointer; }
+.pdm-table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--hover) 45%, transparent); }
+.pdm-table tbody tr:hover { background: var(--hover); }
+.pdm-table tbody tr.selected { background: var(--soft-accent, var(--hover)); outline: 1px solid var(--accent); }
+.pdm-bom tbody tr { cursor: default; }
+.pdm-name { max-width: 200px; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.pdm-rev { font-family: ui-monospace, Consolas, monospace; font-size: 0.9em; color: var(--muted); }
+.pdm-badge { display: inline-flex; align-items: center; gap: 3px; padding: 0 7px; border-radius: 999px; font-size: 0.84em; white-space: nowrap; border: 1px solid currentColor; }
+.pdm-state-wip { color: var(--tone-sky, #0ea5e9); }
+.pdm-state-pending { color: var(--warning, #d97706); }
+.pdm-state-released { color: var(--success, #16a34a); }
+.pdm-state-obsolete { color: var(--muted); text-decoration: line-through; }
+.pdm-lock { display: inline-flex; align-items: center; gap: 3px; color: var(--warning); }
+.pdm-lock.mine { color: var(--accent); }
+.pdm-detail-head { display: flex; align-items: flex-start; gap: 8px; }
+.pdm-detail-head > div { flex: 1; min-width: 0; }
+.pdm-flow { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin: 2px 0 6px; }
+.pdm-flow-step { display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px; border-radius: 6px; border: 1px dashed var(--border); color: var(--muted); font-size: 0.86em; }
+.pdm-flow-step.current { border-style: solid; border-color: var(--accent); color: var(--text); font-weight: 600; }
+.pdm-flow-arrow { color: var(--muted); }
+.pdm-list { list-style: none; margin: 4px 0; padding: 0; }
+.pdm-list li { display: flex; align-items: center; gap: 6px; padding: 3px 4px; border-bottom: 1px solid var(--hairline, var(--border)); min-width: 0; }
+.pdm-list li:nth-child(even) { background: color-mix(in srgb, var(--hover) 35%, transparent); }
+.pdm-list li.selected, .pdm-list li.picked { background: var(--soft-accent, var(--hover)); }
+.pdm-tree li { padding-left: calc(4px + var(--depth, 0) * 16px); }
+.pdm-link { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 0; font: inherit; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pdm-link:hover { text-decoration: underline; }
+.pdm-diff li.added { color: var(--success); }
+.pdm-diff li.removed { color: var(--danger); }
+.pdm-diff li.changed { color: var(--warning); }
+.pdm-chip { display: inline-flex; align-items: center; gap: 2px; padding: 0 2px 0 8px; border: 1px solid var(--border); border-radius: 999px; }
+.pdm-status { font-size: 0.84em; padding: 0 7px; border-radius: 999px; border: 1px solid var(--border); white-space: nowrap; }
+.pdm-status-approved, .pdm-status-closed { color: var(--success); border-color: currentColor; }
+.pdm-status-rejected { color: var(--danger); border-color: currentColor; }
+.pdm-status-pending, .pdm-status-open { color: var(--warning); border-color: currentColor; }
+@media (max-width: 720px) { .pdm-explorer { width: 100vw; } }
+.pdm-ref-old, .pdm-ref-bad { color: var(--warning); display: inline-flex; }
+.pdm-ref-bad { color: var(--danger); }
+.pdm-ref-ok { color: var(--success); display: inline-flex; }
+.pdm-refs select { max-width: 150px; }
+.pdm-users li.disabled { opacity: 0.6; }
+.pdm-input.short { width: 110px; flex: none; }
+/* the FeatureManager tree's vault block */
+.pdm-tree-refs { margin-top: 6px; padding-top: 4px; border-top: 1px solid var(--hairline, var(--border)); font-size: 0.92em; }
+.pdm-tree-head { display: flex; align-items: center; gap: 6px; font-weight: 600; padding: 2px 6px; }
+.pdm-tree-head .icon-button { margin-left: auto; }
+.pdm-tree-ref { display: flex; align-items: center; gap: 6px; padding: 1px 6px 1px 20px; }
+.pdm-tree-ref .muted { margin-left: auto; font-size: 0.86em; }
+.pdm-tree-ref.old { color: var(--warning); }
+.pdm-tree-ref.bad { color: var(--danger); }

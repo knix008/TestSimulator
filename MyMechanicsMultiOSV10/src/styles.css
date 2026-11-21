@@ -1437,17 +1437,17 @@ html.popup-kind-color body, html.popup-kind-color #app { background: var(--surfa
 
 /* ───────────────────────── menu bar row as the title bar (no system title bar) */
 #menubar { min-height: 34px; padding-top: 0; padding-bottom: 0; padding-right: 0; align-items: stretch; user-select: none; }
-#menubar > .menubar-item, #menubar > .menubar-sep { align-self: center; }
+#menubar > .menubar-item, #menubar > .menubar-sep, #menubar > .menubar-project { align-self: center; }
 .app-brand { display: inline-flex; align-items: center; gap: 7px; padding: 0 12px 0 4px; margin-right: 4px; border-right: 1px solid var(--hairline, var(--border)); flex: none; cursor: default; white-space: nowrap; }
 .app-brand-icon { width: 20px; height: 20px; flex: none; pointer-events: auto; }
 .app-brand-name { font-weight: 700; }
 .app-brand-version { color: var(--muted); font-size: 0.86em; }
 /* The open project after the name and version: a fixed width, … when longer, ● for unsaved changes. */
-.app-brand-project { display: inline-flex; align-items: center; gap: 4px; width: 220px; height: 20px; margin-left: 5px; padding: 0 8px; border-left: 1px solid var(--hairline, var(--border)); color: var(--text); font-weight: 600; box-sizing: border-box; overflow: hidden; }
+.menubar-project { display: inline-flex; align-items: center; gap: 4px; flex: none; width: 220px; height: 20px; line-height: 20px; margin-left: 5px; padding: 0 8px; border-left: 1px solid var(--hairline, var(--border)); color: var(--text); font-weight: 600; box-sizing: border-box; overflow: hidden; }
 .app-brand-project-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-brand-dirty { display: none; flex: none; color: var(--warning); font-size: 10px; }
-.app-brand-project.dirty .app-brand-dirty { display: inline; }
-.app-brand-project.empty { border-left-color: transparent; }
+.menubar-project.dirty .app-brand-dirty { display: inline; }
+.menubar-project.empty { border-left-color: transparent; }
 .menubar-drag { flex: 1; min-width: 24px; align-self: stretch; }
 .window-controls { display: flex; align-items: stretch; flex: none; margin-left: auto; }
 .window-button { display: inline-grid; place-items: center; width: 46px; padding: 0; border: 0; border-radius: 0; background: none; color: var(--text); cursor: default; }

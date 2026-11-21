@@ -12,6 +12,7 @@ import { PART_MORE_TYPES, PART_MORE_DEFAULTS, PART_MORE_NAMES } from './part-mor
 import { buildPartMore, refAxisOf } from './part-more.js';
 import { STD_TYPES, STD_DEFAULTS, STD_NAMES } from './std-types.js';
 import { buildStdFeature } from './std-features.js';
+import { tapHoles, patternThreads } from './hole-threads.js';
 import { effectiveFeatures } from './params.js';
 import { frameTable, isYUp, worldUp } from './frame.js';
 import { yUpDefaults } from './zup.js';
@@ -60,7 +61,7 @@ export const FEATURE_DEFAULTS = {
   fillet: () => ({ radius: 2, edges: [] }),
   chamfer: () => ({ distance: 1, edges: [] }),
   shell: () => ({ thickness: 1.5, faces: [] }),
-  hole: () => ({ sketch: null, kind: 'simple', diameter: 6.6, depth: 15, through: true, cbDiameter: 11, cbDepth: 6.5, csDiameter: 13, csAngle: 90 }),
+  hole: () => ({ sketch: null, kind: 'simple', diameter: 6.6, depth: 15, through: true, cbDiameter: 11, cbDepth: 6.5, csDiameter: 13, csAngle: 90, threadSize: 'M8', threadDepth: 16, threadMode: 'auto' }),
   linearPattern: () => ({ seeds: [], direction: { kind: 'axis', axis: 'x' }, spacing: 20, count: 3, reverse: false, direction2: null, spacing2: 20, count2: 2, reverse2: false }),
   circularPattern: () => ({ seeds: [], axis: { kind: 'axis', axis: 'z' }, count: 6, angle: 360, equal: true, reverse: false }),
   mirror: () => ({ seeds: [], plane: { kind: 'std', name: 'right' }, body: false }),
@@ -474,6 +475,13 @@ export function holeProfile(f, depth) {
   return pts;
 }
 
+/** The axes of a hole feature's holes: [{ at (on the sketch plane), dir (into the material) }]. */
+export function holeAxes(f, ctx) {
+  const { sketch, frame: fr } = sketchOf(f, ctx);
+  const into = scale(fr.normal, -1);
+  return standalonePoints(sketch).map((p) => ({ at: toWorld(fr, [p.x, p.y]), dir: into }));
+}
+
 function holeTool(f, ctx) {
   const R = rep();
   const { sketch, frame: fr } = sketchOf(f, ctx);
@@ -498,7 +506,14 @@ function holeTool(f, ctx) {
 
 function buildHole(f, ctx) {
   const tool = holeTool(f, ctx);
-  return { tool, body: combine(ctx, tool, 'cut') };
+  const body = combine(ctx, tool, 'cut');
+  // A tapped hole: the tap drill, then the ISO thread (cosmetic, or modelled into the body — hole-threads.js).
+  if (f.kind === 'tapped' && ctx.body) {
+    let t;
+    try { t = tapHoles(f, holeAxes(f, ctx), ctx.body, body, { maxLen: sizeAround(ctx) }); } catch (error) { throw codeError(error.code ?? 'thread-failed'); }
+    return { tool, body: t.body, ...(t.threads.length ? { thread: t.thread, threads: t.threads } : {}) };
+  }
+  return { tool, body };
 }
 
 function buildDressUp(f, ctx, kind) {
@@ -606,13 +621,25 @@ function buildLinearPattern(f, ctx) {
   if (d2 && f.reverse2) d2 = scale(d2, -1);
   const n2 = d2 ? Math.max(1, Math.min(200, Math.round(f.count2))) : 1;
   const s2 = Number(f.spacing2) || 0;
-  const moves = [];
+  const moves = []; const places = [];
   for (let i = 0; i < n1; i++) for (let j = 0; j < n2; j++) {
     if (!i && !j) continue;
     const v = add(scale(d1, i * s1), d2 ? scale(d2, j * s2) : [0, 0, 0]);
     moves.push((s) => s.translate(v));
+    places.push((q, isDir) => (isDir ? q : add(q, v)));
   }
-  return applyCopies(ctx, tools, moves);
+  return patternThreads(f, ctx, applyCopies(ctx, tools, moves), places);
+}
+
+/** A point / direction rotation by `deg` about the axis through `origin` along `dir` (Rodrigues): (q, isDir) → q'. */
+function rotation(deg, origin, dir) {
+  const k = normalize(dir); const a = (deg * Math.PI) / 180; const c = Math.cos(a); const sn = Math.sin(a);
+  return (q, isDir) => {
+    const v = isDir ? q : [q[0] - origin[0], q[1] - origin[1], q[2] - origin[2]];
+    const kv = k[0] * v[0] + k[1] * v[1] + k[2] * v[2]; const kx = crossV(k, v);
+    const r = [0, 1, 2].map((i) => v[i] * c + kx[i] * sn + k[i] * kv * (1 - c));
+    return isDir ? r : [r[0] + origin[0], r[1] + origin[1], r[2] + origin[2]];
+  };
 }
 
 function buildCircularPattern(f, ctx) {
@@ -623,9 +650,12 @@ function buildCircularPattern(f, ctx) {
   const total = Math.max(0.1, Math.min(360, Number(f.angle) || 360));
   const step = f.equal ? (total >= 359.999 ? total / count : total / Math.max(1, count - 1)) : total;
   const sign = f.reverse ? -1 : 1;
-  const moves = [];
-  for (let i = 1; i < count; i++) moves.push((s) => s.rotate(sign * step * i, origin, dir));
-  return applyCopies(ctx, tools, moves);
+  const moves = []; const places = [];
+  for (let i = 1; i < count; i++) {
+    moves.push((s) => s.rotate(sign * step * i, origin, dir));
+    places.push(rotation(sign * step * i, origin, dir));
+  }
+  return patternThreads(f, ctx, applyCopies(ctx, tools, moves), places);
 }
 
 function buildMirror(f, ctx) {

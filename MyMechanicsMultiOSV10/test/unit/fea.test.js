@@ -54,7 +54,7 @@ test('element stiffness is symmetric and has six rigid-body modes', () => {
 
 test('cantilever 100×10×10 steel, 100 N tip load: deflection and root bending stress', () => {
   const t0 = performance.now();
-  const res = analyse(boxMesh(100, 10, 10, 4), { material: STEEL, fixtures: [0], loads: [{ faceId: 1, force: [0, 0, -100] }], resolution: 100 });
+  const res = analyse(boxMesh(100, 10, 10, 4), { material: STEEL, fixtures: [0], loads: [{ faceId: 1, force: [0, 0, -100] }], mesher: 'voxel', resolution: 100 });
   const ms = performance.now() - t0;
   assert.equal(res.ok, true, res.error);
   assert.equal(res.elements, 10000);
@@ -78,7 +78,7 @@ test('cantilever 100×10×10 steel, 100 N tip load: deflection and root bending 
 
 test('bar in tension: stress F/A, uniform away from the clamp; elongation F·L/(E·A)', () => {
   const mesh = boxMesh(100, 10, 10, 10);
-  const res = analyse(mesh, { material: STEEL, fixtures: [0], loads: [{ faceId: 1, force: [1000, 0, 0] }], resolution: 50 });
+  const res = analyse(mesh, { material: STEEL, fixtures: [0], loads: [{ faceId: 1, force: [1000, 0, 0] }], mesher: 'voxel', resolution: 50 });
   assert.equal(res.ok, true, res.error);
   const V = mesh.vertices, mid = [];
   for (let v = 0; v < V.length / 3; v++) if (V[3 * v] >= 30 && V[3 * v] <= 70) mid.push(res.vertexStress[v]);
@@ -91,8 +91,8 @@ test('bar in tension: stress F/A, uniform away from the clamp; elongation F·L/(
 
 test('a pressure on the end face equals the force p·A along the inward normal', () => {
   const mesh = boxMesh(50, 10, 10, 2);
-  const byForce = analyse(mesh, { material: STEEL, fixtures: [0], loads: [{ faceId: 1, force: [-500, 0, 0] }], resolution: 25 });
-  const byPressure = analyse(mesh, { material: STEEL, fixtures: [0], loads: [{ faceId: 1, pressure: 5 }], resolution: 25 });
+  const byForce = analyse(mesh, { material: STEEL, fixtures: [0], loads: [{ faceId: 1, force: [-500, 0, 0] }], mesher: 'voxel', resolution: 25 });
+  const byPressure = analyse(mesh, { material: STEEL, fixtures: [0], loads: [{ faceId: 1, pressure: 5 }], mesher: 'voxel', resolution: 25 });
   assert.equal(byPressure.ok, true);
   // the end face's mean shortening is the same (a pressure is spread by area, a force equally per node)
   const mean = (r) => { let s = 0, k = 0; for (let n = 0; n < r.nodes.length / 3; n++) if (r.nodes[3 * n] === 50) { s += r.displacement[3 * n]; k++; } return s / k; };
@@ -102,7 +102,7 @@ test('a pressure on the end face equals the force p·A along the inward normal',
 });
 
 test('self-weight of a cantilever: q·L⁴/(8·E·I) with q = ρ·g·A', () => {
-  const res = analyse(boxMesh(100, 10, 10), { material: STEEL, fixtures: [0], loads: [], gravity: [0, 0, -9.81], resolution: 50 });
+  const res = analyse(boxMesh(100, 10, 10), { material: STEEL, fixtures: [0], loads: [], gravity: [0, 0, -9.81], mesher: 'voxel', resolution: 50 });
   assert.equal(res.ok, true, res.error);
   const q = STEEL.density * 9.81 * 1e-9 * 100, I = (10 * 10 ** 3) / 12;
   const expected = (q * 100 ** 4) / (8 * STEEL.E * I);
@@ -117,7 +117,7 @@ test('missing fixtures, missing loads and empty meshes are reported', () => {
   assert.equal(analyse(mesh, { material: STEEL, fixtures: [0], loads: [] }).error, 'no-loads');
   assert.equal(analyse(mesh, { material: STEEL, fixtures: [0], loads: [{ faceId: 1, force: [0, 0, 0] }] }).error, 'no-loads');
   assert.equal(analyse({ vertices: [], triangles: [], faceGroups: [] }, { material: STEEL, fixtures: [0], loads: [{ faceId: 1, force: [1, 0, 0] }] }).error, 'empty');
-  const r = analyse(mesh, { material: STEEL, fixtures: [0], loads: [{ faceId: 1, force: [0, 0, -100] }], resolution: 8, maxIter: 2 });
+  const r = analyse(mesh, { material: STEEL, fixtures: [0], loads: [{ faceId: 1, force: [0, 0, -100] }], mesher: 'voxel', resolution: 8, maxIter: 2 });
   assert.equal(r.ok, false);
   assert.equal(r.error, 'not-converged');
 });
@@ -155,7 +155,7 @@ test('thermal properties cover every material id; objects and unknown ids fall b
 
 test('bar 100×10×10, 100 °C / 0 °C ends: linear profile and heat flow k·A·ΔT/L', () => {
   const mesh = boxMesh(100, 10, 10, 4), t0 = performance.now();
-  const res = thermal(mesh, { material: 'steel-1020', temperatures: [{ faceId: 0, value: 100 }, { faceId: 1, value: 0 }], resolution: 50 });
+  const res = thermal(mesh, { material: 'steel-1020', temperatures: [{ faceId: 0, value: 100 }, { faceId: 1, value: 0 }], mesher: 'voxel', resolution: 50 });
   const ms = performance.now() - t0;
   assert.equal(res.ok, true, res.error);
   const Q = (K1020 * 100 * 100) / 100;                                 // 5.19 W
@@ -178,7 +178,7 @@ test('bar 100×10×10, 100 °C / 0 °C ends: linear profile and heat flow k·A·
 });
 
 test('bar with 20 °C at one end and 5 W into the other: ΔT = P·L/(k·A)', () => {
-  const res = thermal(boxMesh(100, 10, 10, 4), { material: { k: 51.9 }, temperatures: [{ faceId: 0, value: 20 }], fluxes: [{ faceId: 1, power: 5 }], resolution: 50 });
+  const res = thermal(boxMesh(100, 10, 10, 4), { material: { k: 51.9 }, temperatures: [{ faceId: 0, value: 20 }], fluxes: [{ faceId: 1, power: 5 }], mesher: 'voxel', resolution: 50 });
   assert.equal(res.ok, true, res.error);
   const dT = (5 * 100) / (K1020 * 100);                               // 96.34 °C
   console.log(`thermal flux: hot end ${res.max.toFixed(3)} °C (20 + ${dT.toFixed(3)}), heat out ${res.heatFlowOut.toFixed(5)} W of ${res.fluxIn} W`);
@@ -190,7 +190,7 @@ test('bar with 20 °C at one end and 5 W into the other: ΔT = P·L/(k·A)', () 
 
 test('convection-cooled fin (80 °C root, h = 25 W/m²K into 20 °C air): fin theory, bounds and heat balance', () => {
   const k = THERMAL['al-6061'].k * 1e-3, h = 25e-6, P = 40, A = 100, L = 100;
-  const res = thermal(boxMesh(L, 10, 10, 4), { material: 'al-6061', temperatures: [{ faceId: 0, value: 80 }], convections: [1, 2, 3, 4, 5].map((faceId) => ({ faceId, h: 25, ambient: 20 })), resolution: 50 });
+  const res = thermal(boxMesh(L, 10, 10, 4), { material: 'al-6061', temperatures: [{ faceId: 0, value: 80 }], convections: [1, 2, 3, 4, 5].map((faceId) => ({ faceId, h: 25, ambient: 20 })), mesher: 'voxel', resolution: 50 });
   assert.equal(res.ok, true, res.error);
   // 1-D fin with a convecting tip (Incropera, Fundamentals of Heat and Mass Transfer, Table 3.4 case A)
   const m = Math.sqrt((h * P) / (k * A)), r = h / (m * k), mL = m * L;
@@ -205,7 +205,7 @@ test('convection-cooled fin (80 °C root, h = 25 W/m²K into 20 °C air): fin th
 });
 
 test('convection only: a 2 W heater on one end, every other face cooled — heat balance, above ambient', () => {
-  const res = thermal(boxMesh(50, 20, 10, 2), { material: 'copper', fluxes: [{ faceId: 0, power: 2 }], convections: [1, 2, 3, 4, 5].map((faceId) => ({ faceId, h: 10, ambient: 25 })), resolution: 25 });
+  const res = thermal(boxMesh(50, 20, 10, 2), { material: 'copper', fluxes: [{ faceId: 0, power: 2 }], convections: [1, 2, 3, 4, 5].map((faceId) => ({ faceId, h: 10, ambient: 25 })), mesher: 'voxel', resolution: 25 });
   assert.equal(res.ok, true, res.error);
   // copper is nearly isothermal: T ≈ ambient + P / (h·A_cooled)
   const area = 20 * 10 + 2 * 50 * 10 + 2 * 50 * 20, lumped = 25 + 2 / (10e-6 * area);
@@ -221,7 +221,7 @@ test('thermal errors: no temperature or convection, empty mesh, not converged', 
   assert.equal(thermal(mesh, { material: 'steel-1020', fluxes: [{ faceId: 1, power: 1 }] }).error, 'no-temperature');
   assert.equal(thermal(mesh, { material: 'steel-1020', temperatures: [{ faceId: 99, value: 1 }] }).error, 'no-temperature');
   assert.equal(thermal({ vertices: [], triangles: [], faceGroups: [] }, { temperatures: [{ faceId: 0, value: 1 }] }).error, 'empty');
-  const r = thermal(boxMesh(100, 10, 10), { material: 'steel-1020', temperatures: [{ faceId: 0, value: 100 }], fluxes: [{ faceId: 1, power: 1 }], resolution: 20, maxIter: 1, precond: false });
+  const r = thermal(boxMesh(100, 10, 10), { material: 'steel-1020', temperatures: [{ faceId: 0, value: 100 }], fluxes: [{ faceId: 1, power: 1 }], mesher: 'voxel', resolution: 20, maxIter: 1, precond: false });
   assert.equal(r.ok, false);
   assert.equal(r.error, 'not-converged');
 });
@@ -238,7 +238,7 @@ const beamF1 = () => ((1.875 ** 2) / (2 * Math.PI)) * Math.sqrt((STEEL.E * ((10 
 
 test('steel cantilever 100×10×10: first two bending modes vs Euler–Bernoulli', () => {
   const mesh = boxMesh(100, 10, 10, 4), t0 = performance.now();
-  const res = modal(mesh, { material: STEEL, fixtures: [0], modes: 4, resolution: 50 });
+  const res = modal(mesh, { material: STEEL, fixtures: [0], modes: 4, mesher: 'voxel', resolution: 50 });
   const ms = performance.now() - t0;
   assert.equal(res.ok, true, res.error);
   const f1 = beamF1(), f3 = f1 * (4.694 / 1.875) ** 2;                  // second bending pair
@@ -272,7 +272,7 @@ test('steel cantilever 100×10×10: first two bending modes vs Euler–Bernoulli
 
 test('modal at ~5k elements: fast, and refined toward beam theory', () => {
   const t0 = performance.now();
-  const res = modal(boxMesh(100, 10, 10, 4), { material: STEEL, fixtures: [0], modes: 4, resolution: 80 });
+  const res = modal(boxMesh(100, 10, 10, 4), { material: STEEL, fixtures: [0], modes: 4, mesher: 'voxel', resolution: 80 });
   const ms = performance.now() - t0;
   assert.equal(res.ok, true, res.error);
   console.log(`modal 5k: ${res.elements} elements, f1 ${res.frequencies[0].toFixed(2)} Hz (beam ${beamF1().toFixed(2)}), ${res.iterations} subspace / ${res.solverIterations} CG iterations, ${ms.toFixed(0)} ms`);
@@ -283,8 +283,8 @@ test('modal at ~5k elements: fast, and refined toward beam theory', () => {
 
 test('multigrid and Jacobi preconditioning give the same frequencies (plate fixed on one edge)', () => {
   const mesh = boxMesh(60, 40, 4, 3);
-  const mg = modal(mesh, { material: STEEL, fixtures: [0], resolution: 30 });
-  const jac = modal(mesh, { material: STEEL, fixtures: [0], resolution: 30, precond: false });
+  const mg = modal(mesh, { material: STEEL, fixtures: [0], mesher: 'voxel', resolution: 30 });
+  const jac = modal(mesh, { material: STEEL, fixtures: [0], mesher: 'voxel', resolution: 30, precond: false });
   assert.equal(mg.ok, true, mg.error);
   assert.equal(jac.ok, true, jac.error);
   for (let i = 0; i < 4; i++) within(mg.frequencies[i], jac.frequencies[i], 1e-4, `mode ${i + 1}`);
@@ -296,7 +296,7 @@ test('modal errors: no fixtures, unmatched fixtures, empty mesh, not converged',
   assert.equal(modal(mesh, { material: STEEL, fixtures: [] }).error, 'no-fixtures');
   assert.equal(modal(mesh, { material: STEEL, fixtures: [99] }).error, 'no-fixtures');
   assert.equal(modal({ vertices: [], triangles: [], faceGroups: [] }, { material: STEEL, fixtures: [0] }).error, 'empty');
-  const r = modal(boxMesh(100, 10, 10), { material: STEEL, fixtures: [0], resolution: 20, maxIter: 1 });
+  const r = modal(boxMesh(100, 10, 10), { material: STEEL, fixtures: [0], mesher: 'voxel', resolution: 20, maxIter: 1 });
   assert.equal(r.ok, false);
   assert.equal(r.error, 'not-converged');
   assert.equal(r.frequencies.length, 4, 'best estimates are still returned');

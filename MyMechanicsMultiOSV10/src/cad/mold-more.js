@@ -1,16 +1,21 @@
 // More mold tools, on top of the parting line and tooling split of advanced.js:
-//   shut-off surfaces — the openings that go right through the part along the pull direction (a hole in a plate,
-//     a window in a lid) filled with patches, so the parting surface is closed and core and cavity meet there;
-//   parting surface — from the parting line outward: a plane with the part's outline cut out when the parting line
-//     is flat, otherwise ruled strips running out from every parting edge (neighbours share their side lines);
+//   shut-off surfaces — every opening of the part (an inner loop on any face: a hole along the pull, a window in a
+//     side wall, a hole through a curved wall) whose mould material would join core and cavity gets a patch
+//     (planar, or a filling surface when the loop is not flat). Whether an opening needs one is decided on the
+//     kernel: the mould space (block − part) is split by the parting surface and the patches chosen so far, and
+//     a patch is kept when it lessens the volume that still reaches both the top and the bottom of the block;
+//   parting surface — from the parting line (mold-brep.js: the faces split at their draft-zero curves, the loop
+//     between what the core forms and the rest) outward: a plane with the part's outline cut out when the line is
+//     level; otherwise strips that follow it — 'normal' (square to the pull, out along the wall), 'tangent' (on
+//     the tangent plane of the face most square to the pull) or 'ruled' (out from the part's middle) — with
+//     corner fans at convex corners and mitred side lines at concave ones, so stepped parts part too;
 //   core / cavity by surfaces — the tooling block minus the part split by the parting surface and the shut-offs
-//     (toolingSplit uses it when the part has a parting surface), so stepped parting lines and through openings
-//     come apart properly; the pieces touching the top of the block are the cavity, the bottom the core;
-//   undercut warning — the faces neither mould half can release (evaluate-more.js), counted on each of them.
+//     (toolingSplit uses it when the part has a parting surface); the pieces touching the top of the block are the
+//     cavity, the bottom the core;
+//   undercut warning — the faces neither mould half can release (mold-brep.js, on the B-rep).
 import { rep } from './kernel.js';
 import { codeError } from './features.js';
-import { partingEdges } from './advanced.js';
-import { undercutAnalysis } from './evaluate-more.js';
+import { partingLoops, undercutBrep, rayCaster, faceSamples } from './mold-brep.js';
 
 const AXIS_DIRS = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1], '-x': [-1, 0, 0], '-y': [0, -1, 0], '-z': [0, 0, -1] };
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -18,9 +23,13 @@ const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const mul = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const unit = (a) => { const l = Math.hypot(a[0], a[1], a[2]); return l > 1e-15 ? [a[0] / l, a[1] / l, a[2] / l] : [0, 0, 0]; };
+const len = (a) => Math.hypot(a[0], a[1], a[2]);
+const unit = (a) => { const l = len(a); return l > 1e-15 ? [a[0] / l, a[1] / l, a[2] / l] : [0, 0, 0]; };
 const vec = (p) => (Array.isArray(p) ? p : [p.x, p.y, p.z]);
 const num = (v, d = 0) => (Number.isFinite(Number(v)) ? Number(v) : d);
+
+/** Parting surface modes: how the surface runs out from a parting line that is not level. */
+export const PARTING_MODES = ['normal', 'tangent', 'ruled'];
 
 /** The pull direction of a mold feature: its own, else the parting line's, else up (+Z). */
 export function pullOf(f, ctx) {
@@ -35,77 +44,148 @@ function basis(dir) {
 
 const sizeOf = (shape) => { const [lo, hi] = shape.boundingBox.bounds; return Math.max(1e-6, Math.hypot(...sub(hi, lo))); };
 
-/** A shape swept along a vector (faces → solids, edges → faces). */
-function prism(shape, v) {
-  const R = rep(); const oc = R.getOC();
-  const vv = new R.Vector(v);
-  const mk = new oc.BRepPrimAPI_MakePrism(shape.wrapped, vv.wrapped, false, true);
-  const out = R.cast(mk.Shape());
-  mk.delete(); vv.delete?.();
-  return out;
-}
-
 /** Splits `shape` with the tools (shapes) by the kernel's splitter. */
 export function splitWith(shape, tools) {
   const R = rep(); const oc = R.getOC();
   const args = new oc.NCollection_List_TopoDS_Shape(); args.Append(shape.wrapped);
   const list = new oc.NCollection_List_TopoDS_Shape(); for (const t of tools) list.Append(t.wrapped);
   const sp = new oc.BRepAlgoAPI_Splitter();
-  sp.SetArguments(args); sp.SetTools(list); sp.Build(new oc.Message_ProgressRange());
-  if (sp.HasErrors()) { sp.delete(); throw codeError('kernel'); }
-  const out = R.cast(sp.Shape());
-  sp.delete();
-  return out;
+  try {
+    sp.SetArguments(args); sp.SetTools(list); sp.Build(new oc.Message_ProgressRange());
+    if (sp.HasErrors()) throw codeError('kernel');
+    return R.cast(sp.Shape());
+  } finally { sp.delete(); args.delete(); list.delete(); }
 }
 
 /** How many faces of the body neither mould half can release along `dir` (the undercut warning); 0 when unknown. */
 export function undercutCount(body, dir) {
-  try { return undercutAnalysis(body.mesh({ tolerance: Math.max(0.02, sizeOf(body) * 0.003), angularTolerance: 0.4 }), dir).undercut; } catch { return 0; }
+  try { return undercutBrep(body, dir).undercut; } catch { return 0; }
+}
+
+/** The same edge, oriented forward (its wire then runs the way its parameter does, like pointAt). */
+function forward(e) {
+  const R = rep(); const oc = R.getOC();
+  return e.wrapped.Orientation() === oc.TopAbs_Orientation.TopAbs_REVERSED ? R.cast(e.wrapped.Oriented(oc.TopAbs_Orientation.TopAbs_FORWARD)) : e.clone();
+}
+
+// ───────────────────────── tooling block helpers
+
+/** The tooling block around the body (`m` on every side) with its top and bottom along the pull. */
+function blockOf(body, dir, m) {
+  const R = rep();
+  const [lo, hi] = body.boundingBox.bounds;
+  const block = R.makeBox(lo.map((x) => x - m), hi.map((x) => x + m));
+  const ws = [];
+  for (const x of [lo[0] - m, hi[0] + m]) for (const y of [lo[1] - m, hi[1] + m]) for (const z of [lo[2] - m, hi[2] + m]) ws.push(dot([x, y, z], dir));
+  return { block, top: Math.max(...ws), bottom: Math.min(...ws) };
+}
+
+/** Which end of the block a piece reaches: 'top', 'bottom', 'both' or 'none'. */
+function reach(solid, dir, top, bottom) {
+  const span = top - bottom;
+  const [a, b] = solid.boundingBox.bounds;
+  const ws = [];
+  for (const x of [a[0], b[0]]) for (const y of [a[1], b[1]]) for (const z of [a[2], b[2]]) ws.push(dot([x, y, z], dir));
+  const t = Math.abs(Math.max(...ws) - top) < span * 1e-6; const bt = Math.abs(Math.min(...ws) - bottom) < span * 1e-6;
+  return t && bt ? 'both' : t ? 'top' : bt ? 'bottom' : 'none';
+}
+
+/**
+ * Volume of the mould space split by `tools` that is not clearly core or cavity: all of it but the pieces that
+ * reach only the top or only the bottom of the block (a piece reaching both, or neither, cannot be moulded).
+ */
+function unpartedVolume(mould, tools, dir, top, bottom, total) {
+  const R = rep();
+  let split;
+  try { split = splitWith(mould, tools); } catch { return Infinity; }
+  let good = 0;
+  for (const s of split.solids ?? []) { const r = reach(s, dir, top, bottom); if (r === 'top' || r === 'bottom') good += Math.abs(R.measureVolume(s)); }
+  return Math.max(0, total - good);
 }
 
 // ───────────────────────── shut-off surfaces
 
-/**
- * The openings that go right through the body along `dir`: inner loops of the faces square to the pull whose
- * footprint, swept across the whole part, meets no material. One patch per opening, on the face nearest the
- * parting height (`height`, along dir; default the top). Returns [{ patch (face), area, w (height along dir) }].
- */
-export function throughOpenings(body, dir, { height = null } = {}) {
+/** A patch over a loop: the planar face when the loop is flat, else a filling surface through its edges. */
+export function patchOf(wire, size) {
   const R = rep();
-  const size = sizeOf(body);
-  const [lo, hi] = body.boundingBox.bounds;
-  const span = Math.hypot(...sub(hi, lo)) * 2 + 10;
+  const pts = wire.edges.flatMap((e) => [0, 0.2, 0.4, 0.6, 0.8].map((t) => vec(e.pointAt(t))));
+  try {
+    const face = R.makeFace(wire.clone());
+    if (face.geomType === 'PLANE') {
+      const n = unit(vec(face.normalAt(face.center))); const c = vec(face.center);
+      if (pts.every((p) => Math.abs(dot(sub(p, c), n)) < size * 1e-7 + 1e-9)) return { patch: face, planar: true };
+    }
+  } catch { /* not flat */ }
+  return { patch: R.makeNonPlanarFace(wire.clone()), planar: false };
+}
+
+/** A level plane across the whole block at height `h` along the pull (when no parting surface can be made). */
+function levelPlane(body, dir, h, m) {
+  const R = rep();
   const { u, v } = basis(dir);
-  const found = [];
+  const S = sizeOf(body) + 4 * m;
+  const [lo, hi] = body.boundingBox.bounds; const c = mul(add(lo, hi), 0.5);
+  const o = add(sub(c, mul(dir, dot(c, dir))), mul(dir, h));
+  const P = (a, b) => add(o, add(mul(u, a), mul(v, b)));
+  return R.makePolygon([P(-S, -S), P(S, -S), P(S, S), P(-S, S)]);
+}
+
+/**
+ * The openings that need a shut-off for a pull along `dir`: inner loops of any face (planar or curved, square to
+ * the pull or not), patched flat or by a filling surface. With every opening patched, the patches are dropped
+ * again while the mould space (split by the parting surface `surface`, made here when not given) parts no worse
+ * without them; patches the mould cannot pull off (a pocket's mouth under a roof) are tried first, those nearer
+ * the parting height (`height`, along dir; default the top) last, so
+ * one patch per opening is kept and blind pockets get none. Returns [{ patch, area, w, uv, planar }].
+ */
+export function throughOpenings(body, dir, { height = null, surface = null, margin = null } = {}) {
+  const R = rep();
+  const d = unit(dir); const size = sizeOf(body);
+  const { u, v } = basis(d);
+  const cands = [];
   for (const face of body.faces) {
-    if (face.geomType !== 'PLANE') continue;
-    let n;
-    try { n = unit(vec(face.normalAt(face.center))); } catch { continue; }
-    if (Math.abs(dot(n, dir)) < 0.999) continue;
     for (const wire of face.clone().innerWires()) {
-      let patch;
-      try { patch = R.makeFace(wire); } catch { continue; }
-      const area = R.measureArea(patch);
+      let p;
+      try { p = patchOf(wire, size); } catch { continue; }
+      let area = 0; try { area = R.measureArea(p.patch); } catch { continue; }
       if (!(area > 1e-9)) continue;
-      const c = vec(patch.center);
-      // Through: the opening's footprint swept from below the part to above it holds none of it.
-      let through = false;
-      try {
-        const tool = prism(patch.clone().translate(mul(dir, -span / 2)), mul(dir, span));
-        const common = R.measureVolume(body.clone().intersect(tool));
-        through = common < area * size * 1e-6;
-      } catch { through = false; }
-      if (!through) continue;
-      found.push({ patch, area, w: dot(c, dir), uv: [dot(c, u), dot(c, v)] });
+      const c = vec(p.patch.center);
+      cands.push({ patch: p.patch, planar: p.planar, area, w: dot(c, d), uv: [dot(c, u), dot(c, v)] });
     }
   }
-  // An opening shows on both faces it goes through: keep one per opening.
-  const target = height ?? Math.max(...found.map((x) => x.w), -Infinity);
-  const out = [];
-  for (const x of found.sort((a, b) => Math.abs(a.w - target) - Math.abs(b.w - target))) {
-    if (out.some((y) => Math.hypot(y.uv[0] - x.uv[0], y.uv[1] - x.uv[1]) < size * 1e-5 && Math.abs(y.area - x.area) < x.area * 1e-4)) continue;
-    out.push(x);
+  if (!cands.length) return [];
+  // A patch across the pull must let the mould pull off both its sides (a hole's pin, not the mouth of a pocket
+  // under a roof): the others go first when patches are dropped.
+  const rays = rayCaster(body, d);
+  try {
+    for (const c of cands) {
+      const pts = faceSamples(c.patch, 3, size);
+      const across = pts.filter((r) => Math.abs(dot(r.n, d)) > 0.5);
+      c.releases = !across.length || across.every((r) => !rays.blocked(add(r.p, mul(d, rays.eps)), 1) && !rays.blocked(sub(r.p, mul(d, rays.eps)), -1));
+    }
+  } finally { rays.delete(); }
+  const m = margin ?? Math.max(2, size * 0.1);
+  let surf = surface;
+  if (!surf) { try { surf = partingSurfaceOf(body, d, m * 2 + 10).surface; } catch { surf = null; } }
+  const target = height ?? Math.max(...cands.map((x) => x.w));
+  if (!surf) surf = levelPlane(body, d, height ?? (() => { const [lo, hi] = body.boundingBox.bounds; return dot(mul(add(lo, hi), 0.5), d); })(), m);
+  const { block, top, bottom } = blockOf(body, d, m);
+  const mould = block.cut(body.clone());
+  const total = Math.abs(R.measureVolume(mould));
+  const tol = total * 1e-6;
+  const bad = (list) => unpartedVolume(mould, [surf, ...list.map((c) => c.patch)], d, top, bottom, total);
+  // The parting surface alone parts the block: no opening needs a patch.
+  if (bad([]) <= tol) return [];
+  // Every opening patched, then patches dropped (farthest from the parting height first) while the mould space
+  // parts no worse without them: what is left is one patch per opening that joins core and cavity.
+  const keep = [...cands].sort((a, b) => Number(b.releases) - Number(a.releases) || Math.abs(a.w - target) - Math.abs(b.w - target) || b.area - a.area);
+  let cur = bad(keep);
+  for (const c of [...keep].reverse()) {
+    const rest = keep.filter((x) => x !== c);
+    const next = bad(rest);
+    if (next <= cur + tol) { keep.splice(keep.indexOf(c), 1); cur = next; }
   }
+  const out = keep;
   return out;
 }
 
@@ -118,7 +198,7 @@ function buildShutOff(f, ctx) {
   if (!openings.length) throw codeError('no-openings');
   ctx.shutOff = openings.map((o) => o.patch);
   const surface = openings.length === 1 ? openings[0].patch.clone() : R.makeCompound(openings.map((o) => o.patch.clone()));
-  return { surface, shutOff: { count: openings.length, area: openings.reduce((s, o) => s + o.area, 0) } };
+  return { surface, shutOff: { count: openings.length, area: openings.reduce((s, o) => s + o.area, 0), filled: openings.filter((o) => !o.planar).length } };
 }
 
 // ───────────────────────── parting surface
@@ -140,45 +220,142 @@ export function edgeLoops(edges, tol = 1e-6) {
   return loops;
 }
 
-/** Area of the loop's footprint across the pull (its bounding rectangle in u, v): picks the outer loop. */
-function footprint(loop, u, v) {
-  const pts = loop.flatMap((e) => [0, 0.25, 0.5, 0.75, 1].map((t) => vec(e.pointAt(t))));
-  const us = pts.map((p) => dot(p, u)); const vs = pts.map((p) => dot(p, v));
-  return (Math.max(...us) - Math.min(...us)) * (Math.max(...vs) - Math.min(...vs));
+/** Sews faces into a shell (shared side lines become one edge); the plain compound when sewing fails. */
+function sewn(faces, tol) {
+  const R = rep(); const oc = R.getOC();
+  if (faces.length === 1) return faces[0];
+  const sw = new oc.BRepBuilderAPI_Sewing(tol, true, true, true, false);
+  try {
+    for (const f of faces) sw.Add(f.wrapped);
+    sw.Perform(new oc.Message_ProgressRange());
+    const out = R.cast(sw.SewedShape());
+    if (out.faces.length >= faces.length) return out;
+  } catch { /* the compound */ } finally { sw.delete(); }
+  return R.makeCompound(faces);
+}
+
+const rotateAbout = (p, axis, a) => {
+  const c = Math.cos(a); const s = Math.sin(a);
+  return add(add(mul(p, c), mul(cross(axis, p), s)), mul(axis, dot(axis, p) * (1 - c)));
+};
+
+/**
+ * Strips that follow a parting loop (records { edge, core, other } from partingLoops) outward by `D`: each edge
+ * joined to its copy pushed along its outward direction — 'normal': square to the pull, along the other face's
+ * normal (the wall the line runs on); 'tangent': on the tangent plane of the face most square to the pull,
+ * square to the edge. At a convex corner a fan of flat triangles closes the gap between the two strips; at a
+ * concave one both strips share a mitred side line. Returns { faces, fans }.
+ */
+export function followingStrips(recs, dir, D, mode = 'normal', { centre = null } = {}) {
+  const R = rep(); const oc = R.getOC();
+  const d = unit(dir);
+  const all = recs.flatMap((r) => [vec(r.edge.startPoint), vec(r.edge.endPoint)]);
+  const size = Math.max(1e-6, ...all.flatMap((p) => all.map((q) => len(sub(p, q)))));
+  const ctr = centre ?? mul(all.reduce((a, p) => add(a, p), [0, 0, 0]), 1 / Math.max(1, all.length));
+  const across = (n) => unit(sub(n, mul(d, dot(n, d))));
+  const nOf = (face, p) => { try { return unit(vec(face.normalAt(p))); } catch { return [0, 0, 0]; } };
+  const nonzero = (a) => len(a) > 1e-6;
+  const outward = (r, e, p, t) => {
+    const nO = nOf(r.other, p); const nC = nOf(r.core, p);
+    let o = across(nO);
+    if (!nonzero(o)) o = across(nC);
+    if (!nonzero(o)) o = across(sub(p, ctr));
+    if (mode === 'tangent') {
+      const f = Math.abs(dot(nC, d)) >= Math.abs(dot(nO, d)) ? nC : nO;
+      let tg = [0, 0, 0]; try { tg = unit(vec(e.tangentAt(t))); } catch { /* none */ }
+      let ot = unit(cross(tg, f));
+      if (dot(ot, add(nC, nO)) < 0 || (Math.abs(dot(add(nC, nO), ot)) < 1e-9 && dot(ot, o) < 0)) ot = mul(ot, -1);
+      if (nonzero(ot) && Math.abs(dot(ot, d)) < 0.98) o = ot;
+    }
+    return o;
+  };
+  const items = recs.map((r) => {
+    const e = forward(r.edge);
+    const K = e.geomType === 'LINE' ? 1 : 16;
+    const ts = Array.from({ length: K + 1 }, (_, k) => k / K);
+    const pts = ts.map((t) => vec(e.pointAt(t)));
+    const os = ts.map((t, k) => outward(r, e, pts[k], t));
+    let tg0 = [0, 0, 0]; let tg1 = [0, 0, 0];
+    try { tg0 = unit(vec(e.tangentAt(0))); tg1 = unit(vec(e.tangentAt(1))); } catch { /* none */ }
+    return { e, pts, os, tg0, tg1 };
+  });
+  const key = (p) => p.map((x) => Math.round(x / (size * 1e-6))).join(',');
+  const at = new Map();
+  items.forEach((it, i) => { for (const end of [0, 1]) { const k = key(end ? it.pts.at(-1) : it.pts[0]); if (!at.has(k)) at.set(k, []); at.get(k).push({ i, end }); } });
+  const fans = [];
+  for (const list of at.values()) {
+    if (list.length !== 2) continue;
+    const [A, B] = list;
+    const a = items[A.i]; const b = items[B.i];
+    const oA = A.end ? a.os.at(-1) : a.os[0]; const oB = B.end ? b.os.at(-1) : b.os[0];
+    const theta = Math.acos(Math.max(-1, Math.min(1, dot(oA, oB))));
+    if (theta < 1e-6) continue;
+    // Convex when each outward direction points back along the other edge (works when an edge arrives across the pull).
+    const arriveA = A.end ? a.tg1 : mul(a.tg0, -1); const leaveB = B.end ? mul(b.tg1, -1) : b.tg0;
+    const V = A.end ? a.pts.at(-1) : a.pts[0];
+    if (dot(oB, arriveA) - dot(oA, leaveB) > 1e-9) fans.push({ V, oA, oB, theta });
+    else {
+      const miter = mul(unit(add(oA, oB)), 1 / Math.max(0.25, Math.cos(theta / 2)));
+      if (A.end) a.os[a.os.length - 1] = miter; else a.os[0] = miter;
+      if (B.end) b.os[b.os.length - 1] = miter; else b.os[0] = miter;
+    }
+  }
+  const faces = [];
+  for (const it of items) {
+    const q = it.pts.map((p, k) => add(p, mul(it.os[k], D)));
+    const offset = q.length === 2 ? R.makeLine(q[0], q[1]) : R.makeBSplineApproximation(q, { tolerance: size * 1e-7 + 1e-9, smoothing: null, degMax: 3, degMin: 1 });
+    const ts = new oc.BRepOffsetAPI_ThruSections(false, true, 1e-6);
+    try {
+      ts.AddWire(R.assembleWire([it.e]).wrapped);
+      ts.AddWire(R.assembleWire([offset]).wrapped);
+      ts.Build(new oc.Message_ProgressRange());
+      if (ts.IsDone()) faces.push(...R.cast(ts.Shape()).faces);
+    } finally { ts.delete(); }
+  }
+  for (const { V, oA, oB, theta } of fans) {
+    let axis = unit(cross(oA, oB));
+    if (!nonzero(axis)) axis = d;
+    const m = Math.max(1, Math.ceil(theta / (Math.PI / 6)));
+    const dirs = Array.from({ length: m + 1 }, (_, i) => rotateAbout(oA, axis, (theta * i) / m));
+    for (let i = 0; i < m; i++) faces.push(R.makePolygon([V, add(V, mul(dirs[i], D)), add(V, mul(dirs[i + 1], D))]));
+  }
+  return { faces, fans: fans.length };
 }
 
 /**
- * The parting surface of the body for a pull along `dir`: from the outer loop of its parting line, `distance`
- * outward. Flat parting line → one planar face (a rectangle around the part with its outline cut out); otherwise
- * ruled strips from each parting edge out along the line from the part's middle through its ends.
- * Returns { surface, planar, height, loop (edges) }.
+ * The parting surface of the body for a pull along `dir`: from the outer parting loop, `distance` outward. Level
+ * parting line → one planar face (a rectangle around the part with its outline cut out); otherwise strips that
+ * follow the line (`mode`: 'normal' | 'tangent' | 'ruled'). Returns { surface, planar, height, loop (edges),
+ * mode, faces (count), split (faces split at their silhouette) }.
  */
-export function partingSurfaceOf(body, dir, distance = 30) {
-  const R = rep(); const oc = R.getOC();
-  const edges = partingEdges(body, dir);
-  if (!edges.length) throw codeError('no-edges');
-  const { u, v } = basis(dir);
-  const loops = edgeLoops(edges, sizeOf(body) * 1e-7);
-  const outer = loops.reduce((m, l) => (footprint(l, u, v) > footprint(m, u, v) ? l : m), loops[0]);
-  const ws = outer.flatMap((e) => [0, 0.5, 1].map((t) => dot(vec(e.pointAt(t)), dir)));
+export function partingSurfaceOf(body, dir, distance = 30, { mode = 'normal' } = {}) {
+  const R = rep();
+  const d = unit(dir);
+  const pl = partingLoops(body, d);
+  if (pl.outer < 0) throw codeError('no-edges');
+  const recs = pl.loops[pl.outer];
+  const outer = recs.map((r) => r.edge);
+  const { u, v } = basis(d);
+  const ws = outer.flatMap((e) => [0, 0.25, 0.5, 0.75, 1].map((t) => dot(vec(e.pointAt(t)), d)));
   const height = ws.reduce((s, x) => s + x, 0) / ws.length;
-  const planar = Math.max(...ws) - Math.min(...ws) < sizeOf(body) * 1e-6;
+  const size = sizeOf(body);
+  const planar = Math.max(...ws) - Math.min(...ws) < size * 1e-6;
   const D = Math.max(1, num(distance, 30));
+  const ctr = (() => { const [lo, hi] = body.boundingBox.bounds; return mul(add(lo, hi), 0.5); })();
   if (planar) {
     const pts = outer.flatMap((e) => [0, 0.5, 1].map((t) => vec(e.pointAt(t))));
     const us = pts.map((p) => dot(p, u)); const vs = pts.map((p) => dot(p, v));
     const u0 = Math.min(...us) - D; const u1 = Math.max(...us) + D; const v0 = Math.min(...vs) - D; const v1 = Math.max(...vs) + D;
-    const P = (a, b) => add(add(mul(u, a), mul(v, b)), mul(dir, height));
+    const P = (a, b) => add(add(mul(u, a), mul(v, b)), mul(d, height));
     const c = [P(u0, v0), P(u1, v0), P(u1, v1), P(u0, v1)];
     const rect = R.assembleWire(c.map((p, i) => R.makeLine(p, c[(i + 1) % 4])));
     const hole = R.assembleWire(outer.map((e) => e.clone()));
-    return { surface: R.addHolesInFace(R.makeFace(rect), [hole]), planar, height, loop: outer };
+    return { surface: R.addHolesInFace(R.makeFace(rect), [hole]), planar, height, loop: outer, mode: 'planar', faces: 1, split: pl.split };
   }
-  // Ruled strips: each parting edge to its copy pushed out (the push at a shared end is the same for both edges).
-  const ctr = (() => { const [lo, hi] = body.boundingBox.bounds; return mul(add(lo, hi), 0.5); })();
-  const strips = ruledStrips(outer, dir, ctr, D);
-  if (!strips.length) throw codeError('kernel');
-  return { surface: strips.length === 1 ? strips[0] : R.makeCompound(strips), planar, height, loop: outer };
+  const m = PARTING_MODES.includes(mode) ? mode : 'normal';
+  const faces = m === 'ruled' ? ruledStrips(outer, d, ctr, D) : followingStrips(recs, d, D, m, { centre: ctr }).faces;
+  if (!faces.length) throw codeError('kernel');
+  return { surface: sewn(faces, size * 1e-5), planar, height, loop: outer, mode: m, faces: faces.length, split: pl.split };
 }
 
 /**
@@ -188,13 +365,14 @@ export function partingSurfaceOf(body, dir, distance = 30) {
 export function ruledStrips(edges, dir, ctr, D) {
   const R = rep(); const oc = R.getOC();
   const { u } = basis(dir);
-  const push = (p) => { const r = sub(p, ctr); const across = sub(r, mul(dir, dot(r, dir))); const o = unit(across); return add(p, mul(o.some(Boolean) ? o : u, D)); };
+  const push = (p) => { const r = sub(p, ctr); const acr = sub(r, mul(dir, dot(r, dir))); const o = unit(acr); return add(p, mul(o.some(Boolean) ? o : u, D)); };
   const strips = [];
-  for (const e of edges) {
+  for (const edge of edges) {
+    const e = forward(edge);
     const a = vec(e.startPoint); const b = vec(e.endPoint);
     const ts = new oc.BRepOffsetAPI_ThruSections(false, true, 1e-6);
     try {
-      ts.AddWire(R.assembleWire([e.clone()]).wrapped);
+      ts.AddWire(R.assembleWire([e]).wrapped);
       ts.AddWire(R.assembleWire([R.makeLine(push(a), push(b))]).wrapped);
       ts.Build(new oc.Message_ProgressRange());
       if (ts.IsDone()) strips.push(...R.cast(ts.Shape()).faces);
@@ -206,11 +384,12 @@ export function ruledStrips(edges, dir, ctr, D) {
 function buildPartingSurface(f, ctx) {
   if (!ctx.body) throw codeError('no-body');
   const { dir, key } = pullOf(f, ctx);
-  const ps = partingSurfaceOf(ctx.body, dir, num(f.distance, 30));
-  ctx.partingSurface = { shape: ps.surface, dir, key, height: ps.height, planar: ps.planar, distance: num(f.distance, 30) };
+  const mode = PARTING_MODES.includes(f.mode) ? f.mode : 'normal';
+  const ps = partingSurfaceOf(ctx.body, dir, num(f.distance, 30), { mode });
+  ctx.partingSurface = { shape: ps.surface, dir, key, height: ps.height, planar: ps.planar, distance: num(f.distance, 30), mode };
   ctx.parting ??= { dir, height: ps.height, key };
   const undercuts = undercutCount(ctx.body, dir);
-  return { surface: ps.surface, partingSurface: { planar: ps.planar, height: ps.height, edges: ps.loop.length }, undercuts };
+  return { surface: ps.surface, partingSurface: { planar: ps.planar, height: ps.height, edges: ps.loop.length, mode: ps.mode, faces: ps.faces, split: ps.split }, undercuts };
 }
 
 // ───────────────────────── core and cavity by surfaces
@@ -218,29 +397,21 @@ function buildPartingSurface(f, ctx) {
 /**
  * Core and cavity: the tooling block (`margin` around the part) minus the part, split by the parting surface and
  * the shut-off patches; pieces reaching the block's top (along the pull) are the cavity, those reaching its bottom
- * the core. Returns { cavity, core, pieces, undercuts }. Throws when the surfaces do not part the block.
+ * the core. Returns { cavity, core, pieces }. Throws when the surfaces do not part the block.
  */
 export function coreCavity(body, { dir, surface, shutOffs = [], margin = 10 }) {
   const R = rep();
-  const [lo, hi] = body.boundingBox.bounds;
   const m = Math.max(1, num(margin, 10));
-  const block = R.makeBox(lo.map((x) => x - m), hi.map((x) => x + m));
+  const { block, top, bottom } = blockOf(body, dir, m);
   const mould = block.cut(body.clone());
   const split = splitWith(mould, [surface.clone(), ...shutOffs.map((s) => s.clone())]);
   const solids = split.solids ?? [];
   if (solids.length < 2) throw codeError('not-parted');
-  const top = Math.max(...[lo, hi].flatMap((p) => [-m, m].map((k) => dot(p, dir) + k)));
-  const bottom = Math.min(...[lo, hi].flatMap((p) => [-m, m].map((k) => dot(p, dir) + k)));
-  const span = top - bottom;
   const cav = []; const cor = [];
   for (const s of solids) {
-    const [a, b] = s.boundingBox.bounds;
-    const ws = [];
-    for (const x of [a[0], b[0]]) for (const y of [a[1], b[1]]) for (const z of [a[2], b[2]]) ws.push(dot([x, y, z], dir));
-    const wMax = Math.max(...ws); const wMin = Math.min(...ws);
-    const touchTop = Math.abs(wMax - top) < span * 1e-6; const touchBottom = Math.abs(wMin - bottom) < span * 1e-6;
-    if (touchTop && !touchBottom) cav.push(s);
-    else if (touchBottom && !touchTop) cor.push(s);
+    const r = reach(s, dir, top, bottom);
+    if (r === 'top') cav.push(s);
+    else if (r === 'bottom') cor.push(s);
     else throw codeError('not-parted');
   }
   if (!cav.length || !cor.length) throw codeError('not-parted');
@@ -254,10 +425,11 @@ export function toolingSplitBySurfaces(f, ctx) {
   const ps = ctx.partingSurface;
   const { dir } = ps ?? pullOf(f, ctx);
   const surface = ps?.shape ?? partingSurfaceOf(ctx.body, dir, num(f.margin, 10) * 2 + 10).surface;
-  // Through openings without shut-off patches would join core and cavity: patch them here.
-  const shutOffs = ctx.shutOff ?? throughOpenings(ctx.body, dir, { height: ps?.height ?? ctx.parting?.height ?? null }).map((o) => o.patch);
-  const margin = Math.min(num(f.margin, 10), (ps?.distance ?? Infinity) - 0.5);
-  const { cavity, core, pieces } = coreCavity(ctx.body, { dir, surface, shutOffs, margin: Math.max(1, margin) });
+  // The strips' outer border (corner fans) lies at least cos 15° of the distance out: the block stays inside it.
+  const margin = Math.max(1, Math.min(num(f.margin, 10), (ps?.distance ?? Infinity) * 0.95 - 0.5));
+  // Openings without shut-off patches would join core and cavity: patch them here.
+  const shutOffs = ctx.shutOff ?? throughOpenings(ctx.body, dir, { height: ps?.height ?? ctx.parting?.height ?? null, surface, margin }).map((o) => o.patch);
+  const { cavity, core, pieces } = coreCavity(ctx.body, { dir, surface, shutOffs, margin });
   const gap = Math.max(0, num(f.gap, 30));
   const show = f.show ?? 'both';
   const out = [];
