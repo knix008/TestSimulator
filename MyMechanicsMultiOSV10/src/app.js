@@ -11,11 +11,22 @@ import * as THREE from 'three';
 import APP_ICON from '../assets/icon-256.png';
 import { loadKernel, kernelReady, rep } from './cad/kernel.js';
 import { createProject, createPart, createAssembly, addDrawing, documentsOf, findDocument, History, packProject, unpackProject, newId } from './cad/document.js';
-import { regenerate, createFeature, setFeatureNamer, allDependents, faceRef, resolvePlane, frame as makeFrame, STD_PLANES, usableSketches, toSketch, nameKey } from './cad/features.js';
-import { createSketchGeometry, addRelation, analyse, byId, standalonePoints } from './cad/sketch.js';
+import { regenerate, createFeature, setFeatureNamer, allDependents, faceRef, resolvePlane, frame as makeFrame, STD_PLANES, usableSketches, toSketch, nameKey, TOOL_FEATURES, textOutline } from './cad/features.js';
+import { createSketchGeometry, addRelation, analyse, byId, standalonePoints, profiles, polyline } from './cad/sketch.js';
+import { sketchUse, STRUCTURAL_PROFILES, ADVANCED_TYPES } from './cad/advanced.js';
+import { equationRows, addConfiguration, setSuppressedIn, designTableCsv, applyDesignTable, activeConfiguration, nextVariableName, evaluate, variableValues } from './cad/params.js';
+import { analyse as analyseFea, stressColor, thermal as analyseThermal, modal as analyseModal, temperatureColor } from './cad/fea.js';
+import { THREAD_SIZES } from './ui/pm-advanced.js';
+import { PART_MORE_TYPES, CURVE_TYPES, PART_MORE_ICONS } from './cad/part-more-types.js';
+import { countSolids } from './cad/part-more.js';
+import { startParams as partMoreParams } from './ui/pm-part-more.js';
+import { sheetMoreStart, weldmentCutRows, hasWeldments } from './ui/pm-sheet-more.js';
+import { SHEET_MORE_TYPES, SHEET_MORE_ICONS } from './cad/sheet-more-types.js';
+import { convertEntities, intersectionEntities, transformEntities } from './cad/sketch-more.js';
+import { syncSlider } from './ui/sliders.js';
 import { edgeSignature, faceSignature } from './cad/refs.js';
-import { solveMates, placeShape, interferences, mateEntityOfFace, quatIdentity, quatToAxisAngle, instanceName, quatFromAxisAngle, quatMultiply } from './cad/assembly.js';
-import { projectView, drawingSvg, drawingDxf, layoutViews, SHEETS } from './cad/drawing.js';
+import { solveMates, placeShape, interferences, mateEntityOfFace, quatIdentity, quatToAxisAngle, instanceName, quatFromAxisAngle, quatMultiply, captureMate, mateTouches, MATE_REFS, MATE_DEFAULTS, explodedPlacement, autoExplode, motionFrame, flattenAssembly, composePlacement, placePoint, placeDir } from './cad/assembly.js';
+import { projectView, drawingSvg, drawingDxf, layoutViews, SHEETS, projectionKey, bomRows, VIEW_CAMERAS } from './cad/drawing.js';
 import { MATERIALS, materialOf, materialName, massOf } from './cad/materials.js';
 import { SAMPLES, buildSample } from './cad/samples.js';
 import { Viewport, hitKey } from './view/viewport.js';
@@ -33,10 +44,12 @@ import { getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
 import * as native from './platform/native.js';
 import { PopupHost } from './platform/popups.js';
+import { createPrintHost } from './print/host.js';
 import { applyFont, applyTheme, randomThemeId, resolveTheme, themeName } from './themes.js';
 import { escapeHtml, frameThrottle, isMac, keyLabel, pointerDrag } from './ui/dom.js';
 import { DOC_KINDS, docLabel, docWindowTitle } from './domain/helpdocs.js';
 import { PROGRESS_ICONS, PROGRESS_NAME_ICONS } from './ui/progressicons.js';
+import { createMoreTools } from './app-more.js';
 
 const root = document.querySelector('#app');
 const desktop = native.isDesktop();
@@ -198,15 +211,17 @@ function tessellate(body) {
 function buildPart(part, { upTo = undefined, features = null, slot = 'main' } = {}) {
   const feats = features ?? part.features;
   const limit = upTo === undefined ? part.rollback ?? null : upTo;
-  const key = JSON.stringify([feats, limit, state.settings.meshQuality]);
+  // Other parts this one inserts (Insert Part / Cavity) rebuild it when they change.
+  const deps = feats.filter((f) => f.type === 'insertPart').map((f) => project()?.parts.find((x) => x.id === f.part)?.features ?? null);
+  const key = JSON.stringify([feats, limit, state.settings.meshQuality, part.flat ?? false, part.variables ?? null, part.configurations ?? null, part.config ?? null, deps]);
   const cacheKey = `${part.id}:${slot}`;
   const cached = builds.get(cacheKey);
   if (cached?.key === key) return cached;
   const t0 = performance.now();
-  const result = regenerate({ ...part, features: feats }, { upTo: limit });
+  const result = regenerate({ ...part, features: feats }, { upTo: limit, project: project() });
   let tess = { mesh: null };
   try { tess = tessellate(result.body); } catch (error) { console.warn('tessellate', error); }
-  const entry = { key, result, body: result.body, ...tess, ms: performance.now() - t0 };
+  const entry = { key, result, body: result.body, ...tess, ms: performance.now() - t0, extras: tessellateExtras(result, tess.size ?? 100) };
   builds.set(cacheKey, entry);
   return entry;
 }
@@ -384,12 +399,15 @@ function mountViewport() {
   host.innerHTML = '';
   viewport = new Viewport(host, {
     onStats: (s) => { state.stats = s; },
-    onCamera: (camera) => { if (doc() && activeKind() !== 'drawing') doc().project.camera = camera; if (sketching()) { clearTimeout(mountViewport.grid); mountViewport.grid = setTimeout(() => state.editing?.editor?.render(), 60); } },
+    onCamera: (camera) => { more.onCamera(); if (doc() && activeKind() !== 'drawing') doc().project.camera = camera; if (sketching()) { clearTimeout(mountViewport.grid); mountViewport.grid = setTimeout(() => state.editing?.editor?.render(), 60); } },
     onPick: (hit, e) => onViewportPick(hit, e),
     onHover: (hit) => { state.hover = hit; renderPointer(hit); },
     onContext: (hit, e) => viewportContextMenu(hit, e),
     onDoubleClick: (hit) => onViewportDoubleClick(hit),
     tool: () => (sketching() ? state.editing.editor : null),
+    onScaleBarMoved: (pos) => updateSettings({ scaleBarPos: pos }, { quiet: true }),
+    onLightSelect: (id) => { if (state.editing?.mode === 'lights') { state.editing.selected = id; renderLeft(); } },
+    onLightMoved: (id, position) => { if (!position) return; change('op.light', (p) => { const l = sceneLights(p).lights.find((x) => x.id === id); if (l) l.position = position; }); },
     invertZoom: () => state.settings.invertZoom,
   });
   viewport.setStyle(state.settings.displayStyle);
@@ -403,8 +421,96 @@ function fitView(animate = true) {
 }
 
 /** Shows the active document: bodies, planes, sketches and previews. */
+/** The document's lights (DisplayManager › Lights): ambient, the light that follows the camera, placed lights. */
+function sceneLights(p) {
+  p.lights ??= { ambient: { color: '#ffffff', ground: '#8a8f99', intensity: 1.1 }, cameraLight: { on: true, color: '#ffffff', intensity: 1.6 }, lights: [] };
+  p.lights.lights ??= [];
+  return p.lights;
+}
+
+const LIGHT_KINDS = ['directional', 'point', 'spot'];
+
+function startLights() {
+  if (!project() || activeKind() === 'drawing') { notify('info', t('notice.lightsNeedModel')); return; }
+  if (state.editing) cancelEditing({ quiet: true });
+  state.editing = { mode: 'lights', selected: sceneLights(project()).lights[0]?.id ?? null };
+  state.leftTab = 'pm';
+  syncView();
+  renderAll();
+}
+
+function addLight(kind) {
+  const box = viewport?.contentBox();
+  const size = box && !box.isEmpty() ? box.getSize(new THREE.Vector3()).length() : 200;
+  const c = box && !box.isEmpty() ? box.getCenter(new THREE.Vector3()).toArray() : [0, 0, 0];
+  const n = sceneLights(project()).lights.length + 1;
+  const light = { id: newId('light'), name: `${t(`light.${kind}`)}${n}`, kind, color: kind === 'spot' ? '#fff3d6' : '#ffffff', intensity: kind === 'directional' ? 1 : 0.8, position: [c[0] + size * 0.6, c[1] + size * 0.8, c[2] + size * 0.5].map((v) => Math.round(v)), target: c.map((v) => Math.round(v)), angle: 30, on: true };
+  change('op.light', (p) => { sceneLights(p).lights.push(light); });
+  state.editing.selected = light.id;
+  syncView();
+  renderLeft();
+}
+
+function lightsPm(e) {
+  const L = sceneLights(project());
+  const color = (key, value) => `<input type="color" data-pm-field="${escapeHtml(key)}" value="${escapeHtml(value)}"/>`;
+  const row = (label, body, glyph = 'smartDim') => `<label class="pm-field">${icon(glyph)}<span class="pm-label">${escapeHtml(label)}</span>${body}</label>`;
+  const num = (key, value, unit = '') => `<input type="text" class="pm-text short" data-pm-field="${escapeHtml(key)}" data-num data-unit-label="${escapeHtml(unit)}" value="${escapeHtml(fmt(value, 3))}" spellcheck="false"/>`;
+  const vec3 = (key, v) => `<span class="pm-vec3">${[0, 1, 2].map((i) => num(`${key}.${i}`, v[i])).join('')}</span>`;
+  const list = L.lights.map((l) => `<div class="light-row ${e.selected === l.id ? 'active' : ''}"><button class="icon-button" data-pm="selLight:${escapeHtml(l.id)}" title="${escapeHtml(t('light.select'))}">${icon(l.kind === 'directional' ? 'sun' : 'bulb')}</button><span class="grow">${escapeHtml(l.name)}</span><label class="pm-check"><input type="checkbox" data-pm-toggle="light:${escapeHtml(l.id)}:on" ${l.on !== false ? 'checked' : ''}/></label><button class="icon-button" data-pm="delLight:${escapeHtml(l.id)}" title="${escapeHtml(t('action.delete'))}">${icon('trash', 'icon tiny')}</button></div>`).join('');
+  const sel = L.lights.find((l) => l.id === e.selected);
+  const props = sel ? pmGroup(sel.kind === 'directional' ? 'sun' : 'bulb', t('light.properties', { name: sel.name }), [
+    row(t('pm.name'), `<input type="text" class="pm-text" data-pm-field="light:${sel.id}:name" value="${escapeHtml(sel.name)}" spellcheck="false"/>`, 'edit'),
+    `<div class="pm-row">${pmSeg(`light:${sel.id}:kind`, LIGHT_KINDS.map((k) => [k, t(`light.${k}`)]), sel.kind)}</div>`,
+    row(t('light.color'), color(`light:${sel.id}:color`, sel.color), 'palette'),
+    row(t('light.intensity'), num(`light:${sel.id}:intensity`, sel.intensity), 'sun'),
+    row(t('light.position'), vec3(`light:${sel.id}:position`, sel.position), 'position'),
+    sel.kind !== 'point' ? row(t('light.target'), vec3(`light:${sel.id}:target`, sel.target ?? [0, 0, 0]), 'origin') : '',
+    sel.kind === 'spot' ? row(t('light.angle'), num(`light:${sel.id}:angle`, sel.angle ?? 30), 'dimAngle') : '',
+    `<p class="pm-note">${escapeHtml(t('light.dragHint'))}</p>`,
+  ].join('')) : '';
+  return [
+    pmHead('bulb', t('cmd.lights'), t('pm.help.lights')),
+    pmGroup('sun', t('light.ambient'), `${row(t('light.color'), color('amb:color', L.ambient.color), 'palette')}${row(t('light.groundColor'), color('amb:ground', L.ambient.ground ?? '#8a8f99'), 'palette')}${row(t('light.intensity'), num('amb:intensity', L.ambient.intensity), 'sun')}`),
+    pmGroup('eye', t('light.cameraLight'), `<label class="pm-check"><input type="checkbox" data-pm-toggle="cam:on" ${L.cameraLight.on !== false ? 'checked' : ''}/><span>${escapeHtml(t('light.followsCamera'))}</span></label>${row(t('light.color'), color('cam:color', L.cameraLight.color), 'palette')}${row(t('light.intensity'), num('cam:intensity', L.cameraLight.intensity), 'sun')}`),
+    pmGroup('bulb', t('light.list'), `${list || `<p class="pm-note">${escapeHtml(t('light.none'))}</p>`}<div class="pm-relations">${LIGHT_KINDS.map((k) => pmButton(`addLight:${k}`, k === 'directional' ? 'sun' : 'bulb', t(`light.add.${k}`))).join('')}</div>`),
+    props,
+  ].join('');
+}
+
+function lightsField(key, raw, v) {
+  const [scope, id, field] = key.split(':');
+  const text = String(raw ?? '').trim();
+  change('op.light', (p) => {
+    const L = sceneLights(p);
+    if (scope === 'amb') { if (id === 'intensity') { if (v != null && v >= 0) L.ambient.intensity = v; } else L.ambient[id] = text; return; }
+    if (scope === 'cam') { if (id === 'intensity') { if (v != null && v >= 0) L.cameraLight.intensity = v; } else L.cameraLight[id] = text; return; }
+    const l = L.lights.find((x) => x.id === id);
+    if (!l) return;
+    const [name, index] = field.split('.');
+    if (name === 'name') { if (text) l.name = text; }
+    else if (name === 'color') l.color = text;
+    else if (name === 'position' || name === 'target') { if (v != null) { l[name] = [...(l[name] ?? [0, 0, 0])]; l[name][Number(index)] = v; } }
+    else if (v != null && v >= 0) l[name] = name === 'angle' ? Math.min(89, Math.max(1, v)) : v;
+  });
+}
+
+/** Rulers, grid and scale bar (View › Show); the 3D grid steps aside while a sketch shows its own. */
+function syncGuides() {
+  if (!viewport) return;
+  const st = state.settings;
+  viewport.setGuides({ rulers: st.showRulers !== false, grid: st.showGrid !== false && !sketching(), scaleBar: st.showScaleBar !== false, unit: units(), factor: UNIT_FACTOR[units()], scaleBarPos: st.scaleBarPos ?? null, gridPlane: st.gridPlane ?? 'front' });
+  if (project()) {
+    const key = JSON.stringify(sceneLights(project()));
+    if (key !== syncGuides.lightsKey) { syncGuides.lightsKey = key; viewport.setLights(sceneLights(project())); }
+    viewport.setLightHandles(state.editing?.mode === 'lights', state.editing?.selected ?? null);
+  }
+}
+
 function syncView() {
   if (!viewport || !hasDoc()) return;
+  syncGuides();
+  renderMotionBar();
   const kind = activeKind();
   root.querySelector('#view-host').hidden = kind === 'drawing';
   root.querySelector('#drawing-host').hidden = kind !== 'drawing';
@@ -440,7 +546,9 @@ function syncPart(part) {
   }
   state.partEntry = entry;
   const ghost = e?.mode === 'sketch';
-  viewport.setBodies(entry.mesh ? [{ ...bodySpec('body', entry, part), ghost }] : []);
+  const bodies = entry.mesh ? [{ ...bodySpec('body', entry, part), ghost, ...resultColours(part, entry) }] : [];
+  for (const sf of entry.extras?.surfaces ?? []) bodies.push({ key: `surf:${sf.id}`, mesh: sf.mesh, edges: sf.edges, color: '#2fa39a', opacity: 0.55, metal: 0.1, rough: 0.6, faceIndex: new Map(), edgeIndex: new Map() });
+  viewport.setBodies(bodies);
   viewport.setPreview(preview);
   // Planes: the standard ones (always while picking a sketch plane or with no body yet) and the reference planes.
   const size = Math.max(60, (entry.size ?? 100) * 0.75);
@@ -475,6 +583,8 @@ function syncPart(part) {
       lines.push({ points: pts, color: '#f28c1e', size: 9 });
     } catch { /* face gone */ }
   }
+  // Reference curves (helices) and cosmetic threads.
+  for (const c of entry.extras?.curves ?? []) lines.push({ segments: c.segments, color: '#9c4dcc', width: 1.8 });
   viewport.setLines('markers', lines);
 }
 
@@ -484,11 +594,8 @@ function sketchLines(f, fr, color) {
   const w = (u, v) => [fr.origin[0] + fr.xDir[0] * u + fr.yDir[0] * v, fr.origin[1] + fr.xDir[1] * u + fr.yDir[1] * v, fr.origin[2] + fr.xDir[2] * u + fr.yDir[2] * v];
   for (const e of f.entities) {
     if (e.type === 'point') continue;
-    let pts = [];
-    if (e.type === 'line') { const a = map.get(e.p1); const b = map.get(e.p2); pts = [[a.x, a.y], [b.x, b.y]]; }
-    else if (e.type === 'circle') { const c = map.get(e.c); pts = Array.from({ length: 49 }, (_, i) => [c.x + e.r * Math.cos((i / 48) * Math.PI * 2), c.y + e.r * Math.sin((i / 48) * Math.PI * 2)]); }
-    else if (e.type === 'arc') { const c = map.get(e.c); const a = map.get(e.p1); const b = map.get(e.p2); const r = Math.hypot(a.x - c.x, a.y - c.y); const a0 = Math.atan2(a.y - c.y, a.x - c.x); let a1 = Math.atan2(b.y - c.y, b.x - c.x); while (a1 <= a0) a1 += Math.PI * 2; pts = Array.from({ length: 33 }, (_, i) => { const t0 = a0 + ((a1 - a0) * i) / 32; return [c.x + r * Math.cos(t0), c.y + r * Math.sin(t0)]; }); }
-    for (let i = 1; i < pts.length; i++) seg.push(...w(...pts[i - 1]), ...w(...pts[i]));
+    const polys = e.type === 'text' ? textOutline(e) : [polyline(f, e, map, 48)];
+    for (const pts of polys) for (let i = 1; i < pts.length; i++) seg.push(...w(...pts[i - 1]), ...w(...pts[i]));
   }
   const points = standalonePoints(f).flatMap((p) => w(p.x, p.y));
   return [{ segments: seg, color, width: 1.6 }, ...(points.length ? [{ points, color, size: 6 }] : [])];
@@ -522,11 +629,15 @@ function syncAssembly(asm) {
   const list = [];
   for (const c of asm.components) {
     if (c.hidden) continue;
-    const part = project().parts.find((p) => p.id === c.part);
-    if (!part) continue;
-    const entry = buildPart(part);
-    if (!entry.mesh) continue;
-    list.push(bodySpec(`comp:${c.id}`, entry, part, { matrix: componentMatrix(c) }));
+    const placed = displayPlacement(asm, c);
+    for (const leaf of componentLeaves(c)) {
+      const part = project().parts.find((p) => p.id === leaf.part);
+      if (!part) continue;
+      const entry = buildPart(part);
+      if (!entry.mesh) continue;
+      const key = leaf.path.length ? `comp:${c.id}/${leaf.path.join('/')}` : `comp:${c.id}`;
+      list.push(bodySpec(key, entry, part, { matrix: componentMatrix(leaf.path.length ? composePlacement(placed, leaf.placement) : placed) }));
+    }
   }
   viewport.setBodies(list);
   viewport.setPreview(null);
@@ -541,6 +652,23 @@ function componentMatrix(c) {
   return m;
 }
 
+/** A cam's outline (points in its component's frame) from the flat face picked as the cam. */
+function camProfile(ref) {
+  if (!ref?.sig) return [];
+  const asm = activeAssembly();
+  const comp = asm?.components.find((c) => c.id === ref.comp);
+  if (!comp) return [];
+  const leaf = ref.path?.length ? subassemblyLeaf(comp, ref.path) : null;
+  const part = project().parts.find((p) => p.id === (leaf ? leaf.part : comp.part));
+  const face = part && buildPart(part).faces?.find((f) => matchesSig(f, ref.sig));
+  if (!face) return [];
+  const pts = [];
+  // The outline edges in order, each sampled (the last point of an edge is the next one's first).
+  const wire = face.clone().outerWire();
+  for (const edge of wire.edges) for (let i = 0; i < 16; i++) { const v = edge.pointAt(i / 16); pts.push([v.x, v.y, v.z]); }
+  return leaf ? pts.map((q) => placePoint(leaf.placement, q)) : pts;
+}
+
 /** Positions the assembly's free components by its mates. */
 function solveAssembly() {
   const asm = activeAssembly();
@@ -548,11 +676,12 @@ function solveAssembly() {
   const r = solveMates(asm, { entity: (ref) => mateEntityNow(ref), size: assemblySize(asm) });
   state.mateStatus = r.status;
   state.failedMates = new Set(r.failed);
+  more.afterSolve(asm);
 }
 
 function assemblySize(asm) {
   let size = 100;
-  for (const c of asm.components) { const part = project().parts.find((p) => p.id === c.part); if (part) size = Math.max(size, buildPart(part).size ?? 0); }
+  for (const c of asm.components) for (const leaf of componentLeaves(c)) { const part = project().parts.find((p) => p.id === leaf.part); if (part) size = Math.max(size, buildPart(part).size ?? 0); }
   return size;
 }
 
@@ -560,12 +689,20 @@ function assemblySize(asm) {
 function mateEntityNow(ref) {
   const asm = project()?.assemblies.find((a) => a.components.some((c) => c.id === ref.comp));
   const comp = asm?.components.find((c) => c.id === ref.comp);
-  const part = comp && project().parts.find((p) => p.id === comp.part);
+  if (!comp) return null;
+  const leaf = ref.path?.length ? subassemblyLeaf(comp, ref.path) : null;
+  const part = project().parts.find((p) => p.id === (leaf ? leaf.part : comp.part));
   if (!part) return null;
   if (ref.sig) {
     const entry = buildPart(part);
     const face = entry.faces?.find((f) => matchesSig(f, ref.sig));
-    if (face) { try { return { comp: ref.comp, ...mateEntityOfFace(face, faceSignature) }; } catch { /* fall back */ } }
+    if (face) {
+      try {
+        const ent = { comp: ref.comp, ...mateEntityOfFace(face, faceSignature) };
+        if (leaf) { ent.point = placePoint(leaf.placement, ent.point); ent.dir = placeDir(leaf.placement, ent.dir); ent.path = ref.path; }
+        return ent;
+      } catch { /* fall back */ }
+    }
   }
   return ref;
 }
@@ -622,12 +759,15 @@ function topoOf(hit) {
     const entry = state.partEntry;
     return { entry, part: activePart(), comp: null, shape: hit.kind === 'face' ? entry?.faces?.[hit.index] : entry?.edgeList?.[hit.index] };
   }
-  const compId = String(hit.bodyKey).replace(/^comp:/, '');
+  const [compId, ...path] = String(hit.bodyKey).replace(/^comp:/, '').split('/');
   const comp = activeAssembly()?.components.find((c) => c.id === compId);
-  const part = comp && project().parts.find((p) => p.id === comp.part);
+  if (!comp) return null;
+  // A part inside a sub-assembly: its placement in the top component (mates are made in that frame).
+  const leaf = path.length ? subassemblyLeaf(comp, path) : null;
+  const part = project().parts.find((p) => p.id === (leaf ? leaf.part : comp.part));
   if (!part) return null;
   const entry = buildPart(part);
-  return { entry, part, comp, shape: hit.kind === 'face' ? entry.faces?.[hit.index] : entry.edgeList?.[hit.index] };
+  return { entry, part, comp, inner: leaf?.placement ?? null, path, shape: hit.kind === 'face' ? entry.faces?.[hit.index] : entry.edgeList?.[hit.index] };
 }
 
 function itemOfHit(hit) {
@@ -638,7 +778,7 @@ function itemOfHit(hit) {
   }
   if (hit.kind === 'face' || hit.kind === 'edge') {
     if (activeAssembly() && !state.editing) {
-      const compId = String(hit.bodyKey).replace(/^comp:/, '');
+      const compId = String(hit.bodyKey).replace(/^comp:/, '').split('/')[0];
       return { kind: 'comp', id: compId, key: `comp:${compId}` };
     }
     return { kind: hit.kind, bodyKey: hit.bodyKey, index: hit.index, key: hitKey(hit) };
@@ -652,6 +792,9 @@ function onViewportPick(hit, e) {
   if (ed?.mode === 'feature' && ed.pick) return pickForFeature(hit, e);
   if (ed?.mode === 'mate') return pickForMate(hit);
   if (ed?.mode === 'measure') return pickForMeasure(hit, e);
+  if (ed?.mode === 'simulation') return pickForSimulation(hit);
+  if (ed?.mode === 'motion') return pickForMotion(hit);
+  if (more.owns(ed)) return more.pick(hit, e);
   const item = itemOfHit(hit);
   if (!item) { if (!e.ctrlKey && !e.shiftKey) clearSelection(); return undefined; }
   select([item], { add: e.ctrlKey || e.shiftKey || e.metaKey });
@@ -661,9 +804,10 @@ function onViewportPick(hit, e) {
 function onViewportDoubleClick(hit) {
   if (state.editing) return;
   if (activeAssembly() && hit && hit.kind !== 'plane') {
-    const compId = String(hit.bodyKey ?? '').replace(/^comp:/, '');
+    const compId = String(hit.bodyKey ?? '').replace(/^comp:/, '').split('/')[0];
     const comp = activeAssembly().components.find((c) => c.id === compId);
-    if (comp) { switchDocument({ kind: 'part', id: comp.part }); notify('info', t('notice.openedPart')); }
+    if (comp?.sub) switchDocument({ kind: 'assembly', id: comp.sub });
+    else if (comp) { switchDocument({ kind: 'part', id: comp.part }); notify('info', t('notice.openedPart')); }
   }
 }
 
@@ -677,7 +821,7 @@ function renderPointer(hit) {
 
 // ───────────────────────── editing features (PropertyManager)
 
-/** Starts a new feature of `type` from the current selection (SolidWorks pre-selection). */
+/** Starts a new feature of `type` from the current selection (pre-selection). */
 async function startFeature(type) {
   const part = activePart();
   if (!part) { notify('info', t('notice.partOnly')); return; }
@@ -715,10 +859,10 @@ async function startFeature(type) {
     return beginFeature(f, { pick: 'holePoints', holeSketch });
   }
   if (type === 'linearPattern' || type === 'circularPattern' || type === 'mirror') {
-    params.seeds = sel.filter((s) => s.kind === 'feat').map((s) => part.features.find((f) => f.id === s.id)).filter((f) => f && ['extrude', 'revolve', 'hole'].includes(f.type)).map((f) => f.id);
+    params.seeds = sel.filter((s) => s.kind === 'feat').map((s) => part.features.find((f) => f.id === s.id)).filter((f) => f && TOOL_FEATURES.includes(f.type)).map((f) => f.id);
     if (!params.seeds.length) {
       const usable = part.features.slice(0, part.rollback ?? part.features.length);
-      const last = [...usable].reverse().find((f) => ['extrude', 'revolve', 'hole'].includes(f.type) && usable.indexOf(f) !== usable.findIndex((x) => ['extrude', 'revolve'].includes(x.type)));
+      const last = [...usable].reverse().find((f) => TOOL_FEATURES.includes(f.type) && usable.indexOf(f) !== usable.findIndex((x) => ['extrude', 'revolve'].includes(x.type)));
       if (last) params.seeds = [last.id];
     }
     if (type === 'mirror') { const plane = sel.find((s) => s.kind === 'plane'); if (plane) params.plane = { kind: 'std', name: plane.id }; }
@@ -730,7 +874,18 @@ async function startFeature(type) {
     else if (face && topoOf(face)?.shape?.geomType === 'PLANE') { params.base = faceRef(topoOf(face).shape); params.offset = 10; }
     return beginFeature(createFeature(part, 'plane', params), { pick: 'base' });
   }
-  return undefined;
+  if (PART_MORE_TYPES.includes(type)) {
+    // Body tools, reference geometry, fillet variants, patterns, curves: their first values come from the selection.
+    const picked = {
+      faces: sel.filter((s) => s.kind === 'face').map((s) => topoOf(s)?.shape).filter(Boolean).map(faceSignature),
+      edges: sel.filter((s) => s.kind === 'edge').map((s) => topoOf(s)?.shape).filter(Boolean).map(edgeSignature),
+      features: sel.filter((s) => s.kind === 'feat').map((s) => part.features.find((f) => f.id === s.id)).filter(Boolean),
+    };
+    const start = partMoreParams(type, part, picked, featuresBefore(part, null));
+    if (start.notice) { notify('info', t(start.notice)); return undefined; }
+    return beginFeature(createFeature(part, type, start.params), { pick: start.pick });
+  }
+  return startAdvanced(type, part);
 }
 
 /** Whether a cut sketched on `sketch` must be reversed to go into the body (the body on the normal's side). */
@@ -786,6 +941,7 @@ function acceptEditing() {
   if (!e) return undefined;
   if (e.mode === 'sketch') return exitSketch();
   if (e.mode === 'mate') return acceptMate();
+  if (more.owns(e)) return more.accept();
   if (e.mode !== 'feature') return cancelEditing({ quiet: true });
   const part = activePart();
   const result = state.previewResult;
@@ -824,11 +980,28 @@ function pickForFeature(hit, ev) {
     const sig = edgeSignature(topo.shape);
     updateFeature(() => toggle(f.edges, sig, (x) => near(x.mid, sig.mid)));
   } else if (e.pick === 'edges' && hit?.kind === 'face' && topo?.shape) {
-    // A face: all of its edges (SolidWorks fillets a face's edges when the face is picked).
+    // A face: all of its edges (picking a face fillets its edges).
     updateFeature(() => { for (const edge of topo.shape.edges) { const sig = edgeSignature(edge); if (!f.edges.some((x) => near(x.mid, sig.mid))) f.edges.push(sig); } });
   } else if (e.pick === 'faces' && hit?.kind === 'face' && topo?.shape) {
     const sig = faceSignature(topo.shape);
+    if (f.type === 'dome') { if (sig.type !== 'PLANE') { notify('info', t('notice.pickPlanarFace')); return; } updateFeature(() => { f.faces = [sig]; }); return; }
     updateFeature(() => toggle(f.faces, sig, (x) => near(x.center, sig.center)));
+  } else if (e.pick === 'points3d') {
+    // A point where the pointer meets the chosen standard plane through the last point (Tab-like plane switch in the PropertyManager).
+    const last = f.points?.at(-1) ?? [0, 0, 0];
+    const fr = makeFrame(STD_PLANES[e.drawPlane ?? 'top']);
+    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(new THREE.Vector3(...fr.normal), new THREE.Vector3(...last));
+    const p = viewport.rayAt(ev.clientX, ev.clientY).ray.intersectPlane(plane, new THREE.Vector3());
+    if (!p) return;
+    const q = p.toArray().map(round3);
+    updateFeature((g) => { g.points = [...(g.points ?? []), q]; });
+  } else if (e.pick === 'edge' && hit?.kind === 'edge' && topo?.shape) {
+    updateFeature(() => { f.edge = edgeSignature(topo.shape); });
+  } else if (e.pick === 'face' && hit?.kind === 'face' && topo?.shape) {
+    updateFeature(() => { f.face = faceSignature(topo.shape); });
+  } else if (e.pick === 'neutral' && (hit?.kind === 'plane' || (hit?.kind === 'face' && topo?.shape?.geomType === 'PLANE'))) {
+    const ref = hit.kind === 'plane' ? planeRefOf(hit.id) : faceRef(topo.shape);
+    updateFeature((g, ed) => { g.neutral = ref; ed.pick = 'faces'; });
   } else if (e.pick === 'holePoints') {
     if (!e.holeSketch.plane) {
       if (hit?.kind === 'face' && topo?.shape?.geomType === 'PLANE') e.holeSketch.plane = faceRef(topo.shape);
@@ -867,7 +1040,7 @@ function featureOfHit(hit) {
   if (!hit?.point || !part) return null;
   const entry = buildPart(part);
   const R = rep();
-  const candidates = part.features.filter((f) => ['extrude', 'revolve', 'hole'].includes(f.type) && entry.result.results.get(f.id)?.tool).reverse();
+  const candidates = part.features.filter((f) => TOOL_FEATURES.includes(f.type) && entry.result.results.get(f.id)?.tool).reverse();
   for (const f of candidates) {
     try { if (R.measureDistanceBetween(entry.result.results.get(f.id).tool, R.makeVertex(hit.point)) < 1e-3) return f.id; } catch { /* next */ }
   }
@@ -949,12 +1122,17 @@ const sketchApi = {
   formatValue: (v, kind) => (kind === 'angle' ? `${fmt(v)}°` : fmt(v / UNIT_FACTOR[units()])),
   changed: () => { renderLeft(); renderStatus(); renderToolbarState(); },
   onState: () => { renderLeft(); renderStatus(); renderToolbarState(); renderCommandManager(); },
-  askValue: async ({ type, value, edit = false }) => {
+  askText: async (value = '') => { const r = await popups.open('prompt', { title: t('sketch.tool.text'), label: t('ann.text'), value }); return r?.value ?? null; },
+  askValue: async ({ type, value, edit = false, expr = null }) => {
     if (!state.settings.editDimOnCreate && !edit) return value;
     const angle = type === 'angle';
-    const shown = angle ? fmt(value) : fmt(value / UNIT_FACTOR[units()]);
-    const result = await popups.open('prompt', { title: t('dim.modify'), label: `${t(`dim.${type}`)} (${angle ? '°' : units()})`, value: shown });
+    const shown = expr ? `=${expr}` : angle ? fmt(value) : fmt(value / UNIT_FACTOR[units()]);
+    const result = await popups.open('prompt', { title: t('dim.modify'), label: `${t(`dim.${type}`)} (${angle ? '°' : units()}) — ${t('dim.equationHint')}`, value: shown });
     if (result?.value == null) return null;
+    if (String(result.value).trim().startsWith('=')) {
+      const text = String(result.value).trim().slice(1).trim();
+      try { const v = dimensionExpression(null, {}, text); return { value: v, expr: text }; } catch (error) { notify('error', t('notice.badEquation', { text, code: t(`expr.${error.code ?? 'syntax'}`, null, error.code ?? '') })); return null; }
+    }
     const v = parseLen(result.value, angle ? 'angle' : 'length');
     if (v == null || (!angle && v <= 0)) { notify('error', t('notice.invalidValue', { text: result.value })); return null; }
     return v;
@@ -1045,10 +1223,13 @@ function pickForMate(hit) {
   const topo = topoOf(hit);
   if (hit?.kind !== 'face' || !topo?.comp) { notify('info', t('notice.pickComponentFace')); return; }
   const ent = { comp: topo.comp.id, ...mateEntityOfFace(topo.shape, faceSignature) };
+  // A face of a part inside a sub-assembly: in the top component's frame, re-read through its path.
+  if (topo.inner) { ent.point = placePoint(topo.inner, ent.point); ent.dir = placeDir(topo.inner, ent.dir); ent.path = topo.path; }
+  if (e.pick === 'c' || e.pick === 'd') { e.mate[e.pick] = ent; e.pick = e.pick === 'c' && MATE_REFS[e.mate.type]?.d ? 'd' : null; previewMate(); return; }
   if (e.pick === 'a' || !e.mate.a) { e.mate.a = ent; e.pick = 'b'; }
   else {
     if (ent.comp === e.mate.a.comp) { notify('info', t('notice.sameComponent')); return; }
-    e.mate.b = ent; e.pick = null;
+    e.mate.b = ent; e.pick = MATE_REFS[e.mate.type]?.c ? 'c' : null;
   }
   if (e.mate.a && e.mate.b && !e.mate.type) e.mate.type = e.mate.a.kind === 'axis' && e.mate.b.kind === 'axis' ? 'concentric' : 'coincident';
   previewMate();
@@ -1075,8 +1256,11 @@ function acceptMate() {
   const e = state.editing;
   const asm = activeAssembly();
   if (!e.mate.a || !e.mate.b || !e.mate.type) { notify('error', t('notice.mateIncomplete')); return; }
+  const need = MATE_REFS[e.mate.type] ?? {};
+  if ((need.c && !e.mate.c) || (need.d && !e.mate.d)) { notify('error', t('notice.mateIncomplete')); return; }
   const count = asm.mates.filter((m) => m.type === e.mate.type).length + 1;
   const mate = { ...e.mate, name: e.mate.name || `${t(`mate.${e.mate.type}`)}${count}` };
+  try { captureMate(asm, mate); } catch { /* a mate that measures from nothing */ }
   state.editing = null;
   state.leftTab = 'tree';
   change('op.addMate', () => { asm.mates = [...asm.mates.filter((m) => m.id !== mate.id), mate]; });
@@ -1102,8 +1286,7 @@ async function checkInterference() {
   const asm = activeAssembly();
   if (!asm) return;
   const R = rep();
-  const bodies = new Map(project().parts.map((p) => [p.id, buildPart(p).body]));
-  const list = await busy('progress.interference', asm.name, () => interferences(asm, (c) => (bodies.get(c.part) ? placeShape(bodies.get(c.part), c) : null), (s) => R.measureVolume(s)));
+  const list = await busy('progress.interference', asm.name, () => interferences(asm, (c) => { const list2 = componentShapes(c).map((x) => x.shape); return list2.length > 1 ? R.makeCompound(list2) : list2[0] ?? null; }, (s) => R.measureVolume(s)));
   const nameOf = (id) => asm.components.find((c) => c.id === id)?.name ?? id;
   notify(list.length ? 'warning' : 'success', list.length ? t('interference.found', { count: list.length }) : t('interference.none'));
   await popups.open('interference', { items: list.map((it) => ({ a: nameOf(it.a), b: nameOf(it.b), volume: it.volume })) });
@@ -1133,11 +1316,8 @@ function massPropertiesRows() {
   }
   if (asm) {
     let mass = 0; let volume = 0; const com = [0, 0, 0];
-    for (const c of asm.components) {
-      const p = project().parts.find((x) => x.id === c.part);
-      const body = p && buildPart(p).body;
-      if (!body) continue;
-      const vp = R.measureShapeVolumeProperties(placeShape(body, c));
+    for (const { shape, part: p } of asm.components.flatMap((c) => componentShapes(c))) {
+      const vp = R.measureShapeVolumeProperties(shape);
       const m = massOf(vp.volume, p.material);
       mass += m; volume += vp.volume;
       vp.centerOfMass.forEach((v, i) => { com[i] += v * m; });
@@ -1237,12 +1417,14 @@ function deleteSelection() {
     state.selection = [];
     change('op.delete', () => {
       asm.components = asm.components.filter((c) => !comps.includes(c.id));
-      asm.mates = asm.mates.filter((m) => !mates.includes(m.id) && !comps.includes(m.a.comp) && !comps.includes(m.b.comp));
+      asm.mates = asm.mates.filter((m) => !mates.includes(m.id) && !comps.some((id) => mateTouches(m, id)));
+      if (asm.motion) asm.motion.motors = (asm.motion.motors ?? []).filter((x) => !comps.includes(x.comp));
+      if (asm.explode) asm.explode.steps = (asm.explode.steps ?? []).map((st) => ({ ...st, comps: st.comps.filter((id) => !comps.includes(id)) })).filter((st) => st.comps.length);
     });
     return;
   }
   const drw = activeDrawing();
-  if (drw && state.drawingSelected) { const id = state.drawingSelected; state.drawingSelected = null; change('op.delete', () => { drw.views = drw.views.filter((v) => v.id !== id); }); }
+  if (drw && state.drawingSelected) { const id = state.drawingSelected; state.drawingSelected = null; change('op.delete', () => { drw.views = drw.views.filter((v) => v.id !== id && v.parent !== id); drw.annotations = (drw.annotations ?? []).filter((a) => a.id !== id); }); }
 }
 
 function setSuppressed(value) {
@@ -1251,6 +1433,8 @@ function setSuppressed(value) {
   if (!part || !ids.length) return;
   const all = new Set(ids);
   if (value) for (const id of ids) for (const d of allDependents(part, id)) all.add(d);
+  // With a configuration active, suppression is that configuration's own ("This configuration").
+  if (activeConfiguration(part)) { change(value ? 'op.suppress' : 'op.unsuppress', () => { for (const id of all) setSuppressedIn(part, id, value); }); return; }
   change(value ? 'op.suppress' : 'op.unsuppress', () => { for (const f of part.features) if (all.has(f.id)) { if (value) f.suppressed = true; else delete f.suppressed; } });
 }
 
@@ -1316,10 +1500,7 @@ function drawingShape(d) {
   const shapes = []; const keys = [];
   for (const c of src.components) {
     if (c.hidden) continue;
-    const part = p.parts.find((x) => x.id === c.part);
-    const b = part && buildPart(part);
-    if (!b?.body) continue;
-    shapes.push(placeShape(b.body, c)); keys.push(b.key, JSON.stringify([c.position, c.rotation]));
+    for (const { shape, key: k } of componentShapes(c)) { shapes.push(shape); keys.push(k); }
   }
   return { key: keys.join('|'), shape: shapes.length ? R.makeCompound(shapes) : null };
 }
@@ -1329,16 +1510,17 @@ function drawingProjections(d) {
   const out = new Map();
   if (!shape) return out;
   for (const v of d.views) {
-    const k = `${key}|${v.type}`;
-    if (!projectionCache.has(k)) projectionCache.set(k, projectView(shape, v.type));
+    if (v.kind === 'detail') continue;
+    const k = `${key}|${projectionKey(v)}`;
+    if (!projectionCache.has(k)) projectionCache.set(k, projectView(shape, v.type, v));
     out.set(v.id, projectionCache.get(k));
   }
   if (projectionCache.size > 80) projectionCache.clear();
-  return out;
+  return more.adjust(d, out);
 }
 
 function drawingLabels() {
-  const keys = ['view.front', 'view.back', 'view.top', 'view.bottom', 'view.left', 'view.right', 'view.iso', 'view.dimetric', 'title.name', 'title.partNo', 'title.material', 'title.mass', 'title.scale', 'title.sheet', 'title.drawnBy', 'title.checkedBy', 'title.date', 'title.revision'];
+  const keys = ['view.front', 'view.back', 'view.top', 'view.bottom', 'view.left', 'view.right', 'view.iso', 'view.dimetric', 'view.custom', 'drawing.section', 'drawing.detail', 'drawing.view', 'bom.item', 'bom.partNo', 'bom.name', 'bom.description', 'bom.material', 'bom.qty', 'title.name', 'title.partNo', 'title.material', 'title.mass', 'title.scale', 'title.sheet', 'title.drawnBy', 'title.checkedBy', 'title.date', 'title.revision'];
   return Object.fromEntries(keys.map((k) => [k, t(k)]));
 }
 
@@ -1360,7 +1542,7 @@ function renderDrawing() {
   if (!host || !d) return;
   if (!kernelReady()) { host.innerHTML = `<p class="panel-hint">${icon('hourglass')}<span>${escapeHtml(t('progress.kernelLoading'))}</span></p>`; return; }
   let svg;
-  try { svg = drawingSvg(d, drawingProjections(d), { labels: drawingLabels(), info: drawingInfo(d), selected: state.drawingSelected }); }
+  try { svg = more.svg(d, { labels: drawingLabels(), info: drawingInfo(d), selected: state.drawingSelected, bomRows: drawingBom(d) }); }
   catch (error) { host.innerHTML = `<p class="panel-hint error">${icon('error')}<span>${escapeHtml(native.errorText(error))}</span></p>`; return; }
   const scroll = host.querySelector('.drawing-scroll');
   const pos = scroll ? [scroll.scrollLeft, scroll.scrollTop] : null;
@@ -1371,7 +1553,7 @@ function renderDrawing() {
       <span class="drawing-zoom">${Math.round(state.drawingZoom * 100)}%</span>
       <button class="icon-button" data-drw="zoomIn" title="${escapeHtml(t('action.zoomIn'))}">${icon('zoomIn')}</button>
       <button class="icon-button" data-drw="zoomFit" title="${escapeHtml(t('action.zoomFit'))}">${icon('zoomExtents')}</button>
-    </div>`;
+    </div>${more.sheetTabsHtml(d)}`;
   const s2 = host.querySelector('.drawing-scroll');
   if (pos) [s2.scrollLeft, s2.scrollTop] = pos;
 }
@@ -1384,8 +1566,8 @@ function drawingAction(action) {
   if (cmd === 'zoomOut') { state.drawingZoom = Math.max(0.2, state.drawingZoom / 1.25); return renderDrawing(); }
   if (cmd === 'zoomFit') { fitDrawing(); return renderDrawing(); }
   if (cmd === 'addView') return change('op.addView', () => { d.views.push({ id: newId('v'), type: arg, ...(arg === 'iso' || arg === 'dimetric' ? { hidden: false } : {}) }); });
-  if (cmd === 'removeView') return change('op.removeView', () => { d.views = d.views.filter((v) => v.id !== arg); });
-  return undefined;
+  if (cmd === 'removeView') return change('op.removeView', () => { d.views = d.views.filter((v) => v.id !== arg && v.parent !== arg); });
+  return drawingActionExtra(d, cmd, arg);
 }
 
 function fitDrawing() {
@@ -1394,6 +1576,882 @@ function fitDrawing() {
   const [W, H] = SHEETS[d.sheet] ?? SHEETS.A3;
   const px = 96 / 25.4;
   state.drawingZoom = Math.max(0.2, Math.min((host.clientWidth - 48) / (W * px), (host.clientHeight - 48) / (H * px)));
+}
+
+// ───────────────────────── advanced features (sweep, loft, surfaces, sheet metal, weldments, mold tools)
+
+const SURFACE_TYPES = ['surfaceExtrude', 'surfaceRevolve', 'surfacePlanar', 'surfaceLoft', 'surfaceOffset', 'knit', 'fillSurface', 'boundary', 'trimSurface', 'ruledSurface', 'extendSurface'];
+const SKETCH_BASED = ['sweep', 'rib', 'wrap', 'baseFlange', 'structural', 'surfaceExtrude', 'surfaceRevolve', 'surfacePlanar'];
+
+/** The features before `f` (or before the rollback bar for a new one). */
+function featuresBefore(part, f) {
+  if (!part) return [];
+  const i = part.features.findIndex((x) => x.id === f?.id);
+  return i < 0 ? part.features.slice(0, part.rollback ?? part.features.length) : part.features.slice(0, i);
+}
+
+/** Sketches no feature uses yet (newest last). */
+function freeSketches(part, test = () => true) {
+  const used = new Set(part.features.flatMap((f) => [f.sketch, f.path, ...(f.sketches ?? [])]).filter(Boolean));
+  return featuresBefore(part, null).filter((f) => f.type === 'sketch' && !f.suppressed && !used.has(f.id) && test(f));
+}
+
+/** Starts one of the newer features from the selection (sketches, faces, edges, planes picked first). */
+function startAdvanced(type, part) {
+  const sel = state.selection;
+  const params = {};
+  let pick = null;
+  let kind = type;
+  if (kind === 'cutSweep' || kind === 'cutLoft') { params.op = 'cut'; kind = kind === 'cutSweep' ? 'sweep' : 'loft'; }
+  if (kind === 'cavity') { params.op = 'cut'; kind = 'insertPart'; }
+  if (kind === 'shrink') { kind = 'scaleBody'; params.factor = 1.02; params.about = 'centroid'; }
+  if (!ADVANCED_TYPES.includes(kind)) return undefined;
+  if (SHEET_MORE_TYPES.includes(kind)) {
+    // Ruled / delete / replace / extend surface, more sheet metal, weldment details: values from the selection.
+    const picked = {
+      faces: sel.filter((s) => s.kind === 'face').map((s) => topoOf(s)?.shape).filter(Boolean).map(faceSignature),
+      edges: sel.filter((s) => s.kind === 'edge').map((s) => topoOf(s)?.shape).filter(Boolean).map(edgeSignature),
+      features: sel.filter((s) => s.kind === 'feat').map((s) => part.features.find((f) => f.id === s.id)).filter(Boolean),
+    };
+    const start = sheetMoreStart(kind, part, picked, featuresBefore(part, null));
+    if (start.notice) { notify('info', t(start.notice)); return undefined; }
+    return beginFeature(createFeature(part, kind, start.params), { pick: start.pick });
+  }
+  const chosen = sel.filter((s) => s.kind === 'feat').map((s) => part.features.find((f) => f.id === s.id && f.type === 'sketch')).filter(Boolean);
+  const hasProfile = (f) => profiles(f).length > 0;
+  if (SKETCH_BASED.includes(kind)) {
+    const use = sketchUse(kind);
+    const sk = chosen[0] ?? freeSketches(part, use === 'profile' ? hasProfile : () => true).at(-1);
+    if (!sk) { notify('info', t('notice.needSketch')); return undefined; }
+    params.sketch = sk.id;
+    if (kind === 'sweep') {
+      const helix = [...featuresBefore(part, null)].reverse().find((f) => f.type === 'helix');
+      const other = chosen[1] ?? freeSketches(part).filter((f) => f.id !== sk.id).at(-1);
+      params.path = chosen[1]?.id ?? helix?.id ?? other?.id ?? null;
+      // The profile is the closed sketch; when the picked one is the open path, swap them.
+      const pathSk = part.features.find((f) => f.id === params.path && f.type === 'sketch');
+      if (!hasProfile(sk) && pathSk && hasProfile(pathSk)) [params.sketch, params.path] = [pathSk.id, sk.id];
+    }
+  }
+  if (kind === 'loft' || kind === 'surfaceLoft') params.sketches = (chosen.length >= 2 ? chosen : freeSketches(part, hasProfile).slice(-2)).map((f) => f.id);
+  if (['draft', 'dome', 'surfaceOffset'].includes(kind)) {
+    params.faces = sel.filter((s) => s.kind === 'face').map((s) => topoOf(s)?.shape).filter(Boolean).map(faceSignature);
+    if (kind === 'dome') params.faces = params.faces.filter((x) => x.type === 'PLANE').slice(0, 1);
+    pick = 'faces';
+    if (kind === 'draft') { const pl = sel.find((s) => s.kind === 'plane'); if (pl) params.neutral = planeRefOf(pl.id); pick = params.faces.length ? 'neutral' : 'faces'; }
+  }
+  if (kind === 'thread' || kind === 'edgeFlange') { const e = sel.find((s) => s.kind === 'edge'); const shape = e && topoOf(e)?.shape; if (shape) params.edge = edgeSignature(shape); pick = 'edge'; }
+  if (kind === 'wrap') { const f = sel.find((s) => s.kind === 'face'); const shape = f && topoOf(f)?.shape; if (shape) params.face = faceSignature(shape); pick = 'face'; }
+  if (kind === 'thicken') { const last = [...featuresBefore(part, null)].reverse().find((f) => SURFACE_TYPES.includes(f.type)); if (!last) { notify('info', t('notice.needSurface')); return undefined; } params.surface = last.id; }
+  if (kind === 'knit') params.surfaces = featuresBefore(part, null).filter((f) => SURFACE_TYPES.includes(f.type) && f.type !== 'knit').map((f) => f.id);
+  if (kind === 'split' || kind === 'helix') { const pl = sel.find((s) => s.kind === 'plane'); if (pl) params.plane = planeRefOf(pl.id); pick = 'plane'; }
+  if (kind === 'insertPart') { const other = project().parts.find((p) => p.id !== part.id); if (!other) { notify('info', t('notice.needOtherPart')); return undefined; } params.part = other.id; }
+  if (['edgeFlange', 'hem', 'sketchedBend', 'jog'].includes(kind) && !part.features.some((f) => f.type === 'baseFlange')) { notify('info', t('notice.needBaseFlange')); return undefined; }
+  if (kind === 'hem') { const e = sel.find((x) => x.kind === 'edge'); const shape = e && topoOf(e)?.shape; if (shape) params.edge = edgeSignature(shape); pick = 'edge'; }
+  if (kind === 'sketchedBend' || kind === 'jog') {
+    const sk = chosen[0] ?? freeSketches(part, (f) => f.entities.some((x) => x.type === 'line' && !x.construction)).at(-1);
+    if (!sk) { notify('info', t('notice.needSketch')); return undefined; }
+    params.sketch = sk.id;
+  }
+  if (kind === 'fillSurface') {
+    params.edges = sel.filter((x) => x.kind === 'edge').map((x) => topoOf(x)?.shape).filter(Boolean).map(edgeSignature);
+    const c3 = sel.filter((x) => x.kind === 'feat').map((x) => part.features.find((f) => f.id === x.id && (f.type === 'sketch3d' || f.type === 'sketch'))).find(Boolean);
+    if (c3) params.curve = c3.id;
+    pick = 'edges';
+  }
+  if (kind === 'boundary') {
+    const picked = sel.filter((x) => x.kind === 'feat').map((x) => part.features.find((f) => f.id === x.id && (f.type === 'sketch3d' || f.type === 'sketch'))).filter(Boolean);
+    params.curves = (picked.length >= 2 ? picked : featuresBefore(part, null).filter((f) => f.type === 'sketch3d' || (f.type === 'sketch' && f.entities.some((x) => x.type !== 'point'))).slice(-2)).map((f) => f.id);
+  }
+  if (kind === 'trimSurface') {
+    const surfaces = featuresBefore(part, null).filter((f) => SURFACE_TYPES.includes(f.type) || f.type === 'fillSurface' || f.type === 'boundary' || f.type === 'trimSurface');
+    if (!surfaces.length) { notify('info', t('notice.needSurface')); return undefined; }
+    params.surface = surfaces.at(-1).id;
+    const pl = sel.find((x) => x.kind === 'plane'); if (pl) params.plane = planeRefOf(pl.id);
+    pick = 'plane';
+  }
+  if (kind === 'toolingSplit') { const pl = [...featuresBefore(part, null)].reverse().find((f) => f.type === 'partingLine'); if (pl) params.dir = pl.dir; }
+  if (kind === 'sketch3d') { pick = 'points3d'; }
+  return beginFeature(createFeature(part, kind, params), { pick });
+}
+
+/** Surfaces (translucent) and reference curves (helices, cosmetic threads) of a rebuild, ready for the view. */
+function tessellateExtras(result, size) {
+  const out = { surfaces: [], curves: [] };
+  const tol = { tolerance: Math.max(0.002, meshTolerance(size)), angularTolerance: angularTolerance() };
+  for (const [id, shape] of result.surfaces ?? []) {
+    try { out.surfaces.push({ id, mesh: shape.mesh(tol), edges: shape.meshEdges(tol) }); } catch (error) { console.warn('surface mesh', error); }
+  }
+  const polylineSegments = (edges) => {
+    const seg = [];
+    for (const eg of edges.edgeGroups) for (let k = eg.start; k < eg.start + eg.count - 1; k++) seg.push(...edges.lines.slice(k * 3, k * 3 + 6));
+    return seg;
+  };
+  for (const [, wire] of result.curves ?? []) { try { out.curves.push({ segments: polylineSegments(wire.meshEdges(tol)) }); } catch { /* not shown */ } }
+  for (const r of result.results?.values() ?? []) {
+    const th = r.thread;
+    if (!th || r.tool) continue;
+    // A cosmetic thread: circles at both ends of the threaded length (the minor diameter), like a drawing shows it.
+    const minor = th.internal ? th.radius + 0.54 * th.pitch : th.radius - 0.54 * th.pitch;
+    const u = Math.abs(th.dir[0]) < 0.9 ? [0, -th.dir[2], th.dir[1]] : [-th.dir[1], th.dir[0], 0];
+    const ul = Math.hypot(...u); const a = u.map((x) => x / ul);
+    const b = [th.dir[1] * a[2] - th.dir[2] * a[1], th.dir[2] * a[0] - th.dir[0] * a[2], th.dir[0] * a[1] - th.dir[1] * a[0]];
+    const seg = [];
+    for (const d of [0, th.length]) {
+      const c = th.centre.map((x, i) => x + th.dir[i] * d);
+      for (let i = 0; i < 48; i++) {
+        const p = (k) => { const ang = (k / 48) * Math.PI * 2; return c.map((x, j) => x + minor * (Math.cos(ang) * a[j] + Math.sin(ang) * b[j])); };
+        seg.push(...p(i), ...p(i + 1));
+      }
+    }
+    out.curves.push({ segments: seg });
+  }
+  return out;
+}
+
+// ───────────────────────── colour plots on the body: draft analysis, simulation results
+
+const draftColours = new Map();
+
+function resultColours(part, entry) {
+  const sim = state.sim;
+  if (sim && sim.partId === part.id && sim.key === entry.key && sim.result) {
+    const extra = { colors: sim.colors };
+    if (sim.deformed && sim.result.vertexDisplacement) {
+      const v = entry.mesh.vertices; const d = sim.result.vertexDisplacement; const k = sim.scale;
+      extra.mesh = { ...entry.mesh, vertices: Float32Array.from(v, (x, i) => x + d[i] * k) };
+    }
+    return extra;
+  }
+  const evaluated = more.colours(part, entry);
+  if (evaluated) return evaluated;
+  const da = state.draftAnalysis;
+  if (da && entry.mesh) {
+    const ck = `${entry.key}|${da.dir}|${da.angle}`;
+    if (!draftColours.has(ck)) {
+      const n = entry.mesh.normals; const out = new Float32Array(n.length);
+      const s = Math.sin((da.angle * Math.PI) / 180);
+      for (let i = 0; i < n.length; i += 3) {
+        const c = n[i] * da.dir[0] + n[i + 1] * da.dir[1] + n[i + 2] * da.dir[2];
+        // Green: draft toward the pull, red: against it, yellow: steeper than the required draft (needs draft).
+        const rgb = c >= s ? [0.22, 0.72, 0.33] : c <= -s ? [0.85, 0.22, 0.2] : [0.95, 0.78, 0.15];
+        out.set(rgb, i);
+      }
+      if (draftColours.size > 8) draftColours.clear();
+      draftColours.set(ck, out);
+    }
+    return { colors: draftColours.get(ck) };
+  }
+  return {};
+}
+
+function toggleDraftAnalysis() {
+  if (state.draftAnalysis) { state.draftAnalysis = null; notify('info', t('notice.draftAnalysisOff')); syncView(); renderToolbarState(); return; }
+  let dir = [0, 1, 0];
+  const s = state.selection[0];
+  if (s?.kind === 'plane') dir = makeFrame(STD_PLANES[s.id] ?? STD_PLANES.top).normal;
+  else if (s?.kind === 'face') { const shape = topoOf(s)?.shape; if (shape?.geomType === 'PLANE') dir = faceSignature(shape).normal; }
+  state.evalDisplay = null;
+  state.draftAnalysis = { dir, angle: Number(state.settings.draftAngle ?? 1) || 1 };
+  notify('info', t('notice.draftAnalysisOn', { angle: state.draftAnalysis.angle }));
+  syncView();
+  renderToolbarState();
+}
+
+// ───────────────────────── simulation (linear static, simulation style)
+
+function startSimulation() {
+  const part = activePart();
+  if (!part || !state.partEntry?.mesh) { notify('info', t('notice.noBody')); return; }
+  if (state.editing) cancelEditing({ quiet: true });
+  state.editing = { mode: 'simulation', study: 'static', fixtures: [], loads: [], loadKind: 'force', magnitude: 1000, dir: '-y', resolution: 40, pick: 'fixtures', nu: 0.3, temperature: 100, heatKind: 'convection', power: 10, h: 25, ambient: 20, modes: 4, modeIndex: 0 };
+  state.leftTab = 'pm';
+  renderAll();
+  notify('info', t('notice.simPickFixtures'));
+}
+
+function pickForSimulation(hit) {
+  const e = state.editing;
+  if (hit?.kind !== 'face' || hit.bodyKey !== 'body') { notify('info', t('notice.pickFace')); return; }
+  const face = state.partEntry.faces?.[hit.index];
+  if (!face) return;
+  const list = e.pick === 'loads' ? e.loads : e.fixtures;
+  const i = list.findIndex((x) => x.index === hit.index);
+  if (i >= 0) list.splice(i, 1);
+  else list.push({ index: hit.index, faceId: face.hashCode, type: face.geomType });
+  viewport.setSelection([...e.fixtures, ...e.loads].map((x) => ({ kind: 'face', bodyKey: 'body', index: x.index })));
+  renderLeft();
+}
+
+const LOAD_DIRS = { x: [1, 0, 0], '-x': [-1, 0, 0], y: [0, 1, 0], '-y': [0, -1, 0], z: [0, 0, 1], '-z': [0, 0, -1] };
+
+async function runSimulation() {
+  const e = state.editing;
+  const part = activePart();
+  const entry = state.partEntry;
+  if (!part || !entry?.mesh) return;
+  if (e.study === 'thermal') return runThermal(e, part, entry);
+  if (more.simStudy(e.study)) return more.runSim(e, part, entry);
+  if (e.study === 'modal') return runModal(e, part, entry);
+  if (!e.fixtures.length) { notify('error', t('sim.error.no-fixtures')); return; }
+  if (!e.loads.length) { notify('error', t('sim.error.no-loads')); return; }
+  const mat = materialOf(part.material);
+  const loads = e.loads.map((l) => (e.loadKind === 'pressure' ? { faceId: l.faceId, pressure: e.magnitude / e.loads.length } : { faceId: l.faceId, force: LOAD_DIRS[e.dir].map((v) => (v * e.magnitude) / e.loads.length) }));
+  const result = await withProgress('progress.simulation', part.name, async (op, report) => {
+    await new Promise((r) => setTimeout(r, 30));
+    return analyseFea(entry.mesh, { material: { E: mat.E * 1000, nu: mat.nu ?? e.nu, yield: mat.yield, density: mat.density }, fixtures: e.fixtures.map((x) => x.faceId), loads, resolution: Math.max(8, Math.min(140, Math.round(e.resolution))), onProgress: (f) => report({ fraction: f, text: t('progress.solving') }) });
+  }, { delay: 150 });
+  if (!result) return;
+  if (result.error && result.error !== 'not-converged') { notify('error', t(`sim.error.${result.error}`)); return; }
+  // Colour scale to the 98th percentile: the voxel model's corners give spikes (see fea.js).
+  const sorted = Float32Array.from(result.vertexStress).sort();
+  const top = sorted[Math.floor(sorted.length * 0.98)] || result.maxStress || 1;
+  const colors = new Float32Array(result.vertexStress.length * 3);
+  result.vertexStress.forEach((v, i) => colors.set(stressColor(v, 0, top), i * 3));
+  const size = entry.size ?? 100;
+  state.sim = { partId: part.id, key: entry.key, result, colors, top, deformed: false, scale: result.maxDisplacement > 0 ? (size * 0.08) / result.maxDisplacement : 1 };
+  e.result = result;
+  if (result.error === 'not-converged') notify('warning', t('sim.error.not-converged'));
+  else notify(result.minFactorOfSafety < 1 ? 'warning' : 'success', t('notice.simDone', { fos: fmt(result.minFactorOfSafety, 2) }));
+  syncView();
+  renderLeft();
+}
+
+/** Steady-state heat: fixed-temperature faces (the "fixtures" list), and heat in by power or out by convection (the "loads" list). */
+async function runThermal(e, part, entry) {
+  if (!e.fixtures.length && !(e.loads.length && e.heatKind === 'convection')) { notify('error', t('sim.error.no-temperature')); return; }
+  const result = await withProgress('progress.simulation', part.name, async (op, report) => {
+    await new Promise((r) => setTimeout(r, 30));
+    return analyseThermal(entry.mesh, {
+      material: part.material,
+      temperatures: e.fixtures.map((x) => ({ faceId: x.faceId, value: e.temperature })),
+      fluxes: e.heatKind === 'power' ? e.loads.map((x) => ({ faceId: x.faceId, power: e.power / e.loads.length })) : [],
+      convections: e.heatKind === 'convection' ? e.loads.map((x) => ({ faceId: x.faceId, h: e.h, ambient: e.ambient })) : [],
+      resolution: Math.max(8, Math.min(140, Math.round(e.resolution))), onProgress: (f) => report({ fraction: f, text: t('progress.solving') }),
+    });
+  }, { delay: 150 });
+  if (!result) return;
+  if (result.error && result.error !== 'not-converged') { notify('error', t(`sim.error.${result.error}`)); return; }
+  const colors = new Float32Array(result.vertexTemperature.length * 3);
+  result.vertexTemperature.forEach((v, i) => colors.set(temperatureColor(v, result.min, result.max), i * 3));
+  state.sim = { partId: part.id, key: entry.key, result, colors, deformed: false, scale: 1, study: 'thermal' };
+  e.result = result;
+  notify('success', t('notice.thermalDone', { min: fmt(result.min, 1), max: fmt(result.max, 1) }));
+  syncView(); renderLeft();
+}
+
+/** Natural frequencies: the fixed faces hold the part; each mode's shape colours the body and can be shown bent. */
+async function runModal(e, part, entry) {
+  if (!e.fixtures.length) { notify('error', t('sim.error.no-fixtures')); return; }
+  const mat = materialOf(part.material);
+  const result = await withProgress('progress.simulation', part.name, async (op, report) => {
+    await new Promise((r) => setTimeout(r, 30));
+    return analyseModal(entry.mesh, { material: { E: mat.E * 1000, nu: mat.nu ?? e.nu, density: mat.density }, fixtures: e.fixtures.map((x) => x.faceId), modes: Math.max(1, Math.min(8, Math.round(e.modes))), resolution: Math.max(8, Math.min(100, Math.round(e.resolution))), onProgress: (f) => report({ fraction: f, text: t('progress.solving') }) });
+  }, { delay: 150 });
+  if (!result) return;
+  if (result.error && result.error !== 'not-converged') { notify('error', t(`sim.error.${result.error}`)); return; }
+  e.result = result;
+  e.modeIndex = 0;
+  showMode(e, part, entry);
+  notify('success', t('notice.modalDone', { f: fmt(result.frequencies[0] ?? 0, 1) }));
+}
+
+function showMode(e, part = activePart(), entry = state.partEntry) {
+  const r = e.result;
+  const shape = r?.modes?.[e.modeIndex];
+  if (!shape) return;
+  const n = shape.length / 3;
+  const mag = new Float32Array(n);
+  for (let i = 0; i < n; i++) mag[i] = Math.hypot(shape[3 * i], shape[3 * i + 1], shape[3 * i + 2]);
+  const colors = new Float32Array(n * 3);
+  mag.forEach((v, i) => colors.set(stressColor(v, 0, 1), i * 3));
+  state.sim = { partId: part.id, key: entry.key, result: { ...r, vertexDisplacement: shape }, colors, deformed: true, scale: (entry.size ?? 100) * 0.08, study: 'modal' };
+  syncView(); renderLeft();
+}
+
+// ───────────────────────── motion study
+
+function startMotion() {
+  const asm = activeAssembly();
+  if (!asm) { notify('info', t('notice.assemblyOnly')); return; }
+  if (state.editing) cancelEditing({ quiet: true });
+  asm.motion ??= { duration: 5, motors: [] };
+  state.editing = { mode: 'motion', pick: 'motor', speed: 30, kind: 'rotary', time: 0, playing: false };
+  state.leftTab = 'pm';
+  renderAll();
+  notify('info', t('notice.motionPickMotor'));
+}
+
+function pickForMotion(hit) {
+  const e = state.editing;
+  const topo = topoOf(hit);
+  if (hit?.kind !== 'face' || !topo?.comp) { notify('info', t('notice.pickComponentFace')); return; }
+  const ent = { comp: topo.comp.id, ...mateEntityOfFace(topo.shape, faceSignature) };
+  if (topo.inner) { ent.point = placePoint(topo.inner, ent.point); ent.dir = placeDir(topo.inner, ent.dir); ent.path = topo.path; }
+  if (e.kind === 'rotary' && ent.kind !== 'axis') { notify('info', t('notice.motorNeedsAxis')); return; }
+  const asm = activeAssembly();
+  change('op.motor', () => { asm.motion.motors = [...asm.motion.motors.filter((m) => m.comp !== ent.comp), { id: newId('motor'), kind: e.kind, comp: ent.comp, ref: ent, speed: e.speed }]; });
+}
+
+function motionPose(time) {
+  const asm = activeAssembly();
+  if (!asm?.motion?.motors?.length) return null;
+  const r = motionFrame(asm, time, { entity: (ref) => mateEntityNow(ref), size: assemblySize(asm) });
+  return r.placements;
+}
+
+function showMotionTime(time) {
+  const asm = activeAssembly();
+  const pose = motionPose(time);
+  if (!asm || !pose) return;
+  for (const c of asm.components) {
+    const pl = pose.get(c.id);
+    if (!pl) continue;
+    for (const leaf of componentLeaves(c)) {
+      const key = leaf.path.length ? `comp:${c.id}/${leaf.path.join('/')}` : `comp:${c.id}`;
+      viewport.setBodyMatrix(key, componentMatrix(leaf.path.length ? composePlacement(pl, leaf.placement) : pl));
+    }
+  }
+}
+
+function playMotion(on) {
+  const e = state.editing;
+  if (e?.mode !== 'motion') return;
+  const asm = activeAssembly();
+  if (on && !asm.motion.motors.length) { notify('info', t('notice.motionPickMotor')); return; }
+  e.playing = on;
+  if (!on) { renderLeft(); return; }
+  const start = performance.now() - e.time * 1000;
+  const step = () => {
+    if (state.editing !== e || !e.playing) return;
+    const duration = Math.max(0.1, Number(asm.motion.duration) || 5);
+    e.time = ((performance.now() - start) / 1000) % duration;
+    try { showMotionTime(e.time); } catch (error) { e.playing = false; showError('error.command', error, t('cmd.motion')); return; }
+    const slider = root.querySelector('[data-motion-time]');
+    if (slider) { slider.value = String(e.time); syncSlider(slider); }
+    const out = root.querySelector('[data-motion-clock]');
+    if (out) out.textContent = `${fmt(e.time, 2)} s`;
+    requestAnimationFrame(step);
+  };
+  renderLeft();
+  requestAnimationFrame(step);
+}
+
+// ───────────────────────── the motion player (an assembly that can move: play, pause, stop)
+
+state.player = { asmId: null, time: 0, playing: false };
+
+/** The bar over the graphics area of an assembly that has a motion study: ▶ play, ❚❚ pause, ■ stop, time. */
+function renderMotionBar() {
+  const area = root.querySelector('#view-host')?.parentElement;
+  if (!area) return;
+  let bar = area.querySelector('#motion-bar');
+  const asm = activeAssembly();
+  const show = Boolean(asm?.motion?.motors?.length) && state.editing?.mode !== 'motion' && !state.showStart;
+  if (!show) {
+    if (state.player.playing) stopPlayer({ quiet: true });
+    bar?.remove();
+    return;
+  }
+  if (state.player.asmId !== asm.id) state.player = { asmId: asm.id, time: 0, playing: false };
+  const duration = Math.max(0.1, Number(asm.motion.duration) || 5);
+  const p = state.player;
+  const html = `<span class="motion-bar-title">${icon('motion')}<span>${escapeHtml(t('cmd.motion'))}</span></span>
+    <button class="icon-button ${p.playing ? 'active' : ''}" data-player="play" title="${escapeHtml(t('motion.play'))}" aria-label="${escapeHtml(t('motion.play'))}" ${p.playing ? 'disabled' : ''}>${icon('play')}</button>
+    <button class="icon-button" data-player="pause" title="${escapeHtml(t('motion.pause'))}" aria-label="${escapeHtml(t('motion.pause'))}" ${p.playing ? '' : 'disabled'}>${icon('pause')}</button>
+    <button class="icon-button" data-player="stop" title="${escapeHtml(t('motion.stop'))}" aria-label="${escapeHtml(t('motion.stop'))}" ${p.playing || p.time > 0 ? '' : 'disabled'}>${icon('stop')}</button>
+    <input type="range" data-unit="s" data-player-time min="0" max="${duration}" step="0.01" value="${p.time}" aria-label="${escapeHtml(t('motion.time'))}"/>`;
+  if (!bar) { bar = document.createElement('div'); bar.id = 'motion-bar'; bar.className = 'motion-bar'; area.append(bar); }
+  bar.innerHTML = html;
+}
+
+function playPlayer() {
+  const asm = activeAssembly();
+  if (!asm?.motion?.motors?.length || state.player.playing) return;
+  const p = state.player;
+  p.playing = true;
+  const start = performance.now() - p.time * 1000;
+  const step = () => {
+    if (!p.playing || state.player !== p || activeAssembly()?.id !== p.asmId) return;
+    const duration = Math.max(0.1, Number(asm.motion.duration) || 5);
+    p.time = ((performance.now() - start) / 1000) % duration;
+    try { showMotionTime(p.time); } catch (error) { p.playing = false; renderMotionBar(); showError('error.command', error, t('cmd.motion')); return; }
+    const slider = root.querySelector('[data-player-time]');
+    if (slider) { slider.value = String(p.time); syncSlider(slider); }
+    requestAnimationFrame(step);
+  };
+  renderMotionBar();
+  requestAnimationFrame(step);
+}
+
+/** Pause: the parts stay where they are; Play goes on from there. */
+function pausePlayer() { state.player.playing = false; renderMotionBar(); }
+
+/** Stop: back to the start, the parts back where the mates put them. */
+function stopPlayer({ quiet = false } = {}) {
+  state.player.playing = false;
+  state.player.time = 0;
+  if (!quiet) { syncView(); renderMotionBar(); }
+}
+
+// ───────────────────────── exploded views, sub-assemblies
+
+function toggleExplode() {
+  const asm = activeAssembly();
+  if (!asm) return;
+  if (asm.explode?.steps?.length) { change('op.explode', () => { asm.explode.on = !asm.explode.on; }); notify('info', t(asm.explode.on ? 'notice.exploded' : 'notice.collapsed')); return; }
+  const boxes = new Map();
+  for (const c of asm.components) {
+    const list = componentShapes(c);
+    if (!list.length) continue;
+    const lo = [Infinity, Infinity, Infinity]; const hi = [-Infinity, -Infinity, -Infinity];
+    for (const { shape } of list) { const [a, b] = shape.boundingBox.bounds; for (let i = 0; i < 3; i++) { lo[i] = Math.min(lo[i], a[i]); hi[i] = Math.max(hi[i], b[i]); } }
+    boxes.set(c.id, [lo, hi]);
+  }
+  change('op.explode', () => { autoExplode(asm, boxes, assemblySize(asm) * 0.15); });
+  notify('success', t('notice.exploded'));
+  fitView();
+}
+
+function displayPlacement(asm, c) {
+  if (state.motionPose?.has(c.id)) return state.motionPose.get(c.id);
+  return asm.explode?.on ? explodedPlacement(asm, c) : c;
+}
+
+const IDENTITY = { position: [0, 0, 0], rotation: [0, 0, 0, 1] };
+
+/** The parts a component stands for: itself, or every part of its sub-assembly (placed in the component). */
+function componentLeaves(c) {
+  if (!c.sub) return [{ path: [], part: c.part, placement: IDENTITY }];
+  const sub = project()?.assemblies.find((a) => a.id === c.sub);
+  if (!sub) return [];
+  return flattenAssembly(project(), sub).map((x) => ({ path: x.path, part: x.part, placement: x.placement }));
+}
+
+function subassemblyLeaf(comp, path) {
+  return componentLeaves(comp).find((x) => x.path.join('/') === path.join('/')) ?? null;
+}
+
+/** Placed solids of a component (sub-assemblies give one per part). */
+function componentShapes(c) {
+  const out = [];
+  for (const leaf of componentLeaves(c)) {
+    const part = project().parts.find((p) => p.id === leaf.part);
+    const b = part && buildPart(part);
+    if (!b?.body) continue;
+    const pl = composePlacement(c, leaf.placement);
+    out.push({ shape: placeShape(b.body, pl), part, key: `${b.key}|${JSON.stringify([pl.position, pl.rotation])}` });
+  }
+  return out;
+}
+
+function assemblyContains(a, id, seen = new Set()) {
+  if (!a || !id || seen.has(a.id)) return false;
+  seen.add(a.id);
+  return a.components.some((c) => c.sub && (c.sub === id || assemblyContains(project().assemblies.find((x) => x.id === c.sub), id, seen)));
+}
+
+function insertSubassembly(id) {
+  const asm = activeAssembly();
+  const sub = project().assemblies.find((a) => a.id === id);
+  if (!asm || !sub || sub.id === asm.id || assemblyContains(sub, asm.id)) { notify('error', t('notice.subCycle')); return; }
+  const first = asm.components.length === 0;
+  const c = { id: newId('cmp'), sub: sub.id, name: instanceName(asm, sub.name, sub.id), position: first ? [0, 0, 0] : [assemblySize(asm) * 0.8, 0, 0], rotation: quatIdentity(), fixed: first };
+  state.selection = [{ kind: 'comp', id: c.id, key: `comp:${c.id}` }];
+  change('op.insertComponent', () => { asm.components.push(c); });
+  notify('success', t('notice.componentInserted', { name: c.name }));
+  fitView();
+}
+
+// ───────────────────────── sheet metal, weldments
+
+function toggleFlatten() {
+  const part = activePart();
+  if (!part) return;
+  if (!part.features.some((f) => f.type === 'baseFlange' || f.type === 'loftedBend')) { notify('info', t('notice.needBaseFlange')); return; }
+  change('op.flatten', () => { part.flat = !part.flat; });
+  notify('info', t(part.flat ? 'notice.flattened' : 'notice.formed'));
+  fitView();
+}
+
+async function showCutList() {
+  const part = activePart();
+  if (!part) return;
+  const entry = buildPart(part);
+  // Members (with their trimmed / extended lengths), end caps, gussets and weld beads.
+  const { rows, memberTotal } = weldmentCutRows(part, entry.result.results, { t, fmtLen });
+  if (!rows.length) { notify('info', t('notice.noMembers')); return; }
+  if (memberTotal > 0) rows.push(['massProps', t('weld.total'), fmtLen(memberTotal)]);
+  await popups.open('massprops', { name: `${part.name} — ${t('cmd.cutList')}`, material: '', rows, kind: 'part' });
+}
+
+// ───────────────────────── equations, configurations, design tables
+
+function startEquations(mode = 'equations') {
+  const part = activePart();
+  if (!part) { notify('info', t('notice.partOnly')); return; }
+  if (state.editing) cancelEditing({ quiet: true });
+  state.editing = { mode };
+  state.leftTab = 'pm';
+  renderAll();
+}
+
+async function exportDesignTable() {
+  const part = activePart();
+  if (!part) return;
+  await saveExport(`${fileSafe(part.name)}-design-table.csv`, 'csv', designTableCsv(part, t('config.default')), 'text/csv');
+}
+
+async function importDesignTable() {
+  const part = activePart();
+  if (!part) return;
+  let text = null;
+  try {
+    if (desktop) {
+      const [path] = await native.chooseFiles(state.settings.lastDirectory, [{ name: 'CSV', extensions: ['csv', 'txt'] }], false);
+      if (path) text = await native.readTextFile(path, '');
+    } else {
+      const [file] = await native.pickWithInput('.csv,.txt', false);
+      if (file) text = await file.text();
+    }
+  } catch (error) { showError('error.import', error); return; }
+  if (text == null) return;
+  try {
+    let info;
+    change('op.designTable', () => { info = applyDesignTable(part, String(text)); });
+    notify('success', t('notice.designTable', { configs: info.configs, variables: info.variables }));
+  } catch (error) { showError('error.import', error); }
+}
+
+const textInput = (key, value, cls = '') => `<input type="text" class="pm-text ${cls}" data-pm-field="${escapeHtml(key)}" value="${escapeHtml(value ?? '')}" spellcheck="false"/>`;
+const pmButton = (cmd, glyph, label, cls = '') => `<button class="small-button ${cls}" data-pm="${escapeHtml(cmd)}" title="${escapeHtml(label)}">${icon(glyph)}<span>${escapeHtml(label)}</span></button>`;
+const pmGroup = (glyph, title, body) => `<section class="pm-group"><h4>${icon(glyph)}<span>${escapeHtml(title)}</span></h4><div class="pm-group-body">${body}</div></section>`;
+const pmHead = (glyph, title, help) => `<div class="pm-head"><div class="pm-title">${icon(glyph)}<b>${escapeHtml(title)}</b></div><div class="pm-buttons"><button class="pm-ok" data-pm="ok" title="${escapeHtml(t('pm.ok'))}">${icon('check')}</button><button class="pm-cancel" data-pm="cancel" title="${escapeHtml(t('pm.close'))}">${icon('close')}</button></div>${help ? `<p class="pm-help">${icon('info', 'icon tiny')}<span>${escapeHtml(help)}</span></p>` : ''}</div>`;
+const pmNum = (key, value, label, glyph = 'smartDim', unit = '', step = '') => `<label class="pm-field" title="${escapeHtml(label)}">${icon(glyph)}<span class="pm-label">${escapeHtml(label)}</span><input type="text" data-pm-field="${escapeHtml(key)}" data-num data-unit-label="${escapeHtml(unit)}" ${step ? `data-num-step="${step}"` : ''} value="${escapeHtml(String(value))}" spellcheck="false"/></label>`;
+const pmSeg = (key, options, current) => `<span class="segmented pm-seg" role="radiogroup">${options.map(([v, label, glyph]) => `<button type="button" class="segment ${String(v) === String(current) ? 'active' : ''}" data-pm-set="${escapeHtml(key)}" data-value="${escapeHtml(v)}" title="${escapeHtml(label)}">${glyph ? icon(glyph) : ''}<span>${escapeHtml(label)}</span></button>`).join('')}</span>`;
+const pmList = (key, items, label, glyph, active) => `<div class="pm-pick ${active ? 'active' : ''}" data-pm-pick="${escapeHtml(key)}" tabindex="0"><div class="pm-pick-head">${icon(glyph)}<span>${escapeHtml(label)}</span><span class="grow"></span><span class="pm-count">${items.length}</span>${items.length ? `<button type="button" class="icon-button" data-pm="clear:${escapeHtml(key)}" title="${escapeHtml(t('pm.clear'))}">${icon('trash', 'icon tiny')}</button>` : ''}</div><ul class="pm-pick-list">${items.length ? items.map((it) => `<li>${icon(glyph, 'icon tiny')}<span>${escapeHtml(it)}</span></li>`).join('') : `<li class="muted">${escapeHtml(t(active ? 'pm.pickNow' : 'pm.clickToPick'))}</li>`}</ul></div>`;
+
+/** PropertyManager pages that are not features: equations, configurations, simulation, motion study. */
+function customPm(e) {
+  const part = activePart();
+  if (more.owns(e)) return more.pm(e);
+  if (e.mode === 'lights') return lightsPm(e);
+  if (e.mode === 'equations' && part) {
+    const rows = equationRows(part);
+    const vars = (part.variables ?? []).map((v, i) => { const r = rows.find((x) => x.kind === 'variable' && x.target === v.name); return `<div class="eq-row ${r?.error ? 'error' : ''}">${textInput(`varName:${i}`, v.name, 'eq-name')}<span>=</span>${textInput(`varExpr:${i}`, v.expr, 'eq-expr')}<output title="${escapeHtml(r?.error ? t(`expr.${r.error}`, null, r.error) : '')}">${r?.error ? icon('error', 'icon tiny') : escapeHtml(fmt(r?.value ?? 0))}</output><button class="icon-button" data-pm="delVar:${i}" title="${escapeHtml(t('action.delete'))}">${icon('trash', 'icon tiny')}</button></div>`; }).join('');
+    const driven = rows.filter((r) => r.kind !== 'variable').map((r) => `<li class="${r.error ? 'error' : ''}">${icon(r.kind === 'dimension' ? 'smartDim' : 'editFeature', 'icon tiny')}<span><b>${escapeHtml(r.target)}</b> = ${escapeHtml(r.expr)} → ${r.error ? escapeHtml(t(`expr.${r.error}`, null, r.error)) : escapeHtml(fmt(r.value ?? 0))}</span><button class="icon-button" data-pm="delExpr:${escapeHtml(r.kind === 'dimension' ? `${r.id}|${r.cid}` : `${r.id}|${r.key}`)}" title="${escapeHtml(t('pm.removeEquation'))}">${icon('trash', 'icon tiny')}</button></li>`).join('');
+    return [
+      pmHead('equations', t('cmd.equations'), t('pm.help.equations')),
+      pmGroup('equations', t('eq.globals'), `<div class="eq-table">${vars || `<p class="pm-note">${escapeHtml(t('eq.none'))}</p>`}</div><div class="pm-row">${pmButton('addVar', 'plus', t('eq.addVariable'))}</div>`),
+      pmGroup('smartDim', t('eq.driven'), driven ? `<ul class="pm-list">${driven}</ul>` : `<p class="pm-note">${escapeHtml(t('eq.howToDrive'))}</p>`),
+      pmGroup('designTable', t('cmd.designTable'), `<div class="pm-row">${pmButton('exportTable', 'exportFile', t('cmd.exportTable'))}${pmButton('importTable', 'folderOpen', t('cmd.importTable'))}</div>`),
+    ].join('');
+  }
+  if (e.mode === 'configs' && part) {
+    const cfg = activeConfiguration(part);
+    const list = [{ id: '', name: t('config.default') }, ...(part.configurations ?? [])];
+    const rows = list.map((c) => `<div class="cfg-row ${(cfg?.id ?? '') === c.id ? 'active' : ''}"><button class="icon-button" data-pm-set="activeConfig" data-value="${escapeHtml(c.id)}" title="${escapeHtml(t('config.activate'))}">${icon((cfg?.id ?? '') === c.id ? 'check' : 'configurations')}</button>${c.id ? textInput(`cfgName:${c.id}`, c.name) : `<span class="cfg-name">${escapeHtml(c.name)}</span>`}${c.id ? `<button class="icon-button" data-pm="delCfg:${escapeHtml(c.id)}" title="${escapeHtml(t('action.delete'))}">${icon('trash', 'icon tiny')}</button>` : ''}</div>`).join('');
+    const overrides = cfg && part.variables?.length ? pmGroup('equations', t('config.values', { name: cfg.name }), part.variables.map((v) => `<div class="eq-row"><span class="eq-name">${escapeHtml(v.name)}</span><span>=</span>${textInput(`cfgVar:${v.name}`, cfg.variables?.[v.name] ?? v.expr, 'eq-expr')}</div>`).join('')) : '';
+    const suppressed = cfg ? Object.entries(cfg.suppress ?? {}).filter(([, v]) => v).map(([id]) => part.features.find((f) => f.id === id)?.name).filter(Boolean) : [];
+    return [
+      pmHead('configurations', t('cmd.configurations'), t('pm.help.configurations')),
+      pmGroup('configurations', t('config.list'), `${rows}<div class="pm-row">${pmButton('addCfg', 'plus', t('config.add'))}</div>`),
+      overrides,
+      cfg ? pmGroup('suppress', t('config.suppressed'), suppressed.length ? `<ul class="pm-list">${suppressed.map((n) => `<li>${icon('suppress', 'icon tiny')}<span>${escapeHtml(n)}</span></li>`).join('')}</ul>` : `<p class="pm-note">${escapeHtml(t('config.howToSuppress'))}</p>`) : '',
+      pmGroup('designTable', t('cmd.designTable'), `<div class="pm-row">${pmButton('exportTable', 'exportFile', t('cmd.exportTable'))}${pmButton('importTable', 'folderOpen', t('cmd.importTable'))}</div>`),
+    ].join('');
+  }
+  if (e.mode === 'simulation' && part) {
+    const mat = materialOf(part.material);
+    const faceName = (x, i) => `${t('pm.face')} ${i + 1} (${x.type === 'PLANE' ? t('pm.planar') : t('pm.curved')})`;
+    const r = e.result;
+    const res = r ? pmGroup('simulation', t('sim.results'), `<dl class="pm-results">
+        <dt>${escapeHtml(t('sim.maxStress'))}</dt><dd>${escapeHtml(`${fmt(r.maxStress, 2)} MPa`)}</dd>
+        <dt>${escapeHtml(t('sim.maxDisp'))}</dt><dd>${escapeHtml(`${fmt(r.maxDisplacement, 4)} mm`)}</dd>
+        <dt>${escapeHtml(t('sim.fos'))}</dt><dd class="${r.minFactorOfSafety < 1 ? 'error' : ''}">${escapeHtml(fmt(r.minFactorOfSafety, 2))}</dd>
+        <dt>${escapeHtml(t('sim.elements'))}</dt><dd>${escapeHtml(`${r.elements} (${fmt(r.elementSize, 2)} mm)`)}</dd>
+        <dt>${escapeHtml(t('sim.iterations'))}</dt><dd>${escapeHtml(String(r.iterations))}</dd></dl>
+        <div class="sim-legend"><span>0</span><i></i><span>${escapeHtml(`${fmt(state.sim?.top ?? r.maxStress, 1)} MPa`)}</span></div>
+        <label class="pm-check"><input type="checkbox" data-pm-toggle="deformed" ${state.sim?.deformed ? 'checked' : ''}/>${icon('simulation')}<span>${escapeHtml(t('sim.deformed'))}</span></label>
+        <div class="pm-row">${pmButton('clearSim', 'trash', t('sim.clear'))}</div>`) : '';
+    const study = pmGroup('simulation', t('sim.study'), pmSeg('study', [['static', t('sim.static')], ['thermal', t('sim.thermal')], ['modal', t('sim.modal')], ...more.studyOptions()], e.study));
+    if (more.simStudy(e.study)) return more.simPm(e, study);
+    if (e.study === 'thermal') {
+      const tr = e.result && state.sim?.study === 'thermal' ? pmGroup('simulation', t('sim.results'), `<dl class="pm-results"><dt>${escapeHtml(t('sim.tMin'))}</dt><dd>${escapeHtml(`${fmt(r.min, 2)} °C`)}</dd><dt>${escapeHtml(t('sim.tMax'))}</dt><dd>${escapeHtml(`${fmt(r.max, 2)} °C`)}</dd><dt>${escapeHtml(t('sim.heatFlow'))}</dt><dd>${escapeHtml(`${fmt(r.heatFlowOut ?? 0, 3)} W`)}</dd><dt>${escapeHtml(t('sim.elements'))}</dt><dd>${escapeHtml(String(r.elements))}</dd></dl><div class="sim-legend"><span>${escapeHtml(`${fmt(r.min, 1)} °C`)}</span><i></i><span>${escapeHtml(`${fmt(r.max, 1)} °C`)}</span></div><div class="pm-row">${pmButton('clearSim', 'trash', t('sim.clear'))}</div>`) : '';
+      return [
+        pmHead('simulation', t('cmd.simulation'), t('pm.help.thermal')), study,
+        pmGroup('fixture', t('sim.temperatures'), `${pmList('fixtures', e.fixtures.map(faceName), t('sim.fixedTempFaces'), 'fixture', e.pick === 'fixtures')}${pmNum('temperature', e.temperature, `${t('sim.temperature')} (°C)`, 'sun')}`),
+        pmGroup('load', t('sim.heat'), `${pmSeg('heatKind', [['convection', t('sim.convection')], ['power', t('sim.heatPower')]], e.heatKind)}${pmList('loads', e.loads.map(faceName), t('sim.heatFaces'), 'load', e.pick === 'loads')}${e.heatKind === 'power' ? pmNum('power', e.power, `${t('sim.heatPower')} (W)`, 'load') : `${pmNum('h', e.h, t('sim.filmCoefficient'), 'load')}${pmNum('ambient', e.ambient, `${t('sim.ambient')} (°C)`, 'sun')}`}`),
+        pmGroup('statistics', t('sim.mesh'), `${pmNum('resolution', e.resolution, t('sim.resolution'), 'statistics')}<div class="pm-row">${pmButton('runSim', 'play', t('sim.run'), 'primary')}</div>`),
+        tr,
+      ].join('');
+    }
+    if (e.study === 'modal') {
+      const freqs = e.result?.frequencies ?? [];
+      const mr = freqs.length ? pmGroup('simulation', t('sim.frequencies'), `<div class="pm-relations">${freqs.map((f, i) => `<button class="small-button ${e.modeIndex === i ? 'active' : ''}" data-pm-set="modeIndex" data-value="${i}">${icon('simulation')}<span>${escapeHtml(`${i + 1}: ${fmt(f, 1)} Hz`)}</span></button>`).join('')}</div><div class="pm-row">${pmButton('clearSim', 'trash', t('sim.clear'))}</div>`) : '';
+      return [
+        pmHead('simulation', t('cmd.simulation'), t('pm.help.modal')), study,
+        pmGroup('material', t('sim.material'), `<p class="pm-note">${escapeHtml(`${materialName(part.material, lang())} · E ${mat.E} GPa · ρ ${mat.density} kg/m³`)}</p>${pmNum('nu', e.nu, t('sim.poisson'))}`),
+        pmGroup('fixture', t('sim.fixtures'), pmList('fixtures', e.fixtures.map(faceName), t('sim.fixedFaces'), 'fixture', e.pick === 'fixtures')),
+        pmGroup('statistics', t('sim.mesh'), `${pmNum('modes', e.modes, t('sim.modeCount'), 'simulation')}${pmNum('resolution', e.resolution, t('sim.resolution'), 'statistics')}<div class="pm-row">${pmButton('runSim', 'play', t('sim.run'), 'primary')}</div>`),
+        mr,
+      ].join('');
+    }
+    return [
+      pmHead('simulation', t('cmd.simulation'), t('pm.help.simulation')),
+      study,
+      pmGroup('material', t('sim.material'), `<p class="pm-note">${escapeHtml(`${materialName(part.material, lang())} · E ${mat.E} GPa · σy ${mat.yield} MPa`)}</p>${pmNum('nu', e.nu, t('sim.poisson'))}`),
+      pmGroup('fixture', t('sim.fixtures'), pmList('fixtures', e.fixtures.map(faceName), t('sim.fixedFaces'), 'fixture', e.pick === 'fixtures')),
+      pmGroup('load', t('sim.loads'), `${pmSeg('loadKind', [['force', t('sim.force')], ['pressure', t('sim.pressure')]], e.loadKind)}${pmList('loads', e.loads.map(faceName), t('sim.loadFaces'), 'load', e.pick === 'loads')}${pmNum('magnitude', e.magnitude, e.loadKind === 'pressure' ? `${t('sim.pressure')} (MPa)` : `${t('sim.force')} (N)`, 'load')}${e.loadKind === 'force' ? pmSeg('dir', Object.keys(LOAD_DIRS).map((k) => [k, k.toUpperCase()]), e.dir) : ''}`),
+      pmGroup('statistics', t('sim.mesh'), `${pmNum('resolution', e.resolution, t('sim.resolution'), 'statistics')}<div class="pm-row">${pmButton('runSim', 'play', t('sim.run'), 'primary')}</div>`),
+      res,
+    ].join('');
+  }
+  if (e.mode === 'motion') {
+    const asm = activeAssembly();
+    const motors = asm?.motion?.motors ?? [];
+    const duration = asm?.motion?.duration ?? 5;
+    return [
+      pmHead('motion', t('cmd.motion'), t('pm.help.motion')),
+      pmGroup('motor', t('motion.motors'), `${pmSeg('kind', [['rotary', t('motion.rotary')], ['linear', t('motion.linear')]], e.kind)}${pmNum('speed', e.speed, e.kind === 'rotary' ? t('motion.rpm') : t('motion.mmps'), 'motor')}${pmList('motor', motors.map((m) => `${asm.components.find((c) => c.id === m.comp)?.name ?? '?'} — ${fmt(m.speed)} ${m.kind === 'rotary' ? 'rpm' : 'mm/s'}`), t('motion.motorFace'), 'motor', e.pick === 'motor')}`),
+      pmGroup('clock', t('motion.study'), `${pmNum('duration', duration, t('motion.duration'), 'clock')}<label class="pm-field"><span class="pm-label">${escapeHtml(t('motion.time'))}</span><input type="range" data-unit="s" data-motion-time min="0" max="${duration}" step="0.01" value="${e.time}"/><output data-motion-clock>${escapeHtml(`${fmt(e.time, 2)} s`)}</output></label><div class="pm-row">${e.playing ? pmButton('stopMotion', 'stop', t('motion.stop')) : pmButton('playMotion', 'play', t('motion.play'), 'primary')}${pmButton('resetMotion', 'rollback', t('motion.reset'))}</div>`),
+    ].join('');
+  }
+  return '';
+}
+
+function customField(key, raw, v) {
+  const e = state.editing;
+  const part = activePart();
+  if (e.mode === 'simulation') { if (v != null && (v > 0 || ['temperature', 'ambient'].includes(key))) { if (key === 'nu') e.nu = Math.min(0.49, v); else e[key] = v; } renderLeft(); return; }
+  if (e.mode === 'motion') {
+    const asm = activeAssembly();
+    if (v == null) return;
+    if (key === 'duration' && v > 0) change('op.motion', () => { asm.motion.duration = v; });
+    if (key === 'speed') { e.speed = v; change('op.motion', () => { for (const m of asm.motion.motors) m.speed = v; }); }
+    return;
+  }
+  if (!part) return;
+  const text = String(raw ?? '').trim();
+  const [k, arg] = key.split(':');
+  if (k === 'varName' && text && /^[A-Za-z_ㄱ-힝][\wㄱ-힝]*$/.test(text)) change('op.equations', () => { part.variables[Number(arg)].name = text; });
+  else if (k === 'varName') { notify('error', t('notice.badName', { text })); renderLeft(); }
+  else if (k === 'varExpr' && text) change('op.equations', () => { part.variables[Number(arg)].expr = text; });
+  else if (k === 'cfgName' && text) change('op.config', () => { const c = part.configurations.find((x) => x.id === arg); if (c) c.name = text; });
+  else if (k === 'cfgVar') change('op.config', () => { const c = activeConfiguration(part); if (c) { c.variables ??= {}; c.variables[arg] = text || part.variables.find((x) => x.name === arg)?.expr; } });
+}
+
+function customSet(key, value) {
+  const e = state.editing;
+  const part = activePart();
+  if (e.mode === 'simulation') {
+    if (more.simSet(e, key, value)) return undefined;
+    if (key === 'modeIndex') { e.modeIndex = Number(value); return showMode(e); }
+    if (key === 'study') { e.study = value; e.result = null; state.sim = null; syncView(); return renderLeft(); }
+    e[key] = value; if (key === 'loadKind' || key === 'heatKind') e.pick = 'loads'; return renderLeft();
+  }
+  if (e.mode === 'motion') { e[key] = value; return renderLeft(); }
+  if (key === 'activeConfig' && part) { change('op.config', () => { part.config = value || null; }); notify('info', t('notice.configActive', { name: activeConfiguration(part)?.name ?? t('config.default') })); }
+  return undefined;
+}
+
+function customToggle(key, checked) {
+  if (key === 'deformed' && state.sim) { state.sim.deformed = checked; syncView(); }
+}
+
+function customSelect() { return undefined; }
+
+function customCommand(name, arg) {
+  const e = state.editing;
+  if (more.handles(name)) return more.command(name, arg);
+  if (name === 'addLight') return addLight(arg);
+  if (name === 'selLight' && e?.mode === 'lights') { e.selected = arg; syncView(); return renderLeft(); }
+  if (name === 'delLight' && e?.mode === 'lights') { change('op.light', (p) => { const L = sceneLights(p); L.lights = L.lights.filter((x) => x.id !== arg); }); if (e.selected === arg) e.selected = null; return renderLeft(); }
+  const part = activePart();
+  if (name === 'clear' && e?.mode === 'simulation') { e[arg] = []; viewport.setSelection([]); return renderLeft(); }
+  if (name === 'clear' && e?.mode === 'motion') { const asm = activeAssembly(); change('op.motion', () => { asm.motion.motors = []; }); return undefined; }
+  if (name === 'runSim') return runSimulation();
+  if (name === 'clearSim') { state.sim = null; if (e) e.result = null; syncView(); return renderLeft(); }
+  if (name === 'playMotion') return playMotion(true);
+  if (name === 'stopMotion') return playMotion(false);
+  if (name === 'resetMotion') { playMotion(false); e.time = 0; syncView(); return renderLeft(); }
+  if (name === 'addVar' && part) { change('op.equations', () => { part.variables ??= []; part.variables.push({ name: nextVariableName(part), expr: '10' }); }); return undefined; }
+  if (name === 'delVar' && part) { change('op.equations', () => { part.variables.splice(Number(arg), 1); }); return undefined; }
+  if (name === 'delExpr' && part) {
+    const [id, k] = arg.split('|');
+    change('op.equations', () => {
+      const f = part.features.find((x) => x.id === id);
+      if (!f) return;
+      const c = f.constraints?.find((x) => x.id === k);
+      if (c) delete c.expr;
+      else if (f.exprs) { delete f.exprs[k]; if (!Object.keys(f.exprs).length) delete f.exprs; }
+    });
+    return undefined;
+  }
+  if (name === 'exportTable') return exportDesignTable();
+  if (name === 'importTable') return importDesignTable();
+  if (name === 'addCfg' && part) { let c; change('op.config', () => { c = addConfiguration(part, `${t('config.name')}${(part.configurations?.length ?? 0) + 1}`); part.config = c.id; }); notify('success', t('notice.configActive', { name: c.name })); return undefined; }
+  if (name === 'delCfg' && part) { change('op.config', () => { part.configurations = part.configurations.filter((c) => c.id !== arg); if (part.config === arg) part.config = null; }); return undefined; }
+  return undefined;
+}
+
+/** Sketch dimension driven by an equation: double-click a dimension, type "=W". */
+function dimensionExpression(sketch, c, text) {
+  const part = activePart();
+  const vars = variableValues(part).values;
+  const value = evaluate(text, (name) => { if (vars.has(name)) return vars.get(name); throw Object.assign(new Error(name), { code: 'unknown' }); });
+  c.expr = text;
+  return value;
+}
+
+// ───────────────────────── sketch tools that work on the selection
+
+async function sketchSelectionCommand(kind) {
+  if (!sketching()) return;
+  const ed = state.editing.editor;
+  if (!ed.selection.length) { notify('info', t('sketch.selectFirst')); return; }
+  const ask2 = async (label, value) => { const r = await popups.open('prompt', { title: t(`sketch.tool.${kind}`), label, value }); return r?.value ?? null; };
+  let n = 0;
+  if (kind === 'offset') {
+    const v = parseLen(await ask2(`${t('pm.distance')} (${units()})`, '2') ?? '', 'length');
+    if (v == null) return;
+    n = ed.offsetSelection(v);
+  } else if (kind === 'mirror') {
+    n = ed.mirrorSelection();
+    if (!n) { notify('info', t('sketch.needCenterline')); return; }
+  } else if (kind === 'linPattern') {
+    const text = await ask2(t('sketch.linPatternPrompt'), '20, 0, 3');
+    const [dx, dy, count] = String(text ?? '').split(/[,\s]+/).map(Number);
+    if (!Number.isFinite(dx) || !(count >= 2)) return;
+    n = ed.patternSelection('linear', { dx: dx * UNIT_FACTOR[units()], dy: (dy || 0) * UNIT_FACTOR[units()], count: Math.round(count) });
+  } else if (kind === 'cirPattern') {
+    const text = await ask2(t('sketch.cirPatternPrompt'), '6, 360');
+    const [count, angle] = String(text ?? '').split(/[,\s]+/).map(Number);
+    if (!(count >= 2)) return;
+    const centre = ed.selection.map((id) => byId(ed.sketch, id)).find((x) => x?.type === 'point') ?? { x: 0, y: 0 };
+    n = ed.patternSelection('circular', { cx: centre.x, cy: centre.y, count: Math.round(count), angle: Number.isFinite(angle) ? angle : 360 });
+  }
+  ed.render();
+  renderLeft();
+  notify(n ? 'success' : 'info', t(n ? 'sketch.made' : 'sketch.nothingMade', { count: n }));
+}
+
+/** Convert entities / intersection curve (from the body before the sketch) and move / copy / rotate / scale of the selection. */
+async function sketchMoreCommand(kind) {
+  if (!sketching()) return;
+  const e = state.editing;
+  const ed = e.editor;
+  let made = [];
+  if (kind === 'convert' || kind === 'intersect') {
+    const body = buildPart(activePart(), { upTo: e.index, slot: 'sketch' }).body;
+    if (!body) { notify('info', t('notice.sketchNeedsBody')); return; }
+    try { made = kind === 'convert' ? convertEntities(ed.sketch, ed.frame, body) : intersectionEntities(ed.sketch, ed.frame, body); } catch (error) { showError('error.command', error, t(`sketch.tool.${kind}`)); return; }
+  } else {
+    if (!ed.selection.length) { notify('info', t('sketch.selectFirst')); return; }
+    const k = UNIT_FACTOR[units()];
+    const prompts = { move: ['sketch.movePrompt', '10, 0'], copy: ['sketch.movePrompt', '10, 0'], rotate: ['sketch.rotatePrompt', '90, 0, 0'], scale: ['sketch.scalePrompt', '2, 0, 0'] };
+    const r = await popups.open('prompt', { title: t(`sketch.tool.${kind}`), label: t(prompts[kind][0]), value: prompts[kind][1] });
+    if (r?.value == null) return;
+    const v = String(r.value).split(/[,\s]+/).filter(Boolean).map(Number);
+    if (!v.length || v.some((x) => !Number.isFinite(x))) { notify('error', t('notice.invalidValue', { text: r.value })); return; }
+    const op = kind === 'rotate' ? { kind: 'rotate', angle: v[0], cx: (v[1] ?? 0) * k, cy: (v[2] ?? 0) * k }
+      : kind === 'scale' ? { kind: 'scale', factor: v[0], cx: (v[1] ?? 0) * k, cy: (v[2] ?? 0) * k }
+        : { kind: 'move', dx: v[0] * k, dy: (v[1] ?? 0) * k, copy: kind === 'copy' };
+    if (op.kind === 'scale' && !(op.factor > 0)) { notify('error', t('notice.invalidValue', { text: r.value })); return; }
+    made = transformEntities(ed.sketch, [...ed.selection], op);
+  }
+  if (kind !== 'move' && kind !== 'rotate' && kind !== 'scale') ed.selection = made.map((x) => x.id);
+  ed.solve();
+  ed.commit(`op.sketch.${kind}`);
+  renderLeft();
+  notify(made.length ? 'success' : 'info', t(made.length ? 'sketch.made' : 'sketch.nothingMade', { count: made.length }));
+}
+
+// ───────────────────────── drawings: section, detail, auxiliary views, annotations, BOM
+
+function drawingBom(d) {
+  if (!d.bom?.show || d.source?.kind !== 'assembly') return null;
+  const asm = project().assemblies.find((a) => a.id === d.source.id);
+  return asm ? bomRows(asm, project(), { lang: lang() }) : null;
+}
+
+const nextLetter = (d) => { const used = new Set(d.views.map((v) => v.label).filter(Boolean)); return 'ABCDEFGHJKLMNPRSTUVWXYZ'.split('').find((c) => !used.has(c)) ?? 'Z'; };
+
+function drawingActionExtra(d, cmd, arg) {
+  const parent = d.views.find((v) => v.id === state.drawingSelected && v.kind !== 'detail') ?? d.views.find((v) => v.type === 'front' && !v.kind) ?? d.views[0];
+  if (cmd === 'section') {
+    if (!parent) { notify('info', t('notice.needParentView')); return undefined; }
+    const { shape } = drawingShape(d);
+    if (!shape) return undefined;
+    const [lo, hi] = shape.boundingBox.bounds;
+    const point = lo.map((v, i) => (v + hi[i]) / 2);
+    const cam = VIEW_CAMERAS[parent.type] ?? VIEW_CAMERAS.front;
+    // Cut across the parent view (a vertical line in it): the section looks along the parent's x axis.
+    const xl = Math.hypot(...cam.x); const normal = (arg === 'h' ? (() => { const dl = Math.hypot(...cam.dir); const dd = cam.dir.map((v) => v / dl); const xx = cam.x.map((v) => v / xl); return [dd[1] * xx[2] - dd[2] * xx[1], dd[2] * xx[0] - dd[0] * xx[2], dd[0] * xx[1] - dd[1] * xx[0]]; })() : cam.x.map((v) => v / xl));
+    const type = Object.entries(VIEW_CAMERAS).find(([, c]) => { const l = Math.hypot(...c.dir); return c.dir.every((v, i) => Math.abs(v / l - normal[i]) < 1e-6); })?.[0] ?? 'custom';
+    const view = { id: newId('v'), type, kind: 'section', plane: { point, normal }, label: nextLetter(d), parent: parent.id, ...(type === 'custom' ? { dir: normal } : {}) };
+    change('op.addView', () => { d.views.push(view); });
+    state.drawingSelected = view.id;
+    return notify('success', t('notice.sectionView', { label: view.label }));
+  }
+  if (cmd === 'detail') {
+    if (!parent) { notify('info', t('notice.needParentView')); return undefined; }
+    const view = { id: newId('v'), kind: 'detail', type: parent.type, parent: parent.id, scale: 2, label: nextLetter(d) };
+    change('op.addView', () => { d.views.push(view); });
+    state.drawingSelected = view.id;
+    return notify('success', t('notice.detailView', { label: view.label }));
+  }
+  if (cmd === 'aux') return addAuxView(d);
+  if (cmd === 'place') { state.drawingPlace = arg; return notify('info', t('notice.clickSheet', { kind: t(`ann.${arg}`) })); }
+  if (cmd === 'bom') {
+    if (d.source?.kind !== 'assembly') { notify('info', t('notice.bomNeedsAssembly')); return undefined; }
+    return change('op.edit', () => { d.bom = { ...(d.bom ?? {}), show: !d.bom?.show }; });
+  }
+  if (cmd === 'removeAnn') return change('op.edit', () => { d.annotations = (d.annotations ?? []).filter((a) => a.id !== arg); });
+  return more.drawingAction(d, cmd, arg);
+}
+
+async function addAuxView(d) {
+  const r = await popups.open('prompt', { title: t('cmd.auxView'), label: t('drawing.auxDirection'), value: '1, 1, 0' });
+  const dir = String(r?.value ?? '').split(/[,\s]+/).map(Number);
+  if (dir.length !== 3 || dir.some((v) => !Number.isFinite(v)) || Math.hypot(...dir) < 1e-9) return;
+  const view = { id: newId('v'), type: 'custom', dir, label: nextLetter(d) };
+  change('op.addView', () => { d.views.push(view); });
+}
+
+/** Places an annotation where the sheet was clicked (sheet mm, y down). */
+async function placeAnnotation(event) {
+  const d = activeDrawing();
+  const kind = state.drawingPlace;
+  state.drawingPlace = null;
+  const svg = root.querySelector('#drawing-host svg');
+  if (!d || !svg) return;
+  const p = svg.createSVGPoint(); p.x = event.clientX; p.y = event.clientY;
+  const at = p.matrixTransform(svg.getScreenCTM().inverse());
+  const list = d.annotations ?? [];
+  const a = { id: newId('ann'), kind, x: Math.round(at.x * 10) / 10, y: Math.round(at.y * 10) / 10 };
+  if (kind === 'note') { const r = await popups.open('prompt', { title: t('ann.note'), label: t('ann.text'), value: t('ann.defaultNote') }); if (r?.value == null) return; a.text = r.value; a.size = 3.5; }
+  if (kind === 'balloon') { a.item = list.filter((x) => x.kind === 'balloon').length + 1; a.target = [a.x - 12, a.y + 10]; }
+  if (kind === 'gdt') Object.assign(a, { symbol: 'flatness', tolerance: '0.05', diameter: false, modifier: '', datums: [], target: [a.x - 8, a.y + 10] });
+  if (kind === 'datum') { const used = new Set(list.filter((x) => x.kind === 'datum').map((x) => x.letter)); a.letter = 'ABCDEFGH'.split('').find((c) => !used.has(c)) ?? 'A'; a.target = [a.x, a.y + 10]; }
+  if (kind === 'surface') Object.assign(a, { ra: '1.6', process: 'removal' });
+  if (kind === 'centermark') a.size = 10;
+  change('op.annotation', () => { d.annotations = [...list, a]; });
+  state.drawingSelected = a.id;
+  renderDrawing();
+  renderRight();
+}
+
+function setAnnotationField(id, field, value) {
+  const d = activeDrawing();
+  const a = d?.annotations?.find((x) => x.id === id);
+  if (!a) return;
+  change('op.annotation', () => {
+    if (field === 'datums') a.datums = String(value).split(/[,\s|]+/).filter(Boolean).map((x) => x.toUpperCase()).slice(0, 3);
+    else if (['diameter'].includes(field)) a[field] = Boolean(value);
+    else if (['size', 'item'].includes(field)) { const n = Number(value); if (Number.isFinite(n) && n > 0) a[field] = n; }
+    else a[field] = value;
+  });
 }
 
 // ───────────────────────── commands
@@ -1459,6 +2517,59 @@ const commands = {
   mirror: featureCommand('mirror', 'featMirror', 'cmd.mirror'),
   refPlane: featureCommand('plane', 'refPlane', 'cmd.plane'),
   material: { icon: 'material', label: 'cmd.material', enabled: () => Boolean(activePart()), run: (c) => materialMenu(c?.anchor) },
+  sweep: featureCommand('sweep', 'featSweep', 'cmd.sweep'),
+  cutSweep: featureCommand('cutSweep', 'featCutSweep', 'cmd.cutSweep'),
+  loft: featureCommand('loft', 'featLoft', 'cmd.loft'),
+  cutLoft: featureCommand('cutLoft', 'featCutLoft', 'cmd.cutLoft'),
+  draft: featureCommand('draft', 'featDraft', 'cmd.draft'),
+  rib: featureCommand('rib', 'featRib', 'cmd.rib'),
+  dome: featureCommand('dome', 'featDome', 'cmd.dome'),
+  helix: featureCommand('helix', 'helix', 'cmd.helix'),
+  thread: featureCommand('thread', 'featThread', 'cmd.thread'),
+  wrap: featureCommand('wrap', 'featWrap', 'cmd.wrap'),
+  thicken: featureCommand('thicken', 'featThicken', 'cmd.thicken'),
+  surfaceExtrude: featureCommand('surfaceExtrude', 'surfaceExtrude', 'cmd.surfaceExtrude'),
+  surfaceRevolve: featureCommand('surfaceRevolve', 'surfaceRevolve', 'cmd.surfaceRevolve'),
+  surfacePlanar: featureCommand('surfacePlanar', 'surface', 'cmd.surfacePlanar'),
+  surfaceLoft: featureCommand('surfaceLoft', 'surfaceLoft', 'cmd.surfaceLoft'),
+  surfaceOffset: featureCommand('surfaceOffset', 'surfaceOffset', 'cmd.surfaceOffset'),
+  knit: featureCommand('knit', 'knit', 'cmd.knit'),
+  moveBody: featureCommand('moveBody', 'moveBody', 'cmd.moveBody'),
+  scaleBody: featureCommand('scaleBody', 'scaleBody', 'cmd.scaleBody'),
+  split: featureCommand('split', 'split', 'cmd.split'),
+  insertPart: featureCommand('insertPart', 'insertPartFeat', 'cmd.insertPart'),
+  cavity: featureCommand('cavity', 'cavity', 'cmd.cavity'),
+  shrink: featureCommand('shrink', 'scaleBody', 'cmd.shrink'),
+  baseFlange: featureCommand('baseFlange', 'sheetMetal', 'cmd.baseFlange'),
+  edgeFlange: featureCommand('edgeFlange', 'edgeFlange', 'cmd.edgeFlange'),
+  flatten: { icon: 'flatten', label: 'cmd.flatten', enabled: () => Boolean(activePart()) && !sketching(), checked: () => Boolean(activePart()?.flat), run: () => toggleFlatten() },
+  structural: featureCommand('structural', 'structural', 'cmd.structural'),
+  fillSurface: featureCommand('fillSurface', 'surfaceFill', 'cmd.fillSurface'),
+  boundary: featureCommand('boundary', 'boundarySurface', 'cmd.boundary'),
+  trimSurface: featureCommand('trimSurface', 'surfaceTrim', 'cmd.trimSurface'),
+  hem: featureCommand('hem', 'hem', 'cmd.hem'),
+  sketchedBend: featureCommand('sketchedBend', 'sketchedBend', 'cmd.sketchedBend'),
+  jog: featureCommand('jog', 'jog', 'cmd.jog'),
+  partingLine: featureCommand('partingLine', 'partingLine', 'cmd.partingLine'),
+  toolingSplit: featureCommand('toolingSplit', 'toolingSplit', 'cmd.toolingSplit'),
+  sketch3d: featureCommand('sketch3d', 'sketch3d', 'cmd.sketch3d'),
+  // body tools, reference geometry, fillet variants, patterns and curves (cad/part-more.js)
+  ...Object.fromEntries(PART_MORE_TYPES.map((type) => [type, featureCommand(type, PART_MORE_ICONS[type], `cmd.${type}`)])),
+  ...Object.fromEntries(SHEET_MORE_TYPES.map((type) => [type, featureCommand(type, SHEET_MORE_ICONS[type], `cmd.${type}`)])),
+  // sketch tools that read the body or move the selection (cad/sketch-more.js)
+  'sk:convert': { icon: 'convertEntities', label: 'sketch.tool.convert', enabled: () => sketching(), run: () => sketchMoreCommand('convert') },
+  'sk:intersect': { icon: 'intersectionCurve', label: 'sketch.tool.intersect', enabled: () => sketching(), run: () => sketchMoreCommand('intersect') },
+  'sk:move': { icon: 'moveEntities', label: 'sketch.tool.move', enabled: () => sketching() && state.editing.editor.selection.length > 0, run: () => sketchMoreCommand('move') },
+  'sk:copy': { icon: 'copyEntities', label: 'sketch.tool.copy', enabled: () => sketching() && state.editing.editor.selection.length > 0, run: () => sketchMoreCommand('copy') },
+  'sk:rotate': { icon: 'rotateEntities', label: 'sketch.tool.rotate', enabled: () => sketching() && state.editing.editor.selection.length > 0, run: () => sketchMoreCommand('rotate') },
+  'sk:scale': { icon: 'scaleEntities', label: 'sketch.tool.scale', enabled: () => sketching() && state.editing.editor.selection.length > 0, run: () => sketchMoreCommand('scale') },
+  cutList: { icon: 'cutList', label: 'cmd.cutList', enabled: () => hasWeldments(activePart()), run: () => showCutList() },
+  draftAnalysis: { icon: 'draftAnalysis', label: 'cmd.draftAnalysis', enabled: () => Boolean(activePart()), checked: () => Boolean(state.draftAnalysis), run: () => toggleDraftAnalysis() },
+  simulation: { icon: 'simulation', label: 'cmd.simulation', enabled: () => Boolean(activePart()) && !sketching(), checked: () => state.editing?.mode === 'simulation', run: () => (state.editing?.mode === 'simulation' ? cancelEditing({ quiet: true }) : startSimulation()) },
+  equations: { icon: 'equations', label: 'cmd.equations', enabled: () => Boolean(activePart()) && !sketching(), checked: () => state.editing?.mode === 'equations', run: () => startEquations('equations') },
+  configurations: { icon: 'configurations', label: 'cmd.configurations', enabled: () => Boolean(activePart()) && !sketching(), checked: () => state.editing?.mode === 'configs', run: () => startEquations('configs') },
+  designTable: { icon: 'designTable', label: 'cmd.exportTable', enabled: () => Boolean(activePart()), run: () => exportDesignTable() },
+  importTable: { icon: 'folderOpen', label: 'cmd.importTable', enabled: () => Boolean(activePart()), run: () => importDesignTable() },
   // sketch
   exitSketch: { icon: 'exitSketch', label: 'sketch.exit', enabled: sketching, run: () => exitSketch() },
   cancelSketch: { icon: 'close', label: 'sketch.cancel', enabled: sketching, run: () => cancelEditing() },
@@ -1473,6 +2584,16 @@ const commands = {
   'sk:polygon': skCommand('polygon', 'polygonTool', 'P'),
   'sk:slot': skCommand('slot', 'slotTool'),
   'sk:point': skCommand('point', 'pointTool'),
+  'sk:spline': skCommand('spline', 'splineTool', 'S'),
+  'sk:ellipse': skCommand('ellipse', 'ellipseTool', 'E'),
+  'sk:text': skCommand('text', 'textTool'),
+  'sk:fillet': skCommand('sketchFillet', 'sketchFillet'),
+  'sk:chamfer': skCommand('sketchChamfer', 'sketchChamfer'),
+  'sk:extend': skCommand('extend', 'extendTool', 'X'),
+  'sk:offset': { icon: 'offsetTool', label: 'sketch.tool.offset', key: 'O', enabled: () => sketching() && state.editing.editor.selection.length > 0, run: () => sketchSelectionCommand('offset') },
+  'sk:mirror': { icon: 'mirrorEntities', label: 'sketch.tool.mirror', enabled: () => sketching() && state.editing.editor.selection.length > 0, run: () => sketchSelectionCommand('mirror') },
+  'sk:linPattern': { icon: 'sketchLinPattern', label: 'sketch.tool.linPattern', enabled: () => sketching() && state.editing.editor.selection.length > 0, run: () => sketchSelectionCommand('linPattern') },
+  'sk:cirPattern': { icon: 'sketchCirPattern', label: 'sketch.tool.cirPattern', enabled: () => sketching() && state.editing.editor.selection.length > 0, run: () => sketchSelectionCommand('cirPattern') },
   'sk:dimension': skCommand('dimension', 'smartDim', 'D'),
   'sk:trim': skCommand('trim', 'trimTool', 'T'),
   construction: { icon: 'constructionToggle', label: 'sketch.construction', enabled: () => sketching() && state.editing.editor.selection.length > 0, run: () => { state.editing.editor.toggleConstruction(); state.editing.editor.render(); } },
@@ -1489,6 +2610,10 @@ const commands = {
   showPlanes: { icon: 'refPlane', label: 'action.showPlanes', checked: () => state.settings.showPlanes, run: () => toggle('showPlanes') },
   showOrigin: { icon: 'origin', label: 'action.showOrigin', checked: () => state.settings.showOrigin, run: () => toggle('showOrigin') },
   showSketches: { icon: 'featSketch', label: 'action.showSketches', checked: () => state.settings.showSketches, run: () => toggle('showSketches') },
+  showRulers: { icon: 'ruler', label: 'action.showRulers', checked: () => state.settings.showRulers !== false, run: () => { updateSettings({ showRulers: state.settings.showRulers === false }); syncGuides(); } },
+  showGrid: { icon: 'grid', label: 'action.showGrid', checked: () => state.settings.showGrid !== false, run: () => { updateSettings({ showGrid: state.settings.showGrid === false }); syncGuides(); } },
+  ...Object.fromEntries(['front', 'top', 'right'].map((pl) => [`gridPlane:${pl}`, { icon: { front: 'planeFront', top: 'planeTop', right: 'planeRight' }[pl], label: `action.gridPlane.${pl}`, checked: () => (state.settings.gridPlane ?? 'front') === pl, run: () => { updateSettings({ gridPlane: pl, showGrid: true }); syncGuides(); } }])),
+  showScaleBar: { icon: 'scaleBar', label: 'action.showScaleBar', checked: () => state.settings.showScaleBar !== false, run: () => { updateSettings({ showScaleBar: state.settings.showScaleBar === false }); syncGuides(); } },
   leftPanel: { icon: 'panelLeft', label: 'action.leftPanel', key: 'Ctrl+Shift+1', checked: () => state.settings.showLeftPanel, run: () => toggle('showLeftPanel') },
   rightPanel: { icon: 'panelRight', label: 'action.rightPanel', key: 'Ctrl+Shift+2', checked: () => state.settings.showRightPanel, run: () => toggle('showRightPanel') },
   bottomPanel: { icon: 'panelBottom', label: 'action.bottomPanel', key: 'Ctrl+J', checked: () => state.settings.showBottomPanel, run: () => toggle('showBottomPanel') },
@@ -1496,6 +2621,7 @@ const commands = {
   fps: { icon: 'fps', label: 'action.fps', checked: () => state.settings.showFps, run: () => toggle('showFps') },
   // evaluate
   massProps: { icon: 'massProps', label: 'cmd.massProps', enabled: () => Boolean(activePart() || activeAssembly()), run: () => showMassProperties() },
+  lights: { icon: 'bulb', label: 'cmd.lights', enabled: () => Boolean(activePart() || activeAssembly()), checked: () => state.editing?.mode === 'lights', run: () => (state.editing?.mode === 'lights' ? cancelEditing({ quiet: true }) : startLights()) },
   measure: { icon: 'measureTool', label: 'cmd.measure', enabled: () => Boolean(activePart() || activeAssembly()), checked: () => state.editing?.mode === 'measure', run: () => (state.editing?.mode === 'measure' ? cancelEditing({ quiet: true }) : startMeasure()) },
   interference: { icon: 'interference', label: 'cmd.interference', enabled: asmOpen, run: () => checkInterference() },
   // assembly
@@ -1504,11 +2630,20 @@ const commands = {
   fixComponent: { icon: 'fixComponent', label: 'cmd.fix', enabled: () => asmOpen() && state.selection.some((s) => s.kind === 'comp'), run: () => setComponentFixed(true) },
   floatComponent: { icon: 'floatComponent', label: 'cmd.float', enabled: () => asmOpen() && state.selection.some((s) => s.kind === 'comp'), run: () => setComponentFixed(false) },
   rotateComponent: { icon: 'rotateRight', label: 'cmd.rotate90', enabled: () => asmOpen() && state.selection.some((s) => s.kind === 'comp'), run: () => rotateComponent([0, 1, 0], 90) },
+  explode: { icon: 'explode', label: 'cmd.explode', enabled: () => asmOpen() && (activeAssembly()?.components.length ?? 0) > 1, checked: () => Boolean(activeAssembly()?.explode?.on), run: () => toggleExplode() },
+  resetExplode: { icon: 'collapse', label: 'cmd.resetExplode', enabled: () => Boolean(activeAssembly()?.explode?.steps?.length), run: () => change('op.explode', () => { delete activeAssembly().explode; }) },
+  motion: { icon: 'motion', label: 'cmd.motion', enabled: () => asmOpen() && (activeAssembly()?.components.length ?? 0) > 1, checked: () => state.editing?.mode === 'motion', run: () => (state.editing?.mode === 'motion' ? cancelEditing({ quiet: true }) : startMotion()) },
   openPart: { icon: 'part', label: 'cmd.openPart', enabled: () => asmOpen() && state.selection.length === 1 && state.selection[0].kind === 'comp', run: () => { const c = activeAssembly().components.find((x) => x.id === state.selection[0].id); if (c) switchDocument({ kind: 'part', id: c.part }); } },
   // drawing
   addView: { icon: 'drawingView', label: 'cmd.addView', enabled: () => Boolean(activeDrawing()), run: (c) => addViewMenu(c?.anchor) },
   std3View: { icon: 'standard3View', label: 'cmd.std3View', enabled: () => Boolean(activePart() || activeAssembly() || activeDrawing()), run: () => standardThreeView() },
   hiddenLines: { icon: 'hiddenLines', label: 'drawing.hiddenLines', enabled: () => Boolean(activeDrawing()), checked: () => activeDrawing()?.showHidden !== false, run: () => change('op.edit', () => { const d = activeDrawing(); d.showHidden = d.showHidden === false; }) },
+  sectionView: { icon: 'sectionDrawing', label: 'cmd.sectionView', enabled: () => Boolean(activeDrawing()), run: () => drawingAction('section:v') },
+  sectionViewH: { icon: 'sectionDrawing', label: 'cmd.sectionViewH', enabled: () => Boolean(activeDrawing()), run: () => drawingAction('section:h') },
+  detailView: { icon: 'detailView', label: 'cmd.detailView', enabled: () => Boolean(activeDrawing()), run: () => drawingAction('detail') },
+  auxView: { icon: 'auxView', label: 'cmd.auxView', enabled: () => Boolean(activeDrawing()), run: () => drawingAction('aux') },
+  bom: { icon: 'bom', label: 'cmd.bom', enabled: () => activeDrawing()?.source?.kind === 'assembly', checked: () => Boolean(activeDrawing()?.bom?.show), run: () => drawingAction('bom') },
+  ...Object.fromEntries([['note', 'note'], ['balloon', 'balloon'], ['gdt', 'gdt'], ['datum', 'datum'], ['surface', 'surfaceFinish'], ['centermark', 'centerMark']].map(([k, g]) => [`ann:${k}`, { icon: g, label: `ann.${k}`, enabled: () => Boolean(activeDrawing()), checked: () => state.drawingPlace === k, run: () => drawingAction(`place:${k}`) }])),
   autoDims: { icon: 'autoDims', label: 'drawing.dims', enabled: () => Boolean(activeDrawing()), checked: () => activeDrawing()?.showDims !== false, run: () => change('op.edit', () => { const d = activeDrawing(); d.showDims = d.showDims === false; }) },
   // appearance
   theme: { icon: 'palette', label: 'action.themeRandom', run: () => updateSettings({ theme: randomThemeId(state.settings.theme) }) },
@@ -1519,11 +2654,21 @@ const commands = {
   clearBackground: { icon: 'imageClear', label: 'action.clearBackground', enabled: () => Boolean(state.settings.backgroundImage) || state.settings.backgroundKind !== 'none', run: () => removeBackground() },
   // help
   userGuide: { icon: 'userGuide', label: 'action.userGuide', key: 'F1', run: () => openDocWindow('guide') },
+  tutorialDoc: { icon: 'tutorialDoc', label: 'action.tutorialDoc', run: () => openDocWindow('tutorial') },
   shortcuts: { icon: 'keyboard', label: 'action.shortcuts', run: () => popups.open('settings', { tab: 'shortcuts' }) },
   settings: { icon: 'gear', label: 'action.settings', key: 'Ctrl+,', run: () => popups.open('settings', { tab: 'general' }) },
   about: { icon: 'info', label: 'action.about', run: () => popups.open('about') },
   welcome: { icon: 'bulb', label: 'action.welcome', run: () => openWelcome() },
 };
+
+// Component patterns, smart mates, collision detection, more drawing views and tables, sheets, curvature /
+// zebra / thickness, buckling and fatigue (app-more.js).
+const more = createMoreTools({
+  state, t, notify, change, commit, syncView, renderAll, renderLeft, renderDrawing, renderToolbarState, fitView, fitDrawing, cancelEditing, ensureKernel, withProgress, ask, newId, fmt, fmtLen, parseLen, units, lang, popups,
+  viewport: () => viewport, project, activePart, activeAssembly, activeDrawing, topoOf, assemblySize, componentShapes, drawingShape, drawingProjections,
+  pm: { pmHead, pmGroup, pmNum, pmSeg, pmList, pmButton, textInput },
+});
+Object.assign(commands, more.commands);
 
 function normalTo() {
   if (sketching()) { viewport.setView(null, { frameOf: state.editing.editor.frame }); return; }
@@ -1591,20 +2736,33 @@ const SUBMENUS = {
   exportTo: { icon: 'exportFile', items: ['exportStep', 'exportStl', 'exportImage', '-', 'exportDxf', 'exportSvg'] },
   views: { icon: 'views', items: ['view:front', 'view:back', 'view:top', 'view:bottom', 'view:left', 'view:right', '-', 'view:iso', 'view:dimetric', 'view:trimetric', '-', 'normalTo'] },
   displayStyle: { icon: 'styleShaded', items: ['style:shadedEdges', 'style:shaded', 'style:hiddenRemoved', 'style:hiddenVisible', 'style:wireframe'] },
-  show: { icon: 'eye', items: ['showPlanes', 'showOrigin', 'showSketches', '-', 'leftPanel', 'rightPanel', 'bottomPanel', 'statusBar', 'fps'] },
+  show: { icon: 'eye', items: ['showPlanes', 'showOrigin', 'showSketches', '-', 'showRulers', 'showGrid', 'gridPlane:front', 'gridPlane:top', 'gridPlane:right', 'showScaleBar', '-', 'leftPanel', 'rightPanel', 'bottomPanel', 'statusBar', 'fps'] },
   appearance: { icon: 'palette', items: ['theme', 'themeMenu', 'language', '-', 'shuffleBackground', 'backgroundImage', 'clearBackground'] },
-  sketchEntities: { icon: 'lineTool', items: ['sk:line', 'sk:centerline', 'sk:rect', 'sk:centerRect', 'sk:circle', 'sk:arc3', 'sk:centerArc', 'sk:polygon', 'sk:slot', 'sk:point'] },
-  patterns: { icon: 'featLinPattern', items: ['linearPattern', 'circularPattern', 'mirror'] },
+  sketchEntities: { icon: 'lineTool', items: ['sk:line', 'sk:centerline', 'sk:rect', 'sk:centerRect', 'sk:circle', 'sk:arc3', 'sk:centerArc', 'sk:polygon', 'sk:slot', 'sk:spline', 'sk:ellipse', 'sk:point', 'sk:text'] },
+  sketchTools: { icon: 'sketchFillet', items: ['sk:fillet', 'sk:chamfer', 'sk:offset', 'sk:mirror', 'sk:linPattern', 'sk:cirPattern', 'sk:trim', 'sk:extend', '-', 'sk:convert', 'sk:intersect', 'sk:move', 'sk:copy', 'sk:rotate', 'sk:scale'] },
+  patterns: { icon: 'featLinPattern', items: ['linearPattern', 'circularPattern', 'mirror', '-', 'curvePattern', 'sketchPattern', 'tablePattern', 'fillPattern', 'variablePattern'] },
+  refGeometry: { icon: 'refAxis', items: ['refPlane', 'refAxis', 'refPoint', 'coordSys'] },
+  curves: { icon: 'curveXYZ', items: ['projectedCurve', 'splitLine', 'compositeCurve', 'curveXYZ', 'helix'] },
+  bossBase: { icon: 'featExtrude', items: ['extrude', 'revolve', 'sweep', 'loft', 'thicken'] },
+  cutFeat: { icon: 'featCut', items: ['cutExtrude', 'cutRevolve', 'cutSweep', 'cutLoft'] },
+  featuresMore: { icon: 'featDraft', items: ['fillet', 'variableFillet', 'faceFillet', 'fullRoundFillet', 'chamfer', 'shell', 'draft', 'rib', 'dome', 'wrap', 'hole', 'thread', 'helix'] },
+  surfaces: { icon: 'surface', items: ['surfaceExtrude', 'surfaceRevolve', 'surfacePlanar', 'surfaceLoft', 'boundary', 'fillSurface', 'surfaceOffset', 'ruledSurface', 'trimSurface', 'extendSurface', 'knit', 'thicken', '-', 'deleteFace', 'replaceFace'] },
+  bodies: { icon: 'moveBody', items: ['moveBody', 'scaleBody', 'split', 'insertPart', '-', 'combine', 'deleteBody', 'indent', 'flex', 'deform'] },
+  sheetMetal: { icon: 'sheetMetal', items: ['baseFlange', 'edgeFlange', 'miterFlange', 'hem', 'tab', 'loftedBend', 'sketchedBend', 'jog', '-', 'closedCorner', 'cornerRelief', 'formTool', '-', 'flatten'] },
+  weldments: { icon: 'structural', items: ['structural', 'trimExtend', 'endCap', 'gusset', 'weldBead', '-', 'cutList'] },
+  mold: { icon: 'cavity', items: ['draftAnalysis', 'draft', 'partingLine', 'toolingSplit', 'shrink', 'split', 'cavity'] },
+  annotations: { icon: 'note', items: ['ann:note', 'ann:balloon', 'ann:gdt', 'ann:datum', 'ann:surface', 'ann:centermark', '-', 'bom'] },
+  drawingViews: { icon: 'drawingView', items: ['std3View', 'addView', 'sectionView', 'sectionViewH', 'detailView', 'auxView'] },
 };
 const sub = (key) => ({ sub: key });
 const MENUS = {
   file: [sub('newDoc'), 'openExample', 'open', 'startPage', 'recent', 'recentFolders', 'clearRecent', '-', 'save', 'saveAs', '-', 'importStep', sub('exportTo'), '-', 'print', '-', 'closeProject', 'exit'],
   edit: ['undo', 'redo', '-', 'delete', 'rename', '-', 'rebuild', 'editFeature', 'suppress', 'unsuppress', '-', 'rollbackHere', 'rollbackEnd', '-', 'clearSelection'],
-  view: [sub('views'), 'zoomFit', 'perspective', '-', sub('displayStyle'), 'section', '-', sub('show'), '-', sub('appearance')],
-  insert: ['sketch', '-', 'extrude', 'revolve', 'cutExtrude', 'cutRevolve', '-', 'fillet', 'chamfer', 'shell', 'hole', '-', sub('patterns'), '-', 'refPlane', 'material'],
-  sketch: ['sketch', 'exitSketch', 'cancelSketch', '-', 'sk:select', sub('sketchEntities'), '-', 'sk:dimension', 'sk:trim', 'construction', '-', 'normalTo'],
-  tools: ['massProps', 'measure', '-', 'insertComponent', 'mate', 'fixComponent', 'floatComponent', 'interference', '-', 'newDrawing', 'std3View', 'addView', '-', 'settings'],
-  help: ['welcome', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
+  view: [sub('views'), 'zoomFit', 'perspective', '-', sub('displayStyle'), 'section', 'lights', '-', sub('show'), '-', sub('appearance')],
+  insert: ['sketch', '-', sub('bossBase'), sub('cutFeat'), sub('featuresMore'), sub('patterns'), '-', sub('surfaces'), sub('bodies'), sub('sheetMetal'), sub('weldments'), sub('mold'), '-', 'refPlane', sub('refGeometry'), sub('curves'), 'material', '-', sub('drawingViews'), sub('annotations')],
+  sketch: ['sketch', 'sketch3d', 'exitSketch', 'cancelSketch', '-', 'sk:select', sub('sketchEntities'), sub('sketchTools'), '-', 'sk:dimension', 'construction', '-', 'normalTo'],
+  tools: ['massProps', 'measure', 'simulation', 'draftAnalysis', '-', 'equations', 'configurations', 'designTable', 'importTable', '-', 'insertComponent', 'mate', 'fixComponent', 'floatComponent', 'interference', 'explode', 'motion', '-', 'newDrawing', 'std3View', 'addView', '-', 'settings'],
+  help: ['welcome', 'userGuide', 'tutorialDoc', 'shortcuts', '-', 'settings', 'about'],
 };
 const MENU_ICONS = { file: 'file', edit: 'edit', view: 'eye', insert: 'featExtrude', sketch: 'featSketch', tools: 'tools', help: 'question' };
 
@@ -1612,25 +2770,30 @@ const TOOLBAR = [
   ['newPart', 'newAssembly', 'newDrawing', 'open', 'save', 'print', 'exportSplit', 'importStep', 'exitProject'],
   ['undo', 'redo', 'rebuild'],
   ['viewsSplit', 'zoomFit', 'normalTo', 'perspective'],
-  ['styleSplit', 'section'],
+  ['styleSplit', 'section', 'lights', 'showRulers', 'showGrid'],
   ['massProps', 'measure'],
-  ['leftPanel', 'bottomPanel', 'rightPanel'],
 ];
 const TOOLBAR_RIGHT = ['themeSplit', 'language', 'settings', 'about'];
 const TOOLBAR_MAIN = { exportSplit: 'exportStep', themeSplit: 'theme', viewsSplit: 'view:iso', styleSplit: 'styleCycle' };
 
-/** The CommandManager: tabs of big buttons above the graphics area (SolidWorks' ribbon). */
+/** The CommandManager: tabs of big buttons above the graphics area (a ribbon). */
 const COMMAND_TABS = {
-  features: ['sketch', '|', 'extrude', 'revolve', 'cutExtrude', 'cutRevolve', '|', 'fillet', 'chamfer', 'shell', 'hole', '|', 'linearPattern', 'circularPattern', 'mirror', '|', 'refPlane', 'material', 'rebuild'],
-  sketch: ['sketch', 'sk:dimension', '|', 'sk:line', 'sk:centerline', 'sk:rect', 'sk:centerRect', 'sk:circle', 'sk:arc3', 'sk:centerArc', 'sk:polygon', 'sk:slot', 'sk:point', '|', 'sk:trim', 'construction', 'normalTo', 'sk:select'],
-  evaluate: ['massProps', 'measure', 'section', 'interference'],
-  assembly: ['insertComponent', 'mate', 'fixComponent', 'floatComponent', 'rotateComponent', 'openPart', '|', 'interference', 'massProps'],
-  drawing: ['newDrawing', 'std3View', 'addView', 'hiddenLines', 'autoDims', '|', 'exportDxf', 'exportSvg', 'print'],
+  features: ['sketch', '|', 'extrude', 'revolve', 'sweep', 'loft', '|', 'cutExtrude', 'cutRevolve', 'cutSweep', 'cutLoft', '|', 'fillet', 'chamfer', 'shell', 'draft', 'rib', 'dome', 'wrap', '|', 'hole', 'thread', 'helix', '|', 'linearPattern', 'circularPattern', 'mirror', '|', 'refPlane', 'refAxis', 'refPoint', 'coordSys', 'moveBody', 'split', 'insertPart', 'material', 'rebuild'],
+  bodiesCurves: ['combine', 'deleteBody', 'indent', 'flex', 'deform', '|', 'variableFillet', 'faceFillet', 'fullRoundFillet', '|', 'curvePattern', 'sketchPattern', 'tablePattern', 'fillPattern', 'variablePattern', '|', 'projectedCurve', 'splitLine', 'compositeCurve', 'curveXYZ'],
+  sketch: ['sketch', 'sketch3d', 'sk:dimension', '|', 'sk:line', 'sk:centerline', 'sk:rect', 'sk:centerRect', 'sk:circle', 'sk:arc3', 'sk:centerArc', 'sk:polygon', 'sk:slot', 'sk:spline', 'sk:ellipse', 'sk:point', 'sk:text', '|', 'sk:fillet', 'sk:chamfer', 'sk:offset', 'sk:mirror', 'sk:linPattern', 'sk:cirPattern', 'sk:trim', 'sk:extend', '|', 'sk:convert', 'sk:intersect', 'sk:move', 'sk:copy', 'sk:rotate', 'sk:scale', '|', 'construction', 'normalTo', 'sk:select'],
+  surfaces: ['surfaceExtrude', 'surfaceRevolve', 'surfacePlanar', 'surfaceLoft', 'boundary', 'fillSurface', 'surfaceOffset', 'ruledSurface', '|', 'trimSurface', 'extendSurface', 'knit', '|', 'deleteFace', 'replaceFace', '|', 'thicken', 'sketch3d'],
+  sheetMetal: ['baseFlange', 'edgeFlange', 'miterFlange', 'hem', 'tab', 'loftedBend', 'sketchedBend', 'jog', '|', 'closedCorner', 'cornerRelief', 'formTool', 'flatten', '|', 'hole', 'cutExtrude'],
+  weldments: ['sketch', 'sketch3d', 'structural', 'trimExtend', '|', 'endCap', 'gusset', 'weldBead', '|', 'cutList'],
+  mold: ['draftAnalysis', 'draft', 'partingLine', 'toolingSplit', 'shrink', 'split', 'cavity'],
+  evaluate: ['massProps', 'measure', 'section', 'lights', 'interference', '|', 'simulation', 'draftAnalysis', '|', 'equations', 'configurations', 'designTable', 'importTable'],
+  assembly: ['insertComponent', 'mate', 'fixComponent', 'floatComponent', 'rotateComponent', 'openPart', '|', 'explode', 'resetExplode', 'motion', '|', 'interference', 'massProps'],
+  drawing: ['newDrawing', 'std3View', 'addView', 'sectionView', 'detailView', 'auxView', '|', 'ann:note', 'ann:balloon', 'ann:gdt', 'ann:datum', 'ann:surface', 'ann:centermark', 'bom', '|', 'hiddenLines', 'autoDims', '|', 'exportDxf', 'exportSvg', 'print'],
 };
+for (const [tab, ids] of Object.entries(more.TABS)) COMMAND_TABS[tab].push('|', ...ids);
 
 function visibleCommandTabs() {
   const kind = activeKind();
-  if (kind === 'part') return ['features', 'sketch', 'evaluate', 'drawing'];
+  if (kind === 'part') return ['features', 'sketch', 'surfaces', 'sheetMetal', 'weldments', 'mold', 'bodiesCurves', 'evaluate', 'drawing'];
   if (kind === 'assembly') return ['assembly', 'evaluate', 'drawing'];
   if (kind === 'drawing') return ['drawing'];
   return [];
@@ -1672,7 +2835,9 @@ function renderMenubar() {
   const button = (id, glyph, key) => `<button class="window-button ${id === 'close' ? 'close' : ''}" data-window="${id}" title="${escapeHtml(t(key))}" aria-label="${escapeHtml(t(key))}">${icon(glyph)}</button>`;
   const controls = desktop ? `<div class="window-controls">${button('minimize', 'winMinimize', 'window.minimize')}${state.maximized ? button('maximize', 'winRestore', 'window.restore') : button('maximize', 'winMaximize', 'window.maximize')}${button('close', 'winClose', 'window.close')}</div>` : '';
   const projectName = '<span class="menubar-project" data-window-drag><span class="app-brand-project-name" data-window-drag></span><span class="app-brand-dirty" data-window-drag>●</span></span>';
-  menubar.innerHTML = brand + home + Object.keys(MENUS).map((name) => `<button class="menubar-item ${state.openMenu === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true" title="${escapeHtml(t(`menu.${name}`))}">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('') + projectName + `<div class="menubar-drag" data-window-drag></div>${controls}`;
+  // The panel toggles sit just left of the window buttons (minimize · maximize · close).
+  const panels = `<div class="panel-toggles" role="group" aria-label="${escapeHtml(t('submenu.show'))}">${['leftPanel', 'bottomPanel', 'rightPanel'].map((id) => `<button class="window-button panel-toggle ${commands[id].checked() ? 'active' : ''}" data-command="${id}" title="${escapeHtml(commandTip(id))}" aria-pressed="${commands[id].checked()}">${icon(commands[id].icon)}</button>`).join('')}</div>`;
+  menubar.innerHTML = brand + home + Object.keys(MENUS).map((name) => `<button class="menubar-item ${state.openMenu === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true" title="${escapeHtml(t(`menu.${name}`))}">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('') + projectName + `<div class="menubar-drag" data-window-drag></div>${panels}${controls}`;
   renderTitleProject();
 }
 
@@ -1757,7 +2922,7 @@ function showToolbarMore(button) {
 }
 
 function renderToolbarState() {
-  for (const el of root.querySelectorAll('#toolbar [data-command], #palette-host [data-command], #tabs [data-command]')) {
+  for (const el of root.querySelectorAll('#toolbar [data-command], #palette-host [data-command], #tabs [data-command], #menubar [data-command]')) {
     const id = el.dataset.command;
     el.disabled = !commandEnabled(id);
     const checked = commands[id]?.checked?.();
@@ -1793,7 +2958,7 @@ function updateMinimumWidth() {
   });
 }
 
-/** Document tabs: every part, assembly and drawing of the project (SolidWorks' open document windows). */
+/** Document tabs: every part, assembly and drawing of the project (the open document windows). */
 function renderTabs() {
   renderTitleProject();
   const tabs = root.querySelector('#tabs');
@@ -1804,7 +2969,24 @@ function renderTabs() {
   tabs.innerHTML = `<div class="tab-strip">${list.map(({ kind, doc: d }) => `<button class="tab ${p.active?.id === d.id ? 'active' : ''}" data-doc-tab="${kind}:${escapeHtml(d.id)}" title="${escapeHtml(`${t(`doc.${kind}`)}: ${d.name}`)}">${icon(glyph[kind])}<span>${escapeHtml(d.name)}</span>${list.length > 1 ? `<span class="tab-close" data-doc-close="${kind}:${escapeHtml(d.id)}" title="${escapeHtml(t('tabs.removeDoc'))}">${icon('close', 'icon tiny')}</span>` : ''}</button>`).join('')}
       <button class="tab-add" data-command="newPart" title="${escapeHtml(commandTip('newPart'))}">${icon('plus')}</button></div>
     <span class="grow"></span>
+    <span class="tab-scroll" role="group" aria-label="${escapeHtml(t('tabs.scroll'))}"><button class="icon-button" data-tab-scroll="-1" title="${escapeHtml(t('tabs.scrollLeft'))}" aria-label="${escapeHtml(t('tabs.scrollLeft'))}">${icon('chevronLeft')}</button><button class="icon-button" data-tab-scroll="1" title="${escapeHtml(t('tabs.scrollRight'))}" aria-label="${escapeHtml(t('tabs.scrollRight'))}">${icon('chevronRight')}</button></span>
     <div class="tabs-right">${activeKind() !== 'drawing' ? `<span class="seg-toggle" role="group">${['front', 'top', 'right', 'iso'].map((v) => `<button data-command="view:${v}" title="${escapeHtml(commandTip(`view:${v}`))}">${icon(commands[`view:${v}`].icon)}<span>${escapeHtml(t(`view.${v}Short`))}</span></button>`).join('')}</span>` : ''}</div>`;
+  const strip = tabs.querySelector('.tab-strip');
+  strip.querySelector('.tab.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  strip.addEventListener('scroll', frameThrottle(updateTabScroll), { passive: true });
+  updateTabScroll();
+}
+
+/** The document tabs scroll sideways when there are more than fit; the arrows say which way there is more. */
+function updateTabScroll() {
+  for (const [stripSel, attr] of [['#tabs .tab-strip', 'tabScroll'], ['#palette-host .cm-tabs', 'cmScroll']]) {
+    const strip = root.querySelector(stripSel);
+    if (!strip) continue;
+    const can = (dir) => (dir < 0 ? strip.scrollLeft > 1 : strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 1);
+    const name = attr === 'tabScroll' ? 'data-tab-scroll' : 'data-cm-scroll';
+    // Both arrows are always shown; one is dimmed when there is nothing more that way.
+    for (const btn of root.querySelectorAll(`[${name}]`)) btn.disabled = !can(Number(btn.dataset[attr]));
+  }
 }
 
 function renderCommandManager() {
@@ -1815,10 +2997,15 @@ function renderCommandManager() {
   if (host.hidden) { host.innerHTML = ''; return; }
   if (!tabs.includes(state.cmTab)) state.cmTab = tabs[0];
   const ids = COMMAND_TABS[state.cmTab];
-  host.innerHTML = `<div class="cm-tabs" role="tablist">${tabs.map((id) => `<button class="cm-tab ${state.cmTab === id ? 'active' : ''}" data-cm-tab="${id}" role="tab" aria-selected="${state.cmTab === id}">${escapeHtml(t(`cm.${id}`))}</button>`).join('')}</div>
+  host.innerHTML = `<div class="cm-tab-row"><div class="cm-tabs" role="tablist">${tabs.map((id) => `<button class="cm-tab ${state.cmTab === id ? 'active' : ''}" data-cm-tab="${id}" role="tab" aria-selected="${state.cmTab === id}">${escapeHtml(t(`cm.${id}`))}</button>`).join('')}</div>
+    <span class="tab-scroll cm-scroll" role="group" aria-label="${escapeHtml(t('tabs.scroll'))}"><button class="icon-button" data-cm-scroll="-1" title="${escapeHtml(t('tabs.scrollLeft'))}" aria-label="${escapeHtml(t('tabs.scrollLeft'))}">${icon('chevronLeft')}</button><button class="icon-button" data-cm-scroll="1" title="${escapeHtml(t('tabs.scrollRight'))}" aria-label="${escapeHtml(t('tabs.scrollRight'))}">${icon('chevronRight')}</button></span></div>
     <div class="cm-buttons">${ids.map((id) => (id === '|' ? '<span class="cm-sep" aria-hidden="true"></span>' : `<button class="cm-button" data-command="${id}" title="${escapeHtml(commandTip(id))}">${icon(commands[id].icon)}<span>${escapeHtml(t(commands[id].label))}</span></button>`)).join('')}</div>`;
   fitCommandManager();
   renderToolbarState();
+  const strip = host.querySelector('.cm-tabs');
+  strip.querySelector('.cm-tab.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  strip.addEventListener('scroll', frameThrottle(updateTabScroll), { passive: true });
+  updateTabScroll();
 }
 
 /** Labels go when the buttons do not fit the width (icons only, names in the tooltips). */
@@ -1826,8 +3013,8 @@ function fitCommandManager() {
   const host = root.querySelector('#palette-host');
   const row = host?.querySelector('.cm-buttons');
   if (!row) return;
-  host.classList.remove('compact');
-  if (row.scrollWidth > row.clientWidth + 1) host.classList.add('compact');
+  // Always icons only (the same at any width); each button's name, key and hint are in its tooltip.
+  host.classList.add('compact');
 }
 
 // ───────────────────────── left panel: FeatureManager / PropertyManager
@@ -1841,23 +3028,70 @@ function renderLeft() {
     return;
   }
   const editing = Boolean(state.editing);
-  if (!editing && state.leftTab === 'pm') state.leftTab = 'tree';
-  const tabs = [['tree', 'featExtrude', t('panel.tree')], ['pm', 'editFeature', t('panel.pm')]];
-  const scroll = panel.querySelector('.panel-body')?.scrollTop ?? 0;
-  let body = '';
-  if (state.leftTab === 'pm' && editing) body = propertyManagerHtml(pmApi());
-  else body = treeHtml(treeApi());
-  panel.innerHTML = `<div class="panel-header">${icon(state.leftTab === 'pm' ? 'editFeature' : 'featExtrude')}<span>${escapeHtml(state.leftTab === 'pm' ? t('panel.pm') : t('panel.tree'))}</span>
-      <button class="icon-button" data-command="leftPanel" title="${escapeHtml(t('panel.collapseLeft'))}">${icon('panelLeftClose')}</button></div>
-    <div class="editor-tabs" role="tablist">${tabs.map(([id, glyph, label]) => `<button class="editor-tab ${state.leftTab === id ? 'active' : ''}" data-left-tab="${id}" role="tab" ${id === 'pm' && !editing ? 'disabled' : ''}>${icon(glyph)}<span>${escapeHtml(label)}</span></button>`).join('')}</div>
-    <div class="panel-body left-${state.leftTab}">${body}</div>`;
-  panel.querySelector('.panel-body').scrollTop = scroll;
+  state.leftTab = editing ? 'pm' : 'tree';
+  const treeScroll = panel.querySelector('.left-tree-body')?.scrollTop ?? 0;
+  const pmScroll = panel.querySelector('.left-pm-body')?.scrollTop ?? 0;
+  const wasEditing = panel.dataset.editing === '1';
+  // Two sections, one above the other: the FeatureManager tree and the PropertyManager.
+  // The PropertyManager section is always there; with nothing being made or edited it holds only the hint.
+  const what = editing ? pmSubject() : '';
+  const ratio = Math.min(0.85, Math.max(0.15, Number(state.settings.leftPmRatio) || 0.55));
+  const pmBody = editing
+    ? propertyManagerHtml(pmApi())
+    : state.settings.showPmHint !== false ? `<p class="left-pm-hint">${icon('info', 'icon tiny')}<span>${escapeHtml(t('panel.pmInactiveTip'))}</span></p>` : '';
+  panel.innerHTML = `<section class="left-section left-tree-section" style="flex: ${1 - ratio} 1 0">
+      <div class="panel-header left-section-header" title="${escapeHtml(`${t('panel.tree')} — ${t('panel.treeTip')}`)}">${icon('featExtrude')}<span class="left-section-title">${escapeHtml(t('panel.tree'))}</span>
+        <span class="grow"></span>
+        <button class="icon-button" data-command="leftPanel" title="${escapeHtml(t('panel.collapseLeft'))}">${icon('panelLeftClose')}</button></div>
+      <div class="panel-body left-tree-body">${treeHtml(treeApi())}</div>
+    </section>
+    <div class="splitter horizontal left-pm-split" data-split="leftPm" role="separator" aria-orientation="horizontal" title="${escapeHtml(t('panel.pmSplit'))}"></div>
+    <section class="left-section left-pm-section ${editing ? 'active' : 'idle'}" style="flex: ${ratio} 1 0">
+      <div class="panel-header left-section-header" title="${escapeHtml(editing ? `${t('panel.pm')} — ${what}` : t('panel.pmInactiveTip'))}">${icon('editFeature')}<span class="left-section-title">${escapeHtml(t('panel.pm'))}</span>${editing ? `<span class="left-section-subject">${escapeHtml(what)}</span>` : ''}</div>
+      <div class="panel-body left-pm-body">${pmBody}</div>
+    </section>`;
+  panel.dataset.editing = editing ? '1' : '0';
+  panel.classList.add('left-split');
+  panel.querySelector('.left-tree-body').scrollTop = treeScroll;
+  // A new editing session starts at the top of its page; re-renders while editing keep the place.
+  panel.querySelector('.left-pm-body').scrollTop = editing && wasEditing ? pmScroll : 0;
+}
+
+/** Drag the divider between the tree and the PropertyManager (the share is kept in the settings). */
+function startLeftPmSplit(event) {
+  const panel = root.querySelector('#left-panel');
+  if (!panel) return;
+  event.preventDefault();
+  const rect = panel.getBoundingClientRect();
+  const start = Number(state.settings.leftPmRatio) || 0.55;
+  pointerDrag(event, {
+    cursor: 'row-resize',
+    move: (dx, dy) => {
+      const ratio = Math.min(0.85, Math.max(0.15, start - dy / Math.max(1, rect.height)));
+      state.settings.leftPmRatio = Math.round(ratio * 1000) / 1000;
+      const tree = panel.querySelector('.left-tree-section');
+      const pm = panel.querySelector('.left-pm-section');
+      if (tree) tree.style.flex = `${1 - ratio} 1 0`;
+      if (pm) pm.style.flex = `${ratio} 1 0`;
+    },
+    end: (e, moved) => { if (moved) updateSettings({ leftPmRatio: state.settings.leftPmRatio }, { quiet: true }); },
+  });
+}
+
+/** What the PropertyManager is editing now (its title bar tooltip): "Boss-Extrude1", "Sketch2", "Lights" … */
+function pmSubject() {
+  const e = state.editing;
+  if (!e) return '';
+  if (e.feature?.name) return e.feature.name;
+  if (more.owns(e)) return more.subject(e);
+  const key = { mate: 'cmd.mate', insert: 'cmd.insertComponent', measure: 'cmd.measure', sketchPlane: 'pm.newSketch', simulation: 'cmd.simulation', motion: 'cmd.motion', equations: 'cmd.equations', configs: 'cmd.configurations', lights: 'cmd.lights' }[e.mode];
+  return key ? t(key) : e.mode;
 }
 
 function treeApi() {
   const part = activePart();
   return {
-    t, lang: lang(), project: project(), doc: active(), kind: activeKind(),
+    t, lang: lang(), project: project(), doc: activeKind() === 'drawing' ? more.sheetDrawing(active()) : active(), kind: activeKind(),
     build: part && kernelReady() ? buildPart(part).result : null,
     selection: new Set(state.selection.map((s) => s.key)),
     collapsed: state.collapsed,
@@ -1872,7 +3106,7 @@ function treeApi() {
 function pmApi() {
   const part = activePart();
   return {
-    t, fmt, fmtLen: (v) => fmtLen(v), editing: state.editing, project: project(),
+    t, fmt, fmtLen: (v) => fmtLen(v), fmtLenBare: (v) => fmtLen(v, false), unitName: () => units(), editing: state.editing, project: project(),
     previewResult: state.previewResult,
     mateError: state.mateError,
     featureName: (id) => part?.features.find((f) => f.id === id)?.name ?? null,
@@ -1884,6 +3118,22 @@ function pmApi() {
       return before.filter((x) => x.type === 'sketch' && (x.id === f.sketch || !part.features.some((y) => y.sketch === x.id && y.id !== f.id)));
     },
     componentName: (id) => activeAssembly()?.components.find((c) => c.id === id)?.name ?? '?',
+    sketchList: (f, use = 'any') => featuresBefore(part, f).filter((x) => x.type === 'sketch' && !x.suppressed && (use !== 'profile' || profiles(x).length > 0) && (use !== 'path' || x.entities.some((k) => k.type !== 'point' && !k.construction))),
+    // Curves a sweep path, fill boundary or boundary surface can use: helices, 3D sketches (the sweep path of
+    // the spring samples) and the reference curves.
+    curveList: (f) => featuresBefore(part, f).filter((x) => x.type === 'helix' || x.type === 'sketch3d' || (CURVE_TYPES.includes(x.type) && PART_MORE_TYPES.includes(x.type))),
+    featuresBefore: (f) => featuresBefore(part, f),
+    bodyCount: (f) => {
+      // The bodies the feature starts from: the rebuild result of the feature before it (the preview's or the part's).
+      const prev = featuresBefore(part, f).filter((x) => !x.suppressed).at(-1);
+      const r = prev ? state.partEntry?.result?.results.get(prev.id) : null;
+      return countSolids(r?.body ?? null);
+    },
+    surfaceList: (f) => featuresBefore(part, f).filter((x) => SURFACE_TYPES.includes(x.type) && x.id !== f.id),
+    otherParts: () => project().parts.filter((p) => p.id !== part?.id),
+    assemblies: () => project().assemblies.filter((a) => a.id !== activeAssembly()?.id && !assemblyContains(a, activeAssembly()?.id)),
+    custom: (e) => customPm(e),
+    customMode: (mode) => more.owns({ mode }),
     sampleParts: SAMPLES.filter((s) => s.group !== 'assembly').map((s) => ({ id: s.id, name: s[lang()][0], icon: s.icon })),
   };
 }
@@ -1908,7 +3158,7 @@ function renderRight() {
   }
   const drw = activeDrawing();
   let body;
-  if (drw) body = drawingPropsHtml({ t }, drw);
+  if (drw) body = drawingPropsHtml({ t, selected: state.drawingSelected }, more.sheetDrawing(drw));
   else if (state.rightTab === 'materials') body = materialsHtml();
   else if (state.rightTab === 'display') body = displayHtml();
   else body = propsHtml();
@@ -1921,7 +3171,12 @@ function renderRight() {
 }
 
 const propRow = (glyph, label, value) => `<div class="prop-row" title="${escapeHtml(label)}"><span class="prop-label">${icon(glyph)}<span>${escapeHtml(label)}</span></span><span class="prop-value">${value}</span></div>`;
-const propInput = (key, value) => `<input type="text" data-prop="${escapeHtml(key)}" value="${escapeHtml(value ?? '')}" spellcheck="false"/>`;
+const propInput = (key, value) => {
+  // A number with its unit ("12.5 mm", "30°") gets the − / + frame with the unit beside it; text stays plain.
+  const m = /^(-?[\d.]+)\s*(mm|cm|in|°)?$/.exec(String(value ?? '').trim());
+  if (m && !/\.name$|partNo|description/.test(key)) return `<input type="text" data-prop="${escapeHtml(key)}" data-num data-unit-label="${escapeHtml(m[2] ?? '')}" value="${escapeHtml(m[1])}" spellcheck="false"/>`;
+  return `<input type="text" data-prop="${escapeHtml(key)}" value="${escapeHtml(value ?? '')}" spellcheck="false"/>`;
+};
 const actionsHtml = (ids) => `<div class="prop-actions">${ids.map((id) => `<button class="small-button ${id === 'delete' ? 'danger' : ''}" data-command="${id}">${icon(commands[id].icon)}<span>${escapeHtml(t(commands[id].label))}</span></button>`).join('')}</div>`;
 
 function propsHtml() {
@@ -2023,14 +3278,14 @@ function displayHtml() {
   const styles = [['shadedEdges', 'styleShaded'], ['shaded', 'styleWhite'], ['hiddenRemoved', 'styleHidden'], ['hiddenVisible', 'styleXray'], ['wireframe', 'styleWireframe']];
   const out = [`<h4 class="prop-title">${icon('styleShaded')}<span>${escapeHtml(t('submenu.displayStyle'))}</span></h4><div class="display-styles">${styles.map(([s, g]) => `<button class="small-button ${state.settings.displayStyle === s ? 'active' : ''}" data-command="style:${s}">${icon(g)}<span>${escapeHtml(t(`style.${s}`))}</span></button>`).join('')}</div>`];
   out.push(`<h4 class="prop-title">${icon('eye')}<span>${escapeHtml(t('submenu.show'))}</span></h4>`);
-  for (const id of ['showPlanes', 'showOrigin', 'showSketches', 'perspective', 'section']) out.push(`<label class="pm-check"><input type="checkbox" data-command-check="${id}" ${commands[id].checked() ? 'checked' : ''}/>${icon(commands[id].icon)}<span>${escapeHtml(t(commands[id].label))}</span></label>`);
+  for (const id of ['showPlanes', 'showOrigin', 'showSketches', 'showRulers', 'showGrid', 'showScaleBar', 'perspective', 'section']) out.push(`<label class="pm-check"><input type="checkbox" data-command-check="${id}" ${commands[id].checked() ? 'checked' : ''}/>${icon(commands[id].icon)}<span>${escapeHtml(t(commands[id].label))}</span></label>`);
   if (state.section && viewport) {
     out.push(`<h4 class="prop-title">${icon('sectionView')}<span>${escapeHtml(t('action.section'))}</span></h4>`);
     out.push(`<div class="pm-row">${['x', 'y', 'z'].map((a, i) => `<button class="small-button ${state.section.normal[i] ? 'active' : ''}" data-section-axis="${i}">${escapeHtml(a.toUpperCase())}</button>`).join('')}</div>`);
     const box = viewport.contentBox();
     const i = state.section.normal.findIndex((v) => v);
     const lo = box.min.getComponent(i); const hi = box.max.getComponent(i);
-    out.push(`<label class="pm-field"><span class="pm-label">${escapeHtml(t('pm.offset'))}</span><input type="range" data-section-offset min="${lo}" max="${hi}" step="${(hi - lo) / 200 || 0.1}" value="${state.section.offset}"/></label>`);
+    out.push(`<label class="pm-field"><span class="pm-label">${escapeHtml(t('pm.offset'))}</span><input type="range" data-unit="${escapeHtml(units())}" data-section-offset min="${lo}" max="${hi}" step="${(hi - lo) / 200 || 0.1}" value="${state.section.offset}"/></label>`);
   }
   return out.join('');
 }
@@ -2186,6 +3441,7 @@ async function onStartAction(target) {
     case 'exit': return run('exit');
     case 'help-menu': return showMenu(menuItems(MENUS.help), anchorBelow(target), 'help');
     case 'guide': return openDocWindow('guide');
+    case 'tutorial': return openDocWindow('tutorial');
     case 'shortcuts': return run('shortcuts');
     case 'animation': updateSettings({ animation: value, backgroundKind: 'animated' }); return notify('info', t('notice.animation', { name: t(`animation.${value}`) }));
     case 'shuffle': return shuffleBackground();
@@ -2536,30 +3792,41 @@ async function exportImage() {
 async function exportDrawing(format) {
   const d = activeDrawing();
   if (!d) return;
-  const projections = drawingProjections(d);
-  if (format === 'dxf') await saveExport(`${fileSafe(d.name)}.dxf`, 'dxf', drawingDxf(d, projections), 'application/dxf');
-  else await saveExport(`${fileSafe(d.name)}.svg`, 'svg', drawingSvg(d, projections, { labels: drawingLabels(), info: drawingInfo(d) }), 'image/svg+xml');
+  // The active sheet (app-more.js: sheets, view changes and tables).
+  if (format === 'dxf') await saveExport(`${fileSafe(d.name)}.dxf`, 'dxf', more.dxf(d, { labels: drawingLabels(), bomRows: drawingBom(d) }), 'application/dxf');
+  else await saveExport(`${fileSafe(d.name)}.svg`, 'svg', more.svg(d, { labels: drawingLabels(), info: drawingInfo(d), bomRows: drawingBom(d) }), 'image/svg+xml');
 }
 
-/** Prints the drawing sheet (or a picture of the 3D view) through the system print dialog. */
+/**
+ * Opens the print window (print/popup.js: its own OS window on the desktop, a frame on the web). It asks
+ * this window for the page's content (print/host.js): the drawing's sheet SVG, or a picture of the 3D view.
+ */
+let printHost = null;
 async function printDocument() {
-  let html;
-  const d = activeDrawing();
-  if (d) {
-    const [W, H] = SHEETS[d.sheet] ?? SHEETS.A3;
-    html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(d.name)}</title><style>@page{size:${W}mm ${H}mm;margin:0}html,body{margin:0}svg{display:block;width:${W}mm;height:${H}mm}</style></head><body>${drawingSvg(d, drawingProjections(d), { labels: drawingLabels(), info: drawingInfo(d) })}</body></html>`;
-  } else if (viewport) {
-    const url = viewport.capture(1600, 1000).toDataURL('image/png');
-    html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(active()?.name ?? '')}</title><style>@page{margin:10mm}img{width:100%}</style></head><body><img src="${url}"/></body></html>`;
-  } else return;
-  const frame = document.createElement('iframe');
-  frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
-  document.body.append(frame);
-  frame.srcdoc = html;
-  await new Promise((resolve) => { frame.onload = resolve; });
-  frame.contentWindow.focus();
-  frame.contentWindow.print();
-  setTimeout(() => frame.remove(), 60000);
+  if (!printHost) {
+    const sheetSize = (d) => { const [W, H] = SHEETS[d.sheet] ?? SHEETS.A3; return { sheet: d.sheet in SHEETS ? d.sheet : 'A3', sheetW: W, sheetH: H }; };
+    printHost = createPrintHost({
+      popups, safeName, saveExport, showError,
+      viewport: () => viewport,
+      info: () => {
+        const d = activeDrawing();
+        if (d) return { mode: 'drawing', kind: 'drawing', name: d.name, kindLabel: t('mprint.kind.drawing'), ...sheetSize(d) };
+        const part = activePart();
+        if (!viewport || !(part || activeAssembly())) return null;
+        return { mode: 'model', kind: part ? 'part' : 'assembly', name: active()?.name ?? '', kindLabel: t(part ? 'mprint.kind.part' : 'mprint.kind.assembly'), material: part ? materialName(part.material, lang()) : '' };
+      },
+      drawing: async () => {
+        await ensureKernel();
+        const d = activeDrawing();
+        if (!d) throw new Error(t('mprint.noDrawing'));
+        const { sheetW, sheetH } = sheetSize(d);
+        return { svg: more.svg(d, { labels: drawingLabels(), info: drawingInfo(d), bomRows: drawingBom(d) }), sheetW, sheetH };
+      },
+    });
+    popups.on('print-render', (data) => printHost.render(data));
+    popups.on('print-save-pdf', (data) => printHost.savePdf(data));
+  }
+  return printHost.open();
 }
 
 async function importStepDialog() {
@@ -2726,20 +3993,53 @@ function pmFieldChanged(key, raw, unit) {
   if (e.mode === 'sketch') {
     const ed = e.editor;
     if (key === 'polygonSides' && v >= 3) { ed.polygonSides = Math.round(v); renderLeft(); return; }
+    if (key === 'filletRadius' && v > 0) { ed.filletRadius = v; renderLeft(); return; }
+    if (key === 'text.value' || key === 'text.size') {
+      const x0 = ed.selectionInfo()[0];
+      if (x0?.type === 'text') { if (key === 'text.value') x0.text = String(raw); else if (v > 0) x0.size = v; ed.commit('op.text'); renderLeft(); }
+      return;
+    }
+    if (key === 'chamferDistance' && v > 0) { ed.chamferDistance = v; renderLeft(); return; }
     const x = ed.selectionInfo()[0];
     if (!x || v == null) return;
     if (key === 'pt.x' || key === 'pt.y') { ed.solve({ drag: { id: x.id, x: key === 'pt.x' ? v : x.x, y: key === 'pt.y' ? v : x.y } }); ed.render(); renderLeft(); return; }
     if (key === 'circle.d' && v > 0) { x.r = v / 2; ed.solve(); ed.render(); renderLeft(); }
     return;
   }
-  if (e.mode === 'mate') { if (v != null) { e.mate.value = v; previewMate(); } return; }
+  if (more.owns(e)) return more.field(key, raw, v);
+  if (e.mode === 'mate') { if (v != null) { if (['min', 'max', 'ratio', 'radius', 'pitch'].includes(key)) e.mate[key] = v; else e.mate.value = v; previewMate(); } return; }
+  if (e.mode === 'lights') return lightsField(key, raw, parseLen(raw, 'number'));
+  if (['simulation', 'motion', 'equations', 'configs'].includes(e.mode)) return customField(key, raw, v);
+  if (e.mode === 'feature' && key.startsWith('pt3:')) {
+    const [, i, j] = key.split(':').map(Number);
+    if (v == null) { notify('error', t('notice.invalidValue', { text: raw })); renderLeft(); return; }
+    updateFeature((f) => { f.points = f.points.map((p, k) => (k === i ? p.map((c, m) => (m === j ? v : c)) : p)); });
+    return;
+  }
+  // "=W/2": the value is driven by an equation (global variables, other features' values).
+  if (e.mode === 'feature' && String(raw).trim().startsWith('=')) {
+    const expr = String(raw).trim().slice(1).trim();
+    const part = activePart();
+    try {
+      const vars = variableValues(part).values;
+      const value = evaluate(expr, (name) => { if (vars.has(name)) return vars.get(name); throw Object.assign(new Error(name), { code: 'unknown' }); });
+      updateFeature((f) => { f.exprs = { ...(f.exprs ?? {}), [key]: expr }; f[key] = value; });
+    } catch (error) { notify('error', t('notice.badEquation', { text: expr, code: t(`expr.${error.code ?? 'syntax'}`, null, error.code ?? '') })); renderLeft(); }
+    return;
+  }
   if (e.mode !== 'feature' || v == null) { if (v == null) notify('error', t('notice.invalidValue', { text: raw })); renderLeft(); return; }
-  const limits = { count: [1, 500], count2: [1, 500], angle: [0.1, 360], csAngle: [30, 150] };
+  const type = e.feature.type;
+  const limits = { count: [1, 500], count2: [1, 500], csAngle: [30, 150], turns: [0.05, 500], kFactor: [0, 1] };
+  if (['revolve', 'circularPattern', 'surfaceRevolve'].includes(type)) limits.angle = [0.1, 360];
+  if (type === 'draft') limits.angle = [0.1, 44];
+  if (type === 'edgeFlange') limits.angle = [1, 180];
+  if (type === 'extrude') limits.draftAngle = [0.1, 44];
   let value = v;
   if (limits[key]) value = Math.max(limits[key][0], Math.min(limits[key][1], value));
   if (['count', 'count2'].includes(key)) value = Math.round(value);
-  if (['depth', 'depth2', 'radius', 'distance', 'thickness', 'diameter', 'cbDiameter', 'cbDepth', 'csDiameter'].includes(key) && !(value > 0)) { notify('error', t('notice.invalidValue', { text: raw })); renderLeft(); return; }
-  updateFeature((f) => { f[key] = value; if (key === 'diameter') delete f.size; });
+  if (['depth', 'depth2', 'diameter', 'cbDiameter', 'cbDepth', 'csDiameter', 'pitch', 'length', 'height', 'factor', 'w', 'h', 't', 'scale'].includes(key) && !(value > 0)) { notify('error', t('notice.invalidValue', { text: raw })); renderLeft(); return; }
+  if (['radius', 'distance', 'thickness'].includes(key) && !(value > 0) && !(key === 'radius' && ['baseFlange', 'edgeFlange'].includes(type) && value === 0) && !(key === 'distance' && type === 'surfaceOffset' && value !== 0)) { notify('error', t('notice.invalidValue', { text: raw })); renderLeft(); return; }
+  updateFeature((f) => { f[key] = value; if (f.exprs?.[key]) { delete f.exprs[key]; if (!Object.keys(f.exprs).length) delete f.exprs; } if (key === 'diameter') delete f.size; if (key === 'pitch' && f.type === 'thread') delete f.size; });
 }
 
 function pmStep(key, delta) {
@@ -2755,7 +4055,19 @@ function pmStep(key, delta) {
 
 function pmSet(key, value) {
   const e = state.editing;
-  if (e?.mode === 'mate') { if (key === 'type') e.mate.type = value; else if (key === 'aligned') e.mate.aligned = value; previewMate(); return; }
+  if (more.owns(e)) return more.set(key, value);
+  if (e?.mode === 'mate') {
+    if (key === 'type') {
+      e.mate.type = value;
+      Object.assign(e.mate, Object.fromEntries(Object.entries(MATE_DEFAULTS[value] ?? {}).filter(([k]) => e.mate[k] == null)));
+      if (value === 'cam') { e.mate.profile = camProfile(e.mate.a); if (e.mate.b?.kind === 'axis' && e.mate.b.sig?.radius) e.mate.followerRadius = e.mate.b.sig.radius; }
+    }
+    else if (key === 'aligned') e.mate.aligned = value;
+    else if (key === 'mateGroup') e.mateGroup = value;
+    previewMate(); return;
+  }
+  if (e?.mode === 'lights' && key.startsWith('light:')) { const [, id] = key.split(':'); change('op.light', (p) => { const l = sceneLights(p).lights.find((x) => x.id === id); if (l) l.kind = value; }); return undefined; }
+  if (['simulation', 'motion', 'equations', 'configs'].includes(e?.mode)) return customSet(key, value);
   if (e?.mode !== 'feature') return;
   updateFeature((f) => {
     if (key === 'op') { f.op = value; f.name = createFeature(activePart(), f.type, { op: value }).name; if (value === 'cut' && f.type === 'extrude') { const sk = activePart().features.find((x) => x.id === f.sketch); if (sk) f.reverse = cutShouldReverse(activePart(), sk); } }
@@ -2763,8 +4075,11 @@ function pmSet(key, value) {
     else if (key === 'through') f.through = value === 'true';
     else if (key === 'dir1') f.direction = value === 'edge' ? { kind: 'edge', sig: f.direction?.sig ?? null } : { kind: 'axis', axis: value };
     else if (key === 'dir2axis') f.direction2 = { kind: 'axis', axis: value };
-    else if (key === 'axisKind') f.axis = value === 'edge' ? { kind: 'edge', sig: f.axis?.sig ?? null } : { kind: 'axis', axis: value };
+    else if (key === 'axisKind') f.axis = value === 'edge' ? { kind: 'edge', sig: f.axis?.sig ?? null } : value.startsWith('ref:') ? { kind: 'ref', id: value.slice(4) } : { kind: 'axis', axis: value };
     else if (key === 'stdPlane') { if (f.type === 'plane') f.base = { kind: 'std', name: value }; else f.plane = { kind: 'std', name: value }; }
+    else if (key === 'neutralStd') f.neutral = { kind: 'std', name: value };
+    else if (key === 'drawPlane') { e.drawPlane = value; e.pick = 'points3d'; }
+    else f[key] = value;
   });
   if (key === 'dir1' && value === 'edge') { e.pick = 'direction'; renderLeft(); }
   if (key === 'axisKind' && value === 'edge') { e.pick = 'axis'; renderLeft(); }
@@ -2772,17 +4087,37 @@ function pmSet(key, value) {
 
 function pmToggle(key, checked) {
   const e = state.editing;
-  if (e?.mode === 'mate') { if (key === 'flip') { e.mate.flip = checked; previewMate(); } return; }
+  if (more.owns(e)) return more.toggle(key, checked);
+  if (e?.mode === 'mate') { if (key === 'flip' || key === 'reverse') { e.mate[key] = checked; previewMate(); } return; }
+  if (e?.mode === 'lights') { const [scope, id] = key.split(':'); change('op.light', (p) => { const L = sceneLights(p); if (scope === 'cam') L.cameraLight.on = checked; else { const l = L.lights.find((x) => x.id === id); if (l) l.on = checked; } }); return undefined; }
+  if (['simulation', 'motion', 'equations', 'configs'].includes(e?.mode)) return customToggle(key, checked);
   if (e?.mode !== 'feature') return;
   updateFeature((f) => {
-    if (key === 'dir2') { if (f.type === 'extrude') f.end2 = checked ? 'blind' : 'none'; else f.direction2 = checked ? { kind: 'axis', axis: 'z' } : null; }
+    if (key.startsWith('loft:') || key.startsWith('surf:') || key.startsWith('curv:')) {
+      const id = key.slice(5); const list = key.startsWith('loft:') ? 'sketches' : key.startsWith('curv:') ? 'curves' : 'surfaces';
+      f[list] = (f[list] ?? []).filter((x) => x !== id);
+      if (checked) f[list].push(id);
+    } else if (key.startsWith('list:')) {
+      // A list of plain values (body numbers): "list:<field>:<value>".
+      const [, list, raw] = key.split(':');
+      const value = Number.isFinite(Number(raw)) ? Number(raw) : raw;
+      f[list] = (f[list] ?? []).filter((x) => String(x) !== raw);
+      if (checked) f[list].push(value);
+    } else if (key === 'dir2') { if (f.type === 'extrude') f.end2 = checked ? 'blind' : 'none'; else f.direction2 = checked ? { kind: 'axis', axis: 'z' } : null; }
     else f[key] = checked;
   });
 }
 
 function pmSelect(key, value) {
   const e = state.editing;
+  if (['simulation', 'motion', 'equations', 'configs'].includes(e?.mode)) return customSelect(key, value);
   if (e?.mode !== 'feature') return;
+  if (key === 'threadSize') {
+    const row = THREAD_SIZES.find(([sz]) => sz === value);
+    updateFeature((f) => { f.size = value || undefined; if (row) f.pitch = row[2]; });
+    return;
+  }
+  if (key === 'profile') { updateFeature((f) => { f.profile = value; [f.w, f.h, f.t] = STRUCTURAL_PROFILES[value] ?? [f.w, f.h, f.t]; }); return; }
   if (key === 'size') {
     const row = HOLE_SIZES.find(([s]) => s === value);
     updateFeature((f) => { f.size = value || undefined; if (row) [, f.diameter, f.cbDiameter, f.cbDepth, f.csDiameter] = row; });
@@ -2798,6 +4133,7 @@ async function pmCommand(cmd) {
   if (name === 'cancel') return cancelEditing();
   if (name === 'sketchOn') return openNewSketch({ kind: 'std', name: arg });
   if (name === 'clear') {
+    if (more.owns(e)) return more.command('clear', arg);
     if (e?.mode === 'measure') { e.picks = []; e.result = []; viewport.setSelection([]); return renderLeft(); }
     if (e?.mode === 'feature') updateFeature((f, ed) => { if (arg === 'holePoints') ed.holeSketch.points = []; else if (Array.isArray(f[arg])) f[arg] = []; });
     return undefined;
@@ -2817,7 +4153,11 @@ async function pmCommand(cmd) {
   if (name === 'insert') { insertComponent(arg); return undefined; }
   if (name === 'insertSample') return insertSamplePart(arg);
   if (name === 'insertStep') return importStepDialog();
-  return undefined;
+  if (name === 'insertSub') return insertSubassembly(arg);
+  if (name === 'finishSpline' && e?.mode === 'sketch') { e.editor.finishSpline(); return renderLeft(); }
+  if (name === 'addPt3' && e?.mode === 'feature') { updateFeature((f) => { const last = f.points?.at(-1) ?? [0, 0, 0]; f.points = [...(f.points ?? []), [last[0] + 20, last[1], last[2]]]; }); return undefined; }
+  if (name === 'delPt3' && e?.mode === 'feature') { updateFeature((f) => { f.points = f.points.filter((_, k) => k !== Number(arg)); }); return undefined; }
+  return customCommand(name, arg);
 }
 
 // ───────────────────────── events
@@ -2828,7 +4168,7 @@ function treeClick(row, event) {
   if (e?.mode === 'feature' && e.pick === 'seeds' && key.startsWith('feat:')) {
     const id = key.slice(5);
     const f = activePart()?.features.find((x) => x.id === id);
-    if (f && ['extrude', 'revolve', 'hole'].includes(f.type)) updateFeature((feat) => { feat.seeds = feat.seeds.includes(id) ? feat.seeds.filter((x) => x !== id) : [...feat.seeds, id]; });
+    if (f && TOOL_FEATURES.includes(f.type)) updateFeature((feat) => { feat.seeds = feat.seeds.includes(id) ? feat.seeds.filter((x) => x !== id) : [...feat.seeds, id]; });
     return undefined;
   }
   if (e?.mode === 'feature' && ['plane', 'base'].includes(e.pick) && (key.startsWith('plane:') || key.startsWith('feat:'))) {
@@ -2847,6 +4187,7 @@ function treeClick(row, event) {
     if (f?.type === 'plane') return openNewSketch({ kind: 'ref', id });
   }
   const [kind, id] = key.includes(':') ? key.split(':') : [key, null];
+  if (activeDrawing() && (kind === 'view' || kind === 'ann')) { state.drawingSelected = id; renderDrawing(); renderRight(); renderToolbarState(); }
   select([{ kind, id, key }], { add: event.ctrlKey || event.shiftKey || event.metaKey });
   return undefined;
 }
@@ -2877,6 +4218,12 @@ function bindEvents() {
     if (windowControl) return windowButton(windowControl.dataset.window);
     const leftTab = target.closest('[data-left-tab]');
     if (leftTab && !leftTab.disabled) { state.leftTab = leftTab.dataset.leftTab; return renderLeft(); }
+    const player = target.closest('[data-player]');
+    if (player) { ({ play: playPlayer, pause: pausePlayer, stop: () => stopPlayer() })[player.dataset.player]?.(); return undefined; }
+    const cmScroll = target.closest('[data-cm-scroll]');
+    if (cmScroll) { const strip = root.querySelector('#palette-host .cm-tabs'); strip?.scrollBy({ left: Number(cmScroll.dataset.cmScroll) * Math.max(120, strip.clientWidth * 0.6), behavior: 'smooth' }); setTimeout(updateTabScroll, 350); return undefined; }
+    const tabScroll = target.closest('[data-tab-scroll]');
+    if (tabScroll) { const strip = root.querySelector('#tabs .tab-strip'); strip?.scrollBy({ left: Number(tabScroll.dataset.tabScroll) * Math.max(160, strip.clientWidth * 0.6), behavior: 'smooth' }); setTimeout(updateTabScroll, 350); return undefined; }
     const rightTab = target.closest('[data-right-tab]');
     if (rightTab) { state.rightTab = rightTab.dataset.rightTab; return renderRight(); }
     const twisty = target.closest('[data-tree-toggle]');
@@ -2899,6 +4246,9 @@ function bindEvents() {
     if (reset && activePart()) return change('op.edit', () => { activePart().color = null; });
     const drw = target.closest('[data-drw]');
     if (drw) return drawingAction(drw.dataset.drw);
+    if (state.drawingPlace && activeDrawing() && target.closest('#drawing-host svg')) return placeAnnotation(event);
+    const ann = target.closest('#drawing-host [data-annotation]');
+    if (ann && activeDrawing()) { state.drawingSelected = ann.dataset.annotation; renderDrawing(); renderRight(); renderToolbarState(); return undefined; }
     const view = target.closest('[data-view]');
     if (view && activeDrawing()) { state.drawingSelected = view.dataset.view; renderDrawing(); renderToolbarState(); return undefined; }
     const bottomTab = target.closest('[data-bottom-tab]');
@@ -2920,7 +4270,8 @@ function bindEvents() {
     if (row) {
       const key = row.dataset.tree;
       if (key.startsWith('feat:')) return editFeature(key.slice(5));
-      if (key.startsWith('comp:')) { const c = activeAssembly()?.components.find((x) => x.id === key.slice(5)); if (c) switchDocument({ kind: 'part', id: c.part }); }
+      if (key.startsWith('comp:')) { const c = activeAssembly()?.components.find((x) => x.id === key.slice(5)); if (c) switchDocument(c.sub ? { kind: 'assembly', id: c.sub } : { kind: 'part', id: c.part }); }
+      if (key === 'equations') return startEquations('equations');
       if (key === 'material') return materialMenu(anchorAt(event));
       return undefined;
     }
@@ -2938,6 +4289,8 @@ function bindEvents() {
     if (target.dataset.commandCheck) return run(target.dataset.commandCheck);
     if (target.dataset.prop) return setProp(target.dataset.prop, target.value);
     if (target.dataset.drwToggle) return change('op.edit', () => { activeDrawing()[target.dataset.drwToggle] = target.checked; });
+    if (target.dataset.drwBom != null) return change('op.edit', () => { const d = activeDrawing(); d.bom = { ...(d.bom ?? {}), show: target.checked }; });
+    if (target.dataset.ann) { const [id, field] = target.dataset.ann.split(':'); return setAnnotationField(id, field, target.type === 'checkbox' ? target.checked : target.value); }
     if (target.dataset.drwTitle) return change('op.edit', () => { activeDrawing().title[target.dataset.drwTitle] = target.value; });
     if ('startToggle' in target.dataset) return updateSettings({ showStartPage: target.checked }, { quiet: true });
     if ('startSpeed' in target.dataset) return updateSettings({ animationSpeed: Number(target.value) }, { quiet: true });
@@ -2950,8 +4303,10 @@ function bindEvents() {
   root.addEventListener('input', (event) => {
     const target = event.target;
     if ('sectionOffset' in target.dataset && state.section) { state.section = { ...state.section, offset: Number(target.value) }; viewport.setSection(state.section); }
-    if ('startSpeed' in target.dataset) { target.parentElement.querySelector('output').textContent = `${target.value}%`; state.settings.animationSpeed = Number(target.value); }
-    if ('startOpacity' in target.dataset) { target.parentElement.querySelector('output').textContent = `${target.value}%`; root.querySelector('.start-inner')?.style.setProperty('--start-card-alpha', `${target.value}%`); }
+    if ('playerTime' in target.dataset && activeAssembly()) { state.player.playing = false; state.player.time = Number(target.value); try { showMotionTime(state.player.time); } catch { /* shown next time */ } renderMotionBar(); }
+    if ('motionTime' in target.dataset && state.editing?.mode === 'motion') { state.editing.playing = false; state.editing.time = Number(target.value); try { showMotionTime(state.editing.time); } catch { /* shown next time */ } const out = root.querySelector('[data-motion-clock]'); if (out) out.textContent = `${fmt(state.editing.time, 2)} s`; }
+    if ('startSpeed' in target.dataset) { const out = target.closest('label')?.querySelector('output'); if (out) out.textContent = `${target.value}%`; state.settings.animationSpeed = Number(target.value); }
+    if ('startOpacity' in target.dataset) { const out = target.closest('label')?.querySelector('output'); if (out) out.textContent = `${target.value}%`; root.querySelector('.start-inner')?.style.setProperty('--start-card-alpha', `${target.value}%`); }
   });
 
   root.addEventListener('keydown', (event) => {
@@ -2990,10 +4345,31 @@ function bindEvents() {
     window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
   });
 
+  // Annotations: drag to move (the leader end stays where it points).
+  root.addEventListener('pointerdown', (event) => {
+    const el = event.target.closest?.('#drawing-host [data-annotation]');
+    if (!el || event.button !== 0 || !activeDrawing() || state.drawingPlace) return;
+    event.stopPropagation();
+    const d = activeDrawing();
+    const id = el.dataset.annotation;
+    const svg = el.ownerSVGElement;
+    const pt = (e) => { const q = svg.createSVGPoint(); q.x = e.clientX; q.y = e.clientY; return q.matrixTransform(svg.getScreenCTM().inverse()); };
+    const start = pt(event);
+    let moved = false;
+    const move = (e) => { const q = pt(e); if (Math.hypot(q.x - start.x, q.y - start.y) > 0.8) { moved = true; el.setAttribute('transform', `translate(${q.x - start.x} ${q.y - start.y})`); } };
+    const up = (e) => {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
+      if (!moved) return;
+      const q = pt(e);
+      change('op.annotation', () => { const a = d.annotations.find((x) => x.id === id); if (!a) return; const dx = q.x - start.x; const dy = q.y - start.y; a.x += dx; a.y += dy; if (a.kind === 'dimension') { a.a = [a.a[0] + dx, a.a[1] + dy]; a.b = [a.b[0] + dx, a.b[1] + dy]; } });
+    };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  }, true);
+
   // Drawing views: drag to move.
   root.addEventListener('pointerdown', (event) => {
     const view = event.target.closest?.('#drawing-host [data-view]');
-    if (!view || event.button !== 0 || !activeDrawing()) return;
+    if (!view || event.button !== 0 || !activeDrawing() || state.drawingPlace || event.target.closest('[data-annotation]')) return;
     const d = activeDrawing();
     const id = view.dataset.view;
     const svg = view.ownerSVGElement;
@@ -3032,6 +4408,9 @@ function bindEvents() {
     });
   }));
 
+  // The left panel is re-rendered often, so its inner divider is handled here (delegated).
+  root.addEventListener('pointerdown', (event) => { if (event.button === 0 && event.target.closest?.('[data-split="leftPm"]')) startLeftPmSplit(event); });
+
   root.querySelector('[data-split="bottom"]')?.addEventListener('pointerdown', (event) => {
     if (!state.settings.showBottomPanel) return;
     event.preventDefault();
@@ -3055,7 +4434,7 @@ function bindEvents() {
     native.invoke('window_drag', { edge: 'SouthEast' }).catch(() => appWindow?.startResizeDragging('SouthEast').catch(() => {}));
   });
 
-  window.addEventListener('resize', frameThrottle(() => { fitToolbar(); fitCommandManager(); if (desktop && state.minWidth && window.innerWidth < state.minWidth - 1) native.setMinimumSize(state.minWidth, 640).catch(() => {}); }));
+  window.addEventListener('resize', frameThrottle(() => { fitToolbar(); fitCommandManager(); updateTabScroll(); if (desktop && state.minWidth && window.innerWidth < state.minWidth - 1) native.setMinimumSize(state.minWidth, 640).catch(() => {}); }));
   document.addEventListener('keydown', onKeyDown, true);
 
   window.addEventListener('storage', (event) => {
@@ -3138,7 +4517,7 @@ const SHORTCUTS = [
   [',', false, 'settings'], ['l', true, 'language'], ['!', true, 'leftPanel'], ['1', true, 'leftPanel'], ['@', true, 'rightPanel'], ['2', true, 'rightPanel'],
   ['q', false, 'exit'], ['h', true, 'startPage'], ['b', true, 'shuffleBackground'], ['r', false, 'recent'], ['j', false, 'bottomPanel'], ['e', true, 'exportImage'],
 ];
-/** Ctrl+1 … Ctrl+7: the standard views (SolidWorks). */
+/** Ctrl+1 … Ctrl+7: the standard views. */
 const VIEW_KEYS = { 1: 'view:front', 2: 'view:back', 3: 'view:left', 4: 'view:right', 5: 'view:top', 6: 'view:bottom', 7: 'view:iso' };
 
 function onKeyDown(event) {
@@ -3163,12 +4542,13 @@ function onKeyDown(event) {
     clearSelection();
     return;
   }
+  if (key === 'enter' && sketching() && state.editing.editor.finishSpline()) { event.preventDefault(); renderLeft(); return; }
   if (key === 'enter' && state.editing) { event.preventDefault(); acceptEditing(); return; }
   if (key === 'delete' || key === 'backspace') { event.preventDefault(); run('delete'); return; }
   if (key === ' ' && !sketching()) { event.preventDefault(); run('viewsMenu', { anchor: anchorFor('viewsMenu') }); return; }
   if (key === 'f') { event.preventDefault(); run('zoomFit'); return; }
   if (sketching()) {
-    const map = { l: 'sk:line', r: 'sk:rect', c: 'sk:circle', a: 'sk:arc3', p: 'sk:polygon', d: 'sk:dimension', t: 'sk:trim', s: 'sk:select' };
+    const map = { l: 'sk:line', r: 'sk:rect', c: 'sk:circle', a: 'sk:arc3', p: 'sk:polygon', d: 'sk:dimension', t: 'sk:trim', s: 'sk:select', e: 'sk:ellipse', x: 'sk:extend', o: 'sk:offset' };
     if (map[key]) { event.preventDefault(); run(map[key]); return; }
   }
   if (key === 'k') { event.preventDefault(); run('styleCycle'); }
@@ -3186,7 +4566,7 @@ function bindPopupActions() {
   popups.on('open-folder', (data) => openWithDialog(data.path));
   popups.on('notice', (data) => notify(data.kind ?? 'info', data.text));
   popups.on('open-settings', (data) => popups.open('settings', { tab: data.tab ?? 'general', themeGroup: data.themeGroup }));
-  popups.on('start-tutorial', () => openDocWindow('guide'));
+  popups.on('start-tutorial', () => openDocWindow('tutorial'));
   popups.on('show-start', () => showStartPage(true));
   popups.on('progress-cancel', (data) => { popups.actions.get(`cancel:${data.op}`)?.(); });
   popups.on('copy-text', (data) => native.clipboardWrite(data.text).then(() => notify('success', t('notice.copiedText'))).catch((error) => showError('error.unexpected', error)));
@@ -3264,7 +4644,7 @@ async function start() {
 async function openWelcome() {
   updateSettings({ tutorialOffered: true }, { quiet: true });
   const result = await popups.open('welcome', {});
-  if (result?.choice === 'tutorial') openDocWindow('guide');
+  if (result?.choice === 'tutorial') openDocWindow('tutorial');
   else if (result?.choice === 'sample') openSampleAsk('flange');
 }
 

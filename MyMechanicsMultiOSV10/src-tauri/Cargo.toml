@@ -1,7 +1,7 @@
 [package]
 name = "mymechanics"
 version = "1.0.0"
-description = "Parametric 3D mechanical CAD (SolidWorks style)"
+description = "Parametric 3D mechanical CAD"
 authors = ["SHKWON <knix008@naver.com>"]
 edition = "2021"
 

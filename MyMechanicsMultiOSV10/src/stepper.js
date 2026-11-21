@@ -14,7 +14,7 @@ export function stepperHtml({ key, value, min = 0, max = 100, step = 1, unit = '
   const off = disabled ? 'disabled' : '';
   return `<span class="stepper ${disabled ? 'disabled' : ''}" data-stepper="${escapeHtml(key)}" data-min="${min}" data-max="${max}" data-step="${step}" data-unit="${escapeHtml(unit)}" title="${escapeHtml(label)}">
     <button type="button" class="stepper-button" data-step-dir="-1" title="${escapeHtml(decreaseTip || `${label} −${step}`)}" aria-label="${escapeHtml(decreaseTip || `${label} −${step}`)}" ${off} ${Number(value) <= min ? 'data-at-limit' : ''}>${icon('minus')}</button>
-    <input class="stepper-value" ${id ? `id="${escapeHtml(id)}"` : ''} type="text" inputmode="decimal" value="${escapeHtml(`${value}${unit}`)}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}" ${off} />
+    <input class="stepper-value" ${id ? `id="${escapeHtml(id)}"` : ''} type="text" inputmode="decimal" value="${escapeHtml(String(value))}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}" ${off} /><span class="num-unit">${escapeHtml(unit)}</span>
     <button type="button" class="stepper-button" data-step-dir="1" title="${escapeHtml(increaseTip || `${label} +${step}`)}" aria-label="${escapeHtml(increaseTip || `${label} +${step}`)}" ${off} ${Number(value) >= max ? 'data-at-limit' : ''}>${icon('plus')}</button>
   </span>`;
 }
@@ -40,7 +40,8 @@ export function stepperValue(element) {
 
 function show(element, value) {
   const { unit, min, max } = limits(element);
-  element.querySelector('.stepper-value').value = `${value}${unit}`;
+  element.querySelector('.stepper-value').value = String(value);
+  void unit;
   const [down, up] = element.querySelectorAll('.stepper-button');
   down.toggleAttribute('data-at-limit', value <= min);
   up.toggleAttribute('data-at-limit', value >= max);

@@ -32,7 +32,7 @@
     "copyright": "Copyright (c) SHKWON (knix008@naver.com)",
     "category": "Graphics and Design",
     "shortDescription": "Parametric 3D mechanical CAD",
-    "longDescription": "Design mechanical parts and assemblies like SolidWorks: fully constrained 2D sketches with smart dimensions, feature-based parts on the OpenCASCADE B-rep kernel (extrude, revolve, cut, fillet, chamfer, shell, hole wizard, linear and circular patterns, mirror), a FeatureManager design tree with rollback, assemblies with mates and interference detection, 2D drawings with standard and isometric views, mass properties, and STEP / STL export.",
+    "longDescription": "Design mechanical parts and assemblies: fully constrained 2D sketches with smart dimensions, feature-based parts on the OpenCASCADE B-rep kernel (extrude, revolve, cut, fillet, chamfer, shell, hole wizard, linear and circular patterns, mirror), a FeatureManager design tree with rollback, assemblies with mates and interference detection, 2D drawings with standard and isometric views, mass properties, and STEP / STL export.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

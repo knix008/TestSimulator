@@ -52,6 +52,16 @@ export async function listen(event, handler) {
   return tauriListen(event, (message) => handler(message.payload));
 }
 
+/**
+ * Events sent to THIS window only (emitTo(label, …)). A plain listen() also hears events emitted to other
+ * windows: a hidden menu then took the progress window's "refresh" and showed its last menu again.
+ */
+export async function listenHere(event, handler) {
+  if (!isDesktop()) return () => {};
+  const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+  return getCurrentWebviewWindow().listen(event, (message) => handler(message.payload));
+}
+
 export const emitTo = (target, event, payload) => (isDesktop() ? tauriEmitTo(target, event, payload) : Promise.resolve());
 
 // ───────────────────────── files (desktop)

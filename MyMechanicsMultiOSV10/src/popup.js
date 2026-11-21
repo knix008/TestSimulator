@@ -19,6 +19,7 @@ import {
 import { bindSteppers, stepperHtml } from './stepper.js';
 import { intervalLabel } from './ui/startpage.js';
 import { renderCadSettings, renderCadPopup, cadPopupAction, cadHostMessage } from './popups-cad.js';
+import { renderPrintPopup, printPopupAction, printHostMessage } from './print/popup.js';
 
 const desktop = native.isDesktop();
 const appWindow = desktop ? getCurrentWindow() : null;
@@ -188,7 +189,7 @@ function render() {
     ({
       settings: renderSettings, about: renderAbout, confirm: renderConfirm, error: renderError, progress: renderProgress, recent: renderRecent,
       menu: renderMenu, theme: renderThemePicker, welcome: renderWelcome, color: renderColor, prompt: renderPrompt,
-    })[kind]?.() ?? renderCadPopup(kind, popupApi);
+    })[kind]?.() ?? (renderPrintPopup(kind, popupApi) || renderCadPopup(kind, popupApi));
     alignRows();
     updateTabsNav();
   } catch (error) {
@@ -889,7 +890,7 @@ const popupApi = { root, state, s, P, L, t, icon, escapeHtml, frame, button, row
 root.addEventListener('click', async (event) => {
   const target = event.target.closest('[data-action], [data-setting], .menu-item, [data-theme-group], [data-pick-theme], [data-draft-segment], [data-pick-color]');
   if (!target || target.disabled) return undefined;
-  if (cadPopupAction(kind, target, popupApi)) return undefined;
+  if (printPopupAction(kind, target, popupApi) || cadPopupAction(kind, target, popupApi)) return undefined;
   if (target.classList.contains('menu-item')) return chooseMenu(target.dataset.id, target);
   if (target.dataset.setting) {
     const key = target.dataset.setting;
@@ -949,7 +950,7 @@ root.addEventListener('click', async (event) => {
 root.addEventListener('change', (event) => {
   const target = event.target;
   const d = state.draft;
-  if (cadPopupAction(kind, target, popupApi, 'change')) return undefined;
+  if (printPopupAction(kind, target, popupApi, 'change') || cadPopupAction(kind, target, popupApi, 'change')) return undefined;
   if (target.dataset.toggle) return update({ [target.dataset.toggle]: target.checked });
   if (target.dataset.select) { const key = target.dataset.select; return update({ [key]: typeof s()[key] === 'number' ? Number(target.value) : target.value }); }
   if (target.dataset.customColor) return update({ customTheme: { ...s().customTheme, [target.dataset.customColor]: target.value }, theme: CUSTOM });
@@ -1030,7 +1031,7 @@ window.addEventListener('blur', () => {
 bindSteppers(root, (key, value) => {
   const [scope, field] = key.includes(':') ? key.split(':') : ['setting', key];
   if (scope === 'setting') update({ [field]: value });
-  else cadPopupAction(kind, { dataset: { stepper: field, value } }, popupApi, 'stepper');
+  else if (!printPopupAction(kind, { dataset: { stepper: field, value } }, popupApi, 'stepper')) cadPopupAction(kind, { dataset: { stepper: field, value } }, popupApi, 'stepper');
   return undefined;
 });
 
@@ -1082,7 +1083,7 @@ function onHostMessage(message) {
     const stamp = (state.doneAt = Date.now());
     render();
     setTimeout(() => { if (state.doneAt === stamp) root.innerHTML = ''; }, 1500);
-  } else if (cadHostMessage(kind, message, popupApi)) {
+  } else if (printHostMessage(kind, message, popupApi) || cadHostMessage(kind, message, popupApi)) {
     /* handled by popups-3d.js */
   } else if (message?.type === 'refresh') {
     refresh();
@@ -1116,8 +1117,9 @@ function refresh() {
 }
 
 if (desktop) {
-  native.listen('popup-message', onHostMessage);
-  native.listen('popup-refresh', () => refresh());
+  // Only what is sent to this popup's window (another popup opening must not refresh — and show — this one).
+  native.listenHere('popup-message', onHostMessage);
+  native.listenHere('popup-refresh', (target) => { if (target == null || target === kind) refresh(); });
   if (kind === 'progress') {
     // The elapsed seconds keep counting during a long step that sends no news (the job is still alive).
     setInterval(() => {

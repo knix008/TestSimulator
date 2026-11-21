@@ -1,0 +1,8 @@
+/* Drawing sheet tabs, the move buttons of Move Component and the damage legend (app-more.js). */
+.more-sheet-tabs { position: absolute; left: 14px; bottom: 12px; display: flex; align-items: center; gap: 2px; padding: 3px; max-width: calc(100% - 260px); overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: color-mix(in srgb, var(--surface) 92%, transparent); box-shadow: 0 2px 8px rgb(0 0 0 / 0.18); }
+.more-sheet-tab { display: inline-flex; align-items: center; border-radius: 7px; flex: none; }
+.more-sheet-tab.active { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.more-sheet-name { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border: 0; background: none; color: inherit; font: inherit; font-size: 0.86em; cursor: pointer; white-space: nowrap; }
+.more-sheet-tab.active .more-sheet-name { font-weight: 600; }
+.more-move-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.more-damage-legend i { background: linear-gradient(90deg, rgb(51 191 64), rgb(242 191 51), rgb(242 51 51)); }

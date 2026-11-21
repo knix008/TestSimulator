@@ -3,7 +3,7 @@
 // The problems are small (tens to a few hundred unknowns), so dense linear algebra is fine.
 //
 // It also answers which unknowns the equations fix (the null space of the Jacobian): a sketch shows
-// fully defined geometry in black and the rest in blue, like SolidWorks.
+// fully defined geometry in black and the rest in blue.
 
 /** Solves A x = b in place by Gaussian elimination with partial pivoting (A: n×n rows). Returns x or null. */
 export function solveLinear(A, b) {

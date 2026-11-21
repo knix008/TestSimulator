@@ -17,8 +17,11 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
 body {
-  font-family: "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
-  font-size: 13px;
+  /* The font settings (themes.js applyFont); the defaults are the values this used to be fixed to. */
+  font-family: var(--font-family);
+  font-size: var(--font-size);
+  font-weight: var(--font-weight);
+  font-style: var(--font-style);
   color: var(--text);
   background: var(--bg);
   overflow: hidden;
@@ -38,6 +41,8 @@ input, textarea, select { user-select: text; -webkit-user-select: text; }
 /* ───────────────────────── main window */
 
 #app:not(:empty) {
+  /* Settings › Font › Zoom (app.js sets --zoom on #app). */
+  font-size: calc(var(--font-size) * var(--zoom, 1));
   height: 100vh;
   display: grid;
   grid-template-rows: auto auto 1fr auto; /* menu bar, toolbar, workspace (panels | tabs + view | panels), status bar */

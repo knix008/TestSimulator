@@ -1,16 +1,16 @@
 // The CAD app's texts: { key: [Korean, English] }. They win over the shell's dictionaries (i18n.js).
 const T = {
   // ── about, welcome, start page
-  'about.tagline': ['파라메트릭 3D 기계 설계 (SolidWorks 스타일)', 'Parametric 3D mechanical design (SolidWorks style)'],
+  'about.tagline': ['파라메트릭 3D 기계 설계', 'Parametric 3D mechanical design'],
   'about.description': ['구속 조건 스케치와 스마트 치수, OpenCASCADE B-rep 커널 위의 피처 기반 부품(돌출·회전·컷·필렛·모따기·쉘·구멍 가공 마법사·직선/원형 패턴·대칭 복사·참조 평면), 롤백 바가 있는 FeatureManager 디자인 트리, 메이트와 간섭 검사가 있는 어셈블리, 표준 3면도·등각도와 표제란이 있는 2D 도면, 질량 특성·측정·단면도, STEP/STL/DXF/SVG 내보내기를 제공합니다. Windows · macOS · Linux · 웹에서 실행됩니다.', 'Fully constrained sketches with smart dimensions, feature-based parts on the OpenCASCADE B-rep kernel (extrude, revolve, cut, fillet, chamfer, shell, Hole Wizard, linear and circular patterns, mirror, reference planes), a FeatureManager design tree with a rollback bar, assemblies with mates and interference detection, 2D drawings with standard and isometric views and a title block, mass properties, measure and section views, and STEP / STL / DXF / SVG export. Runs on Windows, macOS, Linux and the web.'],
   'welcome.title': ['MyMechanics에 오신 것을 환영합니다', 'Welcome to MyMechanics'],
   'welcome.text': ['스케치를 그리고 치수를 넣어 돌출하면 부품이 됩니다. 부품을 어셈블리로 조립하고 도면으로 내보내세요.', 'Sketch, dimension and extrude to make a part. Put parts together in an assembly and send them out as drawings.'],
   'welcome.point1': ['사용 설명서에서 스케치 → 피처 → 어셈블리 → 도면 순서로 따라 해 보세요.', 'Follow the user guide: sketch → features → assembly → drawing.'],
-  'welcome.point2': ['예제 18개(플랜지, 기어, 축 어셈블리, 도면 …)는 모든 치수를 바꿔 볼 수 있습니다.', '18 samples (flange, gear, shaft assembly, drawings …): every dimension can be changed.'],
+  'welcome.point2': ['예제 75개(그룹마다 15개: 기계 부품, 기어 감속기, 6축 로봇, 판금 섀시, 금형, 곡면, 도면 …)는 모든 치수를 바꿔 볼 수 있습니다.', '75 samples (15 per group: machined parts, a gear reducer, a six-axis robot, sheet-metal chassis, molds, surfaces, drawings …): every dimension can be changed.'],
   'welcome.point3': ['F1 사용 설명서 · Ctrl+B 다시 만들기 · Space 보기 방향 메뉴', 'F1 user guide · Ctrl+B rebuild · Space view orientation menu'],
   'welcome.start': ['사용 설명서 열기', 'Open the user guide'],
   'welcome.sample': ['예제 열기 (플랜지)', 'Open a sample (flange)'],
-  'start.tagline': ['스케치 · 피처 · 어셈블리 · 도면 — SolidWorks 스타일 3D 기계 설계', 'Sketches · features · assemblies · drawings — SolidWorks-style 3D mechanical design'],
+  'start.tagline': ['스케치 · 피처 · 어셈블리 · 도면 — 3D 기계 설계', 'Sketches · features · assemblies · drawings — 3D mechanical design'],
   'start.newPart': ['새 부품', 'New part'],
   'start.banner': ['처음이신가요? 예제 플랜지를 열어 피처 트리에서 치수를 바꿔 보세요.', 'New here? Open the sample flange and change its dimensions in the feature tree.'],
   'start.bannerGo': ['예제 열기', 'Open sample'],

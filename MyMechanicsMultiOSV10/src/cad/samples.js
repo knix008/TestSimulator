@@ -9,15 +9,24 @@ import { edgeSignature, faceSignature, isCylinder } from './refs.js';
 import { createAssembly, createPart, createProject, addDrawing, newId } from './document.js';
 import { mateEntityOfFace, quatFromAxisAngle, quatIdentity, solveMates } from './assembly.js';
 import { rep } from './kernel.js';
+import * as basicGroup from './samples/basic.js';
+import * as machineGroup from './samples/machine.js';
+import * as housingGroup from './samples/housing.js';
+import * as assemblyGroup from './samples/assembly.js';
+import * as advancedGroup from './samples/advanced.js';
+
+/** The groups' modules: each exports SAMPLES ([{ id, group, icon, ko: [name, note], en: [name, note] }]) and build(id, lang). */
+const GROUP_MODULES = [basicGroup, machineGroup, housingGroup, assemblyGroup, advancedGroup];
 
 export const SAMPLE_GROUPS = [
   { id: 'basic', icon: 'featExtrude', ko: '기본 부품', en: 'Basic parts' },
   { id: 'machine', icon: 'featRevolve', ko: '기계 요소', en: 'Machine elements' },
   { id: 'housing', icon: 'featShell', ko: '하우징·판금형', en: 'Housings' },
   { id: 'assembly', icon: 'assembly', ko: '어셈블리·도면', en: 'Assemblies & drawings' },
+  { id: 'advanced', icon: 'featSweep', ko: '고급 피처', en: 'Advanced features' },
 ];
 
-export const SAMPLES = [
+export const LEGACY_SAMPLES = [
   { id: 'block', group: 'basic', icon: 'featExtrude', ko: ['구멍 뚫린 블록', '돌출 · 구멍 가공 마법사 · 필렛'], en: ['Block with holes', 'Extrude · Hole Wizard · fillet'] },
   { id: 'lBracket', group: 'basic', icon: 'featFillet', ko: ['L 브래킷', 'L자 단면 돌출 · 두 면의 구멍 · 안쪽 필렛'], en: ['L-bracket', 'L profile · holes on two faces · inner fillet'] },
   { id: 'hexNut', group: 'basic', icon: 'polygon', ko: ['육각 너트 M10', '다각형 스케치 · 모따기'], en: ['Hex nut M10', 'Polygon sketch · chamfer'] },
@@ -36,11 +45,17 @@ export const SAMPLES = [
   { id: 'boltedJoint', group: 'assembly', icon: 'mateConcentric', ko: ['볼트 체결 조인트', '두 판 · 볼트 · 너트 · 간섭 검사'], en: ['Bolted joint', 'Two plates · bolt · nut · interference check'] },
   { id: 'flangeDrawing', group: 'assembly', icon: 'drawing', ko: ['플랜지 도면', '3면도 + 등각도 · 표제란'], en: ['Flange drawing', 'Three views + isometric · title block'] },
   { id: 'bracketDrawing', group: 'assembly', icon: 'drawing', ko: ['브래킷 도면', 'L 브래킷의 2D 도면'], en: ['Bracket drawing', '2D drawing of the L-bracket'] },
+  { id: 'spring', group: 'advanced', icon: 'helix', ko: ['압축 스프링', '나선 · 스윕'], en: ['Compression spring', 'Helix · sweep'] },
+  { id: 'threadedBolt', group: 'advanced', icon: 'featThread', ko: ['나사산 볼트 M10', '나사산 피처 (수나사)'], en: ['Threaded bolt M10', 'Thread feature (external)'] },
+  { id: 'funnel', group: 'advanced', icon: 'featLoft', ko: ['깔때기', '로프트 · 두껍게 · 돔'], en: ['Funnel', 'Loft · dome · draft'] },
+  { id: 'sheetBracket', group: 'advanced', icon: 'sheetMetal', ko: ['판금 브래킷', '베이스 플랜지 · 모서리 플랜지 · 펼치기'], en: ['Sheet metal bracket', 'Base flange · edge flanges · flatten'] },
+  { id: 'weldFrame', group: 'advanced', icon: 'structural', ko: ['용접 프레임', '구조 부재 (각관) · 절단 목록'], en: ['Welded frame', 'Structural members (square tube) · cut list'] },
+  { id: 'paramPlate', group: 'advanced', icon: 'equations', ko: ['파라메트릭 판', '전역 변수 · 수식 · 컨피규레이션'], en: ['Parametric plate', 'Global variables · equations · configurations'] },
 ];
 
 // ───────────────────────── building helpers
 
-function builder(part) {
+export function builder(part) {
   const planeRef = (p) => (typeof p === 'string' ? { kind: 'std', name: p } : p);
   const api = {
     part,
@@ -64,11 +79,11 @@ function builder(part) {
   return api;
 }
 
-const near = (a, b, tol = 1e-4) => Math.abs(a - b) < tol;
-const dim = (s, c) => addConstraint(s, c);
+export const near = (a, b, tol = 1e-4) => Math.abs(a - b) < tol;
+export const dim = (s, c) => addConstraint(s, c);
 
 /** A rectangle centred on the origin, fully defined by its width and height. */
-function centreRect(s, w, h) {
+export function centreRect(s, w, h) {
   const { lines, center } = addCenterRectangle(s, 0, 0, w / 2, h / 2);
   mergePoints(s, center.id, ORIGIN);
   dim(s, { type: 'distance', a: lines[0].id, value: w });
@@ -77,7 +92,7 @@ function centreRect(s, w, h) {
 }
 
 /** A circle with a diameter dimension (centred on the origin when cx = cy = 0). */
-function circle(s, cx, cy, d) {
+export function circle(s, cx, cy, d) {
   const c = addCircle(s, cx, cy, d / 2);
   if (!cx && !cy) mergePoints(s, c.c, ORIGIN);
   dim(s, { type: 'diameter', a: c.id, value: d });
@@ -85,7 +100,7 @@ function circle(s, cx, cy, d) {
 }
 
 /** A closed polyline (one chain of lines). */
-function poly(s, pts) {
+export function poly(s, pts) {
   const first = addLine(s, pts[0][0], pts[0][1], pts[1][0], pts[1][1]);
   let prev = first;
   for (let i = 1; i < pts.length; i++) {
@@ -96,11 +111,70 @@ function poly(s, pts) {
   return first;
 }
 
-const point = (s, x, y) => { s.entities.push({ id: `h${s.entities.length}${Math.random().toString(36).slice(2, 6)}`, type: 'point', x, y, standalone: true }); };
+export const point = (s, x, y) => { s.entities.push({ id: `h${s.entities.length}${Math.random().toString(36).slice(2, 6)}`, type: 'point', x, y, standalone: true }); };
 
 // ───────────────────────── parts
 
-const PARTS = {
+export const PARTS = {
+  spring(name) {
+    const b = builder(createPart(name, { material: 'steel-4340', partNo: 'SP-30-6' }));
+    const helix = b.add('helix', { plane: { kind: 'std', name: 'top' }, radius: 15, pitch: 6, turns: 6 });
+    const prof = b.sketch('front', (k) => { const c = addCircle(k, 15, 0, 1.5); dim(k, { type: 'diameter', a: c.id, value: 3 }); });
+    b.add('sweep', { sketch: prof.id, path: helix.id, frenet: true });
+    return b.part;
+  },
+  threadedBolt(name) {
+    const b = builder(createPart(name, { material: 'steel-4340', partNo: 'KS-M10x40-T' }));
+    const head = b.sketch('top', (k) => addPolygon(k, 0, 0, 16 / Math.sqrt(3), 6, 0));
+    b.add('extrude', { sketch: head.id, depth: 6.4 });
+    const shank = b.sketch('top', (k) => circle(k, 0, 0, 10));
+    b.add('extrude', { sketch: shank.id, depth: 40, reverse: true });
+    b.add('thread', { edge: b.edges((e) => e.type === 'CIRCLE' && near(e.mid[1], -40))[0], pitch: 1.5, length: 20, size: 'M10' });
+    return b.part;
+  },
+  funnel(name) {
+    const b = builder(createPart(name, { material: 'abs', partNo: 'FN-01' }));
+    const bottom = b.sketch('top', (k) => circle(k, 0, 0, 20));
+    const top = b.plane('top', 40);
+    const upper = b.sketch(top, (k) => centreRect(k, 60, 60));
+    b.add('loft', { sketches: [bottom.id, upper.id] });
+    const neck = b.sketch('top', (k) => circle(k, 0, 0, 20));
+    b.add('extrude', { sketch: neck.id, depth: 15, reverse: true, draft: true, draftAngle: 4 });
+    b.add('dome', { faces: b.faces((f) => f.type === 'PLANE' && f.center[1] > 39.9), height: 6 });
+    return b.part;
+  },
+  sheetBracket(name) {
+    const b = builder(createPart(name, { material: 'al-6061', partNo: 'SM-BRK-01' }));
+    const base = b.sketch('top', (k) => centreRect(k, 120, 60));
+    b.add('baseFlange', { sketch: base.id, thickness: 2, radius: 2, kFactor: 0.44 });
+    const top = (sig, x) => sig.type === 'LINE' && near(sig.start[0], x) && near(sig.end[0], x) && near(sig.mid[1], 2);
+    b.add('edgeFlange', { edge: b.edges((e) => top(e, 60))[0], length: 30, angle: 90 });
+    b.add('edgeFlange', { edge: b.edges((e) => top(e, -60))[0], length: 30, angle: 90 });
+    const holes = b.sketch('top', (k) => { circle(k, -30, 0, 8); circle(k, 30, 0, 8); });
+    b.add('extrude', { sketch: holes.id, op: 'cut', end: 'throughBoth' });
+    return b.part;
+  },
+  weldFrame(name) {
+    const b = builder(createPart(name, { material: 'steel-1020', partNo: 'WF-600' }));
+    const frame = b.sketch('front', (k) => { poly(k, [[0, 0], [600, 0], [600, 400], [0, 400]]); addLine(k, 0, 0, 600, 400); });
+    b.add('structural', { sketch: frame.id, profile: 'squareTube', w: 40, h: 40, t: 3 });
+    return b.part;
+  },
+  paramPlate(name) {
+    const part = createPart(name, { material: 'al-6061', partNo: 'PP-01' });
+    part.variables = [{ name: 'W', expr: '120' }, { name: 'H', expr: 'W / 2' }, { name: 'T', expr: '8' }, { name: 'D', expr: 'T + 2' }];
+    const b = builder(part);
+    const plate = b.sketch('top', (k) => centreRect(k, 120, 60));
+    const [w, h] = plate.constraints.filter((c) => c.type === 'distance');
+    w.expr = 'W'; w.name = 'D1'; h.expr = 'H'; h.name = 'D2';
+    const ex = b.add('extrude', { sketch: plate.id, depth: 8, exprs: { depth: 'T' } });
+    void ex;
+    const hole = b.sketch('top', (k) => circle(k, 0, 0, 10));
+    hole.constraints.find((c) => c.type === 'diameter').expr = 'D';
+    const cut = b.add('extrude', { sketch: hole.id, op: 'cut', end: 'throughBoth' });
+    part.configurations = [{ id: 'cfg-small', name: 'Small', variables: { W: '80', T: '5' }, suppress: {}, values: {} }, { id: 'cfg-solid', name: 'NoHole', variables: {}, suppress: { [cut.id]: true }, values: {} }];
+    return b.part;
+  },
   block(name) {
     const b = builder(createPart(name, { material: 'al-6061', partNo: 'MM-1001' }));
     const s = b.sketch('top', (k) => centreRect(k, 80, 50));
@@ -274,23 +348,23 @@ const PARTS = {
 
 // ───────────────────────── assemblies
 
-function faceEntity(part, comp, test) {
+export function faceEntity(part, comp, test) {
   const r = regenerate(part);
   const face = r.body.faces.find((f) => test(faceSignature(f), f));
   if (!face) throw new Error(`sample: face not found in ${part.name}`);
   return { comp, ...mateEntityOfFace(face, faceSignature) };
 }
 
-function component(asm, part, position, rotation = quatIdentity(), fixed = false) {
+export function component(asm, part, position, rotation = quatIdentity(), fixed = false) {
   const count = asm.components.filter((c) => c.part === part.id).length;
   const c = { id: newId('cmp'), part: part.id, name: `${part.name}<${count + 1}>`, position, rotation, fixed };
   asm.components.push(c);
   return c;
 }
 
-const mate = (asm, type, a, b, extra = {}) => asm.mates.push({ id: newId('mate'), type, name: '', a, b, ...extra });
+export const mate = (asm, type, a, b, extra = {}) => asm.mates.push({ id: newId('mate'), type, name: '', a, b, ...extra });
 
-function shaftAssembly(lang) {
+export function shaftAssembly(lang) {
   const L = (ko, en) => (lang === 'en' ? en : ko);
   const project = createProject({ name: L('축 어셈블리', 'Shaft assembly'), kind: 'none' });
   const block = PARTS.pillowBlock(L('베어링 하우징', 'Pillow block'));
@@ -319,7 +393,7 @@ function shaftAssembly(lang) {
   return project;
 }
 
-function boltedJoint(lang) {
+export function boltedJoint(lang) {
   const L = (ko, en) => (lang === 'en' ? en : ko);
   const project = createProject({ name: L('볼트 체결 조인트', 'Bolted joint'), kind: 'none' });
   const plate = (() => {
@@ -352,14 +426,14 @@ function boltedJoint(lang) {
   return project;
 }
 
-function settle(project, asm) {
+export function settle(project, asm) {
   const R = rep();
   void R;
   solveMates(asm, { size: 150 });
 }
 
-function partProject(id, lang) {
-  const sample = SAMPLES.find((s) => s.id === id);
+export function partProject(id, lang) {
+  const sample = LEGACY_SAMPLES.find((s) => s.id === id) ?? SAMPLES.find((s) => s.id === id);
   const name = sample[lang === 'en' ? 'en' : 'ko'][0];
   const project = createProject({ name, kind: 'none' });
   const part = PARTS[id](name);
@@ -368,7 +442,7 @@ function partProject(id, lang) {
   return project;
 }
 
-function drawingProject(partId, lang) {
+export function drawingProject(partId, lang) {
   const project = partProject(partId, lang);
   const part = project.parts[0];
   const d = addDrawing(project, { kind: 'part', id: part.id }, `${part.name} - ${lang === 'en' ? 'Sheet1' : '시트1'}`);
@@ -380,6 +454,8 @@ function drawingProject(partId, lang) {
 
 /** Builds a sample project (the kernel must be loaded). */
 export function buildSample(id, lang = 'ko') {
+  for (const g of GROUP_MODULES) if (g.SAMPLES.some((x) => x.id === id) && !id.startsWith('legacy:')) return g.build(id, lang);
+  id = id.replace(/^legacy:/, '');
   if (id === 'shaftAssembly') return shaftAssembly(lang);
   if (id === 'boltedJoint') return boltedJoint(lang);
   if (id === 'flangeDrawing') return drawingProject('flange', lang);
@@ -389,3 +465,6 @@ export function buildSample(id, lang = 'ko') {
 }
 
 export { byId, addArc };
+
+/** Every sample on the start page, group by group (15 each). */
+export const SAMPLES = GROUP_MODULES.flatMap((g) => g.SAMPLES);

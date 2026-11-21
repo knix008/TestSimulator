@@ -90,7 +90,22 @@ export function cardsOf(saved, ids, defaultSpan, measured = {}, fallbackRows = 8
     cards = pack([...ids], (id) => defaultSpan[id] || 1, rows);
   }
   for (const id of Object.keys(cards)) if (cards[id].fit && measured[id]) cards[id] = { ...cards[id], h: measured[id] };
+  // An auto-arranged board keeps its shelves (rows lined up); a hand-made one closes its gaps.
+  if (saved?.aligned) return alignShelves(resolve(cards, null));
   return compact(resolve(cards, null));
+}
+
+/** Keeps auto-arranged shelves aligned when a fit card's height changes: each shelf starts below the tallest card above. */
+function alignShelves(cards) {
+  const rows = [...new Set(Object.values(cards).map((c) => c.row))].sort((a, b) => a - b);
+  const out = {};
+  let top = 0;
+  for (const r of rows) {
+    const shelf = Object.entries(cards).filter(([, c]) => c.row === r);
+    for (const [id, c] of shelf) out[id] = { ...c, row: top };
+    top += Math.max(...shelf.map(([, c]) => c.h));
+  }
+  return out;
 }
 
 /** The board with one card moved or resized. */
@@ -99,9 +114,28 @@ export const place = (cards, id, target) => compact(resolve({ ...cards, [id]: { 
 /** The default arrangement. */
 export const autoArrange = (ids, defaultSpan, measured = {}, fallbackRows = 8) => compact(pack([...ids], (id) => defaultSpan[id] || 1, (id) => measured[id] || fallbackRows));
 
+/**
+ * Auto arrange keeping every card's size: the cards (in their reading order) go left to right in shelves,
+ * each shelf starting at the left edge, so tops line up along a shelf and left edges line up down the board.
+ */
+export function arrangeKeepingSizes(cards) {
+  const ids = Object.keys(cards).sort((a, b) => cards[a].row - cards[b].row || cards[a].col - cards[b].col);
+  const out = {};
+  let x = 0; let top = 0; let shelf = 0;
+  for (const id of ids) {
+    const c = cards[id];
+    const w = clamp(c.w, 1, COLS);
+    if (x + w > COLS) { top += shelf; x = 0; shelf = 0; }
+    out[id] = { ...c, col: x, row: top, w };
+    x += w;
+    shelf = Math.max(shelf, c.h);
+  }
+  return out;
+}
+
 /** The form saved in the settings. */
-export function layoutValue(cards) {
+export function layoutValue(cards, { aligned = false } = {}) {
   const out = {};
   for (const [id, c] of Object.entries(cards)) out[id] = { col: c.col, row: c.row, w: c.w, h: c.h, fit: c.fit };
-  return { version: LAYOUT_VERSION, cards: out };
+  return { version: LAYOUT_VERSION, cards: out, ...(aligned ? { aligned: true } : {}) };
 }

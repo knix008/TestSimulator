@@ -1,4 +1,4 @@
-// Engineering materials (SolidWorks' material library, the common ones): density for mass properties,
+// Engineering materials (the common ones): density for mass properties,
 // a display colour and finish, and the mechanical values shown in the material list.
 // density: kg/m³ · E: elastic modulus (GPa) · yield: yield strength (MPa).
 export const MATERIALS = [

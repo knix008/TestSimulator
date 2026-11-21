@@ -1,7 +1,7 @@
 // The start page's cards on screen: each card takes its cell, fit cards take the height of
 // their content, the handle moves a card (a see-through copy follows the pointer), the corner
 // resizes it, a double click on the corner fits it again. The arrangement goes to the settings.
-import { autoArrange, cardsOf, COLS, GAP, layoutValue, compact, place, ROW, rowsFor } from './startlayout.js';
+import { arrangeKeepingSizes, cardsOf, COLS, GAP, layoutValue, compact as compactCards, place, ROW, rowsFor } from './startlayout.js';
 
 export const START_CARD_SPAN = { hero: 3, actions: 2, recent: 1, templates: 3, samples: 3, plansamples: 3, theme: 3, background: 3 };
 
@@ -60,7 +60,7 @@ export function startBoard(host, { saved, onSave, reduced = false }) {
     measure();
   }
 
-  const save = (cards) => { layout = layoutValue(compact(cards)); pending = null; paint(true); measure(); onSave(layout); };
+  const save = (cards, { packed = true } = {}) => { layout = layoutValue(packed ? compactCards(cards) : cards, { aligned: !packed }); pending = null; paint(true); measure(); onSave(layout); };
 
   const columnWidth = () => (host.getBoundingClientRect().width - GAP * (COLS - 1)) / COLS;
   const cellAt = (x, y, w) => {
@@ -199,8 +199,8 @@ export function startBoard(host, { saved, onSave, reduced = false }) {
   measure();
 
   return {
-    /** Puts every card back in the default arrangement. */
-    arrange() { save(autoArrange(ids, START_CARD_SPAN, measured)); },
+    /** Lines the cards up in rows and columns, each keeping the size it was given. */
+    arrange() { save(arrangeKeepingSizes(current()), { packed: false }); },
     destroy() {
       observer?.disconnect();
       host.removeEventListener('pointerdown', onPointerDown);

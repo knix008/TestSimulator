@@ -25,7 +25,10 @@ export const BACKGROUND_KINDS = ['animated', 'image', 'none'];
 /** Choices for the start page's automatic background change (seconds; 0 = off). */
 export const ANIMATION_INTERVALS = [0, 15, 30, 60, 120, 300];
 // Moving backgrounds of the start page that suit engineering work (drawings, wireframes, dimensions, contours …).
-export const ANIMATIONS = ['blueprint', 'isometric', 'wireframe', 'dimensions', 'perspective', 'contours', 'dust', 'rain', 'sunlight', 'leaves'];
+export const ANIMATIONS = ['blueprint', 'isometric', 'wireframe', 'dimensions', 'perspective', 'contours', 'dust', 'rain', 'sunlight', 'leaves',
+  'gears', 'piston', 'toolpath', 'stressField', 'tessellation', 'exploded', 'sheetMetal', 'weldBead', 'printLayers', 'threading',
+  'bearing', 'spring', 'cam', 'conveyor', 'triads', 'gdtFrames', 'laserCut', 'helixSweep', 'sectionHatch', 'turbine',
+  'fourBar', 'chainDrive'];
 export const BACKGROUND_FITS = ['cover', 'contain', 'tile', 'center', 'stretch'];
 export const DATE_FORMATS = ['iso', 'ko', 'us', 'eu'];
 export const UNITS = ['mm', 'cm', 'in'];
@@ -89,6 +92,8 @@ export function defaultSettings(language = 'ko') {
     showBottomPanel: true,
     bottomHeight: 170,
     leftWidth: 280,
+    // The left panel: FeatureManager tree above, PropertyManager below; the share of the height the PropertyManager gets.
+    leftPmRatio: 0.55,
     rightWidth: 340,
     lastDirectory: null,
     restoreSession: false,
@@ -194,6 +199,8 @@ export function normalizeSettings(raw = {}, language) {
   s.backgroundImage = typeof s.backgroundImage === 'string' && s.backgroundImage ? s.backgroundImage : null;
   s.lastDirectory = typeof s.lastDirectory === 'string' && s.lastDirectory ? s.lastDirectory : null;
   s.leftWidth = clamp(s.leftWidth, PANEL_MIN.left, 600, base.leftWidth);
+  // A fraction (clamp() rounds to whole numbers, so not through it).
+  s.leftPmRatio = Number.isFinite(Number(s.leftPmRatio)) ? Math.min(0.85, Math.max(0.15, Number(s.leftPmRatio))) : base.leftPmRatio;
   s.rightWidth = clamp(s.rightWidth, PANEL_MIN.right, 700, base.rightWidth);
   s.bottomHeight = clamp(s.bottomHeight, PANEL_MIN.bottom, 2000, base.bottomHeight);
   s.dateFormat = DATE_FORMATS.includes(s.dateFormat) ? s.dateFormat : base.dateFormat;

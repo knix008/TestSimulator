@@ -206,3 +206,158 @@ button.status-item:hover { background: var(--hover); }
 /* ── popups: mass properties ───────────────────────────────────────────── */
 .mass-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .mass-head .icon.big { width: 36px; height: 36px; color: var(--accent); }
+
+/* ── advanced features: loft lists, equations, configurations, simulation legend, annotations */
+.pm-checklist { display: flex; flex-direction: column; gap: 2px; max-height: 220px; overflow: auto; }
+.pm-order { display: inline-block; min-width: 1.4em; padding: 0 4px; border-radius: 8px; background: var(--accent); color: #fff; font-size: 0.8em; text-align: center; }
+.pm-text { flex: 1; min-width: 0; width: 100%; }
+.pm-text.short { max-width: 70px; }
+.eq-table { display: flex; flex-direction: column; gap: 4px; }
+.eq-row { display: grid; grid-template-columns: 70px auto minmax(0, 1fr) auto auto; align-items: center; gap: 4px; }
+.eq-row.error input { border-color: var(--danger, #d4282f); }
+.eq-row output { font-variant-numeric: tabular-nums; font-size: 0.85em; color: var(--muted); text-align: right; min-width: 3em; }
+.eq-name { font-weight: 600; }
+.pm-list li.error { color: var(--danger, #d4282f); }
+.cfg-row { display: flex; align-items: center; gap: 4px; padding: 2px; border-radius: 4px; }
+.cfg-row.active { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.cfg-name { flex: 1; padding: 0 4px; }
+.sim-legend { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; font-size: 0.82em; margin: 6px 0; }
+.sim-legend i { height: 10px; border-radius: 3px; background: linear-gradient(90deg, #0000ff, #00ffff, #00ff00, #ffff00, #ff0000); }
+.pm-results dd.error { color: var(--danger, #d4282f); }
+.small-button.primary { border-color: var(--accent); background: var(--accent); color: #fff; }
+.ann-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.ann-list li.selected { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.ann-list .ann-kind { min-width: 4.5em; font-weight: 600; }
+.ann-list select { max-width: 120px; }
+.tree-config { color: var(--muted); font-weight: 400; }
+
+/* ── start page: the program information is a fixed header (not a movable card), left aligned */
+.start-info { margin-bottom: 14px; justify-content: flex-start; align-items: center; text-align: left; flex-wrap: nowrap; }
+.start-info .start-hero-text { flex: 1 1 auto; min-width: 0; }
+/* The buttons on the same line, at the right end, centred vertically. */
+.start-info .start-hero-actions { margin-left: auto; justify-content: flex-end; align-items: center; flex: 0 0 auto; flex-wrap: nowrap; }
+@media (max-width: 900px) { .start-info { flex-wrap: wrap; } .start-info .start-hero-actions { flex-wrap: wrap; } }
+
+/* ── graphics area: rulers and scale bar overlay */
+.vp-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+
+/* ── lights, 3D sketch point table */
+.light-row { display: flex; align-items: center; gap: 4px; padding: 2px 4px; border-radius: 4px; }
+.light-row.active { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.pm-vec3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; flex: 1; min-width: 0; }
+.pm-vec3 .pm-text.short { max-width: none; }
+.pt3-table { display: flex; flex-direction: column; gap: 3px; max-height: 260px; overflow: auto; }
+.pt3-row { display: grid; grid-template-columns: 22px repeat(3, minmax(0, 1fr)) 24px; align-items: center; gap: 3px; }
+.pt3-row.head { font-size: 0.8em; color: var(--muted); text-align: center; }
+input[type="color"][data-pm-field] { width: 44px; height: 24px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: none; }
+
+/* ── panel toggles in the title bar, left of the window buttons */
+.panel-toggles { display: flex; align-items: center; gap: 2px; margin-right: 6px; padding-right: 6px; border-right: 1px solid var(--border); }
+.panel-toggles .panel-toggle { opacity: 0.6; }
+.panel-toggles .panel-toggle.active { opacity: 1; color: var(--accent); }
+
+/* ── document tabs: scroll sideways, with < > at the right end of the tab row */
+#tabs .tab-strip { overflow-x: auto; scrollbar-width: none; flex: 0 1 auto; }
+#tabs .tab-strip::-webkit-scrollbar { display: none; }
+#tabs .tab-scroll { display: inline-flex; align-items: center; gap: 2px; padding-bottom: 3px; }
+#tabs .tab-scroll .icon-button:disabled { opacity: 0.3; }
+
+/* ── every slider: − · slider · value (unit) · + */
+.slider-control { display: inline-flex; align-items: center; gap: 4px; flex: 1 1 auto; min-width: 0; }
+.slider-control input[type="range"] { flex: 1 1 80px; min-width: 60px; }
+.slider-step { flex: none; width: 22px; height: 22px; display: inline-grid; place-items: center; padding: 0; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); color: var(--text); font-weight: 700; line-height: 1; cursor: pointer; }
+.slider-step:hover { border-color: var(--accent); color: var(--accent); }
+.slider-readout { flex: none; display: inline-flex; align-items: center; gap: 2px; }
+.slider-value { width: 52px; padding: 2px 4px; border: 1px solid var(--border); border-radius: 4px; background: var(--input-bg, var(--surface)); color: var(--text); font: inherit; font-variant-numeric: tabular-nums; text-align: right; }
+.slider-unit { min-width: 0; color: var(--muted); font-size: 0.85em; }
+
+/* ── CommandManager tab row: tabs scroll sideways, < > at its right end */
+.cm-tab-row { display: flex; align-items: flex-end; border-bottom: 1px solid var(--hairline, var(--border)); }
+.cm-tab-row .cm-tabs { flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; border-bottom: none; }
+.cm-tab-row .cm-tabs::-webkit-scrollbar { display: none; }
+.cm-tab-row .cm-tab { flex: none; white-space: nowrap; }
+.cm-scroll { padding: 0 6px 2px; }
+#tabs .tab-scroll .icon-button, .cm-scroll .icon-button { width: 24px; height: 24px; }
+
+/* ── tab rows: the tabs shrink and scroll, the arrows and the view buttons keep their size */
+#tabs .tab-strip { flex: 1 1 auto; min-width: 60px; }
+#tabs > .grow { flex: 0 0 4px; }
+#tabs .tab-scroll { flex: none; }
+#tabs .tabs-right { flex: none; }
+#tabs .tabs-right .seg-toggle button, #tabs .tabs-right .seg-toggle span { white-space: nowrap; }
+#palette-host { min-width: 0; }
+.cm-tab-row { width: 100%; min-width: 0; }
+/* Every command button is shown: icons only, wrapping to a second row when the window is narrow. */
+.cm-buttons { flex-wrap: wrap; overflow-x: visible; row-gap: 2px; }
+/* The two arrows side by side, always readable (dimmed when there is nothing more that way). */
+.tab-scroll { display: inline-flex !important; flex-direction: row; flex-wrap: nowrap; align-items: center; gap: 2px; flex: none; min-width: 52px; }
+.tab-scroll .icon-button { flex: none; }
+.tab-scroll .icon-button:disabled { opacity: 0.45; }
+
+/* ── left panel: one title bar, FeatureManager | PropertyManager */
+.left-title { gap: 2px; padding-right: 4px; }
+.left-title-tab { display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); font: inherit; font-weight: 600; cursor: pointer; white-space: nowrap; min-width: 0; overflow: hidden; }
+.left-title-tab span { overflow: hidden; text-overflow: ellipsis; }
+.left-title-tab:hover:not(:disabled) { background: var(--hover); color: var(--text); }
+.left-title-tab.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.left-title-tab:disabled { opacity: 0.45; cursor: help; }
+.left-title-sep { width: 1px; height: 16px; background: var(--border); margin: 0 3px; flex: none; }
+.left-editing-note { display: flex; align-items: center; gap: 6px; width: calc(100% - 12px); margin: 6px; padding: 5px 8px; border: 1px solid var(--accent); border-radius: 6px; background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--accent); font: inherit; font-size: 0.88em; cursor: pointer; text-align: left; }
+.left-pm-hint { display: flex; gap: 6px; margin: 6px 8px 0; padding: 5px 7px; border-radius: 6px; background: var(--hover); color: var(--muted); font-size: 0.8em; line-height: 1.35; }
+
+/* ── motion player over the graphics area */
+.motion-bar { position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%); z-index: 3; display: flex; align-items: center; gap: 4px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 10px; background: color-mix(in srgb, var(--surface) 92%, transparent); box-shadow: 0 6px 18px var(--shadow); min-width: 360px; }
+.motion-bar-title { display: inline-flex; align-items: center; gap: 5px; margin-right: 4px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.motion-bar .icon-button.active { color: var(--accent); }
+.motion-bar .slider-control { min-width: 200px; }
+/* the separator in the left panel's title bar */
+.left-title .left-title-sep { flex: 0 0 1px !important; width: 1px !important; min-width: 1px; padding: 0 !important; background: var(--border); }
+
+/* ── every number: [−] [value][unit] [+], the same size everywhere, right-aligned in its row */
+.num-control, .pm-input, .stepper, .slider-control { display: inline-flex; align-items: center; gap: 3px; }
+.pm-field { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.pm-field > .pm-label { flex: 1 1 auto; min-width: 0; }
+.pm-field > .num-control, .pm-field > .pm-input, .pm-field > .slider-control { flex: none; margin-left: auto; }
+.num-control input, .pm-input input, .stepper .stepper-value, .slider-value { width: 64px !important; height: 24px; padding: 2px 5px; text-align: right; font-variant-numeric: tabular-nums; box-sizing: border-box; }
+.num-unit, .slider-unit { display: inline-block; min-width: 22px; color: var(--muted); font-size: 0.85em; text-align: left; }
+.num-unit:empty { min-width: 0; width: 0; }
+.pm-step, .stepper-button, .slider-step { width: 22px !important; height: 22px !important; min-width: 22px; padding: 0 !important; display: inline-grid; place-items: center; }
+.pm-vec3 .num-control input { width: 46px !important; }
+.prop-value .num-control { margin-left: auto; }
+
+/* ── typed numbers share the PropertyManager look: one box  [−][value unit][+]  */
+.num-control { display: inline-flex; align-items: center; gap: 0; height: 26px; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; background: var(--bg); box-sizing: border-box; flex: none; }
+.num-control:focus-within { border-color: var(--accent); box-shadow: var(--ring); }
+.num-control > .slider-step { border: 0 !important; border-radius: 0 !important; background: none !important; color: var(--muted); height: 24px !important; }
+.num-control > .slider-step:hover { background: var(--hover) !important; color: var(--accent); }
+.num-control > input, #right-panel .prop-value .num-control > input[type="text"] { flex: 1 1 auto; min-width: 0; border: 0 !important; background: none !important; box-shadow: none !important; outline: none; height: 24px; padding: 2px 3px 2px 6px; }
+.num-control > .num-unit { min-width: 0; padding-right: 4px; white-space: nowrap; }
+.pm-input > .num-unit { align-self: center; min-width: 0; padding-right: 2px; }
+/* the same width in every PropertyManager row, so −/+ line up down the page */
+.pm-field > .num-control, .pm-field > .pm-input { width: 132px; }
+/* the task pane: the number box fills the value column like the text boxes above it */
+#right-panel .prop-value > .num-control { width: 100%; margin-left: 0; }
+.num-control > input, .pm-input > input { width: 40px !important; }
+/* the 3D sketch point table: three boxes share the row, narrow −/+ so the value stays readable */
+.pt3-row { grid-template-columns: 16px repeat(3, minmax(0, 1fr)) 22px !important; gap: 3px !important; }
+.pt3-row .num-control { width: 100%; min-width: 0; }
+.pt3-row .num-control > .slider-step { width: 15px !important; min-width: 15px; }
+.pt3-row .num-control > input { width: 20px !important; padding: 2px 2px !important; font-size: 0.9em; }
+.pt3-row .num-control > .num-unit { display: none; }
+
+/* ── left panel: FeatureManager tree (top) and PropertyManager (bottom) as two sections */
+#left-panel.left-split { display: flex; flex-direction: column; min-height: 0; }
+#left-panel .left-section { display: flex; flex-direction: column; min-height: 64px; overflow: hidden; }
+#left-panel .left-section-header { display: flex; align-items: center; gap: 6px; padding: 0 4px 0 10px; min-height: 34px; font-weight: 600; white-space: nowrap; }
+#left-panel .left-section-header .icon { width: 16px; height: 16px; color: var(--accent); flex: none; }
+#left-panel .left-section-title { flex: none; }
+#left-panel .left-section-subject { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-weight: 500; }
+#left-panel .left-section-subject::before { content: '—'; margin: 0 6px 0 2px; color: var(--muted); }
+#left-panel .left-pm-section { border-top: 1px solid var(--border); }
+#left-panel .left-pm-section.active > .left-section-header { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+#left-panel .left-pm-section.active > .left-section-header .left-section-title { color: var(--accent); }
+#left-panel .left-tree-body { padding: 4px 0 10px; }
+#left-panel .left-pm-body { padding: 0 0 12px; }
+#left-panel .left-pm-section.idle .left-pm-body { display: block; }
+#left-panel .left-pm-split { flex: none; height: 5px; cursor: row-resize; background: transparent; }
+#left-panel .left-pm-split:hover, #left-panel .left-pm-split:active { background: color-mix(in srgb, var(--accent) 35%, transparent); }

@@ -3,6 +3,9 @@
 // command has its own picture (test/unit/icons.test.js checks that no two commands share one).
 import { ICONS_3D } from './icons-3d.js';
 import { ICONS_CAD } from './icons-cad.js';
+import { ICONS_PART } from './icons-part.js';
+import { ICONS_SHEET } from './icons-sheet.js';
+import { ICONS_ASM } from './icons-asm.js';
 import { toneOf } from './icon-tones.js';
 
 const base = {
@@ -384,7 +387,16 @@ const base = {
 
 /** The icon for a moving background kind (`blueprint` → `animBlueprint`). */
 export const animationIcon = (kind) => `anim${kind[0].toUpperCase()}${kind.slice(1)}`;
-const paths = { ...base, ...ICONS_3D, ...ICONS_CAD };
+const paths = { ...base, ...ICONS_3D, ...ICONS_CAD, ...ICONS_ASM, ...ICONS_PART, ...ICONS_SHEET };
+// The mechanical backgrounds borrow the CAD commands' icons (animationIcon('gears') → mateGear's drawing).
+const ANIMATION_ICON_ALIASES = {
+  animGears: 'mateGear', animPiston: 'motor', animToolpath: 'featCut', animStressField: 'simulation', animTessellation: 'stlFile',
+  animExploded: 'explodedView', animSheetMetal: 'sheetMetal', animWeldBead: 'structural', animPrintLayers: 'layers', animThreading: 'featThread',
+  animBearing: 'mateConcentric', animSpring: 'load', animCam: 'motion', animConveyor: 'mateRack', animTriads: 'axesTool',
+  animGdtFrames: 'gdt', animLaserCut: 'trimTool', animHelixSweep: 'helix', animSectionHatch: 'sectionView', animTurbine: 'featCirPattern',
+  animFourBar: 'mateHinge', animChainDrive: 'featLinPattern',
+};
+for (const [name, from] of Object.entries(ANIMATION_ICON_ALIASES)) if (!paths[name] && paths[from]) paths[name] = paths[from];
 
 export const ICON_NAMES = Object.keys(paths);
 export const hasIcon = (name) => Object.hasOwn(paths, name);

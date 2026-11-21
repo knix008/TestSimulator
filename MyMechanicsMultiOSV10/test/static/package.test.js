@@ -55,6 +55,28 @@ test('the user guide exists in Korean and English and is built for the viewer', 
   for (const f of ['public/doc/UsersGuide.html', 'public/doc/UsersGuide.en.html']) assert.match(read(f), /<nav class="toc">/);
 });
 
+test('the tutorial exists in both languages, is built, and every picture of the documents is there', () => {
+  const ko = read('doc/Tutorial.md'); const en = read('doc/Tutorial.en.md');
+  assert.equal((ko.match(/^## /gm) ?? []).length, (en.match(/^## /gm) ?? []).length, 'same lessons');
+  for (const f of ['public/doc/Tutorial.html', 'public/doc/Tutorial.en.html']) assert.match(read(f), /<nav class="toc">/);
+  for (const name of ['UsersGuide', 'Tutorial']) {
+    for (const [lang, suffix] of [['ko', ''], ['en', '.en']]) {
+      const md = read(`doc/${name}${suffix}.md`);
+      const pictures = [...md.matchAll(/!\[[^\]]*\]\(([^)\s]+)\)/g)].map((m) => m[1]);
+      assert.ok(pictures.length >= 10, `${name}${suffix}.md has pictures`);
+      for (const p of pictures) {
+        assert.ok(p.startsWith(`images/${lang}/`), `${name}${suffix}.md: ${p} is a ${lang} picture`);
+        for (const dir of ['doc', 'public/doc']) assert.ok(fs.existsSync(path.join(root, dir, p)), `${dir}/${p}`);
+      }
+      assert.match(read(`public/doc/${name}${suffix}.html`), /<figure><img src="images\//);
+    }
+  }
+  // Every chapter of the guide has a picture.
+  for (const f of ['doc/UsersGuide.md', 'doc/UsersGuide.en.md']) {
+    for (const chapter of read(f).split(/^## /m).slice(1)) assert.match(chapter, /!\[/, `${f}: ${chapter.split('\n')[0]}`);
+  }
+});
+
 test('every UI text key used in the code has Korean and English text', () => {
   const r = spawnSync(process.execPath, [path.join(root, 'scripts/i18n-check.mjs')], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stdout + r.stderr);

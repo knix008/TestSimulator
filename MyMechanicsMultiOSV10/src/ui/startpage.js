@@ -81,8 +81,8 @@ function backgroundBody(settings) {
     <div class="start-controls">
       <button class="start-btn" data-start="shuffle" title="${escapeHtml(t('action.shuffleBackground'))}">${icon('dice')}<span>${escapeHtml(t('action.shuffleBackground'))}</span></button>
       <button class="start-btn" data-start="background-image" title="${escapeHtml(t('action.backgroundImage'))}">${icon('imageBg')}<span>${escapeHtml(t('action.backgroundImage'))}</span></button>
-      <label class="start-speed" title="${escapeHtml(t('settings.animationSpeed'))}">${icon('speed')}<span>${escapeHtml(t('settings.animationSpeed'))}</span><input type="range" min="0" max="300" step="10" value="${settings.animationSpeed}" data-start-speed /><output>${settings.animationSpeed}%</output></label>
-      <label class="start-speed" title="${escapeHtml(t('start.cardOpacity'))}">${icon('opacity')}<span>${escapeHtml(t('start.cardOpacity'))}</span><input type="range" min="20" max="100" step="5" value="${settings.startCardOpacity}" data-start-opacity /><output>${settings.startCardOpacity}%</output></label>
+      <label class="start-speed" title="${escapeHtml(t('settings.animationSpeed'))}">${icon('speed')}<span>${escapeHtml(t('settings.animationSpeed'))}</span><input type="range" data-unit="%" min="0" max="300" step="10" value="${settings.animationSpeed}" data-start-speed /><output>${settings.animationSpeed}%</output></label>
+      <label class="start-speed" title="${escapeHtml(t('start.cardOpacity'))}">${icon('opacity')}<span>${escapeHtml(t('start.cardOpacity'))}</span><input type="range" data-unit="%" min="20" max="100" step="5" value="${settings.startCardOpacity}" data-start-opacity /><output>${settings.startCardOpacity}%</output></label>
       <label class="start-check" title="${escapeHtml(t('tip.bgRandom'))}"><input type="checkbox" data-start-random ${settings.animationRandom ? 'checked' : ''} /><span>${escapeHtml(t('start.bgRandom'))}</span></label>
       <label class="start-interval" title="${escapeHtml(t('tip.bgInterval'))}">${icon('clock')}<span>${escapeHtml(t('start.bgInterval'))}</span><select data-icon="clock" data-start-interval aria-label="${escapeHtml(t('start.bgInterval'))}">${ANIMATION_INTERVALS.map((n) => `<option value="${n}" ${settings.animationInterval === n ? 'selected' : ''}>${escapeHtml(intervalLabel(n))}</option>`).join('')}</select></label>
     </div>`;
@@ -101,6 +101,7 @@ export function startPageHtml(app) {
     <div class="start-hero-actions">
       <div class="start-docs" role="group" aria-label="${escapeHtml(t('start.help'))}">
         <button class="button big doc-button" data-start="guide" title="${escapeHtml(t('tip.userGuide'))}">${icon('userGuide')}<span>${escapeHtml(t('action.userGuide'))}</span></button>
+        <button class="button big doc-button" data-start="tutorial" title="${escapeHtml(t('tip.tutorialDoc'))}">${icon('tutorialDoc')}<span>${escapeHtml(t('start.tutorialDocShort'))}</span></button>
         <button class="button big doc-button" data-start="shortcuts" title="${escapeHtml(t('action.shortcuts'))}">${icon('keyboard')}<span>${escapeHtml(t('action.shortcuts'))}</span></button>
       </div>
       <button class="button big" data-start="help-menu" title="${escapeHtml(t('tip.startHelp'))}" aria-haspopup="true">${icon('question')}<span>${escapeHtml(t('menu.help'))}</span>${icon('chevronDown', 'icon tiny')}</button>
@@ -108,7 +109,6 @@ export function startPageHtml(app) {
     </div>`;
   const templates = `<div class="template-grid">${TEMPLATES.map(([id, glyph]) => tile('template', glyph, t(`template.${id}`), t(`template.${id}.desc`), { value: id, cls: 'start-tile template-tile' })).join('')}</div>`;
   const cards = [
-    card('hero', '', '', hero, { bare: true, classes: 'start-hero' }),
     card('actions', 'launcher', t('start.actions'), actionsBody(app)),
     settings.startShowRecent === false && settings.startShowFolders === false ? '' : card('recent', 'recent', t('start.recentCard'), recentBody(app, settings)),
     card('templates', 'fileNew', t('start.new'), templates, { extra: `<span class="start-card-note">${TEMPLATES.length}</span>` }),
@@ -125,6 +125,7 @@ export function startPageHtml(app) {
           <button class="start-btn" data-start="arrange" title="${escapeHtml(t('start.arrangeTip'))}">${icon('launcher')}<span>${escapeHtml(t('start.arrange'))}</span></button>
         </div>
         ${settings.startShowTutorialBanner === false ? '' : `<div class="start-banner">${icon('bulb')}<span>${escapeHtml(t('start.banner'))}</span><button class="small-button" data-start="sample" data-value="flange" title="${escapeHtml(t('start.bannerGo'))}">${icon('play')}<span>${escapeHtml(t('start.bannerGo'))}</span></button></div>`}
+        <section class="start-hero start-info" aria-label="${escapeHtml(t('action.about'))}">${hero}</section>
         <div class="start-board">${cards.join('')}</div>
         <footer class="start-foot">
           ${icon('info')}<span class="grow">MyMechanics v${escapeHtml(version)}</span>

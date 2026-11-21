@@ -8,19 +8,23 @@
 index.html → src/main.js (창 이름으로 고름)
    ├─ 주 창        src/app.js        상태 · 명령 표 · 메뉴/툴바/CommandManager · 패널 · 편집 흐름 · 파일
    ├─ 팝업         src/popup.js      설정 · 정보 · 메뉴 · 확인 · 진행률 · 테마 (+ src/popups-cad.js: 모델링 설정, 질량 특성, 간섭)
-   └─ 문서 창      src/viewer.js     사용 설명서 (public/doc/*.html)
+   └─ 문서 창      src/viewer.js     사용 설명서 · 튜토리얼 (public/doc/*.html, 그림은 public/doc/images/<ko|en>/)
 
 src/cad/        DOM 없음 — Node에서 그대로 테스트
    kernel.js     OpenCASCADE(WebAssembly) 한 번 불러오기 → replicad API
    solver.js     Levenberg–Marquardt 최소제곱, 가우스 소거, 영공간(자유도)
    sketch.js     스케치 요소·구속·치수 방정식, 풀기, 정의 상태, 닫힌 영역(평면 그래프 면 순회 + 포함 관계)
    features.js   피처 정의와 기본값, 다시 만들기(regenerate), 평면 프레임, 도구 솔리드, 패턴·대칭
+   advanced.js   스윕·로프트·구배·리브·돔·나선·나사산·랩·곡면·두껍게·바디 이동/축척/분할·부품 삽입(캐비티)·판금(펼치기)·용접 구조 부재
+   params.js     수식(식 파서)·전역 변수·컨피규레이션·디자인 테이블(CSV) → effectiveFeatures()가 다시 만들기 전에 적용
+   sketchtools.js 스플라인·타원, 스케치 필렛/모따기, 오프셋, 대칭 복사, 스케치 패턴, 교차점 자르기, 연장
+   fea.js        선형 정적 해석: 메시 복셀화 → 8절점 육면체 요소, 행렬 없는 PCG, von Mises·변위·안전율
    refs.js       면·모서리 서명과 다시 찾기(위상 이름 문제를 기하로 해결)
    assembly.js   쿼터니언, 메이트 방정식, 전체 메이트 풀기, 간섭 검사
    drawing.js    HLR 투영, 뷰 배치(제3/제1각), 척도, SVG(표제란·치수), DXF
    document.js   프로젝트(.mymech JSON), 부품/어셈블리/도면, 스냅샷 실행 취소
    materials.js  재질 16종(밀도·탄성계수·항복강도·표시 색)
-   samples.js    예제 18개(실제 피처 트리로 생성)
+   samples.js    예제 75개(그룹마다 15개)(실제 피처 트리로 생성)
 
 src/view/
    viewport.js   three.js 그래픽 영역: 카메라(직교/원근, 회전·이동·확대), 표준 보기 전환 애니메이션, 표시 스타일,
@@ -45,7 +49,7 @@ assembly = { id, name, components: [{ id, part, name, position, rotation (quater
 drawing = { id, name, source: { kind, id }, sheet, scale, autoScale, projection, views: [{ id, type, x?, y? }], showHidden, showDims, title }
 ```
 
-좌표는 mm, Y가 위(SolidWorks 기본). 정면 = XY(법선 +Z), 윗면 = XZ(법선 +Y, 스케치 y → −Z), 우측면 = YZ(법선 +X, 스케치 x → −Z).
+좌표는 mm, Y가 위(일반적인 기계 CAD 기본). 정면 = XY(법선 +Z), 윗면 = XZ(법선 +Y, 스케치 y → −Z), 우측면 = YZ(법선 +X, 스케치 x → −Z).
 
 ## 3. 다시 만들기
 
@@ -73,7 +77,7 @@ viewport.js는 바디마다 메시(면 그룹 → 면 번호)와 모서리 선�
 |---|---|
 | `test/unit/sketch.test.js` | 구속·치수 풀기, 자유도, 과잉 정의, 끌기, 닫힌 영역(구멍·호·홈) |
 | `test/unit/features.test.js` | 모든 피처를 커널로 만들고 부피를 확인, 모서리 재탐색, 실패 격리, 롤백 |
-| `test/unit/samples.test.js` | 예제 18개: 모든 피처 성공, 메이트 만족, 간섭 없음, 도면 SVG/DXF, 저장/열기 |
+| `test/unit/samples.test.js` | 예제 75개(그룹마다 15개): 모든 피처 성공, 메이트 만족, 간섭 없음, 도면 SVG/DXF, 저장/열기 |
 | `test/unit/document.test.js` | 프로젝트·실행 취소, 쿼터니언, 메이트 풀이, 솔버, 도면 배치, 재질 |
 | `test/static/package.test.js` | 이름·식별자, `.mymech` 등록, 아이콘·리소스, 팝업 크기, 문서, 번역 |
 | `test/e2e/web.steps.json` | 헤드리스 Edge에서 실제 마우스로 스케치 → 치수 → 돌출 → 필렛(모서리 클릭) → 구멍 → 편집 → 실행 취소 → 롤백 → 도면 → 예제 → 언어 |

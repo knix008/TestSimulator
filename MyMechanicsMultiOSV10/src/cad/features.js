@@ -1,16 +1,20 @@
-// Parts are built from a list of features (SolidWorks' FeatureManager design tree): sketches, reference
+// Parts are built from a list of features (the FeatureManager design tree): sketches, reference
 // planes, bosses and cuts (extrude, revolve), dress-ups (fillet, chamfer, shell), holes, patterns and
 // mirrors. regenerate() runs the list in order on the OpenCASCADE kernel and returns the body after
-// every step; a feature that fails is marked and skipped (the rest still builds), like SolidWorks.
+// every step; a feature that fails is marked and skipped (the rest still builds).
 //
-// Coordinates are millimetres, Y up (SolidWorks' default): Front plane = XY, Top = XZ, Right = YZ.
-import { rep } from './kernel.js';
-import { profiles, standalonePoints, constructionLines, byId, createSketchGeometry, newSketchId } from './sketch.js';
+// Coordinates are millimetres, Y up: Front plane = XY, Top = XZ, Right = YZ.
+import { rep, fontLoaded } from './kernel.js';
+import { profiles, standalonePoints, constructionLines, byId, createSketchGeometry, newSketchId, hasRegions } from './sketch.js';
 import { faceSignature, findEdges, findFace, planeOfFace, crossV, normalize, setAreaMeasure } from './refs.js';
+import { ADVANCED_DEFAULTS, ADVANCED_NAMES, buildAdvanced, ADVANCED_TYPES } from './advanced.js';
+import { PART_MORE_TYPES, PART_MORE_DEFAULTS, PART_MORE_NAMES } from './part-more-types.js';
+import { buildPartMore, refAxisOf } from './part-more.js';
+import { effectiveFeatures } from './params.js';
 
-export const FEATURE_TYPES = ['import', 'sketch', 'plane', 'extrude', 'revolve', 'fillet', 'chamfer', 'shell', 'hole', 'linearPattern', 'circularPattern', 'mirror'];
+export const FEATURE_TYPES = ['import', 'sketch', 'plane', 'extrude', 'revolve', 'fillet', 'chamfer', 'shell', 'hole', 'linearPattern', 'circularPattern', 'mirror', ...ADVANCED_TYPES, ...PART_MORE_TYPES];
 /** Features that add or remove material with a tool solid (patterns and mirrors copy them). */
-export const TOOL_FEATURES = ['extrude', 'revolve', 'hole'];
+export const TOOL_FEATURES = ['extrude', 'revolve', 'hole', 'sweep', 'loft', 'rib', 'thread', 'wrap', 'structural', 'insertPart', 'dome'];
 export const STD_PLANES = {
   front: { origin: [0, 0, 0], xDir: [1, 0, 0], normal: [0, 0, 1] },
   top: { origin: [0, 0, 0], xDir: [1, 0, 0], normal: [0, 1, 0] },
@@ -54,9 +58,11 @@ export const FEATURE_DEFAULTS = {
   linearPattern: () => ({ seeds: [], direction: { kind: 'axis', axis: 'x' }, spacing: 20, count: 3, reverse: false, direction2: null, spacing2: 20, count2: 2, reverse2: false }),
   circularPattern: () => ({ seeds: [], axis: { kind: 'axis', axis: 'y' }, count: 6, angle: 360, equal: true, reverse: false }),
   mirror: () => ({ seeds: [], plane: { kind: 'std', name: 'right' }, body: false }),
+  ...ADVANCED_DEFAULTS,
+  ...PART_MORE_DEFAULTS,
 };
 
-/** A new feature of `type` with its defaults (and `params` on top). Names follow SolidWorks: "Boss-Extrude1". */
+/** A new feature of `type` with its defaults (and `params` on top). Names like "Boss-Extrude1". */
 export function createFeature(part, type, params = {}) {
   const feature = { id: newFeatureId(type), type, name: '', ...FEATURE_DEFAULTS[type](), ...params };
   feature.name = params.name ?? nextName(part, feature);
@@ -64,9 +70,13 @@ export function createFeature(part, type, params = {}) {
 }
 
 /** The base name of a feature kind (i18n key suffix) — a cut extrude is "Cut-Extrude", a boss "Boss-Extrude". */
-export const nameKey = (f) => (f.type === 'extrude' || f.type === 'revolve' ? `${f.op === 'cut' ? 'cut' : 'boss'}-${f.type}` : f.type);
+export const nameKey = (f) => {
+  if (f.type === 'extrude' || f.type === 'revolve') return `${f.op === 'cut' ? 'cut' : f.op === 'common' ? 'common' : 'boss'}-${f.type}`;
+  if (f.type === 'sweep' || f.type === 'loft') return `${f.op === 'cut' ? 'cut' : 'boss'}-${f.type}`;
+  return f.type;
+};
 
-const BASE_NAMES = { import: 'Imported', sketch: 'Sketch', plane: 'Plane', 'boss-extrude': 'Boss-Extrude', 'cut-extrude': 'Cut-Extrude', 'boss-revolve': 'Revolve', 'cut-revolve': 'Cut-Revolve', fillet: 'Fillet', chamfer: 'Chamfer', shell: 'Shell', hole: 'Hole', linearPattern: 'LPattern', circularPattern: 'CirPattern', mirror: 'Mirror' };
+const BASE_NAMES = { import: 'Imported', sketch: 'Sketch', plane: 'Plane', 'boss-extrude': 'Boss-Extrude', 'cut-extrude': 'Cut-Extrude', 'boss-revolve': 'Revolve', 'cut-revolve': 'Cut-Revolve', fillet: 'Fillet', chamfer: 'Chamfer', shell: 'Shell', hole: 'Hole', linearPattern: 'LPattern', circularPattern: 'CirPattern', mirror: 'Mirror', 'common-extrude': 'Intersect-Extrude', 'common-revolve': 'Intersect-Revolve', ...ADVANCED_NAMES, ...PART_MORE_NAMES };
 
 let namer = null;
 /** The app names new features in its language ("스케치1", "Sketch1"): namer(key) → base name or null. */
@@ -82,7 +92,9 @@ function nextName(part, feature) {
 
 /** Features that use feature `id` (a sketch's extrude, a pattern's seed …). */
 export function dependents(part, id) {
-  return part.features.filter((f) => f.sketch === id || f.seeds?.includes(id) || f.plane?.feature === id || f.base?.feature === id || f.plane?.id === id || f.base?.id === id);
+  return part.features.filter((f) => f.sketch === id || f.seeds?.includes(id) || f.plane?.feature === id || f.base?.feature === id || f.plane?.id === id || f.base?.id === id
+    || f.path === id || f.sketches?.includes(id) || f.surface === id || f.neutral?.id === id || f.curve === id || f.curves?.includes(id) || f.tool === id || f.surfaces?.includes(id)
+    || f.axis?.id === id || f.pointRef === id || f.cs === id);
 }
 
 /** Every feature that depends on `id`, directly or through others (deleting `id` deletes them too). */
@@ -126,7 +138,7 @@ export function faceRef(face) {
 
 const round = (v) => Math.round(v * 1e6) / 1e6;
 
-function replicadPlane(f) {
+export function replicadPlane(f) {
   const R = rep();
   return new R.Plane(f.origin, f.xDir, f.normal);
 }
@@ -142,16 +154,21 @@ export function codeError(code, params = {}) {
 
 // ───────────────────────── sketch → replicad drawing
 
-function loopDrawing(loop) {
+export function loopDrawing(loop) {
   const R = rep();
   const segs = loop.segs;
   if (segs.length === 1 && segs[0].kind === 'circle') return R.drawCircle(segs[0].r).translate(segs[0].c[0], segs[0].c[1]);
+  if (segs.length === 1 && segs[0].kind === 'ellipse') {
+    const e = segs[0];
+    return R.drawEllipse(e.rx, e.ry).rotate((e.rot * 180) / Math.PI, [0, 0]).translate(e.c[0], e.c[1]);
+  }
   const first = segs[0].kind === 'line' ? segs[0].a : segs[0].from;
   let pen = R.draw(first);
   segs.forEach((s, i) => {
     const last = i === segs.length - 1;
-    // The last straight segment is drawn by close(); an arc ends exactly on the start point.
+    // The last straight segment is drawn by close(); an arc or a spline ends exactly on the next start point.
     if (s.kind === 'line') { if (!last) pen = pen.lineTo(s.b); }
+    else if (s.kind === 'spline') { for (const [, c1, c2, p3] of s.beziers) pen = pen.cubicBezierCurveTo(p3, c1, c2); }
     else pen = pen.threePointsArcTo(s.to, s.mid);
   });
   return pen.close();
@@ -160,14 +177,59 @@ function loopDrawing(loop) {
 /** The sketch's closed regions as one replicad Drawing (outer loops minus their holes, fused). */
 export function sketchDrawing(sketch) {
   const regions = profiles(sketch);
-  if (!regions.length) throw codeError('no-profile');
+  const texts = sketch.entities.filter((e) => e.type === 'text' && !e.construction && String(e.text ?? '').trim());
+  if (!regions.length && !texts.length) throw codeError('no-profile');
   let all = null;
   for (const region of regions) {
     let d = loopDrawing(region.outer);
     for (const hole of region.holes) d = d.cut(loopDrawing(hole));
     all = all ? all.fuse(d) : d;
   }
+  for (const e of texts) { const d = textDrawing(e); all = all ? all.fuse(d) : d; }
   return all;
+}
+
+/** Sketch text as a drawing: the font's glyph outlines (letter holes included). */
+export function textDrawing(e) {
+  const R = rep();
+  if (!fontLoaded()) throw codeError('no-font');
+  let d = R.drawText(String(e.text), { startX: 0, startY: 0, fontSize: Number(e.size) || 10, fontFamily: 'roboto' });
+  if (e.rot) d = d.rotate((e.rot * 180) / Math.PI, [0, 0]);
+  return d.translate(e.x, e.y);
+}
+
+const outlineCache = new Map();
+/** Sketch text as polylines in sketch coordinates (for the sketch editor and the view). */
+export function textOutline(e) {
+  const key = JSON.stringify([e.text, e.size, e.rot, e.x, e.y]);
+  if (outlineCache.has(key)) return outlineCache.get(key);
+  let out = [];
+  try {
+    const paths = [textDrawing(e).toSVGPaths()].flat(3).filter(Boolean);
+    out = paths.flatMap((d) => svgPolylines(d)).map((poly) => poly.map(([x, y]) => [x, -y]));
+  } catch { out = []; }
+  if (outlineCache.size > 200) outlineCache.clear();
+  outlineCache.set(key, out);
+  return out;
+}
+
+/** SVG path data → polylines (curves flattened); y as written (the caller flips it). */
+function svgPolylines(d) {
+  const tokens = String(d).match(/[MLHVCQZmlhvcqz]|-?\d*\.?\d+(?:e[-+]?\d+)?/g) ?? [];
+  const out = []; let cur = null; let x = 0; let y = 0; let sx = 0; let sy = 0; let cmd = null; let i = 0;
+  const num = () => Number(tokens[i++]);
+  while (i < tokens.length) {
+    if (/[A-Za-z]/.test(tokens[i])) cmd = tokens[i++];
+    if (cmd === 'M') { x = num(); y = num(); sx = x; sy = y; cur = [[x, y]]; out.push(cur); cmd = 'L'; }
+    else if (cmd === 'L') { x = num(); y = num(); cur?.push([x, y]); }
+    else if (cmd === 'H') { x = num(); cur?.push([x, y]); }
+    else if (cmd === 'V') { y = num(); cur?.push([x, y]); }
+    else if (cmd === 'C') { const [a, b, c, e2, f, g] = [num(), num(), num(), num(), num(), num()]; for (let k = 1; k <= 8; k++) { const t = k / 8; const u = 1 - t; cur?.push([u * u * u * x + 3 * u * u * t * a + 3 * u * t * t * c + t * t * t * f, u * u * u * y + 3 * u * u * t * b + 3 * u * t * t * e2 + t * t * t * g]); } x = f; y = g; }
+    else if (cmd === 'Q') { const [a, b, c, e2] = [num(), num(), num(), num()]; for (let k = 1; k <= 6; k++) { const t = k / 6; const u = 1 - t; cur?.push([u * u * x + 2 * u * t * a + t * t * c, u * u * y + 2 * u * t * b + t * t * e2]); } x = c; y = e2; }
+    else if (cmd === 'Z' || cmd === 'z') { cur?.push([sx, sy]); x = sx; y = sy; cmd = null; }
+    else i++;
+  }
+  return out.filter((p) => p.length > 1);
 }
 
 // ───────────────────────── regeneration
@@ -177,12 +239,14 @@ export function sketchDrawing(sketch) {
  * results: Map featureId → { ok, error, body (after this feature), tool, frame (sketch / plane) }.
  * `upTo` (index, exclusive): the rollback bar — later features are not built.
  */
-export function regenerate(part, { upTo = null } = {}) {
+export function regenerate(input, { upTo = null, project = null, flat = undefined, stack = [] } = {}) {
   const R = rep();
   setAreaMeasure((face) => R.measureArea(face));
+  // Equations, global variables and the active configuration give the values the features are built with.
+  const part = { ...input, features: effectiveFeatures(input) };
   const results = new Map();
   const planes = new Map();
-  const ctx = { body: null, planes, part, results };
+  const ctx = { body: null, planes, part, results, project, surfaces: new Map(), curves: new Map(), flat: flat ?? Boolean(input.flat), stack: [...stack, input.id], sheet: null };
   const end = upTo == null ? part.features.length : Math.max(0, Math.min(part.features.length, upTo));
   let lastError = null;
   for (let i = 0; i < end; i++) {
@@ -192,6 +256,8 @@ export function regenerate(part, { upTo = null } = {}) {
       const out = build(f, ctx) ?? {};
       if (out.body !== undefined) ctx.body = out.body;
       if (out.frame && (f.type === 'plane')) planes.set(f.id, out.frame);
+      if (out.surface) ctx.surfaces.set(f.id, out.surface);
+      if (out.curve) ctx.curves.set(f.id, out.curve);
       results.set(f.id, { ok: true, ...out, body: ctx.body });
     } catch (error) {
       lastError = error;
@@ -199,7 +265,7 @@ export function regenerate(part, { upTo = null } = {}) {
     }
   }
   for (let i = end; i < part.features.length; i++) results.set(part.features[i].id, { ok: true, rolledBack: true });
-  return { body: ctx.body, results, planes, error: lastError };
+  return { body: ctx.body, results, planes, surfaces: ctx.surfaces, curves: ctx.curves, sheet: ctx.sheet, features: part.features, error: lastError };
 }
 
 function build(f, ctx) {
@@ -216,7 +282,10 @@ function build(f, ctx) {
     case 'linearPattern': return buildLinearPattern(f, ctx);
     case 'circularPattern': return buildCircularPattern(f, ctx);
     case 'mirror': return buildMirror(f, ctx);
-    default: throw codeError('unknown-feature', { type: f.type });
+    default:
+      if (ADVANCED_TYPES.includes(f.type)) return buildAdvanced(f, ctx);
+      if (PART_MORE_TYPES.includes(f.type)) return buildPartMore(f, ctx);
+      throw codeError('unknown-feature', { type: f.type });
   }
 }
 
@@ -234,8 +303,8 @@ function buildPlane(f, ctx) {
   return { frame: frame({ origin: add(base.origin, scale(base.normal, Number(f.offset) || 0)), xDir: base.xDir, normal }) };
 }
 
-function sketchOf(f, ctx) {
-  const sketch = ctx.part.features.find((x) => x.id === f.sketch && x.type === 'sketch');
+export function sketchOf(f, ctx, id = f.sketch) {
+  const sketch = ctx.part.features.find((x) => x.id === id && x.type === 'sketch');
   if (!sketch) throw codeError('sketch-missing');
   const r = ctx.results.get(sketch.id);
   if (!r?.ok || r.suppressed || !r.frame) throw codeError('sketch-failed');
@@ -243,7 +312,7 @@ function sketchOf(f, ctx) {
 }
 
 /** Size of everything built so far (for "through all"): the body's diagonal plus the sketch's. */
-function sizeAround(ctx, extra = 0) {
+export function sizeAround(ctx, extra = 0) {
   let size = 100 + extra;
   if (ctx.body) {
     const [lo, hi] = ctx.body.boundingBox.bounds;
@@ -253,10 +322,15 @@ function sizeAround(ctx, extra = 0) {
 }
 
 /** Joins a tool to the body: boss → fuse, cut → cut (a cut with nothing to cut is an error). */
-function combine(ctx, tool, op) {
+export function combine(ctx, tool, op) {
   if (op === 'cut') {
     if (!ctx.body) throw codeError('nothing-to-cut');
     return ctx.body.cut(tool);
+  }
+  // Intersect: only what the body and the tool share is kept.
+  if (op === 'common') {
+    if (!ctx.body) throw codeError('nothing-to-cut');
+    return ctx.body.intersect(tool);
   }
   return ctx.body ? ctx.body.fuse(tool) : tool;
 }
@@ -265,10 +339,11 @@ function extrudeTool(f, ctx) {
   const { sketch, frame: fr } = sketchOf(f, ctx);
   const drawing = sketchDrawing(sketch);
   const cut = f.op === 'cut';
+  if (f.draft && Number(f.draftAngle) > 0 && (f.end ?? 'blind') === 'blind') return draftedExtrude(f, sketch, fr);
   // Bosses grow along the sketch normal, cuts go into the material (against it); Reverse flips both.
   let dir = cut ? -1 : 1;
   if (f.reverse) dir = -dir;
-  const bounds = profiles(sketch).reduce((m, r) => Math.max(m, ...r.outer.points.map(([x, y]) => Math.hypot(x, y))), 0);
+  const bounds = Math.max(profiles(sketch).reduce((m, r) => Math.max(m, ...r.outer.points.map(([x, y]) => Math.hypot(x, y))), 0), ...sketch.entities.filter((e) => e.type === 'text').map((e) => Math.hypot(e.x, e.y) + (Number(e.size) || 10) * String(e.text).length));
   const big = sizeAround(ctx, bounds * 2);
   let start = 0; let length;
   if (f.end === 'through') length = big * dir;
@@ -278,11 +353,43 @@ function extrudeTool(f, ctx) {
   if (!(Math.abs(length) > 1e-6)) throw codeError('zero-depth');
   const plane = replicadPlane({ ...fr, origin: add(fr.origin, scale(fr.normal, start)) });
   let solid = drawing.sketchOnPlane(plane).extrude(length);
-  // Direction 2 (SolidWorks' second direction): the other way from the sketch plane.
+  // Direction 2 (the second direction): the other way from the sketch plane.
   if (f.end2 && f.end2 !== 'none' && (f.end === 'blind' || f.end === 'through')) {
     const length2 = f.end2 === 'through' ? -big * dir : -Math.abs(Number(f.depth2)) * dir;
     const other = sketchDrawing(sketch).sketchOnPlane(replicadPlane(fr)).extrude(length2);
     solid = solid.fuse(other);
+  }
+  return solid;
+}
+
+/** A blind extrude with a draft angle ("Draft On/Off"): the side faces taper as it grows. */
+function draftedExtrude(f, sketch, fr) {
+  const R = rep();
+  const dir = (f.op === 'cut' ? -1 : 1) * (f.reverse ? -1 : 1);
+  const depth = Math.abs(Number(f.depth)) || 1;
+  const normal = scale(fr.normal, dir);
+  const neutral = new R.Plane(fr.origin, fr.xDir, normal);
+  let solid = null;
+  for (const region of profiles(sketch)) {
+    let d = loopDrawing(region.outer);
+    for (const hole of region.holes) d = d.cut(loopDrawing(hole));
+    const angle = (f.draftOutward ? -1 : 1) * Number(f.draftAngle);
+    let tapered;
+    try {
+      // Inward taper by default (a boss gets smaller as it grows); "outward" turns it the other way.
+      tapered = d.clone().sketchOnPlane(neutral).extrude(depth).draft(angle, (finder) => finder.not((g) => g.parallelTo(neutral)), neutral);
+    } catch {
+      // The kernel's draft fails on some faces (a full cylinder): a loft to the profile offset by depth·tan(angle).
+      const inset = -depth * Math.tan((angle * Math.PI) / 180);
+      const loftOf = (loop) => {
+        const bottom = loopDrawing(loop).sketchOnPlane(neutral);
+        const top = loopDrawing(loop).offset(inset).sketchOnPlane(new R.Plane(add(fr.origin, scale(normal, depth)), fr.xDir, normal));
+        return bottom.loftWith(top);
+      };
+      tapered = loftOf(region.outer);
+      for (const hole of region.holes) tapered = tapered.cut(loftOf(hole));
+    }
+    solid = solid ? solid.fuse(tapered) : tapered;
   }
   return solid;
 }
@@ -387,7 +494,7 @@ function seedTools(f, ctx) {
     const seed = ctx.part.features.find((x) => x.id === id);
     const r = ctx.results.get(id);
     if (!seed || !r?.ok || !r.tool) continue;
-    tools.push({ tool: r.tool, op: seed.type === 'hole' ? 'cut' : seed.op === 'cut' ? 'cut' : 'boss' });
+    tools.push({ tool: r.tool, op: r.toolOp ?? (seed.type === 'hole' || seed.op === 'cut' ? 'cut' : 'boss') });
   }
   return tools;
 }
@@ -407,6 +514,7 @@ function resolveDirection(ref, ctx) {
 /** An axis reference: { origin, dir } — a world axis through the origin, or a straight / circular edge. */
 function resolveAxis(ref, ctx) {
   if (!ref || ref.kind === 'axis') return { origin: [0, 0, 0], dir: AXES[ref?.axis ?? 'y'] ?? AXES.y };
+  if (ref.kind === 'ref') return refAxisOf(ref, ctx);
   if (ref.kind === 'edge') {
     const [edge] = findEdges(ctx.body, [ref.sig]);
     if (!edge) throw codeError('edge-missing');
@@ -497,7 +605,7 @@ function buildMirror(f, ctx) {
 
 /** The sketch features a feature of `type` can use (a sketch with closed regions or with points for holes). */
 export function usableSketches(part, type, beforeIndex = part.features.length) {
-  return part.features.slice(0, beforeIndex).filter((f) => f.type === 'sketch' && !f.suppressed && !part.features.some((x) => x.sketch === f.id) && (type === 'hole' ? standalonePoints(f).length : profiles(f).length));
+  return part.features.slice(0, beforeIndex).filter((f) => f.type === 'sketch' && !f.suppressed && !part.features.some((x) => x.sketch === f.id) && (type === 'hole' ? standalonePoints(f).length : hasRegions(f)));
 }
 
 /** A copy of a part's feature list (for edits that can be cancelled). */

@@ -1,9 +1,9 @@
 [
   {
-    "name": "start page shows its cards and 18 samples",
+    "name": "start page shows its cards and 24 samples",
     "wait": 1500,
     "eval": "JSON.stringify({ cards: document.querySelectorAll('.start-card').length, samples: document.querySelectorAll('[data-start=\"sample\"]').length, tiles: document.querySelectorAll('.template-tile').length })",
-    "expect": "\"cards\":[5-6].*\"samples\":1[89].*\"tiles\":4"
+    "expect": "\"cards\":[4-5].*\"samples\":(2[0-9]|7[0-9]).*\"tiles\":4"
   },
   {
     "name": "kernel loads",
@@ -146,6 +146,73 @@
     "shot": "web-assembly"
   },
   {
+    "name": "adv: helpers",
+    "eval": "window.__mymechanics.actions.closeProject({ force: true }).then(() => window.__mymechanics.actions.newDocument('part')).then(() => 'ok')",
+    "wait": 300
+  },
+  {
+    "name": "adv: test helpers ready",
+    "eval": "return (() => { window.__sk = (plane, ents, name) => { const m = window.__mymechanics; const part = m.active(); const id = 'sk' + Math.random().toString(36).slice(2, 8); m.actions.change('op.addSketch', () => { part.features.push({ id, type: 'sketch', name: name || ('S' + part.features.length), plane, entities: [{ id: 'O', type: 'point', x: 0, y: 0, fixed: true, origin: true }, ...ents], constraints: [] }); }); return id; };\nwindow.__rect = (x0, y0, x1, y1, p = 'r') => [{ id: p + 'a', type: 'point', x: x0, y: y0 }, { id: p + 'b', type: 'point', x: x1, y: y0 }, { id: p + 'c', type: 'point', x: x1, y: y1 }, { id: p + 'd', type: 'point', x: x0, y: y1 }, { id: p + '1', type: 'line', p1: p + 'a', p2: p + 'b' }, { id: p + '2', type: 'line', p1: p + 'b', p2: p + 'c' }, { id: p + '3', type: 'line', p1: p + 'c', p2: p + 'd' }, { id: p + '4', type: 'line', p1: p + 'd', p2: p + 'a' }];\nwindow.__ok = () => { const m = window.__mymechanics; const b = m.actions.buildPart(m.active()); return [...b.result.results.values()].filter((r) => r.ok === false).map((r) => r.error).join(',') || 'ok'; };\nwindow.__vol = () => { const m = window.__mymechanics; const b = m.actions.buildPart(m.active()); return b.body ? Math.round(window.__R.measureVolume(b.body)) : 0; };\nwindow.__box = () => { const m = window.__mymechanics; const [lo, hi] = m.actions.buildPart(m.active()).body.boundingBox.bounds; return [0, 1, 2].map((i) => Math.round((hi[i] - lo[i]) * 100) / 100); };\nreturn 'ok'; })()",
+    "expect": "^ok$"
+  },
+  {
+    "name": "adv: sweep a circle along a bent path (Features › Swept Boss)",
+    "eval": "(async () => { const m = window.__mymechanics; window.__sk({ kind: 'std', name: 'top' }, [{ id: 'pc', type: 'point', x: 0, y: 0 }, { id: 'c1', type: 'circle', c: 'pc', r: 3 }], 'Profile'); const path = window.__sk({ kind: 'std', name: 'front' }, [{ id: 'q1', type: 'point', x: 0, y: 0 }, { id: 'q2', type: 'point', x: 0, y: 40 }, { id: 'q3', type: 'point', x: 30, y: 60 }, { id: 'm1', type: 'line', p1: 'q1', p2: 'q2' }, { id: 'm2', type: 'line', p1: 'q2', p2: 'q3' }], 'Path'); await m.run('sweep'); const e = m.state.editing; const r = m.state.previewResult; const type = e?.feature?.type; const usesPath = e?.feature?.path === path; m.actions.acceptEditing(); return [type, usesPath, r?.ok, window.__ok(), document.querySelector('#left-panel .tree')?.textContent.includes('스윕')].join(' '); })()",
+    "expect": "^sweep true true ok true$",
+    "wait": 400,
+    "shot": "web-sweep"
+  },
+  {
+    "name": "adv: loft between a square and a circle on an offset plane",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.closeProject({ force: true }); await m.actions.newDocument('part'); const part = m.active(); window.__sk({ kind: 'std', name: 'top' }, window.__rect(-10, -10, 10, 10)); m.actions.change('op.addFeature', () => { part.features.push({ id: 'pl1', type: 'plane', name: 'P1', base: { kind: 'std', name: 'top' }, offset: 30, flip: false }); }); window.__sk({ kind: 'ref', id: 'pl1' }, [{ id: 'pc', type: 'point', x: 0, y: 0 }, { id: 'c1', type: 'circle', c: 'pc', r: 6 }]); await m.run('loft'); const n = m.state.editing?.feature?.sketches?.length; m.actions.acceptEditing(); return n + ' ' + window.__ok() + ' ' + window.__box().join('x'); })()",
+    "expect": "^2 ok 20x30x20$",
+    "wait": 300
+  },
+  {
+    "name": "adv: draft analysis colours the body",
+    "eval": "(async () => { const m = window.__mymechanics; await m.run('draftAnalysis'); const on = Boolean(m.state.draftAnalysis); await m.run('draftAnalysis'); return on + ' ' + Boolean(m.state.draftAnalysis); })()",
+    "expect": "^true false$"
+  },
+  {
+    "name": "adv: equations drive the loft plane (=H) and a configuration overrides it",
+    "eval": "(async () => { const m = window.__mymechanics; await m.run('equations'); m.actions.pmCommand('addVar'); m.actions.pmFieldChanged('varName:0', 'H', 'text'); m.actions.pmFieldChanged('varExpr:0', '50', 'text'); m.actions.acceptEditing(); const pl = m.active().features.find((f) => f.type === 'plane'); m.actions.editFeature(pl.id); m.actions.pmFieldChanged('offset', '=H', 'length'); m.actions.acceptEditing(); const h1 = window.__box()[1]; await m.run('configurations'); m.actions.pmCommand('addCfg'); m.actions.pmFieldChanged('cfgVar:H', '25', 'text'); const h2 = window.__box()[1]; m.actions.pmSet('activeConfig', ''); const h3 = window.__box()[1]; m.actions.acceptEditing(); return [h1, h2, h3].join(' '); })()",
+    "expect": "^50 25 50$",
+    "wait": 300
+  },
+  {
+    "name": "adv: static simulation of a cantilever gives stresses and a factor of safety",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.closeProject({ force: true }); await m.actions.newDocument('part'); const part = m.active(); const s = window.__sk({ kind: 'std', name: 'front' }, window.__rect(0, 0, 100, 10)); m.actions.change('op.addFeature', () => { part.features.push({ id: 'ex1', type: 'extrude', name: 'E1', sketch: s, op: 'boss', end: 'blind', depth: 10, reverse: false, end2: 'none', depth2: 10 }); }); await m.run('simulation'); const e = m.state.editing; const entry = m.state.partEntry; const faces = entry.faces.map((f, i) => ({ i, f, c: f.center })); const fix = faces.reduce((a, b) => (b.c.x < a.c.x ? b : a)); const load = faces.reduce((a, b) => (b.c.x > a.c.x ? b : a)); e.fixtures = [{ index: fix.i, faceId: fix.f.hashCode, type: 'PLANE' }]; e.loads = [{ index: load.i, faceId: load.f.hashCode, type: 'PLANE' }]; e.magnitude = 100; e.dir = '-y'; e.resolution = 60; await m.actions.pmCommand('runSim'); const r = m.state.sim?.result; return r ? `${r.maxStress > 20 && r.maxStress < 90} ${r.maxDisplacement > 0.1 && r.maxDisplacement < 0.3} ${r.minFactorOfSafety > 0}` : 'none'; })()",
+    "expect": "^true true true$",
+    "wait": 600,
+    "shot": "web-simulation"
+  },
+  {
+    "name": "adv: sheet metal base flange + edge flange, then flatten",
+    "eval": "(async () => { const m = window.__mymechanics; m.actions.cancelEditing({ quiet: true }); await m.actions.closeProject({ force: true }); await m.actions.newDocument('part'); window.__sk({ kind: 'std', name: 'top' }, window.__rect(0, 0, 100, 50)); await m.run('baseFlange'); m.actions.acceptEditing(); const entry = m.state.partEntry; const i = entry.edgeList.findIndex((ed) => ed.geomType === 'LINE' && ed.startPoint.x > 99.9 && ed.endPoint.x > 99.9 && ed.startPoint.y > 1.9 && ed.endPoint.y > 1.9); m.actions.select([{ kind: 'edge', bodyKey: 'body', index: i, key: 'edge:body:' + i }]); await m.run('edgeFlange'); m.actions.acceptEditing(); const formed = window.__box(); await m.run('flatten'); const flat = window.__box(); await m.run('flatten'); return [i >= 0, window.__ok(), formed[1] > 20, flat[1] === 2, flat[0] > 124 && flat[0] < 125].join(' '); })()",
+    "expect": "^true ok true true true$",
+    "wait": 300,
+    "shot": "web-sheetmetal"
+  },
+  {
+    "name": "adv: weldment frame with square tube members",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.closeProject({ force: true }); await m.actions.newDocument('part'); window.__sk({ kind: 'std', name: 'front' }, [{ id: 'a', type: 'point', x: 0, y: 0 }, { id: 'b', type: 'point', x: 400, y: 0 }, { id: 'c', type: 'point', x: 400, y: 300 }, { id: 'l1', type: 'line', p1: 'a', p2: 'b' }, { id: 'l2', type: 'line', p1: 'b', p2: 'c' }]); await m.run('structural'); m.actions.acceptEditing(); const f = m.active().features.find((x) => x.type === 'structural'); const r = m.actions.buildPart(m.active()).result.results.get(f.id); return window.__ok() + ' ' + r.members.map((x) => Math.round(x.length)).join(','); })()",
+    "expect": "^ok 400,300$",
+    "wait": 300
+  },
+  {
+    "name": "adv: shaft assembly exploded view and a motion study",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.closeProject({ force: true }); await m.actions.openSampleAsk('shaftAssembly'); await m.run('explode'); const on = Boolean(m.active().explode?.on) && m.active().explode.steps.length > 0; await m.run('explode'); await m.run('motion'); const mode = m.state.editing?.mode; m.actions.cancelEditing({ quiet: true }); return on + ' ' + mode; })()",
+    "expect": "^true motion$",
+    "wait": 400
+  },
+  {
+    "name": "adv: assembly drawing with a section view, a detail view, BOM and a GD&T frame",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.newDrawing(); await new Promise((r) => setTimeout(r, 600)); await m.run('sectionView'); await m.run('detailView'); await m.run('bom'); const d = m.active(); m.actions.change('op.annotation', () => { d.annotations = [{ id: 'g1', kind: 'gdt', x: 40, y: 40, symbol: 'position', tolerance: '0.1', diameter: true, modifier: 'M', datums: ['A', 'B'] }]; }); await new Promise((r) => setTimeout(r, 900)); const svg = document.querySelector('.drawing-paper svg')?.outerHTML ?? ''; return [d.views.length, /단면 A-A|SECTION A-A/.test(svg), /상세 B|DETAIL B/.test(svg), svg.includes('class=\"bom'), svg.includes('data-annotation=\"g1\"')].join(' '); })()",
+    "expect": "^6 true true true true$",
+    "wait": 500,
+    "shot": "web-drawing-advanced"
+  },
+  {
     "name": "every menu has enabled items",
     "eval": "JSON.stringify(Object.entries(window.__mymechanics.menus.MENUS).map(([k, items]) => [k, items.filter((i) => typeof i === 'string' && i !== '-' && window.__mymechanics.menus.enabled(i)).length]))",
     "expect": "\"file\",[1-9]"
@@ -156,8 +223,103 @@
     "expect": "^shadedEdges$"
   },
   {
+    "name": "ui: button test helpers",
+    "eval": "return (() => {\n  const m = window.__mymechanics;\n  // Commands that leave the page, open the system's file dialogs, or change what the next ones run in.\n  const SKIP = new Set(['exit', 'closeProject', 'exitProject', 'open', 'importStep', 'save', 'saveAs', 'print', 'exportStep', 'exportStl', 'exportImage', 'exportDxf', 'exportSvg', 'designTable', 'importTable', 'recent', 'recentFolders', 'clearRecent', 'newProjectPart', 'startPage', 'userGuide', 'backgroundImage', 'clearBackground', 'language', 'welcome', 'openExample', 'exportMenu', 'shortcuts', 'settings', 'about', 'themeMenu', 'newPart', 'newAssembly', 'newDrawing', 'std3View', 'delete', 'openPart', 'rename']);\n  const errors = [];\n  window.addEventListener('error', (e) => errors.push(`window: ${e.message}`));\n  window.addEventListener('unhandledrejection', (e) => errors.push(`promise: ${e.reason?.message ?? e.reason}`));\n  const origError = console.error;\n  console.error = (...a) => { errors.push(`console: ${a.map((x) => x?.message ?? String(x)).join(' ')}`.slice(0, 300)); origError(...a); };\n  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));\n  const tidy = async (ref) => {\n    if (m.state.editing) m.actions.cancelEditing({ quiet: true });\n    try { m.popups.closeAll(); } catch { /* none */ }\n    if (m.state.showStart) m.actions.showStartPage(false);\n    if (ref && (m.project?.active?.id !== ref.id)) m.actions.switchDocument(ref);\n    await sleep(30);\n  };\n  /** Presses every enabled button of `selector` (real DOM clicks), each followed by a clean up. */\n  window.__pressAll = async (selector, done, ref) => {\n    const failed = [];\n    const ids = [...new Set([...document.querySelectorAll(selector)].map((b) => b.dataset.command).filter(Boolean))];\n    for (const id of ids) {\n      if (SKIP.has(id) || done.has(id)) continue;\n      const btn = [...document.querySelectorAll(selector)].find((b) => b.dataset.command === id);\n      if (!btn || btn.disabled) continue;\n      done.add(id);\n      const before = errors.length;\n      const was = m.commands[id]?.checked?.();\n      try { btn.click(); } catch (e) { errors.push(String(e)); }\n      await sleep(140);\n      if (errors.length > before) failed.push(`${id}: ${errors.slice(before).join(' | ')}`);\n      await tidy(ref);\n      // A toggle (panels, rulers, grid …) is put back so the next buttons run in the same state.\n      if (was !== undefined && m.commands[id].checked() !== was && m.menus.enabled(id)) { await m.run(id); await tidy(ref); }\n    }\n    return failed;\n  };\n  /** Every command of the menus that is enabled here (run as the menus do). */\n  window.__runMenus = async (done, ref) => {\n    const failed = [];\n    const ids = new Set();\n    const walk = (items) => { for (const it of items) { if (typeof it === 'string') { if (it !== '-') ids.add(it); } else if (it?.sub) walk(m.menus.SUBMENUS[it.sub].items); } };\n    for (const items of Object.values(m.menus.MENUS)) walk(items);\n    for (const id of ids) {\n      if (SKIP.has(id) || done.has(id) || !m.menus.enabled(id)) continue;\n      done.add(id);\n      const before = errors.length;\n      const was = m.commands[id]?.checked?.();\n      const r = m.run(id);\n      await Promise.race([r, sleep(400)]).catch((e) => errors.push(String(e)));\n      if (errors.length > before) failed.push(`${id}: ${errors.slice(before).join(' | ')}`);\n      await tidy(ref);\n      if (was !== undefined && m.commands[id].checked() !== was && m.menus.enabled(id)) { await m.run(id); await tidy(ref); }\n    }\n    return failed;\n  };\n  /** Every tab: CommandManager tabs (with their buttons), panel tabs and the document tabs. */\n  window.__exercise = async () => {\n    const ref = { ...m.project.active };\n    const done = new Set();\n    const failed = [];\n    for (const tab of [...document.querySelectorAll('[data-cm-tab]')].map((x) => x.dataset.cmTab)) {\n      document.querySelector(`[data-cm-tab=\"${tab}\"]`)?.click();\n      await sleep(80);\n      if (!document.querySelector(`[data-cm-tab=\"${tab}\"]`)?.classList.contains('active')) failed.push(`cm tab ${tab} did not open`);\n      failed.push(...await window.__pressAll('#palette-host [data-command]', done, ref));\n    }\n    failed.push(...await window.__pressAll('#toolbar [data-command]', done, ref));\n    failed.push(...await window.__pressAll('#menubar [data-command]', done, ref));\n    // The panels open (an earlier button may have folded one), nothing focused (a real click would blur it).\n    for (const [id, key] of [['leftPanel', 'showLeftPanel'], ['rightPanel', 'showRightPanel'], ['bottomPanel', 'showBottomPanel']]) if (!m.state.settings[key]) await m.run(id);\n    await sleep(100);\n    for (const sel of ['data-left-tab', 'data-right-tab', 'data-bottom-tab']) {\n      for (const v of [...document.querySelectorAll(`[${sel}]`)].map((x) => x.getAttribute(sel))) {\n        // Re-query: the previous click re-rendered the panel, so earlier nodes are detached.\n        const el = document.querySelector(`[${sel}=\"${v}\"]`);\n        if (!el || el.disabled) continue;\n        document.activeElement?.blur?.(); el.click(); await sleep(120);\n        const now = document.querySelector(`[${sel}=\"${v}\"]`);\n        if (!now?.classList.contains('active')) failed.push(`${sel}=${v} did not open`);\n      }\n    }\n    failed.push(...await window.__runMenus(done, ref));\n    return { failed, count: done.size };\n  };\n  return 'ok';\n})()",
+    "expect": "^ok$"
+  },
+  {
+    "name": "ui: every button, tab and menu command works in a part",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.closeProject({ force: true }); await m.actions.openSampleAsk('flange'); await new Promise((r) => setTimeout(r, 400)); const r = await window.__exercise(); return r.count > 80 ? JSON.stringify(r.failed) : `only ${r.count}`; })()",
+    "expect": "^\\[\\]$",
+    "wait": 300
+  },
+  {
+    "name": "ui: every button, tab and menu command works in an assembly",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.closeProject({ force: true }); await m.actions.openSampleAsk('shaftAssembly'); await new Promise((r) => setTimeout(r, 400)); const r = await window.__exercise(); return r.count > 40 ? JSON.stringify(r.failed) : `only ${r.count}`; })()",
+    "expect": "^\\[\\]$",
+    "wait": 300
+  },
+  {
+    "name": "ui: every button, tab and menu command works in a drawing",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.newDrawing(); await new Promise((r) => setTimeout(r, 800)); const r = await window.__exercise(); return r.count > 20 ? JSON.stringify(r.failed) : `only ${r.count}`; })()",
+    "expect": "^\\[\\]$",
+    "wait": 300
+  },
+  {
+    "name": "ui: every command while sketching",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.closeProject({ force: true }); await m.actions.newDocument('part'); await m.run('sketch'); document.querySelector('[data-pm=\"sketchOn:top\"]').click(); await new Promise((r) => setTimeout(r, 400)); const failed = []; const done = new Set(); for (const id of Object.keys(m.commands).filter((k) => k.startsWith('sk:'))) { if (!m.menus.enabled(id)) continue; done.add(id); await m.run(id); await new Promise((r) => setTimeout(r, 60)); if (m.state.editing?.mode !== 'sketch') failed.push(`${id} left the sketch`); } return `${done.size} ${JSON.stringify(failed)}`; })()",
+    "expect": "^\\d{2} \\[\\]$",
+    "wait": 200
+  },
+  {
     "name": "English UI",
     "eval": "(async () => { await window.__mymechanics.run('language'); await new Promise((r) => setTimeout(r, 300)); const t = document.querySelector('[data-menu=\"insert\"]').textContent.trim(); await window.__mymechanics.run('language'); return t; })()",
     "expect": "^Insert$"
+  },
+  {
+    "name": "more: helpers",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.closeProject({ force: true }); await m.actions.newDocument('part'); window.__sk = (plane, ents, name) => { const part = m.active(); const id = 'sk' + Math.random().toString(36).slice(2, 8); m.actions.change('op.addSketch', () => { part.features.push({ id, type: 'sketch', name: name || ('S' + part.features.length), plane, entities: [{ id: 'O', type: 'point', x: 0, y: 0, fixed: true, origin: true }, ...ents], constraints: [] }); }); return id; }; window.__rect = (x0, y0, x1, y1, p = 'r') => [{ id: p + 'a', type: 'point', x: x0, y: y0 }, { id: p + 'b', type: 'point', x: x1, y: y0 }, { id: p + 'c', type: 'point', x: x1, y: y1 }, { id: p + 'd', type: 'point', x: x0, y: y1 }, { id: p + '1', type: 'line', p1: p + 'a', p2: p + 'b' }, { id: p + '2', type: 'line', p1: p + 'b', p2: p + 'c' }, { id: p + '3', type: 'line', p1: p + 'c', p2: p + 'd' }, { id: p + '4', type: 'line', p1: p + 'd', p2: p + 'a' }]; window.__prompt = (value) => { const old = m.popups.open.bind(m.popups); m.popups.open = async (name, params) => { if (name === 'prompt' || name === 'confirm') { m.popups.open = old; return name === 'confirm' ? { choice: value } : { value }; } return old(name, params); }; }; return 'ok'; })()",
+    "expect": "^ok$"
+  },
+  {
+    "name": "more: beam part",
+    "eval": "(async () => { const m = window.__mymechanics; const part = m.active(); const s = window.__sk({ kind: 'std', name: 'front' }, window.__rect(0, 0, 200, 10)); m.actions.change('op.addFeature', () => { part.features.push({ id: 'ex1', type: 'extrude', name: 'E1', sketch: s, op: 'boss', end: 'blind', depth: 10, reverse: false, end2: 'none', depth2: 10 }); }); await new Promise((r) => setTimeout(r, 300)); return m.state.partEntry?.mesh ? 'ok' : 'none'; })()",
+    "expect": "^ok$"
+  },
+  {
+    "name": "more: evaluate: curvature, zebra, thickness colour the body",
+    "eval": "(async () => { const m = window.__mymechanics; const out = []; await m.run('curvature'); out.push(m.state.evalDisplay?.kind, m.state.evalInfo?.curvature?.length > 0); await m.run('zebraStripes'); out.push(m.state.evalDisplay?.kind); window.__prompt('12'); await m.run('thicknessAnalysis'); out.push(m.state.evalDisplay?.kind, Math.round(m.state.evalInfo?.min ?? -1), m.state.evalInfo?.thin > 0); await m.run('thicknessAnalysis'); out.push(String(m.state.evalDisplay)); return out.join(' '); })()",
+    "expect": "^curvature true zebra thickness 10 true null$",
+    "shot": "web-more-evaluate"
+  },
+  {
+    "name": "more: simulation: buckling study gives a load factor near Euler",
+    "eval": "(async () => { const m = window.__mymechanics; await m.run('simulation'); const e = m.state.editing; const entry = m.state.partEntry; const faces = entry.faces.map((f, i) => ({ i, f, c: f.center })); const fix = faces.reduce((a, b) => (b.c.x < a.c.x ? b : a)); const load = faces.reduce((a, b) => (b.c.x > a.c.x ? b : a)); m.actions.pmSet('study', 'buckling'); const html1 = document.querySelector('#left-panel, .left-panel, body').innerHTML; e.fixtures = [{ index: fix.i, faceId: fix.f.hashCode, type: 'PLANE' }]; e.loads = [{ index: load.i, faceId: load.f.hashCode, type: 'PLANE' }]; e.magnitude = 1000; e.dir = '-x'; e.resolution = 40; await m.actions.pmCommand('runSim'); const r = e.result; const html = document.body.innerHTML; return [html1.includes('data-value=\"buckling\"'), r && r.loadFactor > 9 && r.loadFactor < 14, m.state.sim?.study, html.includes('data-value=\"0\"')].join(' '); })()",
+    "expect": "^true true buckling true$",
+    "wait": 300,
+    "shot": "web-more-buckling"
+  },
+  {
+    "name": "more: simulation: fatigue study gives life and damage",
+    "eval": "(async () => { const m = window.__mymechanics; const e = m.state.editing; const fx = e.fixtures, ld = e.loads; m.actions.pmSet('study', 'fatigue'); e.fixtures = fx; e.loads = ld; e.dir = '-y'; e.magnitude = 3000; e.cycles = 1e6; await m.actions.pmCommand('runSim'); const f = e.result?.fat; m.actions.cancelEditing({ quiet: true }); return [Boolean(f), f && f.maxDamage > 0, m.state.sim?.study, f && f.curve.su > 0].join(' '); })()",
+    "expect": "^true true fatigue true$"
+  },
+  {
+    "name": "more: assembly: open the shaft sample",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.closeProject({ force: true }); await m.actions.openSampleAsk('shaftAssembly'); await new Promise((r) => setTimeout(r, 400)); return m.active().components.map((c) => c.name + (c.fixed ? '(f)' : '')).join(','); })()",
+    "expect": "."
+  },
+  {
+    "name": "more: assembly: linear component pattern makes 2 copies that follow the seed",
+    "eval": "(async () => { const m = window.__mymechanics; const a = m.active(); const n0 = a.components.length; const seed = a.components.find((c) => !c.fixed); await m.run('linearComponentPattern'); const e = m.state.editing; e.seeds = [seed.id]; e.count = 3; e.spacing = 200; e.dir = 'z'; m.actions.pmSet('dir', 'z'); m.actions.acceptEditing(); await new Promise((r) => setTimeout(r, 300)); const copies = a.components.filter((c) => c.seed === seed.id); const dz = copies.map((c) => Math.round(c.position[2] - seed.position[2])).join(','); const tree = document.body.innerHTML.includes('data-key=\"pattern:') || [...document.querySelectorAll('.tree-row')].some((r) => r.textContent.includes('(2)')); return [a.components.length - n0, dz, tree].join(' '); })()",
+    "expect": "^2 200,400 true$",
+    "shot": "web-more-linpattern"
+  },
+  {
+    "name": "more: assembly: circular pattern and mirror",
+    "eval": "(async () => { const m = window.__mymechanics; const a = m.active(); const seed = a.components.find((c) => !c.fixed && !c.pattern); await m.run('circularComponentPattern'); let e = m.state.editing; e.seeds = [seed.id]; e.cCount = 4; m.actions.pmSet('axisStd', 'y'); m.actions.acceptEditing(); await m.run('mirrorComponents'); e = m.state.editing; e.seeds = [seed.id]; m.actions.pmSet('planeStd', 'right'); m.actions.acceptEditing(); await new Promise((r) => setTimeout(r, 300)); const pats = a.patterns.map((p) => p.type + p.instances.length).join(','); const mir = a.components.find((c) => c.pattern === a.patterns.at(-1).id); return [pats, Math.abs(mir.position[0] + seed.position[0]) < 1e-6].join(' '); })()",
+    "expect": "^linear2,circular3,mirror1 true$"
+  },
+  {
+    "name": "more: assembly: smart mate from two picked faces",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.closeProject({ force: true }); await m.actions.openSampleAsk('shaftAssembly'); await new Promise((r) => setTimeout(r, 300)); const a = m.active(); a.mates = []; const [c1, c2] = a.components; const faceOf = (c, type) => { const part = m.project.parts.find((p) => p.id === c.part); const entry = m.actions.buildPart(part); return entry.faces.findIndex((f) => f.geomType === type); }; await m.run('smartMate'); const i1 = faceOf(c1, 'CYLINDRE'); const i2 = faceOf(c2, 'CYLINDRE'); const pick = (c, i) => m.viewport.options.onPick({ kind: 'face', bodyKey: 'comp:' + c.id, index: i }, {}); pick(c1, i1); pick(c2, i2); const t1 = a.mates.map((x) => x.type).join(','); const p1 = faceOf(c1, 'PLANE'); const p2 = faceOf(c2, 'PLANE'); pick(c1, p1); pick(c2, p2); const t2 = a.mates.map((x) => x.type).join(','); m.actions.cancelEditing({ quiet: true }); return [i1 >= 0 && i2 >= 0, t1, t2].join(' '); })()",
+    "expect": "^true concentric concentric,coincident$"
+  },
+  {
+    "name": "more: assembly: move with collision detection stops at contact",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.closeProject({ force: true }); await m.actions.newDocument('assembly'); const pr = m.project; const partId = 'pbox'; m.actions.change('op.addPart', (p) => { p.parts.push({ id: partId, name: 'Box', features: [{ id: 'sk1', type: 'sketch', name: 'S1', plane: { kind: 'std', name: 'front' }, entities: [{ id: 'O', type: 'point', x: 0, y: 0, fixed: true, origin: true }, ...window.__rect(-5, -5, 5, 5)], constraints: [] }, { id: 'e1', type: 'extrude', name: 'E1', sketch: 'sk1', op: 'boss', end: 'blind', depth: 10, reverse: false, end2: 'none', depth2: 10 }], material: 'steel-1020' }); }); m.actions.insertComponent(partId); m.actions.insertComponent(partId); const a = m.active(); const [c1, c2] = a.components; m.actions.change('op.move', () => { c2.position = [40, 0, 0]; }); await m.run('moveComponent'); const e = m.state.editing; e.seeds = [c2.id]; e.step = 50; await m.actions.pmCommand('more.move:-x'); const x = a.components[1].position[0]; const msg = e.last; m.actions.pmSet('collisionMode', 'highlight'); await m.actions.pmCommand('more.move:-x'); const x2 = a.components[1].position[0]; m.actions.cancelEditing({ quiet: true }); return [msg.stopped, x >= 10 && x < 16, msg.hits.length, x2 < x, m.state.selection.map((s) => s.id).includes(c1.id)].join(' '); })()",
+    "expect": "^true true 1 true true$",
+    "shot": "web-more-collision"
+  },
+  {
+    "name": "more: drawing: sheets, broken-out, break, crop, hole and revision tables",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.closeProject({ force: true }); await m.actions.newDocument('part'); const part = m.active(); const s = window.__sk({ kind: 'std', name: 'front' }, [...window.__rect(-50, -25, 50, 25), { id: 'h1', type: 'point', x: 0, y: 0 }, { id: 'hc', type: 'circle', c: 'h1', r: 8 }]); m.actions.change('op.addFeature', () => { part.features.push({ id: 'ex1', type: 'extrude', name: 'E1', sketch: s, op: 'boss', end: 'blind', depth: 20, reverse: false, end2: 'none', depth2: 10 }); }); await m.actions.newDrawing(); await new Promise((r) => setTimeout(r, 500)); const d = m.active(); m.state.drawingSelected = d.views.find((v) => v.type === 'front').id; await m.run('holeTable'); window.__prompt('Released'); await m.run('revisionTable'); window.__prompt('x, -30, 30'); await m.run('breakView'); await new Promise((r) => setTimeout(r, 300)); let svg = document.querySelector('.drawing-paper svg').outerHTML; const r1 = [svg.includes('hole-table'), svg.includes('Released'), svg.includes('break-line'), (svg.match(/hole-tag/g) || []).length]; await m.run('breakView'); window.__prompt('-50, -25, 0, 25'); await m.run('cropView'); window.__prompt('-45, -20, -20, 20, 10'); m.state.drawingSelected = d.views.find((v) => v.type === 'top').id; await m.run('brokenOutSection'); await new Promise((r) => setTimeout(r, 400)); svg = document.querySelector('.drawing-paper svg').outerHTML; const r2 = [svg.includes('brokenout-line'), Boolean(d.views.find((v) => v.type === 'front').crop)]; await m.run('addSheet'); await new Promise((r) => setTimeout(r, 300)); const tabs = document.querySelectorAll('.more-sheet-tab').length; const empty = document.querySelectorAll('.drawing-paper svg [data-view]').length; m.actions.change('op.addView', () => { d.views.push({ id: 'vx', type: 'iso' }); }); await new Promise((r) => setTimeout(r, 500)); const onTwo = document.querySelectorAll('.drawing-paper svg [data-view]').length; document.querySelector('.more-sheet-name').click(); await new Promise((r) => setTimeout(r, 500)); const onOne = document.querySelectorAll('.drawing-paper svg [data-view]').length; return [...r1, ...r2, tabs, empty, onTwo, onOne].join(' '); })()",
+    "expect": "^true true true 1 true true 2 0 1 4$",
+    "shot": "web-more-drawing"
+  },
+  {
+    "name": "more: command tabs show the new commands",
+    "eval": "(async () => { const m = window.__mymechanics; const all = ['linearComponentPattern', 'circularComponentPattern', 'mirrorComponents', 'smartMate', 'moveComponent', 'curvature', 'zebraStripes', 'thicknessAnalysis', 'brokenOutSection', 'breakView', 'cropView', 'holeTable', 'revisionTable', 'addSheet', 'renameSheet', 'deleteSheet']; return all.filter((id) => !m.commands[id] || m.t(m.commands[id].label) === m.commands[id].label).join(',') || 'ok'; })()",
+    "expect": "^ok$"
   }
 ]

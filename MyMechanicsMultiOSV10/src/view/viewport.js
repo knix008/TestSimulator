@@ -1,6 +1,6 @@
 // The 3D graphics area (three.js). Shows bodies (tessellated by the kernel), their edges, the reference
 // planes and origin, sketches on their planes, previews of features being edited, and highlights what
-// the pointer is over (orange) and what is selected (blue), like SolidWorks.
+// the pointer is over (orange) and what is selected (blue).
 //
 // Mouse: left click selects, left drag or middle drag rotates, right drag / Ctrl+middle / Shift+left pans,
 // wheel zooms at the pointer. Y is up; units are millimetres.
@@ -53,9 +53,17 @@ export class Viewport {
     this.style = 'shadedEdges';
     this.lineMaterials = new Set();
     // Lights: a soft sky, a key light that follows the camera, the room environment for metals.
-    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8f99, 1.1));
+    this.hemi = new THREE.HemisphereLight(0xffffff, 0x8a8f99, 1.1);
+    this.scene.add(this.hemi);
     this.key = new THREE.DirectionalLight(0xffffff, 1.6);
     this.scene.add(this.key);
+    // The document's own lights (DisplayManager › Lights): world-placed, each with a handle to drag.
+    this.userLights = new Map();
+    this.lightGroup = new THREE.Group();
+    this.lightGroup.name = 'lights';
+    this.scene.add(this.lightGroup);
+    this.showLightHandles = false;
+    this.selectedLight = null;
     this.groups = {};
     for (const name of ['bodies', 'edges', 'planes', 'origin', 'sketch', 'preview', 'highlight', 'markers']) {
       this.groups[name] = new THREE.Group();
@@ -72,6 +80,14 @@ export class Viewport {
     this.labels = document.createElement('div');
     this.labels.className = 'vp-labels';
     host.append(this.labels);
+    // Rulers, the scale bar and the cursor marks are drawn on a 2D canvas over the 3D view.
+    this.overlay = document.createElement('canvas');
+    this.overlay.className = 'vp-overlay';
+    this.overlay.setAttribute('aria-hidden', 'true');
+    host.append(this.overlay);
+    this.guides = { rulers: true, grid: true, scaleBar: true, unit: 'mm', factor: 1, decimals: 2 };
+    this.mouse = { x: 0, y: 0, inside: false };
+    this.gridKey = '';
     this.buildOrigin();
     this.buildTriad();
     this.bindInput();
@@ -114,7 +130,16 @@ export class Viewport {
     this.width = w; this.height = h;
     this.renderer.setSize(w, h, false);
     for (const m of this.lineMaterials) m.resolution.set(w, h);
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    this.overlay.width = Math.round(w * dpr); this.overlay.height = Math.round(h * dpr);
+    this.overlay.style.width = `${w}px`; this.overlay.style.height = `${h}px`;
     this.updateCamera();
+  }
+
+  /** Rulers, grid and scale bar: { rulers, grid, scaleBar, unit ('mm' | 'cm' | 'in'), factor (mm per unit) }. */
+  setGuides(guides) {
+    Object.assign(this.guides, guides);
+    this.requestRender();
   }
 
   updateCamera() {
@@ -127,7 +152,7 @@ export class Viewport {
     const halfH = this.distance * Math.tan(THREE.MathUtils.degToRad(this.persp.fov / 2));
     Object.assign(this.ortho, { left: -halfH * aspect, right: halfH * aspect, top: halfH, bottom: -halfH, near: -this.distance * 100, far: this.distance * 100 });
     this.ortho.updateProjectionMatrix();
-    this.key.position.copy(eye).add(new THREE.Vector3().crossVectors(this.dir, this.up).multiplyScalar(this.distance * 0.4)).addScaledVector(this.up, this.distance * 0.6);
+    if (this.key.visible) this.key.position.copy(eye).add(new THREE.Vector3().crossVectors(this.dir, this.up).multiplyScalar(this.distance * 0.4)).addScaledVector(this.up, this.distance * 0.6);
     this.key.target.position.copy(this.target);
     this.key.target.updateMatrixWorld();
     this.options.onCamera?.(this.cameraState());
@@ -143,9 +168,11 @@ export class Viewport {
     const t0 = performance.now();
     this.renderer.setScissorTest(false);
     this.renderer.setViewport(0, 0, this.width, this.height);
+    this.updateGrid();
     this.renderer.render(this.scene, this.camera);
     this.renderTriad();
     this.positionLabels();
+    this.drawOverlay();
     this.options.onStats?.({ calls: this.renderer.info.render.calls, triangles: this.renderer.info.render.triangles, ms: performance.now() - t0 });
   }
 
@@ -309,6 +336,263 @@ export class Viewport {
     this.updateCamera();
   }
 
+  // ───────────────────────── lights
+
+  /**
+   * The scene's lights: { ambient: { color, intensity, sky?, ground? }, cameraLight: { on, color, intensity },
+   * lights: [{ id, kind: 'directional' | 'point' | 'spot', color, intensity, position, target, angle (spot, °), on }] }.
+   */
+  setLights({ ambient = null, cameraLight = null, lights = [] } = {}) {
+    if (ambient) { this.hemi.color.set(ambient.color ?? '#ffffff'); this.hemi.groundColor.set(ambient.ground ?? '#8a8f99'); this.hemi.intensity = Number(ambient.intensity ?? 1.1); }
+    this.key.visible = cameraLight ? cameraLight.on !== false : true;
+    if (cameraLight) { this.key.color.set(cameraLight.color ?? '#ffffff'); this.key.intensity = Number(cameraLight.intensity ?? 1.6); }
+    for (const l of this.userLights.values()) { l.light.removeFromParent(); l.light.dispose?.(); l.handle.traverse((o) => { o.geometry?.dispose(); o.material?.dispose(); }); l.handle.removeFromParent(); }
+    this.userLights.clear();
+    for (const spec of lights) {
+      const color = new THREE.Color(spec.color ?? '#ffffff');
+      const intensity = Number(spec.intensity ?? 1);
+      let light;
+      if (spec.kind === 'point') { light = new THREE.PointLight(color, intensity * 4e4, 0, 2); }
+      else if (spec.kind === 'spot') { light = new THREE.SpotLight(color, intensity * 4e4, 0, THREE.MathUtils.degToRad(Number(spec.angle ?? 30)), 0.35, 2); }
+      else light = new THREE.DirectionalLight(color, intensity);
+      light.position.set(...spec.position);
+      if (light.target) { light.target.position.set(...(spec.target ?? [0, 0, 0])); this.lightGroup.add(light.target); }
+      light.visible = spec.on !== false;
+      this.lightGroup.add(light);
+      // The handle: a small bulb (point / spot) or sun (directional) and a dashed line to where it aims.
+      const handle = new THREE.Group();
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true, opacity: spec.on === false ? 0.35 : 0.95 }));
+      bulb.renderOrder = 20;
+      handle.add(bulb);
+      if (spec.kind !== 'point') {
+        const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...spec.position), new THREE.Vector3(...(spec.target ?? [0, 0, 0]))]);
+        const line = new THREE.Line(g, new THREE.LineDashedMaterial({ color, dashSize: 4, gapSize: 3, depthTest: false, transparent: true, opacity: 0.6 }));
+        line.computeLineDistances();
+        line.renderOrder = 19;
+        handle.add(line);
+      }
+      bulb.position.set(...spec.position);
+      handle.visible = this.showLightHandles;
+      this.lightGroup.add(handle);
+      this.userLights.set(spec.id, { spec, light, handle, bulb });
+    }
+    this.refreshLightHandles();
+  }
+
+  setLightHandles(show, selected = this.selectedLight) {
+    this.showLightHandles = show;
+    this.selectedLight = selected;
+    this.refreshLightHandles();
+  }
+
+  refreshLightHandles() {
+    const r = this.pixelSize() * 7;
+    for (const [id, l] of this.userLights) {
+      l.handle.visible = this.showLightHandles;
+      l.bulb.scale.setScalar(id === this.selectedLight ? r * 1.5 : r);
+    }
+    this.requestRender();
+  }
+
+  /** The light whose handle is under the pointer (within 14 px), or null. */
+  lightAt(clientX, clientY) {
+    if (!this.showLightHandles) return null;
+    const rect = this.canvas.getBoundingClientRect();
+    let best = null;
+    for (const [id, l] of this.userLights) {
+      const sp = this.toScreen(l.spec.position);
+      const d = Math.hypot(sp.x - (clientX - rect.left), sp.y - (clientY - rect.top));
+      if (d < 14 && (!best || d < best.d)) best = { id, d };
+    }
+    return best?.id ?? null;
+  }
+
+  // ───────────────────────── rulers, scale bar, grid
+
+  /** The screen's axes in the world: right, up (unit), and which world axis each one runs along (if any). */
+  screenAxes() {
+    const right = new THREE.Vector3().crossVectors(this.up, this.dir).normalize();
+    const up = this.up.clone().normalize();
+    const name = (v) => { const a = ['X', 'Y', 'Z'].find((n, i) => Math.abs(Math.abs(v.getComponent(i)) - 1) < 1e-4); return a ? `${v.getComponent('XYZ'.indexOf(a)) < 0 ? '−' : ''}${a}` : ''; };
+    return { right, up, rightName: name(right), upName: name(up) };
+  }
+
+  /** A "nice" step (1, 2, 5 × 10ⁿ) at least `want` long. */
+  static niceStep(want) {
+    const p10 = 10 ** Math.floor(Math.log10(Math.max(want, 1e-9)));
+    for (const m of [1, 2, 5, 10]) if (m * p10 >= want) return m * p10;
+    return 10 * p10;
+  }
+
+  drawOverlay() {
+    const ctx = this.overlay.getContext('2d');
+    const dpr = this.overlay.width / Math.max(1, this.width);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, this.width, this.height);
+    const g = this.guides;
+    if (!g.rulers && !g.scaleBar) return;
+    const css = getComputedStyle(document.documentElement);
+    const bg = css.getPropertyValue('--surface').trim() || '#f4f6f9';
+    const fg = css.getPropertyValue('--text').trim() || '#1d2430';
+    const accent = '#e5484d';
+    const s = this.pixelSize(); // mm per px at the target
+    const unitLen = g.factor || 1; // mm per display unit
+    const pxPerUnit = unitLen / s;
+    const { right, up, rightName, upName } = this.screenAxes();
+    const u0 = this.target.dot(right) / unitLen; // display units at the screen centre
+    const v0 = this.target.dot(up) / unitLen;
+    ctx.font = "10px 'Segoe UI', 'Malgun Gothic', sans-serif";
+    if (g.rulers) {
+      const R = 20;
+      const step = Viewport.niceStep(70 / pxPerUnit);
+      const minor = step / 5;
+      const dec = Math.max(0, -Math.floor(Math.log10(step) + 1e-9));
+      ctx.save();
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, this.width, R);
+      ctx.fillRect(0, 0, R, this.height);
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = fg; ctx.fillStyle = fg; ctx.lineWidth = 1;
+      ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+      ctx.beginPath();
+      // Top ruler: along the screen's right; left ruler: along its up (values grow upward).
+      const uAt = (x) => u0 + (x - this.width / 2) / pxPerUnit;
+      const xAt = (u) => this.width / 2 + (u - u0) * pxPerUnit;
+      const vAt = (y) => v0 - (y - this.height / 2) / pxPerUnit;
+      const yAt = (v) => this.height / 2 - (v - v0) * pxPerUnit;
+      const isMajor = (d) => Math.abs(Math.round(d / step) * step - d) < minor / 2;
+      for (let d = Math.floor(uAt(R) / minor) * minor; d <= uAt(this.width); d += minor) {
+        const x = Math.round(xAt(d)) + 0.5;
+        if (x < R) continue;
+        const major = isMajor(d);
+        ctx.moveTo(x, R); ctx.lineTo(x, major ? 4 : isMajor(d - step / 2) ? R - 9 : R - 5);
+        if (major) ctx.fillText((Math.round(d / step) * step).toFixed(dec), x + 2, 2);
+      }
+      for (let d = Math.floor(vAt(this.height) / minor) * minor; d <= vAt(R); d += minor) {
+        const y = Math.round(yAt(d)) + 0.5;
+        if (y < R) continue;
+        const major = isMajor(d);
+        ctx.moveTo(R, y); ctx.lineTo(major ? 4 : R - 5, y);
+        if (major) { ctx.save(); ctx.translate(2, y - 2); ctx.rotate(-Math.PI / 2); ctx.fillText((Math.round(d / step) * step).toFixed(dec), 0, 0); ctx.restore(); }
+      }
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, R + 0.5); ctx.lineTo(this.width, R + 0.5);
+      ctx.moveTo(R + 0.5, 0); ctx.lineTo(R + 0.5, this.height);
+      ctx.stroke();
+      // The corner: the unit, and the world axes the rulers run along.
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, R, R);
+      ctx.fillStyle = fg; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(g.unit, R / 2, R / 2);
+      ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+      if (rightName) ctx.fillText(rightName, this.width - 4, 2);
+      if (upName) { ctx.save(); ctx.translate(2, R + 4); ctx.rotate(-Math.PI / 2); ctx.textAlign = 'right'; ctx.fillText(upName, 0, 0); ctx.restore(); }
+      // The pointer's place on both rulers (red, like the drawing programs).
+      if (this.mouse.inside) {
+        ctx.strokeStyle = accent; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(this.mouse.x + 0.5, 0); ctx.lineTo(this.mouse.x + 0.5, R);
+        ctx.moveTo(0, this.mouse.y + 0.5); ctx.lineTo(R, this.mouse.y + 0.5);
+        ctx.stroke();
+        ctx.fillStyle = accent; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        const label = `${uAt(this.mouse.x).toFixed(dec + 1)}, ${vAt(this.mouse.y).toFixed(dec + 1)}`;
+        const tw = ctx.measureText(label).width;
+        ctx.fillStyle = bg; ctx.fillRect(this.mouse.x + 4, R + 3, tw + 6, 13);
+        ctx.fillStyle = accent; ctx.fillText(label, this.mouse.x + 7, R + 4);
+      }
+      ctx.restore();
+    }
+    if (g.scaleBar) {
+      // A bar of a round length near 120 px, and the screen scale (1:n at 96 dpi).
+      const len = Viewport.niceStep(120 / pxPerUnit);
+      const px = len * pxPerUnit;
+      // Where it was dragged to (from the right and bottom edges), else the lower right corner.
+      const pos = g.scaleBarPos ?? { right: 24, bottom: 12 };
+      const x0 = Math.max(4, this.width - px - Math.max(0, pos.right)); const y0 = Math.max(14, this.height - 14 - Math.max(0, pos.bottom));
+      this.scaleBarRect = { x: x0 - 4, y: y0 - 14, w: px + 8, h: 36 };
+      ctx.save();
+      ctx.fillStyle = fg; ctx.strokeStyle = fg; ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.85;
+      for (let i = 0; i < 4; i++) {
+        const a = x0 + (px * i) / 4;
+        if (i % 2 === 0) ctx.fillRect(a, y0, px / 4, 5); else ctx.strokeRect(a + 0.5, y0 + 0.5, px / 4 - 1, 4);
+      }
+      ctx.strokeRect(x0 + 0.5, y0 + 0.5, px - 1, 5);
+      ctx.globalAlpha = 1;
+      ctx.textBaseline = 'bottom'; ctx.textAlign = 'left'; ctx.fillText('0', x0, y0 - 2);
+      ctx.textAlign = 'right'; ctx.fillText(`${len} ${g.unit}`, x0 + px, y0 - 2);
+      const screenMm = 25.4 / 96; // a CSS pixel on the screen
+      const ratio = s / screenMm;
+      ctx.textAlign = 'center';
+      ctx.fillText(this.isOrtho ? (ratio >= 1 ? `1 : ${ratio >= 10 ? Math.round(ratio) : ratio.toFixed(2)}` : `${(1 / ratio).toFixed(1)} : 1`) : '~', x0 + px / 2, y0 + 18);
+      ctx.restore();
+    }
+  }
+
+  /**
+   * The grid: an endless-looking plane — always the same standard plane (front = XY by default, or top = XZ /
+   * right = YZ). Its lines fade out with distance from where the view looks, so no edge is ever seen. The
+   * spacing keeps a steady size on screen: when zooming takes it out of 12–60 px it is redrawn at the next
+   * 1·2·5 step (about 24 px); every fifth line is darker (5 × 5 cells). Rotating never changes it, and the
+   * lines are rebuilt around the view only when it gets near their edge.
+   */
+  updateGrid() {
+    const g = this.guides;
+    if (!g.grid) { if (this.grid) this.grid.visible = false; return; }
+    const axis = { front: 2, top: 1, right: 0 }[g.gridPlane ?? 'front'] ?? 2;
+    const [a, b] = [[1, 2], [0, 2], [0, 1]][axis];
+    const unitLen = g.factor || 1;
+    const px = this.pixelSize();
+    const cur = this.grid?.userData;
+    let step = cur?.axis === axis && cur.unitLen === unitLen ? cur.step : 0;
+    if (!step || step / px < 12 || step / px > 60) step = Viewport.niceStep((24 * px) / unitLen) * unitLen;
+    const major = step * 5;
+    // The fade radius: well beyond the view (more when looking at the plane edge-on, in perspective).
+    const fade = Math.max(this.width, this.height) * px * (this.isOrtho ? 1.2 : 3);
+    const n = Math.min(600, Math.ceil(fade / step / 5 + 1) * 5);
+    const ta = this.target.getComponent(a); const tb = this.target.getComponent(b);
+    let ca = cur?.ca ?? 0; let cb = cur?.cb ?? 0;
+    if (!cur || step !== cur.step || cur.n < n || Math.abs(ta - ca) > (n * step) / 3 || Math.abs(tb - cb) > (n * step) / 3) { ca = Math.round(ta / major) * major; cb = Math.round(tb / major) * major; }
+    const dark = document.documentElement.classList.contains('dark');
+    const key = `${axis}|${step}|${Math.max(n, cur?.n ?? 0)}|${ca}|${cb}|${dark}`;
+    if (key !== this.gridKey) {
+      this.gridKey = key;
+      const lines = Math.max(n, cur?.step === step ? cur.n : 0);
+      if (this.grid) { this.grid.traverse((o) => { o.geometry?.dispose(); o.material?.dispose(); }); this.grid.removeFromParent(); }
+      const minor = []; const majors = [];
+      const pt = (u, v) => { const q = [0, 0, 0]; q[a] = u; q[b] = v; return q; };
+      const isMajor = (w) => Math.abs(Math.round(w / major) * major - w) < step * 1e-6;
+      for (let i = -lines; i <= lines; i++) {
+        const u = ca + i * step; const v = cb + i * step;
+        (isMajor(u) ? majors : minor).push(...pt(u, cb - lines * step), ...pt(u, cb + lines * step));
+        (isMajor(v) ? majors : minor).push(...pt(ca - lines * step, v), ...pt(ca + lines * step, v));
+      }
+      const group = new THREE.Group();
+      const color = new THREE.Color(dark ? 0x9fb0c8 : 0x4a5a72);
+      for (const [list, opacity] of [[minor, dark ? 0.12 : 0.14], [majors, dark ? 0.28 : 0.32]]) {
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(list, 3));
+        // Each line fades with its distance from the view's centre on the plane: the plane seems to go on forever.
+        const mat = new THREE.ShaderMaterial({
+          transparent: true, depthWrite: false,
+          uniforms: { uColor: { value: color }, uOpacity: { value: opacity }, uCentre: { value: new THREE.Vector3() }, uFade: { value: fade } },
+          vertexShader: 'varying vec3 vWorld; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vWorld = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
+          fragmentShader: 'uniform vec3 uColor; uniform float uOpacity; uniform vec3 uCentre; uniform float uFade; varying vec3 vWorld; void main() { float d = distance(vWorld, uCentre); float a = uOpacity * (1.0 - smoothstep(uFade * 0.35, uFade, d)); if (a <= 0.002) discard; gl_FragColor = vec4(uColor, a); }',
+        });
+        group.add(new THREE.LineSegments(geo, mat));
+      }
+      group.renderOrder = -1;
+      group.userData = { axis, unitLen, step, ca, cb, n: lines };
+      this.grid = group;
+      this.scene.add(group);
+    }
+    // The fade follows the view every frame (no rebuild): the target pushed onto the grid's plane.
+    const centre = this.target.clone(); centre.setComponent(axis, 0);
+    for (const line of this.grid.children) { line.material.uniforms.uCentre.value.copy(centre); line.material.uniforms.uFade.value = fade; }
+    this.grid.visible = true;
+  }
+
   /** Screen position (CSS px inside the canvas) of a world point. */
   toScreen(p) {
     const v = new THREE.Vector3(...(Array.isArray(p) ? p : [p.x, p.y, p.z])).project(this.camera);
@@ -325,12 +609,59 @@ export class Viewport {
       c.focus({ preventScroll: true });
       cancelAnimationFrame(this.glideFrame);
       const tool = this.options.tool?.();
-      if (e.button === 0 && tool?.down?.(e)) { drag = { tool: true, id: e.pointerId }; c.setPointerCapture(e.pointerId); return; }
-      const mode = e.button === 1 ? (e.ctrlKey ? 'pan' : e.shiftKey ? 'zoom' : 'rotate') : e.button === 2 ? 'pan' : (e.shiftKey ? 'pan' : 'rotate');
+      if (e.button === 0 && !e.ctrlKey && !e.metaKey && tool?.down?.(e)) { drag = { tool: true, id: e.pointerId }; c.setPointerCapture(e.pointerId); return; }
+      if (e.button === 0) {
+        const rect = c.getBoundingClientRect();
+        const x = e.clientX - rect.left; const y = e.clientY - rect.top;
+        const bar = this.scaleBarRect;
+        if (bar && this.guides.scaleBar && x >= bar.x && x <= bar.x + bar.w && y >= bar.y && y <= bar.y + bar.h) {
+          drag = { scaleBar: true, id: e.pointerId, ox: x - bar.x, oy: y - bar.y };
+          c.setPointerCapture(e.pointerId);
+          return;
+        }
+        const lightId = this.lightAt(e.clientX, e.clientY);
+        if (lightId) {
+          const l = this.userLights.get(lightId);
+          this.selectedLight = lightId;
+          this.refreshLightHandles();
+          this.options.onLightSelect?.(lightId);
+          drag = { light: lightId, id: e.pointerId, plane: new THREE.Plane().setFromNormalAndCoplanarPoint(this.dir.clone(), new THREE.Vector3(...l.spec.position)) };
+          c.setPointerCapture(e.pointerId);
+          return;
+        }
+      }
+      // Left drag rotates; Ctrl (or Shift) + left drag, right drag and Ctrl + middle drag move the view.
+      const mode = e.button === 1 ? (e.ctrlKey ? 'pan' : e.shiftKey ? 'zoom' : 'rotate') : e.button === 2 ? 'pan' : (e.shiftKey || e.ctrlKey || e.metaKey ? 'pan' : 'rotate');
       drag = { mode, x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, button: e.button, moved: false, id: e.pointerId };
       c.setPointerCapture(e.pointerId);
     });
+    c.addEventListener('pointerleave', () => { this.mouse.inside = false; this.requestRender(); });
     c.addEventListener('pointermove', (e) => {
+      const rect = c.getBoundingClientRect();
+      this.mouse = { x: e.clientX - rect.left, y: e.clientY - rect.top, inside: true };
+      if (this.guides.rulers) this.requestRender();
+      if (drag?.scaleBar) {
+        const bar = this.scaleBarRect;
+        const x = Math.max(0, Math.min(this.width - bar.w, this.mouse.x - drag.ox));
+        const y = Math.max(0, Math.min(this.height - bar.h, this.mouse.y - drag.oy));
+        // Kept as the distance from the right and bottom edges (it stays in its corner when the window resizes).
+        this.guides.scaleBarPos = { right: this.width - (x + bar.w), bottom: this.height - (y + bar.h) };
+        this.requestRender();
+        return;
+      }
+      if (drag?.light) {
+        const p = this.rayAt(e.clientX, e.clientY).ray.intersectPlane(drag.plane, new THREE.Vector3());
+        if (p) {
+          const l = this.userLights.get(drag.light);
+          l.spec.position = p.toArray().map((v) => Math.round(v * 100) / 100);
+          l.light.position.copy(p); l.bulb.position.copy(p);
+          const line = l.handle.children[1];
+          if (line) { line.geometry.setFromPoints([p.clone(), new THREE.Vector3(...(l.spec.target ?? [0, 0, 0]))]); line.computeLineDistances(); }
+          drag.moved = true;
+          this.requestRender();
+        }
+        return;
+      }
       if (drag?.tool) { this.options.tool?.()?.move?.(e); return; }
       if (drag) {
         const dx = e.clientX - drag.x; const dy = e.clientY - drag.y;
@@ -353,6 +684,8 @@ export class Viewport {
       c.classList.remove('dragging');
       try { c.releasePointerCapture(e.pointerId); } catch { /* gone */ }
       if (d.tool) { this.options.tool?.()?.up?.(e); return; }
+      if (d.scaleBar) { this.options.onScaleBarMoved?.(this.guides.scaleBarPos); return; }
+      if (d.light) { if (d.moved) this.options.onLightMoved?.(d.light, this.userLights.get(d.light)?.spec.position); return; }
       if (!d.moved && d.button === 0) {
         const tool = this.options.tool?.();
         if (tool?.click?.(e)) return;
@@ -390,13 +723,17 @@ export class Viewport {
     g.setAttribute('position', new THREE.Float32BufferAttribute(spec.mesh.vertices, 3));
     g.setAttribute('normal', new THREE.Float32BufferAttribute(spec.mesh.normals, 3));
     g.setIndex(spec.mesh.triangles);
+    // Per-vertex colours (stress plots, draft analysis) replace the body colour.
+    if (spec.colors) g.setAttribute('color', new THREE.Float32BufferAttribute(spec.colors, 3));
     g.computeBoundingBox(); g.computeBoundingSphere();
-    const color = new THREE.Color(spec.color ?? '#a9b4c2');
+    const color = new THREE.Color(spec.colors ? '#ffffff' : spec.color ?? '#a9b4c2');
     const material = new THREE.MeshStandardMaterial({
       color, metalness: spec.metal ?? 0.35, roughness: spec.rough ?? 0.45, side: THREE.DoubleSide,
       polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1, transparent: (spec.opacity ?? 1) < 1, opacity: spec.opacity ?? 1,
       clippingPlanes: this.section ? [this.clipPlane] : [],
+      vertexColors: Boolean(spec.colors),
     });
+    if (spec.colors) { material.metalness = 0.05; material.roughness = 0.7; }
     const mesh = new THREE.Mesh(g, material);
     if (spec.matrix) { mesh.matrixAutoUpdate = false; mesh.matrix.copy(spec.matrix); }
     mesh.userData.bodyKey = spec.key;
@@ -431,6 +768,19 @@ export class Viewport {
     return body;
   }
 
+  /** Moves one body without rebuilding it (motion studies): its mesh and edges get the matrix. */
+  setBodyMatrix(key, matrix) {
+    const body = this.bodies.get(key);
+    if (!body) return;
+    for (const o of [body.mesh, body.edges]) {
+      if (!o) continue;
+      o.matrixAutoUpdate = false;
+      o.matrix.copy(matrix);
+      o.matrixWorldNeedsUpdate = true;
+    }
+    this.requestRender();
+  }
+
   disposeBody(body) {
     body.mesh.geometry.dispose(); body.mesh.material.dispose(); body.mesh.removeFromParent();
     if (body.edges) { body.edges.geometry.dispose(); this.lineMaterials.delete(body.edges.material); body.edges.material.dispose(); body.edges.removeFromParent(); }
@@ -459,7 +809,7 @@ export class Viewport {
         m.colorWrite = s === 'hiddenRemoved';
         body.mesh.visible = s === 'hiddenRemoved';
       } else {
-        m.color.copy(body.baseColor); m.metalness = body.metal ?? 0.35; m.roughness = body.rough ?? 0.45; m.emissive?.set('#000000'); m.colorWrite = true;
+        m.color.copy(body.baseColor); m.metalness = body.colors ? 0.05 : body.metal ?? 0.35; m.roughness = body.colors ? 0.7 : body.rough ?? 0.45; m.emissive?.set('#000000'); m.colorWrite = true;
       }
       m.opacity = ghost ? Math.min(0.35, body.baseOpacity) : body.baseOpacity;
       m.transparent = m.opacity < 1;

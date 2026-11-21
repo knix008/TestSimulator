@@ -1,0 +1,24 @@
+/* The print window (print/popup.js): on top of styles.css's print preview rules (.print-view, .print-options,
+   .print-preview, .preview-stage, .print-sheet and the @media print block). */
+.mprint-view { grid-template-columns: 330px minmax(0, 1fr); }
+.mprint-view .print-options { display: flex; flex-direction: column; gap: 10px; padding: 10px 14px; overflow: hidden auto; }
+.mprint-view .print-section { display: flex; flex-direction: column; min-width: 0; }
+.mprint-view .print-note { min-height: 0; padding: 2px 0 4px; display: flex; align-items: flex-start; gap: 6px; font-size: 0.9em; }
+.mprint-view .print-note > span { white-space: normal; min-width: 0; }
+.mprint-view .print-note > .icon { flex: none; width: 15px; height: 15px; margin-top: 2px; color: var(--muted); }
+.mprint-view .print-note.warn { color: var(--warning, #c77700); }
+.mprint-view .print-note.warn .icon { flex: none; width: 15px; height: 15px; }
+.popup-print .popup-foot { gap: 8px; }
+.popup-print .mprint-doc { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 260px; font-weight: 600; }
+.popup-print .mprint-doc > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.popup-print .mprint-doc .icon { flex: none; width: 16px; height: 16px; }
+.popup-print .print-paper-size { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.popup-print .print-status { margin-left: 8px; font-size: 0.9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.popup-print .print-status.error { color: var(--danger, #d03030); }
+.popup-print .popup-foot .button[disabled] { opacity: 0.5; }
+/* The paper is white in every theme. */
+.popup-print .preview-stage { background: #fff; }
+@media print {
+  /* The page svg fills the @page box; a drawing's own nested svg keeps its place (inline style). */
+  .print-sheet .print-page > svg { display: block; width: 100%; height: 100%; }
+}

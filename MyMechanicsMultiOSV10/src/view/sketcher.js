@@ -1,4 +1,4 @@
-// Editing a sketch in the graphics area (SolidWorks' sketch mode): draw lines, rectangles, circles,
+// Editing a sketch in the graphics area (sketch mode): draw lines, rectangles, circles,
 // arcs, polygons, slots, points and centerlines on the sketch plane; ends snap to existing points
 // (shared = coincident) and onto curves; drag geometry and the solver keeps the relations; Smart
 // Dimension adds driving dimensions shown as labels (double click to change the value). Geometry is
@@ -8,9 +8,13 @@ import {
   addArc, addCenterRectangle, addCircle, addConstraint, addLine, addPolygon, addRectangle, addSlot, analyse, arcGeometry, arcThrough, autoRelationsForLine,
   byId, dimensionFor, hitTest, mergePoints, ORIGIN, pointsOf, polyline, removeEntities, solveSketch, newSketchId, DIMENSIONS, measure,
 } from '../cad/sketch.js';
-import { toWorld, toSketch } from '../cad/features.js';
+import { toWorld, toSketch, textOutline } from '../cad/features.js';
+import { addText } from '../cad/sketch.js';
+import { addSpline, addEllipse, sketchFillet, sketchChamfer, offsetEntities, mirrorEntities, linearSketchPattern, circularSketchPattern, trimAt, extendAt } from '../cad/sketchtools.js';
 
-export const SKETCH_TOOLS = ['select', 'line', 'centerline', 'rect', 'centerRect', 'circle', 'arc3', 'centerArc', 'polygon', 'slot', 'point', 'dimension', 'trim'];
+export const SKETCH_TOOLS = ['select', 'line', 'centerline', 'rect', 'centerRect', 'circle', 'arc3', 'centerArc', 'polygon', 'slot', 'point', 'spline', 'ellipse', 'text', 'dimension', 'trim', 'extend', 'sketchFillet', 'sketchChamfer'];
+/** Tools that pick existing geometry instead of placing new points. */
+const PICK_TOOLS = ['select', 'dimension', 'trim', 'extend', 'sketchFillet', 'sketchChamfer'];
 
 const COLORS = { defined: '#111827', under: '#1f5fd6', over: '#d4282f', construction: '#7a8798', selected: '#18a058', hover: '#f28c1e', preview: '#f28c1e', point: '#1f5fd6' };
 
@@ -27,6 +31,8 @@ export class SketchEditor {
     this.status = {};
     this.dof = 0;
     this.polygonSides = 6;
+    this.filletRadius = 5;
+    this.chamferDistance = 2;
     this.chain = null;
     this.solve();
   }
@@ -41,7 +47,7 @@ export class SketchEditor {
     this.tool = SKETCH_TOOLS.includes(tool) ? tool : 'select';
     this.pending = [];
     this.chain = null;
-    if (this.tool !== 'select' && this.tool !== 'dimension') this.selection = [];
+    if (!['select', 'dimension'].includes(this.tool)) this.selection = [];
     this.render();
     this.api.onState?.();
   }
@@ -156,8 +162,8 @@ export class SketchEditor {
       this.render();
       return true;
     }
-    if (this.tool === 'select' || this.tool === 'dimension' || this.tool === 'trim') {
-      const id = this.pickEntity(e);
+    if (PICK_TOOLS.includes(this.tool)) {
+      const id = ['sketchFillet', 'sketchChamfer'].includes(this.tool) ? this.cornerAt(e) : this.pickEntity(e);
       if (id !== this.hover) { this.hover = id; this.render(); }
       return true;
     }
@@ -201,9 +207,24 @@ export class SketchEditor {
       return true;
     }
     if (this.tool === 'dimension') return this.dimensionClick(e);
-    if (this.tool === 'trim') {
+    if (this.tool === 'trim' || this.tool === 'extend') {
       const id = this.pickEntity(e);
-      if (id && id !== ORIGIN) { removeEntities(this.sketch, [id]); this.solve(); this.commit('op.trim'); }
+      const p = this.toPlane(e);
+      if (id && id !== ORIGIN && p) {
+        const done = this.tool === 'trim' ? trimAt(this.sketch, id, p[0], p[1]) : extendAt(this.sketch, id, p[0], p[1]);
+        if (done) { this.solve(); this.commit(this.tool === 'trim' ? 'op.trim' : 'op.extend'); }
+        else this.api.notify?.('info', this.api.t(this.tool === 'trim' ? 'sketch.nothingToTrim' : 'sketch.nothingToExtend'));
+      }
+      return true;
+    }
+    if (this.tool === 'sketchFillet' || this.tool === 'sketchChamfer') {
+      const id = this.cornerAt(e);
+      if (!id) { this.api.notify?.('info', this.api.t('sketch.pickCorner')); return true; }
+      const made = this.tool === 'sketchFillet' ? sketchFillet(this.sketch, id, this.filletRadius) : sketchChamfer(this.sketch, id, this.chamferDistance);
+      if (!made) { this.api.notify?.('warning', this.api.t('sketch.cornerFailed')); return true; }
+      this.hover = null;
+      this.solve();
+      this.commit(this.tool === 'sketchFillet' ? 'op.sketchFillet' : 'op.sketchChamfer');
       return true;
     }
     const snap = this.snapAt(e);
@@ -220,8 +241,68 @@ export class SketchEditor {
     this.api.onState?.();
   }
 
-  /** Esc: finishes a chain of lines, then drops the tool. */
+  /** A corner point (where two lines meet) near the pointer. */
+  cornerAt(e) {
+    const p = this.toPlane(e);
+    if (!p) return null;
+    const tol = this.tol() * 1.4;
+    let best = null;
+    for (const ent of this.sketch.entities) {
+      if (ent.type !== 'point') continue;
+      const lines = this.sketch.entities.filter((l) => l.type === 'line' && !l.construction && (l.p1 === ent.id || l.p2 === ent.id));
+      if (lines.length !== 2) continue;
+      const d = Math.hypot(ent.x - p[0], ent.y - p[1]);
+      if (d < tol && (!best || d < best.d)) best = { id: ent.id, d };
+    }
+    return best?.id ?? null;
+  }
+
+  /** Finishes a spline being drawn (Enter, Esc or the PropertyManager's Finish). */
+  finishSpline() {
+    if (this.tool !== 'spline' || this.pending.length < 2) return false;
+    const ids = this.pending.map((q) => this.pointAt(q));
+    addSpline(this.sketch, this.pending.map((q) => [q.x, q.y]), { ids });
+    this.pending = [];
+    this.solve();
+    this.commit('op.spline');
+    return true;
+  }
+
+  // ───────────────────────── selection tools (offset, mirror, patterns)
+
+  selectedCurves() { return this.selection.filter((id) => { const e = byId(this.sketch, id); return e && e.type !== 'point'; }); }
+
+  offsetSelection(distance) {
+    const ids = this.selectedCurves();
+    if (!ids.length) return 0;
+    const made = offsetEntities(this.sketch, ids, distance);
+    this.selection = made.map((x) => x.id);
+    this.solve(); this.commit('op.offset');
+    return made.length;
+  }
+
+  /** Mirrors the selection about the selected centerline (or the last centerline of the sketch). */
+  mirrorSelection() {
+    const sel = this.selection.map((id) => byId(this.sketch, id)).filter(Boolean);
+    const axis = sel.find((e) => e.type === 'line' && e.construction) ?? [...this.sketch.entities].reverse().find((e) => e.type === 'line' && e.construction);
+    const ids = sel.filter((e) => e !== axis).map((e) => e.id);
+    if (!axis || !ids.length) return 0;
+    const made = mirrorEntities(this.sketch, ids, axis.id);
+    this.solve(); this.commit('op.mirrorEntities');
+    return made.length;
+  }
+
+  patternSelection(kind, options) {
+    const ids = this.selection.filter((id) => byId(this.sketch, id) && id !== ORIGIN);
+    if (!ids.length) return 0;
+    const made = kind === 'linear' ? linearSketchPattern(this.sketch, ids, options) : circularSketchPattern(this.sketch, ids, options);
+    this.solve(); this.commit('op.sketchPattern');
+    return made.length;
+  }
+
+  /** Esc: finishes a chain of lines (or a spline), then drops the tool. */
   escape() {
+    if (this.finishSpline()) return true;
     if (this.pending.length || this.chain) { this.pending = []; this.chain = null; this.render(); return true; }
     if (this.tool !== 'select') { this.setTool('select'); return true; }
     if (this.selection.length) { this.selection = []; this.render(); this.api.onState?.(); return true; }
@@ -248,6 +329,20 @@ export class SketchEditor {
     const tool = this.tool;
     const done = (label) => { this.pending = []; this.solve(); this.commit(label); };
     if (tool === 'point') { const id = this.pointAt(P[0]); const p = byId(s, id); p.standalone = true; return done('op.point'); }
+    if (tool === 'text') {
+      const at = P[0];
+      this.pending = [];
+      // Sketch text: its lower-left corner where clicked, letters 10 mm high (changed in the PropertyManager).
+      Promise.resolve(this.api.askText?.('Text') ?? 'Text').then((text) => {
+        if (!text || !String(text).trim()) return;
+        const e = addText(s, at.x, at.y, String(text), this.textSize ?? 10);
+        this.selection = [e.id];
+        this.solve();
+        this.commit('op.text');
+        this.api.onState?.();
+      });
+      return undefined;
+    }
     if (tool === 'line' || tool === 'centerline') {
       if (P.length < 2) { this.chain = this.chain ?? null; this.render(); return undefined; }
       const [a, b] = P;
@@ -307,6 +402,29 @@ export class SketchEditor {
       if (c.kind === 'point') mergePoints(s, circle.c, c.id);
       return done('op.polygon');
     }
+    if (tool === 'spline') {
+      // Clicking the first point again closes the spline; Enter / Esc finishes an open one.
+      const last = P[P.length - 1];
+      if (P.length > 1 && Math.hypot(last.x - P[P.length - 2].x, last.y - P[P.length - 2].y) < this.tol() * 0.3) { P.pop(); return this.finishSpline(); }
+      if (P.length > 3 && Math.hypot(last.x - P[0].x, last.y - P[0].y) < this.tol()) {
+        P.pop();
+        const ids = P.map((q) => this.pointAt(q));
+        addSpline(s, P.map((q) => [q.x, q.y]), { ids, closed: true });
+        return done('op.spline');
+      }
+      this.render();
+      return undefined;
+    }
+    if (tool === 'ellipse' && P.length === 3) {
+      const [c, a, b] = P;
+      const rx = Math.hypot(a.x - c.x, a.y - c.y);
+      const rot = Math.atan2(a.y - c.y, a.x - c.x);
+      const ry = Math.abs(-(b.x - c.x) * Math.sin(rot) + (b.y - c.y) * Math.cos(rot));
+      if (rx < this.tol() * 0.3 || ry < this.tol() * 0.3) { this.pending = []; return undefined; }
+      const e = addEllipse(s, c.x, c.y, rx, ry, rot);
+      if (c.kind === 'point') mergePoints(s, e.c, c.id);
+      return done('op.ellipse');
+    }
     if (tool === 'slot' && P.length === 3) {
       const [a, b, w] = P;
       const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
@@ -349,13 +467,15 @@ export class SketchEditor {
     const c = dimensionFor(this.sketch, this.selection, kind);
     this.selection = [];
     if (!c) { this.render(); return; }
-    const value = await this.api.askValue({ type: c.type, value: c.value });
+    let value = await this.api.askValue({ type: c.type, value: c.value });
     if (value == null) { this.render(); return; }
+    // "=W": a dimension driven by an equation (a global variable).
+    if (typeof value === 'object') { c.expr = value.expr; value = value.value; }
     c.value = value;
     const added = addConstraint(this.sketch, c);
     const r = this.solve();
     if (!r.ok) {
-      // Over defined: the dimension becomes a reference (driven) one, like SolidWorks offers.
+      // Over defined: the dimension becomes a reference (driven) one.
       added.driven = true;
       added.value = Math.abs(measure(this.sketch, { ...added, value: 0 }));
       this.solve();
@@ -369,13 +489,14 @@ export class SketchEditor {
     const c = this.sketch.constraints.find((k) => k.id === id);
     if (!c) return;
     if (c.driven) { this.api.notify?.('info', this.api.t('sketch.drivenNote')); return; }
-    const value = await this.api.askValue({ type: c.type, value: c.value });
+    let value = await this.api.askValue({ type: c.type, value: c.value, edit: true, expr: c.expr });
     if (value == null) return;
-    const old = c.value;
+    const old = c.value; const oldExpr = c.expr;
     const before = this.snapshot();
+    if (typeof value === 'object') { c.expr = value.expr; value = value.value; } else delete c.expr;
     c.value = value;
     const r = this.solve();
-    if (!r.ok) { c.value = old; this.restore(before); this.solve(); this.api.notify?.('error', this.api.t('sketch.cannotSolve')); }
+    if (!r.ok) { c.value = old; if (oldExpr) c.expr = oldExpr; else delete c.expr; this.restore(before); this.solve(); this.api.notify?.('error', this.api.t('sketch.cannotSolve')); }
     this.commit('op.dimension');
   }
 
@@ -388,8 +509,9 @@ export class SketchEditor {
     const push = (bucket, pts) => { for (let i = 1; i < pts.length; i++) segs[bucket].push(...this.world(...pts[i - 1]), ...this.world(...pts[i])); };
     for (const e of s.entities) {
       if (e.type === 'point') continue;
-      const pts = polyline(s, e, map, 64);
       const bucket = this.selection.includes(e.id) ? 'selected' : this.hover === e.id ? 'hover' : e.construction ? 'construction' : this.status[e.id] === 'over' ? 'over' : this.status[e.id] === 'defined' ? 'defined' : 'under';
+      if (e.type === 'text') { const out = textOutline(e); for (const pts of out.length ? out : [polyline(s, e, map)]) push(bucket === 'under' ? 'defined' : bucket, pts); continue; }
+      const pts = polyline(s, e, map, 64);
       push(bucket, pts);
     }
     const list = [
@@ -410,7 +532,7 @@ export class SketchEditor {
     list.push({ points: pts.defined, color: getComputedStyle(document.documentElement).getPropertyValue('--sketch-defined').trim() || COLORS.defined, size: 6 });
     list.push({ points: pts.under, color: COLORS.point, size: 6 });
     list.push({ points: pts.selected, color: COLORS.selected, size: 9 });
-    // The origin of the sketch (red arrows like SolidWorks).
+    // The origin of the sketch (red arrows).
     const o = this.world(0, 0); const ax = this.viewport.pixelSize() * 28;
     list.push({ segments: [...o, ...this.world(ax, 0), ...o, ...this.world(0, ax)], color: '#d4282f', width: 1.6 });
     list.push(...this.previewLines());
@@ -437,7 +559,7 @@ export class SketchEditor {
   previewLines() {
     const out = [];
     const c = this.cursor;
-    if (!c || this.tool === 'select' || this.tool === 'dimension' || this.tool === 'trim') return out;
+    if (!c || PICK_TOOLS.includes(this.tool)) return out;
     const P = this.pending;
     const seg = [];
     const line = (a, b) => seg.push(...this.world(a.x, a.y), ...this.world(b.x, b.y));
@@ -450,6 +572,16 @@ export class SketchEditor {
     if (t === 'polygon' && P.length === 1) { const r = Math.hypot(c.x - P[0].x, c.y - P[0].y); const a0 = Math.atan2(c.y - P[0].y, c.x - P[0].x); const n = this.polygonSides; for (let i = 0; i < n; i++) { const p = { x: P[0].x + r * Math.cos(a0 + (i * 2 * Math.PI) / n), y: P[0].y + r * Math.sin(a0 + (i * 2 * Math.PI) / n) }; const q = { x: P[0].x + r * Math.cos(a0 + ((i + 1) * 2 * Math.PI) / n), y: P[0].y + r * Math.sin(a0 + ((i + 1) * 2 * Math.PI) / n) }; line(p, q); } }
     if (t === 'arc3') { if (P.length === 1) line(P[0], c); if (P.length === 2) { const g = circleThrough(P[0], c, P[1]); if (g) { const tmp = arcAngles(g, P[0], P[1], c); circle(g.cx, g.cy, g.r, tmp.a0, tmp.a1); } else line(P[0], P[1]); } }
     if (t === 'centerArc') { if (P.length === 1) line(P[0], c); if (P.length === 2) { const r = Math.hypot(P[1].x - P[0].x, P[1].y - P[0].y); let a0 = Math.atan2(P[1].y - P[0].y, P[1].x - P[0].x); let a1 = Math.atan2(c.y - P[0].y, c.x - P[0].x); while (a1 <= a0) a1 += Math.PI * 2; circle(P[0].x, P[0].y, r, a0, a1); void a0; } }
+    if (t === 'spline' && P.length) { for (let i = 1; i < P.length; i++) line(P[i - 1], P[i]); line(P[P.length - 1], c); }
+    if (t === 'ellipse') {
+      if (P.length === 1) line(P[0], c);
+      if (P.length === 2) {
+        const rx = Math.hypot(P[1].x - P[0].x, P[1].y - P[0].y); const rot = Math.atan2(P[1].y - P[0].y, P[1].x - P[0].x);
+        const ry = Math.abs(-(c.x - P[0].x) * Math.sin(rot) + (c.y - P[0].y) * Math.cos(rot));
+        const n = 64; const at = (k) => { const a = (k / n) * Math.PI * 2; const u = rx * Math.cos(a); const v = ry * Math.sin(a); return { x: P[0].x + u * Math.cos(rot) - v * Math.sin(rot), y: P[0].y + u * Math.sin(rot) + v * Math.cos(rot) }; };
+        for (let k = 0; k < n; k++) line(at(k), at(k + 1));
+      }
+    }
     if (t === 'slot') { if (P.length === 1) line(P[0], c); if (P.length === 2) { const [a, b] = P; const len = Math.hypot(b.x - a.x, b.y - a.y) || 1; const nx = -(b.y - a.y) / len; const ny = (b.x - a.x) / len; const r = Math.abs((c.x - a.x) * nx + (c.y - a.y) * ny); line({ x: a.x + nx * r, y: a.y + ny * r }, { x: b.x + nx * r, y: b.y + ny * r }); line({ x: a.x - nx * r, y: a.y - ny * r }, { x: b.x - nx * r, y: b.y - ny * r }); const an = Math.atan2(ny, nx); circle(b.x, b.y, r, an - Math.PI, an); circle(a.x, a.y, r, an, an + Math.PI); } }
     out.push({ segments: seg, color: COLORS.preview, width: 1.8 });
     // The snap target: a ring around a point, a small square on a curve.
@@ -470,7 +602,7 @@ export class SketchEditor {
       if (!DIMENSIONS.includes(c.type)) continue;
       const at = this.dimensionAnchor(c);
       if (!at) continue;
-      const text = c.type === 'angle' ? `${fmt(c.value, 'angle')}` : c.type === 'diameter' ? `⌀${fmt(c.value)}` : c.type === 'radius' ? `R${fmt(c.value)}` : fmt(c.value);
+      const text = `${c.expr ? 'Σ ' : ''}${c.type === 'angle' ? `${fmt(c.value, 'angle')}` : c.type === 'diameter' ? `⌀${fmt(c.value)}` : c.type === 'radius' ? `R${fmt(c.value)}` : fmt(c.value)}`;
       labels.push({ id: c.id, at: this.world(...at), html: `<span>${c.driven ? `(${text})` : text}</span>`, className: `dim-label ${c.driven ? 'driven' : ''} ${this.selection.includes(c.id) ? 'selected' : ''} ${this.over ? '' : ''}`, title: this.api.t(`dim.${c.type}`) });
     }
     this.viewport.setLabels(labels);
@@ -541,7 +673,7 @@ function circleThrough(a, m, b) {
 
 function arcAngles(g, a, b, m) {
   const ang = (p) => Math.atan2(p.y - g.cy, p.x - g.cx);
-  const ccw = (m.x - a.x) * (b.y - a.y) - (m.y - a.y) * (b.x - a.x) < 0;
+  const ccw = (m.x - a.x) * (b.y - a.y) - (m.y - a.y) * (b.x - a.x) > 0;
   let a0 = ccw ? ang(a) : ang(b); let a1 = ccw ? ang(b) : ang(a);
   while (a1 <= a0) a1 += Math.PI * 2;
   void a0;

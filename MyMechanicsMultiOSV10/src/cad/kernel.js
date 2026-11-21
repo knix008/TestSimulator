@@ -7,6 +7,10 @@ import * as R from 'replicad';
 
 let loading = null;
 let ready = false;
+let fontReady = false;
+
+/** True once the sketch-text font is loaded. */
+export const fontLoaded = () => fontReady;
 
 /** True once the kernel can be used synchronously (every modelling call after loadKernel resolved). */
 export const kernelReady = () => ready;
@@ -34,6 +38,22 @@ export function loadKernel({ wasmUrl = null, onProgress = null } = {}) {
     onProgress?.(0.4);
     const oc = await init({ locateFile: () => url });
     R.setOC(oc);
+    // The font of sketch text (Roboto, SIL OFL): read from node_modules under Node, a bundled URL in the app.
+    try {
+      let bytes;
+      if (isNode) {
+        const fsName = 'node:fs';
+        const fs = await import(/* @vite-ignore */ fsName);
+        const { fileURLToPath } = await import(/* @vite-ignore */ 'node:url');
+        const b = fs.readFileSync(fileURLToPath(new URL('../../node_modules/@fontsource/roboto/files/roboto-latin-400-normal.woff', import.meta.url)));
+        bytes = b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength);
+      } else {
+        const fontUrl = (await import('@fontsource/roboto/files/roboto-latin-400-normal.woff?url')).default;
+        bytes = await (await fetch(fontUrl)).arrayBuffer();
+      }
+      await R.loadFont(bytes, 'roboto');
+      fontReady = true;
+    } catch (error) { console.warn('sketch text font', error); }
     // STEP writing prints transfer statistics on the console: not wanted in the app.
     ready = true;
     onProgress?.(1);

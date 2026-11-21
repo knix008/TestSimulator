@@ -84,9 +84,9 @@ try {
       const r = await page.send('Runtime.evaluate', { expression: `(async () => { ${step.eval.trim().startsWith("return") ? step.eval : `return (${step.eval})`} })()`, awaitPromise: true, returnByValue: true }, 180000);
       const value = r.result?.result?.value;
       const ex = r.result?.exceptionDetails;
-      if (ex || r.error) { failed = true; console.log(`✘ ${label}: ${ex?.exception?.description ?? ex?.text ?? r.error?.message}`); }
-      else if (step.expect !== undefined && !new RegExp(step.expect).test(typeof value === 'string' ? value : JSON.stringify(value))) { failed = true; console.log(`✘ ${step.name ?? label}: got ${typeof value === 'string' ? value : JSON.stringify(value)} — expected /${step.expect}/`); }
-      else if (step.name) console.log(`✔ ${step.name}${value !== undefined && step.verbose ? ` → ${JSON.stringify(value)}` : ''}`);
+      if (ex || r.error) { failed = true; console.log(`✘ ${label}: ${ex?.exception?.description ?? ex?.text ?? r.error?.message} [${Date.now() - t0} ms]`); }
+      else if (step.expect !== undefined && !new RegExp(step.expect).test(typeof value === 'string' ? value : JSON.stringify(value))) { failed = true; console.log(`✘ ${step.name ?? label}: got ${typeof value === 'string' ? value : JSON.stringify(value)} — expected /${step.expect}/ [${Date.now() - t0} ms]`); }
+      else if (step.name) console.log(`✔ ${step.name}${value !== undefined && step.verbose ? ` → ${JSON.stringify(value)}` : ''} [${Date.now() - t0} ms]`);
       else if (value !== undefined) console.log(`  ${label} → ${typeof value === 'string' ? value : JSON.stringify(value)}`);
     }
     // Real browser input (CDP Input.dispatchMouseEvent) into this headless page: [{ type, x, y, button, buttons, delay }].
@@ -111,10 +111,13 @@ try {
     // x / y may be JS expressions evaluated in the page (positions computed from the view: { "x": "window.__pt[0]" }).
     const coord = async (v) => (typeof v === 'string' ? (await page.send('Runtime.evaluate', { expression: v, returnByValue: true })).result?.result?.value : v);
     if (step.mouse) for (const ev of step.mouse) { await page.send('Input.dispatchMouseEvent', { button: 'none', clickCount: ev.type === 'mouseMoved' ? 0 : 1, ...ev, x: await coord(ev.x), y: await coord(ev.y), delay: undefined }); if (ev.delay) await sleep(ev.delay); }
-    if (step.until) { try { await page.waitFor(step.until, { timeout: step.timeout ?? 30000, interval: 200 }); } catch { failed = true; console.log(`✘ timed out: ${step.until}`); } }
+    if (step.until) { try { await page.waitFor(step.until, { timeout: step.timeout ?? 30000, interval: 200 }); } catch { failed = true; console.log(`✘ timed out: ${step.until} [${Date.now() - t0} ms]`); } }
     if (step.wait) await sleep(step.wait);
     if (step.shot) {
-      const shot = await page.send('Page.captureScreenshot', { format: 'png' }, 60000);
+      // "clip": a JS expression giving { x, y, width, height } (page pixels) captures only that part.
+      const clip = step.clip ? (await page.send('Runtime.evaluate', { expression: step.clip, returnByValue: true })).result?.result?.value : null;
+      const area = clip && clip.width > 0 && clip.height > 0 ? { clip: { x: Math.max(0, Math.round(clip.x)), y: Math.max(0, Math.round(clip.y)), width: Math.round(Math.min(clip.width, width - Math.max(0, clip.x))), height: Math.round(Math.min(clip.height, height - Math.max(0, clip.y))), scale: 1 } } : {};
+      const shot = await page.send('Page.captureScreenshot', { format: 'png', ...area }, 60000);
       const file = path.join(out, `${step.shot}.png`);
       writeFileSync(file, Buffer.from(shot.result.data, 'base64'));
       console.log(`📷 ${file} (${Date.now() - t0} ms)`);

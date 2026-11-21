@@ -1,5 +1,5 @@
 // A MyMechanics project (.mymech, JSON): parts (feature trees), assemblies (components and mates)
-// and drawings (sheets with views), like a SolidWorks part / assembly / drawing kept in one file.
+// and drawings (sheets with views), a part / assembly / drawing kept in one file.
 // One of them is open in the main window at a time (the document tabs switch between them).
 import { DEFAULT_MATERIAL } from './materials.js';
 import { createDrawing } from './drawing.js';

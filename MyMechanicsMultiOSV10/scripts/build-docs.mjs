@@ -1,16 +1,21 @@
 // npm run build:docs — doc/*.md → public/doc/*.html (served with the app: the Help viewer shows them in
 // the app's colours; the desktop installer also ships doc/). A small Markdown subset: headings, paragraphs,
-// lists, tables, `code` and **bold**.
+// lists, tables, `code`, **bold** and pictures: a line `![caption](images/ko/name.png)` becomes a figure with the
+// caption under it (indented under a list item, it shows that step). doc/images/ (made by `npm run guide:images`)
+// is copied to public/doc/images, so the pages find their pictures both in doc/ (installed with the desktop app,
+// opened in a browser) and in the app's help viewer (public/doc → dist/doc).
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = path.join(root, 'public', 'doc');
-fs.mkdirSync(outDir, { recursive: true });
 
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const inline = (s) => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+const IMAGE = /^\s*!\[([^\]]*)\]\(([^)\s]+)\)\s*$/;
+const LIST_ITEM = /^\s*([*-]|\d+\.)\s+/;
+const figure = (alt, src) => `<figure><img src="${esc(src)}" alt="${esc(alt)}" loading="lazy" decoding="async" />${alt ? `<figcaption>${inline(alt)}</figcaption>` : ''}</figure>`;
 const slug = (s, used) => {
   let base = s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '') || 'section';
   let id = base; let n = 2;
@@ -46,12 +51,37 @@ export function markdownToHtml(md) {
       out.push(`<table><thead><tr>${head.map((c) => `<th>${inline(c)}</th>`).join('')}</tr></thead><tbody>${body.map((r) => `<tr>${r.map((c) => `<td>${inline(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`);
       continue;
     }
-    if (/^\s*([*-]|\d+\.)\s+/.test(line)) {
+    const img = IMAGE.exec(line);
+    if (img) { flush(); out.push(figure(img[1], img[2])); i++; continue; }
+    // "> tip" lines: a note box.
+    if (/^>\s?/.test(line)) {
+      flush();
+      const quote = [];
+      while (i < lines.length && /^>\s?/.test(lines[i])) { quote.push(lines[i].replace(/^>\s?/, '').trim()); i++; }
+      out.push(`<blockquote><p>${inline(quote.join(' '))}</p></blockquote>`);
+      continue;
+    }
+    if (LIST_ITEM.test(line)) {
       flush();
       const ordered = /^\s*\d+\./.test(line);
+      const start = ordered ? Number(/^\s*(\d+)\./.exec(line)[1]) : 1;
       const items = [];
-      while (i < lines.length && /^\s*([*-]|\d+\.)\s+/.test(lines[i])) { items.push(lines[i].replace(/^\s*([*-]|\d+\.)\s+/, '')); i++; }
-      out.push(`<${ordered ? 'ol' : 'ul'}>${items.map((it) => `<li>${inline(it)}</li>`).join('')}</${ordered ? 'ol' : 'ul'}>`);
+      while (i < lines.length) {
+        if (LIST_ITEM.test(lines[i]) && (/^\s*\d+\./.test(lines[i]) === ordered)) { items.push({ text: lines[i].replace(LIST_ITEM, ''), figures: [] }); i++; continue; }
+        // A picture indented under the item (blank lines around it allowed) belongs to that step.
+        let j = i;
+        while (j < lines.length && !lines[j].trim()) j++;
+        const pic = j < lines.length && /^\s{2,}/.test(lines[j]) ? IMAGE.exec(lines[j]) : null;
+        if (!pic) break;
+        items.at(-1).figures.push(figure(pic[1], pic[2]));
+        i = j + 1;
+        // Blank lines before the next item of the same list.
+        let k = i;
+        while (k < lines.length && !lines[k].trim()) k++;
+        if (k < lines.length && ((LIST_ITEM.test(lines[k]) && /^\s*\d+\./.test(lines[k]) === ordered) || (/^\s{2,}/.test(lines[k]) && IMAGE.test(lines[k])))) i = k;
+      }
+      const tag = ordered ? 'ol' : 'ul';
+      out.push(`<${tag}${ordered && start !== 1 ? ` start="${start}"` : ''}>${items.map((it) => `<li>${inline(it.text)}${it.figures.join('')}</li>`).join('')}</${tag}>`);
       continue;
     }
     if (!line.trim()) { flush(); i++; continue; }
@@ -90,8 +120,14 @@ th { background: var(--accent-soft); }
 tbody tr:nth-child(even) td { background: var(--row-alt); }
 code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.92em; }
 li { margin: 3px 0; }
+figure { margin: 14px 0 20px; text-align: center; }
+li > figure { margin: 8px 0 16px; }
+figure img { display: block; max-width: 100%; height: auto; margin: 0 auto; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); background: #fff; }
+figcaption { margin-top: 6px; color: var(--muted); font-size: 0.88em; }
+blockquote { margin: 14px 0; padding: 8px 14px; border-left: 4px solid var(--accent); border-radius: 0 8px 8px 0; background: var(--accent-soft); }
+blockquote p { margin: 0; }
 @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } nav.toc { position: static; max-height: none; } main { padding: 8px 18px 24px; } }
-@media print { .topbar, nav.toc { display: none; } .layout { display: block; padding: 0; } main { border: 0; box-shadow: none; } }
+@media print { .topbar, nav.toc { display: none; } .layout { display: block; padding: 0; } main { border: 0; box-shadow: none; } figure { break-inside: avoid; } }
 </style>
 </head>
 <body>
@@ -107,14 +143,33 @@ ${body}
 `;
 }
 
-for (const name of ['UsersGuide']) {
-  for (const lang of ['ko', 'en']) {
-    const src = path.join(root, 'doc', `${name}${lang === 'en' ? '.en' : ''}.md`);
-    if (!fs.existsSync(src)) continue;
-    const html = page(markdownToHtml(fs.readFileSync(src, 'utf8')), lang, lang === 'en' ? { href: `${name}.html`, label: '한국어' } : { href: `${name}.en.html`, label: 'English' });
-    const file = `${name}${lang === 'en' ? '.en' : ''}.html`;
-    fs.writeFileSync(path.join(outDir, file), html);
-    fs.writeFileSync(path.join(root, 'doc', file), html);
-    console.log(`doc/${file}`);
+{
+  fs.mkdirSync(outDir, { recursive: true });
+  // The pictures: doc/images → public/doc/images (stale ones removed).
+  const imagesSrc = path.join(root, 'doc', 'images');
+  const imagesOut = path.join(outDir, 'images');
+  fs.rmSync(imagesOut, { recursive: true, force: true });
+  if (fs.existsSync(imagesSrc)) {
+    fs.cpSync(imagesSrc, imagesOut, { recursive: true });
+    const count = fs.readdirSync(imagesSrc, { recursive: true }).filter((f) => /\.png$/i.test(f)).length;
+    console.log(`doc/images → public/doc/images (${count} pictures)`);
+  }
+  const missing = [];
+  for (const name of ['UsersGuide', 'Tutorial']) {
+    for (const lang of ['ko', 'en']) {
+      const src = path.join(root, 'doc', `${name}${lang === 'en' ? '.en' : ''}.md`);
+      if (!fs.existsSync(src)) continue;
+      const md = fs.readFileSync(src, 'utf8');
+      for (const m of md.matchAll(/!\[[^\]]*\]\(([^)\s]+)\)/g)) if (!/^[a-z]+:/i.test(m[1]) && !fs.existsSync(path.join(root, 'doc', m[1]))) missing.push(`${path.basename(src)}: ${m[1]}`);
+      const html = page(markdownToHtml(md), lang, lang === 'en' ? { href: `${name}.html`, label: '한국어' } : { href: `${name}.en.html`, label: 'English' });
+      const file = `${name}${lang === 'en' ? '.en' : ''}.html`;
+      fs.writeFileSync(path.join(outDir, file), html);
+      fs.writeFileSync(path.join(root, 'doc', file), html);
+      console.log(`doc/${file}`);
+    }
+  }
+  if (missing.length) {
+    console.log(`Pictures not found (run npm run guide:images):\n  ${missing.join('\n  ')}`);
+    process.exitCode = 1;
   }
 }

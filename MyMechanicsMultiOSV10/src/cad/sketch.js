@@ -1,4 +1,4 @@
-// 2D sketches (SolidWorks' Sketch): points, lines, circles and arcs on a plane, held by geometric
+// 2D sketches: points, lines, circles and arcs on a plane, held by geometric
 // relations (coincident, horizontal, parallel, tangent, …) and driving dimensions (distance, radius,
 // angle). solveSketch() moves the geometry until every relation holds and reports what is fully
 // defined (black), under defined (blue) or over defined (red). profiles() finds the closed regions a
@@ -6,7 +6,7 @@
 import { jacobian, levenbergMarquardt, nullSpaceInfo } from './solver.js';
 
 export const ORIGIN = 'O';
-export const ENTITY_TYPES = ['point', 'line', 'circle', 'arc'];
+export const ENTITY_TYPES = ['point', 'line', 'circle', 'arc', 'spline', 'ellipse', 'text'];
 /** Geometric relations (no value) and dimensions (a value). */
 export const RELATIONS = ['coincident', 'horizontal', 'vertical', 'parallel', 'perpendicular', 'tangent', 'equal', 'concentric', 'midpoint', 'pointOnLine', 'pointOnCircle', 'fix', 'symmetric', 'collinear'];
 export const DIMENSIONS = ['distance', 'hdistance', 'vdistance', 'radius', 'diameter', 'angle'];
@@ -31,6 +31,8 @@ export function pointsOf(e) {
   if (e.type === 'line') return [e.p1, e.p2];
   if (e.type === 'circle') return [e.c];
   if (e.type === 'arc') return [e.c, e.p1, e.p2];
+  if (e.type === 'spline') return [...new Set(e.pts)];
+  if (e.type === 'ellipse') return [e.c];
   return [];
 }
 
@@ -53,8 +55,65 @@ export function polyline(sketch, e, map = idx(sketch), segments = 48) {
     const n = Math.max(6, Math.ceil(((g.a1 - g.a0) / (Math.PI * 2)) * segments));
     return Array.from({ length: n + 1 }, (_, i) => { const t = g.a0 + ((g.a1 - g.a0) * i) / n; return [g.cx + g.r * Math.cos(t), g.cy + g.r * Math.sin(t)]; });
   }
+  if (e.type === 'spline') {
+    const out = [];
+    for (const [p0, c1, c2, p3] of splineBeziers(sketch, e, map)) {
+      for (let i = out.length ? 1 : 0; i <= 16; i++) out.push(bezierAt(p0, c1, c2, p3, i / 16));
+    }
+    return out;
+  }
+  if (e.type === 'ellipse') {
+    const c = map.get(e.c); const cr = Math.cos(e.rot ?? 0); const sr = Math.sin(e.rot ?? 0);
+    return Array.from({ length: segments + 1 }, (_, i) => { const t = (i / segments) * Math.PI * 2; const u = e.rx * Math.cos(t); const v = e.ry * Math.sin(t); return [c.x + u * cr - v * sr, c.y + u * sr + v * cr]; });
+  }
   if (e.type === 'point') return [[e.x, e.y]];
+  if (e.type === 'text') {
+    // The text's box (for picking and bounds; the glyph outlines come from the font, see textOutline in features.js).
+    const w = textWidth(e); const h = Number(e.size) || 10; const c = Math.cos(e.rot ?? 0); const s = Math.sin(e.rot ?? 0);
+    return [[0, 0], [w, 0], [w, h], [0, h], [0, 0]].map(([u, v]) => [e.x + u * c - v * s, e.y + u * s + v * c]);
+  }
   return [];
+}
+
+/** A text's approximate width (the box used for picking before the font measures it exactly). */
+export const textWidth = (e) => (Number(e.size) || 10) * 0.62 * Math.max(1, String(e.text ?? '').length);
+
+/** Whether a sketch has something a feature can turn into a solid: closed regions or text. */
+export const hasRegions = (sketch) => sketch.entities.some((e) => e.type === 'text' && !e.construction && String(e.text ?? '').trim()) || profiles(sketch).length > 0;
+
+/** A text entity (sketch text): its lower-left corner at (x, y), letters `size` high. */
+export function addText(sketch, x, y, text, size = 10, rot = 0) {
+  const e = { id: newSketchId('t'), type: 'text', x, y, text: String(text), size, rot };
+  sketch.entities.push(e);
+  return e;
+}
+
+/**
+ * A spline through its points (Catmull-Rom, so it passes through every point) as cubic Bézier pieces
+ * [[p0, c1, c2, p3], …]. The kernel draws the same pieces, so what is seen is what is built. A spline whose
+ * first and last point are the same is closed (smooth through the join).
+ */
+export function splineBeziers(sketch, e, map = idx(sketch)) {
+  const P = e.pts.map((id) => { const p = map.get(id); return [p.x, p.y]; });
+  const closed = e.pts.length > 3 && e.pts[0] === e.pts[e.pts.length - 1];
+  const n = P.length;
+  const at = (i) => {
+    if (closed) { const m = n - 1; return P[((i % m) + m) % m]; }
+    return P[Math.max(0, Math.min(n - 1, i))];
+  };
+  const out = [];
+  for (let i = 0; i < n - 1; i++) {
+    const p0 = at(i); const p1 = at(i + 1); const pm = at(i - 1); const p2 = at(i + 2);
+    const c1 = [p0[0] + (p1[0] - pm[0]) / 6, p0[1] + (p1[1] - pm[1]) / 6];
+    const c2 = [p1[0] - (p2[0] - p0[0]) / 6, p1[1] - (p2[1] - p0[1]) / 6];
+    out.push([p0, c1, c2, p1]);
+  }
+  return out;
+}
+
+export function bezierAt(p0, c1, c2, p3, t) {
+  const u = 1 - t;
+  return [u * u * u * p0[0] + 3 * u * u * t * c1[0] + 3 * u * t * t * c2[0] + t * t * t * p3[0], u * u * u * p0[1] + 3 * u * u * t * c1[1] + 3 * u * t * t * c2[1] + t * t * t * p3[1]];
 }
 
 /** Bounding box of the sketch's geometry (origin included). */
@@ -116,7 +175,7 @@ export function arcThrough(sketch, [x1, y1], [xm, ym], [x2, y2], options = {}) {
   const cx = (s1 * (ym - y2) + sm * (y2 - y1) + s2 * (y1 - ym)) / d;
   const cy = (s1 * (x2 - xm) + sm * (x1 - x2) + s2 * (xm - x1)) / d;
   const r = Math.hypot(x1 - cx, y1 - cy);
-  const ccw = (xm - x1) * (y2 - y1) - (ym - y1) * (x2 - x1) < 0;
+  const ccw = (xm - x1) * (y2 - y1) - (ym - y1) * (x2 - x1) > 0;
   const ang = (x, y) => Math.atan2(y - cy, x - cx);
   // The arc runs counter-clockwise; drawn clockwise its ends swap.
   return ccw ? addArc(sketch, cx, cy, r, ang(x1, y1), ang(x2, y2), options) : addArc(sketch, cx, cy, r, ang(x2, y2), ang(x1, y1), { ...options, from: options.to ?? null, to: options.from ?? null });
@@ -467,7 +526,7 @@ const round = (v) => Math.round(v * 1e6) / 1e6;
 
 /**
  * Which relation can join the picked entities (for the Add Relations list): relation types that make sense
- * for the selection, in SolidWorks' order.
+ * for the selection, in the usual order.
  */
 export function relationsFor(sketch, ids) {
   const kinds = ids.map((id) => geomKind(byId(sketch, id)));
@@ -577,12 +636,25 @@ export function hitTest(sketch, x, y, tol, { skip = null } = {}) {
  */
 export function profiles(sketch) {
   const map = idx(sketch);
-  const curves = sketch.entities.filter((e) => !e.construction && (e.type === 'line' || e.type === 'arc' || e.type === 'circle'));
+  const curves = sketch.entities.filter((e) => !e.construction && ['line', 'arc', 'circle', 'spline', 'ellipse'].includes(e.type));
   const loops = [];
-  // Circles are closed by themselves.
+  // Circles and ellipses are closed by themselves.
   for (const e of curves.filter((x) => x.type === 'circle')) {
     const c = map.get(e.c);
     loops.push({ segs: [{ kind: 'circle', c: [c.x, c.y], r: e.r }], area: Math.PI * e.r * e.r, points: polyline(sketch, e, map, 64).slice(0, -1) });
+  }
+  for (const e of curves.filter((x) => x.type === 'ellipse')) {
+    const c = map.get(e.c);
+    loops.push({ segs: [{ kind: 'ellipse', c: [c.x, c.y], rx: e.rx, ry: e.ry, rot: e.rot ?? 0 }], area: Math.PI * e.rx * e.ry, points: polyline(sketch, e, map, 64).slice(0, -1) });
+  }
+  // A closed spline is a loop of its own.
+  for (const e of curves.filter((x) => x.type === 'spline' && x.pts[0] === x.pts[x.pts.length - 1])) {
+    const bez = splineBeziers(sketch, e, map);
+    const points = polyline(sketch, e, map).slice(0, -1);
+    let area = polygonArea(points);
+    let seg = { kind: 'spline', beziers: bez, from: bez[0][0], to: bez.at(-1)[3] };
+    if (area < 0) { seg = reverseSpline(seg); area = -area; points.reverse(); }
+    loops.push({ segs: [seg], area, points });
   }
   // Vertices: the curves' end points, merged by position.
   const size = Math.max(1, ...curves.flatMap((e) => pointsOf(e).map((id) => Math.max(Math.abs(map.get(id).x), Math.abs(map.get(id).y)))));
@@ -605,6 +677,10 @@ export function profiles(sketch) {
       const a = vertexOf(e.p1); const b = vertexOf(e.p2);
       if (a === b) continue;
       edges.push({ e, a, b, kind: 'arc', g });
+    } else if (e.type === 'spline' && e.pts.length >= 2) {
+      const a = vertexOf(e.pts[0]); const b = vertexOf(e.pts[e.pts.length - 1]);
+      if (a === b) continue;
+      edges.push({ e, a, b, kind: 'spline', bez: splineBeziers(sketch, e, map) });
     }
   }
   // Loose ends never close a region: drop edges with an end used once, again and again.
@@ -667,6 +743,12 @@ export function profiles(sketch) {
 function leaveAngle(h) {
   const { ed } = h;
   if (ed.kind === 'line') return Math.atan2(h.to.y - h.from.y, h.to.x - h.from.x);
+  if (ed.kind === 'spline') {
+    // Leaves along its first control leg (forward) or its last one (backward).
+    const b = h.fwd ? ed.bez[0] : ed.bez.at(-1);
+    const [p, q] = h.fwd ? [b[0], b[1][0] === b[0][0] && b[1][1] === b[0][1] ? b[2] : b[1]] : [b[3], b[2][0] === b[3][0] && b[2][1] === b[3][1] ? b[1] : b[2]];
+    return Math.atan2(q[1] - p[1], q[0] - p[0]);
+  }
   // An arc leaves along its tangent: counter-clockwise from its start, clockwise from its end.
   const { cx, cy } = ed.g;
   const t = Math.atan2(h.from.y - cy, h.from.x - cx);
@@ -677,13 +759,20 @@ function segmentOf(h) {
   const { ed } = h;
   const a = [h.from.x, h.from.y]; const b = [h.to.x, h.to.y];
   if (ed.kind === 'line') return { kind: 'line', a, b };
+  if (ed.kind === 'spline') { const seg = { kind: 'spline', beziers: ed.bez, from: ed.bez[0][0], to: ed.bez.at(-1)[3] }; return h.fwd ? seg : reverseSpline(seg); }
   const { cx, cy, r, a0, a1 } = ed.g;
   const m = (a0 + a1) / 2;
   return { kind: 'arc', c: [cx, cy], r, a0, a1, ccw: h.fwd, from: a, to: b, mid: [cx + r * Math.cos(m), cy + r * Math.sin(m)] };
 }
 
+function reverseSpline(s) {
+  const beziers = s.beziers.slice().reverse().map(([p0, c1, c2, p3]) => [p3, c2, c1, p0]);
+  return { kind: 'spline', beziers, from: beziers[0][0], to: beziers.at(-1)[3] };
+}
+
 function segmentPoints(s) {
   if (s.kind === 'line') return [s.a];
+  if (s.kind === 'spline') { const out = []; for (const [p0, c1, c2, p3] of s.beziers) for (let i = 0; i < 12; i++) out.push(bezierAt(p0, c1, c2, p3, i / 12)); return out; }
   const n = 24;
   const out = [];
   for (let i = 0; i < n; i++) {
