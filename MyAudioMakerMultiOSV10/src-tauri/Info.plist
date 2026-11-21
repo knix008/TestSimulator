@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- .mam songs use their own document icon (bundle resource project.icns). -->
+  <key>CFBundleDocumentTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>MyAudioMaker Song</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>CFBundleTypeExtensions</key>
+      <array>
+        <string>mam</string>
+      </array>
+      <key>CFBundleTypeIconFile</key>
+      <string>project.icns</string>
+      <key>LSHandlerRank</key>
+      <string>Owner</string>
+      <key>LSItemContentTypes</key>
+      <array>
+        <string>com.shkwon.myaudiomaker.project</string>
+      </array>
+    </dict>
+  </array>
+  <key>UTExportedTypeDeclarations</key>
+  <array>
+    <dict>
+      <key>UTTypeIdentifier</key>
+      <string>com.shkwon.myaudiomaker.project</string>
+      <key>UTTypeDescription</key>
+      <string>MyAudioMaker Song</string>
+      <key>UTTypeConformsTo</key>
+      <array>
+        <string>public.zip-archive</string>
+        <string>public.data</string>
+      </array>
+      <key>UTTypeIconFile</key>
+      <string>project.icns</string>
+      <key>UTTypeTagSpecification</key>
+      <dict>
+        <key>public.filename-extension</key>
+        <array>
+          <string>mam</string>
+        </array>
+        <key>public.mime-type</key>
+        <string>application/x-myaudiomaker</string>
+      </dict>
+    </dict>
+  </array>
+</dict>
+</plist>

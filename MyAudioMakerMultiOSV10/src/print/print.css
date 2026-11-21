@@ -1,0 +1,17 @@
+/* The print window (print/popup.js): on top of styles.css's print preview rules. */
+.print3d-view .print-options { overflow: hidden; }
+.print3d-view .print-column { min-height: 0; }
+.print3d-view .print-column:first-child { display: flex; flex-direction: column; }
+.print3d-view .print-section.grow { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.print3d-view .print-groups { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0; }
+.print3d-view .print-groups .chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--muted); font: inherit; font-size: 0.88em; cursor: pointer; }
+.print3d-view .print-groups .chip .icon { width: 14px; height: 14px; }
+.print3d-view .print-groups .chip.on { border-color: var(--accent); color: var(--text); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+.print3d-view .print-pages { flex: 1; min-height: 60px; overflow: hidden auto; border: 1px solid var(--border); border-radius: 6px; padding: 2px 0; background: var(--surface); }
+.print3d-view .print-page-row { display: flex; align-items: center; gap: 6px; padding: 3px 8px; cursor: pointer; min-width: 0; }
+.print3d-view .print-page-row:hover { background: var(--hover); }
+.print3d-view .print-page-row > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.print3d-view .print-page-row .icon { flex: none; width: 15px; height: 15px; color: var(--muted); }
+.print3d-view .print-count { min-height: 24px; }
+.popup-print .print-status { margin-left: 8px; font-size: 0.9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.popup-print .popup-foot .button[disabled] { opacity: 0.5; }

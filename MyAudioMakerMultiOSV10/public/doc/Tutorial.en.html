@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="generator" content="MyAudioMaker scripts/build-docs.mjs" />
+<title>MyAudioMaker tutorial</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f7f8fa; --surface: #ffffff; --text: #1d2330; --muted: #5d6677; --border: #dde2ea;
+  --accent: #2f6fde; --accent-soft: #e8f0fe; --code-bg: #f1f3f7; --row-alt: #f8fafc; --shadow: 0 1px 3px rgba(20, 30, 50, .08);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171d; --surface: #1b1f27; --text: #e3e7ee; --muted: #9aa4b5; --border: #2e3440;
+    --accent: #6ea8ff; --accent-soft: #1f2b40; --code-bg: #242a35; --row-alt: #1f242d; --shadow: 0 1px 3px rgba(0, 0, 0, .4);
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text); line-height: 1.7; font-size: 16px;
+  font-family: "Pretendard", "Segoe UI", "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", "Noto Sans KR", "Noto Sans CJK KR", system-ui, sans-serif;
+  word-break: keep-all; overflow-wrap: anywhere;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.topbar {
+  position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; padding: 10px 24px;
+  background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: var(--shadow);
+}
+.topbar .brand { font-weight: 700; color: var(--text); }
+.topbar .grow { flex: 1; }
+.topbar .lang { border: 1px solid var(--border); border-radius: 999px; padding: 2px 12px; font-size: 14px; }
+.layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 32px; max-width: 1320px; margin: 0 auto; padding: 24px; }
+nav.toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 88px); overflow: auto; font-size: 14px; padding: 12px 8px 12px 0; }
+nav.toc .toc-title { font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: 12px; margin: 0 0 8px 10px; }
+nav.toc ul { list-style: none; margin: 0; padding: 0; }
+nav.toc li a { display: block; padding: 3px 10px; border-left: 2px solid transparent; color: var(--text); border-radius: 0 6px 6px 0; }
+nav.toc li a:hover { background: var(--accent-soft); text-decoration: none; }
+nav.toc li.h3 a { padding-left: 24px; color: var(--muted); font-size: 13px; }
+main { min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 32px 44px 48px; box-shadow: var(--shadow); }
+h1, h2, h3, h4 { line-height: 1.3; scroll-margin-top: 72px; }
+h1 { font-size: 2em; margin: 0 0 .6em; }
+h2 { font-size: 1.5em; margin: 2em 0 .6em; padding-bottom: .3em; border-bottom: 1px solid var(--border); }
+h3 { font-size: 1.2em; margin: 1.6em 0 .5em; }
+h4 { font-size: 1.05em; margin: 1.4em 0 .4em; }
+.anchor { opacity: 0; margin-left: 6px; font-weight: 400; color: var(--muted); }
+h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+img { max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); display: block; margin: 12px 0; }
+.table-wrap { overflow-x: auto; margin: 14px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { border: 1px solid var(--border); padding: 7px 11px; text-align: left; vertical-align: top; }
+th { background: var(--accent-soft); font-weight: 600; }
+tbody tr:nth-child(even) td { background: var(--row-alt); }
+code { font-family: "Cascadia Code", Consolas, "D2Coding", "Courier New", monospace; font-size: .9em; background: var(--code-bg); border-radius: 4px; padding: 1px 5px; }
+pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; line-height: 1.5; }
+pre code { background: none; padding: 0; font-size: 14px; }
+blockquote { margin: 14px 0; padding: 8px 16px; border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; color: var(--text); }
+blockquote p { margin: 6px 0; }
+hr { border: 0; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 1.6em; }
+li { margin: 3px 0; }
+li > ul, li > ol { margin: 4px 0; }
+footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px; }
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; padding: 12px; gap: 12px; }
+  nav.toc { position: static; max-height: none; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+  main { padding: 20px 18px 32px; border-radius: 10px; }
+  .topbar { padding: 10px 14px; }
+}
+@media print {
+  .topbar, nav.toc { display: none; }
+  .layout { display: block; padding: 0; }
+  main { border: 0; box-shadow: none; padding: 0; }
+}
+</style>
+</head>
+<body>
+<header class="topbar"><span class="brand">MyAudioMaker <small>v1.0.0</small></span><span class="grow"></span><a class="lang" href="Tutorial.html" hreflang="ko">한국어</a></header>
+<div class="layout">
+<nav class="toc" aria-label="Contents"><p class="toc-title">Contents</p><ul><li class="h2"><a href="#running-the-tutorial">Running the tutorial</a></li><li class="h2"><a href="#contents">Contents</a></li><li class="h2"><a href="#1-start">1. Start</a></li><li class="h3"><a href="#1-the-start-page">1. The start page</a></li><li class="h3"><a href="#2-compose-with-ai">2. Compose with AI</a></li><li class="h3"><a href="#3-sample-songs">3. Sample songs</a></li><li class="h2"><a href="#2-ai-composing">2. AI composing</a></li><li class="h3"><a href="#4-the-workspace">4. The workspace</a></li><li class="h3"><a href="#5-the-ai-compose-panel">5. The AI Compose panel</a></li><li class="h3"><a href="#6-which-ai-writes">6. Which AI writes?</a></li><li class="h3"><a href="#7-the-ai-song-wizard">7. The AI song wizard</a></li><li class="h2"><a href="#3-arrangement">3. Arrangement</a></li><li class="h3"><a href="#8-the-arrangement">8. The arrangement</a></li><li class="h3"><a href="#9-sections">9. Sections</a></li><li class="h3"><a href="#10-regenerate">10. Regenerate</a></li><li class="h3"><a href="#11-tracks">11. Tracks</a></li><li class="h2"><a href="#4-editing-notes">4. Editing notes</a></li><li class="h3"><a href="#12-the-piano-roll">12. The piano roll</a></li><li class="h3"><a href="#13-drawing-tools">13. Drawing tools</a></li><li class="h3"><a href="#14-instruments">14. Instruments</a></li><li class="h2"><a href="#5-lyrics-and-sheet">5. Lyrics and sheet</a></li><li class="h3"><a href="#15-editing-lyrics">15. Editing lyrics</a></li><li class="h3"><a href="#16-fitting-the-melody">16. Fitting the melody</a></li><li class="h3"><a href="#17-the-lead-sheet">17. The lead sheet</a></li><li class="h2"><a href="#6-listening-and-mix">6. Listening and mix</a></li><li class="h3"><a href="#18-playing">18. Playing</a></li><li class="h3"><a href="#19-loop-and-metronome">19. Loop and metronome</a></li><li class="h3"><a href="#20-the-mix">20. The mix</a></li><li class="h2"><a href="#7-save-and-export">7. Save and export</a></li><li class="h3"><a href="#21-saving">21. Saving</a></li><li class="h3"><a href="#22-export">22. Export</a></li><li class="h3"><a href="#23-printing">23. Printing</a></li><li class="h2"><a href="#8-settings-and-help">8. Settings and help</a></li><li class="h3"><a href="#24-ai-settings">24. AI settings</a></li><li class="h3"><a href="#25-shortcuts">25. Shortcuts</a></li><li class="h3"><a href="#26-all-done">26. All done</a></li></ul></nav>
+<main>
+<h1 id="myaudiomaker-tutorial">MyAudioMaker tutorial</h1>
+<p>The in-app <strong>Tutorial</strong>, chapter by chapter and step by step. It has 8 chapters and 26 steps and shows every feature by driving the real program. The pictures were taken while the tutorial ran in the web version (<code>npm run tutorial:docs</code> takes them again).</p>
+<h2 id="running-the-tutorial">Running the tutorial <a class="anchor" href="#running-the-tutorial" aria-hidden="true">#</a></h2>
+<ul><li><strong>Start page › Start the tutorial</strong>, the <strong>Tutorial</strong> button at the right of the toolbar, <strong>Help › Tutorial</strong> or <strong>F11</strong>.</li><li>In the card at the bottom right: <strong>Next</strong> / <strong>Previous step</strong> one step at a time, <strong>Auto play</strong> to the end, the chapter list to jump to a chapter, <strong>✕</strong> or <strong>Esc</strong> to stop at any time. Drag the card by its header to move it.</li><li>The tutorial works in a project of its own (the 84 m² apartment template). Your open project comes back when it ends, and the settings it changes (theme, language, panels …) are put back.</li><li>While it runs, popups (menus, Settings, the render window) open inside the main window instead of their own windows.</li><li>Every feature is explained in detail in the <a href="UsersGuide.en.html">User&#39;s guide</a>.</li></ul>
+<h2 id="contents">Contents <a class="anchor" href="#contents" aria-hidden="true">#</a></h2>
+<ol><li><a href="#1-start">Start</a></li><li><a href="#2-ai-composing">AI composing</a></li><li><a href="#3-arrangement">Arrangement</a></li><li><a href="#4-editing-notes">Editing notes</a></li><li><a href="#5-lyrics-and-sheet">Lyrics and sheet</a></li><li><a href="#6-listening-and-mix">Listening and mix</a></li><li><a href="#7-save-and-export">Save and export</a></li><li><a href="#8-settings-and-help">Settings and help</a></li></ol>
+<h2 id="1-start">1. Start <a class="anchor" href="#1-start" aria-hidden="true">#</a></h2>
+<h3 id="1-the-start-page">1. The start page <a class="anchor" href="#1-the-start-page" aria-hidden="true">#</a></h3>
+<p>MyAudioMaker opens on the start page. Drag cards to move them; resize them by their corner.</p>
+<p><img src="tutorial/images/en/01-welcome.jpg" alt="The start page" loading="lazy" /></p>
+<h3 id="2-compose-with-ai">2. Compose with AI <a class="anchor" href="#2-compose-with-ai" aria-hidden="true">#</a></h3>
+<p>Click a genre to open the AI wizard with it. Type a topic and press “Compose song”: lyrics, melody and band are made at once.</p>
+<p><img src="tutorial/images/en/02-startCompose.jpg" alt="Compose with AI" loading="lazy" /></p>
+<h3 id="3-sample-songs">3. Sample songs <a class="anchor" href="#3-sample-songs" aria-hidden="true">#</a></h3>
+<p>Twenty-four sample songs by genre. Click one to open and play it.</p>
+<p><img src="tutorial/images/en/03-samples.jpg" alt="Sample songs" loading="lazy" /></p>
+<h2 id="2-ai-composing">2. AI composing <a class="anchor" href="#2-ai-composing" aria-hidden="true">#</a></h2>
+<h3 id="4-the-workspace">4. The workspace <a class="anchor" href="#4-the-workspace" aria-hidden="true">#</a></h3>
+<p>Left: AI Compose, instruments and sections. Centre: arrangement, piano roll, lyrics and lead sheet. Right: the outline and properties. Bottom: problems, messages and information.</p>
+<p><img src="tutorial/images/en/04-workspace.jpg" alt="The workspace" loading="lazy" /></p>
+<h3 id="5-the-ai-compose-panel">5. The AI Compose panel <a class="anchor" href="#5-the-ai-compose-panel" aria-hidden="true">#</a></h3>
+<p>Choose a topic, genre, mood, lyrics language, key, tempo, form and vocal. The same seed makes the same song; the dice picks a new one.</p>
+<p><img src="tutorial/images/en/05-composePanel.jpg" alt="The AI Compose panel" loading="lazy" /></p>
+<h3 id="6-which-ai-writes">6. Which AI writes? <a class="anchor" href="#6-which-ai-writes" aria-hidden="true">#</a></h3>
+<p>The built-in writer works offline at once. In Settings › AI choose Claude (your API key) or Ollama (a model on this computer) for freer lyrics and chords.</p>
+<p><img src="tutorial/images/en/06-provider.jpg" alt="Which AI writes?" loading="lazy" /></p>
+<h3 id="7-the-ai-song-wizard">7. The AI song wizard <a class="anchor" href="#7-the-ai-song-wizard" aria-hidden="true">#</a></h3>
+<p>Every choice on one page: pick a theme, genre and mood as chips and press “Compose song” (Ctrl+Shift+G).</p>
+<p><img src="tutorial/images/en/07-wizard.jpg" alt="The AI song wizard" loading="lazy" /></p>
+<h2 id="3-arrangement">3. Arrangement <a class="anchor" href="#3-arrangement" aria-hidden="true">#</a></h2>
+<h3 id="8-the-arrangement">8. The arrangement <a class="anchor" href="#8-the-arrangement" aria-hidden="true">#</a></h3>
+<p>The whole song at a glance: the ruler shows bars, sections (coloured blocks) and chords; below, each track’s notes. Ctrl+wheel zooms.</p>
+<p><img src="tutorial/images/en/08-arrangement.jpg" alt="The arrangement" loading="lazy" /></p>
+<h3 id="9-sections">9. Sections <a class="anchor" href="#9-sections" aria-hidden="true">#</a></h3>
+<p>Click a section block to select it. Drag the ruler to set a loop; click it to move the play position.</p>
+<p><img src="tutorial/images/en/09-sections.jpg" alt="Sections" loading="lazy" /></p>
+<h3 id="10-regenerate">10. Regenerate <a class="anchor" href="#10-regenerate" aria-hidden="true">#</a></h3>
+<p>In the Section tab, regenerate chords, melody, accompaniment, bass or drums one by one. Type chords like “C G | Am F” and the band follows.</p>
+<p><img src="tutorial/images/en/10-regenerate.jpg" alt="Regenerate" loading="lazy" /></p>
+<h3 id="11-tracks">11. Tracks <a class="anchor" href="#11-tracks" aria-hidden="true">#</a></h3>
+<p>Each track has M (mute), S (solo) and a volume. Double-click to edit its notes in the piano roll.</p>
+<p><img src="tutorial/images/en/11-tracks.jpg" alt="Tracks" loading="lazy" /></p>
+<h2 id="4-editing-notes">4. Editing notes <a class="anchor" href="#4-editing-notes" aria-hidden="true">#</a></h2>
+<h3 id="12-the-piano-roll">12. The piano roll <a class="anchor" href="#12-the-piano-roll" aria-hidden="true">#</a></h3>
+<p>Drag notes to move them, their right edge to resize. Vocal notes show their syllables; the tinted rows are the chord’s tones.</p>
+<p><img src="tutorial/images/en/12-roll.jpg" alt="The piano roll" loading="lazy" /></p>
+<h3 id="13-drawing-tools">13. Drawing tools <a class="anchor" href="#13-drawing-tools" aria-hidden="true">#</a></h3>
+<p>Select (V), Draw (D) and Erase (E), and the snap grid. Double-click empty space to add a note.</p>
+<p><img src="tutorial/images/en/13-tools.jpg" alt="Drawing tools" loading="lazy" /></p>
+<h3 id="14-instruments">14. Instruments <a class="anchor" href="#14-instruments" aria-hidden="true">#</a></h3>
+<p>44 instruments: keys, guitars, basses, strings, winds, synths, pads, drums and vocals. ▶ previews; double-click changes the selected track’s instrument.</p>
+<p><img src="tutorial/images/en/14-instruments.jpg" alt="Instruments" loading="lazy" /></p>
+<h2 id="5-lyrics-and-sheet">5. Lyrics and sheet <a class="anchor" href="#5-lyrics-and-sheet" aria-hidden="true">#</a></h2>
+<h3 id="15-editing-lyrics">15. Editing lyrics <a class="anchor" href="#15-editing-lyrics" aria-hidden="true">#</a></h3>
+<p>Edit each section’s lyrics. The numbers are syllables and notes; red when they differ.</p>
+<p><img src="tutorial/images/en/15-lyrics.jpg" alt="Editing lyrics" loading="lazy" /></p>
+<h3 id="16-fitting-the-melody">16. Fitting the melody <a class="anchor" href="#16-fitting-the-melody" aria-hidden="true">#</a></h3>
+<p>Changed lyrics get a melody that fits their syllables. The AI button rewrites just that section.</p>
+<p><img src="tutorial/images/en/16-fit.jpg" alt="Fitting the melody" loading="lazy" /></p>
+<h3 id="17-the-lead-sheet">17. The lead sheet <a class="anchor" href="#17-the-lead-sheet" aria-hidden="true">#</a></h3>
+<p>The vocal melody in staff notation with chords above and lyrics below — ready to print.</p>
+<p><img src="tutorial/images/en/17-sheet.jpg" alt="The lead sheet" loading="lazy" /></p>
+<h2 id="6-listening-and-mix">6. Listening and mix <a class="anchor" href="#6-listening-and-mix" aria-hidden="true">#</a></h2>
+<h3 id="18-playing">18. Playing <a class="anchor" href="#18-playing" aria-hidden="true">#</a></h3>
+<p>Space plays and pauses. The built-in synthesizer plays every instrument; the guide voice sings the melody on vowels.</p>
+<p><img src="tutorial/images/en/18-play.jpg" alt="Playing" loading="lazy" /></p>
+<h3 id="19-loop-and-metronome">19. Loop and metronome <a class="anchor" href="#19-loop-and-metronome" aria-hidden="true">#</a></h3>
+<p>L loops, M switches the metronome. Pick a section and loop it to practise.</p>
+<p><img src="tutorial/images/en/19-loop.jpg" alt="Loop and metronome" loading="lazy" /></p>
+<h3 id="20-the-mix">20. The mix <a class="anchor" href="#20-the-mix" aria-hidden="true">#</a></h3>
+<p>Set each track’s volume, pan and reverb, the master volume and the compressor.</p>
+<p><img src="tutorial/images/en/20-mix.jpg" alt="The mix" loading="lazy" /></p>
+<h2 id="7-save-and-export">7. Save and export <a class="anchor" href="#7-save-and-export" aria-hidden="true">#</a></h2>
+<h3 id="21-saving">21. Saving <a class="anchor" href="#21-saving" aria-hidden="true">#</a></h3>
+<p>Songs are saved as .mam files (Ctrl+S).</p>
+<p><img src="tutorial/images/en/21-save.jpg" alt="Saving" loading="lazy" /></p>
+<h3 id="22-export">22. Export <a class="anchor" href="#22-export" aria-hidden="true">#</a></h3>
+<p>Export WAV (16, 24, 32 bit), stems per track, MIDI (with lyrics), lyrics TXT, timed LRC and a chord chart.</p>
+<p><img src="tutorial/images/en/22-export.jpg" alt="Export" loading="lazy" /></p>
+<h3 id="23-printing">23. Printing <a class="anchor" href="#23-printing" aria-hidden="true">#</a></h3>
+<p>Preview and print the lead sheet, lyrics, chord chart, arrangement and summary, or save a PDF.</p>
+<p><img src="tutorial/images/en/23-print.jpg" alt="Printing" loading="lazy" /></p>
+<h2 id="8-settings-and-help">8. Settings and help <a class="anchor" href="#8-settings-and-help" aria-hidden="true">#</a></h2>
+<h3 id="24-ai-settings">24. AI settings <a class="anchor" href="#24-ai-settings" aria-hidden="true">#</a></h3>
+<p>Choose the built-in writer, Claude or Ollama; enter Claude’s key and model or Ollama’s address and model, and test the connection.</p>
+<p><img src="tutorial/images/en/24-aiSettings.jpg" alt="AI settings" loading="lazy" /></p>
+<h3 id="25-shortcuts">25. Shortcuts <a class="anchor" href="#25-shortcuts" aria-hidden="true">#</a></h3>
+<p>Every shortcut is in Settings › Shortcuts.</p>
+<p><img src="tutorial/images/en/25-shortcuts.jpg" alt="Shortcuts" loading="lazy" /></p>
+<h3 id="26-all-done">26. All done <a class="anchor" href="#26-all-done" aria-hidden="true">#</a></h3>
+<p>Help › Tutorial (F11) shows this again any time. Now make a song of your own!</p>
+<p><img src="tutorial/images/en/26-finish.jpg" alt="All done" loading="lazy" /></p>
+<hr />
+<p>Run the tutorial again any time from <strong>Help › Tutorial</strong> (F11). A recording of the whole tour plays from <strong>Help › Tutorial video</strong> (once made with <code>npm run tutorial:video</code>).</p>
+</main>
+</div>
+<footer>MyAudioMaker v1.0.0 · © SHKWON (knix008@naver.com)</footer>
+</body>
+</html>

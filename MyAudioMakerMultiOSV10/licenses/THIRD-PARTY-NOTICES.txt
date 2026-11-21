@@ -1,0 +1,12 @@
+MyAudioMaker — third-party software
+
+This application includes the following open-source packages. Their licence texts are in this folder.
+
+@anthropic-ai/sdk 1.12.0 — Apache-2.0
+  anthropic-ai-sdk.LICENSE.txt, anthropic-ai-sdk.LICENSE-MIT.txt
+@tauri-apps/api 2.12.5 — Apache-2.0 OR MIT — https://github.com/tauri-apps/tauri#readme
+  tauri-apps-api.LICENSE-APACHE-2.0.txt, tauri-apps-api.LICENSE-MIT.txt
+@tauri-apps/plugin-dialog 2.8.4 — MIT OR Apache-2.0
+  tauri-apps-plugin-dialog.LICENSE.spdx.txt
+fflate 0.8.3 — MIT — https://101arrowz.github.io/fflate
+  fflate.LICENSE.txt

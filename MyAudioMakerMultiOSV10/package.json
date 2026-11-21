@@ -1,0 +1,44 @@
+{
+  "name": "myaudiomaker",
+  "productName": "MyAudioMaker",
+  "private": true,
+  "version": "1.0.0",
+  "description": "AI music maker for Web, Windows, macOS and Linux (Tauri) — songs composed from a few choices (genre, mood, key, form), lyrics written in Korean or English by the built-in writer or Claude / Ollama, arrangement and piano roll editing, a built-in synthesizer with a guide voice, WAV / MIDI / LRC export and printed lead sheets",
+  "author": "SHKWON <knix008@naver.com>",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "dev": "vite",
+    "build:web": "vite build",
+    "preview": "vite preview --port 4176 --strictPort",
+    "tauri": "tauri",
+    "test": "node scripts/test.mjs",
+    "test:quick": "node scripts/test.mjs --quick",
+    "test:unit": "node scripts/test.mjs --only js",
+    "test:web": "node scripts/test.mjs --only web",
+    "test:desktop": "node scripts/test.mjs --only desktop --desktop",
+    "build:win": "node scripts/build.mjs win",
+    "build:mac": "node scripts/build.mjs mac",
+    "build:linux": "node scripts/build.mjs linux",
+    "build:webapp": "vite build",
+    "build:all": "node scripts/build.mjs all",
+    "build:docs": "node scripts/build-docs.mjs",
+    "tutorial:docs": "node scripts/tutorial-capture.mjs docs",
+    "tutorial:video": "node scripts/tutorial-capture.mjs video",
+    "samples": "node scripts/make-samples.mjs",
+    "build:icons": "node scripts/render-icons.mjs",
+    "notices": "node scripts/make-notices.mjs",
+    "clean": "node scripts/clean.mjs",
+    "clean:all": "node scripts/clean.mjs --all"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.12.0",
+    "@tauri-apps/api": "^2.8.0",
+    "@tauri-apps/plugin-dialog": "^2.4.0",
+    "fflate": "^0.8.3"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.0",
+    "vite": "^7.1.7"
+  }
+}

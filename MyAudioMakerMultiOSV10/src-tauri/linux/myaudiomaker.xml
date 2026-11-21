@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-myaudiomaker">
+    <comment>MyAudioMaker Song</comment>
+    <comment xml:lang="ko">MyAudioMaker 곡</comment>
+    <icon name="application-x-myaudiomaker"/>
+    <glob pattern="*.mam"/>
+  </mime-type>
+</mime-info>

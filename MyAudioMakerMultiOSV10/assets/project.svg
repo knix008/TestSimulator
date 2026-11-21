@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- .mam song icon: a page with a folded corner, a staff and a note, and the app's colours along the bottom, on a soft ground shadow. -->
+  <defs>
+    <linearGradient id="face" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f1e9ff"/>
+    </linearGradient>
+    <linearGradient id="band" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7c5cff"/>
+      <stop offset="1" stop-color="#ff6a7f"/>
+    </linearGradient>
+    <filter id="ground" x="-30%" y="-300%" width="160%" height="700%"><feGaussianBlur stdDeviation="20"/></filter>
+  </defs>
+  <ellipse cx="512" cy="958" rx="320" ry="30" fill="#2a0f4a" opacity="0.45" filter="url(#ground)"/>
+  <path d="M220 96h420l200 200v608a24 24 0 0 1-24 24H220a24 24 0 0 1-24-24V120a24 24 0 0 1 24-24z" fill="url(#face)" stroke="#8b7bd6" stroke-width="18"/>
+  <path d="M640 96v176a24 24 0 0 0 24 24h176" fill="#e6dcff" stroke="#8b7bd6" stroke-width="18" stroke-linejoin="round"/>
+  <g stroke="#6b5bb5" stroke-width="10" opacity="0.7"><path d="M280 420h460M280 470h460M280 520h460M280 570h460M280 620h460"/></g>
+  <ellipse cx="430" cy="620" rx="56" ry="42" transform="rotate(-20 430 620)" fill="#4b3a9e"/>
+  <rect x="470" y="380" width="22" height="240" fill="#4b3a9e"/>
+  <path d="M492 380c60 20 100 50 90 130-10-50-40-70-90-80z" fill="#4b3a9e"/>
+  <rect x="196" y="790" width="644" height="114" fill="url(#band)"/>
+  <text x="518" y="872" font-family="Segoe UI, Arial, sans-serif" font-size="80" font-weight="800" text-anchor="middle" fill="#ffffff">MAM</text>
+</svg>
