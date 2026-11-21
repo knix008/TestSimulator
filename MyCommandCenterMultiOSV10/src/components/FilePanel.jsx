@@ -74,6 +74,7 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
   const [cursor, setCursor] = useState(-1);
   const [anchor, setAnchor] = useState(-1);
   const [menu, setMenu] = useState(null);       // { x, y }
+  const [treeMenu, setTreeMenu] = useState(null); // { x, y, path }
   const [extractable, setExtractable] = useState(false);
   const [driveMenu, setDriveMenu] = useState(null);   // anchor element
   const [drives, setDrives] = useState([]);
@@ -328,6 +329,10 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
     onActivate();
     setMenu({ x: e.clientX, y: e.clientY });
   };
+  const onTreeContextMenu = (e, p) => {
+    onActivate();
+    setTreeMenu({ x: e.clientX, y: e.clientY, path: p });
+  };
   const onEmptyClick = (e) => {
     if (e.target === bodyRef.current || e.target.tagName === 'TABLE' || e.target.tagName === 'TBODY') {
       setSelected(new Set());
@@ -521,6 +526,29 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
     { id: 'search', label: t('ctx_search'), icon: 'search', shortcut: 'F9' },   // the search window (not the dock tab)
     { id: 'openTerminal', label: t('ctx_terminal'), icon: 'terminal' },          // a shell in this folder (or the selected folder)
   ];
+  const treeMenuItems = [
+    { id: 'open', label: t('ctx_open'), icon: 'open' },
+    { sep: true },
+    { id: 'copyOther', label: t('ctx_copy_other'), icon: 'copy' },
+    { id: 'moveOther', label: t('ctx_move_other'), icon: 'move' },
+    { sep: true },
+    { id: 'clipCut', label: t('ctx_cut'), icon: 'cut', shortcut: 'Ctrl+X' },
+    { id: 'clipCopy', label: t('ctx_copy'), icon: 'copy', shortcut: 'Ctrl+C' },
+    { id: 'clipPaste', label: t('ctx_paste'), icon: 'paste', shortcut: 'Ctrl+V' },
+    { sep: true },
+    { id: 'rename', label: t('ctx_rename'), icon: 'rename' },
+    { id: 'trash', label: t('ctx_trash'), icon: 'trash', shortcut: 'Del' },
+    { sep: true },
+    { id: 'compress', label: t('ctx_compress'), icon: 'archive' },
+    { sep: true },
+    { id: 'newFolder', label: t('ctx_new_folder'), icon: 'folderNew' },
+    { id: 'newFile', label: t('ctx_new_file'), icon: 'fileNew' },
+    { sep: true },
+    { id: 'properties', label: t('ctx_properties'), icon: 'properties' },
+    { sep: true },
+    { id: 'search', label: t('ctx_search'), icon: 'search', shortcut: 'F9' },
+    { id: 'openTerminal', label: t('ctx_terminal'), icon: 'terminal' },
+  ];
 
   // Tab label: the folder's name, or the drive / root itself.
   const tabLabel = (p) => baseName(p) || p;
@@ -602,7 +630,8 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
           a click in it opens the folder here. */}
       <div className="panel-main">
       {treeOpen && <>
-        <FolderTree currentPath={path} width={treeWidth} onSelect={(p) => { onActivate(); onNavigate(p); }} />
+        <FolderTree currentPath={path} width={treeWidth} onSelect={(p) => { onActivate(); onNavigate(p); }}
+          onContextMenu={onTreeContextMenu} />
         {/* drag the edge to resize the tree (the width is kept in the session) */}
         <div className="tree-resize" onMouseDown={(e) => {
           e.preventDefault();
@@ -658,6 +687,10 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
       {menu && (
         <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)}
           onPick={(id) => { setMenu(null); onAction(id); }} />
+      )}
+      {treeMenu && (
+        <ContextMenu x={treeMenu.x} y={treeMenu.y} items={treeMenuItems} onClose={() => setTreeMenu(null)}
+          onPick={(id) => { setTreeMenu(null); props.onTreeAction(id, treeMenu.path); }} />
       )}
       {driveMenu && (
         <ContextMenu anchorEl={driveMenu} x={0} y={0} items={driveItems} onClose={() => setDriveMenu(null)}

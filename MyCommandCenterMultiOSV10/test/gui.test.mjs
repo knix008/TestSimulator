@@ -795,6 +795,51 @@ describe('GUI operations', { concurrency: false }, () => {
     await waitFor(() => !document.querySelector('.ctx-menu'));
   });
 
+  test('the left and right folder trees show a folder context menu', async () => {
+    await boot();
+    for (const panel of [leftPanel(), rightPanel()]) {
+      await click(panel.querySelector('.tree-btn'));
+      const tree = await waitFor(() => panel.querySelector('.folder-tree'));
+      const folder = await waitFor(() => tree.querySelector('.tree-row'));
+      assert.ok(folder);
+      const menu = await rightClick(folder);
+      const labels = [...menu.querySelectorAll('.ctx-item .ctx-label')].map((e) => e.textContent);
+      assert.deepEqual(labels, [
+        '열기', '→ 다른 패널로 복사', '→ 다른 패널로 이동',
+        '잘라내기', '복사', '붙여넣기', '이름 바꾸기', '휴지통으로 이동',
+        '압축', '새 폴더 만들기', '새 파일 만들기', '파일 정보 보기',
+        '이 폴더에서 검색…', '터미널 열기',
+      ]);
+      await press(document, { key: 'Escape' });
+      await waitFor(() => !document.querySelector('.ctx-menu'));
+      await click(panel.querySelector('.tree-btn'));
+      await waitFor(() => !panel.querySelector('.folder-tree'));
+    }
+  });
+
+  test('folder tree actions copy, compress and delete the directory under the pointer', async () => {
+    const ui = await boot({ 'folder/inside.txt': 'body' });
+    if (!leftPanel().querySelector('.folder-tree')) await click(leftPanel().querySelector('.tree-btn'));
+    const tree = await waitFor(() => leftPanel().querySelector('.folder-tree'));
+    const folder = await waitFor(() => [...tree.querySelectorAll('.tree-row')].find((r) => r.textContent.trim() === 'folder'));
+
+    await rightClick(folder);
+    await pickItem('→ 다른 패널로 복사');
+    await waitFor(() => names(rightPanel()).includes('folder'));
+    assert.equal(fs.readFileSync(path.join(ui.dirs.R, 'folder', 'inside.txt'), 'utf8'), 'body');
+
+    await rightClick(folder);
+    await pickItem('압축');
+    const compressDialog = await waitFor(() => topDialog());
+    await click(compressDialog.querySelector('.dlg-footer .btn.primary'));
+    await waitFor(() => names(leftPanel()).includes('folder.tar.gz') && !topDialog());
+
+    await rightClick(folder);
+    await pickItem('휴지통으로 이동');
+    await click(buttonNamed(await waitFor(() => topDialog()), '예'));
+    await waitFor(() => !fs.existsSync(path.join(ui.dirs.L, 'folder')) && !topDialog());
+  });
+
   // Right-click anywhere else gets the app's menu, never WebView2's: every item with an icon.
   const menuLabels = (menu) => [...menu.querySelectorAll('.ctx-item .ctx-label')].map((e) => e.textContent);
   const assertIcons = (menu) => {

@@ -534,8 +534,7 @@ export default function App() {
     else setStatus(t('uploaded', { n: done, dest }));
   };
 
-  const newEntry = async (side, kind) => {
-    const dir = pathOf(side);
+  const newEntry = async (side, kind, dir = pathOf(side)) => {
     const name = await dialogs.prompt(kind === 'folder'
       ? { title: t('dlg_new_folder'), label: t('lbl_folder_name'), value: t('default_folder'), icon: 'folderNew' }
       : { title: t('dlg_new_file'), label: t('lbl_file_name'), value: t('default_file'), icon: 'fileNew', selectStem: true });
@@ -543,34 +542,39 @@ export default function App() {
     try {
       const r = await call(kind === 'folder' ? 'fs.mkdir' : 'fs.createFile', { dir, name });
       history.push({ kind: 'create', path: r.path, isDir: kind === 'folder' });
-      await panel(side).refresh();
-      panel(side).selectPaths([r.path]);
+      const p = panel(side);
+      if (samePath(pathOf(side), dir)) {
+        await p.refresh();
+        p.selectPaths([r.path]);
+      } else refreshBoth();
       setStatus(t(kind === 'folder' ? 'made_folder' : 'made_file', { name }));
     } catch (err) {
       await dialogs.error(err.code === 'EEXIST' ? t('exists', { name }) : err);
     }
   };
 
-  const rename = async (side) => {
+  const rename = async (side, entryOverride) => {
     const p = panel(side);
-    const [entry] = p ? p.getSelectedEntries() : [];
+    const entry = entryOverride || (p ? p.getSelectedEntries()[0] : null);
     if (!entry) return;
     const name = await dialogs.prompt({ title: t('dlg_rename'), label: t('lbl_new_name'), value: entry.name, icon: 'rename', selectStem: !entry.isDir });
     if (!name || name === entry.name) return;
     try {
       const r = await call('fs.rename', { path: entry.path, newName: name });
       history.push({ kind: 'rename', dir: dirName(entry.path), from: entry.name, to: name });
-      await p.refresh();
-      p.selectPaths([r.path]);
+      if (samePath(pathOf(side), dirName(entry.path))) {
+        await p.refresh();
+        p.selectPaths([r.path]);
+      } else refreshBoth();
       setStatus(t('renamed', { name }));
     } catch (err) {
       await dialogs.error(err.code === 'EEXIST' ? t('exists', { name }) : err, t('rename_failed'));
     }
   };
 
-  const remove = async (side) => {
+  const remove = async (side, pathsOverride) => {
     const p = panel(side);
-    const paths = p ? p.getSelectedPaths() : [];
+    const paths = pathsOverride || (p ? p.getSelectedPaths() : []);
     if (!paths.length) { setStatus(t('delete_none')); return; }
     const ok = session.confirmDelete === false || await dialogs.confirm({
       title: t('ctx_delete'), danger: true,
@@ -578,26 +582,28 @@ export default function App() {
     });
     if (!ok) return;
     const final = await runWithProgress(t('deleting'), 'ops.delete', { paths });
-    await p.refresh();
+    if (paths.some((target) => samePath(pathOf(side), dirName(target)))) await p.refresh();
+    else refreshBoth();
     history.mark();
     if (final.status === 'done') setStatus(t('deleted', { n: paths.length }));
     else if (final.status === 'cancelled') setStatus(t('delete_cancelled'));
     else await dialogs.error(final.error || t('delete_failed'), final.errorDetail);
   };
 
-  const trash = async (side) => {
+  const trash = async (side, pathsOverride) => {
     const p = panel(side);
-    const paths = p ? p.getSelectedPaths() : [];
+    const paths = pathsOverride || (p ? p.getSelectedPaths() : []);
     if (!paths.length) { setStatus(t('trash_none')); return; }
     // No Trash on this host (a web server without one): the only way left is a permanent delete, which asks itself.
-    if (info && info.capabilities && info.capabilities.trash === false) { await remove(side); return; }
+    if (info && info.capabilities && info.capabilities.trash === false) { await remove(side, paths); return; }
     const ok = session.confirmDelete === false || await dialogs.confirm({
       title: t('ctx_trash'), icon: 'trash',
       message: paths.length === 1 ? t('trash_confirm_one', { name: baseName(paths[0]) }) : t('trash_confirm_many', { n: paths.length }),
     });
     if (!ok) return;
     const final = await runWithProgress(t('trashing'), 'ops.trash', { paths });
-    await p.refresh();
+    if (paths.some((target) => samePath(pathOf(side), dirName(target)))) await p.refresh();
+    else refreshBoth();
     history.mark();
     if (final.status === 'done') setStatus(t('trashed', { n: paths.length }));
     else if (final.status === 'cancelled') setStatus(t('trash_cancelled'));
@@ -624,17 +630,17 @@ export default function App() {
     return existing;
   };
 
-  const clipCopy = async (side) => {
-    const paths = panel(side) ? panel(side).getSelectedPaths() : [];
+  const clipCopy = async (side, pathsOverride) => {
+    const paths = pathsOverride || (panel(side) ? panel(side).getSelectedPaths() : []);
     await publishClip(paths, false);
   };
 
-  const clipCut = async (side) => {
-    const paths = panel(side) ? panel(side).getSelectedPaths() : [];
+  const clipCut = async (side, pathsOverride) => {
+    const paths = pathsOverride || (panel(side) ? panel(side).getSelectedPaths() : []);
     await publishClip(paths, true);
   };
 
-  const clipPaste = async (side) => {
+  const clipPaste = async (side, destOverride) => {
     const native = await readFileClipboard();
     const nativePaths = native && native.paths.length ? await existingPaths(native.paths) : [];
     const mem = recallClip();
@@ -653,7 +659,7 @@ export default function App() {
       }
     }
     if (!paths.length) { setStatus(t('clip_empty')); return; }
-    const dest = pathOf(side);
+    const dest = destOverride || pathOf(side);
     const sources = paths.filter((p) => !samePath(dirName(p), dest));
     if (!sources.length) { setStatus(t('drop_same_folder')); return; }
     const final = await runWithProgress(t(move ? 'moving' : 'pasting'), 'ops.transfer', { sources, dest, move });
@@ -671,21 +677,22 @@ export default function App() {
     else await dialogs.error(final.error || t(move ? 'move_failed' : 'paste_failed'), final.errorDetail);
   };
 
-  const compress = async (side) => {
+  const compress = async (side, pathsOverride, destDir = pathOf(side)) => {
     const p = panel(side);
-    const sources = p ? p.getSelectedPaths() : [];
+    const sources = pathsOverride || (p ? p.getSelectedPaths() : []);
     if (!sources.length) { setStatus(t('compress_none')); return; }
     const opts = await dialogs.compress({ name: stripArchiveExt(baseName(sources[0])), splitSizeMB: session.splitSizeMB || 10 });
     if (!opts) return;
-    const destBase = joinPath(pathOf(side), stripArchiveExt(opts.name));
+    const destBase = joinPath(destDir, stripArchiveExt(opts.name));
     const args = { sources, destBase, format: opts.format, split: opts.split, splitSize: opts.splitSize };
     const final = await runWithProgress(t('compressing'), 'archive.create', args);
-    await p.refresh();
+    if (samePath(pathOf(side), destDir)) await p.refresh();
+    else refreshBoth();
     if (final.status === 'done') {
       setStatus(t(opts.split ? 'compressed_split' : 'compressed', { n: sources.length }));
       if (final.result && final.result.parts) {
         history.push({ kind: 'compress', parts: final.result.parts, args });
-        p.selectPaths(final.result.parts);
+        if (samePath(pathOf(side), destDir)) p.selectPaths(final.result.parts);
       }
     } else if (final.status === 'cancelled') setStatus(t('compress_cancelled'));
     else await dialogs.error(final.error || t('compress_failed'), final.errorDetail);
@@ -757,8 +764,8 @@ export default function App() {
   };
 
   // Alt+Enter / context menu › File info: the file-info window (or dialog): fs.info + what is inside the file.
-  const properties = async (side) => {
-    const [entry] = panel(side) ? panel(side).getSelectedEntries() : [];
+  const properties = async (side, entryOverride) => {
+    const entry = entryOverride || (panel(side) ? panel(side).getSelectedEntries()[0] : null);
     if (!entry) return;
     if (useWindows() && await openTool('info', { path: entry.path }, { title: `${t('info_title')} — ${entry.name}` })) return;
     try {
@@ -1039,6 +1046,33 @@ export default function App() {
     if (id === 'recentClear') { saveSession({ recentDirs: [] }); setStatus(t('recent_cleared')); return; }
     try {
       await runAction(id, side);
+    } catch (err) {
+      await dialogs.error(err);
+    }
+  };
+
+  const onTreeAction = async (id, side, targetPath) => {
+    const entry = { name: baseName(targetPath), path: targetPath, isDir: true };
+    try {
+      switch (id) {
+        case 'open': await navigate(side, targetPath); break;
+        case 'copyOther': await transferPaths(pathOf(other(side)), [targetPath], false); break;
+        case 'moveOther': await transferPaths(pathOf(other(side)), [targetPath], true); break;
+        case 'clipCut': await clipCut(side, [targetPath]); break;
+        case 'clipCopy': await clipCopy(side, [targetPath]); break;
+        case 'clipPaste': await clipPaste(side, targetPath); break;
+        case 'rename': await rename(side, entry); break;
+        case 'trash': await trash(side, [targetPath]); break;
+        case 'compress': await compress(side, [targetPath], dirName(targetPath)); break;
+        case 'newFolder': await newEntry(side, 'folder', targetPath); break;
+        case 'newFile': await newEntry(side, 'file', targetPath); break;
+        case 'properties': await properties(side, entry); break;
+        case 'search':
+          if (!(useWindows() && await openTool('search', { root: targetPath }, { title: t('search_title', { root: targetPath }) }))) setSearch({ root: targetPath });
+          break;
+        case 'openTerminal': await newTerminal(undefined, targetPath); break;
+        default: break;
+      }
     } catch (err) {
       await dialogs.error(err);
     }
@@ -1333,6 +1367,7 @@ export default function App() {
       return true;
     },
     onAction: (id) => onAction(id, side),
+    onTreeAction: (id, p) => onTreeAction(id, side, p),
     onDropFiles: ({ dest, move, drop }) => { dropTransfer(dest, move, drop).catch(showError); },
     history: dirHistory[side],
     hotlist: session.hotlist || [],

@@ -21,7 +21,7 @@ function isUnder(root, p) {
   return q === r || q.startsWith(r + '/') || q.startsWith(r + '\\');
 }
 
-export function FolderTree({ currentPath, onSelect, width }) {
+export function FolderTree({ currentPath, onSelect, onContextMenu, width }) {
   useLanguage();
   const [nodes, setNodes] = useState([]);     // top-level roots
   const [selected, setSelected] = useState(currentPath);
@@ -117,6 +117,7 @@ export function FolderTree({ currentPath, onSelect, width }) {
     <React.Fragment key={n.path}>
       <div className={`tree-row ${isSamePath(n.path, selected) ? 'selected' : ''}`} style={{ paddingLeft: 8 + depth * 16 }}
         onClick={() => { setSelected(n.path); onSelect(n.path); }}
+        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setSelected(n.path); onContextMenu && onContextMenu(e, n.path); }}
         onDoubleClick={(e) => { e.stopPropagation(); toggle(n); }}
         title={n.path}>
         <span className="tree-expander" onClick={(e) => { e.stopPropagation(); toggle(n); }}>
