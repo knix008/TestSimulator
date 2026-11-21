@@ -14,6 +14,49 @@ export const CLAUDE_MODELS = ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-ha
 export const DEFAULT_CLAUDE_MODEL = 'claude-opus-5-5';
 export const DEFAULT_OLLAMA_URL = 'http://localhost:11434';
 export const DEFAULT_OLLAMA_MODEL = 'llama3.1';
+/** Settings › AI › model "other": a model id typed by the user (a newer model, say). */
+export const CUSTOM_MODEL = 'custom';
+/** How much Claude thinks before answering (output_config.effort). */
+export const AI_EFFORTS = ['low', 'medium', 'high'];
+/** How freely the AI writes: prompt wording for every provider, and Ollama's temperature. */
+export const AI_CREATIVITY = ['focused', 'balanced', 'creative'];
+export const OLLAMA_TEMPERATURE = { focused: 0.45, balanced: 0.8, creative: 1.1 };
+/** Seconds an AI request may take before it is given up. */
+export const AI_TIMEOUTS = [60, 120, 180, 300, 600];
+const CREATIVITY_PROMPT = {
+  focused: 'Style: keep to the conventions of the genre — clear, simple, familiar images and common progressions.',
+  balanced: '',
+  creative: 'Style: be bold and surprising — fresh images, unusual rhymes, and a borrowed or unexpected chord where it helps.',
+};
+
+/** The Claude model a request uses: the chosen one, or the typed id when "other" is chosen. */
+export function claudeModelOf(settings = {}) {
+  if (settings.aiModel === CUSTOM_MODEL) return String(settings.aiModelCustom ?? '').trim() || DEFAULT_CLAUDE_MODEL;
+  return CLAUDE_MODELS.includes(settings.aiModel) ? settings.aiModel : DEFAULT_CLAUDE_MODEL;
+}
+
+/** The model a provider uses, for labels ('' for the built-in writer). */
+export function modelOf(settings = {}, provider = settings.aiProvider) {
+  if (provider === 'claude') return claudeModelOf(settings);
+  if (provider === 'ollama') return settings.ollamaModel || DEFAULT_OLLAMA_MODEL;
+  return '';
+}
+
+/** The prompt with the creativity wish added. */
+export function withCreativity(prompt, settings = {}) {
+  const extra = CREATIVITY_PROMPT[settings.aiCreativity] ?? '';
+  return extra ? `${prompt}\n${extra}` : prompt;
+}
+
+/** The user's cancel and the timeout as one signal. */
+function timed(signal, settings) {
+  const seconds = AI_TIMEOUTS.includes(Number(settings.aiTimeout)) ? Number(settings.aiTimeout) : 180;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(Object.assign(new Error('timeout'), { code: 'aiTimeout' })), seconds * 1000);
+  const stop = () => controller.abort(signal?.reason);
+  if (signal) { if (signal.aborted) stop(); else signal.addEventListener('abort', stop, { once: true }); }
+  return { signal: controller.signal, seconds, done: () => { clearTimeout(timer); signal?.removeEventListener?.('abort', stop); }, timedOut: () => controller.signal.reason?.code === 'aiTimeout' };
+}
 
 /** The JSON schema of a song plan (Claude structured output; Ollama's `format`). */
 export const PLAN_SCHEMA = {
@@ -128,52 +171,76 @@ async function anthropic() {
  * Asks Claude for a plan (structured output: the answer must match PLAN_SCHEMA). The key stays on this
  * computer and goes only to api.anthropic.com. Errors come back with a `code` the app explains.
  */
-async function claudePlan(prompt, settings, signal) {
+async function claudePlan(prompt, settings, userSignal) {
   if (!settings.aiApiKey) throw Object.assign(new Error('no API key'), { code: 'aiNoKey' });
   const { default: Anthropic, jsonSchemaOutputFormat } = await anthropic();
+  const time = timed(userSignal, settings);
+  const signal = time.signal;
   // The user's own key, kept on this computer: the request goes from this window straight to Anthropic.
-  const client = new Anthropic({ apiKey: settings.aiApiKey, dangerouslyAllowBrowser: true, maxRetries: 1, timeout: 180000 });
-  const model = CLAUDE_MODELS.includes(settings.aiModel) ? settings.aiModel : DEFAULT_CLAUDE_MODEL;
+  const client = new Anthropic({ apiKey: settings.aiApiKey, dangerouslyAllowBrowser: true, maxRetries: 1, timeout: time.seconds * 1000 });
+  const model = claudeModelOf(settings);
+  const effort = AI_EFFORTS.includes(settings.aiEffort) ? settings.aiEffort : 'medium';
   try {
     const message = await client.messages.parse({
       model,
       max_tokens: 16000,
       system: SYSTEM,
-      output_config: { effort: 'medium', format: jsonSchemaOutputFormat(PLAN_SCHEMA) },
-      messages: [{ role: 'user', content: prompt }],
+      output_config: { effort, format: jsonSchemaOutputFormat(PLAN_SCHEMA) },
+      messages: [{ role: 'user', content: withCreativity(prompt, settings) }],
     }, { signal });
     if (message.stop_reason === 'refusal') throw Object.assign(new Error(message.stop_details?.explanation ?? 'refused'), { code: 'aiRefused' });
     if (message.stop_reason === 'max_tokens') throw Object.assign(new Error('the answer was cut off'), { code: 'aiCutOff' });
     const parsed = message.parsed_output ?? extractJson(message.content.filter((b) => b.type === 'text').map((b) => b.text).join(''));
     return { ...parsed, provider: 'claude', model };
   } catch (error) {
+    if (time.timedOut()) throw Object.assign(new Error(`${time.seconds} s`), { code: 'aiTimeout' });
     if (error?.code) throw error;
     if (error instanceof Anthropic.AuthenticationError) throw Object.assign(new Error(error.message), { code: 'aiBadKey' });
+    if (error instanceof Anthropic.NotFoundError) throw Object.assign(new Error(`${model}: ${error.message}`), { code: 'aiModel' });
     if (error instanceof Anthropic.RateLimitError) throw Object.assign(new Error(error.message), { code: 'aiRateLimit' });
     if (error instanceof Anthropic.APIConnectionError) throw Object.assign(new Error(error.message), { code: 'aiOffline' });
     if (error instanceof Anthropic.APIError) throw Object.assign(new Error(`${error.status ?? ''} ${error.message}`), { code: 'aiApi' });
     if (error?.name === 'AbortError' || signal?.aborted) throw Object.assign(new Error('cancelled'), { code: 'cancelled' });
     throw error;
-  }
+  } finally { time.done(); }
 }
 
 /** Asks a local Ollama model for a plan (JSON mode with the schema). */
-async function ollamaPlan(prompt, settings, signal) {
+async function ollamaPlan(prompt, settings, userSignal) {
   const base = String(settings.ollamaUrl || DEFAULT_OLLAMA_URL).replace(/\/+$/, '');
-  let response;
+  const model = settings.ollamaModel || DEFAULT_OLLAMA_MODEL;
+  const time = timed(userSignal, settings);
   try {
-    response = await fetch(`${base}/api/chat`, {
-      method: 'POST', signal, headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: settings.ollamaModel || DEFAULT_OLLAMA_MODEL, stream: false, format: PLAN_SCHEMA, options: { temperature: 0.8 }, messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: prompt }] }),
-    });
-  } catch (error) {
-    if (error?.name === 'AbortError') throw Object.assign(new Error('cancelled'), { code: 'cancelled' });
-    throw Object.assign(new Error(`${base}: ${error.message}`), { code: 'aiOllamaOffline' });
-  }
-  if (!response.ok) throw Object.assign(new Error(`${response.status} ${await response.text().catch(() => '')}`.trim()), { code: response.status === 404 ? 'aiOllamaModel' : 'aiApi' });
-  const data = await response.json();
-  return { ...extractJson(data.message?.content ?? ''), provider: 'ollama', model: settings.ollamaModel || DEFAULT_OLLAMA_MODEL };
+    let response;
+    try {
+      response = await fetch(`${base}/api/chat`, {
+        method: 'POST', signal: time.signal, headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, stream: false, format: PLAN_SCHEMA, options: { temperature: OLLAMA_TEMPERATURE[settings.aiCreativity] ?? OLLAMA_TEMPERATURE.balanced }, messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: withCreativity(prompt, settings) }] }),
+      });
+    } catch (error) {
+      if (time.timedOut()) throw Object.assign(new Error(`${time.seconds} s`), { code: 'aiTimeout' });
+      if (error?.name === 'AbortError') throw Object.assign(new Error('cancelled'), { code: 'cancelled' });
+      throw Object.assign(new Error(`${base}: ${error.message}`), { code: 'aiOllamaOffline' });
+    }
+    if (!response.ok) throw Object.assign(new Error(`${response.status} ${await response.text().catch(() => '')}`.trim()), { code: response.status === 404 ? 'aiOllamaModel' : 'aiApi' });
+    const data = await response.json();
+    return { ...extractJson(data.message?.content ?? ''), provider: 'ollama', model };
+  } finally { time.done(); }
 }
+
+/** The models Ollama has on this computer (names, sorted); throws with code aiOllamaOffline. */
+export async function listOllamaModels(settings) {
+  const base = String(settings.ollamaUrl || DEFAULT_OLLAMA_URL).replace(/\/+$/, '');
+  try {
+    const response = await fetch(`${base}/api/tags`, { signal: AbortSignal.timeout(8000) });
+    if (!response.ok) throw new Error(`${response.status}`);
+    const data = await response.json();
+    return [...new Set((data.models ?? []).map((m) => String(m.name ?? m.model ?? '')).filter(Boolean))].sort();
+  } catch (error) { throw Object.assign(new Error(`${base}: ${error.message}`), { code: 'aiOllamaOffline' }); }
+}
+
+/** Whether an error should fall back to the built-in writer (anything but the user's cancel). */
+export const canFallBack = (error, settings, provider) => provider !== 'builtin' && settings?.aiFallback !== false && error?.code !== 'cancelled';
 
 /** Which provider a request uses: the one chosen, falling back to the built-in one when it is not ready. */
 export function providerFor(settings) {
@@ -188,7 +255,7 @@ export function providerFor(settings) {
  */
 export async function requestPlan(spec, settings, { signal = null, provider = providerFor(settings) } = {}) {
   const form = (Array.isArray(spec.sections) && spec.sections.length ? spec.sections : structureOf(spec.structure).sections).map((s) => (typeof s === 'string' ? s : s.type));
-  if (provider === 'builtin') return cleanPlan(builtinPlan(spec), form);
+  if (provider === 'builtin') return { ...cleanPlan(builtinPlan(spec), form), provider: 'builtin', model: '' };
   const prompt = planPrompt(spec);
   const raw = provider === 'claude' ? await claudePlan(prompt, settings, signal) : await ollamaPlan(prompt, settings, signal);
   const plan = cleanPlan(raw, form);
@@ -214,13 +281,13 @@ export async function testProvider(settings) {
   const provider = settings.aiProvider;
   if (provider === 'builtin') return { ok: true, detail: 'builtin' };
   if (provider === 'ollama') {
-    const base = String(settings.ollamaUrl || DEFAULT_OLLAMA_URL).replace(/\/+$/, '');
     try {
-      const r = await fetch(`${base}/api/tags`);
-      const data = await r.json();
-      const names = (data.models ?? []).map((m) => m.name);
+      const names = await listOllamaModels(settings);
+      const model = settings.ollamaModel || DEFAULT_OLLAMA_MODEL;
+      const has = names.some((n) => n === model || n === `${model}:latest` || n.split(':')[0] === model);
+      if (!has) return { ok: false, detail: `${model} — ${names.join(', ') || '-'}`, code: 'aiOllamaModel', models: names };
       return { ok: true, detail: names.join(', '), models: names };
-    } catch (error) { return { ok: false, detail: `${base}: ${error.message}`, code: 'aiOllamaOffline' }; }
+    } catch (error) { return { ok: false, detail: error.message, code: 'aiOllamaOffline' }; }
   }
   try {
     const plan = await claudePlan('Write a song plan with one verse of 4 bars and 2 lines about the sea, in English, key C major.', settings, null);

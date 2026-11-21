@@ -31,9 +31,11 @@ import { audioBufferToWav } from './io/wav.js';
 import { midiToSong, songToMidi } from './io/midi.js';
 import { chordChart, isLyricsName, isMidiName, isSongName, lyricsToLrc, lyricsToText, packSong, unpackSong } from './io/fileformat.js';
 import { compose, fitMelody, makeSection, PARTS, writeSection } from './music/composer.js';
-import { requestLyrics, requestPlan, providerFor } from './music/ai.js';
+import { requestLyrics, requestPlan, providerFor, modelOf, listOllamaModels, canFallBack } from './music/ai.js';
+import { pickPatch } from './ui/aipicker.js';
 import { checkSong, countBySeverity } from './music/checks.js';
 import { leadSheetSvg } from './music/notation.js';
+import { Karaoke } from './ui/karaoke.js';
 import { buildSample, buildTemplate, SAMPLE_GROUPS, SAMPLES, TEMPLATES } from './music/samples.js';
 import { addNotes, audible, barBeats, chordLineText, cloneSong, createSong, cutRange, newId, normalizeSong, parseChordLineText, respellChords, sectionLabel, sectionSpans, shiftNotes, songBeats, songStats, trackName, ROLE_COLORS } from './music/song.js';
 import { GENRES, SECTION_DEFAULTS, SECTION_TYPES, structureOf } from './music/genres.js';
@@ -127,7 +129,7 @@ function showError(titleKey, error, context = '') {
   });
 }
 
-window.addEventListener('error', (event) => { if (event.error || event.message) showError('error.unexpected', event.error ?? event.message, event.filename ? `${event.filename}:${event.lineno}` : ''); });
+window.addEventListener('error', (event) => { if (/^ResizeObserver loop/.test(String(event.message ?? ''))) return; if (event.error || event.message) showError('error.unexpected', event.error ?? event.message, event.filename ? `${event.filename}:${event.lineno}` : ''); });
 window.addEventListener('unhandledrejection', (event) => showError('error.unexpected', event.reason));
 
 // ───────────────────────── documents (one song at a time)
@@ -345,7 +347,37 @@ const showPosition = frameThrottle((beat) => {
   const span = s && state.playing ? sectionSpans(s).find((x) => beat >= x.start && beat < x.end) : null;
   if (highlight && highlight.dataset.lyricSection !== span?.section.id) highlight.classList.remove('playing');
   if (span) root.querySelector(`[data-lyric-section="${CSS.escape(span.section.id)}"]`)?.classList.add('playing');
+  lightNotes(beat);
+  karaoke?.update(beat, state.playing);
 });
+
+/** The Lyrics view's staves are drawn for its width: redraw them when the view gets noticeably wider or narrower. */
+let lyricsObserver = null;
+function watchLyricsWidth(el) {
+  if (lyricsObserver || !globalThis.ResizeObserver) return;
+  let timer = null;
+  lyricsObserver = new ResizeObserver(() => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      if (state.view !== 'lyrics' || Math.abs((el.clientWidth || 0) - (state.lyricsWidth ?? 0)) < 24) return;
+      renderView();
+    }, 120);
+  });
+  lyricsObserver.observe(el);
+}
+
+/** The note being played lights up on the staves (Lyrics view, Lead sheet): <g class="nt" data-t data-e>. */
+let litNotes = [];
+function lightNotes(beat) {
+  for (const el of litNotes) el.classList.remove('now');
+  litNotes = [];
+  if (!state.playing || !['lyrics', 'sheet'].includes(state.view)) return;
+  const host = root.querySelector(state.view === 'lyrics' ? '.view-lyrics' : '.view-sheet');
+  if (!host) return;
+  for (const el of host.querySelectorAll('g.nt')) {
+    if (Number(el.dataset.t) <= beat + 1e-3 && beat < Number(el.dataset.e) - 1e-3) { el.classList.add('now'); litNotes.push(el); }
+  }
+}
 
 player.onPosition = (beat) => { state.position = beat; showPosition(beat); };
 player.onEnd = () => { state.playing = false; state.position = 0; showPosition(0); renderToolbarState(); renderStatus(); };
@@ -375,6 +407,28 @@ function composeSpec(overrides = {}) {
   };
 }
 
+/** "Claude (Anthropic) · claude-opus-5-5" — the AI and its model, for progress and notices. */
+function aiName(provider) {
+  const model = modelOf(state.settings, provider);
+  return model ? `${t(`ai.provider.${provider}`)} · ${model}` : t(`ai.provider.${provider}`);
+}
+
+/**
+ * Runs an AI request; when Claude or Ollama fails (and Settings › AI › fall back is on) the built-in
+ * writer does the job instead and a notice says why. The user's cancel is never replaced.
+ */
+async function withFallback(provider, signal, report, run) {
+  try {
+    return await run(provider);
+  } catch (error) {
+    if (signal.cancelled || !canFallBack(error, state.settings, provider)) throw error;
+    const reason = error?.code ? t(`error.code.${error.code}`, null, error.message) : String(error?.message ?? error);
+    notify('warning', t('notice.aiFallback', { name: aiName(provider), reason }));
+    report({ fraction: 0.3, text: t('progress.step.fallback'), icon: PROGRESS_STEP_ICONS['progress.step.lyrics'] });
+    return run('builtin');
+  }
+}
+
 /** Composes a new song from the Compose panel: the AI (or built-in) plan → the composer → a new document. */
 async function aiCompose(overrides = {}) {
   if (state.busy) return null;
@@ -386,9 +440,10 @@ async function aiCompose(overrides = {}) {
   try {
     return await withProgress('progress.compose', spec.topic || t(`genre.${spec.genre}`), async (op, report, signal) => {
       signal.onCancel = () => controller.abort();
-      report({ fraction: 0.05, text: t(provider === 'builtin' ? 'progress.step.lyrics' : 'progress.step.ask', { name: t(`ai.provider.${provider}`) }), icon: PROGRESS_STEP_ICONS[provider === 'builtin' ? 'progress.step.lyrics' : 'progress.step.ask'] });
+      report({ fraction: 0.05, text: t(provider === 'builtin' ? 'progress.step.lyrics' : 'progress.step.ask', { name: aiName(provider) }), icon: PROGRESS_STEP_ICONS[provider === 'builtin' ? 'progress.step.lyrics' : 'progress.step.ask'] });
       await idle();
-      const plan = await requestPlan({ ...spec, keyName: spec.key?.tonic != null ? keyName(spec.key) : '' }, state.settings, { signal: controller.signal, provider });
+      const planSpec = { ...spec, keyName: spec.key?.tonic != null ? keyName(spec.key) : '' };
+      const plan = await withFallback(provider, signal, report, (p) => requestPlan(planSpec, state.settings, { signal: controller.signal, provider: p }));
       if (signal.cancelled) throw Object.assign(new Error('cancelled'), { code: 'cancelled' });
       report({ fraction: 0.6, text: t('progress.step.compose'), icon: PROGRESS_STEP_ICONS['progress.step.compose'] });
       await idle();
@@ -426,10 +481,10 @@ async function aiLyrics(sectionId = null) {
   try {
     await withProgress('progress.lyrics', s.title || t('song.untitled'), async (op, report, signal) => {
       signal.onCancel = () => controller.abort();
-      report({ fraction: 0.1, text: t(provider === 'builtin' ? 'progress.step.lyrics' : 'progress.step.ask', { name: t(`ai.provider.${provider}`) }), icon: PROGRESS_STEP_ICONS['progress.step.lyrics'] });
+      report({ fraction: 0.1, text: t(provider === 'builtin' ? 'progress.step.lyrics' : 'progress.step.ask', { name: aiName(provider) }), icon: PROGRESS_STEP_ICONS['progress.step.lyrics'] });
       await idle();
       const spec = { ...composeSpec(), genre: s.genre, mood: s.mood, language: state.compose.language, seed: newSeed() };
-      const result = await requestLyrics(spec, sections, state.settings, { signal: controller.signal, provider });
+      const result = await withFallback(provider, signal, report, (p) => requestLyrics(spec, sections, state.settings, { signal: controller.signal, provider: p }));
       report({ fraction: 0.7, text: t('progress.step.compose'), icon: PROGRESS_STEP_ICONS['progress.step.compose'] });
       change('op.aiLyrics', (x) => {
         targets.forEach((sec, i) => { const lines = result.lines[i] ?? []; if (sections[i].lines) sec.lyrics = lines.slice(0, Math.max(1, sections[i].lines + 2)); });
@@ -690,6 +745,7 @@ function nextSyllable(beat) {
 // ───────────────────────── views
 
 let arrangement = null;
+let karaoke = null;
 let roll = null;
 const VIEWS = [['arrangement', 'arrangement'], ['roll', 'pianoRoll'], ['lyrics', 'lyrics'], ['sheet', 'leadSheet']];
 
@@ -720,6 +776,7 @@ function mountViews() {
   };
   arrangement = new ArrangementView(host.querySelector('.view-arrangement'), viewApi);
   roll = new PianoRoll(host.querySelector('.view-roll'), viewApi);
+  karaoke = new Karaoke(host, viewApi);
 }
 
 function renderView() {
@@ -727,6 +784,7 @@ function renderView() {
   if (!host || !hasSong()) return;
   mountViews();
   for (const [id] of VIEWS) host.querySelector(`.view-${id}`).hidden = state.view !== id;
+  karaoke.setSong(song());
   if (state.view === 'arrangement') arrangement.render();
   else if (state.view === 'roll') {
     roll.render();
@@ -738,7 +796,9 @@ function renderView() {
     const focused = document.activeElement;
     if (focused && el.contains(focused) && focused.matches('textarea')) return;
     const scroll = el.querySelector('.lyrics-view')?.scrollTop ?? 0;
+    state.lyricsWidth = el.clientWidth || state.lyricsWidth;
     el.innerHTML = lyricsViewHtml(panelApi);
+    watchLyricsWidth(el);
     el.querySelector('.lyrics-view').scrollTop = scroll;
   } else if (state.view === 'sheet') {
     const el = host.querySelector('.view-sheet');
@@ -836,6 +896,7 @@ const commands = {
   'view:arrangement': viewCommand('arrangement', 'arrangement'),
   'view:roll': viewCommand('roll', 'pianoRoll'),
   'view:lyrics': viewCommand('lyrics', 'lyrics'),
+  karaoke: { icon: 'lyrics', label: 'karaoke.toggle', checked: () => state.settings.karaoke !== false, run: () => { toggle('karaoke'); karaoke?.update(state.position, state.playing); } },
   'view:sheet': viewCommand('sheet', 'leadSheet'),
   'tool:select': toolCommand('select', 'pointer', 'V'),
   'tool:draw': toolCommand('draw', 'pencil', 'D'),
@@ -895,7 +956,7 @@ const SUBMENUS = {
   regenerate: { icon: 'variation', items: ['regen:all', '-', 'regen:chords', 'regen:melody', 'regen:lead', 'regen:accompaniment', 'regen:bass', 'regen:drums'] },
   transpose: { icon: 'transposeUp', items: ['transposeUp', 'transposeDown', '-', 'transposeNotesUp', 'transposeNotesDown', 'octaveUp', 'octaveDown'] },
   views: { icon: 'arrangement', items: VIEWS.map(([id]) => `view:${id}`) },
-  show: { icon: 'eye', items: ['leftPanel', 'rightPanel', 'bottomPanel', 'statusBar', '-', 'ghosts', 'follow'] },
+  show: { icon: 'eye', items: ['leftPanel', 'rightPanel', 'bottomPanel', 'statusBar', '-', 'ghosts', 'follow', 'karaoke'] },
   appearance: { icon: 'palette', items: ['theme', 'themeMenu', 'language', '-', 'shuffleBackground', 'backgroundImage', 'clearBackground'] },
   snap: { icon: 'snap', items: SNAPS.map((_, i) => `snap:${i}`) },
 };
@@ -1844,6 +1905,26 @@ async function exportText(kind) {
   } catch (error) { showError('error.export', error); }
 }
 
+/** The AI / model picker of the AI Compose panel: the choice goes to the settings at once. */
+function pickAi(target) {
+  const patch = pickPatch(target, state.settings);
+  if (!patch) return;
+  const { openSettings, ...change } = patch;
+  updateSettings(change);
+  const s = state.settings;
+  notify('info', t('notice.aiPicked', { name: t(`ai.provider.${s.aiProvider}`), model: modelOf(s) || '-' }));
+  if (openSettings) popups.open('settings', { tab: 'ai' });
+}
+
+/** Asks Ollama which models it has (the model menus list them). */
+async function refreshOllamaModels() {
+  try {
+    const models = await listOllamaModels(state.settings);
+    updateSettings({ ollamaModels: models });
+    notify(models.length ? 'success' : 'warning', models.length ? t('notice.ollamaModels', { count: models.length }) : t('notice.ollamaNoModels'));
+  } catch (error) { showError('error.ollamaModels', error, state.settings.ollamaUrl); }
+}
+
 /** The AI song wizard (a popup with every choice); its answer composes the song. */
 async function composeWizard() {
   const result = await popups.open('compose', { draft: state.compose, provider: providerFor(state.settings) });
@@ -2050,6 +2131,8 @@ function bindEvents() {
     const langSeg = target.closest('[data-compose-language]');
     if (langSeg) { state.compose.language = langSeg.dataset.composeLanguage; updateSettings({ lyricLanguage: state.compose.language }, { quiet: true }); return renderLeft(); }
     if (target.closest('[data-compose-dice]')) { state.compose.seed = newSeed(); return renderLeft(); }
+    if (target.closest('[data-ai-refresh]')) { refreshOllamaModels(); return undefined; }
+    if (target.closest('[data-lyrics-staff-toggle]')) { updateSettings({ lyricsStaff: state.settings.lyricsStaff === false }, { quiet: true }); renderView(); return undefined; }
     const songLang = target.closest('[data-song-language]');
     if (songLang) return setField('song', 'language', songLang.dataset.songLanguage);
     const instCat = target.closest('[data-inst-category]');
@@ -2097,6 +2180,7 @@ function bindEvents() {
 
   root.addEventListener('change', (event) => {
     const target = event.target;
+    if (target.dataset.aiPick) return pickAi(target);
     if (target.dataset.compose) {
       const key = target.dataset.compose;
       state.compose[key] = key === 'tonic' ? (target.value === 'auto' ? null : Number(target.value)) : key === 'mode' && target.value === 'auto' ? null : target.value;

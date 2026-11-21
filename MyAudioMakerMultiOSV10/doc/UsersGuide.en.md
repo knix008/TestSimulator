@@ -31,7 +31,8 @@ MyAudioMaker opens on the **start page**. The **Start** button at the left of th
 | **Sample songs** | 24 finished songs (Pop · K-pop, ballads, hip-hop · R&B, electronic, rock · folk, jazz · bossa · city pop, trot · waltz · cinematic, English lyrics) |
 | **Moving background** | 20 music-themed animations, Shuffle background, Background image…, speed, card opacity, random at start, automatic change |
 
-- Move a card by its handle (✥) at the top left; resize it from its bottom-right corner (a double-click on the corner fits the content). **Arrange** puts the cards back.
+- The **program name and information card at the top is fixed**: it cannot be moved or resized, and no card can be put above it.
+- Move the other cards by their handle (✥) at the top left; resize it from its bottom-right corner (a double-click on the corner fits the content). **Arrange** puts the cards back.
 - With **Show the start page at start-up** off, the program starts straight on the **Pop template**.
 - On the first start the **welcome window** offers: start the tutorial, open a sample, later. **Help › Welcome** opens it again.
 
@@ -65,7 +66,8 @@ The **AI Compose** tab of the left panel makes songs.
 
 | Item | Meaning |
 |---|---|
-| Lyrics AI | The AI that writes lyrics and plans now. **Change** opens Settings › AI (2.3) |
+| AI | The AI that writes lyrics and plans: built-in writer · Claude · Ollama. A choice is saved in the settings at once. ⚙ opens Settings › AI (2.3) |
+| Model | The chosen AI's model. Claude: Opus (best) · Sonnet (balanced) · Haiku (fast and cheap) · a model ID you type; Ollama: the models installed on this computer (↻ reads them again). The built-in writer has no model |
 | Topic / story | What the song is about, e.g. "thinking of a first love on a rainy day", "a summer road trip with friends" |
 | Theme chips | Love · Breakup · Dreams · Summer · Night · Friendship · Hope · Rain · City · Travel · Youth · Winter (none: found from the topic) |
 | Genre | 18 genres (2.4) |
@@ -113,7 +115,21 @@ Open it from **AI › AI song wizard…** (`Ctrl+Shift+G`), the toolbar's wand, 
 
 - The AI writes the **title, the section list, the lyrics line by line and the chords bar by bar**. The melody, accompaniment, bass and drums always come from the composer on this computer, following that plan.
 - Answers come in a fixed format (a JSON schema); unknown section types, unreadable chords and over-long sections are repaired.
-- With Claude chosen but no key, the built-in writer is used.
+- **Choose the AI and model where you use them**: the **AI** and **Model** lists at the top of the AI Compose panel and of the AI song wizard. The choice also shows in Settings › AI and the status bar.
+- With Claude chosen but no key, the built-in writer is used, and the panel shows a warning.
+
+Settings › AI:
+
+| Item | Meaning |
+|---|---|
+| AI that writes lyrics and plans | built-in writer · Claude · Ollama |
+| Anthropic API key | the key for Claude (show · clear) |
+| Claude model | claude-opus-5-5 (best) · claude-sonnet-5-5 (balanced) · claude-haiku-5-5 (fast and cheap) · **Another model (type its ID)** (a Model ID box appears) |
+| Thinking depth | how much Claude thinks before answering: fast · normal · deep. Deeper is more polished but slower and costs more |
+| Ollama address · model | the address, the installed models (**Read the installed models**), or a model name typed in |
+| Creativity | focused · balanced · creative — from familiar words and progressions to fresh images and surprising chords (also Ollama's temperature) |
+| Time limit | 60 · 120 · 180 · 300 · 600 s — a request is given up after it |
+| If the AI fails, make it with the built-in writer instead | when on, a failure of Claude or Ollama (key, connection, time limit …) still gives a song from the built-in writer, with a notice saying why. A cancel is never replaced |
 - **Connection test** sends Claude a short request, or asks Ollama for its models, and shows the result.
 - **Your key and privacy**: the API key is kept on this computer (the program's storage) and sent only to Anthropic. A settings reset or a new installation keeps it; it is deleted when you answer **Yes** to the installer's user-data question. A request contains your topic, genre, mood, lyrics language, form and wishes.
 - To use Ollama from the web build, Ollama may need `OLLAMA_ORIGINS` set to allow the web address.
@@ -153,6 +169,7 @@ The **Arrangement** tab (`1`) shows the whole song at a glance.
   - Click the ruler to move the play position; **drag it to set a loop**.
   - Click a section block to select it; double-click to open it in the Lyrics view. Right-click for the section menu.
 - **Tracks** — the header on the left shows name, role and instrument, **M** (mute), **S** (solo) and a volume slider; on the right each section's notes in miniature. Double-click a track to open the piano roll there.
+- The **vocal track** is drawn taller with its **lyrics** under the note bars: each syllable under its note when zoomed in enough, otherwise each lyric line from its first note. Settings › Editor › **Show notes and lyrics on the vocal track in the arrangement** turns it off.
 - Zoom: `Ctrl+wheel`, **View › Zoom in / Zoom out / Zoom to fit** (`Ctrl+=` · `Ctrl+-` · `Ctrl+0`). `Shift+wheel` scrolls sideways.
 
 ![Sections](tutorial/images/en/09-sections.jpg)
@@ -224,6 +241,7 @@ The **Lyrics** tab (`3`) has one card per section.
 
 ![The Lyrics view](tutorial/images/en/15-lyrics.jpg)
 
+- A sung section shows its **melody on a staff** at the top of its card: chords above, each syllable right under its note. While playing, the note being sung is highlighted. The **Staff** button in the header (Settings › Editor › **Show the melody on a staff in the Lyrics view**) hides or shows them.
 - A card shows the section's name, bars, start time and chords; on the right ▶ (play this section), AI (rewrite just this section) and ♪ (set lyrics to melody).
 - A lyric line is about two bars. The numbers on the right are **syllables / melody notes**, red when they differ.
 - Edited lyrics get a new melody that fits their syllables when you leave the field (Settings › Editor › **Set edited lyrics to the melody automatically**); sections that repeat this one (a second chorus) follow.
@@ -234,7 +252,12 @@ The **Lyrics** tab (`3`) has one card per section.
 
 ### 5.2 The lead sheet
 
-The **Lead sheet** tab (`4`) shows the vocal melody (the lead when there is no vocal) on a treble staff, with chords above, lyrics below, section names at the start of their lines, and the key and time signature on the first line. Notes outside the key signature get ♯ · ♭ · ♮. Busy melodies take two bars a line, others four. Zoom with `Ctrl+=` · `Ctrl+-`.
+The **Lead sheet** tab (`4`) shows the vocal melody (the lead when there is no vocal) on a treble staff, with chords above, each syllable under its note, section names at the start of their lines, and the key and time signature on the first line.
+
+- The melody is read on a sixteenth-note grid and written with **rests, dotted notes and ties**: a note across a beat or a bar line is tied (its syllable only on the first note), and eighths and sixteenths are **beamed** by the beat.
+- Notes outside the key signature get ♯ · ♭ · ♮, not repeated within the bar.
+- Spacing allows for both the note lengths and the width of each syllable, so lyrics never run into each other. A line holds as many bars as fit (at most six), and a section always starts a new line.
+- While playing, the note being sung is highlighted. Zoom with `Ctrl+=` · `Ctrl+-`. Printing (chapter 9) uses the same sheet.
 
 ![The lead sheet](tutorial/images/en/17-sheet.jpg)
 
@@ -243,6 +266,7 @@ The **Lead sheet** tab (`4`) shows the vocal melody (the lead when there is no v
 - **Play / pause** — `Space` or `F5`. **Stop** (`Enter`) goes back to the start. `Home` · `End` go to the start and end; `←` `→` move a bar.
 - **Loop** (`L`) — repeats the loop region dragged on the ruler. **Loop selected section** makes the selected section the loop.
 - **Metronome** (`M`), **Follow playhead** — the views follow the play position while playing.
+- **Sing-along** — while playing, the lyric line being sung floats at the bottom of the view, large: its melody as bars (higher notes higher), syllables already sung in the accent colour, the one being sung larger, and the next line below. Turn it on or off with **View › Show › Sing-along** or in Settings › Editor.
 - **Built-in synthesizer** — every instrument from oscillators, filters and envelopes; drums from noise and swept sines. No sound files needed.
 - **Guide voice** — female, male, choir. Not a real voice: it sings the melody on the syllables' vowels as a guide (formant synthesis, vibrato, a short burst for consonants).
 - **Mix tab** — master volume, reverb amount, compressor; each track's volume, mute and solo, and a level meter.
@@ -338,8 +362,8 @@ The **Messages** tab keeps notices and errors; **Information** shows the song, k
 | Font | font, size, weight, italic, row height, zoom |
 | Background | 20 moving backgrounds, an image or none, speed, random, automatic change, image opacity and fit |
 | Audio | playback volume, metronome, follow playhead, hear notes when clicked, sample rate, bit depth and normalising (export defaults), sound check |
-| Editor | snap, ghost notes, chord tones, set edited lyrics to the melody automatically, lyrics language, default vocal |
-| AI | lyrics AI (built-in, Claude, Ollama), API key and model, Ollama address and model, connection test (2.3) |
+| Editor | snap, ghost notes, chord tones, set edited lyrics to the melody automatically, the melody staff in the Lyrics view, notes and lyrics on the vocal track, sing-along, lyrics language, default vocal |
+| AI | lyrics AI (built-in, Claude, Ollama), API key, Claude model (or a typed ID) and thinking depth, Ollama address and model, creativity, time limit, built-in writer on failure, connection test (2.3) |
 | Recent | recent files and folders, clearing them |
 | Shortcuts | every shortcut |
 
@@ -416,6 +440,8 @@ The toolbar's palette button switches light and dark (▼ opens the list), and t
 | "No Anthropic API key" | Enter it in Settings › AI or choose the built-in writer. |
 | "The API key is not valid" | Paste the key again (no spaces). Check in the Console that the key is active and billing is set up. |
 | "Cannot reach Ollama" | Check that `ollama serve` runs and the address is right. The web build may need `OLLAMA_ORIGINS`. |
+| "The AI did not answer in time" | Raise Settings › AI › Time limit, or choose a faster model (Haiku) or thinking depth "Fast". |
+| "That model was not found" | Check the model (or the typed model ID) in Settings › AI. |
 | "Ollama does not have that model" | Run `ollama pull <model>`. |
 | Red lyric numbers | **Set lyrics to melody** (`Ctrl+M`) or the card's ♪. |
 | The vocal is too high or low | Change the key in the Song tab or choose another vocal (female, male). |

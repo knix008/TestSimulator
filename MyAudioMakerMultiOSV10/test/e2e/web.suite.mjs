@@ -356,6 +356,223 @@ export const cases = [
     },
   },
   {
+    group: '설정', name: 'AI 작곡 패널·마법사의 AI·모델 목록 → 설정에 바로 저장, 세 곳이 같은 값',
+    async run(app) {
+      const r = await app.run(`await T.fresh('pop'); A.state.leftTab = 'compose'; A.api.updateSettings({ aiProvider: 'builtin', aiModel: 'claude-opus-5-5', ollamaModels: [] });
+        const pick = (which, value) => { const el = document.querySelector('[data-ai-pick="' + which + '"]'); el.value = value; el.dispatchEvent(new Event('change', { bubbles: true })); };
+        const builtinModel = !!document.querySelector('[data-ai-pick="model"]');
+        pick('provider', 'claude'); await T.frames(2);
+        const claudeModels = [...document.querySelectorAll('[data-ai-pick="model"] option')].map((o) => o.value);
+        pick('model', 'claude-haiku-5-5'); await T.frames(2);
+        const saved = JSON.parse(localStorage.getItem('myaudiomaker.settings.v1') ?? '{}');
+        const status = document.querySelector('#statusbar, .statusbar')?.textContent ?? '';
+        A.run('aiWizard'); await T.popupReady('compose', 8000); await T.until(() => T.frameOf('compose').contentDocument.querySelector('[data-ai-pick="model"]'), 8000, 'wizard picker');
+        let d = T.frameOf('compose').contentDocument;
+        const wizard = { provider: d.querySelector('[data-ai-pick="provider"]').value, model: d.querySelector('[data-ai-pick="model"]').value };
+        const m = d.querySelector('[data-ai-pick="model"]'); m.value = 'claude-opus-5-5'; m.dispatchEvent(new Event('change', { bubbles: true })); await T.sleep(400);
+        const fromWizard = A.state.settings.aiModel;
+        await A.popups.close('compose');
+        A.api.updateSettings({ aiProvider: 'ollama', ollamaModel: 'llama3.1', ollamaModels: ['qwen2.5:14b', 'llama3.1'] }); await T.frames(2);
+        const ollamaModels = [...document.querySelectorAll('[data-ai-pick="model"] option')].map((o) => o.value);
+        pick('model', 'qwen2.5:14b'); await T.frames(2);
+        const ollamaPicked = A.state.settings.ollamaModel;
+        A.api.updateSettings({ aiProvider: 'builtin', ollamaModel: 'llama3.1', ollamaModels: [], aiModel: 'claude-opus-5-5' });
+        return { builtinModel, claudeModels, saved: [saved.aiProvider, saved.aiModel], status, wizard, fromWizard, ollamaModels, ollamaPicked, dots: T.missingIcons() };`, 60000);
+      assert.equal(r.builtinModel, false, 'the built-in writer has no model list');
+      for (const m of ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5', 'custom']) assert.ok(r.claudeModels.includes(m), m);
+      assert.deepEqual(r.saved, ['claude', 'claude-haiku-5-5'], 'saved in the settings at once');
+      assert.deepEqual(r.wizard, { provider: 'claude', model: 'claude-haiku-5-5' }, 'the wizard shows the same choice');
+      assert.equal(r.fromWizard, 'claude-opus-5-5', 'a choice in the wizard reaches the main window');
+      assert.deepEqual(r.ollamaModels.sort(), ['llama3.1', 'qwen2.5:14b']);
+      assert.equal(r.ollamaPicked, 'qwen2.5:14b');
+      assert.equal(r.dots, 0, 'icons');
+    },
+  },
+  {
+    group: '설정', name: 'AI 가 실패하면 내장 작사기로 대신 (경고 알림), 끄면 오류 창·곡 그대로',
+    async run(app) {
+      const r = await app.run(`await T.fresh('pop'); A.state.doc.markSaved();
+        A.api.updateSettings({ aiProvider: 'ollama', ollamaUrl: 'http://127.0.0.1:9', aiFallback: true, aiTimeout: 60 }, { quiet: true });
+        const before = A.state.doc.song.title;
+        const d1 = await A.run('aiCompose'); await T.sleep(300);
+        const fell = { provider: A.state.doc.song.ai.provider, changed: A.state.doc.song.title !== before || A.state.doc !== d1 };
+        const warned = A.state.log.some((m) => /내장 작사기로 만들었습니다|built-in writer made it/.test(JSON.stringify(m)));
+        return { fell, warned: Boolean(warned) };`, 120000);
+      // The request to the closed port is expected to fail; nothing else may.
+      const expected = (text) => /127\.0\.0\.1:9|Failed to fetch|ERR_CONNECTION_REFUSED|ERR_UNSAFE_PORT|error\.compose/.test(String(text));
+      const first = app.takeErrors();
+      assert.deepEqual(first.filter((e) => !expected(e)), [], 'no other page errors');
+      assert.equal(r.fell.provider, 'builtin', 'the built-in writer made the song');
+      assert.ok(r.warned, 'a warning says why');
+      const off = await app.run(`A.state.doc.markSaved();
+        A.api.updateSettings({ aiFallback: false }, { quiet: true });
+        const doc = A.state.doc;
+        await A.run('aiCompose'); await T.sleep(400);
+        const errorOpen = A.popups.isOpen('error');
+        await A.popups.close('error');
+        const same = A.state.doc === doc;
+        A.api.updateSettings({ aiProvider: 'builtin', ollamaUrl: 'http://localhost:11434', aiFallback: true, aiTimeout: 180 }, { quiet: true });
+        return { errorOpen, same };`, 120000);
+      const second = app.takeErrors();
+      assert.deepEqual(second.filter((e) => !expected(e)), [], 'no other page errors');
+      assert.ok(off.errorOpen, 'without the fallback the error window opens');
+      assert.ok(off.same, 'and the open song stays');
+    },
+  },
+  {
+    group: G, name: '프로그램 이름·정보 카드는 고정: 손잡이·크기 조절 없음, 다른 카드를 맨 위에 둬도 그 아래',
+    async run(app) {
+      const r = await app.run(`await T.reset({ song: false });
+        A.api.updateSettings({ startLayout: { version: 2, cards: { hero: { col: 1, row: 30, w: 1, h: 4, fit: false }, recent: { col: 0, row: 0, w: 1, h: 10, fit: true } } } }, { quiet: true });
+        A.actions.showStartPage(true); await T.frames(6); await T.sleep(300);
+        const hero = document.querySelector('.start-card[data-card="hero"]');
+        const box = (el) => el.getBoundingClientRect();
+        const cards = [...document.querySelectorAll('.start-board > .start-card')];
+        const h = box(hero); const board = box(document.querySelector('.start-board'));
+        const result = { handle: !!hero.querySelector('[data-card-handle]'), corner: !!hero.querySelector('[data-card-resize]'), others: document.querySelectorAll('[data-card-handle]').length,
+          top: cards.every((c) => c === hero || box(c).top >= h.bottom - 1), full: Math.abs(h.width - board.width) < 2 };
+        A.api.updateSettings({ startLayout: null }, { quiet: true });
+        return result;`);
+      assert.equal(r.handle, false, 'no move handle');
+      assert.equal(r.corner, false, 'no resize corner');
+      assert.ok(r.others >= 6, 'the other cards still move');
+      assert.ok(r.top, 'every other card is below it');
+      assert.ok(r.full, 'it spans the whole board');
+    },
+  },
+  {
+    group: '패널', name: '속성 탭(곡·구간·트랙·음표·믹스): 라벨 열·값 열이 한 줄로 맞음, 머리말·버튼 줄은 전체 폭',
+    async run(app) {
+      const r = await app.run(`await T.fresh('pop');
+        const out = {};
+        for (const tab of ['song', 'section', 'track', 'mix']) {
+          document.querySelector('[data-editor-tab="' + tab + '"]').click(); await T.frames(3);
+          const props = document.querySelector('#editors .props');
+          const left = props.getBoundingClientRect().left;
+          const labels = [...props.querySelectorAll(':scope > .prop-row > .prop-label')].map((e) => Math.round(e.getBoundingClientRect().left));
+          const controls = [...props.querySelectorAll(':scope > .prop-row > .prop-control')].map((e) => Math.round(e.getBoundingClientRect().left));
+          const wide = [...props.children].filter((e) => !e.classList.contains('prop-row')).map((e) => Math.round(e.getBoundingClientRect().width));
+          out[tab] = { labels: [...new Set(labels)].length, controls: [...new Set(controls)].length, rows: labels.length, labelRight: Math.max(...labels) < Math.min(...controls), wideMin: wide.length ? Math.min(...wide) : null, inner: Math.round(props.clientWidth - 20) };
+        }
+        return out;`);
+      for (const [tab, v] of Object.entries(r)) {
+        assert.ok(v.rows >= 2, `${tab}: rows`);
+        assert.equal(v.labels, 1, `${tab}: every label starts in one column`);
+        assert.equal(v.controls, 1, `${tab}: every control starts in one column`);
+        assert.ok(v.labelRight, `${tab}: labels left of the controls`);
+        if (v.wideMin != null) assert.ok(v.wideMin >= v.inner - 4, `${tab}: headers and button rows take the whole width (${v.wideMin} of ${v.inner})`);
+      }
+    },
+  },
+  {
+    group: '패널', name: '오른쪽 패널은 가로로 스크롤되지 않음 (모든 탭, 가장 좁은 폭·기본 폭·넓은 폭, 음표 선택 시)',
+    async run(app) {
+      const r = await app.run(`await T.fresh('pop');
+        const { PANEL_MIN } = await import('/src/domain/settings.js').catch(() => ({ PANEL_MIN: null }));
+        const widths = [PANEL_MIN?.right ?? 260, 340, 520];
+        const out = [];
+        for (const w of widths) {
+          A.api.updateSettings({ rightWidth: w, showRightPanel: true }); await T.frames(3);
+          for (const tab of ['song', 'section', 'track', 'notes', 'mix']) {
+            if (tab === 'notes') { A.actions.setView('roll'); await T.frames(2); A.run('selectAll'); await T.frames(2); }
+            document.querySelector('[data-editor-tab="' + tab + '"]').click(); await T.frames(3);
+            const panel = document.querySelector('#right-panel');
+            const pr = panel.getBoundingClientRect();
+            const scrolls = [...panel.querySelectorAll('*'), panel].filter((e) => e.clientWidth > 0 && e.scrollWidth > e.clientWidth + 1 && !['hidden', 'clip'].includes(getComputedStyle(e).overflowX)).map((e) => (e.id || e.className) + ' ' + e.clientWidth + '<' + e.scrollWidth);
+            const sticking = [...panel.querySelectorAll('*')].filter((e) => { const b = e.getBoundingClientRect(); return b.width > 0 && b.right > pr.right + 1; }).slice(0, 3).map((e) => e.tagName + '.' + e.className);
+            if (scrolls.length || sticking.length) out.push({ w, tab, scrolls: scrolls.slice(0, 3), sticking });
+          }
+          A.actions.setView('arrangement');
+        }
+        A.api.updateSettings({ rightWidth: 340 });
+        return out;`, 60000);
+      assert.deepEqual(r, [], 'nothing in the right panel is wider than the panel');
+    },
+  },
+  {
+    group: '가사', name: '가사 화면: 구간마다 멜로디 악보(음표 아래 음절)가 가사 위에, 악보 버튼으로 숨기기·보이기',
+    async run(app) {
+      const r = await app.run(`await T.fresh('pop'); await A.actions.openSampleAsk(A.domain.SAMPLES[0].id); A.actions.setView('lyrics'); await T.frames(4);
+        const cards = [...document.querySelectorAll('.lyric-card')];
+        const withStaff = cards.filter((c) => c.querySelector('.lyric-staff svg'));
+        const sungCards = cards.filter((c) => c.querySelector('textarea').value.trim());
+        const syllables = Math.min(...sungCards.map((c) => c.querySelector('.lyric-staff svg')?.querySelectorAll('text.ly').length ?? 0));
+        const fits = withStaff.every((c) => c.querySelector('svg').getBoundingClientRect().width <= c.getBoundingClientRect().width + 1);
+        document.querySelector('[data-lyrics-staff-toggle]').click(); await T.frames(3);
+        const hidden = document.querySelectorAll('.lyric-staff').length;
+        document.querySelector('[data-lyrics-staff-toggle]').click(); await T.frames(3);
+        return { withStaff: withStaff.length, sung: sungCards.length, syllables, fits, hidden, back: document.querySelectorAll('.lyric-staff').length, setting: A.state.settings.lyricsStaff };`);
+      assert.ok(r.withStaff >= r.sung && r.sung > 3, `every sung section has a staff (${r.withStaff} / ${r.sung})`);
+      assert.ok(r.syllables > 5, 'syllables under the notes');
+      assert.ok(r.fits, 'no staff is wider than its card');
+      assert.equal(r.hidden, 0, 'the Staff button hides them');
+      assert.equal(r.back, r.withStaff, 'and shows them again');
+      assert.equal(r.setting, true);
+    },
+  },
+  {
+    group: '보기', name: '리드 시트: 쉼표·빔·붙임줄, 모든 음절이 음표 아래 (겹침 없음)',
+    async run(app) {
+      const r = await app.run(`await T.fresh('pop'); await A.actions.openSampleAsk(A.domain.SAMPLES[0].id); A.actions.setView('sheet'); await T.frames(4);
+        const svg = document.querySelector('.view-sheet svg');
+        const lines = [...svg.querySelectorAll('g.sheet-line')];
+        let overlaps = 0;
+        for (const line of lines) {
+          const boxes = [...line.querySelectorAll('text.ly')].map((t) => t.getBoundingClientRect()).sort((a, b) => a.left - b.left);
+          for (let i = 1; i < boxes.length; i++) if (boxes[i].left < boxes[i - 1].right - 1) overlaps++;
+        }
+        const sung = A.state.doc.song.tracks.find((t) => t.role === 'vocal').notes.filter((n) => n.syl).length;
+        return { lines: lines.length, overlaps, syllables: svg.querySelectorAll('text.ly').length, sung, ties: [...svg.querySelectorAll('g.nt path')].filter((p) => /Q/.test(p.getAttribute('d'))).length, beams: svg.querySelectorAll('rect').length };`);
+      assert.ok(r.lines > 8);
+      assert.equal(r.overlaps, 0, 'no syllable runs into the next');
+      assert.ok(r.syllables >= r.sung * 0.95, `the syllables are on the sheet (${r.syllables} / ${r.sung})`);
+      assert.ok(r.beams > 20, 'beams and rests are drawn');
+    },
+  },
+  {
+    group: '편곡', name: '보컬 트랙에 음표와 가사(줄 또는 음절), 설정으로 끄면 보통 트랙',
+    async run(app) {
+      const r = await app.run(`await T.fresh('pop'); await A.actions.openSampleAsk(A.domain.SAMPLES[0].id); A.actions.setView('arrangement'); await T.frames(3);
+        const vocalId = A.state.doc.song.tracks.find((t) => t.role === 'vocal').id;
+        const head = () => document.querySelector('.arr-head[data-track="' + vocalId + '"]');
+        const other = document.querySelector('.arr-head:not([data-track="' + vocalId + '"])');
+        const on = { vocal: head().getBoundingClientRect().height, other: other.getBoundingClientRect().height, cls: head().classList.contains('lyric-lane') };
+        // The lane under the vocal head is still the vocal track (clicks find the right lane).
+        const body = document.querySelector('.arr-body').getBoundingClientRect();
+        const hb = head().getBoundingClientRect();
+        const lane = A.arrangement.laneAt(hb.top + hb.height - 4)?.id === vocalId && A.arrangement.laneAt(other.getBoundingClientRect().top + 4)?.id === other.dataset.track;
+        A.api.updateSettings({ vocalLaneLyrics: false }); await T.frames(3);
+        const off = head().getBoundingClientRect().height;
+        A.api.updateSettings({ vocalLaneLyrics: true }); await T.frames(2);
+        return { on, off, lane, bodyTop: Math.round(body.top) };`);
+      assert.ok(r.on.cls, 'the vocal lane shows lyrics');
+      assert.ok(r.on.vocal > r.on.other + 30, `taller for the words (${r.on.vocal} vs ${r.on.other})`);
+      assert.ok(r.lane, 'clicks still find the right lanes');
+      assert.equal(r.off, r.on.other, 'turned off: an ordinary lane');
+    },
+  },
+  {
+    group: '재생', name: '가사 따라 보기: 재생 중 지금 부르는 줄, 부른 음절이 차례로 표시되고 멈추면 사라짐',
+    async run(app) {
+      const r = await app.run(`await T.fresh('pop'); await A.actions.openSampleAsk(A.domain.SAMPLES[0].id); A.actions.setView('lyrics'); await T.frames(2);
+        A.actions.seek(34); await A.actions.play();
+        const seen = [];
+        for (let i = 0; i < 5; i++) { await T.sleep(450); const ks = [...document.querySelectorAll('.karaoke .ks')]; seen.push({ sung: ks.filter((e) => e.classList.contains('sung')).length, of: ks.length, shown: !document.querySelector('.karaoke').hidden, lit: document.querySelectorAll('.view-lyrics g.nt.now').length }); }
+        A.actions.stopPlayback(); await T.sleep(200);
+        const hiddenAfter = document.querySelector('.karaoke').hidden;
+        A.api.updateSettings({ karaoke: false }, { quiet: true }); await A.actions.play(); await T.sleep(500);
+        const offShown = !document.querySelector('.karaoke').hidden; A.actions.stopPlayback();
+        A.api.updateSettings({ karaoke: true }, { quiet: true });
+        return { seen, hiddenAfter, offShown };`, 60000);
+      assert.ok(r.seen.every((s) => s.shown && s.of > 3), 'the line is shown while playing');
+      const sung = r.seen.map((s) => s.sung);
+      assert.ok(sung[sung.length - 1] > sung[0], `syllables are lit one after another (${sung})`);
+      assert.ok(r.seen.some((s) => s.lit > 0), 'the note being sung lights on the staff');
+      assert.ok(r.hiddenAfter, 'hidden after stopping');
+      assert.equal(r.offShown, false, 'turned off: not shown');
+    },
+  },
+  {
     group: '메뉴', name: '메뉴 7개와 하위 메뉴: 아이콘·번역 빠짐 없음',
     async run(app) {
       const r = await app.run(`await T.sample('pop-firstlove'); const out = {};

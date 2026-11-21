@@ -6,7 +6,7 @@ import { compose } from '../../src/music/composer.js';
 import { packSong, unpackSong, lyricsToLrc, lyricsToText, chordChart, isSongName, isMidiName } from '../../src/io/fileformat.js';
 import { midiToSong, parseMidi, songToMidi, keySignature } from '../../src/io/midi.js';
 import { decodeWav, encodeWav } from '../../src/io/wav.js';
-import { leadSheetPages, spell, melodyNotes } from '../../src/music/notation.js';
+import { leadSheetPages, spell, melodyNotes, quantize } from '../../src/music/notation.js';
 import { buildSheets } from '../../src/print/sheet.js';
 import { normalizePrintSetup, sheetGeometry } from '../../src/print/layout.js';
 import { pdfFromJpegPages } from '../../src/print/pdf.js';
@@ -86,7 +86,10 @@ test('the lead sheet: notes spelled in the key, pages of staff lines', () => {
   const pages = leadSheetPages(song, { ctx: { t, labels } });
   assert.ok(pages.length >= 2);
   const svg = pages.join('');
-  assert.equal((svg.match(/<ellipse /g) ?? []).length, melodyNotes(song).length, 'one note head per sung note');
+  const sung = quantize(melodyNotes(song));
+  const marked = new Set([...svg.matchAll(/<g class="nt" data-t="([\d.]+)"/g)].map((m) => m[1]));
+  assert.equal(marked.size, sung.length, 'every sung note is drawn (tied pieces share their note)');
+  assert.ok((svg.match(/<ellipse /g) ?? []).length >= sung.length, 'a head per written piece');
   assert.match(svg, /𝄞/);
 });
 

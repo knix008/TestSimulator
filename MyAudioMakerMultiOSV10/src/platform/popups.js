@@ -26,7 +26,7 @@ export const POPUPS = {
   welcome: { width: 640, height: 470 },
   color: { width: 300, height: 300 },
   prompt: { width: 520, height: 230 },
-  compose: { width: 820, height: 640 },
+  compose: { width: 860, height: 780 },
   exportaudio: { width: 640, height: 560 },
   print: { width: 1240, height: 780 },
 };

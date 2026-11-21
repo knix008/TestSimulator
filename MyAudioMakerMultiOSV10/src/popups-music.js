@@ -3,7 +3,8 @@
 // Each popup keeps its edits in state.draft and answers with close({ ok: true, … }).
 import { GENRES, MOODS, STRUCTURES } from './music/genres.js';
 import { THEMES } from './music/lyrics-bank.js';
-import { CLAUDE_MODELS, DEFAULT_OLLAMA_MODEL, DEFAULT_OLLAMA_URL, testProvider } from './music/ai.js';
+import { AI_CREATIVITY, AI_EFFORTS, AI_TIMEOUTS, CUSTOM_MODEL, DEFAULT_OLLAMA_MODEL, DEFAULT_OLLAMA_URL, listOllamaModels, providerFor, testProvider } from './music/ai.js';
+import { aiPickerHtml, modelChoices, pickPatch } from './ui/aipicker.js';
 import { instrument } from './music/instruments.js';
 import { pcName } from './music/theory.js';
 import { storeAiKey } from './domain/settings.js';
@@ -34,6 +35,9 @@ export function settingsEditor(api) {
     toggle('rollGhosts', t('action.ghosts'), 'ghost'),
     toggle('rollChordTones', t('settings.chordTones'), 'chords'),
     toggle('autoFitMelody', t('settings.autoFitMelody'), 'fitMelody'),
+    toggle('lyricsStaff', t('settings.lyricsStaff'), 'leadSheet'),
+    toggle('vocalLaneLyrics', t('settings.vocalLaneLyrics'), 'instVocal'),
+    toggle('karaoke', t('karaoke.toggleTip'), 'lyrics'),
     row('globe', t('settings.lyricLanguage'), segmented('lyricLanguage', [['ko', '한국어'], ['en', 'English']], s().lyricLanguage)),
     row('instVocal', t('settings.defaultVocal'), select('data-select', 'defaultVocal', ['auto', 'voiceFemale', 'voiceMale', 'voiceChoir', 'none'].map((v) => [v, v === 'auto' ? t('compose.byGenre') : v === 'none' ? t('compose.noVocal') : nm(api, instrument(v))]), s().defaultVocal, t('settings.defaultVocal'))),
   ].join('');
@@ -41,29 +45,44 @@ export function settingsEditor(api) {
 
 /** Settings › AI: which writes the lyrics and plans, the key (kept on this computer), models, a test. */
 export function settingsAi(api) {
-  const { row, segmented, t, s, escapeHtml, button, select, icon } = api;
+  const { row, segmented, t, s, escapeHtml, button, select, icon, toggle } = api;
   const set = s();
   const p = set.aiProvider;
   const test = api.state.aiTest;
+  const title = (glyph, text) => `<h3 class="section-title">${icon(glyph)}${escapeHtml(text)}</h3>`;
   const rows = [
+    title('aiCompose', t('settings.aiSection.provider')),
     row('aiCompose', t('settings.aiProvider'), segmented('aiProvider', [['builtin', t('ai.provider.builtin'), 'aiBuiltin'], ['claude', t('ai.provider.claude'), 'aiClaude'], ['ollama', t('ai.provider.ollama'), 'aiLocal']], p), t('settings.aiProvider'), 'full'),
     row('info', '', `<span class="muted">${escapeHtml(t(`ai.providerHelp.${p}`))}</span>`),
   ];
   if (p === 'claude') {
+    const { list, current } = modelChoices(set, t, 'claude');
     rows.push(
+      title('aiClaude', t('settings.aiSection.claude')),
       row('key', t('settings.apiKey'), `<input type="password" data-ai-key value="${escapeHtml(set.aiApiKey ?? '')}" placeholder="sk-ant-…" autocomplete="off" spellcheck="false" aria-label="${escapeHtml(t('settings.apiKey'))}" />${button('ai-key-show', t('settings.showKey'), 'eye', 'small')}${button('ai-key-clear', t('settings.clearKey'), 'trash', 'small danger')}`, t('settings.apiKeyTip'), 'full'),
-      row('aiClaude', t('settings.aiModel'), select('data-select', 'aiModel', CLAUDE_MODELS.map((m) => [m, `${m}${m === 'claude-opus-5-5' ? ` — ${t('settings.modelBest')}` : m === 'claude-haiku-5-5' ? ` — ${t('settings.modelFast')}` : ''}`]), set.aiModel, t('settings.aiModel'))),
+      row('aiModel', t('settings.aiModel'), select('data-select', 'aiModel', list, current, t('settings.aiModel')), t('settings.aiModelTip')),
+      ...(set.aiModel === CUSTOM_MODEL ? [row('edit', t('settings.aiModelCustom'), `<input type="text" data-setting-text="aiModelCustom" value="${escapeHtml(set.aiModelCustom ?? '')}" placeholder="claude-…" spellcheck="false" aria-label="${escapeHtml(t('settings.aiModelCustom'))}" />`, t('settings.aiModelCustomTip'))] : []),
+      row('speed', t('settings.aiEffort'), segmented('aiEffort', AI_EFFORTS.map((e) => [e, t(`settings.effort.${e}`)]), set.aiEffort), t('settings.aiEffortTip')),
       row('hyperlink', t('settings.getKey'), `<span class="muted">console.anthropic.com</span>${button('open-console', t('settings.openConsole'), 'readerExternal', 'small')}`),
       row('warning', '', `<span class="muted">${escapeHtml(t('settings.keyPrivacy'))}</span>`),
     );
   }
   if (p === 'ollama') {
+    const { list, current } = modelChoices(set, t, 'ollama');
     rows.push(
+      title('aiLocal', t('settings.aiSection.ollama')),
       row('server', t('settings.ollamaUrl'), `<input type="text" data-setting-text="ollamaUrl" value="${escapeHtml(set.ollamaUrl || DEFAULT_OLLAMA_URL)}" spellcheck="false" />`),
-      row('aiLocal', t('settings.ollamaModel'), `<input type="text" data-setting-text="ollamaModel" value="${escapeHtml(set.ollamaModel || DEFAULT_OLLAMA_MODEL)}" spellcheck="false" list="ollama-models" />${test?.models?.length ? `<datalist id="ollama-models">${test.models.map((m) => `<option value="${escapeHtml(m)}"></option>`).join('')}</datalist>` : ''}`),
-      row('info', '', `<span class="muted">${escapeHtml(t('settings.ollamaHint'))}</span>`),
+      row('aiModel', t('settings.ollamaModel'), `${select('data-select', 'ollamaModel', list, current, t('settings.ollamaModel'))}${button('ai-refresh', t('ai.pick.refresh'), 'refresh', 'small')}`, t('settings.ollamaModelTip')),
+      row('edit', t('settings.ollamaModelName'), `<input type="text" data-setting-text="ollamaModel" value="${escapeHtml(set.ollamaModel || DEFAULT_OLLAMA_MODEL)}" spellcheck="false" placeholder="${escapeHtml(DEFAULT_OLLAMA_MODEL)}" aria-label="${escapeHtml(t('settings.ollamaModelName'))}" />`, t('settings.ollamaModelNameTip')),
+      row('info', '', `<span class="muted">${escapeHtml(api.state.ollamaNote ?? t('settings.ollamaHint'))}</span>`),
     );
   }
+  rows.push(
+    title('gear', t('settings.aiSection.writing')),
+    row('sparkles', t('settings.aiCreativity'), segmented('aiCreativity', AI_CREATIVITY.map((c) => [c, t(`settings.creativity.${c}`)]), set.aiCreativity), t('settings.aiCreativityTip')),
+    row('clock', t('settings.aiTimeout'), select('data-select', 'aiTimeout', AI_TIMEOUTS.map((n) => [n, t('settings.seconds', { n })]), set.aiTimeout, t('settings.aiTimeout')), t('settings.aiTimeoutTip')),
+    toggle('aiFallback', t('settings.aiFallback'), 'aiBuiltin'),
+  );
   if (p !== 'builtin') rows.push(row('validate', t('settings.aiTest'), `${button('ai-test', test?.running ? t('settings.aiTesting') : t('settings.aiTestButton'), 'validate', 'small', '', test?.running ? 'disabled' : '')}${test && !test.running ? `<span class="badge ${test.ok ? 'ok' : 'danger'}" title="${escapeHtml(test.detail ?? '')}">${icon(test.ok ? 'check' : 'warning')}${escapeHtml(test.ok ? t('settings.aiOk') : (test.code ? t(`error.code.${test.code}`, null, test.detail) : test.detail))}</span>` : ''}`, t('settings.aiTest'), 'full'));
   return rows.join('');
 }
@@ -71,14 +90,15 @@ export function settingsAi(api) {
 /** The AI song wizard. */
 function composeWizard(api) {
   const { t, escapeHtml, icon, row, button } = api;
-  const p = api.P();
-  const d = (api.state.draft ??= { ...(p.draft ?? {}) });
+  const provider = providerFor(api.s());
+  const d = (api.state.draft ??= { ...(api.P().draft ?? {}) });
   const chips = (key, list, glyphKey = 'icon') => `<span class="chip-row">${list.map((x) => `<button type="button" class="chip ${d[key] === x.id ? 'on' : ''}" data-draft-segment="${key}" data-value="${x.id}" title="${escapeHtml(nm(api, x))}">${icon(x[glyphKey])}<span>${escapeHtml(nm(api, x))}</span></button>`).join('')}</span>`;
-  const sel = (key, options, current) => `<select data-draft-select="${key}">${options.map(([v, label]) => `<option value="${escapeHtml(v)}" ${String(current) === String(v) ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select>`;
+  const SEL_ICONS = { language: 'globe', structure: 'structure', tonic: 'keySig', mode: 'keySig', vocal: 'instVocal' };
+  const sel = (key, options, current) => `<select data-draft-select="${key}" data-icon="${SEL_ICONS[key] ?? 'list'}">${options.map(([v, label]) => `<option value="${escapeHtml(v)}" ${String(current) === String(v) ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select>`;
   api.root.innerHTML = api.frame({
     glyph: 'aiWizard', title: t('wizard.title'),
     body: `<div class="wizard">
-      <div class="wizard-provider ${p.provider}">${icon(p.provider === 'builtin' ? 'aiBuiltin' : p.provider === 'claude' ? 'aiClaude' : 'aiLocal')}<span>${escapeHtml(t('start.providerNow', { name: t(`ai.provider.${p.provider}`) }))}</span><span class="grow"></span>${button('open-ai-settings', t('compose.change'), 'gear', 'small')}</div>
+      ${aiPickerHtml(api.s(), t, { settingsAttr: 'data-action="open-ai-settings"' })}
       <label class="wizard-topic"><b>${icon('lyrics')}${escapeHtml(t('wizard.topic'))}</b><textarea data-draft="topic" rows="3" placeholder="${escapeHtml(t('compose.topicHint'))}">${escapeHtml(d.topic ?? '')}</textarea></label>
       <div class="wizard-group"><b>${icon('themeLove')}${escapeHtml(t('wizard.theme'))}</b>${chips('theme', THEMES)}</div>
       <div class="wizard-group"><b>${icon('genrePop')}${escapeHtml(t('compose.genre'))}</b>${chips('genre', GENRES)}</div>
@@ -86,13 +106,13 @@ function composeWizard(api) {
       <div class="wizard-grid">
         ${row('globe', t('compose.language'), sel('language', [['ko', '한국어'], ['en', 'English']], d.language))}
         ${row('structure', t('compose.structure'), sel('structure', STRUCTURES.map((s) => [s.id, nm(api, s)]), d.structure))}
-        ${row('keySig', t('compose.key'), sel('tonic', [['auto', t('compose.auto')], ...Array.from({ length: 12 }, (_, pc) => [String(pc), pcName(pc, [5, 10, 3, 8, 1].includes(pc))])], d.tonic ?? 'auto') + sel('mode', [['auto', t('compose.byMood')], ['major', t('mode.major')], ['minor', t('mode.minor')], ['dorian', t('mode.dorian')], ['mixolydian', t('mode.mixolydian')]], d.mode ?? 'auto'))}
+        ${row('keySig', t('compose.key'), sel('tonic', [['auto', t('compose.auto')], ...Array.from({ length: 12 }, (_, pc) => [String(pc), pcName(pc, [5, 10, 3, 8, 1].includes(pc))])], d.tonic ?? 'auto') + sel('mode', [['auto', t('compose.byMood')], ['major', t('mode.major')], ['minor', t('mode.minor')], ['dorian', t('mode.dorian')], ['mixolydian', t('mode.mixolydian')]], d.mode ?? 'auto'), t('compose.key'), 'wide')}
         ${row('tempo', t('compose.bpm'), `<input type="text" data-draft="bpm" value="${escapeHtml(d.bpm ?? '')}" placeholder="${escapeHtml(t('compose.auto'))}" inputmode="numeric" />`)}
         ${row('instVocal', t('compose.vocal'), sel('vocal', ['auto', 'voiceFemale', 'voiceMale', 'voiceChoir', 'none'].map((v) => [v, v === 'auto' ? t('compose.byGenre') : v === 'none' ? t('compose.noVocal') : nm(api, instrument(v))]), d.vocal ?? 'auto'))}
         ${row('dice', t('compose.seed'), `<input type="text" data-draft="seed" value="${escapeHtml(d.seed ?? '')}" inputmode="numeric" />${button('wizard-dice', t('compose.newSeed'), 'dice', 'small')}`)}
       </div>
-      ${p.provider === 'builtin' ? '' : `<label class="wizard-topic"><b>${icon('notes')}${escapeHtml(t('compose.notes'))}</b><input type="text" data-draft="notes" value="${escapeHtml(d.notes ?? '')}" placeholder="${escapeHtml(t('compose.notesHint'))}" /></label>`}
-      <p class="muted hint">${icon('info')} ${escapeHtml(t(p.provider === 'builtin' ? 'compose.hintBuiltin' : 'compose.hintAi'))}</p>
+      ${provider === 'builtin' ? '' : `<label class="wizard-topic"><b>${icon('notes')}${escapeHtml(t('compose.notes'))}</b><input type="text" data-draft="notes" value="${escapeHtml(d.notes ?? '')}" placeholder="${escapeHtml(t('compose.notesHint'))}" /></label>`}
+      <p class="muted hint">${icon('info')} ${escapeHtml(t(provider === 'builtin' ? 'compose.hintBuiltin' : 'compose.hintAi'))}</p>
     </div>`,
     foot: `<span class="grow"></span>${button('close', t('common.cancel'), 'close')}${button('wizard-go', t('compose.make'), 'aiCompose', 'primary')}`,
   });
@@ -135,6 +155,14 @@ export function renderMusicPopup(kind, api) {
 export function musicPopupAction(kind, target, api, type = 'click') {
   const d = api.state.draft;
   if (type === 'change') {
+    if (target.dataset?.aiPick) {
+      const patch = pickPatch(target, api.state.settings);
+      if (!patch) return true;
+      const { openSettings, ...change } = patch;
+      api.update(change);
+      if (openSettings) { api.action('open-settings', { tab: 'ai' }); api.close(); }
+      return true;
+    }
     if (target.dataset?.aiKey !== undefined && 'aiKey' in target.dataset) { storeAiKey(globalThis.localStorage, target.value); api.state.settings.aiApiKey = target.value.trim(); api.state.aiTest = null; api.notifyKey?.(); return true; }
     if (target.dataset?.exportTrack && d) { const id = target.dataset.exportTrack; d.exclude = target.checked ? d.exclude.filter((x) => x !== id) : [...d.exclude, id]; return true; }
     return false;
@@ -153,10 +181,19 @@ export function musicPopupAction(kind, target, api, type = 'click') {
     case 'ai-test': {
       api.state.aiTest = { running: true };
       api.render();
-      testProvider(api.state.settings).then((r) => { api.state.aiTest = r; api.render(); });
+      testProvider(api.state.settings).then((r) => { api.state.aiTest = r; if (r.models?.length) api.update({ ollamaModels: r.models }); api.render(); });
       return true;
     }
     case 'open-ai-settings': api.action('open-settings', { tab: 'ai' }); api.close(); return true;
+    case 'ai-refresh': {
+      // Ollama's installed models fill the model menus (here, in Settings › AI and in the panel).
+      api.state.ollamaNote = api.t('settings.ollamaListing');
+      api.render();
+      listOllamaModels(api.state.settings)
+        .then((models) => { api.state.ollamaNote = models.length ? api.t('settings.ollamaListed', { count: models.length, names: models.join(', ') }) : api.t('notice.ollamaNoModels'); api.update({ ollamaModels: models }); })
+        .catch((error) => { api.state.ollamaNote = `${api.t('error.code.aiOllamaOffline')} (${error.message})`; api.render(); });
+      return true;
+    }
     case 'wizard-dice': d.seed = 1 + Math.floor(Math.random() * 999999); api.render(); return true;
     case 'wizard-go': {
       const out = { ...d, tonic: d.tonic === 'auto' || d.tonic == null || d.tonic === '' ? null : Number(d.tonic), mode: d.mode === 'auto' ? null : d.mode, bpm: Number(d.bpm) > 0 ? Math.round(Number(d.bpm)) : null, seed: Math.max(1, Math.round(Number(d.seed) || 1)) };

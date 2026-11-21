@@ -12,6 +12,7 @@ import { ANIMATION_KINDS } from './background.js';
 import { baseName } from '../domain/paths.js';
 import { ANIMATION_INTERVALS } from '../domain/settings.js';
 import { providerFor } from '../music/ai.js';
+import { FIXED_CARDS } from './startlayout.js';
 
 const GRIP = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="20" cy="20" r="2"/><circle cx="14" cy="20" r="2"/><circle cx="20" cy="14" r="2"/><circle cx="8" cy="20" r="2"/><circle cx="14" cy="14" r="2"/><circle cx="20" cy="8" r="2"/></svg>';
 
@@ -19,11 +20,13 @@ const GRIP = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="20" cy="20
 export const intervalLabel = (seconds) => (!seconds ? t('start.never') : seconds < 60 ? t('start.everySeconds', { n: seconds }) : t('start.everyMinutes', { n: seconds / 60 }));
 
 function card(id, glyph, title, body, { extra = '', bare = false, classes = '' } = {}) {
-  const handle = `<button type="button" class="card-handle" data-card-handle="${id}" title="${escapeHtml(t('start.moveCard'))}" aria-label="${escapeHtml(t('start.moveCard'))}">${icon('moveHandle')}</button>`;
-  return `<section class="start-card start-card-${id} ${id} ${classes} ${bare ? 'bare' : ''}" data-card="${id}" ${title ? `aria-label="${escapeHtml(title)}"` : ''}>
-    ${bare ? `<span class="card-handle-float">${handle}</span>` : `<h2>${handle}${icon(glyph)}<span class="start-card-title">${escapeHtml(title)}</span><span class="grow"></span>${extra}</h2>`}
+  // The program name and information card is fixed: no move handle, no resize corner.
+  const fixed = FIXED_CARDS.has(id);
+  const handle = fixed ? '' : `<button type="button" class="card-handle" data-card-handle="${id}" title="${escapeHtml(t('start.moveCard'))}" aria-label="${escapeHtml(t('start.moveCard'))}">${icon('moveHandle')}</button>`;
+  return `<section class="start-card start-card-${id} ${id} ${classes} ${bare ? 'bare' : ''} ${fixed ? 'fixed-card' : ''}" data-card="${id}" ${title ? `aria-label="${escapeHtml(title)}"` : ''}>
+    ${bare ? (handle ? `<span class="card-handle-float">${handle}</span>` : '') : `<h2>${handle}${icon(glyph)}<span class="start-card-title">${escapeHtml(title)}</span><span class="grow"></span>${extra}</h2>`}
     <div class="card-body">${body}</div>
-    <span class="card-resize" data-card-resize="${id}" title="${escapeHtml(t('start.resizeCard'))}">${GRIP}</span>
+    ${fixed ? '' : `<span class="card-resize" data-card-resize="${id}" title="${escapeHtml(t('start.resizeCard'))}">${GRIP}</span>`}
   </section>`;
 }
 

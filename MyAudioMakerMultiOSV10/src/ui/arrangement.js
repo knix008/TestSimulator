@@ -11,6 +11,10 @@ import { instrument, ROLE_ICONS } from '../music/instruments.js';
 
 const RULER = 62;
 const LANE = 58;
+/** The vocal lane is taller: note bars over the lyrics (Settings › Editor › notes and lyrics on the vocal track). */
+const VOCAL_LANE = 104;
+const LYRIC_ROW = 24;
+const EPS = 1e-6;
 
 export class ArrangementView {
   constructor(host, api) {
@@ -65,6 +69,20 @@ export class ArrangementView {
     this.render();
   }
 
+  /** Whether a track's lane shows its notes with their syllables. */
+  lyricLane(track) {
+    return track.role === 'vocal' && this.api.settings?.().vocalLaneLyrics !== false && track.notes.some((n) => n.syl);
+  }
+
+  laneHeight(track) { return this.lyricLane(track) ? VOCAL_LANE : LANE; }
+
+  /** Top of every lane (and the total height as the last entry). */
+  laneTops() {
+    const tops = [0];
+    for (const track of this.song.tracks) tops.push(tops[tops.length - 1] + this.laneHeight(track));
+    return tops;
+  }
+
   /** Track headers and the canvases. */
   render() {
     const song = this.song;
@@ -74,7 +92,7 @@ export class ArrangementView {
     const selTrack = this.api.state.track;
     this.heads.innerHTML = song.tracks.map((track) => {
       const inst = instrument(track.instrument);
-      return `<div class="arr-head ${selTrack === track.id ? 'selected' : ''} ${audible(song, track) ? '' : 'silent'}" data-track="${escapeHtml(track.id)}" style="--track:${track.color}" title="${escapeHtml(trackName(track, this.api.lang()))}">
+      return `<div class="arr-head ${selTrack === track.id ? 'selected' : ''} ${audible(song, track) ? '' : 'silent'} ${this.lyricLane(track) ? 'lyric-lane' : ''}" data-track="${escapeHtml(track.id)}" style="--track:${track.color};height:${this.laneHeight(track)}px" title="${escapeHtml(trackName(track, this.api.lang()))}">
         <span class="arr-head-color"></span>
         <span class="arr-head-main">
           <span class="arr-head-name">${icon(ROLE_ICONS[track.role] ?? 'instKeys')}<b>${escapeHtml(trackName(track, this.api.lang()))}</b></span>
@@ -97,7 +115,8 @@ export class ArrangementView {
     this.colors = colors;
     const total = songBeats(song);
     const width = this.x(total) + 200;
-    const height = song.tracks.length * LANE + 60;
+    const tops = this.laneTops();
+    const height = tops[tops.length - 1] + 60;
     this.spacer.style.width = `${width}px`;
     this.spacer.style.height = `${height}px`;
     const vw = this.body.clientWidth;
@@ -122,11 +141,12 @@ export class ArrangementView {
     }
     // Lanes and the grid.
     song.tracks.forEach((track, i) => {
-      const y = i * LANE - sy;
-      if (y > vh || y + LANE < 0) return;
-      if (this.api.state.track === track.id) { c.fillStyle = alpha(colors.accent, 0.08); c.fillRect(0, y, vw, LANE); }
+      const y = tops[i] - sy;
+      const H = tops[i + 1] - tops[i];
+      if (y > vh || y + H < 0) return;
+      if (this.api.state.track === track.id) { c.fillStyle = alpha(colors.accent, 0.08); c.fillRect(0, y, vw, H); }
       c.fillStyle = colors.hairline;
-      c.fillRect(0, y + LANE - 1, vw, 1);
+      c.fillRect(0, y + H - 1, vw, 1);
     });
     const firstBar = Math.floor(sx / this.x(per));
     const lastBar = Math.ceil((sx + vw) / this.x(per));
@@ -138,14 +158,16 @@ export class ArrangementView {
     }
     // The notes, in miniature: each lane maps its own pitch range.
     song.tracks.forEach((track, i) => {
-      const y = i * LANE - sy;
-      if (y > vh || y + LANE < 0 || !track.notes.length) return;
+      const y = tops[i] - sy;
+      const H = tops[i + 1] - tops[i];
+      if (y > vh || y + H < 0 || !track.notes.length) return;
       let lo = 127; let hi = 0;
       for (const n of track.notes) { lo = Math.min(lo, n.p); hi = Math.max(hi, n.p); }
       const range = Math.max(12, hi - lo + 1);
       const mid = (lo + hi) / 2;
+      const lyrics = this.lyricLane(track);
       const top = y + 6;
-      const h = LANE - 12;
+      const h = H - 12 - (lyrics ? LYRIC_ROW : 0);
       const silent = !audible(song, track);
       // Clips: one rounded block per section that has notes.
       for (const { start, end } of spans) {
@@ -154,7 +176,7 @@ export class ArrangementView {
         const x0 = this.x(start) - sx + 1;
         const x1 = this.x(end) - sx - 1;
         if (x1 < 0 || x0 > vw) continue;
-        roundRect(c, x0, y + 3, x1 - x0, LANE - 7, 5);
+        roundRect(c, x0, y + 3, x1 - x0, H - 7, 5);
         c.fillStyle = alpha(track.color, silent ? 0.06 : 0.16);
         c.fill();
         c.strokeStyle = alpha(track.color, silent ? 0.2 : 0.5);
@@ -162,17 +184,79 @@ export class ArrangementView {
         c.stroke();
       }
       c.fillStyle = silent ? alpha(track.color, 0.35) : mixColor(track.color, colors.dark ? '#ffffff' : '#000000', 0.15);
+      const bar = lyrics ? 5 : 2.5;
       for (const n of track.notes) {
         const x0 = this.x(n.t) - sx;
         if (x0 > vw) break;
         const w = Math.max(1.5, this.x(n.d) - 1);
         if (x0 + w < 0) continue;
         const py = top + h / 2 - ((n.p - mid) / range) * h;
-        c.fillRect(x0, Math.round(py) - 1, w, 2.5);
+        if (lyrics) { roundRect(c, x0, Math.round(py) - bar / 2, w, bar, 2); c.fill(); } else c.fillRect(x0, Math.round(py) - 1, w, bar);
       }
+      if (lyrics) this.drawLyrics(c, track, y + H - LYRIC_ROW - 4, colors, vw, sx, spans, silent);
     });
     this.drawRuler(colors, vw, sx, per, spans);
     this.drawOverlay();
+  }
+
+  /**
+   * The words under the vocal notes: each syllable under its note when there is room for every one of
+   * them, otherwise each lyric line as a whole, starting at its first note (never chopped into pieces).
+   */
+  drawLyrics(c, track, rowY, colors, vw, sx, spans, silent) {
+    const song = this.song;
+    c.save();
+    c.font = `12px ${getComputedStyle(this.host).fontFamily || 'sans-serif'}`;
+    c.textBaseline = 'middle';
+    c.fillStyle = silent ? alpha(colors.text, 0.4) : colors.text;
+    const midY = rowY + LYRIC_ROW / 2;
+    c.fillStyle = alpha(colors.text, 0.05);
+    c.fillRect(0, rowY, vw, LYRIC_ROW);
+    c.fillStyle = silent ? alpha(colors.text, 0.45) : colors.text;
+    for (const { section, start, end } of spans) {
+      const x0 = this.x(start) - sx;
+      const x1 = this.x(end) - sx;
+      if (x1 < 0 || x0 > vw) continue;
+      const notes = track.notes.filter((n) => n.syl && n.t >= start - EPS && n.t < end - EPS);
+      if (!notes.length) continue;
+      // Every syllable fits under its note?
+      let room = true;
+      for (let k = 0; k < notes.length && room; k++) {
+        const w = c.measureText(notes[k].syl).width + 3;
+        const next = notes[k + 1] ? this.x(notes[k + 1].t) : this.x(end);
+        if (next - this.x(notes[k].t) < w) room = false;
+      }
+      c.save();
+      c.beginPath();
+      c.rect(x0 + 2, rowY, x1 - x0 - 4, LYRIC_ROW);
+      c.clip();
+      if (room) {
+        c.textAlign = 'left';
+        for (const n of notes) {
+          const x = this.x(n.t) - sx + 1;
+          if (x > vw || x < -40) continue;
+          c.fillText(n.syl, x, midY);
+        }
+      } else {
+        // Line by line: the words of each lyric line from its first note to the next line's.
+        const L = section.lyrics.length ? (end - start) / section.lyrics.length : end - start;
+        const lines = section.lyrics.length ? section.lyrics : [notes.map((n) => n.syl).join('')];
+        lines.forEach((line, li) => {
+          const a = start + li * L - 0.5;
+          const b = a + L;
+          const inLine = notes.filter((n) => n.t >= a && n.t < b);
+          if (!inLine.length || !line) return;
+          const lx = this.x(inLine[0].t) - sx + 1;
+          const nextLine = notes.find((n) => n.t >= b);
+          const limit = (nextLine ? this.x(nextLine.t) - sx : x1) - lx - 6;
+          if (limit < 14 || lx > vw) return;
+          c.textAlign = 'left';
+          c.fillText(fitText(c, line, limit), lx, midY);
+        });
+      }
+      c.restore();
+    }
+    c.restore();
   }
 
   drawRuler(colors, vw, sx, per, spans) {
@@ -309,8 +393,10 @@ export class ArrangementView {
 
   laneAt(clientY) {
     const r = this.body.getBoundingClientRect();
-    const i = Math.floor((clientY - r.top + this.body.scrollTop) / LANE);
-    return this.song.tracks[i] ?? null;
+    const yy = clientY - r.top + this.body.scrollTop;
+    const tops = this.laneTops();
+    const i = tops.findIndex((top, k) => k < tops.length - 1 && yy >= top && yy < tops[k + 1]);
+    return i < 0 ? null : this.song.tracks[i] ?? null;
   }
 
   bindBody() {

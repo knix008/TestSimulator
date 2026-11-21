@@ -4,7 +4,14 @@ export const COLS = 3;
 export const ROW = 20;
 export const GAP = 14;
 // Raised when the default arrangement changes: an older saved one starts over once.
-export const LAYOUT_VERSION = 1;
+export const LAYOUT_VERSION = 2;
+// Cards that cannot be moved or resized: the program name and information card is always the
+// first row, across every column, as tall as its content. No card can be put above it.
+export const FIXED_CARDS = new Set(['hero']);
+const isFixed = (id) => FIXED_CARDS.has(id);
+const fixedCell = (h) => ({ col: 0, row: 0, w: COLS, h, fit: true });
+/** Fixed cards first, then by row and column. */
+const order = (cards) => (a, b) => (isFixed(b) - isFixed(a)) || cards[a].row - cards[b].row || cards[a].col - cards[b].col;
 
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 
@@ -37,15 +44,16 @@ function pack(order, widthOf, heightOf) {
   return out;
 }
 
-/** Pushes overlapping cards down; the pinned card (the one being moved) stays. */
+/** Pushes overlapping cards down; fixed cards never move, the pinned card (the one being moved) moves only off them. */
 function resolve(cards, pinned) {
-  const ids = Object.keys(cards).sort((a, b) => (a === pinned ? -1 : b === pinned ? 1 : cards[a].row - cards[b].row || cards[a].col - cards[b].col));
+  const ids = Object.keys(cards).sort((a, b) => (isFixed(b) - isFixed(a)) || (a === pinned ? -1 : b === pinned ? 1 : cards[a].row - cards[b].row || cards[a].col - cards[b].col));
   const placed = [];
   const out = {};
   for (const id of ids) {
     const c = { ...cards[id] };
-    if (id !== pinned) {
+    if (!isFixed(id)) {
       for (let guard = 0; guard < 200; guard += 1) {
+        // Fixed cards come first and the pinned one next, so the pinned card only steps off fixed cards.
         const hit = placed.filter((p) => overlaps(c, p));
         if (!hit.length) break;
         c.row = Math.max(...hit.map((p) => p.row + p.h));
@@ -59,7 +67,7 @@ function resolve(cards, pinned) {
 
 /** Moves every card up as far as the cards above it allow. */
 export function compact(cards) {
-  const ids = Object.keys(cards).sort((a, b) => cards[a].row - cards[b].row || cards[a].col - cards[b].col);
+  const ids = Object.keys(cards).sort(order(cards));
   const placed = [];
   const out = {};
   for (const id of ids) {
@@ -90,14 +98,19 @@ export function cardsOf(saved, ids, defaultSpan, measured = {}, fallbackRows = 8
     cards = pack([...ids], (id) => defaultSpan[id] || 1, rows);
   }
   for (const id of Object.keys(cards)) if (cards[id].fit && measured[id]) cards[id] = { ...cards[id], h: measured[id] };
+  for (const id of Object.keys(cards)) if (isFixed(id)) cards[id] = fixedCell(measured[id] || cards[id].h);
   return compact(resolve(cards, null));
 }
 
-/** The board with one card moved or resized. */
-export const place = (cards, id, target) => compact(resolve({ ...cards, [id]: { ...cards[id], ...target } }, id));
+/** The board with one card moved or resized (a fixed card stays as it is). */
+export const place = (cards, id, target) => (isFixed(id) ? compact(resolve({ ...cards }, null)) : compact(resolve({ ...cards, [id]: { ...cards[id], ...target } }, id)));
 
-/** The default arrangement. */
-export const autoArrange = (ids, defaultSpan, measured = {}, fallbackRows = 8) => compact(pack([...ids], (id) => defaultSpan[id] || 1, (id) => measured[id] || fallbackRows));
+/** The default arrangement (fixed cards first, at the top). */
+export function autoArrange(ids, defaultSpan, measured = {}, fallbackRows = 8) {
+  const sorted = [...ids].sort((a, b) => isFixed(b) - isFixed(a));
+  const cards = pack(sorted, (id) => (isFixed(id) ? COLS : defaultSpan[id] || 1), (id) => measured[id] || fallbackRows);
+  return compact(cards);
+}
 
 /** The form saved in the settings. */
 export function layoutValue(cards) {

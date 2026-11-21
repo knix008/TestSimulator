@@ -59,6 +59,7 @@ export const ICONS_MUSIC = {
   aiBuiltin: '<rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6" rx="1"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/>',
   aiClaude: '<path d="M12 2.5v5M12 16.5v5M2.5 12h5M16.5 12h5M5.3 5.3l3.5 3.5M15.2 15.2l3.5 3.5M5.3 18.7l3.5-3.5M15.2 8.8l3.5-3.5"/>',
   aiLocal: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/><path d="M12 7l1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/>',
+  aiModel: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/><circle cx="12" cy="12" r="1.6"/>',
   variation: '<path d="M4 7h3l10 10h3M4 17h3l3-3M14 10l3-3h3"/><path d="M18 4l2 3-2 3M18 14l2 3-2 3"/>',
   fitMelody: '<path d="M3 18h7M3 14h5"/><circle cx="15" cy="16" r="2.5"/><path d="M17.5 16V6l3-1"/><path d="M5 4l2 2 4-4"/>',
   part_chords: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 12h8M8 15h8"/>',

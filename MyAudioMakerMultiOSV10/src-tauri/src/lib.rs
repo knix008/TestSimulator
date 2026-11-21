@@ -3,6 +3,7 @@ pub mod fonts;
 pub mod i18n;
 pub mod instance;
 pub mod printing;
+pub mod voicebank;
 pub mod window_state;
 
 use serde::Serialize;
@@ -792,6 +793,15 @@ pub fn run() {
             print_pages_to_pdf,
             quit_app,
             raise_test_panic,
+            voicebank::voicebank_root,
+            voicebank::voicebank_list,
+            voicebank::voicebank_write_meta,
+            voicebank::voicebank_remove,
+            voicebank::voicebank_read,
+            voicebank::voicebank_jobs,
+            voicebank::voicebank_cancel,
+            voicebank::voicebank_download,
+            voicebank::voicebank_import,
         ])
         .run(tauri::generate_context!())
         .expect("error while running MyAudioMaker");

@@ -97,7 +97,7 @@ function update(patch) {
   render();
 }
 
-window.addEventListener('error', (event) => action('report-error', { message: String(event.error?.message ?? event.message), detail: String(event.error?.stack ?? ''), context: `popup-${kind}` }));
+window.addEventListener('error', (event) => { if (/^ResizeObserver loop/.test(String(event.message ?? ''))) return; action('report-error', { message: String(event.error?.message ?? event.message), detail: String(event.error?.stack ?? ''), context: `popup-${kind}` }); });
 window.addEventListener('unhandledrejection', (event) => action('report-error', { message: native.errorText(event.reason), detail: String(event.reason?.stack ?? ''), context: `popup-${kind}` }));
 
 // ───────────────────────── frame
@@ -606,7 +606,11 @@ function renderProgress() {
   root.innerHTML = frame({
     glyph: p.icon || 'hourglass', title: p.title ?? t('progress.wait'),
     body: `<div class="progress-view">
-      <div class="progress-glyph ${finished ? 'done' : ''}" style="animation-delay:-${Date.now() % 1600}ms" aria-hidden="true">${icon(glyph, 'icon progress-icon')}</div>
+      <div class="progress-glyph ${finished ? 'done' : ''}" style="--t:-${Date.now() % 4800}ms" aria-hidden="true">
+        <span class="progress-ring"></span>
+        ${finished ? '' : '<span class="progress-notes"><i>♪</i><i>♫</i><i>♪</i></span><span class="progress-eq"><i></i><i></i><i></i><i></i><i></i></span>'}
+        ${icon(glyph, 'icon progress-icon')}
+      </div>
       <div class="progress-main">
         <div class="row">${icon(p.nameIcon || 'file')}<span class="path" title="${escapeHtml(p.name ?? '')}">${escapeHtml(p.name ?? '')}</span><span class="grow"></span><span class="muted" id="progress-elapsed">${escapeHtml(t('progress.elapsed', { s: elapsed }))}</span></div>
         <div data-scrolls class="progress-bar ${percent == null ? 'indeterminate' : ''}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent ?? 0}"><i style="width:${percent ?? 30}%"></i></div>

@@ -2,6 +2,8 @@
 //   left:  AI Compose (the song generator), Instruments (the library), Sections (song parts to add)
 //   right: the song outline (sections and tracks) and the editors — Song, Section, Track, Notes, Mix
 //   centre: the Lyrics view (each section's words, syllables against notes, chords)
+import { engraveBars, melodyNotes, staffSvg } from '../music/notation.js';
+import { aiPickerHtml } from './aipicker.js';
 import { escapeHtml } from './dom.js';
 import { icon } from '../icons.js';
 import { stepperHtml } from '../stepper.js';
@@ -30,22 +32,21 @@ export function composeHtml(api) {
   const d = api.state.compose;
   const s = api.settings();
   const provider = providerFor(s);
-  const providerLabel = t(`ai.provider.${provider}`);
   const flats = prefersFlats(d.tonic ?? 0, d.mode);
   const keys = [['auto', t('compose.auto')], ...Array.from({ length: 12 }, (_, pc) => [String(pc), pcName(pc, flats)])];
   return `<div class="compose">
-    <div class="compose-provider ${provider}" title="${escapeHtml(t('compose.providerTip'))}">${icon(provider === 'builtin' ? 'aiBuiltin' : provider === 'claude' ? 'aiClaude' : 'aiLocal')}<span><b>${escapeHtml(providerLabel)}</b><small>${escapeHtml(t(`ai.providerNote.${provider}`))}</small></span><button class="small-button" data-command="aiSettings" title="${escapeHtml(api.commandTip('aiSettings'))}">${icon('gear')}<span>${escapeHtml(t('compose.change'))}</span></button></div>
+    ${aiPickerHtml(s, t, { settingsAttr: 'data-command="aiSettings"', settingsTip: api.commandTip('aiSettings'), compact: true })}
     <label class="compose-topic"><span class="prop-label">${icon('lyrics')}<span>${escapeHtml(t('compose.topic'))}</span></span>
       <textarea id="compose-topic" rows="3" spellcheck="false" placeholder="${escapeHtml(t('compose.topicHint'))}">${escapeHtml(d.topic)}</textarea></label>
     <div class="compose-themes">${THEMES.map((th) => `<button type="button" class="chip ${d.theme === th.id ? 'on' : ''}" data-compose-theme="${th.id}" title="${escapeHtml(nm(th, api))}">${icon(th.icon)}<span>${escapeHtml(nm(th, api))}</span></button>`).join('')}</div>
     <div class="props">
       ${row('genrePop', t('compose.genre'), `<select data-compose="genre" data-icon="genrePop" aria-label="${escapeHtml(t('compose.genre'))}">${GENRES.map((g) => opt(g.id, nm(g, api), d.genre, g.icon)).join('')}</select>`)}
-      ${row('moodHappy', t('compose.mood'), `<select data-compose="mood" aria-label="${escapeHtml(t('compose.mood'))}">${MOODS.map((m) => opt(m.id, nm(m, api), d.mood, m.icon)).join('')}</select>`)}
+      ${row('moodHappy', t('compose.mood'), `<select data-compose="mood" data-icon="moodHappy" aria-label="${escapeHtml(t('compose.mood'))}">${MOODS.map((m) => opt(m.id, nm(m, api), d.mood, m.icon)).join('')}</select>`)}
       ${row('globe', t('compose.language'), seg('data-compose-language', [['ko', '한국어'], ['en', 'English']], d.language))}
-      ${row('keySig', t('compose.key'), `<span class="inline-pair"><select data-compose="tonic" aria-label="${escapeHtml(t('compose.key'))}">${keys.map(([v, label]) => opt(v, label, d.tonic == null ? 'auto' : d.tonic)).join('')}</select><select data-compose="mode" aria-label="${escapeHtml(t('compose.mode'))}">${opt('auto', t('compose.byMood'), d.mode ?? 'auto')}${['major', 'minor', 'dorian', 'mixolydian'].map((m) => opt(m, t(`mode.${m}`), d.mode ?? 'auto')).join('')}</select></span>`)}
+      ${row('keySig', t('compose.key'), `<span class="inline-pair"><select data-compose="tonic" data-icon="keySig" aria-label="${escapeHtml(t('compose.key'))}">${keys.map(([v, label]) => opt(v, label, d.tonic == null ? 'auto' : d.tonic)).join('')}</select><select data-compose="mode" data-icon="keySig" aria-label="${escapeHtml(t('compose.mode'))}">${opt('auto', t('compose.byMood'), d.mode ?? 'auto')}${['major', 'minor', 'dorian', 'mixolydian'].map((m) => opt(m, t(`mode.${m}`), d.mode ?? 'auto')).join('')}</select></span>`)}
       ${row('tempo', t('compose.bpm'), `<span class="inline-pair"><label class="check-inline"><input type="checkbox" data-compose-auto-bpm ${d.bpm ? '' : 'checked'} /><span>${escapeHtml(t('compose.auto'))}</span></label>${d.bpm ? stepper(api, 'compose:bpm', d.bpm, 40, 220, 1, '', t('compose.bpm')) : ''}</span>`)}
-      ${row('structure', t('compose.structure'), `<select data-compose="structure" aria-label="${escapeHtml(t('compose.structure'))}">${STRUCTURES.map((st) => opt(st.id, nm(st, api), d.structure, 'structure')).join('')}</select>`)}
-      ${row('instVocal', t('compose.vocal'), `<select data-compose="vocal" aria-label="${escapeHtml(t('compose.vocal'))}">${['auto', 'voiceFemale', 'voiceMale', 'voiceChoir', 'none'].map((v) => opt(v, v === 'auto' ? t('compose.byGenre') : v === 'none' ? t('compose.noVocal') : nm(instrument(v), api), d.vocal, v === 'none' ? 'close' : 'instVocal')).join('')}</select>`)}
+      ${row('structure', t('compose.structure'), `<select data-compose="structure" data-icon="structure" aria-label="${escapeHtml(t('compose.structure'))}">${STRUCTURES.map((st) => opt(st.id, nm(st, api), d.structure, 'structure')).join('')}</select>`)}
+      ${row('instVocal', t('compose.vocal'), `<select data-compose="vocal" data-icon="instVocal" aria-label="${escapeHtml(t('compose.vocal'))}">${['auto', 'voiceFemale', 'voiceMale', 'voiceChoir', 'none'].map((v) => opt(v, v === 'auto' ? t('compose.byGenre') : v === 'none' ? t('compose.noVocal') : nm(instrument(v), api), d.vocal, v === 'none' ? 'close' : 'instVocal')).join('')}</select>`)}
       ${row('dice', t('compose.seed'), `<span class="inline-pair"><input type="text" data-compose-seed value="${escapeHtml(d.seed)}" inputmode="numeric" aria-label="${escapeHtml(t('compose.seed'))}" /><button class="icon-button" data-compose-dice title="${escapeHtml(t('compose.newSeed'))}">${icon('dice')}</button></span>`, t('compose.seedTip'))}
       ${row('notes', t('compose.notes'), `<input type="text" data-compose-notes value="${escapeHtml(d.notes ?? '')}" placeholder="${escapeHtml(t('compose.notesHint'))}" ${provider === 'builtin' ? 'disabled' : ''} />`, t('compose.notesTip'))}
     </div>
@@ -129,9 +130,9 @@ export function songEditorHtml(api) {
     ${row('user', t('song.artist'), `<input type="text" data-song="artist" value="${escapeHtml(song.artist)}" placeholder="${escapeHtml(t('song.artistHint'))}" />`)}
     ${row('genrePop', t('compose.genre'), `<select data-song="genre">${GENRES.map((g) => opt(g.id, nm(g, api), song.genre, g.icon)).join('')}</select>`, t('song.genreTip'))}
     ${row('moodHappy', t('compose.mood'), `<select data-song="mood">${MOODS.map((m) => opt(m.id, nm(m, api), song.mood, m.icon)).join('')}</select>`)}
-    ${row('keySig', t('song.key'), `<span class="inline-pair"><select data-song="tonic">${Array.from({ length: 12 }, (_, pc) => opt(pc, pcName(pc, flats), song.key.tonic)).join('')}</select><select data-song="mode">${MODES.map((m) => opt(m, t(`mode.${m}`), song.key.mode)).join('')}</select></span>`, t('song.keyTip'))}
+    ${row('keySig', t('song.key'), `<span class="inline-pair"><select data-song="tonic" data-icon="keySig">${Array.from({ length: 12 }, (_, pc) => opt(pc, pcName(pc, flats), song.key.tonic)).join('')}</select><select data-song="mode" data-icon="keySig">${MODES.map((m) => opt(m, t(`mode.${m}`), song.key.mode)).join('')}</select></span>`, t('song.keyTip'))}
     ${row('tempo', t('song.bpm'), stepper(api, 'song:bpm', song.bpm, 30, 300, 1, '', t('song.bpm')))}
-    ${row('timeSig', t('song.timeSignature'), `<select data-song="timeSignature">${['4/4', '3/4', '6/8', '2/4', '5/4', '7/8', '12/8'].map((v) => opt(v, v, song.timeSignature.join('/'))).join('')}</select>`)}
+    ${row('timeSig', t('song.timeSignature'), `<select data-song="timeSignature" data-icon="timeSig">${['4/4', '3/4', '6/8', '2/4', '5/4', '7/8', '12/8'].map((v) => opt(v, v, song.timeSignature.join('/'))).join('')}</select>`)}
     ${row('swing', t('song.swing'), `<input type="range" min="0" max="0.5" step="0.01" data-song-range="swing" value="${song.swing}" /><output>${Math.round(song.swing * 200)}%</output>`, t('song.swingTip'))}
     ${row('globe', t('compose.language'), seg('data-song-language', [['ko', '한국어'], ['en', 'English']], song.language))}
     <div class="prop-badges">
@@ -160,7 +161,7 @@ export function sectionEditorHtml(api) {
     ${row('bars', t('section.bars'), stepper(api, 'section:bars', section.bars, 1, 64, 1, '', t('section.bars')))}
     ${row('energy', t('section.energy'), `<input type="range" min="0" max="1" step="0.05" data-section-range="energy" value="${section.energy}" /><output>${Math.round(section.energy * 100)}%</output>`, t('section.energyTip'))}
     ${row('chords', t('section.chords'), `<input type="text" class="mono" data-section-field="chords" value="${escapeHtml(chordLineText(song, section))}" spellcheck="false" />`, t('section.chordsTip'), 'tall')}
-    ${row('copy', t('section.repeatOf'), `<select data-section-field="repeatOf">${opt('', t('section.repeatNone'), section.repeatOf ?? '')}${others.map((o) => opt(o.id, api.sectionName(o), section.repeatOf ?? '')).join('')}</select>`, t('section.repeatTip'))}
+    ${row('copy', t('section.repeatOf'), `<select data-section-field="repeatOf" data-icon="copy">${opt('', t('section.repeatNone'), section.repeatOf ?? '')}${others.map((o) => opt(o.id, api.sectionName(o), section.repeatOf ?? '')).join('')}</select>`, t('section.repeatTip'))}
     <h3 class="prop-subhead">${icon('aiCompose')}<span>${escapeHtml(t('section.regenerate'))}</span></h3>
     <div class="prop-buttons wrap">${['all', 'chords', 'melody', 'lead', 'accompaniment', 'bass', 'drums'].map((part) => `<button class="small-button" data-regenerate="${part}" title="${escapeHtml(t(`regen.${part}Tip`))}">${icon(part === 'all' ? 'aiCompose' : `part_${part}`)}<span>${escapeHtml(t(`regen.${part}`))}</span></button>`).join('')}</div>
     <div class="prop-actions">
@@ -244,7 +245,14 @@ export function lyricsViewHtml(api) {
   const song = api.song();
   const t = api.t;
   const hasVocal = song.tracks.some((tr) => tr.role === 'vocal');
-  const cards = sectionSpans(song).map(({ section, start }) => {
+  // Each section's melody on a staff, syllables under the notes (Settings or the header button turn it off).
+  const showStaff = api.settings().lyricsStaff !== false;
+  const melody = showStaff ? melodyNotes(song) : [];
+  const spans = sectionSpans(song);
+  const melodyIn = (section) => { const sp = spans.find((x) => x.section === section); return sp && melody.some((n) => n.t >= sp.start - 1e-6 && n.t < sp.end - 1e-6); };
+  const engraved = showStaff && melody.length ? engraveBars(song) : null;
+  const staffWidth = Math.max(320, (api.state.lyricsWidth ?? 820) - 34);
+  const cards = spans.map(({ section, start }) => {
     const fit = lyricFit(song, section);
     const repeat = section.repeatOf ? song.sections.find((s) => s.id === section.repeatOf) : null;
     const counts = section.lyrics.map((line, i) => {
@@ -259,12 +267,13 @@ export function lyricsViewHtml(api) {
         <button class="icon-button" data-lyric-ai="${escapeHtml(section.id)}" title="${escapeHtml(t('lyrics.rewrite'))}">${icon('aiLyrics')}</button>
         <button class="icon-button" data-lyric-fit="${escapeHtml(section.id)}" title="${escapeHtml(t('lyrics.fit'))}" ${hasVocal ? '' : 'disabled'}>${icon('fitMelody')}</button>
       </header>
-      <div class="lyric-chords mono" title="${escapeHtml(t('section.chordsTip'))}">${escapeHtml(chordLineText(song, section))}</div>
+      ${showStaff && melodyIn(section) ? `<div class="lyric-staff" title="${escapeHtml(t('lyrics.staffTip'))}">${staffSvg(song, section, { widthPx: staffWidth, engraved })}</div>` : `<div class="lyric-chords mono" title="${escapeHtml(t('section.chordsTip'))}">${escapeHtml(chordLineText(song, section))}</div>`}
       <div class="lyric-edit"><textarea data-lyrics="${escapeHtml(section.id)}" rows="${Math.max(2, section.lyrics.length + 1)}" spellcheck="false" placeholder="${escapeHtml(t('lyrics.placeholder'))}">${escapeHtml(section.lyrics.join('\n'))}</textarea><div class="lyric-counts">${counts}</div></div>
     </section>`;
   }).join('');
   return `<div class="lyrics-view">
     <div class="lyrics-head">${icon('lyrics')}<b>${escapeHtml(song.title || t('song.untitled'))}</b><span class="muted">${escapeHtml(`${keyName(song.key)} · ${song.bpm} BPM`)}</span><span class="grow"></span>
+      <button class="small-button ${showStaff ? 'on' : ''}" data-lyrics-staff-toggle aria-pressed="${showStaff}" title="${escapeHtml(t('lyrics.staffToggleTip'))}">${icon('leadSheet')}<span>${escapeHtml(t('lyrics.staffToggle'))}</span></button>
       <button class="small-button" data-command="aiLyrics">${icon('aiLyrics')}<span>${escapeHtml(t('action.aiLyrics'))}</span></button>
       <button class="small-button" data-command="copyLyrics">${icon('copy')}<span>${escapeHtml(t('action.copyLyrics'))}</span></button>
       <button class="small-button" data-command="pasteLyrics">${icon('paste')}<span>${escapeHtml(t('action.pasteLyrics'))}</span></button>

@@ -20,6 +20,10 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2"
+# AI voice banks (voicebank.rs): download, check, unzip.
+ureq = "2"
+sha2 = "0.10"
+zip = { version = "2", default-features = false, features = ["deflate"] }
 
 # Printing straight to a printer (the same versions as Tauri's own WebView2).
 [target.'cfg(windows)'.dependencies]

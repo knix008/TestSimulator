@@ -111,6 +111,12 @@ export function defaultSettings(language = 'ko') {
     rollChordTones: true,
     autoFitMelody: true,
     sheetZoom: 100,
+    /** The Lyrics view shows each section's melody on a staff above its words. */
+    lyricsStaff: true,
+    /** The arrangement's vocal lane shows notes and syllables (when there is room). */
+    vocalLaneLyrics: true,
+    /** While playing, a sing-along strip shows the line being sung (notes and lyrics). */
+    karaoke: true,
     lyricLanguage: language === 'en' ? 'en' : 'ko',
     defaultVocal: 'auto',
     // Export
@@ -120,8 +126,20 @@ export function defaultSettings(language = 'ko') {
     // AI: the built-in writer works offline; Claude needs the user's key; Ollama runs on this computer.
     aiProvider: 'builtin',
     aiModel: 'claude-opus-5-5',
+    /** The model id when aiModel is 'custom' (a newer Claude model, say). */
+    aiModelCustom: '',
+    /** Claude's thinking depth: low · medium · high. */
+    aiEffort: 'medium',
+    /** focused · balanced · creative (prompt wording; Ollama temperature). */
+    aiCreativity: 'balanced',
+    /** Seconds before an AI request is given up. */
+    aiTimeout: 180,
+    /** When Claude or Ollama fails, write the song with the built-in writer instead (with a notice). */
+    aiFallback: true,
     ollamaUrl: 'http://localhost:11434',
     ollamaModel: 'llama3.1',
+    /** The models Ollama listed last time (for the model menus). */
+    ollamaModels: [],
     explorerHeight: 45,
     autoSaveMinutes: 0,
     rowHeight: 26,
@@ -171,12 +189,21 @@ export function normalizeSettings(raw = {}, language) {
   s.masterVolume = clamp(s.masterVolume, 0, 150, base.masterVolume);
   s.rollSnap = SNAP_VALUES.some((v) => Math.abs(v - Number(s.rollSnap)) < 1e-6) ? Number(s.rollSnap) : base.rollSnap;
   s.sheetZoom = clamp(s.sheetZoom, 50, 200, 100);
+  s.lyricsStaff = s.lyricsStaff !== false;
+  s.vocalLaneLyrics = s.vocalLaneLyrics !== false;
+  s.karaoke = s.karaoke !== false;
   s.lyricLanguage = s.lyricLanguage === 'en' ? 'en' : 'ko';
   s.defaultVocal = ['auto', 'voiceFemale', 'voiceMale', 'voiceChoir', 'none'].includes(s.defaultVocal) ? s.defaultVocal : 'auto';
   s.exportSampleRate = SAMPLE_RATES.includes(Number(s.exportSampleRate)) ? Number(s.exportSampleRate) : base.exportSampleRate;
   s.exportBits = BIT_DEPTHS.includes(Number(s.exportBits)) ? Number(s.exportBits) : base.exportBits;
   s.aiProvider = AI_PROVIDERS.includes(s.aiProvider) ? s.aiProvider : 'builtin';
   s.aiModel = typeof s.aiModel === 'string' && s.aiModel ? s.aiModel : base.aiModel;
+  s.aiModelCustom = typeof s.aiModelCustom === 'string' ? s.aiModelCustom.trim().slice(0, 100) : '';
+  s.aiEffort = ['low', 'medium', 'high'].includes(s.aiEffort) ? s.aiEffort : base.aiEffort;
+  s.aiCreativity = ['focused', 'balanced', 'creative'].includes(s.aiCreativity) ? s.aiCreativity : base.aiCreativity;
+  s.aiTimeout = [60, 120, 180, 300, 600].includes(Number(s.aiTimeout)) ? Number(s.aiTimeout) : base.aiTimeout;
+  s.aiFallback = s.aiFallback !== false;
+  s.ollamaModels = Array.isArray(s.ollamaModels) ? s.ollamaModels.filter((m) => typeof m === 'string' && m).slice(0, 100) : [];
   s.ollamaUrl = typeof s.ollamaUrl === 'string' && /^https?:[/][/]/.test(s.ollamaUrl) ? s.ollamaUrl : base.ollamaUrl;
   s.ollamaModel = typeof s.ollamaModel === 'string' && s.ollamaModel.trim() ? s.ollamaModel.trim() : base.ollamaModel;
   // The key is not a setting: it lives under AI_KEY (loadSettings fills it in).
@@ -258,7 +285,7 @@ export const INSTALL_RESET_KEY = 'myaudiomaker.installReset';
 /** Stored lists that are the user's own data, kept by a new installation. */
 const KEEP_KEYS = [RECENT_KEY, RECENT_DIRS_KEY, SESSION_KEY, MY_OBJECTS_KEY, AI_KEY];
 /** Settings that are the user's data rather than preferences: database connection, background image, tutorial history. */
-const KEEP_SETTINGS = ['backgroundImage', 'backgroundName', 'lastDirectory', 'tutorialOffered', 'tutorialDone', 'aiProvider', 'ollamaUrl', 'ollamaModel'];
+const KEEP_SETTINGS = ['backgroundImage', 'backgroundName', 'lastDirectory', 'tutorialOffered', 'tutorialDone', 'aiProvider', 'aiModel', 'aiModelCustom', 'ollamaUrl', 'ollamaModel', 'ollamaModels'];
 
 /**
  * After the installer ran (it hands over `token`): every preference goes back to its default —

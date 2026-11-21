@@ -20,8 +20,13 @@
           "$APPDATA/**",
           "$APPLOCALDATA/**",
           "$APPCONFIG/**",
-          "$RESOURCE/doc/video/**"
+          "$RESOURCE/doc/video/**",
+          "$RESOURCE/sounds/**"
         ]
+      },
+      "headers": {
+        "Cross-Origin-Opener-Policy": "same-origin",
+        "Cross-Origin-Embedder-Policy": "credentialless"
       }
     }
   },
@@ -46,7 +51,8 @@
       "icons/project.png": "project.png",
       "../doc/": "doc/",
       "../samples/": "samples/",
-      "../licenses/": "licenses/"
+      "../licenses/": "licenses/",
+      "../sounds/": "sounds/"
     },
     "fileAssociations": [
       {

@@ -36,7 +36,7 @@ export const STEPS = [
   // ── compose with AI
   { id: 'workspace', chapter: 'compose', target: '#workspace', dwell: 6000, run: (a) => a.song() },
   { id: 'composePanel', chapter: 'compose', target: '#left-panel', dwell: 7000, async run(a) { await a.song(); a.app.state.leftTab = 'compose'; a.app.renderAll(); } },
-  { id: 'provider', chapter: 'compose', target: '.compose-provider', async run(a) { await a.song(); a.app.state.leftTab = 'compose'; a.app.renderAll(); } },
+  { id: 'provider', chapter: 'compose', target: '#left-panel [data-ai-picker]', async run(a) { await a.song(); a.app.state.leftTab = 'compose'; a.app.renderAll(); } },
   { id: 'wizard', chapter: 'compose', target: '.web-popup-compose', dwell: 7000, async run(a) { await a.song(); a.popup(() => a.app.popups.open('compose', { draft: a.app.state.compose, provider: 'builtin' }), 'compose'); } },
   // ── arrangement
   { id: 'arrangement', chapter: 'arrange', target: '.view-arrangement', dwell: 7000, async run(a) { await a.closeMenus(); await a.song(); a.app.setView('arrangement'); } },
