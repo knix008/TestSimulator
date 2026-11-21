@@ -279,7 +279,6 @@
   // Explorer › Recent / Favorites tabs (see "Places" below); declared up here because the
   // start-up code reads them before that part of the file runs
   const TREE_TAB_KEY = 'explorerTab';
-  const HOME_PLACES_TAB_KEY = 'homePlacesTab';
   let _treeTab = 'explorer';
   let _favorites = [];         // mirror of favorites.db: [{ path, kind: 'dir' | 'file', addedAt }]
   let _placesGen = 0;
@@ -287,6 +286,13 @@
   let _placesHold = false;     // opened from the list: keep its rows still until the pointer leaves
   let _placesPending = false;
   let _placesSelected = '';
+  // Home tab: browses the user's home folder inside the left panel
+  const TREE_TABS = ['explorer', 'home', 'recent', 'favorites'];
+  const HOME_CWD_KEY = 'explorerHomeCwd';
+  let _homeDir = '';
+  let _homeCwd = '';
+  const HOME_HIDDEN_DIRS = new Set(['appdata', 'application data', 'cookies', 'local settings', 'my documents',
+    'nethood', 'printhood', 'recent', 'sendto', 'start menu', 'templates', '$recycle.bin', 'system volume information']);
   const START_SCENE_IDS = [
     'valley', 'ocean', 'aurora', 'stars', 'rain', 'snow', 'dusk', 'forest', 'dunes', 'city',
     'nebula', 'bokeh', 'grid', 'ribbons', 'embers', 'lake', 'sunrise', 'fireflies', 'geometry', 'ink',
@@ -1548,72 +1554,78 @@
   }
 
   /**
-   * Start screen: recent folders · recent files · favorites, as tabs (the same lists as
-   * the explorer's Recent and Favorites tabs). A click opens the entry and leaves the screen.
+   * Start screen (MySketchBook style): recent files, recent folders and favorites stacked
+   * under their own small headings (the same lists as the explorer's Recent and Favorites
+   * tabs). A click opens the entry and leaves the screen; × forgets one, the heading's
+   * button clears the list.
    */
   function _homePlaces() {
+    // Declared here, not above: Home is drawn by start-up code that runs before this line (TDZ)
+    const HOME_PLACES_MAX = 8;
     const t = I18n.t.bind(I18n);
     const host = document.createElement('div');
     host.className = 'home-places';
-    let tab = 'dirs';
-    try { tab = localStorage.getItem(HOME_PLACES_TAB_KEY) || 'dirs'; } catch { /* ignore */ }
-    const lists = {
-      dirs: {
-        label: t('home.tab.recentFolders'), icon: 'folder',
-        entries: () => _getRecentDirs().map((p) => ({ path: p, kind: 'dir' })),
-        empty: t('home.noRecent'),
-        removeTitle: t('toolbar.removeRecentFolder'), remove: (p) => _removeRecentDir(p),
-        clearLabel: t('toolbar.clearRecentFolders'), clear: () => _clearRecentFolderHistory(),
-      },
-      files: {
-        label: t('home.tab.recentFiles'), icon: 'image',
+    const lists = [
+      {
+        id: 'files', label: t('home.recentFiles'), icon: 'image',
         entries: () => _getRecentFiles().map((p) => ({ path: p, kind: 'file' })),
         empty: t('places.noRecentFiles'),
         removeTitle: t('places.removeRecentFile'), remove: (p) => _removeRecentFile(p),
         clearLabel: t('places.clearRecentFiles'), clear: () => _clearRecentFiles(),
       },
-      favorites: {
-        label: t('tree.tab.favorites'), icon: 'star',
+      {
+        id: 'dirs', label: t('home.recentFolders'), icon: 'folder',
+        entries: () => _getRecentDirs().map((p) => ({ path: p, kind: 'dir' })),
+        empty: t('home.noRecent'),
+        removeTitle: t('toolbar.removeRecentFolder'), remove: (p) => _removeRecentDir(p),
+        clearLabel: t('toolbar.clearRecentFolders'), clear: () => _clearRecentFolderHistory(),
+      },
+      {
+        id: 'favorites', label: t('tree.tab.favorites'), icon: 'star',
         entries: () => _favorites.map((f) => ({ path: f.path, kind: f.kind })),
         empty: t('places.noFavorites'),
         removeTitle: t('context.removeFavorite'), remove: (p) => _removeFavorite(p),
         clearLabel: t('places.clearFavorites'), clear: () => _clearFavorites(),
       },
-    };
-    if (!lists[tab]) tab = 'dirs';
-
-    const bar = document.createElement('div');
-    bar.className = 'home-places-tabs';
-    bar.setAttribute('role', 'tablist');
-    const body = document.createElement('div');
-    const fill = () => {
-      const L = lists[tab];
-      bar.querySelectorAll('button').forEach((b) => {
-        const on = b.dataset.tab === tab;
-        b.classList.toggle('on', on);
-        b.setAttribute('aria-selected', on ? 'true' : 'false');
-      });
-      body.replaceChildren();
-      const entries = L.entries();
-      if (!entries.length) {
-        const p = document.createElement('p');
-        p.className = 'start-muted';
-        p.textContent = L.empty;
-        body.appendChild(p);
-        return;
+    ];
+    for (const L of lists) {
+      const entries = L.entries().slice(0, HOME_PLACES_MAX);
+      const head = document.createElement('h3');
+      head.className = 'start-sub';
+      head.dataset.places = L.id;
+      head.innerHTML = `${Icons[L.icon] || ''}<span></span><span class="grow"></span>`;
+      head.querySelector('span').textContent = L.label;
+      if (entries.length) {
+        const clear = document.createElement('button');
+        clear.type = 'button';
+        clear.className = 'start-sub-clear';
+        clear.title = L.clearLabel;
+        clear.setAttribute('aria-label', L.clearLabel);
+        clear.innerHTML = Icons.delete || '';
+        clear.addEventListener('click', () => { L.clear(); });
+        head.appendChild(clear);
       }
-      const ul = document.createElement('ul');
-      ul.className = 'recent-list';
+      const list = document.createElement('div');
+      list.className = 'start-list';
+      if (!entries.length) {
+        const empty = document.createElement('div');
+        empty.className = 'start-empty';
+        empty.innerHTML = `${Icons.info || ''}<span></span>`;
+        empty.querySelector('span').textContent = L.empty;
+        list.appendChild(empty);
+      }
       for (const e of entries) {
-        const li = document.createElement('li');
-        li.className = 'recent-item';
-        li.title = e.path;
-        const openBtn = document.createElement('button');
-        openBtn.type = 'button';
-        openBtn.className = 'recent-open';
+        const row = document.createElement('div');
+        row.className = 'start-row';
+        row.title = e.path;
+        const open = document.createElement('button');
+        open.type = 'button';
+        open.className = 'start-link';
         const ic = _placeIconHtml(e.path, e.kind);
-        openBtn.innerHTML = (ic.html || '') + `<span class="recent-name">${_escHtml(_dirBaseName(e.path))}</span>`;
-        openBtn.addEventListener('click', () => {
+        open.innerHTML = `<span class="start-link-icon ${ic.className || ''}">${ic.html || ''}</span><span class="name"></span><span class="path"></span>`;
+        open.querySelector('.name').textContent = _dirBaseName(e.path);
+        open.querySelector('.path').textContent = _parentLabel(e.path);
+        open.addEventListener('click', () => {
           _hideHome();
           _openPlace(e.path, e.kind).catch((err) => console.error(err));
         });
@@ -1628,41 +1640,20 @@
           ev.stopPropagation();
           L.remove(e.path);
         });
-        li.append(openBtn, removeBtn);
-        ul.appendChild(li);
+        row.append(open, removeBtn);
+        list.appendChild(row);
       }
-      body.appendChild(ul);
-      const clearAll = document.createElement('button');
-      clearAll.type = 'button';
-      clearAll.className = 'recent-clear';
-      clearAll.textContent = L.clearLabel;
-      clearAll.addEventListener('click', () => { L.clear(); });
-      body.appendChild(clearAll);
-    };
-    for (const [id, L] of Object.entries(lists)) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.setAttribute('role', 'tab');
-      b.dataset.tab = id;
-      b.innerHTML = `${Icons[L.icon] || ''}<span></span>`;
-      b.querySelector('span').textContent = L.label;
-      b.addEventListener('click', () => {
-        tab = id;
-        try { localStorage.setItem(HOME_PLACES_TAB_KEY, id); } catch { /* ignore */ }
-        fill();
-      });
-      bar.appendChild(b);
+      host.append(head, list);
     }
-    host.append(bar, body);
-    window.TabStrip?.enhance(bar);
-    fill();
     return host;
   }
 
   function _renderHomeBody(scroll) {
     const begin = document.createElement('div');
     begin.className = 'start-actions';
-    for (const task of HOME_TASKS.filter((t) => t.primary || t.icon === 'openFile' || t.icon === 'help' || t.icon === 'settings')) {
+    // Start (MySketchBook "바로 가기"): eight tiles, two rows of four beside Recent
+    const BEGIN_ICONS = ['explorer', 'openFolder', 'openFile', 'viewGrid', 'settings', 'keyboard', 'help', 'palette'];
+    for (const task of BEGIN_ICONS.map((ic) => HOME_TASKS.find((t) => t.icon === ic)).filter(Boolean)) {
       const card = _homeCard(task);
       card.className = 'start-tile action-card';
       card.querySelector('span').className = 'action-icon';
@@ -1743,7 +1734,8 @@
     const sceneBody = document.createElement('div');
     sceneBody.append(scenes, speeds);
 
-    recentHost.appendChild(tip);
+    // The tip is a banner above the board (MySketchBook), not part of the Recent card
+    tip.classList.add('start-banner');
 
     // Hero (bare card): logo, name and version, the lead line, help / settings / open folder
     const verText = _appInfoCache ? _versionLabel(_appInfoCache) : (document.querySelector('.app-brand-ver')?.textContent || 'V1.0.2');
@@ -1764,25 +1756,40 @@
       b.addEventListener('click', run);
       return b;
     };
-    hero.querySelector('.start-hero-actions').append(
+    // MySketchBook: a group of document-style buttons, a divider, then the main action
+    const docs = document.createElement('div');
+    docs.className = 'start-docs';
+    docs.setAttribute('role', 'group');
+    docs.append(
       heroBtn('help', 'menu.help', () => _openHelp()),
       heroBtn('keyboard', 'menu.shortcuts', () => _showDialog('shortcuts-overlay')),
       heroBtn('settings', 'menu.settings', () => _openSettings()),
+    );
+    hero.querySelector('.start-hero-actions').append(
+      docs,
       heroBtn('openFolder', 'menu.openFolder', () => _pickOpenFolder(), true),
     );
 
-    // The board: movable, resizable cards (startboard.js, same as MyUMLMaker)
+    // The board: movable, resizable cards (startboard.js, MySketchBook style). The order is the
+    // default arrangement: Start beside Recent, then What you can do, then Background.
     const moveTip = I18n.t('start.moveCard');
     const resizeTip = I18n.t('start.resizeCard');
-    const card = (id, glyph, title, body) => StartBoard.card(id, { icon: Icons[glyph] || '', title, body, moveTip, resizeTip });
+    // A count at the right end of the title row, like MySketchBook's "11"
+    const note = (n) => {
+      const s = document.createElement('span');
+      s.className = 'start-card-note';
+      s.textContent = String(n);
+      return s;
+    };
+    const card = (id, glyph, title, body, extra = null) => StartBoard.card(id, { icon: Icons[glyph] || '', title, body, moveTip, resizeTip, extra });
     const board = document.createElement('div');
     board.className = 'start-board';
     board.append(
       StartBoard.card('hero', { body: hero, bare: true, locked: true }),
       card('begin', 'home', I18n.t('home.begin'), begin),
-      card('tasks', 'viewGrid', I18n.t('home.tasks'), tasks),
       card('recent', 'recent', I18n.t('home.places'), recentHost),
-      card('scenes', 'image', I18n.t('home.background'), sceneBody),
+      card('tasks', 'viewGrid', I18n.t('home.tasks'), tasks, note(HOME_TASKS.length)),
+      card('scenes', 'image', I18n.t('home.background'), sceneBody, note(START_SCENE_IDS.length)),
     );
 
     // Top-right tools: "show this screen at startup" and "arrange cards"
@@ -1796,7 +1803,18 @@
     arrange.innerHTML = `${Icons.viewGrid || ''}<span></span>`;
     arrange.querySelector('span').textContent = I18n.t('start.arrange');
     arrange.addEventListener('click', () => _startBoard?.arrange());
-    tools.append(showLabel, arrange);
+    // "Start screen settings": Settings › General holds the start screen options
+    const startSettings = document.createElement('button');
+    startSettings.type = 'button';
+    startSettings.className = 'start-btn';
+    startSettings.title = I18n.t('start.settingsTip');
+    startSettings.innerHTML = `${Icons.settings || ''}<span></span>`;
+    startSettings.querySelector('span').textContent = I18n.t('start.settings');
+    startSettings.addEventListener('click', () => {
+      _openSettings();
+      document.querySelector('.settings-tab[data-tab="general"]')?.click();
+    });
+    tools.append(showLabel, startSettings, arrange);
 
     const foot = document.createElement('footer');
     foot.className = 'start-foot';
@@ -1809,7 +1827,7 @@
     scroll.replaceChildren();
     const wrap = document.createElement('div');
     wrap.className = 'start start-inner';
-    wrap.append(tools, board, foot);
+    wrap.append(tools, tip, board, foot);
     scroll.appendChild(wrap);
     const reduced = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     _startBoard = StartBoard.start(board, { reduced });
@@ -6160,11 +6178,11 @@
 
     view.addEventListener('click', (e) => {
       const clear = e.target.closest('.pv-clear');
-      if (clear) { _placesSections.get(clear.dataset.section)?.clear(); return; }
+      if (clear) { _placesSections.get(clear.dataset.section)?.clear?.(); return; }
       const row = e.target.closest('.pv-item');
       if (!row) return;
       if (e.target.closest('.pv-remove')) {
-        _placesSections.get(row.dataset.section)?.remove(row.dataset.path);
+        _placesSections.get(row.dataset.section)?.remove?.(row.dataset.path);
         return;
       }
       _selectPlaceRow(row, { open: true });
@@ -6178,6 +6196,12 @@
       _showPlaceMenu(row, e.clientX, e.clientY);
     });
     view.addEventListener('keydown', (e) => {
+      if (_treeTab === 'home' && (e.key === 'Backspace' || (e.altKey && e.key === 'ArrowUp'))) {
+        e.preventDefault();
+        e.stopPropagation();
+        _homeUp();
+        return;
+      }
       const rows = [...view.querySelectorAll('.pv-item')];
       if (!rows.length) return;
       const cur = rows.findIndex((r) => r.classList.contains('selected'));
@@ -6192,7 +6216,7 @@
         e.preventDefault();
         e.stopPropagation();
         const row = rows[cur];
-        _placesSections.get(row.dataset.section)?.remove(row.dataset.path);
+        _placesSections.get(row.dataset.section)?.remove?.(row.dataset.path);
         return;
       } else if (e.key === 'ContextMenu' && cur >= 0) {
         e.preventDefault();
@@ -6216,12 +6240,99 @@
 
     let saved = '';
     try { saved = localStorage.getItem(TREE_TAB_KEY) || ''; } catch { /* ignore */ }
-    _setTreeTab(['explorer', 'recent', 'favorites'].includes(saved) ? saved : 'explorer');
+    _setTreeTab(TREE_TABS.includes(saved) ? saved : 'explorer');
     _loadFavorites();
   }
 
+  /** The home folder, asked once. */
+  async function _ensureHomeDir() {
+    if (_homeDir) return _homeDir;
+    try { _homeDir = String(await window.electronAPI.getHomeDir() || ''); } catch { _homeDir = ''; }
+    if (!_homeCwd) {
+      let saved = '';
+      try { saved = localStorage.getItem(HOME_CWD_KEY) || ''; } catch { /* ignore */ }
+      _homeCwd = saved || _homeDir;
+    }
+    return _homeDir;
+  }
+
+  /** Step the Home tab into another folder. */
+  function _homeGo(dir) {
+    if (!dir) return;
+    _homeCwd = dir;
+    try { localStorage.setItem(HOME_CWD_KEY, dir); } catch { /* ignore */ }
+    _placesSelected = '';
+    const view = document.getElementById('places-view');
+    if (view) view.scrollTop = 0;
+    _placesHold = false;
+    _renderPlaces();
+  }
+
+  function _homeAtRoot() {
+    return !_homeCwd || _normDirKey(_homeCwd) === _normDirKey(_homeDir);
+  }
+
+  function _homeUp() {
+    if (_homeAtRoot()) return;
+    const parent = _parentLabel(_homeCwd);
+    // Never climbs above the home folder — that is what Explorer is for
+    _homeGo(parent && _normDirKey(_homeDir) && !_normDirKey(parent).startsWith(_normDirKey(_homeDir)) ? _homeDir : parent);
+  }
+
+  /** Top of the Home tab: up · current folder · show it in Explorer. */
+  function _homeNavBar() {
+    const t = I18n.t.bind(I18n);
+    const bar = document.createElement('div');
+    bar.className = 'pv-homebar';
+    const mk = (cls, icon, title, onClick, disabled) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = `pv-homebtn ${cls}`;
+      b.title = title;
+      b.setAttribute('aria-label', title);
+      b.innerHTML = icon || '';
+      b.disabled = !!disabled;
+      b.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
+      return b;
+    };
+    const up = mk('pv-home-up', Icons.arrowUp, t('places.homeUp'), () => _homeUp(), _homeAtRoot());
+    const root = mk('pv-home-root', Icons.home, t('tree.tab.home'), () => _homeGo(_homeDir), _homeAtRoot());
+    const where = document.createElement('span');
+    where.className = 'pv-home-path';
+    where.textContent = _homeAtRoot() ? (_dirBaseName(_homeDir) || _homeDir) : _dirBaseName(_homeCwd);
+    where.title = _homeCwd;
+    const open = mk('pv-home-open', Icons.folderTree, t('places.openInExplorer'), () => {
+      _setTreeTab('explorer');
+      _openPlace(_homeCwd, 'dir').catch((err) => console.error(err));
+    }, !_homeCwd);
+    bar.append(up, root, where, open);
+    return bar;
+  }
+
+  /** Rows of the folder the Home tab is in: folders first, then files the viewer opens. */
+  async function _homeEntries() {
+    await _ensureHomeDir();
+    let list;
+    try { list = await window.electronAPI.readDirectory(_homeCwd); } catch { list = null; }
+    if ((!Array.isArray(list)) && _homeCwd !== _homeDir) {
+      // The remembered folder went away: start again at home
+      _homeCwd = _homeDir;
+      try { localStorage.removeItem(HOME_CWD_KEY); } catch { /* ignore */ }
+      try { list = await window.electronAPI.readDirectory(_homeCwd); } catch { list = null; }
+    }
+    if (!Array.isArray(list)) return { dirs: [], files: [] };
+    // Dot entries and the hidden Windows profile folders / junctions stay out
+    const visible = list.filter((e) => e && e.name && !String(e.name).startsWith('.')
+      && !/^(ntuser|desktop\.ini$|thumbs\.db$)/i.test(String(e.name))
+      && !(e.isDirectory && HOME_HIDDEN_DIRS.has(String(e.name).toLowerCase())));
+    return {
+      dirs: visible.filter((e) => e.isDirectory).map((e) => ({ path: e.path, kind: 'dir' })),
+      files: visible.filter((e) => !e.isDirectory && FormatSupport.isSupportedFile(e.name)).map((e) => ({ path: e.path, kind: 'file' })),
+    };
+  }
+
   function _setTreeTab(tab) {
-    if (!['explorer', 'recent', 'favorites'].includes(tab)) return;
+    if (!TREE_TABS.includes(tab)) return;
     const changed = tab !== _treeTab;
     _treeTab = tab;
     try { localStorage.setItem(TREE_TAB_KEY, tab); } catch { /* ignore */ }
@@ -6253,6 +6364,10 @@
     view?.focus({ preventScroll: true });
     _placesSelected = `${row.dataset.section}|${row.dataset.path}`;
     if (!open) return;
+    if (row.dataset.section.startsWith('home-') && row.dataset.kind === 'dir') {
+      _homeGo(row.dataset.path);
+      return;
+    }
     if (row.classList.contains('missing')) {
       _updateStatus({ msg: `${I18n.t('places.missing')}: ${row.dataset.path}` });
       return;
@@ -6270,6 +6385,8 @@
     ContextMenu.show(x, y, [
       { icon: kind === 'dir' ? Icons.openFolder : Icons.openFile, label: t('places.open'), disabled: missing,
         action: () => _selectPlaceRow(row, { open: true }) },
+      kind === 'dir' && row.dataset.section.startsWith('home-') && { icon: Icons.folderTree, label: t('places.openInExplorer'),
+        action: () => { _setTreeTab('explorer'); _openPlace(path, 'dir').catch((err) => console.error(err)); } },
       { separator: true },
       _favoriteMenuItem(path, kind === 'dir'),
       sec && sec.listKind === 'recent' && { icon: Icons.close, label: sec.removeTitle, action: () => sec.remove(path) },
@@ -6298,7 +6415,13 @@
     const gen = ++_placesGen;
     const t = I18n.t.bind(I18n);
     let sections;
-    if (_treeTab === 'recent') {
+    if (_treeTab === 'home') {
+      const { dirs, files } = await _homeEntries();
+      sections = [
+        { id: 'home-dirs', listKind: 'home', icon: 'folder', title: t('places.folders'), entries: dirs, empty: t('places.noFolders') },
+        { id: 'home-files', listKind: 'home', icon: 'image', title: t('places.files'), entries: files, empty: t('places.noFiles') },
+      ];
+    } else if (_treeTab === 'recent') {
       const [dirs, files] = await Promise.all([
         _prunedRecent(RECENT_DIRS_KEY, _getRecentDirs(), true),
         _prunedRecent(RECENT_FILES_KEY, _getRecentFiles(), false),
@@ -6338,6 +6461,7 @@
     const hadFocus = view.contains(document.activeElement);
     _placesSections = new Map(sections.map((s) => [s.id, s]));
     const frag = document.createDocumentFragment();
+    if (_treeTab === 'home') frag.appendChild(_homeNavBar());
     for (const s of sections) {
       const sec = document.createElement('section');
       sec.className = 'pv-section';
@@ -6348,7 +6472,7 @@
         + `<span class="pv-count"></span><span class="pv-spacer"></span>`;
       head.querySelector('.pv-title').textContent = s.title;
       head.querySelector('.pv-count').textContent = s.entries.length ? String(s.entries.length) : '';
-      if (s.entries.length) {
+      if (s.entries.length && s.clear) {
         const clear = document.createElement('button');
         clear.type = 'button';
         clear.className = 'pv-clear';
@@ -6386,15 +6510,20 @@
         const where = document.createElement('span');
         where.className = 'pv-path';
         where.textContent = _parentLabel(e.path);
-        text.append(name, where);
-        const rm = document.createElement('button');
-        rm.type = 'button';
-        rm.className = 'pv-remove';
-        rm.tabIndex = -1;
-        rm.title = s.removeTitle;
-        rm.setAttribute('aria-label', s.removeTitle);
-        rm.innerHTML = Icons.close || '×';
-        row.append(icon, text, rm);
+        text.append(name);
+        // Home rows all sit in the folder named above them; a second path line is noise
+        if (s.listKind !== 'home') text.append(where);
+        row.append(icon, text);
+        if (s.remove) {
+          const rm = document.createElement('button');
+          rm.type = 'button';
+          rm.className = 'pv-remove';
+          rm.tabIndex = -1;
+          rm.title = s.removeTitle;
+          rm.setAttribute('aria-label', s.removeTitle);
+          rm.innerHTML = Icons.close || '×';
+          row.append(rm);
+        }
         sec.appendChild(row);
       }
       frag.appendChild(sec);
@@ -9169,16 +9298,8 @@
   function _applyEwPanelLayout() {
     document.getElementById('edit-effects-panel')?.classList.toggle('collapsed', !_ewLayout.left);
     document.getElementById('edit-adjust-panel')?.classList.toggle('collapsed', !_ewLayout.right);
-    const leftBtn = document.getElementById('ew-effects-collapse-btn');
-    if (leftBtn) {
-      leftBtn.innerHTML = Icons[_ewLayout.left ? 'chevronLeft' : 'chevronRight'] || '';
-      leftBtn.setAttribute('aria-expanded', String(_ewLayout.left));
-    }
-    const rightBtn = document.getElementById('ew-adjust-collapse-btn');
-    if (rightBtn) {
-      rightBtn.innerHTML = Icons[_ewLayout.right ? 'chevronRight' : 'chevronLeft'] || '';
-      rightBtn.setAttribute('aria-expanded', String(_ewLayout.right));
-    }
+    _setPanelCollapseBtn(document.getElementById('ew-effects-collapse-btn'), 'panelLeft', _ewLayout.left, _ewLeftPanelTip());
+    _setPanelCollapseBtn(document.getElementById('ew-adjust-collapse-btn'), 'panelRight', _ewLayout.right, _ewRightPanelTip());
     document.getElementById('ew-panel-left')?.classList.toggle('active', _ewLayout.left);
     document.getElementById('ew-panel-right')?.classList.toggle('active', _ewLayout.right);
   }
@@ -9675,7 +9796,7 @@
   }
 
   /** File ▸ Batch processing: the selected thumbnails, or every picture in the folder in view. */
-  async function _openBatch(paths = null) {
+  async function _openBatch(paths = null, { resize = false } = {}) {
     if (!window.Batch) return;
     if (!_batchReady) {
       _batchReady = true;
@@ -9700,7 +9821,9 @@
     let folder = Browse.getDir?.() || '';
     if (!folder && state.currentFile) folder = await window.electronAPI.pathDirname(state.currentFile).catch(() => '');
     if (!folder && !selected.length) { _updateStatus({ msg: I18n.t('batch.noFolder') }); return; }
-    await Batch.open({ selected: selected.length ? selected : (state.currentFile ? [state.currentFile] : []), folder });
+    // Resize writes next to the pictures themselves (their own folder, not the one in view)
+    if (resize && selected.length) folder = await window.electronAPI.pathDirname(selected[0]).catch(() => folder);
+    await Batch.open({ selected: selected.length ? selected : (state.currentFile ? [state.currentFile] : []), folder, resize });
   }
 
   /** Viewer ▸ right-click: open the editor with the rectangle tool, ready to pick the part to save. */
@@ -11238,6 +11361,8 @@
           action: () => _printPath(printables[0]) },
         printables.length && { icon: Icons.batch, label: `${t('batch.title')}… (${printables.length})`,
           action: () => _openBatch(printables) },
+        printables.length > 1 && { icon: Icons.resize, label: `${t('batch.resizeTitle')}… (${printables.length})`,
+          action: () => _openBatch(printables, { resize: true }) },
         !isWeb && { separator: true },
         !isWeb && { icon: Icons.delete, label: `${t('context.deleteFile')} (${multiPaths.length})`,
           danger: true,
@@ -12767,6 +12892,16 @@
     try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(_layout)); } catch { /* ignore */ }
   }
 
+  /** A panel header's collapse / expand button, drawn like the toolbar's panel toggle. */
+  function _setPanelCollapseBtn(btn, icon, open, tip) {
+    if (!btn) return;
+    btn.innerHTML = Icons[icon] || '';
+    btn.classList.add('panel-toggle-btn');
+    btn.classList.toggle('active', !!open);
+    btn.setAttribute('aria-expanded', String(!!open));
+    if (tip) { btn.title = tip; btn.setAttribute('aria-label', tip); }
+  }
+
   function _leftPanelTip()  { return I18n.t(_layout.left ? 'toolbar.collapseLeft' : 'toolbar.expandLeft'); }
   function _rightPanelTip() { return I18n.t(_layout.right ? 'toolbar.collapseRight' : 'toolbar.expandRight'); }
 
@@ -12781,17 +12916,9 @@
     sidebar.classList.toggle('collapsed', !_layout.left);
     right.classList.toggle('collapsed', !_layout.right);
 
-    // The header button's chevron points the way a click moves the panel's edge
-    const leftBtn = document.getElementById('tree-collapse-btn');
-    if (leftBtn) {
-      leftBtn.innerHTML = Icons[_layout.left ? 'chevronLeft' : 'chevronRight'] || '';
-      leftBtn.setAttribute('aria-expanded', String(_layout.left));
-    }
-    const rightBtn = document.getElementById('color-collapse-btn');
-    if (rightBtn) {
-      rightBtn.innerHTML = Icons[_layout.right ? 'chevronRight' : 'chevronLeft'] || '';
-      rightBtn.setAttribute('aria-expanded', String(_layout.right));
-    }
+    // The header buttons look like the toolbar's panel toggles: same icon, lit while open
+    _setPanelCollapseBtn(document.getElementById('tree-collapse-btn'), 'panelLeft', _layout.left, _leftPanelTip());
+    _setPanelCollapseBtn(document.getElementById('color-collapse-btn'), 'panelRight', _layout.right, _rightPanelTip());
 
     document.getElementById('btn-panel-left')?.classList.toggle('active', _layout.left);
     document.getElementById('btn-panel-right')?.classList.toggle('active', _layout.right);
@@ -13528,8 +13655,8 @@
     const handle = document.getElementById('sidebar-resize-handle');
     if (!handle || !sidebar) return;
 
-    const MIN_W = 280;
-    const MAX_W = 500;
+    const MIN_W = 304;
+    const MAX_W = 600;
 
     // Restore previous width
     const saved = parseInt(localStorage.getItem('sidebarWidth') || '', 10);

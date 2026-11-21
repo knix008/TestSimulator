@@ -332,7 +332,7 @@ module.exports = {
       assertIncludes(app, '_showFolderInCenter(dir);', 'main view with the folder sheet');
     });
 
-    test('Start screen is a board of movable cards (MyUMLMaker layout); the move handle is three lines', () => {
+    test('Start screen is a board of movable cards (MySketchBook layout); the move handle is a four-way arrow', () => {
       const vm = require('vm');
       const boardSrc = require('../helpers').read('src/js/startboard.js');
       const sandbox = { window: {}, document: {}, localStorage: { getItem: () => null, setItem() {} }, performance: { now: () => 0 } };
@@ -340,18 +340,27 @@ module.exports = {
       const SB = sandbox.window.StartBoard;
       assertIncludes(html, 'js/startboard.js', 'loaded');
       assert(html.indexOf('js/startboard.js') < html.indexOf('js/app.js'), 'before app.js');
-      assertIncludes(SB.HANDLE_SVG, 'M5 7h14M5 12h14M5 17h14', 'three horizontal lines');
+      assertIncludes(SB.HANDLE_SVG, 'M12 3v18M3 12h18', 'four-way arrow');
       assertIncludes(css, '.card-handle svg { width: 16px; height: 16px; fill: none; stroke: currentColor;', 'handle drawn as strokes');
+      assertIncludes(css, '  color: var(--start-handle);\r\n  cursor: grab;', 'handle in its own accent');
       assertIncludes(css, 'grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  grid-auto-rows: 20px;', 'three columns, 20px rows');
       for (const id of ['hero', 'begin', 'tasks', 'recent', 'scenes']) assertIncludes(app, `'${id}'`, id);
       assertIncludes(app, '_startBoard = StartBoard.start(board, { reduced });', 'board started');
       assertIncludes(app, "StartBoard.card('hero', { body: hero, bare: true, locked: true })", 'name card cannot be moved or resized');
       assertIncludes(app, "arrange.addEventListener('click', () => _startBoard?.arrange());", 'auto arrange');
-      // Default layout: the name card, then one section on each following row
-      const ids = ['hero', 'begin', 'tasks', 'recent', 'scenes'];
+      // Default layout: the name card, Start (2/3) beside Recent (1/3), then a full row each
+      const ids = ['hero', 'begin', 'recent', 'tasks', 'scenes'];
       const cells = SB.cardsOf(null, ids, { hero: 6, begin: 14, tasks: 14, recent: 12, scenes: 12 });
       assert(cells.hero.row === 0 && cells.hero.w === 3, 'hero spans the top');
-      assert(cells.begin.w === 3 && cells.tasks.w === 3 && cells.tasks.row === cells.begin.row + cells.begin.h, 'one section per row');
+      assert(cells.begin.w === 2 && cells.recent.w === 1 && cells.recent.row === cells.begin.row && cells.recent.col === 2, 'Start beside Recent');
+      assert(cells.tasks.w === 3 && cells.tasks.row === cells.begin.row + cells.begin.h, 'What you can do on the next row');
+      assert(cells.scenes.w === 3 && cells.scenes.row === cells.tasks.row + cells.tasks.h, 'Background below');
+      const order = app.slice(app.indexOf("card('begin'"), app.indexOf("card('scenes'"));
+      assert(order.indexOf("card('recent'") > 0 && order.indexOf("card('recent'") < order.indexOf("card('tasks'"), 'card order is the default arrangement');
+      assertIncludes(app, "tools.append(showLabel, startSettings, arrange);", 'start screen settings in the tools row');
+      assertIncludes(app, "wrap.append(tools, tip, board, foot);", 'tip banner above the board');
+      assertIncludes(app, "docs.className = 'start-docs';", 'hero button group');
+      assertIncludes(app, "note(HOME_TASKS.length)", 'count on the title row');
       for (const a of ids) for (const b of ids) if (a < b) assert(!SB.overlaps(cells[a], cells[b]), `${a} / ${b} overlap`);
       // Moving a card pushes the others aside, never on top of each other
       const moved = SB.place(cells, 'scenes', { col: 0, row: 0 });

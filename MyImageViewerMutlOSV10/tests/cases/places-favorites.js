@@ -11,12 +11,38 @@ module.exports = {
     const dialogWindow = h.read('src/js/dialogWindow.js');
     const shell = h.read('src-tauri/src/main.rs');
 
-    test('Explorer keeps its tree as the first tab, then Recent and Favorites', () => {
+    test('Explorer keeps its tree as the first tab, then Home, Recent and Favorites', () => {
       const tabs = html.slice(html.indexOf('id="tree-tabs"'), html.indexOf('id="tree-path-bar"'));
-      const order = ['explorer', 'recent', 'favorites'].map((t) => tabs.indexOf(`data-tree-tab="${t}"`));
-      assert(order.every((i) => i > 0) && order[0] < order[1] && order[1] < order[2], 'tab order');
+      const order = ['explorer', 'home', 'recent', 'favorites'].map((t) => tabs.indexOf(`data-tree-tab="${t}"`));
+      assert(order.every((i) => i > 0) && order.every((v, i) => i === 0 || order[i - 1] < v), 'tab order');
       assertIncludes(html, 'id="places-view"', 'shared list view');
-      assertIncludes(app, "_setTreeTab(['explorer', 'recent', 'favorites'].includes(saved) ? saved : 'explorer')", 'explorer is the default');
+      assertIncludes(app, "const TREE_TABS = ['explorer', 'home', 'recent', 'favorites'];", 'tab list');
+      assertIncludes(app, "_setTreeTab(TREE_TABS.includes(saved) ? saved : 'explorer')", 'explorer is the default');
+      for (const lang of [ko, en]) assert(lang['tree.tab.home'] && lang['places.openInExplorer'] && lang['places.homeUp'], 'labels');
+    });
+
+    test('Home tab browses the home folder: folders step in, files open, never above home', () => {
+      assertIncludes(app, 'window.electronAPI.getHomeDir()', 'asks the host for home');
+      assertIncludes(app, "if (row.dataset.section.startsWith('home-') && row.dataset.kind === 'dir') {", 'a folder row steps in');
+      assertIncludes(app, "if (_treeTab === 'home') frag.appendChild(_homeNavBar());", 'up / home / show-in-Explorer bar');
+      assertIncludes(app, "_treeTab === 'home' && (e.key === 'Backspace'", 'Backspace goes up');
+      assertIncludes(app, 'FormatSupport.isSupportedFile(e.name)', 'only files the viewer opens');
+      assertIncludes(app, "!String(e.name).startsWith('.')", 'hidden dot entries left out');
+      assertIncludes(app, '?.remove?.(row.dataset.path)', 'Delete on a Home row is a no-op, not a crash');
+      assertIncludes(css, '.pv-homebar {', 'bar styled');
+    });
+
+    test('Left panel: 340 px default, 304 px minimum (the four tabs in English, the wider language), up to 600', () => {
+      const rule = css.slice(css.indexOf('#sidebar {'), css.indexOf('#sidebar {') + 200);
+      assertIncludes(rule, 'width: 340px;', 'default');
+      assertIncludes(rule, 'min-width: 304px;', 'minimum');
+      assertIncludes(rule, 'max-width: 600px;', 'maximum');
+      const tab = css.slice(css.indexOf('.tree-tab {'), css.indexOf('.tree-tab {') + 300);
+      assertIncludes(tab, 'flex: 0 0 auto;', 'tabs keep their own width (no stretched gaps)');
+      assertIncludes(tab, 'padding: 0 6px;', 'tight padding');
+      const fn = app.slice(app.indexOf('function _initSidebarResize'), app.indexOf('function _initVerticalResize'));
+      assertIncludes(fn, 'const MIN_W = 304;', 'drag minimum');
+      assertIncludes(fn, 'const MAX_W = 600;', 'drag maximum');
     });
 
     test('Drive buttons have their own row under the tabs', () => {
@@ -63,10 +89,15 @@ module.exports = {
       assertIncludes(app, 'hasFile && _favoriteMenuItem(state.currentFile, false),', 'viewer');
     });
 
-    test('Start screen shows recent folders, recent files and favorites', () => {
+    test('Start screen shows recent files, recent folders and favorites, stacked (no tabs)', () => {
       assertIncludes(app, "card('recent', 'recent', I18n.t('home.places'), recentHost)", 'card');
-      for (const k of ['home.tab.recentFolders', 'home.tab.recentFiles']) assertIncludes(app, `t('${k}')`, k);
-      assertIncludes(app, "entries: () => _favorites.map(", 'favorites tab');
+      for (const k of ['home.recentFiles', 'home.recentFolders']) assertIncludes(app, `t('${k}')`, k);
+      assertIncludes(app, "entries: () => _favorites.map(", 'favorites list');
+      const fn = app.slice(app.indexOf('function _homePlaces()'), app.indexOf('function _renderHomeBody'));
+      assert(!fn.includes('TabStrip') && !fn.includes("role', 'tab'"), 'no tabs');
+      assertIncludes(fn, "head.className = 'start-sub';", 'a heading per list');
+      assertIncludes(fn, '.slice(0, HOME_PLACES_MAX)', 'kept short');
+      assertIncludes(css, '.start-link {', 'rows styled');
     });
 
     test('Every places / favorites string exists in both languages', () => {

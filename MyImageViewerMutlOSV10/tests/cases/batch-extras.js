@@ -48,9 +48,9 @@ module.exports = {
     test('Batch: selected or whole folder, resize / convert / watermark, never overwrites, keeps photo info', () => {
       assertIncludes(html, '<div id="batch-overlay" class="dialog-overlay"', 'dialog in index.html');
       assert(html.indexOf('js/batch.js') > html.indexOf('js/editTools.js') && html.indexOf('js/batch.js') < html.indexOf('js/app.js'), 'script order');
-      assertIncludes(batch, 'if (k >= 1) return canvas;', 'never enlarges');
+      assertIncludes(batch, 'if (k === 1 || (k > 1 && !enlarge)) return canvas;', 'never enlarges (Resize may)');
       assertIncludes(html, 'id="batch-percent"', 'percent field');
-      assertIncludes(batch, "o.resizeMode === 'percent' ? _byPercent(c, o.percent)", 'percent shrink');
+      assertIncludes(batch, "o.resizeMode === 'percent' ? _byPercent(c, o.percent, o.enlarge)", 'percent shrink');
       assertIncludes(batch, "const name = n === 1 ? `${stem}.${ext}` : `${stem} (${n}).${ext}`;", 'a free name, never replacing');
       assertIncludes(batch, 'dataUrl = await ctx.withPhotoInfo(dataUrl, { w: c.width, h: c.height }, src);', 'photo info from each original');
       assertIncludes(batch, "fc.fillStyle = '#ffffff';", 'JPEG on white');
@@ -59,6 +59,37 @@ module.exports = {
       assertIncludes(app, "action: () => _openBatch(printables) },", 'thumbnail right-click');
       for (const m of html.matchAll(/data-i18n="(batch\.[\w.]+)"/g)) assert(ko[m[1]] && en[m[1]], m[1]);
       for (const m of batch.matchAll(/t\('(batch\.[\w.]+)'/g)) assert(ko[m[1]] && en[m[1]], m[1]);
+    });
+
+    test('Several pictures selected: right-click has Resize next to Batch processing', () => {
+      const multi = app.slice(app.indexOf('// Multi-selection context menu'), app.indexOf("label: `${t('context.deleteFile')} (${multiPaths.length})`"));
+      const b = multi.indexOf('_openBatch(printables) },');
+      const r = multi.indexOf('_openBatch(printables, { resize: true }) },');
+      assert(b > 0 && r > b, 'Resize right after Batch processing');
+      assertIncludes(multi, "printables.length > 1 && { icon: Icons.resize, label: `${t('batch.resizeTitle')}… (${printables.length})`", 'only for two or more');
+      assertIncludes(batch, "el['batch-overlay'].querySelectorAll('.batch-convert-only').forEach((n) => { n.hidden = resize; });", 'resize shows only size + save to');
+      assertIncludes(batch, "el['batch-format'].value = resize ? 'keep' : (saved.format || 'jpg');", 'resize keeps the format');
+      assertIncludes(batch, "if (mode === 'resize') return selected;", 'resize works on the selection only');
+      // Quality is offered in Resize too (its own remembered value)
+      const qRow = html.slice(html.lastIndexOf('<div', html.indexOf('id="batch-quality"')), html.indexOf('id="batch-quality"'));
+      assert(!qRow.includes('batch-convert-only'), 'quality row stays visible in Resize');
+      assertIncludes(batch, "el['batch-quality'].value = (resize ? r.quality : saved.quality) || 90;", 'resize recalls its quality');
+      assertIncludes(batch, 'suffix: o.suffix, quality: Math.round(o.quality * 100) } }', 'resize remembers its quality');
+      assertIncludes(batch, "el['batch-overlay'].querySelectorAll('.batch-resize-only').forEach((n) => { n.hidden = !resize; });", 'quality hint only in Resize');
+      for (const k of ['batch.resizeTitle', 'batch.resizeTo', 'batch.resizeSuffixDefault']) assert(ko[k] && en[k], k);
+    });
+
+    test('Several pictures go into a new subfolder (option, on by default)', () => {
+      const tag = html.slice(html.lastIndexOf('<input', html.indexOf('id="batch-subdir"')), html.indexOf('>', html.indexOf('id="batch-subdir"')));
+      assert(tag.includes('type="checkbox"') && tag.includes('checked'), 'checked in the markup');
+      assertIncludes(batch, "el['batch-subdir'].checked = saved.subdir !== false;", 'on unless turned off');
+      assertIncludes(batch, "subdirName: files.length > 1 && el['batch-subdir'].checked ? subName : '',", 'only for more than one picture');
+      assertIncludes(batch, 'const sub = await window.electronAPI.pathJoin(o.dir, o.subdirName);', 'inside the chosen folder');
+      assertIncludes(batch, 'await window.electronAPI.makeDir?.(sub)', 'folder made first');
+      assertIncludes(src.tauriApi || h.read('src/js/tauriAPI.js'), "makeDir: (dirPath) => call('make-dir', dirPath),", 'bridge');
+      assertIncludes(h.read('src-tauri/src/host/mod.rs'), '"make-dir" => files::make_dir(s0),', 'host channel');
+      assertIncludes(h.read('src-tauri/src/host/files.rs'), 'std::fs::create_dir_all(dir)', 'parents too, existing is fine');
+      assertIncludes(h.read('src/js/webAPI.js'), 'makeDir: async (dirPath) =>', 'web shim');
     });
 
     test('Percent shrinks both sides, and neither the editor nor batch enlarges', () => {
@@ -90,6 +121,11 @@ module.exports = {
       const fitted = scale._fit(picture, 100);
       assert(fitted.width === 100 && fitted.height === 50, `longest side 100 is ${fitted.width}x${fitted.height}`);
       assert(scale._fit(picture, 1000) === picture, 'a longer limit leaves the picture');
+      // Resize (several pictures) may enlarge
+      const big = scale._byPercent(picture, 200, true);
+      assert(big.width === 800 && big.height === 400, `resize 200% is ${big.width}x${big.height}`);
+      const longer = scale._fit(picture, 1000, true);
+      assert(longer.width === 1000 && longer.height === 500, `resize longest 1000 is ${longer.width}x${longer.height}`);
       assert(html.includes('value="percent"') && html.includes('id="batch-percent"'), 'batch offers a percent choice');
       const between = (id) => {
         const down = html.indexOf(`id="${id}-down"`);
@@ -162,8 +198,8 @@ module.exports = {
       const css = h.read('src/styles/main.css');
       assertIncludes(html, '<script src="./js/tabStrip.js"></script>', 'loaded');
       assert(html.indexOf('js/tabStrip.js') < html.indexOf('js/app.js'), 'before app.js');
-      assertIncludes(ts, "root.querySelectorAll('#tree-tabs, .settings-tabs, .tone-tabs').forEach((l) => enhance(l));", 'static strips');
-      assertIncludes(app, 'window.TabStrip?.enhance(bar);', 'start screen recent / favorites tabs');
+      assertIncludes(ts, "root.querySelectorAll('.settings-tabs, .tone-tabs').forEach((l) => enhance(l));", 'static strips');
+      assert(!ts.includes("'#tree-tabs"), 'the left panel tabs have no "<" ">"');
       assertIncludes(ts, 'prev.disabled = i <= 0;', 'greyed at the first tab');
       assertIncludes(ts, 'next.disabled = i < 0 || i >= all.length - 1;', 'greyed at the last tab');
       assertIncludes(css, '.tabstrip > .tabstrip-scroll {', 'row scrolls sideways');

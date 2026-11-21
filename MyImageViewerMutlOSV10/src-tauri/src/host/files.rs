@@ -170,6 +170,17 @@ pub fn write_file(opts: &Value) -> Value {
     }
 }
 
+/// Create a folder (and any missing parents); an existing one is fine.
+pub fn make_dir(dir: &str) -> Value {
+    if dir.trim().is_empty() {
+        return error("Missing path");
+    }
+    match std::fs::create_dir_all(dir) {
+        Ok(()) => json!({ "success": true, "path": dir }),
+        Err(e) => error(e),
+    }
+}
+
 pub fn rename_path(opts: &Value) -> Value {
     let src = opts.get("src").and_then(Value::as_str).unwrap_or("");
     let Some(new_name) = opts.get("newName").filter(|v| !v.is_null()) else {

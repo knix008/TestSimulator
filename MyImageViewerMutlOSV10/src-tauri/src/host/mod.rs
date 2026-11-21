@@ -105,6 +105,7 @@ fn dispatch(channel: &str, args: &[Value]) -> Value {
         "read-file-base64" => files::read_file_base64(s0),
         "read-file-bytes" => files::read_file_bytes_json(s0),
         "write-file" => files::write_file(a0),
+        "make-dir" => files::make_dir(s0),
         "rename-path" => files::rename_path(a0),
         "delete-file" => files::delete_path(s0),
         "transfer-into-dir" => files::transfer_into_dir(a0),

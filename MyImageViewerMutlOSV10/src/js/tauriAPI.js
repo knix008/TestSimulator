@@ -604,6 +604,7 @@ ${band('ftr', footerMm, footer)}
     renamePath: (src, newName) => call('rename-path', { src, newName }),
     transferIntoDir: (opts) => call('transfer-into-dir', opts),
     pickDirectory: (opts) => call('pick-directory', opts),
+    makeDir: (dirPath) => call('make-dir', dirPath),
     startDrag: (filePathOrPaths) => call('start-drag', filePathOrPaths),
     setUnsavedChanges: (value) => { unsaved = !!value; return call('set-unsaved-changes', value); },
     closeWindow: async () => {

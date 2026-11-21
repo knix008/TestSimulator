@@ -1,5 +1,5 @@
-/* Start page card board (same as MyUMLMaker): three columns, cards snapped to 20px rows and
-   never overlapping. The handle (three lines) moves a card — a see-through copy follows the
+/* Start page card board (MySketchBook style): three columns, cards snapped to 20px rows and
+   never overlapping. The handle (four-way arrow) moves a card — a see-through copy follows the
    pointer and the others slide aside — the corner resizes it, a double click on the corner
    fits it to its content again. The arrangement is saved in localStorage ('startLayout'). */
 window.StartBoard = (() => {
@@ -7,13 +7,14 @@ window.StartBoard = (() => {
   const ROW = 20;
   const GAP = 14;
   // Raised when the default arrangement changes: an older saved one starts over once.
-  const LAYOUT_VERSION = 3;
+  const LAYOUT_VERSION = 4;
   const STORE_KEY = 'startLayout';
-  /** Auto arrange puts one section on each row, across the whole width. */
-  const SPAN = { hero: 3, begin: 3, tasks: 3, recent: 3, scenes: 3 };
+  /** Auto arrange (MySketchBook layout): Start (2/3) and Recent (1/3) share a row, then
+   *  "What you can do" and Background each take a whole row. */
+  const SPAN = { hero: 3, begin: 2, recent: 1, tasks: 3, scenes: 3 };
 
-  /** Move handle: three horizontal lines. */
-  const HANDLE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg>';
+  /** Move handle (MySketchBook): a four-way arrow. */
+  const HANDLE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5"/></svg>';
   /** Resize corner: a triangle of dots. */
   const GRIP_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="20" cy="20" r="2"/><circle cx="14" cy="20" r="2"/><circle cx="20" cy="14" r="2"/><circle cx="8" cy="20" r="2"/><circle cx="14" cy="14" r="2"/><circle cx="20" cy="8" r="2"/></svg>';
 

@@ -87,9 +87,11 @@ window.TabStrip = (() => {
     return { sync };
   }
 
-  /** Every static tab strip in the page (dynamic ones call enhance() themselves). */
+  /** Every static tab strip in the page (dynamic ones call enhance() themselves).
+   *  The left panel's Explorer / Home / Recent / Favorites tabs are left out: they share
+   *  the panel width and need no "<" ">". */
   function enhanceAll(root = document) {
-    root.querySelectorAll('#tree-tabs, .settings-tabs, .tone-tabs').forEach((l) => enhance(l));
+    root.querySelectorAll('.settings-tabs, .tone-tabs').forEach((l) => enhance(l));
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => enhanceAll());

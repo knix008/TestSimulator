@@ -472,6 +472,8 @@
     },
     transferIntoDir: async () => ({ error: 'Copy/move is not available in web mode' }),
     pickDirectory: async () => ({ canceled: true }),
+    // Web mode saves through downloads: a folder has nothing to be made in
+    makeDir: async (dirPath) => ({ success: true, path: dirPath }),
 
     setUnsavedChanges: async (value) => { unsaved = !!value; },
     closeWindow: async () => { window.close(); },

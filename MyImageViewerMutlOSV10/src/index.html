@@ -92,9 +92,10 @@
             <span class="panel-title" data-i18n="tree.title">EXPLORER</span>
             <button type="button" class="panel-hdr-btn panel-collapse-btn" id="tree-collapse-btn"></button>
           </div>
-          <!-- Explorer · Recent · Favorites (app.js); the last two share #places-view -->
+          <!-- Explorer · Home · Recent · Favorites (app.js); the last three share #places-view -->
           <div id="tree-tabs" class="tree-tabs" role="tablist">
             <button type="button" class="tree-tab active" role="tab" data-tree-tab="explorer" aria-selected="true"><span class="tree-tab-icon" data-icon="folderTree"></span><span data-i18n="tree.tab.explorer">Explorer</span></button>
+            <button type="button" class="tree-tab" role="tab" data-tree-tab="home" aria-selected="false"><span class="tree-tab-icon" data-icon="home"></span><span data-i18n="tree.tab.home">Home</span></button>
             <button type="button" class="tree-tab" role="tab" data-tree-tab="recent" aria-selected="false"><span class="tree-tab-icon" data-icon="recent"></span><span data-i18n="tree.tab.recent">Recent</span></button>
             <button type="button" class="tree-tab" role="tab" data-tree-tab="favorites" aria-selected="false"><span class="tree-tab-icon" data-icon="star"></span><span data-i18n="tree.tab.favorites">Favorites</span></button>
           </div>
@@ -1693,16 +1694,16 @@ Do you want to save before closing?</p>
       <div class="dialog-header">
         <span class="dialog-title">
           <span class="dialog-title-icon" data-icon="batch"></span>
-          <span data-i18n="batch.title">Batch Processing</span>
+          <span id="batch-title" data-i18n="batch.title">Batch Processing</span>
         </span>
         <button class="dialog-close-btn" type="button" id="batch-close">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
         </button>
       </div>
       <div class="dialog-body dlg-form batch-body">
-        <div class="dlg-section" data-i18n="batch.target">Pictures</div>
-        <label class="dlg-row"><span class="dlg-label"></span><span class="dlg-check"><input type="radio" name="batch-target" value="selected"> <span data-i18n="batch.selected">Selected</span> (<span id="batch-count-selected">0</span>)</span></label>
-        <label class="dlg-row"><span class="dlg-label"></span><span class="dlg-check"><input type="radio" name="batch-target" value="folder" checked> <span data-i18n="batch.folder">Every picture in this folder</span> (<span id="batch-count-folder">0</span>)</span></label>
+        <div class="dlg-section batch-convert-only" data-i18n="batch.target">Pictures</div>
+        <label class="dlg-row batch-convert-only"><span class="dlg-label"></span><span class="dlg-check"><input type="radio" name="batch-target" value="selected"> <span data-i18n="batch.selected">Selected</span> (<span id="batch-count-selected">0</span>)</span></label>
+        <label class="dlg-row batch-convert-only"><span class="dlg-label"></span><span class="dlg-check"><input type="radio" name="batch-target" value="folder" checked> <span data-i18n="batch.folder">Every picture in this folder</span> (<span id="batch-count-folder">0</span>)</span></label>
         <div class="dlg-section" data-i18n="batch.do">Do</div>
         <div class="dlg-row"><label class="dlg-label dlg-check"><input type="checkbox" id="batch-resize" checked> <span data-i18n="batch.resize">Reduce size</span></label>
           <span class="dlg-ctl batch-size-ctl">
@@ -1723,7 +1724,7 @@ Do you want to save before closing?</p>
               <button type="button" class="ai-step" id="batch-percent-up" data-i18n-title="effects.autoUp" title="Increase">+</button>
             </span>
           </span></div>
-        <label class="dlg-row"><span class="dlg-label" data-i18n="resize.format">Format</span>
+        <label class="dlg-row batch-convert-only"><span class="dlg-label" data-i18n="resize.format">Format</span>
           <select id="batch-format">
             <option value="jpg">JPEG</option>
             <option value="png">PNG</option>
@@ -1732,12 +1733,16 @@ Do you want to save before closing?</p>
           </select></label>
         <div class="dlg-row"><span class="dlg-label" data-i18n="resize.fileQuality">File quality</span>
           <input type="range" id="batch-quality" min="40" max="100" step="1" value="90"><output class="dlg-unit" id="batch-quality-val">90</output></div>
-        <div class="dlg-row"><label class="dlg-label dlg-check"><input type="checkbox" id="batch-wm"> <span data-i18n="watermark.title">Watermark</span></label>
+        <div class="dlg-hint batch-resize-only" data-i18n="batch.qualityHint" hidden>Used for JPEG and WebP. Formats that cannot be written back (HEIC, BMP, GIF …) are saved as JPEG at this quality; PNG keeps every pixel.</div>
+        <div class="dlg-row batch-convert-only"><label class="dlg-label dlg-check"><input type="checkbox" id="batch-wm"> <span data-i18n="watermark.title">Watermark</span></label>
           <input type="text" id="batch-wm-text" spellcheck="false"></div>
-        <div class="dlg-hint" data-i18n="batch.wmHint">The watermark uses the size, colour and position last set in Image › Watermark.</div>
+        <div class="dlg-hint batch-convert-only" data-i18n="batch.wmHint">The watermark uses the size, colour and position last set in Image › Watermark.</div>
         <div class="dlg-section" data-i18n="resize.saveTo">Save to</div>
         <div class="dlg-row"><span class="dlg-label" data-i18n="resize.folder">Folder</span>
           <span class="dlg-ctl"><input type="text" id="batch-dir" spellcheck="false"><button type="button" class="dlg-btn" id="batch-browse" data-i18n="resize.browse">Browse…</button></span></div>
+        <div class="dlg-row" id="batch-subdir-row"><label class="dlg-label dlg-check"><input type="checkbox" id="batch-subdir" checked> <span data-i18n="batch.subdir">Subfolder</span></label>
+          <input type="text" id="batch-subdir-name" spellcheck="false"></div>
+        <div class="dlg-hint" id="batch-subdir-hint" data-i18n="batch.subdirHint">With more than one picture, the results go into a new folder inside the folder above.</div>
         <label class="dlg-row"><span class="dlg-label" data-i18n="batch.suffix">Add to the name</span><input type="text" id="batch-suffix" spellcheck="false"></label>
         <div class="dlg-hint" data-i18n="batch.safeHint">Originals are never changed; an existing file gets a number instead of being replaced.</div>
       </div>

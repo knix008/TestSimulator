@@ -165,6 +165,16 @@ module.exports = {
       assertIncludes(app, "adjustIcon.innerHTML = Icons.sliders", 'adjustments icon');
     });
 
+    test('Panel collapse buttons (viewer and editor) look like the toolbar panel toggles', () => {
+      const css = h.read('src/styles/main.css');
+      for (const [id, icon] of [['tree-collapse-btn', 'panelLeft'], ['color-collapse-btn', 'panelRight'],
+        ['ew-effects-collapse-btn', 'panelLeft'], ['ew-adjust-collapse-btn', 'panelRight']]) {
+        assertIncludes(app, `_setPanelCollapseBtn(document.getElementById('${id}'), '${icon}',`, id);
+      }
+      assert(!app.includes("Icons[_layout.left ? 'chevronLeft' : 'chevronRight']"), 'no chevrons left');
+      assertIncludes(css, '.panel-hdr-btn.panel-toggle-btn.active { background: var(--bg-selected); }', 'lit while open, like the toolbar');
+    });
+
     test('Edit toolbar has left / right panel toggles', () => {
       assertIncludes(html, 'id="ew-panel-left"', 'left toggle markup');
       assertIncludes(html, 'id="ew-panel-right"', 'right toggle markup');
