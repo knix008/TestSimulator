@@ -386,7 +386,15 @@ body.dragging-rows, body.dragging-rows * { cursor: grabbing !important; }
 
 /* ───────────────────────── start page */
 .start-bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-#start-page.with-image .start-scroll { background: var(--start-image) center / cover no-repeat; }
+#start-page.with-image .start-scroll {
+  /* The picture (fit and opacity from the background settings, app.js renderStartPage): a veil of the page
+     colour over it makes it fainter. */
+  --veil: color-mix(in srgb, var(--bg) var(--start-image-veil, 0%), transparent);
+  background-image: linear-gradient(var(--veil), var(--veil)), var(--start-image);
+  background-position: center, center;
+  background-size: auto, var(--start-image-size, cover);
+  background-repeat: no-repeat, var(--start-image-repeat, no-repeat);
+}
 .start-scroll { position: absolute; inset: 0; overflow: auto; }
 .start-inner { max-width: 1240px; margin: 0 auto; padding: 22px 26px 18px; display: flex; flex-direction: column; gap: 14px; }
 .start-hero { display: flex; align-items: center; gap: 18px; padding: 16px 20px; border-radius: 16px; background: color-mix(in srgb, var(--surface) 74%, transparent); border: 1px solid var(--border); backdrop-filter: blur(6px); box-shadow: 0 10px 30px var(--shadow); }
@@ -1750,3 +1758,15 @@ select.dd-select { background-repeat: no-repeat; background-position: 8px center
 .plan-sample-thumb i { position: absolute; top: 5px; font-style: normal; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; }
 .plan-sample-format { right: 5px; background: rgba(20, 24, 32, 0.78); color: #fff; letter-spacing: 0.04em; }
 .plan-sample-hard { left: 5px; background: #e8a33a; color: #222; }
+
+/* ── language flags next to every language choice (settings, viewer, menus, status bar) */
+.flag-slot { display: inline-flex; align-items: center; flex: none; }
+.flag-slot .flag, .menu-icon > .flag { width: 18px; height: 12px; border-radius: 2px; box-shadow: 0 0 0 1px var(--border); }
+.segment > .flag-slot { margin-right: 6px; }
+.menu-icon > .flag { display: block; }
+.status-item.status-lang { gap: 5px; }
+.status-item.status-lang .flag { width: 16px; height: 11px; }
+
+/* ── every tab's close ✕: red when the pointer is on it */
+.tab-close:hover, #tabs .tab-close:hover, .tab .tab-close:hover { background: var(--danger, #d93025) !important; color: #fff !important; }
+.tab-close:hover .icon { color: #fff; }

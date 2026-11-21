@@ -3,24 +3,30 @@
 // mirrors. regenerate() runs the list in order on the OpenCASCADE kernel and returns the body after
 // every step; a feature that fails is marked and skipped (the rest still builds).
 //
-// Coordinates are millimetres, Y up: Front plane = XY, Top = XZ, Right = YZ.
+// Coordinates are millimetres, Z up (frame.js): Top plane = XY, Front = XZ (seen from −Y), Right = YZ (seen from +X).
 import { rep, fontLoaded } from './kernel.js';
 import { profiles, standalonePoints, constructionLines, byId, createSketchGeometry, newSketchId, hasRegions } from './sketch.js';
 import { faceSignature, findEdges, findFace, planeOfFace, crossV, normalize, setAreaMeasure } from './refs.js';
 import { ADVANCED_DEFAULTS, ADVANCED_NAMES, buildAdvanced, ADVANCED_TYPES } from './advanced.js';
 import { PART_MORE_TYPES, PART_MORE_DEFAULTS, PART_MORE_NAMES } from './part-more-types.js';
 import { buildPartMore, refAxisOf } from './part-more.js';
+import { STD_TYPES, STD_DEFAULTS, STD_NAMES } from './std-types.js';
+import { buildStdFeature } from './std-features.js';
 import { effectiveFeatures } from './params.js';
+import { frameTable, isYUp, worldUp } from './frame.js';
+import { yUpDefaults } from './zup.js';
 
-export const FEATURE_TYPES = ['import', 'sketch', 'plane', 'extrude', 'revolve', 'fillet', 'chamfer', 'shell', 'hole', 'linearPattern', 'circularPattern', 'mirror', ...ADVANCED_TYPES, ...PART_MORE_TYPES];
+export const FEATURE_TYPES = ['import', 'sketch', 'plane', 'extrude', 'revolve', 'fillet', 'chamfer', 'shell', 'hole', 'linearPattern', 'circularPattern', 'mirror', ...ADVANCED_TYPES, ...PART_MORE_TYPES, ...STD_TYPES];
 /** Features that add or remove material with a tool solid (patterns and mirrors copy them). */
 export const TOOL_FEATURES = ['extrude', 'revolve', 'hole', 'sweep', 'loft', 'rib', 'thread', 'wrap', 'structural', 'insertPart', 'dome'];
-export const STD_PLANES = {
-  front: { origin: [0, 0, 0], xDir: [1, 0, 0], normal: [0, 0, 1] },
-  top: { origin: [0, 0, 0], xDir: [1, 0, 0], normal: [0, 1, 0] },
-  right: { origin: [0, 0, 0], xDir: [0, 0, -1], normal: [1, 0, 0] },
-};
-export const AXES = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] };
+/** The standard planes (Z up); a sketch's y runs up (+Z) on the front and right planes and along +Y on the top one. */
+export const STD_PLANES = frameTable({
+  front: { origin: [0, 0, 0], xDir: [1, 0, 0], normal: [0, -1, 0] },
+  top: { origin: [0, 0, 0], xDir: [1, 0, 0], normal: [0, 0, 1] },
+  right: { origin: [0, 0, 0], xDir: [0, 1, 0], normal: [1, 0, 0] },
+}, ['origin', 'xDir', 'normal']);
+/** World axes by name; '-x', '-y', '-z' point the other way (projects turned from Y up use them). */
+export const AXES = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1], '-x': [-1, 0, 0], '-y': [0, -1, 0], '-z': [0, 0, -1] };
 
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const scale = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
@@ -56,15 +62,19 @@ export const FEATURE_DEFAULTS = {
   shell: () => ({ thickness: 1.5, faces: [] }),
   hole: () => ({ sketch: null, kind: 'simple', diameter: 6.6, depth: 15, through: true, cbDiameter: 11, cbDepth: 6.5, csDiameter: 13, csAngle: 90 }),
   linearPattern: () => ({ seeds: [], direction: { kind: 'axis', axis: 'x' }, spacing: 20, count: 3, reverse: false, direction2: null, spacing2: 20, count2: 2, reverse2: false }),
-  circularPattern: () => ({ seeds: [], axis: { kind: 'axis', axis: 'y' }, count: 6, angle: 360, equal: true, reverse: false }),
+  circularPattern: () => ({ seeds: [], axis: { kind: 'axis', axis: 'z' }, count: 6, angle: 360, equal: true, reverse: false }),
   mirror: () => ({ seeds: [], plane: { kind: 'std', name: 'right' }, body: false }),
   ...ADVANCED_DEFAULTS,
   ...PART_MORE_DEFAULTS,
+  ...STD_DEFAULTS,
 };
 
 /** A new feature of `type` with its defaults (and `params` on top). Names like "Boss-Extrude1". */
 export function createFeature(part, type, params = {}) {
-  const feature = { id: newFeatureId(type), type, name: '', ...FEATURE_DEFAULTS[type](), ...params };
+  // The sample builders are written Y up (frame.js withYUp): they get the defaults in that frame.
+  const defaults = { type, ...FEATURE_DEFAULTS[type]() };
+  if (isYUp()) yUpDefaults(defaults);
+  const feature = { id: newFeatureId(type), type, name: '', ...defaults, ...params };
   feature.name = params.name ?? nextName(part, feature);
   return feature;
 }
@@ -76,7 +86,7 @@ export const nameKey = (f) => {
   return f.type;
 };
 
-const BASE_NAMES = { import: 'Imported', sketch: 'Sketch', plane: 'Plane', 'boss-extrude': 'Boss-Extrude', 'cut-extrude': 'Cut-Extrude', 'boss-revolve': 'Revolve', 'cut-revolve': 'Cut-Revolve', fillet: 'Fillet', chamfer: 'Chamfer', shell: 'Shell', hole: 'Hole', linearPattern: 'LPattern', circularPattern: 'CirPattern', mirror: 'Mirror', 'common-extrude': 'Intersect-Extrude', 'common-revolve': 'Intersect-Revolve', ...ADVANCED_NAMES, ...PART_MORE_NAMES };
+const BASE_NAMES = { import: 'Imported', sketch: 'Sketch', plane: 'Plane', 'boss-extrude': 'Boss-Extrude', 'cut-extrude': 'Cut-Extrude', 'boss-revolve': 'Revolve', 'cut-revolve': 'Cut-Revolve', fillet: 'Fillet', chamfer: 'Chamfer', shell: 'Shell', hole: 'Hole', linearPattern: 'LPattern', circularPattern: 'CirPattern', mirror: 'Mirror', 'common-extrude': 'Intersect-Extrude', 'common-revolve': 'Intersect-Revolve', ...ADVANCED_NAMES, ...PART_MORE_NAMES, ...STD_NAMES };
 
 let namer = null;
 /** The app names new features in its language ("스케치1", "Sketch1"): namer(key) → base name or null. */
@@ -285,6 +295,7 @@ function build(f, ctx) {
     default:
       if (ADVANCED_TYPES.includes(f.type)) return buildAdvanced(f, ctx);
       if (PART_MORE_TYPES.includes(f.type)) return buildPartMore(f, ctx);
+      if (STD_TYPES.includes(f.type)) return buildStdFeature(f, ctx);
       throw codeError('unknown-feature', { type: f.type });
   }
 }
@@ -293,7 +304,9 @@ function build(f, ctx) {
 function buildImport(f, ctx) {
   const R = rep();
   if (!f.brep) throw codeError('import-empty');
-  const shape = R.deserializeShape(f.brep);
+  let shape = R.deserializeShape(f.brep);
+  // A body imported before Z up is turned with its project (zup.js) when it is built.
+  if (Number(f.turnX)) shape = shape.rotate(Number(f.turnX), [0, 0, 0], [1, 0, 0]);
   return { body: ctx.body ? ctx.body.fuse(shape) : shape };
 }
 
@@ -335,6 +348,29 @@ export function combine(ctx, tool, op) {
   return ctx.body ? ctx.body.fuse(tool) : tool;
 }
 
+/**
+ * The sketch's regions extruded. The regions are fused into one drawing first; when the kernel turns that into an
+ * inside-out solid (seen with many small regions, e.g. 30 tooth spaces, and differently for different plane
+ * orientations), each region is extruded on its own and the solids fused instead.
+ */
+function extrudeDrawing(sketch, drawing, plane, length) {
+  const R = rep();
+  let solid = null;
+  try { solid = drawing.sketchOnPlane(plane).extrude(length); if (R.measureVolume(solid) > 0) return solid; } catch { /* rebuilt below */ }
+  const regions = profiles(sketch);
+  const texts = sketch.entities.filter((e) => e.type === 'text' && !e.construction && String(e.text ?? '').trim());
+  if (regions.length + texts.length < 2) return solid ?? drawing.sketchOnPlane(plane).extrude(length);
+  let out = null;
+  for (const region of regions) {
+    let d = loopDrawing(region.outer);
+    for (const hole of region.holes) d = d.cut(loopDrawing(hole));
+    const one = d.sketchOnPlane(plane).extrude(length);
+    out = out ? out.fuse(one) : one;
+  }
+  for (const e of texts) { const one = textDrawing(e).sketchOnPlane(plane).extrude(length); out = out ? out.fuse(one) : one; }
+  return out;
+}
+
 function extrudeTool(f, ctx) {
   const { sketch, frame: fr } = sketchOf(f, ctx);
   const drawing = sketchDrawing(sketch);
@@ -352,11 +388,11 @@ function extrudeTool(f, ctx) {
   else length = Math.abs(Number(f.depth)) * dir;
   if (!(Math.abs(length) > 1e-6)) throw codeError('zero-depth');
   const plane = replicadPlane({ ...fr, origin: add(fr.origin, scale(fr.normal, start)) });
-  let solid = drawing.sketchOnPlane(plane).extrude(length);
+  let solid = extrudeDrawing(sketch, drawing, plane, length);
   // Direction 2 (the second direction): the other way from the sketch plane.
   if (f.end2 && f.end2 !== 'none' && (f.end === 'blind' || f.end === 'through')) {
     const length2 = f.end2 === 'through' ? -big * dir : -Math.abs(Number(f.depth2)) * dir;
-    const other = sketchDrawing(sketch).sketchOnPlane(replicadPlane(fr)).extrude(length2);
+    const other = extrudeDrawing(sketch, sketchDrawing(sketch), replicadPlane(fr), length2);
     solid = solid.fuse(other);
   }
   return solid;
@@ -513,7 +549,7 @@ function resolveDirection(ref, ctx) {
 
 /** An axis reference: { origin, dir } — a world axis through the origin, or a straight / circular edge. */
 function resolveAxis(ref, ctx) {
-  if (!ref || ref.kind === 'axis') return { origin: [0, 0, 0], dir: AXES[ref?.axis ?? 'y'] ?? AXES.y };
+  if (!ref || ref.kind === 'axis') return { origin: [0, 0, 0], dir: AXES[ref?.axis] ?? worldUp() };
   if (ref.kind === 'ref') return refAxisOf(ref, ctx);
   if (ref.kind === 'edge') {
     const [edge] = findEdges(ctx.body, [ref.sig]);
@@ -529,7 +565,7 @@ function resolveAxis(ref, ctx) {
     const s = vec(edge.startPoint); const e = vec(edge.endPoint);
     return { origin: s, dir: normalize([e[0] - s[0], e[1] - s[1], e[2] - s[2]]) };
   }
-  return { origin: [0, 0, 0], dir: AXES.y };
+  return { origin: [0, 0, 0], dir: worldUp() };
 }
 
 const vec = (v) => (Array.isArray(v) ? v : [v.x, v.y, v.z]);

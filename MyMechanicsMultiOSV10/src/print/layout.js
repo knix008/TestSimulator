@@ -10,6 +10,7 @@ export const PAPERS = {
   A4: { width: 210, height: 297 }, A3: { width: 297, height: 420 }, A2: { width: 420, height: 594 },
   A1: { width: 594, height: 841 }, A0: { width: 841, height: 1189 },
   Letter: { width: 215.9, height: 279.4 }, Tabloid: { width: 279.4, height: 431.8 },
+  'ANSI C': { width: 431.8, height: 558.8 }, 'ANSI D': { width: 558.8, height: 863.6 }, 'ANSI E': { width: 863.6, height: 1117.6 },
 };
 /** Margins, mm. */
 export const MARGINS = { none: 0, narrow: 5, normal: 10, wide: 20 };

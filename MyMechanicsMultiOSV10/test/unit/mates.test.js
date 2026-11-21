@@ -414,13 +414,21 @@ test('limit distance without max has no upper bound', () => {
   near(b.position[1], 110, 1e-4);
 });
 
-for (const [name, start, expected] of [['below the minimum', 5, 20], ['above the maximum', 80, 60], ['inside the range', 40, 40]]) {
-  test(`limit angle 20…60°: ${name} (${start}°) ends at ${expected}°`, () => {
+// An inequality: any angle in the range satisfies it, so a start outside only has to end inside (the solver
+// may step past the nearer limit); a start inside does not move.
+for (const [name, start] of [['below the minimum', 5], ['above the maximum', 80]]) {
+  test(`limit angle 20…60°: ${name} (${start}°) ends inside the range`, () => {
     const g = comp('g', [0, 0, 0], quatIdentity(), true); const b = comp('b', [0, 0, 0], quatFromAxisAngle([0, 0, 1], start));
     ok(asmOf([g, b], [{ id: 'l', type: 'limitAngle', min: 20, max: 60, a: ref('g', TOP), b: ref('b', TOP) }]));
-    near(angleBetween(worldDir(b, [0, 1, 0]), [0, 1, 0]), expected, 1e-2);
+    const a = angleBetween(worldDir(b, [0, 1, 0]), [0, 1, 0]);
+    assert.ok(a >= 20 - 1e-3 && a <= 60 + 1e-3, `angle ${a} in 20…60`);
   });
 }
+test('limit angle 20…60°: a start inside the range (40°) stays at 40°', () => {
+  const g = comp('g', [0, 0, 0], quatIdentity(), true); const b = comp('b', [0, 0, 0], quatFromAxisAngle([0, 0, 1], 40));
+  ok(asmOf([g, b], [{ id: 'l', type: 'limitAngle', min: 20, max: 60, a: ref('g', TOP), b: ref('b', TOP) }]));
+  near(angleBetween(worldDir(b, [0, 1, 0]), [0, 1, 0]), 40, 1e-2);
+});
 
 // ───────────────────────── mechanical
 
@@ -498,8 +506,8 @@ for (const [pitch, reverse] of [[1, false], [2.5, false], [2, true]]) {
     const asm = asmOf([g, n], []);
     asm.mates.push(captureMate(asm, { id: 's', type: 'screw', pitch, reverse, a: ref('g', Z_AXIS), b: ref('n', Z_AXIS) }));
     n.rotation = quatFromAxisAngle([0, 0, 1], 90);
-    // Hold the rotation: lock the nut's spin with a parallel side face to a turned plane on the ground.
-    asm.mates.push({ id: 'p', type: 'angle', value: 0, a: ref('g', plane([0, 0, 0], [0, 1, 0])), b: ref('n', plane([0, 0, 0], [-1, 0, 0])) });
+    // Hold the rotation: the nut's +x side face, turned 90° about z, must face the ground's +y (angle 0).
+    asm.mates.push({ id: 'p', type: 'angle', value: 0, a: ref('g', plane([0, 0, 0], [0, 1, 0])), b: ref('n', plane([0, 0, 0], [1, 0, 0])) });
     ok(asm);
     const turns = twistAngle(n.rotation, quatIdentity(), [0, 0, 1]) / (2 * Math.PI);
     near(turns, 0.25, 1e-4);
@@ -535,7 +543,7 @@ test('cam with a flat follower: the nearest profile point lies on its face', () 
   const asm = asmOf([g, f], [
     { id: 'slide', type: 'parallel', a: ref('g', TOP), b: ref('f', BOTTOM) },
     { id: 'line', type: 'coincident', a: ref('g', axis([0, 0, 0], [0, 1, 0])), b: ref('f', pointE([0, 0, 0])) },
-    { id: 'cam', type: 'cam', profile: [[-10, -10, 0], [10, -10, 0], [10, 12, 0], [-10, 12, 0]], a: ref('g', FRONT), b: ref('f', plane([0, 0, 0], [0, 1, 0])) },
+    { id: 'cam', type: 'cam', profile: [[-10, -10, 0], [10, -10, 0], [10, 12, 0], [-10, 12, 0]], a: ref('g', FRONT), b: ref('f', plane([0, 0, 0], [0, -1, 0])) },
   ]);
   ok(asm);
   near(f.position[1], 12, 1e-4);

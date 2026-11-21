@@ -19,6 +19,7 @@ import {
 } from './domain/helpdocs.js';
 import { setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
+import { flagFor } from './flags.js';
 import * as native from './platform/native.js';
 import { applyFont, applyTheme, resolveTheme } from './themes.js';
 
@@ -74,8 +75,8 @@ function toHost(type, data) {
 function barHtml() {
   const L = state.lang;
   const languages = `<span class="segmented" role="radiogroup" title="${escapeHtml(t('reader.language'))}" aria-label="${escapeHtml(t('reader.language'))}">
-      <button class="segment ${L === 'ko' ? 'active' : ''}" data-viewer="lang" data-value="ko" role="radio" aria-checked="${L === 'ko'}" title="한국어">한국어</button>
-      <button class="segment ${L === 'en' ? 'active' : ''}" data-viewer="lang" data-value="en" role="radio" aria-checked="${L === 'en'}" title="English">English</button>
+      <button class="segment ${L === 'ko' ? 'active' : ''}" data-viewer="lang" data-value="ko" role="radio" aria-checked="${L === 'ko'}" title="한국어"><span class="flag-slot">${flagFor('ko')}</span>한국어</button>
+      <button class="segment ${L === 'en' ? 'active' : ''}" data-viewer="lang" data-value="en" role="radio" aria-checked="${L === 'en'}" title="English"><span class="flag-slot">${flagFor('en')}</span>English</button>
     </span>`;
   const close = inFrame ? `<button class="icon-button" data-viewer="close" title="${escapeHtml(t('common.close'))}" aria-label="${escapeHtml(t('common.close'))}">${icon('close')}</button>` : '';
   const title = `<h1 class="viewer-title">${icon(info.glyph)}<span>${escapeHtml(t(info.title))}</span></h1>`;

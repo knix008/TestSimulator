@@ -34,7 +34,7 @@ export const SHEET_MORE_PM = {
   ruledSurface(api, f) {
     const { t } = api;
     return [
-      group('ruledSurface', t('sm.ruledType'), `${seg('mode', [['tangent', t('sm.ruled.tangent')], ['normal', t('sm.ruled.normal')], ['vector', t('sm.ruled.vector')]], f.mode ?? 'tangent')}${f.mode === 'vector' ? seg('axis', [['x', 'X'], ['y', 'Y'], ['z', 'Z']], f.axis ?? 'y') : ''}${field(api, 'distance', f.distance, { label: t('pm.distance'), min: 0.01 })}${check('reverse', f.reverse, t('pm.reverse'), 'flipV')}${f.mode === 'vector' ? '' : check('alternate', f.alternate, t('sm.alternateFace'), 'flipH')}`),
+      group('ruledSurface', t('sm.ruledType'), `${seg('mode', [['tangent', t('sm.ruled.tangent')], ['normal', t('sm.ruled.normal')], ['vector', t('sm.ruled.vector')]], f.mode ?? 'tangent')}${f.mode === 'vector' ? seg('axis', [['x', 'X'], ['y', 'Y'], ['z', 'Z']], f.axis ?? 'z') : ''}${field(api, 'distance', f.distance, { label: t('pm.distance'), min: 0.01 })}${check('reverse', f.reverse, t('pm.reverse'), 'flipV')}${f.mode === 'vector' ? '' : check('alternate', f.alternate, t('sm.alternateFace'), 'flipH')}`),
       group('lineTool', t('sm.edgeSelection'), `${pickBox(api, 'edges', edgeItems(api, f.edges), t('pm.edges'), 'lineTool')}${note(t('sm.help.ruled'))}`),
     ].join('');
   },

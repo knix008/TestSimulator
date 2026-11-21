@@ -22,13 +22,13 @@ function sketchOn(part, plane, draw) {
 
 test('boss extrude of a rectangle with a hole, then a blind cut', () => {
   const part = newPart();
-  const s1 = sketchOn(part, { kind: 'std', name: 'front' }, (s) => { addRectangle(s, -50, -25, 50, 25); addCircle(s, 0, 0, 10); });
+  const s1 = sketchOn(part, { kind: 'std', name: 'top' }, (s) => { addRectangle(s, -50, -25, 50, 25); addCircle(s, 0, 0, 10); });
   part.features.push(createFeature(part, 'extrude', { sketch: s1.id, depth: 20 }));
   let r = regenerate(part);
   assert.equal(r.error, null);
   near(volume(r.body), 100 * 50 * 20 - Math.PI * 100 * 20);
-  const s2 = sketchOn(part, { kind: 'std', name: 'front' }, (s) => addRectangle(s, 30, -10, 45, 10));
-  // Sketched on the front plane (z = 0): a cut goes against the normal — Reverse makes it go into the part.
+  const s2 = sketchOn(part, { kind: 'std', name: 'top' }, (s) => addRectangle(s, 30, -10, 45, 10));
+  // Sketched on the top plane (XY, z = 0): a cut goes against the normal — Reverse makes it go into the part.
   part.features.push(createFeature(part, 'extrude', { sketch: s2.id, op: 'cut', depth: 5, reverse: true }));
   r = regenerate(part);
   assert.equal(r.error, null, r.error?.message);
@@ -44,7 +44,7 @@ test('mid-plane, through-all and second direction', () => {
   part.features.push(e);
   let r = regenerate(part);
   const [lo, hi] = r.body.boundingBox.bounds;
-  near(lo[1], -15); near(hi[1], 15);
+  near(lo[2], -15); near(hi[2], 15);
   e.end = 'blind'; e.depth = 10; e.end2 = 'blind'; e.depth2 = 4;
   r = regenerate(part);
   near(volume(r.body), 100 * 14);
@@ -52,7 +52,7 @@ test('mid-plane, through-all and second direction', () => {
 
 test('revolve about a construction line', () => {
   const part = newPart();
-  const s = sketchOn(part, { kind: 'std', name: 'front' }, (k) => {
+  const s = sketchOn(part, { kind: 'std', name: 'top' }, (k) => {
     addRectangle(k, 10, 0, 20, 30);
     addLine(k, 0, 0, 0, 50, { construction: true });
   });
@@ -65,7 +65,7 @@ test('revolve about a construction line', () => {
 test('fillet and chamfer edges found again after the base sketch changes', () => {
   const part = newPart();
   let rectLines;
-  const s = sketchOn(part, { kind: 'std', name: 'front' }, (k) => { rectLines = addRectangle(k, 0, 0, 40, 30); });
+  const s = sketchOn(part, { kind: 'std', name: 'top' }, (k) => { rectLines = addRectangle(k, 0, 0, 40, 30); });
   part.features.push(createFeature(part, 'extrude', { sketch: s.id, depth: 10 }));
   let r = regenerate(part);
   const verticalEdges = r.body.edges.filter((e) => { const sig = edgeSignature(e); return Math.abs(Math.abs(sig.dir[2]) - 1) < 1e-6; });
@@ -88,7 +88,7 @@ test('fillet and chamfer edges found again after the base sketch changes', () =>
 
 test('shell removes a face and leaves walls', () => {
   const part = newPart();
-  const s = sketchOn(part, { kind: 'std', name: 'front' }, (k) => addRectangle(k, 0, 0, 50, 40));
+  const s = sketchOn(part, { kind: 'std', name: 'top' }, (k) => addRectangle(k, 0, 0, 50, 40));
   part.features.push(createFeature(part, 'extrude', { sketch: s.id, depth: 30 }));
   let r = regenerate(part);
   const top = r.body.faces.find((f) => Math.abs(faceSignature(f).center[2] - 30) < 1e-6);
@@ -101,7 +101,7 @@ test('shell removes a face and leaves walls', () => {
 test('holes from sketch points on a face: simple, counterbore and countersink', () => {
   for (const kind of ['simple', 'counterbore', 'countersink']) {
     const part = newPart();
-    const s = sketchOn(part, { kind: 'std', name: 'front' }, (k) => addRectangle(k, 0, 0, 60, 40));
+    const s = sketchOn(part, { kind: 'std', name: 'top' }, (k) => addRectangle(k, 0, 0, 60, 40));
     part.features.push(createFeature(part, 'extrude', { sketch: s.id, depth: 15 }));
     let r = regenerate(part);
     const top = r.body.faces.find((f) => Math.abs(faceSignature(f).center[2] - 15) < 1e-6);
@@ -119,25 +119,25 @@ test('holes from sketch points on a face: simple, counterbore and countersink', 
 
 test('linear and circular patterns, mirror', () => {
   const part = newPart();
-  const s = sketchOn(part, { kind: 'std', name: 'front' }, (k) => addRectangle(k, 0, 0, 100, 60));
+  const s = sketchOn(part, { kind: 'std', name: 'top' }, (k) => addRectangle(k, 0, 0, 100, 60));
   part.features.push(createFeature(part, 'extrude', { sketch: s.id, depth: 10 }));
-  const s2 = sketchOn(part, { kind: 'std', name: 'front' }, (k) => addCircle(k, 10, 10, 3));
+  const s2 = sketchOn(part, { kind: 'std', name: 'top' }, (k) => addCircle(k, 10, 10, 3));
   const cut = createFeature(part, 'extrude', { sketch: s2.id, op: 'cut', end: 'throughBoth' });
   part.features.push(cut);
   part.features.push(createFeature(part, 'linearPattern', { seeds: [cut.id], direction: { kind: 'axis', axis: 'x' }, spacing: 20, count: 4, direction2: { kind: 'axis', axis: 'y' }, spacing2: 20, count2: 2 }));
   let r = regenerate(part);
   assert.equal(r.error, null, r.error?.message);
   near(volume(r.body), 100 * 60 * 10 - 8 * Math.PI * 9 * 10, 1e-3);
-  part.features.push(createFeature(part, 'mirror', { seeds: [cut.id], plane: { kind: 'std', name: 'top' } }));
+  part.features.push(createFeature(part, 'mirror', { seeds: [cut.id], plane: { kind: 'std', name: 'front' } }));
   r = regenerate(part);
   assert.equal(r.error, null, r.error?.message);
-  // Mirrored about y = 0: the copy falls outside the plate (y = -10) and cuts nothing.
+  // Mirrored about the front plane (y = 0): the copy falls outside the plate (y = -10) and cuts nothing.
   near(volume(r.body), 100 * 60 * 10 - 8 * Math.PI * 9 * 10, 1e-3);
 
   const disc = newPart();
-  const d = sketchOn(disc, { kind: 'std', name: 'front' }, (k) => addCircle(k, 0, 0, 50));
+  const d = sketchOn(disc, { kind: 'std', name: 'top' }, (k) => addCircle(k, 0, 0, 50));
   disc.features.push(createFeature(disc, 'extrude', { sketch: d.id, depth: 8 }));
-  const h = sketchOn(disc, { kind: 'std', name: 'front' }, (k) => addCircle(k, 35, 0, 4));
+  const h = sketchOn(disc, { kind: 'std', name: 'top' }, (k) => addCircle(k, 35, 0, 4));
   const hc = createFeature(disc, 'extrude', { sketch: h.id, op: 'cut', end: 'throughBoth' });
   disc.features.push(hc);
   disc.features.push(createFeature(disc, 'circularPattern', { seeds: [hc.id], axis: { kind: 'axis', axis: 'z' }, count: 6 }));
@@ -154,11 +154,11 @@ test('reference plane and a sketch on it; a failing feature does not stop the re
   part.features.push(createFeature(part, 'extrude', { sketch: s.id, depth: 5 }));
   const bad = createFeature(part, 'fillet', { radius: 2, edges: [{ type: 'LINE', mid: [999, 999, 999], dir: [1, 0, 0], length: 1 }] });
   part.features.push(bad);
-  const open = sketchOn(part, { kind: 'std', name: 'front' }, (k) => addLine(k, 0, 0, 10, 10));
+  const open = sketchOn(part, { kind: 'std', name: 'top' }, (k) => addLine(k, 0, 0, 10, 10));
   part.features.push(createFeature(part, 'extrude', { sketch: open.id, depth: 5 }));
   const r = regenerate(part);
   const [lo, hi] = r.body.boundingBox.bounds;
-  near(lo[1], 40); near(hi[1], 45);
+  near(lo[2], 40); near(hi[2], 45);
   assert.equal(r.results.get(bad.id).ok, false);
   assert.equal(r.results.get(bad.id).error, 'no-edges');
   assert.equal(r.results.get(part.features.at(-1).id).error, 'no-profile');
@@ -167,7 +167,7 @@ test('reference plane and a sketch on it; a failing feature does not stop the re
 
 test('rollback stops the rebuild at the bar', () => {
   const part = newPart();
-  const s = sketchOn(part, { kind: 'std', name: 'front' }, (k) => addRectangle(k, 0, 0, 10, 10));
+  const s = sketchOn(part, { kind: 'std', name: 'top' }, (k) => addRectangle(k, 0, 0, 10, 10));
   part.features.push(createFeature(part, 'extrude', { sketch: s.id, depth: 10 }));
   const r = regenerate(part, { upTo: 1 });
   assert.equal(r.body, null);

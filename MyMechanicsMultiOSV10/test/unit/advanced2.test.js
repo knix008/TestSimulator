@@ -22,7 +22,7 @@ const box = (r) => { const [lo, hi] = r.body.boundingBox.bounds; return hi.map((
 
 test('fill surface over a 3D sketch loop, boundary surface through two profiles', () => {
   const part = newPart();
-  const s3 = createFeature(part, 'sketch3d', { points: [[0, 0, 0], [20, 0, 4], [20, 20, 0], [0, 20, 4]], closed: true });
+  const s3 = createFeature(part, 'sketch3d', { points: [[0, 0, 0], [20, -4, 0], [20, 0, 20], [0, -4, 20]], closed: true });
   part.features.push(s3);
   const fill = createFeature(part, 'fillSurface', { curve: s3.id });
   part.features.push(fill);
@@ -58,12 +58,12 @@ function sheet(part, w = 100, d = 50, t = 2) {
 test('hem folds the edge back over the sheet', () => {
   const part = newPart();
   const r0 = sheet(part);
-  const edge = r0.body.edges.find((e) => e.geomType === 'LINE' && e.startPoint.x > 99.9 && e.endPoint.x > 99.9 && e.startPoint.y > 1.9 && e.endPoint.y > 1.9);
+  const edge = r0.body.edges.find((e) => e.geomType === 'LINE' && e.startPoint.x > 99.9 && e.endPoint.x > 99.9 && e.startPoint.z > 1.9 && e.endPoint.z > 1.9);
   part.features.push(createFeature(part, 'hem', { edge: edgeSignature(edge), kind: 'open', gap: 2, length: 15 }));
   const r = ok(part);
   const b = box(r);
   // Folded up and back: the box grows upward (gap + thickness) and only a little in x (the bend).
-  assert.ok(b[1] > 5 && b[1] < 7, `hem height ${b[1]}`);
+  assert.ok(b[2] > 5 && b[2] < 7, `hem height ${b[2]}`);
   assert.ok(b[0] > 100 && b[0] < 106, `hem length ${b[0]}`);
 });
 
@@ -74,7 +74,7 @@ test('sketched bend turns the far side up; flat pattern adds the bend allowance'
   part.features.push(createFeature(part, 'sketchedBend', { sketch: line.id, angle: 90, radius: 2 }));
   const r = ok(part);
   const b = box(r);
-  assert.ok(b[1] > 40, `bent up: ${b[1]}`);
+  assert.ok(b[2] > 40, `bent up: ${b[2]}`);
   near(V(r.body), 100 * 50 * 2 + 100 * (Math.PI / 2) * 3, 0.02);
   const flat = ok({ ...part, flat: true });
   near(box(flat)[0], 100 + bendAllowance(90, 2, 2, 0.4), 1e-4);
@@ -87,7 +87,7 @@ test('jog raises the far side by its height', () => {
   part.features.push(createFeature(part, 'jog', { sketch: line.id, height: 10 }));
   const r = ok(part);
   const b = box(r);
-  near(b[1], 12, 1e-6);
+  near(b[2], 12, 1e-6);
   near(b[0], 102, 1e-6);
 });
 
@@ -96,11 +96,11 @@ test('parting line and core / cavity of a cup', () => {
   const s = sketchOn(part, top, (k) => addCircle(k, 0, 0, 20));
   part.features.push(createFeature(part, 'extrude', { sketch: s.id, depth: 20 }));
   const r0 = regenerate(part);
-  const topFace = r0.body.faces.find((f) => f.geomType === 'PLANE' && faceSignature(f).center[1] > 19);
+  const topFace = r0.body.faces.find((f) => f.geomType === 'PLANE' && faceSignature(f).center[2] > 19);
   part.features.push(createFeature(part, 'shell', { thickness: 2, faces: [faceSignature(topFace)] }));
-  const pl = createFeature(part, 'partingLine', { dir: 'y' });
+  const pl = createFeature(part, 'partingLine', { dir: 'z' });
   part.features.push(pl);
-  part.features.push(createFeature(part, 'toolingSplit', { dir: 'y', margin: 10, gap: 0 }));
+  part.features.push(createFeature(part, 'toolingSplit', { dir: 'z', margin: 10, gap: 0 }));
   const r = ok(part);
   assert.ok(r.results.get(pl.id).parting.edges >= 1);
   // Block 60×(20+20)×60 minus the cup's solid volume.
@@ -110,13 +110,13 @@ test('parting line and core / cavity of a cup', () => {
 
 test('3D sketch as a sweep path and as structural members', () => {
   const part = newPart();
-  const s3 = createFeature(part, 'sketch3d', { points: [[0, 0, 0], [0, 50, 0], [40, 50, 30]] });
+  const s3 = createFeature(part, 'sketch3d', { points: [[0, 0, 0], [0, 0, 50], [40, -30, 50]] });
   part.features.push(s3);
   part.features.push(createFeature(part, 'structural', { sketch: s3.id, profile: 'roundBar', w: 10 }));
   let r = ok(part);
   assert.deepEqual(r.results.get(part.features[1].id).members.map((m) => m.length), [50, 50]);
   const p2 = newPart('q');
-  const path = createFeature(p2, 'sketch3d', { points: [[0, 0, 0], [0, 40, 0], [0, 60, 30]], spline: true });
+  const path = createFeature(p2, 'sketch3d', { points: [[0, 0, 0], [0, 0, 40], [0, -30, 60]], spline: true });
   p2.features.push(path);
   const prof = sketchOn(p2, top, (k) => addCircle(k, 0, 0, 3));
   p2.features.push(createFeature(p2, 'sweep', { sketch: prof.id, path: path.id }));
@@ -130,7 +130,7 @@ test('sketch text extrudes as letters', () => {
   part.features.push(createFeature(part, 'extrude', { sketch: s.id, depth: 2 }));
   const r = ok(part);
   const b = box(r);
-  assert.ok(b[0] > 25 && b[0] < 40 && b[1] > 6 && b[1] < 10, `text box ${b}`);
+  assert.ok(b[0] > 25 && b[0] < 40 && b[2] > 6 && b[2] < 10, `text box ${b}`);
   assert.ok(V(r.body) > 50);
 });
 

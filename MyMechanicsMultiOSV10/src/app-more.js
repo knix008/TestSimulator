@@ -27,7 +27,7 @@ import { icon } from './icons.js';
 const MODES = new Set(['compPattern', 'smartMate', 'moveComp']);
 const SIM_STUDIES = ['buckling', 'fatigue'];
 const AXES = { x: [1, 0, 0], '-x': [-1, 0, 0], y: [0, 1, 0], '-y': [0, -1, 0], z: [0, 0, 1], '-z': [0, 0, -1] };
-const STD_PLANE_NORMALS = { front: [0, 0, 1], top: [0, 1, 0], right: [1, 0, 0] };
+const STD_PLANE_NORMALS = { front: [0, -1, 0], top: [0, 0, 1], right: [1, 0, 0] };
 
 export function createMoreTools(ctx) {
   const { state, t } = ctx;
@@ -46,7 +46,7 @@ export function createMoreTools(ctx) {
     const a = asm();
     if (!a) { notify('info', t('notice.assemblyOnly')); return; }
     if (state.editing) ctx.cancelEditing({ quiet: true });
-    state.editing = { mode: 'compPattern', kind, seeds: selectedComps().filter((id) => !a.components.find((c) => c.id === id)?.pattern), pick: 'seeds', dir: 'x', spacing: Math.round(ctx.assemblySize(a) * 0.6), count: 3, two: false, dir2: 'z', spacing2: Math.round(ctx.assemblySize(a) * 0.6), count2: 2, axisStd: 'y', axisRef: null, cCount: 4, angle: 360, planeStd: 'right', planeRef: null, orientation: 'auto', offset: 0 };
+    state.editing = { mode: 'compPattern', kind, seeds: selectedComps().filter((id) => !a.components.find((c) => c.id === id)?.pattern), pick: 'seeds', dir: 'x', spacing: Math.round(ctx.assemblySize(a) * 0.6), count: 3, two: false, dir2: 'y', spacing2: Math.round(ctx.assemblySize(a) * 0.6), count2: 2, axisStd: 'z', axisRef: null, cCount: 4, angle: 360, planeStd: 'right', planeRef: null, orientation: 'auto', offset: 0 };
     state.leftTab = 'pm';
     ctx.renderAll();
     notify('info', t('compPattern.pickSeeds'));
@@ -317,8 +317,8 @@ export function createMoreTools(ctx) {
 
   function cameraBasis() {
     const vp = ctx.viewport();
-    const dir = vp?.dir ? [vp.dir.x, vp.dir.y, vp.dir.z] : [0, 0, 1];
-    const up = vp?.up ? [vp.up.x, vp.up.y, vp.up.z] : [0, 1, 0];
+    const dir = vp?.dir ? [vp.dir.x, vp.dir.y, vp.dir.z] : [0, -1, 0];
+    const up = vp?.up ? [vp.up.x, vp.up.y, vp.up.z] : [0, 0, 1];
     return { dir, up };
   }
 

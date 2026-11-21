@@ -138,7 +138,9 @@ test('collision detection on the kernel: a box slid into another stops at contac
 
 // ───────────────────────── drawings
 
-const block = () => R.makeBox([-50, -25, 0], [50, 25, 20]).cut(R.makeCylinder(10, 40, [0, 0, -10], [0, 0, 1])).cut(R.makeCylinder(4, 40, [30, 10, -10], [0, 0, 1]));
+// A 100 × 50 × 20 block standing behind the front plane (x −50…50, y −20…0, z −25…25) with a Ø20 hole at the
+// origin and a Ø8 one at x 30, z 10, both through along y: seen end-on from the front (which looks along +y).
+const block = () => R.makeBox([-50, -20, -25], [50, 0, 25]).cut(R.makeCylinder(10, 40, [0, 10, 0], [0, -1, 0])).cut(R.makeCylinder(4, 40, [30, 10, 10], [0, -1, 0]));
 
 test('sheets: add, rename, switch, delete; each sheet shows only its views and tables', () => {
   const d = createDrawing({ id: 'd1', name: 'D', source: { kind: 'part', id: 'p' } });

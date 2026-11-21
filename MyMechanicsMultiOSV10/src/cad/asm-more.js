@@ -72,7 +72,7 @@ export function patternPlacements(p, c) {
     const n = Math.max(1, Math.round(num(p.count, 2)));
     const total = num(p.angle, 360);
     const stepDeg = p.equal !== false ? (Math.abs(total - 360) < 1e-9 ? total / n : total / Math.max(1, n - 1)) : total;
-    const axis = { point: p.axis?.point ?? [0, 0, 0], dir: unit(p.axis?.dir ?? [0, 1, 0]) ?? [0, 1, 0] };
+    const axis = { point: p.axis?.point ?? [0, 0, 0], dir: unit(p.axis?.dir ?? [0, 0, 1]) ?? [0, 0, 1] };
     for (let i = 1; i < n; i++) out.push(turned(c, axis, i * stepDeg));
   } else if (p.type === 'mirror') {
     out.push(mirroredPlacement(c, p.plane, p.localAxis ?? 0));

@@ -2,6 +2,7 @@
 // is remembered by its geometry (centre, normal or direction, size, surface type) and found again in
 // the rebuilt solid as the closest match. A fillet keeps its edge when a dimension earlier in the tree
 // changes, as long as the edge still exists somewhere near.
+import { worldFront } from './frame.js';
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -121,7 +122,8 @@ export function planeOfFace(face) {
     const l = lengthOf(d);
     if (l > 1e-9) { xDir = d.map((v) => v / l); break; }
   }
-  if (!xDir || Math.abs(dot(xDir, normal)) > 0.99) xDir = Math.abs(normal[2]) < 0.9 ? normalize(crossV([0, 0, 1], normal)) : [1, 0, 0];
+  // No straight edge (a round face): x across the face from the front direction (or along X when it faces the front).
+  if (!xDir || Math.abs(dot(xDir, normal)) > 0.99) { const fr = worldFront(); xDir = Math.abs(dot(normal, fr)) < 0.9 ? normalize(crossV(fr, normal)) : [1, 0, 0]; }
   // Remove any part along the normal.
   const k = dot(xDir, normal);
   xDir = normalize(sub(xDir, normal.map((v) => v * k)));

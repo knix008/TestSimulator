@@ -1,0 +1,132 @@
+[
+  {
+    "name": "sim: kernel and an error collector",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); window.__errs = []; window.addEventListener('error', (e) => window.__errs.push(e.message)); window.addEventListener('unhandledrejection', (e) => window.__errs.push(String(e.reason?.message ?? e.reason))); await m.actions.ensureKernel(); return 'ready'; })()",
+    "expect": "^ready$",
+    "wait": 500
+  },
+  {
+    "name": "sim: a plate with two holes is built",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); \n  await m.actions.closeProject({ force: true }); await m.actions.newDocument('part');\n  window.__prompt = (value) => { const old = m.popups.open.bind(m.popups); m.popups.open = async (name, params) => { if (name === 'prompt' || name === 'confirm') { m.popups.open = old; return name === 'confirm' ? { choice: value } : { value }; } return old(name, params); }; };\n  const part = m.active();\n  const P = (id, x, y) => ({ id, type: 'point', x, y });\n  const ents = [{ id: 'O', type: 'point', x: 0, y: 0, fixed: true, origin: true }, P('a', -50, -25), P('b', 50, -25), P('c', 50, 25), P('d', -50, 25), { id: 'l1', type: 'line', p1: 'a', p2: 'b' }, { id: 'l2', type: 'line', p1: 'b', p2: 'c' }, { id: 'l3', type: 'line', p1: 'c', p2: 'd' }, { id: 'l4', type: 'line', p1: 'd', p2: 'a' }, P('h1', -30, 0), { id: 'c1', type: 'circle', c: 'h1', r: 5 }, P('h2', 30, 0), { id: 'c2', type: 'circle', c: 'h2', r: 5 }];\n  m.actions.change('op.addSketch', () => { part.features.push({ id: 'sk1', type: 'sketch', name: 'Sketch1', plane: { kind: 'std', name: 'front' }, entities: ents, constraints: [] }); part.features.push({ id: 'ex1', type: 'extrude', name: 'Boss1', sketch: 'sk1', op: 'boss', end: 'blind', depth: 10, reverse: false, end2: 'none', depth2: 10 }); });\n  await sleep(400);\n  const faces = m.state.partEntry.faces;\n  return JSON.stringify({ faces: faces.length, cyl: faces.filter((f) => f.geomType !== 'PLANE').length }); })()",
+    "expect": "\"faces\":(8|9|10)"
+  },
+  {
+    "name": "sim: nonlinear static study runs and keeps a load–displacement curve",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); \n  await m.run('nonlinearStudy'); await sleep(200);\n  const e = m.state.editing; const faces = m.state.partEntry.faces;\n  const planes = faces.map((f, index) => ({ f, index })).filter((x) => x.f.geomType === 'PLANE');\n  const byX = planes.sort((p, q) => p.f.center.x - q.f.center.x);\n  const mk = (x) => ({ index: x.index, faceId: x.f.hashCode, type: 'PLANE' });\n  e.fixtures = [mk(byX[0])]; e.loads = [mk(byX.at(-1))]; e.magnitude = 20000; e.dir = '-z'; e.resolution = 14; e.steps = 3; e.plastic = true;\n  window.__fx = { fixtures: e.fixtures, loads: e.loads };\n  await m.actions.pmCommand('runSim'); await sleep(300);\n  const r = m.state.editing.result;\n  return JSON.stringify({ study: m.state.editing.study, ok: r?.ok, curve: r?.curve?.length, sim: m.state.sim?.study, rows: document.querySelectorAll('.sim2-table tr').length, pm: Boolean(document.querySelector('.left-pm-body [data-pm-set=\"study\"][data-value=\"flow\"]')) }); })()",
+    "expect": "\"study\":\"nonlinear\",\"ok\":true,\"curve\":3,\"sim\":\"nonlinear\",\"rows\":4,\"pm\":true"
+  },
+  {
+    "shot": "sim-nonlinear",
+    "wait": 400
+  },
+  {
+    "name": "sim: drop test reports peak stress, impulse and a time chart",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); \n  m.actions.pmSet('study', 'drop'); const e = m.state.editing; e.resolution = 10; e.height = 500;\n  await m.actions.pmCommand('runSim'); await sleep(300);\n  const r = e.result;\n  return JSON.stringify({ peak: r.peakStress > 0, impulse: r.impulse > 0, chart: document.querySelectorAll('.sim2-chart polyline').length, colours: Boolean(m.state.sim?.colors?.length) }); })()",
+    "expect": "\"peak\":true,\"impulse\":true,\"chart\":2,\"colours\":true"
+  },
+  {
+    "shot": "sim-drop",
+    "wait": 400
+  },
+  {
+    "name": "sim: load combination of two cases with factors",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); \n  m.actions.pmSet('study', 'combination'); const e = m.state.editing; Object.assign(e, window.__fx); e.resolution = 14; e.magnitude = 1000; e.dir = 'x';\n  await m.actions.pmCommand('sim2.addCase'); e.magnitude = 100; e.dir = '-z'; await m.actions.pmCommand('sim2.addCase');\n  m.actions.pmFieldChanged('factor:1', '-2');\n  await m.actions.pmCommand('runSim'); await sleep(300);\n  return JSON.stringify({ cases: e.cases.length, factor: e.cases[1].factor, results: e.result?.caseResults?.length, ok: e.result?.ok }); })()",
+    "expect": "\"cases\":2,\"factor\":-2,\"results\":2,\"ok\":true"
+  },
+  {
+    "shot": "sim-combination",
+    "wait": 400
+  },
+  {
+    "name": "sim: external flow shows a section plane and streamlines with drag",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); \n  m.actions.pmSet('study', 'flow'); const e = m.state.editing; e.resolution = 8; e.velocity = 0.05; e.fluid = 'water';\n  await m.actions.pmCommand('runSim'); await sleep(400);\n  const r = e.result; const vp = m.viewport;\n  return JSON.stringify({ ok: r?.ok !== false, drag: r?.dragForce > 0, section: vp.bodies.has('flow:section'), streams: (vp.groups.sim2?.children.length ?? 0) > 0, legend: Boolean(document.querySelector('.left-pm-body .sim-legend')) }); })()",
+    "expect": "\"ok\":true,\"drag\":true,\"section\":true,\"streams\":true,\"legend\":true"
+  },
+  {
+    "shot": "sim-flow",
+    "wait": 400
+  },
+  {
+    "name": "mbd: auto dimension scheme puts datums, sizes and hole dimensions on the plate",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); \n  m.actions.cancelEditing({ quiet: true }); await sleep(100);\n  await m.run('mbdAutoDimension'); await sleep(300);\n  const list = m.active().annotations ?? [];\n  const kinds = [...new Set(list.map((a) => a.kind))].sort().join(',');\n  return JSON.stringify({ count: list.length > 6, kinds, labels: document.querySelectorAll('.vp-label.mbd-label').length === list.length, tree: document.querySelectorAll('[data-tree^=\"mbd:\"]').length === list.length, holes: list.some((a) => a.measure === 'diameter' && a.prefix === '2×') }); })()",
+    "expect": "\"count\":true,\"kinds\":\"datum,dimension,gdt\",\"labels\":true,\"tree\":true,\"holes\":true"
+  },
+  {
+    "shot": "mbd-auto",
+    "wait": 400
+  },
+  {
+    "name": "mbd: edit a dimension tolerance in the PropertyManager",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); \n  await m.run('mbdAnnotations'); await sleep(100);\n  const d = m.active().annotations.find((a) => a.kind === 'dimension' && a.measure === 'distance');\n  await m.actions.pmCommand('mbd.sel:' + d.id); m.actions.pmSet('mbd.tolType', 'symmetric'); m.actions.pmFieldChanged('mbd.plus', '0.05'); await sleep(200);\n  const row = [...document.querySelectorAll('[data-tree=\"mbd:' + d.id + '\"] .tree-label')].map((x) => x.textContent).join('');\n  return JSON.stringify({ tol: d.tol.type, row: row.includes('±0.05'), label: [...document.querySelectorAll('.vp-label.mbd-label')].some((x) => x.textContent.includes('±0.05')) }); })()",
+    "expect": "\"tol\":\"symmetric\",\"row\":true,\"label\":true"
+  },
+  {
+    "shot": "mbd-pm",
+    "wait": 400
+  },
+  {
+    "name": "mbd: insert model annotations into the part drawing",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); \n  m.actions.cancelEditing({ quiet: true }); window.__partId = m.active().id;\n  await m.actions.newDrawing(); await sleep(700);\n  const d = m.active(); m.state.drawingSelected = d.views.find((v) => v.type === 'front')?.id;\n  await m.run('insertModelAnnotations'); await sleep(500);\n  const svg = document.querySelector('.drawing-paper svg')?.outerHTML ?? '';\n  return JSON.stringify({ inserted: (d.annotations ?? []).filter((a) => a.fromModel).length > 6, dims: (d.annotations ?? []).some((a) => a.kind === 'dimension'), svg: svg.includes('⌀') }); })()",
+    "expect": "\"inserted\":true,\"dims\":true,\"svg\":true"
+  },
+  {
+    "shot": "mbd-drawing",
+    "wait": 400
+  },
+  {
+    "name": "ver: saves keep numbered versions; compare shows the changed feature and volume",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); \n  m.actions.switchDocument({ kind: 'part', id: window.__partId }); await sleep(400);\n  m.sim2.beforeSave(m.state.doc);\n  m.actions.change('op.edit', () => { m.active().features.find((f) => f.id === 'ex1').depth = 16; }); await sleep(300);\n  m.sim2.beforeSave(m.state.doc);\n  await m.run('versionHistory'); await sleep(100);\n  await m.actions.pmCommand('ver.pick:1'); await sleep(500);\n  const e = m.state.editing;\n  const changed = e.diff?.documents.find((x) => x.id === window.__partId);\n  return JSON.stringify({ versions: m.project.versions.length, features: changed?.features?.changed, volumeUp: changed?.volume?.change > 0, rows: document.querySelectorAll('.sim2-version').length, thumbs: document.querySelectorAll('.sim2-version img').length > 0 }); })()",
+    "expect": "\"versions\":2,\"features\":\\[\"Boss1\"\\],\"volumeUp\":true,\"rows\":2"
+  },
+  {
+    "shot": "ver-history",
+    "wait": 400
+  },
+  {
+    "name": "ver: roll back restores the earlier depth; undo keeps the versions",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); \n  await m.sim2.rollback(1, { confirm: false }); await sleep(300);\n  const depth = m.active().features.find((f) => f.id === 'ex1').depth;\n  m.actions.cancelEditing({ quiet: true }); m.actions.undo(); await sleep(300);\n  return JSON.stringify({ depth, after: m.active().features.find((f) => f.id === 'ex1').depth, versions: m.project.versions.length }); })()",
+    "expect": "\"depth\":10,\"after\":16,\"versions\":2"
+  },
+  {
+    "name": "ver: with check-out required an unchecked document is read-only",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); \n  if (m.state.editing?.mode !== 'versions') await m.run('versionHistory');\n  m.actions.pmToggle('ver.require', true); await sleep(100);\n  m.actions.change('op.edit', () => { m.active().features.find((f) => f.id === 'ex1').depth = 30; });\n  const blocked = m.active().features.find((f) => f.id === 'ex1').depth;\n  await m.actions.pmCommand('ver.out'); await sleep(100);\n  m.actions.change('op.edit', () => { m.active().features.find((f) => f.id === 'ex1').depth = 12; });\n  const allowed = m.active().features.find((f) => f.id === 'ex1').depth;\n  await m.actions.pmCommand('ver.in'); m.actions.pmToggle('ver.require', false); await sleep(100);\n  return JSON.stringify({ blocked, allowed, out: Boolean(m.active().checkout) }); })()",
+    "expect": "\"blocked\":16,\"allowed\":12,\"out\":false"
+  },
+  {
+    "name": "asmx: an assembly hole cuts through two stacked plates",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); \n  m.actions.cancelEditing({ quiet: true });\n  const p = m.project; const id = 'asmT' + Date.now().toString(36);\n  const fr = (await import('/src/cad/features.js')).STD_PLANES.front.normal;\n  m.actions.change('op.newAssembly', () => { p.assemblies.push({ id, name: 'Stack', components: [{ id: 'c1', part: window.__partId, name: 'P<1>', position: [0, 0, 0], rotation: [0, 0, 0, 1], fixed: true }, { id: 'c2', part: window.__partId, name: 'P<2>', position: fr.map((v) => v * 12), rotation: [0, 0, 0, 1], fixed: true }], mates: [] }); });\n  m.actions.switchDocument({ kind: 'assembly', id }); await sleep(600);\n  const before = m.viewport.bodies.get('comp:c1').mesh.geometry.index.count;\n  await m.run('asmHole'); const e = m.state.editing; e.plane = 'front'; e.d = 8; e.cx = 0; e.cy = 0; m.actions.pmSet('plane', 'front'); await sleep(200);\n  const preview = m.viewport.groups.preview.children.length;\n  m.actions.acceptEditing(); await sleep(800);\n  const after = m.viewport.bodies.get('comp:c1').mesh.geometry.index.count;\n  window.__asmId = id;\n  return JSON.stringify({ features: m.active().asmFeatures?.length, preview, changed: after !== before, tree: document.querySelectorAll('[data-tree^=\"asmf:\"]').length }); })()",
+    "expect": "\"features\":1,\"preview\":1,\"changed\":true,\"tree\":1"
+  },
+  {
+    "shot": "asmx-hole",
+    "wait": 400
+  },
+  {
+    "name": "asmx: a belt between the holes of the two plates has the open-belt length",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); \n  const refs = await import('/src/cad/refs.js');\n  const part = m.project.parts.find((x) => x.id === window.__partId);\n  const cyl = m.actions.buildPart(part).faces.filter((f) => f.geomType !== 'PLANE' && Math.abs(refs.cylinderRadius(f) - 5) < 1e-6).sort((a, b) => a.center.x - b.center.x);\n  await m.run('beltChain'); const e = m.state.editing;\n  e.a = { comp: 'c1', sig: refs.faceSignature(cyl[0]) }; e.b = { comp: 'c2', sig: refs.faceSignature(cyl.at(-1)) };\n  m.actions.acceptEditing(); await sleep(600);\n  const b = m.active().belts?.[0];\n  return JSON.stringify({ belt: Boolean(b), length: Math.round(b?.length ?? 0), body: m.viewport.bodies.has('belt:' + b?.id) }); })()",
+    "expect": "\"belt\":true,\"length\":151,\"body\":true"
+  },
+  {
+    "shot": "asmx-belt",
+    "wait": 400
+  },
+  {
+    "name": "asmx: sketch block made, inserted turned, picture placed on the sketch plane",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); \n  m.actions.switchDocument({ kind: 'part', id: window.__partId }); await sleep(400);\n  await m.actions.openNewSketch({ kind: 'std', name: 'top' }); await sleep(300);\n  const ed = m.state.editing.editor; const sk = await import('/src/cad/sketch.js');\n  const lines = sk.addRectangle(ed.sketch, 0, 0, 20, 10); ed.selection = lines.map((l) => l.id); ed.commit('op.test');\n  window.__prompt('Tab'); await m.run('sk:makeBlock'); await sleep(100);\n  await m.run('sk:insertBlock', { spec: '1, 60, 0, 45, 2' }); await sleep(100);\n  const inst = new Set(ed.sketch.entities.filter((x) => x.block).map((x) => x.block.instance)).size;\n  const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFklEQVR4nGP8z8Dwn4GBgYGJAQoAAB0EAQHRtBr8AAAAAElFTkSuQmCC';\n  await m.run('sk:picture', { src: png, aspect: 1, width: 60, name: 'trace.png' }); await sleep(400);\n  return JSON.stringify({ blocks: m.project.sketchBlocks?.length, inst, picture: Boolean(ed.sketch.picture), quad: m.viewport.groups.sim2pic?.children.length }); })()",
+    "expect": "\"blocks\":1,\"inst\":2,\"picture\":true,\"quad\":1"
+  },
+  {
+    "shot": "asmx-sketch",
+    "wait": 400
+  },
+  {
+    "name": "asmx: a library feature saved and inserted on a face of the part",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); \n  m.actions.cancelEditing({ quiet: true }); await sleep(200);\n  const part = m.active(); const n0 = part.features.length;\n  m.actions.select([{ kind: 'feat', id: 'ex1', key: 'feat:ex1' }]);\n  await m.run('libSave'); await m.run('libInsert'); await sleep(100);\n  const faces = m.state.partEntry.faces; const i = faces.findIndex((f) => f.geomType === 'PLANE' && (f.area ?? 1) && Math.abs(f.normalAt(f.center).z) > 0.99 || false);\n  const idx = i >= 0 ? i : faces.findIndex((f) => f.geomType === 'PLANE');\n  m.sim2.pick({ kind: 'face', bodyKey: 'body', index: idx }); await sleep(600);\n  const made = part.features.slice(n0);\n  return JSON.stringify({ added: made.length, ok: made.every((f) => m.actions.buildPart(part).result.results.get(f.id)?.ok !== false), library: made.every((f) => f.library) }); })()",
+    "expect": "\"added\":2,\"ok\":true,\"library\":true"
+  },
+  {
+    "name": "sim: no page errors on the way",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); return JSON.stringify(window.__errs); })()",
+    "expect": "^\\[\\]$"
+  }
+]

@@ -55,7 +55,7 @@ test('draft tapers the side faces, drafted extrude', () => {
   const s = sketchOn(part, top, (k) => addRectangle(k, -10, -10, 10, 10));
   part.features.push(createFeature(part, 'extrude', { sketch: s.id, depth: 10 }));
   let r = regenerate(part);
-  const sides = r.body.faces.filter((f) => f.geomType === 'PLANE' && Math.abs(faceSignature(f).normal[1]) < 0.5).map(faceSignature);
+  const sides = r.body.faces.filter((f) => f.geomType === 'PLANE' && Math.abs(faceSignature(f).normal[2]) < 0.5).map(faceSignature);
   part.features.push(createFeature(part, 'draft', { angle: 5, neutral: top, faces: sides }));
   r = ok(part);
   assert.ok(V(r.body) < 4000 - 1, `drafted ${V(r.body)}`);
@@ -89,7 +89,7 @@ test('dome on the top face', () => {
   const s = sketchOn(part, top, (k) => addCircle(k, 0, 0, 10));
   part.features.push(createFeature(part, 'extrude', { sketch: s.id, depth: 10 }));
   const r0 = regenerate(part);
-  const face = r0.body.faces.find((f) => f.geomType === 'PLANE' && faceSignature(f).center[1] > 9);
+  const face = r0.body.faces.find((f) => f.geomType === 'PLANE' && faceSignature(f).center[2] > 9);
   part.features.push(createFeature(part, 'dome', { faces: [faceSignature(face)], height: 4 }));
   const r = ok(part);
   // Spherical cap of height h over radius a: πh(3a² + h²)/6.
@@ -100,7 +100,7 @@ test('helix as a sweep path (a spring) and a thread on a shaft', () => {
   const part = newPart();
   const helix = createFeature(part, 'helix', { plane: top, radius: 10, pitch: 6, turns: 2 });
   part.features.push(helix);
-  // Profile: a circle on the right plane at the helix start (x = 10).
+  // Profile: a circle on the front plane (through the helix axis, +Z) at the helix start (x = 10).
   const prof = sketchOn(part, front, (k) => addCircle(k, 10, 0, 1));
   part.features.push(createFeature(part, 'sweep', { sketch: prof.id, path: helix.id, frenet: true }));
   const r = ok(part);
@@ -111,7 +111,7 @@ test('helix as a sweep path (a spring) and a thread on a shaft', () => {
   const c = sketchOn(shaft, top, (k) => addCircle(k, 0, 0, 5));
   shaft.features.push(createFeature(shaft, 'extrude', { sketch: c.id, depth: 20 }));
   const r1 = regenerate(shaft);
-  const edge = r1.body.edges.find((e) => e.geomType === 'CIRCLE' && e.pointAt(0).y > 19);
+  const edge = r1.body.edges.find((e) => e.geomType === 'CIRCLE' && e.pointAt(0).z > 19);
   shaft.features.push(createFeature(shaft, 'thread', { edge: edgeSignature(edge), pitch: 1.5, length: 10 }));
   const r2 = ok(shaft);
   const removed = V(r1.body) - V(r2.body);
@@ -155,7 +155,7 @@ test('insert part and cavity (a part cut by another)', () => {
   pin.features.push(createFeature(pin, 'extrude', { sketch: c.id, depth: 30 }));
   const block = newPart('block');
   box(block, 20, 20, 20);
-  block.features.push(createFeature(block, 'insertPart', { part: 'pin', op: 'cut', dz: -5 }));
+  block.features.push(createFeature(block, 'insertPart', { part: 'pin', op: 'cut', dy: 5 }));
   const project = { parts: [pin, block] };
   const r = regenerate(block, { project });
   assert.ok(r.results.get(block.features[2].id).ok, r.results.get(block.features[2].id).detail);
@@ -172,19 +172,19 @@ test('sheet metal: base flange, edge flange, flat pattern length', () => {
   const r0 = regenerate(part);
   near(V(r0.body), 100 * 50 * 2);
   // The top face's edge at x = 100.
-  const edge = r0.body.edges.find((e) => e.geomType === 'LINE' && e.startPoint.x > 99.9 && e.endPoint.x > 99.9 && e.startPoint.y > 1.9 && e.endPoint.y > 1.9);
+  const edge = r0.body.edges.find((e) => e.geomType === 'LINE' && e.startPoint.x > 99.9 && e.endPoint.x > 99.9 && e.startPoint.z > 1.9 && e.endPoint.z > 1.9);
   assert.ok(edge, 'edge at x=100 on top');
   part.features.push(createFeature(part, 'edgeFlange', { edge: edgeSignature(edge), length: 30, angle: 90 }));
   const r1 = ok(part);
   const flange = (Math.PI / 2) * ((5 * 5 - 3 * 3) / 2) * 50 + 30 * 2 * 50;
   near(V(r1.body) - V(r0.body), flange, 0.01);
   const [lo, hi] = r1.body.boundingBox.bounds;
-  assert.ok(hi[1] > 30, `flange goes up: ${hi[1]}`);
+  assert.ok(hi[2] > 30, `flange goes up: ${hi[2]}`);
   // Flat: the flange lies flat, bend allowance + 30 long.
   const flat = regenerate({ ...part, flat: true });
   const [flo, fhi] = flat.body.boundingBox.bounds;
   near(fhi[0] - flo[0], 100 + bendAllowance(90, 3, 2, 0.4) + 30, 1e-4);
-  near(fhi[1] - flo[1], 2);
+  near(fhi[2] - flo[2], 2);
   void lo;
 });
 

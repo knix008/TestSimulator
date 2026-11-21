@@ -13,6 +13,8 @@ import { sketchWire, bendAllowance, structuralProfile, circleOfEdge } from './ad
 
 export { SHEET_MORE_TYPES, FORM_TOOLS, SHEET_MORE_ICONS, SHEET_MORE_DEFAULTS, SHEET_MORE_NAMES } from './sheet-more-types.js';
 import { FORM_TOOLS } from './sheet-more-types.js';
+import { worldUp, worldFront } from './frame.js';
+import { makeHelixStable, makeCylinderStable, makeCircleStable } from './oriented.js';
 
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -59,7 +61,7 @@ function halfSpace(ctx, origin, normal, extra = 0) {
   const R = rep();
   const big = sizeAround(ctx, extra) * 4;
   const n = normalize(normal);
-  const x = normalize(crossV(n, Math.abs(n[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0]));
+  const x = normalize(crossV(n, Math.abs(dot(n, worldUp())) < 0.9 ? worldUp() : [1, 0, 0]));
   return R.drawRectangle(big, big).sketchOnPlane(new R.Plane(origin, x, n)).extrude(big);
 }
 
@@ -170,7 +172,7 @@ function buildRuled(f, ctx) {
     const faces = facesOfEdge(ctx.body, edge);
     const face = faces[f.alternate && faces.length > 1 ? 1 : 0];
     let dirAt;
-    if (f.mode === 'vector' || !face) { const a = mul(AXIS_DIRS[f.axis] ?? AXIS_DIRS.y, sgn); dirAt = () => a; }
+    if (f.mode === 'vector' || !face) { const a = mul(AXIS_DIRS[f.axis] ?? worldUp(), sgn); dirAt = () => a; }
     else if (f.mode === 'normal') dirAt = (p) => mul(normalOf(face, p), sgn);
     else dirAt = (p, T) => mul(intoFace(face, p, T), -sgn);
     return ruledStrip(edge, dirAt, d);
@@ -504,7 +506,7 @@ function buildCornerRelief(f, ctx) {
     // Along di runs flange i; across it (−dj) is flange j's outward side.
     let tool;
     if (f.kind === 'round') {
-      tool = R.makeCylinder(w, span, add(c.V, lo), sm.normal);
+      tool = makeCylinderStable(w, span, add(c.V, lo), sm.normal);
     } else {
       const pts = [add(c.V, add(mul(c.di, w), mul(c.dj, w))), add(c.V, add(mul(c.di, w), mul(c.dj, -zone))), add(c.V, add(mul(c.di, -zone), mul(c.dj, -zone))), add(c.V, add(mul(c.di, -zone), mul(c.dj, w)))].map((p) => add(p, lo));
       tool = R.basicFaceExtrusion(R.makePolygon(pts), new R.Vector(mul(sm.normal, span)));
@@ -641,7 +643,7 @@ function formShapes(f, t, plane) {
       pen = R.draw([0, H]).lineTo([top, H]).lineTo([Rb, 0]).lineTo([Rb, t]).lineTo([top, H + t]).lineTo([0, H + t]).close();
     }
     const formed = R.revolution(pen.sketchOnPlane(prof).face(), origin, z, 360);
-    const hole = R.makeCylinder(Rb, t, origin, z);
+    const hole = makeCylinderStable(Rb, t, origin, z);
     return { formed, hole, size: [S, S, H] };
   }
   const L = S;
@@ -686,8 +688,8 @@ function buildFormTool(f, ctx) {
   const t = sm.thickness;
   const n = normalOf(face);
   if (Math.abs(Math.abs(dot(n, sm.normal)) - 1) > 1e-6) throw codeError('form-face');
-  // Local frame on the face: ΔX along the world X axis laid on the face (Z when the face is across X), turned by `angle`.
-  const wx = Math.abs(n[0]) < 0.9 ? [1, 0, 0] : [0, 0, 1];
+  // Local frame on the face: ΔX along the world X axis laid on the face (−Y when the face is across X), turned by `angle`.
+  const wx = Math.abs(n[0]) < 0.9 ? [1, 0, 0] : worldFront();
   const x0 = normalize(sub(wx, mul(n, dot(wx, n))));
   const y0 = normalize(crossV(n, x0));
   const a = (num(f.angle) * Math.PI) / 180;
@@ -802,7 +804,7 @@ function memberSegments(m, ctx) {
   const rot = (num(m.rotate) * Math.PI) / 180;
   return segs.filter((g) => len3(sub(g.pb, g.pa)) > 1e-6).map((g) => {
     const dir = normalize(sub(g.pb, g.pa));
-    const u0 = refNormal && Math.abs(dot(refNormal, dir)) < 0.99 ? refNormal : normalize(crossV(dir, Math.abs(dir[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0]));
+    const u0 = refNormal && Math.abs(dot(refNormal, dir)) < 0.99 ? refNormal : normalize(crossV(dir, Math.abs(dot(dir, worldUp())) < 0.9 ? worldUp() : [1, 0, 0]));
     const v0 = normalize(crossV(dir, u0));
     const u = add(mul(u0, Math.cos(rot)), mul(v0, Math.sin(rot)));
     return { ...g, dir, u, L: len3(sub(g.pb, g.pa)) };

@@ -459,7 +459,10 @@ export function solveMates(assembly, { entity = (r) => r, size = 100 } = {}) {
     return out;
   };
   const x0 = new Array(free.length * 6).fill(0);
-  const result = levenbergMarquardt((x) => residualsOf(x), x0, { maxIter: 300, tol: 1e-8 });
+  // A constant damping term on every unknown besides the Marquardt (diagonal) one: with only the latter, a
+  // rotation that barely moves a mate (short lever) gets a huge step, spins wildly and stalls the solve
+  // (a vertex on a face, two parallel axes at a distance).
+  const result = levenbergMarquardt((x) => residualsOf(x), x0, { maxIter: 300, tol: 1e-8, weights: x0.map(() => 1) });
   for (const c of free) Object.assign(c, placementOf(c.id, result.x));
   // Which mates do not hold (over defined or impossible).
   const failed = mates.filter((m) => Math.hypot(...residualsOf(result.x, [m])) > 1e-5).map((m) => m.id);

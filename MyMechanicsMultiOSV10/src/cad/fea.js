@@ -1036,4 +1036,4 @@ export function temperatureColor(value, min, max) {
 }
 
 /** The solver's building blocks, for the studies built on top of the static one (fea-more.js: buckling, fatigue). */
-export const FEA_INTERNALS = { buildGrid, buildOperator, pcg, clamp, multigrid, vertexMap, interpolate, generalizedEigen, elasticity, strainMatrix, shapeGradients, GAUSS };
+export const FEA_INTERNALS = { buildGrid, buildOperator, pcg, clamp, multigrid, vertexMap, interpolate, generalizedEigen, elasticity, strainMatrix, shapeGradients, GAUSS, faceNodes, tributary, vonMises };

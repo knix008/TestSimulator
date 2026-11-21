@@ -30,5 +30,13 @@ const korea = `<svg class="flag" viewBox="-36 -24 72 48" aria-hidden="true">
   </g>
 </svg>`;
 
+// Each copy gets its own ids: several flags on one page (menu, settings, status bar) must not share
+// clip paths — a hidden first copy would blank the others.
+let copies = 0;
+const unique = (svg) => { const n = ++copies; return svg.replace(/flag-(uk|kr)-([a-z]+)/g, (m, a, b) => `flag-${a}-${b}-${n}`); };
+
+/** The flag of `language` ('ko' → Korea, 'en' → United Kingdom), for language buttons in every window. */
+export const flagFor = (language) => unique(language === 'en' ? unitedKingdom : korea);
+
 /** Flag for the button that switches away from `language`. */
-export const switchFlag = (language) => (language === 'ko' ? unitedKingdom : korea);
+export const switchFlag = (language) => flagFor(language === 'ko' ? 'en' : 'ko');

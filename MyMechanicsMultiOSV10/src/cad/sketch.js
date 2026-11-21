@@ -312,6 +312,11 @@ function constraintResiduals(c, s, P, R, map, K = 10) {
       if (line) {
         const curve = line === ea ? eb : ea;
         const [a, b] = L(line); const d = v2(a, b); const o = center(curve);
+        // An arc ending on the line (slot sides, sketch fillets): the line is perpendicular to the radius at
+        // the shared end. The distance form below has a zero gradient there (the distance is at its maximum
+        // when tangent), so the solver could not count the relation and a fully defined slot showed blue.
+        const shared = curve.type === 'arc' ? [curve.p1, curve.p2].find((p) => p === line.p1 || p === line.p2) : null;
+        if (shared) { const rad = v2(o, P(shared)); return [(dot(d, rad) / ((len(d) * len(rad)) || 1)) * K]; }
         return [Math.abs(cross(d, v2(a, o))) / (len(d) || 1) - R(curve.id)];
       }
       const d = len(v2(center(ea), center(eb)));

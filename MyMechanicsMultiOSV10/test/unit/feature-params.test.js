@@ -9,10 +9,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadKernel, rep } from '../../src/cad/kernel.js';
-import { createFeature, regenerate, FEATURE_TYPES, FEATURE_DEFAULTS } from '../../src/cad/features.js';
+import { createFeature, regenerate, FEATURE_TYPES, FEATURE_DEFAULTS, STD_PLANES, frame } from '../../src/cad/features.js';
 import { addRectangle } from '../../src/cad/sketch.js';
 import { edgeSignature } from '../../src/cad/refs.js';
-import { FIXTURES, fixtureOf, specOf, newPart, sketchOn, top } from '../fixtures/feature-fixtures.js';
+import { FIXTURES, fixtureOf, specOf, newPart, sketchOn, top, loc } from '../fixtures/feature-fixtures.js';
 
 await loadKernel();
 const R = rep();
@@ -55,8 +55,21 @@ const METRICS = {
   CX: (s) => s.body?.com?.[0], CY: (s) => s.body?.com?.[1], CZ: (s) => s.body?.com?.[2], // body centre of mass
   SA: (s) => s.surface?.A, // surface area
   L: (s) => s.curve?.L, // curve length
-  PY: (s) => s.frame?.[1], // plane origin y
+  PN: (s) => (s.frame ? dot(s.frame.slice(0, 3), frame(STD_PLANES.top).normal) : NaN), // plane origin along the top plane's normal
 };
+// Plane-relative measures, so no check depends on which world axis is up: 'C:top.n' = the centre of mass along
+// the top plane's normal, 'B:front.u' = the size of the body's box along the front plane's x.
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+function metric(name, sig) {
+  if (METRICS[name]) return METRICS[name](sig);
+  const m = /^([CB]):(front|top|right).([uvn])$/.exec(name);
+  if (!m) throw new Error(`unknown metric ${name}`);
+  const fr = frame(STD_PLANES[m[2]]);
+  const axis = { u: fr.xDir, v: fr.yDir, n: fr.normal }[m[3]];
+  if (m[1] === 'C') return sig.body?.com ? dot(sig.body.com, axis) : NaN;
+  const i = axis.findIndex((x) => Math.abs(x) > 0.5);
+  return bbSize(sig.body?.bb, i);
+}
 
 function regen(fx, part, { __flat, ...over }, project) {
   if (__flat) part.flat = true;
@@ -112,43 +125,48 @@ for (const type of FEATURE_TYPES) {
   const numKeys = new Set([...Object.keys(defaults).filter((k) => typeof defaults[k] === 'number'), ...Object.keys(fx.num ?? {})]);
   const boolKeys = new Set([...Object.keys(defaults).filter((k) => typeof defaults[k] === 'boolean'), ...Object.keys(fx.bool ?? {})]);
   const settings = [...[...numKeys].map((k) => ['num', k]), ...[...boolKeys].map((k) => ['bool', k])];
-  if (settings.length || fx.opt) {
-    test(`${type}: every setting changes the model (${settings.map(([, k]) => k).concat(Object.keys(fx.opt ?? {})).join(', ')})`, (t) => {
-      for (const [kind, key] of settings) {
-        const spec = specOf((kind === 'num' ? fx.num : fx.bool)?.[key]);
-        if (spec.skip) { t.diagnostic(`${key}: skipped — ${spec.skip}`); continue; }
-        const base = { ...(spec.with ?? {}) };
-        if (spec.from !== undefined) base[key] = spec.from;
-        const a = build(type, fx, base);
-        assert.ok(a.res?.ok, `${type}.${key}: base build failed (${JSON.stringify(base)}): ${a.res?.error} ${a.res?.detail ?? ''}`);
-        // The value the fixture really builds with (its make() may set its own).
-        const value = a.f[key] ?? base[key] ?? defaults[key];
-        let to = spec.to;
-        if (to === undefined) to = kind === 'bool' ? !value : value ? value * 1.3 : 5;
-        const b = build(type, fx, { ...base, [key]: to });
-        assert.ok(b.res?.ok, `${type}.${key} = ${to}: build failed: ${b.res?.error} ${b.res?.detail ?? ''}`);
-        const was = a.f[key] ?? value;
-        assert.ok(!same(a.sig, b.sig), `${type}.${key}: ${was} → ${to} changed nothing (the setting is not applied)`);
-        if (spec.m && spec.dir && spec.dir !== '~') {
-          const m0 = METRICS[spec.m](a.sig); const m1 = METRICS[spec.m](b.sig);
-          assert.ok(Number.isFinite(m0) && Number.isFinite(m1), `${type}.${key}: metric ${spec.m} not measurable (${m0}, ${m1})`);
-          const eps = 1e-6 * Math.max(1, Math.abs(m0));
-          if (spec.dir === '+') assert.ok(m1 > m0 + eps, `${type}.${key}: ${was} → ${to} should increase ${spec.m}: ${m0} → ${m1}`);
-          else assert.ok(m1 < m0 - eps, `${type}.${key}: ${was} → ${to} should decrease ${spec.m}: ${m0} → ${m1}`);
-        }
-      }
-      for (const [key, raw] of Object.entries(fx.opt ?? {})) {
-        if (raw.skip) { t.diagnostic(`${key}: skipped — ${raw.skip}`); continue; }
-        const { values, with: w = {} } = Array.isArray(raw) ? { values: raw } : raw;
-        const a = build(type, fx, w);
-        assert.ok(a.res?.ok, `${type}.${key}: base build failed: ${a.res?.error} ${a.res?.detail ?? ''}`);
-        for (const v of values) {
-          const b = build(type, fx, { ...w, [key]: v });
-          assert.ok(b.res?.ok, `${type}.${key} = ${v}: build failed: ${b.res?.error} ${b.res?.detail ?? ''}`);
-          assert.ok(!same(a.sig, b.sig), `${type}.${key}: ${a.f[key]} → ${v} changed nothing (the option is not applied)`);
-        }
+  // One test per setting, and one per value of a choice, so a failure names exactly what is not applied.
+  for (const [kind, key] of settings) {
+    const spec = specOf((kind === 'num' ? fx.num : fx.bool)?.[key]);
+    const what = kind === 'num' ? 'number' : 'on/off';
+    if (spec.skip) { test(`${type}.${key} (${what}): no effect here by design — ${spec.skip}`, () => {}); continue; }
+    const how = spec.m && spec.dir && spec.dir !== '~' ? ` (${spec.m} ${spec.dir === '+' ? 'grows' : 'shrinks'})` : '';
+    test(`${type}.${key} (${what}) changes the model${how}`, () => {
+      const base = { ...(spec.with ?? {}) };
+      if (spec.from !== undefined) base[key] = spec.from;
+      const a = build(type, fx, base);
+      assert.ok(a.res?.ok, `${type}.${key}: base build failed (${JSON.stringify(base)}): ${a.res?.error} ${a.res?.detail ?? ''}`);
+      // The value the fixture really builds with (its make() may set its own).
+      const value = a.f[key] ?? base[key] ?? defaults[key];
+      let to = spec.to;
+      if (to === undefined) to = kind === 'bool' ? !value : value ? value * 1.3 : 5;
+      const b = build(type, fx, { ...base, [key]: to });
+      assert.ok(b.res?.ok, `${type}.${key} = ${to}: build failed: ${b.res?.error} ${b.res?.detail ?? ''}`);
+      const was = a.f[key] ?? value;
+      assert.ok(!same(a.sig, b.sig), `${type}.${key}: ${was} → ${to} changed nothing (the setting is not applied)`);
+      if (how) {
+        const m0 = metric(spec.m, a.sig); const m1 = metric(spec.m, b.sig);
+        assert.ok(Number.isFinite(m0) && Number.isFinite(m1), `${type}.${key}: metric ${spec.m} not measurable (${m0}, ${m1})`);
+        const eps = 1e-6 * Math.max(1, Math.abs(m0));
+        if (spec.dir === '+') assert.ok(m1 > m0 + eps, `${type}.${key}: ${was} → ${to} should increase ${spec.m}: ${m0} → ${m1}`);
+        else assert.ok(m1 < m0 - eps, `${type}.${key}: ${was} → ${to} should decrease ${spec.m}: ${m0} → ${m1}`);
       }
     });
+  }
+  for (const [key, raw] of Object.entries(fx.opt ?? {})) {
+    if (raw.skip) { test(`${type}.${key} (choice): no effect here by design — ${raw.skip}`, () => {}); continue; }
+    const { values, with: w = {} } = Array.isArray(raw) ? { values: raw } : raw;
+    for (const v of values) {
+      test(`${type}.${key} = ${v} (choice) changes the model`, (t) => {
+        const a = build(type, fx, w);
+        assert.ok(a.res?.ok, `${type}.${key}: base build failed: ${a.res?.error} ${a.res?.detail ?? ''}`);
+        // A listed value the fixture already builds with (the defaults may change): nothing to compare.
+        if (String(a.f[key]) === String(v)) { t.skip(`${type} already uses ${key} = ${v}`); return; }
+        const b = build(type, fx, { ...w, [key]: v });
+        assert.ok(b.res?.ok, `${type}.${key} = ${v}: build failed: ${b.res?.error} ${b.res?.detail ?? ''}`);
+        assert.ok(!same(a.sig, b.sig), `${type}.${key}: ${a.f[key]} → ${v} changed nothing (the option is not applied)`);
+      });
+    }
   }
 }
 
@@ -157,7 +175,7 @@ test('sheet defaults reach the bends: base flange radius and K-factor change an 
     const part = newPart();
     const s = sketchOn(part, top, (k) => addRectangle(k, 0, 0, 100, 50));
     part.features.push(createFeature(part, 'baseFlange', { sketch: s.id, thickness: 2, radius, kFactor }));
-    const edge = built(part).edges.find((e) => e.geomType === 'LINE' && e.startPoint.x > 99.9 && e.endPoint.x > 99.9 && e.startPoint.y > 1.9 && e.endPoint.y > 1.9);
+    const edge = built(part).edges.find((e) => e.geomType === 'LINE' && [e.startPoint, e.endPoint].every((q) => { const l = loc('top', q); return l[0] > 99.9 && l[2] > 1.9; }));
     part.features.push(createFeature(part, 'edgeFlange', { edge: edgeSignature(edge), length: 30, angle: 90 }));
     const r = regenerate({ ...part, flat });
     for (const [id, x] of r.results) assert.ok(x.ok, `${id}: ${x.error} ${x.detail ?? ''}`);

@@ -1,0 +1,14 @@
+/* PropertyManager pages of the drawing annotations, the added Evaluate tools and the mold surfaces (app-drw.js). */
+.eval-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: 12px; }
+.eval-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.eval-legend i { width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(0, 0, 0, 0.25); display: inline-block; }
+.drw-layer-row, .drw-assign-row { display: flex; align-items: center; gap: 4px; margin: 3px 0; }
+.drw-layer-row.active { background: color-mix(in srgb, currentColor 8%, transparent); border-radius: 6px; }
+.drw-layer-row .drw-layer-name { flex: 1; min-width: 0; }
+.drw-layer-row input[type="color"] { width: 28px; height: 24px; padding: 0; border: none; background: none; }
+.drw-assign-row .pm-field { flex: 0 0 auto; margin: 0; }
+.drw-assign-row .pm-field .pm-label { display: none; }
+.drw-assign-row .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.drw-table-grid { display: flex; flex-direction: column; gap: 2px; overflow-x: auto; }
+.drw-table-row { display: flex; gap: 2px; }
+.drw-table-row .drw-cell { width: 70px; min-width: 50px; flex: 1; }

@@ -10,26 +10,32 @@
 // and as DXF from them.
 import { rep } from './kernel.js';
 import { materialName } from './materials.js';
+import { frameTable, worldUp, worldFront } from './frame.js';
 
 export const SHEETS = {
   A4: [297, 210], A3: [420, 297], A2: [594, 420], A1: [841, 594], A0: [1189, 841], Letter: [279.4, 215.9], Tabloid: [431.8, 279.4],
+  // ANSI / ASME Y14.1 C, D and E (A and B are Letter and Tabloid).
+  'ANSI C': [558.8, 431.8], 'ANSI D': [863.6, 558.8], 'ANSI E': [1117.6, 863.6],
 };
 export const STANDARD_SCALES = [10, 5, 4, 2, 1, 1 / 2, 1 / 2.5, 1 / 4, 1 / 5, 1 / 10, 1 / 20, 1 / 50, 1 / 100];
 export const VIEW_TYPES = ['front', 'top', 'right', 'left', 'back', 'bottom', 'iso', 'dimetric'];
 /** View kinds: a plain (standard / projected) view has no `kind`; `type: 'custom'` is an auxiliary view. */
 export const VIEW_KINDS = ['section', 'detail'];
 
-/** Camera for each view (Y up): dir points from the model toward the viewer; up = dir × xAxis. */
-export const VIEW_CAMERAS = {
-  front: { dir: [0, 0, 1], x: [1, 0, 0] },
-  back: { dir: [0, 0, -1], x: [-1, 0, 0] },
-  top: { dir: [0, 1, 0], x: [1, 0, 0] },
-  bottom: { dir: [0, -1, 0], x: [1, 0, 0] },
-  right: { dir: [1, 0, 0], x: [0, 0, -1] },
-  left: { dir: [-1, 0, 0], x: [0, 0, 1] },
-  iso: { dir: [1, 1, 1], x: [1, 0, -1] },
-  dimetric: { dir: [1, 0.6, 1.6], x: [1.6, 0, -1] },
-};
+/**
+ * Camera for each view (Z up): dir points from the model toward the viewer; up = dir × xAxis. The front view
+ * looks along +Y (from −Y), the top view down −Z (sheet up = +Y), the right view along −X; up is +Z on the sides.
+ */
+export const VIEW_CAMERAS = frameTable({
+  front: { dir: [0, -1, 0], x: [1, 0, 0] },
+  back: { dir: [0, 1, 0], x: [-1, 0, 0] },
+  top: { dir: [0, 0, 1], x: [1, 0, 0] },
+  bottom: { dir: [0, 0, -1], x: [1, 0, 0] },
+  right: { dir: [1, 0, 0], x: [0, 1, 0] },
+  left: { dir: [-1, 0, 0], x: [0, -1, 0] },
+  iso: { dir: [1, -1, 1], x: [1, 1, 0] },
+  dimetric: { dir: [1, -1.6, 0.6], x: [1.6, 1, 0] },
+}, ['dir', 'x']);
 
 export const scaleLabel = (s) => (s >= 1 ? `${round(s)}:1` : `1:${round(1 / s)}`);
 const round = (v) => Math.round(v * 100) / 100;
@@ -56,9 +62,11 @@ const len3 = (a) => Math.hypot(a[0], a[1], a[2]);
 const unit3 = (a) => { const l = len3(a); return l > 1e-12 ? [a[0] / l, a[1] / l, a[2] / l] : null; };
 const vec3 = (a) => (Array.isArray(a) && a.length >= 3 && a.slice(0, 3).every(Number.isFinite) ? a.slice(0, 3).map(Number) : null);
 
-/** The default x axis for a camera looking along `dir` (toward the viewer): keeps the world Y up when it can. */
+/** The default x axis for a camera looking along `dir` (toward the viewer): keeps the world Z up when it can. */
 function autoXAxis(dir) {
-  const up = Math.abs(dir[1]) > 0.999 ? [0, 0, -Math.sign(dir[1])] : [0, 1, 0];
+  const U = worldUp(); const k = dot3(dir, U);
+  // Looking straight down (or up): the sheet's up is +Y (−Y from below), as in the top view.
+  const up = Math.abs(k) > 0.999 ? worldFront().map((v) => -Math.sign(k) * v) : U;
   return unit3(cross3(up, dir));
 }
 
@@ -71,11 +79,11 @@ export function viewBasis(view) {
   if (!view || view.kind === 'detail') return null;
   let dir; let x = null;
   if (view.kind === 'section') {
-    dir = unit3(vec3(view.plane?.normal) ?? [0, 0, 1]) ?? [0, 0, 1];
+    dir = unit3(vec3(view.plane?.normal) ?? worldFront()) ?? worldFront();
     const std = VIEW_CAMERAS[view.type];
     if (std && dot3(unit3(std.dir), dir) > 0.999) x = std.x;
   } else if (view.type === 'custom') {
-    dir = unit3(vec3(view.dir) ?? [0, 0, 1]) ?? [0, 0, 1];
+    dir = unit3(vec3(view.dir) ?? worldFront()) ?? worldFront();
     x = vec3(view.x) ?? null;
     if (!x && vec3(view.up)) x = cross3(vec3(view.up), dir);
   } else {
@@ -150,7 +158,7 @@ export function projectDrawing(shape, drawing, cache = null) {
  */
 export function sectionShape(shape, plane) {
   const R = rep();
-  const n = unit3(vec3(plane?.normal) ?? [0, 0, 1]) ?? [0, 0, 1];
+  const n = unit3(vec3(plane?.normal) ?? worldFront()) ?? worldFront();
   const p = vec3(plane?.point) ?? [0, 0, 0];
   const pl = new R.Plane(p, autoXAxis(n), n);
   try {
@@ -725,7 +733,7 @@ function parentMarks(drawing, v, p, place, scale, labels) {
       const C = map(c); const rs = r * s;
       out.push({ t: 'circle', c: C, r: rs, cls: 'detail-circle' }, { t: 'text', x: C[0] + rs * 0.72 + 1.5, y: C[1] - rs * 0.72 - 1.5, text: letter, size: 4.2, bold: true, anchor: 'start' });
     } else if (w.kind === 'section' && basis) {
-      const n = unit3(vec3(w.plane?.normal) ?? [0, 0, 1]) ?? [0, 0, 1];
+      const n = unit3(vec3(w.plane?.normal) ?? worldFront()) ?? worldFront();
       if (Math.abs(dot3(n, basis.dir)) > 1e-3) continue; // the plane is not seen edge-on in this view
       const P = vec3(w.plane?.point) ?? [0, 0, 0];
       const ld = cross3(n, basis.dir);

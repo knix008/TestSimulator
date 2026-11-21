@@ -111,13 +111,13 @@
   },
   {
     "name": "editing the extrude depth rebuilds everything after it",
-    "eval": "(() => { const m = window.__mymechanics; const f = m.active().features.find((x) => x.type === 'extrude'); m.actions.editFeature(f.id); m.actions.pmFieldChanged('depth', '30', 'length'); m.actions.acceptEditing(); const b = m.actions.buildPart(m.active()); const [lo, hi] = b.body.boundingBox.bounds; return Math.round(hi[1] - lo[1]) + ' errors=' + [...b.result.results.values()].filter((r) => r.ok === false).length; })()",
+    "eval": "(() => { const m = window.__mymechanics; const f = m.active().features.find((x) => x.type === 'extrude'); m.actions.editFeature(f.id); m.actions.pmFieldChanged('depth', '30', 'length'); m.actions.acceptEditing(); const b = m.actions.buildPart(m.active()); const [lo, hi] = b.body.boundingBox.bounds; return Math.round(hi[2] - lo[2]) + ' errors=' + [...b.result.results.values()].filter((r) => r.ok === false).length; })()",
     "expect": "^30 errors=0$",
     "wait": 400
   },
   {
     "name": "undo goes back to 20 mm",
-    "eval": "(() => { const m = window.__mymechanics; m.actions.undo(); const b = m.actions.buildPart(m.active()); const [lo, hi] = b.body.boundingBox.bounds; return Math.round(hi[1] - lo[1]); })()",
+    "eval": "(() => { const m = window.__mymechanics; m.actions.undo(); const b = m.actions.buildPart(m.active()); const [lo, hi] = b.body.boundingBox.bounds; return Math.round(hi[2] - lo[2]); })()",
     "expect": "^20$"
   },
   {
@@ -165,7 +165,7 @@
   {
     "name": "adv: loft between a square and a circle on an offset plane",
     "eval": "(async () => { const m = window.__mymechanics; await m.actions.closeProject({ force: true }); await m.actions.newDocument('part'); const part = m.active(); window.__sk({ kind: 'std', name: 'top' }, window.__rect(-10, -10, 10, 10)); m.actions.change('op.addFeature', () => { part.features.push({ id: 'pl1', type: 'plane', name: 'P1', base: { kind: 'std', name: 'top' }, offset: 30, flip: false }); }); window.__sk({ kind: 'ref', id: 'pl1' }, [{ id: 'pc', type: 'point', x: 0, y: 0 }, { id: 'c1', type: 'circle', c: 'pc', r: 6 }]); await m.run('loft'); const n = m.state.editing?.feature?.sketches?.length; m.actions.acceptEditing(); return n + ' ' + window.__ok() + ' ' + window.__box().join('x'); })()",
-    "expect": "^2 ok 20x30x20$",
+    "expect": "^2 ok 20x20x30$",
     "wait": 300
   },
   {
@@ -175,7 +175,7 @@
   },
   {
     "name": "adv: equations drive the loft plane (=H) and a configuration overrides it",
-    "eval": "(async () => { const m = window.__mymechanics; await m.run('equations'); m.actions.pmCommand('addVar'); m.actions.pmFieldChanged('varName:0', 'H', 'text'); m.actions.pmFieldChanged('varExpr:0', '50', 'text'); m.actions.acceptEditing(); const pl = m.active().features.find((f) => f.type === 'plane'); m.actions.editFeature(pl.id); m.actions.pmFieldChanged('offset', '=H', 'length'); m.actions.acceptEditing(); const h1 = window.__box()[1]; await m.run('configurations'); m.actions.pmCommand('addCfg'); m.actions.pmFieldChanged('cfgVar:H', '25', 'text'); const h2 = window.__box()[1]; m.actions.pmSet('activeConfig', ''); const h3 = window.__box()[1]; m.actions.acceptEditing(); return [h1, h2, h3].join(' '); })()",
+    "eval": "(async () => { const m = window.__mymechanics; await m.run('equations'); m.actions.pmCommand('addVar'); m.actions.pmFieldChanged('varName:0', 'H', 'text'); m.actions.pmFieldChanged('varExpr:0', '50', 'text'); m.actions.acceptEditing(); const pl = m.active().features.find((f) => f.type === 'plane'); m.actions.editFeature(pl.id); m.actions.pmFieldChanged('offset', '=H', 'length'); m.actions.acceptEditing(); const h1 = window.__box()[2]; await m.run('configurations'); m.actions.pmCommand('addCfg'); m.actions.pmFieldChanged('cfgVar:H', '25', 'text'); const h2 = window.__box()[2]; m.actions.pmSet('activeConfig', ''); const h3 = window.__box()[2]; m.actions.acceptEditing(); return [h1, h2, h3].join(' '); })()",
     "expect": "^50 25 50$",
     "wait": 300
   },
@@ -188,7 +188,7 @@
   },
   {
     "name": "adv: sheet metal base flange + edge flange, then flatten",
-    "eval": "(async () => { const m = window.__mymechanics; m.actions.cancelEditing({ quiet: true }); await m.actions.closeProject({ force: true }); await m.actions.newDocument('part'); window.__sk({ kind: 'std', name: 'top' }, window.__rect(0, 0, 100, 50)); await m.run('baseFlange'); m.actions.acceptEditing(); const entry = m.state.partEntry; const i = entry.edgeList.findIndex((ed) => ed.geomType === 'LINE' && ed.startPoint.x > 99.9 && ed.endPoint.x > 99.9 && ed.startPoint.y > 1.9 && ed.endPoint.y > 1.9); m.actions.select([{ kind: 'edge', bodyKey: 'body', index: i, key: 'edge:body:' + i }]); await m.run('edgeFlange'); m.actions.acceptEditing(); const formed = window.__box(); await m.run('flatten'); const flat = window.__box(); await m.run('flatten'); return [i >= 0, window.__ok(), formed[1] > 20, flat[1] === 2, flat[0] > 124 && flat[0] < 125].join(' '); })()",
+    "eval": "(async () => { const m = window.__mymechanics; m.actions.cancelEditing({ quiet: true }); await m.actions.closeProject({ force: true }); await m.actions.newDocument('part'); window.__sk({ kind: 'std', name: 'top' }, window.__rect(0, 0, 100, 50)); await m.run('baseFlange'); m.actions.acceptEditing(); const entry = m.state.partEntry; const i = entry.edgeList.findIndex((ed) => ed.geomType === 'LINE' && ed.startPoint.x > 99.9 && ed.endPoint.x > 99.9 && ed.startPoint.z > 1.9 && ed.endPoint.z > 1.9); m.actions.select([{ kind: 'edge', bodyKey: 'body', index: i, key: 'edge:body:' + i }]); await m.run('edgeFlange'); m.actions.acceptEditing(); const formed = window.__box(); await m.run('flatten'); const flat = window.__box(); await m.run('flatten'); return [i >= 0, window.__ok(), formed[2] > 20, flat[2] === 2, flat[0] > 124 && flat[0] < 125].join(' '); })()",
     "expect": "^true ok true true true$",
     "wait": 300,
     "shot": "web-sheetmetal"

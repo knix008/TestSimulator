@@ -34,8 +34,23 @@ function assertWellFormed(xml) {
   assert.deepEqual(stack, [], 'unclosed tags');
 }
 
-/** A 100 × 50 × 20 block (x −50…50, y −25…25, z 0…20) with a Ø20 through hole along z at the origin. */
-const block = () => R.makeBox([-50, -25, 0], [50, 25, 20]).cut(R.makeCylinder(10, 40, [0, 0, -10], [0, 0, 1]));
+/** The block as the old (Y-up) tests built it: x −50…50, y −25…25, z 0…20, a Ø20 through hole along z. */
+const yUpBlock = () => R.makeBox([-50, -25, 0], [50, 25, 20]).cut(R.makeCylinder(10, 40, [0, 0, -10], [0, 0, 1]));
+/**
+ * A 100 × 50 × 20 block standing up behind the front plane (x −50…50, y −20…0, z −25…25) with a Ø20 through hole
+ * along y at the origin: the Y-up block turned to Z up by R = (x, y, z) → (x, −z, y). Turned with an exact matrix
+ * (a 90° rotate() leaves 1e-15 noise in the vertices), so the Z-up views draw it byte for byte as the Y-up views
+ * of the original module drew the unturned block.
+ */
+function block() {
+  const oc = R.getOC();
+  const t = new oc.gp_Trsf();
+  t.SetValues(1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 0, 0);
+  const b = new oc.BRepBuilderAPI_Transform(yUpBlock().wrapped, t, true);
+  const shape = R.cast(b.Shape());
+  b.delete(); t.delete();
+  return shape;
+}
 const triArea = (t) => Math.abs((t[2] - t[0]) * (t[5] - t[1]) - (t[4] - t[0]) * (t[3] - t[1])) / 2;
 
 test('old drawings render exactly as the original module did (SVG and DXF)', () => {
@@ -48,7 +63,8 @@ test('old drawings render exactly as the original module did (SVG and DXF)', () 
   assert.equal(sha(drawingSvg(d, synthetic, { labels: { 'view.top': 'TOP' }, info: { name: 'N' } })), 'dce34cc374ad5c039c8b9c8b379e06bea348926de7812a2fe4aab64dbf92d03e');
   assert.equal(sha(drawingDxf(d, synthetic)), 'fee6834aaa0779b67b5c10a06bad7de8e25dba9b7626b0eb893ee73357033c4c');
 
-  // A real part through the kernel, every standard view, then other sheet settings.
+  // A real part through the kernel, every standard view, then other sheet settings. The hashes were taken with
+  // the Y-up cameras and the unturned block; the Z-up cameras see the turned block exactly the same way.
   const body = block();
   const k = createDrawing({ id: 'd', name: 'D', source: { kind: 'part', id: 'p' }, title: { date: '2026-01-01' } });
   k.views.push({ id: 'v-left', type: 'left' }, { id: 'v-back', type: 'back' }, { id: 'v-bottom', type: 'bottom', x: 60, y: 200 }, { id: 'v-dim', type: 'dimetric' });
@@ -67,20 +83,20 @@ test('old drawings render exactly as the original module did (SVG and DXF)', () 
 
 test('section view: the cut keeps the side away from the normal, cut faces are hatched, label SECTION A-A', () => {
   const body = block();
-  const plane = { point: [0, 0, 0], normal: [0, 1, 0] };
+  const plane = { point: [0, 0, 0], normal: [0, 0, 1] };
   const kept = sectionShape(body, plane);
   near(R.measureVolume(kept), R.measureVolume(body) / 2, 1e-3);
-  assert.ok(kept.boundingBox.bounds[1][1] < 1e-6, 'the +y half (toward the viewer) is removed');
+  assert.ok(kept.boundingBox.bounds[1][2] < 1e-6, 'the +z half (toward the viewer) is removed');
   assert.ok(R.measureVolume(body) > 0, 'the input shape is untouched');
 
   const view = { id: 'v-sec', type: 'top', kind: 'section', plane, label: 'A', parent: 'v-front' };
   const p = projectView(body, 'top', view);
-  // Looking down −y at the cut face: 100 wide (x) by 20 high (z).
+  // Looking down −z at the cut face: 100 wide (x) by 20 high (y).
   near(p.box.x1 - p.box.x0, 100, 1e-3); near(p.box.y1 - p.box.y0, 20, 1e-3);
   // The cut face is the 100 × 20 rectangle minus the Ø20 hole: 1600 mm².
   const area = p.section.triangles.reduce((s, t) => s + triArea(t), 0);
   near(area, 100 * 20 - 20 * 20, 1);
-  // The triangles are in the projection's SVG path coordinates (z goes down the sheet as −y_up).
+  // The triangles are in the projection's SVG path coordinates (the view's up, world +y here, is negated: SVG y runs down the sheet).
   const xs = p.section.triangles.flatMap((t) => [t[0], t[2], t[4]]); const ys = p.section.triangles.flatMap((t) => [t[1], t[3], t[5]]);
   near(Math.min(...xs), -50); near(Math.max(...xs), 50); near(Math.min(...ys), -p.box.y1); near(Math.max(...ys), -p.box.y0);
 
@@ -105,7 +121,7 @@ test('section view: the cut keeps the side away from the normal, cut faces are h
   // Section views are laid out with the others and do not take the front view's place.
   const { places } = layoutViews(d, projections);
   assert.ok(places.get('v-sec').cy > places.get('v-front').cy);
-  assert.notEqual(projectionKey(view), projectionKey({ ...view, plane: { point: [0, 1, 0], normal: [0, 1, 0] } }));
+  assert.notEqual(projectionKey(view), projectionKey({ ...view, plane: { point: [0, 0, 1], normal: [0, 0, 1] } }));
 });
 
 test('hatch segments fill a square at 45° and stay inside it', () => {
@@ -156,13 +172,13 @@ test('detail view: the parent projection clipped to a circle at a larger scale, 
 });
 
 test('auxiliary (custom) view along a diagonal matches the camera basis', () => {
-  const cube = R.makeBox([10, 0, 0], [11, 1, 1]);
-  const view = { id: 'v-aux', type: 'custom', dir: [1, 1, 1], label: 'D' };
+  const cube = R.makeBox([10, -1, 0], [11, 0, 1]);
+  const view = { id: 'v-aux', type: 'custom', dir: [1, -1, 1], label: 'D' };
   const basis = viewBasis(view);
-  near(basis.y[1] > 0 ? 1 : 0, 1, 0); // world Y stays up
+  near(basis.y[2] > 0 ? 1 : 0, 1, 0); // world Z stays up
   const p = projectView(cube, 'custom', view);
   const corners = [];
-  for (const x of [10, 11]) for (const y of [0, 1]) for (const z of [0, 1]) corners.push([x, y, z]);
+  for (const x of [10, 11]) for (const y of [-1, 0]) for (const z of [0, 1]) corners.push([x, y, z]);
   const u = corners.map((c) => c[0] * basis.x[0] + c[1] * basis.x[1] + c[2] * basis.x[2]);
   const v = corners.map((c) => c[0] * basis.y[0] + c[1] * basis.y[1] + c[2] * basis.y[2]);
   near(p.box.x0, Math.min(...u), 1e-3); near(p.box.x1, Math.max(...u), 1e-3);
@@ -170,7 +186,7 @@ test('auxiliary (custom) view along a diagonal matches the camera basis', () => 
   near(p.box.x1 - p.box.x0, Math.SQRT2, 1e-3); // a unit cube seen along its diagonal: a hexagon √2 wide
   assert.ok(p.visible.length >= 6);
   // An explicit x axis (or up) is honoured.
-  const q = projectView(cube, 'custom', { type: 'custom', dir: [0, 0, 1], x: [0, 1, 0] });
+  const q = projectView(cube, 'custom', { type: 'custom', dir: [0, -1, 0], x: [0, 0, 1] });
   near(q.box.x1 - q.box.x0, 1); near(q.box.x0, 0);
   const d = createDrawing({ id: 'd', name: 'D', source: { kind: 'part', id: 'p' } });
   d.views.push(view);
@@ -288,10 +304,10 @@ test('a full sheet with every new feature renders and exports', () => {
   const body = block();
   const d = createDrawing({ id: 'full', name: 'Full', source: { kind: 'part', id: 'p' } });
   d.views.push(
-    { id: 'v-sa', type: 'front', kind: 'section', parent: 'v-right', label: 'A', plane: { point: [0, 0, 10], normal: [0, 0, 1] } },
+    { id: 'v-sa', type: 'front', kind: 'section', parent: 'v-right', label: 'A', plane: { point: [0, -10, 0], normal: [0, -1, 0] } },
     { id: 'v-sc', type: 'right', kind: 'section', parent: 'v-front', label: 'C', plane: { point: [20, 0, 0], normal: [1, 0, 0] } },
     { id: 'v-db', kind: 'detail', parent: 'v-sa', center: [0, 0], radius: 15, scale: 2, label: 'B' },
-    { id: 'v-aux', type: 'custom', dir: [1, 1, 0], label: 'D' },
+    { id: 'v-aux', type: 'custom', dir: [1, 0, 1], label: 'D' },
   );
   d.annotations = ANNOTATION_KINDS.map((kind, i) => ({ id: `n${i}`, kind, x: 40 + i * 20, y: 30, text: 'T', item: i, symbol: GDT_SYMBOLS[i], tolerance: '0.1', datums: ['A'], letter: 'A', ra: '3.2', a: [40, 250], b: [90, 250] }));
   d.bom = { show: true };

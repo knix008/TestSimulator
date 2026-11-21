@@ -1,9 +1,14 @@
 // A MyMechanics project (.mymech, JSON): parts (feature trees), assemblies (components and mates)
 // and drawings (sheets with views), a part / assembly / drawing kept in one file.
 // One of them is open in the main window at a time (the document tabs switch between them).
+// Projects are Z up (`up: 'z'`); one made before that (Y up) is turned when it is read (zup.js).
 import { DEFAULT_MATERIAL } from './materials.js';
 import { createDrawing } from './drawing.js';
 import { quatIdentity } from './assembly.js';
+import { isYUp } from './frame.js';
+import { migrateProject } from './zup.js';
+
+export { migrateProject };
 
 export const FORMAT = 'mymechanics';
 export const FORMAT_VERSION = 1;
@@ -22,6 +27,8 @@ export function createAssembly(name = 'Assem1', extra = {}) {
 
 export function createProject({ name = 'Project', kind = 'part', units = 'mm' } = {}) {
   const project = { format: FORMAT, version: FORMAT_VERSION, name, units, parts: [], assemblies: [], drawings: [], active: null, created: new Date().toISOString() };
+  // A sample builder (written Y up, frame.js withYUp) gets an unmarked project, turned to Z up when it is done.
+  if (!isYUp()) project.up = 'z';
   if (kind === 'part') { const p = createPart(name); project.parts.push(p); project.active = { kind: 'part', id: p.id }; }
   else if (kind === 'assembly') { const a = createAssembly(name); project.assemblies.push(a); project.active = { kind: 'assembly', id: a.id }; }
   return project;
@@ -48,7 +55,7 @@ export function findDocument(project, ref) {
   return list.find((d) => d.id === ref.id) ?? null;
 }
 
-/** Fills gaps of a project read from a file (older or hand-written files). */
+/** Fills gaps of a project read from a file (older or hand-written files); a Y-up one is turned to Z up. */
 export function normalizeProject(raw) {
   if (!raw || typeof raw !== 'object') throw Object.assign(new Error('not a project'), { code: 'bad-file' });
   if (raw.format && raw.format !== FORMAT) throw Object.assign(new Error('not a MyMechanics project'), { code: 'bad-file' });
@@ -67,8 +74,14 @@ export function normalizeProject(raw) {
     p.active = first ? { kind: first.kind, id: first.doc.id } : null;
   }
   if (raw.camera) p.camera = raw.camera;
+  // Version history, check-out settings and sketch blocks (cad/versions.js, cad/asm-extra.js).
+  for (const k of ['versions', 'sketchBlocks']) if (Array.isArray(raw[k])) p[k] = raw[k];
+  if (raw.vault && typeof raw.vault === 'object') p.vault = raw.vault;
+  if (raw.lights) p.lights = raw.lights;
   if (raw.thumbnail) p.thumbnail = raw.thumbnail;
-  return p;
+  if (raw.created) p.created = raw.created; // kept, so saving again does not lose when the project was made
+  if (raw.up) p.up = raw.up;
+  return migrateProject(p);
 }
 
 /** The project as file text. */

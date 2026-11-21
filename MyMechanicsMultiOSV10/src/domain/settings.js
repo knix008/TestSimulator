@@ -233,7 +233,8 @@ export function normalizeSettings(raw = {}, language) {
   s.renderHeight = clamp(s.renderHeight, 240, 4320, base.renderHeight);
   s.renderSamples = clamp(s.renderSamples, 16, 4096, base.renderSamples);
   s.imageFormat = ['png', 'jpg', 'webp', 'avif', 'bmp', 'tiff', 'tga', 'pdf'].includes(s.imageFormat) ? s.imageFormat : base.imageFormat;
-  s.imageQuality = clamp(s.imageQuality, 0.4, 1, base.imageQuality);
+  // A fraction: clamp() rounds to whole numbers (0.92 would become 1 on every load).
+  s.imageQuality = Number.isFinite(Number(s.imageQuality)) ? Math.min(1, Math.max(0.4, Number(s.imageQuality))) : base.imageQuality;
   s.explorerHeight = clamp(s.explorerHeight, 20, 85, base.explorerHeight);
   s.autoSaveMinutes = [0, 1, 5, 10, 30].includes(Number(s.autoSaveMinutes)) ? Number(s.autoSaveMinutes) : 0;
   for (const key of ['showStartPage', 'showLeftPanel', 'showRightPanel', 'showBottomPanel', 'showStatusBar', 'restoreSession', 'confirmDelete', 'showTime', 'statusClock', 'showGrid', 'showAxes', 'showLampMarkers', 'showSunMarker', 'showSunLine', 'showRulers', 'showScaleBar',

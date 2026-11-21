@@ -29,7 +29,8 @@ const edgeItems = (api, list) => (list ?? []).map((sig, i) => `${api.t('pm.edge'
 const oneFace = (api, sig) => (sig ? [`${api.t('pm.face')} (${sig.type === 'PLANE' ? api.t('pm.planar') : api.t('pm.curved')})`] : []);
 const oneEdge = (api, sig) => (sig ? [`${api.t('pm.edge')} (${sig.type === 'CIRCLE' ? api.t('pm.circular') : sig.type === 'LINE' ? api.t('pm.straight') : api.t('pm.curve')})`] : []);
 const xyz = (api, f, keys, glyph = 'pointTool') => keys.map((k) => field(api, k, f[k] ?? 0, { label: k.replace(/[0-9]/g, '').toUpperCase() + (k.match(/[0-9]/)?.[0] ?? ''), glyph })).join('');
-const axes3 = (key, value) => seg(key, [['x', 'X'], ['y', 'Y'], ['z', 'Z']], value);
+// A signed axis ('-y', from a project turned to Z up) shows as its own choice.
+const axes3 = (key, value) => seg(key, [['x', 'X'], ['y', 'Y'], ['z', 'Z'], ...(/^-[xyz]$/.test(String(value)) ? [[value, `−${value.slice(1).toUpperCase()}`]] : [])], value);
 const dirs6 = (key, value) => seg(key, [['x', '+X'], ['-x', '−X'], ['y', '+Y'], ['-y', '−Y'], ['z', '+Z'], ['-z', '−Z']], value);
 const ofType = (api, f, types) => before(api, f).filter((x) => types.includes(x.type) && !x.suppressed);
 const planeOptions = (api, f) => [['std:front', api.t('plane.front')], ['std:top', api.t('plane.top')], ['std:right', api.t('plane.right')], ...ofType(api, f, ['plane']).map((p) => [`ref:${p.id}`, p.name, 'refPlane'])];
@@ -74,7 +75,7 @@ export const PART_MORE_PM = {
         : field(api, 'angle', f.angle, { label: t('pm.angle'), unit: 'angle', glyph: 'dimAngle' });
     return [
       group('flex', t('pm.flexType'), seg('mode', [['bend', t('flex.bend')], ['twist', t('flex.twist')], ['taper', t('flex.taper')], ['stretch', t('flex.stretch')]], mode)),
-      group('refAxis', t('pm.flexAxis'), `${axes3('axis', f.axis ?? 'x')}${mode === 'bend' ? `<label class="pm-field"><span class="pm-label">${escapeHtml(t('pm.bendToward'))}</span></label>${axes3('toward', f.toward ?? 'y')}` : ''}`),
+      group('refAxis', t('pm.flexAxis'), `${axes3('axis', f.axis ?? 'x')}${mode === 'bend' ? `<label class="pm-field"><span class="pm-label">${escapeHtml(t('pm.bendToward'))}</span></label>${axes3('toward', f.toward ?? 'z')}` : ''}`),
       group('flex', t('pm.parameters'), `${value}${note(t('pm.help.faceted'))}`),
     ].join('');
   },
@@ -83,14 +84,14 @@ export const PART_MORE_PM = {
     const pts = ofType(api, f, ['refPoint']);
     return [
       group('refPoint', t('pm.deformPoint'), `${select('pointRef', [['', t('pm.coordinates')], ...pts.map((p) => [p.id, p.name, 'refPoint'])], f.pointRef ?? '', t('pm.refPoint'))}${f.pointRef ? '' : xyz(api, f, ['x', 'y', 'z'])}`),
-      group('deform', t('pm.parameters'), `${dirs6('dir', f.dir ?? 'y')}${field(api, 'amount', f.amount, { label: t('pm.deformDistance') })}${field(api, 'radius', f.radius, { label: t('pm.deformRadius'), glyph: 'dimRadius', min: 0.01 })}${note(t('pm.help.faceted'))}`),
+      group('deform', t('pm.parameters'), `${dirs6('dir', f.dir ?? 'z')}${field(api, 'amount', f.amount, { label: t('pm.deformDistance') })}${field(api, 'radius', f.radius, { label: t('pm.deformRadius'), glyph: 'dimRadius', min: 0.01 })}${note(t('pm.help.faceted'))}`),
     ].join('');
   },
   refAxis(api, f) {
     const { t } = api;
     const kind = f.kind ?? 'std';
     let body = '';
-    if (kind === 'std') body = axes3('axis', f.axis ?? 'y');
+    if (kind === 'std') body = axes3('axis', f.axis ?? 'z');
     else if (kind === 'twoPoints') body = `${xyz(api, f, ['x1', 'y1', 'z1'])}${xyz(api, f, ['x2', 'y2', 'z2'])}`;
     else if (kind === 'edge') body = pickBox(api, 'edge', oneEdge(api, f.edge), t('pm.edge'), 'lineTool');
     else if (kind === 'cylinder') body = pickBox(api, 'face', oneFace(api, f.face), t('pm.cylindricalFace'), 'featRevolve');

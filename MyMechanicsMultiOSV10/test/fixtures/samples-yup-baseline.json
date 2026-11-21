@@ -1,0 +1,7375 @@
+{
+ "basMountBracket": {
+  "parts": {
+   "CNC mounting bracket#0": {
+    "volume": 261515.199558,
+    "area": 58166.688143,
+    "box": [
+     [
+      -70,
+      0,
+      -45
+     ],
+     [
+      70,
+      82,
+      45
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "basManifold": {
+  "parts": {
+   "Hydraulic manifold block#0": {
+    "volume": 215561.739095,
+    "area": 32097.870134,
+    "box": [
+     [
+      -40,
+      0,
+      -30
+     ],
+     [
+      40,
+      50,
+      30
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "basPipeTee": {
+  "parts": {
+   "Flanged reducing tee#0": {
+    "volume": 418737.774423,
+    "area": 116202.704928,
+    "box": [
+     [
+      -80,
+      -55,
+      -55
+     ],
+     [
+      80,
+      80,
+      55
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "basClevis": {
+  "parts": {
+   "Stepped clevis#0": {
+    "volume": 66730.457035,
+    "area": 15979.418165,
+    "box": [
+     [
+      -20,
+      -50,
+      -15
+     ],
+     [
+      20,
+      60,
+      15
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "basNamePlate": {
+  "parts": {
+   "Engraved name plate#0": {
+    "volume": 25880.453462,
+    "area": 14171.091956,
+    "box": [
+     [
+      -60,
+      0,
+      -25
+     ],
+     [
+      60,
+      6,
+      25
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "basBearingCap": {
+  "parts": {
+   "Cast bearing cap#0": {
+    "volume": 121016.353514,
+    "area": 22626.712673,
+    "box": [
+     [
+      -70,
+      0,
+      -20
+     ],
+     [
+      70,
+      50,
+      20
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "basHeatSink": {
+  "parts": {
+   "Heat sink#0": {
+    "volume": 144864.970032,
+    "area": 95165.305369,
+    "box": [
+     [
+      -60,
+      0,
+      -40
+     ],
+     [
+      60,
+      44,
+      40
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "basConRod": {
+  "parts": {
+   "Connecting rod#0": {
+    "volume": 83273.37462,
+    "area": 26378.366175,
+    "box": [
+     [
+      -34,
+      -30,
+      -12
+     ],
+     [
+      168,
+      30,
+      12
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "basMotorMount": {
+  "parts": {
+   "NEMA 23 motor mount#0": {
+    "volume": 148779.308245,
+    "area": 45842.779446,
+    "box": [
+     [
+      -60,
+      0,
+      -35
+     ],
+     [
+      60,
+      90,
+      35
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "basCamDisc": {
+  "parts": {
+   "Cam disc#0": {
+    "volume": 119688.506647,
+    "area": 24283.106203,
+    "box": [
+     [
+      -44.287266,
+      -40,
+      -6
+     ],
+     [
+      44.287266,
+      60,
+      28
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "basCapScrew": {
+  "parts": {
+   "Socket head cap screw M12×50#0": {
+    "volume": 7573.80904,
+    "area": 4220.657743,
+    "box": [
+     [
+      -8.991671,
+      -50,
+      -9
+     ],
+     [
+      8.991671,
+      12,
+      9
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "basCastleNut": {
+  "parts": {
+   "Castle nut M16#0": {
+    "volume": 5245.943937,
+    "area": 2913.782638,
+    "box": [
+     [
+      -13.856406,
+      0,
+      -12
+     ],
+     [
+      13.856406,
+      19,
+      12
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "basBallKnob": {
+  "parts": {
+   "Ball knob#0": {
+    "volume": 37434.110106,
+    "area": 7207.89079,
+    "box": [
+     [
+      -19.843023,
+      0,
+      -20
+     ],
+     [
+      19.843023,
+      48,
+      20
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "basTSlotTable": {
+  "parts": {
+   "T-slot table section#0": {
+    "volume": 1452186.157799,
+    "area": 183078.932079,
+    "box": [
+     [
+      -120,
+      0,
+      -80
+     ],
+     [
+      120,
+      50,
+      80
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "basSpringClip": {
+  "parts": {
+   "Torsion spring clip#0": {
+    "volume": 1791.281561,
+    "area": 2937.902293,
+    "box": [
+     [
+      -23.845331,
+      -2.25,
+      -13.250025
+     ],
+     [
+      24.883883,
+      30.502204,
+      53.20988
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "mchSpurGear": {
+  "parts": {
+   "Spur gear m2.5 Z36#0": {
+    "volume": 87089.95024,
+    "area": 31723.446668,
+    "box": [
+     [
+      -47.393951,
+      -47.393951,
+      -16
+     ],
+     [
+      47.393951,
+      47.393951,
+      16
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "mchBevelGear": {
+  "parts": {
+   "Bevel gear m3 Z20#0": {
+    "volume": 37067.846874,
+    "area": 12780.260077,
+    "box": [
+     [
+      -32.740486,
+      -16,
+      -32.740486
+     ],
+     [
+      32.740486,
+      18,
+      32.740486
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "mchWormGearSet": {
+  "parts": {
+   "Worm wheel Z30#0": {
+    "volume": 108184.714721,
+    "area": 35158.148185,
+    "box": [
+     [
+      -48.759774,
+      -49,
+      -17
+     ],
+     [
+      48.759774,
+      49,
+      17
+     ]
+    ],
+    "failed": []
+   },
+   "Worm shaft m3#1": {
+    "volume": 57763.677292,
+    "area": 15241.183485,
+    "box": [
+     [
+      -62,
+      -18.000028,
+      -18.000024
+     ],
+     [
+      52,
+      17.999999,
+      18.00003
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {
+   "Worm gear set#0": {
+    "built": [
+     {
+      "name": "Worm wheel Z30<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Worm shaft m3<1>",
+      "position": [
+       0,
+       60,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     }
+    ],
+    "resolved": [
+     {
+      "name": "Worm wheel Z30<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Worm shaft m3<1>",
+      "position": [
+       0,
+       60,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     }
+    ],
+    "failedMates": 0,
+    "box": [
+     [
+      -62,
+      -49,
+      -18.000024
+     ],
+     [
+      52,
+      77.999999,
+      18.00003
+     ]
+    ]
+   }
+  },
+  "drawings": {}
+ },
+ "mchTimingPulley": {
+  "parts": {
+   "Timing pulley HTD 5M 30T#0": {
+    "volume": 35390.217589,
+    "area": 12809.481591,
+    "box": [
+     [
+      -27,
+      -27,
+      -21.6
+     ],
+     [
+      27,
+      27,
+      9.6
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "mchSprocket": {
+  "parts": {
+   "Chain sprocket #40 21T#0": {
+    "volume": 53065.230785,
+    "area": 18029.841198,
+    "box": [
+     [
+      -45.939497,
+      -45.898099,
+      -3.6
+     ],
+     [
+      45.624047,
+      45.898099,
+      21.6
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "mchBallBearing": {
+  "parts": {
+   "Deep-groove ball bearing 6205-2Z#0": {
+    "volume": 15951.558652,
+    "area": 14706.560378,
+    "box": [
+     [
+      -26,
+      -7.5,
+      -26
+     ],
+     [
+      26,
+      7.5,
+      26
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "mchSteppedShaft": {
+  "parts": {
+   "Stepped shaft (bearing and coupling seats)#0": {
+    "volume": 128136.099599,
+    "area": 23074.209913,
+    "box": [
+     [
+      0,
+      -17.5,
+      -17.5
+     ],
+     [
+      240,
+      17.5,
+      17.5
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "mchJawCoupling": {
+  "parts": {
+   "Jaw coupling half#0": {
+    "volume": 58042.018351,
+    "area": 13457.148824,
+    "box": [
+     [
+      -28,
+      0,
+      -28
+     ],
+     [
+      28,
+      40,
+      28
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "mchCompressionSpring": {
+  "parts": {
+   "Compression spring (closed, ground ends)#0": {
+    "volume": 7510.386074,
+    "area": 8020.394515,
+    "box": [
+     [
+      -17.000001,
+      1.2,
+      -17.000001
+     ],
+     [
+      17.000001,
+      57.2,
+      17.000001
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "mchTorsionSpring": {
+  "parts": {
+   "Torsion spring#0": {
+    "volume": 3825.792003,
+    "area": 5117.243261,
+    "box": [
+     [
+      -34.5,
+      -1.5,
+      -13.500002
+     ],
+     [
+      34.5,
+      21.3,
+      13.500002
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "mchGrooveCam": {
+  "parts": {
+   "Groove cam (follower track)#0": {
+    "volume": 246820.041806,
+    "area": 48004.040071,
+    "box": [
+     [
+      -70,
+      -70,
+      -12
+     ],
+     [
+      69.984097,
+      70,
+      18
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "mchLeadScrew": {
+  "parts": {
+   "Lead screw Tr16×4#0": {
+    "volume": 14256.425349,
+    "area": 6817.109308,
+    "box": [
+     [
+      -8.00001,
+      0,
+      -8.00001
+     ],
+     [
+      8.00001,
+      108,
+      8.00001
+     ]
+    ],
+    "failed": []
+   },
+   "Flanged nut#1": {
+    "volume": 15493.304598,
+    "area": 6249.373941,
+    "box": [
+     [
+      -20,
+      0,
+      -20
+     ],
+     [
+      20,
+      30,
+      20
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {
+   "Lead screw and flanged nut#0": {
+    "built": [
+     {
+      "name": "Lead screw Tr16×4<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Flanged nut<1>",
+      "position": [
+       0,
+       40,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     }
+    ],
+    "resolved": [
+     {
+      "name": "Lead screw Tr16×4<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Flanged nut<1>",
+      "position": [
+       0,
+       40,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     }
+    ],
+    "failedMates": 0,
+    "box": [
+     [
+      -20,
+      0,
+      -20
+     ],
+     [
+      20,
+      108,
+      20
+     ]
+    ]
+   }
+  },
+  "drawings": {}
+ },
+ "mchUJointYoke": {
+  "parts": {
+   "Universal-joint yoke#0": {
+    "volume": 52048.300543,
+    "area": 15965.886255,
+    "box": [
+     [
+      -26,
+      0,
+      -18
+     ],
+     [
+      26,
+      70,
+      18
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "mchCrankshaft": {
+  "parts": {
+   "Four-throw crankshaft#0": {
+    "volume": 1163066.645062,
+    "area": 196532.720452,
+    "box": [
+     [
+      -52.622787,
+      -56,
+      -40
+     ],
+     [
+      52.622787,
+      56,
+      335
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "mchImpeller": {
+  "parts": {
+   "Ring fan impeller#0": {
+    "volume": 110826.072572,
+    "area": 42980.055321,
+    "box": [
+     [
+      -74,
+      -74,
+      -12
+     ],
+     [
+      74,
+      74,
+      38.831067
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "hsgGearbox": {
+  "parts": {
+   "Gearbox housing#0": {
+    "volume": 1848044.06216,
+    "area": 315665.34101,
+    "box": [
+     [
+      -145,
+      0,
+      -95
+     ],
+     [
+      145,
+      130,
+      95
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "hsgEnclosure": {
+  "parts": {
+   "Electronics enclosure (S/L)#0": {
+    "volume": 103387.318573,
+    "area": 83202.779389,
+    "box": [
+     [
+      -79.929571,
+      0,
+      -51
+     ],
+     [
+      79.929571,
+      50,
+      51
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "hsgCover": {
+  "parts": {
+   "Injection-moulded cover#0": {
+    "volume": 733823.861559,
+    "area": 162930.827126,
+    "box": [
+     [
+      -72,
+      -42,
+      -52
+     ],
+     [
+      72,
+      67,
+      52
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "hsgVolute": {
+  "parts": {
+   "Pump volute casing#0": {
+    "volume": 823522.441068,
+    "area": 211538.302125,
+    "box": [
+     [
+      -98,
+      -62,
+      -92
+     ],
+     [
+      124,
+      42,
+      136
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "hsgEndBell": {
+  "parts": {
+   "Motor end bell#0": {
+    "volume": 154571.045848,
+    "area": 55996.920703,
+    "box": [
+     [
+      -72,
+      0,
+      -72
+     ],
+     [
+      72,
+      37,
+      72
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "hsgChassis": {
+  "parts": {
+   "Sheet-metal chassis#0": {
+    "volume": 142477.966531,
+    "area": 195148.196288,
+    "box": [
+     [
+      -153,
+      0,
+      -104.5
+     ],
+     [
+      153,
+      65,
+      101.515
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "hsgLBracket": {
+  "parts": {
+   "Sheet-metal L bracket#0": {
+    "volume": 28588.469005,
+    "area": 20711.694124,
+    "box": [
+     [
+      -70,
+      0,
+      -30
+     ],
+     [
+      26,
+      56,
+      30
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "hsgDinRail": {
+  "parts": {
+   "DIN-rail Z bracket (TS35)#0": {
+    "volume": 7131.481832,
+    "area": 10146.357304,
+    "box": [
+     [
+      -27.5,
+      -7,
+      -30
+     ],
+     [
+      29,
+      22.5,
+      30
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "hsgRackPanel": {
+  "parts": {
+   "1U rack panel#0": {
+    "volume": 92513.927705,
+    "area": 92862.829041,
+    "box": [
+     [
+      -241.3,
+      -24.2,
+      -27
+     ],
+     [
+      241.3,
+      24.2,
+      36
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "hsgHandle": {
+  "parts": {
+   "Die-cast handle housing#0": {
+    "volume": 32440.769825,
+    "area": 27140.36687,
+    "box": [
+     [
+      -70,
+      0,
+      0
+     ],
+     [
+      70,
+      60,
+      16
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "hsgBatteryBox": {
+  "parts": {
+   "Battery box body#0": {
+    "volume": 143786.793971,
+    "area": 112807.961239,
+    "box": [
+     [
+      -75,
+      0,
+      -60
+     ],
+     [
+      75,
+      70,
+      60
+     ]
+    ],
+    "failed": []
+   },
+   "Battery box lid#1": {
+    "volume": 55413.452437,
+    "area": 32938.422824,
+    "box": [
+     [
+      -75,
+      -6,
+      -45
+     ],
+     [
+      75,
+      4,
+      45
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {
+   "Battery box#0": {
+    "built": [
+     {
+      "name": "Battery box body<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Battery box lid<1>",
+      "position": [
+       0,
+       70,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     }
+    ],
+    "resolved": [
+     {
+      "name": "Battery box body<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Battery box lid<1>",
+      "position": [
+       0,
+       70,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     }
+    ],
+    "failedMates": 0,
+    "box": [
+     [
+      -75,
+      0,
+      -60
+     ],
+     [
+      75,
+      74,
+      60
+     ]
+    ]
+   }
+  },
+  "drawings": {}
+ },
+ "hsgGuard": {
+  "parts": {
+   "Machine guard frame#0": {
+    "volume": 6065480.552,
+    "area": 3951570.233715,
+    "box": [
+     [
+      -430,
+      -10,
+      -330
+     ],
+     [
+      430,
+      900,
+      330
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "hsgGrip": {
+  "parts": {
+   "Ergonomic grip shell#0": {
+    "volume": 34118.385426,
+    "area": 33261.589253,
+    "box": [
+     [
+      -24,
+      -4,
+      -20.000005
+     ],
+     [
+      24,
+      120,
+      20.000005
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "hsgNozzle": {
+  "parts": {
+   "Vacuum floor nozzle#0": {
+    "volume": 77953.722976,
+    "area": 75571.710277,
+    "box": [
+     [
+      -125,
+      -1.360131,
+      -53
+     ],
+     [
+      125,
+      141.011479,
+      34
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "hsgBottle": {
+  "parts": {
+   "Sports bottle#0": {
+    "volume": 78332.135526,
+    "area": 80728.308077,
+    "box": [
+     [
+      -33,
+      0,
+      -33
+     ],
+     [
+      33,
+      206,
+      33
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "asmGearReducer": {
+  "parts": {
+   "Gear housing#0": {
+    "volume": 1363669.429948,
+    "area": 241510.839647,
+    "box": [
+     [
+      -134,
+      0,
+      -72
+     ],
+     [
+      134,
+      135,
+      72
+     ]
+    ],
+    "failed": []
+   },
+   "Top cover#1": {
+    "volume": 201744.32981,
+    "area": 54541.875462,
+    "box": [
+     [
+      -114,
+      0,
+      -52
+     ],
+     [
+      114,
+      20,
+      52
+     ]
+    ],
+    "failed": []
+   },
+   "Input pinion shaft#2": {
+    "volume": 59597.873741,
+    "area": 13818.089059,
+    "box": [
+     [
+      -15,
+      -58,
+      -15.182215
+     ],
+     [
+      15.143038,
+      100,
+      15.182215
+     ]
+    ],
+    "failed": []
+   },
+   "Intermediate shaft#3": {
+    "volume": 65534.098526,
+    "area": 14547.638056,
+    "box": [
+     [
+      -18.75,
+      -58,
+      -18.984495
+     ],
+     [
+      18.942153,
+      58,
+      18.984495
+     ]
+    ],
+    "failed": []
+   },
+   "Output shaft#4": {
+    "volume": 95012.37719,
+    "area": 16692.305031,
+    "box": [
+     [
+      -18,
+      -58,
+      -18
+     ],
+     [
+      18,
+      110,
+      18
+     ]
+    ],
+    "failed": []
+   },
+   "Stage 1 gear (47 T)#5": {
+    "volume": 70296.835793,
+    "area": 26055.172369,
+    "box": [
+     [
+      -49,
+      0,
+      -49.053468
+     ],
+     [
+      49.05215,
+      22,
+      49.053468
+     ]
+    ],
+    "failed": []
+   },
+   "Stage 2 gear (39 T)#6": {
+    "volume": 116409.279437,
+    "area": 34554.390046,
+    "box": [
+     [
+      -51.25,
+      0,
+      -51.332439
+     ],
+     [
+      51.331616,
+      30,
+      51.332439
+     ]
+    ],
+    "failed": []
+   },
+   "Bearing 6004#7": {
+    "volume": 12576.671017,
+    "area": 4580.044643,
+    "box": [
+     [
+      -21,
+      0,
+      -21
+     ],
+     [
+      21,
+      12,
+      21
+     ]
+    ],
+    "failed": []
+   },
+   "Bearing 6005#8": {
+    "volume": 14605.637216,
+    "area": 5318.226437,
+    "box": [
+     [
+      -23.5,
+      0,
+      -23.5
+     ],
+     [
+      23.5,
+      12,
+      23.5
+     ]
+    ],
+    "failed": []
+   },
+   "Bearing cap#9": {
+    "volume": 13967.731957,
+    "area": 6115.654038,
+    "box": [
+     [
+      -28,
+      0,
+      -28
+     ],
+     [
+      28,
+      6,
+      28
+     ]
+    ],
+    "failed": []
+   },
+   "Input cap (through)#10": {
+    "volume": 11687.926544,
+    "area": 5770.078846,
+    "box": [
+     [
+      -28,
+      0,
+      -28
+     ],
+     [
+      28,
+      6,
+      28
+     ]
+    ],
+    "failed": []
+   },
+   "Output cap (through)#11": {
+    "volume": 10274.20985,
+    "area": 5411.937283,
+    "box": [
+     [
+      -28,
+      0,
+      -28
+     ],
+     [
+      28,
+      6,
+      28
+     ]
+    ],
+    "failed": []
+   },
+   "Hex bolt M8×25#12": {
+    "volume": 1978.178444,
+    "area": 1112.846451,
+    "box": [
+     [
+      -7.390083,
+      -25,
+      -6.4
+     ],
+     [
+      7.390083,
+      5.2,
+      6.4
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {
+   "Two-stage gear reducer#0": {
+    "built": [
+     {
+      "name": "Gear housing<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Top cover<1>",
+      "position": [
+       0,
+       135,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex bolt M8×25<1>",
+      "position": [
+       0,
+       143,
+       46
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex bolt M8×25<2>",
+      "position": [
+       0,
+       143,
+       -46
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex bolt M8×25<3>",
+      "position": [
+       -108,
+       143,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex bolt M8×25<4>",
+      "position": [
+       108,
+       143,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Input pinion shaft<1>",
+      "position": [
+       -80,
+       70,
+       0
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Bearing 6004<1>",
+      "position": [
+       -80,
+       70,
+       46
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Bearing 6004<2>",
+      "position": [
+       -80,
+       70,
+       -58
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Input cap (through)<1>",
+      "position": [
+       -80,
+       70,
+       58
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Bearing cap<1>",
+      "position": [
+       -80,
+       70,
+       -58
+      ],
+      "rotation": [
+       -0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Intermediate shaft<1>",
+      "position": [
+       -20,
+       70,
+       0
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Bearing 6004<3>",
+      "position": [
+       -20,
+       70,
+       46
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Bearing 6004<4>",
+      "position": [
+       -20,
+       70,
+       -58
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Bearing cap<2>",
+      "position": [
+       -20,
+       70,
+       58
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Bearing cap<3>",
+      "position": [
+       -20,
+       70,
+       -58
+      ],
+      "rotation": [
+       -0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Output shaft<1>",
+      "position": [
+       45,
+       70,
+       0
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Bearing 6005<1>",
+      "position": [
+       45,
+       70,
+       46
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Bearing 6005<2>",
+      "position": [
+       45,
+       70,
+       -58
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Output cap (through)<1>",
+      "position": [
+       45,
+       70,
+       58
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Bearing cap<4>",
+      "position": [
+       45,
+       70,
+       -58
+      ],
+      "rotation": [
+       -0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Stage 1 gear (47 T)<1>",
+      "position": [
+       -20,
+       70,
+       -30
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Stage 2 gear (39 T)<1>",
+      "position": [
+       45,
+       70,
+       -4
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     }
+    ],
+    "resolved": [
+     {
+      "name": "Gear housing<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Top cover<1>",
+      "position": [
+       0,
+       135,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex bolt M8×25<1>",
+      "position": [
+       0,
+       143,
+       46
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex bolt M8×25<2>",
+      "position": [
+       0,
+       143,
+       -46
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex bolt M8×25<3>",
+      "position": [
+       -108,
+       143,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex bolt M8×25<4>",
+      "position": [
+       108,
+       143,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Input pinion shaft<1>",
+      "position": [
+       -80,
+       70,
+       0
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Bearing 6004<1>",
+      "position": [
+       -80,
+       70,
+       46
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Bearing 6004<2>",
+      "position": [
+       -80,
+       70,
+       -58
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Input cap (through)<1>",
+      "position": [
+       -80,
+       70,
+       58
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Bearing cap<1>",
+      "position": [
+       -80,
+       70,
+       -58
+      ],
+      "rotation": [
+       -0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Intermediate shaft<1>",
+      "position": [
+       -20,
+       70,
+       0
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Bearing 6004<3>",
+      "position": [
+       -20,
+       70,
+       46
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Bearing 6004<4>",
+      "position": [
+       -20,
+       70,
+       -58
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Bearing cap<2>",
+      "position": [
+       -20,
+       70,
+       58
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Bearing cap<3>",
+      "position": [
+       -20,
+       70,
+       -58
+      ],
+      "rotation": [
+       -0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Output shaft<1>",
+      "position": [
+       45,
+       70,
+       0
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Bearing 6005<1>",
+      "position": [
+       45,
+       70,
+       46
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Bearing 6005<2>",
+      "position": [
+       45,
+       70,
+       -58
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Output cap (through)<1>",
+      "position": [
+       45,
+       70,
+       58
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Bearing cap<4>",
+      "position": [
+       45,
+       70,
+       -58
+      ],
+      "rotation": [
+       -0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Stage 1 gear (47 T)<1>",
+      "position": [
+       -20,
+       70,
+       -30
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Stage 2 gear (39 T)<1>",
+      "position": [
+       45,
+       70,
+       -4
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     }
+    ],
+    "failedMates": 0,
+    "box": [
+     [
+      -134,
+      0,
+      -72
+     ],
+     [
+      134,
+      155,
+      110
+     ]
+    ]
+   }
+  },
+  "drawings": {}
+ },
+ "asmPillowLine": {
+  "parts": {
+   "Base plate#0": {
+    "volume": 1031114.218918,
+    "area": 127230.448143,
+    "box": [
+     [
+      -80,
+      0,
+      -165
+     ],
+     [
+      80,
+      20,
+      165
+     ]
+    ],
+    "failed": []
+   },
+   "Pillow block UCP205#1": {
+    "volume": 176268.476013,
+    "area": 32873.59402,
+    "box": [
+     [
+      -65,
+      0,
+      -19
+     ],
+     [
+      65,
+      93,
+      19
+     ]
+    ],
+    "failed": []
+   },
+   "Insert bearing UC205#2": {
+    "volume": 24087.653739,
+    "area": 7018.535805,
+    "box": [
+     [
+      -26,
+      0,
+      -26
+     ],
+     [
+      26,
+      15,
+      26
+     ]
+    ],
+    "failed": []
+   },
+   "Line shaft Ø25#3": {
+    "volume": 196099.612325,
+    "area": 33499.866621,
+    "box": [
+     [
+      -12.5,
+      0,
+      -12.5
+     ],
+     [
+      12.5,
+      420,
+      12.5
+     ]
+    ],
+    "failed": []
+   },
+   "Double V-pulley#4": {
+    "volume": 249437.119385,
+    "area": 61004.025581,
+    "box": [
+     [
+      -60,
+      0,
+      -60
+     ],
+     [
+      60,
+      50,
+      60
+     ]
+    ],
+    "failed": []
+   },
+   "Jaw coupling hub#5": {
+    "volume": 52907.29319,
+    "area": 12438.618075,
+    "box": [
+     [
+      -28,
+      0,
+      -28
+     ],
+     [
+      28,
+      30,
+      28
+     ]
+    ],
+    "failed": []
+   },
+   "Hex bolt M12×30#6": {
+    "volume": 5828.122232,
+    "area": 2221.161175,
+    "box": [
+     [
+      -11.085125,
+      -30,
+      -9.6
+     ],
+     [
+      11.085125,
+      7.8,
+      9.6
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {
+   "Pillow-block shaft line#0": {
+    "built": [
+     {
+      "name": "Base plate<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Pillow block UCP205<1>",
+      "position": [
+       0,
+       20,
+       -120
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Insert bearing UC205<1>",
+      "position": [
+       0,
+       70,
+       -127.5
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Hex bolt M12×30<1>",
+      "position": [
+       -52,
+       38,
+       -120
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex bolt M12×30<2>",
+      "position": [
+       52,
+       38,
+       -120
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Pillow block UCP205<2>",
+      "position": [
+       0,
+       20,
+       120
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Insert bearing UC205<2>",
+      "position": [
+       0,
+       70,
+       112.5
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Hex bolt M12×30<3>",
+      "position": [
+       -52,
+       38,
+       120
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex bolt M12×30<4>",
+      "position": [
+       52,
+       38,
+       120
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Line shaft Ø25<1>",
+      "position": [
+       0,
+       70,
+       -210
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Jaw coupling hub<1>",
+      "position": [
+       0,
+       70,
+       -210
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Double V-pulley<1>",
+      "position": [
+       0,
+       70,
+       170
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     }
+    ],
+    "resolved": [
+     {
+      "name": "Base plate<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Pillow block UCP205<1>",
+      "position": [
+       0,
+       20,
+       -120
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Insert bearing UC205<1>",
+      "position": [
+       0,
+       70,
+       -127.5
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Hex bolt M12×30<1>",
+      "position": [
+       -52,
+       38,
+       -120
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex bolt M12×30<2>",
+      "position": [
+       52,
+       38,
+       -120
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Pillow block UCP205<2>",
+      "position": [
+       0,
+       20,
+       120
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Insert bearing UC205<2>",
+      "position": [
+       0,
+       70,
+       112.5
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Hex bolt M12×30<3>",
+      "position": [
+       -52,
+       38,
+       120
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex bolt M12×30<4>",
+      "position": [
+       52,
+       38,
+       120
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Line shaft Ø25<1>",
+      "position": [
+       0,
+       70,
+       -210
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Jaw coupling hub<1>",
+      "position": [
+       0,
+       70,
+       -210
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Double V-pulley<1>",
+      "position": [
+       0,
+       70,
+       170
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     }
+    ],
+    "failedMates": 0,
+    "box": [
+     [
+      -80,
+      0,
+      -210
+     ],
+     [
+      80,
+      130,
+      220
+     ]
+    ]
+   }
+  },
+  "drawings": {}
+ },
+ "asmVice": {
+  "parts": {
+   "Vice body#0": {
+    "volume": 660525.107077,
+    "area": 79543.828497,
+    "box": [
+     [
+      -110,
+      0,
+      -45
+     ],
+     [
+      110,
+      80,
+      45
+     ]
+    ],
+    "failed": []
+   },
+   "Moving jaw#1": {
+    "volume": 228913.190073,
+    "area": 29549.039104,
+    "box": [
+     [
+      -25,
+      16,
+      -45
+     ],
+     [
+      25,
+      80,
+      45
+     ]
+    ],
+    "failed": []
+   },
+   "Jaw plate (serrated)#2": {
+    "volume": 14934.749745,
+    "area": 7400.325731,
+    "box": [
+     [
+      0,
+      -15,
+      -45
+     ],
+     [
+      6,
+      15,
+      45
+     ]
+    ],
+    "failed": []
+   },
+   "Lead screw Tr16×4#3": {
+    "volume": 39860.379972,
+    "area": 11006.471363,
+    "box": [
+     [
+      -15,
+      -20,
+      -15
+     ],
+     [
+      15,
+      140,
+      15
+     ]
+    ],
+    "failed": []
+   },
+   "Handle bar#4": {
+    "volume": 15425.423788,
+    "area": 6036.250544,
+    "box": [
+     [
+      -8,
+      0,
+      -8
+     ],
+     [
+      8,
+      160,
+      8
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {
+   "Machine vice#0": {
+    "built": [
+     {
+      "name": "Vice body<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Moving jaw<1>",
+      "position": [
+       10,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Lead screw Tr16×4<1>",
+      "position": [
+       -110,
+       60,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       -0.707107,
+       0.707107
+      ]
+     },
+     {
+      "name": "Jaw plate (serrated)<1>",
+      "position": [
+       35,
+       65,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Jaw plate (serrated)<2>",
+      "position": [
+       70,
+       65,
+       0
+      ],
+      "rotation": [
+       0,
+       1,
+       0,
+       0
+      ]
+     },
+     {
+      "name": "Handle bar<1>",
+      "position": [
+       -120,
+       60,
+       -50
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     }
+    ],
+    "resolved": [
+     {
+      "name": "Vice body<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Moving jaw<1>",
+      "position": [
+       10,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Lead screw Tr16×4<1>",
+      "position": [
+       -110,
+       60,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       -0.707107,
+       0.707107
+      ]
+     },
+     {
+      "name": "Jaw plate (serrated)<1>",
+      "position": [
+       35,
+       65,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Jaw plate (serrated)<2>",
+      "position": [
+       70,
+       65,
+       0
+      ],
+      "rotation": [
+       0,
+       1,
+       0,
+       0
+      ]
+     },
+     {
+      "name": "Handle bar<1>",
+      "position": [
+       -120,
+       60,
+       -50
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     }
+    ],
+    "failedMates": 0,
+    "box": [
+     [
+      -130,
+      0,
+      -50
+     ],
+     [
+      110,
+      80,
+      110
+     ]
+    ]
+   }
+  },
+  "drawings": {}
+ },
+ "asmRackSteering": {
+  "parts": {
+   "Rack housing#0": {
+    "volume": 262355.283995,
+    "area": 75343.095609,
+    "box": [
+     [
+      -140,
+      -34,
+      -25
+     ],
+     [
+      140,
+      48,
+      25
+     ]
+    ],
+    "failed": []
+   },
+   "Rack bar#1": {
+    "volume": 147499.189427,
+    "area": 32234.490538,
+    "box": [
+     [
+      -180,
+      -12,
+      -12
+     ],
+     [
+      180,
+      12,
+      12
+     ]
+    ],
+    "failed": []
+   },
+   "Pinion (14 T)#2": {
+    "volume": 16835.148237,
+    "area": 7283.550882,
+    "box": [
+     [
+      -16.137131,
+      -20,
+      -16
+     ],
+     [
+      16.137131,
+      60,
+      16
+     ]
+    ],
+    "failed": []
+   },
+   "Tie rod#3": {
+    "volume": 42002.825979,
+    "area": 11839.386766,
+    "box": [
+     [
+      -13,
+      0,
+      -11
+     ],
+     [
+      13,
+      205,
+      11
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {
+   "Rack-and-pinion steering#0": {
+    "built": [
+     {
+      "name": "Rack housing<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Rack bar<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Pinion (14 T)<1>",
+      "position": [
+       0,
+       22,
+       0
+      ],
+      "rotation": [
+       0.5,
+       -0.5,
+       -0.5,
+       0.5
+      ]
+     },
+     {
+      "name": "Tie rod<1>",
+      "position": [
+       155,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       -0.707107,
+       0.707107
+      ]
+     },
+     {
+      "name": "Tie rod<2>",
+      "position": [
+       -155,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0.707107,
+       0.707107
+      ]
+     }
+    ],
+    "resolved": [
+     {
+      "name": "Rack housing<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Rack bar<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Pinion (14 T)<1>",
+      "position": [
+       0,
+       22,
+       0
+      ],
+      "rotation": [
+       0.5,
+       -0.5,
+       -0.5,
+       0.5
+      ]
+     },
+     {
+      "name": "Tie rod<1>",
+      "position": [
+       155,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       -0.707107,
+       0.707107
+      ]
+     },
+     {
+      "name": "Tie rod<2>",
+      "position": [
+       -155,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0.707107,
+       0.707107
+      ]
+     }
+    ],
+    "failedMates": 0,
+    "box": [
+     [
+      -360,
+      -34,
+      -25
+     ],
+     [
+      360,
+      48,
+      60
+     ]
+    ]
+   }
+  },
+  "drawings": {}
+ },
+ "asmSliderCrank": {
+  "parts": {
+   "Crank frame#0": {
+    "volume": 727232.852793,
+    "area": 150391.81457,
+    "box": [
+     [
+      -70,
+      -80,
+      -100
+     ],
+     [
+      70,
+      168,
+      40
+     ]
+    ],
+    "failed": []
+   },
+   "Crank#1": {
+    "volume": 59847.666777,
+    "area": 15453.761901,
+    "box": [
+     [
+      -40,
+      -40,
+      -35
+     ],
+     [
+      40,
+      40,
+      26
+     ]
+    ],
+    "failed": []
+   },
+   "Connecting rod#2": {
+    "volume": 21382.013086,
+    "area": 9128.538051,
+    "box": [
+     [
+      -18,
+      -18,
+      0
+     ],
+     [
+      18,
+      112,
+      10
+     ]
+    ],
+    "failed": []
+   },
+   "Piston#3": {
+    "volume": 34242.612367,
+    "area": 10053.250673,
+    "box": [
+     [
+      -20,
+      0,
+      -20
+     ],
+     [
+      20,
+      40,
+      20
+     ]
+    ],
+    "failed": []
+   },
+   "Piston pin#4": {
+    "volume": 2819.841206,
+    "area": 1268.999319,
+    "box": [
+     [
+      -5,
+      0,
+      -5
+     ],
+     [
+      5,
+      36,
+      5
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {
+   "Slider-crank mechanism#0": {
+    "built": [
+     {
+      "name": "Crank frame<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Crank<1>",
+      "position": [
+       0,
+       0,
+       -18
+      ],
+      "rotation": [
+       0,
+       0,
+       -0.34202,
+       0.939693
+      ]
+     },
+     {
+      "name": "Connecting rod<1>",
+      "position": [
+       19.283628,
+       22.981333,
+       -8
+      ],
+      "rotation": [
+       0,
+       0,
+       0.096874,
+       0.995297
+      ]
+     },
+     {
+      "name": "Piston<1>",
+      "position": [
+       0,
+       109.104428,
+       -3
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Piston pin<1>",
+      "position": [
+       0,
+       121.104428,
+       -21
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     }
+    ],
+    "resolved": [
+     {
+      "name": "Crank frame<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Crank<1>",
+      "position": [
+       0,
+       0,
+       -18
+      ],
+      "rotation": [
+       0,
+       0,
+       -0.34202,
+       0.939693
+      ]
+     },
+     {
+      "name": "Connecting rod<1>",
+      "position": [
+       19.283628,
+       22.981333,
+       -8
+      ],
+      "rotation": [
+       0,
+       0,
+       0.096874,
+       0.995297
+      ]
+     },
+     {
+      "name": "Piston<1>",
+      "position": [
+       0,
+       109.104428,
+       -3
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Piston pin<1>",
+      "position": [
+       0,
+       121.104428,
+       -21
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     }
+    ],
+    "failedMates": 0,
+    "box": [
+     [
+      -70,
+      -80,
+      -100
+     ],
+     [
+      70,
+      168,
+      40
+     ]
+    ]
+   }
+  },
+  "drawings": {}
+ },
+ "asmCamFollower": {
+  "parts": {
+   "Cam frame#0": {
+    "volume": 424698.538651,
+    "area": 83266.978255,
+    "box": [
+     [
+      -60,
+      -60,
+      -70
+     ],
+     [
+      60,
+      130,
+      50
+     ]
+    ],
+    "failed": []
+   },
+   "Pear cam#1": {
+    "volume": 56978.056986,
+    "area": 13541.594885,
+    "box": [
+     [
+      -30,
+      -30,
+      -20
+     ],
+     [
+      30,
+      46,
+      16
+     ]
+    ],
+    "failed": []
+   },
+   "Camshaft#2": {
+    "volume": 24819.217425,
+    "area": 6222.307932,
+    "box": [
+     [
+      -14,
+      0,
+      -14
+     ],
+     [
+      14,
+      75,
+      14
+     ]
+    ],
+    "failed": []
+   },
+   "Flat-faced follower#3": {
+    "volume": 37019.489167,
+    "area": 11641.427362,
+    "box": [
+     [
+      -35,
+      0,
+      -14
+     ],
+     [
+      35,
+      134,
+      14
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {
+   "Cam and follower#0": {
+    "built": [
+     {
+      "name": "Cam frame<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Pear cam<1>",
+      "position": [
+       0,
+       0,
+       -8
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Camshaft<1>",
+      "position": [
+       0,
+       0,
+       -50
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Flat-faced follower<1>",
+      "position": [
+       0,
+       46,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     }
+    ],
+    "resolved": [
+     {
+      "name": "Cam frame<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Pear cam<1>",
+      "position": [
+       0,
+       0,
+       -8
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Camshaft<1>",
+      "position": [
+       0,
+       0,
+       -50
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     },
+     {
+      "name": "Flat-faced follower<1>",
+      "position": [
+       0,
+       46,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     }
+    ],
+    "failedMates": 0,
+    "box": [
+     [
+      -60,
+      -60,
+      -70
+     ],
+     [
+      60,
+      180,
+      50
+     ]
+    ]
+   }
+  },
+  "drawings": {}
+ },
+ "asmDoorHinge": {
+  "parts": {
+   "Door post#0": {
+    "volume": 1208462.555318,
+    "area": 123862.190026,
+    "box": [
+     [
+      -90,
+      0,
+      -70
+     ],
+     [
+      -5,
+      640,
+      10
+     ]
+    ],
+    "failed": []
+   },
+   "Door leaf#1": {
+    "volume": 5416517.381571,
+    "area": 526082.824363,
+    "box": [
+     [
+      5,
+      20,
+      -21.5
+     ],
+     [
+      405,
+      620,
+      2.5
+     ]
+    ],
+    "failed": []
+   },
+   "Hinge leaf (fixed)#2": {
+    "volume": 7807.930485,
+    "area": 6303.996084,
+    "box": [
+     [
+      -40,
+      0,
+      -4
+     ],
+     [
+      4,
+      60,
+      4
+     ]
+    ],
+    "failed": []
+   },
+   "Hinge leaf (door)#3": {
+    "volume": 7018.198193,
+    "area": 5560.868071,
+    "box": [
+     [
+      -4,
+      0,
+      -4
+     ],
+     [
+      40,
+      60,
+      4
+     ]
+    ],
+    "failed": []
+   },
+   "Hinge pin#4": {
+    "volume": 828.085086,
+    "area": 867.09792,
+    "box": [
+     [
+      -3.5,
+      0,
+      -3.5
+     ],
+     [
+      3.5,
+      62,
+      3.5
+     ]
+    ],
+    "failed": []
+   },
+   "Knob#5": {
+    "volume": 10350.63329,
+    "area": 3448.643526,
+    "box": [
+     [
+      -15,
+      -15,
+      -15
+     ],
+     [
+      15,
+      34,
+      15
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {
+   "Hinged door#0": {
+    "built": [
+     {
+      "name": "Door post<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Door leaf<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       -0.258819,
+       0,
+       0.965926
+      ]
+     },
+     {
+      "name": "Hinge leaf (fixed)<1>",
+      "position": [
+       0,
+       100,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hinge leaf (door)<1>",
+      "position": [
+       0,
+       100,
+       0
+      ],
+      "rotation": [
+       0,
+       -0.258819,
+       0,
+       0.965926
+      ]
+     },
+     {
+      "name": "Hinge pin<1>",
+      "position": [
+       0,
+       100,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hinge leaf (fixed)<2>",
+      "position": [
+       0,
+       480,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hinge leaf (door)<2>",
+      "position": [
+       0,
+       480,
+       0
+      ],
+      "rotation": [
+       0,
+       -0.258819,
+       0,
+       0.965926
+      ]
+     },
+     {
+      "name": "Hinge pin<2>",
+      "position": [
+       0,
+       480,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Knob<1>",
+      "position": [
+       334.16978,
+       320,
+       191.200962
+      ],
+      "rotation": [
+       0.683013,
+       -0.183013,
+       0.183013,
+       0.683013
+      ]
+     }
+    ],
+    "resolved": [
+     {
+      "name": "Door post<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Door leaf<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       -0.258819,
+       0,
+       0.965926
+      ]
+     },
+     {
+      "name": "Hinge leaf (fixed)<1>",
+      "position": [
+       0,
+       100,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hinge leaf (door)<1>",
+      "position": [
+       0,
+       100,
+       0
+      ],
+      "rotation": [
+       0,
+       -0.258819,
+       0,
+       0.965926
+      ]
+     },
+     {
+      "name": "Hinge pin<1>",
+      "position": [
+       0,
+       100,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hinge leaf (fixed)<2>",
+      "position": [
+       0,
+       480,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hinge leaf (door)<2>",
+      "position": [
+       0,
+       480,
+       0
+      ],
+      "rotation": [
+       0,
+       -0.258819,
+       0,
+       0.965926
+      ]
+     },
+     {
+      "name": "Hinge pin<2>",
+      "position": [
+       0,
+       480,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Knob<1>",
+      "position": [
+       334.16978,
+       320,
+       191.200962
+      ],
+      "rotation": [
+       0.683013,
+       -0.183013,
+       0.183013,
+       0.683013
+      ]
+     }
+    ],
+    "failedMates": 0,
+    "box": [
+     [
+      -90,
+      0,
+      -70
+     ],
+     [
+      361.490289,
+      640,
+      225.897336
+     ]
+    ]
+   }
+  },
+  "drawings": {}
+ },
+ "asmFlangeJoint": {
+  "parts": {
+   "Weld-neck flange DN50#0": {
+    "volume": 408120.924002,
+    "area": 66160.000086,
+    "box": [
+     [
+      -82.5,
+      0,
+      -82.5
+     ],
+     [
+      82.5,
+      60,
+      82.5
+     ]
+    ],
+    "failed": []
+   },
+   "Gasket#1": {
+    "volume": 18142.697574,
+    "area": 13546.547522,
+    "box": [
+     [
+      -51,
+      0,
+      -51
+     ],
+     [
+      51,
+      3,
+      51
+     ]
+    ],
+    "failed": []
+   },
+   "Pipe 60.3×4#2": {
+    "volume": 105464.312579,
+    "area": 54074.470657,
+    "box": [
+     [
+      -30,
+      0,
+      -30
+     ],
+     [
+      30,
+      150,
+      30
+     ]
+    ],
+    "failed": []
+   },
+   "Hex bolt M16×65#3": {
+    "volume": 18841.356498,
+    "area": 5205.36804,
+    "box": [
+     [
+      -14.780167,
+      -65,
+      -12.8
+     ],
+     [
+      14.780167,
+      10.4,
+      12.8
+     ]
+    ],
+    "failed": []
+   },
+   "Hex nut M16#4": {
+    "volume": 4526.614313,
+    "area": 2346.75116,
+    "box": [
+     [
+      -14.780167,
+      0,
+      -12.8
+     ],
+     [
+      14.780167,
+      12.8,
+      12.8
+     ]
+    ],
+    "failed": []
+   },
+   "Washer M16#5": {
+    "volume": 1413.569432,
+    "area": 1360.582341,
+    "box": [
+     [
+      -15,
+      0,
+      -15
+     ],
+     [
+      15,
+      3,
+      15
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {
+   "Bolted flange joint#0": {
+    "built": [
+     {
+      "name": "Weld-neck flange DN50<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Gasket<1>",
+      "position": [
+       0,
+       60,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Weld-neck flange DN50<2>",
+      "position": [
+       0,
+       123,
+       0
+      ],
+      "rotation": [
+       1,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "name": "Pipe 60.3×4<1>",
+      "position": [
+       0,
+       -150,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Pipe 60.3×4<2>",
+      "position": [
+       0,
+       123,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex bolt M16×65<1>",
+      "position": [
+       44.194174,
+       83,
+       44.194174
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Washer M16<1>",
+      "position": [
+       44.194174,
+       37,
+       44.194174
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex nut M16<1>",
+      "position": [
+       44.194174,
+       24.2,
+       44.194174
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex bolt M16×65<2>",
+      "position": [
+       -44.194174,
+       83,
+       44.194174
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Washer M16<2>",
+      "position": [
+       -44.194174,
+       37,
+       44.194174
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex nut M16<2>",
+      "position": [
+       -44.194174,
+       24.2,
+       44.194174
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex bolt M16×65<3>",
+      "position": [
+       -44.194174,
+       83,
+       -44.194174
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Washer M16<3>",
+      "position": [
+       -44.194174,
+       37,
+       -44.194174
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex nut M16<3>",
+      "position": [
+       -44.194174,
+       24.2,
+       -44.194174
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex bolt M16×65<4>",
+      "position": [
+       44.194174,
+       83,
+       -44.194174
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Washer M16<4>",
+      "position": [
+       44.194174,
+       37,
+       -44.194174
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex nut M16<4>",
+      "position": [
+       44.194174,
+       24.2,
+       -44.194174
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     }
+    ],
+    "resolved": [
+     {
+      "name": "Weld-neck flange DN50<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Gasket<1>",
+      "position": [
+       0,
+       60,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Weld-neck flange DN50<2>",
+      "position": [
+       0,
+       123,
+       0
+      ],
+      "rotation": [
+       1,
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "name": "Pipe 60.3×4<1>",
+      "position": [
+       0,
+       -150,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Pipe 60.3×4<2>",
+      "position": [
+       0,
+       123,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex bolt M16×65<1>",
+      "position": [
+       44.194174,
+       83,
+       44.194174
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Washer M16<1>",
+      "position": [
+       44.194174,
+       37,
+       44.194174
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex nut M16<1>",
+      "position": [
+       44.194174,
+       24.2,
+       44.194174
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex bolt M16×65<2>",
+      "position": [
+       -44.194174,
+       83,
+       44.194174
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Washer M16<2>",
+      "position": [
+       -44.194174,
+       37,
+       44.194174
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex nut M16<2>",
+      "position": [
+       -44.194174,
+       24.2,
+       44.194174
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex bolt M16×65<3>",
+      "position": [
+       -44.194174,
+       83,
+       -44.194174
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Washer M16<3>",
+      "position": [
+       -44.194174,
+       37,
+       -44.194174
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex nut M16<3>",
+      "position": [
+       -44.194174,
+       24.2,
+       -44.194174
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex bolt M16×65<4>",
+      "position": [
+       44.194174,
+       83,
+       -44.194174
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Washer M16<4>",
+      "position": [
+       44.194174,
+       37,
+       -44.194174
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex nut M16<4>",
+      "position": [
+       44.194174,
+       24.2,
+       -44.194174
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     }
+    ],
+    "failedMates": 0,
+    "box": [
+     [
+      -82.5,
+      -150,
+      -82.5
+     ],
+     [
+      82.5,
+      273,
+      82.5
+     ]
+    ]
+   }
+  },
+  "drawings": {}
+ },
+ "asmPlanetary": {
+  "parts": {
+   "Carrier (fixed)#0": {
+    "volume": 190569.815307,
+    "area": 44634.019434,
+    "box": [
+     [
+      -65,
+      -30,
+      -65
+     ],
+     [
+      65,
+      16,
+      65
+     ]
+    ],
+    "failed": []
+   },
+   "Sun gear shaft (12 T)#1": {
+    "volume": 16316.527848,
+    "area": 6283.979866,
+    "box": [
+     [
+      -14.149052,
+      -50,
+      -14.149052
+     ],
+     [
+      14.149052,
+      16,
+      14.149052
+     ]
+    ],
+    "failed": []
+   },
+   "Planet gear (12 T)#2": {
+    "volume": 5746.813201,
+    "area": 3976.248552,
+    "box": [
+     [
+      -14.149052,
+      0,
+      -14.149052
+     ],
+     [
+      14.149052,
+      16,
+      14.149052
+     ]
+    ],
+    "failed": []
+   },
+   "Ring gear (36 T) · output#3": {
+    "volume": 124352.65459,
+    "area": 35722.189197,
+    "box": [
+     [
+      -50,
+      0,
+      -50
+     ],
+     [
+      50,
+      70,
+      50
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {
+   "Planetary gear set#0": {
+    "built": [
+     {
+      "name": "Carrier (fixed)<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Sun gear shaft (12 T)<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Ring gear (36 T) · output<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Planet gear (12 T)<1>",
+      "position": [
+       24,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0.991445,
+       0,
+       0.130526
+      ]
+     },
+     {
+      "name": "Planet gear (12 T)<2>",
+      "position": [
+       -12,
+       0,
+       -20.78461
+      ],
+      "rotation": [
+       0,
+       0.608761,
+       0,
+       -0.793353
+      ]
+     },
+     {
+      "name": "Planet gear (12 T)<3>",
+      "position": [
+       -12,
+       0,
+       20.78461
+      ],
+      "rotation": [
+       0,
+       -0.382683,
+       0,
+       -0.92388
+      ]
+     }
+    ],
+    "resolved": [
+     {
+      "name": "Carrier (fixed)<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Sun gear shaft (12 T)<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Ring gear (36 T) · output<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Planet gear (12 T)<1>",
+      "position": [
+       24,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0.991445,
+       0,
+       0.130526
+      ]
+     },
+     {
+      "name": "Planet gear (12 T)<2>",
+      "position": [
+       -12,
+       0,
+       -20.78461
+      ],
+      "rotation": [
+       0,
+       0.608761,
+       0,
+       -0.793353
+      ]
+     },
+     {
+      "name": "Planet gear (12 T)<3>",
+      "position": [
+       -12,
+       0,
+       20.78461
+      ],
+      "rotation": [
+       0,
+       -0.382683,
+       0,
+       -0.92388
+      ]
+     }
+    ],
+    "failedMates": 0,
+    "box": [
+     [
+      -65,
+      -50,
+      -65
+     ],
+     [
+      65,
+      70,
+      65
+     ]
+    ]
+   }
+  },
+  "drawings": {}
+ },
+ "asmRobot": {
+  "parts": {
+   "Robot base#0": {
+    "volume": 2760316.525541,
+    "area": 165041.0378,
+    "box": [
+     [
+      -110,
+      0,
+      -110
+     ],
+     [
+      110,
+      140,
+      110
+     ]
+    ],
+    "failed": []
+   },
+   "Waist (J1)#1": {
+    "volume": 2685394.555632,
+    "area": 172081.148266,
+    "box": [
+     [
+      -80,
+      -30,
+      -80
+     ],
+     [
+      80,
+      240,
+      80
+     ]
+    ],
+    "failed": []
+   },
+   "Upper arm (J2)#2": {
+    "volume": 1506504.957044,
+    "area": 177061.927183,
+    "box": [
+     [
+      -60,
+      -60,
+      -40
+     ],
+     [
+      60,
+      450,
+      50
+     ]
+    ],
+    "failed": []
+   },
+   "Forearm (J3)#3": {
+    "volume": 1727174.800925,
+    "area": 115575.1164,
+    "box": [
+     [
+      -50,
+      -50,
+      -40
+     ],
+     [
+      300,
+      75,
+      80
+     ]
+    ],
+    "failed": []
+   },
+   "Wrist yoke (J4)#4": {
+    "volume": 278833.584707,
+    "area": 39405.733959,
+    "box": [
+     [
+      -30,
+      -35,
+      -35
+     ],
+     [
+      110,
+      35,
+      35
+     ]
+    ],
+    "failed": []
+   },
+   "Wrist pitch (J5)#5": {
+    "volume": 136696.684212,
+    "area": 20352.933821,
+    "box": [
+     [
+      -28,
+      -28,
+      -32
+     ],
+     [
+      70,
+      28,
+      32
+     ]
+    ],
+    "failed": []
+   },
+   "Tool flange (J6)#6": {
+    "volume": 38350.114715,
+    "area": 11508.271961,
+    "box": [
+     [
+      -20,
+      -31.5,
+      -31.5
+     ],
+     [
+      12,
+      31.5,
+      31.5
+     ]
+    ],
+    "failed": []
+   },
+   "Gripper body#7": {
+    "volume": 172811.162361,
+    "area": 22963.149187,
+    "box": [
+     [
+      -6,
+      -38,
+      -31.5
+     ],
+     [
+      58,
+      38,
+      31.5
+     ]
+    ],
+    "failed": []
+   },
+   "Gripper finger#8": {
+    "volume": 10849.222222,
+    "area": 4325.567338,
+    "box": [
+     [
+      0,
+      0,
+      -10
+     ],
+     [
+      70,
+      12,
+      10
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {
+   "Two-finger gripper#0": {
+    "built": [
+     {
+      "name": "Gripper body<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Gripper finger<1>",
+      "position": [
+       52,
+       15,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Gripper finger<2>",
+      "position": [
+       52,
+       -15,
+       0
+      ],
+      "rotation": [
+       1,
+       0,
+       0,
+       0
+      ]
+     }
+    ],
+    "resolved": [
+     {
+      "name": "Gripper body<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Gripper finger<1>",
+      "position": [
+       52,
+       15,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Gripper finger<2>",
+      "position": [
+       52,
+       -15,
+       0
+      ],
+      "rotation": [
+       1,
+       0,
+       0,
+       0
+      ]
+     }
+    ],
+    "failedMates": 0,
+    "box": [
+     [
+      -6,
+      -38,
+      -31.5
+     ],
+     [
+      122,
+      38,
+      31.5
+     ]
+    ]
+   },
+   "Six-axis articulated robot#1": {
+    "built": [
+     {
+      "name": "Robot base<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Waist (J1)<1>",
+      "position": [
+       0,
+       140,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Upper arm (J2)<1>",
+      "position": [
+       0,
+       320,
+       62
+      ],
+      "rotation": [
+       0,
+       0,
+       -0.173648,
+       0.984808
+      ]
+     },
+     {
+      "name": "Forearm (J3)<1>",
+      "position": [
+       136.808057,
+       695.877048,
+       112
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Wrist yoke (J4)<1>",
+      "position": [
+       436.808057,
+       695.877048,
+       152
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Wrist pitch (J5)<1>",
+      "position": [
+       516.808057,
+       695.877048,
+       152
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Tool flange (J6)<1>",
+      "position": [
+       586.808057,
+       695.877048,
+       152
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Two-finger gripper<1>",
+      "position": [
+       598.808057,
+       695.877048,
+       152
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     }
+    ],
+    "resolved": [
+     {
+      "name": "Robot base<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Waist (J1)<1>",
+      "position": [
+       0,
+       140,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Upper arm (J2)<1>",
+      "position": [
+       0,
+       320,
+       62
+      ],
+      "rotation": [
+       0,
+       0,
+       -0.173648,
+       0.984808
+      ]
+     },
+     {
+      "name": "Forearm (J3)<1>",
+      "position": [
+       136.808057,
+       695.877048,
+       112
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Wrist yoke (J4)<1>",
+      "position": [
+       436.808057,
+       695.877048,
+       152
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Wrist pitch (J5)<1>",
+      "position": [
+       516.808057,
+       695.877048,
+       152
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Tool flange (J6)<1>",
+      "position": [
+       586.808057,
+       695.877048,
+       152
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Two-finger gripper<1>",
+      "position": [
+       598.808057,
+       695.877048,
+       152
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     }
+    ],
+    "failedMates": 0,
+    "box": [
+     [
+      -110,
+      0,
+      -110
+     ],
+     [
+      720.808057,
+      770.877048,
+      192
+     ]
+    ]
+   }
+  },
+  "drawings": {}
+ },
+ "asmCart": {
+  "parts": {
+   "Cart deck#0": {
+    "volume": 4282708.142589,
+    "area": 519781.629273,
+    "box": [
+     [
+      -300,
+      0,
+      -200
+     ],
+     [
+      300,
+      18,
+      200
+     ]
+    ],
+    "failed": []
+   },
+   "Handle frame (welded)#1": {
+    "volume": 264148.042492,
+    "area": 264549.899753,
+    "box": [
+     [
+      -12.7,
+      0,
+      -162.7
+     ],
+     [
+      12.7,
+      762.7,
+      162.7
+     ]
+    ],
+    "failed": []
+   },
+   "Caster bracket#2": {
+    "volume": 28558.424567,
+    "area": 19279.477271,
+    "box": [
+     [
+      -30,
+      -75,
+      -30
+     ],
+     [
+      30,
+      0,
+      30
+     ]
+    ],
+    "failed": []
+   },
+   "Wheel rim#3": {
+    "volume": 37146.191536,
+    "area": 14784.335028,
+    "box": [
+     [
+      -28,
+      -16,
+      -28
+     ],
+     [
+      28,
+      16,
+      28
+     ]
+    ],
+    "failed": []
+   },
+   "Rubber tyre#4": {
+    "volume": 45605.453355,
+    "area": 13397.595227,
+    "box": [
+     [
+      -38,
+      -12,
+      -38
+     ],
+     [
+      38,
+      12,
+      38
+     ]
+    ],
+    "failed": []
+   },
+   "Axle bolt M10×50#5": {
+    "volume": 5336.25133,
+    "area": 2327.871202,
+    "box": [
+     [
+      -9.237604,
+      -50,
+      -8
+     ],
+     [
+      9.237604,
+      6.5,
+      8
+     ]
+    ],
+    "failed": []
+   },
+   "Hex nut M10#6": {
+    "volume": 1105.130448,
+    "area": 916.699672,
+    "box": [
+     [
+      -9.237604,
+      0,
+      -8
+     ],
+     [
+      9.237604,
+      8,
+      8
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {
+   "Caster Ø76#0": {
+    "built": [
+     {
+      "name": "Caster bracket<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Wheel rim<1>",
+      "position": [
+       0,
+       -55,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       -0.707107,
+       0.707107
+      ]
+     },
+     {
+      "name": "Rubber tyre<1>",
+      "position": [
+       0,
+       -55,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       -0.707107,
+       0.707107
+      ]
+     },
+     {
+      "name": "Axle bolt M10×50<1>",
+      "position": [
+       19,
+       -55,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       -0.707107,
+       0.707107
+      ]
+     },
+     {
+      "name": "Hex nut M10<1>",
+      "position": [
+       -19,
+       -55,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0.707107,
+       0.707107
+      ]
+     }
+    ],
+    "resolved": [
+     {
+      "name": "Caster bracket<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Wheel rim<1>",
+      "position": [
+       0,
+       -55,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       -0.707107,
+       0.707107
+      ]
+     },
+     {
+      "name": "Rubber tyre<1>",
+      "position": [
+       0,
+       -55,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       -0.707107,
+       0.707107
+      ]
+     },
+     {
+      "name": "Axle bolt M10×50<1>",
+      "position": [
+       19,
+       -55,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       -0.707107,
+       0.707107
+      ]
+     },
+     {
+      "name": "Hex nut M10<1>",
+      "position": [
+       -19,
+       -55,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0.707107,
+       0.707107
+      ]
+     }
+    ],
+    "failedMates": 0,
+    "box": [
+     [
+      -31,
+      -93,
+      -38
+     ],
+     [
+      30,
+      0,
+      38
+     ]
+    ]
+   },
+   "Utility cart#1": {
+    "built": [
+     {
+      "name": "Cart deck<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Caster Ø76<1>",
+      "position": [
+       -250,
+       0,
+       -150
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Caster Ø76<2>",
+      "position": [
+       -250,
+       0,
+       150
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Caster Ø76<3>",
+      "position": [
+       250,
+       0,
+       -150
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Caster Ø76<4>",
+      "position": [
+       250,
+       0,
+       150
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Handle frame (welded)<1>",
+      "position": [
+       -280,
+       8,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     }
+    ],
+    "resolved": [
+     {
+      "name": "Cart deck<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Caster Ø76<1>",
+      "position": [
+       -250,
+       0,
+       -150
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Caster Ø76<2>",
+      "position": [
+       -250,
+       0,
+       150
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Caster Ø76<3>",
+      "position": [
+       250,
+       0,
+       -150
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Caster Ø76<4>",
+      "position": [
+       250,
+       0,
+       150
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Handle frame (welded)<1>",
+      "position": [
+       -280,
+       8,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     }
+    ],
+    "failedMates": 0,
+    "box": [
+     [
+      -300,
+      -93,
+      -200
+     ],
+     [
+      300,
+      770.7,
+      200
+     ]
+    ]
+   }
+  },
+  "drawings": {}
+ },
+ "asmShaftDrawing": {
+  "parts": {
+   "Transmission shaft#0": {
+    "volume": 122475.279474,
+    "area": 22168.645529,
+    "box": [
+     [
+      0,
+      -18,
+      -18
+     ],
+     [
+      236,
+      18,
+      18
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {
+   "Transmission shaft - Sheet1#0": {
+    "v-front": {
+     "x0": -0.000001,
+     "y0": -18.000001,
+     "x1": 236.000001,
+     "y1": 18.000001,
+     "lines": 55
+    },
+    "v-top": {
+     "x0": -0.000001,
+     "y0": -18.000001,
+     "x1": 236.000001,
+     "y1": 18.000001,
+     "lines": 59
+    },
+    "v-right": {
+     "x0": -18.000001,
+     "y0": -18.000001,
+     "x1": 18.000001,
+     "y1": 18.000001,
+     "lines": 9
+    },
+    "v-iso": {
+     "x0": -6.363962,
+     "y0": -105.979929,
+     "x1": 173.948269,
+     "y1": 8.720462,
+     "lines": 66
+    },
+    "v-sec": {
+     "x0": -16.000001,
+     "y0": -16.000001,
+     "x1": 16.000001,
+     "y1": 16.000001,
+     "lines": 9
+    }
+   }
+  }
+ },
+ "asmHousingDrawing": {
+  "parts": {
+   "Flanged bearing housing#0": {
+    "volume": 290487.040381,
+    "area": 54083.786247,
+    "box": [
+     [
+      -65,
+      0,
+      -65
+     ],
+     [
+      65,
+      60,
+      65
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {
+   "Flanged bearing housing - Sheet1#0": {
+    "v-front": {
+     "x0": -65.000001,
+     "y0": -0.000001,
+     "x1": 65.000001,
+     "y1": 60.000001,
+     "lines": 37
+    },
+    "v-top": {
+     "x0": -65.000001,
+     "y0": -65.000001,
+     "x1": 65.000001,
+     "y1": 65.000001,
+     "lines": 24
+    },
+    "v-iso": {
+     "x0": -65.000001,
+     "y0": -30.12977,
+     "x1": 65.000001,
+     "y1": 74.393208,
+     "lines": 50
+    },
+    "v-sec": {
+     "x0": -65.000001,
+     "y0": -0.000001,
+     "x1": 65.000001,
+     "y1": 60.000001,
+     "lines": 68
+    }
+   }
+  }
+ },
+ "asmRobotDrawing": {
+  "parts": {
+   "Robot base#0": {
+    "volume": 2760316.525541,
+    "area": 165041.0378,
+    "box": [
+     [
+      -110,
+      0,
+      -110
+     ],
+     [
+      110,
+      140,
+      110
+     ]
+    ],
+    "failed": []
+   },
+   "Waist (J1)#1": {
+    "volume": 2685394.555632,
+    "area": 172081.148266,
+    "box": [
+     [
+      -80,
+      -30,
+      -80
+     ],
+     [
+      80,
+      240,
+      80
+     ]
+    ],
+    "failed": []
+   },
+   "Upper arm (J2)#2": {
+    "volume": 1506504.957044,
+    "area": 177061.927183,
+    "box": [
+     [
+      -60,
+      -60,
+      -40
+     ],
+     [
+      60,
+      450,
+      50
+     ]
+    ],
+    "failed": []
+   },
+   "Forearm (J3)#3": {
+    "volume": 1727174.800925,
+    "area": 115575.1164,
+    "box": [
+     [
+      -50,
+      -50,
+      -40
+     ],
+     [
+      300,
+      75,
+      80
+     ]
+    ],
+    "failed": []
+   },
+   "Wrist yoke (J4)#4": {
+    "volume": 278833.584707,
+    "area": 39405.733959,
+    "box": [
+     [
+      -30,
+      -35,
+      -35
+     ],
+     [
+      110,
+      35,
+      35
+     ]
+    ],
+    "failed": []
+   },
+   "Wrist pitch (J5)#5": {
+    "volume": 136696.684212,
+    "area": 20352.933821,
+    "box": [
+     [
+      -28,
+      -28,
+      -32
+     ],
+     [
+      70,
+      28,
+      32
+     ]
+    ],
+    "failed": []
+   },
+   "Tool flange (J6)#6": {
+    "volume": 38350.114715,
+    "area": 11508.271961,
+    "box": [
+     [
+      -20,
+      -31.5,
+      -31.5
+     ],
+     [
+      12,
+      31.5,
+      31.5
+     ]
+    ],
+    "failed": []
+   },
+   "Gripper body#7": {
+    "volume": 172811.162361,
+    "area": 22963.149187,
+    "box": [
+     [
+      -6,
+      -38,
+      -31.5
+     ],
+     [
+      58,
+      38,
+      31.5
+     ]
+    ],
+    "failed": []
+   },
+   "Gripper finger#8": {
+    "volume": 10849.222222,
+    "area": 4325.567338,
+    "box": [
+     [
+      0,
+      0,
+      -10
+     ],
+     [
+      70,
+      12,
+      10
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {
+   "Two-finger gripper#0": {
+    "built": [
+     {
+      "name": "Gripper body<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Gripper finger<1>",
+      "position": [
+       52,
+       15,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Gripper finger<2>",
+      "position": [
+       52,
+       -15,
+       0
+      ],
+      "rotation": [
+       1,
+       0,
+       0,
+       0
+      ]
+     }
+    ],
+    "resolved": [
+     {
+      "name": "Gripper body<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Gripper finger<1>",
+      "position": [
+       52,
+       15,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Gripper finger<2>",
+      "position": [
+       52,
+       -15,
+       0
+      ],
+      "rotation": [
+       1,
+       0,
+       0,
+       0
+      ]
+     }
+    ],
+    "failedMates": 0,
+    "box": [
+     [
+      -6,
+      -38,
+      -31.5
+     ],
+     [
+      122,
+      38,
+      31.5
+     ]
+    ]
+   },
+   "Six-axis articulated robot#1": {
+    "built": [
+     {
+      "name": "Robot base<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Waist (J1)<1>",
+      "position": [
+       0,
+       140,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Upper arm (J2)<1>",
+      "position": [
+       0,
+       320,
+       62
+      ],
+      "rotation": [
+       0,
+       0,
+       -0.173648,
+       0.984808
+      ]
+     },
+     {
+      "name": "Forearm (J3)<1>",
+      "position": [
+       136.808057,
+       695.877048,
+       112
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Wrist yoke (J4)<1>",
+      "position": [
+       436.808057,
+       695.877048,
+       152
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Wrist pitch (J5)<1>",
+      "position": [
+       516.808057,
+       695.877048,
+       152
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Tool flange (J6)<1>",
+      "position": [
+       586.808057,
+       695.877048,
+       152
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Two-finger gripper<1>",
+      "position": [
+       598.808057,
+       695.877048,
+       152
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     }
+    ],
+    "resolved": [
+     {
+      "name": "Robot base<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Waist (J1)<1>",
+      "position": [
+       0,
+       140,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Upper arm (J2)<1>",
+      "position": [
+       0,
+       320,
+       62
+      ],
+      "rotation": [
+       0,
+       0,
+       -0.173648,
+       0.984808
+      ]
+     },
+     {
+      "name": "Forearm (J3)<1>",
+      "position": [
+       136.808057,
+       695.877048,
+       112
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Wrist yoke (J4)<1>",
+      "position": [
+       436.808057,
+       695.877048,
+       152
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Wrist pitch (J5)<1>",
+      "position": [
+       516.808057,
+       695.877048,
+       152
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Tool flange (J6)<1>",
+      "position": [
+       586.808057,
+       695.877048,
+       152
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Two-finger gripper<1>",
+      "position": [
+       598.808057,
+       695.877048,
+       152
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     }
+    ],
+    "failedMates": 0,
+    "box": [
+     [
+      -110,
+      0,
+      -110
+     ],
+     [
+      720.808057,
+      770.877048,
+      192
+     ]
+    ]
+   }
+  },
+  "drawings": {
+   "Six-axis articulated robot - Assembly#0": {
+    "v-front": {
+     "x0": -110.000001,
+     "y0": -0.000001,
+     "x1": 720.808058,
+     "y1": 770.877049,
+     "lines": 92
+    },
+    "v-iso": {
+     "x0": -114.5513,
+     "y0": -63.508531,
+     "x1": 409.279103,
+     "y1": 535.179463,
+     "lines": 192
+    }
+   }
+  }
+ },
+ "asmViceDrawing": {
+  "parts": {
+   "Vice body#0": {
+    "volume": 660525.107077,
+    "area": 79543.828497,
+    "box": [
+     [
+      -110,
+      0,
+      -45
+     ],
+     [
+      110,
+      80,
+      45
+     ]
+    ],
+    "failed": []
+   },
+   "Moving jaw#1": {
+    "volume": 228913.190073,
+    "area": 29549.039104,
+    "box": [
+     [
+      -25,
+      16,
+      -45
+     ],
+     [
+      25,
+      80,
+      45
+     ]
+    ],
+    "failed": []
+   },
+   "Jaw plate (serrated)#2": {
+    "volume": 14934.749745,
+    "area": 7400.325731,
+    "box": [
+     [
+      0,
+      -15,
+      -45
+     ],
+     [
+      6,
+      15,
+      45
+     ]
+    ],
+    "failed": []
+   },
+   "Lead screw Tr16×4#3": {
+    "volume": 39860.379972,
+    "area": 11006.471363,
+    "box": [
+     [
+      -15,
+      -20,
+      -15
+     ],
+     [
+      15,
+      140,
+      15
+     ]
+    ],
+    "failed": []
+   },
+   "Handle bar#4": {
+    "volume": 15425.423788,
+    "area": 6036.250544,
+    "box": [
+     [
+      -8,
+      0,
+      -8
+     ],
+     [
+      8,
+      160,
+      8
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {
+   "Machine vice#0": {
+    "built": [
+     {
+      "name": "Vice body<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Moving jaw<1>",
+      "position": [
+       10,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Lead screw Tr16×4<1>",
+      "position": [
+       -110,
+       60,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       -0.707107,
+       0.707107
+      ]
+     },
+     {
+      "name": "Jaw plate (serrated)<1>",
+      "position": [
+       35,
+       65,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Jaw plate (serrated)<2>",
+      "position": [
+       70,
+       65,
+       0
+      ],
+      "rotation": [
+       0,
+       1,
+       0,
+       0
+      ]
+     },
+     {
+      "name": "Handle bar<1>",
+      "position": [
+       -120,
+       60,
+       -50
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     }
+    ],
+    "resolved": [
+     {
+      "name": "Vice body<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Moving jaw<1>",
+      "position": [
+       10,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Lead screw Tr16×4<1>",
+      "position": [
+       -110,
+       60,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       -0.707107,
+       0.707107
+      ]
+     },
+     {
+      "name": "Jaw plate (serrated)<1>",
+      "position": [
+       35,
+       65,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Jaw plate (serrated)<2>",
+      "position": [
+       70,
+       65,
+       0
+      ],
+      "rotation": [
+       0,
+       1,
+       0,
+       0
+      ]
+     },
+     {
+      "name": "Handle bar<1>",
+      "position": [
+       -120,
+       60,
+       -50
+      ],
+      "rotation": [
+       0.707107,
+       0,
+       0,
+       0.707107
+      ]
+     }
+    ],
+    "failedMates": 0,
+    "box": [
+     [
+      -130,
+      0,
+      -50
+     ],
+     [
+      110,
+      80,
+      110
+     ]
+    ]
+   }
+  },
+  "drawings": {
+   "Machine vice - Assembly#0": {
+    "v-front": {
+     "x0": -130.000001,
+     "y0": -0.000001,
+     "x1": 110.000001,
+     "y1": 80.000001,
+     "lines": 60
+    },
+    "v-top": {
+     "x0": -130.000001,
+     "y0": -110.000005,
+     "x1": 110.000001,
+     "y1": 50.000015,
+     "lines": 44
+    },
+    "v-iso": {
+     "x0": -167.483686,
+     "y0": -61.365316,
+     "x1": 106.287844,
+     "y1": 125.08029,
+     "lines": 160
+    },
+    "v-sec": {
+     "x0": -130.000001,
+     "y0": -0.000001,
+     "x1": 110.000001,
+     "y1": 80.000001,
+     "lines": 35
+    }
+   }
+  }
+ },
+ "advSpring": {
+  "parts": {
+   "Compression spring#0": {
+    "volume": 4521.653148,
+    "area": 6175.566119,
+    "box": [
+     [
+      -16.498906,
+      -1.5,
+      -16.498948
+     ],
+     [
+      16.50001,
+      52.459039,
+      16.498949
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "advBoltNut": {
+  "parts": {
+   "Clamp plate#0": {
+    "volume": 12000.107361,
+    "area": 5965.696644,
+    "box": [
+     [
+      -30,
+      0,
+      -20
+     ],
+     [
+      30,
+      6,
+      20
+     ]
+    ],
+    "failed": []
+   },
+   "Hex bolt M10×25#1": {
+    "volume": 3160.373815,
+    "area": 1749.983752,
+    "box": [
+     [
+      -9.237604,
+      -25.324997,
+      -8
+     ],
+     [
+      9.237604,
+      6.4,
+      8
+     ]
+    ],
+    "failed": []
+   },
+   "Plain washer M10#2": {
+    "volume": 449.539918,
+    "area": 624.457527,
+    "box": [
+     [
+      -10,
+      0,
+      -10
+     ],
+     [
+      10,
+      2,
+      10
+     ]
+    ],
+    "failed": []
+   },
+   "Hex nut M10#3": {
+    "volume": 1203.03126,
+    "area": 1039.555894,
+    "box": [
+     [
+      -9.237604,
+      -0.325002,
+      -8
+     ],
+     [
+      9.237604,
+      8,
+      8
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {
+   "Bolt and nut joint (M10 threads)#0": {
+    "built": [
+     {
+      "name": "Clamp plate<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex bolt M10×25<1>",
+      "position": [
+       0,
+       6,
+       0
+      ],
+      "rotation": [
+       0,
+       -0.000001,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Plain washer M10<1>",
+      "position": [
+       0,
+       -2,
+       0
+      ],
+      "rotation": [
+       0,
+       -0.000002,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex nut M10<1>",
+      "position": [
+       0,
+       -10,
+       0
+      ],
+      "rotation": [
+       0,
+       0.17373,
+       0,
+       0.984793
+      ]
+     }
+    ],
+    "resolved": [
+     {
+      "name": "Clamp plate<1>",
+      "position": [
+       0,
+       0,
+       0
+      ],
+      "rotation": [
+       0,
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex bolt M10×25<1>",
+      "position": [
+       0,
+       6,
+       0
+      ],
+      "rotation": [
+       0,
+       -0.000001,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Plain washer M10<1>",
+      "position": [
+       0,
+       -2,
+       0
+      ],
+      "rotation": [
+       0,
+       -0.000002,
+       0,
+       1
+      ]
+     },
+     {
+      "name": "Hex nut M10<1>",
+      "position": [
+       0,
+       -10,
+       0
+      ],
+      "rotation": [
+       0,
+       0.17373,
+       0,
+       0.984793
+      ]
+     }
+    ],
+    "failedMates": 0,
+    "box": [
+     [
+      -30,
+      -19.324997,
+      -20
+     ],
+     [
+      30,
+      12.4,
+      20
+     ]
+    ]
+   }
+  },
+  "drawings": {}
+ },
+ "advBikeFrame": {
+  "parts": {
+   "Bicycle frame#0": {
+    "volume": 538813.585636,
+    "area": 631627.414263,
+    "box": [
+     [
+      -429,
+      -21,
+      -71.459625
+     ],
+     [
+      491.496087,
+      585.835359,
+      71.459625
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "advMachineStand": {
+  "parts": {
+   "Welded machine stand#0": {
+    "volume": 10055325.363998,
+    "area": 3807909.919599,
+    "box": [
+     [
+      -425,
+      -10,
+      -275
+     ],
+     [
+      425,
+      742,
+      275
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "advSheetEnclosure": {
+  "parts": {
+   "Sheet metal chassis#0": {
+    "volume": 80587.732079,
+    "area": 111894.514044,
+    "box": [
+     [
+      -123.5,
+      0,
+      -83
+     ],
+     [
+      83,
+      48,
+      83
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "advMoldedCover": {
+  "parts": {
+   "Instrument cover#0": {
+    "volume": 567423.81553,
+    "area": 124270.432215,
+    "box": [
+     [
+      -62,
+      -57,
+      -44
+     ],
+     [
+      62,
+      85,
+      44
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "advCarBody": {
+  "parts": {
+   "Car body shell#0": {
+    "volume": 185298.167003,
+    "area": 193404.760011,
+    "box": [
+     [
+      -215,
+      26.680268,
+      -87.667126
+     ],
+     [
+      215,
+      135.385042,
+      87.667126
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "advWineGlass": {
+  "parts": {
+   "Wine glass#0": {
+    "volume": 62212.134423,
+    "area": 66422.482972,
+    "box": [
+     [
+      -43.036891,
+      0,
+      -43.036891
+     ],
+     [
+      43.036891,
+      200,
+      43.036891
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "advDuctBend": {
+  "parts": {
+   "Duct bend#0": {
+    "volume": 209728.306951,
+    "area": 101178.41436,
+    "box": [
+     [
+      -45,
+      -10,
+      -45
+     ],
+     [
+      205.14522,
+      205,
+      125
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "advKnob": {
+  "parts": {
+   "Volume knob#0": {
+    "volume": 51989.834038,
+    "area": 8704.438583,
+    "box": [
+     [
+      -25,
+      0,
+      -25
+     ],
+     [
+      25,
+      29,
+      25.5
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "advParamBracket": {
+  "parts": {
+   "Parametric bracket#0": {
+    "volume": 106193.09242,
+    "area": 32359.914731,
+    "box": [
+     [
+      0,
+      0,
+      -40
+     ],
+     [
+      100,
+      70,
+      40
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "advWireHanger": {
+  "parts": {
+   "Wire coat hanger#0": {
+    "volume": 21473.933436,
+    "area": 17331.289151,
+    "box": [
+     [
+      -205,
+      -4.5,
+      -5.900019
+     ],
+     [
+      205,
+      208.430085,
+      5.900019
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "advTurbineBlade": {
+  "parts": {
+   "Turbine blade#0": {
+    "volume": 48777.933582,
+    "area": 16366.331145,
+    "box": [
+     [
+      -26,
+      -30,
+      -22
+     ],
+     [
+      26,
+      95,
+      22
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "advMoldInsert": {
+  "parts": {
+   "Soap bar#0": {
+    "volume": 21595.444367,
+    "area": 5820.024909,
+    "box": [
+     [
+      -42,
+      0,
+      -12
+     ],
+     [
+      42,
+      12,
+      12
+     ]
+    ],
+    "failed": []
+   },
+   "Cavity insert#1": {
+    "volume": 337604.430526,
+    "area": 46926.147693,
+    "box": [
+     [
+      -60,
+      -40,
+      -40
+     ],
+     [
+      60,
+      0,
+      40
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ },
+ "advBottleCap": {
+  "parts": {
+   "Bottle cap#0": {
+    "volume": 4844.981407,
+    "area": 5180.326224,
+    "box": [
+     [
+      -16,
+      -0.15,
+      -16
+     ],
+     [
+      16,
+      16,
+      16
+     ]
+    ],
+    "failed": []
+   }
+  },
+  "assemblies": {},
+  "drawings": {}
+ }
+}

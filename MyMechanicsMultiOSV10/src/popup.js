@@ -11,6 +11,7 @@ import {
 } from './domain/settings.js';
 import { getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
+import { flagFor } from './flags.js';
 import * as native from './platform/native.js';
 import { POPUPS, popupParams } from './platform/popups.js';
 import {
@@ -96,7 +97,7 @@ function update(patch) {
   render();
 }
 
-window.addEventListener('error', (event) => action('report-error', { message: String(event.error?.message ?? event.message), detail: String(event.error?.stack ?? ''), context: `popup-${kind}` }));
+window.addEventListener('error', (event) => { if (/^ResizeObserver loop/.test(String(event.message ?? ''))) return; action('report-error', { message: String(event.error?.message ?? event.message), detail: String(event.error?.stack ?? ''), context: `popup-${kind}` }); });
 window.addEventListener('unhandledrejection', (event) => action('report-error', { message: native.errorText(event.reason), detail: String(event.reason?.stack ?? ''), context: `popup-${kind}` }));
 
 // ───────────────────────── frame
@@ -136,8 +137,9 @@ const numberField = (key, value, min, max, step, unit, label) => stepperHtml({
 
 const toggle = (key, label, glyph, checked = s()[key], attr = 'data-toggle') => row(glyph, label, `<label class="switch-wrap" title="${escapeHtml(label)}"><input type="checkbox" ${attr}="${key}" ${checked ? 'checked' : ''} aria-label="${escapeHtml(label)}" /><span class="switch" aria-hidden="true"></span></label>`);
 
-const segmented = (key, options, current, attr = 'data-setting') => `<span class="segmented" role="radiogroup">${options.map(([value, label, glyph]) => `
-  <button class="segment ${String(current) === String(value) ? 'active' : ''}" role="radio" aria-checked="${String(current) === String(value)}" ${attr}="${key}" data-value="${escapeHtml(value)}" title="${escapeHtml(label)}">${glyph ? icon(glyph) : ''}${escapeHtml(label)}</button>`).join('')}</span>`;
+// options: [value, label, icon name?, ready-made HTML (e.g. a flag)?]
+const segmented = (key, options, current, attr = 'data-setting') => `<span class="segmented" role="radiogroup">${options.map(([value, label, glyph, html]) => `
+  <button class="segment ${String(current) === String(value) ? 'active' : ''}" role="radio" aria-checked="${String(current) === String(value)}" ${attr}="${key}" data-value="${escapeHtml(value)}" title="${escapeHtml(label)}">${html ? `<span class="flag-slot">${html}</span>` : glyph ? icon(glyph) : ''}${escapeHtml(label)}</button>`).join('')}</span>`;
 
 const select = (attrName, key, options, current, label, extra = '') => `<select ${attrName}="${key}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" ${extra}>${options.map(([value, text, glyph]) => `<option value="${escapeHtml(value)}"${glyph ? ` data-icon="${glyph}"` : ''} ${String(current) === String(value) ? 'selected' : ''}>${escapeHtml(text)}</option>`).join('')}</select>`;
 
@@ -259,7 +261,7 @@ function renderSettings() {
 
 function settingsGeneral() {
   return [
-    row('globe', t('settings.language'), segmented('language', [['ko', '한국어'], ['en', 'English']], s().language)),
+    row('globe', t('settings.language'), segmented('language', [['ko', '한국어', null, flagFor('ko')], ['en', 'English', null, flagFor('en')]], s().language)),
     toggle('restoreSession', t('settings.restoreSession'), 'refresh'),
     toggle('confirmDelete', t('settings.confirmDelete'), 'trash'),
     toggle('statusClock', t('settings.statusClock'), 'clock'),
@@ -655,7 +657,7 @@ function menuPanelHtml(items, level, label) {
   return `<div class="popup-menu" role="menu" data-level="${level}" aria-label="${escapeHtml(label ?? '')}">${items.map((item, index) => (item.separator
     ? '<div class="menu-sep" role="separator"></div>'
     : `<button class="menu-item ${item.danger ? 'danger' : ''} ${item.submenu ? 'has-sub' : ''}" role="menuitem" data-index="${index}" data-id="${escapeHtml(item.id)}" ${item.submenu ? 'aria-haspopup="menu" aria-expanded="false"' : ''} ${item.disabled ? 'disabled aria-disabled="true"' : ''} title="${escapeHtml(item.label)}">
-        <span class="menu-icon">${icon(item.icon)}</span>
+        <span class="menu-icon">${item.flag ? flagFor(item.flag) : icon(item.icon)}</span>
         <span class="menu-label">${escapeHtml(item.label)}</span>
         <span class="menu-key">${escapeHtml(item.shortcut ?? '')}</span>
         <span class="menu-check">${item.submenu ? icon('chevronRight') : item.checked ? icon('check') : ''}</span>

@@ -1,0 +1,39 @@
+/* Standard parts library, routing and the photo render view (app-std.js, ui/pm-std.js). */
+.std-cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 4px; }
+.std-cat { display: flex; align-items: center; gap: 5px; min-width: 0; padding: 5px 6px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: inherit; font: inherit; font-size: 0.84em; cursor: pointer; text-align: left; }
+.std-cat span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.std-cat:hover { border-color: var(--accent); background: var(--hover); }
+.std-cat.active { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); font-weight: 600; }
+.std-items { display: grid; gap: 4px; }
+.std-item { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: inherit; font: inherit; cursor: pointer; text-align: left; }
+.std-item .icon { width: 24px; height: 24px; flex: none; }
+.std-item span { display: grid; min-width: 0; }
+.std-item small { color: var(--muted); font-size: 0.82em; }
+.std-item:hover { border-color: var(--accent); background: var(--hover); }
+.std-item.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+.std-item.active b { color: var(--accent); }
+.std-table-wrap { max-height: 220px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
+.std-table { width: 100%; border-collapse: collapse; font-size: 0.82em; font-variant-numeric: tabular-nums; }
+.std-table th, .std-table td { padding: 3px 6px; border-bottom: 1px solid var(--hairline, var(--border)); text-align: right; white-space: nowrap; }
+.std-table tr:first-child th { position: sticky; top: 0; background: color-mix(in srgb, var(--accent) 8%, var(--surface)); color: var(--muted); font-weight: 600; }
+.std-table th:first-child, .std-table td:first-child { text-align: left; }
+.std-table tr[data-pm-set] { cursor: pointer; }
+.std-table tr[data-pm-set]:hover { background: var(--hover); }
+.std-table tr.active { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.std-table tr.active th { color: var(--accent); }
+.std-summary { margin-top: 6px; }
+.route-colours { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 6px; }
+.route-colour { width: 22px; height: 22px; padding: 0; border: 2px solid var(--border); border-radius: 50%; background: var(--swatch); cursor: pointer; }
+.route-colour.active { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
+.route-swatch { display: inline-block; width: 10px; height: 10px; margin-right: 4px; border-radius: 50%; background: var(--swatch); vertical-align: middle; }
+.route-bom td:nth-child(2), .route-bom td:nth-child(3) { text-align: center; }
+
+/* The render view: over the graphics area, the picture fitted in it. */
+.render-view { position: absolute; inset: 0; z-index: 6; display: grid; grid-template-rows: 1fr auto; background: color-mix(in srgb, var(--bg) 88%, #000); }
+.render-frame { position: relative; display: grid; place-items: center; min-height: 0; padding: 10px; overflow: hidden;
+  background-image: linear-gradient(45deg, rgb(128 128 128 / 0.12) 25%, transparent 25%, transparent 75%, rgb(128 128 128 / 0.12) 75%), linear-gradient(45deg, rgb(128 128 128 / 0.12) 25%, transparent 25%, transparent 75%, rgb(128 128 128 / 0.12) 75%);
+  background-size: 20px 20px; background-position: 0 0, 10px 10px; }
+.render-canvas { max-width: 100%; max-height: 100%; width: auto; height: auto; box-shadow: 0 4px 22px rgb(0 0 0 / 0.35); border-radius: 2px; }
+.render-status { display: flex; align-items: center; gap: 8px; padding: 5px 12px; border-top: 1px solid var(--border); background: var(--panel); font-size: 0.86em; font-variant-numeric: tabular-nums; }
+.render-bar { flex: 1; max-width: 260px; height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+.render-bar b { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 50%, #3ad29f)); }

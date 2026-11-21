@@ -1,0 +1,180 @@
+[
+  {
+    "name": "drw: kernel and a block with a hole",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.ensureKernel(); await m.actions.closeProject({ force: true }); await m.actions.newDocument('part'); const part = m.active(); window.__part = part.id;\n      const P = (id, x, y) => ({ id, type: 'point', x, y });\n      const ents = [{ id: 'O', type: 'point', x: 0, y: 0, fixed: true, origin: true }, P('a', -50, -25), P('b', 50, -25), P('c', 50, 25), P('d', -50, 25), { id: 'l1', type: 'line', p1: 'a', p2: 'b' }, { id: 'l2', type: 'line', p1: 'b', p2: 'c' }, { id: 'l3', type: 'line', p1: 'c', p2: 'd' }, { id: 'l4', type: 'line', p1: 'd', p2: 'a' }, { id: 'hc', type: 'circle', c: 'O', r: 10 }];\n      m.actions.change('op.addFeature', () => { part.features.push({ id: 'sk1', type: 'sketch', name: 'S1', plane: { kind: 'std', name: 'top' }, entities: ents, constraints: [{ id: 'c1', type: 'distance', a: 'l1', value: 100 }, { id: 'c2', type: 'diameter', a: 'hc', value: 20 }] }, { id: 'ex1', type: 'extrude', name: 'E1', sketch: 'sk1', op: 'boss', end: 'blind', depth: 20, reverse: false, end2: 'none', depth2: 10 }); });\n      await new Promise((r) => setTimeout(r, 400)); return String(Math.round(window.__mymechanics.actions.buildPart(part).body ? 1 : 0)); })()",
+    "expect": "^1$"
+  },
+  {
+    "name": "drw: a drawing of it",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.newDrawing(); await new Promise((r) => setTimeout(r, 900)); window.__sheetToClient = (x, y) => { const svg = document.querySelector('.drawing-paper svg'); const p = svg.createSVGPoint(); p.x = x; p.y = y; const q = p.matrixTransform(svg.getScreenCTM()); return [q.x, q.y]; };\n      window.__viewBox = (type) => { const d = m.active(); const v = d.views.find((x) => x.type === type); const r = document.querySelector('.drawing-paper svg [data-view=\"' + v.id + '\"] .view-box'); return { x: Number(r.getAttribute('x')) + 4, y: Number(r.getAttribute('y')) + 4, w: Number(r.getAttribute('width')) - 8, h: Number(r.getAttribute('height')) - 8 }; };\n      return document.querySelectorAll('.drawing-paper svg .view').length; })()",
+    "expect": "^[4-9]$"
+  },
+  {
+    "name": "drw: smart dimension picks the left edge of the top view (vertical 50)",
+    "eval": "(async () => { const m = window.__mymechanics; await m.run('drwSmartDim'); const b = window.__viewBox('top'); window.__pt = window.__sheetToClient(b.x + 0.2, b.y + b.h * 0.3); return m.state.editing?.mode; })()",
+    "expect": "^drwDim$"
+  },
+  {
+    "mouse": [
+      {
+        "type": "mousePressed",
+        "x": "window.__pt[0]",
+        "y": "window.__pt[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__pt[0]",
+        "y": "window.__pt[1]",
+        "button": "left"
+      }
+    ],
+    "wait": 500
+  },
+  {
+    "name": "drw: the dimension is on the sheet",
+    "eval": "(() => { const d = window.__mymechanics.active(); const a = d.annotations.filter((x) => x.kind === 'drwDim'); return a.length + ' ' + a[0]?.dtype + ' ' + /data-annotation=\"dim[^\"]*\"[^>]*>.*?>50</s.test((document.querySelector('.drawing-paper svg')?.outerHTML ?? '')); })()",
+    "expect": "^1 vertical true$"
+  },
+  {
+    "name": "drw: click the hole: a diameter dimension",
+    "eval": "(() => { const b = window.__viewBox('top'); const s = b.w / 100; window.__pt = window.__sheetToClient(b.x + b.w / 2 + 10 * s, b.y + b.h / 2); return 'ok'; })()"
+  },
+  {
+    "mouse": [
+      {
+        "type": "mousePressed",
+        "x": "window.__pt[0]",
+        "y": "window.__pt[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__pt[0]",
+        "y": "window.__pt[1]",
+        "button": "left"
+      }
+    ],
+    "wait": 500
+  },
+  {
+    "name": "drw: tolerance on the picked dimension (H7 fit)",
+    "eval": "(async () => { const sel = document.querySelector('[data-pm-select=\"tolType\"]'); sel.value = 'fit'; sel.dispatchEvent(new Event('change', { bubbles: true })); await new Promise((r) => setTimeout(r, 400)); const svg = (document.querySelector('.drawing-paper svg')?.outerHTML ?? ''); return [svg.includes('>Ø20 H7<'), svg.includes('>+0.021<')].join(' '); })()",
+    "expect": "^true true$",
+    "shot": "drw-smart-dims"
+  },
+  {
+    "name": "drw: model items and auto centre marks",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.acceptEditing(); await m.run('drwModelItems'); await m.run('drwCenterMarks'); await new Promise((r) => setTimeout(r, 500)); const d = m.active(); return [d.annotations.filter((a) => a.model).length >= 3, d.annotations.filter((a) => a.kind === 'drwCenter').length >= 2, (document.querySelector('.drawing-paper svg')?.outerHTML ?? '').includes('dx-center')].join(' '); })()",
+    "expect": "^true true true$"
+  },
+  {
+    "name": "drw: weld symbol placed by clicking the sheet",
+    "eval": "(async () => { const m = window.__mymechanics; await m.run('drwWeld'); window.__pt = window.__sheetToClient(60, 230); return m.state.editing?.mode; })()",
+    "expect": "^drwWeld$"
+  },
+  {
+    "mouse": [
+      {
+        "type": "mousePressed",
+        "x": "window.__pt[0]",
+        "y": "window.__pt[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__pt[0]",
+        "y": "window.__pt[1]",
+        "button": "left"
+      }
+    ],
+    "wait": 400
+  },
+  {
+    "name": "drw: weld type, size and all-round",
+    "eval": "(async () => { const m = window.__mymechanics; m.actions.pmSet('w:symbol', 'vGroove'); m.actions.pmFieldChanged('w:size', '6'); m.actions.pmFieldChanged('w:length', '50'); m.actions.pmToggle('w:allAround', true); await new Promise((r) => setTimeout(r, 300)); const w = m.active().annotations.find((a) => a.kind === 'drwWeld'); return [w.symbol, w.size, w.allAround, (document.querySelector('.drawing-paper svg')?.outerHTML ?? '').includes('dx-drwWeld')].join(' '); })()",
+    "expect": "^vGroove 6 true true$"
+  },
+  {
+    "name": "drw: general table with edited cells",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.acceptEditing(); await m.run('drwTable'); window.__pt = window.__sheetToClient(30, 30); return m.state.editing?.mode; })()",
+    "expect": "^drwTable$"
+  },
+  {
+    "mouse": [
+      {
+        "type": "mousePressed",
+        "x": "window.__pt[0]",
+        "y": "window.__pt[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__pt[0]",
+        "y": "window.__pt[1]",
+        "button": "left"
+      }
+    ],
+    "wait": 400
+  },
+  {
+    "name": "drw: table cells",
+    "eval": "(async () => { const m = window.__mymechanics; m.actions.pmFieldChanged('cell:0:0', 'ITEM'); m.actions.pmFieldChanged('cell:1:1', 'Ra 1.6'); await m.actions.pmCommand('drw.addRow'); await new Promise((r) => setTimeout(r, 300)); const tb = m.active().annotations.find((a) => a.kind === 'drwTable'); const svg = (document.querySelector('.drawing-paper svg')?.outerHTML ?? ''); return [tb.rows, svg.includes('>ITEM<'), svg.includes('>Ra 1.6<'), document.querySelectorAll('.drw-cell').length].join(' '); })()",
+    "expect": "^4 true true 12$",
+    "shot": "drw-weld-table"
+  },
+  {
+    "name": "drw: layers colour and hide annotations",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.acceptEditing(); await m.run('drwLayers'); await m.actions.pmCommand('drw.addLayer'); await m.actions.pmCommand('drw.assignAll'); const d = m.active(); const L = d.layers[0]; m.actions.pmFieldChanged('layerColor:' + L.id, '#1565c0'); await new Promise((r) => setTimeout(r, 300)); const before = (document.querySelector('.drawing-paper svg')?.outerHTML ?? '').includes('stroke=\"#1565c0\"'); m.actions.pmToggle('layerVis:' + L.id, false); await new Promise((r) => setTimeout(r, 300)); const hidden = !(document.querySelector('.drawing-paper svg')?.outerHTML ?? '').includes('dx-drwDim'); m.actions.pmToggle('layerVis:' + L.id, true); await new Promise((r) => setTimeout(r, 300)); return [before, hidden, (document.querySelector('.drawing-paper svg')?.outerHTML ?? '').includes('dx-drwDim')].join(' '); })()",
+    "expect": "^true true true$"
+  },
+  {
+    "name": "drw: title block fields",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.acceptEditing(); await m.run('drwTitleBlock'); m.actions.pmFieldChanged('tb:title', 'Bracket'); m.actions.pmFieldChanged('tb:material', 'S355'); m.actions.pmFieldChanged('tb:revision', 'C'); await new Promise((r) => setTimeout(r, 300)); const svg = (document.querySelector('.drawing-paper svg')?.outerHTML ?? ''); return [svg.includes('>Bracket<'), svg.includes('>S355<')].join(' '); })()",
+    "expect": "^true true$"
+  },
+  {
+    "name": "drw: ANSI sheet format with zones",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.acceptEditing(); await m.run('drwSheetFormat'); m.actions.pmSet('f:standard', 'ANSI'); await new Promise((r) => setTimeout(r, 500)); const d = m.active(); const svg = (document.querySelector('.drawing-paper svg')?.outerHTML ?? ''); return [d.sheet, d.projection, svg.includes('ASME Y14.5'), d.annotations.filter((a) => a.kind === 'drwDim').length > 0].join(' '); })()",
+    "expect": "^Tabloid third true true$",
+    "shot": "drw-ansi-sheet"
+  },
+  {
+    "name": "drw: back to ISO A3",
+    "eval": "(async () => { const m = window.__mymechanics; m.actions.pmSet('f:standard', 'ISO'); await new Promise((r) => setTimeout(r, 300)); await m.actions.acceptEditing(); const d = m.active(); return d.sheet + ' ' + d.projection; })()",
+    "expect": "^A3 first$"
+  },
+  {
+    "name": "eval: undercut analysis colours the part (no undercut along +Z)",
+    "eval": "(async () => { const m = window.__mymechanics; m.actions.switchDocument({ kind: 'part', id: window.__part }); await new Promise((r) => setTimeout(r, 500)); await m.run('eval_undercut'); await new Promise((r) => setTimeout(r, 400)); const e = m.state.editing; return [e.mode, e.kind, e.result?.undercut, Boolean(m.state.drwEval?.colors?.length), document.querySelector('.left-pm-body .eval-legend') != null].join(' '); })()",
+    "expect": "^evalMore undercut 0 true true$",
+    "shot": "eval-undercut"
+  },
+  {
+    "name": "eval: deviation, symmetry and geometry check",
+    "eval": "(async () => { const m = window.__mymechanics; await m.run('eval_deviation'); const dv = m.state.editing.result; await m.run('eval_symmetry'); const sy = m.state.editing.result; await m.run('eval_geometry'); const g = m.state.editing.result; return [Math.round(dv.max), sy.symmetric, g.valid, g.problems].join(' '); })()",
+    "expect": "^90 true true 0$"
+  },
+  {
+    "name": "eval: costing and sustainability (editable price)",
+    "eval": "(async () => { const m = window.__mymechanics; await m.run('eval_costing'); m.actions.pmFieldChanged('cost:price', '2'); await new Promise((r) => setTimeout(r, 300)); const c = m.state.editing.result.cost; await m.run('eval_sustain'); const s = m.state.editing.result.co2; return [c.price, c.total > c.materialCost, s.total > 0, document.querySelector('.left-pm-body').textContent.includes('CO₂e')].join(' '); })()",
+    "expect": "^2 true true true$",
+    "shot": "eval-costing"
+  },
+  {
+    "name": "eval: compare with a copy that has no hole",
+    "eval": "(async () => { const m = window.__mymechanics; const p = m.project; const src = p.parts.find((x) => x.id === window.__part); const copy = JSON.parse(JSON.stringify(src)); copy.id = 'pcopy'; copy.name = 'Copy'; copy.features[0].entities = copy.features[0].entities.filter((e) => e.id !== 'hc'); copy.features[0].constraints = copy.features[0].constraints.filter((c) => c.a !== 'hc'); m.actions.change('op.edit', () => { p.parts.push(copy); }); await m.run('eval_compare'); const r = m.state.editing.result; return [Math.round(r.onlyB), r.identical, r.changedFaces > 0].join(' '); })()",
+    "expect": "^6283 false true$"
+  },
+  {
+    "name": "mold: parting line, shut-off, parting surface and tooling split",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.cancelEditing({ quiet: true }); const part = m.active(); for (const [type, extra] of [['partingLine', { dir: 'z' }], ['shutOff', {}], ['partingSurface', { distance: 40 }], ['toolingSplit', { dir: 'z', gap: 20 }]]) { await m.actions.startFeature(type); const f = m.state.editing?.feature; if (!f) return 'no ' + type; Object.assign(f, extra); await m.actions.acceptEditing(); await new Promise((r) => setTimeout(r, 300)); } const r = m.actions.buildPart(part).result; const ok = part.features.slice(-4).map((f) => r.results.get(f.id)?.ok); const ts = r.results.get(part.features.at(-1).id); return [ok.join(','), r.results.get(part.features.at(-3).id).shutOff?.count, Boolean(ts.tooling?.bySurface), ts.undercuts].join(' '); })()",
+    "expect": "^true,true,true,true 1 true 0$",
+    "wait": 300,
+    "shot": "mold-core-cavity"
+  }
+]

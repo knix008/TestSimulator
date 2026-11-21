@@ -3,24 +3,27 @@
 // the pointer is over (orange) and what is selected (blue).
 //
 // Mouse: left click selects, left drag or middle drag rotates, right drag / Ctrl+middle / Shift+left pans,
-// wheel zooms at the pointer. Y is up; units are millimetres.
+// wheel zooms at the pointer. Z is up (rotating is a turntable about Z, see orbit.js); units are millimetres.
 import * as THREE from 'three';
 import { LineSegments2 } from 'three/examples/jsm/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { orbitStep } from './orbit.js';
 
+/** Standard views (Z up): dir points from the model to the eye. Front looks along +Y, top down −Z, right along −X. */
 export const VIEWS = {
-  front: { dir: [0, 0, 1], up: [0, 1, 0] },
-  back: { dir: [0, 0, -1], up: [0, 1, 0] },
-  top: { dir: [0, 1, 0], up: [0, 0, -1] },
-  bottom: { dir: [0, -1, 0], up: [0, 0, 1] },
-  right: { dir: [1, 0, 0], up: [0, 1, 0] },
-  left: { dir: [-1, 0, 0], up: [0, 1, 0] },
-  iso: { dir: [1, 1, 1], up: [0, 1, 0] },
-  dimetric: { dir: [1, 0.6, 1.6], up: [0, 1, 0] },
-  trimetric: { dir: [1.4, 1, 0.6], up: [0, 1, 0] },
+  front: { dir: [0, -1, 0], up: [0, 0, 1] },
+  back: { dir: [0, 1, 0], up: [0, 0, 1] },
+  top: { dir: [0, 0, 1], up: [0, 1, 0] },
+  bottom: { dir: [0, 0, -1], up: [0, -1, 0] },
+  right: { dir: [1, 0, 0], up: [0, 0, 1] },
+  left: { dir: [-1, 0, 0], up: [0, 0, 1] },
+  iso: { dir: [1, -1, 1], up: [0, 0, 1] },
+  dimetric: { dir: [1, -1.6, 0.6], up: [0, 0, 1] },
+  trimetric: { dir: [1.4, -0.6, 1], up: [0, 0, 1] },
 };
+export const WORLD_UP = [0, 0, 1];
 export const DISPLAY_STYLES = ['shadedEdges', 'shaded', 'hiddenRemoved', 'hiddenVisible', 'wireframe'];
 
 const HOVER = new THREE.Color('#f28c1e');
@@ -48,12 +51,13 @@ export class Viewport {
     this.isOrtho = true;
     this.target = new THREE.Vector3();
     this.distance = 300;
-    this.dir = new THREE.Vector3(1, 1, 1).normalize();
-    this.up = new THREE.Vector3(0, 1, 0);
+    this.dir = new THREE.Vector3(1, -1, 1).normalize();
+    this.up = new THREE.Vector3(0, 0, 1);
     this.style = 'shadedEdges';
     this.lineMaterials = new Set();
     // Lights: a soft sky, a key light that follows the camera, the room environment for metals.
     this.hemi = new THREE.HemisphereLight(0xffffff, 0x8a8f99, 1.1);
+    this.hemi.position.set(0, 0, 1); // the sky is up (+Z)
     this.scene.add(this.hemi);
     this.key = new THREE.DirectionalLight(0xffffff, 1.6);
     this.scene.add(this.key);
@@ -212,8 +216,8 @@ export class Viewport {
   setCameraState(s) {
     if (!s) return;
     this.target.fromArray(s.target ?? [0, 0, 0]);
-    this.dir.fromArray(s.dir ?? [1, 1, 1]).normalize();
-    this.up.fromArray(s.up ?? [0, 1, 0]).normalize();
+    this.dir.fromArray(s.dir ?? [1, -1, 1]).normalize();
+    this.up.fromArray(s.up ?? [0, 0, 1]).normalize();
     this.distance = s.distance ?? 300;
     this.isOrtho = s.ortho !== false;
     this.updateCamera();
@@ -318,14 +322,11 @@ export class Viewport {
     return (2 * this.distance * Math.tan(THREE.MathUtils.degToRad(this.persp.fov / 2))) / this.height;
   }
 
+  /** Turntable orbit (orbit.js): about world Z, elevation clamped short of the poles, no roll. */
   rotateBy(dx, dy) {
-    const speed = 0.006;
-    const right = new THREE.Vector3().crossVectors(this.up, this.dir).normalize();
-    const qYaw = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -dx * speed);
-    const qPitch = new THREE.Quaternion().setFromAxisAngle(right, -dy * speed);
-    const q = qYaw.multiply(qPitch);
-    this.dir.applyQuaternion(q).normalize();
-    this.up.applyQuaternion(q).normalize();
+    const { dir, up } = orbitStep(this.dir.toArray(), this.up.toArray(), dx, dy);
+    this.dir.fromArray(dir);
+    this.up.fromArray(up);
     this.updateCamera();
   }
 
@@ -531,8 +532,8 @@ export class Viewport {
   }
 
   /**
-   * The grid: an endless-looking plane — always the same standard plane (front = XY by default, or top = XZ /
-   * right = YZ). Its lines fade out with distance from where the view looks, so no edge is ever seen. The
+   * The grid: an endless-looking plane — always the same standard plane (top = XY, the floor, by default; or
+   * front = XZ / right = YZ). Its lines fade out with distance from where the view looks, so no edge is ever seen. The
    * spacing keeps a steady size on screen: when zooming takes it out of 12–60 px it is redrawn at the next
    * 1·2·5 step (about 24 px); every fifth line is darker (5 × 5 cells). Rotating never changes it, and the
    * lines are rebuilt around the view only when it gets near their edge.
@@ -540,7 +541,7 @@ export class Viewport {
   updateGrid() {
     const g = this.guides;
     if (!g.grid) { if (this.grid) this.grid.visible = false; return; }
-    const axis = { front: 2, top: 1, right: 0 }[g.gridPlane ?? 'front'] ?? 2;
+    const axis = { top: 2, front: 1, right: 0 }[g.gridPlane ?? 'top'] ?? 2;
     const [a, b] = [[1, 2], [0, 2], [0, 1]][axis];
     const unitLen = g.factor || 1;
     const px = this.pixelSize();

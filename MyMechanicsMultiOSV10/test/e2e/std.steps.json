@@ -1,0 +1,154 @@
+[
+  {
+    "name": "std: kernel loads and an assembly opens",
+    "eval": "window.__mymechanics.actions.ensureKernel().then(() => window.__mymechanics.actions.newDocument('assembly')).then(() => window.__mymechanics.state.doc ? 'ok' : 'no doc')",
+    "expect": "^ok$",
+    "wait": 400
+  },
+  {
+    "name": "std: the Library · Routing · Render tab lists its commands",
+    "eval": "(() => { const tab = document.querySelector('[data-cm-tab=\"stdTools\"]'); if (!tab) return 'no tab'; tab.click(); return new Promise((r) => setTimeout(() => r(['stdLibrary', 'smartFastener', 'pipeRoute', 'tubeRoute', 'cableRoute', 'renderView'].filter((id) => document.querySelector(`#palette-host [data-command=\"${id}\"]`)).length), 200)); })()",
+    "expect": "^6$"
+  },
+  {
+    "name": "std: the library opens with 7 categories and a size table",
+    "eval": "window.__mymechanics.run('stdLibrary').then(() => new Promise((r) => setTimeout(() => r(JSON.stringify({ mode: window.__mymechanics.state.editing?.mode, cats: document.querySelectorAll('.std-cat').length, rows: document.querySelectorAll('.std-table tr[data-pm-set]').length })), 200)))",
+    "expect": "\"mode\":\"stdLibrary\",\"cats\":7,\"rows\":10"
+  },
+  {
+    "name": "std: clicking fittings → flange → DN25 row → Insert puts a flange in the assembly",
+    "eval": "(async () => { const q = (s) => document.querySelector(s); const wait = (ms) => new Promise((r) => setTimeout(r, ms)); q('[data-pm-set=\"stdCategory\"][data-value=\"fittings\"]').click(); await wait(100); q('[data-pm-set=\"stdKind\"][data-value=\"flange\"]').click(); await wait(100); q('.std-table tr[data-pm-set][data-value=\"DN25\"]').click(); await wait(100); await window.__mymechanics.pmCommand?.('std.insert'); if (!document.querySelector('[data-pm=\"std.insert\"]')) return 'no insert button'; return 'ok'; })()",
+    "expect": "^ok$"
+  },
+  {
+    "eval": "(async () => { if (window.__mymechanics.project.assemblies[0].components.length === 0) document.querySelector('[data-pm=\"std.insert\"]').click(); await new Promise((r) => setTimeout(r, 600)); const a = window.__mymechanics.project.assemblies[0]; return JSON.stringify({ comps: a.components.length, parts: window.__mymechanics.project.parts.map((p) => p.name) }); })()",
+    "name": "std: the flange component and its part",
+    "expect": "\"comps\":1,\"parts\":\\[\"[^\"]*DN25 PN16\"\\]"
+  },
+  {
+    "name": "std: an M8 hex bolt inserted twice is one part, two components",
+    "eval": "(async () => { const q = (s) => document.querySelector(s); const wait = (ms) => new Promise((r) => setTimeout(r, ms)); q('[data-pm-set=\"stdCategory\"][data-value=\"bolts\"]').click(); await wait(100); q('[data-pm-set=\"stdKind\"][data-value=\"hexBolt\"]').click(); await wait(100); q('.std-table tr[data-pm-set][data-value=\"M8\"]').click(); await wait(100); q('[data-pm=\"std.insert\"]').click(); await wait(500); q('[data-pm=\"std.insert\"]').click(); await wait(500); const pr = window.__mymechanics.project; return JSON.stringify({ comps: pr.assemblies[0].components.length, bolts: pr.parts.filter((p) => /ISO 4017 M8/.test(p.name)).length }); })()",
+    "expect": "\"comps\":3,\"bolts\":1"
+  },
+  {
+    "name": "std: a 6204 bearing from the bearings category",
+    "eval": "(async () => { const q = (s) => document.querySelector(s); const wait = (ms) => new Promise((r) => setTimeout(r, ms)); q('[data-pm-set=\"stdCategory\"][data-value=\"bearings\"]').click(); await wait(100); q('.std-table tr[data-pm-set][data-value=\"6204\"]').click(); await wait(100); q('[data-pm=\"std.insert\"]').click(); await wait(600); document.querySelector('[data-pm=\"ok\"]').click(); await wait(300); return JSON.stringify({ mode: window.__mymechanics.state.editing?.mode ?? null, names: window.__mymechanics.project.parts.map((p) => p.name).join('|') }); })()",
+    "expect": "\"mode\":null.*6204"
+  },
+  {
+    "name": "std: removing the bolts leaves the flange for the fastener test",
+    "eval": "(() => { const m = window.__mymechanics; m.actions.change('op.edit', (pr) => { const a = pr.assemblies[0]; a.components = a.components.filter((c) => /DN25/.test(c.name)); }); return m.project.assemblies[0].components.length; })()",
+    "expect": "^1$",
+    "wait": 300
+  },
+  {
+    "name": "std: smart fastener on a flange bolt hole → M12 bolt, washer and nut with 6 mates that hold",
+    "eval": "(async () => { const m = window.__mymechanics; await m.run('smartFastener'); const a = m.project.assemblies[0]; const c = a.components[0]; const part = m.project.parts.find((p) => p.id === c.part); const b = m.actions.buildPart(part); const index = b.faces.findIndex((f) => (f.geomType === 'CYLINDRE' || f.geomType === 'CYLINDER') && Math.hypot(f.center.x, f.center.y) > 30); const r = await m.std.fastenerPick({ kind: 'face', bodyKey: `comp:${c.id}`, index }); return JSON.stringify({ bolt: r?.plan?.bolt, comps: a.components.length, mates: a.mates.length, failed: m.state.failedMates.size }); })()",
+    "expect": "\"size\":\"M12\".*\"comps\":4,\"mates\":6,\"failed\":0"
+  },
+  {
+    "name": "std: the bolt sits on the hole axis",
+    "eval": "(() => { const m = window.__mymechanics; const a = m.project.assemblies[0]; const bolt = a.components.find((c) => /ISO 4017 M12/.test(c.name)); const nut = a.components.find((c) => /ISO 4032/.test(c.name)); const r = Math.hypot(bolt.position[0], bolt.position[1]); return JSON.stringify({ r: Math.round(r * 100) / 100, sameAxis: Math.hypot(bolt.position[0] - nut.position[0], bolt.position[1] - nut.position[1]) < 1e-3 }); })()",
+    "expect": "\"r\":42.5,\"sameAxis\":true"
+  },
+  {
+    "eval": "(() => { window.__mymechanics.run('zoomFit'); return 'ok'; })()",
+    "wait": 800,
+    "shot": "std-fastener"
+  },
+  {
+    "name": "route: a pipe route in the assembly takes clicked points",
+    "eval": "(async () => { const m = window.__mymechanics; if (m.state.editing) m.actions.cancelEditing({ quiet: true }); await m.run('pipeRoute'); const vp = m.viewport; const r = vp.canvas.getBoundingClientRect(); window.__pt = [r.left + r.width * 0.15, r.top + r.height * 0.8]; return m.state.editing?.mode; })()",
+    "expect": "^asmRoute$"
+  },
+  {
+    "mouse": [
+      { "type": "mousePressed", "x": "window.__pt[0]", "y": "window.__pt[1]", "button": "left", "buttons": 1 },
+      { "type": "mouseReleased", "x": "window.__pt[0]", "y": "window.__pt[1]", "button": "left", "delay": 150 },
+      { "type": "mousePressed", "x": "window.__pt[0] + 60", "y": "window.__pt[1] - 40", "button": "left", "buttons": 1 },
+      { "type": "mouseReleased", "x": "window.__pt[0] + 60", "y": "window.__pt[1] - 40", "button": "left", "delay": 150 }
+    ],
+    "wait": 300
+  },
+  {
+    "name": "route: the clicks added points",
+    "eval": "window.__mymechanics.state.editing.f.points.length",
+    "expect": "^[12]$"
+  },
+  {
+    "name": "route: typed points give a pipe with elbows, a BOM and the route length",
+    "eval": "(async () => { const m = window.__mymechanics; const e = m.state.editing; e.f.points = [[200, 0, 0], [200, 0, 200], [400, 0, 200], [400, 200, 200]]; e.f.dn = 'DN25'; e.f.fittings = 'elbows'; e.f.flanges = 'start'; m.actions.pmSet('kind', 'pipe'); await new Promise((r) => setTimeout(r, 400)); const rows = [...document.querySelectorAll('.route-bom tr')].slice(1).map((tr) => tr.textContent.replace(/\\s+/g, ' ')); return JSON.stringify({ rows, length: document.querySelector('[data-route-length]')?.dataset.routeLength }); })()",
+    "expect": "Elbow 90°|엘보 90°"
+  },
+  {
+    "name": "route: OK adds the route part at the origin",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.acceptEditing(); await new Promise((r) => setTimeout(r, 500)); const a = m.project.assemblies[0]; const rc = a.components.at(-1); const rp = m.project.parts.find((p) => p.id === rc.part); const res = m.actions.buildPart(rp).result.results.get(rp.features[0].id); return JSON.stringify({ comps: a.components.length, fixed: rc.fixed, ok: res.ok, length: Math.round(res.route.length), elbows: res.route.bom.rows.filter((x) => x.item === 'elbow').map((x) => x.qty) }); })()",
+    "expect": "\"comps\":5,\"fixed\":true,\"ok\":true,\"length\":\\d+,\"elbows\":\\[2\\]"
+  },
+  {
+    "eval": "(() => { window.__mymechanics.run('zoomFit'); return 'ok'; })()",
+    "wait": 800,
+    "shot": "route-assembly"
+  },
+  {
+    "name": "route: a cable route feature in a part shows its BOM and builds",
+    "eval": "(async () => { const m = window.__mymechanics; await m.run('newPart'); await new Promise((r) => setTimeout(r, 400)); await m.run('cableRoute'); await new Promise((r) => setTimeout(r, 400)); const e = m.state.editing; const bom = document.querySelector('.route-bom') ? 'bom' : 'no bom'; await m.actions.acceptEditing(); await new Promise((r) => setTimeout(r, 400)); const part = m.active(); const f = part.features.find((x) => x.type === 'route'); const res = m.actions.buildPart(part).result.results.get(f.id); return JSON.stringify({ type: e.feature?.type, bom, ok: res.ok, cable: res.route.bom.rows[0].item, len: Math.round(res.route.length) }); })()",
+    "expect": "\"type\":\"route\",\"bom\":\"bom\",\"ok\":true,\"cable\":\"cable\",\"len\":\\d{3}"
+  },
+  {
+    "name": "std: a socket head cap screw as a body of the part (library in part mode)",
+    "eval": "(async () => { const m = window.__mymechanics; await m.run('stdLibrary'); const q = (s) => document.querySelector(s); const wait = (ms) => new Promise((r) => setTimeout(r, ms)); q('[data-pm-set=\"stdKind\"][data-value=\"socketCap\"]').click(); await wait(100); const placement = Boolean(q('[data-pm-field=\"x\"]')); q('[data-pm=\"std.insert\"]').click(); await wait(500); m.actions.cancelEditing({ quiet: true }); const part = m.active(); const f = part.features.find((x) => x.type === 'stdPart'); const res = m.actions.buildPart(part).result.results.get(f.id); return JSON.stringify({ placement, ok: res.ok, kind: f.kind, tree: [...document.querySelectorAll('.tree-row .tree-label')].some((e) => /StdPart|표준부품/.test(e.textContent)) }); })()",
+    "expect": "\"placement\":true,\"ok\":true,\"kind\":\"socketCap\",\"tree\":true"
+  },
+  {
+    "name": "std: editing the standard part feature changes its size from the PM",
+    "eval": "(async () => { const m = window.__mymechanics; const part = m.active(); const f = part.features.find((x) => x.type === 'stdPart'); m.actions.editFeature(f.id); await new Promise((r) => setTimeout(r, 300)); const sel = document.querySelector('[data-pm-select=\"stdSize\"]'); sel.value = 'M12'; sel.dispatchEvent(new Event('change', { bubbles: true })); await new Promise((r) => setTimeout(r, 400)); const ed = m.state.editing.feature; await m.actions.acceptEditing(); return JSON.stringify({ size: ed.size, length: ed.length, saved: part.features.find((x) => x.type === 'stdPart').size }); })()",
+    "expect": "\"size\":\"M12\",\"length\":\\d+,\"saved\":\"M12\""
+  },
+  {
+    "eval": "(() => { window.__mymechanics.run('zoomFit'); return 'ok'; })()",
+    "wait": 800,
+    "shot": "std-part-mode"
+  },
+  {
+    "name": "render: the render mode draws a picture progressively",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.switchDocument?.({ kind: 'assembly', id: m.project.assemblies[0].id }); await new Promise((r) => setTimeout(r, 600)); Object.assign(m.std.renderSettings, { samples: 24, resolution: 'hd', env: 'studio', ground: 'shadow' }); await m.run('renderView'); return m.state.editing?.mode + ' ' + Boolean(document.querySelector('.render-view canvas')); })()",
+    "expect": "^render true$"
+  },
+  {
+    "until": "window.__mymechanics.state.editing?.status?.done === true",
+    "timeout": 120000
+  },
+  {
+    "name": "render: the picture has content (brightness and contrast) at 1280×720",
+    "eval": "JSON.stringify(window.__mymechanics.std.photo.stats(), (k, v) => (typeof v === 'number' ? Math.round(v) : v))",
+    "expect": "\"width\":1280,\"height\":720,\"samples\":24"
+  },
+  {
+    "eval": "(() => { const s = window.__mymechanics.std.photo.stats(); if (!(s.mean > 40 && s.mean < 250 && s.std > 5)) throw new Error(JSON.stringify(s)); return 'ok'; })()",
+    "name": "render: not blank",
+    "expect": "^ok$",
+    "wait": 200,
+    "shot": "render-studio"
+  },
+  {
+    "name": "render: sunset, floor and depth of field re-render from the PM",
+    "eval": "(async () => { const m = window.__mymechanics; m.std.renderSettings.samples = 16; m.actions.pmSet('env', 'sunset'); m.actions.pmSet('ground', 'floor'); m.actions.pmToggle('dof', true); return m.std.renderSettings.env + ' ' + m.std.renderSettings.dof; })()",
+    "expect": "^sunset true$"
+  },
+  {
+    "until": "window.__mymechanics.state.editing?.status?.done === true",
+    "timeout": 120000,
+    "shot": "render-sunset"
+  },
+  {
+    "name": "render: Save image hands a PNG to the save path (test hook, no dialog)",
+    "eval": "(async () => { const m = window.__mymechanics; let got = null; m.std.setSaveHook((blob, name) => { got = { size: blob.size, type: blob.type, name }; }); document.querySelector('[data-pm=\"std.renderSave\"]').click(); await new Promise((r) => setTimeout(r, 800)); m.std.setSaveHook(null); return JSON.stringify(got); })()",
+    "expect": "\"type\":\"image/png\",\"name\":\"[^\"]*-render\\.png\""
+  },
+  {
+    "name": "render: closing the mode removes the picture",
+    "eval": "(async () => { const m = window.__mymechanics; await m.run('renderView'); await new Promise((r) => setTimeout(r, 200)); return `${m.state.editing?.mode ?? 'none'} ${document.querySelectorAll('.render-view').length}`; })()",
+    "expect": "^none 0$"
+  }
+]

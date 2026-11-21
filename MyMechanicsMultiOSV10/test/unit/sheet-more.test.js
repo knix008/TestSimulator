@@ -23,7 +23,7 @@ function ok(part, opts) { const r = regenerate(part, opts); for (const [id, x] o
 const size = (shape) => { const [lo, hi] = shape.boundingBox.bounds; return hi.map((v, i) => Math.round((v - lo[i]) * 1000) / 1000); };
 const bounds = (shape) => shape.boundingBox.bounds;
 
-/** A 20 mm cube from the top plane (x −10…10, y 0…20, z −10…10). */
+/** A 20 mm cube from the top plane (x −10…10, y −10…10, z 0…20). */
 function cube(part, s = 20) {
   const sk = sketchOn(part, top, (k) => addRectangle(k, -s / 2, -s / 2, s / 2, s / 2));
   add(part, 'extrude', { sketch: sk.id, depth: s });
@@ -41,16 +41,16 @@ test('every new type has a name and defaults', () => {
 test('ruled surface: tangent strips around the top face, and along a direction', () => {
   const part = newPart();
   const r0 = cube(part);
-  const topFace = faceWhere(r0.body, (c) => c[1] > 19.99);
+  const topFace = faceWhere(r0.body, (c) => c[2] > 19.99);
   const edges = topFace.edges.map(edgeSignature);
   const tan = add(part, 'ruledSurface', { edges, mode: 'tangent', distance: 5 });
   let r = ok(part);
   near(A(r.surfaces.get(tan.id)), 4 * 20 * 5);
-  tan.mode = 'vector'; tan.axis = 'y';
+  tan.mode = 'vector'; tan.axis = 'z';
   r = ok(part);
   const s = r.surfaces.get(tan.id);
   near(A(s), 400);
-  near(bounds(s)[1][1], 25);
+  near(bounds(s)[1][2], 25);
 });
 
 test('delete face: patch a through hole back, or leave a surface body', () => {
@@ -76,7 +76,7 @@ test('delete face: patch a through hole back, or leave a surface body', () => {
 test('replace face: the top face moves onto a surface above or below', () => {
   const part = newPart();
   const r0 = cube(part);
-  const topSig = faceSignature(faceWhere(r0.body, (c) => c[1] > 19.99));
+  const topSig = faceSignature(faceWhere(r0.body, (c) => c[2] > 19.99));
   const pl = add(part, 'plane', { base: top, offset: 30 });
   const sk = sketchOn(part, { kind: 'ref', id: pl.id }, (k) => addRectangle(k, -20, -20, 20, 20));
   const surf = add(part, 'surfacePlanar', { sketch: sk.id });
@@ -89,14 +89,14 @@ test('replace face: the top face moves onto a surface above or below', () => {
   // A curved replacement: an arc swept across gives a rounded top.
   const part2 = newPart('q');
   const r2 = cube(part2);
-  const sig2 = faceSignature(faceWhere(r2.body, (c) => c[1] > 19.99));
+  const sig2 = faceSignature(faceWhere(r2.body, (c) => c[2] > 19.99));
   const pl2 = add(part2, 'plane', { base: front, offset: -15 });
   const sk2 = sketchOn(part2, { kind: 'ref', id: pl2.id }, (k) => addLine(k, -15, 25, 15, 30));
   const ext = add(part2, 'surfaceExtrude', { sketch: sk2.id, depth: 30 });
   add(part2, 'replaceFace', { faces: [sig2], surface: ext.id });
   r = ok(part2);
   assert.ok(r.surfaces.get(ext.id));
-  // The sloped top from y 25 (x = −15) to 30 (x = 15): over x −10…10 its mean height is 27.5.
+  // The sloped top from z 25 (x = −15) to 30 (x = 15): over x −10…10 its mean height is 27.5.
   near(V(r.body), 20 * 20 * 27.5, 2e-3);
 });
 
@@ -126,11 +126,11 @@ function sheet(part, w = 100, d = 50, t = 2) {
   add(part, 'baseFlange', { sketch: s.id, thickness: t, radius: 2, kFactor: 0.4 });
   return regenerate(part);
 }
-/** The straight top edges of the sheet along x = w and along z = −d (the sketch's y runs to −z). */
+/** The straight top edges of the sheet along x = w and along y = d (the sketch's y runs to +y). */
 function cornerEdges(body, w = 100, d = 50, t = 2) {
   const at = (e) => [e.startPoint, e.endPoint].map((p) => [p.x, p.y, p.z]);
-  const e1 = body.edges.find((e) => e.geomType === 'LINE' && at(e).every((p) => Math.abs(p[0] - w) < 1e-6 && Math.abs(p[1] - t) < 1e-6));
-  const e2 = body.edges.find((e) => e.geomType === 'LINE' && at(e).every((p) => Math.abs(p[2] + d) < 1e-6 && Math.abs(p[1] - t) < 1e-6));
+  const e1 = body.edges.find((e) => e.geomType === 'LINE' && at(e).every((p) => Math.abs(p[0] - w) < 1e-6 && Math.abs(p[2] - t) < 1e-6));
+  const e2 = body.edges.find((e) => e.geomType === 'LINE' && at(e).every((p) => Math.abs(p[1] - d) < 1e-6 && Math.abs(p[2] - t) < 1e-6));
   return [e1, e2];
 }
 
@@ -149,12 +149,12 @@ test('miter flange: two flanges meeting in a mitered corner, flat pattern as str
   // The corner adds material (the mitered pieces close it) but less than a full overlap of both flanges.
   assert.ok(extra > 0 && extra < 2 * flangeArea(2, 2, 20) * 25, `corner ${extra}`);
   const b = size(r.body);
-  assert.ok(b[1] > 23 && b[1] < 25, `height ${b[1]}`);
+  assert.ok(b[2] > 23 && b[2] < 25, `height ${b[2]}`);
   assert.equal(r.results.get(mf.id).miter.corners, 1);
   const flat = ok({ ...part, flat: true });
   const strip = bendAllowance(90, 2, 2, 0.4) + 20;
   near(size(flat.body)[0], 100 + strip, 1e-4);
-  near(size(flat.body)[2], 50 + strip, 1e-4);
+  near(size(flat.body)[1], 50 + strip, 1e-4);
 });
 
 test('closed corner closes two edge flanges like a miter flange does', () => {
@@ -202,7 +202,7 @@ test('tab adds a sheet-thick piece on the sheet plane', () => {
   const r = ok(part);
   near(V(r.body), 100 * 50 * 2 + 20 * 30 * 2);
   near(size(r.body)[0], 120);
-  near(size(r.body)[1], 2);
+  near(size(r.body)[2], 2);
   // A tab off the sheet is refused.
   const far = newPart('f');
   sheet(far);
@@ -225,7 +225,7 @@ test('lofted bend: a sheet cone between two circles; its flat blank has the same
   const flat = ok({ ...part, flat: true });
   near(r.results.get(lb.id).lofted.area, flat.results.get(lb.id).lofted.flatArea, 5e-3);
   near(V(flat.body), flat.results.get(lb.id).lofted.flatArea * 1.5, 1e-4);
-  near(size(flat.body)[1], 1.5);
+  near(size(flat.body)[2], 1.5);
 });
 
 test('developing a flat strip keeps its lengths', () => {
@@ -239,19 +239,19 @@ test('forming tools: dimple, emboss, louver and lance rise from the sheet face',
   for (const tool of ['dimple', 'emboss', 'louver', 'lance']) {
     const part = newPart(tool);
     const r0 = sheet(part);
-    const topFace = faceWhere(r0.body, (c, f) => f.geomType === 'PLANE' && c[1] > 1.99);
+    const topFace = faceWhere(r0.body, (c, f) => f.geomType === 'PLANE' && c[2] > 1.99);
     const ft = add(part, 'formTool', { face: faceSignature(topFace), tool, size: 20, width: 8, height: 4 });
     const r = ok(part);
     const b = size(r.body);
-    near(b[1], 2 + 4, 1e-3);
+    near(b[2], 2 + 4, 1e-3);
     assert.equal(r.results.get(ft.id).form.tool, tool);
     const dv = V(r.body) - 100 * 50 * 2;
     // The formed shell holds about as much metal as the opening it replaces, a little more (it is stretched).
     assert.ok(dv > -1 && dv < 600, `${tool}: ${dv}`);
     ft.down = true;
     const rd = ok(part);
-    near(size(rd.body)[1], 6, 1e-3);
-    near(bounds(rd.body)[0][1], -4, 1e-3);
+    near(size(rd.body)[2], 6, 1e-3);
+    near(bounds(rd.body)[0][2], -4, 1e-3);
   }
 });
 
@@ -274,7 +274,7 @@ test('end cap: an inset plate on a tube end', () => {
   assert.equal(r.results.get(cap.id).endCap.w, 36);
 });
 
-/** An L of two blocks: a base (x 0…100, y 0…10) and an upright (x 0…10, y 0…100), z 0…40. */
+/** An L of two blocks: a base (x 0…100, z 0…10) and an upright (x 0…10, z 0…100), y −40…0. */
 function corner(part) {
   const a = sketchOn(part, front, (k) => addRectangle(k, 0, 0, 100, 10));
   add(part, 'extrude', { sketch: a.id, depth: 40 });
@@ -286,8 +286,8 @@ function corner(part) {
 test('gusset: a triangular plate in the inside corner', () => {
   const part = newPart();
   const r0 = corner(part);
-  const f1 = faceWhere(r0.body, (c, f) => f.geomType === 'PLANE' && Math.abs(c[1] - 10) < 1e-6 && c[0] > 10);
-  const f2 = faceWhere(r0.body, (c, f) => f.geomType === 'PLANE' && Math.abs(c[0] - 10) < 1e-6 && c[1] > 10);
+  const f1 = faceWhere(r0.body, (c, f) => f.geomType === 'PLANE' && Math.abs(c[2] - 10) < 1e-6 && c[0] > 10);
+  const f2 = faceWhere(r0.body, (c, f) => f.geomType === 'PLANE' && Math.abs(c[0] - 10) < 1e-6 && c[2] > 10);
   const g = add(part, 'gusset', { faces: [faceSignature(f1), faceSignature(f2)], d1: 30, d2: 30, thickness: 5 });
   let r = ok(part);
   near(V(r.body) - V(r0.body), 0.5 * 30 * 30 * 5);
@@ -299,7 +299,7 @@ test('gusset: a triangular plate in the inside corner', () => {
 test('weld bead: a fillet weld along the inside corner, or only a cosmetic one', () => {
   const part = newPart();
   const r0 = corner(part);
-  const e = r0.body.edges.find((x) => x.geomType === 'LINE' && [x.startPoint, x.endPoint].every((p) => Math.abs(p.x - 10) < 1e-6 && Math.abs(p.y - 10) < 1e-6));
+  const e = r0.body.edges.find((x) => x.geomType === 'LINE' && [x.startPoint, x.endPoint].every((p) => Math.abs(p.x - 10) < 1e-6 && Math.abs(p.z - 10) < 1e-6));
   const w = add(part, 'weldBead', { edges: [edgeSignature(e)], size: 5 });
   let r = ok(part);
   near(V(r.body) - V(r0.body), 0.5 * 5 * 5 * 40);
@@ -309,7 +309,7 @@ test('weld bead: a fillet weld along the inside corner, or only a cosmetic one',
   near(V(r.body), V(r0.body));
   assert.ok(r.curves.get(w.id));
   // On an outside edge there is no corner to weld.
-  const outside = r0.body.edges.find((x) => x.geomType === 'LINE' && [x.startPoint, x.endPoint].every((p) => Math.abs(p.x - 100) < 1e-6 && Math.abs(p.y - 10) < 1e-6));
+  const outside = r0.body.edges.find((x) => x.geomType === 'LINE' && [x.startPoint, x.endPoint].every((p) => Math.abs(p.x - 100) < 1e-6 && Math.abs(p.z - 10) < 1e-6));
   w.cosmetic = false; w.edges = [edgeSignature(outside)];
   assert.equal(regenerate(part).results.get(w.id).error, 'weld-not-corner');
 });
@@ -322,7 +322,7 @@ test('weld bead around a pipe standing on a plate', () => {
   const c = sketchOn(part, { kind: 'ref', id: pl.id }, (k) => addCircle(k, 0, 0, 10));
   add(part, 'extrude', { sketch: c.id, depth: 30 });
   const r0 = ok(part);
-  const e = r0.body.edges.find((x) => x.geomType === 'CIRCLE' && Math.abs(x.startPoint.y - 5) < 1e-6);
+  const e = r0.body.edges.find((x) => x.geomType === 'CIRCLE' && Math.abs(x.startPoint.z - 5) < 1e-6);
   add(part, 'weldBead', { edges: [edgeSignature(e)], size: 3 });
   const r = ok(part);
   // A triangle (legs 3) revolved at radius 10 + 1 (its centroid): Pappus.

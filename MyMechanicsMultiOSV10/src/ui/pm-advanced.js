@@ -100,7 +100,7 @@ export const ADVANCED_PM = {
     const { t } = api;
     return [
       group('position', t('pm.translate'), `${field(api, 'dx', f.dx, { label: 'ΔX', glyph: 'position' })}${field(api, 'dy', f.dy, { label: 'ΔY', glyph: 'position' })}${field(api, 'dz', f.dz, { label: 'ΔZ', glyph: 'position' })}`),
-      group('rotateRight', t('pm.rotate'), `${seg('axis', [['x', 'X'], ['y', 'Y'], ['z', 'Z']], f.axis ?? 'y')}${field(api, 'angle', f.angle, { label: t('pm.angle'), unit: 'angle', glyph: 'dimAngle' })}`),
+      group('rotateRight', t('pm.rotate'), `${seg('axis', [['x', 'X'], ['y', 'Y'], ['z', 'Z']], f.axis ?? 'z')}${field(api, 'angle', f.angle, { label: t('pm.angle'), unit: 'angle', glyph: 'dimAngle' })}`),
       group('part', t('pm.options'), check('copy', f.copy, t('pm.copyBody'), 'featLinPattern')),
     ].join('');
   },
@@ -116,7 +116,7 @@ export const ADVANCED_PM = {
     const { t } = api;
     return [
       group('part', t('pm.partToInsert'), `${select('part', [['', `— ${t('pm.choosePart')} —`], ...api.otherParts().map((p) => [p.id, p.name, 'part'])], f.part ?? '', t('pm.part'))}${seg('op', [['boss', t('op.boss'), 'featExtrude'], ['cut', t('op.cavity'), 'featCut'], ['common', t('op.common'), 'featIntersect']], f.op)}`),
-      group('position', t('pm.locate'), `${field(api, 'dx', f.dx, { label: 'ΔX', glyph: 'position' })}${field(api, 'dy', f.dy, { label: 'ΔY', glyph: 'position' })}${field(api, 'dz', f.dz, { label: 'ΔZ', glyph: 'position' })}${seg('axis', [['x', 'X'], ['y', 'Y'], ['z', 'Z']], f.axis ?? 'y')}${field(api, 'angle', f.angle, { label: t('pm.angle'), unit: 'angle', glyph: 'dimAngle' })}${field(api, 'scale', f.scale, { label: t('pm.scaleFactor'), unit: 'number', glyph: 'scaleBody', min: 0.0001 })}`),
+      group('position', t('pm.locate'), `${field(api, 'dx', f.dx, { label: 'ΔX', glyph: 'position' })}${field(api, 'dy', f.dy, { label: 'ΔY', glyph: 'position' })}${field(api, 'dz', f.dz, { label: 'ΔZ', glyph: 'position' })}${seg('axis', [['x', 'X'], ['y', 'Y'], ['z', 'Z']], f.axis ?? 'z')}${field(api, 'angle', f.angle, { label: t('pm.angle'), unit: 'angle', glyph: 'dimAngle' })}${field(api, 'scale', f.scale, { label: t('pm.scaleFactor'), unit: 'number', glyph: 'scaleBody', min: 0.0001 })}`),
     ].join('');
   },
   baseFlange(api, f) {
@@ -169,12 +169,12 @@ export const ADVANCED_PM = {
   },
   partingLine(api, f) {
     const { t } = api;
-    return group('partingLine', t('pm.moldParameters'), `${seg('dir', [['x', '+X'], ['-x', '−X'], ['y', '+Y'], ['-y', '−Y'], ['z', '+Z'], ['-z', '−Z']], f.dir ?? 'y')}${note(t('pm.help.partingLine'))}`);
+    return group('partingLine', t('pm.moldParameters'), `${seg('dir', [['x', '+X'], ['-x', '−X'], ['y', '+Y'], ['-y', '−Y'], ['z', '+Z'], ['-z', '−Z']], f.dir ?? 'z')}${note(t('pm.help.partingLine'))}`);
   },
   toolingSplit(api, f) {
     const { t } = api;
     return [
-      group('toolingSplit', t('pm.toolingBlock'), `${seg('dir', [['x', '+X'], ['-x', '−X'], ['y', '+Y'], ['-y', '−Y'], ['z', '+Z'], ['-z', '−Z']], f.dir ?? 'y')}${field(api, 'margin', f.margin, { label: t('pm.blockMargin'), min: 1 })}${field(api, 'gap', f.gap, { label: t('pm.separation'), min: 0 })}`),
+      group('toolingSplit', t('pm.toolingBlock'), `${seg('dir', [['x', '+X'], ['-x', '−X'], ['y', '+Y'], ['-y', '−Y'], ['z', '+Z'], ['-z', '−Z']], f.dir ?? 'z')}${field(api, 'margin', f.margin, { label: t('pm.blockMargin'), min: 1 })}${field(api, 'gap', f.gap, { label: t('pm.separation'), min: 0 })}`),
       group('toolingSplit', t('pm.partingPlane'), `${check('auto', f.auto !== false, t('pm.fromPartingLine'), 'partingLine')}${f.auto === false ? field(api, 'height', f.height ?? 0, { label: t('pm.planeHeight') }) : ''}${seg('show', [['both', t('mold.both')], ['core', t('mold.core')], ['cavity', t('mold.cavity')]], f.show ?? 'both')}${check('keepPart', f.keepPart, t('pm.showPart'), 'part')}`),
     ].join('');
   },
@@ -183,7 +183,7 @@ export const ADVANCED_PM = {
     const rows = (f.points ?? []).map((p, i) => `<div class="pt3-row"><b>${i + 1}</b>${['x', 'y', 'z'].map((axis, j) => `<input type="text" class="pm-text" data-pm-field="pt3:${i}:${j}" data-num value="${escapeHtml(api.fmtLenBare(p[j]))}" title="${axis.toUpperCase()}" spellcheck="false"/>`).join('')}<button class="icon-button" data-pm="delPt3:${i}" title="${escapeHtml(t('action.delete'))}">${icon('trash', 'icon tiny')}</button></div>`).join('');
     return [
       group('sketch3d', t('pm.points3d'), `<div class="pt3-table"><div class="pt3-row head"><b>#</b><span>X</span><span>Y</span><span>Z</span><span></span></div>${rows}</div><div class="pm-row"><button class="small-button" data-pm="addPt3">${icon('plus')}<span>${escapeHtml(t('pm.addPoint'))}</span></button></div>`),
-      group('refPlane', t('pm.clickPlane'), `${seg('drawPlane', [['front', `${t('plane.front')} (XY)`], ['top', `${t('plane.top')} (XZ)`], ['right', `${t('plane.right')} (YZ)`]], e.drawPlane ?? 'top')}${pickBox(api, 'points3d', [], t('pm.clickToAddPoints'), 'pointTool')}${note(t('pm.help.sketch3d'))}`),
+      group('refPlane', t('pm.clickPlane'), `${seg('drawPlane', [['front', `${t('plane.front')} (XZ)`], ['top', `${t('plane.top')} (XY)`], ['right', `${t('plane.right')} (YZ)`]], e.drawPlane ?? 'top')}${pickBox(api, 'points3d', [], t('pm.clickToAddPoints'), 'pointTool')}${note(t('pm.help.sketch3d'))}`),
       group('splineTool', t('pm.options'), `${check('spline', f.spline, t('pm.smoothSpline'), 'splineTool')}${check('closed', f.closed, t('pm.closedLoop'), 'refresh')}`),
     ].join('');
   },

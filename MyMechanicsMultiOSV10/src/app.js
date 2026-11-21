@@ -19,6 +19,7 @@ import { analyse as analyseFea, stressColor, thermal as analyseThermal, modal as
 import { THREAD_SIZES } from './ui/pm-advanced.js';
 import { PART_MORE_TYPES, CURVE_TYPES, PART_MORE_ICONS } from './cad/part-more-types.js';
 import { countSolids } from './cad/part-more.js';
+import { importStlSolid } from './cad/stl.js';
 import { startParams as partMoreParams } from './ui/pm-part-more.js';
 import { sheetMoreStart, weldmentCutRows, hasWeldments } from './ui/pm-sheet-more.js';
 import { SHEET_MORE_TYPES, SHEET_MORE_ICONS } from './cad/sheet-more-types.js';
@@ -39,7 +40,7 @@ import { AnimatedBackground } from './ui/background.js';
 import { ANIMATIONS, loadSettings, PANEL_MIN, RECENT_DIRS_KEY, RECENT_KEY, SESSION_KEY, STORAGE_KEY, storeSettings } from './domain/settings.js';
 import { addRecent, loadRecent, loadRecentDirs, removeRecent, storeRecent, storeRecentDirs } from './domain/recent.js';
 import { baseName, directoryOf, fileSafe, stripExtension, withExtension } from './domain/paths.js';
-import { switchFlag } from './flags.js';
+import { switchFlag, flagFor } from './flags.js';
 import { getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
 import * as native from './platform/native.js';
@@ -50,6 +51,9 @@ import { escapeHtml, frameThrottle, isMac, keyLabel, pointerDrag } from './ui/do
 import { DOC_KINDS, docLabel, docWindowTitle } from './domain/helpdocs.js';
 import { PROGRESS_ICONS, PROGRESS_NAME_ICONS } from './ui/progressicons.js';
 import { createMoreTools } from './app-more.js';
+import { withSim2 } from './app-sim2.js';
+import { attachDrwTools } from './app-drw.js';
+import { createStdTools } from './app-std.js';
 
 const root = document.querySelector('#app');
 const desktop = native.isDesktop();
@@ -58,6 +62,8 @@ const popups = new PopupHost();
 const prefersDark = () => Boolean(globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches);
 const VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '1.0.0';
 const lang = () => (getLanguage() === 'en' ? 'en' : 'ko');
+/** The status bar clock in the app's language (not the OS locale: an English UI on a Korean PC showed "오후"). */
+const clockText = () => new Date().toLocaleTimeString(lang() === 'en' ? 'en-US' : 'ko-KR', { hour: '2-digit', minute: '2-digit' });
 
 const state = {
   settings: loadSettings(globalThis.localStorage),
@@ -157,7 +163,7 @@ function showError(titleKey, error, context = '') {
   });
 }
 
-window.addEventListener('error', (event) => { if (event.error || event.message) showError('error.unexpected', event.error ?? event.message, event.filename ? `${event.filename}:${event.lineno}` : ''); });
+window.addEventListener('error', (event) => { if (/^ResizeObserver loop/.test(String(event.message ?? ''))) return; if (event.error || event.message) showError('error.unexpected', event.error ?? event.message, event.filename ? `${event.filename}:${event.lineno}` : ''); });
 window.addEventListener('unhandledrejection', (event) => showError('error.unexpected', event.reason));
 
 // ───────────────────────── documents
@@ -237,6 +243,7 @@ function rebuildProblems() {
 // ───────────────────────── changes, undo
 
 function change(labelKey, mutate) {
+  if (more.blocks(labelKey)) return undefined;
   const d = doc();
   if (!d) return undefined;
   const result = mutate(d.project);
@@ -444,7 +451,7 @@ function addLight(kind) {
   const size = box && !box.isEmpty() ? box.getSize(new THREE.Vector3()).length() : 200;
   const c = box && !box.isEmpty() ? box.getCenter(new THREE.Vector3()).toArray() : [0, 0, 0];
   const n = sceneLights(project()).lights.length + 1;
-  const light = { id: newId('light'), name: `${t(`light.${kind}`)}${n}`, kind, color: kind === 'spot' ? '#fff3d6' : '#ffffff', intensity: kind === 'directional' ? 1 : 0.8, position: [c[0] + size * 0.6, c[1] + size * 0.8, c[2] + size * 0.5].map((v) => Math.round(v)), target: c.map((v) => Math.round(v)), angle: 30, on: true };
+  const light = { id: newId('light'), name: `${t(`light.${kind}`)}${n}`, kind, color: kind === 'spot' ? '#fff3d6' : '#ffffff', intensity: kind === 'directional' ? 1 : 0.8, position: [c[0] + size * 0.6, c[1] - size * 0.5, c[2] + size * 0.8].map((v) => Math.round(v)), target: c.map((v) => Math.round(v)), angle: 30, on: true };
   change('op.light', (p) => { sceneLights(p).lights.push(light); });
   state.editing.selected = light.id;
   syncView();
@@ -499,7 +506,7 @@ function lightsField(key, raw, v) {
 function syncGuides() {
   if (!viewport) return;
   const st = state.settings;
-  viewport.setGuides({ rulers: st.showRulers !== false, grid: st.showGrid !== false && !sketching(), scaleBar: st.showScaleBar !== false, unit: units(), factor: UNIT_FACTOR[units()], scaleBarPos: st.scaleBarPos ?? null, gridPlane: st.gridPlane ?? 'front' });
+  viewport.setGuides({ rulers: st.showRulers !== false, grid: st.showGrid !== false && !sketching(), scaleBar: st.showScaleBar !== false, unit: units(), factor: UNIT_FACTOR[units()], scaleBarPos: st.scaleBarPos ?? null, gridPlane: st.gridPlane ?? 'top' });
   if (project()) {
     const key = JSON.stringify(sceneLights(project()));
     if (key !== syncGuides.lightsKey) { syncGuides.lightsKey = key; viewport.setLights(sceneLights(project())); }
@@ -518,12 +525,13 @@ function syncView() {
   if (!kernelReady()) return;
   if (kind === 'part') syncPart(activePart());
   else if (kind === 'assembly') syncAssembly(activeAssembly());
+  more.decorate(kind);
   viewport.setSelection(state.selection.map(selectionHit).filter(Boolean));
 }
 
 function bodySpec(key, entry, part, extra = {}) {
   const mat = materialOf(part.material);
-  return { key, mesh: entry.mesh, edges: entry.edges, faceIndex: entry.faceIndex, edgeIndex: entry.edgeIndex, color: part.color || mat.color, metal: mat.metal * 0.6, rough: mat.rough, ...extra };
+  return { key, mesh: entry.mesh, edges: entry.edges, faceIndex: entry.faceIndex, edgeIndex: entry.edgeIndex, color: part.color || mat.color, metal: mat.metal * 0.6, rough: mat.rough, material: part.material, ...extra };
 }
 
 function syncPart(part) {
@@ -795,6 +803,7 @@ function onViewportPick(hit, e) {
   if (ed?.mode === 'simulation') return pickForSimulation(hit);
   if (ed?.mode === 'motion') return pickForMotion(hit);
   if (more.owns(ed)) return more.pick(hit, e);
+  if (std.owns(ed)) return std.pick(hit, e);
   const item = itemOfHit(hit);
   if (!item) { if (!e.ctrlKey && !e.shiftKey) clearSelection(); return undefined; }
   select([item], { add: e.ctrlKey || e.shiftKey || e.metaKey });
@@ -924,6 +933,7 @@ function editFeature(id) {
 function cancelEditing({ quiet = false } = {}) {
   const e = state.editing;
   if (!e) return;
+  std.cleanup(e);
   if (e.mode === 'sketch') { e.editor.dispose(); viewport?.setLines('sketch', []); viewport?.setLabels([]); }
   if (e.mode === 'mate' && e.base && activeAssembly()) activeAssembly().components = JSON.parse(e.base);
   state.editing = null;
@@ -942,6 +952,7 @@ function acceptEditing() {
   if (e.mode === 'sketch') return exitSketch();
   if (e.mode === 'mate') return acceptMate();
   if (more.owns(e)) return more.accept();
+  if (std.owns(e)) return std.accept();
   if (e.mode !== 'feature') return cancelEditing({ quiet: true });
   const part = activePart();
   const result = state.previewResult;
@@ -1385,7 +1396,8 @@ function toggleSection() {
   if (state.section) { state.section = null; viewport.setSection(null); notify('info', t('notice.sectionOff')); }
   else {
     const c = viewport.contentBox().getCenter(new THREE.Vector3());
-    state.section = { normal: [0, 0, 1], offset: c.z };
+    // The front plane (XZ) through the middle: the half toward the front viewer (−Y) is taken away.
+    state.section = { normal: [0, -1, 0], offset: -c.y };
     viewport.setSection(state.section);
     notify('info', t('notice.sectionOn'));
     if (!state.settings.showRightPanel) updateSettings({ showRightPanel: true });
@@ -1747,7 +1759,7 @@ function resultColours(part, entry) {
 
 function toggleDraftAnalysis() {
   if (state.draftAnalysis) { state.draftAnalysis = null; notify('info', t('notice.draftAnalysisOff')); syncView(); renderToolbarState(); return; }
-  let dir = [0, 1, 0];
+  let dir = [0, 0, 1];
   const s = state.selection[0];
   if (s?.kind === 'plane') dir = makeFrame(STD_PLANES[s.id] ?? STD_PLANES.top).normal;
   else if (s?.kind === 'face') { const shape = topoOf(s)?.shape; if (shape?.geomType === 'PLANE') dir = faceSignature(shape).normal; }
@@ -1764,7 +1776,7 @@ function startSimulation() {
   const part = activePart();
   if (!part || !state.partEntry?.mesh) { notify('info', t('notice.noBody')); return; }
   if (state.editing) cancelEditing({ quiet: true });
-  state.editing = { mode: 'simulation', study: 'static', fixtures: [], loads: [], loadKind: 'force', magnitude: 1000, dir: '-y', resolution: 40, pick: 'fixtures', nu: 0.3, temperature: 100, heatKind: 'convection', power: 10, h: 25, ambient: 20, modes: 4, modeIndex: 0 };
+  state.editing = { mode: 'simulation', study: 'static', fixtures: [], loads: [], loadKind: 'force', magnitude: 1000, dir: '-z', resolution: 40, pick: 'fixtures', nu: 0.3, temperature: 100, heatKind: 'convection', power: 10, h: 25, ambient: 20, modes: 4, modeIndex: 0 };
   state.leftTab = 'pm';
   renderAll();
   notify('info', t('notice.simPickFixtures'));
@@ -1903,6 +1915,7 @@ function motionPose(time) {
 function showMotionTime(time) {
   const asm = activeAssembly();
   const pose = motionPose(time);
+  more.onMotionPose(pose);
   if (!asm || !pose) return;
   for (const c of asm.components) {
     const pl = pose.get(c.id);
@@ -2135,6 +2148,7 @@ const pmList = (key, items, label, glyph, active) => `<div class="pm-pick ${acti
 function customPm(e) {
   const part = activePart();
   if (more.owns(e)) return more.pm(e);
+  if (std.owns(e)) return std.pm(e);
   if (e.mode === 'lights') return lightsPm(e);
   if (e.mode === 'equations' && part) {
     const rows = equationRows(part);
@@ -2264,6 +2278,7 @@ function customSelect() { return undefined; }
 function customCommand(name, arg) {
   const e = state.editing;
   if (more.handles(name)) return more.command(name, arg);
+  if (std.handles(name)) return std.command(name, arg);
   if (name === 'addLight') return addLight(arg);
   if (name === 'selLight' && e?.mode === 'lights') { e.selected = arg; syncView(); return renderLeft(); }
   if (name === 'delLight' && e?.mode === 'lights') { change('op.light', (p) => { const L = sceneLights(p); L.lights = L.lights.filter((x) => x.id !== arg); }); if (e.selected === arg) e.selected = null; return renderLeft(); }
@@ -2612,7 +2627,7 @@ const commands = {
   showSketches: { icon: 'featSketch', label: 'action.showSketches', checked: () => state.settings.showSketches, run: () => toggle('showSketches') },
   showRulers: { icon: 'ruler', label: 'action.showRulers', checked: () => state.settings.showRulers !== false, run: () => { updateSettings({ showRulers: state.settings.showRulers === false }); syncGuides(); } },
   showGrid: { icon: 'grid', label: 'action.showGrid', checked: () => state.settings.showGrid !== false, run: () => { updateSettings({ showGrid: state.settings.showGrid === false }); syncGuides(); } },
-  ...Object.fromEntries(['front', 'top', 'right'].map((pl) => [`gridPlane:${pl}`, { icon: { front: 'planeFront', top: 'planeTop', right: 'planeRight' }[pl], label: `action.gridPlane.${pl}`, checked: () => (state.settings.gridPlane ?? 'front') === pl, run: () => { updateSettings({ gridPlane: pl, showGrid: true }); syncGuides(); } }])),
+  ...Object.fromEntries(['front', 'top', 'right'].map((pl) => [`gridPlane:${pl}`, { icon: { front: 'planeFront', top: 'planeTop', right: 'planeRight' }[pl], label: `action.gridPlane.${pl}`, checked: () => (state.settings.gridPlane ?? 'top') === pl, run: () => { updateSettings({ gridPlane: pl, showGrid: true }); syncGuides(); } }])),
   showScaleBar: { icon: 'scaleBar', label: 'action.showScaleBar', checked: () => state.settings.showScaleBar !== false, run: () => { updateSettings({ showScaleBar: state.settings.showScaleBar === false }); syncGuides(); } },
   leftPanel: { icon: 'panelLeft', label: 'action.leftPanel', key: 'Ctrl+Shift+1', checked: () => state.settings.showLeftPanel, run: () => toggle('showLeftPanel') },
   rightPanel: { icon: 'panelRight', label: 'action.rightPanel', key: 'Ctrl+Shift+2', checked: () => state.settings.showRightPanel, run: () => toggle('showRightPanel') },
@@ -2629,7 +2644,7 @@ const commands = {
   mate: { icon: 'mate', label: 'cmd.mate', enabled: () => asmOpen() && (activeAssembly()?.components.length ?? 0) > 1, run: () => startMate() },
   fixComponent: { icon: 'fixComponent', label: 'cmd.fix', enabled: () => asmOpen() && state.selection.some((s) => s.kind === 'comp'), run: () => setComponentFixed(true) },
   floatComponent: { icon: 'floatComponent', label: 'cmd.float', enabled: () => asmOpen() && state.selection.some((s) => s.kind === 'comp'), run: () => setComponentFixed(false) },
-  rotateComponent: { icon: 'rotateRight', label: 'cmd.rotate90', enabled: () => asmOpen() && state.selection.some((s) => s.kind === 'comp'), run: () => rotateComponent([0, 1, 0], 90) },
+  rotateComponent: { icon: 'rotateRight', label: 'cmd.rotate90', enabled: () => asmOpen() && state.selection.some((s) => s.kind === 'comp'), run: () => rotateComponent([0, 0, 1], 90) },
   explode: { icon: 'explode', label: 'cmd.explode', enabled: () => asmOpen() && (activeAssembly()?.components.length ?? 0) > 1, checked: () => Boolean(activeAssembly()?.explode?.on), run: () => toggleExplode() },
   resetExplode: { icon: 'collapse', label: 'cmd.resetExplode', enabled: () => Boolean(activeAssembly()?.explode?.steps?.length), run: () => change('op.explode', () => { delete activeAssembly().explode; }) },
   motion: { icon: 'motion', label: 'cmd.motion', enabled: () => asmOpen() && (activeAssembly()?.components.length ?? 0) > 1, checked: () => state.editing?.mode === 'motion', run: () => (state.editing?.mode === 'motion' ? cancelEditing({ quiet: true }) : startMotion()) },
@@ -2663,12 +2678,30 @@ const commands = {
 
 // Component patterns, smart mates, collision detection, more drawing views and tables, sheets, curvature /
 // zebra / thickness, buckling and fatigue (app-more.js).
-const more = createMoreTools({
+const more = withSim2(createMoreTools, {
   state, t, notify, change, commit, syncView, renderAll, renderLeft, renderDrawing, renderToolbarState, fitView, fitDrawing, cancelEditing, ensureKernel, withProgress, ask, newId, fmt, fmtLen, parseLen, units, lang, popups,
   viewport: () => viewport, project, activePart, activeAssembly, activeDrawing, topoOf, assemblySize, componentShapes, drawingShape, drawingProjections,
+  buildPart, displayPlacement, doc, projectThumbnail, activeKind, runCommand: (id, c) => run(id, c),
   pm: { pmHead, pmGroup, pmNum, pmSeg, pmList, pmButton, textInput },
 });
 Object.assign(commands, more.commands);
+// Smart dimensions, model items, centre marks, welds, tables, layers, title block, sheet formats; more Evaluate
+// tools and the mold surfaces (app-drw.js), chained onto the hooks of `more`.
+const drwTools = attachDrwTools(more, {
+  state, t, notify, change, syncView, renderAll, renderLeft, renderDrawing, renderToolbarState, fitDrawing, cancelEditing, newId, fmt, fmtLen, units, lang,
+  viewport: () => viewport, project, activePart, activeDrawing, topoOf, drawingShape, drawingProjections, drawingInfo, buildPart: (p) => buildPart(p), startFeature,
+  pm: { pmHead, pmGroup, pmNum, pmSeg, pmList, pmButton, textInput },
+});
+Object.assign(commands, drwTools.commands);
+
+// Standard parts library, smart fasteners, pipe / tube / cable routes and photo rendering (app-std.js).
+const std = createStdTools({
+  state, t, notify, change, commit, syncView, renderAll, renderLeft, cancelEditing, ensureKernel, newId, fmt, fmtLen, parseLen, units, lang, fitView, saveExport, fileSafe,
+  viewport: () => viewport, viewHost: () => root.querySelector('#view-host'), activeName: () => active()?.name ?? '', project, activePart, activeAssembly, topoOf, assemblySize,
+  beginFeature, updateFeature,
+  pm: { pmHead, pmGroup, pmNum, pmSeg, pmList, pmButton, textInput },
+});
+Object.assign(commands, std.commands);
 
 function normalTo() {
   if (sketching()) { viewport.setView(null, { frameOf: state.editing.editor.frame }); return; }
@@ -2764,6 +2797,7 @@ const MENUS = {
   tools: ['massProps', 'measure', 'simulation', 'draftAnalysis', '-', 'equations', 'configurations', 'designTable', 'importTable', '-', 'insertComponent', 'mate', 'fixComponent', 'floatComponent', 'interference', 'explode', 'motion', '-', 'newDrawing', 'std3View', 'addView', '-', 'settings'],
   help: ['welcome', 'userGuide', 'tutorialDoc', 'shortcuts', '-', 'settings', 'about'],
 };
+drwTools.extendMenus(SUBMENUS, MENUS);
 const MENU_ICONS = { file: 'file', edit: 'edit', view: 'eye', insert: 'featExtrude', sketch: 'featSketch', tools: 'tools', help: 'question' };
 
 const TOOLBAR = [
@@ -2789,12 +2823,18 @@ const COMMAND_TABS = {
   assembly: ['insertComponent', 'mate', 'fixComponent', 'floatComponent', 'rotateComponent', 'openPart', '|', 'explode', 'resetExplode', 'motion', '|', 'interference', 'massProps'],
   drawing: ['newDrawing', 'std3View', 'addView', 'sectionView', 'detailView', 'auxView', '|', 'ann:note', 'ann:balloon', 'ann:gdt', 'ann:datum', 'ann:surface', 'ann:centermark', 'bom', '|', 'hiddenLines', 'autoDims', '|', 'exportDxf', 'exportSvg', 'print'],
 };
-for (const [tab, ids] of Object.entries(more.TABS)) COMMAND_TABS[tab].push('|', ...ids);
+for (const [tab, ids] of Object.entries(more.TABS)) COMMAND_TABS[tab]?.push('|', ...ids);
+more.extendMenus(MENUS);
+COMMAND_TABS.stdTools = std.TAB;
+SUBMENUS.stdRouting = std.SUBMENU;
+MENUS.insert.push('-', sub('stdRouting'));
+MENUS.view.splice(MENUS.view.indexOf('lights') + 1, 0, 'renderView');
+MENUS.tools.splice(MENUS.tools.indexOf('motion') + 1, 0, '-', 'stdLibrary', 'smartFastener', 'renderView');
 
 function visibleCommandTabs() {
   const kind = activeKind();
-  if (kind === 'part') return ['features', 'sketch', 'surfaces', 'sheetMetal', 'weldments', 'mold', 'bodiesCurves', 'evaluate', 'drawing'];
-  if (kind === 'assembly') return ['assembly', 'evaluate', 'drawing'];
+  if (kind === 'part') return ['features', 'sketch', 'surfaces', 'sheetMetal', 'weldments', 'mold', 'bodiesCurves', 'stdTools', 'evaluate', 'drawing'];
+  if (kind === 'assembly') return ['assembly', 'stdTools', 'evaluate', 'drawing'];
   if (kind === 'drawing') return ['drawing'];
   return [];
 }
@@ -2966,7 +3006,7 @@ function renderTabs() {
   if (!p) { tabs.innerHTML = ''; return; }
   const glyph = { part: 'part', assembly: 'assembly', drawing: 'drawing' };
   const list = documentsOf(p);
-  tabs.innerHTML = `<div class="tab-strip">${list.map(({ kind, doc: d }) => `<button class="tab ${p.active?.id === d.id ? 'active' : ''}" data-doc-tab="${kind}:${escapeHtml(d.id)}" title="${escapeHtml(`${t(`doc.${kind}`)}: ${d.name}`)}">${icon(glyph[kind])}<span>${escapeHtml(d.name)}</span>${list.length > 1 ? `<span class="tab-close" data-doc-close="${kind}:${escapeHtml(d.id)}" title="${escapeHtml(t('tabs.removeDoc'))}">${icon('close', 'icon tiny')}</span>` : ''}</button>`).join('')}
+  tabs.innerHTML = `<div class="tab-strip">${list.map(({ kind, doc: d }) => `<button class="tab ${p.active?.id === d.id ? 'active' : ''}" data-doc-tab="${kind}:${escapeHtml(d.id)}" title="${escapeHtml(`${t(`doc.${kind}`)}: ${d.name}`)}">${icon(glyph[kind])}<span>${escapeHtml(d.name)}</span><span class="tab-close" data-doc-close="${kind}:${escapeHtml(d.id)}" role="button" aria-label="${escapeHtml(t(list.length > 1 ? 'tabs.removeDoc' : 'action.closeProject'))}" title="${escapeHtml(t(list.length > 1 ? 'tabs.removeDoc' : 'action.closeProject'))}">${icon('close', 'icon tiny')}</span></button>`).join('')}
       <button class="tab-add" data-command="newPart" title="${escapeHtml(commandTip('newPart'))}">${icon('plus')}</button></div>
     <span class="grow"></span>
     <span class="tab-scroll" role="group" aria-label="${escapeHtml(t('tabs.scroll'))}"><button class="icon-button" data-tab-scroll="-1" title="${escapeHtml(t('tabs.scrollLeft'))}" aria-label="${escapeHtml(t('tabs.scrollLeft'))}">${icon('chevronLeft')}</button><button class="icon-button" data-tab-scroll="1" title="${escapeHtml(t('tabs.scrollRight'))}" aria-label="${escapeHtml(t('tabs.scrollRight'))}">${icon('chevronRight')}</button></span>
@@ -3043,7 +3083,7 @@ function renderLeft() {
       <div class="panel-header left-section-header" title="${escapeHtml(`${t('panel.tree')} — ${t('panel.treeTip')}`)}">${icon('featExtrude')}<span class="left-section-title">${escapeHtml(t('panel.tree'))}</span>
         <span class="grow"></span>
         <button class="icon-button" data-command="leftPanel" title="${escapeHtml(t('panel.collapseLeft'))}">${icon('panelLeftClose')}</button></div>
-      <div class="panel-body left-tree-body">${treeHtml(treeApi())}</div>
+      <div class="panel-body left-tree-body">${treeHtml(treeApi())}${more.treeExtra()}</div>
     </section>
     <div class="splitter horizontal left-pm-split" data-split="leftPm" role="separator" aria-orientation="horizontal" title="${escapeHtml(t('panel.pmSplit'))}"></div>
     <section class="left-section left-pm-section ${editing ? 'active' : 'idle'}" style="flex: ${ratio} 1 0">
@@ -3084,6 +3124,7 @@ function pmSubject() {
   if (!e) return '';
   if (e.feature?.name) return e.feature.name;
   if (more.owns(e)) return more.subject(e);
+  if (std.owns(e)) return std.subject(e);
   const key = { mate: 'cmd.mate', insert: 'cmd.insertComponent', measure: 'cmd.measure', sketchPlane: 'pm.newSketch', simulation: 'cmd.simulation', motion: 'cmd.motion', equations: 'cmd.equations', configs: 'cmd.configurations', lights: 'cmd.lights' }[e.mode];
   return key ? t(key) : e.mode;
 }
@@ -3133,7 +3174,7 @@ function pmApi() {
     otherParts: () => project().parts.filter((p) => p.id !== part?.id),
     assemblies: () => project().assemblies.filter((a) => a.id !== activeAssembly()?.id && !assemblyContains(a, activeAssembly()?.id)),
     custom: (e) => customPm(e),
-    customMode: (mode) => more.owns({ mode }),
+    customMode: (mode) => more.owns({ mode }) || std.owns({ mode }),
     sampleParts: SAMPLES.filter((s) => s.group !== 'assembly').map((s) => ({ id: s.id, name: s[lang()][0], icon: s.icon })),
   };
 }
@@ -3284,7 +3325,9 @@ function displayHtml() {
     out.push(`<div class="pm-row">${['x', 'y', 'z'].map((a, i) => `<button class="small-button ${state.section.normal[i] ? 'active' : ''}" data-section-axis="${i}">${escapeHtml(a.toUpperCase())}</button>`).join('')}</div>`);
     const box = viewport.contentBox();
     const i = state.section.normal.findIndex((v) => v);
-    const lo = box.min.getComponent(i); const hi = box.max.getComponent(i);
+    // The offset is measured along the normal (the default front section's normal is −Y).
+    const sg = Math.sign(state.section.normal[i]) || 1;
+    const lo = sg > 0 ? box.min.getComponent(i) : -box.max.getComponent(i); const hi = sg > 0 ? box.max.getComponent(i) : -box.min.getComponent(i);
     out.push(`<label class="pm-field"><span class="pm-label">${escapeHtml(t('pm.offset'))}</span><input type="range" data-unit="${escapeHtml(units())}" data-section-offset min="${lo}" max="${hi}" step="${(hi - lo) / 200 || 0.1}" value="${state.section.offset}"/></label>`);
   }
   return out.join('');
@@ -3349,8 +3392,9 @@ function renderStatus() {
     items.push(`<button class="status-item units" data-units-menu title="${escapeHtml(t('settings.units'))}">${icon('units')}<span>${escapeHtml(units().toUpperCase())}</span></button>`);
   }
   items.push(`<span class="status-item" title="${escapeHtml(t('status.theme', { name: themeName(s.theme, getLanguage()) }))}">${icon('palette')}<span>${escapeHtml(themeName(s.theme, getLanguage()))}</span></span>`);
-  items.push(`<span class="status-item" title="${escapeHtml(t('status.language'))}">${icon('globe')}<span>${escapeHtml(t('status.language'))}</span></span>`);
-  if (s.statusClock) items.push(`<span class="status-item clock" title="${escapeHtml(t('status.clock'))}">${icon('clock')}<span id="status-clock">${escapeHtml(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</span></span>`);
+  // The language: the flag of the current language; a click switches (as the toolbar button does).
+  items.push(`<button class="status-item status-lang" data-command="language" title="${escapeHtml(`${t('status.language')} — ${t('action.language')}`)}"><span class="flag-slot">${flagFor(getLanguage())}</span><span>${escapeHtml(t('status.language'))}</span></button>`);
+  if (s.statusClock) items.push(`<span class="status-item clock" title="${escapeHtml(t('status.clock'))}">${icon('clock')}<span id="status-clock">${escapeHtml(clockText())}</span></span>`);
   bar.innerHTML = items.join('');
 }
 
@@ -3404,7 +3448,14 @@ function renderStartPage() {
   startBackground = new AnimatedBackground(canvas, { colors: backgroundColors, speed: () => state.settings.animationSpeed / 100, kind: state.settings.animation, vivid: true });
   if (state.settings.backgroundKind === 'animated') startBackground.start(); else startBackground.draw();
   canvas.classList.toggle('static', state.settings.backgroundKind !== 'animated');
-  host.querySelector('.start-scroll').style.setProperty('--start-image', state.backgroundUrl && state.settings.backgroundKind === 'image' ? `url("${state.backgroundUrl}")` : 'none');
+  const startScroll = host.querySelector('.start-scroll');
+  startScroll.style.setProperty('--start-image', state.backgroundUrl && state.settings.backgroundKind === 'image' ? `url("${state.backgroundUrl}")` : 'none');
+  // Settings › Background: how the picture is laid out (fit) and how strongly it shows (opacity: a veil of
+  // the page colour over it).
+  const [size, repeat] = { cover: ['cover', 'no-repeat'], contain: ['contain', 'no-repeat'], tile: ['auto', 'repeat'], center: ['auto', 'no-repeat'], stretch: ['100% 100%', 'no-repeat'] }[state.settings.backgroundFit] ?? ['cover', 'no-repeat'];
+  startScroll.style.setProperty('--start-image-size', size);
+  startScroll.style.setProperty('--start-image-repeat', repeat);
+  startScroll.style.setProperty('--start-image-veil', `${100 - Math.max(0, Math.min(100, Number(state.settings.backgroundOpacity) || 0))}%`);
   host.classList.toggle('with-image', Boolean(state.backgroundUrl) && state.settings.backgroundKind === 'image');
 }
 
@@ -3695,6 +3746,7 @@ async function saveDoc({ saveAs = false } = {}) {
   if (viewport && activeKind() !== 'drawing') d.project.camera = viewport.cameraState();
   const suggested = `${safeName()}.mymech`;
   try {
+    more.beforeSave(d);
     const text = packProject(d.project, { thumbnail: projectThumbnail() });
     if (desktop) {
       let path = d.path;
@@ -3846,7 +3898,7 @@ async function importModelFile(name, bytes) {
   await ensureKernel();
   const R = rep();
   try {
-    const shape = await busy('progress.import', name, async () => (isStlName(name) ? R.importSTL(new Blob([bytes])) : R.importSTEP(new Blob([bytes]))));
+    const shape = await busy('progress.import', name, async () => (isStlName(name) ? importStlSolid(bytes) : R.importSTEP(new Blob([bytes]))));
     const part = createPart(stripExtension(name));
     part.features.push(createFeature(part, 'import', { brep: shape.serialize(), source: name, name: stripExtension(name) }));
     if (hasDoc() && project()) {
@@ -3893,7 +3945,7 @@ function menuItems(ids) {
   return ids.map((id) => (id === '-' ? { separator: true } : typeof id === 'object' ? {
     id: `submenu:${id.sub}`, label: t(`submenu.${id.sub}`), icon: SUBMENUS[id.sub].icon, submenu: true,
     disabled: !SUBMENUS[id.sub].items.some((item) => item !== '-' && commandEnabled(item)),
-  } : { id, label: t(commands[id].label), icon: commands[id].icon, shortcut: commands[id].key ? keyLabel(commands[id].key) : '', disabled: !commandEnabled(id), checked: commands[id].checked?.() }));
+  } : { id, label: t(commands[id].label), icon: commands[id].icon, ...(id === 'language' ? { flag: getLanguage() === 'ko' ? 'en' : 'ko' } : {}), shortcut: commands[id].key ? keyLabel(commands[id].key) : '', disabled: !commandEnabled(id), checked: commands[id].checked?.() }));
 }
 
 function withChildren(items, depth = 0) {
@@ -4007,6 +4059,7 @@ function pmFieldChanged(key, raw, unit) {
     return;
   }
   if (more.owns(e)) return more.field(key, raw, v);
+  if (std.owns(e)) return std.field(key, raw, v);
   if (e.mode === 'mate') { if (v != null) { if (['min', 'max', 'ratio', 'radius', 'pitch'].includes(key)) e.mate[key] = v; else e.mate.value = v; previewMate(); } return; }
   if (e.mode === 'lights') return lightsField(key, raw, parseLen(raw, 'number'));
   if (['simulation', 'motion', 'equations', 'configs'].includes(e.mode)) return customField(key, raw, v);
@@ -4043,6 +4096,7 @@ function pmFieldChanged(key, raw, unit) {
 }
 
 function pmStep(key, delta) {
+  if (std.owns(state.editing)) return std.step(key, delta);
   const e = state.editing;
   if (e?.mode === 'sketch' && key === 'polygonSides') { e.editor.polygonSides = Math.max(3, e.editor.polygonSides + delta); renderLeft(); return; }
   const target = e?.mode === 'feature' ? e.feature : e?.mode === 'mate' ? e.mate : null;
@@ -4056,6 +4110,8 @@ function pmStep(key, delta) {
 function pmSet(key, value) {
   const e = state.editing;
   if (more.owns(e)) return more.set(key, value);
+  if (std.owns(e)) return std.set(key, value);
+  if (std.featureSet(key, value)) return undefined;
   if (e?.mode === 'mate') {
     if (key === 'type') {
       e.mate.type = value;
@@ -4088,6 +4144,7 @@ function pmSet(key, value) {
 function pmToggle(key, checked) {
   const e = state.editing;
   if (more.owns(e)) return more.toggle(key, checked);
+  if (std.owns(e)) return std.toggle(key, checked);
   if (e?.mode === 'mate') { if (key === 'flip' || key === 'reverse') { e.mate[key] = checked; previewMate(); } return; }
   if (e?.mode === 'lights') { const [scope, id] = key.split(':'); change('op.light', (p) => { const L = sceneLights(p); if (scope === 'cam') L.cameraLight.on = checked; else { const l = L.lights.find((x) => x.id === id); if (l) l.on = checked; } }); return undefined; }
   if (['simulation', 'motion', 'equations', 'configs'].includes(e?.mode)) return customToggle(key, checked);
@@ -4103,14 +4160,16 @@ function pmToggle(key, checked) {
       const value = Number.isFinite(Number(raw)) ? Number(raw) : raw;
       f[list] = (f[list] ?? []).filter((x) => String(x) !== raw);
       if (checked) f[list].push(value);
-    } else if (key === 'dir2') { if (f.type === 'extrude') f.end2 = checked ? 'blind' : 'none'; else f.direction2 = checked ? { kind: 'axis', axis: 'z' } : null; }
+    } else if (key === 'dir2') { if (f.type === 'extrude') f.end2 = checked ? 'blind' : 'none'; else f.direction2 = checked ? { kind: 'axis', axis: 'y' } : null; }
     else f[key] = checked;
   });
 }
 
 function pmSelect(key, value) {
   const e = state.editing;
+  if (std.select(key, value)) return undefined;
   if (['simulation', 'motion', 'equations', 'configs'].includes(e?.mode)) return customSelect(key, value);
+  if (more.owns(e)) return more.select?.(key, value);
   if (e?.mode !== 'feature') return;
   if (key === 'threadSize') {
     const row = THREAD_SIZES.find(([sz]) => sz === value);
@@ -4134,8 +4193,11 @@ async function pmCommand(cmd) {
   if (name === 'sketchOn') return openNewSketch({ kind: 'std', name: arg });
   if (name === 'clear') {
     if (more.owns(e)) return more.command('clear', arg);
+    if (std.owns(e)) return std.command('clear', arg);
     if (e?.mode === 'measure') { e.picks = []; e.result = []; viewport.setSelection([]); return renderLeft(); }
     if (e?.mode === 'feature') updateFeature((f, ed) => { if (arg === 'holePoints') ed.holeSketch.points = []; else if (Array.isArray(f[arg])) f[arg] = []; });
+    // The simulation's fixture / load lists and the motion study's motors are cleared by customCommand.
+    if (e?.mode === 'simulation' || e?.mode === 'motion') return customCommand(name, arg);
     return undefined;
   }
   if (name === 'tangentChain' && e) { e.pick = 'edges'; notify('info', t('pm.pickFaceForEdges')); return renderLeft(); }
@@ -4200,8 +4262,9 @@ function bindEvents() {
     if (target.closest('[data-home]')) return showStartPage(!state.showStart || !state.doc);
     const start = target.closest('[data-start]');
     if (start && !start.disabled) return onStartAction(start);
-    const more = target.closest('[data-toolbar-more]');
-    if (more) return showToolbarMore(more);
+    // (Not named `more`: that would hide the module's `more` tools in the rest of this handler.)
+    const moreButton = target.closest('[data-toolbar-more]');
+    if (moreButton) return showToolbarMore(moreButton);
     const docClose = target.closest('[data-doc-close]');
     if (docClose) { event.stopPropagation(); return removeDocument(docClose.dataset.docClose); }
     const docTab = target.closest('[data-doc-tab]');
@@ -4246,6 +4309,7 @@ function bindEvents() {
     if (reset && activePart()) return change('op.edit', () => { activePart().color = null; });
     const drw = target.closest('[data-drw]');
     if (drw) return drawingAction(drw.dataset.drw);
+    if (drwTools.sheetClick(event)) return undefined;
     if (state.drawingPlace && activeDrawing() && target.closest('#drawing-host svg')) return placeAnnotation(event);
     const ann = target.closest('#drawing-host [data-annotation]');
     if (ann && activeDrawing()) { state.drawingSelected = ann.dataset.annotation; renderDrawing(); renderRight(); renderToolbarState(); return undefined; }
@@ -4269,6 +4333,7 @@ function bindEvents() {
     const row = event.target.closest('[data-tree]');
     if (row) {
       const key = row.dataset.tree;
+      if (more.treeDouble(key)) return undefined;
       if (key.startsWith('feat:')) return editFeature(key.slice(5));
       if (key.startsWith('comp:')) { const c = activeAssembly()?.components.find((x) => x.id === key.slice(5)); if (c) switchDocument(c.sub ? { kind: 'assembly', id: c.sub } : { kind: 'part', id: c.part }); }
       if (key === 'equations') return startEquations('equations');
@@ -4303,7 +4368,16 @@ function bindEvents() {
   root.addEventListener('input', (event) => {
     const target = event.target;
     if ('sectionOffset' in target.dataset && state.section) { state.section = { ...state.section, offset: Number(target.value) }; viewport.setSection(state.section); }
-    if ('playerTime' in target.dataset && activeAssembly()) { state.player.playing = false; state.player.time = Number(target.value); try { showMotionTime(state.player.time); } catch { /* shown next time */ } renderMotionBar(); }
+    if ('playerTime' in target.dataset && activeAssembly()) {
+      state.player.playing = false; state.player.time = Number(target.value);
+      try { showMotionTime(state.player.time); } catch { /* shown next time */ }
+      // Only the buttons' states change: drawing the bar again would replace the slider being dragged.
+      const bar = root.querySelector('#motion-bar');
+      const btn = (k) => bar?.querySelector(`[data-player="${k}"]`);
+      if (btn('play')) { btn('play').disabled = false; btn('play').classList.remove('active'); }
+      if (btn('pause')) btn('pause').disabled = true;
+      if (btn('stop')) btn('stop').disabled = !(state.player.time > 0);
+    }
     if ('motionTime' in target.dataset && state.editing?.mode === 'motion') { state.editing.playing = false; state.editing.time = Number(target.value); try { showMotionTime(state.editing.time); } catch { /* shown next time */ } const out = root.querySelector('[data-motion-clock]'); if (out) out.textContent = `${fmt(state.editing.time, 2)} s`; }
     if ('startSpeed' in target.dataset) { const out = target.closest('label')?.querySelector('output'); if (out) out.textContent = `${target.value}%`; state.settings.animationSpeed = Number(target.value); }
     if ('startOpacity' in target.dataset) { const out = target.closest('label')?.querySelector('output'); if (out) out.textContent = `${target.value}%`; root.querySelector('.start-inner')?.style.setProperty('--start-card-alpha', `${target.value}%`); }
@@ -4448,7 +4522,7 @@ function bindEvents() {
     window.addEventListener('beforeunload', (event) => { if (doc()?.dirty) { event.preventDefault(); event.returnValue = ''; } });
   }
 
-  setInterval(() => { const clock = root.querySelector('#status-clock'); if (clock) clock.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }, 15000);
+  setInterval(() => { const clock = root.querySelector('#status-clock'); if (clock) clock.textContent = clockText(); }, 15000);
 }
 
 function drawingSelect(key, value) {
@@ -4465,7 +4539,9 @@ function drawingSelect(key, value) {
 async function removeDocument(ref) {
   const [kind, id] = ref.split(':');
   const p = project();
-  if (!p || documentsOf(p).length <= 1) return;
+  if (!p) return;
+  // The last tab's ✕ closes the project (back to the start page, asking to save as Close does).
+  if (documentsOf(p).length <= 1) return closeProject();
   const d = findDocument(p, { kind, id });
   const usedBy = kind === 'part' ? [...p.assemblies.filter((a) => a.components.some((c) => c.part === id)), ...p.drawings.filter((x) => x.source?.id === id)] : kind === 'assembly' ? p.drawings.filter((x) => x.source?.id === id) : [];
   const choice = await ask({ icon: 'trash', title: t('confirm.removeDocTitle'), message: t(usedBy.length ? 'confirm.removeDocUsed' : 'confirm.removeDocMessage', { name: d?.name ?? '', count: usedBy.length }), buttons: [{ id: 'cancel', label: t('confirm.cancel') }, { id: 'remove', label: t('confirm.remove'), icon: 'trash', danger: true, primary: true }] });
@@ -4650,7 +4726,7 @@ async function openWelcome() {
 
 // Test hook: the E2E suite and the smoke script drive the app through this.
 window.__mymechanics = {
-  state, t, commands, popups, run,
+  state, t, commands, popups, run, std,
   menus: { MENUS, SUBMENUS, enabled: (id) => commandEnabled(id) },
   get viewport() { return viewport; },
   actions: {
@@ -4661,6 +4737,7 @@ window.__mymechanics = {
   get project() { return project(); },
   active: () => active(),
 };
+window.__mymechanics.sim2 = more.sim2;
 
 start()
   .catch((error) => showError('error.unexpected', error, 'start'))

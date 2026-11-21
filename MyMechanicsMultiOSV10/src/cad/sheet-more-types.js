@@ -17,7 +17,7 @@ export const SHEET_MORE_ICONS = {
 
 
 export const SHEET_MORE_DEFAULTS = {
-  ruledSurface: () => ({ edges: [], mode: 'tangent', distance: 10, axis: 'y', alternate: false, reverse: false }),
+  ruledSurface: () => ({ edges: [], mode: 'tangent', distance: 10, axis: 'z', alternate: false, reverse: false }),
   deleteFace: () => ({ faces: [], mode: 'patch' }),
   replaceFace: () => ({ faces: [], surface: null }),
   extendSurface: () => ({ surface: null, distance: 5, kind: 'same' }),

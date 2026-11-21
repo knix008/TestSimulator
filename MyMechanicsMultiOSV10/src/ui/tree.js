@@ -8,6 +8,8 @@ import { nameKey } from '../cad/features.js';
 import { materialName } from '../cad/materials.js';
 import { PART_MORE_ICONS } from '../cad/part-more-types.js';
 import { SHEET_MORE_ICONS } from '../cad/sheet-more-types.js';
+import { MOLD_MORE_ICONS } from '../cad/mold-more-types.js';
+import { STD_ICONS } from '../cad/std-types.js';
 
 export const FEATURE_ICONS = {
   import: 'stepFile',
@@ -19,6 +21,8 @@ export const FEATURE_ICONS = {
   moveBody: 'moveBody', scaleBody: 'scaleBody', split: 'split', insertPart: 'insertPartFeat', baseFlange: 'sheetMetal', edgeFlange: 'edgeFlange', structural: 'structural',
   ...PART_MORE_ICONS,
   ...SHEET_MORE_ICONS,
+  ...MOLD_MORE_ICONS,
+  ...STD_ICONS,
 };
 export const featureIcon = (f) => FEATURE_ICONS[nameKey(f)] ?? 'part';
 export const MATE_ICONS = { coincident: 'mateCoincident', concentric: 'mateConcentric', distance: 'mateDistance', parallel: 'mateParallel', perpendicular: 'matePerpendicular', angle: 'mateAngle', lock: 'mateLock', width: 'mateWidth', symmetric: 'mateSymmetric', limitDistance: 'mateLimit', limitAngle: 'mateLimit', gear: 'mateGear', rackPinion: 'mateRack', screw: 'mateScrew', hinge: 'mateHinge' };

@@ -8,6 +8,10 @@ import { profiles, byId, standalonePoints } from './sketch.js';
 import { findEdges, findFace, planeOfFace, crossV, normalize, cylinderRadius, isCylinder, faceSignature } from './refs.js';
 import { sketchOf, combine, sizeAround, replicadPlane, codeError, loopDrawing, resolvePlane, toWorld, AXES, regenerate, frame as makeFrame, sketchDrawing } from './features.js';
 import { SHEET_MORE_TYPES, SHEET_MORE_DEFAULTS, SHEET_MORE_NAMES } from './sheet-more-types.js';
+import { MOLD_MORE_TYPES, MOLD_MORE_DEFAULTS, MOLD_MORE_NAMES } from './mold-more-types.js';
+import { buildMoldMore, toolingSplitBySurfaces, undercutCount } from './mold-more.js';
+import { worldUp, worldFront } from './frame.js';
+import { makeHelixStable, makeCylinderStable, makeCircleStable } from './oriented.js';
 import { buildSheetMore } from './sheet-more.js';
 
 export const ADVANCED_TYPES = [
@@ -15,7 +19,7 @@ export const ADVANCED_TYPES = [
   'surfaceExtrude', 'surfaceRevolve', 'surfacePlanar', 'surfaceLoft', 'surfaceOffset', 'knit',
   'moveBody', 'scaleBody', 'split', 'insertPart', 'baseFlange', 'edgeFlange', 'structural',
   'fillSurface', 'boundary', 'trimSurface', 'hem', 'sketchedBend', 'jog', 'partingLine', 'toolingSplit', 'sketch3d',
-  ...SHEET_MORE_TYPES,
+  ...SHEET_MORE_TYPES, ...MOLD_MORE_TYPES,
 ];
 
 export const ADVANCED_DEFAULTS = {
@@ -34,10 +38,10 @@ export const ADVANCED_DEFAULTS = {
   surfaceLoft: () => ({ sketches: [], ruled: false }),
   surfaceOffset: () => ({ faces: [], distance: 2 }),
   knit: () => ({ surfaces: [], solid: true }),
-  moveBody: () => ({ dx: 0, dy: 0, dz: 0, axis: 'y', angle: 0, copy: false }),
+  moveBody: () => ({ dx: 0, dy: 0, dz: 0, axis: 'z', angle: 0, copy: false }),
   scaleBody: () => ({ factor: 1.02, about: 'origin' }),
   split: () => ({ plane: { kind: 'std', name: 'top' }, keep: 'above' }),
-  insertPart: () => ({ part: null, op: 'boss', dx: 0, dy: 0, dz: 0, axis: 'y', angle: 0, scale: 1 }),
+  insertPart: () => ({ part: null, op: 'boss', dx: 0, dy: 0, dz: 0, axis: 'z', angle: 0, scale: 1 }),
   baseFlange: () => ({ sketch: null, thickness: 2, radius: 2, kFactor: 0.44, reverse: false }),
   edgeFlange: () => ({ edge: null, length: 20, angle: 90, radius: null, flip: false }),
   structural: () => ({ sketch: null, profile: 'squareTube', w: 40, h: 40, t: 3, rotate: 0 }),
@@ -47,10 +51,10 @@ export const ADVANCED_DEFAULTS = {
   hem: () => ({ edge: null, kind: 'closed', length: 10, gap: 1, flip: false }),
   sketchedBend: () => ({ sketch: null, angle: 90, radius: null, flip: false, down: false }),
   jog: () => ({ sketch: null, height: 10, flip: false, down: false }),
-  partingLine: () => ({ dir: 'y' }),
-  toolingSplit: () => ({ dir: 'y', margin: 10, gap: 30, show: 'both', auto: true, height: 0, keepPart: false }),
-  sketch3d: () => ({ points: [[0, 0, 0], [50, 0, 0], [50, 50, 0], [50, 50, 50]], closed: false, spline: false }),
-  ...SHEET_MORE_DEFAULTS,
+  partingLine: () => ({ dir: 'z' }),
+  toolingSplit: () => ({ dir: 'z', margin: 10, gap: 30, show: 'both', auto: true, height: 0, keepPart: false }),
+  sketch3d: () => ({ points: [[0, 0, 0], [50, 0, 0], [50, 0, 50], [50, -50, 50]], closed: false, spline: false }),
+  ...SHEET_MORE_DEFAULTS, ...MOLD_MORE_DEFAULTS,
 };
 
 export const ADVANCED_NAMES = {
@@ -60,7 +64,7 @@ export const ADVANCED_NAMES = {
   baseFlange: 'Base-Flange', edgeFlange: 'Edge-Flange', structural: 'Structural Member',
   fillSurface: 'Surface-Fill', boundary: 'Boundary-Surface', trimSurface: 'Surface-Trim', hem: 'Hem', sketchedBend: 'Sketched Bend', jog: 'Jog',
   partingLine: 'Parting Line', toolingSplit: 'Tooling Split', sketch3d: '3DSketch',
-  ...SHEET_MORE_NAMES,
+  ...SHEET_MORE_NAMES, ...MOLD_MORE_NAMES,
 };
 
 /** Weldment profiles: [w, h, t] defaults per kind (mm). */
@@ -111,6 +115,7 @@ export function buildAdvanced(f, ctx) {
     case 'sketch3d': return buildSketch3d(f, ctx);
     default:
       if (SHEET_MORE_TYPES.includes(f.type)) return buildSheetMore(f, ctx);
+      if (MOLD_MORE_TYPES.includes(f.type)) return buildMoldMore(f, ctx);
       throw codeError('unknown-feature', { type: f.type });
   }
 }
@@ -125,7 +130,7 @@ export function sketchWire(sketch, fr) {
   const curves = sketch.entities.filter((e) => !e.construction && ['line', 'arc', 'spline', 'circle'].includes(e.type));
   if (!curves.length) throw codeError('no-path');
   const circle = curves.find((e) => e.type === 'circle');
-  if (circle && curves.length === 1) { const c = map.get(circle.c); return R.assembleWire([R.makeCircle(circle.r, toWorld(fr, [c.x, c.y]), fr.normal)]); }
+  if (circle && curves.length === 1) { const c = map.get(circle.c); return R.assembleWire([makeCircleStable(circle.r, toWorld(fr, [c.x, c.y]), fr.normal)]); }
   // Ends merged by position; walk from an end used once (an open path) or from anywhere (a closed one).
   const key = (id) => { const p = map.get(id); return `${Math.round(p.x * 1e5)},${Math.round(p.y * 1e5)}`; };
   const ends = (e) => (e.type === 'line' || e.type === 'arc' ? [e.p1, e.p2] : [e.pts[0], e.pts[e.pts.length - 1]]);
@@ -301,7 +306,7 @@ function helixWire(f, ctx) {
   const fr = resolvePlane(f.plane, ctx);
   const centre = toWorld(fr, f.center ?? [0, 0]);
   const pitch = Math.max(0.01, num(f.pitch, 5)); const turns = Math.max(0.05, num(f.turns, 4));
-  return R.makeHelix(pitch, pitch * turns, Math.max(0.01, num(f.radius, 10)), centre, fr.normal, Boolean(f.lefthand));
+  return makeHelixStable(pitch, pitch * turns, Math.max(0.01, num(f.radius, 10)), centre, fr.normal, Boolean(f.lefthand));
 }
 
 /**
@@ -367,7 +372,7 @@ function buildThread(f, ctx) {
   const step = Math.min(L, radius) * 0.5;
   // Which way the material is, and whether it is inside the circle (shaft) or around it (hole).
   let dir = null; let internal = null;
-  const perp = normalize(Math.abs(normal[0]) < 0.9 ? crossV(normal, [1, 0, 0]) : crossV(normal, [0, 1, 0]));
+  const perp = normalize(Math.abs(normal[0]) < 0.9 ? crossV(normal, [1, 0, 0]) : crossV(normal, worldUp()));
   for (const s of [1, -1]) {
     const d = mul(normal, s);
     if (insideBody(ctx.body, add(centre, mul(d, step)), probe)) { dir = d; internal = false; break; }
@@ -420,8 +425,8 @@ function buildWrap(f, ctx) {
     const circ = circleOfEdge(axisEdge);
     const big = sizeAround(ctx) * 2;
     const base = add(circ.centre, mul(circ.normal, -big / 2));
-    const outer = f.op === 'deboss' ? R.makeCylinder(rad + 1e-3, big, base, circ.normal) : R.makeCylinder(rad + depth, big, base, circ.normal);
-    const inner = f.op === 'deboss' ? R.makeCylinder(Math.max(0.01, rad - depth), big, base, circ.normal) : R.makeCylinder(rad - 1e-3, big, base, circ.normal);
+    const outer = f.op === 'deboss' ? makeCylinderStable(rad + 1e-3, big, base, circ.normal) : makeCylinderStable(rad + depth, big, base, circ.normal);
+    const inner = f.op === 'deboss' ? makeCylinderStable(Math.max(0.01, rad - depth), big, base, circ.normal) : makeCylinderStable(rad - 1e-3, big, base, circ.normal);
     shellRegion = outer.cut(inner);
     reach = Math.abs(dot(sub(circ.centre, frame.origin), frame.normal));
   } else if (face.geomType === 'PLANE') {
@@ -588,7 +593,7 @@ function buildThicken(f, ctx) {
 function movedShape(s, f) {
   let out = s;
   const ang = num(f.angle);
-  if (Math.abs(ang) > 1e-9) out = out.rotate(ang, [0, 0, 0], AXES[f.axis] ?? AXES.y);
+  if (Math.abs(ang) > 1e-9) out = out.rotate(ang, [0, 0, 0], AXES[f.axis] ?? worldUp());
   const t = [num(f.dx), num(f.dy), num(f.dz)];
   if (t.some((v) => Math.abs(v) > 1e-12)) out = out.translate(t);
   return out;
@@ -762,7 +767,7 @@ function buildStructural(f, ctx) {
     if (L < 1e-6) continue;
     const dir = normalize(sub(pb, pa));
     // Profile axes: across the sketch plane (its normal) and across the line within it, turned by `rotate`.
-    const u0 = refNormal && Math.abs(dot(refNormal, dir)) < 0.99 ? refNormal : normalize(crossV(dir, Math.abs(dir[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0]));
+    const u0 = refNormal && Math.abs(dot(refNormal, dir)) < 0.99 ? refNormal : normalize(crossV(dir, Math.abs(dot(dir, worldUp())) < 0.9 ? worldUp() : [1, 0, 0]));
     const v0 = normalize(crossV(dir, u0));
     const u = add(mul(u0, Math.cos(rot)), mul(v0, Math.sin(rot)));
     const plane = new R.Plane(pa, u, dir);
@@ -898,7 +903,7 @@ function bendLine(f, ctx) {
 function halves(ctx, base, across) {
   const R = rep();
   const big = sizeAround(ctx) * 4;
-  const x = normalize(crossV(across, Math.abs(across[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0]));
+  const x = normalize(crossV(across, Math.abs(dot(across, worldFront())) < 0.9 ? worldFront() : [1, 0, 0]));
   const plane = new R.Plane(base, x, across);
   const far = ctx.body.clone().intersect(R.drawRectangle(big, big).sketchOnPlane(plane).extrude(big));
   const near = ctx.body.clone().intersect(R.drawRectangle(big, big).sketchOnPlane(plane).extrude(-big));
@@ -992,11 +997,11 @@ export function partingEdges(body, dir) {
 function buildPartingLine(f, ctx) {
   const R = rep();
   if (!ctx.body) throw codeError('no-body');
-  const dir = AXIS_DIRS[f.dir] ?? AXIS_DIRS.y;
+  const dir = AXIS_DIRS[f.dir] ?? AXIS_DIRS.z;
   const edges = partingEdges(ctx.body, dir);
   if (!edges.length) throw codeError('no-edges');
   const height = edges.reduce((sum, e) => sum + dot(vec(e.pointAt(0.5)), dir), 0) / edges.length;
-  ctx.parting = { dir, height, key: f.dir ?? 'y' };
+  ctx.parting = { dir, height, key: f.dir ?? 'z' };
   return { curve: R.makeCompound(edges.map((e) => e.clone())), parting: { dir, height, edges: edges.length } };
 }
 
@@ -1007,8 +1012,10 @@ function buildPartingLine(f, ctx) {
 function buildToolingSplit(f, ctx) {
   const R = rep();
   if (!ctx.body) throw codeError('no-body');
-  const key = f.dir ?? ctx.parting?.key ?? 'y';
-  const dir = AXIS_DIRS[key] ?? AXIS_DIRS.y;
+  // With a parting surface (mold-more.js): split by it and the shut-offs; the plane below is the fallback.
+  if (ctx.partingSurface && f.useSurfaces !== false) { try { return toolingSplitBySurfaces(f, ctx); } catch { /* the plane split below */ } }
+  const key = f.dir ?? ctx.parting?.key ?? 'z';
+  const dir = AXIS_DIRS[key] ?? AXIS_DIRS.z;
   const axis = dir.findIndex((v) => Math.abs(v) > 0.5);
   const [lo, hi] = ctx.body.boundingBox.bounds;
   const m = Math.max(1, num(f.margin, 10));
@@ -1025,7 +1032,7 @@ function buildToolingSplit(f, ctx) {
   if (show !== 'core') pieces.push(cavity.translate(mul(dir, gap)));
   if (show !== 'cavity') pieces.push(core.translate(mul(dir, -gap)));
   if (f.keepPart) pieces.push(ctx.body.clone());
-  return { body: pieces.length === 1 ? pieces[0] : R.makeCompound(pieces), tooling: { split, dir } };
+  return { body: pieces.length === 1 ? pieces[0] : R.makeCompound(pieces), tooling: { split, dir }, undercuts: undercutCount(ctx.body, dir) };
 }
 
 // ───────────────────────── 3D sketch

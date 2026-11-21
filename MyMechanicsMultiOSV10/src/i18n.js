@@ -11,11 +11,14 @@ import { ko as koMech2, en as enMech2 } from './i18n/mech2.js';
 import { ko as koMechSheet, en as enMechSheet } from './i18n/mech-sheet.js';
 import { ko as koMechAsm, en as enMechAsm } from './i18n/mech-asm.js';
 import { ko as koMechPart, en as enMechPart } from './i18n/mech-part.js';
+import { ko as koMechStd, en as enMechStd } from './i18n/mech-std.js';
 import { ko as koBackgrounds, en as enBackgrounds } from './i18n/backgrounds.js';
 import { ko as koPrint, en as enPrint } from './i18n/print.js';
 import { ko as koDocs, en as enDocs } from './i18n/docs.js';
+import { ko as koMechSim, en as enMechSim } from './i18n/mech-sim.js';
+import { ko as koMechDrw, en as enMechDrw } from './i18n/mech-drw.js';
 
-export const DICTIONARIES = { ko: { ...ko, ...ko3d, ...koExtra, ...koMech, ...koMech2, ...koMechSheet, ...koMechAsm,...koMechPart,...koBackgrounds, ...koPrint, ...koDocs }, en: { ...en, ...en3d, ...enExtra, ...enMech, ...enMech2, ...enMechSheet, ...enMechAsm,...enMechPart,...enBackgrounds, ...enPrint, ...enDocs } };
+export const DICTIONARIES = { ko: { ...ko, ...ko3d, ...koExtra, ...koMech, ...koMech2, ...koMechSheet, ...koMechAsm,...koMechPart, ...koMechStd,...koBackgrounds, ...koPrint, ...koDocs, ...koMechDrw, ...koMechSim }, en: { ...en, ...en3d, ...enExtra, ...enMech, ...enMech2, ...enMechSheet, ...enMechAsm,...enMechPart, ...enMechStd,...enBackgrounds, ...enPrint, ...enDocs, ...enMechDrw, ...enMechSim } };
 let language = 'ko';
 
 export function setLanguage(value) {

@@ -10,6 +10,8 @@ import { SHEETS, VIEW_TYPES, scaleLabel, STANDARD_SCALES, GDT_SYMBOLS } from '..
 import { ADVANCED_PM } from './pm-advanced.js';
 import { PART_MORE_PM } from './pm-part-more.js';
 import { SHEET_MORE_PM } from './pm-sheet-more.js';
+import { MOLD_MORE_PM } from './pm-eval-more.js';
+import { STD_PM } from './pm-std.js';
 
 /** Hole Wizard sizes (ISO 273 medium clearance, ISO 4762 counterbores, 90° countersinks): [size, d, cbD, cbDepth, csD]. */
 export const HOLE_SIZES = [
@@ -129,7 +131,7 @@ function featurePm(api) {
       const on = Boolean(f.direction2);
       parts.push(group('featLinPattern', t('pm.direction2'), `${check('dir2', on, t('pm.direction2'), 'flipH')}${on ? `${seg('dir2axis', [['x', 'X'], ['y', 'Y'], ['z', 'Z']], f.direction2?.axis ?? 'z')}${check('reverse2', f.reverse2, t('pm.reverse'), 'flipV')}${field(api, 'spacing2', f.spacing2, { label: t('pm.spacing') })}${field(api, 'count2', f.count2, { label: t('pm.instances'), unit: 'count', glyph: 'featLinPattern', min: 1, step: 1 })}` : ''}`, on ? '' : 'collapsed'));
     } else {
-      parts.push(group('featCirPattern', t('pm.parameters'), `${seg('axisKind', [['x', 'X'], ['y', 'Y'], ['z', 'Z'], ['edge', t('pm.edgeRef')], ...(api.featuresBefore?.(f) ?? []).filter((x) => x.type === 'refAxis').map((x) => [`ref:${x.id}`, x.name, 'refAxis'])], f.axis?.kind === 'ref' ? `ref:${f.axis.id}` : f.axis?.kind === 'edge' ? 'edge' : f.axis?.axis ??'y')}${f.axis?.kind === 'edge' ? pickBox(api, 'axis', [axisName(api, f.axis)], t('pm.axisEdge'), 'refAxis') : ''}${check('reverse', f.reverse, t('pm.reverse'), 'flipV')}${field(api, 'angle', f.angle, { label: t('pm.totalAngle'), unit: 'angle', glyph: 'dimAngle', min: 0.1 })}${field(api, 'count', f.count, { label: t('pm.instances'), unit: 'count', glyph: 'featCirPattern', min: 1, step: 1 })}${check('equal', f.equal, t('pm.equalSpacing'), 'relEqual')}`));
+      parts.push(group('featCirPattern', t('pm.parameters'), `${seg('axisKind', [['x', 'X'], ['y', 'Y'], ['z', 'Z'], ['edge', t('pm.edgeRef')], ...(api.featuresBefore?.(f) ?? []).filter((x) => x.type === 'refAxis').map((x) => [`ref:${x.id}`, x.name, 'refAxis'])], f.axis?.kind === 'ref' ? `ref:${f.axis.id}` : f.axis?.kind === 'edge' ? 'edge' : f.axis?.axis ?? 'z')}${f.axis?.kind === 'edge' ? pickBox(api, 'axis', [axisName(api, f.axis)], t('pm.axisEdge'), 'refAxis') : ''}${check('reverse', f.reverse, t('pm.reverse'), 'flipV')}${field(api, 'angle', f.angle, { label: t('pm.totalAngle'), unit: 'angle', glyph: 'dimAngle', min: 0.1 })}${field(api, 'count', f.count, { label: t('pm.instances'), unit: 'count', glyph: 'featCirPattern', min: 1, step: 1 })}${check('equal', f.equal, t('pm.equalSpacing'), 'relEqual')}`));
     }
     parts.push(group('part', t('pm.featuresToPattern'), `${check('body', f.body, t('pm.patternBody'), 'part')}${f.body ? '' : pickBox(api, 'seeds', seeds, t('pm.seedFeatures'), 'featExtrude')}`));
   } else if (f.type === 'mirror') {
@@ -142,6 +144,8 @@ function featurePm(api) {
   if (ADVANCED_PM[f.type]) parts.push(ADVANCED_PM[f.type](api, f, e));
   else if (PART_MORE_PM[f.type]) parts.push(PART_MORE_PM[f.type](api, f, e));
   else if (SHEET_MORE_PM[f.type]) parts.push(SHEET_MORE_PM[f.type](api, f, e));
+  if (MOLD_MORE_PM[f.type]) parts.push(MOLD_MORE_PM[f.type](api, f, e));
+  else if (STD_PM[f.type]) parts.push(STD_PM[f.type](api, f, e));
   const r = api.previewResult;
   if (r && r.ok === false) parts.push(`<p class="pm-error">${icon('error')}<span>${escapeHtml(t(`rebuild.${r.error}`, null, r.error))}</span></p>`);
   return parts.join('');

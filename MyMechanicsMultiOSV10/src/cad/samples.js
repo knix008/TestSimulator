@@ -9,6 +9,8 @@ import { edgeSignature, faceSignature, isCylinder } from './refs.js';
 import { createAssembly, createPart, createProject, addDrawing, newId } from './document.js';
 import { mateEntityOfFace, quatFromAxisAngle, quatIdentity, solveMates } from './assembly.js';
 import { rep } from './kernel.js';
+import { withYUp } from './frame.js';
+import { migrateProject } from './zup.js';
 import * as basicGroup from './samples/basic.js';
 import * as machineGroup from './samples/machine.js';
 import * as housingGroup from './samples/housing.js';
@@ -452,8 +454,17 @@ export function drawingProject(partId, lang) {
   return project;
 }
 
-/** Builds a sample project (the kernel must be loaded). */
+/**
+ * Builds a sample project (the kernel must be loaded). The builders are written in the old Y-up coordinates:
+ * they run in that frame and the project is turned to Z up afterwards, like an old file.
+ */
 export function buildSample(id, lang = 'ko') {
+  const project = withYUp(() => buildSampleYUp(id, lang));
+  return project ? migrateProject(project) : project;
+}
+
+/** The sample as its builder makes it, in the old Y-up frame (call it inside withYUp()). */
+export function buildSampleYUp(id, lang) {
   for (const g of GROUP_MODULES) if (g.SAMPLES.some((x) => x.id === id) && !id.startsWith('legacy:')) return g.build(id, lang);
   id = id.replace(/^legacy:/, '');
   if (id === 'shaftAssembly') return shaftAssembly(lang);

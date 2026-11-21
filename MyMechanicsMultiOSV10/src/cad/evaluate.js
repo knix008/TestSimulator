@@ -81,7 +81,7 @@ export function curvatureColours(mesh, { size = 100 } = {}) {
  * crease shows them jump. `view` = unit direction from the model toward the eye, `up` the screen's up.
  * Returns { colors, band: Float32Array (stripe coordinate per vertex) }.
  */
-export function zebraColours(mesh, { view = [0, 0, 1], up = [0, 1, 0], stripes = 10 } = {}) {
+export function zebraColours(mesh, { view = [0, -1, 0], up = [0, 0, 1], stripes = 10 } = {}) {
   const N = vertexNormals(mesh), n = N.length / 3, v = unit(view);
   let u = sub(up, v.map((x) => x * dot(up, v)));
   u = unit(u);

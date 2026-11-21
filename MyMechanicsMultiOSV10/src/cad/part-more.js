@@ -11,6 +11,8 @@ import { byId, profiles, standalonePoints } from './sketch.js';
 import { findEdges, findFace, planeOfFace, crossV, normalize, isCylinder } from './refs.js';
 import { sketchOf, sizeAround, codeError, resolvePlane, toWorld, AXES, regenerate, frame as makeFrame, STD_PLANES } from './features.js';
 import { sketchWire, circleOfEdge } from './advanced.js';
+import { worldUp, worldFront } from './frame.js';
+import { makeHelixStable, makeCylinderStable, makeCircleStable } from './oriented.js';
 
 export { PART_MORE_TYPES, PART_MORE_DEFAULTS, PART_MORE_NAMES, PART_MORE_ICONS, CURVE_TYPES } from './part-more-types.js';
 
@@ -273,8 +275,9 @@ const axisDir = (k, d = 'x') => AXES[k] ?? AXES[d];
 function buildFlex(f, ctx) {
   if (!ctx.body) throw codeError('no-body');
   const a = axisDir(f.axis, 'x');
-  let b = axisDir(f.toward, 'y');
-  if (Math.abs(dot(a, b)) > 0.5) b = Math.abs(a[1]) > 0.5 ? AXES.z : AXES.y;
+  let b = AXES[f.toward] ?? worldUp();
+  // Toward along the axis itself: bend toward up (or toward the front viewer when the axis is vertical).
+  if (Math.abs(dot(a, b)) > 0.5) b = Math.abs(dot(a, worldUp())) > 0.5 ? worldFront() : worldUp();
   const c3 = crossV(a, b);
   const [lo, hi] = ctx.body.boundingBox.bounds;
   const centre = mul(add(lo, hi), 0.5);
@@ -310,7 +313,7 @@ function buildDeform(f, ctx) {
   const c = f.pointRef && ctx.refPoints?.has(f.pointRef) ? ctx.refPoints.get(f.pointRef) : [num(f.x), num(f.y), num(f.z)];
   const r = Math.max(0.01, num(f.radius, 30));
   const d = num(f.amount, 5);
-  const dir = DIRS[f.dir] ?? DIRS.y;
+  const dir = DIRS[f.dir] ?? worldUp();
   const fn = (p) => { const q = len(sub(p, c)) / r; if (q >= 1) return p; const w = (1 - q * q) ** 2; return add(p, mul(dir, d * w)); };
   const [lo, hi] = ctx.body.boundingBox.bounds;
   const h = Math.max(Math.min(len(sub(hi, lo)) / 25, r / 5), 0.2);
@@ -362,7 +365,7 @@ export function axisOfRef(f, ctx) {
     const c1 = (d1 - d2 * n1n2) / det; const c2 = (d2 - d1 * n1n2) / det;
     return { origin: add(mul(A.normal, c1), mul(B.normal, c2)), dir: normalize(dir) };
   }
-  return { origin: [0, 0, 0], dir: AXES[f.axis] ?? AXES.y };
+  return { origin: [0, 0, 0], dir: AXES[f.axis] ?? worldUp() };
 }
 
 function buildRefAxis(f, ctx) {
@@ -504,7 +507,7 @@ function buildFullRound(f, ctx) {
   const [lo, hi] = ctx.body.boundingBox.bounds;
   const big = len(sub(hi, lo)) * 2 + 10;
   const base = add(add(axisPoint, mul(along, dot(sub(pc.origin, axisPoint), along))), mul(along, -big / 2));
-  const cyl = R.makeCylinder(r, big, base, along);
+  const cyl = makeCylinderStable(r, big, base, along);
   const corners = prism.cut(cyl);
   return { body: ctx.body.cut(corners), radius: r };
 }
@@ -597,7 +600,7 @@ function buildCurvePattern(f, ctx) {
         const ax = crossV(start.t, at.t);
         const ang = (Math.atan2(len(ax), dot(start.t, at.t)) * 180) / Math.PI;
         if (len(ax) > 1e-9 && Math.abs(ang) > 1e-6) out = out.rotate(ang, start.p, normalize(ax));
-        else if (dot(start.t, at.t) < 0) out = out.rotate(180, start.p, normalize(crossV(start.t, Math.abs(start.t[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0])));
+        else if (dot(start.t, at.t) < 0) out = out.rotate(180, start.p, normalize(crossV(start.t, Math.abs(dot(start.t, worldUp())) < 0.9 ? worldUp() : [1, 0, 0])));
       }
       return out.translate(sub(at.p, start.p));
     });
@@ -704,7 +707,7 @@ function buildFillPattern(f, ctx) {
   const depth = sizeAround(ctx);
   let tool = null;
   for (const p of points) {
-    const one = R.makeCylinder(d / 2, depth + 0.02, add(p, mul(frame.normal, 0.01)), mul(frame.normal, -1));
+    const one = makeCylinderStable(d / 2, depth + 0.02, add(p, mul(frame.normal, 0.01)), mul(frame.normal, -1));
     tool = tool ? tool.fuse(one) : one;
   }
   return { tool, toolOp: 'cut', body: ctx.body.cut(tool.clone()), copies: points.length };

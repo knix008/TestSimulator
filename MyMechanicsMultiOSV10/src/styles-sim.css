@@ -1,0 +1,35 @@
+/* Later simulation studies, 3D annotations, version history and assembly extras (app-sim2.js). */
+.vp-label.mbd-label { padding: 1px 4px; font-size: 11.5px; font-variant-numeric: tabular-nums; color: #b42318; border-color: color-mix(in srgb, #c0392b 55%, var(--border)); background: color-mix(in srgb, var(--surface) 92%, transparent); white-space: nowrap; }
+.vp-label.mbd-label.active { outline: 2px solid var(--accent); }
+.vp-label.mbd-label.dangling { color: var(--muted); border-style: dashed; text-decoration: line-through; }
+.mbd-frame { display: inline-flex; border: 1px solid currentColor; }
+.mbd-frame i { font-style: normal; padding: 0 4px; border-left: 1px solid currentColor; }
+.mbd-frame i:first-child { border-left: 0; }
+.mbd-datum { display: inline-block; min-width: 14px; text-align: center; border: 1px solid currentColor; font-weight: 700; }
+.mbd-note { font-style: italic; }
+.sim2-chart { width: 100%; height: 90px; display: block; margin: 6px 0 2px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); }
+.sim2-chart polyline { fill: none; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.sim2-chart .stress, .sim2-chart-key i.stress { stroke: #d64545; background: #d64545; }
+.sim2-chart .force, .sim2-chart-key i.force { stroke: #2f6fd6; background: #2f6fd6; }
+.sim2-chart-key i { display: inline-block; width: 10px; height: 3px; margin: 0 4px 2px 6px; vertical-align: middle; }
+.sim2-table { width: 100%; border-collapse: collapse; font-size: 11.5px; font-variant-numeric: tabular-nums; margin: 4px 0; }
+.sim2-table th, .sim2-table td { border-bottom: 1px solid var(--border); padding: 1px 4px; text-align: right; }
+.sim2-case { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
+.sim2-case-name { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sim2-case .sim2-factor { width: 56px; }
+.sim2-list li { display: flex; align-items: center; gap: 4px; }
+.sim2-list li.active { background: color-mix(in srgb, var(--accent) 16%, transparent); border-radius: 4px; }
+.sim2-list li.error { color: #c0392b; }
+.sim2-row { flex: 1; min-width: 0; display: flex; align-items: center; gap: 5px; border: 0; background: none; color: inherit; text-align: left; padding: 2px 3px; cursor: pointer; font: inherit; }
+.sim2-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sim2-versions li.sim2-version { display: flex; align-items: flex-start; gap: 6px; padding: 3px 0; border-bottom: 1px solid var(--border); }
+.sim2-version.active { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.sim2-version img, .sim2-thumb { width: 60px; height: 40px; object-fit: cover; border: 1px solid var(--border); border-radius: 3px; flex: none; display: inline-flex; align-items: center; justify-content: center; }
+.sim2-version-text { flex: 1; min-width: 0; font-size: 11.5px; line-height: 1.35; overflow-wrap: anywhere; }
+.sim2-version-buttons { display: flex; flex-direction: column; gap: 2px; }
+.sim2-compare { display: grid; grid-template-columns: auto 1fr; gap: 4px 6px; align-items: center; }
+.sim2-compare .segmented { flex-wrap: wrap; }
+.sim2-diff li.added { color: #18a058; }
+.sim2-diff li.removed { color: #c0392b; }
+.sim2-diff li.changed span b { color: var(--accent); }
+.pm-results dd.warn { color: #c77700; }

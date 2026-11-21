@@ -49,7 +49,9 @@ assembly = { id, name, components: [{ id, part, name, position, rotation (quater
 drawing = { id, name, source: { kind, id }, sheet, scale, autoScale, projection, views: [{ id, type, x?, y? }], showHidden, showDims, title }
 ```
 
-좌표는 mm, Y가 위(일반적인 기계 CAD 기본). 정면 = XY(법선 +Z), 윗면 = XZ(법선 +Y, 스케치 y → −Z), 우측면 = YZ(법선 +X, 스케치 x → −Z).
+좌표는 mm, **Z가 위**(`src/cad/frame.js`). 윗면 = XY(법선 +Z, 스케치 y → +Y), 정면 = XZ(법선 −Y, −Y 쪽에서 봄, 스케치 y → +Z), 우측면 = YZ(법선 +X, 스케치 x → +Y, y → +Z). 뷰포트의 표준 보기·도면의 투상 방향도 같은 규칙(정면은 +Y 방향으로, 윗면은 −Z 방향으로, 우측면은 −X 방향으로 봄)이고, 회전은 Z축 둘레의 턴테이블(`src/view/orbit.js`, 극 1° 앞에서 멈춤, 기울어짐 없음)입니다.
+
+예전(Y가 위) 프로젝트는 `up: 'z'` 표시가 없으므로 열 때 `src/cad/zup.js`의 `migrateProject()`가 R = X축 둘레 +90°, (x, y, z) → (x, −z, y)로 한 번 돌리고 표시합니다: 축 이름(y → z, z → −y: 반전 플래그·각도·간격 부호 또는 '-y'), 점·방향·이동량·면/모서리 서명·메이트 참조·조명·카메라(R·v), 부품 배치·잠금/기어 캡처(R·M·Rᵀ), 좌표계 오일러 각, 단면·보조 뷰, 가져온 BREP(`turnX`). 예제 빌더는 예전 좌표로 쓰여 있어 `withYUp()` 안에서 만든 뒤 같은 방식으로 돌립니다(`test/unit/zup.test.js`가 전환 전에 잰 `test/fixtures/samples-yup-baseline.json`과 부피·상자·배치·도면 뷰를 비교).
 
 ## 3. 다시 만들기
 

@@ -6,6 +6,9 @@ import { ICONS_CAD } from './icons-cad.js';
 import { ICONS_PART } from './icons-part.js';
 import { ICONS_SHEET } from './icons-sheet.js';
 import { ICONS_ASM } from './icons-asm.js';
+import { ICONS_STD } from './icons-std.js';
+import { ICONS_DRW } from './icons-drw.js';
+import { ICONS_SIM } from './icons-sim.js';
 import { toneOf } from './icon-tones.js';
 
 const base = {
@@ -387,7 +390,7 @@ const base = {
 
 /** The icon for a moving background kind (`blueprint` → `animBlueprint`). */
 export const animationIcon = (kind) => `anim${kind[0].toUpperCase()}${kind.slice(1)}`;
-const paths = { ...base, ...ICONS_3D, ...ICONS_CAD, ...ICONS_ASM, ...ICONS_PART, ...ICONS_SHEET };
+const paths = { ...base, ...ICONS_3D, ...ICONS_CAD, ...ICONS_ASM, ...ICONS_PART, ...ICONS_SHEET, ...ICONS_STD, ...ICONS_DRW, ...ICONS_SIM };
 // The mechanical backgrounds borrow the CAD commands' icons (animationIcon('gears') → mateGear's drawing).
 const ANIMATION_ICON_ALIASES = {
   animGears: 'mateGear', animPiston: 'motor', animToolpath: 'featCut', animStressField: 'simulation', animTessellation: 'stlFile',
