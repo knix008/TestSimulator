@@ -90,9 +90,13 @@ test('icons: every hue stands out on every theme (3:1 against the background and
 
 test('icons: the dark recording bar and the viewer use the bright shades; every window loads the colours', () => {
   assert.match(fs.readFileSync(path.join(root, 'src', 'recbar.js'), 'utf8'), /class="recbar tones-dark"/);
-  for (const file of ['app.js', 'popup.js', 'recbar.js']) {
+  for (const file of ['app.js', 'popup.js']) {
     assert.match(fs.readFileSync(path.join(root, 'src', file), 'utf8'), /import '\.\/icon-tones\.css';/, `${file} loads icon-tones.css`);
   }
+  const recbar = fs.readFileSync(path.join(root, 'src', 'recbar.js'), 'utf8');
+  assert.match(recbar, /import iconToneStyles from '\.\/icon-tones\.css\?inline';/);
+  assert.match(recbar, /import recbarStyles from '\.\/recbar\.css\?inline';/);
+  assert.match(recbar, /document\.head\.append\(style\)/, 'recording controls inline their styles before the first render');
 });
 
 test('toolbar: every segmented option has an icon, in the toolbar and in Settings', async () => {

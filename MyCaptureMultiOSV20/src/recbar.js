@@ -1,13 +1,21 @@
 // Floating recording controls (window "recbar"), shown while a whole screen is
 // recorded. The main window owns the recording; this page only mirrors its
 // state ("recording-state" events) and sends commands back ("recbar-command").
-import './recbar.css';
-import './icon-tones.css';
+import recbarStyles from './recbar.css?inline';
+import iconToneStyles from './icon-tones.css?inline';
 import { emit, listen } from '@tauri-apps/api/event';
 import { elapsedMs, initialSession } from './domain/session.js';
 import { formatDuration } from './domain/naming.js';
 import { t } from './i18n.js';
 import { icon } from './icons.js';
+
+// Vite can omit the recbar-only stylesheet when two dynamic entry points share
+// the same preload list. Inlining keeps the packaged controls styled reliably.
+for (const css of [recbarStyles, iconToneStyles]) {
+  const style = document.createElement('style');
+  style.textContent = css;
+  document.head.append(style);
+}
 
 const root = document.querySelector('#app');
 let session = initialSession;
