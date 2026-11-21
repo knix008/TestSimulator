@@ -24,7 +24,7 @@ module.exports = {
       return fs.existsSync(path.join(root, rel));
     }
 
-    test('clean removes build products and leaves installers, sources and node_modules', () => {
+    test('clean removes build products (installers and node_modules stay); clean:all also removes installers and node_modules', () => {
       const { cleanTree } = require(path.join(h.ROOT, 'scripts', 'clean.js'));
       const root = fs.mkdtempSync(path.join(os.tmpdir(), 'miv-clean-'));
       try {
@@ -58,7 +58,8 @@ module.exports = {
         const second = cleanTree(root, { all: true });
         assert(second.failed.length === 0, second.failed.join('; '));
         assert(!exists(root, 'MyImageViewer_1.0.2_x64-setup.exe'), 'clean:all removes the installer');
-        assert(exists(root, 'notes.txt') && exists(root, 'src/help/home.jpg') && exists(root, 'node_modules/left/index.js'), 'clean:all still keeps sources and dependencies');
+        assert(!exists(root, 'node_modules'), 'clean:all removes node_modules');
+        assert(exists(root, 'notes.txt') && exists(root, 'src/help/home.jpg') && exists(root, 'assets/icon.png'), 'clean:all still keeps sources and assets');
         assert(src.pkg.scripts.clean === 'node scripts/clean.js', 'npm run clean');
         assert(src.pkg.scripts['clean:all'] === 'node scripts/clean.js --all', 'npm run clean:all');
       } finally {

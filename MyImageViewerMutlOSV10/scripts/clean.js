@@ -2,7 +2,8 @@
  * clean.js — remove generated files.
  *
  *   npm run clean          build intermediates. Installers at the project root stay.
- *   npm run clean:all      the same, plus every installer copied to the project root.
+ *   npm run clean:all      the same, plus every installer copied to the project root
+ *                          and node_modules (run `npm install` before the next build).
  *
  *   src-tauri/target/              Cargo / Tauri build
  *   src-tauri/gen/                 Tauri codegen
@@ -13,8 +14,8 @@
  *   dist/  out/                    leftover bundle folders
  *
  *   --all also removes installer files at the project root
- *   (*.exe *.msi *.dmg *.pkg *.AppImage *.deb *.rpm *.blockmap).
- *   The root assets/ folder and node_modules stay.
+ *   (*.exe *.msi *.dmg *.pkg *.AppImage *.deb *.rpm *.blockmap) and node_modules/.
+ *   The root assets/ folder stays.
  */
 const fs = require('fs');
 const path = require('path');
@@ -70,6 +71,12 @@ function cleanTree(root, { all = false } = {}) {
   }
 
   if (all) {
+    // Dependencies too: `npm install` brings them back
+    try {
+      drop(path.join(root, 'node_modules'), 'node_modules');
+    } catch (e) {
+      failed.push(`node_modules: ${e.message}`);
+    }
     for (const name of fs.readdirSync(root)) {
       const ext = path.extname(name).toLowerCase();
       if (!INSTALLER_EXT.has(ext)) continue;
