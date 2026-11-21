@@ -4,8 +4,10 @@
 import ko from './i18n/ko.js';
 import en from './i18n/en.js';
 import { ko as koMusic, en as enMusic } from './i18n/music.js';
+import { ko as koSounds, en as enSounds } from './i18n/sounds.js';
+import { ko as koVoice, en as enVoice } from './i18n/voice.js';
 
-export const DICTIONARIES = { ko: { ...ko, ...koMusic }, en: { ...en, ...enMusic } };
+export const DICTIONARIES = { ko: { ...ko, ...koMusic, ...koSounds, ...koVoice }, en: { ...en, ...enMusic, ...enSounds, ...enVoice } };
 let language = 'ko';
 
 export function setLanguage(value) {

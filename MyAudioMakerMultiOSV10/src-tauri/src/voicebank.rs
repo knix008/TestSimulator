@@ -240,15 +240,23 @@ pub struct DownloadJob {
     fresh: bool,
 }
 
+type Sink = Box<dyn Fn(&Progress) + Send>;
+
 struct Reporter {
-    app: AppHandle,
+    /// Sends progress to the windows; None in unit tests (which must not link the webview runtime).
+    sink: Option<Sink>,
     progress: Progress,
     last_emit: Instant,
 }
 
 impl Reporter {
     fn new(app: &AppHandle, id: &str, kind: &str) -> Self {
-        Reporter { app: app.clone(), progress: Progress { id: id.into(), kind: kind.into(), phase: "queued".into(), ..Default::default() }, last_emit: Instant::now() - Duration::from_secs(1) }
+        let app = app.clone();
+        Reporter { sink: Some(Box::new(move |p: &Progress| { let _ = app.emit(EVENT, p.clone()); })), ..Reporter::detached(id, kind) }
+    }
+
+    fn detached(id: &str, kind: &str) -> Self {
+        Reporter { sink: None, progress: Progress { id: id.into(), kind: kind.into(), phase: "queued".into(), ..Default::default() }, last_emit: Instant::now() - Duration::from_secs(1) }
     }
 
     fn set(&mut self, phase: &str, done: u64, total: u64, file: &str) {
@@ -267,7 +275,9 @@ impl Reporter {
         if let Some(job) = lock_jobs().get_mut(&self.progress.id) {
             job.last = self.progress.clone();
         }
-        let _ = self.app.emit(EVENT, self.progress.clone());
+        if let Some(sink) = &self.sink {
+            sink(&self.progress);
+        }
     }
 }
 
@@ -580,6 +590,66 @@ mod tests {
         assert!(inside(base, "dsdur/dsconfig.yaml").is_ok());
         assert!(inside(base, "../secret").is_err());
         assert!(inside(base, "C:/x").is_err());
+    }
+
+    fn zip_of(entries: &[(&str, &[u8])], stored: bool) -> Vec<u8> {
+        let mut out = std::io::Cursor::new(Vec::new());
+        {
+            let mut zip = zip::ZipWriter::new(&mut out);
+            let method = if stored { zip::CompressionMethod::Stored } else { zip::CompressionMethod::Deflated };
+            let options = zip::write::SimpleFileOptions::default().compression_method(method);
+            for (name, data) in entries {
+                zip.start_file(*name, options).unwrap();
+                zip.write_all(data).unwrap();
+            }
+            zip.finish().unwrap();
+        }
+        out.into_inner()
+    }
+
+    #[test]
+    fn installs_a_bank_zipped_inside_a_zip_and_leaves_nothing_behind() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        let model = vec![7u8; 300_000];
+        let inner = zip_of(&[("TIGER/dsconfig.yaml", b"acoustic: dsacoustic/acoustic.onnx"), ("TIGER/dsacoustic/acoustic.onnx", &model)], false);
+        let outer = zip_of(&[("PACK/readme.txt", b"hi"), ("PACK/Voice Library/TIGER.zip", &inner)], true);
+        let archive = root.join("pack.zip");
+        fs::write(&archive, &outer).unwrap();
+        let cancel = AtomicBool::new(false);
+        let mut reporter = Reporter::detached("tiger", "bank");
+        install(root, &archive, "tiger", "bank", &cancel, &mut reporter).map_err(|f| f.message).unwrap();
+        assert!(root.join("tiger").join("dsconfig.yaml").is_file());
+        assert_eq!(fs::metadata(root.join("tiger").join("dsacoustic").join("acoustic.onnx")).unwrap().len(), 300_000);
+        assert!(!root.join(".tmp-tiger").exists(), "the temporary folder is removed");
+        assert_eq!(reporter.progress.phase, "unzip");
+        // A vocoder expected, a bank found: refused, nothing installed.
+        let failed = install(root, &archive, "voc", "vocoder", &cancel, &mut reporter).err().unwrap();
+        assert_eq!(failed.code, "isBank");
+        assert!(!root.join("voc").exists() && !root.join(".tmp-voc").exists());
+        // Not a zip at all.
+        fs::write(root.join("bad.zip"), b"not a zip").unwrap();
+        assert_eq!(install(root, &root.join("bad.zip"), "bad", "bank", &cancel, &mut reporter).err().unwrap().code, "badZip");
+        // Cancelled while unpacking.
+        cancel.store(true, Ordering::Relaxed);
+        assert_eq!(install(root, &archive, "again", "bank", &cancel, &mut reporter).err().unwrap().code, "cancelled");
+        assert!(!root.join("again").exists());
+    }
+
+    #[test]
+    fn downloads_are_checked_by_size_and_sha256() {
+        let tmp = tempfile::tempdir().unwrap();
+        let part = tmp.path().join("x.part");
+        fs::write(&part, b"abc").unwrap();
+        let job = |size: Option<u64>, sha: Option<&str>| DownloadJob { id: "x".into(), kind: "bank".into(), url: String::new(), size, sha256: sha.map(String::from), fresh: false };
+        let mut reporter = Reporter::detached("x", "bank");
+        assert!(finish_download(&part, &job(Some(3), Some("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")), 3, &mut reporter).is_ok());
+        assert_eq!(reporter.progress.phase, "verify");
+        assert_eq!(finish_download(&part, &job(Some(3), Some(&"0".repeat(64))), 3, &mut reporter).err().unwrap().code, "checksum");
+        assert!(!part.exists(), "a file that fails its check is deleted");
+        fs::write(&part, b"abcd").unwrap();
+        assert_eq!(finish_download(&part, &job(Some(3), None), 4, &mut reporter).err().unwrap().code, "size");
+        assert!(!part.exists());
     }
 
     #[test]

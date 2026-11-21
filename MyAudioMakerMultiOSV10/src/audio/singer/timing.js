@@ -111,7 +111,7 @@ export function stretch(source, ratio, endMs) {
  */
 export function splitPhrases(notes, { bpm, swing = 0, splitMs = 500, maxMs = 16000 } = {}) {
   const timed = notes
-    .map((n, index) => ({ ...noteMs(n, bpm, swing), midi: n.p, syl: n.syl ?? '', vel: n.v ?? 0.8, index }))
+    .map((n, index) => ({ ...noteMs(n, bpm, swing), midi: Number.isFinite(n.p) ? n.p : 60, syl: n.syl ?? '', vel: n.v ?? 0.8, index }))
     .filter((n) => n.endMs > n.startMs)
     .sort((a, b) => a.startMs - b.startMs || a.index - b.index);
   for (let i = 0; i + 1 < timed.length; i++) if (timed[i].endMs > timed[i + 1].startMs) timed[i].endMs = Math.max(timed[i].startMs + 1, timed[i + 1].startMs);

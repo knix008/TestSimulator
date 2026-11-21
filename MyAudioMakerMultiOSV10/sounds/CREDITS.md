@@ -33,6 +33,13 @@ The full licence texts are in `licenses/`.
 - Licence: CC0 1.0 Universal (public domain dedication) — `licenses/growly.txt`
 - Used for: growlyBass (fingerBass)
 
+## Fashionbass
+
+- Author: Karoryfer Lecolds (D. Smolken)
+- Source: https://github.com/sfzinstruments/karoryfer.fashionbass (commit `0703973b30`)
+- Licence: CC0 1.0 Universal (public domain dedication) — `licenses/fashion.txt`
+- Used for: fashionBass (pickBass)
+
 ## Meatbass
 
 - Author: Karoryfer Lecolds (played by Drogomir Smolken, recorded by Ludwik Zamenhof)
@@ -64,7 +71,7 @@ The full licence texts are in `licenses/`.
 
 ## Virtuosity Drums
 
-- Author: Versilian Studios / sfzinstruments contributors
+- Author: Versilian Studios (drummer Austin McMahon, recorded at Virtuosity Musical Instruments, Boston; auxiliary percussion from VSCO 2 Pro)
 - Source: https://github.com/sfzinstruments/virtuosity_drums (commit `9f04cf9a73`)
 - Licence: CC0 1.0 Universal (public domain dedication) — `licenses/virtuosity.txt`
 - Used for: percussion (kitPercussion); acousticKit (kitAcoustic); popKit (kitPop); lofiKit (kitLofi)

@@ -25,7 +25,8 @@ import { COMMAND_HELPER, PAGE_HELPERS } from './page-helpers.mjs';
 import { startVite, watchConsole } from './web.harness.mjs';
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-export const exe = path.join(root, 'src-tauri', 'target', 'debug', process.platform === 'win32' ? 'myaudiomaker.exe' : 'myaudiomaker');
+// MYAUDIOMAKER_EXE points at another build (e.g. one made with its own CARGO_TARGET_DIR while npm start holds target/debug).
+export const exe = process.env.MYAUDIOMAKER_EXE || path.join(root, 'src-tauri', 'target', 'debug', process.platform === 'win32' ? 'myaudiomaker.exe' : 'myaudiomaker');
 
 /** The dev server URL compiled into the debug exe (http://127.0.0.1:NNNN or localhost). */
 export function compiledDevUrl(file = exe) {

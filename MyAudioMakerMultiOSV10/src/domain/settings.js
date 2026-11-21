@@ -117,6 +117,15 @@ export function defaultSettings(language = 'ko') {
     vocalLaneLyrics: true,
     /** While playing, a sing-along strip shows the line being sung (notes and lyrics). */
     karaoke: true,
+    /** Where the desktop program downloads missing or damaged instrument sounds from ('' = not set). */
+    soundsBaseUrl: '',
+    /** Who sings the vocal track: 'ai' (a neural voice bank, Settings › Voice) or 'guide' (the built-in synthesizer). */
+    voiceEngine: 'ai',
+    voiceBank: 'tiger',
+    voiceSpeaker: '',
+    /** AI voice render quality (diffusion steps): 10 · 20 · 50. */
+    voiceSteps: 10,
+    voiceBackend: 'auto',
     lyricLanguage: language === 'en' ? 'en' : 'ko',
     defaultVocal: 'auto',
     // Export
@@ -192,6 +201,12 @@ export function normalizeSettings(raw = {}, language) {
   s.lyricsStaff = s.lyricsStaff !== false;
   s.vocalLaneLyrics = s.vocalLaneLyrics !== false;
   s.karaoke = s.karaoke !== false;
+  s.voiceEngine = s.voiceEngine === 'guide' ? 'guide' : 'ai';
+  s.voiceBank = typeof s.voiceBank === 'string' && /^[A-Za-z0-9._-]{1,80}$/.test(s.voiceBank) ? s.voiceBank : 'tiger';
+  s.voiceSpeaker = typeof s.voiceSpeaker === 'string' ? s.voiceSpeaker.slice(0, 120) : '';
+  s.voiceSteps = [10, 20, 50].includes(Number(s.voiceSteps)) ? Number(s.voiceSteps) : 10;
+  s.voiceBackend = ['auto', 'webgpu', 'wasm'].includes(s.voiceBackend) ? s.voiceBackend : 'auto';
+  s.soundsBaseUrl = typeof s.soundsBaseUrl === 'string' && /^(https?:[/][/].+)?$/.test(s.soundsBaseUrl.trim()) ? s.soundsBaseUrl.trim() : '';
   s.lyricLanguage = s.lyricLanguage === 'en' ? 'en' : 'ko';
   s.defaultVocal = ['auto', 'voiceFemale', 'voiceMale', 'voiceChoir', 'none'].includes(s.defaultVocal) ? s.defaultVocal : 'auto';
   s.exportSampleRate = SAMPLE_RATES.includes(Number(s.exportSampleRate)) ? Number(s.exportSampleRate) : base.exportSampleRate;

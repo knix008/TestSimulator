@@ -46,8 +46,9 @@ async function createSession(bytes, ep) {
   return ort.InferenceSession.create(bytes, { executionProviders: [ep], graphOptimizationLevel: 'basic' });
 }
 
-function makeRunner(keyPrefix, models, read, ep, onLoad) {
+function makeRunner(keyPrefix, models, read, ep, onLoad, timings = {}) {
   return {
+    timings,
     inputs: (key) => sessions.get(`${keyPrefix}:${key}`)?.inputs ?? null,
     async load(key) {
       const id = `${keyPrefix}:${key}`;
@@ -71,7 +72,9 @@ function makeRunner(keyPrefix, models, read, ep, onLoad) {
       const { session } = await this.load(key);
       const f = {};
       for (const [k, v] of Object.entries(feeds)) f[k] = toTensor(v);
+      const t0 = performance.now();
       const out = await session.run(f);
+      timings[key] = (timings[key] ?? 0) + performance.now() - t0;
       const o = {};
       for (const [k, t] of Object.entries(out)) {
         const data = t.location && t.location !== 'cpu' ? await t.getData(true) : t.data;
@@ -183,7 +186,7 @@ async function render(msg) {
       post({ type: 'phrase', job: msg.job, index: i, key: phrase.key, startMs: res.startMs, samples: res.samples, sampleRate: res.sampleRate, unknown: res.unknown }, [res.samples.buffer]);
     }
     post({ type: 'progress', job: msg.job, stage: 'render', phrase: msg.phrases.length, phrases: msg.phrases.length, done: total, total });
-    post({ type: 'done', job: msg.job, info: { ...info, ep: b.ep, check: b.check, rtf: timing.audioMs ? timing.renderMs / timing.audioMs : null } });
+    post({ type: 'done', job: msg.job, info: { ...info, ep: b.ep, check: b.check, rtf: timing.audioMs ? timing.renderMs / timing.audioMs : null, audioMs: Math.round(timing.audioMs), modelMs: Object.fromEntries(Object.entries(runner.timings).map(([k, v]) => [k, Math.round(v)])) } });
   } catch (error) {
     const aborted = error?.name === 'AbortError' || controller.signal.aborted;
     post({ type: 'error', job: msg.job, message: String(error?.message ?? error), code: aborted ? 'cancelled' : (error?.code ?? 'render') });

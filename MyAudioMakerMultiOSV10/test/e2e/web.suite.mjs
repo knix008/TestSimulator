@@ -328,7 +328,7 @@ export const cases = [
     group: '설정', name: '설정 10개 탭: 스크롤 없이 들어감, 아이콘·번역 빠짐 없음; AI 탭 제공자·키 저장',
     async run(app) {
       const r = await app.run(`await T.reset(); const out = {};
-        for (const tab of ['general', 'start', 'appearance', 'font', 'background', 'audio', 'editor', 'ai', 'recent', 'shortcuts']) {
+        for (const tab of ['general', 'start', 'appearance', 'font', 'background', 'audio', 'sounds', 'editor', 'ai', 'recent', 'shortcuts']) {
           A.popups.open('settings', { tab }); await T.popupReady('settings'); await T.sleep(250);
           const d = T.frameOf('settings').contentDocument; const b = d.querySelector('.popup-body');
           out[tab] = { over: b.scrollHeight - b.clientHeight, dots: T.missingIcons(d), raw: T.rawKeys(d) };
@@ -570,6 +570,46 @@ export const cases = [
       assert.ok(r.seen.some((s) => s.lit > 0), 'the note being sung lights on the staff');
       assert.ok(r.hiddenAfter, 'hidden after stopping');
       assert.equal(r.offShown, false, 'turned off: not shown');
+    },
+  },
+  {
+    group: 'AI 음성', name: '설정 › AI 음성 탭: 엔진·음성 뱅크(TIGER 받기·다시 받기)·가져오기·품질, 아이콘·번역 빠짐 없음',
+    async run(app) {
+      const r = await app.run(`await T.fresh('pop'); A.popups.open('settings', { tab: 'voice' }); await T.popupReady('settings');
+        await T.until(() => /TIGER/i.test(T.frameOf('settings').contentDocument.querySelector('.popup-body')?.textContent ?? ''), 10000, 'voice banks listed');
+        const d = T.frameOf('settings').contentDocument;
+        const actions = [...d.querySelectorAll('[data-action^="voice-"]')].map((b) => b.dataset.action);
+        const text = d.querySelector('.popup-body').textContent;
+        const out = { actions: [...new Set(actions)], dots: d.querySelectorAll('svg[data-icon="dot"]').length, raw: (text.match(/\\b(voice|settings|sounds)\\.[a-zA-Z.]+/g) ?? []), hasTiger: /TIGER/i.test(text) };
+        await A.popups.close('settings');
+        return out;`);
+      assert.ok(r.hasTiger, 'the TIGER bank is listed');
+      for (const a of ['voice-test']) assert.ok(r.actions.includes(a), `${a} button (${r.actions})`);
+      assert.ok(r.actions.some((a) => /download|redownload/.test(a)), `a download / re-download button (${r.actions})`);
+      assert.ok(r.actions.some((a) => /import/.test(a)), 'an import button');
+      assert.equal(r.dots, 0, 'icons');
+      assert.deepEqual(r.raw, [], 'untranslated keys');
+    },
+  },
+  {
+    group: 'AI 음성', name: 'AI 음성으로 재생: 라이선스에 동의하지 않았으면 설정 › AI 음성(라이선스)을 열고 가이드 보컬로 재생 (다운로드 없음)',
+    async run(app) {
+      const r = await app.run(`await T.fresh('pop'); await A.actions.openSampleAsk(A.domain.SAMPLES[0].id);
+        const v = await import('/src/audio/singer/index.js'); await v.acceptLicence('tiger', false);
+        A.api.updateSettings({ voiceEngine: 'ai', voiceBank: 'tiger' }, { quiet: true });
+        A.run('play');
+        await T.until(() => A.state.playing, 30000, 'playing');
+        const playing = A.state.playing; const tr = A.state.doc.song.tracks.find((t) => t.role === 'vocal');
+        const ai = A.player.hasVocal(tr.id); A.actions.stopPlayback();
+        const settingsOpen = A.popups.isOpen('settings');
+        await A.popups.close('settings');
+        const told = A.state.log.some((m) => /라이선스|licence/.test(m.text ?? ''));
+        A.api.updateSettings({ voiceEngine: 'guide' }, { quiet: true });
+        return { playing, ai, settingsOpen, told };`, 60000);
+      assert.ok(r.settingsOpen, 'Settings › Voice opened for the licence');
+      assert.ok(r.told, 'a notice explains why');
+      assert.ok(r.playing, 'it still plays');
+      assert.equal(r.ai, false, 'with the guide voice');
     },
   },
   {

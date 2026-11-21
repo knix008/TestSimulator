@@ -1,0 +1,20 @@
+/* Settings › Voice (src/popups-voice.js): voice bank cards, inline download progress, licence viewer. */
+.voice-bank { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin: 6px 0; background: var(--surface); display: grid; gap: 5px; }
+.voice-bank-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.voice-bank-head > .icon { width: 17px; height: 17px; color: var(--accent); }
+.voice-bank-head b { margin-right: 4px; }
+.voice-bank-meta { font-size: 0.85em; display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.voice-bank-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.voice-bank-actions .grow { flex: 1; }
+.voice-progress { display: grid; gap: 3px; font-size: 0.85em; }
+.voice-progress-bar { height: 8px; border-radius: 4px; background: var(--hover); overflow: hidden; box-shadow: inset 0 0 0 1px var(--border); }
+.voice-progress-bar i { display: block; height: 100%; background: var(--accent); transition: width 0.2s linear; }
+.voice-warning { display: flex; align-items: center; gap: 6px; color: var(--danger); margin: 6px 0; }
+.voice-warning .icon { width: 16px; height: 16px; flex: none; }
+.voice-licence h4 { margin: 10px 0 4px; font-size: 0.92em; }
+.voice-licence ul { margin: 0; padding-left: 20px; display: grid; gap: 3px; }
+.voice-licence-file { margin: 4px 0; }
+.voice-licence-file summary, .voice-licence-file b { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+.voice-licence-file .icon { width: 14px; height: 14px; }
+.voice-licence-file pre { max-height: 220px; overflow: auto; white-space: pre-wrap; word-break: break-word; font-size: 0.82em; padding: 8px; margin: 4px 0 0; border: 1px solid var(--border); border-radius: 6px; background: var(--hover); }
+.voice-licence-buttons { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }

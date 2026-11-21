@@ -41,8 +41,11 @@ export async function soundLocation() {
         if (r.ok) repaired = (await r.json())?.files ?? {};
       } catch { /* none repaired */ }
       // `tauri dev`: the resources may not be copied yet; the dev server has the project's sounds/.
-      const probe = await fetch(`${location.base}manifest.json`, { method: 'GET', cache: 'no-store' }).then((r) => r.ok).catch(() => false);
-      if (!probe && !repaired['manifest.json']) location.base = new URL('sounds/', globalThis.document?.baseURI ?? globalThis.location?.href).href;
+      const probe = await fetch(`${location.base}manifest.json`, { cache: 'no-store' }).then((r) => r.ok).catch(() => null);
+      if (probe === false && !repaired['manifest.json']) {
+        const dev = new URL('sounds/', globalThis.document?.baseURI ?? globalThis.location?.href).href;
+        if (await fetch(`${dev}manifest.json`, { cache: 'no-store' }).then((r) => r.ok).catch(() => false)) location.base = dev;
+      }
       return location;
     } catch { /* fall through to the page's folder */ }
   }
@@ -60,7 +63,21 @@ export async function soundUrl(rel) {
 
 /** A library file's bytes. `reload`: past the browser's cache (repair). */
 export async function fetchSoundFile(rel, { reload = false } = {}) {
-  const response = await fetch(await soundUrl(rel), reload ? { cache: 'reload' } : {});
+  const loc = await soundLocation();
+  let response;
+  try {
+    response = await fetch(await soundUrl(rel), reload ? { cache: 'reload' } : {});
+  } catch (error) {
+    // Desktop: the asset protocol refused (a webview without it): read the file through the backend.
+    if (loc.kind !== 'desktop' || !loc.resources) throw error;
+    const path = repaired[rel] ? joinPath(loc.override, rel) : joinPath(loc.resources, rel);
+    let data;
+    try { data = await loc.invoke('read_base64_file', { path, op: '' }); } catch { throw Object.assign(new Error(`${rel}: not found`), { code: 'missing' }); }
+    const text = atob(String(data));
+    const bytes = new Uint8Array(text.length);
+    for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i);
+    return bytes;
+  }
   if (!response.ok) throw Object.assign(new Error(`${rel}: HTTP ${response.status}`), { code: 'missing' });
   return new Uint8Array(await response.arrayBuffer());
 }
@@ -75,6 +92,7 @@ export function loadManifest({ fresh = false } = {}) {
       if (parsed?.format !== 'myaudiomaker-sounds' || !parsed.sets) throw new Error('not a sound library manifest');
       manifest = parsed;
     } catch { manifest = null; }
+    checked = true;
     return manifest;
   })();
   return manifestPromise;
@@ -82,6 +100,9 @@ export function loadManifest({ fresh = false } = {}) {
 
 /** The manifest if it has been read (synchronous; null before). */
 export const currentManifest = () => manifest;
+let checked = false;
+/** Whether the library was looked for and is not there (the synthesizer plays everything). */
+export const libraryMissing = () => checked && !manifest;
 
 /** Every file of a set (unique). */
 export function setFiles(set) {

@@ -18,7 +18,8 @@ import {
 } from './themes.js';
 import { bindSteppers, stepperHtml } from './stepper.js';
 import { intervalLabel } from './ui/startpage.js';
-import { musicPopupAction, renderMusicPopup, settingsAi, settingsAudio, settingsEditor } from './popups-music.js';
+import { musicPopupAction, renderMusicPopup, settingsAi, settingsAudio, settingsEditor, settingsSounds } from './popups-music.js';
+import { settingsVoice, voicePopupAction } from './popups-voice.js';
 import { renderPrintPopup, printPopupAction, printHostMessage } from './print/popup.js';
 
 const desktop = native.isDesktop();
@@ -239,6 +240,8 @@ const SETTINGS_TABS = [
   ['font', 'font', 'settings.font'],
   ['background', 'sparkles', 'settings.background'],
   ['audio', 'volume', 'settings.audio'],
+  ['sounds', 'instKeys', 'settings.sounds'],
+  ['voice', 'instVocal', 'settings.voice'],
   ['editor', 'pianoRoll', 'settings.editor'],
   ['ai', 'aiCompose', 'settings.ai'],
   ['recent', 'recent', 'settings.recent'],
@@ -248,7 +251,7 @@ const SETTINGS_TABS = [
 function renderSettings() {
   const body = {
     general: settingsGeneral, start: settingsStart, appearance: settingsAppearance, font: settingsFont, background: settingsBackground,
-    audio: () => settingsAudio(popupApi), editor: () => settingsEditor(popupApi), ai: () => settingsAi(popupApi), recent: settingsRecent, shortcuts: settingsShortcuts,
+    audio: () => settingsAudio(popupApi), sounds: () => settingsSounds(popupApi), voice: () => settingsVoice(popupApi), editor: () => settingsEditor(popupApi), ai: () => settingsAi(popupApi), recent: settingsRecent, shortcuts: settingsShortcuts,
   }[state.tab]?.() ?? '';
   root.innerHTML = frame({
     glyph: 'gear', title: t('settings.title'), tabs: tabsHtml(SETTINGS_TABS.map(([id, glyph, key]) => [id, glyph, t(key)]), state.tab),
@@ -478,6 +481,7 @@ async function renderAbout() {
     ['calculate', t('about.runtime'), info.web ? t('about.webBuild') : `Tauri ${info.tauri} · ${info.rustc ?? ''}`],
     ['globe', t('about.platform'), `${info.os ?? '-'} / ${info.arch ?? '-'}`],
     ['user', t('about.author'), 'SHKWON(knix008@naver.com)'],
+    ['hyperlink', t('sounds.credits', null, 'Sound credits'), `${t('sounds.credits.desc', null, 'VCSL, VSCO 2 CE, Karoryfer, Virtuosity Drums (CC0); Greg Sullivan e-pianos (CC BY 3.0)')} — sounds/CREDITS.md`],
   ];
   const table = (title, glyph, rows) => `<h3 class="about-section">${icon(glyph)}<span>${escapeHtml(title)}</span></h3>
     <dl class="about-table">${rows.map(([rowGlyph, label, value]) => `<dt title="${escapeHtml(label)}">${icon(rowGlyph)}<span>${escapeHtml(label)}</span></dt><dd title="${escapeHtml(value)}">${escapeHtml(value)}</dd>`).join('')}</dl>`;
@@ -899,7 +903,7 @@ const popupApi = { root, state, s, P, L, t, icon, escapeHtml, frame, button, row
 root.addEventListener('click', async (event) => {
   const target = event.target.closest('[data-action], [data-setting], .menu-item, [data-theme-group], [data-pick-theme], [data-draft-segment], [data-pick-color]');
   if (!target || target.disabled) return undefined;
-  if (printPopupAction(kind, target, popupApi) || musicPopupAction(kind, target, popupApi)) return undefined;
+  if (voicePopupAction(kind, target, popupApi) || printPopupAction(kind, target, popupApi) || musicPopupAction(kind, target, popupApi)) return undefined;
   if (target.classList.contains('menu-item')) return chooseMenu(target.dataset.id, target);
   if (target.dataset.setting) {
     const key = target.dataset.setting;

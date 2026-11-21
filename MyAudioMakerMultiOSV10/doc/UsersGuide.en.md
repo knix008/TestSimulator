@@ -267,8 +267,13 @@ The **Lead sheet** tab (`4`) shows the vocal melody (the lead when there is no v
 - **Loop** (`L`) — repeats the loop region dragged on the ruler. **Loop selected section** makes the selected section the loop.
 - **Metronome** (`M`), **Follow playhead** — the views follow the play position while playing.
 - **Sing-along** — while playing, the lyric line being sung floats at the bottom of the view, large: its melody as bars (higher notes higher), syllables already sung in the accent colour, the one being sung larger, and the next line below. Turn it on or off with **View › Show › Sing-along** or in Settings › Editor.
-- **Built-in synthesizer** — every instrument from oscillators, filters and envelopes; drums from noise and swept sines. No sound files needed.
-- **Guide voice** — female, male, choir. Not a real voice: it sings the melody on the syllables' vowels as a guide (formant synthesis, vibrato, a short burst for consonants).
+- **Recorded instruments** — 49 of the 70 instruments play recordings of real instruments: grand, upright and electric pianos, pipe organ, strings (violin, viola, cello, contrabass, pizzicato, tremolo), brass (trumpet, trombone, horn, tuba), woodwinds (flute, clarinet, oboe, bassoon), saxes (alto, tenor, baritone), harp, mallets (vibraphone, marimba, glockenspiel, xylophone, tubular bells, timpani), electric guitars (clean, crunch, overdrive, distortion, jazz), basses (finger, pick, upright, contrabass) and drums (acoustic, pop, rock, brushes, lo-fi, percussion). About 60 MB is installed with the program; the instruments a song needs load before playing or exporting (a progress window when it takes a moment), with no internet.
+- **Built-in synthesizer** — instruments without recordings (Hammond organ, synth leads, basses and pads, choir pad, 808 and electro drums, acoustic and nylon guitars …) come from oscillators, filters and envelopes. It also stands in when a recording is missing or damaged.
+- **AI voice** — the vocal track is sung by a neural voice (a DiffSinger voice bank) that sounds like a real singer. The default bank is TIGER (its Korean has a slight accent).
+  - On the first play, accept the voice bank's and vocoder's **licences (non-commercial)** once in **Settings › Voice**; the files it needs (about 580 MB) are then **downloaded automatically** with progress (amount, speed, checking, unpacking). After that it works without internet.
+  - After an edit, the next play re-renders only the changed lines (progress window; cancel and the guide voice sings this time). The first render of a 3-minute song takes 2–5 minutes, depending on the computer.
+  - Export (WAV and stems) sings with the AI voice too; by the voice bank's licence the result is for **non-commercial** use only.
+- **Guide voice** — female, male, choir. A synthesized guide that sings the melody on the syllables' vowels, used when the AI voice is off or not ready yet.
 - **Mix tab** — master volume, reverb amount, compressor; each track's volume, mute and solo, and a level meter.
 - **Swing** (Song tab) — plays off-beat eighths late (playback, WAV and MIDI).
 
@@ -362,6 +367,8 @@ The **Messages** tab keeps notices and errors; **Information** shows the song, k
 | Font | font, size, weight, italic, row height, zoom |
 | Background | 20 moving backgrounds, an image or none, speed, random, automatic change, image opacity and fit |
 | Audio | playback volume, metronome, follow playhead, hear notes when clicked, sample rate, bit depth and normalising (export defaults), sound check |
+| Sounds | the recorded instrument library's state (by category), **Check sounds** and **Decode every sound to check**, **Re-download / repair** (the web build from its site, the desktop from the download location you enter), credits and licences |
+| Voice | the vocal engine (AI voice / guide synth), voice banks and their state, **Download · Re-download · Remove** (with progress; downloads go on when Settings closes), licence view and acceptance, **Import voice bank (.zip)**, speaker, render quality (10 · 20 · 50), device (auto, GPU, CPU), test voice |
 | Editor | snap, ghost notes, chord tones, set edited lyrics to the melody automatically, the melody staff in the Lyrics view, notes and lyrics on the vocal track, sing-along, lyrics language, default vocal |
 | AI | lyrics AI (built-in, Claude, Ollama), API key, Claude model (or a typed ID) and thinking depth, Ollama address and model, creativity, time limit, built-in writer on failure, connection test (2.3) |
 | Recent | recent files and folders, clearing them |

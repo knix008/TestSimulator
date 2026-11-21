@@ -5,6 +5,7 @@ export const PROGRESS_ICONS = {
   'progress.compose': 'aiCompose', 'progress.lyrics': 'aiLyrics', 'progress.export': 'exportAudio',
   'progress.save': 'save', 'progress.open': 'folderOpen', 'progress.template': 'template', 'progress.sample': 'samples',
   'progress.background': 'imageBg', 'progress.regenerate': 'variation',
+  'sounds.loading.title': 'instKeys', 'sounds.repair': 'refresh', 'voice.progress.title': 'instVocal',
 };
 
 /** The big icon follows the step the job is on: asking the AI, writing the music, rendering the sound, encoding the file. */

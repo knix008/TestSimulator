@@ -36,7 +36,8 @@ const lsSet = (key, value) => { try { globalThis.localStorage?.setItem(key, JSON
 export const isAccepted = (id) => Boolean(lsGet(ACCEPT_KEY, {})[id]);
 
 /** Records that the user read and accepted a bank's (or vocoder's) licence. */
-export async function acceptLicence(id, accepted = true) {
+export function acceptLicence(id, accepted = true) { return viaHost('acceptLicence', [id, accepted], () => acceptHere(id, accepted)); }
+async function acceptHere(id, accepted) {
   const all = lsGet(ACCEPT_KEY, {});
   if (accepted) all[id] = new Date().toISOString(); else delete all[id];
   lsSet(ACCEPT_KEY, all);
@@ -51,6 +52,7 @@ export async function acceptLicence(id, accepted = true) {
 const listeners = new Set();
 const jobs = new Map(); // id → last progress
 const channel = typeof BroadcastChannel === 'function' ? new BroadcastChannel('myaudiomaker-voice') : null;
+channel?.unref?.(); // Node (tests): do not keep the process alive.
 let host = false;
 let desktopUnlisten = null;
 
@@ -93,7 +95,7 @@ channel?.addEventListener('message', async ({ data }) => {
     channel.postMessage({ type: 'rpc-ack', id: data.id });
     const reply = (msg) => channel.postMessage({ type: 'rpc-result', id: data.id, ...msg });
     try {
-      const fn = { downloadBank, redownload, importBank, removeBank, cancelDownload, jobs: async () => [...jobs.values()] }[data.method];
+      const fn = { downloadBank, redownload, importBank, removeBank, cancelDownload, listBanks, bankInfo, acceptLicence, jobs: async () => [...jobs.values()] }[data.method];
       if (!fn) throw new VoiceError('rpc', `Unknown request ${data.method}`);
       reply({ ok: true, value: await fn(...(data.args ?? [])) });
     } catch (error) { reply({ ok: false, error: { code: error.code ?? 'error', message: String(error.message ?? error) } }); }
@@ -152,7 +154,8 @@ async function layoutOf(entry) {
 }
 
 /** Every bank and vocoder: installed ones and the downloadable ones. */
-export async function listBanks() {
+export function listBanks() { return viaHost('listBanks', [], listHere); }
+async function listHere() {
   const list = await refreshSync();
   const out = [];
   for (const entry of list) {
@@ -209,7 +212,8 @@ const readText = async (entry, path) => {
 };
 
 /** Everything the settings show about a bank, including its licence and credit texts. */
-export async function bankInfo(id) {
+export function bankInfo(id) { return viaHost('bankInfo', [id], () => infoHere(id)); }
+async function infoHere(id) {
   await refreshSync();
   const entry = (await installed()).find((e) => e.id === id);
   const cat = CATALOG[id] ?? null;

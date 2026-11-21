@@ -1,0 +1,21 @@
+AI singing voice (src/audio/singer/)
+
+The singer's phonemizer, Korean sound-change rules, frame arithmetic and model inputs are ported
+from OpenUtau's DiffSinger support (OpenUtau.Core/DiffSinger/*.cs, OpenUtau.Core/Util/
+KoreanPhonemizerUtil.cs) — MIT License, Copyright (c) 2014 StAkira and the OpenUtau contributors
+(https://github.com/openutau/OpenUtau). Licence: OpenUtau.LICENSE.txt.
+
+The ONNX model inputs follow openvpi/DiffSinger's deployment exporters — Apache License 2.0,
+Copyright 2023 Team OpenVPI (https://github.com/openvpi/DiffSinger). Licence: DiffSinger.LICENSE.txt.
+
+ONNX Runtime Web (onnxruntime-web, onnxruntime-common) — MIT License, Copyright (c) Microsoft
+Corporation (https://github.com/microsoft/onnxruntime). Licence: onnxruntime.LICENSE.txt.
+
+Voice banks and vocoders are NOT part of this application. They are downloaded by the user from
+their authors' own releases (or imported from a file the user downloaded) and keep their own
+licences, which the application shows and asks the user to accept before first use:
+  - TIGER DiffSinger (tigermeat) — CC BY-NC-ND 4.0 + Commons Clause, non-commercial
+    https://github.com/spicytigermeat/tiger_diffsinger
+  - OpenVPI PC-NSF-HiFiGAN / NSF-HiFiGAN vocoders — CC BY-NC-SA 4.0, non-commercial
+    https://github.com/openvpi/vocoders
+Songs sung with these models are for non-commercial use.

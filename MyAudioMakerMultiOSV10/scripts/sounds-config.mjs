@@ -56,7 +56,7 @@ export const SOURCES = {
       + 'Changed for MyAudioMaker: a subset of notes, trimmed, mixed to mono, resampled to 48 kHz, level-normalized and encoded to Ogg Opus.',
   },
   virtuosity: {
-    name: 'Virtuosity Drums', author: 'Versilian Studios / sfzinstruments contributors',
+    name: 'Virtuosity Drums', author: 'Versilian Studios (drummer Austin McMahon, recorded at Virtuosity Musical Instruments, Boston; auxiliary percussion from VSCO 2 Pro)',
     repo: 'sfzinstruments/virtuosity_drums', commit: '9f04cf9a734527edfbb0a4eee1f674e45bbf71bc', licence: 'CC0-1.0', licenceFile: 'LICENSE',
     url: 'https://github.com/sfzinstruments/virtuosity_drums',
   },

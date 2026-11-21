@@ -268,6 +268,11 @@ const T = {
   // ── modes
   'mode.major': ['장조', 'Major'], 'mode.minor': ['단조', 'Minor'], 'mode.harmonicMinor': ['화성 단음계', 'Harmonic minor'], 'mode.dorian': ['도리안', 'Dorian'], 'mode.mixolydian': ['믹솔리디안', 'Mixolydian'],
   'mode.lydian': ['리디안', 'Lydian'], 'mode.phrygian': ['프리지안', 'Phrygian'], 'mode.pentatonicMajor': ['장 5음계', 'Major pentatonic'], 'mode.pentatonicMinor': ['단 5음계', 'Minor pentatonic'], 'mode.blues': ['블루스', 'Blues'],
+  'settings.sounds': ['악기 소리', 'Sounds'], 'settings.voice': ['AI 음성', 'Voice'],
+  'voice.needAccept': ['AI 음성을 처음 쓰려면 음성 뱅크의 라이선스에 동의해야 합니다. 이번에는 가이드 보컬로 재생합니다.', 'To use the AI voice, accept the voice bank\u2019s licence first. This time the guide voice sings.'],
+  'voice.usingGuide': ['AI 음성 준비를 취소했습니다. 가이드 보컬로 재생합니다.', 'The AI voice was cancelled: the guide voice sings this time.'],
+  'voice.fallback': ['AI 음성을 쓸 수 없어 가이드 보컬로 재생합니다: {reason}', 'The AI voice is not available, so the guide voice sings: {reason}'],
+  'voice.exportNote': ['AI 음성으로 만든 파일입니다. 음성 뱅크 라이선스(비상업)를 지켜 주세요.', 'Made with the AI voice: please keep to the voice bank\u2019s (non-commercial) licence.'],
   // ── notes and lyrics together
   'lyrics.staffTip': ['이 구간의 멜로디 — 음표 아래가 그 음표에 붙는 음절입니다', "This section's melody — each syllable sits under its note"], 'lyrics.staffToggle': ['악보', 'Staff'], 'lyrics.staffToggleTip': ['구간마다 멜로디 악보를 가사 위에 보이기/숨기기', "Show or hide each section's melody on a staff above its lyrics"],
   'settings.lyricsStaff': ['가사 화면에 멜로디 악보 보이기', 'Show the melody on a staff in the Lyrics view'], 'settings.vocalLaneLyrics': ['편곡 화면의 보컬 트랙에 음표와 가사 보이기', 'Show notes and lyrics on the vocal track in the arrangement'],

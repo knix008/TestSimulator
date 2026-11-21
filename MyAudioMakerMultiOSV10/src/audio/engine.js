@@ -5,6 +5,7 @@
 import { audible, songBeats } from '../music/song.js';
 import { beatsPerBar } from '../music/theory.js';
 import { noiseBuffer, playDrum, playNote, releaseOf } from './voices.js';
+import { instrumentsToLoad, preloadInBackground, preloadInstruments, songInstruments } from './sampler.js';
 
 /** Swing: off-beat eighths (and sixteenths) are played late by the song's swing amount (0–0.5). */
 export function swingBeat(t, swing) {
@@ -110,6 +111,84 @@ export class Player {
     this.onEnd = null;
     this.latency = 0.08;
     this.volume = 1;
+    // Recorded instruments load before playing starts: onLoading(progress) follows it (audio/sampler.js
+    // preloadInstruments' progress), `waiting` is true meanwhile.
+    this.onLoading = null;
+    this.waiting = false;
+    this.startToken = 0;
+    // AI-sung vocals (audio/singer renderVocal): trackId → { key, sampleRate, channelData }. Such a track plays its
+    // rendered audio instead of its notes; time 0 of the audio is beat 0 of the song (swing already in it).
+    this.vocals = new Map();
+    this.vocalBuffers = new Map();
+    this.vocalSources = new Map();
+  }
+
+  /** Sets (or with null removes) the rendered vocal of a track. While playing, it takes over (or hands back) at once. */
+  setVocal(trackId, rendered) {
+    const had = this.vocals.get(trackId);
+    if (had && rendered && had.key === rendered.key) return;
+    this.stopVocal(trackId);
+    if (rendered) this.vocals.set(trackId, rendered); else this.vocals.delete(trackId);
+    if (this.playing && !this.waiting) {
+      this.reload();
+      if (rendered) this.startVocals(this.position(), this.ac.currentTime + 0.02, [trackId]);
+    }
+  }
+
+  hasVocal(trackId) { return this.vocals.has(trackId); }
+
+  /** The AudioBuffer of a rendered vocal for this player's context (made once per render). */
+  vocalBuffer(v) {
+    let buffer = this.vocalBuffers.get(v.key);
+    if (!buffer) {
+      buffer = this.ac.createBuffer(1, v.channelData.length, v.sampleRate);
+      buffer.copyToChannel(v.channelData, 0);
+      if (this.vocalBuffers.size > 4) this.vocalBuffers.clear();
+      this.vocalBuffers.set(v.key, buffer);
+    }
+    return buffer;
+  }
+
+  /** Starts the rendered vocals from `beat` at context time `when` (until the loop end / song end). */
+  startVocals(beat, when, only = null) {
+    if (!this.mixer || !this.song) return;
+    const spb = this.spb();
+    const until = this.loopEnd();
+    for (const [trackId, v] of this.vocals) {
+      if (only && !only.includes(trackId)) continue;
+      const track = this.song.tracks.find((t) => t.id === trackId);
+      if (!track) continue;
+      const bus = this.mixer.setTrack(track);
+      const buffer = this.vocalBuffer(v);
+      const offset = Math.max(0, beat * spb);
+      if (offset >= buffer.duration) continue;
+      const src = this.ac.createBufferSource();
+      src.buffer = buffer;
+      src.connect(bus.input);
+      src.start(Math.max(this.ac.currentTime, when), offset, Math.max(0.01, (until - beat) * spb));
+      const list = this.vocalSources.get(trackId) ?? [];
+      list.push(src);
+      this.vocalSources.set(trackId, list);
+      src.onended = () => { const l = this.vocalSources.get(trackId); if (l) this.vocalSources.set(trackId, l.filter((x) => x !== src)); };
+    }
+  }
+
+  stopVocal(trackId = null, at = null) {
+    const now = at ?? this.ac?.currentTime ?? 0;
+    for (const [id, list] of this.vocalSources) {
+      if (trackId && id !== trackId) continue;
+      for (const src of list) { try { src.stop(now + 0.01); } catch { /* done */ } }
+      this.vocalSources.delete(id);
+    }
+  }
+
+  /**
+   * Loads the recorded instruments of a song (or of `ids`) for this player's context — call it under a progress
+   * window before play() to show the loading; play() also waits for it by itself.
+   */
+  prepare(songOrIds, { onProgress = null, signal = null } = {}) {
+    const ids = Array.isArray(songOrIds) ? songOrIds : songInstruments(songOrIds);
+    return preloadInstruments(this.context(), ids, { onProgress, signal });
   }
 
   /** The AudioContext (made on first use: browsers allow sound only after a click or key). */
@@ -136,12 +215,14 @@ export class Player {
     this.song = song;
     if (this.mixer && this.mixerSong === song) this.mixer.setMix(song);
     else if (this.ac) { this.mixer?.dispose(); this.mixer = buildMixer(this.ac, song, this.out); this.mixerSong = song; }
-    if (this.playing) this.reload();
+    // An instrument changed while playing: its samples load meanwhile (the synthesizer plays it until then).
+    if (this.ac && this.playing) preloadInBackground(this.ac, songInstruments(song));
+    if (this.playing && !this.waiting) this.reload();
   }
 
   reload() {
     const from = this.cursor;
-    this.events = eventsOf(this.song, { start: 0, end: this.loopEnd() });
+    this.events = eventsOf(this.song, { start: 0, end: this.loopEnd() }).filter((e) => !this.vocals.has(e.track.id));
     this.next = this.events.findIndex((e) => e.beat >= from - 1e-9);
     if (this.next < 0) this.next = this.events.length;
   }
@@ -153,10 +234,33 @@ export class Player {
 
   spb() { return 60 / this.song.bpm; }
 
-  /** Starts playing from `beat`. */
+  /**
+   * Starts playing from `beat`. When recorded instruments still have to load, playing starts once they have
+   * (the returned promise resolves then; `waiting` is true meanwhile and stop() cancels the start).
+   */
   play(song, beat = 0) {
     const ac = this.context();
     this.stop({ silent: true });
+    const token = ++this.startToken;
+    if (instrumentsToLoad(songInstruments(song)).length) {
+      this.song = song;
+      this.cursor = beat;
+      this.playing = true;
+      this.waiting = true;
+      return preloadInstruments(ac, songInstruments(song), { onProgress: (p) => this.onLoading?.(p) })
+        .catch(() => {})
+        .then(() => {
+          if (token !== this.startToken || !this.playing) return;
+          this.waiting = false;
+          this.start(this.song, beat);
+        });
+    }
+    this.start(song, beat);
+    return Promise.resolve();
+  }
+
+  start(song, beat) {
+    const ac = this.ac;
     this.song = song;
     this.mixer?.dispose();
     this.mixer = buildMixer(ac, song, this.out);
@@ -168,6 +272,7 @@ export class Player {
     this.playing = true;
     this.lastMetro = Math.ceil(beat) - 1;
     this.reload();
+    this.startVocals(beat, this.anchor.time);
     this.tick();
     this.timer = setInterval(() => this.tick(), 25);
     this.frame();
@@ -175,7 +280,7 @@ export class Player {
 
   /** The play position in beats (now, as heard). */
   position() {
-    if (!this.playing || !this.ac) return this.cursor;
+    if (!this.playing || !this.ac || this.waiting) return this.cursor;
     const at = this.anchor.beat + (this.ac.currentTime - this.anchor.time) / this.spb();
     return Math.max(this.anchor.beat - 0.001, at);
   }
@@ -202,6 +307,7 @@ export class Player {
       if (l?.on && l.end > l.start) {
         this.anchor = { time: this.anchor.time + (loopEnd - this.anchor.beat) * spb, beat: l.start };
         this.cursor = l.start;
+        this.startVocals(l.start, this.anchor.time);
         this.next = this.events.findIndex((e) => e.beat >= l.start - 1e-9);
         if (this.next < 0) this.next = this.events.length;
         this.lastMetro = Math.ceil(l.start) - 1;
@@ -253,11 +359,14 @@ export class Player {
   stop({ silent = false, at = null } = {}) {
     const pos = this.position();
     this.playing = false;
+    this.waiting = false;
+    this.startToken += 1;
     clearInterval(this.timer);
     this.timer = 0;
     const now = this.ac?.currentTime ?? 0;
     for (const s of this.sources) { try { s.stop(now + 0.02); } catch { /* done */ } }
     this.sources.clear();
+    this.stopVocal(null, now);
     if (this.mixer && this.ac) {
       const fade = this.mixer.master.gain;
       fade.cancelScheduledValues(now);
@@ -272,7 +381,13 @@ export class Player {
   }
 
   /** One note now (piano roll clicks, the instrument library). */
-  preview(instrumentId, midi, { vel = 0.8, dur = 0.45, syllable = 'a' } = {}) {
+  preview(instrumentId, midi, options = {}) {
+    // A recorded instrument not loaded yet: load it first (a moment), then play.
+    if (instrumentsToLoad([instrumentId]).length) { preloadInstruments(this.context(), [instrumentId], { onProgress: (p) => this.onLoading?.(p) }).catch(() => {}).then(() => this.previewNow(instrumentId, midi, options)); return; }
+    this.previewNow(instrumentId, midi, options);
+  }
+
+  previewNow(instrumentId, midi, { vel = 0.8, dur = 0.45, syllable = 'a' } = {}) {
     const ac = this.context();
     const dest = this.out;
     const g = ac.createGain();
@@ -284,6 +399,15 @@ export class Player {
 
   /** A short phrase of an instrument (the library's ▶): a chord or a drum groove. */
   previewPhrase(instrumentId, kind = 'melodic') {
+    if (instrumentsToLoad([instrumentId]).length) {
+      this.context();
+      return this.prepare([instrumentId], { onProgress: (p) => this.onLoading?.(p) }).catch(() => {}).then(() => this.previewPhraseNow(instrumentId, kind));
+    }
+    this.previewPhraseNow(instrumentId, kind);
+    return Promise.resolve();
+  }
+
+  previewPhraseNow(instrumentId, kind = 'melodic') {
     const ac = this.context();
     const t0 = ac.currentTime + 0.05;
     const g = ac.createGain();
@@ -315,9 +439,10 @@ export class Player {
 
 /**
  * Renders a song (or a part, or some tracks) to an AudioBuffer. options: { sampleRate, start, end (beats),
- * tracks ([ids] or null), tail (s), onProgress(fraction), signal ({ cancelled }) }.
+ * tracks ([ids] or null), tail (s), onProgress(fraction), signal ({ cancelled }), onLoad(progress) (the recorded
+ * instruments loading first — audio/sampler.js preloadInstruments) }.
  */
-export async function renderSong(song, { sampleRate = 44100, start = 0, end = null, tracks = null, tail = 2.5, onProgress = null, signal = null } = {}) {
+export async function renderSong(song, { sampleRate = 44100, start = 0, end = null, tracks = null, tail = 2.5, onProgress = null, signal = null, onLoad = null, vocals = null } = {}) {
   const OAC = globalThis.OfflineAudioContext ?? globalThis.webkitOfflineAudioContext;
   if (!OAC) throw new Error('OfflineAudioContext is not available');
   const last = end ?? songBeats(song);
@@ -327,8 +452,25 @@ export async function renderSong(song, { sampleRate = 44100, start = 0, end = nu
   const ac = new OAC(2, length, sampleRate);
   noiseBuffer(ac);
   const view = tracks ? { ...song, tracks: song.tracks.map((t) => (tracks.includes(t.id) ? { ...t, mute: false, solo: false } : { ...t, mute: true, solo: false })) } : song;
+  // Every recorded instrument is loaded before a note is scheduled (none may fall back while rendering).
+  await preloadInstruments(ac, songInstruments({ tracks: view.tracks.filter((t) => audible(view, t)) }), { onProgress: onLoad, signal });
   const mixer = buildMixer(ac, view, ac.destination);
-  const events = eventsOf(view, { start, end: last });
+  // AI-sung vocals ({ trackId: rendered }) play as audio from `start`; their notes are not synthesized.
+  const sung = new Map(Object.entries(vocals ?? {}).filter(([, v]) => v?.channelData));
+  for (const [trackId, v] of sung) {
+    const track = view.tracks.find((t) => t.id === trackId);
+    if (!track) continue;
+    const bus = mixer.setTrack(track);
+    const buffer = ac.createBuffer(1, v.channelData.length, v.sampleRate);
+    buffer.copyToChannel(v.channelData, 0);
+    const offset = start * spb;
+    if (offset >= buffer.duration) continue;
+    const src = ac.createBufferSource();
+    src.buffer = buffer;
+    src.connect(bus.input);
+    src.start(0, offset, Math.max(0.01, (last - start) * spb + tail));
+  }
+  const events = eventsOf(view, { start, end: last }).filter((e) => !sung.has(e.track.id));
   // Notes are scheduled in slices, the rendering suspended at each one: thousands of notes do not have to
   // exist at once, and the progress window moves.
   const slice = 4;

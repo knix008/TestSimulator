@@ -7,7 +7,7 @@
 // Decoded samples are kept once for the whole program (AudioBuffers work in every context: the speakers'
 // AudioContext and an export's OfflineAudioContext). Call preloadInstruments() before scheduling.
 import { instrument, INSTRUMENTS } from '../music/instruments.js';
-import { fetchSoundFile, loadManifest, currentManifest, setFiles, setsOfInstrument } from './soundlib.js';
+import { currentManifest, fetchSoundFile, libraryMissing, loadManifest, setFiles, setsOfInstrument } from './soundlib.js';
 
 const SAMPLE_RATE = 48000;
 const buffers = new Map();   // file → AudioBuffer
@@ -37,7 +37,9 @@ export const songInstruments = (song) => [...new Set((song?.tracks ?? []).map((t
 
 /** Instruments of the list that have samples but are not loaded yet. */
 export function instrumentsToLoad(ids) {
-  return [...new Set(ids)].filter((id) => instrument(id).samples && !instrumentReady(id));
+  if (libraryMissing()) return [];
+  const m = currentManifest();
+  return [...new Set(ids)].filter((id) => instrument(id).samples && !instrumentReady(id) && !(m && setsOfInstrument(id, m).some((s) => failedSets.has(s) || !m.sets[s])));
 }
 
 async function toBuffer(ac, decoded) {
@@ -112,6 +114,8 @@ export async function preloadInstruments(ac, ids, { onProgress = null, signal = 
     instrumentsDone += 1;
     report(p.id);
   }
+  done = files.length; bytes = totalBytes;
+  report(null);
   const loaded = wanted.filter((id) => instrumentReady(id));
   return { loaded, failed: wanted.filter((id) => !loaded.includes(id)), available: true };
 }
@@ -221,7 +225,16 @@ export function playSampledNote(ac, dest, inst, when, dur, midi, vel) {
   ids.forEach((setId, i) => {
     const set = m.sets[setId];
     const layer = layerOf(set.layers, vel);
-    const zone = nearestZone(layer.zones, midi);
+    let zone = nearestZone(layer.zones, midi);
+    // A layer recorded over a shorter range (horn: no loud top notes): far from its recordings, another layer's
+    // closer recording sounds better than a big pitch shift.
+    if (Math.abs(zone.root - midi) > 4) {
+      for (const other of set.layers) {
+        if (other === layer) continue;
+        const z = nearestZone(other.zones, midi);
+        if (Math.abs(z.root - midi) + 2 < Math.abs(zone.root - midi)) zone = z;
+      }
+    }
     const buffer = buffers.get(zone.file);
     if (!buffer) return;
     const rate = 2 ** ((midi - zone.root) / 12 - (zone.tune ?? 0) / 1200 + (spread[i] ?? 0) / 1200);
@@ -255,7 +268,7 @@ const chokes = new WeakMap(); // destination → Map(group → { amp, src, until
  * One drum hit of a sampled kit (GM drum note), or null when the kit has no sample for the note or is not
  * loaded (the caller then uses the synthesized drum). Hi-hats choke each other.
  */
-export function playSampledDrum(ac, dest, setId, n, when, vel) {
+export function playSampledDrum(ac, dest, setId, n, when, vel, level = 1) {
   const m = currentManifest();
   const kit = m?.sets?.[setId];
   if (!kit || !setReady(setId)) return null;
@@ -271,7 +284,7 @@ export function playSampledDrum(ac, dest, setId, n, when, vel) {
   src.buffer = buffer;
   src.playbackRate.setValueAtTime(rate, when);
   const amp = ac.createGain();
-  amp.gain.setValueAtTime(gain * Math.sqrt(layer.level ?? 1) * (0.3 + 0.7 * Math.max(0, Math.min(1, vel))), when);
+  amp.gain.setValueAtTime(level * gain * Math.sqrt(layer.level ?? 1) * (0.3 + 0.7 * Math.max(0, Math.min(1, vel))), when);
   src.connect(amp).connect(dest);
   src.start(when);
   const end = when + buffer.duration / rate;
@@ -299,7 +312,7 @@ export function sampledRelease(inst) {
   return rel * 2.5 + 0.1;
 }
 
-/** The sampled kit set of a synthesizer kit name ('pop' → 'popKit'), for voices.playDrum. */
-export const KIT_SETS = Object.fromEntries(INSTRUMENTS.filter((i) => i.drums && i.samples).map((i) => [i.voice.kit, i.samples]));
+/** The sampled kit of a synthesizer kit name ('pop' → { set: 'popKit', gain }), for voices.playDrum. */
+export const KIT_SETS = Object.fromEntries(INSTRUMENTS.filter((i) => i.drums && i.samples).map((i) => [i.voice.kit, { set: i.samples, gain: i.sampleGain ?? 1 }]));
 
 export { SAMPLE_RATE };

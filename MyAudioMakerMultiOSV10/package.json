@@ -26,6 +26,7 @@
     "tutorial:docs": "node scripts/tutorial-capture.mjs docs",
     "tutorial:video": "node scripts/tutorial-capture.mjs video",
     "samples": "node scripts/make-samples.mjs",
+    "sounds": "node scripts/fetch-sounds.mjs",
     "build:icons": "node scripts/render-icons.mjs",
     "notices": "node scripts/make-notices.mjs",
     "clean": "node scripts/clean.mjs",

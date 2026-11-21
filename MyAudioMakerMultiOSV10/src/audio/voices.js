@@ -4,6 +4,7 @@
 import { instrument } from '../music/instruments.js';
 import { midiToFrequency } from '../music/theory.js';
 import { sing } from './vocal.js';
+import { KIT_SETS, playSampledDrum, playSampledNote, sampledRelease } from './sampler.js';
 
 const noiseBuffers = new WeakMap();
 /** Two seconds of white noise, made once per context. */
@@ -41,9 +42,10 @@ const stopAll = (nodes, at) => { for (const n of nodes) { try { n.stop(at); } ca
  */
 export function playNote(ac, dest, instrumentId, when, dur, midi, vel, options = {}) {
   const inst = instrument(instrumentId);
-  if (inst.drums) return playDrum(ac, dest, inst.voice.kit, midi, when, vel);
+  if (inst.drums) return (inst.samples && playSampledDrum(ac, dest, inst.samples, midi, when, vel, inst.sampleGain ?? 1)) || playDrum(ac, dest, inst.voice.kit, midi, when, vel, false);
   if (inst.vocal) return sing(ac, dest, { voice: inst.voice.voice, when, dur, midi, vel, syllable: options.syllable, previous: options.previous });
-  return playTone(ac, dest, inst.voice, when, dur, midi, vel);
+  // Recorded samples when loaded (audio/sampler.js), else the synthesizer.
+  return (inst.samples && playSampledNote(ac, dest, inst, when, dur, midi, vel)) || playTone(ac, dest, inst.voice, when, dur, midi, vel);
 }
 
 /** A tonal voice: oscillators (+ FM, noise) → filter (with envelope) → drive → amplitude envelope. */
@@ -213,8 +215,9 @@ function sweep(ac, dest, when, { from, to, time, decay, level, type = 'sine', dr
   return osc;
 }
 
-/** One drum hit of a kit (GM drum note numbers). */
-export function playDrum(ac, dest, kitId, n, when, vel) {
+/** One drum hit of a kit (GM drum note numbers): the kit's recorded sample when loaded, else synthesized. */
+export function playDrum(ac, dest, kitId, n, when, vel, sampled = true) {
+  if (sampled && KIT_SETS[kitId]) { const s = playSampledDrum(ac, dest, KIT_SETS[kitId].set, n, when, vel, KIT_SETS[kitId].gain); if (s) return s; }
   const kit = KITS[kitId] ?? KITS.pop;
   const v = 0.3 + vel * 0.7;
   let out = dest;
@@ -268,5 +271,6 @@ export function releaseOf(instrumentId) {
   const inst = instrument(instrumentId);
   if (inst.drums) return 1.6;
   if (inst.vocal) return 0.2;
-  return Math.max(inst.voice.env?.r ?? 0.2, inst.voice.decay ?? 0) + 0.1;
+  const sampled = inst.samples ? sampledRelease(inst) : null;
+  return Math.max(sampled ?? 0, Math.max(inst.voice.env?.r ?? 0.2, inst.voice.decay ?? 0) + 0.1);
 }

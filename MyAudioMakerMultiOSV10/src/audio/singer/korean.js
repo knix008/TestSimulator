@@ -5,8 +5,9 @@
 //
 // Ported from OpenUtau (MIT License, Copyright (c) 2021 stakira and contributors),
 // OpenUtau.Core/Util/KoreanPhonemizerUtil.cs — Separate / Merge / Variate. See THIRD-PARTY notices.
-// One deliberate difference: OpenUtau's "ㄹ비음화" branch can never fire (it tests ㄹ against the nasal
-// table); here ㅁ/ㅇ + ㄹ → ㅁ/ㅇ + ㄴ (담력 → 담녁, 막론 → 망논) as that rule's comment intends.
+// Two deliberate differences: OpenUtau's "ㄹ비음화" branch can never fire (it tests ㄹ against the nasal
+// table); here ㅁ/ㅇ + ㄹ → ㅁ/ㅇ + ㄴ (담력 → 담녁, 막론 → 망논) as that rule's comment intends. And an
+// initial ㅎ after a vowel is kept (함께 해요, not 암께 애요 — standard pronunciation keeps it).
 
 export const FIRST_CONSONANTS = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
 export const MIDDLE_VOWELS = 'ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ';
@@ -48,7 +49,8 @@ export function variatePair(a, b) {
   if (nf === 'ㅇ' && fl !== ' ') {
     const split = { ㄳ: ['ㄱ', 'ㅅ'], ㄵ: ['ㄴ', 'ㅈ'], ㄶ: ['ㄴ', 'ㅎ'], ㄺ: ['ㄹ', 'ㄱ'], ㄼ: ['ㄹ', 'ㅂ'], ㄽ: ['ㄹ', 'ㅅ'], ㄾ: ['ㄹ', 'ㅌ'], ㄿ: ['ㄹ', 'ㅍ'], ㅀ: ['ㄹ', 'ㅎ'], ㅄ: ['ㅂ', 'ㅅ'], ㄻ: ['ㄹ', 'ㅁ'] }[fl];
     if (split) [fl, nf] = split;
-    else if (fl === 'ㅇ') { /* 받침 ㅇ does not move */ } else { nf = fl; fl = ' '; }
+    else if (fl === 'ㅇ') { /* 받침 ㅇ does not move */ } else if (fl === 'ㅎ') fl = ' '; // ㅎ탈락: 좋아 → 조아
+    else { nf = fl; fl = ' '; }
   }
   // 1. 유기음화 및 ㅎ탈락 1
   if (fl === 'ㅎ' && nf !== 'ㅅ' && isBasic(nf)) { fl = ' '; nf = ASPIRATE[BASIC[nf]]; }
@@ -63,7 +65,7 @@ export function variatePair(a, b) {
   if (isBasic(fl) && isBasic(nf)) nf = FORTIS[BASIC[nf]];
   // 1. 유기음화 2
   if (isBasic(fl) && nf === 'ㅎ') { nf = ASPIRATE[BASIC[fl]]; fl = ' '; }
-  else if (nf === 'ㅎ') nf = 'ㅇ';
+  else if (nf === 'ㅎ' && fl !== ' ') nf = 'ㅇ'; // ㅎ after a final consonant weakens (OpenUtau weakens it after a vowel too)
   // 연음 2
   if (fl !== ' ' && nf === 'ㅇ' && fl !== 'ㅇ') { nf = fl; fl = ' '; }
   // 4. 비음화

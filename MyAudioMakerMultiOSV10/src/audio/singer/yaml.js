@@ -187,10 +187,10 @@ export function parseYaml(source) {
       out.push(line.slice(blockIndent));
     }
     while (pos < lines.length && lines[pos].raw < r) pos++;
-    let body = folded ? out.join('\n').replace(/([^\n])\n(?=[^\n ])/g, '$1 ') : out.join('\n');
-    if (strip) body = body.replace(/\n+$/, '');
-    else if (!keep) body = body.replace(/\n+$/, '\n');
-    return body;
+    const joined = folded ? out.join('\n').replace(/([^\n])\n(?=[^\n ])/g, '$1 ') : out.join('\n');
+    const body = joined.replace(/\n+$/, '');
+    if (strip || !body) return body;
+    return keep ? `${joined}\n` : `${body}\n`;
   }
 
   function valueAfter(rest, indent, rawLine) {

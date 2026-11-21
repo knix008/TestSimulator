@@ -27,6 +27,66 @@ export function settingsAudio(api) {
   ].join('');
 }
 
+const MB = (bytes) => `${(bytes / 1048576).toFixed(1)} MB`;
+
+/** Settings › Sounds: the recorded-instrument library — its state, a check, re-download / repair. */
+export function settingsSounds(api) {
+  return soundsSection(api).join('');
+}
+
+function soundsSection(api) {
+  const { row, t, button, escapeHtml, icon } = api;
+  const st = api.state.soundStatus;
+  const job = api.state.soundJob;
+  let summary = t('sounds.summary.unchecked');
+  let level = 'muted';
+  if (st) {
+    const key = `sounds.summary.${st.summary}`;
+    summary = t(key, { sets: Object.keys(st.sets ?? {}).length, size: MB(st.totalBytes ?? 0), missing: st.missing ?? 0, broken: st.broken ?? 0 });
+    level = st.summary === 'installed' ? 'ok' : 'danger';
+  }
+  const repairable = st ? st.repair?.possible !== false : true;
+  const categories = st ? Object.entries(st.categories ?? {}).map(([cat, c]) => `<span class="badge ${c.status === 'installed' ? 'ok' : 'danger'}" title="${escapeHtml(t(`sounds.status.${c.status}`))}">${escapeHtml(t(`instcat.${cat}`, null, cat))} · ${escapeHtml(t(`sounds.status.${c.status}`))}</span>`).join('') : '';
+  return [
+    row('info', '', `<span class="muted">${escapeHtml(t('sounds.section.desc', { size: st?.totalBytes ? MB(st.totalBytes) : '60 MB' }))}</span>`),
+    row('check', t('sounds.section.title'), `<span class="badge ${level}" data-sounds-summary>${escapeHtml(job ? job.text : summary)}</span>`, summary, 'full'),
+    ...(job ? [row('hourglass', '', `<span class="sounds-progress"><i style="width:${Math.round((job.fraction ?? 0) * 100)}%"></i></span>`, job.text, 'full')] : []),
+    ...(categories ? [row('layers', '', `<span class="badge-row">${categories}</span>`, '', 'full')] : []),
+    row('validate', t('sounds.check'), `${button('sounds-check', t('sounds.check'), 'validate', 'small', '', job ? 'disabled' : '')}${button('sounds-check-deep', t('sounds.check.deep'), 'search', 'small', '', job ? 'disabled' : '')}${button('sounds-repair', t('sounds.repair'), 'refresh', 'small', '', job || !repairable ? 'disabled' : '')}`, t('sounds.check'), 'full'),
+    ...(st && st.repair?.possible === false ? [row('warning', '', `<span class="muted">${escapeHtml(t('sounds.repair.unavailable'))}</span>`)] : []),
+    ...(st && st.kind === 'web' ? [row('info', '', `<span class="muted">${escapeHtml(t('sounds.repair.web'))}</span>`)] : []),
+    row('hyperlink', t('sounds.baseUrl'), `<input type="text" data-setting-text="soundsBaseUrl" value="${escapeHtml(api.s().soundsBaseUrl ?? '')}" placeholder="https://…/sounds/" spellcheck="false" aria-label="${escapeHtml(t('sounds.baseUrl'))}" />`, t('sounds.baseUrl.hint')),
+    row('info', t('sounds.credits'), `<span class="muted">${escapeHtml(t('sounds.credits.desc'))}</span>`, t('sounds.credits')),
+  ];
+}
+
+/** Runs a check of the sound library in this window (it only reads), showing progress in the section. */
+async function checkSounds(api, decode) {
+  const { soundLibraryStatus } = await import('./audio/soundlib.js');
+  api.state.soundJob = { fraction: 0, text: api.t('sounds.check.progress', { done: 0, total: '…' }) };
+  api.render();
+  try {
+    api.state.soundStatus = await soundLibraryStatus({
+      decode, baseUrl: api.s().soundsBaseUrl ?? '',
+      onProgress: (p) => { api.state.soundJob = { fraction: p.fraction ?? 0, text: api.t('sounds.check.progress', { done: p.done ?? 0, total: p.total ?? 0 }) }; updateSoundJob(api); },
+    });
+  } catch (error) {
+    api.state.soundStatus = { summary: 'unavailable', repair: { possible: false }, categories: {}, sets: {}, error: String(error?.message ?? error) };
+  }
+  api.state.soundJob = null;
+  api.render();
+}
+
+/** Progress without redrawing the whole tab (keeps it smooth). */
+function updateSoundJob(api) {
+  const job = api.state.soundJob;
+  const badge = api.root.querySelector('[data-sounds-summary]');
+  const bar = api.root.querySelector('.sounds-progress i');
+  if (!badge || !bar) { api.render(); return; }
+  badge.textContent = job.text;
+  bar.style.width = `${Math.round((job.fraction ?? 0) * 100)}%`;
+}
+
 /** Settings › Editor. */
 export function settingsEditor(api) {
   const { row, toggle, segmented, t, s, select } = api;
@@ -178,6 +238,10 @@ export function musicPopupAction(kind, target, api, type = 'click') {
     case 'ai-key-clear': storeAiKey(globalThis.localStorage, ''); api.state.settings.aiApiKey = ''; api.state.aiTest = null; api.update({}); return true;
     case 'open-console': api.openExternal('https://console.anthropic.com/settings/keys'); return true;
     case 'test-sound': api.action('test-sound'); return true;
+    case 'sounds-check': checkSounds(api, false); return true;
+    case 'sounds-check-deep': checkSounds(api, true); return true;
+    // Repair runs in the main window (it owns the playing sounds and their cache) with its own progress window.
+    case 'sounds-repair': api.action('sounds-repair'); api.state.soundStatus = null; api.render(); return true;
     case 'ai-test': {
       api.state.aiTest = { running: true };
       api.render();

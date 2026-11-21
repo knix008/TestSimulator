@@ -45,5 +45,15 @@ for (const name of [...new Set([...Object.keys(pkg.dependencies ?? {}), ...BUNDL
   lines.push(`${meta.name} ${meta.version} — ${license}${meta.homepage ? ` — ${meta.homepage}` : ''}`);
   lines.push(copied.length ? `  ${copied.join(', ')}` : '  (no licence file in the package; licence as stated above)');
 }
+// Code ported from other projects and licences of packages that ship none (scripts/notices/):
+// the AI singing voice (OpenUtau, openvpi/DiffSinger, ONNX Runtime).
+const extra = join(root, 'scripts', 'notices');
+if (existsSync(extra)) {
+  lines.push('');
+  for (const file of readdirSync(extra).sort()) {
+    copyFileSync(join(extra, file), join(out, file));
+    if (file === 'voice.txt') lines.push(...readFileSync(join(extra, file), 'utf8').replace(/\r\n?/g, '\n').trimEnd().split('\n'));
+  }
+}
 writeFileSync(join(out, 'THIRD-PARTY-NOTICES.txt'), `${lines.join('\r\n')}\r\n`);
 console.log(`licenses/: ${readdirSync(out).length} files`);

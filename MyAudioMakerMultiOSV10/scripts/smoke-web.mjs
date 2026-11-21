@@ -81,7 +81,7 @@ try {
     const label = step.shot ?? step.eval?.slice(0, 60) ?? step.until ?? `step ${n}`;
     const t0 = Date.now();
     if (step.eval) {
-      const r = await page.send('Runtime.evaluate', { expression: `(async () => { ${step.eval.trim().startsWith("return") ? step.eval : `return (${step.eval})`} })()`, awaitPromise: true, returnByValue: true }, 180000);
+      const r = await page.send('Runtime.evaluate', { expression: `(async () => { ${step.eval.trim().startsWith("return") ? step.eval : `return (${step.eval})`} })()`, awaitPromise: true, returnByValue: true }, step.timeout ?? 180000);
       const value = r.result?.result?.value;
       const ex = r.result?.exceptionDetails;
       if (ex || r.error) { failed = true; console.log(`✘ ${label}: ${ex?.exception?.description ?? ex?.text ?? r.error?.message}`); }

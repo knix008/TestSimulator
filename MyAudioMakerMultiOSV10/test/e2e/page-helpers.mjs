@@ -15,6 +15,8 @@ export const PAGE_HELPERS = String.raw`(() => {
     const a = A();
     if (a.tutorial()?.state().active) await a.tutorial().stop();
     a.actions.stopPlayback();
+    // Tests sing with the guide voice (the AI voice would download a voice bank); AI voice tests turn it on themselves.
+    if (a.state.settings.voiceEngine !== 'guide') a.api.updateSettings({ voiceEngine: 'guide' }, { quiet: true });
     await a.popups.closeAll();
     for (const el of document.querySelectorAll('.web-popup')) el.remove();
     for (const el of document.querySelectorAll('.web-popup-shield')) el.remove();

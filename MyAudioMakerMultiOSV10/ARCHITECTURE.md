@@ -75,6 +75,7 @@ AI(Claude·Ollama·내장)는 **계획**만 만듭니다: 제목, 구간 목록(
 ### 3.3 소리 — `src/audio/`
 
 - `voices.js` — 악기마다 발진기·필터·엔벨로프 조합(`playNote`), 드럼은 잡음과 스윕 사인(`playDrum`), 드럼 키트 7종.
+- `sampler.js` — 녹음된 악기(소리 라이브러리 `sounds/`): 가까운 녹음을 playbackRate로 옮기고 셈여림 층·어택/릴리스·루프, 드럼은 GM 음 번호별(하이햇 초크). `preloadInstruments(ac, ids, { onProgress, signal })`가 재생·내보내기 전에 불러오고, 없거나 아직이면 `voices.js` 신시사이저가 대신 연주합니다. `soundlib.js` — 라이브러리 위치(웹: 페이지 옆, 데스크톱: 리소스 + 앱 데이터의 고친 파일), `soundLibraryStatus`·`repairSounds`. `ogg-opus.js` — Ogg 읽기 + opus-decoder(WASM). 라이브러리는 `npm run sounds`(`scripts/fetch-sounds.mjs`, 출처·라이선스는 `scripts/sounds-config.mjs`, `sounds/CREDITS.md`)가 만듭니다.
 - `vocal.js` — 포먼트 필터 세 개로 모음(a·e·i·o·u)을 노래하는 가이드 보컬, 비브라토, 자음 잡음.
 - `engine.js` — `Player`(재생·반복·메트로놈·미리 듣기·레벨), `buildMixer`(트랙 → 팬 → 리버브 송신 → 마스터 → 컴프레서), `eventsOf`, `renderSong`(OfflineAudioContext, `suspend()` 조각마다 진행률·취소). 스윙은 `swingBeat`가 재생·WAV·MIDI에 똑같이 적용합니다.
 

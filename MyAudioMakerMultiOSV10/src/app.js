@@ -36,6 +36,7 @@ import { pickPatch } from './ui/aipicker.js';
 import { checkSong, countBySeverity } from './music/checks.js';
 import { leadSheetSvg } from './music/notation.js';
 import { Karaoke } from './ui/karaoke.js';
+import { ensureVoiceReady, initVoiceService, isAccepted, playRendered, renderVocal, testVoice, vocalCacheKey } from './audio/singer/index.js';
 import { buildSample, buildTemplate, SAMPLE_GROUPS, SAMPLES, TEMPLATES } from './music/samples.js';
 import { addNotes, audible, barBeats, chordLineText, cloneSong, createSong, cutRange, newId, normalizeSong, parseChordLineText, respellChords, sectionLabel, sectionSpans, shiftNotes, songBeats, songStats, trackName, ROLE_COLORS } from './music/song.js';
 import { GENRES, SECTION_DEFAULTS, SECTION_TYPES, structureOf } from './music/genres.js';
@@ -245,6 +246,7 @@ function afterChange({ quiet = false } = {}) {
   if (state.section && !s.sections.some((x) => x.id === state.section)) state.section = s.sections[0]?.id ?? null;
   if (state.track && !s.tracks.some((x) => x.id === state.track)) state.track = s.tracks[0]?.id ?? null;
   player.update(s);
+  dropStaleVocal(s);
   if (!quiet) scheduleProblems();
   renderTitleProject();
   renderView();
@@ -303,17 +305,145 @@ function selectTrack(id, { open = false, beat = null } = {}) {
 
 // ───────────────────────── playback
 
-function play(from = null) {
+async function play(from = null) {
   const s = song();
-  if (!s) return;
+  if (!s || state.loadingSounds) return;
   try {
+    // The recorded instruments the song uses are loaded first (once); a window shows the progress when it takes a moment.
+    state.loadingSounds = true;
+    const ready = await loadSounds(s);
+    if (ready && song() === s) await prepareVocal(s);
+    state.loadingSounds = false;
+    if (!ready || song() !== s) return;
     player.metronome = state.settings.metronome;
     player.setVolume(state.settings.masterVolume / 100);
     player.play(s, from ?? state.position);
     state.playing = true;
-  } catch (error) { showError('error.audio', error); }
+  } catch (error) { state.loadingSounds = false; showError('error.audio', error); }
   renderToolbarState();
   renderStatus();
+}
+
+/** Settings › Audio › Sounds › Re-download / repair: missing or damaged sound files are fetched again (progress window). */
+async function repairSoundLibrary() {
+  try {
+    const { repairSounds } = await import('./audio/soundlib.js');
+    const result = await withProgress('sounds.repair', t('sounds.section.title'), async (op, report, signal) => {
+      const controller = new AbortController();
+      signal.onCancel = () => controller.abort();
+      return repairSounds({ baseUrl: state.settings.soundsBaseUrl ?? '', signal: controller.signal, onProgress: (p) => report({ fraction: p.fraction ?? 0, text: t('sounds.repair.progress', { done: p.done ?? 0, total: p.total ?? 0 }), icon: 'refresh' }) });
+    }, { delay: 0, cancellable: true });
+    if (result.reason === 'noBaseUrl') notify('warning', t('sounds.repair.unavailable'));
+    else if (result.failed?.length) notify('error', t('sounds.repair.failed', { count: result.failed.length }));
+    else notify('success', result.fixed ? t('sounds.repair.done', { fixed: result.fixed }) : t('sounds.repair.nothing'));
+  } catch (error) {
+    if (error?.code !== 'cancelled' && error?.name !== 'AbortError') showError('error.audio', error);
+  }
+}
+
+// ───────────────────────── AI voice
+
+/** The rendered AI vocal (one at a time): { key, trackId, rendered }. */
+let aiVocal = null;
+
+/** The vocal track the AI voice sings: the first vocal track with lyrics. */
+const sungTrack = (s) => s?.tracks.find((t) => t.role === 'vocal' && t.notes.some((n) => n.syl)) ?? null;
+
+const voiceOptions = () => ({ speaker: state.settings.voiceSpeaker ?? '', steps: state.settings.voiceSteps ?? 10, backend: state.settings.voiceBackend ?? 'auto' });
+
+/** An edit or a setting made the AI vocal out of date: the guide voice sings it until the next play renders it again. */
+function dropStaleVocal(s) {
+  if (!aiVocal) return;
+  const track = sungTrack(s);
+  const key = track && state.settings.voiceEngine === 'ai' ? vocalCacheKey(s, track, state.settings.voiceBank, voiceOptions()) : null;
+  if (!track || track.id !== aiVocal.trackId || key !== aiVocal.key) player.setVocal(aiVocal.trackId, null);
+}
+
+/** "다운로드 120 MB / 560 MB · 8.2 MB/s" from a voice download progress. */
+function voiceDownloadText(p) {
+  const mb = (b) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.round((b ?? 0) / 1024)} KB`);
+  return t('voice.progressLine', { phase: t(`voice.phase.${p.phase ?? 'download'}`), done: mb(p.done), total: mb(p.total), speed: p.speed ? ` · ${mb(p.speed)}/s` : '' });
+}
+
+/**
+ * Makes the song's vocal ready for the AI voice: the licence (accepted once in Settings › Voice), then the voice bank
+ * and vocoder are downloaded when missing, then the vocal is rendered — each step in the progress window, which
+ * can be cancelled. Unchanged songs come straight from the cache. Returns { trackId: rendered } (empty: the guide
+ * voice sings). The player is set to match.
+ */
+async function prepareVocal(s, { forPlayer = true } = {}) {
+  const track = sungTrack(s);
+  const clear = () => { if (forPlayer && aiVocal) player.setVocal(aiVocal.trackId, null); return {}; };
+  // The tutorial walks through with the guide voice (it never stops for a licence or a download).
+  if (state.settings.voiceEngine !== 'ai' || !track || tutorial?.state?.().active) return clear();
+  const bank = state.settings.voiceBank || 'tiger';
+  const key = vocalCacheKey(s, track, bank, voiceOptions());
+  if (aiVocal?.key === key) { if (forPlayer) player.setVocal(track.id, aiVocal.rendered); return { [track.id]: aiVocal.rendered }; }
+  if (!isAccepted(bank)) {
+    notify('info', t('voice.needAccept'));
+    popups.open('settings', { tab: 'voice', voiceLicence: bank });
+    return clear();
+  }
+  try {
+    const rendered = await withProgress('voice.progress.title', s.title || t('song.untitled'), async (op, report, signal) => {
+      const controller = new AbortController();
+      signal.onCancel = () => controller.abort();
+      await ensureVoiceReady(bank, { signal: controller.signal, onProgress: (p) => report({ fraction: p.fraction ?? 0, text: voiceDownloadText(p), icon: 'importFile' }) });
+      return renderVocal(s, track, bank, {
+        ...voiceOptions(), signal: controller.signal,
+        onProgress: (p) => report({ fraction: p.fraction ?? 0, text: t(`voice.stage.${p.stage ?? 'render'}`, { model: p.model ?? '', phrase: (p.phrase ?? 0) + 1, phrases: p.phrases ?? 1 }), icon: 'instVocal' }),
+      });
+    }, { delay: 300, cancellable: true });
+    aiVocal = { key: rendered.key ?? key, trackId: track.id, rendered };
+    if (forPlayer) player.setVocal(track.id, rendered);
+    return { [track.id]: rendered };
+  } catch (error) {
+    const code = error?.code;
+    if (code === 'cancelled' || error?.name === 'AbortError') notify('info', t('voice.usingGuide'));
+    else if (code === 'licence') { notify('info', t('voice.needAccept')); popups.open('settings', { tab: 'voice', voiceLicence: error.id ?? bank }); }
+    else notify('warning', t('voice.fallback', { reason: code ? t(`voice.error.${code}`, null, error.message) : String(error?.message ?? error) }));
+    return clear();
+  }
+}
+
+/** Settings › Voice › Test voice: a short phrase sung by the chosen bank (downloading it first when needed). */
+async function voiceTest(params = {}) {
+  const bank = params.bank || state.settings.voiceBank || 'tiger';
+  if (!isAccepted(bank)) { popups.open('settings', { tab: 'voice', voiceLicence: bank }); return; }
+  try {
+    const result = await withProgress('voice.progress.title', bank, async (op, report, signal) => {
+      const controller = new AbortController();
+      signal.onCancel = () => controller.abort();
+      await ensureVoiceReady(bank, { signal: controller.signal, onProgress: (p) => report({ fraction: p.fraction ?? 0, text: voiceDownloadText(p), icon: 'importFile' }) });
+      return testVoice(bank, { speaker: params.speaker ?? state.settings.voiceSpeaker, steps: params.steps ?? state.settings.voiceSteps, backend: params.backend ?? state.settings.voiceBackend, language: lang() === 'en' ? 'en' : 'ko', signal: controller.signal, onProgress: (p) => report({ fraction: p.fraction ?? 0, text: t(`voice.stage.${p.stage ?? 'render'}`, { model: p.model ?? '', phrase: (p.phrase ?? 0) + 1, phrases: p.phrases ?? 1 }), icon: 'instVocal' }) });
+    }, { delay: 0, cancellable: true });
+    playRendered(player.context(), result, player.out);
+  } catch (error) {
+    if (error?.code === 'cancelled' || error?.name === 'AbortError') return;
+    if (error?.code === 'licence') { popups.open('settings', { tab: 'voice', voiceLicence: error.id ?? bank }); return; }
+    notify('error', error?.code ? t(`voice.error.${error.code}`, null, error.message) : String(error?.message ?? error));
+  }
+}
+
+/** Loads the song's recorded instruments with a progress window (shown only when loading takes a while). False when cancelled. */
+async function loadSounds(s) {
+  try {
+    await withProgress('sounds.loading.title', s.title || t('song.untitled'), async (op, report, signal) => {
+      const controller = new AbortController();
+      signal.onCancel = () => controller.abort();
+      await player.prepare(s, { signal: controller.signal, onProgress: (p) => report({ fraction: p.fraction ?? 0, text: soundsProgressText(p), icon: 'instKeys' }) });
+    }, { delay: 300, cancellable: true });
+    return true;
+  } catch (error) {
+    if (error?.code === 'cancelled' || error?.name === 'AbortError') return false;
+    throw error;
+  }
+}
+
+/** "Loading instrument sounds… 3/7 (Grand piano)" from sampler progress. */
+function soundsProgressText(p) {
+  const name = p.instrument ? (lang() === 'en' ? instrument(p.instrument).en : instrument(p.instrument).ko) : '';
+  return t('sounds.loading.text', { done: p.instrumentsDone ?? p.done ?? 0, total: p.instrumentsTotal ?? p.total ?? 0, name });
 }
 
 function stopPlayback() {
@@ -1863,13 +1993,18 @@ async function exportAudioDialog({ stems = false } = {}) {
   if (result.range === 'loop' && s.loop.end > s.loop.start) { start = s.loop.start; end = s.loop.end; }
   if (result.range === 'section') { const span = sectionSpans(s).find((x) => x.section.id === state.section); if (span) { start = span.start; end = span.end; } }
   const base = safeName();
+  // The AI voice sings the vocal (rendered first, with its own progress), else the guide voice.
+  const vocals = await prepareVocal(s, { forPlayer: false });
+  if (Object.keys(vocals).length) notify('info', t('voice.exportNote'));
   try {
     const jobs = result.stems ? s.tracks.filter((tr) => !result.exclude?.includes(tr.id)).map((tr) => ({ name: `${base} - ${fileSafe(trackLabel(tr))}.wav`, tracks: [tr.id] })) : [{ name: `${base}.wav`, tracks: result.exclude?.length ? s.tracks.filter((tr) => !result.exclude.includes(tr.id)).map((tr) => tr.id) : null }];
     const files = await withProgress('progress.export', jobs.length > 1 ? t('export.stemsName', { n: jobs.length }) : jobs[0].name, async (op, report, signal) => {
       const out = [];
       for (const [i, job] of jobs.entries()) {
         report({ fraction: i / jobs.length, text: t(jobs.length > 1 ? 'progress.step.stem' : 'progress.step.render', { name: job.name }), icon: PROGRESS_STEP_ICONS['progress.step.render'] });
-        const buffer = await renderSong(s, { sampleRate: result.sampleRate, start, end, tracks: job.tracks, tail: result.tail ?? 2.5, signal, onProgress: (f) => report({ fraction: (i + f * 0.9) / jobs.length, text: t('progress.step.render', { name: job.name }), icon: PROGRESS_STEP_ICONS['progress.step.render'] }) });
+        const buffer = await renderSong(s, { sampleRate: result.sampleRate, start, end, tracks: job.tracks, tail: result.tail ?? 2.5, signal, vocals,
+          onLoad: (p) => report({ fraction: (i + (p.fraction ?? 0) * 0.1) / jobs.length, text: soundsProgressText(p), icon: 'instKeys' }),
+          onProgress: (f) => report({ fraction: (i + 0.1 + f * 0.8) / jobs.length, text: t('progress.step.render', { name: job.name }), icon: PROGRESS_STEP_ICONS['progress.step.render'] }) });
         report({ fraction: (i + 0.95) / jobs.length, text: t('progress.step.encode'), icon: PROGRESS_STEP_ICONS['progress.step.encode'] });
         out.push({ name: job.name, bytes: audioBufferToWav(buffer, { bits: result.bits, normalize: result.normalize }) });
       }
@@ -2401,6 +2536,9 @@ function bindPopupActions() {
   popups.on('progress-cancel', (data) => { popups.actions.get(`cancel:${data.op}`)?.(); });
   popups.on('print-save-pdf', (data) => printHost.savePdf(data));
   popups.on('preview-instrument', (data) => previewInstrument(data.id));
+  popups.on('sounds-repair', () => repairSoundLibrary());
+  popups.on('voice-test', (params) => voiceTest(params ?? {}));
+  initVoiceService();
   popups.on('test-sound', () => { try { player.previewPhrase('piano', 'melodic'); } catch (error) { showError('error.audio', error); } });
 }
 
