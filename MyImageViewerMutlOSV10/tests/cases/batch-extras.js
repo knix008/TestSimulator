@@ -77,6 +77,9 @@ module.exports = {
       assertIncludes(batch, 'suffix: o.suffix, quality: Math.round(o.quality * 100) } }', 'resize remembers its quality');
       assertIncludes(batch, "el['batch-overlay'].querySelectorAll('.batch-resize-only').forEach((n) => { n.hidden = !resize; });", 'quality hint only in Resize');
       for (const k of ['batch.resizeTitle', 'batch.resizeTo', 'batch.resizeSuffixDefault']) assert(ko[k] && en[k], k);
+      // One picture: Resize… in the single-item menu too (images only, the same dialog)
+      assertIncludes(app, "isFile && FormatSupport.isImage?.(entry.path) && { icon: Icons.resize, label: `${t('batch.resizeTitle')}…`,\r\n        action: () => _openBatch([entry.path], { resize: true }) },", 'single-picture Resize');
+      assertIncludes(batch, "resize && selected.length > 1 ? `${t(key, 'Resize')} (${selected.length})`", 'no count for one picture');
     });
 
     test('Several pictures go into a new subfolder (option, on by default)', () => {

@@ -11405,6 +11405,9 @@
       isFile && isSup && { icon: Icons.save,       label: t('context.saveAs'),        action: async () => { await _openFile(entry.path); _saveAs(); } },
       isFile && FormatSupport.isImage?.(entry.path) && { icon: Icons.print, label: t('menu.print'), shortcut: 'Ctrl+P',
         action: () => _printPath(entry.path) },
+      // One picture: the same Resize dialog as for several (a new file next to it, the original stays)
+      isFile && FormatSupport.isImage?.(entry.path) && { icon: Icons.resize, label: `${t('batch.resizeTitle')}…`,
+        action: () => _openBatch([entry.path], { resize: true }) },
       isFile &&          { icon: Icons.copy,       label: t('tree.copyPath'), action: () => navigator.clipboard.writeText(entry.path).catch(() => {}) },
       !isWeb && { icon: Icons.copy, label: t('context.copyToFolder'),
         action: () => _exportSelectionToFolder(exportPaths, 'copy') },

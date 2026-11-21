@@ -115,7 +115,8 @@ window.Batch = (() => {
     el['batch-overlay'].querySelectorAll('.batch-resize-only').forEach((n) => { n.hidden = !resize; });
     const key = resize ? 'batch.resizeTitle' : 'batch.title';
     el['batch-title'].dataset.i18n = key;
-    el['batch-title'].textContent = resize ? `${t(key, 'Resize')} (${selected.length})` : t(key);
+    // "Resize (3)" for several; just "Resize" for one picture
+    el['batch-title'].textContent = resize && selected.length > 1 ? `${t(key, 'Resize')} (${selected.length})` : t(key, 'Resize');
     const lbl = el['batch-resize'].parentElement?.querySelector('[data-i18n]');
     if (lbl) { lbl.dataset.i18n = resize ? 'batch.resizeTo' : 'batch.resize'; lbl.textContent = t(lbl.dataset.i18n); }
     el['batch-resize'].disabled = resize;
