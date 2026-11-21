@@ -174,11 +174,34 @@ fn number_or(v: &Value, fallback: f64) -> f64 {
     }
 }
 
+// 바로 앞에 저장했던 것. layout.json 이 깨졌거나 읽히지 않을 때 이것으로 시작한다.
+pub fn prev_path(user_dir: &Path) -> PathBuf {
+    user_dir.join("layout.json.prev")
+}
+
+// 로그인 직후에는 백신이나 동기화 프로그램이 파일을 잠깐 쥐고 있을 수 있다. 없는 것이 아니면 몇 번 더 읽어 본다.
+fn read_settled(file: &Path) -> Option<Map<String, Value>> {
+    for attempt in 0..10 {
+        match fs::read_to_string(file) {
+            Ok(text) => {
+                return match serde_json::from_str::<Value>(text.trim_start_matches('\u{feff}')) {
+                    Ok(Value::Object(parsed)) => Some(parsed),
+                    _ => None,
+                };
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return None,
+            Err(_) if attempt < 9 => std::thread::sleep(std::time::Duration::from_millis(100)),
+            Err(_) => return None,
+        }
+    }
+    None
+}
+
 pub fn load(user_dir: &Path, locale: &str) -> State {
     let mut data = defaults(locale);
-    let Ok(text) = fs::read_to_string(file_path(user_dir)) else { return data };
-    // 처음 실행이거나 파일이 깨진 경우 기본값으로 시작한다.
-    let Ok(Value::Object(parsed)) = serde_json::from_str::<Value>(text.trim_start_matches('\u{feff}')) else {
+    // 처음 실행이면 기본값으로 시작한다. 파일이 깨졌으면(시스템이 쓰는 도중에 꺼졌다) 앞서 저장한 것으로.
+    // 기본값으로 시작하면 곧 그것이 저장되어 박스와 설정을 모두 잃는다.
+    let Some(parsed) = read_settled(&file_path(user_dir)).or_else(|| read_settled(&prev_path(user_dir))) else {
         return data;
     };
     data.did_welcome = parsed.get("didWelcome").map(truthy).unwrap_or(false);
@@ -293,12 +316,35 @@ fn normalize_custom(raw: Option<&Value>) -> Option<Custom> {
 }
 
 // 임시 파일에 쓴 뒤 이름을 바꾼다. 쓰는 도중에 끝나도 앞 파일이 남는다.
+// 디스크에 닿을 때까지 기다린 뒤 이름을 바꾼다. 그러지 않으면 시스템이 곧바로 꺼질 때(업데이트 재시작)
+// 이름만 바뀌고 내용은 비어 있는 파일이 남을 수 있다. 앞서 저장한 것은 layout.json.prev 로 남겨 둔다.
 pub fn save(user_dir: &Path, data: &State) -> std::io::Result<()> {
+    use std::io::Write;
     let file = file_path(user_dir);
     fs::create_dir_all(user_dir)?;
     let tmp = user_dir.join("layout.json.tmp");
-    fs::write(&tmp, serde_json::to_string_pretty(data).unwrap())?;
-    fs::rename(&tmp, &file)
+    {
+        let mut out = fs::File::create(&tmp)?;
+        out.write_all(serde_json::to_string_pretty(data).unwrap().as_bytes())?;
+        out.sync_all()?;
+    }
+    // 깨진 파일로 앞선 저장을 덮지 않는다.
+    if read_settled(&file).is_some() {
+        let _ = fs::copy(&file, prev_path(user_dir));
+    }
+    // 다른 프로그램이 잠깐 쥐고 있으면 이름 바꾸기가 실패한다. 조금 기다렸다가 다시 한다.
+    let mut last = Ok(());
+    for attempt in 0..10 {
+        last = fs::rename(&tmp, &file);
+        if last.is_ok() {
+            return Ok(());
+        }
+        if attempt < 9 {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+    }
+    let _ = fs::remove_file(&tmp);
+    last
 }
 
 #[cfg(test)]
@@ -383,8 +429,33 @@ mod tests {
         saved.fences = vec![normalize_fence(&json!({ "id": "a", "title": "일감", "x": 10, "y": 20 }))];
         save(dir.path(), &saved).unwrap();
         let left: Vec<_> = fs::read_dir(dir.path()).unwrap().map(|e| e.unwrap().file_name().into_string().unwrap()).collect();
-        assert_eq!(left, vec!["layout.json"]);
+        let mut left = left;
+        left.sort();
+        assert_eq!(left, vec!["layout.json", "layout.json.prev"]);
         assert_eq!(load(dir.path(), "ko").settings.extra.get("future"), Some(&json!("x")));
+    }
+
+    #[test]
+    fn a_broken_layout_falls_back_to_the_previous_save() {
+        let dir = room();
+        let mut first = defaults("ko");
+        first.did_welcome = true;
+        first.settings.theme = "ocean".into();
+        first.fences = vec![normalize_fence(&json!({ "id": "a", "title": "일감" }))];
+        save(dir.path(), &first).unwrap();
+        let mut second = first.clone();
+        second.settings.theme = "sunset".into();
+        save(dir.path(), &second).unwrap();
+        assert_eq!(load(dir.path(), "ko").settings.theme, "sunset");
+        // 시스템이 쓰는 도중에 꺼져 파일이 비었다.
+        fs::write(file_path(dir.path()), "").unwrap();
+        let back = load(dir.path(), "ko");
+        assert!(back.did_welcome, "started as a first run and would sort the desktop again");
+        assert_eq!(back.settings.theme, "ocean");
+        assert_eq!(back.fences.len(), 1);
+        // 깨진 파일이 앞선 저장을 덮어쓰지 않는다.
+        save(dir.path(), &back).unwrap();
+        assert_eq!(load(dir.path(), "ko").settings.theme, "ocean");
     }
 
     #[test]

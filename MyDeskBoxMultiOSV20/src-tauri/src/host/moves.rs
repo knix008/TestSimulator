@@ -789,6 +789,17 @@ impl Host {
                 if let Some(pos) = in_folder.iter().position(|n| *n == name) {
                     kept.push(item.clone());
                     in_folder.remove(pos);
+                } else if let Some(back) = self.returned_copy(item) {
+                    // 앞선 실행이 끝나며 파일을 바탕화면에 돌려주었는데 그 일이 layout.json 에 적히지 못했다
+                    // (기록만으로 되돌렸거나, 되돌리는 도중에 시스템이 프로세스를 끊었다). 다시 박스로 데려온다.
+                    let (got, stuck) = self.bring_in(at, &back, true);
+                    if let Some(got) = got {
+                        if !stuck {
+                            let base = basename(&got.path);
+                            in_folder.retain(|n| *n != base);
+                        }
+                        kept.push(got);
+                    }
                 }
                 continue;
             }
@@ -833,12 +844,39 @@ impl Host {
         back
     }
 
+    // 박스 폴더에 없는 항목이 담기 전 폴더(또는 바탕화면)에 같은 이름으로 있는가. 켠 뒤 처음 맞출 때만 본다.
+    // 실행 중에 폴더에서 빠진 것은 사람이 탐색기로 꺼낸 것이라 다시 데려오지 않는다.
+    fn returned_copy(&self, item: &Item) -> Option<Item> {
+        if !self.reclaim {
+            return None;
+        }
+        let name = basename(&item.path);
+        if name.is_empty() {
+            return None;
+        }
+        let mut dirs: Vec<String> = Vec::new();
+        for dir in [item.home_str().to_string(), self.hold.desktop_dir().to_string()] {
+            if !dir.is_empty() && !self.hold.inside(&join(&dir, &name)) && !dirs.iter().any(|d| same_path(d, &dir)) {
+                dirs.push(dir);
+            }
+        }
+        let held: Vec<String> = self.captured().into_iter().map(|i| i.path).collect();
+        dirs.into_iter().map(|dir| (join(&dir, &name), dir)).find(|(at, _)| Path::new(at).exists() && !held.iter().any(|h| same_path(h, at))).map(|(path, dir)| Item {
+            name: item.name.clone(),
+            path,
+            home: Some(item.home.clone().filter(|h| !h.is_empty()).unwrap_or(dir)),
+        })
+    }
+
     pub fn settle_all(&mut self) -> bool {
         let mut changed = false;
         for at in 0..self.state.fences.len() {
             if self.settle_box(at) {
                 changed = true;
             }
+        }
+        if !self.hold.root_dir().is_empty() {
+            self.reclaim = false;
         }
         if changed {
             self.persist();
@@ -872,6 +910,8 @@ impl Host {
         for at in 0..self.state.fences.len() {
             let kept = self.park_box(at);
             self.state.fences[at].items = kept;
+            // 박스마다 적는다. 시스템이 끝내며 도중에 프로세스를 끊어도 돌려준 것까지는 기록이 맞는다.
+            self.persist();
         }
         self.persist();
         self.desk.release(&items);

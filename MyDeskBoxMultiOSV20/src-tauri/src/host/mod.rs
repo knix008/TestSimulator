@@ -109,6 +109,8 @@ pub struct Host {
     pub(crate) nudge_timer: bool,
     pub(crate) closing: bool,
     pub(crate) put_back_done: bool,
+    // 켠 뒤 처음 박스를 폴더와 맞추는가. 그때만 앞선 실행이 바탕화면에 돌려준 파일을 다시 데려온다.
+    pub(crate) reclaim: bool,
     // 끝낼 때 바탕화면을 되돌렸는가 (app::restore_desktop).
     pub restored: bool,
     pub(crate) seen_on_desk: Option<HashSet<String>>,
@@ -148,6 +150,7 @@ impl Host {
             nudge_timer: false,
             closing: false,
             put_back_done: false,
+            reclaim: true,
             restored: false,
             seen_on_desk: None,
             fresh_queue: VecDeque::new(),

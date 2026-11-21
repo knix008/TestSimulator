@@ -52,6 +52,9 @@ pub async fn start(sh: &Shared) {
         h.sync_login();
         // 앞선 실행이 갑자기 끝나 보관함에 남은 파일이 있으면 먼저 제자리로 돌려놓는다.
         h.recover_held();
+        // 앞선 실행이 끝나며 바탕화면에 돌려준 파일을 박스로 다시 담는다. 창을 열기 전에 해야 한다 —
+        // 창을 열 때 없는 파일을 목록에서 걷어 내므로(prune), 그 뒤에는 무엇이 박스에 있었는지 잊는다.
+        h.settle_all();
         !h.state.did_welcome
     };
     if first_run {

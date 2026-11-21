@@ -212,3 +212,30 @@ fn describes_errors_with_version_and_platform() {
     assert!(text.contains("일부러 낸 오류"));
     assert!(text.contains(std::env::consts::OS));
 }
+
+// 끝낼 때 자물쇠를 잡지 못해 기록만으로 되돌렸거나(restore_from_records), 되돌리는 도중에 시스템이 프로세스를 끊었다.
+// layout.json 에는 담긴 자리(보관함)가 그대로 적혀 있는데 파일은 이미 바탕화면에 와 있다. 다시 켜면 박스로 돌아가야 한다.
+#[test]
+fn restarting_after_a_records_only_restore_refills_the_boxes() {
+    let b = boxed();
+    let root = b.k.h().hold.root_dir();
+    let report = crate::restore::restore_desktop(&crate::desktop::fake::FakeDesktop::new(), &b.k.user, &b.desk, &root);
+    assert_eq!(report.back.len(), 3);
+    assert_eq!(listing(&b.desk), vec!["MyClock.lnk", "Photos", "노트.txt"]);
+    let k = kit(b.k.state());
+    k.run(start(&k.sh));
+    assert!(listing(&b.desk).is_empty(), "files were left on the desktop after restarting: {:?}", listing(&b.desk));
+    assert_eq!(k.fence(0).items.iter().map(|i| i.name.clone()).collect::<Vec<_>>(), vec!["MyClock.lnk", "노트.txt"]);
+    assert_eq!(k.fence(1).items.iter().map(|i| i.name.clone()).collect::<Vec<_>>(), vec!["휴지통", "Photos"]);
+}
+
+// 실행 중에 사람이 탐색기로 박스 폴더에서 바탕화면으로 꺼낸 파일은 다시 데려오지 않는다. 켤 때만 데려온다.
+#[test]
+fn files_taken_out_while_running_are_not_pulled_back() {
+    let b = boxed();
+    let held = b.k.fence(0).items[1].path.clone();
+    fs::rename(&held, join(&b.desk, "노트.txt")).unwrap();
+    b.k.h().refresh_icons();
+    assert_eq!(listing(&b.desk), vec!["노트.txt"]);
+    assert_eq!(b.k.fence(0).items.iter().map(|i| i.name.clone()).collect::<Vec<_>>(), vec!["MyClock.lnk"]);
+}
