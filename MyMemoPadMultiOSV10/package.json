@@ -24,7 +24,10 @@
     "dist": "npm run build",
     "dist:win": "npm run build:win",
     "dist:mac": "npm run build:mac",
-    "dist:linux": "npm run build:linux"
+    "dist:linux": "npm run build:linux",
+    "clean": "node scripts/clean.js",
+    "clean:all": "node scripts/clean.js --all",
+    "clean:dry": "node scripts/clean.js --all --dry-run"
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",

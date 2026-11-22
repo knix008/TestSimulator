@@ -62,6 +62,16 @@ Bundles are built under `src-tauri/target/release/bundle/`. macOS/Linux packages
 
 Icons are generated from `asset/icon.svg` and `src/icons/*.svg` (`npm run icons`; builds regenerate missing ones).
 
+### Clean
+
+```bash
+npm run clean       # src-tauri/target, src-tauri/gen, old dist/release/out, installers in the project root
+npm run clean:all   # the above + node_modules (run npm install again afterwards)
+npm run clean:dry   # list what clean:all would delete, without deleting
+```
+
+Sources, settings and the icons in `asset/` and `src-tauri/icons/` are never deleted.
+
 ---
 
 ## Documentation
