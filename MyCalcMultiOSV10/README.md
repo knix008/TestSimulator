@@ -42,6 +42,8 @@ npm test
 | `npm run build:linux` | `src-tauri/target/release/bundle/` 의 deb, AppImage |
 | `npm run build:macos` | `src-tauri/target/release/bundle/` 의 `MyCalc.app`, dmg |
 | `npm run build` | 지금 운영체제에 맞는 기본 패키지 |
+| `npm run clean` | 빌드 산출물(`dist`, `src-tauri/target`, `src-tauri/gen`), 루트의 설치 파일 사본, 로그·캐시를 지웁니다. `npm run clean -- --dry-run` 은 지울 목록만 보여 줍니다 |
+| `npm run clean:all` | 위에 더해 `node_modules` 까지 지웁니다. 다음에는 `npm install` 부터 하세요 |
 
 Windows 설치 프로그램은 시작할 때마다 설치 언어(한국어, 영어)를 묻고, 그 언어로 진행합니다. 현재 사용자용으로 설치하므로 관리자 권한이 필요 없습니다. 예전에 모든 사용자용으로 설치한 판이 있을 때만, 그것을 지우기 위해 UAC 창이 뜹니다. 설치 폴더는 바꿀 수 있습니다. 이미 깔려 있으면 프로그램을 지운 뒤 다시 깔고, 언어·테마·그래프 식·환율표는 지울지 물은 뒤에만 지웁니다. 조용히 설치하면(`/S`) 그 설정은 남깁니다. 시작 메뉴 바로 가기 이름은 MyCalc입니다. 설치를 마칠 때 같은 이름의 바탕 화면 바로 가기를 만들 수 있습니다.
 

@@ -11,7 +11,9 @@
     "build:web": "node scripts/build-web.js",
     "build:win": "tauri build --bundles nsis && node scripts/copy-setup.js",
     "build:linux": "tauri build --bundles deb,appimage",
-    "build:macos": "tauri build --bundles app,dmg"
+    "build:macos": "tauri build --bundles app,dmg",
+    "clean": "node scripts/clean.mjs",
+    "clean:all": "node scripts/clean.mjs --all"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2"
