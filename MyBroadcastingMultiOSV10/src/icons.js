@@ -161,7 +161,7 @@ const base = {
   folderSettings: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v2.5"/><path d="M3 7v10a2 2 0 0 0 2 2h6.5"/><circle cx="17.5" cy="16.5" r="2.2"/><path d="M17.5 12.8v1.3M17.5 18.9v1.3M21.2 16.5h-1.3M15.1 16.5h-1.3M20.1 13.9l-.9.9M15.8 18.2l-.9.9M20.1 19.1l-.9-.9M15.8 14.8l-.9-.9"/>',
   moon: '<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5z"/>',
   play: '<path d="M7 4l13 8-13 8z"/>',
-  pause: '<path d="M7 4v16M17 4v16"/>',
+  pause: '<rect x="6" y="5" width="4" height="14" rx="0.5" fill="currentColor" stroke="none"/><rect x="14" y="5" width="4" height="14" rx="0.5" fill="currentColor" stroke="none"/>',
   stop: '<rect x="5" y="5" width="14" height="14" rx="2"/>',
   stepBack: '<path d="M19 5L9 12l10 7z"/><path d="M5 5v14"/>',
   stepForward: '<path d="M5 5l10 7-10 7z"/><path d="M19 5v14"/>',

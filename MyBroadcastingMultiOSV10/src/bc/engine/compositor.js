@@ -6,7 +6,7 @@
 // Frames are driven by a worker timer at the output frame rate, so rendering (and recording) goes on while
 // the window is in the background (requestAnimationFrame would stop).
 import { FILTER_TYPES, TRANSITION_TYPES } from '../catalog.js';
-import { activeSources, sceneById, sourceOf, transitionFor, walkItems } from '../model.js';
+import { activeSources, controlledSourceStates, sceneById, sourceOf, transitionFor, walkItems } from '../model.js';
 import { boundsOf, corners, croppedSize, itemBox, itemMatrix, multiply } from '../transform.js';
 import { GL } from './gl.js';
 import { createRuntime } from './sources.js';
@@ -27,6 +27,8 @@ export class Engine {
     this.emit = onEvent;
     this.collection = null;
     this.runtimes = new Map();
+    this.sourceControls = new Map();
+    this.controlStates = new Map();
     this.textures = new Map(); // source id → uploaded texture
     this.filterState = new Map(); // filter id → per-filter state (delay buffers, LUTs, masks)
     this.assets = new Map(); // url → texture (LUTs, masks, luma patterns)
@@ -76,6 +78,7 @@ export class Engine {
       if (!rt) { const created = createRuntime(this, src); this.runtimes.set(src.id, created); this.emit('source-added', created); continue; }
       if (JSON.stringify(rt.settings) !== JSON.stringify(src.settings)) rt.update(src.settings);
     }
+    this.syncSourceControls().catch((error) => this.emit('render-error', error));
     const liveFilters = new Set();
     for (const src of [...Object.values(c.sources), ...c.scenes]) for (const f of src.filters ?? []) liveFilters.add(f.id);
     for (const id of this.filterState.keys()) if (!liveFilters.has(id)) { this.disposeFilterState(id); }
@@ -83,6 +86,21 @@ export class Engine {
   }
 
   runtime(id) { return this.runtimes.get(id) ?? null; }
+  sourceControlState(id) { return this.controlStates.get(id) ?? 'running'; }
+  async syncSourceControls() {
+    const known = new Set([...Object.keys(this.collection.sources), ...this.collection.scenes.map((s) => s.id)]);
+    for (const id of this.sourceControls.keys()) if (!known.has(id)) this.sourceControls.delete(id);
+    this.controlStates = controlledSourceStates(this.collection, this.sourceControls);
+    const pending = [];
+    for (const [id, rt] of this.runtimes) pending.push(rt.setRunState(this.sourceControlState(id)));
+    this.updateActivity();
+    await Promise.all(pending);
+  }
+  async setSourceControl(id, state) {
+    if (!this.controlStates.has(id) || !['running', 'paused', 'stopped'].includes(state)) throw new Error('invalid-source-control');
+    if (state === 'running') this.sourceControls.delete(id); else this.sourceControls.set(id, state);
+    await this.syncSourceControls();
+  }
   sourceChanged(rt) { this.emit('source-changed', rt); }
   audioChanged(rt) { this.emit('audio-changed', rt); }
   mediaEnded(rt) { this.emit('media-ended', rt); }
@@ -101,7 +119,7 @@ export class Engine {
       if (d.which === 'multiview') for (const s of c.scenes.slice(0, 8)) for (const id of activeSources(c, s.id)) showing.add(id);
     }
     for (const [id, rt] of this.runtimes) { rt.setActive(program.has(id)); rt.setShowing(showing.has(id)); }
-    this.audibleProgram = program;
+    this.audibleProgram = new Set([...program].filter((id) => this.sourceControlState(id) === 'running'));
     this.emit('activity', { program, showing });
   }
 
@@ -242,6 +260,7 @@ export class Engine {
 
   /** A scene drawn at the canvas size (cached for the frame: nested scenes, multiview, projectors). */
   sceneTexture(sceneId, depth = 0) {
+    if (this.sourceControlState(sceneId) !== 'running') return null;
     if (this.frame.scenes.has(sceneId)) return this.frame.scenes.get(sceneId);
     const scene = sceneById(this.collection, sceneId);
     if (!scene || depth > 8) return null;
@@ -279,6 +298,7 @@ export class Engine {
   }
 
   drawItem(item, target, parent, depth, sceneId, effect) {
+    if (this.sourceControlState(item.source) !== 'running') return;
     const gl = this.gl;
     const c = this.collection;
     const size = [target.w, target.h];
@@ -472,6 +492,7 @@ export class Engine {
 
   /** A source's picture with its video filters applied (cached for the frame). */
   sourceTexture(sourceId) {
+    if (this.sourceControlState(sourceId) !== 'running') return null;
     const cached = this.frame.sources.get(sourceId);
     if (cached) return cached.tex;
     const rt = this.runtimes.get(sourceId);

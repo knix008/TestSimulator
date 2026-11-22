@@ -35,6 +35,8 @@ MyBroadcasting 은 개인 방송 스튜디오입니다. 화면·창·게임·웹
 - **장면 추가**: 장면 목록의 + 단추. 장면을 누르면 그 장면으로 전환합니다(스튜디오 모드에서는 미리 보기로 갑니다). 끌어서 순서를 바꾸고, 오른쪽 클릭으로 복제 · 이름 바꾸기 · 삭제 · 필터 · 스크린샷 · 프로젝터를 씁니다.
 - **소스 추가**: 소스 목록의 + 단추에서 종류를 고릅니다. 같은 소스를 여러 장면에서 쓰려면 **기존 소스 추가**를 고릅니다. 다른 장면을 소스로 넣을 수도 있습니다(중첩 장면). 그림·동영상·소리·HTML 파일을 창에 끌어다 놓아도 소스가 됩니다.
 - 목록에서 위에 있는 소스가 앞에 그려집니다. 눈 단추는 보이기, 자물쇠는 잠금입니다. 여러 개를 고르고 Ctrl+G 로 **그룹**으로 묶습니다.
+- 소스 목록과 속성의 **일시정지 · 정지 · 다시 시작**으로 영상과 소리를 함께 제어합니다. 정지는 카메라·마이크와 미디어 재생을 종료합니다. 같은 소스를 쓰는 모든 장면에 적용되며, 그룹이나 중첩 장면을 제어하면 그 안의 소스에도 적용됩니다. 상위 그룹이나 장면이 정지된 경우 먼저 상위를 다시 시작하세요.
+- 화면·창·게임 및 시스템 오디오 캡처는 선택창 없이 다시 시작할 수 있도록 정지 중에도 캡처 연결을 유지하고 영상·소리만 차단합니다. 운영체제에서 공유를 종료한 경우에는 속성에서 캡처 대상을 다시 선택해야 합니다.
 - 복사(Ctrl+C)한 소스를 **붙여넣기(참조)** 하면 같은 소스를, **붙여넣기(복제)** 하면 새 소스를 만듭니다.
 
 | 소스 | 설명 |
@@ -119,6 +121,8 @@ MyBroadcasting 은 개인 방송 스튜디오입니다. 화면·창·게임·웹
 ### 자주 묻는 것
 
 - 화면 캡처를 열 때마다 고르는 창이 나옵니다: 운영체제와 엔진이 개인 정보 보호를 위해 요구합니다. 한 번 고르면 소스를 지울 때까지 계속 씁니다.
+- 다른 캡처 프로그램에서도 MyBroadcasting 창을 캡처할 수 있습니다. MyBroadcasting에서 자기 창이 포함된 화면을 캡처하면 화면이 반복해서 나타날 수 있습니다.
+- 방송은 툴바 오른쪽의 **방송 중지** 단추로 멈춥니다. 창이 좁아져도 이 단추는 툴바에 남습니다.
 - 트위치 같은 서비스의 스트림 키가 꼭 있어야 하나요: 아닙니다. 서비스로 보낼 때만 그 서비스의 키가 필요합니다. 키 없이 보여 주려면 **직접 시청**을 쓰고, 녹화만 하거나, WHIP·SRT·RIST 서버로 보낼 수도 있습니다.
 - RTMP 방송이 시작되지 않습니다: FFmpeg 가 있는지 설정 › 고급 › FFmpeg 의 “찾기”로 확인하세요. 메시지 탭에 FFmpeg 가 남긴 이유가 나옵니다.
 - 문서와 튜토리얼: 도움말 › 튜토리얼(F11), 튜토리얼 문서, 사용 설명서.
@@ -158,6 +162,8 @@ New collection, import, continue, the auto-configuration wizard and the tutorial
 - **Add a scene** with + in the scene list. Clicking a scene switches to it (in studio mode it goes to the preview). Drag to reorder; right-click to duplicate, rename, remove, filter, screenshot or project it.
 - **Add a source** with + in the source list. To show the same source in several scenes choose **Add existing source**. Another scene can be a source too (nested scenes). Dropping picture, video, sound or HTML files on the window adds them as sources.
 - Higher sources are drawn on top. The eye shows / hides, the lock locks. Select several and press Ctrl+G to **group** them.
+- Use **Pause, Stop and Resume source** in the source list or properties to control video and audio together. Stop releases cameras and microphones and stops media playback. Controls affect the same source in every scene; controlling a group or nested scene also affects its children. Resume a parent group or scene first if it is stopped.
+- Screen, window, game and system-audio captures keep their capture connection while stopped, blocking video and audio so they can resume without a picker. If the operating system ends the sharing session, choose the capture target again in properties.
 - After Copy (Ctrl+C), **Paste (reference)** adds the same source, **Paste (duplicate)** a new copy.
 
 | Source | Notes |
@@ -242,6 +248,8 @@ File › Print reports (Ctrl+P) offers the **scene rundown** (each scene with it
 ### Questions
 
 - Screen capture asks what to share each time a capture source is made: the operating system and the engine require it for privacy. The choice stays until the source is removed.
+- Other capture programs can capture MyBroadcasting windows. Capturing a screen that contains MyBroadcasting in the app itself can produce a repeated image.
+- Stop a stream with **Stop streaming** on the right of the toolbar. This button remains on the toolbar when the window is narrow.
 - Do I need a stream key from Twitch or another service? No. A service's key is needed only to send to that service. To show the stream without one, use **Direct viewing**, just record, or send to a WHIP / SRT / RIST server.
 - RTMP streaming does not start: check FFmpeg with "Find" in Settings › Advanced › FFmpeg. The Messages tab shows FFmpeg's reason.
 - Help: Help › Tutorial (F11), the tutorial document and this guide.

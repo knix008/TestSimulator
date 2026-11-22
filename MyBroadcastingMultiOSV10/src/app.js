@@ -113,7 +113,7 @@ function showError(titleKey, error, context = '') {
   });
 }
 
-window.addEventListener('error', (event) => { if (event.error || event.message) showError('error.unexpected', event.error ?? event.message, event.filename ? `${event.filename}:${event.lineno}` : ''); });
+window.addEventListener('error', (event) => { if (/^ResizeObserver loop/.test(String(event.message ?? ''))) return; if (event.error || event.message) showError('error.unexpected', event.error ?? event.message, event.filename ? `${event.filename}:${event.lineno}` : ''); });
 window.addEventListener('unhandledrejection', (event) => showError('error.unexpected', event.reason));
 
 // ───────────────────────── helpers
@@ -859,12 +859,12 @@ const TOOLBAR = [
   ['collectionMenu', 'profileMenu', 'importCollection', 'exportCollection', 'print'],
   ['undo', 'redo'],
   ['addScene', 'addSourceMenu', 'openProperties', 'openFilters', 'editTransform'],
-  ['toggleStream', 'toggleRecording', 'togglePause', 'toggleReplay', 'saveReplay', 'toggleVirtualCam', 'screenshotOutput'],
+  ['toggleRecording', 'togglePause', 'toggleReplay', 'saveReplay', 'toggleVirtualCam', 'screenshotOutput'],
   ['toggleStudio', 'multiview', 'safeAreas', 'lockPreview', 'snapping', 'projectorMenu'],
   ['statsWindow', 'logWindow', 'autoconfig'],
 ];
 const MENUBAR_PANELS = ['leftPanel', 'bottomPanel', 'rightPanel'];
-const TOOLBAR_RIGHT = ['tutorial', 'themeSplit', 'language', 'settings', 'about'];
+const TOOLBAR_RIGHT = ['toggleStream', 'tutorial', 'themeSplit', 'language', 'settings', 'about'];
 const TOOLBAR_MAIN = { themeSplit: 'theme' };
 const ANCHORED = new Set(['themeMenu', 'addSourceMenu', 'collectionMenu', 'profileMenu', 'projectorMenu', 'addTransitionMenu', 'addQuick', 'sceneProjector', 'sourceProjector']);
 
@@ -951,9 +951,12 @@ function renderToolbar() {
   toolbarLanguage = getLanguage();
   const plain = (id, extra = '') => {
     const cmd = commands[id];
-    const glyph = id === 'language' ? switchFlag(getLanguage()) : icon(cmd.icon);
+    const glyph = id === 'language' ? switchFlag(getLanguage()) : id === 'toggleStream'
+      ? `<span class="stream-icon" data-stream-start>${icon('stream')}</span><span class="stream-icon" data-stream-stop hidden>${icon('streamStop')}</span>`
+      : icon(cmd.icon);
+    const text = id === 'toggleStream' ? `<span class="view-name"><span data-stream-start>${escapeHtml(t('action.startStream'))}</span><span data-stream-stop class="off">${escapeHtml(t('action.stopStream'))}</span></span>` : '';
     const dropdown = ANCHORED.has(id) ? icon('chevronDown', 'icon tiny') : '';
-    return `<button class="tool-button ${extra} ${id === 'toggleStream' ? 'tool-live' : id === 'toggleRecording' ? 'tool-rec' : ''}" data-command="${id}" title="${escapeHtml(commandTip(id))}" aria-label="${escapeHtml(t(cmd.label))}">${glyph}${dropdown}</button>`;
+    return `<button class="tool-button ${extra} ${id === 'toggleStream' ? 'tool-live wide' : id === 'toggleRecording' ? 'tool-rec' : ''}" data-command="${id}" title="${escapeHtml(commandTip(id))}" aria-label="${escapeHtml(t(cmd.label))}">${glyph}${text}${dropdown}</button>`;
   };
   const split = (main, arrow, label) => `<span class="split-button">${plain(main)}<button class="tool-button split-arrow" data-command="${arrow}" title="${escapeHtml(commandTip(arrow))}" aria-label="${escapeHtml(t(label))}" aria-haspopup="true">${icon('chevronDown')}</button></span>`;
   const button = (id) => (id === 'themeSplit' ? split('theme', 'themeMenu', 'action.themeChoose') : plain(id));
@@ -1005,6 +1008,13 @@ function renderToolbarState() {
   if (undoBtn && studio.canUndo) undoBtn.title = `${commandTip('undo')}: ${t(`op.${studio.undoLabel?.split(':')[0]}`, null, studio.undoLabel)}`;
   const redoBtn = root.querySelector('#toolbar [data-command="redo"]');
   if (redoBtn && studio.canRedo) redoBtn.title = `${commandTip('redo')}: ${t(`op.${studio.redoLabel?.split(':')[0]}`, null, studio.redoLabel)}`;
+  const streamBtn = root.querySelector('#toolbar [data-command="toggleStream"]');
+  if (streamBtn) {
+    const streaming = live();
+    streamBtn.setAttribute('aria-label', t(streaming ? 'action.stopStream' : 'action.startStream'));
+    for (const el of streamBtn.querySelectorAll('.stream-icon')) el.hidden = el.hasAttribute('data-stream-start') ? streaming : !streaming;
+    for (const el of streamBtn.querySelectorAll('.view-name > span')) el.classList.toggle('off', el.hasAttribute('data-stream-start') ? streaming : !streaming);
+  }
 }
 
 function updateMinimumWidth() {
@@ -1250,7 +1260,6 @@ function updateSettings(patch, { quiet = false } = {}) {
   const previous = state.settings;
   state.settings = { ...state.settings, ...patch };
   storeSettings(globalThis.localStorage, state.settings);
-  if ('hideFromCapture' in patch && desktop) native.invoke('set_capture_hidden', { hidden: state.settings.hideFromCapture !== false, all: true }).catch(() => {});
   studio.general = state.settings;
   if (quiet) return;
   applySettings(previous);
@@ -1580,6 +1589,13 @@ function bindEvents() {
     if (command && !command.disabled) { const id = command.dataset.command; return run(id, { anchor: ANCHORED.has(id) ? anchorBelow(command.closest('.split-button') ?? command) : undefined }); }
     const windowControl = target.closest('[data-window]');
     if (windowControl) return windowButton(windowControl.dataset.window);
+    const sourceRun = target.closest('[data-source-run]');
+    if (sourceRun && !sourceRun.disabled) {
+      const operation = studio.engine.setSourceControl(sourceRun.dataset.sourceRun, sourceRun.dataset.action);
+      renderLeft(); renderRight(); if (S().bottomTab === 'media') renderBottom();
+      operation.catch((error) => showError('error.unexpected', error)).finally(() => { renderLeft(); renderRight(); if (S().bottomTab === 'media') renderBottom(); });
+      return;
+    }
     // Scenes and sources.
     const scene = target.closest('[data-scene]');
     if (scene && !target.closest('[data-scene-grip]')) { studio.selectScene(scene.dataset.scene); return renderAll(); }
@@ -1613,7 +1629,7 @@ function bindEvents() {
     const tcmd = target.closest('[data-transform-cmd]');
     if (tcmd) return studio.transformSelected(tcmd.dataset.transformCmd);
     const media = target.closest('[data-media]');
-    if (media) { studio.engine.runtime(media.dataset.media)?.control(media.dataset.action); return setTimeout(() => { renderRight(); if (S().bottomTab === 'media') renderBottom(); }, 60); }
+    if (media && !media.disabled) { const runtime = studio.engine.runtime(media.dataset.media); if (runtime?.runState === 'running') runtime.control(media.dataset.action); return setTimeout(() => { renderRight(); if (S().bottomTab === 'media') renderBottom(); }, 60); }
     // Bottom panel.
     const bt = target.closest('[data-bottom-tab]');
     if (bt) return updateSettings({ bottomTab: bt.dataset.bottomTab });
@@ -1668,7 +1684,7 @@ function bindEvents() {
     if (el.dataset.fader) { const id = el.dataset.fader; studio.setAudio(id, { volume: faderToMul(Number(el.value)) }); const db = root.querySelector(`[data-strip-db="${CSS.escape(id)}"]`); const mul = faderToMul(Number(el.value)); if (db) db.textContent = mul > 0 ? `${(20 * Math.log10(mul)).toFixed(1)} dB` : '-∞ dB'; }
     if (el.dataset.audioRange) { const [id, key] = el.dataset.audioRange.split('|'); audioInput(id, key, Number(el.value)); const out = el.parentElement.querySelector('output'); if (out) out.textContent = String(Math.round((Number(el.value) - 0.5) * 200)); }
     if ('tbar' in el.dataset) studio.engine.setTBar(Number(el.value) / 1000, c().preview);
-    if (el.dataset.mediaSeek) studio.engine.runtime(el.dataset.mediaSeek)?.control('seek', Number(el.value));
+    if (el.dataset.mediaSeek) { const runtime = studio.engine.runtime(el.dataset.mediaSeek); if (runtime?.runState === 'running') runtime.control('seek', Number(el.value)); }
     if ('startSpeed' in el.dataset) { el.parentElement.querySelector('output').textContent = `${el.value}%`; state.settings.animationSpeed = Number(el.value); }
     if ('startOpacity' in el.dataset) { el.parentElement.querySelector('output').textContent = `${el.value}%`; root.querySelector('.start-inner')?.style.setProperty('--start-card-alpha', `${el.value}%`); }
     if (el.matches?.('.start-speed input[type="range"]')) syncSliderSteps(el.parentElement);

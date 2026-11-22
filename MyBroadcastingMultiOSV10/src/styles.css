@@ -83,15 +83,15 @@ html.is-popup #app { min-width: 0; display: block; }
 .tool-button:disabled { opacity: 0.38; cursor: default; }
 .view-name { font-size: 0.92em; display: inline-grid; text-align: left; }
 /* All view names share one cell; the hidden ones still take space, so picking another view never resizes the button or moves the toolbar. */
-.view-name > [data-view-name] { grid-area: 1 / 1; white-space: nowrap; }
-.view-name > [data-view-name].off { visibility: hidden; }
+.view-name > [data-view-name], .view-name > [data-stream-start], .view-name > [data-stream-stop] { grid-area: 1 / 1; white-space: nowrap; }
+.view-name > .off { visibility: hidden; }
 .split-button { display: inline-flex; align-items: center; }
 .split-button .tool-button:first-child:not(.wide) { border-top-right-radius: 0; border-bottom-right-radius: 0; }
 /* padding 0: the browser's default button padding (6px a side) would push the 12px chevron off-centre in 16px. */
 .split-button .split-arrow { width: 16px; padding: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; }
 .split-button .split-arrow .icon { width: 12px; height: 12px; }
 
-/* number steppers: [−] value [+] */
+/* number steppers: [−] value unit [+] */
 .stepper { display: inline-flex; align-items: stretch; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); flex: none; }
 .stepper.disabled { opacity: 0.5; }
 .stepper-button, .stepper .stepper-button-tool {
@@ -102,8 +102,10 @@ html.is-popup #app { min-width: 0; display: block; }
 .stepper-button[data-at-limit] { color: var(--muted); }
 .stepper .stepper-value {
   width: 62px; min-width: 0; text-align: center; font-variant-numeric: tabular-nums; font-weight: 600;
-  border: 0 !important; border-left: 1px solid var(--border) !important; border-right: 1px solid var(--border) !important; border-radius: 0 !important; background: var(--surface) !important; padding: 2px 4px !important;
+  border: 0 !important; border-left: 1px solid var(--border) !important; border-radius: 0 !important; background: var(--surface) !important; padding: 2px 4px !important;
 }
+.stepper-unit { display: flex; align-items: center; padding: 0 6px 0 2px; white-space: nowrap; background: var(--surface); font-variant-numeric: tabular-nums; }
+.stepper-button:last-child { border-left: 1px solid var(--border); }
 .toolbar-zoom { height: 30px; }
 .toolbar-zoom .stepper-button-tool { width: 26px; height: 28px; }
 .toolbar-zoom .stepper-value { width: 52px; }

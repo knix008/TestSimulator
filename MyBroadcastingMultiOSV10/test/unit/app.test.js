@@ -31,8 +31,14 @@ const { streamArgs } = await import('../../server/ffargs.mjs');
 const { SAMPLE_COLLECTIONS, SAMPLE_ICONS, sampleText } = await import('../../src/bc/samples.js');
 const { REPORTS } = await import('../../src/studio/reports.js');
 const { normalizePrint, sheetOf, parseRanges, rangesText, pageCss, withPageCss } = await import('../../src/print/printwin.js');
+const { stepperValue } = await import('../../src/stepper.js');
 
 const has = (key) => key in DICTIONARIES.ko && key in DICTIONARIES.en;
+
+test('numeric input accepts an optional unit without treating unit digits as part of the value', () => {
+  const element = { dataset: { min: '0', max: '100', step: '1', unit: ':1' }, querySelector: () => ({ value: '12:1' }) };
+  assert.equal(stepperValue(element), 12);
+});
 
 test('every icon the app names exists, and each has a colour tone', () => {
   const missing = new Set();

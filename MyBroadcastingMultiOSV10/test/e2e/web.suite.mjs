@@ -66,6 +66,18 @@ export const cases = [
       return { placed, leftShut, rail1, rail2, back: A.app.settings().showLeftPanel && A.app.settings().showRightPanel };`);
     if (!r.placed || !r.leftShut || !r.rail1 || !r.rail2 || !r.back) throw new Error(JSON.stringify(r));
   } },
+  { group: 'Shell', name: '[F:shell.panels] left headers and bottom control buttons align in rows and columns', run: async (app) => {
+    const r = await app.run(`await T.reset({ workspace: true }); A.app.updateSettings({ showLeftPanel: true, showBottomPanel: true, bottomTab: 'controls' }); await T.sleep(250);
+      const rect = (el) => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; };
+      return { heads: [...document.querySelectorAll('#left-panel .dock-head')].map(h => [...h.querySelectorAll(':scope > button')].map(rect)),
+        controls: [...document.querySelectorAll('#bottom-panel .controls-dock > button')].map(rect) };`);
+    for (const head of r.heads) {
+      if (head.length < 5 || !head.every((b) => Math.abs(b.y + b.h / 2 - (head[0].y + head[0].h / 2)) <= 1)) throw new Error(JSON.stringify(head));
+    }
+    if (r.heads.length < 2 || r.controls.length < 4) throw new Error(JSON.stringify(r));
+    const firstRow = r.controls.filter((b) => Math.abs(b.y - r.controls[0].y) <= 1);
+    if (!r.controls.every((b) => Math.abs(b.w - firstRow[0].w) <= 1 && firstRow.some((first) => Math.abs(first.x - b.x) <= 1))) throw new Error(JSON.stringify(r.controls));
+  } },
   { group: 'Shell', name: '[F:shell.panels] every close (x) button turns red under the mouse', run: async (app) => {
     const box = await app.run(`await T.reset({ workspace: true }); A.app.updateSettings({ showBottomPanel: true }); await T.sleep(200);
       const b = document.querySelector('#bottom-panel [data-command="bottomPanel"]'); T.check(b, 'the bottom panel close button'); const r = b.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 };`);
@@ -112,6 +124,25 @@ export const cases = [
       await A.popups.closeAll(); A.popups.inline = false; return { vertical, right, lefts, labels, emptyRows, notes };`);
     if (!r.vertical || !r.right || r.lefts.length !== 1 || r.labels.length !== 1 || r.emptyRows || !r.notes) throw new Error(JSON.stringify(r));
   } },
+  { group: 'Shell', name: 'numeric settings place a centered editable value and unit between step buttons', run: async (app) => {
+    await app.run(`await T.reset({ workspace: true }); A.popups.inline = true; A.popups.open('settings', { tab: 'font' }); await T.popupReady('settings');
+      try {
+        const d = T.popupDoc('settings'); const control = () => d.querySelector('[data-stepper="fontSize"]');
+        await T.until(() => control(), 5000, 'font size control');
+        const el = control(); const parts = [...el.children];
+        T.check(parts.length === 4 && parts[0].dataset.stepDir === '-1' && parts[1].classList.contains('stepper-value') && parts[2].textContent === 'px' && parts[3].dataset.stepDir === '1', 'decrease, input, unit, increase');
+        T.check(d.defaultView.getComputedStyle(parts[1]).textAlign === 'center', 'input centered');
+        const boxes = parts.map((p) => p.getBoundingClientRect());
+        T.check(boxes.every((r, i) => !i || boxes[i - 1].right <= r.left + 1), 'horizontal order');
+        T.check(boxes.every((r) => Math.abs((r.top + r.bottom) / 2 - (boxes[0].top + boxes[0].bottom) / 2) <= 1), 'vertical alignment');
+        parts[1].value = '18px'; parts[1].dispatchEvent(new d.defaultView.Event('change', { bubbles: true }));
+        await T.until(() => control()?.querySelector('.stepper-value')?.value === '18', 5000, 'typed value');
+        control().querySelector('[data-step-dir="1"]').click();
+        await T.until(() => control()?.querySelector('.stepper-value')?.value === '19', 5000, 'increment');
+        T.check(control().querySelector('.stepper-unit').textContent === 'px', 'unit remains visible');
+      } finally { await A.popups.closeAll(); A.popups.inline = false; }
+      return 1;`);
+  } },
   { group: 'Shell', name: '[F:help.tutorial] the welcome popup belongs to the start page: it opens there and closes when the page is left', run: async (app) => {
     const r = await app.run(`await T.reset({ workspace: true }); const shown = () => { const f = T.frameOf('welcome'); return Boolean(f && getComputedStyle(f.parentElement).visibility !== 'hidden' && f.parentElement.isConnected); };
       A.run('welcome'); await T.popupReady('welcome'); const onStartWhenOpen = A.state.showStart; const open = shown();
@@ -130,6 +161,22 @@ export const cases = [
     try {
       await app.run(`await T.reset({ workspace: true }); window.dispatchEvent(new Event('resize')); await T.sleep(300);
         const more = document.querySelector('[data-toolbar-more]'); T.check(!more.hidden, 'the » button shows'); T.check(A.state.toolbarHidden.length > 0, 'groups folded'); return 1;`);
+    } finally { await app.main.send('Emulation.setDeviceMetricsOverride', { width: app.width, height: app.height, deviceScaleFactor: 1, mobile: false }); }
+  } },
+  { group: 'Shell', name: '[F:shell.toolbar] streaming control stays visible and identifies stop while live', run: async (app) => {
+    await app.main.send('Emulation.setDeviceMetricsOverride', { width: 1000, height: 900, deviceScaleFactor: 1, mobile: false });
+    try {
+      await app.run(`await T.reset({ workspace: true }); window.dispatchEvent(new Event('resize')); await T.sleep(300);
+        const button = document.querySelector('#toolbar [data-command="toggleStream"]');
+        const check = (live) => { const r = button.getBoundingClientRect(); const bar = document.querySelector('#toolbar').getBoundingClientRect();
+          T.check(r.width > 30 && r.left >= bar.left && r.right <= bar.right, 'stream button visible');
+          T.check(button.classList.contains('active') === live, 'stream state');
+          T.check(button.querySelector('[data-stream-stop].stream-icon').hidden !== live, 'stop icon');
+          T.check(button.getAttribute('aria-label') === button.querySelector('.view-name span:not(.off)').textContent, 'state label'); };
+        check(false); A.studio.outputs.stream = { state: 'live' };
+        try { await A.run('safeAreas'); await T.sleep(100); check(true); }
+        finally { A.studio.outputs.stream = null; await A.run('safeAreas'); }
+        return 1;`);
     } finally { await app.main.send('Emulation.setDeviceMetricsOverride', { width: app.width, height: app.height, deviceScaleFactor: 1, mobile: false }); }
   } },
   { group: 'Shell', name: '[F:shell.panels] side and bottom panels hide, show and resize', run: async (app) => {
@@ -180,6 +227,62 @@ export const cases = [
       const img = await T.add('image_source', { file: T.fixture('red.png') }, { x: 100, y: 100, sx: 2, sy: 2 });
       await T.until(() => img.rt.status === 'ready', 8000, 'image loaded'); T.check(T.near(await T.pixel(150, 150), [255, 0, 0]), 'image drawn'); T.check(T.near(await T.pixel(500, 500), [0, 255, 0]), 'colour drawn');
       A.studio.toggleVisible(img.item.id, false); T.check(T.near(await T.pixel(150, 150), [0, 255, 0]), 'hidden'); return 1;`);
+  } },
+  { group: 'Sources', name: 'source controls hide, stop and resume the same source across scenes', run: async (app) => {
+    await app.run(`await T.empty(); const s = await T.add('color_source_v3', { color: '#ff0000', width: 1920, height: 1080 }, null, 'Controlled');
+      const other = A.studio.addScene('Other'); A.studio.addExisting(s.source.id, { sceneId: other.id }); A.studio.select([s.item.id]); await T.sleep(200);
+      T.check(T.near(await T.pixel(100, 100), [255, 0, 0]), 'initial picture');
+      document.querySelector('[data-list="sources"] [data-source-run="' + s.source.id + '"][data-action="paused"]').click(); await T.frames(3);
+      T.check(T.near(await T.pixel(100, 100), [0, 0, 0]), 'pause hides video');
+      A.studio.selectScene(other.id); await T.frames(4); T.check(T.near(await T.pixel(100, 100), [0, 0, 0]), 'same source paused in other scene');
+      document.querySelector('[data-source-run="' + s.source.id + '"][data-action="running"]').click(); await T.frames(3);
+      T.check(T.near(await T.pixel(100, 100), [255, 0, 0]), 'resume restores video');
+      document.querySelector('[data-source-run="' + s.source.id + '"][data-action="stopped"]').click(); await T.frames(3);
+      T.check(T.near(await T.pixel(100, 100), [0, 0, 0]), 'stop hides video'); return 1;`);
+  } },
+  { group: 'Sources', name: 'source pause preserves media playback position while stop releases the file', run: async (app) => {
+    await app.run(`await T.empty(); const m = await T.add('ffmpeg_source', { is_local_file: true, local_file: T.fixture('clip.webm'), looping: true, restart_on_activate: true });
+      await T.until(() => m.rt.width === 320 && m.rt.video.currentTime > 0.3, 10000, 'media playing');
+      await A.studio.engine.setSourceControl(m.source.id, 'paused'); const at = m.rt.video.currentTime; await T.sleep(250);
+      T.check(m.rt.video.paused && Math.abs(m.rt.video.currentTime - at) < 0.05, 'position held');
+      await A.studio.engine.setSourceControl(m.source.id, 'running'); await T.sleep(150);
+      T.check(!m.rt.video.paused && m.rt.video.currentTime >= at, 'resumed without restarting');
+      await A.studio.engine.setSourceControl(m.source.id, 'stopped'); T.check(!m.rt.video.getAttribute('src'), 'file released');
+      await A.studio.engine.setSourceControl(m.source.id, 'running'); await T.until(() => !m.rt.video.paused, 10000, 'media reopened'); return 1;`);
+  } },
+  { group: 'Sources', name: 'source control silences microphone output and monitor and releases its device', run: async (app) => {
+    await app.run(`await T.empty(); await A.studio.startAudio(); const mic = await T.add('wasapi_input_capture', {});
+      await T.until(() => mic.rt.status === 'ready', 15000, 'mic ready'); A.studio.setAudio(mic.source.id, { monitor: 'both' });
+      await T.until(() => A.studio.mixer.channelsById.get(mic.source.id)?.input, 5000, 'mic attached');
+      T.check(await T.level(mic.source.id, 1000) > -60, 'mic audible');
+      await A.studio.engine.setSourceControl(mic.source.id, 'paused');
+      const ch = A.studio.mixer.channelsById.get(mic.source.id);
+      T.check(!ch.routing.monitor && ch.routing.tracks.every((v) => !v), 'monitor and output blocked');
+      T.check(await T.level(mic.source.id, 1000) < -80, 'mic silent');
+      await A.studio.engine.setSourceControl(mic.source.id, 'running'); T.check(await T.level(mic.source.id, 1000) > -60, 'mic resumed');
+      const tracks = mic.rt.stream.getTracks(); await A.studio.engine.setSourceControl(mic.source.id, 'stopped');
+      T.check(tracks.every((track) => track.readyState === 'ended'), 'device released');
+      await A.studio.engine.setSourceControl(mic.source.id, 'running'); T.check(mic.rt.stream?.getTracks().every((track) => track.readyState === 'live'), 'device reacquired'); return 1;`);
+  } },
+  { group: 'Sources', name: 'camera stop releases and resumes the same configured device', run: async (app) => {
+    await app.run(`await T.empty(); const cam = await T.add('dshow_input', {});
+      await T.until(() => cam.rt.status === 'ready' && cam.rt.width > 0, 15000, 'camera ready');
+      const tracks = cam.rt.stream.getTracks();
+      await A.studio.engine.setSourceControl(cam.source.id, 'paused');
+      T.check(tracks.every((track) => track.readyState === 'live'), 'pause retains camera');
+      await A.studio.engine.setSourceControl(cam.source.id, 'stopped');
+      T.check(tracks.every((track) => track.readyState === 'ended'), 'stop releases camera');
+      await A.studio.engine.setSourceControl(cam.source.id, 'running');
+      T.check(cam.rt.stream?.getVideoTracks().some((track) => track.readyState === 'live'), 'camera reacquired'); return 1;`);
+  } },
+  { group: 'Sources', name: 'stopped screen capture resumes without reopening the picker', run: async (app) => {
+    await app.run(`await T.empty(); const s = await T.add('monitor_capture', {}); await s.rt.pick();
+      await T.until(() => s.rt.status === 'ready' && s.rt.width > 0, 10000, 'capture ready');
+      const stream = s.rt.stream; const track = stream.getVideoTracks()[0]; s.rt.pick = () => { throw new Error('picker reopened'); };
+      await A.studio.engine.setSourceControl(s.source.id, 'stopped');
+      T.check(track.readyState === 'live', 'capture retained');
+      await A.studio.engine.setSourceControl(s.source.id, 'running');
+      T.check(s.rt.stream === stream && track.readyState === 'live', 'same capture resumed'); return 1;`);
   } },
   { group: 'Sources', name: '[F:src.slideshow] the slide show cycles its pictures (auto and next / previous)', run: async (app) => {
     await app.run(`await T.empty(); const s = await T.add('slideshow', { files: ['sample:slide1', 'sample:slide2', 'sample:slide3'], slide_time: 300, transition_speed: 50, transition: 'cut' });

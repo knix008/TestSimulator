@@ -25,6 +25,8 @@ export class SourceRuntime {
     this.error = '';
     this.active = false; // shown in the program
     this.showing = false; // shown anywhere (program, preview, projector)
+    this.runState = 'running';
+    this.generation = 0;
   }
   /** The settings changed (properties form). */
   async update(settings) { this.settings = { ...settings }; }
@@ -36,6 +38,15 @@ export class SourceRuntime {
   control() {}
   mediaState() { return null; }
   dispose() {}
+  async setRunState(state) {
+    if (state === this.runState) return;
+    const previous = this.runState;
+    this.runState = state;
+    if (state === 'stopped') this.generation++;
+    try { await this.onRunState(previous, state); }
+    finally { this.bump(); }
+  }
+  async onRunState() {}
   bump() { this.version++; this.engine?.sourceChanged?.(this); }
   info() { return { id: this.id, type: this.type, status: this.status, error: this.error, width: this.width, height: this.height }; }
 }
@@ -114,6 +125,7 @@ export class CaptureRuntime extends VideoElementRuntime {
 export class CameraRuntime extends VideoElementRuntime {
   constructor(engine, record) { super(engine, record); this.stream = null; this.starting = null; }
   async start() {
+    const generation = this.generation;
     const s = this.settings;
     const [w, h] = String(s.resolution || '1280x720').split('x').map(Number);
     const video = { deviceId: s.video_device_id ? { exact: s.video_device_id } : undefined };
@@ -121,15 +133,19 @@ export class CameraRuntime extends VideoElementRuntime {
     if (s.facing && s.facing !== 'any') video.facingMode = s.facing;
     const audio = s.audio_output_mode === 'capture' ? { deviceId: s.audio_device_id ? { exact: s.audio_device_id } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false } : false;
     stopStream(this.stream);
+    let stream;
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({ video, audio });
+      stream = await navigator.mediaDevices.getUserMedia({ video, audio });
     } catch (error) {
       // A camera without a microphone: try the picture alone.
-      if (audio) this.stream = await navigator.mediaDevices.getUserMedia({ video, audio: false });
+      if (audio && generation === this.generation) stream = await navigator.mediaDevices.getUserMedia({ video, audio: false });
       else throw error;
     }
+    if (generation !== this.generation || this.runState === 'stopped') { stopStream(stream); return; }
+    this.stream = stream;
     this.video.srcObject = new MediaStream(this.stream.getVideoTracks());
     await this.video.play().catch(() => {});
+    if (generation !== this.generation || this.runState === 'stopped') return;
     const at = this.stream.getAudioTracks();
     this.audio = at.length ? new MediaStream(at) : null;
     this.status = 'ready';
@@ -138,9 +154,11 @@ export class CameraRuntime extends VideoElementRuntime {
     this.engine?.audioChanged?.(this);
   }
   async ensure() {
+    if (this.runState === 'stopped') return;
     if (this.stream || this.starting) return this.starting;
     if (!navigator.mediaDevices?.getUserMedia) { this.status = 'error'; this.error = 'camera-unsupported'; return null; }
-    this.starting = this.start().catch((error) => { this.status = 'error'; this.error = error.name || error.message; }).finally(() => { this.starting = null; });
+    const generation = this.generation;
+    this.starting = this.start().catch((error) => { if (generation === this.generation) { this.status = 'error'; this.error = error.name || error.message; this.bump(); } }).finally(() => { this.starting = null; });
     return this.starting;
   }
   async update(settings) {
@@ -150,35 +168,60 @@ export class CameraRuntime extends VideoElementRuntime {
   }
   setShowing(showing) {
     super.setShowing(showing);
+    if (this.runState !== 'running') return;
     if (showing) this.ensure();
     else if (this.settings.deactivate_when_not_showing && this.stream) { stopStream(this.stream); this.stream = null; this.video.srcObject = null; this.audio = null; this.status = 'idle'; this.engine?.audioChanged?.(this); }
   }
-  dispose() { stopStream(this.stream); this.video.srcObject = null; }
+  async onRunState(previous, state) {
+    if (state === 'stopped') {
+      stopStream(this.stream); this.stream = null; this.video.srcObject = null; this.audio = null;
+      this.engine?.audioChanged?.(this);
+    } else if (previous === 'stopped') {
+      if (this.starting) await this.starting;
+      if (this.runState !== 'stopped') await this.ensure();
+    }
+  }
+  dispose() { this.generation++; stopStream(this.stream); this.stream = null; this.video.srcObject = null; }
 }
 
 export class MicRuntime extends SourceRuntime {
-  constructor(engine, record) { super(engine, record); this.stream = null; }
+  constructor(engine, record) { super(engine, record); this.stream = null; this.starting = null; }
   async start() {
+    const generation = this.generation;
     const s = this.settings;
     stopStream(this.stream);
     const id = s.device_id && s.device_id !== 'default' ? { exact: s.device_id } : undefined;
-    this.stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: id, echoCancellation: Boolean(s.echo_cancellation), noiseSuppression: Boolean(s.noise_suppression), autoGainControl: Boolean(s.auto_gain), channelCount: { ideal: 2 } }, video: false });
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: id, echoCancellation: Boolean(s.echo_cancellation), noiseSuppression: Boolean(s.noise_suppression), autoGainControl: Boolean(s.auto_gain), channelCount: { ideal: 2 } }, video: false });
+    if (generation !== this.generation || this.runState === 'stopped') { stopStream(stream); return; }
+    this.stream = stream;
     this.audio = this.stream;
     this.status = 'ready';
     this.error = '';
     this.engine?.audioChanged?.(this);
   }
   async ensure() {
-    if (this.stream) return;
+    if (this.runState === 'stopped') return;
+    if (this.stream || this.starting) return this.starting;
     if (!navigator.mediaDevices?.getUserMedia) { this.status = 'error'; this.error = 'mic-unsupported'; return; }
-    try { await this.start(); } catch (error) { this.status = 'error'; this.error = error.name || error.message; }
+    const generation = this.generation;
+    this.starting = this.start().catch((error) => { if (generation === this.generation) { this.status = 'error'; this.error = error.name || error.message; this.bump(); } }).finally(() => { this.starting = null; });
+    return this.starting;
   }
   async update(settings) {
     const changed = ['device_id', 'echo_cancellation', 'noise_suppression', 'auto_gain'].some((k) => settings[k] !== this.settings[k]);
     await super.update(settings);
     if (changed && this.stream) { stopStream(this.stream); this.stream = null; await this.ensure(); }
   }
-  dispose() { stopStream(this.stream); }
+  async onRunState(previous, state) {
+    if (state === 'stopped') {
+      stopStream(this.stream); this.stream = null; this.audio = null;
+      this.engine?.audioChanged?.(this);
+    } else if (previous === 'stopped') {
+      if (this.starting) await this.starting;
+      if (this.runState !== 'stopped') await this.ensure();
+    }
+  }
+  dispose() { this.generation++; stopStream(this.stream); this.stream = null; }
 }
 
 // ───────────────────────── pictures
@@ -298,6 +341,11 @@ export class SlideshowRuntime extends SourceRuntime {
     this.bump();
   }
   mediaState() { return { kind: 'slides', index: this.index, count: this.images.length, paused: this.paused, done: this.done }; }
+  async onRunState(previous, state) {
+    if (state === 'paused' && previous === 'running') { this.resumePlayback = !this.paused; this.control('pause'); }
+    if (state === 'stopped') { this.resumePlayback = true; this.control('stop'); }
+    if (state === 'running' && this.resumePlayback) { this.changedAt = performance.now(); this.control('play'); }
+  }
 }
 
 // ───────────────────────── media file / URL / playlist
@@ -330,22 +378,28 @@ export class MediaRuntime extends VideoElementRuntime {
     await this.open(this.list[this.position], autoplay);
   }
   async open(file, autoplay = null) {
+    const generation = this.generation;
+    if (this.runState === 'stopped') return;
     this.hls?.destroy(); this.hls = null;
     if (!file) { this.video.removeAttribute('src'); this.video.load(); this.status = 'idle'; this.width = 0; this.bump(); return; }
     try {
       const url = await this.engine.resolve(file);
+      if (generation !== this.generation || this.runState === 'stopped') return;
       const s = this.settings;
       this.video.loop = this.type === 'ffmpeg_source' ? Boolean(s.looping) : false;
       this.video.playbackRate = (s.speed_percent ?? 100) / 100;
       if (/\.m3u8(\?|$)/i.test(url) && !this.video.canPlayType('application/vnd.apple.mpegurl')) {
         const Hls = await loadHls();
+        if (generation !== this.generation || this.runState === 'stopped') return;
         this.hls = new Hls();
         this.hls.loadSource(url);
         this.hls.attachMedia(this.video);
       } else this.video.src = url;
       this.ended = false;
       const play = autoplay ?? (this.type === 'ffmpeg_source' ? (s.restart_on_activate ? this.active || this.showing : true) : this.settings.playback_behavior === 'always_play' || this.showing);
-      if (play) await this.video.play().catch(() => {});
+      if (play && this.runState === 'running') await this.video.play().catch(() => {});
+      if (generation !== this.generation || this.runState === 'stopped') return;
+      if (this.runState === 'paused') this.video.pause();
       this.status = 'ready';
       this.error = '';
     } catch (error) { this.status = 'error'; this.error = error?.message || 'media'; }
@@ -367,13 +421,14 @@ export class MediaRuntime extends VideoElementRuntime {
     const before = this.settings;
     await super.update(settings);
     const reload = this.type === 'vlc_source' ? JSON.stringify(before.playlist) !== JSON.stringify(settings.playlist) || before.shuffle !== settings.shuffle : before.local_file !== settings.local_file || before.input !== settings.input || before.is_local_file !== settings.is_local_file;
-    if (reload) { this.position = 0; await this.load(); return; }
+    if (reload) { this.position = 0; if (this.runState !== 'stopped') await this.load(); return; }
     this.video.loop = this.type === 'ffmpeg_source' ? Boolean(settings.looping) : false;
     this.video.playbackRate = (settings.speed_percent ?? 100) / 100;
   }
   setActive(active) {
     const was = this.active;
     super.setActive(active);
+    if (this.runState !== 'running') return;
     if (this.type === 'ffmpeg_source') {
       if (active && !was && this.settings.restart_on_activate) { this.video.currentTime = 0; this.ended = false; this.video.play().catch(() => {}); }
       if (!active && was && this.settings.close_when_inactive) this.video.pause();
@@ -382,6 +437,7 @@ export class MediaRuntime extends VideoElementRuntime {
   setShowing(showing) {
     const was = this.showing;
     super.setShowing(showing);
+    if (this.runState !== 'running') return;
     if (this.type !== 'vlc_source') return;
     const b = this.settings.playback_behavior;
     if (showing && !was) { if (b === 'stop_restart') { this.position = 0; this.open(this.list[0], true); } else this.video.play().catch(() => {}); }
@@ -405,7 +461,26 @@ export class MediaRuntime extends VideoElementRuntime {
     const v = this.video;
     return { kind: 'media', playing: !v.paused && !v.ended, ended: this.ended, time: (v.currentTime || 0) * 1000, duration: Number.isFinite(v.duration) ? v.duration * 1000 : 0, index: this.position, count: this.list.length, name: String(this.list[this.position] ?? '').split(/[\\/]/).pop() };
   }
-  dispose() { this.hls?.destroy(); this.video.pause(); this.video.removeAttribute('src'); this.video.load(); }
+  async onRunState(previous, state) {
+    const generation = this.generation;
+    if (state === 'paused' && previous === 'running') { this.resumePlayback = Boolean(this.pendingRestart) || !this.video.paused; this.video.pause(); }
+    if (state === 'stopped') {
+      this.resumePlayback = true;
+      this.position = 0;
+      this.hls?.destroy(); this.hls = null;
+      this.video.pause(); this.video.removeAttribute('src'); this.video.load();
+    }
+    if (previous === 'stopped' && state !== 'stopped') {
+      const loading = this.load(false);
+      this.pendingRestart = loading;
+      try { await loading; } finally { if (this.pendingRestart === loading) this.pendingRestart = null; }
+      if (state === 'running' && generation === this.generation && this.runState === 'running' && this.list.length && this.status !== 'error') await this.video.play();
+    } else if (state === 'running' && this.resumePlayback) {
+      if (this.pendingRestart) await this.pendingRestart;
+      if (generation === this.generation && this.runState === 'running' && this.list.length && this.status !== 'error') await this.video.play();
+    }
+  }
+  dispose() { this.generation++; this.hls?.destroy(); this.video.pause(); this.video.removeAttribute('src'); this.video.load(); }
 }
 
 // ───────────────────────── text (drawn on a canvas)
@@ -456,7 +531,7 @@ export class TextRuntime extends SourceRuntime {
   async update(settings) {
     const reset = settings.text_mode !== this.settings.text_mode || settings.countdown_seconds !== this.settings.countdown_seconds;
     await super.update(settings);
-    if (reset) { this.startedAt = performance.now(); this.paused = false; }
+    if (reset) { this.startedAt = performance.now(); this.paused = this.runState !== 'running'; if (this.paused) this.pausedAt = this.startedAt; }
     if (settings.read_from_file) await this.readFile();
     this.render();
   }
@@ -469,6 +544,11 @@ export class TextRuntime extends SourceRuntime {
     this.render();
   }
   mediaState() { return ['countdown', 'stopwatch'].includes(this.settings.text_mode) ? { kind: 'timer', paused: this.paused } : null; }
+  async onRunState(previous, state) {
+    if (state === 'paused' && previous === 'running') { this.resumePlayback = !this.paused; this.control('pause'); }
+    if (state === 'stopped') { this.resumePlayback = true; this.control('stop'); }
+    if (state === 'running' && this.resumePlayback) this.control('play');
+  }
 }
 
 const rgba = (hex, opacity = 100) => {
@@ -556,11 +636,11 @@ export class BrowserRuntime extends SourceRuntime {
     return `data:text/html;charset=utf-8,${encodeURIComponent(s.html ?? '')}`;
   }
   /** Desktop (Windows): the page runs for real in a hidden WebView2 window; its frames come here. */
-  async openRealPage() {
+  async openRealPage(generation) {
     const pages = this.engine?.browserPages;
     if (!pages || !(await (this.engine.pagesSupported ??= pages.supported()))) return false;
     const url = await this.pageUrl();
-    if (!url) return false;
+    if (!url || generation !== this.generation || this.runState === 'stopped') return false;
     const s = this.settings;
     this.realPage = true;
     this.canvas.width = this.width = Math.max(1, s.width);
@@ -570,6 +650,7 @@ export class BrowserRuntime extends SourceRuntime {
     }
     this.engine.pageFrames.set(this.id, (data) => this.showFrame(data));
     await pages.open({ id: this.id, url, width: this.width, height: this.height, css: s.css ?? '', fps: s.fps_custom ? s.fps : 30 });
+    if (generation !== this.generation || this.runState === 'stopped') { await pages.close(this.id); this.realPage = false; this.engine.pageFrames.delete(this.id); return false; }
     return true;
   }
   /** One PNG frame of the real page (a newer one waiting replaces an older one). */
@@ -589,20 +670,34 @@ export class BrowserRuntime extends SourceRuntime {
     if (this.nextFrame) { const next = this.nextFrame; this.nextFrame = null; this.showFrame(next); }
   }
   closeRealPage() {
-    if (!this.realPage) return;
+    if (!this.realPage) return this.closingPage ?? Promise.resolve();
     this.realPage = false;
     this.engine.pageFrames.delete(this.id);
-    this.engine.browserPages?.close(this.id);
+    const closing = this.engine.browserPages?.close(this.id) ?? Promise.resolve();
+    this.closingPage = Promise.all([this.closingPage, closing]);
+    return this.closingPage;
   }
-  async loadPage() {
+  loadPage() {
+    const generation = this.generation;
+    const load = async () => {
+      await this.closingPage;
+      if (generation !== this.generation || this.runState === 'stopped') return;
+      await this.loadPageNow(generation);
+    };
+    this.pageOperation = (this.pageOperation ?? Promise.resolve()).then(load, load);
+    return this.pageOperation;
+  }
+  async loadPageNow(generation) {
     const s = this.settings;
     if (!(s.shutdown && !this.showing)) {
-      try { if (await this.openRealPage()) return; } catch (error) { this.realPage = false; this.engine.pageFrames?.delete(this.id); this.status = 'error'; this.error = error?.message || 'page'; }
+      try { if (await this.openRealPage(generation)) return; } catch (error) { this.realPage = false; this.engine.pageFrames?.delete(this.id); this.status = 'error'; this.error = error?.message || 'page'; }
     }
+    if (generation !== this.generation || this.runState === 'stopped') return;
     try {
       if (s.mode === 'local' && s.local_file) this.page = await this.engine.readText(s.local_file);
       else if (s.mode === 'url' && /^https?:/.test(s.url)) this.page = await this.engine.fetchPage(s.url);
       else this.page = s.html ?? '';
+      if (generation !== this.generation || this.runState === 'stopped') return;
       this.status = 'ready'; this.error = '';
     } catch (error) { this.page = ''; this.status = 'error'; this.error = error?.message || 'page'; }
     this.paint();
@@ -639,19 +734,28 @@ export class BrowserRuntime extends SourceRuntime {
     if (s.shutdown && !this.showing) return;
     if (s.fps_custom && now - this.drawnAt > 1000 / Math.max(1, s.fps)) this.paint();
   }
-  setActive(active) { const was = this.active; super.setActive(active); if (active && !was && this.settings.restart_when_active) this.refresh(); }
+  setActive(active) { const was = this.active; super.setActive(active); if (this.runState !== 'stopped' && active && !was && this.settings.restart_when_active) this.refresh(); }
   /** "Shut down when not visible": the real page closes while nothing shows it, and opens again. */
   setShowing(showing) {
     const was = this.showing;
     super.setShowing(showing);
+    if (this.runState === 'stopped') return;
     if (!this.settings.shutdown || was === showing) return;
     if (!showing) this.closeRealPage(); else if (!this.realPage) this.loadPage();
   }
-  async update(settings) { this.closeRealPage(); await super.update(settings); await this.loadPage(); }
+  async update(settings) { const closing = this.closeRealPage(); await super.update(settings); await closing; await this.loadPage(); }
   refresh() { return this.realPage ? this.engine.browserPages.reload(this.id) : this.loadPage(); }
   /** Interact: pointer and keys to the real page (DevTools input events, page coordinates). */
   interact(method, params) { if (this.realPage) this.engine.browserPages.input(this.id, method, params); return this.realPage; }
-  dispose() { this.closeRealPage(); }
+  async onRunState(previous, state) {
+    if (state === 'stopped') {
+      const closing = this.closeRealPage();
+      this.pageOperation = Promise.all([this.pageOperation, closing]);
+      await this.pageOperation;
+    }
+    else if (previous === 'stopped') await this.loadPage();
+  }
+  dispose() { this.generation++; this.closeRealPage(); }
 }
 
 // ───────────────────────── colour

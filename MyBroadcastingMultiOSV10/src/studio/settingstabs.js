@@ -76,7 +76,6 @@ export function makeTabs(h) {
       toggle('multiviewClickTransition', t('settings.multiviewClickTransition'), 'multiview'),
       head('projector', 'settings.general.projectors'),
       toggle('projectorsOnTop', t('settings.projectorsOnTop'), 'projector'),
-      toggle('hideFromCapture', t('settings.hideFromCapture'), 'eyeOff'),
       toggle('globalHotkeys', t('settings.globalHotkeys'), 'keyboard'),
       toggle('confirmDelete', t('settings.confirmDelete'), 'trash'),
     ].join('');

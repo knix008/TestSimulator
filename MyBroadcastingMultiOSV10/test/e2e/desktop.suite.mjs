@@ -283,23 +283,26 @@ export const desktopCases = [
   },
   {
     group: 'Desktop',
-    name: '[F:src.display] the app\'s windows are left out of screen captures (no studio inside the studio); the setting turns it off',
+    name: '[F:src.display] app windows remain capturable even with the legacy capture exclusion setting',
     async run(app) {
       if (process.platform !== 'win32') return;
-      // GetWindowDisplayAffinity of the app's visible top-level windows: 0x11 = WDA_EXCLUDEFROMCAPTURE.
+      // GetWindowDisplayAffinity of the app's visible top-level windows: 0 = WDA_NONE.
       const affinity = () => {
         const ps = `Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; using System.Text; public static class W { public delegate bool P(IntPtr h, IntPtr l); [DllImport("user32.dll")] public static extern bool EnumWindows(P p, IntPtr l); [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid); [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h); [DllImport("user32.dll")] public static extern bool GetWindowDisplayAffinity(IntPtr h, out uint a); [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetWindowText(IntPtr h, StringBuilder s, int n); }'; $out = @(); [W]::EnumWindows({ param($h, $l) $p = 0; [void][W]::GetWindowThreadProcessId($h, [ref]$p); if ($p -eq ${app.process.pid} -and [W]::IsWindowVisible($h)) { $a = 0; [void][W]::GetWindowDisplayAffinity($h, [ref]$a); $s = New-Object System.Text.StringBuilder 256; [void][W]::GetWindowText($h, $s, 256); $script:out += ($s.ToString() + '=' + $a) }; return $true }, [IntPtr]::Zero) | Out-Null; $out -join '|'`;
         return spawnSync('powershell.exe', ['-NoProfile', '-Command', ps], { encoding: 'utf8' }).stdout.trim();
       };
-      const main = (text) => /MyBroadcasting v[^=|]*=(\d+)/.exec(text)?.[1];
-      let on = '';
-      for (let i = 0; i < 20 && main(on) !== '17'; i++) { on = affinity(); if (main(on) !== '17') await sleep(300); }
-      assert.equal(main(on), '17', `main window affinity: ${on}`);
-      await app.run(`A.app.updateSettings({ hideFromCapture: false }); return 1;`);
-      await sleep(500);
-      const off = affinity();
-      await app.run(`A.app.updateSettings({ hideFromCapture: true }); return 1;`);
-      assert.equal(main(off), '0', `turned off: ${off}`);
+      const windows = (text) => [...text.matchAll(/MyBroadcasting v[^=|]*=(\d+)/g)].map((m) => m[1]);
+      const initial = windows(affinity());
+      assert.ok(initial.length >= 1 && initial.every((value) => value === '0'), `startup window affinities: ${initial}`);
+      try {
+        await app.run(`A.app.updateSettings({ hideFromCapture: true }); A.popups.open('settings', { tab: 'general' }); return 1;`);
+        let visible = [];
+        for (let i = 0; i < 50 && visible.length < 2; i++) { await sleep(200); visible = windows(affinity()); }
+        assert.ok(visible.length >= 2, `main and settings windows: ${visible}`);
+        assert.ok(visible.every((value) => value === '0'), `window affinities: ${visible}`);
+      } finally {
+        await app.run(`await A.popups.close('settings'); return 1;`);
+      }
     },
   },
   {

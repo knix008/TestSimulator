@@ -398,3 +398,28 @@ export function activeSources(c, sceneId, seen = new Set()) {
   });
   return out;
 }
+
+/** Source controls are shared across scenes; a controlled group or scene also controls its descendants. */
+export function controlledSourceStates(c, controls) {
+  const rank = { running: 0, paused: 1, stopped: 2 };
+  const states = new Map([...Object.keys(c.sources), ...c.scenes.map((s) => s.id)].map((id) => [id, controls.get(id) ?? 'running']));
+  const edges = new Map();
+  const addItems = (owner, items) => {
+    if (!edges.has(owner)) edges.set(owner, new Set());
+    for (const item of items) {
+      edges.get(owner).add(item.source);
+      if (item.children) addItems(item.source, item.children);
+    }
+  };
+  for (const scene of c.scenes) addItems(scene.id, scene.items);
+  const queue = [...states.keys()];
+  for (let i = 0; i < queue.length; i++) {
+    const owner = queue[i];
+    for (const child of edges.get(owner) ?? []) {
+      if (!states.has(child) || rank[states.get(child)] >= rank[states.get(owner)]) continue;
+      states.set(child, states.get(owner));
+      queue.push(child);
+    }
+  }
+  return states;
+}

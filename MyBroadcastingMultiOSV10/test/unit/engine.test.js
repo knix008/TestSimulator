@@ -11,7 +11,9 @@ import * as T from '../../src/bc/transform.js';
 import { formatClock, formatDuration, textOf } from '../../src/bc/engine/textfmt.js';
 import { identityCube, lumaAt, lumaPixels, lutAtlas, parseCube, pngLutToCube, keyColor } from '../../src/bc/engine/patterns.js';
 import { dynamicsGain, coef } from '../../src/bc/engine/worklets.js';
-import { dynamicsParams, faderToMul, mulToFader, levels, mulToDb } from '../../src/bc/engine/audio.js';
+import { AudioMixer, dynamicsParams, faderToMul, mulToFader, levels, mulToDb } from '../../src/bc/engine/audio.js';
+import { BrowserRuntime, CameraRuntime, CaptureRuntime, MediaRuntime, MicRuntime } from '../../src/bc/engine/sources.js';
+import { Engine } from '../../src/bc/engine/compositor.js';
 import { CONTAINER_CODECS, Muxer, Recording, ReplayBuffer, StreamOutput, chapterText, codecString, ffmetadata, formatFileName, ingestUrl, uniqueFile } from '../../src/bc/engine/outputs.js';
 import { SERVICES, checkStream, protocolOf, recommendedBitrate, serviceById } from '../../src/bc/services.js';
 import { exportSceneJson, importSceneJson, abgrColor, toAbgrColor } from '../../src/bc/compat/scenejson.js';
@@ -140,6 +142,185 @@ test('[F:src.existing] [F:src.copyPaste] [F:src.rename] the same source in two s
   assert.ok(c.sources[txt.id], 'still used in B');
   M.removeItems(c, b.id, b.items.map((x) => x.id));
   assert.equal(c.sources[txt.id], undefined, 'unused sources are dropped');
+});
+
+test('source control propagates through groups and nested scenes without losing individual state', () => {
+  const c = M.createCollection();
+  const nested = M.addScene(c, 'Nested');
+  const shared = M.createSource(c, 'color_source_v3', 'Shared');
+  const item = M.addItem(c, nested.id, shared.id);
+  const group = M.groupItems(c, nested.id, [item.id]);
+  M.addItem(c, c.current, nested.id);
+  M.addItem(c, c.current, shared.id);
+  const controls = new Map([[group.source, 'paused'], [shared.id, 'stopped']]);
+  assert.equal(M.controlledSourceStates(c, controls).get(shared.id), 'stopped');
+  controls.delete(shared.id);
+  assert.equal(M.controlledSourceStates(c, controls).get(shared.id), 'paused');
+  controls.delete(group.source);
+  controls.set(nested.id, 'stopped');
+  assert.equal(M.controlledSourceStates(c, controls).get(shared.id), 'stopped');
+  controls.delete(nested.id);
+  assert.equal(M.controlledSourceStates(c, controls).get(shared.id), 'running');
+});
+
+test('pausing a source does not simulate scene deactivation and restart-on-activate', () => {
+  const c = M.createCollection();
+  const src = M.createSource(c, 'ffmpeg_source', 'Media');
+  M.addItem(c, c.current, src.id);
+  const activations = [];
+  const rt = { active: false, setActive(value) { if (value !== this.active) activations.push(value); this.active = value; }, setShowing() {} };
+  let state = 'running';
+  const engine = { collection: c, transition: null, studio: false, displays: new Map(), runtimes: new Map([[src.id, rt]]), sourceControlState: () => state, emit() {} };
+  Engine.prototype.updateActivity.call(engine);
+  state = 'paused';
+  Engine.prototype.updateActivity.call(engine);
+  assert.equal(engine.audibleProgram.has(src.id), false);
+  state = 'running';
+  Engine.prototype.updateActivity.call(engine);
+  assert.equal(engine.audibleProgram.has(src.id), true);
+  assert.deepEqual(activations, [true]);
+});
+
+test('stopping a pending camera or microphone request releases late streams and restart reacquires', async () => {
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  const originalStream = globalThis.MediaStream;
+  const tracks = [];
+  class FakeStream {
+    constructor(items = []) { this.items = items; }
+    getTracks() { return this.items; }
+    getVideoTracks() { return this.items.filter((t) => t.kind === 'video'); }
+    getAudioTracks() { return this.items.filter((t) => t.kind === 'audio'); }
+  }
+  let resolveFirst;
+  let calls = 0;
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: { createElement: () => ({ play: async () => {}, addEventListener() {} }) } });
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { mediaDevices: { getUserMedia: (constraints) => {
+    const track = { kind: constraints.video ? 'video' : 'audio', stopped: false, stop() { this.stopped = true; } };
+    tracks.push(track);
+    calls++;
+    return calls === 1 ? new Promise((resolve) => { resolveFirst = () => resolve(new FakeStream([track])); }) : Promise.resolve(new FakeStream([track]));
+  } } } });
+  globalThis.MediaStream = FakeStream;
+  try {
+    for (const [Kind, type] of [[CameraRuntime, 'dshow_input'], [MicRuntime, 'wasapi_input_capture']]) {
+      calls = 0;
+      const rt = new Kind({ audioChanged() {}, sourceChanged() {} }, { id: type, type, settings: sourceDefaults(type) });
+      const pending = rt.ensure();
+      await rt.setRunState('stopped');
+      resolveFirst();
+      await pending;
+      assert.equal(tracks.at(-1).stopped, true);
+      assert.equal(rt.stream, null);
+      await rt.setRunState('running');
+      assert.equal(calls, 2);
+      assert.equal(rt.stream.getTracks()[0].stopped, false);
+      rt.dispose();
+    }
+  } finally {
+    if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator); else delete globalThis.navigator;
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument); else delete globalThis.document;
+    if (originalStream === undefined) delete globalThis.MediaStream; else globalThis.MediaStream = originalStream;
+  }
+});
+
+test('capture stop retains its stream without reopening the picker', async () => {
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  const originalStream = globalThis.MediaStream;
+  const track = { label: 'screen', stopped: false, stop() { this.stopped = true; }, addEventListener() {} };
+  class FakeStream {
+    constructor(items) { this.items = items; }
+    getTracks() { return this.items; }
+    getVideoTracks() { return this.items; }
+    getAudioTracks() { return []; }
+  }
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: { createElement: () => ({ play: async () => {}, addEventListener() {} }) } });
+  globalThis.MediaStream = FakeStream;
+  try {
+    const rt = new CaptureRuntime({ sourceChanged() {}, audioChanged() {} }, { id: 'capture', type: 'monitor_capture', settings: {} });
+    const stream = new FakeStream([track]);
+    rt.setStream(stream);
+    await rt.setRunState('stopped');
+    await rt.setRunState('running');
+    assert.equal(rt.stream, stream);
+    assert.equal(track.stopped, false);
+    rt.dispose();
+    assert.equal(track.stopped, true);
+  } finally {
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument); else delete globalThis.document;
+    if (originalStream === undefined) delete globalThis.MediaStream; else globalThis.MediaStream = originalStream;
+  }
+});
+
+test('stopping an opening browser page closes it before a restart opens it again', async () => {
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: { createElement: () => ({ getContext: () => ({}) }) } });
+  let release;
+  const events = [];
+  const pages = {
+    supported: async () => true,
+    onFrame() {},
+    open: async () => { events.push('open'); if (events.filter((e) => e === 'open').length === 1) await new Promise((resolve) => { release = resolve; }); },
+    close: async () => { events.push('close-start'); await new Promise((resolve) => setTimeout(resolve, 10)); events.push('close-end'); },
+  };
+  try {
+    const engine = { browserPages: pages, pageFrames: new Map(), sourceChanged() {} };
+    const rt = new BrowserRuntime(engine, { id: 'browser', type: 'browser_source', settings: { mode: 'url', url: 'https://example.test', width: 100, height: 100 } });
+    while (!release) await new Promise((resolve) => setTimeout(resolve, 0));
+    const stopping = rt.setRunState('stopped');
+    const restarting = rt.setRunState('running');
+    release();
+    await Promise.all([stopping, restarting]);
+    assert.equal(events.at(-1), 'open');
+    assert.equal(events.filter((e) => e === 'open').length, 2);
+    assert.ok(events.slice(1, -1).includes('close-end'));
+    assert.equal(rt.realPage, true);
+    rt.dispose();
+  } finally {
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument); else delete globalThis.document;
+  }
+});
+
+test('media resumes after a rapid stop, pause and restart while the file is opening', async () => {
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  const video = {
+    paused: true, src: '', addEventListener() {}, removeAttribute(name) { if (name === 'src') this.src = ''; },
+    load() {}, pause() { this.paused = true; }, async play() { if (!this.src) throw new Error('not loaded'); this.paused = false; },
+  };
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: { createElement: () => video } });
+  let release;
+  let calls = 0;
+  try {
+    const engine = { sourceChanged() {}, resolve: async () => { if (++calls === 2) await new Promise((resolve) => { release = resolve; }); return 'video.webm'; } };
+    const rt = new MediaRuntime(engine, { id: 'media', type: 'ffmpeg_source', settings: { local_file: 'video.webm', is_local_file: true } });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await rt.setRunState('stopped');
+    const opening = rt.setRunState('paused');
+    const resuming = rt.setRunState('running');
+    release();
+    await Promise.all([opening, resuming]);
+    assert.equal(video.src, 'video.webm');
+    assert.equal(video.paused, false);
+    rt.dispose();
+  } finally {
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument); else delete globalThis.document;
+  }
+});
+
+test('source suppression mutes both output and monitoring without changing user mute', () => {
+  const param = () => ({ value: 1, setTargetAtTime(v) { this.value = v; }, setValueAtTime(v) { this.value = v; }, cancelScheduledValues() {} });
+  const mixer = new AudioMixer();
+  mixer.ctx = { currentTime: 0 };
+  const channel = { delay: { delayTime: param() }, volume: { gain: param() }, pan: { pan: param() }, monoIn: {}, mute: { gain: param() }, monitor: { gain: param() }, trackGains: [{ gain: param() }] };
+  mixer.channelsById.set('mic', channel);
+  const source = { id: 'mic', global: 'mic1', audio: { volume: 1, balance: 0.5, tracks: [true], monitor: 'both', muted: false } };
+  mixer.setActive(new Set(), [source], new Set(['mic']));
+  assert.equal(channel.mute.gain.value, 0);
+  assert.deepEqual(channel.routing, { tracks: [false], monitor: false });
+  assert.equal(source.audio.muted, false);
+  mixer.setActive(new Set(), [source]);
+  assert.deepEqual(channel.routing, { tracks: [true], monitor: true });
+  assert.equal(channel.mute.gain.value, 1);
 });
 
 test('[F:src.order] up, down, top, bottom', () => {

@@ -114,7 +114,6 @@ export function defaultSettings(language = 'ko') {
     // Accessibility: the colour of the selection in the preview.
     selectionColor: '#ff3b3b',
     projectorsOnTop: true,
-    hideFromCapture: true,
     quickAddOpen: true,
     globalHotkeys: true,
     // The printed reports: which one, and whether scenes come with pictures.
@@ -142,7 +141,7 @@ const clamp = (value, min, max, fallback) => {
 
 const BOOLEAN_KEYS = ['showStartPage', 'showLeftPanel', 'showRightPanel', 'showBottomPanel', 'showStatusBar', 'restoreSession', 'confirmDelete', 'showTime', 'statusClock',
   'tutorialOffered', 'showWelcome', 'tutorialDone', 'animationOnStartOnly', 'animationRandom', 'safeAreas', 'previewLocked', 'previewEnabled', 'multiview', 'multiviewClickTransition',
-  'duplicateScene', 'swapScenes', 'confirmStartStream', 'confirmStopStream', 'confirmStopRecord', 'recordWhenStreaming', 'keepRecordingWhenStreamStops', 'replayWhenStreaming', 'keepReplayWhenStreamStops', 'mixerShowHidden', 'projectorsOnTop', 'hideFromCapture', 'quickAddOpen', 'globalHotkeys', 'reportThumbnails',
+  'duplicateScene', 'swapScenes', 'confirmStartStream', 'confirmStopStream', 'confirmStopRecord', 'recordWhenStreaming', 'keepRecordingWhenStreamStops', 'replayWhenStreaming', 'keepReplayWhenStreamStops', 'mixerShowHidden', 'projectorsOnTop', 'quickAddOpen', 'globalHotkeys', 'reportThumbnails',
   'startShowRecent', 'startShowSamples', 'startShowBackground', 'startShowTutorialBanner'];
 
 /** Fills gaps and repairs out-of-range values. */

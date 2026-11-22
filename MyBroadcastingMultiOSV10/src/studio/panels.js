@@ -19,6 +19,16 @@ const sourceName = (c, id) => c.sources[id]?.name ?? M.sceneById(c, id)?.name ??
 const sourceIcon = (c, id) => (M.sceneById(c, id) ? 'srcScene' : SOURCE_TYPES[c.sources[id]?.type]?.icon ?? 'dot');
 const stepper = (key, value, min, max, step, unit, labelKey) => stepperHtml({ key, value, min, max, step, unit, label: t(labelKey), decreaseTip: t('stepper.decrease', { label: t(labelKey) }), increaseTip: t('stepper.increase', { label: t(labelKey) }) });
 const round = (v, d = 2) => Math.round(v * 10 ** d) / 10 ** d;
+function sourceControlsHtml(studio, id, compact = false) {
+  const state = studio.engine?.sourceControlState(id) ?? 'running';
+  const ownState = studio.engine?.sourceControls.get(id) ?? 'running';
+  const inherited = state !== 'running' && ownState === 'running';
+  const action = state === 'running' ? 'paused' : 'running';
+  const tip = t(inherited ? 'sourceControl.inherited' : `sourceControl.${action}`);
+  const cls = compact ? 'icon-button tiny' : 'small-button';
+  const attrs = `data-source-run="${esc(id)}"`;
+  return `${btn(`${attrs} data-action="${action}"`, action === 'paused' ? 'pause' : 'play', tip, { cls, label: !compact, disabled: inherited })}${btn(`${attrs} data-action="stopped"`, 'stop', t('sourceControl.stopped'), { cls, label: !compact, disabled: state === 'stopped' })}${compact ? '' : `<span class="muted">${esc(t(`sourceControl.state.${state}`))}</span>`}`;
+}
 
 // ───────────────────────── left: scenes and sources
 
@@ -53,6 +63,7 @@ function itemRow(studio, item, depth, index, parent) {
       ${icon(sourceIcon(c, item.source))}<span class="row-name">${esc(sourceName(c, item.source))}</span>
       ${warn ? `<span class="tag warn" title="${esc(t(`status.source.${rt.status}`))}">${icon('warning')}</span>` : ''}
       ${src?.audio && src.audio.muted ? `<span class="tag" title="${esc(t('audio.muted'))}">${icon('muted')}</span>` : ''}
+      ${sourceControlsHtml(studio, item.source, true)}
       <button class="icon-button tiny" data-item-eye="${esc(item.id)}" aria-pressed="${item.visible}" title="${esc(t(item.visible ? 'action.hideItem' : 'action.showItem'))}">${icon(item.visible ? 'eye' : 'eyeOff')}</button>
       <button class="icon-button tiny" data-item-lock="${esc(item.id)}" aria-pressed="${item.locked}" title="${esc(t(item.locked ? 'action.unlockItem' : 'action.lockItem'))}">${icon(item.locked ? 'lock' : 'unlock')}</button>
     </div>${kids}</div>`;
@@ -144,23 +155,23 @@ function propsBody(studio, source, scene, ctx) {
   if (scene) {
     const c = studio.c;
     const o = scene.override;
-    return `<div class="prop-form"><div class="form-row"><label class="form-label">${esc(t('scene.override'))}</label><div class="form-control"><select data-scene-override="${esc(scene.id)}" data-icon="transitionGo"><option value="">${esc(t('scene.overrideNone'))}</option>${c.transitions.map((x) => `<option value="${esc(x.id)}" ${o?.transition === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div></div>
+    return `<div class="source-controls">${sourceControlsHtml(studio, scene.id)}</div><div class="prop-form"><div class="form-row"><label class="form-label">${esc(t('scene.override'))}</label><div class="form-control"><select data-scene-override="${esc(scene.id)}" data-icon="transitionGo"><option value="">${esc(t('scene.overrideNone'))}</option>${c.transitions.map((x) => `<option value="${esc(x.id)}" ${o?.transition === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div></div>
       ${o ? `<div class="form-row"><label class="form-label">${esc(t('trn.duration'))}</label><div class="form-control">${stepper(`override|${scene.id}`, o.duration ?? c.duration, 50, 20000, 50, 'ms', 'trn.duration')}</div></div>` : ''}</div>`;
   }
   const rt = studio.engine?.runtime(source.id);
   const info = rt?.info?.() ?? {};
   const status = `<div class="source-status status-${esc(info.status ?? 'idle')}">${icon(info.status === 'ready' ? 'check' : info.status === 'error' ? 'error' : 'info')}<span>${esc(t(`status.source.${info.status ?? 'idle'}`))}${info.width ? ` · ${info.width}×${info.height}` : ''}${info.label ? ` · ${esc(info.label)}` : ''}${info.error ? ` · ${esc(t(`error.source.${info.error}`, null, info.error))}` : ''}</span></div>`;
-  const media = rt?.mediaState?.() ? mediaControlsHtml(source.id, rt.mediaState()) : '';
-  return `${status}${media}${formHtml(SOURCE_TYPES[source.type].props, source.settings, `src:${source.id}`, ctx)}
+  const media = rt?.mediaState?.() ? mediaControlsHtml(source.id, rt.mediaState(), rt.runState === 'running') : '';
+  return `${status}<div class="source-controls">${sourceControlsHtml(studio, source.id)}</div>${media}${formHtml(SOURCE_TYPES[source.type].props, source.settings, `src:${source.id}`, ctx)}
     <div class="right-foot"><button class="small-button" data-command="resetProperties">${icon('reset')}<span>${esc(t('action.resetProperties'))}</span></button>
     <button class="small-button" data-command="sourceScreenshot">${icon('screenshot')}<span>${esc(t('action.screenshotSource'))}</span></button>
     <button class="small-button" data-command="sourceProjector">${icon('projector')}<span>${esc(t('action.sourceProjector'))}</span></button></div>`;
 }
 
-export function mediaControlsHtml(id, st) {
+export function mediaControlsHtml(id, st, enabled = true) {
   const playing = st.kind === 'media' ? st.playing : !st.paused;
-  const time = st.kind === 'media' ? `<span class="media-time">${formatSeconds(st.time / 1000)} / ${formatSeconds(st.duration / 1000)}</span><input type="range" min="0" max="${Math.max(1, Math.round(st.duration))}" value="${Math.round(st.time)}" data-media-seek="${esc(id)}" aria-label="${esc(t('media.seek'))}" />` : st.kind === 'slides' ? `<span class="media-time">${st.index + 1} / ${st.count}</span>` : '';
-  const b = (action, glyph) => btn(`data-media="${esc(id)}" data-action="${action}"`, glyph, t(`media.${action}`));
+  const time = st.kind === 'media' ? `<span class="media-time">${formatSeconds(st.time / 1000)} / ${formatSeconds(st.duration / 1000)}</span><input type="range" min="0" max="${Math.max(1, Math.round(st.duration))}" value="${Math.round(st.time)}" data-media-seek="${esc(id)}" aria-label="${esc(t('media.seek'))}" ${enabled ? '' : 'disabled'} />` : st.kind === 'slides' ? `<span class="media-time">${st.index + 1} / ${st.count}</span>` : '';
+  const b = (action, glyph) => btn(`data-media="${esc(id)}" data-action="${action}"`, glyph, t(`media.${action}`), { disabled: !enabled });
   return `<div class="media-controls" data-media-box="${esc(id)}">${b(playing ? 'pause' : 'play', playing ? 'pause' : 'play')}${b('stop', 'stop')}${b('restart', 'restart')}${st.count > 1 || st.kind === 'slides' ? `${b('previous', 'previous')}${b('next', 'next')}` : ''}${time}${st.name ? `<span class="muted media-name">${esc(st.name)}</span>` : ''}</div>`;
 }
 
@@ -307,7 +318,7 @@ export function mediaDockHtml(studio) {
   const c = studio.c;
   const list = Object.values(c.sources).filter((s) => SOURCE_TYPES[s.type]?.media || s.type === 'slideshow' || (s.type === 'text_gdiplus' && ['countdown', 'stopwatch'].includes(s.settings.text_mode)));
   if (!list.length) return `<p class="dock-empty">${icon('info')}<span>${esc(t('media.none'))}</span></p>`;
-  return `<div class="media-dock">${list.map((s) => { const st = studio.engine?.runtime(s.id)?.mediaState?.(); return `<div class="media-row">${icon(SOURCE_TYPES[s.type].icon)}<b>${esc(s.name)}</b>${st ? mediaControlsHtml(s.id, st) : `<span class="muted">${esc(t('media.notReady'))}</span>`}</div>`; }).join('')}</div>`;
+  return `<div class="media-dock">${list.map((s) => { const rt = studio.engine?.runtime(s.id); const st = rt?.mediaState?.(); return `<div class="media-row">${icon(SOURCE_TYPES[s.type].icon)}<b>${esc(s.name)}</b>${st ? mediaControlsHtml(s.id, st, rt.runState === 'running') : `<span class="muted">${esc(t('media.notReady'))}</span>`}</div>`; }).join('')}</div>`;
 }
 
 const mb = (n) => `${(n / 1048576).toFixed(1)} MB`;

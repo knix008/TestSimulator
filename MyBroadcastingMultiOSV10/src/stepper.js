@@ -1,5 +1,5 @@
 // Number input used everywhere a value is typed (settings, toolbar, panels):
-//   [ − ]  value  [ + ]
+//   [ − ]  value  unit  [ + ]
 // The value sits in the middle (centred, editable). The buttons step it, and
 // keep stepping while held down. ArrowUp/ArrowDown in the field step too.
 import { icon } from './icons.js';
@@ -12,11 +12,12 @@ const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ 
  */
 export function stepperHtml({ key, value, min = 0, max = 100, step = 1, unit = '', label = '', decreaseTip = '', increaseTip = '', disabled = false, id = '' }) {
   const off = disabled ? 'disabled' : '';
-  // Wide enough for the longest value with its unit ("100000kb/s" must not be cut).
-  const chars = Math.max(String(max).length, String(min).length, String(value).length) + String(unit).length;
+  const chars = Math.max(String(max).length, String(min).length, String(value).length);
+  const inputLabel = unit ? `${label} (${unit})` : label;
   return `<span class="stepper ${disabled ? 'disabled' : ''}" data-stepper="${escapeHtml(key)}" data-min="${min}" data-max="${max}" data-step="${step}" data-unit="${escapeHtml(unit)}" title="${escapeHtml(label)}">
     <button type="button" class="stepper-button" data-step-dir="-1" title="${escapeHtml(decreaseTip || `${label} −${step}`)}" aria-label="${escapeHtml(decreaseTip || `${label} −${step}`)}" ${off} ${Number(value) <= min ? 'data-at-limit' : ''}>${icon('minus')}</button>
-    <input class="stepper-value" ${id ? `id="${escapeHtml(id)}"` : ''} style="min-width: calc(${chars}ch + 14px)" type="text" inputmode="decimal" value="${escapeHtml(`${value}${unit}`)}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}" ${off} />
+    <input class="stepper-value" ${id ? `id="${escapeHtml(id)}"` : ''} style="min-width: calc(${chars}ch + 14px)" type="text" inputmode="decimal" value="${escapeHtml(value)}" aria-label="${escapeHtml(inputLabel)}" title="${escapeHtml(label)}" ${off} />
+    ${unit ? `<span class="stepper-unit" aria-hidden="true">${escapeHtml(unit)}</span>` : ''}
     <button type="button" class="stepper-button" data-step-dir="1" title="${escapeHtml(increaseTip || `${label} +${step}`)}" aria-label="${escapeHtml(increaseTip || `${label} +${step}`)}" ${off} ${Number(value) >= max ? 'data-at-limit' : ''}>${icon('plus')}</button>
   </span>`;
 }
@@ -37,12 +38,15 @@ export function clampStep(value, { min, max, step }) {
 
 export function stepperValue(element) {
   const input = element.querySelector('.stepper-value');
-  return clampStep(parseFloat(String(input.value).replace(/[^0-9.+-]/g, '')), limits(element));
+  const { unit } = limits(element);
+  const text = String(input.value).trim();
+  const number = unit && text.endsWith(unit) ? text.slice(0, -unit.length) : text;
+  return clampStep(parseFloat(number.replace(/[^0-9.+-]/g, '')), limits(element));
 }
 
 function show(element, value) {
-  const { unit, min, max } = limits(element);
-  element.querySelector('.stepper-value').value = `${value}${unit}`;
+  const { min, max } = limits(element);
+  element.querySelector('.stepper-value').value = String(value);
   const [down, up] = element.querySelectorAll('.stepper-button');
   down.toggleAttribute('data-at-limit', value <= min);
   up.toggleAttribute('data-at-limit', value >= max);

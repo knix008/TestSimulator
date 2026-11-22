@@ -284,22 +284,6 @@ fn viewer_stop() {
     viewers::stop();
 }
 
-/// Keeps this program's windows out of screen captures (Windows 10 2004+: left out of the picture; macOS:
-/// not shared), so capturing the screen does not show the studio inside itself. `all`: every window but the
-/// virtual camera (other programs share that one); otherwise only the calling window.
-#[tauri::command]
-fn set_capture_hidden(app: AppHandle, window: tauri::WebviewWindow, hidden: bool, all: Option<bool>) {
-    if all.unwrap_or(false) {
-        for (label, w) in app.webview_windows() {
-            if label != "projector-vcam" {
-                let _ = w.set_content_protected(hidden);
-            }
-        }
-    } else if window.label() != "projector-vcam" {
-        let _ = window.set_content_protected(hidden);
-    }
-}
-
 /// Browser sources as real pages (Windows / WebView2): see browser_source.rs.
 #[tauri::command]
 fn browser_supported() -> bool {
@@ -1169,7 +1153,6 @@ pub fn run() {
             viewer_start,
             viewer_send,
             viewer_stop,
-            set_capture_hidden,
             browser_supported,
             browser_open,
             browser_close,

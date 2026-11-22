@@ -15,9 +15,6 @@ import { installTooltips } from './ui/tooltip.js';
 resetForNewInstall(globalThis.localStorage, globalThis.__MYBROADCASTING_INSTALL_RESET__);
 applyInstallLanguage(globalThis.localStorage, globalThis.__MYBROADCASTING_INSTALL_LANGUAGE__);
 const settings = loadSettings(globalThis.localStorage);
-// This program's windows stay out of screen captures (a capture of the screen would show the studio inside
-// itself, again and again). The virtual camera window is left alone: other programs share it.
-if (window.__TAURI_INTERNALS__ && !new URLSearchParams(location.search).has('vcam')) window.__TAURI_INTERNALS__.invoke('set_capture_hidden', { hidden: settings.hideFromCapture !== false }).catch(() => {});
 setLanguage(settings.language);
 // Before the first paint, so no window flashes in the wrong colours.
 applyTheme(resolveTheme(settings.theme, globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches, settings.customTheme));

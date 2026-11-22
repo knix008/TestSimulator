@@ -34,6 +34,7 @@ export class AudioMixer {
     this.elementSources = new WeakMap();
     this.pushed = new Set();
     this.active = new Set();
+    this.suppressed = new Set();
     this.ready = null;
   }
 
@@ -187,12 +188,14 @@ export class AudioMixer {
     ch.monoIn.channelCount = a.mono ? 1 : 2;
     ch.monoIn.channelCountMode = 'explicit';
     ch.monoIn.channelInterpretation = 'speakers';
-    const audible = this.isAudible(source);
-    ch.mute.gain.setTargetAtTime(audible ? 1 : 0, t, 0.01);
+    const suppressed = this.suppressed.has(source.id);
+    const audible = !suppressed && this.isAudible(source);
+    if (suppressed) { ch.mute.gain.cancelScheduledValues(t); ch.mute.gain.setValueAtTime(0, t); }
+    else ch.mute.gain.setTargetAtTime(audible ? 1 : 0, t, 0.01);
     const toOutput = a.monitor !== 'monitorOnly';
     const active = this.active.has(source.id) || source.global;
     // Tracks and monitoring switch at once; the routing is kept for the meters and tests.
-    ch.routing = { tracks: a.tracks.map((on) => Boolean(toOutput && active && on)), monitor: a.monitor !== 'off' };
+    ch.routing = { tracks: a.tracks.map((on) => Boolean(!suppressed && toOutput && active && on)), monitor: !suppressed && a.monitor !== 'off' };
     ch.trackGains.forEach((g, i) => { g.gain.cancelScheduledValues(t); g.gain.value = ch.routing.tracks[i] ? 1 : 0; });
     ch.monitor.gain.cancelScheduledValues(t);
     ch.monitor.gain.value = ch.routing.monitor ? 1 : 0;
@@ -214,8 +217,9 @@ export class AudioMixer {
   }
 
   /** The sources in the program (and global ones) reach the tracks; the others only their meters. */
-  setActive(ids, sources) {
+  setActive(ids, sources, suppressed = new Set()) {
     this.active = new Set(ids);
+    this.suppressed = new Set(suppressed);
     for (const s of sources) this.configure(s);
   }
 

@@ -116,7 +116,8 @@ export class Studio {
 
   syncAudioActivity() {
     if (!this.mixerReady) return;
-    this.mixer.setActive(this.engine.audibleProgram, Object.values(this.c.sources).filter((s) => s.audio));
+    const suppressed = [...this.engine.controlStates].filter(([, state]) => state !== 'running').map(([id]) => id);
+    this.mixer.setActive(this.engine.audibleProgram, Object.values(this.c.sources).filter((s) => s.audio), suppressed);
   }
 
   /** Global audio devices (Settings › Audio): sources shown in the mixer whatever the scene. */
@@ -570,7 +571,9 @@ export class Studio {
       if (b === 'ptt' || b === 'ptm') { this.mixer?.push(b, src, pressed); return true; }
       if (!pressed) return false;
       if (b === 'mute' || b === 'unmute') { this.setAudio(a, { muted: b === 'mute' }); this.emit('changed', { label: 'mute' }); return true; }
-      this.engine.runtime(a)?.control(b);
+      const rt = this.engine.runtime(a);
+      if (rt?.runState !== 'running') return false;
+      rt.control(b);
       return true;
     }
     if (!pressed) return false;
