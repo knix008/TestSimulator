@@ -51,8 +51,10 @@ export function loadKernel({ wasmUrl = null, onProgress = null } = {}) {
         const fontUrl = (await import('@fontsource/roboto/files/roboto-latin-400-normal.woff?url')).default;
         bytes = await (await fetch(fontUrl)).arrayBuffer();
       }
-      await R.loadFont(bytes, 'roboto');
+      await R.loadFont(bytes.slice(0), 'roboto');
       fontReady = true;
+      // The drawing sheet's other fonts (Roboto Bold, the Korean font) and Roboto kept for embedding in SVG.
+      try { await (await import('./text-metrics.js')).loadDrawingFonts(bytes); } catch (error) { console.warn('drawing fonts', error); }
     } catch (error) { console.warn('sketch text font', error); }
     // STEP writing prints transfer statistics on the console: not wanted in the app.
     ready = true;

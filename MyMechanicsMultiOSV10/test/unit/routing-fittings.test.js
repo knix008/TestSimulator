@@ -5,8 +5,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadKernel, rep } from '../../src/cad/kernel.js';
 import {
-  routeBom, routeSolid, routeLayout, reducerChain, teeOutlet, lateralTakeouts, saddleCutBack, reducingElbowSolid, sectionVolume,
-  REDUCER_H, REDUCING_TEE_M, REDUCING_ELBOWS,
+  routeBom, routeSolid, routeLayout, reducerChain, teeOutlet, lateralTakeouts, saddleCutBack, reducingElbowSolid, reducingElbowVolume, sectionVolume,
+  REDUCER_H, REDUCING_TEE_M, REDUCING_ELBOWS, LATERAL_STD,
 } from '../../src/cad/routing.js';
 import { PIPES, stdShape } from '../../src/cad/stdparts.js';
 import { countSolids } from '../../src/cad/part-more.js';
@@ -83,8 +83,18 @@ test('45° lateral: take-outs from the geometry, the branch clears the run exact
   near(min, ro, 1e-9);
   const bom = routeBom(f);
   assert.deepEqual(rows(bom, 'lateral').map((r) => [r.size, r.angle]), [['DN50', 45]]);
-  assert.deepEqual(rows(bom, 'pipe').map((r) => r.length), [r1(150 - t.short), r1(250 - t.long), r1(200 * Math.SQRT2 - t.branch)]);
-  assert.ok(bom.notes.includes('lateral'));
+  // At 45° the standard dimensions (B16.5 Table 9: EE long and branch, FF short), which clear the geometry.
+  const std = LATERAL_STD.DN50;
+  assert.deepEqual(std, { AA: 114, EE: 203, FF: 64 });
+  assert.ok(std.EE >= t.clear && std.EE >= t.x2 && std.FF >= Math.max(-t.x1, ro * Math.SQRT1_2));
+  assert.deepEqual(rows(bom, 'pipe').map((r) => r.length), [r1(150 - std.FF), r1(250 - std.EE), r1(200 * Math.SQRT2 - std.EE)]);
+  assert.ok(!bom.notes.includes('lateral'), 'a standard lateral needs no note');
+  // At 30° (no standard size): fabricated, the geometric take-outs and a note.
+  const c30 = 200 / Math.tan(Math.PI / 6);
+  const g = routeBom({ ...f, points: [[0, 0, 0], [600, 0, 0]], branches: [{ points: [[150, 0, 0], [150 + c30, 0, 200]] }] });
+  const t30 = lateralTakeouts(ro, ro, Math.PI / 6);
+  assert.deepEqual(rows(g, 'pipe').map((r) => r.length), [r1(150 - t30.short), r1(450 - t30.long), r1(400 - t30.branch)]);
+  assert.ok(g.notes.includes('lateral'));
   const r = routeSolid(f, [], stdShape);
   assert.equal(countSolids(r.shape), 4);
   const [lo, hi] = r.shape.boundingBox.bounds;
@@ -99,9 +109,11 @@ test('size change at a 90° elbow corner: a B16.9 reducing elbow (centre to end 
   assert.deepEqual(rows(bom, 'reducingElbow').map((r) => r.size), ['DN50×DN25']);
   assert.deepEqual(rows(bom, 'pipe').map((r) => r.length), [r1(300 - A), r1(300 - A)]);
   const L = ring('DN50'); const S = ring('DN25');
-  const el = reducingElbowSolid([0, 0, 300], { d1: [0, 0, 1], d2: [1, 0, 0], R: A, secA: L, secB: S, n: 12 });
+  const el = reducingElbowSolid([0, 0, 300], { d1: [0, 0, 1], d2: [1, 0, 0], R: A, secA: L, secB: S });
   const q = (a, b) => (a * a + a * b + b * b) / 3;
-  near(V(el), A * (Math.PI / 2) * Math.PI * (q(L.ro, S.ro) - q(L.ri, S.ri)), 2e-3);
+  const exact = A * (Math.PI / 2) * Math.PI * (q(L.ro, S.ro) - q(L.ri, S.ri));
+  near(reducingElbowVolume(A, Math.PI / 2, L.ro, S.ro, L.ri, S.ri), exact, 1e-12);
+  near(V(el), exact, 1e-6);
   // The end faces: square to the legs, A from the corner, the large and small sections.
   const ends = el.faces.filter((x) => x.geomType === 'PLANE').map((x) => { const c = x.center; return { c: [c.x, c.y, c.z], area: R.measureArea(x) }; });
   const at = (p) => ends.find((e) => Math.hypot(e.c[0] - p[0], e.c[1] - p[1], e.c[2] - p[2]) < 1e-6);
@@ -132,4 +144,35 @@ test('tube saddles at an angle: the long-point cut-back, 90° = √(R² − r²)
   assert.equal(rows(bom, 'tube')[1].length, r1(100 * Math.SQRT2 - saddleCutBack(10, 6, Math.PI / 4)));
   assert.equal(rows(bom, 'saddle')[0].angle, 45);
   assert.equal(countSolids(routeSolid(f, [], stdShape).shape), 1);
+});
+
+test('Y junctions without a straight run: a 90° true "Y" with standard dimensions, other Ys fabricated', () => {
+  const k = 200 * Math.SQRT1_2;
+  // Inlet along +X into the node, outlets ±45° from its way on, in one plane: a true Y (AA outlets, FF inlet).
+  const f = { kind: 'pipe', dn: 'DN50', points: [[0, 0, 0], [300, 0, 0], [300 + k, 0, k]], branches: [{ points: [[300, 0, 0], [300 + k, 0, -k]] }] };
+  const { J } = routeLayout(f);
+  const y = J.find((j) => j.kind === 'wye');
+  assert.ok(y && y.fitting.trueY);
+  const std = LATERAL_STD.DN50;
+  const bom = routeBom(f);
+  assert.deepEqual(rows(bom, 'trueY').map((r) => [r.size, r.angle]), [['DN50', 90]]);
+  assert.deepEqual(rows(bom, 'pipe').map((r) => r.length), [r1(300 - std.FF), r1(200 - std.AA), r1(200 - std.AA)]);
+  const r = routeSolid(f, [], stdShape);
+  assert.equal(countSolids(r.shape), 4);
+  // An unequal Y (30° and 60° off the way on): fabricated, each leg clears the others plus one radius.
+  const a = Math.PI / 6; const b = Math.PI / 3;
+  const g = { kind: 'pipe', dn: 'DN25', points: [[0, 0, 0], [300, 0, 0], [300 + 200 * Math.cos(a), 200 * Math.sin(a), 0]], branches: [{ points: [[300, 0, 0], [300 + 200 * Math.cos(b), -200 * Math.sin(b), 0]] }] };
+  const w = routeLayout(g).J.find((j) => j.kind === 'wye').fitting;
+  assert.equal(w.trueY, false);
+  const ro = PIPES.DN25.od / 2;
+  const legL = (gams) => Math.max(2 * ro, ...gams.map((x) => (ro + ro * Math.cos(x)) / Math.sin(x) + ro));
+  // Angles between the legs (out of the node): inlet–outlet1 150°, inlet–outlet2 120°, outlet1–outlet2 90°.
+  const deg = (d) => (d * Math.PI) / 180;
+  near(w.legs[0].L, legL([deg(150), deg(120)]), 1e-9);
+  near(w.legs[1].L, legL([deg(150), deg(90)]), 1e-9);
+  near(w.legs[2].L, legL([deg(120), deg(90)]), 1e-9);
+  const gb = routeBom(g);
+  assert.deepEqual(rows(gb, 'wye').map((x) => x.angle), [90]);
+  assert.ok(gb.notes.includes('wye'));
+  assert.equal(countSolids(routeSolid(g, [], stdShape).shape), 4);
 });

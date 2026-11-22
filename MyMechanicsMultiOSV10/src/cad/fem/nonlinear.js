@@ -17,9 +17,10 @@
 //
 // Units: mm, N, MPa.
 
-import { buildModel, fixtureData, rotateMatrix, rotateVector, loadVector, elementX, modelGraph, surfaceField, fieldMax, recoverNodal, vonMisesField } from './model.js';
+import { buildModel, fixtureData, rotateMatrix, rotateVector, loadVector, addSprings, elementX, modelGraph, surfaceField, fieldMax, recoverNodal, vonMisesField } from './model.js';
 import { ruleOf, ruleDerivatives, gradients, vonMises } from './elements.js';
 import { csrFromGraph, assemble, applyDirichlet, multiply, solveSystem, dot } from './sparse.js';
+import { contactConstraints, addPenalty, addForce, tangents, vectorJump } from './contact.js';
 
 const SQ23 = Math.sqrt(2 / 3);
 
@@ -158,7 +159,7 @@ function internal(model, mats, u, state, trial, K, geometric) {
  */
 export function nonlinearStudy(input) {
   const { bodies, fixtures = [], loads = [], gravity = null, mesh = {}, geometric = true, history = null, steps = 8, maxNewton = 20, tol = 1e-6,
-    arcLength = null, track = null, onProgress = null, cancel = null, model: given = null } = input;
+    arcLength = null, track = null, onProgress = null, cancel = null, model: given = null, walls = [], contacts = 'none', friction = 0 } = input;
   if (!fixtures.length) return fail('no-fixtures');
   const report = (f, st) => onProgress?.(Math.min(1, Math.max(0, f)), st);
   const model = given ?? buildModel(bodies, mesh, (f) => report(0.15 * f, 'mesh'));
@@ -179,7 +180,80 @@ export function nonlinearStudy(input) {
   let fn = 0; for (let d = 0; d < fref.length; d++) fn += fref[d] * fref[d];
   if (!(fn > 0) && !anyPrescribed) return fail('no-loads', { model });
   const ndof = 3 * model.nn, ng = ruleOf(model.order).weights.length * model.ne;
-  const graph = modelGraph(model), K = csrFromGraph(graph, 3);
+  // Contact (finite sliding): constraints are re-projected from the current positions at every evaluation; the
+  // matrix pattern holds the couplings found within a wide search radius at the start.
+  const hasContact = (walls?.length ?? 0) > 0 || (contacts && contacts !== 'none');
+  const searchTol = 3 * model.size;
+  const cc0 = hasContact ? contactConstraints(model, { contacts, walls, tolerance: searchTol, friction }) : null;
+  const tiesRef = hasContact ? contactConstraints(model, { contacts, walls: [], friction, bondedStiffness: 300 }).list.filter((c) => c.type === 'bonded') : [];
+  const graph = cc0?.pairs ? modelGraph(model, cc0.pairs) : modelGraph(model), K = csrFromGraph(graph, 3);
+  // Committed contact state: normal multipliers (augmented Lagrangian, per slave node) and the stick anchors of the
+  // friction (per slave node, a point that moves when the node slips).
+  // Elastic supports (springs on faces): a constant stiffness.
+  const Ks = fx.springs.length ? csrFromGraph(graph, 3) : null;
+  if (Ks) addSprings(model, Ks, fx.springs);
+  const uC = new Float64Array(3 * model.nn);   // displacement at the last converged increment
+  let lamN = new Map(), anchors = new Map(), trialAnchors = new Map(), lastList = [], contactSum = [0, 0, 0], frictionSum = [0, 0, 0];
+  let contactAreaNow = 0;
+  let frozen = null, currentActive = new Set(), frozenFric = null, fricState = new Map();
+  const contactTerms = (r, withK, noFriction = false) => {
+    if (!hasContact) return;
+    if (!frozen) currentActive = new Set();
+    const pos = new Float64Array(model.nodes.length);
+    for (let d = 0; d < pos.length; d++) pos[d] = model.nodes[d] + u[d];
+    const { list } = contactConstraints(model, { contacts, walls, pos, friction, tolerance: Math.min(searchTol, model.size) });
+    lastList = list; trialAnchors = new Map(); contactSum = [0, 0, 0]; frictionSum = [0, 0, 0]; contactAreaNow = 0;
+    // Bonded ties keep their reference pairing (they must not slide): penalty on the relative displacement.
+    for (const c of tiesRef) { const g = vectorJump(c, u); for (let a = 0; a < 3; a++) if (g[a]) addForce(r, c, [a === 0 ? 1 : 0, a === 1 ? 1 : 0, a === 2 ? 1 : 0], -c.k * c.area * g[a]); if (withK) addPenalty(K, c); }
+    let nStick = 0, nSlip = 0, nAct = 0;
+    for (const c of list) {
+      if (c.type === 'bonded') continue;
+      const lam = lamN.get(c.s) ?? 0;
+      // Active set: open while Newton settles; frozen after a few iterations (a node may then carry a small tension,
+      // released by the next augmentation), so nodes at the contact edge cannot chatter between open and closed.
+      let p = lam - c.k * c.g0, act = p > 0 || c.g0 <= 1e-9 * model.size;
+      if (frozen) { act = frozen.has(c.s); } else { p = Math.max(0, p); currentActive.add(c.s); if (!act) currentActive.delete(c.s); }
+      if (!act) continue;
+      addForce(r, c, c.n, c.area * p); nAct++; if (p > 0) contactAreaNow += c.area;
+      for (let a = 0; a < 3; a++) contactSum[a] += c.area * p * c.n[a];
+      if (withK) addPenalty(K, c);
+      if (c.mu > 0 && c.wall && lam > 0 && !noFriction) {
+        const x = [pos[3 * c.s], pos[3 * c.s + 1], pos[3 * c.s + 2]], an = anchors.get(c.s) ?? [0, 1, 2].map((a) => model.nodes[3 * c.s + a] + uC[3 * c.s + a]);
+        let rel = [x[0] - an[0], x[1] - an[1], x[2] - an[2]];
+        const dn = rel[0] * c.n[0] + rel[1] * c.n[1] + rel[2] * c.n[2]; rel = rel.map((v, a) => v - dn * c.n[a]);
+        let tau = rel.map((v) => -c.k * v);
+        // The friction limit uses the normal multiplier of the last augmentation (fixed within Newton, so the
+        // tangent stays symmetric); the augmentations repeat the increment until it settles.
+        const tl = Math.hypot(...tau), lim = c.mu * lam;
+        let anchor = an, stick = true;
+        let slipNow = tl > lim;
+        if (frozenFric) slipNow = frozenFric.get(c.s) ?? slipNow; else fricState.set(c.s, slipNow);
+        if (slipNow && tl > 0) { tau = tau.map((v) => (v * lim) / tl); anchor = x.map((v, a) => v + tau[a] / c.k); stick = false; }
+        trialAnchors.set(c.s, anchor); if (stick) nStick++; else nSlip++;
+        const tl2 = Math.hypot(...tau);
+        if (tl2 > 0) { const dir = tau.map((v) => v / tl2); addForce(r, c, dir, c.area * tl2); }
+        for (let a = 0; a < 3; a++) frictionSum[a] += c.area * tau[a];
+        if (withK && stick) for (const t of tangents(c.n)) addPenalty(K, c, t);
+        else if (withK && tl > 0) {
+          // Slip (radial return): stiffness μp/|τ_trial|·k across the slip direction in the tangent plane, none along it.
+          const sd = tau.map((v) => v / Math.max(1e-300, Math.hypot(...tau))), side = [c.n[1] * sd[2] - c.n[2] * sd[1], c.n[2] * sd[0] - c.n[0] * sd[2], c.n[0] * sd[1] - c.n[1] * sd[0]];
+          addPenalty(K, c, side, c.k * c.area * (lim / tl));
+        }
+      } else trialAnchors.delete(c.s);
+    }
+  };
+  void 0;
+  /** After a converged increment: augment the normal multipliers; true when the penetration is already small. */
+  let frozenLast = null;
+  const augment = () => {
+    let worst = 0, change = 0, top = 1e-30;
+    const next = new Map();
+    let released = 0;
+    for (const c of lastList) { if (c.type !== 'contact') continue; const old = lamN.get(c.s) ?? 0, p = old - c.k * c.g0; if (p > 0) next.set(c.s, p); else if (frozenLast?.has(c.s)) released++; worst = Math.max(worst, -c.g0); change = Math.max(change, Math.abs(Math.max(0, p) - old)); top = Math.max(top, Math.max(0, p)); }
+    lamN = next;
+    const frictional = lastList.some((c) => c.mu > 0);
+    return !released && worst < 1e-4 * model.size && (!frictional || change < 1e-3 * top);
+  };
   let state = newState(ng), trial = newState(ng);
   const u = new Float64Array(ndof);
   const curve = [], convergence = [];
@@ -188,13 +262,15 @@ export function nonlinearStudy(input) {
   const flocal = local(fref);
   const fnorm = Math.sqrt(dot(flocal, flocal));
   /** Residual reference: the larger of the applied load and the internal force (reactions included), never 0. */
-  const refOf = (lam, fint) => Math.max(Math.abs(lam) * fnorm, Math.sqrt(dot(fint, fint)), 1e-9);
+  const refOf = (lam, fint) => Math.max(Math.max(Math.abs(lam), 0.05) * fnorm, Math.sqrt(dot(fint, fint)), 1e-9);
   /** Residual r = λ f − f_int (local frames, fixed dofs zero) and the tangent into K when asked. */
   const evaluate = (lam, withK) => {
     if (withK) K.val.fill(0);
     const fint = internal(model, mats, u, state, trial, withK ? K : null, geometric);
     const r = new Float64Array(ndof);
     for (let d = 0; d < ndof; d++) r[d] = lam * fref[d] - fint[d];
+    if (Ks) { const ku = multiply(Ks, u, new Float64Array(ndof)); for (let d = 0; d < ndof; d++) r[d] -= ku[d]; if (withK) for (let q = 0; q < K.val.length; q++) K.val[q] += Ks.val[q]; }
+    contactTerms(r, withK);
     rotateVector(r, fx.frames, true);
     for (let d = 0; d < ndof; d++) if (fx.fixed[d]) r[d] = 0;
     if (withK) { rotateMatrix(K, fx.frames); applyDirichlet(K, fx.fixed); Kpre = null; }
@@ -210,7 +286,7 @@ export function nonlinearStudy(input) {
   const record = (lam) => {
     const st = recoverNodal(model, trial.S, 6), vm = vonMisesField(st, model.nn), dm = fieldMax(model, u, 3), sm = fieldMax(model, vm, 1);
     const reaction = reactionOf(lam);
-    curve.push({ factor: lam, maxDisplacement: dm.value, maxStress: sm.value, reaction, probe: track ? trackValue(track) : null });
+    curve.push({ factor: lam, maxDisplacement: dm.value, maxStress: sm.value, reaction, probe: track ? trackValue(track) : null, contactForce: contactSum.slice(), frictionForce: frictionSum.slice() });
   };
   const reactionOf = (lam) => {
     const fint = internal(model, mats, u, state, newState(ng), null, geometric), out = [0, 0, 0];
@@ -233,6 +309,8 @@ export function nonlinearStudy(input) {
       // K_ff Δu_f = −K_fc Δu_c, obtained as Δu = K⁻¹(−K Δu_c) with the fixed rows / columns of the unconstrained tangent.
       K.val.fill(0);
       internal(model, mats, u, state, trial, K, geometric);
+      if (Ks) for (let q = 0; q < K.val.length; q++) K.val[q] += Ks.val[q];
+      contactTerms(new Float64Array(ndof), true, true);
       rotateMatrix(K, fx.frames);
       const rhs = multiply(K, du, new Float64Array(ndof));
       for (let d = 0; d < ndof; d++) rhs[d] = fx.fixed[d] ? du[d] : -rhs[d];
@@ -242,11 +320,13 @@ export function nonlinearStudy(input) {
       for (let d = 0; d < ndof; d++) if (fx.fixed[d]) s.x[d] = du[d];
       addDu(s.x);
     }
+    frozen = null; frozenFric = null;
     for (let it = 0; it < maxNewton; it++) {
+      if (hasContact && it === 4) { frozen = new Set(currentActive); frozenFric = new Map(fricState); }
       const { r, fint } = evaluate(lam, true);
       const rn = Math.sqrt(dot(r, r)) / refOf(lam, fint);
       res.push(rn);
-      if (rn < tol) return { ok: true, it, res };
+      if (rn < tol) { frozenLast = frozen; frozen = null; frozenFric = null; return { ok: true, it, res }; }
       if (!Number.isFinite(rn)) return { ok: false, it, res };
       const s = solveK(r);
       newtonTotal += 1;
@@ -258,7 +338,7 @@ export function nonlinearStudy(input) {
     res.push(rn);
     return { ok: rn < tol * 10, it: maxNewton, res };
   };
-  const commit = () => { const t = state; state = trial; trial = t; for (const k of ['ep', 'alpha', 'eqp', 'S', 'yielded']) trial[k].set(state[k]); };
+  const commit = () => { const t = state; state = trial; trial = t; for (const k of ['ep', 'alpha', 'eqp', 'S', 'yielded']) trial[k].set(state[k]); if (hasContact) { uC.set(u); for (const [n, a] of trialAnchors) anchors.set(n, a); for (const n of [...anchors.keys()]) if (!trialAnchors.has(n)) anchors.delete(n); } };
 
   if (!arcLength) {
     const path = history?.length ? history : [0, 1];
@@ -276,6 +356,7 @@ export function nonlinearStudy(input) {
           const r1 = newtonAt(0.5 * (lam0 + lam));
           if (r1.ok) { commit(); r = newtonAt(lam); }
         }
+        for (let aug = 0; hasContact && r.ok && aug < 12 && !augment(); aug++) r = newtonAt(lam);
         convergence.push({ factor: lam, residuals: r.res });
         if (r.cancelled) return fail('cancelled', { model });
         if (!r.ok) { failedAt = lam; break; }
@@ -349,13 +430,15 @@ export function nonlinearStudy(input) {
   let minFos = Infinity;
   for (let n = 0; n < model.nn; n++) { const y = mats[model.nodeBody[n]].yield; if (y > 0 && vm[n] > 0) minFos = Math.min(minFos, y / vm[n]); }
   report(1, 'done');
-  const ok = !failedAt;
+  const ok = failedAt === null;
   return {
     ok, error: ok ? null : 'not-converged', solver: 'tet', model, failedAt,
     nodes: model.nodes, displacement: u, nodeStress: vm, stress: nodal, equivalentPlasticStrain: eqpNodal,
     elements: model.ne, nodeCount: model.nn, elementSize: model.size, quality: model.quality,
     maxDisplacement: dm.value, maxDisplacementAt: dm.at, maxStress: sm.value, maxStressAt: sm.at, minFactorOfSafety: minFos,
     vertexDisplacement: surfaceField(model, u, 3, 0), vertexStress: surfaceField(model, vm, 1, 0), vertexPlasticStrain: surfaceField(model, eqpNodal, 1, 0),
+    bodies: model.bodies.map((p, b) => { let ms = 0; for (let n = p.nodeStart; n < p.nodeEnd; n++) ms = Math.max(ms, vm[n]); return { name: p.name, vertexDisplacement: surfaceField(model, u, 3, b), vertexStress: surfaceField(model, vm, 1, b), maxStress: ms }; }),
+    contact: hasContact ? { force: contactSum.slice(), friction: frictionSum.slice(), constraints: lastList.length, area: contactAreaNow, iterations: newtonTotal } : null,
     curve, convergence, newtonIterations: newtonTotal, yieldedElements, plasticFraction: yieldedElements / model.ne, yieldedPoints: yieldedPts,
   };
 }

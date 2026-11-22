@@ -84,13 +84,13 @@ function coverageOf(pts, fit) {
 }
 
 /** A model for recognition and toolpaths: the welded mesh, its bounds, faces, flat levels and a section cache. */
-export function machiningModel(mesh, { types = null } = {}) {
+export function machiningModel(mesh, { types = null, shape = null } = {}) {
   const welded = weldMesh(mesh);
   const bounds = meshBounds(welded);
   const size = Math.max(1, Math.hypot(bounds.hi[0] - bounds.lo[0], bounds.hi[1] - bounds.lo[1], bounds.hi[2] - bounds.lo[2]));
   const cache = new Map();
   const model = {
-    mesh, welded, bounds, size, faces: faceInfos(mesh, types), levels: flatLevels(welded),
+    mesh, welded, bounds, size, faces: faceInfos(mesh, types), levels: flatLevels(welded), shape,
     eps: Math.max(1e-3, size * 2e-5),
     slice(z) { const k = round(z, 1e5); if (!cache.has(k)) { if (cache.size > 600) cache.clear(); cache.set(k, sliceMesh(welded, z)); } return cache.get(k); },
     grid: null,

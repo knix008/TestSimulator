@@ -64,6 +64,7 @@ export const ICONS_MFG = {
   plTemperature: '<path d="M10 14V4a2 2 0 0 1 4 0v10a4 4 0 1 1-4 0z"/><path d="M12 10v6"/><path d="M17 6h3M17 9h3" opacity="0.6"/>',
   plWeld: '<rect x="3" y="6" width="18" height="12" rx="1.5"/><path d="M12 6v12" stroke-dasharray="2 1.6" stroke-width="2.2"/><path d="M5 12h4M8 10.5L9.5 12 8 13.5M19 12h-4M16 10.5L14.5 12l1.5 1.5"/>',
   plAirTraps: '<rect x="3" y="5" width="18" height="14" rx="1.5"/><circle cx="12" cy="12" r="3"/><circle cx="11" cy="11" r="0.8" fill="currentColor"/><path d="M7 8l2 2M17 8l-2 2M7 16l2-2M17 16l-2-2" opacity="0.6"/>',
+  plShrink: '<rect x="3" y="3" width="18" height="18" rx="1.5" stroke-dasharray="2 1.6"/><rect x="7" y="7" width="10" height="10" rx="1"/><path d="M4 4l3 3M20 4l-3 3M4 20l3-3M20 20l-3-3"/>',
   plSink: '<path d="M3 8h6c1 0 1.5 3 3 3s2-3 3-3h6"/><path d="M3 8v11h18V8"/><path d="M12 14v3M10.5 15.5L12 17l1.5-1.5" opacity="0.7"/>',
   plReport: '<rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M7 16c2-3 3-1 5-4s3-1 5-4" stroke-width="2"/><path d="M7 7h5"/>',
   plCooling: '<path d="M12 3v18M4.5 7.5l15 9M19.5 7.5l-15 9"/><path d="M10 4.5l2 2 2-2M10 19.5l2-2 2 2" opacity="0.7"/>',

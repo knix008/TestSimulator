@@ -71,9 +71,14 @@ export function cleanLoop(loop, tol = 1e-7) {
   let changed = true;
   while (changed && pts.length > 3) {
     changed = false;
-    const out = [];
-    for (let i = 0, n = pts.length; i < n; i++) {
-      const a = out.length ? out.at(-1) : pts[(i - 1 + n) % n]; const b = pts[i]; const c = pts[(i + 1) % n];
+    // Start at the sharpest corner and keep it: every later point is then judged against a kept one (judged
+    // against removed neighbours, a ring of points each within tol of its neighbours' line could all go).
+    const n0 = pts.length; let start = 0; let sharp = -1;
+    for (let i = 0; i < n0; i++) { const p0 = pts[(i - 1 + n0) % n0]; const p1 = pts[i]; const p2 = pts[(i + 1) % n0]; const u = sub(p1, p0); const v = sub(p2, p1); const h = Math.abs(cross(u, v)) / Math.max(1e-300, len(u) + len(v)); if (h > sharp) { sharp = h; start = i; } }
+    pts = [...pts.slice(start), ...pts.slice(0, start)];
+    const out = [pts[0]];
+    for (let i = 1, n = pts.length; i < n; i++) {
+      const a = out.at(-1); const b = pts[i]; const c = pts[(i + 1) % n];
       const ab = sub(b, a); const bc = sub(c, b);
       const lab = len(ab); const lbc = len(bc);
       if (lab < tol || lbc < tol) { changed = true; continue; }
@@ -197,7 +202,12 @@ export function offsetLoops(loops, delta, { tol = 0.005 } = {}) {
       }
       if (dist(A, B) > 1e-12) pts.push(B);
     }
-    raw.push(pts);
+    // Points that round to the same key as the one before (chainPieces joins by 1e-6 keys) are one point: at a tiny
+    // offset the corner arcs are that small, and keeping both would break the chain.
+    const kept = [];
+    for (const p of pts) if (!kept.length || keyOf(p) !== keyOf(kept.at(-1))) kept.push(p);
+    while (kept.length > 1 && keyOf(kept[0]) === keyOf(kept.at(-1))) kept.pop();
+    raw.push(kept);
   }
   // 2. Raw segments, cut at every crossing with another raw segment.
   const segs = [];
@@ -638,3 +648,37 @@ export function resample(pts, step, closed = false) {
 }
 
 export const geom2 = { sub, cross, dot, len, dist, EPS };
+
+/** Distance from a 3D point to a triangle (Ericson, Real-Time Collision Detection 5.1.5). */
+export function pointTriangleDistance(p, a, b, c) {
+  const sub3 = (u, v) => [u[0] - v[0], u[1] - v[1], u[2] - v[2]];
+  const dot3 = (u, v) => u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+  const ab = sub3(b, a); const ac = sub3(c, a); const ap = sub3(p, a);
+  const d1 = dot3(ab, ap); const d2 = dot3(ac, ap);
+  const at = (q) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
+  if (d1 <= 0 && d2 <= 0) return at(a);
+  const bp = sub3(p, b); const d3 = dot3(ab, bp); const d4 = dot3(ac, bp);
+  if (d3 >= 0 && d4 <= d3) return at(b);
+  const vc = d1 * d4 - d3 * d2;
+  if (vc <= 0 && d1 >= 0 && d3 <= 0) { const v = d1 / (d1 - d3); return at([a[0] + ab[0] * v, a[1] + ab[1] * v, a[2] + ab[2] * v]); }
+  const cp = sub3(p, c); const d5 = dot3(ab, cp); const d6 = dot3(ac, cp);
+  if (d6 >= 0 && d5 <= d6) return at(c);
+  const vb = d5 * d2 - d1 * d6;
+  if (vb <= 0 && d2 >= 0 && d6 <= 0) { const w = d2 / (d2 - d6); return at([a[0] + ac[0] * w, a[1] + ac[1] * w, a[2] + ac[2] * w]); }
+  const va = d3 * d6 - d5 * d4;
+  if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) { const w = (d4 - d3) / ((d4 - d3) + (d5 - d6)); return at([b[0] + (c[0] - b[0]) * w, b[1] + (c[1] - b[1]) * w, b[2] + (c[2] - b[2]) * w]); }
+  const den = 1 / (va + vb + vc); const v = vb * den; const w = vc * den;
+  return at([a[0] + ab[0] * v + ac[0] * w, a[1] + ab[1] * v + ac[1] * w, a[2] + ab[2] * v + ac[2] * w]);
+}
+
+/** Distance from a point to the mesh surface, searched out to `limit` (Infinity when nothing is that close). */
+export function meshDistance(grid, p, limit) {
+  let best = Infinity;
+  grid.each(p[0] - limit, p[1] - limit, p[0] + limit, p[1] + limit, (t) => {
+    if (grid.zmax[t] < p[2] - Math.min(best, limit)) return true;
+    const d = pointTriangleDistance(p, ...grid.tri(t));
+    if (d < best) best = d;
+    return true;
+  });
+  return best;
+}

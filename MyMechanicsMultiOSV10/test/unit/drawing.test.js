@@ -56,14 +56,14 @@ const triArea = (t) => Math.abs((t[2] - t[0]) * (t[5] - t[1]) - (t[4] - t[0]) * 
 test('old drawings render exactly as the original module did (SVG and DXF)', () => {
   // Hashes taken from the module before section / detail / annotation support was added (the SVG); the DXF ones
   // since it also writes what the sheet shows around the views (overall view dimensions, the frame's zone marks);
-  // the SVG ones since the sheet names its font (Roboto, the font its texts are measured with) — the only change.
+  // the SVG ones since the sheet names its fonts (Roboto and the Korean ones its texts are measured with) — the only change.
   const d = createDrawing({ id: 'd', name: 'D', source: { kind: 'part', id: 'p' }, title: { date: '2026-01-01' } });
   d.views.push({ id: 'v-left', type: 'left' }, { id: 'v-bottom', type: 'bottom' });
   const box = (w, h) => ({ visible: ['M 0 0 L 1 1', `M 0 0 L ${w} 0 L ${w} -${h} Z`], hidden: ['M 0 0 L 2 2'], box: { x0: 0, y0: 0, x1: w, y1: h } });
   const synthetic = new Map([['v-front', box(400, 100)], ['v-top', box(400, 80)], ['v-right', box(80, 100)], ['v-iso', box(300, 200)], ['v-left', box(80, 100)], ['v-bottom', box(400, 80)]]);
   delete d.annotations; delete d.bom; // files saved before these fields existed
-  assert.equal(sha(drawingSvg(d, synthetic, { labels: { 'view.top': 'TOP' }, info: { name: 'N' } })), '0b151d89b43232eddb8ace60c2b2c25a9ef9beb7d344f4c7319d56b2ad4754e5');
-  assert.equal(sha(drawingSvg(d, synthetic, { labels: { 'view.top': 'TOP' }, info: { name: 'N' } }).replaceAll('Roboto,', '')), 'dce34cc374ad5c039c8b9c8b379e06bea348926de7812a2fe4aab64dbf92d03e', 'without the font name: the original');
+  assert.equal(sha(drawingSvg(d, synthetic, { labels: { 'view.top': 'TOP' }, info: { name: 'N' } })), 'c67acdecfdd294e658fb114da6bc340c35f2be57c708ea710b12f53293daff46');
+  assert.equal(sha(drawingSvg(d, synthetic, { labels: { 'view.top': 'TOP' }, info: { name: 'N' } }).replaceAll('Roboto,"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",', '')), 'dce34cc374ad5c039c8b9c8b379e06bea348926de7812a2fe4aab64dbf92d03e', 'without the font name: the original');
   assert.equal(sha(drawingDxf(d, synthetic)), '0bcb0e154f4abf91043815d4206c01e5b61fcfb60deb728f355cbfc9f4e9b428');
 
   // A real part through the kernel, every standard view, then other sheet settings. The hashes were taken with
@@ -74,10 +74,10 @@ test('old drawings render exactly as the original module did (SVG and DXF)', () 
   const projections = new Map(k.views.map((v) => [v.id, projectView(body, v.type)]));
   assert.equal(sha(JSON.stringify([...projections].map(([id, p]) => [id, p.visible, p.hidden, p.box]))), 'c1278f22473afeb3e8f273e017161ce24d29c4ad2ac2abcacb9b391931a3b7f2');
   const labels = { 'view.front': '정면도', 'title.name': '이름' };
-  assert.equal(sha(drawingSvg(k, projections, { labels, info: { name: 'Box', material: 'Steel', mass: '1 g' }, selected: 'v-top' })), '0cd9e2ba36e5d5c25298654b074384dab80506eee8a48e6b575c1c442d52495a');
+  assert.equal(sha(drawingSvg(k, projections, { labels, info: { name: 'Box', material: 'Steel', mass: '1 g' }, selected: 'v-top' })), '74d1e5b15b939804ce5ac766856b54a35d28c4f8545c60858f784201b640448a');
   assert.equal(sha(drawingDxf(k, projections)), '3bf033d05ecf486716bbb0eda602028dff2b75ad1ffa0013016be77193ae850e');
   k.projection = 'first'; k.showHidden = false; k.showDims = false; k.autoScale = false; k.scale = 0.5; k.sheet = 'A4';
-  assert.equal(sha(drawingSvg(k, projections)), '861b80ddd6ab083e9bb63b25d6026bc458cc525f82457c5dafbe5fe61172bb6e');
+  assert.equal(sha(drawingSvg(k, projections)), '4ce0628e27433b1942df4ac047c28684bc059fd6b0f3a3570ecb9bc10b95bb14');
   assert.equal(sha(drawingDxf(k, projections)), 'cc514b237454df21130238d6e829fbf643b90711fb89dd64f82d04e902137c95');
   // projectView with the view object of a standard view is the same projection.
   assert.deepEqual(projectView(body, 'front', { id: 'v', type: 'front' }), projections.get('v-front'));

@@ -8,12 +8,13 @@
 //     (drawing.format: { standard: 'ISO' | 'ANSI', zones }: zone numbers and letters in the border).
 // Dimensions and centre marks are in drawing-dims.js; this file assembles everything for one sheet.
 import { SHEETS, annotationPrimitives, scaleLabel } from './drawing.js';
-import { viewFrames, dimPrimitives, centerPrimitives, dimLabel } from './drawing-dims.js';
+import { viewFrames, dimPrimitives, centerPrimitives, dimLabel, resolveLegacyDims } from './drawing-dims.js';
 import { primsBox } from './drawing-snap.js';
+import { harnessPrimitives } from './harness-sheet.js';
 import { textWidth } from './text-metrics.js';
 
 /** The annotation kinds drawn here (the base drawing code draws nothing for them). */
-export const DRW_KINDS = new Set(['drwDim', 'drwCenter', 'drwWeld', 'drwTable']);
+export const DRW_KINDS = new Set(['drwDim', 'drwCenter', 'drwWeld', 'drwTable', 'drwHarness']);
 export const WELD_SYMBOLS = ['fillet', 'square', 'vGroove', 'bevel', 'uGroove', 'jGroove', 'flareV', 'plug', 'spot', 'seam'];
 export const WELD_SIDES = ['arrow', 'other', 'both'];
 export const WELD_CONTOURS = ['none', 'flat', 'convex', 'concave'];
@@ -251,6 +252,8 @@ export function applySheetFormat(d, { standard = 'ISO', sheet = null, projection
  */
 export function drwItems(sd, projections) {
   const { scale, frames } = viewFrames(sd, projections);
+  // Dimensions of broken views from older files: into true coordinates before anything uses them (once).
+  resolveLegacyDims(sd, frames);
   const iso = (sd.format?.standard ?? 'ISO') !== 'ANSI';
   const items = [];
   for (const a of sd.annotations ?? []) {
@@ -263,6 +266,7 @@ export function drwItems(sd, projections) {
         prims = a.kind === 'drwDim' ? dimPrimitives(a, fr, { size: Number(a.size) > 0 ? Number(a.size) : 3.2 }) : centerPrimitives(a, fr);
       } else if (a.kind === 'drwWeld') prims = weldPrimitives(a, { iso });
       else if (a.kind === 'drwTable') prims = tablePrimitives(a);
+      else if (a.kind === 'drwHarness') prims = harnessPrimitives(a);
     } catch { prims = []; }
     items.push({ a, prims, color: colorOf(sd, a), layer: layerOf(sd, a), visible: annotationVisible(sd, a) });
   }
@@ -272,7 +276,7 @@ export function drwItems(sd, projections) {
 const OVERLAY_CSS = `<style>
     .dx-line{fill:none;stroke-width:.25;stroke-linejoin:round;stroke-linecap:round}.dx-thin{fill:none;stroke-width:.18;stroke-linecap:round}
     .dx-center{fill:none;stroke-width:.18;stroke-dasharray:6 1.2 1.2 1.2}.dx-dash{fill:none;stroke-width:.25;stroke-dasharray:1.6 1}
-    .dx-text{font-family:Roboto,sans-serif}.dx-bold{font-weight:bold}.dx-format{font-family:Roboto,sans-serif;fill:#000}
+    .dx-text{font-family:Roboto,"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif}.dx-bold{font-weight:bold}.dx-format{font-family:Roboto,"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif;fill:#000}
     .annotation.selected .dx-line,.annotation.selected .dx-thin,.annotation.selected .dx-center,.annotation.selected .dx-dash{stroke:#1e88e5}
     .annotation.selected .dx-fill,.annotation.selected .dx-text{fill:#1e88e5}
   </style>`;
@@ -377,7 +381,7 @@ export function injectDxf(dxf, layers, entities) {
 export function drwDxf(dxf, sd, projections, { info = {}, labels = {}, layered = [] } = {}) {
   const [W, H] = SHEETS[sd.sheet] ?? SHEETS.A3;
   const { items, format, scale } = drwItems(sd, projections);
-  const DEF = { drwDim: 'DIMENSIONS', drwCenter: 'CENTER', drwWeld: 'WELDS', drwTable: 'TABLES' };
+  const DEF = { drwDim: 'DIMENSIONS', drwCenter: 'CENTER', drwWeld: 'WELDS', drwTable: 'TABLES', drwHarness: 'HARNESS' };
   const layers = new Map();
   const ents = [];
   const use = (name, color, off = false, linetype) => { if (!layers.has(name)) layers.set(name, { name, color, off, linetype }); return name; };
@@ -408,6 +412,7 @@ export function drwSummary(sd) {
  */
 export function annotationBoxes(sd, projections) {
   const { scale, frames } = viewFrames(sd, projections ?? new Map());
+  resolveLegacyDims(sd, frames);
   const iso = (sd.format?.standard ?? 'ISO') !== 'ANSI';
   const out = [];
   for (const a of sd.annotations ?? []) {
@@ -421,6 +426,7 @@ export function annotationBoxes(sd, projections) {
         anchor = a.kind === 'drwDim' ? [fr.place.cx + (Number(a.x) || 0), fr.place.cy + (Number(a.y) || 0)] : null;
       } else if (a.kind === 'drwWeld') prims = weldPrimitives(a, { iso });
       else if (a.kind === 'drwTable') prims = tablePrimitives(a);
+      else if (a.kind === 'drwHarness') prims = harnessPrimitives(a);
       else prims = annotationPrimitives(a, { scale });
     } catch { prims = []; }
     const textOnly = a.kind === 'note' || a.kind === 'drwDim' || a.kind === 'dimension';

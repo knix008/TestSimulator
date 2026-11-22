@@ -365,13 +365,24 @@ export function createMoreTools(ctx) {
     if (!e.loads.length) { notify('error', t('sim.error.no-loads')); return; }
     const material = feaMaterial(p, e);
     const resolution = Math.max(8, Math.min(e.study === 'buckling' ? 80 : 140, Math.round(e.resolution)));
-    const result = await ctx.withProgress('progress.simulation', p.name, async (op, report) => {
-      await new Promise((r) => setTimeout(r, 30));
-      const onProgress = (f) => report({ fraction: f, text: t('progress.solving') });
-      if (e.study === 'buckling') return buckling(entry.mesh, { material, fixtures: e.fixtures.map((x) => x.faceId), loads: loadsOf(e), resolution, modes: Math.max(1, Math.min(4, Math.round(e.bModes ?? 2))), onProgress });
-      const stat = analyseFea(entry.mesh, { material, fixtures: e.fixtures.map((x) => x.faceId), loads: loadsOf(e), resolution, onProgress });
-      return { stat, fat: stat.error && stat.error !== 'not-converged' ? null : fatigue(stat, { material, loading: e.loading ?? 'reversed', cycles: e.cycles ?? 1e6 }) };
-    }, { delay: 150 });
+    // In the simulation worker (progress, cancel) when the FE tools are there (app-fem.js); on this thread otherwise.
+    const fem = ctx.fem;
+    const femMesh = fem?.meshOptions(e, entry.size ?? 100);
+    const fixturesFem = fem ? fem.fixturesOf(e) : null;
+    const result = fem
+      ? await (async () => {
+        if (e.study === 'buckling') return fem.run('buckling', { bodies: [{ mesh: entry.mesh, material }], fixtures: fixturesFem, loads: loadsOf(e), mesh: femMesh, modes: Math.max(1, Math.min(4, Math.round(e.bModes ?? 2))) }, p.name);
+        const stat = await fem.run('static', { bodies: [{ mesh: entry.mesh, material }], fixtures: fixturesFem, loads: loadsOf(e), mesh: femMesh }, p.name);
+        if (!stat) return null;
+        return { stat, fat: stat.error && stat.error !== 'not-converged' ? null : fatigue(stat, { material, loading: e.loading ?? 'reversed', cycles: e.cycles ?? 1e6 }) };
+      })()
+      : await ctx.withProgress('progress.simulation', p.name, async (op, report) => {
+        await new Promise((r) => setTimeout(r, 30));
+        const onProgress = (f) => report({ fraction: f, text: t('progress.solving') });
+        if (e.study === 'buckling') return buckling(entry.mesh, { material, fixtures: e.fixtures.map((x) => x.faceId), loads: loadsOf(e), resolution, modes: Math.max(1, Math.min(4, Math.round(e.bModes ?? 2))), onProgress });
+        const stat = analyseFea(entry.mesh, { material, fixtures: e.fixtures.map((x) => x.faceId), loads: loadsOf(e), resolution, onProgress });
+        return { stat, fat: stat.error && stat.error !== 'not-converged' ? null : fatigue(stat, { material, loading: e.loading ?? 'reversed', cycles: e.cycles ?? 1e6 }) };
+      }, { delay: 150 });
     if (!result) return;
     const err = e.study === 'buckling' ? result.error : result.stat.error;
     if (err && err !== 'not-converged') { notify('error', t(`sim.error.${err}`)); return; }
@@ -418,13 +429,13 @@ export function createMoreTools(ctx) {
         <dl class="pm-results"><dt>${escapeHtml(t('sim.criticalLoad'))}</dt><dd class="${r.loadFactor < 1 ? 'error' : ''}">${escapeHtml(`${ctx.fmt(r.loadFactor * e.magnitude, 1)} ${e.loadKind === 'pressure' ? 'MPa' : 'N'}`)}</dd><dt>${escapeHtml(t('sim.elements'))}</dt><dd>${escapeHtml(`${r.elements} (${ctx.fmt(r.elementSize, 2)} mm)`)}</dd></dl>
         <p class="pm-note">${escapeHtml(t(r.loadFactor < 0 ? 'sim.bucklingReversed' : r.loadFactor < 1 ? 'sim.bucklingFails' : 'sim.bucklingSafe'))}</p><div class="pm-row">${pmButton('clearSim', 'trash', t('sim.clear'))}</div>`) : '';
       return [pmHead('buckling', t('cmd.simulation'), t('pm.help.buckling')), study, material, fix, loadGroup,
-        pmGroup('statistics', t('sim.mesh'), `${pmNum('bModes', e.bModes ?? 2, t('sim.modeCount'), 'buckling')}${pmNum('resolution', e.resolution, t('sim.resolution'), 'statistics')}<div class="pm-row">${pmButton('runSim', 'play', t('sim.run'), 'primary')}</div>`), res].join('');
+        ctx.fem ? `${pmGroup('buckling', t('sim.modeCount'), pmNum('bModes', e.bModes ?? 2, t('sim.modeCount'), 'buckling'))}${ctx.fem.meshGroup(e)}` : pmGroup('statistics', t('sim.mesh'), `${pmNum('bModes', e.bModes ?? 2, t('sim.modeCount'), 'buckling')}${pmNum('resolution', e.resolution, t('sim.resolution'), 'statistics')}<div class="pm-row">${pmButton('runSim', 'play', t('sim.run'), 'primary')}</div>`), res].join('');
     }
     const f = r?.fat;
     const res = f ? pmGroup('fatigue', t('sim.results'), `<dl class="pm-results"><dt>${escapeHtml(t('sim.minLife'))}</dt><dd class="${f.maxDamage >= 1 ? 'error' : ''}">${escapeHtml(lifeText(f.minLife))}</dd><dt>${escapeHtml(t('sim.maxDamage'))}</dt><dd class="${f.maxDamage >= 1 ? 'error' : ''}">${escapeHtml(ctx.fmt(f.maxDamage, 4))}</dd><dt>${escapeHtml(t('sim.fatigueFos'))}</dt><dd>${escapeHtml(Number.isFinite(f.factorOfSafety) ? ctx.fmt(f.factorOfSafety, 2) : '∞')}</dd><dt>${escapeHtml(t('sim.snCurve'))}</dt><dd>${escapeHtml(`Su ${ctx.fmt(f.curve.su, 0)} · Se ${ctx.fmt(f.curve.se, 0)} MPa`)}</dd></dl><div class="sim-legend more-damage-legend"><span>0</span><i></i><span>${escapeHtml(t('sim.damageOne'))}</span></div><div class="pm-row">${pmButton('clearSim', 'trash', t('sim.clear'))}</div>`) : '';
     return [pmHead('fatigue', t('cmd.simulation'), t('pm.help.fatigue')), study, material, fix, loadGroup,
       pmGroup('fatigue', t('sim.fatigueLoading'), `${pmSeg('loading', [['reversed', t('sim.fullyReversed')], ['zeroBased', t('sim.zeroBased')]], e.loading ?? 'reversed')}${pmNum('cycles', e.cycles ?? 1e6, t('sim.cycleCount'), 'fatigue')}`),
-      pmGroup('statistics', t('sim.mesh'), `${pmNum('resolution', e.resolution, t('sim.resolution'), 'statistics')}<div class="pm-row">${pmButton('runSim', 'play', t('sim.run'), 'primary')}</div>`), res].join('');
+      ctx.fem ? ctx.fem.meshGroup(e) : pmGroup('statistics', t('sim.mesh'), `${pmNum('resolution', e.resolution, t('sim.resolution'), 'statistics')}<div class="pm-row">${pmButton('runSim', 'play', t('sim.run'), 'primary')}</div>`), res].join('');
   }
 
   /** modeIndex of a buckling study: shows that mode. True when handled. */

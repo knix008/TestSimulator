@@ -288,12 +288,13 @@ const V3 = (p) => (Array.isArray(p) ? p.slice(0, 3).map(Number) : [p.x, p.y, p.z
  *   ellipses  [{ c, n, u (major axis), a (major radius), b (minor radius), full, length, pts }];
  *   curves    [{ a, b (end points), length, pts }] — B-spline, Bezier and other curves (sampled);
  *   cylinders [{ point, dir, r, lo, hi }] — cylindrical faces (their silhouettes are not edges of the model);
+ *   cones     [{ apex, dir (from the apex into the cone), alpha (half angle), lo, hi (distances along dir) }];
  *   spheres   [{ c, r }] — spherical faces (their outline is a circle in every view).
  * Needs the kernel.
  */
 export function modelGeometry(shape) {
   const R = rep(); const oc = R.getOC();
-  const vertices = []; const lines = []; const circles = []; const ellipses = []; const curves = []; const cylinders = []; const spheres = [];
+  const vertices = []; const lines = []; const circles = []; const ellipses = []; const curves = []; const cylinders = []; const cones = []; const spheres = [];
   const seen = new Set();
   const addV = (p) => { const k = p.map((v) => Math.round(v * 1e5)).join(','); if (!seen.has(k)) { seen.add(k); vertices.push(p); } };
   const samples = (e, n = 32) => { const out = []; for (let k = 0; k <= n; k++) { try { out.push(V3(e.pointAt(k / n))); } catch { /* skip */ } } return out; };
@@ -337,6 +338,9 @@ export function modelGeometry(shape) {
         let lo = Infinity; let hi = -Infinity;
         for (const e of face.edges) for (let k = 0; k <= 8; k++) { const s = dot3(sub3(V3(e.pointAt(k / 8)), ax.point), ax.dir); lo = Math.min(lo, s); hi = Math.max(hi, s); }
         if (hi - lo > EPS) cylinders.push({ point: ax.point, dir: unit3(ax.dir), r: ax.r, lo, hi });
+      } else if (face.geomType === 'CONE') {
+        const cone = coneOf(face);
+        if (cone) cones.push(cone);
       } else if (face.geomType === 'SPHERE') {
         let ad = null;
         try { ad = new oc.BRepAdaptor_Surface(face.wrapped, true); const sp = ad.Sphere(); const l = sp.Location(); const c = [l.X(), l.Y(), l.Z()]; const r = sp.Radius(); if (!spheres.some((s) => dist3(s.c, c) < 1e-6 && Math.abs(s.r - r) < 1e-6)) spheres.push({ c, r }); } finally { ad?.delete?.(); }
@@ -347,8 +351,75 @@ export function modelGeometry(shape) {
     vertices, lines,
     circles: circles.map((x) => { const full = x.span >= TAU - 1e-4; const span = Math.min(TAU, x.span); return { c: x.c, n: x.n, r: x.r, full, span, length: x.r * span, pts: full ? [] : x.pts }; }),
     ellipses: ellipses.map((x) => ({ ...x, full: x.span >= TAU - 1e-4 })),
-    curves, cylinders, spheres,
+    curves, cylinders, cones, spheres,
   };
+}
+
+/**
+ * A conical face's apex, axis and half angle (null when it is not measurable). The kernel build has no cone
+ * adaptor, so they come from the face itself: its circular edge gives the axis (its normal) and one radius, a
+ * point inside the face the other — the generator line through both meets the axis at the apex. The axis is
+ * turned to point from the apex into the cone; lo, hi: where the face runs along it.
+ */
+function coneOf(face) {
+  const R = rep(); const oc = R.getOC();
+  let circle = null;
+  for (const e of face.edges) {
+    if (e.geomType !== 'CIRCLE') continue;
+    let ad = null;
+    try { ad = new oc.BRepAdaptor_Curve(e.wrapped); const ci = ad.Circle(); const ax = ci.Axis(); const l = ax.Location(); const d = ax.Direction(); circle = { c: [l.X(), l.Y(), l.Z()], n: unit3([d.X(), d.Y(), d.Z()]), r: ci.Radius() }; } catch { circle = null; } finally { ad?.delete?.(); }
+    if (circle) break;
+  }
+  if (!circle) return null;
+  let w = circle.n; let tan = NaN;
+  for (const [u, v] of [[0.5, 0.5], [0.3, 0.7], [0.7, 0.2]]) {
+    const P = V3(face.pointOnSurface(u, v));
+    const s = dot3(sub3(P, circle.c), w);
+    if (Math.abs(s) < 1e-6) continue;
+    const rr = len3(sub3(sub3(P, circle.c), mul3(w, s)));
+    tan = (rr - circle.r) / s;
+    break;
+  }
+  if (!Number.isFinite(tan) || Math.abs(tan) < 1e-9) return null;
+  if (tan < 0) { w = w.map((x) => -x); tan = -tan; }
+  const apex = add3(circle.c, w, -circle.r / tan);
+  let lo = Infinity; let hi = -Infinity;
+  for (const e of face.edges) for (let k = 0; k <= 8; k++) { try { const s = dot3(sub3(V3(e.pointAt(k / 8)), apex), w); lo = Math.min(lo, s); hi = Math.max(hi, s); } catch { /* skip */ } }
+  if (!(hi - lo > EPS)) return null;
+  return { apex, dir: w, alpha: Math.atan(tan), lo: Math.max(0, lo), hi };
+}
+
+/**
+ * The silhouette lines of the cylinders and cones seen along basis.dir (their outlines, which are no edges of the
+ * model): [{ a3, b3, of: { kind: 'cylinder', … } | { kind: 'cone', … } }]. A cylinder's run its radius off the
+ * axis on both sides; a cone's are the generator lines where its surface turns away from the viewer.
+ */
+export function silhouetteLines(geom, basis) {
+  const out = [];
+  for (const cy of geom.cylinders ?? []) {
+    const s = unit3(cross3(cy.dir, basis.dir));
+    if (len3(s) < 1e-9) continue;
+    const A0 = add3(cy.point, cy.dir, cy.lo); const B0 = add3(cy.point, cy.dir, cy.hi);
+    for (const side of [1, -1]) out.push({ a3: add3(A0, s, cy.r * side), b3: add3(B0, s, cy.r * side), of: { kind: 'cylinder', ...cy } });
+  }
+  for (const co of geom.cones ?? []) {
+    const w = co.dir; const a0 = Math.abs(w[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
+    const u = unit3(cross3(w, a0)); const v = cross3(w, u);
+    const d = basis.dir; const du = dot3(d, u); const dv = dot3(d, v); const dw = dot3(d, w);
+    const rho = Math.hypot(du, dv);
+    if (rho < 1e-9) continue;
+    // The surface normal along generator θ is cos α·radial(θ) − sin α·w; square to the view where
+    // cos(θ − φ) = tan α · (d·w) / ρ.
+    const k = (Math.tan(co.alpha) * dw) / rho;
+    if (Math.abs(k) > 1) continue;
+    const phi = Math.atan2(dv, du); const off = Math.acos(k);
+    for (const th of [phi + off, phi - off]) {
+      const g = add3(mul3(w, Math.cos(co.alpha)), add3(mul3(u, Math.cos(th)), v, Math.sin(th)), Math.sin(co.alpha));
+      const t = (s) => s / Math.cos(co.alpha);
+      out.push({ a3: add3(co.apex, g, t(co.lo)), b3: add3(co.apex, g, t(co.hi)), of: { kind: 'cone', ...co } });
+    }
+  }
+  return out;
 }
 
 /** A 3D point in a view's 2D (basis from viewBasis()) and its depth toward the viewer. */
@@ -433,21 +504,14 @@ export function pictorialPick(pick, q, geom, basis, tol) {
     });
     const l = front(cands, (x) => [(x.a[0] + x.b[0]) / 2, (x.a[1] + x.b[1]) / 2, (x.a[2] + x.b[2]) / 2]);
     if (l) return { kind: 'line', a: P(l.a), b: P(l.b), a3: l.a, b3: l.b };
-    // A cylinder's silhouette: a line along its projected axis, its radius away (the outline is not a model edge).
-    const sils = [];
-    for (const cy of geom.cylinders ?? []) {
-      const s = unit3(cross3(cy.dir, basis.dir));
-      if (len3(s) < 1e-9) continue;
-      const A0 = add3(cy.point, cy.dir, cy.lo); const B0 = add3(cy.point, cy.dir, cy.hi);
-      for (const side of [1, -1]) {
-        const a3 = add3(A0, s, cy.r * side); const b3 = add3(B0, s, cy.r * side);
-        const A = P(a3); const B = P(b3);
-        if (dist2(A, B) < EPS || Math.abs(cross2(u, unit2(sub2(B, A)))) > 1e-3) continue;
-        if (pts.every((pt) => segDist(pt, A, B) <= tol)) sils.push({ a3, b3, cy });
-      }
-    }
+    // A cylinder's or a cone's silhouette (its outline is not a model edge): the generator line it runs along.
+    const sils = silhouetteLines(geom, basis).filter(({ a3, b3 }) => {
+      const A = P(a3); const B = P(b3);
+      if (dist2(A, B) < EPS || Math.abs(cross2(u, unit2(sub2(B, A)))) > 1e-3) return false;
+      return pts.every((pt) => segDist(pt, A, B) <= tol);
+    });
     const sl = front(sils, (x) => [(x.a3[0] + x.b3[0]) / 2, (x.a3[1] + x.b3[1]) / 2, (x.a3[2] + x.b3[2]) / 2]);
-    if (sl) return { kind: 'line', a: P(sl.a3), b: P(sl.b3), a3: sl.a3, b3: sl.b3, silhouette: sl.cy };
+    if (sl) return { kind: 'line', a: P(sl.a3), b: P(sl.b3), a3: sl.a3, b3: sl.b3, silhouette: sl.of };
     return null;
   }
   return null;
@@ -474,8 +538,9 @@ export const angle3 = (a, v, b) => { const u = unit3(sub3(a, v)); const w = unit
  *   circle / arc — diameter (full) or radius (an arc); arclength — its length along the arc;
  *   ellipse — its major axis (true length; radial: the semi-major axis); arclength — its perimeter part;
  *   curve — the true distance between its end points; arclength — its length along the curve;
- *   silhouette line — the cylinder's true length; diameter / radial — the cylinder's diameter / radius; two
- *     silhouettes of one cylinder — its diameter (the distance between them).
+ *   silhouette line — the cylinder's true length (a cone's: its slant length); diameter / radial — the cylinder's
+ *     diameter / radius (a cone's at its wide end); two silhouettes of one cylinder — its diameter (the distance
+ *     between them), of one cone — the true angle between them;
  * Returns { dtype, …2D geometry, m3 } or { error }.
  */
 export function pictorialDimension(picks, dtype, basis) {
@@ -485,7 +550,11 @@ export function pictorialDimension(picks, dtype, basis) {
   const P = (p) => proj2(basis, p);
   const linear = (p1, p2) => (dist3(p1, p2) < EPS ? { error: 'zero' } : { dtype: 'aligned', p1: P(p1), p2: P(p2), m3: { p1, p2 } });
   const circle = (c, type) => ({ dtype: type, c: c.c, r: c.r, full: c.full, start: 0, sweep: TAU, m3: { c: c.c3, n: c.n3, r: c.r, ...(c.pts3?.length ? { pts: c.pts3 } : {}) } });
-  const cylCircle = (cy, type) => { const c3 = add3(cy.point, cy.dir, cy.hi); return circle({ c: P(c3), r: cy.r, full: true, c3, n3: cy.dir }, type); };
+  // A silhouette's diameter: the cylinder's, or the cone's at its wide end.
+  const cylCircle = (sh, type) => {
+    if (sh.kind === 'cone') { const c3 = add3(sh.apex, sh.dir, sh.hi); return circle({ c: P(c3), r: sh.hi * Math.tan(sh.alpha), full: true, c3, n3: sh.dir }, type); }
+    const c3 = add3(sh.point, sh.dir, sh.hi); return circle({ c: P(c3), r: sh.r, full: true, c3, n3: sh.dir }, type);
+  };
   const majorAxis = (e, half) => { const p1 = half ? e.c3 : add3(e.c3, e.u3, -e.ra); return linear(p1, add3(e.c3, e.u3, e.ra)); };
   const along = (pk) => {
     const pts = pk.pts3?.length ? pk.pts3 : null;
@@ -564,6 +633,27 @@ export function pictorialMark(a) {
   if (!a?.m3 || (a.dtype !== 'aligned' && a.dtype !== 'angular')) return '';
   if (a.measure === 'projected') return ' PROJ';
   return a.dtype === 'aligned' && a.trueMark !== false ? ' TL' : '';
+}
+
+/**
+ * The arrow tips of a pictorial radius / diameter: Pa on the circle (an arc: on the arc) in the direction `w` from
+ * the centre C on the sheet, Pb the point of the full circle opposite Pa in 3D (through the centre) — on the full
+ * ellipse even when the arc does not reach there.
+ */
+export function circleTips(m3, fr, C, w) {
+  const b = fr.basis;
+  const S3 = (p) => fr.toSheet(...proj2(b, p));
+  const cands = Array.isArray(m3.pts) && m3.pts.length > 1 ? m3.pts : circlePoints3(m3, 96);
+  let X = cands[0]; let best = -Infinity;
+  for (const p of cands) { const d = dot2(unit2(sub2(S3(p), C)), w); if (d > best) { best = d; X = p; } }
+  const opposite = sub3(mul3(m3.c, 2), X);
+  return [S3(X), S3(opposite)];
+}
+/** Points round a 3D circle { c, n, r }. */
+function circlePoints3(m3, n) {
+  const a0 = Math.abs(m3.n[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
+  const u = unit3(cross3(m3.n, a0)); const w = cross3(m3.n, u);
+  return Array.from({ length: n }, (_, i) => { const t = (i * TAU) / n; return add3(add3(m3.c, u, m3.r * Math.cos(t)), w, m3.r * Math.sin(t)); });
 }
 
 /** Sheet points of a 3D circle of a pictorial dimension (its ellipse on the sheet; an arc: its own points). */
@@ -785,6 +875,27 @@ export function viewFrames(sd, projections) {
   return { scale, frames: out };
 }
 
+const LEGACY_POINT_KEYS = ['p1', 'p2', 'c', 'v', 'r1', 'r2', 'origin', 'at'];
+/**
+ * Converts the dimensions migrateDrawingDims() marked (picked in a broken view, saved in its shortened coordinates)
+ * to the view's true coordinates, once its frame is known; their sheet places do not change, their values become
+ * the model's. Mutates the annotations (the sheet drawing shares them with the drawing). Returns how many.
+ */
+export function resolveLegacyDims(sd, frames) {
+  let n = 0;
+  for (const a of sd?.annotations ?? []) {
+    if (!a?.legacyBroken || a.kind !== 'drwDim') continue;
+    const fr = frames.get(a.view);
+    if (!fr) continue;
+    const T = (q) => (Array.isArray(q) && q.length >= 2 ? fr.toTrue(Number(q[0]), Number(q[1])) : q);
+    for (const k of LEGACY_POINT_KEYS) if (a[k]) a[k] = T(a[k]);
+    for (const k of ['l1', 'l2', 'pts']) if (Array.isArray(a[k])) a[k] = a[k].map(T);
+    delete a.legacyBroken;
+    n++;
+  }
+  return n;
+}
+
 /** A pick (pickEntity(), in the projection's coordinates) in the view's true model 2D (through its breaks). */
 export function pickToTrue(fr, pick) {
   if (!pick || !fr?.breaks?.length) return pick;
@@ -934,12 +1045,7 @@ export function dimPrimitives(a, fr, { size = 3.2 } = {}) {
       const w = unit2(sub2(T, C));
       let Pa = add2(C, w, R); let Pb = add2(C, w, -R);
       // A circle of a pictorial view is an ellipse on the sheet: the leader ends on it, toward the text.
-      if (a.m3?.n && fr.basis) {
-        const pts = ellipseSheet(a.m3, fr);
-        let k = 0; let best = -Infinity;
-        pts.forEach((q, i) => { const d = dot2(unit2(sub2(q, C)), w); if (d > best) { best = d; k = i; } });
-        Pa = pts[k]; Pb = pts[(k + pts.length / 2) % pts.length];
-      }
+      if (a.m3?.n && fr.basis) [Pa, Pb] = circleTips(a.m3, fr, C, w);
       const tx = dimText(a, value);
       const outside = dist2(T, C) > dist2(Pa, C);
       const tw = textPrims(tx, [0, 0], 0, size).width;

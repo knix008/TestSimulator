@@ -201,8 +201,39 @@ export function inexactInverse(A, M = preconditioner(A), { tol = 0.05, maxIter =
   };
 }
 
-/** IC(0) when it factors, Jacobi otherwise. */
-export function preconditioner(A) { return incompleteCholesky(A) ?? jacobi(A); }
+/**
+ * IC(0) of the matrix reordered by reverse Cuthill–McKee (node-wise): the fill pattern then follows the mesh's
+ * bandwidth and the factor approximates A much better than in the mesher's numbering (fewer CG iterations).
+ */
+export function incompleteCholeskyRCM(A) {
+  if (!A.g || !A.d) return incompleteCholesky(A);
+  const d = A.d, nn = A.g.nn, perm = rcmOrder(A.g), inv = new Int32Array(nn);
+  for (let i = 0; i < nn; i++) inv[perm[i]] = i;
+  const n = A.n, ptr = new Int32Array(n + 1);
+  for (let i = 0; i < nn; i++) for (let k = 0; k < d; k++) { const r = d * perm[i] + k; ptr[d * i + k + 1] = A.ptr[r + 1] - A.ptr[r]; }
+  for (let r = 0; r < n; r++) ptr[r + 1] += ptr[r];
+  const col = new Int32Array(ptr[n]), val = new Float64Array(ptr[n]);
+  const pairs = [];
+  for (let i = 0; i < nn; i++) for (let k = 0; k < d; k++) {
+    const r = d * perm[i] + k, o = ptr[d * i + k];
+    pairs.length = 0;
+    for (let p = A.ptr[r]; p < A.ptr[r + 1]; p++) { const c = A.col[p], cn = d * inv[(c / d) | 0] + (c % d); pairs.push([cn, A.val[p]]); }
+    pairs.sort((x, y) => x[0] - y[0]);
+    pairs.forEach(([c, v], q) => { col[o + q] = c; val[o + q] = v; });
+  }
+  const M = incompleteCholesky({ n, ptr, col, val });
+  if (!M) return null;
+  const rp = new Float64Array(n), zp = new Float64Array(n);
+  return (r, z) => {
+    for (let i = 0; i < nn; i++) for (let k = 0; k < d; k++) rp[d * i + k] = r[d * perm[i] + k];
+    M(rp, zp);
+    for (let i = 0; i < nn; i++) for (let k = 0; k < d; k++) z[d * perm[i] + k] = zp[d * i + k];
+    return z;
+  };
+}
+
+/** IC(0) (RCM-ordered) when it factors, Jacobi otherwise. */
+export function preconditioner(A) { return incompleteCholeskyRCM(A) ?? incompleteCholesky(A) ?? jacobi(A); }
 
 // ───────────────────────── conjugate gradients
 
@@ -293,7 +324,7 @@ export function envelopeSize(A, perm) {
  * `prefer: 'direct'` and it fits), IC(0)-PCG otherwise (or when the factorization meets a zero pivot).
  * Returns { x, method, it, converged, factor (reusable direct factor or null), M (preconditioner or null) }.
  */
-export function solveSystem(A, b, x = new Float64Array(A.n), { prefer = 'auto', tol = 1e-9, maxIter = 20000, onIter = null, cancel = null, factor = null, M = null } = {}) {
+export function solveSystem(A, b, x = new Float64Array(A.n), { prefer = 'auto', tol = 1e-9, maxIter = 20000, onIter = null, cancel = null, factor = null, M = null, coords = null, mask = null } = {}) {
   if (factor) { factor.solve(b, x); return { x, method: 'direct', it: 1, converged: true, factor, M: null }; }
   if (prefer !== 'iterative' && !M) {
     const perm = rcmOrder(A.g), est = envelopeSize(A, perm);
@@ -303,7 +334,10 @@ export function solveSystem(A, b, x = new Float64Array(A.n), { prefer = 'auto', 
       if (F) { F.solve(b, x); return { x, method: 'direct', it: 1, converged: true, factor: F, M: null }; }
     }
   }
-  const P = M ?? preconditioner(A);
+  // Large elasticity systems: smoothed-aggregation multigrid (rigid-body modes from the node coordinates).
+  let P = M;
+  if (!P && coords && A.d === 3 && A.n > 15000 && amgHook) P = amgHook(A, { coords, mask });
+  P ??= preconditioner(A);
   const r = pcg((v, out) => multiply(A, v, out), P, b, x, { tol, maxIter, onIter, cancel });
   return { x, method: 'pcg', it: r.it, rel: r.rel, converged: r.converged, factor: null, M: P };
 }
@@ -483,3 +517,7 @@ export function lobpcg(n, applyK, applyM, T, p, { mask = null, maxIter = 300, to
 }
 
 export { dotv as dot };
+
+let amgHook = null;
+/** Registers the multigrid builder (amg.js), kept out of this module to avoid a cycle. */
+export function setMultigrid(fn) { amgHook = fn; }

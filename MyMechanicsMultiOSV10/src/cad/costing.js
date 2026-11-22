@@ -17,6 +17,7 @@
 // and the report exports it; partCO2() turns the same rows into CO₂e. All the rates are editable (p.costing / p.sustain).
 import { rep } from './kernel.js';
 import { materialOf } from './materials.js';
+import { silhouetteSplitCached, faceSamples, coneSilhouette } from './mold-brep.js';
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -367,33 +368,51 @@ function planeFace(point, n, h) {
 }
 
 /**
- * The planes where a curved face turns from facing `d` to facing away (its silhouette seen along d): a cylinder or
- * a cone across d on the plane through its axis square to d's part across the axis, a sphere on the plane through
- * its centre square to d, a torus on its equator plane (and, lying across d, on the planes of its highest and lowest
- * circles). A cylinder or cone along d needs none (its normal keeps one side of d).
+ * The planes where a curved face turns from facing `d` to facing away (its silhouette seen along d), when they are
+ * planes: a cylinder across d on the plane through its axis square to d's part across the axis, a sphere on the
+ * plane through its centre square to d, a torus round d on its equator, a torus lying square to d on its equator
+ * and the planes of its highest and lowest circles. A cylinder or cone along d needs none. null when the silhouette
+ * is not planar (a cone or torus at an angle, free-form faces): those are split along their traced draft-zero curve.
  */
+// A cone's silhouette plane (two generators through the apex): coneSilhouette from mold-brep.js.
+
 function silhouettePlanes(face, d, h) {
+  if (face.geomType === 'PLANE') return [];
   const ax = revolvedAxis(face);
-  if (!ax) return face.geomType === 'PLANE' ? [] : [planeFace(vec(face.center), d, h)];
+  if (!ax) return null;
   if (ax.kind === 'sphere') return [planeFace(ax.point, d, h)];
   const along = dot(ax.dir, d);
   const parallel = Math.abs(Math.abs(along) - 1) < 1e-9;
-  if (ax.kind === 'cyl' || ax.kind === 'cone') return parallel ? [] : [planeFace(ax.point, unit(sub(d, mul(ax.dir, along))), h)];
-  const out = [planeFace(ax.point, parallel ? d : unit(sub(d, mul(ax.dir, along))), h)];
-  if (!parallel) {
+  if (parallel) return ax.kind === 'torus' ? [planeFace(ax.point, d, h)] : [];
+  if (ax.kind === 'cyl') return [planeFace(ax.point, unit(sub(d, mul(ax.dir, along))), h)];
+  if (ax.kind === 'cone') return coneSilhouette(face, ax, d, h);
+  if (ax.kind === 'torus' && Math.abs(along) < 1e-9) {
+    const out = [planeFace(ax.point, d, h)];
     const pts = boundaryPoints(face).map((p) => dot(sub(p, ax.point), ax.dir));
-    for (const s of [Math.min(...pts), Math.max(...pts)]) if (Math.abs(s) > 1e-9) out.push(planeFace(add(ax.point, mul(ax.dir, s)), ax.dir, h));
+    for (const t of [Math.min(...pts), Math.max(...pts)]) if (Math.abs(t) > 1e-9) out.push(planeFace(add(ax.point, mul(ax.dir, t)), ax.dir, h));
+    return out;
   }
-  return out;
+  return null;
 }
 
 /**
  * Projected area of the body along `dir` from the B-rep: the area of its shadow on a plane square to the pull — the
  * union of the projections of its faces, so faces over each other along the pull count once. Curved faces are split
- * at their silhouette, every piece facing the pull is swept past the part, each sweep is cut by a slab beyond the
+ * at their silhouette (on its plane when it is planar, else along the draft-zero curve traced by mold-brep.js),
+ * every piece facing the pull is swept past the part, each sweep is cut by a slab beyond the
  * part, the slices are fused: the fused volume / the slab's thickness is the area.
  */
 export function projectedArea(body, dir = [0, 0, 1]) {
+  const s = projectedShadow(body, dir);
+  return s.shadow ? rep().measureVolume(s.shadow) / s.T : 0;
+}
+
+/**
+ * The body's shadow along `dir` as a thin slab solid { shadow (null when nothing faces the pull), T (its
+ * thickness), base (a point of its lower face), d }: the projections of the pieces facing d, swept past the part and
+ * cut by a slab beyond it, fused (see projectedArea). Its section half-way up the slab is the shadow's outline.
+ */
+export function projectedShadow(body, dir = [0, 0, 1]) {
   const R = rep();
   const d = unit(dir);
   const [lo, hi] = body.boundingBox.bounds;
@@ -406,19 +425,29 @@ export function projectedArea(body, dir = [0, 0, 1]) {
   const base = add(mid, mul(d, wMin - dot(mid, d) - 2 * T));
   const slab = prismOf(planeFace(base, d, size * 2), mul(d, T));
   let shadow = null;
-  for (const face of body.faces) {
-    const pieces = face.geomType === 'PLANE' ? [face] : splitFace(face, silhouettePlanes(face, d, size * 2));
+  // Faces whose silhouette is not a plane: the mould analysis' split along the traced draft-zero curve (cached per body).
+  let traced = null;
+  const tracedPieces = (i) => { traced ??= silhouetteSplitCached(body, d); return traced.faces[i]?.pieces ?? [body.faces[i]]; };
+  body.faces.forEach((face, i) => {
+    const planes = silhouettePlanes(face, d, size * 2);
+    const pieces = planes ? splitFace(face, planes) : tracedPieces(i);
     for (const piece of pieces) {
-      let n;
-      try { const p = piece.geomType === 'PLANE' ? piece.center : piece.pointOnSurface(0.5, 0.5); n = unit(vec(piece.normalAt(p))); } catch { continue; }
-      if (!(dot(n, d) > 1e-9)) continue;
+      // Which way the piece faces: its normal at points inside it (a curved piece must face one way throughout —
+      // a piece the split could not cut at its silhouette would make the shadow wrong, so that is an error).
+      let ns;
+      if (piece.geomType === 'PLANE') { try { ns = [dot(unit(vec(piece.normalAt(piece.center))), d)]; } catch { continue; } }
+      else ns = faceSamples(piece, 5, size).map((x) => dot(x.n, d));
+      if (!ns.length) continue;
+      const up = ns.some((x) => x > 1e-9); const down = ns.some((x) => x < -1e-9);
+      if (up && down) throw Object.assign(new Error('not-split'), { code: 'not-split' });
+      if (!up) continue;
       const top = Math.max(...boundaryPoints(piece).map((p) => dot(p, d)));
       const tile = prismOf(piece.clone(), mul(d, -(top - wMin + 3 * T))).intersect(slab.clone());
       if (!(R.measureVolume(tile) > 0)) continue;
       shadow = shadow ? shadow.fuse(tile) : tile;
     }
-  }
-  return shadow ? R.measureVolume(shadow) / T : 0;
+  });
+  return { shadow, T, base, d };
 }
 
 // ───────────────────────── wall thickness

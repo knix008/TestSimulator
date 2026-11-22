@@ -43,8 +43,10 @@ const PRESET_CLASS = {
 export const APPEARANCE_FIELDS = {
   color: 'color', metalness: [0, 1], roughness: [0, 1], transmission: [0, 1], ior: [1, 3], specular: [0, 1],
   clearcoat: [0, 1], clearcoatRoughness: [0, 1], emissive: 'color', emissiveIntensity: [0, 1000], absorb: [0, 1e6],
-  texture: 'texture', textureScale: [0.01, 100], image: 'image',
+  texture: 'texture', textureScale: [0.01, 100], image: 'image', mapping: 'mapping',
 };
+/** How flat patterns and pictures are placed: by the B-rep faces' UVs, or projected from three sides. */
+export const MAPPINGS = ['uv', 'triplanar'];
 const HEX = /^#[0-9a-f]{6}$/i;
 
 /** An override with only valid fields (and the preset id). */
@@ -58,6 +60,7 @@ export function normalizeAppearance(o) {
     if (kind === 'color') { if (HEX.test(String(v))) out[k] = String(v).toLowerCase(); }
     else if (kind === 'texture') { if (TEXTURES.includes(v)) out[k] = v; }
     else if (kind === 'image') { if (typeof v === 'string' && v.startsWith('data:image/')) out[k] = v; }
+    else if (kind === 'mapping') { if (MAPPINGS.includes(v)) out[k] = v; }
     else if (Number.isFinite(Number(v))) out[k] = Math.max(kind[0], Math.min(kind[1], Number(v)));
   }
   return Object.keys(out).length ? out : null;
@@ -86,7 +89,7 @@ export function appearanceFor(materialId, partColor = null, ...overrides) {
   const a = {
     class: cls, color: p.color, metalness: p.metalness, roughness: p.roughness, transmission: p.transmission, ior: p.ior,
     specular: p.specularIntensity ?? 1, clearcoat: p.clearcoat, clearcoatRoughness: p.clearcoatRoughness,
-    emissive: '#000000', emissiveIntensity: 0, absorb: 0, texture: 'none', textureScale: 1, image: null, preset: 'auto',
+    emissive: '#000000', emissiveIntensity: 0, absorb: 0, texture: 'none', textureScale: 1, image: null, mapping: 'uv', preset: 'auto',
     ...extras,
   };
   if (partColor) a.color = partColor;
@@ -124,7 +127,7 @@ export const MATERIAL_FLOATS = 20;
  * (data URLs, their layer is their index).
  *   texel 0: colour rgb, metalness        texel 1: roughness, transmission, ior, specular
  *   texel 2: emission rgb, clear coat     texel 3: texture id, texture scale, coat roughness, absorption distance
- *   texel 4: image layer (−1 none), 0, 0, 0
+ *   texel 4: image layer (−1 none), mapping (1 = B-rep UVs, 0 = solid / three sides), 0, 0
  */
 export function packMaterials(list) {
   const out = new Float32Array(Math.max(1, list.length) * MATERIAL_FLOATS);
@@ -136,7 +139,7 @@ export function packMaterials(list) {
     let layer = -1;
     if (a.texture === 'image' && a.image) { layer = images.indexOf(a.image); if (layer < 0) { images.push(a.image); layer = images.length - 1; } }
     out.set([c[0], c[1], c[2], a.metalness, a.roughness, a.transmission, a.ior, a.specular ?? 1, e[0], e[1], e[2], a.clearcoat ?? 0,
-      TEXTURES.indexOf(a.texture ?? 'none'), a.textureScale ?? 1, a.clearcoatRoughness ?? 0.1, a.transmission > 0 ? (a.absorb ?? 0) : 0, layer, 0, 0, 0], o);
+      TEXTURES.indexOf(a.texture ?? 'none'), a.textureScale ?? 1, a.clearcoatRoughness ?? 0.1, a.transmission > 0 ? (a.absorb ?? 0) : 0, layer, (a.mapping ?? 'uv') === 'uv' ? 1 : 0, 0, 0], o);
   });
   return { data: out, images };
 }

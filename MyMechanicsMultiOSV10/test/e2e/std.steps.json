@@ -62,6 +62,11 @@
     "expect": "\"name\":\"ISO 4017 M10×50\",\"groups\":4,\"comps\":13,\"failed\":0"
   },
   {
+    "name": "std: a hole series through two stacked washers — one bolt through both (grip 3.2), the nut under the lower one",
+    "eval": "(async () => { const m = window.__mymechanics; const a = m.project.assemblies[0]; const wait = (ms) => new Promise((r) => setTimeout(r, ms)); await m.run('stdLibrary'); await wait(150); const e = m.state.editing; Object.assign(e.p, { kind: 'flatWasher', size: 'M8' }); const w1 = await m.std.insertLibrary(); const w2 = await m.std.insertLibrary(); m.actions.change('op.edit', () => { for (const [c, z] of [[w1, 0], [w2, 1.6]]) { const x = a.components.find((k) => k.id === c.id); x.position = [300, 0, z]; x.fixed = true; } }); await wait(300); await m.run('smartFastener'); await wait(150); const top = a.components.find((k) => k.id === w2.id); const part = m.project.parts.find((p) => p.id === top.part); const b = m.actions.buildPart(part); const index = b.faces.findIndex((f) => { if (f.geomType !== 'CYLINDRE' && f.geomType !== 'CYLINDER') return false; const q = f.pointOnSurface(0.5, 0.5); return Math.abs(Math.hypot(q.x, q.y) - 4.2) < 1e-3; }); const before = a.components.length; const r = await m.std.fastenerPick({ kind: 'face', bodyKey: `comp:${top.id}`, index }); const g = a.fasteners.at(-1); return JSON.stringify({ added: a.components.length - before, grip: Math.round((r?.plan?.grip ?? 0) * 100) / 100, parts: g?.spec?.parts?.length, nut: Boolean(r?.plan?.nut), stacked: m.state.editing?.last?.stacked, failed: m.state.failedMates.size }); })()",
+    "expect": "\"added\":3,\"grip\":3.2,\"parts\":2,\"nut\":true,\"stacked\":true,\"failed\":0"
+  },
+  {
     "eval": "(() => { window.__mymechanics.run('zoomFit'); return 'ok'; })()",
     "wait": 800,
     "shot": "std-fastener"
@@ -73,10 +78,34 @@
   },
   {
     "mouse": [
-      { "type": "mousePressed", "x": "window.__pt[0]", "y": "window.__pt[1]", "button": "left", "buttons": 1 },
-      { "type": "mouseReleased", "x": "window.__pt[0]", "y": "window.__pt[1]", "button": "left", "delay": 150 },
-      { "type": "mousePressed", "x": "window.__pt[0] + 60", "y": "window.__pt[1] - 40", "button": "left", "buttons": 1 },
-      { "type": "mouseReleased", "x": "window.__pt[0] + 60", "y": "window.__pt[1] - 40", "button": "left", "delay": 150 }
+      {
+        "type": "mousePressed",
+        "x": "window.__pt[0]",
+        "y": "window.__pt[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__pt[0]",
+        "y": "window.__pt[1]",
+        "button": "left",
+        "delay": 150
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__pt[0] + 60",
+        "y": "window.__pt[1] - 40",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__pt[0] + 60",
+        "y": "window.__pt[1] - 40",
+        "button": "left",
+        "delay": 150
+      }
     ],
     "wait": 300
   },
@@ -93,7 +122,7 @@
   {
     "name": "route: OK adds the route part at the origin",
     "eval": "(async () => { const m = window.__mymechanics; await m.actions.acceptEditing(); await new Promise((r) => setTimeout(r, 500)); const a = m.project.assemblies[0]; const rc = a.components.at(-1); const rp = m.project.parts.find((p) => p.id === rc.part); const res = m.actions.buildPart(rp).result.results.get(rp.features[0].id); return JSON.stringify({ comps: a.components.length, fixed: rc.fixed, ok: res.ok, length: Math.round(res.route.length), elbows: res.route.bom.rows.filter((x) => x.item === 'elbow').map((x) => x.qty) }); })()",
-    "expect": "\"comps\":14,\"fixed\":true,\"ok\":true,\"length\":\\d+,\"elbows\":\\[2\\]"
+    "expect": "\"comps\":19,\"fixed\":true,\"ok\":true,\"length\":\\d+,\"elbows\":\\[2\\]"
   },
   {
     "eval": "(() => { window.__mymechanics.run('zoomFit'); return 'ok'; })()",
@@ -114,6 +143,11 @@
     "name": "route: an electrical harness shows connectors, wires, the wire list and the flattened drawing",
     "eval": "(async () => { const m = window.__mymechanics; const wait = (ms) => new Promise((r) => setTimeout(r, ms)); await m.run('harnessRoute'); await wait(600); const q = (s) => document.querySelectorAll(s).length; const before = { conns: q('.harness-row.conn:not(.head)'), wires: q('.harness-row.wire'), list: q('[data-wire-length]'), flat: q('.harness-flat svg line[data-length]') }; document.querySelector('[data-pm=\"routeEdit:addWire\"]').click(); await wait(600); const f = m.state.editing.feature; await m.actions.acceptEditing(); await wait(400); const part = m.active(); const res = m.actions.buildPart(part).result.results.get(f.id); return JSON.stringify({ ...before, ok: res.ok, kind: res.route.bom.kind, wiresAfter: res.route.bom.wires.length, colours: res.route.colors.length }); })()",
     "expect": "\"conns\":3,\"wires\":4,\"list\":4,\"flat\":3,\"ok\":true,\"kind\":\"harness\",\"wiresAfter\":5,\"colours\":3"
+  },
+  {
+    "name": "route: Harness Drawing puts the flattened harness and its tables on a new drawing sheet",
+    "eval": "(async () => { const m = window.__mymechanics; const wait = (ms) => new Promise((r) => setTimeout(r, ms)); const part = m.active(); const partId = part.id; await m.run('harnessDrawing'); await wait(900); const d = m.project.drawings.at(-1); const kinds = d.annotations.map((a) => a.kind); const st = () => document.querySelector('[data-harness-status]')?.dataset.harnessStatus ?? 'none'; const out = { kind: m.project.active?.kind ?? '', harness: kinds.filter((k) => k === 'drwHarness').length, tables: kinds.filter((k) => k === 'drwTable').length, drawn: document.querySelectorAll('#drawing-host .dx-drwHarness').length, page: m.state.editing?.mode, status: st() }; m.actions.pmToggle('hsAuto', false); await wait(300); m.actions.change('op.edit', (pr) => { const f = pr.parts.find((x) => x.id === partId).features.find((x) => x.type === 'route' && x.kind === 'harness'); f.wires[0].gauge = 1.5; }); await wait(500); out.after = st(); document.querySelector('[data-pm=\"std.harnessUpdate\"]')?.click(); await wait(600); out.updated = st(); out.gauge = d.annotations.find((a) => a.role === 'wires')?.cells[1][4]; m.actions.cancelEditing({ quiet: true }); await m.actions.switchDocument({ kind: 'part', id: partId }); await wait(500); return JSON.stringify(out); })()",
+    "expect": "\"kind\":\"drawing\",\"harness\":1,\"tables\":4,\"drawn\":1,\"page\":\"harnessSheet\",\"status\":\"current\",\"after\":\"stale\",\"updated\":\"current\",\"gauge\":\"1.5\""
   },
   {
     "name": "std: a socket head cap screw as a body of the part (library in part mode)",

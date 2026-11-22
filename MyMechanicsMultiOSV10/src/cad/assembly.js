@@ -424,7 +424,7 @@ export function captureMate(assembly, mate) {
  * Moves the free components so the mates hold. `refs(mateRef)` gives a mate reference's current local entity
  * (re-read from the rebuilt part); `sizes` a typical length. Returns { ok, error, status: Map compId → 'defined' | 'under' | 'fixed', failed: [mateId] }.
  */
-export function solveMates(assembly, { entity = (r) => r, size = 100 } = {}) {
+export function solveMates(assembly, { entity = (r) => r, size = 100, status: wantStatus = true } = {}) {
   const comps = assembly.components;
   const compIds = new Set(comps.map((c) => c.id));
   const free = comps.filter((c) => !c.fixed);
@@ -468,7 +468,9 @@ export function solveMates(assembly, { entity = (r) => r, size = 100 } = {}) {
   const failed = mates.filter((m) => Math.hypot(...residualsOf(result.x, [m])) > 1e-5).map((m) => m.id);
   // Fully positioned components: none of their six unknowns can move.
   const status = new Map(comps.map((c) => [c.id, c.fixed ? 'fixed' : 'under']));
-  if (free.length && mates.length) {
+  // Which components are fully positioned (a Jacobian and its null space): skipped when not asked for — a motion
+  // study solves every frame and only needs the positions.
+  if (wantStatus && free.length && mates.length) {
     const sys = (x) => residualsOf(x);
     const xs = new Array(free.length * 6).fill(0);
     // Linearised about the solution (unknowns are offsets from it).
@@ -553,7 +555,11 @@ function motorPlacement(motor, p0, local, t) {
  * (held fixed), re-captures the gear-like mates' bases at the previous pose and solves the other components,
  * so gears, racks and screws follow over any number of turns.
  */
-function motionRunner(assembly, { entity = (r) => r, size = 100 } = {}) {
+function motionRunner(assembly, { entity: entityOf = (r) => r, size = 100 } = {}) {
+  // A mate's entity is in its part's own coordinates, so it does not change while the motion plays: looked up
+  // once per reference (in the app each lookup asks the kernel for the face or edge).
+  const memo = new Map();
+  const entity = (r) => { const k = JSON.stringify(r); if (!memo.has(k)) memo.set(k, entityOf(r)); return memo.get(k); };
   const asm = structuredClone(assembly);
   const motors = (asm.motion?.motors ?? []).map((m) => ({ m, comp: asm.components.find((c) => c.id === m.comp), local: m.ref ? entity(m.ref) : null })).filter((x) => x.comp && x.local);
   const p0 = new Map(motors.map((x) => [x.comp.id, clonePlacement(x.comp)]));
@@ -576,7 +582,7 @@ function motionRunner(assembly, { entity = (r) => r, size = 100 } = {}) {
       for (const m of coupled) captureGear(asm, m);
       const ti = time + (dt * i) / n;
       for (const x of motors) Object.assign(x.comp, motorPlacement(x.m, p0.get(x.comp.id), x.local, ti));
-      if (asm.mates.length) { last = solveMates(asm, { entity, size }); motionSolves++; }
+      if (asm.mates.length) { last = solveMates(asm, { entity, size, status: false }); motionSolves++; }
     }
     time = t;
     return last;

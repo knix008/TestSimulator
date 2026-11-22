@@ -39,6 +39,41 @@
     "expect": "^noise raw"
   },
   {
+    "name": "render-lab: vertex colours (cables) show in the path tracer, the rest keeps its appearance",
+    "eval": "(async () => {\n    const lab = await window.__mymechanics.std.render.lab();\n    const r = await lab.labRender('vcolor', { width: 64, height: 48, samples: 16 });\n    // Box 0…60 mm high seen from 260 mm: red corners above z 45 (rows 0.33–0.40), body colour below z 30 (rows 0.55–0.65).\n    const top = lab.regionMean(r, 0.45, 0.34, 0.55, 0.39); const low = lab.regionMean(r, 0.45, 0.55, 0.55, 0.65);\n    const feats = r.tracer.features.join(',');\n    if (!(top[0] > 2.5 * top[2] && low[2] > 1.5 * low[0] && feats.includes('HAS_VCOLOR'))) throw new Error(JSON.stringify({ top, low, feats }));\n    return 'red top, blue rest';\n  })()",
+    "expect": "^red top, blue rest"
+  },
+  {
+    "name": "render-lab: vertex colours also show in Preview (raster) mode",
+    "eval": "(async () => {\n  const lab = await window.__mymechanics.std.render.lab();\n  const p = await lab.labPreview('vcolor', { samples: 4 });\n  const top = p.rgb(0.45, 0.34, 0.55, 0.39); const low = p.rgb(0.45, 0.55, 0.55, 0.65);\n  if (!(top[0] > 2 * top[2] && low[2] > 1.3 * low[0])) throw new Error(JSON.stringify({ top, low }));\n  return 'preview: red top, blue rest';\n})()",
+    "expect": "^preview: red top"
+  },
+  {
+    "name": "render-lab: point lights with a radius cast soft shadows (sphere emitter), radius 0 a hard one",
+    "eval": "(async () => {\n    const lab = await window.__mymechanics.std.render.lab();\n    const o = { width: 96, height: 96, samples: 64 };\n    const edge = (img) => {\n      const xs = [];\n      // Across the shadow's side edge (y ≈ 20 mm at x = −40 mm in the top view): a column of rows y = 40 … 0.\n      for (let i = 0; i < 24; i++) xs.push(lab.regionLum(img, 0.24, 0.25 + i * 0.01, 0.26, 0.26 + i * 0.01));\n      let worst = 0;\n      for (let i = 1; i < xs.length; i++) worst = Math.max(worst, Math.abs(xs[i] - xs[i - 1]));\n      return { worst, range: Math.max(...xs) - Math.min(...xs) };\n    };\n    const hard = edge(await lab.labRender('lamp', { ...o, radius: 0 }));\n    const soft = edge(await lab.labRender('lamp', { ...o, radius: 25 }));\n    const hs = hard.worst / Math.max(1e-6, hard.range); const ss = soft.worst / Math.max(1e-6, soft.range);\n    if (!(hard.range > 0.01 && ss < 0.7 * hs)) throw new Error(JSON.stringify({ hard, soft }));\n    return `steepest step hard ${hs.toFixed(2)} soft ${ss.toFixed(2)}`;\n  })()",
+    "expect": "^steepest step"
+  },
+  {
+    "name": "render-lab: picture textures are filtered by the ray footprint (far checks average to grey, no aliasing)",
+    "eval": "(async () => {\n    const lab = await window.__mymechanics.std.render.lab();\n    const r = await lab.labRender('texlod', { width: 96, height: 72, samples: 1, image: lab.checkerImage() });\n    const far = [0.3, 0.08, 0.7, 0.3];\n    const std = lab.regionStd(r, ...far); const mean = lab.regionLum(r, ...far);\n    if (!(mean > 0 && std < 0.25 * mean && r.tracer.features.includes('HAS_IMAGE'))) throw new Error(`far std ${std} mean ${mean}`);\n    return `far std/mean ${(std / mean).toFixed(3)}`;\n  })()",
+    "expect": "^far std/mean"
+  },
+  {
+    "name": "render-lab: the variance-guided denoiser beats the plain one (closer to a 256-sample reference)",
+    "eval": "(async () => {\n    const lab = await window.__mymechanics.std.render.lab();\n    const o = { width: 48, height: 36 };\n    const ref = await lab.labRender('noise', { ...o, samples: 256, seed: 99 });\n    const run = async (denoiser, seed) => { const r = await lab.labRender('noise', { ...o, samples: 4, seed, settings: { denoise: true, denoiser } }); return r.tracer.denoisedImage(); };\n    const res = {};\n    for (const d of ['atrous', 'svgf']) { const a = await run(d, 21); const b = await run(d, 22); res[d] = { err: (lab.rmse(a, ref) + lab.rmse(b, ref)) / 2, noise: lab.rmse(a, b) }; }\n    if (!(res.svgf.err < res.atrous.err)) throw new Error(JSON.stringify(res));\n    return `error to reference: svgf ${res.svgf.err.toFixed(4)} plain ${res.atrous.err.toFixed(4)}; noise svgf ${res.svgf.noise.toFixed(4)} plain ${res.atrous.noise.toFixed(4)}`;\n  })()",
+    "expect": "^error to reference"
+  },
+  {
+    "name": "render-lab: the differential shadow catcher adds bounced light (red cube tints the ground), the direct one does not",
+    "eval": "(async () => {\n    const lab = await window.__mymechanics.std.render.lab();\n    const o = { width: 72, height: 72, samples: 64 };\n    const near = (img) => { const m = lab.regionMean(img, 0.68, 0.45, 0.74, 0.55); return m[0] / Math.max(1e-4, m[1]); };\n    const far = (img) => { const m = lab.regionMean(img, 0.02, 0.02, 0.08, 0.08); return m[0] / Math.max(1e-4, m[1]); };\n    const diff = await lab.labRender('bleed', { ...o, mode: 'differential' });\n    const direct = await lab.labRender('bleed', { ...o, mode: 'direct' });\n    const dn = near(diff) / far(diff); const cn = near(direct) / far(direct);\n    if (!(dn > 1.05 && dn > cn + 0.03)) throw new Error(JSON.stringify({ dn, cn }));\n    return `red tint beside the cube: differential ${dn.toFixed(3)} direct ${cn.toFixed(3)}`;\n  })()",
+    "expect": "^red tint"
+  },
+  {
+    "name": "render-lab: the shader is specialised to the scene (a plain scene leaves out glass, textures and the catcher)",
+    "eval": "(async () => {\n    const lab = await window.__mymechanics.std.render.lab();\n    const r = await lab.labRender('noise', { samples: 1, width: 16, height: 12 });\n    const f = r.tracer.features;\n    return `${f.includes('HAS_TRANS')} ${f.includes('HAS_TEX')} ${f.includes('HAS_CATCHER')} ${f.includes('HAS_FLOOR')} ${r.tracer.variants.size >= 2}`;\n  })()",
+    "expect": "^false false false true true"
+  },
+  {
     "name": "render: an assembly sample opens",
     "eval": "(async () => {\n  const m = window.__mymechanics;\n  await m.actions.ensureKernel();\n  await m.actions.closeProject({ force: true });\n  await m.actions.openSampleAsk('asmPillowLine');\n  await new Promise((r) => setTimeout(r, 1500));\n  return m.active()?.components ? `assembly ${m.active().components.length}` : 'no assembly';\n})()",
     "expect": "^assembly [1-9]"
@@ -74,13 +109,23 @@
     "expect": "^\\[\"#ff8800\",1,0\\.5,1\\.33,2,\"#00ff00\",\"brushed\"\\]$"
   },
   {
+    "name": "render: undo and redo of an appearance work inside Render (the picture follows)",
+    "eval": "(async () => {\n  const m = window.__mymechanics;\n  const e = m.state.editing;\n  const b = m.std.render.sceneBodies().list.find((x) => x.key === e.selected);\n  m.std.render.setAppearance('roughness', 0.77);\n  await new Promise((r) => setTimeout(r, 300));\n  const before = m.project.parts.find((p) => p.id === b.part.id).appearance?.roughness;\n  m.run('undo');\n  await new Promise((r) => setTimeout(r, 400));\n  const after = m.project.parts.find((p) => p.id === b.part.id).appearance?.roughness ?? 'none';\n  m.run('redo');\n  await new Promise((r) => setTimeout(r, 400));\n  const again = m.project.parts.find((p) => p.id === b.part.id).appearance?.roughness;\n  return `${m.state.editing?.mode} ${before} ${after !== 0.77} ${again}`;\n})()",
+    "expect": "^render 0.77 true 0.77"
+  },
+  {
     "name": "render: a picture texture loads without a dialog (test hook)",
     "eval": "(async () => {\n  const m = window.__mymechanics;\n  const c = document.createElement('canvas'); c.width = 16; c.height = 16;\n  const g = c.getContext('2d'); g.fillStyle = '#c03'; g.fillRect(0, 0, 16, 16); g.fillStyle = '#fff'; g.fillRect(0, 0, 8, 8);\n  await m.std.render.setAppearanceImage(c.toDataURL('image/png'));\n  const e = m.state.editing;\n  const b = m.std.render.sceneBodies().list.find((x) => x.key === e.selected);\n  return `${b.appearance.texture} ${b.appearance.image?.slice(0, 11)}`;\n})()",
     "expect": "^image data:image/"
   },
   {
+    "name": "render: textures mapped by the B-rep face UVs (HAS_UV) on a part",
+    "eval": "(async () => {\n  const m = window.__mymechanics;\n  m.std.render.setAppearance('texture', 'checker');\n  m.std.render.setAppearance('mapping', 'uv');\n  await new Promise((r) => { const w = () => (m.state.editing?.status?.preparing === false ? r() : setTimeout(w, 100)); setTimeout(w, 300); });\n  const b = m.std.render.sceneBodies().list.find((x) => x.key === m.state.editing.selected);\n  return `${Boolean(b.uv?.uv)} ${b.uv?.fromTriangulation > 0} ${m.std.render.tracer.features.includes('HAS_UV')}`;\n})()",
+    "expect": "^true true true"
+  },
+  {
     "name": "render: area lights are added to the scene (type 3 in the light list)",
-    "eval": "(async () => {\n  const m = window.__mymechanics;\n  m.std.renderSettings.samples = 4;\n  document.querySelector('[data-pm=\"std.renderAddLight\"]').click();\n  await new Promise((r) => setTimeout(r, 1500));\n  const types = (m.std.render.tracer.lights ?? []).map((l) => l.A[0]);\n  return `${m.std.renderSettings.areaLights.length} ${types.includes(3)}`;\n})()",
+    "eval": "(async () => {\n  const m = window.__mymechanics;\n  m.std.renderSettings.samples = 4;\n  document.querySelector('[data-pm=\"std.renderAddLight\"]').click();\n  await new Promise((r) => { const w = () => (m.state.editing?.status?.preparing === false ? r() : setTimeout(w, 100)); setTimeout(w, 300); });\n  const types = (m.std.render.tracer.lights ?? []).map((l) => l.A[0]);\n  return `${m.std.renderSettings.areaLights.length} ${types.includes(3)}`;\n})()",
     "expect": "^1 true$"
   },
   {

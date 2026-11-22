@@ -435,3 +435,45 @@ test('tiles cover the picture (or the region) exactly once; regions flip to GL r
   assert.equal(inside, 2500);
   assert.equal(regionPixels(null, 10, 10), null);
 });
+
+// ───────────────────────── vertex colours, UVs, shader variants, sphere lights
+
+test('scene packing: vertex colours (only where they differ from the body colour) and per-vertex UVs', async () => {
+  const { packColour, shaderFeatures } = await import('../../src/view/pt/pathtracer.js');
+  const g = new THREE.BoxGeometry(10, 10, 10).toNonIndexed();
+  const n = g.getAttribute('position').count;
+  const base = [0.5, 0.5, 0.5];
+  const vc = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) vc.set(i < 6 ? [1, 0, 0] : base, i * 3);
+  const uv = { uv: new Float32Array(n * 2).map((_, i) => i), ok: new Uint8Array(n).fill(1) };
+  const s = packScene([{ geometry: g, matrix: new THREE.Matrix4(), vertexColors: vc, baseColor: base, uv }]);
+  assert.equal(s.hasColours, true); assert.equal(s.hasUv, true);
+  assert.equal(s.colours[0], packColour(1, 0, 0)); assert.equal(s.colours[0], 255 * 65536);
+  assert.equal(s.colours[6 * 3 / 3 * 3], -1, 'body-coloured corners are left to the appearance');
+  assert.ok(s.uvOk.every((x) => x === 1));
+  near(s.uvs[2], 2, 0); near(s.uvs[3], 3, 0);
+  // Shader switches follow what the scene has.
+  const st = normalizeRenderSettings({ ground: 'shadow' });
+  const plain = shaderFeatures({ appearances: [appearanceFor('abs')], scene: {}, lights: [], settings: st });
+  assert.deepEqual(plain, ['HAS_CATCHER', 'HAS_COAT'], 'ABS has a light clear coat');
+  const rich = shaderFeatures({ appearances: [appearanceFor('glass'), appearanceFor('abs', null, { texture: 'image', image: 'data:image/png;base64,AA' }), appearanceFor('abs', null, { preset: 'paint' })], scene: s, lights: [{ A: [1, 0, 0, 0], B: [1, 1, 1, 5] }], settings: normalizeRenderSettings({ ground: 'shadow', catcherMode: 'differential' }) });
+  assert.deepEqual(rich, ['HAS_AREA', 'HAS_COAT', 'HAS_FLOOR', 'HAS_IMAGE', 'HAS_LIGHTS', 'HAS_TEX', 'HAS_TRANS', 'HAS_UV', 'HAS_VCOLOR']);
+});
+
+test('lights: points and spots get the render radius (soft sphere emitters), a light may have its own', () => {
+  const s = normalizeRenderSettings({ lightRadius: 12, sunIntensity: 0 });
+  const { lights } = tracerLights({ preset: ENV_PRESETS.studio, settings: s, sceneLights: { lights: [{ kind: 'point', position: [0, 0, 1] }, { kind: 'spot', position: [0, 0, 1], target: [0, 0, 0], radius: 3 }] }, centre: [0, 0, 0], size: 1 });
+  assert.equal(lights[0].B[3], 12); assert.equal(lights[1].B[3], 3);
+  assert.equal(normalizeRenderSettings({ lightRadius: -4 }).lightRadius, 0);
+  assert.equal(normalizeRenderSettings({ catcherMode: 'x', denoiser: 'y' }).catcherMode, 'direct');
+  assert.equal(normalizeRenderSettings({ denoiser: 'y' }).denoiser, 'svgf');
+});
+
+test('appearances: texture placement by B-rep UV (default) or three-side projection is packed for the GPU', () => {
+  const a = appearanceFor('abs', null, { texture: 'checker' });
+  assert.equal(a.mapping, 'uv');
+  const b = appearanceFor('abs', null, { texture: 'checker', mapping: 'triplanar' });
+  const { data } = packMaterials([a, b]);
+  assert.equal(data[17], 1); assert.equal(data[20 + 17], 0);
+  assert.equal(normalizeAppearance({ mapping: 'spherical' }), null);
+});

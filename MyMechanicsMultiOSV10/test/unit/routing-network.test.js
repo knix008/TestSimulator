@@ -119,7 +119,7 @@ test('elbows with a branch: the take-outs of an elbow and a tee on the same stra
   assert.deepEqual(rows(bom, 'pipe').map((r) => r.length), [300 - A, 200 - A - C, 200 - C, 200 - C].map((l) => Math.round(l * 10) / 10));
   assert.equal(rows(bom, 'tee')[0].qty, 1);
   assert.equal(rows(bom, 'elbow')[0].qty, 1);
-  assert.deepEqual(bom.fittings, { elbows: 1, tees: 1, crosses: 0, laterals: 0, reducers: 0, saddles: 0 });
+  assert.deepEqual(bom.fittings, { elbows: 1, tees: 1, crosses: 0, laterals: 0, wyes: 0, reducers: 0, saddles: 0 });
 });
 
 test('tube branch saddle-welded into the run: cut length to the run outside, exact solid volume', () => {

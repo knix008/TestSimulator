@@ -18,8 +18,9 @@
 // expandMoves() turns them into plain moves the way a control runs them.
 import {
   offsetLoops, insideRegion, reverseLoop, rectLoop, circleLoop, loopArea, loopLength, windingOf, resample, clipPolyline, unionLoops,
-  dropCutter, groupRegions, geom2, segDist, cleanLoop,
+  dropCutter, groupRegions, geom2, segDist, cleanLoop, SegmentIndex,
 } from './cam-geom.js';
+import { kernelSection, offsetSolid, overhangTop, shadowAbove } from './cam-kernel.js';
 import { cutterOf, millingData, turningData, cutMaterialOf, machineOf, METRIC_THREADS, isTurnTool } from './cam-tools.js';
 
 const { dist } = geom2;
@@ -33,10 +34,10 @@ export const OP_GROUPS = { face: ['facing'], rough25: ['pocket', 'adaptive', 'sl
 export const OP_DEFAULTS = {
   facing: { stepdown: 1, stepover: 0.7, leaveZ: 0, angle: 0 },
   pocket: { stepdown: 3, stepover: 0.45, leave: 0.3, leaveZ: 0.1, direction: 'climb', ramp: 3, finishPass: true },
-  adaptive: { stepdown: 8, stepover: 0.12, leave: 0.3, leaveZ: 0.1, direction: 'climb', ramp: 2, engagement: 70 },
+  adaptive: { stepdown: 8, leave: 0.3, leaveZ: 0.1, direction: 'climb', ramp: 2, engagement: 60 },
   contour: { stepdown: 10, leave: 0, leaveZ: 0, direction: 'climb', springPass: false },
   slot: { stepdown: 2, leave: 0, leaveZ: 0, direction: 'climb', ramp: 3 },
-  helix: { stepdown: 1.5, leave: 0, leaveZ: 0, direction: 'climb' },
+  helix: { stepdown: 1.5, leave: 0, leaveZ: 0, direction: 'climb', target: 'counterbore' },
   spot: { depth: 1, dwell: 0 },
   drill: { dwell: 0, breakThrough: 1 },
   peck: { peck: 0, breakThrough: 1 },
@@ -48,10 +49,10 @@ export const OP_DEFAULTS = {
   waterline: { stepdown: 0.5, leave: 0, direction: 'climb' },
   tFace: { stepdown: 1, leaveZ: 0 },
   tRough: { stepdown: 2, leave: 0.3, leaveZ: 0.1 },
-  tFinish: { leave: 0, clearance: 25 },
+  tFinish: { leave: 0, clearance: 0 },
   tDrill: { peck: 0 },
   tBoreRough: { stepdown: 1, leave: 0.3, leaveZ: 0.1 },
-  tBoreFinish: { leave: 0, clearance: 25 },
+  tBoreFinish: { leave: 0, clearance: 0 },
   tGroove: { stepover: 0.8, leave: 0 },
   tThread: { pitch: 1.5, passes: 6, length: 0, z1: null, external: true },
 };
@@ -107,28 +108,32 @@ export function stepLevels(top, bottom, step, extra = []) {
 
 // ───────────────────────── regions
 
-/** Material of the part at z and above (its shadow), as islands (reversed section loops), duplicates dropped. */
-function shadowIslands(ctx, z, step) {
+/**
+ * Material of the part at z and everywhere above it (its shadow), as islands (reversed section loops): the
+ * sections just above z, just under every flat face higher up, every 2 mm up to the top (sloped and curved
+ * walls), duplicates dropped. Overlapping islands read as their union under the positive fill rule.
+ */
+function shadowIslands(ctx, z) {
   const { model } = ctx;
   const zTop = model.bounds.hi[2];
-  const out = []; const seen = new Set();
-  if (z >= zTop) return out;
+  if (z >= zTop) return [];
   const eps = model.eps * 4;
-  const heights = new Set([z + eps]);
+  const heights = new Set([z + eps, zTop - eps]);
   for (const l of model.levels) if (l.up && l.z > z + eps) heights.add(l.z - eps);
-  for (let h = z + step; h < zTop; h += step) heights.add(h);
-  heights.add(zTop - eps);
-  for (const h of heights) {
-    if (h > zTop) continue;
-    for (const loop of model.slice(h)) {
-      const sig = `${round(loopArea(loop), 1e3)}|${round(loopLength(loop), 1e3)}|${round(loop[0][0], 1e2)}`;
-      if (seen.has(sig)) continue;
-      seen.add(sig);
-      out.push(reverseLoop(loop));
-    }
+  for (let h = zTop - 2; h > z + eps; h -= 2) heights.add(round(h, 1e6));
+  const out = []; const seen = new Set();
+  const base = model.slice(z + eps);
+  for (const h of [...heights].sort((a, b) => a - b)) {
+    const sec = model.slice(h);
+    // A section that lies wholly inside the material at z (the usual case: walls that do not lean out) adds
+    // nothing to the shadow.
+    if (h > z + eps && base.length && sec.filter((l) => loopArea(l) > 0).every((l) => l.every((q) => insideRegion(base, q)))) continue;
+    for (const loop of sec) { const k = loopSig(loop); if (!seen.has(k)) { seen.add(k); out.push(reverseLoop(loop)); } }
   }
   return out;
 }
+
+const loopSig = (l) => `${round(loopArea(l), 1e3)}|${round(loopLength(l), 1e3)}|${round(Math.min(...l.map((p) => p[0])), 1e3)}|${round(Math.min(...l.map((p) => p[1])), 1e3)}`;
 
 /** The stock outline (a little larger, so edges are cleared fully) as a CCW loop. */
 function stockLoop(ctx, grow) {
@@ -138,7 +143,7 @@ function stockLoop(ctx, grow) {
 
 /** Where the tool centre may go at height z (loops; positive rule). */
 function centreRegion(ctx, z, R, leave, { outer = null, shadowStep = 2 } = {}) {
-  const loops = [outer ?? stockLoop(ctx, R * 0.9), ...shadowIslands(ctx, z, shadowStep)];
+  const loops = [outer ?? stockLoop(ctx, R * 0.9), ...shadowIslands(ctx, z)];
   return offsetLoops(loops, -(R + leave), { tol: Math.min(0.005, R / 50) });
 }
 
@@ -167,11 +172,12 @@ function linkInside(region, a, b, step) {
  * Cuts closed loops at height z: the first is entered by a ramp along it from zFrom, later ones are reached by
  * a feed move when it stays inside `safe`, else by a retract and a new ramp.
  */
-function cutLoops(path, loops, z, { zFrom, safe, feed, plunge, ramp, R, retractZ, clearZ }) {
+function cutLoops(path, loops, z, { zFrom, safe, feed, plunge, ramp, R, retractZ, clearZ, asIs = false }) {
   const slope = Math.tan((Math.max(0.5, Math.min(90, ramp)) * Math.PI) / 180);
   let entered = false;
-  for (const loop0 of loops) {
-    const pts = startNear(loop0, path.pos);
+  for (const [index, loop0] of loops.entries()) {
+    // Walked paths (adaptive) keep their own start and order; the first one (a ring) still closes for its ramp.
+    const pts = asIs ? (index === 0 ? [...loop0, loop0[0]] : loop0) : startNear(loop0, path.pos);
     const start = pts[0];
     const here = [path.pos[0], path.pos[1]];
     if (entered && Math.abs(path.pos[2] - z) < 1e-9 && safe && linkInside(safe, here, start, R / 2)) {
@@ -183,13 +189,13 @@ function cutLoops(path, loops, z, { zFrom, safe, feed, plunge, ramp, R, retractZ
     if (path.pos[2] < retractZ - 1e-9) path.rapid([path.pos[0], path.pos[1], Math.max(retractZ, path.pos[2])]);
     if (Math.hypot(path.pos[0] - start[0], path.pos[1] - start[1]) > 1e-9) { path.rapid([path.pos[0], path.pos[1], clearZ]); path.rapid([start[0], start[1], clearZ]); }
     path.rapid([start[0], start[1], zFrom]);
-    rampAlong(path, pts, zFrom, z, slope, ramp >= 89 ? 0 : 1, feed, plunge);
+    rampAlong(path, pts, zFrom, z, slope, ramp >= 89 ? 0 : 1, feed, plunge, asIs);
     entered = true;
   }
 }
 
 /** Walks the closed loop pts descending from z0 to z at the slope, finishes the loop at z and re-cuts the ramp. */
-function rampAlong(path, pts, z0, z, slope, useRamp, feed, plunge) {
+function rampAlong(path, pts, z0, z, slope, useRamp, feed, plunge, endAtStart = false) {
   const L = loopLength(pts.slice(0, -1));
   const rampLen = useRamp ? (z0 - z) / slope : 0;
   if (!(rampLen > 1e-6) || L < 1e-6) {
@@ -218,6 +224,8 @@ function rampAlong(path, pts, z0, z, slope, useRamp, feed, plunge) {
   const startIdx = i % n;
   for (let k = 1; k <= n; k++) { const q = pts[((startIdx + k) % n)]; path.feed([q[0], q[1], z], feed); }
   path.feed([cur[0], cur[1], z], feed);
+  // A walked path that goes on from the loop's own start: round once more to it (all of it cut already).
+  if (endAtStart) for (let k = startIdx + 1; k <= n; k++) { const q = pts[k % n]; path.feed([q[0], q[1], z], feed); }
 }
 
 /** Offset loops run with the material on their right (climb milling with a right-hand cutter); conventional reverses. */
@@ -292,27 +300,47 @@ function genPocket(ctx, op, { adaptive = false } = {}) {
   const leaveZ = op.leaveZ ?? 0;
   const extra = ctx.model.levels.filter((l) => l.up).map((l) => l.z + leaveZ);
   const levels = stepLevels(top, floor + leaveZ, op.stepdown || 2, extra);
-  const step = tool.d * Math.min(0.9, Math.max(0.03, op.stepover ?? 0.45));
+  // Adaptive: the ring spacing that gives the target engagement on a straight cut, ae = R (1 − cos θ).
+  const step = adaptive ? Math.max(0.02, R * (1 - Math.cos(((op.engagement ?? 60) * Math.PI) / 180)) * 0.98) : tool.d * Math.min(0.9, Math.max(0.03, op.stepover ?? 0.45));
   const sp = speeds(ctx, op, tool, { ae: step, ap: op.stepdown });
   const path = new Path([0, 0, ctx.clearance]);
   const warnings = [];
   let prevZ = top;
-  let engagementMax = 0;
+  let engagementMax = 0; const entries = []; const ringCache = new Map();
   for (const z of levels) {
     const boundary = featureBoundary(ctx, f, z, R);
     const outer = f?.type === 'hole' ? boundary : f?.type === 'step' ? boundary : null;
-    const islands = f?.type === 'hole' ? [] : shadowIslands(ctx, z, op.stepdown || 2);
+    const islands = f?.type === 'hole' ? [] : shadowIslands(ctx, z);
     const base = [outer ?? stockLoop(ctx, R * 0.9), ...islands];
-    const first = offsetLoops(base, -(R + (op.leave ?? 0)), { tol: Math.min(0.005, R / 50) });
-    let region = within(first, f?.type === 'pocket' || f?.type === 'slot' ? boundary : null);
-    if (!region.length) { if (!warnings.includes('tooBig')) warnings.push('tooBig'); continue; }
-    const rings = [region];
-    let cur = region;
-    for (let k = 0; k < 500; k++) { cur = offsetLoops(cur, -step, { tol: Math.min(0.005, R / 50) }); if (!cur.length) break; rings.push(cur); }
+    // Levels between two changes of the walls have the same outline: their region and rings are worked out once.
+    const key = base.map(loopSig).sort().join(';') + (boundary ? `|${loopSig(boundary)}` : '');
+    const cached = ringCache.get(key);
+    const first = cached ? cached.first : offsetLoops(base, -(R + (op.leave ?? 0)), { tol: Math.min(0.005, R / 50) });
+    let region = cached ? cached.region : within(first, f?.type === 'pocket' || f?.type === 'slot' ? boundary : null);
+    if (!region.length) {
+      // Room for the tool without the material above: the area is under an overhang, else the tool is too big.
+      const open = boundary && offsetLoops([boundary], -(R + (op.leave ?? 0))).length > 0;
+      const why = open ? 'shadowed' : 'tooBig';
+      if (!warnings.includes(why)) warnings.push(why);
+      continue;
+    }
+    let rings = cached?.rings;
+    if (!rings) {
+      rings = [region];
+      let cur = region;
+      for (let k = 0; k < 500; k++) { cur = offsetLoops(cur, -step, { tol: Math.min(0.005, R / 50) }); if (!cur.length) break; rings.push(cur); }
+      ringCache.set(key, { first, region, rings });
+    }
     const ordered = ringsInsideOut(rings).map((r) => orient(r, op.direction));
     let loops = ordered.flat();
-    if (adaptive) { const a = adaptiveLoops(loops, R, step, op.engagement ?? 70); loops = a.loops; engagementMax = Math.max(engagementMax, a.maxEngagement); }
-    cutLoops(path, loops, z, { zFrom: prevZ + 0.5, safe: region, feed: sp.feed, plunge: sp.plunge, ramp: op.ramp ?? 3, R, retractZ: prevZ + ctx.retract, clearZ: ctx.clearance });
+    if (adaptive) {
+      // The area this level clears: the tool-centre region grown back by the radius (its walls stay).
+      const area = offsetLoops(region, R, { tol: Math.min(0.005, R / 50) });
+      const a = adaptiveLevel(ordered.flat(), area, R, op.engagement ?? 60, region, op.direction === 'conventional' ? -1 : 1);
+      loops = a.loops; engagementMax = Math.max(engagementMax, a.maxEngagement);
+      if (loops[0]) entries.push({ z, loop: loops[0] });
+    }
+    cutLoops(path, loops, z, { zFrom: prevZ + 0.5, safe: region, feed: sp.feed, plunge: sp.plunge, ramp: op.ramp ?? 3, R, retractZ: prevZ + ctx.retract, clearZ: ctx.clearance, asIs: adaptive });
     if (op.finishPass && (op.leave ?? 0) > 0) {
       const fin = within(offsetLoops(base, -R, { tol: Math.min(0.005, R / 50) }), f?.type === 'pocket' || f?.type === 'slot' ? boundary : null);
       cutLoops(path, orient(fin, op.direction), z, { zFrom: z, safe: fin, feed: sp.feed, plunge: sp.plunge, ramp: 90, R, retractZ: z + ctx.retract, clearZ: ctx.clearance });
@@ -320,71 +348,169 @@ function genPocket(ctx, op, { adaptive = false } = {}) {
     prevZ = z;
   }
   path.rapid([path.pos[0], path.pos[1], ctx.clearance]);
-  return { moves: path.moves, ...sp, warnings, engagement: engagementMax };
+  return { moves: path.moves, ...sp, warnings, engagement: engagementMax, entries };
 }
 
 /**
- * Adaptive clearing: the rings are walked with the engagement angle checked against the material left by the
- * loops before; where a corner would load the cutter beyond the limit, trochoidal loops replace the straight
- * cut there. Returns { loops, maxEngagement (degrees, after) }.
+ * Exact engagement of a cutter of radius R at p moving along u, in the stock left by the cuts so far: the angle
+ * of its leading half circle that runs through material. Material = inside `area` (what this level clears; the
+ * part's walls and the air outside are not material) and outside every capsule swept so far (a segment of the
+ * tool-centre path grown by R). Arc breakpoints come from the circle's crossings with the area's edges and the
+ * capsules' boundaries, so between two breakpoints the material test of one point holds for the whole arc.
  */
-function adaptiveLoops(loops, R, step, limitDeg) {
-  if (!loops.length) return { loops, maxEngagement: 0 };
-  let bx0 = Infinity; let by0 = Infinity; let bx1 = -Infinity; let by1 = -Infinity;
-  for (const l of loops) for (const p of l) { bx0 = Math.min(bx0, p[0]); by0 = Math.min(by0, p[1]); bx1 = Math.max(bx1, p[0]); by1 = Math.max(by1, p[1]); }
-  const h = Math.max(R / 6, 0.05);
-  const nx = Math.ceil((bx1 - bx0 + 2 * R) / h) + 2; const ny = Math.ceil((by1 - by0 + 2 * R) / h) + 2;
-  if (nx * ny > 4e6) return { loops, maxEngagement: 0 };
-  const ox = bx0 - R - h; const oy = by0 - R - h;
-  // Material: every cell within the reach of some loop (what this level clears), removed as the tool passes.
-  const mat = new Uint8Array(nx * ny);
-  for (const l of loops) for (const p of resample(l, h, true)) stamp(mat, nx, ny, ox, oy, h, p, R, 1);
-  const limit = (limitDeg * Math.PI) / 180;
-  const out = []; let maxEng = 0;
-  const probes = 24;
-  for (const l of loops) {
-    const pts = resample(l, Math.max(h, step / 3), true);
-    const res = [];
-    for (let i = 0; i < pts.length; i++) {
-      const p = pts[i]; const q = pts[(i + 1) % pts.length];
-      const dir = [q[0] - p[0], q[1] - p[1]]; const dl = Math.hypot(...dir) || 1;
-      // Engagement: the arc of the cutter's leading half touching material.
-      let hit = 0;
-      for (let k = 0; k < probes; k++) {
-        const a = -Math.PI / 2 + (Math.PI * (k + 0.5)) / probes;
-        const ux = (dir[0] * Math.cos(a) - dir[1] * Math.sin(a)) / dl; const uy = (dir[0] * Math.sin(a) + dir[1] * Math.cos(a)) / dl;
-        const x = p[0] + ux * (R + h * 0.5); const y = p[1] + uy * (R + h * 0.5);
-        const ix = Math.floor((x - ox) / h); const iy = Math.floor((y - oy) / h);
-        if (ix >= 0 && iy >= 0 && ix < nx && iy < ny && mat[iy * nx + ix]) hit++;
+export class EngagementModel {
+  constructor(area, R) {
+    this.area = area; this.R = R;
+    this.areaIdx = new SegmentIndex(area.flatMap((l) => l.map((a, i) => ({ a, b: l[(i + 1) % l.length] }))));
+    this.cell = 2 * R; this.segs = []; this.buckets = new Map();
+  }
+  /** Records the move a → b as cut. */
+  add(a, b) {
+    const id = this.segs.push({ a, b }) - 1; const c = this.cell; const R = this.R;
+    const i0 = Math.floor((Math.min(a[0], b[0]) - R) / c); const i1 = Math.floor((Math.max(a[0], b[0]) + R) / c);
+    const j0 = Math.floor((Math.min(a[1], b[1]) - R) / c); const j1 = Math.floor((Math.max(a[1], b[1]) + R) / c);
+    for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const k = `${i},${j}`; let l = this.buckets.get(k); if (!l) { l = []; this.buckets.set(k, l); } l.push(id); }
+  }
+  near(p) {
+    const c = this.cell; const R = this.R; const out = new Set();
+    for (let i = Math.floor((p[0] - 2 * R) / c); i <= Math.floor((p[0] + 2 * R) / c); i++) {
+      for (let j = Math.floor((p[1] - 2 * R) / c); j <= Math.floor((p[1] + 2 * R) / c); j++) for (const id of this.buckets.get(`${i},${j}`) ?? []) out.add(id);
+    }
+    return [...out].map((id) => this.segs[id]);
+  }
+  /** Engagement angle (radians) at p moving along u (unit). */
+  engagement(p, u) {
+    const R = this.R; const base = Math.atan2(u[1], u[0]);
+    const HALF = Math.PI / 2;
+    const rel = (q) => { let a = Math.atan2(q[1] - p[1], q[0] - p[0]) - base; while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
+    const at = (a) => [p[0] + R * Math.cos(base + a), p[1] + R * Math.sin(base + a)];
+    const circleLine = (o, d) => {
+      const fx = o[0] - p[0]; const fy = o[1] - p[1]; const A = d[0] * d[0] + d[1] * d[1]; const B = 2 * (fx * d[0] + fy * d[1]); const C = fx * fx + fy * fy - R * R;
+      const disc = B * B - 4 * A * C;
+      if (disc < 0 || A < 1e-18) return [];
+      const sq = Math.sqrt(disc);
+      return [(-B - sq) / (2 * A), (-B + sq) / (2 * A)];
+    };
+    /** The parts of [−90°, 90°] where test(point) holds, from the breakpoints (each piece tested once). */
+    const pieces = (breaks, test) => {
+      const list = [-HALF, HALF, ...breaks.filter((a) => a > -HALF && a < HALF)].sort((x, y) => x - y);
+      const out = [];
+      for (let k = 0; k + 1 < list.length; k++) {
+        const a0 = list[k]; const a1 = list[k + 1];
+        if (a1 - a0 < 1e-12) continue;
+        if (test(at((a0 + a1) / 2))) { if (out.length && Math.abs(out[out.length - 1][1] - a0) < 1e-12) out[out.length - 1][1] = a1; else out.push([a0, a1]); }
       }
-      const eng = (Math.PI * hit) / probes;
-      if (eng > limit && dl > 1e-9) {
-        // Trochoidal loop: a small circle just ahead of the point, walked once before going on.
-        const rr = Math.min(step * 0.5, R * 0.5);
-        const ux = dir[0] / dl; const uy = dir[1] / dl;
-        const cx = p[0] + ux * rr; const cy = p[1] + uy * rr;
-        const a0 = Math.atan2(-uy, -ux);
-        for (let k = 0; k <= 16; k++) {
-          const a = a0 + (2 * Math.PI * k) / 16;
-          const q2 = [cx + rr * Math.cos(a), cy + rr * Math.sin(a)];
-          res.push(q2);
-          stamp(mat, nx, ny, ox, oy, h, q2, R, 0);
+      return out;
+    };
+    // Material can only be inside the area: its pieces of the leading half.
+    const areaBreaks = [];
+    this.areaIdx.each(p[0] - R, p[1] - R, p[0] + R, p[1] + R, (i) => {
+      const s = this.areaIdx.segs[i]; const d = [s.b[0] - s.a[0], s.b[1] - s.a[1]];
+      for (const t of circleLine(s.a, d)) if (t >= 0 && t <= 1) areaBreaks.push(rel([s.a[0] + d[0] * t, s.a[1] + d[1] * t]));
+    });
+    let free = pieces(areaBreaks, (q) => insideRegion(this.area, q));
+    if (!free.length) return 0;
+    // Each capsule cut so far (within reach) takes away the arcs it covers: its own breakpoints, its own test.
+    for (const s of this.near(p)) {
+      if (segDist(p, s.a, s.b) >= 2 * R) continue;
+      const { a, b } = s; const brk = [];
+      const d = [b[0] - a[0], b[1] - a[1]]; const L = Math.hypot(d[0], d[1]);
+      if (L > 1e-12) {
+        const n = [(-d[1] / L) * R, (d[0] / L) * R];
+        for (const sgn of [1, -1]) { const o = [a[0] + sgn * n[0], a[1] + sgn * n[1]]; for (const t of circleLine(o, d)) if (t >= 0 && t <= 1) brk.push(rel([o[0] + d[0] * t, o[1] + d[1] * t])); }
+      }
+      for (const c of [a, b]) {
+        const dd = Math.hypot(c[0] - p[0], c[1] - p[1]);
+        if (dd < 1e-12 || dd >= 2 * R) continue;
+        const psi = Math.atan2(c[1] - p[1], c[0] - p[0]); const w = Math.acos(dd / (2 * R));
+        for (const ang of [psi - w, psi + w]) brk.push(rel([p[0] + R * Math.cos(ang), p[1] + R * Math.sin(ang)]));
+      }
+      const covered = pieces(brk, (q) => segDist(q, a, b) < R - 1e-9);
+      if (!covered.length) continue;
+      const next = [];
+      for (const [f0, f1] of free) {
+        let segs = [[f0, f1]];
+        for (const [c0, c1] of covered) segs = segs.flatMap(([x0, x1]) => (c1 <= x0 || c0 >= x1 ? [[x0, x1]] : [...(c0 > x0 ? [[x0, c0]] : []), ...(c1 < x1 ? [[c1, x1]] : [])]));
+        next.push(...segs);
+      }
+      free = next;
+      if (!free.length) return 0;
+    }
+    return free.reduce((sum, [x0, x1]) => sum + (x1 - x0), 0);
+  }
+}
+
+/**
+ * Adaptive clearing of one level: the rings (spaced for the target engagement on a straight cut,
+ * ae = R (1 − cos θ)) cut inside out; every sample's engagement is computed exactly against the stock left so
+ * far, and where it would pass the limit (corners) the cutter makes trochoidal loops ahead — smaller ones until
+ * the limit holds. The innermost ring is the entry (opened by the ramp like a helical bore) and is not limited. Returns { loops, maxEngagement (degrees), samples }.
+ */
+function adaptiveLevel(rings, area, R, limitDeg, region, side = 1) {
+  const limit = (limitDeg * Math.PI) / 180;
+  const model = new EngagementModel(area, R);
+  const out = []; let maxEng = 0; let samples = 0;
+  const sample = Math.max(R / 5, 0.05);
+  let prev = null; let first = true;
+  for (const loop of rings) {
+    let pts = resample(loop, sample, true);
+    // Start where the last ring ended (nearest point), so the step across is part of the checked walk.
+    if (prev) { let bi = 0; let bd = Infinity; pts.forEach((q, i) => { const d = Math.hypot(q[0] - prev[0], q[1] - prev[1]); if (d < bd) { bd = d; bi = i; } }); pts = [...pts.slice(bi), ...pts.slice(0, bi)]; }
+    pts.push(pts[0]);
+    const res = [];
+    // The first (innermost) ring is the entry: the ramp opens it as a helical bore would, at full width.
+    const entry = first; first = false;
+    if (!prev) prev = pts[0];
+    res.push(prev);
+    const go = (q) => { model.add(prev, q); res.push(q); prev = q; };
+    // Where a point would load the cutter past the limit it is pulled towards the cleared side (the left of the
+    // travel for climb milling) until the exact engagement is the limit; the ring is then run again over what is
+    // left, until every point is reached.
+    for (let pass = 0; pass < (entry ? 1 : 8); pass++) {
+      let short = false;
+      for (let i = entry ? 1 : 0; i < pts.length; i++) {
+        const p = prev; const q = pts[i];
+        const dl = Math.hypot(q[0] - p[0], q[1] - p[1]);
+        if (dl < 1e-9) continue;
+        const u = [(q[0] - p[0]) / dl, (q[1] - p[1]) / dl];
+        if (entry) { go(q); continue; }
+        const eng = model.engagement(q, u);
+        samples++;
+        if (eng <= limit + 1e-9) { maxEng = Math.max(maxEng, eng); go(q); continue; }
+        const a = pts[Math.max(0, i - 1)]; const b = pts[Math.min(pts.length - 1, i + 1)];
+        const tl = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+        const nrm = [(-(b[1] - a[1]) / tl) * side, ((b[0] - a[0]) / tl) * side];
+        const at = (k) => [q[0] + nrm[0] * k, q[1] + nrm[1] * k];
+        const engAt = (k) => { const t = at(k); const dd = Math.hypot(t[0] - p[0], t[1] - p[1]); return dd > 1e-9 ? model.engagement(t, [(t[0] - p[0]) / dd, (t[1] - p[1]) / dd]) : 0; };
+        let lo = 0; let hi = Math.max(sample, R);
+        if (engAt(hi) > limit) {
+          // Pulling back is not enough (a corner): the cutter turns towards the cleared side instead, by the
+          // smallest angle that keeps the limit (the least loaded heading when none does).
+          let best = null; let bestE = Infinity;
+          for (let len = dl; len >= dl / 8 && bestE > limit; len /= 2) {
+            for (let deg = 0; deg <= 170; deg += 10) {
+              const th = (deg * Math.PI) / 180 * side; const c = Math.cos(th); const sn = Math.sin(th);
+              const dir = [u[0] * c - u[1] * sn, u[0] * sn + u[1] * c];
+              const t = [p[0] + dir[0] * len, p[1] + dir[1] * len];
+              if (region && !insideRegion(region, t)) continue;
+              const e = model.engagement(t, dir);
+              if (e < bestE) { bestE = e; best = t; }
+              if (e <= limit) break;
+            }
+          }
+          if (best) { maxEng = Math.max(maxEng, bestE); go(best); }
+          short = true; continue;
         }
-        maxEng = Math.max(maxEng, limit);
-      } else maxEng = Math.max(maxEng, eng);
-      res.push(p);
-      stamp(mat, nx, ny, ox, oy, h, p, R, 0);
+        for (let it = 0; it < 9; it++) { const mid = (lo + hi) / 2; if (engAt(mid) > limit) lo = mid; else hi = mid; }
+        const t = at(hi);
+        if (!region || insideRegion(region, t)) { maxEng = Math.max(maxEng, engAt(hi)); go(t); }
+        short = true;
+      }
+      if (!short) break; // another pass over the ring starts from here; its first step is checked like any other
     }
     out.push(res);
   }
-  return { loops: out, maxEngagement: (maxEng * 180) / Math.PI };
-}
-
-function stamp(mat, nx, ny, ox, oy, h, p, R, value) {
-  const i0 = Math.max(0, Math.floor((p[0] - R - ox) / h)); const i1 = Math.min(nx - 1, Math.ceil((p[0] + R - ox) / h));
-  const j0 = Math.max(0, Math.floor((p[1] - R - oy) / h)); const j1 = Math.min(ny - 1, Math.ceil((p[1] + R - oy) / h));
-  const r2 = R * R;
-  for (let j = j0; j <= j1; j++) { const y = oy + (j + 0.5) * h - p[1]; for (let i = i0; i <= i1; i++) { const x = ox + (i + 0.5) * h - p[0]; if (x * x + y * y <= r2) mat[j * nx + i] = value; } }
+  return { loops: out, maxEngagement: (maxEng * 180) / Math.PI, samples };
 }
 
 /** Contour: one ring at the walls of a feature (or around the part), at every level. */
@@ -401,7 +527,7 @@ function genContour(ctx, op) {
     const region = centreRegion(ctx, z, R, op.leave ?? 0, { shadowStep: op.stepdown || 10 });
     let loops;
     if (f?.type === 'boss') loops = region.filter((l) => loopArea(l) < 0 && windingOf(l, f.seed) !== 0).sort((a, b) => loopArea(b) - loopArea(a)).slice(0, 1);
-    else if (f?.type === 'pocket' || f?.type === 'slot') loops = within(region, featureBoundary(ctx, f, z, R));
+    else if (f?.type === 'pocket' || f?.type === 'slot' || f?.type === 'step') loops = within(region, featureBoundary(ctx, f, z, R));
     else {
       // Around the part: the holes of the region that hold the part's largest section.
       const mat = ctx.model.slice(Math.min(z + ctx.model.eps * 4, ctx.model.bounds.hi[2] - ctx.model.eps));
@@ -445,8 +571,10 @@ function genHelix(ctx, op) {
   const tool = toolOf(ctx, op); const R = tool.d / 2;
   const f = featureOf(ctx, op);
   if (!f || f.type !== 'hole') throw Object.assign(new Error('helix needs a hole'), { code: 'needHole' });
-  const holeR = (f.counterbore?.d ?? f.d) / 2;
-  const bottom = f.counterbore ? f.top - f.counterbore.depth : (f.through ? f.bottom - 0.5 : f.bottom);
+  // The counterbore (target 'counterbore') or the hole under it (target 'hole', the default without one).
+  const cb = f.counterbore && op.target !== 'hole';
+  const holeR = (cb ? f.counterbore.d : f.d) / 2;
+  const bottom = cb ? f.top - f.counterbore.depth : (f.through ? f.bottom - 0.5 : f.bottom);
   const r = holeR - R - (op.leave ?? 0);
   if (r < 0) throw Object.assign(new Error('tool too big'), { code: 'tooBig' });
   const sp = speeds(ctx, op, tool, { ae: R, ap: op.stepdown });
@@ -486,7 +614,8 @@ function genDrilling(ctx, op) {
     else if (op.type === 'tap') bottom = h.through ? h.bottom - (op.breakThrough ?? 0) : h.bottom + (tool.pitch ?? 1) * 1.5;
     else bottom = h.through ? h.bottom - tip - (op.breakThrough ?? 1) : h.bottom - tip;
     const q = op.type === 'peck' || op.type === 'chipBreak' ? (op.peck > 0 ? op.peck : tool.d) : 0;
-    path.cycle({ cycle, p: [h.x, h.y, round(bottom, 1e4)], r: round(start + ctx.retract, 1e4), init: ctx.clearance, q, f: sp.feed, dwell: op.dwell ?? 0, pitch: tool.pitch ?? 0, hole: h.id });
+    // R plane over the hole's top (a counterbore floor below it may not be cut yet when this runs).
+    path.cycle({ cycle, p: [h.x, h.y, round(bottom, 1e4)], r: round(h.top + ctx.retract, 1e4), init: ctx.clearance, q, f: sp.feed, dwell: op.dwell ?? 0, pitch: tool.pitch ?? 0, hole: h.id });
   }
   return { moves: path.moves, ...sp };
 }
@@ -556,9 +685,17 @@ function dropAlong(ctx, cutter, pts, floor, leave, sample, tol = 0.002) {
   const base = resample(pts, sample).map((p) => [p[0], p[1], drop(p[0], p[1])]);
   const out = [];
   const refine = (a, b, depth) => {
+    const run = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    // A cliff (steeper than 45°): up first at the low end, or across first and down at the far end, so the
+    // move never cuts the edge it climbs; the level part is refined in turn.
+    if (Math.abs(b[2] - a[2]) > run + tol && run > 1e-9) {
+      const corner = b[2] > a[2] ? [a[0], a[1], b[2]] : [b[0], b[1], a[2]];
+      if (b[2] > a[2]) { out.push(corner); refine(corner, b, depth + 1); } else { refine(a, corner, depth + 1); out.push(corner); }
+      return;
+    }
     const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
     const zm = drop(m[0], m[1]);
-    if (depth < 10 && zm > (a[2] + b[2]) / 2 + tol) { const mid = [m[0], m[1], zm]; refine(a, mid, depth + 1); out.push(mid); refine(mid, b, depth + 1); }
+    if (depth < 12 && zm > (a[2] + b[2]) / 2 + tol) { const mid = [m[0], m[1], zm]; refine(a, mid, depth + 1); out.push(mid); refine(mid, b, depth + 1); }
   };
   for (let i = 0; i < base.length; i++) { if (i) refine(base[i - 1], base[i], 0); out.push(base[i]); }
   return simplify3(out, tol);
@@ -616,8 +753,221 @@ function genParallel(ctx, op) {
   return { moves: path.moves, ...sp, stepover: step };
 }
 
-/** Scallop finishing: rings inward from the area's outline, spaced so the 3D distance between passes holds. */
+/**
+ * The cusp left between two ball positions: in the plane through both centres (c0, c1: [t, z] across the passes)
+ * the two circles of radius R meet below the centres at the cusp; its height over the part is measured square
+ * to the surface.
+ * surf(t) → the part's height below the cross-section point t. Returns the cusp height (≥ 0).
+ */
+export function cuspHeight(c0, c1, R, surf) {
+  const dx = c1[0] - c0[0]; const dz = c1[1] - c0[1]; const d = Math.hypot(dx, dz);
+  if (d < 1e-12) return 0;
+  if (d >= 2 * R) return Infinity;
+  const m = [(c0[0] + c1[0]) / 2, (c0[1] + c1[1]) / 2]; const hc = Math.sqrt(R * R - (d / 2) ** 2);
+  // The ridge between two ball bottoms tops out where the circles meet below the line of centres.
+  const p1 = [m[0] - (dz / d) * hc, m[1] + (dx / d) * hc]; const p2 = [m[0] + (dz / d) * hc, m[1] - (dx / d) * hc];
+  const cusp = p1[1] < p2[1] ? p1 : p2;
+  const z = surf(cusp[0]);
+  if (!Number.isFinite(z)) return 0;
+  const e = 1e-3; const slope = (surf(cusp[0] + e) - surf(cusp[0] - e)) / (2 * e);
+  return Math.max(0, (cusp[1] - z) / Math.sqrt(1 + (Number.isFinite(slope) ? slope * slope : 0)));
+}
+
+/**
+ * Scallop finishing with a ball: every point of a pass steps inward by its own distance — the one at which the
+ * cusp with the next pass, found from the two ball positions over the part's actual cross-section there, is the
+ * scallop height asked for (bisection). So the scallop holds on flat, steep and curved areas alike. The stepped
+ * points make the next pass (its self-crossings in tight corners resolved by the positive fill rule, where the
+ * passes then come closer and the scallop is lower).
+ */
 function genScallop(ctx, op) {
+  const tool = toolOf(ctx, op); const R = tool.d / 2; const cutter = cutterOf(tool);
+  if (cutter.type !== 'ball') return genScallopUniform(ctx, op);
+  const [x0, y0, x1, y1] = finishArea(ctx, op, R);
+  const h = Math.max(1e-4, op.scallop ?? 0.01);
+  const sFlat = 2 * Math.sqrt(Math.max(1e-12, 2 * R * h - h * h));
+  const sp = speeds(ctx, op, tool, { ae: finishStep(tool, op), ap: 0.5 });
+  const floor = ctx.model.bounds.lo[2];
+  const leave = op.leave ?? 0;
+  const sample = Math.min(op.sample ?? 0.5, R / 4);
+  const grid = ctx.model.topGrid();
+  const drop = (x, y) => dropCutter(grid, cutter, x, y, floor) + leave;
+  const top = (x, y) => { const v = grid.topAt(x, y); return Number.isFinite(v) ? v + leave : floor + leave; };
+  const path = new Path([x0, y0, ctx.clearance]);
+  const passes = [];
+  let ring = [rectLoop(x0, y0, x1, y1)];
+  for (let k = 0; k < 4000 && ring.length; k++) {
+    const next = [];
+    for (const loop of ring) {
+      const closed = [...loop, loop[0]];
+      const pts = dropAlong(ctx, cutter, closed, floor, leave, sample);
+      if (pts.length < 2) continue;
+      passes.push(pts);
+      const near = Math.hypot(path.pos[0] - pts[0][0], path.pos[1] - pts[0][1]) <= 4 * R && path.pos[2] < ctx.clearance - 1e-9;
+      if (near) for (const q of dropAlong(ctx, cutter, [[path.pos[0], path.pos[1]], [pts[0][0], pts[0][1]]], floor, leave, sample).slice(1)) path.feed(q, sp.feed);
+      else { path.rapid([path.pos[0], path.pos[1], ctx.clearance]); path.rapid([pts[0][0], pts[0][1], ctx.clearance]); path.rapid([pts[0][0], pts[0][1], pts[0][2] + ctx.retract]); }
+      path.feed(pts[0], sp.plunge);
+      for (const q of pts.slice(1)) path.feed(q, sp.feed);
+      // Every point of the loop's polygon steps inward by its own distance.
+      const poly = resample(loop, Math.max(sample, R / 2), true);
+      const n = poly.length;
+      const stepped = poly.map((p, i) => {
+        const a = poly[(i - 1 + n) % n]; const b = poly[(i + 1) % n];
+        const tx = b[0] - a[0]; const ty = b[1] - a[1]; const tl = Math.hypot(tx, ty) || 1;
+        const nx = -ty / tl; const ny = tx / tl; // inward (left of a CCW loop)
+        const z0 = drop(p[0], p[1]) + R;
+        const height = (s) => cuspHeight([0, z0], [s, drop(p[0] + nx * s, p[1] + ny * s) + R], R, (t) => top(p[0] + nx * t, p[1] + ny * t));
+        let lo = 0; let hi = 2 * R * 0.999;
+        if (height(hi) <= h) lo = hi;
+        else for (let it = 0; it < 14; it++) { const mid = (lo + hi) / 2; if (height(mid) <= h) lo = mid; else hi = mid; }
+        // Where no step keeps the cusp (a wall the passes climb), the passes keep a 3D distance of the flat-ground
+        // stepover, at least a quarter of it in plan.
+        let s = lo;
+        if (s < sFlat * 0.25) {
+          let a = 0; let c = sFlat;
+          for (let it = 0; it < 12; it++) { const mid = (a + c) / 2; const dz = drop(p[0] + nx * mid, p[1] + ny * mid) - (z0 - R); if (Math.hypot(mid, dz) <= sFlat) a = mid; else c = mid; }
+          s = Math.max(a, sFlat * 0.25);
+        }
+        return [p[0] + nx * s, p[1] + ny * s];
+      });
+      next.push(stepped);
+    }
+    // Each stepped loop made simple again (the positive fill rule drops the swallow-tails of tight corners);
+    // pieces too small to hold a pass and repeats are left out.
+    const seen = new Set(); ring = []; const apex = [];
+    for (const st of next) {
+      const pieces = offsetLoops([st], -1e-4, { tol: 0.002 });
+      const big = pieces.filter((l) => loopArea(l) > sample * sample);
+      if (!big.length) {
+        // The ring has closed up: one plunge at the middle of what is left so the top is finished too.
+        const last = pieces.filter((l) => loopArea(l) > 1e-6).sort((x, y) => loopArea(y) - loopArea(x))[0];
+        if (last) apex.push([last.reduce((a2, q) => a2 + q[0], 0) / last.length, last.reduce((a2, q) => a2 + q[1], 0) / last.length]);
+        continue;
+      }
+      for (const l of big) { const k2 = loopSig(l); if (!seen.has(k2)) { seen.add(k2); ring.push(l); } }
+    }
+    for (const a2 of apex) {
+      const q = [a2[0], a2[1], drop(a2[0], a2[1])];
+      path.rapid([path.pos[0], path.pos[1], Math.max(path.pos[2], q[2]) + ctx.retract]); path.rapid([q[0], q[1], q[2] + ctx.retract]); path.feed(q, sp.plunge);
+      passes.push([q]);
+    }
+  }
+  // Clean-up: the scallop actually left (scallopLeft: the surface's distance to the nearest ball position, less
+  // the radius) checked on a fine grid over the area; where it is over the height asked for — the corners where
+  // rings that started square close up, and where they meet the apex — short passes go through exactly those
+  // places, so the height holds everywhere.
+  const dropPath = (plan) => dropAlong(ctx, cutter, plan, floor, leave, sample);
+  const rings = passes.length;
+  for (const pts of scallopCleanup(passes, [x0, y0, x1, y1], R, h, top, dropPath, Math.min(sFlat / 8, sample / 2), sample)) {
+    path.rapid([path.pos[0], path.pos[1], ctx.clearance]); path.rapid([pts[0][0], pts[0][1], ctx.clearance]); path.rapid([pts[0][0], pts[0][1], pts[0][2] + ctx.retract]);
+    path.feed(pts[0], sp.plunge);
+    for (const q of pts.slice(1)) path.feed(q, sp.feed);
+    passes.push(pts);
+  }
+  path.rapid([path.pos[0], path.pos[1], ctx.clearance]);
+  return { moves: path.moves, ...sp, scallop: h, passes, cleanup: passes.length - rings };
+}
+
+/**
+ * The scallop a ball of radius R leaves after `passes` (tool-tip polylines), at plan points of the area: the
+ * surface point (x, y, top(x, y)) to the nearest ball position (centres along the passes, R over the tip), less R.
+ * `at(x, y)` → the height left; positions are binned on a plan grid for the search.
+ */
+export function scallopLeft(passes, R, top, { step = 0.1 } = {}) {
+  const cell = Math.max(R, 0.5); const bins = new Map();
+  const key = (i, j) => i * 1e6 + j;
+  const put = (c) => { const k = key(Math.floor(c[0] / cell), Math.floor(c[1] / cell)); let b = bins.get(k); if (!b) bins.set(k, (b = [])); b.push(c); };
+  for (const pass of passes) {
+    if (pass.length === 1) { put([pass[0][0], pass[0][1], pass[0][2] + R]); continue; }
+    for (let i = 0; i + 1 < pass.length; i++) {
+      const a = pass[i]; const b = pass[i + 1];
+      const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) / step));
+      for (let k = 0; k <= n; k++) { const t = k / n; put([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t + R]); }
+    }
+  }
+  const reach = Math.ceil((2 * R) / cell) + 1;
+  return {
+    /** The height left at (x, y); with `limit`, the search stops at the first ball leaving no more than it. */
+    at(x, y, limit = -Infinity) {
+      const z = top(x, y);
+      if (!Number.isFinite(z)) return 0;
+      const i = Math.floor(x / cell); const j = Math.floor(y / cell);
+      const enough = Number.isFinite(limit) ? (R + limit) ** 2 : -1;
+      let best = Infinity;
+      for (let a = -reach; a <= reach; a++) for (let b = -reach; b <= reach; b++) {
+        const list = bins.get(key(i + a, j + b)); if (!list) continue;
+        for (const c of list) { const d = (c[0] - x) ** 2 + (c[1] - y) ** 2 + (c[2] - z) ** 2; if (d < best) { best = d; if (best <= enough) return Math.sqrt(best) - R; } }
+      }
+      return Math.sqrt(best) - R;
+    },
+  };
+}
+
+/**
+ * Passes that take the scallop down to `h` where `passes` leave more: the plan grid (spacing `g`) over the area
+ * is checked (scallopLeft); the cells over h, grouped by adjacency, each get a pass through the ball positions that
+ * touch the surface there (R along its normal, so off to the side on a slope) (ordered
+ * along the group's long axis, the tool dropped onto the part every `sample`), a single point a plunge. Repeats
+ * until nothing is over h (at most 4 rounds).
+ */
+function scallopCleanup(passes, [x0, y0, x1, y1], R, h, top, dropPath, g, sample) {
+  const out = [];
+  const all = [...passes];
+  const nx = Math.max(1, Math.ceil((x1 - x0) / g)); const ny = Math.max(1, Math.ceil((y1 - y0) / g));
+  for (let round = 0; round < 4; round++) {
+    const left = scallopLeft(all, R, top);
+    const over = new Map();
+    for (let i = 0; i <= nx; i++) for (let j = 0; j <= ny; j++) {
+      const x = x0 + ((x1 - x0) * i) / nx; const y = y0 + ((y1 - y0) * j) / ny;
+      if (!(left.at(x, y, h) > h)) continue;
+      // A ball touches a slope where the surface's normal points at its centre: to take the material at (x, y)
+      // its centre stands R along that normal, so in plan R times the normal's level part away (downhill).
+      const e = Math.max(1e-3, g / 4);
+      const gx = (top(x + e, y) - top(x - e, y)) / (2 * e); const gy = (top(x, y + e) - top(x, y - e)) / (2 * e);
+      const k = Number.isFinite(gx) && Number.isFinite(gy) ? R / Math.sqrt(1 + gx * gx + gy * gy) : 0;
+      over.set(i * (ny + 1) + j, [x - gx * k, y - gy * k]);
+    }
+    if (!over.size) break;
+    // Groups of neighbouring cells.
+    const seen = new Set();
+    for (const [k0] of over) {
+      if (seen.has(k0)) continue;
+      const group = []; const stack = [k0]; seen.add(k0);
+      while (stack.length) {
+        const k = stack.pop(); group.push(over.get(k));
+        const i = Math.floor(k / (ny + 1)); const j = k % (ny + 1);
+        for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) {
+          const kk = (i + a) * (ny + 1) + (j + b);
+          if (i + a >= 0 && i + a <= nx && j + b >= 0 && j + b <= ny && over.has(kk) && !seen.has(kk)) { seen.add(kk); stack.push(kk); }
+        }
+      }
+      // Along the group's long axis (principal direction), through its points.
+      const cx = group.reduce((s2, p) => s2 + p[0], 0) / group.length; const cy = group.reduce((s2, p) => s2 + p[1], 0) / group.length;
+      let sxx = 0; let sxy = 0; let syy = 0;
+      for (const p of group) { const dx = p[0] - cx; const dy = p[1] - cy; sxx += dx * dx; sxy += dx * dy; syy += dy * dy; }
+      const ang = 0.5 * Math.atan2(2 * sxy, sxx - syy); const ux = Math.cos(ang); const uy = Math.sin(ang);
+      const ts = group.map((p) => (p[0] - cx) * ux + (p[1] - cy) * uy);
+      const t0 = Math.min(...ts); const t1 = Math.max(...ts);
+      const n = Math.max(1, Math.ceil((t1 - t0) / sample));
+      const plan = [];
+      for (let k = 0; k <= (t1 - t0 > 1e-9 ? n : 0); k++) {
+        const t = t0 + ((t1 - t0) * k) / n;
+        // The group's points near this station, averaged across the axis (the pass runs through the middle).
+        const near = group.filter((p, q) => Math.abs(ts[q] - t) <= Math.max(g, sample / 2));
+        const off = near.length ? near.reduce((s2, p) => s2 + (-(p[0] - cx) * uy + (p[1] - cy) * ux), 0) / near.length : 0;
+        const x = cx + ux * t - uy * off; const y = cy + uy * t + ux * off;
+        plan.push([x, y]);
+      }
+      const pts = dropPath(plan.length > 1 ? plan : [plan[0], plan[0]]);
+      if (!pts.length) continue;
+      out.push(pts); all.push(pts);
+    }
+  }
+  return out;
+}
+
+/** Scallop finishing for flat and bull-nose cutters: rings spaced so the 3D distance between passes holds. */
+function genScallopUniform(ctx, op) {
   const tool = toolOf(ctx, op); const R = tool.d / 2; const cutter = cutterOf(tool);
   const [x0, y0, x1, y1] = finishArea(ctx, op, R);
   const s3 = finishStep(tool, op);
@@ -701,6 +1051,7 @@ function genWaterline(ctx, op) {
   const path = new Path([0, 0, ctx.clearance]);
   const rc = cutter.type === 'flat' ? 0 : cutter.rc;
   const eps = ctx.model.eps * 4;
+  if (ctx.model.shape) return exactWaterline(ctx, op, { tool, R, cutter, rc, levels, sp, path, eps });
   for (const z of levels) {
     // The cutter's radius at heights above its tip, and the part's material at those heights (and higher).
     const samples = rc > 0 ? 6 : 1;
@@ -727,10 +1078,49 @@ function genWaterline(ctx, op) {
   return { moves: path.moves, ...sp };
 }
 
+/**
+ * Waterline from the B-rep: the tool centre's curve at each height is a section of the offset solid — the part
+ * grown by the ball's radius (ball), by the corner radius and then the flat part of the bottom (bull nose), or
+ * the part's own section grown by the radius (flat). Material higher up, which the shank would meet: where nothing
+ * above the shank's height faces down, the part's section there already holds everything above it (and the contact
+ * curve holds that grown by R); otherwise the exact shadow of the material above (shadowAbove) grown by R is added.
+ */
+function exactWaterline(ctx, op, { R, cutter, rc, levels, sp, path, eps }) {
+  const shape = ctx.model.shape; const leave = op.leave ?? 0;
+  const top = ctx.model.bounds.hi[2];
+  for (const z of levels) {
+    let contact;
+    // A hair above the centre height: a section exactly in a flat face of the offset solid (a floor the tool
+    // stands on) returns that face's edges instead of the outline.
+    const lift = 1e-4;
+    if (cutter.type === 'ball') contact = kernelSection(offsetSolid(shape, R + leave), z + R + lift);
+    else if (rc > 0) contact = offsetLoops(kernelSection(offsetSolid(shape, rc + leave), z + rc + lift), R - rc, { tol: 0.001 });
+    else contact = offsetLoops(kernelSection(shape, Math.min(z + 1e-4, top - 1e-4)), R + leave, { tol: 0.001 });
+    // The shank (radius R) above the rounded tip: material it would pass under.
+    const H = z + rc + eps;
+    const above = overhangTop(shape) > H ? shadowAbove(shape, H) : [];
+    let loops = contact;
+    if (above.length) {
+      const shank = offsetLoops(above, R + leave, { tol: 0.002 });
+      const outside = shank.some((l) => l.some((q) => !insideRegion(contact, q)));
+      if (outside) { const u = unionLoops([...contact, ...shank]); if (u.length) loops = u; }
+    }
+    if (!loops.length) continue;
+    // Material on the loops' left: climb milling runs them the other way.
+    const ordered = loops.map((l) => (op.direction === 'conventional' ? l : reverseLoop(l)));
+    cutLoops(path, ordered, z, { zFrom: z + ctx.retract, safe: null, feed: sp.feed, plunge: sp.plunge, ramp: 90, R, retractZ: z + ctx.retract, clearZ: ctx.clearance });
+    path.rapid([path.pos[0], path.pos[1], z + ctx.retract]);
+  }
+  path.rapid([path.pos[0], path.pos[1], ctx.clearance]);
+  return { moves: path.moves, ...sp, exact: true };
+}
+
 // ───────────────────────── turning
 
 /** The outer and bore radius at z from the profile samples (nearest sample). */
-function profileAt(profile, z) {
+/** The turning profile sample nearest to z ({ outer: 0, inner: 0 } beyond the part). */
+export function profileAt(profile, z) {
+  if (!profile) return { outer: 0, inner: 0 };
   const s = profile.samples;
   if (!s.length) return { outer: 0, inner: 0 };
   if (z > s[0].z) return z > profile.front ? { outer: 0, inner: 0 } : s[0];
@@ -782,7 +1172,7 @@ function genTFace(ctx, op) {
     path.feed([xIn, 0, zc + 1], sp.feedRev);
     path.rapid([s.r + 2, 0, zc + 1]);
   }
-  return { moves: path.moves, ...sp, feed: sp.feedRev };
+  return { moves: path.moves, ...sp, feed: sp.feedRev, nose: n, side: 'od', tipOffset: tipOffset(tool, 'od') };
 }
 
 function genTRough(ctx, op) {
@@ -807,7 +1197,7 @@ function genTRough(ctx, op) {
     path.rapid([x + ap, 0, s.z1 + 1]);
   }
   path.rapid([s.r + 5, 0, s.z1 + 5]);
-  return { moves: path.moves, ...sp, feed: sp.feedRev };
+  return { moves: path.moves, ...sp, feed: sp.feedRev, nose: n, side: 'od', tipOffset: tipOffset(tool, 'od') };
 }
 
 /**
@@ -839,9 +1229,20 @@ function noseCentre(prof, n, side = 1) {
   return out;
 }
 
+/**
+ * How steep a back slope the insert can follow: what is left of 180° after the holder's approach angle and the
+ * insert's corner angle, less 3° of clearance (op.clearance > 0 overrides).
+ */
+function backClearance(tool, op) {
+  if (op.clearance > 0) return Number(op.clearance);
+  return Math.max(0, 180 - (tool.approach ?? 95) - (tool.angle ?? 80) - 3);
+}
+/** Imaginary tip offset of a turning tool's nose centre (radius, z): OD tools tip direction 3, boring bars 2. */
+const tipOffset = (tool, kind) => { const n = tool.nose ?? 0; return kind === 'id' ? [n, -n] : [-n, -n]; };
+
 function genTFinish(ctx, op) {
   const tool = toolOf(ctx, op); const s = ctx.stock; const p = ctx.profile; const n = tool.nose ?? 0.4;
-  const prof = reachableOuter(p, op.clearance ?? 25).map((q) => ({ z: q.z, r: q.r + (op.leave ?? 0) }));
+  const prof = reachableOuter(p, backClearance(tool, op)).map((q) => ({ z: q.z, r: q.r + (op.leave ?? 0) }));
   const sp = turnSpeeds(ctx, op, tool, true);
   const path = new Path([s.r + 5, 0, s.z1 + 5]);
   // The front face from the axis out, then down the profile.
@@ -855,7 +1256,9 @@ function genTFinish(ctx, op) {
   path.feed([path.pos[0] + 1, 0, path.pos[2]], sp.feedRev);
   path.rapid([s.r + 5, 0, path.pos[2]]);
   path.rapid([s.r + 5, 0, s.z1 + 5]);
-  return { moves: path.moves, ...sp, feed: sp.feedRev };
+  // The contour itself (front face and profile) for controls that compensate the nose radius (G42).
+  const contour = simplify3([[0, 0, p.front], ...[{ z: p.front, r: body[0]?.r ?? 0 }, ...body].map((q) => [q.r, 0, q.z])], 0.0005);
+  return { moves: path.moves, ...sp, feed: sp.feedRev, nose: n, side: 'od', tipOffset: tipOffset(tool, 'od'), contour };
 }
 
 function genTDrill(ctx, op) {
@@ -875,7 +1278,7 @@ function genTDrill(ctx, op) {
 function genTBore(ctx, op, finish) {
   const tool = toolOf(ctx, op); const s = ctx.stock; const p = ctx.profile; const n = tool.nose ?? 0.4;
   const leave = finish ? (op.leave ?? 0) : op.leave ?? 0.3;
-  const inner = reachableInner(p, finish ? (op.clearance ?? 25) : 0).map((q) => ({ z: q.z, r: q.r > 0 ? q.r - leave : 0 }));
+  const inner = reachableInner(p, finish ? backClearance(tool, op) : 0).map((q) => ({ z: q.z, r: q.r > 0 ? q.r - leave : 0 }));
   const bored = inner.filter((q) => q.r > 0);
   if (!bored.length) throw Object.assign(new Error('no bore'), { code: 'noBore' });
   const sp = turnSpeeds(ctx, op, tool, finish);
@@ -887,7 +1290,7 @@ function genTBore(ctx, op, finish) {
     for (const q of simplify3(nc.map((c) => [c.x, 0, c.z]), 0.001)) path.feed(q, sp.feedRev);
     path.feed([path.pos[0] - 0.5, 0, path.pos[2] + 0.5], sp.feedRev);
     path.rapid([path.pos[0], 0, s.z1 + 5]);
-    return { moves: path.moves, ...sp, feed: sp.feedRev };
+    return { moves: path.moves, ...sp, feed: sp.feedRev, nose: n, side: 'id', tipOffset: tipOffset(tool, 'id'), contour: simplify3(bored.map((q) => [q.r, 0, q.z]), 0.0005) };
   }
   const ap = Math.max(0.1, op.stepdown || 1);
   const maxR = Math.max(...bored.map((q) => q.r));
@@ -903,7 +1306,7 @@ function genTBore(ctx, op, finish) {
     path.rapid([Math.max(0, xc - ap), 0, s.z1 + 1]);
   }
   path.rapid([0, 0, s.z1 + 5]);
-  return { moves: path.moves, ...sp, feed: sp.feedRev };
+  return { moves: path.moves, ...sp, feed: sp.feedRev, nose: n, side: 'id', tipOffset: tipOffset(tool, 'id') };
 }
 
 function genTGroove(ctx, op) {
@@ -1035,7 +1438,7 @@ export function planOperations(features, tools, { turning = false, profile = nul
   for (const f of features) {
     if (f.type === 'pocket' || f.type === 'step') {
       const rough = pick(['flat'], (t) => t.d <= minWidth(f) * 0.8)[0] ?? pick(['flat']).at(-1);
-      add(f.type === 'step' ? 'adaptive' : 'pocket', rough, f.id);
+      add('pocket', rough, f.id);
       add('contour', pick(['flat'], (t) => t.d <= minWidth(f) * 0.6).at(0) ?? rough, f.id, { stepdown: Math.max(1, f.depth ?? 10) });
     } else if (f.type === 'slot') {
       const exact = pick(['flat'], (t) => Math.abs(t.d - f.width) < 1e-6)[0];
@@ -1043,14 +1446,16 @@ export function planOperations(features, tools, { turning = false, profile = nul
     } else if (f.type === 'boss') add('contour', pick(['flat'])[1] ?? pick(['flat'])[0], f.id, { stepdown: Math.max(1, f.height) });
   }
   const holes = features.filter((f) => f.type === 'hole');
+  // Counterbores first (the drills start at their floors), then spot, drill / peck, the rest helical.
+  for (const h of holes) if (h.counterbore) add('helix', pick(['flat'], (t) => t.d < h.counterbore.d * 0.9)[0], h.id, { target: 'counterbore' });
   if (holes.length) add('spot', pick(['spot'])[0]);
   const drilled = new Set();
   for (const h of holes) {
     const drill = pick(['drill'], (t) => Math.abs(t.d - h.d) < 0.06)[0];
     if (drill) {
       if (!drilled.has(drill.id)) { drilled.add(drill.id); add(h.depth > 3 * h.d ? 'peck' : 'drill', drill); }
-    } else add('helix', pick(['flat'], (t) => t.d < h.d * 0.9)[0], h.id);
-    if (h.counterbore) add('helix', pick(['flat'], (t) => t.d < h.counterbore.d * 0.9)[0], h.id);
+    }
+    if (!drill) add('helix', pick(['flat'], (t) => t.d < h.d * 0.9)[0], h.id, { target: 'hole' });
   }
   const tapped = new Set(holes.filter((h) => h.thread).map((h) => h.thread));
   for (const th of tapped) add('tap', pick(['tap'], (t) => t.thread === th)[0]);

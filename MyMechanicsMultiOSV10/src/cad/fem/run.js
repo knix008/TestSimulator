@@ -57,19 +57,19 @@ export function sanitize(value, seen = new WeakMap()) {
 export function transferables(value, out = new Set(), seen = new Set()) {
   if (!value || typeof value !== 'object' || seen.has(value)) return out;
   seen.add(value);
-  if (ArrayBuffer.isView(value)) { if (!(value.buffer instanceof SharedArrayBuffer || false) && value.byteLength === value.buffer.byteLength) out.add(value.buffer); return out; }
+  if (ArrayBuffer.isView(value)) { if (!(typeof SharedArrayBuffer !== 'undefined' && value.buffer instanceof SharedArrayBuffer) && value.byteLength === value.buffer.byteLength) out.add(value.buffer); return out; }
   if (value instanceof Map) { for (const v of value.values()) transferables(v, out, seen); return out; }
   for (const v of Array.isArray(value) ? value : Object.values(value)) transferables(v, out, seen);
   return out;
 }
 
-let workerUrl = null;
-/** Sets the worker script URL (the app passes `new URL('../sim-worker.js', import.meta.url)` resolved by the bundler). */
-export function setWorkerUrl(url) { workerUrl = url; }
+let workerFactory = null;
+/** Sets how to start the worker (the app passes () => new Worker(new URL('./sim-worker.js', import.meta.url), { type: 'module' }), which the bundler resolves). */
+export function setWorkerFactory(fn) { workerFactory = fn; }
 
 /** Runs a study, in a worker when possible. Rejects never: errors come back as { ok: false, error }. */
 export function runStudy(kind, input, { onProgress = null, signal = null, worker = true } = {}) {
-  const canWorker = worker && workerUrl && typeof Worker !== 'undefined';
+  const canWorker = worker && workerFactory && typeof Worker !== 'undefined';
   if (!canWorker) {
     return new Promise((resolve) => {
       setTimeout(() => {
@@ -80,7 +80,7 @@ export function runStudy(kind, input, { onProgress = null, signal = null, worker
   }
   return new Promise((resolve) => {
     let w;
-    try { w = new Worker(workerUrl, { type: 'module' }); } catch { worker = false; resolve(runStudy(kind, input, { onProgress, signal, worker: false })); return; }
+    try { w = workerFactory(); } catch { worker = false; resolve(runStudy(kind, input, { onProgress, signal, worker: false })); return; }
     const done = (r) => { try { w.terminate(); } catch { /* gone */ } signal?.removeEventListener?.('abort', abort); resolve(r); };
     const abort = () => done({ ok: false, error: 'cancelled' });
     signal?.addEventListener?.('abort', abort);

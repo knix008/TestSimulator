@@ -43,15 +43,50 @@ export const TOOLS = [
   { id: 't20', T: 20, type: 'tap', d: 8, pitch: 1.25, flutes: 3, flute: 20, length: 70, grade: 'hss', thread: 'M8' },
   { id: 't21', T: 21, type: 'tap', d: 10, pitch: 1.5, flutes: 3, flute: 24, length: 80, grade: 'hss', thread: 'M10' },
   // Turning (d: nose radius × 2 for inserts, the width for grooving, the bar diameter for boring).
-  { id: 'l1', T: 1, type: 'turnRough', d: 1.6, nose: 0.8, insert: 'CNMG 80°', angle: 80, grade: 'carbide' },
-  { id: 'l2', T: 2, type: 'turnFinish', d: 0.8, nose: 0.4, insert: 'VBMT 35°', angle: 35, grade: 'carbide' },
-  { id: 'l3', T: 3, type: 'bore', d: 10, nose: 0.4, insert: 'CCMT 80°', angle: 80, minBore: 12, grade: 'carbide' },
+  { id: 'l1', T: 1, type: 'turnRough', insert: 'CNMG 120408', approach: 95, grade: 'carbide' },
+  { id: 'l2', T: 2, type: 'turnFinish', insert: 'VBMT 160404', approach: 93, grade: 'carbide' },
+  { id: 'l3', T: 3, type: 'bore', insert: 'CCMT 060204', approach: 95, d: 10, minBore: 12, grade: 'carbide' },
   { id: 'l4', T: 4, type: 'groove', d: 3, nose: 0.2, width: 3, grade: 'carbide' },
-  { id: 'l5', T: 5, type: 'thread', d: 1, nose: 0.05, angle: 60, grade: 'carbide' },
+  { id: 'l5', T: 5, type: 'thread', insert: '16ER 1.5 ISO', d: 1, nose: 0.05, angle: 60, grade: 'carbide' },
   { id: 'l6', T: 6, type: 'turnDrill', d: 10, tip: 118, grade: 'carbide' },
 ];
 
-export const cloneTools = (list = TOOLS) => list.map((t) => ({ ...t }));
+export const cloneTools = (list = TOOLS) => list.map((t) => withInsert({ ...t }));
+
+// ───────────────────────── ISO 1832 turning inserts
+
+/** Insert shapes: the corner angle (degrees) of each ISO 1832 shape letter (R: round). */
+export const INSERT_SHAPES = { A: 85, B: 82, C: 80, D: 55, E: 75, H: 120, K: 55, L: 90, M: 86, O: 135, P: 108, R: 0, S: 90, T: 60, V: 35, W: 80 };
+const CLEARANCES = { A: 3, B: 5, C: 7, D: 15, E: 20, F: 25, G: 30, N: 0, P: 11, O: 0 };
+const THICKNESS = { '01': 1.59, T0: 1.79, T1: 1.98, '02': 2.38, T2: 2.78, '03': 3.18, T3: 3.97, '04': 4.76, '05': 5.56, '06': 6.35, '07': 7.94, '09': 9.52 };
+
+/**
+ * An ISO 1832 insert code ("CNMG 120408", "VBMT160404", "RCMT 1204M0") → { shape, angle (corner, degrees),
+ * clearance (degrees), edge (mm), ic (inscribed circle, mm), thickness (mm), nose (mm), round }; null when the
+ * code is not one.
+ */
+export function parseInsert(code) {
+  const m = /^([A-Z])([A-Z])([A-Z])([A-Z])\s*-?\s*(\d{2})(T\d|\d{2})(\d{2}|M0)/.exec(String(code ?? '').toUpperCase().trim());
+  if (!m || !(m[1] in INSERT_SHAPES)) return null;
+  const [, shape, clr, , , size, th, nr] = m;
+  const angle = INSERT_SHAPES[shape];
+  const edge = Number(size);
+  const rad = (d) => (d * Math.PI) / 180;
+  // The size digits are the cutting edge length cut to whole millimetres: the standard inscribed circles.
+  const IC = { C: { '06': 6.35, '09': 9.525, '12': 12.7, '16': 15.875, '19': 19.05 }, D: { '07': 6.35, '11': 9.525, '15': 12.7, '19': 15.875 }, V: { '11': 6.35, '16': 9.525, '22': 12.7 }, T: { '11': 6.35, '16': 9.525, '22': 12.7, '27': 15.875 }, S: { '09': 9.525, '12': 12.7, '15': 15.875, '19': 19.05 }, W: { '06': 9.525, '08': 12.7 } };
+  const table = IC[shape]?.[size];
+  const ic = table ?? (shape === 'R' ? edge : shape === 'S' || shape === 'L' ? edge : shape === 'T' ? edge / Math.sqrt(3) : shape === 'W' ? edge * 1.46 : edge * Math.sin(rad(angle)));
+  const nose = nr === 'M0' ? ic / 2 : Number(nr) / 10;
+  return { shape, angle, clearance: CLEARANCES[clr] ?? 0, edge, ic: table ?? Math.round(ic * 100) / 100, thickness: THICKNESS[th] ?? Number(th) * 0.79375, nose, round: shape === 'R' };
+}
+
+/** A turning tool with its insert's corner angle and nose radius filled in from the insert code. */
+export function withInsert(tool) {
+  const ins = TURN_TOOL_TYPES.includes(tool.type) ? parseInsert(tool.insert) : null;
+  if (ins) { tool.angle = ins.round ? 180 : ins.angle; tool.nose = ins.nose; tool.d = 2 * ins.nose; tool.ic = ins.ic; }
+  if (TURN_TOOL_TYPES.includes(tool.type)) tool.approach ??= 95;
+  return tool;
+}
 export const isTurnTool = (tool) => TURN_TOOL_TYPES.includes(tool?.type);
 /** The cutter shape a drop cutter / simulator uses. */
 export function cutterOf(tool) {

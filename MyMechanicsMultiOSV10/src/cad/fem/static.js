@@ -14,7 +14,7 @@
 // 'bonded' | 'contact' | 'none' (automatic between touching bodies) or [{ a, b, type, faces? }], walls,
 // mesh: { size, resolution, order, refine }, tolerance (contact search, mm), tol, maxIter, onProgress, cancel }.
 
-import { buildModel, fixtureData, rotateMatrix, rotateVector, addSprings, loadVector, elasticStresses, surfaceField, fieldMax, modelGraph, stiffnessMatrix, selectFaces, nodalAreas, probe, linePlot, principalField } from './model.js';
+import { buildModel, fixtureData, rotateMatrix, rotateVector, addSprings, loadVector, elasticStresses, surfaceField, fieldMax, modelGraph, stiffnessMatrix, selectFaces, nodalAreas, probe, linePlot, principalField, integrateFaces } from './model.js';
 import { faceShape } from './elements.js';
 import { applyDirichlet, multiply, solveSystem, cloneMatrix, addEntry } from './sparse.js';
 
@@ -24,120 +24,12 @@ const fail = (error, extra = {}) => ({
   vertexDisplacement: new Float32Array(0), vertexStress: new Float32Array(0), ...extra,
 });
 
-// ───────────────────────── contact pairing
-
-/** Boundary faces of one body (optionally of chosen CAD faces), with a bounding-box hash. */
-function faceIndex(model, body, faceIds = null) {
-  const npf = model.faces.npf, list = [];
-  const set = faceIds ? new Set(faceIds) : null;
-  for (let f = 0; f < model.faces.nf; f++) if (model.faces.body[f] === body && (!set || set.has(model.faces.faceId[f]))) list.push(f);
-  const cell = Math.max(1e-6, model.bodies[body].mesh.size);
-  const buckets = new Map(), key = (i, j, k) => `${i},${j},${k}`;
-  for (const f of list) {
-    const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
-    for (let a = 0; a < 3; a++) { const p = 3 * model.faces.nodes[npf * f + a]; for (let c = 0; c < 3; c++) { lo[c] = Math.min(lo[c], model.nodes[p + c]); hi[c] = Math.max(hi[c], model.nodes[p + c]); } }
-    for (let i = Math.floor(lo[0] / cell); i <= Math.floor(hi[0] / cell); i++) for (let j = Math.floor(lo[1] / cell); j <= Math.floor(hi[1] / cell); j++) for (let k = Math.floor(lo[2] / cell); k <= Math.floor(hi[2] / cell); k++) {
-      const kk = key(i, j, k); let b = buckets.get(kk); if (!b) buckets.set(kk, (b = [])); b.push(f);
-    }
-  }
-  return { list, cell, near(p, r) {
-    const out = new Set(), n = Math.ceil(r / cell);
-    const ci = Math.floor(p[0] / cell), cj = Math.floor(p[1] / cell), ck = Math.floor(p[2] / cell);
-    for (let i = ci - n; i <= ci + n; i++) for (let j = cj - n; j <= cj + n; j++) for (let k = ck - n; k <= ck + n; k++) for (const f of buckets.get(key(i, j, k)) ?? []) out.add(f);
-    return out;
-  } };
-}
-
-/** Projection of p onto the straight (corner) triangle of face f: { d, l (area coords), point, normal }. */
-function projectOnFace(model, f, p) {
-  const npf = model.faces.npf, P = (a) => { const q = 3 * model.faces.nodes[npf * f + a]; return [model.nodes[q], model.nodes[q + 1], model.nodes[q + 2]]; };
-  const A = P(0), B = P(1), C = P(2);
-  const u = [B[0] - A[0], B[1] - A[1], B[2] - A[2]], v = [C[0] - A[0], C[1] - A[1], C[2] - A[2]], w = [p[0] - A[0], p[1] - A[1], p[2] - A[2]];
-  const uu = u[0] * u[0] + u[1] * u[1] + u[2] * u[2], vv = v[0] * v[0] + v[1] * v[1] + v[2] * v[2], uv = u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
-  const wu = w[0] * u[0] + w[1] * u[1] + w[2] * u[2], wv = w[0] * v[0] + w[1] * v[1] + w[2] * v[2], den = uu * vv - uv * uv;
-  let s = (vv * wu - uv * wv) / den, t = (uu * wv - uv * wu) / den;
-  // Clamp into the triangle.
-  if (s < 0) s = 0; if (t < 0) t = 0; if (s + t > 1) { const k = s + t; s /= k; t /= k; }
-  const q = [A[0] + s * u[0] + t * v[0], A[1] + s * u[1] + t * v[1], A[2] + s * u[2] + t * v[2]];
-  const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]], nl = Math.hypot(...n) || 1;
-  return { d: Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]), l: [1 - s - t, s, t], point: q, normal: n.map((x) => x / nl) };
-}
-
-/**
- * Contact constraints: [{ type, s (slave node), m (master nodes), w (weights), n (master outward normal), g0, area, k }].
- * Plus `pairs` (node pairs for the matrix pattern).
- */
-export function contactConstraints(model, { contacts = 'none', walls = [], tolerance = null } = {}) {
-  const list = [], pairs = [];
-  const bodyCount = model.bodies.length;
-  let specs = [];
-  if (Array.isArray(contacts)) specs = contacts.filter((c) => c && c.type !== 'none');
-  else if (contacts && contacts !== 'none') for (let a = 0; a < bodyCount; a++) for (let b = a + 1; b < bodyCount; b++) specs.push({ a, b, type: contacts });
-  for (const sp of specs) {
-    let A = sp.a, B = sp.b, facesA = sp.facesA ?? null, facesB = sp.facesB ?? null;
-    // The finer body is the slave.
-    if (model.bodies[A].mesh.size > model.bodies[B].mesh.size * 1.0001) { [A, B] = [B, A]; [facesA, facesB] = [facesB, facesA]; }
-    const hA = model.bodies[A].mesh.size, hB = model.bodies[B].mesh.size, tol = tolerance ?? 0.35 * Math.min(hA, hB);
-    const master = faceIndex(model, B, facesB);
-    const slaveFaces = faceIndex(model, A, facesA).list;
-    const { area } = nodalAreas(model, slaveFaces);
-    const E = Math.max(model.bodies[A].material.E, model.bodies[B].material.E);
-    const k = (sp.type === 'bonded' ? 300 : 30) * E / Math.min(hA, hB);
-    for (const [s, aS] of area) {
-      const p = [model.nodes[3 * s], model.nodes[3 * s + 1], model.nodes[3 * s + 2]];
-      let best = null;
-      for (const f of master.near(p, tol)) { const r = projectOnFace(model, f, p); if (r.d <= tol && (!best || r.d < best.r.d)) best = { f, r }; }
-      if (!best) continue;
-      const npf = model.faces.npf, m = [], w = [];
-      const N = faceShape(model.order, best.r.l);
-      for (let a = 0; a < npf; a++) { m.push(model.faces.nodes[npf * best.f + a]); w.push(N[a]); }
-      const g0 = (p[0] - best.r.point[0]) * best.r.normal[0] + (p[1] - best.r.point[1]) * best.r.normal[1] + (p[2] - best.r.point[2]) * best.r.normal[2];
-      list.push({ type: sp.type === 'bonded' ? 'bonded' : 'contact', s, m, w, n: best.r.normal, g0: sp.type === 'bonded' ? 0 : g0, area: aS, k, pair: [A, B] });
-      for (const mm of m) pairs.push(s, mm);
-    }
-  }
-  for (const wall of walls ?? []) {
-    const nl = Math.hypot(...wall.normal) || 1, n = wall.normal.map((x) => x / nl);
-    const bodies = wall.body != null ? [wall.body] : model.bodies.map((_, b) => b);
-    for (const b of bodies) {
-      const faces = wall.faceIds ? selectFaces(model, wall.faceIds.map((faceId) => ({ body: b, faceId }))) : faceIndex(model, b).list;
-      const { area } = nodalAreas(model, faces);
-      const h = model.bodies[b].mesh.size, k = 30 * model.bodies[b].material.E / h, reach = wall.reach ?? 0.25 * h;
-      for (const [s, aS] of area) {
-        const g0 = (model.nodes[3 * s] - wall.point[0]) * n[0] + (model.nodes[3 * s + 1] - wall.point[1]) * n[1] + (model.nodes[3 * s + 2] - wall.point[2]) * n[2];
-        if (g0 > reach) continue;
-        list.push({ type: 'contact', s, m: [], w: [], n, g0, area: aS, k, wall: true });
-      }
-    }
-  }
-  return { list, pairs: pairs.length ? Int32Array.from(pairs) : null };
-}
-
-/** Adds a constraint's penalty k·A·c cᵀ (c = n ⊗ [1, −w]; bonded: each of the 3 directions). */
-function addPenalty(K, c) {
-  const ids = [c.s, ...c.m], coef = [1, ...c.w.map((x) => -x)], kA = c.k * c.area;
-  if (c.type === 'bonded') {
-    for (let i = 0; i < ids.length; i++) for (let j = 0; j < ids.length; j++) { const v = kA * coef[i] * coef[j]; if (v) for (let d = 0; d < 3; d++) addEntry(K, 3 * ids[i] + d, 3 * ids[j] + d, v); }
-    return;
-  }
-  for (let i = 0; i < ids.length; i++) for (let j = 0; j < ids.length; j++) {
-    const v = kA * coef[i] * coef[j];
-    if (!v) continue;
-    for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) { const x = v * c.n[a] * c.n[b]; if (x) addEntry(K, 3 * ids[i] + a, 3 * ids[j] + b, x); }
-  }
-}
-
-/** n·(u_s − Σ w u_m). */
-const normalJump = (c, u) => {
-  let x = u[3 * c.s] * c.n[0] + u[3 * c.s + 1] * c.n[1] + u[3 * c.s + 2] * c.n[2];
-  for (let i = 0; i < c.m.length; i++) { const d = 3 * c.m[i]; x -= c.w[i] * (u[d] * c.n[0] + u[d + 1] * c.n[1] + u[d + 2] * c.n[2]); }
-  return x;
-};
-const vectorJump = (c, u) => {
-  const g = [u[3 * c.s], u[3 * c.s + 1], u[3 * c.s + 2]];
-  for (let i = 0; i < c.m.length; i++) for (let d = 0; d < 3; d++) g[d] -= c.w[i] * u[3 * c.m[i] + d];
-  return g;
-};
+import { contactConstraints, addPenalty, jump, vectorJump, addForce, tangents } from './contact.js';
+import { smoothedAggregation } from './amg.js';
+import { setMultigrid, csrFromGraph } from './sparse.js';
+import { matmul, transpose } from './amg.js';
+setMultigrid((A, o) => smoothedAggregation(A, o));
+export { contactConstraints };
 
 // ───────────────────────── the study
 
@@ -162,29 +54,53 @@ export function linearStatic(input) {
   if (!(fn > 0) && !anyPrescribed) return fail('no-loads', { model });
   report(0.32, 'assemble');
 
-  const cc = contactConstraints(model, { contacts, walls, tolerance });
+  const cc = contactConstraints(model, { contacts, walls, tolerance, contactStiffness: input.contactStiffness ?? 200, friction: input.friction ?? 0, method: input.contactMethod ?? 'node', bondedStiffness: input.bondedStiffness ?? 10 });
   const graph = cc.pairs ? modelGraph(model, cc.pairs) : modelGraph(model);
   const K0 = stiffnessMatrix(model, graph, (x) => report(0.32 + 0.1 * x, 'assemble'));
   addSprings(model, K0, fx.springs);
   const Kref = cloneMatrix(K0);                  // for reactions
-  const bonded = cc.list.filter((c) => c.type === 'bonded'), unilateral = cc.list.filter((c) => c.type === 'contact');
-  for (const c of bonded) addPenalty(K0, c);
+  const bonded0 = cc.list.filter((c) => c.type === 'bonded'), unilateral = cc.list.filter((c) => c.type === 'contact');
   report(0.45, 'solve');
-
   const ndof = 3 * model.nn, u = new Float64Array(ndof);
+  // Bonded ties without unilateral contact: eliminated exactly (u_slave = Σ w u_master), the reduced system
+  // K̂ = TᵀKT is as well conditioned as one body; with contact the ties use the augmented Lagrangian below.
+  if (bonded0.length && !unilateral.length && input.tie !== 'penalty') {
+    const red = eliminateTies(K0, f, bonded0, model.nn, fx);
+    if (red) {
+      red.setCoords(model.nodes);
+      const frR = red.rotate(fx.frames);
+      applyDirichlet(red.K, red.fixed, red.value, red.f);
+      const x0 = new Float64Array(red.K.n); for (let d = 0; d < x0.length; d++) if (red.fixed[d]) x0[d] = red.value[d];
+      const r = solveSystem(red.K, red.f, x0, { prefer: input.solver ?? 'auto', tol, maxIter, cancel, coords: red.coords, mask: red.fixed, onIter: (i, rel) => report(0.45 + 0.4 * Math.min(1, Math.log(1 / Math.max(rel, tol)) / Math.log(1 / tol)), 'solve') });
+      if (cancel?.()) return fail('cancelled', { model });
+      rotateVector(r.x, frR, false);
+      u.set(red.expand(r.x));
+      return finishStatic({ input, model, fx, f, Kref, u, cc, unilateral: [], bonded: bonded0, lambda: new Float64Array(0), active: [], lamB: null, tau: null, tdir: [], slip: null, totalIt: r.it, alIt: 1, converged: r.converged, residual: r.rel ?? 0, solverMethod: r.method, report, fixtures, tied: red.tied });
+    }
+  }
+  const bonded = bonded0;
+  for (const c of bonded) addPenalty(K0, c);
   const lambda = new Float64Array(unilateral.length);
   let active = unilateral.map((c) => c.g0 <= 1e-9 * model.size);
+  // Friction: the slip s (2 per node, lamT), the traction τ and the stick / slip state.
+  const tdir = unilateral.map((c) => tangents(c.n)), lamT = new Float64Array(2 * unilateral.length), tau = new Float64Array(2 * unilateral.length), slip = new Uint8Array(unilateral.length);
   let totalIt = 0, alIt = 0, converged = true, residual = 0, solverMethod = 'pcg';
-  const maxAL = unilateral.length ? 40 : 1;
+  // Bonded ties also use the augmented Lagrangian (a moderate penalty keeps the system well conditioned for the
+  // multigrid; the multipliers make the tie exact).
+  const maxAL = unilateral.length || bonded.length ? (input.maxContactIterations ?? 30) : 1;
+  const lamB = new Float64Array(3 * bonded.length), cache = { M: null, factor: null };
   for (; alIt < maxAL; alIt++) {
-    const K = unilateral.length ? cloneMatrix(K0) : K0;
+    const K = unilateral.length || bonded.length ? cloneMatrix(K0) : K0;
     const b = Float64Array.from(f);
+    bonded.forEach((c, i) => { for (let a = 0; a < 3; a++) if (lamB[3 * i + a]) addForce(b, c, [a === 0 ? 1 : 0, a === 1 ? 1 : 0, a === 2 ? 1 : 0], c.area * lamB[3 * i + a]); });
     unilateral.forEach((c, i) => {
       if (!active[i]) return;
       addPenalty(K, c);
-      const s = c.area * (c.k * c.g0 - lambda[i]);
-      const ids = [c.s, ...c.m], coef = [1, ...c.w.map((x) => -x)];
-      for (let q = 0; q < ids.length; q++) for (let a = 0; a < 3; a++) b[3 * ids[q] + a] -= s * coef[q] * c.n[a];
+      addForce(b, c, c.n, -c.area * (c.k * c.g0 - lambda[i]));
+      if (c.mu > 0) for (let d = 0; d < 2; d++) {
+        addPenalty(K, c, tdir[i][d]);
+        addForce(b, c, tdir[i][d], c.area * c.k * lamT[2 * i + d]);
+      }
     });
     // Rotated frames, then Dirichlet rows.
     rotateMatrix(K, fx.frames);
@@ -192,24 +108,47 @@ export function linearStatic(input) {
     const ul = rotateVector(Float64Array.from(u), fx.frames, true);
     applyDirichlet(K, fx.fixed, fx.value, b);
     for (let d = 0; d < ndof; d++) if (fx.fixed[d]) ul[d] = fx.value[d];
-    const r = solveSystem(K, b, ul, { prefer: input.solver ?? 'auto', tol, maxIter, cancel, onIter: (i, rel) => report(0.45 + 0.4 * Math.min(1, (alIt + Math.min(1, Math.log(1 / Math.max(rel, tol)) / Math.log(1 / tol))) / Math.max(1, Math.min(maxAL, 6))), 'solve') });
-    totalIt += r.it; residual = r.rel ?? 0; solverMethod = r.method;
+    const reuse = !unilateral.length && alIt > 0;
+    const r = solveSystem(K, b, ul, { prefer: input.solver ?? 'auto', tol, maxIter, cancel, coords: model.nodes, mask: fx.fixed, M: reuse ? cache.M : null, factor: reuse ? cache.factor : null, onIter: (i, rel) => report(0.45 + 0.4 * Math.min(1, (alIt + Math.min(1, Math.log(1 / Math.max(rel, tol)) / Math.log(1 / tol))) / Math.max(1, Math.min(maxAL, 6))), 'solve') });
+    totalIt += r.it; residual = r.rel ?? 0; solverMethod = r.method; cache.M = r.M; cache.factor = r.factor;
     if (!r.converged) converged = false;
     if (cancel?.()) return fail('cancelled', { model });
     u.set(rotateVector(ul, fx.frames, false));
-    if (!unilateral.length) break;
+    // Bonded multipliers: λ ← λ − k·gap; converged when the tie gaps are negligible against the element size.
+    let bondGap = 0, bondScale = 1e-30;
+    bonded.forEach((c, i) => { const g = vectorJump(c, u); for (let a = 0; a < 3; a++) { lamB[3 * i + a] -= c.k * g[a]; bondGap = Math.max(bondGap, Math.abs(g[a])); } });
+    for (let i = 0; i < bonded.length; i++) bondScale = Math.max(bondScale, Math.abs(lamB[3 * i]), Math.abs(lamB[3 * i + 1]), Math.abs(lamB[3 * i + 2]));
+    const bondDone = !bonded.length || bondGap * (bonded[0]?.k ?? 0) <= 2e-3 * bondScale;
+    if (!unilateral.length) { if (bondDone) { alIt++; break; } continue; }
     // Multiplier update.
     let change = 0, scale = 1e-30, flips = 0;
     const next = unilateral.map((c, i) => {
-      const g = c.g0 + normalJump(c, u), p = lambda[i] - c.k * g;
+      const g = c.g0 + jump(c, u), p = lambda[i] - c.k * g;
       const lam = Math.max(0, p);
       change = Math.max(change, Math.abs(lam - lambda[i])); scale = Math.max(scale, lam);
       if ((p > 0) !== active[i]) flips++;
-      return { lam, act: p > 0 };
+      // Coulomb (return mapping on the tangential penalty): τ = −k(g_t − s); |τ| > μp → slip, s moves so |τ| = μp.
+      let tr = [0, 0], sl = [lamT[2 * i], lamT[2 * i + 1]], st = 0;
+      if (c.mu > 0 && p > 0) {
+        const gt = [jump(c, u, tdir[i][0]), jump(c, u, tdir[i][1])];
+        tr = [-c.k * (gt[0] - sl[0]), -c.k * (gt[1] - sl[1])];
+        const tl = Math.hypot(tr[0], tr[1]), lim = c.mu * lam;
+        if (tl > lim) { st = 1; tr = [tr[0] * lim / tl, tr[1] * lim / tl]; sl = [gt[0] + tr[0] / c.k, gt[1] + tr[1] / c.k]; }
+        change = Math.max(change, Math.abs(tr[0] - tau[2 * i]), Math.abs(tr[1] - tau[2 * i + 1]));
+        if (st !== slip[i]) flips++;
+      }
+      return { lam, act: p > 0, tr, sl, st };
     });
-    next.forEach((x, i) => { lambda[i] = x.lam; active[i] = x.act; });
-    if (!flips && change <= 1e-4 * scale && alIt > 0) { alIt++; break; }
+    next.forEach((x, i) => { lambda[i] = x.lam; active[i] = x.act; lamT[2 * i] = x.sl[0]; lamT[2 * i + 1] = x.sl[1]; tau[2 * i] = x.tr[0]; tau[2 * i + 1] = x.tr[1]; slip[i] = x.st; });
+    // Converged when the multipliers settle; a few nodes at the contact edge may keep toggling — allow them after a while.
+    if (bondDone && flips <= Math.floor(alIt / 12) && change <= (input.contactTol ?? 2e-3) * scale && alIt > 0) { alIt++; break; }
   }
+  return finishStatic({ input, model, fx, f, Kref, u, cc, unilateral, bonded, lambda, active, lamB, tau, tdir, slip, totalIt, alIt, converged, residual, solverMethod, report, fixtures });
+}
+
+/** Reactions, contact results, stresses and surface fields of a solved static model. */
+function finishStatic({ input, model, fx, f, Kref, u, cc, unilateral, bonded, lambda, active, lamB, tau, tdir, slip, totalIt, alIt, converged, residual, solverMethod, report, fixtures, tied = null }) {
+  const ndof = 3 * model.nn;
   report(0.88, 'stress');
 
   // Reactions on the fixture faces (global frame): K u − f at the constrained nodes, grouped by fixture.
@@ -221,22 +160,32 @@ export function linearStatic(input) {
     for (let c = 0; c < 3; c++) reactions[o].force[c] += Ku[3 * n + c] - f[3 * n + c];
   }
   // Contact results.
-  let contactForce = [0, 0, 0], contactArea = 0, maxPen = 0, maxPressure = 0;
+  let contactForce = [0, 0, 0], frictionForce = [0, 0, 0], contactArea = 0, maxPen = 0, maxPressure = 0, slipping = 0, sticking = 0;
   const pressure = new Float64Array(cc.list.length), contactNodes = new Float64Array(model.nn);
   cc.list.forEach((c, i) => {
     if (c.type === 'bonded') {
-      const g = vectorJump(c, u), F = g.map((x) => c.k * c.area * x);
+      const g = vectorJump(c, u), j = bonded.indexOf(c), F = lamB ? g.map((x, a) => c.area * (lamB[3 * j + a] - c.k * x)) : [0, 0, 0];
       pressure[i] = Math.hypot(...F) / c.area;
     } else {
-      const j = unilateral.indexOf(c), g = c.g0 + normalJump(c, u);
+      const j = unilateral.indexOf(c), g = c.g0 + jump(c, u);
       pressure[i] = active[j] ? lambda[j] : 0;
-      if (pressure[i] > 0) { contactArea += c.area; for (let a = 0; a < 3; a++) contactForce[a] += pressure[i] * c.area * c.n[a]; maxPressure = Math.max(maxPressure, pressure[i]); }
+      if (pressure[i] > 0) {
+        contactArea += c.area; maxPressure = Math.max(maxPressure, pressure[i]);
+        for (let a = 0; a < 3; a++) { contactForce[a] += pressure[i] * c.area * c.n[a]; frictionForce[a] += c.area * (tau[2 * j] * tdir[j][0][a] + tau[2 * j + 1] * tdir[j][1][a]); }
+        if (c.mu > 0) { if (slip[j]) slipping++; else sticking++; }
+      }
       maxPen = Math.max(maxPen, -g);
     }
     contactNodes[c.s] = Math.max(contactNodes[c.s], pressure[i]);
   });
 
+  // Contact pressure as a field: the nodal contact forces are the consistent loads ∫N_a p dA of the pressure, so the
+  // pressure is recovered by the L2 projection M p = f with the face mass M = ∫N_a N_b dA over the slave faces.
+  // Mortar multipliers are already a nodal pressure field; node-to-surface forces are projected.
   const st = elasticStresses(model, u);
+  // Contact pressure from the recovered stress at the contact nodes: p = −n·σ·n (smooth, the surface traction).
+  const smooth = cc.list.some((c) => c.mortar) ? mortarPressure(cc.list, pressure) : tractionPressure(cc.list, pressure, st.nodal);
+  if (smooth) maxPressure = smooth.max;
   const dmax = fieldMax(model, u, 3), smax = fieldMax(model, st.vm, 1);
   const yieldOf = (b) => model.bodies[b].material.yield;
   let minFos = Infinity;
@@ -254,9 +203,117 @@ export function linearStatic(input) {
     maxDisplacement: dmax.value, maxDisplacementAt: dmax.at, maxStress: smax.value, maxStressAt: smax.at,
     minFactorOfSafety: minFos, iterations: totalIt, residual, linearSolver: solverMethod,
     vertexDisplacement: perBody[0].vertexDisplacement, vertexStress: perBody[0].vertexStress, bodies: perBody,
-    reactions, externalForce: sumForces(f), contact: { constraints: cc.list.length, pressure, force: contactForce, area: contactArea, maxPressure, maxPenetration: maxPen, iterations: alIt, list: cc.list },
+    reactions, externalForce: sumForces(f), contact: { constraints: cc.list.length, pressure, nodalPressure: smooth?.nodal ?? null, force: contactForce, friction: frictionForce, slipping, sticking, area: contactArea, maxPressure, maxPenetration: maxPen, iterations: alIt, list: cc.list },
   };
 }
+
+/** −n·σ·n at the active contact nodes from the nodal stress (6 per node): { nodal, max }. */
+function tractionPressure(list, pressure, S) {
+  const nodal = new Map(); let max = 0;
+  list.forEach((c, i) => {
+    if (c.type !== 'contact' || !(pressure[i] > 0)) return;
+    const o = 6 * c.s, n = c.n;
+    const sn = S[o] * n[0] * n[0] + S[o + 1] * n[1] * n[1] + S[o + 2] * n[2] * n[2] + 2 * (S[o + 3] * n[0] * n[1] + S[o + 4] * n[1] * n[2] + S[o + 5] * n[2] * n[0]);
+    const p = Math.max(0, -sn);
+    nodal.set(c.s, p); max = Math.max(max, p);
+  });
+  return nodal.size ? { nodal, max } : null;
+}
+
+/** The mortar multipliers as { nodal: Map node → MPa, max }. */
+function mortarPressure(list, pressure) {
+  const nodal = new Map(); let max = 0;
+  list.forEach((c, i) => { if (!c.mortar) return; const p = Math.max(0, pressure[i]); nodal.set(c.s, Math.max(nodal.get(c.s) ?? 0, p)); max = Math.max(max, p); });
+  return { nodal, max };
+}
+
+/** L2-projected contact pressure on the slave faces: { nodal: Map node → MPa, max } or null. */
+export function contactPressureField(model, list, pressure) {
+  const force = new Map(), slaves = new Set();
+  list.forEach((c, i) => { if (c.type !== 'contact' || !(pressure[i] > 0)) return; force.set(c.s, (force.get(c.s) ?? 0) + pressure[i] * c.area); slaves.add(c.s); });
+  if (!force.size) return null;
+  const allSlaves = new Set(list.map((c) => c.s)), npf = model.faces.npf;
+  const faces = [];
+  for (let q = 0; q < model.faces.nf; q++) { let all = true, any = false; for (let a = 0; a < npf; a++) { const n = model.faces.nodes[npf * q + a]; if (!allSlaves.has(n)) all = false; if (slaves.has(n)) any = true; } if (all && any) faces.push(q); }
+  // Sparse M (map of maps) and CG with a Jacobi preconditioner.
+  const M = new Map(), ids = new Map();
+  integrateFaces(model, faces, (nid, N, A) => {
+    const a0 = Math.hypot(A[0], A[1], A[2]);
+    for (let p = 0; p < npf; p++) { let row = M.get(nid[p]); if (!row) M.set(nid[p], (row = new Map())); for (let q = 0; q < npf; q++) row.set(nid[q], (row.get(nid[q]) ?? 0) + N[p] * N[q] * a0); }
+  });
+  const nodes = [...M.keys()]; nodes.forEach((n, i) => ids.set(n, i));
+  const n = nodes.length, b = new Float64Array(n), x = new Float64Array(n), dg = new Float64Array(n);
+  nodes.forEach((nd, i) => { b[i] = force.get(nd) ?? 0; dg[i] = M.get(nd).get(nd); });
+  const mul = (v, out) => { nodes.forEach((nd, i) => { let t = 0; for (const [m, w] of M.get(nd)) t += w * v[ids.get(m)]; out[i] = t; }); return out; };
+  const r = Float64Array.from(b), z = r.map((v, i) => v / dg[i]), p = Float64Array.from(z), q = new Float64Array(n);
+  let rz = r.reduce((t, v, i) => t + v * z[i], 0);
+  const b0 = Math.sqrt(b.reduce((t, v) => t + v * v, 0)) || 1;
+  for (let it = 0; it < 4 * n + 50; it++) {
+    mul(p, q);
+    const pq = p.reduce((t, v, i) => t + v * q[i], 0); if (!(pq > 0)) break;
+    const al = rz / pq;
+    for (let i = 0; i < n; i++) { x[i] += al * p[i]; r[i] -= al * q[i]; }
+    if (Math.sqrt(r.reduce((t, v) => t + v * v, 0)) < 1e-10 * b0) break;
+    for (let i = 0; i < n; i++) z[i] = r[i] / dg[i];
+    const rz1 = r.reduce((t, v, i) => t + v * z[i], 0), be = rz1 / rz; rz = rz1;
+    for (let i = 0; i < n; i++) p[i] = z[i] + be * p[i];
+  }
+  const nodal = new Map(); let max = 0;
+  nodes.forEach((nd, i) => { const v = Math.max(0, x[i]); nodal.set(nd, v); max = Math.max(max, v); });
+  return { nodal, max };
+}
+
+/**
+ * Exact elimination of bonded ties: slave nodes follow their master points (same weights for x, y, z). Slaves that are
+ * fixed, or masters of other ties, are left out of the elimination (kept as independent nodes). Returns { K (CSR on the
+ * retained nodes with its graph), f, fixed, coords, expand(uh) → u, tied } or null when nothing can be eliminated.
+ */
+function eliminateTies(K, f, ties, nn, fx) {
+  const masterOf = new Map(), isMaster = new Set();
+  for (const c of ties) for (const m of c.m) isMaster.add(m);
+  for (const c of ties) {
+    const s = c.s;
+    if (masterOf.has(s) || isMaster.has(s) || fx.fixed[3 * s] || fx.fixed[3 * s + 1] || fx.fixed[3 * s + 2] || fx.frames.has(s)) continue;
+    if (c.m.some((m) => masterOf.has(m))) continue;
+    masterOf.set(s, c);
+  }
+  if (!masterOf.size) return null;
+  const keep = new Int32Array(nn).fill(-1);
+  let nr = 0;
+  for (let n = 0; n < nn; n++) if (!masterOf.has(n)) keep[n] = nr++;
+  // T (3nn × 3nr): identity on retained nodes, master weights on slaves.
+  const ptr = new Int32Array(3 * nn + 1), cols = [], vals = [];
+  for (let n = 0; n < nn; n++) for (let k = 0; k < 3; k++) {
+    const c = masterOf.get(n);
+    if (!c) { cols.push(3 * keep[n] + k); vals.push(1); }
+    else { const items = c.m.map((m, q) => [3 * keep[m] + k, c.w[q]]).sort((a, b) => a[0] - b[0]); for (const [cc2, w] of items) if (w) { cols.push(cc2); vals.push(w); } }
+    ptr[3 * n + k + 1] = cols.length;
+  }
+  const T = { n: 3 * nn, ptr, col: Int32Array.from(cols), val: Float64Array.from(vals) };
+  const TT = transpose(T, 3 * nr);
+  const Kr = matmul(TT, matmul({ n: K.n, ptr: K.ptr, col: K.col, val: K.val }, T, 3 * nr), 3 * nr);
+  // Node graph of the reduced matrix (3×3 blocks), and the reduced matrix in the block-row layout the solvers use.
+  const sets = Array.from({ length: nr }, () => new Set());
+  for (let r = 0; r < Kr.n; r++) { const a = (r / 3) | 0; for (let p = Kr.ptr[r]; p < Kr.ptr[r + 1]; p++) sets[a].add((Kr.col[p] / 3) | 0); }
+  const gptr = new Int32Array(nr + 1), lists = sets.map((s2, a) => { s2.add(a); const u2 = Int32Array.from(s2).sort(); gptr[a + 1] = u2.length; return u2; });
+  for (let a = 0; a < nr; a++) gptr[a + 1] += gptr[a];
+  const gidx = new Int32Array(gptr[nr]); lists.forEach((u2, a) => gidx.set(u2, gptr[a]));
+  const g = { nn: nr, ptr: gptr, idx: gidx };
+  const A = csrFromGraph(g, 3);
+  for (let r = 0; r < Kr.n; r++) for (let p = Kr.ptr[r]; p < Kr.ptr[r + 1]; p++) addEntry(A, r, Kr.col[p], Kr.val[p]);
+  const fr = new Float64Array(3 * nr);
+  mvT(T, f, fr);
+  const fixed = new Uint8Array(3 * nr), value = new Float64Array(3 * nr), coords = new Float64Array(3 * nr);
+  for (let n = 0; n < nn; n++) { const q = keep[n]; if (q < 0) continue; for (let k = 0; k < 3; k++) { fixed[3 * q + k] = fx.fixed[3 * n + k]; value[3 * q + k] = fx.value[3 * n + k]; } }
+  // Retained node coordinates (rigid-body modes for the multigrid).
+  return {
+    K: A, f: fr, fixed, value, coords, tied: masterOf.size,
+    setCoords(nodes) { for (let n = 0; n < nn; n++) { const q = keep[n]; if (q >= 0) for (let k = 0; k < 3; k++) coords[3 * q + k] = nodes[3 * n + k]; } },
+    expand(uh) { const out = new Float64Array(3 * nn); for (let r = 0; r < 3 * nn; r++) { let s2 = 0; for (let p = T.ptr[r]; p < T.ptr[r + 1]; p++) s2 += T.val[p] * uh[T.col[p]]; out[r] = s2; } return out; },
+    rotate(frames) { const map = new Map(); for (const [n, R] of frames) if (keep[n] >= 0) map.set(keep[n], R); rotateMatrix(A, map); rotateVector(fr, map, true); return map; },
+  };
+}
+const mvT = (T, x, y) => { y.fill(0); for (let r = 0; r < T.n; r++) for (let p = T.ptr[r]; p < T.ptr[r + 1]; p++) y[T.col[p]] += T.val[p] * x[r]; return y; };
 
 function sumForces(f) {
   const s = [0, 0, 0];

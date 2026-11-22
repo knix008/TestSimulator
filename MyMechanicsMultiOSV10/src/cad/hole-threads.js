@@ -3,7 +3,7 @@
 // drawings) or modelled (the ISO 68-1 thread cut from the part, threads.js). Through holes are threaded through
 // the material along the axis, blind ones to the thread depth. features.js calls it after drilling.
 import { rep } from './kernel.js';
-import { isoThread, threadSolid, cosmeticThread, parseThreadSize, wantsModelled } from './threads.js';
+import { isoThread, threadSolid, cosmeticThread, parseThreadSize, wantsModelled, threadFrame, internalRunoutBlank } from './threads.js';
 
 /** The ISO thread a tapped hole feature asks for (its threadSize, "M8" or "M10×1.25"). */
 export function tappedSpec(f) {
@@ -40,7 +40,12 @@ export function tapHoles(f, axes, before, body, { maxLen = 1e4 } = {}) {
     else length = Math.min(Math.max(spec.P, Number(f.threadDepth) || 2 * spec.d), depth);
     if (!(length > 1e-6)) continue;
     threads.push(cosmeticThread({ centre: at, dir, length, internal: true, d: spec.d, P: spec.P, radius: (Number(f.diameter) || spec.tapDrill) / 2, modelled }));
-    if (modelled) out = out.cut(threadSolid(spec, 'internal', { origin: at, dir, length }), { simplify: false });
+    if (modelled) {
+      let tool = threadSolid(spec, 'internal', { origin: at, dir, length });
+      // A blind tapped hole: the thread fades out over the runout toward the drill's bottom.
+      if (!f.through) tool = tool.intersect(internalRunoutBlank(spec, threadFrame(at, dir), length, (Number(f.diameter) || spec.tapDrill) / 2), { simplify: false });
+      out = out.cut(tool, { simplify: false });
+    }
   }
   return { body: out, thread: threads[0] ?? null, threads };
 }

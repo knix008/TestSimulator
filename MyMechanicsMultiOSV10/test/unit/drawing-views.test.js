@@ -7,15 +7,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadKernel, rep } from '../../src/cad/kernel.js';
-import { createDrawing, projectView, drawingDxf, viewBasis, annotationPrimitives } from '../../src/cad/drawing.js';
+import { createDrawing, projectView, drawingDxf, drawingSvg, viewBasis, annotationPrimitives } from '../../src/cad/drawing.js';
 import { breakProjection, adjustProjections, sheetDxf, overlayPrimitives, addRevision, addSheet, findHoles, holeTableRows, flattenPath, cropProjection } from '../../src/cad/drawing-more.js';
 import {
   viewEntities, pickEntity, dimensionFromPicks, dimValue, dimLabel, viewFrames, pickToTrue, insideDetail, breakForward, breakInverse,
   modelGeometry, pictorialPick, pictorialDimension, pictorialMark, dimPrimitives, autoTextOffset, layoutDimLabels, dimLabelBox, modelItemDims,
+  silhouetteLines, angle3,
 } from '../../src/cad/drawing-dims.js';
 import { snapDrag, separateLabels, primsBox, boxesOverlap, textCorners } from '../../src/cad/drawing-snap.js';
-import { annotationBoxes } from '../../src/cad/drawing-annot.js';
-import { textWidth, textExtent, measureFont } from '../../src/cad/text-metrics.js';
+import { annotationBoxes, drwItems } from '../../src/cad/drawing-annot.js';
+import { normalizeProject } from '../../src/cad/document.js';
+import { migrateDrawingDims, DIM_COORDS } from '../../src/cad/drawing.js';
+import { textWidth, textExtent, measureFont, cjkFont, tableEm, embedFonts, fontFaceCss, DRAWING_FONT } from '../../src/cad/text-metrics.js';
+import { readFileSync } from 'node:fs';
 import { regenerate } from '../../src/cad/features.js';
 
 await loadKernel();
@@ -207,7 +211,7 @@ test('broken view: dimensions across the break give the model distance; circles 
   const d = createDrawing({ id: 'd', name: 'B', source: { kind: 'part', id: 'p' } });
   d.views = [{ id: ZID, type: ZV, break: { axis: 'x', from: -40, to: -15 } }];
   const raw = projectView(body, ZV, d.views[0]);
-  const lo = raw.box.x0;
+  const lo = -50;
   const adj = adjustProjections(d, new Map([[ZID, raw]]));
   const p = adj.get(ZID);
   assert.equal(p.breaks[0].to, -15);
@@ -310,9 +314,17 @@ test('text widths come from the sheet font (Roboto): advance widths and kerning,
   near(textWidth('ABCD', 5), 12.91259765625, 1e-12);
   // Kerning: A and V close up by 87 units.
   near(textWidth('AV', 10), ((1336 + 1304 - 87) / 2048) * 10, 1e-12);
-  // Characters the font lacks: as the fallback draws them (Hangul a full em).
-  near(textWidth('한글', 3), 6, 1e-12);
-  near(textWidth('AB', 5, { bold: true }), textWidth('AB', 5) * 1.045, 1e-12);
+  // Bold: Roboto Bold's own widths.
+  const bold = measureFont(true);
+  assert.ok(bold && bold !== font, 'Roboto Bold is loaded');
+  near(textWidth('100', 10, { bold: true }), 17.2119140625, 1e-12);
+  near(textWidth('AB 3.5', 5, { bold: true }), bold.getAdvanceWidth('AB 3.5', 5), 1e-12);
+  // Characters Roboto lacks: the Korean font's widths (its file when the system has one, else its table).
+  near(textWidth('한글', 3), 6, 1e-12, 'Hangul: one em');
+  near(textWidth('A한', 10), font.getAdvanceWidth('A', 10) + 10, 1e-12);
+  const cjk = cjkFont();
+  if (cjk) near(textWidth('⌒', 10), (cjk.charToGlyph('⌒').advanceWidth / cjk.unitsPerEm) * 10, 1e-12, 'a symbol from the Korean font');
+  assert.equal(tableEm('가'), 1); assert.equal(tableEm('ㄱ'), 1); assert.equal(tableEm('漢'), 1); assert.equal(tableEm('⌒'), 0.6);
   const e = textExtent(5); near(e.ascent, (1900 / 2048) * 5, 1e-12); near(e.descent, (500 / 2048) * 5, 1e-12);
 });
 
@@ -515,4 +527,129 @@ test('arc length in an orthographic view: the hole\'s circumference, a quarter f
   const prims = dimPrimitives(a, frames.get(ZID));
   const tip = prims.find((q) => q.t === 'fill').pts[0]; const m = frames.get(ZID).fromSheet(...tip);
   near(Math.hypot(m[0], m[1]), 10, 1e-6, 'the arrow is on the circle');
+});
+
+// ───────────────────────── opening older files: dimensions of broken views
+
+test('opening an older drawing: dimensions picked in a broken view move to true coordinates, once', () => {
+  const body = block();
+  const view = { id: ZID, type: ZV, break: { axis: 'x', from: -40, to: -15 } };
+  const raw = projectView(body, ZV, view);
+  const adjOf = (d) => adjustProjections(d, new Map([[ZID, raw]]));
+  // As the old module saved it: the points where they were picked in the shortened view.
+  const probe = { id: 'd', name: 'B', source: { kind: 'part', id: 'p' }, views: [view] };
+  const shortened = adjOf(probe).get(ZID);
+  const shift = -15 - -40 - shortened.breaks[0].gap;
+  const lo = -50;
+  const oldDim = { id: 'dm', kind: 'drwDim', view: ZID, dtype: 'horizontal', p1: [lo, -25], p2: [50 - shift, -25], x: 0, y: 20 };
+  const oldHole = { id: 'dh', kind: 'drwDim', view: ZID, dtype: 'diameter', c: [-shift, 0], r: 10, full: true, x: 15, y: -15 };
+  const model = { id: 'mi', kind: 'drwDim', view: ZID, dtype: 'horizontal', p1: [lo, 25], p2: [50, 25], model: true, x: 0, y: -20 };
+  const file = { format: 'mymechanics', name: 'Old', parts: [], assemblies: [], up: 'z', drawings: [{ ...createDrawing({ id: 'd', name: 'B', source: { kind: 'part', id: 'p' } }), views: [view], annotations: [oldDim, oldHole, model] }] };
+  delete file.drawings[0].dimCoords; // saved before dimension coordinates were versioned
+  near(dimValue(oldDim), 100 - shift, 1e-9, 'the old file read the shortened length');
+  const p = normalizeProject(JSON.parse(JSON.stringify(file)));
+  const d = p.drawings[0];
+  assert.equal(d.dimCoords, DIM_COORDS);
+  assert.deepEqual(d.annotations.map((a) => Boolean(a.legacyBroken)), [true, true, false], 'model items were true already');
+  // Where the sheet is first drawn, they are converted: true values, same places on the sheet.
+  const adj = adjOf(d);
+  const before = viewFrames(d, adj).frames.get(ZID);
+  const sheetAt = before.place.cx + (oldDim.p2[0] - before.cx) * before.s;
+  drwItems(d, adj);
+  const [dm, dh, mi] = d.annotations;
+  assert.ok(!dm.legacyBroken && !dh.legacyBroken);
+  near(dimValue(dm), 100, 1e-9, 'overall length across the break');
+  near(dm.p2[0], 50, 1e-9); near(dh.c[0], 0, 1e-9); near(dimValue(dh), 20, 1e-9);
+  assert.deepEqual(mi.p2, [50, 25], 'untouched');
+  near(before.toSheet(...dm.p2)[0], sheetAt, 1e-9, 'drawn where it was');
+  // Saved and opened again: nothing moves twice.
+  const again = normalizeProject(JSON.parse(JSON.stringify(p))).drawings[0];
+  assert.ok(again.annotations.every((a) => !a.legacyBroken));
+  drwItems(again, adjOf(again));
+  near(again.annotations[0].p2[0], 50, 1e-9);
+  // New drawings are in true coordinates from the start; a drawing without broken views marks nothing.
+  assert.equal(createDrawing({ id: 'n', name: 'N', source: null }).dimCoords, DIM_COORDS);
+  const plain = { views: [{ id: 'v', type: 'front' }], annotations: [{ kind: 'drwDim', view: 'v', dtype: 'aligned', p1: [0, 0], p2: [1, 0] }] };
+  assert.equal(migrateDrawingDims(plain), 0); assert.equal(plain.dimCoords, DIM_COORDS);
+  assert.equal(migrateDrawingDims(plain), 0);
+});
+
+test('exported SVG embeds Roboto Regular and Bold, the very font files the text is measured with', () => {
+  const css = fontFaceCss();
+  const faces = [...css.matchAll(/@font-face\{font-family:'Roboto';font-style:normal;font-weight:(\d+);src:url\(data:font\/woff;base64,([A-Za-z0-9+/=]+)\)/g)];
+  assert.deepEqual(faces.map((m) => m[1]), ['400', '700']);
+  for (const [, w, b64] of faces) assert.ok(Buffer.from(b64, 'base64').equals(readFileSync(new URL(`../../node_modules/@fontsource/roboto/files/roboto-latin-${w}-normal.woff`, import.meta.url))), `weight ${w}`);
+  const d = createDrawing({ id: 'd', name: 'B', source: { kind: 'part', id: 'p' } });
+  const svg = embedFonts(drawingSvg(d, new Map()));
+  assert.match(svg, /^<svg[^>]*>\n {2}<style>@font-face/);
+  assert.ok(svg.includes(DRAWING_FONT.split(',')[0]));
+  assert.ok(drawingSvg(d, new Map()).includes('Roboto,"Malgun Gothic"'), 'the sheet names Roboto, then the Korean fonts');
+});
+
+test('pictorial: a cone\'s silhouettes (drawn outlines, no model edges) give its slant length, wide diameter and their true angle', () => {
+  // A frustum about z: radius 10 at z = 0 to 4 at z = 30 (apex at z = 50).
+  const body = R.draw([0, 0]).hLine(10).lineTo([4, 30]).hLine(-4).close().sketchOnPlane('XZ').revolve();
+  near(R.measureVolume(body), (Math.PI * 30 / 3) * (100 + 40 + 16), 1e-6);
+  const g0 = modelGeometry(body);
+  assert.equal(g0.cones.length, 1);
+  const co = g0.cones[0];
+  near(co.apex[2], 50, 1e-9); near(Math.hypot(co.apex[0], co.apex[1]), 0, 1e-9); near(co.dir[2], -1, 1e-12);
+  near(Math.tan(co.alpha), 0.2, 1e-12); near(co.lo, 20, 1e-9); near(co.hi, 50, 1e-9);
+  const sils = silhouetteLines(g0, isoB);
+  assert.equal(sils.length, 2);
+  for (const sl of sils) {
+    // On the surface: each end at its height's radius; the surface there turns away from the viewer.
+    for (const p of [sl.a3, sl.b3]) near(Math.hypot(p[0], p[1]), 10 - 0.2 * p[2], 1e-9);
+    const mid = sl.a3.map((v, i) => (v + sl.b3[i]) / 2);
+    const radial = [mid[0], mid[1], 0].map((v) => v / Math.hypot(mid[0], mid[1]));
+    const n = [radial[0] * 30, radial[1] * 30, 6]; // outward normal of the cone (∝ r' and dz)
+    near(dot(n, isoB.dir), 0, 1e-9);
+  }
+  const picks = sils.map((sl) => isoPickAt(body, [0.5, 0.35, 0.65].map((t) => sl.a3.map((v, i) => v + (sl.b3[i] - v) * t))).pk);
+  for (const pk of picks) { assert.equal(pk?.kind, 'line', 'the outline is drawn there'); assert.equal(pk.silhouette?.kind, 'cone'); }
+  near(dimValue(pictorialDimension([picks[0]], 'auto', isoB)), Math.hypot(30, 6), 1e-9, 'slant length');
+  assert.equal(dimLabel(pictorialDimension([picks[0]], 'diameter', isoB)), 'Ø20');
+  const ang = pictorialDimension(picks, 'auto', isoB);
+  assert.equal(ang.dtype, 'angular');
+  near(dimValue(ang), angle3(sils[0].b3, co.apex, sils[1].b3), 1e-9, 'the true angle at the apex');
+});
+
+test('pictorial: the diameter of a partial arc has its far arrow at the opposite point of the full circle', () => {
+  const body = R.makeBox([0, 0, 0], [40, 30, 20]).fillet(5, (e) => e.inDirection('Z'));
+  const arcs = modelGeometry(body).circles.filter((c) => Math.abs(c.r - 5) < 1e-9 && Math.abs(c.c[2] - 20) < 1e-9);
+  const arc = arcs.reduce((m, a) => (dot(a.c, isoB.dir) > dot(m.c, isoB.dir) ? a : m), arcs[0]);
+  const { pk } = isoPickAt(body, [arc.pts[12]]);
+  const g = pictorialDimension([pk], 'diameter', isoB);
+  assert.equal(dimLabel(g), 'Ø10');
+  const d = createDrawing({ id: 'd', name: 'B', source: { kind: 'part', id: 'p' } }); d.views = [ISO];
+  const { frames } = viewFrames(d, new Map([['v-iso', projectView(body, 'iso', ISO)]]));
+  const fr = frames.get('v-iso');
+  const a = { kind: 'drwDim', view: 'v-iso', ...g }; [a.x, a.y] = autoTextOffset(a, fr);
+  const tips = dimPrimitives(a, fr).filter((p) => p.t === 'fill').map((p) => p.pts[0]);
+  assert.equal(tips.length, 2);
+  // Back on the arc's plane (z = 20): both on the circle, through the centre from each other.
+  const on = tips.map((t) => { const X = fr.fromSheet(...t); const base = [0, 1, 2].map((i) => isoB.x[i] * X[0] + isoB.y[i] * X[1]); const k = (20 - base[2]) / isoB.dir[2]; return base.map((v, i) => v + isoB.dir[i] * k); });
+  for (const p of on) near(Math.hypot(p[0] - arc.c[0], p[1] - arc.c[1]), 5, 1e-6, 'on the circle');
+  near((on[0][0] + on[1][0]) / 2, arc.c[0], 1e-6); near((on[0][1] + on[1][1]) / 2, arc.c[1], 1e-6);
+  // The first tip is on the arc itself.
+  const ang = Math.atan2(on[0][1] - arc.c[1], on[0][0] - arc.c[0]);
+  assert.ok(arc.pts.some((p) => Math.abs(Math.atan2(p[1] - arc.c[1], p[0] - arc.c[0]) - ang) < 0.15), 'first arrow on the arc');
+});
+
+test('a bare sphere: its outline circle is drawn in every view and dimensioned Ø24', () => {
+  const body = R.makeSphere(12);
+  for (const type of ['front', 'top', 'iso', 'dimetric']) {
+    const p = projectView(body, type, { id: 'v', type });
+    near(p.box.x1 - p.box.x0, 24, 1e-9, type); near(p.box.y1 - p.box.y0, 24, 1e-9, type);
+    const ents = viewEntities(p);
+    assert.ok(ents.some((e) => e.t === 'arc' && Math.abs(e.r - 12) < 1e-9 && Math.abs(Math.abs(e.sweep) - Math.PI * 2) < 1e-6), `${type}: one full circle`);
+  }
+  const p = projectView(body, 'iso', ISO);
+  const pick = pickEntity(viewEntities(p), [12.1, 0], 0.5);
+  assert.equal(pick.kind, 'arc');
+  const pk = pictorialPick(pick, [12.1, 0], modelGeometry(body), isoB, 0.5);
+  assert.equal(pk?.outline, 'sphere');
+  assert.equal(dimLabel(pictorialDimension([pk], 'auto', isoB)), 'Ø24');
+  const front = projectView(body, 'front', { id: 'f', type: 'front' });
+  assert.equal(dimLabel(dimensionFromPicks([pickEntity(viewEntities(front), [0, 12], 0.5)])), 'Ø24');
 });

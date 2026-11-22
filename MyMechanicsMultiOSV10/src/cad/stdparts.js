@@ -17,8 +17,8 @@
 // ISO 8734 / 2338 / 8752, DIN 471 / 472, DIN 6885 A, ISO 53 / 54 gears, DIN 7721 pulleys, ISO 4200 pipe,
 // ASME B16.9 elbow / tee lengths, EN 1092-1 PN16 type 11 flanges). No DOM.
 import { rep } from './kernel.js';
-import { threadSolid, isoThread, cosmeticThread } from './threads.js';
-import { gearProfile, profilePolygon, helicalTransverse, bevelSection, bevelGeometry, rackOutline, pulleyProfile, pulleyGeometry, PULLEY_PROFILES } from './gears.js';
+import { threadSolid, isoThread, cosmeticThread, threadFrame, externalRunoutCore } from './threads.js';
+import { gearProfile, profilePolygon, helicalTransverse, bevelSphericalSection, bevelGeometry, rackOutline, pulleyProfile, pulleyGeometry, PULLEY_PROFILES } from './gears.js';
 
 // ───────────────────────── tables
 
@@ -64,12 +64,17 @@ export const BUTTON_HEAD = {
   M8: { dk: 14, k: 4.4, s: 5, t: 2.6 }, M10: { dk: 17.5, k: 5.5, s: 6, t: 3.12 }, M12: { dk: 21, k: 6.6, s: 8, t: 4.16 }, M16: { dk: 28, k: 8.8, s: 10, t: 5.2 },
 };
 
-/** Set screws: ISO 4026 / 4029 hex socket (s, t), ISO 4766 slotted (n slot width, ts slot depth), dp flat point, dz cup. */
+/**
+ * Set screws: ISO 4026 / 4029 hex socket (s, t min for short lengths, tl min for the other lengths), ISO 4766
+ * slotted (n slot width, ts slot depth min), dp flat point (max), dz cup (max).
+ * Sources: ISO 4026:1993 Table 1 (s, t, footnotes 4 / 5), ISO 4029:2003 Table 1 (dz), ISO 4766:2011 Table 1
+ * (n, t, dp) — the iteh.ai sample PDFs; dp for M16–M24 from the Westfield ISO 4026 sheet.
+ */
 export const SET_SCREW = {
-  M3: { s: 1.5, t: 1.2, n: 0.4, ts: 0.8, dp: 2, dz: 1.4 }, M4: { s: 2, t: 1.5, n: 0.6, ts: 1.12, dp: 2.5, dz: 2 }, M5: { s: 2.5, t: 2, n: 0.8, ts: 1.28, dp: 3.5, dz: 2.5 },
-  M6: { s: 3, t: 2, n: 1, ts: 1.6, dp: 4, dz: 3 }, M8: { s: 4, t: 3, n: 1.2, ts: 2, dp: 5.5, dz: 5 }, M10: { s: 5, t: 4, n: 1.6, ts: 2.4, dp: 7, dz: 6 },
-  M12: { s: 6, t: 4.8, n: 2, ts: 2.8, dp: 8.5, dz: 8 }, M16: { s: 8, t: 6.4, n: 2.5, ts: 3.2, dp: 12, dz: 10 }, M20: { s: 10, t: 8, n: 3, ts: 4, dp: 15, dz: 14 },
-  M24: { s: 12, t: 10, n: 3, ts: 4.8, dp: 18, dz: 16 },
+  M3: { s: 1.5, t: 1.2, tl: 2, n: 0.4, ts: 0.8, dp: 2, dz: 1.4 }, M4: { s: 2, t: 1.5, tl: 2.5, n: 0.6, ts: 1.12, dp: 2.5, dz: 2 }, M5: { s: 2.5, t: 2, tl: 3, n: 0.8, ts: 1.28, dp: 3.5, dz: 2.5 },
+  M6: { s: 3, t: 2, tl: 3.5, n: 1, ts: 1.6, dp: 4, dz: 3 }, M8: { s: 4, t: 3, tl: 5, n: 1.2, ts: 2, dp: 5.5, dz: 5 }, M10: { s: 5, t: 4, tl: 6, n: 1.6, ts: 2.4, dp: 7, dz: 6 },
+  M12: { s: 6, t: 4.8, tl: 8, n: 2, ts: 2.8, dp: 8.5, dz: 8 }, M16: { s: 8, t: 6.4, tl: 10, dp: 12, dz: 10 }, M20: { s: 10, t: 8, tl: 12, dp: 15, dz: 14 },
+  M24: { s: 12, t: 10, tl: 15, dp: 18, dz: 16 },
 };
 
 /** ISO 4032 hex nut: s, m (height). */
@@ -94,7 +99,7 @@ export const FLAT_WASHER = {
   M20: { d1: 21, d2: 37, h: 3 }, M24: { d1: 25, d2: 44, h: 4 },
 };
 
-/** DIN 127 B spring lock washer: d1, d2, s (section thickness), h (free height, ≈ 2 s). */
+/** DIN 127 B spring lock washer: d1, d2, s (section thickness), h (free height, the minimum = 2 s). Source: Westfield DIN 127 sheet (h min / max). */
 export const SPRING_WASHER = {
   M3: { d1: 3.1, d2: 6.2, s: 0.8, h: 1.6 }, M4: { d1: 4.1, d2: 7.6, s: 0.9, h: 1.8 }, M5: { d1: 5.1, d2: 9.2, s: 1.2, h: 2.4 }, M6: { d1: 6.1, d2: 11.8, s: 1.6, h: 3.2 },
   M8: { d1: 8.1, d2: 14.8, s: 2, h: 4 }, M10: { d1: 10.2, d2: 18.1, s: 2.2, h: 4.4 }, M12: { d1: 12.2, d2: 21.1, s: 2.5, h: 5 }, M16: { d1: 16.2, d2: 27.4, s: 3.5, h: 7 },
@@ -121,10 +126,14 @@ export const BEARINGS = {
   6204: { d: 20, D: 47, B: 14, r: 1 }, 6205: { d: 25, D: 52, B: 15, r: 1 }, 6206: { d: 30, D: 62, B: 16, r: 1 },
 };
 export const BEARING_SIZES = Object.keys(BEARINGS);
-/** The ball sets of the series (catalogue internal geometry): [count, ball diameter Dw (mm, inch fractions)]. */
+/**
+ * The ball sets of the series (catalogue internal geometry): [count Z, ball diameter Dw, pitch circle dm].
+ * Source: GMN deep-groove bearing internal geometry table (gmn.de); 6204 cross-checked with NSK (Z 8, Dw 7.938).
+ * Ball sets differ slightly between makers.
+ */
 export const BEARING_BALLS = {
-  6000: [7, 4.763], 6001: [8, 4.763], 6002: [9, 4.763], 6003: [10, 4.763], 6004: [9, 6.35], 6005: [10, 6.35], 6006: [11, 7.144],
-  6200: [8, 4.763], 6201: [7, 5.953], 6202: [8, 5.953], 6203: [8, 6.747], 6204: [8, 7.938], 6205: [9, 7.938], 6206: [9, 9.525],
+  6000: [7, 4.762, 18], 6001: [8, 4.762, 20], 6002: [9, 4.762, 23.5], 6003: [10, 4.762, 26], 6004: [9, 6.35, 31], 6005: [10, 6.35, 36], 6006: [11, 7.144, 42.5],
+  6200: [7, 5.556, 20], 6201: [7, 5.953, 22], 6202: [8, 5.953, 25.3], 6203: [8, 6.747, 28.5], 6204: [8, 7.938, 33.5], 6205: [9, 7.938, 39.1], 6206: [9, 9.525, 46],
 };
 
 /** ISO 8734 dowel pin / ISO 2338 parallel pin / ISO 8752 spring pin diameters and lengths. */
@@ -133,8 +142,23 @@ export const PIN_LENGTHS = [6, 8, 10, 12, 16, 20, 25, 30, 35, 40, 45, 50, 60, 70
 export const pinLengths = (d) => PIN_LENGTHS.filter((l) => l >= Math.max(6, d * 1.5) && l <= Math.max(20, d * 6));
 /** ISO 2338 end chamfer c. */
 export const PARALLEL_PIN_C = { 2: 0.35, 3: 0.5, 4: 0.63, 5: 0.8, 6: 1.2, 8: 1.6, 10: 2, 12: 2.5, 16: 3, 20: 3.5 };
-/** ISO 8752 heavy-duty spring pin: s (wall), slot width (the gap of the free pin). */
-export const SPRING_PIN = { 2: { s: 0.4, gap: 0.3 }, 3: { s: 0.6, gap: 0.4 }, 4: { s: 0.8, gap: 0.5 }, 5: { s: 1, gap: 0.6 }, 6: { s: 1.2, gap: 0.8 }, 8: { s: 1.5, gap: 1 }, 10: { s: 2, gap: 1.2 }, 12: { s: 2.5, gap: 1.5 }, 16: { s: 3, gap: 2 }, 20: { s: 4, gap: 2.5 } };
+/**
+ * ISO 8752:2009 heavy-duty spring pin (Table 1): s (wall), d1 before fitting (min / max), chamfer length a (min /
+ * max). The standard leaves the slot's width to the supplier and asks only that it does not close when the pin
+ * is driven into the smallest hole (H12 at the nominal size): the pin is modelled free, at the mean free
+ * diameter, its gap the circumference the fitting takes away (π (d1 − d)) plus 30 % so it stays open.
+ */
+export const SPRING_PIN = {
+  2: { s: 0.4, d1: [2.3, 2.4], a: [0.35, 0.55] }, 3: { s: 0.6, d1: [3.3, 3.5], a: [0.5, 0.7] }, 4: { s: 0.8, d1: [4.4, 4.6], a: [0.65, 0.85] },
+  5: { s: 1, d1: [5.4, 5.6], a: [0.9, 1.1] }, 6: { s: 1.2, d1: [6.4, 6.7], a: [1.2, 1.4] }, 8: { s: 1.5, d1: [8.5, 8.8], a: [1.6, 2] },
+  10: { s: 2, d1: [10.5, 10.8], a: [2, 2.4] }, 12: { s: 2.5, d1: [12.5, 12.8], a: [2, 2.4] }, 16: { s: 3, d1: [16.5, 16.8], a: [2, 2.4] }, 20: { s: 4, d1: [20.5, 20.9], a: [3, 3.4] },
+};
+/** A spring pin's free diameter, slot gap and chamfer (see SPRING_PIN). */
+export function springPinGeometry(d) {
+  const g = SPRING_PIN[d];
+  const free = (g.d1[0] + g.d1[1]) / 2;
+  return { ...g, free, gap: Math.PI * (free - d) * 1.3, chamfer: (g.a[0] + g.a[1]) / 2 };
+}
 
 /** DIN 471 external retaining rings (for shafts d1): s (thickness), d3 (inside, free), a (lug height), b (radial width at the back), d5 (lug hole). */
 export const RETAINING_RINGS = {
@@ -171,18 +195,19 @@ export const PULLEY_SIZES = Object.keys(PULLEY_PROFILES);
 /**
  * Pipe (ISO 4200 / ASME B36.10 Sch 40): outside diameter, wall; B16.9 long-radius elbow and tee centre-to-end;
  * EN 1092-1 PN16 type 11 weld-neck flange: D, K (bolt circle), n × L (holes), C (plate), N (hub at the plate),
- * H (overall), d1 / f1 (raised face B1), R1 (hub fillet), H2 (straight weld end).
+ * H (overall), d1 / f1 (raised face B1), R1 (hub fillet), H2 (straight weld end), S (wall at the weld end: the
+ * bore is A − 2S). Source: wermac.org EN 1092-1 / DIN 2633 PN16 weld-neck table (A … R columns).
  */
 export const PIPES = {
-  DN15: { od: 21.3, wall: 2.77, elbow: 38.1, tee: 25.4, flange: { D: 95, K: 65, n: 4, L: 14, C: 16, N: 32, H: 38, d1: 45, f1: 2, R1: 4, H2: 6 } },
-  DN20: { od: 26.9, wall: 2.87, elbow: 28.6, tee: 28.6, flange: { D: 105, K: 75, n: 4, L: 14, C: 18, N: 39, H: 40, d1: 58, f1: 2, R1: 4, H2: 6 } },
-  DN25: { od: 33.7, wall: 3.38, elbow: 38.1, tee: 38.1, flange: { D: 115, K: 85, n: 4, L: 14, C: 18, N: 46, H: 40, d1: 68, f1: 2, R1: 4, H2: 6 } },
-  DN32: { od: 42.4, wall: 3.56, elbow: 47.8, tee: 47.6, flange: { D: 140, K: 100, n: 4, L: 18, C: 18, N: 56, H: 42, d1: 78, f1: 2, R1: 6, H2: 6 } },
-  DN40: { od: 48.3, wall: 3.68, elbow: 57.2, tee: 57.2, flange: { D: 150, K: 110, n: 4, L: 18, C: 18, N: 64, H: 45, d1: 88, f1: 3, R1: 6, H2: 7 } },
-  DN50: { od: 60.3, wall: 3.91, elbow: 76.2, tee: 63.5, flange: { D: 165, K: 125, n: 4, L: 18, C: 18, N: 74, H: 45, d1: 102, f1: 3, R1: 6, H2: 8 } },
-  DN65: { od: 76.1, wall: 5.16, elbow: 95.3, tee: 76.2, flange: { D: 185, K: 145, n: 8, L: 18, C: 18, N: 92, H: 45, d1: 122, f1: 3, R1: 6, H2: 10 } },
-  DN80: { od: 88.9, wall: 5.49, elbow: 114.3, tee: 85.7, flange: { D: 200, K: 160, n: 8, L: 18, C: 20, N: 105, H: 50, d1: 138, f1: 3, R1: 8, H2: 10 } },
-  DN100: { od: 114.3, wall: 6.02, elbow: 152.4, tee: 104.8, flange: { D: 220, K: 180, n: 8, L: 18, C: 20, N: 131, H: 52, d1: 158, f1: 3, R1: 8, H2: 12 } },
+  DN15: { od: 21.3, wall: 2.77, elbow: 38.1, tee: 25.4, flange: { D: 95, K: 65, n: 4, L: 14, C: 16, N: 32, H: 38, d1: 45, f1: 2, R1: 4, H2: 6, S: 2.0 } },
+  DN20: { od: 26.9, wall: 2.87, elbow: 28.6, tee: 28.6, flange: { D: 105, K: 75, n: 4, L: 14, C: 18, N: 39, H: 40, d1: 58, f1: 2, R1: 4, H2: 6, S: 2.3 } },
+  DN25: { od: 33.7, wall: 3.38, elbow: 38.1, tee: 38.1, flange: { D: 115, K: 85, n: 4, L: 14, C: 18, N: 46, H: 40, d1: 68, f1: 2, R1: 4, H2: 6, S: 2.6 } },
+  DN32: { od: 42.4, wall: 3.56, elbow: 47.8, tee: 47.6, flange: { D: 140, K: 100, n: 4, L: 18, C: 18, N: 56, H: 42, d1: 78, f1: 2, R1: 6, H2: 6, S: 2.6 } },
+  DN40: { od: 48.3, wall: 3.68, elbow: 57.2, tee: 57.2, flange: { D: 150, K: 110, n: 4, L: 18, C: 18, N: 64, H: 45, d1: 88, f1: 3, R1: 6, H2: 7, S: 2.6 } },
+  DN50: { od: 60.3, wall: 3.91, elbow: 76.2, tee: 63.5, flange: { D: 165, K: 125, n: 4, L: 18, C: 18, N: 74, H: 45, d1: 102, f1: 3, R1: 6, H2: 8, S: 2.9 } },
+  DN65: { od: 76.1, wall: 5.16, elbow: 95.3, tee: 76.2, flange: { D: 185, K: 145, n: 8, L: 18, C: 18, N: 92, H: 45, d1: 122, f1: 3, R1: 6, H2: 10, S: 2.9 } },
+  DN80: { od: 88.9, wall: 5.49, elbow: 114.3, tee: 85.7, flange: { D: 200, K: 160, n: 8, L: 18, C: 20, N: 105, H: 50, d1: 138, f1: 3, R1: 8, H2: 10, S: 3.2 } },
+  DN100: { od: 114.3, wall: 6.02, elbow: 152.4, tee: 104.8, flange: { D: 220, K: 180, n: 8, L: 18, C: 20, N: 131, H: 52, d1: 158, f1: 3, R1: 8, H2: 12, S: 3.6 } },
 };
 export const PIPE_SIZES = Object.keys(PIPES);
 
@@ -456,15 +481,19 @@ const endRadius = (size) => spec(size).d3 / 2 - 0.05 * METRIC[size].p;
  * A threaded rod from z = z0 up to z1 with the end at z0 chamfered (and at z1 too, `chamferTop`): cosmetic — the
  * plain cylinder at d; modelled — the ISO thread swept along it, its ends trimmed by the chamfers.
  */
-function threadedRod(size, z0, z1, { modelled = false, chamferBottom = true, chamferTop = false, point = null } = {}) {
+function threadedRod(size, z0, z1, { modelled = false, chamferBottom = true, chamferTop = false, point = null, runoutTop = false, runoutBottom = false } = {}) {
   const d = METRIC[size].d; const r = d / 2; const re = endRadius(size);
   const cb = chamferBottom ? r - re : 0; const ct = chamferTop ? r - re : 0;
   const blankR = modelled ? r + 0.3 : r;
   const prof = [[0, z0], ...(point ?? [[chamferBottom ? re : blankR, z0]]), ...(cb ? [[blankR, z0 + (blankR - re)]] : []), ...(ct ? [[blankR, z1 - (blankR - re)], [re, z1]] : [[blankR, z1]]), [0, z1]];
   const blank = revolveProfile(prof);
   if (!modelled) return blank;
-  const rod = threadSolid(spec(size), 'external', { origin: [0, 0, z0], dir: [0, 0, 1], length: z1 - z0 });
-  return cb || ct || point ? rod.intersect(blank, { simplify: false }) : rod;
+  let rod = threadSolid(spec(size), 'external', { origin: [0, 0, z0], dir: [0, 0, 1], length: z1 - z0 });
+  if (cb || ct || point) rod = rod.intersect(blank, { simplify: false });
+  // Where the thread meets a plain shank it fades out over the runout (a vanishing thread), not cut off.
+  if (runoutTop) rod = rod.fuse(externalRunoutCore(spec(size), threadFrame([0, 0, z0], [0, 0, 1]), z1 - z0), { simplify: false });
+  if (runoutBottom) rod = rod.fuse(externalRunoutCore(spec(size), threadFrame([0, 0, z1], [0, 0, -1]), z1 - z0), { simplify: false });
+  return rod;
 }
 
 /** A plain cylinder z0 … z1 at the nominal diameter. */
@@ -480,8 +509,9 @@ const glue = (a, b) => a.fuse(b, { optimisation: 'commonFace', simplify: false }
 function screwShank(size, L, tl, modelled, top = 0) {
   const tlen = Math.min(tl, L + top);
   if (!modelled) return { shank: revolveProfile([[0, -L], [endRadius(size), -L], [METRIC[size].d / 2, -L + (METRIC[size].d / 2 - endRadius(size))], [METRIC[size].d / 2, top + EPS * 5], [0, top + EPS * 5]]), joinTop: false };
-  const rod = threadedRod(size, -L, -L + tlen, { modelled: true });
-  if (-L + tlen >= top - 1e-9) return { shank: rod, joinTop: true };
+  const toHead = -L + tlen >= top - 1e-9;
+  const rod = threadedRod(size, -L, -L + tlen, { modelled: true, runoutTop: true });
+  if (toHead) return { shank: rod, joinTop: true };
   return { shank: glue(plainRod(size, -L + tlen, top + EPS * 5), rod), joinTop: false };
 }
 
@@ -554,7 +584,8 @@ function setScrew(kind, size, L, modelled) {
     const depth = Math.min(g.ts, L * 0.5);
     body = body.cut(R().makeBox([-d, -g.n / 2, -depth], [d, g.n / 2, 1]));
   } else {
-    const t = Math.min(g.t, L * 0.6);
+    // ISO 4026 / 4029: the short screws (above the stepped line of the length table, L < 2 d here) take t, the others tl.
+    const t = Math.min(L >= 2 * d ? g.tl : g.t, L * 0.6);
     body = body.cut(hexPrism(g.s, t + 1, -t));
   }
   return body;
@@ -568,8 +599,8 @@ export const studThreadLength = (size, l) => Math.min(l, 2 * METRIC[size].d + (l
 /** DIN 938 / 939 stud: metal end −bm … 0 (threaded), plain middle, nut end threaded over b to z = l. */
 function stud(kind, size, l, modelled) {
   const bm = studMetalEnd(kind, size); const b = studThreadLength(size, l);
-  const metal = threadedRod(size, -bm, 0, { modelled, chamferBottom: true });
-  const nutEnd = threadedRod(size, l - b, l, { modelled, chamferBottom: false, chamferTop: true });
+  const metal = threadedRod(size, -bm, 0, { modelled, chamferBottom: true, runoutTop: l - b > 1e-9 });
+  const nutEnd = threadedRod(size, l - b, l, { modelled, chamferBottom: false, chamferTop: true, runoutBottom: l - b > 1e-9 });
   if (!modelled) {
     return revolveProfile([[0, -bm], [endRadius(size), -bm], [METRIC[size].d / 2, -bm + (METRIC[size].d / 2 - endRadius(size))], [METRIC[size].d / 2, l - (METRIC[size].d / 2 - endRadius(size))], [endRadius(size), l], [0, l]]);
   }
@@ -649,8 +680,7 @@ function springWasher(size) {
  */
 export function bearingBalls(size) {
   const b = BEARINGS[size];
-  const [count, Dw] = BEARING_BALLS[size];
-  const pitch = (b.d + b.D) / 2;
+  const [count, Dw, pitch] = BEARING_BALLS[size];
   return { Dw, pitch, count, innerGroove: 0.52 * Dw, outerGroove: 0.53 * Dw, innerShoulder: pitch - 0.6 * Dw, outerShoulder: pitch + 0.6 * Dw, cageWidth: 1.2 * Dw, cageThickness: 0.24 * Dw };
 }
 
@@ -683,8 +713,10 @@ function dowelPin(d, L, c = pinChamfer(d)) {
 
 /** ISO 8752 slotted spring pin: a tube (wall s) with a slot along its length, both ends chamfered. */
 function springPin(d, L) {
-  const g = SPRING_PIN[d]; const r = d / 2; const ri = r - g.s; const c = Math.min(g.s * 0.8, 0.15 * d + 0.1);
-  const tube = revolveProfile([[ri + EPS, 0], [r - c, 0], [r, c], [r, L - c], [r - c, L], [ri + EPS, L]]);
+  const g = springPinGeometry(d); const r = g.free / 2; const ri = r - g.s;
+  // The chamfer: a long along the pin down to the bore (ISO 8752 fig. 1), within the wall.
+  const c = Math.min(g.chamfer, L / 3); const cr = Math.min(g.s * 0.6, r - ri - 0.01);
+  const tube = revolveProfile([[ri + EPS, 0], [r - cr, 0], [r, c], [r, L - c], [r - cr, L], [ri + EPS, L]]);
   return tube.cut(R().makeBox([-g.gap / 2, 0, -1], [g.gap / 2, r + 1, L + 1]));
 }
 
@@ -730,6 +762,7 @@ function piecesFace(pieces, z = 0) {
       const m = (p.a0 + p.a1) / 2;
       edges.push(r.makeThreePointArc(at([p.r * Math.cos(p.a0), p.r * Math.sin(p.a0)]), at([p.r * Math.cos(m), p.r * Math.sin(m)]), at([p.r * Math.cos(p.a1), p.r * Math.sin(p.a1)])));
     } else if (p.kind === 'line') edges.push(r.makeLine(at(p.a), at(p.b)));
+    else if (p.kind === 'arc3') edges.push(r.makeThreePointArc(at(p.a), at(p.m), at(p.b)));
     else if (p.pts.length === 2) edges.push(r.makeLine(at(p.pts[0]), at(p.pts[1])));
     else edges.push(r.makeBSplineApproximation(p.pts.map(at), { tolerance: 1e-5, degMax: 5, degMin: 2 }));
   }
@@ -769,7 +802,8 @@ function helicalGear({ module: mn, teeth: z, width: b, bore = 0, keyway = false,
   const beta = Math.max(0, Math.min(45, Number(helixAngle) || 0));
   if (beta < 1e-6) return spurGear({ module: mn, teeth: z, width: b, bore, keyway });
   const { mt, alphaT } = helicalTransverse(mn, beta);
-  const prof = gearProfile({ module: mt, teeth: z, pressureAngle: alphaT, ha: mn, hf: 1.25 * mn, rho: 0.38 * mn });
+  // The ISO 53 rack in the normal section (tip radius 0.38 mn) seen in the transverse plane: an elliptic tip.
+  const prof = gearProfile({ module: mt, teeth: z, pressureAngle: alphaT, ha: mn, hf: 1.25 * mn, rho: 0.38 * mn, rhoX: (0.38 * mn) / Math.cos((beta * Math.PI) / 180) });
   const wire = piecesFace(prof.pieces);
   const lead = (Math.PI * mt * z) / Math.tan((beta * Math.PI) / 180);
   const r = R(); const oc = r.getOC();
@@ -797,19 +831,41 @@ export function helicalGeometry({ module: mn, teeth: z, width: b, helixAngle = 1
 }
 
 /**
- * Straight bevel gear (90° shaft angle with a `mateTeeth` partner): the outer (back) section on the back plane
- * z = 0, lofted with straight lines to the same section scaled toward the cone apex by (Re − b) / Re — every
- * tooth line runs to the apex, as on a generated straight bevel gear.
+ * Straight bevel gear (90° shaft angle with a `mateTeeth` partner), apex on +Z at A = rp / tan δ above the back
+ * plane: the tooth form of the back sphere (spherical involute flanks, gears.js bevelSphericalSection) is
+ * projected from the apex onto two planes and lofted straight between them — every flank is an exact cone through
+ * the apex — then trimmed by the blank: the back cone (perpendicular to the pitch cone at the outer cone distance
+ * Re, the flat back face under it), the front cone at Re − b, the bore. z = 0 is the pitch circle's plane.
  */
 function bevelGear({ module: m, teeth: z, mateTeeth: z2, width: b, bore = 0, keyway = false }) {
-  const sec = bevelSection({ module: m, teeth: z, mateTeeth: z2 });
   const r = R();
-  const outer = piecesFace(sec.pieces.map((p) => ({ kind: 'curve', pts: p.pts })));
-  const k = (sec.Re - Math.min(b, sec.maxWidth)) / sec.Re;
-  const inner = outer.clone().scale(k, [0, 0, sec.apex]);
-  const solid = r.loft([outer, inner], { ruled: true });
-  const height = sec.apex * (1 - k);
-  return boreAndKeyway(solid, bore, height, keyway);
+  const sec = bevelSphericalSection({ module: m, teeth: z, mateTeeth: z2 });
+  const { delta, Re, rp } = sec; const A = sec.apex;
+  const face = Math.min(b, sec.maxWidth);
+  const gen = [Math.sin(delta), -Math.cos(delta)]; // apex → pitch point, (r, z)
+  const nrm = [Math.cos(delta), Math.sin(delta)]; // along the back cone, outward
+  const Po = [rp, 0]; const Pi = [gen[0] * (Re - face), A + gen[1] * (Re - face)];
+  const sa = 2.5 * m; const sb = 2.5 * m;
+  const at = (P, s) => [P[0] + nrm[0] * s, P[1] + nrm[1] * s];
+  const ob = at(Po, -sb); const oa = at(Po, sa); const ia = at(Pi, sa); const ib = at(Pi, -sb);
+  const blank = revolveProfile([[0, ob[1]], ob, oa, ia, ib, [0, ib[1]]]);
+  // The tooth cones: the back-sphere outline projected from the apex onto z = zLow and z = zHigh.
+  const zLow = ob[1] - 1; const zHigh = Math.min(A - 0.05 * Re, Math.max(ia[1], oa[1]) + 1);
+  const wireAt = (zp) => {
+    const h = A - zp;
+    const pieces = sec.pieces.map((p) => (p.kind === 'cone'
+      ? { kind: 'arc', r: h * Math.tan(p.gamma), a0: p.phi0, a1: p.phi1 }
+      : { kind: 'curve', pts: p.pts.map(([gm, ph]) => [h * Math.tan(gm) * Math.cos(ph), h * Math.tan(gm) * Math.sin(ph)]) }));
+    return piecesFace(pieces, zp);
+  };
+  const teeth = r.loft([wireAt(zLow), wireAt(zHigh)], { ruled: true });
+  let solid = teeth.intersect(blank, { simplify: false });
+  if (bore > 0) {
+    solid = solid.cut(r.makeCylinder(bore / 2, A + 10 - ob[1], [0, 0, ob[1] - 1], [0, 0, 1]));
+    const k = keyway ? KEYS[keyForShaft(bore) ?? ''] : null;
+    if (k) solid = solid.cut(r.makeBox([-k.b / 2, 0, ob[1] - 1], [k.b / 2, bore / 2 + k.t2, A + 5]));
+  }
+  return solid;
 }
 
 /** Rack (ISO 53 basic rack, root fillets 0.38 m): `teeth` along +X, pitch line y = 0, base at y = −height, z 0 … width. */
@@ -878,7 +934,7 @@ function pipeTee(dn) {
  */
 function flange(dn) {
   const p = PIPES[dn]; const f = p.flange;
-  const ri = p.od / 2 - p.wall;
+  const ri = p.od / 2 - f.S; // the flange's own bore (A − 2S), welded to the pipe
   const zp = f.f1 + f.C; // top of the plate
   const r1 = f.R1; const k = Math.SQRT1_2;
   const prof = [[ri, 0], [f.d1 / 2, 0], [f.d1 / 2, f.f1], [f.D / 2, f.f1], [f.D / 2, zp], [f.N / 2 + r1, zp], { arc: [f.N / 2 + r1 - r1 * k, zp + r1 - r1 * k] }, [f.N / 2, zp + r1], [p.od / 2, f.H - f.H2], [p.od / 2, f.H], [ri, f.H]];
@@ -895,8 +951,22 @@ function flange(dn) {
  * ISO threads (else cosmetic); by default the part's own `threads` choice ('modelled' → true).
  */
 export function stdShape(p, { modelled = p.threads === 'modelled' } = {}) {
-  const L = Number(p.length) || 0;
   const mod = Boolean(modelled && STD_ITEMS[p.kind]?.threads);
+  // Modelled threads take seconds: the same part (kind, size, length, options) is made once, then copied.
+  if (!mod) return buildStdShape(p, false);
+  const key = `${stdKey(p)}|${p.dn ?? ''}`;
+  let s = modelledShapes.get(key);
+  if (!s) {
+    s = buildStdShape(p, true);
+    if (modelledShapes.size > 100) modelledShapes.clear();
+    modelledShapes.set(key, s);
+  }
+  return s.clone();
+}
+const modelledShapes = new Map();
+
+function buildStdShape(p, mod) {
+  const L = Number(p.length) || 0;
   const gear = { module: Number(p.module), teeth: Math.round(Number(p.teeth)), width: Number(p.width), bore: Number(p.bore) || 0, keyway: Boolean(p.keyway) };
   switch (p.kind) {
     case 'hexBolt': return hexBolt(p.size, L, mod);

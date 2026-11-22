@@ -7,13 +7,13 @@ import assert from 'node:assert/strict';
 import { loadKernel, rep } from '../../src/cad/kernel.js';
 import {
   isoThread, profileRadius, profilePieces, sectionArea, widthAtRadius, sectionWire, threadSolid, threadFrame, threadVolume,
-  parseThreadSize, threadName, cosmeticThread, setModelledThreads, wantsModelled, COARSE_PITCH,
+  parseThreadSize, threadName, cosmeticThread, setModelledThreads, wantsModelled, COARSE_PITCH, runoutLength,
 } from '../../src/cad/threads.js';
 import { createFeature, regenerate } from '../../src/cad/features.js';
 import { createSketchGeometry } from '../../src/cad/sketch.js';
 import { edgeSignature, faceSignature } from '../../src/cad/refs.js';
 import { stdShape, stdThreads, METRIC, HEX_NUT } from '../../src/cad/stdparts.js';
-import { drawingThreadMarks, threadDiameters } from '../../src/cad/drawing-threads.js';
+import { drawingThreadMarks, threadDiameters, occlusion, withThreadMarks } from '../../src/cad/drawing-threads.js';
 import { drawingSvg, drawingDxf, viewBasis, projectView } from '../../src/cad/drawing.js';
 
 await loadKernel();
@@ -21,6 +21,15 @@ const R = rep();
 const V = (s) => R.measureVolume(s);
 const near = (a, b, tol = 1e-6, msg = '') => assert.ok(Math.abs(a - b) <= tol * Math.max(1, Math.abs(b)), `${msg} ${a} ≉ ${b}`);
 const H = (P) => (Math.sqrt(3) / 2) * P;
+/** ∫₀ᴸ ∫₀²π f(r(θ, z), z) / 2 dθ dz for a right-hand thread: r(θ, z) = profile(z − Pθ/2π) (the volume of a screw solid). */
+function screwIntegral(s, kind, L, f, nz = 1200, nt = 360) {
+  let I = 0;
+  for (let i = 0; i < nz; i++) {
+    const z = ((i + 0.5) / nz) * L;
+    for (let j = 0; j < nt; j++) { const th = ((j + 0.5) / nt) * 2 * Math.PI; I += f(profileRadius(s, z - (s.P * th) / (2 * Math.PI), kind), z); }
+  }
+  return (I / 2) * (L / nz) * (2 * Math.PI / nt);
+}
 
 // ───────────────────────── diameters and profile (no kernel)
 
@@ -138,7 +147,8 @@ test('ISO 4762 M4×8 screw, modelled: same envelope, the thread lowers the volum
   // Over the threaded length, the cylinder at d less the thread section (the chamfered end is common to both).
   const expect = (Math.PI * 2 * 2 - sectionArea(s, 'external')) * th.length;
   const diff = V(cos) - V(mod);
-  assert.ok(diff > expect * 0.9 && diff < expect * 1.02, `thread volume ${diff} vs ${expect}`);
+  // Less the runout under the shank (the thread fades out over 2.5 P) and the chamfer: between 80 % and 100 %.
+  assert.ok(diff > expect * 0.8 && diff < expect * 1.0, `thread volume ${diff} vs ${expect}`);
   const [a0, a1] = cos.boundingBox.bounds; const [b0, b1] = mod.boundingBox.bounds;
   near(b0[2], a0[2], 1e-3); near(b1[2], a1[2], 1e-3);
 });
@@ -175,9 +185,12 @@ test('Hole Wizard tapped hole M8: tap drill, cosmetic thread record, modelled th
   const mod = build('modelled');
   assert.equal(mod.res.thread.modelled, true);
   // The material between the drill (Ø6.8) and the internal profile over the thread depth.
-  const rd = 3.4; const N = 100000; let I = 0;
-  for (let i = 0; i < N; i++) { const z = ((i + 0.5) / N) * s.P; const r = profileRadius(s, z, 'internal'); if (r > rd) I += r * r - rd * rd; }
-  near(V(cos.r.body) - V(mod.r.body), Math.PI * (I / N) * 10, 3e-4, 'thread volume');
+  // The material between the drill and the profile, the thread fading out over the last 2.5 P (the tool trimmed
+  // by a cone from D/2 to the drill radius): ∫∫ over depth and turn angle.
+  const rd = 3.4; const L = 10; const x = runoutLength(s);
+  const rEnd = Math.min(rd, s.d1 / 2); // the cone ends at the drill or D1, whichever is smaller
+  const blank = (z) => (z <= L - x ? Infinity : s.d / 2 + ((rEnd - s.d / 2) * (z - (L - x))) / x);
+  near(V(cos.r.body) - V(mod.r.body), screwIntegral(s, 'internal', L, (r, z) => Math.max(0, Math.min(r, blank(z)) ** 2 - rd * rd)), 5e-4, 'thread volume');
   // A through tapped hole is threaded through the block.
   const thr = build('cosmetic', true);
   near(thr.res.thread.length, 12, 1e-3, 'through thread length');
@@ -219,7 +232,11 @@ test('thread feature (ISO form): cosmetic record from the shaft, modelled extern
   assert.equal(cos.res.thread.internal, false); near(cos.res.thread.major, 10, 1e-9); near(cos.res.thread.minor, s.d3, 1e-12);
   near(V(cos.r.body), Math.PI * 25 * 30, 1e-6, 'cosmetic changes no geometry');
   const mod = make('modelled');
-  near(Math.PI * 25 * 30 - V(mod.r.body), (Math.PI * 25 - sectionArea(s, 'external')) * 12, 2e-4, 'removed');
+  // The shaft goes on past the thread: the thread fades out over 2.5 P into a cone core (no groove past it).
+  assert.equal(mod.res.runout, true);
+  const L = 12; const x = runoutLength(s);
+  const core = (z) => (z < L - x ? 0 : s.d3 / 2 - 0.01 * s.P + ((5 - (s.d3 / 2 - 0.01 * s.P)) * (z - (L - x))) / x);
+  near(Math.PI * 25 * 30 - V(mod.r.body), screwIntegral(s, 'external', L, (r, z) => 25 - Math.max(r, core(z)) ** 2), 5e-4, 'removed');
   // 'auto' follows the global option.
   setModelledThreads(false); assert.equal(wantsModelled('auto'), false); assert.equal(wantsModelled('modelled'), true);
   setModelledThreads(true); assert.equal(wantsModelled('auto'), true); assert.equal(wantsModelled('cosmetic'), false);
@@ -285,4 +302,27 @@ test('drawing SVG and DXF carry the thread marks (thin lines, THREADS layer)', (
   const dxf = drawingDxf(drawing, projections);
   assert.match(dxf, /\nTHREADS\n/);
   assert.ok((dxf.match(/\n8\nTHREADS\n/g) ?? []).length >= 2);
+});
+
+test('drawing marks: a bolt thread hidden inside a plate is dashed there; section views show the cut thread', () => {
+  const ext = cosmeticThread({ centre: [0, 0, -30], dir: [0, 0, 1], length: 20, internal: false, d: 8, P: 1.25 });
+  const plate = R.makeBox([-20, -20, -20], [20, 20, -10]).cut(R.makeCylinder(4.5, 12, [0, 0, -21], [0, 0, 1]));
+  const model = R.makeCompound([R.makeCylinder(4, 30, [0, 0, -30], [0, 0, 1]), plate]);
+  const front = viewBasis({ type: 'front' });
+  const hid = occlusion(model, ext, front.dir);
+  assert.deepEqual(hid, [false, false, false, true, true, true]);
+  const marks = withThreadMarks({ visible: [], hidden: [], box: { x0: 0, y0: 0, x1: 1, y1: 1 } }, { type: 'front' }, [ext], { shape: model, cache: new Map() }).threads;
+  assert.equal(marks.thin.length, 2); assert.equal(marks.hidden.length, 3, 'two dashed lines and the dashed limit');
+  // A section through the axis (plane y = 0 seen from −Y): cut — thin minor lines and the thick limit, solid.
+  const sec = drawingThreadMarks([ext], { kind: 'section', type: 'front', plane: { point: [0, 0, 0], normal: [0, -1, 0] } }, { section: { point: [0, 0, 0], normal: [0, -1, 0] } });
+  assert.equal(sec.thin.length, 2); assert.equal(sec.thick.length, 1); assert.equal(sec.hidden.length, 0);
+  // A tapped hole cut by the section: thin lines at the major diameter.
+  const int = cosmeticThread({ centre: [0, 0, 12], dir: [0, 0, -1], length: 10, internal: true, d: 8, P: 1.25 });
+  const si = drawingThreadMarks([int], { kind: 'section', type: 'front', plane: { point: [0, 0, 0], normal: [0, -1, 0] } }, { section: { point: [0, 0, 0], normal: [0, -1, 0] } });
+  const xs = si.thin.map((d) => Math.abs(Number(d.split(' ')[1])));
+  for (const x of xs) near(x, 4, 1e-4);
+  // A thread in the part the section removes is not drawn; one cut across shows its three-quarter circle.
+  assert.equal(drawingThreadMarks([{ ...ext, centre: [0, -15, -30] }], { kind: 'section', type: 'front', plane: { point: [0, 0, 0], normal: [0, -1, 0] } }, { section: { point: [0, 0, 0], normal: [0, -1, 0] } }).thin.length, 0);
+  const across = drawingThreadMarks([ext], { kind: 'section', type: 'top', plane: { point: [0, 0, -20], normal: [0, 0, 1] } }, { section: { point: [0, 0, -20], normal: [0, 0, 1] } });
+  assert.equal(across.thin.length, 1);
 });

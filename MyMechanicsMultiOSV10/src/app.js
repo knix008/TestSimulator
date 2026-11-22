@@ -273,25 +273,30 @@ function afterChange() {
   renderAll();
 }
 
+/** Undo / redo work outside modes, and inside Render (its appearance edits; the picture renders again). */
+const undoBlocked = () => Boolean(state.editing) && state.editing.mode !== 'render';
+
 function undo() {
   const d = doc();
-  if (!d || state.editing) return;
+  if (!d || undoBlocked()) return;
   const r = d.history.undo();
   if (!r) return;
   d.project = r.project;
   d.revision += 1;
   afterChange();
+  if (state.editing?.mode === 'render') std.render.afterHistory();
   notify('info', t('notice.undone', { label: r.label }));
 }
 
 function redo() {
   const d = doc();
-  if (!d || state.editing) return;
+  if (!d || undoBlocked()) return;
   const r = d.history.redo();
   if (!r) return;
   d.project = r.project;
   d.revision += 1;
   afterChange();
+  if (state.editing?.mode === 'render') std.render.afterHistory();
   notify('info', t('notice.redone', { label: r.label }));
 }
 
@@ -541,7 +546,7 @@ function bodySpec(key, entry, part, extra = {}) {
   const mat = materialOf(part.material);
   // Cables and harness pieces show their own colours on the part (route features' faces).
   const routeColors = routeBodyColours(entry, part.color || mat.color);
-  return { key, mesh: entry.mesh, edges: entry.edges, faceIndex: entry.faceIndex, edgeIndex: entry.edgeIndex, color: part.color || mat.color, metal: mat.metal * 0.6, rough: mat.rough, material: part.material, partId: part.id, ...(routeColors ? { colors: routeColors } : {}), ...extra };
+  return { key, mesh: entry.mesh, edges: entry.edges, faceIndex: entry.faceIndex, edgeIndex: entry.edgeIndex, color: part.color || mat.color, metal: mat.metal * 0.6, rough: mat.rough, material: part.material, partId: part.id, ...(routeColors ? { colors: routeColors, renderColors: routeColors } : {}), ...extra };
 }
 
 function syncPart(part) {
@@ -1515,6 +1520,9 @@ async function newDrawing() {
 }
 
 const projectionCache = new Map();
+/** Hidden stretches of cosmetic threads per thread and view direction (drawing-threads.js occlusion). */
+const threadOcclusion = new Map();
+const occlusionOf = (key) => { if (!threadOcclusion.has(key)) { if (threadOcclusion.size > 20) threadOcclusion.clear(); threadOcclusion.set(key, new Map()); } return threadOcclusion.get(key); };
 
 /** The model a drawing shows, as one shape (an assembly: its placed parts as a compound). */
 function drawingShape(d) {
@@ -1570,7 +1578,7 @@ function drawingProjections(d) {
   if (projectionCache.size > 80) projectionCache.clear();
   // Cosmetic threads drawn the standard way on the views (drawing-threads.js).
   const threads = drawingThreads(d);
-  if (threads.length) for (const v of d.views) if (out.has(v.id)) out.set(v.id, withThreadMarks(out.get(v.id), v, threads));
+  if (threads.length) for (const v of d.views) if (out.has(v.id)) out.set(v.id, withThreadMarks(out.get(v.id), v, threads, { shape, cache: occlusionOf(key) }));
   return more.adjust(d, out);
 }
 
@@ -1596,6 +1604,8 @@ function renderDrawing() {
   const d = activeDrawing();
   if (!host || !d) return;
   if (!kernelReady()) { host.innerHTML = `<p class="panel-hint">${icon('hourglass')}<span>${escapeHtml(t('progress.kernelLoading'))}</span></p>`; return; }
+  // Harness sheets follow their harness (app-std.js): rebuilt, or marked out of date.
+  std.syncHarnessDrawings(d);
   let svg;
   try { svg = more.svg(d, { labels: drawingLabels(), info: drawingInfo(d), selected: state.drawingSelected, bomRows: drawingBom(d) }); }
   catch (error) { host.innerHTML = `<p class="panel-hint error">${icon('error')}<span>${escapeHtml(native.errorText(error))}</span></p>`; return; }
@@ -1834,10 +1844,11 @@ function pickForSimulation(hit) {
   if (hit?.kind !== 'face' || hit.bodyKey !== 'body') { notify('info', t('notice.pickFace')); return; }
   const face = state.partEntry.faces?.[hit.index];
   if (!face) return;
+  if (more.fem?.pick(e, hit, face)) return;
   const list = e.pick === 'loads' ? e.loads : e.fixtures;
   const i = list.findIndex((x) => x.index === hit.index);
   if (i >= 0) list.splice(i, 1);
-  else list.push({ index: hit.index, faceId: face.hashCode, type: face.geomType });
+  else list.push({ index: hit.index, faceId: face.hashCode, type: face.geomType, ...(list === e.fixtures && more.fem ? { kind: more.fem.fixtureKind(e) } : {}) });
   viewport.setSelection([...e.fixtures, ...e.loads].map((x) => ({ kind: 'face', bodyKey: 'body', index: x.index })));
   renderLeft();
 }
@@ -1849,6 +1860,7 @@ async function runSimulation() {
   const part = activePart();
   const entry = state.partEntry;
   if (!part || !entry?.mesh) return;
+  if (more.fem && ['static', 'thermal', 'modal'].includes(e.study)) return more.fem.runPart(e, part, entry);
   if (e.study === 'thermal') return runThermal(e, part, entry);
   if (more.simStudy(e.study)) return more.runSim(e, part, entry);
   if (e.study === 'modal') return runModal(e, part, entry);
@@ -1978,6 +1990,25 @@ function showMotionTime(time) {
   }
 }
 
+/**
+ * The next frame of a playing motion: at once with the screen when this one was quick, after the page's other
+ * waiting work (clicks, timers) when it was slow — a heavy assembly then plays slower instead of locking the window.
+ */
+/**
+ * How far a playing motion moves this frame: the real time since the last one, at most 50 ms of motion — a slow
+ * frame must not make the next one solve a longer stretch (which would be slower again).
+ */
+function motionStep(last, setLast) {
+  const now = performance.now();
+  setLast(now);
+  return Math.min(0.05, Math.max(0, (now - last) / 1000));
+}
+
+function nextMotionFrame(step, started) {
+  if (performance.now() - started > 30) setTimeout(() => requestAnimationFrame(step), 0);
+  else requestAnimationFrame(step);
+}
+
 function playMotion(on) {
   const e = state.editing;
   if (e?.mode !== 'motion') return;
@@ -1985,17 +2016,18 @@ function playMotion(on) {
   if (on && !asm.motion.motors.length) { notify('info', t('notice.motionPickMotor')); return; }
   e.playing = on;
   if (!on) { renderLeft(); return; }
-  const start = performance.now() - e.time * 1000;
+  let last = performance.now();
   const step = () => {
     if (state.editing !== e || !e.playing) return;
+    const started = performance.now();
     const duration = Math.max(0.1, Number(asm.motion.duration) || 5);
-    e.time = ((performance.now() - start) / 1000) % duration;
+    e.time = (e.time + motionStep(last, (now) => { last = now; })) % duration;
     try { showMotionTime(e.time); } catch (error) { e.playing = false; showError('error.command', error, t('cmd.motion')); return; }
     const slider = root.querySelector('[data-motion-time]');
     if (slider) { slider.value = String(e.time); syncSlider(slider); }
     const out = root.querySelector('[data-motion-clock]');
     if (out) out.textContent = `${fmt(e.time, 2)} s`;
-    requestAnimationFrame(step);
+    nextMotionFrame(step, started);
   };
   renderLeft();
   requestAnimationFrame(step);
@@ -2034,15 +2066,16 @@ function playPlayer() {
   if (!asm?.motion?.motors?.length || state.player.playing) return;
   const p = state.player;
   p.playing = true;
-  const start = performance.now() - p.time * 1000;
+  let last = performance.now();
   const step = () => {
     if (!p.playing || state.player !== p || activeAssembly()?.id !== p.asmId) return;
+    const started = performance.now();
     const duration = Math.max(0.1, Number(asm.motion.duration) || 5);
-    p.time = ((performance.now() - start) / 1000) % duration;
+    p.time = (p.time + motionStep(last, (now) => { last = now; })) % duration;
     try { showMotionTime(p.time); } catch (error) { p.playing = false; renderMotionBar(); showError('error.command', error, t('cmd.motion')); return; }
     const slider = root.querySelector('[data-player-time]');
     if (slider) { slider.value = String(p.time); syncSlider(slider); }
-    requestAnimationFrame(step);
+    nextMotionFrame(step, started);
   };
   renderMotionBar();
   requestAnimationFrame(step);
@@ -2275,8 +2308,8 @@ function customPm(e) {
         pmHead('simulation', t('cmd.simulation'), t('pm.help.thermal')), study,
         pmGroup('fixture', t('sim.temperatures'), `${pmList('fixtures', e.fixtures.map(faceName), t('sim.fixedTempFaces'), 'fixture', e.pick === 'fixtures')}${pmNum('temperature', e.temperature, `${t('sim.temperature')} (°C)`, 'sun')}`),
         pmGroup('load', t('sim.heat'), `${pmSeg('heatKind', [['convection', t('sim.convection')], ['power', t('sim.heatPower')]], e.heatKind)}${pmList('loads', e.loads.map(faceName), t('sim.heatFaces'), 'load', e.pick === 'loads')}${e.heatKind === 'power' ? pmNum('power', e.power, `${t('sim.heatPower')} (W)`, 'load') : `${pmNum('h', e.h, t('sim.filmCoefficient'), 'load')}${pmNum('ambient', e.ambient, `${t('sim.ambient')} (°C)`, 'sun')}`}`),
-        pmGroup('statistics', t('sim.mesh'), `${pmNum('resolution', e.resolution, t('sim.resolution'), 'statistics')}<div class="pm-row">${pmButton('runSim', 'play', t('sim.run'), 'primary')}</div>`),
-        tr,
+        more.fem ? more.fem.meshGroup(e) : pmGroup('statistics', t('sim.mesh'), `${pmNum('resolution', e.resolution, t('sim.resolution'), 'statistics')}<div class="pm-row">${pmButton('runSim', 'play', t('sim.run'), 'primary')}</div>`),
+        tr, more.fem?.resultTools(e) ?? '',
       ].join('');
     }
     if (e.study === 'modal') {
@@ -2285,19 +2318,20 @@ function customPm(e) {
       return [
         pmHead('simulation', t('cmd.simulation'), t('pm.help.modal')), study,
         pmGroup('material', t('sim.material'), `<p class="pm-note">${escapeHtml(`${materialName(part.material, lang())} · E ${mat.E} GPa · ρ ${mat.density} kg/m³`)}</p>${pmNum('nu', e.nu, t('sim.poisson'))}`),
-        pmGroup('fixture', t('sim.fixtures'), pmList('fixtures', e.fixtures.map(faceName), t('sim.fixedFaces'), 'fixture', e.pick === 'fixtures')),
-        pmGroup('statistics', t('sim.mesh'), `${pmNum('modes', e.modes, t('sim.modeCount'), 'simulation')}${pmNum('resolution', e.resolution, t('sim.resolution'), 'statistics')}<div class="pm-row">${pmButton('runSim', 'play', t('sim.run'), 'primary')}</div>`),
-        mr,
+        pmGroup('fixture', t('sim.fixtures'), `${more.fem?.fixtureKinds(e) ?? ''}${pmList('fixtures', e.fixtures.map(more.fem?.faceItem ?? faceName), t('sim.fixedFaces'), 'fixture', e.pick === 'fixtures')}`),
+        pmGroup('simulation', t('sim.modeCount'), pmNum('modes', e.modes, t('sim.modeCount'), 'simulation')),
+        more.fem ? more.fem.meshGroup(e) : pmGroup('statistics', t('sim.mesh'), `${pmNum('resolution', e.resolution, t('sim.resolution'), 'statistics')}<div class="pm-row">${pmButton('runSim', 'play', t('sim.run'), 'primary')}</div>`),
+        mr, more.fem?.resultTools(e) ?? '',
       ].join('');
     }
     return [
       pmHead('simulation', t('cmd.simulation'), t('pm.help.simulation')),
       study,
       pmGroup('material', t('sim.material'), `<p class="pm-note">${escapeHtml(`${materialName(part.material, lang())} · E ${mat.E} GPa · σy ${mat.yield} MPa`)}</p>${pmNum('nu', e.nu, t('sim.poisson'))}`),
-      pmGroup('fixture', t('sim.fixtures'), pmList('fixtures', e.fixtures.map(faceName), t('sim.fixedFaces'), 'fixture', e.pick === 'fixtures')),
-      pmGroup('load', t('sim.loads'), `${pmSeg('loadKind', [['force', t('sim.force')], ['pressure', t('sim.pressure')]], e.loadKind)}${pmList('loads', e.loads.map(faceName), t('sim.loadFaces'), 'load', e.pick === 'loads')}${pmNum('magnitude', e.magnitude, e.loadKind === 'pressure' ? `${t('sim.pressure')} (MPa)` : `${t('sim.force')} (N)`, 'load')}${e.loadKind === 'force' ? pmSeg('dir', Object.keys(LOAD_DIRS).map((k) => [k, k.toUpperCase()]), e.dir) : ''}`),
-      pmGroup('statistics', t('sim.mesh'), `${pmNum('resolution', e.resolution, t('sim.resolution'), 'statistics')}<div class="pm-row">${pmButton('runSim', 'play', t('sim.run'), 'primary')}</div>`),
-      res,
+      pmGroup('fixture', t('sim.fixtures'), `${more.fem?.fixtureKinds(e) ?? ''}${pmList('fixtures', e.fixtures.map(more.fem?.faceItem ?? faceName), t('sim.fixedFaces'), 'fixture', e.pick === 'fixtures')}`),
+      pmGroup('load', t('sim.loads'), `${pmSeg('loadKind', more.fem ? more.fem.loadKinds(e) : [['force', t('sim.force')], ['pressure', t('sim.pressure')]], e.loadKind)}${e.loadKind === 'gravity' ? '' : pmList('loads', e.loads.map(faceName), t('sim.loadFaces'), 'load', e.pick === 'loads')}${pmNum('magnitude', e.magnitude, more.fem ? more.fem.loadLabel(e) : e.loadKind === 'pressure' ? `${t('sim.pressure')} (MPa)` : `${t('sim.force')} (N)`, 'load')}${e.loadKind !== 'pressure' ? pmSeg('dir', Object.keys(LOAD_DIRS).map((k) => [k, k.toUpperCase()]), e.dir) : ''}`),
+      more.fem ? more.fem.meshGroup(e) : pmGroup('statistics', t('sim.mesh'), `${pmNum('resolution', e.resolution, t('sim.resolution'), 'statistics')}<div class="pm-row">${pmButton('runSim', 'play', t('sim.run'), 'primary')}</div>`),
+      res, more.fem?.resultTools(e) ?? '',
     ].join('');
   }
   if (e.mode === 'motion') {
@@ -2316,6 +2350,7 @@ function customPm(e) {
 function customField(key, raw, v) {
   const e = state.editing;
   const part = activePart();
+  if (e.mode === 'simulation' && more.fem?.field(e, key, v)) return;
   if (e.mode === 'simulation') { if (v != null && (v > 0 || ['temperature', 'ambient'].includes(key))) { if (key === 'nu') e.nu = Math.min(0.49, v); else e[key] = v; } renderLeft(); return; }
   if (e.mode === 'motion') {
     const asm = activeAssembly();
@@ -2339,6 +2374,7 @@ function customSet(key, value) {
   const part = activePart();
   if (e.mode === 'simulation') {
     if (more.simSet(e, key, value)) return undefined;
+    if (more.fem?.set(e, key, value)) return undefined;
     if (key === 'modeIndex') { e.modeIndex = Number(value); return showMode(e); }
     if (key === 'study') { e.study = value; e.result = null; state.sim = null; syncView(); return renderLeft(); }
     e[key] = value; if (key === 'loadKind' || key === 'heatKind') e.pick = 'loads'; return renderLeft();
@@ -2362,6 +2398,8 @@ function customCommand(name, arg) {
   if (name === 'selLight' && e?.mode === 'lights') { e.selected = arg; syncView(); return renderLeft(); }
   if (name === 'delLight' && e?.mode === 'lights') { change('op.light', (p) => { const L = sceneLights(p); L.lights = L.lights.filter((x) => x.id !== arg); }); if (e.selected === arg) e.selected = null; return renderLeft(); }
   const part = activePart();
+  if (e?.mode === 'simulation' && more.fem?.handles(name)) return more.fem.command(name, e, active()?.name ?? '');
+  if (name === 'clear' && e?.mode === 'simulation' && more.fem?.clear(e, arg)) return undefined;
   if (name === 'clear' && e?.mode === 'simulation') { e[arg] = []; viewport.setSelection([]); return renderLeft(); }
   if (name === 'clear' && e?.mode === 'motion') { const asm = activeAssembly(); change('op.motion', () => { asm.motion.motors = []; }); return undefined; }
   if (name === 'runSim') return runSimulation();
@@ -2585,8 +2623,8 @@ const commands = {
   exitProject: { icon: 'exitProject', label: 'action.exitProject', enabled: () => Boolean(state.doc) && !state.showStart, run: () => closeProject() },
   exit: { icon: 'exit', label: 'action.exit', key: isMac ? 'Ctrl+Q' : 'Alt+F4', run: () => requestExit() },
   // edit
-  undo: { icon: 'undo', label: 'action.undo', key: 'Ctrl+Z', enabled: () => Boolean(doc()?.history.canUndo) && !state.editing, run: () => undo() },
-  redo: { icon: 'redo', label: 'action.redo', key: 'Ctrl+Y', enabled: () => Boolean(doc()?.history.canRedo) && !state.editing, run: () => redo() },
+  undo: { icon: 'undo', label: 'action.undo', key: 'Ctrl+Z', enabled: () => Boolean(doc()?.history.canUndo) && !undoBlocked(), run: () => undo() },
+  redo: { icon: 'redo', label: 'action.redo', key: 'Ctrl+Y', enabled: () => Boolean(doc()?.history.canRedo) && !undoBlocked(), run: () => redo() },
   delete: { icon: 'trash', label: 'action.delete', key: 'Delete', enabled: () => sel() || (sketching() && state.editing.editor.selection.length > 0) || Boolean(state.drawingSelected), run: () => deleteSelection() },
   rename: { icon: 'edit', label: 'action.rename', key: 'F2', enabled: () => state.selection.length === 1 && ['doc', 'feat', 'comp', 'mate'].includes(state.selection[0].kind), run: () => renameSelected() },
   rebuild: { icon: 'rebuild', label: 'action.rebuild', key: 'Ctrl+B', enabled: hasDoc, run: () => { builds.clear(); projectionCache.clear(); if (activeAssembly()) solveAssembly(); syncView(); renderAll(); notify('success', t('notice.rebuilt', { ms: Math.round(state.partEntry?.ms ?? 0) })); } },
@@ -2759,6 +2797,7 @@ const commands = {
 // zebra / thickness, buckling and fatigue (app-more.js).
 const more = withSim2(createMoreTools, {
   state, t, notify, change, commit, syncView, renderAll, renderLeft, renderDrawing, renderToolbarState, fitView, fitDrawing, cancelEditing, ensureKernel, withProgress, ask, newId, fmt, fmtLen, parseLen, units, lang, popups,
+  saveExport: (...a) => saveExport(...a), showMode: (...a) => showMode(...a),
   viewport: () => viewport, project, activePart, activeAssembly, activeDrawing, topoOf, assemblySize, componentShapes, componentCut, componentLeaves, drawingShape, drawingProjections,
   buildPart, displayPlacement, doc, projectThumbnail, activeKind, runCommand: (id, c) => run(id, c),
   pm: { pmHead, pmGroup, pmNum, pmSeg, pmList, pmButton, textInput },
@@ -2795,8 +2834,10 @@ Object.assign(commands, mfgTools.commands);
 const std = createStdTools({
   state, t, notify, change, commit, syncView, renderAll, renderLeft, cancelEditing, ensureKernel, newId, fmt, fmtLen, parseLen, units, lang, fitView, saveExport, fileSafe,
   viewport: () => viewport, viewHost: () => root.querySelector('#view-host'), activeName: () => active()?.name ?? '', project, activePart, activeAssembly, topoOf, assemblySize,
-  beginFeature, updateFeature,
+  beginFeature, updateFeature, buildPart: (p) => buildPart(p),
   partEntry: (c) => { const pt = project()?.parts.find((x) => x.id === c.part); return pt ? buildPart(pt) : null; },
+  // Every part of a component (a sub-assembly's parts with their placement in it) and its build, for hole series.
+  partLeaves: (c) => componentLeaves(c).map((l) => { const pt = project()?.parts.find((x) => x.id === l.part); return pt ? { ...l, entry: buildPart(pt) } : null; }).filter(Boolean),
   pm: { pmHead, pmGroup, pmNum, pmSeg, pmList, pmButton, textInput },
 });
 Object.assign(commands, std.commands);
@@ -3946,7 +3987,7 @@ async function exportDrawing(format) {
   if (!d) return;
   // The active sheet (app-more.js: sheets, view changes and tables).
   if (format === 'dxf') await saveExport(`${fileSafe(d.name)}.dxf`, 'dxf', more.dxf(d, { labels: drawingLabels(), bomRows: drawingBom(d) }), 'application/dxf');
-  else await saveExport(`${fileSafe(d.name)}.svg`, 'svg', more.svg(d, { labels: drawingLabels(), info: drawingInfo(d), bomRows: drawingBom(d) }), 'image/svg+xml');
+  else await saveExport(`${fileSafe(d.name)}.svg`, 'svg', more.svg(d, { labels: drawingLabels(), info: drawingInfo(d), bomRows: drawingBom(d), embedFonts: true }), 'image/svg+xml');
 }
 
 /**

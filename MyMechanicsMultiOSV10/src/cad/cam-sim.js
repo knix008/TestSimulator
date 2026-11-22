@@ -1,6 +1,6 @@
 // Material removal simulation, gouge check and cycle time (no DOM).
 //
-// Milling: the stock as a dexel field (one vertical dexel per XY cell: its top height, a Z-map). Every move is
+// Milling: the stock as a tri-dexel model (cam-dexel.js: rays along X, Y and Z holding material intervals). Every move is
 // sampled at a fraction of a cell and the cutter's lower surface (flat, ball, bull nose, drill point) lowers
 // the dexels under it. The part's own height field (the highest point of the mesh over each cell centre) is the
 // limit: a dexel cut below it is a gouge. Removed volume = Σ (stock top − dexel) × cell area.
@@ -8,8 +8,10 @@
 // Turning: the stock's half section as a grid of (radius, z) cells; the insert (nose disk and the holder side
 // of it), boring bar, grooving blade and drill remove the cells they sweep; a removed cell inside the part's
 // profile is a gouge; the volume is Σ 2π r dr dz of the removed cells.
+import { exactRays } from './cam-kernel.js';
 import { expandMoves } from './cam-ops.js';
 import { cutterOf } from './cam-tools.js';
+import { createTriDexel, cutAt, dexelVolume, topMap, dexelGouges } from './cam-dexel.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -25,7 +27,7 @@ export function createZMap(stock, cell) {
 function profileOf(cutter) {
   const R = cutter.r;
   if (cutter.type === 'ball') return (q) => (q > R ? Infinity : R - Math.sqrt(Math.max(0, R * R - q * q)));
-  if (cutter.type === 'bull') { const rc = cutter.rc; const rf = R - rc; return (q) => (q > R ? Infinity : q <= rf ? 0 : rc - Math.sqrt(Math.max(0, rc * rc - (q - rf) * (q - rf)))); }
+  if (cutter.type === 'bull') { const rc = Math.min(cutter.rc, R); const rf = R - rc; return (q) => (q > R ? Infinity : q <= rf ? 0 : rc - Math.sqrt(Math.max(0, rc * rc - (q - rf) * (q - rf)))); }
   if (cutter.type === 'drill') { const k = 1 / Math.tan(((cutter.tip ?? 118) / 2) * Math.PI / 180); return (q) => (q > R ? Infinity : q * k); }
   return (q) => (q > R ? Infinity : 0);
 }
@@ -48,20 +50,19 @@ function stampCutter(map, prof, R, x, y, zt) {
 }
 
 /**
- * Runs milling toolpaths over a Z-map. paths: [{ moves, tool }] with tools by id. Returns
- * { map, removed (mm³), collisions: rapids that cut (count), samples }.
+ * Runs milling toolpaths over a tri-dexel stock (cam-dexel.js). paths: [{ moves, tool }] with tools by id.
+ * Returns { dexel, map (the top of the Z rays, for display), removed (mm³), rapidCuts, rapidAt, samples }.
  */
 export function simulateMilling(stock, paths, tools, { cell = 0.5, onProgress = null } = {}) {
-  const map = createZMap(stock, cell);
+  const td = createTriDexel(stock, cell);
   const toolMap = new Map(tools.map((t) => [t.id, t]));
-  const before = Float32Array.from(map.z);
+  const before = dexelVolume(td);
   let rapidCuts = 0; let samples = 0; const rapidAt = [];
-  const step = Math.min(map.hx, map.hy) * 0.5;
+  const step = cell * 0.5;
   paths.forEach((tp, pi) => {
     const tool = toolMap.get(tp.tool);
     if (!tool) return;
     const cutter = cutterOf(tool);
-    const prof = profileOf(cutter); const R = cutter.r;
     let pos = null;
     for (const m of expandMoves(tp.moves)) {
       if (!m.p) continue;
@@ -71,18 +72,15 @@ export function simulateMilling(stock, paths, tools, { cell = 0.5, onProgress = 
       for (let s = 1; s <= n; s++) {
         const t = s / n;
         const x = pos[0] + (m.p[0] - pos[0]) * t; const y = pos[1] + (m.p[1] - pos[1]) * t; const z = pos[2] + (m.p[2] - pos[2]) * t;
-        if (m.k === 'r' && cutsAt(map, prof, R, x, y, z)) { rapidCuts++; if (rapidAt.length < 20) rapidAt.push({ path: pi, op: tp.op, p: [x, y, z] }); }
-        stampCutter(map, prof, R, x, y, z);
+        const cut = cutAt(td, cutter, x, y, z);
+        if (cut && m.k === 'r') { rapidCuts++; if (rapidAt.length < 20) rapidAt.push({ path: pi, op: tp.op, p: [x, y, z] }); }
         samples++;
       }
       pos = m.p;
     }
     onProgress?.((pi + 1) / paths.length);
   });
-  let removed = 0;
-  const area = map.hx * map.hy;
-  for (let k = 0; k < map.z.length; k++) removed += (before[k] - map.z[k]) * area;
-  return { map, removed, rapidCuts, rapidAt, samples };
+  return { dexel: td, map: topMap(td), removed: before - dexelVolume(td), rapidCuts, rapidAt, samples };
 }
 
 function cutsAt(map, prof, R, x, y, zt) {
@@ -97,18 +95,36 @@ function cutsAt(map, prof, R, x, y, zt) {
  * Gouges: cells cut below the part's top surface by more than tol. partTop(x, y) → height (−Infinity: no part).
  * Returns { count, max, cells: [k] , remaining (mm³ of stock above the part), partHeights }.
  */
-export function gougeCheck(map, partTop, { tol = 0.02 } = {}) {
+export function gougeCheck(sim, part, { tol = 0.02 } = {}) {
+  // A simulation and the machining model: exact along the three ray directions.
+  if (sim?.dexel && part?.welded) {
+    const exact = part.shape ? exactRays(part.shape) : null;
+    let g;
+    try { g = dexelGouges(sim.dexel, part.welded, { tol, grid: part.topGrid?.() ?? null, exact }); } finally { exact?.delete(); }
+    const map = sim.map; const pz = sim.dexel.part.z;
+    const partHeights = Float32Array.from(pz, (l) => (l.length ? l[l.length - 1] : map.bottom));
+    return { ...g, partHeights };
+  }
+  return gougeCheckMap(sim?.map ?? sim, part, { tol });
+}
+
+/** The height-map check (a partTop(x, y) function). */
+function gougeCheckMap(map, partTop, { tol = 0.02 } = {}) {
   const heights = new Float32Array(map.z.length);
   let count = 0; let max = 0; const cells = []; let remaining = 0;
   const area = map.hx * map.hy;
   for (let j = 0; j < map.ny; j++) for (let i = 0; i < map.nx; i++) {
     const k = j * map.nx + i;
     const x = map.x0 + (i + 0.5) * map.hx; const y = map.y0 + (j + 0.5) * map.hy;
-    const top = partTop(x, y);
+    // The lowest part height over the cell's centre and corners: a cell a wall runs through (its mesh a
+    // little inside the true surface) is not counted as cut into.
+    const centre = partTop(x, y);
+    let top = centre;
+    if (Number.isFinite(top)) for (const [dx, dy] of [[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]]) { const v = partTop(x + dx * map.hx, y + dy * map.hy); top = Math.min(top, Number.isFinite(v) ? v : map.bottom); }
     // No part over the cell: nothing to gouge (a drill breaking through cuts the stock's bottom only).
-    const h = Number.isFinite(top) ? Math.max(top, map.bottom) : map.bottom;
+    const h = Number.isFinite(centre) ? Math.max(centre, map.bottom) : map.bottom;
     heights[k] = h;
-    const g = Number.isFinite(top) ? h - map.z[k] : 0;
+    const g = Number.isFinite(top) ? Math.max(top, map.bottom) - map.z[k] : 0;
     if (g > tol) { count++; max = Math.max(max, g); if (cells.length < 2000) cells.push(k); }
     if (map.z[k] > h) remaining += (map.z[k] - h) * area;
   }
@@ -181,9 +197,9 @@ function inInsert(dr, dz, n, a1, a2) {
 function turnStamp(g, tool, x, z, removed) {
   const n = Math.max(1e-3, tool.nose ?? 0.4);
   const type = tool.type;
-  if (type === 'thread') return; // a helix is not axisymmetric: shown, not removed
   let zLo; let zHi; let test;
-  const a1 = (5 * Math.PI) / 180; const a2 = a1 + ((tool.angle ?? 80) * Math.PI) / 180;
+  // The holder's approach angle sets the main edge (95° → 5° past radial toward +Z), the insert's corner angle the minor edge.
+  const a1 = (((tool.approach ?? 95) - 90) * Math.PI) / 180; const a2 = a1 + ((tool.angle ?? 80) * Math.PI) / 180;
   const reach = Math.max(4, 12 * n);
   if (type === 'groove') { const w = tool.width ?? tool.d; zLo = z - w / 2; zHi = z + w / 2; test = (r) => r >= x; }
   else if (type === 'turnDrill') { const R = tool.d / 2; const k = Math.tan(((tool.tip ?? 118) / 2) * Math.PI / 180); zLo = z; zHi = Infinity; test = (r, zz) => r <= R && zz >= z + r / k; }
@@ -205,6 +221,30 @@ function turnStamp(g, tool, x, z, removed) {
   }
 }
 
+/**
+ * A threading pass from zA to zB with the V tip at radius x and the given pitch: the thread's axial section
+ * (at the angle the section shows; the helix has the same section shifted along Z at every angle). A cell is cut
+ * where it lies outside the V of the nearest groove: r ≥ x + d / tan(half angle), d its axial distance to that
+ * groove's centre (grooves every pitch from where the pass starts).
+ */
+function threadStamp(g, tool, x, zA, zB, pitch, removed) {
+  const half = (((tool.angle ?? 60) / 2) * Math.PI) / 180;
+  const k = 1 / Math.tan(half);
+  const lo = Math.min(zA, zB); const hi = Math.max(zA, zB);
+  const j0 = clamp(Math.floor((lo - g.z0) / g.dz), 0, g.nz - 1); const j1 = clamp(Math.floor((hi - g.z0) / g.dz), 0, g.nz - 1);
+  for (let j = j0; j <= j1; j++) {
+    const zz = g.z0 + (j + 0.5) * g.dz;
+    if (zz < lo || zz > hi) continue;
+    const ph = (((zA - zz) % pitch) + pitch) % pitch;
+    const d = Math.min(ph, pitch - ph);
+    const floor = x + d * k;
+    for (let i = clamp(Math.floor(floor / g.dr), 0, g.nr - 1); i < g.nr; i++) {
+      const c = j * g.nr + i;
+      if (g.m[c] && (i + 0.5) * g.dr >= floor) { g.m[c] = 0; removed.push(c); }
+    }
+  }
+}
+
 /** Runs turning toolpaths: { grid, removed (mm³) }. */
 export function simulateTurning(stock, paths, tools, { cell = 0.1 } = {}) {
   const g = createTurnGrid(stock, cell);
@@ -220,6 +260,10 @@ export function simulateTurning(stock, paths, tools, { cell = 0.1 } = {}) {
       const q = [m.p[0], m.p[2]];
       if (!pos) { pos = q; continue; }
       // Drills run on the axis: the cycle's z is the move's z.
+      if (m.k === 't' || tool.type === 'thread') {
+        if (m.k === 't') threadStamp(g, tool, Math.min(pos[0], q[0]), pos[1], q[1], m.f, removed);
+        pos = q; continue;
+      }
       const L = Math.hypot(q[0] - pos[0], q[1] - pos[1]);
       const n = Math.max(1, Math.ceil(L / step));
       for (let s = 1; s <= n; s++) { const t = s / n; turnStamp(g, tool, pos[0] + (q[0] - pos[0]) * t, pos[1] + (q[1] - pos[1]) * t, removed); }
@@ -232,11 +276,14 @@ export function simulateTurning(stock, paths, tools, { cell = 0.1 } = {}) {
 }
 
 /** Turning gouges: removed cells inside the part's profile. profileAt(z) → { outer, inner }. */
-export function turnGougeCheck(sim, profileAt, { tol = 0.02 } = {}) {
+export function turnGougeCheck(sim, profileAt, { tol = 0.02, threads = [] } = {}) {
   const g = sim.grid; let count = 0; let max = 0; let remaining = 0;
+  // A thread cuts below the modelled cylinder on purpose: down to its root there.
+  const inThread = (r, z) => threads.some((th) => z >= Math.min(th.z0, th.z1) - tol && z <= Math.max(th.z0, th.z1) + tol && r >= th.major / 2 - th.depth - tol);
   for (const k of sim.removedCells) {
     const i = k % g.nr; const j = Math.floor(k / g.nr);
     const r = (i + 0.5) * g.dr; const z = g.z0 + (j + 0.5) * g.dz;
+    if (inThread(r, z)) continue;
     const p = profileAt(z);
     if (r < p.outer - tol && r > p.inner + tol) { count++; max = Math.max(max, Math.min(p.outer - r, r - p.inner)); }
   }

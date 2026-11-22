@@ -169,3 +169,24 @@ export function surfaceVolume(m) {
   }
   return vol;
 }
+
+/** Tube along z: outer radius Ro, bore Ri, length L. Faces 0 outside, 1 bore, 2 end z = 0, 3 end z = L. */
+export function tubeMesh(Ro, Ri, L, seg = 48, layers = 8) {
+  const b = builder();
+  const ring = (r, z) => Array.from({ length: seg }, (_, i) => b.v(r * Math.cos((2 * Math.PI * i) / seg), r * Math.sin((2 * Math.PI * i) / seg), z));
+  const side = (r, id, out) => b.face(id, () => {
+    let lo = ring(r, 0);
+    for (let l = 1; l <= layers; l++) {
+      const hi = ring(r, (L * l) / layers);
+      for (let i = 0; i < seg; i++) { const j = (i + 1) % seg; if (out) { b.tri(lo[i], lo[j], hi[j]); b.tri(lo[i], hi[j], hi[i]); } else { b.tri(lo[i], hi[j], lo[j]); b.tri(lo[i], hi[i], hi[j]); } }
+      lo = hi;
+    }
+  });
+  side(Ro, 0, true); side(Ri, 1, false);
+  const end = (z, id, up) => b.face(id, () => {
+    const o = ring(Ro, z), n = ring(Ri, z);
+    for (let i = 0; i < seg; i++) { const j = (i + 1) % seg; if (up) { b.tri(n[i], o[i], o[j]); b.tri(n[i], o[j], n[j]); } else { b.tri(n[i], o[j], o[i]); b.tri(n[i], n[j], o[j]); } }
+  });
+  end(0, 2, false); end(L, 3, true);
+  return b.done();
+}

@@ -23,7 +23,15 @@ const unit = (a) => { const l = len(a); return l > 1e-15 ? [a[0] / l, a[1] / l, 
 const vec = (p) => (Array.isArray(p) ? p : [p.x, p.y, p.z]);
 
 /** Bounding-box diagonal of a shape. */
-export const sizeOf = (shape) => { try { const [lo, hi] = shape.boundingBox.bounds; return Math.max(1e-6, len(sub(hi, lo))); } catch { return 1; } };
+// Cached per shape object: a body's box is asked for by every analysis of one rebuild.
+const SIZES = new WeakMap();
+export const sizeOf = (shape) => {
+  if (shape && typeof shape === 'object' && SIZES.has(shape)) return SIZES.get(shape);
+  let v = 1;
+  try { const [lo, hi] = shape.boundingBox.bounds; v = Math.max(1e-6, len(sub(hi, lo))); } catch { v = 1; }
+  if (shape && typeof shape === 'object') SIZES.set(shape, v);
+  return v;
+};
 
 /** Point, unit normal (with the face's orientation) and area element |Su × Sv| of a face at raw (u, v). */
 export function faceSampler(face) {
@@ -170,6 +178,113 @@ export function chainCutter(face, chain, size) {
   } catch { return null; } finally { ts.delete(); }
 }
 
+// ───────────────────────── cones: the silhouette is two generators through the apex, on one plane
+
+/** Axis of a revolved face from its circular edges (centre and normal of the largest circle); null if none. */
+function circleAxisOf(face) {
+  let best = null;
+  for (const e of face.edges) {
+    let p;
+    try { p = [0, 0.2, 0.4, 0.6, 0.8].map((t) => vec(e.pointAt(t))); } catch { continue; }
+    const ab = sub(p[1], p[0]); const ac = sub(p[2], p[0]);
+    const n = cross(ab, ac); const dd = 2 * dot(n, n);
+    if (!(dd > 1e-18)) continue;
+    const c = add(p[0], mul(add(mul(cross(n, ab), dot(ac, ac)), mul(cross(ac, n), dot(ab, ab))), 1 / dd));
+    const r = len(sub(p[0], c));
+    if (p.some((q) => Math.abs(len(sub(q, c)) - r) > r * 1e-6 + 1e-9)) continue;
+    if (!best || r > best.r) best = { point: c, dir: unit(n), r };
+  }
+  return best;
+}
+
+/** The axis of a cone face ({ point, dir }): from the kernel's cone when it is bound, else its circular edges. */
+function coneAxisOf(face) {
+  const oc = rep().getOC();
+  let ad = null;
+  try {
+    ad = new oc.BRepAdaptor_Surface(face.wrapped, true);
+    const ax = ad.Cone().Axis(); const l = ax.Location(); const dd = ax.Direction();
+    return { point: [l.X(), l.Y(), l.Z()], dir: unit([dd.X(), dd.Y(), dd.Z()]) };
+  } catch { return circleAxisOf(face); } finally { ad?.delete?.(); }
+}
+
+/**
+ * The silhouette of a cone face seen along `d`: { apex, A (axis toward the face), beta (half-angle), gens: [g1, g2]
+ * (unit generators from the apex), normal (of the plane holding both), t0, t1 (the face's range along a
+ * generator) }; { gens: [] } when the cone faces one way all round (or lies along d); null when the face is not a
+ * cone this can read. `ax` ({ point, dir }) may be given.
+ */
+export function coneSilhouetteLines(face, d, ax = null) {
+  const axis = ax ?? coneAxisOf(face);
+  if (!axis) return null;
+  // Apex and half-angle from a straight edge of the face (a generator: the seam or a cut side).
+  const line = face.edges.find((e) => e.geomType === 'LINE');
+  if (!line) return null;
+  const p = vec(line.startPoint); const q = vec(line.endPoint);
+  const g0 = unit(sub(q, p));
+  const w = sub(p, axis.point); const b = dot(g0, axis.dir); const den = 1 - b * b;
+  if (!(den > 1e-12)) return null;
+  const s = (b * dot(w, axis.dir) - dot(w, g0)) / den;
+  const apex = add(p, mul(g0, s));
+  const far = dot(sub(p, apex), g0) + dot(sub(q, apex), g0) > 0 ? g0 : mul(g0, -1);
+  const A = dot(far, axis.dir) < 0 ? mul(axis.dir, -1) : axis.dir;
+  const beta = Math.acos(Math.max(-1, Math.min(1, dot(far, A))));
+  const a0 = Math.abs(A[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
+  const e1 = unit(cross(a0, A)); const e2 = cross(A, e1);
+  const c1 = dot(e1, d); const c2 = dot(e2, d); const c = Math.hypot(c1, c2);
+  if (!(c > 1e-12)) return { apex, A, beta, gens: [] };
+  // n·d = 0 where cos(φ − ψ) = tan β (A·d) / |d across A|.
+  const rhs = (Math.tan(beta) * dot(A, d)) / c;
+  if (Math.abs(rhs) >= 1) return { apex, A, beta, gens: [] };
+  const psi = Math.atan2(c2, c1); const k = Math.acos(rhs);
+  const gen = (phi) => unit(add(mul(A, Math.cos(beta)), mul(add(mul(e1, Math.cos(phi)), mul(e2, Math.sin(phi))), Math.sin(beta))));
+  const gens = [gen(psi + k), gen(psi - k)];
+  // The face's range along a generator, from its boundary (axial distance / cos β).
+  const ts = [];
+  for (const e of face.edges) for (const t of [0, 0.25, 0.5, 0.75, 1]) { try { ts.push(dot(sub(vec(e.pointAt(t)), apex), A) / Math.cos(beta)); } catch { /* none */ } }
+  return { apex, A, beta, gens, normal: unit(cross(gens[0], gens[1])), t0: Math.max(0, Math.min(...ts)), t1: Math.max(...ts) };
+}
+
+/** A square planar face of half-size h on the plane { point, n }. */
+function squareFace(point, n, h) {
+  const R = rep();
+  const a = Math.abs(n[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
+  const u = unit(cross(a, n)); const v = cross(n, u);
+  const c = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([x, y]) => add(point, add(mul(u, x * h), mul(v, y * h))));
+  return R.makeFace(R.assembleWire(c.map((pt, i) => R.makeLine(pt, c[(i + 1) % 4]))));
+}
+
+/**
+ * The plane a cone's silhouette lies on, as a square face of half-size h through the apex: [face]; [] when the
+ * cone needs no split along d; null when it is not readable. (costing.js uses it for projected areas.)
+ */
+export function coneSilhouette(face, ax, d, h) {
+  const sl = coneSilhouetteLines(face, unit(d), ax);
+  if (!sl) return null;
+  if (!sl.gens.length) return [];
+  return [squareFace(sl.apex, sl.normal, h)];
+}
+
+/**
+ * The cutter for a cone face in a shell split: one flat piece of the silhouette plane spanning both generators
+ * over the face's range (a little longer; across the apex when the face reaches it), so the two silhouette lines
+ * come from one cutter and the kernel's section of it with the cone is exact. undefined when no split is needed,
+ * null when the face is not readable.
+ */
+function coneCutter(face, d, size) {
+  const R = rep();
+  const sl = coneSilhouetteLines(face, d);
+  if (!sl) return null;
+  if (!sl.gens.length) return undefined;
+  const ext = size * 1e-3;
+  const [g1, g2] = sl.gens; const P = (g, t) => add(sl.apex, mul(g, t));
+  const t1 = sl.t1 + ext;
+  const pts = sl.t0 > ext ? [P(g1, sl.t0 - ext), P(g1, t1), P(g2, t1), P(g2, sl.t0 - ext)] : [P(g1, -ext), P(g1, t1), P(g2, -ext), P(g2, t1)];
+  // Across the apex the corners go round it: g1 far, g2 far, behind the apex on g1, behind it on g2.
+  const quad = sl.t0 > ext ? pts : [pts[1], pts[3], pts[0], pts[2]];
+  try { return R.makePolygon(quad); } catch { return null; }
+}
+
 const listShapes = (list) => {
   const R = rep(); const oc = R.getOC();
   const copy = new oc.NCollection_List_TopoDS_Shape(list); const out = [];
@@ -189,12 +304,19 @@ export function silhouetteSplit(body, dir, { grid = 24 } = {}) {
   const faces = body.faces;
   const tools = []; const cutFaces = new Set();
   faces.forEach((face, i) => {
+    // A cone: one planar cutter holds both silhouette lines (two cutters meeting at the apex defeat the splitter).
+    if (face.geomType === 'CONE') {
+      const t = coneCutter(face, d, size);
+      if (t === undefined) return;
+      if (t) { tools.push(t); cutFaces.add(i); return; }
+    }
     let chains = [];
     try { chains = zeroCurves(face, d, { grid, size }); } catch { chains = []; }
     for (const c of chains) { const t = chainCutter(face, c, size); if (t) { tools.push(t); cutFaces.add(i); } }
   });
-  const plain = () => ({ faces: faces.map((face, index) => ({ index, hash: face.hashCode, face, pieces: [face] })), shell: body, split: 0, cutters: tools.length });
-  if (!tools.length) return plain();
+  // A face that had to be split and was not is reported (unsplit: true; failed lists them), never passed silently.
+  const plain = () => ({ faces: faces.map((face, index) => ({ index, hash: face.hashCode, face, pieces: [face], unsplit: cutFaces.has(index) })), shell: body, split: 0, cutters: tools.length, failed: [...cutFaces] });
+  if (!tools.length) return { ...plain(), failed: [] };
   const args = new oc.NCollection_List_TopoDS_Shape();
   for (const sh of R.iterTopo(body.wrapped, 'shell')) args.Append(sh);
   const list = new oc.NCollection_List_TopoDS_Shape(); for (const t of tools) list.Append(t.wrapped);
@@ -206,9 +328,9 @@ export function silhouetteSplit(body, dir, { grid = 24 } = {}) {
     const shell = R.cast(sp.Shape());
     const out = faces.map((face, index) => {
       const mod = listShapes(sp.Modified(face.wrapped)).filter((s) => s.wrapped.ShapeType() === oc.TopAbs_ShapeEnum.TopAbs_FACE);
-      return { index, hash: face.hashCode, face, pieces: mod.length ? mod : [face] };
+      return { index, hash: face.hashCode, face, pieces: mod.length ? mod : [face], unsplit: cutFaces.has(index) && mod.length < 2 };
     });
-    return { faces: out, shell, split: out.filter((f) => f.pieces.length > 1).length, cutters: tools.length };
+    return { faces: out, shell, split: out.filter((f) => f.pieces.length > 1).length, cutters: tools.length, failed: out.filter((f) => f.unsplit).map((f) => f.index) };
   } catch { return plain(); } finally { sp.delete(); args.delete(); list.delete(); }
 }
 
@@ -238,10 +360,88 @@ export function rayCaster(body, d) {
   const R = rep();
   const size = sizeOf(body); const L = size * 3 + 10; const eps = size * 1e-4;
   const q = distanceFrom(body);
+  const exact = (p, side) => q.to(R.makeLine(p, add(p, mul(d, side * L)))) < eps * 0.5;
+  const grid = rayGrid(body, d, size * 1e-5);
   return {
     eps,
-    blocked(p, side) { return q.to(R.makeLine(p, add(p, mul(d, side * L)))) < eps * 0.5; },
+    /**
+     * The kernel's answer (the ray comes within eps/2 of the body), found from a fine mesh where the mesh decides it
+     * beyond doubt — through a triangle well inside its edges and well ahead, or further from every triangle than
+     * eps/2 plus the mesh's tolerance — and from the kernel otherwise.
+     */
+    blocked(p, side) {
+      const g = grid ? grid.cast(p, side, eps * 0.5) : 'unsure';
+      return g === 'unsure' ? exact(p, side) : g === 'hit';
+    },
     delete() { q.delete(); },
+  };
+}
+
+/**
+ * Rays along ±d against a fine mesh of the body (chord tolerance `tol`), its triangles binned on the plane square
+ * to d. cast(p, side, reach) → 'hit' (the true surface is certainly met ahead of p), 'miss' (the ray certainly
+ * stays further than `reach` from it) or 'unsure'. Null when the body cannot be meshed.
+ */
+function rayGrid(body, d, tol) {
+  let m;
+  try { m = body.mesh({ tolerance: tol, angularTolerance: 0.1 }); } catch { return null; }
+  const V = m?.vertices; const T = m?.triangles;
+  if (!V?.length || !T?.length) return null;
+  const e1 = unit(Math.abs(d[0]) < 0.9 ? cross(d, [1, 0, 0]) : cross(d, [0, 1, 0])); const e2 = cross(d, e1);
+  const n = V.length / 3;
+  const U = new Float64Array(n); const W = new Float64Array(n); const H = new Float64Array(n);
+  let u0 = Infinity; let w0 = Infinity; let u1 = -Infinity; let w1 = -Infinity;
+  for (let i = 0; i < n; i++) {
+    const p = [V[3 * i], V[3 * i + 1], V[3 * i + 2]];
+    U[i] = dot(p, e1); W[i] = dot(p, e2); H[i] = dot(p, d);
+    u0 = Math.min(u0, U[i]); u1 = Math.max(u1, U[i]); w0 = Math.min(w0, W[i]); w1 = Math.max(w1, W[i]);
+  }
+  const nt = T.length / 3;
+  const N = Math.max(1, Math.min(256, Math.ceil(Math.sqrt(nt))));
+  const cu = Math.max(1e-12, (u1 - u0) / N); const cw = Math.max(1e-12, (w1 - w0) / N);
+  const cells = Array.from({ length: N * N }, () => []);
+  const grow = 4 * tol;
+  const cellOf = (x, lo, c) => Math.max(0, Math.min(N - 1, Math.floor((x - lo) / c)));
+  for (let t = 0; t < nt; t++) {
+    const a = T[3 * t]; const b = T[3 * t + 1]; const c = T[3 * t + 2];
+    const i0 = cellOf(Math.min(U[a], U[b], U[c]) - grow, u0, cu); const i1 = cellOf(Math.max(U[a], U[b], U[c]) + grow, u0, cu);
+    const j0 = cellOf(Math.min(W[a], W[b], W[c]) - grow, w0, cw); const j1 = cellOf(Math.max(W[a], W[b], W[c]) + grow, w0, cw);
+    for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) cells[i * N + j].push(t);
+  }
+  // Signed 2D distance of (x, y) from the edge a→b, positive on the left.
+  const side2 = (ax, ay, bx, by, x, y) => { const ex = bx - ax; const ey = by - ay; const l = Math.hypot(ex, ey); return l > 1e-15 ? (ex * (y - ay) - ey * (x - ax)) / l : -Math.hypot(x - ax, y - ay); };
+  return {
+    cast(p, side, reach) {
+      const x = dot(p, e1); const y = dot(p, e2); const h = dot(p, d);
+      // Further than reach + the mesh error from every triangle seen along d: a miss for sure.
+      const margin = reach + grow;
+      if (x < u0 - margin || x > u1 + margin || y < w0 - margin || y > w1 + margin) return 'miss';
+      const list = cells[cellOf(x, u0, cu) * N + cellOf(y, w0, cw)];
+      let unsure = false;
+      for (const t of list) {
+        let a = T[3 * t]; let b = T[3 * t + 1]; let c = T[3 * t + 2];
+        let area = (U[b] - U[a]) * (W[c] - W[a]) - (U[c] - U[a]) * (W[b] - W[a]);
+        if (area < 0) { const k = b; b = c; c = k; area = -area; }
+        const da = side2(U[b], W[b], U[c], W[c], x, y); const db = side2(U[c], W[c], U[a], W[a], x, y); const dc = side2(U[a], W[a], U[b], W[b], x, y);
+        const inner = Math.min(da, db, dc);
+        if (inner < -margin) continue;                                    // well outside this triangle
+        // Height of the triangle's plane over (x, y) (or its height range when it stands edge-on).
+        const A2 = Math.abs(area);
+        let lo; let hi;
+        if (A2 > 1e-12 * (cu * cw + 1e-30)) {
+          const la = ((U[b] - x) * (W[c] - y) - (U[c] - x) * (W[b] - y)) / area;
+          const lb = ((U[c] - x) * (W[a] - y) - (U[a] - x) * (W[c] - y)) / area;
+          const hh = la * H[a] + lb * H[b] + (1 - la - lb) * H[c];
+          lo = hh; hi = hh;
+        } else { lo = Math.min(H[a], H[b], H[c]); hi = Math.max(H[a], H[b], H[c]); }
+        const ahead = side > 0 ? lo - h : h - hi;                        // distance ahead of p along the ray
+        const behind = side > 0 ? h - hi : lo - h;                       // > 0: wholly behind p
+        if (behind > margin) continue;                                    // the ray starts past it
+        if (inner > margin && ahead > margin) return 'hit';               // through its inside, clearly ahead
+        unsure = true;                                                    // near an edge, grazing, or level with p
+      }
+      return unsure ? 'unsure' : 'miss';
+    },
   };
 }
 
@@ -312,6 +512,51 @@ export function silhouetteSplitCached(body, dir) {
 const boxOf = (shape) => { try { return shape.boundingBox.bounds; } catch { return null; } };
 const boxesMeet = (a, b, tol) => !a || !b || [0, 1, 2].every((k) => a[0][k] <= b[1][k] + tol && b[0][k] <= a[1][k] + tol);
 
+/**
+ * A shape's footprint seen along d: the 2D boxes (on the plane square to d) of its mesh triangles with their height
+ * range along d, each grown by `grow` (the mesh's chord tolerance, so the true surface lies inside). Null when the
+ * shape cannot be meshed.
+ */
+function footprintOf(shape, d, tol, grow) {
+  let m;
+  try { m = shape.mesh({ tolerance: tol, angularTolerance: 0.2 }); } catch { return null; }
+  const v = m?.vertices; const t = m?.triangles;
+  if (!v?.length || !t?.length) return null;
+  const e1 = unit(Math.abs(d[0]) < 0.9 ? cross(d, [1, 0, 0]) : cross(d, [0, 1, 0])); const e2 = cross(d, e1);
+  const boxes = new Float64Array((t.length / 3) * 6);
+  const all = [Infinity, Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < t.length / 3; i++) {
+    let u0 = Infinity; let v0 = Infinity; let u1 = -Infinity; let v1 = -Infinity; let h0 = Infinity; let h1 = -Infinity;
+    for (let k = 0; k < 3; k++) {
+      const q = 3 * t[3 * i + k]; const p = [v[q], v[q + 1], v[q + 2]];
+      const u = dot(p, e1); const w = dot(p, e2);
+      const h = dot(p, d);
+      u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, w); v1 = Math.max(v1, w); h0 = Math.min(h0, h); h1 = Math.max(h1, h);
+    }
+    boxes.set([u0 - grow, v0 - grow, u1 + grow, v1 + grow, h0 - grow, h1 + grow], 6 * i);
+    all[0] = Math.min(all[0], u0 - grow); all[1] = Math.min(all[1], v0 - grow); all[2] = Math.max(all[2], u1 + grow); all[3] = Math.max(all[3], v1 + grow);
+  }
+  return { boxes, all };
+}
+
+/**
+ * Whether the sweep of the caster footprint `a` along `way` × d (+1 up, −1 down) may reach the piece footprint `b`:
+ * false only when no triangle of b lies, seen along d, over a triangle of a on the swept side of it.
+ */
+function footprintsMeet(a, b, way) {
+  if (!a || !b) return true;
+  if (a.all[0] > b.all[2] || b.all[0] > a.all[2] || a.all[1] > b.all[3] || b.all[1] > a.all[3]) return false;
+  const A = a.boxes; const B = b.boxes;
+  for (let i = 0; i < A.length; i += 6) {
+    if (A[i] > b.all[2] || A[i + 2] < b.all[0] || A[i + 1] > b.all[3] || A[i + 3] < b.all[1]) continue;
+    for (let j = 0; j < B.length; j += 6) {
+      if (!(A[i] <= B[j + 2] && B[j] <= A[i + 2] && A[i + 1] <= B[j + 3] && B[j + 1] <= A[i + 3])) continue;
+      if (way > 0 ? B[j + 5] >= A[i + 4] : B[j + 4] <= A[i + 5]) return true;
+    }
+  }
+  return false;
+}
+
 /** Mean of n·d over a piece's samples, and whether every sample faces the same way beyond `s`. */
 function facingOf(pts, d, s) {
   const W = pts.reduce((x, r) => x + r.J, 0);
@@ -334,7 +579,7 @@ function shadowCasters(sp, d, s, size) {
       const f = facingOf(faceSamples(piece, 3, size), d, s);
       if (f.kind === 'wall') continue;
       const blocks = f.kind === 'down' ? 1 : -1;
-      try { const prism = prismOf(piece.clone(), mul(d, -blocks * span)); out.push({ piece, blocks, prism, box: boxOf(prism) }); } catch { /* none */ }
+      try { const prism = prismOf(piece.clone(), mul(d, -blocks * span)); out.push({ piece, blocks, prism, box: boxOf(prism), foot: footprintOf(piece, d, size * 1e-3, size * 2e-3 + size * 2e-4) }); } catch { /* none */ }
     }
   }
   return out;
@@ -383,7 +628,16 @@ function undercutCompute(body, d, { angle, samples, split }) {
         // Facing the pull: only what is over it matters; away: what is under it; a wall: both.
         const sides = kind === 'up' ? [1] : kind === 'down' ? [-1] : [1, -1];
         const box = boxOf(piece);
-        const tools = casters.filter((c) => c.piece !== piece && sides.includes(c.blocks) && boxesMeet(c.box, box, rays.eps * 2)).map((c) => c.prism);
+        // Only sweeps that reach the piece can shadow part of it: boxes first, then the kernel's exact distance
+        // (a sweep whose column only passes beside the piece is left out of the split, which changes nothing).
+        let tools = casters.filter((c) => c.piece !== piece && sides.includes(c.blocks) && boxesMeet(c.box, box, rays.eps * 2));
+        // Then the footprints seen along the pull (a sweep covers exactly its piece's footprint), then the distance.
+        if (tools.length) { const foot = footprintOf(piece, d, size * 1e-3, size * 2e-3 + size * 2e-4); tools = tools.filter((c) => footprintsMeet(c.foot, foot, -c.blocks)); }
+        if (tools.length) {
+          const near = distanceFrom(piece);
+          try { tools = tools.filter((c) => near.to(c.prism) <= rays.eps * 2); } finally { near.delete(); }
+        }
+        tools = tools.map((c) => c.prism);
         let subs = null;
         try { subs = tools.length ? splitFaces(piece, tools) : [piece]; } catch { subs = null; }
         if (subs) {
@@ -408,10 +662,10 @@ function undercutCompute(body, d, { angle, samples, split }) {
       let cls = 'straight';
       if (area > 0) cls = fractions.undercut > 1e-3 ? 'undercut' : ['cavity', 'core', 'straight'].reduce((m, k) => (fractions[k] > fractions[m] + 1e-9 ? k : m), 'cavity');
       faces.set(rec.hash, cls); counts[cls]++;
-      details.push({ index: rec.index, hash: rec.hash, cls, area, fractions, pieces: rec.pieces.length, exact: exactPieces === rec.pieces.length });
+      details.push({ index: rec.index, hash: rec.hash, cls, area, fractions, pieces: rec.pieces.length, exact: exactPieces === rec.pieces.length && !rec.unsplit, unsplit: Boolean(rec.unsplit) });
     }
   } finally { rays.delete(); }
-  return { faces, counts, undercut: counts.undercut, details, split: sp.split };
+  return { faces, counts, undercut: counts.undercut, details, split: sp.split, failed: sp.failed ?? [] };
 }
 
 /**
@@ -448,6 +702,29 @@ export function moldSides(body, dir, { angle = 0.5, split = null } = {}) {
     }
   } finally { rays.delete(); }
   return { pieces: out, split: sp };
+}
+
+/**
+ * The edges grouped into connected loops by their shared vertices (the split shell's edges meet at one vertex
+ * even where the kernel's fuzzy merge left their curve ends a little apart); end points when a vertex is missing.
+ */
+export function vertexLoops(edges, tol = 1e-6) {
+  const R = rep();
+  const ends = edges.map((e) => {
+    try { const vs = [...R.iterTopo(e.wrapped, 'vertex')].map((v) => `v${R.cast(v).hashCode}`); if (vs.length) return vs; } catch { /* points */ }
+    return [vec(e.startPoint), vec(e.endPoint)].map((p) => p.map((x) => Math.round(x / tol)).join(','));
+  });
+  const seen = new Set(); const loops = [];
+  for (let i = 0; i < edges.length; i++) {
+    if (seen.has(i)) continue;
+    const loop = []; const stack = [i]; seen.add(i);
+    while (stack.length) {
+      const k = stack.pop(); loop.push(k);
+      for (let j = 0; j < edges.length; j++) if (!seen.has(j) && ends[j].some((p) => ends[k].includes(p))) { seen.add(j); stack.push(j); }
+    }
+    loops.push(loop);
+  }
+  return loops;
 }
 
 /** The edges grouped into connected loops (by their end points). */
@@ -511,8 +788,8 @@ function partingLoopsCompute(body, d, opts) {
     const core = a.side === 'core' ? a : b; const other = core === a ? b : a;
     recs.push({ edge, core: core.face, other: other.face });
   }
-  const loops = edgeLoops(recs.map((r) => r.edge), size * 1e-7).map((l) => l.map((i) => recs[i]));
+  const loops = vertexLoops(recs.map((r) => r.edge), size * 1e-7).map((l) => l.map((i) => recs[i]));
   let outer = -1; let best = -1;
   loops.forEach((l, i) => { const f = footprint(l.map((r) => r.edge), d); if (f > best) { best = f; outer = i; } });
-  return { loops, outer, split: split.split };
+  return { loops, outer, split: split.split, failed: split.failed ?? [] };
 }

@@ -42,9 +42,34 @@ export const scaleLabel = (s) => (s >= 1 ? `${round(s)}:1` : `1:${round(1 / s)}`
 const round = (v) => Math.round(v * 100) / 100;
 
 /** A new drawing of a part or assembly with the usual three views and an isometric one. */
+/**
+ * The coordinates smart dimensions are kept in (drawing.dimCoords): 2 = every view's true model 2D (a broken view's
+ * far side where it really is). Drawings saved before that (no dimCoords) kept the picked points of a broken view
+ * in its shortened coordinates: migrateDrawingDims() marks those for resolveLegacyDims() (drawing-dims.js).
+ */
+export const DIM_COORDS = 2;
+
+/**
+ * Opening a drawing saved before DIM_COORDS: the smart dimensions picked in views that have a break are marked
+ * `legacyBroken` (their points are in the shortened view) and the drawing gets dimCoords = DIM_COORDS, so this
+ * runs once. Model items (computed from the sketches) and pictorial dimensions (from the 3D model) were in true
+ * coordinates already. The conversion needs the views' projections (the break's gap depends on the view's size):
+ * resolveLegacyDims() does it when the sheet is first drawn. Returns how many were marked.
+ */
+export function migrateDrawingDims(d) {
+  if (!d || typeof d !== 'object' || Number(d.dimCoords) >= DIM_COORDS) return 0;
+  const broken = new Set((d.views ?? []).filter((v) => v?.break).map((v) => v.id));
+  let n = 0;
+  for (const a of Array.isArray(d.annotations) ? d.annotations : []) {
+    if (a?.kind === 'drwDim' && !a.model && !a.m3 && broken.has(a.view)) { a.legacyBroken = true; n++; }
+  }
+  d.dimCoords = DIM_COORDS;
+  return n;
+}
+
 export function createDrawing({ id, name, source, sheet = 'A3', projection = 'third', title = {} }) {
   return {
-    id, name, source, sheet, projection, scale: 1, autoScale: true, showHidden: true, showDims: true,
+    id, name, source, sheet, projection, scale: 1, autoScale: true, showHidden: true, showDims: true, dimCoords: DIM_COORDS,
     views: [
       { id: 'v-front', type: 'front' }, { id: 'v-top', type: 'top' }, { id: 'v-right', type: 'right' }, { id: 'v-iso', type: 'iso', hidden: false },
     ],
@@ -98,10 +123,35 @@ export function viewBasis(view) {
 
 // ───────────────────────── projection
 
+/**
+ * The outline of a shape the hidden-line projection cannot draw (a bare sphere: a face without real edges): the
+ * circles of its spherical faces, of their radius round their projected centres. null when it has none.
+ */
+function sphereOutlines(shape, dir, x) {
+  const R = rep(); const oc = R.getOC();
+  const y = cross3(dir, x);
+  const visible = []; let box = null;
+  for (const face of shape?.faces ?? []) {
+    if (face.geomType !== 'SPHERE') continue;
+    let ad = null;
+    try {
+      ad = new oc.BRepAdaptor_Surface(face.wrapped, true);
+      const sp = ad.Sphere(); const l = sp.Location(); const c = [l.X(), l.Y(), l.Z()]; const r = sp.Radius();
+      const X = dot3(c, x); const Y = dot3(c, y);
+      visible.push(`M ${n2(X - r)} ${n2(-Y)} A ${n2(r)} ${n2(r)} 0 1 0 ${n2(X + r)} ${n2(-Y)} A ${n2(r)} ${n2(r)} 0 1 0 ${n2(X - r)} ${n2(-Y)} Z`);
+      const b = { x0: X - r, y0: Y - r, x1: X + r, y1: Y + r };
+      box = box ? { x0: Math.min(box.x0, b.x0), y0: Math.min(box.y0, b.y0), x1: Math.max(box.x1, b.x1), y1: Math.max(box.y1, b.y1) } : b;
+    } catch { /* not a sphere after all */ } finally { ad?.delete?.(); }
+  }
+  return visible.length ? { visible, hidden: [], box, outline: true } : null;
+}
+
 function projectWith(shape, dir, x) {
   const R = rep();
   const camera = new R.ProjectionCamera([0, 0, 0], dir, x);
-  const { visible, hidden } = R.drawProjection(shape, camera);
+  let drawn;
+  try { drawn = R.drawProjection(shape, camera); } catch (error) { const o = sphereOutlines(shape, dir, x); if (o) return o; throw error; }
+  const { visible, hidden } = drawn;
   const paths = (d) => { try { return [d.toSVGPaths()].flat(3).filter(Boolean); } catch { return []; } };
   let box = null;
   try {
@@ -823,7 +873,7 @@ function newKindViewSvg(drawing, v, p, place, scale, labels, selected) {
   const w = (p.box.x1 - p.box.x0) * s; const h = (p.box.y1 - p.box.y0) * s;
   const hatch = hatchOf(p, s, v);
   const hatchSvg = hatch.length ? `<path d="${hatch.map((q) => `M ${n2(q[0])} ${n2(q[1])} L ${n2(q[2])} ${n2(q[3])}`).join(' ')}" class="hatch" vector-effect="non-scaling-stroke"/>` : '';
-  const lines = `${hiddenOn ? p.hidden.map((d) => `<path d="${d}" class="hidden-line" vector-effect="non-scaling-stroke"/>`).join('') : ''}${hatchSvg}${p.visible.map((d) => `<path d="${d}" class="visible-line" vector-effect="non-scaling-stroke"/>`).join('')}`;
+  const lines = `${hiddenOn ? p.hidden.map((d) => `<path d="${d}" class="hidden-line" vector-effect="non-scaling-stroke"/>`).join('') : ''}${hatchSvg}${p.visible.map((d) => `<path d="${d}" class="visible-line" vector-effect="non-scaling-stroke"/>`).join('')}${threadMarksSvg(p, hiddenOn)}`;
   let inner = lines; let outline = '';
   if (p.detail) {
     const id = `clip-${idSafe(drawing.id)}-${idSafe(v.id)}`;
@@ -847,7 +897,7 @@ const EXTRA_CSS = `<style>
     .detail-circle{fill:none;stroke:#000;stroke-width:.35}.cut-line{fill:none;stroke:#000;stroke-width:.25;stroke-dasharray:10 1.5 2 1.5}
     .cut-end{fill:none;stroke:#000;stroke-width:.7}.view-label-strong{font-weight:bold}
     .ann-line,.ann-frame{fill:none;stroke:#000;stroke-width:.25;stroke-linejoin:round;stroke-linecap:round}.ann-fill{fill:#000;stroke:none}
-    .ann-text{font-family:Roboto,sans-serif;fill:#000}.ann-bold{font-weight:bold}
+    .ann-text{font-family:Roboto,"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif;fill:#000}.ann-bold{font-weight:bold}
     .annotation.selected .ann-line,.annotation.selected .ann-frame{stroke:#1e88e5}.annotation.selected .ann-fill{fill:#1e88e5}.annotation.selected .ann-text{fill:#1e88e5}
     .bom-frame{fill:none;stroke:#000;stroke-width:.5}.bom-grid{fill:none;stroke:#000;stroke-width:.2}
   </style>`;
@@ -909,8 +959,8 @@ export function drawingSvg(drawing, projections, { labels = {}, info = {}, selec
     .visible-line{fill:none;stroke:#000;stroke-width:.5;stroke-linejoin:round;stroke-linecap:round}
     .hidden-line{fill:none;stroke:#555;stroke-width:.3;stroke-dasharray:2 1.2}
     .view-box{fill:transparent;stroke:none}.view.selected .view-box{stroke:#1e88e5;stroke-width:.4;stroke-dasharray:2 1}
-    .view-label{font:3.2px Roboto,sans-serif;fill:#000}.dim-line,.dim-ext{stroke:#000;stroke-width:.18;fill:none}.dim-arrow{fill:#000}
-    .dim-text{font:3.2px Roboto,sans-serif;fill:#000}.tb-label{font:2.2px Roboto,sans-serif;fill:#444}.tb-value{font:3.4px Roboto,sans-serif;fill:#000}.tb-title{font:bold 5px Roboto,sans-serif;fill:#000}
+    .view-label{font:3.2px Roboto,"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif;fill:#000}.dim-line,.dim-ext{stroke:#000;stroke-width:.18;fill:none}.dim-arrow{fill:#000}
+    .dim-text{font:3.2px Roboto,"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif;fill:#000}.tb-label{font:2.2px Roboto,"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif;fill:#444}.tb-value{font:3.4px Roboto,"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif;fill:#000}.tb-title{font:bold 5px Roboto,"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif;fill:#000}
   </style>${fancy ? EXTRA_CSS : ''}${[...projections.values()].some((x) => x?.threads) ? THREAD_CSS : ''}
   <rect class="sheet-bg" x="0" y="0" width="${W}" height="${H}"/>
   <rect class="frame" x="10" y="10" width="${W - 20}" height="${H - 20}"/>
@@ -1015,7 +1065,7 @@ export function drawingDxf(drawing, projections, { labels = {}, bomRows: bom = n
     const seg = (layer, a, b) => { const c = clip(a, b); if (c) add(layer, map(c[0]), map(c[1])); };
     const emit = (layer, list) => { for (const d of list) for (const poly of pathPolylines(d)) for (let k = 1; k < poly.length; k++) seg(layer, poly[k - 1], poly[k]); };
     emit('VISIBLE', p.visible);
-    if (p.threads && plain) {
+    if (p.threads) {
       emit('THREADS', p.threads.thin ?? []); emit('VISIBLE', p.threads.thick ?? []);
       if (drawing.showHidden !== false && v.hidden !== false) emit('HIDDEN', p.threads.hidden ?? []);
       if (p.threads.thin?.length) threaded = true;

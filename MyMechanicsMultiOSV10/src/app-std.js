@@ -12,7 +12,9 @@
 // The modelling is in cad/stdparts.js, cad/routing.js, cad/fastener.js (no DOM there).
 import './styles-std.css';
 import * as THREE from 'three';
-import { createPart } from './cad/document.js';
+import { createPart, addDrawing } from './cad/document.js';
+import { SHEETS } from './cad/drawing.js';
+import { harnessSheet, harnessKey, applyHarnessSheet, harnessSheetOptions, HARNESS_SCALES } from './cad/harness-sheet.js';
 import { createFeature, STD_PLANES, frame as makeFrame } from './cad/features.js';
 import { quatIdentity, quatFromAxisAngle, instanceName, mateEntityOfFace, placePoint, placeDir, quatConjugate, rotate, composePlacement } from './cad/assembly.js';
 import { faceSignature } from './cad/refs.js';
@@ -30,7 +32,7 @@ import { escapeHtml } from './ui/dom.js';
 import { select as selectHtml } from './ui/propertymanager.js';
 import { icon } from './icons.js';
 
-const MODES = new Set(['stdLibrary', 'smartFastener', 'asmRoute', 'render']);
+const MODES = new Set(['stdLibrary', 'smartFastener', 'asmRoute', 'render', 'harnessSheet']);
 const ROUTE_MATERIAL = { pipe: 'steel-1020', tube: 'copper', cable: 'rubber', harness: 'rubber' };
 const round3 = (v) => Math.round(v * 1000) / 1000;
 
@@ -206,13 +208,17 @@ export function createStdTools(ctx) {
    * The holes on the same axis in the other components (stacked parts): intervals along the entry normal into
    * the material (t from the entry face), with the faces at their ends.
    */
-  function seriesSegments(a, hostComp, axisPoint, n, minD) {
+  function seriesSegments(a, host, axisPoint, n, minD) {
     const segs = [];
+    // Every part of every component — a sub-assembly's parts too, at their place in it — except the picked one.
+    const leaves = (c) => ctx.partLeaves?.(c) ?? (c.part ? [{ path: [], placement: null, entry: ctx.partEntry?.(c) }] : []);
     for (const c of a.components) {
-      if (c.id === hostComp.id || c.hidden || !c.part) continue;
-      const entry = ctx.partEntry?.(c);
+      if (c.hidden) continue;
+      for (const leaf of leaves(c)) {
+      if (c.id === host.comp.id && (leaf.path ?? []).join('/') === (host.path ?? []).join('/')) continue;
+      const entry = leaf.entry;
       if (!entry?.faces) continue;
-      const topo = { comp: c, inner: null, path: [] };
+      const topo = { comp: c, inner: leaf.path?.length ? leaf.placement : null, path: leaf.path ?? [] };
       const fr = frames(topo);
       for (const h of holesOf(entry.faces)) {
         if (h.diameter < minD) continue;
@@ -225,6 +231,7 @@ export function createStdTools(ctx) {
         // Open toward the entry (the bolt can come in) and, for a nut, open at the far end too.
         if (!h.ends[near].open) continue;
         segs.push({ topo, t0: ts[near], t1: ts[far], through: h.through, diameter: h.diameter, farFace: h.ends[far].face });
+      }
       }
     }
     return segs;
@@ -288,7 +295,7 @@ export function createStdTools(ctx) {
       host.spin = { comp: topo.comp.id, kind: 'plane', point: [...(topo.inner ? placePoint(topo.inner, h.axis.point) : h.axis.point)], dir: rotate(quatConjugate(topo.comp.rotation), xw), ...(topo.inner ? { path: topo.path } : {}) };
       let grip = h.depth; let through = h.through; let diameter = h.diameter; let parts = [topo.comp.id];
       if (e.series && h.through) {
-        const segs = [{ t0: 0, t1: h.depth, through: true, diameter: h.diameter, farFace: ex.face, topo }, ...seriesSegments(a, topo.comp, pEntry, n, h.diameter * 0.6)];
+        const segs = [{ t0: 0, t1: h.depth, through: true, diameter: h.diameter, farFace: ex.face, topo }, ...seriesSegments(a, topo, pEntry, n, h.diameter * 0.6)];
         const ser = holeSeries(segs);
         if (ser.chain.length > 1) {
           grip = ser.grip; through = ser.through;
@@ -533,6 +540,7 @@ export function createStdTools(ctx) {
     if (e.mode === 'smartFastener') return fastenerPm(e);
     if (e.mode === 'asmRoute') return asmRoutePm(e);
     if (e.mode === 'render') return rnd.pm(e);
+    if (e.mode === 'harnessSheet') return harnessSheetPm(e);
     return '';
   }
 
@@ -545,6 +553,7 @@ export function createStdTools(ctx) {
 
   function field(key, raw, v) {
     const e = editing();
+    if (e.mode === 'harnessSheet') { if (key === 'hsRowH' && v > 0) setSheetOption('rowH', Math.max(3, Math.min(12, v))); else ctx.renderLeft(); return; }
     if (e.mode === 'render') return rnd.field(key, raw, v);
     if (e.mode === 'asmRoute' && isRouteTableKey(key)) { if (editRouteTable(e.f, key, raw, v) === 'invalid') notify('error', t('notice.invalidValue', { text: raw })); ctx.renderLeft(); return; }
     if (v == null) { notify('error', t('notice.invalidValue', { text: raw })); ctx.renderLeft(); return; }
@@ -584,6 +593,7 @@ export function createStdTools(ctx) {
       else if (!setStd(e.p, key, value)) e.p[key] = value;
       if (key === 'stdKind') e.category = STD_CATEGORIES.find((c) => c.items.includes(value))?.id ?? e.category;
     } else if (e.mode === 'smartFastener') { if (key === 'fastKind') e.kind = value; }
+    else if (e.mode === 'harnessSheet') { if (key === 'hsRotate') setSheetOption('rotate', Number(value)); return; }
     else if (e.mode === 'asmRoute') {
       if (key === 'drawPlane') e.drawPlane = value;
       else if (isRouteTableKey(key)) editRouteTable(e.f, key, value, Number(value));
@@ -596,6 +606,7 @@ export function createStdTools(ctx) {
   function toggle(key, checked) {
     const e = editing();
     if (e.mode === 'render') { rnd.toggle(key, checked); return; }
+    if (e.mode === 'harnessSheet') { const k = { hsAuto: 'auto', hsMirror: 'mirror', hsWires: 'showWires', hsConnectors: 'showConnectors' }[key]; if (k) setSheetOption(k, checked); return; }
     if (e.mode === 'stdLibrary') e.p[key] = checked;
     else e[key] = checked;
     ctx.renderLeft();
@@ -616,6 +627,7 @@ export function createStdTools(ctx) {
       return true;
     }
     if (e?.mode === 'render') return rnd.select(key, value);
+    if (e?.mode === 'harnessSheet' && key === 'hsScale') { setSheetOption('scale', value === 'auto' ? 'auto' : Number(value)); return true; }
     if (isRouteTableKey(key)) {
       const num = Number(value);
       if (e?.mode === 'asmRoute') { editRouteTable(e.f, key, value, Number.isFinite(num) ? num : null); ctx.renderLeft(); return true; }
@@ -668,7 +680,7 @@ export function createStdTools(ctx) {
     if (e?.mode === 'asmRoute') { ctx.viewport()?.setPreview(null); previewKey = ''; }
   }
 
-  const COMMAND_NAMES = new Set(['std.insert', 'std.render', 'std.renderStop', 'std.renderSave', 'fastener.delete']);
+  const COMMAND_NAMES = new Set(['std.insert', 'std.render', 'std.renderStop', 'std.renderSave', 'fastener.delete', 'std.harnessUpdate']);
   function handles(name) { return COMMAND_NAMES.has(name) || rnd.handles(name) || (owns(editing()) && ['addPt3', 'delPt3', 'clear', 'routeEdit'].includes(name)) || (name === 'routeEdit' && routeFeature(editing())); }
 
   /** The flattened harness of the route being edited, saved as SVG or DXF (export path, file dialog). */
@@ -678,6 +690,134 @@ export function createStdTools(ctx) {
     const base = `${ctx.fileSafe(ctx.activeName() || 'harness')}-harness`;
     if (format === 'dxf') return ctx.saveExport(`${base}.dxf`, 'dxf', harnessDxf(flat, { labels: harnessLabels(t) }), 'application/dxf');
     return ctx.saveExport(`${base}.svg`, 'svg', harnessSvg(flat, { labels: harnessLabels(t) }), 'image/svg+xml');
+  }
+
+  /** The harness to put on a drawing: the active part's first harness route, or (assembly) a route part's. */
+  function harnessSource() {
+    const e = editing();
+    if (e?.mode === 'feature' && e.feature?.type === 'route' && e.feature.kind === 'harness' && part()) return { f: e.feature, features: part().features, part: part() };
+    const pt = part();
+    const own = pt?.features.find((x) => x.type === 'route' && x.kind === 'harness' && !x.suppressed);
+    if (own) return { f: own, features: pt.features, part: pt };
+    const a = asm();
+    for (const c of a?.components ?? []) {
+      const rp = ctx.project()?.parts.find((x) => x.id === c.part);
+      const f = rp?.features.find((x) => x.type === 'route' && x.kind === 'harness' && !x.suppressed);
+      if (f) return { f, features: rp.features, part: rp };
+    }
+    return null;
+  }
+
+  const sheetLabels = () => ({ ...harnessLabels(t), clips: t('harness.clips') });
+  const activeDrw = () => (ctx.project()?.active?.kind === 'drawing' ? ctx.project().drawings.find((d) => d.id === ctx.project().active.id) ?? null : null);
+
+  /** Builds the sheet of annotation `ann` (on drawing `d`) from its harness; throws the rebuild error codes. */
+  function rebuildHarnessSheet(d, ann, src) {
+    const flat = harnessFlat(harnessModel(src.f, src.features));
+    const [W, H] = SHEETS[d.sheet] ?? SHEETS.A3;
+    const sheet = harnessSheet(flat, { W, H, labels: sheetLabels(), ids: () => ctx.newId('ann'), title: t('harness.flat'), opts: ann.opts });
+    applyHarnessSheet(d, ann, sheet, { source: { part: src.part.id, feature: src.f.id }, key: harnessKey(src.f, src.features) });
+    ann.staleText = t('harness.outOfDate');
+    return ann;
+  }
+
+  /** The harness of a sheet annotation, from its source (part and route feature). */
+  function sheetSource(ann) {
+    const pt = ctx.project()?.parts.find((x) => x.id === ann.source?.part);
+    const f = pt?.features.find((x) => x.id === ann.source?.feature && x.type === 'route' && x.kind === 'harness');
+    return f ? { f, features: pt.features, part: pt } : null;
+  }
+
+  /**
+   * Keeps the harness sheets of drawing `d` associative (app.js calls it before drawing the sheet): a sheet whose
+   * harness changed is rebuilt (auto update on) or marked out of date; one whose harness is gone is marked too.
+   * Returns true when something changed.
+   */
+  function syncHarnessDrawings(d) {
+    let changed = false;
+    for (const ann of (d?.annotations ?? []).filter((x) => x.kind === 'drwHarness' && x.source)) {
+      const src = sheetSource(ann);
+      if (!src) { if (ann.stale !== 'missing') { ann.stale = 'missing'; ann.staleText = t('harness.sourceMissing'); changed = true; } continue; }
+      const key = harnessKey(src.f, src.features);
+      if (key === ann.key) { if (ann.stale) { ann.stale = false; changed = true; } continue; }
+      if (harnessSheetOptions(ann.opts).auto) {
+        try { rebuildHarnessSheet(d, ann, src); } catch { ann.stale = true; ann.staleText = t('harness.outOfDate'); }
+      } else if (ann.stale !== true) { ann.stale = true; ann.staleText = t('harness.outOfDate'); }
+      changed = true;
+    }
+    return changed;
+  }
+
+  /**
+   * Harness Drawing: on a drawing with a harness sheet, its edit page; otherwise a new drawing holding the
+   * flattened harness ('drwHarness', associative to the route) with the wire list and the connector tables as
+   * the drawing's general tables — it shows, prints and exports like any sheet — and its edit page.
+   */
+  function harnessDrawing() {
+    const dw = activeDrw();
+    const existing = dw?.annotations?.find((x) => x.kind === 'drwHarness' && (x.id === state.drawingSelected || true));
+    if (existing) { begin({ mode: 'harnessSheet', drawing: dw.id, ann: (dw.annotations.find((x) => x.kind === 'drwHarness' && x.id === state.drawingSelected) ?? existing).id }); return undefined; }
+    const src = harnessSource();
+    if (!src) { notify('info', t('harness.needHarness')); return undefined; }
+    try { harnessFlat(harnessModel(src.f, src.features)); } catch (error) { notify('error', t(`rebuild.${error.code ?? 'route-failed'}`, error.params ?? null, error.code ?? '')); return undefined; }
+    if (editing()) ctx.cancelEditing({ quiet: true });
+    const name = `${src.part.name} - ${t('harness.flat')}`;
+    let d; let ann;
+    ctx.change('op.harnessDrawing', (pr) => {
+      d = addDrawing(pr, { kind: 'part', id: src.part.id }, name);
+      d.views = [];
+      ann = { id: ctx.newId('ann'), kind: 'drwHarness', opts: harnessSheetOptions() };
+      rebuildHarnessSheet(d, ann, src);
+      d.annotations.unshift(ann);
+      d.scale = ann.scale; d.autoScale = false;
+      pr.active = { kind: 'drawing', id: d.id };
+    });
+    notify('success', t('notice.drawingCreated', { name: d.name }));
+    begin({ mode: 'harnessSheet', drawing: d.id, ann: ann.id });
+    return d;
+  }
+
+  const sheetOf = (e) => { const d = ctx.project()?.drawings.find((x) => x.id === e.drawing); return { d, ann: d?.annotations.find((x) => x.id === e.ann) ?? null }; };
+
+  /** Changes an option of the harness sheet being edited and rebuilds it from its harness. */
+  function setSheetOption(key, value) {
+    const e = editing();
+    const { d, ann } = sheetOf(e);
+    if (!ann) return;
+    ctx.change('op.harnessSheet', () => {
+      ann.opts = harnessSheetOptions({ ...ann.opts, [key]: value });
+      const src = sheetSource(ann);
+      if (src && key !== 'auto') { try { rebuildHarnessSheet(d, ann, src); } catch (error) { notify('error', t(`rebuild.${error.code ?? 'route-failed'}`, error.params ?? null, error.code ?? '')); } }
+    });
+    ctx.renderAll();
+  }
+
+  /** Update now (the sheet is out of date and auto update is off). */
+  function updateSheet() {
+    const { d, ann } = sheetOf(editing());
+    const src = ann && sheetSource(ann);
+    if (!src) { notify('error', t('harness.sourceMissing')); return; }
+    ctx.change('op.harnessSheet', () => { try { rebuildHarnessSheet(d, ann, src); } catch (error) { notify('error', t(`rebuild.${error.code ?? 'route-failed'}`, error.params ?? null, error.code ?? '')); } });
+    ctx.renderAll();
+  }
+
+  /** The edit page of a harness sheet: status, scale, orientation, tables, auto update. */
+  function harnessSheetPm(e) {
+    const { pmHead, pmGroup, pmSeg, pmNum, pmButton } = ctx.pm;
+    const { ann } = sheetOf(e);
+    if (!ann) return pmHead('harnessFlat', t('cmd.harnessDrawing'), t('pm.help.harnessSheet'));
+    const o = harnessSheetOptions(ann.opts);
+    const src = sheetSource(ann);
+    const status = !src ? 'missing' : ann.stale ? 'stale' : 'current';
+    const scales = [['auto', t('harness.scaleAuto')], ...HARNESS_SCALES.map((k) => [String(k), k >= 1 ? `${k}:1` : `1:${Math.round(1 / k)}`])];
+    const check = (key, on, label, glyph) => `<label class="pm-check"><input type="checkbox" data-pm-toggle="${key}" ${on ? 'checked' : ''}/>${icon(glyph)}<span>${escapeHtml(label)}</span></label>`;
+    return [
+      pmHead('harnessFlat', t('cmd.harnessDrawing'), t('pm.help.harnessSheet')),
+      pmGroup(status === 'current' ? 'check' : 'warning', t('harness.sheetStatus'), `<p class="pm-note ${status === 'current' ? '' : 'warn'}" data-harness-status="${status}">${escapeHtml(t(`harness.status.${status}`))}</p>${status === 'stale' ? `<div class="pm-row">${pmButton('std.harnessUpdate', 'refresh', t('harness.update'))}</div>` : ''}${check('hsAuto', o.auto, t('harness.autoUpdate'), 'refresh')}`),
+      pmGroup('scaleTool', t('harness.sheetScale'), `<label class="pm-field"><span class="pm-label">${escapeHtml(t('harness.sheetScale'))}</span><select data-pm-select="hsScale">${scales.map(([v, l]) => `<option value="${v}" ${String(o.scale) === v ? 'selected' : ''}>${escapeHtml(l)}</option>`).join('')}</select></label><p class="pm-note">${escapeHtml(t('harness.scaleNow', { scale: ann.scaleLabel ?? '' }))}</p>`),
+      pmGroup('rotateTool', t('harness.orientation'), `${pmSeg('hsRotate', [['0', '0°'], ['90', '90°'], ['180', '180°'], ['270', '270°']], String(o.rotate))}${check('hsMirror', o.mirror, t('harness.mirror'), 'featMirror')}`),
+      pmGroup('generalTable', t('harness.sheetTables'), `${check('hsWires', o.showWires, t('harness.wireList'), 'harnessWire')}${check('hsConnectors', o.showConnectors, t('harness.connectorTables'), 'harnessConnector')}${pmNum('hsRowH', o.rowH, t('harness.rowHeight'), 'generalTable')}`),
+    ].join('');
   }
 
   function routeEdit(arg) {
@@ -698,6 +838,7 @@ export function createStdTools(ctx) {
     if (name === 'fastener.delete') { if (e?.group) deleteFastener(e.group); return undefined; }
     if (rnd.handles(name)) return rnd.command(name, arg);
     if (name === 'routeEdit') return routeEdit(arg);
+    if (name === 'std.harnessUpdate') return updateSheet();
     if (e?.mode === 'asmRoute') {
       if (name === 'addPt3') { const last = e.f.points.at(-1) ?? [0, 0, 0]; e.f.points.push([last[0] + 50, last[1], last[2]]); }
       if (name === 'delPt3') e.f.points.splice(Number(arg), 1);
@@ -707,7 +848,7 @@ export function createStdTools(ctx) {
     return undefined;
   }
 
-  const subject = (e) => t({ stdLibrary: 'cmd.stdLibrary', smartFastener: 'cmd.smartFastener', asmRoute: `cmd.${e.f?.kind ?? 'pipe'}Route`, render: 'cmd.renderView' }[e.mode]);
+  const subject = (e) => t({ stdLibrary: 'cmd.stdLibrary', smartFastener: 'cmd.smartFastener', asmRoute: `cmd.${e.f?.kind ?? 'pipe'}Route`, render: 'cmd.renderView', harnessSheet: 'cmd.harnessDrawing' }[e.mode]);
 
   // ───────────────────────── commands
 
@@ -720,16 +861,17 @@ export function createStdTools(ctx) {
     tubeRoute: { icon: 'tubeRoute', label: 'cmd.tubeRoute', enabled: docOpen, run: () => startRoute('tube') },
     cableRoute: { icon: 'cableRoute', label: 'cmd.cableRoute', enabled: docOpen, run: () => startRoute('cable') },
     harnessRoute: { icon: 'harnessRoute', label: 'cmd.harnessRoute', enabled: docOpen, run: () => startRoute('harness') },
+    harnessDrawing: { icon: 'harnessFlat', label: 'cmd.harnessDrawing', enabled: () => Boolean(harnessSource() || activeDrw()?.annotations?.some((x) => x.kind === 'drwHarness')), checked: () => editing()?.mode === 'harnessSheet', run: () => (editing()?.mode === 'harnessSheet' ? ctx.cancelEditing({ quiet: true }) : harnessDrawing()) },
     renderView: { icon: 'renderView', label: 'cmd.renderView', enabled: docOpen, checked: () => editing()?.mode === 'render', run: toggleMode('render', startRender) },
   };
 
   /** The CommandManager tab of these tools. */
-  const TAB = ['stdLibrary', 'smartFastener', '|', 'pipeRoute', 'tubeRoute', 'cableRoute', 'harnessRoute', '|', 'renderView'];
-  const SUBMENU = { icon: 'stdLibrary', items: ['stdLibrary', 'smartFastener', '-', 'pipeRoute', 'tubeRoute', 'cableRoute', 'harnessRoute'] };
+  const TAB = ['stdLibrary', 'smartFastener', '|', 'pipeRoute', 'tubeRoute', 'cableRoute', 'harnessRoute', 'harnessDrawing', '|', 'renderView'];
+  const SUBMENU = { icon: 'stdLibrary', items: ['stdLibrary', 'smartFastener', '-', 'pipeRoute', 'tubeRoute', 'cableRoute', 'harnessRoute', 'harnessDrawing'] };
 
   return {
     commands, TAB, SUBMENU, owns, pm, pick, field, step, set, toggle, select, featureSet, featureField, accept, cleanup, handles, command, subject,
-    startLibrary, startRoute, insertLibrary, fastenerPick, editFastener, deleteFastener, rerender, saveRender,
+    startLibrary, startRoute, insertLibrary, harnessDrawing, syncHarnessDrawings, fastenerPick, editFastener, deleteFastener, rerender, saveRender,
     get photo() { return rnd.photo; },
     get renderSettings() { return rnd.renderSettings; },
     setSaveHook(fn) { rnd.setSaveHook(fn); },

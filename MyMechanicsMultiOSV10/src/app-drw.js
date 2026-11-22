@@ -20,6 +20,7 @@ import {
   layoutDimLabels, ellipseSheet,
 } from './cad/drawing-dims.js';
 import { snapDrag, shiftBox } from './cad/drawing-snap.js';
+import { embedFonts } from './cad/text-metrics.js';
 import {
   DRW_KINDS, WELD_SYMBOLS, WELD_SIDES, WELD_CONTOURS, STANDARDS, ISO_SHEETS, ANSI_SHEETS, drwSvg, drwDxf, injectSvg, annotationVisible, layerOf,
   addLayer, removeLayer, createTable, resizeTable, applySheetFormat, layersOf, annotationBoxes,
@@ -659,7 +660,8 @@ export function createDrwTools(ctx) {
     const projections = ctx.drawingProjections(sd);
     let extra = drwSvg(sd, projections, { selected: opts.selected });
     try { extra += pickMarks(sd, viewFrames(sd, projections).frames); } catch { /* none */ }
-    return injectSvg(out, extra);
+    // An exported file carries the sheet's font (Roboto), so it looks the same where it is not installed.
+    return opts.embedFonts ? embedFonts(injectSvg(out, extra)) : injectSvg(out, extra);
   }
 
   function dxf(d, opts, base) {

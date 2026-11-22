@@ -346,14 +346,19 @@ const lessons = [
     title: L('모션 스터디', 'Motion study'),
     sub: L('모터를 달아 기구가 움직이는 모습을 봅니다.', 'Add a motor and watch the mechanism move.'),
     steps: [
-      { say: L('감속기 예제에서 모션 스터디를 열고 재생합니다. 입력축의 회전 모터가 기어를 돌립니다.', 'Open the motion study of the gear reducer and play it: the motor on the input shaft turns the gears.'), run: async (g, v) => {
-        const { m } = g;
+      { say: L('감속기 예제를 열고 단면 보기를 켭니다. 하우징 앞쪽이 잘려 안쪽의 기어가 보입니다.', 'Open the gear reducer and turn on the section view: the front of the housing is cut away and the gears show.'), run: async (g, v) => {
         await g.sample('asmGearReducer'); await g.view('iso'); await g.fit();
+        await v.cmd('section', 900);
+        await v.hold(1800);
+      } },
+      { say: L('모션 스터디를 열고 재생합니다. 입력축의 회전 모터가 기어를 돌립니다.', 'Open the motion study and play it: the motor on the input shaft turns the gears.'), run: async (g, v) => {
+        const { m } = g;
         await v.cmd('motion', 700);
         await v.click('#left-panel [data-pm="playMotion"]', () => m.actions.pmCommand('playMotion'), 300);
-        await v.hold(7000);
+        await v.hold(8000);
         await v.click('#left-panel [data-pm="stopMotion"]', () => m.actions.pmCommand('stopMotion'), 500);
         await v.click('#left-panel .pm-cancel', () => m.actions.cancelEditing({ quiet: true }), 600);
+        if (m.state.section) await m.run('section');
       } },
     ],
   },

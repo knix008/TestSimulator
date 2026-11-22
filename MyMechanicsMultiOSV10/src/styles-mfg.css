@@ -14,8 +14,12 @@
 .cam-gcode { max-height: 280px; overflow: auto; margin: 0; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font: 0.78em/1.35 ui-monospace, Consolas, monospace; white-space: pre; }
 .cam-overrides { margin: 6px 0; }
 .cam-overrides summary { cursor: pointer; color: var(--muted); font-size: 0.86em; }
-.pm-results li.error, .pm-note.fail { color: var(--danger); }
-.pm-results li.warn { color: color-mix(in srgb, var(--danger) 60%, var(--text)); }
+.mfg-results { display: grid; gap: 3px; margin: 6px 0; padding: 0; list-style: none; font-size: 0.84em; }
+.mfg-results li { display: flex; align-items: flex-start; gap: 6px; min-width: 0; }
+.mfg-results li span { min-width: 0; overflow-wrap: anywhere; }
+.mfg-results li.muted { color: var(--muted); }
+.mfg-results li.error, .pm-note.fail { color: var(--danger); }
+.mfg-results li.warn { color: color-mix(in srgb, var(--danger) 60%, var(--text)); }
 .pm-note.pass { color: color-mix(in srgb, #2e7d32 80%, var(--text)); }
 .pl-legend { display: flex; align-items: center; gap: 6px; margin: 6px 0; font-size: 0.8em; font-variant-numeric: tabular-nums; color: var(--muted); }
 .pl-ramp { flex: 1; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #264df2, #1accE6, #40cc4d, #f2d926, #e6332a); }

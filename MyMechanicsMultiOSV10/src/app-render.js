@@ -11,7 +11,9 @@ import * as THREE from 'three';
 import { PhotoRenderer, ENV_IDS, ENV_PRESETS, RESOLUTIONS, DEFAULT_RENDER, DEFAULT_AREA_LIGHT, normalizeRenderSettings, resolveResolution } from './view/render.js';
 import { PathTracer, tracerCamera } from './view/pt/pathtracer.js';
 import { appearanceFor, previewPbr, normalizeAppearance, APPEARANCE_IDS, APPEARANCE_PRESETS, TEXTURES } from './view/pt/appearance.js';
-import { parseHdr } from './view/pt/env.js';
+import { parseHdr, srgbToLinear } from './view/pt/env.js';
+import { meshFaceUVs } from './view/pt/uv.js';
+import { MAPPINGS } from './view/pt/appearance.js';
 import { materialName } from './cad/materials.js';
 import { pickWithInput } from './platform/native.js';
 import { escapeHtml } from './ui/dom.js';
@@ -20,7 +22,7 @@ import { icon } from './icons.js';
 /** Number fields of the page: [min, max, integer]. */
 const NUMS = {
   samples: [1, 65536, true], timeLimit: [0, 86400], bounces: [1, 32, true], sunIntensity: [0, 10], softness: [0, 10],
-  envIntensity: [0, 100], envRotation: [-360, 360], exposure: [0.01, 100], fov: [5, 120], fStop: [0.5, 64], focus: [0, 1e7],
+  envIntensity: [0, 100], envRotation: [-360, 360], exposure: [0.01, 100], fov: [5, 120], fStop: [0.5, 64], focus: [0, 1e7], lightRadius: [0, 1e5],
   floorReflect: [0, 1], floorRoughness: [0, 1], denoiseStrength: [0.05, 10], clamp: [0, 1e6],
 };
 const AREA_NUMS = { intensity: [0, 1e5], az: [-360, 360], el: [-89, 89], distance: [0.05, 100], width: [0.01, 50], height: [0.01, 50] };
@@ -204,7 +206,18 @@ export function createRenderTools(ctx, { begin, editing }) {
       const appearance = appearanceFor(material, p?.color ?? null, p?.appearance, comp?.appearance);
       const geometry = b.mesh.geometry;
       geometry.key ??= geometryKey(geometry);
-      list.push({ geometry, matrix, key: b.key, material, part: p, comp, name: comp?.name ?? p?.name ?? String(b.key), appearance, pbr: previewPbr(appearance) });
+      const item = { geometry, matrix, key: b.key, material, part: p, comp, name: comp?.name ?? p?.name ?? String(b.key), appearance, pbr: previewPbr(appearance) };
+      // Cable and harness colours per vertex (the rest of the body keeps its appearance).
+      if (b.renderColors && b.renderColors.length === geometry.getAttribute('position').count * 3) { item.vertexColors = b.renderColors; item.baseColor = srgbToLinear(b.color ?? '#ffffff'); }
+      // Texture coordinates from the B-rep faces, for flat patterns and pictures mapped by UV.
+      const wantsUv = appearance.texture !== 'none' && appearance.mapping === 'uv' && ['image', 'checker', 'knurl', 'carbon', 'brushed'].includes(appearance.texture);
+      if (wantsUv && p && ctx.buildPart) {
+        try {
+          const entry = ctx.buildPart(p);
+          if (entry?.mesh && entry.mesh.vertices.length === geometry.getAttribute('position').count * 3) item.uv = meshFaceUVs(entry) ?? undefined;
+        } catch { /* triplanar */ }
+      }
+      list.push(item);
       geometry.computeBoundingBox();
       box.union(geometry.boundingBox.clone().applyMatrix4(matrix));
     }
@@ -242,6 +255,7 @@ export function createRenderTools(ctx, { begin, editing }) {
       const preset = ENV_PRESETS[s.env] ?? ENV_PRESETS.studio;
       try {
         const ok = await tracer.setup({
+          onPhase: (ph) => { if (my !== job) return; e.status.preparing = ph.phase; e.status.phaseStart = performance.now(); updateStatus(); if (ph.phase === 'compile') startCompileClock(my); },
           bodies: list, camera: vp.camera, target: vp.target, box, sceneLights: ctx.project()?.lights ?? null, preset: s.env === 'custom' ? { ...ENV_PRESETS.studio, exposure: 1 } : preset,
           settings: { ...s, env: s.env === 'custom' && customEnv ? 'custom' : s.env === 'custom' ? 'studio' : s.env, size }, custom: s.env === 'custom' ? customEnv : null, keepOutside,
         });
@@ -259,7 +273,8 @@ export function createRenderTools(ctx, { begin, editing }) {
         return undefined;
       }
       current = tracer;
-      Object.assign(e.status, { preparing: false, focal: tracer.cam.focalLength, focusAuto: tracer.cam.focusAuto, triangles: tracer.scene?.count ?? 0 });
+      stopCompileClock();
+      Object.assign(e.status, { preparing: false, compileMs: tracer.lastCompileMs ?? 0, features: tracer.features ?? [], focal: tracer.cam.focalLength, focusAuto: tracer.cam.focusAuto, triangles: tracer.scene?.count ?? 0 });
       drawRegionBox();
       updateStatus();
       const at = document.querySelector('[data-render-camera]');
@@ -286,6 +301,14 @@ export function createRenderTools(ctx, { begin, editing }) {
     return undefined;
   }
 
+  // While the shader compiles (the first render of a kind of scene): the elapsed time every quarter second.
+  let compileClock = 0;
+  function startCompileClock(my) {
+    stopCompileClock();
+    compileClock = setInterval(() => { if (my !== job || editing()?.status?.preparing !== 'compile') { stopCompileClock(); return; } updateStatus(); }, 250);
+  }
+  function stopCompileClock() { clearInterval(compileClock); compileClock = 0; }
+
   const cameraNote = (st) => (st?.focal ? t('render.cameraNote', { f: ctx.fmt(st.focal, 0), d: ctx.fmt(st.focusAuto ?? 0, 0) }) : '');
 
   function updateStatus() {
@@ -298,9 +321,11 @@ export function createRenderTools(ctx, { begin, editing }) {
     const secs = (s.ms ?? 0) / 1000;
     const rate = secs > 0 ? s.count / secs : 0;
     const vars = { count: s.count, total: s.total, w: s.width, h: s.height, s: ctx.fmt(secs, 1), rate: ctx.fmt(rate, rate >= 10 ? 0 : 1) };
-    const key = s.preparing ? 'render.preparing' : s.mode === 'final' && current === tracer ? (s.done ? 'render.donePt' : 'render.progressPt') : (s.done ? 'render.done' : 'render.progress');
+    const compiling = s.preparing === 'compile';
+    if (compiling) vars.s = ctx.fmt((performance.now() - (s.phaseStart ?? performance.now())) / 1000, 1);
+    const key = compiling ? 'render.compiling' : s.preparing ? 'render.preparing' : s.mode === 'final' && current === tracer ? (s.done ? 'render.donePt' : 'render.progressPt') : (s.done ? 'render.done' : 'render.progress');
     const glyph = s.done ? 'check' : s.preparing ? 'renderTimer' : current === tracer ? 'renderFinal' : 'renderPreview';
-    el.innerHTML = `${icon(glyph, 'icon tiny')}<span>${escapeHtml(t(key, vars))}</span><i class="render-bar ${s.done ? 'done' : ''}"><b style="width:${s.preparing ? 0 : pct}%"></b></i><span class="render-pct">${s.preparing ? '' : `${pct}%`}</span>`;
+    el.innerHTML = `${icon(glyph, 'icon tiny')}<span>${escapeHtml(t(key, vars))}</span><i class="render-bar ${s.done ? 'done' : ''} ${s.preparing ? 'busy' : ''}"><b style="width:${s.preparing ? 100 : pct}%"></b></i><span class="render-pct">${s.preparing ? '' : `${pct}%`}</span>`;
     const out = document.querySelector('[data-render-progress]');
     if (out) out.textContent = `${s.count} / ${s.total}`;
   }
@@ -426,6 +451,7 @@ export function createRenderTools(ctx, { begin, editing }) {
         color('ap.emissive', a.emissive, t('render.ap.emissive')),
         pmNum('ap.emissiveIntensity', a.emissiveIntensity, t('render.ap.emissiveIntensity'), 'bulb'),
         select('ap.texture', TEXTURES.map((id) => [id, t(`render.texture.${id}`)]), a.texture, t('render.ap.texture'), 'texture'),
+        a.texture !== 'none' && a.texture !== 'wood' && a.texture !== 'cast' ? select('ap.mapping', MAPPINGS.map((id) => [id, t(`render.mapping.${id}`)]), a.mapping, t('render.ap.mapping'), 'texture') : '',
         a.texture !== 'none' ? pmNum('ap.textureScale', a.textureScale, t('render.ap.textureScale'), 'texture') : '',
         `<div class="pm-row">${pmButton('std.renderLoadImage', 'imageBg', t('render.loadImage'))}${a.image ? pmButton('std.renderClearImage', 'imageClear', t('render.clearImage')) : ''}${pmButton('std.renderAppReset', 'refresh', t('render.ap.reset'))}</div>`,
       ].join('');
@@ -435,10 +461,10 @@ export function createRenderTools(ctx, { begin, editing }) {
       pmHead('renderView', t('cmd.renderView'), t('pm.help.renderView')),
       pmGroup('renderFinal', t('render.mode'), `${pmSeg('mode', [['final', t('render.mode.final'), 'renderFinal'], ['preview', t('render.mode.preview'), 'renderPreview']], s.mode)}${note(t(final ? 'render.mode.finalNote' : 'render.mode.previewNote'))}${tracerError ? note(t('render.noPathTracer', { reason: tracerError })) : ''}`),
       pmGroup('environment', t('render.environment'), `${pmSeg('env', envs, s.env)}<div class="pm-row">${pmButton('std.renderLoadHdr', 'hdrLoad', t('render.loadHdr'))}</div>${pmNum('envIntensity', s.envIntensity, t('render.envIntensity'), 'sun')}${pmNum('envRotation', s.envRotation, t('render.envRotation'), 'dimAngle')}${pmSeg('background', [['env', t('render.bg.env')], ['white', t('render.bg.white')], ['transparent', t('render.bg.transparent')]], s.background)}`),
-      pmGroup('sun', t('render.lighting'), `${pmNum('sunIntensity', s.sunIntensity, t('render.sunIntensity'), 'sun')}${pmNum('softness', s.softness, t('render.softness'), 'groundShadow')}${final ? `${check('sceneLights', s.sceneLights, t('render.sceneLights', { n: sceneLightCount }), 'bulb')}${areas || note(t('render.al.none'))}<div class="pm-row">${pmButton('std.renderAddLight', 'areaLight', t('render.addAreaLight'))}</div>` : ''}`),
-      pmGroup('groundShadow', t('render.groundBg'), `${pmSeg('ground', [['shadow', t('render.ground.shadow')], ['floor', t('render.ground.floor')], ['none', t('render.ground.none')]], s.ground)}${final && s.ground === 'shadow' ? check('reflections', s.reflections, t('render.reflections'), 'groundShadow') : ''}${final && (s.ground === 'floor' || s.reflections) && s.ground !== 'none' ? `${pmNum('floorReflect', s.floorReflect, t('render.floorReflect'), 'groundShadow')}${pmNum('floorRoughness', s.floorRoughness, t('render.floorRoughness'), 'groundShadow')}` : ''}`),
+      pmGroup('sun', t('render.lighting'), `${pmNum('sunIntensity', s.sunIntensity, t('render.sunIntensity'), 'sun')}${pmNum('softness', s.softness, t('render.softness'), 'groundShadow')}${final ? pmNum('lightRadius', s.lightRadius, t('render.lightRadius'), 'bulb', 'mm') : ''}${final ? `${check('sceneLights', s.sceneLights, t('render.sceneLights', { n: sceneLightCount }), 'bulb')}${areas || note(t('render.al.none'))}<div class="pm-row">${pmButton('std.renderAddLight', 'areaLight', t('render.addAreaLight'))}</div>` : ''}`),
+      pmGroup('groundShadow', t('render.groundBg'), `${pmSeg('ground', [['shadow', t('render.ground.shadow')], ['floor', t('render.ground.floor')], ['none', t('render.ground.none')]], s.ground)}${final && s.ground === 'shadow' ? `${pmSeg('catcherMode', [['direct', t('render.catcher.direct')], ['differential', t('render.catcher.differential')]], s.catcherMode)}${note(t(s.catcherMode === 'differential' ? 'render.catcher.differentialNote' : 'render.catcher.directNote'))}${check('reflections', s.reflections, t('render.reflections'), 'groundShadow')}` : ''}${final && (s.ground === 'floor' || s.reflections) && s.ground !== 'none' ? `${pmNum('floorReflect', s.floorReflect, t('render.floorReflect'), 'groundShadow')}${pmNum('floorRoughness', s.floorRoughness, t('render.floorRoughness'), 'groundShadow')}` : ''}`),
       pmGroup('cameraLens', t('render.camera'), `${final ? pmSeg('projection', [['view', t('render.projection.view')], ['perspective', t('render.projection.perspective')], ['orthographic', t('render.projection.orthographic')]], s.projection) : ''}${final ? pmNum('fov', s.fov, t('render.fov'), 'dimAngle') : ''}${check('dof', s.dof, t('render.dofOn'), 'depthOfField')}${s.dof ? `${pmNum('fStop', s.fStop, t('render.fStop'), 'depthOfField')}${pmNum('focus', s.focus, t('render.focus'), 'smartDim', 'mm')}${note(t('render.focusAuto'))}<div class="pm-row">${pmButton('std.renderFocusPick', 'focusPick', t('render.pickFocus'), e.tool === 'focus' ? 'active' : '')}</div>` : ''}${note(cameraNote(st), 'data-render-camera')}`),
-      pmGroup('resolution', t('render.quality'), `${select('resolution', Object.keys(RESOLUTIONS).map((k) => [k, RES_LABEL[k] ?? t('render.res.view')]), s.resolution, t('render.resolution'), 'resolution')}${pmNum('samples', s.samples, t('render.samples'), 'resolution')}${final ? `${pmNum('timeLimit', s.timeLimit, t('render.timeLimit'), 'renderTimer')}${pmNum('bounces', s.bounces, t('render.bounces'), 'bounces')}${check('denoise', s.denoise, t('render.denoise'), 'denoise')}${s.denoise ? pmNum('denoiseStrength', s.denoiseStrength, t('render.denoiseStrength'), 'denoise') : ''}${pmSeg('caustics', [['fast', t('render.caustics.fast')], ['physical', t('render.caustics.physical')]], s.caustics)}${pmNum('clamp', s.clamp, t('render.clamp'), 'sparkles')}` : ''}${pmNum('exposure', s.exposure, t('render.exposure'), 'sun')}${final ? pmSeg('tone', [['aces', t('render.tone.aces')], ['linear', t('render.tone.linear')]], s.tone) : ''}`),
+      pmGroup('resolution', t('render.quality'), `${select('resolution', Object.keys(RESOLUTIONS).map((k) => [k, RES_LABEL[k] ?? t('render.res.view')]), s.resolution, t('render.resolution'), 'resolution')}${pmNum('samples', s.samples, t('render.samples'), 'resolution')}${final ? `${pmNum('timeLimit', s.timeLimit, t('render.timeLimit'), 'renderTimer')}${pmNum('bounces', s.bounces, t('render.bounces'), 'bounces')}${check('denoise', s.denoise, t('render.denoise'), 'denoise')}${s.denoise ? `${pmSeg('denoiser', [['svgf', t('render.denoiser.svgf')], ['atrous', t('render.denoiser.atrous')]], s.denoiser)}${pmNum('denoiseStrength', s.denoiseStrength, t('render.denoiseStrength'), 'denoise')}` : ''}${pmSeg('caustics', [['fast', t('render.caustics.fast')], ['physical', t('render.caustics.physical')]], s.caustics)}${pmNum('clamp', s.clamp, t('render.clamp'), 'sparkles')}` : ''}${pmNum('exposure', s.exposure, t('render.exposure'), 'sun')}${final ? pmSeg('tone', [['aces', t('render.tone.aces')], ['linear', t('render.tone.linear')]], s.tone) : ''}`),
       final ? pmGroup('renderRegion', t('render.region'), `${note(region)}<div class="pm-row">${pmButton('std.renderRegion', 'renderRegion', t('render.drawRegion'), e.tool === 'region' ? 'active' : '')}${pmButton('std.renderRegionClear', 'renderRegionClear', t('render.clearRegion'))}</div>${e.tool === 'region' ? note(t('render.regionHint')) : ''}`) : '',
       pmGroup('appearance', t('render.appearances'), `${note(t('render.pickHint'))}<div class="render-bodies">${rows}</div>${editor}`),
       pmGroup('renderView', t('render.output'), `<p class="pm-note">${escapeHtml(t('render.samplesDone'))}: <b data-render-progress>${st ? `${st.count} / ${st.total}` : '—'}</b></p><div class="pm-row">${pmButton('std.render', 'play', t('render.restart'), 'primary')}${pmButton('std.renderStop', 'stop', t('render.stop'))}${pmButton('std.renderSave', 'renderSave', t('render.save'))}</div>`),
@@ -510,6 +536,7 @@ export function createRenderTools(ctx, { begin, editing }) {
   function select(key, value) {
     if (key === 'ap.preset') { setAppearance('preset', value); return true; }
     if (key === 'ap.texture') { setAppearance('texture', value); return true; }
+    if (key === 'ap.mapping') { setAppearance('mapping', value); return true; }
     if (key === 'resolution') { renderSettings.resolution = value; renderSettings.region = null; ctx.renderLeft(); rerender(); return true; }
     return false;
   }
@@ -571,6 +598,8 @@ export function createRenderTools(ctx, { begin, editing }) {
     /** Test hooks: a loaded .hdr environment and an image texture without file dialogs. */
     setEnvironmentHdr: (buffer, name = 'test.hdr') => loadHdr(buffer, name),
     setAppearanceImage: (dataUrl) => loadImage(dataUrl),
+    /** After undo / redo inside Render: the page and the picture follow the document. */
+    afterHistory: () => { if (editing()?.mode === 'render') { ctx.renderLeft(); rerender(); } },
     setAppearance: (fieldName, value) => setAppearance(fieldName, value),
     /** Test scenes (glass, metal, shadow, convergence) built from plain geometry: view/pt/lab.js. */
     lab: () => import('./view/pt/lab.js'),

@@ -9,6 +9,7 @@ import { materialName } from '../cad/materials.js';
 import { ROUTE_ICONS } from '../cad/std-types.js';
 import { getLanguage } from '../i18n.js';
 import { harnessModel, harnessFlat, harnessSvg, harnessPoints, WIRE_SIZES, WIRE_COLOURS } from '../cad/harness.js';
+import { CONNECTOR_TYPE_IDS, CLIP_TYPE_IDS, connectorDims } from '../cad/harness-parts.js';
 
 const note = (text, warn = false) => `<p class="pm-note ${warn ? 'warn' : ''}">${warn ? icon('warning', 'icon tiny') : ''}${escapeHtml(text)}</p>`;
 export const ROUTE_COLOURS = ['#d23c3c', '#2f6fd6', '#2e9e4f', '#f0c419', '#222428', '#f2f2f2', '#e07b22', '#8a4fd1'];
@@ -161,6 +162,9 @@ export function routeBranches(api, f) {
   return group('routeBranch', t('route.branches'), `${list}<div class="pm-row">${addBtn(api, 'addBranch', 'routeBranch', t('route.addBranch'))}</div>${note(t(f.kind === 'pipe' ? 'route.branchPipe' : f.kind === 'tube' ? 'route.branchTube' : f.kind === 'harness' ? 'route.branchHarness' : 'route.branchCable'))}`);
 }
 
+/** A connector's housing size as text ("9 × 6.5 × 16"). */
+const connDimsText = (c) => { const d = connectorDims(c.type ?? 'rect25', c.pins ?? 1); const n = (v) => String(Math.round(v * 10) / 10); return d.shape === 'round' ? `Ø${n(d.D)} × ${d.depth}` : `${n(d.w)} × ${n(d.h)} × ${d.depth}`; };
+
 /** Harness tables: connectors (name, point, pins), clips (point), wires (from pin, to pin, size, colour, clips). */
 export function harnessTables(api, f, features = []) {
   const { t } = api;
@@ -171,9 +175,9 @@ export function harnessTables(api, f, features = []) {
   const cRows = conns.map((c, i) => {
     const opts = pts.map((p) => [ptKey(p), ptName(p)]);
     if (!pts.some((p) => ptKey(p) === ptKey(c.at))) opts.unshift([ptKey(c.at), `${ptName(c.at)} ⚠`]);
-    return `<div class="harness-row conn">${txt(`hc:${i}:name`, c.name, t('harness.name'))}${sel(`hc:${i}:at`, opts, ptKey(c.at), t('harness.point'))}${txt(`hc:${i}:pins`, c.pins, t('harness.pins'))}${delBtn(api, `delConn.${i}`)}</div>`;
+    return `<div class="harness-row conn">${txt(`hc:${i}:name`, c.name, t('harness.name'))}${sel(`hc:${i}:at`, opts, ptKey(c.at), t('harness.point'))}${txt(`hc:${i}:pins`, c.pins, t('harness.pins'))}${delBtn(api, `delConn.${i}`)}${sel(`hc:${i}:type`, CONNECTOR_TYPE_IDS.map((k) => [k, t(`harness.conn.${k}`)]), c.type ?? 'rect25', t('harness.connType'))}<span class="harness-dims">${escapeHtml(connDimsText(c))}</span></div>`;
   }).join('');
-  const kRows = (f.clips ?? []).map((c, i) => `<div class="pt3-row"><b title="${escapeHtml(c.name ?? '')}">${escapeHtml(c.name ?? `C${i + 1}`)}</b>${ptInputs(api, `hk:${i}`, c.at)}${delBtn(api, `delClip.${i}`)}</div>`).join('');
+  const kRows = (f.clips ?? []).map((c, i) => `<div class="pt3-row"><b title="${escapeHtml(c.name ?? '')}">${escapeHtml(c.name ?? `C${i + 1}`)}</b>${ptInputs(api, `hk:${i}`, c.at)}${delBtn(api, `delClip.${i}`)}</div><div class="harness-clip-type">${sel(`hk:${i}:type`, CLIP_TYPE_IDS.map((k) => [k, t(`harness.clip.${k}`)]), c.type ?? 'pClip', t('harness.clipType'))}</div>`).join('');
   const names = conns.map((c) => [c.name, c.name]);
   const wRows = (f.wires ?? []).map((w, i) => `<div class="harness-row wire" style="--swatch:${escapeHtml(WIRE_COLOURS[w.color] ?? '#888')}">${txt(`hw:${i}:name`, w.name, t('harness.name'))}${sel(`hw:${i}:from`, names, w.from, t('harness.from'))}${txt(`hw:${i}:fromPin`, w.fromPin, t('harness.pin'))}${sel(`hw:${i}:to`, names, w.to, t('harness.to'))}${txt(`hw:${i}:toPin`, w.toPin, t('harness.pin'))}${sel(`hw:${i}:gauge`, WIRE_SIZES.map((g) => [g, `${g} mm²`]), w.gauge, t('harness.gauge'))}${sel(`hw:${i}:color`, Object.keys(WIRE_COLOURS).map((k) => [k, t(`harness.colour.${k}`)]), w.color, t('route.colour'))}${txt(`hw:${i}:via`, (w.via ?? []).join(', '), t('harness.via'))}${delBtn(api, `delWire.${i}`)}</div>`).join('');
   return [
@@ -196,7 +200,7 @@ export function harnessResults(api, f, bom, features = []) {
   try { flat = harnessSvg(harnessFlat(harnessModel(f, features)), { labels: harnessLabels(t) }); } catch (error) { flat = `<p class="pm-error">${icon('error')}<span>${escapeHtml(t(`rebuild.${error.code ?? 'route-failed'}`, null, error.code ?? ''))}</span></p>`; }
   return [
     group('harnessWire', t('harness.wireList'), `<div class="std-table-wrap"><table class="std-table route-bom"><tr><th>${escapeHtml(t('harness.wire'))}</th><th>${escapeHtml(t('harness.from'))}</th><th>${escapeHtml(t('harness.to'))}</th><th>mm²</th><th>${escapeHtml(t('route.length'))}</th></tr>${wl}</table></div><dl class="pm-results"><dt>${escapeHtml(t('harness.bundleDiameters'))}</dt><dd>${escapeHtml(dia)}</dd></dl>`),
-    group('harnessFlat', t('harness.flat'), `<div class="harness-flat">${flat}</div><div class="pm-row">${addBtn(api, 'exportSvg', 'exportFile', t('harness.exportSvg'))}${addBtn(api, 'exportDxf', 'exportFile', t('harness.exportDxf'))}</div>${note(t('harness.flatRule'))}`),
+    group('harnessFlat', t('harness.flat'), `<div class="harness-flat">${flat}</div><div class="pm-row">${addBtn(api, 'exportSvg', 'exportFile', t('harness.exportSvg'))}${addBtn(api, 'exportDxf', 'exportFile', t('harness.exportDxf'))}</div>${note(t('harness.flatRule'))}${note(t('harness.drawingHint'))}`),
   ].join('');
 }
 
@@ -207,6 +211,8 @@ export function routeBomHtml(api, bom) {
   const item = (r) => {
     if (r.item === 'elbow') return `${t('route.bom.elbow')} ${r.angle}°`;
     if (r.item === 'elbowCut') return `${t('route.bom.elbowCut', { from: r.from })} ${r.angle}°`;
+    if (r.item === 'lateral' || r.item === 'saddle') return `${t(`route.bom.${r.item}`)}${r.angle != null ? ` ${r.angle}°` : ''}`;
+    if (r.item === 'connector' || r.item === 'clip') return `${t(`route.bom.${r.item}`)} (${t(`harness.${r.item === 'connector' ? 'conn' : 'clip'}.${r.type}`)})`;
     return t(`route.bom.${r.item}`);
   };
   const rows = bom.rows.map((r) => `<tr><td>${r.color ? `<i class="route-swatch" style="--swatch:${escapeHtml(r.color)}"></i>` : ''}${escapeHtml(item(r))}</td><td>${escapeHtml(r.size)}</td><td>${r.qty}</td><td>${r.length == null ? '—' : escapeHtml(api.fmtLen(r.length))}</td></tr>`).join('');

@@ -5,6 +5,9 @@
 //          elbow or, beyond 90°, from a 180° return). A branch starting on the network makes a tee (equal, or
 //          reducing when the branch is smaller; a smaller run side gets a concentric reducer on the tee); a size
 //          change along a straight run gets a concentric reducer. Weld-neck flanges can end the route.
+//          Two opposite branches make a cross; a branch at 15°–75° a lateral (45°: standard dimensions,
+//          LATERAL_STD); three legs without a straight run a Y (90° true Y standard, others fabricated); a size
+//          change at a 90° elbow a B16.9 reducing elbow (law-driven sweep), elsewhere an elbow or bend + reducers.
 //   tube   any outside diameter and wall, bent at the corners; branches are saddle-welded into the run (the
 //          branch is cut to fit the run's outside), size changes along a run get a 30° swaged cone.
 //   cable  a solid round cable (diameter, colour) along a smooth spline through each run's points; branches are
@@ -57,6 +60,22 @@ export const REDUCING_TEE_M = {
   DN80: { DN65: 82.6, DN50: 76.2, DN40: 73.0, DN32: 69.9 },
   DN100: { DN80: 98.4, DN65: 95.3, DN50: 88.9, DN40: 85.7 },
 };
+/**
+ * 45° laterals and 90° true "Y"s, centre to end (mm), by the largest opening. ASME B16.9 does not cover laterals;
+ * manufacturer-standard laterals follow the centre-to-face dimensions of ASME B16.5-2013, Table 9 ("Dimensions
+ * of Class 150 Flanged Fittings", columns AA, EE, FF), and so do these:
+ *   EE  long centre to end of a 45° lateral (the long run end and the branch end)
+ *   FF  short centre to end of a 45° lateral, and the inlet of a true "Y"
+ *   AA  centre to end of a tee / cross / the outlets of a true "Y"
+ * The table starts at NPS 1 (DN25); NPS 1/2 and 3/4 laterals have no listed size (the geometric rule applies).
+ * Reducing laterals / Ys take the dimensions of the largest opening (B16.5, para. 6.2.3).
+ */
+export const LATERAL_STD = {
+  DN25: { AA: 89, EE: 146, FF: 44 }, DN32: { AA: 95, EE: 159, FF: 44 }, DN40: { AA: 102, EE: 178, FF: 51 }, DN50: { AA: 114, EE: 203, FF: 64 },
+  DN65: { AA: 127, EE: 241, FF: 64 }, DN80: { AA: 140, EE: 254, FF: 76 }, DN100: { AA: 165, EE: 305, FF: 76 },
+};
+export const LATERAL_STD_SOURCE = 'ASME B16.5-2013 Table 9 (Class 150 flanged fittings: AA, EE, FF)';
+
 /** Half-angle of a swaged tube reducer cone (degrees). */
 export const TUBE_REDUCER_HALF_ANGLE = 15;
 
@@ -265,6 +284,49 @@ export function saddleCutBack(R, r, alpha) {
 export const REDUCING_ELBOWS = { DN50: ['DN40', 'DN32', 'DN25'], DN65: ['DN50', 'DN40', 'DN32'], DN80: ['DN65', 'DN50', 'DN40', 'DN32'], DN100: ['DN80', 'DN65', 'DN50'] };
 
 /**
+ * A three-way junction without a straight run (a "Y"): the inlet is the leg whose way on lies between the other
+ * two. Outlets 45° either side of it in one plane make a standard 90° true "Y" (LATERAL_STD: outlets AA, inlet FF,
+ * by the largest opening); any other Y is fabricated: each leg ends where its outside clears the other legs'
+ * outsides ((Rⱼ + r·cos γ)/sin γ, γ the angle between the legs) plus one radius, at least one diameter.
+ */
+function wyeJunction(J, inc, n) {
+  const ang = (u, v) => Math.acos(clamp1(dot(u, v)));
+  let inlet = -1;
+  for (let i = 0; i < 3 && inlet < 0; i++) {
+    const on = neg(inc[i].out);
+    const others = inc.filter((_, k) => k !== i);
+    const b = others.map((o) => ang(on, o.out));
+    if (b.every((x) => deg(x) >= 15 - 1e-9 && deg(x) <= 75 + 1e-9)) inlet = i;
+  }
+  if (inlet < 0) throw code('tee-no-run', { index: n.id + 1 });
+  const inl = inc[inlet]; const outs = inc.filter((_, k) => k !== inlet);
+  const dns = inc.map((x) => dnOf(x.e.spec));
+  const big = dns.reduce((m, d) => (dnIndex(d) > dnIndex(m) ? d : m), dns[0]);
+  if (dnIndex(dnOf(inl.e.spec)) < Math.max(...outs.map((o) => dnIndex(dnOf(o.e.spec))))) throw code('tee-outlet-larger', { index: n.id + 1 });
+  const on = neg(inl.out);
+  const betas = outs.map((o) => deg(ang(on, o.out)));
+  const planar = Math.abs(dot(cross(outs[0].out, outs[1].out), on)) < 1e-6;
+  const sym = planar && betas.every((b) => Math.abs(b - 45) < ELBOW_ANGLE_TOL) && dot(outs[0].out, outs[1].out) < 1e-6;
+  const legs = inc.map((x) => {
+    const r = x.e.sec.ro;
+    let L = 2 * r;
+    for (const y of inc) {
+      if (y === x) continue;
+      const g = ang(x.out, y.out);
+      if (Math.sin(g) < 1e-9) continue;
+      L = Math.max(L, (y.e.sec.ro + r * Math.cos(g)) / Math.sin(g) + r);
+    }
+    return { ei: x.ei, dir: x.out, L, sec: x.e.sec, size: dnOf(x.e.spec) };
+  });
+  const std = sym ? LATERAL_STD[big] : null;
+  if (std) for (const l of legs) l.L = l.ei === inl.ei ? std.FF : std.AA;
+  J.kind = 'wye';
+  J.fitting = { size: big, legs, inlet: inl.ei, betas, standard: std ? LATERAL_STD_SOURCE : null, trueY: Boolean(std) };
+  for (const l of legs) J.trim.set(l.ei, l.L);
+  return J;
+}
+
+/**
  * What happens at each node of the network: [{ node, kind: 'end' | 'inline' | 'bend' | 'elbow' | 'tee' |
  * 'cross' | 'lateral' | 'reducer' | 'saddle' | 'splice', trim: Map edge → take-out (the pipe of that edge starts
  * this far from the node), cut: Map edge → extra cut length (saddles), through: [e, e] (the run goes on through
@@ -354,7 +416,10 @@ export function routeJunctions(net, f) {
     // Collinear pairs: the run (and, at a cross, the outlets).
     const pairs = [];
     for (let i = 0; i < inc.length; i++) for (let j = i + 1; j < inc.length; j++) if (dot(inc[i].out, inc[j].out) < -1 + 1e-6) pairs.push([i, j]);
-    if (!pairs.length) throw code('tee-no-run', { index: n.id + 1 });
+    if (!pairs.length) {
+      if (inc.length !== 3) throw code('tee-no-run', { index: n.id + 1 });
+      return wyeJunction(J, inc, n);
+    }
     if (inc.length === 4 && pairs.length < 2 && pipe) throw code('cross-angle', { index: n.id + 1 });
     // The run: the pair with the largest leg.
     const size = (x) => (pipe ? dnIndex(dnOf(x.e.spec)) : x.e.sec.od);
@@ -402,9 +467,13 @@ export function routeJunctions(net, f) {
     }
     const a = deg(alpha);
     if (a < 15 - 1e-9 || a > 75 + 1e-9) throw code('tee-angle', { index: n.id + 1 });
-    // A lateral (wye): fabricated, take-outs from the geometry of the two pipes (lateralTakeouts).
+    // A lateral: at 45° the standard dimensions (LATERAL_STD, by the run's size), at other angles fabricated with
+    // take-outs from the geometry of the two pipes (lateralTakeouts).
     const secRun = routeSection({ kind: 'pipe', dn: runDn }); const secOut = ob.e.sec;
-    const t = lateralTakeouts(secRun.ro, secOut.ro, alpha);
+    const geo = lateralTakeouts(secRun.ro, secOut.ro, alpha);
+    const std = Math.abs(a - 45) < ELBOW_ANGLE_TOL ? LATERAL_STD[runDn] : null;
+    const t = std ? { ...geo, long: std.EE, short: std.FF, branch: std.EE, standard: LATERAL_STD_SOURCE } : { ...geo, standard: null };
+    if (std && (t.branch < geo.clear || t.long < geo.x2 || t.short < Math.max(-geo.x1, secOut.ro * Math.sin(alpha)))) throw code('route-failed');
     const short = toward === ri ? rj : ri;
     J.kind = 'lateral';
     J.fitting = { runSize: runDn, outletSize: dnOf(ob.e.spec), angle: a, alpha, ...t, run: [ri.ei, rj.ei], outlet: ob.ei, longDir: toward.out, outDir: ob.out, secRun, secOut };
@@ -623,8 +692,13 @@ export function routeBom(f, features = [], { measured = null } = {}) {
   }
   for (const j of J.filter((x) => x.kind === 'lateral')) {
     const t = j.fitting; const a = Math.round(t.angle * 10) / 10;
-    notes.add('lateral');
+    if (!t.standard) notes.add('lateral');
     group(`lat|${t.runSize}|${t.outletSize}|${a}`, () => ({ item: 'lateral', size: t.outletSize === t.runSize ? t.runSize : `${t.runSize}×${t.outletSize}`, length: null, angle: a }));
+  }
+  for (const j of J.filter((x) => x.kind === 'wye')) {
+    const w = j.fitting;
+    if (!w.trueY) notes.add('wye');
+    group(`wye|${w.size}|${w.trueY}|${w.betas.map((b) => Math.round(b * 10) / 10).join('/')}`, () => ({ item: w.trueY ? 'trueY' : 'wye', size: w.size, length: null, angle: Math.round((w.betas[0] + w.betas[1]) * 10) / 10 }));
   }
   const reducers = J.flatMap((x) => x.reducers ?? []);
   for (const r of reducers) group(`red|${r.largeSize}|${r.smallSize}`, () => ({ item: f.kind === 'pipe' ? 'reducer' : 'tubeReducer', size: `${r.largeSize}×${r.smallSize}`, length: f.kind === 'pipe' ? null : cut(r.H) }));
@@ -635,7 +709,7 @@ export function routeBom(f, features = [], { measured = null } = {}) {
   const elbows = J.filter((x) => x.kind === 'elbow' && x.fitting.fitting !== 'bend').length;
   return {
     kind: f.kind, length, rows, bends: bends.length + elbows,
-    fittings: { elbows, tees: J.filter((x) => x.kind === 'tee').length, crosses: J.filter((x) => x.kind === 'cross').length, laterals: J.filter((x) => x.kind === 'lateral').length, reducers: reducers.length, saddles: saddles.length },
+    fittings: { elbows, tees: J.filter((x) => x.kind === 'tee').length, crosses: J.filter((x) => x.kind === 'cross').length, laterals: J.filter((x) => x.kind === 'lateral').length, wyes: J.filter((x) => x.kind === 'wye').length, reducers: reducers.length, saddles: saddles.length },
     notes: [...notes],
   };
 }
@@ -722,39 +796,50 @@ function lateralSolid(p, t) {
 }
 
 /**
- * A reducing elbow: the centre line an arc of radius R from p − d1·T to p + d2·T, the section going linearly
- * (with the angle) from secA to secB — a loft through `n` circles square to the arc; hollow.
+ * A fabricated / standard Y: every leg a hollow cylinder from the node, each outside and bore carried back
+ * through the node by its own radius so the bores meet in a ball round the junction.
  */
-export function reducingElbowSolid(p, { d1, d2, R: radius, secA, secB, n = 9 }) {
+function wyeSolid(p, w) {
+  const R = rep();
+  const delta = 1;
+  let outer = null; let inner = null;
+  for (const l of w.legs) {
+    const o = R.makeCylinder(l.sec.ro, l.L + l.sec.ro, sub(p, mul(l.dir, l.sec.ro)), l.dir);
+    const i = R.makeCylinder(l.sec.ri, l.L + l.sec.ri + delta, sub(p, mul(l.dir, l.sec.ri)), l.dir);
+    outer = outer ? outer.fuse(o) : o; inner = inner ? inner.fuse(i) : i;
+  }
+  return outer.cut(inner);
+}
+
+/**
+ * A reducing elbow as the standard defines it: the circular section swept along the centre-line arc (radius R,
+ * p − d1·T to p + d2·T) with its radius going linearly from secA to secB — a law-driven sweep (the kernel's pipe
+ * shell with a linear homothety law), outside minus bore. Volume = R·θ·π·((a² + ab + b²) − (c² + cd + d²))/3.
+ */
+export function reducingElbowSolid(p, { d1, d2, R: radius, secA, secB }) {
   const Rk = rep(); const oc = Rk.getOC();
   const arc = cornerArc(sub(p, d1), p, add(p, d2), radius);
-  const theta = (arc.angle * Math.PI) / 180;
-  const c = arc.centre;
-  const u = unit(sub(arc.a, c));
-  const ax = unit(cross(u, d1));
-  const loft = (rOf, extra) => {
-    const ts = new oc.BRepOffsetAPI_ThruSections(true, false, 1e-6);
+  const sweep = (r0, r1) => {
+    const spine = Rk.assembleWire([Rk.makeThreePointArc(arc.a, arc.mid, arc.b)]);
+    const profile = Rk.assembleWire([Rk.makeCircle(r0, arc.a, d1)]);
+    const ps = new oc.BRepOffsetAPI_MakePipeShell(spine.wrapped);
+    const law = new oc.Law_Linear();
     try {
-      for (let i = 0; i <= n; i++) {
-        const t = i / n;
-        const ang = theta * t;
-        // Point and tangent of the arc at the angle (rotation of u about ax by ang).
-        const v = cross(ax, u);
-        const dir = add(mul(u, Math.cos(ang)), mul(v, Math.sin(ang)));
-        const tan = add(mul(u, -Math.sin(ang)), mul(v, Math.cos(ang)));
-        let at = add(c, mul(dir, radius)); let tg = tan;
-        if (extra && (i === 0 || i === n)) at = add(at, mul(tg, i === 0 ? -extra : extra));
-        ts.AddWire(Rk.assembleWire([Rk.makeCircle(rOf(t), at, tg)]).wrapped);
-        void tg;
-      }
-      ts.Build(new oc.Message_ProgressRange());
-      if (!ts.IsDone()) throw code('route-failed');
-      return Rk.cast(ts.Shape());
-    } finally { ts.delete(); }
+      ps.SetMode(false);
+      law.Set(0, 1, 1, r1 / r0);
+      ps.SetLaw(profile.wrapped, law, false, false);
+      ps.SetTolerance(1e-7, 1e-7, 1e-4);
+      ps.Build(new oc.Message_ProgressRange());
+      if (!ps.IsDone()) throw code('route-failed');
+      ps.MakeSolid();
+      return Rk.cast(ps.Shape());
+    } finally { ps.delete(); }
   };
-  const lerp = (a, b) => (t) => a + (b - a) * t;
-  return loft(lerp(secA.ro, secB.ro), 0).cut(loft(lerp(secA.ri, secB.ri), 0));
+  return sweep(secA.ro, secB.ro).cut(sweep(secA.ri, secB.ri));
 }
+
+/** Exact volume of a reducing elbow (section radii linear along the arc). */
+export const reducingElbowVolume = (R, theta, roA, roB, riA, riB) => R * theta * Math.PI * ((roA * roA + roA * roB + roB * roB) - (riA * riA + riA * riB + riB * riB)) / 3;
 
 /** A part moved so that its +Z points along `dir`, then to `at`. */
 export function orientZ(s, dir, at) {
@@ -828,6 +913,7 @@ export function routeSolid(f, features, stdShape) {
       const secRun = routeSection({ kind: 'pipe', dn: t.runSize }); const secOut = routeSection({ kind: 'pipe', dn: t.outletSize });
       solids.push(j.kind === 'tee' ? teeSolid(p, t, secRun, secOut) : crossSolid(p, t, secRun, secOut));
     } else if (j.kind === 'lateral') solids.push(lateralSolid(p, j.fitting));
+    else if (j.kind === 'wye') solids.push(wyeSolid(p, j.fitting));
     for (const r of j.reducers ?? []) {
       const L = r.secL ?? routeSection({ kind: 'pipe', dn: r.largeSize }); const S = r.secS ?? routeSection({ kind: 'pipe', dn: r.smallSize });
       solids.push(reducerSolid(L.ro, S.ro, L.ri, S.ri, r.H, r.base, r.dir));

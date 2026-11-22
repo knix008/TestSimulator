@@ -61,12 +61,14 @@ export function editRouteTable(f, key, raw, v) {
       con.name = name; return true;
     }
     if (b === 'pins') { if (needNum() || v < 1) return 'invalid'; con.pins = Math.round(v); return true; }
+    if (b === 'type') { con.type = String(raw); return true; }
     if (b === 'at') { const p = String(raw).split(',').map(Number); if (p.length !== 3 || !p.every(Number.isFinite)) return 'invalid'; con.at = p; return true; }
     return true;
   }
   if (kind === 'hk') {
     const k = f.clips?.[i]; if (!k) return true;
     if (b === 'name') { k.name = String(raw).trim() || k.name; return true; }
+    if (b === 'type') { k.type = String(raw); return true; }
     if (needNum()) return 'invalid';
     k.at = k.at.slice(); k.at[Number(b)] = v; return true;
   }

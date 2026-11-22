@@ -44,6 +44,15 @@ export function buildModel(bodies, meshOptions = {}, onProgress = null) {
   for (let b = 0; b < bodies.length; b++) {
     const body = bodies[b];
     const opts = { ...meshOptions, ...(body.meshOptions ?? {}), order, onProgress: onProgress && ((f) => onProgress((b + f) / bodies.length)) };
+    // Local feature size: a body thinner than the element size gets elements of its own size (at least 2.5 through
+    // its thinnest extent), so small components keep their faces at coarse global sizes.
+    if (meshOptions.featureSize !== false && bodies.length > 1 && !(body.meshOptions?.size > 0)) {
+      const V = body.mesh.vertices, lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+      for (let i = 0; i < V.length; i += 3) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], V[i + k]); hi[k] = Math.max(hi[k], V[i + k]); }
+      const ext = [0, 1, 2].map((k) => hi[k] - lo[k]), minExt = Math.min(...ext), maxExt = Math.max(...ext);
+      const global = opts.size > 0 ? opts.size : maxExt / Math.max(2, opts.resolution ?? 16);
+      opts.size = Math.min(global, Math.max(minExt / 2.5, maxExt / 40));
+    }
     if (Array.isArray(meshOptions.refine) && meshOptions.refine.some((r) => r.body != null)) opts.refine = meshOptions.refine.filter((r) => (r.body ?? 0) === b);
     const m = meshSurface(body.mesh, opts);
     if (!m.ok) return { ok: false, error: m.error, body: b };
@@ -158,6 +167,29 @@ export function faceStats(model, faces) {
   integrateFaces(model, faces, (ids, N, Av, x) => { const a = Math.hypot(Av[0], Av[1], Av[2]); A += a; for (let k = 0; k < 3; k++) { c[k] += a * x[k]; nrm[k] += Av[k]; } });
   const nl = Math.hypot(...nrm) || 1;
   return { area: A, centroid: c.map((v) => v / (A || 1)), normal: nrm.map((v) => v / nl), flatness: nl / (A || 1) };
+}
+
+/** Area-weighted normal and flatness of the CAD faces themselves (the surface triangles), or null. */
+export function cadFaceStats(model, faces) {
+  const n = [0, 0, 0]; let A = 0;
+  const seen = new Set();
+  for (const f of faces) {
+    const b = model.faces.body[f], id = model.faces.faceId[f], key = b + ':' + id;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const S = model.bodies[b].mesh.surfaceModel;
+    if (!S) return null;
+    for (let t = 0; t < S.nt; t++) {
+      if (S.faceOf[t] !== id) continue;
+      const a = 3 * S.T[3 * t], c = 3 * S.T[3 * t + 1], d = 3 * S.T[3 * t + 2];
+      const ux = S.V[c] - S.V[a], uy = S.V[c + 1] - S.V[a + 1], uz = S.V[c + 2] - S.V[a + 2], vx = S.V[d] - S.V[a], vy = S.V[d + 1] - S.V[a + 1], vz = S.V[d + 2] - S.V[a + 2];
+      const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      n[0] += nx / 2; n[1] += ny / 2; n[2] += nz / 2; A += Math.hypot(nx, ny, nz) / 2;
+    }
+  }
+  if (!(A > 0)) return null;
+  const l = Math.hypot(...n);
+  return { area: A, normal: n.map((v) => v / l), flatness: l / A };
 }
 
 /** Nodal "lumped" areas of faces (each face's area split equally between its nodes) and area-weighted normals. */
@@ -276,7 +308,7 @@ export function fixtureData(model, fixtures) {
     const nodes = onFaceNodes(model, faces);
     if (fx.type === 'roller' || fx.type === 'symmetry') {
       // A planar face keeps one normal for all its nodes (symmetry planes); curved faces use per-node normals.
-      const st = faceStats(model, faces), flat = st.flatness > 0.995;
+      const st = cadFaceStats(model, faces) ?? faceStats(model, faces), flat = st.flatness > 0.995;
       const { normal } = flat ? { normal: null } : nodalAreas(model, faces);
       for (const n of nodes) {
         if (fixed[3 * n] && fixed[3 * n + 1] && fixed[3 * n + 2]) continue;
@@ -439,12 +471,65 @@ export function elasticStresses(model, u, strainOffset = null) {
       gauss[o + 3] = mu * eps[3]; gauss[o + 4] = mu * eps[4]; gauss[o + 5] = mu * eps[5];
     }
   }
-  const nodal = recoverNodal(model, gauss, 6);
+  const nodal = recoverSPR(model, gauss, 6);
   return { gauss, nodal, vm: vonMisesField(nodal, model.nn) };
 }
 
+/**
+ * Superconvergent patch recovery (Zienkiewicz–Zhu): at every node a linear polynomial in x is fitted by least squares
+ * to the Gauss-point values of the elements around it (grown by one ring when too few), evaluated at the node.
+ * Less sensitive to distorted elements than extrapolation; falls back to extrapolation for degenerate patches.
+ */
+export function recoverSPR(model, gauss, stride) {
+  const npe = model.npe, rule = ruleOf(model.order), ng = rule.weights.length, X = model.nodes;
+  if (ng < 4) return recoverNodal(model, gauss, stride, 'extrapolate');
+  // Gauss point positions.
+  const gp = new Float64Array(3 * ng * model.ne), N = new Float64Array(npe);
+  for (let e = 0; e < model.ne; e++) for (let g = 0; g < ng; g++) {
+    shapeValues(model.order, rule.points[g], N);
+    for (let a = 0; a < npe; a++) { const p = 3 * model.elements[npe * e + a]; for (let k = 0; k < 3; k++) gp[3 * (ng * e + g) + k] += N[a] * X[p + k]; }
+  }
+  const elemsOf = Array.from({ length: model.nn }, () => []);
+  for (let e = 0; e < model.ne; e++) for (let a = 0; a < npe; a++) elemsOf[model.elements[npe * e + a]].push(e);
+  const fallback = recoverNodal(model, gauss, stride, 'extrapolate');
+  const out = new Float64Array(stride * model.nn), A = new Float64Array(16), rhs = new Float64Array(4 * stride);
+  for (let n = 0; n < model.nn; n++) {
+    let patch = elemsOf[n];
+    if (patch.length < 3) {
+      const grown = new Set(patch);
+      for (const e of patch) for (let a = 0; a < npe; a++) for (const e2 of elemsOf[model.elements[npe * e + a]]) grown.add(e2);
+      patch = [...grown];
+    }
+    A.fill(0); rhs.fill(0);
+    let h = 0;
+    for (const e of patch) for (let g = 0; g < ng; g++) { const q = ng * e + g; h = Math.max(h, Math.abs(gp[3 * q] - X[3 * n]), Math.abs(gp[3 * q + 1] - X[3 * n + 1]), Math.abs(gp[3 * q + 2] - X[3 * n + 2])); }
+    h = h || 1;
+    for (const e of patch) for (let g = 0; g < ng; g++) {
+      const q = ng * e + g, b = [1, (gp[3 * q] - X[3 * n]) / h, (gp[3 * q + 1] - X[3 * n + 1]) / h, (gp[3 * q + 2] - X[3 * n + 2]) / h];
+      for (let i = 0; i < 4; i++) { for (let j = 0; j < 4; j++) A[4 * i + j] += b[i] * b[j]; for (let c = 0; c < stride; c++) rhs[c * 4 + i] += b[i] * gauss[stride * q + c]; }
+    }
+    // Solve the 4×4 normal equations (Cholesky); degenerate patch → extrapolated value.
+    const L = new Float64Array(16);
+    let ok = true;
+    for (let j = 0; j < 4 && ok; j++) {
+      let d = A[5 * j]; for (let k = 0; k < j; k++) d -= L[4 * j + k] ** 2;
+      if (!(d > 1e-10 * A[0])) { ok = false; break; }
+      L[5 * j] = Math.sqrt(d);
+      for (let i = j + 1; i < 4; i++) { let t = A[4 * i + j]; for (let k = 0; k < j; k++) t -= L[4 * i + k] * L[4 * j + k]; L[4 * i + j] = t / L[5 * j]; }
+    }
+    if (!ok) { for (let c = 0; c < stride; c++) out[stride * n + c] = fallback[stride * n + c]; continue; }
+    for (let c = 0; c < stride; c++) {
+      const y = [0, 0, 0, 0], x = [0, 0, 0, 0];
+      for (let i = 0; i < 4; i++) { let t = rhs[c * 4 + i]; for (let k = 0; k < i; k++) t -= L[4 * i + k] * y[k]; y[i] = t / L[5 * i]; }
+      for (let i = 3; i >= 0; i--) { let t = y[i]; for (let k = i + 1; k < 4; k++) t -= L[4 * k + i] * x[k]; x[i] = t / L[5 * i]; }
+      out[stride * n + c] = x[0];
+    }
+  }
+  return out;
+}
+
 /** Gauss values (stride per point) → nodal averages (extrapolated to the corners for 4-point elements). */
-export function recoverNodal(model, gauss, stride, mode = process?.env?.REC ?? 'extrapolate') {
+export function recoverNodal(model, gauss, stride, mode = 'extrapolate') {
   const npe = model.npe, ng = model.order === 2 ? 4 : 1, out = new Float64Array(stride * model.nn), count = new Float64Array(model.nn);
   const corner = new Float64Array(4 * stride), gp = new Float64Array(4 * stride), C = new Float64Array(12);
   for (let e = 0; e < model.ne; e++) {

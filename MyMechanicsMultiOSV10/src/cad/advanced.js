@@ -14,7 +14,7 @@ import { partingLoops } from './mold-brep.js';
 import { worldUp, worldFront } from './frame.js';
 import { makeHelixStable, makeCylinderStable, makeCircleStable } from './oriented.js';
 import { buildSheetMore } from './sheet-more.js';
-import { isoThread, threadSolid, cosmeticThread, parseThreadSize, wantsModelled } from './threads.js';
+import { isoThread, threadSolid, cosmeticThread, parseThreadSize, wantsModelled, threadFrame, externalRunoutCore, internalRunoutBlank } from './threads.js';
 
 export const ADVANCED_TYPES = [
   'sweep', 'loft', 'draft', 'rib', 'dome', 'helix', 'thread', 'wrap', 'thicken',
@@ -433,23 +433,32 @@ function buildIsoThread(f, ctx, { centre, dir, radius, P, L, internal }) {
   const record = cosmeticThread({ centre, dir, length, internal, d: spec.d, P: spec.P, radius, modelled, lefthand: Boolean(f.lefthand) });
   if (!modelled) return { thread: record, threads: [record] };
   const before = R.measureVolume(ctx.body);
+  // Ending inside material (a shoulder, the plain rest of the shaft, the bottom of a blind hole), the thread
+  // fades out over the runout instead of stopping at full depth — nothing is cut past its end.
+  const probe = Math.min(radius, spec.P) * 0.25;
+  const beyond = add(centre, mul(dir, length + spec.P * 0.4));
+  const perpDir = normalize(Math.abs(dir[0]) < 0.9 ? crossV(dir, [1, 0, 0]) : crossV(dir, [0, 1, 0]));
+  const endsInMaterial = length < run - 1e-6 || insideBody(ctx.body, internal ? beyond : add(beyond, mul(perpDir, radius * 0.5)), probe) || (!internal && insideBody(ctx.body, add(beyond, mul(perpDir, radius + probe * 2)), probe));
+  const fr = threadFrame(centre, dir);
   let body;
   try {
     if (internal) {
-      const hole = threadSolid(spec, 'internal', { origin: centre, dir, length, lefthand: Boolean(f.lefthand) });
+      let hole = threadSolid(spec, 'internal', { origin: centre, dir, length, lefthand: Boolean(f.lefthand) });
+      if (endsInMaterial) hole = hole.intersect(internalRunoutBlank(spec, fr, length, radius), { simplify: false });
       body = ctx.body.cut(hole, { simplify: false });
     } else {
       // The shaft over the threaded length is swapped for the threaded rod trimmed to it (its chamfers kept).
       const zone = R.makeCylinder(radius + 0.3 * spec.P, length, centre, dir);
       const piece = ctx.body.clone().intersect(zone.clone(), { simplify: false });
       const rest = ctx.body.clone().cut(zone, { simplify: false });
-      const rod = threadSolid(spec, 'external', { origin: centre, dir, length, lefthand: Boolean(f.lefthand) }).intersect(piece, { simplify: false });
+      let rod = threadSolid(spec, 'external', { origin: centre, dir, length, lefthand: Boolean(f.lefthand) }).intersect(piece, { simplify: false });
+      if (endsInMaterial) rod = rod.fuse(externalRunoutCore(spec, fr, length), { simplify: false });
       body = R.measureVolume(rest) > 1e-9 ? rest.fuse(rod, { optimisation: 'commonFace', simplify: false }) : rod;
     }
   } catch { throw codeError('thread-failed'); }
   const removed = before - R.measureVolume(body);
   if (!(removed > 1e-6 * Math.max(1, before))) throw codeError('thread-failed');
-  return { body, thread: record, threads: [record], removed };
+  return { body, thread: record, threads: [record], removed, runout: endsInMaterial };
 }
 
 // ───────────────────────── wrap

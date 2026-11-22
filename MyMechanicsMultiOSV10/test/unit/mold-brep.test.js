@@ -4,7 +4,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadKernel, rep } from '../../src/cad/kernel.js';
-import { zeroCurves, silhouetteSplit, undercutBrep, partingLoops, moldSides, faceSamples, moldCacheStats, clearMoldCache } from '../../src/cad/mold-brep.js';
+import { zeroCurves, silhouetteSplit, undercutBrep, partingLoops, moldSides, faceSamples, moldCacheStats, clearMoldCache, coneSilhouette, coneSilhouetteLines } from '../../src/cad/mold-brep.js';
+import { partingSurfaceOf, coreCavity } from '../../src/cad/mold-more.js';
 import { regenerate } from '../../src/cad/features.js';
 import { ADVANCED_DEFAULTS } from '../../src/cad/advanced.js';
 import { undercutAnalysis } from '../../src/cad/evaluate-more.js';
@@ -173,4 +174,102 @@ test('the B-rep analysis is cached per body and pull: Evaluate and the mold feat
   ] });
   for (const id of ['pl', 'ps', 'ts']) assert.equal(res.results.get(id).ok, true, `${id}: ${res.results.get(id).error ?? ''}`);
   assert.ok(moldCacheStats.hits >= 2, `cache hits in one rebuild: ${moldCacheStats.hits}`);
+});
+
+// A cone (base radius 10, height 40, apex up) tilted 30° about X, and a frustum tilted the same way.
+const tiltedCone = () => R.draw([0, 0]).lineTo([10, 0]).lineTo([0, 40]).close().sketchOnPlane('XZ').revolve().rotate(30, [0, 0, 0], [1, 0, 0]);
+const tiltedFrustum = () => R.draw([0, 0]).lineTo([10, 0]).lineTo([4, 30]).lineTo([0, 30]).close().sketchOnPlane('XZ').revolve().rotate(30, [0, 0, 0], [1, 0, 0]);
+// The share of a cone's side facing up: n·d > 0 where cos(φ − ψ) > tan β (A·d) / |d across A| (A: apex → base).
+const beta = Math.atan(10 / 40);
+const upShare = Math.acos((Math.tan(beta) * -Math.cos(Math.PI / 6)) / Math.sin(Math.PI / 6)) / Math.PI;
+const preciseVolume = (s) => { const oc = R.getOC(); const g = new oc.GProp_GProps(); oc.BRepGProp.VolumeProperties(s.wrapped, g, 1e-9, false, false); const v = Math.abs(g.Mass()); g.delete(); return v; };
+const blockVol = (body, m) => { const [lo, hi] = body.boundingBox.bounds; return (hi[0] - lo[0] + 2 * m) * (hi[1] - lo[1] + 2 * m) * (hi[2] - lo[2] + 2 * m); };
+
+test('cone silhouette: both generators through the apex on one plane', () => {
+  const side = tiltedCone().faces.find((f) => f.geomType === 'CONE');
+  const sl = coneSilhouetteLines(side, up);
+  const apex = [0, -40 * Math.sin(Math.PI / 6), 40 * Math.cos(Math.PI / 6)];
+  for (let k = 0; k < 3; k++) near(sl.apex[k], apex[k], 1e-9);
+  near(sl.beta, beta, 1e-12);
+  assert.equal(sl.gens.length, 2);
+  // On the silhouette the cone's normal is square to the pull; the plane holds both generators.
+  for (const g of sl.gens) {
+    const p = sl.apex.map((x, i) => x + g[i] * 20);
+    near(side.normalAt(p).normalize().z, 0, 1e-9);
+    near(g[0] * sl.normal[0] + g[1] * sl.normal[1] + g[2] * sl.normal[2], 0, 1e-12);
+  }
+  assert.equal(coneSilhouette(side, null, up, 50).length, 1);
+  // Seen along its own axis a cone faces one way all round: no split.
+  const straight = R.draw([0, 0]).lineTo([10, 0]).lineTo([0, 40]).close().sketchOnPlane('XZ').revolve().faces.find((f) => f.geomType === 'CONE');
+  assert.equal(coneSilhouette(straight, null, up, 50).length, 0);
+});
+
+test('tilted cone: split at the silhouette through the apex, undercut areas exact', () => {
+  const body = tiltedCone();
+  const sp = silhouetteSplit(body, up);
+  assert.deepEqual(sp.failed, [], 'no face that needed a split was left whole');
+  const cone = sp.faces.find((f) => f.face.geomType === 'CONE');
+  assert.ok(cone.pieces.length >= 2 && !cone.unsplit);
+  const r = undercutBrep(body, up, { cache: false });
+  const side = r.details.find((x) => body.faces[x.index].geomType === 'CONE');
+  assert.ok(side.exact);
+  near(side.area, Math.PI * 10 * Math.hypot(10, 40), 1e-6);
+  near(side.fractions.cavity, upShare, 1e-9);
+  near(side.fractions.core, 1 - upShare, 1e-9);
+  near(side.fractions.undercut, 0, 1e-12);
+  const base = r.details.find((x) => body.faces[x.index].geomType === 'PLANE');
+  near(base.fractions.core, 1, 1e-12);
+  assert.equal(r.undercut, 0);
+});
+
+test('parting line over a tilted cone’s apex and on a tilted frustum; both part the block', () => {
+  const cone = tiltedCone();
+  const pl = partingLoops(cone, up, { cache: false });
+  assert.deepEqual(pl.failed, []);
+  const loop = pl.loops[pl.outer];
+  const L = Math.hypot(10, 40);
+  const lines = loop.filter((x) => x.edge.geomType === 'LINE');
+  assert.equal(lines.length, 2, 'the two silhouette generators');
+  for (const x of lines) near(x.edge.length, L, 1e-6);
+  // The rest is the base circle on the side that faces up: 2π·10 · its share.
+  // (the arc ends come from the kernel's fuzzy section: within 1e-4)
+  near(loop.reduce((s, x) => s + x.edge.length, 0), 2 * L + 2 * Math.PI * 10 * upShare, 1e-4);
+  for (const body of [cone, tiltedFrustum()]) {
+    const ps = partingSurfaceOf(body, up, 30);
+    assert.equal(ps.planar, false);
+    const cc = coreCavity(body, { dir: up, surface: ps.surface, margin: 10 });
+    const expect = blockVol(body, 10) - preciseVolume(body);
+    assert.ok(Math.abs(preciseVolume(cc.core) + preciseVolume(cc.cavity) - expect) < expect * 1e-6, 'core + cavity = block − part');
+  }
+});
+
+test('rays against the fine mesh give the kernel’s answer: hit, miss or (where unsure) the kernel itself', async () => {
+  const { buildSample } = await import('../../src/cad/samples.js');
+  const { rayCaster } = await import('../../src/cad/mold-brep.js');
+  const project = buildSample('hsgCover', 'en');
+  const part = project.parts[0];
+  const upTo = part.features.findIndex((f) => f.type === 'toolingSplit');
+  const body = regenerate({ ...part, features: part.features.slice(0, upTo) }, { project }).body;
+  const R = rep();
+  const [lo, hi] = body.boundingBox.bounds;
+  const size = Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]);
+  const L = size * 3 + 10;
+  for (const d of [[0, 0, 1], [1, 0, 0]]) {
+    const rays = rayCaster(body, d);
+    const q = new R.DistanceQuery(body);
+    try {
+      // Points on the faces (just off them, as the analysis casts) and points scattered through the box.
+      const pts = [];
+      for (const face of body.faces) for (const r of faceSamples(face, 3, size)) pts.push(r.p.map((x, k) => x + r.n[k] * rays.eps));
+      let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+      for (let i = 0; i < 300; i++) pts.push([0, 1, 2].map((k) => lo[k] + (hi[k] - lo[k]) * rnd()));
+      let checked = 0;
+      for (const p of pts) for (const side of [1, -1]) {
+        const want = q.distanceTo(R.makeLine(p, p.map((x, k) => x + d[k] * side * L))) < rays.eps * 0.5;
+        assert.equal(rays.blocked(p, side), want, `ray from ${p.map((x) => x.toFixed(3))} along ${side > 0 ? '+' : '−'}${JSON.stringify(d)}`);
+        checked++;
+      }
+      assert.ok(checked > 600, `${checked} rays`);
+    } finally { rays.delete(); q.delete(); }
+  }
 });

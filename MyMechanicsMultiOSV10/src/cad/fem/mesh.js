@@ -204,7 +204,26 @@ export function surfaceModel(surface) {
     }
     return best;
   }
-  return { V, T, nt, faceOf, lo, hi, size, volume, area, faceArea, closest, inside, rayX, triNormal, classify, segmentHit };
+  /** CAD faces with a triangle within tol of p (a node on a CAD edge gets both faces). */
+  function facesNear(px, py, pz, tol) {
+    const out = new Set(), q = [0, 0, 0];
+    const i0 = cellOf(px - tol, 0), i1 = cellOf(px + tol, 0), j0 = cellOf(py - tol, 1), j1 = cellOf(py + tol, 1), k0 = cellOf(pz - tol, 2), k1 = cellOf(pz + tol, 2);
+    stampId++;
+    for (let k = k0; k <= k1; k++) for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      const b = buckets.get(key(i, j, k));
+      if (!b) continue;
+      for (const t of b) {
+        if (stamp[t] === stampId) continue;
+        stamp[t] = stampId;
+        if (out.has(faceOf[t])) continue;
+        const a = 3 * T[3 * t], bb = 3 * T[3 * t + 1], c = 3 * T[3 * t + 2];
+        closestOnTriangle(px, py, pz, V[a], V[a + 1], V[a + 2], V[bb], V[bb + 1], V[bb + 2], V[c], V[c + 1], V[c + 2], q);
+        if ((q[0] - px) ** 2 + (q[1] - py) ** 2 + (q[2] - pz) ** 2 <= tol * tol) out.add(faceOf[t]);
+      }
+    }
+    return out;
+  }
+  return { V, T, nt, faceOf, lo, hi, size, volume, area, faceArea, closest, inside, rayX, triNormal, classify, segmentHit, facesNear };
 }
 
 // ───────────────────────── quality
@@ -253,7 +272,7 @@ function boundaryOf(list) {
  * edge gets its longest edge marked too, so each element is first split along its longest edge). midpoint(a, b)
  * returns the new node id. Returns the new list.
  */
-function bisect(tets, marked, len, midpoint) {
+function bisect(tets, marked, len, midpoint, closure = true) {
   const ne = tets.length / 4;
   const longest = (t) => {
     let best = -1, bk = 0;
@@ -265,7 +284,7 @@ function bisect(tets, marked, len, midpoint) {
   };
   const edgeElems = new Map();
   for (let t = 0; t < ne; t++) for (const [i, j] of TET_EDGES) { const kk = ekey(tets[4 * t + i], tets[4 * t + j]); let l = edgeElems.get(kk); if (!l) edgeElems.set(kk, (l = [])); l.push(t); }
-  const stack = [...marked], lgOf = new Int32Array(0);
+  const stack = closure ? [...marked] : [], lgOf = new Int32Array(0);
   void lgOf;
   const lg = new Map();
   while (stack.length) {
@@ -565,7 +584,7 @@ export function tetMesh(surface, { size = null, resolution = 16, order = 2, refi
   if (!tets.length) return { ok: false, error: 'too-thin' };
 
   let nodes = Float64Array.from(X);
-  const surf = Uint8Array.from(onSurf);
+  let surf = Uint8Array.from(onSurf);
   const corners = new Float64Array(12);
   const loadCorners = (t) => { for (let a = 0; a < 4; a++) { const p = 3 * tets[4 * t + a]; corners[3 * a] = nodes[p]; corners[3 * a + 1] = nodes[p + 1]; corners[3 * a + 2] = nodes[p + 2]; } return corners; };
   {
@@ -604,6 +623,102 @@ export function tetMesh(surface, { size = null, resolution = 16, order = 2, refi
         nodes[3 * id] = target[0]; nodes[3 * id + 1] = target[1]; nodes[3 * id + 2] = target[2];
         if (!ok(id)) { nodes[3 * id] = p[0]; nodes[3 * id + 1] = p[1]; nodes[3 * id + 2] = p[2]; }
       }
+    }
+  }
+  // Edge recovery: a boundary edge whose ends lie on two different CAD faces without a face in common cuts across a
+  // sharp CAD edge (a chamfer facet). It is split with the new node placed on the CAD edge itself (between those two
+  // faces), and a facet spanning three faces at a corner gets the corner point; repeated until every boundary facet
+  // lies in one CAD face, so the boundary contains the CAD edges and vertices exactly.
+  if (features) {
+    const feat = featureGraph(S);
+    if (feat.segments.length) {
+      const tol = 1e-6 * S.size + 1e-4 * hmin;
+      let X = Array.from(nodes);
+      const tagCache = new Map();
+      const tag = (n) => { let t = tagCache.get(n); if (!t) { t = S.facesNear(X[3 * n], X[3 * n + 1], X[3 * n + 2], tol); tagCache.set(n, t); } return t; };
+      const common = (a, b) => { for (const f of a) if (b.has(f)) return true; return false; };
+      for (let round = 0; round < 8; round++) {
+        const bnd = boundaryOf(tets), targets = new Map();
+        const len = (a, b) => Math.hypot(X[3 * a] - X[3 * b], X[3 * a + 1] - X[3 * b + 1], X[3 * a + 2] - X[3 * b + 2]);
+        for (const [t, f] of bnd.values()) {
+          const ids = FACES[f].map((a) => tets[4 * t + a]), tg = ids.map(tag);
+          if (tg.some((x) => !x.size)) continue;
+          // Straddling edges.
+          for (let q = 0; q < 3; q++) {
+            const a = ids[q], b = ids[(q + 1) % 3], ta = tg[q], tb = tg[(q + 1) % 3];
+            if (common(ta, tb)) continue;
+            const kk = ekey(a, b);
+            if (targets.has(kk)) continue;
+            const mid = [0, 1, 2].map((ax) => 0.5 * (X[3 * a + ax] + X[3 * b + ax]));
+            let best = null;
+            for (const A of ta) for (const B of tb) {
+              const p = feat.nearestOnEdge(mid, [A, B], len(a, b));
+              if (p) { const d = Math.hypot(p[0] - mid[0], p[1] - mid[1], p[2] - mid[2]); if (!best || d < best.d) best = { p, d, faces: new Set([A, B]) }; }
+            }
+            if (best) targets.set(kk, best);
+          }
+          // Corner facets: pairwise sharing but no face common to all three.
+          if (common(tg[0], tg[1]) && common(tg[1], tg[2]) && common(tg[2], tg[0])) {
+            const all = [...tg[0]].filter((x) => tg[1].has(x) && tg[2].has(x));
+            if (!all.length) {
+              const faces = [...new Set([...tg[0], ...tg[1], ...tg[2]])];
+              const c = [0, 1, 2].map((ax) => (X[3 * ids[0] + ax] + X[3 * ids[1] + ax] + X[3 * ids[2] + ax]) / 3);
+              let lq = -1, la = 0, lb = 0;
+              for (let q = 0; q < 3; q++) { const l = len(ids[q], ids[(q + 1) % 3]); if (l > lq) { lq = l; la = ids[q]; lb = ids[(q + 1) % 3]; } }
+              const p = feat.nearestCorner(c, faces, 2 * lq);
+              if (p && !targets.has(ekey(la, lb))) targets.set(ekey(la, lb), { p, d: 0, faces: new Set(faces) });
+            }
+          }
+        }
+        if (!targets.size) break;
+        const before = tets.slice(), Xbefore = X.slice();
+        const created = [];
+        tets = bisect(tets, new Set(targets.keys()), len, (a, b) => {
+          const tgt = targets.get(ekey(a, b));
+          const id = X.length / 3;
+          X.push(tgt.p[0], tgt.p[1], tgt.p[2]);
+          tagCache.set(id, tgt.faces);
+          created.push({ id, mid: [0, 1, 2].map((ax) => 0.5 * (X[3 * a + ax] + X[3 * b + ax])), p: tgt.p });
+          return id;
+        }, false);
+        // Every element must stay positive: a new node that folds one moves back toward the straight midpoint
+        // (a partial recovery, finished in the next round); if even the midpoint folds, the round is undone.
+        const elemsOf = new Map();
+        for (let t = 0; t < tets.length / 4; t++) for (let a = 0; a < 4; a++) { const n = tets[4 * t + a]; let l = elemsOf.get(n); if (!l) elemsOf.set(n, (l = [])); l.push(t); }
+        const okAt = (n, qmin = 0.01) => (elemsOf.get(n) ?? []).every((t) => { const C = []; for (let a = 0; a < 4; a++) { const p = 3 * tets[4 * t + a]; C.push(X[p], X[p + 1], X[p + 2]); } return tetVolume(C) > 1e-12 * hmin ** 3 && tetQuality(C) > qmin; });
+        let bad = false, partial = 0;
+        const level = new Map(created.map((c) => [c.id, 1]));
+        const place = (c, sft) => { for (let ax = 0; ax < 3; ax++) X[3 * c.id + ax] = c.mid[ax] + sft * (c.p[ax] - c.mid[ax]); level.set(c.id, sft); tagCache.delete(c.id); };
+        // First make room: smooth the interior nodes around a folded new node (they are free to move).
+        const isSurf = (n) => n < surf.length ? surf[n] === 1 : true;
+        const smoothAround = (c) => {
+          const ring = new Set();
+          for (const t of elemsOf.get(c.id) ?? []) for (let k = 0; k < 4; k++) { const n = tets[4 * t + k]; if (!isSurf(n)) ring.add(n); }
+          for (let pass = 0; pass < 6; pass++) for (const n of ring) {
+            const nb = new Set(); for (const t of elemsOf.get(n) ?? []) for (let k = 0; k < 4; k++) nb.add(tets[4 * t + k]);
+            nb.delete(n);
+            const old = [X[3 * n], X[3 * n + 1], X[3 * n + 2]], m = [0, 0, 0];
+            for (const q of nb) for (let ax = 0; ax < 3; ax++) m[ax] += X[3 * q + ax] / nb.size;
+            for (let ax = 0; ax < 3; ax++) X[3 * n + ax] = m[ax];
+            if (!okAt(n, 0.005)) for (let ax = 0; ax < 3; ax++) X[3 * n + ax] = old[ax];
+          }
+        };
+        for (const c of created) if (!okAt(c.id, 0.01)) smoothAround(c);
+        for (const sft of [0.75, 0.5, 0.25, 0]) {
+          const worse = created.filter((c) => !okAt(c.id, 0.01));
+          if (!worse.length) break;
+          // Every new node of a folded element retreats together (they may share elements).
+          const ids = new Set();
+          for (const c of worse) for (const t of elemsOf.get(c.id) ?? []) for (let k = 0; k < 4; k++) ids.add(tets[4 * t + k]);
+          for (const c of created) if (ids.has(c.id) && level.get(c.id) > sft) { place(c, sft); partial++; }
+        }
+        for (const c of created) if (!okAt(c.id, 0)) bad = true;
+        if (bad) { tets = before; X = Xbefore; break; }
+      }
+      nodes = Float64Array.from(X);
+      const extra = new Uint8Array(nodes.length / 3); extra.set(surf);
+      for (let i = surf.length; i < extra.length; i++) extra[i] = 1;
+      surf = extra;
     }
   }
   onProgress?.(0.55);

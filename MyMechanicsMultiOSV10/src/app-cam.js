@@ -5,10 +5,10 @@
 // The machining itself is in cad/cam-*.js (no DOM).
 import * as THREE from 'three';
 import { machiningModel, recognizeFeatures, turningProfile, threadHints } from './cad/cam-features.js';
-import { camContext, defaultStock, planOperations, generateProgram, generateToolpath, createOp, OP_DEFAULTS, MILL_OPS, TURN_OPS, stockVolume, expandMoves } from './cad/cam-ops.js';
+import { camContext, defaultStock, planOperations, generateProgram, generateToolpath, createOp, OP_DEFAULTS, MILL_OPS, TURN_OPS, stockVolume, expandMoves, profileAt } from './cad/cam-ops.js';
 import { simulateMilling, gougeCheck, simulateTurning, turnGougeCheck, cycleTime, zmapMesh } from './cad/cam-sim.js';
 import { postProcess, POSTS, POST_IDS, WCS_ORIGINS, setupSheetHtml, wcsOrigin } from './cad/cam-post.js';
-import { cloneTools, MACHINES, machineOf, cutMaterialOf, CUT_MATERIALS, MILL_TOOL_TYPES, TURN_TOOL_TYPES, isTurnTool } from './cad/cam-tools.js';
+import { cloneTools, MACHINES, machineOf, cutMaterialOf, CUT_MATERIALS, MILL_TOOL_TYPES, TURN_TOOL_TYPES, isTurnTool, parseInsert, withInsert } from './cad/cam-tools.js';
 import { materialName } from './cad/materials.js';
 import { escapeHtml } from './ui/dom.js';
 import { icon } from './icons.js';
@@ -35,7 +35,48 @@ export function createCamTools(ctx) {
   const sel = (key, options, current, label, glyph = null) => `<label class="pm-field" title="${escapeHtml(label)}">${glyph ? icon(glyph) : ''}<span class="pm-label">${escapeHtml(label)}</span><select data-pm-select="${escapeHtml(key)}" aria-label="${escapeHtml(label)}">${options.map(([v, text]) => `<option value="${escapeHtml(v)}" ${String(v) === String(current ?? '') ? 'selected' : ''}>${escapeHtml(text)}</option>`).join('')}</select></label>`;
   const check = (key, on, label, glyph) => `<label class="pm-check" title="${escapeHtml(label)}"><input type="checkbox" data-pm-toggle="${escapeHtml(key)}" ${on ? 'checked' : ''}/>${icon(glyph)}<span>${escapeHtml(label)}</span></label>`;
   let saveHook = null;
-  const runtime = { key: null, model: null, rec: null, profile: null, program: null, sim: null, check: null, times: null, partId: null };
+  const runtime = { key: null, model: null, rec: null, profile: null, program: null, sim: null, check: null, times: null, partId: null, opCache: new Map() };
+
+  // ───────────────────────── the machining worker (generation and simulation off this thread)
+
+  // One worker kept between requests: it loads the kernel once and keeps the machining model of the part last
+  // sent (the B-rep goes over only when the part's key changes). Cancel ends it; the next request starts a new one.
+  let worker = null; let workerKey = null; let requests = 0;
+  const useWorker = () => typeof Worker !== 'undefined' && !state.settings?.camInline;
+  function camWorker() {
+    if (!worker) { worker = new Worker(new URL('./workers/cam-worker.js', import.meta.url), { type: 'module' }); workerKey = null; }
+    return worker;
+  }
+  function stopWorker() { try { worker?.terminate(); } catch { /* gone */ } worker = null; workerKey = null; }
+
+  /** One request to the worker: resolves with its result, null when cancelled; progress goes to `report`. */
+  function inWorker(message, entry, report, signal) {
+    return new Promise((resolve, reject) => {
+      const w = camWorker();
+      const id = ++requests;
+      const send = { ...message, id, key: runtime.key };
+      if (workerKey !== runtime.key) {
+        let brep = null; try { brep = entry.body?.serialize?.() ?? null; } catch { brep = null; }
+        Object.assign(send, { brep, mesh: entry.mesh });
+      }
+      const done = (fn, v) => { clearInterval(timer); w.removeEventListener('message', onMessage); w.removeEventListener('error', onError); fn(v); };
+      const onMessage = (event) => {
+        const m = event.data;
+        if (m?.id !== id) return;
+        if (m.type === 'progress') report?.({ fraction: m.fraction, text: m.text });
+        else if (m.type === 'done') { workerKey = runtime.key; done(resolve, m.result); }
+        else if (m.type === 'error') done(reject, new Error(m.message));
+      };
+      const onError = (event) => { stopWorker(); done(reject, new Error(event.message ?? 'worker')); };
+      const timer = setInterval(() => { if (signal?.cancelled) { stopWorker(); done(resolve, null); } }, 100);
+      w.addEventListener('message', onMessage);
+      w.addEventListener('error', onError);
+      w.postMessage(send);
+    });
+  }
+
+  /** What a toolpath depends on besides the part: the operation, its tool, the stock, machine and material. */
+  const opKey = (cam, op, rt) => JSON.stringify([rt.key, op, cam.tools.find((x) => x.id === op.tool) ?? null, rt.stock, cam.machine, cam.material ?? part()?.material ?? null]);
 
   // ───────────────────────── data
 
@@ -56,7 +97,7 @@ export function createCamTools(ctx) {
     const cam = camOf(p);
     const key = `${p.id}|${entry.key}|${JSON.stringify(cam?.stock ?? null)}|${cam?.machine}`;
     if (runtime.key !== key) {
-      const m = machiningModel(entry.mesh);
+      const m = machiningModel(entry.mesh, { shape: entry.body ?? null });
       const stock = stockOf(cam, m);
       Object.assign(runtime, { key, partId: p.id, model: m, stock, rec: recognizeFeatures(m, { stockTop: stock.kind === 'bar' ? stock.z1 : stock.z1, hints: { threads: threadHints(p) } }), profile: null, program: null, sim: null, check: null, times: null });
       if (isLathe(cam)) { try { runtime.profile = turningProfile(m); } catch { runtime.profile = null; } }
@@ -160,11 +201,23 @@ export function createCamTools(ctx) {
     if (!p || !rt) { notify('info', t('notice.noBody')); return null; }
     const cam = camOf(p, { create: true });
     if (!cam.ops.length) { notify('info', t('cam.noOps')); return null; }
-    const c = camCtx(cam, rt);
-    const program = await ctx.withProgress('progress.cam', p.name, async () => { await new Promise((r) => setTimeout(r, 20)); return generateProgram(c, cam.ops); }, { delay: 200 });
-    if (!program) return null;
+    const ops = cam.ops.filter((op) => !op.suppressed);
+    const keys = new Map(ops.map((op) => [op.id, opKey(cam, op, rt)]));
+    const todo = ops.filter((op) => !runtime.opCache.has(keys.get(op.id)));
+    let fresh = { paths: [], errors: [] };
+    if (todo.length) {
+      fresh = await ctx.withProgress('progress.cam', p.name, async (op, report, signal) => {
+        if (!useWorker()) { await new Promise((r) => setTimeout(r, 20)); return generateProgram(camCtx(cam, rt), todo); }
+        return inWorker({ kind: 'generate', context: { stock: rt.stock, tools: cam.tools, machine: cam.machine, material: cam.material ?? p.material, features: rt.rec.features, profile: rt.profile }, ops: todo }, ctx.buildPart(p), report, signal);
+      }, { delay: 200, cancellable: true }).catch((error) => { notify('error', t('cam.opFailed', { name: p.name, reason: error.message })); return null; });
+      if (!fresh) { if (!quiet) notify('info', t('cam.cancelled')); return null; }
+      for (const tp of fresh.paths) runtime.opCache.set(keys.get(tp.op), tp);
+      if (runtime.opCache.size > 200) runtime.opCache = new Map([...runtime.opCache].slice(-100));
+    }
+    const program = { paths: ops.map((op) => runtime.opCache.get(keys.get(op.id))).filter(Boolean), errors: fresh.errors };
     runtime.program = program; runtime.sim = null; runtime.check = null;
     runtime.times = cycleTime(program.paths, machineOf(cam.machine));
+    for (const tp of program.paths) for (const w of tp.warnings ?? []) notify('warning', t('cam.opWarning', { name: cam.ops.find((o) => o.id === tp.op)?.name ?? tp.op, reason: t(`cam.warn.${w}`, null, w) }));
     for (const er of program.errors) notify('error', t('cam.opFailed', { name: cam.ops.find((o) => o.id === er.op)?.name ?? er.op, reason: t(`cam.error.${er.code}`, null, er.message) }));
     if (!quiet && !program.errors.length) notify('success', t('cam.generated', { count: program.paths.length, time: fmtTime(runtime.times.total) }));
     ctx.syncView(); ctx.renderLeft();
@@ -178,7 +231,12 @@ export function createCamTools(ctx) {
     if (!rt.program) { await generate({ quiet: true }); rt = model(); }
     if (!rt.program?.paths.length) return null;
     const cam = camOf(p);
-    const result = await ctx.withProgress('progress.camSim', p.name, async (op, report) => {
+    const result = await ctx.withProgress('progress.camSim', p.name, async (op, report, signal) => {
+      if (useWorker()) {
+        const lathe = rt.stock.kind === 'bar';
+        const span = lathe ? Math.max(rt.stock.r, rt.stock.z1 - rt.stock.z0) : Math.max(rt.stock.x1 - rt.stock.x0, rt.stock.y1 - rt.stock.y0);
+        return inWorker({ kind: 'simulate', stock: rt.stock, paths: rt.program.paths, tools: cam.tools, lathe, profile: rt.profile, cell: lathe ? Math.max(0.05, span / 400) : Math.max(0.2, span / 300), tol: lathe ? Math.max(0.03, span / 800) : 0.03 }, ctx.buildPart(p), report, signal);
+      }
       await new Promise((r) => setTimeout(r, 20));
       if (rt.stock.kind === 'bar') {
         const span = Math.max(rt.stock.r, rt.stock.z1 - rt.stock.z0);
@@ -190,8 +248,8 @@ export function createCamTools(ctx) {
       const cell = Math.max(0.2, span / 300);
       const sim = simulateMilling(rt.stock, rt.program.paths, cam.tools, { cell, onProgress: (f) => report({ fraction: f }) });
       const grid = rt.model.topGrid();
-      return { sim, check: gougeCheck(sim.map, (x, y) => grid.topAt(x, y), { tol: Math.max(0.02, cell / 20) }) };
-    }, { delay: 150 });
+      return { sim, check: gougeCheck(sim, rt.model, { tol: 0.03 }) };
+    }, { delay: 150, cancellable: true }).catch((error) => { notify('error', t('cam.opFailed', { name: p.name, reason: error.message })); return null; });
     if (!result) return null;
     runtime.sim = result.sim; runtime.check = result.check;
     const g = result.check.count;
@@ -201,12 +259,6 @@ export function createCamTools(ctx) {
     return result;
   }
 
-  function profileAt(profile, z) {
-    if (!profile || z > profile.front || z < profile.back) return { outer: 0, inner: 0 };
-    let best = profile.samples[0];
-    for (const q of profile.samples) if (Math.abs(q.z - z) < Math.abs(best.z - z)) best = q;
-    return best;
-  }
 
   const fileName = (ext) => `${(part()?.name ?? 'part').replace(/[\\/:*?"<>|]+/g, '_')}${ext}`;
   async function save(name, type, content, mime) {
@@ -217,7 +269,7 @@ export function createCamTools(ctx) {
   function gcode() {
     const p = part(); const rt = model(); const cam = camOf(p);
     if (!rt?.program) return null;
-    return postProcess({ number: cam.program ?? 1001, name: p.name, tools: cam.tools, paths: rt.program.paths, stock: rt.stock, wcs: cam.wcs, bounds: rt.model.bounds, post: cam.post, coolant: cam.coolant !== false, date: new Date().toISOString().slice(0, 10), ops: cam.ops });
+    return postProcess({ number: cam.program ?? 1001, name: p.name, tools: cam.tools, paths: rt.program.paths, stock: rt.stock, wcs: cam.wcs, bounds: rt.model.bounds, post: cam.post, coolant: cam.coolant !== false, date: new Date().toISOString().slice(0, 10), ops: cam.ops, comp: cam.comp ?? 'computed' });
   }
 
   async function saveGcode() {
@@ -276,7 +328,8 @@ export function createCamTools(ctx) {
     const matId = cam.material ?? part().material;
     const machine = sel('camMachine', MACHINES.map((m) => [m.id, t(`cam.machine.${m.id}`)]), cam.machine, t('cam.machine'), lathe ? 'camTurnRough' : 'camMachine');
     const posts = sel('camPost', POST_IDS.filter((id) => POSTS[id].kind === (lathe ? 'lathe' : 'mill')).map((id) => [id, t(`cam.post.${id}`)]), cam.post, t('cam.postProcessor'), 'camPost');
-    const wcs = lathe ? '' : sel('camWcs', WCS_ORIGINS.map((w) => [w, t(`cam.wcs.${w}`)]), cam.wcs, t('cam.wcsOrigin'), 'camWcs');
+    const comp = lathe ? sel('camComp', [['computed', t('cam.comp.computed')], ['control', t('cam.comp.control')]], cam.comp ?? 'computed', t('cam.comp'), 'camTurnFinish') : '';
+    const wcs = lathe ? comp : sel('camWcs', WCS_ORIGINS.map((w) => [w, t(`cam.wcs.${w}`)]), cam.wcs, t('cam.wcsOrigin'), 'camWcs');
     const mat = `<p class="pm-note">${icon('material', 'icon tiny')} ${escapeHtml(materialName(matId, ctx.lang()))} → ${escapeHtml(t(`cam.cut.${cutMaterialOf(matId)}`))}</p>${sel('camCutMaterial', [['', t('cam.cut.fromPart')], ...Object.keys(CUT_MATERIALS).map((k) => [k, t(`cam.cut.${k}`)])], cam.cutClass ?? '', t('cam.cutClass'), 'material')}`;
     const stockMode = ctx.pm.pmSeg('camStockMode', [['auto', t('cam.stock.auto'), 'camStock'], ['custom', t('cam.stock.custom'), 'edit']], s.mode ?? 'auto');
     let stockFields;
@@ -296,7 +349,8 @@ export function createCamTools(ctx) {
     const list = cam.tools.filter((x) => isTurnTool(x) === lathe);
     const rows = list.map((x) => `<button type="button" class="cam-row ${e.toolId === x.id ? 'active' : ''}" data-pm="cam.selTool:${escapeHtml(x.id)}" title="${escapeHtml(t(`cam.tool.${x.type}`))}">${icon(TOOL_ICONS[x.type] ?? 'camToolFlat', 'icon tiny')}<b>T${x.T}</b><span class="grow">${escapeHtml(t(`cam.tool.${x.type}`))} Ø${fmt(x.d)}${x.thread ? ` ${x.thread}` : ''}${x.rc ? ` R${fmt(x.rc)}` : ''}</span><span class="pm-count">${escapeHtml(x.grade === 'hss' ? 'HSS' : t('cam.grade.carbide'))}</span></button>`).join('');
     const tool = cam.tools.find((x) => x.id === e.toolId);
-    const fields = tool ? ['T', 'd', ...(lathe ? ['nose', 'angle', 'width'] : ['flutes', 'rc', 'flute', 'length', 'tip', 'pitch'])].map((k) => pmNum(`camTool.${k}`, tool[k] ?? 0, t(`cam.toolField.${k}`), k === 'T' ? 'camTool' : 'smartDim', ['T', 'flutes', 'angle', 'tip'].includes(k) ? '' : 'mm')).join('') + sel('camToolGrade', [['carbide', t('cam.grade.carbide')], ['hss', 'HSS']], tool.grade ?? 'carbide', t('cam.grade'), 'material') + `<div class="pm-row">${pmButton(`cam.delTool:${tool.id}`, 'trash', t('action.delete'))}</div>` : `<p class="pm-note">${escapeHtml(t('cam.pickTool'))}</p>`;
+    const insert = tool && lathe ? `<label class="pm-field" title="${escapeHtml(t('cam.toolField.insert'))}">${icon('camTurnRough')}<span class="pm-label">${escapeHtml(t('cam.toolField.insert'))}</span>${ctx.pm.textInput('camTool.insert', tool.insert ?? '')}</label>` : '';
+    const fields = tool ? insert + ['T', 'd', ...(lathe ? ['nose', 'angle', 'approach', 'width'] : ['flutes', 'rc', 'flute', 'length', 'tip', 'pitch'])].map((k) => pmNum(`camTool.${k}`, tool[k] ?? 0, t(`cam.toolField.${k}`), k === 'T' ? 'camTool' : 'smartDim', ['T', 'flutes', 'angle', 'tip'].includes(k) ? '' : 'mm')).join('') + sel('camToolGrade', [['carbide', t('cam.grade.carbide')], ['hss', 'HSS']], tool.grade ?? 'carbide', t('cam.grade'), 'material') + `<div class="pm-row">${pmButton(`cam.delTool:${tool.id}`, 'trash', t('action.delete'))}</div>` : `<p class="pm-note">${escapeHtml(t('cam.pickTool'))}</p>`;
     const types = lathe ? TURN_TOOL_TYPES : MILL_TOOL_TYPES;
     return [
       pmGroup('camTool', t('cam.toolLibrary'), `<div class="cam-list">${rows}</div><div class="pm-row">${sel('camNewToolType', types.map((ty) => [ty, t(`cam.tool.${ty}`)]), e.newToolType ?? types[0], t('cam.toolType'))}${pmButton('cam.addTool', 'plus', t('cam.addTool'))}</div>`),
@@ -391,7 +445,7 @@ export function createCamTools(ctx) {
     }
     const show = [check('camShowPath', e.showPath, t('cam.showPath'), 'camGenerate'), check('camShowRapids', e.showRapids, t('cam.showRapids'), 'camRapid'), check('camShowStock', e.showStock, t('cam.showStock'), 'camStock'), check('camShowSim', e.showSim, t('cam.showSim'), 'camSimulate')].join('');
     return [
-      pmGroup('camSimulate', t('cam.simGroup'), `<div class="pm-row">${pmButton('cam.generate', 'camGenerate', t('cmd.camGenerate'))}${pmButton('cam.simulate', 'camSimulate', t('cmd.camSimulate'))}</div>${pmNum('camPlay', e.play ?? 100, t('cam.play'), 'camPlay', '%')}<ul class="pm-results">${res.join('') || `<li class="muted">${escapeHtml(t('cam.notGenerated'))}</li>`}</ul>`),
+      pmGroup('camSimulate', t('cam.simGroup'), `<div class="pm-row">${pmButton('cam.generate', 'camGenerate', t('cmd.camGenerate'))}${pmButton('cam.simulate', 'camSimulate', t('cmd.camSimulate'))}</div>${pmNum('camPlay', e.play ?? 100, t('cam.play'), 'camPlay', '%')}<ul class="mfg-results">${res.join('') || `<li class="muted">${escapeHtml(t('cam.notGenerated'))}</li>`}</ul>`),
       pmGroup('eye', t('cam.display'), show),
     ].join('');
   }
@@ -426,6 +480,13 @@ export function createCamTools(ctx) {
     if (key === 'camPlay') { e.play = Math.max(0, Math.min(100, Number.isFinite(v) ? v : 100)); ctx.syncView(); return ctx.renderLeft(); }
     if (key === 'camProgram') { if (v > 0) edit((c) => { c.program = Math.round(v); }); return undefined; }
     if (key.startsWith('camStock.')) { const k = key.slice(9); if (Number.isFinite(v)) edit((c) => { c.stock = { ...(c.stock ?? {}), [k]: v }; }); return undefined; }
+    if (key === 'camTool.insert') {
+      const ins = parseInsert(raw);
+      if (String(raw).trim() && !ins) { notify('error', t('cam.badInsert', { code: raw })); return ctx.renderLeft(); }
+      edit((c) => { const tool = c.tools.find((x) => x.id === e.toolId); if (tool) { tool.insert = String(raw).trim(); withInsert(tool); } });
+      invalidate();
+      return undefined;
+    }
     if (key.startsWith('camTool.')) {
       const k = key.slice(8);
       if (!Number.isFinite(v) || (k === 'd' && !(v > 0))) { notify('error', t('notice.invalidValue', { text: raw })); return ctx.renderLeft(); }
@@ -459,6 +520,7 @@ export function createCamTools(ctx) {
     if (key === 'camMachine') { edit((c) => { const was = isLathe(c); c.machine = value; if (was !== isLathe(c) || POSTS[c.post]?.kind !== machineOf(value).kind) c.post = machineOf(value).post; }); invalidate(); return true; }
     if (key === 'camPost') { edit((c) => { c.post = value; }); return true; }
     if (key === 'camWcs') { edit((c) => { c.wcs = value; }); return true; }
+    if (key === 'camComp') { edit((c) => { c.comp = value; }); return true; }
     if (key === 'camCutMaterial') { edit((c) => { c.cutClass = value || null; c.material = value ? null : c.material; }); invalidate(); return true; }
     if (key === 'camNewToolType') { e.newToolType = value; return true; }
     if (key === 'camNewOpType') { e.newOpType = value; return true; }
@@ -626,7 +688,8 @@ export function createCamTools(ctx) {
     if (e.showSim && rt.sim) {
       const mesh = simMesh(rt);
       if (mesh) {
-        vp.addBody({ key: 'cam:stock', mesh, edges: null, colors: mesh.colors ?? undefined, color: '#b0bec5', faceIndex: new Map(), edgeIndex: new Map(), opacity: 0.95, pickable: false });
+        // three's setIndex takes a plain array (a typed one would be read as an attribute).
+        vp.addBody({ key: 'cam:stock', mesh: { ...mesh, triangles: Array.from(mesh.triangles) }, edges: null, colors: mesh.colors ?? undefined, color: '#b0bec5', faceIndex: new Map(), edgeIndex: new Map(), opacity: 0.95, pickable: false });
         const body = vp.bodies.get('body');
         if (body) { body.mesh.material.transparent = true; body.mesh.material.opacity = 0.25; body.mesh.material.depthWrite = false; }
       }

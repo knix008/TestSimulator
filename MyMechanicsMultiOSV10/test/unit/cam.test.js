@@ -8,10 +8,10 @@ import {
   insideRegion, clearingRings, segDist,
 } from '../../src/cad/cam-geom.js';
 import { machiningModel, recognizeFeatures, turningProfile, isTurnable } from '../../src/cad/cam-features.js';
-import { camContext, defaultStock, planOperations, generateProgram, generateToolpath, createOp, stockVolume, expandMoves, stepLevels } from '../../src/cad/cam-ops.js';
+import { camContext, defaultStock, planOperations, generateProgram, generateToolpath, createOp, stockVolume, expandMoves, stepLevels, EngagementModel, cuspHeight, scallopLeft } from '../../src/cad/cam-ops.js';
 import { simulateMilling, gougeCheck, simulateTurning, turnGougeCheck, cycleTime, pathLengths, zmapMesh } from '../../src/cad/cam-sim.js';
 import { postProcess, parseGcode, wcsMoves, compareMoves, POST_IDS, POSTS, setupSheetHtml, fmtNum, wcsOrigin } from '../../src/cad/cam-post.js';
-import { cloneTools, millingData, turningData, machineOf, cutMaterialOf, threadForDrill, MACHINES } from '../../src/cad/cam-tools.js';
+import { cloneTools, millingData, turningData, machineOf, cutMaterialOf, threadForDrill, MACHINES, parseInsert } from '../../src/cad/cam-tools.js';
 
 await loadKernel();
 const R = rep();
@@ -166,7 +166,7 @@ test('pocket toolpath: every cutting move keeps the tool radius from the walls; 
 
 const sim = simulateMilling(stock, program.paths, tools, { cell: 0.5 });
 const grid = model.topGrid();
-const gouge = gougeCheck(sim.map, (x, y) => grid.topAt(x, y), { tol: 0.02 });
+const gouge = gougeCheck(sim, model, { tol: 0.02 });
 
 test('material removal: no gouge, no rapid through material, removed volume = stock − part', () => {
   assert.equal(gouge.count, 0, `gouges: ${gouge.count}, deepest ${gouge.max}`);
@@ -226,12 +226,41 @@ test('set-up sheet: tools, operations and cycle time', () => {
   assert.match(html, /<table/); assert.match(html, /T12/); assert.equal((html.match(/<tr>/g) ?? []).length, 6 + 4 + 1 + 5 + 1);
 });
 
+test('engagement is exact: a straight cut beside the last pass takes acos(1 − ae/R), a slot 180°', () => {
+  const area = [rectLoop(-100, -100, 100, 100)];
+  for (const ae of [0.5, 1.5, 3, 6]) {
+    const m = new EngagementModel(area, 6);
+    m.add([-50, 0], [50, 0]);
+    const e = (m.engagement([0, ae], [1, 0]) * 180) / Math.PI;
+    assert.ok(Math.abs(e - (Math.acos(1 - ae / 6) * 180) / Math.PI) < 1e-6, `ae ${ae}: ${e}`);
+  }
+  assert.ok(Math.abs(new EngagementModel(area, 6).engagement([0, 0], [1, 0]) - Math.PI) < 1e-9);
+  // What lies outside the area (the part's wall, air) is not material: half the radius past an edge, 120° of 180°.
+  const walled = new EngagementModel([rectLoop(-100, 0, 100, 100)], 6);
+  assert.ok(Math.abs(walled.engagement([0, 3], [1, 0]) - (2 * Math.PI) / 3) < 1e-9);
+});
+
 test('adaptive clearing of the pocket: no gouge, engagement held at the limit', () => {
   const op = createOp('adaptive', { id: 'ad', tool: 't3', feature: rec.features.find((f) => f.type === 'pocket').id, stepdown: 10, leave: 0, leaveZ: 0, engagement: 80 });
   const tp = generateToolpath(ctx, op);
-  assert.ok(tp.engagement <= 80 + 1e-6);
+  assert.ok(tp.engagement <= 80 + 1e-6, `${tp.engagement}`);
+  // Re-check every cutting move at the floor with a fresh model of the same level.
+  const R4 = toolById('t3').d / 2;
+  const floorMoves = tp.moves.filter((mv) => mv.k === 'f' && Math.abs(mv.p[2] - 20) < 1e-6);
+  const region = offsetLoops([...sliceMesh(model.welded, 20.01)].filter((l) => loopArea(l) < 0).map((l) => [...l].reverse()), -R4);
+  const check = new EngagementModel(offsetLoops(region, R4), R4);
+  let worst = 0; let prev = null;
+  // The entry ring (opened by the ramp like a helical bore) is cut at full width by design.
+  const entry = tp.entries.find((en) => Math.abs(en.z - 20) < 1e-6)?.loop ?? [];
+  const onEntry = (q) => entry.some((e, i) => segDist(q, e, entry[(i + 1) % entry.length]) < 0.05);
+  for (const mv of floorMoves) {
+    const q = [mv.p[0], mv.p[1]];
+    if (prev) { const d = Math.hypot(q[0] - prev[0], q[1] - prev[1]); if (d > 1e-6) { if (!onEntry(q)) worst = Math.max(worst, check.engagement(q, [(q[0] - prev[0]) / d, (q[1] - prev[1]) / d])); check.add(prev, q); } }
+    prev = q;
+  }
+  assert.ok((worst * 180) / Math.PI <= 80 + 0.5, `re-checked engagement ${(worst * 180) / Math.PI}`);
   const s = simulateMilling(stock, [tp], tools, { cell: 0.5 });
-  const g = gougeCheck(s.map, (x, y) => grid.topAt(x, y), { tol: 0.02 });
+  const g = gougeCheck(s, model, { tol: 0.02 });
   assert.equal(g.count, 0);
 });
 
@@ -239,15 +268,23 @@ test('adaptive clearing of the pocket: no gouge, engagement held at the limit', 
 
 test('3D: z-level roughing, then parallel / scallop / waterline finishing on a dome do not gouge', () => {
   const dome = R.makeBox([-30, -30, 0], [30, 30, 10]).fuse(R.makeSphere(25).translate([0, 0, -5]).intersect(R.makeBox([-30, -30, 10], [30, 30, 40])));
-  const m = machiningModel(dome.mesh({ tolerance: 0.02, angularTolerance: 0.1 }));
+  const m = machiningModel(dome.mesh({ tolerance: 0.02, angularTolerance: 0.1 }), { shape: dome });
   const st = defaultStock(m.bounds, { margin: 2, top: 1 });
   const c = camContext({ model: m, stock: st, tools, material: 'al-6061', features: recognizeFeatures(m, { stockTop: st.z1 }).features });
   const g = m.topGrid();
   const rough = generateToolpath(c, createOp('zlevel', { id: 'r', tool: 't2', stepdown: 3 }));
-  for (const [type, tool, extra] of [['parallel', 't6', { scallop: 0.05 }], ['scallop', 't7', { scallop: 0.1 }], ['waterline', 't6', { stepdown: 2 }]]) {
+  for (const [type, tool, extra] of [['parallel', 't6', { scallop: 0.05 }], ['scallop', 't7', { scallop: 0.1 }], ['waterline', 't6', { stepdown: 1 }]]) {
     const fin = generateToolpath(c, createOp(type, { id: type, tool, ...extra }));
+    if (type === 'waterline') {
+      // From the kernel's offset solid: at tip height 15 the ball's centre (19) runs on the sphere grown by 4,
+      // radius √(29² − 24²) about the axis — exactly, not to a mesh.
+      assert.equal(fin.exact, true);
+      const at15 = fin.moves.filter((mv) => mv.k === 'f' && Math.abs(mv.p[2] - 15) < 1e-9);
+      assert.ok(at15.length > 50);
+      for (const mv of at15) assert.ok(Math.abs(Math.hypot(mv.p[0], mv.p[1]) - Math.sqrt(29 ** 2 - 24 ** 2)) < 0.002, `${Math.hypot(mv.p[0], mv.p[1])}`);
+    }
     const s = simulateMilling(st, [rough, fin], tools, { cell: 0.5 });
-    const gc = gougeCheck(s.map, (x, y) => g.topAt(x, y), { tol: 0.03 });
+    const gc = gougeCheck(s, m, { tol: 0.03 });
     assert.equal(gc.count, 0, `${type}: ${gc.count} gouges, deepest ${gc.max} at ${gc.cells.map((k) => [s.map.x0 + (k % s.map.nx + 0.5) * s.map.hx, s.map.y0 + (Math.floor(k / s.map.nx) + 0.5) * s.map.hy].join(',')).join(' ')}`);
     assert.ok(s.removed > 0);
   }
@@ -281,15 +318,193 @@ test('turning: profile, facing / OD rough and finish / drill / bore / groove; re
     const cmp = compareMoves(parseGcode(code, { lathe: true, start: [0, 0, 0] }), wcsMoves(prog.paths, st, 'stockTopCenter', m.bounds, [0, 0, 0]));
     assert.ok(cmp.max < 1e-3, `${post}: ${cmp.max} ${cmp.count}`);
   }
+  // A control that compensates the nose radius gets the contour with G42 / G41; nose centre = contour dilated.
+  for (const post of ['fanucLathe', 'linuxcncLathe']) {
+    const code = postProcess({ tools, paths: prog.paths, stock: st, bounds: m.bounds, post, ops: tops, comp: 'control' });
+    assert.match(code, /G42 G1 [XZ]/); assert.match(code, /G41 G1 [XZ]/); assert.match(code, /G40 G0/);
+    const cmp = compareMoves(parseGcode(code, { lathe: true, start: [0, 0, 0] }), wcsMoves(prog.paths, st, 'stockTopCenter', m.bounds, [0, 0, 0], 'control'));
+    assert.ok(cmp.max < 1e-3, `${post} control: ${cmp.max} ${cmp.count}`);
+  }
+  const fin = prog.paths.find((p) => p.opType === 'tFinish');
+  const seg = (pts) => pts.slice(1).map((q, i) => [pts[i], q]);
+  const contourSegs = seg(fin.contour.map((q) => [q[0], q[2]]));
+  for (const mv of fin.moves.filter((x) => x.k === 'f' && x.p[0] > 0.01 && x.p[2] < 70.39 && x.p[2] > 0.1)) {
+    const d = Math.min(...contourSegs.map(([a, b]) => segDist([mv.p[0], mv.p[2]], a, b)));
+    assert.ok(Math.abs(d - fin.nose) < 0.01, `nose centre ${d} from the contour (nose ${fin.nose})`);
+  }
+  // Thread: a V of the insert's 60° along the pitch, its volume ≈ 2π r̄ · (½ · 2h·tan30° · h) / P · L.
   const thread = generateToolpath(c, createOp('tThread', { id: 'th', tool: 'l5', pitch: 1.5, passes: 5, length: 10, z1: 70 }));
   assert.equal(thread.moves.filter((x) => x.k === 't').length, 5);
+  // Threaded on a bar already at the major diameter: what goes is the thread's V.
+  const bar = { kind: 'bar', r: 12, z0: 55, z1: 70, cx: 0, cy: 0 };
+  const cut = simulateTurning(bar, [thread], tools, { cell: 0.02 });
+  const h = 0.61343 * 1.5; const area = 0.5 * 2 * h * Math.tan(Math.PI / 6) * h; const Rm = 12 - h / 3;
+  const expectedThread = 2 * Math.PI * Rm * (area / 1.5) * 10;
+  assert.ok(Math.abs(cut.removed - expectedThread) / expectedThread < 0.06, `thread ${cut.removed} vs ${expectedThread}`);
+  assert.equal(turnGougeCheck(cut, at, { tol: 0.06, threads: [thread.thread] }).count, 0);
   const code = postProcess({ tools, paths: [thread], stock: st, bounds: m.bounds, post: 'fanucLathe' });
   assert.equal((code.match(/G32 Z-10\. F1\.5/g) ?? []).length, 5);
   assert.ok(cycleTime(prog.paths, machineOf('lathe')).total > 0);
 });
 
+test('ISO 1832 insert codes: shape angle, inscribed circle, thickness, nose radius', () => {
+  assert.deepEqual(pick3(parseInsert('CNMG 120408')), ['C', 80, 12.7, 4.76, 0.8]);
+  assert.deepEqual(pick3(parseInsert('VBMT160404')), ['V', 35, 9.525, 4.76, 0.4]);
+  assert.deepEqual(pick3(parseInsert('DNMG 150608')), ['D', 55, 12.7, 6.35, 0.8]);
+  assert.deepEqual(pick3(parseInsert('TNMG 160404')), ['T', 60, 9.525, 4.76, 0.4]);
+  assert.deepEqual(pick3(parseInsert('WNMG 080408')), ['W', 80, 12.7, 4.76, 0.8]);
+  assert.equal(parseInsert('RCMT 1204M0').round, true);
+  assert.equal(parseInsert('XYZ'), null);
+  const l2 = toolById('l2'); assert.equal(l2.angle, 35); assert.equal(l2.nose, 0.4);
+});
+const pick3 = (x) => [x.shape, x.angle, x.ic, x.thickness, x.nose];
+
 test('machines and posts are listed with their kinds', () => {
   assert.ok(MACHINES.some((x) => x.kind === 'lathe') && MACHINES.some((x) => x.kind === 'mill'));
   for (const id of POST_IDS) assert.ok(['mill', 'lathe'].includes(POSTS[id].kind));
   assert.ok(segDist([0, 1], [0, 0], [1, 0]) === 1);
+});
+
+test('tapped hole (from a thread hint): spot, peck and tap cycles replay in every milling dialect', () => {
+  const r = recognizeFeatures(model, { stockTop: stock.z1, hints: { threads: [{ x: 35, y: 30, d: 5, size: 'M6' }] } });
+  const hole = r.features.find((f) => f.type === 'hole');
+  assert.equal(hole.thread, 'M6');
+  const c = camContext({ model, stock, tools, material: 'steel-1020', features: r.features });
+  const holeOps = planOperations(r.features, tools).filter((o) => ['spot', 'peck', 'drill', 'tap'].includes(o.type));
+  assert.deepEqual(holeOps.map((o) => o.type), ['spot', 'peck', 'tap']);
+  const prog = generateProgram(c, holeOps);
+  assert.deepEqual(prog.errors, []);
+  const tap = prog.paths.find((p) => p.opType === 'tap');
+  assert.ok(Math.abs(tap.feed - tap.rpm * 1) <= 1, 'tapping feed = pitch × speed');
+  for (const post of ['fanuc', 'haas', 'linuxcnc', 'iso']) {
+    const code = postProcess({ tools, paths: prog.paths, stock, bounds: model.bounds, post });
+    assert.match(code, post === 'linuxcnc' ? /G33\.1 Z-?[\d.]+ K1/ : /G84 /);
+    const cmp = compareMoves(parseGcode(code, { start: [0, 0, 0] }), wcsMoves(prog.paths, stock, 'stockTopCenter', model.bounds, [0, 0, 0]));
+    assert.ok(cmp.max < 1e-3, `${post}: ${cmp.max} ${cmp.count}`);
+  }
+});
+
+test('tri-dexel stock: a side hole the cutter cannot reach stays as stock; a 0.05 mm cut into a wall is caught at any grid', () => {
+  const b = R.makeBox([-20, -15, 0], [20, 15, 20]).cut(R.makeCylinder(4, 60, [-30, 0, 8], [1, 0, 0]));
+  const m = machiningModel(b.mesh({ tolerance: 0.002, angularTolerance: 0.05 }));
+  const st = defaultStock(m.bounds, { margin: 0, top: 2 });
+  const c = camContext({ model: m, stock: st, tools, material: 'al-6061', features: recognizeFeatures(m, { stockTop: st.z1 }).features });
+  const face = generateToolpath(c, createOp('facing', { id: 'f', tool: 't1', stepdown: 1 }));
+  const s = simulateMilling(st, [face], tools, { cell: 0.5 });
+  const g = gougeCheck(s, m, { tol: 0.01 });
+  assert.equal(g.count, 0);
+  // Left after facing: the material inside the side hole (the part's own hole is air in the stock model).
+  assert.ok(Math.abs(g.remaining - Math.PI * 16 * 40) / (Math.PI * 16 * 40) < 0.03, `${g.remaining}`);
+  assert.ok(Math.abs(s.removed - 40 * 30 * 2) < 5, `${s.removed}`);
+  // A vertical pass with its edge 0.05 mm inside the wall at x = 20 (off the 0.7 mm grid): seen along the X rays.
+  for (const cell of [0.7, 1.3]) {
+    const into = { op: 'x', tool: 't4', kind: 'mill', moves: [{ k: 'r', p: [23 - 0.05, -10, 30] }, { k: 'f', p: [23 - 0.05, -10, 5], f: 300 }, { k: 'f', p: [23 - 0.05, 10, 5], f: 300 }] };
+    const s2 = simulateMilling(st, [into], tools, { cell });
+    const g2 = gougeCheck(s2, m, { tol: 0.01 });
+    assert.ok(g2.count > 0 && Math.abs(g2.max - 0.05) < 0.01, `cell ${cell}: ${g2.count} ${g2.max}`);
+    const ok = { ...into, moves: into.moves.map((mv) => ({ ...mv, p: [23, mv.p[1], mv.p[2]] })) };
+    assert.equal(gougeCheck(simulateMilling(st, [ok], tools, { cell }), m, { tol: 0.01 }).count, 0, `cell ${cell}: a tangent pass`);
+  }
+});
+
+test('scallop finishing: every pair of neighbouring passes leaves the asked-for cusp, on flat and steep ground', () => {
+  const dome = R.makeBox([-30, -30, 0], [30, 30, 10]).fuse(R.makeSphere(25).translate([0, 0, -5]).intersect(R.makeBox([-30, -30, 10], [30, 30, 40])));
+  const m = machiningModel(dome.mesh({ tolerance: 0.01, angularTolerance: 0.05 }), { shape: dome });
+  const st = defaultStock(m.bounds, { margin: 2, top: 1 });
+  const c = camContext({ model: m, stock: st, tools, material: 'al-6061', features: recognizeFeatures(m, { stockTop: st.z1 }).features });
+  const tp = generateToolpath(c, createOp('scallop', { id: 's', tool: 't6', scallop: 0.05, sample: 0.5 }));
+  // The rings only (the clean-up passes added after them are checked in the next test).
+  const ringPasses = tp.passes.slice(0, tp.passes.length - (tp.cleanup ?? 0));
+  const R4 = 4; const grid = m.topGrid();
+  const surf = (x, y) => grid.topAt(x, y);
+  // The scallop profile along radial cross-sections of the dome: where each pass crosses the radial line (its
+  // polyline cut exactly, the height interpolated), neighbours two by two.
+  const heights = [];
+  for (let k = 0; k < 24; k++) {
+    const th = (2 * Math.PI * k) / 24; const u = [Math.cos(th), Math.sin(th)];
+    const on = [];
+    for (const pass of ringPasses) {
+      for (let i = 0; i + 1 < pass.length; i++) {
+        const a2 = pass[i]; const b2 = pass[i + 1];
+        const da = -u[1] * a2[0] + u[0] * a2[1]; const db = -u[1] * b2[0] + u[0] * b2[1];
+        if ((da > 0) === (db > 0) || da === db) continue;
+        const f = da / (da - db);
+        const q = [a2[0] + (b2[0] - a2[0]) * f, a2[1] + (b2[1] - a2[1]) * f, a2[2] + (b2[2] - a2[2]) * f];
+        const t = u[0] * q[0] + u[1] * q[1];
+        if (t > 3 && t < 18) on.push({ t, z: q[2] });
+      }
+    }
+    on.sort((x, y) => x.t - y.t);
+    for (let i = 0; i + 1 < on.length; i++) heights.push(cuspHeight([on[i].t, on[i].z + R4], [on[i + 1].t, on[i + 1].z + R4], R4, (t) => surf(u[0] * t, u[1] * t)));
+  }
+  assert.ok(heights.length > 50, `${heights.length} cusps`);
+  heights.sort((x, y) => x - y);
+  const med = heights[Math.floor(heights.length / 2)];
+  assert.ok(Math.abs(med - 0.05) < 0.0075, `median cusp ${med}`);
+  // Where the passes still follow the square outline they started from, a radial section crosses them aslant.
+  assert.ok(heights[Math.floor(heights.length * 0.75)] < 0.05 * 1.3, `75th percentile ${heights[Math.floor(heights.length * 0.75)]}`);
+});
+
+test('scallop finishing: the height actually left is at most the one asked for everywhere on the dome, with no gouge', () => {
+  // The left height measured as the part sees it: each surface point's distance to the nearest ball position
+  // along every pass (clean-up passes included), less the radius — not a section through the passes.
+  const dome = R.makeBox([-30, -30, 0], [30, 30, 10]).fuse(R.makeSphere(25).translate([0, 0, -5]).intersect(R.makeBox([-30, -30, 10], [30, 30, 40])));
+  const m = machiningModel(dome.mesh({ tolerance: 0.01, angularTolerance: 0.05 }), { shape: dome });
+  const st = defaultStock(m.bounds, { margin: 2, top: 1 });
+  const c = camContext({ model: m, stock: st, tools, material: 'al-6061', features: recognizeFeatures(m, { stockTop: st.z1 }).features });
+  const h = 0.05;
+  const tp = generateToolpath(c, createOp('scallop', { id: 's', tool: 't6', scallop: h, sample: 0.5 }));
+  const grid = m.topGrid();
+  const left = scallopLeft(tp.passes, 4, (x, y) => grid.topAt(x, y), { step: 0.05 });
+  let max = -Infinity; let min = Infinity; let n = 0;
+  for (let r = 3; r <= 18; r += 0.11) for (let th = 0; th < 2 * Math.PI; th += 0.02) {
+    const v = left.at(r * Math.cos(th), r * Math.sin(th));
+    max = Math.max(max, v); min = Math.min(min, v); n++;
+  }
+  assert.ok(n > 40000, `${n} points`);
+  assert.ok(max <= h * 1.02, `largest scallop ${max} for ${h}`);
+  assert.ok(min > -0.012, `no gouge beyond the mesh's tolerance: ${min}`);
+});
+
+test('waterline: the shank keeps clear of an overhang exactly — a ball over a stem, its widest circle between levels', () => {
+  // A 10 mm square stem with a sphere (r 12, centre z 30) on it: the sphere's lower half hangs over the stem. A ball
+  // cutter (R 4) whose shank runs under the sphere's equator must stay outside the equator grown by R — 16 mm.
+  const part = R.makeBox([-5, -5, 0], [5, 5, 30]).fuse(R.makeSphere(12).translate([0, 0, 30]));
+  const m = machiningModel(part.mesh({ tolerance: 0.01, angularTolerance: 0.05 }), { shape: part });
+  const st = defaultStock(m.bounds, { margin: 6, top: 1 });
+  const c = camContext({ model: m, stock: st, tools, material: 'al-6061', features: recognizeFeatures(m, { stockTop: st.z1 }).features });
+  const tp = generateToolpath(c, createOp('waterline', { id: 'w', tool: 't6', stepdown: 2.3 }));
+  assert.equal(tp.exact, true, 'from the B-rep');
+  const Rb = toolById('t6').d / 2;
+  let checked = 0; let minR = Infinity;
+  for (const mv of expandMoves(tp.moves)) {
+    if (mv.k !== 'f') continue;
+    const [x, y, z] = mv.p;
+    if (z + Rb >= 30 - 1e-6 || z < 1) continue;               // the shank (from the ball's centre up) under the equator
+    minR = Math.min(minR, Math.hypot(x, y)); checked++;
+  }
+  assert.ok(checked > 50, `${checked} moves under the overhang`);
+  assert.ok(minR >= 12 + Rb - 1e-3, `closest approach ${minR} (needs ${12 + Rb})`);
+});
+
+test('gouges are judged on the B-rep: a coarse mesh of a bore makes none up, a real 0.1 mm cut into the wall is measured', () => {
+  // A plate with a Ø20 bore, meshed coarsely: the mesh's chords stand inside the hole, so the mesh alone sees part
+  // material where a cutter finishing the bore exactly runs. The solid decides.
+  const plate = R.makeBox([-20, -20, 0], [20, 20, 10]).cut(R.makeCylinder(10, 20, [0, 0, -5], [0, 0, 1]));
+  const coarse = plate.mesh({ tolerance: 0.1, angularTolerance: 0.5 });
+  const stock = { kind: 'box', x0: -20, y0: -20, z0: 0, x1: 20, y1: 20, z1: 10 };
+  const ring = (r, z) => Array.from({ length: 721 }, (_, i) => { const a = (2 * Math.PI * i) / 720; return [r * Math.cos(a), r * Math.sin(a), z]; });
+  // A Ø8 flat end mill round the bore at depth: exactly on the wall (r 10 − 4), then 0.1 mm into it.
+  const pathAt = (r) => ({ op: 'p', tool: 't3', moves: [{ k: 'r', p: [r, 0, 20] }, { k: 'r', p: [r, 0, 2] }, ...ring(r, 2).map((p) => ({ k: 'f', p, f: 500 }))] });
+  const check = (model, r) => gougeCheck(simulateMilling(stock, [pathAt(r)], tools, { cell: 0.25 }), model, { tol: 0.02 });
+  const meshOnly = machiningModel(coarse);
+  const exact = machiningModel(coarse, { shape: plate });
+  const onWallMesh = check(meshOnly, 6);
+  const onWall = check(exact, 6);
+  assert.ok(onWallMesh.count > 0, `the coarse mesh alone reports ${onWallMesh.count} gouges (the chords)`);
+  assert.equal(onWall.count, 0, `on the solid: no gouge (max ${onWall.max})`);
+  assert.ok(onWall.exact.confirmed > 0 && onWall.exact.cleared === onWall.exact.confirmed, JSON.stringify(onWall.exact));
+  const into = check(exact, 6.1);
+  assert.ok(into.count > 0, 'a cut into the wall is a gouge');
+  assert.ok(Math.abs(into.max - 0.1) < 0.01, `its depth on the solid ${into.max} (0.1)`);
 });

@@ -3,7 +3,7 @@
 // One of them is open in the main window at a time (the document tabs switch between them).
 // Projects are Z up (`up: 'z'`); one made before that (Y up) is turned when it is read (zup.js).
 import { DEFAULT_MATERIAL } from './materials.js';
-import { createDrawing } from './drawing.js';
+import { createDrawing, migrateDrawingDims } from './drawing.js';
 import { quatIdentity } from './assembly.js';
 import { isYUp } from './frame.js';
 import { migrateProject } from './zup.js';
@@ -68,7 +68,12 @@ export function normalizeProject(raw) {
       mates: Array.isArray(a.mates) ? a.mates : [],
     });
   }
-  for (const d of raw.drawings ?? []) p.drawings.push({ ...createDrawing({ id: d.id ?? newId('drw'), name: d.name, source: d.source }), ...d });
+  for (const d of raw.drawings ?? []) {
+    const nd = { ...createDrawing({ id: d.id ?? newId('drw'), name: d.name, source: d.source }), ...d };
+    // Dimensions of broken views saved in the shortened coordinates (before DIM_COORDS): marked once, to convert.
+    if (!(Number(d.dimCoords) >= 2)) { delete nd.dimCoords; migrateDrawingDims(nd); }
+    p.drawings.push(nd);
+  }
   if (!findDocument(p, p.active)) {
     const first = documentsOf(p)[0];
     p.active = first ? { kind: first.kind, id: first.doc.id } : null;

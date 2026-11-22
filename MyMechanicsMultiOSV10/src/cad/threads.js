@@ -153,34 +153,74 @@ export function sectionWire(spec, kind, fr, { lefthand = false } = {}) {
   return R.assembleWire(edges);
 }
 
-/** Sweeps a cross-section wire along fr.z for `length`, turning one revolution per pitch (a screw sweep). */
-function screwSweep(wire, fr, length, P, lefthand) {
+/** One screw sweep of `wire` along fr.z for `length` (≤ a few pitches): { shell (lateral faces), last (end wire) }. */
+function sweepShell(wire, origin, dir, length, P, lefthand) {
   const R = rep(); const oc = R.getOC();
-  const end = fr.origin.map((v, k) => v + fr.z[k] * length);
-  const spine = R.assembleWire([R.makeLine(fr.origin, end)]);
-  const aux = makeHelixStable(P, length, 1, fr.origin, fr.z, lefthand);
+  const end = origin.map((v, k) => v + dir[k] * length);
+  const spine = R.assembleWire([R.makeLine(origin, end)]);
+  const aux = makeHelixStable(P, length, 1, origin, dir, lefthand);
   const b = new oc.BRepOffsetAPI_MakePipeShell(spine.wrapped);
   try {
     b.SetMode(aux.wrapped, false, oc.BRepFill_TypeOfContact.BRepFill_NoContact);
     b.Add(wire.wrapped, false, false);
     b.Build();
     if (!b.IsDone()) throw Object.assign(new Error('thread sweep failed'), { code: 'thread-failed' });
-    b.MakeSolid();
-    let solid = R.cast(b.Shape());
+    return { shell: R.cast(b.Shape()), last: R.cast(b.LastShape()) };
+  } finally { b.delete(); }
+}
+
+/**
+ * The screw sweep as a solid made of one-pitch pieces: one pitch is swept once and copied by translation (a
+ * screw-symmetric surface repeats exactly every pitch), the rest swept on its own, the faces sewn with the two
+ * end sections. Faces one turn long keep the booleans with the part local — a single sweep many turns long
+ * makes every intersection walk the whole surface (a chamfer took 4–8 s, now well under a second per turn).
+ */
+function screwSweep(wire, fr, length, P, lefthand) {
+  const R = rep(); const oc = R.getOC();
+  const n = Math.floor(length / P + 1e-9); const rest = length - n * P;
+  const at = (k) => fr.z.map((v) => v * k);
+  const sew = new oc.BRepBuilderAPI_Sewing(1e-6, true, true, true, false);
+  try {
+    let lastWire;
+    if (n > 0) {
+      const one = sweepShell(wire, fr.origin, fr.z, P, P, lefthand);
+      for (let k = 0; k < n; k++) sew.Add((k ? one.shell.clone().translate(at(k * P)) : one.shell).wrapped);
+      lastWire = one.last.clone().translate(at((n - 1) * P));
+    }
+    if (rest > 1e-9) {
+      const piece = sweepShell(n ? wire.clone().translate(at(n * P)) : wire, fr.origin.map((v, k) => v + fr.z[k] * n * P), fr.z, rest, P, lefthand);
+      sew.Add(piece.shell.wrapped);
+      lastWire = piece.last;
+    }
+    sew.Add(R.makeFace(wire).wrapped);
+    sew.Add(R.makeFace(lastWire).wrapped);
+    sew.Perform(new oc.Message_ProgressRange());
+    let solid = R.makeSolid([R.cast(sew.SewedShape())]);
     if (R.measureVolume(solid) < 0) solid = R.cast(solid.wrapped.Reversed());
     return solid;
-  } finally { b.delete(); spine.delete(); aux.delete(); }
+  } finally { sew.delete(); }
 }
+
+/** Thread solids already made (same thread, same place): rebuilding a part does not sweep them again. */
+const solids = new Map();
 
 /**
  * The modelled thread solid: kind 'external' — the threaded rod itself (the material, r ≤ r(θ)); kind
  * 'internal' — the threaded hole (the region to cut from a part). From `origin` along `dir` for `length`.
+ * A copy of a cached solid is returned (callers' booleans consume their inputs).
  */
 export function threadSolid(spec, kind, { origin = [0, 0, 0], dir = [0, 0, 1], xDir = null, length, lefthand = false }) {
   const fr = threadFrame(origin, dir, xDir);
   const L = Number(length);
   if (!(L > 0)) throw Object.assign(new Error('thread length'), { code: 'thread-failed' });
-  return screwSweep(sectionWire(spec, kind, fr, { lefthand }), fr, L, spec.P, lefthand);
+  const key = JSON.stringify([spec.d, spec.P, kind, fr.origin, fr.z, fr.x, L, Boolean(lefthand)].flat().map((v) => (typeof v === 'number' ? Math.round(v * 1e9) / 1e9 : v)));
+  let s = solids.get(key);
+  if (!s) {
+    s = screwSweep(sectionWire(spec, kind, fr, { lefthand }), fr, L, spec.P, lefthand);
+    if (solids.size > 200) { for (const v of solids.values()) v.delete?.(); solids.clear(); }
+    solids.set(key, s);
+  }
+  return s.clone();
 }
 
 /** The volume of a modelled thread of `length` (analytic): the cross-section area times the length. */
@@ -210,3 +250,41 @@ export const setModelledThreads = (on) => { modelledByDefault = Boolean(on); };
 export const modelledThreadsGlobal = () => modelledByDefault;
 /** Whether a feature models its threads: its own choice ('modelled' / 'cosmetic'), else the global option. */
 export const wantsModelled = (mode) => (mode === 'modelled' || mode === true ? true : mode === 'cosmetic' || mode === false ? false : modelledByDefault);
+
+// ───────────────────────── thread runout
+
+/**
+ * The runout length over which a thread fades out where it ends inside material (under a head, before a
+ * shoulder, at the bottom of a blind tapped hole): 2.5 P. ISO 3508 / DIN 76-1 tabulate x (normal) per pitch;
+ * their tables were not available to us, 2.5 P is the usual rule that matches them closely (e.g. M8: 3.1 mm).
+ */
+export const runoutLength = (spec) => 2.5 * spec.P;
+
+/** A solid of revolution about fr.z from (r, z) points in the thread frame. */
+export function revolveInFrame(fr, pts) {
+  const R = rep();
+  const plane = new R.Plane(fr.origin, fr.x, cross(fr.x, fr.z));
+  let pen = R.draw(pts[0]);
+  for (const q of pts.slice(1)) pen = pen.lineTo(q);
+  return pen.close().sketchOnPlane(plane).revolve(fr.z, { origin: fr.origin });
+}
+
+/**
+ * External runout: the core the thread fades into over x before z = L (frame coordinates) — a cone from just
+ * under the minor diameter at L − x to the major diameter at L. Fused with the threaded rod, the groove gets
+ * shallower until the plain shank (or the shoulder) at L: a vanishing thread, nothing cut past L.
+ */
+export function externalRunoutCore(spec, fr, L, x = runoutLength(spec)) {
+  const x0 = Math.max(0, L - x);
+  return revolveInFrame(fr, [[0, x0], [spec.d3 / 2 - 0.01 * spec.P, x0], [spec.d / 2, L], [0, L]]);
+}
+
+/**
+ * Internal runout: the blank a tapped hole's thread tool is trimmed by — full depth to L − x, then a cone from
+ * the major diameter down to `innerR` (the drilled hole) at L, so the thread fades out at the bottom.
+ */
+export function internalRunoutBlank(spec, fr, L, innerR, x = runoutLength(spec)) {
+  const x0 = Math.max(0, L - x);
+  const big = spec.d / 2 + 0.5 * spec.P;
+  return revolveInFrame(fr, [[0, -1], [big, -1], [big, x0], [spec.d / 2, x0], [Math.min(innerR, spec.d1 / 2), L], [0, L]]);
+}

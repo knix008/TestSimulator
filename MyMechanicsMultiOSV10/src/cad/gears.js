@@ -1,30 +1,37 @@
 // Gear tooth geometry (pure maths, no kernel): the tooth space a rack cutter of the ISO 53 basic rack (20°,
 // addendum 1 m, dedendum 1.25 m, tip radius ρ = 0.38 m) generates in a gear blank — the involute flank from the
 // tip down to the form point and below it the trochoidal root fillet the cutter's rounded tip sweeps, with any
-// undercut cut away — and the outlines of spur / helical (transverse section), bevel (Tredgold back cone)
-// gears, racks and synchronous belt pulleys built from it.
+// undercut cut away — and the outlines of spur / helical (transverse section) gears, straight bevel gears
+// (spherical involute on the back sphere), racks and synchronous belt pulleys.
 
 const TAU = 2 * Math.PI;
 
 /**
  * Generates one flank of a tooth space by rolling the rack cutter on the pitch circle (radius rp).
  * `pitch`: circular pitch at the pitch circle (π m), `alpha`: flank angle (radians), `ha` / `hf`: gear addendum
- * / dedendum (the cutter's dedendum / addendum), `rho`: cutter tip radius.
+ * / dedendum (the cutter's dedendum / addendum), `rho`: cutter tip radius. `rhoX` (default rho): the tip round's
+ * half width along the rack — a helical gear's transverse rack has an elliptic tip (the normal-section circle ρ
+ * seen in the transverse plane: ρ across the tooth height, ρ / cos β along the pitch line).
  * Returns { fillet: [[r, w] …], involute: [[r, w] …], rootHalf, tipHalf, rf, ra } where w is the angle from the
  * space's centre line (positive toward the flank), both curves run outward, the fillet ends where the involute
  * starts (or where the undercut cut them).
  */
-export function toothSpaceFlank({ rp, pitch, alpha, ha, hf, rho, samples = 60 }) {
+export function toothSpaceFlank({ rp, pitch, alpha, ha, hf, rho, rhoX = rho, samples = 60 }) {
   const ra = rp + ha; const rf = rp - hf;
-  const yc = hf - rho; // cutter tip-round centre height above the pitch line (toward the gear centre)
-  const xc = pitch / 4 - yc * Math.tan(alpha) - rho / Math.cos(alpha);
-  const ytf = yc + rho * Math.sin(alpha); // where the straight flank meets the round
+  const a = rhoX; const b = rho; // the tip round: an ellipse (a circle when a = b), semi-axes along x / y
+  const yc = hf - b; // tip-round centre height above the pitch line (toward the gear centre)
+  // Tangent to the flank x cos α + y sin α = (p/4) cos α: the ellipse's support distance along the flank normal.
+  const support = Math.hypot(a * Math.cos(alpha), b * Math.sin(alpha));
+  const xc = (pitch / 4) - yc * Math.tan(alpha) - support / Math.cos(alpha);
+  const tFlank = Math.atan2(b * Math.sin(alpha), a * Math.cos(alpha)); // ellipse parameter where its normal is the flank's
+  const ytf = yc + b * Math.sin(tFlank); // where the straight flank meets the round
   // Cutter points with their normals, in order: the tip flat (x from 0 to xc), the round, the straight flank.
   const pts = [];
   pts.push({ q: [xc, hf], n: [0, 1], part: 'flat' });
   for (let i = 1; i <= samples; i++) {
-    const t = Math.PI / 2 - ((Math.PI / 2 - alpha) * i) / samples;
-    pts.push({ q: [xc + rho * Math.cos(t), yc + rho * Math.sin(t)], n: [Math.cos(t), Math.sin(t)], part: 'fillet' });
+    const t = Math.PI / 2 - ((Math.PI / 2 - tFlank) * i) / samples;
+    const nx = Math.cos(t) / a; const ny = Math.sin(t) / b; const nl = Math.hypot(nx, ny);
+    pts.push({ q: [xc + a * Math.cos(t), yc + b * Math.sin(t)], n: [nx / nl, ny / nl], part: 'fillet' });
   }
   const yLow = -ha * 1.6 - 0.2 * pitch;
   for (let i = 1; i <= samples * 2; i++) {
@@ -85,9 +92,9 @@ export function toothSpaceFlank({ rp, pitch, alpha, ha, hf, rho, samples = 60 })
  * `module` is the transverse module, `pressureAngle` the transverse pressure angle (degrees), `ha` / `hf` /
  * `rho` in mm (defaults from the module: 1 m, 1.25 m, 0.38 m).
  */
-export function gearProfile({ module: m, teeth: z, pressureAngle = 20, ha = null, hf = null, rho = null }) {
+export function gearProfile({ module: m, teeth: z, pressureAngle = 20, ha = null, hf = null, rho = null, rhoX = null }) {
   const rp = (m * z) / 2;
-  const f = toothSpaceFlank({ rp, pitch: Math.PI * m, alpha: (pressureAngle * Math.PI) / 180, ha: ha ?? m, hf: hf ?? 1.25 * m, rho: rho ?? 0.38 * m });
+  const f = toothSpaceFlank({ rp, pitch: Math.PI * m, alpha: (pressureAngle * Math.PI) / 180, ha: ha ?? m, hf: hf ?? 1.25 * m, rho: rho ?? 0.38 * m, rhoX: rhoX ?? rho ?? 0.38 * m });
   const xy = (r, a) => [r * Math.cos(a), r * Math.sin(a)];
   const pieces = [];
   const half = Math.PI / z;
@@ -127,8 +134,8 @@ export function helicalTransverse(mn, beta, alphaN = 20) {
 }
 
 /**
- * Straight bevel gear (shaft angle 90°): pitch angle δ = atan(z / zMate), outer cone distance Re, virtual
- * (Tredgold) tooth count zv = z / cos δ, the outer tip / root diameters and the face width limit Re / 3.
+ * Straight bevel gear (shaft angle 90°): pitch angle δ = atan(z / zMate), outer cone distance Re,
+ * virtual (back-cone) tooth count zv = z / cos δ, the outer tip / root diameters and the face width limit Re / 3.
  */
 export function bevelGeometry({ module: m, teeth: z, mateTeeth: z2 }) {
   const delta = Math.atan2(z, z2);
@@ -139,27 +146,81 @@ export function bevelGeometry({ module: m, teeth: z, mateTeeth: z2 }) {
 }
 
 /**
- * Tredgold's approximation of a bevel gear's outer tooth section, laid flat in the back plane: the virtual
- * spur gear's outline (zv teeth, radius rp / cos δ) mapped radially by cos δ about the pitch circle and its
- * angles by zv / z. Returns pieces like gearProfile (arcs become curves).
+ * A point of the spherical involute of base cone angle δb on the unit sphere about the cone apex (axis +z away
+ * from the gear, so the cones open toward −z is handled by the caller): the great circle tangent to the base cone
+ * rolls on it by ψ; the traced point is g(ψ) cos θ − t(ψ) sin θ with θ = ψ sin δb, g the base-cone generator at
+ * azimuth ψ and t the circle's tangent there. Returns { gamma (polar angle), phi (azimuth), p }.
  */
-export function bevelSection({ module: m, teeth: z, mateTeeth: z2 }) {
+export function sphericalInvolute(deltaB, psi) {
+  const sb = Math.sin(deltaB); const cb = Math.cos(deltaB);
+  const th = psi * sb;
+  const g = [sb * Math.cos(psi), sb * Math.sin(psi), cb];
+  const t = [-Math.sin(psi), Math.cos(psi), 0];
+  const p = [g[0] * Math.cos(th) - t[0] * Math.sin(th), g[1] * Math.cos(th) - t[1] * Math.sin(th), g[2] * Math.cos(th)];
+  return { gamma: Math.acos(Math.max(-1, Math.min(1, p[2]))), phi: Math.atan2(p[1], p[0]), p, generator: g };
+}
+
+/**
+ * Straight bevel gear tooth on the outer (back) sphere of radius Re about the cone apex: spherical involute
+ * flanks (the exact conjugate form for straight bevel gears — every tooth line runs to the apex) on the base
+ * cone sin δb = sin δ cos α, the tip cone δa = δ + atan(m / Re), the root cone δf = δ − atan(1.25 m / Re), below
+ * the base cone a radial flank, and the root fillet of radius 0.38 m (on the sphere, developed locally).
+ * Returns { pieces: [{ kind: 'cone', gamma, phi0, phi1 } | { kind: 'curve', pts: [[gamma, phi] …] }], … } — the
+ * outline as cone angle / azimuth pairs; tooth i centred at azimuth 2πi/z.
+ */
+export function bevelSphericalSection({ module: m, teeth: z, mateTeeth: z2, pressureAngle = 20 }) {
   const g = bevelGeometry({ module: m, teeth: z, mateTeeth: z2 });
-  const virt = gearProfile({ module: m, teeth: g.zv });
-  const k = g.zv / z; const cd = Math.cos(g.delta);
-  const map = ([x, y]) => { const R = Math.hypot(x, y); const a = Math.atan2(y, x) * k; const r = g.rp + (R - virt.rp) * cd; return [r * Math.cos(a), r * Math.sin(a)]; };
-  // One period of the virtual outline (root arc, flank, tip arc, flank), mapped and repeated z times.
-  const pieces = [];
-  const firstTooth = virt.pieces.slice(0, virt.pieces.length / Math.ceil(g.zv));
-  for (let i = 0; i < z; i++) {
-    const turn = (TAU * i) / z;
-    for (const p of firstTooth) {
-      const pts = p.kind === 'arc' ? Array.from({ length: 9 }, (_, j) => { const a = p.a0 + ((p.a1 - p.a0) * j) / 8; return [p.r * Math.cos(a), p.r * Math.sin(a)]; }) : p.pts;
-      const mapped = pts.map(map).map(([x, y]) => [x * Math.cos(turn) - y * Math.sin(turn), x * Math.sin(turn) + y * Math.cos(turn)]);
-      pieces.push({ kind: p.kind === 'arc' ? 'arcLike' : 'curve', pts: mapped, r: p.kind === 'arc' ? g.rp + (p.r - virt.rp) * cd : null });
+  const a = (pressureAngle * Math.PI) / 180;
+  const deltaB = Math.asin(Math.sin(g.delta) * Math.cos(a));
+  const Re = g.Re;
+  const deltaA = g.delta + Math.atan(m / Re); const deltaF = g.delta - Math.atan((1.25 * m) / Re);
+  // ψ for a cone angle on the involute (it grows monotonically with ψ).
+  const psiAt = (gamma) => { let lo = 0; let hi = Math.PI; for (let i = 0; i < 80; i++) { const mid = (lo + hi) / 2; if (sphericalInvolute(deltaB, mid).gamma < gamma) lo = mid; else hi = mid; } return (lo + hi) / 2; };
+  const phiP = sphericalInvolute(deltaB, psiAt(g.delta)).phi;
+  // Half tooth (azimuth) at cone angle γ: π/(2z) at the pitch cone, narrowing outward along the involute.
+  const half = (gamma) => Math.PI / (2 * z) - (sphericalInvolute(deltaB, psiAt(gamma)).phi - phiP);
+  const gLow = Math.max(deltaB, deltaF);
+  const flank = [];
+  const n = 40;
+  for (let i = 0; i <= n; i++) { const gm = gLow + ((deltaA - gLow) * i) / n; flank.push([gm, half(gm)]); }
+  // Below the base cone a radial flank, then the 0.38 m root fillet into the root cone (developed at the root:
+  // x = Re sin γ · φ across, y = Re γ along the sphere).
+  const rho = 0.38 * m;
+  const tauB = flank[0][1];
+  const sinF = Math.sin(deltaF);
+  const fillet = [];
+  let rootHalf = tauB;
+  if (deltaB > deltaF + 1e-9 && Re * (deltaB - deltaF) > rho * 0.5) {
+    const x0 = Re * sinF * tauB; const yF = Re * deltaF;
+    const rr = Math.min(rho, Re * (deltaB - deltaF));
+    // The space lies at φ > τ (beyond the tooth's half width): the fillet's centre is in that corner.
+    const cxs = x0 + rr; const cy = yF + rr;
+    for (let i = 0; i <= 12; i++) {
+      const t = Math.PI + (Math.PI / 2) * (i / 12); // from the flank (left of centre) down to the root (below)
+      const x = cxs + rr * Math.cos(t); const y = cy + rr * Math.sin(t);
+      fillet.push([y / Re, x / (Re * Math.sin(y / Re))]);
     }
+    // From the root tangent up to the flank tangent; the radial flank then runs up to the base cone.
+    rootHalf = fillet.at(-1)[1];
+    fillet.reverse();
+  } else if (deltaB > deltaF) {
+    flank.unshift([deltaF, tauB]);
+    rootHalf = tauB;
   }
-  return { pieces, ...g };
+  const tipHalf = Math.max(flank.at(-1)[1], 1e-4);
+  // Assemble tooth by tooth: root cone arc of the space, up the flank of the next tooth, its tip, down.
+  const pieces = [];
+  const pitchA = (2 * Math.PI) / z;
+  const up = [...fillet, ...flank]; // from the root (in the space) up to the tip, as (γ, half-width) pairs
+  for (let i = 0; i < z; i++) {
+    const c = pitchA * i; const nx = c + pitchA;
+    // right flank of tooth i (φ = c + w), going down from the tip into the space
+    pieces.push({ kind: 'curve', pts: [...up].reverse().map(([gm, w]) => [gm, c + w]) });
+    pieces.push({ kind: 'cone', gamma: deltaF, phi0: c + rootHalf, phi1: nx - rootHalf });
+    pieces.push({ kind: 'curve', pts: up.map(([gm, w]) => [gm, nx - w]) });
+    pieces.push({ kind: 'cone', gamma: deltaA, phi0: nx - tipHalf, phi1: nx + tipHalf });
+  }
+  return { pieces, ...g, deltaB, deltaA, deltaF, rootHalf, tipHalf, half };
 }
 
 /**
@@ -182,11 +243,19 @@ export function rackOutline({ module: m, count, height, pressureAngle = 20 }) {
   return pts;
 }
 
-/** DIN 7721 / ISO 17396 T-profile synchronous pulleys: pitch, groove width at the tip, depth, flank angle, PLD. */
+/**
+ * DIN 7721 / ISO 17396 T-profile synchronous pulleys: pitch, groove width at the tip bw (a chord on the
+ * outside circle), groove depth hg, flank angle β (to the groove's centre line, 2β = 50°), the pitch line
+ * differential PLD (= a, d_a = d_0 − 2a), the tip radius rt and the groove bottom radius rb.
+ * Sources: 2a from the Mulco T-profile pulley table (d0 − dK: T2.5 0.52–0.54, T5 0.82–0.85, T10 1.84–1.85;
+ * mulco_Synchronscheiben_Komponenten.pdf p. 90, klocke-antrieb.de). bw, hg, 2β and the radii: DIN 7721-2 /
+ * ISO 17396 values as reproduced in pulley catalogues (2β = 50°, T10 radii ≈ 0.8 / 0.6 mm, Misumi T10 drawing);
+ * the standard's own groove table was not available to check them against.
+ */
 export const PULLEY_PROFILES = {
-  'T2.5': { pitch: 2.5, bw: 0.9, hg: 0.75, beta: 25, pld: 0.3 },
-  T5: { pitch: 5, bw: 1.75, hg: 1.25, beta: 25, pld: 0.425 },
-  T10: { pitch: 10, bw: 3.05, hg: 2.6, beta: 25, pld: 1 },
+  'T2.5': { pitch: 2.5, bw: 0.9, hg: 0.75, beta: 25, pld: 0.27, rt: 0.2, rb: 0.15 },
+  T5: { pitch: 5, bw: 1.75, hg: 1.25, beta: 25, pld: 0.425, rt: 0.4, rb: 0.3 },
+  T10: { pitch: 10, bw: 3.05, hg: 2.6, beta: 25, pld: 0.925, rt: 0.8, rb: 0.6 },
 };
 
 /** A pulley's diameters: pitch d0 = z p / π, outside da = d0 − 2·PLD. */
@@ -196,25 +265,68 @@ export function pulleyGeometry(profile, z) {
   return { ...g, d0, da: d0 - 2 * g.pld, root: d0 - 2 * g.pld - 2 * g.hg };
 }
 
+/** The fillet of radius rf between a line (point p, unit direction u) and a circle about the origin (radius Rc): { c, onLine, onCircle } nearest to `near`. */
+function lineCircleFillet(p, u, Rc, rf, near, outsideCircle) {
+  const n = [-u[1], u[0]];
+  let best = null;
+  for (const s of [1, -1]) {
+    const q = [p[0] + n[0] * s * rf, p[1] + n[1] * s * rf];
+    // |q + u t| = Rc ± rf
+    const Rt = outsideCircle ? Rc + rf : Rc - rf;
+    const b = q[0] * u[0] + q[1] * u[1]; const c = q[0] * q[0] + q[1] * q[1] - Rt * Rt;
+    const disc = b * b - c;
+    if (disc < 0) continue;
+    for (const t of [-b + Math.sqrt(disc), -b - Math.sqrt(disc)]) {
+      const cen = [q[0] + u[0] * t, q[1] + u[1] * t];
+      const d = Math.hypot(cen[0] - near[0], cen[1] - near[1]);
+      if (!best || d < best.d) best = { d, c: cen };
+    }
+  }
+  const c = best.c;
+  const tl = (c[0] - p[0]) * u[0] + (c[1] - p[1]) * u[1];
+  const onLine = [p[0] + u[0] * tl, p[1] + u[1] * tl];
+  const k = Math.hypot(c[0], c[1]);
+  const onCircle = [(c[0] / k) * Rc, (c[1] / k) * Rc];
+  return { c, onLine, onCircle };
+}
+
 /**
- * The pulley's outline pieces about the origin: tip arcs on the outside circle between z trapezoidal grooves
- * (flanks at β to the radial line, a flat bottom). { kind: 'arc', r, a0, a1 } | { kind: 'line', a: [x, y], b }.
+ * The pulley's outline pieces about the origin: z trapezoidal grooves (flanks at β to the groove's centre line,
+ * a bottom arc at d_a − 2 hg) with the tip radius rt where a flank meets the outside circle and the bottom radius
+ * rb where it meets the groove bottom. Pieces: { kind: 'arc', r, a0, a1 } (about the origin), { kind: 'line', a, b },
+ * { kind: 'arc3', a, m, b } (a fillet through three points).
  */
 export function pulleyProfile(profile, z) {
   const g = pulleyGeometry(profile, z);
-  const ro = g.da / 2; const rb = ro - g.hg;
+  const ro = g.da / 2; const rbase = ro - g.hg;
   const tb = Math.tan((g.beta * Math.PI) / 180);
-  const halfTop = g.bw / 2 / ro; // angular half width of the groove at the tip (chord ≈ arc)
-  const bottomHalfW = Math.max(0.05, g.bw / 2 - g.hg * tb);
-  const halfBottom = bottomHalfW / rb;
-  const xy = (r, a) => [r * Math.cos(a), r * Math.sin(a)];
+  // One groove centred on +x (local), its lower flank (y < 0); the upper one is the mirror image.
+  const top = [Math.sqrt(ro * ro - (g.bw / 2) ** 2), -g.bw / 2];
+  const u = (() => { const v = [-1, tb]; const l = Math.hypot(...v); return [v[0] / l, v[1] / l]; })(); // inward along the flank
+  // The flank meets the bottom circle.
+  const bq = top[0] * u[0] + top[1] * u[1]; const bc = top[0] ** 2 + top[1] ** 2 - rbase * rbase;
+  const tBot = -bq - Math.sqrt(Math.max(0, bq * bq - bc));
+  const bot = [top[0] + u[0] * tBot, top[1] + u[1] * tBot];
+  const tipF = lineCircleFillet(top, u, ro, g.rt, top, false); // inside the outside circle (convex corner)
+  const botF = lineCircleFillet(top, u, rbase, g.rb, bot, true); // outside the bottom circle (concave corner)
+  const mid = (f, r) => { const a = [f.onLine[0] - f.c[0], f.onLine[1] - f.c[1]]; const b = [f.onCircle[0] - f.c[0], f.onCircle[1] - f.c[1]]; const m = [a[0] + b[0], a[1] + b[1]]; const l = Math.hypot(...m) || 1; return [f.c[0] + (m[0] / l) * r, f.c[1] + (m[1] / l) * r]; };
+  const tipMid = mid(tipF, g.rt); const botMid = mid(botF, g.rb);
+  const ang = (p) => Math.atan2(p[1], p[0]);
+  const rot = (p, a) => [p[0] * Math.cos(a) - p[1] * Math.sin(a), p[0] * Math.sin(a) + p[1] * Math.cos(a)];
+  const mir = (p) => [p[0], -p[1]];
   const pieces = [];
+  const TAU = 2 * Math.PI;
+  const tipAngle = -ang(tipF.onCircle); // angular half width of the groove at the outside circle, fillet included
   for (let i = 0; i < z; i++) {
-    const c = (TAU * i) / z; const next = (TAU * (i + 1)) / z;
-    pieces.push({ kind: 'line', a: xy(ro, c - halfTop), b: xy(rb, c - halfBottom) });
-    pieces.push({ kind: 'arc', r: rb, a0: c - halfBottom, a1: c + halfBottom });
-    pieces.push({ kind: 'line', a: xy(rb, c + halfBottom), b: xy(ro, c + halfTop) });
-    pieces.push({ kind: 'arc', r: ro, a0: c + halfTop, a1: next - halfTop });
+    const c = (TAU * i) / z; const R = (p) => rot(p, c);
+    pieces.push({ kind: 'arc3', a: R(tipF.onCircle), m: R(tipMid), b: R(tipF.onLine) });
+    pieces.push({ kind: 'line', a: R(tipF.onLine), b: R(botF.onLine) });
+    pieces.push({ kind: 'arc3', a: R(botF.onLine), m: R(botMid), b: R(botF.onCircle) });
+    pieces.push({ kind: 'arc', r: rbase, a0: c + ang(botF.onCircle), a1: c - ang(botF.onCircle) });
+    pieces.push({ kind: 'arc3', a: R(mir(botF.onCircle)), m: R(mir(botMid)), b: R(mir(botF.onLine)) });
+    pieces.push({ kind: 'line', a: R(mir(botF.onLine)), b: R(mir(tipF.onLine)) });
+    pieces.push({ kind: 'arc3', a: R(mir(tipF.onLine)), m: R(mir(tipMid)), b: R(mir(tipF.onCircle)) });
+    pieces.push({ kind: 'arc', r: ro, a0: c + tipAngle, a1: c + TAU / z - tipAngle });
   }
-  return { pieces, ...g };
+  return { pieces, ...g, bottomRadius: rbase, flankBottom: bot };
 }

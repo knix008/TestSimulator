@@ -1,0 +1,136 @@
+[
+ {
+  "name": "mfg: kernel loads",
+  "wait": 1500,
+  "eval": "window.__mymechanics.actions.ensureKernel().then(() => 'ready')",
+  "expect": "^ready$"
+ },
+ {
+  "name": "mfg: sample part opens",
+  "eval": "window.__mymechanics.actions.openSampleAsk('basMountBracket').then(() => new Promise((r) => setTimeout(r, 1500))).then(() => window.__mymechanics.active()?.name ?? 'none')",
+  "expect": ".+"
+ },
+ {
+  "name": "mfg: CAM, Plastics tabs are in the CommandManager",
+  "eval": "[...document.querySelectorAll('[data-cm-tab]')].map((b) => b.dataset.cmTab).join(',')",
+  "expect": "cam.*plastics"
+ },
+ {
+  "name": "mfg: CAM tab shows its buttons",
+  "eval": "(() => { document.querySelector('[data-cm-tab=\"cam\"]').click(); return new Promise((r) => setTimeout(() => r(document.querySelectorAll('.command-manager [data-cmd^=\"cam\"], .command-manager [data-command^=\"cam\"]').length + ' buttons'), 300)); })()",
+  "expect": "\\d+ buttons",
+  "shot": "cam-tab"
+ },
+ {
+  "name": "mfg: CAM manager opens",
+  "eval": "window.__mymechanics.run('camManager').then(() => window.__mymechanics.state.editing?.mode)",
+  "expect": "^cam$",
+  "wait": 500,
+  "shot": "cam-setup"
+ },
+ {
+  "name": "mfg: features recognised",
+  "eval": "(() => { const m = window.__mymechanics; m.mfg.cam.recognize(); const r = m.mfg.cam.model(); return r.rec.features.map((f) => f.type).join(','); })()",
+  "expect": "face|hole|pocket|step|boss",
+  "wait": 300,
+  "shot": "cam-features"
+ },
+ {
+  "name": "mfg: operations planned",
+  "eval": "(() => { const m = window.__mymechanics; m.mfg.cam.planAll(); return m.mfg.cam.camOf().ops.map((o) => o.type).join(','); })()",
+  "expect": "\\w",
+  "wait": 300
+ },
+ {
+  "name": "mfg: toolpaths generated in the worker; the window keeps running (timer gaps under 1 s)",
+  "eval": "(async () => { let last = performance.now(); let gap = 0; const tick = setInterval(() => { const now = performance.now(); gap = Math.max(gap, now - last); last = now; }, 20); try { const p = await window.__mymechanics.mfg.cam.generate(); return JSON.stringify({ paths: p.paths.length, errors: p.errors.map((e) => e.code), gapOk: gap < 1000, gap: Math.round(gap) }); } finally { clearInterval(tick); } })()",
+  "expect": "\"paths\":[1-9].*\"gapOk\":true",
+  "wait": 400,
+  "shot": "cam-paths"
+ },
+ {
+  "name": "mfg: generating again reuses every unchanged operation (no new work, same paths)",
+  "eval": "(async () => { const before = window.__mymechanics.mfg.cam.program(); const t0 = performance.now(); const p = await window.__mymechanics.mfg.cam.generate({ quiet: true }); const same = p.paths.length === before.paths.length && p.paths.every((tp, i) => tp === before.paths[i]); return JSON.stringify({ same, fast: performance.now() - t0 < 1500 }); })()",
+  "expect": "\"same\":true,\"fast\":true"
+ },
+ {
+  "name": "mfg: simulation runs in the worker, no gouge; the window keeps running",
+  "eval": "(async () => { let last = performance.now(); let gap = 0; const tick = setInterval(() => { const now = performance.now(); gap = Math.max(gap, now - last); last = now; }, 20); try { await window.__mymechanics.mfg.cam.simulate(); return JSON.stringify({ ...window.__mymechanics.mfg.cam.simulation(), gapOk: gap < 1000, gap: Math.round(gap) }); } finally { clearInterval(tick); } })()",
+  "expect": "\"gouges\":0.*\"gapOk\":true",
+  "wait": 600,
+  "shot": "cam-sim"
+ },
+ {
+  "name": "mfg: PM tabs render (operations list)",
+  "eval": "(() => { const m = window.__mymechanics; m.actions.pmSet('camTab', 'ops'); return new Promise((r) => setTimeout(() => r(document.querySelectorAll('.cam-row').length + ' rows'), 300)); })()",
+  "expect": "[1-9]\\d* rows",
+  "shot": "cam-ops"
+ },
+ {
+  "name": "mfg: G-code saved through the hook",
+  "eval": "(async () => { const m = window.__mymechanics; let got = null; m.mfg.cam.setSaveHook((c, n, t) => { got = { n, t, head: String(c).slice(0, 40), lines: String(c).split('\\n').length }; }); await m.mfg.cam.saveGcode(); return JSON.stringify(got); })()",
+  "expect": "\"t\":\"nc\".*O1001"
+ },
+ {
+  "name": "mfg: setup sheet saved through the hook",
+  "eval": "(async () => { const m = window.__mymechanics; let got = null; m.mfg.cam.setSaveHook((c, n, t) => { got = { n, t, ok: /<table/.test(c) }; }); await m.mfg.cam.saveSetupSheet(); return JSON.stringify(got); })()",
+  "expect": "\"t\":\"html\",\"ok\":true"
+ },
+ {
+  "name": "mfg: post tab preview",
+  "eval": "(() => { window.__mymechanics.actions.pmSet('camTab', 'post'); return new Promise((r) => setTimeout(() => r(document.querySelector('.cam-gcode')?.textContent.slice(0, 20) ?? 'none'), 300)); })()",
+  "expect": "%",
+  "shot": "cam-post"
+ },
+ {
+  "name": "mfg: plastics flow study runs in a worker (fill and pack)",
+  "eval": "window.__mymechanics.run('plasticsStudy').then(() => { const m = window.__mymechanics; m.mfg.plastics.study().cells = 24; return m.mfg.plastics.run(); }).then((r) => JSON.stringify({ short: r.summary.shortShot, fill: Math.round(r.summary.fillTime * 1000), nodes: r.nodes, pack: r.summary.packPressure != null }))",
+  "expect": "\"fill\":\\d+.*\"pack\":true",
+  "wait": 800,
+  "shot": "plastics-fill"
+ },
+ {
+  "name": "mfg: plastics pressure view",
+  "eval": "(() => { window.__mymechanics.actions.pmSet('plQuantity', 'pressure'); return new Promise((r) => setTimeout(() => r(document.querySelector('.pl-legend')?.textContent ?? 'none'), 400)); })()",
+  "expect": "MPa",
+  "shot": "plastics-pressure"
+ },
+ {
+  "name": "mfg: plastics report through the hook",
+  "eval": "(async () => { const m = window.__mymechanics; let got = null; m.mfg.plastics.setSaveHook((c, n, t) => { got = { n, t, ok: /MPa/.test(c) }; }); await m.mfg.plastics.saveReport(); return JSON.stringify(got); })()",
+  "expect": "\"ok\":true"
+ },
+ {
+  "name": "mfg: close the study, open a drawing",
+  "eval": "(async () => { const m = window.__mymechanics; m.actions.cancelEditing({ quiet: true }); await m.actions.newDrawing(); await new Promise((r) => setTimeout(r, 1500)); return m.state.doc ? (document.querySelector('[data-cm-tab=\"inspection\"]') ? 'inspection tab' : 'no tab') : 'no doc'; })()",
+  "expect": "^inspection tab$"
+ },
+ {
+  "name": "mfg: auto balloon: balloons = characteristics",
+  "eval": "(async () => { const m = window.__mymechanics; const n = m.mfg.inspection.balloon(); await new Promise((r) => setTimeout(r, 800)); const chars = m.mfg.inspection.characteristics(); return JSON.stringify({ n, chars: chars.length, svg: document.querySelectorAll('#drawing-host .insp-balloon').length }); })()",
+  "expect": "\"n\":(\\d+),\"chars\":\\1,\"svg\":\\1",
+  "shot": "insp-balloons"
+ },
+ {
+  "name": "mfg: measured values and pass / fail",
+  "eval": "(async () => { const m = window.__mymechanics; const c = m.mfg.inspection.characteristics()[0]; m.mfg.inspection.setMeasured(c.n, [c.nominal]); await new Promise((r) => setTimeout(r, 300)); return m.mfg.inspection.characteristics()[0].status; })()",
+  "expect": "^pass$",
+  "shot": "insp-table"
+ },
+ {
+  "name": "mfg: CSV import through the hook",
+  "eval": "(async () => { const m = window.__mymechanics; const c = m.mfg.inspection.characteristics()[1]; m.mfg.inspection.setCsvHook(() => `Balloon,Measured\\n${c.n},${c.usl + 1}\\n`); const r = await m.mfg.inspection.importCsv(); return JSON.stringify({ r, status: m.mfg.inspection.characteristics()[1].status }); })()",
+  "expect": "\"applied\":1.*\"status\":\"fail\""
+ },
+ {
+  "name": "mfg: report CSV and PDF through the hook (no dialog, no print)",
+  "eval": "(async () => { const m = window.__mymechanics; const got = []; m.mfg.inspection.setSaveHook((c, n, t) => { got.push({ t, head: typeof c === 'string' ? c.slice(0, 10) : new TextDecoder().decode(c.slice(0, 8)) }); }); await m.mfg.inspection.exportCsv(true); await m.mfg.inspection.exportPdf(); return JSON.stringify(got); })()",
+  "expect": "\"t\":\"csv\".*\"t\":\"pdf\",\"head\":\"%PDF-1"
+ },
+ {
+  "name": "mfg: English texts",
+  "eval": "(async () => { const m = window.__mymechanics; await m.actions.updateSettings({ language: 'en' }); await new Promise((r) => setTimeout(r, 400)); return document.querySelector('.pm-title b')?.textContent ?? 'none'; })()",
+  "expect": "Characteristics Table",
+  "shot": "insp-en"
+ }
+]

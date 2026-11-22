@@ -518,8 +518,8 @@ function wavyRect(x0, y0, x1, y1) {
 const OVERLAY_CSS = `<style>
     .break-line{fill:none;stroke:#000;stroke-width:.35}.brokenout-line{fill:none;stroke:#000;stroke-width:.35}
     .tbl-frame{fill:#fff;stroke:#000;stroke-width:.5}.tbl-grid{stroke:#000;stroke-width:.2}
-    .tbl-head{font:bold 2.8px Roboto,sans-serif;fill:#000}.tbl-cell{font:2.8px Roboto,sans-serif;fill:#000}
-    .hole-tag{font:2.6px Roboto,sans-serif;fill:#000}.sheet-name{font:3px Roboto,sans-serif;fill:#444}
+    .tbl-head{font:bold 2.8px Roboto,"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif;fill:#000}.tbl-cell{font:2.8px Roboto,"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif;fill:#000}
+    .hole-tag{font:2.6px Roboto,"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif;fill:#000}.sheet-name{font:3px Roboto,"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif;fill:#444}
   </style>`;
 
 /**

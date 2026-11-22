@@ -52,6 +52,9 @@
 .render-bar { flex: 1; max-width: 260px; height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
 .render-bar b { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 50%, #3ad29f)); }
 .render-bar.done b { background: #3ad29f; }
+/* Preparing / compiling: an indeterminate stripe moving along the bar. */
+.render-bar.busy b { background: repeating-linear-gradient(-45deg, var(--accent) 0 8px, color-mix(in srgb, var(--accent) 45%, transparent) 8px 16px); background-size: 200% 100%; animation: render-busy 1.2s linear infinite; }
+@keyframes render-busy { from { background-position: 0 0; } to { background-position: -45px 0; } }
 .render-pct { min-width: 3.2em; color: var(--muted); }
 /* Path tracer: the region on the picture, the region being dragged, area lights and the appearance list. */
 .render-frame canvas { cursor: crosshair; }
@@ -67,3 +70,5 @@
 .render-body small { color: var(--muted); }
 .render-body:hover { border-color: var(--accent); background: var(--hover); }
 .render-body.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+.harness-row.conn > .harness-dims { grid-column: span 3; font-size: 0.8em; color: var(--muted); align-self: center; }
+.harness-clip-type { margin: 0 0 4px 22px; }

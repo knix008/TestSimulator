@@ -10,7 +10,8 @@
 //                 connector tables, as data, SVG or DXF
 // harnessSolid() builds bundles (solid sweeps), connector housings and clips on the kernel, each with a colour.
 import { rep } from './kernel.js';
-import { routeNetwork, outDir, routeRuns, runPieces, orientZ, NODE_TOL } from './routing.js';
+import { routeNetwork, outDir, routeRuns, runPieces, NODE_TOL } from './routing.js';
+import { connectorDims, clipDims, connectorLocal, clipLocal, orientFrame, upFor, CONNECTOR_TYPES, CLIP_TYPES } from './harness-parts.js';
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -29,9 +30,6 @@ export const WIRE_SIZES = Object.keys(WIRE_GAUGES).map(Number).sort((a, b) => a 
 export const WIRE_COLOURS = { RD: '#d23c3c', BK: '#222428', BU: '#2f6fd6', GN: '#2e9e4f', YE: '#f0c419', WH: '#f2f2f2', OG: '#e07b22', VT: '#8a4fd1', BN: '#8b5a2b', GY: '#8f969e' };
 export const HARNESS_COLOURS = { bundle: '#2b2d31', connector: '#4a5260', clip: '#e8e8e8' };
 /** Contact pitch of a connector housing (mm) and its depth. */
-export const CONNECTOR_PITCH = 2.5;
-export const CONNECTOR_DEPTH = 16;
-export const CLIP = { band: 1.5, width: 6 };
 
 /** The outside diameter of a wire: its own, or its size's. */
 export const wireOd = (w) => num(w.od, WIRE_GAUGES[Number(w.gauge)] ?? WIRE_GAUGES[0.5]);
@@ -74,11 +72,11 @@ export function harnessModel(f, features = []) {
   const connIn = (f.connectors ?? []).filter((c) => Array.isArray(c?.at));
   const net = routeNetwork({ ...f, kind: 'harness' }, features, { splitAt: [...clipsIn.map((c) => c.at), ...connIn.map((c) => c.at)] });
   const nodeOf = (p) => net.nodes.findIndex((n) => len(sub(n.p, p)) < NODE_TOL);
-  const connectors = connIn.map((c, i) => ({ name: String(c.name || `J${i + 1}`), pins: Math.max(1, Math.round(num(c.pins, 1))), node: nodeOf(c.at) }));
+  const connectors = connIn.map((c, i) => ({ name: String(c.name || `J${i + 1}`), pins: Math.max(1, Math.round(num(c.pins, 1))), node: nodeOf(c.at), type: CONNECTOR_TYPES[c.type] ? c.type : 'rect25' }));
   const names = new Set();
   for (const c of connectors) { if (names.has(c.name)) throw code('connector-name', { name: c.name }); names.add(c.name); }
   for (const n of connectors.map((c) => c.node)) if (connectors.filter((c) => c.node === n).length > 1) throw code('connector-shared');
-  const clips = clipsIn.map((c, i) => ({ name: String(c.name || `C${i + 1}`), node: nodeOf(c.at) }));
+  const clips = clipsIn.map((c, i) => ({ name: String(c.name || `C${i + 1}`), node: nodeOf(c.at), type: CLIP_TYPES[c.type] ? c.type : 'pClip' }));
   const isConn = new Set(connectors.map((c) => c.node));
   // Bends of the bundle: deg-2 points (not connectors) rounded with the bend radius.
   const corners = new Map();
@@ -155,8 +153,8 @@ export function harnessBom(m) {
   const rows = [];
   const group = (key, make, length = null) => { const r = rows.find((x) => x.key === key); if (r) { r.qty += 1; if (length != null) r.length = r1(r.length + length); } else rows.push({ ...make(), key, qty: 1, length: length == null ? null : r1(length) }); };
   for (const w of m.wires) group(`w|${w.gauge}|${w.color}`, () => ({ item: 'wire', size: `${w.gauge} mm²`, color: WIRE_COLOURS[w.color] ?? w.color, code: w.color }), w.length);
-  for (const c of m.connectors) group(`c|${c.pins}`, () => ({ item: 'connector', size: `${c.pins}P` }));
-  for (const c of m.clips) { const d = Math.max(...m.net.nodes[c.node].edges.map((ei) => m.bundles[ei].diameter)); group(`k|${r1(d)}`, () => ({ item: 'clip', size: `Ø${r1(d)}` })); }
+  for (const c of m.connectors) { const d = connectorDims(c.type, c.pins); group(`c|${c.type}|${c.pins}`, () => ({ item: 'connector', type: c.type, size: `${c.pins}P ${d.shape === 'round' ? `Ø${r1(d.D)}` : `${r1(d.w)}×${r1(d.h)}`}×${d.depth}` })); }
+  for (const c of m.clips) { const d = Math.max(...m.net.nodes[c.node].edges.map((ei) => m.bundles[ei].diameter)); group(`k|${c.type}|${r1(d)}`, () => ({ item: 'clip', type: c.type, size: `Ø${r1(d)}` })); }
   for (const r of rows) delete r.key;
   return { kind: 'harness', length: m.length, rows, bends: m.corners.size, wires: wireList(m), tables: connectorTables(m), bundles: m.bundles.map((b) => ({ ...b, diameter: Math.round(b.diameter * 1000) / 1000 })), notes: [] };
 }
@@ -198,20 +196,18 @@ export function harnessSolid(f, features = []) {
     };
     try { bundles.push(solid(pieces)); } catch { for (const p of pieces) bundles.push(solid([p])); }
   }
+  // Housings from the parts library: the wire side on the bundle end, facing away from it, latch up.
   for (const c of m.connectors) {
     const n = net.nodes[c.node];
     const out = n.edges.length === 1 ? neg(outDir(net, n.id, n.edges[0])) : [0, 0, 1];
-    const rows = c.pins > 8 ? 2 : 1; const cols = Math.ceil(c.pins / rows);
-    const w = cols * CONNECTOR_PITCH + 4; const h = rows * CONNECTOR_PITCH + 4;
-    connectors.push(orientZ(R.makeBox([-w / 2, -h / 2, 0], [w / 2, h / 2, CONNECTOR_DEPTH]), out, n.p));
+    connectors.push(orientFrame(connectorLocal(connectorDims(c.type, c.pins)), out, upFor(out), n.p));
   }
+  // Clips round the bundle, their mount on the side away from "up" (below the bundle in the Z-up world).
   for (const c of m.clips) {
     const n = net.nodes[c.node];
-    const ei = n.edges[0];
-    const dir = outDir(net, n.id, ei);
+    const dir = outDir(net, n.id, n.edges[0]);
     const d = Math.max(...n.edges.map((x) => m.bundles[x].diameter));
-    const base = sub(n.p, mul(dir, CLIP.width / 2));
-    clips.push(R.makeCylinder(d / 2 + CLIP.band, CLIP.width, base, dir).cut(R.makeCylinder(d / 2, CLIP.width + 2, sub(base, dir), dir)));
+    clips.push(orientFrame(clipLocal(clipDims(c.type, d)), dir, upFor(dir), n.p));
   }
   let bundle = bundles[0];
   if (bundles.length > 1) { try { bundle = bundles.slice(1).reduce((acc, s) => acc.fuse(s), bundles[0]); } catch { bundle = R.makeCompound(bundles); } }

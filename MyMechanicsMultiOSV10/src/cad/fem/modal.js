@@ -134,7 +134,7 @@ export function bucklingStudy(input) {
   addSprings(model, K, fx.springs);
   rotateMatrix(K, fx.frames);
   applyDirichlet(K, fx.fixed);
-  const ndof = 3 * model.nn, mask = fx.fixed, Pc = preconditioner(K);
+  const ndof = 3 * model.nn, mask = fx.fixed;
   const applyK = (x, out) => { multiply(K, x, out); for (let d = 0; d < ndof; d++) if (mask[d]) out[d] = 0; return out; };
   const applyG = geometricOperator(model, stat.gaussStress, mask, fx.frames);
   const p = Math.max(1, Math.min(6, Math.round(modes)));

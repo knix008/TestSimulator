@@ -8,9 +8,9 @@ import { loadKernel, rep } from '../../src/cad/kernel.js';
 import {
   STD_ITEMS, STD_KINDS, stdShape, stdDefaults, designation, stdProblem, stdThreads, stdMateRefs, stdKey, sizeTable,
   COUNTERSUNK, BUTTON_HEAD, SET_SCREW, HEX_NUT, HEX_NUT2, THIN_NUT, NYLON_NUT, PARALLEL_PIN_C, SPRING_PIN, PIPES, KEYS,
-  ringGeometry, studMetalEnd, studThreadLength, hubKeyway, helicalGeometry, bevelGeometry, pulleyGeometry, gearCircles, nutHeight, BEARING_BALLS, BEARINGS,
+  ringGeometry, springPinGeometry, studMetalEnd, studThreadLength, hubKeyway, helicalGeometry, bevelGeometry, pulleyGeometry, gearCircles, nutHeight, BEARING_BALLS, BEARINGS,
 } from '../../src/cad/stdparts.js';
-import { gearProfile, profilePolygon, toothSpaceFlank, rackOutline } from '../../src/cad/gears.js';
+import { gearProfile, profilePolygon, toothSpaceFlank, rackOutline, sphericalInvolute, bevelSphericalSection } from '../../src/cad/gears.js';
 import { countSolids } from '../../src/cad/part-more.js';
 
 await loadKernel();
@@ -88,9 +88,14 @@ test('pins: ISO 2338 exact volume with its chamfers; ISO 8752 slotted tube', () 
   const frustum = (Math.PI * c / 3) * (r * r + r * (r - c) + (r - c) ** 2);
   near(V(stdShape({ kind: 'parallelPin', size: '8', length: L })), Math.PI * r * r * (L - 2 * c) + 2 * frustum, 1e-6);
   const sp = stdShape({ kind: 'springPin', size: '8', length: L });
-  const tube = Math.PI * (r * r - (r - SPRING_PIN[8].s) ** 2) * L;
-  assert.ok(V(sp) < tube && V(sp) > tube * 0.85, `spring pin ${V(sp)} vs ${tube}`);
-  near(bbox(sp).size[2], L, 1e-6);
+  const g = springPinGeometry(8);
+  // ISO 8752: the free pin between d1 min and max, wall s; its slot stays open when driven into an H12 hole of d.
+  assert.ok(g.free > SPRING_PIN[8].d1[0] && g.free < SPRING_PIN[8].d1[1]); assert.equal(g.s, 1.5);
+  assert.ok(g.gap > Math.PI * (g.free - 8), 'the slot does not close in the nominal hole');
+  const rf = g.free / 2; const tube = Math.PI * (rf * rf - (rf - g.s) ** 2) * L;
+  const slot = g.gap * g.s * L;
+  assert.ok(V(sp) < tube - slot * 0.9 && V(sp) > (tube - slot) * 0.9, `spring pin ${V(sp)} vs ${tube - slot}`);
+  near(bbox(sp).size[2], L, 1e-6); near(bbox(sp).size[0], g.free, 1e-3);
 });
 
 test('DIN 471 / 472 rings: eccentric section (b at the back), lugs of height a with their d5 holes', () => {
@@ -117,7 +122,7 @@ test('EN 1092-1 type 11 flange DN50: raised face d1 × f1, plate, hub fillet, we
   const b = bbox(s);
   near(b.size[0], f.D, 1e-4); near(b.size[2], f.H, 1e-4);
   // The profile (with the R1 arc sampled finely) revolved: V = 2π ∫ r dA, less the bolt holes through the plate.
-  const ri = p.od / 2 - p.wall; const zp = f.f1 + f.C;
+  const ri = p.od / 2 - f.S; const zp = f.f1 + f.C;
   // The fillet: a quarter circle centred at (N/2 + R1, zp + R1) from (N/2 + R1, zp) to (N/2, zp + R1).
   const fil = []; for (let i = 0; i <= 400; i++) { const t = (Math.PI / 2) * (i / 400); fil.push([f.N / 2 + f.R1 - f.R1 * Math.sin(t), zp + f.R1 - f.R1 * Math.cos(t)]); }
   const poly = [[ri, 0], [f.d1 / 2, 0], [f.d1 / 2, f.f1], [f.D / 2, f.f1], [f.D / 2, zp], ...fil, [p.od / 2, f.H - f.H2], [p.od / 2, f.H], [ri, f.H]];
@@ -172,21 +177,43 @@ test('helical gear: transverse module mn / cos β, volume = transverse section �
   near(g.lead, (Math.PI * g.pitchDiameter) / Math.tan((15 * Math.PI) / 180), 1e-9);
   near(g.twist, (360 * 20) / g.lead, 1e-12);
   const s = stdShape({ kind: 'helicalGear', module: 2, teeth: 20, width: 20, bore: 0, helixAngle: 15, hand: 'right' });
-  const prof = gearProfile({ module: g.mt, teeth: 20, pressureAngle: g.alphaT, ha: 2, hf: 2.5, rho: 0.76 });
+  // The 0.38 mn tip round of the rack lies in the normal section: in the transverse plane an ellipse 0.76 high and
+  // 0.76 / cos β along the pitch line. Same involute, a different (flatter) root fillet than a circle would give.
+  const rhoX = 0.76 / Math.cos((15 * Math.PI) / 180);
+  const prof = gearProfile({ module: g.mt, teeth: 20, pressureAngle: g.alphaT, ha: 2, hf: 2.5, rho: 0.76, rhoX });
+  const circ = gearProfile({ module: g.mt, teeth: 20, pressureAngle: g.alphaT, ha: 2, hf: 2.5, rho: 0.76 });
+  near(prof.flank.tipHalf, circ.flank.tipHalf, 1e-6, 'involute unchanged');
+  assert.ok(prof.flank.rootHalf < circ.flank.rootHalf - 1e-4, 'the wider elliptic round leaves less root flat');
+  near(prof.flank.fillet[0][0], prof.rf, 1e-9);
   near(V(s), polyArea(profilePolygon(prof)) * 20, 5e-4);
   near(vertexBox(s).hi[2] - vertexBox(s).lo[2], 20, 1e-6);
   // Left and right hand: the same volume, mirrored.
   near(V(stdShape({ kind: 'helicalGear', module: 2, teeth: 20, width: 20, bore: 0, helixAngle: 15, hand: 'left' })), V(s), 1e-4);
 });
 
-test('straight bevel gear (90° shafts): pitch angle, outer tip diameter, teeth toward the apex', () => {
+test('straight bevel gear (90° shafts): spherical involute flanks on the back sphere, cones to the apex, back-cone blank', () => {
   const g = bevelGeometry({ module: 2, teeth: 20, mateTeeth: 40 });
   near(g.delta, Math.atan(0.5), 1e-12); near(g.Re, 20 / Math.sin(Math.atan(0.5)), 1e-12);
   near(g.tipDiameter, 40 + 4 * Math.cos(Math.atan(0.5)), 1e-12);
+  // The spherical involute: on the unit sphere, and its great-circle distance to the rolling generator equals the
+  // arc rolled off the base circle (θ = ψ sin δb).
+  const sec = bevelSphericalSection({ module: 2, teeth: 20, mateTeeth: 40 });
+  near(Math.sin(sec.deltaB), Math.sin(g.delta) * Math.cos((20 * Math.PI) / 180), 1e-12);
+  for (const psi of [0.1, 0.3, 0.6]) {
+    const q = sphericalInvolute(sec.deltaB, psi);
+    near(Math.hypot(...q.p), 1, 1e-12);
+    const cosd = q.p[0] * q.generator[0] + q.p[1] * q.generator[1] + q.p[2] * q.generator[2];
+    near(Math.acos(Math.min(1, cosd)), psi * Math.sin(sec.deltaB), 1e-9);
+  }
+  // Half a pitch of tooth at the pitch cone; the flank narrows toward the tip.
+  near(sec.half(g.delta), Math.PI / 40, 1e-9);
+  assert.ok(sec.half(sec.deltaA) < sec.half(g.delta));
   const s = stdShape({ kind: 'bevelGear', module: 2, teeth: 20, mateTeeth: 40, width: 12, bore: 0 });
-  near(vertexBox(s).hi[0] * 2, g.tipDiameter, 2e-3, 'outer tip');
-  near(vertexBox(s).hi[2], 12 * Math.cos(g.delta), 1e-4, 'face width along the cone');
   assert.equal(countSolids(s), 1);
+  // The outer tip (tip cone ∩ back cone) on the standard tip diameter d + 2 m cos δ.
+  near(vertexBox(s).hi[0] * 2, g.tipDiameter, 5e-3, 'outer tip');
+  // The front cone sits at Re − b: its tip-cone corner is (Re − b)/Re of the back one's distance from the apex.
+  assert.ok(V(s) > 0.5 * Math.PI * 20 * 20 * 12 * Math.cos(g.delta) * 0.5);
 });
 
 test('rack: the basic rack (pitch πm, flanks 20°, root fillets 0.38 m), length = teeth × πm', () => {
@@ -201,14 +228,17 @@ test('rack: the basic rack (pitch πm, flanks 20°, root fillets 0.38 m), length
   assert.ok(Math.abs(V(s) - sharp) < 0.02 * sharp);
 });
 
-test('DIN 7721 T5 pulley z20: outside diameter d0 − 2·PLD, 20 grooves', () => {
+test('DIN 7721 T5 pulley z20: outside diameter d0 − 2·PLD, 20 grooves with tip and bottom radii', () => {
   const g = pulleyGeometry('T5', 20);
   near(g.d0, 100 / Math.PI, 1e-12); near(g.da, 100 / Math.PI - 0.85, 1e-12);
   const s = stdShape({ kind: 'timingPulley', size: 'T5', teeth: 20, width: 12, bore: 8 });
   const ring = (r) => s.edges.filter((e) => e.geomType === 'CIRCLE' && Math.abs(Math.hypot(e.startPoint.x, e.startPoint.y) - r) < 1e-6 && Math.abs(Math.hypot(e.endPoint.x, e.endPoint.y) - r) < 1e-6);
   assert.equal(ring(g.da / 2).length, 40, 'tip arcs on the outside circle, top and bottom');
-  const bottoms = s.edges.filter((e) => e.geomType === 'CIRCLE' && Math.abs(Math.hypot(e.startPoint.x, e.startPoint.y) - (g.da / 2 - g.hg)) < 1e-6);
+  const bottoms = ring(g.da / 2 - g.hg);
   assert.equal(bottoms.length, 40, 'a groove bottom arc top and bottom');
+  // Every groove: two tip radii rt and two bottom radii rb (fillet arcs from a flank to a circle).
+  const fillets = (r) => s.edges.filter((e) => e.geomType === 'CIRCLE' && Math.abs(R.measureLength(e) - 0) > 0 && Math.abs(Math.hypot(e.startPoint.x - e.endPoint.x, e.startPoint.y - e.endPoint.y)) > 0 && [e.startPoint, e.endPoint].some((q) => Math.abs(Math.hypot(q.x, q.y) - r) < 1e-6) && [e.startPoint, e.endPoint].some((q) => Math.abs(Math.hypot(q.x, q.y) - r) > 1e-4));
+  assert.equal(fillets(g.da / 2).length, 80, 'tip fillets'); assert.equal(fillets(g.da / 2 - g.hg).length, 80, 'bottom fillets');
   assert.equal(stdProblem({ kind: 'timingPulley', size: 'T5', teeth: 20, width: 12, bore: 40 }), 'std-bore');
 });
 

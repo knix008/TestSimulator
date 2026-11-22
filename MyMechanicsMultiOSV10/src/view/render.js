@@ -44,7 +44,8 @@ export const DEFAULT_RENDER = {
   ground: 'shadow', background: 'env', reflections: true, floorReflect: 0.06, floorRoughness: 0.25,
   projection: 'view', fov: 35, dof: false, fStop: 2.8, focus: 0,
   sunIntensity: 1, softness: 1, envIntensity: 1, envRotation: 0, exposure: 1, tone: 'aces', sceneLights: true, areaLights: [],
-  denoise: true, denoiseStrength: 1, clamp: 0, caustics: 'fast', region: null, seed: 0,
+  denoise: true, denoiseStrength: 1, denoiser: 'svgf', clamp: 0, caustics: 'fast', region: null, seed: 0,
+  lightRadius: 5, catcherMode: 'direct',
 };
 
 const pick = (v, list, d) => (list.includes(v) ? v : d);
@@ -98,6 +99,9 @@ export function normalizeRenderSettings(s = {}) {
     areaLights: (Array.isArray(s.areaLights) ? s.areaLights : []).slice(0, 8).map(normalizeAreaLight),
     denoise: s.denoise !== undefined ? Boolean(s.denoise) : D.denoise,
     denoiseStrength: num(s.denoiseStrength, D.denoiseStrength, 0.05, 10),
+    denoiser: pick(s.denoiser, ['svgf', 'atrous'], D.denoiser),
+    lightRadius: num(s.lightRadius, D.lightRadius, 0, 1e5),
+    catcherMode: pick(s.catcherMode, ['direct', 'differential'], D.catcherMode),
     clamp: num(s.clamp, D.clamp, 0, 1e6),
     caustics: pick(s.caustics, ['fast', 'physical'], D.caustics),
     region: normalizeRegion(s.region),
@@ -283,12 +287,31 @@ export class PhotoRenderer {
       const p = b.pbr;
       const mat = new THREE.MeshPhysicalMaterial({
         color: new THREE.Color(p.color), metalness: p.metalness, roughness: p.roughness, clearcoat: p.clearcoat, clearcoatRoughness: p.clearcoatRoughness,
-        transmission: p.transmission, ior: p.ior, thickness: p.thickness, sheen: p.sheen, sheenRoughness: 0.8, specularIntensity: p.specularIntensity, side: THREE.DoubleSide,
+        // Clear bodies are see-through (alpha) here: three's transmission pass wipes this renderer's sample target,
+        // so the background came out black. The path tracer (Final) refracts them for real.
+        transmission: 0, transparent: p.transmission > 0, opacity: 1 - 0.75 * p.transmission, depthWrite: p.transmission <= 0, ior: p.ior, thickness: p.thickness, sheen: p.sheen, sheenRoughness: 0.8, specularIntensity: p.specularIntensity, side: THREE.DoubleSide,
         emissive: new THREE.Color(p.emissive ?? '#000000'), emissiveIntensity: p.emissiveIntensity ?? 0,
-        vertexColors: Boolean(b.geometry.getAttribute('color') && b.useVertexColors),
+        vertexColors: Boolean(b.vertexColors),
       });
       this.ownMaterials.push(mat);
-      const mesh = new THREE.Mesh(b.geometry, mat);
+      let geometry = b.geometry;
+      if (b.vertexColors) {
+        // Cable / harness colours per vertex; the rest of the body in its appearance's colour (white material ×
+        // the colour attribute). The positions, normals and index are shared with the view's geometry.
+        geometry = new THREE.BufferGeometry();
+        for (const [name, attr] of Object.entries(b.geometry.attributes)) if (name !== 'color') geometry.setAttribute(name, attr);
+        geometry.setIndex(b.geometry.index);
+        const own = new THREE.Color(p.color); const vc = b.vertexColors; const base = b.baseColor;
+        const col = new Float32Array(vc.length);
+        for (let i = 0; i < vc.length; i += 3) {
+          const same = base && Math.abs(vc[i] - base[0]) + Math.abs(vc[i + 1] - base[1]) + Math.abs(vc[i + 2] - base[2]) <= 2e-3;
+          col[i] = same ? own.r : vc[i]; col[i + 1] = same ? own.g : vc[i + 1]; col[i + 2] = same ? own.b : vc[i + 2];
+        }
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+        mat.color.set('#ffffff');
+        this.ownGeometry.push(geometry);
+      }
+      const mesh = new THREE.Mesh(geometry, mat);
       mesh.matrixAutoUpdate = false;
       mesh.matrix.copy(b.matrix ?? new THREE.Matrix4());
       mesh.castShadow = true; mesh.receiveShadow = true;

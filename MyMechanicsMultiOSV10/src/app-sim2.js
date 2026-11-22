@@ -1,7 +1,9 @@
 // The main window's side of the later professional tools (app.js hands in `ctx`; withSim2() puts these hooks
 // next to app-more.js's, so app.js calls one `more` object):
-//   simulation — nonlinear static, drop test, load-case combination and flow studies in the Simulation
-//     PropertyManager (cad/fea-sim2.js); flow results as a coloured section plane and streamlines;
+//   simulation — nonlinear static (J2 plasticity, load histories, arc length), drop test (explicit dynamics, floor
+//     contact, friction, energy balance), load-case combination and flow studies (lattice Boltzmann with LES, heat)
+//     in the Simulation PropertyManager, run in a worker (app-fem.js); flow results as a coloured section plane,
+//     streamlines, trajectories and the pressure on the body; the assembly study with contact between components;
 //   model-based definition — 3D dimensions, tolerances, GD&T frames, datums and notes on faces / edges, shown as
 //     screen-facing labels, listed in the tree, edited in a PropertyManager, the auto dimension scheme, and
 //     "insert model annotations" into a drawing (cad/mbd.js);
@@ -13,7 +15,8 @@ import { pickWithInput } from './platform/native.js';
 import * as THREE from 'three';
 import './styles-sim.css';
 import { rep } from './cad/kernel.js';
-import { nonlinearStatic, dropTest, combinationStudy, flowField, flowSection, streamlines, FLUIDS } from './cad/fea-sim2.js';
+import { flowSection, streamlines, pathlines, FLUIDS } from './cad/fea-sim2.js';
+import { createFemTools, heatMaterial } from './app-fem.js';
 import { stressColor } from './cad/fea.js';
 import { materialOf, materialName } from './cad/materials.js';
 import { faceSignature, edgeSignature, findFace, findEdges, isCylinder } from './cad/refs.js';
@@ -46,61 +49,91 @@ export function createSim2Tools(ctx) {
   const editing = () => state.editing;
   const vp = () => ctx.viewport();
   const fmt = (v, d = 2) => ctx.fmt(v, d);
-  const isSim = (e) => e?.mode === 'simulation' && SIM_STUDIES.includes(e.study);
+  const isSim = (e) => e?.mode === 'simulation' && (Boolean(e.assembly) || SIM_STUDIES.includes(e.study));
   const owns = (e) => Boolean(e && (MODES.has(e.mode) || isSim(e)));
   const author = () => { try { return storage()?.getItem(AUTHOR_KEY) || t('ver.defaultAuthor'); } catch { return t('ver.defaultAuthor'); } };
 
-  // ───────────────────────── simulation studies
+  // ───────────────────────── simulation studies (cad/fem + cad/cfd, run in a worker by ctx.fem)
 
+  const fem = ctx.fem;
   const DEFAULTS = {
-    nonlinear: { steps: 8, tangentModulus: 0, plastic: true, geometric: true, resolution: 20 },
-    drop: { height: 1000, dropDir: '-z', resolution: 24 },
-    combination: { cases: [], method: 'linear', resolution: 30 },
-    flow: { flowMode: 'external', flowAxis: 'x', flowSign: 1, velocity: 1, fluid: 'air', resolution: 12, quantity: 'velocity', showStreams: true },
+    nonlinear: { steps: 8, tangentModulus: 0, kinematicFraction: 0.5, plastic: true, geometric: true, history: 'monotonic', cycles: 2, arcLength: false },
+    drop: { height: 1000, dropDir: '-z', floorType: 'rigid', floorE: 2000, floorThickness: 10, friction: 0.2, damping: 0.05, plasticDrop: true, order: 1, frame: 0 },
+    combination: { cases: [], method: 'linear' },
+    flow: { flowMode: 'external', flowAxis: 'x', flowSign: 1, velocity: 1, fluid: 'air', cellSize: 0, resolution: 16, collision: 'trt', les: 0.12, timeMode: 'steady', duration: 1,
+      thermalOn: false, inletT: 20, bodyMode: 'temperature', bodyValue: 60, solidK: 50, buoyancy: false, quantity: 'velocity', showStreams: true, showPaths: false, surfacePressure: true },
+    asmStatic: { contact: 'bonded' },
   };
 
   function initStudy(e) {
     for (const [k, v] of Object.entries(DEFAULTS[e.study] ?? {})) if (e[k] === undefined) e[k] = Array.isArray(v) ? [] : v;
+    fem.init(e);
   }
 
-  function feaMaterial(p) {
-    const m = materialOf(p.material);
-    return { E: m.E * 1000, nu: m.nu ?? 0.3, yield: m.yield, density: m.density, ultimate: m.ultimate, group: m.group };
-  }
-  const loadsOf = (e) => e.loads.map((l) => (e.loadKind === 'pressure' ? { faceId: l.faceId, pressure: e.magnitude / e.loads.length } : { faceId: l.faceId, force: AXES[e.dir].map((v) => (v * e.magnitude) / e.loads.length) }));
-  const faceName = (x, i) => `${t('pm.face')} ${i + 1} (${x.type === 'PLANE' ? t('pm.planar') : t('pm.curved')})`;
+  const feaMaterial = (p) => fem && { ...materialOf(p.material), E: materialOf(p.material).E * 1000, nu: materialOf(p.material).nu ?? 0.3 };
+  const loadsOf = (e) => fem.loadsOf(e);
+  const faceName = (x, i) => fem.faceItem(x, i);
+  const stressColours = (values) => fem.stressColours(values);
 
-  function stressColours(values) {
-    const sorted = Float32Array.from(values).sort();
-    const top = sorted[Math.floor(sorted.length * 0.98)] || sorted.at(-1) || 1;
-    const colors = new Float32Array(values.length * 3);
-    values.forEach((v, i) => colors.set(stressColor(v, 0, top), i * 3));
-    return { colors, top };
+  /** Load-factor history of the nonlinear study. */
+  function historyOf(e) {
+    if (e.history === 'unload') return [0, 1, 0];
+    if (e.history === 'cyclic') { const h = [0]; for (let c = 0; c < Math.max(1, Math.round(e.cycles)); c++) h.push(1, -1); h.push(0); return h; }
+    return [0, 1];
+  }
+
+  /** The body list of an assembly study (cached per assembly state). */
+  function asmBodies(e) {
+    const a = asm();
+    const key = JSON.stringify(a?.components?.map((c) => [c.id, c.position, c.rotation, c.part, c.suppressed]) ?? []);
+    if (!e._bodies || e._bodiesKey !== key) { e._bodies = fem.assemblyBodies(a); e._bodiesKey = key; }
+    return e._bodies;
   }
 
   async function runSim(e, p, entry) {
     initStudy(e);
+    if (e.assembly) return runAssembly(e);
     const material = feaMaterial(p);
-    const resolution = Math.max(6, Math.min(e.study === 'flow' ? 32 : 60, Math.round(e.resolution)));
+    const mesh = fem.meshOptions(e, entry.size ?? 100);
     if (['nonlinear', 'combination'].includes(e.study) && !e.fixtures.length) { notify('error', t('sim.error.no-fixtures')); return; }
     if (e.study === 'nonlinear' && !e.loads.length) { notify('error', t('sim.error.no-loads')); return; }
     if (e.study === 'combination' && !e.cases.length) { notify('error', t('sim2.noCases')); return; }
-    const result = await ctx.withProgress('progress.simulation', p.name, async (op, report) => {
-      await new Promise((r) => setTimeout(r, 30));
-      const onProgress = (f) => report({ fraction: f, text: t('progress.solving') });
-      if (e.study === 'nonlinear') return nonlinearStatic(entry.mesh, { material: { ...material, tangentModulus: e.tangentModulus > 0 ? e.tangentModulus : material.E / 20, plastic: e.plastic }, fixtures: e.fixtures.map((x) => x.faceId), loads: loadsOf(e), resolution, steps: Math.max(1, Math.min(40, Math.round(e.steps))), geometric: e.geometric, onProgress });
-      if (e.study === 'drop') return dropTest(entry.mesh, { material, height: e.height, direction: AXES[e.dropDir], resolution, onProgress });
-      if (e.study === 'combination') return combinationStudy(entry.mesh, { material, fixtures: e.fixtures.map((x) => x.faceId), cases: e.cases.map((c) => ({ name: c.name, loads: c.loads, factor: c.factor })), resolution, method: e.method, onProgress });
-      return flowField(entry.mesh, { mode: e.flowMode, axis: e.flowAxis, sign: e.flowSign, resolution, velocity: e.velocity, fluid: e.fluid, maxSteps: 2500, onProgress });
-    }, { delay: 150 });
+    let result;
+    if (e.study === 'nonlinear') {
+      result = await fem.run('nonlinear', {
+        bodies: [{ mesh: entry.mesh, material: { ...material, tangentModulus: e.tangentModulus > 0 ? e.tangentModulus : material.E / 20, kinematicFraction: e.kinematicFraction, plastic: e.plastic } }],
+        fixtures: fem.fixturesOf(e), loads: loadsOf(e), mesh, steps: Math.max(1, Math.min(40, Math.round(e.steps))), geometric: e.geometric,
+        history: e.arcLength ? null : historyOf(e), arcLength: e.arcLength ? { length: 0.15, maxSteps: Math.max(4, Math.round(e.steps) * 2), target: 1 } : null,
+      }, p.name);
+    } else if (e.study === 'drop') {
+      result = await fem.run('drop', {
+        bodies: [{ mesh: entry.mesh, material: { ...material, tangentModulus: e.tangentModulus > 0 ? e.tangentModulus : material.E / 20 } }],
+        mesh: { ...mesh, order: Number(e.order) === 2 ? 2 : 1 }, height: e.height, direction: AXES[e.dropDir], plastic: e.plasticDrop,
+        floor: { type: e.floorType, E: e.floorE, thickness: e.floorThickness, friction: e.friction, damping: e.damping, density: 2400, nu: 0.2 },
+      }, p.name);
+    } else if (e.study === 'combination') {
+      result = await fem.run('combination', { bodies: [{ mesh: entry.mesh, material }], fixtures: fem.fixturesOf(e), cases: e.cases.map((c) => ({ name: c.name, loads: c.loads, factor: c.factor })), method: e.method, mesh }, p.name);
+    } else {
+      result = await fem.run('flow', {
+        mesh: entry.mesh, mode: e.flowMode, axis: e.flowAxis, sign: e.flowSign, velocity: e.velocity, fluid: e.fluid,
+        cellSize: e.cellSize > 0 ? e.cellSize : null, resolution: Math.max(6, Math.min(96, Math.round(e.resolution))), collision: e.collision, les: e.les,
+        time: { mode: e.timeMode, duration: e.duration },
+        thermal: e.thermalOn ? { inlet: e.inletT, body: { mode: e.bodyMode, value: e.bodyValue, k: e.solidK, density: heatMaterial(p.material).density, cp: heatMaterial(p.material).cp }, buoyancy: e.buoyancy } : null,
+      }, p.name);
+    }
     if (!result) return;
-    if (result.error && result.error !== 'not-converged') { notify('error', t(`sim2.error.${result.error}`, null, t(`sim.error.${result.error}`, null, result.error))); return; }
-    if (result.error === 'not-converged') notify('warning', t('sim.error.not-converged'));
+    if (result.error && result.error !== 'not-converged') { notify('error', `${t(`sim2.error.${result.error}`, null, t(`sim.error.${result.error}`, null, result.error))}${result.message ? `: ${String(result.message).split(String.fromCharCode(10))[0]}` : ''}`); return; }
+    if (result.error === 'not-converged') notify('warning', t(e.study === 'flow' ? 'fem.flowNotSteady' : 'sim.error.not-converged'));
     e.result = result;
     if (e.study === 'flow') {
-      state.sim = null;
-      state.flow = { partId: p.id, key: entry.key, result, quantity: e.quantity, showStreams: e.showStreams };
+      state.flow = { partId: p.id, key: entry.key, result, quantity: e.quantity, showStreams: e.showStreams, showPaths: e.showPaths };
       buildFlowDisplay();
+      if (e.surfacePressure && result.vertexCp?.length) {
+        let lo = Infinity, hi = -Infinity; for (const v of result.vertexCp) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+        const colors = new Float32Array(result.vertexCp.length * 3);
+        result.vertexCp.forEach((v, i) => colors.set(stressColor(v, lo, hi), i * 3));
+        state.sim = { partId: p.id, key: entry.key, result: { vertexDisplacement: null }, colors, deformed: false, scale: 1, study: 'flow', cpRange: [lo, hi] };
+      } else state.sim = null;
       notify('success', t('sim2.flowDone', { drag: fmt(result.dragForce, 4), dp: fmt(result.pressureDrop, 3) }));
     } else {
       state.flow = null;
@@ -108,21 +141,89 @@ export function createSim2Tools(ctx) {
       const size = entry.size ?? 100;
       const scale = e.study === 'nonlinear' ? 1 : result.maxDisplacement > 0 ? (size * 0.08) / result.maxDisplacement : 1;
       state.sim = { partId: p.id, key: entry.key, result, colors, top, deformed: e.study === 'nonlinear', scale, study: e.study };
-      if (e.study === 'drop') notify(result.minFactorOfSafety < 1 ? 'warning' : 'success', t('sim2.dropDone', { stress: fmt(result.peakStress, 1), time: fmt(result.peakStressTime * 1e6, 1) }));
+      if (e.study === 'drop') { e.frame = 0; notify(result.minFactorOfSafety < 1 ? 'warning' : 'success', t('sim2.dropDone', { stress: fmt(result.peakStress, 1), time: fmt(result.peakStressTime * 1e6, 1) })); }
       else notify(result.minFactorOfSafety < 1 ? 'warning' : 'success', t('notice.simDone', { fos: fmt(result.minFactorOfSafety, 2) }));
     }
     ctx.syncView(); ctx.renderLeft();
   }
 
-  /** A small SVG line chart of a time history (drop test). */
-  function chart(xs, series) {
-    const W = 240, H = 90;
-    const xmax = Math.max(...xs, 1e-30);
-    const paths = series.map(({ ys, cls }) => {
-      const ymax = Math.max(...ys.map(Math.abs), 1e-30);
-      return `<polyline class="${cls}" points="${xs.map((x, i) => `${((x / xmax) * W).toFixed(1)},${(H - (Math.abs(ys[i]) / ymax) * (H - 4)).toFixed(1)}`).join(' ')}"/>`;
-    }).join('');
-    return `<svg class="sim2-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${paths}</svg>`;
+  /** Shows a stored drop-test frame on the body (deformed, true scale). */
+  function showFrame(e) {
+    const r = e.result, f = r?.frames?.[e.frame];
+    if (!f || !state.sim) return;
+    state.sim = { ...state.sim, result: { ...r, vertexDisplacement: f.displacement }, deformed: true, scale: 1 };
+    ctx.syncView(); ctx.renderLeft();
+  }
+
+  // ── assembly (contact) study
+
+  function startAsmSim() {
+    const a = asm();
+    if (!a) { notify('info', t('notice.assemblyOnly')); return; }
+    if (editing()) ctx.cancelEditing({ quiet: true });
+    state.editing = { mode: 'simulation', assembly: true, study: 'asmStatic', fixtures: [], loads: [], loadKind: 'force', magnitude: 1000, dir: '-z', pick: 'fixtures', nu: 0.3 };
+    initStudy(state.editing);
+    state.leftTab = 'pm';
+    state.asmSim = null;
+    ctx.renderAll();
+    notify('info', t('notice.simPickFixtures'));
+  }
+
+  function asmPick(e, hit) {
+    if (hit?.kind !== 'face' || !String(hit.bodyKey ?? '').startsWith('comp:')) { notify('info', t('notice.pickComponentFace')); return; }
+    const topo = ctx.topoOf(hit);
+    const bodies = asmBodies(e), base = String(hit.bodyKey).split('/')[0];
+    const b = bodies.findIndex((x) => x.key === base && (!topo?.part || x.part?.id === topo.part.id));
+    const face = bodies[b]?.faces?.[hit.index];
+    if (b < 0 || !face) return;
+    if (fem.pick(e, hit, face, b)) return;
+    const list = e.pick === 'loads' ? e.loads : e.fixtures;
+    const i = list.findIndex((x) => x.index === hit.index && x.body === b);
+    if (i >= 0) list.splice(i, 1);
+    else list.push({ index: hit.index, faceId: face.hashCode, type: face.geomType, body: b, bodyKey: hit.bodyKey, bodyName: bodies[b].name, ...(list === e.fixtures ? { kind: fem.fixtureKind(e) } : {}) });
+    vp()?.setSelection([...e.fixtures, ...e.loads].map((x) => ({ kind: 'face', bodyKey: x.bodyKey, index: x.index })));
+    ctx.renderLeft();
+  }
+
+  async function runAssembly(e) {
+    const a = asm();
+    if (!a) return;
+    if (!e.fixtures.length) { notify('error', t('sim.error.no-fixtures')); return; }
+    if (!e.loads.length && e.loadKind !== 'gravity') { notify('error', t('sim.error.no-loads')); return; }
+    const bodies = asmBodies(e);
+    if (bodies.length < 1) { notify('error', t('sim.error.empty')); return; }
+    const size = ctx.assemblySize?.(a) ?? 100;
+    const common = {
+      bodies: bodies.map((b) => ({ mesh: b.mesh, material: feaMaterial(b.part ?? { material: null }), name: b.name })),
+      fixtures: fem.fixturesOf(e), loads: e.loadKind === 'gravity' ? [] : loadsOf(e), gravity: fem.gravityOf(e), contacts: e.contact, friction: e.contact === 'contact' ? e.asmFriction ?? 0 : 0, mesh: fem.meshOptions(e, size),
+    };
+    // Nonlinear: large displacements, finite sliding of the contact (re-projected every iteration), friction.
+    const r = await fem.run(e.asmNonlinear ? 'nonlinear' : 'static', e.asmNonlinear ? { ...common, geometric: true, steps: Math.max(1, Math.round(e.asmSteps ?? 5)), material: undefined } : common, a.name);
+    if (!r) return;
+    if (r.error && r.error !== 'not-converged') { notify('error', t(`sim.error.${r.error}`, null, r.message ?? r.error)); return; }
+    e.result = r;
+    let top = 0;
+    for (const b of r.bodies) { const s = Float32Array.from(b.vertexStress).sort(); top = Math.max(top, s[Math.floor(s.length * 0.98)] || 0); }
+    state.asmSim = { asmId: a.id, result: r, top: top || r.maxStress || 1, deformed: false, scale: r.maxDisplacement > 0 ? (size * 0.08) / r.maxDisplacement : 1, bodies };
+    notify(r.minFactorOfSafety < 1 ? 'warning' : 'success', t('notice.simDone', { fos: fmt(r.minFactorOfSafety, 2) }));
+    ctx.syncView(); ctx.renderLeft();
+  }
+
+  /** Result bodies of the assembly study in place of the components (coloured, optionally deformed). */
+  function asmResultBodies() {
+    const s = state.asmSim, a = asm();
+    if (!s || !a || s.asmId !== a.id || editing()?.mode !== 'simulation') { if (s && editing()?.mode !== 'simulation') state.asmSim = null; return; }
+    s.bodies.forEach((b, i) => {
+      const rb = s.result.bodies[i];
+      if (!rb) return;
+      const V = b.mesh.vertices, d = rb.vertexDisplacement, k = s.deformed ? s.scale : 0;
+      const colors = new Float32Array(rb.vertexStress.length * 3);
+      rb.vertexStress.forEach((v, j) => colors.set(stressColor(v, 0, s.top), j * 3));
+      const vertices = Float32Array.from(V, (x, j) => x + (d ? d[j] * k : 0));
+      vp().addBody({ key: `femres:${i}`, mesh: { ...b.mesh, vertices, triangles: Array.from(b.mesh.triangles) }, edges: null, colors, faceIndex: new Map(), edgeIndex: new Map(), opacity: 1, pickable: false });
+      const orig = vp().bodies.get(b.key);
+      if (orig?.mesh) orig.mesh.visible = false;
+    });
   }
 
   function studySelector(e) {
@@ -130,51 +231,84 @@ export function createSim2Tools(ctx) {
     return pmGroup('simulation', t('sim.study'), pmSeg('study', [['static', t('sim.static')], ['thermal', t('sim.thermal')], ['modal', t('sim.modal')], ...(ctx.baseStudyOptions?.() ?? []), ...studyOptions()], e.study));
   }
 
+  const legend = (lo, hi) => `<div class="sim-legend"><span>${escapeHtml(lo)}</span><i></i><span>${escapeHtml(hi)}</span></div>`;
+  const dl = (rows) => `<dl class="pm-results">${rows.map(([k, v, cls]) => `<dt>${escapeHtml(k)}</dt><dd class="${cls ?? ''}">${escapeHtml(v)}</dd>`).join('')}</dl>`;
+  const check = (key, on, glyph, label) => `<label class="pm-check"><input type="checkbox" data-pm-toggle="${key}" ${on ? 'checked' : ''}/>${icon(glyph)}<span>${escapeHtml(label)}</span></label>`;
+
+  function asmPm(e) {
+    const { pmHead, pmGroup, pmNum, pmSeg, pmList, pmButton } = ctx.pm;
+    const bodies = asmBodies(e), r = e.result;
+    const mats = `<ul class="pm-list sim2-list">${bodies.map((b) => `<li>${icon('part', 'icon tiny')}<span>${escapeHtml(`${b.name} · ${materialName(b.part?.material, ctx.lang())}`)}</span></li>`).join('')}</ul>`;
+    const res = r ? pmGroup('simulation', t('sim.results'), `${dl([[t('sim.maxStress'), `${fmt(r.maxStress, 2)} MPa`], [t('sim.maxDisp'), `${fmt(r.maxDisplacement, 4)} mm`], [t('sim.fos'), fmt(r.minFactorOfSafety, 2), r.minFactorOfSafety < 1 ? 'error' : ''],
+      ...(r.contact?.constraints ? [[t('fem.contactForce'), `${fmt(Math.hypot(...r.contact.force), 2)} N`], [t('fem.contactArea'), `${fmt(r.contact.area, 3)} mm²`], [t('fem.contactIterations'), String(r.contact.iterations)]] : []),
+      ...r.bodies.map((b) => [b.name, `${fmt(b.maxStress, 1)} MPa`])])}${legend('0', `${fmt(state.asmSim?.top ?? r.maxStress, 1)} MPa`)}${check('asmDeformed', state.asmSim?.deformed, 'simulation', t('sim.deformed'))}<div class="pm-row">${pmButton('clearSim', 'trash', t('sim.clear'))}</div>`) : '';
+    return [pmHead('femAssembly', t('cmd.assemblySimulation'), t('pm.help.asmSim')),
+      pmGroup('material', t('fem.components'), mats),
+      pmGroup('femContact', t('fem.contact'), `${pmSeg('contact', [['bonded', t('fem.contact.bonded'), 'femBonded'], ['contact', t('fem.contact.contact'), 'femContact'], ['none', t('fem.contact.none'), 'close']], e.contact)}<p class="pm-note">${escapeHtml(t(`fem.contact.${e.contact}.note`))}</p>${e.contact === 'contact' ? pmNum('asmFriction', e.asmFriction ?? 0, t('fem.friction'), 'femFriction') : ''}${check('asmNonlinear', e.asmNonlinear, 'sim2Nonlinear', t('fem.asmNonlinear'))}${e.asmNonlinear ? pmNum('asmSteps', e.asmSteps ?? 5, t('sim2.steps'), 'statistics') : ''}`),
+      pmGroup('fixture', t('sim.fixtures'), `${fem.fixtureKinds(e)}${pmList('fixtures', e.fixtures.map(faceName), t('sim.fixedFaces'), 'fixture', e.pick === 'fixtures')}`),
+      pmGroup('load', t('sim.loads'), `${pmSeg('loadKind', fem.loadKinds(e), e.loadKind)}${e.loadKind === 'gravity' ? '' : pmList('loads', e.loads.map(faceName), t('sim.loadFaces'), 'load', e.pick === 'loads')}${pmNum('magnitude', e.magnitude, fem.loadLabel(e), 'load')}${e.loadKind !== 'pressure' ? pmSeg('dir', Object.keys(AXES).map((k) => [k, k.toUpperCase()]), e.dir) : ''}`),
+      fem.meshGroup(e), res, fem.resultTools(e)].join('');
+  }
+
   function simPm(e) {
     initStudy(e);
+    if (e.assembly) return asmPm(e);
     const { pmHead, pmGroup, pmNum, pmSeg, pmList, pmButton } = ctx.pm;
     const p = part();
     const mat = materialOf(p.material);
     const material = pmGroup('material', t('sim.material'), `<p class="pm-note">${escapeHtml(`${materialName(p.material, ctx.lang())} · E ${mat.E} GPa · σy ${mat.yield} MPa · ρ ${mat.density} kg/m³`)}</p>`);
-    const fix = pmGroup('fixture', t('sim.fixtures'), pmList('fixtures', e.fixtures.map(faceName), t('sim.fixedFaces'), 'fixture', e.pick === 'fixtures'));
-    const loadGroup = pmGroup('load', t('sim.loads'), `${pmSeg('loadKind', [['force', t('sim.force')], ['pressure', t('sim.pressure')]], e.loadKind)}${pmList('loads', e.loads.map(faceName), t('sim.loadFaces'), 'load', e.pick === 'loads')}${pmNum('magnitude', e.magnitude, e.loadKind === 'pressure' ? `${t('sim.pressure')} (MPa)` : `${t('sim.force')} (N)`, 'load')}${e.loadKind === 'force' ? pmSeg('dir', Object.keys(AXES).map((k) => [k, k.toUpperCase()]), e.dir) : ''}`);
+    const fix = pmGroup('fixture', t('sim.fixtures'), `${fem.fixtureKinds(e)}${pmList('fixtures', e.fixtures.map(faceName), t('sim.fixedFaces'), 'fixture', e.pick === 'fixtures')}`);
+    const loadGroup = pmGroup('load', t('sim.loads'), `${pmSeg('loadKind', fem.loadKinds(e).filter(([k]) => k !== 'gravity'), e.loadKind)}${pmList('loads', e.loads.map(faceName), t('sim.loadFaces'), 'load', e.pick === 'loads')}${pmNum('magnitude', e.magnitude, fem.loadLabel(e), 'load')}${e.loadKind !== 'pressure' ? pmSeg('dir', Object.keys(AXES).map((k) => [k, k.toUpperCase()]), e.dir) : ''}`);
     const r = e.result;
-    const run = `<div class="pm-row">${pmButton('runSim', 'play', t('sim.run'), 'primary')}</div>`;
     const clear = `<div class="pm-row">${pmButton('clearSim', 'trash', t('sim.clear'))}</div>`;
-    const dl = (rows) => `<dl class="pm-results">${rows.map(([k, v, cls = '']) => `<dt>${escapeHtml(k)}</dt><dd class="${cls}">${escapeHtml(v)}</dd>`).join('')}</dl>`;
-    const legend = (lo, hi) => `<div class="sim-legend"><span>${escapeHtml(lo)}</span><i></i><span>${escapeHtml(hi)}</span></div>`;
     const head = (glyph, help) => pmHead(glyph, t('cmd.simulation'), t(help));
+    const meshG = fem.meshGroup(e);
     if (e.study === 'nonlinear') {
-      const res = r ? pmGroup('sim2Nonlinear', t('sim.results'), `${dl([[t('sim.maxStress'), `${fmt(r.maxStress, 2)} MPa`], [t('sim.maxDisp'), `${fmt(r.maxDisplacement, 4)} mm`], [t('sim.fos'), fmt(r.minFactorOfSafety, 2), r.minFactorOfSafety < 1 ? 'error' : ''], [t('sim2.yielded'), `${fmt(100 * r.plasticFraction, 1)} %`], [t('sim2.newton'), String(r.newtonIterations)], [t('sim.elements'), `${r.elements} (${fmt(r.elementSize, 2)} mm)`]])}
+      const res = r ? pmGroup('sim2Nonlinear', t('sim.results'), `${dl([[t('sim.maxStress'), `${fmt(r.maxStress, 2)} MPa`], [t('sim.maxDisp'), `${fmt(r.maxDisplacement, 4)} mm`], [t('sim.fos'), fmt(r.minFactorOfSafety, 2), r.minFactorOfSafety < 1 ? 'error' : ''], [t('sim2.yielded'), `${fmt(100 * r.plasticFraction, 1)} %`], [t('sim2.newton'), String(r.newtonIterations)], [t('fem.maxPlasticStrain'), fmt(Math.max(0, ...(r.vertexPlasticStrain ?? [0])), 5)], [t('sim.elements'), `${r.elements} (${fmt(r.elementSize, 2)} mm)`]])}
+        ${fem.chart(r.curve.map((c) => c.maxDisplacement * Math.sign(c.factor || 1)), r.curve.map((c) => c.factor))}<p class="pm-note">${escapeHtml(t('fem.loadDisplacementCurve'))}</p>
         <table class="sim2-table"><tr><th>${escapeHtml(t('sim2.loadFactor'))}</th><th>${escapeHtml(t('sim.maxDisp'))}</th><th>${escapeHtml(t('sim.maxStress'))}</th></tr>${r.curve.map((c) => `<tr><td>${fmt(c.factor, 2)}</td><td>${fmt(c.maxDisplacement, 4)}</td><td>${fmt(c.maxStress, 1)}</td></tr>`).join('')}</table>
         ${legend('0', `${fmt(state.sim?.top ?? r.maxStress, 1)} MPa`)}${clear}`) : '';
       return [head('sim2Nonlinear', 'pm.help.nonlinear'), studySelector(e), material, fix, loadGroup,
-        pmGroup('sim2Nonlinear', t('sim2.nonlinearOptions'), `<label class="pm-check"><input type="checkbox" data-pm-toggle="geometric" ${e.geometric ? 'checked' : ''}/>${icon('sim2Nonlinear')}<span>${escapeHtml(t('sim2.largeDisplacement'))}</span></label><label class="pm-check"><input type="checkbox" data-pm-toggle="plastic" ${e.plastic ? 'checked' : ''}/>${icon('material')}<span>${escapeHtml(t('sim2.plastic'))}</span></label>${e.plastic ? pmNum('tangentModulus', e.tangentModulus || Math.round(mat.E * 50), `${t('sim2.tangentModulus')} (MPa)`, 'material') : ''}${pmNum('steps', e.steps, t('sim2.steps'), 'statistics')}`),
-        pmGroup('statistics', t('sim.mesh'), `${pmNum('resolution', e.resolution, t('sim.resolution'), 'statistics')}${run}`), res].join('');
+        pmGroup('sim2Nonlinear', t('sim2.nonlinearOptions'), `${check('geometric', e.geometric, 'sim2Nonlinear', t('sim2.largeDisplacement'))}${check('plastic', e.plastic, 'material', t('fem.plasticJ2'))}${e.plastic ? `${pmNum('tangentModulus', e.tangentModulus || Math.round(mat.E * 50), `${t('sim2.tangentModulus')} (MPa)`, 'material')}${pmNum('kinematicFraction', e.kinematicFraction, t('fem.kinematicFraction'), 'femHardening')}` : ''}
+          ${pmSeg('history', [['monotonic', t('fem.history.monotonic'), 'femLoadUp'], ['unload', t('fem.history.unload'), 'femUnload'], ['cyclic', t('fem.history.cyclic'), 'femCyclic']], e.history)}${e.history === 'cyclic' ? pmNum('cycles', e.cycles, t('fem.cycles'), 'femCyclic') : ''}${check('arcLength', e.arcLength, 'femArcLength', t('fem.arcLength'))}${pmNum('steps', e.steps, t('sim2.steps'), 'statistics')}`),
+        meshG, res, fem.resultTools(e)].join('');
     }
     if (e.study === 'drop') {
-      const res = r ? pmGroup('sim2Drop', t('sim.results'), `${dl([[t('sim2.impactVelocity'), `${fmt(r.impactVelocity / 1000, 3)} m/s`], [t('sim2.peakStress'), `${fmt(r.peakStress, 1)} MPa`, r.minFactorOfSafety < 1 ? 'error' : ''], [t('sim2.peakTime'), `${fmt(r.peakStressTime * 1e6, 1)} µs`], [t('sim2.peakDeformation'), `${fmt(r.peakDeformation, 4)} mm`], [t('sim2.contactTime'), `${fmt(r.contactDuration * 1e6, 1)} µs`], [t('sim2.impulse'), `${fmt(r.impulse, 4)} N·s`], [t('sim2.rebound'), `${fmt(r.reboundVelocity / 1000, 3)} m/s`], [t('sim.fos'), fmt(r.minFactorOfSafety, 2)], [t('sim2.timeStep'), `${fmt(r.dt * 1e9, 1)} ns × ${r.steps}`]])}
-        ${chart(r.time, [{ ys: r.stress, cls: 'stress' }, { ys: r.force, cls: 'force' }])}<p class="pm-note sim2-chart-key"><i class="stress"></i>${escapeHtml(t('sim2.stressOverTime'))} <i class="force"></i>${escapeHtml(t('sim2.forceOverTime'))}</p>${legend('0', `${fmt(state.sim?.top ?? r.peakStress, 1)} MPa`)}${clear}`) : '';
+      const frames = r?.frames?.length ? `<label class="pm-field">${icon('clock')}<span class="pm-label">${escapeHtml(t('fem.frame'))}</span><input type="range" data-pm-field="frame" min="0" max="${r.frames.length - 1}" step="1" value="${e.frame ?? 0}"/><output>${escapeHtml(`${fmt((r.frames[e.frame ?? 0]?.time ?? 0) * 1e6, 1)} µs`)}</output></label>` : '';
+      const en = r?.energy;
+      const res = r ? pmGroup('sim2Drop', t('sim.results'), `${dl([[t('sim2.impactVelocity'), `${fmt(r.impactVelocity / 1000, 3)} m/s`], [t('sim2.peakStress'), `${fmt(r.peakStress, 1)} MPa`, r.minFactorOfSafety < 1 ? 'error' : ''], [t('sim2.peakTime'), `${fmt(r.peakStressTime * 1e6, 1)} µs`], [t('sim2.peakDeformation'), `${fmt(r.peakDeformation, 4)} mm`], [t('sim2.contactTime'), `${fmt(r.contactDuration * 1e6, 1)} µs`], [t('sim2.impulse'), `${fmt(r.impulse, 4)} N·s`], [t('sim2.rebound'), `${fmt(r.reboundVelocity / 1000, 3)} m/s`], [t('fem.restitution'), fmt(r.restitution, 3)], [t('fem.maxPlasticStrain'), fmt(r.maxPlasticStrain, 5)], [t('sim.fos'), fmt(r.minFactorOfSafety, 2)], [t('sim2.timeStep'), `${fmt(r.dt * 1e9, 1)} ns × ${r.steps}`]])}
+        ${fem.chart(r.time, r.stress)}<p class="pm-note sim2-chart-key"><i class="stress"></i>${escapeHtml(t('sim2.stressOverTime'))}</p>${fem.chart(r.time, r.force, 'force')}<p class="pm-note sim2-chart-key"><i class="force"></i>${escapeHtml(t('sim2.forceOverTime'))}</p>
+        ${en ? `<p class="pm-note">${escapeHtml(t('fem.energyBalance'))}</p>${dl([[t('fem.energy.kinetic0'), `${fmt(en.initialKinetic, 4)} mJ`], [t('fem.energy.kinetic1'), `${fmt(en.finalKinetic, 4)} mJ`], [t('fem.energy.gravity'), `${fmt(en.gravityWork, 4)} mJ`], [t('fem.energy.elastic'), `${fmt(en.elasticStored, 4)} mJ`], [t('fem.energy.plastic'), `${fmt(en.plastic, 4)} mJ`], [t('fem.energy.contact'), `${fmt(en.contactAbsorbed, 4)} mJ`], [t('fem.energy.error'), `${fmt(100 * en.maxImbalance, 3)} %`, en.maxImbalance > 0.02 ? 'warn' : '']])}` : ''}
+        ${frames}${legend('0', `${fmt(state.sim?.top ?? r.peakStress, 1)} MPa`)}${clear}`) : '';
       return [head('sim2Drop', 'pm.help.drop'), studySelector(e), material,
         pmGroup('sim2Drop', t('sim2.dropSetup'), `${pmNum('height', e.height, `${t('sim2.dropHeight')} (mm)`, 'sim2Drop')}${pmSeg('dropDir', Object.keys(AXES).map((k) => [k, k.toUpperCase()]), e.dropDir)}<p class="pm-note">${escapeHtml(t('sim2.dropNote'))}</p>`),
-        pmGroup('statistics', t('sim.mesh'), `${pmNum('resolution', e.resolution, t('sim.resolution'), 'statistics')}${run}`), res].join('');
+        pmGroup('femFloor', t('fem.floor'), `${pmSeg('floorType', [['rigid', t('fem.floor.rigid'), 'femFloor'], ['elastic', t('fem.floor.elastic'), 'femSpring'], ['slab', t('fem.floor.slab'), 'femMesh']], e.floorType)}${e.floorType !== 'rigid' ? `${pmNum('floorE', e.floorE, `${t('fem.floor.E')} (MPa)`, 'material')}${pmNum('floorThickness', e.floorThickness, `${t('fem.floor.thickness')} (mm)`, 'smartDim')}` : ''}${pmNum('friction', e.friction, t('fem.friction'), 'femFriction')}${pmNum('damping', e.damping, t('fem.contactDamping'), 'femSpring')}${check('plasticDrop', e.plasticDrop, 'material', t('fem.plasticJ2'))}`),
+        meshG, res].join('');
     }
     if (e.study === 'combination') {
       const cases = e.cases.map((c, i) => `<div class="sim2-case"><span class="sim2-case-name">${icon('load', 'icon tiny')}${escapeHtml(c.name)}</span>${ctx.pm.textInput(`factor:${i}`, String(c.factor), 'sim2-factor')}<button class="icon-button" data-pm="sim2.delCase:${i}" title="${escapeHtml(t('action.delete'))}">${icon('trash', 'icon tiny')}</button></div>`).join('');
       const res = r ? pmGroup('sim2Combine', t('sim.results'), `${dl([[t('sim.maxStress'), `${fmt(r.maxStress, 2)} MPa`], [t('sim.maxDisp'), `${fmt(r.maxDisplacement, 4)} mm`], [t('sim.fos'), fmt(r.minFactorOfSafety, 2), r.minFactorOfSafety < 1 ? 'error' : ''], ...(r.caseResults ?? []).map((c) => [`${c.name} ×${fmt(c.factor, 2)}`, `${fmt(c.maxStress, 1)} MPa`])])}${legend('0', `${fmt(state.sim?.top ?? r.maxStress, 1)} MPa`)}${clear}`) : '';
       return [head('sim2Combine', 'pm.help.combination'), studySelector(e), material, fix, loadGroup,
         pmGroup('sim2Combine', t('sim2.cases'), `${cases || `<p class="pm-note">${escapeHtml(t('sim2.noCases'))}</p>`}<div class="pm-row">${pmButton('sim2.addCase', 'plus', t('sim2.addCase'))}</div>${pmSeg('method', [['linear', t('sim2.linear')], ['srss', t('sim2.srss')]], e.method)}`),
-        pmGroup('statistics', t('sim.mesh'), `${pmNum('resolution', e.resolution, t('sim.resolution'), 'statistics')}${run}`), res].join('');
+        meshG, res, fem.resultTools(e)].join('');
     }
     // flow
+    const sec = state.flow?.section;
+    const unit = { pressure: 'Pa', temperature: '°C', vorticity: '1/s' }[e.quantity] ?? 'm/s';
     const res = r ? pmGroup('sim2Flow', t('sim.results'), `${dl([
-      ...(e.flowMode === 'external' ? [[t('sim2.drag'), `${fmt(r.dragForce, 5)} N`], [t('sim2.dragCoefficient'), fmt(r.dragCoefficient, 3)], [t('sim2.frontalArea'), `${fmt(r.frontalArea, 1)} mm²`]] : [[t('sim2.hydraulicDiameter'), `${fmt(r.hydraulicDiameter, 2)} mm`]]),
-      [t('sim2.pressureDrop'), `${fmt(r.pressureDrop, 4)} Pa`], [t('sim2.maxVelocity'), `${fmt(r.maxVelocity, 3)} m/s`],
-      [t('sim2.reynolds'), `${fmt(r.reynolds, 1)}${r.capped ? ` → ${fmt(r.reynoldsSimulated, 0)}` : ''}`, r.capped ? 'warn' : ''], [t('sim2.cells'), `${r.dims.join('×')} (${fmt(r.h, 2)} mm)`], [t('sim2.lbmSteps'), `${r.steps}${r.converged ? '' : ' !'}`]])}
-      ${r.capped ? `<p class="pm-note">${escapeHtml(t('sim2.reCapped'))}</p>` : ''}${pmSeg('quantity', [['velocity', t('sim2.velocity')], ['pressure', t('sim2.pressureField')]], e.quantity)}<label class="pm-check"><input type="checkbox" data-pm-toggle="showStreams" ${e.showStreams ? 'checked' : ''}/>${icon('sim2Flow')}<span>${escapeHtml(t('sim2.streamlines'))}</span></label>${legend(`${fmt(state.flow?.section?.min ?? 0, 3)}`, `${fmt(state.flow?.section?.max ?? 1, 3)} ${e.quantity === 'pressure' ? 'Pa' : 'm/s'}`)}${clear}`) : '';
+      ...(e.flowMode === 'external' ? [[t('sim2.drag'), `${fmt(r.dragForce, 5)} N`], [t('fem.lift'), `${fmt(r.liftForce, 5)} N`], [t('fem.sideForce'), `${fmt(r.sideForce, 5)} N`], [t('sim2.dragCoefficient'), fmt(r.dragCoefficient, 3)], [t('sim2.frontalArea'), `${fmt(r.frontalArea, 1)} mm²`]] : [[t('sim2.hydraulicDiameter'), `${fmt(r.hydraulicDiameter, 2)} mm`]]),
+      [t('sim2.pressureDrop'), `${fmt(r.pressureDrop, 4)} Pa`], [t('sim2.maxVelocity'), `${fmt(r.maxVelocity, 3)} m/s`], [t('sim2.reynolds'), fmt(r.reynolds, 1)],
+      ...(r.temp ? [[t('fem.heatToFluid'), `${fmt(r.heat, 4)} W`], [t('fem.nusselt'), fmt(r.nusselt, 2)]] : []), ...(e.timeMode === 'transient' ? [[t('fem.strouhal'), fmt(r.strouhal, 3)], [t('fem.physicalTime'), `${fmt(r.physicalTime, 4)} s`]] : []),
+      [t('sim2.cells'), `${r.dims.join('×')} (${fmt(r.h, 2)} mm)`], [t('fem.collision'), `${String(r.collision).toUpperCase()}${r.les > 0 ? ` + LES ${fmt(r.les, 2)}` : ''}`], [t('sim2.lbmSteps'), `${r.steps}${r.converged ? '' : ' !'}`]])}
+      ${e.timeMode === 'transient' && r.history?.length ? `${fem.chart(r.history.map((x) => x.time), r.history.map((x) => x.force[r.flowAxis] * r.flowSign), 'force')}<p class="pm-note sim2-chart-key"><i class="force"></i>${escapeHtml(t('fem.dragOverTime'))}</p>` : ''}
+      ${pmSeg('quantity', [['velocity', t('sim2.velocity')], ['pressure', t('sim2.pressureField')], ['vorticity', t('fem.vorticity')], ...(r.temp ? [['temperature', t('sim.temperature')]] : [])], e.quantity)}${check('showStreams', e.showStreams, 'sim2Flow', t('sim2.streamlines'))}${check('showPaths', e.showPaths, 'femPaths', t('fem.trajectories'))}${check('surfacePressure', e.surfacePressure, 'femPressure', t('fem.surfacePressure'))}
+      ${legend(`${fmt(sec?.min ?? 0, 3)}`, `${fmt(sec?.max ?? 1, 3)} ${unit}`)}${e.surfacePressure && state.sim?.cpRange ? `<p class="pm-note">${escapeHtml(`${t('fem.surfaceCp')}: ${fmt(state.sim.cpRange[0], 2)} … ${fmt(state.sim.cpRange[1], 2)}`)}</p>` : ''}${clear}`) : '';
+    const { pmNum: num } = ctx.pm;
     return [head('sim2Flow', 'pm.help.flow'), studySelector(e),
-      pmGroup('sim2Flow', t('sim2.flowSetup'), `${pmSeg('flowMode', [['external', t('sim2.external')], ['internal', t('sim2.internal')]], e.flowMode)}${pmSeg('flowAxis', [['x', 'X'], ['y', 'Y'], ['z', 'Z']], e.flowAxis)}${pmSeg('flowSign', [['1', '+'], ['-1', '−']], String(e.flowSign))}${pmNum('velocity', e.velocity, `${t('sim2.velocity')} (m/s)`, 'sim2Flow')}${pmSeg('fluid', [['air', t('sim2.air')], ['water', t('sim2.water')]], e.fluid)}`),
-      pmGroup('statistics', t('sim.mesh'), `${pmNum('resolution', e.resolution, t('sim2.flowResolution'), 'statistics')}<p class="pm-note">${escapeHtml(t('sim2.flowNote'))}</p>${run}`), res].join('');
+      pmGroup('sim2Flow', t('sim2.flowSetup'), `${pmSeg('flowMode', [['external', t('sim2.external')], ['internal', t('sim2.internal')]], e.flowMode)}${pmSeg('flowAxis', [['x', 'X'], ['y', 'Y'], ['z', 'Z']], e.flowAxis)}${pmSeg('flowSign', [['1', '+'], ['-1', '−']], String(e.flowSign))}${num('velocity', e.velocity, `${t('sim2.velocity')} (m/s)`, 'sim2Flow')}${pmSeg('fluid', [['air', t('sim2.air')], ['water', t('sim2.water')], ['oil', t('fem.oil')]], e.fluid)}`),
+      pmGroup('femTurbulence', t('fem.flowModel'), `${pmSeg('collision', [['trt', 'TRT'], ['mrt', 'MRT'], ['bgk', 'BGK']], e.collision)}${num('les', e.les, t('fem.smagorinsky'), 'femTurbulence')}${pmSeg('timeMode', [['steady', t('fem.steady'), 'femSteady'], ['transient', t('fem.transient'), 'clock']], e.timeMode)}${e.timeMode === 'transient' ? num('duration', e.duration, `${t('fem.duration')} (s)`, 'clock') : ''}`),
+      pmGroup('femHeat', t('fem.heatTransfer'), `${check('thermalOn', e.thermalOn, 'femHeat', t('fem.heatOn'))}${e.thermalOn ? `${num('inletT', e.inletT, `${t('fem.inletTemperature')} (°C)`, 'sun')}${pmSeg('bodyMode', [['temperature', t('sim.temperature')], ['power', t('sim.heatPower')], ['conduct', t('fem.conjugate')]], e.bodyMode)}${e.bodyMode !== 'conduct' ? num('bodyValue', e.bodyValue, e.bodyMode === 'power' ? `${t('sim.heatPower')} (W)` : `${t('sim.temperature')} (°C)`, 'femHeat') : ''}${num('solidK', e.solidK, `${t('fem.solidConductivity')} (W/m·K)`, 'material')}${check('buoyancy', e.buoyancy, 'femGravity', t('fem.buoyancy'))}` : ''}`),
+      pmGroup('statistics', t('sim.mesh'), `${num('cellSize', e.cellSize, `${t('fem.cellSize')} (mm, 0 = ${t('fem.auto')})`, 'femMesh')}${e.cellSize > 0 ? '' : num('resolution', e.resolution, t('sim2.flowResolution'), 'statistics')}<p class="pm-note">${escapeHtml(t('sim2.flowNote'))}</p><div class="pm-row">${pmButton('runSim', 'play', t('sim.run'), 'primary')}</div>`), res].join('');
   }
 
   function buildFlowDisplay() {
@@ -186,9 +320,15 @@ export function createSim2Tools(ctx) {
     const normalAxis = lateral.includes(1) && fa !== 1 ? 1 : lateral[0];
     f.section = flowSection(r, { normalAxis, quantity: f.quantity });
     f.streams = f.showStreams ? streamlines(r, { count: 6 }) : null;
+    if (f.showPaths) {
+      const segs = [];
+      for (const path of pathlines(r, { count: 6 }).paths) for (let i = 1; i < path.length; i++) segs.push(...path[i - 1].slice(0, 3), ...path[i].slice(0, 3));
+      f.paths = { segments: segs };
+    } else f.paths = null;
   }
 
   function simSet(e, key, value) {
+    if (fem.set(e, key, value)) return;
     if (key === 'study') {
       e.study = value; e.result = null; state.sim = null; state.flow = null;
       if (SIM_STUDIES.includes(value)) initStudy(e);
@@ -198,17 +338,21 @@ export function createSim2Tools(ctx) {
     else e[key] = value;
     if (key === 'loadKind') e.pick = 'loads';
     if (key === 'quantity' && state.flow) { state.flow.quantity = value; buildFlowDisplay(); ctx.syncView(); }
+    if (key === 'contact') e.result = null;
     ctx.renderLeft();
   }
 
   function simPick(hit) {
     const e = editing();
+    if (e.assembly) return asmPick(e, hit);
     if (hit?.kind !== 'face' || hit.bodyKey !== 'body') { notify('info', t('notice.pickFace')); return; }
     const face = state.partEntry?.faces?.[hit.index];
-    if (!face || !['fixtures', 'loads'].includes(e.pick)) return;
+    if (!face) return;
+    if (fem.pick(e, hit, face)) return;
+    if (!['fixtures', 'loads'].includes(e.pick)) return;
     const list = e.pick === 'loads' ? e.loads : e.fixtures;
     const i = list.findIndex((x) => x.index === hit.index);
-    if (i >= 0) list.splice(i, 1); else list.push({ index: hit.index, faceId: face.hashCode, type: face.geomType });
+    if (i >= 0) list.splice(i, 1); else list.push({ index: hit.index, faceId: face.hashCode, type: face.geomType, ...(list === e.fixtures ? { kind: fem.fixtureKind(e) } : {}) });
     vp()?.setSelection([...e.fixtures, ...e.loads].map((x) => ({ kind: 'face', bodyKey: 'body', index: x.index })));
     ctx.renderLeft();
   }
@@ -217,7 +361,7 @@ export function createSim2Tools(ctx) {
     const e = editing();
     if (!e.loads.length) { notify('error', t('sim.error.no-loads')); return; }
     const n = e.cases.length + 1;
-    e.cases.push({ name: `${t('sim2.case')}${n} (${fmt(e.magnitude, 1)} ${e.loadKind === 'pressure' ? 'MPa' : `N ${e.dir.toUpperCase()}`})`, loads: loadsOf(e), factor: 1 });
+    e.cases.push({ name: `${t('sim2.case')}${n} (${fmt(e.magnitude, 1)} ${e.loadKind === 'pressure' ? 'MPa' : e.loadKind === 'torque' ? `N·m ${e.dir.toUpperCase()}` : `N ${e.dir.toUpperCase()}`})`, loads: loadsOf(e), factor: 1 });
     e.result = null;
     notify('success', t('sim2.caseAdded', { n }));
     ctx.renderLeft();
@@ -851,14 +995,16 @@ export function createSim2Tools(ctx) {
       if (f && p && f.partId === p.id && entry && f.key === entry.key && f.section) {
         vp().addBody({ key: 'flow:section', mesh: { ...f.section.mesh, triangles: Array.from(f.section.mesh.triangles) }, edges: null, colors: f.section.colors, faceIndex: new Map(), edgeIndex: new Map(), opacity: 0.92, pickable: false });
         const body = vp().bodies.get('body');
-        if (body) { body.mesh.material.transparent = true; body.mesh.material.opacity = 0.3; body.mesh.material.depthWrite = false; }
+        if (body && state.sim?.study !== 'flow') { body.mesh.material.transparent = true; body.mesh.material.opacity = 0.3; body.mesh.material.depthWrite = false; }
         if (f.streams?.segments?.length) lines.push({ segments: f.streams.segments, color: '#1e88e5', width: 1.3, depthTest: true });
+        if (f.paths?.segments?.length) lines.push({ segments: f.paths.segments, color: '#e65100', width: 1.6, depthTest: true });
       } else if (f && (!p || f.partId !== p.id)) state.flow = null;
       if (p && entry?.mesh && !sketchingNow) mbdDisplay(p, entry, lines, labels);
     } else if (kind === 'assembly') {
       const a = asm();
       const cutNow = a ? asmFeatureBodies(a) : false;
       if (a) beltBodies(a);
+      if (a && state.asmSim) asmResultBodies();
       const e = editing();
       if (e?.mode === 'asmFeature') { try { const tool = asmFeatureTool(featureOf(e), ctx.assemblySize(a)); vp().setPreview({ mesh: tool.mesh({ tolerance: 0.5, angularTolerance: 0.4 }), cut: true }); } catch { /* bad profile */ } }
       if (cutNow || a?.belts?.length) { vp().applyStyle(); vp().refreshHighlight(); }
@@ -950,12 +1096,17 @@ export function createSim2Tools(ctx) {
     if (key === 'ver.author') { try { storage()?.setItem(AUTHOR_KEY, String(raw).trim()); } catch { /* no storage */ } return ctx.renderLeft(); }
     if (key === 'ver.comment') { state.nextVersionComment = String(raw); return undefined; }
     if (key.startsWith('factor:')) { const c = e.cases?.[Number(key.slice(7))]; const x = Number(String(raw).replace(',', '.')); if (c && Number.isFinite(x)) { c.factor = x; e.result = null; } else notify('error', t('notice.invalidValue', { text: raw })); return ctx.renderLeft(); }
+    if (isSim(e) && fem.field(e, key, v)) return undefined;
+    if (isSim(e) && key === 'frame' && v != null) { e.frame = Math.max(0, Math.round(v)); return showFrame(e); }
     if (v == null) { notify('error', t('notice.invalidValue', { text: raw })); return ctx.renderLeft(); }
+    if (isSim(e) && ['inletT', 'bodyValue'].includes(key)) { e[key] = v; e.result = null; return ctx.renderLeft(); }
+    if (isSim(e) && ['friction', 'damping', 'les', 'cellSize', 'asmFriction'].includes(key)) { e[key] = Math.max(0, v); e.result = null; return ctx.renderLeft(); }
+    if (isSim(e) && key === 'kinematicFraction') { e[key] = Math.min(1, Math.max(0, v)); e.result = null; return ctx.renderLeft(); }
     if (['offset', 'cx', 'cy'].includes(key)) e[key] = v;
     else if (key === 'depth') e[key] = Math.max(0, v);
     else if (key === 'magnitude' || key === 'velocity' || key === 'height') e[key] = Math.max(1e-9, Math.abs(v));
     else if (key === 'tangentModulus') e[key] = Math.max(0, v);
-    else if (v > 0) e[key] = key === 'steps' || key === 'resolution' ? Math.round(v) : v;
+    else if (v > 0) e[key] = ['steps', 'resolution', 'cycles'].includes(key) ? Math.round(v) : v;
     if (isSim(e)) e.result = null;
     return ctx.renderLeft();
   }
@@ -975,6 +1126,10 @@ export function createSim2Tools(ctx) {
     if (key === 'mbd.diameterZone') return mbdField(key, checked);
     if (key === 'ver.require') return vault('require');
     if (key === 'showStreams') { e.showStreams = checked; if (state.flow) { state.flow.showStreams = checked; buildFlowDisplay(); } ctx.syncView(); return ctx.renderLeft(); }
+    if (key === 'showPaths') { e.showPaths = checked; if (state.flow) { state.flow.showPaths = checked; buildFlowDisplay(); } ctx.syncView(); return ctx.renderLeft(); }
+    if (key === 'asmNonlinear') { e.asmNonlinear = checked; e.result = null; return ctx.renderLeft(); }
+    if (key === 'asmDeformed') { if (state.asmSim) state.asmSim.deformed = checked; ctx.syncView(); return ctx.renderLeft(); }
+    if (key === 'surfacePressure') { e.surfacePressure = checked; if (!checked && state.sim?.study === 'flow') state.sim = null; else if (checked && e.result?.vertexCp) { let lo = Infinity, hi = -Infinity; for (const v of e.result.vertexCp) { lo = Math.min(lo, v); hi = Math.max(hi, v); } const colors = new Float32Array(e.result.vertexCp.length * 3); e.result.vertexCp.forEach((v, i) => colors.set(stressColor(v, lo, hi), i * 3)); state.sim = { partId: part()?.id, key: state.partEntry?.key, result: { vertexDisplacement: null }, colors, deformed: false, scale: 1, study: 'flow', cpRange: [lo, hi] }; } ctx.syncView(); return ctx.renderLeft(); }
     e[key] = checked;
     if (isSim(e)) e.result = null;
     ctx.syncView();
@@ -991,7 +1146,7 @@ export function createSim2Tools(ctx) {
   function command(name, arg) {
     const e = editing();
     if (name === 'runSim') return runSim(e, part(), state.partEntry);
-    if (name === 'clearSim') { state.sim = null; state.flow = null; if (e) e.result = null; ctx.syncView(); return ctx.renderLeft(); }
+    if (name === 'clearSim') { state.sim = null; state.flow = null; state.asmSim = null; if (e) { e.result = null; e.probes = []; } ctx.syncView(); return ctx.renderLeft(); }
     if (name === 'clear') {
       if (Array.isArray(e[arg])) e[arg] = []; else e[arg] = null;
       if (e.mode === 'belt') e.pick = arg;
@@ -1014,7 +1169,7 @@ export function createSim2Tools(ctx) {
     if (name === 'lib.del') { saveLibrary(loadLibrary(storage()).filter((x) => x.id !== arg), storage()); if (!loadLibrary(storage()).length) return ctx.cancelEditing({ quiet: true }); return ctx.renderLeft(); }
     return undefined;
   }
-  const subject = (e) => (isSim(e) ? t(`sim2.${e.study === 'drop' ? 'dropTest' : e.study}`) : t({ mbd: 'cmd.mbdAnnotations', versions: 'cmd.versionHistory', asmFeature: `cmd.${e.type}`, belt: 'cmd.beltChain', libInsert: 'cmd.libInsert' }[e.mode] ?? 'cmd.simulation'));
+  const subject = (e) => (isSim(e) ? t(e.assembly ? 'cmd.assemblySimulation' : `sim2.${e.study === 'drop' ? 'dropTest' : e.study}`) : t({ mbd: 'cmd.mbdAnnotations', versions: 'cmd.versionHistory', asmFeature: `cmd.${e.type}`, belt: 'cmd.beltChain', libInsert: 'cmd.libInsert' }[e.mode] ?? 'cmd.simulation'));
 
   // ───────────────────────── commands, tabs, menus
 
@@ -1026,6 +1181,7 @@ export function createSim2Tools(ctx) {
     dropTest: { icon: 'sim2Drop', label: 'cmd.dropTest', enabled: hasPart, checked: () => editing()?.study === 'drop', run: () => openStudy('drop') },
     loadCombination: { icon: 'sim2Combine', label: 'cmd.loadCombination', enabled: hasPart, checked: () => editing()?.study === 'combination', run: () => openStudy('combination') },
     flowStudy: { icon: 'sim2Flow', label: 'cmd.flowStudy', enabled: hasPart, checked: () => editing()?.study === 'flow', run: () => openStudy('flow') },
+    assemblySimulation: { icon: 'femAssembly', label: 'cmd.assemblySimulation', enabled: () => Boolean(asm()) && !editing()?.editor, checked: () => Boolean(editing()?.assembly), run: () => (editing()?.assembly ? ctx.cancelEditing({ quiet: true }) : startAsmSim()) },
     mbdAnnotations: { icon: 'mbdAnnotations', label: 'cmd.mbdAnnotations', enabled: hasPart, checked: () => editing()?.mode === 'mbd', run: () => (editing()?.mode === 'mbd' ? ctx.cancelEditing({ quiet: true }) : startMbd()) },
     mbdAutoDimension: { icon: 'mbdAuto', label: 'cmd.mbdAutoDimension', enabled: hasPart, run: () => autoDimension() },
     insertModelAnnotations: { icon: 'mbdInsert', label: 'cmd.insertModelAnnotations', enabled: () => ctx.activeDrawing()?.source?.kind === 'part', run: () => insertModelAnnotations() },
@@ -1044,7 +1200,7 @@ export function createSim2Tools(ctx) {
     libInsert: { icon: 'libInsert', label: 'cmd.libInsert', enabled: hasPart, checked: () => editing()?.mode === 'libInsert', run: () => startLibInsert() },
   };
   const TABS = {
-    evaluate: ['nonlinearStudy', 'dropTest', 'loadCombination', 'flowStudy', 'mbdAnnotations', 'mbdAutoDimension', 'versionHistory'],
+    evaluate: ['nonlinearStudy', 'dropTest', 'loadCombination', 'flowStudy', 'assemblySimulation', 'mbdAnnotations', 'mbdAutoDimension', 'versionHistory'],
     features: ['mbdAnnotations', 'libSave', 'libInsert'],
     sketch: ['sk:makeBlock', 'sk:insertBlock', 'sk:explodeBlock', 'sk:picture'],
     assembly: ['asmCut', 'asmHole', 'beltChain', 'versionHistory'],
@@ -1053,7 +1209,7 @@ export function createSim2Tools(ctx) {
   function extendMenus(MENUS) {
     const at = (list, after, ids) => { const i = list.indexOf(after); list.splice(i >= 0 ? i + 1 : list.length, 0, ...ids); };
     if (MENUS.file) at(MENUS.file, 'saveAs', ['versionHistory', 'checkOut', 'checkIn', 'whereUsed']);
-    if (MENUS.tools) at(MENUS.tools, 'simulation', ['nonlinearStudy', 'dropTest', 'loadCombination', 'flowStudy', '-', 'mbdAnnotations', 'mbdAutoDimension', 'insertModelAnnotations', '-', 'asmCut', 'asmHole', 'beltChain', '-', 'libSave', 'libInsert']);
+    if (MENUS.tools) at(MENUS.tools, 'simulation', ['nonlinearStudy', 'dropTest', 'loadCombination', 'flowStudy', 'assemblySimulation', '-', 'mbdAnnotations', 'mbdAutoDimension', 'insertModelAnnotations', '-', 'asmCut', 'asmHole', 'beltChain', '-', 'libSave', 'libInsert']);
     if (MENUS.sketch) MENUS.sketch.push('-', 'sk:makeBlock', 'sk:insertBlock', 'sk:explodeBlock', 'sk:picture');
   }
 
@@ -1066,14 +1222,16 @@ export function createSim2Tools(ctx) {
 
 /** app-more.js's tools and these as one object: the hooks of both, the later ones first where they own the mode. */
 export function withSim2(createMore, ctx) {
-  const base = createMore(ctx);
-  const x = createSim2Tools({ ...ctx, baseStudyOptions: () => base.studyOptions(), sheetDrawing: (d) => base.sheetDrawing(d) });
+  const fem = createFemTools(ctx);
+  const base = createMore({ ...ctx, fem });
+  const x = createSim2Tools({ ...ctx, fem, baseStudyOptions: () => base.studyOptions(), sheetDrawing: (d) => base.sheetDrawing(d) });
   const tabs = { ...base.TABS };
   for (const [k, ids] of Object.entries(x.TABS)) tabs[k] = [...(tabs[k] ?? []), ...(tabs[k] ? ['|'] : []), ...ids];
   const route = (name) => (e, ...a) => (x.owns(e) ? x[name](...a) : base[name](...a));
   return {
     ...base,
     sim2: x.api,
+    fem,
     commands: { ...base.commands, ...x.commands },
     TABS: tabs,
     owns: (e) => x.owns(e) || base.owns(e),

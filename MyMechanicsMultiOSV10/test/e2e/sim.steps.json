@@ -13,7 +13,7 @@
   {
     "name": "sim: nonlinear static study runs and keeps a load–displacement curve",
     "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); \n  await m.run('nonlinearStudy'); await sleep(200);\n  const e = m.state.editing; const faces = m.state.partEntry.faces;\n  const planes = faces.map((f, index) => ({ f, index })).filter((x) => x.f.geomType === 'PLANE');\n  const byX = planes.sort((p, q) => p.f.center.x - q.f.center.x);\n  const mk = (x) => ({ index: x.index, faceId: x.f.hashCode, type: 'PLANE' });\n  e.fixtures = [mk(byX[0])]; e.loads = [mk(byX.at(-1))]; e.magnitude = 20000; e.dir = '-z'; e.resolution = 14; e.steps = 3; e.plastic = true;\n  window.__fx = { fixtures: e.fixtures, loads: e.loads };\n  await m.actions.pmCommand('runSim'); await sleep(300);\n  const r = m.state.editing.result;\n  return JSON.stringify({ study: m.state.editing.study, ok: r?.ok, curve: r?.curve?.length, sim: m.state.sim?.study, rows: document.querySelectorAll('.sim2-table tr').length, pm: Boolean(document.querySelector('.left-pm-body [data-pm-set=\"study\"][data-value=\"flow\"]')) }); })()",
-    "expect": "\"study\":\"nonlinear\",\"ok\":true,\"curve\":3,\"sim\":\"nonlinear\",\"rows\":4,\"pm\":true"
+    "expect": "\"study\":\"nonlinear\",\"ok\":true,\"curve\":4,\"sim\":\"nonlinear\",\"rows\":5,\"pm\":true"
   },
   {
     "shot": "sim-nonlinear",
@@ -39,12 +39,26 @@
   },
   {
     "name": "sim: external flow shows a section plane and streamlines with drag",
-    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); \n  m.actions.pmSet('study', 'flow'); const e = m.state.editing; e.resolution = 8; e.velocity = 0.05; e.fluid = 'water';\n  await m.actions.pmCommand('runSim'); await sleep(400);\n  const r = e.result; const vp = m.viewport;\n  return JSON.stringify({ ok: r?.ok !== false, drag: r?.dragForce > 0, section: vp.bodies.has('flow:section'), streams: (vp.groups.sim2?.children.length ?? 0) > 0, legend: Boolean(document.querySelector('.left-pm-body .sim-legend')) }); })()",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); \n  m.actions.pmSet('study', 'flow'); const e = m.state.editing; e.resolution = 6; e.velocity = 0.05; e.fluid = 'water';\n  await m.actions.pmCommand('runSim'); await sleep(400);\n  const r = e.result; const vp = m.viewport;\n  return JSON.stringify({ ok: r?.ok !== false, drag: r?.dragForce > 0, section: vp.bodies.has('flow:section'), streams: (vp.groups.sim2?.children.length ?? 0) > 0, legend: Boolean(document.querySelector('.left-pm-body .sim-legend')) }); })()",
     "expect": "\"ok\":true,\"drag\":true,\"section\":true,\"streams\":true,\"legend\":true"
   },
   {
     "shot": "sim-flow",
     "wait": 400
+  },
+  {
+    "name": "fem: static study on quadratic tets in the worker, with refinement faces, probes and the mesh controls",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); m.actions.pmSet('study', 'static'); const e = m.state.editing; Object.assign(e, window.__fx); e.magnitude = 1000; e.dir = '-z'; e.loadKind = 'force'; e.elementSize = 6; e.refine = [window.__fx.fixtures[0]]; e.refineSize = 3; await m.actions.pmCommand('runSim'); await sleep(300); const r = e.result; const html = document.querySelector('.left-pm-body')?.innerHTML ?? document.body.innerHTML; return JSON.stringify({ ok: r?.ok, solver: r?.solver, model: Boolean(r?.model?.nodes?.length), colours: Boolean(m.state.sim?.colors?.length), mesh: html.includes('data-pm-field=\"elementSize\"'), probes: html.includes('data-pm-pick=\"probes\"') }); })()",
+    "expect": "\"ok\":true,\"solver\":\"tet\",\"model\":true,\"colours\":true,\"mesh\":true,\"probes\":true"
+  },
+  {
+    "shot": "sim-fem-static",
+    "wait": 400
+  },
+  {
+    "name": "fem: frequency study in the worker",
+    "eval": "(async () => { const m = window.__mymechanics; m.actions.pmSet('study', 'modal'); const e = m.state.editing; Object.assign(e, window.__fx); e.elementSize = 6; e.modes = 3; await m.actions.pmCommand('runSim'); const r = e.result; return JSON.stringify({ n: r?.frequencies?.length, pos: Boolean(r?.frequencies?.every((x) => x > 0)) }); })()",
+    "expect": "\"n\":3,\"pos\":true"
   },
   {
     "name": "mbd: auto dimension scheme puts datums, sizes and hole dimensions on the plate",
@@ -128,5 +142,14 @@
     "name": "sim: no page errors on the way",
     "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); return JSON.stringify(window.__errs); })()",
     "expect": "^\\[\\]$"
+  },
+  {
+    "name": "fem: assembly study with bonded contact between components shows coloured result bodies",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.closeProject({ force: true }); await m.actions.openSampleAsk('asmPillowLine'); await new Promise((r) => setTimeout(r, 2500)); await m.run('assemblySimulation'); await new Promise((r) => setTimeout(r, 300)); const e = m.state.editing; const B = e._bodies; const big = (b) => { const V = b.mesh.vertices, T = b.mesh.triangles; const list = b.mesh.faceGroups.filter((g) => b.faces.find((x) => x.hashCode === g.faceId)?.geomType === 'PLANE').map((g) => { let a = 0; for (let t = g.start; t < g.start + g.count; t += 3) { const p = [3 * T[t], 3 * T[t + 1], 3 * T[t + 2]]; const u = [0, 1, 2].map((k) => V[p[1] + k] - V[p[0] + k]), v = [0, 1, 2].map((k) => V[p[2] + k] - V[p[0] + k]); a += 0.5 * Math.hypot(u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]); } return { g, a }; }).sort((p, q) => q.a - p.a); const g = list[0].g; return { index: b.faces.findIndex((x) => x.hashCode === g.faceId), faceId: g.faceId }; }; e.fixtures = [{ ...big(B[0]), body: 0, bodyKey: B[0].key, bodyName: B[0].name, kind: 'fixed' }]; e.loads = [{ ...big(B[1]), body: 1, bodyKey: B[1].key, bodyName: B[1].name }]; e.magnitude = 500; e.elementSize = 20; e.contact = 'bonded'; await m.actions.pmCommand('runSim'); await new Promise((r) => setTimeout(r, 400)); const r = e.result; return JSON.stringify({ ok: r?.ok, n: r?.bodies?.length === B.length, contact: r?.contact?.constraints > 0, shown: Boolean(m.viewport.bodies.get('femres:0')), pm: Boolean(document.querySelector('[data-pm-set=\"contact\"]')) }); })()",
+    "expect": "\"ok\":true,\"n\":true,\"contact\":true,\"shown\":true,\"pm\":true"
+  },
+  {
+    "shot": "sim-fem-assembly",
+    "wait": 400
   }
 ]

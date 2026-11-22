@@ -3,9 +3,13 @@
 // with its importance-sampling tables (env.js), the analytic lights, and the camera of the view with a thin lens.
 //
 // Every pass adds one sample per pixel to float render targets (radiance + coverage, albedo + sample count,
-// normal + depth). Passes are split into tiles drawn a few per animation frame, so the window stays responsive
-// and the GPU never runs one long draw; a render region limits the tiles. The picture is the mean, optionally
-// denoised (à-trous with the albedo / normal / depth guides) and tone mapped.
+// normal + depth, luminance moments). Passes are split into tiles drawn a few per animation frame, so the window
+// stays responsive and the GPU never runs one long draw; a render region limits the tiles. The picture is the
+// mean, optionally denoised (variance-guided à-trous with the albedo / normal / depth guides) and tone mapped.
+//
+// The tracing shader is specialised to the scene (shaders.js HAS_* switches: textures, pictures, UVs, vertex
+// colours, glass, clear coat, lights, area / sphere lights, catcher, floor): each variant is compiled once, in
+// the background (KHR_parallel_shader_compile), and kept — a smaller program compiles much faster on Direct3D.
 //
 //   const pt = new PathTracer();
 //   await pt.setup({ bodies, camera, target, box, lights, settings });   // settings: normalizeRenderSettings()
@@ -20,12 +24,25 @@ import { QUAD_VERT, TRACE_FRAG, SHOW_FRAG, DENOISE_FRAG } from './shaders.js';
 const MAX_LIGHTS = 16;
 const IMAGE_SIZE = 512;
 
-/** World-space triangles of the bodies: { positions, normals (9 floats a triangle), body (per triangle), count }. */
+/** A linear colour as the shader's packed sRGB 8-bit number (r·65536 + g·256 + b). */
+export function packColour(r, g, b) {
+  const e = (v) => { const c = Math.max(0, Math.min(1, v)); return Math.round(255 * (c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055)); };
+  return e(r) * 65536 + e(g) * 256 + e(b);
+}
+
+/**
+ * World-space triangles of the bodies: { positions, normals (9 floats a triangle), body (per triangle), count,
+ * uvs (6 floats a triangle, mm), uvOk (per triangle), colours (3 a triangle: packed sRGB or −1), hasUv, hasColours }.
+ * A body may carry uv ({ uv: 2 floats a vertex, ok }) from its B-rep faces and vertexColors (3 linear floats a
+ * vertex, with baseColor: vertices of that colour are left to the appearance).
+ */
 export function packScene(bodies) {
   let total = 0;
   for (const b of bodies) { const g = b.geometry; total += (g.index ? g.index.count : g.getAttribute('position').count) / 3; }
   total = Math.floor(total);
   const positions = new Float32Array(total * 9); const normals = new Float32Array(total * 9); const body = new Uint32Array(total);
+  const uvs = new Float32Array(total * 6); const uvOk = new Uint8Array(total); const colours = new Float32Array(total * 3).fill(-1);
+  let hasUv = false; let hasColours = false;
   const v = new THREE.Vector3(); const nm = new THREE.Matrix3();
   let t = 0;
   bodies.forEach((b, bi) => {
@@ -41,10 +58,41 @@ export function packScene(bodies) {
         positions[t * 9 + c * 3] = v.x; positions[t * 9 + c * 3 + 1] = v.y; positions[t * 9 + c * 3 + 2] = v.z;
         if (nrm) { v.fromBufferAttribute(nrm, i).applyMatrix3(nm).normalize(); } else v.set(0, 0, 0);
         normals[t * 9 + c * 3] = v.x; normals[t * 9 + c * 3 + 1] = v.y; normals[t * 9 + c * 3 + 2] = v.z;
+        if (b.uv?.uv && b.uv.ok[i]) { uvs[t * 6 + c * 2] = b.uv.uv[i * 2]; uvs[t * 6 + c * 2 + 1] = b.uv.uv[i * 2 + 1]; }
+        const vc = b.vertexColors;
+        if (vc) {
+          const r = vc[i * 3]; const gg = vc[i * 3 + 1]; const bb = vc[i * 3 + 2];
+          const base = b.baseColor;
+          if (!base || Math.abs(r - base[0]) + Math.abs(gg - base[1]) + Math.abs(bb - base[2]) > 2e-3) { colours[t * 3 + c] = packColour(r, gg, bb); }
+        }
       }
+      if (b.uv?.uv) {
+        const i0 = index ? index.getX(k * 3) : k * 3; const i1 = index ? index.getX(k * 3 + 1) : k * 3 + 1; const i2 = index ? index.getX(k * 3 + 2) : k * 3 + 2;
+        if (b.uv.ok[i0] && b.uv.ok[i1] && b.uv.ok[i2]) { uvOk[t] = 1; hasUv = true; }
+      }
+      // A triangle is coloured only when all three corners are (the shader interpolates them).
+      if (colours[t * 3] >= 0 && colours[t * 3 + 1] >= 0 && colours[t * 3 + 2] >= 0) hasColours = true;
+      else colours[t * 3] = colours[t * 3 + 1] = colours[t * 3 + 2] = -1;
     }
   });
-  return { positions, normals, body, count: total };
+  return { positions, normals, body, count: total, uvs, uvOk, colours, hasUv, hasColours };
+}
+
+/** The shader switches a scene needs (shaders.js HAS_*), from its appearances, scene data, lights and settings. */
+export function shaderFeatures({ appearances = [], scene = {}, lights = [], settings: s }) {
+  const f = new Set();
+  const textured = appearances.filter((a) => a.texture && a.texture !== 'none');
+  if (textured.length) f.add('HAS_TEX');
+  if (textured.some((a) => a.texture === 'image' && a.image)) f.add('HAS_IMAGE');
+  if (scene.hasUv && textured.some((a) => (a.mapping ?? 'uv') === 'uv')) f.add('HAS_UV');
+  if (scene.hasColours) f.add('HAS_VCOLOR');
+  if (appearances.some((a) => a.transmission > 0)) f.add('HAS_TRANS');
+  if (appearances.some((a) => a.clearcoat > 0)) f.add('HAS_COAT');
+  if (lights.length) f.add('HAS_LIGHTS');
+  if (lights.some((l) => l.A[0] === 3 || ((l.A[0] === 1 || l.A[0] === 2) && l.B[3] > 0))) f.add('HAS_AREA');
+  if (s.ground === 'shadow' && s.catcherMode !== 'differential') f.add('HAS_CATCHER');
+  if (s.ground === 'floor' || (s.ground === 'shadow' && s.catcherMode === 'differential')) f.add('HAS_FLOOR');
+  return [...f].sort();
 }
 
 /** The camera the tracer uses (plain numbers): from a three camera, the target, the picture size and the settings. */
@@ -107,11 +155,13 @@ export function tracerLights({ preset, settings: s, sceneLights = null, centre, 
       if (l.on === false || out.length >= MAX_LIGHTS) continue;
       const c = srgbToLinear(l.color ?? '#ffffff').map((v) => v * Number(l.intensity ?? 1));
       const pos = l.position ?? [0, 0, 0]; const tgt = l.target ?? [0, 0, 0];
+      // Points and spots are spheres of a real size (soft shadows): the light's own radius or the render's.
+      const radius = Math.max(0, Number(l.radius ?? s.lightRadius ?? 0)) || 0;
       if (l.kind === 'directional') directional(normalize(sub(pos, tgt)), c, Math.cos((0.53 * Math.PI) / 180));
       else if (l.kind === 'spot') {
         const angle = (Number(l.angle ?? 30) * Math.PI) / 180;
-        out.push({ A: [2, ...pos], B: [...c.map((v) => v * 4e4), 0], C: [...normalize(sub(tgt, pos)), Math.cos(angle)], D: [Math.cos(angle * 0.65), 0, 0, 0] });
-      } else out.push({ A: [1, ...pos], B: [...c.map((v) => v * 4e4), 0], C: [0, 0, 0, 0], D: [0, 0, 0, 0] });
+        out.push({ A: [2, ...pos], B: [...c.map((v) => v * 4e4), radius], C: [...normalize(sub(tgt, pos)), Math.cos(angle)], D: [Math.cos(angle * 0.65), 0, 0, 0] });
+      } else out.push({ A: [1, ...pos], B: [...c.map((v) => v * 4e4), radius], C: [0, 0, 0, 0], D: [0, 0, 0, 0] });
     }
   }
   for (const a of s.areaLights ?? []) {
@@ -138,6 +188,16 @@ function noiseTexture(n = 32) {
   t.format = THREE.RedFormat; t.type = THREE.UnsignedByteType;
   t.minFilter = THREE.LinearFilter; t.magFilter = THREE.LinearFilter; t.wrapS = THREE.RepeatWrapping; t.wrapT = THREE.RepeatWrapping; t.wrapR = THREE.RepeatWrapping;
   t.generateMipmaps = false; t.unpackAlignment = 1; t.needsUpdate = true;
+  return t;
+}
+
+/** The environment as half floats with mipmaps: bilinear, level-of-detail lookups (equirect: wraps across u). */
+function filteredEnvTexture(data, w, h) {
+  const half = new Uint16Array(data.length);
+  for (let i = 0; i < data.length; i++) half[i] = THREE.DataUtils.toHalfFloat(Math.min(65000, data[i]));
+  const t = new THREE.DataTexture(half, w, h, THREE.RGBAFormat, THREE.HalfFloatType);
+  t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; t.wrapS = THREE.RepeatWrapping; t.wrapT = THREE.ClampToEdgeWrapping;
+  t.generateMipmaps = true; t.flipY = false; t.needsUpdate = true;
   return t;
 }
 
@@ -181,28 +241,60 @@ export class PathTracer {
     this.mode = this.floatBlend ? 'blend' : 'pingpong';
     const defines = { TEXW: this.texW, TEXSHIFT: this.texShift };
     if (!this.floatBlend) defines.PINGPONG = 1;
-    this.traceMat = new THREE.RawShaderMaterial({ glslVersion: THREE.GLSL3, vertexShader: QUAD_VERT, fragmentShader: TRACE_FRAG, defines, uniforms: this.traceUniforms(), depthTest: false, depthWrite: false });
-    if (this.floatBlend) Object.assign(this.traceMat, { blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor, blendEquationAlpha: THREE.AddEquation, blendSrcAlpha: THREE.OneFactor, blendDstAlpha: THREE.OneFactor });
-    else this.traceMat.blending = THREE.NoBlending;
+    this.defines = defines;
+    // Shader variants by feature set; every one shares the same uniform objects.
+    this.uniforms = this.traceUniforms();
+    this.variants = new Map();
+    this.traceMat = this.variant([]);
     this.showMat = new THREE.RawShaderMaterial({ glslVersion: THREE.GLSL3, vertexShader: QUAD_VERT, fragmentShader: SHOW_FRAG, defines, depthTest: false, depthWrite: false, blending: THREE.NoBlending,
       uniforms: { tColor: { value: null }, tAlbedo: { value: null }, tDenoised: { value: null }, uUseDenoised: { value: 0 }, uExposure: { value: 1 }, uBackground: { value: 0 }, uTone: { value: 1 }, uRes: { value: new THREE.Vector2() } } });
     this.denoiseMat = new THREE.RawShaderMaterial({ glslVersion: THREE.GLSL3, vertexShader: QUAD_VERT, fragmentShader: DENOISE_FRAG, defines, depthTest: false, depthWrite: false, blending: THREE.NoBlending,
-      uniforms: { tIn: { value: null }, tAlbedo: { value: null }, tNormal: { value: null }, tColor: { value: null }, uStep: { value: 1 }, uFirst: { value: 1 }, uLast: { value: 0 }, uSigmaC: { value: 1 }, uSigmaN: { value: 64 }, uSigmaD: { value: 0.02 }, uRes: { value: new THREE.Vector2() } } });
+      uniforms: { tIn: { value: null }, tVarIn: { value: null }, tAlbedo: { value: null }, tNormal: { value: null }, tColor: { value: null }, tMoments: { value: null }, uStep: { value: 1 }, uFirst: { value: 1 }, uLast: { value: 0 }, uMode: { value: 1 }, uSigmaC: { value: 1 }, uSigmaL: { value: 4 }, uSigmaN: { value: 64 }, uSigmaD: { value: 0.02 }, uRes: { value: new THREE.Vector2() } } });
     const empty = new THREE.DataArrayTexture(new Uint8Array([255, 255, 255, 255]), 1, 1, 1);
     empty.needsUpdate = true;
     this.textures.images = empty;
-    this.traceMat.uniforms.uImages.value = empty;
+    this.uniforms.uImages.value = empty;
     this.textures.noise = noiseTexture();
-    this.traceMat.uniforms.uNoise.value = this.textures.noise;
+    this.uniforms.uNoise.value = this.textures.noise;
+    const blank = (data, fmt = THREE.RGBAFormat) => dataTexture(data, 1, 1, fmt);
+    this.textures.uv = blank(new Float32Array(4));
+    this.uniforms.uUv.value = this.textures.uv;
+  }
+
+  /** The tracing material for a feature list (compiled on first use, then kept). */
+  variant(features) {
+    const key = features.join(',');
+    if (!this.variants.has(key)) {
+      const defines = { ...this.defines };
+      for (const f of features) defines[f] = 1;
+      const m = new THREE.RawShaderMaterial({ glslVersion: THREE.GLSL3, vertexShader: QUAD_VERT, fragmentShader: TRACE_FRAG, defines, uniforms: this.uniforms, depthTest: false, depthWrite: false });
+      if (this.floatBlend) Object.assign(m, { blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor, blendEquationAlpha: THREE.AddEquation, blendSrcAlpha: THREE.OneFactor, blendDstAlpha: THREE.OneFactor });
+      else m.blending = THREE.NoBlending;
+      m.userData.compiled = false;
+      m.userData.features = features;
+      this.variants.set(key, m);
+    }
+    return this.variants.get(key);
+  }
+
+  /** Compiles a variant in the background (parallel compile where the GPU has it); onPhase reports it. */
+  async compileVariant(mat, onPhase) {
+    if (mat.userData.compiled) return;
+    const t0 = performance.now();
+    onPhase?.({ phase: 'compile', features: mat.userData.features });
+    this.quad.material = mat;
+    try { await this.renderer.compileAsync(this.quadScene, this.quadCam); } catch { /* compiled on first draw */ }
+    mat.userData.compiled = true;
+    this.lastCompileMs = performance.now() - t0;
   }
 
   traceUniforms() {
     const v4 = () => Array.from({ length: MAX_LIGHTS }, () => new THREE.Vector4());
     const u = (value) => ({ value });
     return {
-      uTri: u(null), uNrm: u(null), uNodes: u(null), uMats: u(null), uEnv: u(null), uEnvMarg: u(null), uEnvCond: u(null), uImages: u(null), uNoise: u(null),
-      uPrev0: u(null), uPrev1: u(null), uPrev2: u(null), uTile: u(new THREE.Vector4()),
-      uEnvSize: u(new THREE.Vector2(1, 1)), uEnvTotal: u(1), uEnvIntensity: u(1), uEnvRot: u(0),
+      uTri: u(null), uNrm: u(null), uUv: u(null), uNodes: u(null), uMats: u(null), uEnv: u(null), uEnvLin: u(null), uEnvMarg: u(null), uEnvCond: u(null), uImages: u(null), uNoise: u(null),
+      uPrev0: u(null), uPrev1: u(null), uPrev2: u(null), uPrev3: u(null), uTile: u(new THREE.Vector4()),
+      uEnvSize: u(new THREE.Vector2(1, 1)), uEnvTotal: u(1), uEnvIntensity: u(1), uEnvRot: u(0), uEnvMaxLod: u(0), uPixAngle: u(0), uPixWidth: u(0), uCatcherMode: u(0),
       uRes: u(new THREE.Vector2(1, 1)), uFrame: u(0), uSeed: u(0), uHasTris: u(0),
       uCamPos: u(new THREE.Vector3()), uCamRight: u(new THREE.Vector3()), uCamUp: u(new THREE.Vector3()), uCamFwd: u(new THREE.Vector3()),
       uOrtho: u(0), uTanHalf: u(0.3), uHalfH: u(1), uAspect: u(1), uLensR: u(0), uFocus: u(1),
@@ -220,7 +312,8 @@ export class PathTracer {
       const w = env.width; const h = env.height;
       const marg = new Float32Array(h + 1); marg.set(env.cdf.marginal);
       const cond = new Float32Array((w + 1) * h); cond.set(env.cdf.conditional);
-      env.textures = { map: dataTexture(env.data, w, h), marg: dataTexture(marg, h + 1, 1, THREE.RedFormat), cond: dataTexture(cond, w + 1, h, THREE.RedFormat) };
+      env.textures = { map: dataTexture(env.data, w, h), lin: filteredEnvTexture(env.data, w, h), marg: dataTexture(marg, h + 1, 1, THREE.RedFormat), cond: dataTexture(cond, w + 1, h, THREE.RedFormat) };
+      env.maxLod = Math.log2(Math.max(w, h));
       this.envCache.set(key, env);
     }
     return this.envCache.get(key);
@@ -228,7 +321,7 @@ export class PathTracer {
 
   /** Builds (or reuses) the triangle textures and the hierarchy. */
   async buildScene(bodies) {
-    const key = bodies.map((b) => `${b.geometry.key ?? b.geometry.uuid}:${(b.matrix?.elements ?? []).map((x) => x.toFixed(5)).join(',')}`).join('|');
+    const key = bodies.map((b) => `${b.geometry.key ?? b.geometry.uuid}:${b.uv ? 'uv' : ''}:${b.vertexColors ? `c${b.vertexColors.length}:${b.baseColor ?? ''}` : ''}:${(b.matrix?.elements ?? []).map((x) => x.toFixed(5)).join(',')}`).join('|');
     if (key === this.sceneKey && this.scene) return this.scene;
     const packed = packScene(bodies);
     const bvh = packed.count > 30000 && typeof Worker !== 'undefined' ? await buildInWorker(packed.positions) : buildBVH(packed.positions);
@@ -244,13 +337,25 @@ export class PathTracer {
         tri[o] = packed.positions[s]; tri[o + 1] = packed.positions[s + 1]; tri[o + 2] = packed.positions[s + 2];
         tri[o + 3] = c === 0 ? packed.body[t] : 0;
         nrm[o] = packed.normals[s]; nrm[o + 1] = packed.normals[s + 1]; nrm[o + 2] = packed.normals[s + 2];
+        nrm[o + 3] = packed.colours[t * 3 + c];
+      }
+    }
+    // UVs: 2 texels a triangle.
+    const uvRows = Math.max(1, Math.ceil(Math.max(1, packed.count * 2) / W));
+    const uvt = new Float32Array(W * uvRows * 4);
+    if (packed.hasUv) {
+      for (let i = 0; i < packed.count; i++) {
+        const t = bvh.order[i]; const o = i * 8; const q = t * 6;
+        uvt[o] = packed.uvs[q]; uvt[o + 1] = packed.uvs[q + 1]; uvt[o + 2] = packed.uvs[q + 2]; uvt[o + 3] = packed.uvs[q + 3];
+        uvt[o + 4] = packed.uvs[q + 4]; uvt[o + 5] = packed.uvs[q + 5]; uvt[o + 6] = packed.uvOk[t];
       }
     }
     const nodeTexels = bvh.nodeCount * 2;
     const nodeRows = Math.ceil(nodeTexels / W);
     const nodes = new Float32Array(W * nodeRows * 4); nodes.set(bvh.nodes);
-    for (const k of ['tri', 'nrm', 'nodes']) this.textures[k]?.dispose();
+    for (const k of ['tri', 'nrm', 'nodes', 'uv']) this.textures[k]?.dispose();
     this.textures.tri = dataTexture(tri, W, rows); this.textures.nrm = dataTexture(nrm, W, rows); this.textures.nodes = dataTexture(nodes, W, nodeRows);
+    this.textures.uv = dataTexture(uvt, W, uvRows);
     this.scene = { ...packed, bvh };
     this.sceneKey = key;
     return this.scene;
@@ -273,7 +378,8 @@ export class PathTracer {
         const layers = new Uint8Array(IMAGE_SIZE * IMAGE_SIZE * 4 * images.length);
         for (let i = 0; i < images.length; i++) layers.set(await imagePixels(images[i]), i * IMAGE_SIZE * IMAGE_SIZE * 4);
         const t = new THREE.DataArrayTexture(layers, IMAGE_SIZE, IMAGE_SIZE, images.length);
-        t.colorSpace = THREE.SRGBColorSpace; t.minFilter = THREE.LinearFilter; t.magFilter = THREE.LinearFilter; t.wrapS = THREE.RepeatWrapping; t.wrapT = THREE.RepeatWrapping; t.generateMipmaps = false;
+        // Mipmapped: the shader picks the level from the ray cone's footprint.
+        t.colorSpace = THREE.SRGBColorSpace; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; t.wrapS = THREE.RepeatWrapping; t.wrapT = THREE.RepeatWrapping; t.generateMipmaps = true;
         t.needsUpdate = true;
         if (this.textures.images?.image?.depth > 0 && this.textures.images !== t) this.textures.images.dispose();
         this.textures.images = t;
@@ -287,7 +393,7 @@ export class PathTracer {
    * settings (normalised) , custom (a loaded HDR map) }. Returns { width, height } — the picture starts over
    * (only the region when one is set and the size is unchanged).
    */
-  async setup({ bodies, camera, target, box, sceneLights = null, preset, settings, custom = null, keepOutside = false }) {
+  async setup({ bodies, camera, target, box, sceneLights = null, preset, settings, custom = null, keepOutside = false, onPhase = null }) {
     this.stop();
     const token = (this.token = (this.token ?? 0) + 1);
     const s = settings;
@@ -298,13 +404,7 @@ export class PathTracer {
     this.renderer.setPixelRatio(1);
     this.renderer.setSize(width, height, false);
     if (sizeChanged) this.makeTargets(width, height);
-    if (!this.compiled) {
-      // Compile the tracing shader without blocking the window (parallel compile where the GPU has it).
-      this.quad.material = this.traceMat;
-      try { await this.renderer.compileAsync(this.quadScene, this.quadCam); } catch { /* compiled on first draw */ }
-      this.compiled = true;
-    }
-    if (this.shaderError) throw Object.assign(new Error(this.shaderError), { code: 'shader' });
+    onPhase?.({ phase: 'scene' });
     const scene = await this.buildScene(bodies);
     if (token !== this.token) return null;
     const bb = box && !box.isEmpty() ? box.clone() : new THREE.Box3(new THREE.Vector3(-50, -50, -50), new THREE.Vector3(50, 50, 50));
@@ -319,7 +419,16 @@ export class PathTracer {
     const cam = tracerCamera(camera, target, width, height, s);
     this.cam = cam;
     const { lights, catcherU } = tracerLights({ preset, settings: s, sceneLights, centre: centre.toArray(), size, envIrradianceUp: env.irradianceUp });
-    const u = this.traceMat.uniforms;
+    // The shader variant this scene needs, compiled in the background the first time.
+    this.features = shaderFeatures({ appearances: bodies.map((b) => b.appearance), scene, lights, settings: s });
+    this.traceMat = this.variant(this.features);
+    await this.compileVariant(this.traceMat, onPhase);
+    if (this.shaderError) throw Object.assign(new Error(this.shaderError), { code: 'shader' });
+    if (token !== this.token) return null;
+    const u = this.uniforms;
+    u.uUv.value = this.textures.uv; u.uEnvLin.value = env.textures.lin; u.uEnvMaxLod.value = env.maxLod;
+    u.uPixAngle.value = cam.ortho ? 0 : (2 * cam.tanHalf) / height; u.uPixWidth.value = cam.ortho ? (2 * cam.halfHeight) / height : 0;
+    u.uCatcherMode.value = s.catcherMode === 'differential' ? 1 : 0;
     u.uTri.value = this.textures.tri; u.uNrm.value = this.textures.nrm; u.uNodes.value = this.textures.nodes; u.uMats.value = this.textures.mats; u.uImages.value = this.textures.images;
     u.uEnv.value = env.textures.map; u.uEnvMarg.value = env.textures.marg; u.uEnvCond.value = env.textures.cond;
     u.uEnvSize.value.set(env.width, env.height); u.uEnvTotal.value = env.cdf.total; u.uEnvIntensity.value = s.envIntensity; u.uEnvRot.value = (s.envRotation * Math.PI) / 180;
@@ -352,9 +461,9 @@ export class PathTracer {
   makeTargets(w, h) {
     for (const t of this.accum ?? []) t.dispose();
     for (const t of this.dn ?? []) t.dispose();
-    const opts = { count: 3, type: THREE.FloatType, format: THREE.RGBAFormat, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: false, generateMipmaps: false };
+    const opts = { count: 4, type: THREE.FloatType, format: THREE.RGBAFormat, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: false, generateMipmaps: false };
     this.accum = this.floatBlend ? [new THREE.WebGLRenderTarget(w, h, opts)] : [new THREE.WebGLRenderTarget(w, h, opts), new THREE.WebGLRenderTarget(w, h, opts)];
-    const one = { type: THREE.FloatType, format: THREE.RGBAFormat, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: false, generateMipmaps: false };
+    const one = { count: 2, type: THREE.FloatType, format: THREE.RGBAFormat, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: false, generateMipmaps: false };
     this.dn = [new THREE.WebGLRenderTarget(w, h, one), new THREE.WebGLRenderTarget(w, h, one)];
   }
 
@@ -373,7 +482,7 @@ export class PathTracer {
   /** Draws one tile of the current pass. */
   drawTile() {
     const tile = this.tiles[this.tileIndex];
-    const r = this.renderer; const u = this.traceMat.uniforms;
+    const r = this.renderer; const u = this.uniforms;
     u.uFrame.value = this.count;
     this.quad.material = this.traceMat;
     if (this.floatBlend) {
@@ -383,7 +492,7 @@ export class PathTracer {
       t.scissorTest = false;
     } else {
       const [prev, next] = this.accum;
-      u.uPrev0.value = prev.textures[0]; u.uPrev1.value = prev.textures[1]; u.uPrev2.value = prev.textures[2];
+      u.uPrev0.value = prev.textures[0]; u.uPrev1.value = prev.textures[1]; u.uPrev2.value = prev.textures[2]; u.uPrev3.value = prev.textures[3];
       u.uTile.value.set(tile.x, tile.y, tile.x + tile.w, tile.y + tile.h);
       r.setRenderTarget(next); r.render(this.quadScene, this.quadCam);
       this.accum = [next, prev];
@@ -396,19 +505,25 @@ export class PathTracer {
   /** The current sums (the target holding the latest values). */
   get sums() { return this.accum[0]; }
 
-  /** Denoises the mean into dn[0] (à-trous, 5 levels). */
+  /**
+   * Denoises the mean into dn[0] (à-trous, 5 levels): 'svgf' (default) stops at luminance edges scaled by the
+   * estimated standard deviation and filters the variance along; 'atrous' uses a fixed relative edge stop.
+   */
   denoise() {
     const r = this.renderer; const u = this.denoiseMat.uniforms; const s = this.settings;
     const src = this.sums;
-    u.tAlbedo.value = src.textures[1]; u.tNormal.value = src.textures[2]; u.tColor.value = src.textures[0];
+    u.tAlbedo.value = src.textures[1]; u.tNormal.value = src.textures[2]; u.tColor.value = src.textures[0]; u.tMoments.value = src.textures[3];
     u.uRes.value.set(this.width, this.height);
+    u.uMode.value = s.denoiser === 'atrous' ? 0 : 1;
+    u.uSigmaL.value = 4 * s.denoiseStrength;
     u.uSigmaC.value = (s.denoiseStrength * 2.5) / Math.sqrt(Math.max(1, this.count));
     this.quad.material = this.denoiseMat;
     let a = 0;
     const levels = 5;
     for (let i = 0; i < levels; i++) {
       u.uStep.value = 1 << i; u.uFirst.value = i === 0 ? 1 : 0; u.uLast.value = i === levels - 1 ? 1 : 0;
-      u.tIn.value = i === 0 ? src.textures[0] : this.dn[a].texture;
+      u.tIn.value = i === 0 ? src.textures[0] : this.dn[a].textures[0];
+      u.tVarIn.value = i === 0 ? src.textures[3] : this.dn[a].textures[1];
       const out = i === 0 ? 0 : 1 - a;
       r.setRenderTarget(this.dn[out]); r.render(this.quadScene, this.quadCam);
       a = out;
@@ -428,7 +543,7 @@ export class PathTracer {
     const useDn = s.denoise && this.count > 0;
     if (useDn && (fresh || !this.denoised || this.count - (this.dnCount ?? 0) >= 8 || this.count < 4) && this.dnCount !== this.count) { this.denoise(); this.dnCount = this.count; }
     const u = this.showMat.uniforms;
-    u.tColor.value = this.sums.textures[0]; u.tAlbedo.value = this.sums.textures[1]; u.tDenoised.value = this.dn[0].texture;
+    u.tColor.value = this.sums.textures[0]; u.tAlbedo.value = this.sums.textures[1]; u.tDenoised.value = this.dn[0].textures[0];
     u.uUseDenoised.value = useDn ? 1 : 0; u.uExposure.value = this.exposure; u.uBackground.value = { env: 0, white: 1, transparent: 2 }[s.background];
     u.uTone.value = s.tone === 'linear' ? 0 : 1; u.uRes.value.set(this.width, this.height);
     this.quad.material = this.showMat;
@@ -493,7 +608,7 @@ export class PathTracer {
     this.denoise(); this.dnCount = this.count;
     const w = this.width; const h = this.height;
     const d = new Float32Array(w * h * 4);
-    this.renderer.readRenderTargetPixels(this.dn[0], 0, 0, w, h, d);
+    this.renderer.readRenderTargetPixels(this.dn[0], 0, 0, w, h, d, undefined, 0);
     return { data: d, width: w, height: h };
   }
 
@@ -535,7 +650,7 @@ export class PathTracer {
     for (const e of this.envCache.values()) for (const t of Object.values(e.textures)) t.dispose();
     this.envCache.clear();
     for (const t of [...(this.accum ?? []), ...(this.dn ?? [])]) t.dispose();
-    for (const m of [this.traceMat, this.showMat, this.denoiseMat]) m.dispose();
+    for (const m of [...this.variants.values(), this.showMat, this.denoiseMat]) m.dispose();
     this.quad.geometry.dispose();
     this.renderer.dispose();
     this.renderer.forceContextLoss?.();

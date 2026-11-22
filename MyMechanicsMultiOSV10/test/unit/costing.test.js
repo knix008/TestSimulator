@@ -417,3 +417,29 @@ test('fillets and chamfers on the B-rep: radius, edge length, removed volume; ow
   assert.equal(ball.passes, passes);
   near(ball.timeMin, (passes * (30 + 2 * M.approach)) / edgeToolFeed(8, M.millSpeed.steel, { teeth: M.edgeTeeth, factor: M.edgeFeedFactor, maxRpm: M.maxRpm }).feed);
 });
+
+test('projected area of a cone at an angle (silhouette through the apex) and a lofted free-form face', () => {
+  // A cone (base radius 10, height 40) tilted 30° about X, seen along Z: the hull of the base ellipse and the apex.
+  const al = Math.PI / 6; const Rb = 10; const h = 40;
+  const cone = R.draw([0, 0]).lineTo([Rb, 0]).lineTo([0, h]).close().sketchOnPlane('XZ').revolve().rotate(30, [0, 0, 0], [1, 0, 0]);
+  const a = Rb; const b = Rb * Math.cos(al); const rho = (h * Math.sin(al)) / b;
+  const hull = a * b * (Math.PI + Math.sqrt(rho * rho - 1) - Math.acos(1 / rho));
+  near(projectedArea(cone, [0, 0, 1]), hull, 1e-6);
+  assert.ok(hull > Math.PI * a * b + 50, 'the apex sticks out of the base ellipse');
+  // A loft (B-spline side faces) from a Ø20 circle to a Ø12 circle 15 off and 30 up: its shadow is the hull of the two discs.
+  const loft = R.drawCircle(10).sketchOnPlane('XY').loftWith(R.drawCircle(6).sketchOnPlane('XY', [15, 0, 30]), { ruled: false });
+  assert.ok(loft.faces.some((f) => f.geomType.startsWith('BSPLINE')));
+  const r1 = 10; const r2 = 6; const s = 15; const phi = Math.asin((r1 - r2) / s);
+  const discs = 0.5 * r1 * r1 * (Math.PI + 2 * phi) + 0.5 * r2 * r2 * (Math.PI - 2 * phi) + (r1 + r2) * s * Math.cos(phi);
+  const got = projectedArea(loft, [0, 0, 1]);
+  near(got, discs, 1e-6);
+  // Cross-check with a very fine mesh (the body is convex, so its up-facing triangles do not overlap).
+  const fine = loft.mesh({ tolerance: 3e-3, angularTolerance: 0.5 });
+  let m = 0;
+  for (let i = 0; i < fine.triangles.length; i += 3) {
+    const P = [0, 1, 2].map((k) => fine.triangles[i + k] * 3).map((j) => [fine.vertices[j], fine.vertices[j + 1], fine.vertices[j + 2]]);
+    const z = ((P[1][0] - P[0][0]) * (P[2][1] - P[0][1]) - (P[2][0] - P[0][0]) * (P[1][1] - P[0][1])) / 2;
+    if (z > 0) m += z;
+  }
+  assert.ok(Math.abs(m - got) / got < 1e-4, `mesh ${m} vs ${got}`);
+});

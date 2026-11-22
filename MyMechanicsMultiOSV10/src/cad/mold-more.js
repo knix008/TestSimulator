@@ -274,14 +274,24 @@ export function followingStrips(recs, dir, D, mode = 'normal', { centre = null }
     const K = e.geomType === 'LINE' ? 1 : 16;
     const ts = Array.from({ length: K + 1 }, (_, k) => k / K);
     const pts = ts.map((t) => vec(e.pointAt(t)));
-    const os = ts.map((t, k) => outward(r, e, pts[k], t));
+    // Normals a hair inside the edge: at an end the face may be singular (a cone's apex has no normal).
+    const os = ts.map((t) => { const tt = Math.min(1 - 1e-4, Math.max(1e-4, t)); return outward(r, e, vec(e.pointAt(tt)), tt); });
     let tg0 = [0, 0, 0]; let tg1 = [0, 0, 0];
     try { tg0 = unit(vec(e.tangentAt(0))); tg1 = unit(vec(e.tangentAt(1))); } catch { /* none */ }
     return { e, pts, os, tg0, tg1 };
   });
-  const key = (p) => p.map((x) => Math.round(x / (size * 1e-6))).join(',');
-  const at = new Map();
-  items.forEach((it, i) => { for (const end of [0, 1]) { const k = key(end ? it.pts.at(-1) : it.pts[0]); if (!at.has(k)) at.set(k, []); at.get(k).push({ i, end }); } });
+  // Corners: edge ends within a small distance are one vertex (the kernel's fuzzy split leaves ends ~1e-7 apart).
+  const tolV = size * 1e-5;
+  const corners = [];
+  items.forEach((it, i) => {
+    for (const end of [0, 1]) {
+      const p = end ? it.pts.at(-1) : it.pts[0];
+      let c = corners.find((x) => len(sub(x.p, p)) < tolV);
+      if (!c) { c = { p, list: [] }; corners.push(c); }
+      c.list.push({ i, end });
+    }
+  });
+  const at = new Map(corners.map((c, k) => [k, c.list]));
   const fans = [];
   for (const list of at.values()) {
     if (list.length !== 2) continue;

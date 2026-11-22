@@ -6,6 +6,7 @@
 // sample with multiple importance sampling (power heuristic), Russian roulette. Outputs (added up with
 // blending, or by the shader itself in ping-pong mode):
 //   0: radiance rgb, coverage (premultiplied)   1: first-hit albedo rgb, sample count   2: first-hit normal, depth
+//   3: moments of the demodulated luminance (l, l²) — the denoiser's variance
 
 export const QUAD_VERT = `in vec3 position;
 void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }`;
@@ -24,30 +25,44 @@ ivec2 tx(int i) { return ivec2(i & TEXW_MASK, i >> TEXSHIFT); }
 
 export const TRACE_FRAG = `${COMMON}
 #define MAXL 16
+// Feature switches (pathtracer.js compiles only what the scene uses; each variant is compiled once, in parallel):
+//   HAS_TEX textures · HAS_IMAGE picture textures · HAS_UV B-rep texture coordinates · HAS_VCOLOR vertex colours
+//   HAS_TRANS transmission · HAS_COAT clear coat · HAS_LIGHTS analytic lights · HAS_AREA area / sphere lights
+//   HAS_CATCHER shadow catcher · HAS_FLOOR a ground that scatters light (floor, differential catcher)
 uniform sampler2D uTri;      // 3 texels a triangle: v0 + body, v1, v2
-uniform sampler2D uNrm;      // 3 texels a triangle: vertex normals
+uniform sampler2D uNrm;      // 3 texels a triangle: vertex normals, w: vertex colour (sRGB 8-bit packed, −1 none)
+uniform sampler2D uUv;       // 2 texels a triangle: (u0, v0, u1, v1), (u2, v2, has UV, 0) in mm
 uniform sampler2D uNodes;    // 2 texels a node (bvh.js layout)
 uniform sampler2D uMats;     // 5 texels a material (appearance.js layout)
-uniform sampler2D uEnv;      // equirect radiance (Z up)
+uniform sampler2D uEnv;      // equirect radiance (Z up), float: importance sampling
+uniform sampler2D uEnvLin;   // the same, half float with mipmaps: filtered lookups
 uniform sampler2D uEnvMarg;  // marginal CDF, (h + 1) x 1
 uniform sampler2D uEnvCond;  // conditional CDFs, (w + 1) x h
 uniform sampler2DArray uImages;
 uniform sampler3D uNoise;     // 32³ random values, trilinear, repeating: value noise in one fetch
 #ifdef PINGPONG
-uniform sampler2D uPrev0; uniform sampler2D uPrev1; uniform sampler2D uPrev2;
+uniform sampler2D uPrev0; uniform sampler2D uPrev1; uniform sampler2D uPrev2; uniform sampler2D uPrev3;
 uniform vec4 uTile;
 #endif
-uniform ivec2 uEnvSize; uniform float uEnvTotal; uniform float uEnvIntensity; uniform float uEnvRot;
+uniform ivec2 uEnvSize; uniform float uEnvTotal; uniform float uEnvIntensity; uniform float uEnvRot; uniform float uEnvMaxLod;
 uniform vec2 uRes; uniform int uFrame; uniform int uSeed; uniform int uHasTris;
 uniform vec3 uCamPos; uniform vec3 uCamRight; uniform vec3 uCamUp; uniform vec3 uCamFwd;
 uniform int uOrtho; uniform float uTanHalf; uniform float uHalfH; uniform float uAspect; uniform float uLensR; uniform float uFocus;
-uniform int uBounces; uniform int uGround; uniform float uGroundZ; uniform int uFloorMat;
+uniform float uPixAngle; uniform float uPixWidth;
+uniform int uBounces; uniform int uGround; uniform float uGroundZ; uniform int uFloorMat; uniform int uCatcherMode;
 uniform float uCatcherRefl; uniform float uCatcherRough; uniform vec3 uCatcherU;
 uniform int uBackground; uniform float uEps; uniform float uClamp; uniform int uCaustics;
 uniform int uLightCount; uniform vec4 uLA[MAXL]; uniform vec4 uLB[MAXL]; uniform vec4 uLC[MAXL]; uniform vec4 uLD[MAXL];
 layout(location = 0) out vec4 oColor;
 layout(location = 1) out vec4 oAlbedo;
 layout(location = 2) out vec4 oNormal;
+layout(location = 3) out vec4 oMoments;
+
+#ifdef HAS_LIGHTS
+int lightCount() { return uLightCount; }
+#else
+int lightCount() { return 0; }
+#endif
 
 // ───────── random numbers
 uint seed;
@@ -103,11 +118,8 @@ float fresnelD(float cosI, float eta) {
   return 0.5 * (rs * rs + rp * rp);
 }
 
-// ───────── procedural noise and textures
-float vnoise(vec3 p) { return textureLod(uNoise, p * (1.0 / 32.0), 0.0).r; }
-float fbm(vec3 p) { return 0.5 * vnoise(p) + 0.25 * vnoise(p * 2.03 + 17.0) + 0.125 * vnoise(p * 4.1 + 5.0) + 0.0625 * vnoise(p * 8.3 + 11.0); }
-
-struct Mat { vec3 color; float metal; float rough; float trans; float ior; float spec; vec3 emit; float coat; int tex; float texScale; float coatRough; float absorb; int layer; };
+// ───────── materials and textures
+struct Mat { vec3 color; float metal; float rough; float trans; float ior; float spec; vec3 emit; float coat; int tex; float texScale; float coatRough; float absorb; int layer; int mapping; };
 
 Mat fetchMat(int i) {
   int o = i * 5;
@@ -115,21 +127,37 @@ Mat fetchMat(int i) {
   vec4 d = texelFetch(uMats, tx(o + 3), 0); vec4 e = texelFetch(uMats, tx(o + 4), 0);
   Mat m;
   m.color = a.rgb; m.metal = a.a; m.rough = b.x; m.trans = b.y; m.ior = max(1.0001, b.z); m.spec = b.w;
-  m.emit = c.rgb; m.coat = c.a; m.tex = int(d.x + 0.5); m.texScale = max(1e-3, d.y); m.coatRough = d.z; m.absorb = d.w; m.layer = int(floor(e.x + 0.5));
+  m.emit = c.rgb; m.coat = c.a; m.tex = int(d.x + 0.5); m.texScale = max(1e-3, d.y); m.coatRough = d.z; m.absorb = d.w; m.layer = int(floor(e.x + 0.5)); m.mapping = int(e.y + 0.5);
+#ifndef HAS_TRANS
+  m.trans = 0.0;
+#endif
+#ifndef HAS_COAT
+  m.coat = 0.0;
+#endif
+#ifndef HAS_TEX
+  m.tex = 0;
+#endif
   return m;
 }
 
-// Solid textures in millimetres: p / scale.
-void applyTexture(inout Mat m, vec3 p, vec3 n) {
+#ifdef HAS_TEX
+float vnoise(vec3 p) { return textureLod(uNoise, p * (1.0 / 32.0), 0.0).r; }
+float fbm(vec3 p) { return 0.5 * vnoise(p) + 0.25 * vnoise(p * 2.03 + 17.0) + 0.125 * vnoise(p * 4.1 + 5.0) + 0.0625 * vnoise(p * 8.3 + 11.0); }
+
+// Textures in millimetres (p / scale): wood and cast are solid; the flat patterns and pictures use the face's
+// B-rep UVs when the appearance maps by UV and the triangle has them, else the solid position / three sides.
+// coneW: the width of the ray's footprint (mm) — picks the picture's mip level.
+void applyTexture(inout Mat m, vec3 p, vec3 n, vec2 uv, bool hasUv, float coneW) {
   if (m.tex == 0) return;
-  vec3 q = p / m.texScale;
+  bool byUv = m.mapping == 1 && hasUv;
+  vec3 q = byUv ? vec3(uv, 0.0) / m.texScale : p / m.texScale;
   if (m.tex == 1) { // wood: rings around the X axis, wobbling, with fine grain
     float r = length(q.yz) * 0.35 + fbm(q * vec3(0.05, 0.6, 0.6)) * 2.2;
     float ring = fract(r); float band = smoothstep(0.0, 0.25, ring) * (1.0 - smoothstep(0.55, 1.0, ring));
     float grain = vnoise(q * vec3(0.4, 18.0, 18.0));
     m.color *= mix(0.55, 1.05, band) * mix(0.9, 1.05, grain);
     m.rough = clamp(m.rough + (band - 0.5) * 0.12, 0.05, 1.0);
-  } else if (m.tex == 2) { // brushed: streaks along X
+  } else if (m.tex == 2) { // brushed: streaks along X (along u)
     float s = fbm(vec3(q.x * 0.04, q.y * 9.0, q.z * 9.0));
     m.rough = clamp(m.rough * mix(0.6, 1.5, s), 0.02, 1.0);
     m.color *= mix(0.9, 1.06, s);
@@ -153,15 +181,24 @@ void applyTexture(inout Mat m, vec3 p, vec3 n) {
     float s = vnoise(q * 1.8); float s2 = fbm(q * 0.15);
     m.color *= mix(0.78, 1.08, s) * mix(0.9, 1.04, s2);
     m.rough = clamp(m.rough + (s - 0.5) * 0.25, 0.05, 1.0);
-  } else if (m.tex == 7 && m.layer >= 0) { // a picture from three sides (blended by the normal)
-    vec3 w = pow(abs(n), vec3(4.0)); w /= (w.x + w.y + w.z);
-    vec2 s = vec2(0.01);
-    vec3 cx = textureLod(uImages, vec3(q.yz * s, float(m.layer)), 0.0).rgb;
-    vec3 cy = textureLod(uImages, vec3(q.xz * s, float(m.layer)), 0.0).rgb;
-    vec3 cz = textureLod(uImages, vec3(q.xy * s, float(m.layer)), 0.0).rgb;
-    m.color *= cx * w.x + cy * w.y + cz * w.z;
   }
+#ifdef HAS_IMAGE
+  else if (m.tex == 7 && m.layer >= 0) { // a picture 100 mm × scale wide, by UV or from three sides
+    float lod = log2(max(1e-6, coneW) / (100.0 * m.texScale / 512.0));
+    vec2 s = vec2(0.01);
+    if (byUv) {
+      m.color *= textureLod(uImages, vec3(q.xy * s, float(m.layer)), lod).rgb;
+    } else {
+      vec3 w = pow(abs(n), vec3(4.0)); w /= (w.x + w.y + w.z);
+      vec3 cx = textureLod(uImages, vec3(q.yz * s, float(m.layer)), lod).rgb;
+      vec3 cy = textureLod(uImages, vec3(q.xz * s, float(m.layer)), lod).rgb;
+      vec3 cz = textureLod(uImages, vec3(q.xy * s, float(m.layer)), lod).rgb;
+      m.color *= cx * w.x + cy * w.y + cz * w.z;
+    }
+  }
+#endif
 }
+#endif
 
 // ───────── tracing
 struct Hit { float t; int tri; vec2 bc; };
@@ -212,10 +249,10 @@ bool traceBvh(vec3 ro, vec3 rd, float tmax, bool anyHit, out Hit h) {
 vec2 dirToUv(vec3 d) { float u = (atan(d.y, d.x) - uEnvRot) / TWO_PI + 0.5; u -= floor(u); return vec2(u, acos(clamp(d.z, -1.0, 1.0)) / PI); }
 vec3 uvToDir(vec2 uv) { float phi = (uv.x - 0.5) * TWO_PI + uEnvRot; float th = uv.y * PI; float s = sin(th); return vec3(s * cos(phi), s * sin(phi), cos(th)); }
 vec3 envTexel(ivec2 p) { return texelFetch(uEnv, p, 0).rgb; }
-vec3 envAt(vec3 d) {
-  vec2 uv = dirToUv(d);
-  ivec2 p = ivec2(min(vec2(uEnvSize) - 1.0, floor(uv * vec2(uEnvSize))));
-  return envTexel(p) * uEnvIntensity;
+// Filtered radiance (bilinear, mip level from the ray cone's spread: radians a texel covers).
+vec3 envAt(vec3 d, float spread) {
+  float lod = clamp(log2(max(1e-8, spread) * float(uEnvSize.x) / TWO_PI), 0.0, uEnvMaxLod);
+  return textureLod(uEnvLin, dirToUv(d), lod).rgb * uEnvIntensity;
 }
 float envPdf(vec3 d) {
   vec2 uv = dirToUv(d);
@@ -243,8 +280,9 @@ vec3 sampleEnvDir(vec2 u, out float pdf) {
 }
 
 // ───────── lights
-// A: type, xyz (directional: toward the light; point / spot / area: position or corner)
-// B: rgb (directional: irradiance; point / spot: intensity; area: radiance), w (directional: cos of the angular radius)
+// A: type, xyz (directional: toward the light; point / spot: centre; area: corner)
+// B: rgb (directional: irradiance; point / spot: intensity; area: radiance), w (directional: cos of the angular
+//    radius; point / spot: the emitter's radius, 0 = a point)
 // C: spot: direction it shines, cos outer;   area: edge U       D: spot: cos inner;   area: edge V
 float spotFall(int i, vec3 toP) {
   float c = dot(normalize(toP), uLC[i].xyz);
@@ -266,11 +304,22 @@ bool sampleLight(int i, vec3 p, out vec3 wi, out float dist, out vec3 li, out fl
     return true;
   }
   if (type == 1 || type == 2) {
-    vec3 d = uLA[i].yzw - p; dist = length(d); wi = d / dist;
-    li = uLB[i].rgb / (dist * dist);
+    vec3 d = uLA[i].yzw - p; float dc = length(d); float r = uLB[i].w;
+    if (r > 0.0 && dc > r * 1.001) {
+      // A sphere: directions of its visible cap, uniformly; radiance = intensity / (π r²).
+      float sinMax = r / dc; float cosMax = sqrt(max(0.0, 1.0 - sinMax * sinMax));
+      wi = toWorld(sampleCone(rnd2(), cosMax), d / dc);
+      float b = dot(wi, d); dist = b - sqrt(max(0.0, b * b - (dc * dc - r * r)));
+      pdf = 1.0 / (TWO_PI * (1.0 - cosMax));
+      li = uLB[i].rgb / (PI * r * r) / pdf;
+      if (type == 2) li *= spotFall(i, -d);
+      return true;
+    }
+    dist = dc; wi = d / dc;
+    li = uLB[i].rgb / (dc * dc);
     if (type == 2) li *= spotFall(i, -d);
     pdf = 0.0;
-    return dist > 0.0;
+    return dc > 0.0;
   }
   // area: a uniform point of the rectangle
   vec3 eu = uLC[i].xyz; vec3 ev = uLD[i].xyz; vec3 ln = normalize(cross(eu, ev));
@@ -285,28 +334,40 @@ bool sampleLight(int i, vec3 p, out vec3 wi, out float dist, out vec3 li, out fl
   return true;
 }
 
-// The nearest area light along a ray before tmax: its radiance and its solid-angle pdf at the origin.
+#ifdef HAS_AREA
+// The nearest area or sphere light along a ray before tmax: its radiance and its solid-angle pdf at the origin.
 bool hitAreaLights(vec3 ro, vec3 rd, float tmax, out vec3 le, out float pdf, out float tl) {
   bool found = false; tl = tmax; le = vec3(0.0); pdf = 0.0;
-  for (int i = 0; i < uLightCount; i++) {
-    if (int(uLA[i].x + 0.5) != 3) continue;
-    vec3 eu = uLC[i].xyz; vec3 ev = uLD[i].xyz; vec3 n = cross(eu, ev); float area = length(n); n /= area;
-    float dn = dot(rd, n);
-    if (dn >= 0.0) continue; // one-sided, facing the scene
-    float t = dot(uLA[i].yzw - ro, n) / dn;
-    if (t <= 0.0 || t >= tl) continue;
-    vec3 q = ro + rd * t - uLA[i].yzw;
-    float a = dot(q, eu) / dot(eu, eu); float b = dot(q, ev) / dot(ev, ev);
-    if (a < 0.0 || a > 1.0 || b < 0.0 || b > 1.0) continue;
-    tl = t; le = uLB[i].rgb; pdf = t * t / (-dn * area); found = true;
+  for (int i = 0; i < lightCount(); i++) {
+    int type = int(uLA[i].x + 0.5);
+    if (type == 3) {
+      vec3 eu = uLC[i].xyz; vec3 ev = uLD[i].xyz; vec3 n = cross(eu, ev); float area = length(n); n /= area;
+      float dn = dot(rd, n);
+      if (dn >= 0.0) continue; // one-sided, facing the scene
+      float t = dot(uLA[i].yzw - ro, n) / dn;
+      if (t <= 0.0 || t >= tl) continue;
+      vec3 q = ro + rd * t - uLA[i].yzw;
+      float a = dot(q, eu) / dot(eu, eu); float b = dot(q, ev) / dot(ev, ev);
+      if (a < 0.0 || a > 1.0 || b < 0.0 || b > 1.0) continue;
+      tl = t; le = uLB[i].rgb; pdf = t * t / (-dn * area); found = true;
+    } else if ((type == 1 || type == 2) && uLB[i].w > 0.0) {
+      float r = uLB[i].w; vec3 oc = ro - uLA[i].yzw;
+      float b = dot(oc, rd); float c = dot(oc, oc) - r * r; float disc = b * b - c;
+      if (c <= 0.0 || disc <= 0.0) continue;
+      float t = -b - sqrt(disc);
+      if (t <= 0.0 || t >= tl) continue;
+      float dc = length(oc); float sinMax = r / dc; float cosMax = sqrt(max(0.0, 1.0 - sinMax * sinMax));
+      tl = t; le = uLB[i].rgb / (PI * r * r) * (type == 2 ? spotFall(i, oc) : 1.0); pdf = 1.0 / (TWO_PI * (1.0 - cosMax)); found = true;
+    }
   }
   return found;
 }
+#endif
 
 // Unoccluded irradiance at a point of the ground (normal +Z) from the local lights (the catcher's reference).
 vec3 localIrradianceUp(vec3 p) {
   vec3 e = vec3(0.0);
-  for (int i = 0; i < uLightCount; i++) {
+  for (int i = 0; i < lightCount(); i++) {
     int type = int(uLA[i].x + 0.5);
     if (type == 1 || type == 2) {
       vec3 d = uLA[i].yzw - p; float r = length(d); float c = d.z / r;
@@ -322,14 +383,30 @@ vec3 localIrradianceUp(vec3 p) {
 }
 
 // ───────── surfaces
-struct Surf { vec3 p; vec3 n; vec3 ng; int mat; bool front; };
+struct Surf { vec3 p; vec3 n; vec3 ng; int mat; bool front; vec3 vcol; bool hasVcol; vec2 uv; bool hasUv; };
+
+vec3 unpackColour(float w) {
+  float x = floor(w + 0.5);
+  vec3 c = vec3(floor(x / 65536.0), mod(floor(x / 256.0), 256.0), mod(x, 256.0)) / 255.0;
+  return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c));
+}
 
 void surfaceOf(Hit h, vec3 ro, vec3 rd, out Surf s) {
   vec4 a = texelFetch(uTri, tx(h.tri * 3), 0); vec3 b = texelFetch(uTri, tx(h.tri * 3 + 1), 0).xyz; vec3 c = texelFetch(uTri, tx(h.tri * 3 + 2), 0).xyz;
   vec3 ng = normalize(cross(b - a.xyz, c - a.xyz));
-  vec3 n0 = texelFetch(uNrm, tx(h.tri * 3), 0).xyz; vec3 n1 = texelFetch(uNrm, tx(h.tri * 3 + 1), 0).xyz; vec3 n2 = texelFetch(uNrm, tx(h.tri * 3 + 2), 0).xyz;
-  vec3 n = n0 * (1.0 - h.bc.x - h.bc.y) + n1 * h.bc.x + n2 * h.bc.y;
+  vec4 n0 = texelFetch(uNrm, tx(h.tri * 3), 0); vec4 n1 = texelFetch(uNrm, tx(h.tri * 3 + 1), 0); vec4 n2 = texelFetch(uNrm, tx(h.tri * 3 + 2), 0);
+  float w0 = 1.0 - h.bc.x - h.bc.y;
+  vec3 n = n0.xyz * w0 + n1.xyz * h.bc.x + n2.xyz * h.bc.y;
   n = dot(n, n) > 1e-12 ? normalize(n) : ng;
+  s.hasVcol = false; s.vcol = vec3(1.0);
+#ifdef HAS_VCOLOR
+  if (n0.w >= 0.0 && n1.w >= 0.0 && n2.w >= 0.0) { s.hasVcol = true; s.vcol = unpackColour(n0.w) * w0 + unpackColour(n1.w) * h.bc.x + unpackColour(n2.w) * h.bc.y; }
+#endif
+  s.hasUv = false; s.uv = vec2(0.0);
+#ifdef HAS_UV
+  vec4 ua = texelFetch(uUv, tx(h.tri * 2), 0); vec4 ub = texelFetch(uUv, tx(h.tri * 2 + 1), 0);
+  if (ub.z > 0.5) { s.hasUv = true; s.uv = ua.xy * w0 + ua.zw * h.bc.x + ub.xy * h.bc.y; }
+#endif
   if (dot(n, ng) < 0.0) ng = -ng; // the geometric normal on the shading normal's side
   s.p = ro + rd * h.t; s.mat = int(a.w + 0.5);
   s.front = dot(ng, rd) < 0.0;
@@ -377,13 +454,17 @@ vec3 evalBsdf(Mat m, vec3 V, vec3 L, vec3 N, bool front, out float pdf) {
     float diff = (1.0 - m.metal) * (1.0 - m.trans) * (1.0 - fresnelD(nv, n1 / n2) * m.spec);
     f += (1.0 - coatF) * diff * m.color * INV_PI * nl;
     pdf += p.x * nl * INV_PI;
+#ifdef HAS_COAT
     if (m.coat > 0.0) {
       float ac = max(1e-3, m.coatRough * m.coatRough);
       float Dc = ggxD(nh, ac);
       f += vec3(Dc * ggxG2(nv, nl, ac) * schlick1(0.04, vh) * m.coat / (4.0 * nv * nl) * nl);
       pdf += p.z * ggxG1(nv, ac) * Dc / (4.0 * nv);
     }
-  } else if (nl < 0.0 && m.trans > 0.0 && !smoothSurf) {
+#endif
+  }
+#ifdef HAS_TRANS
+  else if (nl < 0.0 && m.trans > 0.0 && !smoothSurf) {
     vec3 H = normalize(V * n1 + L * n2);
     if (dot(H, N) < 0.0) H = -H;
     float vh = dot(V, H); float lh = dot(L, H);
@@ -397,6 +478,7 @@ vec3 evalBsdf(Mat m, vec3 V, vec3 L, vec3 N, bool front, out float pdf) {
       pdf += p.w * vndfPdf(toLocal(V, N), toLocal(H, N), a) * n2 * n2 * (-lh) / dn;
     }
   }
+#endif
   return f;
 }
 
@@ -428,6 +510,7 @@ bool sampleBsdf(Mat m, vec3 V, vec3 N, bool front, out vec3 L, out vec3 w, out f
     L = reflect(-V, H);
     if (dot(L, N) <= 0.0) return false;
   } else {
+#ifdef HAS_TRANS
     L = refract(-V, H, eta);
     if (dot(L, L) < 0.5) return false; // total internal reflection: the specular lobe carries it
     if (dot(L, N) >= 0.0) return false;
@@ -439,6 +522,9 @@ bool sampleBsdf(Mat m, vec3 V, vec3 N, bool front, out vec3 L, out vec3 w, out f
       delta = true;
       return true;
     }
+#else
+    return false;
+#endif
   }
   vec3 f = evalBsdf(m, V, L, N, front, pdf);
   if (pdf <= 0.0) return false;
@@ -452,26 +538,28 @@ vec3 offsetP(vec3 p, vec3 ng, vec3 dir) { return p + ng * (dot(dir, ng) > 0.0 ? 
 // Analytic soft suns hit by a BSDF ray (MIS against light sampling).
 vec3 sunHits(vec3 rd, float pb) {
   vec3 e = vec3(0.0);
-  for (int i = 0; i < uLightCount; i++) {
+  for (int i = 0; i < lightCount(); i++) {
     if (int(uLA[i].x + 0.5) != 0) continue;
     float cosMax = uLB[i].w;
     if (cosMax >= 0.9999999 || dot(rd, uLA[i].yzw) < cosMax) continue;
-    float pl = 1.0 / (TWO_PI * (1.0 - cosMax)) / float(uLightCount);
+    float pl = 1.0 / (TWO_PI * (1.0 - cosMax)) / float(lightCount());
     e += uLB[i].rgb / (PI * (1.0 - cosMax * cosMax)) * (pb > 0.0 ? powerH(pb, pl) : 1.0);
   }
   return e;
 }
 
-vec3 background(vec3 rd) { return uBackground == 0 ? envAt(rd) : vec3(0.0); }
+vec3 background(vec3 rd, float spread) { return uBackground == 0 ? envAt(rd, spread) : vec3(0.0); }
 
 // The sample is a small state machine with ONE call of the traversal: each turn traces either a pending shadow
 // ray (next-event estimation queues up to two, with the light they would deliver) or the path's next ray.
 // (Shader compilers inline every call; one traversal keeps the program small and the compile quick.)
+// Ray cones (Akenine-Möller et al. 2019) carry the footprint: coneW its width at the ray's origin, coneA its
+// spread angle; textures and the environment pick their mip level from it.
 void main() {
   ivec2 px = ivec2(gl_FragCoord.xy);
 #ifdef PINGPONG
-  vec4 p0 = texelFetch(uPrev0, px, 0); vec4 p1 = texelFetch(uPrev1, px, 0); vec4 p2 = texelFetch(uPrev2, px, 0);
-  if (gl_FragCoord.x < uTile.x || gl_FragCoord.y < uTile.y || gl_FragCoord.x >= uTile.z || gl_FragCoord.y >= uTile.w) { oColor = p0; oAlbedo = p1; oNormal = p2; return; }
+  vec4 p0 = texelFetch(uPrev0, px, 0); vec4 p1 = texelFetch(uPrev1, px, 0); vec4 p2 = texelFetch(uPrev2, px, 0); vec4 p3 = texelFetch(uPrev3, px, 0);
+  if (gl_FragCoord.x < uTile.x || gl_FragCoord.y < uTile.y || gl_FragCoord.x >= uTile.z || gl_FragCoord.y >= uTile.w) { oColor = p0; oAlbedo = p1; oNormal = p2; oMoments = p3; return; }
 #endif
   seed = pcg(uint(px.x) + pcg(uint(px.y) + pcg(uint(uFrame) * 9781u + uint(uSeed) * 6271u)));
   vec2 j = rnd2();
@@ -485,15 +573,18 @@ void main() {
     ro += uCamRight * lens.x + uCamUp * lens.y;
     rd = normalize(focus - ro);
   }
+  float coneW = uPixWidth; float coneA = uPixAngle;
   vec3 L = vec3(0.0); vec3 T = vec3(1.0); float alpha = 0.0;
   vec3 albedo = vec3(0.0); vec3 normal = vec3(0.0); float depth = 0.0; bool gset = false;
   float lastPdf = 0.0; bool lastDelta = true; vec3 sigma = vec3(0.0);
   bool fromCatcher = false; vec3 pendingBg = vec3(0.0); float pendingAlpha = 0.0;
+  bool diffPrimary = false; float diffRef = 1.0;
   bool alive = true; int bounce = 0;
   // Shadow queries: origin, direction, length, what they deliver (rgb to the radiance, a to the coverage).
   bool sA = false; vec3 aO = vec3(0.0); vec3 aD = vec3(0.0, 0.0, 1.0); float aT = 0.0; vec4 aC = vec4(0.0); int aN = 0;
   bool sB = false; vec3 bO = vec3(0.0); vec3 bD = vec3(0.0, 0.0, 1.0); float bT = 0.0; vec4 bC = vec4(0.0); int bN = 0;
-  for (int it = 0; it < 2048; it++) {
+  // A bound from a uniform: the HLSL compiler (Windows) analyses a constant-bound loop of this size for minutes.
+  for (int it = 0; it < uBounces * 48 + 48; it++) {
     bool shadow = sA || sB;
     if (!shadow && !alive) break;
     vec3 qo = sA ? aO : (sB ? bO : ro);
@@ -503,7 +594,9 @@ void main() {
     bool hit = traceBvh(qo, qd, qt, shadow && uCaustics == 1, h);
     if (shadow) {
       bool blocked = false; bool through = false; vec3 att = vec3(1.0);
-      if (uGround == 2 && qd.z < 0.0) { float tg = (uGroundZ - qo.z) / qd.z; if (tg > 0.0 && tg < (hit ? h.t : qt)) blocked = true; }
+#ifdef HAS_FLOOR
+      if ((uGround == 2 || (uGround == 1 && uCatcherMode == 1)) && qd.z < 0.0) { float tg = (uGroundZ - qo.z) / qd.z; if (tg > 0.0 && tg < (hit ? h.t : qt)) blocked = true; }
+#endif
       if (!blocked && hit) {
         if (uCaustics == 1) blocked = true;
         else {
@@ -533,43 +626,47 @@ void main() {
     do {
       float tg = 1e30; bool ground = false;
       if (uGround != 0 && rd.z < 0.0 && ro.z > uGroundZ - uEps) { tg = (uGroundZ - ro.z) / rd.z; if (tg > 0.0 && (!hit || tg < h.t)) ground = true; }
-      if (uGround == 1 && (bounce > 0 || fromCatcher)) ground = false; // the catcher is only seen by camera rays
+      bool differential = uGround == 1 && uCatcherMode == 1;
+      if (uGround == 1 && !differential && (bounce > 0 || fromCatcher)) ground = false; // the catcher is only seen by camera rays
       float tHit = ground ? tg : (hit ? h.t : 1e30);
+      float wHit = coneW + coneA * min(tHit, 1e7);
       // Absorption inside a transmissive body.
       if (dot(sigma, sigma) > 0.0 && tHit < 1e29) T *= exp(-sigma * tHit);
-      // Area lights in front of everything else.
+#ifdef HAS_AREA
+      // Area and sphere lights in front of everything else (not seen by camera rays: lights out of the picture).
       vec3 le; float pla; float tl;
-      // (not seen by camera rays: lights out of the picture, as a studio soft box)
       if (bounce > 0 && hitAreaLights(ro, rd, tHit, le, pla, tl)) {
         if (fromCatcher) { L += T * le; alpha += pendingAlpha; }
-        else L += T * le * (lastDelta || bounce == 0 ? 1.0 : powerH(lastPdf, pla / float(uLightCount)));
-        if (bounce == 0) { alpha += 1.0; if (!gset) { albedo = le; depth = tl; gset = true; } }
+        else L += T * le * (lastDelta ? 1.0 : powerH(lastPdf, pla / float(lightCount())));
         alive = false; break;
       }
+#endif
       if (!hit && !ground) {
         if (bounce == 0) {
-          L += background(rd);
+          L += background(rd, coneA);
           alpha += uBackground == 0 ? 1.0 : 0.0;
           if (!gset) { albedo = vec3(1.0); depth = 1e6; gset = true; }
         } else if (fromCatcher) {
           L += pendingBg; // nothing reflected there: the background shows
         } else {
           float w = lastDelta ? 1.0 : powerH(lastPdf, envPdf(rd));
-          L += T * (envAt(rd) * w + sunHits(rd, lastDelta ? 0.0 : lastPdf));
+          L += T * (envAt(rd, coneA) * w + sunHits(rd, lastDelta ? 0.0 : lastPdf));
         }
         alive = false; break;
       }
       if (fromCatcher) { alpha += pendingAlpha; fromCatcher = false; } // an object reflected in the ground
-      bool isCatcher = ground && uGround == 1;
+      bool isCatcher = ground && uGround == 1 && !differential;
       Surf s; Mat m;
       vec3 V = -rd;
       float cScale = 0.0; vec3 bgC = vec3(0.0); float k = 0.0; vec3 rnext = vec3(0.0, 0.0, 1.0);
+      s.hasVcol = false; s.vcol = vec3(1.0); s.hasUv = false; s.uv = vec2(0.0);
+#ifdef HAS_CATCHER
       if (isCatcher) {
         // Shadow catcher: the background times (occluded light ÷ unoccluded light), plus reflections of the objects.
         s.p = ro + rd * tg; s.n = vec3(0.0, 0.0, 1.0); s.ng = s.n; s.front = true; s.mat = uFloorMat;
         m = fetchMat(uFloorMat);
         float ul = lum(uCatcherU + localIrradianceUp(s.p));
-        bgC = background(rd);
+        bgC = background(rd, coneA);
         if (uCatcherRefl > 0.0) {
           // A "metal" whose Schlick reflectance is the ground's: only the specular lobe, F = F0 + (1 − F0)(1 − cos)⁵.
           Mat fm = m;
@@ -581,13 +678,32 @@ void main() {
         if (uBackground == 0) { alpha += 1.0; if (ul <= 0.0) L += bgC * (1.0 - k); }
         else if (ul > 0.0) alpha += 1.0 - k;
         if (!gset) { albedo = uBackground == 0 ? bgC : vec3(1.0); normal = s.n; depth = tg; gset = true; }
-      } else if (ground) {
+      } else
+#endif
+      if (ground) {
         s.p = ro + rd * tg; s.n = vec3(0.0, 0.0, 1.0); s.ng = s.n; s.front = true; s.mat = uFloorMat;
         m = fetchMat(uFloorMat);
+#ifdef HAS_FLOOR
+        if (differential) {
+          // Differential rendering: the ground is a diffuse surface whose albedo makes its unoccluded look the
+          // background exactly (albedo = π B / E). Shadows, light bounced off the objects and their colours then
+          // come out of the ordinary path tracing — the background plus (scene with objects − scene without).
+          vec3 U = max(uCatcherU + localIrradianceUp(s.p), vec3(1e-4));
+          vec3 B = uBackground == 0 ? envAt(rd, coneA) : U * INV_PI;
+          m.color = clamp(PI * B / U, 0.0, 1.5);
+          m.metal = 0.0; m.trans = 0.0; m.coat = 0.0; m.tex = 0; m.emit = vec3(0.0);
+          m.rough = max(0.03, uCatcherRough);
+          float sq = sqrt(clamp(uCatcherRefl, 0.0, 0.95)); m.ior = (1.0 + sq) / (1.0 - sq); m.spec = uCatcherRefl > 0.0 ? 1.0 : 0.0;
+          if (bounce == 0) { diffPrimary = true; diffRef = max(1e-6, lum(U) * INV_PI); }
+        }
+#endif
       } else {
         surfaceOf(h, ro, rd, s);
         m = fetchMat(s.mat);
-        applyTexture(m, s.p, s.n);
+        if (s.hasVcol) m.color = s.vcol;
+#ifdef HAS_TEX
+        applyTexture(m, s.p, s.n, s.uv, s.hasUv, wHit);
+#endif
       }
       if (!isCatcher) {
         if (m.trans < 0.01 && m.metal < 0.01) m.rough = max(m.rough, 0.03);
@@ -603,10 +719,10 @@ void main() {
         for (int q = 0; q < 2; q += 1 + int(uFrame < -7)) {
           vec3 wi = vec3(0.0, 0.0, 1.0); float dist = 1e30; vec3 li = vec3(0.0); float pl = 0.0; float sel = 1.0; bool ok = false;
           if (q == 0) {
-            if (uEnvIntensity > 0.0) { wi = sampleEnvDir(rnd2(), pl); li = pl > 0.0 ? envAt(wi) / pl : vec3(0.0); ok = pl > 0.0 && !(uGround == 2 && wi.z < 0.0); }
-          } else if (uLightCount > 0) {
-            int i = min(uLightCount - 1, int(rnd() * float(uLightCount)));
-            sel = float(uLightCount);
+            if (uEnvIntensity > 0.0) { wi = sampleEnvDir(rnd2(), pl); li = pl > 0.0 ? envAt(wi, 0.0) / pl : vec3(0.0); ok = pl > 0.0 && !(uGround == 2 && wi.z < 0.0); }
+          } else if (lightCount() > 0) {
+            int i = min(lightCount() - 1, int(rnd() * float(lightCount())));
+            sel = float(lightCount());
             ok = sampleLight(i, base, wi, dist, li, pl);
             li *= sel; pl /= sel;
           }
@@ -624,7 +740,7 @@ void main() {
         }
       }
       if (isCatcher) {
-        if (k > 0.0) { pendingBg = bgC * k; pendingAlpha = uBackground == 0 ? 0.0 : k; T = vec3(k); ro = vec3(s.p.xy, uGroundZ + uEps); rd = rnext; fromCatcher = true; lastDelta = true; bounce += 1; }
+        if (k > 0.0) { pendingBg = bgC * k; pendingAlpha = uBackground == 0 ? 0.0 : k; T = vec3(k); ro = vec3(s.p.xy, uGroundZ + uEps); rd = rnext; fromCatcher = true; lastDelta = true; coneW = wHit; bounce += 1; }
         else alive = false;
         break;
       }
@@ -633,6 +749,9 @@ void main() {
       T *= w;
       if (through) sigma = s.front && m.absorb > 0.0 ? -log(max(m.color, vec3(1e-4))) / m.absorb : vec3(0.0);
       lastPdf = pdf; lastDelta = delta;
+      // The cone widens by the spread of the lobe it took (≈ the angle of a solid angle 1 / pdf).
+      coneW = wHit;
+      if (!delta) coneA = max(coneA, min(1.5, inversesqrt(max(pdf, 1e-3))));
       ro = offsetP(s.p, s.ng, wi); rd = wi;
       bounce += 1;
       if (bounce > uBounces) { alive = false; break; }
@@ -642,11 +761,14 @@ void main() {
   }
   if (any(isnan(L)) || any(isinf(L))) L = vec3(0.0);
   if (isnan(alpha) || isinf(alpha)) alpha = 0.0;
-  vec4 c0 = vec4(L, alpha); vec4 c1 = vec4(albedo, 1.0); vec4 c2 = vec4(normal, depth);
+  // A differential ground on a plain background: its shading against the unshadowed ground is the coverage.
+  if (diffPrimary && uBackground != 0) { alpha = clamp(1.0 - lum(L) / diffRef, 0.0, 1.0); L = vec3(0.0); albedo = vec3(1.0); }
+  float ld = lum(L / max(albedo, vec3(0.02)));
+  vec4 c0 = vec4(L, alpha); vec4 c1 = vec4(albedo, 1.0); vec4 c2 = vec4(normal, depth); vec4 c3 = vec4(ld, ld * ld, 0.0, 0.0);
 #ifdef PINGPONG
-  oColor = p0 + c0; oAlbedo = p1 + c1; oNormal = p2 + c2;
+  oColor = p0 + c0; oAlbedo = p1 + c1; oNormal = p2 + c2; oMoments = p3 + c3;
 #else
-  oColor = c0; oAlbedo = c1; oNormal = c2;
+  oColor = c0; oAlbedo = c1; oNormal = c2; oMoments = c3;
 #endif
 }
 `;
@@ -675,45 +797,85 @@ void main() {
 }
 `;
 
-// ───────────────────────── denoiser: edge-avoiding à-trous wavelets (Dammertz et al. 2010) on demodulated light
+// ───────────────────────── denoiser: edge-avoiding à-trous wavelets on demodulated light
+// uMode 1 (default): variance-guided like SVGF (Schied et al. 2017) — the luminance edge stop scales with the
+// local standard deviation estimated from the accumulated moments (or the neighbourhood for few samples), and
+// the variance is filtered along (squared weights). uMode 0: the plain edge-avoiding filter (Dammertz 2010).
 
 export const DENOISE_FRAG = `${COMMON}
-uniform sampler2D tIn; uniform sampler2D tAlbedo; uniform sampler2D tNormal; uniform sampler2D tColor;
-uniform int uStep; uniform int uFirst; uniform int uLast; uniform float uSigmaC; uniform float uSigmaN; uniform float uSigmaD; uniform vec2 uRes;
-out vec4 fragColor;
+uniform sampler2D tIn; uniform sampler2D tVarIn; uniform sampler2D tAlbedo; uniform sampler2D tNormal; uniform sampler2D tColor; uniform sampler2D tMoments;
+uniform int uStep; uniform int uFirst; uniform int uLast; uniform int uMode;
+uniform float uSigmaC; uniform float uSigmaN; uniform float uSigmaD; uniform float uSigmaL; uniform vec2 uRes;
+layout(location = 0) out vec4 fragColor;
+layout(location = 1) out vec4 fragVar;
+float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+float countAt(ivec2 q) { return max(1.0, texelFetch(tAlbedo, q, 0).a); }
+// The mean light of a pixel divided by its albedo (textures stay sharp: only the lighting is filtered).
 vec4 inAt(ivec2 q) {
   if (uFirst == 1) {
-    float n = max(1.0, texelFetch(tAlbedo, q, 0).a);
+    float n = countAt(q);
     vec4 c = texelFetch(tColor, q, 0) / n;
     vec3 alb = max(texelFetch(tAlbedo, q, 0).rgb / n, vec3(0.02));
     return vec4(c.rgb / alb, c.a);
   }
   return texelFetch(tIn, q, 0);
 }
+// Variance of the pixel's mean (luminance of the demodulated light): from the accumulated moments, or — with
+// too few samples for a reliable estimate — from the 3 × 3 neighbourhood.
+float varAt(ivec2 q, ivec2 size) {
+  if (uFirst == 0) return texelFetch(tVarIn, q, 0).r;
+  float n = countAt(q);
+  vec2 m = texelFetch(tMoments, q, 0).xy / n;
+  float v = max(0.0, m.y - m.x * m.x) / n;
+  if (n < 4.0) {
+    float s = 0.0; float s2 = 0.0;
+    for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++) {
+      float l = luma(inAt(clamp(q + ivec2(dx, dy), ivec2(0), size - 1)).rgb);
+      s += l; s2 += l * l;
+    }
+    s /= 9.0; s2 /= 9.0;
+    v = max(v, max(0.0, s2 - s * s));
+  }
+  return v;
+}
 void main() {
   ivec2 p = ivec2(gl_FragCoord.xy);
   ivec2 size = ivec2(uRes);
-  float n0 = max(1.0, texelFetch(tAlbedo, p, 0).a);
+  float n0 = countAt(p);
   vec4 c0 = inAt(p);
   vec4 g0 = texelFetch(tNormal, p, 0) / n0;
-  float l0 = dot(c0.rgb, vec3(0.2126, 0.7152, 0.0722));
+  float l0 = luma(c0.rgb);
   const float k[3] = float[3](0.375, 0.25, 0.0625);
-  vec4 sum = vec4(0.0); float wsum = 0.0;
+  // The variance around the pixel, blurred a little (3 × 3 Gaussian): steadier edge stops.
+  float gvar = 0.0;
+  if (uMode == 1) {
+    const float g[2] = float[2](0.25, 0.125);
+    for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++) {
+      float wg = (dx == 0 && dy == 0) ? 0.25 : (dx == 0 || dy == 0 ? 0.125 : 0.0625);
+      gvar += wg * varAt(clamp(p + ivec2(dx, dy), ivec2(0), size - 1), size);
+    }
+  }
+  vec4 sum = vec4(0.0); float wsum = 0.0; float vsum = 0.0;
   for (int dy = -2; dy <= 2; dy++) for (int dx = -2; dx <= 2; dx++) {
     ivec2 q = clamp(p + ivec2(dx, dy) * uStep, ivec2(0), size - 1);
-    float nq = max(1.0, texelFetch(tAlbedo, q, 0).a);
+    float nq = countAt(q);
     vec4 cq = inAt(q);
     vec4 gq = texelFetch(tNormal, q, 0) / nq;
     float h = k[abs(dx)] * k[abs(dy)];
-    float lq = dot(cq.rgb, vec3(0.2126, 0.7152, 0.0722));
-    float wc = exp(-abs(l0 - lq) / (uSigmaC * (0.2 + l0) + 1e-6));
+    float lq = luma(cq.rgb);
+    float wl;
+    if (uMode == 1) wl = exp(-abs(l0 - lq) / (uSigmaL * sqrt(max(gvar, 1e-12)) + 1e-4));
+    else wl = exp(-abs(l0 - lq) / (uSigmaC * (0.2 + l0) + 1e-6));
     float wn = pow(max(0.0, dot(g0.xyz, gq.xyz) + (dot(g0.xyz, g0.xyz) < 0.25 ? 1.0 : 0.0)), uSigmaN);
     float wd = exp(-abs(g0.w - gq.w) / (uSigmaD * float(uStep) * max(1e-3, g0.w) + 1e-6));
-    float w = h * wc * min(1.0, wn) * wd;
+    float w = h * wl * min(1.0, wn) * wd;
     sum += cq * w; wsum += w;
+    if (uMode == 1) vsum += w * w * varAt(q, size);
   }
   vec4 r = wsum > 0.0 ? sum / wsum : c0;
+  float vout = wsum > 0.0 ? vsum / (wsum * wsum) : 0.0;
   if (uLast == 1) { vec3 alb = max(texelFetch(tAlbedo, p, 0).rgb / n0, vec3(0.02)); r.rgb *= alb; }
   fragColor = r;
+  fragVar = vec4(vout, 0.0, 0.0, 1.0);
 }
 `;

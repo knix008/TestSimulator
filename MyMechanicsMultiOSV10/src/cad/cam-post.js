@@ -40,7 +40,7 @@ const sanitize = (s) => String(s ?? '').replace(/[()]/g, '').replace(/[^\x20-\x7
  * G-code for toolpaths. program: { number, name, tools: [tool], paths, stock, wcs, bounds, post, coolant,
  * date, ops? }. Returns the text (lines end with \n).
  */
-export function postProcess({ number = 1001, name = 'PART', tools, paths, stock, wcs = 'stockTopCenter', bounds = null, post: postId = 'fanuc', coolant = true, date = '', ops = [] }) {
+export function postProcess({ number = 1001, name = 'PART', tools, paths, stock, wcs = 'stockTopCenter', bounds = null, post: postId = 'fanuc', coolant = true, date = '', ops = [], comp = 'computed' }) {
   const post = POSTS[postId] ?? POSTS.fanuc;
   const lathe = post.kind === 'lathe';
   const origin = wcsOrigin(stock, wcs, bounds);
@@ -83,7 +83,7 @@ export function postProcess({ number = 1001, name = 'PART', tools, paths, stock,
       emit(postId === 'fanucLathe' ? 'G99' : 'G95');
     } else emit(`S${Math.round(tp.rpm)} M3`);
     if (coolant) emit('M8');
-    for (const m of tp.moves) {
+    for (const m of programMoves(tp, comp)) {
       if (!lathe && needsG43) {
         // First move of a tool: XY first, then the length offset with the Z move.
         const p = m.k === 'cyc' ? [m.p[0], m.p[1], m.init] : m.p;
@@ -106,6 +106,7 @@ export function postProcess({ number = 1001, name = 'PART', tools, paths, stock,
       if (fx !== modal.x) { words.push(`X${fx}`); moved = true; }
       if (!lathe && fy !== modal.y) { words.push(`Y${fy}`); moved = true; }
       if (fz !== modal.z) { words.push(`Z${fz}`); moved = true; }
+      if (m.comp) { words.unshift(m.comp); moved = true; }
       if (!moved) continue;
       if (thread) words.push(g === 'G33' ? `K${f(m.f, 4)}` : `F${f(m.f, 4)}`);
       else if (g === 'G1') { const ff = lathe ? f(m.f, 4) : String(Math.round(m.f)); if (ff !== modal.f) { words.push(`F${ff}`); modal.f = ff; } }
@@ -126,7 +127,8 @@ function cycleLine(m, post, postId, origin, lathe, f) {
   const X = lathe ? 0 : x - origin[0]; const Y = y - origin[1];
   const Z = zb - origin[2]; const R = m.r - origin[2];
   const xy = lathe ? '' : `X${f(X)} Y${f(Y)} `;
-  const head = lathe ? 'G0 X0. ' : '';
+  const head = lathe ? `G0 X0 Z${f(m.init - origin[2])}
+` : '';
   if (m.cycle === 'tap') {
     if (post.tap === 'G33.1') return `G0 ${xy.trim()}\nG0 Z${f(R)}\nG33.1 Z${f(Z)} K${f(m.pitch, 4)}\nG0 Z${f(m.init - origin[2])}`;
     return `G98 G84 ${xy}Z${f(Z)} R${f(R)} F${f(m.f, 2)}\nG80`;
@@ -136,6 +138,29 @@ function cycleLine(m, post, postId, origin, lathe, f) {
   const p = m.dwell > 0 ? ` P${Math.round(m.dwell * 1000)}` : '';
   const feed = lathe ? f(m.f, 4) : String(Math.round(m.f));
   return `${head}${lathe ? '' : 'G98 '}${word} ${xy}Z${f(Z)} R${f(R)}${q}${p} F${feed}\nG80`;
+}
+
+/**
+ * The moves a program states for a toolpath. Turning paths carry the nose centre; a control is told either the
+ * imaginary tip of the insert (comp 'computed', G40: the CAM has allowed for the nose radius) or — for the
+ * finishing contours, comp 'control' — the part's contour with G42 (outside) / G41 (bore) so the control adds
+ * the nose radius from its tool table. Milling paths are unchanged.
+ */
+export function programMoves(tp, comp = 'computed') {
+  if (tp.kind !== 'turn') return tp.moves;
+  if (comp === 'control' && tp.contour?.length > 1) {
+    const c = tp.contour; const od = tp.side !== 'id';
+    const first = c[0]; const last = c.at(-1);
+    return [
+      { k: 'r', p: [first[0], 0, first[2] + 2] },
+      { k: 'f', p: [...first], f: tp.feed, comp: od ? 'G42' : 'G41' },
+      ...c.slice(1).map((q) => ({ k: 'f', p: [...q], f: tp.feed })),
+      { k: 'r', p: [last[0] + (od ? 2 : -1), 0, last[2] + (od ? 0 : 1)], comp: 'G40' },
+    ];
+  }
+  const [dx, dz] = tp.tipOffset ?? [0, 0];
+  if (!dx && !dz) return tp.moves;
+  return tp.moves.map((m) => (m.p && m.k !== 'cyc' ? { ...m, p: [m.p[0] + dx, m.p[1], m.p[2] + dz] } : m));
 }
 
 // ───────────────────────── reading G-code
@@ -230,7 +255,7 @@ export function parseGcode(text, { lathe = false, start = null } = {}) {
  * Toolpaths' moves in WCS coordinates, expanded the way the reader expands cycles (to compare with a replay):
  * [{ k, p }].
  */
-export function wcsMoves(paths, stock, wcs = 'stockTopCenter', bounds = null, start = null) {
+export function wcsMoves(paths, stock, wcs = 'stockTopCenter', bounds = null, start = null, comp = 'computed') {
   const origin = wcsOrigin(stock, wcs, bounds);
   const out = [];
   let cur = start ? [...start] : [0, 0, 0];
@@ -239,7 +264,7 @@ export function wcsMoves(paths, stock, wcs = 'stockTopCenter', bounds = null, st
     const change = tp.tool !== lastTool;
     lastTool = tp.tool;
     let first = true;
-    for (const m of expandMoves(tp.moves)) {
+    for (const m of expandMoves(programMoves(tp, comp))) {
       if (!m.p || m.k === 'dwell') continue;
       const p = tp.kind === 'turn' ? [m.p[0], 0, m.p[2] - origin[2]] : [m.p[0] - origin[0], m.p[1] - origin[1], m.p[2] - origin[2]];
       // A post writes a tool's first position as XY, then Z with the length offset.
