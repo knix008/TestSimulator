@@ -5,6 +5,9 @@
 //
 // The shell (menus as popup windows, toolbar, start page, settings, themes, progress popups) follows
 // MySketchBook; the modelling is in cad/ (no DOM) and the 3D view in view/.
+import { pickSolid } from './cad/exchange.js';
+import { writeObj, writePly, writeGltf, writeGlb, writeVrml, write3mf, writeUsdz, MESH_IMPORT_EXTENSIONS } from './cad/mesh-formats.js';
+import { importMeshSolids } from './cad/mesh-import.js';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import * as THREE from 'three';
@@ -58,6 +61,11 @@ import { attachPdm } from './app-pdm.js';
 import { attachDrwTools } from './app-drw.js';
 import { createStdTools } from './app-std.js';
 import { attachMfgTools } from './app-mfg.js';
+import { createIllustrationTools } from './app-illustration.js';
+import { createSchematicTools } from './app-schematic.js';
+import { createDesignCheckTools } from './app-designcheck.js';
+import { createTaskTools } from './app-tasks.js';
+import { createRecorder, createMacroTools } from './app-macros.js';
 import { routeBodyColours } from './cad/routing.js';
 import { leafCutFeatures, cutLeafBody } from './cad/asm-extra.js';
 
@@ -70,6 +78,9 @@ const VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '1.0.0';
 const lang = () => (getLanguage() === 'en' ? 'en' : 'ko');
 /** The status bar clock in the app's language (not the OS locale: an English UI on a Korean PC showed "오후"). */
 const clockText = () => new Date().toLocaleTimeString(lang() === 'en' ? 'en-US' : 'ko-KR', { hour: '2-digit', minute: '2-digit' });
+
+// Macro recording (app-macros.js): the entry points below report the user's actions to it.
+const recorder = createRecorder();
 
 const state = {
   settings: loadSettings(globalThis.localStorage),
@@ -274,7 +285,9 @@ function afterChange() {
 }
 
 /** Undo / redo work outside modes, and inside Render (its appearance edits; the picture renders again). */
-const undoBlocked = () => Boolean(state.editing) && state.editing.mode !== 'render';
+// Editors with their own undoable edits (render settings, schematics, design check corrections, tasks run on the
+// open document) keep undo/redo; the rest block it.
+const undoBlocked = () => Boolean(state.editing) && !['render', 'schematic', 'designCheck', 'tasks'].includes(state.editing.mode);
 
 function undo() {
   const d = doc();
@@ -285,6 +298,8 @@ function undo() {
   d.revision += 1;
   afterChange();
   if (state.editing?.mode === 'render') std.render.afterHistory();
+  if (state.editing?.mode === 'schematic') schTools.afterHistory();
+  if (state.editing?.mode === 'designCheck') dcTools.afterHistory();
   notify('info', t('notice.undone', { label: r.label }));
 }
 
@@ -297,6 +312,8 @@ function redo() {
   d.revision += 1;
   afterChange();
   if (state.editing?.mode === 'render') std.render.afterHistory();
+  if (state.editing?.mode === 'schematic') schTools.afterHistory();
+  if (state.editing?.mode === 'designCheck') dcTools.afterHistory();
   notify('info', t('notice.redone', { label: r.label }));
 }
 
@@ -397,7 +414,9 @@ function persistSession() {
   try { globalThis.localStorage?.setItem(SESSION_KEY, JSON.stringify({ files: state.doc?.path ? [state.doc.path] : [] })); } catch { /* ignore */ }
 }
 
-function switchDocument(ref) {
+/** Switches the open document (recorded for macros). */
+function switchDocument(ref) { return recorder.around('document', [ref], () => switchDocumentImpl(ref)); }
+function switchDocumentImpl(ref) {
   if (!project() || !findDocument(project(), ref)) return;
   if (state.editing) cancelEditing({ quiet: true });
   project().active = ref;
@@ -652,7 +671,8 @@ function holeSketchFeature(part, e) {
 function syncAssembly(asm) {
   const list = [];
   for (const c of asm.components) {
-    if (c.hidden) continue;
+    // state.viewHidden: components an illustration view leaves out (display only; the assembly is not changed).
+    if (c.hidden || state.viewHidden?.has(c.id)) continue;
     const placed = displayPlacement(asm, c);
     for (const leaf of componentLeaves(c)) {
       const part = project().parts.find((p) => p.id === leaf.part);
@@ -752,7 +772,8 @@ function selectionHit(s) {
   return null;
 }
 
-function select(items, { add = false } = {}) {
+function select(items, { add = false } = {}) { return recorder.around('select', [items, add ? { add: true } : null], () => selectImpl(items, { add })); }
+function selectImpl(items, { add = false } = {}) {
   if (add) {
     const next = state.selection.slice();
     for (const it of items) { const i = next.findIndex((x) => x.key === it.key); if (i >= 0) next.splice(i, 1); else next.push(it); }
@@ -813,7 +834,8 @@ function itemOfHit(hit) {
   return null;
 }
 
-function onViewportPick(hit, e) {
+function onViewportPick(hit, e) { return recorder.around('pick', [hit, e && (e.ctrlKey || e.shiftKey || e.metaKey) ? { ctrlKey: Boolean(e.ctrlKey), shiftKey: Boolean(e.shiftKey), metaKey: Boolean(e.metaKey) } : null], () => onViewportPickImpl(hit, e)); }
+function onViewportPickImpl(hit, e) {
   const ed = state.editing;
   if (ed?.mode === 'sketchPlane') return pickSketchPlane(hit);
   if (ed?.mode === 'feature' && ed.pick) return pickForFeature(hit, e);
@@ -955,6 +977,9 @@ function cancelEditing({ quiet = false } = {}) {
   std.cleanup(e);
   if (e.mode === 'sketch') { e.editor.dispose(); viewport?.setLines('sketch', []); viewport?.setLabels([]); }
   if (e.mode === 'mate' && e.base && activeAssembly()) activeAssembly().components = JSON.parse(e.base);
+  // An illustration view's display (exploded placements, hidden components) ends with its page.
+  if (e.mode === 'illustration') { state.motionPose = null; state.viewHidden = null; }
+  if (e.mode === 'schematic') schTools.cleanup();
   state.editing = null;
   state.previewResult = null;
   state.mateError = false;
@@ -965,7 +990,8 @@ function cancelEditing({ quiet = false } = {}) {
 }
 
 /** OK in the PropertyManager. */
-function acceptEditing() {
+function acceptEditing() { return recorder.around('accept', [], () => acceptEditingImpl()); }
+function acceptEditingImpl() {
   const e = state.editing;
   if (!e) return undefined;
   if (e.mode === 'sketch') return exitSketch();
@@ -1169,11 +1195,13 @@ const sketchApi = {
   },
 };
 
-function exitSketch() {
+function exitSketch() { return recorder.around('exitSketch', [], () => exitSketchImpl()); }
+function exitSketchImpl() {
   const e = state.editing;
   if (e?.mode !== 'sketch') return;
   const part = activePart();
   const sketch = e.editor.sketch;
+  recorder.note('setSketch', [{ entities: sketch.entities, constraints: sketch.constraints }], { before: true });
   const changed = JSON.stringify(sketch) !== e.startJson;
   e.editor.dispose();
   state.editing = null;
@@ -2227,6 +2255,18 @@ async function exportDesignTable() {
   await saveExport(`${fileSafe(part.name)}-design-table.csv`, 'csv', designTableCsv(part, t('config.default')), 'text/csv');
 }
 
+/** The text of a file the user picks ({ name, extensions }), or null when cancelled or unreadable. */
+async function readPickedText(filter) {
+  try {
+    if (desktop) {
+      const [path] = await native.chooseFiles(state.settings.lastDirectory, [filter], false);
+      return path ? await native.readTextFile(path, '') : null;
+    }
+    const [file] = await native.pickWithInput(filter.extensions.map((x) => `.${x}`).join(','), false);
+    return file ? await file.text() : null;
+  } catch (error) { showError('error.import', error); return null; }
+}
+
 async function importDesignTable() {
   const part = activePart();
   if (!part) return;
@@ -2614,6 +2654,8 @@ const commands = {
   importStep: { icon: 'stepFile', label: 'action.importStep', key: 'Ctrl+I', run: () => importStepDialog() },
   exportMenu: { icon: 'chevronDown', label: 'action.exportMenu', enabled: hasDoc, run: (c) => showMenu(menuItems(SUBMENUS.exportTo.items), c?.anchor ?? anchorFor('exportMenu'), 'context', { header: { icon: 'exportFile', title: t('submenu.exportTo') } }) },
   exportStep: { icon: 'stepFile', label: 'action.exportStep', enabled: () => Boolean(activePart() || activeAssembly()), run: () => exportModel('step') },
+  exportIges: { icon: 'igesFile', label: 'action.exportIges', enabled: () => Boolean(activePart() || activeAssembly()), run: () => exportModel('iges') },
+  ...Object.fromEntries(['glb', 'gltf', 'obj', 'ply', 'wrl', '3mf', 'usdz'].map((f) => [`exportMesh:${f}`, { icon: 'meshFile', label: `action.exportMesh.${f}`, enabled: () => Boolean(activePart() || activeAssembly()), run: () => exportModel(f) }])),
   exportStl: { icon: 'stlFile', label: 'action.exportStl', enabled: () => Boolean(activePart() || activeAssembly()), run: () => exportModel('stl') },
   exportImage: { icon: 'exportImage', label: 'action.exportImage', key: 'Ctrl+Shift+E', enabled: hasDoc, run: () => exportImage() },
   exportDxf: { icon: 'dxfFile', label: 'action.exportDxf', enabled: () => Boolean(activeDrawing()), run: () => exportDrawing('dxf') },
@@ -2830,6 +2872,145 @@ const mfgTools = attachMfgTools(more, {
 });
 Object.assign(commands, mfgTools.commands);
 
+// Technical illustrations of assemblies (app-illustration.js), chained onto the hooks of `more` like the add-ins above.
+const illTools = createIllustrationTools({
+  state, t, notify, change, syncView, renderAll, renderLeft, cancelEditing, ensureKernel, newId, saveExport, fileSafe,
+  viewport: () => viewport, project, activeAssembly,
+  // A component's shape in its own coordinates (a sub-assembly: its parts placed in it, as one compound).
+  localShape: (c) => {
+    const shapes = componentLeaves(c).map((l) => { const pt = project()?.parts.find((p) => p.id === l.part); const b = pt && buildPart(pt).body; return b ? (c.sub ? placeShape(b, l.placement) : b) : null; }).filter(Boolean);
+    return shapes.length === 1 ? shapes[0] : shapes.length ? rep().makeCompound(shapes) : null;
+  },
+  pm: { pmHead, pmGroup, pmNum, pmSeg, pmList, pmButton, textInput },
+});
+{
+  const o = { ...more };
+  const mine = (e = state.editing) => illTools.owns(e);
+  more.owns = (e) => mine(e) || o.owns(e);
+  more.pm = (e) => (mine(e) ? illTools.pm(e) : o.pm(e));
+  more.pick = (hit, ev) => (mine() ? illTools.pick(hit, ev) : o.pick(hit, ev));
+  more.field = (k, raw, v) => (mine() ? illTools.field(k, raw, v) : o.field(k, raw, v));
+  more.set = (k, v) => (mine() ? illTools.set(k, v) : o.set(k, v));
+  more.toggle = (k, c) => (mine() ? illTools.toggle(k, c) : o.toggle(k, c));
+  more.accept = () => (mine() ? illTools.accept() : o.accept());
+  more.subject = (e) => (mine(e) ? illTools.subject(e) : o.subject(e));
+  more.handles = (name) => illTools.handles(name) || o.handles(name);
+  more.command = (name, arg) => (illTools.handles(name) ? illTools.command(name, arg) : o.command(name, arg));
+}
+Object.assign(commands, illTools.commands);
+
+// 2D electrical schematics (app-schematic.js), chained the same way.
+const schTools = createSchematicTools({
+  state, t, notify, change, renderAll, renderLeft, cancelEditing, newId, saveExport, fileSafe, project,
+  pm: { pmHead, pmGroup, pmNum, pmSeg, pmList, pmButton, textInput },
+});
+{
+  const o = { ...more };
+  const mine = (e = state.editing) => schTools.owns(e);
+  more.owns = (e) => mine(e) || o.owns(e);
+  more.pm = (e) => (mine(e) ? schTools.pm(e) : o.pm(e));
+  more.pick = (hit, ev) => (mine() ? schTools.pick(hit, ev) : o.pick(hit, ev));
+  more.field = (k, raw, v) => (mine() ? schTools.field(k, raw, v) : o.field(k, raw, v));
+  more.set = (k, v) => (mine() ? schTools.set(k, v) : o.set(k, v));
+  more.toggle = (k, c) => (mine() ? schTools.toggle(k, c) : o.toggle(k, c));
+  more.accept = () => (mine() ? schTools.accept() : o.accept());
+  more.subject = (e) => (mine(e) ? schTools.subject(e) : o.subject(e));
+  more.handles = (name) => schTools.handles(name) || o.handles(name);
+  more.command = (name, arg) => (schTools.handles(name) ? schTools.command(name, arg) : o.command(name, arg));
+}
+Object.assign(commands, schTools.commands);
+
+// Design checker (app-designcheck.js), chained the same way.
+const dcTools = createDesignCheckTools({
+  state, t, notify, change, renderAll, renderLeft, cancelEditing, saveExport, fileSafe, project, updateSettings, units, switchDocument, select,
+  renderDrawing: () => renderDrawing(), readText: readPickedText,
+  checkContext: () => designCheckContext(),
+  pm: { pmHead, pmGroup, pmNum, pmSeg, pmList, pmButton, textInput },
+});
+/** What the design rules that need the modeller see: rebuild errors (kernel up), mates that fail (solved on a copy). */
+function designCheckContext() {
+  return {
+    units: units(),
+    localBaseName: (key) => t(`fname.${key}`, null, null),
+    ...(kernelReady() ? {
+      rebuildErrors: (part) => partRebuildErrors(part),
+      mateFailures: (asm) => (asm.mates?.length ? solveMates(structuredClone(asm), { entity: (ref) => mateEntityNow(ref), size: assemblySize(asm), status: false }).failed : []),
+    } : {}),
+  };
+}
+function partRebuildErrors(part) {
+  const b = buildPart(part);
+  return part.features.filter((f) => b.result.results.get(f.id)?.ok === false).map((f) => ({ feature: f, ...b.result.results.get(f.id) }));
+}
+{
+  const o = { ...more };
+  const mine = (e = state.editing) => dcTools.owns(e);
+  more.owns = (e) => mine(e) || o.owns(e);
+  more.pm = (e) => (mine(e) ? dcTools.pm(e) : o.pm(e));
+  more.pick = (hit, ev) => (mine() ? dcTools.pick(hit, ev) : o.pick(hit, ev));
+  more.field = (k, raw, v) => (mine() ? dcTools.field(k, raw, v) : o.field(k, raw, v));
+  more.set = (k, v) => (mine() ? dcTools.set(k, v) : o.set(k, v));
+  more.toggle = (k, c) => (mine() ? dcTools.toggle(k, c) : o.toggle(k, c));
+  more.accept = () => (mine() ? dcTools.accept() : o.accept());
+  more.subject = (e) => (mine(e) ? dcTools.subject(e) : o.subject(e));
+  more.handles = (name) => dcTools.handles(name) || o.handles(name);
+  more.command = (name, arg) => (dcTools.handles(name) ? dcTools.command(name, arg) : o.command(name, arg));
+}
+Object.assign(commands, dcTools.commands);
+
+// Task scheduler (app-tasks.js), chained the same way; its timer starts once the window is up.
+const taskTools = createTaskTools({
+  state, t, notify, renderAll, renderLeft, cancelEditing, saveExport, fileSafe, updateSettings, desktop, native, withProgress,
+  doc: () => state.doc, docName: (d) => docName(d),
+  readBytes: (path) => readBytes(path, ''),
+  writeBytes: async (path, bytes) => { let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); await native.writeBase64File(path, btoa(bin), ''); return true; },
+  storeWebHandle: (k, h) => native.storeWebHandle(k, h), loadWebHandle: (k) => native.loadWebHandle(k), forgetWebHandle: (k) => native.forgetWebHandle(k),
+  withDocument, withExportSink, projectFromModel, exportModel, exportDrawing,
+  activate: (ref) => { const p = project(); if (p && findDocument(p, ref)) p.active = ref; },
+  docTitle: (ref) => findDocument(project(), ref)?.name ?? '',
+  standard: () => dcTools.api.standard(), checkContext: () => designCheckContext(), reportHtml: (r, name) => dcTools.api.reportFor(r, name),
+  rebuildErrors: (part) => (kernelReady() ? partRebuildErrors(part) : []),
+  // A task on the open document: its parts, assemblies and drawings replaced in one undo step.
+  replaceCurrent: (data) => change('op.task', (p) => { p.parts = data.parts; p.assemblies = data.assemblies; p.drawings = data.drawings; }),
+  pm: { pmHead, pmGroup, pmNum, pmSeg, pmList, pmButton, textInput },
+});
+{
+  const o = { ...more };
+  const mine = (e = state.editing) => taskTools.owns(e);
+  more.owns = (e) => mine(e) || o.owns(e);
+  more.pm = (e) => (mine(e) ? taskTools.pm(e) : o.pm(e));
+  more.pick = (hit, ev) => (mine() ? taskTools.pick(hit, ev) : o.pick(hit, ev));
+  more.field = (k, raw, v) => (mine() ? taskTools.field(k, raw, v) : o.field(k, raw, v));
+  more.set = (k, v) => (mine() ? taskTools.set(k, v) : o.set(k, v));
+  more.select = (k, v) => (mine() ? taskTools.select(k, v) : o.select?.(k, v));
+  more.toggle = (k, c) => (mine() ? taskTools.toggle(k, c) : o.toggle(k, c));
+  more.accept = () => (mine() ? taskTools.accept() : o.accept());
+  more.subject = (e) => (mine(e) ? taskTools.subject(e) : o.subject(e));
+  more.handles = (name) => taskTools.handles(name) || o.handles(name);
+  more.command = (name, arg) => (taskTools.handles(name) ? taskTools.command(name, arg) : o.command(name, arg));
+}
+Object.assign(commands, taskTools.commands);
+
+// Macros (app-macros.js): recording, playback, the editor window and the automation API.
+const macroTools = createMacroTools({
+  state, t, recorder, notify, popups, renderAll, renderLeft, renderStatus, project, active, activePart, change, saveExport, readText: readPickedText,
+  projectName: () => project()?.name ?? '', version: () => state.info?.version ?? VERSION,
+  run, pick: (hit, mods) => onViewportPick(hit, mods), select, pmCommand, pmSet, pmField: pmFieldChanged, pmToggle, pmSelect, pmStep,
+  accept: () => acceptEditing(), cancel: () => cancelEditing(), exitSketch, switchDocument, setMaterial,
+  openSample: (id) => openSampleAsk(id), newDocument: (kind) => newDocument(kind), massProperties: () => massPropertiesRows(),
+  // A recorded sketch's contents put into the sketch being edited (then solved and drawn).
+  setSketch: (g) => {
+    const e = state.editing;
+    if (e?.mode !== 'sketch') throw new Error(t('macro.noSketch'));
+    const ed = e.editor;
+    ed.feature.entities = structuredClone(g.entities ?? []); ed.feature.constraints = structuredClone(g.constraints ?? []);
+    ed.selection = []; ed.pending = []; ed.chain = null;
+    ed.solve(); ed.commit('op.macro');
+  },
+  idle: () => new Promise((resolve) => setTimeout(resolve, 16)),
+});
+Object.assign(commands, macroTools.commands);
+
 // Standard parts library, smart fasteners, pipe / tube / cable routes and photo rendering (app-std.js).
 const std = createStdTools({
   state, t, notify, change, commit, syncView, renderAll, renderLeft, cancelEditing, ensureKernel, newId, fmt, fmtLen, parseLen, units, lang, fitView, saveExport, fileSafe,
@@ -2883,7 +3064,8 @@ function materialMenu(anchor) {
   return showMenu(items, anchor ?? anchorFor('material'), 'context', { handlers, header: { icon: 'material', title: t('cmd.material') } });
 }
 
-function setMaterial(id) {
+function setMaterial(id) { return recorder.around('material', [id], () => setMaterialImpl(id)); }
+function setMaterialImpl(id) {
   const part = activePart();
   if (!part) return;
   change('op.material', () => { part.material = id; });
@@ -2900,12 +3082,12 @@ function commandTip(id) {
 async function run(id, context) {
   const c = commands[id];
   if (!c || !commandEnabled(id)) return undefined;
-  try { return await c.run(context); } catch (error) { return showError('error.command', error, t(c.label)); }
+  try { return await recorder.around('run', [id], () => c.run(context)); } catch (error) { return showError('error.command', error, t(c.label)); }
 }
 
 const SUBMENUS = {
   newDoc: { icon: 'fileNew', items: ['newPart', 'newAssembly', 'newDrawing', '-', 'newProjectPart'] },
-  exportTo: { icon: 'exportFile', items: ['exportStep', 'exportStl', 'exportImage', '-', 'exportDxf', 'exportSvg'] },
+  exportTo: { icon: 'exportFile', items: ['exportStep', 'exportIges', 'exportStl', '-', 'exportMesh:glb', 'exportMesh:gltf', 'exportMesh:obj', 'exportMesh:ply', 'exportMesh:3mf', 'exportMesh:wrl', 'exportMesh:usdz', '-', 'exportImage', 'exportDxf', 'exportSvg'] },
   views: { icon: 'views', items: ['view:front', 'view:back', 'view:top', 'view:bottom', 'view:left', 'view:right', '-', 'view:iso', 'view:dimetric', 'view:trimetric', '-', 'normalTo'] },
   displayStyle: { icon: 'styleShaded', items: ['style:shadedEdges', 'style:shaded', 'style:hiddenRemoved', 'style:hiddenVisible', 'style:wireframe'] },
   show: { icon: 'eye', items: ['showPlanes', 'showOrigin', 'showSketches', '-', 'showRulers', 'showGrid', 'gridPlane:front', 'gridPlane:top', 'gridPlane:right', 'showScaleBar', '-', 'leftPanel', 'rightPanel', 'bottomPanel', 'statusBar', 'fps'] },
@@ -2959,7 +3141,7 @@ const COMMAND_TABS = {
   weldments: ['sketch', 'sketch3d', 'structural', 'trimExtend', '|', 'endCap', 'gusset', 'weldBead', '|', 'cutList'],
   mold: ['draftAnalysis', 'draft', 'partingLine', 'toolingSplit', 'shrink', 'split', 'cavity'],
   evaluate: ['massProps', 'measure', 'section', 'lights', 'interference', '|', 'simulation', 'draftAnalysis', '|', 'equations', 'configurations', 'designTable', 'importTable'],
-  assembly: ['insertComponent', 'mate', 'fixComponent', 'floatComponent', 'rotateComponent', 'openPart', '|', 'explode', 'resetExplode', 'motion', '|', 'interference', 'massProps'],
+  assembly: ['insertComponent', 'mate', 'fixComponent', 'floatComponent', 'rotateComponent', 'openPart', '|', 'explode', 'resetExplode', 'motion', '|', 'illustration', 'ilAddView', 'ilPlay', 'ilExportHtml', '|', 'interference', 'massProps'],
   drawing: ['newDrawing', 'std3View', 'addView', 'sectionView', 'detailView', 'auxView', '|', 'ann:note', 'ann:balloon', 'ann:gdt', 'ann:datum', 'ann:surface', 'ann:centermark', 'bom', '|', 'hiddenLines', 'autoDims', '|', 'exportDxf', 'exportSvg', 'print'],
 };
 for (const [tab, ids] of Object.entries(more.TABS)) COMMAND_TABS[tab]?.push('|', ...ids);
@@ -2967,6 +3149,10 @@ more.extendMenus(MENUS);
 COMMAND_TABS.stdTools = std.TAB;
 Object.assign(COMMAND_TABS, mfgTools.TABS);
 mfgTools.extendMenus(SUBMENUS, MENUS);
+SUBMENUS.illustration = { icon: 'illustration', items: ['illustration', 'ilAddView', 'ilPlay', '-', 'ilExportSvg', 'ilExportHtml'] };
+SUBMENUS.macros = { icon: 'macroEditor', items: ['macroRecord', 'macroStop', '-', 'macroRun', 'macroEditor'] };
+MENUS.tools?.push({ sub: 'illustration' }, 'schematic', 'schFromTo', '-', 'designCheck', 'taskScheduler', { sub: 'macros' });
+COMMAND_TABS.evaluate?.push('|', 'designCheck');
 SUBMENUS.stdRouting = std.SUBMENU;
 MENUS.insert.push('-', sub('stdRouting'));
 MENUS.view.splice(MENUS.view.indexOf('lights') + 1, 0, 'renderView');
@@ -3518,6 +3704,9 @@ function renderStatus() {
   const e = state.editing;
   const hint = notice?.text ?? (e?.mode === 'sketch' ? t(`sketch.hint.${e.editor.tool}`, null, t('sketch.hint.select')) : e?.mode === 'feature' && e.pick ? t(`pm.pickHint.${e.pick}`, null, t('pm.pickNow')) : e?.mode === 'sketchPlane' ? t('notice.pickSketchPlane') : t('status.ready'));
   const items = [`<span class="status-notice ${notice?.kind ?? 'hint'}" title="${escapeHtml(hint)}">${icon(notice?.kind === 'error' ? 'error' : notice?.kind === 'success' ? 'check' : 'info')}<span>${escapeHtml(hint)}</span></span>`];
+  // A macro being recorded (click: stop) or played.
+  if (recorder.on) items.push(`<button class="status-item macro-rec" data-command="macroStop" title="${escapeHtml(t('macro.stopRecording'))}">${icon('macroRecord')}<span>${escapeHtml(t('macro.rec', { count: recorder.steps.length }))}</span></button>`);
+  else if (state.macro?.running) items.push(`<button class="status-item macro-play" data-command="macroStop" title="${escapeHtml(t('cmd.macroStop'))}">${icon('macroRun')}<span>${escapeHtml(t('macro.playing'))}</span></button>`);
   if (hasDoc()) {
     if (e?.mode === 'sketch') {
       const ed = e.editor;
@@ -3805,10 +3994,45 @@ async function readBytes(path, op) {
 
 const isStepName = (name) => /\.(step|stp)$/i.test(name);
 const isStlName = (name) => /\.stl$/i.test(name);
+const isIgesName = (name) => /\.(igs|iges)$/i.test(name);
+const isMeshName = (name) => MESH_IMPORT_EXTENSIONS.includes(String(name).toLowerCase().split('.').pop());
+const isModelName = (name) => isStepName(name) || isIgesName(name) || isStlName(name) || isMeshName(name);
+
+/** Mesh exports: format id → extension, MIME type and writer (cad/mesh-formats.js). */
+const MESH_EXPORTS = {
+  glb: { ext: 'glb', mime: 'model/gltf-binary', write: writeGlb },
+  gltf: { ext: 'gltf', mime: 'model/gltf+json', write: writeGltf },
+  obj: { ext: 'obj', mime: 'model/obj', write: writeObj },
+  ply: { ext: 'ply', mime: 'application/vnd.ply', write: writePly },
+  wrl: { ext: 'wrl', mime: 'model/vrml', write: writeVrml },
+  '3mf': { ext: '3mf', mime: 'model/3mf', write: write3mf },
+  usdz: { ext: 'usdz', mime: 'model/vnd.usdz+zip', write: writeUsdz },
+};
+
+// The exchange-format worker (workers/formats-worker.js: the full OpenCASCADE build, loaded on first use). Without
+// workers (Node) the conversion runs here.
+let formatsWorker = null; let formatsRequests = 0;
+function formatsRequest(message) {
+  if (typeof Worker === 'undefined') {
+    return import('./cad/occt-full.js').then((m) => (message.kind === 'import-iges' ? m.igesToBrep(message.data) : m.brepToIges(message.brep, message)));
+  }
+  formatsWorker ??= new Worker(new URL('./workers/formats-worker.js', import.meta.url), { type: 'module' });
+  const id = ++formatsRequests;
+  return new Promise((resolve, reject) => {
+    const onMessage = (event) => {
+      const m = event.data;
+      if (m?.id !== id) return;
+      formatsWorker.removeEventListener('message', onMessage);
+      if (m.type === 'done') resolve(m.result); else reject(Object.assign(new Error(m.message), { code: m.code }));
+    };
+    formatsWorker.addEventListener('message', onMessage);
+    formatsWorker.postMessage({ ...message, id });
+  });
+}
 
 async function openPath(path, { quiet = false } = {}) {
   const name = baseName(path);
-  if (isStepName(name) || isStlName(name)) return importModelFile(name, await readBytes(path, ''));
+  if (isModelName(name)) return importModelFile(name, await readBytes(path, ''));
   if (!(await confirmReplace())) return null;
   try {
     const text = await withProgress('progress.open', name, (op) => native.readTextFile(path, op));
@@ -3823,7 +4047,7 @@ async function openPath(path, { quiet = false } = {}) {
 
 async function openContent(name, content, handle = null) {
   const bytes = typeof content === 'string' ? new TextEncoder().encode(content) : content;
-  if (isStepName(name) || isStlName(name)) return importModelFile(name, bytes);
+  if (isModelName(name)) return importModelFile(name, bytes);
   if (!(await confirmReplace())) return null;
   try {
     const p = unpackProject(bytes);
@@ -3930,8 +4154,17 @@ async function closeProject({ force = false } = {}) {
   return true;
 }
 
+/** Where exports go while a task runs (app-tasks.js): sink(name, type, content, mime) instead of a dialog. */
+let exportSink = null;
+async function withExportSink(sink, job) {
+  const before = exportSink;
+  exportSink = sink;
+  try { return await job(); } finally { exportSink = before; }
+}
+
 /** Saves bytes / text as a file (desktop: a save dialog; web: the save picker or a download). */
 async function saveExport(name, type, content, mime = 'application/octet-stream') {
+  if (exportSink) return exportSink(name, type, content, mime);
   try {
     if (desktop) {
       const dir = state.settings.lastDirectory;
@@ -3967,6 +4200,17 @@ async function exportModel(format) {
   if (format === 'step') {
     const blob = shapes.length === 1 && part ? shapes[0].shape.blobSTEP() : R.exportSTEP(shapes);
     await saveExport(`${base}.step`, 'step', blob, 'model/step');
+  } else if (format === 'iges') {
+    const shape = shapes.length === 1 ? shapes[0].shape : R.makeCompound(shapes.map((s) => s.shape));
+    const text = await busy('progress.export', `${base}.igs`, () => formatsRequest({ kind: 'export-iges', brep: shape.serialize(), unit: state.settings.units === 'in' ? 'IN' : 'MM', mode: 'brep' }));
+    await saveExport(`${base}.igs`, 'iges', new Blob([text], { type: 'model/iges' }), 'model/iges');
+  } else if (MESH_EXPORTS[format]) {
+    // Mesh formats: every body tessellated (the STL export's tolerance), its part colour kept.
+    const rgb = (hex) => { const m = /^#?([0-9a-f]{6})$/i.exec(String(hex ?? '')); const v = m ? parseInt(m[1], 16) : 0xb3b3b3; return [(v >> 16 & 255) / 255, (v >> 8 & 255) / 255, (v & 255) / 255]; };
+    const items = shapes.map((s) => { const m = s.shape.mesh({ tolerance: 0.02, angularTolerance: 0.2 }); return { name: s.name, color: rgb(s.color), vertices: Float32Array.from(m.vertices), triangles: Uint32Array.from(m.triangles) }; });
+    const { ext, mime, write } = MESH_EXPORTS[format];
+    const data = write(items);
+    await saveExport(`${base}.${ext}`, format, data instanceof Uint8Array ? new Blob([data], { type: mime }) : new Blob([data], { type: mime }), mime);
   } else {
     const shape = shapes.length === 1 ? shapes[0].shape : R.makeCompound(shapes.map((s) => s.shape));
     const blob = shape.blobSTL({ tolerance: 0.02, angularTolerance: 0.2, binary: true });
@@ -4034,12 +4278,61 @@ async function importStepDialog() {
   } catch (error) { showError('error.import', error); }
 }
 
+/** The body of a neutral model file (STEP, IGES, STL and the mesh formats). `warn(key, args)` for what was off. */
+async function shapeFromModel(name, bytes, warn = (key, args) => notify('warning', t(key, args))) {
+  await ensureKernel();
+  const R = rep();
+  if (isStlName(name)) return importStlSolid(bytes);
+  if (isMeshName(name)) {
+    const got = importMeshSolids(name, bytes);
+    if (got.skipped.length) warn('notice.meshSkipped', { count: got.skipped.length });
+    return got.shape;
+  }
+  if (isIgesName(name)) {
+    const got = pickSolid(R.deserializeShape(await formatsRequest({ kind: 'import-iges', data: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) })));
+    if (!got.solid) warn('notice.igesOpen');
+    return got.shape;
+  }
+  return R.importSTEP(new Blob([bytes]));
+}
+
+/** A neutral model file as a new project with one part (its imported body) — the task scheduler's import. */
+async function projectFromModel(name, bytes) {
+  const shape = await shapeFromModel(name, bytes, () => {});
+  const part = createPart(stripExtension(name));
+  part.features.push(createFeature(part, 'import', { brep: shape.serialize(), source: name, name: stripExtension(name) }));
+  const p = createProject({ name: stripExtension(name), kind: 'none' });
+  p.parts.push(part);
+  p.active = { kind: 'part', id: part.id };
+  return p;
+}
+
+/**
+ * Runs `job` with `projectData` as the open document (in the background: nothing is shown), then puts the user's
+ * document back as it was — its selection, its editing mode and its built parts.
+ */
+async function withDocument(projectData, job) {
+  const keep = { doc: state.doc, selection: state.selection, drawingSelected: state.drawingSelected, editing: state.editing };
+  const keepBuilds = new Map(builds), keepProjections = new Map(projectionCache);
+  state.doc = new Doc(projectData, { name: projectData.name });
+  state.selection = []; state.drawingSelected = null;
+  builds.clear(); projectionCache.clear();
+  try { return await job(); }
+  finally {
+    Object.assign(state, keep);
+    builds.clear(); for (const [k, v] of keepBuilds) builds.set(k, v);
+    projectionCache.clear(); for (const [k, v] of keepProjections) projectionCache.set(k, v);
+    if (state.doc && activeAssembly()) solveAssembly();
+    renderAll(); syncView();
+    if (activeKind() === 'drawing') renderDrawing();
+  }
+}
+
 /** A STEP (or STL) file becomes a part with an imported body (new project, or a part of the open one). */
 async function importModelFile(name, bytes) {
   await ensureKernel();
-  const R = rep();
   try {
-    const shape = await busy('progress.import', name, async () => (isStlName(name) ? importStlSolid(bytes) : R.importSTEP(new Blob([bytes]))));
+    const shape = await busy('progress.import', name, () => shapeFromModel(name, bytes));
     const part = createPart(stripExtension(name));
     part.features.push(createFeature(part, 'import', { brep: shape.serialize(), source: name, name: stripExtension(name) }));
     if (hasDoc() && project()) {
@@ -4146,7 +4439,7 @@ function treeContextMenu(key, event) {
   if (key.startsWith('comp:')) return showMenu(menuItems(['openPart', 'rename', 'fixComponent', 'floatComponent', 'rotateComponent', '-', 'delete']), anchor, 'context', { header: { icon: 'part', title: activeAssembly()?.components.find((c) => c.id === key.slice(5))?.name ?? '' } });
   if (key.startsWith('mate:')) return showMenu(menuItems(['rename', 'delete']), anchor, 'context', { header: { icon: 'mate', title: activeAssembly()?.mates.find((m) => m.id === key.slice(5))?.name ?? '' } });
   if (key === 'material') return materialMenu(anchor);
-  if (key === 'doc') return showMenu(menuItems(['rename', 'rebuild', 'massProps', '-', 'newDrawing', 'exportStep', 'exportStl']), anchor, 'context', { header: { icon: activeKind(), title: active()?.name ?? '' } });
+  if (key === 'doc') return showMenu(menuItems(['rename', 'rebuild', 'massProps', '-', 'newDrawing', 'exportStep', 'exportIges', 'exportStl']), anchor, 'context', { header: { icon: activeKind(), title: active()?.name ?? '' } });
   return undefined;
 }
 
@@ -4179,7 +4472,8 @@ async function openDocWindow(kind) {
 
 // ───────────────────────── PropertyManager input
 
-function pmFieldChanged(key, raw, unit) {
+function pmFieldChanged(key, raw, unit) { return recorder.around('pmField', [key, raw, unit ?? null], () => pmFieldChangedImpl(key, raw, unit)); }
+function pmFieldChangedImpl(key, raw, unit) {
   const e = state.editing;
   if (!e) return;
   const v = parseLen(raw, unit === 'length' ? 'length' : 'number');
@@ -4237,7 +4531,8 @@ function pmFieldChanged(key, raw, unit) {
   updateFeature((f) => { f[key] = value; if (f.exprs?.[key]) { delete f.exprs[key]; if (!Object.keys(f.exprs).length) delete f.exprs; } if (key === 'diameter') delete f.size; if (key === 'pitch' && f.type === 'thread') delete f.size; });
 }
 
-function pmStep(key, delta) {
+function pmStep(key, delta) { return recorder.around('pmStep', [key, delta], () => pmStepImpl(key, delta)); }
+function pmStepImpl(key, delta) {
   if (std.owns(state.editing)) return std.step(key, delta);
   const e = state.editing;
   if (e?.mode === 'sketch' && key === 'polygonSides') { e.editor.polygonSides = Math.max(3, e.editor.polygonSides + delta); renderLeft(); return; }
@@ -4249,7 +4544,8 @@ function pmStep(key, delta) {
   pmFieldChanged(key, String(cur + delta * step), 'number');
 }
 
-function pmSet(key, value) {
+function pmSet(key, value) { return recorder.around('pmSet', [key, value], () => pmSetImpl(key, value)); }
+function pmSetImpl(key, value) {
   const e = state.editing;
   if (more.owns(e)) return more.set(key, value);
   if (std.owns(e)) return std.set(key, value);
@@ -4283,7 +4579,8 @@ function pmSet(key, value) {
   if (key === 'axisKind' && value === 'edge') { e.pick = 'axis'; renderLeft(); }
 }
 
-function pmToggle(key, checked) {
+function pmToggle(key, checked) { return recorder.around('pmToggle', [key, checked], () => pmToggleImpl(key, checked)); }
+function pmToggleImpl(key, checked) {
   const e = state.editing;
   if (more.owns(e)) return more.toggle(key, checked);
   if (std.owns(e)) return std.toggle(key, checked);
@@ -4307,7 +4604,8 @@ function pmToggle(key, checked) {
   });
 }
 
-function pmSelect(key, value) {
+function pmSelect(key, value) { return recorder.around('pmSelect', [key, value], () => pmSelectImpl(key, value)); }
+function pmSelectImpl(key, value) {
   const e = state.editing;
   if (std.select(key, value)) return undefined;
   if (['simulation', 'motion', 'equations', 'configs'].includes(e?.mode)) return customSelect(key, value);
@@ -4333,7 +4631,8 @@ function pmSelect(key, value) {
   updateFeature((f) => { f[key] = value || null; if (key === 'sketch' && f.type === 'revolve') f.axis = null; });
 }
 
-async function pmCommand(cmd) {
+function pmCommand(cmd) { return recorder.around('pmCommand', [cmd], () => pmCommandImpl(cmd)); }
+async function pmCommandImpl(cmd) {
   const e = state.editing;
   const [name, arg] = cmd.split(':');
   if (name === 'ok') return acceptEditing();
@@ -4856,6 +5155,8 @@ async function start() {
   renderAll();
   const welcome = state.settings.showWelcome && state.showStart && !globalThis.__MYMECHANICS_NO_WELCOME && !new URLSearchParams(location.search).has('nowelcome');
   if (desktop) await appWindow.show();
+  // Scheduled tasks run while the application is open (one instance: the first window only).
+  if (!state.instance || state.instance.first) taskTools.startTimer();
   if (welcome) openWelcome();
   else if (welcomeLikely) popups.close('welcome');
   if (desktop) {
@@ -4890,6 +5191,11 @@ window.__mymechanics = {
 };
 window.__mymechanics.sim2 = more.sim2;
 window.__mymechanics.mfg = mfgTools.api;
+window.__mymechanics.illustration = illTools.api;
+window.__mymechanics.schematic = schTools.api;
+window.__mymechanics.designCheck = dcTools.api;
+window.__mymechanics.tasks = taskTools.api;
+window.__mymechanics.macro = macroTools.api;
 window.__mymechanics.pdm = pdm.api;
 
 start()

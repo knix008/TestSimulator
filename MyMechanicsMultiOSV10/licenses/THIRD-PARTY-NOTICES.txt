@@ -3,6 +3,8 @@ MyMechanics — third-party software
 This application includes the following open-source packages. Their licence texts are in this folder.
 Packages under the LGPL (OpenCASCADE via replicad-opencascadejs) are loaded from separate files (a WebAssembly module) and can be replaced.
 
+@fontsource/roboto 5.3.0 — OFL-1.1 — https://fontsource.org/fonts/roboto
+  fontsource-roboto.LICENSE.txt
 @tauri-apps/api 2.12.5 — Apache-2.0 OR MIT — https://github.com/tauri-apps/tauri#readme
   tauri-apps-api.LICENSE-APACHE-2.0.txt, tauri-apps-api.LICENSE-MIT.txt
 @tauri-apps/plugin-dialog 2.8.4 — MIT OR Apache-2.0

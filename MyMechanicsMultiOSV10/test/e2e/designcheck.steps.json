@@ -1,0 +1,45 @@
+[
+  {
+    "name": "design check: a sample project, the checker opens from the Tools menu command with all rules on",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.actions.ensureKernel(); await m.actions.openSampleAsk('flange'); await sleep(1200); m.actions.updateSettings?.({ designStandard: null }, { quiet: true }); m.run('designCheck'); await sleep(300); const pm = document.querySelector('.left-pm-body'); return JSON.stringify({ mode: m.state.editing?.mode, rules: pm.querySelectorAll('.dc-rule').length, on: pm.querySelectorAll('.dc-rule input:checked').length, run: Boolean(pm.querySelector('[data-pm=\"dc.run\"]')) }); })()",
+    "expect": "\"mode\":\"designCheck\",\"rules\":23,\"on\":23,\"run\":true"
+  },
+  {
+    "name": "design check: a drawing with faults is added; Check lists them with their severities, rebuild and mates ran",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const p = m.state.doc ? m.state.doc.project : m.project; const proj = m.actions.project ? m.actions.project() : p; m.actions.change('op.designFix', (pr) => { const part = pr.parts[0]; part.partNo = ''; const d = { id: 'drw-dc', name: 'DC drawing', source: { kind: 'part', id: part.id }, sheet: 'Letter', projection: 'third', format: { standard: 'ANSI', zones: true }, scale: 1, autoScale: true, views: [{ id: 'v-front', type: 'front' }], title: { drawnBy: 'K', checkedBy: '', date: '2026.1.5', partNo: '', revision: 'a' }, annotations: [{ id: 'dd1', kind: 'drwDim', view: 'v-front', dtype: 'horizontal', precision: 4 }, { id: 'nn1', kind: 'note', text: 'small', size: 1.5 }, { id: 'dd2', kind: 'drwDim', view: 'v-lost' }], notes: [], bom: { show: false } }; pr.drawings.push(d); }); await sleep(200); m.run('designCheck'); await sleep(100); if (m.state.editing?.mode !== 'designCheck') m.run('designCheck'); await sleep(200); document.querySelector('[data-pm=\"dc.run\"]').click(); await sleep(600); const r = m.designCheck.result(); const rules = [...new Set(r.findings.map((f) => f.rule))]; const want = ['danglingAnnotations', 'dateFormat', 'dimPrecision', 'drawingStandard', 'partProps', 'revision', 'sheetSizes', 'textHeight', 'titleBlock']; const has = want.filter((x) => !rules.includes(x)); const list = document.querySelectorAll('.dc-finding').length; return JSON.stringify({ missing: has, list: list === r.findings.length, skipped: r.skipped.length, errors: r.counts.error > 0 }); })()",
+    "expect": "\"missing\":\\[\\],\"list\":true,\"skipped\":0,\"errors\":true"
+  },
+  {
+    "name": "design check: the severity filter shows only the errors",
+    "eval": "(async () => { const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); document.querySelector('[data-pm-set=\"dcFilter\"][data-value=\"error\"]').click(); await sleep(200); const shown = [...document.querySelectorAll('.dc-finding')]; const ok = shown.length > 0 && shown.every((li) => li.classList.contains('dc-error')); document.querySelector('[data-pm-set=\"dcFilter\"][data-value=\"all\"]').click(); await sleep(150); return JSON.stringify({ ok }); })()",
+    "expect": "\"ok\":true"
+  },
+  {
+    "name": "design check: a finding opens its drawing and selects the annotation, the checker stays open",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const r = m.designCheck.result(); const i = r.findings.findIndex((f) => f.rule === 'textHeight'); document.querySelector(`[data-pm=\"dc.go:${i}\"]`).click(); await sleep(800); return JSON.stringify({ active: m.project?.active?.id ?? (m.actions.project?.() ?? {}).active?.id, selected: m.state.drawingSelected, mode: m.state.editing?.mode, kept: Boolean(m.designCheck.result()) }); })()",
+    "expect": "\"active\":\"drw-dc\",\"selected\":\"nn1\",\"mode\":\"designCheck\",\"kept\":true"
+  },
+  {
+    "name": "design check: one correction (the text height), then Correct all; what is left cannot be corrected; one undo brings the faults back",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); let r = m.designCheck.result(); const i = r.findings.findIndex((f) => f.rule === 'textHeight'); document.querySelector(`[data-pm=\"dc.fix:${i}\"]`).click(); await sleep(500); r = m.designCheck.result(); const one = !r.findings.some((f) => f.rule === 'textHeight'); document.querySelector('[data-pm=\"dc.fixAll\"]').click(); await sleep(600); r = m.designCheck.result(); const left = ['partProps', 'sheetSizes', 'titleBlock'].every((x) => r.findings.some((f) => f.rule === x)) && !r.findings.some((f) => ['drawingStandard', 'revision', 'dateFormat', 'dimPrecision', 'danglingAnnotations', 'textHeight'].includes(f.rule)); const fixable = r.findings.filter((f) => f.fixable).length; const drw = (m.actions.project?.() ?? m.project).drawings.find((d) => d.id === 'drw-dc'); const state = { std: drw.format.standard, proj: drw.projection, rev: drw.title.revision, date: drw.title.date, prec: drw.annotations.find((a) => a.id === 'dd1').precision, gone: !drw.annotations.some((a) => a.id === 'dd2') }; await m.actions.undo(); await sleep(400); document.querySelector('[data-pm=\"dc.run\"]').click(); await sleep(500); const back = m.designCheck.result().findings.some((f) => f.rule === 'drawingStandard'); return JSON.stringify({ one, left, fixable, ...state, back }); })()",
+    "expect": "\"one\":true,\"left\":true,\"fixable\":0,\"std\":\"ISO\",\"proj\":\"first\",\"rev\":\"A\",\"date\":\"2026-01-05\",\"prec\":2,\"gone\":true,\"back\":true"
+  },
+  {
+    "name": "design check: a rule turned off and a value changed in the panel are kept in the standard and change the check",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const box = document.querySelector('[data-pm-toggle=\"dcOn:sheetSizes\"]'); box.click(); await sleep(250); document.querySelector('[data-pm=\"dc.open:dimPrecision\"]').click(); await sleep(250); const input = document.querySelector('[data-pm-field=\"dcp:dimPrecision:max\"]'); input.value = '5'; input.dispatchEvent(new Event('change', { bubbles: true })); await sleep(250); document.querySelector('[data-pm=\"dc.run\"]').click(); await sleep(500); const s = m.designCheck.standard(); const r = m.designCheck.result(); return JSON.stringify({ off: s.rules.sheetSizes.on === false, max: s.rules.dimPrecision.max, noSheet: !r.findings.some((f) => f.rule === 'sheetSizes'), noPrec: !r.findings.some((f) => f.rule === 'dimPrecision'), settings: m.state.settings.designStandard?.rules?.sheetSizes?.on === false }); })()",
+    "expect": "\"off\":true,\"max\":5,\"noSheet\":true,\"noPrec\":true,\"settings\":true"
+  },
+  {
+    "name": "design check: the report and the standard are saved (no dialog); a saved standard loads back; a bad file is refused",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const saved = {}; window.showSaveFilePicker = async (o) => ({ name: o?.suggestedName ?? 'x', createWritable: async () => ({ write: async (b) => { saved[o?.suggestedName ?? 'x'] = typeof b === 'string' ? b : await b.text(); }, close: async () => {} }) }); document.querySelector('[data-pm=\"dc.report\"]').click(); document.querySelector('[data-pm=\"dc.save\"]').click(); for (let i = 0; i < 40 && Object.keys(saved).length < 2; i++) await sleep(100); const names = Object.keys(saved).sort(); const html = saved[names.find((n) => n.endsWith('.html'))] ?? ''; const std = saved[names.find((n) => n.endsWith('.mmstd'))] ?? '{}'; const changed = JSON.parse(std); changed.name = 'Loaded std'; changed.rules.textHeight.min = 4; const ok = await m.designCheck.loadStandardFile(JSON.stringify(changed)); const bad = await m.designCheck.loadStandardFile('{\"format\":\"other\"}'); await sleep(200); return JSON.stringify({ names: names.length, report: /<table>/.test(html) && /Part properties|부품 속성/.test(html), std: JSON.parse(std).format, ok, bad, name: m.designCheck.standard().name, min: m.designCheck.standard().rules.textHeight.min }); })()",
+    "expect": "\"names\":2,\"report\":true,\"std\":\"mymechanics-standard\",\"ok\":true,\"bad\":false,\"name\":\"Loaded std\",\"min\":4"
+  },
+  {
+    "shot": "designcheck"
+  },
+  {
+    "name": "design check: learning from the project takes its drawing standard (ANSI again after the undo); closing the checker leaves the mode",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); document.querySelector('[data-pm=\"dc.learn\"]').click(); await sleep(300); const s = m.designCheck.standard(); m.run('designCheck'); await sleep(200); m.actions.updateSettings?.({ designStandard: null }, { quiet: true }); return JSON.stringify({ learnt: /learnt|배운/.test(s.name), std: s.rules.drawingStandard.standard, mode: m.state.editing?.mode ?? null }); })()",
+    "expect": "\"learnt\":true,\"std\":\"ANSI\",\"mode\":null"
+  }
+]

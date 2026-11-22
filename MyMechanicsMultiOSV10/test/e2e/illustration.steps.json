@@ -1,0 +1,35 @@
+[
+  {
+    "name": "illustration: kernel and the vice assembly",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.ensureKernel(); await m.actions.openSampleAsk('asmVice'); await new Promise((r) => setTimeout(r, 1500)); return m.active()?.components ? 'assembly' : 'no'; })()",
+    "expect": "^assembly$",
+    "timeout": 120000
+  },
+  {
+    "name": "illustration: the page opens from its command; two views are added (the second turned and fully exploded)",
+    "eval": "(async () => { const m = window.__mymechanics; const il = m.illustration; m.run('illustration'); await new Promise((r) => setTimeout(r, 300)); il.addView(); await new Promise((r) => setTimeout(r, 300)); m.viewport.rotateBy(120, 40); il.addView(); await new Promise((r) => setTimeout(r, 300)); m.actions.pmFieldChanged('ilExplode', '100', 'number'); await new Promise((r) => setTimeout(r, 600)); const v = il.views(); const moved = m.active().components.filter((c) => { const p = m.state.motionPose?.get(c.id); return p && Math.hypot(...p.position.map((x, k) => x - c.position[k])) > 1; }).length; return JSON.stringify({ mode: m.state.editing?.mode, views: v.length, explode: v[1]?.explode, turned: Math.abs(v[0].camera.dir[0] - v[1].camera.dir[0]) + Math.abs(v[0].camera.dir[1] - v[1].camera.dir[1]) > 0.1, moved: moved > 0, rows: document.querySelectorAll('#left-panel .il-row').length }); })()",
+    "expect": "\"mode\":\"illustration\",\"views\":2,\"explode\":1,\"turned\":true,\"moved\":true,\"rows\":2"
+  },
+  {
+    "name": "illustration: automatic balloons and a hidden component in the selected view (shown hidden in the graphics area)",
+    "eval": "(async () => { const m = window.__mymechanics; const il = m.illustration; await il.command('il.auto'); await new Promise((r) => setTimeout(r, 300)); const comp = m.active().components[0].id; il.toggleHidden(comp); await new Promise((r) => setTimeout(r, 400)); const v = il.views()[1]; return JSON.stringify({ balloons: v.callouts.length > 0, hidden: v.hidden.includes(comp), shownHidden: Boolean(m.state.viewHidden?.has(comp)) }); })()",
+    "expect": "\"balloons\":true,\"hidden\":true,\"shownHidden\":true"
+  },
+  {
+    "name": "illustration: playing moves through the views and stops on the last one",
+    "eval": "(async () => { const m = window.__mymechanics; const il = m.illustration; il.select(il.views()[0].id); await new Promise((r) => setTimeout(r, 200)); m.actions.updateSettings ? null : null; il.play(); const was = il.playing(); for (let i = 0; i < 100 && il.playing(); i++) await new Promise((r) => setTimeout(r, 100)); return JSON.stringify({ started: was, ended: !il.playing(), last: m.state.editing?.sel === il.views().at(-1).id }); })()",
+    "expect": "\"started\":true,\"ended\":true,\"last\":true",
+    "timeout": 60000
+  },
+  {
+    "name": "illustration: line art SVG and the stepping HTML document are exported (no dialog)",
+    "eval": "(async () => { const m = window.__mymechanics; const il = m.illustration; const saved = []; window.showSaveFilePicker = async (o) => ({ name: o?.suggestedName ?? 'x', createWritable: async () => ({ write: async (b) => { saved.push(typeof b === 'string' ? b : await b.text()); }, close: async () => {} }) }); await il.exportSvg(); await il.exportHtml(); for (let i = 0; i < 100 && saved.length < 2; i++) await new Promise((r) => setTimeout(r, 100)); const svg = saved[0] ?? ''; const html = saved[1] ?? ''; return JSON.stringify({ svg: /^<svg/.test(svg) && /class=\"visible\"/.test(svg) && /class=\"balloon\"/.test(svg) && /class=\"bom\"/.test(svg), html: /^<!doctype html>/.test(html) && (html.match(/class=\"step\"/g) ?? []).length === 2 }); })()",
+    "expect": "\"svg\":true,\"html\":true",
+    "timeout": 120000
+  },
+  {
+    "name": "illustration: leaving the page puts the assembly back (no exploded or hidden display left)",
+    "eval": "(async () => { const m = window.__mymechanics; m.run('illustration'); await new Promise((r) => setTimeout(r, 300)); return JSON.stringify({ mode: m.state.editing?.mode ?? null, pose: m.state.motionPose ?? null, hidden: m.state.viewHidden ?? null }); })()",
+    "expect": "\"mode\":null,\"pose\":null,\"hidden\":null"
+  }
+]

@@ -11,6 +11,9 @@
 // Exported SVG embeds the Roboto files (fontFaceCss()), so the sheet looks the same where Roboto is not installed
 // (the OFL allows embedding; the Korean system fonts are not embedded — their licences do not allow it).
 import { rep } from './kernel.js';
+// Node-only modules (the unit tests), named through variables: Vite leaves a non-literal specifier alone.
+const NODE_FS = 'node:fs';
+const NODE_URL = 'node:url';
 
 /** The font list of every text of the drawing sheet (SVG and print). */
 export const DRAWING_FONT = 'Roboto,"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif';
@@ -60,7 +63,7 @@ export async function loadDrawingFonts(regularBytes = null) {
   try {
     let bold;
     if (isNode) {
-      const fs = await import(/* @vite-ignore */ 'node:fs'); const { fileURLToPath } = await import(/* @vite-ignore */ 'node:url');
+      const fs = await import(/* @vite-ignore */ NODE_FS); const { fileURLToPath } = await import(/* @vite-ignore */ NODE_URL);
       bold = bytesOfFile(fs.readFileSync(fileURLToPath(new URL('../../node_modules/@fontsource/roboto/files/roboto-latin-700-normal.woff', import.meta.url))));
     } else {
       const url = (await import('@fontsource/roboto/files/roboto-latin-700-normal.woff?url')).default;
@@ -71,7 +74,7 @@ export async function loadDrawingFonts(regularBytes = null) {
   } catch (error) { console.warn('drawing bold font', error); }
   if (isNode && !cjkFont()) {
     try {
-      const fs = await import(/* @vite-ignore */ 'node:fs');
+      const fs = await import(/* @vite-ignore */ NODE_FS);
       for (const [regular, boldFile] of CJK_FILES) {
         if (!fs.existsSync(regular)) continue;
         fonts.set(CJK_FAMILY, await R.loadFont(bytesOfFile(fs.readFileSync(regular)), CJK_FAMILY, true));

@@ -88,6 +88,9 @@ export function latticeRun(config) {
     const sp = inlet === 'velocity' && !(config.ramp > 0) ? flowSign * (inletProfile ? 0 : uIn) : 0, u0 = config.initialVelocity ? config.initialVelocity.slice() : [0, 0, 0]; if (!config.initialVelocity) u0[flowAxis] = sp;
     feqCell(1, u0[0], u0[1], u0[2], f, Q * s);
   }
+  // Warm start from an earlier run on the same grid (the nested blocks' coupling iterations); taken over, not copied.
+  const init = config.initialState;
+  if (init && init.length === Q * N) { if (init instanceof f.constructor) f = init; else f.set(init); }
   // Streaming table: ≥ 0 destination index in g; −1 open (dropped); −2 bounce from the body; −3 bounce from a wall.
   const dest = new Int32Array(Q * N);
   const c = [0, 0, 0], p = [0, 0, 0];
@@ -195,12 +198,33 @@ export function latticeRun(config) {
     }
     // Nested block: its outer cells take the coarser solution as a velocity inlet (its u, their own ρ) on the upstream
     // face and the sides, and a pressure outlet (its ρ, their own u) downstream — like the domain's own boundaries.
-    // Holding both ρ and u everywhere over-constrains the block (drag 8 % high against a uniform fine grid).
+    // Holding both ρ and u on a block's edge over-constrains it (drag 8 % high against a uniform fine grid); mode 2
+    // holds both, for the coarser grid's cells covered by a finer block (its solution fed back: two-way nesting).
     if (fixedCells) for (let q2 = 0; q2 < fixedCells.cells.length; q2++) {
-      const sc = fixedCells.cells[q2]; const o = Q * sc;
+      const sc = fixedCells.cells[q2]; const o = Q * sc, mode = fixedCells.outlet[q2];
+      if (mode === 2) { feqCell(fixedCells.rho[q2], fixedCells.vel[3 * q2], fixedCells.vel[3 * q2 + 1], fixedCells.vel[3 * q2 + 2], g, o); continue; }
+      // Non-equilibrium extrapolation from the neighbour inward (as on the domain's open faces): a bare equilibrium
+      // edge drops the viscous stress there and distorts the block's flow a few cells deep.
+      const t = fixedCells.inner ? fixedCells.inner[q2] : -1;
+      if (t >= 0) {
+        const mt = moments(g, t);
+        if (mode) feqCell(fixedCells.rho[q2], mt[1], mt[2], mt[3], tmp, 0); else feqCell(mt[0], fixedCells.vel[3 * q2], fixedCells.vel[3 * q2 + 1], fixedCells.vel[3 * q2 + 2], tmp, 0);
+        feqCell(mt[0], mt[1], mt[2], mt[3], nb, 0);
+        for (let q = 0; q < Q; q++) g[o + q] = tmp[q] + (g[Q * t + q] - nb[q]);
+        continue;
+      }
       let r0 = 0, x = 0, y = 0, z = 0; for (let q = 0; q < Q; q++) { const v = g[o + q]; r0 += v; x += v * cx[q]; y += v * cy[q]; z += v * cz[q]; }
-      if (fixedCells.outlet[q2]) feqCell(fixedCells.rho[q2], x / r0, y / r0, z / r0, g, o);
+      if (mode) feqCell(fixedCells.rho[q2], x / r0, y / r0, z / r0, g, o);
       else feqCell(r0, fixedCells.vel[3 * q2], fixedCells.vel[3 * q2 + 1], fixedCells.vel[3 * q2 + 2], g, o);
+    }
+    // Absorbing layer inside a block's edge: the equilibrium part is nudged toward the driving solution (strength σ,
+    // fading inward), so eddies leaving the block are damped instead of reflected from its held edge.
+    const sp = fixedCells?.sponge;
+    if (sp) for (let q2 = 0; q2 < sp.cells.length; q2++) {
+      const o = Q * sp.cells[q2], sg = sp.sigma[q2];
+      let r0 = 0, x = 0, y = 0, z = 0; for (let q = 0; q < Q; q++) { const v = g[o + q]; r0 += v; x += v * cx[q]; y += v * cy[q]; z += v * cz[q]; }
+      feqCell(sp.rho[q2], sp.vel[3 * q2], sp.vel[3 * q2 + 1], sp.vel[3 * q2 + 2], tmp, 0); feqCell(r0, x / r0, y / r0, z / r0, nb, 0);
+      for (let q = 0; q < Q; q++) g[o + q] += sg * (tmp[q] - nb[q]);
     }
     const sw = f; f = g; g = sw;
 
@@ -256,7 +280,7 @@ export function latticeRun(config) {
   return {
     dims, rho, vel, temp, force: force_, torque: torque_, forceHistory, residuals, steps: steps_, converged: transient ? !unstable : converged, unstable,
     inletRho: avgRho(inletCells), outletRho: avgRho(outletCells), heatToFluid: averaged > 0 ? heatSum / averaged : heatToFluid,
-    uIn, tau, flowAxis, flowSign, collision, smagorinsky,
+    uIn, tau, flowAxis, flowSign, collision, smagorinsky, state: config.keepState ? f : undefined,
   };
 }
 
@@ -598,53 +622,136 @@ export function flowStudy(mesh, opts = {}) {
   // Body centre (cells) for the moments.
   const ctr = [0, 1, 2].map((a) => ((S.lo[a] + S.hi[a]) / 2 - origin[a]) / h - 0.5);
   const snapshots = [];
-  const lat = latticeRun({
+  const levels = mode === 'external' ? Math.max(0, Math.min(3, Math.round(opts.refine ?? 0))) : 0;
+  const coarseCfg = {
     dims, solid, qwall, flowAxis: fa, flowSign: sign, sides, tau, collision, smagorinsky: les, uIn: uLat, thermal: th, steps, minSteps: Math.min(steps, Math.round(1.5 * flowThrough)), tol: time.tol ?? 2e-7,
-    transient, samples: transient ? 200 : 100, center: ctr, cancel, ramp: Math.round(Math.min(steps * 0.2, 0.6 * flowThrough)),
-    onProgress: (f, info) => onProgress?.(0.05 + 0.9 * f, { stage: 'flow', ...info }),
-  });
+    transient, samples: transient ? 200 : 100, center: ctr, cancel, ramp: Math.round(Math.min(steps * 0.2, 0.6 * flowThrough)), keepState: levels > 0,
+    onProgress: (f, info) => onProgress?.(0.05 + (levels ? 0.45 : 0.9) * f, { stage: 'flow', ...info }),
+  };
+  let lat = latticeRun(coarseCfg);
   if (lat.unstable) return { ok: false, error: 'unstable', reynolds, tau, cells: N };
-  // Multi-resolution: nested blocks around the body, each with half the cell size, driven on their outer cells by the
-  // next coarser solution (one-way nesting, acoustic scaling: same lattice velocity, ν_lat and τ − ½ doubled per level).
+  // Multi-resolution: nested blocks around the body, each with half the cell size (acoustic scaling: same lattice
+  // velocity, ν_lat and τ − ½ doubled per level). Two-way coupling by alternating Schwarz iterations: a block's edge is
+  // driven by the next coarser solution (velocity inlet upstream and on the sides, pressure outlet downstream), and
+  // the coarser grid's cells well inside the block take the block's solution back — so the coarse flow around the
+  // block sees the wake the fine grid resolves. Sweeps over all levels repeat (warm-started) until the drag on the
+  // finest block settles. One-way driving alone read the drag 5 % high at one level against a uniform fine grid.
   // Forces and the surface pressure come from the finest block.
-  const blocks = [];
-  let fine = { lat, origin, h, dims, solid, tau, center: ctr };
-  const levels = Math.max(0, Math.min(3, Math.round(opts.refine ?? 0)));
-  for (let lvl = 1; lvl <= levels && mode === 'external'; lvl++) {
-    // Margins (body sizes) shrink inward: each block's boundary stays well outside the next one's near field, where
-    // the coarser solution it is driven by is still accurate (a level-2 block 0.4 sizes off the body read 8 % high).
-    const hf = fine.h / 2, mg = Math.max(6 * hf, (opts.blockMargin ?? 1) * across * (1 + 0.5 * (levels - lvl)));
+  const L = [{ level: 0, origin, h, dims, solid, tau, center: ctr, cfg: coarseCfg, lat }];
+  const centre = (B, s) => { const i = s % B.dims[0], r = (s - i) / B.dims[0], j = r % B.dims[1], k = (r - j) / B.dims[1]; return [B.origin[0] + (i + 0.5) * B.h, B.origin[1] + (j + 0.5) * B.h, B.origin[2] + (k + 0.5) * B.h]; };
+  for (let lvl = 1; lvl <= levels; lvl++) {
+    const P = L[lvl - 1];
+    // Margins (body sizes) shrink inward: each block's boundary stays well outside the next one's near field.
+    const hf = P.h / 2, mg = Math.max(6 * hf, (opts.blockMargin ?? 1) * across * (1 + 0.5 * (levels - lvl)));
     const lo = S.lo.map((v, a) => v - (a === fa ? (sign > 0 ? mg : 2 * mg) : mg)), hi = S.hi.map((v, a) => v + (a === fa ? (sign > 0 ? 2 * mg : mg) : mg));
     // Inside the coarser grid by two of its cells.
-    for (let a = 0; a < 3; a++) { lo[a] = Math.max(lo[a], fine.origin[a] + 2 * fine.h); hi[a] = Math.min(hi[a], fine.origin[a] + (fine.dims[a] - 2) * fine.h); }
+    for (let a = 0; a < 3; a++) { lo[a] = Math.max(lo[a], P.origin[a] + 2 * P.h); hi[a] = Math.min(hi[a], P.origin[a] + (P.dims[a] - 2) * P.h); }
     const dimsF = [0, 1, 2].map((a) => Math.max(4, Math.ceil((hi[a] - lo[a]) / hf)));
     if (dimsF[0] * dimsF[1] * dimsF[2] > maxCells) break;
     const solidF = voxelize(S, lo, hf, dimsF), qF = wallFractions(S, lo, hf, dimsF, solidF);
-    const NF = dimsF[0] * dimsF[1] * dimsF[2], cells = [];
+    const edge = [], edgeMode = [], edgeInner = [];
     for (let k = 0; k < dimsF[2]; k++) for (let j = 0; j < dimsF[1]; j++) for (let i = 0; i < dimsF[0]; i++) {
       if (i && j && k && i < dimsF[0] - 1 && j < dimsF[1] - 1 && k < dimsF[2] - 1) continue;
-      const sF = i + dimsF[0] * (j + dimsF[1] * k); if (!solidF[sF]) cells.push(sF);
+      const sF = i + dimsF[0] * (j + dimsF[1] * k); if (solidF[sF]) continue;
+      edge.push(sF); edgeMode.push([i, j, k][fa] === (sign > 0 ? dimsF[fa] - 1 : 0) ? 1 : 0);
+      // The neighbour one step inward (diagonally at edges and corners), for the non-equilibrium part.
+      const c = [i, j, k].map((v, a) => (v === 0 ? 1 : v === dimsF[a] - 1 ? v - 1 : v)), t = c[0] + dimsF[0] * (c[1] + dimsF[1] * c[2]);
+      edgeInner.push(solidF[t] ? -1 : t);
     }
-    const rhoB = new Float32Array(cells.length), velB = new Float32Array(3 * cells.length);
-    const coarseFlow = { dims: fine.dims, origin: fine.origin, h: fine.h, solid: fine.solid };
-    cells.forEach((sF, q) => {
-      const i = sF % dimsF[0], r = (sF - i) / dimsF[0], j = r % dimsF[1], k = (r - j) / dimsF[1];
-      const p = [lo[0] + (i + 0.5) * hf, lo[1] + (j + 0.5) * hf, lo[2] + (k + 0.5) * hf];
-      rhoB[q] = sampleScalar(coarseFlow, p, (sc) => fine.lat.rho[sc]) ?? 1;
-      for (let a = 0; a < 3; a++) velB[3 * q + a] = sampleScalar(coarseFlow, p, (sc) => fine.lat.vel[3 * sc + a]) ?? (a === fa ? sign * uLat : 0);
-    });
-    const tauF = 0.5 + 2 * (fine.tau - 0.5), u0 = [0, 0, 0]; u0[fa] = sign * uLat;
+    const tauF = 0.5 + 2 * (P.tau - 0.5), u0 = [0, 0, 0]; u0[fa] = sign * uLat;
     const ctrF = [0, 1, 2].map((a) => ((S.lo[a] + S.hi[a]) / 2 - lo[a]) / hf - 0.5);
     const throughF = dimsF[fa] / uLat;
-    const latF = latticeRun({
+    const cfg = {
       dims: dimsF, solid: solidF, qwall: qF, flowAxis: fa, flowSign: sign, sides: ['open', 'open', 'open'], inlet: 'none', outlet: 'none', tau: tauF, collision, smagorinsky: les, uIn: uLat,
-      initialVelocity: u0, fixedCells: { cells: Int32Array.from(cells), rho: rhoB, vel: velB, outlet: Uint8Array.from(cells, (sF) => { const i = sF % dimsF[0], r = (sF - i) / dimsF[0], j = r % dimsF[1], k = (r - j) / dimsF[1]; const c = [i, j, k]; return c[fa] === (sign > 0 ? dimsF[fa] - 1 : 0) ? 1 : 0; }) }, steps: Math.min(time.maxSteps ?? 20000, Math.max(2000, Math.round(0.8 * (time.passes ?? 10) * throughF))), minSteps: Math.round(4 * throughF), tol: time.tol ?? 2e-7, center: ctrF, cancel,
-      onProgress: (fr, info) => onProgress?.(Math.min(0.99, 0.95 + 0.04 * ((lvl - 1 + fr) / levels)), { stage: 'flow', level: lvl, ...info }),
-    });
-    if (latF.unstable) break;
-    blocks.push({ level: lvl, origin: lo, h: hf, dims: dimsF, cells: NF, steps: latF.steps, converged: latF.converged, rho: latF.rho, vel: latF.vel, solid: solidF });
-    fine = { lat: latF, origin: lo, h: hf, dims: dimsF, solid: solidF, tau: tauF, center: ctrF };
+      initialVelocity: u0, steps: Math.min(time.maxSteps ?? 20000, Math.max(2000, Math.round(0.8 * (time.passes ?? 10) * throughF))), minSteps: Math.round(4 * throughF), tol: time.tol ?? 2e-7, center: ctrF, cancel, keepState: true,
+      onProgress: (fr, info) => onProgress?.(Math.min(0.99, 0.5 + 0.45 * ((lvl - 1 + fr) / levels)), { stage: 'flow', level: lvl, ...info }),
+    };
+    L.push({ level: lvl, origin: lo, h: hf, dims: dimsF, solid: solidF, tau: tauF, center: ctrF, cfg, edge: Int32Array.from(edge), edgeMode: Uint8Array.from(edgeMode), edgeInner: Int32Array.from(edgeInner), through: throughF, cells: dimsF[0] * dimsF[1] * dimsF[2] });
   }
+  /** The fixed cells of level n: its edge from level n − 1, and its cells two of its cells inside level n + 1 from that one. */
+  const gridOf = (B) => ({ dims: B.dims, origin: B.origin, h: B.h, solid: B.solid });
+  // Absorbing layer on a block's downstream face: four cells, σ 0.1 at the edge. At Re ≈ 2000 a block without it blew
+  // up within ~1200 steps (eddies reflected from its held outlet); at Re ≈ 50 it moves the drag by 0.2 %. Not on the
+  // other faces: there it pulled the block toward the coarse solution (drag 9 % high).
+  const SPONGE = 4, SPONGE_SIGMA = 0.1;
+  const fixedFor = (n) => {
+    const B = L[n], cellsX = [], rhoX = [], velX = [], modeX = [], innerX = [];
+    let sponge = null;
+    if (n > 0) {
+      const P = L[n - 1], g = gridOf(P);
+      B.edge.forEach((s, q) => {
+        const p = centre(B, s);
+        cellsX.push(s); modeX.push(B.edgeMode[q]); innerX.push(B.edgeInner[q]);
+        rhoX.push(sampleScalar(g, p, (t) => P.lat.rho[t]) ?? 1);
+        for (let a = 0; a < 3; a++) velX.push(sampleScalar(g, p, (t) => P.lat.vel[3 * t + a]) ?? (a === fa ? sign * uLat : 0));
+      });
+      // The absorbing layer: SPONGE cells deep from the downstream face, σ falling quadratically from SPONGE_SIGMA.
+      {
+        const sc = [], sr = [], sv = [], ss = [];
+        for (let k = 1; k < B.dims[2] - 1; k++) for (let j = 1; j < B.dims[1] - 1; j++) for (let i = 1; i < B.dims[0] - 1; i++) {
+          const cc = [i, j, k];
+          const d = sign > 0 ? B.dims[fa] - 1 - cc[fa] : cc[fa];
+          if (d > SPONGE) continue;
+          const s = i + B.dims[0] * (j + B.dims[1] * k); if (B.solid[s]) continue;
+          const p = centre(B, s);
+          sc.push(s); ss.push(SPONGE_SIGMA * ((SPONGE + 1 - d) / SPONGE) ** 2);
+          sr.push(sampleScalar(g, p, (t) => P.lat.rho[t]) ?? 1);
+          for (let a = 0; a < 3; a++) sv.push(sampleScalar(g, p, (t) => P.lat.vel[3 * t + a]) ?? (a === fa ? sign * uLat : 0));
+        }
+        sponge = { cells: Int32Array.from(sc), rho: Float32Array.from(sr), vel: Float32Array.from(sv), sigma: Float32Array.from(ss) };
+      }
+    }
+    const C = L[n + 1];
+    if (C?.lat) {
+      // Only from eight of the finer cells inside its edge: nearer, the block's own flow still carries its driven edge
+      // (six cells fed back oscillated between sweeps, four converged 12 % low); ten left too little fed back (4 % high).
+      const g = gridOf(C), ov = 4 * B.h;
+      const lo = [0, 1, 2].map((a) => C.origin[a] + ov), hi = [0, 1, 2].map((a) => C.origin[a] + C.dims[a] * C.h - ov);
+      const i0 = lo.map((v, a) => Math.max(0, Math.floor((v - B.origin[a]) / B.h))), i1 = hi.map((v, a) => Math.min(B.dims[a] - 1, Math.ceil((v - B.origin[a]) / B.h)));
+      const onEdge = n > 0 ? new Set(B.edge) : null;
+      for (let k = i0[2]; k <= i1[2]; k++) for (let j = i0[1]; j <= i1[1]; j++) for (let i = i0[0]; i <= i1[0]; i++) {
+        const s = i + B.dims[0] * (j + B.dims[1] * k);
+        if (B.solid[s] || onEdge?.has(s)) continue;
+        const p = centre(B, s);
+        if (p.some((v, a) => v <= lo[a] || v >= hi[a])) continue;
+        const r = sampleScalar(g, p, (t) => C.lat.rho[t]); if (r == null) continue;
+        cellsX.push(s); modeX.push(2); innerX.push(-1); rhoX.push(r);
+        for (let a = 0; a < 3; a++) velX.push(sampleScalar(g, p, (t) => C.lat.vel[3 * t + a]) ?? 0);
+      }
+    }
+    return cellsX.length ? { cells: Int32Array.from(cellsX), rho: Float32Array.from(rhoX), vel: Float32Array.from(velX), outlet: Uint8Array.from(modeX), inner: Int32Array.from(innerX), sponge } : null;
+  };
+  /** Runs level n with its current fixed cells; warm = a coupling sweep, starting from its last state. */
+  const runLevel = (n, warm) => {
+    const B = L[n];
+    const cfg = { ...B.cfg, fixedCells: fixedFor(n) };
+    if (warm) { cfg.initialState = B.lat.state; cfg.ramp = 0; cfg.minSteps = Math.round(n ? B.through : 0.5 * flowThrough); }
+    const r = latticeRun(cfg);
+    if (r.unstable) return false;
+    B.lat = r; B.steps = (B.steps ?? 0) + r.steps;
+    return true;
+  };
+  let built = 0, refineFailed = 0;
+  for (let n = 1; n < L.length; n++) { if (!runLevel(n, false)) { refineFailed = n; break; } built = n; }
+  if (L.length - 1 > built && !refineFailed) refineFailed = built + 1;
+  L.length = built + 1;
+  const coupling = [];
+  if (built > 0 && !transient) {
+    let prev = L[built].lat.force[fa];
+    for (let it = 0; it < (opts.couplingIterations ?? 4) && !cancel?.(); it++) {
+      let ok = true;
+      for (let n = 0; n <= built && ok; n++) ok = runLevel(n, true);
+      if (!ok) break;
+      const now = L[built].lat.force[fa], change = Math.abs(now - prev) / Math.max(1e-12, Math.abs(now));
+      coupling.push(change); prev = now;
+      if (change < (opts.couplingTol ?? 0.005)) break;
+    }
+  }
+  for (const B of L) B.lat.state = undefined;
+  lat = L[0].lat;
+  const blocks = L.slice(1).map((B) => ({ level: B.level, origin: B.origin, h: B.h, dims: B.dims, cells: B.cells, steps: B.steps, converged: B.lat.converged, rho: B.lat.rho, vel: B.lat.vel, solid: B.solid }));
+  const top = L[built];
+  const fine = { lat: top.lat, origin: top.origin, h: top.h, dims: top.dims, solid: top.solid, tau: top.tau, center: top.center };
   // Physical quantities.
   const scaleV = velocity / uLat, qd = props.density * scaleV * scaleV;
   const toN = qd * dxM * dxM;
@@ -697,7 +804,7 @@ export function flowStudy(mesh, opts = {}) {
     ok: true, error: lat.converged ? null : (transient ? null : 'not-converged'), ...lat, mode, axis, sign, origin, h, solid, fluidCells, cells: N,
     uLat, reynolds, reynoldsSimulated: reynolds, capped: false, velocity, fluid: props, dt, physicalTime: lat.steps * dt,
     forceVector: forceN, dragForce: drag, liftForce: forceN[lateral2] ?? 0, sideForce: forceN[lateral1] ?? 0,
-    moments: fine.lat.torque.map((v) => v * toNf * dxF), blocks: blocks.map(({ rho: _r, vel: _v, solid: _s, ...b }) => b), refined: blocks.length, dragCoefficient, frontalArea, pressureDrop, meanVelocity: velocity, maxVelocity: vmax * scaleV,
+    moments: fine.lat.torque.map((v) => v * toNf * dxF), blocks: blocks.map(({ rho: _r, vel: _v, solid: _s, ...b }) => b), refined: blocks.length, refineRequested: levels, refineFailed, coupling, couplingSettled: !coupling.length || coupling.at(-1) < (opts.couplingTol ?? 0.005), dragCoefficient, frontalArea, pressureDrop, meanVelocity: velocity, maxVelocity: vmax * scaleV,
     hydraulicDiameter: mode === 'internal' ? lcCells * h : 0, characteristicLength: lcCells * h, elements: fluidCells, elementSize: h,
     vertexPressure, vertexCp, heat, nusselt, strouhal, collision, les, tau,
     history: lat.forceHistory.map((x) => ({ time: x.step * dt, force: x.force.map((v) => v * toN), heat: th ? x.heat * props.density * props.cp * dxM ** 3 / dt : 0 })),

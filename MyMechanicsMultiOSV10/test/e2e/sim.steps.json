@@ -47,6 +47,16 @@
     "wait": 400
   },
   {
+    "name": "sim: local refinement — one nested level, coupled both ways; the results list the block and the sweeps",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const e = m.state.editing;\n  document.querySelector('[data-pm-set=\"flowRefine\"][data-value=\"1\"]').click(); await sleep(100);\n  const cleared = e.flowRefine === 1 && !e.result; e.velocity = 0.002; e.flowMaxSteps = 1500; const field = /Maximum iterations per grid|격자별 최대 반복/.test(document.querySelector('.left-pm-body').textContent);\n  await m.actions.pmCommand('runSim'); for (let i = 0; i < 600 && !e.result; i++) await sleep(200);\n  const r = e.result; const text = document.querySelector('.left-pm-body').textContent;\n  return JSON.stringify({ cleared, field, refined: r?.refined, swept: (r?.coupling?.length ?? 0) >= 1, finer: r?.blocks?.[0]?.h < r?.h, shown: /Refinement block 1|세분화 블록 1/.test(text) && /Coupling sweeps|결합 반복/.test(text), drag: r?.dragForce > 0, flagged: r?.couplingSettled || [...document.querySelectorAll('.left-pm-body dd.error')].some((d) => /!$/.test(d.textContent)), failed: r?.refineFailed }); })()",
+    "expect": "\"cleared\":true,\"field\":true,\"refined\":1,\"swept\":true,\"finer\":true,\"shown\":true,\"drag\":true,\"flagged\":true,\"failed\":0"
+  },
+  {
+    "name": "sim: internal flow hides the refinement choice",
+    "eval": "(async () => { const m = window.__mymechanics; document.querySelector('[data-pm-set=\"flowMode\"][data-value=\"internal\"]').click(); await new Promise((r) => setTimeout(r, 100)); const hidden = !document.querySelector('[data-pm-set=\"flowRefine\"]'); document.querySelector('[data-pm-set=\"flowMode\"][data-value=\"external\"]').click(); await new Promise((r) => setTimeout(r, 100)); m.actions.pmSet('flowRefine', '0'); return JSON.stringify({ hidden, back: Boolean(document.querySelector('[data-pm-set=\"flowRefine\"]')) }); })()",
+    "expect": "\"hidden\":true,\"back\":true"
+  },
+  {
     "name": "fem: static study on quadratic tets in the worker, with refinement faces, probes and the mesh controls",
     "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); m.actions.pmSet('study', 'static'); const e = m.state.editing; Object.assign(e, window.__fx); e.magnitude = 1000; e.dir = '-z'; e.loadKind = 'force'; e.elementSize = 6; e.refine = [window.__fx.fixtures[0]]; e.refineSize = 3; await m.actions.pmCommand('runSim'); await sleep(300); const r = e.result; const html = document.querySelector('.left-pm-body')?.innerHTML ?? document.body.innerHTML; return JSON.stringify({ ok: r?.ok, solver: r?.solver, model: Boolean(r?.model?.nodes?.length), colours: Boolean(m.state.sim?.colors?.length), mesh: html.includes('data-pm-field=\"elementSize\"'), probes: html.includes('data-pm-pick=\"probes\"') }); })()",
     "expect": "\"ok\":true,\"solver\":\"tet\",\"model\":true,\"colours\":true,\"mesh\":true,\"probes\":true"

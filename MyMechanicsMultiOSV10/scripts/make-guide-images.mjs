@@ -132,7 +132,7 @@ scene('part-fillet', async (g) => {
   const { m } = g;
   m.actions.acceptEditing(); await g.settle(600);
   await m.run('fillet'); await g.settle(300);
-  g.pickEdges((ed) => { const d = ed.tangentAt(0.5); return Math.abs(d.y) > 0.9 * Math.hypot(d.x, d.y, d.z); });
+  g.pickEdges((ed) => { const d = ed.tangentAt(0.5); return Math.abs(d.z) > 0.9 * Math.hypot(d.x, d.y, d.z); });
   m.actions.pmFieldChanged('radius', '5', 'length'); await g.settle(800);
   g.mark(document.querySelector('#left-panel .pm-pick'), 1, g.T('고른 모서리 (뒤쪽은 보기를 돌려서)', 'Picked edges (turn the view for the back one)'), { at: 'below' });
   const rad = [...document.querySelectorAll('#left-panel .pm-field')].find((f) => f.querySelector('input'));
@@ -144,11 +144,11 @@ scene('part-hole', async (g) => {
   const { m } = g;
   m.actions.acceptEditing(); await g.settle(600);
   await m.run('hole'); await g.settle(300);
-  g.clickAt([15, 20, 0]);
+  g.clickAt([15, 15, 20]);
   m.actions.pmSet('kind', 'counterbore'); await g.settle(900);
   const kinds = document.querySelector('#left-panel [data-pm-set="kind"]')?.parentElement;
   if (kinds) g.mark(kinds, 1, g.T('카운터보어', 'Counterbore'), { at: 'below' });
-  const p = g.toPage([15, 20, 0]);
+  const p = g.toPage([15, 15, 20]);
   g.mark({ x: p.x - 40, y: p.y - 30, w: 80, h: 60 }, 2, g.T('윗면을 클릭한 위치', 'Where you clicked the top face'), { at: 'right' });
   return null;
 });
@@ -158,10 +158,10 @@ scene('part-pattern', async (g) => {
   const hole = g.featureOf('hole');
   m.actions.select([{ kind: 'feat', id: hole.id }]);
   await m.run('circularPattern'); await g.settle(200);
-  m.actions.pmSet('axisKind', 'y'); m.actions.pmFieldChanged('count', '4', 'number'); await g.settle(1200);
+  m.actions.pmSet('axisKind', 'z'); m.actions.pmFieldChanged('count', '4', 'number'); await g.settle(1200);
   g.mark(document.querySelector('#left-panel .pm-pick'), 1, g.T('패턴할 피처: 구멍', 'Features to pattern: the hole'), { at: 'below' });
   const axis = document.querySelector('#left-panel [data-pm-set="axisKind"]')?.parentElement;
-  if (axis) g.mark(axis, 2, g.T('축 Y', 'Axis Y'), { at: 'right', dx: -80 });
+  if (axis) g.mark(axis, 2, g.T('축 Z', 'Axis Z'), { at: 'right', dx: -80 });
   return null;
 });
 scene('part-done', async (g) => {
@@ -521,9 +521,57 @@ scene('shortcuts', async (g) => {
   return null;
 });
 
+// 16 · tools: schematic, design checker, task scheduler, macros
+scene('tools-schematic', async (g) => {
+  const { m } = g;
+  await m.popups.closeAll(); await g.settle(300);
+  await g.sample('flange'); await g.settle(500);
+  m.run('schematic'); await g.settle(600);
+  const S = m.schematic;
+  const at = (kind, x, y, extra) => { const id = S.placeSymbol(kind, x, y); if (extra) Object.assign(S.schematic().symbols.find((s) => s.id === id), extra); return id; };
+  const v = at('supply', 50, 50); const f = at('fuse', 80, 60); const s = at('pushbutton', 115, 60); const k = at('coil', 150, 80); const gnd = at('ground', 150, 115);
+  const v2 = at('supply', 190, 50); const c = at('contact', 205, 70); const l = at('lamp', 205, 100); const gnd2 = at('ground', 205, 130);
+  S.addWire({ sym: v, pin: '+' }, { sym: f, pin: '1' }); S.addWire({ sym: f, pin: '2' }, { sym: s, pin: '13' }); S.addWire({ sym: s, pin: '14' }, { sym: k, pin: 'A1' }); S.addWire({ sym: k, pin: 'A2' }, { sym: gnd, pin: 'PE' });
+  S.addWire({ sym: v2, pin: '+' }, { sym: c, pin: '13' }); S.addWire({ sym: c, pin: '14' }, { sym: l, pin: 'X1' }); S.addWire({ sym: l, pin: 'X2' }, { sym: gnd2, pin: 'PE' });
+  S.zoomAt(1.8, 130, 90); await g.settle(500);
+  return null;
+});
+scene('tools-designcheck', async (g) => {
+  const { m } = g;
+  m.run('schematic'); await g.settle(300);
+  m.actions.updateSettings({ designStandard: null }, { quiet: true });
+  m.run('designCheck'); await g.settle(500);
+  document.querySelector('[data-pm="dc.run"]')?.click(); await g.settle(800);
+  const list = document.querySelector('.dc-findings');
+  if (list) g.mark(list, 1, g.T('항목을 누르면 문서와 항목으로 이동', 'Click a finding to go to it'), { at: 'right' });
+  return null;
+});
+scene('tools-tasks', async (g) => {
+  const { m } = g;
+  m.run('designCheck'); await g.settle(300);
+  m.actions.updateSettings({ tasks: [] }, { quiet: true });
+  m.run('taskScheduler'); await g.settle(300);
+  const T = m.tasks;
+  const a = T.addTask('export'); T.addTask('designCheck'); T.addTask('properties');
+  m.actions.updateSettings({ tasks: T.tasks().map((x) => (x.id === a ? { ...x, source: { ...x.source, paths: ['D:/Projects/pump.mymech', 'D:/Projects/valve.mymech'] }, options: { ...x.options, formats: ['step', 'stl'] }, schedule: { ...x.schedule, mode: 'daily', time: '22:00' } } : x)) }, { quiet: true });
+  T.select(a); await g.settle(500);
+  return null;
+});
+scene('tools-macro', async (g) => {
+  const { m } = g;
+  m.run('taskScheduler'); await g.settle(300);
+  m.actions.updateSettings({ tasks: [] }, { quiet: true });
+  m.macro.setText(['// MyMechanics macro', '// ' + g.T('부품마다 이름과 피처 수를 기록하고 필렛을 키웁니다', 'log every part, then enlarge the fillet'), '', 'for (const p of mm.parts()) {', '  mm.log(`${p.name}: ${p.features.length}`);', '}', 'const fillet = mm.parts()[0].features.find((f) => f.type === "fillet");', 'if (fillet) await mm.setParam(fillet.name, "radius", 3);', 'mm.log(mm.massProperties()[0]);', ''].join('\n'));
+  m.run('macroEditor'); await g.settle(1500);
+  await m.macro.runMacro(); await g.settle(800);
+  await m.actions.undo(); await g.settle(300);
+  return null;
+});
+
 // The tutorial's sweep and sheet metal lessons (built step by step)
 scene('tut-sweep-sketches', async (g) => {
   const { m } = g;
+  await m.popups.closeAll(); await g.settle(300);
   await g.newPart();
   await g.cm('features');
   g.sketch({ kind: 'std', name: 'top' }, [{ id: 'pc', type: 'point', x: 0, y: 0 }, { id: 'c1', type: 'circle', c: 'pc', r: 8 }, { id: 'c2', type: 'circle', c: 'pc', r: 6 }], g.T('윤곽', 'Profile'));

@@ -104,7 +104,8 @@ test('transient conjugate heat: the solid stores heat with its own ρc — energ
 test('nested refinement: a block of half-size cells around the body gives the drag of a uniformly fine grid', () => {
   // A cube at Re ≈ 50: coarse grid (6 cells across) with one nested block (cells halved) against a uniform 12-cell
   // grid. The block is driven as a velocity inlet (sides, upstream) and a pressure outlet (downstream) by the coarse
-  // solution — holding both ρ and u on its boundary over-constrained it and read the drag 8 % high.
+  // solution — holding both ρ and u on its boundary over-constrained it and read the drag 8 % high — and its solution
+  // is fed back into the coarse cells it covers (two-way); one-way driving alone read 5 % high.
   const mesh = boxMesh(20, 20, 20, 2);
   const base = { mode: 'external', axis: 'x', velocity: 0.0025, fluid: 'water', time: { mode: 'steady', maxSteps: 3000, passes: 1 } };
   const fine = flowStudy(mesh, { ...base, resolution: 12 });
@@ -113,4 +114,7 @@ test('nested refinement: a block of half-size cells around the body gives the dr
   assert.equal(nested.refined, 1);
   within(nested.blocks[0].h, fine.h, 1e-9, 'block cell size');
   within(nested.dragCoefficient, fine.dragCoefficient, 0.02, 'Cd nested vs uniform fine');
+  assert.ok(nested.coupling.length >= 1 && nested.coupling.at(-1) < 0.005, `coupling sweeps settle: ${nested.coupling}`);
+  const oneWay = flowStudy(mesh, { ...base, resolution: 6, refine: 1, couplingIterations: 0 });
+  assert.ok(Math.abs(nested.dragCoefficient - fine.dragCoefficient) < Math.abs(oneWay.dragCoefficient - fine.dragCoefficient), `two-way ${nested.dragCoefficient} nearer than one-way ${oneWay.dragCoefficient} to ${fine.dragCoefficient}`);
 });

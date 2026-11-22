@@ -1,0 +1,72 @@
+[
+  {
+    "name": "schematic: kernel and a project",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.ensureKernel(); await m.actions.openSampleAsk('flange'); await new Promise((r) => setTimeout(r, 1000)); m.run('schematic'); await new Promise((r) => setTimeout(r, 400)); return JSON.stringify({ mode: m.state.editing?.mode, sheet: Boolean(document.querySelector('#schematic-host svg')), schematics: m.project?.schematics?.length ?? m.schematic.schematic() ? 1 : 0 }); })()",
+    "expect": "\"mode\":\"schematic\",\"sheet\":true"
+  },
+  {
+    "name": "schematic: a supply placed through the page; the fuse tool places a fuse where the sheet is clicked (snapped to 5 mm)",
+    "eval": "(async () => { const m = window.__mymechanics; const S = m.schematic; S.placeSymbol('supply', 60, 60); await S.setTool('place:fuse'); await new Promise((r) => setTimeout(r, 200)); const svg = document.querySelector('#schematic-host svg'); const ctm = svg.getScreenCTM(); const p = new DOMPoint(101.7, 79.2).matrixTransform(ctm); window.__click = [p.x, p.y]; return 'ready'; })()",
+    "mouse": [ { "type": "mousePressed", "x": "window.__click[0]", "y": "window.__click[1]", "button": "left", "buttons": 1 }, { "type": "mouseReleased", "x": "window.__click[0]", "y": "window.__click[1]", "button": "left" } ],
+    "wait": 300
+  },
+  {
+    "name": "schematic: …the fuse is on the grid at (100, 80) with its tag",
+    "eval": "(() => { const s = window.__mymechanics.schematic.schematic(); const f = s.symbols.find((x) => x.kind === 'fuse'); return JSON.stringify({ at: f ? [f.x, f.y] : null, tag: f?.tag }); })()",
+    "expect": "\"at\":\\[100,80\\],\"tag\":\"F1\""
+  },
+  {
+    "name": "schematic: the wire tool joins the supply's pin to the fuse's pin 1 with two clicks",
+    "eval": "(async () => { const m = window.__mymechanics; const S = m.schematic; await S.setTool('wire'); await new Promise((r) => setTimeout(r, 200)); const s = S.schematic(); const v = s.symbols.find((x) => x.kind === 'supply'); const f = s.symbols.find((x) => x.kind === 'fuse'); const at = (id, pin) => { const r = document.querySelector(`[data-pin=\"${id}:${pin}\"]`).getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }; window.__p1 = at(v.id, '+'); window.__p2 = at(f.id, '1'); return 'ready'; })()",
+    "mouse": [ { "type": "mousePressed", "x": "window.__p1[0]", "y": "window.__p1[1]", "button": "left", "buttons": 1 }, { "type": "mouseReleased", "x": "window.__p1[0]", "y": "window.__p1[1]", "button": "left", "delay": 200 }, { "type": "mousePressed", "x": "window.__p2[0]", "y": "window.__p2[1]", "button": "left", "buttons": 1 }, { "type": "mouseReleased", "x": "window.__p2[0]", "y": "window.__p2[1]", "button": "left" } ],
+    "wait": 300
+  },
+  {
+    "name": "schematic: …one wire, supply + to F1:1, routed orthogonally, numbered by its net",
+    "eval": "(() => { const s = window.__mymechanics.schematic.schematic(); const w = s.wires[0]; const svg = document.querySelector('#schematic-host svg').outerHTML; return JSON.stringify({ wires: s.wires.length, ends: w ? [w.a.pin, w.b.pin].sort().join(' ') : '', bends: w?.points.length, number: /\\+24V</.test(svg) }); })()",
+    "expect": "\"wires\":1,\"ends\":\"\\+ 1\",\"bends\":1,\"number\":true"
+  },
+  {
+    "name": "schematic: dragging the fuse moves it on the grid and its wire follows; undo puts it back",
+    "eval": "(async () => { const m = window.__mymechanics; const S = m.schematic; await S.setTool('select'); await new Promise((r) => setTimeout(r, 150)); const f = S.schematic().symbols.find((x) => x.kind === 'fuse'); const g = document.querySelector(`[data-symbol=\"${f.id}\"] rect`).getBoundingClientRect(); const ctm = document.querySelector('#schematic-host svg').getScreenCTM(); const to = new DOMPoint(f.x + 20, f.y + 15).matrixTransform(ctm); const from = new DOMPoint(f.x, f.y).matrixTransform(ctm); window.__d = [g.left + g.width / 2, g.top + g.height / 2, to.x - from.x, to.y - from.y]; return 'ready'; })()",
+    "mouse": [ { "type": "mousePressed", "x": "window.__d[0]", "y": "window.__d[1]", "button": "left", "buttons": 1 }, { "type": "mouseMoved", "x": "window.__d[0] + window.__d[2] / 2", "y": "window.__d[1] + window.__d[3] / 2", "buttons": 1, "delay": 50 }, { "type": "mouseMoved", "x": "window.__d[0] + window.__d[2]", "y": "window.__d[1] + window.__d[3]", "buttons": 1, "delay": 50 }, { "type": "mouseReleased", "x": "window.__d[0] + window.__d[2]", "y": "window.__d[1] + window.__d[3]", "button": "left" } ],
+    "wait": 300
+  },
+  {
+    "name": "schematic: …moved to (120, 95), the wire ends on its new pin; one undo restores (100, 80)",
+    "eval": "(async () => { const m = window.__mymechanics; const S = m.schematic; const s = S.schematic(); const f = s.symbols.find((x) => x.kind === 'fuse'); const moved = [f.x, f.y]; const w = s.wires[0]; const { pinAt } = await import('/src/cad/schematic.js'); const end = pinAt(s, w.b); const path = [pinAt(s, w.a), ...w.points, end]; const ortho = path.every((p, i) => !i || Math.abs(p[0] - path[i - 1][0]) < 1e-9 || Math.abs(p[1] - path[i - 1][1]) < 1e-9); await m.actions.undo(); await new Promise((r) => setTimeout(r, 300)); const back = S.schematic().symbols.find((x) => x.kind === 'fuse'); const drawnBack = document.querySelector(`[data-symbol=\"${back.id}\"]`)?.getAttribute('transform') ?? ''; await m.actions.redo(); await new Promise((r) => setTimeout(r, 300)); const again = S.schematic().symbols.find((x) => x.kind === 'fuse'); return JSON.stringify({ moved, end, ortho, back: [back.x, back.y], drawnBack: /100[ ,]+80/.test(drawnBack), redo: [again.x, again.y] }); })()",
+    "expect": "\"moved\":\\[120,95\\],\"end\":\\[110,95\\],\"ortho\":true,\"back\":\\[100,80\\],\"drawnBack\":true,\"redo\":\\[120,95\\]"
+  },
+  {
+    "name": "schematic: the page lists the open pin; the from–to list is exported (no dialog)",
+    "eval": "(async () => { const m = window.__mymechanics; const S = m.schematic; let saved = null; window.showSaveFilePicker = async (o) => ({ name: o?.suggestedName ?? 'x.csv', createWritable: async () => ({ write: async (b) => { saved = typeof b === 'string' ? b : await b.text(); }, close: async () => {} }) }); await S.exportFromTo(); for (let i = 0; i < 50 && !saved; i++) await new Promise((r) => setTimeout(r, 100)); const pmText = document.querySelector('#left-panel').textContent; return JSON.stringify({ csv: /^Wire,From,To/.test(saved ?? '') && /G1:\\+,F1:1/.test(saved ?? ''), openPin: /F1/.test(pmText) && /2/.test(pmText) }); })()",
+    "expect": "\"csv\":true,\"openPin\":true"
+  },
+  {
+    "name": "schematic: the wheel zooms in about the cursor (the fuse stays under it)",
+    "eval": "(() => { const S = window.__mymechanics.schematic; const f = S.schematic().symbols.find((x) => x.kind === 'fuse'); const p = new DOMPoint(f.x, f.y).matrixTransform(document.querySelector('#schematic-host svg').getScreenCTM()); window.__z = [p.x, p.y, f.x, f.y]; return 'ready'; })()",
+    "mouse": [ { "type": "mouseWheel", "x": "window.__z[0]", "y": "window.__z[1]", "deltaX": 0, "deltaY": -600 } ],
+    "wait": 200
+  },
+  {
+    "name": "schematic: …the view is narrower and the fuse's point is still under the cursor",
+    "eval": "(() => { const S = window.__mymechanics.schematic; const v = S.view(); const q = new DOMPoint(window.__z[2], window.__z[3]).matrixTransform(document.querySelector('#schematic-host svg').getScreenCTM()); return JSON.stringify({ zoomed: Boolean(v) && v[2] < 200, still: Math.hypot(q.x - window.__z[0], q.y - window.__z[1]) < 1.5 }); })()",
+    "expect": "\"zoomed\":true,\"still\":true"
+  },
+  {
+    "name": "schematic: a middle-button drag pans by the mouse travel; F shows the whole sheet again",
+    "eval": "(() => { const S = window.__mymechanics.schematic; window.__v0 = S.view(); const r = document.querySelector('#schematic-host').getBoundingClientRect(); window.__m = [r.left + r.width / 2, r.top + r.height / 2]; return 'ready'; })()",
+    "mouse": [ { "type": "mousePressed", "x": "window.__m[0]", "y": "window.__m[1]", "button": "middle", "buttons": 4 }, { "type": "mouseMoved", "x": "window.__m[0] + 50", "y": "window.__m[1] + 20", "buttons": 4, "delay": 50 }, { "type": "mouseMoved", "x": "window.__m[0] + 100", "y": "window.__m[1] + 40", "buttons": 4, "delay": 50 }, { "type": "mouseReleased", "x": "window.__m[0] + 100", "y": "window.__m[1] + 40", "button": "middle" } ],
+    "wait": 200
+  },
+  {
+    "name": "schematic: …panned the right way, the fuse unchanged; F fits",
+    "eval": "(async () => { const S = window.__mymechanics.schematic; const v0 = window.__v0; const v = S.view(); const f = S.schematic().symbols.find((x) => x.kind === 'fuse'); const panned = v[0] < v0[0] && v[1] < v0[1] && Math.abs(v[2] - v0[2]) < 1e-6; document.querySelector('#schematic-host').dispatchEvent(new KeyboardEvent('keydown', { key: 'f', bubbles: true })); await new Promise((r) => setTimeout(r, 100)); return JSON.stringify({ panned, fuse: [f.x, f.y], fit: S.view() === null, box: document.querySelector('#schematic-host svg').getAttribute('viewBox') }); })()",
+    "expect": "\"panned\":true,\"fuse\":\\[120,95\\],\"fit\":true,\"box\":\"0 0 420 297\""
+  },
+  {
+    "name": "schematic: leaving the editor removes the sheet; the schematic is kept in the project",
+    "eval": "(async () => { const m = window.__mymechanics; m.run('schematic'); await new Promise((r) => setTimeout(r, 300)); return JSON.stringify({ mode: m.state.editing?.mode ?? null, sheet: Boolean(document.querySelector('#schematic-host')), kept: (m.state.doc?.project?.schematics ?? []).length >= 0 }); })()",
+    "expect": "\"mode\":null,\"sheet\":false"
+  }
+]

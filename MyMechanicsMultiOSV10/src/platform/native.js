@@ -7,7 +7,7 @@ import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog';
 import { getLanguage, t } from '../i18n.js';
 /** CAD files the app opens or imports besides its own documents (.mymech). */
-export const MODEL_EXTENSIONS = ['step', 'stp', 'stl'];
+export const MODEL_EXTENSIONS = ['step', 'stp', 'igs', 'iges', 'stl', 'obj', 'ply', 'gltf', 'glb', '3mf', 'wrl', 'vrml'];
 import { idbDelete, idbGet, idbSet } from './idb.js';
 
 // A popup shown as a frame inside the main window (web build, tutorial) works like the web build.
@@ -74,18 +74,22 @@ export const pathsExist = (paths) => (isDesktop() ? invoke('paths_exist', { path
 const PROJECT_FILTERS = () => [
   { name: 'MyMechanics (*.mymech)', extensions: ['mymech'] },
 
-  { name: 'STEP / STL (*.step, *.stp, *.stl)', extensions: MODEL_EXTENSIONS },
+  { name: 'STEP / IGES / STL / OBJ / PLY / glTF / 3MF / VRML', extensions: MODEL_EXTENSIONS },
 ];
 /** Save types: the drawing, a template, StarUML, pictures, documents. */
 export const SAVE_TYPES = {
   mymech: { name: 'MyMechanics (*.mymech)', extensions: ['mymech'] },
   step: { name: 'STEP (*.step, *.stp)', extensions: ['step', 'stp'] },
+  iges: { name: 'IGES (*.igs, *.iges)', extensions: ['igs', 'iges'] },
+  iges: { name: 'IGES (*.igs, *.iges)', extensions: ['igs', 'iges'] },
   dxf: { name: 'DXF (*.dxf)', extensions: ['dxf'] },
   glb: { name: 'glTF binary (*.glb)', extensions: ['glb'] },
   gltf: { name: 'glTF (*.gltf)', extensions: ['gltf'] },
   obj: { name: 'Wavefront OBJ (*.obj)', extensions: ['obj'] },
   stl: { name: 'STL (*.stl)', extensions: ['stl'] },
   ply: { name: 'PLY (*.ply)', extensions: ['ply'] },
+  wrl: { name: 'VRML 2.0 (*.wrl)', extensions: ['wrl'] },
+  '3mf': { name: '3MF (*.3mf)', extensions: ['3mf'] },
   usdz: { name: 'USDZ (*.usdz)', extensions: ['usdz'] },
   zip: { name: 'ZIP (*.zip)', extensions: ['zip'] },
   json: { name: 'JSON (*.json)', extensions: ['json'] },

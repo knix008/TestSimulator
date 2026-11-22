@@ -28,6 +28,7 @@ export const POPUPS = {
   prompt: { width: 520, height: 230 },
   massprops: { width: 560, height: 520 },
   interference: { width: 560, height: 300 },
+  macro: { width: 860, height: 640 },
   print: { width: 1180, height: 760 },
 };
 

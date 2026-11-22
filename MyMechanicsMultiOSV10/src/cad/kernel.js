@@ -4,6 +4,9 @@
 //
 // Under Node (the unit tests) the wasm file is read from node_modules; in the app Vite hands out its URL.
 import * as R from 'replicad';
+// Node-only modules (the unit tests), named through variables: Vite leaves a non-literal specifier alone.
+const NODE_FS = 'node:fs';
+const NODE_URL = 'node:url';
 
 let loading = null;
 let ready = false;
@@ -44,7 +47,7 @@ export function loadKernel({ wasmUrl = null, onProgress = null } = {}) {
       if (isNode) {
         const fsName = 'node:fs';
         const fs = await import(/* @vite-ignore */ fsName);
-        const { fileURLToPath } = await import(/* @vite-ignore */ 'node:url');
+        const { fileURLToPath } = await import(/* @vite-ignore */ NODE_URL);
         const b = fs.readFileSync(fileURLToPath(new URL('../../node_modules/@fontsource/roboto/files/roboto-latin-400-normal.woff', import.meta.url)));
         bytes = b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength);
       } else {

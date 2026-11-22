@@ -20,13 +20,18 @@ import { ko as koMechFem, en as enMechFem } from './i18n/mech-fem.js';
 import { ko as koMechDrw, en as enMechDrw } from './i18n/mech-drw.js';
 import { ko as koMechPdm, en as enMechPdm } from './i18n/mech-pdm.js';
 import { ko as koMechCam, en as enMechCam } from './i18n/mech-cam.js';
+import { ko as koMechIll, en as enMechIll } from './i18n/mech-illustration.js';
+import { ko as koMechSch, en as enMechSch } from './i18n/mech-schematic.js';
+import { ko as koMechDc, en as enMechDc } from './i18n/mech-designcheck.js';
+import { ko as koMechTasks, en as enMechTasks } from './i18n/mech-tasks.js';
+import { ko as koMechMacros, en as enMechMacros } from './i18n/mech-macros.js';
 import { ko as koMechPlastics, en as enMechPlastics } from './i18n/mech-plastics.js';
 import { ko as koMechInspection, en as enMechInspection } from './i18n/mech-inspection.js';
 
 export const DICTIONARIES = { ko: { ...ko, ...ko3d, ...koExtra, ...koMech, ...koMech2, ...koMechSheet, ...koMechAsm,...koMechPart, ...koMechStd,...koBackgrounds, ...koPrint, ...koDocs, ...koMechDrw, ...koMechSim, ...koMechPdm, ...koMechFem }, en: { ...en, ...en3d, ...enExtra, ...enMech, ...enMech2, ...enMechSheet, ...enMechAsm,...enMechPart, ...enMechStd,...enBackgrounds, ...enPrint, ...enDocs, ...enMechDrw, ...enMechSim, ...enMechPdm, ...enMechFem } };
 // The manufacturing add-ins (CAM, plastics flow, inspection).
-Object.assign(DICTIONARIES.ko, koMechCam, koMechPlastics, koMechInspection);
-Object.assign(DICTIONARIES.en, enMechCam, enMechPlastics, enMechInspection);
+Object.assign(DICTIONARIES.ko, koMechCam, koMechPlastics, koMechInspection, koMechIll, koMechSch, koMechDc, koMechTasks, koMechMacros);
+Object.assign(DICTIONARIES.en, enMechCam, enMechPlastics, enMechInspection, enMechIll, enMechSch, enMechDc, enMechTasks, enMechMacros);
 let language = 'ko';
 
 export function setLanguage(value) {

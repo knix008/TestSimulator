@@ -22,6 +22,7 @@ export function createPlasticsTools(ctx) {
   const runtime = { key: null, domain: null, result: null, resultKey: null };
 
   function studyOf(p, { create = false } = {}) {
+    if (!p) return null;
     if (!p.plastics && create) p.plastics = { resin: resinOf(p.material) ?? 'abs', melt: null, mould: null, fillTime: 0, maxPressure: 180, gates: [], mode: 'auto', cells: 50 };
     return p.plastics ?? null;
   }
@@ -88,6 +89,8 @@ export function createPlasticsTools(ctx) {
       worker.postMessage(input);
     }), { delay: 150, cancellable: true });
     if (!out) return null;
+    // The run took a while: another document may be open now — the result belongs to the part it started on.
+    if (part() !== p) return null;
     const result = out.result;
     runtime.domain = out.domain; runtime.result = result; runtime.resultKey = runtime.key; runtime.colourKey = null;
     if (!(s.gates ?? []).length && out.gates?.length) edit((st) => { st.gates = out.gates.map((g) => out.domain.nodes[g].c.map((v) => Math.round(v * 1000) / 1000)); });

@@ -89,6 +89,9 @@ export const nameKey = (f) => {
 
 const BASE_NAMES = { import: 'Imported', sketch: 'Sketch', plane: 'Plane', 'boss-extrude': 'Boss-Extrude', 'cut-extrude': 'Cut-Extrude', 'boss-revolve': 'Revolve', 'cut-revolve': 'Cut-Revolve', fillet: 'Fillet', chamfer: 'Chamfer', shell: 'Shell', hole: 'Hole', linearPattern: 'LPattern', circularPattern: 'CirPattern', mirror: 'Mirror', 'common-extrude': 'Intersect-Extrude', 'common-revolve': 'Intersect-Revolve', ...ADVANCED_NAMES, ...PART_MORE_NAMES, ...STD_NAMES };
 
+/** The English base name of a feature ("Boss-Extrude" for a boss extrude) — a default name is base + number. */
+export const baseNameOf = (f) => BASE_NAMES[nameKey(f)] ?? f.type;
+
 let namer = null;
 /** The app names new features in its language ("스케치1", "Sketch1"): namer(key) → base name or null. */
 export function setFeatureNamer(fn) { namer = fn; }

@@ -1,0 +1,36 @@
+[
+  {
+    "name": "exchange: kernel loads",
+    "eval": "window.__mymechanics.actions.ensureKernel().then(() => 'ready')",
+    "expect": "^ready$"
+  },
+  {
+    "name": "exchange: Export IGES writes a manifold solid through the formats worker (no dialog)",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.openSampleAsk('flange'); await new Promise((r) => setTimeout(r, 1200)); const { rep } = await import('/src/cad/kernel.js'); const body = m.state.partEntry.body; window.__igesWant = { faces: body.faces.length, volume: rep().measureVolume(body) }; window.__saved = null; window.showSaveFilePicker = async (o) => ({ name: o?.suggestedName ?? 'x.igs', createWritable: async () => ({ write: async (b) => { window.__saved = b; }, close: async () => {} }) }); await m.run('exportIges'); for (let i = 0; i < 600 && !window.__saved; i++) await new Promise((r) => setTimeout(r, 100)); if (!window.__saved) return 'nothing saved'; const text = typeof window.__saved === 'string' ? window.__saved : await window.__saved.text(); window.__igesText = text; return JSON.stringify({ start: /S\\s*0*1\\s*$/m.test(text.slice(0, 400)), solid186: /^\\s*186\\s/m.test(text), size: text.length > 1000 }); })()",
+    "expect": "\"start\":true,\"solid186\":true,\"size\":true",
+    "timeout": 120000
+  },
+  {
+    "name": "exchange: the IGES file opens as a part with the same solid (faces, volume)",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.closeProject({ force: true }); await m.actions.openContent('flange.igs', window.__igesText); for (let i = 0; i < 600 && !(m.active()?.features?.some((f) => f.type === 'import')); i++) await new Promise((r) => setTimeout(r, 100)); await new Promise((r) => setTimeout(r, 800)); const { rep } = await import('/src/cad/kernel.js'); const part = m.active(); const body = m.state.partEntry.body; const want = window.__igesWant; return JSON.stringify({ imported: part.features.some((f) => f.type === 'import'), faces: body.faces.length === want.faces, volume: Math.abs(rep().measureVolume(body) - want.volume) <= 1e-6 * want.volume }); })()",
+    "expect": "\"imported\":true,\"faces\":true,\"volume\":true",
+    "timeout": 120000
+  },
+  {
+    "name": "exchange: IGES is offered in the open dialog's types and in the Export menu",
+    "eval": "(async () => { const native = await import('/src/platform/native.js'); const m = window.__mymechanics; return JSON.stringify({ open: native.MODEL_EXTENSIONS.includes('igs') && native.MODEL_EXTENSIONS.includes('iges'), save: Boolean(native.SAVE_TYPES.iges), menu: ['exportIges', 'exportMesh:glb', 'exportMesh:obj', 'exportMesh:3mf', 'exportMesh:usdz'].every((id) => m.menus.SUBMENUS.exportTo.items.includes(id)), meshOpen: ['obj', 'ply', 'glb', '3mf', 'wrl'].every((e) => native.MODEL_EXTENSIONS.includes(e)) }); })()",
+    "expect": "\"open\":true,\"save\":true,\"menu\":true,\"meshOpen\":true"
+  },
+  {
+    "name": "exchange: glTF, GLB, OBJ, PLY, 3MF and VRML exported from the app re-open as the same solid (volume within the tessellation)",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.closeProject({ force: true }); await m.actions.openSampleAsk('flange'); await new Promise((r) => setTimeout(r, 1200)); const { rep } = await import('/src/cad/kernel.js'); const want = rep().measureVolume(m.state.partEntry.body); const out = {}; for (const f of ['glb', 'gltf', 'obj', 'ply', '3mf', 'wrl']) { window.__saved = null; window.showSaveFilePicker = async (o) => ({ name: o?.suggestedName ?? ('x.' + f), createWritable: async () => ({ write: async (b) => { window.__saved = b; }, close: async () => {} }) }); await m.actions.switchDocument?.(m.active()); await m.run('exportMesh:' + f); for (let i = 0; i < 100 && !window.__saved; i++) await new Promise((r) => setTimeout(r, 50)); if (!window.__saved) { out[f] = 'not saved'; continue; } const bytes = new Uint8Array(await window.__saved.arrayBuffer()); const { importMeshSolids } = await import('/src/cad/mesh-import.js'); const got = importMeshSolids('x.' + f, bytes); out[f] = Math.abs(rep().measureVolume(got.shape) - want) <= 2e-3 * want ? 'ok' : rep().measureVolume(got.shape) + ' vs ' + want; } return JSON.stringify(out); })()",
+    "expect": "^{\"glb\":\"ok\",\"gltf\":\"ok\",\"obj\":\"ok\",\"ply\":\"ok\",\"3mf\":\"ok\",\"wrl\":\"ok\"}$",
+    "timeout": 120000
+  },
+  {
+    "name": "exchange: a mesh file opened from the app becomes an imported part (3MF)",
+    "eval": "(async () => { const m = window.__mymechanics; const { write3mf } = await import('/src/cad/mesh-formats.js'); const { rep } = await import('/src/cad/kernel.js'); const box = rep().makeBox([0, 0, 0], [30, 20, 10]).mesh({ tolerance: 0.05, angularTolerance: 0.2 }); const bytes = write3mf([{ name: 'Box', color: [0.5, 0.5, 0.5], vertices: Float32Array.from(box.vertices), triangles: Uint32Array.from(box.triangles) }]); await m.actions.closeProject({ force: true }); await m.actions.openContent('box.3mf', bytes); for (let i = 0; i < 100 && !(m.active()?.features?.some((x) => x.type === 'import')); i++) await new Promise((r) => setTimeout(r, 100)); await new Promise((r) => setTimeout(r, 600)); return JSON.stringify({ imported: Boolean(m.active()?.features?.some((x) => x.type === 'import')), volume: Math.round(rep().measureVolume(m.state.partEntry.body)) }); })()",
+    "expect": "\"imported\":true,\"volume\":6000",
+    "timeout": 120000
+  }
+]

@@ -19,7 +19,7 @@ const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreen
 /// by the main window: it can sit outside the main window and closes with it.
 const POPUP_KINDS: &[&str] = &[
     "settings", "about", "confirm", "error", "progress", "recent", "menu", "theme", "welcome", "color", "prompt",
-    "importmodel", "importplan", "snapshot", "render", "renderresult", "material", "print", "massprops", "interference",
+    "importmodel", "importplan", "snapshot", "render", "renderresult", "material", "print", "massprops", "interference", "macro",
 ];
 
 #[derive(Default)]

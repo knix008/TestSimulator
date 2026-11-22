@@ -456,8 +456,9 @@ export const SHORTCUT_LIST = [
 ];
 
 function settingsShortcuts() {
-  const [list, pager] = paged('shortcuts', SHORTCUT_LIST, 36);
-  return `<div class="shortcut-grid">${list.map(([key, label]) => `<div class="shortcut-row" title="${escapeHtml(t(label))}"><kbd>${escapeHtml(key.startsWith('shortcut.') ? t(key) : key)}</kbd><span>${escapeHtml(t(label).replace(/…$/, ''))}</span></div>`).join('')}</div>${pager ? `<div class="row">${pager}</div>` : ''}`;
+  // Every shortcut on one page (user rule): three columns, no pages.
+  const list = SHORTCUT_LIST;
+  return `<div class="shortcut-grid" style="grid-template-rows: repeat(${Math.ceil(list.length / 3)}, auto)">${list.map(([key, label]) => `<div class="shortcut-row" title="${escapeHtml(t(label))}"><kbd>${escapeHtml(key.startsWith('shortcut.') ? t(key) : key)}</kbd><span>${escapeHtml(t(label).replace(/…$/, ''))}</span></div>`).join('')}</div>`;
 }
 
 // ───────────────────────── about

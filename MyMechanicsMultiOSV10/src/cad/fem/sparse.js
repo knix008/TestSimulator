@@ -300,7 +300,8 @@ export function rcmOrder(g) {
       nb.sort((a, b) => deg[a] - deg[b]);
       for (const w of nb) q.push(w);
     }
-    order.push(...q);
+    // Not order.push(...q): spreading a component of ~100 000 nodes overflows the call stack.
+    for (const v of q) order.push(v);
   }
   return Int32Array.from(order.reverse());
 }

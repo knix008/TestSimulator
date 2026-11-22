@@ -46,7 +46,21 @@ export function parseStl(input, { precision = 1e-6 } = {}) {
 /** A solid from STL bytes (binary or ASCII); coplanar triangles merged into faces when the kernel can. */
 export function importStlSolid(input) {
   const { verts, tris } = parseStl(input);
-  if (tris.length < 4) throw Object.assign(new Error('STL has no closed mesh'), { code: 'bad-file' });
+  return solidFromMesh(verts, tris);
+}
+
+/** Equal corners (rounded to `precision`) merged into one vertex, degenerate triangles dropped. */
+export function weldMeshObject(verts, tris, precision = 1e-6) {
+  const out = []; const index = new Map(); const map = new Array(verts.length);
+  verts.forEach((p, i) => { const k = p.map((v) => Math.round(v / precision)).join(','); let j = index.get(k); if (j == null) { j = out.length; out.push(p); index.set(k, j); } map[i] = j; });
+  const t2 = [];
+  for (const [a, b, c] of tris) { const i = map[a]; const j = map[b]; const k = map[c]; if (i !== j && j !== k && k !== i) t2.push([i, j, k]); }
+  return { verts: out, tris: t2 };
+}
+
+/** A solid from a closed triangle mesh (verts [[x, y, z]], tris [[a, b, c]]); coplanar triangles merged into faces. */
+export function solidFromMesh(verts, tris) {
+  if (tris.length < 4) throw Object.assign(new Error('the mesh is not closed'), { code: 'bad-file' });
   const R = rep(); const oc = R.getOC();
   const solid = solidFromTriangles(verts, tris);
   try {

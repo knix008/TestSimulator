@@ -177,6 +177,8 @@ In the task pane's **Materials** tab (or by double-clicking Material in the tree
 
 ![Frequency: pick a mode in the list of natural frequencies to see its shape](images/en/sim-modal.png)
 
+The **flow study** (external or internal) uses the lattice Boltzmann method for drag, lift, pressure drop and streamlines. External flow can add **local refinement around the body**, 1 to 3 levels: each level nests a block of half-size cells around the body, and the blocks and the grid outside exchange their solutions both ways until the drag changes by less than 0.5 %. The results list the blocks and the coupling sweeps, and say so when a block diverged because the grid outside is too coarse for the Reynolds number (use more cells). **Maximum iterations per grid** shortens the run.
+
 ## 9. Assemblies
 
 1. Click **New assembly**. The PropertyManager lists the project's parts and the sample parts. The first part is fixed at the origin (`(f)`).
@@ -236,6 +238,8 @@ From a part or an assembly, **Drawing › Make drawing** (or Standard 3 View) pu
 | `.mymech` | The project (all parts, assemblies and drawings, JSON). On the desktop double-click it to open. |
 | STEP (`.step`, `.stp`) | Import (features can be added on the imported body) and export (assemblies keep each part's name and color). |
 | STL | Export for 3D printing; import. |
+| IGES (`.igs`, `.iges`) | Import (surfaces sewn into a solid) and export (mm or in). |
+| OBJ · PLY · glTF/GLB · 3MF · VRML | Mesh import (a closed mesh becomes a solid) and export (part colors kept). USDZ export only. |
 | DXF · SVG | Drawing export. |
 | CSV | Design table export and import. |
 | PNG | A picture of the graphics area. |
@@ -320,3 +324,33 @@ A vault is a file store several people share. Only the person who checked a file
 - The **BOM** tab shows an indented BOM and a parts-only BOM (total quantities), with part numbers, revisions and states from the vault files.
 - **Search** finds text in names, part numbers, descriptions, materials and properties; the filter button searches by part number, description, material, state and kind.
 - **Data cards**: part number, description, material, project, vendor, cost, finish, due date, critical part (drawings also sheet size and checked by). Admins add fields on the Settings tab.
+
+## 16. Tools: illustrations, electrical schematics, design checker, task scheduler, macros
+
+### Technical illustrations
+
+**Tools › Technical illustration** makes exploded views and assembly instructions from an assembly. Each view keeps its camera, explode distance and hidden parts; the views play one into the next, and item balloons are placed automatically. Export a single SVG picture or one HTML file that steps through the views.
+
+### Electrical schematics
+
+**Tools › Electrical schematic** opens an A3 sheet over the graphics area. Pick a symbol in the palette (connector, terminal block, switch, push button, relay coil and contact, fuse, lamp, motor, resistor, diode, supply, ground) and click the sheet to place it on the 5 mm grid. The **Wire** tool joins pin to pin with an orthogonal wire. Dragging a symbol moves its wires with it, R turns it 90°, Delete removes, Esc cancels. The wheel zooms, a middle or right drag pans and F shows the whole sheet. Supplies of the same name and all grounds are one net, and wires are numbered per net. The check list shows open pins, duplicate tags and dangling wires; export SVG, a from–to list (CSV) and a parts list (CSV). Undo works as everywhere.
+
+![Electrical schematic: a relay circuit, wires numbered per net, the symbol palette and the checks on the left](images/en/tools-schematic.png)
+
+### Design checker
+
+**Tools › Design checker** compares the project with a standard (a set of rules). The rules cover the document (units, names), parts (required properties, material, suppressed features, rolled back, rebuild errors, sketch definition, default feature names, smallest fillet, standard hole sizes), assemblies (a fixed component, mate errors) and drawings (drafting standard and projection, sheet size, title block, revision and date formats, standard scales, dimension precision, overridden dimensions, text height, dangling annotations). Turn rules on or off and click a rule's name to change its severity (error, warning, info) and values. **Learn from project** makes a standard from the open project; **Save… / Load…** share it as a `.mmstd` file. **Check** lists the findings by severity; click one to open its document and select the item. Items marked 🔧 are corrected one by one or with **Correct all** (one undo step), and **Report (HTML)…** saves the result.
+
+![Design checker: the rules and the findings](images/en/tools-designcheck.png)
+
+### Task scheduler
+
+**Tools › Task scheduler** runs batch jobs over many files, now or on a schedule. Jobs: **Export** (parts and assemblies to STEP, IGES, STL, 3MF, GLB, OBJ; drawings to DXF, SVG), **Import** (model files to `.mymech`), **Update properties** (part and drawing properties, always or only where empty; values may use `{file}` `{name}` `{project}` `{date}`), **Design check** (an HTML report per file and a summary CSV), **Rebuild** (failed features logged, saved in the current format) and **Create drawings** (an ISO or ANSI drawing with the standard views for every part that has none). The files are a list, a folder (desktop: sub-folders and a name pattern) or the open document. Outputs go beside the sources or into a chosen folder, named like `{name} - {doc}`. Schedules are manual, once, daily, weekly (weekdays) or every N minutes; they run while the application is open, and a time missed while it was closed runs once when it next opens. The open document stays as it is during a run; every step is logged and the log exports as CSV.
+
+![Task scheduler: two files exported to STEP and STL every day at 22:00](images/en/tools-tasks.png)
+
+### Macros
+
+Choose **Tools › Macros › Record macro** and work as usual: commands, picks in the graphics area, PropertyManager input, tree selection, document switches and sketch contents are recorded (● REC in the status bar). **Stop macro** turns the recording into JavaScript — lines of `await mm.…(…)` — and opens it in the **Macro editor** window. There you edit it, **Run** it (Ctrl+Enter), **Stop** it and **Open… / Save…** it (`.mmjs`). The console below shows the log and errors (click one to go to its line), and its prompt evaluates an expression at once. Hand-written macros can use loops and variables, read the model with `mm.parts()`, `mm.feature(name)`, `mm.project` and `mm.massProperties()`, change it with `mm.setParam(feature, key, value)`, `mm.setVariable`, `mm.setProperty`, `mm.run(command)` and `mm.set/field/toggle/pm/accept`, and use `mm.log` and `mm.wait`. **Run macro…** picks a file and runs it.
+
+![Macro editor: the script and the console](images/en/tools-macro.png)

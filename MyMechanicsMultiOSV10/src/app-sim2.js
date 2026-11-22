@@ -60,7 +60,7 @@ export function createSim2Tools(ctx) {
     nonlinear: { steps: 8, tangentModulus: 0, kinematicFraction: 0.5, plastic: true, geometric: true, history: 'monotonic', cycles: 2, arcLength: false },
     drop: { height: 1000, dropDir: '-z', floorType: 'rigid', floorE: 2000, floorThickness: 10, friction: 0.2, damping: 0.05, plasticDrop: true, order: 1, frame: 0 },
     combination: { cases: [], method: 'linear' },
-    flow: { flowMode: 'external', flowAxis: 'x', flowSign: 1, velocity: 1, fluid: 'air', cellSize: 0, resolution: 16, collision: 'trt', les: 0.12, timeMode: 'steady', duration: 1,
+    flow: { flowMode: 'external', flowAxis: 'x', flowSign: 1, velocity: 1, fluid: 'air', cellSize: 0, resolution: 16, flowRefine: 0, flowMaxSteps: 0, collision: 'trt', les: 0.12, timeMode: 'steady', duration: 1,
       thermalOn: false, inletT: 20, bodyMode: 'temperature', bodyValue: 60, solidK: 50, buoyancy: false, quantity: 'velocity', showStreams: true, showPaths: false, surfacePressure: true },
     asmStatic: { contact: 'bonded' },
   };
@@ -116,8 +116,8 @@ export function createSim2Tools(ctx) {
     } else {
       result = await fem.run('flow', {
         mesh: entry.mesh, mode: e.flowMode, axis: e.flowAxis, sign: e.flowSign, velocity: e.velocity, fluid: e.fluid,
-        cellSize: e.cellSize > 0 ? e.cellSize : null, resolution: Math.max(6, Math.min(96, Math.round(e.resolution))), collision: e.collision, les: e.les,
-        time: { mode: e.timeMode, duration: e.duration },
+        cellSize: e.cellSize > 0 ? e.cellSize : null, resolution: Math.max(6, Math.min(96, Math.round(e.resolution))), collision: e.collision, les: e.les, refine: e.flowMode === 'external' ? e.flowRefine ?? 0 : 0,
+        time: { mode: e.timeMode, duration: e.duration, ...(e.timeMode === 'steady' && e.flowMaxSteps > 0 ? { maxSteps: Math.round(e.flowMaxSteps), passes: 1 } : {}) },
         thermal: e.thermalOn ? { inlet: e.inletT, body: { mode: e.bodyMode, value: e.bodyValue, k: e.solidK, density: heatMaterial(p.material).density, cp: heatMaterial(p.material).cp }, buoyancy: e.buoyancy } : null,
       }, p.name);
     }
@@ -299,16 +299,19 @@ export function createSim2Tools(ctx) {
       ...(e.flowMode === 'external' ? [[t('sim2.drag'), `${fmt(r.dragForce, 5)} N`], [t('fem.lift'), `${fmt(r.liftForce, 5)} N`], [t('fem.sideForce'), `${fmt(r.sideForce, 5)} N`], [t('sim2.dragCoefficient'), fmt(r.dragCoefficient, 3)], [t('sim2.frontalArea'), `${fmt(r.frontalArea, 1)} mm²`]] : [[t('sim2.hydraulicDiameter'), `${fmt(r.hydraulicDiameter, 2)} mm`]]),
       [t('sim2.pressureDrop'), `${fmt(r.pressureDrop, 4)} Pa`], [t('sim2.maxVelocity'), `${fmt(r.maxVelocity, 3)} m/s`], [t('sim2.reynolds'), fmt(r.reynolds, 1)],
       ...(r.temp ? [[t('fem.heatToFluid'), `${fmt(r.heat, 4)} W`], [t('fem.nusselt'), fmt(r.nusselt, 2)]] : []), ...(e.timeMode === 'transient' ? [[t('fem.strouhal'), fmt(r.strouhal, 3)], [t('fem.physicalTime'), `${fmt(r.physicalTime, 4)} s`]] : []),
-      [t('sim2.cells'), `${r.dims.join('×')} (${fmt(r.h, 2)} mm)`], [t('fem.collision'), `${String(r.collision).toUpperCase()}${r.les > 0 ? ` + LES ${fmt(r.les, 2)}` : ''}`], [t('sim2.lbmSteps'), `${r.steps}${r.converged ? '' : ' !'}`]])}
+      [t('sim2.cells'), `${r.dims.join('×')} (${fmt(r.h, 2)} mm)`],
+      ...(r.blocks ?? []).map((b) => [t('sim2.refineBlock', { level: b.level }), `${b.dims.join('×')} (${fmt(b.h, 2)} mm)${b.converged ? '' : ' !'}`]),
+      ...(r.coupling?.length ? [[t('sim2.coupling'), `${r.coupling.length} · ${fmt(100 * r.coupling.at(-1), 2)} %${r.couplingSettled ? '' : ' !'}`, r.couplingSettled ? '' : 'error']] : []),
+      ...(r.refineRequested > r.refined ? [[t('sim2.refine'), t(r.refineFailed ? 'sim2.refineFailed' : 'sim2.refineTooBig', { level: r.refineFailed || r.refined + 1 }), 'error']] : []), [t('fem.collision'), `${String(r.collision).toUpperCase()}${r.les > 0 ? ` + LES ${fmt(r.les, 2)}` : ''}`], [t('sim2.lbmSteps'), `${r.steps}${r.converged ? '' : ' !'}`]])}
       ${e.timeMode === 'transient' && r.history?.length ? `${fem.chart(r.history.map((x) => x.time), r.history.map((x) => x.force[r.flowAxis] * r.flowSign), 'force')}<p class="pm-note sim2-chart-key"><i class="force"></i>${escapeHtml(t('fem.dragOverTime'))}</p>` : ''}
       ${pmSeg('quantity', [['velocity', t('sim2.velocity')], ['pressure', t('sim2.pressureField')], ['vorticity', t('fem.vorticity')], ...(r.temp ? [['temperature', t('sim.temperature')]] : [])], e.quantity)}${check('showStreams', e.showStreams, 'sim2Flow', t('sim2.streamlines'))}${check('showPaths', e.showPaths, 'femPaths', t('fem.trajectories'))}${check('surfacePressure', e.surfacePressure, 'femPressure', t('fem.surfacePressure'))}
       ${legend(`${fmt(sec?.min ?? 0, 3)}`, `${fmt(sec?.max ?? 1, 3)} ${unit}`)}${e.surfacePressure && state.sim?.cpRange ? `<p class="pm-note">${escapeHtml(`${t('fem.surfaceCp')}: ${fmt(state.sim.cpRange[0], 2)} … ${fmt(state.sim.cpRange[1], 2)}`)}</p>` : ''}${clear}`) : '';
     const { pmNum: num } = ctx.pm;
     return [head('sim2Flow', 'pm.help.flow'), studySelector(e),
       pmGroup('sim2Flow', t('sim2.flowSetup'), `${pmSeg('flowMode', [['external', t('sim2.external')], ['internal', t('sim2.internal')]], e.flowMode)}${pmSeg('flowAxis', [['x', 'X'], ['y', 'Y'], ['z', 'Z']], e.flowAxis)}${pmSeg('flowSign', [['1', '+'], ['-1', '−']], String(e.flowSign))}${num('velocity', e.velocity, `${t('sim2.velocity')} (m/s)`, 'sim2Flow')}${pmSeg('fluid', [['air', t('sim2.air')], ['water', t('sim2.water')], ['oil', t('fem.oil')]], e.fluid)}`),
-      pmGroup('femTurbulence', t('fem.flowModel'), `${pmSeg('collision', [['trt', 'TRT'], ['mrt', 'MRT'], ['bgk', 'BGK']], e.collision)}${num('les', e.les, t('fem.smagorinsky'), 'femTurbulence')}${pmSeg('timeMode', [['steady', t('fem.steady'), 'femSteady'], ['transient', t('fem.transient'), 'clock']], e.timeMode)}${e.timeMode === 'transient' ? num('duration', e.duration, `${t('fem.duration')} (s)`, 'clock') : ''}`),
+      pmGroup('femTurbulence', t('fem.flowModel'), `${pmSeg('collision', [['trt', 'TRT'], ['mrt', 'MRT'], ['bgk', 'BGK']], e.collision)}${num('les', e.les, t('fem.smagorinsky'), 'femTurbulence')}${pmSeg('timeMode', [['steady', t('fem.steady'), 'femSteady'], ['transient', t('fem.transient'), 'clock']], e.timeMode)}${e.timeMode === 'transient' ? num('duration', e.duration, `${t('fem.duration')} (s)`, 'clock') : num('flowMaxSteps', e.flowMaxSteps ?? 0, `${t('sim2.maxIterations')} (0 = ${t('fem.auto')})`, 'femSteady')}`),
       pmGroup('femHeat', t('fem.heatTransfer'), `${check('thermalOn', e.thermalOn, 'femHeat', t('fem.heatOn'))}${e.thermalOn ? `${num('inletT', e.inletT, `${t('fem.inletTemperature')} (°C)`, 'sun')}${pmSeg('bodyMode', [['temperature', t('sim.temperature')], ['power', t('sim.heatPower')], ['conduct', t('fem.conjugate')]], e.bodyMode)}${e.bodyMode !== 'conduct' ? num('bodyValue', e.bodyValue, e.bodyMode === 'power' ? `${t('sim.heatPower')} (W)` : `${t('sim.temperature')} (°C)`, 'femHeat') : ''}${num('solidK', e.solidK, `${t('fem.solidConductivity')} (W/m·K)`, 'material')}${check('buoyancy', e.buoyancy, 'femGravity', t('fem.buoyancy'))}` : ''}`),
-      pmGroup('statistics', t('sim.mesh'), `${num('cellSize', e.cellSize, `${t('fem.cellSize')} (mm, 0 = ${t('fem.auto')})`, 'femMesh')}${e.cellSize > 0 ? '' : num('resolution', e.resolution, t('sim2.flowResolution'), 'statistics')}<p class="pm-note">${escapeHtml(t('sim2.flowNote'))}</p><div class="pm-row">${pmButton('runSim', 'play', t('sim.run'), 'primary')}</div>`), res].join('');
+      pmGroup('statistics', t('sim.mesh'), `${num('cellSize', e.cellSize, `${t('fem.cellSize')} (mm, 0 = ${t('fem.auto')})`, 'femMesh')}${e.cellSize > 0 ? '' : num('resolution', e.resolution, t('sim2.flowResolution'), 'statistics')}${e.flowMode === 'external' ? `<label class="pm-label">${escapeHtml(t('sim2.refine'))}</label>${pmSeg('flowRefine', [['0', t('sim2.refineNone')], ['1', '1'], ['2', '2'], ['3', '3']], String(e.flowRefine ?? 0))}<p class="pm-note">${escapeHtml(t('sim2.refineNote'))}</p>` : ''}<p class="pm-note">${escapeHtml(t('sim2.flowNote'))}</p><div class="pm-row">${pmButton('runSim', 'play', t('sim.run'), 'primary')}</div>`), res].join('');
   }
 
   function buildFlowDisplay() {
@@ -335,6 +338,7 @@ export function createSim2Tools(ctx) {
       ctx.syncView(); ctx.renderLeft(); return;
     }
     if (key === 'flowSign') e.flowSign = Number(value) < 0 ? -1 : 1;
+    else if (key === 'flowRefine') { e.flowRefine = Math.max(0, Math.min(3, Math.round(Number(value) || 0))); e.result = null; }
     else e[key] = value;
     if (key === 'loadKind') e.pick = 'loads';
     if (key === 'quantity' && state.flow) { state.flow.quantity = value; buildFlowDisplay(); ctx.syncView(); }
@@ -1100,6 +1104,7 @@ export function createSim2Tools(ctx) {
     if (isSim(e) && key === 'frame' && v != null) { e.frame = Math.max(0, Math.round(v)); return showFrame(e); }
     if (v == null) { notify('error', t('notice.invalidValue', { text: raw })); return ctx.renderLeft(); }
     if (isSim(e) && ['inletT', 'bodyValue'].includes(key)) { e[key] = v; e.result = null; return ctx.renderLeft(); }
+    if (isSim(e) && key === 'flowMaxSteps') { e[key] = Math.max(0, Math.round(v)); e.result = null; return ctx.renderLeft(); }
     if (isSim(e) && ['friction', 'damping', 'les', 'cellSize', 'asmFriction'].includes(key)) { e[key] = Math.max(0, v); e.result = null; return ctx.renderLeft(); }
     if (isSim(e) && key === 'kinematicFraction') { e[key] = Math.min(1, Math.max(0, v)); e.result = null; return ctx.renderLeft(); }
     if (['offset', 'cx', 'cy'].includes(key)) e[key] = v;

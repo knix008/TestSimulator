@@ -80,7 +80,8 @@ export function normalizeProject(raw) {
   }
   if (raw.camera) p.camera = raw.camera;
   // Version history, check-out settings and sketch blocks (cad/versions.js, cad/asm-extra.js).
-  for (const k of ['versions', 'sketchBlocks']) if (Array.isArray(raw[k])) p[k] = raw[k];
+  // Electrical schematics (cad/schematic.js) too.
+  for (const k of ['versions', 'sketchBlocks', 'schematics']) if (Array.isArray(raw[k])) p[k] = raw[k];
   if (raw.vault && typeof raw.vault === 'object') p.vault = raw.vault;
   // The vault file this project is (cad/vault.js: vaultLink { vaultId, fileId, name }).
   if (raw.vaultLink && typeof raw.vaultLink === 'object') p.vaultLink = raw.vaultLink;
