@@ -29,7 +29,9 @@ let viteLog = '';
 vite.stdout.on('data', (d) => { viteLog += d; });
 vite.stderr.on('data', (d) => { viteLog += d; });
 const debugPort = await freeDevPort(port + 1);
-const profile = path.join(tmpdir(), `mam-smoke-${process.pid}`);
+// --profile <dir> keeps the browser profile between runs (e.g. a downloaded AI voice bank in OPFS).
+const keptProfile = opt('--profile', null);
+const profile = keptProfile ?? path.join(tmpdir(), `mam-smoke-${process.pid}`);
 let edge;
 let failed = false;
 
@@ -65,7 +67,7 @@ process.on('exit', cleanup);
 try {
   for (let i = 0; i < 200 && !/Local:/.test(viteLog); i++) await sleep(150);
   const flags = gpu ? ['--enable-gpu', '--ignore-gpu-blocklist'] : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
-  edge = spawn(browser, ['--headless=new', ...flags, `--remote-debugging-port=${debugPort}`, `--user-data-dir=${profile}`, '--no-first-run', '--hide-scrollbars', '--disable-sync', '--disable-extensions', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', `--window-size=${width},${height}`, 'about:blank'], { stdio: 'ignore' });
+  edge = spawn(browser, ['--headless=new', ...flags, `--remote-debugging-port=${debugPort}`, `--user-data-dir=${profile}`, '--no-first-run', '--hide-scrollbars', '--disable-sync', '--disable-extensions', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', `--window-size=${width},${height}`, `--mam-smoke-${process.pid}`, 'about:blank'], { stdio: 'ignore' });
   const target = await waitTarget(debugPort, (t) => t.type === 'page', 40000);
   const page = await new Page(target).open();
   const logs = [];
@@ -85,6 +87,12 @@ try {
       const value = r.result?.result?.value;
       const ex = r.result?.exceptionDetails;
       if (ex || r.error) { failed = true; console.log(`✘ ${label}: ${ex?.exception?.description ?? ex?.text ?? r.error?.message}`); }
+      // A step may hand back files: { files: [{ name, base64 }], ...rest } — written to --out, the rest printed.
+      else if (value && Array.isArray(value.files)) {
+        for (const f of value.files) { writeFileSync(path.join(out, f.name), Buffer.from(f.base64, 'base64')); console.log(`💾 ${path.join(out, f.name)}`); }
+        const { files, ...rest } = value;
+        console.log(`  ${label} → ${JSON.stringify(rest)}`);
+      }
       else if (value !== undefined) console.log(`  ${label} → ${typeof value === 'string' ? value : JSON.stringify(value)}`);
     }
     // Real browser input (CDP Input.dispatchMouseEvent) into this headless page: [{ type, x, y, button, buttons, delay }].
@@ -121,6 +129,6 @@ try {
 } finally {
   cleanup();
   await sleep(400);
-  try { rmSync(profile, { recursive: true, force: true }); } catch { /* still held */ }
+  if (!keptProfile) { try { rmSync(profile, { recursive: true, force: true }); } catch { /* still held */ } }
 }
 process.exit(failed ? 1 : 0);

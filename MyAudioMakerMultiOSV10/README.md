@@ -53,7 +53,7 @@ Windows · macOS · Linux · 웹에서 쓰는 **AI 작곡 프로그램**입니�
 
 ### 프로그램
 
-- 시작 화면 카드(이동·크기 조절), 템플릿 15종, **예제 곡 24곡**(8묶음), 움직이는 배경 20종, 첫 실행 환영 창.
+- 시작 화면 카드(이동·크기 조절), 템플릿 15종, **예제 곡 40곡**(8묶음, 묶음마다 5곡), 움직이는 배경 20종, 첫 실행 환영 창.
 - 튜토리얼 8개 장 26단계(실제 화면에서 진행, 자동 재생), 사용 설명서·튜토리얼 문서 창(목차·찾기·언어 전환·인쇄).
 - 설정 10개 탭, 밝은·어두운·사용자 테마, 한국어·영어, 실행 취소 100단계, `.mam` 파일 연결, 여러 개 동시 실행.
 
@@ -129,7 +129,7 @@ MyAudioMakerMultiOSV10/
 │  ├─ platform/          데스크톱(Tauri)/웹 차이: 파일 대화상자, 팝업 창
 │  └─ i18n/              한국어·영어 문자열 (music.js가 음악 화면 문구)
 ├─ src-tauri/            Rust: 파일 입출력, 팝업·문서 창, 인쇄, 글꼴, 창 위치, 여러 실행, 설치 훅(windows/hooks.nsh)
-├─ samples/              예제 곡 .mam 24개
+├─ samples/              예제 곡 .mam 40개
 ├─ licenses/             제3자 라이선스 (THIRD-PARTY-NOTICES.txt)
 ├─ doc/                  사용 설명서(UsersGuide.md · UsersGuide.en.md), 생성된 HTML 문서, tutorial/images/
 ├─ public/               웹 빌드에 그대로 들어가는 파일 (public/doc/ = doc/ 복사본)

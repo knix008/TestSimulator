@@ -13,7 +13,7 @@ This guide uses the names shown on screen. Menu paths are written like **File �
 - **Linux** — `.deb` (Debian/Ubuntu), `.rpm` (Fedora …) or `.AppImage`.
 - **Web** — open the address where the web build (`dist/`) is served in Edge, Chrome, Firefox or Safari. Browsers play sound only after a first click on the page.
 
-The installer registers `.mam` files, so a double-click in Explorer or Finder opens them. The 24 sample songs are also in the installation's `samples/` folder.
+The installer registers `.mam` files, so a double-click in Explorer or Finder opens them. The 40 sample songs are also in the installation's `samples/` folder.
 
 ### 1.2 The start page
 
@@ -28,7 +28,7 @@ MyAudioMaker opens on the **start page**. The **Start** button at the left of th
 | **Recent** | Recent songs and folders. Click to open, ✕ to remove from the list, **Clear all** |
 | **AI composing** | **Compose with AI** and the AI that writes lyrics now; 18 genres (a click opens the AI wizard with that genre) |
 | **New (templates)** | An empty song and 14 genre templates — band and chords, no lyrics or vocal |
-| **Sample songs** | 24 finished songs (Pop · K-pop, ballads, hip-hop · R&B, electronic, rock · folk, jazz · bossa · city pop, trot · waltz · cinematic, English lyrics) |
+| **Sample songs** | 40 finished songs, five per group (Pop · K-pop, ballads, hip-hop · R&B, electronic, rock · folk, jazz · bossa · city pop, trot · waltz · cinematic, English lyrics) |
 | **Moving background** | 20 music-themed animations, Shuffle background, Background image…, speed, card opacity, random at start, automatic change |
 
 - The **program name and information card at the top is fixed**: it cannot be moved or resized, and no card can be put above it.

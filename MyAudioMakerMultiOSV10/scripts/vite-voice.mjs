@@ -26,6 +26,10 @@ function serveOrt(req, res, next) {
   res.setHeader('Content-Type', TYPES[name.slice(name.lastIndexOf('.'))] ?? 'application/octet-stream');
   res.setHeader('Content-Length', statSync(file).size);
   res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  // This handler answers before Vite adds its headers: onnxruntime starts its WebAssembly threads as workers
+  // from these files, and a worker script without COEP is refused in an isolated page — the model load then
+  // waits forever. So the isolation headers go on these responses too.
+  for (const [k, v] of Object.entries(ISOLATION_HEADERS)) res.setHeader(k, v);
   createReadStream(file).pipe(res);
   return undefined;
 }

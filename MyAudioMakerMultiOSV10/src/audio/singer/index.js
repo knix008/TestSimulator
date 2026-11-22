@@ -30,6 +30,8 @@ export const BACKENDS = ['auto', 'webgpu', 'wasm'];
 
 const ACCEPT_KEY = 'myaudiomaker.voiceLicences.v1';
 const VERDICT_KEY = 'myaudiomaker.voiceBackend.v1';
+/** How long the WebGPU self-check may take before the CPU is used instead (see the watchdog in renderVocal). */
+export const CHECK_LIMIT_MS = 120000;
 const lsGet = (key, fallback) => { try { return JSON.parse(globalThis.localStorage?.getItem(key) ?? 'null') ?? fallback; } catch { return fallback; } };
 const lsSet = (key, value) => { try { globalThis.localStorage?.setItem(key, JSON.stringify(value)); } catch { /* private mode */ } };
 
@@ -486,16 +488,31 @@ export async function renderVocal(song, track, bankId = DEFAULT_BANK, { onProgre
   });
   let info = workerInfo;
   const unknown = new Set();
+  let retried = null;
   if (todo.length) {
     const { source, files } = await sourceAndFiles(entry);
     const voc = vocEntry ? await sourceAndFiles(vocEntry) : null;
     const job = ++jobSeq;
     const w = getWorker();
     const verdicts = lsGet(VERDICT_KEY, {});
+    let deviceKey = null;
     await new Promise((resolve, reject) => {
       const onAbort = () => w.postMessage({ type: 'cancel', job });
       signal?.addEventListener('abort', onAbort, { once: true });
+      // Watchdog: the WebGPU self-check must answer within CHECK_LIMIT_MS. A GPU call that never returns (some
+      // drivers, headless browsers) would otherwise hold the vocal forever: the worker is stopped, this device is
+      // remembered as "use the CPU", and the render starts again on WebAssembly.
+      let watchdog = 0;
+      const stopWatch = () => { clearTimeout(watchdog); watchdog = 0; };
       pending.set(job, (msg) => {
+        if (msg.type === 'progress' && msg.stage === 'check' && !watchdog) {
+          watchdog = setTimeout(() => {
+            pending.delete(job); signal?.removeEventListener('abort', onAbort);
+            if (deviceKey) { verdicts[deviceKey] = { ok: false, detail: 'timeout' }; lsSet(VERDICT_KEY, verdicts); }
+            if (worker === w) { w.terminate(); worker = null; workerInfo = null; }
+            reject(new VoiceError('gpuTimeout', 'The GPU check did not finish'));
+          }, CHECK_LIMIT_MS);
+        } else if (msg.type !== 'progress' || msg.stage !== 'check') stopWatch();
         if (msg.type === 'progress') {
           const fraction = msg.stage === 'render' ? (msg.total ? msg.done / msg.total : 0) : 0;
           onProgress?.({ stage: msg.stage, model: msg.model, fraction, phrase: msg.phrase, phrases: msg.phrases ?? todo.length, cached: phrases.length - todo.length, loaded: msg.stage === 'load' ? msg.done / Math.max(1, msg.total) : 1 });
@@ -514,13 +531,20 @@ export async function renderVocal(song, track, bankId = DEFAULT_BANK, { onProgre
         }
       });
       backendInfo().then((bi) => {
-        const verdict = verdicts[`${bi.ort}|${bi.adapter}|${bankId}`] ?? null;
+        deviceKey = `${bi.ort}|${bi.adapter}|${bankId}`;
+        const verdict = verdicts[deviceKey] ?? null;
         w.postMessage({
           type: 'render', job, bankKey: `${bankId}@${layout.version}|${entry.files.length}|${vocId ?? ''}`, source, files, vocoderSource: voc?.source ?? null, vocoderFiles: voc?.files ?? null,
           speaker: spk, phrases: todo.map((x) => x.phrase), opts: { steps, backend, verdict, fallbackLang: language }, ort: { base: ortBase() },
         });
       });
     }).catch(async (error) => {
+      // The GPU check hung: sing on the CPU (the verdict now says so, so later renders skip the check too).
+      if (error.code === 'gpuTimeout') {
+        const again = await renderVocal(song, track, bankId, { onProgress, signal, speaker, steps, backend: 'wasm' });
+        retried = again;
+        return;
+      }
       // The bank's own vocoder does not run here: remember it; it sings through PC-NSF-HiFiGAN.
       if (error.code !== 'vocoderLoad' || vocEntry) throw error;
       await store().writeMeta(entry, { ...(entry.meta ?? {}), vocoderUnsupported: true }).catch(() => {});
@@ -531,6 +555,7 @@ export async function renderVocal(song, track, bankId = DEFAULT_BANK, { onProgre
       e.id = externalVocoder(bankId, layout, { vocoderUnsupported: true });
       throw e;
     });
+    if (retried) return retried;
   }
   // Mix the phrases into one track from beat 0.
   const rate = 44100;

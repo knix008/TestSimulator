@@ -16,7 +16,7 @@ export const cases = [
       assert.equal(r.dots, 0, 'icons');
       assert.deepEqual(r.raw, [], 'untranslated keys');
       assert.equal(r.genres, 18);
-      assert.equal(r.samples, 24);
+      assert.equal(r.samples, 40);
       assert.equal(r.templates, 15);
     },
   },
@@ -38,7 +38,7 @@ export const cases = [
     },
   },
   {
-    group: G, name: '예제 24곡과 템플릿 15개가 모두 열림 (문제 패널에 오류·경고 없음)',
+    group: G, name: '예제 40곡과 템플릿 15개가 모두 열림 (문제 패널에 오류·경고 없음)',
     async run(app) {
       const r = await app.run(`const bad = [];
         for (const s of A.domain.SAMPLES) { await T.sample(s.id); await T.sleep(450); const probs = A.state.problems.filter((p) => p.severity !== 'info'); if (probs.length || !A.state.doc.song.tracks.length) bad.push(s.id + ':' + probs.map((p) => p.code)); }

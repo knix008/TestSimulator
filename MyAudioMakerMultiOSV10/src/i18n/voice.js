@@ -110,6 +110,7 @@ export const T = {
   'voice.error.vocoderLoad': ['이 음성 뱅크의 보코더는 여기서 실행할 수 없습니다.', 'This bank\'s vocoder cannot run here.'],
   'voice.error.modelLoad': ['모델을 불러오지 못했습니다 (메모리가 부족할 수 있습니다).', 'A model could not be loaded (memory may be short).'],
   'voice.error.render': ['AI 음성을 렌더링하지 못했습니다.', 'The AI voice could not be rendered.'],
+  'voice.error.gpuTimeout': ['GPU 확인이 끝나지 않아 CPU로 노래합니다.', 'The GPU check did not finish, so the CPU sings.'],
   'voice.error.worker': ['AI 음성 작업이 멈췄습니다.', 'The AI voice worker stopped.'],
   'voice.unknownWords': ['발음을 모르는 가사: {words}', 'Lyrics it could not pronounce: {words}'],
 };

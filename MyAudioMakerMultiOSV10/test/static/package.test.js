@@ -230,7 +230,7 @@ test('resources: the documents, the sample songs and the licences are installed'
   assert.equal(resources['../samples/'], 'samples/');
   for (const source of Object.keys(resources)) assert.ok(fs.existsSync(path.join(root, 'src-tauri', source)), `${source} exists`);
   const samples = fs.readdirSync(path.join(root, 'samples')).filter((f) => f.endsWith('.mam'));
-  assert.equal(samples.length, 24, `sample songs (${samples.length})`);
+  assert.equal(samples.length, 40, `sample songs (${samples.length})`);
   for (const file of samples) assert.equal(read(`samples/${file}`).subarray(0, 2).toString(), 'PK', `${file} is a .mam (ZIP)`);
 });
 

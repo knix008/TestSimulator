@@ -60,7 +60,7 @@ main.js는 첫 그리기 전에 설정을 읽어 언어·테마·글꼴을 적�
 | `ai.js` | 제공자(builtin·claude·ollama), `PLAN_SCHEMA`, 프롬프트, `requestPlan`/`requestLyrics`, `cleanPlan`, `testProvider` |
 | `song.js` | `normalizeSong`(모든 입력의 관문), 구간 시작 박, 코드 줄 텍스트, 음표 이동·자르기, 통계 |
 | `checks.js` | 문제 검사(오류·경고·정보) |
-| `samples.js` | 템플릿 15종, 예제 곡 24곡(씨앗과 사양으로 다시 만듦) |
+| `samples.js` | 템플릿 15종, 예제 곡 40곡(씨앗과 사양으로 다시 만듦) |
 | `notation.js` | 리드 시트 SVG(오선·조표·임시표·코드·가사) |
 | `random.js` | 씨앗 난수(mulberry32) — 같은 씨앗이면 같은 곡 |
 
