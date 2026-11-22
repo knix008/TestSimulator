@@ -522,7 +522,7 @@ class GraphBoard {
 
   zoom(factor) {
     if (this.dimension === "3d") {
-      this.zoom3d(factor);
+      this.zoomCamera(factor);
       return;
     }
     const { xMin, xMax, yMin, yMax } = this.view;
@@ -552,6 +552,8 @@ class GraphBoard {
     this.onChange?.();
   }
 
+  // Scales all three ranges about the origin. Neither the wheel nor the zoom
+  // buttons call it any more (they move the camera); it stays for scripted use.
   zoom3d(factor, fast) {
     const pairs = [["xMin", "xMax"], ["yMin", "yMax"], ["zMin", "zMax"]];
     const before = { ...this.view };
@@ -934,8 +936,9 @@ class GraphBoard {
     ev.preventDefault();
     const factor = ev.deltaY > 0 ? 1.2 : 0.8333;
     if (this.dimension === "3d") {
-      if (ev.ctrlKey) this.zoomCamera(factor, true);
-      else this.zoom3d(factor, true);
+      // The wheel only brings the camera closer or further. The axis ranges are
+      // the reader's to set in the side panel; only the ticks follow the zoom.
+      this.zoomCamera(factor, true);
       return;
     }
     const p = this.eventPoint(ev);

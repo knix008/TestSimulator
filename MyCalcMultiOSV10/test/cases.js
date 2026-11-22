@@ -613,7 +613,7 @@ suite("Graph", () => {
     });
   });
 
-  test("The wheel changes the 2D and the 3D range", () => {
+  test("The wheel changes the 2D range and only the 3D camera", () => {
     appCall(() => board.resize());
     flush(appWindow);
     appCall(() => {
@@ -627,12 +627,17 @@ suite("Graph", () => {
       board.resetView();
       const span = board.view.xMax - board.view.xMin;
       const height = board.view.zMax - board.view.zMin;
+      const zoom = board.camera.zoom;
       board.onWheel({ preventDefault() {}, deltaY: 120, clientX: rect.left + 40, clientY: rect.top + 40 });
-      const next = board.view.xMax - board.view.xMin;
-      if (!(next > span)) throw new Error("Zooming out left the axes as they were");
-      if (!(board.view.zMax - board.view.zMin > height)) throw new Error("The height axis stayed short");
+      if (board.view.xMax - board.view.xMin !== span) throw new Error("The 3D wheel changed the x range");
+      if (board.view.zMax - board.view.zMin !== height) throw new Error("The 3D wheel changed the z range");
+      if (!(board.camera.zoom < zoom)) throw new Error("Zooming out left the camera as it was");
       board.onWheel({ preventDefault() {}, deltaY: -120, clientX: rect.left + 40, clientY: rect.top + 40 });
-      if (Math.abs(board.view.xMax - board.view.xMin - span) / span > 0.01) throw new Error("Zooming back in missed the start");
+      if (Math.abs(board.camera.zoom / zoom - 1) > 0.01) throw new Error("Zooming back in missed the start");
+      board.zoom(0.75);
+      if (board.view.xMax - board.view.xMin !== span) throw new Error("The 3D zoom button changed the range");
+      if (!(board.camera.zoom > zoom)) throw new Error("The 3D zoom button left the camera");
+      board.camera.zoom = zoom;
       board.draw();
       const scene = board.scene;
       const key = board.meshKey;
@@ -1956,7 +1961,9 @@ suite("Product features", () => {
       assert(report.bad === 0, `${report.label} has ${report.bad} broken grid points`);
       assert(report.loose === 0, `${report.label} has ${report.loose} grid ends off the window`);
       assert(report.missed === 0, `${report.label} missed ${report.missed} of ${report.visible} grid lines in the window`);
-      if (!report.label.startsWith("along") && !report.label.startsWith("camera")) {
+      // The zoom buttons move the camera in 3D, so a picture zoomed out far is
+      // left with only the few coarse cell lines a small box can hold.
+      if (!report.label.startsWith("along") && !report.label.startsWith("camera") && !report.label.startsWith("out")) {
         assert(report.visible >= 6, `${report.label} shows ${report.visible} cell lines`);
       }
       assert(report.lines < 2500, `${report.label} drew ${report.lines} grid lines`);
@@ -2604,7 +2611,7 @@ suite("Product features", () => {
     assert(steps.x === 2 && steps.y === 200, `Steps ${steps.x} and ${steps.y}`);
   });
 
-  test("Ctrl with the wheel scales the picture only", () => {
+  test("The 3D wheel scales the picture only, with or without Ctrl", () => {
     appCall(() => board.resize());
     flush(appWindow);
     appCall(() => {
@@ -2621,6 +2628,12 @@ suite("Product features", () => {
       if (!(after.focal > before.focal * 1.1)) throw new Error(`focal ${before.focal} -> ${after.focal}`);
       if (Math.abs(after.span - before.span) > 1e-9) throw new Error("The axis numbers moved");
       if (after.cells !== before.cells) throw new Error("The grid changed its count");
+      // Without Ctrl it is the same, and after enough notches only the ticks recut.
+      const step = board.floorStep();
+      for (let notch = 0; notch < 8; notch++) board.onWheel({ preventDefault() {}, deltaY: -120, clientX: 0, clientY: 0 });
+      board.draw();
+      if (Math.abs(board.view.xMax - board.view.xMin - before.span) > 1e-9) throw new Error("The plain wheel moved the axis numbers");
+      if (!(board.floorStep() < step)) throw new Error(`The ticks stayed at ${board.floorStep()} after zooming in`);
       board.camera.zoom = 1.35;
       board.resetView();
       board.setDimension("2d");
