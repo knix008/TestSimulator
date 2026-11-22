@@ -1770,3 +1770,10 @@ select.dd-select { background-repeat: no-repeat; background-position: 8px center
 /* ── every tab's close ✕: red when the pointer is on it */
 .tab-close:hover, #tabs .tab-close:hover, .tab .tab-close:hover { background: var(--danger, #d93025) !important; color: #fff !important; }
 .tab-close:hover .icon { color: #fff; }
+
+/* Every close (✕) button in every window turns red under the pointer: any button whose only content is the close
+   glyph (popups, dialogs, panels, menus, tabs, the window itself), the PropertyManager ✖ and the tab close. */
+:is(button, [role="button"], [data-action], [data-command], [data-pm], .tab-close):has(> svg:is([data-icon="close"], [data-icon="winClose"], [data-icon="closeTab"]):only-child):hover,
+.pm-cancel:hover, .tab-close:hover, .window-button.close:hover { background: var(--danger, #d93025) !important; border-color: var(--danger, #d93025) !important; color: #fff !important; }
+:is(button, [role="button"], [data-action], [data-command], [data-pm], .tab-close):has(> svg:is([data-icon="close"], [data-icon="winClose"], [data-icon="closeTab"]):only-child):hover > svg,
+.pm-cancel:hover svg, .tab-close:hover svg, .window-button.close:hover svg { color: #fff !important; stroke: #fff !important; }

@@ -611,7 +611,9 @@ export function flowStudy(mesh, opts = {}) {
   let fine = { lat, origin, h, dims, solid, tau, center: ctr };
   const levels = Math.max(0, Math.min(3, Math.round(opts.refine ?? 0)));
   for (let lvl = 1; lvl <= levels && mode === 'external'; lvl++) {
-    const hf = fine.h / 2, mg = Math.max(6 * hf, (opts.blockMargin ?? 0.8) * across / lvl);
+    // Margins (body sizes) shrink inward: each block's boundary stays well outside the next one's near field, where
+    // the coarser solution it is driven by is still accurate (a level-2 block 0.4 sizes off the body read 8 % high).
+    const hf = fine.h / 2, mg = Math.max(6 * hf, (opts.blockMargin ?? 1) * across * (1 + 0.5 * (levels - lvl)));
     const lo = S.lo.map((v, a) => v - (a === fa ? (sign > 0 ? mg : 2 * mg) : mg)), hi = S.hi.map((v, a) => v + (a === fa ? (sign > 0 ? 2 * mg : mg) : mg));
     // Inside the coarser grid by two of its cells.
     for (let a = 0; a < 3; a++) { lo[a] = Math.max(lo[a], fine.origin[a] + 2 * fine.h); hi[a] = Math.min(hi[a], fine.origin[a] + (fine.dims[a] - 2) * fine.h); }
