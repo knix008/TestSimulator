@@ -1,20 +1,20 @@
 {
-  "date": "2026-11-23T06:26:47.214Z",
-  "passed": 209,
+  "date": "2026-11-23T06:56:51.094Z",
+  "passed": 212,
   "failed": 0,
-  "skipped": 0,
+  "skipped": 1,
   "categories": [
     {
       "id": "js",
       "title": "JS 단위 테스트",
-      "ms": 1870,
+      "ms": 2281,
       "results": [
         {
           "name": "ticks start at 0, use round steps, cover the maximum with little room to spare",
           "group": "axes",
           "ok": true,
           "skipped": false,
-          "ms": 1.014,
+          "ms": 1.0675,
           "error": null
         },
         {
@@ -22,7 +22,7 @@
           "group": "axes",
           "ok": true,
           "skipped": false,
-          "ms": 0.1138,
+          "ms": 0.1251,
           "error": null
         },
         {
@@ -30,7 +30,7 @@
           "group": "axes",
           "ok": true,
           "skipped": false,
-          "ms": 0.0998,
+          "ms": 0.0851,
           "error": null
         },
         {
@@ -38,7 +38,7 @@
           "group": "axes",
           "ok": true,
           "skipped": false,
-          "ms": 9.8213,
+          "ms": 9.8871,
           "error": null
         },
         {
@@ -46,7 +46,7 @@
           "group": "axes",
           "ok": true,
           "skipped": false,
-          "ms": 0.1308,
+          "ms": 0.1441,
           "error": null
         },
         {
@@ -54,7 +54,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 2.4805,
+          "ms": 2.8843,
           "error": null
         },
         {
@@ -62,7 +62,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.4219,
+          "ms": 0.4515,
           "error": null
         },
         {
@@ -70,7 +70,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.3087,
+          "ms": 0.3218,
           "error": null
         },
         {
@@ -78,7 +78,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 1.7082,
+          "ms": 1.4018,
           "error": null
         },
         {
@@ -86,7 +86,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 1.063,
+          "ms": 1.0775,
           "error": null
         },
         {
@@ -94,7 +94,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.2443,
+          "ms": 0.2945,
           "error": null
         },
         {
@@ -102,7 +102,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.1434,
+          "ms": 0.1502,
           "error": null
         },
         {
@@ -110,7 +110,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.1891,
+          "ms": 0.1927,
           "error": null
         },
         {
@@ -118,7 +118,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.5106,
+          "ms": 0.5169,
           "error": null
         },
         {
@@ -126,7 +126,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.202,
+          "ms": 0.2135,
           "error": null
         },
         {
@@ -134,7 +134,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.3773,
+          "ms": 0.379,
           "error": null
         },
         {
@@ -142,7 +142,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.3869,
+          "ms": 0.4134,
           "error": null
         },
         {
@@ -150,7 +150,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.3088,
+          "ms": 0.3325,
           "error": null
         },
         {
@@ -158,7 +158,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.2157,
+          "ms": 0.2275,
           "error": null
         },
         {
@@ -166,7 +166,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.1983,
+          "ms": 0.1928,
           "error": null
         },
         {
@@ -174,7 +174,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.2198,
+          "ms": 0.2095,
           "error": null
         },
         {
@@ -182,7 +182,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.3795,
+          "ms": 0.4197,
           "error": null
         },
         {
@@ -190,7 +190,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.357,
+          "ms": 0.3681,
           "error": null
         },
         {
@@ -198,7 +198,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 1.0927,
+          "ms": 1.1627,
           "error": null
         },
         {
@@ -206,7 +206,7 @@
           "group": "document",
           "ok": true,
           "skipped": false,
-          "ms": 0.1871,
+          "ms": 0.2271,
           "error": null
         },
         {
@@ -214,7 +214,7 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 37.9897,
+          "ms": 64.3696,
           "error": null
         },
         {
@@ -222,7 +222,7 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 16.472,
+          "ms": 23.9608,
           "error": null
         },
         {
@@ -230,7 +230,7 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 1.1692,
+          "ms": 1.3098,
           "error": null
         },
         {
@@ -238,7 +238,7 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 1.2636,
+          "ms": 1.1057,
           "error": null
         },
         {
@@ -246,7 +246,7 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 0.6945,
+          "ms": 0.6715,
           "error": null
         },
         {
@@ -254,7 +254,7 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 0.4627,
+          "ms": 0.3696,
           "error": null
         },
         {
@@ -262,7 +262,7 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 2.5664,
+          "ms": 2.0115,
           "error": null
         },
         {
@@ -270,7 +270,7 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 19.2444,
+          "ms": 19.8575,
           "error": null
         },
         {
@@ -278,7 +278,7 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 2.2431,
+          "ms": 1.9075,
           "error": null
         },
         {
@@ -286,7 +286,7 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 14.4734,
+          "ms": 14.0819,
           "error": null
         },
         {
@@ -294,7 +294,7 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 38.0276,
+          "ms": 40.2501,
           "error": null
         },
         {
@@ -302,7 +302,7 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 273.3567,
+          "ms": 273.0625,
           "error": null
         },
         {
@@ -310,7 +310,7 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 3.85,
+          "ms": 3.5011,
           "error": null
         },
         {
@@ -318,7 +318,7 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 0.188,
+          "ms": 0.1938,
           "error": null
         },
         {
@@ -326,7 +326,7 @@
           "group": "engine",
           "ok": true,
           "skipped": false,
-          "ms": 1.9994,
+          "ms": 2.315,
           "error": null
         },
         {
@@ -334,7 +334,7 @@
           "group": "format",
           "ok": true,
           "skipped": false,
-          "ms": 6.3697,
+          "ms": 6.4349,
           "error": null
         },
         {
@@ -342,7 +342,7 @@
           "group": "format",
           "ok": true,
           "skipped": false,
-          "ms": 7.9289,
+          "ms": 7.9973,
           "error": null
         },
         {
@@ -350,7 +350,7 @@
           "group": "format",
           "ok": true,
           "skipped": false,
-          "ms": 0.3724,
+          "ms": 0.4313,
           "error": null
         },
         {
@@ -358,7 +358,7 @@
           "group": "format",
           "ok": true,
           "skipped": false,
-          "ms": 0.1985,
+          "ms": 0.1604,
           "error": null
         },
         {
@@ -366,7 +366,7 @@
           "group": "format",
           "ok": true,
           "skipped": false,
-          "ms": 0.1566,
+          "ms": 0.1491,
           "error": null
         },
         {
@@ -374,7 +374,7 @@
           "group": "format",
           "ok": true,
           "skipped": false,
-          "ms": 0.2147,
+          "ms": 0.3018,
           "error": null
         },
         {
@@ -382,7 +382,7 @@
           "group": "format",
           "ok": true,
           "skipped": false,
-          "ms": 0.3215,
+          "ms": 0.3525,
           "error": null
         },
         {
@@ -390,7 +390,7 @@
           "group": "format",
           "ok": true,
           "skipped": false,
-          "ms": 0.1918,
+          "ms": 0.2037,
           "error": null
         },
         {
@@ -398,7 +398,7 @@
           "group": "format",
           "ok": true,
           "skipped": false,
-          "ms": 0.3411,
+          "ms": 0.3606,
           "error": null
         },
         {
@@ -406,7 +406,7 @@
           "group": "i18n",
           "ok": true,
           "skipped": false,
-          "ms": 0.9855,
+          "ms": 1.0492,
           "error": null
         },
         {
@@ -414,7 +414,7 @@
           "group": "i18n",
           "ok": true,
           "skipped": false,
-          "ms": 2.394,
+          "ms": 2.039,
           "error": null
         },
         {
@@ -422,7 +422,7 @@
           "group": "i18n",
           "ok": true,
           "skipped": false,
-          "ms": 1.8652,
+          "ms": 1.7815,
           "error": null
         },
         {
@@ -430,7 +430,7 @@
           "group": "i18n",
           "ok": true,
           "skipped": false,
-          "ms": 0.5974,
+          "ms": 0.5446,
           "error": null
         },
         {
@@ -438,7 +438,7 @@
           "group": "i18n",
           "ok": true,
           "skipped": false,
-          "ms": 0.1315,
+          "ms": 0.1185,
           "error": null
         },
         {
@@ -446,7 +446,7 @@
           "group": "icons",
           "ok": true,
           "skipped": false,
-          "ms": 1.2411,
+          "ms": 1.0354,
           "error": null
         },
         {
@@ -454,7 +454,7 @@
           "group": "icons",
           "ok": true,
           "skipped": false,
-          "ms": 1.3504,
+          "ms": 0.8172,
           "error": null
         },
         {
@@ -462,7 +462,7 @@
           "group": "icons",
           "ok": true,
           "skipped": false,
-          "ms": 18.8098,
+          "ms": 19.8167,
           "error": null
         },
         {
@@ -470,7 +470,7 @@
           "group": "icons",
           "ok": true,
           "skipped": false,
-          "ms": 0.2333,
+          "ms": 0.2279,
           "error": null
         },
         {
@@ -478,7 +478,7 @@
           "group": "icons",
           "ok": true,
           "skipped": false,
-          "ms": 0.6413,
+          "ms": 0.5369,
           "error": null
         },
         {
@@ -486,7 +486,7 @@
           "group": "icons",
           "ok": true,
           "skipped": false,
-          "ms": 1.1725,
+          "ms": 1.1466,
           "error": null
         },
         {
@@ -494,7 +494,7 @@
           "group": "image-encode",
           "ok": true,
           "skipped": false,
-          "ms": 0.7685,
+          "ms": 0.9942,
           "error": null
         },
         {
@@ -502,7 +502,7 @@
           "group": "image-encode",
           "ok": true,
           "skipped": false,
-          "ms": 0.1163,
+          "ms": 0.129,
           "error": null
         },
         {
@@ -510,7 +510,7 @@
           "group": "image-encode",
           "ok": true,
           "skipped": false,
-          "ms": 0.1449,
+          "ms": 0.1552,
           "error": null
         },
         {
@@ -518,7 +518,7 @@
           "group": "image-encode",
           "ok": true,
           "skipped": false,
-          "ms": 0.8803,
+          "ms": 0.6764,
           "error": null
         },
         {
@@ -526,7 +526,7 @@
           "group": "report-export",
           "ok": true,
           "skipped": false,
-          "ms": 0.4677,
+          "ms": 0.5079,
           "error": null
         },
         {
@@ -534,7 +534,7 @@
           "group": "report-export",
           "ok": true,
           "skipped": false,
-          "ms": 1.8903,
+          "ms": 1.8084,
           "error": null
         },
         {
@@ -542,7 +542,7 @@
           "group": "report-export",
           "ok": true,
           "skipped": false,
-          "ms": 9.7189,
+          "ms": 10.2796,
           "error": null
         },
         {
@@ -550,7 +550,7 @@
           "group": "report-export",
           "ok": true,
           "skipped": false,
-          "ms": 0.3459,
+          "ms": 0.4396,
           "error": null
         },
         {
@@ -558,7 +558,7 @@
           "group": "report-export",
           "ok": true,
           "skipped": false,
-          "ms": 3.366,
+          "ms": 2.4471,
           "error": null
         },
         {
@@ -566,7 +566,7 @@
           "group": "report-export",
           "ok": true,
           "skipped": false,
-          "ms": 0.8754,
+          "ms": 0.9144,
           "error": null
         },
         {
@@ -574,7 +574,7 @@
           "group": "report-export",
           "ok": true,
           "skipped": false,
-          "ms": 11.6911,
+          "ms": 11.3868,
           "error": null
         },
         {
@@ -582,7 +582,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 1.0723,
+          "ms": 0.9899,
           "error": null
         },
         {
@@ -590,7 +590,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.3924,
+          "ms": 0.3856,
           "error": null
         },
         {
@@ -598,7 +598,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.2855,
+          "ms": 0.2767,
           "error": null
         },
         {
@@ -606,7 +606,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.1803,
+          "ms": 0.1848,
           "error": null
         },
         {
@@ -614,7 +614,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.4502,
+          "ms": 0.4688,
           "error": null
         },
         {
@@ -622,7 +622,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.1024,
+          "ms": 0.0999,
           "error": null
         },
         {
@@ -630,7 +630,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.1672,
+          "ms": 0.1653,
           "error": null
         },
         {
@@ -638,7 +638,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.1424,
+          "ms": 0.14,
           "error": null
         },
         {
@@ -646,7 +646,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.0947,
+          "ms": 0.0918,
           "error": null
         },
         {
@@ -654,7 +654,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.2264,
+          "ms": 0.2398,
           "error": null
         },
         {
@@ -662,7 +662,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.2057,
+          "ms": 0.1898,
           "error": null
         },
         {
@@ -670,7 +670,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.52,
+          "ms": 0.5244,
           "error": null
         },
         {
@@ -678,7 +678,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.1122,
+          "ms": 0.1165,
           "error": null
         },
         {
@@ -686,7 +686,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.2294,
+          "ms": 0.2134,
           "error": null
         },
         {
@@ -694,7 +694,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.2118,
+          "ms": 0.2315,
           "error": null
         },
         {
@@ -702,7 +702,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.1614,
+          "ms": 0.169,
           "error": null
         },
         {
@@ -710,7 +710,7 @@
           "group": "settings",
           "ok": true,
           "skipped": false,
-          "ms": 0.4638,
+          "ms": 0.3947,
           "error": null
         },
         {
@@ -718,7 +718,7 @@
           "group": "startpage-images",
           "ok": true,
           "skipped": false,
-          "ms": 1.1812,
+          "ms": 1.1758,
           "error": null
         },
         {
@@ -726,7 +726,7 @@
           "group": "startpage-images",
           "ok": true,
           "skipped": false,
-          "ms": 0.3871,
+          "ms": 0.3954,
           "error": null
         },
         {
@@ -734,7 +734,7 @@
           "group": "startpage-images",
           "ok": true,
           "skipped": false,
-          "ms": 0.2356,
+          "ms": 0.1865,
           "error": null
         },
         {
@@ -742,7 +742,7 @@
           "group": "startpage-images",
           "ok": true,
           "skipped": false,
-          "ms": 0.6495,
+          "ms": 0.6717,
           "error": null
         },
         {
@@ -750,7 +750,7 @@
           "group": "startpage-images",
           "ok": true,
           "skipped": false,
-          "ms": 0.7642,
+          "ms": 0.7271,
           "error": null
         },
         {
@@ -758,7 +758,7 @@
           "group": "startpage-images",
           "ok": true,
           "skipped": false,
-          "ms": 0.2095,
+          "ms": 0.2122,
           "error": null
         },
         {
@@ -766,7 +766,7 @@
           "group": "startpage-images",
           "ok": true,
           "skipped": false,
-          "ms": 0.2736,
+          "ms": 0.2225,
           "error": null
         },
         {
@@ -774,7 +774,7 @@
           "group": "startpage-images",
           "ok": true,
           "skipped": false,
-          "ms": 0.6289,
+          "ms": 0.6492,
           "error": null
         },
         {
@@ -782,7 +782,7 @@
           "group": "startpage-images",
           "ok": true,
           "skipped": false,
-          "ms": 1.0908,
+          "ms": 1.3684,
           "error": null
         },
         {
@@ -790,7 +790,7 @@
           "group": "startpage-images",
           "ok": true,
           "skipped": false,
-          "ms": 0.2211,
+          "ms": 0.2119,
           "error": null
         },
         {
@@ -798,7 +798,7 @@
           "group": "startpage-images",
           "ok": true,
           "skipped": false,
-          "ms": 0.2382,
+          "ms": 0.2811,
           "error": null
         },
         {
@@ -806,7 +806,7 @@
           "group": "startpage-images",
           "ok": true,
           "skipped": false,
-          "ms": 0.4945,
+          "ms": 0.4565,
           "error": null
         },
         {
@@ -814,7 +814,7 @@
           "group": "startpage-images",
           "ok": true,
           "skipped": false,
-          "ms": 7.1511,
+          "ms": 7.274,
           "error": null
         },
         {
@@ -822,7 +822,7 @@
           "group": "startpage-images",
           "ok": true,
           "skipped": false,
-          "ms": 8.5954,
+          "ms": 8.7154,
           "error": null
         },
         {
@@ -830,7 +830,7 @@
           "group": "startpage-images",
           "ok": true,
           "skipped": false,
-          "ms": 0.1613,
+          "ms": 0.2247,
           "error": null
         },
         {
@@ -838,7 +838,7 @@
           "group": "startpage-images",
           "ok": true,
           "skipped": false,
-          "ms": 6.1302,
+          "ms": 6.1266,
           "error": null
         },
         {
@@ -846,7 +846,7 @@
           "group": "startpage-images",
           "ok": true,
           "skipped": false,
-          "ms": 0.6331,
+          "ms": 0.6298,
           "error": null
         },
         {
@@ -854,7 +854,7 @@
           "group": "startpage-images",
           "ok": true,
           "skipped": false,
-          "ms": 5.0717,
+          "ms": 4.9079,
           "error": null
         },
         {
@@ -862,7 +862,7 @@
           "group": "startpage-images",
           "ok": true,
           "skipped": false,
-          "ms": 117.5527,
+          "ms": 109.743,
           "error": null
         },
         {
@@ -870,7 +870,7 @@
           "group": "startpage-images",
           "ok": true,
           "skipped": false,
-          "ms": 34.8237,
+          "ms": 64.9898,
           "error": null
         },
         {
@@ -878,7 +878,7 @@
           "group": "themes",
           "ok": true,
           "skipped": false,
-          "ms": 0.5512,
+          "ms": 0.5625,
           "error": null
         },
         {
@@ -886,7 +886,7 @@
           "group": "themes",
           "ok": true,
           "skipped": false,
-          "ms": 1.8024,
+          "ms": 1.5574,
           "error": null
         },
         {
@@ -894,7 +894,7 @@
           "group": "themes",
           "ok": true,
           "skipped": false,
-          "ms": 2.2899,
+          "ms": 2.2646,
           "error": null
         },
         {
@@ -902,7 +902,7 @@
           "group": "themes",
           "ok": true,
           "skipped": false,
-          "ms": 0.4155,
+          "ms": 0.4108,
           "error": null
         },
         {
@@ -910,7 +910,7 @@
           "group": "view-theme",
           "ok": true,
           "skipped": false,
-          "ms": 0.9817,
+          "ms": 1.006,
           "error": null
         },
         {
@@ -918,7 +918,7 @@
           "group": "view-theme",
           "ok": true,
           "skipped": false,
-          "ms": 0.1813,
+          "ms": 0.1962,
           "error": null
         },
         {
@@ -926,7 +926,7 @@
           "group": "view-theme",
           "ok": true,
           "skipped": false,
-          "ms": 4.8469,
+          "ms": 4.4747,
           "error": null
         },
         {
@@ -934,7 +934,7 @@
           "group": "view-theme",
           "ok": true,
           "skipped": false,
-          "ms": 5.0353,
+          "ms": 4.7474,
           "error": null
         }
       ]
@@ -942,14 +942,14 @@
     {
       "id": "package",
       "title": "패키징 · 아이콘 · 문서",
-      "ms": 380,
+      "ms": 390,
       "results": [
         {
           "name": "the four HTML documents exist and are complete pages",
           "group": "docs",
           "ok": true,
           "skipped": false,
-          "ms": 4.9054,
+          "ms": 5.4485,
           "error": null
         },
         {
@@ -957,7 +957,7 @@
           "group": "docs",
           "ok": true,
           "skipped": false,
-          "ms": 24.7628,
+          "ms": 4.5569,
           "error": null
         },
         {
@@ -965,7 +965,7 @@
           "group": "docs",
           "ok": true,
           "skipped": false,
-          "ms": 27.1731,
+          "ms": 27.5315,
           "error": null
         },
         {
@@ -973,7 +973,7 @@
           "group": "docs",
           "ok": true,
           "skipped": false,
-          "ms": 1.5317,
+          "ms": 1.5549,
           "error": null
         },
         {
@@ -981,7 +981,7 @@
           "group": "docs",
           "ok": true,
           "skipped": false,
-          "ms": 2.34,
+          "ms": 0.5872,
           "error": null
         },
         {
@@ -989,7 +989,7 @@
           "group": "docs",
           "ok": true,
           "skipped": false,
-          "ms": 1.4456,
+          "ms": 1.6129,
           "error": null
         },
         {
@@ -997,7 +997,7 @@
           "group": "docs",
           "ok": true,
           "skipped": false,
-          "ms": 48.5625,
+          "ms": 52.4034,
           "error": null
         },
         {
@@ -1005,7 +1005,7 @@
           "group": "docs",
           "ok": true,
           "skipped": false,
-          "ms": 1.5672,
+          "ms": 1.5887,
           "error": null
         },
         {
@@ -1013,7 +1013,7 @@
           "group": "package",
           "ok": true,
           "skipped": false,
-          "ms": 53.6438,
+          "ms": 53.8016,
           "error": null
         },
         {
@@ -1021,7 +1021,7 @@
           "group": "package",
           "ok": true,
           "skipped": false,
-          "ms": 59.3866,
+          "ms": 58.983,
           "error": null
         },
         {
@@ -1029,7 +1029,7 @@
           "group": "package",
           "ok": true,
           "skipped": false,
-          "ms": 2.2662,
+          "ms": 6.7249,
           "error": null
         },
         {
@@ -1037,7 +1037,7 @@
           "group": "package",
           "ok": true,
           "skipped": false,
-          "ms": 1.9954,
+          "ms": 4.2167,
           "error": null
         },
         {
@@ -1045,7 +1045,7 @@
           "group": "package",
           "ok": true,
           "skipped": false,
-          "ms": 1.0432,
+          "ms": 6.8741,
           "error": null
         },
         {
@@ -1053,7 +1053,7 @@
           "group": "package",
           "ok": true,
           "skipped": false,
-          "ms": 0.7919,
+          "ms": 0.5752,
           "error": null
         },
         {
@@ -1061,7 +1061,7 @@
           "group": "package",
           "ok": true,
           "skipped": false,
-          "ms": 0.181,
+          "ms": 0.1616,
           "error": null
         },
         {
@@ -1069,7 +1069,7 @@
           "group": "package",
           "ok": true,
           "skipped": false,
-          "ms": 0.7325,
+          "ms": 0.3638,
           "error": null
         },
         {
@@ -1077,7 +1077,7 @@
           "group": "package",
           "ok": true,
           "skipped": false,
-          "ms": 2.0531,
+          "ms": 1.5338,
           "error": null
         },
         {
@@ -1085,7 +1085,7 @@
           "group": "package",
           "ok": true,
           "skipped": false,
-          "ms": 1.0218,
+          "ms": 2.4669,
           "error": null
         },
         {
@@ -1093,7 +1093,7 @@
           "group": "package",
           "ok": true,
           "skipped": false,
-          "ms": 0.3549,
+          "ms": 0.631,
           "error": null
         },
         {
@@ -1101,7 +1101,7 @@
           "group": "package",
           "ok": true,
           "skipped": false,
-          "ms": 0.4149,
+          "ms": 4.795,
           "error": null
         },
         {
@@ -1109,7 +1109,7 @@
           "group": "package",
           "ok": true,
           "skipped": false,
-          "ms": 0.4868,
+          "ms": 0.3377,
           "error": null
         },
         {
@@ -1117,7 +1117,7 @@
           "group": "package",
           "ok": true,
           "skipped": false,
-          "ms": 0.4384,
+          "ms": 0.4271,
           "error": null
         }
       ]
@@ -1125,145 +1125,166 @@
     {
       "id": "rust",
       "title": "Rust 단위 테스트",
-      "ms": 14384,
+      "ms": 22042,
       "results": [
         {
           "name": "connection_errors_are_reported_without_the_password",
           "group": "db",
-          "ms": 10012.9597,
+          "ms": 10015.4416,
           "ok": true,
           "skipped": false
         },
         {
           "name": "postgres_placeholders_are_numbered",
           "group": "db",
-          "ms": 0.3539999999993597,
+          "ms": 0.3967000000011467,
           "ok": true,
           "skipped": false
         },
         {
           "name": "sqlite_save_load_list_delete",
           "group": "db",
-          "ms": 1151.6479999999992,
+          "ms": 1150.0923999999977,
           "ok": true,
           "skipped": false
         },
         {
           "name": "urls_for_each_database",
           "group": "db",
-          "ms": 0.1503000000011525,
+          "ms": 0.15340000000287546,
           "ok": true,
           "skipped": false
         },
         {
           "name": "a_document_page_follows_the_language",
           "group": "doc_window_tests",
-          "ms": 0.14760000000023865,
+          "ms": 0.13249999999970896,
           "ok": true,
           "skipped": false
         },
         {
           "name": "atomic_write_leaves_no_temporary_file",
           "group": "files",
-          "ms": 7.595999999999549,
+          "ms": 6.017499999998108,
           "ok": true,
           "skipped": false
         },
         {
           "name": "copy_reports_total_bytes",
           "group": "files",
-          "ms": 396.3017999999993,
+          "ms": 440.3580000000002,
           "ok": true,
           "skipped": false
         },
         {
           "name": "diagram_files_keeps_existing_drawings_only",
           "group": "files",
-          "ms": 3.249200000000201,
+          "ms": 2.938799999999901,
           "ok": true,
           "skipped": false
         },
         {
           "name": "read_rejects_binary_and_missing_files",
           "group": "files",
-          "ms": 6.006999999999607,
+          "ms": 4.078300000001036,
           "ok": true,
           "skipped": false
         },
         {
           "name": "read_strips_utf8_bom",
           "group": "files",
-          "ms": 4.696400000000722,
+          "ms": 3.0881999999983236,
           "ok": true,
           "skipped": false
         },
         {
           "name": "write_then_read_round_trips_and_reports_progress",
           "group": "files",
-          "ms": 13.317800000000716,
+          "ms": 12.731900000002497,
           "ok": true,
           "skipped": false
         },
         {
           "name": "finds_installed_fonts_sorted_without_duplicates",
           "group": "fonts",
-          "ms": 181.55279999999766,
+          "ms": 482.7523000000001,
           "ok": true,
           "skipped": false
         },
         {
           "name": "only_the_first_copy_is_primary_until_it_ends",
           "group": "instance",
-          "ms": 3.0984000000025844,
+          "ms": 2.8611999999993714,
           "ok": true,
           "skipped": false
         },
         {
           "name": "a4_landscape_in_inches_and_copies_in_range",
           "group": "printing",
-          "ms": 0.20309999999881256,
+          "ms": 0.1849000000001979,
           "ok": true,
           "skipped": false
         },
         {
           "name": "listing_printers_never_fails",
           "group": "printing",
-          "ms": 37.28020000000106,
+          "ms": 41.774499999999534,
           "ok": true,
           "skipped": false
         },
         {
           "name": "ports_that_ask_for_a_file_name",
           "group": "printing",
-          "ms": 0.2036999999982072,
+          "ms": 0.16479999999864958,
           "ok": true,
           "skipped": false
         },
         {
           "name": "the_print_window_sends_camel_case_and_copies_default_to_one",
           "group": "printing",
-          "ms": 0.14770000000135042,
+          "ms": 0.22670000000289292,
           "ok": true,
           "skipped": false
         },
         {
           "name": "a_new_installation_resets_the_window_place_once",
           "group": "window_state",
-          "ms": 5.284499999997934,
+          "ms": 6.282599999998638,
           "ok": true,
           "skipped": false
         },
         {
           "name": "round_trips_through_the_file",
           "group": "window_state",
-          "ms": 7.161600000003091,
+          "ms": 5.63039999999819,
           "ok": true,
           "skipped": false
         },
         {
           "name": "saved_place_must_be_on_a_connected_monitor",
           "group": "window_state",
-          "ms": 0.17229999999835854,
+          "ms": 0.18630000000121072,
+          "ok": true,
+          "skipped": false
+        }
+      ]
+    },
+    {
+      "id": "db",
+      "title": "DB 통합 테스트",
+      "ms": 38425,
+      "results": [
+        {
+          "name": "mariadb_or_mysql_round_trip",
+          "group": "integration",
+          "ms": 0.17450000000098953,
+          "ok": true,
+          "skipped": "MYDIAGRAM_TEST_MYSQL_URL is not set (test/db.local.json \"mysql\")"
+        },
+        {
+          "name": "postgres_round_trip",
+          "group": "integration",
+          "ms": 23191.5222,
           "ok": true,
           "skipped": false
         }
@@ -1272,363 +1293,377 @@
     {
       "id": "web",
       "title": "E2E · 웹",
-      "ms": 81986,
+      "ms": 88670,
       "results": [
         {
           "name": "웹 빌드 (vite build → dist/)",
           "group": "빌드",
           "ok": true,
-          "ms": 3115.6729000000014,
+          "ms": 3194.6786000000066,
           "error": null
         },
         {
           "name": "브라우저 실행 · 페이지 열기",
           "group": "실행",
           "ok": true,
-          "ms": 1343.951399999998
+          "ms": 1799.3893000000098
         },
         {
           "name": "제목에 프로그램 이름과 버전, 아이콘",
           "group": "페이지",
           "ok": true,
           "skipped": false,
-          "ms": 95.75870000000214
+          "ms": 14.369399999995949
         },
         {
           "name": "처음 열면 튜토리얼 안내 (프레임 팝업)",
           "group": "페이지",
           "ok": true,
           "skipped": false,
-          "ms": 653.0757000000012
+          "ms": 753.4003999999986
         },
         {
           "name": "템플릿·예제·튜토리얼·움직이는 배경",
           "group": "시작 페이지",
           "ok": true,
           "skipped": false,
-          "ms": 1805.4092999999993
+          "ms": 1802.6759999999922
         },
         {
           "name": "배경: 시작할 때마다 무작위, 정한 시간마다 자동으로 바뀜",
           "group": "시작 페이지",
           "ok": true,
           "skipped": false,
-          "ms": 16640.8714
+          "ms": 16629.484500000006
         },
         {
           "name": "메뉴바: 아이콘·이름·버전, 드로잉 이름, 홈; 좌우 패널은 툴바 바로 아래·페이지 탭은 두 패널 사이 위쪽",
           "group": "창",
           "ok": true,
           "skipped": false,
-          "ms": 1238.9358999999968
+          "ms": 1247.7333000000071
         },
         {
           "name": "모든 버튼에 툴팁, 한 줄, 투명도 조절 없음",
           "group": "툴바",
           "ok": true,
           "skipped": false,
-          "ms": 690.3003000000026
+          "ms": 672.8558000000048
         },
         {
           "name": "메뉴: 한 줄, 아이콘+이름, 머리글, 바깥 클릭으로 닫힘",
           "group": "메뉴",
           "ok": true,
           "skipped": false,
-          "ms": 140.43059999999969
+          "ms": 139.2173000000039
         },
         {
           "name": "하위 메뉴: 마우스를 올리면 옆에 펼쳐지고, 다른 줄로 가면 닫힘 (실제 마우스)",
           "group": "메뉴",
           "ok": true,
           "skipped": false,
-          "ms": 2690.190999999999
+          "ms": 2719.547200000001
         },
         {
           "name": "컨텍스트 메뉴의 하위 메뉴: 도형 › 정렬 순서 (실제 마우스)",
           "group": "메뉴",
           "ok": true,
           "skipped": false,
-          "ms": 714.4582000000009
+          "ms": 768.1298999999999
         },
         {
           "name": "툴바: 저장 바로 오른쪽 인쇄, 눈금자·격자 켜고 끄기 (실제 클릭)",
           "group": "툴바",
           "ok": true,
           "skipped": false,
-          "ms": 1835.278600000005
+          "ms": 1868.9453999999969
         },
         {
           "name": "인쇄 창: 탭 없이 범위·페이지 설정·머리글을 한 열에, 좁은 설정 열",
           "group": "팝업",
           "ok": true,
           "skipped": false,
-          "ms": 1344.8742999999959
+          "ms": 1361.9131000000052
         },
         {
           "name": "페이지 탭은 늘 보임: 숨기는 버튼·명령 없음",
           "group": "보기",
           "ok": true,
           "skipped": false,
-          "ms": 649.009100000003
+          "ms": 658.6242000000057
         },
         {
           "name": "컨텍스트 메뉴: 도형·연결선·빈 캔버스·페이지 탭이 서로 다름",
           "group": "메뉴",
           "ok": true,
           "skipped": false,
-          "ms": 1086.9946999999956
+          "ms": 1141.4695999999967
         },
         {
           "name": "팝업 프레임: 아이콘+제목, 스크롤 없음, 머리글을 끌어 이동",
           "group": "팝업",
           "ok": true,
           "skipped": false,
-          "ms": 2986.8210000000036
+          "ms": 2982.0708999999915
         },
         {
           "name": "도형 서식·페이지 설정·디자인·레이어·찾기 팝업이 잘리지 않음",
           "group": "팝업",
           "ok": true,
           "skipped": false,
-          "ms": 2815.559100000006
+          "ms": 2807.9986999999965
         },
         {
           "name": "테마 드롭다운: 드롭다운 메뉴, 다크 20 · 라이트 20 하위 메뉴 (실제 마우스)",
           "group": "테마",
           "ok": true,
           "skipped": false,
-          "ms": 1011.0273000000016
+          "ms": 1020.4703999999911
         },
         {
           "name": "보기 드롭다운: 보기를 바꿔도 툴바 버튼이 움직이지 않음",
           "group": "툴바",
           "ok": true,
           "skipped": false,
-          "ms": 1598.7655000000013
+          "ms": 1666.8606
         },
         {
           "name": "홈 화면은 좌우 패널을 모두 숨겨도 창 전체 폭을 씀",
           "group": "창",
           "ok": true,
           "skipped": false,
-          "ms": 1448.406600000002
+          "ms": 1469.3926000000065
         },
         {
           "name": "스텐실 도형 클릭 → 캔버스에 추가, Ctrl+Z / Ctrl+Y",
           "group": "도형",
           "ok": true,
           "skipped": false,
-          "ms": 1075.4304000000047
+          "ms": 1127.7979999999952
         },
         {
           "name": "스텐실에서 캔버스로 끌어다 놓으면 놓은 자리에 도형 하나 (실제 마우스)",
           "group": "도형",
           "ok": true,
           "skipped": false,
-          "ms": 1264.3589999999967
+          "ms": 1284.0432
+        },
+        {
+          "name": "모든 스텐실이 도형 패널에: 드로잉의 스텐실은 펼침, 나머지는 접힌 채 이름으로",
+          "group": "도형",
+          "ok": true,
+          "skipped": false,
+          "ms": 1099.4899999999907
+        },
+        {
+          "name": "스텐실·도구 줄에 빈칸 없음: 패널 너비·타일 크기가 달라도 줄이 꽉 참",
+          "group": "도형",
+          "ok": true,
+          "skipped": false,
+          "ms": 3397.4802000000054
         },
         {
           "name": "도구 18개 (세 줄): 화살표 선·곡선·확대·서식 복사·올가미·지우개 (실제 마우스)",
           "group": "도형",
           "ok": true,
           "skipped": false,
-          "ms": 3427.850200000008
+          "ms": 3733.0611999999965
         },
         {
           "name": "사각형 도구로 실제 마우스 끌기 → 새 도형, 끌어서 이동, 화살표로 미세 이동",
           "group": "도형",
           "ok": true,
           "skipped": false,
-          "ms": 1978.163499999995
+          "ms": 2157.5325999999914
         },
         {
           "name": "크기 조절 핸들과 회전 핸들 (실제 마우스)",
           "group": "도형",
           "ok": true,
           "skipped": false,
-          "ms": 1860.8003000000026
+          "ms": 1889.008600000001
         },
         {
           "name": "연결선이 도형을 잇고, 도형을 옮기면 따라감",
           "group": "연결선",
           "ok": true,
           "skipped": false,
-          "ms": 818.3656999999948
+          "ms": 867.0687000000034
         },
         {
           "name": "연결선 도구: 도형에서 도형으로 끌면 붙은 연결선",
           "group": "연결선",
           "ok": true,
           "skipped": false,
-          "ms": 1336.1764000000112
+          "ms": 1399.7127999999939
         },
         {
           "name": "두 번 클릭해 텍스트 입력, Ctrl+Enter 로 끝냄",
           "group": "텍스트",
           "ok": true,
           "skipped": false,
-          "ms": 575.0703000000067
+          "ms": 673.7795000000042
         },
         {
           "name": "클립보드: Ctrl+C 로 브라우저 클립보드에 글자, Ctrl+V 로 붙여넣기",
           "group": "편집",
           "ok": true,
           "skipped": false,
-          "ms": 1116.140499999994
+          "ms": 1169.718399999998
         },
         {
           "name": "Ctrl+휠 확대·축소 (캔버스)",
           "group": "편집",
           "ok": true,
           "skipped": false,
-          "ms": 761.420100000003
+          "ms": 838.8524000000034
         },
         {
           "name": "빠른 스타일·디자인·정렬·그룹",
           "group": "서식",
           "ok": true,
           "skipped": false,
-          "ms": 662.3461000000098
+          "ms": 743.6388000000006
         },
         {
           "name": "페이지 추가·이름 바꾸기·이동·삭제 (페이지 탭)",
           "group": "페이지",
           "ok": true,
           "skipped": false,
-          "ms": 874.1096000000107
+          "ms": 974.5793999999878
         },
         {
           "name": "파일 끌어다 놓기: 드로잉은 새 탭, 이미지는 그림 도형",
           "group": "파일",
           "ok": true,
           "skipped": false,
-          "ms": 2469.7209000000003
+          "ms": 2511.3503999999957
         },
         {
           "name": "저장(브라우저 저장 창)·Visio/SVG/HTML/CSV/그림 내보내기",
           "group": "파일",
           "ok": true,
           "skipped": false,
-          "ms": 3488.5931999999884
+          "ms": 3533.577099999995
         },
         {
           "name": "Visio(.vsdx)로 내보낸 것을 다시 열면 같은 도형·연결",
           "group": "파일",
           "ok": true,
           "skipped": false,
-          "ms": 1203.3822999999975
+          "ms": 1232.4376000000047
         },
         {
           "name": "내보내기 버튼: 그림 형식 고르기, 투명 배경은 지원하는 형식에서만, 화살표는 모든 내보내기 형식",
           "group": "툴바",
           "ok": true,
           "skipped": false,
-          "ms": 1723.5529000000097
+          "ms": 1752.714399999997
         },
         {
           "name": "열기(브라우저 파일 선택)",
           "group": "파일",
           "ok": true,
           "skipped": false,
-          "ms": 41.905100000003586
+          "ms": 67.23120000000927
         },
         {
           "name": "저장 안 한 변경이 있으면 페이지를 떠날 때 확인",
           "group": "파일",
           "ok": true,
           "skipped": false,
-          "ms": 1211.892200000002
+          "ms": 1278.7139999999781
         },
         {
           "name": "설정은 새로 고침 뒤에도 남음 (localStorage)",
           "group": "설정",
           "ok": true,
           "skipped": false,
-          "ms": 616.4674999999988
+          "ms": 627.2409000000043
         },
         {
           "name": "drawing",
           "group": "보기",
           "ok": true,
           "skipped": false,
-          "ms": 1088.005600000004
+          "ms": 1114.8859999999986
         },
         {
           "name": "pages",
           "group": "보기",
           "ok": true,
           "skipped": false,
-          "ms": 440.87279999999737
+          "ms": 440.81710000001476
         },
         {
           "name": "shapeSheet",
           "group": "보기",
           "ok": true,
           "skipped": false,
-          "ms": 444.5237000000052
+          "ms": 442.9482999999891
         },
         {
           "name": "shapeData",
           "group": "보기",
           "ok": true,
           "skipped": false,
-          "ms": 442.54899999999907
+          "ms": 442.13750000001164
         },
         {
           "name": "reports",
           "group": "보기",
           "ok": true,
           "skipped": false,
-          "ms": 442.16620000000694
+          "ms": 443.4100000000035
         },
         {
           "name": "보고서: 모든 보고서가 그려지고 HTML·CSV 로 내보냄",
           "group": "보기",
           "ok": true,
           "skipped": false,
-          "ms": 1918.25
+          "ms": 1961.8375000000233
         },
         {
           "name": "배포 빌드에서 그림 디코더 동작 (HEIC · JPEG 2000 · JPEG XL · TIFF · QOI · TGA)",
           "group": "끌어다 놓기",
           "ok": true,
           "skipped": false,
-          "ms": 877.8834999999963
+          "ms": 1122.532600000006
         },
         {
           "name": "웹에도 같은 예제 228개(분류마다 12개), 눌러서 열기",
           "group": "시작 화면",
           "ok": true,
           "skipped": false,
-          "ms": 591.6581000000006
+          "ms": 623.5859000000055
         },
         {
           "name": "설명서·튜토리얼 문서는 브라우저 탭으로",
           "group": "도움말",
           "ok": true,
           "skipped": false,
-          "ms": 375.57549999999173
+          "ms": 376.121599999984
         },
         {
           "name": "인쇄 미리 보기 → 브라우저 인쇄",
           "group": "인쇄",
           "ok": true,
           "skipped": false,
-          "ms": 1239.8643999999913
+          "ms": 1266.9451000000117
         },
         {
           "name": "F5 전체 화면 프레젠테이션: 페이지 넘김, Esc·전체 화면 해제로 끝",
           "group": "프레젠테이션",
           "ok": true,
           "skipped": false,
-          "ms": 1560.479400000011
+          "ms": 1239.8902999999991
         },
         {
           "name": "잘못된 파일 → 오류 팝업, 자세히 복사",
           "group": "오류",
           "ok": true,
           "skipped": false,
-          "ms": 1159.9737000000023
+          "ms": 1161.3163000000059
         }
       ]
     }

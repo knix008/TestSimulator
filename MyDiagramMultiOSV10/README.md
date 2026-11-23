@@ -13,7 +13,7 @@ Windows · macOS · Linux · 웹에서 쓰는 다이어그램·도면 작성 프
 
 ### 그리기
 
-- **스텐실 35종, 도형 마스터 869개** — 기본 도형 · 화살표 · 순서도 · 설명선·텍스트 · 컨테이너·스윔레인 · UML · 데이터베이스(ERD) · BPMN · 네트워크 · 조직도 · 마인드맵 · 평면도 · 블록 다이어그램 · 타임라인 · 전기 회로. 도형 검색, 타일 크기(작게·보통·크게), **내 도형**(선택을 저장해 다시 쓰기) · 네트워크 확장 · 클라우드 · 화면 설계 · 비즈니스 · 차트 · 논리 회로 · 공정 배관 · 보안 · 데이터 흐름도 · 가계도 · 지도 · 교통·물류 · 제조 · 교육 · 의료 · 건물·인테리어 · 수학 · 전략 · C4 · 애자일 · 컬러 아이콘 120개
+- **스텐실 41종, 도형 마스터 1,812개 (스텐실마다 42개 이상)** — 기본 도형 · 화살표 · 순서도 · 설명선·텍스트 · 컨테이너·스윔레인 · UML · 데이터베이스(ERD) · BPMN · 네트워크 · 조직도 · 마인드맵 · 평면도 · 블록 다이어그램 · 타임라인 · 전기 회로. 도형 검색, 타일 크기(작게·보통·크게), **내 도형**(선택을 저장해 다시 쓰기) · 네트워크 확장 · 클라우드 · 화면 설계 · 비즈니스 · 차트 · 논리 회로 · 공정 배관 · 보안 · 데이터 흐름도 · 가계도 · 지도 · 교통·물류 · 제조 · 교육 · 의료 · 건물·인테리어 · 수학 · 전략 · C4 · 애자일 · 컬러 아이콘 120개
 - **그리기 도구** — 포인터 · 화면 이동 · 연결선 · 텍스트 · 사각형 · 타원 · 선 · 연필(자유형) · 다각선 (`Ctrl+1`~`Ctrl+9`)
 - 끌어 놓기, 크기 조절·회전 손잡이, 노란 **조절 핸들**(모서리 둥글기, 화살표 두께 등), 대칭 이동, 도형 위에서 바로 **텍스트 편집**
 - **자동 연결** — 도형에 마우스를 올리면 네 방향에 나오는 화살표로 이웃 도형을 만들며 연결
@@ -196,7 +196,7 @@ SHKWON (knix008@naver.com)
 
 **MyDiagram** is a diagramming app in the style of Microsoft Visio for Windows, macOS, Linux and the web (JavaScript/Vite UI, Tauri 2/Rust backend).
 
-- **Drawing** — 869 master shapes in 35 stencils (Basic, Arrows, Flowchart, Callouts, Containers & Swimlanes, UML, Database, BPMN, Network, Org Chart, Mind Map, Floor Plan, Block Diagram, Timeline, Electrical), shape search, My Shapes, drawing tools (rectangle, ellipse, line, freehand, polyline, text), control handles, AutoConnect, grid, rulers, guides and smart guides, pictures, hyperlinks, comments, text fields, undo/redo, 13 templates and sample drawings.
+- **Drawing** — 1,812 master shapes in 41 stencils (Basic, Arrows, Flowchart, Callouts, Containers & Swimlanes, UML, Database, BPMN, Network, Org Chart, Mind Map, Floor Plan, Block Diagram, Timeline, Electrical), shape search, My Shapes, drawing tools (rectangle, ellipse, line, freehand, polyline, text), control handles, AutoConnect, grid, rulers, guides and smart guides, pictures, hyperlinks, comments, text fields, undo/redo, 13 templates and sample drawings.
 - **Connectors** — glued to connection points or to whole shapes (dynamic glue), right-angle connectors routed around shapes (A*), straight and curved connectors, line jumps, editable bends, 16 arrowheads including crow's-foot.
 - **Format and design** — 16 designs × 4 variants that restyle untouched shapes, quick styles (6 accents × 6 variants), Format Shape (fill, gradients and patterns, line, text, shadow, size and position, protection).
 - **Arrange** — align, distribute, same size, z-order, rotate and flip, group, and 7 automatic layouts (flowchart, tree, radial, circular, grid).

@@ -18,6 +18,8 @@ import { scalePath } from './path.js';
 import { addMoreMasters } from './stencils-more.js';
 import { addExtraMasters } from './stencils-extra.js';
 import { addIconMasters } from './stencils-icons.js';
+import { addBulkMasters } from './stencils-bulk.js';
+import { NEW_CATEGORIES } from './stencils-bulk-new.js';
 
 const main = (d) => ({ d, fill: 'main' });
 const line = (d) => ({ d, fill: 'none' });
@@ -115,6 +117,7 @@ export const CATEGORIES = [
   { id: 'c4', icon: 'stC4', name: { ko: '소프트웨어 아키텍처(C4)', en: 'Software Architecture (C4)' } },
   { id: 'agile', icon: 'stAgile', name: { ko: '애자일·칸반', en: 'Agile & Kanban' } },
   { id: 'icons', icon: 'stIcons', name: { ko: '아이콘', en: 'Icons' } },
+  ...NEW_CATEGORIES,
 ];
 
 const masters = [];
@@ -366,6 +369,8 @@ m('transistor', 'electrical', 70, 80, '트랜지스터', 'Transistor', (w, h) =>
 addMoreMasters(m, { main, line, dark, light, solid, poly, rect, ell, circle, M, L, f, G, SIDES_AND_CORNERS, ENDS, BELOW });
 addExtraMasters(m, { main, line, dark, light, solid, poly, rect, ell, circle, M, L, f, SIDES_AND_CORNERS, ENDS, BELOW });
 addIconMasters(m, { rect, ell, poly });
+// Many more, in a short notation (every stencil at least 42, a multiple of six), and six new stencils.
+addBulkMasters(m, { main, line, dark, light, solid, poly, rect, ell, f, BELOW });
 
 // ── special shapes made by the drawing tools (not in a stencil)
 masters.push({ id: 'freeform', cat: null, w: 100, h: 100, name: { ko: '자유형', en: 'Freeform' }, points: SIDES, text: [0, 0, 1, 1], params: {}, style: {}, custom: true,

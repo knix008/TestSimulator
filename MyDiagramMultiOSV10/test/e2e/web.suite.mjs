@@ -384,7 +384,7 @@ export const cases = [
     await freshSample(app);
     const info = await W(app, `(() => { const secs = [...document.querySelectorAll('#left-panel .stencils > .stencil')]; return { ids: secs.map((s) => s.dataset.stencil), open: secs.filter((s) => !s.classList.contains('collapsed')).map((s) => s.dataset.stencil), tiles: secs.filter((s) => s.classList.contains('collapsed')).every((s) => !s.querySelector('.stencil-tile')) }; })()`);
     const all = await app.main.eval(`(async () => (await import('/src/domain/stencils.js')).CATEGORIES.map((c) => c.id))()`).catch(() => null);
-    const count = all ? all.length : 35;
+    const count = all ? all.length : 41;
     assert.equal(info.ids.length, count + 1, `every stencil (and My shapes) is listed ${info.ids.length}`);
     assert.equal(new Set(info.ids).size, info.ids.length, 'each once');
     assert.ok(info.open.length >= 1 && info.open.length < 10, `the drawing's own stencils are unfolded ${JSON.stringify(info.open)}`);
@@ -396,6 +396,23 @@ export const cases = [
     await app.main.click(`#left-panel [data-stencil-toggle="${folded}"]`);
     await sleep(200);
     assert.equal(await W(app, `document.querySelectorAll('#left-panel .stencil[data-stencil="${folded}"] .stencil-tile').length`), 0, 'and folds it again');
+  } },
+  { group: '도형', name: '스텐실·도구 줄에 빈칸 없음: 패널 너비·타일 크기가 달라도 줄이 꽉 참', async run(app) {
+    await freshSample(app);
+    await W(app, `(a.updateSettings({ openStencils: ['people', 'finance', 'basic', 'network', 'icons'] }), a.activeDoc().stencils = ['people', 'finance', 'basic', 'network', 'icons'], 1)`);
+    const problems = [];
+    for (const width of [260, 340, 420]) {
+      for (const size of ['small', 'medium', 'large']) {
+        await W(app, `(a.updateSettings({ leftWidth: ${width}, stencilSize: '${size}' }), 1)`);
+        await sleep(250);
+        const rows = await W(app, `[...document.querySelectorAll('#left-panel .stencil:not(.collapsed) .stencil-grid')].map((g) => { const t = [...g.children].map((e) => e.getBoundingClientRect()); const cols = new Set(t.map((r) => Math.round(r.left))).size; return { n: t.length, cols, square: t.every((r) => Math.abs(r.width - r.height) < 1.5) }; })`);
+        for (const r of rows) if (r.n % r.cols || !r.square) problems.push(`${width}px ${size}: ${r.n} tiles in ${r.cols} columns, square ${r.square}`);
+        const strip = await W(app, `(() => { const t = [...document.querySelectorAll('.tool-strip .tool-chip')].map((e) => e.getBoundingClientRect()); return { n: t.length, cols: new Set(t.map((r) => Math.round(r.left))).size }; })()`);
+        if (strip.n % strip.cols || strip.cols !== 6) problems.push(`${width}px: tools ${strip.n} in ${strip.cols} columns`);
+      }
+    }
+    await W(app, `(a.updateSettings({ leftWidth: 260, stencilSize: 'small' }), 1)`);
+    assert.deepEqual(problems, [], 'every row full');
   } },
   { group: '도형', name: '도구 18개 (세 줄): 화살표 선·곡선·확대·서식 복사·올가미·지우개 (실제 마우스)', async run(app) {
     const ids = await freshDrawing(app);

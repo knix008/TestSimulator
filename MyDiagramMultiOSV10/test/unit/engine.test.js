@@ -32,7 +32,7 @@ function twoBoxes({ gap = 300, obstacle = false } = {}) {
 }
 
 test('stencils: every category has masters, every master renders without NaN', () => {
-  assert.equal(CATEGORIES.length, 35);
+  assert.equal(CATEGORIES.length, 41);
   for (const cat of CATEGORIES) assert.ok(mastersIn(cat.id).length >= 5, `${cat.id} has masters`);
   assert.ok(MASTERS.length >= 650, `${MASTERS.length} masters`);
   const ids = new Set();

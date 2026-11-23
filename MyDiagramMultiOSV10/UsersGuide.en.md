@@ -1,6 +1,6 @@
 # MyDiagram User's Guide
 
-MyDiagram draws diagrams, flowcharts, org charts, network diagrams, UML and ERD models, floor plans and other drawings, much like Microsoft Visio. It has 869 stencil shapes, connectors that route themselves, themes and quick styles, several pages with background pages and layers, shape data and reports, automatic layout, org charts from data, Visio (.vsdx) open and save, and PDF / SVG / picture / HTML export and printing. It runs with the same screens as a desktop app on Windows, macOS and Linux and in a web browser.
+MyDiagram draws diagrams, flowcharts, org charts, network diagrams, UML and ERD models, floor plans and other drawings, much like Microsoft Visio. It has 1,812 stencil shapes in 41 stencils, connectors that route themselves, themes and quick styles, several pages with background pages and layers, shape data and reports, automatic layout, org charts from data, Visio (.vsdx) open and save, and PDF / SVG / picture / HTML export and printing. It runs with the same screens as a desktop app on Windows, macOS and Linux and in a web browser.
 
 This guide is organised by task. Menu and command names are written exactly as the program shows them (for example **Insert › Insert container** is the "Insert container" command of the "Insert" menu, and **View › Show › Rulers** is the "Rulers" command in the "Show" submenu of the "View" menu). The pictures are captured from the tutorial.
 
@@ -95,7 +95,7 @@ While you drag the round handle on top, a dial shows the turn and the current an
 
 ### Choosing stencils
 
-The **Stencils** button on the toolbar opens and closes the 35 stencils. Shape icons are **small** by default. The **Icons** stencil holds 120 colourful icons.
+The **Stencils** button on the toolbar opens and closes the 41 stencils (1,812 shapes, at least 42 in each, so their rows have no gaps). The drawing's own stencils are unfolded; every other stencil is listed below them, folded under its name, and opens with a click. Shape icons are **small** by default. The **Icons** stencil holds 120 colourful icons.
 
 ![Stencils menu](docs/tutorial/images/guide-stencilmenu.png)
 
@@ -189,7 +189,7 @@ Drawings do not get tabs. The current drawing's name is in the menu bar next to 
 | Part | Contents |
 |---|---|
 | Search box | **Search shapes** finds shapes in every stencil by name, in Korean or English |
-| **Stencils** | Opens or closes each of the 35 stencils and **My shapes**; **Open all stencils** · **Close all stencils** |
+| **Stencils** | Opens or closes each of the 41 stencils and **My shapes**; **Open all stencils** · **Close all stencils** |
 | **S** · **M** · **L** | **Shape icon size**: Small (icons only) · Medium · Large |
 | Tool strip | The nine drawing tools (see [Drawing tools](#drawing-tools)) |
 | Stencils | Each open stencil with its shapes. Click a stencil's name to collapse it, ✕ to close it |
@@ -240,7 +240,7 @@ Windows such as Format shape, Settings and Print preview are separate windows in
 
 ### Stencils
 
-The Shapes panel holds 869 shapes in 35 stencils. Open and close them under **Stencils**; each drawing remembers its own stencils.
+The Shapes panel holds 1,812 shapes in 41 stencils (new: People & Roles, Devices & Electronics, Nature & Weather, Food & Drink, Sports & Leisure, Finance & Payments). Open and close them under **Stencils**; each drawing remembers its own stencils.
 
 | Stencil | Shapes |
 |---|---|

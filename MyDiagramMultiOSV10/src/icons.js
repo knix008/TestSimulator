@@ -316,6 +316,12 @@ const paths = {
   stStrategy: '<rect x="3" y="3" width="18" height="18" rx="1.500"/><path d="M12 3v18M3 12h18"/><circle cx="7.500" cy="7.500" r="1.500"/><circle cx="16.500" cy="16.500" r="1.500"/>',
   stC4: '<rect x="2" y="3" width="8" height="6" rx="1"/><rect x="14" y="3" width="8" height="6" rx="1"/><rect x="8" y="15" width="8" height="6" rx="1"/><path d="M6 9v3h12V9M12 12v3"/>',
   stIcons: '<circle cx="7.5" cy="7.5" r="4.5"/><rect x="13" y="3" width="8.5" height="8.5" rx="2"/><path d="M7.5 13l4.500 8h-9z"/><path d="M17.2 13l1.300 2.800 3 .4-2.200 2.100.6 3-2.700-1.500-2.700 1.500.6-3-2.200-2.100 3-.4z"/>',
+  stPeople: '<circle cx="9" cy="7" r="3.5"/><path d="M2.5 20c0-4 3-6.5 6.5-6.5s6.5 2.5 6.5 6.5"/><circle cx="17" cy="8.5" r="2.8"/><path d="M15.5 13.8c3.2-.4 6 1.6 6 5.2"/>',
+  stDevices: '<rect x="2.5" y="4" width="13" height="9" rx="1.5"/><path d="M6 17h6M9 13v4"/><rect x="17" y="7" width="5" height="11" rx="1.2"/>',
+  stNature: '<path d="M12 21v-6"/><path d="M12 15c-4.5 0-7-3-7-6.5C9 8 12 10.5 12 15z"/><path d="M12 15c4.5 0 7-3 7-6.5-4 0-7 2.5-7 6.5z"/><circle cx="18" cy="4.5" r="2"/>',
+  stFood: '<path d="M4 3v7a3 3 0 0 0 6 0V3M7 3v18"/><path d="M17 21V3c-2.5 1.5-3.5 4-3.5 7.5 0 2 1.5 3 3.5 3"/>',
+  stSports: '<circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/><path d="M5.6 5.6c3 2.5 3 10.3 0 12.8M18.4 5.6c-3 2.5-3 10.3 0 12.8"/>',
+  stFinance: '<rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 9.5v5M18 9.5v5"/>',
   stAgile: '<rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="4" height="8" rx="1"/>',
   // ── templates
   tplBlank: '<path d="M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/>',

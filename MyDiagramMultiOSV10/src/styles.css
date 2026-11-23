@@ -937,7 +937,7 @@ html.is-web body { overflow-x: auto; }
 .shapes-actions { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .segmented.small .segment { padding: 1px 7px; font-size: 0.82em; }
 /* The tools: square cells as big as the stencil tiles (small), wrapping onto a second row. */
-.tool-strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); gap: 2px; }
+.tool-strip { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 2px; }
 .tool-chip { display: grid; place-items: center; aspect-ratio: 1; min-width: 0; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--text); cursor: pointer; padding: 0; }
 .tool-chip .icon { width: 24px; height: 24px; }
 .tool-chip:hover { background: var(--hover); }
@@ -948,9 +948,13 @@ html.is-web body { overflow-x: auto; }
 .stencil-toggle { flex: 1; display: flex; align-items: center; gap: 6px; padding: 4px; border: 0; background: none; cursor: pointer; font-weight: 600; font-size: 0.88em; text-align: left; min-width: 0; }
 .stencil-toggle span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stencil-toggle .icon:not(.tiny) { width: 16px; height: 16px; color: var(--accent); }
-.stencil-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 2px; padding: 6px; }
-.stencil-grid.size-small { grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); }
-.stencil-grid.size-large { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); }
+/* A fixed number of columns, whatever the panel's width: every stencil (42, 48 or 120 shapes) fills its rows. */
+.stencil-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; padding: 6px; }
+.stencil-grid.size-small { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+/* Small tiles stay square in a narrow panel: little padding, the picture shrinks to the cell. */
+.stencil-grid.size-small .stencil-tile { padding: 2px; }
+.stencil-grid.size-small .master-icon, .stencil-grid.size-small .my-shape-icon { width: 100%; height: auto; max-width: 30px; max-height: 30px; }
+.stencil-grid.size-large { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 /* Square tiles, the picture in the middle (with its name below it on the larger sizes). */
 .stencil-tile { aspect-ratio: 1; justify-content: center; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px; border: 1px solid transparent; border-radius: 6px; background: none; cursor: grab; color: var(--text); min-width: 0; }
 .stencil-tile:hover { background: var(--hover); border-color: var(--border); }
@@ -1249,7 +1253,7 @@ html.popup-kind-color body, html.popup-kind-color #app { background: var(--surfa
 
 /* Every "x" button (the close icon alone, no label) turns red under the pointer; "Later" and other
    labelled buttons keep the normal look. The icon colour is inline, hence !important. */
-button:hover:has(> svg[data-icon="close"]):not(:has(> span)) { color: var(--danger); background-color: color-mix(in srgb, var(--danger) 14%, transparent); border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
+button:hover:has(> svg[data-icon="close"]):not(:has(> span)):not(:disabled) { color: var(--danger) !important; background-color: color-mix(in srgb, var(--danger) 18%, transparent) !important; border-color: color-mix(in srgb, var(--danger) 55%, transparent) !important; }
 button:hover:not(:has(> span)) > svg[data-icon="close"] { color: var(--danger) !important; }
 
 /* Print window for a document (user's guide, tutorial): the page itself on a sheet of the chosen paper. */

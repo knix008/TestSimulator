@@ -293,6 +293,12 @@ test('the Shapes panel: every shape of every stencil has a picture, drawn in pro
       assert.ok(master.name.ko && master.name.en, `${master.id}: named`);
     }
   }
+  // Every stencil has at least 42 shapes, in full rows of six (and of three and two on the larger sizes).
+  for (const category of CATEGORIES) {
+    const count = mastersIn(category.id).length;
+    assert.ok(count >= 42 && count % 6 === 0, `${category.id}: ${count} shapes`);
+  }
+  assert.ok(CATEGORIES.length >= 41, `${CATEGORIES.length} stencils`);
   // Drawn at their own size and scaled down: a container's header band is a band, not the whole picture.
   assert.notEqual(masterIcon('container'), masterIcon('ctSide'), 'top and side headers differ');
   const stroke = (id) => Math.max(...[...masterIcon(id).matchAll(/stroke-width="([\d.]+)"/g)].map((m) => Number(m[1])));

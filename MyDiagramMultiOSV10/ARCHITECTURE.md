@@ -32,7 +32,7 @@
 |---|---|
 | `src/domain/` | UI와 무관한 순수 로직 (Node에서 단위 테스트) |
 | `├ diagram.js` | 문서 모델과 모든 편집: 페이지·레이어·안내선, 도형 추가·삭제·이동·크기·회전·대칭, 그룹, 맞춤·분배·순서, 스타일, 도형 데이터, 복사/붙여넣기, 찾기·바꾸기, 통계, 단위 변환 |
-| `├ stencils.js`, `stencils-more.js`, `stencils-extra.js` | 스텐실 35종(`CATEGORIES`)과 도형 마스터 869개(`MASTERS`): 모양 함수, 연결점, 텍스트 상자, 조절 핸들, 기본 스타일 |
+| `├ stencils.js`, `stencils-more.js`, `stencils-extra.js`, `stencils-bulk*.js` | 스텐실 41종(`CATEGORIES`)과 도형 마스터 1,812개(`MASTERS`; `stencils-bulk*.js`는 한 줄짜리 그리기 표기로 정의): 모양 함수, 연결점, 텍스트 상자, 조절 핸들, 기본 스타일 |
 | `├ designs.js` | 디자인 20가지 × 변형 4가지, 빠른 스타일(채우기는 파스텔 톤), 화면 전용 다크 보기(`designOf`/`viewDark`), 스타일 키·화살촉·선 패턴 목록, `resolveShapeStyle` / `resolveConnectorStyle` |
 | `├ routing.js` | 연결선 끝 결정(점 고정·동적 연결), 직각 경로(A*), 직선·곡선, 선 건너뛰기, 붙일 대상 찾기(`glueTarget`) |
 | `├ layout.js` | 자동 레이아웃 7가지(순서도 TB/LR, 계층 TB/LR, 방사형, 원형, 격자) |
