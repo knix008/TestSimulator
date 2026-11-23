@@ -84,7 +84,7 @@ try {
       const r = await page.send('Runtime.evaluate', { expression: `(async () => { ${step.eval.trim().startsWith("return") ? step.eval : `return (${step.eval})`} })()`, awaitPromise: true, returnByValue: true }, 180000);
       const value = r.result?.result?.value;
       const ex = r.result?.exceptionDetails;
-      if (ex || r.error) { failed = true; console.log(`✘ ${label}: ${ex?.exception?.description ?? ex?.text ?? r.error?.message} [${Date.now() - t0} ms]`); }
+      if (ex || r.error) { failed = true; console.log(`✘ ${step.name ?? label}:${ex?.exception?.description ?? ex?.text ?? r.error?.message} [${Date.now() - t0} ms]`); }
       else if (step.expect !== undefined && !new RegExp(step.expect).test(typeof value === 'string' ? value : JSON.stringify(value))) { failed = true; console.log(`✘ ${step.name ?? label}: got ${typeof value === 'string' ? value : JSON.stringify(value)} — expected /${step.expect}/ [${Date.now() - t0} ms]`); }
       else if (step.name) console.log(`✔ ${step.name}${value !== undefined && step.verbose ? ` → ${JSON.stringify(value)}` : ''} [${Date.now() - t0} ms]`);
       else if (value !== undefined) console.log(`  ${label} → ${typeof value === 'string' ? value : JSON.stringify(value)}`);

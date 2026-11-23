@@ -15,8 +15,17 @@
     "expect": "\"refused\":true,\"said\":true"
   },
   {
+    "name": "electronics: the run starts in the worker",
+    "eval": "(() => { document.querySelector('[data-pm=\"el.run\"]').click(); return 'started'; })()",
+    "expect": "^started$"
+  },
+  {
+    "until": "Boolean(window.__mymechanics.state.editing?.result)",
+    "timeout": 600000
+  },
+  {
     "name": "electronics: the run (worker) — the air takes the 1.5 W, the 1 W chip is hotter, T_j = case + θjc P; the components are coloured",
-    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const q = (s) => document.querySelector(s); const E = () => m.electronics; q('[data-pm=\"el.run\"]').click(); let r = null; for (let i = 0; i < 340 && !(r = m.state.editing?.result); i++) await sleep(500); await sleep(500); const comps = r.components; const u1 = comps[1], u2 = comps[2]; const coloured = [...m.viewport.bodies.keys()].filter((k) => k.startsWith('elres:')).length; const rows = document.querySelectorAll('.el-table tr').length; return JSON.stringify({ ran: Boolean(r), heat: Math.abs(r.heat - 1.5) < 0.15, heatW: Math.round(r.heat * 100) / 100, hotter: u2.max > u1.max, junction: Math.abs(u2.junction - (u2.max + 5)) < 1e-6, coloured, rows, legend: Boolean(q('.left-pm-body .sim-legend')) }); })()",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const q = (s) => document.querySelector(s); const E = () => m.electronics; const r = m.state.editing?.result; await sleep(500); const comps = r.components; const u1 = comps[1], u2 = comps[2]; const coloured = [...m.viewport.bodies.keys()].filter((k) => k.startsWith('elres:')).length; const rows = document.querySelectorAll('.el-table tr').length; return JSON.stringify({ ran: Boolean(r), heat: Math.abs(r.heat - 1.5) < 0.15, heatW: Math.round(r.heat * 100) / 100, hotter: u2.max > u1.max, junction: Math.abs(u2.junction - (u2.max + 5)) < 1e-6, coloured, rows, legend: Boolean(q('.left-pm-body .sim-legend')) }); })()",
     "expect": "\"ran\":true,\"heat\":true,\"heatW\":1\\.\\d+,\"hotter\":true,\"junction\":true,\"coloured\":3,\"rows\":4,\"legend\":true"
   },
   {
