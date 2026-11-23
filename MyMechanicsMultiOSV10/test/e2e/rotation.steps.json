@@ -1,0 +1,17 @@
+[
+  {
+    "name": "rotating body: a roller (macro), flow study with the rotating-body group on — axis and rpm",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const q = (s) => document.querySelector(s); const fld = (k, v) => { const i = q(`[data-pm-field=\"${k}\"]`); if (!i) throw new Error('no field ' + k); i.value = String(v); i.dispatchEvent(new Event('change', { bubbles: true })); }; await m.actions.ensureKernel(); await m.actions.closeProject({ force: true }); const r = await m.macro.runMacro(\"await mm.newDocument(\\\"part\\\");\\nawait mm.extrude(await mm.sketch(\\\"top\\\", [{ circle: [0, 0, 20] }]), 16);\"); await sleep(600); await m.run('simulation'); await sleep(300); m.actions.pmSet('study', 'flow'); await sleep(300); const before = Boolean(q('[data-pm-field=\"rpm\"]')); q('[data-pm-toggle=\"rotOn\"]').click(); await sleep(200); m.actions.pmSet('rotAxis', 'z'); await sleep(100); fld('rpm', 955); await sleep(100); const e = m.state.editing; Object.assign(e, { resolution: 6, velocity: 1, fluid: 'air', collision: 'mrt', les: 0.17, flowMaxSteps: 1500 }); return JSON.stringify({ macro: r.ok, before, on: e.rotOn, axis: e.rotAxis, rpm: e.rpm, field: Boolean(q('[data-pm-field=\"rpm\"]')) }); })()",
+    "expect": "\"macro\":true,\"before\":false,\"on\":true,\"axis\":\"z\",\"rpm\":955,\"field\":true"
+  },
+  {
+    "name": "rotating body: the run gives the torque about the axis (resisting the spin) and the shaft power, listed in the results",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const q = (s) => document.querySelector(s); const fld = (k, v) => { const i = q(`[data-pm-field=\"${k}\"]`); if (!i) throw new Error('no field ' + k); i.value = String(v); i.dispatchEvent(new Event('change', { bubbles: true })); }; const e = m.state.editing; await m.actions.pmCommand('runSim'); await sleep(400); const r = e.result; window.__rotT = r.rotation?.torque; const text = q('.left-pm-body').textContent; return JSON.stringify({ rotation: Boolean(r.rotation), resists: r.rotation.torque < 0, power: r.rotation.power > 0, listed: /축 토크|Torque about the axis/.test(text) && /축 동력|Shaft power/.test(text) }); })()",
+    "expect": "\"rotation\":true,\"resists\":true,\"power\":true,\"listed\":true"
+  },
+  {
+    "name": "rotating body: the other way round, the torque turns over; off again, no rotation result",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const q = (s) => document.querySelector(s); const fld = (k, v) => { const i = q(`[data-pm-field=\"${k}\"]`); if (!i) throw new Error('no field ' + k); i.value = String(v); i.dispatchEvent(new Event('change', { bubbles: true })); }; const e = m.state.editing; fld('rpm', -955); await sleep(100); await m.actions.pmCommand('runSim'); await sleep(400); const back = e.result.rotation.torque; q('[data-pm-toggle=\"rotOn\"]').click(); await sleep(200); await m.actions.pmCommand('runSim'); await sleep(400); return JSON.stringify({ flips: Math.sign(back) === -Math.sign(window.__rotT), off: e.result.rotation === null }); })()",
+    "expect": "\"flips\":true,\"off\":true"
+  }
+]

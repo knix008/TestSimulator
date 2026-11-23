@@ -24,6 +24,8 @@ export const ICONS_FEM = {
   femFloor: '<path d="M3 17h18"/><path d="M4 21l3-4M9 21l3-4M14 21l3-4M19 21l2-3"/><rect x="8" y="5" width="8" height="8" rx="1"/>',
   femFriction: '<rect x="5" y="7" width="10" height="7" rx="1"/><path d="M2 17h20"/><path d="M17 10h5M19 8l2 2-2 2"/><path d="M4 19l1-2M8 19l1-2M12 19l1-2M16 19l1-2"/>',
   femTurbulence: '<path d="M3 8c3-3 6 3 9 0s6-2 9-1"/><path d="M3 16c2 0 3-3 6-3s3 4 6 4 3-3 6-3"/><circle cx="12" cy="12" r="2"/>',
+  electronics: '<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="8.5" y="8.5" width="7" height="7" rx="1"/><path d="M8 2v2M12 2v2M16 2v2M8 20v2M12 20v2M16 20v2M2 8h2M2 12h2M2 16h2M20 8h2M20 12h2M20 16h2"/>',
+  fan: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="1.6"/><path d="M12 10.4c0-3 1-5.4 3.5-5.6 2.4-.2 2.6 3 .3 4.6l-2.3 1.4M13.4 12.8c2.6 1.5 4.2 3.5 3.1 5.7-1.1 2.1-3.8.4-4-2.4l.1-2.7M10.6 12.8c-2.6 1.5-5.1 1.9-6.4-.2-1.3-2 1.5-3.6 4-2.4l2.4 1.2"/>',
   femHeat: '<path d="M12 3c3 4-2 6 1 9s0 7-3 9"/><path d="M7 7c2 3-1 4 1 6M17 7c2 3-1 4 1 6"/>',
   femSteady: '<path d="M3 8h18M3 12h18M3 16h18"/><path d="M18 6l3 2-3 2M18 14l3 2-3 2"/>',
   femPaths: '<circle cx="4" cy="18" r="1.4" fill="currentColor"/><path d="M4 18c4-1 5-8 9-9s5 2 7-4"/><circle cx="20" cy="5" r="1.4"/>',

@@ -16,7 +16,7 @@ import { dropStudy } from './explicit.js';
 import { combineStudy } from './combine.js';
 import { dynamicStudy } from './dynamic.js';
 import { topologyStudy } from './topology.js';
-import { flowStudy } from '../cfd/lbm.js';
+import { flowStudy, fanFlowStudy } from '../cfd/lbm.js';
 
 export const STUDY_KINDS = ['static', 'thermal', 'modal', 'buckling', 'nonlinear', 'drop', 'flow', 'combination'];
 
@@ -34,6 +34,8 @@ export function runStudyDirect(kind, input, { onProgress = null, cancel = null }
     case 'dynamic': return dynamicStudy(args);
     case 'topology': return topologyStudy(args);
     case 'flow': return flowStudy(input.mesh ?? input.bodies?.[0]?.mesh, args);
+    // Electronics cooling: every solid a component (no main mesh); with a fan, run at its operating point.
+    case 'electronics': return args.fan ? fanFlowStudy(null, args) : flowStudy(null, args);
     default: return { ok: false, error: 'unknown-study' };
   }
 }

@@ -587,6 +587,22 @@ scene('plastics-warp', async (g) => {
   m.actions.pmToggle('plDeformed', true); await g.settle(900);
   return null;
 });
+scene('sim-electronics', async (g) => {
+  const { m } = g;
+  await m.popups.closeAll(); await g.settle(300);
+  await m.actions.closeProject({ force: true }); await g.settle(300);
+  await m.macro.runMacro(['await mm.newDocument("part");', 'await mm.setProperty("name", "PCB");', 'await mm.extrude(await mm.sketch("top", [{ rect: [60, 40] }]), 3);', 'await mm.addPart("Chip");', 'await mm.extrude(await mm.sketch("top", [{ rect: [12, 12] }]), 5);', 'await mm.addAssembly("Board");', 'await mm.insertComponent("PCB", [0, 0, 0]);', 'await mm.insertComponent("Chip", [-12, 0, 3]);', 'await mm.insertComponent("Chip", [14, 0, 3]);'].join('\n'));
+  await g.settle(800);
+  await m.run('electronicsCooling'); await g.settle(400);
+  const [pcb, c1, c2] = m.active().components;
+  m.electronics.setRole(pcb.id, { role: 'board', kIn: 20, kThrough: 0.3 });
+  m.electronics.setRole(c1.id, { role: 'source', power: 0.5, thetaJC: 5, limit: 60 });
+  m.electronics.setRole(c2.id, { role: 'source', power: 1, thetaJC: 5, limit: 45 });
+  m.electronics.setStudy({ velocity: 0.5, resolution: 10, maxSteps: 2500 });
+  await m.electronics.run(); await g.settle(800);
+  await g.fit();
+  return null;
+});
 scene('tools-markup', async (g) => {
   const { m } = g;
   await m.popups.closeAll(); await g.settle(300);

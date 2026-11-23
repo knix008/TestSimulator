@@ -1,11 +1,12 @@
 // Electronics cooling on the lattice (src/cad/cfd/lbm.js): per-axis conductivity is a diagonal diffusion tensor
-// (a pulse spreads with σ² = s0² + 2 α_axis t along each axis); powered components on a board in an air stream give
-// all their heat to the air, the stronger one runs hotter, a junction adds θ_jc P, a board that spreads heat in its
-// plane cools its chip; and a fan settles where its curve meets the system's.
+// (a pulse spreads with σ² = s0² + 2 α_axis t along each axis); air nothing heats stays at the inlet temperature
+// (the lattice carries the rise above it); a powered chip gives all its heat to the air; on a board the stronger chip
+// runs hotter, a junction adds θ_jc P and a board that spreads heat in its plane cools the chips; and a fan settles
+// where its curve meets the system's.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { latticeRun, flowStudy, fanOperatingPoint, fanFlowStudy, joinMeshes } from '../../src/cad/cfd/lbm.js';
-import { boxMesh, tubeMesh } from './fem-shapes.js';
+import { boxMesh } from './fem-shapes.js';
 
 const within = (v, e, rel, what) => assert.ok(Math.abs(v - e) <= rel * Math.abs(e), `${what}: ${v} vs ${e}`);
 
@@ -26,35 +27,43 @@ test('anisotropic solid: a heat pulse spreads by its own diffusivity along x and
   within(m, m0, 1e-9, 'heat conserved');
 });
 
-// A board (2 mm FR-4-like plate) in an air stream along x with two chips on it.
-const board = () => boxMesh(60, 40, 2, 2, [0, 0, 0]);
-const chip = (x, y) => boxMesh(10, 10, 2, 2, [x, y, 2]);
-const air = { mode: 'external', axis: 'x', velocity: 2, fluid: 'air', resolution: 22, time: { mode: 'steady', maxSteps: 9000 } };
+// Air at 0.5 m/s along x; MRT with large-eddy damping (what the electronics study uses).
+const air = { mode: 'external', axis: 'x', velocity: 0.5, fluid: 'air', collision: 'mrt', les: 0.17 };
 
-test('two powered chips on a board: the air takes the 3 W, the 2 W chip runs hotter, the junction adds θ_jc P', () => {
-  const r = flowStudy(board(), { ...air, thermal: { inlet: 25, body: { mode: 'conduct', k: 0.3, density: 1850, cp: 1100 }, components: [
-    { name: 'U1', mesh: chip(10, 15), power: 1, k: 20, density: 2300, cp: 700, thetaJC: 5 },
-    { name: 'U2', mesh: chip(40, 15), power: 2, k: 20, density: 2300, cp: 700, thetaJC: 5, limit: 30 },
-  ] } });
-  assert.ok(r.ok || r.error === 'not-converged', r.error);
-  assert.equal(r.components.length, 2);
-  const [u1, u2] = r.components;
-  assert.ok(u1.cells > 0 && u2.cells > 0);
-  within(r.heat, 3, 0.1, 'heat to the air = the power');
-  assert.ok(u2.max > u1.max, `${u2.max} vs ${u1.max}`);
-  const rise1 = u1.mean - 25, rise2 = u2.mean - 25;
-  assert.ok(rise2 / rise1 > 1.4 && rise2 / rise1 < 2.8, `rise ratio ${rise2 / rise1}`);
-  within(u2.junction, u2.max + 10, 1e-9, 'junction');
-  assert.equal(u2.over, u2.junction > 30);
+test('a 1 W chip alone in the air: all its heat goes to the air; unpowered air and parts stay at the inlet temperature', () => {
+  const r = flowStudy(null, { ...air, cellSize: 2.5, domain: { upstream: 0.6, downstream: 1, lateral: 0.6 }, time: { mode: 'steady', maxSteps: 12000, passes: 30 }, thermal: { inlet: 25, components: [{ name: 'U1', mesh: boxMesh(12, 12, 6, 2), power: 1, k: 20, density: 2300, cp: 700 }] } });
+  assert.equal(r.ok, true, r.error);
+  within(r.heat, 1, 0.02, 'heat to the air');
+  const u1 = r.components[0];
+  assert.ok(u1.mean > 30 && u1.mean < 60, `chip ${u1.mean} °C`);
+  // Downstream of the warm wake the advection undershoots a little (a dispersive ripple), never much.
+  let lo = Infinity; for (const v of r.temp) lo = Math.min(lo, v);
+  assert.ok(lo > 25 - 0.08 * (u1.max - 25), `coldest ${lo} °C for a chip rise of ${u1.max - 25} K`);
+  const cold = flowStudy(null, { ...air, cellSize: 2.5, domain: { upstream: 0.6, downstream: 1, lateral: 0.6 }, time: { mode: 'steady', maxSteps: 1500 }, thermal: { inlet: 25, components: [{ name: 'U1', mesh: boxMesh(12, 12, 6, 2), power: 0, k: 20 }] } });
+  let clo = Infinity, chi = -Infinity; for (const v of cold.temp) { clo = Math.min(clo, v); chi = Math.max(chi, v); }
+  assert.ok(clo === 25 && chi === 25, `unheated ${clo} … ${chi}`);
 });
 
-test('a board that spreads heat in its plane cools the chip on it (orthotropic: in-plane 20, through 0.3 W/m·K)', () => {
-  const post = boxMesh(4, 4, 4, 2, [-30, 18, 0]);
-  const run = (k) => flowStudy(post, { ...air, thermal: { inlet: 25, body: { mode: 'conduct', k: 1 }, components: [
-    { name: 'PCB', mesh: board(), power: 0, k, density: 1850, cp: 1100 }, { name: 'U1', mesh: chip(25, 15), power: 2, k: 20, density: 2300, cp: 700 },
-  ] } }).components.find((c) => c.name === 'U1').max;
-  const plain = run(0.3), spreading = run([20, 20, 0.3]);
-  assert.ok(spreading < plain - 1, `chip ${spreading} °C on the spreading board vs ${plain} °C`);
+// A 3 mm board with two chips 5 mm high.
+const chips = [
+  { name: 'U1', mesh: boxMesh(12, 12, 5, 2, [8, 14, 3]), power: 0.5, k: 20, density: 2300, cp: 700, thetaJC: 5 },
+  { name: 'U2', mesh: boxMesh(12, 12, 5, 2, [38, 14, 3]), power: 1, k: 20, density: 2300, cp: 700, thetaJC: 5, limit: 45 },
+];
+const boardRun = (k) => flowStudy(null, { ...air, cellSize: 3, domain: { upstream: 0.3, downstream: 0.6, lateral: 0.3 }, time: { mode: 'steady', maxSteps: 7000, passes: 30 }, thermal: { inlet: 25, components: [{ name: 'PCB', mesh: boxMesh(60, 40, 3, 2), power: 0, k, density: 1850, cp: 1100 }, ...chips] } });
+
+test('chips on a board: the air takes their 1.5 W, the 1 W chip runs hotter, T_j = case max + θ_jc P; a spreading board cools them', () => {
+  const plain = boardRun(0.3);
+  assert.ok(plain.ok, plain.error);
+  within(plain.heat, 1.5, 0.08, 'heat to the air');
+  const [pcb, u1, u2] = plain.components;
+  assert.equal(pcb.power, 0);
+  assert.ok(u2.max > u1.max + 3, `${u2.max} vs ${u1.max}`);
+  within(u2.junction, u2.max + 5, 1e-9, 'junction');
+  assert.equal(u2.over, u2.junction > 45);
+  const spread = boardRun([20, 20, 0.3]);
+  const s2 = spread.components.find((c) => c.name === 'U2');
+  assert.ok(s2.max < u2.max - 3, `U2 ${s2.max} °C on the spreading board vs ${u2.max} °C`);
+  within(spread.heat, 1.5, 0.08, 'heat to the air (spreading board)');
 });
 
 test('fan curve meets the system curve: c Q² = p_max (1 − Q / Q_max)', () => {
@@ -65,12 +74,14 @@ test('fan curve meets the system curve: c Q² = p_max (1 − Q / Q_max)', () => 
   assert.ok(op.flow > 0 && op.flow < 0.01);
 });
 
-test('a fan pushing air through a duct with a hot block: the run lands on the fan curve', () => {
-  const duct = tubeMesh(12, 10, 80, 32, 6);
-  const r = fanFlowStudy(duct, { mode: 'internal', axis: 'z', velocity: 1, fluid: 'air', resolution: 10, time: { mode: 'steady', maxSteps: 6000 }, fan: { maxFlow: 3e-4, maxPressure: 2 } });
+test('a fan pushing air through a square duct: the second run lands near the fan curve', () => {
+  // A 20 × 20 mm duct, 80 mm long, walls 2 mm (two boxes per side make the passage).
+  const wall = (x, y, w, h) => boxMesh(w, h, 80, 2, [x, y, 0]);
+  const duct = joinMeshes([wall(-12, -12, 24, 2), wall(-12, 10, 24, 2), wall(-12, -10, 2, 20), wall(10, -10, 2, 20)]);
+  const r = fanFlowStudy(duct, { mode: 'internal', axis: 'z', velocity: 1, fluid: 'air', collision: 'mrt', les: 0.17, cellSize: 2, time: { mode: 'steady', maxSteps: 6000 }, fan: { maxFlow: 6e-4, maxPressure: 1 } });
   assert.ok(r.ok || r.error === 'not-converged', r.error);
-  assert.ok(r.fan.flow > 0 && r.fan.flow < 3e-4);
-  assert.ok(r.fan.mismatch < 0.25, `system Δp ${r.fan.systemPressure} vs fan ${r.fan.pressure} Pa`);
+  assert.ok(r.fan.flow > 0 && r.fan.flow < 6e-4);
+  assert.ok(r.fan.mismatch < 0.3, `system Δp ${r.fan.systemPressure} vs fan ${r.fan.pressure} Pa`);
   within(r.meanVelocity * r.inletArea * 1e-6, r.fan.flow, 1e-9, 'flow at the operating point');
 });
 

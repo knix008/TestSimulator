@@ -8,6 +8,8 @@
 // Walls: interpolated bounce-back (Bouzidi–Firdaouss–Lallemand) with the wall distance along each link, so curved
 // bodies are second-order accurate; plain half-way bounce-back where the interpolation has no fluid neighbour.
 // Forces on the body by momentum exchange (drag, lift, side force, moments).
+// Rotating bodies (a rotor, an impeller as a frozen rotor): their walls move with u_w = ω × r — bounce-back with the
+// moving-wall term −6 wᵢ ρ (cᵢ·u_w) at the wall point of each link — and the torque about the axis gives the shaft power.
 // Boundaries: velocity inlet and pressure outlet (non-equilibrium extrapolation), free-slip, no-slip or periodic sides.
 // Heat: passive-scalar advection–diffusion on D3Q7 in the fluid and conduction in the solid (conjugate heat transfer;
 // the solid's lattice diffusivity follows the conductivity ratio and its cells hold its own ρc (the equilibrium's
@@ -73,7 +75,7 @@ const MRT = mrtBasis();
 export function latticeRun(config) {
   const { dims, solid, qwall = null, flowAxis = 0, flowSign = 1, inlet = 'velocity', outlet = 'pressure', sides = ['slip', 'slip', 'slip'], tau = 0.8,
     collision = 'trt', smagorinsky = 0, force = null, uIn = 0.05, inletProfile = null, thermal = null, steps = 4000, minSteps = 200, tol = 1e-6,
-    transient = false, samples = 100, onSample = null, onProgress = null, cancel = null, center = null, fixedCells = null } = config;
+    transient = false, samples = 100, onSample = null, onProgress = null, cancel = null, center = null, fixedCells = null, rotation = null } = config;
   const [nx, ny, nz] = dims, N = nx * ny * nz;
   const F64 = N < 400000;
   let f = F64 ? new Float64Array(Q * N) : new Float32Array(Q * N), g = F64 ? new Float64Array(Q * N) : new Float32Array(Q * N);
@@ -167,7 +169,7 @@ export function latticeRun(config) {
   let tg = null, tg2 = null, Tcell = null;
   if (th) {
     tg = new Float64Array(7 * N); tg2 = new Float64Array(7 * N); Tcell = th.Tinit?.length === N ? Float64Array.from(th.Tinit) : new Float64Array(N).fill(th.Tinit ?? th.Tin ?? 0);
-    for (let s = 0; s < N; s++) { const T0 = solid[s] === 1 && th.fixedBody ? th.Tbody : Tcell[s]; Tcell[s] = T0; for (let q = 0; q < 7; q++) tg[7 * s + q] = TW[q] * T0; if (solid[s] === 1) tg[7 * s] += ((th.sigmaS ?? 1) - 1) * T0; }
+    for (let s = 0; s < N; s++) { const fx = th.cell ? th.cell.fixed[s] === 1 : th.fixedBody; const T0 = solid[s] === 1 && fx ? th.Tbody : Tcell[s]; Tcell[s] = T0; for (let q = 0; q < 7; q++) tg[7 * s + q] = TW[q] * T0; if (solid[s] === 1) tg[7 * s] += ((th.cell ? th.cell.sig[s] : th.sigmaS ?? 1) - 1) * T0; }
   }
   const bg = th?.buoyancy;
 
@@ -178,7 +180,9 @@ export function latticeRun(config) {
   const sampleEvery = Math.max(1, Math.floor(steps / Math.max(1, samples)));
   const ci = center ?? [nx / 2, ny / 2, nz / 2];
   const mrtRate = Float64Array.from(MRT.groups, (gname) => (gname === 'nu' ? -1 : rates[gname]));
-  const K = { cx, cy, cz, w, opp, fx0, fy0, fz0, bg, Tcell, tau, cs2, collision, feq, fc, mom, src, mrtRate, lambdaTRT, nx, ny, ci };
+  // Rotation: { axis (unit vector), center (cells), omega (rad per step), mask (solid cells that turn; all when absent) }.
+  const rot = rotation ? { ...rotation, axis: rotation.axis.map((v) => v / Math.hypot(...rotation.axis)) } : null;
+  const K = { cx, cy, cz, w, opp, fx0, fy0, fz0, bg, Tcell, tau, cs2, collision, feq, fc, mom, src, mrtRate, lambdaTRT, nx, ny, nz, ci, rot };
   const fo6 = new Float64Array(6);
   const KH = { cx, cy, cz, th, dims, sides, inletCells, outletCells, uinVec, N, nx, ny, nz, idx };
   for (; steps_ < steps; steps_++) {
@@ -278,7 +282,7 @@ export function latticeRun(config) {
     rho[s] = r; vel[3 * s] = x / r; vel[3 * s + 1] = y / r; vel[3 * s + 2] = z / r;
   }
   let temp = null;
-  if (th) { temp = new Float32Array(N); for (let s = 0; s < N; s++) { let T = 0; for (let q = 0; q < 7; q++) T += tg[7 * s + q]; if (solid[s] === 1) T /= th.sigmaS ?? 1; temp[s] = solid[s] === 1 && th.fixedBody ? th.Tbody : T; } }
+  if (th) { temp = new Float32Array(N); for (let s = 0; s < N; s++) { let T = 0; for (let q = 0; q < 7; q++) T += tg[7 * s + q]; if (solid[s] === 1) T /= th.cell ? th.cell.sig[s] : th.sigmaS ?? 1; temp[s] = (solid[s] === 1 && (th.cell ? th.cell.fixed[s] === 1 : th.fixedBody) ? th.Tbody : T) + (th.Toffset ?? 0); } }
   const avgRho = (list) => (list.length ? list.reduce((t, [s]) => t + rho[s], 0) / list.length : 1);
   return {
     dims, rho, vel, temp, force: force_, torque: torque_, forceHistory, residuals, steps: steps_, converged: transient ? !unstable : converged, unstable,
@@ -360,7 +364,7 @@ function collideKernel(f, fluid, P) {
 
 
 function streamKernel(f, g, fluid, dest, qwall, upstream, P, out) {
-  const { cx, cy, cz, opp, nx, ny, ci } = P;
+  const { cx, cy, cz, w, opp, nx, ny, ci, rot } = P;
   let fxs = 0, fys = 0, fzs = 0, mxs = 0, mys = 0, mzs = 0;
   for (let m = 0; m < fluid.length; m++) {
     const s = fluid[m], o = Q * s;
@@ -375,6 +379,20 @@ function streamKernel(f, g, fluid, dest, qwall, upstream, P, out) {
         if (qf >= 0) {
           if (qf < 0.5) { const up2 = upstream[o + q]; back = up2 >= 0 ? 2 * qf * v + (1 - 2 * qf) * f[Q * up2 + q] : v; }
           else back = v / (2 * qf) + ((2 * qf - 1) / (2 * qf)) * f[o + qo];
+        }
+      }
+      if (rot && d === -2) {
+        // The wall point of the link, its velocity ω × r, and the moving-wall correction (ρ ≈ 1).
+        const i = s % nx, rr = (s - i) / nx, j = rr % ny, k = (rr - j) / ny;
+        const nz = P.nz ?? 1, t = ((i + cx[q] + nx) % nx) + nx * (((j + cy[q] + ny) % ny) + ny * ((k + cz[q] + nz) % nz));
+        if (!rot.mask || rot.mask[t]) {
+          const qf = qwall ? qwall[o + q] : -1, a = qf >= 0 ? qf : 0.5;
+          const px = i + 0.5 + a * cx[q] - rot.center[0], py = j + 0.5 + a * cy[q] - rot.center[1], pz = k + 0.5 + a * cz[q] - rot.center[2];
+          const [ax, ay, az] = rot.axis, om = rot.omega;
+          const ux = om * (ay * pz - az * py), uy = om * (az * px - ax * pz), uz = om * (ax * py - ay * px);
+          const cu = cx[q] * ux + cy[q] * uy + cz[q] * uz;
+          const corr = 6 * w[q] * cu * (qf >= 0.5 ? 1 / (2 * qf) : 1);
+          back -= corr;
         }
       }
       g[o + qo] = back;
@@ -406,6 +424,14 @@ function heatKernel(f, tg, tg2, Tcell, solid, P) {
       const fo = Q * s; let r = 0, mx = 0, my = 0, mz = 0;
       for (let q = 0; q < Q; q++) { const v = f[fo + q]; r += v; mx += v * cx[q]; my += v * cy[q]; mz += v * cz[q]; }
       ux = mx / r; uy = my / r; uz = mz / r; om = 1 / th.tauF;
+
+      // Positivity of the D3Q7 equilibrium wᵢT(1 + 4cᵢ·u) needs |u| < 1/4: a local velocity beyond what the lattice
+      // resolves (a coarse grid at a high Reynolds number) is capped at 0.2 for the heat it carries.
+      const um = Math.hypot(ux, uy, uz); if (um > 0.2) { const k = 0.2 / um; ux *= k; uy *= k; uz *= k; th.capped = (th.capped ?? 0) + 1; }
+      // Where the molecular diffusivity is far too small for the heat the lattice advects (cell Péclet above 8: τ → ½,
+      // the BGK scalar then oscillates without bound) the cell takes the diffusivity |u|/2 (cell Péclet 2, τ = ½ + 2|u|)
+      // — the grid-scale mixing a coarse lattice cannot resolve. Resolved cases (Péclet up to 8) are left alone.
+      const uc = Math.min(um, 0.2); if (th.tauF - 0.5 < 0.5 * uc) { om = 1 / Math.max(th.tauF, 0.5 + 2 * uc); th.pecletLimited = (th.pecletLimited ?? 0) + 1; }
     } else om = 1 / (solid[s] === 1 ? th.tauS : th.tauWall ?? th.tauS);
     const fixedHere = solid[s] === 1 && (cell ? cell.fixed[s] === 1 : th.fixedBody);
     if (fixedHere) T = th.Tbody;
@@ -533,10 +559,11 @@ export const FLUIDS = {
  */
 export function flowStudy(mesh, opts = {}) {
   const { mode = 'external', axis = 'x', sign = 1, velocity = 1, fluid = 'air', cellSize = null, resolution = 24, domain = {}, sides: sideMode = 'slip',
-    collision = 'trt', les = 0.12, uLat: uLat0 = 0.06, time = { mode: 'steady' }, thermal = null, maxCells = 3e6, onProgress = null, cancel = null } = opts;
+    collision = 'trt', les = 0.12, uLat: uLat0 = 0.06, time = { mode: 'steady' }, thermal = null, maxCells = 3e6, onProgress = null, cancel = null, rotation = null } = opts;
   let uLat = uLat0;
   const comps = (thermal?.components ?? []).filter((c) => c?.mesh?.vertices?.length);
-  const S = surfaceModel(comps.length ? joinMeshes([mesh, ...comps.map((c) => c.mesh)]) : mesh);
+  // No main mesh (electronics: every solid is a component) — the grid is made around the components.
+  const S = surfaceModel(comps.length ? joinMeshes([...(mesh ? [mesh] : []), ...comps.map((c) => c.mesh)]) : mesh);
   if (!(S.volume > 0)) return { ok: false, error: 'empty' };
   const fa = { x: 0, y: 1, z: 2 }[axis] ?? 0;
   const props = typeof fluid === 'string' ? FLUIDS[fluid] ?? FLUIDS.air : { ...FLUIDS.air, ...fluid };
@@ -627,10 +654,14 @@ export function flowStudy(mesh, opts = {}) {
   if (thermal) {
     const alphaF = props.k / (props.density * props.cp), aLat = (alphaF * dt) / (dxM * dxM);
     const ks = thermal.body?.k ?? 50, aS = aLat * (ks / props.k);
-    const rcS = (thermal.body?.density ?? 7850) * (thermal.body?.cp ?? 500), sigmaS = rcS / (props.density * props.cp);
+    // Steady runs: the steady temperatures do not depend on the heat capacities, so every solid takes the fluid's ρc
+    // (σ = 1) and settles on the flow's time scale (a pseudo-transient); transient runs keep the real ρc.
+    const rcS = (thermal.body?.density ?? 7850) * (thermal.body?.cp ?? 500), sigmaS = transient ? rcS / (props.density * props.cp) : 1;
     const tauF = 0.5 + 4 * aLat, tauS = Math.min(0.5 + 4 * aS, 50);
     const Tin = thermal.inlet ?? 20, bm = thermal.body?.mode ?? 'temperature';
-    th = { tauF, tauS, sigmaS, Tin, Tinit: Tin, fixedBody: bm === 'temperature', Tbody: bm === 'temperature' ? thermal.body?.value ?? 60 : Tin };
+    // The lattice carries the rise above the inlet θ = T − T_in: the flow's slight compressibility (−θ∇·u) then errs in
+    // proportion to the rise, and air nothing heats stays exactly at the inlet temperature.
+    th = { tauF, tauS, sigmaS, Tin: 0, Tinit: 0, Toffset: Tin, fixedBody: bm === 'temperature', Tbody: bm === 'temperature' ? (thermal.body?.value ?? 60) - Tin : 0 };
     if (bm === 'power' && solidCells) {
       // Steady balance k_s ∇²T + q''' = 0 on the lattice (α_s,lat ∇²_lat T + s = 0): s = α_s,lat · dx² · q''' / k_s per step.
       const Pw = thermal.body?.value ?? 10, qv = Pw / (solidCells * dxM ** 3);
@@ -647,7 +678,7 @@ export function flowStudy(mesh, opts = {}) {
         const ci = compCell[s];
         if (ci < 0) { cell.sig[s] = sigmaS; cell.fixed[s] = bm === 'temperature' ? 1 : 0; cell.src[s] = mainSrc; continue; }
         const c = comps[ci], k3 = Array.isArray(c.k) ? c.k : [c.k ?? 50, c.k ?? 50, c.k ?? 50];
-        cell.sig[s] = ((c.density ?? 2000) * (c.cp ?? 900)) / (props.density * props.cp);
+        cell.sig[s] = transient ? ((c.density ?? 2000) * (c.cp ?? 900)) / (props.density * props.cp) : 1;
         for (let a = 0; a < 3; a++) cell.tau[3 * s + a] = Math.min(0.5 + 4 * aLat * (k3[a] / props.k), 50);
         cell.src[s] = counts[ci] && c.power ? (aLat * dxM * dxM * (c.power / (counts[ci] * dxM ** 3))) / props.k : 0;
       }
@@ -656,16 +687,25 @@ export function flowStudy(mesh, opts = {}) {
     }
     if (thermal.buoyancy) {
       const gLat = (9.81 * dt * dt) / dxM, b = props.beta ?? 3.4e-3;
-      th.buoyancy = { g: [0, 0, gLat * b], Tref: Tin };     // Z up: warmer fluid rises (acceleration +Z per kelvin)
+      th.buoyancy = { g: [0, 0, gLat * b], Tref: 0 };     // Z up: warmer fluid rises (acceleration +Z per kelvin)
     }
   }
   // Body centre (cells) for the moments.
   const ctr = [0, 1, 2].map((a) => ((S.lo[a] + S.hi[a]) / 2 - origin[a]) / h - 0.5);
   const snapshots = [];
-  const levels = mode === 'external' && !compCell ? Math.max(0, Math.min(3, Math.round(opts.refine ?? 0))) : 0;
+  const levels = mode === 'external' && !compCell && !rotation ? Math.max(0, Math.min(3, Math.round(opts.refine ?? 0))) : 0;
+  // A rotating body (rotation: { axis 'x' | 'y' | 'z' | vector, center mm (default: the body's middle), rpm }): its walls
+  // move with ω × r; the torque is taken about the rotation centre.
+  let rot = null;
+  if (rotation && Number(rotation.rpm)) {
+    const ax = Array.isArray(rotation.axis) ? rotation.axis : { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] }[rotation.axis ?? 'z'];
+    const cmm = rotation.center ?? [0, 1, 2].map((a) => (S.lo[a] + S.hi[a]) / 2);
+    const omega = (Number(rotation.rpm) * 2 * Math.PI) / 60;
+    rot = { axis: ax, center: cmm.map((v, a) => (v - origin[a]) / h), omega: omega * dt, omegaPhys: omega, rpm: Number(rotation.rpm), centerMm: cmm };
+  }
   const coarseCfg = {
-    dims, solid, qwall, flowAxis: fa, flowSign: sign, sides, tau, collision, smagorinsky: les, uIn: uLat, thermal: th, steps, minSteps: Math.min(steps, Math.round(1.5 * flowThrough)), tol: time.tol ?? 2e-7,
-    transient, samples: transient ? 200 : 100, center: ctr, cancel, ramp: Math.round(Math.min(steps * 0.2, 0.6 * flowThrough)), keepState: levels > 0,
+    dims, solid, qwall, flowAxis: fa, flowSign: sign, sides, tau, collision, smagorinsky: les, uIn: uLat, thermal: th, steps, rotation: rot ? { axis: rot.axis, center: rot.center, omega: rot.omega } : null, minSteps: Math.min(steps, Math.round(1.5 * flowThrough)), tol: time.tol ?? 2e-7,
+    transient, samples: transient ? 200 : 100, center: rot ? rot.center.map((v) => v - 0.5) : ctr, cancel, ramp: Math.round(Math.min(steps * 0.2, 0.6 * flowThrough)), keepState: levels > 0,
     onProgress: (f, info) => onProgress?.(0.05 + (levels ? 0.45 : 0.9) * f, { stage: 'flow', ...info }),
   };
   let lat = latticeRun(coarseCfg);
@@ -811,7 +851,7 @@ export function flowStudy(mesh, opts = {}) {
   let vmax = 0; for (let s = 0; s < N; s++) vmax = Math.max(vmax, Math.hypot(lat.vel[3 * s], lat.vel[3 * s + 1], lat.vel[3 * s + 2]));
   const flow = { dims: fine.dims, origin: fine.origin, h: fine.h, vel: fine.lat.vel, rho: fine.lat.rho, temp: fine.lat.temp, solid: fine.solid, flowAxis: fa, flowSign: sign, velocity, uLat, fluid: props };
   // Pressure on the body: from the fluid cells near each surface vertex (offset along the outward normal).
-  const nv = mesh.vertices.length / 3, vertexPressure = new Float32Array(nv), vertexCp = new Float32Array(nv), normals = mesh.normals;
+  const nv = mesh ? mesh.vertices.length / 3 : 0, vertexPressure = new Float32Array(nv), vertexCp = new Float32Array(nv), normals = mesh?.normals;
   for (let v = 0; v < nv; v++) {
     const p = [mesh.vertices[3 * v], mesh.vertices[3 * v + 1], mesh.vertices[3 * v + 2]];
     const n = normals ? [normals[3 * v], normals[3 * v + 1], normals[3 * v + 2]] : [0, 0, 0];
@@ -858,6 +898,7 @@ export function flowStudy(mesh, opts = {}) {
     moments: fine.lat.torque.map((v) => v * toNf * dxF), blocks: blocks.map(({ rho: _r, vel: _v, solid: _s, ...b }) => b), refined: blocks.length, refineRequested: levels, refineFailed, coupling, couplingSettled: !coupling.length || coupling.at(-1) < (opts.couplingTol ?? 0.005), dragCoefficient, frontalArea, pressureDrop, meanVelocity: velocity, maxVelocity: vmax * scaleV,
     hydraulicDiameter: mode === 'internal' ? lcCells * h : 0, characteristicLength: lcCells * h, elements: fluidCells, elementSize: h,
     vertexPressure, vertexCp, heat, nusselt, strouhal, collision, les, tau, components, inletArea: inletArea * h * h,
+    rotation: rot ? (() => { const n = rot.axis.map((v) => v / Math.hypot(...rot.axis)); const M = fine.lat.torque.map((v) => v * toNf * dxF); const torque = M[0] * n[0] + M[1] * n[1] + M[2] * n[2]; return { rpm: rot.rpm, axis: n, center: rot.centerMm, torque, power: -torque * rot.omegaPhys }; })() : null,
     history: lat.forceHistory.map((x) => ({ time: x.step * dt, force: x.force.map((v) => v * toN), heat: th ? x.heat * props.density * props.cp * dxM ** 3 / dt : 0 })),
     snapshots,
   };

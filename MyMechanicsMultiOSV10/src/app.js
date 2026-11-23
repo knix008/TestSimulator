@@ -69,6 +69,7 @@ import { createRecorder, createMacroTools } from './app-macros.js';
 import { createDesignStudyTools } from './app-designstudy.js';
 import { createDefeatureTools } from './app-defeature.js';
 import { createMarkupTools } from './app-markup.js';
+import { createElectronicsTools } from './app-electronics.js';
 import { routeBodyColours } from './cad/routing.js';
 import { leafCutFeatures, cutLeafBody } from './cad/asm-extra.js';
 
@@ -293,7 +294,7 @@ function afterChange() {
 /** Undo / redo work outside modes, and inside Render (its appearance edits; the picture renders again). */
 // Editors with their own undoable edits (render settings, schematics, design check corrections, tasks run on the
 // open document) keep undo/redo; the rest block it.
-const undoBlocked = () => Boolean(state.editing) && !['render', 'schematic', 'designCheck', 'tasks', 'designStudy', 'markup'].includes(state.editing.mode);
+const undoBlocked = () => Boolean(state.editing) && !['render', 'schematic', 'designCheck', 'tasks', 'designStudy', 'markup', 'electronics'].includes(state.editing.mode);
 
 function undo() {
   const d = doc();
@@ -307,6 +308,7 @@ function undo() {
   if (state.editing?.mode === 'schematic') schTools.afterHistory();
   if (state.editing?.mode === 'designCheck') dcTools.afterHistory();
   if (state.editing?.mode === 'markup') mkTools.afterHistory();
+  if (state.editing?.mode === 'electronics') elTools.afterHistory();
   notify('info', t('notice.undone', { label: r.label }));
 }
 
@@ -322,6 +324,7 @@ function redo() {
   if (state.editing?.mode === 'schematic') schTools.afterHistory();
   if (state.editing?.mode === 'designCheck') dcTools.afterHistory();
   if (state.editing?.mode === 'markup') mkTools.afterHistory();
+  if (state.editing?.mode === 'electronics') elTools.afterHistory();
   notify('info', t('notice.redone', { label: r.label }));
 }
 
@@ -1016,6 +1019,7 @@ function cancelEditing({ quiet = false } = {}) {
   if (e.mode === 'illustration') { state.motionPose = null; state.viewHidden = null; }
   if (e.mode === 'schematic') schTools.cleanup();
   if (e.mode === 'markup') mkTools.cleanup();
+  if (e.mode === 'electronics') elTools.cleanup();
   state.editing = null;
   state.previewResult = null;
   state.mateError = false;
@@ -3126,6 +3130,30 @@ const mkTools = createMarkupTools({
   more.command = (name, arg) => (mkTools.handles(name) ? mkTools.command(name, arg) : o.command(name, arg));
 }
 Object.assign(commands, mkTools.commands);
+
+// Electronics cooling of an assembly (app-electronics.js): conjugate heat transfer on the lattice, chained the same way.
+const elTools = createElectronicsTools({
+  state, t, notify, change, renderAll, renderLeft, cancelEditing, fmt, syncView, activeAssembly,
+  viewport: () => viewport, assemblyBodies: (a) => more.fem.assemblyBodies(a), runStudy: (kind, input, name) => more.fem.run(kind, input, name),
+  pm: { pmHead, pmGroup, pmNum, pmSeg, pmList, pmButton, textInput },
+});
+{
+  const o = { ...more };
+  const mine = (e = state.editing) => elTools.owns(e);
+  more.owns = (e) => mine(e) || o.owns(e);
+  more.pm = (e) => (mine(e) ? elTools.pm(e) : o.pm(e));
+  more.pick = (hit, ev) => (mine() ? elTools.pick(hit, ev) : o.pick(hit, ev));
+  more.field = (k, raw, v) => (mine() ? elTools.field(k, raw, v) : o.field(k, raw, v));
+  more.set = (k, v) => (mine() ? elTools.set(k, v) : o.set(k, v));
+  more.select = (k, v) => (mine() ? elTools.select(k, v) : o.select?.(k, v));
+  more.toggle = (k, c) => (mine() ? elTools.toggle(k, c) : o.toggle(k, c));
+  more.accept = () => (mine() ? elTools.accept() : o.accept());
+  more.subject = (e) => (mine(e) ? elTools.subject(e) : o.subject(e));
+  more.handles = (name) => elTools.handles(name) || o.handles(name);
+  more.command = (name, arg) => (elTools.handles(name) ? elTools.command(name, arg) : o.command(name, arg));
+  more.decorate = (kind) => { o.decorate?.(kind); elTools.decorate(kind); };
+}
+Object.assign(commands, elTools.commands);
 
 // Standard parts library, smart fasteners, pipe / tube / cable routes and photo rendering (app-std.js).
 const std = createStdTools({
@@ -5341,6 +5369,7 @@ window.__mymechanics.macro = macroTools.api;
 window.__mymechanics.designStudy = dsTools.api;
 window.__mymechanics.defeature = dfTools.api;
 window.__mymechanics.markup = mkTools.api;
+window.__mymechanics.electronics = elTools.api;
 window.__mymechanics.pdm = pdm.api;
 
 start()

@@ -66,7 +66,7 @@ export function createSim2Tools(ctx) {
     // Linear dynamics by mode superposition (fem/dynamic.js): harmonic, transient or random; force or base excitation.
     dynamic: { dynKind: 'harmonic', excite: 'force', baseAxis: 'z', baseG: 1, dynModes: 10, dampRatio: 0.02, fFrom: 0, fTo: 0, fSteps: 120, tDuration: 0.05, tCurve: '0:1, 1:1', psdText: '20:0.01, 80:0.04, 350:0.04, 2000:0.007', dynPlot: 'stress' },
     flow: { flowMode: 'external', flowAxis: 'x', flowSign: 1, velocity: 1, fluid: 'air', cellSize: 0, resolution: 16, flowRefine: 0, flowMaxSteps: 0, collision: 'trt', les: 0.12, timeMode: 'steady', duration: 1,
-      thermalOn: false, inletT: 20, bodyMode: 'temperature', bodyValue: 60, solidK: 50, buoyancy: false, quantity: 'velocity', showStreams: true, showPaths: false, surfacePressure: true },
+      thermalOn: false, inletT: 20, bodyMode: 'temperature', bodyValue: 60, solidK: 50, buoyancy: false, rotOn: false, rotAxis: 'z', rpm: 1000, quantity: 'velocity', showStreams: true, showPaths: false, surfacePressure: true },
     // Topology optimisation (fem/topology.js, SIMP).
     topology: { volFrac: 0.4, topoIters: 40, penaltyP: 3, filterR: 0, threshold: 0.5, showShape: true },
     asmStatic: { contact: 'bonded' },
@@ -134,6 +134,7 @@ export function createSim2Tools(ctx) {
         cellSize: e.cellSize > 0 ? e.cellSize : null, resolution: Math.max(6, Math.min(96, Math.round(e.resolution))), collision: e.collision, les: e.les, refine: e.flowMode === 'external' ? e.flowRefine ?? 0 : 0,
         time: { mode: e.timeMode, duration: e.duration, ...(e.timeMode === 'steady' && e.flowMaxSteps > 0 ? { maxSteps: Math.round(e.flowMaxSteps), passes: 1 } : {}) },
         thermal: e.thermalOn ? { inlet: e.inletT, body: { mode: e.bodyMode, value: e.bodyValue, k: e.solidK, density: heatMaterial(p.material).density, cp: heatMaterial(p.material).cp }, buoyancy: e.buoyancy } : null,
+        rotation: e.rotOn && e.rpm ? { axis: e.rotAxis ?? 'z', rpm: e.rpm } : null,
       }, p.name);
     }
     if (!result) return;
@@ -394,7 +395,8 @@ export function createSim2Tools(ctx) {
     const res = r ? pmGroup('sim2Flow', t('sim.results'), `${dl([
       ...(e.flowMode === 'external' ? [[t('sim2.drag'), `${fmt(r.dragForce, 5)} N`], [t('fem.lift'), `${fmt(r.liftForce, 5)} N`], [t('fem.sideForce'), `${fmt(r.sideForce, 5)} N`], [t('sim2.dragCoefficient'), fmt(r.dragCoefficient, 3)], [t('sim2.frontalArea'), `${fmt(r.frontalArea, 1)} mm²`]] : [[t('sim2.hydraulicDiameter'), `${fmt(r.hydraulicDiameter, 2)} mm`]]),
       [t('sim2.pressureDrop'), `${fmt(r.pressureDrop, 4)} Pa`], [t('sim2.maxVelocity'), `${fmt(r.maxVelocity, 3)} m/s`], [t('sim2.reynolds'), fmt(r.reynolds, 1)],
-      ...(r.temp ? [[t('fem.heatToFluid'), `${fmt(r.heat, 4)} W`], [t('fem.nusselt'), fmt(r.nusselt, 2)]] : []), ...(e.timeMode === 'transient' ? [[t('fem.strouhal'), fmt(r.strouhal, 3)], [t('fem.physicalTime'), `${fmt(r.physicalTime, 4)} s`]] : []),
+      ...(r.temp ? [[t('fem.heatToFluid'), `${fmt(r.heat, 4)} W`], [t('fem.nusselt'), fmt(r.nusselt, 2)]] : []),
+      ...(r.rotation ? [[t('rot.torque'), `${fmt(r.rotation.torque, 6)} N·m`], [t('rot.power'), `${fmt(r.rotation.power, 4)} W`]] : []), ...(e.timeMode === 'transient' ? [[t('fem.strouhal'), fmt(r.strouhal, 3)], [t('fem.physicalTime'), `${fmt(r.physicalTime, 4)} s`]] : []),
       [t('sim2.cells'), `${r.dims.join('×')} (${fmt(r.h, 2)} mm)`],
       ...(r.blocks ?? []).map((b) => [t('sim2.refineBlock', { level: b.level }), `${b.dims.join('×')} (${fmt(b.h, 2)} mm)${b.converged ? '' : ' !'}`]),
       ...(r.coupling?.length ? [[t('sim2.coupling'), `${r.coupling.length} · ${fmt(100 * r.coupling.at(-1), 2)} %${r.couplingSettled ? '' : ' !'}`, r.couplingSettled ? '' : 'error']] : []),
@@ -407,6 +409,7 @@ export function createSim2Tools(ctx) {
       pmGroup('sim2Flow', t('sim2.flowSetup'), `${pmSeg('flowMode', [['external', t('sim2.external')], ['internal', t('sim2.internal')]], e.flowMode)}${pmSeg('flowAxis', [['x', 'X'], ['y', 'Y'], ['z', 'Z']], e.flowAxis)}${pmSeg('flowSign', [['1', '+'], ['-1', '−']], String(e.flowSign))}${num('velocity', e.velocity, `${t('sim2.velocity')} (m/s)`, 'sim2Flow')}${pmSeg('fluid', [['air', t('sim2.air')], ['water', t('sim2.water')], ['oil', t('fem.oil')]], e.fluid)}`),
       pmGroup('femTurbulence', t('fem.flowModel'), `${pmSeg('collision', [['trt', 'TRT'], ['mrt', 'MRT'], ['bgk', 'BGK']], e.collision)}${num('les', e.les, t('fem.smagorinsky'), 'femTurbulence')}${pmSeg('timeMode', [['steady', t('fem.steady'), 'femSteady'], ['transient', t('fem.transient'), 'clock']], e.timeMode)}${e.timeMode === 'transient' ? num('duration', e.duration, `${t('fem.duration')} (s)`, 'clock') : num('flowMaxSteps', e.flowMaxSteps ?? 0, `${t('sim2.maxIterations')} (0 = ${t('fem.auto')})`, 'femSteady')}`),
       pmGroup('femHeat', t('fem.heatTransfer'), `${check('thermalOn', e.thermalOn, 'femHeat', t('fem.heatOn'))}${e.thermalOn ? `${num('inletT', e.inletT, `${t('fem.inletTemperature')} (°C)`, 'sun')}${pmSeg('bodyMode', [['temperature', t('sim.temperature')], ['power', t('sim.heatPower')], ['conduct', t('fem.conjugate')]], e.bodyMode)}${e.bodyMode !== 'conduct' ? num('bodyValue', e.bodyValue, e.bodyMode === 'power' ? `${t('sim.heatPower')} (W)` : `${t('sim.temperature')} (°C)`, 'femHeat') : ''}${num('solidK', e.solidK, `${t('fem.solidConductivity')} (W/m·K)`, 'material')}${check('buoyancy', e.buoyancy, 'femGravity', t('fem.buoyancy'))}` : ''}`),
+      pmGroup('rotateTool', t('rot.group'), `${check('rotOn', e.rotOn, 'rotateTool', t('rot.on'))}${e.rotOn ? `${pmSeg('rotAxis', [['x', 'X'], ['y', 'Y'], ['z', 'Z']], e.rotAxis ?? 'z')}${num('rpm', e.rpm ?? 1000, t('rot.rpm'), 'rotateTool')}<p class="pm-note">${escapeHtml(t('rot.note'))}</p>` : ''}`),
       pmGroup('statistics', t('sim.mesh'), `${num('cellSize', e.cellSize, `${t('fem.cellSize')} (mm, 0 = ${t('fem.auto')})`, 'femMesh')}${e.cellSize > 0 ? '' : num('resolution', e.resolution, t('sim2.flowResolution'), 'statistics')}${e.flowMode === 'external' ? `<label class="pm-label">${escapeHtml(t('sim2.refine'))}</label>${pmSeg('flowRefine', [['0', t('sim2.refineNone')], ['1', '1'], ['2', '2'], ['3', '3']], String(e.flowRefine ?? 0))}<p class="pm-note">${escapeHtml(t('sim2.refineNote'))}</p>` : ''}<p class="pm-note">${escapeHtml(t('sim2.flowNote'))}</p><div class="pm-row">${pmButton('runSim', 'play', t('sim.run'), 'primary')}</div>`), res].join('');
   }
 
@@ -1216,7 +1219,7 @@ export function createSim2Tools(ctx) {
     if (isSim(e) && fem.field(e, key, v)) return undefined;
     if (isSim(e) && key === 'frame' && v != null) { e.frame = Math.max(0, Math.round(v)); return showFrame(e); }
     if (v == null) { notify('error', t('notice.invalidValue', { text: raw })); return ctx.renderLeft(); }
-    if (isSim(e) && ['inletT', 'bodyValue'].includes(key)) { e[key] = v; e.result = null; return ctx.renderLeft(); }
+    if (isSim(e) && ['inletT', 'bodyValue', 'rpm'].includes(key)) { e[key] = v; e.result = null; return ctx.renderLeft(); }
     if (isSim(e) && key === 'flowMaxSteps') { e[key] = Math.max(0, Math.round(v)); e.result = null; return ctx.renderLeft(); }
     if (isSim(e) && ['friction', 'damping', 'les', 'cellSize', 'asmFriction'].includes(key)) { e[key] = Math.max(0, v); e.result = null; return ctx.renderLeft(); }
     if (isSim(e) && key === 'kinematicFraction') { e[key] = Math.min(1, Math.max(0, v)); e.result = null; return ctx.renderLeft(); }
@@ -1322,7 +1325,7 @@ export function createSim2Tools(ctx) {
     libInsert: { icon: 'libInsert', label: 'cmd.libInsert', enabled: hasPart, checked: () => editing()?.mode === 'libInsert', run: () => startLibInsert() },
   };
   const TABS = {
-    evaluate: ['nonlinearStudy', 'dropTest', 'loadCombination', 'dynamicStudy', 'topologyStudy', 'flowStudy', 'assemblySimulation', 'mbdAnnotations', 'mbdAutoDimension', 'versionHistory'],
+    evaluate: ['nonlinearStudy', 'dropTest', 'loadCombination', 'dynamicStudy', 'topologyStudy', 'flowStudy', 'assemblySimulation', 'electronicsCooling', 'mbdAnnotations', 'mbdAutoDimension', 'versionHistory'],
     features: ['mbdAnnotations', 'libSave', 'libInsert'],
     sketch: ['sk:makeBlock', 'sk:insertBlock', 'sk:explodeBlock', 'sk:picture'],
     assembly: ['asmCut', 'asmHole', 'beltChain', 'versionHistory'],
@@ -1331,7 +1334,7 @@ export function createSim2Tools(ctx) {
   function extendMenus(MENUS) {
     const at = (list, after, ids) => { const i = list.indexOf(after); list.splice(i >= 0 ? i + 1 : list.length, 0, ...ids); };
     if (MENUS.file) at(MENUS.file, 'saveAs', ['versionHistory', 'checkOut', 'checkIn', 'whereUsed']);
-    if (MENUS.tools) at(MENUS.tools, 'simulation', ['nonlinearStudy', 'dropTest', 'loadCombination', 'dynamicStudy', 'topologyStudy', 'flowStudy', 'assemblySimulation', '-', 'mbdAnnotations', 'mbdAutoDimension', 'insertModelAnnotations', '-', 'asmCut', 'asmHole', 'beltChain', '-', 'libSave', 'libInsert']);
+    if (MENUS.tools) at(MENUS.tools, 'simulation', ['nonlinearStudy', 'dropTest', 'loadCombination', 'dynamicStudy', 'topologyStudy', 'flowStudy', 'assemblySimulation', 'electronicsCooling', '-', 'mbdAnnotations', 'mbdAutoDimension', 'insertModelAnnotations', '-', 'asmCut', 'asmHole', 'beltChain', '-', 'libSave', 'libInsert']);
     if (MENUS.sketch) MENUS.sketch.push('-', 'sk:makeBlock', 'sk:insertBlock', 'sk:explodeBlock', 'sk:picture');
   }
 

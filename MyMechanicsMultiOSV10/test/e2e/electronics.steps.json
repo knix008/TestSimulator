@@ -1,0 +1,31 @@
+[
+  {
+    "name": "electronics: an assembly of a board and two chips (built by a macro); the study lists them with a role each",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const q = (s) => document.querySelector(s); const E = () => m.electronics; await m.actions.ensureKernel(); await m.actions.closeProject({ force: true }); const r = await m.macro.runMacro(\"await mm.newDocument(\\\"part\\\");\\nawait mm.setProperty(\\\"name\\\", \\\"PCB\\\");\\nawait mm.extrude(await mm.sketch(\\\"top\\\", [{ rect: [60, 40] }]), 3);\\nawait mm.addPart(\\\"Chip\\\");\\nawait mm.extrude(await mm.sketch(\\\"top\\\", [{ rect: [12, 12] }]), 5);\\nawait mm.addAssembly(\\\"Board\\\");\\nawait mm.insertComponent(\\\"PCB\\\", [0, 0, 0]);\\nawait mm.insertComponent(\\\"Chip\\\", [-12, 0, 3]);\\nawait mm.insertComponent(\\\"Chip\\\", [14, 0, 3]);\\nreturn mm.components().map((c) => c.name);\"); await sleep(800); await m.run('electronicsCooling'); await sleep(400); const rows = document.querySelectorAll('.el-row').length; const roleSel = document.querySelectorAll('[data-pm-select^=\"el.role:\"]').length; return JSON.stringify({ macro: r.ok, err: r.error ?? null, comps: r.value?.length, mode: m.state.editing?.mode, rows, roleSel, flow: E().study().flow }); })()",
+    "expect": "\"macro\":true,\"err\":null,\"comps\":3,\"mode\":\"electronics\",\"rows\":3,\"roleSel\":3,\"flow\":\"forced\""
+  },
+  {
+    "name": "electronics: roles — the board through its select (in-plane / through conductivity appear), the chips as 1 W and 0.5 W sources with θjc",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const q = (s) => document.querySelector(s); const E = () => m.electronics; const a = m.active(); const [pcb, c1, c2] = a.components; const sel = q(`[data-pm-select=\"el.role:${pcb.id}\"]`); sel.value = 'board'; sel.dispatchEvent(new Event('change', { bubbles: true })); await sleep(300); const kIn = Boolean(q(`[data-pm-field=\"el.kIn:${pcb.id}\"]`)); E().setRole(c1.id, { role: 'source', power: 0.5, thetaJC: 5 }); E().setRole(c2.id, { role: 'source', power: 1, thetaJC: 5, limit: 45 }); E().setStudy({ velocity: 0.5, resolution: 10, maxSteps: 2500 }); await sleep(300); const bodies = E().bodies(); return JSON.stringify({ kIn, roles: bodies.map((b) => b.role).join(','), board: Array.isArray(bodies[0].k) && bodies[0].k.filter((x) => x === 0.3).length === 1, power: bodies.reduce((s, b) => s + b.power, 0) }); })()",
+    "expect": "\"kIn\":true,\"roles\":\"board,source,source\",\"board\":true,\"power\":1.5"
+  },
+  {
+    "name": "electronics: a fan needs an enclosure — the run refuses with a message instead of running",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const q = (s) => document.querySelector(s); const E = () => m.electronics; E().setStudy({ flow: 'fan' }); await sleep(200); const before = m.state.log?.length ?? 0; const r = await E().run(); await sleep(200); const last = (m.state.log ?? []).slice(0, 3).map((x) => x.text ?? '').join(' '); E().setStudy({ flow: 'forced' }); await sleep(200); return JSON.stringify({ refused: r === null, said: /외함|enclosure/i.test(last) }); })()",
+    "expect": "\"refused\":true,\"said\":true"
+  },
+  {
+    "name": "electronics: the run (worker) — the air takes the 1.5 W, the 1 W chip is hotter, T_j = case + θjc P; the components are coloured",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const q = (s) => document.querySelector(s); const E = () => m.electronics; q('[data-pm=\"el.run\"]').click(); let r = null; for (let i = 0; i < 340 && !(r = m.state.editing?.result); i++) await sleep(500); await sleep(500); const comps = r.components; const u1 = comps[1], u2 = comps[2]; const coloured = [...m.viewport.bodies.keys()].filter((k) => k.startsWith('elres:')).length; const rows = document.querySelectorAll('.el-table tr').length; return JSON.stringify({ ran: Boolean(r), heat: Math.abs(r.heat - 1.5) < 0.15, heatW: Math.round(r.heat * 100) / 100, hotter: u2.max > u1.max, junction: Math.abs(u2.junction - (u2.max + 5)) < 1e-6, coloured, rows, legend: Boolean(q('.left-pm-body .sim-legend')) }); })()",
+    "expect": "\"ran\":true,\"heat\":true,\"heatW\":1\\.\\d+,\"hotter\":true,\"junction\":true,\"coloured\":3,\"rows\":4,\"legend\":true"
+  },
+  {
+    "shot": "electronics",
+    "wait": 500
+  },
+  {
+    "name": "electronics: the roles are kept in the assembly (undoable); closing the study restores the plain components",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const q = (s) => document.querySelector(s); const E = () => m.electronics; const kept = Object.values(m.active().electronics.roles).filter((r) => r.role === 'source').length; await m.actions.undo(); await sleep(300); const undoneFlow = m.active().electronics.flow; await m.actions.redo(); await sleep(300); await m.run('electronicsCooling'); await sleep(500); const coloured = [...m.viewport.bodies.keys()].filter((k) => k.startsWith('elres:')).length; return JSON.stringify({ kept, undone: undoneFlow === 'fan' && m.active().electronics.flow === 'forced', mode: m.state.editing?.mode ?? null, coloured }); })()",
+    "expect": "\"kept\":2,\"undone\":true,\"mode\":null,\"coloured\":0"
+  }
+]
