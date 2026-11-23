@@ -35,7 +35,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'background', target: '.start-side', screen: 'start',
     title: { ko: '움직이는 배경', en: 'The moving background' },
-    body: { ko: '배경 18종과 속도, 투명도, 자동으로 바꾸는 간격을 고릅니다. 카드는 ⠿ 손잡이로 옮기고 오른쪽 아래 모서리로 크기를 바꿉니다.', en: 'Choose from 18 backgrounds and set their speed, transparency and automatic change. Move a card by its handle and resize it from its bottom-right corner.' },
+    body: { ko: '배경 20종과 속도, 투명도, 자동으로 바꾸는 간격을 고릅니다. 카드는 ⠿ 손잡이로 옮기고 오른쪽 아래 모서리로 크기를 바꿉니다.', en: 'Choose from 20 backgrounds and set their speed, transparency and automatic change. Move a card by its handle and resize it from its bottom-right corner.' },
   },
   {
     id: 'menus', target: '.menu-bar', screen: 'editor',
@@ -53,9 +53,9 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     body: { ko: '선택, 칠하기, 리터치, 문자 도구입니다. 켜져 있는 그룹을 다시 누르면 그 그룹의 도구를 차례로 돌아갑니다.', en: 'Selection, painting, retouching and type. Clicking the active group again steps through the tools in it.' },
   },
   {
-    id: 'options', target: '.options-bar', screen: 'editor',
-    title: { ko: '옵션 막대', en: 'The options bar' },
-    body: { ko: '지금 도구의 설정과, 그 도구가 무엇을 하는지 한 줄 설명을 보여 줍니다.', en: 'The settings of the current tool, and one line on what it does.' },
+    id: 'docTabs', target: '.doc-tabs', screen: 'editor',
+    title: { ko: '문서 탭', en: 'Document tabs' },
+    body: { ko: '연 파일마다 탭이 하나씩 생겨 여러 파일을 함께 편집합니다. 탭이 많으면 오른쪽 끝의 < > 로 넘겨 봅니다. 탭 아래에는 지금 도구의 설정이 나오고, 설정할 것이 없으면 그 줄은 숨겨집니다.', en: 'Every file you open gets a tab, so several files can be edited side by side. With many tabs, < and > at the right end move through them. Under the tabs are the current tool\'s settings; when there are none the row is hidden.' },
   },
   {
     id: 'stage', target: '.stage-column', screen: 'editor',
@@ -64,8 +64,13 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   },
   {
     id: 'panel', target: '.panel', screen: 'editor',
-    title: { ko: '패널', en: 'The panels' },
-    body: { ko: '레이어, 색상, 작업 내역 같은 패널을 탭으로 고릅니다. 왼쪽 경계를 끌어 폭을 바꿉니다.', en: 'Pick panels such as Layers, Color and History by tab. Drag the left edge to change the width.' },
+    title: { ko: '작업 패널', en: 'Work Panels' },
+    body: { ko: '레이어, 색상, 작업 내역 같은 패널을 탭으로 고릅니다. 제목 막대의 단추로 접고 펴며, 접어도 제목은 보입니다. 왼쪽 경계를 끌어 폭을 바꿉니다.', en: 'Pick panels such as Layers, Color and History by tab. The button in the title bar folds it; folded, the title still shows. Drag the left edge to change the width.' },
+  },
+  {
+    id: 'bottom', target: '.bottom-panel', screen: 'editor',
+    title: { ko: '하단 패널', en: 'The bottom panel' },
+    body: { ko: '문제점, 오류, 로그를 보여 줍니다. 실행한 명령과 연 파일, 고른 도구의 설명이 로그에 남습니다. 각 탭에는 복사와 지우기 단추가 있습니다.', en: 'Shows Problems, Errors and the Log. Commands, opened files and the description of the chosen tool go to the Log. Every tab has Copy and Clear.' },
   },
   {
     id: 'themes', target: '.theme-menu-group', screen: 'editor',
@@ -75,7 +80,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'help', target: '.menu-bar [data-menu="helpMenu"]', screen: 'editor',
     title: { ko: '도움말', en: 'Help' },
-    body: { ko: '사용자 설명서(F1), 이 튜토리얼, 정보는 도움말 메뉴에 있습니다. 튜토리얼은 여기까지입니다.', en: 'The User Guide (F1), this tutorial and About are in the Help menu. That is the end of the tutorial.' },
+    body: { ko: '사용자 설명서(F1), 튜토리얼 문서, 이 튜토리얼, 정보는 도움말 메뉴에 있습니다. 튜토리얼은 여기까지입니다.', en: 'The User Guide (F1), the Tutorial document, this tutorial and About are in the Help menu. That is the end of the tutorial.' },
   },
 ]
 

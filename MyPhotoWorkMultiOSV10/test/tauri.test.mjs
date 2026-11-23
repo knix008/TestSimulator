@@ -111,7 +111,9 @@ test('the guide can be opened from the Help menu, its key and the start screen',
   assert.ok(!commands.some((command) => command.id === 'help.quick'), 'the Help menu has a row called Help again')
   assert.doesNotMatch(read('src/start/StartScreen.tsx'), /quickHelp/, 'the start screen has a row called Help again')
   assert.match(read('src/start/StartScreen.tsx'), /onAction\('guide'\)/, 'the start screen has no button for the guide')
-  assert.match(shell, /doc\/index\.html\?lang=/, 'the shell does not open the guide page')
+  // The guide and the tutorial document share one opener: the page plus ?lang=.
+  assert.match(shell, /open_document\(&app, GUIDE, "doc\/index\.html"/, 'the shell does not open the guide page')
+  assert.match(shell, /format!\("\{page\}\?lang=\{language\}"\)/, 'the guide opens without its language')
 })
 
 /* --------------------------------------------------------------- tutorial */
@@ -125,7 +127,7 @@ test('the tutorial asks at launch, for as long as its box stays ticked', () => {
 })
 
 test('every tutorial step is explained in both languages and points at something that exists', () => {
-  const sources = [read('src/App.tsx'), read('src/start/StartScreen.tsx')].join('\n')
+  const sources = [read('src/App.tsx'), read('src/start/StartScreen.tsx'), read('src/panels.tsx'), read('src/BottomPanel.tsx')].join('\n')
   assert.ok(TUTORIAL_STEPS.length >= 10)
   assert.equal(new Set(TUTORIAL_STEPS.map((step) => step.id)).size, TUTORIAL_STEPS.length)
   for (const step of TUTORIAL_STEPS) {

@@ -25,13 +25,13 @@ The cards are:
 | Title | The program name and version, plus the Tutorial, User Guide, Open and New buttons |
 | New document | Nine photo, screen and print sizes. Click one to make a white document of that size |
 | Recent files | Files you opened recently. ✕ removes one at a time; **Clear list** removes them all |
-| Background | 18 backgrounds, plus speed, transparency, the auto-change interval and pick-at-random on start |
+| Background | 20 backgrounds, plus speed, transparency, the auto-change interval and pick-at-random on start |
 | Help | User Guide, Tutorial, Help, Keyboard Shortcuts, Settings, About |
-| Sample pictures | Six pictures to practise on. Click one to open it as a new document |
+| Sample pictures | Twelve pictures to practise on: six drawn ones, a colour photograph of a blonde woman in a red bikini (CC BY-SA 2.0, photo by Alex Micheu Photography) and five famous paintings (public domain). Click one to open it as a new document |
 
 Drag a card by its ⠿ handle to move it, and drag its bottom-right corner to resize it. Double-click the corner to return to the height that fits the content. You can also focus a handle and press **Alt+Arrow** to move it or **Alt+Shift+Arrow** to resize it. **Auto arrange** at the top restores the original layout.
 
-The 18 backgrounds are **Bokeh, Aperture, Film strip, Histogram, Tone curve, Color wheel, Layer stack, Halftone, Mosaic, Light leak, Lens flare, Brush strokes, RGB composite, Film grain, Contact sheet, Marching ants, Gradient mesh, Kaleidoscope**, drawn in the colours of the current theme. **Speed** runs from 0–300% (0 stops it). **Transparency** runs from 0–100% (at 100 only the theme's plain background remains). Turn on **Shuffle** or set the **auto-change interval** and the background switches to a different one at that interval.
+The 20 backgrounds are **Bokeh, Aperture, Film strip, Histogram, Tone curve, Color wheel, Layer stack, Halftone, Mosaic, Light leak, Lens flare, Brush strokes, RGB composite, Film grain, Contact sheet, Marching ants, Gradient mesh, Kaleidoscope, Viewfinder, Instant photos**, drawn in the colours of the current theme. **Speed** runs from 0–100% (0 stops it; the default is 50%, and 100 is twice as fast as that). **Transparency** runs from 0–100% (at 100 only the theme's plain background remains). Turn on **Shuffle** or set the **auto-change interval** and the background switches to a different one at that interval.
 
 ### Changing it in Settings
 

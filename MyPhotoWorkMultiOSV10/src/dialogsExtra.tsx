@@ -35,8 +35,7 @@ type Tr = (key: string) => string
 function Slider({ label, value, min, max, step = 1, onChange, suffix }: { label: string; value: number; min: number; max: number; step?: number; onChange: (next: number) => void; suffix?: string }) {
   return (
     <label>{label}
-      <RangeSlider min={min} max={max} step={step} value={value} onChange={(next) => onChange(next)} />
-      <span>{Number.isInteger(step) ? Math.round(value) : value}{suffix ?? ''}</span>
+      <RangeSlider min={min} max={max} step={step} value={value} onChange={(next) => onChange(next)} display={<>{Number.isInteger(step) ? Math.round(value) : value}{suffix ?? ''}</>} />
     </label>
   )
 }
@@ -723,8 +722,7 @@ function GradientEditorDialog({ payload, onResult, onClose }: BodyProps) {
         {def.stops.map((stop, index) => (
           <div className="stop-row" key={`c${index}`}>
             <input type="color" value={resolvedColor(stop.color)} onChange={(event) => setStop(index, { color: event.target.value })} />
-            <RangeSlider min={0} max={100} value={Math.round(stop.position * 100)} onChange={(next) => setStop(index, { position: next / 100 })} />
-            <span>{Math.round(stop.position * 100)}%</span>
+            <RangeSlider min={0} max={100} value={Math.round(stop.position * 100)} onChange={(next) => setStop(index, { position: next / 100 })} display={<>{Math.round(stop.position * 100)}%</>} />
             <button data-tooltip={tr('removeStop')} aria-label={tr('removeStop')} disabled={def.stops.length <= 2} onClick={() => setDef((current) => ({ ...current, stops: current.stops.filter((_, i) => i !== index) }))}><X size={13} /></button>
           </div>
         ))}
@@ -734,10 +732,8 @@ function GradientEditorDialog({ payload, onResult, onClose }: BodyProps) {
         <h3>{tr('stopOpacity')}</h3>
         {def.opacityStops.map((stop, index) => (
           <div className="stop-row opacity" key={`o${index}`}>
-            <RangeSlider min={0} max={100} value={Math.round(stop.opacity * 100)} onChange={(next) => setOpacityStop(index, { opacity: next / 100 })} />
-            <span>{Math.round(stop.opacity * 100)}%</span>
-            <RangeSlider min={0} max={100} value={Math.round(stop.position * 100)} onChange={(next) => setOpacityStop(index, { position: next / 100 })} />
-            <span>{Math.round(stop.position * 100)}%</span>
+            <RangeSlider min={0} max={100} value={Math.round(stop.opacity * 100)} onChange={(next) => setOpacityStop(index, { opacity: next / 100 })} display={<>{Math.round(stop.opacity * 100)}%</>} />
+            <RangeSlider min={0} max={100} value={Math.round(stop.position * 100)} onChange={(next) => setOpacityStop(index, { position: next / 100 })} display={<>{Math.round(stop.position * 100)}%</>} />
             <button data-tooltip={tr('removeStop')} aria-label={tr('removeStop')} disabled={def.opacityStops.length <= 2} onClick={() => setDef((current) => ({ ...current, opacityStops: current.opacityStops.filter((_, i) => i !== index) }))}><X size={13} /></button>
           </div>
         ))}
@@ -1444,7 +1440,7 @@ function ModelSetupDialog({ payload, onResult, onClose }: BodyProps) {
         </button>
         {(started && !busy) || missing.length === 0 ? (
           <button className="primary" onClick={onClose}>
-            <Check size={14} aria-hidden="true" />
+            <X size={14} aria-hidden="true" />
             <span>{tr('close')}</span>
           </button>
         ) : null}

@@ -4,11 +4,11 @@ import { BUSY_AFTER_MS, BusyOverlay, type BusyJob } from './Busy'
 import { resolveSubjectMethod } from './subjectMethods'
 import { NumberStepper, Slider } from './controls'
 import {
-  ArrowLeftRight, Blend, Check, ChevronDown, ChevronLeft, ChevronRight, Crop, FileImage, FlipHorizontal, FlipVertical, Frame, House, Info, Minus, PaintBucket, Palette, PenTool, Scissors, Settings2, Sparkles, Square, SquareDashed, Trash, Wand, X,
+  ArrowLeftRight, Blend, Check, ChevronDown, Crop, FileImage, FlipHorizontal, FlipVertical, Frame, House, Info, Minus, PaintBucket, ScanSearch, SlidersHorizontal, Palette, PanelBottomClose, PanelBottomOpen, PanelRightClose, PanelRightOpen, PanelsRightBottom, PenTool, Scissors, Settings2, Sparkles, Square, SquareDashed, Trash, Wand, X,
 } from 'lucide-react'
 import { t, toolLabel } from './i18n'
 import { aspectRatio, formatBytes, formatName, imageStatistics, type MetaRow, type MetaSection } from './lib/metadata'
-import { adjustmentTypes, iconForTool, toolGroups } from './catalog'
+import { adjustmentTypes, toolGroups } from './catalog'
 import { canvasToDataUrl, cloneCanvas, compositeDocument, context2d, createBlankDocument, createCanvas, createId, createLayerMeta, padCanvas, resizeCanvasContent, sampleComposite, setSmartFilterRunner, smartSourceKey } from './lib/canvas'
 import { hexToRgb, hsvToRgb, rgbToHex, rgbToHsv } from './lib/color'
 import { adjustBrightnessContrast, adjustHueSaturation, clearSelectionPixels, gaussianBlur, grayscale, histogram, invertColors, sharpen } from './lib/filters'
@@ -47,12 +47,12 @@ import { pointerLook } from './lib/toolCursor'
 import { BUILTIN_SHAPES, BUILTIN_STYLES, BUILTIN_TOOL_PRESETS } from './lib/presets'
 import { GRID_DIVISIONS, firstTick, gridStep, rulerMarks, rulerSize, tickStep, visibleRange } from './lib/view'
 import { buildErrorReport } from './lib/errors'
-import { commands, commandsInMenu, fileMenuWithRecents, findCommand, menuIcons, menuOrder, RECENT_FORGET_PREFIX, RECENT_PREFIX, toolbarGroups, type AppCommand, type MenuId as CommandMenuId } from './commands'
+import { adjustmentIcons, commands, commandsInMenu, fileMenuWithRecents, findCommand, menuIcons, menuOrder, RECENT_FORGET_PREFIX, RECENT_PREFIX, toolbarGroups, type AppCommand, type MenuId as CommandMenuId } from './commands'
 import { MenuTree } from './MenuTree'
 import { DialogBody, DialogFrame, type DialogName, type DialogPayload, type DialogResult } from './dialogs'
 import { keepsWindowOpen } from './dialogMeta'
-import { openUserGuide, publishGuideAppearance } from './host/userGuide'
-import { SAMPLE_HEIGHT, SAMPLE_WIDTH, renderSample, type SampleImage } from './lib/sampleImages'
+import { openTutorialDoc, openUserGuide, publishGuideAppearance } from './host/userGuide'
+import { loadSample, type SampleImage } from './lib/sampleImages'
 import StartScreen, { type StartAction } from './start/StartScreen'
 import { TutorialAsk, TutorialTour } from './tutorial/Tutorial'
 import { ContextMenu } from './ContextMenu'
@@ -68,6 +68,9 @@ import type { TutorialStep } from './tutorial/steps'
 import { defaultAdjustment, defaultCurves, defaultEffects, defaultSettings, panelTabs, shapeKindForTool, type Adjustment, type AdjustmentType, type AppSettings, type BlendMode, type ErrorDetails, type ExportFormat, type CurveData, type Language, type LayerEffects, type LevelsData, type PageOrientation, type PanelTab, type PathShape, type PhotoDocument, type Point, type Selection, type SliceRect, type ActionScript, type ActionStep, type AnimationFrame, type LayerComp, type LayerMeta, type SmartFilter, type TextData, type TextWarpStyle, type ThreeDData, type Tool, type TransformBox, type TransformHandle, type UnsavedChoice } from './lib/types'
 import { applyTheme, customThemeDefinition, darkThemes, lightThemes, registerCustomThemes, themeLabel, themes, type ThemeDefinition } from './themes'
 import { DocumentTabs, PanelSwitch, type PanelContext } from './panels'
+import { BottomPanel } from './BottomPanel'
+import { StageScrollbars } from './StageScrollbars'
+import { documentProblems, logError, logInfo, logWarn } from './lib/appLog'
 import { panelIcon, panelLabelKey, panelShortKey } from './panelMeta'
 import './App.css'
 
@@ -409,6 +412,25 @@ const CommandIcon = ({ id }: { id: string }) => {
   return command ? createElement(command.icon, { size: 16 }) : null
 }
 
+/** The size of one square of the transparency checkerboard, in screen pixels. */
+const TRANSPARENCY_CELL = 8
+const TRANSPARENCY_COLORS = ['#ffffff', '#cccccc'] as const
+let transparencyTileCache: HTMLCanvasElement | null = null
+/** Two by two squares, white and light grey: repeated, the usual transparent-PNG checkerboard. */
+function transparencyTile() {
+  if (transparencyTileCache) return transparencyTileCache
+  const tile = document.createElement('canvas')
+  tile.width = tile.height = TRANSPARENCY_CELL * 2
+  const ctx = tile.getContext('2d') as CanvasRenderingContext2D
+  ctx.fillStyle = TRANSPARENCY_COLORS[0]
+  ctx.fillRect(0, 0, tile.width, tile.height)
+  ctx.fillStyle = TRANSPARENCY_COLORS[1]
+  ctx.fillRect(0, 0, TRANSPARENCY_CELL, TRANSPARENCY_CELL)
+  ctx.fillRect(TRANSPARENCY_CELL, TRANSPARENCY_CELL, TRANSPARENCY_CELL, TRANSPARENCY_CELL)
+  transparencyTileCache = tile
+  return tile
+}
+
 /** A panel tab's icon. A component, so no capitalised local is made mid-render. */
 const PanelTabIcon = ({ tab }: { tab: PanelTab }) => createElement(panelIcon(tab), { size: 14, 'aria-hidden': 'true' })
 
@@ -424,6 +446,7 @@ export default function App() {
   const canvasesRef = useRef(startup.canvases)
   const [frame, setFrame] = useState(0)
   const [tool, setTool] = useState<Tool>('move')
+  const layerNoticeRef = useRef(0)
   const [selection, setSelection] = useState<Selection | null>(null)
   const [dirty, setDirty] = useState(false)
   const [menu, setMenu] = useState<MenuId>(null)
@@ -521,6 +544,12 @@ export default function App() {
   const toolRef = useRef(tool)
   const selectionRef = useRef(selection)
   const settingsRef = useRef(settings)
+  // Choosing a tool writes its name and description to the Log (bottom panel).
+  useEffect(() => {
+    const language = settingsRef.current.language
+    const hints = optionsForTool(tool).filter((control) => control.kind === 'hint').map((control) => t(language, control.label))
+    logInfo('tool', hints.length ? `${toolLabel(language, tool)}: ${hints.join(' · ')}` : toolLabel(language, tool))
+  }, [tool])
   const spaceRef = useRef(false)
   const draftPathRef = useRef<PathShape | null>(null)
   const polyPointsRef = useRef<Point[]>([])
@@ -805,6 +834,7 @@ export default function App() {
     })
     setError(report)
     errorRef.current = report
+    logError(source, `${report.title}: ${report.message}`, report.details)
     openDialogRef.current('error')
   }, [])
 
@@ -1130,13 +1160,15 @@ export default function App() {
             filePath: file.path,
             source: { name: file.name, path: file.path, mime: file.mime, byteSize: file.size, details: decoded.details ?? [] },
           }
-          if (slotsRef.current.size > 0 && dirtyRef.current) {
+          // Every opened file gets a tab of its own; only the untouched blank start document is replaced.
+          if (slotsRef.current.size > 0 && (dirtyRef.current || docRef.current.source || undoRef.current.length > 0)) {
             openInNewSlot(next, new Map([[layer.id, canvas]]))
           } else {
             replaceDocument(next, new Map([[layer.id, canvas]]))
             requestAnimationFrame(() => fitZoom(next))
           }
           remember(file.path)
+          logInfo('file', file.path || file.name)
         }
       }
       setStatus('ready')
@@ -1427,13 +1459,33 @@ export default function App() {
    * is the paint target — after the locks have had their say.
    */
   const withLayer = useCallback((fn: (canvas: HTMLCanvasElement, layer: LayerMeta) => void, record = true, forceLayer = false) => {
-    const current = docRef.current
-    const layer = current?.layers.find((item) => item.id === current.activeLayerId)
+    let current = docRef.current
+    let layer = current?.layers.find((item) => item.id === current.activeLayerId)
     const language = settingsRef.current.language
+    // Painting calls this on every pointer move: the explanation pops up once per stroke, not per dab.
+    const explain = (title: string, body: string) => {
+      const now = Date.now()
+      if (now - layerNoticeRef.current < 1500) return
+      layerNoticeRef.current = now
+      reportErrorRef.current(t(language, title), new Error(t(language, body)))
+    }
+    // The active layer id can go stale (a layer deleted, a tab switched): fall back to the top layer.
+    if (current && !layer && current.layers.length > 0) {
+      layer = current.layers[current.layers.length - 1]
+      current = { ...current, activeLayerId: layer.id }
+      docRef.current = current
+      setDoc(current)
+      logWarn('layer', t(language, 'layerFallback').replace('{name}', layer.name))
+    }
     if (!current || !layer) {
       setStatus('noLayer')
-      reportErrorRef.current(t(language, 'noLayerTitle'), new Error(t(language, 'noLayerBody')))
+      explain('noLayerTitle', 'noLayerBody')
       return false
+    }
+    // A layer whose pixels went missing gets a clear canvas rather than refusing every stroke.
+    if (!canvasesRef.current.has(layer.id)) {
+      canvasesRef.current.set(layer.id, createCanvas(current.width, current.height))
+      logWarn('layer', t(language, 'layerCanvasRebuilt').replace('{name}', layer.name))
     }
     // Quick Mask: paint goes into the selection itself.
     if (quickMaskRef.current && !forceLayer) {
@@ -1450,12 +1502,12 @@ export default function App() {
     const canvas = onMask ? canvasesRef.current.get(`${layer.id}:mask`) : canvasesRef.current.get(current.activeLayerId)
     if (!canvas) {
       setStatus('noLayer')
-      reportErrorRef.current(t(language, 'noLayerTitle'), new Error(t(language, 'noLayerBody')))
+      explain('noLayerTitle', 'noLayerBody')
       return false
     }
     if (layer.locked) {
       setStatus('lockedLayer')
-      reportErrorRef.current(t(language, 'lockedLayerTitle'), new Error(t(language, 'lockedLayerBody')))
+      explain('lockedLayerTitle', 'lockedLayerBody')
       return false
     }
     if (record) {
@@ -4704,11 +4756,17 @@ export default function App() {
    * identically wherever it is invoked from and `commands.ts` stays pure data.
    */
   const runCommand = (id: string) => {
+    {
+      const command = findCommand(id)
+      logInfo('command', command ? `${commandLabel(command)} (${id})` : id)
+    }
     // Help and settings can be read over the start screen; anything else is work.
     switch (id) {
       case 'help.guide': void openUserGuide(language); return
+      case 'help.tutorialDoc': void openTutorialDoc(language); return
       case 'help.start': setMenu(null); setStartOn((on) => !on); return
       case 'window.togglePanel': setSettings((c) => ({ ...c, rightCollapsed: !c.rightCollapsed })); return
+      case 'window.toggleBottomPanel': setSettings((c) => ({ ...c, bottomOpen: !c.bottomOpen })); return
       case 'help.tutorial': setMenu(null); setTutorialOn(true); return
       case 'help.about': openDialog('about'); return
     }
@@ -5175,6 +5233,7 @@ export default function App() {
 
   const isCommandActive = (id: string) => {
     if (id === 'window.togglePanel') return !settings.rightCollapsed
+    if (id === 'window.toggleBottomPanel') return settings.bottomOpen
     if (id.startsWith('window.')) {
       const tab = id.slice('window.'.length)
       const map: Record<string, PanelTab> = { adjust: 'adjust', comps: 'comps', brushSettings: 'brushes', color: 'color' }
@@ -6099,7 +6158,10 @@ export default function App() {
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
     ctx.clearRect(0, 0, width, height)
     const style = getComputedStyle(document.documentElement)
-    ctx.fillStyle = style.getPropertyValue('--stage-bg') || '#10151a'
+    // Everything that is not picture reads as transparent, the way a transparent PNG is
+    // shown: a white and light-grey checkerboard over the whole stage, the picture's own
+    // transparent pixels included. A thin frame and a shadow mark where the canvas ends.
+    ctx.fillStyle = ctx.createPattern(transparencyTile(), 'repeat') ?? '#ffffff'
     ctx.fillRect(0, 0, width, height)
 
     const zoom = settings.zoom
@@ -6107,15 +6169,13 @@ export default function App() {
     const top = pan.y
     const dw = documentModel.width * zoom
     const dh = documentModel.height * zoom
-    const check = 8
-    for (let y = 0; y < dh; y += check) {
-      for (let x = 0; x < dw; x += check) {
-        ctx.fillStyle = ((Math.floor(x / check) + Math.floor(y / check)) % 2 === 0)
-          ? style.getPropertyValue('--stage-check-a') || '#1b232c'
-          : style.getPropertyValue('--stage-check-b') || '#151b22'
-        ctx.fillRect(left + x, top + y, Math.min(check, dw - x), Math.min(check, dh - y))
-      }
-    }
+    ctx.save()
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.35)'
+    ctx.shadowBlur = 12
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.55)'
+    ctx.lineWidth = 1
+    ctx.strokeRect(Math.round(left) - 0.5, Math.round(top) - 0.5, Math.round(dw) + 1, Math.round(dh) + 1)
+    ctx.restore()
 
     // A live transform or a window's preview stands in for the layer's pixels.
     let previewCanvases = canvasesRef.current
@@ -6567,8 +6627,7 @@ export default function App() {
   /** Opens like any other file: in a document of its own. */
   const startSample = (sample: SampleImage) => {
     setStartOn(false)
-    const dataUrl = renderSample(sample, SAMPLE_WIDTH, SAMPLE_HEIGHT).toDataURL('image/png')
-    void openFiles([{ name: `${sample.name[language]}.png`, mime: 'image/png', dataUrl }], 'open')
+    void loadSample(sample, language).then((file) => openFiles([file], 'open')).catch((error) => console.error('sample', error))
   }
   // A development hook for driving the editor from a test harness: never in a build.
   useEffect(() => {
@@ -6626,7 +6685,8 @@ export default function App() {
     playingFrame, captureAnimationFrame, startPlayback, stopPlayback, showAnimationFrame, patchAnimationFrame, deleteAnimationFrame,
     exportAnimatedGif: () => void exportAnimatedGif(), exportVideo: () => void exportVideo(),
     loadSelectionFrom: (id, mode) => loadSelectionFrom(id, mode), deleteChannel,
-    documents: docList.map((item) => ({ ...item, active: item.id === activeDocId })),
+    // The tab on screen shows the live name and unsaved mark, not the last parked copy.
+    documents: docList.map((item) => (item.id === activeDocId ? { ...item, name: doc.name, dirty, active: true } : { ...item, active: false })),
     switchDocument, closeDocumentById,
     editNote: (id) => { const item = doc.notes.find((entry) => entry.id === id); if (item) openDialog('note', { note: { id, text: item.text } }) },
     activeSliceId, setActiveSliceId, exportSlice: (id) => { const slice = doc.slices.find((item) => item.id === id); if (slice) void exportSlice(slice) },
@@ -6664,6 +6724,7 @@ export default function App() {
     <>
       {adjustmentTypes.map((type) => (
         <button key={type} data-tooltip={tr(type)} onClick={() => addAdjustment(type)}>
+          {createElement(adjustmentIcons[type] ?? SlidersHorizontal, { size: 14 })}
           <span>{tr(type)}</span>
         </button>
       ))}
@@ -6706,7 +6767,7 @@ export default function App() {
       </header>
 
       <nav className="menu-bar">
-        <button className={`start-toggle${startOn ? ' active' : ''}`} data-tooltip={tr('startScreen')} aria-pressed={startOn} onClick={() => setStartOn((on) => !on)}><House size={15} /><span>{tr('startScreen')}</span></button>
+        <button className={`start-toggle${startOn ? ' active' : ''}`} data-tooltip={tr('startScreen')} aria-pressed={startOn} onClick={() => setStartOn((on) => !on)}><House size={15} /><span>{tr('homeButton')}</span></button>
         {menuOrder.map((id) => {
           const MenuIcon = menuIcons[id]
           return (
@@ -6754,6 +6815,28 @@ export default function App() {
         })}
 
         <div className="menu-spacer" />
+
+        {/* The bottom panel's fold button, then the right panel's, just left of the theme button. */}
+        <button
+          className={`bottom-toggle-bar${settings.bottomOpen ? ' active' : ''}`}
+          data-action="toggle-bottom-panel"
+          data-tooltip={tr(settings.bottomOpen ? 'bottomPanelCollapse' : 'bottomPanelExpand')}
+          aria-label={tr(settings.bottomOpen ? 'bottomPanelCollapse' : 'bottomPanelExpand')}
+          aria-pressed={settings.bottomOpen}
+          onClick={() => runCommand('window.toggleBottomPanel')}
+        >
+          {settings.bottomOpen ? <PanelBottomClose size={15} /> : <PanelBottomOpen size={15} />}
+        </button>
+        <button
+          className={`panel-toggle-bar${settings.rightCollapsed ? '' : ' active'}`}
+          data-action="toggle-panel-bar"
+          data-tooltip={`${tr(settings.rightCollapsed ? 'panelExpand' : 'panelCollapse')} (Tab)`}
+          aria-label={tr(settings.rightCollapsed ? 'panelExpand' : 'panelCollapse')}
+          aria-pressed={!settings.rightCollapsed}
+          onClick={() => runCommand('window.togglePanel')}
+        >
+          {settings.rightCollapsed ? <PanelRightOpen size={15} /> : <PanelRightClose size={15} />}
+        </button>
 
         <div className="menu-group theme-menu-group">
           <button
@@ -6842,7 +6925,8 @@ export default function App() {
                     aria-label={`${tr('zoomLevel')} ${Math.round(settings.zoom * 100)}%`}
                     onClick={() => runCommand('view.actualPixels')}
                   >
-                    {Math.round(settings.zoom * 100)}%
+                    <ScanSearch size={13} aria-hidden="true" />
+                    <span>{Math.round(settings.zoom * 100)}%</span>
                   </button>
                 </Fragment>
               )
@@ -6886,199 +6970,6 @@ export default function App() {
           </div>
       </div>
 
-      <div className="options-bar">
-        <strong className="current-tool" data-tooltip={toolLabel(language, tool)}>
-          {createElement(iconForTool(tool), { size: 16 })}
-          <span>{toolLabel(language, tool)}</span>
-        </strong>
-        <div className="tool-options">
-          {optionsForTool(tool).map((control, index) => {
-            if (control.kind === 'hint') {
-              return <span key={`hint-${index}`} className="option-hint">{tr(control.label)}</span>
-            }
-            if (control.kind === 'range') {
-              const scale = control.scale ?? 1
-              const value = (settings[control.key] as number) * scale
-              return (
-                <label key={control.key} data-tooltip={tr(control.label)}>
-                  {tr(control.label)}
-                  <Slider min={control.min} max={control.max} step={control.step ?? 1} value={Math.round(value)} onChange={(next) => setSettings((c) => ({ ...c, [control.key]: next / scale }))} />
-                  <span className="option-value">{Math.round(value)}</span>
-                </label>
-              )
-            }
-            if (control.kind === 'number') {
-              return (
-                <label key={control.key} data-tooltip={tr(control.label)}>
-                  {tr(control.label)}
-                  <NumberStepper language={language} min={control.min} max={control.max} value={settings[control.key] as number} onChange={(next) => setSettings((c) => ({ ...c, [control.key]: next }))} />
-                </label>
-              )
-            }
-            if (control.kind === 'toggle') {
-              return (
-                <label key={control.key} className="option-toggle" data-tooltip={tr(control.label)}>
-                  <input type="checkbox" checked={Boolean(settings[control.key])} onChange={(event) => setSettings((c) => ({ ...c, [control.key]: event.target.checked }))} />
-                  {tr(control.label)}
-                </label>
-              )
-            }
-            if (control.kind === 'select') {
-              return (
-                <label key={control.key} data-tooltip={tr(control.label)}>
-                  {tr(control.label)}
-                  <OptionSelect
-                    label={tr(control.label)}
-                    value={String(settings[control.key])}
-                    choices={control.choices.map((choice) => ({ value: choice.value, label: tr(choice.label) }))}
-                    onChange={(next) => setSettings((c) => ({ ...c, [control.key]: control.key === 'eyedropperSample' ? Number(next) : next }))}
-                  />
-                </label>
-              )
-            }
-            if (control.id === 'font') {
-              return (
-                <span key="font" className="option-pair">
-                  {(tool === 'text' || tool === 'vtext') && (
-                    <span className="choice-pair" role="group" aria-label={tr('typeOrientation')}>
-                      {([['text', TypeHorizontalIcon], ['vtext', TypeVerticalIcon]] as const).map(([id, DirectionIcon]) => (
-                        <button type="button" key={id} data-type-direction={id} aria-pressed={tool === id} data-tooltip={toolLabel(language, id)} onClick={() => setTool(id)}>
-                          <DirectionIcon size={16} /><span>{toolLabel(language, id)}</span>
-                        </button>
-                      ))}
-                    </span>
-                  )}
-                  <label>{tr('font')}<input type="text" value={fontFamily} onChange={(event) => setFontFamily(event.target.value)} /></label>
-                  <label>{tr('fontSize')}<NumberStepper language={language} unit="px" min={8} max={400} value={fontSize} onChange={(next) => setFontSize(next)} /></label>
-                </span>
-              )
-            }
-            if (control.id === 'pathActions') {
-              return (
-                <span key="pathActions" className="option-pair">
-                  <button data-tooltip={tr('strokePath')} disabled={!activePath} onClick={() => activePath && withLayer((canvas) => strokePathOnto(canvas, activePath, settings.foreground, settings.pathWidth))}><PenTool size={15} /><span>{tr('strokePath')}</span></button>
-                  <button data-tooltip={tr('fillPath')} disabled={!activePath} onClick={() => activePath && withLayer((canvas) => fillPathOnto(canvas, activePath, settings.foreground))}><PaintBucket size={15} /><span>{tr('fillPath')}</span></button>
-                  <button data-tooltip={tr('pathToSelection')} disabled={!activePath} onClick={() => activePath && setSelection(pathToSelection(activePath, doc.width, doc.height))}><SquareDashed size={15} /><span>{tr('pathToSelection')}</span></button>
-                  <button data-tooltip={tr('deletePath')} disabled={!activePath} onClick={() => activePath && updatePaths((paths) => paths.filter((path) => path.id !== activePath.id))}><Trash size={15} /><span>{tr('deletePath')}</span></button>
-                </span>
-              )
-            }
-            if (control.id === 'regionFields') {
-              const limit = { width: doc.width, height: doc.height }
-              if (tool === 'crop') {
-                const ratio = cropRatios[settings.cropRatio]
-                return (
-                  <RegionFields
-                    key="regionFields"
-                    name={tr('crop')}
-                    language={language}
-                    tr={tr}
-                    limit={limit}
-                    box={crop ?? { x: 0, y: 0, ...limit }}
-                    onChange={(patch) => setCrop({ kind: 'rect', ...patchRegion(crop ?? { x: 0, y: 0, ...limit }, patch, limit, ratio === 0 ? doc.width / doc.height : ratio) })}
-                  />
-                )
-              }
-              return (
-                <RegionFields
-                  key="regionFields"
-                  name={tr('selection')}
-                  language={language}
-                  tr={tr}
-                  limit={limit}
-                  box={selectionNumbers ?? { x: 0, y: 0, ...limit }}
-                  onChange={(patch) => setSelection(resizeSelection(selection ?? { kind: tool === 'ellipseMarquee' ? 'ellipse' : 'rect', x: 0, y: 0, ...limit }, patch, limit))}
-                />
-              )
-            }
-            if (control.id === 'cropActions') {
-              const ready = tool === 'perspectiveCrop' ? cropCorners.length === 4 : Boolean(crop)
-              return (
-                <span key="cropActions" className="option-pair">
-                  <button data-tooltip={tr('applyCropAction')} disabled={!ready} onClick={() => (tool === 'perspectiveCrop' ? applyPerspectiveCrop() : crop && applyCrop(crop))}><Crop size={15} /><span>{tr('applyCropAction')}</span></button>
-                  <button
-                    data-action="cancel-crop"
-                    data-tooltip={tr('cancelCrop')}
-                    disabled={!crop && cropCorners.length === 0 && cropDone !== historyMeta.undo.length}
-                    onClick={() => {
-                      // A box still being drawn goes away; one already applied is undone.
-                      if (!crop && cropCorners.length === 0 && cropDone === historyMeta.undo.length) undo()
-                      setCropDone(null)
-                      setCrop(null)
-                      setCropCorners([])
-                      vanishingRef.current = false
-                    }}
-                  ><X size={15} /><span>{tr('cancelCrop')}</span></button>
-                </span>
-              )
-            }
-            if (control.id === 'sliceActions') {
-              const slice = doc.slices.find((item) => item.id === activeSliceId) ?? null
-              return (
-                <span key="sliceActions" className="option-pair">
-                  <button data-tooltip={tr('exportSlice')} disabled={!slice} onClick={() => slice && void exportSlice(slice)}><Scissors size={15} /><span>{tr('exportSlice')}</span></button>
-                  <button data-tooltip={tr('deleteSlice')} disabled={!slice} onClick={() => slice && updateDoc((current) => ({ ...current, slices: current.slices.filter((item) => item.id !== slice.id) }))}><Trash size={15} /><span>{tr('deleteSlice')}</span></button>
-                </span>
-              )
-            }
-            if (control.id === 'liquifyActions') {
-              return (
-                <span key="liquifyActions" className="option-pair">
-                  <button className="primary" data-tooltip={tr('liquifyDone')} onClick={() => endLiquify(true)}><Check size={15} /><span>{tr('liquifyDone')}</span></button>
-                  <button data-tooltip={tr('liquifyCancel')} onClick={() => endLiquify(false)}><X size={15} /><span>{tr('liquifyCancel')}</span></button>
-                </span>
-              )
-            }
-            if (control.id === 'gradientPicker') {
-              const all = [...gradientPresets, ...settings.gradients]
-              return (
-                <label key="gradientPicker" data-tooltip={tr('gradientPreset')}>
-                  {tr('gradientPreset')}
-                  <OptionSelect label={tr('gradientPreset')} value={settings.gradientId} choices={all.map((item) => ({ value: item.id, label: gradientLabel(item, language) }))} onChange={(gradientId) => setSettings((c) => ({ ...c, gradientId }))} />
-                  <button data-tooltip={tr('gradientEditor')} aria-label={tr('gradientEditor')} onClick={() => openDialog('gradientEditor', { gradient: all.find((item) => item.id === settings.gradientId) })}><Blend size={14} /></button>
-                </label>
-              )
-            }
-            if (control.id === 'shapeKindPicker') {
-              return (
-                <label key="shapeKindPicker" data-tooltip={tr('customShapeKind')}>
-                  {tr('customShapeKind')}
-                  <OptionSelect
-                    label={tr('customShapeKind')}
-                    value={settings.customShapeKind}
-                    choices={[
-                      ...BUILTIN_SHAPES.map((kind) => ({ value: kind as string, label: tr(`shape${kind.charAt(0).toUpperCase()}${kind.slice(1)}`) })),
-                      ...settings.customShapes.map((shape) => ({ value: shape.id, label: shape.name })),
-                    ]}
-                    onChange={(customShapeKind) => setSettings((c) => ({ ...c, customShapeKind }))}
-                  />
-                </label>
-              )
-            }
-            if (control.id === 'artboardActions') {
-              return (
-                <span key="artboardActions" className="option-pair">
-                  <button data-tooltip={tr('artboardsToFiles')} disabled={!(doc.artboards ?? []).length} onClick={() => void artboardsToFiles()}><Frame size={15} /><span>{tr('artboardsToFiles')}</span></button>
-                  <button data-tooltip={tr('deleteLayer')} disabled={!(doc.artboards ?? []).length} onClick={() => updateDoc((current) => ({ ...current, artboards: [] }))}><Trash size={15} /></button>
-                </span>
-              )
-            }
-            return null
-          })}
-          {transformBox && (
-            <span className="option-pair transform-actions">
-              <label>{tr('transformW')}<NumberStepper language={language} unit="px" min={1} value={Math.round(transformBox.width)} onChange={(next) => setTransformBox((box) => (box ? { ...box, width: next } : box))} /></label>
-              <label>{tr('transformH')}<NumberStepper language={language} unit="px" min={1} value={Math.round(transformBox.height)} onChange={(next) => setTransformBox((box) => (box ? { ...box, height: next } : box))} /></label>
-              <label>{tr('transformAngle')}<NumberStepper language={language} unit="°" min={-360} max={360} value={Math.round(transformBox.angle)} onChange={(next) => setTransformBox((box) => (box ? { ...box, angle: next } : box))} /></label>
-              <button data-tooltip={tr('flipH')} onClick={() => setTransformBox((box) => (box ? { ...box, flipX: !box.flipX } : box))}><FlipHorizontal size={15} /></button>
-              <button data-tooltip={tr('flipV')} onClick={() => setTransformBox((box) => (box ? { ...box, flipY: !box.flipY } : box))}><FlipVertical size={15} /></button>
-              <button className="primary" data-tooltip={tr('applyTransformAction')} onClick={commitTransform}><Sparkles size={15} /><span>{tr('applyTransformAction')}</span></button>
-              <button data-tooltip={tr('cancelTransform')} onClick={cancelTransform}><X size={15} /><span>{tr('cancelTransform')}</span></button>
-            </span>
-          )}
-        </div>
-      </div>
-
       <div className={`workspace${settings.rightCollapsed ? ' panel-closed' : ''}`}>
         <aside className="tool-strip">
           {toolGroups.map((group) => {
@@ -7115,7 +7006,195 @@ export default function App() {
         </aside>
 
         <div className="stage-column">
+          {/* The side panels start right under the toolbar; the document tabs and the current
+              tool's options sit over the canvas only (the options row is hidden when empty). */}
           <DocumentTabs ctx={panelContext} />
+          <div className="options-bar">
+            <div className="tool-options">
+              {optionsForTool(tool).map((control) => {
+                // The tool's description is not shown here; it goes to the Log when the tool is chosen.
+                if (control.kind === 'hint') return null
+                if (control.kind === 'range') {
+                  const scale = control.scale ?? 1
+                  const value = (settings[control.key] as number) * scale
+                  return (
+                    <label key={control.key} data-tooltip={tr(control.label)}>
+                      {tr(control.label)}
+                      <Slider min={control.min} max={control.max} step={control.step ?? 1} value={Math.round(value)} onChange={(next) => setSettings((c) => ({ ...c, [control.key]: next / scale }))} display={<>{Math.round(value)}</>} />
+                    </label>
+                  )
+                }
+                if (control.kind === 'number') {
+                  return (
+                    <label key={control.key} data-tooltip={tr(control.label)}>
+                      {tr(control.label)}
+                      <NumberStepper language={language} min={control.min} max={control.max} value={settings[control.key] as number} onChange={(next) => setSettings((c) => ({ ...c, [control.key]: next }))} />
+                    </label>
+                  )
+                }
+                if (control.kind === 'toggle') {
+                  return (
+                    <label key={control.key} className="option-toggle" data-tooltip={tr(control.label)}>
+                      <input type="checkbox" checked={Boolean(settings[control.key])} onChange={(event) => setSettings((c) => ({ ...c, [control.key]: event.target.checked }))} />
+                      {tr(control.label)}
+                    </label>
+                  )
+                }
+                if (control.kind === 'select') {
+                  return (
+                    <label key={control.key} data-tooltip={tr(control.label)}>
+                      {tr(control.label)}
+                      <OptionSelect
+                        label={tr(control.label)}
+                        value={String(settings[control.key])}
+                        choices={control.choices.map((choice) => ({ value: choice.value, label: tr(choice.label) }))}
+                        onChange={(next) => setSettings((c) => ({ ...c, [control.key]: control.key === 'eyedropperSample' ? Number(next) : next }))}
+                      />
+                    </label>
+                  )
+                }
+                if (control.id === 'font') {
+                  return (
+                    <span key="font" className="option-pair">
+                      {(tool === 'text' || tool === 'vtext') && (
+                        <span className="choice-pair" role="group" aria-label={tr('typeOrientation')}>
+                          {([['text', TypeHorizontalIcon], ['vtext', TypeVerticalIcon]] as const).map(([id, DirectionIcon]) => (
+                            <button type="button" key={id} data-type-direction={id} aria-pressed={tool === id} data-tooltip={toolLabel(language, id)} onClick={() => setTool(id)}>
+                              <DirectionIcon size={16} /><span>{toolLabel(language, id)}</span>
+                            </button>
+                          ))}
+                        </span>
+                      )}
+                      <label>{tr('font')}<input type="text" value={fontFamily} onChange={(event) => setFontFamily(event.target.value)} /></label>
+                      <label>{tr('fontSize')}<NumberStepper language={language} unit="px" min={8} max={400} value={fontSize} onChange={(next) => setFontSize(next)} /></label>
+                    </span>
+                  )
+                }
+                if (control.id === 'pathActions') {
+                  return (
+                    <span key="pathActions" className="option-pair">
+                      <button data-tooltip={tr('strokePath')} disabled={!activePath} onClick={() => activePath && withLayer((canvas) => strokePathOnto(canvas, activePath, settings.foreground, settings.pathWidth))}><PenTool size={15} /><span>{tr('strokePath')}</span></button>
+                      <button data-tooltip={tr('fillPath')} disabled={!activePath} onClick={() => activePath && withLayer((canvas) => fillPathOnto(canvas, activePath, settings.foreground))}><PaintBucket size={15} /><span>{tr('fillPath')}</span></button>
+                      <button data-tooltip={tr('pathToSelection')} disabled={!activePath} onClick={() => activePath && setSelection(pathToSelection(activePath, doc.width, doc.height))}><SquareDashed size={15} /><span>{tr('pathToSelection')}</span></button>
+                      <button data-tooltip={tr('deletePath')} disabled={!activePath} onClick={() => activePath && updatePaths((paths) => paths.filter((path) => path.id !== activePath.id))}><Trash size={15} /><span>{tr('deletePath')}</span></button>
+                    </span>
+                  )
+                }
+                if (control.id === 'regionFields') {
+                  const limit = { width: doc.width, height: doc.height }
+                  if (tool === 'crop') {
+                    const ratio = cropRatios[settings.cropRatio]
+                    return (
+                      <RegionFields
+                        key="regionFields"
+                        name={tr('crop')}
+                        language={language}
+                        tr={tr}
+                        limit={limit}
+                        box={crop ?? { x: 0, y: 0, ...limit }}
+                        onChange={(patch) => setCrop({ kind: 'rect', ...patchRegion(crop ?? { x: 0, y: 0, ...limit }, patch, limit, ratio === 0 ? doc.width / doc.height : ratio) })}
+                      />
+                    )
+                  }
+                  return (
+                    <RegionFields
+                      key="regionFields"
+                      name={tr('selection')}
+                      language={language}
+                      tr={tr}
+                      limit={limit}
+                      box={selectionNumbers ?? { x: 0, y: 0, ...limit }}
+                      onChange={(patch) => setSelection(resizeSelection(selection ?? { kind: tool === 'ellipseMarquee' ? 'ellipse' : 'rect', x: 0, y: 0, ...limit }, patch, limit))}
+                    />
+                  )
+                }
+                if (control.id === 'cropActions') {
+                  const ready = tool === 'perspectiveCrop' ? cropCorners.length === 4 : Boolean(crop)
+                  return (
+                    <span key="cropActions" className="option-pair">
+                      <button data-tooltip={tr('applyCropAction')} disabled={!ready} onClick={() => (tool === 'perspectiveCrop' ? applyPerspectiveCrop() : crop && applyCrop(crop))}><Crop size={15} /><span>{tr('applyCropAction')}</span></button>
+                      <button
+                        data-action="cancel-crop"
+                        data-tooltip={tr('cancelCrop')}
+                        disabled={!crop && cropCorners.length === 0 && cropDone !== historyMeta.undo.length}
+                        onClick={() => {
+                          // A box still being drawn goes away; one already applied is undone.
+                          if (!crop && cropCorners.length === 0 && cropDone === historyMeta.undo.length) undo()
+                          setCropDone(null)
+                          setCrop(null)
+                          setCropCorners([])
+                          vanishingRef.current = false
+                        }}
+                      ><X size={15} /><span>{tr('cancelCrop')}</span></button>
+                    </span>
+                  )
+                }
+                if (control.id === 'sliceActions') {
+                  const slice = doc.slices.find((item) => item.id === activeSliceId) ?? null
+                  return (
+                    <span key="sliceActions" className="option-pair">
+                      <button data-tooltip={tr('exportSlice')} disabled={!slice} onClick={() => slice && void exportSlice(slice)}><Scissors size={15} /><span>{tr('exportSlice')}</span></button>
+                      <button data-tooltip={tr('deleteSlice')} disabled={!slice} onClick={() => slice && updateDoc((current) => ({ ...current, slices: current.slices.filter((item) => item.id !== slice.id) }))}><Trash size={15} /><span>{tr('deleteSlice')}</span></button>
+                    </span>
+                  )
+                }
+                if (control.id === 'liquifyActions') {
+                  return (
+                    <span key="liquifyActions" className="option-pair">
+                      <button className="primary" data-tooltip={tr('liquifyDone')} onClick={() => endLiquify(true)}><Check size={15} /><span>{tr('liquifyDone')}</span></button>
+                      <button data-tooltip={tr('liquifyCancel')} onClick={() => endLiquify(false)}><X size={15} /><span>{tr('liquifyCancel')}</span></button>
+                    </span>
+                  )
+                }
+                if (control.id === 'gradientPicker') {
+                  const all = [...gradientPresets, ...settings.gradients]
+                  return (
+                    <label key="gradientPicker" data-tooltip={tr('gradientPreset')}>
+                      {tr('gradientPreset')}
+                      <OptionSelect label={tr('gradientPreset')} value={settings.gradientId} choices={all.map((item) => ({ value: item.id, label: gradientLabel(item, language) }))} onChange={(gradientId) => setSettings((c) => ({ ...c, gradientId }))} />
+                      <button data-tooltip={tr('gradientEditor')} aria-label={tr('gradientEditor')} onClick={() => openDialog('gradientEditor', { gradient: all.find((item) => item.id === settings.gradientId) })}><Blend size={14} /></button>
+                    </label>
+                  )
+                }
+                if (control.id === 'shapeKindPicker') {
+                  return (
+                    <label key="shapeKindPicker" data-tooltip={tr('customShapeKind')}>
+                      {tr('customShapeKind')}
+                      <OptionSelect
+                        label={tr('customShapeKind')}
+                        value={settings.customShapeKind}
+                        choices={[
+                          ...BUILTIN_SHAPES.map((kind) => ({ value: kind as string, label: tr(`shape${kind.charAt(0).toUpperCase()}${kind.slice(1)}`) })),
+                          ...settings.customShapes.map((shape) => ({ value: shape.id, label: shape.name })),
+                        ]}
+                        onChange={(customShapeKind) => setSettings((c) => ({ ...c, customShapeKind }))}
+                      />
+                    </label>
+                  )
+                }
+                if (control.id === 'artboardActions') {
+                  return (
+                    <span key="artboardActions" className="option-pair">
+                      <button data-tooltip={tr('artboardsToFiles')} disabled={!(doc.artboards ?? []).length} onClick={() => void artboardsToFiles()}><Frame size={15} /><span>{tr('artboardsToFiles')}</span></button>
+                      <button data-tooltip={tr('deleteLayer')} disabled={!(doc.artboards ?? []).length} onClick={() => updateDoc((current) => ({ ...current, artboards: [] }))}><Trash size={15} /></button>
+                    </span>
+                  )
+                }
+                return null
+              })}
+              {transformBox && (
+                <span className="option-pair transform-actions">
+                  <label>{tr('transformW')}<NumberStepper language={language} unit="px" min={1} value={Math.round(transformBox.width)} onChange={(next) => setTransformBox((box) => (box ? { ...box, width: next } : box))} /></label>
+                  <label>{tr('transformH')}<NumberStepper language={language} unit="px" min={1} value={Math.round(transformBox.height)} onChange={(next) => setTransformBox((box) => (box ? { ...box, height: next } : box))} /></label>
+                  <label>{tr('transformAngle')}<NumberStepper language={language} unit="°" min={-360} max={360} value={Math.round(transformBox.angle)} onChange={(next) => setTransformBox((box) => (box ? { ...box, angle: next } : box))} /></label>
+                  <button data-tooltip={tr('flipH')} onClick={() => setTransformBox((box) => (box ? { ...box, flipX: !box.flipX } : box))}><FlipHorizontal size={15} /></button>
+                  <button data-tooltip={tr('flipV')} onClick={() => setTransformBox((box) => (box ? { ...box, flipY: !box.flipY } : box))}><FlipVertical size={15} /></button>
+                  <button className="primary" data-tooltip={tr('applyTransformAction')} onClick={commitTransform}><Sparkles size={15} /><span>{tr('applyTransformAction')}</span></button>
+                  <button data-tooltip={tr('cancelTransform')} onClick={cancelTransform}><X size={15} /><span>{tr('cancelTransform')}</span></button>
+                </span>
+              )}
+            </div>
+          </div>
           <div ref={stageRef} className="canvas-stage" onPointerMoveCapture={moveRulerMarks} onPointerDownCapture={moveRulerMarks} onPointerUpCapture={moveRulerMarks} onPointerLeave={hideRulerMarks} onContextMenu={(event) => { event.preventDefault(); setContextMenu({ x: event.clientX, y: event.clientY, kind: 'canvas' }) }}>
             <canvas
               ref={viewRef}
@@ -7128,7 +7207,33 @@ export default function App() {
             <div ref={brushRingRef} className="brush-ring" aria-hidden="true" />
             {settings.showRulers && <div ref={rulerMarkXRef} className="ruler-mark ruler-mark-x" aria-hidden="true" />}
             {settings.showRulers && <div ref={rulerMarkYRef} className="ruler-mark ruler-mark-y" aria-hidden="true" />}
+            <StageScrollbars
+              contentWidth={doc.width * settings.zoom}
+              contentHeight={doc.height * settings.zoom}
+              pan={pan}
+              onPan={setPan}
+              label={{ horizontal: tr('scrollHorizontal'), vertical: tr('scrollVertical') }}
+            />
           </div>
+          {/* The bottom panel sits under the canvas, between the left and right panels. */}
+          {/* Folded, it stays as a slim bar with its icon, title and the button to unfold it. */}
+          {(
+            <BottomPanel
+              open={settings.bottomOpen}
+              onToggle={() => runCommand('window.toggleBottomPanel')}
+              tab={settings.bottomTab}
+              tr={tr}
+              problems={documentProblems({
+                dirty,
+                width: doc.width,
+                height: doc.height,
+                hiddenLayers: doc.layers.filter((layer) => !layer.visible).length,
+                emptyLayers: 0,
+                activeLocked: Boolean(activeLayer?.locked),
+              }, tr)}
+              onTab={(bottomTab) => setSettings((c) => ({ ...c, bottomTab }))}
+            />
+          )}
         </div>
 
         <div
@@ -7150,9 +7255,9 @@ export default function App() {
         </div>
 
         <aside className="panel">
-          <header className="panel-title">
-            <PanelTabIcon tab={settings.rightTab} />
-            <h2>{tr(panelLabelKey(settings.rightTab))}</h2>
+          <header className="panel-title" data-tooltip={tr('panelTitleHint')}>
+            <PanelsRightBottom size={16} className="panel-title-icon" />
+            <h2>{tr('panelTitle')}</h2>
             <button
               className="panel-collapse"
               data-action="toggle-panel"
@@ -7161,7 +7266,7 @@ export default function App() {
               aria-expanded={!settings.rightCollapsed}
               onClick={() => setSettings((c) => ({ ...c, rightCollapsed: !c.rightCollapsed }))}
             >
-              {settings.rightCollapsed ? <ChevronLeft size={15} /> : <ChevronRight size={15} />}
+              {settings.rightCollapsed ? <PanelRightOpen size={15} /> : <PanelRightClose size={15} />}
             </button>
           </header>
           <div className="panel-tabs">

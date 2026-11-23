@@ -93,6 +93,8 @@ export function loadSettings(): AppSettings {
       : []
     settings.gradientKind = ['linear', 'radial', 'angle', 'reflected', 'diamond'].includes(String(parsed.gradientKind)) ? parsed.gradientKind! : 'linear'
     settings.rightTab = panelTabs.includes(parsed.rightTab as AppSettings['rightTab']) ? parsed.rightTab! : 'layers'
+    settings.bottomTab = ['problems', 'errors', 'log'].includes(String(parsed.bottomTab)) ? parsed.bottomTab! : 'problems'
+    settings.bottomOpen = typeof parsed.bottomOpen === 'boolean' ? parsed.bottomOpen : defaultSettings.bottomOpen
     settings.selectionMode = ['new', 'add', 'subtract', 'intersect'].includes(String(parsed.selectionMode)) ? parsed.selectionMode! : 'new'
     settings.swatches = migrateSwatches(settings.swatches.filter((item) => typeof item === 'string'))
     settings.recentFiles = settings.recentFiles.filter((item) => typeof item === 'string').slice(0, 20)

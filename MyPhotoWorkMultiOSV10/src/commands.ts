@@ -8,7 +8,7 @@ import {
   BetweenHorizontalStart, Binary, Binoculars, Blend, Blocks, Bolt, Book, BookLock, Bookmark, BookMarked,
   BookmarkPlus, BookOpenCheck, Box, Boxes, Brain, BrainCircuit, Brush, BrushCleaning, Calculator, Camera,
   CameraOff, CaseSensitive, ChartColumn, ChartColumnIncreasing, ChartNoAxesColumnIncreasing, ChartSpline,
-  ChevronDown, ChevronsUpDown, PanelRightClose, ChevronUp, CircleDashed, CircleGauge, CircleHelp, CircleMinus, CircleOff,
+  ChevronDown, ChevronsUpDown, ScrollText, PanelBottomClose, PanelRightClose, ChevronUp, CircleDashed, CircleGauge, CircleHelp, CircleMinus, CircleOff,
   CirclePlus, CircleSlash, CircleSlash2, CircleSmall, Clipboard, ClipboardCheck, ClipboardCopy,
   ClipboardList, ClipboardPaste, ClipboardType, ClipboardX, Clock, Cloud, CloudDrizzle, CloudFog,
   CloudSunRain, Cloudy, Cog, Columns2, Columns3, Combine, Compass, Cone, Contrast, Copy, CopyCheck,
@@ -460,7 +460,10 @@ export const commands: AppCommand[] = [
   { id: 'window.navigator', menu: 'windowMenu', icon: Compass, label: 'navigator' },
   { id: 'window.info', menu: 'windowMenu', icon: CircleHelp, label: 'info', accel: 'F8' },
   { id: 'window.color', menu: 'windowMenu', icon: Palette, label: 'colorPanel', accel: 'F6' },
-  { id: 'window.togglePanel', menu: 'windowMenu', icon: PanelRightClose, label: 'panelToggle', toolbar: true, accel: 'Tab', separatorBefore: true },
+  // No toolbar flag: its button is in the menu bar, left of the theme button.
+  { id: 'window.togglePanel', menu: 'windowMenu', icon: PanelRightClose, label: 'panelToggle', accel: 'Tab', separatorBefore: true },
+  // Problems, Errors and Log; its button is in the menu bar, left of the right panel's.
+  { id: 'window.toggleBottomPanel', menu: 'windowMenu', icon: PanelBottomClose, label: 'bottomPanelToggle' },
   { id: 'window.swatches', menu: 'windowMenu', icon: SwatchBook, label: 'swatches' },
   { id: 'window.gradients', menu: 'windowMenu', icon: RectangleHorizontal, label: 'gradientsPanel' },
   { id: 'window.patterns', menu: 'windowMenu', icon: Wallpaper, label: 'patternsPanel' },
@@ -481,6 +484,7 @@ export const commands: AppCommand[] = [
 
   /* help */
   { id: 'help.guide', menu: 'helpMenu', icon: BookOpenText, label: 'userGuide', accel: 'F1' },
+  { id: 'help.tutorialDoc', menu: 'helpMenu', icon: ScrollText, label: 'tutorialDoc' },
   { id: 'help.tutorial', menu: 'helpMenu', icon: GraduationCap, label: 'tutorial' },
   { id: 'help.start', menu: 'helpMenu', icon: House, label: 'startScreen', separatorBefore: true },
   { id: 'help.about', menu: 'helpMenu', icon: BadgeInfo, label: 'about', separatorBefore: true },

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Minus, Plus } from 'lucide-react'
 import { beginAdjust, endAdjust } from './adjusting'
 import { t } from './i18n'
@@ -32,10 +32,42 @@ type SliderProps = {
   title?: string
   'aria-label'?: string
   'data-tooltip'?: string
+  /** What the centre of the stepper shows: the value with its unit. Defaults to the bare value. */
+  display?: ReactNode
   onChange: (next: number) => void
 }
 
-export function Slider({ value, min, max, step, disabled, className, title, onChange, ...rest }: SliderProps) {
+/** Rounds away the float noise of value ± step, to the precision of the step. */
+function snap(value: number, step: number, min: number) {
+  const decimals = Math.min(6, (String(step).split('.')[1] ?? '').length)
+  const steps = Math.round((value - min) / step)
+  return Number((min + steps * step).toFixed(decimals))
+}
+
+/**
+ * Every slider in the app: the track, then a decrease button, the value and its unit
+ * centred, and an increase button. The buttons move one step and answer at once.
+ */
+export function Slider({ value, min, max, step, disabled, className, title, display, onChange, ...rest }: SliderProps) {
+  const unitStep = step && step > 0 ? step : 1
+  const nudge = (direction: number) => {
+    const next = Math.min(max, Math.max(min, snap(value + direction * unitStep, unitStep, min)))
+    if (next !== value) onChange(next)
+  }
+  const label = rest['aria-label']
+  return (
+    <span className={`slider-stepper${disabled ? ' disabled' : ''}`}>
+      <SliderTrack {...rest} value={value} min={min} max={max} step={step} disabled={disabled} className={className} title={title} onChange={onChange} />
+      <span className="slider-step-box">
+        <button type="button" className="slider-step" aria-label={label ? `${label} −` : '−'} disabled={disabled || value <= min} onClick={() => nudge(-1)}><Minus size={12} /></button>
+        <output className="slider-value">{display ?? value}</output>
+        <button type="button" className="slider-step" aria-label={label ? `${label} +` : '+'} disabled={disabled || value >= max} onClick={() => nudge(1)}><Plus size={12} /></button>
+      </span>
+    </span>
+  )
+}
+
+function SliderTrack({ value, min, max, step, disabled, className, title, onChange, ...rest }: SliderProps) {
   // One at a time: a second pointerdown without a release would leave the count
   // raised for good, and the preview would never come back.
   const held = useRef(false)

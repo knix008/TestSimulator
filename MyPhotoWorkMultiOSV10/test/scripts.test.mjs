@@ -2,9 +2,11 @@
 // a mistake here breaks the app before a single line of the editor runs.
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync, readFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 import net from 'node:net'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { freePort, isFree } from '../scripts/free-port.mjs'
@@ -71,6 +73,42 @@ test('package.json scripts point at files that exist', () => {
 test('npm test runs the suite through the harness entry point', () => {
   assert.ok(pkg.scripts.test.includes('--import ./test/helpers/setup.mjs'), 'the DOM/TS harness is not loaded')
   assert.ok(pkg.scripts.test.includes('node --test'))
+})
+
+test('clean scripts remove only their generated targets and tolerate missing files', () => {
+  assert.equal(pkg.scripts.clean, 'node scripts/clean.mjs')
+  assert.equal(pkg.scripts['clean:all'], 'node scripts/clean.mjs --all')
+  const fixture = mkdtempSync(path.join(os.tmpdir(), 'mpw-clean-'))
+  const script = path.join(fixture, 'scripts', 'clean.mjs')
+  const normal = ['dist', 'build', 'src/build-info.json', 'src-tauri/gen']
+  const extra = ['src-tauri/target', 'node_modules']
+  const retained = ['out/result.png', 'MyPhotoWork-Setup.exe', 'src/source.ts']
+  try {
+    mkdirSync(path.dirname(script), { recursive: true })
+    copyFileSync(path.join(root, 'scripts', 'clean.mjs'), script)
+    for (const name of [...normal, ...extra, ...retained]) {
+      const target = path.join(fixture, name)
+      if (path.extname(name)) {
+        mkdirSync(path.dirname(target), { recursive: true })
+        writeFileSync(target, 'fixture')
+      } else {
+        mkdirSync(target, { recursive: true })
+        writeFileSync(path.join(target, 'fixture'), 'fixture')
+      }
+    }
+    const run = (...args) => spawnSync(process.execPath, [script, ...args], { encoding: 'utf8' })
+    assert.notEqual(run('--invalid').status, 0)
+    assert.ok(normal.every((name) => existsSync(path.join(fixture, name))))
+    assert.equal(run().status, 0)
+    assert.ok(normal.every((name) => !existsSync(path.join(fixture, name))))
+    assert.ok([...extra, ...retained].every((name) => existsSync(path.join(fixture, name))))
+    assert.equal(run('--all').status, 0)
+    assert.ok(extra.every((name) => !existsSync(path.join(fixture, name))))
+    assert.ok(retained.every((name) => existsSync(path.join(fixture, name))))
+    assert.equal(run('--all').status, 0)
+  } finally {
+    rmSync(fixture, { recursive: true, force: true })
+  }
 })
 
 test('each installer is built on the system it runs on', () => {

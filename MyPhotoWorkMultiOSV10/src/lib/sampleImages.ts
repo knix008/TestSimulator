@@ -1,15 +1,21 @@
 /**
- * Sample pictures for the start screen. They are drawn, not shipped: no file to
- * install, no rights to think about, the same on the web and the desktop, and small
- * enough to redraw as thumbnails. Each has something worth doing to it.
+ * Sample pictures for the start screen. Most are drawn, not shipped: no file to
+ * install, the same on the web and the desktop, and small enough to redraw as
+ * thumbnails. A few are real pictures (a photograph and famous paintings), all in the
+ * public domain, shipped in public/samples (credits in public/samples/CREDITS.md).
+ * Each has something worth doing to it.
  */
 
-export type SampleImage = {
+type SampleBase = {
   id: string
   name: { ko: string; en: string }
   note: { ko: string; en: string }
-  draw: (ctx: CanvasRenderingContext2D, w: number, h: number) => void
 }
+/** A picture drawn on a canvas of any size. */
+export type DrawnSample = SampleBase & { draw: (ctx: CanvasRenderingContext2D, w: number, h: number) => void; src?: undefined }
+/** A picture shipped as a file, opened at its own size. `src` is relative to the page. */
+export type FileSample = SampleBase & { src: string; draw?: undefined }
+export type SampleImage = DrawnSample | FileSample
 
 /** A repeatable random sequence, so a sample is the same picture every time. */
 function seeded(seed: number) {
@@ -167,16 +173,68 @@ export const SAMPLE_IMAGES: SampleImage[] = [
       shade(w * 0.74, h * 0.6, h * 0.18, '#9ad6ff', '#17517d')
     },
   },
+  {
+    id: 'swimsuit',
+    name: { ko: '빨간 비키니의 금발 여성', en: 'Blonde woman in a red bikini' },
+    note: { ko: '인물 보정·머리색·색감 복원', en: 'Retouch, hair colour, restore the colours' },
+    src: './samples/swimsuit.jpg',
+  },
+  {
+    id: 'monalisa',
+    name: { ko: '모나리자 (다빈치)', en: 'Mona Lisa (Leonardo)' },
+    note: { ko: '인물 보정·누렇게 바랜 색 되살리기', en: 'Retouch a portrait and fix yellowed color' },
+    src: './samples/monalisa.jpg',
+  },
+  {
+    id: 'starry',
+    name: { ko: '별이 빛나는 밤 (고흐)', en: 'The Starry Night (van Gogh)' },
+    note: { ko: '색조/채도로 명화 색감 바꾸기', en: 'Recolor a masterpiece with Hue/Saturation' },
+    src: './samples/starry.jpg',
+  },
+  {
+    id: 'wave',
+    name: { ko: '가나가와 해변의 큰 파도 (호쿠사이)', en: 'The Great Wave (Hokusai)' },
+    note: { ko: '선택 도구로 파도만 따로 떼어 내기', en: 'Cut the wave out with the selection tools' },
+    src: './samples/wave.jpg',
+  },
+  {
+    id: 'pearl',
+    name: { ko: '진주 귀걸이를 한 소녀 (페르메이르)', en: 'Girl with a Pearl Earring (Vermeer)' },
+    note: { ko: '배경 바꾸기·빛 효과 연습', en: 'Try a new background and lighting effects' },
+    src: './samples/pearl.jpg',
+  },
+  {
+    id: 'impression',
+    name: { ko: '인상, 해돋이 (모네)', en: 'Impression, Sunrise (Monet)' },
+    note: { ko: '레벨·커브로 안개 걷어 내기', en: 'Clear the haze with Levels and Curves' },
+    src: './samples/impression.jpg',
+  },
 ]
 
-/** A sample picture drawn at the given size. */
+/** A drawn sample picture at the given size. A file sample cannot be drawn this way: use loadSample. */
 export function renderSample(sample: SampleImage, w: number, h: number) {
   const canvas = document.createElement('canvas')
   canvas.width = w
   canvas.height = h
   const ctx = canvas.getContext('2d') as CanvasRenderingContext2D
-  sample.draw(ctx, w, h)
+  if (sample.draw) sample.draw(ctx, w, h)
   return canvas
+}
+
+/** What opening a sample hands to the file opener: a drawn one as PNG, a file one as its own bytes. */
+export async function loadSample(sample: SampleImage, language: 'ko' | 'en'): Promise<{ name: string; mime: string; dataUrl: string }> {
+  if (!sample.src) return { name: `${sample.name[language]}.png`, mime: 'image/png', dataUrl: renderSample(sample, SAMPLE_WIDTH, SAMPLE_HEIGHT).toDataURL('image/png') }
+  const response = await fetch(sample.src)
+  if (!response.ok) throw new Error(`${sample.src}: ${response.status}`)
+  const blob = await response.blob()
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(blob)
+  })
+  const extension = sample.src.slice(sample.src.lastIndexOf('.') + 1)
+  return { name: `${sample.name[language]}.${extension}`, mime: blob.type || 'image/jpeg', dataUrl }
 }
 
 export const SAMPLE_WIDTH = 1600

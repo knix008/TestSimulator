@@ -67,6 +67,12 @@ npm start
 npm run dev
 ```
 
+빌드 산출물을 정리하려면 `npm run clean` 을 실행합니다. `dist/`, `build/`,
+`src/build-info.json`, `src-tauri/gen/` 을 지웁니다. `npm run clean:all` 은
+여기에 `node_modules/` 와 `src-tauri/target/` 도 지우므로 다시 사용하려면
+`npm install` 과 Rust 재빌드가 필요합니다. `out/` 의 검증 결과와 프로젝트
+루트의 설치 파일은 보존합니다.
+
 ## 시험
 
 ```bash

@@ -1,24 +1,28 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import {
   Aperture, BookOpen, Brush, ChartColumnBig, ChartSpline, CircleDot, Clapperboard, ClipboardList, Contrast, Dices, Eye, File, FilePlus, FolderOpen,
-  Gauge, GalleryVertical, GraduationCap, Grid2x2, Grid3x3, GripVertical, Hexagon, History, Image as ImageIcon, Info, Keyboard, Layers, LayoutGrid, Lightbulb, Minus, MonitorPlay, Palette, Plus,
-  Printer, RectangleHorizontal, Rainbow, Settings2, Smartphone, Sparkles, SquareDashed, Sun, Trash, X, Zap, type LucideIcon,
+  Gauge, GalleryVertical, GraduationCap, Grid2x2, Grid3x3, GripVertical, Hexagon, History, Image as ImageIcon, Images, Info, Keyboard, Layers, LayoutGrid, Lightbulb, MonitorPlay, Palette,
+  Printer, RectangleHorizontal, Rainbow, Scan, Settings2, Smartphone, Sparkles, SquareDashed, Sun, Trash, X, Zap, type LucideIcon,
 } from 'lucide-react'
+import { Slider } from '../controls'
 import { t } from '../i18n'
 import { AnimatedBackground, themeColors } from '../lib/startBackground'
 import { COLS, GAP, ROW, autoArrange, cardsOf, compact, layoutKey, layoutValue, place, rowsFor, swapVertical, type Card } from '../lib/startLayout'
-import { ANIMATION_KINDS, SHUFFLE_RANGE, SPEED_RANGE, TRANSPARENCY_RANGE, normalizeStartBackground, type AnimationKind, type StartBackground } from '../lib/startSettings'
+import { ANIMATION_KINDS, SHUFFLE_RANGE, SPEED_RANGE, TRANSPARENCY_RANGE, normalizeStartBackground, speedFactor, type AnimationKind, type StartBackground } from '../lib/startSettings'
 import { SAMPLE_IMAGES, renderSample, type SampleImage } from '../lib/sampleImages'
 import type { Language } from '../lib/types'
 import buildInfo from '../build-info.json' with { type: 'json' }
 
-const CARD_IDS = ['hero', 'create', 'recent', 'side', 'help', 'samples']
-const DEFAULT_SPAN: Record<string, number> = { hero: 3, create: 2, recent: 1, side: 1, help: 2, samples: 3 }
+// The title card (hero) is not on the board: it stays at the top and cannot be moved or resized.
+// The background settings come last, below the samples.
+const CARD_IDS = ['create', 'recent', 'help', 'samples', 'side']
+const DEFAULT_SPAN: Record<string, number> = { create: 2, recent: 1, help: 3, samples: 3, side: 3 }
 
 const ANIMATION_ICONS: Record<AnimationKind, LucideIcon> = {
   bokeh: CircleDot, aperture: Aperture, filmStrip: Clapperboard, histogram: ChartColumnBig, toneCurve: ChartSpline, colorWheel: Palette,
   layerStack: Layers, halftone: Grid3x3, mosaic: Grid2x2, lightLeak: Sun, lensFlare: Sparkles, brushStrokes: Brush,
   rgbChannels: Contrast, filmGrain: Zap, contactSheet: GalleryVertical, marchingAnts: SquareDashed, gradientMesh: Rainbow, kaleidoscope: Hexagon,
+  viewfinder: Scan, instantPhotos: Images,
 }
 
 /** New-document presets: [name key, width, height, icon]. */
@@ -50,15 +54,11 @@ type StartScreenProps = {
 
 const baseName = (path: string) => path.split(/[\\/]/).pop() ?? path
 
-/** A slider with − and + on either side and the value to the right: what the settings use too. */
-export function RangeStepper({ value, min, max, step, unit, label, onChange }: { value: number; min: number; max: number; step: number; unit?: string; label: string; onChange: (next: number) => void }) {
-  const set = (next: number) => onChange(Math.max(min, Math.min(max, next)))
+/** The app's slider (track, then − value+unit +), as the start card and the settings use it. */
+export function RangeStepper({ value, min, max, step, unit, label, disabled, onChange }: { value: number; min: number; max: number; step: number; unit?: string; label: string; disabled?: boolean; onChange: (next: number) => void }) {
   return (
     <div className="range-stepper">
-      <button type="button" aria-label={`${label} −`} disabled={value <= min} onClick={() => set(value - step)}><Minus size={13} /></button>
-      <input type="range" aria-label={label} min={min} max={max} step={step} value={value} onChange={(event) => set(Number(event.target.value))} />
-      <button type="button" aria-label={`${label} +`} disabled={value >= max} onClick={() => set(value + step)}><Plus size={13} /></button>
-      <output>{value}{unit ?? ''}</output>
+      <Slider aria-label={label} value={value} min={min} max={max} step={step} disabled={disabled} display={<>{value}{unit ?? ''}</>} onChange={(next) => onChange(Math.max(min, Math.min(max, next)))} />
     </div>
   )
 }
@@ -66,7 +66,7 @@ export function RangeStepper({ value, min, max, step, unit, label, onChange }: {
 /** Every background as a toggle (icon and name), and Shuffle at the end. */
 export function BackgroundKinds({ language, background, onChange }: { language: Language; background: StartBackground; onChange: (patch: Partial<StartBackground>) => void }) {
   const tr = (key: string) => t(language, key)
-  const shuffling = background.shuffleSec > 0
+  const shuffling = background.shuffleOn && background.shuffleSec > 0
   return (
     <div className="bg-kinds" role="radiogroup" aria-label={tr('startBackground')}>
       {ANIMATION_KINDS.map((kind) => {
@@ -77,7 +77,7 @@ export function BackgroundKinds({ language, background, onChange }: { language: 
           </button>
         )
       })}
-      <button type="button" role="switch" aria-checked={shuffling} className={`bg-kind shuffle${shuffling ? ' on' : ''}`} title={tr('startShuffleTip')} onClick={() => onChange({ shuffleSec: shuffling ? 0 : 20 })}>
+      <button type="button" role="switch" aria-checked={shuffling} className={`bg-kind shuffle${shuffling ? ' on' : ''}`} title={tr('startShuffleTip')} onClick={() => onChange(shuffling ? { shuffleOn: false } : { shuffleOn: true, shuffleSec: background.shuffleSec || 20 })}>
         <Dices size={14} /><span>{tr('startShuffle')}</span>
       </button>
     </div>
@@ -88,15 +88,17 @@ export function BackgroundKinds({ language, background, onChange }: { language: 
 export function BackgroundControls({ language, background, onChange }: { language: Language; background: StartBackground; onChange: (patch: Partial<StartBackground>) => void }) {
   const tr = (key: string) => t(language, key)
   return (
-    <>
-      <div className="start-speed"><Gauge size={14} /><span>{tr('startSpeed')}</span></div>
-      <RangeStepper value={background.speed} {...SPEED_RANGE} unit="%" label={tr('startSpeed')} onChange={(speed) => onChange({ speed })} />
-      <div className="start-speed"><Eye size={14} /><span>{tr('startTransparency')}</span></div>
-      <RangeStepper value={background.transparency} {...TRANSPARENCY_RANGE} unit="%" label={tr('startTransparency')} onChange={(transparency) => onChange({ transparency })} />
-      <div className="start-speed"><Dices size={14} /><span>{tr('startShuffleEvery')}</span></div>
-      <RangeStepper value={background.shuffleSec} {...SHUFFLE_RANGE} unit={tr('startSeconds')} label={tr('startShuffleEvery')} onChange={(shuffleSec) => onChange({ shuffleSec })} />
+    // On the start screen card these sit on one line (start.css); in the settings they stack.
+    <div className="bg-controls">
+      <div className="bg-control"><div className="start-speed"><Gauge size={14} /><span>{tr('startSpeed')}</span></div>
+        <RangeStepper value={background.speed} {...SPEED_RANGE} unit="%" label={tr('startSpeed')} onChange={(speed) => onChange({ speed })} /></div>
+      <div className="bg-control"><div className="start-speed"><Eye size={14} /><span>{tr('startTransparency')}</span></div>
+        <RangeStepper value={background.transparency} {...TRANSPARENCY_RANGE} unit="%" label={tr('startTransparency')} onChange={(transparency) => onChange({ transparency })} /></div>
+      {/* The switch turns the automatic change on and off; the interval stays as it was. */}
+      <div className="bg-control"><label className="start-speed start-auto" data-tooltip={tr('startShuffleTip')}><input type="checkbox" data-action="bg-auto" checked={background.shuffleOn} onChange={(event) => onChange(event.target.checked ? { shuffleOn: true, shuffleSec: background.shuffleSec || 20 } : { shuffleOn: false })} /><Dices size={14} /><span>{tr('startShuffleEvery')}</span></label>
+        <RangeStepper value={background.shuffleSec} {...SHUFFLE_RANGE} unit={tr('startSeconds')} label={tr('startShuffleEvery')} disabled={!background.shuffleOn} onChange={(shuffleSec) => onChange({ shuffleSec })} /></div>
       <label className="start-check"><input type="checkbox" checked={background.random} onChange={(event) => onChange({ random: event.target.checked })} /><span>{tr('startRandom')}</span></label>
-    </>
+    </div>
   )
 }
 
@@ -105,9 +107,11 @@ function SampleThumb({ sample }: { sample: SampleImage }) {
   useEffect(() => {
     const canvas = ref.current
     const ctx = canvas?.getContext('2d')
-    if (!canvas || !ctx) return
+    if (!canvas || !ctx || sample.src) return
     ctx.drawImage(renderSample(sample, 480, 320), 0, 0, canvas.width, canvas.height)
   }, [sample])
+  // A file sample shows the picture itself, cropped to the tile.
+  if (sample.src) return <img src={sample.src} className="sample-thumb" alt="" aria-hidden="true" loading="lazy" decoding="async" draggable={false} />
   return <canvas ref={ref} className="sample-thumb" width={240} height={160} aria-hidden="true" />
 }
 
@@ -134,7 +138,7 @@ export default function StartScreen(props: StartScreenProps) {
 
   useEffect(() => {
     const first = background.random ? ANIMATION_KINDS[Math.floor(Math.random() * ANIMATION_KINDS.length)] : background.kind
-    const engine = new AnimatedBackground(canvasRef.current as HTMLCanvasElement, { kind: first, speed: () => speed.current / 100, colors: themeColors })
+    const engine = new AnimatedBackground(canvasRef.current as HTMLCanvasElement, { kind: first, speed: () => speedFactor(speed.current), colors: themeColors })
     animation.current = engine
     engine.start()
     return () => engine.destroy()
@@ -148,10 +152,10 @@ export default function StartScreen(props: StartScreenProps) {
     animation.current?.setKind(background.kind)
   }, [background.kind])
   useEffect(() => {
-    if (!background.shuffleSec) return undefined
+    if (!background.shuffleOn || !background.shuffleSec) return undefined
     const timer = window.setInterval(() => animation.current?.shuffle(), background.shuffleSec * 1000)
     return () => window.clearInterval(timer)
-  }, [background.shuffleSec])
+  }, [background.shuffleOn, background.shuffleSec])
   // The theme is applied to the root element in an effect of the parent, after this one.
   useEffect(() => {
     const frame = requestAnimationFrame(() => animation.current?.refreshColors())
@@ -340,9 +344,9 @@ export default function StartScreen(props: StartScreenProps) {
     <button type="button" className={`start-button${primary ? ' primary' : ''}`} onClick={onClick}><Icon size={15} /><span>{label}</span></button>
   )
 
-  const cards: Record<string, ReactNode> = {
-    hero: card('hero', 'start-hero', null, '', (
-      <>
+  const hero = (
+    <section data-card="hero" className="start-card start-hero start-pinned">
+      <div className="card-body">
         <img src="./app-icon.svg" alt="" className="start-icon" />
         <div className="start-title">
           <h1>{tr('appName')} <small>v{buildInfo.version}</small></h1>
@@ -354,8 +358,10 @@ export default function StartScreen(props: StartScreenProps) {
           {button(FolderOpen, tr('open'), () => onAction('open'))}
           {button(FilePlus, tr('new'), () => onAction('new'), true)}
         </div>
-      </>
-    )),
+      </div>
+    </section>
+  )
+  const cards: Record<string, ReactNode> = {
     create: card('create', 'start-create', FilePlus, tr('startNewDocument'), (
       <div className="preset-groups">
         {PRESET_GROUPS.map((group) => (
@@ -420,6 +426,7 @@ export default function StartScreen(props: StartScreenProps) {
             {button(LayoutGrid, tr('startArrange'), arrange)}
             {button(X, tr('startClose'), () => onAction('close'))}
           </div>
+          {hero}
           <div className="start-board" ref={board}>{CARD_IDS.map((id) => cards[id])}{outline}</div>
           <footer className="start-foot">
             <label className="start-check"><input type="checkbox" checked={showOnLaunch} onChange={(event) => onShowOnLaunch(event.target.checked)} /><span>{tr('startShowOnLaunch')}</span></label>

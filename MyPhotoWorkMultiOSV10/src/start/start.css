@@ -37,7 +37,7 @@
 .start-card:hover .card-resize::after { opacity: 0.8; }
 .card-drop-outline { border: 2px dashed var(--accent); border-radius: 14px; pointer-events: none; }
 
-.start-hero { padding-left: 30px; }
+.start-hero { flex: none; }
 .start-hero > .card-body { align-items: center; display: flex; flex-wrap: wrap; gap: 18px; row-gap: 10px; }
 .start-icon { filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35)); height: 64px; width: 64px; }
 .start-title { flex: 1 1 260px; min-width: 0; }
@@ -74,24 +74,32 @@
 .start-help { display: grid; gap: 2px 8px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
 
 .bg-kinds { display: grid; gap: 4px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* 20 backgrounds + Shuffle = 21: three full rows of seven on the start card. */
+.start-side .bg-kinds { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+@media (max-width: 900px) { .start-side .bg-kinds { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .bg-kind { align-items: center; background: var(--control-bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary); cursor: pointer; display: flex; font: inherit; font-size: 12px; gap: 6px; min-width: 0; padding: 4px 7px; text-align: left; }
 .bg-kind span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bg-kind:hover { border-color: var(--accent); }
 .bg-kind.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
 .start-speed { align-items: center; display: flex; font-size: 12.5px; gap: 6px; margin: 9px 0 3px; }
 .start-speed svg { color: var(--accent); flex: none; }
-.range-stepper { align-items: center; display: grid; gap: 4px; grid-template-columns: 22px minmax(0, 1fr) 22px 46px; }
-.range-stepper button { align-items: center; background: var(--control-bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text-primary); cursor: pointer; display: inline-flex; height: 22px; justify-content: center; padding: 0; width: 22px; }
-.range-stepper button:disabled { cursor: default; opacity: 0.4; }
-.range-stepper input { accent-color: var(--accent); margin: 0; min-width: 0; width: 100%; }
-.range-stepper output { color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.start-auto { cursor: pointer; }
+.start-auto input { accent-color: var(--accent); margin: 0; }
+.range-stepper { min-width: 0; }
+/* The start screen card: speed, transparency, interval and random start on one line. */
+.start-side .bg-controls { align-items: center; display: grid; gap: 6px 18px; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; margin-top: 10px; }
+.start-side .bg-control { align-items: center; display: flex; gap: 8px; min-width: 0; }
+.start-side .bg-control .start-speed { flex: none; margin: 0; white-space: nowrap; }
+.start-side .bg-control .range-stepper { flex: 1 1 auto; min-width: 0; }
+.start-side .bg-controls .start-check { margin: 0; white-space: nowrap; }
+@media (max-width: 760px) { .start-side .bg-controls { grid-template-columns: minmax(0, 1fr); } }
 .start-check { align-items: center; cursor: pointer; display: flex; font-size: 12.5px; gap: 6px; margin-top: 9px; }
 .start-check input { accent-color: var(--accent); margin: 0; }
 
 .sample-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
 .sample-tile { background: var(--control-bg); border: 1px solid var(--border); border-radius: 10px; color: var(--text-primary); cursor: pointer; display: flex; flex-direction: column; font: inherit; gap: 3px; min-width: 0; padding: 6px; text-align: left; }
 .sample-tile:hover { border-color: var(--accent); }
-.sample-thumb { aspect-ratio: 3 / 2; border-radius: 6px; display: block; width: 100%; }
+.sample-thumb { aspect-ratio: 3 / 2; border-radius: 6px; display: block; object-fit: cover; object-position: 50% 30%; width: 100%; }
 .sample-tile b { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sample-tile small { color: var(--text-muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -100,6 +108,12 @@
 
 /* The same background controls in Settings > Start Screen. */
 .settings-page .bg-kinds { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.settings-page .bg-kind { padding: 2px 7px; }
+.settings-page .bg-controls { align-items: center; display: grid; gap: 6px 18px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.settings-page .bg-control { align-items: center; display: flex; gap: 6px; min-width: 0; }
+.settings-page .bg-control .start-speed { flex: none; margin: 0; white-space: nowrap; }
+.settings-page .bg-control .range-stepper { flex: 1 1 auto; min-width: 0; }
+.settings-page .bg-controls .start-check { margin: 0; white-space: nowrap; }
 .settings-page .start-speed { font-size: 13px; }
 .menu-bar .start-toggle.active { color: var(--accent); }
 
@@ -124,11 +138,6 @@
 .tutorial-head { align-items: center; display: flex; gap: 7px; }
 .tutorial-head svg:first-child { color: var(--accent); }
 .tutorial-card p { font-size: 13px; line-height: 1.5; margin: 8px 0; min-height: 58px; }
-.tutorial-x { align-items: center; background: none; border: 0; border-radius: 5px; color: var(--text-muted); cursor: pointer; display: inline-flex; height: 22px; justify-content: center; padding: 0; width: 22px; }
 .tutorial-progress { background: var(--control-bg); border-radius: 2px; height: 4px; overflow: hidden; }
 .tutorial-progress span { background: var(--accent); display: block; height: 100%; }
 .tutorial-count { color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-
-/* Dialog buttons carry padding that would squeeze the icon out of a button this small. */
-.settings-page .range-stepper button { min-height: 22px; min-width: 22px; padding: 0; }
-.range-stepper button svg { flex: none; }

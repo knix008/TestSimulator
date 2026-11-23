@@ -7,6 +7,7 @@
  * copy useful on its own.
  */
 
+import buildInfo from '../build-info.json' with { type: 'json' }
 export type ErrorReport = {
   title: string
   message: string
@@ -67,7 +68,7 @@ function environmentLines(): string[] {
 }
 
 /** Builds the report shown in the error popup. */
-export function buildErrorReport(error: unknown, context: ErrorContext, version = '1.0.0'): ErrorReport {
+export function buildErrorReport(error: unknown, context: ErrorContext, version = buildInfo.version): ErrorReport {
   const described = describeError(error)
   const lines: string[] = [
     `My Photo Work ${version}`,

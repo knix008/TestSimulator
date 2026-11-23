@@ -12,8 +12,9 @@ export type DialogSpec = {
 }
 
 export const DIALOG_SPECS: Record<string, DialogSpec> = {
-  // A set size: wide enough for the rows to stay on one line, tall enough for its tallest page.
-  settings: { width: 780, height: 700, resizable: false, minWidth: 780 },
+  // Fixed width; it opens short and grows to its tallest page (DialogHost reports the content),
+  // so there is no band of empty space under the short pages and no scrollbar. Not resizable.
+  settings: { width: 900, height: 360, resizable: false, minWidth: 900 },
   about: { width: 560, height: 470, resizable: false },
   error: { width: 620, height: 420, minWidth: 420 },
   unsaved: { width: 460, height: 210, resizable: false },

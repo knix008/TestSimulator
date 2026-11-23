@@ -7,7 +7,7 @@ import { DEFAULT_SWATCHES } from './lib/swatches'
 import { createElement, useEffect, useRef, useState, type ComponentType, type ReactNode, type SVGProps } from 'react'
 import { NumberStepper, Slider } from './controls'
 import {
-  ArrowDown, ArrowRight, ArrowUp, Camera, Check, ChevronRight, Circle, Clock, Copy, Diamond, Eye, EyeOff, Film, FlipHorizontal, Frame, Grid3x3, Heart, Layers2, Link, Lock, LockOpen, MessageSquare, Moon, PenTool, Play, Plus, RefreshCw, Save, Scissors, Shapes, Sparkles, Spline, Square, SquareDashed, Star, StickyNote, Trash, Triangle, Type, Video, X, Zap, RotateCcw
+  ArrowDown, ArrowRight, ArrowUp, Camera, Check, ChevronLeft, ChevronRight, FileImage, Circle, Clock, Copy, Diamond, Eye, EyeOff, Film, FlipHorizontal, Frame, Grid3x3, Heart, Layers2, Link, Lock, LockOpen, MessageSquare, Moon, PenTool, Play, Plus, RefreshCw, Save, Scissors, Shapes, Sparkles, Spline, Square, SquareDashed, Star, StickyNote, Trash, Triangle, Type, Video, X, Zap, RotateCcw
 } from 'lucide-react'
 import { blendLabel, toolLabel } from './i18n'
 import { adjustmentFields, fieldToSlider, sliderToField } from './adjustmentFields'
@@ -230,14 +230,12 @@ export function LayersPanel({ ctx }: { ctx: PanelContext }) {
         <>
           <label><FieldName name="opacity" tr={tr} />
             <div className="range-field">
-              <Slider min={0} max={100} value={Math.round(activeLayer.opacity * 100)} onChange={(next) => ctx.patchLayer(activeLayer.id, { opacity: next / 100 })} />
-              <span className="range-value">{Math.round(activeLayer.opacity * 100)}</span>
+              <Slider min={0} max={100} value={Math.round(activeLayer.opacity * 100)} onChange={(next) => ctx.patchLayer(activeLayer.id, { opacity: next / 100 })} display={<>{Math.round(activeLayer.opacity * 100)}</>} />
             </div>
           </label>
           <label><FieldName name="fillOpacity" tr={tr} />
             <div className="range-field">
-              <Slider min={0} max={100} value={Math.round((activeLayer.fillOpacity ?? 1) * 100)} onChange={(next) => ctx.patchLayer(activeLayer.id, { fillOpacity: next / 100 })} />
-              <span className="range-value">{Math.round((activeLayer.fillOpacity ?? 1) * 100)}</span>
+              <Slider min={0} max={100} value={Math.round((activeLayer.fillOpacity ?? 1) * 100)} onChange={(next) => ctx.patchLayer(activeLayer.id, { fillOpacity: next / 100 })} display={<>{Math.round((activeLayer.fillOpacity ?? 1) * 100)}</>} />
             </div>
           </label>
           <label><FieldName name="blend" tr={tr} />
@@ -280,8 +278,7 @@ export function PropertiesPanel({ ctx }: { ctx: PanelContext }) {
               : (
                 <label key={field.key}><FieldName name={field.label} tr={tr} />
                   <div className="range-field">
-                    <Slider min={field.min} max={field.max} step={field.step ?? 1} value={fieldToSlider(field, adjustment[field.key])} onChange={(next) => ctx.patchAdjustment(layer.id, { [field.key]: sliderToField(field, next) })} />
-                    <span className="range-value">{fieldToSlider(field, adjustment[field.key])}</span>
+                    <Slider min={field.min} max={field.max} step={field.step ?? 1} value={fieldToSlider(field, adjustment[field.key])} onChange={(next) => ctx.patchAdjustment(layer.id, { [field.key]: sliderToField(field, next) })} display={<>{fieldToSlider(field, adjustment[field.key])}</>} />
                   </div>
                 </label>
               )
@@ -295,8 +292,7 @@ export function PropertiesPanel({ ctx }: { ctx: PanelContext }) {
               </label>
               <label><FieldName name="lutStrength" tr={tr} />
                 <div className="range-field">
-                  <Slider min={0} max={100} value={Math.round((adjustment.lutStrength ?? 1) * 100)} onChange={(next) => ctx.patchAdjustment(layer.id, { lutStrength: next / 100 })} />
-                  <span className="range-value">{Math.round((adjustment.lutStrength ?? 1) * 100)}</span>
+                  <Slider min={0} max={100} value={Math.round((adjustment.lutStrength ?? 1) * 100)} onChange={(next) => ctx.patchAdjustment(layer.id, { lutStrength: next / 100 })} display={<>{Math.round((adjustment.lutStrength ?? 1) * 100)}</>} />
                 </div>
               </label>
             </>
@@ -323,15 +319,13 @@ export function PropertiesPanel({ ctx }: { ctx: PanelContext }) {
           </div>
           <label><FieldName name="strokeWidth" tr={tr} />
             <div className="range-field">
-              <Slider min={0} max={40} value={layer.shape.strokeWidth} onChange={(next) => ctx.patchLayer(layer.id, { shape: { ...layer.shape!, strokeWidth: next } })} />
-              <span className="range-value">{layer.shape.strokeWidth}</span>
+              <Slider min={0} max={40} value={layer.shape.strokeWidth} onChange={(next) => ctx.patchLayer(layer.id, { shape: { ...layer.shape!, strokeWidth: next } })} display={<>{layer.shape.strokeWidth}</>} />
             </div>
           </label>
           {(layer.shape.kind === 'roundRect') && (
             <label><FieldName name="cornerRadius" tr={tr} />
               <div className="range-field">
-                <Slider min={0} max={200} value={layer.shape.radius} onChange={(next) => ctx.patchLayer(layer.id, { shape: { ...layer.shape!, radius: next } })} />
-                <span className="range-value">{layer.shape.radius}</span>
+                <Slider min={0} max={200} value={layer.shape.radius} onChange={(next) => ctx.patchLayer(layer.id, { shape: { ...layer.shape!, radius: next } })} display={<>{layer.shape.radius}</>} />
               </div>
             </label>
           )}
@@ -384,12 +378,10 @@ export function PropertiesPanel({ ctx }: { ctx: PanelContext }) {
                   {tr(filter.filter)}
                 </label>
                 <div className="range-field">
-                  <Slider min={1} max={100} value={Math.round(filter.amount)} onChange={(next) => ctx.patchSmartFilter(filter.id, { amount: next })} />
-                  <span className="range-value">{Math.round(filter.amount)}</span>
+                  <Slider min={1} max={100} value={Math.round(filter.amount)} onChange={(next) => ctx.patchSmartFilter(filter.id, { amount: next })} display={<>{Math.round(filter.amount)}</>} />
                 </div>
                 <div className="range-field">
-                  <Slider min={0.5} max={40} step={0.5} value={filter.radius} onChange={(next) => ctx.patchSmartFilter(filter.id, { radius: next })} />
-                  <span className="range-value">{filter.radius}</span>
+                  <Slider min={0.5} max={40} step={0.5} value={filter.radius} onChange={(next) => ctx.patchSmartFilter(filter.id, { radius: next })} display={<>{filter.radius}</>} />
                 </div>
                 <button data-tooltip={tr('deleteLayer')} aria-label={tr('deleteLayer')} onClick={() => ctx.removeSmartFilter(filter.id)}><Trash size={13} /></button>
               </div>
@@ -484,8 +476,7 @@ export function NavigatorPanel({ ctx }: { ctx: PanelContext }) {
       <canvas ref={ref} className="navigator" width={width} height={height} onPointerDown={jump} onPointerMove={(event) => { if (event.buttons) jump(event) }} />
       <label><FieldName name="zoomLevel" tr={tr} />
         <div className="range-field">
-          <Slider min={5} max={800} value={Math.round(settings.zoom * 100)} onChange={(next) => ctx.setSettings((current) => ({ ...current, zoom: next / 100 }))} />
-          <span className="range-value">{Math.round(settings.zoom * 100)}%</span>
+          <Slider min={5} max={800} value={Math.round(settings.zoom * 100)} onChange={(next) => ctx.setSettings((current) => ({ ...current, zoom: next / 100 }))} display={<>{Math.round(settings.zoom * 100)}%</>} />
         </div>
       </label>
       <p className="panel-hint">{tr('navigatorHint')}</p>
@@ -510,12 +501,12 @@ export function ColorPanel({ ctx }: { ctx: PanelContext }) {
         <button className={target === 'foreground' ? 'active' : ''} onClick={() => setTarget('foreground')}><span className="swatch-chip" style={{ background: settings.foreground }} /><Square size={13} aria-hidden="true" /><span>{tr('foreground')}</span></button>
         <button className={target === 'background' ? 'active' : ''} onClick={() => setTarget('background')}><span className="swatch-chip" style={{ background: settings.background }} /><Square size={13} aria-hidden="true" /><span>{tr('backgroundColor')}</span></button>
       </div>
-      <label><FieldName name="hsbH" tr={tr} /><div className="range-field"><Slider min={0} max={359} value={Math.round(hsv.h)} onChange={(next) => setHsv({ h: next })} /><span className="range-value">{Math.round(hsv.h)}</span></div></label>
-      <label><FieldName name="hsbS" tr={tr} /><div className="range-field"><Slider min={0} max={100} value={Math.round(hsv.s * 100)} onChange={(next) => setHsv({ s: next / 100 })} /><span className="range-value">{Math.round(hsv.s * 100)}</span></div></label>
-      <label><FieldName name="hsbB" tr={tr} /><div className="range-field"><Slider min={0} max={100} value={Math.round(hsv.v * 100)} onChange={(next) => setHsv({ v: next / 100 })} /><span className="range-value">{Math.round(hsv.v * 100)}</span></div></label>
-      <label><FieldName name="rgbR" tr={tr} /><div className="range-field"><Slider min={0} max={255} value={rgb.r} onChange={(next) => setRgb({ r: next })} /><span className="range-value">{rgb.r}</span></div></label>
-      <label><FieldName name="rgbG" tr={tr} /><div className="range-field"><Slider min={0} max={255} value={rgb.g} onChange={(next) => setRgb({ g: next })} /><span className="range-value">{rgb.g}</span></div></label>
-      <label><FieldName name="rgbB" tr={tr} /><div className="range-field"><Slider min={0} max={255} value={rgb.b} onChange={(next) => setRgb({ b: next })} /><span className="range-value">{rgb.b}</span></div></label>
+      <label><FieldName name="hsbH" tr={tr} /><div className="range-field"><Slider min={0} max={359} value={Math.round(hsv.h)} onChange={(next) => setHsv({ h: next })} display={<>{Math.round(hsv.h)}</>} /></div></label>
+      <label><FieldName name="hsbS" tr={tr} /><div className="range-field"><Slider min={0} max={100} value={Math.round(hsv.s * 100)} onChange={(next) => setHsv({ s: next / 100 })} display={<>{Math.round(hsv.s * 100)}</>} /></div></label>
+      <label><FieldName name="hsbB" tr={tr} /><div className="range-field"><Slider min={0} max={100} value={Math.round(hsv.v * 100)} onChange={(next) => setHsv({ v: next / 100 })} display={<>{Math.round(hsv.v * 100)}</>} /></div></label>
+      <label><FieldName name="rgbR" tr={tr} /><div className="range-field"><Slider min={0} max={255} value={rgb.r} onChange={(next) => setRgb({ r: next })} display={<>{rgb.r}</>} /></div></label>
+      <label><FieldName name="rgbG" tr={tr} /><div className="range-field"><Slider min={0} max={255} value={rgb.g} onChange={(next) => setRgb({ g: next })} display={<>{rgb.g}</>} /></div></label>
+      <label><FieldName name="rgbB" tr={tr} /><div className="range-field"><Slider min={0} max={255} value={rgb.b} onChange={(next) => setRgb({ b: next })} display={<>{rgb.b}</>} /></div></label>
       <label><FieldName name="hexLabel" tr={tr} /><input value={hex} onChange={(event) => { if (/^#[0-9a-fA-F]{6}$/.test(event.target.value)) set(event.target.value) }} /></label>
     </>
   )
@@ -712,12 +703,12 @@ export function BrushesPanel({ ctx }: { ctx: PanelContext }) {
     <>
       <canvas ref={ref} className="brush-preview" width={260} height={80} />
       <div className="brush-settings">
-      <label><FieldName name="size" tr={tr} /><div className="range-field"><Slider min={1} max={400} value={settings.brushSize} onChange={(next) => patch({ brushSize: next })} /><span className="range-value">{settings.brushSize}</span></div></label>
-      <label><FieldName name="hardness" tr={tr} /><div className="range-field"><Slider min={0} max={100} value={Math.round(settings.brushHardness * 100)} onChange={(next) => patch({ brushHardness: next / 100 })} /><span className="range-value">{Math.round(settings.brushHardness * 100)}</span></div></label>
-      <label><FieldName name="brushSpacing" tr={tr} /><div className="range-field"><Slider min={2} max={200} value={Math.round(settings.brushSpacing * 100)} onChange={(next) => patch({ brushSpacing: next / 100 })} /><span className="range-value">{Math.round(settings.brushSpacing * 100)}</span></div></label>
-      <label><FieldName name="brushAngle" tr={tr} /><div className="range-field"><Slider min={-180} max={180} value={settings.brushAngle} onChange={(next) => patch({ brushAngle: next })} /><span className="range-value">{settings.brushAngle}</span></div></label>
-      <label><FieldName name="brushRoundness" tr={tr} /><div className="range-field"><Slider min={5} max={100} value={Math.round(settings.brushRoundness * 100)} onChange={(next) => patch({ brushRoundness: next / 100 })} /><span className="range-value">{Math.round(settings.brushRoundness * 100)}</span></div></label>
-      <label><FieldName name="brushScatter" tr={tr} /><div className="range-field"><Slider min={0} max={200} value={Math.round(settings.brushScatter * 100)} onChange={(next) => patch({ brushScatter: next / 100 })} /><span className="range-value">{Math.round(settings.brushScatter * 100)}</span></div></label>
+      <label><FieldName name="size" tr={tr} /><div className="range-field"><Slider min={1} max={400} value={settings.brushSize} onChange={(next) => patch({ brushSize: next })} display={<>{settings.brushSize}</>} /></div></label>
+      <label><FieldName name="hardness" tr={tr} /><div className="range-field"><Slider min={0} max={100} value={Math.round(settings.brushHardness * 100)} onChange={(next) => patch({ brushHardness: next / 100 })} display={<>{Math.round(settings.brushHardness * 100)}</>} /></div></label>
+      <label><FieldName name="brushSpacing" tr={tr} /><div className="range-field"><Slider min={2} max={200} value={Math.round(settings.brushSpacing * 100)} onChange={(next) => patch({ brushSpacing: next / 100 })} display={<>{Math.round(settings.brushSpacing * 100)}</>} /></div></label>
+      <label><FieldName name="brushAngle" tr={tr} /><div className="range-field"><Slider min={-180} max={180} value={settings.brushAngle} onChange={(next) => patch({ brushAngle: next })} display={<>{settings.brushAngle}</>} /></div></label>
+      <label><FieldName name="brushRoundness" tr={tr} /><div className="range-field"><Slider min={5} max={100} value={Math.round(settings.brushRoundness * 100)} onChange={(next) => patch({ brushRoundness: next / 100 })} display={<>{Math.round(settings.brushRoundness * 100)}</>} /></div></label>
+      <label><FieldName name="brushScatter" tr={tr} /><div className="range-field"><Slider min={0} max={200} value={Math.round(settings.brushScatter * 100)} onChange={(next) => patch({ brushScatter: next / 100 })} display={<>{Math.round(settings.brushScatter * 100)}</>} /></div></label>
       </div>
       <h3>{tr('presetsBuiltIn')} ({BUILTIN_BRUSHES.length})</h3>
       <div className="preset-tiles">
@@ -1067,17 +1058,60 @@ export function InfoPanel({ ctx }: { ctx: PanelContext }) {
 
 /* --------------------------------------------------------- document tabs */
 
+/**
+ * One tab per open document, always shown, so several files can be edited side by side.
+ * The row scrolls; the < and > at its right end move through the tabs when they do not fit.
+ */
 export function DocumentTabs({ ctx }: { ctx: PanelContext }) {
   const { tr, documents } = ctx
-  if (documents.length < 2) return null
+  const strip = useRef<HTMLDivElement | null>(null)
+  const [room, setRoom] = useState({ left: false, right: false })
+  const measure = () => {
+    const node = strip.current
+    if (!node) return
+    const next = { left: node.scrollLeft > 1, right: node.scrollLeft + node.clientWidth < node.scrollWidth - 1 }
+    setRoom((current) => (current.left === next.left && current.right === next.right ? current : next))
+  }
+  useEffect(() => {
+    measure()
+    const node = strip.current
+    if (!node || typeof ResizeObserver === 'undefined') return undefined
+    const observer = new ResizeObserver(measure)
+    observer.observe(node)
+    return () => observer.disconnect()
+  })
+  // The chosen tab is always brought into view.
+  const activeId = documents.find((item) => item.active)?.id
+  useEffect(() => {
+    strip.current?.querySelector<HTMLElement>('.doc-tab.active')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+  }, [activeId])
+  const step = (direction: number) => {
+    const node = strip.current
+    if (!node) return
+    node.scrollBy({ left: direction * Math.max(120, node.clientWidth * 0.6), behavior: 'smooth' })
+  }
   return (
-    <div className="doc-tabs" aria-label={tr('docTab')}>
-      {documents.map((item) => (
-        <button key={item.id} className={item.active ? 'active' : ''} onClick={() => ctx.switchDocument(item.id)}>
-          <span>{item.name}{item.dirty ? ' *' : ''}</span>
-          <X size={12} onClick={(event) => { event.stopPropagation(); ctx.closeDocumentById(item.id) }} />
-        </button>
-      ))}
+    <div className="doc-tabs" role="tablist" aria-label={tr('docTab')}>
+      <div className="doc-tabs-strip" ref={strip} onScroll={measure}>
+        {documents.map((item) => (
+          <button key={item.id} role="tab" aria-selected={item.active} className={`doc-tab${item.active ? ' active' : ''}`} data-tooltip={item.name} onClick={() => ctx.switchDocument(item.id)}>
+            <FileImage size={13} aria-hidden="true" />
+            <span>{item.name}{item.dirty ? ' *' : ''}</span>
+            <span
+              className="doc-tab-close"
+              role="button"
+              aria-label={`${tr('close')}: ${item.name}`}
+              onClick={(event) => { event.stopPropagation(); ctx.closeDocumentById(item.id) }}
+            >
+              <X size={12} />
+            </span>
+          </button>
+        ))}
+      </div>
+      <div className="doc-tabs-nav">
+        <button type="button" data-action="doc-tabs-prev" aria-label={tr('docTabsPrev')} data-tooltip={tr('docTabsPrev')} disabled={!room.left} onClick={() => step(-1)}><ChevronLeft size={14} /></button>
+        <button type="button" data-action="doc-tabs-next" aria-label={tr('docTabsNext')} data-tooltip={tr('docTabsNext')} disabled={!room.right} onClick={() => step(1)}><ChevronRight size={14} /></button>
+      </div>
     </div>
   )
 }

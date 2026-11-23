@@ -1,10 +1,10 @@
 // The start screen: its background, its settings, its card layout and its place in the app.
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import fs, { readFileSync } from 'node:fs'
 import { createCanvas } from '@napi-rs/canvas'
 import { AnimatedBackground, cssRgb } from '../src/lib/startBackground.ts'
-import { ANIMATION_KINDS, DEFAULT_START_BACKGROUND, normalizeStartBackground } from '../src/lib/startSettings.ts'
+import { ANIMATION_KINDS, DEFAULT_START_BACKGROUND, SPEED_MAX_FACTOR, SPEED_RANGE, normalizeStartBackground, speedFactor } from '../src/lib/startSettings.ts'
 import { autoArrange, cardsOf, compact, layoutValue, overlaps, place, rowsFor, swapVertical } from '../src/lib/startLayout.ts'
 import { SAMPLE_IMAGES, renderSample } from '../src/lib/sampleImages.ts'
 import { defaultSettings } from '../src/lib/types.ts'
@@ -23,9 +23,12 @@ const pixels = (canvas) => canvas.getContext('2d').getImageData(0, 0, canvas.wid
 
 /* ------------------------------------------------------------ backgrounds */
 
-test('there are eighteen backgrounds, as many as the sibling app, each named in both languages', () => {
-  assert.equal(ANIMATION_KINDS.length, 18)
-  assert.equal(new Set(ANIMATION_KINDS).size, 18, 'a background is listed twice')
+test('there are twenty backgrounds, so with Shuffle they fill whole rows, each named in both languages', () => {
+  assert.equal(ANIMATION_KINDS.length, 20)
+  assert.equal(new Set(ANIMATION_KINDS).size, 20, 'a background is listed twice')
+  // 20 + Shuffle = 21 toggles: three full rows of seven on the start card, seven rows of three in the settings.
+  assert.equal((ANIMATION_KINDS.length + 1) % 7, 0)
+  assert.equal((ANIMATION_KINDS.length + 1) % 3, 0)
   for (const kind of ANIMATION_KINDS) {
     for (const language of ['ko', 'en']) {
       assert.notEqual(t(language, `anim_${kind}`), `anim_${kind}`, `${kind} has no ${language} name`)
@@ -66,6 +69,19 @@ test('switching background keeps to the known kinds, and shuffle always changes 
   engine.destroy()
 })
 
+test('the speed runs 0-100 and every step is plain to see', () => {
+  assert.deepEqual([SPEED_RANGE.min, SPEED_RANGE.max], [0, 100])
+  assert.equal(speedFactor(0), 0)
+  assert.equal(speedFactor(100), SPEED_MAX_FACTOR)
+  assert.ok(SPEED_MAX_FACTOR >= 5, 'the fastest setting is too close to normal to notice')
+  assert.ok(speedFactor(DEFAULT_START_BACKGROUND.speed) >= 2, 'the default motion is too slow to feel lively')
+  // One slider step changes the pace by the same, visible amount everywhere on the scale.
+  const stepGain = speedFactor(SPEED_RANGE.step) - speedFactor(0)
+  assert.ok(stepGain >= 0.1)
+  for (let v = 0; v < 100; v += SPEED_RANGE.step) assert.ok(Math.abs(speedFactor(v + SPEED_RANGE.step) - speedFactor(v) - stepGain) < 1e-9)
+  assert.equal(speedFactor(250), SPEED_MAX_FACTOR, 'a stored value past the end is clamped')
+})
+
 test('a speed of zero freezes the picture', () => {
   const { canvas, engine } = scene('aperture', () => 0)
   engine.draw(0)
@@ -88,7 +104,7 @@ test('theme colours are read whatever form the token takes', () => {
 test('stored background settings are cleaned up', () => {
   assert.deepEqual(normalizeStartBackground(null), DEFAULT_START_BACKGROUND)
   assert.equal(normalizeStartBackground({ kind: 'nope' }).kind, DEFAULT_START_BACKGROUND.kind)
-  assert.equal(normalizeStartBackground({ speed: 9999 }).speed, 300)
+  assert.equal(normalizeStartBackground({ speed: 9999 }).speed, 100)
   assert.equal(normalizeStartBackground({ speed: -5 }).speed, 0)
   assert.equal(normalizeStartBackground({ transparency: 140 }).transparency, 100)
   assert.equal(normalizeStartBackground({ speed: 'x' }).speed, DEFAULT_START_BACKGROUND.speed)
@@ -103,7 +119,7 @@ test('the settings loader keeps the start screen settings and repairs bad ones',
   const loaded = loadSettings()
   assert.equal(loaded.showStartOnLaunch, false)
   assert.equal(loaded.startBackground.kind, 'mosaic')
-  assert.equal(loaded.startBackground.speed, 300)
+  assert.equal(loaded.startBackground.speed, 100)
   localStorage.removeItem('my-photo-work-v1-settings')
 })
 
@@ -141,7 +157,7 @@ test('the layout survives being saved and read back', () => {
 })
 
 test('a card the saved layout does not know goes below the others, and rubbish is ignored', () => {
-  const saved = { version: 1, cards: { hero: { col: 0, row: 0, w: 3, h: 6, fit: true } } }
+  const saved = { version: 2, cards: { hero: { col: 0, row: 0, w: 3, h: 6, fit: true } } }
   const cards = cardsOf(saved, IDS, SPAN)
   for (const id of IDS) assert.ok(cards[id], `${id} is lost`)
   noOverlaps(cards)
@@ -160,9 +176,11 @@ test('Alt+arrows swap with the neighbouring card, and Auto Arrange restores the 
 /* ---------------------------------------------------------------- samples */
 
 test('every sample picture draws something and is named in both languages', () => {
-  assert.ok(SAMPLE_IMAGES.length >= 6)
+  assert.equal(SAMPLE_IMAGES.length, 12)
+  assert.equal(new Set(SAMPLE_IMAGES.map((sample) => sample.id)).size, SAMPLE_IMAGES.length, 'two samples share an id')
   for (const sample of SAMPLE_IMAGES) {
     assert.ok(sample.name.ko && sample.name.en && sample.note.ko && sample.note.en, `${sample.id} is not named`)
+    if (sample.src) continue
     const canvas = renderSample(sample, 120, 80)
     const data = canvas.getContext('2d').getImageData(0, 0, 120, 80).data
     const colours = new Set()
@@ -201,4 +219,25 @@ test('a command that goes to work closes the start screen, and help does not', (
 
 test('the cards use no backdrop filter, which flickers in WebView2 over a moving canvas', () => {
   assert.doesNotMatch(read('src/start/start.css'), /backdrop-filter\s*:/)
+})
+
+test('the file samples are shipped, small, credited, and include a photograph and paintings', () => {
+  const files = SAMPLE_IMAGES.filter((sample) => sample.src)
+  assert.equal(files.length, 6)
+  const credits = fs.readFileSync(new URL('../public/samples/CREDITS.md', import.meta.url), 'utf8')
+  for (const sample of files) {
+    assert.match(sample.src, /^\.\/samples\/[a-z]+\.jpg$/, `${sample.id} is not under public/samples`)
+    const file = new URL(`../public/${sample.src.slice(2)}`, import.meta.url)
+    assert.ok(fs.existsSync(file), `${sample.src} is missing`)
+    const bytes = fs.readFileSync(file)
+    assert.ok(bytes[0] === 0xff && bytes[1] === 0xd8, `${sample.src} is not a JPEG`)
+    assert.ok(bytes.length < 600_000, `${sample.src} is too big`)
+    assert.ok(credits.includes(sample.src.slice(10)), `${sample.src} has no credit`)
+    assert.equal(renderSample(sample, 4, 4).width, 4, 'renderSample should not throw on a file sample')
+  }
+  assert.ok(files.some((sample) => sample.id === 'swimsuit'))
+  for (const id of ['monalisa', 'starry', 'wave', 'pearl', 'impression']) assert.ok(files.some((sample) => sample.id === id), `${id} is missing`)
+  // Every file is public domain or under a licence that allows shipping it with credit.
+  assert.equal((credits.match(/\| (Public domain|CC BY [\d.]+|CC BY-SA [\d.]+|CC0)\b/g) || []).length, files.length)
+  assert.match(credits, /swimsuit\.jpg \|[^\n]*Alex Micheu Photography[^\n]*CC BY-SA 2\.0/, 'the swimsuit photo must name its author and licence')
 })

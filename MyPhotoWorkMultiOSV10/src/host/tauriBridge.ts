@@ -137,6 +137,7 @@ export function installTauriBridge() {
 
   window.hostGuideApi = {
     open: (language) => invoke('open_guide', { language }),
+    openTutorial: (language) => invoke('open_tutorial_doc', { language }),
   }
 
   window.hostAppApi = {

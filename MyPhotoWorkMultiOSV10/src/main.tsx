@@ -1,6 +1,8 @@
 import { StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+// Every lucide icon gets a colour (generated: npm run build:icon-colors).
+import './iconColors.css'
 import { installTauriBridge } from './host/tauriBridge.ts'
 import { App, DialogHost, MenuHost } from './routes.ts'
 import type { MenuId } from './commands.ts'

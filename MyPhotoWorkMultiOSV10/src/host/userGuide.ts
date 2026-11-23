@@ -26,3 +26,12 @@ export async function openUserGuide(language: string) {
   }
   window.open(`./doc/index.html?lang=${language === 'en' ? 'en' : 'ko'}`, 'mpw-guide')
 }
+
+/** The tutorial document (doc/tutorial.html): the same kind of window as the guide. */
+export async function openTutorialDoc(language: string) {
+  if (window.hostGuideApi?.openTutorial) {
+    await window.hostGuideApi.openTutorial(language)
+    return
+  }
+  window.open(`./doc/tutorial.html?lang=${language === 'en' ? 'en' : 'ko'}`, 'mpw-tutorial-doc')
+}

@@ -6,6 +6,8 @@
 //   - left: the contents, built from the headings of the language on screen; a click
 //     jumps there, and scrolling marks where you are
 //   - on the desktop the header is the title bar, with the window buttons and a grip
+//   - Print sends the guide in the language on screen to the printer, without the
+//     header and the contents (doc/manual.css, @media print)
 (function () {
   'use strict'
   const body = document.body
@@ -27,8 +29,8 @@
   }
 
   const TEXT = {
-    ko: { title: 'My Photo Work 사용자 설명서', smaller: '글자 작게', larger: '글자 크게', size: '글자 크기', font: '글꼴', fontDefault: '기본 글꼴', min: '최소화', max: '최대화 / 이전 크기', close: '닫기', grip: '끌어서 창 크기 조절' },
-    en: { title: 'My Photo Work User Guide', smaller: 'Smaller text', larger: 'Larger text', size: 'Text size', font: 'Font', fontDefault: 'Default font', min: 'Minimize', max: 'Maximize / restore', close: 'Close', grip: 'Drag to resize the window' },
+    ko: { title: 'My Photo Work 사용자 설명서', smaller: '글자 작게', larger: '글자 크게', size: '글자 크기', font: '글꼴', fontDefault: '기본 글꼴', min: '최소화', max: '최대화 / 이전 크기', close: '닫기', grip: '끌어서 창 크기 조절', print: '인쇄', printHint: '설명서 인쇄 (Ctrl+P)', printTutorialHint: '튜토리얼 문서 인쇄 (Ctrl+P)' },
+    en: { title: 'My Photo Work User Guide', smaller: 'Smaller text', larger: 'Larger text', size: 'Text size', font: 'Font', fontDefault: 'Default font', min: 'Minimize', max: 'Maximize / restore', close: 'Close', grip: 'Drag to resize the window', print: 'Print', printHint: 'Print the guide (Ctrl+P)', printTutorialHint: 'Print the tutorial (Ctrl+P)' },
   }
 
   /* ----------------------------------------------------------------- theme */
@@ -180,6 +182,12 @@
   }
   content.addEventListener('scroll', () => requestAnimationFrame(spy), { passive: true })
 
+  /* ----------------------------------------------------------------- print */
+  // The browser's (or WebView2's) own print dialog; the print stylesheet keeps only the text.
+  const printButton = document.getElementById('print-button')
+  const printLabel = document.getElementById('print-label')
+  printButton.addEventListener('click', () => window.print())
+
   /* ------------------------------------------------------- language switch */
   function setLanguage(next) {
     if (next !== 'ko' && next !== 'en') return
@@ -189,7 +197,8 @@
     body.classList.add(language)
     root.lang = language
     const text = TEXT[language]
-    document.title = text.title
+    // The same script runs the user guide and the tutorial document: each page names itself.
+    document.title = body.dataset[language === 'en' ? 'titleEn' : 'titleKo'] || text.title
     sizeDown.title = text.smaller
     sizeUp.title = text.larger
     sizeNow.title = text.size
@@ -197,6 +206,8 @@
     sizeDown.setAttribute('aria-label', text.smaller)
     sizeUp.setAttribute('aria-label', text.larger)
     fontButton.setAttribute('aria-label', text.font)
+    printLabel.textContent = text.print
+    printButton.title = body.dataset.doc === 'tutorial' ? text.printTutorialHint : text.printHint
     for (const [id, key] of [['win-min', 'min'], ['win-max', 'max'], ['win-close', 'close'], ['grip', 'grip']]) {
       const element = document.getElementById(id)
       element.title = text[key]

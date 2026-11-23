@@ -11,7 +11,8 @@
 export const COLS = 3
 export const ROW = 20
 export const GAP = 14
-const LAYOUT_VERSION = 1
+// 2: the title card left the board and the background card moved below the samples.
+const LAYOUT_VERSION = 2
 
 export type Card = { col: number; row: number; w: number; h: number; fit: boolean }
 export type Cards = Record<string, Card>

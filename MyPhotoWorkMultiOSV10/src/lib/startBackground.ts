@@ -3,7 +3,7 @@ import { ANIMATION_KINDS, type AnimationKind } from './startSettings'
 /**
  * The moving backgrounds of the start screen: one canvas, 30 frames a second times a
  * speed factor, paused while the window is hidden, soft shapes in the theme's colours.
- * All eighteen are about photographs: the lens, the film, the darkroom and the editor.
+ * All twenty are about photographs: the lens, the film, the darkroom and the editor.
  */
 
 type Rgb = number[]
@@ -158,7 +158,7 @@ export class AnimatedBackground {
   seed() {
     const random = seeded(this.kind.length * 7919 + 11)
     this.rand = random
-    const count: Partial<Record<AnimationKind, number>> = { bokeh: 46, contactSheet: 60, kaleidoscope: 14, gradientMesh: 6, lightLeak: 4 }
+    const count: Partial<Record<AnimationKind, number>> = { bokeh: 46, contactSheet: 60, kaleidoscope: 14, gradientMesh: 6, lightLeak: 4, viewfinder: 9, instantPhotos: 12 }
     this.items = Array.from({ length: count[this.kind] ?? 0 }, (_, i) => ({ x: random() * this.w, y: random() * this.h, a: random(), b: random(), c: random(), i }))
     this.strokes = []
   }
@@ -687,5 +687,126 @@ export class AnimatedBackground {
       ctx.restore()
     }
     ctx.restore()
+  }
+
+  /** A camera viewfinder: thirds grid, frame corners, and focus points that hunt and lock. */
+  viewfinder(ctx: Ctx, w: number, h: number, _dt: number, o: Scene) {
+    ctx.strokeStyle = rgba(o.text, 0.16 * o.strength)
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    for (const k of [1 / 3, 2 / 3]) {
+      ctx.moveTo(w * k, 0)
+      ctx.lineTo(w * k, h)
+      ctx.moveTo(0, h * k)
+      ctx.lineTo(w, h * k)
+    }
+    ctx.stroke()
+    const m = Math.min(w, h) * 0.06
+    const arm = Math.min(w, h) * 0.08
+    ctx.strokeStyle = rgba(o.text, 0.32 * o.strength)
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    for (const [x, y, sx, sy] of [[m, m, 1, 1], [w - m, m, -1, 1], [m, h - m, 1, -1], [w - m, h - m, -1, -1]]) {
+      ctx.moveTo(x, y + sy * arm)
+      ctx.lineTo(x, y)
+      ctx.lineTo(x + sx * arm, y)
+    }
+    ctx.stroke()
+    // Each focus point appears, shrinks onto a spot and turns the accent colour when it locks.
+    const fract = (value: number) => value - Math.floor(value)
+    for (const p of this.items) {
+      const cycle = 4 + p.c * 3
+      const run = this.time + p.a * cycle
+      const phase = fract(run / cycle)
+      const slot = Math.floor(run / cycle) + p.i * 13
+      const tx = w * (0.15 + 0.7 * fract(Math.sin(slot * 12.9898) * 43758.5453))
+      const ty = h * (0.15 + 0.7 * fract(Math.sin(slot * 78.233) * 12543.123))
+      const locked = phase > 0.55
+      const size = Math.min(w, h) * (0.05 + (locked ? 0 : 0.05 * (1 - phase / 0.55))) * (0.8 + p.b * 0.5)
+      const fade = Math.sin(Math.PI * phase)
+      ctx.strokeStyle = rgba(locked ? o.accent : o.text, (locked ? 0.75 : 0.4) * fade * o.strength)
+      ctx.lineWidth = locked ? 2 : 1.5
+      const c = size * 0.35
+      ctx.beginPath()
+      for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+        const x = tx + sx * size
+        const y = ty + sy * size
+        ctx.moveTo(x, y - sy * c)
+        ctx.lineTo(x, y)
+        ctx.lineTo(x - sx * c, y)
+      }
+      ctx.stroke()
+      if (locked) glow(ctx, tx, ty, size * 1.6, o.accent, 0.12 * fade * o.strength)
+    }
+    // A blinking record dot and an exposure scale with a moving needle.
+    if (Math.floor(this.time * 1.2) % 2 === 0) {
+      ctx.fillStyle = rgba([235, 64, 64], 0.55 * o.strength)
+      ctx.beginPath()
+      ctx.arc(m + arm * 0.4, m + arm * 1.4, 5, 0, TAU)
+      ctx.fill()
+    }
+    const scaleW = Math.min(w * 0.4, 360)
+    const left = (w - scaleW) / 2
+    const base = h - m * 0.9
+    ctx.fillStyle = rgba(o.text, 0.3 * o.strength)
+    for (let i = 0; i <= 12; i += 1) ctx.fillRect(left + (i / 12) * scaleW - 1, base - (i % 6 === 0 ? 8 : 4), 2, i % 6 === 0 ? 8 : 4)
+    const needle = left + scaleW * (0.5 + 0.35 * Math.sin(this.time * 0.6))
+    ctx.fillStyle = rgba(o.accent, 0.7 * o.strength)
+    ctx.beginPath()
+    ctx.moveTo(needle, base + 2)
+    ctx.lineTo(needle - 5, base + 10)
+    ctx.lineTo(needle + 5, base + 10)
+    ctx.closePath()
+    ctx.fill()
+  }
+
+  /** Instant prints drifting up the screen, their pictures developing from grey into colour. */
+  instantPhotos(ctx: Ctx, w: number, h: number, dt: number, o: Scene) {
+    const unit = Math.max(90, Math.min(w, h) * 0.17)
+    const grey: Rgb = [70, 72, 78]
+    for (const p of this.items) {
+      const card = unit * (0.8 + p.c * 0.5)
+      p.y -= (14 + p.b * 16) * dt
+      p.x += Math.sin(this.time * 0.3 + p.i) * 8 * dt
+      if (p.y < -card * 1.4) {
+        p.y = h + card * 1.2
+        p.x = this.rand() * w
+        p.a = this.rand()
+      }
+      const develop = Math.min(1, Math.max(0, (h + card - p.y) / (h * 0.9)))
+      ctx.save()
+      ctx.translate(p.x, p.y)
+      ctx.rotate(Math.sin(this.time * 0.2 + p.i * 1.7) * 0.18 + (p.b - 0.5) * 0.4)
+      const cw = card
+      const ch = card * 1.2
+      ctx.fillStyle = rgba([0, 0, 0], 0.18 * o.strength)
+      ctx.fillRect(-cw / 2 + 4, -ch / 2 + 6, cw, ch)
+      ctx.fillStyle = rgba([246, 244, 236], 0.45 * o.strength + 0.1)
+      ctx.fillRect(-cw / 2, -ch / 2, cw, ch)
+      const pad = cw * 0.07
+      const pw = cw - pad * 2
+      const px = -cw / 2 + pad
+      const py = -ch / 2 + pad
+      const gradient = ctx.createLinearGradient(0, py, 0, py + pw)
+      gradient.addColorStop(0, rgba(mix(grey, hsl(190 + p.a * 60, 0.6, 0.62), develop), 0.75 * o.strength + 0.15))
+      gradient.addColorStop(1, rgba(mix(grey, hsl(20 + p.a * 120, 0.55, 0.45), develop), 0.75 * o.strength + 0.15))
+      ctx.fillStyle = gradient
+      ctx.fillRect(px, py, pw, pw)
+      ctx.fillStyle = rgba(mix(grey, hsl(40 + p.a * 30, 0.9, 0.7), develop), 0.8 * o.strength)
+      ctx.beginPath()
+      ctx.arc(px + pw * (0.3 + p.c * 0.4), py + pw * 0.32, pw * 0.11, 0, TAU)
+      ctx.fill()
+      ctx.fillStyle = rgba(mix(grey, hsl(140 + p.a * 80, 0.4, 0.3), develop), 0.85 * o.strength)
+      ctx.beginPath()
+      ctx.moveTo(px, py + pw)
+      ctx.lineTo(px + pw * 0.35, py + pw * 0.55)
+      ctx.lineTo(px + pw * 0.6, py + pw * 0.75)
+      ctx.lineTo(px + pw * 0.8, py + pw * 0.5)
+      ctx.lineTo(px + pw, py + pw * 0.8)
+      ctx.lineTo(px + pw, py + pw)
+      ctx.closePath()
+      ctx.fill()
+      ctx.restore()
+    }
   }
 }

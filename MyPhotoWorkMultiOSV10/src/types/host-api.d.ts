@@ -56,6 +56,8 @@ interface Window {
   /** The user guide (doc/index.html) in a window of its own. */
   hostGuideApi?: {
     open(language: string): Promise<void>
+    /** The tutorial document (doc/tutorial.html), styled like the guide. */
+    openTutorial?(language: string): Promise<void>
   }
   /** What the shell says about itself before any page script runs. */
   __MPW_HOST__?: { tauri: string; webview: string; platform: string; arch: string }

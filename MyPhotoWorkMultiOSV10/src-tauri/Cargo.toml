@@ -1,6 +1,6 @@
 [package]
 name = "myphotowork"
-version = "1.0.0"
+version = "1.0.1"
 description = "My Photo Work - Tauri shell around the photo editor"
 authors = ["SHKWON <knix008@naver.com>"]
 license = "MIT"

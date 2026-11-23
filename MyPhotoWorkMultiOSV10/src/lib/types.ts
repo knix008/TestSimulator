@@ -578,6 +578,9 @@ export type AppSettings = {
   tutorialAskOnLaunch: boolean
   /** The right panel is folded away. */
   rightCollapsed: boolean
+  /** The bottom panel (Problems, Errors, Log) is open, and which of its tabs shows. */
+  bottomOpen: boolean
+  bottomTab: 'problems' | 'errors' | 'log'
   /** Open on the start screen. */
   showStartOnLaunch: boolean
   /** The start screen's background and card layout. */
@@ -849,6 +852,8 @@ export const defaultSettings: AppSettings = {
   customThemes: [],
   tutorialAskOnLaunch: true,
   rightCollapsed: false,
+  bottomOpen: true,
+  bottomTab: 'problems',
   showStartOnLaunch: true,
   startBackground: DEFAULT_START_BACKGROUND,
   language: 'ko',

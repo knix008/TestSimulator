@@ -28,6 +28,8 @@ const DEFAULT_WIDTH: f64 = 1680.0;
 const DEFAULT_HEIGHT: f64 = 940.0;
 const TITLE: &str = "My Photo Work V1.0";
 const GUIDE: &str = "guide";
+/// The tutorial document (doc/tutorial.html): a window like the user guide's.
+const TUTORIAL_DOC: &str = "tutorial-doc";
 /// The folder the Electron build used, so models already downloaded are still found.
 const DATA_FOLDER: &str = "My Photo Work V1.0";
 /// Where the Electron build run from source kept its data; models.rs looks there too.
@@ -171,8 +173,10 @@ fn quit(app: &AppHandle) {
     app.state::<Shell>().quitting.store(true, Ordering::SeqCst);
     popups::close_all(app);
     print::close_host(app);
-    if let Some(guide) = app.get_webview_window(GUIDE) {
-        let _ = guide.destroy();
+    for label in [GUIDE, TUTORIAL_DOC] {
+        if let Some(window) = app.get_webview_window(label) {
+            let _ = window.destroy();
+        }
     }
     app.exit(0);
 }
@@ -195,15 +199,28 @@ async fn window_force_close(app: AppHandle) {
 /// sit beside or behind it. A second request raises the open one.
 #[tauri::command]
 async fn open_guide(app: AppHandle, language: String) -> Result<(), String> {
-    if let Some(win) = app.get_webview_window(GUIDE) {
+    open_document(&app, GUIDE, "doc/index.html", TITLE, &language)
+}
+
+/// The tutorial document, in a window of its own styled like the user guide's.
+#[tauri::command]
+async fn open_tutorial_doc(app: AppHandle, language: String) -> Result<(), String> {
+    let title = if language == "en" { "My Photo Work Tutorial" } else { "My Photo Work 튜토리얼 문서" };
+    open_document(&app, TUTORIAL_DOC, "doc/tutorial.html", title, &language)
+}
+
+/// A document page from doc/ (the guide, the tutorial) in a top-level frameless window;
+/// asking again raises the window already open.
+fn open_document(app: &AppHandle, label: &str, page: &str, title: &str, language: &str) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window(label) {
         let _ = win.unminimize();
         let _ = win.show();
         let _ = win.set_focus();
         return Ok(());
     }
     let language = if language == "en" { "en" } else { "ko" };
-    WebviewWindowBuilder::new(&app, GUIDE, WebviewUrl::App(format!("doc/index.html?lang={language}").into()))
-        .title(TITLE)
+    WebviewWindowBuilder::new(app, label, WebviewUrl::App(format!("{page}?lang={language}").into()))
+        .title(title)
         .initialization_script(host_script())
         .inner_size(1180.0, 840.0)
         .min_inner_size(820.0, 480.0)
@@ -275,6 +292,7 @@ pub fn run() {
             window_ready,
             window_force_close,
             open_guide,
+            open_tutorial_doc,
             files::files_open,
             files::files_read,
             files::files_save,

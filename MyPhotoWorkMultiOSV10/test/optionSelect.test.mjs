@@ -37,7 +37,8 @@ test('a custom theme gets a readable colour on its accent too', () => {
 
 test('the options bar uses the drawn drop-down, not a native list', () => {
   const app = read('src/App.tsx')
-  const bar = app.slice(app.indexOf('<div className="options-bar">'), app.indexOf('<div className={`workspace'))
+  // The bar now sits in the centre column, between the document tabs and the canvas.
+  const bar = app.slice(app.indexOf('<div className="options-bar">'), app.indexOf('className="canvas-stage"'))
   assert.doesNotMatch(bar, /<select/, 'a native list has come back to the options bar')
   assert.match(bar, /<OptionSelect/)
   const css = read('src/App.css')
