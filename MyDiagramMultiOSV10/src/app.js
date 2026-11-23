@@ -2114,13 +2114,11 @@ async function openThemePicker(anchor) {
   const lang = getLanguage();
   const current = state.settings.theme;
   const item = (id, extra) => ({ id: `custom:theme:${id}`, label: themeName(id, lang), checked: current === id, ...extra });
-  const group = (key, glyph, list) => ({
-    id: `submenu:${key}`, label: t(key, { count: list.length }), icon: glyph, submenu: true,
-    children: list.map((theme) => item(theme.id, { swatch: theme.swatch })),
-  });
+  // One flat drop-down (no submenus): the dark and the light themes side by side.
+  const column = (key, glyph, list) => ({ title: t(key, { count: list.length }), icon: glyph, items: list.map((theme) => item(theme.id, { swatch: theme.swatch })) });
   const items = [
     item(SYSTEM, { icon: 'sun' }), item(CUSTOM, { icon: 'palette' }), { separator: true },
-    group('theme.darkGroup', 'moon', DARK_THEMES), group('theme.lightGroup', 'sun', LIGHT_THEMES), { separator: true },
+    { columns: [column('theme.darkGroup', 'moon', DARK_THEMES), column('theme.lightGroup', 'sun', LIGHT_THEMES)] }, { separator: true },
     { id: 'custom:theme-edit', label: t('settings.editCustom'), icon: 'edit' },
     { id: 'custom:theme-random', label: t('action.themeRandom'), icon: 'dice' },
   ];

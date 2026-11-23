@@ -60,3 +60,50 @@ test('stencil pictures follow the program theme: light lines and text on Dark, d
   assert.notEqual(masterIcon('line', { doc: darkPanel }), masterIcon('line', { doc: { design: 'office', options: {} } }));
   void readableOn;
 });
+
+test('every stencil picture stands out on the panel, in every program theme and drawing design', async () => {
+  const { THEMES, contrast } = await import('../../src/themes.js');
+  const { DESIGNS, panelDoc } = await import('../../src/domain/designs.js');
+  const { MASTERS } = await import('../../src/domain/stencils.js');
+  const { masterIcon } = await import('../../src/render/svg.js');
+  const shown = MASTERS.filter((m) => m.cat);
+  // The palest and the darkest panels of each kind, and one in between.
+  const byPanel = (list) => [...list].sort((a, b) => contrast(a.colors.panel, '#000000') - contrast(b.colors.panel, '#000000'));
+  const light = byPanel(THEMES.filter((x) => !x.dark));
+  const dark = byPanel(THEMES.filter((x) => x.dark));
+  const themes = [light[0], light[light.length - 1], dark[0], dark[dark.length - 1], dark[Math.floor(dark.length / 2)]];
+  const faint = [];
+  for (const theme of themes) {
+    for (const design of DESIGNS) {
+      const doc = panelDoc({ design: design.id, options: {} }, theme.dark, { panel: theme.colors.panel, text: theme.colors.text });
+      for (const master of shown) {
+        let best = 0;
+        for (const [, color] of masterIcon(master.id, { size: 40, doc }).matchAll(/(?:stroke|fill)="(#[0-9a-f]{6}|#[0-9a-f]{3})"/gi)) best = Math.max(best, contrast(color.length === 4 ? `#${[...color.slice(1)].map((c) => c + c).join('')}` : color, theme.colors.panel));
+        if (best < 2.5) faint.push(`${theme.id}/${design.id}/${master.id}: ${best.toFixed(2)}`);
+      }
+    }
+  }
+  assert.deepEqual(faint.slice(0, 12), [], `${faint.length} faint pictures`);
+});
+
+test('the drawing follows the program theme both ways on screen; a page colour chosen by hand stays', async () => {
+  const { themedDoc, contrastRatio } = await import('../../src/domain/designs.js');
+  const light = { dark: false, surface: '#ffffff', text: '#1d2433', muted: '#667085' };
+  const dark = { dark: true, surface: '#1f232c', text: '#e6e9ef', muted: '#98a1b3' };
+  for (const design of ['blueprint', 'midnight', 'chalkboard', 'graphite']) {
+    const doc = { design, options: {} };
+    const view = themedDoc(doc, { color: '' }, light);
+    assert.equal(designOf(view).dark, false, `${design}: drawn light under a light theme`);
+    assert.equal(pageColor(view, { color: '' }), '#ffffff', `${design}: on the theme's paper`);
+    const box = createShape('rect', { x: 0, y: 0 });
+    const line = resolveShapeStyle(view, box).line;
+    assert.ok(contrastRatio(line, '#ffffff') >= 2.5, `${design}: outline ${line} shows on light paper`);
+    assert.equal(pageColor(doc, { color: '' }), designOf(doc).page, `${design}: saved / printed / exported on its own paper`);
+    assert.equal(themedDoc(doc, { color: '' }, dark), doc, `${design}: a dark design under a dark theme keeps its paper`);
+  }
+  assert.equal(themedDoc({ design: 'office', options: {} }, { color: '#fff3c4' }, dark).viewDark, undefined, 'a page colour chosen by hand stays');
+  assert.equal(themedDoc({ design: 'chalkboard', options: {} }, { color: '#3a0000' }, light).viewLight, undefined, 'also on a light theme');
+  assert.ok(themedDoc({ design: 'chalkboard', options: {} }, { color: '#24312b' }, light).viewLight, 'the design\'s own paper colour counts as no colour');
+  assert.ok(themedDoc({ design: 'office', options: {} }, { color: '' }, dark).viewDark, 'a light design under a dark theme');
+  assert.equal(themedDoc({ design: 'office', options: {} }, { color: '' }, light).viewDark, undefined, 'a light design under a light theme: as it is');
+});

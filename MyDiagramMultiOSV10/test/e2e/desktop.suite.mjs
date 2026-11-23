@@ -328,34 +328,44 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     }
     assert.ok(seen.size >= 4, `${seen.size} different themes`);
   } },
-  { group: '툴바', name: '테마 드롭다운: 드롭다운 메뉴 (다크 20 · 라이트 20 하위 메뉴, 색 견본), 창 밖까지 펼쳐짐', async run(app) {
+  { group: '툴바', name: '테마 드롭다운: 하위 메뉴 없는 드롭다운 메뉴 (다크 20 | 라이트 20 두 열, 색 견본), 창 밖까지 펼쳐짐', async run(app) {
+    await closePopups(app);
+    await sleep(400);
     await app.main.click('[data-command="themeMenu"]');
     const menu = await app.popup('menu');
-    await menu.waitFor(`document.querySelector('[data-id="submenu:theme.darkGroup"]')`);
+    await menu.waitFor(`document.querySelector('.popup-menu.main [data-id="custom:theme:nord"]')`);
     await sleep(250);
-    const info = await menu.eval(`(() => ({ head: document.querySelector('.popup-menu').getAttribute('aria-label'), frame: Boolean(document.querySelector('.popup-head')), ids: [...document.querySelectorAll('.popup-menu.main .menu-item')].map((i) => i.dataset.id) }))()`);
+    const info = await menu.eval(`(() => ({ frame: Boolean(document.querySelector('.popup-head')), subs: document.querySelectorAll('.menu-item.has-sub, .popup-menu.sub').length, top: [...document.querySelectorAll('.popup-menu.main > .menu-item')].map((i) => i.dataset.id), columns: [...document.querySelectorAll('.menu-column')].map((c) => { const items = [...c.querySelectorAll('.menu-item')]; const r = c.getBoundingClientRect(); return { count: items.length, swatches: items.every((i) => i.querySelectorAll('.theme-swatch i').length === 3), left: r.left, top: r.top }; }) }))()`);
     assert.equal(info.frame, false, 'a menu, not a popup window with a title bar');
-    assert.deepEqual(info.ids, ['custom:theme:system', 'custom:theme:custom', 'submenu:theme.darkGroup', 'submenu:theme.lightGroup', 'custom:theme-edit', 'custom:theme-random']);
-    // Just under the dropdown button, as the other dropdown menus.
+    assert.equal(info.subs, 0, 'no submenus');
+    assert.deepEqual(info.top, ['custom:theme:system', 'custom:theme:custom', 'custom:theme-edit', 'custom:theme-random']);
+    assert.deepEqual(info.columns.map((c) => [c.count, c.swatches]), [[20, true], [20, true]], 'dark 20 | light 20, every theme with its colours');
+    assert.ok(info.columns[1].left > info.columns[0].left && Math.abs(info.columns[1].top - info.columns[0].top) < 2, 'side by side');
+    // Just under the dropdown button, as the other dropdown menus, and the whole menu shows.
     const button = await app.main.eval(`(() => { const r = document.querySelector('#toolbar [data-command="themeMenu"]').closest('.split-button').getBoundingClientRect(); const dy = window.screenY + (window.outerHeight - window.innerHeight); return { bottom: dy + r.bottom }; })()`);
+    // (The window is placed once the menu is measured: wait for it to settle.)
+    const under = `Math.abs(window.screenY + document.querySelector('.popup-menu.main').getBoundingClientRect().top - ${button.bottom}) < 16`;
+    await menu.waitFor(under, { timeout: 3000 }).catch(() => {});
     const top = await menu.eval(`window.screenY + document.querySelector('.popup-menu.main').getBoundingClientRect().top`);
     assert.ok(Math.abs(top - button.bottom) < 16, `under the button ${JSON.stringify({ button, top })}`);
-    for (const [group, one] of [['theme.lightGroup', 'solarized'], ['theme.darkGroup', 'nord']]) {
-      const row = await menu.eval(`(() => { const r = document.querySelector('[data-id="submenu:${group}"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
-      await menu.mouse('mouseMoved', row.x - 20, row.y, { button: 'none' });
-      await menu.mouse('mouseMoved', row.x, row.y, { button: 'none' });
-      await menu.waitFor(`document.querySelector('.popup-menu.sub [data-id="custom:theme:${one}"]') && document.querySelectorAll('.popup-menu.sub .menu-item').length === 20`, { timeout: 3000 });
-      assert.ok(await menu.eval(`[...document.querySelectorAll('.popup-menu.sub .menu-item')].every((i) => i.querySelectorAll('.theme-swatch i').length === 3)`), `${group}: every theme with its colours`);
-    }
-    await menu.click('.popup-menu.sub [data-id="custom:theme:nord"]').catch(async () => {
-      const row = await menu.eval(`(() => { const r = document.querySelector('[data-id="submenu:theme.darkGroup"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
-      await menu.mouse('mouseMoved', row.x, row.y, { button: 'none' });
-      await menu.waitFor(`document.querySelector('.popup-menu.sub [data-id="custom:theme:nord"]')`, { timeout: 3000 });
-      await menu.click('.popup-menu.sub [data-id="custom:theme:nord"]');
-    });
+    const fits = await menu.eval(`(() => { const r = document.querySelector('.popup-menu.main').getBoundingClientRect(); return r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1; })()`);
+    assert.ok(fits, 'the whole menu inside its window');
+    await menu.click('.popup-menu.main [data-id="custom:theme:nord"]');
     menu.close();
-    await sleep(400);
+    await app.main.waitFor(`window.__mydiagram.state.settings.theme === 'nord'`, { timeout: 3000 }).catch(() => {});
     assert.equal(await W(app, 'w.state.settings.theme'), 'nord');
+  } },
+  { group: '툴바', name: '드로잉 종이가 프로그램 테마를 따름: 캔버스·이동 창 (다크 디자인 + 라이트 테마, 그 반대)', async run(app) {
+    await freshSample(app);
+    const paper = () => app.main.eval(`(() => ({ canvas: document.querySelector('.page-bg')?.getAttribute('fill'), minimap: document.querySelector('.minimap-svg rect')?.getAttribute('fill'), surface: getComputedStyle(document.documentElement).getPropertyValue('--surface').trim() }))()`);
+    for (const [theme, design] of [['light', 'chalkboard'], ['solarized', 'midnight'], ['nord', 'office'], ['dracula', 'pastel']]) {
+      await W(app, `(a.updateSettings({ theme: '${theme}', showMinimap: true }), a.change('op.design', (doc) => { doc.design = '${design}'; }), a.switchView('drawing'), 1)`);
+      await sleep(500);
+      const info = await paper();
+      assert.equal(info.canvas, info.surface, `${theme}/${design}: canvas paper = theme paper`);
+      assert.equal(info.minimap, info.surface, `${theme}/${design}: Pan & Zoom window paper = theme paper`);
+    }
+    await W(app, `(a.updateSettings({ theme: 'light', showMinimap: false }), 1)`);
   } },
   { group: '툴바', name: '모든 테마에서 글자가 잘 보임 (실제 화면 색 대비)', async run(app) {
     await freshSample(app);
@@ -1616,7 +1626,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.ok(fs.existsSync(file), 'exported after the warning');
     await noErrorPopup(app, 'vsdx warning');
   } },
-  { group: '스텐실', name: '패널의 도형 내부 선은 테마에 따라 옅게, 캔버스는 또렷하게', async run(app) {
+  { group: '스텐실', name: '패널의 도형 내부 선은 조금 옅지만 어느 테마에서나 잘 보임, 캔버스는 또렷하게', async run(app) {
     await freshDrawing(app);
     const before = await W(app, 'w.state.settings.theme');
     const opacity = async () => app.main.eval(`(() => { const line = document.querySelector('.stencil-tile .inner-line'); return line ? Number(getComputedStyle(line).strokeOpacity) : null; })()`);
@@ -1626,8 +1636,8 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await W(app, `(a.updateSettings({ theme: 'dark' }), 1)`);
     await sleep(300);
     const dark = await opacity();
-    assert.ok(light > 0 && light < 1 && dark > 0 && dark < 1, JSON.stringify({ light, dark }));
-    assert.notEqual(light, dark, 'each look has its own');
+    // Softer than the drawing, but not so faint that the picture is hard to see on either theme.
+    assert.ok(light >= 0.8 && light < 1 && dark >= 0.8 && dark < 1, JSON.stringify({ light, dark }));
     await W(app, `(a.addShapeAt('predefined', { x: 300, y: 300, w: 130, h: 70 }), 1)`);
     await sleep(300);
     assert.equal(await app.main.eval(`Number(getComputedStyle(document.querySelector('.canvas-svg .inner-line')).strokeOpacity)`), 1, 'the drawing itself stays clear');

@@ -7,7 +7,7 @@
 // (a canvas in the app, an estimate in Node).
 import { patternById, patternTile } from '../domain/patterns.js';
 import { DEG, rotatePoint } from '../domain/geometry.js';
-import { dashArray, designOf, mix, pageColor, readableOn, resolveConnectorStyle, resolveShapeStyle } from '../domain/designs.js';
+import { contrastRatio, dashArray, designOf, legibleOn, mix, pageColor, readableOn, resolveConnectorStyle, resolveShapeStyle } from '../domain/designs.js';
 import { drawingSize, findShape, isConnector, isGroup, layerState, pageById } from '../domain/diagram.js';
 import { pathBounds } from '../domain/path.js';
 import { routePage } from '../domain/routing.js';
@@ -514,7 +514,48 @@ export function masterIcon(masterId, { size = 40, doc = null } = {}) {
   const ctx = { doc: doc ?? { design: 'office', options: {} }, page: { layers: [], color: '#ffffff' }, measure: estimateMeasure, defs, keyPrefix: 'icon-' };
   const body = shapeSvg(ctx, shape);
   const at = (length) => n((size - length * scale) / 2);
-  return `<svg class="master-icon" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" aria-hidden="true">${defs.length ? `<defs>${defs.join('')}</defs>` : ''}<g transform="translate(${at(master.w)} ${at(master.h)}) scale(${Number(scale.toFixed(5))})">${body}</g></svg>`;
+  const panel = doc?.iconPanel;
+  const inner = `${defs.length ? `<defs>${defs.join('')}</defs>` : ''}<g transform="translate(${at(master.w)} ${at(master.h)}) scale(${Number(scale.toFixed(5))})">${body}</g>`;
+  const visible = /(?:stroke|fill|stop-color)="#[0-9a-f]{3,8}"/i.test(inner);
+  const box = { x: Number(at(master.w)), y: Number(at(master.h)), w: master.w * scale, h: master.h * scale };
+  const content = visible ? (panel ? legibleIcon(inner, panel.bg, panel.ink) : inner) : inkOnlyIcon(master, box, size, panel?.ink ?? '#1f2937');
+  return `<svg class="master-icon" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" aria-hidden="true">${content}</svg>`;
+}
+
+const ICON_COLOR = /\b(stroke|fill|stop-color)="(#[0-9a-f]{3}|#[0-9a-f]{6})"/gi;
+
+/**
+ * A stencil picture made easy to see on the panel (the program theme's background): lines that
+ * do not stand out are moved toward the theme's ink, and when nothing in the picture stands out
+ * (a light fill with no outline on a light panel) the fills are deepened too. Hues are kept.
+ */
+export function legibleIcon(svg, bg, ink) {
+  const best = (text) => {
+    let top = 0;
+    for (const [, , color] of text.matchAll(ICON_COLOR)) top = Math.max(top, contrastRatio(color, bg));
+    return top;
+  };
+  let out = svg.replace(ICON_COLOR, (all, attr, color) => (attr === 'stroke' ? `${attr}="${legibleOn(color, bg, ink, 3)}"` : all));
+  if (best(out) < 3) out = out.replace(ICON_COLOR, (all, attr, color) => (attr === 'stroke' ? all : `${attr}="${legibleOn(color, bg, ink, 2.6)}"`));
+  return out;
+}
+
+/** The picture of a master that draws no lines or fills of its own (text, title, caption, annotation). */
+function inkOnlyIcon(master, box, size, ink) {
+  const font = 'font-family="Segoe UI, Malgun Gothic, sans-serif"';
+  const cy = n(size / 2);
+  if (master.kind === 'annotation') {
+    const x = n(box.x + 2);
+    return `<path d="M${n(x + 6)} ${n(box.y)}H${x}V${n(box.y + box.h)}H${n(x + 6)}" fill="none" stroke="${ink}" stroke-width="1.6" stroke-linecap="round"/>`
+      + `<path d="M${n(x + 9)} ${n(cy - 4)}H${n(box.x + box.w - 2)}M${n(x + 9)} ${n(cy + 1)}H${n(box.x + box.w - 6)}M${n(x + 9)} ${n(cy + 6)}H${n(box.x + box.w - 10)}" stroke="${ink}" stroke-width="1.4" stroke-linecap="round" opacity="0.75"/>`;
+  }
+  const h = Math.max(box.h, size * 0.42);
+  const y = n((size - h) / 2);
+  const fontSize = n(Math.min(h * 0.62, size * 0.36));
+  const bold = (master.style?.bold || (master.style?.fontSize ?? 0) >= 20) ? ' font-weight="700"' : '';
+  const italic = master.style?.italic ? ' font-style="italic"' : '';
+  return `<rect x="${n(box.x + 0.5)}" y="${y}" width="${n(box.w - 1)}" height="${n(h)}" rx="2" fill="none" stroke="${ink}" stroke-width="1" stroke-dasharray="2 2" opacity="0.55"/>`
+    + `<text x="${n(size / 2)}" y="${cy}" text-anchor="middle" dominant-baseline="central" font-size="${fontSize}"${bold}${italic} ${font} fill="${ink}">Abc</text>`;
 }
 
 /** The text colour for a background (used by the canvas for labels on dark pages). */

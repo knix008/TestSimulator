@@ -16,7 +16,7 @@ release/
 /MyDiagram-*.AppImage
 
 # Tutorial video (npm run tutorial:video → MyDiagram-Tutorial.mp4)
-*.mp4
+#*.mp4
 
 # Test runs (npm test)
 test-results/

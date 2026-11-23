@@ -746,14 +746,21 @@ const MENU_MARGIN = 10;
 let menuSize = { width: 0, height: 0 };
 
 function menuPanel(items, label, className) {
+  // { columns: [{ title, icon, items }] }: lists side by side under their headings (the theme
+  // menu's dark | light themes), one flat menu without submenus.
+  const column = (col) => `<div class="menu-column" role="group" aria-label="${escapeHtml(col.title)}"><div class="menu-heading">${icon(col.icon)}<span>${escapeHtml(col.title)}</span></div>${col.items.map((item) => menuRow(item, -1)).join('')}</div>`;
   return `<div class="${className}" role="menu" aria-label="${escapeHtml(label)}">${items.map((item, index) => (item.separator
     ? '<div class="menu-sep" role="separator"></div>'
-    : `<button class="menu-item ${item.danger ? 'danger' : ''} ${item.submenu ? 'has-sub' : ''}" role="menuitem" data-index="${index}" data-id="${escapeHtml(item.id)}" ${item.submenu ? 'aria-haspopup="menu" aria-expanded="false"' : ''} ${item.disabled ? 'disabled aria-disabled="true"' : ''} title="${escapeHtml(item.label)}">
+    : item.columns ? `<div class="menu-columns">${item.columns.map(column).join('')}</div>` : menuRow(item, index))).join('')}</div>`;
+}
+
+function menuRow(item, index) {
+  return `<button class="menu-item ${item.danger ? 'danger' : ''} ${item.submenu ? 'has-sub' : ''}" role="menuitem" data-index="${index}" data-id="${escapeHtml(item.id)}" ${item.submenu ? 'aria-haspopup="menu" aria-expanded="false"' : ''} ${item.disabled ? 'disabled aria-disabled="true"' : ''} title="${escapeHtml(item.label)}">
         <span class="menu-icon">${item.swatch ? `<span class="theme-swatch">${item.swatch.map((color) => `<i style="background:${color}"></i>`).join('')}</span>` : icon(item.icon)}</span>
         <span class="menu-label">${escapeHtml(item.label)}</span>
         <span class="menu-key">${escapeHtml(item.shortcut ?? '')}</span>
         <span class="menu-check">${item.submenu ? icon('chevronRight') : item.checked ? icon('check') : ''}</span>
-      </button>`)).join('')}</div>`;
+      </button>`;
 }
 
 function placeMenuWindow(x, y, width, height, flipY = null) {

@@ -221,7 +221,7 @@ export function applyTheme(theme, root = globalThis.document?.documentElement) {
   for (const [name, value] of Object.entries(themeVariables(theme))) root.style.setProperty(name, value);
   root.dataset.theme = theme.id;
   root.style.colorScheme = theme.dark ? 'dark' : 'light';
-  root.style.setProperty('--stencil-inner-opacity', theme.dark ? '0.6' : '0.45');
+  root.style.setProperty('--stencil-inner-opacity', '0.85');
 }
 
 /** localStorage key of the colours the document windows use (scripts/build-docs.mjs reads it). */

@@ -5,6 +5,8 @@ import { icon } from '../icons.js';
 import { escapeHtml } from '../ui/dom.js';
 import { formatLength, isConnector } from '../domain/diagram.js';
 import { renderPageSvg } from '../render/svg.js';
+import { themedDoc } from '../domain/designs.js';
+import { screenTheme } from './screen-theme.js';
 
 export class PagesView {
   constructor(app, host) {
@@ -47,7 +49,7 @@ export class PagesView {
     const doc = this.app.doc().doc;
     const current = this.app.page()?.id;
     const card = (page) => {
-      const { svg } = renderPageSvg(doc, page, { measure: this.app.measure, language: this.app.language() });
+      const { svg } = renderPageSvg(themedDoc(doc, page, screenTheme()), page, { measure: this.app.measure, language: this.app.language() });
       const shapes = page.shapes.filter((s) => !isConnector(s) && s.type !== 'group').length;
       const connectors = page.shapes.filter(isConnector).length;
       const background = page.backgroundId ? doc.pages.find((p) => p.id === page.backgroundId)?.name : '';

@@ -10,7 +10,8 @@ import { center, clamp, dist, pageToLocal, rectContains, rectInside, rotatePoint
 import { contentBounds, createConnector, createShape, drawingSize, findShape, formatLength, isConnector, isGroup, layerState, pagePoints, topLevel, withMembers, containedShapes } from '../domain/diagram.js';
 import { glueTarget } from '../domain/routing.js';
 import { masterById, shapeParams } from '../domain/stencils.js';
-import { pageColor, designById, designOf, isWhitePaper } from '../domain/designs.js';
+import { pageColor, designOf, themedDoc } from '../domain/designs.js';
+import { screenTheme } from './screen-theme.js';
 import { pageBody, renderPageSvg, DEFAULT_FONT } from '../render/svg.js';
 import { CANVAS_ZOOM, GRID_SIZES } from '../domain/settings.js';
 import { escapeHtml, frameThrottle } from '../ui/dom.js';
@@ -312,15 +313,11 @@ export class CanvasView {
   }
 
   /**
-   * The document as drawn on screen. Under a dark program theme a light design on white paper
-   * follows the theme: the theme's paper, light text and lines (designOf). Only the screen.
+   * The document as drawn on screen: in the program theme's brightness, on the theme's paper
+   * (designs.js themedDoc), both ways: a light design on a dark theme, a dark one on a light theme.
    */
-  viewDoc(doc) {
-    const root = document.documentElement;
-    if (root.style.colorScheme !== 'dark' || designById(doc.design).dark || !isWhitePaper(this.page?.color)) return doc;
-    const css = getComputedStyle(root);
-    const v = (name, fallback) => css.getPropertyValue(name).trim() || fallback;
-    return { ...doc, viewDark: { page: v('--surface', '#1f232c'), text: v('--text', '#e6e9ef'), connector: v('--muted', '#98a1b3') } };
+  viewDoc(doc, page = this.page) {
+    return themedDoc(doc, page, screenTheme());
   }
 
   /** Page background, grid, page breaks (under the shapes) and guides (over them). */
@@ -1628,7 +1625,7 @@ export class CanvasView {
     if (!show || !this.doc) return;
     const doc = this.doc.doc;
     const box = this.drawingBox();
-    const { svg } = renderPageSvg(doc, this.page, { area: 'box', box, measure: this.measure, routes: this.routes(), language: this.app.language() });
+    const { svg } = renderPageSvg(this.viewDoc(doc), this.page, { area: 'box', box, measure: this.measure, routes: this.routes(), language: this.app.language() });
     const holder = this.minimap.querySelector('.minimap-svg');
     holder.outerHTML = svg.replace('<svg ', '<svg class="minimap-svg" preserveAspectRatio="xMidYMid meet" ').replace(/ width="\d+" height="\d+"/, ' width="100%" height="100%"');
     this.drawMinimapView();

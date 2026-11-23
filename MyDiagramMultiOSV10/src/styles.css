@@ -719,6 +719,15 @@ html.popup-kind-menu, html.popup-kind-menu body { background: transparent; }
 .menu-key { justify-self: end; padding-left: 28px; font-size: 0.82em; opacity: 0.7; }
 .menu-check .icon { width: 15px; height: 15px; }
 .menu-sep { height: 1px; margin: 4px 6px; background: var(--border); }
+/* A menu with lists side by side (the theme menu: dark | light), no submenus. */
+.menu-columns { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(190px, max-content); gap: 0 6px; }
+.menu-column { display: flex; flex-direction: column; min-width: 0; }
+.menu-column + .menu-column { padding-left: 6px; border-left: 1px solid var(--border); }
+.menu-heading { display: flex; align-items: center; gap: 7px; height: 26px; padding: 0 8px; font-size: 0.82em; font-weight: 600; color: var(--muted); }
+.menu-heading .icon { width: 15px; height: 15px; }
+.menu-columns .menu-item { height: 26px; }
+/* A row with colour swatches (themes): the icon column as wide as the swatch. */
+.menu-item:has(> .menu-icon .theme-swatch) { grid-template-columns: auto auto 1fr 18px; }
 .mode-icon { display: inline-grid; place-items: center; color: var(--accent); }
 .mode-icon.manual { color: var(--warning); }
 
@@ -1249,12 +1258,12 @@ html.popup-kind-color body, html.popup-kind-color #app { background: var(--surfa
 .design-select:hover { border-color: var(--accent); }
 
 /* Shapes panel: the lines on a shape's fill are softer than in the drawing, by the theme's look. */
-.stencil-tile .inner-line { stroke-opacity: var(--stencil-inner-opacity, 0.5); fill-opacity: var(--stencil-inner-opacity, 0.5); }
+.stencil-tile .inner-line { stroke-opacity: var(--stencil-inner-opacity, 0.85); fill-opacity: var(--stencil-inner-opacity, 0.85); }
 
-/* Every "x" button (the close icon alone, no label) turns red under the pointer; "Later" and other
+/* Every "x" button (the close icon alone, no label) turns solid red with a white x under the pointer, as the window close button; "Later" and other
    labelled buttons keep the normal look. The icon colour is inline, hence !important. */
-button:hover:has(> svg[data-icon="close"]):not(:has(> span)):not(:disabled) { color: var(--danger) !important; background-color: color-mix(in srgb, var(--danger) 18%, transparent) !important; border-color: color-mix(in srgb, var(--danger) 55%, transparent) !important; }
-button:hover:not(:has(> span)) > svg[data-icon="close"] { color: var(--danger) !important; }
+button:hover:has(> svg[data-icon="close"]):not(:has(> span)):not(:disabled) { color: #fff !important; background: var(--danger) !important; border-color: var(--danger) !important; }
+button:hover:not(:has(> span)):not(:disabled) > svg[data-icon="close"] { color: #fff !important; }
 
 /* Print window for a document (user's guide, tutorial): the page itself on a sheet of the chosen paper. */
 .doc-print-preview { display: grid; place-items: center; overflow: hidden; }

@@ -313,17 +313,14 @@ export const cases = [
       await closeFrames(app);
     }
   } },
-  { group: '테마', name: '테마 드롭다운: 드롭다운 메뉴, 다크 20 · 라이트 20 하위 메뉴 (실제 마우스)', async run(app) {
+  { group: '테마', name: '테마 드롭다운: 하위 메뉴 없는 드롭다운 메뉴, 다크 20 | 라이트 20 두 열', async run(app) {
     await app.main.click('[data-command="themeMenu"]');
-    await app.waitFrame('menu', `document.querySelector('[data-id="submenu:theme.lightGroup"]')`);
+    await app.waitFrame('menu', `document.querySelector('.popup-menu.main [data-id="custom:theme:solarized"]')`);
     assert.equal(await app.frame('menu', `Boolean(document.querySelector('.popup-head'))`), false, 'a menu, not a popup window');
-    // Each group opens its own 20 themes (waiting for one of them: both groups have 20).
-    for (const [group, one] of [['theme.darkGroup', 'nord'], ['theme.lightGroup', 'solarized']]) {
-      await hoverMenu(app, `[data-id="submenu:${group}"]`);
-      await app.waitFrame('menu', `document.querySelector('.popup-menu.sub [data-id="custom:theme:${one}"]') && document.querySelectorAll('.popup-menu.sub .menu-item').length === 20`, 3000);
-    }
+    assert.equal(await app.frame('menu', `document.querySelectorAll('.menu-item.has-sub, .popup-menu.sub').length`), 0, 'no submenus');
+    assert.deepEqual(await app.frame('menu', `[...document.querySelectorAll('.menu-column')].map((c) => c.querySelectorAll('.menu-item').length)`), [20, 20], 'dark 20 | light 20');
     assert.deepEqual(await app.frame('menu', CLIP_CHECK), [], 'theme names are not cut off');
-    await app.frame('menu', `(document.querySelector('.popup-menu.sub [data-id="custom:theme:solarized"]').click(), 1)`);
+    await app.frame('menu', `(document.querySelector('.popup-menu.main [data-id="custom:theme:solarized"]').click(), 1)`);
     await sleep(300);
     assert.equal(await W(app, 'w.state.settings.theme'), 'solarized');
   } },

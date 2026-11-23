@@ -460,7 +460,7 @@ Pick one of the theme's six colours with **Fill**, **Subtle**, **Outline**, **In
 
 Office · Linear · Facet · Integral · Ion · Retrospect · Slice · Whisp · Organic · Bubble · Sequence · Radiance · Monochrome · Pastel · Ocean · Sunset · Blueprint · Midnight · Chalkboard · Graphite
 
-Under a dark program theme, a light-themed drawing on white paper is shown on dark paper with light text and lines, to match; saving, printing and export keep its real colours. The **Fill** quick style is a pastel tone of the theme colour with an outline in the colour itself.
+On screen the drawing paper follows the program theme: under a dark theme a light design is shown on dark paper with light text and lines, and under a light theme a dark design (Blueprint, Midnight, Chalkboard, Graphite) is shown on light paper with dark text and lines — on the canvas, in the Pan & Zoom window and in the page overview alike. A page colour you chose yourself stays; saving, printing, presenting and export keep the real colours. The **Fill** quick style is a pastel tone of the theme colour with an outline in the colour itself.
 
 A theme restyles every shape you have not formatted by hand, and sets the page colour. **Design › Next variant** steps through the variants. The theme of a drawing is also in the **Drawing** section of the properties panel, and **Settings › New drawings › Default theme** chooses it for new drawings.
 
@@ -886,7 +886,7 @@ On Windows **Print** prints straight to the chosen printer, without a dialog. A 
 The program's own colours (not the drawing's design) come from a theme.
 
 - The **Random theme** toolbar button picks a different theme at random on every press; its tooltip names the current theme.
-- The ▾ next to it (**Choose theme**) is a drop-down menu (it may reach past the window): **System setting** (follows the OS) · **Custom**, the submenus **Dark (20)** and **Light (20)** with each theme's colours, **Edit custom theme…** and **Random theme**.
+- The ▾ next to it (**Choose theme**) is a drop-down menu (it may reach past the window): **System setting** (follows the OS) · **Custom**, **Dark (20)** | **Light (20)** side by side in two columns, no submenus, with each theme's colours, **Edit custom theme…** and **Random theme**.
 - **Settings › Theme** tab: Dark 20 · Light 20 · Custom groups. Custom lets you change Background · Surface · Panel · Text · Dim text · Border · Accent · Text on accent · Striped rows · Chart background · Toolbar · Status bar one by one, with **Use the custom theme**, **Copy the current theme's colors** and a **Dark theme** switch. Low contrast shows the warning "Text may be hard to read".
 
 ### Language

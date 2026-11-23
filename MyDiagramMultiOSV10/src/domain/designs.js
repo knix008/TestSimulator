@@ -50,9 +50,28 @@ export function designOf(doc) {
   const d = designById(doc?.design);
   const v = doc?.viewDark;
   if (v && !d.dark) return { ...d, dark: true, page: v.page, text: v.text, connector: v.connector };
-  // The other way round (stencil pictures in a light panel): a dark design drawn as a light one.
-  if (doc?.viewLight && d.dark) return { ...d, dark: false, page: '#ffffff', text: '#1f2937', connector: '#4b5563' };
+  // The other way round (a light program theme; stencil pictures in a light panel): a dark design
+  // drawn as a light one, on the theme's paper. `viewLight` is true or { page, text, connector }.
+  const l = doc?.viewLight;
+  if (l && d.dark) return { ...d, dark: false, page: l.page ?? '#ffffff', text: l.text ?? '#1f2937', connector: l.connector ?? '#4b5563' };
   return d;
+}
+
+/** Whether a page shows the design's own paper (no colour chosen for it by hand). */
+export const isDefaultPaper = (color, designId) => !color || isWhitePaper(color) || String(color).trim().toLowerCase() === designById(designId).page.toLowerCase();
+
+/**
+ * The drawing as the screen shows it under the program theme: a light design on a dark theme, or a
+ * dark design on a light theme, is drawn in the theme's brightness on the theme's paper. A page
+ * colour chosen by hand stays. theme = { dark, surface, text, muted } (the theme's CSS colours).
+ * Saving, printing, presenting and export use the document itself.
+ */
+export function themedDoc(doc, page, theme) {
+  if (!doc || !theme) return doc;
+  const d = designById(doc.design);
+  if (theme.dark && !d.dark && isWhitePaper(page?.color)) return { ...doc, viewDark: { page: theme.surface || '#1f232c', text: theme.text || '#e6e9ef', connector: theme.muted || '#98a1b3' } };
+  if (!theme.dark && d.dark && isDefaultPaper(page?.color, doc.design)) return { ...doc, viewLight: { page: theme.surface || '#ffffff', text: theme.text || '#1f2937', connector: theme.muted || '#4b5563' } };
+  return doc;
 }
 
 /**
@@ -63,9 +82,11 @@ export function designOf(doc) {
 export function panelDoc(doc, themeDark, colors = {}) {
   const base = doc ?? { design: 'office', options: {} };
   const d = designById(base.design);
-  if (themeDark && !d.dark) return { ...base, viewDark: { page: colors.panel || '#1b1f27', text: colors.text || '#e6e9ef', connector: colors.text || '#e6e9ef' } };
-  if (!themeDark && d.dark) return { ...base, viewLight: true };
-  return base;
+  // The panel's background and ink: masterIcon lifts every colour that would not show on it.
+  const iconPanel = { bg: colors.panel || (themeDark ? '#1b1f27' : '#ffffff'), ink: colors.text || (themeDark ? '#e6e9ef' : '#1f2937') };
+  if (themeDark && !d.dark) return { ...base, iconPanel, viewDark: { page: iconPanel.bg, text: iconPanel.ink, connector: iconPanel.ink } };
+  if (!themeDark && d.dark) return { ...base, iconPanel, viewLight: true };
+  return { ...base, iconPanel };
 }
 
 /** Whether a page colour is plain white (the default paper). */
@@ -107,6 +128,22 @@ export function luminance(hex) {
     return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
   });
   return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+}
+
+/** WCAG contrast ratio of two colours (1 … 21). */
+export function contrastRatio(a, b) {
+  const [x, y] = [luminance(a), luminance(b)].sort((m, k) => k - m);
+  return (x + 0.05) / (y + 0.05);
+}
+
+/** `color`, mixed toward `ink` just far enough to reach `min` contrast on `bg` (keeps its hue as long as it can). */
+export function legibleOn(color, bg, ink, min) {
+  if (contrastRatio(color, bg) >= min) return color;
+  for (let step = 1; step <= 10; step++) {
+    const mixed = mix(color, ink, step / 10);
+    if (contrastRatio(mixed, bg) >= min) return mixed;
+  }
+  return ink;
 }
 
 /** Black or white, whichever reads better on `bg`. */
@@ -156,6 +193,9 @@ export function resolveShapeStyle(doc, shape) {
     // On dark paper the outline is the accent lightened (a darkened one would vanish there).
     default: { const fill = pastelOf(accent, d.dark); style = { fill, line: d.dark ? mix(accent, '#ffffff', 0.35) : mix(accent, '#000000', 0.15), textColor: readableOn(fill) }; }
   }
+  // Drawn in the other brightness on screen (a dark design on a light theme, or the reverse): the
+  // design's accents were made for the other paper, so its lines are kept easy to see.
+  if ((doc?.viewLight || doc?.viewDark) && isColor(style.line)) style.line = legibleOn(style.line, d.page, d.dark ? '#ffffff' : '#1f2937', 2.5);
   const out = {
     fillPattern: d.gradient && variant === 'fill' ? 'linear' : 'solid', fill2: d.gradient && variant === 'fill' ? mix(accent, '#000000', 0.18) : '#ffffff', gradientAngle: 90, fillOpacity: 100,
     lineWidth: d.lineWidth, dash: 'solid', lineOpacity: 100, rounding: d.rounding, shadow: d.shadow, shadowColor: 'rgba(0,0,0,0.25)', opacity: 100,
@@ -184,7 +224,7 @@ export function resolveConnectorStyle(doc, connector) {
 }
 
 /** The page colour: the page's own, else the design's. */
-export const pageColor = (doc, page) => (doc?.viewDark && !designById(doc.design).dark ? doc.viewDark.page : doc?.viewLight && designById(doc.design).dark ? '#ffffff' : page?.color || designById(doc?.design).page);
+export const pageColor = (doc, page) => (doc?.viewDark && !designById(doc.design).dark ? doc.viewDark.page : doc?.viewLight && designById(doc.design).dark ? (doc.viewLight.page ?? '#ffffff') : page?.color || designById(doc?.design).page);
 
 /** SVG stroke-dasharray for a dash name at a line width. */
 export function dashArray(dash, width = 1) {
