@@ -1,0 +1,412 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:20.956Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk17g1xk3t",
+  "title": "식당 조직도",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:20.956Z",
+  "design": "organic",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk17g1xl4n",
+    "name": "식당 조직도",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk17g1xmqz",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "식당 조직도",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17g1xn92",
+      "type": "shape",
+      "master": "orgExecutive",
+      "name": "",
+      "x": 329.86175115207374,
+      "y": 80,
+      "w": 266.3594470046083,
+      "h": 125.34562211981567,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "사장",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17g1xomu",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 40,
+      "y": 280.55299539170505,
+      "w": 250.69124423963135,
+      "h": 109.67741935483872,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "주방장",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17g1xp9m",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 494.37788018433184,
+      "y": 280.55299539170505,
+      "w": 250.69124423963135,
+      "h": 109.67741935483872,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "홀 매니저",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17g1xqzt",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 47.83410138248848,
+      "y": 465.4377880184332,
+      "w": 235.0230414746544,
+      "h": 109.67741935483872,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "부주방장",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17g1xrd2",
+      "type": "shape",
+      "master": "orgStaff",
+      "name": "",
+      "x": 47.83410138248848,
+      "y": 650.3225806451613,
+      "w": 235.0230414746544,
+      "h": 109.67741935483872,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "조리사 3명",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17g1xsun",
+      "type": "shape",
+      "master": "orgStaff",
+      "name": "",
+      "x": 353.3640552995392,
+      "y": 465.4377880184332,
+      "w": 235.0230414746544,
+      "h": 109.67741935483872,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "서빙 4명",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17g1xtgi",
+      "type": "shape",
+      "master": "orgStaff",
+      "name": "",
+      "x": 651.0599078341014,
+      "y": 465.4377880184332,
+      "w": 235.0230414746544,
+      "h": 109.67741935483872,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "계산원",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17g1xukl",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17g1xn92",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17g1xomu",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17g1xvcg",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17g1xn92",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17g1xp9m",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17g1xwlz",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17g1xomu",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17g1xqzt",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17g1xx30",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17g1xqzt",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17g1xrd2",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17g1xypx",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17g1xp9m",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17g1xsun",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17g1xzqt",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17g1xp9m",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17g1xtgi",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "org"
+  ]
+ }
+}

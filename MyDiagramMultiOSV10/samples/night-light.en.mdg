@@ -1,0 +1,356 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.284Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1gk6fk7e",
+  "title": "Night Light",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.284Z",
+  "design": "chalkboard",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1gk6fl1u",
+    "name": "Night Light",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1gk6fm9p",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Night Light",
+      "style": {
+       "align": "left",
+       "textColor": "#f4f1de",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1gk6fnct",
+      "type": "shape",
+      "master": "logicVcc",
+      "name": "",
+      "x": 160,
+      "y": 140,
+      "w": 40,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "5 V",
+      "style": {
+       "textColor": "#f4f1de",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1gk6foup",
+      "type": "shape",
+      "master": "elecVarResistor",
+      "name": "",
+      "x": 360,
+      "y": 150,
+      "w": 100,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Light sensor",
+      "style": {
+       "textColor": "#f4f1de",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1gk6fpj1",
+      "type": "shape",
+      "master": "transistor",
+      "name": "",
+      "x": 600,
+      "y": 140,
+      "w": 70,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Transistor",
+      "style": {
+       "textColor": "#f4f1de",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1gk6fq14",
+      "type": "shape",
+      "master": "elecLed",
+      "name": "",
+      "x": 820,
+      "y": 160,
+      "w": 90,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "LED",
+      "style": {
+       "textColor": "#f4f1de",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1gk6fri4",
+      "type": "shape",
+      "master": "ground",
+      "name": "",
+      "x": 820,
+      "y": 420,
+      "w": 50,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Ground",
+      "style": {
+       "textColor": "#f4f1de",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1gk6fsz0",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1gk6fnct",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1gk6foup",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1gk6ftrr",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1gk6foup",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1gk6fpj1",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1gk6fuid",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1gk6fpj1",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1gk6fq14",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1gk6fv9s",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1gk6fq14",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1gk6fri4",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk1gk6fw65",
+      "type": "shape",
+      "master": "note",
+      "name": "",
+      "x": 40,
+      "y": 490,
+      "w": 240,
+      "h": 110,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "In the dark the sensor resistance rises and the LED lights.",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "electrical",
+   "logic"
+  ]
+ }
+}

@@ -1,0 +1,686 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:20.918Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk16e1hgtj",
+  "title": "데이터 센터",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:20.918Z",
+  "design": "blueprint",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk16e1hhvr",
+    "name": "데이터 센터",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk16e1hiqg",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 37.00355029585799,
+      "y": 16.651597633136095,
+      "w": 573.5550295857988,
+      "h": 46.25443786982249,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "데이터 센터",
+      "style": {
+       "align": "left",
+       "textColor": "#e3f2fd",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16e1hjxx",
+      "type": "shape",
+      "master": "netWan",
+      "name": "",
+      "x": 226.6467455621302,
+      "y": 74.00710059171598,
+      "w": 120.26153846153848,
+      "h": 78.63254437869823,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "외부 회선",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16e1hk54",
+      "type": "shape",
+      "master": "firewall",
+      "name": "",
+      "x": 245.1485207100592,
+      "y": 202.5944378698225,
+      "w": 83.25798816568049,
+      "h": 64.75621301775149,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "방화벽 이중화",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16e1hl2y",
+      "type": "shape",
+      "master": "netLoadBalancer",
+      "name": "",
+      "x": 245.1485207100592,
+      "y": 317.30544378698227,
+      "w": 83.25798816568049,
+      "h": 55.50532544378699,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "부하 분산기",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16e1hm1j",
+      "type": "shape",
+      "master": "switch",
+      "name": "",
+      "x": 235.8976331360947,
+      "y": 422.76556213017756,
+      "w": 101.75976331360948,
+      "h": 46.25443786982249,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "스파인 스위치",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16e1hnxa",
+      "type": "shape",
+      "master": "rack",
+      "name": "",
+      "x": 85.5707100591716,
+      "y": 518.9747928994084,
+      "w": 64.75621301775149,
+      "h": 111.01065088757397,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "랙 A",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16e1hof6",
+      "type": "shape",
+      "master": "rack",
+      "name": "",
+      "x": 240.52307692307696,
+      "y": 518.9747928994084,
+      "w": 64.75621301775149,
+      "h": 111.01065088757397,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "랙 B",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16e1hp54",
+      "type": "shape",
+      "master": "rack",
+      "name": "",
+      "x": 409.35177514792906,
+      "y": 518.9747928994084,
+      "w": 64.75621301775149,
+      "h": 111.01065088757397,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "랙 C",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16e1hqef",
+      "type": "shape",
+      "master": "netWebServer",
+      "name": "",
+      "x": 37.00355029585799,
+      "y": 689.1911242603551,
+      "w": 55.50532544378699,
+      "h": 83.25798816568049,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "웹 서버",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16e1hrnm",
+      "type": "shape",
+      "master": "netAppServer",
+      "name": "",
+      "x": 245.1485207100592,
+      "y": 689.1911242603551,
+      "w": 55.50532544378699,
+      "h": 83.25798816568049,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "앱 서버",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16e1hsqi",
+      "type": "shape",
+      "master": "netDbCluster",
+      "name": "",
+      "x": 346.90828402366867,
+      "y": 693.8165680473373,
+      "w": 83.25798816568049,
+      "h": 74.00710059171598,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "DB 클러스터",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16e1htay",
+      "type": "shape",
+      "master": "netNasRack",
+      "name": "",
+      "x": 471.7952662721894,
+      "y": 679.9402366863906,
+      "w": 64.75621301775149,
+      "h": 101.75976331360948,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "스토리지",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16e1huc3",
+      "type": "shape",
+      "master": "netUps",
+      "name": "",
+      "x": 134.13786982248521,
+      "y": 689.1911242603551,
+      "w": 64.75621301775149,
+      "h": 83.25798816568049,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "무정전 전원",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk16e1hvw5",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16e1hjxx",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16e1hk54",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16e1hw0r",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16e1hk54",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16e1hl2y",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16e1hxs7",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16e1hl2y",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16e1hm1j",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16e1hynm",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16e1hm1j",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16e1hnxa",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16e1hzsq",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16e1hm1j",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16e1hof6",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16e1i000",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16e1hm1j",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16e1hp54",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16e1i1fi",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16e1hnxa",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16e1hqef",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16e1i2i9",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16e1hof6",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16e1hrnm",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16e1i30g",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16e1hp54",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16e1hsqi",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16e1i4nd",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16e1hp54",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16e1htay",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16e1i543",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16e1hnxa",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16e1huc3",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "network"
+  ]
+ }
+}

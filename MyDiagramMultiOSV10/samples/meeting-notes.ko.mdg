@@ -1,0 +1,643 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.035Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk19n31cst",
+  "title": "회의 정리",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.035Z",
+  "design": "whisp",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk19n31dn5",
+    "name": "회의 정리",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk19n31ejk",
+      "type": "shape",
+      "master": "centralTopic",
+      "name": "",
+      "x": 440.0000000000001,
+      "y": 375.00000000000006,
+      "w": 180,
+      "h": 90,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "주간 회의",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19n31fwp",
+      "type": "shape",
+      "master": "mainTopic",
+      "name": "",
+      "x": 646.1954618136543,
+      "y": 299.6239569296599,
+      "w": 140,
+      "h": 56,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "결정",
+      "style": {},
+      "qs": {
+       "color": 1
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk19n31gsm",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19n31ejk",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19n31fwp",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk19n31h8v",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 685,
+      "y": 80,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "출시일 확정",
+      "style": {},
+      "qs": {
+       "color": 1,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk19n31iqg",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19n31fwp",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19n31h8v",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk19n31jyb",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 900,
+      "y": 400.00000000000006,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "예산 승인",
+      "style": {},
+      "qs": {
+       "color": 1,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk19n31kev",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19n31fwp",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19n31jyb",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk19n31l6s",
+      "type": "shape",
+      "master": "mainTopic",
+      "name": "",
+      "x": 460.0000000000002,
+      "y": 576.7520861406803,
+      "w": 140,
+      "h": 56,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "할 일",
+      "style": {},
+      "qs": {
+       "color": 2
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk19n31mhh",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19n31ejk",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19n31l6s",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk19n31n4u",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 685.0000000000003,
+      "y": 720,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "디자인 수정",
+      "style": {},
+      "qs": {
+       "color": 2,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk19n31o8m",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19n31l6s",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19n31n4u",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk19n31plh",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 255.0000000000001,
+      "y": 720,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "고객 인터뷰",
+      "style": {},
+      "qs": {
+       "color": 2,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk19n31q6c",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19n31l6s",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19n31plh",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk19n31r8c",
+      "type": "shape",
+      "master": "mainTopic",
+      "name": "",
+      "x": 245.00000000000006,
+      "y": 392.0000000000001,
+      "w": 140,
+      "h": 56,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "위험",
+      "style": {},
+      "qs": {
+       "color": 3
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk19n31stc",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19n31ejk",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19n31r8c",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk19n31tat",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 40,
+      "y": 400.0000000000002,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "인력 부족",
+      "style": {},
+      "qs": {
+       "color": 3,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk19n31uuf",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19n31r8c",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19n31tat",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk19n31vc5",
+      "type": "shape",
+      "master": "mainTopic",
+      "name": "",
+      "x": 352.4999999999997,
+      "y": 232.0000000000001,
+      "w": 140,
+      "h": 56,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "다음 회의",
+      "style": {},
+      "qs": {
+       "color": 4
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk19n31wr4",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19n31ejk",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19n31vc5",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk19n31xu9",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 254.99999999999955,
+      "y": 80.0000000000003,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "화요일 10시",
+      "style": {},
+      "qs": {
+       "color": 4,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk19n31ymz",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19n31vc5",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19n31xu9",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk19n31z1i",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "회의 정리",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "mind",
+   "basic"
+  ]
+ }
+}

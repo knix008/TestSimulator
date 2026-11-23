@@ -1,0 +1,359 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:20.992Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk18g2ge8r",
+  "title": "LED 표시등",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:20.992Z",
+  "design": "chalkboard",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk18g2gf41",
+    "name": "LED 표시등",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk18g2gg92",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "LED 표시등",
+      "style": {
+       "align": "left",
+       "textColor": "#f4f1de",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk18g2ghzc",
+      "type": "shape",
+      "master": "logicVcc",
+      "name": "",
+      "x": 180,
+      "y": 140,
+      "w": 40,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "5 V",
+      "style": {
+       "textColor": "#f4f1de",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk18g2giwj",
+      "type": "shape",
+      "master": "resistor",
+      "name": "",
+      "x": 380,
+      "y": 155,
+      "w": 100,
+      "h": 30,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "220 Ω",
+      "style": {
+       "textColor": "#f4f1de",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk18g2gj8e",
+      "type": "shape",
+      "master": "elecLed",
+      "name": "",
+      "x": 620,
+      "y": 160,
+      "w": 90,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "LED",
+      "style": {
+       "textColor": "#f4f1de",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk18g2gkns",
+      "type": "shape",
+      "master": "ground",
+      "name": "",
+      "x": 820,
+      "y": 400,
+      "w": 50,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "접지",
+      "style": {
+       "textColor": "#f4f1de",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk18g2glje",
+      "type": "shape",
+      "master": "switchElec",
+      "name": "",
+      "x": 380,
+      "y": 400,
+      "w": 100,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "누름 스위치",
+      "style": {
+       "textColor": "#f4f1de",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk18g2gmpe",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk18g2ghzc",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk18g2giwj",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk18g2gnmv",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk18g2giwj",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk18g2gj8e",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk18g2gol2",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk18g2gj8e",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk18g2gkns",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk18g2gp8e",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk18g2ghzc",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk18g2glje",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk18g2gqhf",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk18g2glje",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk18g2gkns",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "electrical",
+   "logic"
+  ]
+ }
+}

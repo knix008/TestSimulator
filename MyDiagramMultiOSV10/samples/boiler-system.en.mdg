@@ -1,0 +1,363 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.230Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1f25sjzx",
+  "title": "Boiler System",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.230Z",
+  "design": "blueprint",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1f25skae",
+    "name": "Boiler System",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1f25sly6",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 17.72830188679245,
+      "w": 610.6415094339623,
+      "h": 49.24528301886792,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Boiler System",
+      "style": {
+       "align": "left",
+       "textColor": "#e3f2fd",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1f25sm1p",
+      "type": "shape",
+      "master": "pidTank",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 127.90017919257932,
+      "w": 112.24623168546432,
+      "h": 182.40012648887952,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Feed tank",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1f25sntd",
+      "type": "shape",
+      "master": "pidPump",
+      "name": "",
+      "x": 269.5010013702962,
+      "y": 169.9925160746284,
+      "w": 98.21545272478127,
+      "h": 98.21545272478127,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "P-201",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1f25soqq",
+      "type": "shape",
+      "master": "pidBoiler",
+      "name": "",
+      "x": 485.57499736481503,
+      "y": 141.93095815326234,
+      "w": 112.24623168546432,
+      "h": 154.33856856751345,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Boiler",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1f25spif",
+      "type": "shape",
+      "master": "pidValveControl",
+      "name": "",
+      "x": 715.6797723200169,
+      "y": 78.79245283018868,
+      "w": 98.21545272478127,
+      "h": 98.21545272478127,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Steam valve",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1f25sqo4",
+      "type": "shape",
+      "master": "pidHeatEx",
+      "name": "",
+      "x": 931.7537683145357,
+      "y": 162.97712659428691,
+      "w": 112.24623168546432,
+      "h": 112.24623168546432,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Heat exchanger",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1f25srr2",
+      "type": "shape",
+      "master": "pidGauge",
+      "name": "",
+      "x": 722.6951618003584,
+      "y": 275.2233582797512,
+      "w": 84.18467376409824,
+      "h": 84.18467376409824,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Pressure gauge",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1f25sskw",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1f25sm1p",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1f25sntd",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1f25str5",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1f25sntd",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1f25soqq",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1f25susn",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1f25soqq",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1f25spif",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1f25svj9",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1f25spif",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1f25sqo4",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1f25swmh",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1f25soqq",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1f25srr2",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "process"
+  ]
+ }
+}

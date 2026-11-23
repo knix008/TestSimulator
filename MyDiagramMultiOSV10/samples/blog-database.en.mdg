@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "drawing",
- "saved": "2026-11-06T04:18:13.787Z",
+ "saved": "2026-11-23T05:50:21.080Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mw4gs32z19jve",
+  "id": "dgm-mwsuk1aw3oyq2",
   "title": "Blog Database",
   "subject": "",
   "author": "SHKWON",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-11-06T04:18:13.787Z",
+  "created": "2026-11-23T05:50:21.080Z",
   "design": "midnight",
   "variant": 0,
   "units": "in",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mw4gs32z19kz2",
+    "id": "page-mwsuk1aw3ozcq",
     "name": "Blog Database",
     "paper": "Letter",
     "orientation": "landscape",
@@ -51,7 +51,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mw4gs32z19llh",
+      "id": "shp-mwsuk1aw3p01h",
       "type": "shape",
       "master": "title",
       "name": "",
@@ -79,7 +79,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs32z19mfn",
+      "id": "shp-mwsuk1aw3p1o9",
       "type": "shape",
       "master": "entity",
       "name": "",
@@ -103,7 +103,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs32z19nk2",
+      "id": "shp-mwsuk1aw3p21j",
       "type": "shape",
       "master": "entity",
       "name": "",
@@ -127,7 +127,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs32z19oml",
+      "id": "shp-mwsuk1aw3p3mz",
       "type": "shape",
       "master": "entity",
       "name": "",
@@ -151,7 +151,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs32z19p74",
+      "id": "shp-mwsuk1aw3p4c2",
       "type": "shape",
       "master": "entity",
       "name": "",
@@ -175,7 +175,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs32z19qwu",
+      "id": "shp-mwsuk1aw3p5yw",
       "type": "shape",
       "master": "entity",
       "name": "",
@@ -199,7 +199,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs32z19r2i",
+      "id": "shp-mwsuk1aw3p6gg",
       "type": "shape",
       "master": "dbView",
       "name": "",
@@ -223,14 +223,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs32z19sxz",
+      "id": "con-mwsuk1aw3p7u6",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32z19mfn",
+       "id": "shp-mwsuk1aw3p1o9",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs32z19nk2",
+       "id": "shp-mwsuk1aw3p21j",
        "pt": 6
       },
       "route": "orthogonal",
@@ -250,14 +250,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs32z19tqv",
+      "id": "con-mwsuk1aw3p84e",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32z19nk2",
+       "id": "shp-mwsuk1aw3p21j",
        "pt": 4
       },
       "to": {
-       "id": "shp-mw4gs32z19p74",
+       "id": "shp-mwsuk1aw3p4c2",
        "pt": 0
       },
       "route": "orthogonal",
@@ -277,14 +277,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs32z19uoa",
+      "id": "con-mwsuk1aw3p9x7",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32z19mfn",
+       "id": "shp-mwsuk1aw3p1o9",
        "pt": 4
       },
       "to": {
-       "id": "shp-mw4gs32z19p74",
+       "id": "shp-mwsuk1aw3p4c2",
        "pt": 6
       },
       "route": "orthogonal",
@@ -304,14 +304,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs32z19vju",
+      "id": "con-mwsuk1aw3paw1",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32z19nk2",
+       "id": "shp-mwsuk1aw3p21j",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs32z19oml",
+       "id": "shp-mwsuk1aw3p3mz",
        "pt": 6
       },
       "route": "orthogonal",
@@ -331,14 +331,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs32z19wcz",
+      "id": "con-mwsuk1aw3pb7m",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32z19qwu",
+       "id": "shp-mwsuk1aw3p5yw",
        "pt": 0
       },
       "to": {
-       "id": "shp-mw4gs32z19oml",
+       "id": "shp-mwsuk1aw3p3mz",
        "pt": 4
       },
       "route": "orthogonal",

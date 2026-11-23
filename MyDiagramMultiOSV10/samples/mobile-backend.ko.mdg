@@ -1,0 +1,413 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:20.935Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk16v1och4",
+  "title": "모바일 백엔드",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:20.935Z",
+  "design": "bubble",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk16v1odvl",
+    "name": "모바일 백엔드",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk16v1oea4",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "모바일 백엔드",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16v1of88",
+      "type": "shape",
+      "master": "c4Mobile",
+      "name": "",
+      "x": 137.84172661870502,
+      "y": 80,
+      "w": 207.9136690647482,
+      "h": 146.76258992805754,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "모바일 앱",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16v1oglf",
+      "type": "shape",
+      "master": "cldIdentity",
+      "name": "",
+      "x": 107.2661870503597,
+      "y": 314.8201438848921,
+      "w": 97.84172661870502,
+      "h": 85.6115107913669,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "로그인",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16v1ohmn",
+      "type": "shape",
+      "master": "cldApi",
+      "name": "",
+      "x": 278.48920863309354,
+      "y": 314.8201438848921,
+      "w": 97.84172661870502,
+      "h": 85.6115107913669,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "API",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16v1oiyo",
+      "type": "shape",
+      "master": "cldFunction",
+      "name": "",
+      "x": 198.99280575539566,
+      "y": 488.4892086330935,
+      "w": 85.6115107913669,
+      "h": 85.6115107913669,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "비즈니스 로직",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16v1oj21",
+      "type": "shape",
+      "master": "cldDatabase",
+      "name": "",
+      "x": 40,
+      "y": 662.158273381295,
+      "w": 85.6115107913669,
+      "h": 97.84172661870502,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "문서 DB",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16v1okdb",
+      "type": "shape",
+      "master": "cldBucket",
+      "name": "",
+      "x": 198.99280575539566,
+      "y": 662.158273381295,
+      "w": 85.6115107913669,
+      "h": 97.84172661870502,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "사진 저장소",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16v1olnh",
+      "type": "shape",
+      "master": "cldNotify",
+      "name": "",
+      "x": 357.98561151079133,
+      "y": 668.273381294964,
+      "w": 85.6115107913669,
+      "h": 85.6115107913669,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "푸시 알림",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk16v1omtx",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16v1of88",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16v1oglf",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16v1ond9",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16v1of88",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16v1ohmn",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16v1ooy1",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16v1ohmn",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16v1oiyo",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16v1opbv",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16v1oiyo",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16v1oj21",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16v1oq70",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16v1oiyo",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16v1okdb",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16v1orj5",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16v1oiyo",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16v1olnh",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "c4",
+   "cloud"
+  ]
+ }
+}

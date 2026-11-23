@@ -1,0 +1,444 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.046Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk19x35nkr",
+  "title": "양수 펌프장",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.045Z",
+  "design": "blueprint",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk19x35o81",
+    "name": "양수 펌프장",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk19x35pr1",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "양수 펌프장",
+      "style": {
+       "align": "left",
+       "textColor": "#e3f2fd",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19x35qnj",
+      "type": "shape",
+      "master": "pidTankOpen",
+      "name": "",
+      "x": 40,
+      "y": 148.41463414634148,
+      "w": 136.82926829268294,
+      "h": 111.95121951219512,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "취수정",
+      "style": {
+       "textColor": "#e3f2fd",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19x35r2l",
+      "type": "shape",
+      "master": "pidFilter",
+      "name": "",
+      "x": 266.390243902439,
+      "y": 154.6341463414634,
+      "w": 99.51219512195122,
+      "h": 99.51219512195122,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "스크린",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19x35sgg",
+      "type": "shape",
+      "master": "pidPump",
+      "name": "",
+      "x": 455.4634146341463,
+      "y": 80,
+      "w": 87.07317073170732,
+      "h": 87.07317073170732,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "P-501",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19x35tkf",
+      "type": "shape",
+      "master": "pidPump",
+      "name": "",
+      "x": 455.4634146341463,
+      "y": 241.70731707317074,
+      "w": 87.07317073170732,
+      "h": 87.07317073170732,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "P-502 (예비)",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19x35ulw",
+      "type": "shape",
+      "master": "pidValveCheck",
+      "name": "",
+      "x": 632.0975609756098,
+      "y": 179.5121951219512,
+      "w": 87.07317073170732,
+      "h": 49.75609756097561,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "역류 방지",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19x35vlg",
+      "type": "shape",
+      "master": "pidTank",
+      "name": "",
+      "x": 808.7317073170732,
+      "y": 123.53658536585365,
+      "w": 99.51219512195122,
+      "h": 161.70731707317074,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "배수지",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19x35wmc",
+      "type": "shape",
+      "master": "pidInstrument",
+      "name": "",
+      "x": 997.8048780487804,
+      "y": 173.2926829268293,
+      "w": 62.19512195121951,
+      "h": 62.19512195121951,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "LT",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk19x35xkk",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19x35qnj",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19x35r2l",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk19x35yml",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19x35r2l",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19x35sgg",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk19x35znz",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19x35r2l",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19x35tkf",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk19x360ci",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19x35sgg",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19x35ulw",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk19x361bn",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19x35tkf",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19x35ulw",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk19x3621a",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19x35ulw",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19x35vlg",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk19x363ph",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19x35vlg",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19x35wmc",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "process"
+  ]
+ }
+}

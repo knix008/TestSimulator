@@ -32,7 +32,7 @@ export const VIEWS = ['drawing', 'pages', 'shapeSheet', 'shapeData', 'reports'];
 /** Grid spacing on the page: fine / normal / coarse (Visio "variable grid"). */
 export const GRID_SIZES = { fine: 10, normal: 20, coarse: 40 };
 export const STENCIL_SIZES = ['small', 'medium', 'large'];
-export const DESIGN_IDS = ['office', 'linear', 'facet', 'integral', 'ion', 'retrospect', 'slice', 'whisp', 'organic', 'bubble', 'sequence', 'radiance', 'monochrome', 'blueprint', 'midnight', 'chalkboard'];
+export const DESIGN_IDS = ['office', 'linear', 'facet', 'integral', 'ion', 'retrospect', 'slice', 'whisp', 'organic', 'bubble', 'sequence', 'radiance', 'monochrome', 'pastel', 'ocean', 'sunset', 'blueprint', 'midnight', 'chalkboard', 'graphite'];
 export const PAPERS = ['A3', 'A4', 'A5', 'B4', 'B5', 'Letter', 'Legal', 'Tabloid', 'Ledger', 'Screen', 'Wide'];
 export const UNIT_IDS = ['mm', 'cm', 'in', 'pt', 'px'];
 export const ROUTE_IDS = ['orthogonal', 'straight', 'curved'];
@@ -149,7 +149,7 @@ export function normalizeSettings(raw = {}, language) {
   s.animationInterval = ANIMATION_INTERVALS.includes(Number(s.animationInterval)) ? Number(s.animationInterval) : base.animationInterval;
   s.backgroundOpacity = clamp(s.backgroundOpacity, 0, 100, base.backgroundOpacity);
   s.startBgTransparency = clamp(s.startBgTransparency, 0, 100, base.startBgTransparency);
-  s.startLayout = s.startLayout && s.startLayout.version === 2 && typeof s.startLayout.cards === 'object' ? s.startLayout : null;
+  s.startLayout = s.startLayout && s.startLayout.version === 5 && typeof s.startLayout.cards === 'object' ? s.startLayout : null;
   s.backgroundFit = BACKGROUND_FITS.includes(s.backgroundFit) ? s.backgroundFit : base.backgroundFit;
   s.backgroundImage = typeof s.backgroundImage === 'string' && s.backgroundImage ? s.backgroundImage : null;
   s.lastDirectory = typeof s.lastDirectory === 'string' && s.lastDirectory ? s.lastDirectory : null;

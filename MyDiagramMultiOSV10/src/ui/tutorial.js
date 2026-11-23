@@ -223,7 +223,7 @@ export const STEPS = [
   { id: 'presentation', chapter: 'help', target: '#presentation', dwell: 6000, async run(a) { await a.sample('drawing'); await a.app.run('presentation'); } },
   { id: 'shortcuts', chapter: 'help', target: '.web-popup-settings', async run(a) { await a.app.run('presentation'); a.stopPresentation(); await a.sample('drawing'); a.popup(() => a.app.popups.open('settings', { tab: 'shortcuts' }), 'settings'); } },
   { id: 'about', chapter: 'help', target: '.web-popup-about', async run(a) { await a.sample('drawing'); a.popup(() => a.app.run('about'), 'about'); } },
-  { id: 'tutorialDoc', chapter: 'help', target: '.start-card.help', dwell: 7000, async run(a) { await a.closeMenus(); await a.start(); } },
+  { id: 'tutorialDoc', chapter: 'help', target: '.hero-actions [data-start="tutorial-doc"]', dwell: 7000, async run(a) { await a.closeMenus(); await a.start(); } },
   { id: 'finish', chapter: 'help', target: '[data-command="tutorial"]', run: (a) => a.sample('drawing') },
 ];
 
@@ -361,6 +361,9 @@ export class Tutorial {
     const target = q(step.target);
     let outline = '';
     if (target) {
+      // A target below the fold (the start page's sample card is last) is scrolled into view first.
+      const seen = target.getBoundingClientRect();
+      if (seen.bottom < 40 || seen.top > window.innerHeight - 40) target.scrollIntoView({ block: 'start', behavior: 'instant' });
       const r = target.getBoundingClientRect();
       // 4 px around the target, but never past the window's edges (the menu bar is the window's top).
       const left = Math.max(0, r.left - 4);

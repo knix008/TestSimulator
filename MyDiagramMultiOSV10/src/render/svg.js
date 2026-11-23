@@ -7,7 +7,7 @@
 // (a canvas in the app, an estimate in Node).
 import { patternById, patternTile } from '../domain/patterns.js';
 import { DEG, rotatePoint } from '../domain/geometry.js';
-import { dashArray, designById, mix, pageColor, readableOn, resolveConnectorStyle, resolveShapeStyle } from '../domain/designs.js';
+import { dashArray, designOf, mix, pageColor, readableOn, resolveConnectorStyle, resolveShapeStyle } from '../domain/designs.js';
 import { drawingSize, findShape, isConnector, isGroup, layerState, pageById } from '../domain/diagram.js';
 import { pathBounds } from '../domain/path.js';
 import { routePage } from '../domain/routing.js';
@@ -283,7 +283,7 @@ function dataGraphicSvg(ctx, shape) {
   const widest = Math.max(...lines.map((ln) => ctx.measure(ln, { fontSize: size })));
   const x = shape.x + shape.w / 2 - widest / 2 - 4;
   const y = shape.y + shape.h + 4;
-  const d = designById(ctx.doc?.design);
+  const d = designOf(ctx.doc);
   return `<g class="data-graphic"><rect x="${n(x)}" y="${n(y)}" width="${n(widest + 8)}" height="${n(lines.length * 13 + 4)}" rx="3" fill="${d.dark ? '#00000088' : '#ffffffd9'}" stroke="${d.dark ? '#ffffff44' : '#00000022'}"/>${lines.map((ln, i) => `<text x="${n(x + 4)}" y="${n(y + 13 + i * 13)}" font-family="${esc(DEFAULT_FONT)}" font-size="${size}" fill="${d.dark ? '#e5e7eb' : '#374151'}">${esc(ln)}</text>`).join('')}</g>`;
 }
 
@@ -505,13 +505,16 @@ function shapeBox(shape) {
 export function masterIcon(masterId, { size = 40, doc = null } = {}) {
   const master = masterById(masterId);
   const scale = Math.min((size - 6) / master.w, (size - 6) / master.h, 1.2);
-  const w = master.w * scale;
-  const h = master.h * scale;
-  const shape = { id: `icon-${master.id}`, type: 'shape', master: master.id, x: (size - w) / 2, y: (size - h) / 2, w: Math.max(2, w), h: Math.max(2, h), angle: 0, text: '', style: { lineWidth: 1.2, shadow: false }, qs: {}, params: {} };
+  // Drawn at the master's own size and then scaled down, as on the page: a container's header
+  // band, corner radii and arrowheads keep their proportions (drawn at icon size they filled the
+  // whole picture). The line comes out 1.2 px, thicker for a thick master (a call activity's 3.5).
+  const lineWidth = Math.min(1.2 * Math.max(1, master.style?.lineWidth ?? 1), 3) / scale;
+  const shape = { id: `icon-${master.id}`, type: 'shape', master: master.id, x: 0, y: 0, w: master.w, h: master.h, angle: 0, text: '', style: { lineWidth, shadow: false }, qs: {}, params: {} };
   const defs = [];
   const ctx = { doc: doc ?? { design: 'office', options: {} }, page: { layers: [], color: '#ffffff' }, measure: estimateMeasure, defs, keyPrefix: 'icon-' };
   const body = shapeSvg(ctx, shape);
-  return `<svg class="master-icon" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" aria-hidden="true">${defs.length ? `<defs>${defs.join('')}</defs>` : ''}${body}</svg>`;
+  const at = (length) => n((size - length * scale) / 2);
+  return `<svg class="master-icon" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" aria-hidden="true">${defs.length ? `<defs>${defs.join('')}</defs>` : ''}<g transform="translate(${at(master.w)} ${at(master.h)}) scale(${Number(scale.toFixed(5))})">${body}</g></svg>`;
 }
 
 /** The text colour for a background (used by the canvas for labels on dark pages). */

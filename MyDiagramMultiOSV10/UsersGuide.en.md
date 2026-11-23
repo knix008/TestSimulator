@@ -30,13 +30,13 @@ The start page shows when no drawing is open (and from the **Home** button at th
 
 | Area | Contents |
 |---|---|
-| Top | Program name and version, **Start the tutorial**. Until the tutorial has been finished, a hint banner with a **Start** button shows too |
-| **New** | Blank Drawing and 12 templates (see below), **Open…**, **Open Visio file (.vsdx)…** |
-| **Recent files** · **Recent folders** | The last 10 files and 10 folders. ✕ removes one entry, **Clear all** · **Clear all folders** remove them all |
-| **Help** | **Tutorial document**, **User's guide**, **Keyboard shortcuts…** |
-| **Sample drawings** | The 40 installed samples in the current language, by group |
-| **Moving background** | Pick one of 20 animations, **Change moving background** (random), **Background image…**, **Motion speed**, **Random at start**, **Auto change** (Off, every 15 s … 5 min) |
-| Bottom | **Show the start page when starting** check box |
+| Top right | **Show the start page when starting** check box and **Reset card layout** |
+| Title | Program name, version and tagline with **Start tutorial**, **View tutorial**, **View user's guide** and **Auto arrange**. The title is not a card: it does not move or resize. Until the tutorial has been finished, a hint banner with a **Start** button shows too |
+| **New** | Blank Drawing and 12 templates (see below), and an **Open** tile of the same kind (drawings, templates, Visio files) |
+| **Recent files** · **Recent folders** | Side by side on one row. The last 10 files and 10 folders. ✕ (red under the pointer) removes one entry; **Clear all** · **Clear all folders** (trash icon) remove them all |
+| **Sample drawings** | The 228 installed samples in the current language as tiles in 19 groups, twelve in each (two full rows of six); every tile has an icon of its own, the name and one line about it. The online shop is also in the samples folder as a Visio file (open it with **Open**) |
+| **Moving background** (last) | Pick one of 21 animations. Below them, one row: **Speed** · **Transparency** · **Random at start** · **Auto change** (Off, every 15 s … 5 min), with **Change moving background** (random) and **Background image…** at its right end |
+| Bottom | Program name, version and copyright |
 
 Right-clicking an empty part of the start page offers New drawing · Open… · Recent files… · Change moving background · Background image… · Tutorial · About….
 
@@ -46,9 +46,10 @@ Each area is a **card**.
 
 - **Move**: drag the ⠿ handle or the heading. The other cards make room. `Alt+arrows` on the handle move it too.
 - **Resize**: drag the **triangle of dots** at the bottom-right corner (or `Alt+Shift+arrows`). A double-click fits the height to the contents.
-- The arrangement is kept between runs. **Auto arrange** at the top packs the cards without gaps; **Reset card layout** at the bottom restores the first one.
-- The top card has the buttons **Start tutorial**, **View tutorial**, **View user's guide** and **Auto arrange**.
-- **Sample drawings** and **Moving background** are separate cards. **Motion speed** and **Background transparency** each have a row in the background card with a slider, − / + and the current value; transparency applies to the start page's background.
+- At first the cards stand one below the other: New → Recent files | Recent folders (side by side) → Sample drawings → Moving background. The others span the page.
+- The arrangement is kept between runs. **Auto arrange** in the title and **Reset card layout** at the top both put the cards back in that order, each as tall as its contents.
+- **Speed** and **Transparency** each have a slider, − / + and the current value (the full names are in the tooltips); transparency applies to the start page's background.
+- The **View tutorial** window belongs to the start page: it closes when a drawing opens.
 
 ### Templates
 
@@ -158,7 +159,7 @@ The **Home** button at the start of the menu bar (`Ctrl+Shift+H`) goes back to t
 | **File** | New drawing · Open… · Start page · Recent files… · Recent folders · Clear all recent files and folders · Save · Save as… · Save all · Save as template… · Open from database… · Save to database (desktop app) · Open Visio file (.vsdx)… · Export ▸ (Save as Visio (.vsdx)… · Export as PDF… · Export as SVG (current page)… · Export as picture (PNG, JPEG, SVG…)… · Export as web page (.html)… · Export shape data to CSV…) · Print… · Document properties… · Close tab · Close all tabs · Exit |
 | **Edit** | Undo · Redo · Cut · Copy · Paste · Duplicate · Delete · Select ▸ (Select all · Select shapes · Select connectors · Select same master · Clear selection) · Find… · Replace… · Go to page · Format painter |
 | **View** | Switch view ▸ (Drawing · Pages · Shape sheet · Shape data · Shape reports) · Switch view · Zoom ▸ (Zoom in · Zoom out · Zoom 100% · Fit page · Fit width · Fit height · Zoom to selection) · Show ▸ (Rulers · Grid · Guides · Page breaks · Connection points · Pan & zoom window · Show/hide tool panel · Show/hide properties panel · Status bar) · Snap & glue ▸ (Snap to grid · Smart guides (snap to shapes) · Glue to shapes · AutoConnect arrows) · Presentation mode · Theme, language and background ▸ (Random theme · Choose theme · Switch language · Change moving background · Background image… · Turn background off) |
-| **Insert** | Drawing tools ▸ (Pointer · Pan · Connector · Text · Rectangle · Ellipse · Line · Pencil (freeform) · Polyline) · Insert text box · Insert picture… · Insert container · Insert callout · Hyperlink… · Add comment · Insert field · Borders & title (background page) · Save selection to My Shapes… · Manage my shapes… |
+| **Insert** | Drawing tools ▸ (Pointer · Pan · Lasso select · Zoom · Connector · Text · Rectangle · Rounded rectangle · Ellipse · Triangle · Diamond · Line · Arrow line · Pencil (freeform) · Polyline · Curve · Format painter · Eraser) · Insert text box · Insert picture… · Insert container · Insert callout · Hyperlink… · Add comment · Insert field · Borders & title (background page) · Save selection to My Shapes… · Manage my shapes… |
 | **Format** | Format shape… · Quick styles… · Fill color · Line ▸ (Line color · Line weight · Line pattern · Begin arrow · End arrow) · Text ▸ (Bold · Italic · Underline · Strikethrough · Align text left · Center text · Align text right · Text top · Text middle · Text bottom · Increase font size · Decrease font size · Font color) · Shadow · Connector ▸ (Right-angle connector · Straight connector · Curved connector · Reverse ends · Reset connector · Line jumps · Route connectors around shapes) · Clear formatting (back to the theme) |
 | **Arrange** | Order ▸ (Bring to front · Send to back · Bring forward · Send backward) · Align & distribute ▸ (Align left · Align center · Align right · Align top · Align middle · Align bottom · Distribute horizontally · Distribute vertically · Same size) · Rotate & flip ▸ (Rotate right 90° · Rotate left 90° · Flip horizontal · Flip vertical) · Group · Ungroup · Size & position… · Protection… · Re-layout page… · Auto align & space |
 | **Design** | Themes & variants… · Next variant · Quick styles… · Line jumps · Route connectors around shapes · Glue to shapes · Borders & title (background page) · Assign background page |
@@ -285,13 +286,20 @@ The tools are on the tool strip of the Shapes panel, the toolbar (the first six)
 |---|---|---|
 | **Pointer** | `Ctrl+1` | Select, move, resize, rotate, edit |
 | **Pan** | `Ctrl+Shift+Space` | Drag to move the view |
+| **Lasso select** | | Drag freely around shapes to select the ones inside |
+| **Zoom** | | Click: zoom in · `Alt`+click: zoom out · drag: zoom so the box fills the view |
 | **Connector** | `Ctrl+3` | Drag from one shape to another (see [Connectors](#connectors)) |
 | **Text** | `Ctrl+2` | Drag a box and type |
 | **Rectangle** | `Ctrl+8` | Drag a rectangle (`Shift`: a square) |
 | **Ellipse** | `Ctrl+9` | Drag an ellipse (`Shift`: a circle) |
+| **Rounded rectangle** · **Triangle** · **Diamond** | | Drag one (`Shift`: as wide as it is high) |
 | **Line** | `Ctrl+6` | Drag a straight line (`Shift`: horizontal or vertical); its ends glue to shapes like a connector |
+| **Arrow line** | | The same with an arrowhead at its end |
 | **Pencil (freeform)** | `Ctrl+4` | Draw freehand; the line is smoothed when you let go |
 | **Polyline** | `Ctrl+5` | Click point after point; double-click, right-click or `Enter` finishes, clicking the first point closes the shape, `Esc` cancels |
+| **Curve** | | Click points as for a polyline: a smooth curve goes through them |
+| **Format painter** | | Gives the format of the shape selected when you picked it (or of the first one clicked) to every shape you click, until you pick another tool |
+| **Eraser** | | Deletes the shapes you drag across (locked ones stay); one `Ctrl+Z` brings them back |
 
 ### Moving, sizing and rotating
 
@@ -448,9 +456,11 @@ Pick one of the theme's six colours with **Fill**, **Subtle**, **Outline**, **In
 
 ![Themes and variants](docs/tutorial/images/27-design.jpg)
 
-**Design › Themes & variants…** opens the **Design** window. There are 16 themes with 4 variants each:
+**Design › Themes & variants…** opens the **Design** window. There are 20 themes with 4 variants each:
 
-Office · Linear · Facet · Integral · Ion · Retrospect · Slice · Whisp · Organic · Bubble · Sequence · Radiance · Monochrome · Blueprint · Midnight · Chalkboard
+Office · Linear · Facet · Integral · Ion · Retrospect · Slice · Whisp · Organic · Bubble · Sequence · Radiance · Monochrome · Pastel · Ocean · Sunset · Blueprint · Midnight · Chalkboard · Graphite
+
+Under a dark program theme, a light-themed drawing on white paper is shown on dark paper with light text and lines, to match; saving, printing and export keep its real colours. The **Fill** quick style is a pastel tone of the theme colour with an outline in the colour itself.
 
 A theme restyles every shape you have not formatted by hand, and sets the page colour. **Design › Next variant** steps through the variants. The theme of a drawing is also in the **Drawing** section of the properties panel, and **Settings › New drawings › Default theme** chooses it for new drawings.
 
@@ -810,6 +820,7 @@ Drag files from the file manager onto the window:
 | `.vsdx` · `.vstx` | Imported from Visio |
 | Pictures (png · jpg · gif · webp · bmp · svg …) | Inserted where they are dropped (several are fanned out a little); on the start page they become the background image |
 | `.csv` · `.tsv` · `.txt` | Open **Link data to shapes** with the file |
+| Any other file (PDF · Word · Excel · zip …) | With a drawing open, it goes into the drawing as a **file icon**: the file itself is saved inside the drawing (up to 25 MB), its name and size are in the shape data, and a double-click opens it (the web version downloads it) |
 | Text (web version) | Shapes, one per line, connected in order |
 
 Inside the app, drag a shape from the **Shapes** panel onto the canvas to place it where you let go (a click puts it in the middle of the view).
@@ -854,6 +865,7 @@ Choose in **Settings › Database**.
 
 | Part | Fields |
 |---|---|
+| **Printer** (Windows) | The printer (the default one first) and **Copies** |
 | **What to print** | **All pages** · **Current page** · **Page range** (From page – To page), and **To print** (pages and sheets) |
 | **Page setup** | **Paper**, **Orientation** (Portrait / Landscape), **Margins** (None · Narrow · Normal · Wide), **Size** (**Fit to sheet** · **Actual size** · **Percent**), **Scale** (10–400%, for Percent), **Center on the sheet**, **Print page color and background page** |
 | **Header and footer** | **Header** and **Footer** on/off, **Header text** (default: the drawing title, page name and date) and **Footer text** (default: MyDiagram and the sheet number) |
@@ -863,7 +875,7 @@ Choose in **Settings › Database**.
 - Layers whose **Print** box is off are left out.
 - Prints are black text on white whatever the program theme.
 
-**Print** opens the system print dialog (Save as PDF lives there too). The page setup is kept for the next time and is also used by **Export as PDF…**.
+On Windows **Print** prints straight to the chosen printer, without a dialog. A printer that writes a file (**Microsoft Print to PDF**) asks where to save and writes a PDF. Other systems and the web version open the print dialog. The printer and page setup are kept for the next time and the page setup is also used by **Export as PDF…**. The user's guide and tutorial windows have a **Print** button at the top as well.
 
 ## Appearance
 
@@ -874,7 +886,7 @@ Choose in **Settings › Database**.
 The program's own colours (not the drawing's design) come from a theme.
 
 - The **Random theme** toolbar button picks a different theme at random on every press; its tooltip names the current theme.
-- The ▾ next to it (**Choose theme**) opens a window with **Dark (20)** and **Light (20)** in two columns, plus **System setting** (follows the OS) and **Custom** at the top, **Edit custom theme…** and **Random theme**.
+- The ▾ next to it (**Choose theme**) is a drop-down menu (it may reach past the window): **System setting** (follows the OS) · **Custom**, the submenus **Dark (20)** and **Light (20)** with each theme's colours, **Edit custom theme…** and **Random theme**.
 - **Settings › Theme** tab: Dark 20 · Light 20 · Custom groups. Custom lets you change Background · Surface · Panel · Text · Dim text · Border · Accent · Text on accent · Striped rows · Chart background · Toolbar · Status bar one by one, with **Use the custom theme**, **Copy the current theme's colors** and a **Dark theme** switch. Low contrast shows the warning "Text may be hard to read".
 
 ### Language
@@ -1070,7 +1082,7 @@ A serious error inside the program (the backend) opens **Serious error (backend)
 
 ### Windows
 
-Run `MyDiagram-Setup-1.0.1.exe`.
+Run `MyDiagram-Setup-1.0.2.exe`.
 
 1. Choose the installer language (한국어 / English).
 2. **Settings from a previous installation go back to their defaults; your data stays.** At the first start after installing, theme, fonts, zoom, panels, view options, window and popup places, column widths and print choices start fresh, while recent files and folders, the list of open drawings, the database connection, the background image and the tutorial history are kept. Drawing files (.mdg) are never touched.
@@ -1087,11 +1099,11 @@ It installs for the current user, without administrator rights. Remove it in **S
 
 ### macOS
 
-Open `MyDiagram-1.0.1-<arch>.dmg` and drag MyDiagram into Applications. Remove it by moving it to the Trash. macOS 11 or later is required.
+Open `MyDiagram-1.0.2-<arch>.dmg` and drag MyDiagram into Applications. Remove it by moving it to the Trash. macOS 11 or later is required.
 
 ### Linux
 
-Use the `.deb` (Debian, Ubuntu), `.rpm` (Fedora…) or `.AppImage` (`MyDiagram-1.0.1-<arch>.*`). The deb and rpm packages register the `.mdg` and `.mdgt` file types and icons. Remove it with the package manager.
+Use the `.deb` (Debian, Ubuntu), `.rpm` (Fedora…) or `.AppImage` (`MyDiagram-1.0.2-<arch>.*`). The deb and rpm packages register the `.mdg` and `.mdgt` file types and icons. Remove it with the package manager.
 
 ### Web version
 

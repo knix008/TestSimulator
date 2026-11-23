@@ -1,0 +1,662 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.111Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1br4b1nf",
+  "title": "Water Treatment",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.111Z",
+  "design": "blueprint",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1br4b22v",
+    "name": "Water Treatment",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1br4b3kb",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Water Treatment",
+      "style": {
+       "align": "left",
+       "textColor": "#e3f2fd",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1br4b4gn",
+      "type": "shape",
+      "master": "pidTank",
+      "name": "",
+      "x": 50,
+      "y": 260,
+      "w": 80,
+      "h": 130,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Raw water",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1br4b5wa",
+      "type": "shape",
+      "master": "pidPump",
+      "name": "",
+      "x": 200,
+      "y": 290,
+      "w": 70,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "P-101",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1br4b6zg",
+      "type": "shape",
+      "master": "pidMixer",
+      "name": "",
+      "x": 330,
+      "y": 260,
+      "w": 80,
+      "h": 100,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Coagulation",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1br4b7uj",
+      "type": "shape",
+      "master": "pidColumn",
+      "name": "",
+      "x": 480,
+      "y": 230,
+      "w": 90,
+      "h": 160,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Settling",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1br4b87v",
+      "type": "shape",
+      "master": "pidFilter",
+      "name": "",
+      "x": 640,
+      "y": 290,
+      "w": 80,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Sand filter",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1br4b90k",
+      "type": "shape",
+      "master": "pidValveControl",
+      "name": "",
+      "x": 790,
+      "y": 310,
+      "w": 70,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "FCV-201",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1br4bavc",
+      "type": "shape",
+      "master": "pidTank",
+      "name": "",
+      "x": 950,
+      "y": 260,
+      "w": 80,
+      "h": 130,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Clean water",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1br4bbz3",
+      "type": "shape",
+      "master": "pidInstrument",
+      "name": "",
+      "x": 790,
+      "y": 190,
+      "w": 50,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "FI",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1br4bcgt",
+      "type": "shape",
+      "master": "pidInstrument",
+      "name": "",
+      "x": 500,
+      "y": 120,
+      "w": 50,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "LT",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1br4bdea",
+      "type": "shape",
+      "master": "pidTankOpen",
+      "name": "",
+      "x": 640,
+      "y": 540,
+      "w": 80,
+      "h": 100,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Chlorine",
+      "style": {
+       "textColor": "#e3f2fd",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1br4be45",
+      "type": "shape",
+      "master": "pidPump",
+      "name": "",
+      "x": 800,
+      "y": 555,
+      "w": 70,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "P-102 dosing",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1br4bfg2",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1br4b4gn",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1br4b5wa",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1br4bgrk",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1br4b5wa",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1br4b6zg",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1br4bhpn",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1br4b6zg",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1br4b7uj",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1br4bi13",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1br4b7uj",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1br4b87v",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1br4bjda",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1br4b87v",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1br4b90k",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1br4bkz1",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1br4b90k",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1br4bavc",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1br4blrp",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1br4bdea",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1br4be45",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1br4bmdj",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1br4be45",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1br4bavc",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1br4bnwo",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1br4bbz3",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1br4b90k",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dot",
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1br4bow3",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1br4bcgt",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1br4b7uj",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dot",
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk1br4bptu",
+      "type": "shape",
+      "master": "note",
+      "name": "",
+      "x": 60,
+      "y": 560,
+      "w": 300,
+      "h": 120,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "FI: flow indicator, LT: level transmitter, FCV: flow control valve",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "process",
+   "callouts"
+  ]
+ }
+}

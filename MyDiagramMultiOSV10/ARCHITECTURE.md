@@ -33,7 +33,7 @@
 | `src/domain/` | UI와 무관한 순수 로직 (Node에서 단위 테스트) |
 | `├ diagram.js` | 문서 모델과 모든 편집: 페이지·레이어·안내선, 도형 추가·삭제·이동·크기·회전·대칭, 그룹, 맞춤·분배·순서, 스타일, 도형 데이터, 복사/붙여넣기, 찾기·바꾸기, 통계, 단위 변환 |
 | `├ stencils.js`, `stencils-more.js`, `stencils-extra.js` | 스텐실 35종(`CATEGORIES`)과 도형 마스터 869개(`MASTERS`): 모양 함수, 연결점, 텍스트 상자, 조절 핸들, 기본 스타일 |
-| `├ designs.js` | 디자인 16가지 × 변형 4가지, 빠른 스타일, 스타일 키·화살촉·선 패턴 목록, `resolveShapeStyle` / `resolveConnectorStyle` |
+| `├ designs.js` | 디자인 20가지 × 변형 4가지, 빠른 스타일(채우기는 파스텔 톤), 화면 전용 다크 보기(`designOf`/`viewDark`), 스타일 키·화살촉·선 패턴 목록, `resolveShapeStyle` / `resolveConnectorStyle` |
 | `├ routing.js` | 연결선 끝 결정(점 고정·동적 연결), 직각 경로(A*), 직선·곡선, 선 건너뛰기, 붙일 대상 찾기(`glueTarget`) |
 | `├ layout.js` | 자동 레이아웃 7가지(순서도 TB/LR, 계층 TB/LR, 방사형, 원형, 격자) |
 | `├ interop.js` | Visio `.vsdx` 읽기/쓰기(자체 ZIP·XML), HTML 내보내기, 도형 데이터 CSV, 데이터 연결, 데이터로 조직도, 목록으로 도형 |
@@ -53,7 +53,7 @@
 | `src/print/render.js` | 인쇄용 SVG 용지(맞춤·실제 크기·배율 나눠 찍기, 머리글·바닥글, 테마와 무관한 흰 바탕) |
 | `src/export/` | `image-encode.js`(BMP·TIFF 인코더, 그림 크기), `report-export.js`(보고서 HTML·Markdown·Word, ZIP 작성기), `report-pdf.js`(JPEG 쪽 → PDF) |
 | `src/platform/native.js`, `idb.js` | 플랫폼 경계: 데스크톱은 Rust 명령, 웹은 브라우저 API(File System Access·내려받기·IndexedDB) |
-| `src/platform/popups.js` | 팝업 열기/닫기/메시지, 팝업 크기 표(`POPUPS`) |
+| `src/platform/popups.js` | 팝업 열기/닫기/메시지, 팝업 크기 표(`POPUPS`, 영어에서 다른 크기는 `POPUPS_EN`, `popupSize`) |
 | `src/app.js` | 메인 창: 명령 표(`commands`), `MENUS`, `SUBMENUS`, `TOOLBAR`, 오른쪽 클릭 메뉴, `SHORTCUTS`, 파일·내보내기·DB 처리 |
 | `src/popup.js` | 모든 팝업 창과 `SHORTCUT_LIST` |
 | `src/i18n/ko.js`, `en.js`, `i18n.js` | UI 문자열(키는 두 파일이 같음) |
@@ -63,7 +63,7 @@
 | `.gitignore` | 의존성, 빌드·설치 결과, 튜토리얼 동영상, 테스트 결과, 로컬 DB 접속 정보를 저장소에서 뺌 (`package-lock.json` · `Cargo.lock`은 커밋) |
 | `test/` | `unit/`(도메인·내보내기), `static/`(패키징·문서), `e2e/`(`cdp.mjs`, `harness.mjs`, `web.harness.mjs`, 스위트), `db_integration.rs` |
 | `docs/` | 생성된 HTML 설명서, `tutorial/`(튜토리얼 문서·그림) |
-| `samples/` | 예제 드로잉(언어별 40개: `*.ko.mdg`, `*.en.mdg`, `online-shop.*.vsdx`, `brainstorm-template.*.mdgt`) — 설치 파일에 포함. `npm run samples`는 `.ko.`/`.en.` 파일만 다시 만듭니다 |
+| `samples/` | 예제 드로잉(언어별 229개 파일, 19개 분류마다 12개 — 일부는 `samples.js`, 나머지는 `samples-extra.js`의 짧은 명세로 생성: `*.ko.mdg`, `*.en.mdg`, `online-shop.*.vsdx`, `brainstorm-template.*.mdgt`) — 설치 파일에 포함. `npm run samples`는 `.ko.`/`.en.` 파일만 다시 만듭니다 |
 
 ## 드로잉 엔진
 
@@ -186,6 +186,8 @@ Rust 패닉 훅이 메시지·위치·스레드·백트레이스를 데이터 �
 `db.rs`: sqlx `Any` 드라이버로 SQLite · MariaDB · MySQL · PostgreSQL에 저장합니다. 테이블은 하나(`mydiagram_drawings (id, title, data, updated)`, 처음 쓸 때 생성)이고 `data`는 `.mdg` 파일 내용 그대로라 DB에서 읽은 드로잉은 파일처럼 열립니다. 저장은 한 트랜잭션으로 행을 바꿉니다. PostgreSQL은 자리표시자를 `$1…`로 바꿉니다. 연결 설정은 **설정 › 데이터베이스**(`settings.js`의 `dbConfig`/`dbProblems`)에 있고, 비밀번호는 저장을 고르지 않으면 이번 실행에만 기억합니다. DB가 설정되어 있으면 **저장**이 파일과 DB에 함께 씁니다. 오류 문구에는 비밀번호를 넣지 않습니다.
 
 ## 여러 개 실행
+
+`printing.rs`: Windows에서 프린터 목록(`list_printers`)과, 인쇄 미리 보기 창을 고른 프린터로 바로 인쇄(`print_direct`, WebView2 `PrintWithSettings`) 또는 PDF로 저장(`print_pdf`, 파일로 내보내는 프린터). 다른 OS는 인쇄 대화 상자를 씁니다.
 
 `instance.rs`: 시작할 때 임시 폴더의 `mydiagram-<사용자>.lock`에 OS 파일 잠금(`try_lock`)을 겁니다. 잠금을 얻은 첫 번째 실행이 주 실행이고, 세션 복원·저장(`is_primary_copy`)과 창 위치 기억은 주 실행만 합니다. 다음 실행은 그대로 뜨고 조금 옆에 열립니다.
 

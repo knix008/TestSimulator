@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "drawing",
- "saved": "2026-11-06T04:18:13.795Z",
+ "saved": "2026-11-23T05:50:21.089Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mw4gs3371gi3b",
+  "id": "dgm-mwsuk1b53vxaa",
   "title": "SWOT Analysis",
   "subject": "",
   "author": "SHKWON",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-11-06T04:18:13.795Z",
+  "created": "2026-11-23T05:50:21.089Z",
   "design": "facet",
   "variant": 0,
   "units": "in",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mw4gs3371gjjd",
+    "id": "page-mwsuk1b53vyy0",
     "name": "SWOT Analysis",
     "paper": "Letter",
     "orientation": "landscape",
@@ -51,7 +51,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mw4gs3371gk4b",
+      "id": "shp-mwsuk1b53vz1v",
       "type": "shape",
       "master": "title",
       "name": "",
@@ -79,7 +79,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371glj1",
+      "id": "shp-mwsuk1b53w01z",
       "type": "shape",
       "master": "container",
       "name": "",
@@ -105,7 +105,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371gmu9",
+      "id": "shp-mwsuk1b53w17s",
       "type": "shape",
       "master": "roundRect",
       "name": "",
@@ -132,7 +132,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371gnj4",
+      "id": "shp-mwsuk1b53w22l",
       "type": "shape",
       "master": "roundRect",
       "name": "",
@@ -159,7 +159,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371go6l",
+      "id": "shp-mwsuk1b53w3wt",
       "type": "shape",
       "master": "roundRect",
       "name": "",
@@ -186,7 +186,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371gppc",
+      "id": "shp-mwsuk1b53w45z",
       "type": "shape",
       "master": "roundRect",
       "name": "",
@@ -213,7 +213,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371gqfp",
+      "id": "shp-mwsuk1b53w5qp",
       "type": "shape",
       "master": "container",
       "name": "",
@@ -239,7 +239,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371grk4",
+      "id": "shp-mwsuk1b53w6k5",
       "type": "shape",
       "master": "roundRect",
       "name": "",
@@ -266,7 +266,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371gsu6",
+      "id": "shp-mwsuk1b53w7v1",
       "type": "shape",
       "master": "roundRect",
       "name": "",
@@ -293,7 +293,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371gt41",
+      "id": "shp-mwsuk1b53w87x",
       "type": "shape",
       "master": "roundRect",
       "name": "",
@@ -320,7 +320,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371guvi",
+      "id": "shp-mwsuk1b53w9z7",
       "type": "shape",
       "master": "roundRect",
       "name": "",
@@ -347,7 +347,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371gviu",
+      "id": "shp-mwsuk1b53wa7w",
       "type": "shape",
       "master": "container",
       "name": "",
@@ -373,7 +373,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371gw0l",
+      "id": "shp-mwsuk1b53wb31",
       "type": "shape",
       "master": "roundRect",
       "name": "",
@@ -400,7 +400,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371gxtq",
+      "id": "shp-mwsuk1b53wcw1",
       "type": "shape",
       "master": "roundRect",
       "name": "",
@@ -427,7 +427,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371gy0l",
+      "id": "shp-mwsuk1b53wddl",
       "type": "shape",
       "master": "roundRect",
       "name": "",
@@ -454,7 +454,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371gzvo",
+      "id": "shp-mwsuk1b53wex5",
       "type": "shape",
       "master": "roundRect",
       "name": "",
@@ -481,7 +481,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371h023",
+      "id": "shp-mwsuk1b53wfm4",
       "type": "shape",
       "master": "container",
       "name": "",
@@ -507,7 +507,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371h1bt",
+      "id": "shp-mwsuk1b53wgb4",
       "type": "shape",
       "master": "roundRect",
       "name": "",
@@ -534,7 +534,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371h24a",
+      "id": "shp-mwsuk1b53wht2",
       "type": "shape",
       "master": "roundRect",
       "name": "",
@@ -561,7 +561,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371h3yi",
+      "id": "shp-mwsuk1b53wi0u",
       "type": "shape",
       "master": "roundRect",
       "name": "",
@@ -588,7 +588,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371h44y",
+      "id": "shp-mwsuk1b53wjp5",
       "type": "shape",
       "master": "roundRect",
       "name": "",

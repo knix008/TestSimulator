@@ -1,8 +1,9 @@
 // The start page's card layout, the picture formats taken in, and the coloured icons.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { cardsFrom, defaultCards } from '../../src/ui/startboard.js';
-import { COLS, overlaps, place } from '../../src/ui/startlayout.js';
+import { CARD_ORDER, cardsFrom, defaultCards } from '../../src/ui/startboard.js';
+import { COLS, LAYOUT_VERSION, overlaps, place } from '../../src/ui/startlayout.js';
+import { SAMPLE_GROUPS } from '../../src/domain/sample-names.js';
 import { IMAGE_EXTENSIONS, imageDecoderFor, nativeImageMime, sniffImage } from '../../src/domain/image-formats.js';
 import { isImageFileName } from '../../src/domain/format.js';
 import extra from '../../src/export/extra-formats.js';
@@ -10,8 +11,8 @@ import { backgroundIcon, hasIcon, ICON_NAMES, icon } from '../../src/icons.js';
 import { ANIMATIONS } from '../../src/domain/settings.js';
 import { loadSettings } from '../../src/domain/settings.js';
 
-const IDS = ['hero', 'templates', 'recent', 'folders', 'help', 'samples', 'background'];
-const ROWS = { hero: 6, templates: 20, recent: 8, folders: 8, help: 7, background: 16 };
+const IDS = ['templates', 'background', 'recent', 'samples', 'folders']; // not in CARD_ORDER: the order comes from there
+const ROWS = { templates: 20, recent: 8, folders: 8, background: 16, samples: 40 };
 
 function assertNoOverlap(cards) {
   const list = Object.entries(cards);
@@ -21,45 +22,66 @@ function assertNoOverlap(cards) {
   }
 }
 
-test('the default arrangement has the samples and the background as separate cards', () => {
+test('the default arrangement: one below the other, recent files and folders side by side, the moving background last', () => {
   const cards = defaultCards(IDS, ROWS);
   assertNoOverlap(cards);
-  assert.equal(cards.hero.w, COLS);
-  assert.equal(cards.samples.col, cards.background.col);
-  assert.ok(cards.background.row >= cards.samples.row + cards.samples.h);
-  assert.equal(cards.samples.fit, false, 'the long sample list scrolls inside its card');
+  assert.ok(!('hero' in cards) && !('help' in cards), 'the title is not a card, and there is no help card');
+  assert.equal(COLS, 2);
+  for (const id of ['templates', 'samples', 'background']) assert.deepEqual([cards[id].col, cards[id].w], [0, COLS], `${id} spans the board`);
+  assert.deepEqual([cards.recent.col, cards.recent.w, cards.folders.col, cards.folders.w], [0, 1, 1, 1], 'recent files left, recent folders right');
+  assert.equal(cards.recent.row, cards.folders.row, 'on the same row');
+  const order = Object.keys(cards).sort((a, b) => cards[a].row - cards[b].row || cards[a].col - cards[b].col);
+  assert.deepEqual(order, CARD_ORDER, 'in order');
+  assert.deepEqual(order.slice(-2), ['samples', 'background'], 'the moving background below the samples, at the bottom');
+  assert.equal(cards.samples.fit, true, 'the sample card is as tall as its tiles');
+  const alone = defaultCards(IDS.filter((id) => id !== 'recent'), ROWS);
+  assert.deepEqual([alone.folders.col, alone.folders.w], [0, COLS], 'recent folders alone take the whole row');
 });
 
 test('a moved card stays where it was put, and a new card goes below', () => {
   const start = cardsFrom(null, IDS, ROWS);
-  const moved = place(start, 'templates', { col: 2, row: 0 });
+  const moved = place(start, 'templates', { w: 1, col: 1, row: 0 });
   assertNoOverlap(moved);
-  assert.equal(moved.templates.col, 2);
-  const saved = { version: 2, cards: Object.fromEntries(Object.entries(moved).filter(([id]) => id !== 'help')) };
+  assert.deepEqual([moved.templates.col, moved.templates.w], [1, 1]);
+  const saved = { version: LAYOUT_VERSION, cards: Object.fromEntries(Object.entries(moved).filter(([id]) => id !== 'background')) };
   const again = cardsFrom(saved, IDS, ROWS);
   assertNoOverlap(again);
-  assert.equal(again.templates.col, 2, 'kept after a reload');
-  assert.ok(again.help, 'the card that was not saved is back');
+  assert.deepEqual([again.templates.col, again.templates.w], [1, 1], 'kept after a reload');
+  assert.equal(again.background.w, COLS, 'the card that was not saved is back, full width');
 });
 
-test('a resized card keeps its size; a fit card follows its contents', () => {
+test('a resized card keeps its size; a fit card follows its contents; an old layout is dropped', () => {
   const start = cardsFrom(null, IDS, ROWS);
-  const resized = place(start, 'recent', { w: 2, h: 14, fit: false });
-  const again = cardsFrom({ version: 2, cards: resized }, IDS, { ...ROWS, recent: 3 });
-  assert.deepEqual([again.recent.w, again.recent.h, again.recent.fit], [2, 14, false]);
+  const resized = place(start, 'recent', { h: 14, fit: false });
+  const again = cardsFrom({ version: LAYOUT_VERSION, cards: resized }, IDS, { ...ROWS, recent: 3 });
+  assert.deepEqual([again.recent.w, again.recent.h, again.recent.fit], [1, 14, false]);
   assertNoOverlap(again);
-  assert.equal(cardsFrom({ version: 2, cards: start }, IDS, { ...ROWS, help: 12 }).help.h, 12);
+  assert.equal(cardsFrom({ version: LAYOUT_VERSION, cards: start }, IDS, { ...ROWS, folders: 12 }).folders.h, 12);
+  const old = cardsFrom({ version: 4, cards: { samples: { col: 0, row: 0, w: 2, h: 8, fit: true } } }, IDS, ROWS);
+  assert.deepEqual([old.recent.row === old.folders.row, old.samples.row > old.recent.row], [true, true], 'a layout of an older version gives way to the current one');
 });
 
 test('settings keep a valid card layout and the start background transparency, and drop bad ones', () => {
   const store = (value) => ({ getItem: () => JSON.stringify(value), setItem() {} });
-  const layout = { version: 2, cards: { hero: { col: 0, row: 0, w: 3, h: 5, fit: true } } };
+  const layout = { version: LAYOUT_VERSION, cards: { templates: { col: 0, row: 0, w: 3, h: 5, fit: true } } };
   const good = loadSettings(store({ startLayout: layout, startBgTransparency: 40 }));
   assert.deepEqual(good.startLayout, layout);
   assert.equal(good.startBgTransparency, 40);
   const bad = loadSettings(store({ startLayout: { version: 1 }, startBgTransparency: 900 }));
   assert.equal(bad.startLayout, null);
   assert.ok(bad.startBgTransparency <= 100);
+  assert.equal(loadSettings(store({ startLayout: { ...layout, version: 2 } })).startLayout, null, 'a layout from before the stacked cards');
+});
+
+test('every sample and every sample group has an icon of its own and a description', async () => {
+  const groups = SAMPLE_GROUPS.map((group) => group.icon);
+  const items = SAMPLE_GROUPS.flatMap((group) => group.items);
+  const { masterById } = await import('../../src/domain/stencils.js');
+  for (const name of [...groups, ...items.map((item) => item.icon)]) assert.ok(name.startsWith('m:') ? masterById(name.slice(2))?.id === name.slice(2) : hasIcon(name), `icon ${name} exists`);
+  assert.equal(new Set(groups).size, groups.length, 'no two groups share an icon');
+  assert.equal(new Set(items.map((item) => item.icon)).size, items.length, 'no two samples share an icon');
+  assert.ok(groups.every((name) => !items.some((item) => item.icon === name)), 'a group icon is not also a sample icon');
+  for (const item of items) for (const L of ['ko', 'en']) assert.ok(item.name[L] && item.desc[L], `${item.id} ${L}`);
 });
 
 test('every current picture format is taken in', () => {
@@ -238,7 +260,7 @@ test('a Visio export knows what it cannot hold', async () => {
   assert.deepEqual(vsdxLosses(doc), { icons: 1, patterns: 2, pictures: 1 });
 });
 
-test('the web version lists and makes the same 40 samples per language', async () => {
+test('the web version lists and makes the same 229 samples per language', async () => {
   const { isWebSample, makeSampleFile, webSamplePaths } = await import('../../src/domain/sample-names.js');
   const samples = await import('../../src/domain/samples.js');
   const { serialize, parseDiagram } = await import('../../src/domain/format.js');
@@ -249,7 +271,8 @@ test('the web version lists and makes the same 40 samples per language', async (
   const names = paths.map((path) => path.replace('web-sample:', ''));
   const onDisk = fs.readdirSync(new URL('../../samples/', import.meta.url)).filter((name) => /\.(ko|en)\.(mdg|mdgt|vsdx)$/.test(name)).sort();
   assert.deepEqual(names, onDisk, 'the same files as the installer');
-  assert.equal(names.filter((name) => name.includes('.ko.')).length, 40);
+  assert.equal(names.filter((name) => name.includes('.ko.')).length, 229);
+  for (const group of (await import('../../src/domain/sample-names.js')).SAMPLE_GROUPS) assert.equal(group.items.length, 12, `${group.id}: twelve samples (two full rows of six tiles)`);
   assert.ok(paths.every(isWebSample));
   const tools = { serialize, buildTemplate, exportVsdx };
   for (const name of names) {
@@ -257,4 +280,22 @@ test('the web version lists and makes the same 40 samples per language', async (
     if (name.endsWith('.vsdx')) assert.equal(Buffer.from(content).toString('latin1', 0, 2), 'PK', name);
     else assert.ok(parseDiagram(content).doc.pages.length >= 1, name);
   }
+});
+
+test('the Shapes panel: every shape of every stencil has a picture, drawn in proportion', async () => {
+  const { CATEGORIES, mastersIn } = await import('../../src/domain/stencils.js');
+  const { masterIcon } = await import('../../src/render/svg.js');
+  for (const category of CATEGORIES) {
+    assert.ok(hasIcon(category.icon), `${category.id}: its icon`);
+    for (const master of mastersIn(category.id)) {
+      const svg = masterIcon(master.id, { size: 40 });
+      assert.ok(/<(path|rect|circle|ellipse|line|polyline|polygon|image)\b/.test(svg) && !/NaN|undefined/.test(svg), `${category.id}/${master.id} draws a picture`);
+      assert.ok(master.name.ko && master.name.en, `${master.id}: named`);
+    }
+  }
+  // Drawn at their own size and scaled down: a container's header band is a band, not the whole picture.
+  assert.notEqual(masterIcon('container'), masterIcon('ctSide'), 'top and side headers differ');
+  const stroke = (id) => Math.max(...[...masterIcon(id).matchAll(/stroke-width="([\d.]+)"/g)].map((m) => Number(m[1])));
+  const scale = (id) => Number(/scale\(([\d.]+)\)/.exec(masterIcon(id))[1]);
+  assert.ok(stroke('bpmnCallActivity') * scale('bpmnCallActivity') > stroke('bpmnTask') * scale('bpmnTask') * 1.5, 'a call activity keeps its thick border');
 });

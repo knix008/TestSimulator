@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "drawing",
- "saved": "2026-11-06T04:18:13.801Z",
+ "saved": "2026-11-23T05:50:21.096Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mw4gs33d1mh8m",
+  "id": "dgm-mwsuk1bc41wg9",
   "title": "Lamp Circuit",
   "subject": "",
   "author": "SHKWON",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-11-06T04:18:13.801Z",
+  "created": "2026-11-23T05:50:21.096Z",
   "design": "office",
   "variant": 0,
   "units": "in",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mw4gs33d1mij1",
+    "id": "page-mwsuk1bc41xas",
     "name": "Lamp Circuit",
     "paper": "Letter",
     "orientation": "landscape",
@@ -51,7 +51,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mw4gs33d1mj8u",
+      "id": "shp-mwsuk1bc41yuj",
       "type": "shape",
       "master": "title",
       "name": "",
@@ -79,7 +79,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs33d1mkvz",
+      "id": "shp-mwsuk1bc41zyo",
       "type": "shape",
       "master": "voltageSource",
       "name": "",
@@ -106,7 +106,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs33d1mlk6",
+      "id": "shp-mwsuk1bc42094",
       "type": "shape",
       "master": "textBox",
       "name": "",
@@ -136,7 +136,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs33d1mmg5",
+      "id": "shp-mwsuk1bc421dn",
       "type": "shape",
       "master": "switchElec",
       "name": "",
@@ -163,7 +163,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs33d1mnsg",
+      "id": "shp-mwsuk1bc4227w",
       "type": "shape",
       "master": "resistor",
       "name": "",
@@ -190,7 +190,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs33d1moqv",
+      "id": "shp-mwsuk1bc423o9",
       "type": "shape",
       "master": "lamp",
       "name": "",
@@ -217,7 +217,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs33d1mphc",
+      "id": "shp-mwsuk1bc424cp",
       "type": "shape",
       "master": "lamp",
       "name": "",
@@ -244,7 +244,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs33d1mqqb",
+      "id": "shp-mwsuk1bc425fn",
       "type": "shape",
       "master": "textBox",
       "name": "",
@@ -274,7 +274,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs33d1mrth",
+      "id": "shp-mwsuk1bc426u0",
       "type": "shape",
       "master": "textBox",
       "name": "",
@@ -304,7 +304,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs33d1msio",
+      "id": "shp-mwsuk1bc4273m",
       "type": "shape",
       "master": "ground",
       "name": "",
@@ -331,14 +331,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs33d1mtub",
+      "id": "con-mwsuk1bc4289l",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs33d1mkvz",
+       "id": "shp-mwsuk1bc41zyo",
        "pt": 0
       },
       "to": {
-       "id": "shp-mw4gs33d1mmg5",
+       "id": "shp-mwsuk1bc421dn",
        "pt": 0
       },
       "route": "orthogonal",
@@ -358,14 +358,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs33d1mu7u",
+      "id": "con-mwsuk1bc429ro",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs33d1mmg5",
+       "id": "shp-mwsuk1bc421dn",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs33d1mnsg",
+       "id": "shp-mwsuk1bc4227w",
        "pt": 0
       },
       "route": "straight",
@@ -385,14 +385,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs33d1mvav",
+      "id": "con-mwsuk1bc42a8u",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs33d1mnsg",
+       "id": "shp-mwsuk1bc4227w",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs33d1moqv",
+       "id": "shp-mwsuk1bc423o9",
        "pt": 0
       },
       "route": "orthogonal",
@@ -412,14 +412,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs33d1mw17",
+      "id": "con-mwsuk1bc42brv",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs33d1mnsg",
+       "id": "shp-mwsuk1bc4227w",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs33d1mphc",
+       "id": "shp-mwsuk1bc424cp",
        "pt": 0
       },
       "route": "orthogonal",
@@ -439,14 +439,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs33d1mx4k",
+      "id": "con-mwsuk1bc42cff",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs33d1moqv",
+       "id": "shp-mwsuk1bc423o9",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs33d1msio",
+       "id": "shp-mwsuk1bc4273m",
        "pt": 0
       },
       "route": "orthogonal",
@@ -466,14 +466,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs33d1myxc",
+      "id": "con-mwsuk1bc42dt4",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs33d1mphc",
+       "id": "shp-mwsuk1bc424cp",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs33d1msio",
+       "id": "shp-mwsuk1bc4273m",
        "pt": 0
       },
       "route": "orthogonal",
@@ -493,14 +493,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs33d1mzcv",
+      "id": "con-mwsuk1bc42eh7",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs33d1mkvz",
+       "id": "shp-mwsuk1bc41zyo",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs33d1msio",
+       "id": "shp-mwsuk1bc4273m",
        "pt": 0
       },
       "route": "straight",
@@ -520,7 +520,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs33d1n0qz",
+      "id": "shp-mwsuk1bc42f2b",
       "type": "shape",
       "master": "note",
       "name": "",

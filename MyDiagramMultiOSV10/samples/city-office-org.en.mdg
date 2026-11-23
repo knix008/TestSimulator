@@ -1,0 +1,412 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.189Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1dx594i6",
+  "title": "City Hall Organisation",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.189Z",
+  "design": "office",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1dx595ah",
+    "name": "City Hall Organisation",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1dx5966h",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 17.72830188679245,
+      "w": 610.6415094339623,
+      "h": 49.24528301886792,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "City Hall Organisation",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1dx597kl",
+      "type": "shape",
+      "master": "orgExecutive",
+      "name": "",
+      "x": 423.09905660377365,
+      "y": 78.79245283018868,
+      "w": 237.19811320754718,
+      "h": 111.62264150943398,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Mayor",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1dx5987u",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 430.07547169811323,
+      "y": 257.3886792452831,
+      "w": 223.24528301886795,
+      "h": 97.66981132075472,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Deputy mayor",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1dx599g9",
+      "type": "shape",
+      "master": "orgDepartment",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 422.03207547169814,
+      "w": 209.2924528301887,
+      "h": 97.66981132075472,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Planning",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1dx59aws",
+      "type": "shape",
+      "master": "orgDepartment",
+      "name": "",
+      "x": 304.5,
+      "y": 422.03207547169814,
+      "w": 209.2924528301887,
+      "h": 97.66981132075472,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Welfare",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1dx59b4l",
+      "type": "shape",
+      "master": "orgDepartment",
+      "name": "",
+      "x": 569.6037735849058,
+      "y": 422.03207547169814,
+      "w": 209.2924528301887,
+      "h": 97.66981132075472,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Environment",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1dx59cpd",
+      "type": "shape",
+      "master": "orgDepartment",
+      "name": "",
+      "x": 834.7075471698113,
+      "y": 422.03207547169814,
+      "w": 209.2924528301887,
+      "h": 97.66981132075472,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Finance",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1dx59dd4",
+      "type": "shape",
+      "master": "orgTeam",
+      "name": "",
+      "x": 304.5,
+      "y": 586.6754716981133,
+      "w": 209.2924528301887,
+      "h": 97.66981132075472,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Service desk",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1dx59ee4",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1dx597kl",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1dx5987u",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1dx59f3w",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1dx5987u",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1dx599g9",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1dx59gxj",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1dx5987u",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1dx59aws",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1dx59hfc",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1dx5987u",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1dx59b4l",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1dx59ip1",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1dx5987u",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1dx59cpd",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1dx59ji8",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1dx59aws",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1dx59dd4",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "org"
+  ]
+ }
+}

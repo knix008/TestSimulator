@@ -1,0 +1,908 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.194Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1e25c48q",
+  "title": "Party Planning",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.194Z",
+  "design": "bubble",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1e25c5tz",
+    "name": "Party Planning",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1e25c6i4",
+      "type": "shape",
+      "master": "centralTopic",
+      "name": "",
+      "x": 440.0000000000001,
+      "y": 375.00000000000006,
+      "w": 180,
+      "h": 90,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Birthday party",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1e25c77r",
+      "type": "shape",
+      "master": "mainTopic",
+      "name": "",
+      "x": 586.3738292428818,
+      "y": 255.8958706636737,
+      "w": 140,
+      "h": 56,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Place",
+      "style": {},
+      "qs": {
+       "color": 1
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1e25c8cz",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1e25c6i4",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1e25c77r",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk1e25c9aq",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 602.8773075812275,
+      "y": 80,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Home",
+      "style": {},
+      "qs": {
+       "color": 1,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1e25cafb",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1e25c77r",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1e25c9aq",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk1e25cbfr",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 817.8773075812275,
+      "y": 202.22912360003366,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Park",
+      "style": {},
+      "qs": {
+       "color": 1,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1e25ccvt",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1e25c77r",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1e25cbfr",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk1e25cdwh",
+      "type": "shape",
+      "master": "mainTopic",
+      "name": "",
+      "x": 664.4771510034581,
+      "y": 443.98715139726505,
+      "w": 140,
+      "h": 56,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Food",
+      "style": {},
+      "qs": {
+       "color": 2
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1e25cegr",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1e25c6i4",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1e25cdwh",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk1e25cff2",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 900,
+      "y": 400.00000000000006,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Cake",
+      "style": {},
+      "qs": {
+       "color": 2,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1e25cgqb",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1e25cdwh",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1e25cff2",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk1e25chy2",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 817.8773075812275,
+      "y": 597.7708763999665,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Pizza",
+      "style": {},
+      "qs": {
+       "color": 2,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1e25cir6",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1e25cdwh",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1e25chy2",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk1e25cjou",
+      "type": "shape",
+      "master": "mainTopic",
+      "name": "",
+      "x": 460.0000000000001,
+      "y": 560.2339558781227,
+      "w": 140,
+      "h": 56,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Guests",
+      "style": {},
+      "qs": {
+       "color": 3
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1e25ckos",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1e25c6i4",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1e25cjou",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk1e25clcb",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 602.8773075812275,
+      "y": 720,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "12 friends",
+      "style": {},
+      "qs": {
+       "color": 3,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1e25cmku",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1e25cjou",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1e25clcb",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk1e25cnn2",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 337.12269241877266,
+      "y": 720,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Invitations",
+      "style": {},
+      "qs": {
+       "color": 3,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1e25co8f",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1e25cjou",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1e25cnn2",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk1e25cpyg",
+      "type": "shape",
+      "master": "mainTopic",
+      "name": "",
+      "x": 255.52284899654205,
+      "y": 443.98715139726505,
+      "w": 140,
+      "h": 56,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Games",
+      "style": {},
+      "qs": {
+       "color": 4
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1e25cqct",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1e25c6i4",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1e25cpyg",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk1e25crsr",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 122.12269241877266,
+      "y": 597.7708763999665,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Treasure hunt",
+      "style": {},
+      "qs": {
+       "color": 4,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1e25cs87",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1e25cpyg",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1e25crsr",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk1e25ctkk",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 40,
+      "y": 400.00000000000006,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Karaoke",
+      "style": {},
+      "qs": {
+       "color": 4,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1e25cuom",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1e25cpyg",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1e25ctkk",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk1e25cvns",
+      "type": "shape",
+      "master": "mainTopic",
+      "name": "",
+      "x": 333.6261707571183,
+      "y": 255.8958706636737,
+      "w": 140,
+      "h": 56,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Supplies",
+      "style": {},
+      "qs": {
+       "color": 5
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1e25cwfp",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1e25c6i4",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1e25cvns",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk1e25cxnz",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 122.1226924187726,
+      "y": 202.2291236000337,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Balloons",
+      "style": {},
+      "qs": {
+       "color": 5,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1e25cy7b",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1e25cvns",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1e25cxnz",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk1e25czev",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 337.12269241877266,
+      "y": 80,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Gifts",
+      "style": {},
+      "qs": {
+       "color": 5,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1e25d0wp",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1e25cvns",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1e25czev",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk1e25d1r1",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Party Planning",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "mind",
+   "basic"
+  ]
+ }
+}

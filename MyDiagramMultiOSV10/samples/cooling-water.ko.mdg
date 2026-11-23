@@ -1,0 +1,389 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:20.998Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk18m2irrt",
+  "title": "냉각수 계통",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:20.998Z",
+  "design": "slice",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk18m2isk1",
+    "name": "냉각수 계통",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk18m2it1i",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "냉각수 계통",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk18m2iu4f",
+      "type": "shape",
+      "master": "pidHeatEx",
+      "name": "",
+      "x": 40,
+      "y": 85.73033707865169,
+      "w": 91.68539325842696,
+      "h": 91.68539325842696,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "공정 열교환기",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk18m2ivkx",
+      "type": "shape",
+      "master": "pidCooler",
+      "name": "",
+      "x": 221.07865168539325,
+      "y": 91.46067415730337,
+      "w": 103.14606741573033,
+      "h": 80.22471910112358,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "냉각탑",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk18m2iw75",
+      "type": "shape",
+      "master": "pidTankOpen",
+      "name": "",
+      "x": 413.61797752808985,
+      "y": 80,
+      "w": 126.06741573033707,
+      "h": 103.14606741573033,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "수조",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk18m2ixv8",
+      "type": "shape",
+      "master": "pidPump",
+      "name": "",
+      "x": 629.0786516853932,
+      "y": 91.46067415730337,
+      "w": 80.22471910112358,
+      "h": 80.22471910112358,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "P-401",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk18m2iy57",
+      "type": "shape",
+      "master": "pidFilter",
+      "name": "",
+      "x": 798.6966292134831,
+      "y": 85.73033707865169,
+      "w": 91.68539325842696,
+      "h": 91.68539325842696,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "여과기",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk18m2izv0",
+      "type": "shape",
+      "master": "pidFlowMeter",
+      "name": "",
+      "x": 979.7752808988763,
+      "y": 108.65168539325842,
+      "w": 80.22471910112358,
+      "h": 45.84269662921348,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "유량계",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk18m2j0o7",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk18m2iu4f",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk18m2ivkx",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "뜨거운 물",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk18m2j138",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk18m2ivkx",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk18m2iw75",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk18m2j2gn",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk18m2iw75",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk18m2ixv8",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk18m2j3r1",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk18m2ixv8",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk18m2iy57",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk18m2j40u",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk18m2iy57",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk18m2izv0",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk18m2j5ga",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk18m2izv0",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk18m2iu4f",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "찬물",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "process"
+  ]
+ }
+}

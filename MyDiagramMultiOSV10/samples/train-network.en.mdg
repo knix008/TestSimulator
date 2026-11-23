@@ -1,0 +1,441 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.252Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1fo62e8o",
+  "title": "Circle Railway",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.252Z",
+  "design": "midnight",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1fo62fyv",
+    "name": "Circle Railway",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1fo62gn9",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Circle Railway",
+      "style": {
+       "align": "left",
+       "textColor": "#c0caf5",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1fo62hpg",
+      "type": "shape",
+      "master": "trStation",
+      "name": "",
+      "x": 299.71827204000937,
+      "y": 80,
+      "w": 79.2,
+      "h": 79.2,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Central",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1fo62ikm",
+      "type": "shape",
+      "master": "trStation",
+      "name": "",
+      "x": 482.0365440800187,
+      "y": 167.7998523593148,
+      "w": 79.2,
+      "h": 79.2,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "North",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1fo62jg5",
+      "type": "shape",
+      "master": "trStation",
+      "name": "",
+      "x": 527.0654386589135,
+      "y": 365.08432982010004,
+      "w": 79.2,
+      "h": 79.2,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Airport",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1fo62kcs",
+      "type": "shape",
+      "master": "trStation",
+      "name": "",
+      "x": 400.8972797367301,
+      "y": 523.2941969844428,
+      "w": 79.2,
+      "h": 79.2,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Harbour",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1fo62lyq",
+      "type": "shape",
+      "master": "trStation",
+      "name": "",
+      "x": 198.5392643432886,
+      "y": 523.2941969844428,
+      "w": 79.2,
+      "h": 79.2,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "University",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1fo62mup",
+      "type": "shape",
+      "master": "trStation",
+      "name": "",
+      "x": 72.37110542110516,
+      "y": 365.0843298201001,
+      "w": 79.2,
+      "h": 79.2,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Market",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1fo62nby",
+      "type": "shape",
+      "master": "trTrain",
+      "name": "",
+      "x": 40,
+      "y": 147.99985235931484,
+      "w": 234,
+      "h": 118.8,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Circle line",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1fo62odf",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1fo62hpg",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1fo62ikm",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1fo62ppn",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1fo62ikm",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1fo62jg5",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1fo62q02",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1fo62jg5",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1fo62kcs",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1fo62rl7",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1fo62kcs",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1fo62lyq",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1fo62s38",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1fo62lyq",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1fo62mup",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1fo62tl1",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1fo62mup",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1fo62hpg",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1fo62uyd",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1fo62nby",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1fo62hpg",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "transport",
+   "maps"
+  ]
+ }
+}

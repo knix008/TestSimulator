@@ -1,0 +1,368 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.026Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk19e2wtlx",
+  "title": "동영상 스트리밍",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.026Z",
+  "design": "midnight",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk19e2wuuc",
+    "name": "동영상 스트리밍",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk19e2wvln",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "동영상 스트리밍",
+      "style": {
+       "align": "left",
+       "textColor": "#c0caf5",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19e2wwou",
+      "type": "shape",
+      "master": "cldBucket",
+      "name": "",
+      "x": 40,
+      "y": 80,
+      "w": 84,
+      "h": 96,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "원본 영상",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19e2wxas",
+      "type": "shape",
+      "master": "cldFunction",
+      "name": "",
+      "x": 224.79999999999998,
+      "y": 86,
+      "w": 84,
+      "h": 84,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "변환",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19e2wytb",
+      "type": "shape",
+      "master": "cldBucket",
+      "name": "",
+      "x": 409.59999999999997,
+      "y": 80,
+      "w": 84,
+      "h": 96,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "화질별 파일",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19e2wzhk",
+      "type": "shape",
+      "master": "cldEdge",
+      "name": "",
+      "x": 594.4,
+      "y": 86,
+      "w": 96,
+      "h": 84,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "엣지 서버",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19e2x0in",
+      "type": "shape",
+      "master": "user",
+      "name": "",
+      "x": 791.1999999999999,
+      "y": 86,
+      "w": 72,
+      "h": 84,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "시청자",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19e2x1cl",
+      "type": "shape",
+      "master": "cldAnalytics",
+      "name": "",
+      "x": 964,
+      "y": 86,
+      "w": 96,
+      "h": 84,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "시청 통계",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk19e2x2bl",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19e2wwou",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19e2wxas",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk19e2x3fw",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19e2wxas",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19e2wytb",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk19e2x4wf",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19e2wytb",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19e2wzhk",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk19e2x5vr",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19e2wzhk",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19e2x0in",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk19e2x61a",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19e2x0in",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19e2x1cl",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "cloud",
+   "network"
+  ]
+ }
+}

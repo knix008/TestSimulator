@@ -1,0 +1,363 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:20.958Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk17i1ywvx",
+  "title": "가족 회사 조직도",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:20.958Z",
+  "design": "facet",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk17i1yxni",
+    "name": "가족 회사 조직도",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk17i1yybh",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "가족 회사 조직도",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17i1yzde",
+      "type": "shape",
+      "master": "orgExecutive",
+      "name": "",
+      "x": 329.86175115207374,
+      "y": 80,
+      "w": 266.3594470046083,
+      "h": 125.34562211981567,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "대표 (아버지)",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17i1z0a1",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 181.01382488479263,
+      "y": 280.55299539170505,
+      "w": 250.69124423963135,
+      "h": 109.67741935483872,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "실장 (딸)",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17i1z18v",
+      "type": "shape",
+      "master": "orgPartner",
+      "name": "",
+      "x": 635.3917050691244,
+      "y": 280.55299539170505,
+      "w": 250.69124423963135,
+      "h": 109.67741935483872,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "외부 세무사",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17i1z2y6",
+      "type": "shape",
+      "master": "orgStaff",
+      "name": "",
+      "x": 40,
+      "y": 465.4377880184332,
+      "w": 235.0230414746544,
+      "h": 109.67741935483872,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "매장 직원 2명",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17i1z340",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 337.6958525345622,
+      "y": 465.4377880184332,
+      "w": 235.0230414746544,
+      "h": 109.67741935483872,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "온라인몰 (아들)",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17i1z4a2",
+      "type": "shape",
+      "master": "orgStaff",
+      "name": "",
+      "x": 337.6958525345622,
+      "y": 650.3225806451613,
+      "w": 235.0230414746544,
+      "h": 109.67741935483872,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "배달",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17i1z5k3",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17i1yzde",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17i1z0a1",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17i1z6dx",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17i1yzde",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17i1z18v",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17i1z7x1",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17i1z0a1",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17i1z2y6",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17i1z861",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17i1z0a1",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17i1z340",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17i1z9bw",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17i1z340",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17i1z4a2",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "org"
+  ]
+ }
+}

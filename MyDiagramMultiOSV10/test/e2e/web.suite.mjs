@@ -115,7 +115,7 @@ export const cases = [
     await W(app, 'a.showStartPage()');
     await sleep(300);
     const templates = await W(app, 'w.domain.TEMPLATES.length');
-    const info = await app.main.eval(`({ shown: !document.querySelector('#start-page').hidden, templates: document.querySelectorAll('.template-tile').length, tutorial: Boolean(document.querySelector('[data-start="tutorial"]')), sample: Boolean(document.querySelector('[data-start="builtin-sample"], [data-start="open-sample"]')) })`);
+    const info = await app.main.eval(`({ shown: !document.querySelector('#start-page').hidden, templates: document.querySelectorAll('.template-tile[data-start="template"]').length, tutorial: Boolean(document.querySelector('[data-start="tutorial"]')), sample: Boolean(document.querySelector('[data-start="builtin-sample"], [data-start="open-sample"]')) })`);
     assert.deepEqual(info, { shown: true, templates, tutorial: true, sample: true });
     assert.ok(templates >= 12, `${templates} templates`);
     const pixel = () => app.main.eval(`(() => { const c = document.querySelector('.start-bg'); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let h = 0; for (let y = 0; y < c.height; y += 7) for (let x = 0; x < c.width; x += 7) { const i = (y * c.width + x) * 4; h = (h * 31 + d[i] * 3 + d[i + 1] * 5 + d[i + 2]) >>> 0; } return h; })()`);
@@ -313,18 +313,19 @@ export const cases = [
       await closeFrames(app);
     }
   } },
-  { group: '테마', name: '테마 드롭다운: 다크 20 | 라이트 20 두 줄', async run(app) {
+  { group: '테마', name: '테마 드롭다운: 드롭다운 메뉴, 다크 20 · 라이트 20 하위 메뉴 (실제 마우스)', async run(app) {
     await app.main.click('[data-command="themeMenu"]');
-    await app.waitFrame('theme', `document.querySelectorAll('[data-pick-theme]').length > 30`);
-    assert.deepEqual(await app.frame('theme', `[...document.querySelectorAll('.picker-column')].map((c) => c.querySelectorAll('[data-pick-theme]').length)`), [20, 20]);
-    // Narrow, under the dropdown button: left edges lined up, or right edges when the page ends first.
-    const fit = await app.main.eval(`(() => { const b = document.querySelector('#toolbar [data-command="themeMenu"]').closest('.split-button').getBoundingClientRect(); const f = document.querySelector('.web-popup-theme').getBoundingClientRect(); return { width: Math.round(f.width), left: Math.abs(f.left - b.left) < 2, right: Math.abs(f.right - b.right) < 2, roomRight: b.left + f.width <= innerWidth - 4, below: f.top >= b.bottom }; })()`);
-    assert.ok(fit.width < 560, JSON.stringify(fit));
-    assert.ok(fit.below && (fit.roomRight ? fit.left : fit.right), JSON.stringify(fit));
-    assert.deepEqual(await app.frame('theme', CLIP_CHECK), [], 'theme names are not cut off');
-    await app.frame('theme', `(document.querySelector('[data-pick-theme="monokai"]').click(), 1)`);
+    await app.waitFrame('menu', `document.querySelector('[data-id="submenu:theme.lightGroup"]')`);
+    assert.equal(await app.frame('menu', `Boolean(document.querySelector('.popup-head'))`), false, 'a menu, not a popup window');
+    // Each group opens its own 20 themes (waiting for one of them: both groups have 20).
+    for (const [group, one] of [['theme.darkGroup', 'nord'], ['theme.lightGroup', 'solarized']]) {
+      await hoverMenu(app, `[data-id="submenu:${group}"]`);
+      await app.waitFrame('menu', `document.querySelector('.popup-menu.sub [data-id="custom:theme:${one}"]') && document.querySelectorAll('.popup-menu.sub .menu-item').length === 20`, 3000);
+    }
+    assert.deepEqual(await app.frame('menu', CLIP_CHECK), [], 'theme names are not cut off');
+    await app.frame('menu', `(document.querySelector('.popup-menu.sub [data-id="custom:theme:solarized"]').click(), 1)`);
     await sleep(300);
-    assert.equal(await W(app, 'w.state.settings.theme'), 'monokai');
+    assert.equal(await W(app, 'w.state.settings.theme'), 'solarized');
   } },
   { group: '툴바', name: '보기 드롭다운: 보기를 바꿔도 툴바 버튼이 움직이지 않음', async run(app) {
     await freshSample(app);
@@ -378,6 +379,90 @@ export const cases = [
     assert.equal(placed.master, 'rect');
     assert.ok(placed.dx < 25 && placed.dy < 25, `centred where dropped ${JSON.stringify(placed)}`);
     assert.equal(placed.ghost, false, 'the drag picture is gone');
+  } },
+  { group: '도형', name: '모든 스텐실이 도형 패널에: 드로잉의 스텐실은 펼침, 나머지는 접힌 채 이름으로', async run(app) {
+    await freshSample(app);
+    const info = await W(app, `(() => { const secs = [...document.querySelectorAll('#left-panel .stencils > .stencil')]; return { ids: secs.map((s) => s.dataset.stencil), open: secs.filter((s) => !s.classList.contains('collapsed')).map((s) => s.dataset.stencil), tiles: secs.filter((s) => s.classList.contains('collapsed')).every((s) => !s.querySelector('.stencil-tile')) }; })()`);
+    const all = await app.main.eval(`(async () => (await import('/src/domain/stencils.js')).CATEGORIES.map((c) => c.id))()`).catch(() => null);
+    const count = all ? all.length : 35;
+    assert.equal(info.ids.length, count + 1, `every stencil (and My shapes) is listed ${info.ids.length}`);
+    assert.equal(new Set(info.ids).size, info.ids.length, 'each once');
+    assert.ok(info.open.length >= 1 && info.open.length < 10, `the drawing's own stencils are unfolded ${JSON.stringify(info.open)}`);
+    assert.ok(info.tiles, 'a folded stencil draws no shapes');
+    const folded = info.ids.find((id) => !info.open.includes(id) && id !== 'my');
+    await app.main.click(`#left-panel [data-stencil-toggle="${folded}"]`);
+    await sleep(200);
+    assert.ok(await W(app, `document.querySelectorAll('#left-panel .stencil[data-stencil="${folded}"] .stencil-tile').length > 0`), 'a click unfolds it with its shapes');
+    await app.main.click(`#left-panel [data-stencil-toggle="${folded}"]`);
+    await sleep(200);
+    assert.equal(await W(app, `document.querySelectorAll('#left-panel .stencil[data-stencil="${folded}"] .stencil-tile').length`), 0, 'and folds it again');
+  } },
+  { group: '도형', name: '도구 18개 (세 줄): 화살표 선·곡선·확대·서식 복사·올가미·지우개 (실제 마우스)', async run(app) {
+    const ids = await freshDrawing(app);
+    const strip = await app.main.eval(`(() => { const c = [...document.querySelectorAll('.tool-strip .tool-chip')].map((e) => e.getBoundingClientRect()); return { count: c.length, rows: new Set(c.map((r) => Math.round(r.top))).size, square: c.every((r) => Math.abs(r.width - r.height) < 1) }; })()`);
+    assert.deepEqual(strip, { count: 18, rows: 3, square: true }, 'three full rows of square tools');
+    const last = () => W(app, `(() => { const s = api.page().shapes.at(-1); return { id: s.id, type: s.type, master: s.master, end: s.style?.endArrow ?? null, route: s.route ?? null, points: s.params?.points?.length ?? 0 }; })()`);
+    // Arrow line: a straight connector with an arrowhead.
+    const a1 = await clientOf(app, ids.a, 0.5, 3);
+    const b1 = await clientOf(app, ids.b, 0.5, 3);
+    await W(app, `(a.setTool('arrowLine'), 1)`);
+    await app.main.drag(a1, b1);
+    await sleep(250);
+    const arrow = await last();
+    assert.deepEqual([arrow.type, arrow.route, arrow.end], ['connector', 'straight', 'arrow'], JSON.stringify(arrow));
+    // Curve: three clicks and Enter give a smooth freeform through them.
+    await W(app, `(a.setTool('curve'), 1)`);
+    for (const [dx, dy] of [[0, 5], [120, 3.5], [240, 5]]) {
+      const p = await clientOf(app, ids.a, 0.5 + dx / 140, dy);
+      await app.main.mouse('mouseMoved', p.x, p.y, { button: 'none' });
+      await app.main.mouse('mousePressed', p.x, p.y);
+      await app.main.mouse('mouseReleased', p.x, p.y);
+      await sleep(80);
+    }
+    await app.main.key('Enter');
+    await sleep(250);
+    const curve = await last();
+    assert.ok(curve.master === 'freeform' && curve.points > 10, `a smooth curve ${JSON.stringify(curve)}`);
+    // Zoom: a click zooms in.
+    await W(app, `(a.setTool('zoom'), 1)`);
+    const before = await W(app, 'w.state.view.z');
+    const mid = await clientOf(app, ids.a);
+    await app.main.mouse('mouseMoved', mid.x, mid.y, { button: 'none' });
+    await app.main.mouse('mousePressed', mid.x, mid.y);
+    await app.main.mouse('mouseReleased', mid.x, mid.y);
+    await sleep(250);
+    assert.ok(await W(app, 'w.state.view.z') > before * 1.3, 'zoomed in');
+    await W(app, `(a.setTool('pointer'), a.setCanvasZoom(100), 1)`);
+    // Format painter tool: the selected shape's format goes to every shape clicked.
+    await W(app, `(() => { const s = api.page().shapes.find((x) => x.id === ${JSON.stringify(ids.a)}); s.style = { ...s.style, fill: '#ff0000' }; a.select([s.id]); a.setTool('paint'); return 1; })()`);
+    const onB = await clientOf(app, ids.b);
+    await app.main.mouse('mouseMoved', onB.x, onB.y, { button: 'none' });
+    await app.main.mouse('mousePressed', onB.x, onB.y);
+    await app.main.mouse('mouseReleased', onB.x, onB.y);
+    await sleep(250);
+    assert.equal(await W(app, `api.page().shapes.find((x) => x.id === ${JSON.stringify(ids.b)}).style.fill`), '#ff0000', 'the format went to the clicked shape');
+    // Lasso: drag around the ellipse only.
+    await W(app, `(a.setTool('lasso'), 1)`);
+    const corners = [[-0.2, -0.4], [1.2, -0.4], [1.2, 1.4], [-0.2, 1.4], [-0.2, -0.3]];
+    const ring = [];
+    for (const [fx, fy] of corners) ring.push(await clientOf(app, ids.b, fx, fy));
+    await app.main.mouse('mouseMoved', ring[0].x, ring[0].y, { button: 'none' });
+    await app.main.mouse('mousePressed', ring[0].x, ring[0].y);
+    for (const q of ring.slice(1)) { await app.main.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: q.x, y: q.y, button: 'left', buttons: 1, pointerType: 'mouse' }); await sleep(30); }
+    await app.main.mouse('mouseReleased', ring.at(-1).x, ring.at(-1).y);
+    await sleep(250);
+    assert.deepEqual(await W(app, 'api.selection().ids'), [ids.b], 'the lasso selected what it went round');
+    // Eraser: drag across the rectangle deletes it (one undo step brings it back).
+    await W(app, `(a.setTool('eraser'), 1)`);
+    const left = await clientOf(app, ids.a, 0.1, 0.5);
+    const right = await clientOf(app, ids.a, 0.9, 0.5);
+    await app.main.drag(left, right);
+    await sleep(250);
+    assert.equal(await W(app, `Boolean(api.page().shapes.find((x) => x.id === ${JSON.stringify(ids.a)}))`), false, 'erased');
+    await W(app, `(a.undo(), 1)`);
+    assert.equal(await W(app, `Boolean(api.page().shapes.find((x) => x.id === ${JSON.stringify(ids.a)}))`), true, 'undo brings it back');
+    await W(app, `(a.setTool('pointer'), 1)`);
+    await noError(app, 'tools');
   } },
   { group: '도형', name: '사각형 도구로 실제 마우스 끌기 → 새 도형, 끌어서 이동, 화살표로 미세 이동', async run(app) {
     const ids = await freshDrawing(app);
@@ -648,11 +733,12 @@ export const cases = [
       assert.ok(shown.width > 0 && shown.png, `${name}: ${JSON.stringify(shown)}`);
     }
   } },
-  { group: '시작 화면', name: '웹에도 같은 예제 40개, 눌러서 열기', async run(app) {
+  { group: '시작 화면', name: '웹에도 같은 예제 228개(분류마다 12개), 눌러서 열기', async run(app) {
     await W(app, '(a.showStartPage(), 1)');
     await sleep(400);
-    assert.equal(await app.main.eval(`document.querySelectorAll('[data-start="open-sample"]').length`), 40);
-    assert.equal(await app.main.eval(`document.querySelectorAll('.start-card.samples .start-group').length`), 11);
+    assert.equal(await app.main.eval(`document.querySelectorAll('[data-start="open-sample"]').length`), 228);
+    assert.deepEqual(await app.main.eval(`[...document.querySelectorAll('.start-card.samples .sample-tiles')].map((g) => g.children.length).filter((n) => n !== 12)`), [], 'twelve samples in every group');
+    assert.equal(await app.main.eval(`document.querySelectorAll('.start-card.samples .start-group').length`), 19);
     const docs = await W(app, 'w.state.docs.length');
     await app.main.click('[data-start="open-sample"][data-value*="login-flow"]');
     await app.main.waitFor(`window.__mydiagram.state.docs.length === ${docs + 1}`, { timeout: 15000 });

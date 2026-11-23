@@ -10,7 +10,7 @@ import { center, clamp, dist, pageToLocal, rectContains, rectInside, rotatePoint
 import { contentBounds, createConnector, createShape, drawingSize, findShape, formatLength, isConnector, isGroup, layerState, pagePoints, topLevel, withMembers, containedShapes } from '../domain/diagram.js';
 import { glueTarget } from '../domain/routing.js';
 import { masterById, shapeParams } from '../domain/stencils.js';
-import { pageColor, designById } from '../domain/designs.js';
+import { pageColor, designById, designOf, isWhitePaper } from '../domain/designs.js';
 import { pageBody, renderPageSvg, DEFAULT_FONT } from '../render/svg.js';
 import { CANVAS_ZOOM, GRID_SIZES } from '../domain/settings.js';
 import { escapeHtml, frameThrottle } from '../ui/dom.js';
@@ -51,6 +51,45 @@ export function canvasMeasure() {
   };
 }
 
+
+/** A smooth curve through `points` (Catmull-Rom, sampled), closed back to the start when `closed`. */
+export function smoothCurve(points, closed = false, steps = 12) {
+  if (points.length < 3) return points.slice();
+  const list = closed ? [points.at(-1), ...points, points[0], points[1]] : [points[0], ...points, points.at(-1)];
+  const out = [];
+  for (let i = 1; i < list.length - 2; i++) {
+    const [p0, p1, p2, p3] = [list[i - 1], list[i], list[i + 1], list[i + 2]];
+    for (let k = 0; k < steps; k++) {
+      const t = k / steps; const t2 = t * t; const t3 = t2 * t;
+      const at = (a, b, c, d) => 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3);
+      out.push({ x: at(p0.x, p1.x, p2.x, p3.x), y: at(p0.y, p1.y, p2.y, p3.y) });
+    }
+  }
+  if (!closed) out.push(points.at(-1));
+  return out;
+}
+
+/** Whether `p` is inside the polygon `poly` (even-odd rule). */
+export function insidePolygon(p, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i]; const b = poly[j];
+    if ((a.y > p.y) !== (b.y > p.y) && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+  }
+  return inside;
+}
+
+/**
+ * Whether `p` is on a shape's label drawn outside its box (under an icon, a pin, a chart, an
+ * event): a click there selects the shape, as a click on the shape does.
+ */
+function onOutsideLabel(shape, master, p) {
+  if (!String(shape.text ?? '').trim()) return false;
+  const [x1, y1, x2, y2] = master.text ?? [0, 0, 1, 1];
+  if (x1 >= 0 && y1 >= 0 && x2 <= 1 && y2 <= 1) return false;
+  const l = pageToLocal(shape, p.x, p.y);
+  return l.x >= x1 * shape.w && l.x <= x2 * shape.w && l.y >= y1 * shape.h && l.y <= y2 * shape.h;
+}
 export class CanvasView {
   constructor(app, host) {
     this.app = app;
@@ -272,14 +311,26 @@ export class CanvasView {
     this.saveScroll();
   }
 
+  /**
+   * The document as drawn on screen. Under a dark program theme a light design on white paper
+   * follows the theme: the theme's paper, light text and lines (designOf). Only the screen.
+   */
+  viewDoc(doc) {
+    const root = document.documentElement;
+    if (root.style.colorScheme !== 'dark' || designById(doc.design).dark || !isWhitePaper(this.page?.color)) return doc;
+    const css = getComputedStyle(root);
+    const v = (name, fallback) => css.getPropertyValue(name).trim() || fallback;
+    return { ...doc, viewDark: { page: v('--surface', '#1f232c'), text: v('--text', '#e6e9ef'), connector: v('--muted', '#98a1b3') } };
+  }
+
   /** Page background, grid, page breaks (under the shapes) and guides (over them). */
   drawPage(size) {
     const page = this.page;
-    const doc = this.doc.doc;
+    const doc = this.viewDoc(this.doc.doc);
     const s = this.app.settings();
     const z = this.z;
     const fill = pageColor(doc, page);
-    const dark = designById(doc.design).dark;
+    const dark = designOf(doc).dark;
     const step = this.gridStep();
     const minor = dark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.07)';
     const major = dark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.14)';
@@ -317,7 +368,7 @@ export class CanvasView {
     const doc = tab.doc;
     const page = this.page;
     const index = doc.pages.indexOf(page);
-    const { body, defs } = pageBody(doc, page, { measure: this.measure, routes: this.routes(), language: this.app.language() });
+    const { body, defs } = pageBody(this.viewDoc(doc), page, { measure: this.measure, routes: this.routes(), language: this.app.language() });
     void index;
     this.defs.innerHTML = defs.join('');
     this.content.innerHTML = body;
@@ -345,7 +396,7 @@ export class CanvasView {
     }
     // Hovered shape (connection points, glue target).
     const hoverId = this.glue?.id ?? this.hover?.id;
-    const showPoints = s.showConnectionPoints && (tool === 'connector' || tool === 'line' || this.drag?.type === 'conEnd' || this.drag?.type === 'create' && ['connector', 'line'].includes(this.drag.tool) || this.drag?.type === 'autoDrag');
+    const showPoints = s.showConnectionPoints && (tool === 'connector' || tool === 'line' || tool === 'arrowLine' || this.drag?.type === 'conEnd' || this.drag?.type === 'create' && ['connector', 'line', 'arrowLine'].includes(this.drag.tool) || this.drag?.type === 'autoDrag');
     if (hoverId) {
       const shape = findShape(page, hoverId);
       if (shape && !isConnector(shape) && !isGroup(shape)) {
@@ -381,9 +432,10 @@ export class CanvasView {
     // Live drawing feedback.
     if (this.drag?.preview) parts.push(this.drag.preview);
     if (this.poly?.points.length) {
-      const pts = [...this.poly.points, this.poly.cursor].filter(Boolean).map((p) => this.toStage(p));
-      parts.push(`<polyline points="${pts.map((q) => `${n(q.x)},${n(q.y)}`).join(' ')}" fill="none" stroke="${accent}" stroke-width="1.5" stroke-dasharray="5 3"/>`);
-      parts.push(...pts.slice(0, -1).map((q) => `<circle cx="${q.x}" cy="${q.y}" r="3" fill="${accent}"/>`));
+      const raw = [...this.poly.points, this.poly.cursor].filter(Boolean);
+      const line = (this.app.tool() === 'curve' ? smoothCurve(raw) : raw).map((p) => this.toStage(p));
+      parts.push(`<polyline points="${line.map((q) => `${n(q.x)},${n(q.y)}`).join(' ')}" fill="none" stroke="${accent}" stroke-width="1.5" stroke-dasharray="5 3"/>`);
+      parts.push(...this.poly.points.map((p) => this.toStage(p)).map((q) => `<circle cx="${q.x}" cy="${q.y}" r="3" fill="${accent}"/>`));
     }
     for (const g of this.guidesShown) {
       parts.push(g.orient === 'v' ? `<line x1="${this.toStage({ x: g.pos, y: 0 }).x}" y1="0" x2="${this.toStage({ x: g.pos, y: 0 }).x}" y2="${this.stage.offsetHeight}" stroke="#ff2d95" stroke-width="1" stroke-dasharray="4 3"/>`
@@ -532,6 +584,13 @@ export class CanvasView {
         if (!connectors) continue;
         const r = routes.get(shape.id);
         if (r && polylineDistance(p, r.points) <= tol + (shape.style?.lineWidth ?? 1.5) / 2) return this.pick(shape, subselect);
+        // Its label too (sized as the renderer sizes it), not only the line under it.
+        const text = String(shape.text ?? '').trim();
+        if (r?.label && text) {
+          const lines = text.split('\n');
+          const width = Math.max(60, Math.min(260, Math.max(...lines.map((line) => this.measure(line, { fontSize: shape.style?.fontSize ?? 12 }))) + 12));
+          if (Math.abs(p.x - r.label.x) <= width / 2 && Math.abs(p.y - r.label.y) <= lines.length * 8 + 4) return this.pick(shape, subselect);
+        }
         continue;
       }
       const master = masterById(shape.master);
@@ -543,7 +602,7 @@ export class CanvasView {
         if (band || edge) return this.pick(shape, subselect);
         continue;
       }
-      if (shapeContains(shape, p, master.kind === 'lineShape' ? tol : 0)) return this.pick(shape, subselect);
+      if (shapeContains(shape, p, master.kind === 'lineShape' ? tol : 0) || onOutsideLabel(shape, master, p)) return this.pick(shape, subselect);
     }
     return null;
   }
@@ -705,14 +764,25 @@ export class CanvasView {
       this.trackPointer(event);
       return;
     }
-    if (tool === 'polyline') { this.polylineClick(p, event); return; }
+    if (tool === 'polyline' || tool === 'curve') { this.polylineClick(p, event); return; }
+    // Zoom: a click zooms in (Alt: out), a dragged box fills the view.
+    if (tool === 'zoom') { this.drag = { type: 'marquee', zoom: true, out: event.altKey, start: p, base: [] }; this.trackPointer(event); return; }
+    // Format painter tool: every click gives a shape the format taken first.
+    if (tool === 'paint') { const hit = this.hitTest(p); if (hit) this.app.paintWithTool(hit.top); return; }
+    // Lasso: drag around shapes to select them. Eraser: drag across shapes to delete them.
+    if (tool === 'lasso' || tool === 'eraser') {
+      this.drag = { type: tool, points: [p], hits: new Set() };
+      if (tool === 'eraser') this.eraseAt(p, this.drag);
+      this.trackPointer(event);
+      return;
+    }
     if (tool === 'pencil') {
       this.drag = { type: 'pencil', points: [p] };
       this.trackPointer(event);
       return;
     }
     // Rectangle, ellipse, text, line, connector: drag a box or a line.
-    const start = ['connector', 'line'].includes(tool) ? this.glueAt(p, new Set()) : null;
+    const start = ['connector', 'line', 'arrowLine'].includes(tool) ? this.glueAt(p, new Set()) : null;
     this.drag = { type: 'create', tool, start: start ? { x: start.x ?? p.x, y: start.y ?? p.y } : this.snapPoint(p, event), glueFrom: start?.target ?? null };
     this.trackPointer(event);
   }
@@ -989,6 +1059,16 @@ export class CanvasView {
         this.renderOverlay();
         return;
       }
+      case 'lasso': case 'eraser': {
+        d.points.push(p);
+        if (d.type === 'eraser') this.eraseAt(p, d);
+        const pts = d.points.map((q) => { const s = this.toStage(q); return `${n(s.x)},${n(s.y)}`; }).join(' ');
+        d.preview = d.type === 'lasso'
+          ? `<polygon points="${pts}" fill="rgba(47,111,222,0.08)" stroke="#2f6fde" stroke-dasharray="4 3"/>`
+          : `<polyline points="${pts}" fill="none" stroke="#e5484d" stroke-opacity="0.35" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>${[...d.hits].map((id) => { const b = shapeBounds(findShape(this.page, id) ?? {}); const a = this.toStage(b); return `<rect x="${n(a.x)}" y="${n(a.y)}" width="${n(b.w * this.z)}" height="${n(b.h * this.z)}" fill="rgba(229,72,77,0.15)" stroke="#e5484d" stroke-dasharray="3 2"/>`; }).join('')}`;
+        this.renderOverlay();
+        return;
+      }
       case 'pencil': {
         d.points.push(p);
         d.preview = `<polyline points="${d.points.map((q) => { const s = this.toStage(q); return `${n(s.x)},${n(s.y)}`; }).join(' ')}" fill="none" stroke="#2f6fde" stroke-width="2"/>`;
@@ -1101,7 +1181,7 @@ export class CanvasView {
     const d = this.drag;
     const tool = d.tool;
     let end = p;
-    if (['connector', 'line'].includes(tool)) {
+    if (['connector', 'line', 'arrowLine'].includes(tool)) {
       const g = event.altKey ? null : this.glueAt(p, new Set());
       this.glue = g?.target ?? null;
       d.glueTo = g?.target ?? null;
@@ -1119,8 +1199,11 @@ export class CanvasView {
     d.rect = { x: Math.min(d.start.x, d.start.x + w), y: Math.min(d.start.y, d.start.y + h), w: Math.abs(w), h: Math.abs(h) };
     const a = this.toStage({ x: d.rect.x, y: d.rect.y });
     const W = d.rect.w * this.z; const H = d.rect.h * this.z;
-    d.preview = tool === 'ellipse' ? `<ellipse cx="${a.x + W / 2}" cy="${a.y + H / 2}" rx="${W / 2}" ry="${H / 2}" fill="rgba(47,111,222,0.1)" stroke="#2f6fde" stroke-dasharray="5 3"/>`
-      : `<rect x="${a.x}" y="${a.y}" width="${W}" height="${H}" fill="rgba(47,111,222,0.1)" stroke="#2f6fde" stroke-dasharray="5 3"/>`;
+    const look = 'fill="rgba(47,111,222,0.1)" stroke="#2f6fde" stroke-dasharray="5 3"';
+    d.preview = tool === 'ellipse' ? `<ellipse cx="${a.x + W / 2}" cy="${a.y + H / 2}" rx="${W / 2}" ry="${H / 2}" ${look}/>`
+      : tool === 'triangle' ? `<path d="M${a.x + W / 2} ${a.y}L${a.x + W} ${a.y + H}H${a.x}Z" ${look}/>`
+        : tool === 'diamond' ? `<path d="M${a.x + W / 2} ${a.y}L${a.x + W} ${a.y + H / 2}L${a.x + W / 2} ${a.y + H}L${a.x} ${a.y + H / 2}Z" ${look}/>`
+          : `<rect x="${a.x}" y="${a.y}" width="${W}" height="${H}" rx="${tool === 'roundRect' ? Math.min(W, H) * 0.15 : 0}" ${look}/>`;
     this.renderOverlay();
   }
 
@@ -1159,6 +1242,12 @@ export class CanvasView {
         return;
       }
       case 'marquee': {
+        if (d.zoom) {
+          const r = d.rect;
+          if (r && r.w * this.z > 8 && r.h * this.z > 8) this.fitBox(r, { maxZoom: 800 });
+          else this.zoomTo(this.z * 100 * (d.out || event.altKey ? 1 / 1.5 : 1.5), event.clientX, event.clientY);
+          break;
+        }
         if (d.rect && d.rect.w > 1 && d.rect.h > 1) {
           const inside = page.shapes.filter((shape) => !shape.groupId && layerState(page, shape).visible && !layerState(page, shape).locked && (() => {
             if (isConnector(shape)) { const r = this.routes().get(shape.id); return r && r.points.every((q) => rectContains(d.rect, q)); }
@@ -1176,6 +1265,21 @@ export class CanvasView {
       }
       case 'pencil': {
         if (d.points.length > 2) this.app.addFreeform(simplifyPoints(d.points, 1.5 / this.z), false);
+        break;
+      }
+      case 'lasso': {
+        if (d.points.length > 2) {
+          const usable = (shape) => !shape.groupId && layerState(page, shape).visible && !layerState(page, shape).locked;
+          const inside = page.shapes.filter(usable).filter((shape) => {
+            if (isConnector(shape)) { const r = this.routes().get(shape.id); return r && r.points.every((q) => insidePolygon(q, d.points)); }
+            return insidePolygon(center(shape), d.points);
+          }).map((shape) => shape.id);
+          this.app.select(inside);
+        }
+        break;
+      }
+      case 'eraser': {
+        if (d.hits.size) this.app.eraseShapes([...d.hits]);
         break;
       }
       case 'guide': {
@@ -1197,12 +1301,12 @@ export class CanvasView {
 
   finishCreate(d, p, event) {
     const tool = d.tool;
-    if (['connector', 'line'].includes(tool)) {
+    if (['connector', 'line', 'arrowLine'].includes(tool)) {
       const end = d.end ?? p;
       if (!d.moved || dist(d.start, end) < 4 / this.z) { this.renderOverlay(); return; }
       const from = d.glueFrom ?? { x: d.start.x, y: d.start.y };
       const to = d.glueTo ?? { x: end.x, y: end.y };
-      this.app.connectShapes(from, to, tool === 'line' ? { route: 'straight', style: { endArrow: 'none' } } : {});
+      this.app.connectShapes(from, to, tool === 'line' ? { route: 'straight', style: { endArrow: 'none' } } : tool === 'arrowLine' ? { route: 'straight', style: { endArrow: 'arrow' } } : {});
       return;
     }
     let rect = d.rect;
@@ -1210,7 +1314,7 @@ export class CanvasView {
       if (tool !== 'text') { this.renderOverlay(); return; }
       rect = { x: d.start.x, y: d.start.y - 14, w: 160, h: 32 };
     }
-    const master = tool === 'ellipse' ? 'ellipse' : tool === 'text' ? 'textBox' : 'rect';
+    const master = { ellipse: 'ellipse', text: 'textBox', roundRect: 'roundRect', triangle: 'triangle', diamond: 'diamond' }[tool] ?? 'rect';
     const shape = this.app.addShapeAt(master, rect);
     if (tool === 'text' && shape) setTimeout(() => this.startTextEdit(shape.id), 30);
     void event;
@@ -1236,8 +1340,14 @@ export class CanvasView {
     const points = this.poly.points;
     this.poly = null;
     if (this.polyMove) { this.scroll.removeEventListener('pointermove', this.polyMove); this.polyMove = null; }
-    if (points.length >= 2) this.app.addFreeform(points, closed);
+    if (points.length >= 2) this.app.addFreeform(this.app.tool() === 'curve' ? smoothCurve(points, closed) : points, closed);
     this.renderOverlay();
+  }
+
+  /** The shape under the eraser (connectors too) joins the shapes to delete. */
+  eraseAt(p, d) {
+    const hit = this.hitTest(p);
+    if (hit) d.hits.add(hit.top);
   }
 
   cancelTool() {
@@ -1247,7 +1357,7 @@ export class CanvasView {
 
   onDoubleClick(event) {
     const p = this.toPage(event.clientX, event.clientY);
-    if (this.app.tool() === 'polyline' && this.poly) { this.finishPolyline(false); return; }
+    if (['polyline', 'curve'].includes(this.app.tool()) && this.poly) { this.finishPolyline(false); return; }
     const handle = event.target.closest('[data-handle="bend"]');
     if (handle) { this.app.removeBend(this.app.selection().ids[0], Number(handle.dataset.index)); return; }
     const guide = this.hitGuide(p);
@@ -1255,6 +1365,8 @@ export class CanvasView {
     if (!hit && guide) { this.app.openGuide?.(guide.id); return; }
     if (!hit) return;
     const top = findShape(this.page, hit.top);
+    // An embedded file opens instead of its name being edited (F2 still edits it).
+    if (hit.shape?.attachment) { this.app.select([hit.id]); this.app.openAttachment(hit.id); return; }
     // A group without text: edit the member under the pointer.
     const target = isGroup(top) && !top.text ? hit.id : hit.top;
     this.app.select([target]);
@@ -1265,7 +1377,7 @@ export class CanvasView {
     event.preventDefault();
     event.stopPropagation();
     const p = this.toPage(event.clientX, event.clientY);
-    if (this.app.tool() === 'polyline' && this.poly) { this.finishPolyline(false); return; }
+    if (['polyline', 'curve'].includes(this.app.tool()) && this.poly) { this.finishPolyline(false); return; }
     const hit = this.hitTest(p);
     const sel = this.app.selection().ids;
     if (hit && !sel.includes(hit.top)) this.app.select([hit.top]);

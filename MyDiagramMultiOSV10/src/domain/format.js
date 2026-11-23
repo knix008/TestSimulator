@@ -88,6 +88,10 @@ function cleanShape(raw, layerIds) {
   };
   if (Array.isArray(raw.points) && raw.points.length) shape.points = raw.points.filter((p) => Array.isArray(p) && p.length === 2).map(([x, y]) => [num(x), num(y)]);
   if (raw.src) shape.src = text(raw.src);
+  // A file embedded by drag and drop: its name, type, size and contents (base64).
+  if (raw.attachment && typeof raw.attachment === 'object' && raw.attachment.data) {
+    shape.attachment = { name: text(raw.attachment.name) || 'file', type: text(raw.attachment.type), size: Math.max(0, Math.round(num(raw.attachment.size))), data: text(raw.attachment.data) };
+  }
   return shape;
 }
 

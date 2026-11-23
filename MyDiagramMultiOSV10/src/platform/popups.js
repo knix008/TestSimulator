@@ -14,7 +14,8 @@ import { emitTo, invoke, isDesktop, listen } from './native.js';
 
 /** Logical size of each popup. Fixed: each fits its content without scrolling. */
 export const POPUPS = {
-  settings: { width: 1100, height: 640 },
+  // The smallest size that shows every tab without a scroll bar (measured): Korean here, English below.
+  settings: { width: 1080, height: 556 },
   about: { width: 740, height: 600 },
   confirm: { width: 540, height: 270 },
   error: { width: 720, height: 500 },
@@ -34,12 +35,20 @@ export const POPUPS = {
   document: { width: 720, height: 560 },
   layout: { width: 760, height: 520 },
   hyperlink: { width: 620, height: 380 },
-  design: { width: 900, height: 640 },
+  design: { width: 900, height: 680 },
   import: { width: 860, height: 600 },
   stencil: { width: 760, height: 560 },
   color: { width: 300, height: 300 },
   prompt: { width: 520, height: 230 },
 };
+
+/** Sizes that differ in English (longer tab names, wrapped lines). */
+export const POPUPS_EN = { settings: { width: 1090, height: 614 } };
+
+/** The size of a popup in a language (the document's, by default). */
+export function popupSize(kind, language = globalThis.document?.documentElement?.lang) {
+  return (language === 'en' && POPUPS_EN[kind]) || POPUPS[kind];
+}
 
 export const popupKey = (kind) => `mydiagram.popup.${kind}`;
 
@@ -118,7 +127,7 @@ export class PopupHost {
    * (null when it closes without one).
    */
   open(kind, params = {}, { anchor = null } = {}) {
-    const size = POPUPS[kind];
+    const size = popupSize(kind);
     try {
       globalThis.localStorage?.setItem(popupKey(kind), JSON.stringify({ ...params, anchor, at: Date.now() }));
     } catch { /* the popup falls back to its defaults */ }
@@ -141,7 +150,7 @@ export class PopupHost {
   prewarm(kind) {
     // Never touches the popup's parameters: a menu opened meanwhile keeps its items.
     if (this.useFrames || this.pending.has(kind)) return Promise.resolve();
-    const size = POPUPS[kind];
+    const size = popupSize(kind);
     return invoke('open_popup', { kind, x: -32000, y: -32000, width: size.width, height: size.height, show: false }).catch(() => {});
   }
 
@@ -183,7 +192,7 @@ export class PopupHost {
   // ───────────────────────── frames (web, tutorial)
 
   openFrame(kind, anchor) {
-    const size = POPUPS[kind];
+    const size = popupSize(kind);
     let frame = this.frames.get(kind);
     if (!frame) {
       frame = document.createElement('div');
@@ -245,6 +254,7 @@ export class PopupHost {
       frame.querySelector('iframe')?.focus();
     } else if (type === 'resize') {
       frame.style.height = `${data.height}px`;
+      if (data.width) frame.style.width = `${data.width}px`;
     } else if (type === 'drag') {
       frame.style.left = `${parseFloat(frame.style.left) + data.dx}px`;
       frame.style.top = `${parseFloat(frame.style.top) + data.dy}px`;

@@ -1,0 +1,412 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.033Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk19l2zyln",
+  "title": "IT 부서 조직도",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.033Z",
+  "design": "blueprint",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk19l2zz41",
+    "name": "IT 부서 조직도",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk19l300ms",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "IT 부서 조직도",
+      "style": {
+       "align": "left",
+       "textColor": "#e3f2fd",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19l301ly",
+      "type": "shape",
+      "master": "orgExecutive",
+      "name": "",
+      "x": 432.8378378378378,
+      "y": 80,
+      "w": 234.32432432432432,
+      "h": 110.27027027027026,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "CIO",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19l30287",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 164.05405405405406,
+      "y": 256.4324324324324,
+      "w": 220.54054054054052,
+      "h": 96.48648648648648,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "인프라",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19l303jn",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 563.7837837837837,
+      "y": 256.4324324324324,
+      "w": 220.54054054054052,
+      "h": 96.48648648648648,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "애플리케이션",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19l304d7",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 839.4594594594594,
+      "y": 256.4324324324324,
+      "w": 220.54054054054052,
+      "h": 96.48648648648648,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "보안",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19l305o1",
+      "type": "shape",
+      "master": "orgTeam",
+      "name": "",
+      "x": 40,
+      "y": 419.08108108108104,
+      "w": 206.75675675675674,
+      "h": 96.48648648648648,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "헬프데스크",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19l306bo",
+      "type": "shape",
+      "master": "orgTeam",
+      "name": "",
+      "x": 301.8918918918919,
+      "y": 419.08108108108104,
+      "w": 206.75675675675674,
+      "h": 96.48648648648648,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "네트워크",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19l307bd",
+      "type": "shape",
+      "master": "orgTeam",
+      "name": "",
+      "x": 570.6756756756756,
+      "y": 419.08108108108104,
+      "w": 206.75675675675674,
+      "h": 96.48648648648648,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "개발",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk19l308t1",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19l301ly",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19l30287",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk19l3091m",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19l301ly",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19l303jn",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk19l30abl",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19l301ly",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19l304d7",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk19l30bm3",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19l30287",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19l305o1",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk19l30cc9",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19l30287",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19l306bo",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk19l30db9",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19l303jn",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19l307bd",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "org"
+  ]
+ }
+}

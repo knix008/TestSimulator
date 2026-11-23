@@ -1,0 +1,305 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:20.993Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk18h2gr5y",
+  "title": "초인종 회로",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:20.993Z",
+  "design": "bubble",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk18h2gsmw",
+    "name": "초인종 회로",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk18h2gt1i",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "초인종 회로",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk18h2gu9d",
+      "type": "shape",
+      "master": "battery",
+      "name": "",
+      "x": 160,
+      "y": 320,
+      "w": 70,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk18h2gvw4",
+      "type": "shape",
+      "master": "switchElec",
+      "name": "",
+      "x": 360,
+      "y": 170,
+      "w": 100,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "초인종 버튼",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk18h2gwe8",
+      "type": "shape",
+      "master": "elecTransformer",
+      "name": "",
+      "x": 600,
+      "y": 160,
+      "w": 90,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "변압기",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk18h2gxxp",
+      "type": "shape",
+      "master": "elecBuzzer",
+      "name": "",
+      "x": 820,
+      "y": 330,
+      "w": 70,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "부저",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk18h2gyuj",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk18h2gu9d",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk18h2gvw4",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk18h2gz93",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk18h2gvw4",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk18h2gwe8",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk18h2h0bc",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk18h2gwe8",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk18h2gxxp",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk18h2h17m",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk18h2gxxp",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk18h2gu9d",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "electrical",
+   "callouts"
+  ]
+ }
+}

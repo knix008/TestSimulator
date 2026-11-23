@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "drawing",
- "saved": "2026-11-06T04:18:13.802Z",
+ "saved": "2026-11-23T05:50:21.097Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mw4gs33e1n1do",
+  "id": "dgm-mwsuk1bd42g7i",
   "title": "RC Filter",
   "subject": "",
   "author": "SHKWON",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-11-06T04:18:13.802Z",
+  "created": "2026-11-23T05:50:21.097Z",
   "design": "linear",
   "variant": 0,
   "units": "in",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mw4gs33e1n2qb",
+    "id": "page-mwsuk1bd42h2j",
     "name": "RC Filter",
     "paper": "Letter",
     "orientation": "landscape",
@@ -51,7 +51,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mw4gs33e1n3wt",
+      "id": "shp-mwsuk1bd42i5i",
       "type": "shape",
       "master": "title",
       "name": "",
@@ -79,7 +79,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs33e1n4jm",
+      "id": "shp-mwsuk1bd42jwk",
       "type": "shape",
       "master": "acSource",
       "name": "",
@@ -106,7 +106,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs33e1n5pw",
+      "id": "shp-mwsuk1bd42kll",
       "type": "shape",
       "master": "textBox",
       "name": "",
@@ -136,7 +136,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs33e1n659",
+      "id": "shp-mwsuk1bd42l7z",
       "type": "shape",
       "master": "resistor",
       "name": "",
@@ -163,7 +163,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs33e1n7w7",
+      "id": "shp-mwsuk1bd42mnt",
       "type": "shape",
       "master": "capacitor",
       "name": "",
@@ -190,7 +190,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs33e1n8eq",
+      "id": "shp-mwsuk1bd42n6j",
       "type": "shape",
       "master": "textBox",
       "name": "",
@@ -220,7 +220,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs33e1n9ew",
+      "id": "shp-mwsuk1bd42ocp",
       "type": "shape",
       "master": "onPage",
       "name": "",
@@ -246,7 +246,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs33e1nasd",
+      "id": "shp-mwsuk1bd42p4z",
       "type": "shape",
       "master": "textBox",
       "name": "",
@@ -277,7 +277,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs33e1nbzm",
+      "id": "shp-mwsuk1bd42q7v",
       "type": "shape",
       "master": "ground",
       "name": "",
@@ -304,7 +304,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs33e1nczr",
+      "id": "shp-mwsuk1bd42r21",
       "type": "shape",
       "master": "ground",
       "name": "",
@@ -331,41 +331,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs33e1ndld",
+      "id": "con-mwsuk1bd42sie",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs33e1n4jm",
+       "id": "shp-mwsuk1bd42jwk",
        "pt": 0
       },
       "to": {
-       "id": "shp-mw4gs33e1n659",
-       "pt": 0
-      },
-      "route": "orthogonal",
-      "waypoints": [],
-      "text": "",
-      "textPos": 0.5,
-      "style": {
-       "endArrow": "none",
-       "lineWidth": 2
-      },
-      "layers": [],
-      "locked": {},
-      "data": [],
-      "hyperlink": "",
-      "comments": [],
-      "groupId": null,
-      "name": ""
-     },
-     {
-      "id": "con-mw4gs33e1nezf",
-      "type": "connector",
-      "from": {
-       "id": "shp-mw4gs33e1n659",
-       "pt": 1
-      },
-      "to": {
-       "id": "shp-mw4gs33e1n7w7",
+       "id": "shp-mwsuk1bd42l7z",
        "pt": 0
       },
       "route": "orthogonal",
@@ -385,14 +358,41 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs33e1nfwz",
+      "id": "con-mwsuk1bd42tue",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs33e1n659",
+       "id": "shp-mwsuk1bd42l7z",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs33e1n9ew",
+       "id": "shp-mwsuk1bd42mnt",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1bd42uyn",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1bd42l7z",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mwsuk1bd42ocp",
        "pt": 3
       },
       "route": "straight",
@@ -412,14 +412,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs33e1ngv0",
+      "id": "con-mwsuk1bd42v9h",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs33e1n4jm",
+       "id": "shp-mwsuk1bd42jwk",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs33e1nbzm",
+       "id": "shp-mwsuk1bd42q7v",
        "pt": 0
       },
       "route": "straight",
@@ -439,14 +439,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs33e1nhcm",
+      "id": "con-mwsuk1bd42w9g",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs33e1n7w7",
+       "id": "shp-mwsuk1bd42mnt",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs33e1nczr",
+       "id": "shp-mwsuk1bd42r21",
        "pt": 0
       },
       "route": "straight",
@@ -466,7 +466,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs33e1nip4",
+      "id": "shp-mwsuk1bd42x5o",
       "type": "shape",
       "master": "note",
       "name": "",

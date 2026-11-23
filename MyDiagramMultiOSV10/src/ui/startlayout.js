@@ -3,7 +3,9 @@
 // { col, row, w, h, fit } — col 0..2, w 1..3 columns, row / h in rows;
 // fit = the height follows the content (h is then the last measured value).
 // Kept in settings.startLayout as
-// { version: 2, cards: { <id>: { col, row, w, h, fit } } }.
+// { version: 4, cards: { <id>: { col, row, w, h, fit } } }. Version 3: the cards are stacked
+// full width; version 4: the moving background below the samples; version 5: two columns, recent
+// files and folders side by side (an older layout is dropped once).
 //
 // After every move, resize and on load each card floats up as far as it can
 // in its own columns without overlapping (vertical compaction). A dropped card
@@ -11,7 +13,9 @@
 // compacted. autoArrange() packs the cards masonry-style in reading order.
 // Pure functions: the unit tests import this module directly.
 
-export const COLS = 3;
+export const COLS = 2;
+/** The version of settings.startLayout this build writes and reads. */
+export const LAYOUT_VERSION = 5;
 export const ROW = 20;
 export const GAP = 14;
 
@@ -94,7 +98,7 @@ export function cardsOf(saved, ids, defaultSpan, measured = {}, fallbackRows = 8
   const s = saved || {};
   const fitRows = (id) => measured[id] || fallbackRows;
   let cards;
-  if (s.version === 2 && s.cards && typeof s.cards === "object") {
+  if (s.version === LAYOUT_VERSION && s.cards && typeof s.cards === "object") {
     cards = {};
     for (const id of ids.filter((x) => s.cards[x])) cards[id] = fix(s.cards[id]);
     // A card added in a later version goes below the others.
@@ -142,7 +146,7 @@ export function swapVertical(cards, id, dir) {
 export function layoutValue(cards) {
   const out = {};
   for (const [id, c] of Object.entries(cards)) out[id] = { col: c.col, row: c.row, w: c.w, h: c.h, fit: !!c.fit };
-  return { version: 2, cards: out };
+  return { version: LAYOUT_VERSION, cards: out };
 }
 
 /** Pixel box of a card on a board `width` wide (left, top, width, height). */

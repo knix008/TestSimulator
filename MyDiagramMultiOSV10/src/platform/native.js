@@ -318,6 +318,17 @@ export async function setMinimumSize(width, height) {
   if (window.innerWidth < width - 1) await appWindow.setSize(new LogicalSize(width, Math.max(height, window.innerHeight)));
 }
 
+/** Printers (Windows): { printers, defaultPrinter, filePrinters, direct }; none elsewhere. */
+export const listPrinters = () => (isDesktop() ? invoke('list_printers') : Promise.resolve({ printers: [], defaultPrinter: '', filePrinters: [], direct: false }));
+/** Prints the calling window straight to `job.printer` (no dialog). job = { printer, copies, widthMm, heightMm }. */
+export const printDirect = (job) => invoke('print_direct', { job });
+/** The same pages as a PDF file (printers that write a file, such as Microsoft Print to PDF). */
+export const printPdf = (job, path) => invoke('print_pdf', { job, path });
+export async function choosePdfPath(defaultPath) {
+  const picked = testPick('__mydiagramPdfPicks');
+  if (picked) return picked.value;
+  return (await saveDialog({ defaultPath: defaultPath ?? undefined, filters: [{ name: 'PDF', extensions: ['pdf'] }] })) ?? null;
+}
 export const printWindow = () => (isDesktop() ? invoke('print_window') : Promise.resolve(window.print()));
 export const quitApp = () => (isDesktop() ? invoke('quit_app') : Promise.resolve());
 

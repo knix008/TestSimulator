@@ -1,0 +1,287 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:20.934Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk16u1o1lb",
+  "title": "MVC 패턴",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:20.934Z",
+  "design": "linear",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk16u1o26r",
+    "name": "MVC 패턴",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk16u1o3qt",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "MVC 패턴",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16u1o4bi",
+      "type": "shape",
+      "master": "roundRect",
+      "name": "",
+      "x": 286.9521401286757,
+      "y": 80,
+      "w": 287.6024759659115,
+      "h": 152.2601343348943,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "뷰\n(화면)",
+      "style": {},
+      "qs": {
+       "color": 1
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16u1o5xy",
+      "type": "shape",
+      "master": "roundRect",
+      "name": "",
+      "x": 286.9521401286757,
+      "y": 607.7398656651056,
+      "w": 287.6024759659115,
+      "h": 152.2601343348943,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "컨트롤러\n(입력 처리)",
+      "style": {},
+      "qs": {
+       "color": 2
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16u1o63f",
+      "type": "shape",
+      "master": "roundRect",
+      "name": "",
+      "x": 550.8220729612285,
+      "y": 343.8699328325528,
+      "w": 287.6024759659115,
+      "h": 152.2601343348943,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "모델\n(데이터·규칙)",
+      "style": {},
+      "qs": {
+       "color": 3
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16u1o7ed",
+      "type": "shape",
+      "master": "c4Person",
+      "name": "",
+      "x": 40,
+      "y": 318.49324377673713,
+      "w": 253.7668905581572,
+      "h": 203.01351244652574,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "사용자",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk16u1o8yy",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16u1o7ed",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16u1o5xy",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "입력",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16u1o9bn",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16u1o5xy",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16u1o63f",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "변경",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16u1oadr",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16u1o63f",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16u1o4bi",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "알림",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16u1ob8z",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16u1o4bi",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16u1o7ed",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "표시",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "c4",
+   "basic"
+  ]
+ }
+}

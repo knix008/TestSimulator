@@ -1,0 +1,421 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.210Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1ei5mg6h",
+  "title": "OKR Goals",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.210Z",
+  "design": "ion",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1ei5mhtt",
+    "name": "OKR Goals",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1ei5migb",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 17.72830188679245,
+      "w": 610.6415094339623,
+      "h": 49.24528301886792,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "OKR Goals",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ei5mj6y",
+      "type": "shape",
+      "master": "target",
+      "name": "",
+      "x": 407.75094339622643,
+      "y": 78.79245283018868,
+      "w": 267.8943396226415,
+      "h": 214.31547169811324,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Objective: an app customers love",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ei5mkea",
+      "type": "shape",
+      "master": "roundRect",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 365.4393962264151,
+      "w": 294.6837735849057,
+      "h": 107.15773584905662,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "KR1 rating 4.7+",
+      "style": {},
+      "qs": {
+       "color": 2
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ei5mlax",
+      "type": "shape",
+      "master": "roundRect",
+      "name": "",
+      "x": 394.3562264150944,
+      "y": 365.4393962264151,
+      "w": 294.6837735849057,
+      "h": 107.15773584905662,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "KR2 40% return visits",
+      "style": {},
+      "qs": {
+       "color": 3
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ei5mmrn",
+      "type": "shape",
+      "master": "roundRect",
+      "name": "",
+      "x": 749.3162264150944,
+      "y": 365.4393962264151,
+      "w": 294.6837735849057,
+      "h": 107.15773584905662,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "KR3 30% fewer tickets",
+      "style": {},
+      "qs": {
+       "color": 4
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ei5mn6u",
+      "type": "shape",
+      "master": "tag",
+      "name": "",
+      "x": 52.79094339622642,
+      "y": 544.9286037735849,
+      "w": 267.8943396226415,
+      "h": 80.36830188679247,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Answer reviews",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ei5moob",
+      "type": "shape",
+      "master": "tag",
+      "name": "",
+      "x": 407.75094339622643,
+      "y": 544.9286037735849,
+      "w": 267.8943396226415,
+      "h": 80.36830188679247,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Personal push",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ei5mp8p",
+      "type": "shape",
+      "master": "tag",
+      "name": "",
+      "x": 762.7109433962265,
+      "y": 544.9286037735849,
+      "w": 267.8943396226415,
+      "h": 80.36830188679247,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "New help pages",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1ei5mqqp",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ei5mj6y",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ei5mkea",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1ei5mrh4",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ei5mj6y",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ei5mlax",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1ei5msaw",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ei5mj6y",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ei5mmrn",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1ei5mtad",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ei5mkea",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ei5mn6u",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1ei5mue5",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ei5mlax",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ei5moob",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1ei5mv0j",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ei5mmrn",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ei5mp8p",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "blocks",
+   "basic"
+  ]
+ }
+}

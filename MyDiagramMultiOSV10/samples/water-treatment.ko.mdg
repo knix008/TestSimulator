@@ -1,0 +1,662 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:20.883Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk15f10dbw",
+  "title": "정수 처리 공정",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:20.883Z",
+  "design": "blueprint",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk15f10e9i",
+    "name": "정수 처리 공정",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk15f10ft6",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "정수 처리 공정",
+      "style": {
+       "align": "left",
+       "textColor": "#e3f2fd",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk15f10gwt",
+      "type": "shape",
+      "master": "pidTank",
+      "name": "",
+      "x": 50,
+      "y": 260,
+      "w": 80,
+      "h": 130,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "원수",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk15f10hh6",
+      "type": "shape",
+      "master": "pidPump",
+      "name": "",
+      "x": 200,
+      "y": 290,
+      "w": 70,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "P-101",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk15f10ij5",
+      "type": "shape",
+      "master": "pidMixer",
+      "name": "",
+      "x": 330,
+      "y": 260,
+      "w": 80,
+      "h": 100,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "응집",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk15f10jfn",
+      "type": "shape",
+      "master": "pidColumn",
+      "name": "",
+      "x": 480,
+      "y": 230,
+      "w": 90,
+      "h": 160,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "침전",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk15f10ke6",
+      "type": "shape",
+      "master": "pidFilter",
+      "name": "",
+      "x": 640,
+      "y": 290,
+      "w": 80,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "모래 여과",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk15f10l8g",
+      "type": "shape",
+      "master": "pidValveControl",
+      "name": "",
+      "x": 790,
+      "y": 310,
+      "w": 70,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "FCV-201",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk15f10m65",
+      "type": "shape",
+      "master": "pidTank",
+      "name": "",
+      "x": 950,
+      "y": 260,
+      "w": 80,
+      "h": 130,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "정수지",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk15f10nsy",
+      "type": "shape",
+      "master": "pidInstrument",
+      "name": "",
+      "x": 790,
+      "y": 190,
+      "w": 50,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "FI",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk15f10od1",
+      "type": "shape",
+      "master": "pidInstrument",
+      "name": "",
+      "x": 500,
+      "y": 120,
+      "w": 50,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "LT",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk15f10pmb",
+      "type": "shape",
+      "master": "pidTankOpen",
+      "name": "",
+      "x": 640,
+      "y": 540,
+      "w": 80,
+      "h": 100,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "염소",
+      "style": {
+       "textColor": "#e3f2fd",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk15f10qbi",
+      "type": "shape",
+      "master": "pidPump",
+      "name": "",
+      "x": 800,
+      "y": 555,
+      "w": 70,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "P-102 주입",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk15f10rni",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk15f10gwt",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk15f10hh6",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk15f10sw6",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk15f10hh6",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk15f10ij5",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk15f10thy",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk15f10ij5",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk15f10jfn",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk15f10u3x",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk15f10jfn",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk15f10ke6",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk15f10vcm",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk15f10ke6",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk15f10l8g",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk15f10wny",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk15f10l8g",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk15f10m65",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk15f10x9n",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk15f10pmb",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk15f10qbi",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk15f10y0a",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk15f10qbi",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk15f10m65",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk15f10zk8",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk15f10nsy",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk15f10l8g",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dot",
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk15f110ck",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk15f10od1",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk15f10jfn",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dot",
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk15f111sw",
+      "type": "shape",
+      "master": "note",
+      "name": "",
+      "x": 60,
+      "y": 560,
+      "w": 300,
+      "h": 120,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "FI: 유량 표시, LT: 수위 전송기, FCV: 유량 조절 밸브",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "process",
+   "callouts"
+  ]
+ }
+}

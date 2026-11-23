@@ -1,0 +1,412 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:20.957Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk17g1y0gr",
+  "title": "동아리 조직도",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:20.956Z",
+  "design": "radiance",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk17g1y10g",
+    "name": "동아리 조직도",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk17g1y2or",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "동아리 조직도",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17g1y3ov",
+      "type": "shape",
+      "master": "orgExecutive",
+      "name": "",
+      "x": 429.58333333333337,
+      "y": 80,
+      "w": 240.83333333333334,
+      "h": 113.33333333333334,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "회장",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17g1y45x",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 167.5,
+      "y": 261.33333333333337,
+      "w": 226.66666666666669,
+      "h": 99.16666666666667,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "부회장",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17g1y5vn",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 578.3333333333334,
+      "y": 261.33333333333337,
+      "w": 212.5,
+      "h": 99.16666666666667,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "총무",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17g1y6mp",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 847.5,
+      "y": 261.33333333333337,
+      "w": 212.5,
+      "h": 99.16666666666667,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "서기",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17g1y71n",
+      "type": "shape",
+      "master": "orgTeam",
+      "name": "",
+      "x": 40,
+      "y": 428.5,
+      "w": 212.5,
+      "h": 99.16666666666667,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "행사부",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17g1y8z8",
+      "type": "shape",
+      "master": "orgTeam",
+      "name": "",
+      "x": 309.1666666666667,
+      "y": 428.5,
+      "w": 212.5,
+      "h": 99.16666666666667,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "홍보부",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17g1y986",
+      "type": "shape",
+      "master": "orgStaff",
+      "name": "",
+      "x": 40,
+      "y": 595.6666666666667,
+      "w": 212.5,
+      "h": 99.16666666666667,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "회원 40명",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17g1ya48",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17g1y3ov",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17g1y45x",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17g1ybpn",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17g1y3ov",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17g1y5vn",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17g1ycvm",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17g1y3ov",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17g1y6mp",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17g1ydt4",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17g1y45x",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17g1y71n",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17g1yeoi",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17g1y45x",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17g1y8z8",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17g1yflo",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17g1y71n",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17g1y986",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "org"
+  ]
+ }
+}

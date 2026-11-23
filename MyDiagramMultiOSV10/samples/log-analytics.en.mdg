@@ -1,0 +1,364 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.267Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1g367ved",
+  "title": "Log Analytics",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.267Z",
+  "design": "sequence",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1g367w10",
+    "name": "Log Analytics",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1g367xid",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 17.72830188679245,
+      "w": 610.6415094339623,
+      "h": 49.24528301886792,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Log Analytics",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1g367y3j",
+      "type": "shape",
+      "master": "cldCompute",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 174.3390073831009,
+      "w": 95.54655455291223,
+      "h": 95.54655455291223,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "App servers",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1g367zbb",
+      "type": "shape",
+      "master": "cldLogs",
+      "name": "",
+      "x": 249.59864643150124,
+      "y": 174.3390073831009,
+      "w": 109.1960623461854,
+      "h": 95.54655455291223,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Collect logs",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1g3680c9",
+      "type": "shape",
+      "master": "cldStream",
+      "name": "",
+      "x": 473.4505742411813,
+      "y": 181.1637612797375,
+      "w": 136.49507793273173,
+      "h": 81.89704675963905,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Stream",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1g3681eo",
+      "type": "shape",
+      "master": "cldDatabase",
+      "name": "",
+      "x": 724.6015176374078,
+      "y": 167.51425348646433,
+      "w": 95.54655455291223,
+      "h": 109.1960623461854,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Search index",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1g3682zp",
+      "type": "shape",
+      "master": "cldMonitoring",
+      "name": "",
+      "x": 934.8039376538146,
+      "y": 78.79245283018868,
+      "w": 109.1960623461854,
+      "h": 95.54655455291223,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Dashboards",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1g3683dw",
+      "type": "shape",
+      "master": "cldNotify",
+      "name": "",
+      "x": 941.6286915504512,
+      "y": 269.8855619360131,
+      "w": 95.54655455291223,
+      "h": 95.54655455291223,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Alerts",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1g3684cx",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1g367y3j",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1g367zbb",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1g3685sj",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1g367zbb",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1g3680c9",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1g3686os",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1g3680c9",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1g3681eo",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1g36878r",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1g3681eo",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1g3682zp",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1g3688hl",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1g3681eo",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1g3683dw",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "error spike",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "cloud"
+  ]
+ }
+}

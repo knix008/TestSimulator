@@ -1,0 +1,418 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:20.930Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk16q1lxfo",
+  "title": "안전한 로그인",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:20.929Z",
+  "design": "chalkboard",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk16q1lyyd",
+    "name": "안전한 로그인",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk16q1lzj5",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "안전한 로그인",
+      "style": {
+       "align": "left",
+       "textColor": "#f4f1de",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16q1m0kd",
+      "type": "shape",
+      "master": "user",
+      "name": "",
+      "x": 40,
+      "y": 155.65934065934067,
+      "w": 67.25274725274726,
+      "h": 78.46153846153847,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "사용자",
+      "style": {
+       "textColor": "#f4f1de"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16q1m1pn",
+      "type": "shape",
+      "master": "secPassword",
+      "name": "",
+      "x": 194.6813186813187,
+      "y": 170.23076923076923,
+      "w": 145.71428571428572,
+      "h": 49.31868131868132,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "비밀번호",
+      "style": {
+       "textColor": "#f4f1de"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16q1m2id",
+      "type": "shape",
+      "master": "secToken",
+      "name": "",
+      "x": 427.8241758241758,
+      "y": 166.86813186813185,
+      "w": 89.67032967032966,
+      "h": 56.043956043956044,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "일회용 코드",
+      "style": {
+       "textColor": "#f4f1de"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16q1m3gp",
+      "type": "shape",
+      "master": "secShieldCheck",
+      "name": "",
+      "x": 604.9230769230769,
+      "y": 147.8131868131868,
+      "w": 78.46153846153847,
+      "h": 94.15384615384616,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "인증 서버",
+      "style": {
+       "textColor": "#f4f1de"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16q1m4xr",
+      "type": "shape",
+      "master": "secKey",
+      "name": "",
+      "x": 770.8131868131868,
+      "y": 80,
+      "w": 112.08791208791209,
+      "h": 56.043956043956044,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "토큰 발급",
+      "style": {
+       "textColor": "#f4f1de"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16q1m53n",
+      "type": "shape",
+      "master": "cldApi",
+      "name": "",
+      "x": 970.3296703296703,
+      "y": 155.65934065934067,
+      "w": 89.67032967032966,
+      "h": 78.46153846153847,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "서비스",
+      "style": {
+       "textColor": "#f4f1de"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16q1m62i",
+      "type": "shape",
+      "master": "secAudit",
+      "name": "",
+      "x": 787.6263736263736,
+      "y": 208.9010989010989,
+      "w": 78.46153846153847,
+      "h": 100.87912087912088,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "로그인 기록",
+      "style": {
+       "textColor": "#f4f1de"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk16q1m7ld",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16q1m0kd",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16q1m1pn",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16q1m8pl",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16q1m1pn",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16q1m2id",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16q1m9sc",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16q1m2id",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16q1m3gp",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16q1mact",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16q1m3gp",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16q1m4xr",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16q1mb6f",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16q1m4xr",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16q1m53n",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16q1mc7z",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16q1m3gp",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16q1m62i",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "security",
+   "cloud"
+  ]
+ }
+}

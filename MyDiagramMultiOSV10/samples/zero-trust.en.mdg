@@ -1,0 +1,673 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.104Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1bk46x3z",
+  "title": "Zero Trust Security",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.104Z",
+  "design": "blueprint",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1bk46ygm",
+    "name": "Zero Trust Security",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1bk46zpx",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 38.666666666666664,
+      "y": 17.4,
+      "w": 599.3333333333334,
+      "h": 48.333333333333336,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Zero Trust Security",
+      "style": {
+       "align": "left",
+       "textColor": "#e3f2fd",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1bk470tk",
+      "type": "shape",
+      "master": "secZone",
+      "name": "",
+      "x": 628.3333333333334,
+      "y": 87,
+      "w": 415.6666666666667,
+      "h": 599.3333333333334,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Protected zone",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1bk471r4",
+      "type": "shape",
+      "master": "laptop",
+      "name": "",
+      "x": 58,
+      "y": 145,
+      "w": 96.66666666666667,
+      "h": 67.66666666666667,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Staff laptop",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1bk472wm",
+      "type": "shape",
+      "master": "phone",
+      "name": "",
+      "x": 67.66666666666667,
+      "y": 406,
+      "w": 42.53333333333333,
+      "h": 77.33333333333333,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Phone",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1bk473e4",
+      "type": "shape",
+      "master": "secFingerprint",
+      "name": "",
+      "x": 261,
+      "y": 135.33333333333334,
+      "w": 67.66666666666667,
+      "h": 81.2,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Identity check (MFA)",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1bk474sj",
+      "type": "shape",
+      "master": "secScan",
+      "name": "",
+      "x": 261,
+      "y": 396.3333333333333,
+      "w": 77.33333333333333,
+      "h": 77.33333333333333,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Device health check",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1bk475xv",
+      "type": "shape",
+      "master": "secShieldCheck",
+      "name": "",
+      "x": 454.3333333333333,
+      "y": 261,
+      "w": 67.66666666666667,
+      "h": 81.2,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Policy engine",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1bk476t0",
+      "type": "shape",
+      "master": "server",
+      "name": "",
+      "x": 696,
+      "y": 154.66666666666666,
+      "w": 58,
+      "h": 87,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "HR app",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1bk477iz",
+      "type": "shape",
+      "master": "dbServer",
+      "name": "",
+      "x": 696,
+      "y": 348,
+      "w": 67.66666666666667,
+      "h": 82.16666666666667,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Customer DB",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1bk47833",
+      "type": "shape",
+      "master": "netFileServer",
+      "name": "",
+      "x": 696,
+      "y": 541.3333333333334,
+      "w": 58,
+      "h": 87,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "File server",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1bk479l0",
+      "type": "shape",
+      "master": "secLock",
+      "name": "",
+      "x": 918.3333333333334,
+      "y": 145,
+      "w": 67.66666666666667,
+      "h": 87,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Encrypted at rest",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1bk47ap1",
+      "type": "shape",
+      "master": "secAudit",
+      "name": "",
+      "x": 918.3333333333334,
+      "y": 338.3333333333333,
+      "w": 67.66666666666667,
+      "h": 87,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Audit log",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1bk47bfx",
+      "type": "shape",
+      "master": "secKey",
+      "name": "",
+      "x": 903.8333333333334,
+      "y": 560.6666666666666,
+      "w": 96.66666666666667,
+      "h": 48.333333333333336,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Short-lived token",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1bk47c7u",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1bk471r4",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1bk473e4",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1bk47dl1",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1bk472wm",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1bk474sj",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1bk47e6t",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1bk473e4",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1bk475xv",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1bk47f49",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1bk474sj",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1bk475xv",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1bk47gy4",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1bk475xv",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1bk476t0",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1bk47h4v",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1bk475xv",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1bk477iz",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1bk47i4p",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1bk475xv",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1bk47833",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1bk47jag",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1bk476t0",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1bk479l0",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1bk47k5y",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1bk477iz",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1bk47ap1",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1bk47l2v",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1bk47833",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1bk47bfx",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk1bk47m6l",
+      "type": "shape",
+      "master": "note",
+      "name": "",
+      "x": 58,
+      "y": 580,
+      "w": 270.6666666666667,
+      "h": 106.33333333333333,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Every request is checked, wherever it comes from.",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "security",
+   "network",
+   "containers"
+  ]
+ }
+}

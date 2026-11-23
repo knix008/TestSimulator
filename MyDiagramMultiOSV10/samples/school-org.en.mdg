@@ -1,0 +1,462 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.184Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1ds56old",
+  "title": "School Organisation",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.184Z",
+  "design": "ion",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1ds56pqt",
+    "name": "School Organisation",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1ds56q39",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 17.72830188679245,
+      "w": 610.6415094339623,
+      "h": 49.24528301886792,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "School Organisation",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ds56rlh",
+      "type": "shape",
+      "master": "orgExecutive",
+      "name": "",
+      "x": 444.47839318320143,
+      "y": 78.79245283018868,
+      "w": 194.4394400486914,
+      "h": 86.41752891052951,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Principal",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ds56sf7",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 336.45648204503954,
+      "y": 217.0604990870359,
+      "w": 183.6372489348752,
+      "h": 75.61533779671332,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Vice principal",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ds56tz5",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 860.3627510651247,
+      "y": 217.0604990870359,
+      "w": 183.6372489348752,
+      "h": 75.61533779671332,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Office manager",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ds56uzt",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 344.52635423006694,
+      "w": 162.03286670724285,
+      "h": 75.61533779671332,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Year 1 head",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ds56v8s",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 244.63785757760195,
+      "y": 344.52635423006694,
+      "w": 162.03286670724285,
+      "h": 75.61533779671332,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Year 2 head",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ds56wgj",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 449.87948874010954,
+      "y": 344.52635423006694,
+      "w": 162.03286670724285,
+      "h": 75.61533779671332,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Year 3 head",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ds56xuv",
+      "type": "shape",
+      "master": "orgStaff",
+      "name": "",
+      "x": 871.1649421789409,
+      "y": 344.52635423006694,
+      "w": 162.03286670724285,
+      "h": 75.61533779671332,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Office staff",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ds56y0c",
+      "type": "shape",
+      "master": "orgStaff",
+      "name": "",
+      "x": 655.1211199026171,
+      "y": 344.52635423006694,
+      "w": 162.03286670724285,
+      "h": 75.61533779671332,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Counsellor",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1ds56z6f",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ds56rlh",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ds56sf7",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1ds570tw",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ds56rlh",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ds56tz5",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1ds57148",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ds56sf7",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ds56uzt",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1ds572bv",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ds56sf7",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ds56v8s",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1ds573eu",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ds56sf7",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ds56wgj",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1ds574xr",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ds56sf7",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ds56y0c",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1ds5756u",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ds56tz5",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ds56xuv",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "org"
+  ]
+ }
+}

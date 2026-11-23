@@ -10,7 +10,7 @@ import {
 } from './domain/format.js';
 import { buildSample, buildTemplate, TEMPLATES } from './domain/templates.js';
 import { CATEGORIES, MASTERS, masterById, mastersIn, searchMasters, shapeParams } from './domain/stencils.js';
-import { ARROWS, DASHES, DESIGNS, FONTS, PASTEL_COLORS, resolveConnectorStyle, resolveShapeStyle, STANDARD_COLORS, variantColors, QUICK_VARIANTS } from './domain/designs.js';
+import { ARROWS, DASHES, DESIGNS, FONTS, PASTEL_COLORS, panelDoc, pastelOf, resolveConnectorStyle, resolveShapeStyle, STANDARD_COLORS, variantColors, QUICK_VARIANTS } from './domain/designs.js';
 import { layoutPage, LAYOUTS } from './domain/layout.js';
 import { bytesToBase64, base64ToBytes, exportHtml, exportShapeDataCsv, exportVsdx, vsdxLosses, importVsdx, linkDataCsv, orgChartFromData, shapesFromText } from './domain/interop.js';
 import { SHAPE_FIELD_MAP } from './domain/fields.js';
@@ -25,7 +25,7 @@ import { getLanguage, setLanguage, t } from './i18n.js';
 import { designIcon, icon } from './icons.js';
 import * as native from './platform/native.js';
 import { PopupHost } from './platform/popups.js';
-import { applyFont, applyTheme, DOC_THEME_KEY, docTheme, randomThemeId, resolveTheme, themeName } from './themes.js';
+import { applyFont, applyTheme, CUSTOM, DARK_THEMES, DOC_THEME_KEY, docTheme, LIGHT_THEMES, randomThemeId, resolveTheme, SYSTEM, themeName } from './themes.js';
 import { escapeHtml, frameThrottle, isMac, keyLabel, pointerDrag } from './ui/dom.js';
 import { AnimatedBackground } from './ui/background.js';
 import { startPageHtml } from './ui/startpage.js';
@@ -85,6 +85,8 @@ const state = {
   pointer: null,
   stencilQuery: '',
   collapsedStencils: new Set(),
+  // Stencils outside the drawing's own that the user unfolded (the rest of them stay folded).
+  expandedStencils: new Set(),
   myShapes: [],
   presenting: null,
   rightSections: new Set(['fill', 'line', 'text', 'size', 'data', 'pageProps', 'docProps', 'layers', 'arrows', 'route', 'quick', 'comments']),
@@ -517,6 +519,43 @@ function paintFormat(id) {
   renderToolbarState();
 }
 
+/** A shape's own format (style and quick style), for the format painter tool. */
+function formatOf(shape) {
+  return shape ? { style: JSON.parse(JSON.stringify(shape.style ?? {})), qs: { ...(shape.qs ?? {}) } } : null;
+}
+
+/** The format painter tool: the first click takes a format (when none was selected), every click after gives it. */
+function paintWithTool(id) {
+  const shape = D.findShape(currentPage(), id);
+  if (!shape) return;
+  if (!state.paintSource) {
+    state.paintSource = formatOf(shape);
+    select([id]);
+    notify('info', t('notice.paintTaken'));
+    return;
+  }
+  const source = state.paintSource;
+  change('op.paintFormat', (doc, page) => {
+    for (const target of D.withMembers(page, [id])) {
+      const item = D.findShape(page, target);
+      if (!item || D.isGroup(item)) continue;
+      item.style = JSON.parse(JSON.stringify(source.style));
+      if (!D.isConnector(item)) item.qs = { ...source.qs };
+    }
+  });
+  select([id]);
+}
+
+/** The eraser tool: deletes the shapes it went over (locked ones stay), as one undo step. */
+function eraseShapes(ids) {
+  const page = currentPage();
+  const list = ids.filter((id) => D.findShape(page, id) && !D.findShape(page, id)?.locked?.delete);
+  if (!list.length) return;
+  const count = change('op.erase', (doc, pg) => D.deleteShapes(pg, list));
+  select([]);
+  notify('success', t('notice.erased', { count }));
+}
+
 // ───────────────────────── arrange
 
 function align(how) { const n = change('op.align', (doc, page) => D.alignShapes(page, selectedIds(), how)); if (!n) notify('info', t('notice.selectTwo')); }
@@ -853,13 +892,16 @@ function setUiZoom(value) {
 
 // ───────────────────────── tools
 
-const TOOLS = ['pointer', 'pan', 'connector', 'text', 'rect', 'ellipse', 'line', 'pencil', 'polyline'];
+// Eighteen tools: three full rows of six in the Shapes panel.
+const TOOLS = ['pointer', 'pan', 'lasso', 'zoom', 'connector', 'text', 'rect', 'roundRect', 'ellipse', 'triangle', 'diamond', 'line', 'arrowLine', 'pencil', 'polyline', 'curve', 'paint', 'eraser'];
 
 function setTool(tool) {
   if (!TOOLS.includes(tool)) return;
   if (!activeTab()) newDrawing();
   ensureDrawingView();
   state.view?.cancelTool?.();
+  // The format painter tool takes its format from the selected shape (or from the first click).
+  state.paintSource = tool === 'paint' ? formatOf(selectedShapes()[0]) : null;
   state.tool = tool;
   root.dataset.tool = tool;
   renderToolbarState();
@@ -879,7 +921,7 @@ const toggle = (key) => updateSettings({ [key]: !state.settings[key] });
 const docOption = (key) => change('op.options', (doc) => { doc.options[key] = !doc.options[key]; });
 
 const VIEW_ICONS = { drawing: 'viewDrawing', pages: 'viewPages', shapeSheet: 'viewShapeSheet', shapeData: 'viewShapeData', reports: 'viewReports' };
-const TOOL_ICONS = { pointer: 'pointer', pan: 'hand', connector: 'connectorTool', text: 'textTool', rect: 'rectTool', ellipse: 'ellipseTool', line: 'lineTool', pencil: 'pencil', polyline: 'polyline' };
+const TOOL_ICONS = { pointer: 'pointer', pan: 'hand', connector: 'connectorTool', text: 'textTool', rect: 'rectTool', roundRect: 'roundRectTool', ellipse: 'ellipseTool', triangle: 'triangleTool', diamond: 'diamondTool', lasso: 'lassoTool', zoom: 'zoomTool', arrowLine: 'arrowLineTool', curve: 'curveTool', paint: 'painterTool', eraser: 'eraserTool', line: 'lineTool', pencil: 'pencil', polyline: 'polyline' };
 const TOOL_KEYS = { pointer: 'Ctrl+1', connector: 'Ctrl+3', text: 'Ctrl+2', rect: 'Ctrl+8', ellipse: 'Ctrl+9', line: 'Ctrl+6', pencil: 'Ctrl+4', polyline: 'Ctrl+5', pan: 'Ctrl+Shift+Space' };
 
 const commands = {
@@ -1382,9 +1424,15 @@ function cycleTab(direction) {
 
 const tileSize = () => ({ small: 30, medium: 40, large: 52 }[state.settings.stencilSize] ?? 30);
 
+/** The drawing as the panels draw stencil pictures: in the program theme's brightness (designs.js panelDoc). */
+function iconDoc(doc) {
+  const css = getComputedStyle(document.documentElement);
+  return panelDoc(doc, document.documentElement.style.colorScheme === 'dark', { panel: css.getPropertyValue('--panel').trim(), text: css.getPropertyValue('--text').trim() });
+}
+
 function stencilTiles(masters) {
   const size = tileSize();
-  const doc = activeTab()?.doc;
+  const doc = iconDoc(activeTab()?.doc);
   const lang = getLanguage();
   return `<div class="stencil-grid size-${state.settings.stencilSize}">${masters.map((m) => `<button class="stencil-tile" data-master="${m.id}" title="${escapeHtml(m.name[lang])}" aria-label="${escapeHtml(m.name[lang])}">${masterIcon(m.id, { size, doc })}${state.settings.stencilSize === 'small' ? '' : `<span>${escapeHtml(m.name[lang])}</span>`}</button>`).join('')}</div>`;
 }
@@ -1403,15 +1451,15 @@ function renderLeft() {
     panel.innerHTML = `<div class="panel-rail">
       <button class="rail-button expand" data-command="leftPanel" title="${escapeHtml(t('panel.expandLeft'))}" aria-label="${escapeHtml(t('panel.expandLeft'))}">${icon('panelExpandLeft')}<span class="rail-label">${escapeHtml(t('panel.expand'))}</span></button>
       <div class="rail-title" title="${escapeHtml(t('panel.leftTitle'))}">${icon('stBasic')}<span>${escapeHtml(t('panel.shapesShort'))}</span></div>
-      ${TOOLS.slice(0, 7).map((tool) => `<button class="rail-button ${state.tool === tool ? 'active' : ''}" data-command="tool:${tool}" title="${escapeHtml(commandTip(`tool:${tool}`))}">${icon(TOOL_ICONS[tool])}<span class="rail-label">${escapeHtml(t(`toolShort.${tool}`))}</span></button>`).join('')}
+      ${TOOLS.map((tool) => `<button class="rail-button ${state.tool === tool ? 'active' : ''}" data-command="tool:${tool}" title="${escapeHtml(commandTip(`tool:${tool}`))}">${icon(TOOL_ICONS[tool])}<span class="rail-label">${escapeHtml(t(`toolShort.${tool}`))}</span></button>`).join('')}
     </div>`;
     return;
   }
   const open = tab?.stencils ?? state.settings.openStencils;
   const query = state.stencilQuery;
   const results = query ? searchMasters(query) : [];
-  const section = (id, title, glyph, body, closable = true) => {
-    const collapsed = state.collapsedStencils.has(id);
+  const section = (id, title, glyph, body, closable = true, extra = false) => {
+    const collapsed = extra ? !state.expandedStencils.has(id) : state.collapsedStencils.has(id);
     return `<section class="stencil ${collapsed ? 'collapsed' : ''}" data-stencil="${id}">
       <header class="stencil-head"><button class="stencil-toggle" data-stencil-toggle="${id}" title="${escapeHtml(title)}" aria-expanded="${!collapsed}">${icon(collapsed ? 'caretRight' : 'caretDown', 'icon tiny')}${icon(glyph)}<span>${escapeHtml(title)}</span></button>
       ${closable ? `<button class="icon-button" data-stencil-close="${id}" title="${escapeHtml(t('stencil.close'))}" aria-label="${escapeHtml(t('stencil.close'))}">${icon('close')}</button>` : ''}</header>
@@ -1432,7 +1480,12 @@ function renderLeft() {
     <div class="stencils">
       ${query ? section('search', t('stencil.results', { count: results.length }), 'search', results.length ? stencilTiles(results) : `<p class="panel-hint">${icon('info')}<span>${escapeHtml(t('stencil.noResults'))}</span></p>`, false) : ''}
       ${open.map((id) => (id === 'my' ? section('my', t('stencil.my'), 'myShapes', myShapesTiles()) : CATEGORIES.some((c) => c.id === id) ? section(id, CATEGORIES.find((c) => c.id === id).name[lang], CATEGORIES.find((c) => c.id === id).icon, stencilTiles(mastersIn(id))) : '')).join('')}
-      ${open.length ? '' : `<p class="panel-hint">${icon('info')}<span>${escapeHtml(t('stencil.none'))}</span></p>`}
+      ${/* Every other stencil too, folded under its name: all of them are always at hand. Only an unfolded one draws its shapes. */ ''}
+      ${[...CATEGORIES.map((c) => c.id), 'my'].filter((id) => !open.includes(id)).map((id) => {
+        const cat = CATEGORIES.find((c) => c.id === id);
+        const unfolded = state.expandedStencils.has(id);
+        return id === 'my' ? section('my', t('stencil.my'), 'myShapes', unfolded ? myShapesTiles() : '', false, true) : section(id, cat.name[lang], cat.icon, unfolded ? stencilTiles(mastersIn(id)) : '', false, true);
+      }).join('')}
     </div>`;
 }
 
@@ -1518,7 +1571,7 @@ function quickSection(shapes) {
   const current = shapes[0]?.qs ?? {};
   const variants = QUICK_VARIANTS.filter((v) => v !== 'none');
   return section('quick', 'quickStyle', t('props.quickStyle'), `<div class="quick-grid">${variants.map((variant) => colors.map((color, i) => {
-    const sample = { fill: color, subtle: `${color}33`, outline: 'transparent', intense: color, gradient: `linear-gradient(${color}88, ${color})` }[variant];
+    const sample = { fill: pastelOf(color, designById(doc.design).dark), subtle: `${color}33`, outline: 'transparent', intense: color, gradient: `linear-gradient(${color}88, ${color})` }[variant];
     const active = (current.color ?? 1) === i + 1 && (current.variant ?? 'fill') === variant;
     return `<button class="quick-swatch ${active ? 'active' : ''} v-${variant}" data-quick="${i + 1}:${variant}" style="--qs:${color};--qs-bg:${sample}" title="${escapeHtml(t('props.quickTip', { n: i + 1, variant: t(`quick.${variant}`) }))}"></button>`;
   }).join('')).join('')}</div>
@@ -1616,6 +1669,7 @@ function shapeProps(shape) {
         propRow('edit', t('field.name'), propInput('name', shape.name ?? '', t('field.name'))),
         propRow('textTool', t('field.text'), `<textarea data-prop="text" rows="2" aria-label="${escapeHtml(t('field.text'))}">${escapeHtml(shape.text ?? '')}</textarea>`, true),
         `<div class="prop-actions"><button class="small-button" data-command="ungroup" title="${escapeHtml(commandTip('ungroup'))}">${icon('ungroup')}<span>${escapeHtml(t('toolShort.ungroup'))}</span></button></div>`,
+        textSection(resolveShapeStyle(activeTab().doc, shape)),
         sizeSection(shape), dataSection(shape), layersSection(shape), linkSection(shape), commentsSection(shape),
       ].join(''),
     };
@@ -1626,12 +1680,13 @@ function shapeProps(shape) {
   return {
     title: `${master.name[lang]}${shape.name ? `: ${shape.name}` : ''}`,
     body: [
-      `<div class="prop-master">${masterIcon(master.id, { size: 34, doc: activeTab().doc })}<div><b>${escapeHtml(master.name[lang])}</b><small class="muted">${escapeHtml(t(`stencil.${master.cat ?? 'custom'}`, null, master.cat ?? ''))}</small></div></div>`,
+      `<div class="prop-master">${masterIcon(master.id, { size: 34, doc: iconDoc(activeTab().doc) })}<div><b>${escapeHtml(master.name[lang])}</b><small class="muted">${escapeHtml(t(`stencil.${master.cat ?? 'custom'}`, null, master.cat ?? ''))}</small></div></div>`,
       propRow('edit', t('field.name'), propInput('name', shape.name ?? '', t('field.name'))),
       propRow('textTool', t('field.text'), `<textarea data-prop="text" rows="3" aria-label="${escapeHtml(t('field.text'))}">${escapeHtml(shape.text ?? '')}</textarea>`, true),
       params.length ? params.map(([key, def]) => propRow('edit', t(`param.${key}`, null, key), `<span class="range-wrap"><input type="range" min="0" max="${def.def <= 1 ? 1 : 100}" step="0.01" value="${shapeParams(shape, master)[key]}" data-prop-param="${key}" aria-label="${escapeHtml(t(`param.${key}`, null, key))}" /><output>${Math.round(shapeParams(shape, master)[key] * 100)}%</output></span>`)).join('') : '',
       master.id === 'image' ? `<div class="prop-actions"><button class="small-button" data-replace-picture title="${escapeHtml(t('props.replacePicture'))}">${icon('picture')}<span>${escapeHtml(t('props.replacePicture'))}</span></button></div>` : '',
-      quickSection([shape]), fillSection(style), lineSection(style), textSection(style),
+      // A text shape: its font and colour first, the box's fill and line after.
+      ...(master.kind === 'text' ? [textSection(style), quickSection([shape]), fillSection(style), lineSection(style)] : [quickSection([shape]), fillSection(style), lineSection(style), textSection(style)]),
       section('effects', 'shadow', t('props.effects'), [
         propCheck('shadow', Boolean(style.shadow), t('action.shadow')),
         propRow('opacity', t('props.opacity'), `<span class="range-wrap"><input type="range" min="10" max="100" step="5" value="${style.opacity ?? 100}" data-prop-range="opacity" aria-label="${escapeHtml(t('props.opacity'))}" /><output>${style.opacity ?? 100}%</output></span>`),
@@ -1813,6 +1868,8 @@ function pointerAt(p) {
 }
 
 function renderAll() {
+  // The View tutorial window belongs to the start page: it closes when a drawing takes its place.
+  if (state.welcomeOpen && !state.showStart) { state.welcomeOpen = false; popups.close('welcome'); }
   root.classList.toggle('no-status', !state.settings.showStatusBar);
   root.classList.toggle('no-left', !state.settings.showLeftPanel);
   root.classList.toggle('no-right', !state.settings.showRightPanel);
@@ -1882,7 +1939,6 @@ async function onStartAction(target) {
   switch (target.dataset.start) {
     case 'template': return newDrawing(value);
     case 'open': return openWithDialog();
-    case 'import': return openWithDialog();
     case 'open-recent': return openRecent(value);
     case 'remove-recent': state.recent = removeRecent(state.recent, value); storeRecent(globalThis.localStorage, state.recent); return renderStartPage();
     case 'clear-recent': state.recent = []; storeRecent(globalThis.localStorage, []); notify('success', t('notice.recentCleared')); return renderStartPage();
@@ -2052,10 +2108,26 @@ function applySettings(previous = {}) {
   updateMinimumWidth();
 }
 
+/** The theme drop-down (toolbar): a menu under the button (it may reach past the window's edge). */
 async function openThemePicker(anchor) {
   const element = root.querySelector('.split-button [data-command="themeMenu"]')?.closest('.split-button') ?? root.querySelector('[data-command="themeMenu"]');
-  const result = await popups.open('theme', { current: state.settings.theme }, { anchor: anchor ?? anchorBelow(element) });
-  if (result?.theme) updateSettings({ theme: result.theme });
+  const lang = getLanguage();
+  const current = state.settings.theme;
+  const item = (id, extra) => ({ id: `custom:theme:${id}`, label: themeName(id, lang), checked: current === id, ...extra });
+  const group = (key, glyph, list) => ({
+    id: `submenu:${key}`, label: t(key, { count: list.length }), icon: glyph, submenu: true,
+    children: list.map((theme) => item(theme.id, { swatch: theme.swatch })),
+  });
+  const items = [
+    item(SYSTEM, { icon: 'sun' }), item(CUSTOM, { icon: 'palette' }), { separator: true },
+    group('theme.darkGroup', 'moon', DARK_THEMES), group('theme.lightGroup', 'sun', LIGHT_THEMES), { separator: true },
+    { id: 'custom:theme-edit', label: t('settings.editCustom'), icon: 'edit' },
+    { id: 'custom:theme-random', label: t('action.themeRandom'), icon: 'dice' },
+  ];
+  const handlers = Object.fromEntries([SYSTEM, CUSTOM, ...DARK_THEMES.map((x) => x.id), ...LIGHT_THEMES.map((x) => x.id)].map((id) => [`custom:theme:${id}`, () => updateSettings({ theme: id })]));
+  handlers['custom:theme-edit'] = () => popups.open('settings', { tab: 'appearance', themeGroup: 'custom' });
+  handlers['custom:theme-random'] = () => updateSettings({ theme: randomThemeId(current) });
+  return showMenu(items, anchor ?? anchorBelow(element), 'theme', { handlers, header: { icon: 'palette', title: t('theme.pickTitle') } });
 }
 
 // ───────────────────────── progress
@@ -3256,11 +3328,60 @@ async function handleDroppedPaths(paths, client = null) {
         if ((activeTab() && !state.showStart) || imageDecoderFor(name)) { await insertPictureFromPath(path, null, at); at = at && { x: at.x + 30, y: at.y + 30 }; }
         else await setBackgroundFromPath(path);
       } else if (isCsvFileName(name)) await openImport('link', { path });
-      else notify('error', t('notice.unsupportedDrop', { name }));
+      else if (activeTab() && !state.showStart) {
+        // Any other file goes into the drawing, as an embedded file (double-click opens it).
+        const data = await withProgress('progress.open', name, (op) => native.readBase64File(path, op));
+        if (embedFile(name, data, '', at)) at = at && { x: at.x + 30, y: at.y + 30 };
+      } else notify('error', t('notice.unsupportedDrop', { name }));
     } catch (error) {
       showError('error.drop', error, path);
     }
   }
+}
+
+/** The largest file a drawing takes in (it is saved inside the drawing). */
+const ATTACH_LIMIT = 25 * 1024 * 1024;
+const sizeText = (bytes) => (bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
+
+/** Puts a file into the drawing: a document icon named after it that carries the file. */
+function embedFile(name, base64, type = '', at = null) {
+  const size = Math.floor((base64.length * 3) / 4) - (base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0);
+  if (size > ATTACH_LIMIT) { notify('error', t('notice.attachTooBig', { name, limit: sizeText(ATTACH_LIMIT) })); return null; }
+  ensureDrawingView();
+  const c = at ?? viewCenter();
+  const data = [{ key: 'file', label: t('attach.file'), value: name, type: 'text' }, { key: 'size', label: t('attach.size'), value: sizeText(size), type: 'text' }];
+  const shape = change('op.attach', (doc, page) => {
+    const added = D.addShape(page, D.createShape('icoDocument', { x: c.x - 32, y: c.y - 32, text: name, name, data }));
+    added.attachment = { name, type, size, data: base64 };
+    return added;
+  });
+  select([shape.id]);
+  notify('success', t('notice.attached', { name }));
+  return shape;
+}
+
+/** Opens a file embedded in the drawing: with its program (desktop) or in a new tab (web). */
+async function openAttachment(id) {
+  const shape = D.findShape(currentPage(), id);
+  const file = shape?.attachment;
+  if (!file) return false;
+  try {
+    if (desktop) {
+      const { tempDir, join } = await import('@tauri-apps/api/path');
+      const safe = file.name.replace(/[\\/:*?"<>|]/g, '_');
+      const path = await join(await tempDir(), `MyDiagram-${shape.id}-${safe}`);
+      await native.writeBase64File(path, file.data);
+      await native.openExternal(path);
+    } else {
+      const url = URL.createObjectURL(new Blob([base64ToBytes(file.data)], { type: file.type || 'application/octet-stream' }));
+      const link = Object.assign(document.createElement('a'), { href: url, download: file.name });
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    }
+  } catch (error) {
+    showError('error.attachment', error, file.name);
+  }
+  return true;
 }
 
 /** The page point under a drop (client coordinates), when it is over the drawing canvas. */
@@ -3280,7 +3401,9 @@ async function handleDroppedFiles(files, text, client = null) {
         if ((activeTab() && !state.showStart) || imageDecoderFor(file.name)) { await insertPictureFromFile(file, at); at = at && { x: at.x + 30, y: at.y + 30 }; }
         else await setBackgroundFromFile(file);
       } else if (isCsvFileName(file.name)) await openImport('link', { text: await file.text(), name: file.name });
-      else notify('error', t('notice.unsupportedDrop', { name: file.name }));
+      else if (activeTab() && !state.showStart) {
+        if (embedFile(file.name, bytesToBase64(new Uint8Array(await file.arrayBuffer())), file.type, at)) at = at && { x: at.x + 30, y: at.y + 30 };
+      } else notify('error', t('notice.unsupportedDrop', { name: file.name }));
     } catch (error) {
       showError('error.drop', error, file.name);
     }
@@ -3335,7 +3458,13 @@ function bindEvents() {
     const tile = target.closest('[data-master]');
     if (tile) return dropMaster(tile.dataset.master);
     const stencilToggle = target.closest('[data-stencil-toggle]');
-    if (stencilToggle) { const id = stencilToggle.dataset.stencilToggle; if (state.collapsedStencils.has(id)) state.collapsedStencils.delete(id); else state.collapsedStencils.add(id); return renderLeft(); }
+    if (stencilToggle) {
+      const id = stencilToggle.dataset.stencilToggle;
+      const own = (activeTab()?.stencils ?? state.settings.openStencils).includes(id);
+      const set = own ? state.collapsedStencils : state.expandedStencils;
+      if (set.has(id)) set.delete(id); else set.add(id);
+      return renderLeft();
+    }
     const stencilClose = target.closest('[data-stencil-close]');
     if (stencilClose) return setStencils((activeTab()?.stencils ?? state.settings.openStencils).filter((x) => x !== stencilClose.dataset.stencilClose));
     if (target.closest('[data-stencil-more]')) return moreShapesMenu(anchorBelow(target.closest('[data-stencil-more]')));
@@ -3635,7 +3764,7 @@ function onKeyDown(event) {
     run('clearSelection');
     return;
   }
-  if (key === 'enter' && canvas && state.tool === 'polyline') { canvas.finishPolyline(false); return; }
+  if (key === 'enter' && canvas && (state.tool === 'polyline' || state.tool === 'curve')) { canvas.finishPolyline(false); return; }
   if (canvas && key.startsWith('arrow') && selectedIds().length) {
     event.preventDefault();
     const step = event.shiftKey ? 1 : canvas.gridStep();
@@ -3766,6 +3895,9 @@ const appApi = {
   addGuide,
   addShapeAt,
   removeBend,
+  openAttachment,
+  paintWithTool,
+  eraseShapes,
   setShapeText,
   zoomChanged,
   editShapeField,
@@ -3823,6 +3955,13 @@ async function start() {
         handleDroppedPaths(event.payload.paths ?? [], p ? { x: p.x / (window.devicePixelRatio || 1), y: p.y / (window.devicePixelRatio || 1) } : null);
       }
     });
+    // The Print button of the user's guide or tutorial window: the same print window as drawings.
+    native.listen('doc-print', (doc) => {
+      const lang = getLanguage();
+      const name = { guide: 'UsersGuide', tutorial: 'Tutorial' }[doc];
+      if (!name) return;
+      popups.open('print', { mode: 'document', doc, page: `./docs/${name}${lang === 'en' ? '.en' : ''}.html`, title: t(doc === 'guide' ? 'action.userGuide' : 'action.tutorialDoc') });
+    });
     native.listen('fatal-error', (fatal) => {
       const detail = [`${t('error.location')}: ${fatal.location}`, `${t('error.thread')}: ${fatal.thread}`, fatal.log ? `${t('error.log')}: ${fatal.log}` : '', '', fatal.backtrace].join('\n');
       const error = new Error(fatal.message);
@@ -3847,7 +3986,9 @@ async function start() {
     updateSettings({ tutorialOffered: true }, { quiet: true });
     setTimeout(async () => {
       if (!state.showStart && activeTab()) return; // Only over the start page, not over an opened drawing.
+      state.welcomeOpen = true;
       const result = await popups.open('welcome', {});
+      state.welcomeOpen = false;
       if (result?.choice === 'tutorial') startTutorial();
       else if (result?.choice === 'tutorialDoc') openDocWindow('tutorial');
       else if (result?.choice === 'sample') openSampleBuiltin();

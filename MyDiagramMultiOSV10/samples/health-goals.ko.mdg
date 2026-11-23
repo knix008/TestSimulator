@@ -1,0 +1,908 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:20.964Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk17o22ekt",
+  "title": "건강 목표",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:20.964Z",
+  "design": "radiance",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk17o22fio",
+    "name": "건강 목표",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk17o22gzd",
+      "type": "shape",
+      "master": "centralTopic",
+      "name": "",
+      "x": 440.0000000000001,
+      "y": 375.00000000000006,
+      "w": 180,
+      "h": 90,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "건강한 한 해",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17o22h6t",
+      "type": "shape",
+      "master": "mainTopic",
+      "name": "",
+      "x": 586.3738292428818,
+      "y": 255.8958706636737,
+      "w": 140,
+      "h": 56,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "운동",
+      "style": {},
+      "qs": {
+       "color": 1
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17o22ixe",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17o22gzd",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17o22h6t",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk17o22jkx",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 602.8773075812275,
+      "y": 80,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "주 3회 걷기",
+      "style": {},
+      "qs": {
+       "color": 1,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17o22kn8",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17o22h6t",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17o22jkx",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk17o22l6t",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 817.8773075812275,
+      "y": 202.22912360003366,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "근력",
+      "style": {},
+      "qs": {
+       "color": 1,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17o22moo",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17o22h6t",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17o22l6t",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk17o22nmb",
+      "type": "shape",
+      "master": "mainTopic",
+      "name": "",
+      "x": 664.4771510034581,
+      "y": 443.98715139726505,
+      "w": 140,
+      "h": 56,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "식사",
+      "style": {},
+      "qs": {
+       "color": 2
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17o22oux",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17o22gzd",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17o22nmb",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk17o22p6s",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 900,
+      "y": 400.00000000000006,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "채소",
+      "style": {},
+      "qs": {
+       "color": 2,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17o22qva",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17o22nmb",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17o22p6s",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk17o22r8v",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 817.8773075812275,
+      "y": 597.7708763999665,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "물 2L",
+      "style": {},
+      "qs": {
+       "color": 2,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17o22sn7",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17o22nmb",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17o22r8v",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk17o22tfe",
+      "type": "shape",
+      "master": "mainTopic",
+      "name": "",
+      "x": 460.0000000000001,
+      "y": 560.2339558781227,
+      "w": 140,
+      "h": 56,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "수면",
+      "style": {},
+      "qs": {
+       "color": 3
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17o22uvy",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17o22gzd",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17o22tfe",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk17o22vib",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 602.8773075812275,
+      "y": 720,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "7시간",
+      "style": {},
+      "qs": {
+       "color": 3,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17o22wc3",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17o22tfe",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17o22vib",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk17o22xdn",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 337.12269241877266,
+      "y": 720,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "일정한 시간",
+      "style": {},
+      "qs": {
+       "color": 3,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17o22yef",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17o22tfe",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17o22xdn",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk17o22z5u",
+      "type": "shape",
+      "master": "mainTopic",
+      "name": "",
+      "x": 255.52284899654205,
+      "y": 443.98715139726505,
+      "w": 140,
+      "h": 56,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "마음",
+      "style": {},
+      "qs": {
+       "color": 4
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17o230co",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17o22gzd",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17o22z5u",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk17o2314a",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 122.12269241877266,
+      "y": 597.7708763999665,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "명상",
+      "style": {},
+      "qs": {
+       "color": 4,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17o23264",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17o22z5u",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17o2314a",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk17o2330q",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 40,
+      "y": 400.00000000000006,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "일기",
+      "style": {},
+      "qs": {
+       "color": 4,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17o2348l",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17o22z5u",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17o2330q",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk17o2356s",
+      "type": "shape",
+      "master": "mainTopic",
+      "name": "",
+      "x": 333.6261707571183,
+      "y": 255.8958706636737,
+      "w": 140,
+      "h": 56,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "검진",
+      "style": {},
+      "qs": {
+       "color": 5
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17o2368p",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17o22gzd",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17o2356s",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk17o237wy",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 122.1226924187726,
+      "y": 202.2291236000337,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "건강 검진",
+      "style": {},
+      "qs": {
+       "color": 5,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17o2385u",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17o2356s",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17o237wy",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk17o239n9",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 337.12269241877266,
+      "y": 80,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "치과",
+      "style": {},
+      "qs": {
+       "color": 5,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17o23aa1",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17o2356s",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17o239n9",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk17o23bee",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "건강 목표",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "mind",
+   "basic"
+  ]
+ }
+}

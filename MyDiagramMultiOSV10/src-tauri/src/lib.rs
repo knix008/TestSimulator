@@ -3,6 +3,7 @@ pub mod files;
 pub mod fonts;
 pub mod i18n;
 pub mod instance;
+pub mod printing;
 pub mod window_state;
 
 use serde::Serialize;
@@ -290,7 +291,20 @@ async fn open_doc_window(app: AppHandle, doc: String, lang: String, dark: bool) 
     }
     let title_window = label.clone();
     let title_app = app.clone();
+    let print_app = app.clone();
+    let print_doc = doc.clone();
     WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(page.into()))
+        // The page's Print button opens the program's own print window (in the main window):
+        // it navigates to mydiagram-print:, which is stopped here. The page has no access to
+        // the program otherwise.
+        .initialization_script("window.__MYDIAGRAM_DOC_WINDOW__ = true;")
+        .on_navigation(move |url| {
+            if url.scheme() == "mydiagram-print" {
+                let _ = print_app.emit_to("main", "doc-print", print_doc.clone());
+                return false;
+            }
+            true
+        })
         .title(app_title(app.package_info()))
         .inner_size(1120.0, 800.0)
         .min_inner_size(560.0, 420.0)
@@ -511,6 +525,46 @@ fn close_popup(app: AppHandle, kind: String) {
     }
 }
 
+fn doc_window(app: &AppHandle, doc: &str) -> Result<WebviewWindow, String> {
+    app.get_webview_window(&format!("doc-{doc}")).ok_or_else(|| tr!("문서 창이 닫혔습니다.", "The document window has been closed."))
+}
+
+/// Prints an open document window (user's guide, tutorial) straight to the chosen printer.
+#[tauri::command]
+async fn print_doc_window(app: AppHandle, doc: String, job: printing::PrintJob) -> Result<(), String> {
+    printing::print(&doc_window(&app, &doc)?, job).await
+}
+
+/// An open document window as a PDF file (file printers).
+#[tauri::command]
+async fn print_doc_pdf(app: AppHandle, doc: String, job: printing::PrintJob, path: String) -> Result<(), String> {
+    printing::print_to_pdf(&doc_window(&app, &doc)?, job, path).await
+}
+
+/// The system print dialog for a document window (where printing straight to a printer is not available).
+#[tauri::command]
+fn print_doc_dialog(app: AppHandle, doc: String) -> Result<(), String> {
+    doc_window(&app, &doc)?.print().map_err(|error| tr!("인쇄를 시작할 수 없습니다: {error}", "Could not start printing: {error}"))
+}
+
+/// The printers, the default one and those that write a file (Windows; empty elsewhere).
+#[tauri::command]
+fn list_printers() -> printing::PrinterList {
+    printing::printers()
+}
+
+/// Prints the calling window (the print preview popup) straight to the chosen printer.
+#[tauri::command]
+async fn print_direct(window: WebviewWindow, job: printing::PrintJob) -> Result<(), String> {
+    printing::print(&window, job).await
+}
+
+/// The same pages as a PDF file (file printers such as Microsoft Print to PDF).
+#[tauri::command]
+async fn print_pdf(window: WebviewWindow, job: printing::PrintJob, path: String) -> Result<(), String> {
+    printing::print_to_pdf(&window, job, path).await
+}
+
 /// The OS print dialog for the calling window (the print preview popup).
 #[tauri::command]
 fn print_window(window: WebviewWindow) -> Result<(), String> {
@@ -684,6 +738,12 @@ pub fn run() {
             hide_popup,
             close_popup,
             print_window,
+            list_printers,
+            print_direct,
+            print_pdf,
+            print_doc_window,
+            print_doc_pdf,
+            print_doc_dialog,
             quit_app,
             raise_test_panic,
             db_test,

@@ -1,0 +1,686 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:20.916Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk16c1g5tb",
+  "title": "학교 네트워크",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:20.916Z",
+  "design": "facet",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk16c1g6ly",
+    "name": "학교 네트워크",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk16c1g75f",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "학교 네트워크",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16c1g8v8",
+      "type": "shape",
+      "master": "internet",
+      "name": "",
+      "x": 444.34027777777777,
+      "y": 80,
+      "w": 94.44444444444444,
+      "h": 94.44444444444444,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "인터넷",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16c1g9cj",
+      "type": "shape",
+      "master": "firewall",
+      "name": "",
+      "x": 438.4375,
+      "y": 238.19444444444446,
+      "w": 106.25,
+      "h": 82.63888888888889,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "방화벽",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16c1gaaa",
+      "type": "shape",
+      "master": "switch",
+      "name": "",
+      "x": 426.63194444444446,
+      "y": 384.5833333333333,
+      "w": 129.86111111111111,
+      "h": 59.02777777777778,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "코어 스위치",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16c1gba9",
+      "type": "shape",
+      "master": "switch",
+      "name": "",
+      "x": 107.88194444444444,
+      "y": 519.1666666666667,
+      "w": 129.86111111111111,
+      "h": 59.02777777777778,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "컴퓨터실",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16c1gc3d",
+      "type": "shape",
+      "master": "switch",
+      "name": "",
+      "x": 432.53472222222223,
+      "y": 519.1666666666667,
+      "w": 129.86111111111111,
+      "h": 59.02777777777778,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "교무실",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16c1gdtw",
+      "type": "shape",
+      "master": "wirelessAp",
+      "name": "",
+      "x": 774.8958333333334,
+      "y": 507.36111111111114,
+      "w": 82.63888888888889,
+      "h": 82.63888888888889,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "교실 와이파이",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16c1geav",
+      "type": "shape",
+      "master": "desktop",
+      "name": "",
+      "x": 40,
+      "y": 659.6527777777778,
+      "w": 106.25,
+      "h": 94.44444444444444,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "학생 PC",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16c1gfwj",
+      "type": "shape",
+      "master": "desktop",
+      "name": "",
+      "x": 199.375,
+      "y": 659.6527777777778,
+      "w": 106.25,
+      "h": 94.44444444444444,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "학생 PC",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16c1ggk5",
+      "type": "shape",
+      "master": "laptop",
+      "name": "",
+      "x": 358.75,
+      "y": 665.5555555555555,
+      "w": 118.05555555555556,
+      "h": 82.63888888888889,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "교사 노트북",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16c1gh91",
+      "type": "shape",
+      "master": "printer",
+      "name": "",
+      "x": 529.9305555555555,
+      "y": 662.6041666666666,
+      "w": 106.25,
+      "h": 88.54166666666667,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "프린터",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16c1giyp",
+      "type": "shape",
+      "master": "tablet",
+      "name": "",
+      "x": 689.3055555555555,
+      "y": 653.75,
+      "w": 82.63888888888889,
+      "h": 106.25,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "태블릿",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16c1gjxo",
+      "type": "shape",
+      "master": "netProjector",
+      "name": "",
+      "x": 825.0694444444445,
+      "y": 671.4583333333334,
+      "w": 118.05555555555556,
+      "h": 70.83333333333333,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "프로젝터",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk16c1gk1p",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16c1g8v8",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16c1g9cj",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16c1gln1",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16c1g9cj",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16c1gaaa",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16c1gmh1",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16c1gaaa",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16c1gba9",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16c1gnqt",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16c1gaaa",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16c1gc3d",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16c1gosy",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16c1gaaa",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16c1gdtw",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16c1gpp1",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16c1gba9",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16c1geav",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16c1gqsc",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16c1gba9",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16c1gfwj",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16c1grmi",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16c1gc3d",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16c1ggk5",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16c1gsvi",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16c1gc3d",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16c1gh91",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16c1gtb4",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16c1gdtw",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16c1giyp",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16c1gu1o",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16c1gdtw",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16c1gjxo",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "network"
+  ]
+ }
+}

@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "drawing",
- "saved": "2026-11-06T04:18:13.718Z",
+ "saved": "2026-11-23T05:50:20.831Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mw4gs312070kq",
+  "id": "dgm-mwsuk13z070ke",
   "title": "장애 대응",
   "subject": "",
   "author": "SHKWON",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-11-06T04:18:13.718Z",
+  "created": "2026-11-23T05:50:20.831Z",
   "design": "sequence",
   "variant": 0,
   "units": "mm",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mw4gs312071kg",
+    "id": "page-mwsuk13z071tz",
     "name": "장애 대응",
     "paper": "A4",
     "orientation": "landscape",
@@ -51,7 +51,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mw4gs312072rz",
+      "id": "shp-mwsuk13z072i3",
       "type": "shape",
       "master": "title",
       "name": "",
@@ -79,7 +79,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3120734g",
+      "id": "shp-mwsuk13z073f3",
       "type": "shape",
       "master": "swimlaneV",
       "name": "",
@@ -105,7 +105,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs312074oi",
+      "id": "shp-mwsuk13z074cy",
       "type": "shape",
       "master": "swimlaneV",
       "name": "",
@@ -131,7 +131,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs312075l4",
+      "id": "shp-mwsuk13z075xk",
       "type": "shape",
       "master": "swimlaneV",
       "name": "",
@@ -157,7 +157,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs312076ez",
+      "id": "shp-mwsuk13z076yc",
       "type": "shape",
       "master": "swimlaneV",
       "name": "",
@@ -183,7 +183,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs312077wi",
+      "id": "shp-mwsuk13z077fw",
       "type": "shape",
       "master": "terminator",
       "name": "",
@@ -209,7 +209,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs312078ou",
+      "id": "shp-mwsuk13z078kf",
       "type": "shape",
       "master": "process",
       "name": "",
@@ -233,7 +233,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs312079jl",
+      "id": "shp-mwsuk13z079hi",
       "type": "shape",
       "master": "decision",
       "name": "",
@@ -259,7 +259,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31207awi",
+      "id": "shp-mwsuk13z07adx",
       "type": "shape",
       "master": "document",
       "name": "",
@@ -283,7 +283,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31207b47",
+      "id": "shp-mwsuk13z07b0f",
       "type": "shape",
       "master": "process",
       "name": "",
@@ -309,7 +309,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31207cz2",
+      "id": "shp-mwsuk13z07cg6",
       "type": "shape",
       "master": "process",
       "name": "",
@@ -333,7 +333,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31207d0q",
+      "id": "shp-mwsuk13z07dlt",
       "type": "shape",
       "master": "document",
       "name": "",
@@ -357,7 +357,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31207esf",
+      "id": "shp-mwsuk13z07et5",
       "type": "shape",
       "master": "process",
       "name": "",
@@ -381,7 +381,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31207fk1",
+      "id": "shp-mwsuk13z07f3x",
       "type": "shape",
       "master": "decision",
       "name": "",
@@ -407,7 +407,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31207ga5",
+      "id": "shp-mwsuk13z07goc",
       "type": "shape",
       "master": "document",
       "name": "",
@@ -431,7 +431,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31207hcg",
+      "id": "shp-mwsuk13z07hv5",
       "type": "shape",
       "master": "process",
       "name": "",
@@ -457,14 +457,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs31207il2",
+      "id": "con-mwsuk13z07i1h",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs312077wi",
+       "id": "shp-mwsuk13z077fw",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs312078ou",
+       "id": "shp-mwsuk13z078kf",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -481,14 +481,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs31207jls",
+      "id": "con-mwsuk13z07jg5",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs312078ou",
+       "id": "shp-mwsuk13z078kf",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs312079jl",
+       "id": "shp-mwsuk13z079hi",
        "pt": 0
       },
       "route": "orthogonal",
@@ -505,14 +505,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs31207kon",
+      "id": "con-mwsuk13z07knd",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs312079jl",
+       "id": "shp-mwsuk13z079hi",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs31207awi",
+       "id": "shp-mwsuk13z07adx",
        "pt": 3
       },
       "route": "orthogonal",
@@ -529,14 +529,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs31207ll5",
+      "id": "con-mwsuk13z07l89",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs312079jl",
+       "id": "shp-mwsuk13z079hi",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs31207b47",
+       "id": "shp-mwsuk13z07b0f",
        "pt": 0
       },
       "route": "orthogonal",
@@ -553,14 +553,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs31207mbq",
+      "id": "con-mwsuk13z07mvb",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31207b47",
+       "id": "shp-mwsuk13z07b0f",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs31207cz2",
+       "id": "shp-mwsuk13z07cg6",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -577,14 +577,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs31207n9v",
+      "id": "con-mwsuk13z07n6o",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31207cz2",
+       "id": "shp-mwsuk13z07cg6",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs31207d0q",
+       "id": "shp-mwsuk13z07dlt",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -604,14 +604,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs31207ozw",
+      "id": "con-mwsuk13z07or8",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31207cz2",
+       "id": "shp-mwsuk13z07cg6",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs31207esf",
+       "id": "shp-mwsuk13z07et5",
        "pt": 0
       },
       "route": "straight",
@@ -628,14 +628,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs31207pxz",
+      "id": "con-mwsuk13z07pab",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31207esf",
+       "id": "shp-mwsuk13z07et5",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs31207fk1",
+       "id": "shp-mwsuk13z07f3x",
        "pt": 0
       },
       "route": "straight",
@@ -652,14 +652,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs31207qb9",
+      "id": "con-mwsuk13z07qzj",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31207fk1",
+       "id": "shp-mwsuk13z07f3x",
        "pt": 3
       },
       "to": {
-       "id": "shp-mw4gs31207esf",
+       "id": "shp-mwsuk13z07et5",
        "pt": 3
       },
       "route": "orthogonal",
@@ -676,14 +676,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs31207rir",
+      "id": "con-mwsuk13z07rah",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31207fk1",
+       "id": "shp-mwsuk13z07f3x",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs31207ga5",
+       "id": "shp-mwsuk13z07goc",
        "pt": 3
       },
       "route": "orthogonal",
@@ -700,14 +700,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs31207sxq",
+      "id": "con-mwsuk13z07sp9",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31207fk1",
+       "id": "shp-mwsuk13z07f3x",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs31207hcg",
+       "id": "shp-mwsuk13z07hv5",
        "pt": 1
       },
       "route": "orthogonal",

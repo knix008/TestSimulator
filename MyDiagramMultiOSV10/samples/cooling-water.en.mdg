@@ -1,0 +1,389 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.232Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1f45tfin",
+  "title": "Cooling Water",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.232Z",
+  "design": "slice",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1f45tgam",
+    "name": "Cooling Water",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1f45th3h",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 17.72830188679245,
+      "w": 610.6415094339623,
+      "h": 49.24528301886792,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Cooling Water",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1f45tie1",
+      "type": "shape",
+      "master": "pidHeatEx",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 84.43629425482298,
+      "w": 90.30146279414882,
+      "h": 90.30146279414882,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Process exchanger",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1f45tjnv",
+      "type": "shape",
+      "master": "pidCooler",
+      "name": "",
+      "x": 217.74161543353827,
+      "y": 90.08013567945729,
+      "w": 101.58914564341742,
+      "h": 79.01377994488021,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Cooling tower",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1f45tkya",
+      "type": "shape",
+      "master": "pidTankOpen",
+      "name": "",
+      "x": 407.3746873012508,
+      "y": 78.79245283018868,
+      "w": 124.16451134195462,
+      "h": 101.58914564341742,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Basin",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1f45tlgs",
+      "type": "shape",
+      "master": "pidPump",
+      "name": "",
+      "x": 619.5831248675005,
+      "y": 90.08013567945729,
+      "w": 79.01377994488021,
+      "h": 79.01377994488021,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "P-401",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1f45tm0l",
+      "type": "shape",
+      "master": "pidFilter",
+      "name": "",
+      "x": 786.6408310366758,
+      "y": 84.43629425482298,
+      "w": 90.30146279414882,
+      "h": 90.30146279414882,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Filter",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1f45tn8j",
+      "type": "shape",
+      "master": "pidFlowMeter",
+      "name": "",
+      "x": 964.9862200551197,
+      "y": 107.01165995336018,
+      "w": 79.01377994488021,
+      "h": 45.15073139707441,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Flow meter",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1f45tok2",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1f45tie1",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1f45tjnv",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "hot water",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1f45tp5f",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1f45tjnv",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1f45tkya",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1f45tqr4",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1f45tkya",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1f45tlgs",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1f45trn0",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1f45tlgs",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1f45tm0l",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1f45tscu",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1f45tm0l",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1f45tn8j",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1f45ttni",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1f45tn8j",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1f45tie1",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "cool water",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "process"
+  ]
+ }
+}

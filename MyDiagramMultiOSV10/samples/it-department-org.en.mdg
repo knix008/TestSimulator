@@ -1,0 +1,412 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.274Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1ga6am6r",
+  "title": "IT Department",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.274Z",
+  "design": "blueprint",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1ga6anyy",
+    "name": "IT Department",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1ga6aohd",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 17.72830188679245,
+      "w": 610.6415094339623,
+      "h": 49.24528301886792,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "IT Department",
+      "style": {
+       "align": "left",
+       "textColor": "#e3f2fd",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ga6ap48",
+      "type": "shape",
+      "master": "orgExecutive",
+      "name": "",
+      "x": 426.3044365119837,
+      "y": 78.79245283018868,
+      "w": 230.78735339112697,
+      "h": 108.60581336053033,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "CIO",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ga6aq0h",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 161.577766445691,
+      "y": 252.56175420703718,
+      "w": 217.21162672106067,
+      "h": 95.03008669046405,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Infrastructure",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ga6arp8",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 555.2738398776135,
+      "y": 252.56175420703718,
+      "w": 217.21162672106067,
+      "h": 95.03008669046405,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Applications",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ga6ascd",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 826.7883732789393,
+      "y": 252.56175420703718,
+      "w": 217.21162672106067,
+      "h": 95.03008669046405,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Security",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ga6atav",
+      "type": "shape",
+      "master": "orgTeam",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 412.7553289138194,
+      "w": 203.63590005099437,
+      "h": 95.03008669046405,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Help desk",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ga6au43",
+      "type": "shape",
+      "master": "orgTeam",
+      "name": "",
+      "x": 297.3350331463539,
+      "y": 412.7553289138194,
+      "w": 203.63590005099437,
+      "h": 95.03008669046405,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Network",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ga6av90",
+      "type": "shape",
+      "master": "orgTeam",
+      "name": "",
+      "x": 562.0617032126465,
+      "y": 412.7553289138194,
+      "w": 203.63590005099437,
+      "h": 95.03008669046405,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Developers",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1ga6awd4",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ga6ap48",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ga6aq0h",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1ga6axh1",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ga6ap48",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ga6arp8",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1ga6ayx0",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ga6ap48",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ga6ascd",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1ga6azs1",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ga6aq0h",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ga6atav",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1ga6b0yp",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ga6aq0h",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ga6au43",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1ga6b130",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ga6arp8",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ga6av90",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "org"
+  ]
+ }
+}

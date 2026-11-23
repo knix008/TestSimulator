@@ -1,0 +1,545 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.225Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1ex5qi97",
+  "title": "Parallel Lamps",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.225Z",
+  "design": "facet",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1ex5qje0",
+    "name": "Parallel Lamps",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1ex5qk51",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Parallel Lamps",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ex5qlb4",
+      "type": "shape",
+      "master": "voltageSource",
+      "name": "",
+      "x": 120,
+      "y": 330,
+      "w": 80,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ex5qm70",
+      "type": "shape",
+      "master": "switchElec",
+      "name": "",
+      "x": 300,
+      "y": 170,
+      "w": 100,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Switch",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ex5qn8s",
+      "type": "shape",
+      "master": "elecJunction",
+      "name": "",
+      "x": 560,
+      "y": 180,
+      "w": 14,
+      "h": 14,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ex5qond",
+      "type": "shape",
+      "master": "elecJunction",
+      "name": "",
+      "x": 560,
+      "y": 560,
+      "w": 14,
+      "h": 14,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ex5qp5f",
+      "type": "shape",
+      "master": "lamp",
+      "name": "",
+      "x": 460,
+      "y": 340,
+      "w": 70,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ex5qquf",
+      "type": "shape",
+      "master": "lamp",
+      "name": "",
+      "x": 640,
+      "y": 340,
+      "w": 70,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1ex5qruw",
+      "type": "shape",
+      "master": "lamp",
+      "name": "",
+      "x": 820,
+      "y": 340,
+      "w": 70,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1ex5qsul",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ex5qlb4",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ex5qm70",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1ex5qtsz",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ex5qm70",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ex5qn8s",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1ex5quer",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ex5qn8s",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ex5qp5f",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1ex5qvet",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ex5qn8s",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ex5qquf",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1ex5qwu9",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ex5qn8s",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ex5qruw",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1ex5qxgh",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ex5qp5f",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ex5qond",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1ex5qy13",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ex5qquf",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ex5qond",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1ex5qztx",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ex5qruw",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ex5qond",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1ex5r05v",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1ex5qond",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1ex5qlb4",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk1ex5r1xy",
+      "type": "shape",
+      "master": "note",
+      "name": "",
+      "x": 40,
+      "y": 594,
+      "w": 240,
+      "h": 110,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "If one lamp goes out, the others stay on.",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "electrical",
+   "callouts"
+  ]
+ }
+}

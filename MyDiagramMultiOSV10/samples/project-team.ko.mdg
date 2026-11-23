@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "drawing",
- "saved": "2026-11-06T04:18:13.734Z",
+ "saved": "2026-11-23T05:50:20.846Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mw4gs31i0isex",
+  "id": "dgm-mwsuk14e0isrq",
   "title": "프로젝트 팀",
   "subject": "",
   "author": "SHKWON",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-11-06T04:18:13.734Z",
+  "created": "2026-11-23T05:50:20.846Z",
   "design": "ion",
   "variant": 0,
   "units": "mm",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mw4gs31i0it7d",
+    "id": "page-mwsuk14e0it50",
     "name": "프로젝트 팀",
     "paper": "A4",
     "orientation": "landscape",
@@ -51,7 +51,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mw4gs31i0iu3x",
+      "id": "shp-mwsuk14e0iuwc",
       "type": "shape",
       "master": "title",
       "name": "",
@@ -79,7 +79,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31i0iv2p",
+      "id": "shp-mwsuk14e0ivng",
       "type": "shape",
       "master": "orgExecutive",
       "name": "",
@@ -111,7 +111,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31i0iwyc",
+      "id": "shp-mwsuk14e0iwc8",
       "type": "shape",
       "master": "orgConsultant",
       "name": "",
@@ -143,7 +143,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31i0ixg3",
+      "id": "shp-mwsuk14e0ixco",
       "type": "shape",
       "master": "orgAssistant",
       "name": "",
@@ -175,7 +175,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31i0iyk8",
+      "id": "shp-mwsuk14e0iy47",
       "type": "shape",
       "master": "orgPhoto",
       "name": "",
@@ -207,7 +207,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31i0izua",
+      "id": "shp-mwsuk14e0izuw",
       "type": "shape",
       "master": "orgPhoto",
       "name": "",
@@ -239,7 +239,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31i0j082",
+      "id": "shp-mwsuk14e0j0yn",
       "type": "shape",
       "master": "orgPhoto",
       "name": "",
@@ -271,41 +271,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs31i0j1lf",
+      "id": "con-mwsuk14e0j1b9",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31i0iv2p",
+       "id": "shp-mwsuk14e0ivng",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs31i0iwyc",
-       "pt": "auto"
-      },
-      "route": "orthogonal",
-      "waypoints": [],
-      "text": "",
-      "textPos": 0.5,
-      "style": {
-       "endArrow": "none",
-       "dash": "dash"
-      },
-      "layers": [],
-      "locked": {},
-      "data": [],
-      "hyperlink": "",
-      "comments": [],
-      "groupId": null,
-      "name": ""
-     },
-     {
-      "id": "con-mw4gs31i0j2mi",
-      "type": "connector",
-      "from": {
-       "id": "shp-mw4gs31i0iv2p",
-       "pt": "auto"
-      },
-      "to": {
-       "id": "shp-mw4gs31i0ixg3",
+       "id": "shp-mwsuk14e0iwc8",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -325,14 +298,41 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs31i0j3sg",
+      "id": "con-mwsuk14e0j20n",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31i0iv2p",
+       "id": "shp-mwsuk14e0ivng",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk14e0ixco",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "dash": "dash"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk14e0j399",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk14e0ivng",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs31i0iyk8",
+       "id": "shp-mwsuk14e0iy47",
        "pt": 0
       },
       "route": "orthogonal",
@@ -351,14 +351,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs31i0j4nr",
+      "id": "con-mwsuk14e0j4u3",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31i0iv2p",
+       "id": "shp-mwsuk14e0ivng",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs31i0izua",
+       "id": "shp-mwsuk14e0izuw",
        "pt": 0
       },
       "route": "orthogonal",
@@ -377,14 +377,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs31i0j5yh",
+      "id": "con-mwsuk14e0j5vt",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31i0iv2p",
+       "id": "shp-mwsuk14e0ivng",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs31i0j082",
+       "id": "shp-mwsuk14e0j0yn",
        "pt": 0
       },
       "route": "orthogonal",
@@ -403,7 +403,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs31i0j6iu",
+      "id": "shp-mwsuk14e0j6eu",
       "type": "shape",
       "master": "orgPosition",
       "name": "",
@@ -435,14 +435,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs31i0j7b0",
+      "id": "con-mwsuk14e0j7ht",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31i0iyk8",
+       "id": "shp-mwsuk14e0iy47",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs31i0j6iu",
+       "id": "shp-mwsuk14e0j6eu",
        "pt": 0
       },
       "route": "orthogonal",
@@ -461,7 +461,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs31i0j8oy",
+      "id": "shp-mwsuk14e0j8sn",
       "type": "shape",
       "master": "orgPosition",
       "name": "",
@@ -493,14 +493,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs31i0j9pz",
+      "id": "con-mwsuk14e0j9ge",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31i0iyk8",
+       "id": "shp-mwsuk14e0iy47",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs31i0j8oy",
+       "id": "shp-mwsuk14e0j8sn",
        "pt": 0
       },
       "route": "orthogonal",
@@ -519,7 +519,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs31i0ja8d",
+      "id": "shp-mwsuk14e0jakb",
       "type": "shape",
       "master": "orgPosition",
       "name": "",
@@ -551,14 +551,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs31i0jbqk",
+      "id": "con-mwsuk14e0jb5d",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31i0izua",
+       "id": "shp-mwsuk14e0izuw",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs31i0ja8d",
+       "id": "shp-mwsuk14e0jakb",
        "pt": 0
       },
       "route": "orthogonal",
@@ -577,7 +577,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs31i0jcuq",
+      "id": "shp-mwsuk14e0jcor",
       "type": "shape",
       "master": "orgPosition",
       "name": "",
@@ -609,14 +609,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs31i0jdm5",
+      "id": "con-mwsuk14e0jdb6",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31i0izua",
+       "id": "shp-mwsuk14e0izuw",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs31i0jcuq",
+       "id": "shp-mwsuk14e0jcor",
        "pt": 0
       },
       "route": "orthogonal",
@@ -635,7 +635,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs31i0je8d",
+      "id": "shp-mwsuk14e0jelu",
       "type": "shape",
       "master": "orgPosition",
       "name": "",
@@ -667,14 +667,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs31i0jfhb",
+      "id": "con-mwsuk14e0jfx8",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31i0j082",
+       "id": "shp-mwsuk14e0j0yn",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs31i0je8d",
+       "id": "shp-mwsuk14e0jelu",
        "pt": 0
       },
       "route": "orthogonal",
@@ -693,7 +693,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs31i0jg1s",
+      "id": "shp-mwsuk14e0jg43",
       "type": "shape",
       "master": "orgVacancy",
       "name": "",
@@ -720,14 +720,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs31i0jhu9",
+      "id": "con-mwsuk14e0jhuf",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31i0j082",
+       "id": "shp-mwsuk14e0j0yn",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs31i0jg1s",
+       "id": "shp-mwsuk14e0jg43",
        "pt": 0
       },
       "route": "orthogonal",
@@ -746,7 +746,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs31i0jiwu",
+      "id": "shp-mwsuk14e0jimt",
       "type": "shape",
       "master": "note",
       "name": "",

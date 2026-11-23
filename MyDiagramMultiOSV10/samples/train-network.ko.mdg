@@ -1,0 +1,441 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.015Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1932rqcz",
+  "title": "순환 철도",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.015Z",
+  "design": "midnight",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1932rrrj",
+    "name": "순환 철도",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1932rsmb",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "순환 철도",
+      "style": {
+       "align": "left",
+       "textColor": "#c0caf5",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1932rt8b",
+      "type": "shape",
+      "master": "trStation",
+      "name": "",
+      "x": 299.71827204000937,
+      "y": 80,
+      "w": 79.2,
+      "h": 79.2,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "중앙역",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1932rul9",
+      "type": "shape",
+      "master": "trStation",
+      "name": "",
+      "x": 482.0365440800187,
+      "y": 167.7998523593148,
+      "w": 79.2,
+      "h": 79.2,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "북역",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1932rvtx",
+      "type": "shape",
+      "master": "trStation",
+      "name": "",
+      "x": 527.0654386589135,
+      "y": 365.08432982010004,
+      "w": 79.2,
+      "h": 79.2,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "공항",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1932rwy0",
+      "type": "shape",
+      "master": "trStation",
+      "name": "",
+      "x": 400.8972797367301,
+      "y": 523.2941969844428,
+      "w": 79.2,
+      "h": 79.2,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "항구",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1932rxit",
+      "type": "shape",
+      "master": "trStation",
+      "name": "",
+      "x": 198.5392643432886,
+      "y": 523.2941969844428,
+      "w": 79.2,
+      "h": 79.2,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "대학",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1932ry1t",
+      "type": "shape",
+      "master": "trStation",
+      "name": "",
+      "x": 72.37110542110516,
+      "y": 365.0843298201001,
+      "w": 79.2,
+      "h": 79.2,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "시장",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1932rzbm",
+      "type": "shape",
+      "master": "trTrain",
+      "name": "",
+      "x": 40,
+      "y": 147.99985235931484,
+      "w": 234,
+      "h": 118.8,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "순환선",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1932s0x4",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1932rt8b",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1932rul9",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1932s1c0",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1932rul9",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1932rvtx",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1932s2sf",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1932rvtx",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1932rwy0",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1932s30u",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1932rwy0",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1932rxit",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1932s45z",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1932rxit",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1932ry1t",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1932s5qy",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1932ry1t",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1932rt8b",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1932s643",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1932rzbm",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1932rt8b",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "transport",
+   "maps"
+  ]
+ }
+}

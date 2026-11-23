@@ -1,0 +1,686 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.153Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1cx4s4yy",
+  "title": "Data Centre",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.153Z",
+  "design": "blueprint",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1cx4s5lg",
+    "name": "Data Centre",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1cx4s6dt",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 38.05917159763314,
+      "y": 17.12662721893491,
+      "w": 589.9171597633136,
+      "h": 47.57396449704142,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Data Centre",
+      "style": {
+       "align": "left",
+       "textColor": "#e3f2fd",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cx4s7va",
+      "type": "shape",
+      "master": "netWan",
+      "name": "",
+      "x": 233.11242603550295,
+      "y": 76.11834319526628,
+      "w": 123.6923076923077,
+      "h": 80.87573964497041,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Uplinks",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cx4s82m",
+      "type": "shape",
+      "master": "firewall",
+      "name": "",
+      "x": 252.14201183431953,
+      "y": 208.3739644970414,
+      "w": 85.63313609467455,
+      "h": 66.60355029585799,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Firewall pair",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cx4s9oq",
+      "type": "shape",
+      "master": "netLoadBalancer",
+      "name": "",
+      "x": 252.14201183431953,
+      "y": 326.35739644970414,
+      "w": 85.63313609467455,
+      "h": 57.08875739644971,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Load balancer",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cx4sa0p",
+      "type": "shape",
+      "master": "switch",
+      "name": "",
+      "x": 242.62721893491124,
+      "y": 434.8260355029586,
+      "w": 104.66272189349112,
+      "h": 47.57396449704142,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Spine switch",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cx4sb9q",
+      "type": "shape",
+      "master": "rack",
+      "name": "",
+      "x": 88.01183431952663,
+      "y": 533.7798816568047,
+      "w": 66.60355029585799,
+      "h": 114.17751479289942,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Rack A",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cx4scje",
+      "type": "shape",
+      "master": "rack",
+      "name": "",
+      "x": 247.3846153846154,
+      "y": 533.7798816568047,
+      "w": 66.60355029585799,
+      "h": 114.17751479289942,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Rack B",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cx4sd52",
+      "type": "shape",
+      "master": "rack",
+      "name": "",
+      "x": 421.0295857988166,
+      "y": 533.7798816568047,
+      "w": 66.60355029585799,
+      "h": 114.17751479289942,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Rack C",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cx4se8v",
+      "type": "shape",
+      "master": "netWebServer",
+      "name": "",
+      "x": 38.05917159763314,
+      "y": 708.8520710059172,
+      "w": 57.08875739644971,
+      "h": 85.63313609467455,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Web servers",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cx4sf0n",
+      "type": "shape",
+      "master": "netAppServer",
+      "name": "",
+      "x": 252.14201183431953,
+      "y": 708.8520710059172,
+      "w": 57.08875739644971,
+      "h": 85.63313609467455,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "App servers",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cx4sgkw",
+      "type": "shape",
+      "master": "netDbCluster",
+      "name": "",
+      "x": 356.8047337278107,
+      "y": 713.6094674556214,
+      "w": 85.63313609467455,
+      "h": 76.11834319526628,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "DB cluster",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cx4sh77",
+      "type": "shape",
+      "master": "netNasRack",
+      "name": "",
+      "x": 485.2544378698225,
+      "y": 699.3372781065088,
+      "w": 66.60355029585799,
+      "h": 104.66272189349112,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Storage",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cx4sip1",
+      "type": "shape",
+      "master": "netUps",
+      "name": "",
+      "x": 137.96449704142012,
+      "y": 708.8520710059172,
+      "w": 66.60355029585799,
+      "h": 85.63313609467455,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "UPS",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1cx4sjzm",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cx4s7va",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cx4s82m",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1cx4skis",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cx4s82m",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cx4s9oq",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1cx4sl14",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cx4s9oq",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cx4sa0p",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1cx4smru",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cx4sa0p",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cx4sb9q",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1cx4sne0",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cx4sa0p",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cx4scje",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1cx4sor7",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cx4sa0p",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cx4sd52",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1cx4spm8",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cx4sb9q",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cx4se8v",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1cx4sqr2",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cx4scje",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cx4sf0n",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1cx4sr7j",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cx4sd52",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cx4sgkw",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1cx4ssq2",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cx4sd52",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cx4sh77",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1cx4st7d",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cx4sb9q",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cx4sip1",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "network"
+  ]
+ }
+}

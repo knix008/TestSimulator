@@ -245,7 +245,7 @@ test('templates and samples build and render in both languages', () => {
 });
 
 test('the sample drawings: named, render, stay on their pages, survive a round trip', () => {
-  assert.equal(Object.keys(SAMPLE_FILES).length, 38, 'with the template and the Visio copy, 40 entries per language');
+  assert.equal(Object.keys(SAMPLE_FILES).length, 227, 'with the template and the Visio copy, 229 entries per language');
   const named = SAMPLE_GROUPS.flatMap((group) => group.items.map((item) => item.id));
   assert.equal(new Set(named).size, named.length, 'each sample is listed once');
   assert.deepEqual([...named].filter((id) => id !== 'brainstorm-template').sort(), Object.keys(SAMPLE_FILES).sort(), 'every drawing has a name and every name a drawing');

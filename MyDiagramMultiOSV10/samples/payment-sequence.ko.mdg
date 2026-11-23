@@ -1,0 +1,490 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:20.909Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1641dngm",
+  "title": "결제 시퀀스",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:20.908Z",
+  "design": "linear",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1641do0u",
+    "name": "결제 시퀀스",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1641dph6",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "결제 시퀀스",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1651dqtn",
+      "type": "shape",
+      "master": "umlLifeline",
+      "name": "",
+      "x": 40,
+      "y": 80,
+      "w": 160,
+      "h": 680,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "앱",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false,
+      "points": [
+       [
+        0.5,
+        0.1
+       ],
+       [
+        0.5,
+        0.21000000000000002
+       ],
+       [
+        0.5,
+        0.32
+       ],
+       [
+        0.5,
+        0.43000000000000005
+       ],
+       [
+        0.5,
+        0.54
+       ],
+       [
+        0.5,
+        0.65
+       ],
+       [
+        0.5,
+        0.76
+       ]
+      ]
+     },
+     {
+      "id": "shp-mwsuk1651drct",
+      "type": "shape",
+      "master": "umlLifeline",
+      "name": "",
+      "x": 290,
+      "y": 80,
+      "w": 160,
+      "h": 680,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "주문 API",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false,
+      "points": [
+       [
+        0.5,
+        0.1
+       ],
+       [
+        0.5,
+        0.21000000000000002
+       ],
+       [
+        0.5,
+        0.32
+       ],
+       [
+        0.5,
+        0.43000000000000005
+       ],
+       [
+        0.5,
+        0.54
+       ],
+       [
+        0.5,
+        0.65
+       ],
+       [
+        0.5,
+        0.76
+       ]
+      ]
+     },
+     {
+      "id": "shp-mwsuk1651dsc7",
+      "type": "shape",
+      "master": "umlLifeline",
+      "name": "",
+      "x": 540,
+      "y": 80,
+      "w": 160,
+      "h": 680,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "결제 대행",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false,
+      "points": [
+       [
+        0.5,
+        0.1
+       ],
+       [
+        0.5,
+        0.21000000000000002
+       ],
+       [
+        0.5,
+        0.32
+       ],
+       [
+        0.5,
+        0.43000000000000005
+       ],
+       [
+        0.5,
+        0.54
+       ],
+       [
+        0.5,
+        0.65
+       ],
+       [
+        0.5,
+        0.76
+       ]
+      ]
+     },
+     {
+      "id": "shp-mwsuk1651dtbd",
+      "type": "shape",
+      "master": "umlLifeline",
+      "name": "",
+      "x": 790,
+      "y": 80,
+      "w": 160,
+      "h": 680,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "카드사",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false,
+      "points": [
+       [
+        0.5,
+        0.1
+       ],
+       [
+        0.5,
+        0.21000000000000002
+       ],
+       [
+        0.5,
+        0.32
+       ],
+       [
+        0.5,
+        0.43000000000000005
+       ],
+       [
+        0.5,
+        0.54
+       ],
+       [
+        0.5,
+        0.65
+       ],
+       [
+        0.5,
+        0.76
+       ]
+      ]
+     },
+     {
+      "id": "con-mwsuk1651du8z",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1651dqtn",
+       "pt": 0
+      },
+      "to": {
+       "id": "shp-mwsuk1651drct",
+       "pt": 0
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "1. 결제 요청",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1651dvos",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1651drct",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mwsuk1651dsc7",
+       "pt": 1
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "2. 승인 요청",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1651dwzr",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1651dsc7",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mwsuk1651dtbd",
+       "pt": 2
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "3. 한도 확인",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1651dxw7",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1651dtbd",
+       "pt": 3
+      },
+      "to": {
+       "id": "shp-mwsuk1651dsc7",
+       "pt": 3
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "4. 승인",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1651dyb5",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1651dsc7",
+       "pt": 4
+      },
+      "to": {
+       "id": "shp-mwsuk1651drct",
+       "pt": 4
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "5. 승인 번호",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1651dz9f",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1651drct",
+       "pt": 5
+      },
+      "to": {
+       "id": "shp-mwsuk1651dqtn",
+       "pt": 5
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "6. 결제 완료",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1651e00v",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1651drct",
+       "pt": 6
+      },
+      "to": {
+       "id": "shp-mwsuk1651dsc7",
+       "pt": 6
+      },
+      "route": "straight",
+      "waypoints": [],
+      "text": "7. 매입 요청",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "arrow"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "uml",
+   "callouts"
+  ]
+ }
+}

@@ -134,9 +134,9 @@ html.is-popup #app { min-width: 0; display: block; }
 
 /* workspace: left panel | splitter | center | splitter | right panel */
 #workspace { display: grid; grid-template-columns: var(--left-width) 5px minmax(0, 1fr) 5px var(--right-width); min-height: 0; }
-#app.no-left #workspace { grid-template-columns: 68px 0 minmax(0, 1fr) 5px var(--right-width); }
-#app.no-right #workspace { grid-template-columns: var(--left-width) 5px minmax(0, 1fr) 0 68px; }
-#app.no-left.no-right #workspace { grid-template-columns: 68px 0 minmax(0, 1fr) 0 68px; }
+#app.no-left #workspace { grid-template-columns: 40px 0 minmax(0, 1fr) 5px var(--right-width); }
+#app.no-right #workspace { grid-template-columns: var(--left-width) 5px minmax(0, 1fr) 0 40px; }
+#app.no-left.no-right #workspace { grid-template-columns: 40px 0 minmax(0, 1fr) 0 40px; }
 /* The start page fills the window whatever the panels are set to (the no-left.no-right rule above is more specific). */
 #app.on-start #workspace, #app.on-start.no-left.no-right #workspace { grid-template-columns: minmax(0, 1fr); }
 #app.on-start .side-panel, #app.on-start .panel-split { display: none; }
@@ -169,6 +169,15 @@ html.is-popup #app { min-width: 0; display: block; }
 .rail-button:hover:not(:disabled) { background: var(--hover); border-color: var(--border); }
 .rail-button.active { color: var(--accent); border-color: var(--accent); }
 .rail-button:disabled { opacity: 0.4; cursor: default; }
+/* The 18 drawing tools in the folded left panel: icons only (the name is the tooltip), compact, and
+   the rail scrolls in a very short window rather than cutting the last ones off. */
+#left-panel .panel-rail { max-height: 100%; overflow-y: auto; scrollbar-width: thin; box-sizing: border-box; }
+#left-panel .rail-button[data-command^="tool:"] { min-height: 30px; padding-block: 3px; }
+#left-panel .rail-button[data-command^="tool:"] .rail-label { display: none; }
+/* A folded panel is a narrow strip of icons (40 px): the names are the tooltips (and stay readable to screen readers). */
+.panel-rail .rail-button { width: 34px; min-height: 34px; padding: 3px 0; }
+.panel-rail .rail-label, .panel-rail .rail-title > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.panel-rail .rail-title { padding: 6px 0; width: 30px; }
 .panel-section { padding: 8px 10px; border-bottom: 1px solid var(--border); }
 .panel-section h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; font-size: 0.78em; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
 .panel-section h3 .icon { width: 14px; height: 14px; }
@@ -387,12 +396,6 @@ body.dragging-rows, body.dragging-rows * { cursor: grabbing !important; }
 .start-banner { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 22%, var(--surface)); border: 1px solid var(--accent); }
 .start-banner .icon { color: var(--accent); }
 .start-banner span { flex: 1; }
-.template-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-.template-tile { display: grid; grid-template-columns: 34px 1fr; grid-template-rows: auto auto; gap: 0 8px; align-items: center; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); cursor: pointer; text-align: left; min-width: 0; }
-.template-tile .icon { grid-row: span 2; width: 30px; height: 30px; color: var(--accent); }
-.template-tile b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.template-tile small { color: var(--muted); font-size: 0.78em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.template-tile:hover { border-color: var(--accent); background: var(--hover); }
 .start-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .start-list { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; }
 .start-row { display: flex; align-items: center; gap: 2px; }
@@ -404,8 +407,9 @@ body.dragging-rows, body.dragging-rows * { cursor: grabbing !important; }
 .start-link:hover { background: var(--hover); }
 .start-empty { display: flex; align-items: center; gap: 6px; padding: 8px; color: var(--muted); font-size: 0.88em; }
 /* Every background button the same size, lined up in columns. */
-.anim-chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
-.anim-chip { display: flex; align-items: center; justify-content: center; gap: 4px; height: 28px; text-align: center; min-width: 0; padding: 0 4px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); cursor: pointer; font-size: 0.86em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Narrow items from the left (not stretched across the full-width card). */
+.anim-chips { display: grid; grid-template-columns: repeat(auto-fill, 128px); justify-content: start; gap: 5px; }
+.anim-chip { display: flex; align-items: center; justify-content: flex-start; gap: 5px; height: 28px; text-align: left; min-width: 0; padding: 0 4px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); cursor: pointer; font-size: 0.86em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .anim-chip.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 .start-foot { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 12px; background: color-mix(in srgb, var(--surface) 80%, transparent); font-size: 0.88em; }
 
@@ -557,7 +561,7 @@ html.is-popup, html.is-popup body { background: var(--surface); overflow: hidden
 .theme-swatch { display: inline-flex; border-radius: 5px; overflow: hidden; box-shadow: 0 0 0 1px var(--border); }
 .theme-swatch i { width: 14px; height: 20px; }
 .font-sample { justify-content: center; min-height: 56px; border: 1px dashed var(--border); border-radius: 8px; margin-top: 8px; }
-.shortcut-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; }
+.shortcut-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 18px; }
 .shortcut-row { display: flex; align-items: center; gap: 10px; height: 25px; white-space: nowrap; overflow: hidden; border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent); font-size: 0.92em; }
 .shortcut-row span { overflow: hidden; text-overflow: ellipsis; }
 kbd { min-width: 128px; font-family: Consolas, Menlo, monospace; font-size: 0.82em; padding: 1px 6px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; background: var(--surface2); }
@@ -835,7 +839,6 @@ html.is-web body { overflow-x: auto; }
 /* Start page background: a short fade when it changes to another animation. */
 .start-bg { transition: opacity 0.45s ease; }
 .start-bg.fading { opacity: 0; }
-.start-auto { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 2px 0 4px; font-size: 0.88em; }
 .start-check, .start-interval { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .start-interval .icon { width: 15px; height: 15px; color: var(--muted); }
 .start-interval select { padding: 2px 6px; }
@@ -933,9 +936,10 @@ html.is-web body { overflow-x: auto; }
 .shapes-tools .search-box { margin: 0; }
 .shapes-actions { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .segmented.small .segment { padding: 1px 7px; font-size: 0.82em; }
-.tool-strip { display: grid; grid-template-columns: repeat(9, 1fr); gap: 2px; }
-.tool-chip { display: grid; place-items: center; height: 26px; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--text); cursor: pointer; padding: 0; }
-.tool-chip .icon { width: 16px; height: 16px; }
+/* The tools: square cells as big as the stencil tiles (small), wrapping onto a second row. */
+.tool-strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); gap: 2px; }
+.tool-chip { display: grid; place-items: center; aspect-ratio: 1; min-width: 0; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--text); cursor: pointer; padding: 0; }
+.tool-chip .icon { width: 24px; height: 24px; }
 .tool-chip:hover { background: var(--hover); }
 .tool-chip.active { color: var(--accent); border-color: var(--accent); background: var(--hover); }
 .stencils { padding-bottom: 12px; }
@@ -947,7 +951,8 @@ html.is-web body { overflow-x: auto; }
 .stencil-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 2px; padding: 6px; }
 .stencil-grid.size-small { grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); }
 .stencil-grid.size-large { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); }
-.stencil-tile { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px; border: 1px solid transparent; border-radius: 6px; background: none; cursor: grab; color: var(--text); min-width: 0; }
+/* Square tiles, the picture in the middle (with its name below it on the larger sizes). */
+.stencil-tile { aspect-ratio: 1; justify-content: center; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px; border: 1px solid transparent; border-radius: 6px; background: none; cursor: grab; color: var(--text); min-width: 0; }
 .stencil-tile:hover { background: var(--hover); border-color: var(--border); }
 .stencil-tile:active { cursor: grabbing; }
 .stencil-tile > span:last-child:not(.my-shape-icon) { font-size: 0.7em; line-height: 1.15; text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: keep-all; }
@@ -1139,29 +1144,52 @@ html.popup-kind-color body, html.popup-kind-color #app { background: var(--surfa
 .card-handle { flex: none; cursor: grab; border: 0; background: none; padding: 0 3px; line-height: 1; border-radius: 4px; color: var(--muted); font-size: 14px; user-select: none; touch-action: none; }
 .card-handle:hover { color: var(--accent); }
 .card-handle:focus-visible { outline: 2px solid var(--accent); }
-.card-handle-float { position: absolute; left: 6px; top: 6px; z-index: 2; }
-.start-card.bare { padding-left: 30px; }
 /* Resize marker: six dots in a triangle at the bottom-right corner. */
 .card-grip { position: absolute; right: 1px; bottom: 1px; z-index: 4; width: 18px; height: 18px; cursor: nwse-resize; touch-action: none; opacity: .8; border-radius: 4px; background: radial-gradient(circle, var(--muted) 1.1px, transparent 1.4px) right 3px bottom 3px / 4px 4px no-repeat, radial-gradient(circle, var(--muted) 1.1px, transparent 1.4px) right 7px bottom 3px / 4px 4px no-repeat, radial-gradient(circle, var(--muted) 1.1px, transparent 1.4px) right 11px bottom 3px / 4px 4px no-repeat, radial-gradient(circle, var(--muted) 1.1px, transparent 1.4px) right 3px bottom 7px / 4px 4px no-repeat, radial-gradient(circle, var(--muted) 1.1px, transparent 1.4px) right 7px bottom 7px / 4px 4px no-repeat, radial-gradient(circle, var(--muted) 1.1px, transparent 1.4px) right 3px bottom 11px / 4px 4px no-repeat; }
 .card-grip:hover, .start-card.resizing .card-grip { opacity: 1; background: radial-gradient(circle, var(--accent) 1.1px, transparent 1.4px) right 3px bottom 3px / 4px 4px no-repeat, radial-gradient(circle, var(--accent) 1.1px, transparent 1.4px) right 7px bottom 3px / 4px 4px no-repeat, radial-gradient(circle, var(--accent) 1.1px, transparent 1.4px) right 11px bottom 3px / 4px 4px no-repeat, radial-gradient(circle, var(--accent) 1.1px, transparent 1.4px) right 3px bottom 7px / 4px 4px no-repeat, radial-gradient(circle, var(--accent) 1.1px, transparent 1.4px) right 7px bottom 7px / 4px 4px no-repeat, radial-gradient(circle, var(--accent) 1.1px, transparent 1.4px) right 3px bottom 11px / 4px 4px no-repeat; }
-.start-hero { border-radius: 16px; }
+/* The title and tagline: a fixed panel above the board, no handle or resize marker. */
+.start-hero { padding: 16px 20px; border-radius: 16px; border: 1px solid var(--hairline); background: color-mix(in srgb, var(--surface) 74%, transparent); backdrop-filter: blur(6px); box-shadow: 0 10px 30px var(--shadow); }
+/* MyUMLMaker-style start page: a tool row at the top right, cards stacked full width, tiles. */
+.start-tools { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 8px; }
+.start-btn { box-sizing: border-box; display: inline-flex; align-items: center; gap: 7px; height: 28px; margin: 0; font-size: 1em; line-height: 1; padding: 0 12px; border: 1px solid var(--border); border-radius: 6px; background: color-mix(in srgb, var(--surface) 80%, transparent); color: var(--text); cursor: pointer; white-space: nowrap; min-width: 0; font: inherit; }
+.start-btn > .icon { width: 15px; height: 15px; }
+.start-btn:hover { background: var(--hover); border-color: var(--accent); }
+.start-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* The check box is a label (.check-row adds a margin and a smaller font): the same box as the button beside it. */
+.start-btn.check-row { margin: 0; font-size: 1em; }
+.start-btn.check-row input { margin: 0; }
+.start-foot > .icon { width: 15px; height: 15px; }
+.start-tile { display: grid; grid-template-columns: 26px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 8px; row-gap: 1px; align-items: center; min-width: 0; padding: 6px 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); cursor: pointer; text-align: left; font: inherit; }
+.start-tile > .icon { grid-row: span 2; justify-self: center; width: 22px; height: 22px; }
+.start-tile > .master-glyph { display: inline-flex; align-items: center; justify-content: center; }
+.start-tile > .master-glyph svg { width: 22px; height: 22px; }
+.start-tile > b { font-size: 0.95em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.start-tile > small { color: var(--muted); font-size: 0.82em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.start-tile:hover { border-color: var(--accent); background: var(--hover); }
+.start-tile:focus-visible { outline: 2px solid var(--accent); }
+.template-grid, .sample-tiles { display: grid; grid-template-columns: repeat(auto-fill, 180px); justify-content: start; gap: 6px; }
+.start-card .start-list { max-width: 620px; }
+.sample-groups { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.sample-group { min-width: 0; }
+.start-group { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--border); font-size: 0.92em; color: var(--muted); }
+.start-group .icon { width: 15px; height: 15px; }
+.sample-count { margin-left: 2px; color: var(--muted); font-weight: normal; }
 .hero-body { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; row-gap: 10px; }
 .hero-text { flex: 1 1 260px; min-width: 0; }
 .hero-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
 .start-count { flex: none; min-width: 22px; padding: 0 6px; border-radius: 999px; background: var(--hover); color: var(--muted); font-size: 0.82em; font-weight: 600; text-align: center; }
-.start-list.samples { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); align-content: start; gap: 1px 6px; margin-bottom: 0; }
-.start-list.samples .start-link { height: 30px; padding-block: 0; }
-.start-group { grid-column: 1 / -1; margin: 7px 0 2px; padding: 0 8px; color: var(--muted); font-size: 0.8em; font-weight: 700; }
-.start-group:first-child { margin-top: 0; }
-.start-card.background .start-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.start-card.background .start-actions .button { justify-content: center; min-width: 0; }
-.start-card.background .start-actions .button > span { overflow: hidden; text-overflow: ellipsis; }
+/* Moving background: the buttons sit at the right, each with its icon and its whole label. */
+/* Moving background: speed, transparency, random and auto change on one line, the buttons at its right end. */
+.start-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 10px 0 4px; }
+.start-controls > .start-step, .start-controls > .start-check, .start-controls > .start-interval { font-size: 0.88em; }
+/* The buttons keep the font of every other button (no smaller row font, no rem). */
+.start-card.background .start-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin: 0 0 0 auto; }
+.start-card.background .start-actions .button { flex: none; white-space: nowrap; }
 /* One row each: icon, name, slider, − value +. The columns line up across the rows. */
-.start-steps { display: grid; grid-template-columns: auto auto minmax(50px, 1fr) auto; align-items: center; gap: 6px 7px; margin: 10px 0 6px; font-size: 0.88em; }
-.start-step { display: contents; }
+.start-step { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
 .start-step > .icon { width: 15px; height: 15px; }
 .start-step-label { white-space: nowrap; }
-.start-step input[type="range"] { width: 100%; min-width: 0; margin: 0; accent-color: var(--accent); }
+.start-step input[type="range"] { width: 100px; min-width: 0; margin: 0; accent-color: var(--accent); }
 .start-step .stepper-button { width: 22px; height: 24px; }
 .start-step .stepper .stepper-value { width: 46px; height: 24px; padding: 0; text-align: center; }
 
@@ -1218,3 +1246,13 @@ html.popup-kind-color body, html.popup-kind-color #app { background: var(--surfa
 
 /* Shapes panel: the lines on a shape's fill are softer than in the drawing, by the theme's look. */
 .stencil-tile .inner-line { stroke-opacity: var(--stencil-inner-opacity, 0.5); fill-opacity: var(--stencil-inner-opacity, 0.5); }
+
+/* Every "x" button (the close icon alone, no label) turns red under the pointer; "Later" and other
+   labelled buttons keep the normal look. The icon colour is inline, hence !important. */
+button:hover:has(> svg[data-icon="close"]):not(:has(> span)) { color: var(--danger); background-color: color-mix(in srgb, var(--danger) 14%, transparent); border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
+button:hover:not(:has(> span)) > svg[data-icon="close"] { color: var(--danger) !important; }
+
+/* Print window for a document (user's guide, tutorial): the page itself on a sheet of the chosen paper. */
+.doc-print-preview { display: grid; place-items: center; overflow: hidden; }
+.doc-print-preview .doc-sheet { height: calc(100% - 24px); max-width: calc(100% - 24px); background: #ffffff; box-shadow: 0 6px 20px var(--shadow); border-radius: 2px; overflow: hidden; }
+.doc-print-preview iframe { width: 100%; height: 100%; border: 0; display: block; pointer-events: none; }

@@ -4,24 +4,33 @@
 // arithmetic is in startlayout.js; this file applies it to the DOM and keeps the result
 // in settings.startLayout. The start page is drawn anew on many changes, so mount() is
 // called after each drawing and takes over from the previous board.
-import { COLS, ROW, GAP, boxOf, cellAt, compact, layoutValue, pack, place, rowsFor, spanFor, swapVertical, clampCard, resolve } from './startlayout.js';
+import { COLS, LAYOUT_VERSION, ROW, GAP, boxOf, cellAt, compact, layoutValue, pack, place, rowsFor, spanFor, swapVertical, clampCard, resolve } from './startlayout.js';
 
-// Default arrangement: the column of each card, and the rows of those with a fixed height.
-const DEFAULT_COLUMNS = { hero: 0, templates: 0, recent: 1, folders: 1, help: 1, samples: 2, background: 2 };
-const DEFAULT_WIDTH = { hero: COLS };
-const DEFAULT_ROWS = { samples: 11 };
+// Default arrangement. The title (.start-hero) is not a card: it stays above the board. The cards
+// stand one below the other in CARD_ORDER (the samples, then the moving background, last), each
+// across the board (two columns), except recent files and recent folders: side by side on one row
+// when both are shown. Automatic arrangement keeps it.
+export const CARD_ORDER = ['templates', 'recent', 'folders', 'samples', 'background'];
+const PAIR = ['recent', 'folders'];
+const DEFAULT_ROWS = {};
+/** Columns a card spans: half the board for recent files and folders when both are shown. */
+const spanOf = (id, ids) => (PAIR.includes(id) && PAIR.every((p) => ids.includes(p)) ? 1 : COLS);
 const FALLBACK_ROWS = 8;
 
 const measured = {};
 let current = null;
 
-/** The default positions of the cards `ids`: each in its column, one below the other. */
+/** `ids` in CARD_ORDER (an unknown id goes last). */
+const ordered = (ids) => [...ids].sort((a, b) => (CARD_ORDER.indexOf(a) + 1 || 99) - (CARD_ORDER.indexOf(b) + 1 || 99));
+
+/** The default positions of the cards `ids`: one below the other in CARD_ORDER (recent files and folders side by side). */
 export function defaultCards(ids, rows = measured) {
   const cards = {};
   const top = new Array(COLS).fill(0);
-  for (const id of ids) {
-    const w = DEFAULT_WIDTH[id] ?? 1;
-    const col = DEFAULT_COLUMNS[id] ?? 0;
+  const list = [...ids];
+  for (const id of ordered(list)) {
+    const w = spanOf(id, list);
+    const col = w < COLS && id === 'folders' ? COLS - w : 0;
     const row = Math.max(...top.slice(col, col + w));
     const h = DEFAULT_ROWS[id] ?? rows[id] ?? FALLBACK_ROWS;
     cards[id] = { col, row, w, h, fit: !DEFAULT_ROWS[id] };
@@ -32,7 +41,7 @@ export function defaultCards(ids, rows = measured) {
 
 /** The cards from a saved layout; a card that is new (or shown again) goes below the others. */
 export function cardsFrom(saved, ids, rows = measured) {
-  if (saved?.version !== 2 || !saved.cards) return compact(defaultCards(ids, rows));
+  if (saved?.version !== LAYOUT_VERSION || !saved.cards) return compact(defaultCards(ids, rows));
   const cards = {};
   for (const id of ids) if (saved.cards[id]) cards[id] = clampCard(saved.cards[id]);
   const fresh = defaultCards(ids, rows);
@@ -115,13 +124,14 @@ class Board {
     // A card hidden in the settings keeps its place for when it comes back.
     const previous = this.layout()?.cards ?? {};
     const value = layoutValue(compact(cards));
-    this.saveLayout({ version: 2, cards: { ...previous, ...value.cards } });
+    this.saveLayout({ version: LAYOUT_VERSION, cards: { ...previous, ...value.cards } });
     this.apply(this.saved());
   }
 
-  /** Automatic arrangement: each card goes to the shortest column, at the height of its contents. */
+  /** Automatic arrangement: as the default (CARD_ORDER, recent files and folders side by side), each at the height of its contents. */
   arrange() {
-    this.commit(compact(pack([...this.cards.keys()], (id) => DEFAULT_WIDTH[id] ?? 1, (id) => ({ h: DEFAULT_ROWS[id] ?? measured[id] ?? FALLBACK_ROWS, fit: !DEFAULT_ROWS[id] }))));
+    const ids = [...this.cards.keys()];
+    this.commit(compact(pack(ordered(ids), (id) => spanOf(id, ids), (id) => ({ h: DEFAULT_ROWS[id] ?? measured[id] ?? FALLBACK_ROWS, fit: !DEFAULT_ROWS[id] }))));
   }
 
   // A fit card's height follows its contents, in rows. Growing always applies; shrinking by

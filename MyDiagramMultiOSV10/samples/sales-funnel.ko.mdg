@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "drawing",
- "saved": "2026-11-06T04:18:13.752Z",
+ "saved": "2026-11-23T05:50:20.866Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mw4gs31r0qgig",
+  "id": "dgm-mwsuk14o0qgt5",
   "title": "판매 깔때기",
   "subject": "",
   "author": "SHKWON",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-11-06T04:18:13.743Z",
+  "created": "2026-11-23T05:50:20.856Z",
   "design": "office",
   "variant": 0,
   "units": "mm",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mw4gs31r0qh9k",
+    "id": "page-mwsuk14o0qheb",
     "name": "판매 깔때기",
     "paper": "A4",
     "orientation": "landscape",
@@ -51,7 +51,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mw4gs31r0qilx",
+      "id": "shp-mwsuk14o0qiuf",
       "type": "shape",
       "master": "title",
       "name": "",
@@ -79,7 +79,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3200qjdy",
+      "id": "shp-mwsuk14y0qjzs",
       "type": "shape",
       "master": "trapezoid",
       "name": "",
@@ -115,7 +115,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3200qkju",
+      "id": "shp-mwsuk14y0qkz9",
       "type": "shape",
       "master": "trapezoid",
       "name": "",
@@ -151,7 +151,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3200qlpi",
+      "id": "shp-mwsuk14y0ql5k",
       "type": "shape",
       "master": "tag",
       "name": "",
@@ -178,7 +178,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3200qm49",
+      "id": "shp-mwsuk14y0qm7m",
       "type": "shape",
       "master": "trapezoid",
       "name": "",
@@ -214,7 +214,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3200qnld",
+      "id": "shp-mwsuk14y0qnd3",
       "type": "shape",
       "master": "tag",
       "name": "",
@@ -241,7 +241,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3200qonh",
+      "id": "shp-mwsuk14y0qohm",
       "type": "shape",
       "master": "trapezoid",
       "name": "",
@@ -277,7 +277,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3200qpib",
+      "id": "shp-mwsuk14y0qpss",
       "type": "shape",
       "master": "tag",
       "name": "",
@@ -304,7 +304,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3200qqkl",
+      "id": "shp-mwsuk14y0qqic",
       "type": "shape",
       "master": "trapezoid",
       "name": "",
@@ -340,7 +340,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3200qrjn",
+      "id": "shp-mwsuk14y0qr80",
       "type": "shape",
       "master": "tag",
       "name": "",

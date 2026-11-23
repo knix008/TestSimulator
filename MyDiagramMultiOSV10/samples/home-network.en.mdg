@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "drawing",
- "saved": "2026-11-06T04:18:13.788Z",
+ "saved": "2026-11-23T05:50:21.081Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mw4gs33019xji",
+  "id": "dgm-mwsuk1ax3pc97",
   "title": "Home Network",
   "subject": "",
   "author": "SHKWON",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-11-06T04:18:13.788Z",
+  "created": "2026-11-23T05:50:21.081Z",
   "design": "slice",
   "variant": 0,
   "units": "in",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mw4gs33019ylp",
+    "id": "page-mwsuk1ax3pd1d",
     "name": "Home Network",
     "paper": "Letter",
     "orientation": "landscape",
@@ -51,7 +51,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mw4gs33019zeu",
+      "id": "shp-mwsuk1ax3pea6",
       "type": "shape",
       "master": "title",
       "name": "",
@@ -79,7 +79,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3301a02e",
+      "id": "shp-mwsuk1ax3pfw0",
       "type": "shape",
       "master": "internet",
       "name": "",
@@ -105,7 +105,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3301a169",
+      "id": "shp-mwsuk1ax3pgcd",
       "type": "shape",
       "master": "textBox",
       "name": "",
@@ -135,7 +135,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3301a2ut",
+      "id": "shp-mwsuk1ax3phja",
       "type": "shape",
       "master": "router",
       "name": "",
@@ -169,7 +169,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3301a3m2",
+      "id": "shp-mwsuk1ax3piwa",
       "type": "shape",
       "master": "switch",
       "name": "",
@@ -195,7 +195,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3301a4mf",
+      "id": "shp-mwsuk1ax3pjsh",
       "type": "shape",
       "master": "textBox",
       "name": "",
@@ -225,7 +225,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3301a525",
+      "id": "shp-mwsuk1ax3pklr",
       "type": "shape",
       "master": "wirelessAp",
       "name": "",
@@ -251,7 +251,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3301a6jh",
+      "id": "shp-mwsuk1ax3plnc",
       "type": "shape",
       "master": "textBox",
       "name": "",
@@ -281,7 +281,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3301a776",
+      "id": "shp-mwsuk1ax3pm9j",
       "type": "shape",
       "master": "desktop",
       "name": "",
@@ -315,7 +315,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3301a873",
+      "id": "shp-mwsuk1ax3pnum",
       "type": "shape",
       "master": "printer",
       "name": "",
@@ -349,7 +349,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3301a9hl",
+      "id": "shp-mwsuk1ax3podp",
       "type": "shape",
       "master": "storage",
       "name": "",
@@ -383,7 +383,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3301aaj8",
+      "id": "shp-mwsuk1ax3ppwl",
       "type": "shape",
       "master": "laptop",
       "name": "",
@@ -417,7 +417,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3301ab9a",
+      "id": "shp-mwsuk1ax3pq5g",
       "type": "shape",
       "master": "phone",
       "name": "",
@@ -451,7 +451,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3301acb4",
+      "id": "shp-mwsuk1ax3prw0",
       "type": "shape",
       "master": "tablet",
       "name": "",
@@ -485,14 +485,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs3301aduo",
+      "id": "con-mwsuk1ax3pswl",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3301a02e",
+       "id": "shp-mwsuk1ax3pfw0",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs3301a2ut",
+       "id": "shp-mwsuk1ax3phja",
        "pt": 0
       },
       "route": "orthogonal",
@@ -511,14 +511,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3301aeqx",
+      "id": "con-mwsuk1ax3ptqm",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3301a2ut",
+       "id": "shp-mwsuk1ax3phja",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs3301a3m2",
+       "id": "shp-mwsuk1ax3piwa",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -537,14 +537,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3301afkp",
+      "id": "con-mwsuk1ax3puxm",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3301a2ut",
+       "id": "shp-mwsuk1ax3phja",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs3301a525",
+       "id": "shp-mwsuk1ax3pklr",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -563,14 +563,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3301ag6t",
+      "id": "con-mwsuk1ax3pvru",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3301a3m2",
+       "id": "shp-mwsuk1ax3piwa",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs3301a776",
+       "id": "shp-mwsuk1ax3pm9j",
        "pt": 0
       },
       "route": "orthogonal",
@@ -589,14 +589,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3301ah2r",
+      "id": "con-mwsuk1ax3pwrl",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3301a3m2",
+       "id": "shp-mwsuk1ax3piwa",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs3301a873",
+       "id": "shp-mwsuk1ax3pnum",
        "pt": 0
       },
       "route": "orthogonal",
@@ -615,14 +615,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3301aiaz",
+      "id": "con-mwsuk1ax3px8o",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3301a3m2",
+       "id": "shp-mwsuk1ax3piwa",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs3301a9hl",
+       "id": "shp-mwsuk1ax3podp",
        "pt": 0
       },
       "route": "orthogonal",
@@ -641,14 +641,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3301aji4",
+      "id": "con-mwsuk1ax3pyku",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3301a525",
+       "id": "shp-mwsuk1ax3pklr",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs3301aaj8",
+       "id": "shp-mwsuk1ax3ppwl",
        "pt": 0
       },
       "route": "orthogonal",
@@ -668,14 +668,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3301akrp",
+      "id": "con-mwsuk1ax3pzvy",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3301a525",
+       "id": "shp-mwsuk1ax3pklr",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs3301ab9a",
+       "id": "shp-mwsuk1ax3pq5g",
        "pt": 0
       },
       "route": "orthogonal",
@@ -695,14 +695,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3301altd",
+      "id": "con-mwsuk1ax3q09q",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3301a525",
+       "id": "shp-mwsuk1ax3pklr",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs3301acb4",
+       "id": "shp-mwsuk1ax3prw0",
        "pt": 0
       },
       "route": "orthogonal",
@@ -722,7 +722,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs3301amd4",
+      "id": "shp-mwsuk1ax3q15u",
       "type": "shape",
       "master": "note",
       "name": "",

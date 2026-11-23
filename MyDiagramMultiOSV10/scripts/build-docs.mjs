@@ -300,6 +300,8 @@ a:hover { text-decoration: underline; }
 }
 .topbar .brand { font-weight: 700; color: var(--text); }
 .topbar .grow { flex: 1; }
+.doc-print { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
+.doc-print:hover { color: var(--accent); border-color: var(--accent); }
 .doc-font { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
 .doc-font button { width: 26px; height: 26px; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font: inherit; font-size: 16px; line-height: 1; cursor: pointer; }
 .doc-font button:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
@@ -365,7 +367,10 @@ function docTools({ lang, other }) {
   const sizeLabel = ko ? '글꼴 크기' : 'Font size';
   const smaller = ko ? '글꼴 작게' : 'Smaller text';
   const larger = ko ? '글꼴 크게' : 'Larger text';
-  return `<div class="doc-font" role="group" aria-label="${sizeLabel}" title="${sizeLabel}"><span class="doc-font-label">${sizeLabel}</span><button type="button" id="doc-font-down" title="${smaller}" aria-label="${smaller}">−</button><output id="doc-font-value">16</output><button type="button" id="doc-font-up" title="${larger}" aria-label="${larger}">+</button></div>
+  const print = ko ? '인쇄' : 'Print';
+  const printer = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/></svg>';
+  return `<button type="button" class="doc-print" id="doc-print" title="${print}" aria-label="${print}">${printer}<span>${print}</span></button>
+<div class="doc-font" role="group" aria-label="${sizeLabel}" title="${sizeLabel}"><span class="doc-font-label">${sizeLabel}</span><button type="button" id="doc-font-down" title="${smaller}" aria-label="${smaller}">−</button><output id="doc-font-value">16</output><button type="button" id="doc-font-up" title="${larger}" aria-label="${larger}">+</button></div>
 <nav class="doc-lang" aria-label="${ko ? '언어' : 'Language'}"><a href="${hrefKo}" hreflang="ko" class="${ko ? 'active' : ''}" title="한국어" ${ko ? 'aria-current="true"' : ''}>${korea}<span>한국어</span></a><a href="${hrefEn}" hreflang="en" class="${ko ? '' : 'active'}" title="English" ${ko ? '' : 'aria-current="true"'}>${unitedKingdom}<span>English</span></a></nav>`;
 }
 
@@ -384,6 +389,8 @@ const DOC_SCRIPT = `(function () {
     document.getElementById('doc-font-up').disabled = size >= MAX;
     try { localStorage.setItem(KEY, String(size)); } catch (e) {}
   }
+  // In the program the Print button opens its print window (printer, copies, paper); in a browser, the browser's.
+  document.getElementById('doc-print').addEventListener('click', function () { if (window.__MYDIAGRAM_DOC_WINDOW__) location.href = 'mydiagram-print:document'; else window.print(); });
   document.getElementById('doc-font-down').addEventListener('click', function () { apply(size - 1); });
   document.getElementById('doc-font-up').addEventListener('click', function () { apply(size + 1); });
   value.addEventListener('dblclick', function () { apply(BASE); });

@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "drawing",
- "saved": "2026-11-06T04:18:13.740Z",
+ "saved": "2026-11-23T05:50:20.853Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mw4gs31o0nlrl",
+  "id": "dgm-mwsuk14l0nlga",
   "title": "교실",
   "subject": "",
   "author": "SHKWON",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-11-06T04:18:13.740Z",
+  "created": "2026-11-23T05:50:20.853Z",
   "design": "blueprint",
   "variant": 0,
   "units": "mm",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mw4gs31o0nm3h",
+    "id": "page-mwsuk14l0nmm5",
     "name": "교실",
     "paper": "A4",
     "orientation": "landscape",
@@ -51,7 +51,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mw4gs31o0nncf",
+      "id": "shp-mwsuk14l0nnt7",
       "type": "shape",
       "master": "title",
       "name": "",
@@ -79,7 +79,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0noau",
+      "id": "shp-mwsuk14l0nosk",
       "type": "shape",
       "master": "room",
       "name": "",
@@ -103,7 +103,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0npwb",
+      "id": "shp-mwsuk14l0npk6",
       "type": "shape",
       "master": "rect",
       "name": "",
@@ -131,7 +131,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0nqyz",
+      "id": "shp-mwsuk14l0nqj6",
       "type": "shape",
       "master": "desk",
       "name": "",
@@ -155,7 +155,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0nryr",
+      "id": "shp-mwsuk14l0nrdg",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -181,7 +181,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0nsmv",
+      "id": "shp-mwsuk14l0nsa3",
       "type": "shape",
       "master": "window",
       "name": "",
@@ -207,7 +207,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0nt1e",
+      "id": "shp-mwsuk14l0nt1o",
       "type": "shape",
       "master": "window",
       "name": "",
@@ -233,7 +233,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0nudo",
+      "id": "shp-mwsuk14l0nu4d",
       "type": "shape",
       "master": "window",
       "name": "",
@@ -259,7 +259,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0nvml",
+      "id": "shp-mwsuk14l0nv27",
       "type": "shape",
       "master": "desk",
       "name": "",
@@ -283,7 +283,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0nw6m",
+      "id": "shp-mwsuk14l0nwjg",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -309,7 +309,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0nxc4",
+      "id": "shp-mwsuk14l0nxqk",
       "type": "shape",
       "master": "desk",
       "name": "",
@@ -333,7 +333,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0nyau",
+      "id": "shp-mwsuk14l0nyrr",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -359,7 +359,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0nz8i",
+      "id": "shp-mwsuk14l0nz4k",
       "type": "shape",
       "master": "desk",
       "name": "",
@@ -383,7 +383,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0o02u",
+      "id": "shp-mwsuk14l0o0p8",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -409,7 +409,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0o146",
+      "id": "shp-mwsuk14l0o1ct",
       "type": "shape",
       "master": "desk",
       "name": "",
@@ -433,7 +433,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0o2hf",
+      "id": "shp-mwsuk14l0o2dp",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -459,7 +459,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0o394",
+      "id": "shp-mwsuk14l0o3kq",
       "type": "shape",
       "master": "desk",
       "name": "",
@@ -483,7 +483,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0o4o7",
+      "id": "shp-mwsuk14l0o4ta",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -509,7 +509,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0o5qx",
+      "id": "shp-mwsuk14l0o5tb",
       "type": "shape",
       "master": "desk",
       "name": "",
@@ -533,7 +533,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0o6bv",
+      "id": "shp-mwsuk14l0o6h6",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -559,7 +559,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0o7e7",
+      "id": "shp-mwsuk14l0o7l5",
       "type": "shape",
       "master": "desk",
       "name": "",
@@ -583,7 +583,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0o8al",
+      "id": "shp-mwsuk14l0o8fs",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -609,7 +609,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0o9mc",
+      "id": "shp-mwsuk14l0o964",
       "type": "shape",
       "master": "desk",
       "name": "",
@@ -633,7 +633,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0oa29",
+      "id": "shp-mwsuk14l0oale",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -659,7 +659,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0obbu",
+      "id": "shp-mwsuk14l0ob6w",
       "type": "shape",
       "master": "desk",
       "name": "",
@@ -683,7 +683,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0oc45",
+      "id": "shp-mwsuk14l0ocek",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -709,7 +709,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0odev",
+      "id": "shp-mwsuk14l0od9a",
       "type": "shape",
       "master": "desk",
       "name": "",
@@ -733,7 +733,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0oecs",
+      "id": "shp-mwsuk14l0oeoa",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -759,7 +759,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0ofhq",
+      "id": "shp-mwsuk14l0ofmg",
       "type": "shape",
       "master": "desk",
       "name": "",
@@ -783,7 +783,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0ogxf",
+      "id": "shp-mwsuk14l0ogz6",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -809,7 +809,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0oh6x",
+      "id": "shp-mwsuk14l0ohyb",
       "type": "shape",
       "master": "desk",
       "name": "",
@@ -833,7 +833,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0oikv",
+      "id": "shp-mwsuk14l0oi2z",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -859,7 +859,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0ojgt",
+      "id": "shp-mwsuk14l0ojak",
       "type": "shape",
       "master": "desk",
       "name": "",
@@ -883,7 +883,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0okpc",
+      "id": "shp-mwsuk14l0okjh",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -909,7 +909,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0oljg",
+      "id": "shp-mwsuk14l0olcq",
       "type": "shape",
       "master": "desk",
       "name": "",
@@ -933,7 +933,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0om4s",
+      "id": "shp-mwsuk14l0omek",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -959,7 +959,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0onbv",
+      "id": "shp-mwsuk14l0onua",
       "type": "shape",
       "master": "desk",
       "name": "",
@@ -983,7 +983,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0oofq",
+      "id": "shp-mwsuk14l0oobk",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -1009,7 +1009,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0opwt",
+      "id": "shp-mwsuk14l0opy0",
       "type": "shape",
       "master": "desk",
       "name": "",
@@ -1033,7 +1033,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0oq74",
+      "id": "shp-mwsuk14l0oqpy",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -1059,7 +1059,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0orxs",
+      "id": "shp-mwsuk14l0orcb",
       "type": "shape",
       "master": "door",
       "name": "",
@@ -1085,7 +1085,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0osnl",
+      "id": "shp-mwsuk14l0oshf",
       "type": "shape",
       "master": "door",
       "name": "",
@@ -1111,7 +1111,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31o0ot9y",
+      "id": "shp-mwsuk14l0otp7",
       "type": "shape",
       "master": "plant",
       "name": "",

@@ -1,0 +1,521 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:20.907Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1631d3fb",
+  "title": "호텔 예약 유스케이스",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:20.907Z",
+  "design": "office",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1631d44p",
+    "name": "호텔 예약 유스케이스",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1631d53w",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "호텔 예약 유스케이스",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1631d6w6",
+      "type": "shape",
+      "master": "groupFrame",
+      "name": "",
+      "x": 200,
+      "y": 80,
+      "w": 640,
+      "h": 660,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "호텔 예약 시스템",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1631d7i0",
+      "type": "shape",
+      "master": "umlActor",
+      "name": "",
+      "x": 80,
+      "y": 330,
+      "w": 40,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "손님",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1631d80l",
+      "type": "shape",
+      "master": "umlActor",
+      "name": "",
+      "x": 930,
+      "y": 200,
+      "w": 40,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "프런트 직원",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1631d987",
+      "type": "shape",
+      "master": "umlActor",
+      "name": "",
+      "x": 930,
+      "y": 520,
+      "w": 40,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "결제 시스템",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1631da0l",
+      "type": "shape",
+      "master": "umlUseCase",
+      "name": "",
+      "x": 240,
+      "y": 130,
+      "w": 170,
+      "h": 74,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "객실 검색",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1631db57",
+      "type": "shape",
+      "master": "umlUseCase",
+      "name": "",
+      "x": 240,
+      "y": 260,
+      "w": 170,
+      "h": 74,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "예약하기",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1631dc13",
+      "type": "shape",
+      "master": "umlUseCase",
+      "name": "",
+      "x": 240,
+      "y": 390,
+      "w": 170,
+      "h": 74,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "예약 취소",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1631ddu3",
+      "type": "shape",
+      "master": "umlUseCase",
+      "name": "",
+      "x": 240,
+      "y": 520,
+      "w": 170,
+      "h": 74,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "후기 작성",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1631defq",
+      "type": "shape",
+      "master": "umlUseCase",
+      "name": "",
+      "x": 620,
+      "y": 200,
+      "w": 170,
+      "h": 74,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "체크인",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1631df5i",
+      "type": "shape",
+      "master": "umlUseCase",
+      "name": "",
+      "x": 620,
+      "y": 390,
+      "w": 170,
+      "h": 74,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "결제 처리",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1631dg0n",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1631d7i0",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1631da0l",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1631dhz7",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1631d7i0",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1631db57",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1631diiq",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1631d7i0",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1631dc13",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1631djcm",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1631d7i0",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1631ddu3",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1631dkhm",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1631db57",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1631df5i",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "«include»",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1631dliw",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1631d80l",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1631defq",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1631dmmp",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1631d987",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1631df5i",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "uml",
+   "containers"
+  ]
+ }
+}

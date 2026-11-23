@@ -1,0 +1,415 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:20.924Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk16j1jrye",
+  "title": "IoT 데이터 흐름",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:20.923Z",
+  "design": "midnight",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk16j1js2x",
+    "name": "IoT 데이터 흐름",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk16j1jtwf",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "IoT 데이터 흐름",
+      "style": {
+       "align": "left",
+       "textColor": "#c0caf5",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16j1jujw",
+      "type": "shape",
+      "master": "netSensor",
+      "name": "",
+      "x": 40,
+      "y": 165,
+      "w": 82.06896551724137,
+      "h": 82.06896551724137,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "센서",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16j1jvwr",
+      "type": "shape",
+      "master": "netGateway",
+      "name": "",
+      "x": 213.51724137931032,
+      "y": 165,
+      "w": 105.51724137931033,
+      "h": 82.06896551724137,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "게이트웨이",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16j1jwjv",
+      "type": "shape",
+      "master": "cldStream",
+      "name": "",
+      "x": 410.48275862068965,
+      "y": 170.86206896551724,
+      "w": 117.24137931034481,
+      "h": 70.34482758620689,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "데이터 스트림",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16j1jxh9",
+      "type": "shape",
+      "master": "cldFunction",
+      "name": "",
+      "x": 619.1724137931034,
+      "y": 165,
+      "w": 82.06896551724137,
+      "h": 82.06896551724137,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "정제 함수",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16j1jyvz",
+      "type": "shape",
+      "master": "cldDatabase",
+      "name": "",
+      "x": 792.6896551724137,
+      "y": 80,
+      "w": 82.06896551724137,
+      "h": 93.79310344827586,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "시계열 DB",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16j1jzma",
+      "type": "shape",
+      "master": "cldAnalytics",
+      "name": "",
+      "x": 966.2068965517241,
+      "y": 165,
+      "w": 93.79310344827586,
+      "h": 82.06896551724137,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "분석",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16j1k0lp",
+      "type": "shape",
+      "master": "cldNotify",
+      "name": "",
+      "x": 792.6896551724137,
+      "y": 249.99999999999997,
+      "w": 82.06896551724137,
+      "h": 82.06896551724137,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "경보",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk16j1k1td",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16j1jujw",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16j1jvwr",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16j1k22n",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16j1jvwr",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16j1jwjv",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16j1k3lv",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16j1jwjv",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16j1jxh9",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16j1k4xh",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16j1jxh9",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16j1jyvz",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16j1k5gj",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16j1jyvz",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16j1jzma",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16j1k6ea",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16j1jxh9",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16j1k0lp",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "임계값 초과",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "cloud",
+   "network"
+  ]
+ }
+}

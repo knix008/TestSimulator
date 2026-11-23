@@ -1,0 +1,610 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.113Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1bt4cedg",
+  "title": "Family Tree",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.113Z",
+  "design": "whisp",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1bt4cffv",
+    "name": "Family Tree",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1bt4cgwm",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 39.77142857142857,
+      "y": 17.897142857142857,
+      "w": 616.4571428571429,
+      "h": 49.714285714285715,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Family Tree",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1bt4chve",
+      "type": "shape",
+      "master": "genMale",
+      "name": "",
+      "x": 198.85714285714286,
+      "y": 109.37142857142858,
+      "w": 59.65714285714286,
+      "h": 59.65714285714286,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Grandfather\n1940",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1bt4cixb",
+      "type": "shape",
+      "master": "genFemaleDead",
+      "name": "",
+      "x": 417.6,
+      "y": 109.37142857142858,
+      "w": 59.65714285714286,
+      "h": 59.65714285714286,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Grandmother\n1943–2019",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1bt4cj4x",
+      "type": "shape",
+      "master": "genMaleDead",
+      "name": "",
+      "x": 676.1142857142858,
+      "y": 109.37142857142858,
+      "w": 59.65714285714286,
+      "h": 59.65714285714286,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Grandfather\n1938–2015",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1bt4cki5",
+      "type": "shape",
+      "master": "genFemale",
+      "name": "",
+      "x": 894.8571428571429,
+      "y": 109.37142857142858,
+      "w": 59.65714285714286,
+      "h": 59.65714285714286,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Grandmother\n1945",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1bt4clov",
+      "type": "shape",
+      "master": "genFemale",
+      "name": "",
+      "x": 119.31428571428572,
+      "y": 328.11428571428576,
+      "w": 59.65714285714286,
+      "h": 59.65714285714286,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Aunt\n1966",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1bt4cmmn",
+      "type": "shape",
+      "master": "genMale",
+      "name": "",
+      "x": 328.11428571428576,
+      "y": 328.11428571428576,
+      "w": 59.65714285714286,
+      "h": 59.65714285714286,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Father\n1968",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1bt4cnuk",
+      "type": "shape",
+      "master": "genFemale",
+      "name": "",
+      "x": 775.5428571428572,
+      "y": 328.11428571428576,
+      "w": 59.65714285714286,
+      "h": 59.65714285714286,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Mother\n1970",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1bt4coaj",
+      "type": "shape",
+      "master": "genMale",
+      "name": "",
+      "x": 984.3428571428572,
+      "y": 328.11428571428576,
+      "w": 59.65714285714286,
+      "h": 59.65714285714286,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Uncle\n1973",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1bt4cpya",
+      "type": "shape",
+      "master": "genMaleSelf",
+      "name": "",
+      "x": 477.25714285714287,
+      "y": 556.8000000000001,
+      "w": 59.65714285714286,
+      "h": 59.65714285714286,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Me\n1995",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1bt4cqsv",
+      "type": "shape",
+      "master": "genFemale",
+      "name": "",
+      "x": 646.2857142857143,
+      "y": 556.8000000000001,
+      "w": 59.65714285714286,
+      "h": 59.65714285714286,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Sister\n1998",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1bt4crqb",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1bt4chve",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1bt4cixb",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1bt4cstv",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1bt4cj4x",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1bt4cki5",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1bt4ctrc",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1bt4cmmn",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1bt4cnuk",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1bt4cutj",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1bt4chve",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1bt4clov",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1bt4cvui",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1bt4chve",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1bt4cmmn",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1bt4cwtj",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1bt4cj4x",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1bt4cnuk",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1bt4cx5r",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1bt4cj4x",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1bt4coaj",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1bt4cymc",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1bt4cmmn",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1bt4cpya",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1bt4czj8",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1bt4cmmn",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1bt4cqsv",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk1bt4d0n0",
+      "type": "shape",
+      "master": "note",
+      "name": "",
+      "x": 59.65714285714286,
+      "y": 636.3428571428572,
+      "w": 328.11428571428576,
+      "h": 109.37142857142858,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Squares are men, circles women; a cross marks someone who has died, a bold outline is you.",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "genogram",
+   "callouts"
+  ]
+ }
+}

@@ -1,0 +1,463 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.191Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1dz59y44",
+  "title": "Sales Organisation",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.191Z",
+  "design": "sequence",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1dz59z99",
+    "name": "Sales Organisation",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1dz5a08x",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 39.39622641509433,
+      "y": 17.728301886792448,
+      "w": 610.6415094339621,
+      "h": 49.245283018867916,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Sales Organisation",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1dz5a11i",
+      "type": "shape",
+      "master": "orgExecutive",
+      "name": "",
+      "x": 427.84301886792446,
+      "y": 78.79245283018867,
+      "w": 227.71018867924525,
+      "h": 107.15773584905659,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Head of sales",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1dz5a29m",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 39.39622641509433,
+      "y": 250.2448301886792,
+      "w": 214.31547169811319,
+      "h": 93.76301886792452,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "North lead",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1dz5a3km",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 307.2905660377358,
+      "y": 250.2448301886792,
+      "w": 214.31547169811319,
+      "h": 93.76301886792452,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "South lead",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1dz5a44e",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 575.1849056603772,
+      "y": 250.2448301886792,
+      "w": 214.31547169811319,
+      "h": 93.76301886792452,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Key accounts lead",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1dz5a5c9",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 52.7909433962264,
+      "y": 408.30249056603765,
+      "w": 187.52603773584903,
+      "h": 93.76301886792452,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Reps ×3",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1dz5a6ua",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 320.6852830188679,
+      "y": 408.30249056603765,
+      "w": 187.52603773584903,
+      "h": 93.76301886792452,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Reps ×4",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1dz5a790",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 588.5796226415093,
+      "y": 408.30249056603765,
+      "w": 187.52603773584903,
+      "h": 93.76301886792452,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Managers ×2",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1dz5a8iz",
+      "type": "shape",
+      "master": "orgAssistant",
+      "name": "",
+      "x": 843.0792452830188,
+      "y": 250.2448301886792,
+      "w": 200.92075471698112,
+      "h": 93.76301886792452,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Sales support",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1dz5a915",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1dz5a11i",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1dz5a29m",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1dz5aaej",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1dz5a11i",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1dz5a3km",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1dz5abzu",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1dz5a11i",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1dz5a44e",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1dz5ac89",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1dz5a11i",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1dz5a8iz",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1dz5adpr",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1dz5a29m",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1dz5a5c9",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1dz5aevi",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1dz5a3km",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1dz5a6ua",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1dz5afek",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1dz5a44e",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1dz5a790",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "org"
+  ]
+ }
+}

@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "drawing",
- "saved": "2026-11-06T04:18:13.753Z",
+ "saved": "2026-11-23T05:50:20.867Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mw4gs3210qsav",
+  "id": "dgm-mwsuk14z0qsc9",
   "title": "PDCA 순환",
   "subject": "",
   "author": "SHKWON",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-11-06T04:18:13.753Z",
+  "created": "2026-11-23T05:50:20.867Z",
   "design": "linear",
   "variant": 0,
   "units": "mm",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mw4gs3210qt40",
+    "id": "page-mwsuk14z0qtm7",
     "name": "PDCA 순환",
     "paper": "A4",
     "orientation": "landscape",
@@ -51,7 +51,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mw4gs3210quon",
+      "id": "shp-mwsuk14z0quub",
       "type": "shape",
       "master": "title",
       "name": "",
@@ -79,7 +79,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3210qvf6",
+      "id": "shp-mwsuk14z0qv8l",
       "type": "shape",
       "master": "circle",
       "name": "",
@@ -108,7 +108,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3210qwa7",
+      "id": "shp-mwsuk14z0qw0i",
       "type": "shape",
       "master": "circle",
       "name": "",
@@ -137,7 +137,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3210qx7m",
+      "id": "shp-mwsuk14z0qxjs",
       "type": "shape",
       "master": "circle",
       "name": "",
@@ -166,7 +166,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3210qy48",
+      "id": "shp-mwsuk14z0qygs",
       "type": "shape",
       "master": "circle",
       "name": "",
@@ -195,7 +195,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3210qzu5",
+      "id": "shp-mwsuk14z0qzlc",
       "type": "shape",
       "master": "circularArrow",
       "name": "",
@@ -222,14 +222,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs3210r0wx",
+      "id": "con-mwsuk14z0r0ru",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3210qvf6",
+       "id": "shp-mwsuk14z0qv8l",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs3210qwa7",
+       "id": "shp-mwsuk14z0qw0i",
        "pt": 0
       },
       "route": "curved",
@@ -248,14 +248,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3210r1iy",
+      "id": "con-mwsuk14z0r15s",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3210qwa7",
+       "id": "shp-mwsuk14z0qw0i",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs3210qx7m",
+       "id": "shp-mwsuk14z0qxjs",
        "pt": 1
       },
       "route": "curved",
@@ -274,14 +274,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3210r2cr",
+      "id": "con-mwsuk14z0r2o4",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3210qx7m",
+       "id": "shp-mwsuk14z0qxjs",
        "pt": 3
       },
       "to": {
-       "id": "shp-mw4gs3210qy48",
+       "id": "shp-mwsuk14z0qygs",
        "pt": 2
       },
       "route": "curved",
@@ -300,14 +300,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3210r3kt",
+      "id": "con-mwsuk14z0r3sx",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3210qy48",
+       "id": "shp-mwsuk14z0qygs",
        "pt": 0
       },
       "to": {
-       "id": "shp-mw4gs3210qvf6",
+       "id": "shp-mwsuk14z0qv8l",
        "pt": 3
       },
       "route": "curved",
@@ -326,7 +326,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs3210r4r8",
+      "id": "shp-mwsuk14z0r4r0",
       "type": "shape",
       "master": "textBox",
       "name": "",
@@ -356,7 +356,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3210r51q",
+      "id": "shp-mwsuk14z0r58m",
       "type": "shape",
       "master": "textBox",
       "name": "",
@@ -386,7 +386,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3210r6ho",
+      "id": "shp-mwsuk14z0r6sy",
       "type": "shape",
       "master": "textBox",
       "name": "",
@@ -416,7 +416,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3210r72u",
+      "id": "shp-mwsuk14z0r7by",
       "type": "shape",
       "master": "textBox",
       "name": "",

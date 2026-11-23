@@ -1,0 +1,363 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:20.996Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk18j2hvbu",
+  "title": "보일러 계통",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:20.995Z",
+  "design": "blueprint",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk18j2hwhw",
+    "name": "보일러 계통",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk18j2hxpq",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "보일러 계통",
+      "style": {
+       "align": "left",
+       "textColor": "#e3f2fd",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk18j2hytz",
+      "type": "shape",
+      "master": "pidTank",
+      "name": "",
+      "x": 40,
+      "y": 129.86033519553072,
+      "w": 113.96648044692738,
+      "h": 185.19553072625698,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "급수 탱크",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk18j2hzwg",
+      "type": "shape",
+      "master": "pidPump",
+      "name": "",
+      "x": 273.63128491620114,
+      "y": 172.59776536312847,
+      "w": 99.72067039106145,
+      "h": 99.72067039106145,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "P-201",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk18j2i0no",
+      "type": "shape",
+      "master": "pidBoiler",
+      "name": "",
+      "x": 493.01675977653633,
+      "y": 144.10614525139664,
+      "w": 113.96648044692738,
+      "h": 156.70391061452514,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "보일러",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk18j2i1r1",
+      "type": "shape",
+      "master": "pidValveControl",
+      "name": "",
+      "x": 726.6480446927375,
+      "y": 80,
+      "w": 99.72067039106145,
+      "h": 99.72067039106145,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "증기 밸브",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk18j2i2dd",
+      "type": "shape",
+      "master": "pidHeatEx",
+      "name": "",
+      "x": 946.0335195530727,
+      "y": 165.47486033519553,
+      "w": 113.96648044692738,
+      "h": 113.96648044692738,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "열교환기",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk18j2i3jc",
+      "type": "shape",
+      "master": "pidGauge",
+      "name": "",
+      "x": 733.7709497206704,
+      "y": 279.4413407821229,
+      "w": 85.47486033519553,
+      "h": 85.47486033519553,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "압력계",
+      "style": {
+       "textColor": "#e3f2fd"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk18k2i4be",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk18j2hytz",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk18j2hzwg",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk18k2i5il",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk18j2hzwg",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk18j2i0no",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk18k2i6mq",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk18j2i0no",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk18j2i1r1",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk18k2i70l",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk18j2i1r1",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk18j2i2dd",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk18k2i8r3",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk18j2i0no",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk18j2i3jc",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "process"
+  ]
+ }
+}

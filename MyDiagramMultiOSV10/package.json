@@ -2,7 +2,7 @@
   "name": "mydiagram",
   "productName": "MyDiagram",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Diagramming (Microsoft Visio style) for Web, Windows, macOS and Linux (Tauri) — stencils, connectors, themes, pages and layers, shape data, reports, Visio import/export",
   "author": "SHKWON <knix008@naver.com>",
   "type": "module",
@@ -25,7 +25,9 @@
     "build:docs": "node scripts/build-docs.mjs",
     "tutorial:docs": "node scripts/tutorial-capture.mjs docs",
     "tutorial:video": "node scripts/tutorial-capture.mjs video",
-    "samples": "node scripts/make-samples.mjs"
+    "samples": "node scripts/make-samples.mjs",
+    "clean": "node scripts/clean.mjs",
+    "clean:all": "node scripts/clean.mjs --all"
   },
   "dependencies": {
     "@cornerstonejs/codec-openjpeg": "^1.3.6",

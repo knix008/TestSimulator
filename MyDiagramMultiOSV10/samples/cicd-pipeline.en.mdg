@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "drawing",
- "saved": "2026-11-06T04:18:13.791Z",
+ "saved": "2026-11-23T05:50:21.084Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mw4gs3331dayv",
+  "id": "dgm-mwsuk1b03sp2n",
   "title": "CI/CD Pipeline",
   "subject": "",
   "author": "SHKWON",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-11-06T04:18:13.791Z",
+  "created": "2026-11-23T05:50:21.084Z",
   "design": "chalkboard",
   "variant": 0,
   "units": "in",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mw4gs3331dbpr",
+    "id": "page-mwsuk1b03sqj7",
     "name": "CI/CD Pipeline",
     "paper": "Letter",
     "orientation": "landscape",
@@ -51,7 +51,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mw4gs3331dcpl",
+      "id": "shp-mwsuk1b03src4",
       "type": "shape",
       "master": "title",
       "name": "",
@@ -79,7 +79,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3331ddbh",
+      "id": "shp-mwsuk1b03ss4f",
       "type": "shape",
       "master": "homePlate",
       "name": "",
@@ -105,7 +105,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3331deog",
+      "id": "shp-mwsuk1b03sthw",
       "type": "shape",
       "master": "chevron",
       "name": "",
@@ -131,7 +131,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3331dft8",
+      "id": "shp-mwsuk1b03sufx",
       "type": "shape",
       "master": "chevron",
       "name": "",
@@ -157,7 +157,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3331dg3x",
+      "id": "shp-mwsuk1b03svmy",
       "type": "shape",
       "master": "chevron",
       "name": "",
@@ -183,7 +183,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3331dhhe",
+      "id": "shp-mwsuk1b03sws9",
       "type": "shape",
       "master": "chevron",
       "name": "",
@@ -209,7 +209,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3331di20",
+      "id": "shp-mwsuk1b03sxuf",
       "type": "shape",
       "master": "laptop",
       "name": "",
@@ -235,7 +235,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3331dj0k",
+      "id": "shp-mwsuk1b03syna",
       "type": "shape",
       "master": "textBox",
       "name": "",
@@ -265,7 +265,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3331dkjr",
+      "id": "shp-mwsuk1b03szb4",
       "type": "shape",
       "master": "storage",
       "name": "",
@@ -291,7 +291,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3331dlk0",
+      "id": "shp-mwsuk1b03t080",
       "type": "shape",
       "master": "gear",
       "name": "",
@@ -317,7 +317,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3331dm0b",
+      "id": "shp-mwsuk1b03t17t",
       "type": "shape",
       "master": "target",
       "name": "",
@@ -343,7 +343,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3331dn1f",
+      "id": "shp-mwsuk1b03t2x4",
       "type": "shape",
       "master": "block3d",
       "name": "",
@@ -367,7 +367,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3331dohx",
+      "id": "shp-mwsuk1b03t35g",
       "type": "shape",
       "master": "server",
       "name": "",
@@ -393,7 +393,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3331dpc3",
+      "id": "shp-mwsuk1b03t4ij",
       "type": "shape",
       "master": "decision",
       "name": "",
@@ -417,7 +417,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3331dqu3",
+      "id": "shp-mwsuk1b03t5o7",
       "type": "shape",
       "master": "rack",
       "name": "",
@@ -443,7 +443,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3331drix",
+      "id": "shp-mwsuk1b03t68i",
       "type": "shape",
       "master": "document",
       "name": "",
@@ -467,14 +467,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs3331ds52",
+      "id": "con-mwsuk1b03t7bv",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3331di20",
+       "id": "shp-mwsuk1b03sxuf",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs3331dkjr",
+       "id": "shp-mwsuk1b03szb4",
        "pt": "auto"
       },
       "route": "straight",
@@ -491,14 +491,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3331dtv4",
+      "id": "con-mwsuk1b03t8km",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3331dkjr",
+       "id": "shp-mwsuk1b03szb4",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs3331dlk0",
+       "id": "shp-mwsuk1b03t080",
        "pt": "auto"
       },
       "route": "straight",
@@ -515,14 +515,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3331dupb",
+      "id": "con-mwsuk1b03t9dm",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3331dlk0",
+       "id": "shp-mwsuk1b03t080",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs3331dm0b",
+       "id": "shp-mwsuk1b03t17t",
        "pt": "auto"
       },
       "route": "straight",
@@ -539,14 +539,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3331dva5",
+      "id": "con-mwsuk1b03tapk",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3331dm0b",
+       "id": "shp-mwsuk1b03t17t",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs3331dn1f",
+       "id": "shp-mwsuk1b03t2x4",
        "pt": "auto"
       },
       "route": "straight",
@@ -563,14 +563,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3331dwd8",
+      "id": "con-mwsuk1b03tbp1",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3331dn1f",
+       "id": "shp-mwsuk1b03t2x4",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs3331dohx",
+       "id": "shp-mwsuk1b03t35g",
        "pt": 0
       },
       "route": "orthogonal",
@@ -587,14 +587,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3331dxgg",
+      "id": "con-mwsuk1b03tcp7",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3331dohx",
+       "id": "shp-mwsuk1b03t35g",
        "pt": 3
       },
       "to": {
-       "id": "shp-mw4gs3331dpc3",
+       "id": "shp-mwsuk1b03t4ij",
        "pt": 1
       },
       "route": "orthogonal",
@@ -611,14 +611,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3331dy7b",
+      "id": "con-mwsuk1b03tdfh",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3331dpc3",
+       "id": "shp-mwsuk1b03t4ij",
        "pt": 3
       },
       "to": {
-       "id": "shp-mw4gs3331dqu3",
+       "id": "shp-mwsuk1b03t5o7",
        "pt": 1
       },
       "route": "orthogonal",
@@ -635,14 +635,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3331dzzn",
+      "id": "con-mwsuk1b03tecf",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3331dpc3",
+       "id": "shp-mwsuk1b03t4ij",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs3331drix",
+       "id": "shp-mwsuk1b03t68i",
        "pt": 2
       },
       "route": "orthogonal",
@@ -659,14 +659,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3331e06d",
+      "id": "con-mwsuk1b03tff8",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3331drix",
+       "id": "shp-mwsuk1b03t68i",
        "pt": 3
       },
       "to": {
-       "id": "shp-mw4gs3331di20",
+       "id": "shp-mwsuk1b03sxuf",
        "pt": 2
       },
       "route": "orthogonal",

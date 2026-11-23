@@ -134,7 +134,7 @@ export const cases = [
     await W(app, '(a.showStartPage(true), 1)');
     await sleep(300);
     const templates = await W(app, 'w.domain.TEMPLATES.length');
-    const info = await app.main.eval(`({ shown: !document.querySelector('#start-page').hidden, templates: document.querySelectorAll('.template-tile').length, tutorial: Boolean(document.querySelector('[data-start="tutorial"]')), banner: Boolean(document.querySelector('.start-banner')), recent: Boolean(document.querySelector('.start-card.recent')), samples: document.querySelectorAll('[data-start="open-sample"], [data-start="builtin-sample"]').length })`);
+    const info = await app.main.eval(`({ shown: !document.querySelector('#start-page').hidden, templates: document.querySelectorAll('.template-tile[data-start="template"]').length, tutorial: Boolean(document.querySelector('[data-start="tutorial"]')), banner: Boolean(document.querySelector('.start-banner')), recent: Boolean(document.querySelector('.start-card.recent')), samples: document.querySelectorAll('[data-start="open-sample"], [data-start="builtin-sample"]').length })`);
     assert.ok(info.shown, 'start page shown');
     assert.equal(templates, 13, 'MyDiagram has 13 templates');
     assert.equal(info.templates, templates, 'a tile per template');
@@ -328,24 +328,32 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     }
     assert.ok(seen.size >= 4, `${seen.size} different themes`);
   } },
-  { group: '툴바', name: '테마 드롭다운: 다크 | 라이트 두 줄, 사용자 정의', async run(app) {
+  { group: '툴바', name: '테마 드롭다운: 드롭다운 메뉴 (다크 20 · 라이트 20 하위 메뉴, 색 견본), 창 밖까지 펼쳐짐', async run(app) {
     await app.main.click('[data-command="themeMenu"]');
-    const page = await app.popup('theme');
-    await expectPopupWindow(app, page, 'theme');
-    const info = await page.eval(`(() => { const cols = [...document.querySelectorAll('.picker-column')]; return { cols: cols.length, counts: cols.map((c) => c.querySelectorAll('[data-pick-theme]').length), lefts: cols.map((c) => Math.round(c.getBoundingClientRect().left)), custom: Boolean(document.querySelector('[data-pick-theme="custom"]')) }; })()`);
-    assert.equal(info.cols, 2);
-    assert.deepEqual(info.counts, [20, 20]);
-    assert.ok(info.lefts[0] < info.lefts[1], 'side by side');
-    assert.ok(info.custom);
-    // Narrow, just under the dropdown button: left edges lined up, or right edges when the screen ends first.
-    const button = await app.main.eval(`(() => { const r = document.querySelector('#toolbar [data-command="themeMenu"]').closest('.split-button').getBoundingClientRect(); const dx = window.screenX + (window.outerWidth - window.innerWidth) / 2; const dy = window.screenY + window.outerHeight - window.innerHeight - (window.outerWidth - window.innerWidth) / 2; return { left: dx + r.left, right: dx + r.right, bottom: dy + r.bottom }; })()`);
-    const box = await page.eval(`({ left: window.screenX, right: window.screenX + window.innerWidth, top: window.screenY, width: window.innerWidth, screenRight: screen.availLeft + screen.availWidth })`);
-    assert.ok(box.width < 560, `narrow ${JSON.stringify(box)}`);
-    const roomRight = button.left + box.width <= box.screenRight;
-    assert.ok(roomRight ? Math.abs(box.left - button.left) < 6 : Math.abs(box.right - button.right) < 6, `lined up with the button ${JSON.stringify({ button, box })}`);
-    assert.ok(Math.abs(box.top - button.bottom) < 10, `just under the button ${JSON.stringify({ button, box })}`);
-    await page.click('[data-pick-theme="nord"]');
-    page.close();
+    const menu = await app.popup('menu');
+    await menu.waitFor(`document.querySelector('[data-id="submenu:theme.darkGroup"]')`);
+    await sleep(250);
+    const info = await menu.eval(`(() => ({ head: document.querySelector('.popup-menu').getAttribute('aria-label'), frame: Boolean(document.querySelector('.popup-head')), ids: [...document.querySelectorAll('.popup-menu.main .menu-item')].map((i) => i.dataset.id) }))()`);
+    assert.equal(info.frame, false, 'a menu, not a popup window with a title bar');
+    assert.deepEqual(info.ids, ['custom:theme:system', 'custom:theme:custom', 'submenu:theme.darkGroup', 'submenu:theme.lightGroup', 'custom:theme-edit', 'custom:theme-random']);
+    // Just under the dropdown button, as the other dropdown menus.
+    const button = await app.main.eval(`(() => { const r = document.querySelector('#toolbar [data-command="themeMenu"]').closest('.split-button').getBoundingClientRect(); const dy = window.screenY + (window.outerHeight - window.innerHeight); return { bottom: dy + r.bottom }; })()`);
+    const top = await menu.eval(`window.screenY + document.querySelector('.popup-menu.main').getBoundingClientRect().top`);
+    assert.ok(Math.abs(top - button.bottom) < 16, `under the button ${JSON.stringify({ button, top })}`);
+    for (const [group, one] of [['theme.lightGroup', 'solarized'], ['theme.darkGroup', 'nord']]) {
+      const row = await menu.eval(`(() => { const r = document.querySelector('[data-id="submenu:${group}"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+      await menu.mouse('mouseMoved', row.x - 20, row.y, { button: 'none' });
+      await menu.mouse('mouseMoved', row.x, row.y, { button: 'none' });
+      await menu.waitFor(`document.querySelector('.popup-menu.sub [data-id="custom:theme:${one}"]') && document.querySelectorAll('.popup-menu.sub .menu-item').length === 20`, { timeout: 3000 });
+      assert.ok(await menu.eval(`[...document.querySelectorAll('.popup-menu.sub .menu-item')].every((i) => i.querySelectorAll('.theme-swatch i').length === 3)`), `${group}: every theme with its colours`);
+    }
+    await menu.click('.popup-menu.sub [data-id="custom:theme:nord"]').catch(async () => {
+      const row = await menu.eval(`(() => { const r = document.querySelector('[data-id="submenu:theme.darkGroup"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+      await menu.mouse('mouseMoved', row.x, row.y, { button: 'none' });
+      await menu.waitFor(`document.querySelector('.popup-menu.sub [data-id="custom:theme:nord"]')`, { timeout: 3000 });
+      await menu.click('.popup-menu.sub [data-id="custom:theme:nord"]');
+    });
+    menu.close();
     await sleep(400);
     assert.equal(await W(app, 'w.state.settings.theme'), 'nord');
   } },
@@ -856,7 +864,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await app.main.click('#left-panel .panel-header [data-command="leftPanel"]');
     await sleep(300);
     const rail = await app.main.eval(`(() => { const p = document.querySelector('#left-panel'); const expand = p.querySelector('.rail-button.expand'); const title = p.querySelector('.rail-title'); const buttons = [...p.querySelectorAll('.rail-button')]; return { width: p.offsetWidth, expandFirst: buttons[0] === expand, title: title?.textContent.trim(), icons: buttons.every((b) => b.querySelector('svg')) }; })()`);
-    assert.ok(rail.width < 80 && rail.expandFirst && rail.title && rail.icons, JSON.stringify(rail));
+    assert.ok(rail.width <= 48 && rail.expandFirst && rail.title && rail.icons, `a narrow strip of icons ${JSON.stringify(rail)}`);
     await app.main.click('#left-panel .rail-button.expand');
     await app.main.click('#right-panel .panel-header [data-command="rightPanel"]');
     await sleep(300);
@@ -1374,6 +1382,25 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     page.close();
     await noErrorPopup(app, 'guide');
   } },
+  { group: '도움말', name: '사용 설명서의 인쇄 버튼: 프로그램의 인쇄 창 (프린터 · 용지 · 미리 보기는 그 문서)', async run(app) {
+    await W(app, `(w.run('userGuide'), 1)`);
+    const target = await waitTarget(app.port, (item) => /docs\/UsersGuide(\.en)?\.html/.test(item.url), 15000);
+    const doc = await new Page(target).open();
+    await doc.waitFor('Boolean(document.querySelector("#doc-print") && window.__MYDIAGRAM_DOC_WINDOW__)');
+    await doc.eval(`(document.querySelector('#doc-print').click(), 1)`);
+    const print = await app.popup('print');
+    await print.waitFor(`Boolean(document.querySelector('.doc-print-preview iframe'))`);
+    const info = await print.eval(`({ preview: document.querySelector('.doc-print-preview iframe').getAttribute('src'), paper: Boolean(document.querySelector('[data-print="paper"]')), margin: Boolean(document.querySelector('[data-print="margin"]')), drawingRange: Boolean(document.querySelector('[data-print-range]')) })`);
+    assert.ok(/docs\/UsersGuide/.test(info.preview), `the guide is the preview ${JSON.stringify(info)}`);
+    assert.deepEqual([info.paper, info.margin, info.drawingRange], [true, true, false], 'paper and margins; no drawing page range');
+    await print.eval(`(window.__mydiagramPrintHook = (job) => { window.__printed = job; }, 1)`);
+    await print.click('[data-action="print"]');
+    await sleep(300);
+    assert.deepEqual(await print.eval('window.__printed'), { document: 'guide', width: 210, height: 297 }, 'A4 upright');
+    print.close();
+    doc.close();
+    await noErrorPopup(app, 'guide print');
+  } },
   { group: '캔버스', name: 'Shift로 끌면 연결된 선이 곧게 정렬, 회전 중에는 각도 표시', async run(app) {
     await freshDrawing(app);
     await W(app, `(() => { const c = a.activeDoc(); const s1 = a.addShapeAt('process', { x: 300, y: 300, w: 130, h: 70 }); const s2 = a.addShapeAt('process', { x: 620, y: 360, w: 130, h: 70 }); a.connectShapes({ id: s1.id, pt: 'auto' }, { id: s2.id, pt: 'auto' }); a.select([s2.id]); return 1; })()`);
@@ -1622,18 +1649,22 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     const samples = await app.main.eval(`Boolean(document.querySelector('[data-card="samples"]') && document.querySelector('[data-card="background"]'))`);
     assert.ok(samples, 'samples and background are separate cards');
     assert.ok(await app.main.eval(`getComputedStyle(document.querySelector('[data-card-grip]')).backgroundImage.includes('radial-gradient')`), 'the resize marker is made of dots');
-    const before = await box('help');
-    const handle = await app.main.center('[data-card="help"] .card-handle');
-    await app.main.drag(handle, { x: handle.x - (before.x - (await box('templates')).x), y: handle.y }, 16);
+    const fixed = await app.main.eval(`(() => { const h = document.querySelector('.start-hero'); return { card: Boolean(h.closest('.start-board')), handle: Boolean(h.querySelector('.card-handle, [data-card-grip]')), help: Boolean(document.querySelector('[data-card="help"]')) }; })()`);
+    assert.deepEqual(fixed, { card: false, handle: false, help: false }, 'the title is fixed (no move handle or resize marker), and there is no help card');
+    const before = await box('folders');
+    const handle = await app.main.center('[data-card="folders"] .card-handle');
+    const layout = await app.main.eval(`(() => { const r = (id) => document.querySelector('[data-card="' + id + '"]').getBoundingClientRect(); const t = r('templates'); const a = r('recent'); const f = r('folders'); const s = r('samples'); const b = r('background'); return { pair: Math.abs(a.top - f.top) < 2 && a.right < f.left && Math.abs(a.width - f.width) < 2, full: [t, s, b].every((x) => Math.abs(x.width - t.width) < 1), order: t.bottom <= a.top && a.bottom <= s.top + 1 && s.bottom <= b.top + 1 }; })()`);
+    assert.deepEqual(layout, { pair: true, full: true, order: true }, 'recent files | recent folders on one row; the others full width; the moving background below the samples');
+    await app.main.drag(handle, { x: handle.x, y: handle.y - (before.y - (await box('templates')).y) - 10 }, 16);
     await sleep(500);
-    const moved = await box('help');
-    assert.ok(moved.x < before.x - 100, `moved left: ${JSON.stringify([before, moved])}`);
-    const grip = await app.main.center('[data-card="help"] [data-card-grip]');
+    const moved = await box('folders');
+    assert.ok(moved.y < before.y - 30, `moved up: ${JSON.stringify([before, moved])}`);
+    const grip = await app.main.center('[data-card="folders"] [data-card-grip]');
     await app.main.drag(grip, { x: grip.x, y: grip.y + 120 }, 16);
     await sleep(500);
-    const resized = await box('help');
+    const resized = await box('folders');
     assert.ok(resized.h > moved.h + 80, `taller: ${JSON.stringify([moved, resized])}`);
-    assert.equal(await W(app, 'w.state.settings.startLayout.cards.help.fit'), false);
+    assert.equal(await W(app, 'w.state.settings.startLayout.cards.folders.fit'), false);
     await app.main.click('[data-start="arrange"]');
     await sleep(500);
     assert.equal(await W(app, 'w.state.settings.startLayout'), null, 'reset layout');
@@ -1643,12 +1674,12 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
       const slider = document.querySelector('[data-start-slider="startBgTransparency"]');
       slider.value = '40';
       slider.dispatchEvent(new Event('input', { bubbles: true }));
-      return { keys: items.map((e) => e.querySelector('.stepper').dataset.stepper), sliders: items.filter((e) => e.querySelector('input[type=range]')).length, separate: y(items[1], '.stepper') > y(items[0], '.stepper') + 10, centred: items.every((e) => getComputedStyle(e.querySelector('.stepper-value')).textAlign === 'center'), shown: items[1].querySelector('.stepper-value').value, alpha: getComputedStyle(document.querySelector('#start-page')).getPropertyValue('--start-bg-alpha').trim() };
+      return { keys: items.map((e) => e.querySelector('.stepper').dataset.stepper), sliders: items.filter((e) => e.querySelector('input[type=range]')).length, oneLine: [...document.querySelectorAll('.start-controls > *')].every((e) => Math.abs(e.getBoundingClientRect().top + e.getBoundingClientRect().height / 2 - (items[0].getBoundingClientRect().top + items[0].getBoundingClientRect().height / 2)) < 6), centred: items.every((e) => getComputedStyle(e.querySelector('.stepper-value')).textAlign === 'center'), shown: items[1].querySelector('.stepper-value').value, alpha: getComputedStyle(document.querySelector('#start-page')).getPropertyValue('--start-bg-alpha').trim() };
     })()`);
-    assert.deepEqual(row, { keys: ['animationSpeed', 'startBgTransparency'], sliders: 2, separate: true, centred: true, shown: '40%', alpha: '0.6' }, 'speed and transparency: a row each with a slider, the value centred');
+    assert.deepEqual(row, { keys: ['animationSpeed', 'startBgTransparency'], sliders: 2, oneLine: true, centred: true, shown: '40%', alpha: '0.6' }, 'speed, transparency, random and auto change on one line, each slider with its value centred');
     assert.equal(await W(app, 'w.state.settings.startBgTransparency'), 40);
-    const same = await app.main.eval(`(() => { const [a, b] = [...document.querySelectorAll('.start-card.background .start-actions .button')].map((e) => e.getBoundingClientRect()); return Math.abs(a.width - b.width) < 1 && Math.abs(a.height - b.height) < 1; })()`);
-    assert.ok(same, 'the two background buttons are the same size');
+    const right = await app.main.eval(`(() => { const row = document.querySelector('.start-card.background .start-actions'); const end = row.getBoundingClientRect().right - parseFloat(getComputedStyle(row).paddingRight); const buttons = [...row.querySelectorAll('.button')]; const last = buttons.at(-1).getBoundingClientRect(); return { right: Math.abs(last.right - end) < 2, labelled: buttons.every((b) => b.querySelector('.icon') && b.querySelector('span').scrollWidth <= b.querySelector('span').clientWidth + 1) }; })()`);
+    assert.deepEqual(right, { right: true, labelled: true }, 'the background buttons sit at the right, each with its icon and whole label');
     assert.equal((await W(app, 'w.domain.TEMPLATES.length')) > 0, true);
     assert.equal(await app.main.eval(`document.querySelectorAll('.anim-chip .icon').length === document.querySelectorAll('.anim-chip').length && document.querySelectorAll('.anim-chip').length % 3 === 0`), true, 'every background has an icon, and the chips fill their rows');
     await W(app, '(a.updateSettings({ startBgTransparency: 0 }), 1)');
@@ -1656,8 +1687,10 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await app.main.click('[data-start="auto-arrange"]');
     await sleep(500);
     const packed = await W(app, 'w.state.settings.startLayout.cards');
-    assert.equal(packed.hero.row, 0);
-    assert.ok(Object.values(packed).every((c) => c.col + c.w <= 3));
+    assert.ok(!('hero' in packed), 'the title is not a card');
+    assert.ok(['templates', 'samples', 'background'].every((id) => packed[id].col === 0 && packed[id].w === 2), `auto arrange: the others across the board ${JSON.stringify(packed)}`);
+    assert.ok(packed.recent.row === packed.folders.row && packed.recent.w === 1 && packed.folders.w === 1, 'auto arrange: recent files and folders side by side');
+    assert.deepEqual(Object.keys(packed).sort((a, b) => packed[a].row - packed[b].row).slice(-2), ['samples', 'background'], 'the moving background below the samples');
     await app.main.click('[data-start="arrange"]');
     await noErrorPopup(app, 'start');
   } },

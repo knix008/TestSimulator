@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "drawing",
- "saved": "2026-11-06T04:18:13.796Z",
+ "saved": "2026-11-23T05:50:21.091Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mw4gs3381hrwh",
+  "id": "dgm-mwsuk1b73x64a",
   "title": "Cafe Layout",
   "subject": "",
   "author": "SHKWON",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-11-06T04:18:13.796Z",
+  "created": "2026-11-23T05:50:21.091Z",
   "design": "organic",
   "variant": 0,
   "units": "in",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mw4gs3381hssw",
+    "id": "page-mwsuk1b73x7z5",
     "name": "Cafe Layout",
     "paper": "Letter",
     "orientation": "landscape",
@@ -47,7 +47,7 @@
     "gridSize": 0,
     "layers": [
      {
-      "id": "layer-mw4gs3381hued",
+      "id": "layer-mwsuk1b73x9w2",
       "name": "Furniture",
       "visible": true,
       "print": true,
@@ -55,7 +55,7 @@
       "color": ""
      },
      {
-      "id": "layer-mw4gs3381hvft",
+      "id": "layer-mwsuk1b73xap1",
       "name": "Notes",
       "visible": true,
       "print": true,
@@ -68,7 +68,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mw4gs3381htee",
+      "id": "shp-mwsuk1b73x8q0",
       "type": "shape",
       "master": "title",
       "name": "",
@@ -96,7 +96,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381hw0n",
+      "id": "shp-mwsuk1b73xb0f",
       "type": "shape",
       "master": "room",
       "name": "",
@@ -120,7 +120,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381hx6g",
+      "id": "shp-mwsuk1b73xcgr",
       "type": "shape",
       "master": "window",
       "name": "",
@@ -146,7 +146,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381hyln",
+      "id": "shp-mwsuk1b73xdi7",
       "type": "shape",
       "master": "window",
       "name": "",
@@ -172,7 +172,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381hzt0",
+      "id": "shp-mwsuk1b73xe01",
       "type": "shape",
       "master": "tableRect",
       "name": "",
@@ -188,7 +188,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hued"
+       "layer-mwsuk1b73x9w2"
       ],
       "locked": {},
       "data": [],
@@ -198,7 +198,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381i0ii",
+      "id": "shp-mwsuk1b73xf4x",
       "type": "shape",
       "master": "tableRect",
       "name": "",
@@ -214,7 +214,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hued"
+       "layer-mwsuk1b73x9w2"
       ],
       "locked": {},
       "data": [],
@@ -224,7 +224,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381i1qr",
+      "id": "shp-mwsuk1b73xgn5",
       "type": "shape",
       "master": "room",
       "name": "",
@@ -250,7 +250,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381i2ph",
+      "id": "shp-mwsuk1b73xhn0",
       "type": "shape",
       "master": "toilet",
       "name": "",
@@ -276,7 +276,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381i3v6",
+      "id": "shp-mwsuk1b73xi42",
       "type": "shape",
       "master": "sink",
       "name": "",
@@ -302,7 +302,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381i4n6",
+      "id": "shp-mwsuk1b73xjaw",
       "type": "shape",
       "master": "tableRound",
       "name": "",
@@ -318,7 +318,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hued"
+       "layer-mwsuk1b73x9w2"
       ],
       "locked": {},
       "data": [],
@@ -328,7 +328,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381i5ct",
+      "id": "shp-mwsuk1b73xk26",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -346,7 +346,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hued"
+       "layer-mwsuk1b73x9w2"
       ],
       "locked": {},
       "data": [],
@@ -356,7 +356,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381i6s2",
+      "id": "shp-mwsuk1b73xl96",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -374,7 +374,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hued"
+       "layer-mwsuk1b73x9w2"
       ],
       "locked": {},
       "data": [],
@@ -384,7 +384,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381i78i",
+      "id": "shp-mwsuk1b73xmz5",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -402,7 +402,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hued"
+       "layer-mwsuk1b73x9w2"
       ],
       "locked": {},
       "data": [],
@@ -412,7 +412,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381i8ue",
+      "id": "shp-mwsuk1b73xn3q",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -430,7 +430,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hued"
+       "layer-mwsuk1b73x9w2"
       ],
       "locked": {},
       "data": [],
@@ -440,7 +440,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381i9gy",
+      "id": "shp-mwsuk1b73xoy8",
       "type": "shape",
       "master": "tableRound",
       "name": "",
@@ -456,7 +456,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hued"
+       "layer-mwsuk1b73x9w2"
       ],
       "locked": {},
       "data": [],
@@ -466,7 +466,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381ia28",
+      "id": "shp-mwsuk1b73xpvl",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -484,7 +484,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hued"
+       "layer-mwsuk1b73x9w2"
       ],
       "locked": {},
       "data": [],
@@ -494,7 +494,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381ibz7",
+      "id": "shp-mwsuk1b73xqa3",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -512,7 +512,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hued"
+       "layer-mwsuk1b73x9w2"
       ],
       "locked": {},
       "data": [],
@@ -522,7 +522,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381icfe",
+      "id": "shp-mwsuk1b73xrio",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -540,7 +540,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hued"
+       "layer-mwsuk1b73x9w2"
       ],
       "locked": {},
       "data": [],
@@ -550,7 +550,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381id4n",
+      "id": "shp-mwsuk1b73xs1e",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -568,7 +568,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hued"
+       "layer-mwsuk1b73x9w2"
       ],
       "locked": {},
       "data": [],
@@ -578,7 +578,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381ie3f",
+      "id": "shp-mwsuk1b73xtg6",
       "type": "shape",
       "master": "tableRound",
       "name": "",
@@ -594,7 +594,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hued"
+       "layer-mwsuk1b73x9w2"
       ],
       "locked": {},
       "data": [],
@@ -604,7 +604,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381ifz3",
+      "id": "shp-mwsuk1b73xu0w",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -622,7 +622,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hued"
+       "layer-mwsuk1b73x9w2"
       ],
       "locked": {},
       "data": [],
@@ -632,7 +632,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381ig9e",
+      "id": "shp-mwsuk1b73xvrk",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -650,7 +650,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hued"
+       "layer-mwsuk1b73x9w2"
       ],
       "locked": {},
       "data": [],
@@ -660,7 +660,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381ihj6",
+      "id": "shp-mwsuk1b73xw7h",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -678,7 +678,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hued"
+       "layer-mwsuk1b73x9w2"
       ],
       "locked": {},
       "data": [],
@@ -688,7 +688,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381iiko",
+      "id": "shp-mwsuk1b73xxtx",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -706,7 +706,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hued"
+       "layer-mwsuk1b73x9w2"
       ],
       "locked": {},
       "data": [],
@@ -716,7 +716,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381ijgn",
+      "id": "shp-mwsuk1b73xyj7",
       "type": "shape",
       "master": "tableRound",
       "name": "",
@@ -732,7 +732,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hued"
+       "layer-mwsuk1b73x9w2"
       ],
       "locked": {},
       "data": [],
@@ -742,7 +742,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381ikqj",
+      "id": "shp-mwsuk1b73xzv5",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -760,7 +760,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hued"
+       "layer-mwsuk1b73x9w2"
       ],
       "locked": {},
       "data": [],
@@ -770,7 +770,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381ilvg",
+      "id": "shp-mwsuk1b73y0yg",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -788,7 +788,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hued"
+       "layer-mwsuk1b73x9w2"
       ],
       "locked": {},
       "data": [],
@@ -798,7 +798,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381imid",
+      "id": "shp-mwsuk1b73y1yz",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -816,7 +816,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hued"
+       "layer-mwsuk1b73x9w2"
       ],
       "locked": {},
       "data": [],
@@ -826,7 +826,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381iny5",
+      "id": "shp-mwsuk1b73y2se",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -844,7 +844,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hued"
+       "layer-mwsuk1b73x9w2"
       ],
       "locked": {},
       "data": [],
@@ -854,7 +854,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381ioxo",
+      "id": "shp-mwsuk1b73y3vt",
       "type": "shape",
       "master": "sofa",
       "name": "",
@@ -870,7 +870,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hued"
+       "layer-mwsuk1b73x9w2"
       ],
       "locked": {},
       "data": [],
@@ -880,7 +880,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381ipp6",
+      "id": "shp-mwsuk1b73y4lb",
       "type": "shape",
       "master": "tableRect",
       "name": "",
@@ -896,7 +896,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hued"
+       "layer-mwsuk1b73x9w2"
       ],
       "locked": {},
       "data": [],
@@ -906,7 +906,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381iqz1",
+      "id": "shp-mwsuk1b73y5s4",
       "type": "shape",
       "master": "plant",
       "name": "",
@@ -924,7 +924,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hued"
+       "layer-mwsuk1b73x9w2"
       ],
       "locked": {},
       "data": [],
@@ -934,7 +934,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381irof",
+      "id": "shp-mwsuk1b73y6sa",
       "type": "shape",
       "master": "plant",
       "name": "",
@@ -952,7 +952,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hued"
+       "layer-mwsuk1b73x9w2"
       ],
       "locked": {},
       "data": [],
@@ -962,7 +962,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381is1e",
+      "id": "shp-mwsuk1b73y723",
       "type": "shape",
       "master": "doubleDoor",
       "name": "",
@@ -989,7 +989,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3381ittz",
+      "id": "shp-mwsuk1b73y8b3",
       "type": "shape",
       "master": "note",
       "name": "",
@@ -1005,7 +1005,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs3381hvft"
+       "layer-mwsuk1b73xap1"
       ],
       "locked": {},
       "data": [],

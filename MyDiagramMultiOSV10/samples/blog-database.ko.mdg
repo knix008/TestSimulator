@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "drawing",
- "saved": "2026-11-06T04:18:13.728Z",
+ "saved": "2026-11-23T05:50:20.841Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mw4gs31c0eabd",
+  "id": "dgm-mwsuk1490ea70",
   "title": "블로그 데이터베이스",
   "subject": "",
   "author": "SHKWON",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-11-06T04:18:13.728Z",
+  "created": "2026-11-23T05:50:20.841Z",
   "design": "midnight",
   "variant": 0,
   "units": "mm",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mw4gs31c0ebiu",
+    "id": "page-mwsuk1490ebeo",
     "name": "블로그 데이터베이스",
     "paper": "A4",
     "orientation": "landscape",
@@ -51,7 +51,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mw4gs31c0ecs6",
+      "id": "shp-mwsuk1490ec00",
       "type": "shape",
       "master": "title",
       "name": "",
@@ -79,7 +79,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31c0edqm",
+      "id": "shp-mwsuk1490edez",
       "type": "shape",
       "master": "entity",
       "name": "",
@@ -103,7 +103,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31c0eeka",
+      "id": "shp-mwsuk1490eet4",
       "type": "shape",
       "master": "entity",
       "name": "",
@@ -127,7 +127,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31c0efyd",
+      "id": "shp-mwsuk1490efet",
       "type": "shape",
       "master": "entity",
       "name": "",
@@ -151,7 +151,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31c0egx5",
+      "id": "shp-mwsuk1490egwb",
       "type": "shape",
       "master": "entity",
       "name": "",
@@ -175,7 +175,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31c0eh49",
+      "id": "shp-mwsuk1490ehvs",
       "type": "shape",
       "master": "entity",
       "name": "",
@@ -199,7 +199,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31c0ei3k",
+      "id": "shp-mwsuk1490eih5",
       "type": "shape",
       "master": "dbView",
       "name": "",
@@ -223,14 +223,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs31c0ejyv",
+      "id": "con-mwsuk1490ej1d",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31c0edqm",
+       "id": "shp-mwsuk1490edez",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs31c0eeka",
+       "id": "shp-mwsuk1490eet4",
        "pt": 6
       },
       "route": "orthogonal",
@@ -250,14 +250,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs31c0ek63",
+      "id": "con-mwsuk1490ekcx",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31c0eeka",
+       "id": "shp-mwsuk1490eet4",
        "pt": 4
       },
       "to": {
-       "id": "shp-mw4gs31c0egx5",
+       "id": "shp-mwsuk1490egwb",
        "pt": 0
       },
       "route": "orthogonal",
@@ -277,14 +277,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs31c0elr0",
+      "id": "con-mwsuk1490elav",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31c0edqm",
+       "id": "shp-mwsuk1490edez",
        "pt": 4
       },
       "to": {
-       "id": "shp-mw4gs31c0egx5",
+       "id": "shp-mwsuk1490egwb",
        "pt": 6
       },
       "route": "orthogonal",
@@ -304,14 +304,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs31c0emnf",
+      "id": "con-mwsuk1490emuf",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31c0eeka",
+       "id": "shp-mwsuk1490eet4",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs31c0efyd",
+       "id": "shp-mwsuk1490efet",
        "pt": 6
       },
       "route": "orthogonal",
@@ -331,14 +331,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs31c0en6e",
+      "id": "con-mwsuk1490en8j",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31c0eh49",
+       "id": "shp-mwsuk1490ehvs",
        "pt": 0
       },
       "to": {
-       "id": "shp-mw4gs31c0efyd",
+       "id": "shp-mwsuk1490efet",
        "pt": 4
       },
       "route": "orthogonal",

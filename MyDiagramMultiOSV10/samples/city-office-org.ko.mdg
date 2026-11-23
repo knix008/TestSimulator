@@ -1,0 +1,412 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:20.957Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk17h1ygan",
+  "title": "시청 조직도",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:20.957Z",
+  "design": "office",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk17h1yhyz",
+    "name": "시청 조직도",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk17h1yin0",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "시청 조직도",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17h1yjq5",
+      "type": "shape",
+      "master": "orgExecutive",
+      "name": "",
+      "x": 429.58333333333337,
+      "y": 80,
+      "w": 240.83333333333334,
+      "h": 113.33333333333334,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "시장",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17h1yklm",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 436.6666666666667,
+      "y": 261.33333333333337,
+      "w": 226.66666666666669,
+      "h": 99.16666666666667,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "부시장",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17h1yl8m",
+      "type": "shape",
+      "master": "orgDepartment",
+      "name": "",
+      "x": 40,
+      "y": 428.5,
+      "w": 212.5,
+      "h": 99.16666666666667,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "도시계획과",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17h1ymcn",
+      "type": "shape",
+      "master": "orgDepartment",
+      "name": "",
+      "x": 309.1666666666667,
+      "y": 428.5,
+      "w": 212.5,
+      "h": 99.16666666666667,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "복지과",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17h1ynk7",
+      "type": "shape",
+      "master": "orgDepartment",
+      "name": "",
+      "x": 578.3333333333334,
+      "y": 428.5,
+      "w": 212.5,
+      "h": 99.16666666666667,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "환경과",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17h1yo47",
+      "type": "shape",
+      "master": "orgDepartment",
+      "name": "",
+      "x": 847.5,
+      "y": 428.5,
+      "w": 212.5,
+      "h": 99.16666666666667,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "재정과",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17h1ypke",
+      "type": "shape",
+      "master": "orgTeam",
+      "name": "",
+      "x": 309.1666666666667,
+      "y": 595.6666666666667,
+      "w": 212.5,
+      "h": 99.16666666666667,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "민원실",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17h1yqyx",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17h1yjq5",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17h1yklm",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17h1yrq6",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17h1yklm",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17h1yl8m",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17h1ys7d",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17h1yklm",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17h1ymcn",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17h1yt9k",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17h1yklm",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17h1ynk7",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17h1yufm",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17h1yklm",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17h1yo47",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17h1yvxm",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17h1ymcn",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17h1ypke",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "org"
+  ]
+ }
+}

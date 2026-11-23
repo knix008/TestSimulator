@@ -1,0 +1,473 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.159Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1d34vpmi",
+  "title": "Kubernetes Cluster",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.159Z",
+  "design": "slice",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1d34vqxi",
+    "name": "Kubernetes Cluster",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1d34vrrd",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 17.72830188679245,
+      "w": 610.6415094339623,
+      "h": 49.24528301886792,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Kubernetes Cluster",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1d34vsui",
+      "type": "shape",
+      "master": "netLoadBalancer",
+      "name": "",
+      "x": 479.3433962264151,
+      "y": 78.79245283018868,
+      "w": 124.70943396226416,
+      "h": 83.13962264150943,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Load balancer",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1d34vtbx",
+      "type": "shape",
+      "master": "cldCluster",
+      "name": "",
+      "x": 486.27169811320755,
+      "y": 253.3856603773585,
+      "w": 110.85283018867925,
+      "h": 110.85283018867925,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Kubernetes cluster",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1d34vuqy",
+      "type": "shape",
+      "master": "cldContainer",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 462.62037735849054,
+      "w": 96.99622641509434,
+      "h": 96.99622641509434,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Web pods ×3",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1d34vvap",
+      "type": "shape",
+      "master": "cldContainer",
+      "name": "",
+      "x": 212.60377358490567,
+      "y": 462.62037735849054,
+      "w": 96.99622641509434,
+      "h": 96.99622641509434,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "API pods ×4",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1d34vwjo",
+      "type": "shape",
+      "master": "cldContainer",
+      "name": "",
+      "x": 385.811320754717,
+      "y": 462.62037735849054,
+      "w": 96.99622641509434,
+      "h": 96.99622641509434,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Worker pods ×2",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1d34vx7x",
+      "type": "shape",
+      "master": "cldAutoscale",
+      "name": "",
+      "x": 559.0188679245283,
+      "y": 462.62037735849054,
+      "w": 124.70943396226416,
+      "h": 96.99622641509434,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Autoscaler",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1d34vy6x",
+      "type": "shape",
+      "master": "cldSecret",
+      "name": "",
+      "x": 759.9396226415093,
+      "y": 455.6920754716981,
+      "w": 96.99622641509434,
+      "h": 110.85283018867925,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Secrets",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1d34vzj8",
+      "type": "shape",
+      "master": "cldLogs",
+      "name": "",
+      "x": 933.1471698113207,
+      "y": 462.62037735849054,
+      "w": 110.85283018867925,
+      "h": 96.99622641509434,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Logs",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1d34w0d2",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1d34vsui",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1d34vtbx",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1d34w1wf",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1d34vtbx",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1d34vuqy",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1d34w2jw",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1d34vtbx",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1d34vvap",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1d34w3jq",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1d34vtbx",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1d34vwjo",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1d34w4p3",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1d34vtbx",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1d34vx7x",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1d34w54j",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1d34vtbx",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1d34vy6x",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1d34w6ah",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1d34vtbx",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1d34vzj8",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "cloud"
+  ]
+ }
+}

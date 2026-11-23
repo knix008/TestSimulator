@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "drawing",
- "saved": "2026-11-06T04:18:13.724Z",
+ "saved": "2026-11-23T05:50:20.836Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mw4gs3180aqqo",
+  "id": "dgm-mwsuk1440aqst",
   "title": "로그인 시퀀스",
   "subject": "",
   "author": "SHKWON",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-11-06T04:18:13.724Z",
+  "created": "2026-11-23T05:50:20.836Z",
   "design": "linear",
   "variant": 0,
   "units": "mm",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mw4gs3180ark2",
+    "id": "page-mwsuk1440arfv",
     "name": "로그인 시퀀스",
     "paper": "A4",
     "orientation": "landscape",
@@ -51,7 +51,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mw4gs3180asy6",
+      "id": "shp-mwsuk1440astm",
       "type": "shape",
       "master": "title",
       "name": "",
@@ -79,7 +79,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3180at62",
+      "id": "shp-mwsuk1440atrp",
       "type": "shape",
       "master": "umlLifeline",
       "name": "",
@@ -137,7 +137,7 @@
       ]
      },
      {
-      "id": "shp-mw4gs3180augm",
+      "id": "shp-mwsuk1440au99",
       "type": "shape",
       "master": "umlLifeline",
       "name": "",
@@ -195,7 +195,7 @@
       ]
      },
      {
-      "id": "shp-mw4gs3180av9w",
+      "id": "shp-mwsuk1440avrv",
       "type": "shape",
       "master": "umlLifeline",
       "name": "",
@@ -253,7 +253,7 @@
       ]
      },
      {
-      "id": "shp-mw4gs3180awrw",
+      "id": "shp-mwsuk1440awlb",
       "type": "shape",
       "master": "umlLifeline",
       "name": "",
@@ -311,14 +311,14 @@
       ]
      },
      {
-      "id": "con-mw4gs3180axpi",
+      "id": "con-mwsuk1440axrm",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3180at62",
+       "id": "shp-mwsuk1440atrp",
        "pt": 0
       },
       "to": {
-       "id": "shp-mw4gs3180augm",
+       "id": "shp-mwsuk1440au99",
        "pt": 0
       },
       "route": "straight",
@@ -337,14 +337,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3180aymg",
+      "id": "con-mwsuk1440ayky",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3180augm",
+       "id": "shp-mwsuk1440au99",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs3180av9w",
+       "id": "shp-mwsuk1440avrv",
        "pt": 1
       },
       "route": "straight",
@@ -363,14 +363,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3180azln",
+      "id": "con-mwsuk1440az13",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3180av9w",
+       "id": "shp-mwsuk1440avrv",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs3180awrw",
+       "id": "shp-mwsuk1440awlb",
        "pt": 2
       },
       "route": "straight",
@@ -389,14 +389,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3180b0di",
+      "id": "con-mwsuk1440b0h9",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3180awrw",
+       "id": "shp-mwsuk1440awlb",
        "pt": 3
       },
       "to": {
-       "id": "shp-mw4gs3180av9w",
+       "id": "shp-mwsuk1440avrv",
        "pt": 3
       },
       "route": "straight",
@@ -416,14 +416,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3180b1s4",
+      "id": "con-mwsuk1440b1zi",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3180av9w",
+       "id": "shp-mwsuk1440avrv",
        "pt": 4
       },
       "to": {
-       "id": "shp-mw4gs3180augm",
+       "id": "shp-mwsuk1440au99",
        "pt": 4
       },
       "route": "straight",
@@ -443,14 +443,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3180b2sh",
+      "id": "con-mwsuk1440b2ju",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3180augm",
+       "id": "shp-mwsuk1440au99",
        "pt": 5
       },
       "to": {
-       "id": "shp-mw4gs3180at62",
+       "id": "shp-mwsuk1440atrp",
        "pt": 5
       },
       "route": "straight",
@@ -470,14 +470,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3180b3ue",
+      "id": "con-mwsuk1440b37a",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3180at62",
+       "id": "shp-mwsuk1440atrp",
        "pt": 6
       },
       "to": {
-       "id": "shp-mw4gs3180augm",
+       "id": "shp-mwsuk1440au99",
        "pt": 6
       },
       "route": "straight",
@@ -496,14 +496,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3180b4it",
+      "id": "con-mwsuk1440b4kq",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3180augm",
+       "id": "shp-mwsuk1440au99",
        "pt": 7
       },
       "to": {
-       "id": "shp-mw4gs3180at62",
+       "id": "shp-mwsuk1440atrp",
        "pt": 7
       },
       "route": "straight",

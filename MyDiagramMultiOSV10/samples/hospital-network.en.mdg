@@ -1,0 +1,582 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.155Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1cy4te59",
+  "title": "Hospital Network",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.154Z",
+  "design": "linear",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1cy4tfaj",
+    "name": "Hospital Network",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1cy4tg8z",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Hospital Network",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cz4thwk",
+      "type": "shape",
+      "master": "internet",
+      "name": "",
+      "x": 416.88948605979175,
+      "y": 80,
+      "w": 91.36714813570708,
+      "h": 91.36714813570708,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Internet",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cz4tiw1",
+      "type": "shape",
+      "master": "firewall",
+      "name": "",
+      "x": 411.17903930131007,
+      "y": 237.1514947934162,
+      "w": 102.78804165267047,
+      "h": 79.94625461874371,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Firewall",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cz4tj8p",
+      "type": "shape",
+      "master": "switch",
+      "name": "",
+      "x": 399.75814578434665,
+      "y": 382.88209606986896,
+      "w": 125.62982868659725,
+      "h": 57.10446758481693,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Core switch",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cz4tkbz",
+      "type": "shape",
+      "master": "dbServer",
+      "name": "",
+      "x": 40,
+      "y": 505.77091031239496,
+      "w": 79.94625461874371,
+      "h": 97.07759489418878,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Medical records",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cz4tlec",
+      "type": "shape",
+      "master": "storage",
+      "name": "",
+      "x": 174.76654350016796,
+      "y": 514.3365804501175,
+      "w": 91.36714813570708,
+      "h": 79.94625461874371,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Image archive (PACS)",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cz4tms7",
+      "type": "shape",
+      "master": "switch",
+      "name": "",
+      "x": 540.2351360429964,
+      "y": 525.7574739670808,
+      "w": 125.62982868659725,
+      "h": 57.10446758481693,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Ward switch",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cz4tnmd",
+      "type": "shape",
+      "master": "desktop",
+      "name": "",
+      "x": 320.9539805172993,
+      "y": 668.6328518642929,
+      "w": 102.78804165267047,
+      "h": 91.36714813570708,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Nurse station",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cz4tok9",
+      "type": "shape",
+      "master": "monitor",
+      "name": "",
+      "x": 478.56231105139403,
+      "y": 674.3432986227746,
+      "w": 102.78804165267047,
+      "h": 79.94625461874371,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Patient monitor",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cz4tpuu",
+      "type": "shape",
+      "master": "netCamera",
+      "name": "",
+      "x": 636.1706415854887,
+      "y": 674.3432986227746,
+      "w": 102.78804165267047,
+      "h": 79.94625461874371,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Door camera",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cz4tqlm",
+      "type": "shape",
+      "master": "netVoip",
+      "name": "",
+      "x": 793.7789721195835,
+      "y": 674.3432986227746,
+      "w": 91.36714813570708,
+      "h": 79.94625461874371,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Desk phones",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1cz4trup",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cz4thwk",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cz4tiw1",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1cz4tspa",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cz4tiw1",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cz4tj8p",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1cz4tts9",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cz4tj8p",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cz4tkbz",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1cz4tuuj",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cz4tj8p",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cz4tlec",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1cz4tvvn",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cz4tj8p",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cz4tms7",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1cz4twda",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cz4tms7",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cz4tnmd",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1cz4tx5o",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cz4tms7",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cz4tok9",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1cz4ty4u",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cz4tms7",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cz4tpuu",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1cz4tzwc",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cz4tms7",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cz4tqlm",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "network"
+  ]
+ }
+}

@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "drawing",
- "saved": "2026-11-06T04:18:13.739Z",
+ "saved": "2026-11-23T05:50:20.852Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mw4gs31n0mi7s",
+  "id": "dgm-mwsuk14k0miec",
   "title": "카페 배치",
   "subject": "",
   "author": "SHKWON",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-11-06T04:18:13.739Z",
+  "created": "2026-11-23T05:50:20.852Z",
   "design": "organic",
   "variant": 0,
   "units": "mm",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mw4gs31n0mjas",
+    "id": "page-mwsuk14k0mjik",
     "name": "카페 배치",
     "paper": "A4",
     "orientation": "landscape",
@@ -47,7 +47,7 @@
     "gridSize": 0,
     "layers": [
      {
-      "id": "layer-mw4gs31n0mldi",
+      "id": "layer-mwsuk14k0mlka",
       "name": "가구",
       "visible": true,
       "print": true,
@@ -55,7 +55,7 @@
       "color": ""
      },
      {
-      "id": "layer-mw4gs31n0mmlh",
+      "id": "layer-mwsuk14k0mmrs",
       "name": "메모",
       "visible": true,
       "print": true,
@@ -68,7 +68,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mw4gs31n0mkcv",
+      "id": "shp-mwsuk14k0mkf3",
       "type": "shape",
       "master": "title",
       "name": "",
@@ -96,7 +96,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0mnv7",
+      "id": "shp-mwsuk14k0mn3l",
       "type": "shape",
       "master": "room",
       "name": "",
@@ -120,7 +120,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0mopw",
+      "id": "shp-mwsuk14k0mo86",
       "type": "shape",
       "master": "window",
       "name": "",
@@ -146,7 +146,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0mpkz",
+      "id": "shp-mwsuk14k0mpdy",
       "type": "shape",
       "master": "window",
       "name": "",
@@ -172,7 +172,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0mqn9",
+      "id": "shp-mwsuk14k0mqxu",
       "type": "shape",
       "master": "tableRect",
       "name": "",
@@ -188,7 +188,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mldi"
+       "layer-mwsuk14k0mlka"
       ],
       "locked": {},
       "data": [],
@@ -198,7 +198,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0mryx",
+      "id": "shp-mwsuk14k0mrg9",
       "type": "shape",
       "master": "tableRect",
       "name": "",
@@ -214,7 +214,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mldi"
+       "layer-mwsuk14k0mlka"
       ],
       "locked": {},
       "data": [],
@@ -224,7 +224,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0ms2a",
+      "id": "shp-mwsuk14k0ms9c",
       "type": "shape",
       "master": "room",
       "name": "",
@@ -250,7 +250,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0mtpq",
+      "id": "shp-mwsuk14k0mtlo",
       "type": "shape",
       "master": "toilet",
       "name": "",
@@ -276,7 +276,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0mul7",
+      "id": "shp-mwsuk14k0mu99",
       "type": "shape",
       "master": "sink",
       "name": "",
@@ -302,7 +302,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0mvsj",
+      "id": "shp-mwsuk14k0mvky",
       "type": "shape",
       "master": "tableRound",
       "name": "",
@@ -318,7 +318,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mldi"
+       "layer-mwsuk14k0mlka"
       ],
       "locked": {},
       "data": [],
@@ -328,7 +328,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0mw52",
+      "id": "shp-mwsuk14k0mwb0",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -346,7 +346,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mldi"
+       "layer-mwsuk14k0mlka"
       ],
       "locked": {},
       "data": [],
@@ -356,7 +356,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0mx8b",
+      "id": "shp-mwsuk14k0mxvn",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -374,7 +374,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mldi"
+       "layer-mwsuk14k0mlka"
       ],
       "locked": {},
       "data": [],
@@ -384,7 +384,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0my2k",
+      "id": "shp-mwsuk14k0myl9",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -402,7 +402,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mldi"
+       "layer-mwsuk14k0mlka"
       ],
       "locked": {},
       "data": [],
@@ -412,7 +412,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0mzjb",
+      "id": "shp-mwsuk14k0mzdo",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -430,7 +430,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mldi"
+       "layer-mwsuk14k0mlka"
       ],
       "locked": {},
       "data": [],
@@ -440,7 +440,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0n0p7",
+      "id": "shp-mwsuk14k0n0sa",
       "type": "shape",
       "master": "tableRound",
       "name": "",
@@ -456,7 +456,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mldi"
+       "layer-mwsuk14k0mlka"
       ],
       "locked": {},
       "data": [],
@@ -466,7 +466,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0n1vj",
+      "id": "shp-mwsuk14k0n179",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -484,7 +484,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mldi"
+       "layer-mwsuk14k0mlka"
       ],
       "locked": {},
       "data": [],
@@ -494,7 +494,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0n24e",
+      "id": "shp-mwsuk14k0n2o1",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -512,7 +512,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mldi"
+       "layer-mwsuk14k0mlka"
       ],
       "locked": {},
       "data": [],
@@ -522,7 +522,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0n3k2",
+      "id": "shp-mwsuk14k0n335",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -540,7 +540,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mldi"
+       "layer-mwsuk14k0mlka"
       ],
       "locked": {},
       "data": [],
@@ -550,7 +550,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0n4u7",
+      "id": "shp-mwsuk14k0n4p9",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -568,7 +568,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mldi"
+       "layer-mwsuk14k0mlka"
       ],
       "locked": {},
       "data": [],
@@ -578,7 +578,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0n5ec",
+      "id": "shp-mwsuk14k0n56p",
       "type": "shape",
       "master": "tableRound",
       "name": "",
@@ -594,7 +594,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mldi"
+       "layer-mwsuk14k0mlka"
       ],
       "locked": {},
       "data": [],
@@ -604,7 +604,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0n6a0",
+      "id": "shp-mwsuk14k0n6ca",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -622,7 +622,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mldi"
+       "layer-mwsuk14k0mlka"
       ],
       "locked": {},
       "data": [],
@@ -632,7 +632,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0n7dn",
+      "id": "shp-mwsuk14k0n76c",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -650,7 +650,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mldi"
+       "layer-mwsuk14k0mlka"
       ],
       "locked": {},
       "data": [],
@@ -660,7 +660,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0n8k6",
+      "id": "shp-mwsuk14k0n835",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -678,7 +678,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mldi"
+       "layer-mwsuk14k0mlka"
       ],
       "locked": {},
       "data": [],
@@ -688,7 +688,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0n97g",
+      "id": "shp-mwsuk14k0n99g",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -706,7 +706,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mldi"
+       "layer-mwsuk14k0mlka"
       ],
       "locked": {},
       "data": [],
@@ -716,7 +716,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0nac8",
+      "id": "shp-mwsuk14k0na7k",
       "type": "shape",
       "master": "tableRound",
       "name": "",
@@ -732,7 +732,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mldi"
+       "layer-mwsuk14k0mlka"
       ],
       "locked": {},
       "data": [],
@@ -742,7 +742,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0nbsi",
+      "id": "shp-mwsuk14k0nb5n",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -760,7 +760,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mldi"
+       "layer-mwsuk14k0mlka"
       ],
       "locked": {},
       "data": [],
@@ -770,7 +770,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0ncza",
+      "id": "shp-mwsuk14k0nct6",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -788,7 +788,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mldi"
+       "layer-mwsuk14k0mlka"
       ],
       "locked": {},
       "data": [],
@@ -798,7 +798,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0ndl2",
+      "id": "shp-mwsuk14k0nd0e",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -816,7 +816,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mldi"
+       "layer-mwsuk14k0mlka"
       ],
       "locked": {},
       "data": [],
@@ -826,7 +826,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0ned6",
+      "id": "shp-mwsuk14k0ne67",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -844,7 +844,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mldi"
+       "layer-mwsuk14k0mlka"
       ],
       "locked": {},
       "data": [],
@@ -854,7 +854,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0nfe0",
+      "id": "shp-mwsuk14k0nfny",
       "type": "shape",
       "master": "sofa",
       "name": "",
@@ -870,7 +870,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mldi"
+       "layer-mwsuk14k0mlka"
       ],
       "locked": {},
       "data": [],
@@ -880,7 +880,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0ngmv",
+      "id": "shp-mwsuk14k0ngri",
       "type": "shape",
       "master": "tableRect",
       "name": "",
@@ -896,7 +896,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mldi"
+       "layer-mwsuk14k0mlka"
       ],
       "locked": {},
       "data": [],
@@ -906,7 +906,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0nhh1",
+      "id": "shp-mwsuk14k0nha4",
       "type": "shape",
       "master": "plant",
       "name": "",
@@ -924,7 +924,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mldi"
+       "layer-mwsuk14k0mlka"
       ],
       "locked": {},
       "data": [],
@@ -934,7 +934,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0niv9",
+      "id": "shp-mwsuk14k0nizg",
       "type": "shape",
       "master": "plant",
       "name": "",
@@ -952,7 +952,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mldi"
+       "layer-mwsuk14k0mlka"
       ],
       "locked": {},
       "data": [],
@@ -962,7 +962,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0njdp",
+      "id": "shp-mwsuk14k0nj3o",
       "type": "shape",
       "master": "doubleDoor",
       "name": "",
@@ -989,7 +989,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31n0nkau",
+      "id": "shp-mwsuk14k0nkwy",
       "type": "shape",
       "master": "note",
       "name": "",
@@ -1005,7 +1005,7 @@
       "qs": {},
       "params": {},
       "layers": [
-       "layer-mw4gs31n0mmlh"
+       "layer-mwsuk14k0mmrs"
       ],
       "locked": {},
       "data": [],

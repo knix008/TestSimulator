@@ -1,0 +1,315 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.247Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1fj60hed",
+  "title": "Airport Transfer",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.247Z",
+  "design": "radiance",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1fj60i3b",
+    "name": "Airport Transfer",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1fj60j8i",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 39.39622641509435,
+      "y": 17.728301886792458,
+      "w": 610.6415094339624,
+      "h": 49.24528301886794,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Airport Transfer",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1fj60k0p",
+      "type": "shape",
+      "master": "mapHouse",
+      "name": "",
+      "x": 39.39622641509435,
+      "y": 90.02963150563507,
+      "w": 78.66025072812461,
+      "h": 78.66025072812461,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Home",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1fj60l3b",
+      "type": "shape",
+      "master": "trTrain",
+      "name": "",
+      "x": 225.93339242750415,
+      "y": 92.27706724072435,
+      "w": 146.08332278080286,
+      "h": 74.16537925794607,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Airport train",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1fj60mbp",
+      "type": "shape",
+      "master": "trPlane",
+      "name": "",
+      "x": 479.8936304925922,
+      "y": 78.7924528301887,
+      "w": 123.60896542991011,
+      "h": 101.13460807901737,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Airport",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1fj60n1y",
+      "type": "shape",
+      "master": "trBus",
+      "name": "",
+      "x": 711.3795112067875,
+      "y": 92.27706724072435,
+      "w": 146.08332278080286,
+      "h": 74.16537925794607,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Shuttle bus",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1fj60om3",
+      "type": "shape",
+      "master": "mapBuilding",
+      "name": "",
+      "x": 965.3397492718755,
+      "y": 78.7924528301887,
+      "w": 78.66025072812461,
+      "h": 101.13460807901737,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Hotel",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1fj60pjs",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1fj60k0p",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1fj60l3b",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "15 min",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1fj60qr1",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1fj60l3b",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1fj60mbp",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "45 min",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1fj60rob",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1fj60mbp",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1fj60n1y",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "after the flight",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1fj60si5",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1fj60n1y",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1fj60om3",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "20 min",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "transport",
+   "maps"
+  ]
+ }
+}

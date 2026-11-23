@@ -1,0 +1,465 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:20.955Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk17f1x2wk",
+  "title": "스타트업 조직도",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:20.955Z",
+  "design": "bubble",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk17f1x33n",
+    "name": "스타트업 조직도",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk17f1x4bv",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "스타트업 조직도",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17f1x5c3",
+      "type": "shape",
+      "master": "orgExecutive",
+      "name": "",
+      "x": 454.72527472527474,
+      "y": 80,
+      "w": 190.54945054945054,
+      "h": 89.67032967032966,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "대표",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17f1x67r",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 247.36263736263737,
+      "y": 223.47252747252747,
+      "w": 179.34065934065933,
+      "h": 78.46153846153847,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "CTO",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17f1x7rl",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 779.7802197802198,
+      "y": 223.47252747252747,
+      "w": 179.34065934065933,
+      "h": 78.46153846153847,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "COO",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17f1x83e",
+      "type": "shape",
+      "master": "orgTeam",
+      "name": "",
+      "x": 40,
+      "y": 355.73626373626377,
+      "w": 168.13186813186815,
+      "h": 78.46153846153847,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "개발 4명",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17f1x9em",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 252.96703296703296,
+      "y": 355.73626373626377,
+      "w": 168.13186813186815,
+      "h": 78.46153846153847,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "디자이너",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17f1xa2r",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 678.9010989010989,
+      "y": 355.73626373626377,
+      "w": 168.13186813186815,
+      "h": 78.46153846153847,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "마케터",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17f1xbik",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 891.8681318681319,
+      "y": 355.73626373626377,
+      "w": 168.13186813186815,
+      "h": 78.46153846153847,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "고객 지원",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17f1xcdn",
+      "type": "shape",
+      "master": "orgVacancy",
+      "name": "",
+      "x": 465.9340659340659,
+      "y": 355.73626373626377,
+      "w": 168.13186813186815,
+      "h": 78.46153846153847,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "채용 중: 데이터",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17f1xdlj",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17f1x5c3",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17f1x67r",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17f1xeds",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17f1x5c3",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17f1x7rl",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17f1xfqy",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17f1x67r",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17f1x83e",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17f1xg9t",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17f1x67r",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17f1x9em",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17f1xhki",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17f1x67r",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17f1xcdn",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17f1xi5w",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17f1x7rl",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17f1xa2r",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17f1xj28",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17f1x7rl",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17f1xbik",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "org"
+  ]
+ }
+}

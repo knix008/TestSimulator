@@ -1,0 +1,554 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:20.917Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk16d1gvmr",
+  "title": "카페 와이파이",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:20.917Z",
+  "design": "bubble",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk16d1gwkp",
+    "name": "카페 와이파이",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk16d1gxhp",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "카페 와이파이",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16d1gy6x",
+      "type": "shape",
+      "master": "internet",
+      "name": "",
+      "x": 267.0508474576271,
+      "y": 80,
+      "w": 92.20338983050848,
+      "h": 92.20338983050848,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "인터넷",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16d1gz1m",
+      "type": "shape",
+      "master": "netModem",
+      "name": "",
+      "x": 255.52542372881356,
+      "y": 241.35593220338984,
+      "w": 115.2542372881356,
+      "h": 69.15254237288136,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "모뎀",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16d1h0xl",
+      "type": "shape",
+      "master": "router",
+      "name": "",
+      "x": 261.2881355932203,
+      "y": 379.66101694915255,
+      "w": 103.72881355932203,
+      "h": 69.15254237288136,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "공유기",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16d1h1re",
+      "type": "shape",
+      "master": "wirelessAp",
+      "name": "",
+      "x": 132.20338983050848,
+      "y": 517.9661016949153,
+      "w": 80.67796610169492,
+      "h": 80.67796610169492,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "직원용 와이파이",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16d1h2em",
+      "type": "shape",
+      "master": "wirelessAp",
+      "name": "",
+      "x": 434.1694915254237,
+      "y": 517.9661016949153,
+      "w": 80.67796610169492,
+      "h": 80.67796610169492,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "손님용 와이파이",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16d1h3t2",
+      "type": "shape",
+      "master": "desktop",
+      "name": "",
+      "x": 40,
+      "y": 667.7966101694916,
+      "w": 103.72881355932203,
+      "h": 92.20338983050848,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "계산대 POS",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16d1h4y1",
+      "type": "shape",
+      "master": "monitor",
+      "name": "",
+      "x": 201.35593220338984,
+      "y": 673.5593220338983,
+      "w": 103.72881355932203,
+      "h": 80.67796610169492,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "주문 화면",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16d1h5yf",
+      "type": "shape",
+      "master": "phone",
+      "name": "",
+      "x": 362.7118644067797,
+      "y": 667.7966101694916,
+      "w": 50.71186440677966,
+      "h": 92.20338983050848,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "손님 휴대폰",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16d1h6ts",
+      "type": "shape",
+      "master": "laptop",
+      "name": "",
+      "x": 471.0508474576271,
+      "y": 673.5593220338983,
+      "w": 115.2542372881356,
+      "h": 80.67796610169492,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "손님 노트북",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk16d1h7as",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16d1gy6x",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16d1gz1m",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16d1h80v",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16d1gz1m",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16d1h0xl",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16d1h900",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16d1h0xl",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16d1h1re",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16d1ha95",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16d1h0xl",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16d1h2em",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16d1hbzb",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16d1h1re",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16d1h3t2",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16d1hc4w",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16d1h1re",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16d1h4y1",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16d1hdad",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16d1h2em",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16d1h5yf",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16d1hemj",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16d1h2em",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16d1h6ts",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk16d1hfd5",
+      "type": "shape",
+      "master": "note",
+      "name": "",
+      "x": 690,
+      "y": 90,
+      "w": 240,
+      "h": 110,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "손님 망은 직원 망과 분리해 계산대에 접근할 수 없습니다.",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "network"
+  ]
+ }
+}

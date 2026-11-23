@@ -1,0 +1,462 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:20.953Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk17d1w0zx",
+  "title": "학교 조직도",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:20.953Z",
+  "design": "ion",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk17d1w1wt",
+    "name": "학교 조직도",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk17d1w2pz",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "학교 조직도",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17d1w3gq",
+      "type": "shape",
+      "master": "orgExecutive",
+      "name": "",
+      "x": 451.2903225806451,
+      "y": 80,
+      "w": 197.41935483870967,
+      "h": 87.74193548387096,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "교장",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17d1w4p9",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 341.6129032258064,
+      "y": 220.38709677419354,
+      "w": 186.4516129032258,
+      "h": 76.77419354838709,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "교감",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17d1w5fg",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 873.5483870967741,
+      "y": 220.38709677419354,
+      "w": 186.4516129032258,
+      "h": 76.77419354838709,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "행정실장",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17d1w6dd",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 40,
+      "y": 349.80645161290323,
+      "w": 164.51612903225805,
+      "h": 76.77419354838709,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "1학년 부장",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17d1w7bu",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 248.38709677419354,
+      "y": 349.80645161290323,
+      "w": 164.51612903225805,
+      "h": 76.77419354838709,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "2학년 부장",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17d1w8us",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 456.7741935483871,
+      "y": 349.80645161290323,
+      "w": 164.51612903225805,
+      "h": 76.77419354838709,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "3학년 부장",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17d1w991",
+      "type": "shape",
+      "master": "orgStaff",
+      "name": "",
+      "x": 884.516129032258,
+      "y": 349.80645161290323,
+      "w": 164.51612903225805,
+      "h": 76.77419354838709,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "행정 직원",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17d1wawj",
+      "type": "shape",
+      "master": "orgStaff",
+      "name": "",
+      "x": 665.1612903225806,
+      "y": 349.80645161290323,
+      "w": 164.51612903225805,
+      "h": 76.77419354838709,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "상담 교사",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17d1wb3t",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17d1w3gq",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17d1w4p9",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17d1wct1",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17d1w3gq",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17d1w5fg",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17d1wdom",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17d1w4p9",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17d1w6dd",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17d1weip",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17d1w4p9",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17d1w7bu",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17d1wf44",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17d1w4p9",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17d1w8us",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17d1wghr",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17d1w4p9",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17d1wawj",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17d1whmj",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17d1w5fg",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17d1w991",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "org"
+  ]
+ }
+}

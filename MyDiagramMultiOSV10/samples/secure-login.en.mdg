@@ -1,0 +1,418 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.161Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1d54wlpm",
+  "title": "Secure Login",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.161Z",
+  "design": "chalkboard",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1d54wmgj",
+    "name": "Secure Login",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1d54wngk",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 17.72830188679245,
+      "w": 610.6415094339623,
+      "h": 49.24528301886792,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Secure Login",
+      "style": {
+       "align": "left",
+       "textColor": "#f4f1de",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1d54wo2u",
+      "type": "shape",
+      "master": "user",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 153.30976570599213,
+      "w": 66.23761144515862,
+      "h": 77.27721335268505,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "User",
+      "style": {
+       "textColor": "#f4f1de"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1d54wp1s",
+      "type": "shape",
+      "master": "secPassword",
+      "name": "",
+      "x": 191.74273273895915,
+      "y": 167.6612481857765,
+      "w": 143.5148247978437,
+      "h": 48.57424839311632,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Password",
+      "style": {
+       "textColor": "#f4f1de"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1d54wq2c",
+      "type": "shape",
+      "master": "secToken",
+      "name": "",
+      "x": 421.366452415509,
+      "y": 164.34936761351855,
+      "w": 88.31681526021148,
+      "h": 55.19800953763218,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "One-time code",
+      "style": {
+       "textColor": "#f4f1de"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1d54wrzc",
+      "type": "shape",
+      "master": "secShieldCheck",
+      "name": "",
+      "x": 595.7921625544267,
+      "y": 145.5820443707236,
+      "w": 77.27721335268505,
+      "h": 92.73265602322206,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Identity provider",
+      "style": {
+       "textColor": "#f4f1de"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1d54wsrs",
+      "type": "shape",
+      "master": "secKey",
+      "name": "",
+      "x": 759.178270785818,
+      "y": 78.79245283018868,
+      "w": 110.39601907526436,
+      "h": 55.19800953763218,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Issue token",
+      "style": {
+       "textColor": "#f4f1de"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1d54wt8p",
+      "type": "shape",
+      "master": "cldApi",
+      "name": "",
+      "x": 955.6831847397885,
+      "y": 153.30976570599213,
+      "w": 88.31681526021148,
+      "h": 77.27721335268505,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Service",
+      "style": {
+       "textColor": "#f4f1de"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1d54wu9m",
+      "type": "shape",
+      "master": "secAudit",
+      "name": "",
+      "x": 775.7376736471076,
+      "y": 205.74787476674268,
+      "w": 77.27721335268505,
+      "h": 99.35641716773792,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Sign-in log",
+      "style": {
+       "textColor": "#f4f1de"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1d54wvqd",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1d54wo2u",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1d54wp1s",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1d54wwyv",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1d54wp1s",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1d54wq2c",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1d54wxmf",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1d54wq2c",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1d54wrzc",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1d54wyrn",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1d54wrzc",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1d54wsrs",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1d54wzrf",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1d54wsrs",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1d54wt8p",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1d54x0oq",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1d54wrzc",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1d54wu9m",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "security",
+   "cloud"
+  ]
+ }
+}

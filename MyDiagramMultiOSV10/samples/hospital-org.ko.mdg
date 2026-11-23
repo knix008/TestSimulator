@@ -1,0 +1,512 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:20.954Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk17e1wi2t",
+  "title": "병원 조직도",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:20.954Z",
+  "design": "linear",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk17e1wj37",
+    "name": "병원 조직도",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk17e1wkc1",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "병원 조직도",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17e1wlur",
+      "type": "shape",
+      "master": "orgExecutive",
+      "name": "",
+      "x": 453.36842105263156,
+      "y": 80,
+      "w": 193.26315789473685,
+      "h": 85.89473684210526,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "병원장",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17e1wm6g",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 233.26315789473685,
+      "y": 217.43157894736842,
+      "w": 182.5263157894737,
+      "h": 75.15789473684211,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "진료 부원장",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17e1wn8h",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 652,
+      "y": 217.43157894736842,
+      "w": 182.5263157894737,
+      "h": 75.15789473684211,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "간호부장",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17e1wo41",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 877.4736842105264,
+      "y": 217.43157894736842,
+      "w": 182.5263157894737,
+      "h": 75.15789473684211,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "행정부장",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17e1wpyg",
+      "type": "shape",
+      "master": "orgDepartment",
+      "name": "",
+      "x": 40,
+      "y": 344.12631578947367,
+      "w": 161.05263157894737,
+      "h": 75.15789473684211,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "내과",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17e1wqq6",
+      "type": "shape",
+      "master": "orgDepartment",
+      "name": "",
+      "x": 244,
+      "y": 344.12631578947367,
+      "w": 161.05263157894737,
+      "h": 75.15789473684211,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "외과",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17e1wrps",
+      "type": "shape",
+      "master": "orgDepartment",
+      "name": "",
+      "x": 448,
+      "y": 344.12631578947367,
+      "w": 161.05263157894737,
+      "h": 75.15789473684211,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "응급실",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17e1ws3x",
+      "type": "shape",
+      "master": "orgTeam",
+      "name": "",
+      "x": 662.7368421052631,
+      "y": 344.12631578947367,
+      "w": 161.05263157894737,
+      "h": 75.15789473684211,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "병동 간호팀",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17e1wt5g",
+      "type": "shape",
+      "master": "orgTeam",
+      "name": "",
+      "x": 888.2105263157895,
+      "y": 344.12631578947367,
+      "w": 161.05263157894737,
+      "h": 75.15789473684211,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "전산팀",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17e1wuys",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17e1wlur",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17e1wm6g",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17e1wvwj",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17e1wlur",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17e1wn8h",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17e1wwa5",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17e1wlur",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17e1wo41",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17e1wxun",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17e1wm6g",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17e1wpyg",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17e1wyvc",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17e1wm6g",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17e1wqq6",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17e1wztp",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17e1wm6g",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17e1wrps",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17e1x06r",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17e1wn8h",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17e1ws3x",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk17e1x1ix",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17e1wo41",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17e1wt5g",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "org"
+  ]
+ }
+}

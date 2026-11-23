@@ -15,7 +15,7 @@ import {
 import { getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
 import * as native from './platform/native.js';
-import { POPUPS, popupParams } from './platform/popups.js';
+import { POPUPS, popupParams, popupSize } from './platform/popups.js';
 import {
   applyFont, applyTheme, contrast, CUSTOM, CUSTOM_KEYS, customFrom, DARK_THEMES, LIGHT_THEMES, resolveTheme, SYSTEM, themeName,
 } from './themes.js';
@@ -258,7 +258,16 @@ function renderSettings() {
   });
   if (state.tab === 'font' && !state.fonts && !state.fontError) loadFonts();
   if (state.tab === 'recent') checkRecent();
+  fitLanguageSize('settings');
   ready();
+}
+
+/** A popup whose size depends on the language takes the size of the current one (after a switch). */
+function fitLanguageSize(kind) {
+  const { width, height } = popupSize(kind, getLanguage());
+  if (Math.abs(window.innerWidth - width) <= 1 && Math.abs(window.innerHeight - height) <= 1) return;
+  if (desktop) appWindow.setSize(new LogicalSize(width, height)).catch(() => {});
+  else send('resize', { width, height });
 }
 
 function settingsGeneral() {
@@ -740,7 +749,7 @@ function menuPanel(items, label, className) {
   return `<div class="${className}" role="menu" aria-label="${escapeHtml(label)}">${items.map((item, index) => (item.separator
     ? '<div class="menu-sep" role="separator"></div>'
     : `<button class="menu-item ${item.danger ? 'danger' : ''} ${item.submenu ? 'has-sub' : ''}" role="menuitem" data-index="${index}" data-id="${escapeHtml(item.id)}" ${item.submenu ? 'aria-haspopup="menu" aria-expanded="false"' : ''} ${item.disabled ? 'disabled aria-disabled="true"' : ''} title="${escapeHtml(item.label)}">
-        <span class="menu-icon">${icon(item.icon)}</span>
+        <span class="menu-icon">${item.swatch ? `<span class="theme-swatch">${item.swatch.map((color) => `<i style="background:${color}"></i>`).join('')}</span>` : icon(item.icon)}</span>
         <span class="menu-label">${escapeHtml(item.label)}</span>
         <span class="menu-key">${escapeHtml(item.shortcut ?? '')}</span>
         <span class="menu-check">${item.submenu ? icon('chevronRight') : item.checked ? icon('check') : ''}</span>
@@ -911,8 +920,75 @@ function printDoc() {
 }
 
 function printSetup() {
-  if (!state.print) state.print = { ...defaultPrintOptions(), ...(P().setup ?? {}), range: 'all' };
+  // A document (user's guide, tutorial) prints upright with a normal margin by default; the printer is shared.
+  if (!state.print) state.print = docMode() ? { ...defaultPrintOptions(), orientation: 'portrait', margin: 'normal', printer: savedPrinter() } : { ...defaultPrintOptions(), ...(P().setup ?? {}), range: 'all' };
   return state.print;
+}
+
+/** The print window opened by a document window's Print button (not a drawing). */
+const docMode = () => P().mode === 'document';
+const savedPrinter = () => { try { return JSON.parse(globalThis.localStorage?.getItem(PRINT_KEY) ?? '{}').printer ?? ''; } catch { return ''; } };
+
+/** Paper size in millimetres after the orientation. */
+function paperMm(options) {
+  const paper = PAPERS[options.paper] ?? PAPERS.A4;
+  const [short, long] = [Math.min(paper.width, paper.height), Math.max(paper.width, paper.height)];
+  return options.orientation === 'landscape' ? { width: long, height: short } : { width: short, height: long };
+}
+
+/** The print window for a document: printer, paper and margins; the document itself is the preview. */
+function renderDocPrint() {
+  const options = printSetup();
+  loadPrinters();
+  const printers = state.printers;
+  const direct = Boolean(printers?.direct && printers.printers.length);
+  const sel = (key, values, label) => select('data-print', key, values, options[key], label);
+  const section = (glyph, title) => `<h3 class="print-section">${icon(glyph)}<span>${escapeHtml(title)}</span></h3>`;
+  const size = paperMm(options);
+  root.innerHTML = frame({
+    glyph: 'print', title: `${t('print.title')} — ${P().title ?? ''}`,
+    body: `<div class="print-view">
+      <div class="print-options">
+        ${direct ? `${section('print', t('print.printer'))}${[
+          row('print', t('print.printer'), select('data-print', 'printer', printers.printers.map((name) => [name, name === printers.defaultPrinter ? t('print.defaultPrinter', { name }) : name]), chosenPrinter(), t('print.printer'))),
+          row('copy', t('print.copies'), numberField('print:copies', options.copies ?? 1, 1, 99, 1, '', t('print.copies'))),
+        ].join('')}` : ''}
+        ${section('pageSetup', t('print.tabPage'))}
+        ${[
+          row('file', t('print.paper'), sel('paper', Object.keys(PAPERS).map((paper) => [paper, paper]), t('print.paper'))),
+          row('pageSetup', t('print.orientation'), segmented('orientation', [['portrait', t('print.portrait')], ['landscape', t('print.landscape')]], options.orientation, 'data-print-segment')),
+          row('fitPage', t('print.margin'), sel('margin', Object.keys(MARGINS).map((margin) => [margin, t(`print.margin.${margin}`)]), t('print.margin'))),
+        ].join('')}
+      </div>
+      <div class="print-preview doc-print-preview" id="print-preview">
+        <div class="doc-sheet" style="aspect-ratio:${size.width} / ${size.height}"><iframe src="${escapeHtml(P().page ?? '')}" title="${escapeHtml(P().title ?? '')}" tabindex="-1"></iframe></div>
+      </div>
+    </div>`,
+    foot: `<span class="grow"></span>
+      <button class="button primary" data-action="print" title="${escapeHtml(direct ? t('print.printTo', { name: chosenPrinter() }) : t('print.print'))}" ${state.printing ? 'disabled' : ''}>${icon('print')}<span>${escapeHtml(state.printing ? t('print.printing') : t('print.print'))}</span></button>
+      ${button('close', t('common.close'), 'close')}`,
+  });
+  ready();
+}
+
+/** Prints the document window itself, with the settings chosen here. */
+async function printDocument() {
+  const options = printSetup();
+  const size = paperMm(options);
+  const doc = P().doc;
+  if (!(desktop && state.printers?.direct && state.printers.printers.length)) { await native.invoke('print_doc_dialog', { doc }); return true; }
+  const printer = chosenPrinter();
+  const job = { printer, copies: Math.max(1, Math.min(99, Math.round(Number(options.copies) || 1))), widthMm: size.width, heightMm: size.height, marginMm: MARGINS[options.margin] ?? 12 };
+  if (state.printers.filePrinters.includes(printer)) {
+    const path = await native.choosePdfPath(`${P().title || 'MyDiagram'}.pdf`);
+    if (!path) return false;
+    state.printing = true; render();
+    await native.invoke('print_doc_pdf', { doc, job, path });
+  } else {
+    state.printing = true; render();
+    await native.invoke('print_doc_window', { doc, job });
+  }
+  return true;
 }
 
 function printLayout() {
@@ -921,6 +997,7 @@ function printLayout() {
 }
 
 function renderPrint() {
+  if (docMode()) return renderDocPrint();
   const options = printSetup();
   const p = P();
   const layout = printLayout();
@@ -931,10 +1008,18 @@ function renderPrint() {
   const custom = options.range === 'custom';
   const section = (glyph, title) => `<h3 class="print-section">${icon(glyph)}<span>${escapeHtml(title)}</span></h3>`;
   const count = printDoc().pages.filter((pg) => !pg.background).length;
+  loadPrinters();
+  const printers = state.printers;
+  const direct = Boolean(printers?.direct && printers.printers.length);
+  const printerRows = direct ? `${section('print', t('print.printer'))}${[
+    row('print', t('print.printer'), select('data-print', 'printer', printers.printers.map((name) => [name, name === printers.defaultPrinter ? t('print.defaultPrinter', { name }) : name]), chosenPrinter(), t('print.printer'))),
+    row('copy', t('print.copies'), numberField('print:copies', options.copies ?? 1, 1, 99, 1, '', t('print.copies'))),
+  ].join('')}` : '';
   root.innerHTML = frame({
     glyph: 'print', title: t('print.title'),
     body: `<div class="print-view">
       <div class="print-options">
+        ${printerRows}
         ${section('list', t('print.tabRange'))}
         ${[
           ...RANGES.map((range) => `<label class="row radio-row" title="${escapeHtml(t(`print.range.${range}`))}"><input type="radio" name="range" data-print-range="${range}" ${options.range === range ? 'checked' : ''} /><span>${icon({ all: 'selectAll', current: 'eye', custom: 'filter' }[range])}${escapeHtml(t(`print.range.${range}`))}</span></label>`),
@@ -968,7 +1053,7 @@ function renderPrint() {
       <span class="page-number" id="page-number">${escapeHtml(t('print.page', { n: state.page + 1, total: layout.count }))}</span>
       <button class="icon-button" data-action="page" data-value="1" title="${escapeHtml(t('print.next'))}" aria-label="${escapeHtml(t('print.next'))}" ${state.page >= layout.count - 1 ? 'disabled' : ''}>${icon('chevronRight')}</button>
       <span class="grow"></span>
-      <button class="button primary" data-action="print" title="${escapeHtml(t('print.print'))}" ${layout.count ? '' : 'disabled'}>${icon('print')}<span>${escapeHtml(t('print.print'))}</span></button>
+      <button class="button primary" data-action="print" title="${escapeHtml(direct ? t('print.printTo', { name: chosenPrinter() }) : t('print.print'))}" ${layout.count && !state.printing ? '' : 'disabled'}>${icon('print')}<span>${escapeHtml(state.printing ? t('print.printing') : t('print.print'))}</span></button>
       ${button('close', t('common.close'), 'close')}`,
   });
   let style = document.querySelector('#page-style');
@@ -998,17 +1083,60 @@ function changePrint(patch) {
   state.print = { ...printSetup(), ...patch };
   const { range, from, to, ...setup } = state.print;
   void range; void from; void to;
-  try { globalThis.localStorage?.setItem(PRINT_KEY, JSON.stringify(setup)); } catch { /* ignore */ }
+  try {
+    // A document's paper and margins stay its own; the chosen printer is shared with drawings.
+    const saved = docMode() ? { ...JSON.parse(globalThis.localStorage?.getItem(PRINT_KEY) ?? '{}'), printer: setup.printer } : setup;
+    globalThis.localStorage?.setItem(PRINT_KEY, JSON.stringify(saved));
+  } catch { /* ignore */ }
   render();
 }
 
+/** The printer list (once per window): Windows prints straight to the one chosen here. */
+function loadPrinters() {
+  if (state.printers || state.printersLoading || !desktop) return;
+  state.printersLoading = true;
+  native.listPrinters()
+    .then((list) => { state.printers = list; })
+    .catch(() => { state.printers = { printers: [], defaultPrinter: '', filePrinters: [], direct: false }; })
+    .finally(() => { state.printersLoading = false; render(); });
+}
+
+/** The printer the print goes to: the one picked before (if it is still there), else the default. */
+function chosenPrinter() {
+  const list = state.printers;
+  const wanted = printSetup().printer;
+  return list?.printers.includes(wanted) ? wanted : list?.defaultPrinter || list?.printers[0] || '';
+}
+
 async function doPrint() {
+  if (state.printing) return;
   try {
-    if (window.__mydiagramPrintHook) window.__mydiagramPrintHook(printLayout());
-    else await native.printWindow();
+    if (window.__mydiagramPrintHook) window.__mydiagramPrintHook(docMode() ? { document: P().doc, ...paperMm(printSetup()) } : printLayout());
+    else if (docMode()) { if (!(await printDocument())) return; }
+    else if (desktop && state.printers?.direct && state.printers.printers.length) {
+      // Straight to the chosen printer, without the system dialog. A printer that writes a file
+      // (Microsoft Print to PDF) cannot do that: the pages are saved as a PDF where the user says.
+      const options = printSetup();
+      const layout = printLayout();
+      const printer = chosenPrinter();
+      const job = { printer, copies: Math.max(1, Math.min(99, Math.round(Number(options.copies) || 1))), widthMm: layout.paper.width, heightMm: layout.paper.height };
+      if (state.printers.filePrinters.includes(printer)) {
+        const path = await native.choosePdfPath(`${P().title || 'MyDiagram'}.pdf`);
+        if (!path) return;
+        state.printing = true; render();
+        await native.printPdf(job, path);
+      } else {
+        state.printing = true; render();
+        await native.printDirect(job);
+      }
+    } else await native.printWindow();
     action('printed');
   } catch (error) {
-    action('report-error', { titleKey: 'error.print', message: native.errorText(error), context: 'print' });
+    const code = native.errorText(error);
+    const message = code === 'printer-unavailable' ? t('print.unavailable', { name: chosenPrinter() }) : code === 'no-answer' ? t('print.noAnswer') : code;
+    action('report-error', { titleKey: 'error.print', message, context: 'print' });
+  } finally {
+    if (state.printing) { state.printing = false; render(); }
   }
 }
 

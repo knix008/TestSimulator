@@ -1,0 +1,412 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.188Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1dw58o4g",
+  "title": "Club Organisation",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.188Z",
+  "design": "radiance",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1dw58pvq",
+    "name": "Club Organisation",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1dw58qum",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 17.72830188679245,
+      "w": 610.6415094339623,
+      "h": 49.24528301886792,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Club Organisation",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1dw58rkl",
+      "type": "shape",
+      "master": "orgExecutive",
+      "name": "",
+      "x": 423.09905660377365,
+      "y": 78.79245283018868,
+      "w": 237.19811320754718,
+      "h": 111.62264150943398,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "President",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1dw58s8i",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 164.97169811320754,
+      "y": 257.3886792452831,
+      "w": 223.24528301886795,
+      "h": 97.66981132075472,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Vice president",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1dw58tq6",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 569.6037735849058,
+      "y": 257.3886792452831,
+      "w": 209.2924528301887,
+      "h": 97.66981132075472,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Treasurer",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1dw58ufl",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 834.7075471698113,
+      "y": 257.3886792452831,
+      "w": 209.2924528301887,
+      "h": 97.66981132075472,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Secretary",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1dw58vk3",
+      "type": "shape",
+      "master": "orgTeam",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 422.03207547169814,
+      "w": 209.2924528301887,
+      "h": 97.66981132075472,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Events team",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1dw58wbd",
+      "type": "shape",
+      "master": "orgTeam",
+      "name": "",
+      "x": 304.5,
+      "y": 422.03207547169814,
+      "w": 209.2924528301887,
+      "h": 97.66981132075472,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Publicity team",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1dw58xvg",
+      "type": "shape",
+      "master": "orgStaff",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 586.6754716981133,
+      "w": 209.2924528301887,
+      "h": 97.66981132075472,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "40 members",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1dw58yvv",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1dw58rkl",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1dw58s8i",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1dw58zry",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1dw58rkl",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1dw58tq6",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1dw590vr",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1dw58rkl",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1dw58ufl",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1dw591rc",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1dw58s8i",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1dw58vk3",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1dw592io",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1dw58s8i",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1dw58wbd",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1dw59373",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1dw58vk3",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1dw58xvg",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "org"
+  ]
+ }
+}

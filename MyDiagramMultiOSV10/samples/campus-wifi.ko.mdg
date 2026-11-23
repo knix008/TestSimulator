@@ -1,0 +1,530 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.024Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk19c2vtq8",
+  "title": "캠퍼스 와이파이",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.024Z",
+  "design": "whisp",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk19c2vudu",
+    "name": "캠퍼스 와이파이",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk19c2vv0l",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "캠퍼스 와이파이",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19c2vwv9",
+      "type": "shape",
+      "master": "internet",
+      "name": "",
+      "x": 178.125,
+      "y": 80,
+      "w": 85,
+      "h": 85,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "인터넷",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19c2vxs5",
+      "type": "shape",
+      "master": "firewall",
+      "name": "",
+      "x": 172.8125,
+      "y": 228.75,
+      "w": 95.625,
+      "h": 74.375,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "방화벽",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19c2vyur",
+      "type": "shape",
+      "master": "server",
+      "name": "",
+      "x": 188.75,
+      "y": 366.875,
+      "w": 63.75,
+      "h": 95.625,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "무선 컨트롤러",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19c2vztx",
+      "type": "shape",
+      "master": "wirelessAp",
+      "name": "",
+      "x": 55.9375,
+      "y": 526.25,
+      "w": 74.375,
+      "h": 74.375,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "도서관",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19c2w0y4",
+      "type": "shape",
+      "master": "wirelessAp",
+      "name": "",
+      "x": 199.375,
+      "y": 526.25,
+      "w": 74.375,
+      "h": 74.375,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "강의동",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19c2w1h4",
+      "type": "shape",
+      "master": "wirelessAp",
+      "name": "",
+      "x": 326.875,
+      "y": 526.25,
+      "w": 74.375,
+      "h": 74.375,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "기숙사",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19c2w2xh",
+      "type": "shape",
+      "master": "laptop",
+      "name": "",
+      "x": 40,
+      "y": 675,
+      "w": 106.25,
+      "h": 74.375,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "학생",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19c2w3mq",
+      "type": "shape",
+      "master": "phone",
+      "name": "",
+      "x": 213.1875,
+      "y": 669.6875,
+      "w": 46.75,
+      "h": 85,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "방문객",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk19c2w4a3",
+      "type": "shape",
+      "master": "tablet",
+      "name": "",
+      "x": 326.875,
+      "y": 664.375,
+      "w": 74.375,
+      "h": 95.625,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "교직원",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk19c2w5wd",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19c2vwv9",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19c2vxs5",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk19c2w6tj",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19c2vxs5",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19c2vyur",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk19c2w7fd",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19c2vyur",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19c2vztx",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk19c2w8gh",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19c2vyur",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19c2w0y4",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk19c2w9ii",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19c2vyur",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19c2w1h4",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk19c2walz",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19c2vztx",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19c2w2xh",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk19c2wbuj",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19c2w0y4",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19c2w3mq",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk19c2wcmb",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk19c2w1h4",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk19c2w4a3",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "network"
+  ]
+ }
+}

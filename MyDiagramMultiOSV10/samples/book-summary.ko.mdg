@@ -1,0 +1,696 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:20.961Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk17l20qyv",
+  "title": "책 요약",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:20.961Z",
+  "design": "organic",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk17l20rfh",
+    "name": "책 요약",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk17l20s5q",
+      "type": "shape",
+      "master": "centralTopic",
+      "name": "",
+      "x": 440.0000000000001,
+      "y": 375.00000000000006,
+      "w": 180,
+      "h": 90,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "좋은 습관",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk17l20th4",
+      "type": "shape",
+      "master": "mainTopic",
+      "name": "",
+      "x": 567.5,
+      "y": 232,
+      "w": 140,
+      "h": 56,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "신호",
+      "style": {},
+      "qs": {
+       "color": 1
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17l20u60",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17l20s5q",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17l20th4",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk17l20v4b",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 685,
+      "y": 80,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "눈에 띄게",
+      "style": {},
+      "qs": {
+       "color": 1,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17l20wrf",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17l20th4",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17l20v4b",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk17l20x5j",
+      "type": "shape",
+      "master": "mainTopic",
+      "name": "",
+      "x": 675,
+      "y": 392.00000000000006,
+      "w": 140,
+      "h": 56,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "욕구",
+      "style": {},
+      "qs": {
+       "color": 2
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17l20yte",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17l20s5q",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17l20x5j",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk17l20zxg",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 900,
+      "y": 400.00000000000006,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "끌리게",
+      "style": {},
+      "qs": {
+       "color": 2,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17l210qp",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17l20x5j",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17l20zxg",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk17l211ey",
+      "type": "shape",
+      "master": "mainTopic",
+      "name": "",
+      "x": 567.5000000000002,
+      "y": 552,
+      "w": 140,
+      "h": 56,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "반응",
+      "style": {},
+      "qs": {
+       "color": 3
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17l212wf",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17l20s5q",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17l211ey",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk17l213ek",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 685.0000000000003,
+      "y": 720,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "쉽게",
+      "style": {},
+      "qs": {
+       "color": 3,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17l2147f",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17l211ey",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17l213ek",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk17l215xf",
+      "type": "shape",
+      "master": "mainTopic",
+      "name": "",
+      "x": 352.50000000000006,
+      "y": 552,
+      "w": 140,
+      "h": 56,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "보상",
+      "style": {},
+      "qs": {
+       "color": 4
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17l216hv",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17l20s5q",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17l215xf",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk17l217zz",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 255.0000000000001,
+      "y": 720,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "만족스럽게",
+      "style": {},
+      "qs": {
+       "color": 4,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17l218py",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17l215xf",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17l217zz",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk17l219x5",
+      "type": "shape",
+      "master": "mainTopic",
+      "name": "",
+      "x": 273.80453818634567,
+      "y": 299.6239569296599,
+      "w": 140,
+      "h": 56,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "정체성",
+      "style": {},
+      "qs": {
+       "color": 5
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17l21a2g",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17l20s5q",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17l219x5",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk17l21bbh",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 40,
+      "y": 400.00000000000006,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "작은 승리",
+      "style": {},
+      "qs": {
+       "color": 5,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17l21cq8",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17l219x5",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17l21bbh",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk17l21dd8",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 254.9999999999999,
+      "y": 80.00000000000004,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "매일 1%",
+      "style": {},
+      "qs": {
+       "color": 5,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk17l21e76",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk17l219x5",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk17l21dd8",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk17l21f9l",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "책 요약",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "mind",
+   "basic"
+  ]
+ }
+}

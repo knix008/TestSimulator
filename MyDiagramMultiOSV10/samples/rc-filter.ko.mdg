@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "drawing",
- "saved": "2026-11-06T04:18:13.755Z",
+ "saved": "2026-11-23T05:50:20.869Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mw4gs3230rs9z",
+  "id": "dgm-mwsuk1510rsnt",
   "title": "RC 필터",
   "subject": "",
   "author": "SHKWON",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-11-06T04:18:13.755Z",
+  "created": "2026-11-23T05:50:20.869Z",
   "design": "linear",
   "variant": 0,
   "units": "mm",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mw4gs3230rtgw",
+    "id": "page-mwsuk1510rt44",
     "name": "RC 필터",
     "paper": "A4",
     "orientation": "landscape",
@@ -51,7 +51,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mw4gs3230ru5m",
+      "id": "shp-mwsuk1510ruuk",
       "type": "shape",
       "master": "title",
       "name": "",
@@ -79,7 +79,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3230rvjc",
+      "id": "shp-mwsuk1510rvq4",
       "type": "shape",
       "master": "acSource",
       "name": "",
@@ -106,7 +106,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3230rw3o",
+      "id": "shp-mwsuk1510rwtp",
       "type": "shape",
       "master": "textBox",
       "name": "",
@@ -136,7 +136,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3230rxoo",
+      "id": "shp-mwsuk1510rx8f",
       "type": "shape",
       "master": "resistor",
       "name": "",
@@ -163,7 +163,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3230rybu",
+      "id": "shp-mwsuk1510ry1l",
       "type": "shape",
       "master": "capacitor",
       "name": "",
@@ -190,7 +190,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3230rzxu",
+      "id": "shp-mwsuk1510rzej",
       "type": "shape",
       "master": "textBox",
       "name": "",
@@ -220,7 +220,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3230s0aa",
+      "id": "shp-mwsuk1510s0ww",
       "type": "shape",
       "master": "onPage",
       "name": "",
@@ -246,7 +246,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3230s18u",
+      "id": "shp-mwsuk1510s1gx",
       "type": "shape",
       "master": "textBox",
       "name": "",
@@ -277,7 +277,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3230s23v",
+      "id": "shp-mwsuk1510s2wv",
       "type": "shape",
       "master": "ground",
       "name": "",
@@ -304,7 +304,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3230s3e5",
+      "id": "shp-mwsuk1510s3kj",
       "type": "shape",
       "master": "ground",
       "name": "",
@@ -331,41 +331,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs3230s4xf",
+      "id": "con-mwsuk1510s4zk",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3230rvjc",
+       "id": "shp-mwsuk1510rvq4",
        "pt": 0
       },
       "to": {
-       "id": "shp-mw4gs3230rxoo",
-       "pt": 0
-      },
-      "route": "orthogonal",
-      "waypoints": [],
-      "text": "",
-      "textPos": 0.5,
-      "style": {
-       "endArrow": "none",
-       "lineWidth": 2
-      },
-      "layers": [],
-      "locked": {},
-      "data": [],
-      "hyperlink": "",
-      "comments": [],
-      "groupId": null,
-      "name": ""
-     },
-     {
-      "id": "con-mw4gs3230s5r9",
-      "type": "connector",
-      "from": {
-       "id": "shp-mw4gs3230rxoo",
-       "pt": 1
-      },
-      "to": {
-       "id": "shp-mw4gs3230rybu",
+       "id": "shp-mwsuk1510rx8f",
        "pt": 0
       },
       "route": "orthogonal",
@@ -385,14 +358,41 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3230s6cj",
+      "id": "con-mwsuk1510s5i6",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3230rxoo",
+       "id": "shp-mwsuk1510rx8f",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs3230s0aa",
+       "id": "shp-mwsuk1510ry1l",
+       "pt": 0
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 2
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1510s61j",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1510rx8f",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mwsuk1510s0ww",
        "pt": 3
       },
       "route": "straight",
@@ -412,14 +412,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3230s7v4",
+      "id": "con-mwsuk1510s74t",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3230rvjc",
+       "id": "shp-mwsuk1510rvq4",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs3230s23v",
+       "id": "shp-mwsuk1510s2wv",
        "pt": 0
       },
       "route": "straight",
@@ -439,14 +439,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3230s8n2",
+      "id": "con-mwsuk1510s8x4",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3230rybu",
+       "id": "shp-mwsuk1510ry1l",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs3230s3e5",
+       "id": "shp-mwsuk1510s3kj",
        "pt": 0
       },
       "route": "straight",
@@ -466,7 +466,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs3230s9u1",
+      "id": "shp-mwsuk1510s94j",
       "type": "shape",
       "master": "note",
       "name": "",

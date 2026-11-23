@@ -166,7 +166,16 @@ const paths = {
   lineTool: '<path d="M4 20L20 4"/><circle cx="4" cy="20" r="1.5"/><circle cx="20" cy="4" r="1.5"/>',
   rectTool: '<rect x="3.5" y="6" width="17" height="12" rx="1"/>',
   ellipseTool: '<ellipse cx="12" cy="12" rx="9" ry="6.5"/>',
-  pencil: '<path d="M3 21c3-1 3-4 6-5s5 2 8-1"/><path d="M14 4l3 3-6 6-3.5.5.5-3.5z"/>',
+  pencil: '<path d="M16 3.5l4.5 4.5L8.5 20H4v-4.5z"/><path d="M13.5 6l4.5 4.5"/><path d="M4 15.5l4.5 4.5"/>',
+  roundRectTool: '<rect x="3.5" y="6" width="17" height="12" rx="4.5"/>',
+  lassoTool: '<path d="M7 15c-3-1.5-4-4-2.5-6.5S11 4 15.5 4.5 21 8 20 11s-6 4.5-10 4"/><path d="M8 15c0 2-1 3.5-2.5 4.5"/><circle cx="8" cy="15" r="1.6"/>',
+  zoomTool: '<circle cx="10" cy="10" r="6"/><path d="M14.5 14.5L20 20"/><path d="M7.5 10h5M10 7.5v5"/><path d="M3 21l3-3" stroke-dasharray="1 2"/>',
+  arrowLineTool: '<path d="M4 20L19 5"/><path d="M11 5h8v8"/>',
+  curveTool: '<path d="M3 18c3-9 6-9 8-4s5 4 8-6"/><circle cx="3" cy="18" r="1.4"/><circle cx="11" cy="14" r="1.4"/><circle cx="19" cy="8" r="1.4"/>',
+  painterTool: '<path d="M5 4h11a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="M17 6.5h2.5V12h-8.5v3"/><path d="M9.5 15h3v5.5h-3z"/>',
+  eraserTool: '<path d="M14.5 4.5l5 5-9.5 9.5H5.5l-2-2a1.5 1.5 0 0 1 0-2.1z"/><path d="M9 10l5 5"/><path d="M10.5 19H20"/>',
+  triangleTool: '<path d="M12 4.5l8.5 14.5h-17z"/>',
+  diamondTool: '<path d="M12 3.5l8.5 8.5-8.5 8.5-8.5-8.5z"/>',
   polyline: '<path d="M3 18l5-9 5 6 4-10 4 6"/><circle cx="3" cy="18" r="1.3"/><circle cx="8" cy="9" r="1.3"/><circle cx="13" cy="15" r="1.3"/><circle cx="17" cy="5" r="1.3"/>',
   hand: '<path d="M8 13V6a1.5 1.5 0 0 1 3 0v5M11 11V4.5a1.5 1.5 0 0 1 3 0V11M14 11V6a1.5 1.5 0 0 1 3 0v7c0 4-2.5 7-6 7-2.5 0-4-1.2-5.5-3.5L3.8 13a1.5 1.5 0 0 1 2.5-1.6L8 13"/>',
   formatPainter: '<rect x="4" y="3" width="13" height="6" rx="1.5"/><path d="M17 6h2.5v5H11v3"/><rect x="9.5" y="14" width="3" height="7" rx="1"/>',
@@ -414,5 +423,5 @@ function colourOf(name) {
 }
 
 export function icon(name, className = 'icon') {
-  return `<svg class="${className}" style="color:color-mix(in srgb,${colourOf(name)} 82%,var(--text))" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] ?? paths.dot}</svg>`;
+  return `<svg class="${className}" data-icon="${name}" style="color:color-mix(in srgb,${colourOf(name)} 82%,var(--text))" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] ?? paths.dot}</svg>`;
 }

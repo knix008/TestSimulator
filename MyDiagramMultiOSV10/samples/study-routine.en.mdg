@@ -1,0 +1,337 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.241Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1fd5y2zi",
+  "title": "Study Routine",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.241Z",
+  "design": "facet",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1fd5y39h",
+    "name": "Study Routine",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1fd5y43k",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Study Routine",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1fd5y5dv",
+      "type": "shape",
+      "master": "eduBook",
+      "name": "",
+      "x": 285.4760086075229,
+      "y": 80,
+      "w": 240.52968876451843,
+      "h": 171.8069205460846,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Preview",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1fd5y6yb",
+      "type": "shape",
+      "master": "eduLesson",
+      "name": "",
+      "x": 513.7713251604373,
+      "y": 288.0119553512207,
+      "w": 309.25245698295225,
+      "h": 137.44553643686768,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Class",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1fd5y7a6",
+      "type": "shape",
+      "master": "eduPencil",
+      "name": "",
+      "x": 482.16816109884405,
+      "y": 579.6027334266112,
+      "w": 171.8069205460846,
+      "h": 171.8069205460846,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Review",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1fd5y8ot",
+      "type": "shape",
+      "master": "eduQuiz",
+      "name": "",
+      "x": 140.32593228002722,
+      "y": 571.012387399307,
+      "w": 206.1683046553015,
+      "h": 188.98761260069307,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Practice",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1fd5y959",
+      "type": "shape",
+      "master": "eduAward",
+      "name": "",
+      "x": 40,
+      "y": 262.24091726930806,
+      "w": 206.1683046553015,
+      "h": 188.98761260069307,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Break, reward",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1fd5yahg",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1fd5y5dv",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1fd5y6yb",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1fd5ybgo",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1fd5y6yb",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1fd5y7a6",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1fd5ycb9",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1fd5y7a6",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1fd5y8ot",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1fd5ydov",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1fd5y8ot",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1fd5y959",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1fd5yeyd",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1fd5y959",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1fd5y5dv",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "education",
+   "basic"
+  ]
+ }
+}

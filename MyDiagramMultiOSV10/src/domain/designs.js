@@ -29,13 +29,47 @@ export const DESIGNS = [
   design('sequence', '시퀀스', 'Sequence', ['#264653', '#2a9d8f', '#e9c46a', '#f4a261', '#e76f51', '#8ab17d'], { lineWidth: 1.75 }),
   design('radiance', '광채', 'Radiance', ['#ff6b6b', '#feca57', '#48dbfb', '#1dd1a1', '#5f27cd', '#ff9ff3'], { gradient: true, shadow: true, rounding: 6 }),
   design('monochrome', '단색', 'Monochrome', ['#374151', '#6b7280', '#9ca3af', '#4b5563', '#1f2937', '#d1d5db'], { connector: '#111827' }),
+  design('pastel', '파스텔', 'Pastel', ['#8fb8de', '#f4a7b9', '#a8d8b9', '#f9d38c', '#c3aed6', '#9ad1d4'], { rounding: 10, connector: '#64748b' }),
+  design('ocean', '바다', 'Ocean', ['#0077b6', '#00b4d8', '#48cae4', '#023e8a', '#90e0ef', '#2a9d8f'], { rounding: 6, connector: '#0345a6' }),
+  design('sunset', '노을', 'Sunset', ['#f4845f', '#f27059', '#f25c54', '#f7b267', '#9d4edd', '#5a189a'], { gradient: true, rounding: 8 }),
   design('blueprint', '청사진', 'Blueprint', ['#4fc3f7', '#81d4fa', '#b3e5fc', '#29b6f6', '#e1f5fe', '#0288d1'], { dark: true, page: '#0d2b4e', text: '#e3f2fd', connector: '#b3e5fc', lineWidth: 1.5 }),
   design('midnight', '자정', 'Midnight', ['#7aa2f7', '#bb9af7', '#9ece6a', '#e0af68', '#f7768e', '#2ac3de'], { dark: true, page: '#1a1b26', text: '#c0caf5', connector: '#a9b1d6', rounding: 6 }),
   design('chalkboard', '칠판', 'Chalkboard', ['#e8eddf', '#cfdbd5', '#f5cb5c', '#9bc1bc', '#ed6a5a', '#f4f1bb'], { dark: true, page: '#24312b', text: '#f4f1de', connector: '#e8eddf', lineWidth: 2 }),
+  design('graphite', '흑연', 'Graphite', ['#a3b8cc', '#e5989b', '#b5c99a', '#ffcb77', '#cdb4db', '#8ecae6'], { dark: true, page: '#22252b', text: '#e9ecef', connector: '#adb5bd', rounding: 4 }),
 ];
 export const DESIGN_VARIANTS = 4;
 
 export const designById = (id) => DESIGNS.find((d) => d.id === id) ?? DESIGNS[0];
+
+/**
+ * The design a drawing is drawn with. On screen under a dark program theme the canvas passes
+ * `doc.viewDark` ({ page, text, connector }): a light design is then drawn as a dark one, on the
+ * theme's paper, so the drawing follows the theme. Saving, printing and export never pass it.
+ */
+export function designOf(doc) {
+  const d = designById(doc?.design);
+  const v = doc?.viewDark;
+  if (v && !d.dark) return { ...d, dark: true, page: v.page, text: v.text, connector: v.connector };
+  // The other way round (stencil pictures in a light panel): a dark design drawn as a light one.
+  if (doc?.viewLight && d.dark) return { ...d, dark: false, page: '#ffffff', text: '#1f2937', connector: '#4b5563' };
+  return d;
+}
+
+/**
+ * A drawing as the panels draw its stencil pictures: in the program theme's brightness, so they
+ * stay easy to see (light lines and text on a dark theme, dark ones on a light theme).
+ * colors = the theme's { panel, text }.
+ */
+export function panelDoc(doc, themeDark, colors = {}) {
+  const base = doc ?? { design: 'office', options: {} };
+  const d = designById(base.design);
+  if (themeDark && !d.dark) return { ...base, viewDark: { page: colors.panel || '#1b1f27', text: colors.text || '#e6e9ef', connector: colors.text || '#e6e9ef' } };
+  if (!themeDark && d.dark) return { ...base, viewLight: true };
+  return base;
+}
+
+/** Whether a page colour is plain white (the default paper). */
+export const isWhitePaper = (color) => !color || /^#?(fff|ffffff)(ff)?$/i.test(String(color).trim());
 
 /** The design's six accents after its variant (0–3): rotated, and lighter / darker for 2 and 3. */
 export function variantColors(designId, variant = 0) {
@@ -57,6 +91,9 @@ export function hexRgb(hex) {
 }
 
 export const isColor = (value) => hexRgb(value) != null;
+
+/** The pastel tone of an accent: the quick style "fill" (lighter still on a light page). */
+export const pastelOf = (accent, dark = false) => mix(accent, '#ffffff', dark ? 0.35 : 0.55);
 
 export function mix(a, b, amount) {
   const x = hexRgb(a) ?? [128, 128, 128];
@@ -103,7 +140,7 @@ const baseText = (d) => ({ font: d.font, fontSize: 13, bold: false, italic: fals
  */
 export function resolveShapeStyle(doc, shape) {
   const master = masterById(shape.master);
-  const d = designById(doc?.design);
+  const d = designOf(doc);
   const accents = variantColors(d.id, doc?.variant);
   const qs = shape.qs ?? {};
   const accent = accents[((qs.color ?? 1) - 1 + 6) % 6] ?? accents[0];
@@ -116,7 +153,8 @@ export function resolveShapeStyle(doc, shape) {
     case 'intense': style = { fill: mix(accent, '#000000', 0.22), line: 'none', textColor: '#ffffff' }; break;
     case 'gradient': style = { fill: mix(accent, '#ffffff', 0.35), fill2: mix(accent, '#000000', 0.12), fillPattern: 'linear', line: mix(accent, '#000000', 0.25), textColor: readableOn(accent) }; break;
     case 'none': style = { fill: 'none', line: 'none', textColor: pageText }; break;
-    default: style = { fill: accent, line: mix(accent, '#000000', 0.28), textColor: readableOn(accent) };
+    // On dark paper the outline is the accent lightened (a darkened one would vanish there).
+    default: { const fill = pastelOf(accent, d.dark); style = { fill, line: d.dark ? mix(accent, '#ffffff', 0.35) : mix(accent, '#000000', 0.15), textColor: readableOn(fill) }; }
   }
   const out = {
     fillPattern: d.gradient && variant === 'fill' ? 'linear' : 'solid', fill2: d.gradient && variant === 'fill' ? mix(accent, '#000000', 0.18) : '#ffffff', gradientAngle: 90, fillOpacity: 100,
@@ -136,7 +174,7 @@ export function resolveShapeStyle(doc, shape) {
 
 /** The complete style of a connector. */
 export function resolveConnectorStyle(doc, connector) {
-  const d = designById(doc?.design);
+  const d = designOf(doc);
   const out = {
     line: d.connector, lineWidth: d.connectorWidth, dash: 'solid', lineOpacity: 100, startArrow: 'none', endArrow: 'arrow', arrowSize: 1, shadow: false,
     ...baseText(d), fontSize: 12, textColor: d.dark ? d.text : '#1f2937', textBg: 'page', fill: 'none', opacity: 100, rounding: 0,
@@ -146,7 +184,7 @@ export function resolveConnectorStyle(doc, connector) {
 }
 
 /** The page colour: the page's own, else the design's. */
-export const pageColor = (doc, page) => page?.color || designById(doc?.design).page;
+export const pageColor = (doc, page) => (doc?.viewDark && !designById(doc.design).dark ? doc.viewDark.page : doc?.viewLight && designById(doc.design).dark ? '#ffffff' : page?.color || designById(doc?.design).page);
 
 /** SVG stroke-dasharray for a dash name at a line width. */
 export function dashArray(dash, width = 1) {

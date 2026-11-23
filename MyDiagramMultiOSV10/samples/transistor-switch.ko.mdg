@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "drawing",
- "saved": "2026-11-06T04:18:13.756Z",
+ "saved": "2026-11-23T05:50:20.870Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mw4gs3240sauy",
+  "id": "dgm-mwsuk1520saci",
   "title": "트랜지스터 스위치",
   "subject": "",
   "author": "SHKWON",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-11-06T04:18:13.756Z",
+  "created": "2026-11-23T05:50:20.870Z",
   "design": "office",
   "variant": 0,
   "units": "mm",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mw4gs3240sbkh",
+    "id": "page-mwsuk1520sbwq",
     "name": "트랜지스터 스위치",
     "paper": "A4",
     "orientation": "landscape",
@@ -51,7 +51,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mw4gs3240scj4",
+      "id": "shp-mwsuk1520sc54",
       "type": "shape",
       "master": "title",
       "name": "",
@@ -79,7 +79,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3240sddv",
+      "id": "shp-mwsuk1520sdcx",
       "type": "shape",
       "master": "voltageSource",
       "name": "",
@@ -106,7 +106,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3240sebo",
+      "id": "shp-mwsuk1520seaq",
       "type": "shape",
       "master": "textBox",
       "name": "",
@@ -136,7 +136,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3240sf57",
+      "id": "shp-mwsuk1520sfuq",
       "type": "shape",
       "master": "switchElec",
       "name": "",
@@ -163,7 +163,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3240sgvh",
+      "id": "shp-mwsuk1520sg8b",
       "type": "shape",
       "master": "resistor",
       "name": "",
@@ -190,7 +190,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3240sh2o",
+      "id": "shp-mwsuk1520shlr",
       "type": "shape",
       "master": "transistor",
       "name": "",
@@ -217,7 +217,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3240si2c",
+      "id": "shp-mwsuk1520sin2",
       "type": "shape",
       "master": "textBox",
       "name": "",
@@ -247,7 +247,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3240sj8t",
+      "id": "shp-mwsuk1520sjqh",
       "type": "shape",
       "master": "lamp",
       "name": "",
@@ -274,7 +274,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3240sk7p",
+      "id": "shp-mwsuk1520sk5m",
       "type": "shape",
       "master": "textBox",
       "name": "",
@@ -304,7 +304,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3240slh1",
+      "id": "shp-mwsuk1520slpd",
       "type": "shape",
       "master": "ground",
       "name": "",
@@ -331,7 +331,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3240smce",
+      "id": "shp-mwsuk1520smls",
       "type": "shape",
       "master": "ground",
       "name": "",
@@ -358,14 +358,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs3240sntc",
+      "id": "con-mwsuk1520snoi",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3240sddv",
+       "id": "shp-mwsuk1520sdcx",
        "pt": 0
       },
       "to": {
-       "id": "shp-mw4gs3240sj8t",
+       "id": "shp-mwsuk1520sjqh",
        "pt": 0
       },
       "route": "orthogonal",
@@ -385,14 +385,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3240sodi",
+      "id": "con-mwsuk1520so3z",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3240sddv",
+       "id": "shp-mwsuk1520sdcx",
        "pt": 0
       },
       "to": {
-       "id": "shp-mw4gs3240sf57",
+       "id": "shp-mwsuk1520sfuq",
        "pt": 0
       },
       "route": "orthogonal",
@@ -412,14 +412,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3240spg9",
+      "id": "con-mwsuk1520sp2v",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3240sf57",
+       "id": "shp-mwsuk1520sfuq",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs3240sgvh",
+       "id": "shp-mwsuk1520sg8b",
        "pt": 0
       },
       "route": "straight",
@@ -439,14 +439,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3240sqmb",
+      "id": "con-mwsuk1520sqqs",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3240sgvh",
+       "id": "shp-mwsuk1520sg8b",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs3240sh2o",
+       "id": "shp-mwsuk1520shlr",
        "pt": 0
       },
       "route": "straight",
@@ -466,14 +466,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3240srco",
+      "id": "con-mwsuk1520srii",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3240sj8t",
+       "id": "shp-mwsuk1520sjqh",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs3240sh2o",
+       "id": "shp-mwsuk1520shlr",
        "pt": 1
       },
       "route": "straight",
@@ -493,14 +493,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3240ss41",
+      "id": "con-mwsuk1520ssi3",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3240sh2o",
+       "id": "shp-mwsuk1520shlr",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs3240smce",
+       "id": "shp-mwsuk1520smls",
        "pt": 0
       },
       "route": "straight",
@@ -520,14 +520,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3240stkl",
+      "id": "con-mwsuk1520st1n",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3240sddv",
+       "id": "shp-mwsuk1520sdcx",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs3240slh1",
+       "id": "shp-mwsuk1520slpd",
        "pt": 0
       },
       "route": "straight",
@@ -547,7 +547,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs3240sug0",
+      "id": "shp-mwsuk1520sud6",
       "type": "shape",
       "master": "note",
       "name": "",

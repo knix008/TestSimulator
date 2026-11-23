@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "drawing",
- "saved": "2026-11-06T04:18:13.728Z",
+ "saved": "2026-11-23T05:50:20.840Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mw4gs31b0d6s8",
+  "id": "dgm-mwsuk1480d6t1",
   "title": "학교 E-R 모델",
   "subject": "",
   "author": "SHKWON",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-11-06T04:18:13.727Z",
+  "created": "2026-11-23T05:50:20.840Z",
   "design": "sequence",
   "variant": 0,
   "units": "mm",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mw4gs31b0d7vv",
+    "id": "page-mwsuk1480d7no",
     "name": "학교 E-R 모델",
     "paper": "A4",
     "orientation": "landscape",
@@ -51,7 +51,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mw4gs31b0d83e",
+      "id": "shp-mwsuk1480d8pq",
       "type": "shape",
       "master": "title",
       "name": "",
@@ -79,7 +79,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31b0d97i",
+      "id": "shp-mwsuk1480d9uo",
       "type": "shape",
       "master": "entity",
       "name": "",
@@ -103,7 +103,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31b0damh",
+      "id": "shp-mwsuk1480da33",
       "type": "shape",
       "master": "relationship",
       "name": "",
@@ -127,7 +127,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31b0dbeb",
+      "id": "shp-mwsuk1480dbyv",
       "type": "shape",
       "master": "entity",
       "name": "",
@@ -151,7 +151,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31b0dcn7",
+      "id": "shp-mwsuk1480dc8y",
       "type": "shape",
       "master": "relationship",
       "name": "",
@@ -175,7 +175,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31b0dd82",
+      "id": "shp-mwsuk1480ddgr",
       "type": "shape",
       "master": "entity",
       "name": "",
@@ -199,7 +199,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31b0devy",
+      "id": "shp-mwsuk1480de7g",
       "type": "shape",
       "master": "relationship",
       "name": "",
@@ -223,7 +223,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31b0dfju",
+      "id": "shp-mwsuk1480dff4",
       "type": "shape",
       "master": "weakEntity",
       "name": "",
@@ -247,14 +247,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs31b0dg2v",
+      "id": "con-mwsuk1480dgsi",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31b0d97i",
+       "id": "shp-mwsuk1480d9uo",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs31b0damh",
+       "id": "shp-mwsuk1480da33",
        "pt": "auto"
       },
       "route": "straight",
@@ -273,14 +273,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs31b0dhyp",
+      "id": "con-mwsuk1480dhmj",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31b0damh",
+       "id": "shp-mwsuk1480da33",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs31b0dbeb",
+       "id": "shp-mwsuk1480dbyv",
        "pt": "auto"
       },
       "route": "straight",
@@ -299,14 +299,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs31b0disy",
+      "id": "con-mwsuk1480diyh",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31b0dbeb",
+       "id": "shp-mwsuk1480dbyv",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs31b0dcn7",
+       "id": "shp-mwsuk1480dc8y",
        "pt": "auto"
       },
       "route": "straight",
@@ -325,14 +325,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs31b0djk0",
+      "id": "con-mwsuk1480djbs",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31b0dcn7",
+       "id": "shp-mwsuk1480dc8y",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs31b0dd82",
+       "id": "shp-mwsuk1480ddgr",
        "pt": "auto"
       },
       "route": "straight",
@@ -351,14 +351,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs31b0dk1y",
+      "id": "con-mwsuk1480dkma",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31b0dbeb",
+       "id": "shp-mwsuk1480dbyv",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs31b0devy",
+       "id": "shp-mwsuk1480de7g",
        "pt": "auto"
       },
       "route": "straight",
@@ -377,14 +377,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs31b0dl1j",
+      "id": "con-mwsuk1480dlpv",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31b0devy",
+       "id": "shp-mwsuk1480de7g",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs31b0dfju",
+       "id": "shp-mwsuk1480dff4",
        "pt": "auto"
       },
       "route": "straight",
@@ -403,7 +403,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs31b0dmkb",
+      "id": "shp-mwsuk1480dm04",
       "type": "shape",
       "master": "keyAttribute",
       "name": "",
@@ -427,14 +427,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs31b0dn16",
+      "id": "con-mwsuk1480dnqx",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31b0d97i",
+       "id": "shp-mwsuk1480d9uo",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs31b0dmkb",
+       "id": "shp-mwsuk1480dm04",
        "pt": "auto"
       },
       "route": "straight",
@@ -453,7 +453,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs31b0dois",
+      "id": "shp-mwsuk1480doce",
       "type": "shape",
       "master": "attribute",
       "name": "",
@@ -477,14 +477,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs31b0dpa6",
+      "id": "con-mwsuk1480dp2i",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31b0d97i",
+       "id": "shp-mwsuk1480d9uo",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs31b0dois",
+       "id": "shp-mwsuk1480doce",
        "pt": "auto"
       },
       "route": "straight",
@@ -503,7 +503,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs31c0dqqj",
+      "id": "shp-mwsuk1480dq19",
       "type": "shape",
       "master": "attribute",
       "name": "",
@@ -527,14 +527,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs31c0drk7",
+      "id": "con-mwsuk1480draf",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31b0d97i",
+       "id": "shp-mwsuk1480d9uo",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs31c0dqqj",
+       "id": "shp-mwsuk1480dq19",
        "pt": "auto"
       },
       "route": "straight",
@@ -553,7 +553,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs31c0dsgk",
+      "id": "shp-mwsuk1480dsg5",
       "type": "shape",
       "master": "attribute",
       "name": "",
@@ -577,14 +577,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs31c0dtqn",
+      "id": "con-mwsuk1480dtu8",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31b0damh",
+       "id": "shp-mwsuk1480da33",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs31c0dsgk",
+       "id": "shp-mwsuk1480dsg5",
        "pt": "auto"
       },
       "route": "straight",
@@ -603,7 +603,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs31c0dunp",
+      "id": "shp-mwsuk1480duew",
       "type": "shape",
       "master": "keyAttribute",
       "name": "",
@@ -627,14 +627,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs31c0dvq0",
+      "id": "con-mwsuk1480dvk9",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31b0dbeb",
+       "id": "shp-mwsuk1480dbyv",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs31c0dunp",
+       "id": "shp-mwsuk1480duew",
        "pt": "auto"
       },
       "route": "straight",
@@ -653,7 +653,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs31c0dwht",
+      "id": "shp-mwsuk1480dwjn",
       "type": "shape",
       "master": "attribute",
       "name": "",
@@ -677,14 +677,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs31c0dxra",
+      "id": "con-mwsuk1480dxvx",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31b0dbeb",
+       "id": "shp-mwsuk1480dbyv",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs31c0dwht",
+       "id": "shp-mwsuk1480dwjn",
        "pt": "auto"
       },
       "route": "straight",
@@ -703,7 +703,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs31c0dyv9",
+      "id": "shp-mwsuk1480dyz3",
       "type": "shape",
       "master": "attribute",
       "name": "",
@@ -727,14 +727,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs31c0dzsi",
+      "id": "con-mwsuk1480dz5m",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31b0dbeb",
+       "id": "shp-mwsuk1480dbyv",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs31c0dyv9",
+       "id": "shp-mwsuk1480dyz3",
        "pt": "auto"
       },
       "route": "straight",
@@ -753,7 +753,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs31c0e0dd",
+      "id": "shp-mwsuk1480e0as",
       "type": "shape",
       "master": "keyAttribute",
       "name": "",
@@ -777,14 +777,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs31c0e1w9",
+      "id": "con-mwsuk1480e1ao",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31b0dd82",
+       "id": "shp-mwsuk1480ddgr",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs31c0e0dd",
+       "id": "shp-mwsuk1480e0as",
        "pt": "auto"
       },
       "route": "straight",
@@ -803,7 +803,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs31c0e2vn",
+      "id": "shp-mwsuk1480e2jv",
       "type": "shape",
       "master": "attribute",
       "name": "",
@@ -827,14 +827,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs31c0e3gu",
+      "id": "con-mwsuk1480e3fk",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31b0dd82",
+       "id": "shp-mwsuk1480ddgr",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs31c0e2vn",
+       "id": "shp-mwsuk1480e2jv",
        "pt": "auto"
       },
       "route": "straight",
@@ -853,7 +853,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs31c0e4ah",
+      "id": "shp-mwsuk1480e4ku",
       "type": "shape",
       "master": "attribute",
       "name": "",
@@ -877,14 +877,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs31c0e5h2",
+      "id": "con-mwsuk1480e5n0",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31b0dd82",
+       "id": "shp-mwsuk1480ddgr",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs31c0e4ah",
+       "id": "shp-mwsuk1480e4ku",
        "pt": "auto"
       },
       "route": "straight",
@@ -903,7 +903,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs31c0e6db",
+      "id": "shp-mwsuk1480e694",
       "type": "shape",
       "master": "keyAttribute",
       "name": "",
@@ -927,14 +927,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs31c0e7er",
+      "id": "con-mwsuk1480e7yr",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31b0dfju",
+       "id": "shp-mwsuk1480dff4",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs31c0e6db",
+       "id": "shp-mwsuk1480e694",
        "pt": "auto"
       },
       "route": "straight",
@@ -953,7 +953,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs31c0e8n9",
+      "id": "shp-mwsuk1480e8mr",
       "type": "shape",
       "master": "attribute",
       "name": "",
@@ -977,14 +977,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs31c0e9cx",
+      "id": "con-mwsuk1480e9tq",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31b0dfju",
+       "id": "shp-mwsuk1480dff4",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs31c0e8n9",
+       "id": "shp-mwsuk1480e8mr",
        "pt": "auto"
       },
       "route": "straight",

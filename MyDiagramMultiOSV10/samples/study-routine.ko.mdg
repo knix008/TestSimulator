@@ -1,0 +1,337 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.007Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk18u2nebe",
+  "title": "공부 순환",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.006Z",
+  "design": "facet",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk18u2nfff",
+    "name": "공부 순환",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk18u2ngv0",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "공부 순환",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk18u2nhmj",
+      "type": "shape",
+      "master": "eduBook",
+      "name": "",
+      "x": 285.4760086075229,
+      "y": 80,
+      "w": 240.52968876451843,
+      "h": 171.8069205460846,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "예습",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk18u2nirs",
+      "type": "shape",
+      "master": "eduLesson",
+      "name": "",
+      "x": 513.7713251604373,
+      "y": 288.0119553512207,
+      "w": 309.25245698295225,
+      "h": 137.44553643686768,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "수업",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk18u2njyw",
+      "type": "shape",
+      "master": "eduPencil",
+      "name": "",
+      "x": 482.16816109884405,
+      "y": 579.6027334266112,
+      "w": 171.8069205460846,
+      "h": 171.8069205460846,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "복습",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk18u2nkj4",
+      "type": "shape",
+      "master": "eduQuiz",
+      "name": "",
+      "x": 140.32593228002722,
+      "y": 571.012387399307,
+      "w": 206.1683046553015,
+      "h": 188.98761260069307,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "문제 풀이",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk18u2nlrx",
+      "type": "shape",
+      "master": "eduAward",
+      "name": "",
+      "x": 40,
+      "y": 262.24091726930806,
+      "w": 206.1683046553015,
+      "h": 188.98761260069307,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "휴식·보상",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk18u2nm19",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk18u2nhmj",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk18u2nirs",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk18u2nn0k",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk18u2nirs",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk18u2njyw",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk18u2nojn",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk18u2njyw",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk18u2nkj4",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk18u2npso",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk18u2nkj4",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk18u2nlrx",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk18u2nqcd",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk18u2nlrx",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk18u2nhmj",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "education",
+   "basic"
+  ]
+ }
+}

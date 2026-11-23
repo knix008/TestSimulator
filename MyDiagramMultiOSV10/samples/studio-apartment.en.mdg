@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "drawing",
- "saved": "2026-11-06T04:18:13.796Z",
+ "saved": "2026-11-23T05:50:21.090Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mw4gs3371h57i",
+  "id": "dgm-mwsuk1b63wkja",
   "title": "Studio Apartment",
   "subject": "",
   "author": "SHKWON",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-11-06T04:18:13.795Z",
+  "created": "2026-11-23T05:50:21.090Z",
   "design": "monochrome",
   "variant": 0,
   "units": "in",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mw4gs3371h6lk",
+    "id": "page-mwsuk1b63wl61",
     "name": "Studio Apartment",
     "paper": "Letter",
     "orientation": "landscape",
@@ -51,7 +51,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mw4gs3371h76f",
+      "id": "shp-mwsuk1b63wm5v",
       "type": "shape",
       "master": "title",
       "name": "",
@@ -79,7 +79,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371h8rh",
+      "id": "shp-mwsuk1b63wngu",
       "type": "shape",
       "master": "room",
       "name": "",
@@ -103,7 +103,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371h9fu",
+      "id": "shp-mwsuk1b63wo5c",
       "type": "shape",
       "master": "room",
       "name": "",
@@ -129,7 +129,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371ha0b",
+      "id": "shp-mwsuk1b63wpff",
       "type": "shape",
       "master": "window",
       "name": "",
@@ -155,7 +155,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371hbz3",
+      "id": "shp-mwsuk1b63wqac",
       "type": "shape",
       "master": "window",
       "name": "",
@@ -181,7 +181,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371hc2u",
+      "id": "shp-mwsuk1b63wr2p",
       "type": "shape",
       "master": "toilet",
       "name": "",
@@ -207,7 +207,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371hd8v",
+      "id": "shp-mwsuk1b63ws1r",
       "type": "shape",
       "master": "sink",
       "name": "",
@@ -233,7 +233,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371heuo",
+      "id": "shp-mwsuk1b63wtmf",
       "type": "shape",
       "master": "door",
       "name": "",
@@ -259,7 +259,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371hf5v",
+      "id": "shp-mwsuk1b63wugv",
       "type": "shape",
       "master": "tableRect",
       "name": "",
@@ -283,7 +283,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371hgh4",
+      "id": "shp-mwsuk1b63wv64",
       "type": "shape",
       "master": "sink",
       "name": "",
@@ -309,7 +309,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371hhsm",
+      "id": "shp-mwsuk1b63wwhd",
       "type": "shape",
       "master": "rect",
       "name": "",
@@ -337,7 +337,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371hi0m",
+      "id": "shp-mwsuk1b63wx4n",
       "type": "shape",
       "master": "door",
       "name": "",
@@ -363,7 +363,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371hjrd",
+      "id": "shp-mwsuk1b63wylq",
       "type": "shape",
       "master": "textBox",
       "name": "",
@@ -393,7 +393,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371hk80",
+      "id": "shp-mwsuk1b63wz7b",
       "type": "shape",
       "master": "bed",
       "name": "",
@@ -417,7 +417,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371hla2",
+      "id": "shp-mwsuk1b63x009",
       "type": "shape",
       "master": "desk",
       "name": "",
@@ -441,7 +441,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371hma7",
+      "id": "shp-mwsuk1b63x1vd",
       "type": "shape",
       "master": "chair",
       "name": "",
@@ -467,7 +467,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371hnw6",
+      "id": "shp-mwsuk1b63x20w",
       "type": "shape",
       "master": "sofa",
       "name": "",
@@ -493,7 +493,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371ho3z",
+      "id": "shp-mwsuk1b63x30o",
       "type": "shape",
       "master": "tableRect",
       "name": "",
@@ -517,7 +517,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371hpc8",
+      "id": "shp-mwsuk1b63x470",
       "type": "shape",
       "master": "rect",
       "name": "",
@@ -545,7 +545,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3371hqk5",
+      "id": "shp-mwsuk1b63x5i8",
       "type": "shape",
       "master": "plant",
       "name": "",

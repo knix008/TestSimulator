@@ -8,6 +8,7 @@ import { layoutPage } from './layout.js';
 import { masterById } from './stencils.js';
 import { sampleInfo } from './sample-names.js';
 import { builder, buildSample, buildTemplate, data, L, newDoc } from './templates.js';
+import { extraSamples } from './samples-extra.js';
 
 /** A new drawing named after its entry in sample-names.js, with a title on the page. */
 function start(stem, lang, design, stencils, { title = true } = {}) {
@@ -861,7 +862,509 @@ function transistorSwitch(lang) {
   return doc;
 }
 
+/**
+ * The drawings below are laid out for A4 landscape (Korean); on the narrower US Letter page
+ * (English) the whole drawing shrinks evenly, around the top-left corner, until it fits.
+ */
+function fitToPage(doc) {
+  const margin = 12;
+  for (const page of doc.pages) {
+    const shapes = page.shapes.filter((shape) => shape.type !== 'connector' && shape.type !== 'group');
+    const right = Math.max(...shapes.map((shape) => shape.x + shape.w));
+    const bottom = Math.max(...shapes.map((shape) => shape.y + shape.h));
+    const k = Math.min(1, (page.width - margin) / right, (page.height - margin) / bottom);
+    if (k >= 1) continue;
+    for (const shape of shapes) Object.assign(shape, { x: shape.x * k, y: shape.y * k, w: shape.w * k, h: shape.h * k });
+  }
+  return doc;
+}
+
+// ───────────────────────── more flowcharts and BPMN
+
+function passwordReset(lang) {
+  const { doc, b, t } = start('password-reset', lang, 'ion', ['flowchart', 'callouts']);
+  const yes = t('예', 'Yes'); const no = t('아니요', 'No');
+  const begin = b.add('terminator', 40, 120, t('비밀번호 찾기', 'Forgot password'), { qs: { color: 6 } });
+  const email = b.add('manualInput', 215, 105, t('이메일 입력', 'Enter e-mail'));
+  const known = b.add('decision', 400, 95, t('가입된\n주소?', 'Known\naddress?'), { w: 150, h: 100, qs: { color: 4 } });
+  const send = b.add('process', 620, 115, t('재설정 링크 발송', 'Send a reset link'), { w: 150 });
+  const same = b.add('display', 410, 270, t('같은 안내 표시', 'Show the same notice'), { w: 140 });
+  const open = b.add('manualOperation', 625, 255, t('메일의 링크 열기', 'Open the link'), { w: 140 });
+  const fresh = b.add('decision', 620, 385, t('30분 이내?', 'Within\n30 min?'), { w: 150, h: 100, qs: { color: 4 } });
+  const expired = b.add('display', 850, 405, t('링크 만료 안내', 'Link expired'), { w: 140 });
+  const typed = b.add('manualInput', 625, 545, t('새 비밀번호 입력', 'Type a new password'), { w: 140 });
+  const rules = b.add('decision', 850, 530, t('규칙에\n맞음?', 'Meets the\nrules?'), { w: 150, h: 100, qs: { color: 4 } });
+  const save = b.add('process', 620, 690, t('저장 · 모든 기기 로그아웃', 'Save, sign out everywhere'), { w: 170, h: 70 });
+  const end = b.add('terminator', 880, 695, t('로그인 화면', 'Login screen'), { qs: { color: 6 } });
+  b.link(begin, email); b.link(email, known);
+  b.link(known, send, { text: yes, fromPt: 1, toPt: 3 });
+  b.link(known, same, { text: no, fromPt: 2, toPt: 0 });
+  b.link(send, open, { fromPt: 2, toPt: 0 }); b.link(open, fresh, { fromPt: 2, toPt: 0 });
+  b.link(fresh, expired, { text: no, fromPt: 1, toPt: 3 });
+  b.link(expired, begin, { fromPt: 0, toPt: 0 });
+  b.link(fresh, typed, { text: yes, fromPt: 2, toPt: 0 });
+  b.link(typed, rules, { fromPt: 1, toPt: 3 });
+  b.link(rules, typed, { text: no, fromPt: 0, toPt: 0 });
+  b.link(rules, save, { text: yes, fromPt: 2, toPt: 1 });
+  b.link(save, end, { fromPt: 1, toPt: 3 });
+  b.add('note', 60, 420, t('주소가 없어도 같은 안내를 보여 가입 여부가 드러나지 않게 합니다.', 'The same notice is shown for unknown addresses, so nobody can tell who has an account.'), { w: 260, h: 130 });
+  return doc;
+}
+
+function leaveRequest(lang) {
+  const { doc, b, t } = start('leave-request', lang, 'organic', ['bpmn', 'containers']);
+  [t('직원', 'Employee'), t('팀장', 'Team lead'), t('인사팀', 'HR')].forEach((name, i) => b.add('swimlane', 40, 80 + i * 200, name, { w: 1000, h: 200, qs: { color: i + 1 } }));
+  const s = b.add('bpmnStart', 110, 155, t('휴가 필요', 'Leave needed'));
+  const form = b.add('bpmnUserTask', 200, 135, t('휴가 신청서\n작성', 'Fill in the\nleave form'));
+  const fix = b.add('bpmnTask', 400, 135, t('날짜 조정', 'Change the dates'), { w: 120 });
+  const review = b.add('bpmnUserTask', 200, 335, t('일정 검토', 'Check the plan'));
+  const g = b.add('gatewayExclusive', 410, 347);
+  caption(b, 474, 362, 110, t('승인?', 'Approved?'), {}, 24);
+  const balance = b.add('bpmnServiceTask', 560, 535, t('남은 휴가 차감', 'Update the balance'));
+  const pay = b.add('bpmnSendTask', 740, 535, t('급여팀 통보', 'Tell payroll'));
+  const told = b.add('bpmnTask', 740, 135, t('휴가 사용', 'Take the leave'));
+  const e = b.add('bpmnEnd', 930, 155, t('완료', 'Done'));
+  const store = b.add('bpmnDataStore', 900, 540, t('인사 시스템', 'HR system'));
+  b.link(s, form); b.link(form, review, { fromPt: 2, toPt: 0 }); b.link(review, g);
+  b.link(g, fix, { text: t('아니요', 'No'), fromPt: 0, toPt: 2 });
+  b.link(fix, form, { fromPt: 3, toPt: 1 });
+  b.link(g, balance, { text: t('예', 'Yes'), fromPt: 2, toPt: 3 });
+  b.link(balance, pay); b.link(pay, told, { fromPt: 0, toPt: 2 }); b.link(told, e);
+  b.link(balance, store, { fromPt: 2, toPt: 2, ...dashed });
+  return doc;
+}
+
+// ───────────────────────── wireframes
+
+function loginWireframe(lang) {
+  const { doc, b, t } = start('login-wireframe', lang, 'monochrome', ['wireframe', 'basic', 'callouts']);
+  b.add('uiBrowser', 60, 80, 'https://shop.example.com/login', { w: 1000, h: 690 });
+  b.add('uiNavbar', 80, 130, t('MyShop      홈      상품      고객센터', 'MyShop      Home      Products      Help'), { w: 960 });
+  b.add('uiImage', 120, 230, t('대표 그림', 'Hero picture'), { w: 380, h: 300 });
+  b.add('textBox', 600, 220, t('로그인', 'Sign in'), { w: 360, h: 50, style: { bold: true, fontSize: 24, align: 'left' } });
+  b.add('uiInput', 600, 290, t('이메일', 'E-mail'), { w: 360 });
+  b.add('uiInput', 600, 345, t('비밀번호', 'Password'), { w: 360 });
+  b.add('uiCheckbox', 600, 400, t('로그인 상태 유지', 'Keep me signed in'), { w: 200 });
+  b.add('uiButton', 600, 450, t('로그인', 'Sign in'), { w: 360, h: 40, qs: { color: 1 } });
+  caption(b, 600, 505, 360, t('비밀번호 찾기 · 회원 가입', 'Forgot password? · Create an account'), { align: 'center' }, 24);
+  b.add('uiButton', 600, 560, t('Google로 계속', 'Continue with Google'), { w: 175, h: 40 });
+  b.add('uiButton', 785, 560, t('Apple로 계속', 'Continue with Apple'), { w: 175, h: 40 });
+  b.add('note', 120, 600, t('오류는 해당 입력란 바로 아래에 빨간 글자로 보여 줍니다.', 'Errors show in red right under the field they are about.'), { w: 380, h: 110 });
+  return doc;
+}
+
+function mobileShopApp(lang) {
+  const { doc, b, t } = start('mobile-shop-app', lang, 'bubble', ['wireframe', 'arrows', 'callouts']);
+  const phone = (x, ko, en) => b.add('uiPhone', x, 100, '', { w: 240, h: 480, data: data({ [t('화면', 'Screen')]: t(ko, en) }) });
+  const home = phone(80, '홈', 'Home');
+  const product = phone(440, '상품', 'Product');
+  const cart = phone(800, '장바구니', 'Cart');
+  b.add('uiSearch', 100, 160, t('검색', 'Search'), { w: 200 });
+  [[100, 210, '운동화', 'Shoes'], [205, 210, '가방', 'Bags'], [100, 370, '모자', 'Hats'], [205, 370, '시계', 'Watches']].forEach(([x, y, ko, en]) => b.add('uiCard', x, y, t(ko, en), { w: 95, h: 150 }));
+  b.add('uiImage', 460, 160, t('러닝화', 'Running shoes'), { w: 200, h: 140 });
+  b.add('textBox', 460, 340, '₩89,000', { w: 200, h: 30, style: { bold: true, fontSize: 18 } });
+  b.add('uiDropdown', 460, 385, t('사이즈 270', 'Size 270'), { w: 200 });
+  b.add('uiButton', 460, 460, t('장바구니 담기', 'Add to cart'), { w: 200, h: 40, qs: { color: 1 } });
+  b.add('textBox', 820, 160, t('러닝화 × 1\n모자 × 2', 'Running shoes × 1\nCap × 2'), { w: 200, h: 150, style: { align: 'left', valign: 'top' } });
+  b.add('textBox', 820, 370, t('합계 ₩119,000', 'Total ₩119,000'), { w: 200, h: 30, style: { bold: true } });
+  b.add('uiButton', 820, 460, t('결제하기', 'Pay now'), { w: 200, h: 40, qs: { color: 1 } });
+  b.link(home, product, { text: t('상품 누르기', 'Tap a product') });
+  b.link(product, cart, { text: t('담기', 'Add') });
+  [[80, '1. 홈', '1. Home'], [440, '2. 상품', '2. Product'], [800, '3. 장바구니', '3. Cart']].forEach(([x, ko, en]) => b.add('textBox', x, 595, t(ko, en), { w: 240, h: 30, style: { bold: true } }));
+  b.add('note', 80, 650, t('세 화면 모두 아래쪽 탭 막대(홈 · 검색 · 장바구니 · 내 정보)를 같은 자리에 둡니다.', 'All three screens keep the bottom tab bar (Home, Search, Cart, Me) in the same place.'), { w: 960, h: 90 });
+  return doc;
+}
+
+// ───────────────────────── cloud & security
+
+function serverlessApi(lang) {
+  const { doc, b, t } = start('serverless-api', lang, 'midnight', ['cloud', 'network', 'containers']);
+  b.add('groupFrame', 380, 90, t('클라우드 리전', 'Cloud region'), { w: 720, h: 660 });
+  const users = b.add('user', 60, 320, t('사용자', 'Users'));
+  const cdn = b.add('cldCdn', 230, 320, 'CDN');
+  const site = b.add('cldBucket', 235, 540, t('웹 파일', 'Web files'));
+  const api = b.add('cldApi', 430, 325, t('API 게이트웨이', 'API gateway'));
+  const login = b.add('cldIdentity', 430, 140, t('로그인', 'Sign-in'));
+  const orders = b.add('cldFunction', 640, 210, t('주문 함수', 'Orders function'));
+  const images = b.add('cldFunction', 640, 440, t('그림 함수', 'Images function'));
+  const db = b.add('cldDatabase', 860, 200, t('주문 DB', 'Orders DB'));
+  const queue = b.add('cldQueue', 830, 450, t('작업 큐', 'Job queue'));
+  const pictures = b.add('cldBucket', 1000, 435, t('그림 저장소', 'Pictures'));
+  const watch = b.add('cldMonitoring', 635, 630, t('모니터링', 'Monitoring'));
+  b.link(users, cdn); b.link(cdn, site); b.link(cdn, api);
+  b.link(api, login); b.link(api, orders); b.link(api, images);
+  b.link(orders, db); b.link(images, queue); b.link(queue, pictures);
+  b.link(orders, watch, dashed); b.link(images, watch, dashed);
+  b.add('note', 60, 120, t('함수는 요청이 있을 때만 실행되고 쓴 만큼만 요금을 냅니다.', 'The functions run only when called and are billed for what they use.'), { w: 250, h: 120 });
+  return doc;
+}
+
+function zeroTrust(lang) {
+  const { doc, b, t } = start('zero-trust', lang, 'blueprint', ['security', 'network', 'containers']);
+  b.add('secZone', 650, 90, t('보호 구역', 'Protected zone'), { w: 430, h: 620 });
+  const laptop = b.add('laptop', 60, 150, t('직원 노트북', 'Staff laptop'));
+  const phone = b.add('phone', 70, 420, t('휴대폰', 'Phone'));
+  const id = b.add('secFingerprint', 270, 140, t('신원 확인 (MFA)', 'Identity check (MFA)'));
+  const health = b.add('secScan', 270, 410, t('기기 상태 검사', 'Device health check'));
+  const policy = b.add('secShieldCheck', 470, 270, t('정책 엔진', 'Policy engine'));
+  const hr = b.add('server', 720, 160, t('인사 앱', 'HR app'));
+  const crm = b.add('dbServer', 720, 360, t('고객 DB', 'Customer DB'));
+  const files = b.add('netFileServer', 720, 560, t('파일 서버', 'File server'));
+  const lock = b.add('secLock', 950, 150, t('저장 암호화', 'Encrypted at rest'));
+  const audit = b.add('secAudit', 950, 350, t('감사 기록', 'Audit log'));
+  const token = b.add('secKey', 935, 580, t('짧은 토큰', 'Short-lived token'));
+  b.link(laptop, id); b.link(phone, health); b.link(id, policy); b.link(health, policy);
+  for (const app of [hr, crm, files]) b.link(policy, app);
+  b.link(hr, lock, dashed); b.link(crm, audit, dashed); b.link(files, token, dashed);
+  b.add('note', 60, 600, t('위치와 상관없이 모든 접속을 매번 확인합니다.', 'Every request is checked, wherever it comes from.'), { w: 280, h: 110 });
+  return doc;
+}
+
+// ───────────────────────── software architecture
+
+function c4Context(lang) {
+  const { doc, b, t } = start('c4-context', lang, 'office', ['c4', 'callouts']);
+  const customer = b.add('c4Person', 100, 90, t('고객\n[사람]\n온라인으로 상품을 삽니다', 'Customer\n[Person]\nBuys products online'), { w: 190, h: 150 });
+  const staff = b.add('c4Person', 100, 520, t('상담원\n[사람]\n주문을 관리합니다', 'Support staff\n[Person]\nLooks after orders'), { w: 190, h: 150 });
+  const shop = b.add('c4System', 440, 330, t('온라인 쇼핑몰\n[소프트웨어 시스템]\n상품 검색과 주문', 'Online shop\n[Software system]\nBrowse and order products'), { w: 250, h: 140 });
+  const pay = b.add('c4External', 840, 110, t('결제 대행사\n[외부 시스템]', 'Payment provider\n[External system]'), { w: 220, h: 110 });
+  const mail = b.add('c4External', 840, 345, t('메일 서비스\n[외부 시스템]', 'E-mail service\n[External system]'), { w: 220, h: 110 });
+  const courier = b.add('c4External', 840, 580, t('택배사 시스템\n[외부 시스템]', 'Courier system\n[External system]'), { w: 220, h: 110 });
+  b.link(customer, shop, { text: t('검색·주문 [HTTPS]', 'Browses, orders [HTTPS]') });
+  b.link(staff, shop, { text: t('주문 관리', 'Manages orders') });
+  b.link(shop, pay, { text: t('결제 [API]', 'Takes payments [API]') });
+  b.link(shop, mail, { text: t('메일 발송 [SMTP]', 'Sends e-mail [SMTP]') });
+  b.link(shop, courier, { text: t('배송 예약 [API]', 'Books deliveries [API]') });
+  b.link(mail, customer, { text: t('메일 전달', 'Delivers e-mail'), ...dashed });
+  return doc;
+}
+
+function orderDfd(lang) {
+  const { doc, b, t } = start('order-dfd', lang, 'sequence', ['dfd', 'callouts']);
+  const customer = b.add('dfdExternal', 60, 150, t('고객', 'Customer'));
+  const bank = b.add('dfdExternal', 60, 580, t('은행', 'Bank'));
+  const warehouse = b.add('dfdExternal', 930, 150, t('물류 창고', 'Warehouse'));
+  const take = b.add('dfdProcess', 330, 120, t('1.0\n주문 접수', '1.0\nTake order'));
+  const charge = b.add('dfdProcess', 330, 520, t('2.0\n결제', '2.0\nCharge card'));
+  const ship = b.add('dfdProcess', 660, 320, t('3.0\n출고', '3.0\nShip order'));
+  const orders = b.add('dfdStore', 620, 150, t('D1 주문', 'D1 Orders'));
+  const payments = b.add('dfdStore', 620, 600, t('D2 결제', 'D2 Payments'));
+  const stock = b.add('dfdStore', 900, 470, t('D3 재고', 'D3 Stock'));
+  const flow = (a, c, ko, en) => b.link(a, c, { text: t(ko, en) });
+  flow(customer, take, '주문 내용', 'order details');
+  flow(take, orders, '새 주문', 'new order');
+  flow(take, charge, '결제 금액', 'amount');
+  flow(charge, bank, '승인 요청', 'charge');
+  flow(bank, charge, '승인 결과', 'approval');
+  flow(charge, payments, '결제 기록', 'payment record');
+  flow(orders, ship, '결제된 주문', 'paid order');
+  flow(ship, warehouse, '출고 목록', 'pick list');
+  flow(ship, stock, '재고 변경', 'stock change');
+  flow(ship, customer, '송장 번호', 'tracking number');
+  return doc;
+}
+
+// ───────────────────────── agile
+
+function sprintBoard(lang) {
+  const { doc, b, t } = start('sprint-board', lang, 'retrospect', ['agile', 'callouts']);
+  caption(b, 700, 30, 380, t('스프린트 7 · 3월 3일 ~ 14일', 'Sprint 7 · 3 – 14 March'), { align: 'right', bold: true, fontSize: 14 }, 28);
+  const columns = [
+    [t('백로그', 'Backlog'), [['agEpic', '에픽: 모바일 앱', 'Epic: Mobile app'], ['agStory', '검색 필터\n5점', 'Search filters\n5 pts'], ['agStory', '찜 목록\n3점', 'Wish list\n3 pts']]],
+    [t('할 일', 'To do'), [['agTodo', '주문 메일\n2점', 'Order e-mail\n2 pts'], ['agBug', '장바구니 합계 오류\n1점', 'Wrong cart total\n1 pt']]],
+    [t('진행 중', 'Doing'), [['agDoing', '결제 화면\n5점', 'Payment page\n5 pts'], ['agDoing', '로그인 API\n3점', 'Login API\n3 pts']]],
+    [t('완료', 'Done'), [['agDone', '회원 가입\n3점', 'Sign-up\n3 pts'], ['agDone', '상품 목록\n5점', 'Product list\n5 pts'], ['agDone', '홈 화면\n2점', 'Home page\n2 pts']]],
+  ];
+  columns.forEach(([name, cards], i) => {
+    const x = 40 + i * 270;
+    b.add('agColumn', x, 90, name, { w: 250, h: 640, qs: { color: i + 1, variant: 'subtle' } });
+    cards.forEach(([master, ko, en], j) => b.add(master, x + 15, 150 + j * 115, t(ko, en), { w: 220, h: 95 }));
+  });
+  return doc;
+}
+
+function scrumCycle(lang) {
+  const { doc, b, t } = start('scrum-cycle', lang, 'linear', ['agile', 'arrows', 'callouts']);
+  const box = (master, x, y, ko, en, extra = {}) => b.add(master, x, y, t(ko, en), { w: 170, h: 100, ...extra });
+  const backlog = box('agBacklog', 50, 320, '제품 백로그', 'Product backlog');
+  const planning = box('agSprint', 290, 130, '스프린트 계획', 'Sprint planning');
+  const sprint = b.add('circularArrow', 470, 290, t('2주 스프린트', '2-week sprint'), { w: 190, h: 190, qs: { color: 2 } });
+  const standup = box('agStandup', 720, 120, '매일 스탠드업', 'Daily stand-up');
+  const review = box('agRelease', 880, 320, '스프린트 리뷰', 'Sprint review', { w: 180 });
+  const retro = box('agRetro', 600, 580, '회고', 'Retrospective');
+  const done = b.add('roundRect', 880, 580, t('제품 증분', 'Product increment'), { w: 180, h: 100, qs: { color: 6 } });
+  b.link(backlog, planning, { text: t('우선순위 순', 'by priority') });
+  b.link(planning, sprint); b.link(sprint, standup, { ...dashed, text: t('매일 15분', '15 min a day') });
+  b.link(sprint, review); b.link(review, done); b.link(review, retro);
+  b.link(retro, planning, { route: 'curved', text: t('다음 스프린트', 'next sprint') });
+  b.add('note', 60, 560, t('스프린트 중에는 목표를 바꾸지 않습니다.', 'The sprint goal does not change during a sprint.'), { w: 240, h: 110 });
+  return doc;
+}
+
+// ───────────────────────── logic, process and manufacturing
+
+function halfAdder(lang) {
+  const { doc, b, t } = start('half-adder', lang, 'chalkboard', ['logic', 'electrical', 'callouts']);
+  const a = b.add('roundRect', 80, 200, t('입력 A', 'Input A'), { w: 100, h: 50, qs: { color: 1 } });
+  const bIn = b.add('roundRect', 80, 430, t('입력 B', 'Input B'), { w: 100, h: 50, qs: { color: 2 } });
+  const xor = b.add('logicXor', 440, 190, t('XOR (합)', 'XOR (sum)'), { w: 140, h: 84 });
+  const and = b.add('logicAnd', 440, 420, t('AND (자리올림)', 'AND (carry)'), { w: 140, h: 84 });
+  const s = b.add('elecLed', 780, 207, t('S 합', 'S sum'));
+  const c = b.add('elecLed', 780, 437, t('C 자리올림', 'C carry'));
+  for (const gate of [xor, and]) { b.link(a, gate, wire()); b.link(bIn, gate, wire()); }
+  b.link(xor, s, wire()); b.link(and, c, wire());
+  b.add('textBox', 160, 590, t('A B │ S C\n0 0 │ 0 0\n0 1 │ 1 0\n1 0 │ 1 0\n1 1 │ 0 1', 'A B │ S C\n0 0 │ 0 0\n0 1 │ 1 0\n1 0 │ 1 0\n1 1 │ 0 1'), { w: 260, h: 150, style: { fontSize: 15 } });
+  b.add('note', 640, 600, 'S = A ⊕ B\nC = A · B', { w: 300, h: 110 });
+  return doc;
+}
+
+function waterTreatment(lang) {
+  const { doc, b, t } = start('water-treatment', lang, 'blueprint', ['process', 'callouts']);
+  const pipe = { style: { endArrow: 'arrow', lineWidth: 2 } };
+  const raw = b.add('pidTank', 50, 260, t('원수', 'Raw water'));
+  const p1 = b.add('pidPump', 200, 290, 'P-101');
+  const mix = b.add('pidMixer', 330, 260, t('응집', 'Coagulation'));
+  const settle = b.add('pidColumn', 480, 230, t('침전', 'Settling'), { w: 90, h: 160 });
+  const filter = b.add('pidFilter', 640, 290, t('모래 여과', 'Sand filter'));
+  const valve = b.add('pidValveControl', 790, 310, 'FCV-201', { w: 70, h: 40 });
+  const clean = b.add('pidTank', 950, 260, t('정수지', 'Clean water'));
+  const flowMeter = b.add('pidInstrument', 790, 190, 'FI');
+  const level = b.add('pidInstrument', 500, 120, 'LT');
+  const chlorine = b.add('pidTankOpen', 640, 540, t('염소', 'Chlorine'), { w: 80, h: 100 });
+  const p2 = b.add('pidPump', 800, 555, t('P-102 주입', 'P-102 dosing'));
+  b.link(raw, p1, pipe); b.link(p1, mix, pipe); b.link(mix, settle, pipe); b.link(settle, filter, pipe); b.link(filter, valve, pipe); b.link(valve, clean, pipe);
+  b.link(chlorine, p2, pipe); b.link(p2, clean, pipe);
+  b.link(flowMeter, valve, { style: { dash: 'dot', endArrow: 'none' } });
+  b.link(level, settle, { style: { dash: 'dot', endArrow: 'none' } });
+  b.add('note', 60, 560, t('FI: 유량 표시, LT: 수위 전송기, FCV: 유량 조절 밸브', 'FI: flow indicator, LT: level transmitter, FCV: flow control valve'), { w: 300, h: 120 });
+  return doc;
+}
+
+function assemblyLine(lang) {
+  const { doc, b, t } = start('assembly-line', lang, 'slice', ['factory', 'callouts']);
+  const parts = b.add('facStorage', 40, 300, t('부품 창고', 'Parts store'));
+  const belt1 = b.add('facConveyor', 200, 320, t('컨베이어 1', 'Conveyor 1'), { w: 180 });
+  const weld = b.add('facRobot', 430, 160, t('용접 로봇', 'Welding robot'));
+  const cnc = b.add('facCnc', 420, 420, t('CNC 가공', 'CNC machining'));
+  const belt2 = b.add('facConveyor', 590, 320, t('컨베이어 2', 'Conveyor 2'), { w: 180 });
+  const check = b.add('facInspect', 810, 310, t('비전 검사', 'Vision check'));
+  const goods = b.add('facStorage', 970, 300, t('완제품', 'Finished goods'));
+  const rework = b.add('facWorker', 820, 500, t('재작업', 'Rework'));
+  const plc = b.add('facPlc', 420, 630, t('라인 PLC', 'Line PLC'));
+  const hmi = b.add('facHmi', 600, 630, t('작업자 패널', 'Operator panel'));
+  b.link(parts, belt1); b.link(belt1, weld); b.link(belt1, cnc); b.link(weld, belt2); b.link(cnc, belt2);
+  b.link(belt2, check); b.link(check, goods, { text: t('합격', 'pass') }); b.link(check, rework, { text: t('불량', 'fail') });
+  b.link(rework, belt2, dashed);
+  b.link(plc, cnc, dashed); b.link(plc, hmi, plain);
+  return doc;
+}
+
+// ───────────────────────── strategy
+
+function customerJourney(lang) {
+  const { doc, b, t } = start('customer-journey', lang, 'radiance', ['basic', 'arrows', 'callouts']);
+  const stages = [[t('알게 됨', 'Discover')], [t('비교', 'Compare')], [t('구매', 'Buy')], [t('받음', 'Receive')], [t('다시 찾음', 'Come back')]];
+  const rows = [
+    [t('행동', 'Actions'), [t('광고·후기 보기', 'Sees ads, reviews'), t('가격·배송 비교', 'Compares prices'), t('장바구니·결제', 'Cart and pay'), t('상자 열기', 'Opens the box'), t('재구매·추천', 'Buys again, tells friends')]],
+    [t('접점', 'Touchpoints'), [t('SNS · 검색', 'Social, search'), t('상품 페이지', 'Product page'), t('결제 화면', 'Checkout'), t('택배 · 메일', 'Courier, e-mail'), t('쿠폰 · 앱 알림', 'Coupons, app alerts')]],
+    [t('감정', 'Feelings'), [t('궁금함', 'Curious'), t('망설임', 'Unsure'), t('기대', 'Hopeful'), t('만족 / 실망', 'Pleased or let down'), t('신뢰', 'Trusting')]],
+    [t('개선 아이디어', 'Ideas'), [t('짧은 동영상 후기', 'Short video reviews'), t('비교표 제공', 'A comparison table'), t('간편 결제', 'One-tap payment'), t('배송 단계 알림', 'Delivery updates'), t('회원 등급 혜택', 'Member rewards')]],
+  ];
+  stages.forEach(([name], i) => b.add('chevron', 150 + i * 190, 90, name, { w: 185, h: 60, qs: { color: i + 1 } }));
+  rows.forEach(([label, cells], r) => {
+    const y = 180 + r * 140;
+    b.add('textBox', 30, y, label, { w: 110, h: 110, style: { bold: true, align: 'right' } });
+    cells.forEach((text, i) => b.add('roundRect', 155 + i * 190, y, text, { w: 175, h: 110, qs: { color: i + 1, variant: 'subtle' } }));
+  });
+  return doc;
+}
+
+// ───────────────────────── life, health and education
+
+function familyTree(lang) {
+  const { doc, b, t } = start('family-tree', lang, 'whisp', ['genogram', 'callouts']);
+  const person = (master, x, y, ko, en) => b.add(master, x, y, t(ko, en), { w: 60, h: 60 });
+  const couple = { style: { endArrow: 'none', lineWidth: 2 } };
+  const child = { style: { endArrow: 'none' } };
+  const g1 = person('genMale', 200, 110, '할아버지\n1940', 'Grandfather\n1940');
+  const g2 = person('genFemaleDead', 420, 110, '할머니\n1943–2019', 'Grandmother\n1943–2019');
+  const g3 = person('genMaleDead', 680, 110, '외할아버지\n1938–2015', 'Grandfather\n1938–2015');
+  const g4 = person('genFemale', 900, 110, '외할머니\n1945', 'Grandmother\n1945');
+  const aunt = person('genFemale', 120, 330, '고모\n1966', 'Aunt\n1966');
+  const father = person('genMale', 330, 330, '아버지\n1968', 'Father\n1968');
+  const mother = person('genFemale', 780, 330, '어머니\n1970', 'Mother\n1970');
+  const uncle = person('genMale', 990, 330, '외삼촌\n1973', 'Uncle\n1973');
+  const me = person('genMaleSelf', 480, 560, '나\n1995', 'Me\n1995');
+  const sister = person('genFemale', 650, 560, '여동생\n1998', 'Sister\n1998');
+  b.link(g1, g2, couple); b.link(g3, g4, couple); b.link(father, mother, couple);
+  b.link(g1, aunt, child); b.link(g1, father, child); b.link(g3, mother, child); b.link(g3, uncle, child);
+  b.link(father, me, child); b.link(father, sister, child);
+  b.add('note', 60, 640, t('네모는 남자, 동그라미는 여자, ✕ 표시는 고인, 굵은 테두리는 본인입니다.', 'Squares are men, circles women; a cross marks someone who has died, a bold outline is you.'), { w: 330, h: 110 });
+  return doc;
+}
+
+function hospitalAdmission(lang) {
+  const { doc, b, t } = start('hospital-admission', lang, 'linear', ['flowchart', 'medical', 'callouts']);
+  const yes = t('예', 'Yes'); const no = t('아니요', 'No');
+  const arrive = b.add('terminator', 40, 120, t('내원', 'Arrive'), { qs: { color: 6 } });
+  const desk = b.add('process', 210, 120, t('접수', 'Check in'));
+  const doctor = b.add('medDoctor', 410, 110, t('진료', 'See a doctor'));
+  const admit = b.add('decision', 560, 100, t('입원 필요?', 'Admit?'), { w: 150, h: 100, qs: { color: 4 } });
+  const outpatient = b.add('process', 560, 290, t('외래 처방', 'Outpatient care'), { w: 150 });
+  const bed = b.add('medBed', 800, 115, t('병실 배정', 'Ward bed'));
+  const care = b.add('medMonitor', 815, 300, t('치료·관찰', 'Treatment, watch'));
+  const better = b.add('decision', 790, 450, t('회복됨?', 'Recovered?'), { w: 150, h: 100, qs: { color: 4 } });
+  const papers = b.add('process', 560, 470, t('퇴원 수속', 'Discharge'), { w: 150 });
+  const pills = b.add('medPill', 590, 620, t('퇴원 약', 'Take-home medicine'));
+  const home = b.add('terminator', 300, 610, t('귀가', 'Go home'), { qs: { color: 6 } });
+  b.link(arrive, desk); b.link(desk, doctor); b.link(doctor, admit);
+  b.link(admit, bed, { text: yes, fromPt: 1 });
+  b.link(admit, outpatient, { text: no, fromPt: 2, toPt: 0 });
+  b.link(outpatient, home);
+  b.link(bed, care); b.link(care, better);
+  b.link(better, care, { text: no, fromPt: 1 });
+  b.link(better, papers, { text: yes, fromPt: 3, toPt: 1 });
+  b.link(papers, pills); b.link(pills, home);
+  return doc;
+}
+
+function courseCurriculum(lang) {
+  const { doc, b, t } = start('course-curriculum', lang, 'integral', ['education', 'basic', 'callouts']);
+  const terms = [
+    [t('1학기', 'Term 1'), [t('프로그래밍 1', 'Programming 1'), t('이산 수학', 'Discrete maths'), t('글쓰기', 'Writing')]],
+    [t('2학기', 'Term 2'), [t('프로그래밍 2', 'Programming 2'), t('선형 대수', 'Linear algebra'), t('데이터베이스', 'Databases')]],
+    [t('3학기', 'Term 3'), [t('자료 구조', 'Data structures'), t('네트워크', 'Networks'), t('통계', 'Statistics')]],
+    [t('4학기', 'Term 4'), [t('알고리즘', 'Algorithms'), t('기계 학습', 'Machine learning'), t('졸업 작품', 'Final project')]],
+  ];
+  const at = terms.map(([name, courses], i) => {
+    const x = 60 + i * 270;
+    b.add('textBox', x, 80, name, { w: 220, h: 34, style: { bold: true, fontSize: 15 } });
+    return courses.map((course, j) => b.add('eduLesson', x, 130 + j * 115, course, { w: 220, h: 72, qs: { color: i + 1 } }));
+  });
+  const need = (a, c) => b.link(a, c, { style: { endArrow: 'arrow' } });
+  need(at[0][0], at[1][0]); need(at[1][0], at[2][0]); need(at[2][0], at[3][0]);
+  need(at[0][1], at[2][0]); need(at[1][1], at[3][1]); need(at[2][2], at[3][1]); need(at[1][2], at[3][2]);
+  b.add('eduStudent', 90, 540, t('신입생', 'New student'));
+  b.add('eduCertificate', 870, 520, t('학위', 'Degree'), { w: 220, h: 130 });
+  b.add('note', 330, 540, t('화살표는 먼저 들어야 하는 과목(선수 과목)을 가리킵니다.', 'An arrow leads from a course to the ones that need it first.'), { w: 400, h: 100 });
+  return doc;
+}
+
+// ───────────────────────── maps & logistics
+
+function deliveryRoute(lang) {
+  const { doc, b, t } = start('delivery-route', lang, 'organic', ['maps', 'business', 'callouts']);
+  b.add('mapRoadH', 40, 380, '', { w: 1040 });
+  b.add('mapRoadV', 520, 90, '', { h: 680 });
+  b.add('mapPark', 800, 600, t('공원', 'Park'), { w: 220, h: 120 });
+  b.add('mapCompass', 1000, 90);
+  const depot = b.add('mapBuilding', 90, 240, t('물류 센터', 'Depot'));
+  b.add('bizTruck', 200, 440, t('1호 차', 'Truck 1'));
+  const stops = [[300, 270], [640, 230], [900, 290], [700, 500], [330, 560]].map(([x, y], i) => b.add('mapPin', x, y, String(i + 1)));
+  const route = { route: 'curved', style: { dash: 'dash', lineWidth: 3, endArrow: 'arrow' } };
+  b.link(depot, stops[0], route);
+  for (let i = 1; i < stops.length; i += 1) b.link(stops[i - 1], stops[i], route);
+  b.link(stops.at(-1), depot, route);
+  caption(b, 60, 660, 420, t('9:00 출발 · 배송지 5곳 · 13:00 복귀', 'Leaves 9:00 · 5 stops · back by 13:00'), { bold: true, fontSize: 14 }, 30);
+  return doc;
+}
+
+function campusMap(lang) {
+  const { doc, b, t } = start('campus-map', lang, 'facet', ['maps', 'basic', 'callouts']);
+  b.add('mapRoadH', 40, 360, '', { w: 1040 });
+  b.add('mapRoadV', 560, 90, '', { h: 680 });
+  b.add('mapSchool', 120, 150, t('본관', 'Main hall'));
+  b.add('mapBuilding', 330, 130, t('도서관', 'Library'));
+  b.add('mapBuilding', 760, 140, t('공학관', 'Engineering'));
+  b.add('mapBuilding', 960, 140, t('기숙사', 'Dormitory'));
+  b.add('mapHospital', 150, 470, t('보건소', 'Health centre'));
+  b.add('mapParking', 340, 480, t('주차장', 'Parking'));
+  b.add('mapPark', 680, 470, t('중앙 잔디밭', 'Central lawn'), { w: 260, h: 160 });
+  b.add('mapBuilding', 990, 480, t('체육관', 'Gym'));
+  b.add('mapPin', 620, 290, t('현재 위치', 'You are here'));
+  b.add('mapCompass', 1010, 660);
+  caption(b, 40, 410, 160, t('정문 →', 'Main gate →'), { bold: true }, 26);
+  return doc;
+}
+
+// ───────────────────────── charts & dashboards
+
+function salesDashboard(lang) {
+  const { doc, b, t } = start('sales-dashboard', lang, 'ion', ['charts', 'basic']);
+  [[t('매출\n₩12억', 'Revenue\n₩1.2 B'), 1], [t('주문\n8,430건', 'Orders\n8,430'), 2], [t('신규 고객\n1,120명', 'New customers\n1,120'), 3], [t('반품률\n2.1%', 'Return rate\n2.1%'), 4]]
+    .forEach(([text, color], i) => b.add('chartKpi', 40 + i * 265, 90, text, { w: 245, h: 100, qs: { color } }));
+  b.add('chartBar', 40, 240, t('월별 매출', 'Revenue by month'), { w: 500, h: 250 });
+  b.add('chartPie', 600, 240, t('분류별 비중', 'Share by category'), { w: 250, h: 250 });
+  b.add('chartGauge', 890, 270, t('목표 달성 82%', 'Target 82%'), { w: 190, h: 120 });
+  b.add('chartLine', 40, 590, t('일별 방문자', 'Visitors per day'), { w: 500, h: 120 });
+  b.add('chartTable', 600, 580, t('많이 팔린 상품', 'Best sellers'), { w: 480, h: 110 });
+  return doc;
+}
+
+function surveyResults(lang) {
+  const { doc, b, t } = start('survey-results', lang, 'bubble', ['charts', 'basic', 'callouts']);
+  b.add('chartDonut', 60, 110, t('78%\n만족', '78%\nsatisfied'), { w: 260, h: 260 });
+  b.add('chartBarH', 400, 100, t('우리를 고른 이유', 'Why did you choose us?'), { w: 620, h: 280 });
+  b.add('chartStacked', 60, 500, t('연령대별 응답', 'Answers by age'), { w: 460, h: 180 });
+  b.add('chartRadar', 620, 480, t('서비스 점수', 'Service scores'), { w: 220, h: 200 });
+  b.add('note', 880, 520, t('응답 1,240명 · 2027년 3월', '1,240 people · March 2027'), { w: 200, h: 140 });
+  return doc;
+}
+
+// ───────────────────────── more floor plans and timelines
+
+function smallOffice(lang) {
+  const { doc, b, t } = start('small-office', lang, 'monochrome', ['floor', 'basic', 'interior']);
+  b.add('room', 50, 85, '', { w: 1000, h: 660 });
+  b.add('room', 50, 85, '', { w: 330, h: 300, style: { lineWidth: 3 } });
+  caption(b, 70, 100, 200, t('회의실', 'Meeting room'), { bold: true }, 24);
+  b.add('window', 450, 79, '', { w: 220 });
+  b.add('window', 760, 79, '', { w: 220 });
+  b.add('tableRect', 110, 180, t('회의 탁자', 'Meeting table'), { w: 210, h: 110 });
+  for (const [x, y, angle] of [[130, 135, 0], [195, 135, 0], [260, 135, 0], [130, 297, 180], [195, 297, 180], [260, 297, 180]]) b.add('chair', x, y, '', { w: 40, h: 40, angle });
+  b.add('door', 300, 305, '', { w: 75, h: 75 });
+  for (let row = 0; row < 2; row += 1) {
+    for (let col = 0; col < 3; col += 1) {
+      const x = 470 + col * 180; const y = 140 + row * 190;
+      b.add('desk', x, y, t(`자리 ${row * 3 + col + 1}`, `Desk ${row * 3 + col + 1}`), { w: 150, h: 75 });
+      b.add('chair', x + 55, y + 80, '', { w: 40, h: 40, angle: 180 });
+    }
+  }
+  b.add('flrCounter', 90, 560, t('안내 데스크', 'Reception'), { w: 220, h: 60 });
+  b.add('sofa', 90, 650, t('대기석', 'Waiting area'), { w: 200, h: 80 });
+  b.add('tableRound', 700, 580, t('휴게 탁자', 'Break table'), { w: 110, h: 110 });
+  b.add('sink', 880, 650);
+  b.add('flrFridge', 960, 630);
+  b.add('doubleDoor', 470, 675, t('출입문', 'Entrance'), { w: 120, h: 70 });
+  b.add('plant', 980, 110);
+  return doc;
+}
+
+function projectGantt(lang) {
+  const { doc, b, t } = start('project-gantt', lang, 'office', ['timeline', 'callouts']);
+  const X = 260; const M = 130;
+  const months = lang === 'en' ? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'] : ['1월', '2월', '3월', '4월', '5월', '6월'];
+  months.forEach((name, i) => b.add('tlMonth', X + i * M, 200, name, { w: M }));
+  const tasks = [
+    [t('요구 사항', 'Requirements'), 0, 1, 1], [t('설계', 'Design'), 0.8, 1.2, 1], [t('프런트엔드', 'Front-end'), 1.8, 2.2, 2], [t('백엔드', 'Back-end'), 1.8, 2.5, 2],
+    [t('시험', 'Testing'), 3.8, 1.2, 3], [t('교육', 'Training'), 4.5, 0.8, 4], [t('출시 후 지원', 'Support after launch'), 5.2, 0.8, 5],
+  ];
+  const bars = tasks.map(([name, from, length, color], i) => {
+    const y = 255 + i * 58;
+    b.add('textBox', 40, y, name, { w: 205, h: 36, style: { bold: true, align: 'right' } });
+    return b.add('intervalBlock', X + from * M, y, '', { w: length * M, h: 36, qs: { color } });
+  });
+  b.link(bars[0], bars[1]); b.link(bars[1], bars[2]); b.link(bars[3], bars[4]); b.link(bars[4], bars[6]);
+  b.add('milestoneMarker', X + 2 * M - 15, 105, t('설계 승인', 'Design signed off'), { h: 85 });
+  b.add('milestoneMarker', X + 5.2 * M - 15, 105, t('출시', 'Launch'), { h: 85 });
+  b.add('todayMarker', X + 3.3 * M - 12, 240, t('오늘', 'Today'), { h: 420 });
+  return doc;
+}
+
 // ───────────────────────── the files
+
+/** A builder whose drawing shrinks to fit a smaller page (fitToPage). */
+const fitted = (build) => (lang) => fitToPage(build(lang));
 
 /** File name stem → builder (language) → drawing. */
 const drawn = {
@@ -876,7 +1379,19 @@ const drawn = {
   'product-roadmap': productRoadmap, 'event-schedule': eventSchedule,
   'sales-funnel': salesFunnel, 'pdca-cycle': pdcaCycle,
   'lamp-circuit': lampCircuit, 'rc-filter': rcFilter, 'transistor-switch': transistorSwitch,
+  'password-reset': fitted(passwordReset), 'leave-request': fitted(leaveRequest),
+  'login-wireframe': fitted(loginWireframe), 'mobile-shop-app': fitted(mobileShopApp),
+  'serverless-api': fitted(serverlessApi), 'zero-trust': fitted(zeroTrust), 'c4-context': fitted(c4Context), 'order-dfd': fitted(orderDfd),
+  'sprint-board': fitted(sprintBoard), 'scrum-cycle': fitted(scrumCycle), 'customer-journey': fitted(customerJourney),
+  'half-adder': fitted(halfAdder), 'water-treatment': fitted(waterTreatment), 'assembly-line': fitted(assemblyLine),
+  'family-tree': fitted(familyTree), 'hospital-admission': fitted(hospitalAdmission), 'course-curriculum': fitted(courseCurriculum),
+  'delivery-route': fitted(deliveryRoute), 'campus-map': fitted(campusMap), 'sales-dashboard': fitted(salesDashboard), 'survey-results': fitted(surveyResults),
+  'small-office': fitted(smallOffice), 'project-gantt': fitted(projectGantt),
 };
+
+/** The samples written as specs (samples-extra.js): built with the helpers above, fitted to the page. */
+const specs = extraSamples({ start, caption, mindDoc });
+for (const [stem, build] of Object.entries(specs)) drawn[stem] = fitted((lang) => build(stem, lang));
 
 /** File name stem → builder (language) → drawing. */
 export const SAMPLE_FILES = {

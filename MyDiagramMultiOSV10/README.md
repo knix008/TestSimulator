@@ -4,7 +4,7 @@ Windows · macOS · Linux · 웹에서 쓰는 다이어그램·도면 작성 프
 
 ![아이콘](assets/icon-256.png)
 
-- 버전: 1.0.1
+- 버전: 1.0.2
 - 사용법: [UsersGuide.md](UsersGuide.md) (English: [UsersGuide.en.md](UsersGuide.en.md))
 - 구조: [ARCHITECTURE.md](ARCHITECTURE.md)
 - 튜토리얼 문서: [docs/tutorial/README.md](docs/tutorial/README.md). 동영상은 `npm run tutorial:video`로 루트에 `MyDiagram-Tutorial.mp4`를 만듭니다(저장소에는 넣지 않습니다).
@@ -31,7 +31,7 @@ Windows · macOS · Linux · 웹에서 쓰는 다이어그램·도면 작성 프
 
 ### 서식과 디자인
 
-- **디자인 16가지 × 변형 4가지**(오피스 · 선형 · 패싯 · 이온 · 청사진 · 자정 · 칠판 …) — 디자인을 바꾸면 손대지 않은 도형이 한꺼번에 바뀜
+- **디자인 20가지 × 변형 4가지**(오피스 · 선형 · 패싯 · 이온 · 파스텔 · 바다 · 노을 · 청사진 · 자정 · 칠판 · 흑연 …), 파스텔 톤 빠른 스타일, 다크 테마에서는 화면의 드로잉도 어두운 바탕 — 디자인을 바꾸면 손대지 않은 도형이 한꺼번에 바뀜
 - **문서로 내보내기** — PDF · HTML · Markdown · Word · Excel · 텍스트 (보고서도 Excel 포함)
 - **드로잉 밖의 보기**(페이지 개요·도형 시트·도형 데이터·보고서)에도 눈금자·격자·마우스 위치
 - **채우기 문양 100종**과 파스텔 프리셋 — 속성 패널의 채우기, 도형 서식 › 문양
@@ -84,7 +84,7 @@ Windows · macOS · Linux · 웹에서 쓰는 다이어그램·도면 작성 프
 
 - **테마** — 다크 20 · 라이트 20 · 사용자 정의(12가지 색 편집, 글자 대비 경고) · 시스템 설정. 툴바의 테마 버튼은 누를 때마다 **무작위 테마**, 옆의 ▾는 다크 | 라이트 **두 줄 목록**
 - **한국어/영어** — 툴바의 **국기 버튼**(한국어일 때 영국 국기, 영어일 때 태극기), 백엔드 메시지까지 전환
-- **시작 페이지** — 옮기고 크기를 바꿀 수 있는 카드(템플릿, 열기, 최근 파일·폴더, 도움말, 예제 40개, 움직이는 배경)와 튜토리얼, **움직이는 배경 21가지**(오로라 · 물결 · 입자 · 별자리 · 거품 · 흐르는 격자 · 떠다니는 순서도 · 별빛 · 비 · 눈 · 반딧불 · 파문 · 코드 비 · 육각 격자 · 궤도 · 라바 램프 · 은하 나선 · 색종이 · 노드 네트워크 · 리본 · 유성우, 무작위 바꾸기, 자동 바꾸기 간격, 속도)
+- **시작 페이지** — 세로로 차례대로 놓이고 옮기거나 크기를 바꿀 수 있는 카드(템플릿, 열기, 최근 파일·폴더를 한 줄에, 예제 228개 — 19개 분류마다 12개, 예제마다 다른 아이콘, 맨 아래 움직이는 배경)와 튜토리얼, **움직이는 배경 21가지**(오로라 · 물결 · 입자 · 별자리 · 거품 · 흐르는 격자 · 떠다니는 순서도 · 별빛 · 비 · 눈 · 반딧불 · 파문 · 코드 비 · 육각 격자 · 궤도 · 라바 램프 · 은하 나선 · 색종이 · 노드 네트워크 · 리본 · 유성우, 무작위 바꾸기, 자동 바꾸기 간격, 속도)
 - **튜토리얼** — 예제 드로잉으로 모든 기능을 장별로 보여 줌(자동 재생, 장 고르기, 끝나면 설정 원래대로)
 - **사용 설명서·튜토리얼 문서** — 데스크톱은 별도의 창(글꼴 크기, 국기+언어 버튼, 메인 창의 언어와 테마), 웹은 브라우저 탭
 - **설정** — 일반 · 테마 · 글꼴(시스템 글꼴 전체·크기·굵기·기울임) · 배경(움직이는 배경/이미지, 불투명도, 맞춤) · 드로잉 · 새 드로잉(디자인·용지·단위·연결선 종류) · 데이터베이스 · 최근 기록 · 단축키. 모든 설정은 저장되어 다음 실행에 다시 쓰임
@@ -93,7 +93,7 @@ Windows · macOS · Linux · 웹에서 쓰는 다이어그램·도면 작성 프
 - **메뉴와 팝업은 독립 창** — 메뉴·오른쪽 클릭 메뉴(도형·연결선·여러 도형·캔버스·페이지 탭·스텐실·보고서·탭·입력 칸마다 다름)는 메인 창 밖까지 펼쳐지고, 팝업은 메인 창 밖으로 옮길 수 있으며 메인 창과 함께 닫힘
 - **오류 팝업**(내용 복사), 백엔드 심각한 오류는 위치·스레드·백트레이스와 `crash.log`, 오래 걸리는 작업은 **진행 팝업**
 - **여러 개 동시 실행** — 같은 프로그램을 몇 개든 띄울 수 있음(첫 번째 창이 세션과 창 위치를 기억)
-- 모든 버튼 툴팁, 타이틀 바에 `MyDiagram v1.0.1`, 창 오른쪽 아래 크기 조절 손잡이, 창 위치·크기 기억
+- 모든 버튼 툴팁, 타이틀 바에 `MyDiagram v1.0.2`, 창 오른쪽 아래 크기 조절 손잡이, 창 위치·크기 기억
 
 ## 빠른 시작
 
@@ -108,17 +108,20 @@ npm run dev          # 웹 개발 서버 http://localhost:1450
 ## 빌드
 
 ```bash
-npm run build:win    # Windows NSIS 설치 파일  → release/MyDiagram-Setup-1.0.1.exe (+ 프로젝트 루트에 사본)
-npm run build:mac    # macOS .app + .dmg       → release/MyDiagram-1.0.1-<arch>.dmg
+npm run build:win    # Windows NSIS 설치 파일  → release/MyDiagram-Setup-1.0.2.exe (+ 프로젝트 루트에 사본)
+npm run build:mac    # macOS .app + .dmg       → release/MyDiagram-1.0.2-<arch>.dmg
 npm run build:linux  # .deb · .rpm · .AppImage → release/
 npm run build:all    # 지금 OS에서 만들 수 있는 전부
 npm run build:web    # 웹 빌드 → dist/ (아무 정적 웹 서버에 올리면 됨)
 npm run build:docs   # UsersGuide*.md · docs/tutorial/README*.md → docs/*.html, public/docs/
 npm run build:icons  # 앱·문서 아이콘과 설치 프로그램 그림 다시 만들기
 npm run samples      # samples/ 예제 드로잉 다시 만들기
+npm run clean        # 빌드·테스트 산출물 삭제 (dist, src-tauri/target·gen, release, test-results, 루트 설치 파일, Vite 캐시)
+npm run clean:all    # clean + node_modules, 튜토리얼 동영상 (이후 npm install 필요)
+                     # 지우지 않고 목록만 보기: npm run clean -- --dry-run
 ```
 
-Tauri는 교차 빌드를 하지 않으므로 각 OS 설치 파일은 그 OS에서 만듭니다. Windows 설치 파일은 `release/`에 만들어지고 프로젝트 루트에 `MyDiagram-Setup-1.0.1.exe`로 사본이 놓입니다. 설치 파일에는 사용 설명서(HTML·Markdown), 튜토리얼 문서와 그림, 예제 드로잉이 함께 들어갑니다.
+Tauri는 교차 빌드를 하지 않으므로 각 OS 설치 파일은 그 OS에서 만듭니다. Windows 설치 파일은 `release/`에 만들어지고 프로젝트 루트에 `MyDiagram-Setup-1.0.2.exe`로 사본이 놓입니다. 설치 파일에는 사용 설명서(HTML·Markdown), 튜토리얼 문서와 그림, 예제 드로잉이 함께 들어갑니다.
 
 ### Windows 설치 프로그램
 
@@ -207,7 +210,7 @@ SHKWON (knix008@naver.com)
 npm install
 npm start              # desktop app (tauri dev)
 npm run dev            # web dev server at http://localhost:1450
-npm run build:win      # Windows installer → release/ and ./MyDiagram-Setup-1.0.1.exe
+npm run build:win      # Windows installer → release/ and ./MyDiagram-Setup-1.0.2.exe
 npm run build:mac      # macOS .dmg
 npm run build:linux    # .deb · .rpm · .AppImage
 npm run build:all      # everything this OS can build

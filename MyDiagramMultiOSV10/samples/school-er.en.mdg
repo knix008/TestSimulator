@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "drawing",
- "saved": "2026-11-06T04:18:13.786Z",
+ "saved": "2026-11-23T05:50:21.079Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mw4gs32y18f6b",
+  "id": "dgm-mwsuk1av3nuid",
   "title": "School E-R Model",
   "subject": "",
   "author": "SHKWON",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-11-06T04:18:13.786Z",
+  "created": "2026-11-23T05:50:21.079Z",
   "design": "sequence",
   "variant": 0,
   "units": "in",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mw4gs32y18gty",
+    "id": "page-mwsuk1av3nvjw",
     "name": "School E-R Model",
     "paper": "Letter",
     "orientation": "landscape",
@@ -51,7 +51,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mw4gs32y18her",
+      "id": "shp-mwsuk1av3nwj4",
       "type": "shape",
       "master": "title",
       "name": "",
@@ -79,7 +79,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs32y18im4",
+      "id": "shp-mwsuk1av3nx65",
       "type": "shape",
       "master": "entity",
       "name": "",
@@ -103,7 +103,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs32y18jlt",
+      "id": "shp-mwsuk1av3nyks",
       "type": "shape",
       "master": "relationship",
       "name": "",
@@ -127,7 +127,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs32y18k6j",
+      "id": "shp-mwsuk1av3nz3i",
       "type": "shape",
       "master": "entity",
       "name": "",
@@ -151,7 +151,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs32y18lj9",
+      "id": "shp-mwsuk1av3o04e",
       "type": "shape",
       "master": "relationship",
       "name": "",
@@ -175,7 +175,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs32y18mwc",
+      "id": "shp-mwsuk1av3o172",
       "type": "shape",
       "master": "entity",
       "name": "",
@@ -199,7 +199,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs32y18n63",
+      "id": "shp-mwsuk1av3o2f2",
       "type": "shape",
       "master": "relationship",
       "name": "",
@@ -223,7 +223,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs32y18o8p",
+      "id": "shp-mwsuk1av3o39j",
       "type": "shape",
       "master": "weakEntity",
       "name": "",
@@ -247,14 +247,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs32y18ptb",
+      "id": "con-mwsuk1av3o4wy",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32y18im4",
+       "id": "shp-mwsuk1av3nx65",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32y18jlt",
+       "id": "shp-mwsuk1av3nyks",
        "pt": "auto"
       },
       "route": "straight",
@@ -273,14 +273,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs32y18q3e",
+      "id": "con-mwsuk1av3o5lf",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32y18jlt",
+       "id": "shp-mwsuk1av3nyks",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32y18k6j",
+       "id": "shp-mwsuk1av3nz3i",
        "pt": "auto"
       },
       "route": "straight",
@@ -299,14 +299,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs32y18rzw",
+      "id": "con-mwsuk1av3o6k6",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32y18k6j",
+       "id": "shp-mwsuk1av3nz3i",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32y18lj9",
+       "id": "shp-mwsuk1av3o04e",
        "pt": "auto"
       },
       "route": "straight",
@@ -325,14 +325,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs32y18sgw",
+      "id": "con-mwsuk1av3o7fo",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32y18lj9",
+       "id": "shp-mwsuk1av3o04e",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32y18mwc",
+       "id": "shp-mwsuk1av3o172",
        "pt": "auto"
       },
       "route": "straight",
@@ -351,14 +351,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs32y18t7l",
+      "id": "con-mwsuk1av3o86e",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32y18k6j",
+       "id": "shp-mwsuk1av3nz3i",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32y18n63",
+       "id": "shp-mwsuk1av3o2f2",
        "pt": "auto"
       },
       "route": "straight",
@@ -377,14 +377,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs32y18uwh",
+      "id": "con-mwsuk1av3o97l",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32y18n63",
+       "id": "shp-mwsuk1av3o2f2",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32y18o8p",
+       "id": "shp-mwsuk1av3o39j",
        "pt": "auto"
       },
       "route": "straight",
@@ -403,7 +403,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs32y18v15",
+      "id": "shp-mwsuk1av3oam2",
       "type": "shape",
       "master": "keyAttribute",
       "name": "",
@@ -427,14 +427,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs32y18wfq",
+      "id": "con-mwsuk1av3objp",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32y18im4",
+       "id": "shp-mwsuk1av3nx65",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32y18v15",
+       "id": "shp-mwsuk1av3oam2",
        "pt": "auto"
       },
       "route": "straight",
@@ -453,7 +453,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs32y18xlp",
+      "id": "shp-mwsuk1av3oclo",
       "type": "shape",
       "master": "attribute",
       "name": "",
@@ -477,14 +477,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs32y18ye9",
+      "id": "con-mwsuk1av3od3c",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32y18im4",
+       "id": "shp-mwsuk1av3nx65",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32y18xlp",
+       "id": "shp-mwsuk1av3oclo",
        "pt": "auto"
       },
       "route": "straight",
@@ -503,7 +503,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs32y18zvm",
+      "id": "shp-mwsuk1av3oe2d",
       "type": "shape",
       "master": "attribute",
       "name": "",
@@ -527,14 +527,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs32y190tu",
+      "id": "con-mwsuk1av3ofvd",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32y18im4",
+       "id": "shp-mwsuk1av3nx65",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32y18zvm",
+       "id": "shp-mwsuk1av3oe2d",
        "pt": "auto"
       },
       "route": "straight",
@@ -553,7 +553,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs32y191ik",
+      "id": "shp-mwsuk1av3ogmy",
       "type": "shape",
       "master": "attribute",
       "name": "",
@@ -577,14 +577,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs32y192eh",
+      "id": "con-mwsuk1av3oh16",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32y18jlt",
+       "id": "shp-mwsuk1av3nyks",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32y191ik",
+       "id": "shp-mwsuk1av3ogmy",
        "pt": "auto"
       },
       "route": "straight",
@@ -603,7 +603,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs32y1937e",
+      "id": "shp-mwsuk1av3oi1j",
       "type": "shape",
       "master": "keyAttribute",
       "name": "",
@@ -627,14 +627,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs32y194yb",
+      "id": "con-mwsuk1av3oj6x",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32y18k6j",
+       "id": "shp-mwsuk1av3nz3i",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32y1937e",
+       "id": "shp-mwsuk1av3oi1j",
        "pt": "auto"
       },
       "route": "straight",
@@ -653,7 +653,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs32y1959v",
+      "id": "shp-mwsuk1av3okud",
       "type": "shape",
       "master": "attribute",
       "name": "",
@@ -677,14 +677,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs32y196b5",
+      "id": "con-mwsuk1av3olg4",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32y18k6j",
+       "id": "shp-mwsuk1av3nz3i",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32y1959v",
+       "id": "shp-mwsuk1av3okud",
        "pt": "auto"
       },
       "route": "straight",
@@ -703,7 +703,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs32y1979j",
+      "id": "shp-mwsuk1av3omhi",
       "type": "shape",
       "master": "attribute",
       "name": "",
@@ -727,14 +727,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs32y198vu",
+      "id": "con-mwsuk1av3on7y",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32y18k6j",
+       "id": "shp-mwsuk1av3nz3i",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32y1979j",
+       "id": "shp-mwsuk1av3omhi",
        "pt": "auto"
       },
       "route": "straight",
@@ -753,7 +753,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs32y199zw",
+      "id": "shp-mwsuk1av3oopj",
       "type": "shape",
       "master": "keyAttribute",
       "name": "",
@@ -777,14 +777,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs32y19apf",
+      "id": "con-mwsuk1av3opem",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32y18mwc",
+       "id": "shp-mwsuk1av3o172",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32y199zw",
+       "id": "shp-mwsuk1av3oopj",
        "pt": "auto"
       },
       "route": "straight",
@@ -803,7 +803,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs32y19beh",
+      "id": "shp-mwsuk1av3oqy7",
       "type": "shape",
       "master": "attribute",
       "name": "",
@@ -827,14 +827,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs32y19cq6",
+      "id": "con-mwsuk1av3orn3",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32y18mwc",
+       "id": "shp-mwsuk1av3o172",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32y19beh",
+       "id": "shp-mwsuk1av3oqy7",
        "pt": "auto"
       },
       "route": "straight",
@@ -853,7 +853,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs32y19do1",
+      "id": "shp-mwsuk1av3osih",
       "type": "shape",
       "master": "attribute",
       "name": "",
@@ -877,14 +877,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs32y19es6",
+      "id": "con-mwsuk1av3otut",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32y18mwc",
+       "id": "shp-mwsuk1av3o172",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32y19do1",
+       "id": "shp-mwsuk1av3osih",
        "pt": "auto"
       },
       "route": "straight",
@@ -903,7 +903,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs32y19f8x",
+      "id": "shp-mwsuk1av3ouw3",
       "type": "shape",
       "master": "keyAttribute",
       "name": "",
@@ -927,14 +927,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs32y19g0n",
+      "id": "con-mwsuk1av3ovu0",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32y18o8p",
+       "id": "shp-mwsuk1av3o39j",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32y19f8x",
+       "id": "shp-mwsuk1av3ouw3",
        "pt": "auto"
       },
       "route": "straight",
@@ -953,7 +953,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs32y19hq5",
+      "id": "shp-mwsuk1av3ow5f",
       "type": "shape",
       "master": "attribute",
       "name": "",
@@ -977,14 +977,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs32y19i9v",
+      "id": "con-mwsuk1av3oxri",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32y18o8p",
+       "id": "shp-mwsuk1av3o39j",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32y19hq5",
+       "id": "shp-mwsuk1av3ow5f",
        "pt": "auto"
       },
       "route": "straight",

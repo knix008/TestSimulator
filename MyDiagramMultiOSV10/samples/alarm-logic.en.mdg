@@ -1,0 +1,369 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.285Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1gl6fxic",
+  "title": "Alarm Logic",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.285Z",
+  "design": "office",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1gl6fylf",
+    "name": "Alarm Logic",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1gl6fzle",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Alarm Logic",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1gl6g0p1",
+      "type": "shape",
+      "master": "switchElec",
+      "name": "",
+      "x": 40,
+      "y": 80,
+      "w": 180,
+      "h": 72,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Door sensor",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1gl6g1q4",
+      "type": "shape",
+      "master": "switchElec",
+      "name": "",
+      "x": 40,
+      "y": 80,
+      "w": 180,
+      "h": 72,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Motion sensor",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1gl6g25t",
+      "type": "shape",
+      "master": "logicOr",
+      "name": "",
+      "x": 112,
+      "y": 224,
+      "w": 216,
+      "h": 126,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "OR",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1gl6g3sf",
+      "type": "shape",
+      "master": "switchElec",
+      "name": "",
+      "x": 40,
+      "y": 80,
+      "w": 180,
+      "h": 72,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Armed",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1gl6g4s0",
+      "type": "shape",
+      "master": "logicAnd",
+      "name": "",
+      "x": 479.2,
+      "y": 224,
+      "w": 216,
+      "h": 126,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "AND",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1gl6g573",
+      "type": "shape",
+      "master": "elecBuzzer",
+      "name": "",
+      "x": 40,
+      "y": 80,
+      "w": 126,
+      "h": 90,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Alarm",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1gl6g60b",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1gl6g0p1",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1gl6g25t",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1gl6g7cf",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1gl6g1q4",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1gl6g25t",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1gl6g8xd",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1gl6g25t",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1gl6g4s0",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1gl6g9ac",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1gl6g3sf",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1gl6g4s0",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1gl6ga7l",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1gl6g4s0",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1gl6g573",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "logic",
+   "electrical"
+  ]
+ }
+}

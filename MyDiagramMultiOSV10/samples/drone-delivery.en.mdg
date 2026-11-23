@@ -1,0 +1,318 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.253Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1fp62vbf",
+  "title": "Drone Delivery",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.253Z",
+  "design": "ion",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1fp62wdr",
+    "name": "Drone Delivery",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1fp62xek",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 17.72830188679245,
+      "w": 610.6415094339623,
+      "h": 49.24528301886792,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Drone Delivery",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1fp62yc2",
+      "type": "shape",
+      "master": "bizWarehouse",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 78.79245283018868,
+      "w": 184.7933362781599,
+      "h": 134.39515365684355,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Hub",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1fp62zeb",
+      "type": "shape",
+      "master": "trDrone",
+      "name": "",
+      "x": 385.4637470814665,
+      "y": 246.78639490124314,
+      "w": 151.194547863949,
+      "h": 117.59575944973811,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Drone",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1fp6301u",
+      "type": "shape",
+      "master": "mapPin",
+      "name": "",
+      "x": 697.9324793336278,
+      "y": 258.5459708462169,
+      "w": 67.19757682842177,
+      "h": 94.07660755979049,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Drop-off",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1fp631zj",
+      "type": "shape",
+      "master": "mapHouse",
+      "name": "",
+      "x": 926.4042405502619,
+      "y": 246.78639490124314,
+      "w": 117.59575944973811,
+      "h": 117.59575944973811,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Customer home",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1fp632gr",
+      "type": "shape",
+      "master": "netTower",
+      "name": "",
+      "x": 72.99501482930523,
+      "y": 347.5827601438758,
+      "w": 117.59575944973811,
+      "h": 184.7933362781599,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Control tower",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1fp633y2",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1fp62yc2",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1fp62zeb",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "load",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1fp634os",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1fp62zeb",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1fp6301u",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "8 min flight",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1fp635zn",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1fp6301u",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1fp631zj",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "collect",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1fp636sx",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1fp632gr",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1fp62zeb",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "route control",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "transport",
+   "maps"
+  ]
+ }
+}

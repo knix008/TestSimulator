@@ -1,0 +1,364 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:20.929Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk16p1ljhg",
+  "title": "이벤트 기반 구조",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:20.929Z",
+  "design": "retrospect",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk16p1lk8o",
+    "name": "이벤트 기반 구조",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk16p1llmp",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "이벤트 기반 구조",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16p1lmz2",
+      "type": "shape",
+      "master": "cldApi",
+      "name": "",
+      "x": 40,
+      "y": 371.42857142857144,
+      "w": 111.0204081632653,
+      "h": 97.14285714285714,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "주문 API",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16p1lnqo",
+      "type": "shape",
+      "master": "cldEventBus",
+      "name": "",
+      "x": 267.59183673469386,
+      "y": 378.3673469387755,
+      "w": 152.6530612244898,
+      "h": 83.26530612244898,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "이벤트 버스",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16p1loga",
+      "type": "shape",
+      "master": "cldFunction",
+      "name": "",
+      "x": 543.7551020408164,
+      "y": 80,
+      "w": 97.14285714285714,
+      "h": 97.14285714285714,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "결제",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16p1lpdm",
+      "type": "shape",
+      "master": "cldFunction",
+      "name": "",
+      "x": 543.7551020408164,
+      "y": 274.2857142857143,
+      "w": 97.14285714285714,
+      "h": 97.14285714285714,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "재고",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16p1lqm3",
+      "type": "shape",
+      "master": "cldNotify",
+      "name": "",
+      "x": 543.7551020408164,
+      "y": 468.57142857142856,
+      "w": 97.14285714285714,
+      "h": 97.14285714285714,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "알림",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16p1lral",
+      "type": "shape",
+      "master": "cldAnalytics",
+      "name": "",
+      "x": 536.8163265306123,
+      "y": 662.8571428571429,
+      "w": 111.0204081632653,
+      "h": 97.14285714285714,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "분석",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk16p1lsis",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16p1lmz2",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16p1lnqo",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "주문 생성됨",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16p1ltl1",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16p1lnqo",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16p1loga",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16p1lu7i",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16p1lnqo",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16p1lpdm",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16p1lvkl",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16p1lnqo",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16p1lqm3",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16p1lwpb",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16p1lnqo",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16p1lral",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "cloud"
+  ]
+ }
+}

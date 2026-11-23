@@ -32,6 +32,8 @@ a:hover { text-decoration: underline; }
 }
 .topbar .brand { font-weight: 700; color: var(--text); }
 .topbar .grow { flex: 1; }
+.doc-print { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
+.doc-print:hover { color: var(--accent); border-color: var(--accent); }
 .doc-font { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
 .doc-font button { width: 26px; height: 26px; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font: inherit; font-size: 16px; line-height: 1; cursor: pointer; }
 .doc-font button:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
@@ -89,7 +91,8 @@ footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px
 </style>
 </head>
 <body>
-<header class="topbar"><span class="brand">MyDiagram <small>v1.0.1</small></span><span class="grow"></span><div class="doc-font" role="group" aria-label="Font size" title="Font size"><span class="doc-font-label">Font size</span><button type="button" id="doc-font-down" title="Smaller text" aria-label="Smaller text">−</button><output id="doc-font-value">16</output><button type="button" id="doc-font-up" title="Larger text" aria-label="Larger text">+</button></div>
+<header class="topbar"><span class="brand">MyDiagram <small>v1.0.2</small></span><span class="grow"></span><button type="button" class="doc-print" id="doc-print" title="Print" aria-label="Print"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/></svg><span>Print</span></button>
+<div class="doc-font" role="group" aria-label="Font size" title="Font size"><span class="doc-font-label">Font size</span><button type="button" id="doc-font-down" title="Smaller text" aria-label="Smaller text">−</button><output id="doc-font-value">16</output><button type="button" id="doc-font-up" title="Larger text" aria-label="Larger text">+</button></div>
 <nav class="doc-lang" aria-label="Language"><a href="Tutorial.html" hreflang="ko" class="" title="한국어" ><svg class="flag" viewBox="-36 -24 72 48" aria-hidden="true">
   <rect x="-36" y="-24" width="72" height="48" fill="#fff"/>
   <g transform="rotate(-56.31)">
@@ -326,7 +329,7 @@ footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px
 <p><img src="tutorial/images/64-finish.jpg" alt="That&#39;s the tour" loading="lazy" /></p>
 </main>
 </div>
-<footer>MyDiagram v1.0.1 · © SHKWON (knix008@naver.com)</footer>
+<footer>MyDiagram v1.0.2 · © SHKWON (knix008@naver.com)</footer>
 <script>(function () {
   var KEY = 'mydiagram.docs.fontSize', MIN = 12, MAX = 28, BASE = 16;
   var value = document.getElementById('doc-font-value');
@@ -340,6 +343,8 @@ footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px
     document.getElementById('doc-font-up').disabled = size >= MAX;
     try { localStorage.setItem(KEY, String(size)); } catch (e) {}
   }
+  // In the program the Print button opens its print window (printer, copies, paper); in a browser, the browser's.
+  document.getElementById('doc-print').addEventListener('click', function () { if (window.__MYDIAGRAM_DOC_WINDOW__) location.href = 'mydiagram-print:document'; else window.print(); });
   document.getElementById('doc-font-down').addEventListener('click', function () { apply(size - 1); });
   document.getElementById('doc-font-up').addEventListener('click', function () { apply(size + 1); });
   value.addEventListener('dblclick', function () { apply(BASE); });

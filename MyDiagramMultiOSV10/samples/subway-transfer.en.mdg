@@ -1,0 +1,391 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.290Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1gq6i405",
+  "title": "Subway Transfer",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.290Z",
+  "design": "midnight",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1gq6i5ab",
+    "name": "Subway Transfer",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1gq6i6xl",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Subway Transfer",
+      "style": {
+       "align": "left",
+       "textColor": "#c0caf5",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1gq6i7f9",
+      "type": "shape",
+      "master": "trStation",
+      "name": "",
+      "x": 140,
+      "y": 360,
+      "w": 44,
+      "h": 44,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "City Hall",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1gq6i8i2",
+      "type": "shape",
+      "master": "trStation",
+      "name": "",
+      "x": 400,
+      "y": 360,
+      "w": 44,
+      "h": 44,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Interchange",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1gq6i990",
+      "type": "shape",
+      "master": "trStation",
+      "name": "",
+      "x": 700,
+      "y": 360,
+      "w": 44,
+      "h": 44,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Riverside",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1gq6iacf",
+      "type": "shape",
+      "master": "trStation",
+      "name": "",
+      "x": 400,
+      "y": 140,
+      "w": 44,
+      "h": 44,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "North",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1gq6ibea",
+      "type": "shape",
+      "master": "trStation",
+      "name": "",
+      "x": 400,
+      "y": 600,
+      "w": 44,
+      "h": 44,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "South",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1gq6icsh",
+      "type": "shape",
+      "master": "trStation",
+      "name": "",
+      "x": 960,
+      "y": 360,
+      "w": 44,
+      "h": 44,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Airport",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1gq6idc9",
+      "type": "shape",
+      "master": "trTrain",
+      "name": "",
+      "x": 640,
+      "y": 520,
+      "w": 120,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Line 2",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1gq6iebk",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1gq6i7f9",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1gq6i8i2",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "Line 1",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1gq6ifqz",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1gq6i8i2",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1gq6i990",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "Line 1",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1gq6igos",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1gq6i990",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1gq6icsh",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "Line 1",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1gq6ihky",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1gq6iacf",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1gq6i8i2",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "Line 2",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1gq6ii8w",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1gq6i8i2",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1gq6ibea",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "Line 2",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "maps",
+   "transport"
+  ]
+ }
+}

@@ -1,0 +1,412 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.272Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1g869sfy",
+  "title": "Epic Breakdown",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.272Z",
+  "design": "facet",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1g869tr6",
+    "name": "Epic Breakdown",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1g869u9n",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 17.72830188679245,
+      "w": 610.6415094339623,
+      "h": 49.24528301886792,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Epic Breakdown",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1g869vqz",
+      "type": "shape",
+      "master": "agEpic",
+      "name": "",
+      "x": 435.9503475670308,
+      "y": 78.79245283018868,
+      "w": 211.49553128103275,
+      "h": 84.5982125124131,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Epic: member tiers",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1g869w31",
+      "type": "shape",
+      "master": "agStory",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 214.14959285004966,
+      "w": 179.77120158887786,
+      "h": 95.17298907646475,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Tier rules\n5 pts",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1g869xv8",
+      "type": "shape",
+      "master": "agStory",
+      "name": "",
+      "x": 261.4665342601788,
+      "y": 214.14959285004966,
+      "w": 179.77120158887786,
+      "h": 95.17298907646475,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Tier badge\n3 pts",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1g869y2z",
+      "type": "shape",
+      "master": "agStory",
+      "name": "",
+      "x": 673.8828202581926,
+      "y": 214.14959285004966,
+      "w": 179.77120158887786,
+      "h": 95.17298907646475,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Tier perks\n8 pts",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1g869z2t",
+      "type": "shape",
+      "master": "agTodo",
+      "name": "",
+      "x": 483.5368421052632,
+      "y": 360.0815094339623,
+      "w": 158.6216484607746,
+      "h": 74.02343594836148,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Screen design",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1g86a0xw",
+      "type": "shape",
+      "master": "agTodo",
+      "name": "",
+      "x": 684.4575968222442,
+      "y": 360.0815094339623,
+      "w": 158.6216484607746,
+      "h": 74.02343594836148,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "API",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1g86a12g",
+      "type": "shape",
+      "master": "agTodo",
+      "name": "",
+      "x": 885.3783515392254,
+      "y": 360.0815094339623,
+      "w": 158.6216484607746,
+      "h": 74.02343594836148,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Tests",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1g86a2h2",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1g869vqz",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1g869w31",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1g86a3fo",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1g869vqz",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1g869xv8",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1g86a4to",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1g869vqz",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1g869y2z",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1g86a5j5",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1g869y2z",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1g869z2t",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1g86a6x4",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1g869y2z",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1g86a0xw",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1g86a7qb",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1g869y2z",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1g86a12g",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "agile"
+  ]
+ }
+}

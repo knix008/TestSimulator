@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "drawing",
- "saved": "2026-11-06T04:18:13.754Z",
+ "saved": "2026-11-23T05:50:20.868Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mw4gs3220r8qf",
+  "id": "dgm-mwsuk1500r8n3",
   "title": "램프 회로",
   "subject": "",
   "author": "SHKWON",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-11-06T04:18:13.754Z",
+  "created": "2026-11-23T05:50:20.868Z",
   "design": "office",
   "variant": 0,
   "units": "mm",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mw4gs3220r9qp",
+    "id": "page-mwsuk1500r9o2",
     "name": "램프 회로",
     "paper": "A4",
     "orientation": "landscape",
@@ -51,7 +51,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mw4gs3220ra0k",
+      "id": "shp-mwsuk1500razo",
       "type": "shape",
       "master": "title",
       "name": "",
@@ -79,7 +79,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3220rben",
+      "id": "shp-mwsuk1500rbw9",
       "type": "shape",
       "master": "voltageSource",
       "name": "",
@@ -106,7 +106,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3220rcey",
+      "id": "shp-mwsuk1500rcbq",
       "type": "shape",
       "master": "textBox",
       "name": "",
@@ -136,7 +136,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3220rd27",
+      "id": "shp-mwsuk1500rdf0",
       "type": "shape",
       "master": "switchElec",
       "name": "",
@@ -163,7 +163,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3220reop",
+      "id": "shp-mwsuk1500re0w",
       "type": "shape",
       "master": "resistor",
       "name": "",
@@ -190,7 +190,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3220rfbo",
+      "id": "shp-mwsuk1500rfix",
       "type": "shape",
       "master": "lamp",
       "name": "",
@@ -217,7 +217,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3220rg5v",
+      "id": "shp-mwsuk1500rg4x",
       "type": "shape",
       "master": "lamp",
       "name": "",
@@ -244,7 +244,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3220rh8r",
+      "id": "shp-mwsuk1500rhma",
       "type": "shape",
       "master": "textBox",
       "name": "",
@@ -274,7 +274,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3220rizp",
+      "id": "shp-mwsuk1500rigk",
       "type": "shape",
       "master": "textBox",
       "name": "",
@@ -304,7 +304,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs3220rjkx",
+      "id": "shp-mwsuk1500rjh5",
       "type": "shape",
       "master": "ground",
       "name": "",
@@ -331,14 +331,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs3220rkhi",
+      "id": "con-mwsuk1500rkqk",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3220rben",
+       "id": "shp-mwsuk1500rbw9",
        "pt": 0
       },
       "to": {
-       "id": "shp-mw4gs3220rd27",
+       "id": "shp-mwsuk1500rdf0",
        "pt": 0
       },
       "route": "orthogonal",
@@ -358,14 +358,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3220rlg3",
+      "id": "con-mwsuk1500rlvn",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3220rd27",
+       "id": "shp-mwsuk1500rdf0",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs3220reop",
+       "id": "shp-mwsuk1500re0w",
        "pt": 0
       },
       "route": "straight",
@@ -385,14 +385,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3220rmh5",
+      "id": "con-mwsuk1500rm1n",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3220reop",
+       "id": "shp-mwsuk1500re0w",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs3220rfbo",
+       "id": "shp-mwsuk1500rfix",
        "pt": 0
       },
       "route": "orthogonal",
@@ -412,14 +412,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3220rnci",
+      "id": "con-mwsuk1500rnxf",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3220reop",
+       "id": "shp-mwsuk1500re0w",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs3220rg5v",
+       "id": "shp-mwsuk1500rg4x",
        "pt": 0
       },
       "route": "orthogonal",
@@ -439,14 +439,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3220ro0q",
+      "id": "con-mwsuk1500roo3",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3220rfbo",
+       "id": "shp-mwsuk1500rfix",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs3220rjkx",
+       "id": "shp-mwsuk1500rjh5",
        "pt": 0
       },
       "route": "orthogonal",
@@ -466,14 +466,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3220rpnu",
+      "id": "con-mwsuk1500rp2q",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3220rg5v",
+       "id": "shp-mwsuk1500rg4x",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs3220rjkx",
+       "id": "shp-mwsuk1500rjh5",
        "pt": 0
       },
       "route": "orthogonal",
@@ -493,14 +493,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs3220rqwk",
+      "id": "con-mwsuk1500rqna",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs3220rben",
+       "id": "shp-mwsuk1500rbw9",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs3220rjkx",
+       "id": "shp-mwsuk1500rjh5",
        "pt": 0
       },
       "route": "straight",
@@ -520,7 +520,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs3220rrpv",
+      "id": "shp-mwsuk1500rr7a",
       "type": "shape",
       "master": "note",
       "name": "",

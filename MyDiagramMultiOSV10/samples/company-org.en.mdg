@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "drawing",
- "saved": "2026-11-06T04:18:13.774Z",
+ "saved": "2026-11-23T05:50:21.068Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mw4gs32m0y65k",
+  "id": "dgm-mwsuk1ak3dl06",
   "title": "Organization Chart",
   "subject": "",
   "author": "",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-11-06T04:18:13.774Z",
+  "created": "2026-11-23T05:50:21.068Z",
   "design": "ion",
   "variant": 0,
   "units": "in",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mw4gs32m0y707",
+    "id": "page-mwsuk1ak3dmz4",
     "name": "Page-1",
     "paper": "Letter",
     "orientation": "landscape",
@@ -51,7 +51,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mw4gs32m0y8yq",
+      "id": "shp-mwsuk1ak3dncr",
       "type": "shape",
       "master": "orgExecutive",
       "name": "",
@@ -83,7 +83,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs32m0y9xc",
+      "id": "shp-mwsuk1ak3dofq",
       "type": "shape",
       "master": "orgManager",
       "name": "",
@@ -107,14 +107,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs32m0yafe",
+      "id": "con-mwsuk1ak3dp8s",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32m0y8yq",
+       "id": "shp-mwsuk1ak3dncr",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32m0y9xc",
+       "id": "shp-mwsuk1ak3dofq",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -133,7 +133,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs32m0ybwt",
+      "id": "shp-mwsuk1ak3dq6a",
       "type": "shape",
       "master": "orgPosition",
       "name": "",
@@ -157,14 +157,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs32m0ycin",
+      "id": "con-mwsuk1ak3drhb",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32m0y9xc",
+       "id": "shp-mwsuk1ak3dofq",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32m0ybwt",
+       "id": "shp-mwsuk1ak3dq6a",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -183,7 +183,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs32m0ydiv",
+      "id": "shp-mwsuk1ak3dsge",
       "type": "shape",
       "master": "orgPosition",
       "name": "",
@@ -207,14 +207,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs32m0yem9",
+      "id": "con-mwsuk1ak3dtgb",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32m0y9xc",
+       "id": "shp-mwsuk1ak3dofq",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32m0ydiv",
+       "id": "shp-mwsuk1ak3dsge",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -233,7 +233,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs32m0yfa7",
+      "id": "shp-mwsuk1ak3du9s",
       "type": "shape",
       "master": "orgManager",
       "name": "",
@@ -257,14 +257,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs32m0ygdu",
+      "id": "con-mwsuk1ak3dvlc",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32m0y8yq",
+       "id": "shp-mwsuk1ak3dncr",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32m0yfa7",
+       "id": "shp-mwsuk1ak3du9s",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -283,7 +283,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs32m0yhx8",
+      "id": "shp-mwsuk1ak3dwh2",
       "type": "shape",
       "master": "orgPosition",
       "name": "",
@@ -307,14 +307,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs32m0yitd",
+      "id": "con-mwsuk1ak3dx5e",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32m0yfa7",
+       "id": "shp-mwsuk1ak3du9s",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32m0yhx8",
+       "id": "shp-mwsuk1ak3dwh2",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -333,7 +333,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs32m0yj8m",
+      "id": "shp-mwsuk1ak3dyxt",
       "type": "shape",
       "master": "orgPosition",
       "name": "",
@@ -357,14 +357,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs32m0ykdu",
+      "id": "con-mwsuk1ak3dz5o",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32m0yfa7",
+       "id": "shp-mwsuk1ak3du9s",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32m0yj8m",
+       "id": "shp-mwsuk1ak3dyxt",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -383,7 +383,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs32m0yl7i",
+      "id": "shp-mwsuk1ak3e0qm",
       "type": "shape",
       "master": "orgManager",
       "name": "",
@@ -407,14 +407,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs32m0ym4i",
+      "id": "con-mwsuk1ak3e12f",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32m0y8yq",
+       "id": "shp-mwsuk1ak3dncr",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32m0yl7i",
+       "id": "shp-mwsuk1ak3e0qm",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -433,7 +433,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs32m0ynag",
+      "id": "shp-mwsuk1ak3e2xb",
       "type": "shape",
       "master": "orgPosition",
       "name": "",
@@ -457,14 +457,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs32m0yoz6",
+      "id": "con-mwsuk1ak3e3pq",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32m0yl7i",
+       "id": "shp-mwsuk1ak3e0qm",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32m0ynag",
+       "id": "shp-mwsuk1ak3e2xb",
        "pt": "auto"
       },
       "route": "orthogonal",
@@ -483,7 +483,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs32m0ypm7",
+      "id": "shp-mwsuk1ak3e4jh",
       "type": "shape",
       "master": "orgAssistant",
       "name": "",
@@ -507,14 +507,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs32m0yqbn",
+      "id": "con-mwsuk1ak3e5co",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs32m0y8yq",
+       "id": "shp-mwsuk1ak3dncr",
        "pt": "auto"
       },
       "to": {
-       "id": "shp-mw4gs32m0ypm7",
+       "id": "shp-mwsuk1ak3e4jh",
        "pt": "auto"
       },
       "route": "orthogonal",

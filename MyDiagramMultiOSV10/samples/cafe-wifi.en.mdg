@@ -1,0 +1,554 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.151Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1cv4rjv2",
+  "title": "Café Wi-Fi",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.151Z",
+  "design": "bubble",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1cv4rke4",
+    "name": "Café Wi-Fi",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1cv4rlg7",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Café Wi-Fi",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cv4rmf7",
+      "type": "shape",
+      "master": "internet",
+      "name": "",
+      "x": 267.0508474576271,
+      "y": 80,
+      "w": 92.20338983050848,
+      "h": 92.20338983050848,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Internet",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cv4rncw",
+      "type": "shape",
+      "master": "netModem",
+      "name": "",
+      "x": 255.52542372881356,
+      "y": 241.35593220338984,
+      "w": 115.2542372881356,
+      "h": 69.15254237288136,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Modem",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cv4rotf",
+      "type": "shape",
+      "master": "router",
+      "name": "",
+      "x": 261.2881355932203,
+      "y": 379.66101694915255,
+      "w": 103.72881355932203,
+      "h": 69.15254237288136,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Router",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cv4rp0b",
+      "type": "shape",
+      "master": "wirelessAp",
+      "name": "",
+      "x": 132.20338983050848,
+      "y": 517.9661016949153,
+      "w": 80.67796610169492,
+      "h": 80.67796610169492,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Staff Wi-Fi",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cv4rqar",
+      "type": "shape",
+      "master": "wirelessAp",
+      "name": "",
+      "x": 434.1694915254237,
+      "y": 517.9661016949153,
+      "w": 80.67796610169492,
+      "h": 80.67796610169492,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Guest Wi-Fi",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cv4rrt1",
+      "type": "shape",
+      "master": "desktop",
+      "name": "",
+      "x": 40,
+      "y": 667.7966101694916,
+      "w": 103.72881355932203,
+      "h": 92.20338983050848,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Till",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cv4rsia",
+      "type": "shape",
+      "master": "monitor",
+      "name": "",
+      "x": 201.35593220338984,
+      "y": 673.5593220338983,
+      "w": 103.72881355932203,
+      "h": 80.67796610169492,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Order screen",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cv4rt61",
+      "type": "shape",
+      "master": "phone",
+      "name": "",
+      "x": 362.7118644067797,
+      "y": 667.7966101694916,
+      "w": 50.71186440677966,
+      "h": 92.20338983050848,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Guest phones",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1cv4ruhy",
+      "type": "shape",
+      "master": "laptop",
+      "name": "",
+      "x": 471.0508474576271,
+      "y": 673.5593220338983,
+      "w": 115.2542372881356,
+      "h": 80.67796610169492,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Guest laptops",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1cv4rvtk",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cv4rmf7",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cv4rncw",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1cv4rwjc",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cv4rncw",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cv4rotf",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1cv4rxjt",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cv4rotf",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cv4rp0b",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1cv4rye7",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cv4rotf",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cv4rqar",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1cv4rzbg",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cv4rp0b",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cv4rrt1",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1cv4s096",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cv4rp0b",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cv4rsia",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1cv4s1ok",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cv4rqar",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cv4rt61",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1cv4s2zn",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1cv4rqar",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1cv4ruhy",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mwsuk1cv4s3o3",
+      "type": "shape",
+      "master": "note",
+      "name": "",
+      "x": 690,
+      "y": 90,
+      "w": 240,
+      "h": 110,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "The guest network is kept apart, so guests cannot reach the till.",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "network"
+  ]
+ }
+}

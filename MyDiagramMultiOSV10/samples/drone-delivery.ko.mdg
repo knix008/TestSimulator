@@ -1,0 +1,318 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.016Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1942s71l",
+  "title": "드론 배송",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.016Z",
+  "design": "ion",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1942s88y",
+    "name": "드론 배송",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1942s9rs",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "드론 배송",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1942safa",
+      "type": "shape",
+      "master": "bizWarehouse",
+      "name": "",
+      "x": 40,
+      "y": 80,
+      "w": 187.62541806020067,
+      "h": 136.45484949832775,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "물류 거점",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1942sb1u",
+      "type": "shape",
+      "master": "trDrone",
+      "name": "",
+      "x": 391.371237458194,
+      "y": 250.5685618729097,
+      "w": 153.51170568561872,
+      "h": 119.39799331103679,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "드론",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1942scw7",
+      "type": "shape",
+      "master": "mapPin",
+      "name": "",
+      "x": 708.628762541806,
+      "y": 262.50836120401334,
+      "w": 68.22742474916387,
+      "h": 95.51839464882943,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "배송 지점",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1942sdwa",
+      "type": "shape",
+      "master": "mapHouse",
+      "name": "",
+      "x": 940.6020066889632,
+      "y": 250.5685618729097,
+      "w": 119.39799331103679,
+      "h": 119.39799331103679,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "고객 집",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1942seeh",
+      "type": "shape",
+      "master": "netTower",
+      "name": "",
+      "x": 74.11371237458194,
+      "y": 352.9096989966555,
+      "w": 119.39799331103679,
+      "h": 187.62541806020067,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "관제탑",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1942sf4f",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1942safa",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1942sb1u",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "상자 적재",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1942sgpu",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1942sb1u",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1942scw7",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "비행 8분",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1942shfj",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1942scw7",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1942sdwa",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "수령",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1942si1w",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1942seeh",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1942sb1u",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "경로 관제",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "transport",
+   "maps"
+  ]
+ }
+}

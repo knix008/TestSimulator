@@ -1,0 +1,415 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.156Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1d04ufrf",
+  "title": "IoT Pipeline",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.156Z",
+  "design": "midnight",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1d04ugmk",
+    "name": "IoT Pipeline",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1d04uhtc",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 17.72830188679245,
+      "w": 610.6415094339623,
+      "h": 49.24528301886792,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "IoT Pipeline",
+      "style": {
+       "align": "left",
+       "textColor": "#c0caf5",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1d04ui1c",
+      "type": "shape",
+      "master": "netSensor",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 162.50943396226415,
+      "w": 80.83018867924527,
+      "h": 80.83018867924527,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Sensors",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1d04ujrq",
+      "type": "shape",
+      "master": "netGateway",
+      "name": "",
+      "x": 210.29433962264147,
+      "y": 162.50943396226415,
+      "w": 103.92452830188678,
+      "h": 80.83018867924527,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Gateway",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1d04uksw",
+      "type": "shape",
+      "master": "cldStream",
+      "name": "",
+      "x": 404.2867924528302,
+      "y": 168.28301886792454,
+      "w": 115.47169811320754,
+      "h": 69.28301886792453,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Data stream",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1d04ulcc",
+      "type": "shape",
+      "master": "cldFunction",
+      "name": "",
+      "x": 609.8264150943395,
+      "y": 162.50943396226415,
+      "w": 80.83018867924527,
+      "h": 80.83018867924527,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Clean-up function",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1d04umze",
+      "type": "shape",
+      "master": "cldDatabase",
+      "name": "",
+      "x": 780.7245283018867,
+      "y": 78.79245283018868,
+      "w": 80.83018867924527,
+      "h": 92.37735849056604,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Time-series DB",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1d04un6n",
+      "type": "shape",
+      "master": "cldAnalytics",
+      "name": "",
+      "x": 951.622641509434,
+      "y": 162.50943396226415,
+      "w": 92.37735849056604,
+      "h": 80.83018867924527,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Analytics",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1d04uopz",
+      "type": "shape",
+      "master": "cldNotify",
+      "name": "",
+      "x": 780.7245283018867,
+      "y": 246.2264150943396,
+      "w": 80.83018867924527,
+      "h": 80.83018867924527,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Alerts",
+      "style": {
+       "textColor": "#c0caf5"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1d04upc8",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1d04ui1c",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1d04ujrq",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1d04uq3b",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1d04ujrq",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1d04uksw",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1d04urnh",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1d04uksw",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1d04ulcc",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1d04us5g",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1d04ulcc",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1d04umze",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1d04ut8q",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1d04umze",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1d04un6n",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1d04uuit",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1d04ulcc",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1d04uopz",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "Over limit",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "cloud",
+   "network"
+  ]
+ }
+}

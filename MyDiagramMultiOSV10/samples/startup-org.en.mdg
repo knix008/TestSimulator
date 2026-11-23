@@ -1,0 +1,465 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:21.187Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk1du57q1u",
+  "title": "Start-Up Organisation",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:21.186Z",
+  "design": "bubble",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk1du57rmk",
+    "name": "Start-Up Organisation",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk1du57s6g",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 17.72830188679245,
+      "w": 610.6415094339623,
+      "h": 49.24528301886792,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Start-Up Organisation",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1du57tg5",
+      "type": "shape",
+      "master": "orgExecutive",
+      "name": "",
+      "x": 447.8614969935725,
+      "y": 78.79245283018868,
+      "w": 187.6732324279494,
+      "h": 88.31681526021148,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "CEO",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1du57ur3",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 243.62886170433342,
+      "y": 220.09935724652706,
+      "w": 176.63363052042297,
+      "h": 77.27721335268505,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "CTO",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1du57vwp",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 768.0099523118391,
+      "y": 220.09935724652706,
+      "w": 176.63363052042297,
+      "h": 77.27721335268505,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "COO",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1du57ww6",
+      "type": "shape",
+      "master": "orgTeam",
+      "name": "",
+      "x": 39.39622641509434,
+      "y": 350.366659755339,
+      "w": 165.59402861289655,
+      "h": 77.27721335268505,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Developers ×4",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1du57xl8",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 249.1486626580966,
+      "y": 350.366659755339,
+      "w": 165.59402861289655,
+      "h": 77.27721335268505,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Designer",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1du57yb7",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 668.6535351441012,
+      "y": 350.366659755339,
+      "w": 165.59402861289655,
+      "h": 77.27721335268505,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Marketer",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1du57zq1",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 878.4059713871035,
+      "y": 350.366659755339,
+      "w": 165.59402861289655,
+      "h": 77.27721335268505,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Support",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk1du580kr",
+      "type": "shape",
+      "master": "orgVacancy",
+      "name": "",
+      "x": 458.9010989010989,
+      "y": 350.366659755339,
+      "w": 165.59402861289655,
+      "h": 77.27721335268505,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Hiring: data",
+      "style": {
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk1du581m6",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1du57tg5",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1du57ur3",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1du582xr",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1du57tg5",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1du57vwp",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1du583cc",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1du57ur3",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1du57ww6",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1du584a2",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1du57ur3",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1du57xl8",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1du585t0",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1du57ur3",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1du580kr",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1du586z9",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1du57vwp",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1du57yb7",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk1du58722",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk1du57vwp",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk1du57zq1",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "org"
+  ]
+ }
+}

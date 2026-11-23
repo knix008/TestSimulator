@@ -2,11 +2,11 @@
  "format": "mydiagram",
  "version": 1,
  "kind": "drawing",
- "saved": "2026-11-06T04:18:13.722Z",
+ "saved": "2026-11-23T05:50:20.834Z",
  "document": {
   "format": "mydiagram",
   "version": 1,
-  "id": "dgm-mw4gs31609l9x",
+  "id": "dgm-mwsuk14209lvl",
   "title": "도서관 클래스",
   "subject": "",
   "author": "SHKWON",
@@ -15,7 +15,7 @@
   "category": "",
   "keywords": "",
   "description": "",
-  "created": "2026-11-06T04:18:13.722Z",
+  "created": "2026-11-23T05:50:20.834Z",
   "design": "integral",
   "variant": 0,
   "units": "mm",
@@ -33,7 +33,7 @@
   },
   "pages": [
    {
-    "id": "page-mw4gs31609mjz",
+    "id": "page-mwsuk14209m5o",
     "name": "도서관 클래스",
     "paper": "A4",
     "orientation": "landscape",
@@ -51,7 +51,7 @@
     "comments": [],
     "shapes": [
      {
-      "id": "shp-mw4gs31609n55",
+      "id": "shp-mwsuk14209nrv",
       "type": "shape",
       "master": "title",
       "name": "",
@@ -79,7 +79,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31609odo",
+      "id": "shp-mwsuk14209oyz",
       "type": "shape",
       "master": "umlClass",
       "name": "",
@@ -103,7 +103,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31609p56",
+      "id": "shp-mwsuk14209pe7",
       "type": "shape",
       "master": "umlClass",
       "name": "",
@@ -127,7 +127,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31609q64",
+      "id": "shp-mwsuk14209q5s",
       "type": "shape",
       "master": "umlClass",
       "name": "",
@@ -151,7 +151,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31609r5u",
+      "id": "shp-mwsuk14209rkp",
       "type": "shape",
       "master": "umlClass",
       "name": "",
@@ -175,7 +175,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31609snw",
+      "id": "shp-mwsuk14209sk1",
       "type": "shape",
       "master": "umlClass",
       "name": "",
@@ -199,7 +199,7 @@
       "showData": false
      },
      {
-      "id": "shp-mw4gs31609toq",
+      "id": "shp-mwsuk14209t7e",
       "type": "shape",
       "master": "umlInterface",
       "name": "",
@@ -223,14 +223,14 @@
       "showData": false
      },
      {
-      "id": "con-mw4gs31609ulq",
+      "id": "con-mwsuk14209u9j",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31609r5u",
+       "id": "shp-mwsuk14209rkp",
        "pt": 0
       },
       "to": {
-       "id": "shp-mw4gs31609odo",
+       "id": "shp-mwsuk14209oyz",
        "pt": 2
       },
       "route": "orthogonal",
@@ -249,14 +249,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs31609vxx",
+      "id": "con-mwsuk14209v8r",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31609p56",
+       "id": "shp-mwsuk14209pe7",
        "pt": 2
       },
       "to": {
-       "id": "shp-mw4gs31609snw",
+       "id": "shp-mwsuk14209sk1",
        "pt": 0
       },
       "route": "orthogonal",
@@ -275,14 +275,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs31609wge",
+      "id": "con-mwsuk14209wc9",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31609snw",
+       "id": "shp-mwsuk14209sk1",
        "pt": 3
       },
       "to": {
-       "id": "shp-mw4gs31609odo",
+       "id": "shp-mwsuk14209oyz",
        "pt": 1
       },
       "route": "orthogonal",
@@ -301,14 +301,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs31609x7y",
+      "id": "con-mwsuk14209xg2",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31609q64",
+       "id": "shp-mwsuk14209q5s",
        "pt": 3
       },
       "to": {
-       "id": "shp-mw4gs31609p56",
+       "id": "shp-mwsuk14209pe7",
        "pt": 1
       },
       "route": "orthogonal",
@@ -327,14 +327,14 @@
       "name": ""
      },
      {
-      "id": "con-mw4gs31609ynw",
+      "id": "con-mwsuk14209yqu",
       "type": "connector",
       "from": {
-       "id": "shp-mw4gs31609snw",
+       "id": "shp-mwsuk14209sk1",
        "pt": 1
       },
       "to": {
-       "id": "shp-mw4gs31609toq",
+       "id": "shp-mwsuk14209t7e",
        "pt": 3
       },
       "route": "orthogonal",
@@ -354,7 +354,7 @@
       "name": ""
      },
      {
-      "id": "shp-mw4gs31609ztl",
+      "id": "shp-mwsuk14209zai",
       "type": "shape",
       "master": "umlNote",
       "name": "",

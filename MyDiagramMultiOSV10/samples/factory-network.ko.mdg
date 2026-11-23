@@ -1,0 +1,530 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-11-23T05:50:20.919Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mwsuk16f1i675",
+  "title": "공장 네트워크",
+  "subject": "",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-11-23T05:50:20.919Z",
+  "design": "integral",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mwsuk16f1i7mk",
+    "name": "공장 네트워크",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mwsuk16f1i8im",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 620,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "공장 네트워크",
+      "style": {
+       "align": "left",
+       "textColor": "#1f2937",
+       "shadow": false
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16f1i9jy",
+      "type": "shape",
+      "master": "server",
+      "name": "",
+      "x": 335.40983606557376,
+      "y": 80,
+      "w": 66.88524590163934,
+      "h": 100.327868852459,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "ERP 서버",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16f1iacz",
+      "type": "shape",
+      "master": "firewall",
+      "name": "",
+      "x": 318.6885245901639,
+      "y": 247.21311475409834,
+      "w": 100.327868852459,
+      "h": 78.0327868852459,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "공장 방화벽",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16f1ibzs",
+      "type": "shape",
+      "master": "switch",
+      "name": "",
+      "x": 307.54098360655735,
+      "y": 392.1311475409836,
+      "w": 122.62295081967213,
+      "h": 55.73770491803278,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "산업용 스위치",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16f1ic6y",
+      "type": "shape",
+      "master": "desktop",
+      "name": "",
+      "x": 40,
+      "y": 520.327868852459,
+      "w": 100.327868852459,
+      "h": 89.18032786885246,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "감시 PC",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16f1id6g",
+      "type": "shape",
+      "master": "netGateway",
+      "name": "",
+      "x": 251.80327868852459,
+      "y": 525.9016393442623,
+      "w": 100.327868852459,
+      "h": 78.0327868852459,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "IoT 게이트웨이",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16f1iezw",
+      "type": "shape",
+      "master": "netSensor",
+      "name": "",
+      "x": 196.0655737704918,
+      "y": 681.967213114754,
+      "w": 78.0327868852459,
+      "h": 78.0327868852459,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "온도 센서",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16f1ifse",
+      "type": "shape",
+      "master": "netSensor",
+      "name": "",
+      "x": 329.83606557377044,
+      "y": 681.967213114754,
+      "w": 78.0327868852459,
+      "h": 78.0327868852459,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "진동 센서",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16f1ig6t",
+      "type": "shape",
+      "master": "netCamera",
+      "name": "",
+      "x": 463.60655737704917,
+      "y": 525.9016393442623,
+      "w": 100.327868852459,
+      "h": 78.0327868852459,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "검사 카메라",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mwsuk16f1ihkd",
+      "type": "shape",
+      "master": "tablet",
+      "name": "",
+      "x": 619.6721311475409,
+      "y": 514.7540983606557,
+      "w": 78.0327868852459,
+      "h": 100.327868852459,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "현장 태블릿",
+      "style": {
+       "textColor": "#1f2937"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mwsuk16f1ii6g",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16f1i9jy",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16f1iacz",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16f1ij08",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16f1iacz",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16f1ibzs",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16f1ikp3",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16f1ibzs",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16f1ic6y",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16f1il9m",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16f1ibzs",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16f1id6g",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16f1imbe",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16f1ibzs",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16f1ig6t",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16f1inr1",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16f1ibzs",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16f1ihkd",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16f1iojr",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16f1id6g",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16f1iezw",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mwsuk16f1ip6p",
+      "type": "connector",
+      "from": {
+       "id": "shp-mwsuk16f1id6g",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mwsuk16f1ifse",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "network"
+  ]
+ }
+}
