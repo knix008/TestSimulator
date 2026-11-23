@@ -55,6 +55,28 @@ export async function printPage() {
   window.print();
 }
 
+// Printing straight to a printer (desktop app on Windows). The browser has no printer list.
+export async function listPrinters() {
+  if (!isTauri()) return { printers: [], defaultPrinter: '', filePrinters: [], direct: false };
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke('list_printers');
+}
+
+export async function printDirect(job) {
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke('print_direct', { job });
+}
+
+export async function printPdf(job, path) {
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke('print_pdf', { job, path });
+}
+
+export async function pickPdfPath(defaultName, title) {
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke('pick_pdf_path', { defaultName, title });
+}
+
 export async function readImage(path) {
   const { invoke } = await import('@tauri-apps/api/core');
   return invoke('read_image', { path });

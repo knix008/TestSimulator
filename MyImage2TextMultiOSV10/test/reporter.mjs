@@ -6,13 +6,22 @@
 import path from 'node:path';
 
 const CATEGORIES = {
-  'aspect.test.js': { title: '비율 계산', color: '36' },
-  'raster.test.js': { title: '이미지 형식 디코딩', color: '35' },
-  'sample.test.js': { title: '픽셀 샘플링', color: '34' },
-  'export.test.js': { title: '이미지 내보내기', color: '32' },
-  'recent.test.js': { title: '최근 파일 · 폴더', color: '91' },
-  'textFile.test.js': { title: '텍스트 파일 · 줄바꿈', color: '96' },
-  'build.test.js': { title: '빌드 · 설치', color: '33' },
+  'aspect.test.js': { title: 'Aspect ratio', color: '36' },
+  'raster.test.js': { title: 'Image decoding', color: '35' },
+  'sample.test.js': { title: 'Pixel sampling', color: '34' },
+  'export.test.js': { title: 'Image export', color: '32' },
+  'recent.test.js': { title: 'Recent files', color: '91' },
+  'textFile.test.js': { title: 'Text files', color: '96' },
+  'build.test.js': { title: 'Build · install', color: '33' },
+  'exportSize.test.js': { title: 'Export resolution', color: '92' },
+  'printLayout.test.js': { title: 'Print layout', color: '94' },
+  'markdown.test.js': { title: 'User guide', color: '95' },
+  'clean.test.js': { title: 'Clean scripts', color: '93' },
+  'startScreen.test.js': { title: 'Start screen', color: '36' },
+  'iconTones.test.js': { title: 'Colorful icons', color: '95' },
+  'startBoard.test.js': { title: 'Start board', color: '96' },
+  'inputScale.test.js': { title: 'Input resolution', color: '92' },
+  'rust.test.js': { title: 'Desktop (Rust)', color: '91' },
 };
 const FALLBACK_COLORS = ['96', '95', '94', '93', '92'];
 
@@ -123,9 +132,9 @@ export default async function* reporter(source) {
   };
 
   const rule = '─'.repeat(2 + W.index + 2 + W.name + 1 + W.time);
-  yield `\n${paint('1;97;46', '  Image2Text 테스트  ')} ${dim(new Date().toLocaleString())}\n`;
+  yield `\n${paint('1;97;46', '  Image2Text tests  ')} ${dim(new Date().toLocaleString())}\n`;
   yield `${dim(rule)}\n`;
-  yield `${dim(`   ${padStart('진행', W.index)}  ${padEnd('테스트', W.name)} ${padStart('시간', W.time)}`)}\n`;
+  yield `${dim(`   ${padStart('#', W.index)}  ${padEnd('Test', W.name)} ${padStart('Time', W.time)}`)}\n`;
 
   for await (const event of source) {
     const fileName = fileNameOf(event);
@@ -139,6 +148,23 @@ export default async function* reporter(source) {
       continue;
     }
 
+    // A file that fails on its own (it could not be loaded, or threw outside any test) has no
+    // failing test inside it: count it as one failure so it can never pass unnoticed.
+    if (event.type === 'test:fail' && isFile) {
+      const cat = category(fileName);
+      if (!cat.items.some((item) => item.status === 'fail')) {
+        if (currentFile !== fileName) {
+          currentFile = fileName;
+          yield `\n${paint(`1;${cat.color}`, `▶ ${cat.title}`)}  ${dim(cat.file)}\n`;
+        }
+        cat.items.push({ name: 'the test file could not run', status: 'fail', duration: 0 });
+        finished += 1;
+        yield `  ${red('✘')}${paint(cat.color, padStart('!', W.index))}  ${red(fit('the test file could not run', W.name))}\n`;
+        const detail = errorText(event.data.details);
+        if (detail) yield `${detail}\n`;
+      }
+      continue;
+    }
     if ((event.type !== 'test:pass' && event.type !== 'test:fail') || isFile) continue;
     const cat = category(fileName);
     const duration = event.data.details?.duration_ms || 0;
@@ -149,10 +175,10 @@ export default async function* reporter(source) {
     cat.duration += duration;
     finished += 1;
 
-    const mark = status === 'pass' ? green('✔') : status === 'fail' ? red('✘') : yellow('○');
+    const mark = status === 'pass' ? green('✔') : status === 'fail' ? red('✘') : dim('○');
     const index = paint(cat.color, padStart(`${cat.items.length}/${queued.get(fileName) || cat.items.length}`, W.index));
     const name = fit(event.data.name, W.name);
-    const shown = status === 'fail' ? red(name) : status === 'skip' ? yellow(name) : name;
+    const shown = status === 'fail' ? red(name) : status === 'skip' ? dim(name) : name;
     const time = timeColor(duration)(padStart(formatDuration(duration), W.time));
     yield `  ${mark}${index}  ${shown} ${time}\n`;
     if (status === 'fail') {
@@ -171,24 +197,24 @@ export default async function* reporter(source) {
   const elapsed = Date.now() - started;
 
   const num = (value, color) => (value ? color : dim)(padStart(String(value), W.count));
-  const head = `  ${padEnd('분류', W.title)} ${padStart('통과', W.count)} ${padStart('실패', W.count)} ${padStart('건너뜀', W.count)} ${padStart('시간', W.time)}  ${padEnd('시간 비율', W.bar)}`;
+  const head = `  ${padEnd('Category', W.title)} ${padStart('Pass', W.count)} ${padStart('Fail', W.count)} ${padStart('Skip', W.count)} ${padStart('Time', W.time)}  ${padEnd('Share of time', W.bar)}`;
   const summaryRule = '─'.repeat(displayWidth(head) + 1);
 
-  yield `\n${paint('1;97;45', '  결과 요약  ')}\n`;
+  yield `\n${paint('1;97;45', '  Summary  ')}\n`;
   yield `${dim(head)}\n${dim(summaryRule)}\n`;
   for (const cat of rows) {
     const failed = count(cat, 'fail');
     const title = paint(failed ? '1;31' : `1;${cat.color}`, padEnd(cat.title, W.title));
-    yield `  ${title} ${num(count(cat, 'pass'), green)} ${num(failed, red)} ${num(count(cat, 'skip'), yellow)} ${padStart(formatDuration(cat.duration), W.time)}  ${bar(cat.duration, totals.duration, W.bar, cat.color)}\n`;
+    yield `  ${title} ${num(count(cat, 'pass'), green)} ${num(failed, red)} ${num(count(cat, 'skip'), dim)} ${padStart(formatDuration(cat.duration), W.time)}  ${bar(cat.duration, totals.duration, W.bar, cat.color)}\n`;
   }
   yield `${dim(summaryRule)}\n`;
-  const totalTitle = paint(totals.fail ? '1;31' : '1;32', padEnd('합계', W.title));
-  yield `  ${totalTitle} ${num(totals.pass, green)} ${num(totals.fail, red)} ${num(totals.skip, yellow)} ${padStart(formatDuration(totals.duration), W.time)}\n`;
-  yield `  ${dim(padEnd('전체 실행 시간', W.title))} ${padStart(formatDuration(elapsed), W.count * 3 + 2 + W.time + 1)}\n\n`;
+  const totalTitle = paint(totals.fail ? '1;31' : '1;32', padEnd('Total', W.title));
+  yield `  ${totalTitle} ${num(totals.pass, green)} ${num(totals.fail, red)} ${num(totals.skip, dim)} ${padStart(formatDuration(totals.duration), W.time)}\n`;
+  yield `  ${dim(padEnd('Wall time', W.title))} ${padStart(formatDuration(elapsed), W.count * 3 + 2 + W.time + 1)}\n\n`;
 
   if (totals.fail) {
-    yield `${paint('1;97;41', `  실패 ${totals.fail}개 / 전체 ${finished}개  `)}\n`;
+    yield `${paint('1;97;41', `  ${totals.fail} FAILED of ${finished}  `)}\n`;
   } else {
-    yield `${paint('1;30;42', `  모두 통과 ${totals.pass}/${finished}  `)}\n`;
+    yield `${paint('1;30;42', `  ALL PASSED ${totals.pass}/${finished}  `)}\n`;
   }
 }

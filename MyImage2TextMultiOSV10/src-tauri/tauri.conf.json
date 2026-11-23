@@ -16,9 +16,9 @@
       {
         "label": "main",
         "title": "Image2Text",
-        "width": 1280,
+        "width": 1400,
         "height": 860,
-        "minWidth": 1024,
+        "minWidth": 1340,
         "minHeight": 720,
         "decorations": false,
         "shadow": true,
@@ -49,7 +49,10 @@
       "nsis": {
         "installMode": "currentUser",
         "displayLanguageSelector": true,
-        "languages": ["English", "Korean"],
+        "languages": [
+          "English",
+          "Korean"
+        ],
         "installerIcon": "icons/icon.ico",
         "uninstallerIcon": "icons/icon.ico",
         "headerImage": "windows/installerHeader.bmp",

@@ -11,12 +11,18 @@
     "build": "vite build",
     "build:web": "node scripts/build.mjs web",
     "build:win": "node scripts/build.mjs windows",
+    "build:windows": "node scripts/build.mjs windows",
     "build:linux": "node scripts/build.mjs linux",
     "build:macos": "node scripts/build.mjs macos",
     "build:icons": "node scripts/generate-icons.mjs",
+    "fetch:examples": "node scripts/fetch-examples.mjs",
+    "docs:shots": "node scripts/shoot-guide.mjs",
+    "check:desktop": "node scripts/check-desktop.mjs",
     "preview": "vite preview",
     "tauri": "tauri",
-    "test": "node --test --test-concurrency=1 --test-reporter=./test/reporter.mjs test/aspect.test.js test/raster.test.js test/sample.test.js test/export.test.js test/recent.test.js test/textFile.test.js test/build.test.js"
+    "test": "node --test --test-concurrency=1 --test-reporter=./test/reporter.mjs test/aspect.test.js test/raster.test.js test/sample.test.js test/export.test.js test/recent.test.js test/textFile.test.js test/build.test.js test/exportSize.test.js test/printLayout.test.js test/markdown.test.js test/clean.test.js test/startScreen.test.js test/iconTones.test.js test/startBoard.test.js test/inputScale.test.js test/rust.test.js",
+    "clean": "node scripts/clean.mjs",
+    "clean:all": "node scripts/clean.mjs --all"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

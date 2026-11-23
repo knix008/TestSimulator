@@ -13,16 +13,32 @@ export function layoutAspect(result) {
 
 const MAX_EDGE = 8192;
 
-export function paintAscii(canvas, result, cssWidth, dpr = 1, { background = BACKGROUND, ink = INK } = {}) {
-  const aspect = layoutAspect(result);
+export function textGrid(result) {
   const lines = result.text.split('\n');
   const rows = result.edited ? Math.max(1, lines.length) : result.rows;
   const cols = result.edited
     ? Math.max(1, ...lines.map((line) => Array.from(line).length))
     : result.cols;
+  return { lines, rows, cols };
+}
 
-  const scale = Math.max(2, (dpr || 1) * 2);
-  let pixelWidth = Math.max(cols, Math.round(cssWidth * scale));
+// Canvas size for a wanted pixel width, never over MAX_EDGE on either side.
+// Normally every cell is a whole number of pixels (crisp on screen). With exact, the canvas is
+// exactly the wanted width and the text's aspect, and cells may be fractional (image export).
+export function canvasSize(result, wantedWidth, { exact = false } = {}) {
+  const aspect = layoutAspect(result);
+  const { rows, cols } = textGrid(result);
+  if (exact) {
+    let width = Math.max(cols, Math.round(wantedWidth));
+    let height = Math.max(rows, Math.round(width / aspect));
+    if (Math.max(width, height) > MAX_EDGE) {
+      const fitted = MAX_EDGE / Math.max(width, height);
+      width = Math.max(cols, Math.round(width * fitted));
+      height = Math.max(rows, Math.round(height * fitted));
+    }
+    return { width, height, cellWidth: width / cols, cellHeight: height / rows };
+  }
+  let pixelWidth = Math.max(cols, Math.round(wantedWidth));
   let pixelHeight = Math.max(rows, Math.round(pixelWidth / aspect));
   const longSide = Math.max(pixelWidth, pixelHeight);
   if (longSide > MAX_EDGE) {
@@ -42,6 +58,16 @@ export function paintAscii(canvas, result, cssWidth, dpr = 1, { background = BAC
     pixelWidth = cellWidth * cols;
     pixelHeight = cellHeight * rows;
   }
+  return { width: pixelWidth, height: pixelHeight, cellWidth, cellHeight };
+}
+
+export function paintAscii(canvas, result, cssWidth, dpr = 1, { background = BACKGROUND, ink = INK, pixelWidth: wanted } = {}) {
+  const aspect = layoutAspect(result);
+  const { lines, rows, cols } = textGrid(result);
+  const scale = Math.max(2, (dpr || 1) * 2);
+  const { width: pixelWidth, height: pixelHeight, cellWidth, cellHeight } = wanted
+    ? canvasSize(result, wanted, { exact: true })
+    : canvasSize(result, cssWidth * scale);
 
   canvas.width = pixelWidth;
   canvas.height = pixelHeight;
@@ -127,6 +153,23 @@ export function makePreviewUrl(bitmap, maxEdge = 720) {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   return canvas.toDataURL('image/jpeg', 0.86);
+}
+
+export const MIN_EXPORT_CELL = 4;
+export const EXPORT_SCALE = { min: 10, max: 100, step: 5 };
+
+export function clampExportScale(value) {
+  const n = Math.round(Number(value) / EXPORT_SCALE.step) * EXPORT_SCALE.step;
+  if (!Number.isFinite(n)) return EXPORT_SCALE.max;
+  return Math.min(EXPORT_SCALE.max, Math.max(EXPORT_SCALE.min, n));
+}
+
+// Size of an exported image. 100% is the source image's own width; lower values shrink it,
+// but a glyph never gets narrower than MIN_EXPORT_CELL pixels so the text stays readable.
+export function exportSize(result, percent = 100) {
+  const { cols } = textGrid(result);
+  const wanted = Math.round((result.imageWidth * clampExportScale(percent)) / 100);
+  return canvasSize(result, Math.max(wanted, cols * MIN_EXPORT_CELL), { exact: true });
 }
 
 export function exportPixelWidth(result, longSide = 3200) {

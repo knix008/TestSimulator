@@ -4,6 +4,8 @@ use std::path::PathBuf;
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
+mod printing;
+
 const IMAGE_EXTENSIONS: &[&str] = &[
     "png", "jpg", "jpeg", "jpe", "jfif", "gif", "bmp", "webp", "ico", "svg", "avif", "heic",
     "heif", "hif", "jxl", "tif", "tiff", "qoi", "tga", "hdr", "pic", "pbm", "pgm", "ppm", "pnm",
@@ -305,6 +307,32 @@ fn print_page(window: tauri::WebviewWindow) -> Result<(), String> {
     window.print().map_err(|error| error.to_string())
 }
 
+#[tauri::command]
+fn list_printers() -> printing::PrinterList {
+    printing::printers()
+}
+
+/// Prints the sheet in #print-sheet straight to the printer, without the system dialog.
+#[tauri::command]
+async fn print_direct(window: tauri::WebviewWindow, job: printing::PrintJob) -> Result<(), String> {
+    printing::print(&window, job).await
+}
+
+/// Writes the same page to a PDF file (file printers such as Microsoft Print to PDF, and tests).
+#[tauri::command]
+async fn print_pdf(window: tauri::WebviewWindow, job: printing::PrintJob, path: String) -> Result<(), String> {
+    printing::print_to_pdf(&window, job, path).await
+}
+
+/// Asks where to save a PDF. None: cancelled.
+#[tauri::command]
+async fn pick_pdf_path(app: tauri::AppHandle, default_name: String, title: String) -> Option<String> {
+    let chosen = app.dialog().file().set_title(&title).set_file_name(&default_name).add_filter("PDF", &["pdf"]).blocking_save_file()?;
+    let mut path = chosen.into_path().ok()?;
+    ensure_extension(&mut path, &["pdf".to_string()]);
+    Some(path.to_string_lossy().into_owned())
+}
+
 fn ensure_extension(path: &mut PathBuf, extensions: &[String]) {
     let already = path
         .extension()
@@ -356,7 +384,11 @@ pub fn run() {
             read_image,
             list_fonts,
             install_language,
-            print_page
+            print_page,
+            list_printers,
+            print_direct,
+            print_pdf,
+            pick_pdf_path
         ])
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {

@@ -5,33 +5,26 @@
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Image2Text</title>
+    <script>if (/[?&]popup=/.test(location.search)) document.documentElement.classList.add("popup-mode");</script>
     <link rel="stylesheet" href="/src/styles.css" />
   </head>
   <body>
     <div class="app">
-      <header class="titlebar" id="titlebar" data-tauri-drag-region>
-        <img class="titlebar-icon" src="/icon.svg" alt="" draggable="false" />
-        <span class="titlebar-name">Image2Text</span>
-        <span class="titlebar-version">2.0.0</span>
-        <div class="titlebar-controls" id="window-controls">
-          <button id="win-min" type="button" data-i18n-aria="minimize" aria-label="최소화">
-            <svg viewBox="0 0 12 12"><path d="M2 6h8" /></svg>
-          </button>
-          <button id="win-max" type="button" data-i18n-aria="maximize" aria-label="최대화">
-            <svg class="icon-max" viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" /></svg>
-            <svg class="icon-restore" viewBox="0 0 12 12"><rect x="3.2" y="1.6" width="7" height="7" /><path d="M1.6 3.4v7h7" /></svg>
-          </button>
-          <button id="win-close" class="close" type="button" data-i18n-aria="close" aria-label="닫기">
-            <svg viewBox="0 0 12 12"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" /></svg>
-          </button>
+      <div class="toolbar" id="toolbar" data-tauri-drag-region>
+        <div class="toolbar-brand" data-tauri-drag-region>
+          <img class="titlebar-icon" src="/icon.svg" alt="" draggable="false" data-tauri-drag-region />
+          <span class="titlebar-name" data-tauri-drag-region>Image2Text</span>
+          <span class="titlebar-version" data-tauri-drag-region>2.0.0</span>
         </div>
-      </header>
-      <div class="toolbar" id="toolbar">
-        <div class="titlebar-actions toolbar-main">
+        <div class="titlebar-actions toolbar-main" data-tauri-drag-region>
+          <button id="btn-start" class="title-action" type="button" aria-pressed="false" data-i18n-title="startTip" title="시작 화면 (Ctrl+Shift+H)">
+            <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 7.4 8 2.4l6 5"/><path d="M3.6 6.2v7.4h3.2V10h2.4v3.6h3.2V6.2"/></svg>
+            <span class="tb-label" data-i18n="start">시작</span>
+          </button>
           <div class="menu-anchor">
-            <button id="btn-file" class="title-action" type="button" aria-haspopup="menu" aria-expanded="false" data-i18n-aria="fileMenu" aria-label="파일">
+            <button id="btn-file" class="title-action" type="button" data-i18n-title="tipFile" title="파일 열기 · 저장 · 최근 파일" aria-haspopup="menu" aria-expanded="false" data-i18n-aria="fileMenu" aria-label="파일">
               <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.2 3.4h4.2l1.3 1.5h6.1v8.4H2.2z"/></svg>
-              <span data-i18n="file">파일</span>
+              <span class="tb-label" data-i18n="file">파일</span>
               <svg class="caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg>
             </button>
             <div id="file-menu" class="file-menu" hidden role="menu">
@@ -53,24 +46,24 @@
               <div id="recent-list"></div>
             </div>
           </div>
-          <button id="btn-print" class="title-action" type="button" data-i18n-title="printTip" title="고른 결과 인쇄 (Ctrl+P)">
+          <button id="btn-print" class="title-action" type="button" data-i18n-title="printTip" title="인쇄 창 열기 (Ctrl+P)">
             <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.4 5.6V1.8h7.2v3.8"/><rect x="1.8" y="5.6" width="12.4" height="5.6" rx="1.2"/><path d="M4.4 9.4h7.2v4.8H4.4z"/><path d="M11.6 7.6h.01"/></svg>
-            <span data-i18n="print">인쇄</span>
+            <span class="tb-label" data-i18n="print">인쇄</span>
           </button>
           <span class="toolbar-sep" aria-hidden="true"></span>
-          <button id="btn-edit" class="title-action" type="button" title="Ctrl+E" aria-pressed="false">
+          <button id="btn-edit" class="title-action" type="button" data-i18n-title="tipEdit" title="고른 텍스트 직접 고치기 (Ctrl+E)" aria-pressed="false">
             <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M9.4 2.6 13.4 6.6 6.2 13.8H2.2v-4z"/></svg>
             <span class="tb-label">편집</span>
           </button>
-          <button id="btn-copy" class="title-action" type="button" title="Ctrl+C">
+          <button id="btn-copy" class="title-action" type="button" data-i18n-title="tipCopy" title="고른 텍스트 복사 (Ctrl+C)">
             <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.2" height="8.2" rx="1.3"/><path d="M3.2 10.8H2.6A1.2 1.2 0 0 1 1.4 9.6V2.8A1.2 1.2 0 0 1 2.6 1.6h6.8a1.2 1.2 0 0 1 1.2 1.2v.6"/></svg>
             <span data-i18n="copy">복사</span>
           </button>
-          <button id="btn-txt" class="title-action" type="button" title="Ctrl+S">
+          <button id="btn-txt" class="title-action" type="button" data-i18n-title="tipText" title="텍스트 파일로 저장 (Ctrl+S)">
             <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.8h5.2L13 5.6V14.2H4z"/><path d="M9 1.8V5.8h4M6 9h4.4M6 11.4h2.8"/></svg>
             <span data-i18n="textFile">텍스트</span>
           </button>
-          <button id="btn-html" class="title-action" type="button">
+          <button id="btn-html" class="title-action" type="button" data-i18n-title="tipHtml" title="HTML 파일로 저장">
             <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.8 2.2 8 6 12.2M10 3.8 13.8 8 10 12.2"/></svg>
             <span data-i18n="html">HTML</span>
           </button>
@@ -81,41 +74,41 @@
               <svg class="caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg>
             </button>
             <div id="export-menu" class="file-menu export-menu" hidden role="menu">
+              <div class="menu-head" data-i18n="exportOutput">출력 크기</div>
+              <p id="export-size" class="export-size"></p>
+              <div class="menu-sep" role="separator"></div>
               <div class="menu-head" data-i18n="exportHead">이미지 형식</div>
               <div id="export-formats"></div>
             </div>
           </div>
         </div>
-        <div class="titlebar-actions toolbar-end">
+        <div class="titlebar-actions toolbar-end" data-tauri-drag-region>
           <div class="theme-split">
             <button id="btn-theme" class="title-action theme-cycle" type="button" title="다음 테마">
               <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6a6.4 6.4 0 1 0 0 12.8c.7 0 1.2-.5 1.2-1.2 0-.3-.1-.6-.4-.8a1.2 1.2 0 0 1-.4-1c0-.7.6-1.2 1.3-1.2H11A3.4 3.4 0 0 0 14.4 6 6.4 6.4 0 0 0 8 1.6z"/><circle cx="5.2" cy="6.2" r=".8" fill="currentColor" stroke="none"/><circle cx="8" cy="4.6" r=".8" fill="currentColor" stroke="none"/><circle cx="10.8" cy="6.2" r=".8" fill="currentColor" stroke="none"/></svg>
               <span data-i18n="theme">테마</span>
             </button>
-            <button id="btn-theme-menu" class="theme-pick" type="button" aria-haspopup="menu" aria-expanded="false" data-i18n-aria="themePick" aria-label="테마 고르기">
+            <button id="btn-theme-menu" class="theme-pick" type="button" data-i18n-title="themePick" title="테마 고르기" aria-haspopup="menu" aria-expanded="false" data-i18n-aria="themePick" aria-label="테마 고르기">
               <span id="theme-swatch" class="mini-swatch" aria-hidden="true"><i id="theme-swatch-dot"></i></span>
               <span id="theme-current">미드나잇</span>
               <svg class="caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg>
             </button>
             <div id="theme-menu" class="theme-menu" hidden role="menu">
-              <div class="theme-cols">
-                <section>
-                  <div class="theme-col-head"><span data-i18n="themeDark">다크</span> <span class="theme-count">20</span></div>
-                  <div id="theme-menu-dark" class="theme-pair"></div>
-                </section>
-                <section>
-                  <div class="theme-col-head"><span data-i18n="themeLight">라이트</span> <span class="theme-count">20</span></div>
-                  <div id="theme-menu-light" class="theme-pair"></div>
-                </section>
-              </div>
-              <div class="theme-custom-block">
-                <div class="theme-col-head" data-i18n="themeCustom">사용자 테마</div>
-                <div id="theme-menu-custom" class="theme-custom-grid"></div>
-              </div>
-              <button id="btn-theme-manage" class="text-btn theme-manage" type="button">
-                <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 1.7h3l.4 1.6 1.3.5 1.3-.9 1.5 1.5-.9 1.3.5 1.3 1.6.4v3l-1.6.4-.5 1.3.9 1.3-1.5 1.5-1.3-.9-1.3.5-.4 1.6h-3l-.4-1.6-1.3-.5-1.3.9-1.5-1.5.9-1.3-.5-1.3L1.8 10.7v-3l1.6-.4.5-1.3-.9-1.3 1.5-1.5 1.3.9 1.3-.5z"/><circle cx="8" cy="8" r="1.7"/></svg>
-                <span data-i18n="themeManage">테마 관리</span>
-              </button>
+              <section class="theme-section theme-custom-block">
+                <div class="theme-col-head"><span data-i18n="themeCustom">사용자 테마</span><span class="panel-spacer"></span>
+                  <button id="btn-theme-manage" class="text-btn theme-manage" type="button"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 1.7h3l.4 1.6 1.3.5 1.3-.9 1.5 1.5-.9 1.3.5 1.3 1.6.4v3l-1.6.4-.5 1.3.9 1.3-1.5 1.5-1.3-.9-1.3.5-.4 1.6h-3l-.4-1.6-1.3-.5-1.3.9-1.5-1.5.9-1.3-.5-1.3L1.8 10.7v-3l1.6-.4.5-1.3-.9-1.3 1.5-1.5 1.3.9 1.3-.5z"/><circle cx="8" cy="8" r="1.7"/></svg><span data-i18n="themeManage">사용자 테마 설정</span></button>
+                </div>
+                <div id="theme-menu-custom" class="theme-pair"></div>
+                <p id="theme-menu-custom-empty" class="theme-empty" data-i18n="themeCustomEmpty">사용자 테마가 없습니다. 사용자 테마 설정에서 만듭니다.</p>
+              </section>
+              <section class="theme-section">
+                <div class="theme-col-head"><span data-i18n="themeDark">다크</span> <span class="theme-count">20</span></div>
+                <div id="theme-menu-dark" class="theme-pair"></div>
+              </section>
+              <section class="theme-section">
+                <div class="theme-col-head"><span data-i18n="themeLight">라이트</span> <span class="theme-count">20</span></div>
+                <div id="theme-menu-light" class="theme-pair"></div>
+              </section>
             </div>
           </div>
           <button id="btn-language" class="title-action" type="button" data-i18n-title="languageSwitch" data-i18n-aria="languageSwitch" title="영어로 바꿉니다" aria-label="영어로 바꿉니다">
@@ -170,12 +163,134 @@
             <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 1.7h3l.4 1.6 1.3.5 1.3-.9 1.5 1.5-.9 1.3.5 1.3 1.6.4v3l-1.6.4-.5 1.3.9 1.3-1.5 1.5-1.3-.9-1.3.5-.4 1.6h-3l-.4-1.6-1.3-.5-1.3.9-1.5-1.5.9-1.3-.5-1.3L1.8 10.7v-3l1.6-.4.5-1.3-.9-1.3 1.5-1.5 1.3.9 1.3-.5z"/><circle cx="8" cy="8" r="1.7"/></svg>
             <span data-i18n="settings">설정</span>
           </button>
+          <button id="btn-guide" class="title-action" type="button" data-i18n-title="guideTip" title="사용 설명서 (Shift+F1)">
+            <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.6C6.6 2.6 4.6 2.2 2 2.4v10c2.6-.2 4.6.2 6 1.2 1.4-1 3.4-1.4 6-1.2v-10c-2.6-.2-4.6.2-6 1.2z"/><path d="M8 3.6v10"/></svg>
+            <span class="tb-label" data-i18n="guide">설명서</span>
+          </button>
           <button id="btn-about" class="title-action" type="button" data-i18n-title="aboutTip" title="프로그램 정보 (F1)">
             <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M8 7.2V12M8 4.7h.01"/></svg>
             <span data-i18n="about">정보</span>
           </button>
         </div>
+          <div class="titlebar-controls" id="window-controls">
+            <button id="win-min" type="button" data-i18n-aria="minimize" aria-label="최소화">
+              <svg viewBox="0 0 12 12"><path d="M2 6h8" /></svg>
+            </button>
+            <button id="win-max" type="button" data-i18n-aria="maximize" aria-label="최대화">
+              <svg class="icon-max" viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" /></svg>
+              <svg class="icon-restore" viewBox="0 0 12 12"><rect x="3.2" y="1.6" width="7" height="7" /><path d="M1.6 3.4v7h7" /></svg>
+            </button>
+            <button id="win-close" class="close" type="button" data-i18n-aria="close" aria-label="닫기">
+              <svg viewBox="0 0 12 12"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" /></svg>
+            </button>
+          </div>
       </div>
+      <section id="start-screen" class="start-screen" hidden data-i18n-aria="startScreen" aria-label="시작 화면">
+        <canvas id="start-bg" class="start-bg" aria-hidden="true"></canvas>
+        <div class="start-scroll">
+          <div class="start-inner">
+            <header class="start-hero">
+              <img class="start-logo" src="/icon.svg" alt="" draggable="false" />
+              <div class="start-hero-text">
+                <h1>Image2Text <span class="start-version">2.0.0</span></h1>
+                <p data-i18n="startTagline">그림을 글자로 다시 그립니다. 원본과 같은 비율로, 여러 스타일을 한 번에.</p>
+              </div>
+              <div class="start-hero-actions">
+                <button id="start-hero-guide" class="act big" type="button"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.6C6.6 2.6 4.6 2.2 2 2.4v10c2.6-.2 4.6.2 6 1.2 1.4-1 3.4-1.4 6-1.2v-10c-2.6-.2-4.6.2-6 1.2z"/><path d="M8 3.6v10"/></svg><span data-i18n="startGuide">사용 설명서</span></button>
+                <button id="start-close" class="act accent big" type="button">
+                <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+                <span data-i18n="startClose">작업 화면으로</span>
+              </button>
+              </div>
+            </header>
+            <div class="start-tools">
+              <label class="option-check" data-i18n-title="startShowTip" title="끄면 다음부터 작업 화면으로 바로 시작합니다">
+                <input id="start-show" type="checkbox" checked />
+                <span data-i18n="startShow">시작할 때 이 화면 보기</span>
+              </label>
+              <button id="start-arrange" class="act" type="button" data-i18n-title="startArrangeTip" title="카드를 처음 배치로 되돌립니다">
+                <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="12" height="5" rx="1"/></svg>
+                <span data-i18n="startArrange">카드 배치 초기화</span>
+              </button>
+              <button id="start-config" class="act" type="button" data-i18n-title="startConfigTip" title="설정 창의 시작 화면 탭을 엽니다">
+                <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 1.7h3l.4 1.6 1.3.5 1.3-.9 1.5 1.5-.9 1.3.5 1.3 1.6.4v3l-1.6.4-.5 1.3.9 1.3-1.5 1.5-1.3-.9-1.3.5-.4 1.6h-3l-.4-1.6-1.3-.5-1.3.9-1.5-1.5.9-1.3-.5-1.3L1.8 10.7v-3l1.6-.4.5-1.3-.9-1.3 1.5-1.5 1.3.9 1.3-.5z"/><circle cx="8" cy="8" r="1.7"/></svg>
+                <span data-i18n="startConfig">시작 화면 설정</span>
+              </button>
+            </div>
+            <div id="start-board" class="start-board">
+              <section class="start-card" data-card="actions">
+                <h2>
+                  <button type="button" class="card-handle" data-card-handle="actions" data-i18n-title="cardMove" title="끌어서 카드 옮기기"><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="4" cy="2.5" r="1.1"/><circle cx="8" cy="2.5" r="1.1"/><circle cx="4" cy="6" r="1.1"/><circle cx="8" cy="6" r="1.1"/><circle cx="4" cy="9.5" r="1.1"/><circle cx="8" cy="9.5" r="1.1"/></svg></button>
+                  <svg class="ico card-ico actions-ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M9 1.6 3.4 9h4.2L7 14.4 12.6 7H8.4z"/></svg>
+                  <span class="start-card-title" data-i18n="startActions">바로 할 일</span>
+                </h2>
+                <div class="card-body start-actions">
+                  <button id="start-open" class="start-action primary" type="button">
+                    <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.2 4.2h4l1.2 1.4H14v7.2H2.2z"/></svg>
+                    <span><strong data-i18n="startOpen">이미지 열기</strong><small data-i18n="startOpenHint">파일을 고르거나 창에 끌어다 놓습니다 · Ctrl+O</small></span>
+                  </button>
+                  <button id="start-blank" class="start-action" type="button">
+                    <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2.6" width="12" height="10.8" rx="1.4"/><path d="M2 5.6h12M5 5.6v7.8"/></svg>
+                    <span><strong data-i18n="startBlank">작업 화면으로</strong><small data-i18n="startBlankHint">지금 넣어 둔 이미지와 결과를 그대로 봅니다</small></span>
+                  </button>
+                  <button id="start-guide" class="start-action" type="button">
+                    <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.6C6.6 2.6 4.6 2.2 2 2.4v10c2.6-.2 4.6.2 6 1.2 1.4-1 3.4-1.4 6-1.2v-10c-2.6-.2-4.6.2-6 1.2z"/><path d="M8 3.6v10"/></svg>
+                    <span><strong data-i18n="startGuide">사용 설명서</strong><small data-i18n="startGuideHint">그림과 함께 기능을 차례로 설명합니다</small></span>
+                  </button>
+                  <button id="start-settings" class="start-action" type="button">
+                    <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 1.7h3l.4 1.6 1.3.5 1.3-.9 1.5 1.5-.9 1.3.5 1.3 1.6.4v3l-1.6.4-.5 1.3.9 1.3-1.5 1.5-1.3-.9-1.3.5-.4 1.6h-3l-.4-1.6-1.3-.5-1.3.9-1.5-1.5.9-1.3-.5-1.3L1.8 10.7v-3l1.6-.4.5-1.3-.9-1.3 1.5-1.5 1.3.9 1.3-.5z"/><circle cx="8" cy="8" r="1.7"/></svg>
+                    <span><strong data-i18n="settings">설정</strong><small data-i18n="startSettingsHint">언어, 테마, 글자 크기, 시작 화면</small></span>
+                  </button>
+                </div>
+                <span class="card-resize" data-card-resize="actions" data-i18n-title="cardResize" title="끌어서 크기 바꾸기 · 두 번 누르면 내용에 맞춤"><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="10" cy="3" r="1.15"/><circle cx="6.5" cy="6.5" r="1.15"/><circle cx="10" cy="6.5" r="1.15"/><circle cx="3" cy="10" r="1.15"/><circle cx="6.5" cy="10" r="1.15"/><circle cx="10" cy="10" r="1.15"/></svg></span>
+              </section>
+              <section class="start-card" data-card="recent">
+                <h2>
+                  <button type="button" class="card-handle" data-card-handle="recent" data-i18n-title="cardMove" title="끌어서 카드 옮기기"><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="4" cy="2.5" r="1.1"/><circle cx="8" cy="2.5" r="1.1"/><circle cx="4" cy="6" r="1.1"/><circle cx="8" cy="6" r="1.1"/><circle cx="4" cy="9.5" r="1.1"/><circle cx="8" cy="9.5" r="1.1"/></svg></button>
+                  <svg class="ico card-ico recent-ico" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M8 4.6V8l2.4 1.6"/></svg>
+                  <span class="start-card-title" data-i18n="recent">최근 사용한 파일</span>
+                </h2>
+                <div class="card-body">
+                  <p id="start-recent-empty" class="panel-empty" data-i18n="recentEmpty">최근에 사용한 파일이 없습니다.</p>
+                  <div id="start-recent-list" class="start-recent-list"></div>
+                </div>
+                <span class="card-resize" data-card-resize="recent" data-i18n-title="cardResize" title="끌어서 크기 바꾸기 · 두 번 누르면 내용에 맞춤"><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="10" cy="3" r="1.15"/><circle cx="6.5" cy="6.5" r="1.15"/><circle cx="10" cy="6.5" r="1.15"/><circle cx="3" cy="10" r="1.15"/><circle cx="6.5" cy="10" r="1.15"/><circle cx="10" cy="10" r="1.15"/></svg></span>
+              </section>
+              <section class="start-card" data-card="examples">
+                <h2>
+                  <button type="button" class="card-handle" data-card-handle="examples" data-i18n-title="cardMove" title="끌어서 카드 옮기기"><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="4" cy="2.5" r="1.1"/><circle cx="8" cy="2.5" r="1.1"/><circle cx="4" cy="6" r="1.1"/><circle cx="8" cy="6" r="1.1"/><circle cx="4" cy="9.5" r="1.1"/><circle cx="8" cy="9.5" r="1.1"/></svg></button>
+                  <svg class="ico card-ico examples-ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2.6" width="12" height="10.8" rx="1.4"/><circle cx="5.6" cy="6" r="1.1"/><path d="M2.4 11.6 6 8.4l2.2 1.8 1.6-1.3 3.8 3"/></svg>
+                  <span class="start-card-title" data-i18n="startExamples">예제 명화</span>
+                  <span id="start-examples-count" class="theme-count"></span>
+                  <span class="panel-spacer"></span>
+                  <span class="start-gallery-hint" data-i18n="startExamplesHint">누르면 이미지로 넣고 바로 변환합니다</span>
+                </h2>
+                <div class="card-body">
+                  <div id="start-examples" class="start-examples"></div>
+                  <p class="start-credit" data-i18n="startCredit">그림: Wikimedia Commons · 퍼블릭 도메인</p>
+                </div>
+                <span class="card-resize" data-card-resize="examples" data-i18n-title="cardResize" title="끌어서 크기 바꾸기 · 두 번 누르면 내용에 맞춤"><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="10" cy="3" r="1.15"/><circle cx="6.5" cy="6.5" r="1.15"/><circle cx="10" cy="6.5" r="1.15"/><circle cx="3" cy="10" r="1.15"/><circle cx="6.5" cy="10" r="1.15"/><circle cx="10" cy="10" r="1.15"/></svg></span>
+              </section>
+              <section class="start-card" data-card="background">
+                <h2>
+                  <button type="button" class="card-handle" data-card-handle="background" data-i18n-title="cardMove" title="끌어서 카드 옮기기"><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="4" cy="2.5" r="1.1"/><circle cx="8" cy="2.5" r="1.1"/><circle cx="4" cy="6" r="1.1"/><circle cx="8" cy="6" r="1.1"/><circle cx="4" cy="9.5" r="1.1"/><circle cx="8" cy="9.5" r="1.1"/></svg></button>
+                  <svg class="ico card-ico background-ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8 9.4 6.6 14.2 8 9.4 9.4 8 14.2 6.6 9.4 1.8 8 6.6 6.6z"/></svg>
+                  <span class="start-card-title" data-i18n="startBackground">배경</span>
+                  <span class="theme-count">20</span>
+                </h2>
+                <div class="card-body bg-host" id="start-bg-controls"></div>
+                <span class="card-resize" data-card-resize="background" data-i18n-title="cardResize" title="끌어서 크기 바꾸기 · 두 번 누르면 내용에 맞춤"><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="10" cy="3" r="1.15"/><circle cx="6.5" cy="6.5" r="1.15"/><circle cx="10" cy="6.5" r="1.15"/><circle cx="3" cy="10" r="1.15"/><circle cx="6.5" cy="10" r="1.15"/><circle cx="10" cy="10" r="1.15"/></svg></span>
+              </section>
+            </div>
+            <footer class="start-foot">
+              <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M8 7.2V12M8 4.7h.01"/></svg>
+              <span class="grow">Image2Text v2.0.0</span>
+              <span class="muted">© SHKWON (knix008@naver.com)</span>
+            </footer>
+          </div>
+        </div>
+      </section>
+
       <div class="shell">
         <aside class="rail">
           <section class="sources">
@@ -215,10 +330,25 @@
                   <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"/></svg>
                 </button>
                 <div class="meter-body">
-                  <input id="cols" type="range" min="24" max="220" value="100" />
+                  <input id="cols" type="range" min="24" max="100" value="100" />
                   <output id="cols-out" for="cols">100</output>
                 </div>
                 <button type="button" class="nudge" data-nudge="1" data-i18n-aria="increase" aria-label="증가" aria-controls="cols">
+                  <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="slider" data-i18n-title="inputScaleTip" title="입력 이미지를 비율을 유지한 채 이 크기로 줄인 뒤 변환합니다. 글자 수도 같은 비율로 줄어듭니다.">
+              <label for="input-scale" data-i18n="inputScale">해상도</label>
+              <div class="meter" data-nudge-step="5" data-unit="%">
+                <button type="button" class="nudge" data-nudge="-1" data-i18n-aria="decrease" aria-label="감소" aria-controls="input-scale">
+                  <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"/></svg>
+                </button>
+                <div class="meter-body">
+                  <input id="input-scale" type="range" min="10" max="100" step="5" value="100" />
+                  <output id="input-scale-out" for="input-scale">100%</output>
+                </div>
+                <button type="button" class="nudge" data-nudge="1" data-i18n-aria="increase" aria-label="증가" aria-controls="input-scale">
                   <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"/></svg>
                 </button>
               </div>
@@ -289,6 +419,12 @@
           <div class="stage-bar">
             <span class="step">3</span>
             <h2 data-i18n="chosen">고른 결과</h2>
+            <span class="panel-spacer"></span>
+            <div class="zoom-bar" id="zoom-bar" data-i18n-title="zoomTip" title="원본과 텍스트를 함께 확대·축소합니다. 가운데 값을 누르면 100%">
+              <button id="zoom-out" class="nudge" type="button" data-i18n-aria="zoomOut" aria-label="축소" data-i18n-title="zoomOut" title="축소"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"/></svg></button>
+              <button id="zoom-reset" class="zoom-value" type="button" data-i18n-title="zoomReset" title="100%로 맞추기">100%</button>
+              <button id="zoom-in" class="nudge" type="button" data-i18n-aria="zoomIn" aria-label="확대" data-i18n-title="zoomIn" title="확대"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"/></svg></button>
+            </div>
           </div>
 
           <section class="stage">
@@ -341,9 +477,9 @@
         <span class="sb-item" id="status-detail"></span>
         <button id="resize-grip" class="resize-grip" type="button" data-i18n-aria="resize" aria-label="창 크기 변경">
           <svg viewBox="0 0 12 12" aria-hidden="true">
-            <path d="M10 2.5 2.5 10" />
-            <path d="M10 6.2 6.2 10" />
-            <path d="M10 9.6 9.6 10" />
+            <circle cx="10" cy="3" r="1.15" />
+            <circle cx="6.5" cy="6.5" r="1.15" /><circle cx="10" cy="6.5" r="1.15" />
+            <circle cx="3" cy="10" r="1.15" /><circle cx="6.5" cy="10" r="1.15" /><circle cx="10" cy="10" r="1.15" />
           </svg>
         </button>
       </footer>
@@ -352,6 +488,7 @@
     <dialog id="settings-dialog" class="modal">
       <form method="dialog" class="modal-card">
         <header class="modal-head">
+          <svg class="ico head-ico settings-ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 1.7h3l.4 1.6 1.3.5 1.3-.9 1.5 1.5-.9 1.3.5 1.3 1.6.4v3l-1.6.4-.5 1.3.9 1.3-1.5 1.5-1.3-.9-1.3.5-.4 1.6h-3l-.4-1.6-1.3-.5-1.3.9-1.5-1.5.9-1.3-.5-1.3L1.8 10.7v-3l1.6-.4.5-1.3-.9-1.3 1.5-1.5 1.3.9 1.3-.5z"/><circle cx="8" cy="8" r="1.7"/></svg>
           <h2 data-i18n="settingsTitle">설정</h2>
           <span class="panel-spacer"></span>
           <button class="icon-x" type="submit" value="close" data-i18n-aria="close" aria-label="닫기">
@@ -360,19 +497,61 @@
         </header>
         <div class="settings-tabs" role="tablist">
           <button class="settings-tab active" type="button" role="tab" data-settings-tab="general" aria-selected="true" data-i18n="tabGeneral">일반</button>
-          <button class="settings-tab" type="button" role="tab" data-settings-tab="appearance" aria-selected="false" data-i18n="tabAppearance">화면</button>
+          <button class="settings-tab" type="button" role="tab" data-settings-tab="start" aria-selected="false" data-i18n="tabStart">시작 화면</button>
           <button class="settings-tab" type="button" role="tab" data-settings-tab="theme" aria-selected="false" data-i18n="tabTheme">테마</button>
+          <button class="settings-tab" type="button" role="tab" data-settings-tab="custom" aria-selected="false" data-i18n="tabCustom">사용자 테마</button>
         </div>
         <div class="modal-body">
           <section class="settings-page" data-settings-page="general">
             <h3 data-i18n="language">언어</h3>
-            <div class="lang-row">
-              <label class="chip"><input type="radio" name="language" value="ko" checked /><span data-i18n="languageKo">한국어</span></label>
-              <label class="chip"><input type="radio" name="language" value="en" /><span data-i18n="languageEn">English</span></label>
+            <div class="seg two lang-seg">
+              <label><input type="radio" name="language" value="ko" checked /><svg class="flag" viewBox="0 0 72 48" aria-hidden="true">
+              <rect width="72" height="48" fill="#fff"/>
+              <g transform="translate(36 24)">
+                <circle r="8" fill="#cd2e3a"/>
+                <path d="M0-8a8 8 0 0 0 0 16 4 4 0 0 0 0-8 4 4 0 0 1 0-8" fill="#0047a0"/>
+              </g>
+              <g fill="#111">
+                <g transform="translate(15 12) rotate(-56)">
+                  <rect x="-5" y="-3.4" width="10" height="1.15"/>
+                  <rect x="-5" y="-1.05" width="10" height="1.15"/>
+                  <rect x="-5" y="1.3" width="10" height="1.15"/>
+                </g>
+                <g transform="translate(57 36) rotate(-56)">
+                  <rect x="-5" y="-3.4" width="4.1" height="1.15"/>
+                  <rect x=".9" y="-3.4" width="4.1" height="1.15"/>
+                  <rect x="-5" y="-1.05" width="4.1" height="1.15"/>
+                  <rect x=".9" y="-1.05" width="4.1" height="1.15"/>
+                  <rect x="-5" y="1.3" width="4.1" height="1.15"/>
+                  <rect x=".9" y="1.3" width="4.1" height="1.15"/>
+                </g>
+                <g transform="translate(57 12) rotate(56)">
+                  <rect x="-5" y="-3.4" width="4.1" height="1.15"/>
+                  <rect x=".9" y="-3.4" width="4.1" height="1.15"/>
+                  <rect x="-5" y="-1.05" width="10" height="1.15"/>
+                  <rect x="-5" y="1.3" width="4.1" height="1.15"/>
+                  <rect x=".9" y="1.3" width="4.1" height="1.15"/>
+                </g>
+                <g transform="translate(15 36) rotate(56)">
+                  <rect x="-5" y="-3.4" width="10" height="1.15"/>
+                  <rect x="-5" y="-1.05" width="4.1" height="1.15"/>
+                  <rect x=".9" y="-1.05" width="4.1" height="1.15"/>
+                  <rect x="-5" y="1.3" width="10" height="1.15"/>
+                </g>
+              </g>
+            </svg><span data-i18n="languageKo">한국어</span></label>
+              <label><input type="radio" name="language" value="en" /><svg class="flag" viewBox="0 0 60 30" aria-hidden="true">
+              <defs><clipPath id="flag-uk-clip-settings"><rect width="60" height="30"/></clipPath></defs>
+              <g clip-path="url(#flag-uk-clip-settings)">
+                <rect width="60" height="30" fill="#012169"/>
+                <path d="M0 0 60 30M60 0 0 30" stroke="#fff" stroke-width="6"/>
+                <path d="M0 0 60 30M60 0 0 30" stroke="#C8102E" stroke-width="4"/>
+                <path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/>
+                <path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/>
+              </g>
+            </svg><span data-i18n="languageEn">English</span></label>
             </div>
-          </section>
-          <section class="settings-page" data-settings-page="appearance" hidden>
-            <h3 data-i18n="appearance">화면</h3>
+            <h3 class="theme-gap" data-i18n="uiText">글자</h3>
             <div class="slider">
               <label for="ui-size" data-i18n="uiSize">글자 크기</label>
               <div class="meter">
@@ -393,8 +572,32 @@
               <label class="chip"><input id="ui-italic" type="checkbox" /><span class="chip-name" data-i18n="uiItalic">기울임</span></label>
             </div>
           </section>
+          <section class="settings-page settings-split" data-settings-page="start" hidden>
+            <div class="split-col">
+              <h3 data-i18n="tabStart">시작 화면</h3>
+              <div class="option-list">
+                <label class="option-check"><input id="set-start-show" type="checkbox" /><span data-i18n="startShow">시작할 때 이 화면 보기</span></label>
+                <label class="option-check"><input id="set-start-recent" type="checkbox" /><span data-i18n="setStartRecent">최근 사용한 파일 카드 보기</span></label>
+                <label class="option-check"><input id="set-start-examples" type="checkbox" /><span data-i18n="setStartExamples">예제 명화 카드 보기</span></label>
+              </div>
+              <div class="button-column">
+                <button id="set-start-arrange" class="act" type="button"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="12" height="5" rx="1"/></svg><span data-i18n="startArrange">카드 배치 초기화</span></button>
+                <button id="set-start-open" class="act" type="button"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 7.4 8 2.4l6 5"/><path d="M3.6 6.2v7.4h3.2V10h2.4v3.6h3.2V6.2"/></svg><span data-i18n="setStartOpen">시작 화면 열기</span></button>
+              </div>
+              <p class="theme-note" data-i18n="setStartNote">카드는 제목 왼쪽의 점 손잡이로 옮기고, 오른쪽 아래 점 삼각형으로 크기를 바꿉니다. 프로그램 이름 카드는 고정입니다.</p>
+            </div>
+            <div class="split-col">
+              <h3 data-i18n="startBackground">배경</h3>
+              <div id="set-start-bg" class="bg-host"></div>
+            </div>
+          </section>
           <section class="settings-page" data-settings-page="theme" hidden>
-            <p class="theme-note" data-i18n="themeNote">다크 20개와 라이트 20개는 고른 결과 줄의 테마 목록에서 고릅니다.</p>
+            <div class="theme-col-head"><span data-i18n="themeDark">다크</span> <span class="theme-count">20</span></div>
+            <div id="settings-theme-dark" class="theme-grid4"></div>
+            <div class="theme-col-head theme-gap"><span data-i18n="themeLight">라이트</span> <span class="theme-count">20</span></div>
+            <div id="settings-theme-light" class="theme-grid4"></div>
+          </section>
+          <section class="settings-page" data-settings-page="custom" hidden>
             <div class="custom-actions">
               <button id="btn-custom-new" class="text-btn" type="button">
                 <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>
@@ -444,7 +647,7 @@
     <dialog id="about-dialog" class="modal about-modal">
       <form method="dialog" class="modal-card">
         <header class="modal-head">
-          <img class="titlebar-icon" src="/icon.svg" alt="" />
+          <img class="head-ico head-app" src="/icon.svg" alt="" />
           <h2 data-i18n="aboutTitle">프로그램 정보</h2>
           <span class="panel-spacer"></span>
           <button class="icon-x" type="submit" value="close" data-i18n-aria="close" aria-label="닫기">
@@ -488,6 +691,7 @@
     <dialog id="save-dialog" class="modal save-modal">
       <form method="dialog" class="modal-card">
         <header class="modal-head">
+          <svg class="ico head-ico save-ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.2h7.2L13 5v8.8H3z"/><path d="M5 2.2v3.2h5.2M5 13.8v-3.6h6v3.6"/></svg>
           <h2 data-i18n="saveTitle">변경 내용</h2>
           <span class="panel-spacer"></span>
           <button class="icon-x" type="button" data-close="cancel" data-i18n-aria="cancel" aria-label="취소">
@@ -504,6 +708,7 @@
           </button>
           <span class="panel-spacer"></span>
           <button class="act" type="button" data-close="cancel">
+            <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.6"/><path d="M4.1 11.9 11.9 4.1"/></svg>
             <span data-i18n="cancel">취소</span>
           </button>
           <button class="act accent" type="submit" value="save">
@@ -532,9 +737,184 @@
       <div id="result-menu-formats"></div>
     </div>
 
-    <div id="print-sheet" class="print-sheet" aria-hidden="true">
-      <img id="print-image" alt="" />
-    </div>
+    <dialog id="print-dialog" class="modal print-modal">
+      <form method="dialog" class="modal-card">
+        <header class="modal-head">
+          <svg class="ico head-ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.4 5.6V1.8h7.2v3.8"/><rect x="1.8" y="5.6" width="12.4" height="5.6" rx="1.2"/><path d="M4.4 9.4h7.2v4.8H4.4z"/></svg>
+          <h2 data-i18n="printTitle">인쇄</h2>
+          <span id="print-subject" class="print-subject"></span>
+          <span class="panel-spacer"></span>
+          <button class="icon-x" type="submit" value="cancel" data-i18n-aria="close" aria-label="닫기">
+            <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4 4 12"/></svg>
+          </button>
+        </header>
+        <div class="print-body">
+          <aside class="print-options">
+            <div class="print-group-head" data-i18n="printGroupPrinter">프린터</div>
+            <div class="print-row">
+              <span class="print-label" data-i18n="printPrinter">프린터</span>
+              <div class="pick" id="print-printer-pick">
+                <button type="button" class="pick-button" id="print-printer" aria-haspopup="listbox" aria-expanded="false"></button>
+                <div class="pick-list" id="print-printer-list" role="listbox" hidden></div>
+              </div>
+            </div>
+            <div class="print-row">
+              <span class="print-label" data-i18n="printCopies">매수</span>
+              <div class="stepper" data-field="copies">
+                <button type="button" class="nudge" data-step="-1" data-i18n-aria="decrease" aria-label="감소"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"/></svg></button>
+                <output id="print-copies-out"></output>
+                <button type="button" class="nudge" data-step="1" data-i18n-aria="increase" aria-label="증가"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"/></svg></button>
+              </div>
+            </div>
+
+            <div class="print-group-head" data-i18n="printGroupPage">페이지 설정</div>
+            <div class="print-row">
+              <span class="print-label" data-i18n="printPaper">용지</span>
+              <div class="pick" id="print-paper-pick">
+                <button type="button" class="pick-button" id="print-paper" aria-haspopup="listbox" aria-expanded="false"></button>
+                <div class="pick-list" id="print-paper-list" role="listbox" hidden></div>
+              </div>
+            </div>
+            <div class="print-row">
+              <span class="print-label" data-i18n="printOrientation">방향</span>
+              <div class="seg three">
+                <label><input type="radio" name="print-orientation" value="auto" /><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 5.5V3h2.5M13 10.5V13h-2.5M10.5 3H13v2.5M5.5 13H3v-2.5"/></svg><span data-i18n="printAuto">자동</span></label>
+                <label><input type="radio" name="print-orientation" value="portrait" /><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="1.8" width="8" height="12.4" rx="1"/></svg><span data-i18n="printPortrait">세로</span></label>
+                <label><input type="radio" name="print-orientation" value="landscape" /><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.8" y="4" width="12.4" height="8" rx="1"/></svg><span data-i18n="printLandscape">가로</span></label>
+              </div>
+            </div>
+            <div class="print-row">
+              <span class="print-label" data-i18n="printMargins">여백</span>
+              <div class="seg four">
+                <label><input type="radio" name="print-margin-preset" value="none" /><span data-i18n="printNone">없음</span></label>
+                <label><input type="radio" name="print-margin-preset" value="narrow" /><span data-i18n="printNarrow">좁게</span></label>
+                <label><input type="radio" name="print-margin-preset" value="normal" /><span data-i18n="printNormal">보통</span></label>
+                <label><input type="radio" name="print-margin-preset" value="wide" /><span data-i18n="printWide">넓게</span></label>
+              </div>
+            </div>
+            <div class="print-row" data-margin-row="top">
+              <span class="print-label sub" data-i18n="printTop">위</span>
+              <div class="stepper" data-field="margin-top">
+                <button type="button" class="nudge" data-step="-1" data-i18n-aria="decrease" aria-label="감소"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"/></svg></button>
+                <output></output>
+                <button type="button" class="nudge" data-step="1" data-i18n-aria="increase" aria-label="증가"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"/></svg></button>
+              </div>
+            </div>
+            <div class="print-row" data-margin-row="bottom">
+              <span class="print-label sub" data-i18n="printBottom">아래</span>
+              <div class="stepper" data-field="margin-bottom">
+                <button type="button" class="nudge" data-step="-1" data-i18n-aria="decrease" aria-label="감소"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"/></svg></button>
+                <output></output>
+                <button type="button" class="nudge" data-step="1" data-i18n-aria="increase" aria-label="증가"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"/></svg></button>
+              </div>
+            </div>
+            <div class="print-row" data-margin-row="left">
+              <span class="print-label sub" data-i18n="printLeft">왼쪽</span>
+              <div class="stepper" data-field="margin-left">
+                <button type="button" class="nudge" data-step="-1" data-i18n-aria="decrease" aria-label="감소"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"/></svg></button>
+                <output></output>
+                <button type="button" class="nudge" data-step="1" data-i18n-aria="increase" aria-label="증가"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"/></svg></button>
+              </div>
+            </div>
+            <div class="print-row" data-margin-row="right">
+              <span class="print-label sub" data-i18n="printRight">오른쪽</span>
+              <div class="stepper" data-field="margin-right">
+                <button type="button" class="nudge" data-step="-1" data-i18n-aria="decrease" aria-label="감소"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"/></svg></button>
+                <output></output>
+                <button type="button" class="nudge" data-step="1" data-i18n-aria="increase" aria-label="증가"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"/></svg></button>
+              </div>
+            </div>
+            <div class="print-row">
+              <span class="print-label" data-i18n="printHAlign">가로 정렬</span>
+              <div class="seg three">
+                <label><input type="radio" name="print-halign" value="left" /><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 2v12"/><rect x="4.5" y="5" width="6" height="6" rx="1"/></svg><span data-i18n="printAlignLeft">왼쪽</span></label>
+                <label><input type="radio" name="print-halign" value="center" /><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v12"/><rect x="5" y="5" width="6" height="6" rx="1"/></svg><span data-i18n="printAlignCenter">가운데</span></label>
+                <label><input type="radio" name="print-halign" value="right" /><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 2v12"/><rect x="5.5" y="5" width="6" height="6" rx="1"/></svg><span data-i18n="printAlignRight">오른쪽</span></label>
+              </div>
+            </div>
+            <div class="print-row">
+              <span class="print-label" data-i18n="printVAlign">세로 정렬</span>
+              <div class="seg three">
+                <label><input type="radio" name="print-valign" value="top" /><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 2.5h12"/><rect x="5" y="4.5" width="6" height="6" rx="1"/></svg><span data-i18n="printAlignTop">위</span></label>
+                <label><input type="radio" name="print-valign" value="middle" /><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h12"/><rect x="5" y="5" width="6" height="6" rx="1"/></svg><span data-i18n="printAlignMiddle">가운데</span></label>
+                <label><input type="radio" name="print-valign" value="bottom" /><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 13.5h12"/><rect x="5" y="5.5" width="6" height="6" rx="1"/></svg><span data-i18n="printAlignBottom">아래</span></label>
+              </div>
+            </div>
+            <div class="print-row">
+              <span class="print-label" data-i18n="printScale">크기</span>
+              <div class="stepper" data-field="scale">
+                <button type="button" class="nudge" data-step="-1" data-i18n-aria="decrease" aria-label="감소"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"/></svg></button>
+                <output></output>
+                <button type="button" class="nudge" data-step="1" data-i18n-aria="increase" aria-label="증가"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"/></svg></button>
+              </div>
+            </div>
+
+            <div class="print-group-head" data-i18n="printGroupContent">내용</div>
+            <div class="print-row">
+              <span class="print-label" data-i18n="printInk">색</span>
+              <div class="seg three">
+                <label><input type="radio" name="print-ink" value="mono" /><span class="ink-dot mono" aria-hidden="true"></span><span data-i18n="printMono">흑백</span></label>
+                <label><input type="radio" name="print-ink" value="color" /><span class="ink-dot color" aria-hidden="true"></span><span data-i18n="printColor">컬러</span></label>
+                <label><input type="radio" name="print-ink" value="screen" /><span class="ink-dot screen" aria-hidden="true"></span><span data-i18n="printScreen">화면 색</span></label>
+              </div>
+            </div>
+            <div class="print-row">
+              <span class="print-label" data-i18n="printInclude">넣을 것</span>
+              <div class="checks">
+                <label class="check"><input id="print-title-on" type="checkbox" /><span data-i18n="printTitleOn">제목</span></label>
+                <label class="check"><input id="print-source-on" type="checkbox" /><span data-i18n="printSourceOn">원본 이미지</span></label>
+                <label class="check"><input id="print-footer-on" type="checkbox" /><span data-i18n="printFooterOn">날짜</span></label>
+              </div>
+            </div>
+          </aside>
+          <section class="print-preview">
+            <div class="print-preview-bar">
+              <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.4"/><path d="M10.3 10.3 14 14"/></svg>
+              <span data-i18n="printPreview">미리보기</span>
+              <span class="panel-spacer"></span>
+              <span id="print-info" class="print-info"></span>
+            </div>
+            <div id="print-stage" class="print-stage"></div>
+            <p id="print-note" class="print-note" hidden></p>
+          </section>
+        </div>
+        <footer class="modal-foot">
+          <button id="print-defaults" class="text-btn" type="button">
+            <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.2 8A5.2 5.2 0 1 1 11.6 4.2"/><path d="M13.2 2.2v3.1H10"/></svg>
+            <span data-i18n="printDefaults">기본값</span>
+          </button>
+          <span class="panel-spacer"></span>
+          <button class="act" type="submit" value="cancel">
+            <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.6"/><path d="M4.1 11.9 11.9 4.1"/></svg>
+            <span data-i18n="cancel">취소</span>
+          </button>
+          <button id="print-go" class="act accent" type="button">
+            <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.4 5.6V1.8h7.2v3.8"/><rect x="1.8" y="5.6" width="12.4" height="5.6" rx="1.2"/><path d="M4.4 9.4h7.2v4.8H4.4z"/></svg>
+            <span data-i18n="printGo">인쇄</span>
+          </button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="guide-dialog" class="modal guide-modal">
+      <form method="dialog" class="modal-card">
+        <header class="modal-head">
+          <svg class="ico head-ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.6C6.6 2.6 4.6 2.2 2 2.4v10c2.6-.2 4.6.2 6 1.2 1.4-1 3.4-1.4 6-1.2v-10c-2.6-.2-4.6.2-6 1.2z"/><path d="M8 3.6v10"/></svg>
+          <h2 data-i18n="guideTitle">사용 설명서</h2>
+          <span class="panel-spacer"></span>
+          <button class="icon-x" type="submit" value="close" data-i18n-aria="close" aria-label="닫기">
+            <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4 4 12"/></svg>
+          </button>
+        </header>
+        <div class="guide-body">
+          <nav id="guide-toc" class="guide-toc" data-i18n-aria="guideToc" aria-label="목차"></nav>
+          <article id="guide-content" class="guide-content"></article>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="print-sheet" class="print-sheet" aria-hidden="true"></div>
+    <style id="print-page-style"></style>
 
     <script type="module" src="/src/main.js"></script>
   </body>

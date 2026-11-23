@@ -1,7 +1,16 @@
 import { planGrid } from './aspect.js';
 import { STYLE_PRESETS, convertToText } from './converter.js';
 import { measureCell, sampleGlyph } from './measure.js';
-import { exportPixelWidth, layoutAspect, makePreviewUrl, paintAscii } from './render.js';
+import { exportSize, layoutAspect, makePreviewUrl, paintAscii } from './render.js';
+import { DEFAULT_PRINT, normalizePrint } from './printLayout.js';
+import { createPrintWindow } from './printWindow.js';
+import { createGuide } from './guide.js';
+import { watchIcons } from './iconTones.js';
+import { installTooltips } from './tooltip.js';
+import { POPUP, channel, closeSelf, listenForReady, makeTitleBarDraggable, openPopup, showDialog, usesPopupWindows } from './popups.js';
+import { startBoard } from './startBoard.js';
+import { clampInputScale, scaledColumns, scaledSize } from './inputScale.js';
+import { BG_DEFAULTS, createStartBackground, normalizeBg } from './startScreenBg.js';
 import { toHtml } from './export.js';
 import { alignsInEveryEditor, normalizeNewlines, toClipboardText, toTextFile } from './plainText.js';
 import { IMAGE_FORMATS, encodeBmp, encodeTiff, imageFormat, toSvg } from './imageExport.js';
@@ -9,7 +18,7 @@ import { saveAs } from './save.js';
 import { loadBitmap } from './decode.js';
 import { acceptAttribute, formatList } from './formats.js';
 import { buildInfo } from './generated/build-info.js';
-import { fileFromEncoded, isTauri, pathOf, pickImages, printPage, readImage, readInstallLanguage, saveTexts } from './files.js';
+import { fileFromEncoded, isTauri, listPrinters, pathOf, pickImages, pickPdfPath, printDirect, printPage, printPdf, readImage, readInstallLanguage, saveTexts } from './files.js';
 import { clearRecent, lastDirectory, rememberDirectory, rememberRecent, removeRecent } from './recent.js';
 import { applyDom, getLanguage, languageFromInstall, setLanguage, t } from './i18n.js';
 import { DEFAULT_THEME, THEMES, applyFont, applyTheme, nextThemeId, themeById, themeLabel } from './themes.js';
@@ -33,9 +42,33 @@ const DEFAULTS = {
   uiSize: 13,
   uiBold: false,
   uiItalic: false,
+  showStart: true,
+  startShowRecent: true,
+  startShowExamples: true,
+  startLayout: null,
+  inputScale: 100,
+  ...BG_DEFAULTS,
+  print: { ...DEFAULT_PRINT },
 };
 
 const els = {
+  startScreen: document.querySelector('#start-screen'),
+  startButton: document.querySelector('#btn-start'),
+  startShow: document.querySelector('#start-show'),
+  startExamples: document.querySelector('#start-examples'),
+  startExamplesCount: document.querySelector('#start-examples-count'),
+  startRecentList: document.querySelector('#start-recent-list'),
+  startRecentEmpty: document.querySelector('#start-recent-empty'),
+  guideButton: document.querySelector('#btn-guide'),
+  guideDialog: document.querySelector('#guide-dialog'),
+  printDialog: document.querySelector('#print-dialog'),
+  inputScale: document.querySelector('#input-scale'),
+  inputScaleOut: document.querySelector('#input-scale-out'),
+  startBoard: document.querySelector('#start-board'),
+  setStartShow: document.querySelector('#set-start-show'),
+  setStartRecent: document.querySelector('#set-start-recent'),
+  setStartExamples: document.querySelector('#set-start-examples'),
+  exportSizeText: document.querySelector('#export-size'),
   fileInput: document.querySelector('#file-input'),
   add: document.querySelector('#btn-add'),
   convert: document.querySelector('#btn-convert'),
@@ -86,7 +119,6 @@ const els = {
   exportMenu: document.querySelector('#export-menu'),
   exportFormats: document.querySelector('#export-formats'),
   resultMenuFormats: document.querySelector('#result-menu-formats'),
-  printImage: document.querySelector('#print-image'),
   reset: document.querySelector('#btn-reset'),
   themeButton: document.querySelector('#btn-theme'),
   themeMenuButton: document.querySelector('#btn-theme-menu'),
@@ -146,13 +178,71 @@ const state = {
   statusKey: 'ready',
   statusVars: null,
   viewZoom: 1,
+  print: { ...DEFAULT_PRINT },
+  examples: [],
+  startLayout: null,
+  board: null,
+  scaledSources: new Map(),
+  bg: { ...BG_DEFAULTS },
 };
 
+const printWindow = createPrintWindow({
+  dialog: els.printDialog,
+  getOptions: () => state.print,
+  setOptions: (options) => {
+    state.print = options;
+    saveSettings(readSettings());
+  },
+  sourceUrlOf: (result) => sourceUrlOf(result),
+  titleOf: (result) => `${result.sourceName} · ${labelOf(result.styleId, result.styleLabel)}`,
+  platform: { listPrinters, printDirect, printPdf, pickPdfPath, fallbackPrint: printPage },
+  onStatus: (key, vars) => {
+    setStatus(key, vars);
+    if (POPUP) channel?.postMessage({ type: 'status', key, vars });
+  },
+});
+
+function sourceUrlOf(result) {
+  if (printSources.has(result.id)) return printSources.get(result.id);
+  const bitmap = state.sources.find((source) => source.id === result.sourceId)?.bitmap;
+  return bitmap ? makePreviewUrl(bitmap, 2000) : result.previewUrl;
+}
+const guide = createGuide(els.guideDialog);
+
+function openGuide(section) {
+  if (usesPopupWindows()) void openPopup('guide', { section });
+  else guide.open(section);
+}
+const startBg = createStartBackground({
+  canvas: document.querySelector('#start-bg'),
+  screen: els.startScreen,
+  hosts: [document.querySelector('#start-bg-controls'), document.querySelector('#set-start-bg')],
+  get: () => state.bg,
+  set: (next) => {
+    state.bg = next;
+    saveSettings(readSettings());
+  },
+});
+
 async function boot() {
+  if (POPUP) {
+    await bootPopup();
+    return;
+  }
+  listenForReady();
+  listenToWindows();
   const installedLanguage = await readInstallLanguage();
+  installedLanguageCache = installedLanguage;
   renderStyleChips();
-  applySettings(loadSettings(installedLanguage));
+  watchIcons(document.body);
+  setupMeterInputs();
+  installTooltips('.toolbar, .start-tools, .start-card h2, .modal-head');
+  const settings = loadSettings(installedLanguage);
+  applySettings(settings);
   bind();
+  startBg.atLaunch();
+  showStart(settings.showStart !== false);
+  void loadExamples();
   void loadFontChoices();
   void setupWindowControls();
   refreshChrome();
@@ -165,6 +255,55 @@ async function boot() {
 void boot();
 
 function bind() {
+  els.startButton.addEventListener('click', () => showStart(els.startScreen.hidden));
+  document.querySelector('#start-close').addEventListener('click', () => showStart(false));
+  document.querySelector('#start-blank').addEventListener('click', () => showStart(false));
+  document.querySelector('#start-open').addEventListener('click', () => void chooseImages(t('fileOpen')));
+  document.querySelector('#start-guide').addEventListener('click', () => openGuide());
+  document.querySelector('#start-hero-guide').addEventListener('click', () => openGuide());
+  document.querySelector('#start-settings').addEventListener('click', () => openSettings('general'));
+  document.querySelector('#start-config').addEventListener('click', () => openSettings('start'));
+  document.querySelector('#start-arrange').addEventListener('click', () => state.board?.arrange());
+  document.querySelector('#set-start-arrange').addEventListener('click', () => {
+    state.startLayout = null;
+    saveSettings(readSettings());
+    if (state.board) state.board.arrange();
+  });
+  document.querySelector('#set-start-open').addEventListener('click', () => {
+    if (POPUP) channel?.postMessage({ type: 'show-start' });
+    else showStart(true);
+    els.settingsDialog.close();
+  });
+  els.startShow.addEventListener('change', () => {
+    els.setStartShow.checked = els.startShow.checked;
+    saveSettings(readSettings());
+  });
+  els.setStartShow.addEventListener('change', () => {
+    els.startShow.checked = els.setStartShow.checked;
+    saveSettings(readSettings());
+  });
+  for (const input of [els.setStartRecent, els.setStartExamples]) {
+    input.addEventListener('change', () => {
+      saveSettings(readSettings());
+      buildBoard();
+    });
+  }
+  for (const id of ['#settings-theme-dark', '#settings-theme-light']) {
+    document.querySelector(id).addEventListener('click', (event) => {
+      const item = event.target.closest('[data-theme-id]');
+      if (item) applyChosenTheme(item.dataset.themeId);
+    });
+  }
+  els.startExamples.addEventListener('click', (event) => {
+    const card = event.target.closest('[data-example]');
+    if (card) void openExample(card.dataset.example);
+  });
+  els.startRecentList.addEventListener('click', (event) => {
+    const open = event.target.closest('[data-open-recent]');
+    if (open) void openRecent(open.dataset.openRecent);
+  });
+  els.guideButton.addEventListener('click', () => openGuide());
+  els.inputScale.addEventListener('input', refreshChrome);
   els.fileInput.accept = acceptAttribute();
   els.add.addEventListener('click', () => void chooseImages());
   els.fileButton.addEventListener('click', (event) => {
@@ -253,7 +392,7 @@ function bind() {
   });
   els.themeManage.addEventListener('click', () => {
     closeThemeMenu();
-    openSettings('theme');
+    openSettings('custom');
   });
   els.themeMenu.addEventListener('click', (event) => {
     const item = event.target.closest('[data-theme-id]');
@@ -386,6 +525,10 @@ function bind() {
     void addEntries([...event.dataTransfer.files].map((file) => ({ file, path: pathOf(file) })));
   });
   els.compare.addEventListener('wheel', onViewWheel, { passive: false });
+  document.querySelector('#zoom-out').addEventListener('click', () => stepViewZoom(-1));
+  document.querySelector('#zoom-in').addEventListener('click', () => stepViewZoom(1));
+  document.querySelector('#zoom-reset').addEventListener('click', () => setViewZoom(1));
+  for (const slot of [els.sourceSlot, els.textSlot]) slot.addEventListener('scroll', () => syncSlots(slot), { passive: true });
   els.compare.addEventListener('dblclick', (event) => {
     if (event.target.closest('textarea, button, input')) return;
     if (!event.target.closest('.slot')) return;
@@ -412,6 +555,7 @@ function bind() {
     if (!pan || event.pointerId !== pan.id) return;
     pan.slot.scrollLeft = pan.left - (event.clientX - pan.x);
     pan.slot.scrollTop = pan.top - (event.clientY - pan.y);
+    syncSlots(pan.slot);
   });
   const endPan = (event) => {
     if (!pan || (event && event.pointerId !== pan.id)) return;
@@ -478,6 +622,7 @@ async function addEntries(entries) {
     state.recent = rememberRecent(remembered);
     renderRecent();
   }
+  if (entries.length > failed.length) showStart(false);
   renderSources();
   refreshChrome();
   if (failed.length) {
@@ -505,7 +650,121 @@ function iconSvg(markup) {
   return svg;
 }
 
+const CARD_ORDER = ['actions', 'recent', 'examples', 'background'];
+const parkedCards = new Map();
+
+/** (Re)starts the card board with the cards the start screen settings show. */
+function buildBoard() {
+  const host = els.startBoard;
+  const shown = { actions: true, recent: els.setStartRecent.checked, examples: els.setStartExamples.checked, background: true };
+  for (const id of CARD_ORDER) {
+    const card = host.querySelector(`:scope > .start-card[data-card="${id}"]`) ?? parkedCards.get(id);
+    if (!card) continue;
+    if (shown[id]) {
+      parkedCards.delete(id);
+      host.append(card);
+    } else {
+      parkedCards.set(id, card);
+      card.remove();
+    }
+  }
+  state.board?.destroy();
+  state.board = null;
+  if (els.startScreen.hidden) return;
+  state.board = startBoard(host, {
+    saved: state.startLayout,
+    onSave: (layout) => {
+      state.startLayout = layout;
+      saveSettings(readSettings());
+    },
+    reduced: matchMedia('(prefers-reduced-motion: reduce)').matches,
+  });
+}
+
+function showStart(show) {
+  els.startScreen.hidden = !show;
+  document.querySelector('.shell').hidden = show;
+  els.startButton.setAttribute('aria-pressed', String(show));
+  if (show && !state.board) buildBoard();
+  startBg.show(show);
+  if (!show) {
+    renderStage();
+    updateGalleryNav();
+  }
+}
+
+async function loadExamples() {
+  try {
+    const response = await fetch('examples/examples.json');
+    if (!response.ok) throw new Error(String(response.status));
+    state.examples = await response.json();
+  } catch {
+    state.examples = [];
+  }
+  renderExamples();
+}
+
+function renderExamples() {
+  const en = getLanguage() === 'en';
+  els.startExamplesCount.textContent = state.examples.length ? String(state.examples.length) : '';
+  els.startExamples.replaceChildren(...state.examples.map((work) => {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'example-card';
+    card.dataset.example = work.id;
+    const title = en ? work.en : work.ko;
+    const artist = en ? work.artistEn : work.artistKo;
+    card.title = `${title} — ${artist}, ${work.year}`;
+    const thumb = document.createElement('span');
+    thumb.className = 'example-thumb';
+    const img = document.createElement('img');
+    img.src = work.image;
+    img.alt = '';
+    img.loading = 'lazy';
+    img.draggable = false;
+    thumb.append(img);
+    const name = document.createElement('strong');
+    name.textContent = title;
+    const by = document.createElement('small');
+    by.textContent = `${artist} · ${work.year}`;
+    card.append(thumb, name, by);
+    return card;
+  }));
+}
+
+async function openExample(id) {
+  const work = state.examples.find((item) => item.id === id);
+  if (!work || state.busy) return;
+  try {
+    setStatus('exampleLoading', { name: getLanguage() === 'en' ? work.en : work.ko });
+    const response = await fetch(work.image);
+    if (!response.ok) throw new Error(String(response.status));
+    const blob = await response.blob();
+    const name = `${getLanguage() === 'en' ? work.en : work.ko}.jpg`.replace(/[<>:"/\\|?*]/g, '_');
+    const added = await addEntries([{ file: new File([blob], name, { type: 'image/jpeg' }), path: '' }]);
+    if (added) await convertAll();
+  } catch (error) {
+    setStatus('error', { message: errorText(error) });
+  }
+}
+
+function renderStartRecent() {
+  els.startRecentEmpty.hidden = state.recent.length > 0;
+  els.startRecentList.replaceChildren(...state.recent.map((item) => {
+    const open = document.createElement('button');
+    open.type = 'button';
+    open.className = 'recent-open';
+    const name = document.createElement('span');
+    name.textContent = item.name;
+    open.append(iconSvg('<path d="M4 1.8h5.2L13 5.6V14.2H4z"/><path d="M9 1.8V5.8h4"/>'), name);
+    open.title = item.path;
+    open.dataset.openRecent = item.path;
+    return open;
+  }));
+}
+
 function renderRecent() {
+  renderStartRecent();
   els.recentList.replaceChildren();
   els.recentEmpty.hidden = state.recent.length > 0;
   els.clearRecent.disabled = state.recent.length === 0;
@@ -621,16 +880,36 @@ async function convertAll() {
   });
 }
 
+function scaledSource(source, percent) {
+  if (percent >= 100) return { image: source.bitmap, width: source.width, height: source.height };
+  const key = `${source.id}:${percent}`;
+  let made = state.scaledSources.get(key);
+  if (!made) {
+    const size = scaledSize(source.width, source.height, percent);
+    const canvas = document.createElement('canvas');
+    canvas.width = size.width;
+    canvas.height = size.height;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(source.bitmap, 0, 0, size.width, size.height);
+    made = { image: canvas, width: size.width, height: size.height };
+    state.scaledSources.set(key, made);
+  }
+  return made;
+}
+
 function buildResult(source, style, settings) {
   const measured = measureCell(settings.fontFamily, style.sample);
+  const input = scaledSource(source, settings.inputScale);
   const grid = planGrid(
-    settings.cols,
-    source.width,
-    source.height,
+    scaledColumns(settings.cols, settings.inputScale),
+    input.width,
+    input.height,
     measured.charWidth,
     measured.lineHeight,
   );
-  const converted = convertToText(source.bitmap, {
+  const converted = convertToText(input.image, {
     cols: grid.cols,
     rows: grid.rows,
     chars: style.chars,
@@ -646,8 +925,11 @@ function buildResult(source, style, settings) {
     sourceId: source.id,
     sourceName: source.name,
     previewUrl: source.previewUrl,
-    imageWidth: source.width,
-    imageHeight: source.height,
+    imageWidth: input.width,
+    imageHeight: input.height,
+    sourceWidth: source.width,
+    sourceHeight: source.height,
+    inputScale: settings.inputScale,
     styleId: style.id,
     styleLabel: style.label,
     text: converted.text,
@@ -765,6 +1047,7 @@ function renderStage() {
   els.stageEmpty.hidden = hasResult;
   els.compare.hidden = !hasResult;
   if (!result) {
+    paintZoom();
     els.statusDetail.textContent = '';
     return;
   }
@@ -774,6 +1057,7 @@ function renderStage() {
   const sourceWidth = fitFrame(els.sourceSlot, els.sourceFrame, imageAspect, state.viewZoom);
   const textWidth = fitFrame(els.textSlot, els.textFrame, textAspect, state.viewZoom);
   els.compare.classList.toggle('is-zoomed', state.viewZoom > 1.01);
+  paintZoom();
   els.sourcePreview.src = result.previewUrl;
 
   const showEditor = state.editing || result.edited;
@@ -793,7 +1077,9 @@ function renderStage() {
     );
   }
 
-  els.sourceCaption.textContent = t('sourceCaption', { w: result.imageWidth, h: result.imageHeight });
+  els.sourceCaption.textContent = (result.inputScale ?? 100) < 100
+    ? t('sourceCaptionScaled', { w: result.sourceWidth, h: result.sourceHeight, sw: result.imageWidth, sh: result.imageHeight, scale: result.inputScale })
+    : t('sourceCaption', { w: result.imageWidth, h: result.imageHeight });
   els.textCaption.textContent = captionFor(result);
   els.sourceCaption.title = els.sourceCaption.textContent;
   els.textCaption.title = els.textCaption.textContent;
@@ -825,6 +1111,36 @@ function captionFor(result) {
   });
 }
 
+const ZOOM_STEPS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4];
+
+/** Zooms both boxes to `next`, keeping the spot in the middle of the view in the middle. */
+function setViewZoom(next) {
+  const zoom = Math.min(4, Math.max(0.25, next));
+  if (Math.abs(zoom - state.viewZoom) < 0.001) return;
+  const slot = els.sourceSlot;
+  const fx = (slot.scrollLeft + slot.clientWidth / 2) / Math.max(1, slot.scrollWidth);
+  const fy = (slot.scrollTop + slot.clientHeight / 2) / Math.max(1, slot.scrollHeight);
+  state.viewZoom = zoom;
+  renderStage();
+  slot.scrollLeft = fx * slot.scrollWidth - slot.clientWidth / 2;
+  slot.scrollTop = fy * slot.scrollHeight - slot.clientHeight / 2;
+  syncSlots(slot);
+}
+
+function stepViewZoom(direction) {
+  const now = state.viewZoom;
+  const next = direction > 0 ? ZOOM_STEPS.find((z) => z > now + 0.001) : [...ZOOM_STEPS].reverse().find((z) => z < now - 0.001);
+  if (next) setViewZoom(next);
+}
+
+function paintZoom() {
+  const has = Boolean(selected());
+  document.querySelector('#zoom-reset').textContent = `${Math.round(state.viewZoom * 100)}%`;
+  document.querySelector('#zoom-out').disabled = !has || state.viewZoom <= ZOOM_STEPS[0] + 0.001;
+  document.querySelector('#zoom-in').disabled = !has || state.viewZoom >= ZOOM_STEPS.at(-1) - 0.001;
+  document.querySelector('#zoom-reset').disabled = !has;
+}
+
 function onViewWheel(event) {
   if (!selected() || event.target.closest('textarea, button, input')) return;
   const slot = event.target.closest('.slot');
@@ -845,6 +1161,23 @@ function onViewWheel(event) {
   renderStage();
   slot.scrollLeft = anchorX * ratio - (event.clientX - rect.left);
   slot.scrollTop = anchorY * ratio - (event.clientY - rect.top);
+  syncSlots(slot);
+}
+
+// The source and the text always show the same part at the same zoom: whichever box moved
+// (wheel, drag or scroll bar), the other one is put on the same spot of its picture.
+let syncing = false;
+function syncSlots(from) {
+  if (syncing) return;
+  syncing = true;
+  const fx = (from.scrollLeft + from.clientWidth / 2) / Math.max(1, from.scrollWidth);
+  const fy = (from.scrollTop + from.clientHeight / 2) / Math.max(1, from.scrollHeight);
+  for (const slot of [els.sourceSlot, els.textSlot]) {
+    if (slot === from) continue;
+    slot.scrollLeft = fx * slot.scrollWidth - slot.clientWidth / 2;
+    slot.scrollTop = fy * slot.scrollHeight - slot.clientHeight / 2;
+  }
+  requestAnimationFrame(() => { syncing = false; });
 }
 
 function slotCanPan(slot) {
@@ -965,13 +1298,18 @@ async function saveResult(result, kind) {
         mime: format.mime,
       };
       if (format.encoder === 'svg') {
-        saved = await saveAs({ ...target, text: toSvg(result) });
+        saved = await saveAs({ ...target, text: toSvg(result, { cellWidth: currentExportSize(result).cellWidth }) });
       } else {
         saved = await saveAs({ ...target, bytes: await encodeImage(result, format) });
       }
     }
     if (saved) result.savedText = result.text;
     const fontNote = kind === 'txt' && !alignsInEveryEditor(result.text);
+    if (saved && kind !== 'txt' && kind !== 'html') {
+      const size = currentExportSize(result);
+      setStatus('savedImage', { w: size.width, h: size.height });
+      return saved;
+    }
     setStatus(saved ? (fontNote ? 'savedFontNote' : 'saved') : 'saveCancelled');
     return saved;
   } catch (error) {
@@ -980,8 +1318,27 @@ async function saveResult(result, kind) {
   }
 }
 
+function currentExportSize(result) {
+  return exportSize(result, 100);
+}
+
+function paintExportSize() {
+  const result = selected();
+  if (!result) {
+    els.exportSizeText.textContent = '';
+    return;
+  }
+  const size = currentExportSize(result);
+  els.exportSizeText.textContent = t('exportSizeInfo', {
+    w: size.width,
+    h: size.height,
+    scale: result.inputScale ?? 100,
+  });
+}
+
 async function encodeImage(result, format) {
-  const canvas = paintAscii(document.createElement('canvas'), result, exportPixelWidth(result), 1);
+  const size = currentExportSize(result);
+  const canvas = paintAscii(document.createElement('canvas'), result, size.width / 2, 1, { pixelWidth: size.width });
   if (format.encoder === 'canvas') {
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, format.mime, format.quality));
     if (!blob || blob.type !== format.mime) throw new Error(t('exportUnsupported', { format: format.label }));
@@ -992,23 +1349,18 @@ async function encodeImage(result, format) {
   return encode(data, canvas.width, canvas.height);
 }
 
-async function printResult(result) {
+function printResult(result) {
   if (!result) {
     setStatus('needPrint');
     return;
   }
-  try {
-    const canvas = paintAscii(document.createElement('canvas'), result, exportPixelWidth(result, 2400), 1, {
-      background: '#ffffff',
-      ink: '#000000',
-    });
-    els.printImage.src = canvas.toDataURL('image/png');
-    await els.printImage.decode();
-    setStatus('printOpened');
-    await printPage();
-  } catch (error) {
-    setStatus('printFailed', { error: errorText(error) });
+  closeExportMenu();
+  closeResultMenu();
+  if (usesPopupWindows()) {
+    void openPopup('print', { result: { ...result }, sourceUrl: sourceUrlOf(result) });
+    return;
   }
+  void printWindow.open(result);
 }
 
 function formatItem(format) {
@@ -1021,7 +1373,10 @@ function formatItem(format) {
   label.textContent = format.label;
   const hint = document.createElement('span');
   hint.textContent = t(format.hint);
-  button.append(label, hint);
+  const icon = format.encoder === 'svg'
+    ? iconSvg('<path d="M3 2.4h10v11.2H3z"/><path d="M5 11 8 4.6l3 6.4M6.2 8.6h3.6"/>')
+    : iconSvg('<rect x="2" y="2.6" width="12" height="10.8" rx="1.4"/><circle cx="5.6" cy="6" r="1.1"/><path d="M2.4 11.6 6 8.4l2.2 1.8 1.6-1.3 3.8 3"/>');
+  button.append(icon, label, hint);
   return button;
 }
 
@@ -1051,6 +1406,7 @@ function selected() {
 function refreshChrome() {
   const settings = readSettings();
   els.colsOut.textContent = String(settings.cols);
+  els.inputScaleOut.textContent = `${settings.inputScale}%`;
   els.contrastOut.textContent = String(settings.contrast);
   els.brightnessOut.textContent = String(settings.brightness);
   const styleCount = selectedStyles().length;
@@ -1066,7 +1422,7 @@ function refreshChrome() {
       images: imageCount,
       styles: styleCount,
       total: imageCount * styleCount,
-    });
+    }) + (settings.inputScale < 100 ? ` · ${t('planScaled', { scale: settings.inputScale, cols: scaledColumns(settings.cols, settings.inputScale) })}` : '');
   }
   els.convert.disabled = state.busy || imageCount === 0 || styleCount === 0;
   els.convert.classList.toggle('is-running', state.busy);
@@ -1101,6 +1457,59 @@ function nudgeInput(input, direction) {
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
+/**
+ * Every slider gets a number box right of its + button: it shows the value and takes a typed
+ * one (snapped to the slider's step and range when the box is left or Enter is pressed).
+ */
+function setupMeterInputs() {
+  for (const meter of document.querySelectorAll('.meter')) {
+    const range = meter.querySelector('input[type="range"]');
+    if (!range || meter.querySelector('.meter-num')) continue;
+    const output = meter.querySelector('output');
+    if (output) output.hidden = true;
+    const box = document.createElement('label');
+    box.className = 'meter-num';
+    const number = document.createElement('input');
+    number.type = 'number';
+    number.min = range.min;
+    number.max = range.max;
+    number.step = meter.dataset.nudgeStep || range.step || '1';
+    number.value = range.value;
+    number.inputMode = 'numeric';
+    const name = meter.closest('.slider')?.querySelector('label')?.textContent?.trim();
+    if (name) number.setAttribute('aria-label', name);
+    box.append(number);
+    if (meter.dataset.unit) {
+      const unit = document.createElement('span');
+      unit.className = 'meter-unit';
+      unit.textContent = meter.dataset.unit;
+      box.append(unit);
+    }
+    meter.append(box);
+    const commit = () => {
+      const step = Number(number.step) || 1;
+      const min = Number(range.min);
+      const max = Number(range.max);
+      let value = Number(number.value);
+      if (!Number.isFinite(value)) value = Number(range.value);
+      value = Math.min(max, Math.max(min, Math.round((value - min) / step) * step + min));
+      number.value = String(value);
+      if (String(value) === range.value) return;
+      range.value = String(value);
+      range.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    number.addEventListener('change', commit);
+    number.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        commit();
+        number.select();
+      }
+      event.stopPropagation();
+    });
+  }
+}
+
 function syncNudges() {
   for (const input of document.querySelectorAll('.meter input[type="range"]')) {
     const meter = input.closest('.meter');
@@ -1109,10 +1518,19 @@ function syncNudges() {
     const up = meter?.querySelector('[data-nudge="1"]');
     if (down) down.disabled = value <= Number(input.min);
     if (up) up.disabled = value >= Number(input.max);
+    const number = meter?.querySelector('.meter-num input');
+    if (number && document.activeElement !== number) number.value = input.value;
   }
 }
 
 function onKeyDown(event) {
+  if (POPUP) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      document.querySelector('dialog[open]')?.close('cancel');
+    }
+    return;
+  }
   if (event.key === 'Escape' && !els.fileMenu.hidden) {
     event.preventDefault();
     closeFileMenu();
@@ -1129,6 +1547,23 @@ function onKeyDown(event) {
     return;
   }
   const field = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
+  const modalOpen = Boolean(document.querySelector('dialog[open]'));
+  if (event.key === 'Escape' && !els.startScreen.hidden && !modalOpen) {
+    event.preventDefault();
+    showStart(false);
+    return;
+  }
+  if (event.key === 'F1' && event.shiftKey) {
+    event.preventDefault();
+    openGuide();
+    return;
+  }
+  if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'h') {
+    event.preventDefault();
+    if (!modalOpen) showStart(els.startScreen.hidden);
+    return;
+  }
+  if (modalOpen && (event.key === 'F5' || (event.ctrlKey && /^[oespc]$/i.test(event.key)))) return;
   if (event.key === 'F5') {
     event.preventDefault();
     void convertAll();
@@ -1203,6 +1638,13 @@ function readSettings() {
     uiSize: clampSize(els.uiSize.value),
     uiBold: els.uiBold.checked,
     uiItalic: els.uiItalic.checked,
+    showStart: els.startShow.checked,
+    startShowRecent: els.setStartRecent.checked,
+    startShowExamples: els.setStartExamples.checked,
+    startLayout: state.startLayout,
+    inputScale: clampInputScale(els.inputScale.value),
+    ...state.bg,
+    print: state.print,
   };
 }
 
@@ -1348,7 +1790,16 @@ function applySettings(settings) {
   for (const input of document.querySelectorAll('input[name="style"]')) {
     input.checked = settings.styles.includes(input.value);
   }
+  els.startShow.checked = settings.showStart !== false;
+  els.setStartShow.checked = els.startShow.checked;
+  els.setStartRecent.checked = settings.startShowRecent !== false;
+  els.setStartExamples.checked = settings.startShowExamples !== false;
+  state.startLayout = settings.startLayout ?? null;
+  state.bg = normalizeBg(settings);
+  els.inputScale.value = String(clampInputScale(settings.inputScale ?? DEFAULTS.inputScale));
+  state.print = normalizePrint(settings.print);
   applyAppearance(settings);
+  paintExportSize();
 }
 
 function loadSettings(installedLanguage) {
@@ -1379,8 +1830,128 @@ function loadSettings(installedLanguage) {
   }
 }
 
+// What only the main window changes: a popup keeps these as the main window saved them.
+const MAIN_ONLY = ['cols', 'styles', 'custom', 'customChars', 'contrast', 'brightness', 'invert', 'edge', 'color', 'fontFamily', 'inputScale', 'startLayout'];
+
 function saveSettings(settings) {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  if (POPUP) {
+    try {
+      const stored = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+      for (const key of MAIN_ONLY) if (key in stored) settings = { ...settings, [key]: stored[key] };
+    } catch {
+      // nothing stored yet
+    }
+  }
+  const json = JSON.stringify(settings);
+  try {
+    if (localStorage.getItem(SETTINGS_KEY) === json) return;
+    localStorage.setItem(SETTINGS_KEY, json);
+  } catch {
+    return;
+  }
+}
+
+let applyingRemote = false;
+let installedLanguageCache = '';
+
+/** Another window saved the settings: take them over here. */
+function applyRemoteSettings() {
+  applyingRemote = true;
+  try {
+    const before = { recent: els.setStartRecent.checked, examples: els.setStartExamples.checked, layout: state.startLayout };
+    const settings = loadSettings(installedLanguageCache);
+    applySettings(settings);
+    refreshChrome();
+    renderRecent();
+    if (!POPUP) {
+      renderStage();
+      startBg.sync();
+      if (before.recent !== (settings.startShowRecent !== false) || before.examples !== (settings.startShowExamples !== false)) buildBoard();
+      else if (before.layout && !settings.startLayout && state.board) state.board.arrange();
+    }
+    printWindow.refreshLanguage();
+  } finally {
+    applyingRemote = false;
+  }
+}
+
+let pendingSaveChoice = null;
+
+/** Messages from the other windows. */
+function listenToWindows() {
+  // Settings saved in another window (theme, language, start screen ...) apply here at once.
+  // The storage event reaches every other window of the app, never the one that wrote.
+  let queued = false;
+  window.addEventListener('storage', (event) => {
+    if (event.key !== SETTINGS_KEY || queued) return;
+    queued = true;
+    queueMicrotask(() => {
+      queued = false;
+      applyRemoteSettings();
+    });
+  });
+  channel?.addEventListener('message', (event) => {
+    const message = event.data ?? {};
+    if (POPUP) {
+      if (message.type === 'open' && message.kind === POPUP) void openHere(message.payload ?? {});
+      return;
+    }
+    if (message.type === 'status') setStatus(message.key, message.vars);
+    if (message.type === 'show-start') showStart(true);
+    if (message.type === 'save-choice' && pendingSaveChoice) {
+      const resolve = pendingSaveChoice;
+      pendingSaveChoice = null;
+      resolve(message.choice);
+    }
+  });
+}
+
+const POPUP_DIALOGS = () => ({
+  settings: els.settingsDialog,
+  about: els.aboutDialog,
+  save: els.saveDialog,
+  print: els.printDialog,
+  guide: els.guideDialog,
+});
+
+/** In a popup window: shows what the main window asked for. */
+async function openHere(payload) {
+  if (POPUP === 'settings') {
+    showSettingsPage(payload.page);
+    showDialog(els.settingsDialog);
+  } else if (POPUP === 'about') {
+    fillAbout();
+    showDialog(els.aboutDialog);
+  } else if (POPUP === 'guide') {
+    guide.open(payload.section);
+  } else if (POPUP === 'save') {
+    els.savePrompt.textContent = payload.text ?? '';
+    showDialog(els.saveDialog);
+  } else if (POPUP === 'print' && payload.result) {
+    printSources.set(payload.result.id, payload.sourceUrl);
+    await printWindow.open(payload.result);
+  }
+}
+
+const printSources = new Map();
+
+async function bootPopup() {
+  document.documentElement.classList.add('popup-mode', `popup-${POPUP}`);
+  installedLanguageCache = await readInstallLanguage();
+  watchIcons(document.body);
+  installTooltips('.modal-head, .print-options');
+  setupMeterInputs();
+  renderStyleChips();
+  applySettings(loadSettings(installedLanguageCache));
+  bind();
+  makeTitleBarDraggable();
+  listenToWindows();
+  const dialog = POPUP_DIALOGS()[POPUP];
+  dialog?.addEventListener('close', () => {
+    if (POPUP === 'save') channel?.postMessage({ type: 'save-choice', choice: ['save', 'discard'].includes(dialog.returnValue) ? dialog.returnValue : 'cancel' });
+    void closeSelf();
+  });
+  channel?.postMessage({ type: 'ready', kind: POPUP });
 }
 
 function resetSettings() {
@@ -1468,6 +2039,11 @@ function applyAppearance(settings) {
   paintWindowLabels();
   renderCustomEditor();
   renderExportMenus();
+  renderExamples();
+  paintExportSize();
+  startBg.render();
+  guide.refreshLanguage();
+  printWindow.refreshLanguage();
   if (els.aboutDialog.open) fillAbout();
   if (state.statusKey) els.statusMessage.textContent = t(state.statusKey, state.statusVars);
 }
@@ -1514,6 +2090,9 @@ function renderThemeMenu() {
   els.themeMenuDark.replaceChildren(...THEMES.filter((theme) => theme.mode === 'dark').map(themeItem));
   els.themeMenuLight.replaceChildren(...THEMES.filter((theme) => theme.mode === 'light').map(themeItem));
   els.themeMenuCustom.replaceChildren(...customs.map(themeItem));
+  document.querySelector('#settings-theme-dark').replaceChildren(...THEMES.filter((theme) => theme.mode === 'dark').map(themeItem));
+  document.querySelector('#settings-theme-light').replaceChildren(...THEMES.filter((theme) => theme.mode === 'light').map(themeItem));
+  document.querySelector('#theme-menu-custom-empty').hidden = customs.length > 0;
   markSelectedTheme(document.documentElement.dataset.theme || DEFAULT_THEME);
 }
 
@@ -1589,6 +2168,7 @@ function toggleExportMenu() {
   els.exportMenu.hidden = false;
   els.exportButton.classList.add('open');
   els.exportButton.setAttribute('aria-expanded', 'true');
+  paintExportSize();
   placeMenuUnder(els.exportMenu, els.exportButton);
 }
 
@@ -1637,7 +2217,7 @@ function placeThemeMenu() {
   const anchor = els.themeMenuButton.getBoundingClientRect();
   const menu = els.themeMenu;
   const margin = 8;
-  const width = Math.min(640, window.innerWidth - margin * 2);
+  const width = Math.min(420, window.innerWidth - margin * 2);
   menu.style.width = `${width}px`;
   let right = window.innerWidth - anchor.right;
   const maxRight = window.innerWidth - margin - width;
@@ -1672,7 +2252,7 @@ function refreshThemeNames() {
 }
 
 function showSettingsPage(page) {
-  const id = page === 'appearance' || page === 'theme' ? page : 'general';
+  const id = ['start', 'theme', 'custom'].includes(page) ? page : 'general';
   for (const button of document.querySelectorAll('[data-settings-tab]')) {
     const on = button.dataset.settingsTab === id;
     button.classList.toggle('active', on);
@@ -1681,7 +2261,8 @@ function showSettingsPage(page) {
   for (const section of document.querySelectorAll('[data-settings-page]')) {
     section.hidden = section.dataset.settingsPage !== id;
   }
-  if (id === 'theme') renderCustomEditor();
+  if (id === 'custom') renderCustomEditor();
+  if (id === 'start') startBg.sync();
 }
 
 function hexOf(value, fallback) {
@@ -1764,15 +2345,23 @@ function refreshStyleLabels() {
 
 function openSettings(page) {
   closeThemeMenu();
+  if (usesPopupWindows()) {
+    void openPopup('settings', { page });
+    return;
+  }
   showSettingsPage(page);
   if (els.aboutDialog.open) els.aboutDialog.close();
-  if (!els.settingsDialog.open) els.settingsDialog.showModal();
+  showDialog(els.settingsDialog);
 }
 
 function openAbout() {
+  if (usesPopupWindows()) {
+    void openPopup('about');
+    return;
+  }
   if (els.settingsDialog.open) els.settingsDialog.close();
   fillAbout();
-  if (!els.aboutDialog.open) els.aboutDialog.showModal();
+  showDialog(els.aboutDialog);
 }
 
 function fillAbout() {
@@ -1846,6 +2435,12 @@ function confirmClose() {
 }
 
 function askSaveOnClose() {
+  if (usesPopupWindows()) {
+    return new Promise((resolve) => {
+      pendingSaveChoice = resolve;
+      void openPopup('save', { text: t('savePrompt', { n: unsavedResults().length }) });
+    });
+  }
   els.savePrompt.textContent = t('savePrompt', { n: unsavedResults().length });
   const dialog = els.saveDialog;
   return new Promise((resolve) => {
@@ -1854,7 +2449,7 @@ function askSaveOnClose() {
       resolve(dialog.returnValue === 'save' || dialog.returnValue === 'discard' ? dialog.returnValue : 'cancel');
     };
     dialog.addEventListener('close', finish);
-    dialog.showModal();
+    showDialog(dialog);
   });
 }
 
@@ -1908,7 +2503,7 @@ async function setupWindowControls() {
   await win.onCloseRequested(async (event) => {
     if (!(await confirmClose())) event.preventDefault();
   });
-  for (const region of document.querySelectorAll('#titlebar, .sources > .panel-head')) {
+  for (const region of document.querySelectorAll('#toolbar, .sources > .panel-head')) {
     region.addEventListener('dblclick', (event) => {
       if (event.target.closest('button, input, label, select, a')) return;
       win.toggleMaximize();

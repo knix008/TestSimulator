@@ -1,8 +1,11 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "메인 창에서 저장 대화상자를 사용합니다",
-  "windows": ["main"],
+  "description": "The main window and its popup windows (settings, about, save, print, guide)",
+  "windows": [
+    "main",
+    "popup-*"
+  ],
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",
@@ -12,6 +15,11 @@
     "core:window:allow-close",
     "core:window:allow-destroy",
     "core:window:allow-start-resize-dragging",
-    "dialog:default"
+    "dialog:default",
+    "core:webview:allow-create-webview-window",
+    "core:window:allow-set-focus",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-center"
   ]
 }
