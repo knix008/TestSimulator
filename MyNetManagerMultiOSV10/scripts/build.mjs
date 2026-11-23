@@ -48,7 +48,7 @@ if (process.platform === 'win32') {
 if (requested === 'win') {
   const crate = path.join(root, 'tools', 'langicon');
   console.log('> cargo build --release (tools/langicon)');
-  const helper = spawnSync('cargo', ['build', '--release', '--quiet'], { cwd: crate, stdio: 'inherit', shell: process.platform === 'win32' });
+  const helper = spawnSync('cargo', ['build', '--release', '--quiet'], { cwd: crate, stdio: 'inherit' });
   const built = path.join(crate, 'target', 'release', 'langicon.exe');
   if (helper.status === 0 && fs.existsSync(built)) fs.copyFileSync(built, path.join(root, 'src-tauri', 'windows', 'langicon.exe'));
   else console.warn('langicon could not be built: the language selector keeps its plain title bar');

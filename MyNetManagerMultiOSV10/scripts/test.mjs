@@ -114,7 +114,7 @@ function exec(command, commandArgs, cwd) {
   return new Promise((resolve) => {
     const started = performance.now();
     mark = started;
-    const child = spawn(command, commandArgs, { cwd, shell: process.platform === 'win32' && command === 'cargo', env: { ...process.env, FORCE_COLOR: color ? '1' : '0', LANG: 'en_US.UTF-8' } });
+    const child = spawn(command, commandArgs, { cwd, env: { ...process.env, FORCE_COLOR: color ? '1' : '0', LANG: 'en_US.UTF-8' } });
     let output = '';
     let pending = '';
     const forward = (chunk) => {
