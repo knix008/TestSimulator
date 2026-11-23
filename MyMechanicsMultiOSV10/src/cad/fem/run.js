@@ -16,7 +16,9 @@ import { dropStudy } from './explicit.js';
 import { combineStudy } from './combine.js';
 import { dynamicStudy } from './dynamic.js';
 import { topologyStudy } from './topology.js';
-import { flowStudy, fanFlowStudy } from '../cfd/lbm.js';
+import { flowStudy, fanFlowStudy, voxelize } from '../cfd/lbm.js';
+import { vesselStudy } from '../cfd/freesurface.js';
+import { surfaceModel } from './mesh.js';
 
 export const STUDY_KINDS = ['static', 'thermal', 'modal', 'buckling', 'nonlinear', 'drop', 'flow', 'combination'];
 
@@ -36,6 +38,8 @@ export function runStudyDirect(kind, input, { onProgress = null, cancel = null }
     case 'flow': return flowStudy(input.mesh ?? input.bodies?.[0]?.mesh, args);
     // Electronics cooling: every solid a component (no main mesh); with a fan, run at its operating point.
     case 'electronics': return args.fan ? fanFlowStudy(null, args) : flowStudy(null, args);
+    // Free surface: the part as a container (its solid voxelised as the walls).
+    case 'freeSurface': { const S = surfaceModel(input.mesh); return vesselStudy({ ...args, lo: S.lo, hi: S.hi, solidMask: (o, h, d) => voxelize(S, o, h, d) }); }
     default: return { ok: false, error: 'unknown-study' };
   }
 }

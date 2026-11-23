@@ -1325,7 +1325,7 @@ export function createSim2Tools(ctx) {
     libInsert: { icon: 'libInsert', label: 'cmd.libInsert', enabled: hasPart, checked: () => editing()?.mode === 'libInsert', run: () => startLibInsert() },
   };
   const TABS = {
-    evaluate: ['nonlinearStudy', 'dropTest', 'loadCombination', 'dynamicStudy', 'topologyStudy', 'flowStudy', 'assemblySimulation', 'electronicsCooling', 'mbdAnnotations', 'mbdAutoDimension', 'versionHistory'],
+    evaluate: ['nonlinearStudy', 'dropTest', 'loadCombination', 'dynamicStudy', 'topologyStudy', 'flowStudy', 'assemblySimulation', 'electronicsCooling', 'freeSurface', 'mbdAnnotations', 'mbdAutoDimension', 'versionHistory'],
     features: ['mbdAnnotations', 'libSave', 'libInsert'],
     sketch: ['sk:makeBlock', 'sk:insertBlock', 'sk:explodeBlock', 'sk:picture'],
     assembly: ['asmCut', 'asmHole', 'beltChain', 'versionHistory'],
@@ -1334,7 +1334,7 @@ export function createSim2Tools(ctx) {
   function extendMenus(MENUS) {
     const at = (list, after, ids) => { const i = list.indexOf(after); list.splice(i >= 0 ? i + 1 : list.length, 0, ...ids); };
     if (MENUS.file) at(MENUS.file, 'saveAs', ['versionHistory', 'checkOut', 'checkIn', 'whereUsed']);
-    if (MENUS.tools) at(MENUS.tools, 'simulation', ['nonlinearStudy', 'dropTest', 'loadCombination', 'dynamicStudy', 'topologyStudy', 'flowStudy', 'assemblySimulation', 'electronicsCooling', '-', 'mbdAnnotations', 'mbdAutoDimension', 'insertModelAnnotations', '-', 'asmCut', 'asmHole', 'beltChain', '-', 'libSave', 'libInsert']);
+    if (MENUS.tools) at(MENUS.tools, 'simulation', ['nonlinearStudy', 'dropTest', 'loadCombination', 'dynamicStudy', 'topologyStudy', 'flowStudy', 'assemblySimulation', 'electronicsCooling', 'freeSurface', '-', 'mbdAnnotations', 'mbdAutoDimension', 'insertModelAnnotations', '-', 'asmCut', 'asmHole', 'beltChain', '-', 'libSave', 'libInsert']);
     if (MENUS.sketch) MENUS.sketch.push('-', 'sk:makeBlock', 'sk:insertBlock', 'sk:explodeBlock', 'sk:picture');
   }
 

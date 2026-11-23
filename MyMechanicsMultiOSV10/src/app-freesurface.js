@@ -76,7 +76,7 @@ export function createFreeSurfaceTools(ctx) {
       pmNum('fsDam', e.dam, `${t('fs.dam')} (%)`, 'freeSurface'),
       pmNum('fsAccel', e.accel, `${t('fs.accel')} (m/s²)`, 'sim2Flow'),
       pmNum('fsDuration', e.duration, `${t('fem.duration')} (s)`, 'clock'),
-      pmNum('fsResolution', e.resolution, t('sim2.resolution'), 'plVoxel'),
+      pmNum('fsResolution', e.resolution, t('sim2.flowResolution'), 'plVoxel'),
       `<p class="pm-note">${escapeHtml(t('fs.note'))}</p>`,
       `<div class="pm-row">${pmButton('fs.run', 'play', t('sim.run'), 'primary')}</div>`,
     ].join('');

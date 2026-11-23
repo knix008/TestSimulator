@@ -146,7 +146,7 @@ export function createElectronicsTools(ctx) {
       st.flow === 'fan' ? `${pmNum('elFanFlow', st.fan?.maxFlow ?? 50, `${t('el.fanMaxFlow')} (m³/h)`, 'fan')}${pmNum('elFanPressure', st.fan?.maxPressure ?? 40, `${t('el.fanMaxPressure')} (Pa)`, 'fan')}<p class="pm-note">${escapeHtml(t('el.fanNote'))}</p>` : '',
       st.flow === 'natural' ? `<p class="pm-note">${escapeHtml(t('el.naturalNote'))}</p>` : '',
       pmNum('elInlet', st.inlet ?? 25, `${t('el.ambient')} (°C)`, 'sun'),
-      pmNum('elResolution', st.resolution ?? 24, t('sim2.resolution'), 'plVoxel'),
+      pmNum('elResolution', st.resolution ?? 24, t('sim2.flowResolution'), 'plVoxel'),
       pmNum('elMaxSteps', st.maxSteps ?? 0, t('el.maxSteps'), 'statistics'),
     ].join('');
     const r = e.result;

@@ -70,6 +70,7 @@ import { createDesignStudyTools } from './app-designstudy.js';
 import { createDefeatureTools } from './app-defeature.js';
 import { createMarkupTools } from './app-markup.js';
 import { createElectronicsTools } from './app-electronics.js';
+import { createFreeSurfaceTools } from './app-freesurface.js';
 import { routeBodyColours } from './cad/routing.js';
 import { leafCutFeatures, cutLeafBody } from './cad/asm-extra.js';
 
@@ -1020,6 +1021,7 @@ function cancelEditing({ quiet = false } = {}) {
   if (e.mode === 'schematic') schTools.cleanup();
   if (e.mode === 'markup') mkTools.cleanup();
   if (e.mode === 'electronics') elTools.cleanup();
+  if (e.mode === 'freeSurface') fsTools.cleanup();
   state.editing = null;
   state.previewResult = null;
   state.mateError = false;
@@ -3154,6 +3156,30 @@ const elTools = createElectronicsTools({
   more.decorate = (kind) => { o.decorate?.(kind); elTools.decorate(kind); };
 }
 Object.assign(commands, elTools.commands);
+
+// Free-surface flow in a part used as a container (app-freesurface.js), chained the same way.
+const fsTools = createFreeSurfaceTools({
+  state, t, notify, renderAll, renderLeft, cancelEditing, fmt, syncView, activePart, buildPart: (p) => buildPart(p),
+  viewport: () => viewport, runStudy: (kind, input, name) => more.fem.run(kind, input, name),
+  pm: { pmHead, pmGroup, pmNum, pmSeg, pmList, pmButton, textInput },
+});
+{
+  const o = { ...more };
+  const mine = (e = state.editing) => fsTools.owns(e);
+  more.owns = (e) => mine(e) || o.owns(e);
+  more.pm = (e) => (mine(e) ? fsTools.pm(e) : o.pm(e));
+  more.pick = (hit, ev) => (mine() ? fsTools.pick(hit, ev) : o.pick(hit, ev));
+  more.field = (k, raw, v) => (mine() ? fsTools.field(k, raw, v) : o.field(k, raw, v));
+  more.set = (k, v) => (mine() ? fsTools.set(k, v) : o.set(k, v));
+  more.select = (k, v) => (mine() ? fsTools.select(k, v) : o.select?.(k, v));
+  more.toggle = (k, c) => (mine() ? fsTools.toggle(k, c) : o.toggle(k, c));
+  more.accept = () => (mine() ? fsTools.accept() : o.accept());
+  more.subject = (e) => (mine(e) ? fsTools.subject(e) : o.subject(e));
+  more.handles = (name) => fsTools.handles(name) || o.handles(name);
+  more.command = (name, arg) => (fsTools.handles(name) ? fsTools.command(name, arg) : o.command(name, arg));
+  more.decorate = (kind) => { o.decorate?.(kind); fsTools.decorate(kind); };
+}
+Object.assign(commands, fsTools.commands);
 
 // Standard parts library, smart fasteners, pipe / tube / cable routes and photo rendering (app-std.js).
 const std = createStdTools({
@@ -5370,6 +5396,7 @@ window.__mymechanics.designStudy = dsTools.api;
 window.__mymechanics.defeature = dfTools.api;
 window.__mymechanics.markup = mkTools.api;
 window.__mymechanics.electronics = elTools.api;
+window.__mymechanics.freeSurface = fsTools.api;
 window.__mymechanics.pdm = pdm.api;
 
 start()

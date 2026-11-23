@@ -491,7 +491,7 @@ function heatKernel(f, tg, tg2, Tcell, solid, P) {
 // ───────────────────────── geometry on the lattice
 
 /** Solid flags of the cell centres of a lattice (origin, h, dims) for a closed surface model: ray parity per x line. */
-function voxelize(S, origin, h, dims) {
+export function voxelize(S, origin, h, dims) {
   const [nx, ny, nz] = dims, out = new Uint8Array(nx * ny * nz);
   const lines = new Map(), jy = 1.37e-7 * S.size, jz = 2.71e-7 * S.size;
   for (let t = 0; t < S.nt; t++) {

@@ -1,0 +1,26 @@
+[
+  {
+    "name": "free surface: a cup made by a macro; the study offers liquid, level, dam, acceleration and duration",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const q = (s) => document.querySelector(s); const fld = (k, v) => { const i = q(`[data-pm-field=\"${k}\"]`); if (!i) throw new Error('no field ' + k); i.value = String(v); i.dispatchEvent(new Event('change', { bubbles: true })); }; await m.actions.ensureKernel(); await m.actions.closeProject({ force: true }); const r = await m.macro.runMacro(\"await mm.newDocument(\\\"part\\\");\\nawait mm.extrude(await mm.sketch(\\\"top\\\", [{ rect: [100, 20] }]), 80);\\nawait mm.plane(\\\"top\\\", 80, { name: \\\"Rim\\\" });\\nawait mm.cut(await mm.sketch(\\\"Rim\\\", [{ rect: [92, 12] }]), 76);\\nreturn mm.boundingBox().size;\"); await sleep(600); await m.run('freeSurface'); await sleep(300); const fields = ['fsLevel', 'fsDam', 'fsAccel', 'fsDuration', 'fsResolution'].every((k) => Boolean(q('[data-pm-field=\"' + k + '\"]'))); return JSON.stringify({ macro: r.ok, err: r.error ?? null, size: r.value?.map((v) => Math.round(v)), mode: m.state.editing?.mode, fields, liquids: document.querySelectorAll('[data-pm-set=\"fsLiquid\"]').length }); })()",
+    "expect": "\"macro\":true,\"err\":null,\"size\":\\[100,20,80\\],\"mode\":\"freeSurface\",\"fields\":true,\"liquids\":3"
+  },
+  {
+    "name": "free surface: half full, accelerated at 3 m/s² along +x — the liquid leans back (centre of mass −x, run-up at the rear wall), mass kept",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const q = (s) => document.querySelector(s); const fld = (k, v) => { const i = q(`[data-pm-field=\"${k}\"]`); if (!i) throw new Error('no field ' + k); i.value = String(v); i.dispatchEvent(new Event('change', { bubbles: true })); }; fld('fsLevel', 50); await sleep(80); fld('fsAccel', 3); await sleep(80); fld('fsDuration', 0.3); await sleep(80); fld('fsResolution', 30); await sleep(80); q('[data-pm=\"fs.run\"]').click(); let r = null; for (let i = 0; i < 300 && !(r = m.state.editing?.result); i++) await sleep(300); await sleep(400); const f0 = r.frames[0], f1 = r.frames.at(-1); const liquid = m.viewport.bodies.get('fs:liquid'); return JSON.stringify({ ran: Boolean(r), back: f1.com[0] < f0.com[0] - 1, rise: f1.top > f0.top, mass: Math.abs(r.massEnd - r.massStart) < 1e-3 * r.massStart, liquid: Boolean(liquid?.mesh), frames: r.frames.length > 5 }); })()",
+    "expect": "\"ran\":true,\"back\":true,\"rise\":true,\"mass\":true,\"liquid\":true,\"frames\":true"
+  },
+  {
+    "name": "free surface: frame 0 shows the liquid at rest; the frame field and play step through the run",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const q = (s) => document.querySelector(s); const fld = (k, v) => { const i = q(`[data-pm-field=\"${k}\"]`); if (!i) throw new Error('no field ' + k); i.value = String(v); i.dispatchEvent(new Event('change', { bubbles: true })); }; const e = m.state.editing; fld('fsFrame', 0); await sleep(200); const t0 = q('[data-fs-time]').textContent; const tri0 = m.viewport.bodies.get('fs:liquid').mesh.geometry.index.count; fld('fsFrame', e.result.frames.length - 1); await sleep(200); const t1 = q('[data-fs-time]').textContent; q('[data-pm=\"fs.play\"]').click(); await sleep(500); const playing = e.frame > 0 && e.frame < e.result.frames.length; await sleep(4000); return JSON.stringify({ t0: /^0(\\.0+)? s|^0 s/.test(t0), later: t1 !== t0, tri0: tri0 > 0, playing, ended: e.frame === e.result.frames.length - 1 }); })()",
+    "expect": "\"t0\":true,\"later\":true,\"tri0\":true,\"playing\":true,\"ended\":true"
+  },
+  {
+    "shot": "free-surface",
+    "wait": 500
+  },
+  {
+    "name": "free surface: a solid block holds no liquid — a clear message; closing the study removes the liquid",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const q = (s) => document.querySelector(s); const fld = (k, v) => { const i = q(`[data-pm-field=\"${k}\"]`); if (!i) throw new Error('no field ' + k); i.value = String(v); i.dispatchEvent(new Event('change', { bubbles: true })); }; await m.run('freeSurface'); await sleep(300); const r = await m.macro.runMacro('await mm.addPart(\"Block\");\\nawait mm.extrude(await mm.sketch(\"top\", [{ rect: [40, 40] }]), 20);'); await sleep(500); await m.run('freeSurface'); await sleep(300); const res = await m.freeSurface.run(); await sleep(300); const said = /(담을 공간|encloses? a space)/i.test(m.state.log.slice(0, 3).map((x) => x.text).join(' ')); await m.run('freeSurface'); await sleep(300); return JSON.stringify({ macro: r.ok, refused: res === null, said, gone: !m.viewport.bodies.has('fs:liquid'), mode: m.state.editing?.mode ?? null }); })()",
+    "expect": "\"macro\":true,\"refused\":true,\"said\":true,\"gone\":true,\"mode\":null"
+  }
+]
