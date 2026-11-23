@@ -81,10 +81,11 @@ test('clean scripts remove only their generated targets and tolerate missing fil
   const fixture = mkdtempSync(path.join(os.tmpdir(), 'mpw-clean-'))
   const script = path.join(fixture, 'scripts', 'clean.mjs')
   const normal = ['dist', 'build', 'src/build-info.json', 'src-tauri/gen']
-  const extra = ['src-tauri/target', 'node_modules']
+  const extra = ['src-tauri/target', 'node_modules', 'out/test-report.md', 'out/tutorial/MyPhotoWork-Tutorial.mp4']
   // The installers the build copied to the root: kept by clean, removed by clean:all.
-  const installers = ['My Photo Work_1.0.1_x64-setup.exe', 'My Photo Work_1.0.1_x64_en-US.msi', 'my-photo-work_1.0.1_amd64.deb', 'My Photo Work_1.0.1_amd64.AppImage', 'My Photo Work_1.0.1_x64.dmg']
-  const retained = ['out/result.png', 'src/source.ts', 'MyPhotoWork-Tutorial.mp4', 'README.md', 'tools/helper.exe']
+  const installers = ['My Photo Work_1.0.1_x64-setup.exe', 'My Photo Work_1.0.1_x64_en-US.msi', 'my-photo-work_1.0.1_amd64.deb', 'My Photo Work_1.0.1_amd64.AppImage', 'My Photo Work_1.0.1_x64.dmg', 'MyPhotoWork-Tutorial.mp4', 'MyPhotoWork-Tutorial-en.mp4']
+  // Sources and committed documents stay, generated or not: clean:all only removes what a script can make again.
+  const retained = ['src/source.ts', 'README.md', 'tools/helper.exe', 'doc/index.html', 'doc/images/tutorial/ko/open.jpg', 'src/iconColors.css', 'samples/test01.jpg', 'demo.mp4']
   try {
     mkdirSync(path.dirname(script), { recursive: true })
     copyFileSync(path.join(root, 'scripts', 'clean.mjs'), script)
