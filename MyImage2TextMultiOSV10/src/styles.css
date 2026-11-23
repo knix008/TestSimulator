@@ -507,7 +507,13 @@ body.rail-resizing, body.rail-resizing * { cursor: row-resize !important; user-s
   padding: 6px;
   border-radius: var(--radius);
 }
+.source { cursor: pointer; box-shadow: inset 0 0 0 1px transparent; }
 .source:hover { background: var(--bg-hover); }
+.source.picked {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.source:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .source img {
   width: 42px;
   height: 42px;

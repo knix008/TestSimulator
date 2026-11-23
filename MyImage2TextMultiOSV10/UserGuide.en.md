@@ -82,7 +82,21 @@ unsaved results opens a separate window that asks whether to save (**Save**, **D
 Supported formats: PNG, JPEG, GIF, BMP, WebP, ICO, SVG, AVIF, HEIC, HEIF, JPEG XL, TIFF, QOI, TGA, HDR and PNM. Only
 the first frame of animated files is used; transparent areas are placed on white.
 
-Added images are listed on the left. **×** removes one and **Clear all** empties the list (result cards stay). The 10
+Added images are listed on the left. **×** removes one and **Clear all** empties the list (result cards stay).
+
+### Choosing which images to convert
+
+**Convert all** converts only the images selected (highlighted) in the list. When you add images, every image in the
+list is selected.
+
+- **Click**: selects just that image. If it was converted before, its result shows at once.
+- **Ctrl+click**: adds an image to the selection or drops it.
+- **Shift+click**: selects every image from the one you last picked to the one you click.
+- Keyboard: **↑ / ↓** moves through the list and **Enter** or **Space** selects.
+
+Converting other images keeps the results you already made for the rest; they stay in the result list. Converting the
+same image again replaces only that image's results.
+ The 10
 most recent files are in the **File** menu and on the start screen; **×** or **Clear all** in the File menu forgets them.
 
 ## Conversion settings
@@ -120,7 +134,7 @@ under **Convert all** and the source caption (`Source 960×760 → input 480×38
 | Marks | `#%&@` and punctuation | thin lines and symbols |
 | Custom | your own characters | exactly the characters you want (dark on the left, the trailing space is the lightest) |
 
-**Convert all** (F5) makes `images × ticked styles` results. Styles marked **≡** use only ASCII or only braille, so
+**Convert all** (F5) makes `selected images × ticked styles` results. Styles marked **≡** use only ASCII or only braille, so
 their lines line up in any text editor.
 
 ## Picking a result
@@ -224,7 +238,8 @@ reading is highlighted. The top of the window holds the guide's tools.
 | Key | Action |
 | --- | --- |
 | Ctrl+O | Open images |
-| F5 | Convert all |
+| F5 | Convert all (selected images) |
+| Click · Ctrl+click · Shift+click | In the image list: one · add/drop · a range |
 | ← / → | Previous / next result (outside input fields) |
 | Ctrl+E | Edit on / off |
 | Ctrl+C | Copy the selected text (or the text you dragged over on screen) |

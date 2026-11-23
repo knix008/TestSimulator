@@ -170,6 +170,9 @@ let fontListTask = null;
 
 const state = {
   sources: [],
+  /** Ids of the images in the list that Convert works on. */
+  pickedSources: new Set(),
+  pickAnchor: null,
   recent: rememberRecent([]),
   results: [],
   selectedId: null,
@@ -607,11 +610,14 @@ async function openRecent(path) {
 async function addEntries(entries) {
   const failed = [];
   const remembered = [];
+  const addedIds = [];
   for (const entry of entries) {
     try {
       const bitmap = await loadBitmap(entry.file);
+      const id = crypto.randomUUID();
+      addedIds.push(id);
       state.sources.push({
-        id: crypto.randomUUID(),
+        id,
         name: entry.file.name,
         bitmap,
         width: bitmap.width,
@@ -628,6 +634,11 @@ async function addEntries(entries) {
     state.recent = rememberRecent(remembered);
     renderRecent();
   }
+  if (addedIds.length) {
+    // By default every image in the list is picked; a click narrows it down.
+    state.pickedSources = new Set(state.sources.map((source) => source.id));
+    state.pickAnchor = addedIds[0];
+  }
   if (entries.length > failed.length) showStart(false);
   renderSources();
   refreshChrome();
@@ -642,6 +653,8 @@ async function addEntries(entries) {
 function clearSources() {
   for (const source of state.sources) source.bitmap.close?.();
   state.sources = [];
+  state.pickedSources = new Set();
+  state.pickAnchor = null;
   renderSources();
   refreshChrome();
   setStatus('sourcesCleared');
@@ -802,16 +815,90 @@ function removeSource(id) {
   if (index < 0) return;
   state.sources[index].bitmap.close?.();
   state.sources.splice(index, 1);
+  const wasPicked = state.pickedSources.delete(id);
+  if (state.pickAnchor === id) state.pickAnchor = null;
+  if (wasPicked && state.pickedSources.size === 0 && state.sources.length) {
+    // Keep one image picked: the one that moved into the removed one's place.
+    const next = state.sources[Math.min(index, state.sources.length - 1)];
+    state.pickedSources.add(next.id);
+    state.pickAnchor = next.id;
+  }
   renderSources();
   refreshChrome();
+}
+
+/** Images Convert works on, in list order. All of them when none is picked. */
+function pickedSources() {
+  const picked = state.sources.filter((source) => state.pickedSources.has(source.id));
+  return picked.length ? picked : [...state.sources];
+}
+
+/** Click: pick one. Ctrl/Cmd+click: add or drop one. Shift+click: pick a range. */
+function pickSource(id, event = {}) {
+  const ids = state.sources.map((source) => source.id);
+  if (!ids.includes(id)) return;
+  if (event.shiftKey && state.pickAnchor && ids.includes(state.pickAnchor)) {
+    const [from, to] = [ids.indexOf(state.pickAnchor), ids.indexOf(id)].sort((a, b) => a - b);
+    const range = ids.slice(from, to + 1);
+    state.pickedSources = new Set(event.ctrlKey || event.metaKey ? [...state.pickedSources, ...range] : range);
+  } else if (event.ctrlKey || event.metaKey) {
+    if (state.pickedSources.has(id) && state.pickedSources.size > 1) state.pickedSources.delete(id);
+    else state.pickedSources.add(id);
+    state.pickAnchor = id;
+  } else {
+    state.pickedSources = new Set([id]);
+    state.pickAnchor = id;
+  }
+  markPickedSources();
+  refreshChrome();
+  // Show this image's result when it already has one.
+  if (!event.shiftKey && !event.ctrlKey && !event.metaKey) {
+    const result = state.results.find((item) => item.sourceId === id);
+    if (result && result.id !== state.selectedId) selectResult(result.id);
+  }
+}
+
+function markPickedSources() {
+  for (const item of els.sourceList.querySelectorAll('.source')) {
+    const on = state.pickedSources.has(item.dataset.id);
+    item.classList.toggle('picked', on);
+    item.setAttribute('aria-selected', String(on));
+  }
 }
 
 function renderSources() {
   els.sourceList.replaceChildren();
   els.sourceEmpty.hidden = state.sources.length > 0;
+  els.sourceList.setAttribute('role', 'listbox');
+  els.sourceList.setAttribute('aria-multiselectable', 'true');
   for (const source of state.sources) {
     const item = document.createElement('div');
     item.className = 'source';
+    item.dataset.id = source.id;
+    item.tabIndex = 0;
+    item.setAttribute('role', 'option');
+    item.addEventListener('mousedown', (event) => {
+      if (event.shiftKey) event.preventDefault(); // no text selection on Shift+click
+    });
+    item.addEventListener('click', (event) => {
+      if (event.target.closest('.source-remove')) return;
+      pickSource(source.id, event);
+    });
+    item.addEventListener('keydown', (event) => {
+      if (event.target !== item) return;
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        pickSource(source.id, event);
+      } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        event.stopPropagation();
+        const sibling = event.key === 'ArrowDown' ? item.nextElementSibling : item.previousElementSibling;
+        if (sibling) {
+          sibling.focus();
+          pickSource(sibling.dataset.id, event);
+        }
+      }
+    });
     const image = document.createElement('img');
     image.src = source.previewUrl;
     image.alt = '';
@@ -831,6 +918,7 @@ function renderSources() {
     item.append(image, text, remove);
     els.sourceList.append(item);
   }
+  markPickedSources();
 }
 
 async function convertAll() {
@@ -841,7 +929,7 @@ async function convertAll() {
   state.busy = true;
   refreshChrome();
   const settings = readSettings();
-  const sources = [...state.sources];
+  const sources = pickedSources();
   const made = [];
   const failures = [];
   const total = sources.length * styles.length;
@@ -877,7 +965,11 @@ async function convertAll() {
   }
 
   state.editing = false;
-  state.results = made;
+  // Results of images that were not converted this time stay, in list order.
+  const converted = new Set(sources.map((source) => source.id));
+  const order = new Map(state.sources.map((source, i) => [source.id, i]));
+  const kept = state.results.filter((result) => !converted.has(result.sourceId) && order.has(result.sourceId));
+  state.results = [...kept, ...made].sort((a, b) => order.get(a.sourceId) - order.get(b.sourceId));
   renderGallery();
   selectResult(made[0].id);
   setStatus(failures.length ? 'convertDoneFail' : 'convertDone', {
@@ -1433,7 +1525,7 @@ function refreshChrome() {
   els.contrastOut.textContent = String(settings.contrast);
   els.brightnessOut.textContent = String(settings.brightness);
   const styleCount = selectedStyles().length;
-  const imageCount = state.sources.length;
+  const imageCount = state.sources.length ? pickedSources().length : 0;
   if (imageCount === 0) {
     els.plan.textContent = t('planEmpty');
   } else if (styleCount === 0 && settings.custom && settings.customChars.length === 0) {
