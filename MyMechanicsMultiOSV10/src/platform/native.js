@@ -7,7 +7,7 @@ import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog';
 import { getLanguage, t } from '../i18n.js';
 /** CAD files the app opens or imports besides its own documents (.mymech). */
-export const MODEL_EXTENSIONS = ['step', 'stp', 'igs', 'iges', 'stl', 'obj', 'ply', 'gltf', 'glb', '3mf', 'wrl', 'vrml'];
+export const MODEL_EXTENSIONS = ['step', 'stp', 'igs', 'iges', 'x_t', 'x_b', 'xmt_txt', 'xmt_bin', 'dwg', 'dxf', 'stl', 'obj', 'ply', 'gltf', 'glb', '3mf', 'wrl', 'vrml'];
 import { idbDelete, idbGet, idbSet } from './idb.js';
 
 // A popup shown as a frame inside the main window (web build, tutorial) works like the web build.
@@ -74,15 +74,17 @@ export const pathsExist = (paths) => (isDesktop() ? invoke('paths_exist', { path
 const PROJECT_FILTERS = () => [
   { name: 'MyMechanics (*.mymech)', extensions: ['mymech'] },
 
-  { name: 'STEP / IGES / STL / OBJ / PLY / glTF / 3MF / VRML', extensions: MODEL_EXTENSIONS },
+  { name: 'STEP / IGES / Parasolid / DWG / DXF / STL / OBJ / PLY / glTF / 3MF / VRML', extensions: MODEL_EXTENSIONS },
 ];
 /** Save types: the drawing, a template, StarUML, pictures, documents. */
 export const SAVE_TYPES = {
   mymech: { name: 'MyMechanics (*.mymech)', extensions: ['mymech'] },
   step: { name: 'STEP (*.step, *.stp)', extensions: ['step', 'stp'] },
   iges: { name: 'IGES (*.igs, *.iges)', extensions: ['igs', 'iges'] },
-  iges: { name: 'IGES (*.igs, *.iges)', extensions: ['igs', 'iges'] },
+  x_t: { name: 'Parasolid text (*.x_t)', extensions: ['x_t'] },
+  x_b: { name: 'Parasolid binary (*.x_b)', extensions: ['x_b'] },
   dxf: { name: 'DXF (*.dxf)', extensions: ['dxf'] },
+  dwg: { name: 'DWG R2000 (*.dwg)', extensions: ['dwg'] },
   glb: { name: 'glTF binary (*.glb)', extensions: ['glb'] },
   gltf: { name: 'glTF (*.gltf)', extensions: ['gltf'] },
   obj: { name: 'Wavefront OBJ (*.obj)', extensions: ['obj'] },
@@ -136,7 +138,7 @@ export async function chooseModelFiles(defaultPath) {
   const picked = testPick('__mymechanicsModelPicks');
   if (picked) return [].concat(picked.value ?? []);
   // First filter: every model plus side files (.mtl, textures, .bin), then one per format.
-  const result = await openDialog({ multiple: true, directory: false, defaultPath: defaultPath ?? undefined, filters: [{ name: getLanguage() === 'ko' ? 'CAD 모델 (STEP·STL)' : 'CAD models (STEP, STL)', extensions: MODEL_EXTENSIONS }] });
+  const result = await openDialog({ multiple: true, directory: false, defaultPath: defaultPath ?? undefined, filters: [{ name: getLanguage() === 'ko' ? 'CAD 모델·도면 (STEP·IGES·Parasolid·DWG·DXF·STL)' : 'CAD models and drawings (STEP, IGES, Parasolid, DWG, DXF, STL)', extensions: MODEL_EXTENSIONS }] });
   if (!result) return [];
   return Array.isArray(result) ? result : [result];
 }
@@ -172,7 +174,7 @@ export const openExternal = (target) => (isDesktop() ? invoke('open_external', {
 
 export const hasFileSystemAccess = () => typeof globalThis.showOpenFilePicker === 'function';
 
-const WEB_TYPES = [{ description: 'MyMechanics', accept: { 'application/json': ['.mymech'] } }, { description: 'STEP / STL', accept: { 'model/*': MODEL_EXTENSIONS.map((e) => `.${e}`) } }];
+const WEB_TYPES = [{ description: 'MyMechanics', accept: { 'application/json': ['.mymech'] } }, { description: 'STEP / IGES / Parasolid / DWG / DXF / STL', accept: { 'model/*': MODEL_EXTENSIONS.map((e) => `.${e}`) } }];
 const isBinaryName = () => true;
 const readContent = async (file) => (isBinaryName(file.name) ? new Uint8Array(await file.arrayBuffer()) : file.text());
 
@@ -239,7 +241,10 @@ export async function saveFileWeb(content, { name, handle, saveAs, mime = 'appli
     let picked;
     try {
       const extension = `.${String(name).split('.').pop()}`;
-      picked = await globalThis.showSaveFilePicker({ id: 'mymechanics', suggestedName: name, types: [{ description: 'MyMechanics', accept: { [mime]: [extension] } }] });
+      // The picker takes only letters, digits and dots in an extension (".x_t" is refused): then no type filter,
+      // the suggested name keeps the extension.
+      const typed = /^\.[A-Za-z0-9.]{1,16}$/.test(extension);
+      picked = await globalThis.showSaveFilePicker({ id: 'mymechanics', suggestedName: name, ...(typed ? { types: [{ description: 'MyMechanics', accept: { [mime]: [extension] } }] } : {}) });
     } catch (error) {
       if (error?.name === 'AbortError') return null;
       throw error;

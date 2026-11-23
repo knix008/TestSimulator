@@ -54,7 +54,9 @@ export const ICONS_CAD = {
   illustration: '<rect x="3" y="4" width="18" height="15" rx="2"/><path d="M7 15l3-4 2.5 3 2-2.5L18 15"/><circle cx="16.5" cy="8" r="1.6"/><path d="M6 8h4"/>',
   ilView: '<path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6z"/><path d="M9.5 9.5l5 5M14.5 9.5l-5 5"/>',
   meshFile: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M8 18l4-8 4 8z"/><path d="M8 18l4-3 4 3"/><path d="M12 10v5"/>',
+  xtFile: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M8.5 11l4 6M12.5 11l-4 6"/><path d="M14 17h2.5"/>',
   igesFile: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M8.5 17c1.5-5 5.5-5 7-1"/><path d="M8.5 12.5c2 1 5 1 7 0"/>',
+  dwgFile: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M8.5 11v6h1.5a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2z"/><path d="M13 11l1 6 1-3 1 3 1-6"/>',
   dxfFile: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M8.5 17l3-5 2 3 2-4"/>',
   // ── features
   featSketch: '<path d="M4 20h16"/><rect x="5" y="9" width="8" height="7" rx="0.5" stroke-dasharray="2 1.6"/><path d="M14 13l6-8 1.8 1.4-6 8-2.4 1z"/>',

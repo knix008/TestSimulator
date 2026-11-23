@@ -245,7 +245,7 @@ Next to the ISO items there are **DIN** items; where DIN differs from ISO, they 
 
 ## 10. Drawings
 
-From a part or an assembly, **Drawing › Make drawing** (or Standard 3 View) puts the front, top and right views and an isometric view on an A3 sheet (third-angle projection; first angle in Settings). The scale is chosen from the standard scales to fit the sheet. Hidden lines (dashed), overall dimensions and a title block (title, part number, material, mass, scale, drawn, checked, date, revision) are included. Drag views to move them; in the task pane set the sheet size (A4–A0, Letter, Tabloid), scale and projection, and add or remove views. Export **DXF** (layers VISIBLE, HIDDEN, BORDER, HATCH, NOTES, DIMENSIONS, BREAKS, TABLES — everything the sheet shows, hole and revision tables and break lines included) or **SVG**, or print (Ctrl+P).
+From a part or an assembly, **Drawing › Make drawing** (or Standard 3 View) puts the front, top and right views and an isometric view on an A3 sheet (third-angle projection; first angle in Settings). The scale is chosen from the standard scales to fit the sheet. Hidden lines (dashed), overall dimensions and a title block (title, part number, material, mass, scale, drawn, checked, date, revision) are included. Drag views to move them; in the task pane set the sheet size (A4–A0, Letter, Tabloid), scale and projection, and add or remove views. Export **DXF** (layers VISIBLE, HIDDEN, BORDER, HATCH, NOTES, DIMENSIONS, BREAKS, TABLES — everything the sheet shows, hole and revision tables and break lines included), **DWG** (R2000) or **SVG**, or print (Ctrl+P).
 
 ![Make drawing: front, top, right and isometric views, and the sheet settings in the task pane](images/en/tut-drawing-views.png)
 
@@ -280,7 +280,10 @@ From a part or an assembly, **Drawing › Make drawing** (or Standard 3 View) pu
 | STL | Export for 3D printing; import. |
 | IGES (`.igs`, `.iges`) | Import (surfaces sewn into a solid) and export (mm or in). |
 | OBJ · PLY · glTF/GLB · 3MF · VRML | Mesh import (a closed mesh becomes a solid) and export (part colors kept). USDZ export only. |
-| DXF · SVG | Drawing export. |
+| Parasolid XT (`.x_t`, `.x_b`, `.xmt_txt`, `.xmt_bin`) | Import (text and binary, including newer releases with an embedded schema; a solid's voids stay hollow) and export (**File › Export › Export Parasolid text (.x_t) / binary (.x_b)**, or the part's context menu). Written in metres. |
+| DWG (R2000–R2018) · DXF | 2D drawing import: model-space lines, circles, arcs, polylines, splines, ellipses and block inserts are flattened into **a sketch on the Top plane of a new part** (scaled to mm by INSUNITS; dimension blocks and text skipped). Drawings export as DXF and **DWG (R2000)**. |
+| Sketch → DXF · DWG | **File › Export › Export sketch as DXF/DWG** saves the sketch being edited (else the active part's last sketch) in sketch-plane coordinates, mm. |
+| SVG | Drawing export. |
 | CSV | Design table export and import. |
 | PNG | A picture of the graphics area. |
 

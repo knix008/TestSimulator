@@ -33,6 +33,11 @@ import { syncSlider } from './ui/sliders.js';
 import { edgeSignature, faceSignature } from './cad/refs.js';
 import { solveMates, placeShape, interferences, mateEntityOfFace, quatIdentity, quatToAxisAngle, instanceName, quatFromAxisAngle, quatMultiply, captureMate, mateTouches, MATE_REFS, MATE_DEFAULTS, explodedPlacement, autoExplode, motionFrame, motionCursor, flattenAssembly, composePlacement, placePoint, placeDir } from './cad/assembly.js';
 import { projectView, drawingSvg, drawingDxf, layoutViews, SHEETS, projectionKey, bomRows, VIEW_CAMERAS } from './cad/drawing.js';
+import { readDwg } from './cad/dwg/read.js';
+import { writeDwg } from './cad/dwg/write.js';
+import { readDxf } from './cad/dxf-read.js';
+import { flattenDrawing, itemsToSketch, UNIT_MM } from './cad/cad2d-import.js';
+import { sketchToEntities, entitiesToDxf } from './cad/sketch-export.js';
 import { MATERIALS, materialOf, materialName, massOf } from './cad/materials.js';
 import { SAMPLES, buildSample } from './cad/samples.js';
 import { Viewport, hitKey } from './view/viewport.js';
@@ -2699,10 +2704,15 @@ const commands = {
   exportMenu: { icon: 'chevronDown', label: 'action.exportMenu', enabled: hasDoc, run: (c) => showMenu(menuItems(SUBMENUS.exportTo.items), c?.anchor ?? anchorFor('exportMenu'), 'context', { header: { icon: 'exportFile', title: t('submenu.exportTo') } }) },
   exportStep: { icon: 'stepFile', label: 'action.exportStep', enabled: () => Boolean(activePart() || activeAssembly()), run: () => exportModel('step') },
   exportIges: { icon: 'igesFile', label: 'action.exportIges', enabled: () => Boolean(activePart() || activeAssembly()), run: () => exportModel('iges') },
+  exportXt: { icon: 'xtFile', label: 'action.exportXt', enabled: () => Boolean(activePart() || activeAssembly()), run: () => exportModel('xt') },
+  exportXb: { icon: 'xtFile', label: 'action.exportXb', enabled: () => Boolean(activePart() || activeAssembly()), run: () => exportModel('xb') },
   ...Object.fromEntries(['glb', 'gltf', 'obj', 'ply', 'wrl', '3mf', 'usdz'].map((f) => [`exportMesh:${f}`, { icon: 'meshFile', label: `action.exportMesh.${f}`, enabled: () => Boolean(activePart() || activeAssembly()), run: () => exportModel(f) }])),
   exportStl: { icon: 'stlFile', label: 'action.exportStl', enabled: () => Boolean(activePart() || activeAssembly()), run: () => exportModel('stl') },
   exportImage: { icon: 'exportImage', label: 'action.exportImage', key: 'Ctrl+Shift+E', enabled: hasDoc, run: () => exportImage() },
   exportDxf: { icon: 'dxfFile', label: 'action.exportDxf', enabled: () => Boolean(activeDrawing()), run: () => exportDrawing('dxf') },
+  exportDwg: { icon: 'dwgFile', label: 'action.exportDwg', enabled: () => Boolean(activeDrawing()), run: () => exportDrawing('dwg') },
+  exportSketchDxf: { icon: 'dxfFile', label: 'action.exportSketchDxf', enabled: () => Boolean(sketchForExport()), run: () => exportSketch('dxf') },
+  exportSketchDwg: { icon: 'dwgFile', label: 'action.exportSketchDwg', enabled: () => Boolean(sketchForExport()), run: () => exportSketch('dwg') },
   exportSvg: { icon: 'svgFile', label: 'action.exportSvg', enabled: () => Boolean(activeDrawing()), run: () => exportDrawing('svg') },
   print: { icon: 'print', label: 'action.print', key: 'Ctrl+P', enabled: hasDoc, run: () => printDocument() },
   closeProject: { icon: 'closeTab', label: 'action.closeProject', key: 'Ctrl+W', enabled: () => Boolean(state.doc), run: () => closeProject() },
@@ -3257,7 +3267,7 @@ async function run(id, context) {
 
 const SUBMENUS = {
   newDoc: { icon: 'fileNew', items: ['newPart', 'newAssembly', 'newDrawing', '-', 'newProjectPart'] },
-  exportTo: { icon: 'exportFile', items: ['exportStep', 'exportIges', 'exportStl', '-', 'exportMesh:glb', 'exportMesh:gltf', 'exportMesh:obj', 'exportMesh:ply', 'exportMesh:3mf', 'exportMesh:wrl', 'exportMesh:usdz', '-', 'exportImage', 'exportDxf', 'exportSvg'] },
+  exportTo: { icon: 'exportFile', items: ['exportStep', 'exportIges', 'exportXt', 'exportXb', 'exportStl', '-', 'exportMesh:glb', 'exportMesh:gltf', 'exportMesh:obj', 'exportMesh:ply', 'exportMesh:3mf', 'exportMesh:wrl', 'exportMesh:usdz', '-', 'exportImage', 'exportDxf', 'exportDwg', 'exportSvg', '-', 'exportSketchDxf', 'exportSketchDwg'] },
   views: { icon: 'views', items: ['view:front', 'view:back', 'view:top', 'view:bottom', 'view:left', 'view:right', '-', 'view:iso', 'view:dimetric', 'view:trimetric', '-', 'normalTo'] },
   displayStyle: { icon: 'styleShaded', items: ['style:shadedEdges', 'style:shaded', 'style:hiddenRemoved', 'style:hiddenVisible', 'style:wireframe'] },
   show: { icon: 'eye', items: ['showPlanes', 'showOrigin', 'showSketches', '-', 'showRulers', 'showGrid', 'gridPlane:front', 'gridPlane:top', 'gridPlane:right', 'showScaleBar', '-', 'leftPanel', 'rightPanel', 'bottomPanel', 'statusBar', 'fps'] },
@@ -3312,7 +3322,7 @@ const COMMAND_TABS = {
   mold: ['draftAnalysis', 'draft', 'partingLine', 'toolingSplit', 'shrink', 'split', 'cavity'],
   evaluate: ['massProps', 'measure', 'section', 'lights', 'interference', '|', 'simulation', 'draftAnalysis', '|', 'equations', 'configurations', 'designTable', 'importTable', 'designStudy'],
   assembly: ['insertComponent', 'mate', 'fixComponent', 'floatComponent', 'rotateComponent', 'openPart', '|', 'explode', 'resetExplode', 'motion', '|', 'illustration', 'ilAddView', 'ilPlay', 'ilExportHtml', '|', 'interference', 'massProps', 'largeAssemblyMode'],
-  drawing: ['newDrawing', 'std3View', 'addView', 'sectionView', 'detailView', 'auxView', '|', 'ann:note', 'ann:balloon', 'ann:gdt', 'ann:datum', 'ann:surface', 'ann:centermark', 'bom', '|', 'hiddenLines', 'autoDims', '|', 'exportDxf', 'exportSvg', 'print'],
+  drawing: ['newDrawing', 'std3View', 'addView', 'sectionView', 'detailView', 'auxView', '|', 'ann:note', 'ann:balloon', 'ann:gdt', 'ann:datum', 'ann:surface', 'ann:centermark', 'bom', '|', 'hiddenLines', 'autoDims', '|', 'exportDxf', 'exportDwg', 'exportSvg', 'print'],
 };
 for (const [tab, ids] of Object.entries(more.TABS)) COMMAND_TABS[tab]?.push('|', ...ids);
 more.extendMenus(MENUS);
@@ -4176,8 +4186,12 @@ async function readBytes(path, op) {
 const isStepName = (name) => /\.(step|stp)$/i.test(name);
 const isStlName = (name) => /\.stl$/i.test(name);
 const isIgesName = (name) => /\.(igs|iges)$/i.test(name);
+// Parasolid transmit files: text (.x_t, .xmt_txt) and binary (.x_b, .xmt_bin).
+const isXtName = (name) => /\.(x_t|x_b|xmt_txt|xmt_bin)$/i.test(name);
+// 2D drawings: DWG (R2000–R2018) and DXF, opened as a sketch.
+const isCad2dName = (name) => /\.(dwg|dxf)$/i.test(name);
 const isMeshName = (name) => MESH_IMPORT_EXTENSIONS.includes(String(name).toLowerCase().split('.').pop());
-const isModelName = (name) => isStepName(name) || isIgesName(name) || isStlName(name) || isMeshName(name);
+const isModelName = (name) => isStepName(name) || isIgesName(name) || isXtName(name) || isCad2dName(name) || isStlName(name) || isMeshName(name);
 
 /** Mesh exports: format id → extension, MIME type and writer (cad/mesh-formats.js). */
 const MESH_EXPORTS = {
@@ -4195,7 +4209,7 @@ const MESH_EXPORTS = {
 let formatsWorker = null; let formatsRequests = 0;
 function formatsRequest(message) {
   if (typeof Worker === 'undefined') {
-    return import('./cad/occt-full.js').then((m) => (message.kind === 'import-iges' ? m.igesToBrep(message.data) : m.brepToIges(message.brep, message)));
+    return import('./workers/formats-jobs.js').then((m) => m.formatsJob(message));
   }
   formatsWorker ??= new Worker(new URL('./workers/formats-worker.js', import.meta.url), { type: 'module' });
   const id = ++formatsRequests;
@@ -4385,6 +4399,13 @@ async function exportModel(format) {
     const shape = shapes.length === 1 ? shapes[0].shape : R.makeCompound(shapes.map((s) => s.shape));
     const text = await busy('progress.export', `${base}.igs`, () => formatsRequest({ kind: 'export-iges', brep: shape.serialize(), unit: state.settings.units === 'in' ? 'IN' : 'MM', mode: 'brep' }));
     await saveExport(`${base}.igs`, 'iges', new Blob([text], { type: 'model/iges' }), 'model/iges');
+  } else if (format === 'xt' || format === 'xb') {
+    // Parasolid transmit: one solid body (several parts' solids as its regions), in metres.
+    const shape = shapes.length === 1 ? shapes[0].shape : R.makeCompound(shapes.map((s) => s.shape));
+    const binary = format === 'xb'; const name = `${base}.${binary ? 'x_b' : 'x_t'}`;
+    const mime = binary ? 'model/vnd.parasolid.transmit.binary' : 'model/vnd.parasolid.transmit.text';
+    const data = await busy('progress.export', name, () => formatsRequest({ kind: 'export-xt', brep: shape.serialize(), binary, file: name }));
+    await saveExport(name, binary ? 'x_b' : 'x_t', new Blob([data], { type: mime }), mime);
   } else if (MESH_EXPORTS[format]) {
     // Mesh formats: every body tessellated (the STL export's tolerance), its part colour kept.
     const rgb = (hex) => { const m = /^#?([0-9a-f]{6})$/i.exec(String(hex ?? '')); const v = m ? parseInt(m[1], 16) : 0xb3b3b3; return [(v >> 16 & 255) / 255, (v >> 8 & 255) / 255, (v & 255) / 255]; };
@@ -4412,6 +4433,12 @@ async function exportDrawing(format) {
   if (!d) return;
   // The active sheet (app-more.js: sheets, view changes and tables).
   if (format === 'dxf') await saveExport(`${fileSafe(d.name)}.dxf`, 'dxf', more.dxf(d, { labels: drawingLabels(), bomRows: drawingBom(d) }), 'application/dxf');
+  else if (format === 'dwg') {
+    // The DWG holds what the DXF does: the sheet's DXF read back as entities and layers, written as DWG R2000.
+    const model = readDxf(more.dxf(d, { labels: drawingLabels(), bomRows: drawingBom(d) }));
+    const bytes = writeDwg({ layers: [...model.layers.values()], entities: model.modelSpace, units: 4 });
+    await saveExport(`${fileSafe(d.name)}.dwg`, 'dwg', new Blob([bytes], { type: 'image/vnd.dwg' }), 'image/vnd.dwg');
+  }
   else await saveExport(`${fileSafe(d.name)}.svg`, 'svg', more.svg(d, { labels: drawingLabels(), info: drawingInfo(d), bomRows: drawingBom(d), embedFonts: true }), 'image/svg+xml');
 }
 
@@ -4453,7 +4480,7 @@ async function importStepDialog() {
       const paths = await native.chooseModelFiles(state.settings.lastDirectory);
       if (paths[0]) await importModelFile(baseName(paths[0]), await readBytes(paths[0], ''));
     } else {
-      const files = await native.pickWithInput('.step,.stp,.stl', false);
+      const files = await native.pickWithInput('.step,.stp,.igs,.iges,.x_t,.x_b,.dwg,.dxf,.stl', false);
       if (files[0]) await importModelFile(files[0].name, new Uint8Array(await files[0].arrayBuffer()));
     }
   } catch (error) { showError('error.import', error); }
@@ -4468,6 +4495,12 @@ async function shapeFromModel(name, bytes, warn = (key, args) => notify('warning
     const got = importMeshSolids(name, bytes);
     if (got.skipped.length) warn('notice.meshSkipped', { count: got.skipped.length });
     return got.shape;
+  }
+  if (isXtName(name)) {
+    const got = await formatsRequest({ kind: 'import-xt', data: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) });
+    if (got.failed) warn('notice.xtFaces', { count: got.failed });
+    if (!got.solids) warn('notice.xtSheet');
+    return pickSolid(R.deserializeShape(got.brep)).shape;
   }
   if (isIgesName(name)) {
     const got = pickSolid(R.deserializeShape(await formatsRequest({ kind: 'import-iges', data: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) })));
@@ -4511,6 +4544,7 @@ async function withDocument(projectData, job) {
 
 /** A STEP (or STL) file becomes a part with an imported body (new project, or a part of the open one). */
 async function importModelFile(name, bytes) {
+  if (isCad2dName(name)) return importDrawing2d(name, bytes);
   await ensureKernel();
   try {
     const shape = await busy('progress.import', name, () => shapeFromModel(name, bytes));
@@ -4530,6 +4564,61 @@ async function importModelFile(name, bytes) {
     fitView();
     notify('success', t('notice.imported', { name }));
   } catch (error) { showError('error.import', error, name); }
+}
+
+/**
+ * A DWG or DXF drawing as a new part with one sketch on the top plane: the model-space geometry, inserts expanded,
+ * in millimetres (cad/cad2d-import.js). Dimensions and what a sketch cannot hold are counted in the notice.
+ */
+async function importDrawing2d(name, bytes) {
+  try {
+    const { part, count, skipped } = await busy('progress.import', name, async () => {
+      const dwg = /\.dwg$/i.test(name);
+      const model = dwg ? readDwg(bytes) : readDxf(decodeDxf(bytes));
+      const { items, skipped: left } = flattenDrawing(model);
+      const scale = UNIT_MM[model.units ?? 0] ?? 1;
+      const { sketch, count: n } = itemsToSketch(items, { scale });
+      const p = createPart(stripExtension(name));
+      p.features.push(createFeature(p, 'sketch', { plane: { kind: 'std', name: 'top' }, ...sketch, name: stripExtension(name) }));
+      return { part: p, count: n, skipped: { ...model.skipped, ...left } };
+    });
+    if (!count) { notify('warning', t('notice.cad2dEmpty', { name })); return; }
+    if (hasDoc() && project()) change('op.import', (p) => { p.parts.push(part); p.active = { kind: 'part', id: part.id }; });
+    else {
+      const p = createProject({ name: stripExtension(name), kind: 'none' });
+      p.parts.push(part); p.active = { kind: 'part', id: part.id };
+      await setDoc(new Doc(p, { name: `${stripExtension(name)}.mymech` }));
+      doc().revision = 1;
+    }
+    // The view takes in the drawing: a sketch has no body, so the fit goes by its points (the top plane is XY).
+    const pts = part.features[0].entities.filter((e) => e.type === 'point');
+    if (viewport && pts.length) {
+      const box = new THREE.Box3();
+      for (const q of pts) box.expandByPoint(new THREE.Vector3(q.x, q.y, 0));
+      viewport.resize(); viewport.zoomToFit(box.expandByScalar(1), true);
+    } else fitView();
+    const left = Object.entries(skipped).filter(([k]) => !/^(unreadable|mismatch|ATTDEF|ATTRIB)$/.test(k)).reduce((s, [, v]) => s + v, 0);
+    notify('success', t('notice.cad2dImported', { name, count }), left ? t('notice.cad2dSkipped', { count: left }) : '');
+  } catch (error) { showError('error.import', error, name); }
+}
+/** The sketch to save as a 2D drawing: the one being edited, else the active part's last sketch. */
+function sketchForExport() {
+  if (sketching()) return state.editing.feature;
+  const part = activePart();
+  return part ? [...part.features].reverse().find((f) => f.type === 'sketch' && !f.suppressed) ?? null : null;
+}
+/** A sketch as DXF or DWG (R2000): its geometry in the sketch plane's coordinates, millimetres. */
+async function exportSketch(format) {
+  const s = sketchForExport();
+  if (!s) return;
+  const entities = sketchToEntities(s);
+  const base = fileSafe(s.name || 'sketch');
+  if (format === 'dxf') await saveExport(`${base}.dxf`, 'dxf', entitiesToDxf(entities), 'application/dxf');
+  else await saveExport(`${base}.dwg`, 'dwg', new Blob([writeDwg({ layers: [{ name: 'SKETCH', color: 7 }], entities, units: 4 })], { type: 'image/vnd.dwg' }), 'image/vnd.dwg');
+}
+/** DXF text: UTF-8 (R2007+), else the ANSI code page read as Latin-1. */
+function decodeDxf(bytes) {
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes); } catch { return new TextDecoder('latin1').decode(bytes); }
 }
 
 // ───────────────────────── popups (menus, confirm)
@@ -4620,7 +4709,7 @@ function treeContextMenu(key, event) {
   if (key.startsWith('comp:')) return showMenu(menuItems(['openPart', 'rename', 'fixComponent', 'floatComponent', 'rotateComponent', '-', 'delete']), anchor, 'context', { header: { icon: 'part', title: activeAssembly()?.components.find((c) => c.id === key.slice(5))?.name ?? '' } });
   if (key.startsWith('mate:')) return showMenu(menuItems(['rename', 'delete']), anchor, 'context', { header: { icon: 'mate', title: activeAssembly()?.mates.find((m) => m.id === key.slice(5))?.name ?? '' } });
   if (key === 'material') return materialMenu(anchor);
-  if (key === 'doc') return showMenu(menuItems(['rename', 'rebuild', 'massProps', '-', 'newDrawing', 'exportStep', 'exportIges', 'exportStl']), anchor, 'context', { header: { icon: activeKind(), title: active()?.name ?? '' } });
+  if (key === 'doc') return showMenu(menuItems(['rename', 'rebuild', 'massProps', '-', 'newDrawing', 'exportStep', 'exportIges', 'exportXt', 'exportStl']), anchor, 'context', { header: { icon: activeKind(), title: active()?.name ?? '' } });
   return undefined;
 }
 

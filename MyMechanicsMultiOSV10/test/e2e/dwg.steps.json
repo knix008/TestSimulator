@@ -1,0 +1,31 @@
+[
+  {
+    "name": "dwg: kernel loads",
+    "eval": "window.__mymechanics.actions.ensureKernel().then(() => 'ready')",
+    "expect": "^ready$"
+  },
+  {
+    "name": "dwg: a drawing of the flange exported as DWG R2000 holds the same entities and layers as its DXF",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.actions.closeProject({ force: true }); await m.actions.openSampleAsk('flange'); await sleep(1200); await m.actions.newDrawing(); await sleep(1200);\n     window.__saved = null; window.showSaveFilePicker = async (o) => ({ name: o?.suggestedName ?? 'x', createWritable: async () => ({ write: async (b) => { window.__saved = b; }, close: async () => {} }) }); await m.run('exportDxf'); for (let i = 0; i < 300 && !window.__saved; i++) await sleep(100); if (!window.__saved) return 'nothing saved'; const saved = window.__saved; const dxfText = typeof saved === 'string' ? saved : await saved.text();\n     window.__saved = null; window.showSaveFilePicker = async (o) => ({ name: o?.suggestedName ?? 'x', createWritable: async () => ({ write: async (b) => { window.__saved = b; }, close: async () => {} }) }); await m.run('exportDwg'); for (let i = 0; i < 300 && !window.__saved; i++) await sleep(100); const bytes = new Uint8Array(await window.__saved.arrayBuffer());\n     window.__dwgBytes = bytes; window.__dxfText = dxfText;\n     const { readDwg } = await import('/src/cad/dwg/read.js'); const { readDxf } = await import('/src/cad/dxf-read.js');\n     const d = readDwg(bytes); const x = readDxf(dxfText);\n     const count = (list) => { const c = {}; for (const e of list) c[e.name] = (c[e.name] ?? 0) + 1; return JSON.stringify(Object.entries(c).sort()); };\n     const lines = (list) => list.filter((e) => e.name === 'LINE').map((e) => e.start.concat(e.end).map((v) => v.toFixed(3)).join(',')).sort().join(';');\n     return JSON.stringify({ version: String.fromCharCode(...bytes.subarray(0, 6)), exact: [...d.objects.values()].every((o) => o.exact), sameCounts: count(d.modelSpace) === count(x.modelSpace), sameLines: lines(d.modelSpace) === lines(x.modelSpace), layers: [...x.layers.keys()].every((n) => [...d.layers.values()].some((l) => l.name === n)), many: d.modelSpace.length > 50 }); })()",
+    "expect": "\"version\":\"AC1015\",\"exact\":true,\"sameCounts\":true,\"sameLines\":true,\"layers\":true,\"many\":true"
+  },
+  {
+    "name": "dwg: the DWG opens as a new part whose sketch holds the drawing (DXF the same)",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.actions.closeProject({ force: true }); await m.actions.openContent('sheet.dwg', window.__dwgBytes); await sleep(1500);\n     const p = m.active(); const sk = p?.features?.find((f) => f.type === 'sketch'); const nDwg = sk?.entities?.filter((e) => e.type !== 'point').length ?? 0;\n     await m.actions.closeProject({ force: true }); await m.actions.openContent('sheet.dxf', window.__dxfText); await sleep(1500);\n     const sk2 = m.active()?.features?.find((f) => f.type === 'sketch'); const nDxf = sk2?.entities?.filter((e) => e.type !== 'point').length ?? 0;\n     const said = m.state.log.slice(0, 3).map((x) => x.text).join(' ');\n     return JSON.stringify({ part: p?.features?.length === 1, sketch: nDwg > 50, same: nDwg === nDxf, said: /(스케치|sketch)/i.test(said) }); })()",
+    "expect": "\"part\":true,\"sketch\":true,\"same\":true,\"said\":true"
+  },
+  {
+    "shot": "dwg-import",
+    "wait": 600
+  },
+  {
+    "name": "dwg: a sketch exported as DXF and as DWG opens back with the same entities",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.actions.closeProject({ force: true }); await m.actions.openSampleAsk('flange'); await sleep(1200);\n     window.__saved = null; window.showSaveFilePicker = async (o) => ({ name: o?.suggestedName ?? 'x', createWritable: async () => ({ write: async (b) => { window.__saved = b; }, close: async () => {} }) }); await m.run('exportSketchDwg'); for (let i = 0; i < 300 && !window.__saved; i++) await sleep(100); if (!window.__saved) return 'nothing saved'; const saved = window.__saved; const bytes = new Uint8Array(await saved.arrayBuffer());\n     window.__saved = null; window.showSaveFilePicker = async (o) => ({ name: o?.suggestedName ?? 'x', createWritable: async () => ({ write: async (b) => { window.__saved = b; }, close: async () => {} }) }); await m.run('exportSketchDxf'); for (let i = 0; i < 300 && !window.__saved; i++) await sleep(100); const text = typeof window.__saved === 'string' ? window.__saved : await window.__saved.text();\n     const { sketchToEntities } = await import('/src/cad/sketch-export.js');\n     const part = m.active(); const src = [...part.features].reverse().find((f) => f.type === 'sketch'); const want = sketchToEntities(src).length;\n     const { readDwg } = await import('/src/cad/dwg/read.js'); const { readDxf } = await import('/src/cad/dxf-read.js');\n     return JSON.stringify({ dwg: readDwg(bytes).modelSpace.length === want, dxf: readDxf(text).modelSpace.length === want, some: want > 0 }); })()",
+    "expect": "\"dwg\":true,\"dxf\":true,\"some\":true"
+  },
+  {
+    "name": "dwg: offered in the open types, the save types and the Export menu; a damaged DWG is refused with a message",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const native = await import('/src/platform/native.js');\n     const offered = ['dwg', 'dxf'].every((e) => native.MODEL_EXTENSIONS.includes(e)) && Boolean(native.SAVE_TYPES.dwg) && ['exportDwg', 'exportSketchDxf', 'exportSketchDwg'].every((id) => m.menus.SUBMENUS.exportTo.items.includes(id));\n     await m.actions.openContent('broken.dwg', new Uint8Array([65, 67, 49, 48, 49, 53, 0, 0, 0, 0])); await sleep(800);\n     const said = m.state.log.slice(0, 3).map((x) => x.text).join(' ');\n     return JSON.stringify({ offered, said: /DWG/.test(said) }); })()",
+    "expect": "\"offered\":true,\"said\":true"
+  }
+]

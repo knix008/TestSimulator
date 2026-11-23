@@ -50,8 +50,28 @@ export async function igesToBrep(data) {
   } finally { reader.delete(); unlink(oc, inName, outName); }
 }
 
+/** The shape in BREP text (the form shapes cross between the two kernels). */
+export function shapeFromBrep(oc, brep) {
+  const name = tempName('brep');
+  oc.FS.writeFile(name, brep);
+  const shape = new oc.TopoDS_Shape(); const builder = new oc.BRep_Builder();
+  try {
+    if (!oc.BRepTools.Read_2(shape, name, builder, progress(oc))) throw Object.assign(new Error('the shape could not be read'), { code: 'brep-read' });
+    return shape;
+  } finally { builder.delete(); unlink(oc, name); }
+}
+
+/** BREP text of a shape. */
+export function brepOfShape(oc, shape) {
+  const name = tempName('brep');
+  try {
+    if (!oc.BRepTools.Write_3(shape, name, progress(oc))) throw Object.assign(new Error('the shape could not be written'), { code: 'brep-write' });
+    return oc.FS.readFile(name, { encoding: 'utf8' });
+  } finally { unlink(oc, name); }
+}
+
 /** How many sub-shapes of a kind a shape holds. */
-function count(oc, shape, kind) {
+export function count(oc, shape, kind) {
   const ex = new oc.TopExp_Explorer_2(shape, kind, oc.TopAbs_ShapeEnum.TopAbs_SHAPE);
   let n = 0;
   try { for (; ex.More(); ex.Next()) n++; } finally { ex.delete(); }
@@ -62,7 +82,7 @@ function count(oc, shape, kind) {
  * Loose faces sewn (tolerance 1e-3 mm, the usual exchange-file gap) into shells; every closed shell becomes a
  * solid (oriented outward by ShapeFix_Solid). Open shells are kept as they are, in a compound with the solids.
  */
-function sewSolids(oc, shape) {
+export function sewSolids(oc, shape) {
   const sew = new oc.BRepBuilderAPI_Sewing(1e-3, true, true, true, false);
   try {
     sew.Add(shape);

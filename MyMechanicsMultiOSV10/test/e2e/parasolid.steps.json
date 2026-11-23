@@ -1,0 +1,36 @@
+[
+  {
+    "name": "parasolid: kernel loads",
+    "eval": "window.__mymechanics.actions.ensureKernel().then(() => 'ready')",
+    "expect": "^ready$"
+  },
+  {
+    "name": "parasolid: Export Parasolid text writes an XT transmit file in metres through the formats worker (no dialog)",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.actions.closeProject({ force: true }); await m.actions.openSampleAsk('flange'); await sleep(1200); const { rep } = await import('/src/cad/kernel.js'); const body = m.state.partEntry.body; window.__xtWant = { faces: body.faces.length, volume: rep().measureVolume(body) }; window.__saved = null; window.showSaveFilePicker = async (o) => ({ name: o?.suggestedName ?? 'x', createWritable: async () => ({ write: async (b) => { window.__saved = b; }, close: async () => {} }) }); await m.run('exportXt'); for (let i = 0; i < 900 && !window.__saved; i++) await sleep(100); if (!window.__saved) return 'nothing saved'; const text = typeof window.__saved === 'string' ? window.__saved : await window.__saved.text(); window.__xtText = text; const { readXt } = await import('/src/cad/parasolid.js'); const x = readXt(text); return JSON.stringify({ header: /^\\*\\*ABCDEFGHIJ/.test(text) && text.includes('**END_OF_HEADER'), key: x.schema.key, body: x.root.type === 12 && x.root.body_type === 1, metres: x.root.res_size === 1000, lines: text.split('\\n').every((l) => l.length <= 80 && !l.endsWith(' ')) }); })()",
+    "expect": "\"header\":true,\"key\":\"SCH_1300000_13006\",\"body\":true,\"metres\":true,\"lines\":true"
+  },
+  {
+    "name": "parasolid: the .x_t file opens as a part with the same solid (faces, volume)",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.actions.closeProject({ force: true }); await m.actions.openContent('flange.x_t', window.__xtText); for (let i = 0; i < 900 && !(m.active()?.features?.some((f) => f.type === 'import')); i++) await sleep(100); await sleep(800); const { rep } = await import('/src/cad/kernel.js'); const body = m.state.partEntry.body; const want = window.__xtWant; return JSON.stringify({ imported: m.active().features.some((f) => f.type === 'import'), faces: body.faces.length === want.faces, volume: Math.abs(rep().measureVolume(body) - want.volume) <= 1e-6 * want.volume }); })()",
+    "expect": "\"imported\":true,\"faces\":true,\"volume\":true"
+  },
+  {
+    "shot": "parasolid-import",
+    "wait": 600
+  },
+  {
+    "name": "parasolid: Export Parasolid binary writes neutral binary (PS 0 0) that opens as the same solid",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); window.__saved = null; window.showSaveFilePicker = async (o) => ({ name: o?.suggestedName ?? 'x', createWritable: async () => ({ write: async (b) => { window.__saved = b; }, close: async () => {} }) }); await m.run('exportXb'); for (let i = 0; i < 900 && !window.__saved; i++) await sleep(100); if (!window.__saved) return 'nothing saved'; const bytes = new Uint8Array(await window.__saved.arrayBuffer()); const neutral = bytes[0] === 0x50 && bytes[1] === 0x53 && bytes[2] === 0 && bytes[3] === 0; await m.actions.closeProject({ force: true }); await m.actions.openContent('flange.x_b', bytes); for (let i = 0; i < 900 && !(m.active()?.features?.some((f) => f.type === 'import')); i++) await sleep(100); await sleep(800); const { rep } = await import('/src/cad/kernel.js'); const body = m.state.partEntry.body; const want = window.__xtWant; return JSON.stringify({ neutral, faces: body.faces.length === want.faces, volume: Math.abs(rep().measureVolume(body) - want.volume) <= 1e-6 * want.volume }); })()",
+    "expect": "\"neutral\":true,\"faces\":true,\"volume\":true"
+  },
+  {
+    "name": "parasolid: offered in the open dialog types, the save types, the Export menu and the part context menu",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const native = await import('/src/platform/native.js'); return JSON.stringify({ open: ['x_t', 'x_b', 'xmt_txt', 'xmt_bin'].every((e) => native.MODEL_EXTENSIONS.includes(e)), save: Boolean(native.SAVE_TYPES.x_t && native.SAVE_TYPES.x_b), menu: ['exportXt', 'exportXb'].every((id) => m.menus.SUBMENUS.exportTo.items.includes(id)), labels: [m.t('action.exportXt'), m.t('action.exportXb')].every((s) => /Parasolid/.test(s)) }); })()",
+    "expect": "\"open\":true,\"save\":true,\"menu\":true,\"labels\":true"
+  },
+  {
+    "name": "parasolid: a damaged file is refused with a readable message, the open project untouched",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.actions.closeProject({ force: true }); await m.actions.openSampleAsk('flange'); await sleep(800); const before = m.active()?.name; await m.actions.openContent('broken.x_t', '**ABC\\n**END_OF_HEADER***\\nT5 : abc17 SCH_1300000_130060 12 1 3'); await sleep(1500); const said = m.state.log.slice(0, 4).map((x) => x.text).join(' '); return JSON.stringify({ kept: m.active()?.name === before, said: /(Parasolid|손상)/.test(said) }); })()",
+    "expect": "\"kept\":true,\"said\":true"
+  }
+]
