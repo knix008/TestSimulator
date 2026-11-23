@@ -106,6 +106,34 @@ export const SPRING_WASHER = {
   M20: { d1: 20.2, d2: 33.6, s: 4, h: 8 }, M24: { d1: 24.5, d2: 40, s: 5, h: 10 },
 };
 
+// ───────────────────────── DIN fasteners (where they differ from the ISO ones above)
+
+/**
+ * DIN 933 / 931 hex head (and the DIN 934 / 439 nuts): the DIN across-flats are wider at M10, M12 (17, 19 instead
+ * of ISO 16, 18), head heights k per DIN 933.
+ */
+export const HEX_BOLT_DIN = {
+  M3: { s: 5.5, k: 2 }, M4: { s: 7, k: 2.8 }, M5: { s: 8, k: 3.5 }, M6: { s: 10, k: 4 }, M8: { s: 13, k: 5.5 },
+  M10: { s: 17, k: 7 }, M12: { s: 19, k: 8 }, M16: { s: 24, k: 10 }, M20: { s: 30, k: 13 }, M24: { s: 36, k: 15 },
+};
+/** DIN 934 hex nut: s (as DIN 933), m = 0.8 d. */
+export const HEX_NUT_DIN = {
+  M3: { s: 5.5, m: 2.4 }, M4: { s: 7, m: 3.2 }, M5: { s: 8, m: 4 }, M6: { s: 10, m: 5 }, M8: { s: 13, m: 6.5 },
+  M10: { s: 17, m: 8 }, M12: { s: 19, m: 10 }, M16: { s: 24, m: 13 }, M20: { s: 30, m: 16 }, M24: { s: 36, m: 19 },
+};
+/** DIN 7991 hex socket countersunk head screw (90° head): dk, k, s, t. */
+export const COUNTERSUNK_DIN = {
+  M3: { dk: 6, k: 1.7, s: 2, t: 1.2 }, M4: { dk: 8, k: 2.3, s: 2.5, t: 1.8 }, M5: { dk: 10, k: 2.8, s: 3, t: 2.3 }, M6: { dk: 12, k: 3.3, s: 4, t: 2.5 },
+  M8: { dk: 16, k: 4.4, s: 5, t: 3.5 }, M10: { dk: 20, k: 5.5, s: 6, t: 4.4 }, M12: { dk: 24, k: 6.5, s: 8, t: 4.6 }, M16: { dk: 30, k: 7.5, s: 10, t: 5.3 },
+  M20: { dk: 36, k: 8.5, s: 12, t: 5.9 },
+};
+/** DIN 7984 hex socket head cap screw with a low head: dk, k, s, t. */
+export const LOW_HEAD = {
+  M3: { dk: 5.5, k: 2, s: 2, t: 1.5 }, M4: { dk: 7, k: 2.8, s: 2.5, t: 2.3 }, M5: { dk: 8.5, k: 3.5, s: 3, t: 2.7 }, M6: { dk: 10, k: 4, s: 4, t: 3 },
+  M8: { dk: 13, k: 5, s: 5, t: 3.8 }, M10: { dk: 16, k: 6, s: 7, t: 4.5 }, M12: { dk: 18, k: 7, s: 8, t: 4.8 }, M16: { dk: 24, k: 9, s: 12, t: 6.8 },
+  M20: { dk: 30, k: 11, s: 14, t: 8.6 }, M24: { dk: 36, k: 13, s: 17, t: 10.4 },
+};
+
 /** Preferred bolt / screw lengths (ISO 888) and the range each size comes in. */
 export const BOLT_LENGTHS = [6, 8, 10, 12, 16, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 180, 200];
 const LENGTH_RANGE = { M3: [6, 30], M4: [6, 40], M5: [8, 50], M6: [10, 60], M8: [12, 80], M10: [16, 100], M12: [20, 120], M16: [30, 160], M20: [40, 200], M24: [50, 200] };
@@ -219,9 +247,9 @@ export const PIPE_SIZES = Object.keys(PIPES);
  * threads (cosmetic or modelled); `gear` / `pulley`: parametric (module or profile, teeth …).
  */
 export const STD_CATEGORIES = [
-  { id: 'bolts', icon: 'hexBolt', items: ['hexBolt', 'socketCap', 'countersunk', 'buttonHead', 'setScrew', 'setScrewCup', 'setScrewSlotted', 'stud', 'stud939'] },
-  { id: 'nuts', icon: 'hexNut', items: ['hexNut', 'hexNut2', 'thinNut', 'nylonNut'] },
-  { id: 'washers', icon: 'flatWasher', items: ['flatWasher', 'springWasher'] },
+  { id: 'bolts', icon: 'hexBolt', items: ['hexBolt', 'socketCap', 'countersunk', 'buttonHead', 'setScrew', 'setScrewCup', 'setScrewSlotted', 'stud', 'stud939', 'hexBolt933', 'hexBolt931', 'socketCap912', 'countersunk7991', 'lowHead7984'] },
+  { id: 'nuts', icon: 'hexNut', items: ['hexNut', 'hexNut2', 'thinNut', 'nylonNut', 'hexNut934', 'thinNut439'] },
+  { id: 'washers', icon: 'flatWasher', items: ['flatWasher', 'springWasher', 'washer125'] },
   { id: 'bearings', icon: 'ballBearing', items: ['ballBearing'] },
   { id: 'pins', icon: 'dowelPin', items: ['dowelPin', 'parallelPin', 'springPin', 'retainingRing', 'boreRing', 'parallelKey'] },
   { id: 'gears', icon: 'spurGear', items: ['spurGear', 'helicalGear', 'bevelGear', 'gearRack', 'timingPulley'] },
@@ -261,7 +289,30 @@ export const STD_ITEMS = {
   elbow45: { standard: 'ASME B16.9', sizes: PIPE_SIZES, material: 'steel-1020', icon: 'pipeElbow45', pipe: T },
   pipeTee: { standard: 'ASME B16.9', sizes: PIPE_SIZES, material: 'steel-1020', icon: 'pipeTee', pipe: T },
   flange: { standard: 'EN 1092-1 PN16', sizes: PIPE_SIZES, material: 'steel-1020', icon: 'pipeFlange', pipe: T },
+  // DIN items: built like their ISO `base` with the DIN dimensions.
+  hexBolt933: { base: 'hexBolt', standard: 'DIN 933', sizes: METRIC_SIZES, lengths: boltLengths, material: 'steel-4340', icon: 'hexBolt', threads: T, screw: T },
+  hexBolt931: { base: 'hexBolt', standard: 'DIN 931', sizes: sizesFrom('M5', 'M24'), lengths: (s) => boltLengths(s).filter((l) => l >= 2 * METRIC[s].d + 6 + 2 * METRIC[s].p), material: 'steel-4340', icon: 'hexBolt', threads: T, screw: T },
+  socketCap912: { base: 'socketCap', standard: 'DIN 912', sizes: METRIC_SIZES, lengths: boltLengths, material: 'steel-4340', icon: 'socketCap', threads: T, screw: T },
+  countersunk7991: { base: 'countersunk', standard: 'DIN 7991', sizes: sizesFrom('M3', 'M20'), lengths: ranged(CSK_RANGE), material: 'steel-4340', icon: 'countersunkScrew', threads: T, screw: T },
+  lowHead7984: { base: 'socketCap', standard: 'DIN 7984', sizes: METRIC_SIZES, lengths: boltLengths, material: 'steel-4340', icon: 'socketCap', threads: T, screw: T },
+  hexNut934: { base: 'hexNut', standard: 'DIN 934', sizes: METRIC_SIZES, material: 'steel-1020', icon: 'hexNut', threads: T, nut: T },
+  thinNut439: { base: 'thinNut', standard: 'DIN 439 B', sizes: METRIC_SIZES, material: 'steel-1020', icon: 'thinNut', threads: T, nut: T },
+  washer125: { base: 'flatWasher', standard: 'DIN 125 A', sizes: METRIC_SIZES, material: 'steel-1020', icon: 'flatWasher' },
 };
+
+/** The ISO kind a library kind is built like (itself for the ISO ones). */
+export const baseKind = (kind) => STD_ITEMS[kind]?.base ?? kind;
+/** The head / nut table of a kind: { hex: s, k } (hex bolts), { dk, k, s, t } (socket heads), { s, m } (nuts). */
+export function headTable(kind) {
+  switch (kind) {
+    case 'hexBolt933': case 'hexBolt931': return HEX_BOLT_DIN;
+    case 'countersunk7991': return COUNTERSUNK_DIN;
+    case 'lowHead7984': return LOW_HEAD;
+    case 'socketCap912': return SOCKET_CAP;   // DIN 912 has the ISO 4762 dimensions
+    case 'hexNut934': case 'thinNut439': return HEX_NUT_DIN;
+    default: return { hexBolt: HEX_BOLT, socketCap: SOCKET_CAP, countersunk: COUNTERSUNK, hexNut: HEX_NUT, hexNut2: HEX_NUT, thinNut: HEX_NUT, nylonNut: HEX_NUT }[kind] ?? null;
+  }
+}
 export const STD_KINDS = Object.keys(STD_ITEMS);
 
 /** Parameters of gears and pulleys (besides the module / profile) with their defaults. */
@@ -317,7 +368,7 @@ export function designation(p, names = {}) {
   if (!item) return '?';
   const x = '×';
   const name = (k) => names[k] ?? STD_DESIGNATION_NAMES[k];
-  switch (p.kind) {
+  switch (baseKind(p.kind)) {
     case 'hexBolt': case 'socketCap': case 'countersunk': case 'buttonHead': case 'setScrew': case 'setScrewCup': case 'setScrewSlotted': case 'stud': case 'stud939':
       return `${item.standard} ${p.size}${x}${p.length}`;
     case 'hexNut': case 'hexNut2': case 'thinNut': case 'nylonNut': return `${item.standard} ${p.size}`;
@@ -350,7 +401,14 @@ export function sizeTable(kind) {
   const rows = (table, cols) => Object.entries(table).map(([k, v]) => [k, ...cols.map((c) => v[c])]);
   const sizes = STD_ITEMS[kind]?.sizes ?? [];
   const thread = (s) => [METRIC[s].d, METRIC[s].p];
+  const H = headTable(kind);
   switch (kind) {
+    case 'hexBolt933': case 'hexBolt931': return [['d', 's', 'k', 'p'], sizes.map((s) => [s, METRIC[s].d, H[s].s, H[s].k, METRIC[s].p])];
+    case 'socketCap912': case 'lowHead7984': return [['d', 'dk', 'k', 'sSocket'], sizes.map((s) => [s, METRIC[s].d, H[s].dk, H[s].k, H[s].s])];
+    case 'countersunk7991': return [['d', 'p', 'dk', 'k', 'sSocket'], sizes.map((s) => [s, ...thread(s), H[s].dk, H[s].k, H[s].s])];
+    case 'hexNut934': return [['s', 'm', 'p'], sizes.map((s) => [s, H[s].s, H[s].m, METRIC[s].p])];
+    case 'thinNut439': return [['s', 'm', 'p'], sizes.map((s) => [s, H[s].s, THIN_NUT[s], METRIC[s].p])];
+    case 'washer125': return [['d1', 'd2', 'h'], rows(FLAT_WASHER, ['d1', 'd2', 'h'])];
     case 'hexBolt': return [['d', 's', 'k', 'p'], METRIC_SIZES.map((s) => [s, METRIC[s].d, HEX_BOLT[s].s, HEX_BOLT[s].k, METRIC[s].p])];
     case 'socketCap': return [['d', 'dk', 'k', 'sSocket'], METRIC_SIZES.map((s) => [s, METRIC[s].d, SOCKET_CAP[s].dk, SOCKET_CAP[s].k, SOCKET_CAP[s].s])];
     case 'countersunk': return [['d', 'p', 'dk', 'k', 'sSocket'], sizes.map((s) => [s, ...thread(s), COUNTERSUNK[s].dk, COUNTERSUNK[s].k, COUNTERSUNK[s].s])];
@@ -417,7 +475,7 @@ export function boltLengthFor(size, grip, { washer = 0, nut = 0, blind = false, 
 }
 
 /** Height of a nut kind (ISO 4032 / 4033 / 4035 / 7040). */
-export const nutHeight = (kind, size) => ({ hexNut: HEX_NUT[size]?.m, hexNut2: HEX_NUT2[size], thinNut: THIN_NUT[size], nylonNut: NYLON_NUT[size]?.h }[kind] ?? HEX_NUT[size]?.m ?? 0);
+export const nutHeight = (kind, size) => ({ hexNut: HEX_NUT[size]?.m, hexNut2: HEX_NUT2[size], thinNut: THIN_NUT[size], nylonNut: NYLON_NUT[size]?.h, hexNut934: HEX_NUT_DIN[size]?.m, thinNut439: THIN_NUT[size] }[kind] ?? HEX_NUT[size]?.m ?? 0);
 
 // ───────────────────────── gear geometry (pure)
 
@@ -518,8 +576,10 @@ function screwShank(size, L, tl, modelled, top = 0) {
 /** Screw thread lengths: ISO 4017 / 7380 to the head (2 pitches of runout), ISO 4762 / 10642 b = 2d + 12 for long screws. */
 export function screwThreadLength(kind, size, L) {
   const { d, p } = METRIC[size];
-  if (kind === 'countersunk') return Math.min(L - COUNTERSUNK[size].k - 2 * p, 2 * d + 12);
-  if (kind === 'socketCap') return Math.min(L - 2 * p, 2 * d + 12);
+  // DIN 931: partly threaded, b = 2d + 6 (L ≤ 125), 2d + 12 (L ≤ 200), 2d + 25 above.
+  if (kind === 'hexBolt931') return Math.min(L - 2 * p, 2 * d + (L <= 125 ? 6 : L <= 200 ? 12 : 25));
+  if (baseKind(kind) === 'countersunk') return Math.min(L - headTable(kind)[size].k - 2 * p, 2 * d + 12);
+  if (baseKind(kind) === 'socketCap') return Math.min(L - 2 * p, 2 * d + 12);
   return L - 2 * p;
 }
 
@@ -530,25 +590,25 @@ function withShank(head, size, L, kind, modelled, top = 0) {
   return joinTop ? glue(head, shank) : head.fuse(shank);
 }
 
-function hexBolt(size, L, modelled) {
-  const h = HEX_BOLT[size];
-  return withShank(chamferedHex(h.s, h.k), size, L, 'hexBolt', modelled);
+function hexBolt(size, L, modelled, kind = 'hexBolt') {
+  const h = headTable(kind)[size];
+  return withShank(chamferedHex(h.s, h.k), size, L, kind, modelled);
 }
 
-function socketCap(size, L, modelled) {
-  const h = SOCKET_CAP[size];
+function socketCap(size, L, modelled, kind = 'socketCap') {
+  const h = headTable(kind)[size];
   const c = h.k * 0.08;
   const head = revolveProfile([[0, 0], [h.dk / 2, 0], [h.dk / 2, h.k - c], [h.dk / 2 - c, h.k], [0, h.k]]);
-  return withShank(head, size, L, 'socketCap', modelled).cut(hexPrism(h.s, h.t + 1, h.k - h.t));
+  return withShank(head, size, L, kind, modelled).cut(hexPrism(h.s, h.t + 1, h.k - h.t));
 }
 
 /** ISO 10642: a 90° countersunk head from dk (z = 0, flush) down to d at z = −k, hex socket in the top. */
-function countersunk(size, L, modelled) {
-  const h = COUNTERSUNK[size]; const r = METRIC[size].d / 2;
+function countersunk(size, L, modelled, kind = 'countersunk') {
+  const h = headTable(kind)[size]; const r = METRIC[size].d / 2;
   const k = h.dk / 2 - r; // 90°: the cone drops one unit per unit of radius
   const edge = Math.min(0.1, k * 0.05);
   const head = revolveProfile([[0, -k], [r, -k], [h.dk / 2, 0 - edge], [h.dk / 2, 0], [0, 0]]);
-  const screw = withShank(head, size, L, 'countersunk', modelled, -k);
+  const screw = withShank(head, size, L, kind, modelled, -k);
   return screw.cut(hexPrism(h.s, h.t + 1, -h.t));
 }
 
@@ -969,9 +1029,12 @@ function buildStdShape(p, mod) {
   const L = Number(p.length) || 0;
   const gear = { module: Number(p.module), teeth: Math.round(Number(p.teeth)), width: Number(p.width), bore: Number(p.bore) || 0, keyway: Boolean(p.keyway) };
   switch (p.kind) {
-    case 'hexBolt': return hexBolt(p.size, L, mod);
-    case 'socketCap': return socketCap(p.size, L, mod);
-    case 'countersunk': return countersunk(p.size, L, mod);
+    case 'hexBolt': case 'hexBolt933': case 'hexBolt931': return hexBolt(p.size, L, mod, p.kind);
+    case 'socketCap': case 'socketCap912': case 'lowHead7984': return socketCap(p.size, L, mod, p.kind);
+    case 'countersunk': case 'countersunk7991': return countersunk(p.size, L, mod, p.kind);
+    case 'hexNut934': return nutBody(p.size, HEX_NUT_DIN[p.size].s, HEX_NUT_DIN[p.size].m, mod);
+    case 'thinNut439': return nutBody(p.size, HEX_NUT_DIN[p.size].s, THIN_NUT[p.size], mod);
+    case 'washer125': return flatWasher(p.size);
     case 'buttonHead': return buttonHead(p.size, L, mod);
     case 'setScrew': case 'setScrewCup': case 'setScrewSlotted': return setScrew(p.kind, p.size, L, mod);
     case 'stud': case 'stud939': return stud(p.kind, p.size, L, mod);
@@ -1027,7 +1090,7 @@ export function stdProblem(p) {
 /** The height of the bearing face … top of a part (nuts, washers): the `top` mate plane. */
 function topOf(p) {
   if (STD_ITEMS[p.kind]?.nut) return nutHeight(p.kind, p.size);
-  return { flatWasher: FLAT_WASHER[p.size]?.h, springWasher: SPRING_WASHER[p.size]?.s }[p.kind] ?? 0;
+  return { flatWasher: FLAT_WASHER[p.size]?.h, washer125: FLAT_WASHER[p.size]?.h, springWasher: SPRING_WASHER[p.size]?.s }[p.kind] ?? 0;
 }
 
 /**
@@ -1054,7 +1117,7 @@ export function stdThreads(p, { modelled = false } = {}) {
   const { d, p: P } = METRIC[p.size];
   const L = Number(p.length) || 0;
   const ext = (z0, length, dir = 1) => cosmeticThread({ centre: [0, 0, z0], dir: [0, 0, dir], length, internal: false, d, P, modelled });
-  switch (p.kind) {
+  switch (baseKind(p.kind)) {
     case 'hexBolt': case 'socketCap': case 'countersunk': case 'buttonHead': return [ext(-L, screwThreadLength(p.kind, p.size, L))];
     case 'setScrew': case 'setScrewCup': case 'setScrewSlotted': return [ext(-L, L)];
     case 'stud': case 'stud939': { const b = studThreadLength(p.size, L); return [ext(-studMetalEnd(p.kind, p.size), studMetalEnd(p.kind, p.size)), ext(L, b, -1)]; }

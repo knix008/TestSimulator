@@ -453,3 +453,55 @@ input[type="color"][data-pm-field] { width: 44px; height: 24px; padding: 0; bord
 .status-item.macro-rec .icon { animation: macro-blink 1s steps(2) infinite; }
 .status-item.macro-play { color: var(--accent); font-weight: 600; }
 @keyframes macro-blink { 50% { opacity: .25; } }
+
+/* ── design study */
+.ds-var { padding: 4px 0; border-bottom: 1px solid var(--border); display: grid; gap: 4px; }
+.ds-range { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+.ds-range .pm-field { flex-direction: column; align-items: stretch; }
+.ds-sensors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 8px; }
+.ds-scenario, .ds-constraint { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 4px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 4px; }
+.ds-scenario .pm-field { flex: 1 1 70px; min-width: 0; }
+.ds-constraint .pm-select { flex: 1 1 120px; min-width: 0; }
+.ds-table-wrap { max-height: 320px; overflow: auto; }
+.ds-table td, .ds-table th { white-space: nowrap; }
+.ds-table tr.ds-best td { font-weight: 700; color: var(--accent); }
+.ds-table tr.ds-bad td { color: var(--muted); }
+
+/* ── defeature */
+.df-list { list-style: none; margin: 4px 0; padding: 0; display: grid; gap: 2px; max-height: 260px; overflow-y: auto; }
+.df-list small { color: var(--muted); }
+.status-item.large-asm { color: var(--accent); font-weight: 600; }
+.fem-lin-fail td { color: var(--danger); font-weight: 600; }
+
+/* Markup (app-markup.js): the drawing layer over the graphics area and its PropertyManager. */
+.mk-overlay { position: absolute; inset: 0; z-index: 4; touch-action: none; cursor: crosshair; }
+.mk-overlay.mk-passive { pointer-events: none; }
+.mk-overlay[data-tool="select"] { cursor: default; }
+.mk-overlay[data-tool="text"] { cursor: text; }
+.mk-overlay[data-tool="erase"] { cursor: cell; }
+.mk-tools { display: grid; grid-template-columns: repeat(6, 32px); gap: 4px; }
+.mk-tool { width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 6px; }
+.mk-tool.active { background: var(--accent-soft, rgba(30, 136, 229, 0.15)); border-color: var(--accent); }
+.mk-colours { display: grid; grid-template-columns: repeat(8, 22px); gap: 6px; margin: 2px 0 8px; }
+.mk-colour { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border); background: var(--mk); padding: 0; cursor: pointer; }
+.mk-colour.active { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mk-list { display: flex; flex-direction: column; gap: 2px; margin-bottom: 6px; }
+.mk-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px; border-radius: 6px; }
+.mk-row.active { background: var(--accent-soft, rgba(30, 136, 229, 0.15)); }
+.mk-name { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; background: none; border: 0; color: inherit; text-align: left; padding: 4px 6px; cursor: pointer; min-width: 0; }
+.mk-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mk-name small, .mk-comments small { color: var(--muted); }
+.mk-comments { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow: auto; }
+.mk-comments li { border-left: 3px solid var(--accent); padding: 2px 8px; }
+.mk-comments li.muted { border: 0; color: var(--muted); }
+.mk-comments p { margin: 2px 0 0; white-space: pre-wrap; }
+.mk-comment { width: 100%; box-sizing: border-box; resize: vertical; min-height: 56px; }
+
+/* Schematic ↔ 3D harness link (app-schematic.js). */
+.sch-h-status.ok { color: var(--success, #2e7d32); }
+.sch-h-status.warn { color: var(--warning, #c77700); }
+.sch-h-list li.warn { color: var(--warning, #c77700); }
+
+/* Custom properties in the task pane. */
+.cprop-row { display: grid; grid-template-columns: 1fr 1.4fr auto; gap: 4px; align-items: center; margin: 2px 0; }
+.cprop-row input { min-width: 0; }

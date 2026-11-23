@@ -2,7 +2,7 @@
 /** The progress window's icon for each kind of job (the hourglass only for jobs not listed). */
 export const PROGRESS_ICONS = {
   'progress.kernel': 'part', 'progress.new': 'partNew', 'progress.export': 'exportFile', 'progress.save': 'save', 'progress.open': 'folderOpen',
-  'progress.import': 'stepFile', 'progress.task': 'taskScheduler', 'progress.sample': 'samples', 'progress.background': 'imageBg', 'progress.interference': 'interference',
+  'progress.import': 'stepFile', 'progress.task': 'taskScheduler', 'progress.designStudy': 'designStudy', 'progress.sample': 'samples', 'progress.background': 'imageBg', 'progress.interference': 'interference',
 };
 
 /** The big icon in the window follows the step the job is on (report({ icon })). */

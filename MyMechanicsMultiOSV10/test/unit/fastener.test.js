@@ -26,8 +26,11 @@ test('the stack: washer, spring washer, bolt, nut washer and nut, each at its of
 });
 
 test('kinds: socket, countersunk (no washer under a sunk head), button head; nut kinds; sizes a kind lacks', () => {
-  assert.deepEqual(FASTENER_KINDS, ['hexBolt', 'socketCap', 'countersunk', 'buttonHead']);
-  assert.deepEqual(NUT_KINDS, ['hexNut', 'hexNut2', 'thinNut', 'nylonNut']);
+  assert.deepEqual(FASTENER_KINDS, ['hexBolt', 'socketCap', 'countersunk', 'buttonHead', 'hexBolt933', 'hexBolt931', 'socketCap912', 'countersunk7991', 'lowHead7984']);
+  assert.deepEqual(NUT_KINDS, ['hexNut', 'hexNut2', 'thinNut', 'nylonNut', 'hexNut934', 'thinNut439']);
+  const din = fastenerPlan(throughHole(6.6, 12), { kind: 'countersunk7991', washer: true, nut: true, nutKind: 'hexNut934' });
+  assert.equal(din.bolt.kind, 'countersunk7991'); assert.equal(din.washer, null, 'a DIN countersunk head takes no washer either');
+  assert.equal(din.nut.kind, 'hexNut934');
   const csk = fastenerPlan(throughHole(6.6, 12), { kind: 'countersunk', washer: true, nut: true });
   assert.equal(csk.bolt.kind, 'countersunk'); assert.equal(csk.washer, null);
   assert.ok(STD_ITEMS.countersunk.lengths('M6').includes(csk.bolt.length));

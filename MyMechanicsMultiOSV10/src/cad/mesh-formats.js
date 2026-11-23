@@ -20,6 +20,27 @@ const fromYUp = (x, y, z) => [x * 1000, -z * 1000, y * 1000];
 
 // ───────────────────────── writers
 
+/** Binary STL of the items (all in one solid; facet normals from the winding). */
+export function stlBinary(items) {
+  const count = items.reduce((s, it) => s + it.triangles.length / 3, 0);
+  const buf = new ArrayBuffer(84 + 50 * count), dv = new DataView(buf);
+  const head = 'MyMechanics STL (mm)';
+  for (let i = 0; i < head.length; i++) dv.setUint8(i, head.charCodeAt(i));
+  dv.setUint32(80, count, true);
+  let o = 84;
+  for (const it of items) {
+    const V = it.vertices, T = it.triangles;
+    for (let t = 0; t < T.length; t += 3) {
+      const a = 3 * T[t], b = 3 * T[t + 1], c = 3 * T[t + 2];
+      const ux = V[b] - V[a], uy = V[b + 1] - V[a + 1], uz = V[b + 2] - V[a + 2], vx = V[c] - V[a], vy = V[c + 1] - V[a + 1], vz = V[c + 2] - V[a + 2];
+      let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
+      for (const v of [nx, ny, nz, V[a], V[a + 1], V[a + 2], V[b], V[b + 1], V[b + 2], V[c], V[c + 1], V[c + 2]]) { dv.setFloat32(o, v, true); o += 4; }
+      dv.setUint16(o, 0, true); o += 2;
+    }
+  }
+  return new Uint8Array(buf);
+}
+
 /** Wavefront OBJ, one object per item, vertex colours after the coordinates (read by most mesh tools). */
 export function writeObj(items) {
   const out = ['# MyMechanics OBJ export (mm, Z up)'];

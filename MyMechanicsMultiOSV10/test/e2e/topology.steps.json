@@ -1,0 +1,20 @@
+[
+  {
+    "name": "topology: the study opens from its command; the name plate fixed at its left end face and loaded at its right end face",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.actions.ensureKernel(); await m.actions.openSampleAsk('basNamePlate'); await sleep(1200); await m.run('topologyStudy'); await sleep(400); const e = m.state.editing; const faces = m.state.partEntry.faces; const x = (fc) => fc.center?.x ?? fc.center?.[0] ?? 0; const planar = faces.map((fc, i) => ({ i, fc })).filter((q) => q.fc.geomType === 'PLANE').sort((a, b) => x(a.fc) - x(b.fc)); const pick = (index) => m.viewport.options.onPick({ kind: 'face', bodyKey: 'body', index }, {}); e.pick = 'fixtures'; pick(planar[0].i); e.pick = 'loads'; pick(planar.at(-1).i); e.magnitude = 2000; e.dir = '-z'; m.actions.pmSet('loadKind', 'force'); await sleep(200); return JSON.stringify({ study: e.study, volume: Boolean(document.querySelector('[data-pm-field=\"volFrac\"]')), fixed: e.fixtures.length, loaded: e.loads.length }); })()",
+    "expect": "\"study\":\"topology\",\"volume\":true,\"fixed\":1,\"loaded\":1"
+  },
+  {
+    "name": "topology: 35 % volume, 15 iterations — the volume met, the compliance down, the shape drawn over the see-through body",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const q = (s) => document.querySelector(s); const fld = (k, v) => { const i = q(`[data-pm-field=\"${k}\"]`); i.value = String(v); i.dispatchEvent(new Event('change', { bubbles: true })); }; fld('volFrac', '0.35'); await sleep(100); fld('topoIters', '15'); await sleep(100); const e = m.state.editing; await m.actions.pmCommand('runSim'); for (let i = 0; i < 600 && !e.result; i++) await sleep(200); await sleep(400); const r = e.result; const h = r?.history ?? []; const body = m.viewport.bodies.get('body'); return JSON.stringify({ passive: r && Math.round(r.passiveFraction * 100), ok: r?.ok, volume: r && Math.abs(r.volumeFraction - 0.35) < 0.015, down: h.length > 2 && r.compliance < h[0].compliance, shape: m.viewport.bodies.has('topo:shape'), seeThrough: body?.mesh.material.opacity < 0.5, chart: Boolean(q('.left-pm-body svg, .left-pm-body canvas')) }); })()",
+    "expect": "\"ok\":true,\"volume\":true,\"down\":true,\"shape\":true,\"seeThrough\":true,\"chart\":true"
+  },
+  {
+    "name": "topology: a higher threshold re-draws a thinner shape without a new run; the shape exports as binary STL (no dialog)",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const q = (s) => document.querySelector(s); const e = m.state.editing; const v0 = e.result.shape.volume, it0 = e.result.iterations; const i = q('[data-pm-field=\"threshold\"]'); i.value = '0.8'; i.dispatchEvent(new Event('change', { bubbles: true })); await sleep(300); const v1 = e.result.shape.volume; let saved = null; window.showSaveFilePicker = async (o) => ({ name: o?.suggestedName ?? 'x', createWritable: async () => ({ write: async (b) => { saved = new Uint8Array(b instanceof Blob ? await b.arrayBuffer() : b.buffer ?? b); }, close: async () => {} }) }); q('[data-pm=\"topo.stl\"]').click(); for (let k = 0; k < 30 && !saved; k++) await sleep(100); const n = saved ? new DataView(saved.buffer, saved.byteOffset).getUint32(80, true) : 0; return JSON.stringify({ thinner: v1 < v0, same: e.result.iterations === it0, stl: Boolean(saved) && saved.length === 84 + 50 * n && n === e.result.shape.triangles.length / 3 }); })()",
+    "expect": "\"thinner\":true,\"same\":true,\"stl\":true"
+  },
+  {
+    "shot": "topology"
+  }
+]

@@ -151,6 +151,20 @@ Tree right-click menu: edit feature, rename (F2), suppress / unsuppress, roll ba
 
    ![Core/cavity split: the mold block divided at the parting height and opened](images/en/mold-core-cavity.png)
 
+### Injection moulding: flow, mould cooling, fiber orientation and warpage
+
+The **Plastics Flow Study** on the **Injection Flow** tab fills and packs the part from a resin (Cross-WLF viscosity, Tait PVT data), the process settings and the gates (click on the part or let it suggest one), and colours the part by fill time, pressure, flow-front temperature, frozen layer, packing pressure, shrinkage and sink, with weld lines and air traps marked. Three more steps can be added in the PropertyManager; they run after the fill in the same background job.
+
+* **Fiber orientation**: with a glass fiber content (%) and aspect ratio, the orientation tensor during filling is computed with the Folgar–Tucker equation (hybrid closure) in layers through the wall. Near the walls (skin) the shear lines the fibers up with the flow; at the middle (core) a spreading flow turns them across. Colour the part by the alignment, the skin or the core.
+* **Mould cooling**: serpentine channels are laid out in both mould halves (diameter, flow per channel, inlet temperature, pitch, cavity-to-axis distance, coolant, mould material), and the cycle-averaged heat transfer gives the mould wall temperature and the cooling time at each place. Each channel lists its Reynolds number (turbulent or not), the heat it removes, the coolant outlet temperature and the pressure drop, with warnings when the flow is not turbulent, the coolant warms more than 3 °C or a channel is too close to the cavity. The channels are drawn in the graphics area.
+* **Warpage**: the part is meshed with tetrahedra and its free (3-2-1 held) deformation is solved from the initial strains left by differential shrinkage, differential cooling and orientation (fiber or molecular). The warpage of each cause and in total (after the even size change and the rigid motion are taken out) and the main cause are listed; **Show deformed shape** and **Deformation scale** exaggerate it.
+
+The report (HTML) has tables for these steps too.
+
+![Mould cooling: the mould wall temperature and the core and cavity channels](images/en/plastics-cooling.png)
+
+![Warpage: coloured by cause, with the deformed shape exaggerated](images/en/plastics-warp.png)
+
 ## 7. Equations, configurations and design tables
 
 * **Evaluate › Equations**: make global variables (`W = 120`, `H = W / 2`). Type `=H - 5` in a feature's value box to drive it. Functions `sin cos tan sqrt abs min max round iif(condition, then, else)`, `pi`, other features' values (`Boss-Extrude1.depth`) and sketch dimensions (`D1@Sketch1`) can be used.
@@ -167,11 +181,13 @@ In the task pane's **Materials** tab (or by double-clicking Material in the tree
 
 ![The mass properties window and the material and mass in the task pane](images/en/mass-props.png)
 
-**Evaluate › Simulation (Static)** is a linear static stress analysis. Click the faces to fix and the loaded faces, give a force (N, along ±X, Y or Z) or a pressure (MPa) and **Run**. The body is coloured by von Mises stress (blue → red) and the maximum stress, maximum displacement and minimum factor of safety (yield ÷ stress) are listed; the deformed shape can be shown exaggerated. Set the study to **Thermal** for a steady-state temperature field (fixed-temperature faces, and faces with convection — film coefficient and ambient — or heat power in W), or to **Frequency** for the natural frequencies and mode shapes with the fixed faces (pick a mode with its button). The analysis uses cube (voxel) elements, so a higher resolution is more accurate, and local stresses at corners can come out higher than real.
+**Evaluate › Simulation (Static)** is a linear static stress analysis. Click the faces to fix and the loaded faces, give a force (N, along ±X, Y or Z) or a pressure (MPa) and **Run**. The body is coloured by von Mises stress (blue → red) and the maximum stress, maximum displacement and minimum factor of safety (yield ÷ stress) are listed; the deformed shape can be shown exaggerated. Set the study to **Thermal** for a steady-state temperature field (fixed-temperature faces, and faces with convection — film coefficient and ambient — radiation — emissivity and ambient: εσ(T⁴ − T∞⁴), solved by Newton steps — or heat power in W), or to **Frequency** for the natural frequencies and mode shapes with the fixed faces (pick a mode with its button). The analysis uses cube (voxel) elements, so a higher resolution is more accurate, and local stresses at corners can come out higher than real.
 
 ![Setting up: fixed face, load face, a force of 200 N (−Y)](images/en/sim-setup.png)
 
 ![Static results: von Mises stress colors, maximum stress, displacement and factor of safety](images/en/sim-static.png)
+
+**Stress linearisation (pressure-vessel check).** On a static result, pick one wall surface and then the opposite one with the **probes**: along the line between them (the stress classification line) the stress is split into membrane (Pm), bending (Pb), membrane + bending, peak (F) and total, each as stress intensity (Tresca) and von Mises in MPa. Enter the **allowable stress S** below it (default: yield ÷ 1.5) to see the checks Pm ≤ S, Pm + Pb ≤ 1.5 S and total ≤ 3 S; a row that fails is red. If the line leaves the model you are asked to pick two points across a wall.
 
 ![Thermal: 120 °C at one end, convection at the other](images/en/sim-thermal.png)
 
@@ -199,6 +215,24 @@ Double-click a component to open its part tab. When a part changes, the assembly
 * **Exploded view**: spreads the components outward from the centre; click again to collapse, **Delete Explode** removes the steps.
 
    ![The six-axis robot exploded](images/en/assembly-explode.png)
+
+### Standard parts library and smart fasteners
+
+The **Standard Parts Library** on the **Library · Routing · Render** tab makes bolts, nuts, washers, bearings, pins, rings, keys, gears, pulleys and pipe fittings from the standards' size tables. Each item shows its standard number (for example ISO 4017 M8×30); threads are cosmetic or modelled.
+
+Next to the ISO items there are **DIN** items; where DIN differs from ISO, they are made to DIN.
+
+| DIN | Item | Differs from ISO in |
+|---|---|---|
+| DIN 933 / 931 | Hex bolt (fully / part threaded) | across flats M10 17, M12 19 (ISO 16, 18), head height; 931 thread length b = 2d + 6 (L ≤ 125), 2d + 12 (L ≤ 200) |
+| DIN 934 | Hex nut | across flats as DIN 933, height m = 0.8 d |
+| DIN 439 B | Thin hex nut | DIN across flats |
+| DIN 912 | Socket head cap screw | same dimensions as ISO 4762 |
+| DIN 7991 | Countersunk socket screw | head diameter (M10 20, ISO 10642 22.4) |
+| DIN 7984 | Low head socket cap screw | head height (M10 6, ISO 4762 10) |
+| DIN 125 A | Plain washer | same dimensions as ISO 7089 |
+
+**Smart Fasteners** put bolts, washers and nuts of the right size and length into an assembly's holes; the DIN items can be chosen as the bolt and nut kinds too.
 * **Motion study**: put a rotary (rpm) or linear (mm/s) motor on a component's cylindrical face and play. Components joined by gear, rack and screw mates follow; the time slider shows any moment.
 
    ![Motion study: J4 and J6 motors and the time slider](images/en/assembly-motion.png)
@@ -325,7 +359,7 @@ A vault is a file store several people share. Only the person who checked a file
 - **Search** finds text in names, part numbers, descriptions, materials and properties; the filter button searches by part number, description, material, state and kind.
 - **Data cards**: part number, description, material, project, vendor, cost, finish, due date, critical part (drawings also sheet size and checked by). Admins add fields on the Settings tab.
 
-## 16. Tools: illustrations, electrical schematics, design checker, task scheduler, macros
+## 16. Tools: illustrations, electrical schematics, design checker, task scheduler, macros, markup
 
 ### Technical illustrations
 
@@ -336,6 +370,8 @@ A vault is a file store several people share. Only the person who checked a file
 **Tools › Electrical schematic** opens an A3 sheet over the graphics area. Pick a symbol in the palette (connector, terminal block, switch, push button, relay coil and contact, fuse, lamp, motor, resistor, diode, supply, ground) and click the sheet to place it on the 5 mm grid. The **Wire** tool joins pin to pin with an orthogonal wire. Dragging a symbol moves its wires with it, R turns it 90°, Delete removes, Esc cancels. The wheel zooms, a middle or right drag pans and F shows the whole sheet. Supplies of the same name and all grounds are one net, and wires are numbered per net. The check list shows open pins, duplicate tags and dangling wires; export SVG, a from–to list (CSV) and a parts list (CSV). Undo works as everywhere.
 
 ![Electrical schematic: a relay circuit, wires numbered per net, the symbol palette and the checks on the left](images/en/tools-schematic.png)
+
+**3D harness link.** When a part of the project has an electrical harness route, the schematic PropertyManager lists it under **3D harness link**. A symbol whose tag is the name of a harness connector (connectors such as X1 and X2, devices such as M1) is an end of the harness, its pins mapping in the symbol's pin order (connectors by number). Each net that joins two such pins is one harness wire, with the wire number, colour (a code such as RD or BU, or a word such as red) and size (1.5, 1,5 mm² or AWG 18 → the nearest standard size) from the schematic. The list shows wires missing from the harness, wires not in the schematic and wires whose colour or size differ, as well as nets that need a splice (three or more pins) and connectors the harness does not have. **Send to harness** sets the harness route's wires from the schematic (keeping the clips each wire passes) and rebuilds the part. **Lengths from harness** writes the routed 3D lengths on the schematic wires: the wire properties and the from–to list (the Length column of the CSV) show them. The other way round, **Wires from schematic** in the wire table of the harness route does the same while you edit the route.
 
 ### Design checker
 
@@ -354,3 +390,22 @@ A vault is a file store several people share. Only the person who checked a file
 Choose **Tools › Macros › Record macro** and work as usual: commands, picks in the graphics area, PropertyManager input, tree selection, document switches and sketch contents are recorded (● REC in the status bar). **Stop macro** turns the recording into JavaScript — lines of `await mm.…(…)` — and opens it in the **Macro editor** window. There you edit it, **Run** it (Ctrl+Enter), **Stop** it and **Open… / Save…** it (`.mmjs`). The console below shows the log and errors (click one to go to its line), and its prompt evaluates an expression at once. Hand-written macros can use loops and variables, read the model with `mm.parts()`, `mm.feature(name)`, `mm.project` and `mm.massProperties()`, change it with `mm.setParam(feature, key, value)`, `mm.setVariable`, `mm.setProperty`, `mm.run(command)` and `mm.set/field/toggle/pm/accept`, and use `mm.log` and `mm.wait`. **Run macro…** picks a file and runs it.
 
 ![Macro editor: the script and the console](images/en/tools-macro.png)
+
+**Building models from a macro.** A macro can make and read the model directly, without going through the screen. Every call is one undo step; a call that fails stops the macro with the reason and the line.
+
+| Area | Functions |
+|---|---|
+| Building parts | `mm.sketch(plane, shapes, { name })` — the plane is 'front', 'top', 'right' or a plane feature's name; shapes are `{ rect: [width, height, cx, cy] }`, `{ circle: [cx, cy, diameter] }`, `{ line }`, `{ arc }`, `{ polygon }`, `{ slot }`, `{ polyline: [[x, y]…] }`, `{ axis }` (construction); `mm.plane`, `mm.extrude(sketch, depth)`, `mm.cut(sketch, 'through')`, `mm.revolve`, `mm.fillet(radius, edge test)`, `mm.chamfer`, `mm.shell`, `mm.hole`, `mm.feature(type, values)` |
+| Geometry | `mm.edges(test)`, `mm.faces(test)` — chosen by type, midpoint, direction and length (faces: centre, normal, area); `mm.boundingBox()`, `mm.massProperties()` |
+| Feature tree | `mm.features()`, `mm.suppress`, `mm.renameFeature`, `mm.deleteFeature`, `mm.errors()` |
+| Configurations, properties | `mm.configurations()`, `mm.addConfiguration`, `mm.useConfiguration`; `mm.properties()`, `mm.customProperty`, `mm.setCustomProperty` |
+| Documents, assemblies | `mm.documents()`, `mm.addPart`, `mm.addAssembly`, `mm.document`, `mm.components()`, `mm.insertComponent(part, [x, y, z])`, `mm.moveComponent`, `mm.interference()` |
+| Events | `mm.on('change' · 'selection' · 'document', fn)`, `mm.off`, `mm.events()` — handlers stay until removed; a handler's error is logged in the console |
+
+**Custom properties.** In the task pane's Properties tab, parts and assemblies take custom properties (name and value): add, edit and delete them there (the same data as `mm.setCustomProperty` in a macro).
+
+### Markup
+
+**Tools › Markup** draws review notes over the graphics area of a part or assembly. The tools are navigate (turn the model without drawing), select and move, pen, highlighter, line, arrow (Shift snaps to 45°), rectangle, ellipse, revision cloud, text box and eraser, with eight colours, a line width and a text size. Drawing starts a markup on the current view; it is saved in the document with that view (the camera), its author and date. Choosing a markup in the list brings its view back with the drawing. Turn the view away and the drawing hides until you choose **Back to the markup view**. The select tool drags items, Delete removes them, and a double-click edits a text box. Each markup has a name, a status (open or resolved) and comments (author and time), and exports as a **PNG picture** (the view rendered at twice the size with the drawing on top) or a **Review document (HTML)** with the pictures, status and comments of all markups. Every edit can be undone.
+
+![Markup: a revision cloud, an arrow, a text box and the highlighter](images/en/tools-markup.png)

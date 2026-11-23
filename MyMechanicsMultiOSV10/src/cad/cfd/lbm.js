@@ -14,6 +14,9 @@
 // rest population carries σ = ρc_solid / ρc_fluid), so steady and transient temperatures are right); body at a
 // fixed temperature, with a heat power, or
 // just conducting; optional Boussinesq buoyancy (Guo forcing) for natural convection.
+// Electronics cooling: further solid components (boards, chips, heat sinks) each with its own power, ρc and
+// conductivity — per axis for a board (the D3Q7 flux of each axis relaxes at its own rate: a diagonal conductivity
+// tensor) — reported per component (mean, maximum, junction T_case + θ_jc P).
 // Steady runs stop when the monitored velocities and forces settle (then average over a window); transient runs
 // march a physical duration and keep force histories and field snapshots.
 //
@@ -394,7 +397,8 @@ function heatKernel(f, tg, tg2, Tcell, solid, P) {
     const o = 7 * s;
     // Solid cells carry the energy σT (σ = (ρc)_solid / (ρc)_fluid): the rest population holds the extra (σ − 1)T,
     // so the solid heats on its own time scale while the conductive flux (∝ k) stays continuous at the interface.
-    const sig = solid[s] === 1 ? th.sigmaS ?? 1 : solid[s] ? th.sigmaWall ?? 1 : 1;
+    const cell = th.cell;
+    const sig = cell && solid[s] === 1 ? cell.sig[s] : solid[s] === 1 ? th.sigmaS ?? 1 : solid[s] ? th.sigmaWall ?? 1 : 1;
     let T = 0; for (let q = 0; q < 7; q++) T += tg[o + q];
     T /= sig;
     let ux = 0, uy = 0, uz = 0, om;
@@ -403,13 +407,27 @@ function heatKernel(f, tg, tg2, Tcell, solid, P) {
       for (let q = 0; q < Q; q++) { const v = f[fo + q]; r += v; mx += v * cx[q]; my += v * cy[q]; mz += v * cz[q]; }
       ux = mx / r; uy = my / r; uz = mz / r; om = 1 / th.tauF;
     } else om = 1 / (solid[s] === 1 ? th.tauS : th.tauWall ?? th.tauS);
-    if (solid[s] === 1 && th.fixedBody) T = th.Tbody;
+    const fixedHere = solid[s] === 1 && (cell ? cell.fixed[s] === 1 : th.fixedBody);
+    if (fixedHere) T = th.Tbody;
     Tcell[s] = T;
-    for (let q = 0; q < 7; q++) {
-      const eq = TW[q] * T * (1 + 4 * (TX[q] * ux + TY[q] * uy + TZ[q] * uz)) + (q === 0 ? (sig - 1) * T : 0);
-      tg[o + q] = (solid[s] === 1 && th.fixedBody) ? eq : tg[o + q] - om * (tg[o + q] - eq);
+    if (cell && solid[s] === 1 && !fixedHere) {
+      // Per-axis relaxation of the flux (antisymmetric) parts: a diagonal conductivity tensor; the rest at the mean rate.
+      const t3 = cell.tau, o3 = 3 * s, om0 = 3 / (t3[o3] + t3[o3 + 1] + t3[o3 + 2]);
+      tg[o] -= om0 * (tg[o] - (TW[0] * T + (sig - 1) * T));
+      for (let a = 0; a < 3; a++) {
+        const p = 1 + 2 * a, m = 2 + 2 * a, fp = tg[o + p], fm = tg[o + m];
+        const sym = fp + fm, asym = fp - fm, eqs = 2 * TW[p] * T;
+        const ns = sym - om0 * (sym - eqs), na = asym * (1 - 1 / t3[o3 + a]);
+        tg[o + p] = 0.5 * (ns + na); tg[o + m] = 0.5 * (ns - na);
+      }
+      tg[o] += cell.src[s];
+    } else {
+      for (let q = 0; q < 7; q++) {
+        const eq = TW[q] * T * (1 + 4 * (TX[q] * ux + TY[q] * uy + TZ[q] * uz)) + (q === 0 ? (sig - 1) * T : 0);
+        tg[o + q] = fixedHere ? eq : tg[o + q] - om * (tg[o + q] - eq);
+      }
+      if (solid[s] === 1 && !cell && th.source) tg[o] += th.source;
     }
-    if (solid[s] === 1 && th.source) tg[o] += th.source;
   }
   // Stream (bounce-back at the domain sides, inlet fixed, outlet zero gradient); heat into the fluid from the body.
   let qBody = 0;
@@ -517,7 +535,8 @@ export function flowStudy(mesh, opts = {}) {
   const { mode = 'external', axis = 'x', sign = 1, velocity = 1, fluid = 'air', cellSize = null, resolution = 24, domain = {}, sides: sideMode = 'slip',
     collision = 'trt', les = 0.12, uLat: uLat0 = 0.06, time = { mode: 'steady' }, thermal = null, maxCells = 3e6, onProgress = null, cancel = null } = opts;
   let uLat = uLat0;
-  const S = surfaceModel(mesh);
+  const comps = (thermal?.components ?? []).filter((c) => c?.mesh?.vertices?.length);
+  const S = surfaceModel(comps.length ? joinMeshes([mesh, ...comps.map((c) => c.mesh)]) : mesh);
   if (!(S.volume > 0)) return { ok: false, error: 'empty' };
   const fa = { x: 0, y: 1, z: 2 }[axis] ?? 0;
   const props = typeof fluid === 'string' ? FLUIDS[fluid] ?? FLUIDS.air : { ...FLUIDS.air, ...fluid };
@@ -568,6 +587,9 @@ export function flowStudy(mesh, opts = {}) {
   }
   let fluidCells = 0; for (let s = 0; s < N; s++) if (!solid[s]) fluidCells++;
   if (!fluidCells) return { ok: false, error: 'no-fluid' };
+  // Which solid cells belong to which component (-1: the main body).
+  const compCell = comps.length ? new Int16Array(N).fill(-1) : null;
+  comps.forEach((c, ci) => { const cv = voxelize(surfaceModel(c.mesh), origin, h, dims); for (let s = 0; s < N; s++) if (cv[s] && solid[s] === 1) compCell[s] = ci; });
   const qwall = wallFractions(S, origin, h, dims, solid);
   onProgress?.(0.04, { stage: 'grid' });
   // Characteristic length and lattice units.
@@ -614,6 +636,24 @@ export function flowStudy(mesh, opts = {}) {
       const Pw = thermal.body?.value ?? 10, qv = Pw / (solidCells * dxM ** 3);
       th.source = (aS * dxM * dxM * qv) / ks;
     }
+    if (compCell) {
+      // Per-cell properties: the main body as set, each component its own ρc, conductivity (per axis) and power.
+      const cell = { sig: new Float64Array(N).fill(1), tau: new Float64Array(3 * N).fill(tauS), src: new Float64Array(N), fixed: new Uint8Array(N) };
+      const counts = comps.map(() => 0); for (let s = 0; s < N; s++) if (compCell[s] >= 0) counts[compCell[s]]++;
+      let mainCells = 0; for (let s = 0; s < N; s++) if (solid[s] === 1 && compCell[s] < 0) mainCells++;
+      const mainSrc = bm === 'power' && mainCells ? (aLat * dxM * dxM * ((thermal.body?.value ?? 10) / (mainCells * dxM ** 3))) / props.k : 0;
+      for (let s = 0; s < N; s++) {
+        if (solid[s] !== 1) continue;
+        const ci = compCell[s];
+        if (ci < 0) { cell.sig[s] = sigmaS; cell.fixed[s] = bm === 'temperature' ? 1 : 0; cell.src[s] = mainSrc; continue; }
+        const c = comps[ci], k3 = Array.isArray(c.k) ? c.k : [c.k ?? 50, c.k ?? 50, c.k ?? 50];
+        cell.sig[s] = ((c.density ?? 2000) * (c.cp ?? 900)) / (props.density * props.cp);
+        for (let a = 0; a < 3; a++) cell.tau[3 * s + a] = Math.min(0.5 + 4 * aLat * (k3[a] / props.k), 50);
+        cell.src[s] = counts[ci] && c.power ? (aLat * dxM * dxM * (c.power / (counts[ci] * dxM ** 3))) / props.k : 0;
+      }
+      th.cell = cell;
+      th.compCounts = counts;
+    }
     if (thermal.buoyancy) {
       const gLat = (9.81 * dt * dt) / dxM, b = props.beta ?? 3.4e-3;
       th.buoyancy = { g: [0, 0, gLat * b], Tref: Tin };     // Z up: warmer fluid rises (acceleration +Z per kelvin)
@@ -622,7 +662,7 @@ export function flowStudy(mesh, opts = {}) {
   // Body centre (cells) for the moments.
   const ctr = [0, 1, 2].map((a) => ((S.lo[a] + S.hi[a]) / 2 - origin[a]) / h - 0.5);
   const snapshots = [];
-  const levels = mode === 'external' ? Math.max(0, Math.min(3, Math.round(opts.refine ?? 0))) : 0;
+  const levels = mode === 'external' && !compCell ? Math.max(0, Math.min(3, Math.round(opts.refine ?? 0))) : 0;
   const coarseCfg = {
     dims, solid, qwall, flowAxis: fa, flowSign: sign, sides, tau, collision, smagorinsky: les, uIn: uLat, thermal: th, steps, minSteps: Math.min(steps, Math.round(1.5 * flowThrough)), tol: time.tol ?? 2e-7,
     transient, samples: transient ? 200 : 100, center: ctr, cancel, ramp: Math.round(Math.min(steps * 0.2, 0.6 * flowThrough)), keepState: levels > 0,
@@ -789,6 +829,17 @@ export function flowStudy(mesh, opts = {}) {
     const A = S.area * 1e-6;
     if (th.fixedBody && Math.abs(dT) > 0 && A > 0) nusselt = (heat / (A * dT)) * lcM / props.k;
   }
+  // Electronics: each component's temperatures (and the junction, T_case max + θ_jc · P).
+  const components = [];
+  if (th?.cell && compCell) {
+    const T = fine.lat.temp;
+    comps.forEach((c, ci) => {
+      let mx = -Infinity, sum = 0, n = 0;
+      for (let s = 0; s < N; s++) if (compCell[s] === ci) { mx = Math.max(mx, T[s]); sum += T[s]; n++; }
+      const P = c.power ?? 0;
+      components.push({ name: c.name ?? `C${ci + 1}`, power: P, cells: n, max: n ? mx : null, mean: n ? sum / n : null, junction: n && c.thetaJC != null ? mx + c.thetaJC * P : null, limit: c.limit ?? null, over: n && c.limit != null ? (c.thetaJC != null ? mx + c.thetaJC * P : mx) > c.limit : false });
+    });
+  }
   // Strouhal from the lift history (transient).
   let strouhal = 0;
   if (transient && lat.forceHistory.length > 20) {
@@ -806,10 +857,40 @@ export function flowStudy(mesh, opts = {}) {
     forceVector: forceN, dragForce: drag, liftForce: forceN[lateral2] ?? 0, sideForce: forceN[lateral1] ?? 0,
     moments: fine.lat.torque.map((v) => v * toNf * dxF), blocks: blocks.map(({ rho: _r, vel: _v, solid: _s, ...b }) => b), refined: blocks.length, refineRequested: levels, refineFailed, coupling, couplingSettled: !coupling.length || coupling.at(-1) < (opts.couplingTol ?? 0.005), dragCoefficient, frontalArea, pressureDrop, meanVelocity: velocity, maxVelocity: vmax * scaleV,
     hydraulicDiameter: mode === 'internal' ? lcCells * h : 0, characteristicLength: lcCells * h, elements: fluidCells, elementSize: h,
-    vertexPressure, vertexCp, heat, nusselt, strouhal, collision, les, tau,
+    vertexPressure, vertexCp, heat, nusselt, strouhal, collision, les, tau, components, inletArea: inletArea * h * h,
     history: lat.forceHistory.map((x) => ({ time: x.step * dt, force: x.force.map((v) => v * toN), heat: th ? x.heat * props.density * props.cp * dxM ** 3 / dt : 0 })),
     snapshots,
   };
+}
+
+/** Several surface meshes as one (disjoint closed bodies: the ray parity still finds each one's inside). */
+export function joinMeshes(list) {
+  let nv = 0, nt = 0; for (const m of list) { nv += m.vertices.length; nt += m.triangles.length; }
+  const vertices = new Float32Array(nv), triangles = new Uint32Array(nt);
+  let vo = 0, to = 0;
+  for (const m of list) { vertices.set(m.vertices, vo); for (let i = 0; i < m.triangles.length; i++) triangles[to + i] = m.triangles[i] + vo / 3; vo += m.vertices.length; to += m.triangles.length; }
+  return { vertices, triangles };
+}
+
+/**
+ * Electronics cooling with a fan: the fan curve Δp = p_max (1 − Q / Q_max) meets the system curve Δp = c Q², c from a
+ * first run at `velocity`; the study runs again at that operating point. fan: { maxFlow (m³/s), maxPressure (Pa) }.
+ */
+export function fanOperatingPoint(dp1, q1, fan) {
+  const c = dp1 / Math.max(1e-30, q1 * q1), b = fan.maxPressure / fan.maxFlow;
+  const Q = (-b + Math.sqrt(b * b + 4 * c * fan.maxPressure)) / (2 * c);
+  return { flow: Q, pressure: fan.maxPressure * (1 - Q / fan.maxFlow), systemCoefficient: c };
+}
+export function fanFlowStudy(mesh, opts) {
+  const { fan, velocity = 1 } = opts;
+  const r1 = flowStudy(mesh, { ...opts, velocity });
+  if (!r1.ok && r1.error !== 'not-converged') return r1;
+  const A = r1.inletArea * 1e-6, q1 = velocity * A;
+  const op = fanOperatingPoint(Math.max(1e-9, r1.pressureDrop), q1, fan);
+  const v = op.flow / A;
+  const r2 = flowStudy(mesh, { ...opts, velocity: v });
+  if (!r2.ok && r2.error !== 'not-converged') return r2;
+  return { ...r2, fan: { ...op, velocity: v, systemPressure: r2.pressureDrop, mismatch: Math.abs(r2.pressureDrop - op.pressure) / Math.max(1e-9, op.pressure), firstRun: { velocity, pressureDrop: r1.pressureDrop } } };
 }
 
 /** A scalar at a world point from the fluid cells around it (trilinear over the fluid ones), or null. */

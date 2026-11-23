@@ -257,6 +257,209 @@ const KEYM = 67108864;                          // edge key = a·KEYM + b (a < b
 const ekey = (a, b) => (a < b ? a * KEYM + b : b * KEYM + a);
 const faceKey = (a, b, c) => { let x = a, y = b, z = c, t; if (x > y) { t = x; x = y; y = t; } if (y > z) { t = y; y = z; z = t; } if (x > y) { t = x; x = y; y = t; } return `${x},${y},${z}`; };
 
+/**
+ * Mesh improvement of a T4 list (corner nodes, before the mid-edge nodes): the cutting, feature snapping and edge
+ * recovery above leave slivers (near-flat tets, dihedral angles near 0°) that make the stiffness matrix badly
+ * conditioned (an iterative solve took 10× the iterations) and the stresses in them wrong. Rounds of
+ *   – flips: 2-3 (an interior face swapped for the edge between the two opposite nodes) and 3-2 (an interior edge
+ *     with three tets around it removed), kept when the worst quality of the tets involved improves;
+ *   – smoothing: a node of a poor tet moves toward the centre of its neighbours (a surface node within its own CAD
+ *     face and projected back onto it; nodes on CAD edges and corners stay), kept when its worst tet improves;
+ *   – boundary slivers: a flat tet with two or more faces on the boundary is dropped (it only fills a crease of the
+ *     surface triangulation; its volume is negligible).
+ * tets: node ids (4 per tet, positive volume); nodes: Float64Array (3 per node), changed in place; surf: 1 for surface
+ * nodes. Returns { tets, flips, moves, removed }.
+ */
+export function improveMesh(tets, nodes, surf, S, { h = S.size / 16, rounds = 4, target = 0.3 } = {}) {
+  const nn = nodes.length / 3;
+  let T = Array.from(tets);
+  const C = new Float64Array(12);
+  const qualityOf = (a, b, c, d) => {
+    for (let k = 0; k < 3; k++) { C[k] = nodes[3 * a + k]; C[3 + k] = nodes[3 * b + k]; C[6 + k] = nodes[3 * c + k]; C[9 + k] = nodes[3 * d + k]; }
+    const v = tetVolume(C);
+    return v > 1e-14 * h * h * h ? tetQuality(C) : -1;
+  };
+  const tq = (t) => qualityOf(T[4 * t], T[4 * t + 1], T[4 * t + 2], T[4 * t + 3]);
+  // Surface nodes: the CAD faces they touch (from the boundary facets); one face → may slide in it, more → fixed.
+  const faceSets = new Map();
+  const tagFaces = () => {
+    faceSets.clear();
+    for (const [t, f] of boundaryOf(T).values()) {
+      const ids = FACES[f].map((a) => T[4 * t + a]);
+      const c = [0, 1, 2].map((ax) => (nodes[3 * ids[0] + ax] + nodes[3 * ids[1] + ax] + nodes[3 * ids[2] + ax]) / 3);
+      const hit = S.closest(c[0], c[1], c[2], 1.5 * h);
+      for (const id of ids) { let s = faceSets.get(id); if (!s) faceSets.set(id, (s = new Set())); if (hit) s.add(hit.faceId); else s.add(-1); }
+    }
+  };
+  let flips = 0, moves = 0, removed = 0, collapses = 0;
+  for (let round = 0; round < rounds; round++) {
+    let changed = 0;
+    // ── flips (interior faces and edges)
+    {
+      const ne = T.length / 4, dead = new Uint8Array(ne), add = [];
+      const faceMap = new Map(), edgeMap = new Map();
+      for (let t = 0; t < ne; t++) {
+        for (let f = 0; f < 4; f++) { const [a, b, c] = FACES[f]; const kk = faceKey(T[4 * t + a], T[4 * t + b], T[4 * t + c]); const l = faceMap.get(kk); if (l) l.push(t); else faceMap.set(kk, [t]); }
+        for (const [i, j] of TET_EDGES) { const kk = ekey(T[4 * t + i], T[4 * t + j]); const l = edgeMap.get(kk); if (l) l.push(t); else edgeMap.set(kk, [t]); }
+      }
+      const q = new Float64Array(ne); for (let t = 0; t < ne; t++) q[t] = tq(t);
+      const orient = (a, b, c, d) => { for (let k = 0; k < 3; k++) { C[k] = nodes[3 * a + k]; C[3 + k] = nodes[3 * b + k]; C[6 + k] = nodes[3 * c + k]; C[9 + k] = nodes[3 * d + k]; } return tetVolume(C) > 0 ? [a, b, c, d] : [a, c, b, d]; };
+      // 3-2: an edge with exactly three tets around it, the ring closed (an interior edge).
+      for (const [kk, list] of edgeMap) {
+        if (list.length !== 3 || list.some((t) => dead[t])) continue;
+        if (Math.min(q[list[0]], q[list[1]], q[list[2]]) >= target) continue;
+        const a = Math.floor(kk / KEYM), b = kk % KEYM;
+        const ring = list.map((t) => [0, 1, 2, 3].map((i) => T[4 * t + i]).filter((n) => n !== a && n !== b));
+        const others = [...new Set(ring.flat())];
+        if (others.length !== 3) continue;
+        const [c, d, e] = others;
+        const t1 = orient(c, d, e, a), t2 = orient(c, d, e, b);
+        const q1 = qualityOf(...t1), q2 = qualityOf(...t2);
+        const old = Math.min(q[list[0]], q[list[1]], q[list[2]]);
+        // Both new tets positive and the edge interior (the three old tets fill the same volume: volumes add up).
+        if (!(Math.min(q1, q2) > old + 1e-3)) continue;
+        let vOld = 0; for (const t of list) { for (let i = 0; i < 4; i++) for (let k = 0; k < 3; k++) C[3 * i + k] = nodes[3 * T[4 * t + i] + k]; vOld += tetVolume(C); }
+        let vNew = 0; for (const tt of [t1, t2]) { for (let i = 0; i < 4; i++) for (let k = 0; k < 3; k++) C[3 * i + k] = nodes[3 * tt[i] + k]; vNew += tetVolume(C); }
+        if (Math.abs(vNew - vOld) > 1e-9 * Math.max(vOld, h * h * h)) continue;
+        for (const t of list) dead[t] = 1;
+        add.push(...t1, ...t2); flips++; changed++;
+      }
+      // 2-3: an interior face shared by two tets.
+      for (const [, list] of faceMap) {
+        if (list.length !== 2 || dead[list[0]] || dead[list[1]]) continue;
+        const [s, t] = list;
+        const old = Math.min(q[s], q[t]);
+        if (old >= target) continue;
+        const A = [0, 1, 2, 3].map((i) => T[4 * s + i]), B = [0, 1, 2, 3].map((i) => T[4 * t + i]);
+        const shared = A.filter((n) => B.includes(n));
+        if (shared.length !== 3) continue;
+        const a = A.find((n) => !shared.includes(n)), b = B.find((n) => !shared.includes(n));
+        const [c, d, e] = shared;
+        const nt = [orient(a, b, c, d), orient(a, b, d, e), orient(a, b, e, c)];
+        const qs = nt.map((x) => qualityOf(...x));
+        if (!(Math.min(...qs) > old + 1e-3)) continue;
+        // The segment a–b must pass through the shared face (else the three new tets overlap the neighbours).
+        let vOld = 0; for (const tt of [A, B]) { for (let i = 0; i < 4; i++) for (let k = 0; k < 3; k++) C[3 * i + k] = nodes[3 * tt[i] + k]; vOld += Math.abs(tetVolume(C)); }
+        let vNew = 0; for (const tt of nt) { for (let i = 0; i < 4; i++) for (let k = 0; k < 3; k++) C[3 * i + k] = nodes[3 * tt[i] + k]; vNew += tetVolume(C); }
+        if (Math.abs(vNew - vOld) > 1e-9 * Math.max(vOld, h * h * h)) continue;
+        dead[s] = 1; dead[t] = 1;
+        for (const x of nt) add.push(...x);
+        flips++; changed++;
+      }
+      if (add.length) { const keep = []; for (let t = 0; t < ne; t++) if (!dead[t]) keep.push(T[4 * t], T[4 * t + 1], T[4 * t + 2], T[4 * t + 3]); T = keep.concat(add); }
+    }
+    // ── smoothing of the nodes of poor tets
+    {
+      tagFaces();
+      const ne = T.length / 4, elemsOf = Array.from({ length: nn }, () => []);
+      for (let t = 0; t < ne; t++) for (let a = 0; a < 4; a++) elemsOf[T[4 * t + a]].push(t);
+      const worstAt = (n) => { let w = Infinity; for (const t of elemsOf[n]) w = Math.min(w, tq(t)); return w; };
+      const cand = new Set();
+      for (let t = 0; t < ne; t++) if (tq(t) < target) for (let a = 0; a < 4; a++) cand.add(T[4 * t + a]);
+      for (const n of cand) {
+        let fid = null;
+        if (surf[n]) { const fs = faceSets.get(n); if (!fs || fs.size !== 1 || fs.has(-1)) continue; fid = [...fs][0]; }
+        const w0 = worstAt(n);
+        if (w0 >= target) continue;
+        const nb = new Set(); for (const t of elemsOf[n]) for (let a = 0; a < 4; a++) nb.add(T[4 * t + a]); nb.delete(n);
+        const m = [0, 0, 0]; for (const q2 of nb) for (let k = 0; k < 3; k++) m[k] += nodes[3 * q2 + k] / nb.size;
+        const old = [nodes[3 * n], nodes[3 * n + 1], nodes[3 * n + 2]];
+        let best = w0, bestP = null;
+        for (const s of [1, 0.6, 0.3, 0.12]) {
+          let p = [0, 1, 2].map((k) => old[k] + s * (m[k] - old[k]));
+          if (fid != null) { const hit = S.closest(p[0], p[1], p[2], 2 * h, (f) => f === fid); if (!hit) continue; p = hit.point.slice(); }
+          for (let k = 0; k < 3; k++) nodes[3 * n + k] = p[k];
+          const w = worstAt(n);
+          if (w > best + 1e-4) { best = w; bestP = p; }
+        }
+        const fin = bestP ?? old;
+        for (let k = 0; k < 3; k++) nodes[3 * n + k] = fin[k];
+        if (bestP) { moves++; changed++; }
+      }
+    }
+    // ── short edges of poor tets collapsed (b into a): what remains is a valid, better mesh. A node may go into one
+    // whose constraints include its own (interior → anything; a face node → a node on that face or its edges; an
+    // edge / corner node → one on all its faces), the link condition holds (no tet folded flat over the edge).
+    {
+      tagFaces();
+      const ne = T.length / 4, elemsOf = Array.from({ length: nn }, () => []);
+      for (let t = 0; t < ne; t++) for (let a = 0; a < 4; a++) elemsOf[T[4 * t + a]].push(t);
+      const gone = new Uint8Array(ne), touched = new Uint8Array(nn);
+      const facesOf = (n) => (surf[n] ? faceSets.get(n) ?? new Set([-1]) : null);
+      const canMerge = (b, a) => {
+        const fb = facesOf(b), fa = facesOf(a);
+        if (!fb) return true;                                   // interior b: anywhere
+        if (!fa || fb.has(-1) || fa.has(-1)) return false;
+        for (const f of fb) if (!fa.has(f)) return false;
+        return true;
+      };
+      const nbrs = (n) => { const s = new Set(); for (const t of elemsOf[n]) if (!gone[t]) for (let a = 0; a < 4; a++) s.add(T[4 * t + a]); s.delete(n); return s; };
+      for (let t = 0; t < ne; t++) {
+        if (gone[t]) continue;
+        const q0 = tq(t); if (q0 >= target) continue;
+        const ids = [0, 1, 2, 3].map((a) => T[4 * t + a]);
+        if (ids.some((n) => touched[n])) continue;
+        // Edges of this tet, shortest first.
+        const edges = TET_EDGES.map(([i, j]) => [ids[i], ids[j], Math.hypot(nodes[3 * ids[i]] - nodes[3 * ids[j]], nodes[3 * ids[i] + 1] - nodes[3 * ids[j] + 1], nodes[3 * ids[i] + 2] - nodes[3 * ids[j] + 2])]).sort((x, y) => x[2] - y[2]);
+        let done = false;
+        for (const [p0, p1, len] of edges.slice(0, 3)) {
+          for (const [b, a] of [[p0, p1], [p1, p0]]) {
+            if (!canMerge(b, a)) continue;
+            // A node on a CAD edge or corner goes only into a node on the same edge (same faces), and only when the
+            // step between them is far shorter than the edges around it — the near-duplicates the feature snapping
+            // leaves (most needle tets), not the ordinary steps along the edge.
+            if ((facesOf(b)?.size ?? 0) > 1) {
+              const fa = facesOf(a), fb = facesOf(b);
+              if (fa.size !== fb.size) continue;
+              let sum = 0, cnt = 0;
+              for (const x of elemsOf[b]) if (!gone[x]) for (const [i, j] of TET_EDGES) { const u = T[4 * x + i], v = T[4 * x + j]; sum += Math.hypot(nodes[3 * u] - nodes[3 * v], nodes[3 * u + 1] - nodes[3 * v + 1], nodes[3 * u + 2] - nodes[3 * v + 2]); cnt++; }
+              if (!(len < 0.35 * (sum / Math.max(1, cnt)))) continue;
+            }
+            // Link condition: the common neighbours of a and b are exactly the other nodes of the tets on edge a–b.
+            const around = elemsOf[b].filter((x) => !gone[x] && [0, 1, 2, 3].some((k) => T[4 * x + k] === a));
+            const opp = new Set(); for (const x of around) for (let k = 0; k < 4; k++) { const n = T[4 * x + k]; if (n !== a && n !== b) opp.add(n); }
+            const na = nbrs(a), nb = nbrs(b); let common = 0; for (const n of nb) if (na.has(n)) common++;
+            if (common !== opp.size) continue;
+            // The tets of b that stay, with b → a: all positive, and the worst better than before.
+            let worstOld = Infinity, worstNew = Infinity, ok = true;
+            for (const x of elemsOf[b]) if (!gone[x]) worstOld = Math.min(worstOld, tq(x));
+            for (const x of elemsOf[a]) if (!gone[x]) worstOld = Math.min(worstOld, tq(x));
+            for (const x of elemsOf[b]) {
+              if (gone[x] || around.includes(x)) continue;
+              const v = [0, 1, 2, 3].map((k) => (T[4 * x + k] === b ? a : T[4 * x + k]));
+              const qn = qualityOf(v[0], v[1], v[2], v[3]);
+              if (!(qn > 0)) { ok = false; break; }
+              worstNew = Math.min(worstNew, qn);
+            }
+            if (!ok) continue;
+            for (const x of elemsOf[a]) if (!gone[x] && !around.includes(x)) worstNew = Math.min(worstNew, tq(x));
+            if (!(worstNew > worstOld + 1e-3)) continue;
+            for (const x of around) gone[x] = 1;
+            for (const x of elemsOf[b]) if (!gone[x]) for (let k = 0; k < 4; k++) if (T[4 * x + k] === b) T[4 * x + k] = a;
+            for (const n of [a, b, ...nb]) touched[n] = 1;
+            collapses++; changed++; done = true; break;
+          }
+          if (done) break;
+        }
+      }
+      if (collapses) { const keep = []; for (let t = 0; t < ne; t++) if (!gone[t]) keep.push(T[4 * t], T[4 * t + 1], T[4 * t + 2], T[4 * t + 3]); T = keep; }
+    }
+    // ── flat tets on the boundary
+    {
+      const ne = T.length / 4, bnd = boundaryOf(T), onB = new Uint8Array(ne);
+      for (const [t] of bnd.values()) onB[t]++;
+      const keep = [];
+      for (let t = 0; t < ne; t++) {
+        if (onB[t] >= 2 && tq(t) < 0.02 && [0, 1, 2, 3].every((a) => surf[T[4 * t + a]])) { removed++; changed++; continue; }
+        keep.push(T[4 * t], T[4 * t + 1], T[4 * t + 2], T[4 * t + 3]);
+      }
+      T = keep;
+    }
+    if (!changed) break;
+  }
+  return { tets: T, flips, moves, removed, collapses };
+}
+
 /** Boundary faces of a T4 list: Map faceKey → [elem, localFace]. */
 function boundaryOf(list) {
   const m = new Map(), ne = list.length / 4;
@@ -329,7 +532,7 @@ function bisect(tets, marked, len, midpoint, closure = true) {
  *   surfaceNodes, faces: { nodes (npf per face), faceId, elem, local, nf, npf }, size, quality, volume,
  *   surfaceVolume, vertexMap: { elem, L, nv }, surfaceModel }.
  */
-export function tetMesh(surface, { size = null, resolution = 16, order = 2, refine = [], grading = 0.4, thin = true, features = true, curved = true, maxNodes = 400000, onProgress = null } = {}) {
+export function tetMesh(surface, { size = null, resolution = 16, order = 2, refine = [], grading = 0.4, thin = true, features = true, curved = true, improve = true, maxNodes = 400000, onProgress = null } = {}) {
   if (!surface?.triangles?.length) return { ok: false, error: 'empty' };
   const S = surfaceModel(surface);
   if (!(S.volume > 0)) return { ok: false, error: 'empty' };
@@ -722,6 +925,12 @@ export function tetMesh(surface, { size = null, resolution = 16, order = 2, refi
     }
   }
   onProgress?.(0.55);
+
+  // Slivers out (flips, smoothing, flat boundary tets) before the mid-edge nodes.
+  if (improve) {
+    const imp = improveMesh(tets, nodes, surf, S, { h: hmin });
+    tets = imp.tets;
+  }
 
   // Drop unused nodes, renumber.
   let surfN;

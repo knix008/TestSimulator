@@ -61,7 +61,8 @@ test('quarter plate with symmetry rollers: the CAD edge where the hole meets the
   // The hole / symmetry-plane edge is in the mesh: boundary nodes lie on it all through the thickness.
   const m = r.model; let onEdge = 0;
   for (let n = 0; n < m.nn; n++) if (Math.abs(m.nodes[3 * n]) < 1e-6 && Math.abs(m.nodes[3 * n + 1] - 5) < 1e-6) onEdge++;
-  assert.ok(onEdge >= 5, `nodes on the CAD edge: ${onEdge}`);
+  // (4: the mesh improvement merges a near-duplicate pair the feature snapping left 0.1 mm apart on this edge.)
+  assert.ok(onEdge >= 4, `nodes on the CAD edge: ${onEdge}`);
   const kt = [0.25, 0.5, 0.75, 1.25, 1.5, 1.75].map((z) => probeStatic(r, [0, 5, z]).stress[0] / 10).sort((a, b) => a - b);
   within((kt[2] + kt[3]) / 2, 3.03, 0.04, 'Kt (median through the thickness)');
   for (const deg of [80, 60, 45]) { const a = (deg * Math.PI) / 180, v = probeStatic(r, [5 * Math.cos(a), 5 * Math.sin(a), 1]).stress[0]; within(v, 10 * (1 - 2 * Math.cos(2 * a)) * Math.sin(a) ** 2, 0.08, `σxx at θ = ${deg}°`); }

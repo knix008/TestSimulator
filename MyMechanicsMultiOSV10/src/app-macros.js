@@ -6,6 +6,11 @@
 // The macro editor is its own window (popup 'macro'): the script, a console (log, errors with their line, an
 // immediate prompt), record / run / stop, load and save.
 
+import { createFeature, regenerate } from './cad/features.js';
+import { addArc, addCenterRectangle, addCircle, addLine, addPolygon, addRectangle, addSlot, createSketchGeometry, solveSketch } from './cad/sketch.js';
+import { edgeSignature, faceSignature } from './cad/refs.js';
+import { addConfiguration } from './cad/params.js';
+
 /** The recorder the app's entry points report to (created first, so app.js can use it everywhere). */
 export function createRecorder() {
   const r = {
@@ -122,8 +127,117 @@ export function createMacroTools(ctx) {
     return d ? { kind, id: d.id } : null;
   };
 
+  // ───────────────────────── model building (the API a hand-written macro builds parts with)
+
+  const part = () => { const p = ctx.activePart(); if (!p) throw new Error(t('macro.noPart')); return p; };
+  const featureOf = (p, name) => { const f = typeof name === 'object' && name ? p.features.find((x) => x.id === name.id) : p.features.find((x) => x.name === name || x.id === name); if (!f) throw new Error(t('macro.noFeature', { name: typeof name === 'object' ? name?.name : name })); return f; };
+  /** A plane: 'front' | 'top' | 'right', a plane feature's name, or { offset, from } for a new offset plane. */
+  const planeOf = (p, plane) => {
+    if (plane == null || ['front', 'top', 'right'].includes(plane)) return { kind: 'std', name: plane ?? 'front' };
+    if (typeof plane === 'object' && plane.kind) return plane;
+    const f = p.features.find((x) => (x.name === plane || x.id === plane) && x.type === 'plane');
+    if (!f) throw new Error(t('macro.noPlane', { name: plane }));
+    return { kind: 'ref', id: f.id };
+  };
+  /**
+   * The shapes of a sketch: { rect: [w, h, cx = 0, cy = 0] } (centred), { corners: [x1, y1, x2, y2] },
+   * { circle: [cx, cy, d] }, { line: [x1, y1, x2, y2] }, { arc: [cx, cy, r, a0°, a1°] }, { polygon: [cx, cy, r, sides] },
+   * { slot: [x1, y1, x2, y2, width] }, { polyline: [[x, y]…] } (closed), { axis: [x1, y1, x2, y2] } (construction).
+   */
+  function drawShapes(s, shapes) {
+    for (const sh of shapes) {
+      const [k] = Object.keys(sh); const v = sh[k];
+      if (k === 'rect') addCenterRectangle(s, v[2] ?? 0, v[3] ?? 0, v[0] / 2, v[1] / 2);
+      else if (k === 'corners') addRectangle(s, v[0], v[1], v[2], v[3]);
+      else if (k === 'circle') addCircle(s, v[0], v[1], v[2] / 2);
+      else if (k === 'line') addLine(s, v[0], v[1], v[2], v[3]);
+      else if (k === 'axis') addLine(s, v[0], v[1], v[2], v[3], { construction: true });
+      else if (k === 'arc') addArc(s, v[0], v[1], v[2], (v[3] * Math.PI) / 180, (v[4] * Math.PI) / 180);
+      else if (k === 'polygon') addPolygon(s, v[0], v[1], v[2], v[3] ?? 6);
+      else if (k === 'slot') addSlot(s, v[0], v[1], v[2], v[3], v[4] / 2);
+      else if (k === 'polyline') { let prev = null, first = null; for (const [x, y] of v) { const l = prev ? addLine(s, prev[0], prev[1], x, y, { from: prev[2] }) : null; const pt = l ? l.p2 : null; if (!first && l) first = l.p1; prev = [x, y, pt]; } if (prev && first && v.length > 2) addLine(s, prev[0], prev[1], v[0][0], v[0][1], { from: prev[2], to: first }); }
+      else throw new Error(t('macro.badShape', { kind: k }));
+    }
+  }
+  /** One feature added to the active part (one undo step); its name back. */
+  const addFeature = (type, params) => call(() => {
+    let name = null;
+    ctx.change('op.macro', () => { const p = part(); const f = createFeature(p, type, params); p.features.push(f); name = f.name; });
+    const err = ctx.rebuildErrors?.(part()).find((x) => x.feature.name === name);
+    if (err) throw new Error(t('macro.featureFailed', { name, error: t(`rebuild.${err.error}`, null, err.error) }));
+    return name;
+  });
+  const sigOf = (kind) => (test = () => true) => { const r = regenerate(part()); if (!r.body) return []; return (kind === 'edge' ? r.body.edges.map(edgeSignature) : r.body.faces.map(faceSignature)).filter(typeof test === 'function' ? test : () => true); };
+  const docOf = () => { const d = ctx.active(); if (!d) throw new Error(t('macro.noDocument')); return d; };
+
+  // ───────────────────────── events (add-in style): handlers stay until removed or the macros are reset
+
+  const handlers = new Map();
+  let emitting = false;
+  function emit(event, payload) {
+    const list = handlers.get(event); if (!list?.size || emitting) return;
+    emitting = true;
+    try { for (const fn of [...list]) { try { const r = fn(payload); if (r?.catch) r.catch((error) => log('error', `${event}: ${error?.message ?? error}`)); } catch (error) { log('error', `${event}: ${error?.message ?? error}`); } } } finally { emitting = false; }
+  }
+
   /** The automation API (`mm` in a macro). Every call waits until the app has caught up. */
   const mm = {
+    // building parts
+    sketch: (plane, shapes = [], { name } = {}) => call(() => {
+      let out = null;
+      ctx.change('op.macro', () => { const p = part(); const s = createFeature(p, 'sketch', { plane: planeOf(p, plane), ...createSketchGeometry(), ...(name ? { name } : {}) }); drawShapes(s, shapes); solveSketch(s); p.features.push(s); out = s.name; });
+      return out;
+    }),
+    plane: (base, offset, { name } = {}) => addFeature('plane', { base: planeOf(part(), base), offset, ...(name ? { name } : {}) }),
+    extrude: (sketch, depth, o = {}) => addFeature('extrude', { sketch: featureOf(part(), sketch).id, op: o.op ?? 'boss', end: depth === 'through' ? 'through' : o.end ?? (o.midplane ? 'midplane' : 'blind'), depth: typeof depth === 'number' ? depth : 10, reverse: Boolean(o.reverse), ...(o.name ? { name: o.name } : {}) }),
+    cut: (sketch, depth = 'through', o = {}) => mm.extrude(sketch, depth, { ...o, op: 'cut' }),
+    revolve: (sketch, angle = 360, o = {}) => addFeature('revolve', { sketch: featureOf(part(), sketch).id, op: o.op ?? 'boss', angle, reverse: Boolean(o.reverse), ...(o.name ? { name: o.name } : {}) }),
+    fillet: (radius, edges = () => true, o = {}) => { const list = typeof edges === 'function' ? sigOf('edge')(edges) : edges; if (!list.length) throw new Error(t('macro.noEdges')); return addFeature('fillet', { radius, edges: list, ...(o.name ? { name: o.name } : {}) }); },
+    chamfer: (distance, edges = () => true, o = {}) => { const list = typeof edges === 'function' ? sigOf('edge')(edges) : edges; if (!list.length) throw new Error(t('macro.noEdges')); return addFeature('chamfer', { distance, edges: list, ...(o.name ? { name: o.name } : {}) }); },
+    shell: (thickness, faces = () => false, o = {}) => addFeature('shell', { thickness, faces: typeof faces === 'function' ? sigOf('face')(faces) : faces, ...(o.name ? { name: o.name } : {}) }),
+    hole: (sketch, o = {}) => addFeature('hole', { sketch: featureOf(part(), sketch).id, ...o }),
+    feature: (type, params = {}) => addFeature(type, params),
+    edges: (test) => sigOf('edge')(test),
+    faces: (test) => sigOf('face')(test),
+    // feature tree
+    features: () => (ctx.activePart()?.features ?? []).map((f) => ({ id: f.id, name: f.name, type: f.type, suppressed: Boolean(f.suppressed) })),
+    deleteFeature: (name) => call(() => ctx.change('op.macro', () => { const p = part(); const f = featureOf(p, name); p.features = p.features.filter((x) => x !== f); })),
+    suppress: (name, on = true) => call(() => ctx.change('op.macro', () => { featureOf(part(), name).suppressed = Boolean(on); })),
+    renameFeature: (name, to) => call(() => ctx.change('op.macro', () => { featureOf(part(), name).name = String(to); })),
+    errors: () => (ctx.rebuildErrors?.(ctx.activePart()) ?? []).map((x) => ({ feature: x.feature.name, error: x.error })),
+    // configurations
+    configurations: () => (ctx.activePart()?.configurations ?? []).map((c) => ({ id: c.id, name: c.name, active: ctx.activePart().config === c.id })),
+    addConfiguration: (name) => call(() => { let id = null; ctx.change('op.macro', () => { const c = addConfiguration(part(), name); id = c.id; }); return id; }),
+    useConfiguration: (name) => call(() => ctx.change('op.macro', () => { const p = part(); if (name == null) { p.config = null; return; } const c = (p.configurations ?? []).find((x) => x.name === name || x.id === name); if (!c) throw new Error(t('macro.noConfig', { name })); p.config = c.id; })),
+    // properties
+    properties: () => { const d = docOf(); return { name: d.name, partNo: d.partNo ?? '', description: d.description ?? '', material: d.material ?? null, custom: { ...(d.customProperties ?? {}) } }; },
+    customProperty: (key) => docOf().customProperties?.[key] ?? null,
+    setCustomProperty: (key, value) => call(() => ctx.change('op.macro', () => { const d = docOf(); d.customProperties ??= {}; if (value == null) delete d.customProperties[key]; else d.customProperties[String(key)] = String(value); })),
+    // measuring
+    boundingBox: () => { const b = ctx.activePart() ? ctx.buildPart(ctx.activePart())?.body : null; if (!b) return null; const [lo, hi] = b.boundingBox.bounds; return { min: lo, max: hi, size: [hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]] }; },
+    // documents and assemblies
+    documents: () => { const p = ctx.project(); if (!p) return []; return [...p.parts.map((d) => ({ kind: 'part', id: d.id, name: d.name })), ...(p.assemblies ?? []).map((d) => ({ kind: 'assembly', id: d.id, name: d.name })), ...(p.drawings ?? []).map((d) => ({ kind: 'drawing', id: d.id, name: d.name }))]; },
+    // New documents in the open project (no question asked; mm.newDocument starts a new project).
+    addPart: (name) => call(() => ctx.addPart(name ?? null)?.name ?? null),
+    addAssembly: (name) => call(() => ctx.addAssembly(name ?? null)),
+    components: () => (ctx.activeAssembly?.()?.components ?? []).map((c) => ({ id: c.id, name: c.name, part: ctx.project().parts.find((p) => p.id === c.part)?.name ?? c.part, position: c.position.slice(), fixed: Boolean(c.fixed) })),
+    insertComponent: (partName, position = null) => call(() => {
+      const p = ctx.project()?.parts.find((x) => x.name === partName || x.id === partName);
+      if (!p) throw new Error(t('macro.noPartNamed', { name: partName }));
+      const asm = ctx.activeAssembly?.(); if (!asm) throw new Error(t('macro.noAssembly'));
+      const before = new Set(asm.components.map((c) => c.id));
+      ctx.insertComponent(p.id);
+      const c = ctx.activeAssembly().components.find((x) => !before.has(x.id));
+      if (c && position) ctx.change('op.macro', () => { c.position = position.slice(0, 3).map(Number); });
+      return c?.name ?? null;
+    }),
+    moveComponent: (name, position) => call(() => ctx.change('op.macro', () => { const c = ctx.activeAssembly?.()?.components.find((x) => x.name === name || x.id === name); if (!c) throw new Error(t('macro.noComponent', { name })); c.position = position.slice(0, 3).map(Number); })),
+    interference: () => call(() => ctx.interferenceList()),
+    // events
+    on: (event, fn) => { if (!handlers.has(event)) handlers.set(event, new Set()); handlers.get(event).add(fn); return () => handlers.get(event)?.delete(fn); },
+    off: (event, fn) => { if (fn) handlers.get(event)?.delete(fn); else handlers.delete(event); },
+    events: () => [...handlers.entries()].filter(([, s]) => s.size).map(([k, s]) => ({ event: k, handlers: s.size })),
+
     // what a recorded macro uses
     run: (id) => call(() => ctx.run(id)),
     pick: (hit, mods = {}) => call(() => ctx.pick(hit, { ctrlKey: false, shiftKey: false, metaKey: false, ...mods })),
@@ -219,6 +333,7 @@ export function createMacroTools(ctx) {
       case 'run': return runMacro(M.text);
       case 'stop': return stopMacro();
       case 'clear-log': M.log = []; return post();
+      case 'reset-events': handlers.clear(); log('info', t('macro.eventsReset')); return post();
       case 'new': M.text = ''; M.name = 'macro.mmjs'; return post({ replaceText: true });
       case 'load': return loadMacro();
       case 'save': return saveMacro();
@@ -234,6 +349,6 @@ export function createMacroTools(ctx) {
     macroStop: { icon: 'macroStop', label: 'cmd.macroStop', enabled: () => M.running || recorder.on, run: () => (recorder.on ? stopRecording() : stopMacro()) },
     macroEditor: { icon: 'macroEditor', label: 'cmd.macroEditor', run: () => openEditor() },
   };
-  const api = { mm, runMacro, stopMacro, startRecording, stopRecording, evaluate, openEditor, loadMacro, saveMacro, state: () => ({ ...view(), steps: recorder.steps.slice() }), setText: (text) => { M.text = text; post({ replaceText: true }); } };
-  return { commands, api, recording: () => recorder.on, running: () => M.running };
+  const api = { mm, emit, resetHandlers: () => handlers.clear(), runMacro, stopMacro, startRecording, stopRecording, evaluate, openEditor, loadMacro, saveMacro, state: () => ({ ...view(), steps: recorder.steps.slice() }), setText: (text) => { M.text = text; post({ replaceText: true }); } };
+  return { commands, api, emit, recording: () => recorder.on, running: () => M.running };
 }

@@ -76,6 +76,7 @@ export class Viewport {
     }
     this.groups.highlight.renderOrder = 10;
     this.bodies = new Map();
+    this.sharedGeometry = new Map();   // geometryKey → { g, count } (bodies of one part share a geometry)
     this.planes = new Map();
     this.hover = null;
     this.selection = [];
@@ -714,19 +715,29 @@ export class Viewport {
     for (const body of this.bodies.values()) this.disposeBody(body);
     this.bodies.clear();
     for (const spec of list) this.addBody(spec);
+    // Shared geometries no body uses any more.
+    for (const [k, sh] of this.sharedGeometry) if (sh.count <= 0) { sh.g.dispose(); this.sharedGeometry.delete(k); }
     this.applyStyle();
     this.refreshHighlight();
     this.requestRender();
   }
 
   addBody(spec) {
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(spec.mesh.vertices, 3));
-    g.setAttribute('normal', new THREE.Float32BufferAttribute(spec.mesh.normals, 3));
-    g.setIndex(spec.mesh.triangles);
-    // Per-vertex colours (stress plots, draft analysis) replace the body colour.
-    if (spec.colors) g.setAttribute('color', new THREE.Float32BufferAttribute(spec.colors, 3));
-    g.computeBoundingBox(); g.computeBoundingSphere();
+    // Bodies of the same part (a large assembly's repeated components) share one geometry (spec.geometryKey):
+    // built once, kept while any body uses it (and across a setBodies, which re-adds before it purges).
+    const shareKey = spec.geometryKey && !spec.colors ? spec.geometryKey : null;
+    let g = null;
+    if (shareKey && this.sharedGeometry.has(shareKey)) { const sh = this.sharedGeometry.get(shareKey); sh.count++; g = sh.g; }
+    else {
+      g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(spec.mesh.vertices, 3));
+      g.setAttribute('normal', new THREE.Float32BufferAttribute(spec.mesh.normals, 3));
+      g.setIndex(spec.mesh.triangles);
+      // Per-vertex colours (stress plots, draft analysis) replace the body colour.
+      if (spec.colors) g.setAttribute('color', new THREE.Float32BufferAttribute(spec.colors, 3));
+      g.computeBoundingBox(); g.computeBoundingSphere();
+      if (shareKey) this.sharedGeometry.set(shareKey, { g, count: 1 });
+    }
     const color = new THREE.Color(spec.colors ? '#ffffff' : spec.color ?? '#a9b4c2');
     const material = new THREE.MeshStandardMaterial({
       color, metalness: spec.metal ?? 0.35, roughness: spec.rough ?? 0.45, side: THREE.DoubleSide,
@@ -764,7 +775,7 @@ export class Viewport {
       if (spec.matrix) { edges.matrixAutoUpdate = false; edges.matrix.copy(spec.matrix); }
       this.groups.edges.add(edges);
     }
-    const body = { ...spec, mesh, edges, triFace, edgeSegments, baseColor: color.clone(), baseOpacity: spec.opacity ?? 1 };
+    const body = { ...spec, shareKey, mesh, edges, triFace, edgeSegments, baseColor: color.clone(), baseOpacity: spec.opacity ?? 1 };
     this.bodies.set(spec.key, body);
     return body;
   }
@@ -783,7 +794,9 @@ export class Viewport {
   }
 
   disposeBody(body) {
-    body.mesh.geometry.dispose(); body.mesh.material.dispose(); body.mesh.removeFromParent();
+    if (body.shareKey && this.sharedGeometry.has(body.shareKey)) this.sharedGeometry.get(body.shareKey).count--;
+    else body.mesh.geometry.dispose();
+    body.mesh.material.dispose(); body.mesh.removeFromParent();
     if (body.edges) { body.edges.geometry.dispose(); this.lineMaterials.delete(body.edges.material); body.edges.material.dispose(); body.edges.removeFromParent(); }
   }
 

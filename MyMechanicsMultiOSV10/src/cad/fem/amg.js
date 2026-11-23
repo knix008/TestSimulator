@@ -50,7 +50,7 @@ function qr(B, k, b) {
  * Builds the hierarchy. A: CSR with A.g (node graph) and A.d (dofs per node); coords: node positions (3 per node) for the
  * rigid-body modes (null for scalar problems); mask: fixed dofs (identity rows). Returns apply(r, z) or null.
  */
-export function smoothedAggregation(A, { coords = null, mask = null, coarse = 2500, maxLevels = 6 } = {}) {
+export function smoothedAggregation(A, { coords = null, mask = null, coarse = 2500, maxLevels = 6, radius = 0.6 } = {}) {
   if (!A.g || !A.d) return null;
   const levels = [];
   let Ak = { n: A.n, ptr: A.ptr, col: A.col, val: A.val }, d = A.d, nn = A.g.nn, gptr = A.g.ptr, gidx = A.g.idx;
@@ -68,21 +68,34 @@ export function smoothedAggregation(A, { coords = null, mask = null, coarse = 25
     } else NS[r * b0 + k] = 1;
   }
   let b = b0;
+  // Node positions at each level (aggregate centres below the fine one), for the neighbour radius.
+  let pos = coords && d === 3 ? coords : null;
   for (let lvl = 0; lvl < maxLevels && Ak.n > coarse; lvl++) {
-    // Aggregation on the node graph.
+    // Aggregation on the node graph, each root taking only its nearer neighbours (within `radius` × its farthest
+    // one; aggregate centres stand for the coarse nodes): the whole neighbourhood of a quadratic tet node is ~60
+    // nodes, and aggregates that big coarsened ~45:1 — a weak coarse correction (an assembly took 733 CG
+    // iterations; 447 with radius 0.6).
+    let sptr = gptr, sidx = gidx;
+    const RADIUS = radius;
+    if (RADIUS > 0 && pos) {
+      const lp = new Int32Array(nn + 1), li = [];
+      const dist = (i, j) => Math.hypot(pos[3 * i] - pos[3 * j], pos[3 * i + 1] - pos[3 * j + 1], pos[3 * i + 2] - pos[3 * j + 2]);
+      for (let i = 0; i < nn; i++) { let far = 0; for (let p = gptr[i]; p < gptr[i + 1]; p++) far = Math.max(far, dist(i, gidx[p])); for (let p = gptr[i]; p < gptr[i + 1]; p++) { const j = gidx[p]; if (j === i || dist(i, j) <= RADIUS * far) li.push(j); } lp[i + 1] = li.length; }
+      sptr = lp; sidx = Int32Array.from(li);
+    }
     const agg = new Int32Array(nn).fill(-1);
     let na = 0;
     for (let i = 0; i < nn; i++) {
       if (agg[i] >= 0) continue;
       let free = true;
-      for (let p = gptr[i]; p < gptr[i + 1]; p++) if (agg[gidx[p]] >= 0) { free = false; break; }
+      for (let p = sptr[i]; p < sptr[i + 1]; p++) if (agg[sidx[p]] >= 0) { free = false; break; }
       if (!free) continue;
-      for (let p = gptr[i]; p < gptr[i + 1]; p++) agg[gidx[p]] = na;
+      for (let p = sptr[i]; p < sptr[i + 1]; p++) agg[sidx[p]] = na;
       agg[i] = na++;
     }
     for (let pass = 0; pass < 2; pass++) for (let i = 0; i < nn; i++) {
       if (agg[i] >= 0) continue;
-      for (let p = gptr[i]; p < gptr[i + 1]; p++) if (agg[gidx[p]] >= 0) { agg[i] = agg[gidx[p]]; break; }
+      for (let p = sptr[i]; p < sptr[i + 1]; p++) if (agg[sidx[p]] >= 0) { agg[i] = agg[sidx[p]]; break; }
     }
     for (let i = 0; i < nn; i++) if (agg[i] < 0) agg[i] = na++;
     if (na * b >= Ak.n * 0.7) break;
@@ -131,15 +144,44 @@ export function smoothedAggregation(A, { coords = null, mask = null, coarse = 25
     const ngp = new Int32Array(na + 1), lists = nbr.map((s2, a2) => { s2.add(a2); const u = Int32Array.from(s2).sort(); ngp[a2 + 1] = u.length; return u; });
     for (let a2 = 0; a2 < na; a2++) ngp[a2 + 1] += ngp[a2];
     const ngi = new Int32Array(ngp[na]); lists.forEach((u, a2) => ngi.set(u, ngp[a2]));
+    if (pos) { const pc = new Float64Array(3 * na), cnt = new Float64Array(na); for (let i = 0; i < nn; i++) { const a2 = agg[i]; cnt[a2]++; for (let k = 0; k < 3; k++) pc[3 * a2 + k] += pos[3 * i + k]; } for (let a2 = 0; a2 < na; a2++) for (let k = 0; k < 3; k++) pc[3 * a2 + k] /= cnt[a2] || 1; pos = pc; }
     Ak = Ac; d = b; nn = na; gptr = ngp; gidx = ngi; NS = NSc;
   }
   // Coarsest: envelope LDLᵀ (needs a block graph — the coarse matrix rows are b per coarse node).
   const coarseA = { ...Ak, d, g: { nn, ptr: gptr, idx: gidx } };
   let coarseSolve;
   // Coarse rows can be empty (all-fixed aggregates): regularise the diagonal.
-  for (let r = 0; r < coarseA.n; r++) { let has = false; for (let p = coarseA.ptr[r]; p < coarseA.ptr[r + 1]; p++) if (coarseA.col[p] === r && Math.abs(coarseA.val[p]) > 0) has = true; if (!has) return null; }
+  // Such a row's column of P is zero (an aggregate of fixed dofs only, or a rigid-body column the QR dropped): the
+  // dof is decoupled, so a unit diagonal leaves the rest as it is. Giving up here instead (as before) dropped the
+  // whole multigrid for a weak fallback — a fine assembly mesh took 2800 CG iterations instead of a few hundred.
+  {
+    const empty = [];
+    for (let r = 0; r < coarseA.n; r++) { let has = false; for (let p = coarseA.ptr[r]; p < coarseA.ptr[r + 1]; p++) if (coarseA.col[p] === r && Math.abs(coarseA.val[p]) > 0) has = true; if (!has) empty.push(r); }
+    if (empty.length) {
+      const isEmpty = new Uint8Array(coarseA.n); for (const r of empty) isEmpty[r] = 1;
+      const ptr = new Int32Array(coarseA.n + 1), col = [], val = [];
+      for (let r = 0; r < coarseA.n; r++) {
+        if (isEmpty[r]) { col.push(r); val.push(1); }
+        else for (let p = coarseA.ptr[r]; p < coarseA.ptr[r + 1]; p++) { if (isEmpty[coarseA.col[p]]) continue; col.push(coarseA.col[p]); val.push(coarseA.val[p]); }
+        ptr[r + 1] = col.length;
+      }
+      coarseA.ptr = ptr; coarseA.col = Int32Array.from(col); coarseA.val = Float64Array.from(val);
+    }
+  }
   try {
-    const F = envelopeFactor(coarseA, rcmOrder(coarseA.g));
+    const perm = rcmOrder(coarseA.g);
+    let F = envelopeFactor(coarseA, perm);
+    // A coarse matrix singular to round-off (dependent rigid-body columns of one aggregate) has a zero pivot:
+    // shifted by 1e-8 of its mean diagonal it factors, and as a preconditioner the shift does not matter. (Giving up
+    // dropped the multigrid for Jacobi-like CG: 2800 iterations on a fine assembly mesh.)
+    if (!F) {
+      let s = 0, k = 0;
+      for (let r = 0; r < coarseA.n; r++) for (let p = coarseA.ptr[r]; p < coarseA.ptr[r + 1]; p++) if (coarseA.col[p] === r) { s += Math.abs(coarseA.val[p]); k++; }
+      const shift = 1e-8 * (s / Math.max(1, k)) || 1e-12;
+      const val = Float64Array.from(coarseA.val);
+      for (let r = 0; r < coarseA.n; r++) for (let p = coarseA.ptr[r]; p < coarseA.ptr[r + 1]; p++) if (coarseA.col[p] === r) val[p] += shift;
+      F = envelopeFactor({ ...coarseA, val }, perm);
+    }
     if (!F) return null;
     coarseSolve = (r, z) => F.solve(r, z);
   } catch { return null; }

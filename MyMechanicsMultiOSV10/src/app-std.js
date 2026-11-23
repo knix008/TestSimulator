@@ -23,6 +23,7 @@ import { STD_DEFAULTS, ROUTE_ICONS } from './cad/std-types.js';
 import { routeBom, routeSolid, routeSection, faceOffsetPoint } from './cad/routing.js';
 import { harnessSolid, harnessBom, harnessModel, harnessFlat, harnessSvg, harnessDxf } from './cad/harness.js';
 import { editRouteTable, routeTableCommand, isRouteTableKey, ensureHarness } from './cad/route-edit.js';
+import { harnessWiresFromSchematic, mergeHarnessWires } from './cad/harness-link.js';
 import { stdShape } from './cad/stdparts.js';
 import { holeOfFace, fastenerPlan, holePattern, holeSeries, FASTENER_KINDS, NUT_KINDS } from './cad/fastener.js';
 import { createRenderTools } from './app-render.js';
@@ -45,7 +46,7 @@ export function createStdTools(ctx) {
   const owns = (e) => Boolean(e && MODES.has(e.mode));
   const names = () => stdNames(t);
   /** The api the shared PropertyManager pieces (pm-std.js) need. */
-  const api = () => ({ t, fmt: ctx.fmt, fmtLen: (v) => ctx.fmtLen(v), fmtLenBare: (v) => ctx.fmtLen(v, false), unitName: () => ctx.units(), editing: state.editing, previewResult: null });
+  const api = () => ({ schematics: ctx.project()?.schematics ?? [], t, fmt: ctx.fmt, fmtLen: (v) => ctx.fmtLen(v), fmtLenBare: (v) => ctx.fmtLen(v, false), unitName: () => ctx.units(), editing: state.editing, previewResult: null });
   const begin = (e) => { if (state.editing) ctx.cancelEditing({ quiet: true }); state.editing = e; state.leftTab = 'pm'; state.selection = []; ctx.syncView(); ctx.renderAll(); };
 
   // ───────────────────────── library
@@ -820,8 +821,21 @@ export function createStdTools(ctx) {
     ].join('');
   }
 
+  /** The harness wires from the project's schematic (the first one with a net on this harness's connectors). */
+  function wiresFromSchematic(e) {
+    const f = e?.mode === 'asmRoute' ? e.f : routeFeature(e) ? e.feature : null;
+    if (!f) return undefined;
+    const list = (ctx.project()?.schematics ?? []).map((s) => ({ s, r: harnessWiresFromSchematic(s, f) })).filter((x) => x.r.wires.length);
+    if (!list.length) { notify('info', t('harness.noSchematicWires')); return undefined; }
+    const { s, r } = list[0];
+    if (e.mode === 'asmRoute') { e.f.wires = mergeHarnessWires(e.f.wires, r.wires); ctx.renderLeft(); }
+    else ctx.updateFeature((x) => { x.wires = mergeHarnessWires(x.wires, r.wires); });
+    notify(r.issues.length ? 'warning' : 'success', t('harness.fromSchematicDone', { count: r.wires.length, name: s.name, issues: r.issues.length }));
+    return r.wires.length;
+  }
   function routeEdit(arg) {
     const e = editing();
+    if (arg === 'fromSchematic') return wiresFromSchematic(e);
     if (arg === 'exportSvg' || arg === 'exportDxf') {
       const format = arg === 'exportDxf' ? 'dxf' : 'svg';
       if (e?.mode === 'asmRoute') return exportHarness(e.f, [], format);

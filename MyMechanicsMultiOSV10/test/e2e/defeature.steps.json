@@ -1,0 +1,17 @@
+[
+  {
+    "name": "defeature: on the parametric bracket the fillets and holes under the limits are found, and the hole pattern with them",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.actions.ensureKernel(); await m.actions.openSampleAsk('advParamBracket'); await sleep(1500); await m.run('defeature'); await sleep(300); const q = (s) => document.querySelector(s); const fld = (k, v) => { const i = q(`[data-pm-field=\"${k}\"]`); i.value = String(v); i.dispatchEvent(new Event('change', { bubbles: true })); }; fld('df.filletRadius', 20); await sleep(150); fld('df.holeDiameter', 12); await sleep(150); const c = m.defeature.candidates(); return JSON.stringify({ mode: m.state.editing?.mode, kinds: [...new Set(c.map((x) => x.reason))].sort(), listed: document.querySelectorAll('.df-list li').length === c.length && c.length > 0 }); })()",
+    "expect": "\"mode\":\"defeature\",\"kinds\":\\[\"fillet\",\"hole\",\"pattern\"\\],\"listed\":true"
+  },
+  {
+    "name": "defeature: the preview has fewer faces and a little more volume (holes filled, rounds gone)",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); document.querySelector('[data-pm=\"df.preview\"]').click(); await sleep(800); const p = m.state.editing.preview; return JSON.stringify({ fewer: p.facesAfter < p.facesBefore, shown: /→/.test(document.querySelector('.left-pm-body').textContent), failed: p.failed }); })()",
+    "expect": "\"fewer\":true,\"shown\":true"
+  },
+  {
+    "name": "defeature: Simplify makes the active Simplified configuration and a body-only part; one undo takes both back",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const q = (s) => document.querySelector(s); const parts0 = m.project.parts.length; q('[data-pm-toggle=\"df.asPart\"]').click(); await sleep(150); q('[data-pm=\"df.apply\"]').click(); await sleep(1500); const p = m.project.parts[0]; const c = p.configurations?.find((x) => x.defeatured); const np = m.project.parts[parts0]; const state1 = { config: Boolean(c) && p.config === c.id, suppressed: c ? Object.values(c.suppress).filter(Boolean).length : 0, newPart: np?.features?.[0]?.type, errors: m.state.partEntry?.result ? [...m.state.partEntry.result.results.values()].filter((r) => r?.ok === false).length : -1, closed: m.state.editing?.mode ?? null }; await m.actions.undo(); await sleep(800); return JSON.stringify({ ...state1, undoneParts: m.project.parts.length === parts0, undoneConfig: !m.project.parts[0].configurations?.some((x) => x.defeatured) }); })()",
+    "expect": "\"config\":true,\"suppressed\":[1-9]\\d*,\"newPart\":\"import\",\"errors\":0,\"closed\":null,\"undoneParts\":true,\"undoneConfig\":true"
+  }
+]

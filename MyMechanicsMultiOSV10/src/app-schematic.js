@@ -5,6 +5,8 @@
 import { escapeHtml } from './ui/dom.js';
 import { icon } from './icons.js';
 import { SYMBOLS, GRID, createSchematic, nextTag, pinAt, autoRoute, schematicSvg, fromToCsv, schematicBom, checkSchematic, symbolPins } from './cad/schematic.js';
+import { harnessesOf, compareHarness, harnessWiresFromSchematic, mergeHarnessWires, backAnnotate } from './cad/harness-link.js';
+import { harnessModel } from './cad/harness.js';
 
 const KINDS = ['connector', 'terminal', 'switch', 'pushbutton', 'coil', 'contact', 'fuse', 'lamp', 'motor', 'resistor', 'diode', 'supply', 'ground'];
 
@@ -200,6 +202,57 @@ export function createSchematicTools(ctx) {
     return ctx.saveExport(`${base()} - parts.csv`, 'csv', csv, 'text/csv');
   }
 
+  // ───────────────────────── the 3D harness link (cad/harness-link.js)
+
+  const harnesses = () => harnessesOf(project());
+  const keyOf = (h) => `${h.part.id}/${h.feature.id}`;
+  /** The linked harness: the one chosen in the PropertyManager, else the first of the project. */
+  const linked = () => { const all = harnesses(); return all.find((h) => keyOf(h) === editing()?.harness) ?? all[0] ?? null; };
+  /** The schematic's wires into the harness route (keeping the clips each wire passes); the part rebuilds. */
+  function sendToHarness() {
+    const s = sch(); const h = linked();
+    if (!s || !h) { notify('info', t('sch.h.none')); return null; }
+    const { wires, issues } = harnessWiresFromSchematic(s, h.feature);
+    ctx.change('op.schHarness', () => { const L = linked(); L.feature.wires = mergeHarnessWires(L.feature.wires, wires); });
+    try { harnessModel(linked().feature, linked().part.features); } catch (error) { notify('error', t(`rebuild.${error.code ?? 'route-failed'}`, error.params ?? null, error.code ?? '')); ctx.renderLeft(); return { wires: wires.length, error: error.code }; }
+    notify(issues.length ? 'warning' : 'success', t('sch.h.sent', { count: wires.length, name: h.part.name, issues: issues.length }));
+    ctx.renderLeft();
+    return { wires: wires.length, issues: issues.length };
+  }
+  /** The routed lengths of the harness written on the schematic wires (one undo step). */
+  function lengthsFromHarness() {
+    const s = sch(); const h = linked();
+    if (!s || !h) { notify('info', t('sch.h.none')); return null; }
+    let routed;
+    try { routed = harnessModel(h.feature, h.part.features).wires; } catch (error) { notify('error', t(`rebuild.${error.code ?? 'route-failed'}`, error.params ?? null, error.code ?? '')); return null; }
+    let n = 0;
+    edit((x) => { n = backAnnotate(x, h.feature, routed); }, 'op.schLengths');
+    notify(n ? 'success' : 'info', t('sch.h.lengths', { count: n }));
+    return n;
+  }
+  function harnessGroup(e, s) {
+    const { pmGroup, pmButton } = ctx.pm;
+    const all = harnesses();
+    if (!all.length) return pmGroup('harnessWire', t('sch.h.title'), `<p class="pm-note">${escapeHtml(t('sch.h.none'))}</p>`);
+    const h = linked();
+    const rows = all.map((x) => `<div class="il-row ${x === h ? 'active' : ''}"><button type="button" class="il-name" data-pm="sch.harness:${escapeHtml(keyOf(x))}">${icon('harnessWire', 'icon tiny')}<span>${escapeHtml(`${x.part.name} › ${x.feature.name ?? t('cmd.harnessRoute')}`)}</span></button></div>`).join('');
+    let status = '';
+    if (s && h) {
+      const c = compareHarness(s, h.feature);
+      const li = (cls, text) => `<li class="${cls}">${icon(cls === 'ok' ? 'check' : 'warning', 'icon tiny')}<span>${escapeHtml(text)}</span></li>`;
+      const pin = (w) => `${w.from}:${w.fromPin} → ${w.to}:${w.toPin}`;
+      const lines = [
+        ...c.missing.map((w) => li('error', t('sch.h.missing', { wire: w.name, pins: pin(w) }))),
+        ...c.extra.map((w) => li('error', t('sch.h.extra', { wire: w.name ?? '', pins: pin(w) }))),
+        ...c.changed.map((x) => li('error', t(`sch.h.changed.${x.field}`, x))),
+        ...c.issues.map((i) => li('warn', t(`sch.h.issue.${i.kind}`, { ...i, pins: (i.pins ?? []).join(', ') }))),
+      ];
+      status = `<p class="pm-note sch-h-status ${c.inSync ? 'ok' : 'warn'}" data-sch-sync="${c.inSync}">${escapeHtml(c.inSync ? t('sch.h.inSync') : t('sch.h.outOfSync', { missing: c.missing.length, extra: c.extra.length, changed: c.changed.length }))}</p>${lines.length ? `<ul class="mfg-results sch-h-list">${lines.slice(0, 14).join('')}</ul>` : ''}`;
+    }
+    const lengths = s?.wires.some((w) => w.length != null) ? `<p class="pm-note">${escapeHtml(t('sch.h.hasLengths', { count: s.wires.filter((w) => w.length != null).length }))}</p>` : '';
+    return pmGroup('harnessWire', t('sch.h.title'), `<div class="il-list">${rows}</div>${status}<div class="pm-row">${pmButton('sch.toHarness', 'harnessWire', t('sch.h.send'), 'primary')}${pmButton('sch.lengths', 'smartDim', t('sch.h.getLengths'))}</div>${lengths}<p class="pm-note">${escapeHtml(t('sch.h.rule'))}</p>`);
+  }
+
   // ───────────────────────── PropertyManager
 
   function pm(e) {
@@ -212,7 +265,7 @@ export function createSchematicTools(ctx) {
     const sym = s?.symbols.find((x) => x.id === e.sel); const wire = s?.wires.find((x) => x.id === e.sel);
     const text = (key, value, label) => `<label class="pm-field"><span class="pm-label">${escapeHtml(label)}</span><input type="text" class="pm-text" data-pm-field="${key}" value="${escapeHtml(value ?? '')}" spellcheck="false"/></label>`;
     if (sym) props = `<p class="pm-note">${escapeHtml(t(`sch.kind.${sym.kind}`))} · ${escapeHtml(symbolPins(sym).map((p) => p.id).join(', '))}</p>${text('schTag', sym.tag, t('sch.tag'))}${text('schValue', sym.value, t('sch.value'))}${SYMBOLS[sym.kind]?.variable ? pmNum('schPins', sym.pins ?? 4, t('sch.pins'), 'schematic') : ''}<div class="pm-row">${pmButton('sch.rotate', 'rotateComponent', t('sch.rotate'))}${pmButton('sch.delSel', 'trash', t('il.delete'))}</div>`;
-    else if (wire) props = `${text('schWireNumber', wire.number, t('sch.wireNumber'))}${text('schWireColor', wire.color, t('sch.wireColor'))}${text('schWireGauge', wire.gauge, t('sch.wireGauge'))}<div class="pm-row">${pmButton('sch.delSel', 'trash', t('il.delete'))}</div>`;
+    else if (wire) props = `${text('schWireNumber', wire.number, t('sch.wireNumber'))}${text('schWireColor', wire.color, t('sch.wireColor'))}${text('schWireGauge', wire.gauge, t('sch.wireGauge'))}${wire.length != null ? `<p class="pm-note" data-sch-length="${wire.length}">${escapeHtml(t('sch.h.wireLength', { length: String(Math.round(wire.length * 10) / 10), wire: wire.harnessWire ?? '' }))}</p>` : ''}<div class="pm-row">${pmButton('sch.delSel', 'trash', t('il.delete'))}</div>`;
     const issues = s ? checkSchematic(s) : [];
     const checks = issues.length ? `<ul class="mfg-results">${issues.slice(0, 12).map((i) => `<li class="error">${icon('warning', 'icon tiny')}<span>${escapeHtml(t(`sch.issue.${i.kind}`, i))}</span></li>`).join('')}</ul>` : `<p class="pm-note">${icon('check', 'icon tiny')} ${escapeHtml(t('sch.noIssues'))}</p>`;
     return [
@@ -221,6 +274,7 @@ export function createSchematicTools(ctx) {
       pmGroup('schTools', t('sch.tools'), `<div class="pm-row">${tool('select', 'select', t('sch.select'))}${tool('wire', 'sch_wire', t('sch.wire'))}</div><div class="sch-palette">${palette}</div>${e.pending ? `<p class="pm-note">${escapeHtml(t('sch.wirePending'))}</p>` : ''}`),
       pmGroup('edit', t('il.selected'), props),
       pmGroup('schCheck', t('sch.check', { count: issues.length }), checks),
+      harnessGroup(e, s),
       pmGroup('schExport', t('il.export'), `<div class="pm-row">${pmButton('sch.svg', 'exportFile', 'SVG')}${pmButton('sch.fromto', 'inspCsv', t('sch.fromTo'))}${pmButton('sch.bom', 'inspCsv', t('sch.bom'))}</div>`),
     ].join('');
   }
@@ -240,7 +294,7 @@ export function createSchematicTools(ctx) {
     }
   }
 
-  const NAMES = new Set(['sch.open', 'sch.delete', 'sch.new', 'sch.tool', 'sch.rotate', 'sch.delSel', 'sch.svg', 'sch.fromto', 'sch.bom']);
+  const NAMES = new Set(['sch.open', 'sch.delete', 'sch.new', 'sch.tool', 'sch.rotate', 'sch.delSel', 'sch.svg', 'sch.fromto', 'sch.bom', 'sch.harness', 'sch.toHarness', 'sch.lengths']);
   const handles = (name) => NAMES.has(name);
   async function command(name, arg) {
     const e = editing();
@@ -255,6 +309,9 @@ export function createSchematicTools(ctx) {
       case 'sch.svg': return exportSvg();
       case 'sch.fromto': return exportFromTo();
       case 'sch.bom': return exportBom();
+      case 'sch.harness': e.harness = arg; return ctx.renderLeft();
+      case 'sch.toHarness': return sendToHarness();
+      case 'sch.lengths': return lengthsFromHarness();
       default: return undefined;
     }
   }
@@ -263,7 +320,7 @@ export function createSchematicTools(ctx) {
     schematic: { icon: 'schematic', label: 'cmd.schematic', enabled: () => Boolean(project()), checked: () => owns(editing()), run: () => (owns(editing()) ? finish() : begin()) },
     schFromTo: { icon: 'inspCsv', label: 'cmd.schFromTo', enabled: () => list().length > 0, run: () => { if (!owns(editing())) begin(); return exportFromTo(); } },
   };
-  const api = { begin, newSchematic, placeSymbol, addWire, deleteSelection, rotateSelection, exportSvg, exportFromTo, exportBom, schematic: () => sch(), select: (id) => { editing().sel = id; draw(); ctx.renderLeft(); }, setTool: (tool) => command('sch.tool', tool), zoomAt, fitView, view: () => editing()?.view ?? null };
+  const api = { begin, newSchematic, sendToHarness, lengthsFromHarness, compare: () => (sch() && linked() ? compareHarness(sch(), linked().feature) : null), harnesses, placeSymbol, addWire, deleteSelection, rotateSelection, exportSvg, exportFromTo, exportBom, schematic: () => sch(), select: (id) => { editing().sel = id; draw(); ctx.renderLeft(); }, setTool: (tool) => command('sch.tool', tool), zoomAt, fitView, view: () => editing()?.view ?? null };
   /** After undo/redo: the sheet may be gone or its selection deleted; redraw from the restored project. */
   function afterHistory() {
     const e = editing(); if (!owns(e)) return;

@@ -3,7 +3,7 @@
 // holeOfFace() reads the kernel's faces; fastenerPlan() is plain maths. Coordinates are the part's own.
 import { isCylinder, normalize } from './refs.js';
 import { axisOfFace } from './assembly.js';
-import { fastenerSizeForHole, boltLengthFor, FLAT_WASHER, SPRING_WASHER, METRIC, STD_ITEMS, nutHeight, COUNTERSUNK } from './stdparts.js';
+import { fastenerSizeForHole, boltLengthFor, FLAT_WASHER, SPRING_WASHER, METRIC, STD_ITEMS, nutHeight, baseKind, headTable } from './stdparts.js';
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -72,8 +72,8 @@ export function holeOfFace(face, faces) {
 }
 
 /** Bolt / screw kinds a smart fastener can use, and nut kinds. */
-export const FASTENER_KINDS = ['hexBolt', 'socketCap', 'countersunk', 'buttonHead'];
-export const NUT_KINDS = ['hexNut', 'hexNut2', 'thinNut', 'nylonNut'];
+export const FASTENER_KINDS = ['hexBolt', 'socketCap', 'countersunk', 'buttonHead', 'hexBolt933', 'hexBolt931', 'socketCap912', 'countersunk7991', 'lowHead7984'];
+export const NUT_KINDS = ['hexNut', 'hexNut2', 'thinNut', 'nylonNut', 'hexNut934', 'thinNut439'];
 
 /**
  * The fastener stack for a hole: { size, fit, bolt: { kind, size, length }, washer?, springWasher?, nutWasher?,
@@ -95,8 +95,8 @@ export function fastenerPlan(hole, { kind = 'hexBolt', washer = true, nut = true
   if (!fit || !METRIC[fit.size]) return { error: 'too-small' };
   const { size } = fit;
   const boltKind = STD_ITEMS[kind]?.screw ? kind : 'hexBolt';
-  const csk = boltKind === 'countersunk';
-  if (csk && !COUNTERSUNK[size]) return { error: 'too-large' };
+  const csk = baseKind(boltKind) === 'countersunk';
+  if (csk && !headTable(boltKind)[size]) return { error: 'too-large' };
   if (!STD_ITEMS[boltKind].sizes.includes(size)) return { error: 'too-large' };
   const g = grip ?? hole.depth;
   const withWasher = Boolean(washer && !csk);

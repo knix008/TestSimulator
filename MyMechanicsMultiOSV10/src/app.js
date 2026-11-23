@@ -66,6 +66,9 @@ import { createSchematicTools } from './app-schematic.js';
 import { createDesignCheckTools } from './app-designcheck.js';
 import { createTaskTools } from './app-tasks.js';
 import { createRecorder, createMacroTools } from './app-macros.js';
+import { createDesignStudyTools } from './app-designstudy.js';
+import { createDefeatureTools } from './app-defeature.js';
+import { createMarkupTools } from './app-markup.js';
 import { routeBodyColours } from './cad/routing.js';
 import { leafCutFeatures, cutLeafBody } from './cad/asm-extra.js';
 
@@ -270,10 +273,13 @@ function change(labelKey, mutate) {
   return result;
 }
 
+// Macro events (app-macros.js mm.on): set once the macro tools exist.
+let emitMacro = () => {};
+
 function commit(labelKey) {
   const d = doc();
   if (!d) return;
-  if (d.history.commit(d.project, t(labelKey))) d.revision += 1;
+  if (d.history.commit(d.project, t(labelKey))) { d.revision += 1; queueMicrotask(() => emitMacro('change', { operation: t(labelKey) })); }
   afterChange();
 }
 
@@ -287,7 +293,7 @@ function afterChange() {
 /** Undo / redo work outside modes, and inside Render (its appearance edits; the picture renders again). */
 // Editors with their own undoable edits (render settings, schematics, design check corrections, tasks run on the
 // open document) keep undo/redo; the rest block it.
-const undoBlocked = () => Boolean(state.editing) && !['render', 'schematic', 'designCheck', 'tasks'].includes(state.editing.mode);
+const undoBlocked = () => Boolean(state.editing) && !['render', 'schematic', 'designCheck', 'tasks', 'designStudy', 'markup'].includes(state.editing.mode);
 
 function undo() {
   const d = doc();
@@ -300,6 +306,7 @@ function undo() {
   if (state.editing?.mode === 'render') std.render.afterHistory();
   if (state.editing?.mode === 'schematic') schTools.afterHistory();
   if (state.editing?.mode === 'designCheck') dcTools.afterHistory();
+  if (state.editing?.mode === 'markup') mkTools.afterHistory();
   notify('info', t('notice.undone', { label: r.label }));
 }
 
@@ -314,6 +321,7 @@ function redo() {
   if (state.editing?.mode === 'render') std.render.afterHistory();
   if (state.editing?.mode === 'schematic') schTools.afterHistory();
   if (state.editing?.mode === 'designCheck') dcTools.afterHistory();
+  if (state.editing?.mode === 'markup') mkTools.afterHistory();
   notify('info', t('notice.redone', { label: r.label }));
 }
 
@@ -415,7 +423,7 @@ function persistSession() {
 }
 
 /** Switches the open document (recorded for macros). */
-function switchDocument(ref) { return recorder.around('document', [ref], () => switchDocumentImpl(ref)); }
+function switchDocument(ref) { const r = recorder.around('document', [ref], () => switchDocumentImpl(ref)); emitMacro('document', ref); return r; }
 function switchDocumentImpl(ref) {
   if (!project() || !findDocument(project(), ref)) return;
   if (state.editing) cancelEditing({ quiet: true });
@@ -668,8 +676,31 @@ function holeSketchFeature(part, e) {
   return s;
 }
 
+/** Component instances (leaves) of an assembly, counted through its sub-assemblies. */
+function instanceCount(asm) { let n = 0; for (const c of asm?.components ?? []) n += componentLeaves(c).length; return n; }
+/** Large assembly mode: on, off, or automatic from the number of instances. */
+function largeAssemblyOn(asm = activeAssembly()) {
+  const s = state.settings.largeAssembly ?? 'auto';
+  return s === 'on' || (s === 'auto' && instanceCount(asm) >= (state.settings.largeAssemblyThreshold ?? 40));
+}
+let entrySeq = 0;
+/** A build entry's own number (one geometry per build in the viewport). */
+const entryUid = (entry) => (entry.uid ??= ++entrySeq);
+/** A part's display mesh in large assembly mode: a coarse tessellation, made once per build (same faces, fewer triangles). */
+function lightMesh(entry) {
+  if (!entry.lightMesh) {
+    const size = entry.size ?? 100;
+    try { entry.lightMesh = entry.body.mesh({ tolerance: Math.max(4 * meshTolerance(size), size / 150), angularTolerance: 0.6 }); } catch { entry.lightMesh = entry.mesh; }
+  }
+  return entry.lightMesh;
+}
+
 function syncAssembly(asm) {
   const list = [];
+  // Large assembly mode: coarse display meshes shared by every instance of a part, no edge lines, small parts hidden.
+  const light = largeAssemblyOn(asm);
+  const hideBelow = light ? (state.settings.largeHideSmall ?? 0) * assemblySize(asm) : 0;
+  let hidden = 0;
   for (const c of asm.components) {
     // state.viewHidden: components an illustration view leaves out (display only; the assembly is not changed).
     if (c.hidden || state.viewHidden?.has(c.id)) continue;
@@ -679,10 +710,14 @@ function syncAssembly(asm) {
       if (!part) continue;
       const entry = buildPart(part);
       if (!entry.mesh) continue;
+      if (hideBelow > 0 && (entry.size ?? Infinity) < hideBelow) { hidden++; continue; }
       const key = leaf.path.length ? `comp:${c.id}/${leaf.path.join('/')}` : `comp:${c.id}`;
-      list.push(bodySpec(key, entry, part, { matrix: componentMatrix(leaf.path.length ? composePlacement(placed, leaf.placement) : placed) }));
+      const spec = bodySpec(key, entry, part, { matrix: componentMatrix(leaf.path.length ? composePlacement(placed, leaf.placement) : placed) });
+      if (light && !spec.colors) Object.assign(spec, { mesh: lightMesh(entry), edges: null, geometryKey: `light:${entryUid(entry)}` });
+      list.push(spec);
     }
   }
+  state.largeAssembly = light ? { instances: instanceCount(asm), hidden } : null;
   viewport.setBodies(list);
   viewport.setPreview(null);
   viewport.setPlanes(Object.entries(STD_PLANES).map(([id, f]) => ({ id, frame: makeFrame(f), size: 120, visible: state.selection.some((s) => s.key === `plane:${id}`) || (state.settings.showPlanes && !list.length) })));
@@ -772,7 +807,7 @@ function selectionHit(s) {
   return null;
 }
 
-function select(items, { add = false } = {}) { return recorder.around('select', [items, add ? { add: true } : null], () => selectImpl(items, { add })); }
+function select(items, { add = false } = {}) { const r = recorder.around('select', [items, add ? { add: true } : null], () => selectImpl(items, { add })); emitMacro('selection', structuredClone(state.selection)); return r; }
 function selectImpl(items, { add = false } = {}) {
   if (add) {
     const next = state.selection.slice();
@@ -980,6 +1015,7 @@ function cancelEditing({ quiet = false } = {}) {
   // An illustration view's display (exploded placements, hidden components) ends with its page.
   if (e.mode === 'illustration') { state.motionPose = null; state.viewHidden = null; }
   if (e.mode === 'schematic') schTools.cleanup();
+  if (e.mode === 'markup') mkTools.cleanup();
   state.editing = null;
   state.previewResult = null;
   state.mateError = false;
@@ -1918,7 +1954,7 @@ async function runSimulation() {
 
 /** Steady-state heat: fixed-temperature faces (the "fixtures" list), and heat in by power or out by convection (the "loads" list). */
 async function runThermal(e, part, entry) {
-  if (!e.fixtures.length && !(e.loads.length && e.heatKind === 'convection')) { notify('error', t('sim.error.no-temperature')); return; }
+  if (!e.fixtures.length && !(e.loads.length && e.heatKind === 'convection')) { notify('error', t(e.heatKind === 'radiation' ? 'sim.error.radiationTet' : 'sim.error.no-temperature')); return; }
   const result = await withProgress('progress.simulation', part.name, async (op, report) => {
     await new Promise((r) => setTimeout(r, 30));
     return analyseThermal(entry.mesh, {
@@ -2343,11 +2379,11 @@ function customPm(e) {
     const study = pmGroup('simulation', t('sim.study'), pmSeg('study', [['static', t('sim.static')], ['thermal', t('sim.thermal')], ['modal', t('sim.modal')], ...more.studyOptions()], e.study));
     if (more.simStudy(e.study)) return more.simPm(e, study);
     if (e.study === 'thermal') {
-      const tr = e.result && state.sim?.study === 'thermal' ? pmGroup('simulation', t('sim.results'), `<dl class="pm-results"><dt>${escapeHtml(t('sim.tMin'))}</dt><dd>${escapeHtml(`${fmt(r.min, 2)} °C`)}</dd><dt>${escapeHtml(t('sim.tMax'))}</dt><dd>${escapeHtml(`${fmt(r.max, 2)} °C`)}</dd><dt>${escapeHtml(t('sim.heatFlow'))}</dt><dd>${escapeHtml(`${fmt(r.heatFlowOut ?? 0, 3)} W`)}</dd><dt>${escapeHtml(t('sim.elements'))}</dt><dd>${escapeHtml(String(r.elements))}</dd></dl><div class="sim-legend"><span>${escapeHtml(`${fmt(r.min, 1)} °C`)}</span><i></i><span>${escapeHtml(`${fmt(r.max, 1)} °C`)}</span></div><div class="pm-row">${pmButton('clearSim', 'trash', t('sim.clear'))}</div>`) : '';
+      const tr = e.result && state.sim?.study === 'thermal' ? pmGroup('simulation', t('sim.results'), `<dl class="pm-results"><dt>${escapeHtml(t('sim.tMin'))}</dt><dd>${escapeHtml(`${fmt(r.min, 2)} °C`)}</dd><dt>${escapeHtml(t('sim.tMax'))}</dt><dd>${escapeHtml(`${fmt(r.max, 2)} °C`)}</dd><dt>${escapeHtml(t('sim.heatFlow'))}</dt><dd>${escapeHtml(`${fmt(r.heatFlowOut ?? 0, 3)} W`)}</dd>${r.radiationOut ? `<dt>${escapeHtml(t('sim.radiated'))}</dt><dd>${escapeHtml(`${fmt(r.radiationOut, 3)} W`)}</dd>` : ''}<dt>${escapeHtml(t('sim.elements'))}</dt><dd>${escapeHtml(String(r.elements))}</dd></dl><div class="sim-legend"><span>${escapeHtml(`${fmt(r.min, 1)} °C`)}</span><i></i><span>${escapeHtml(`${fmt(r.max, 1)} °C`)}</span></div><div class="pm-row">${pmButton('clearSim', 'trash', t('sim.clear'))}</div>`) : '';
       return [
         pmHead('simulation', t('cmd.simulation'), t('pm.help.thermal')), study,
         pmGroup('fixture', t('sim.temperatures'), `${pmList('fixtures', e.fixtures.map(faceName), t('sim.fixedTempFaces'), 'fixture', e.pick === 'fixtures')}${pmNum('temperature', e.temperature, `${t('sim.temperature')} (°C)`, 'sun')}`),
-        pmGroup('load', t('sim.heat'), `${pmSeg('heatKind', [['convection', t('sim.convection')], ['power', t('sim.heatPower')]], e.heatKind)}${pmList('loads', e.loads.map(faceName), t('sim.heatFaces'), 'load', e.pick === 'loads')}${e.heatKind === 'power' ? pmNum('power', e.power, `${t('sim.heatPower')} (W)`, 'load') : `${pmNum('h', e.h, t('sim.filmCoefficient'), 'load')}${pmNum('ambient', e.ambient, `${t('sim.ambient')} (°C)`, 'sun')}`}`),
+        pmGroup('load', t('sim.heat'), `${pmSeg('heatKind', [['convection', t('sim.convection')], ['radiation', t('sim.radiation')], ['power', t('sim.heatPower')]], e.heatKind)}${pmList('loads', e.loads.map(faceName), t('sim.heatFaces'), 'load', e.pick === 'loads')}${e.heatKind === 'power' ? pmNum('power', e.power, `${t('sim.heatPower')} (W)`, 'load') : e.heatKind === 'radiation' ? `${pmNum('emissivity', e.emissivity ?? 0.9, t('sim.emissivity'), 'sun')}${pmNum('ambient', e.ambient, `${t('sim.ambient')} (°C)`, 'sun')}<p class="pm-note">${escapeHtml(t('sim.radiationNote'))}</p>` : `${pmNum('h', e.h, t('sim.filmCoefficient'), 'load')}${pmNum('ambient', e.ambient, `${t('sim.ambient')} (°C)`, 'sun')}`}`),
         more.fem ? more.fem.meshGroup(e) : pmGroup('statistics', t('sim.mesh'), `${pmNum('resolution', e.resolution, t('sim.resolution'), 'statistics')}<div class="pm-row">${pmButton('runSim', 'play', t('sim.run'), 'primary')}</div>`),
         tr, more.fem?.resultTools(e) ?? '',
       ].join('');
@@ -2390,8 +2426,9 @@ function customPm(e) {
 function customField(key, raw, v) {
   const e = state.editing;
   const part = activePart();
+  if (e.mode === 'simulation' && more.simField?.(e, key, raw, v)) return;
   if (e.mode === 'simulation' && more.fem?.field(e, key, v)) return;
-  if (e.mode === 'simulation') { if (v != null && (v > 0 || ['temperature', 'ambient'].includes(key))) { if (key === 'nu') e.nu = Math.min(0.49, v); else e[key] = v; } renderLeft(); return; }
+  if (e.mode === 'simulation') { if (v != null && (v > 0 || ['temperature', 'ambient'].includes(key))) { if (key === 'nu') e.nu = Math.min(0.49, v); else if (key === 'emissivity') e.emissivity = Math.min(1, v); else e[key] = v; } renderLeft(); return; }
   if (e.mode === 'motion') {
     const asm = activeAssembly();
     if (v == null) return;
@@ -2432,6 +2469,7 @@ function customSelect() { return undefined; }
 
 function customCommand(name, arg) {
   const e = state.editing;
+  if (e?.mode === 'simulation' && more.simCommand?.(e, name, arg)) return undefined;
   if (more.handles(name)) return more.command(name, arg);
   if (std.handles(name)) return std.command(name, arg);
   if (name === 'addLight') return addLight(arg);
@@ -2669,6 +2707,8 @@ const commands = {
   redo: { icon: 'redo', label: 'action.redo', key: 'Ctrl+Y', enabled: () => Boolean(doc()?.history.canRedo) && !undoBlocked(), run: () => redo() },
   delete: { icon: 'trash', label: 'action.delete', key: 'Delete', enabled: () => sel() || (sketching() && state.editing.editor.selection.length > 0) || Boolean(state.drawingSelected), run: () => deleteSelection() },
   rename: { icon: 'edit', label: 'action.rename', key: 'F2', enabled: () => state.selection.length === 1 && ['doc', 'feat', 'comp', 'mate'].includes(state.selection[0].kind), run: () => renameSelected() },
+  // Large assembly mode: auto → on → off → auto (the status bar shows it while it is on).
+  largeAssemblyMode: { icon: 'largeAssembly', label: 'cmd.largeAssemblyMode', enabled: () => Boolean(activeAssembly()), checked: () => Boolean(activeAssembly()) && largeAssemblyOn(), run: () => { const next = { auto: 'on', on: 'off', off: 'auto' }[state.settings.largeAssembly ?? 'auto']; updateSettings({ largeAssembly: next }, { quiet: true }); syncView(); renderAll(); notify('info', t(`lam.mode.${next}`, { n: state.settings.largeAssemblyThreshold ?? 40 })); } },
   rebuild: { icon: 'rebuild', label: 'action.rebuild', key: 'Ctrl+B', enabled: hasDoc, run: () => { builds.clear(); projectionCache.clear(); if (activeAssembly()) solveAssembly(); syncView(); renderAll(); notify('success', t('notice.rebuilt', { ms: Math.round(state.partEntry?.ms ?? 0) })); } },
   editFeature: { icon: 'editFeature', label: 'action.editFeature', enabled: () => state.selection.length === 1 && state.selection[0].kind === 'feat', run: () => editFeature(state.selection[0].id) },
   suppress: { icon: 'suppress', label: 'action.suppress', enabled: () => state.selection.some((s) => s.kind === 'feat'), run: () => setSuppressed(true) },
@@ -2998,6 +3038,9 @@ const macroTools = createMacroTools({
   run, pick: (hit, mods) => onViewportPick(hit, mods), select, pmCommand, pmSet, pmField: pmFieldChanged, pmToggle, pmSelect, pmStep,
   accept: () => acceptEditing(), cancel: () => cancelEditing(), exitSketch, switchDocument, setMaterial,
   openSample: (id) => openSampleAsk(id), newDocument: (kind) => newDocument(kind), massProperties: () => massPropertiesRows(),
+  activeAssembly, insertComponent, buildPart: (p) => buildPart(p),
+  addPart: (name) => addPartToProject(name), addAssembly: (name) => { addAssemblyToProject(); if (state.editing) cancelEditing({ quiet: true }); if (name) change('op.macro', () => { activeAssembly().name = String(name); }); return activeAssembly().name; }, rebuildErrors: (p) => (p && kernelReady() ? partRebuildErrors(p) : []),
+  interferenceList: () => { const asm = activeAssembly(); if (!asm) return []; const R = rep(); const nameOf = (id) => asm.components.find((c) => c.id === id)?.name ?? id; return interferences(asm, (c) => { const l = componentShapes(c).map((x) => x.shape); return l.length > 1 ? R.makeCompound(l) : l[0] ?? null; }, (s) => R.measureVolume(s)).map((it) => ({ a: nameOf(it.a), b: nameOf(it.b), volume: it.volume })); },
   // A recorded sketch's contents put into the sketch being edited (then solved and drawn).
   setSketch: (g) => {
     const e = state.editing;
@@ -3010,6 +3053,79 @@ const macroTools = createMacroTools({
   idle: () => new Promise((resolve) => setTimeout(resolve, 16)),
 });
 Object.assign(commands, macroTools.commands);
+emitMacro = (event, payload) => macroTools.emit(event, payload);
+
+// Design study (app-designstudy.js): variables varied, designs rebuilt on a copy and measured; chained like the others.
+const dsTools = createDesignStudyTools({
+  state, t, notify, renderAll, renderLeft, cancelEditing, activePart, change, saveExport, fileSafe, fmt, withProgress,
+  rep: () => rep(), massOf, buildPart: (p, o) => buildPart(p, o),
+  feaMaterial: (p) => { const m = materialOf(p.material); return { E: m.E * 1000, nu: m.nu ?? 0.3, yield: m.yield, density: m.density, ultimate: m.ultimate, group: m.group }; },
+  runFem: (kind, input) => more.fem.run(kind, input, activePart()?.name ?? ''),
+  pm: { pmHead, pmGroup, pmNum, pmSeg, pmList, pmButton, textInput },
+});
+{
+  const o = { ...more };
+  const mine = (e = state.editing) => dsTools.owns(e);
+  more.owns = (e) => mine(e) || o.owns(e);
+  more.pm = (e) => (mine(e) ? dsTools.pm(e) : o.pm(e));
+  more.pick = (hit, ev) => (mine() ? dsTools.pick(hit, ev) : o.pick(hit, ev));
+  more.field = (k, raw, v) => (mine() ? dsTools.field(k, raw, v) : o.field(k, raw, v));
+  more.set = (k, v) => (mine() ? dsTools.set(k, v) : o.set(k, v));
+  more.select = (k, v) => (mine() ? dsTools.select(k, v) : o.select?.(k, v));
+  more.toggle = (k, c) => (mine() ? dsTools.toggle(k, c) : o.toggle(k, c));
+  more.accept = () => (mine() ? dsTools.accept() : o.accept());
+  more.subject = (e) => (mine(e) ? dsTools.subject(e) : o.subject(e));
+  more.handles = (name) => dsTools.handles(name) || o.handles(name);
+  more.command = (name, arg) => (dsTools.handles(name) ? dsTools.command(name, arg) : o.command(name, arg));
+}
+Object.assign(commands, dsTools.commands);
+
+// Defeature (app-defeature.js): a simplified configuration (and optionally a body-only part); chained like the others.
+const dfTools = createDefeatureTools({
+  state, t, notify, renderAll, renderLeft, cancelEditing, activePart, change, fmt, rep: () => rep(),
+  buildPart: (p, o) => buildPart(p, o), rebuildErrors: (p) => (kernelReady() ? partRebuildErrors(p) : []),
+  pm: { pmHead, pmGroup, pmNum, pmSeg, pmList, pmButton, textInput },
+});
+{
+  const o = { ...more };
+  const mine = (e = state.editing) => dfTools.owns(e);
+  more.owns = (e) => mine(e) || o.owns(e);
+  more.pm = (e) => (mine(e) ? dfTools.pm(e) : o.pm(e));
+  more.pick = (hit, ev) => (mine() ? dfTools.pick(hit, ev) : o.pick(hit, ev));
+  more.field = (k, raw, v) => (mine() ? dfTools.field(k, raw, v) : o.field(k, raw, v));
+  more.set = (k, v) => (mine() ? dfTools.set(k, v) : o.set(k, v));
+  more.select = (k, v) => (mine() ? dfTools.select(k, v) : o.select?.(k, v));
+  more.toggle = (k, c) => (mine() ? dfTools.toggle(k, c) : o.toggle(k, c));
+  more.accept = () => (mine() ? dfTools.accept() : o.accept());
+  more.subject = (e) => (mine(e) ? dfTools.subject(e) : o.subject(e));
+  more.handles = (name) => dfTools.handles(name) || o.handles(name);
+  more.command = (name, arg) => (dfTools.handles(name) ? dfTools.command(name, arg) : o.command(name, arg));
+}
+Object.assign(commands, dfTools.commands);
+
+// Markup (app-markup.js): notes drawn over the view, kept in the document with their camera and comments.
+const mkTools = createMarkupTools({
+  state, t, notify, change, renderAll, renderLeft, cancelEditing, newId, saveExport, fileSafe, activePart, activeAssembly,
+  viewport: () => viewport, askText: (v) => sketchApi.askText(v),
+  author: () => { try { return pdm.api.vault()?.user || localStorage.getItem('mymechanics.vault.author') || t('ver.defaultAuthor'); } catch { return t('ver.defaultAuthor'); } },
+  pm: { pmHead, pmGroup, pmNum, pmSeg, pmList, pmButton, textInput },
+});
+{
+  const o = { ...more };
+  const mine = (e = state.editing) => mkTools.owns(e);
+  more.owns = (e) => mine(e) || o.owns(e);
+  more.pm = (e) => (mine(e) ? mkTools.pm(e) : o.pm(e));
+  more.pick = (hit, ev) => (mine() ? mkTools.pick(hit, ev) : o.pick(hit, ev));
+  more.field = (k, raw, v) => (mine() ? mkTools.field(k, raw, v) : o.field(k, raw, v));
+  more.set = (k, v) => (mine() ? mkTools.set(k, v) : o.set(k, v));
+  more.select = (k, v) => (mine() ? mkTools.select(k, v) : o.select?.(k, v));
+  more.toggle = (k, c) => (mine() ? mkTools.toggle(k, c) : o.toggle(k, c));
+  more.accept = () => (mine() ? mkTools.accept() : o.accept());
+  more.subject = (e) => (mine(e) ? mkTools.subject(e) : o.subject(e));
+  more.handles = (name) => mkTools.handles(name) || o.handles(name);
+  more.command = (name, arg) => (mkTools.handles(name) ? mkTools.command(name, arg) : o.command(name, arg));
+}
+Object.assign(commands, mkTools.commands);
 
 // Standard parts library, smart fasteners, pipe / tube / cable routes and photo rendering (app-std.js).
 const std = createStdTools({
@@ -3140,8 +3256,8 @@ const COMMAND_TABS = {
   sheetMetal: ['baseFlange', 'edgeFlange', 'miterFlange', 'hem', 'tab', 'loftedBend', 'sketchedBend', 'jog', '|', 'closedCorner', 'cornerRelief', 'formTool', 'flatten', '|', 'hole', 'cutExtrude'],
   weldments: ['sketch', 'sketch3d', 'structural', 'trimExtend', '|', 'endCap', 'gusset', 'weldBead', '|', 'cutList'],
   mold: ['draftAnalysis', 'draft', 'partingLine', 'toolingSplit', 'shrink', 'split', 'cavity'],
-  evaluate: ['massProps', 'measure', 'section', 'lights', 'interference', '|', 'simulation', 'draftAnalysis', '|', 'equations', 'configurations', 'designTable', 'importTable'],
-  assembly: ['insertComponent', 'mate', 'fixComponent', 'floatComponent', 'rotateComponent', 'openPart', '|', 'explode', 'resetExplode', 'motion', '|', 'illustration', 'ilAddView', 'ilPlay', 'ilExportHtml', '|', 'interference', 'massProps'],
+  evaluate: ['massProps', 'measure', 'section', 'lights', 'interference', '|', 'simulation', 'draftAnalysis', '|', 'equations', 'configurations', 'designTable', 'importTable', 'designStudy'],
+  assembly: ['insertComponent', 'mate', 'fixComponent', 'floatComponent', 'rotateComponent', 'openPart', '|', 'explode', 'resetExplode', 'motion', '|', 'illustration', 'ilAddView', 'ilPlay', 'ilExportHtml', '|', 'interference', 'massProps', 'largeAssemblyMode'],
   drawing: ['newDrawing', 'std3View', 'addView', 'sectionView', 'detailView', 'auxView', '|', 'ann:note', 'ann:balloon', 'ann:gdt', 'ann:datum', 'ann:surface', 'ann:centermark', 'bom', '|', 'hiddenLines', 'autoDims', '|', 'exportDxf', 'exportSvg', 'print'],
 };
 for (const [tab, ids] of Object.entries(more.TABS)) COMMAND_TABS[tab]?.push('|', ...ids);
@@ -3151,7 +3267,7 @@ Object.assign(COMMAND_TABS, mfgTools.TABS);
 mfgTools.extendMenus(SUBMENUS, MENUS);
 SUBMENUS.illustration = { icon: 'illustration', items: ['illustration', 'ilAddView', 'ilPlay', '-', 'ilExportSvg', 'ilExportHtml'] };
 SUBMENUS.macros = { icon: 'macroEditor', items: ['macroRecord', 'macroStop', '-', 'macroRun', 'macroEditor'] };
-MENUS.tools?.push({ sub: 'illustration' }, 'schematic', 'schFromTo', '-', 'designCheck', 'taskScheduler', { sub: 'macros' });
+MENUS.tools?.push({ sub: 'illustration' }, 'schematic', 'schFromTo', '-', 'designCheck', 'designStudy', 'defeature', 'taskScheduler', { sub: 'macros' }, '-', 'markup', 'markupReport');
 COMMAND_TABS.evaluate?.push('|', 'designCheck');
 SUBMENUS.stdRouting = std.SUBMENU;
 MENUS.insert.push('-', sub('stdRouting'));
@@ -3491,6 +3607,8 @@ function pmApi() {
     // the spring samples) and the reference curves.
     curveList: (f) => featuresBefore(part, f).filter((x) => x.type === 'helix' || x.type === 'sketch3d' || (CURVE_TYPES.includes(x.type) && PART_MORE_TYPES.includes(x.type))),
     featuresBefore: (f) => featuresBefore(part, f),
+    // The schematics (a harness route offers "Wires from schematic" when there is one).
+    get schematics() { return project()?.schematics ?? []; },
     bodyCount: (f) => {
       // The bodies the feature starts from: the rebuild result of the feature before it (the preview's or the part's).
       const prev = featuresBefore(part, f).filter((x) => !x.suppressed).at(-1);
@@ -3547,6 +3665,12 @@ const propInput = (key, value) => {
 };
 const actionsHtml = (ids) => `<div class="prop-actions">${ids.map((id) => `<button class="small-button ${id === 'delete' ? 'danger' : ''}" data-command="${id}">${icon(commands[id].icon)}<span>${escapeHtml(t(commands[id].label))}</span></button>`).join('')}</div>`;
 
+/** Custom properties of a document (name → value): editable rows, add and delete. */
+function customPropsHtml(d) {
+  const rows = Object.entries(d.customProperties ?? {}).map(([k, v], i) => `<div class="cprop-row"><input type="text" data-prop="cprop.${i}.key" value="${escapeHtml(k)}" aria-label="${escapeHtml(t('props.customName'))}" spellcheck="false"/><input type="text" data-prop="cprop.${i}.value" value="${escapeHtml(v)}" aria-label="${escapeHtml(t('props.customValue'))}" spellcheck="false"/><button class="icon-button" data-cprop-del="${i}" title="${escapeHtml(t('action.delete'))}">${icon('trash', 'icon tiny')}</button></div>`).join('');
+  return `<h4 class="prop-title">${icon('tag')}<span>${escapeHtml(t('props.custom'))}</span></h4><div class="cprop-list">${rows || `<p class="panel-hint">${escapeHtml(t('props.customNone'))}</p>`}</div><div class="prop-actions"><button class="small-button" data-cprop-add>${icon('plus')}<span>${escapeHtml(t('props.customAdd'))}</span></button></div>`;
+}
+
 function propsHtml() {
   const s = state.selection[0];
   const part = activePart(); const asm = activeAssembly();
@@ -3556,6 +3680,7 @@ function propsHtml() {
     out.push(propRow('edit', t('props.name'), propInput('part.name', part.name)));
     out.push(propRow('tag', t('props.partNo'), propInput('part.partNo', part.partNo)));
     out.push(propRow('notes', t('props.description'), propInput('part.description', part.description)));
+    out.push(customPropsHtml(part));
     out.push(propRow('material', t('props.material'), `<select data-prop="part.material" data-icon="material">${MATERIALS.map((m) => `<option value="${m.id}" ${m.id === part.material ? 'selected' : ''}>${escapeHtml(lang() === 'en' ? m.en : m.ko)}</option>`).join('')}</select>`));
     out.push(propRow('palette', t('props.color'), `<input type="color" data-prop="part.color" value="${escapeHtml(part.color || materialOf(part.material).color)}"/><button class="small-button" data-prop-reset="part.color" title="${escapeHtml(t('props.colorReset'))}">${icon('refresh')}</button>`));
     const b = kernelReady() ? buildPart(part) : null;
@@ -3629,6 +3754,7 @@ function propsHtml() {
     out.push(propRow('edit', t('props.name'), propInput('asm.name', asm.name)));
     out.push(propRow('part', t('props.components'), escapeHtml(String(asm.components.length))));
     out.push(propRow('mate', t('props.mates'), escapeHtml(String(asm.mates.length))));
+    out.push(customPropsHtml(asm));
     out.push(actionsHtml(['insertComponent', 'mate', 'interference']));
     return out.join('');
   }
@@ -3719,6 +3845,7 @@ function renderStatus() {
     if (s.showFps && activeKind() !== 'drawing') items.push(`<span class="status-item stats" title="${escapeHtml(t('status.statsTip'))}">${icon('fps')}<span id="status-stats">${escapeHtml(`${state.stats.triangles.toLocaleString()} ${t('status.tris')} · ${state.stats.ms.toFixed(1)} ms`)}</span></span>`);
     const problems = rebuildProblems().length + (activeAssembly() ? state.failedMates.size : 0);
     items.push(`<button class="status-item ${problems ? 'error-count' : ''}" data-bottom-show="rebuild" title="${escapeHtml(t('bottom.rebuild'))}">${icon(problems ? 'error' : 'check')}<span>${escapeHtml(problems ? t('status.errors', { count: problems }) : t('status.noErrors'))}</span></button>`);
+    if (activeAssembly() && state.largeAssembly) items.push(`<button class="status-item large-asm" data-command="largeAssemblyMode" title="${escapeHtml(t('lam.statusTip', { n: state.largeAssembly.instances, hidden: state.largeAssembly.hidden }))}">${icon('largeAssembly')}<span>${escapeHtml(t('lam.status'))}</span></button>`);
     items.push(`<button class="status-item units" data-units-menu title="${escapeHtml(t('settings.units'))}">${icon('units')}<span>${escapeHtml(units().toUpperCase())}</span></button>`);
   }
   items.push(`<span class="status-item" title="${escapeHtml(t('status.theme', { name: themeName(s.theme, getLanguage()) }))}">${icon('palette')}<span>${escapeHtml(themeName(s.theme, getLanguage()))}</span></span>`);
@@ -4752,6 +4879,13 @@ function bindEvents() {
     if (pick && state.editing && !target.closest('button')) { state.editing.pick = pick.dataset.pmPick; renderLeft(); renderStatus(); return undefined; }
     const mat = target.closest('[data-material]');
     if (mat) return setMaterial(mat.dataset.material);
+    const cpAdd = target.closest('[data-cprop-add]');
+    const cpDel = target.closest('[data-cprop-del]');
+    if ((cpAdd || cpDel) && (activePart() || activeAssembly())) {
+      const d = activePart() ?? activeAssembly();
+      if (cpAdd) { let n = 1; while ((d.customProperties ?? {})[`${t('props.customDefault')}${n}`] != null) n++; return change('op.customProperty', () => { d.customProperties = { ...(d.customProperties ?? {}), [`${t('props.customDefault')}${n}`]: '' }; }); }
+      return change('op.customProperty', () => { d.customProperties = Object.fromEntries(Object.entries(d.customProperties ?? {}).filter((_, i) => i !== Number(cpDel.dataset.cpropDel))); });
+    }
     const reset = target.closest('[data-prop-reset]');
     if (reset && activePart()) return change('op.edit', () => { activePart().color = null; });
     const drw = target.closest('[data-drw]');
@@ -5014,6 +5148,14 @@ function setProp(key, raw) {
     return change('op.edit', () => { part[id] = raw; });
   }
   if (scope === 'asm' && asm) return renameItem('doc', raw);
+  if (scope === 'cprop' && (part || asm)) {
+    const d = part ?? asm; const entries = Object.entries(d.customProperties ?? {}); const i = Number(id);
+    if (!entries[i]) return undefined;
+    const text = String(raw ?? '').trim();
+    if (field === 'key') { if (!text || (text !== entries[i][0] && entries.some(([k]) => k === text))) { notify('error', t('props.customKeyBad', { name: text })); return renderRight(); } entries[i][0] = text; }
+    else entries[i][1] = String(raw ?? '');
+    return change('op.customProperty', () => { d.customProperties = Object.fromEntries(entries); });
+  }
   if (scope === 'feat' && part) {
     const f = part.features.find((x) => x.id === id);
     if (!f) return undefined;
@@ -5196,6 +5338,9 @@ window.__mymechanics.schematic = schTools.api;
 window.__mymechanics.designCheck = dcTools.api;
 window.__mymechanics.tasks = taskTools.api;
 window.__mymechanics.macro = macroTools.api;
+window.__mymechanics.designStudy = dsTools.api;
+window.__mymechanics.defeature = dfTools.api;
+window.__mymechanics.markup = mkTools.api;
 window.__mymechanics.pdm = pdm.api;
 
 start()

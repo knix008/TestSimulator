@@ -799,6 +799,21 @@ export function nodeAt(domain, p) {
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+/** The fiber, cooling and warpage sections of the report (when the study had them). */
+function extraReport(r, labels, f, row, L) {
+  let html = '';
+  if (r.fibers) html += `<h2>${L('pl.fiberGroup', 'Fiber orientation')}</h2><table>${row('pl.fiberMean', 'Mean alignment (1/3 random … 1 aligned)', f(r.fibers.mean, 3))}${row('pl.fiberSkin', 'Skin / core along the flow', `${f(r.fibers.skinMean, 3)} / ${f(r.fibers.coreMean, 3)}`)}${row('pl.fiberCI', 'Interaction coefficient C_I', f(r.fibers.CI, 4))}</table>`;
+  if (r.cooling?.summary) {
+    const c = r.cooling.summary;
+    html += `<h2>${L('pl.coolGroup', 'Mould cooling')}</h2><table>${row('pl.wallTemp', 'Mould wall temperature (min / mean / max)', `${f(c.wallMin, 1)} / ${f(c.wallMean, 1)} / ${f(c.wallMax, 1)} °C`)}${row('pl.coolNeeded', 'Cooling time (largest)', `${f(c.coolTimeMax, 1)} s`)}${row('pl.cycleCooled', 'Cycle time with this cooling', `${f(c.cycleWithCooling, 1)} s`)}${row('pl.heat', 'Heat removed', `${f(c.heat, 1)} W`)}</table><table><tr><th>${L('pl.circuit', 'Circuit')}</th><th>Re</th><th>${L('pl.heatW', 'Heat W')}</th><th>${L('pl.inOut', 'In → out °C')}</th><th>Δp kPa</th></tr>${r.cooling.circuits.map((k) => `<tr><td>${esc(k.name)}</td><td>${f(k.Re, 0)}</td><td>${f(k.heat, 1)}</td><td>${f(k.inlet, 1)} → ${f(k.outlet, 2)}</td><td>${f(k.pressureDrop, 2)}</td></tr>`).join('')}</table>`;
+  }
+  if (r.warp?.cases) {
+    const w = r.warp.cases;
+    html += `<h2>${L('pl.warpGroup', 'Warpage')}</h2><table>${row('pl.warpTotal', 'Warpage (total, after the even shrinkage)', `${f(w.total.warpMax, 3)} mm`)}${['shrinkage', 'cooling', 'orientation'].map((c) => row(`pl.cause.${c}`, c, `${f(w[c].warpMax, 3)} mm`)).join('')}${row('pl.warpDominantRow', 'Main cause', labels[`pl.cause.${r.warp.dominant}`] ?? r.warp.dominant)}</table>`;
+  }
+  return html;
+}
+
 /** The flow report (a printable HTML page). labels: translated texts by key. */
 export function plasticsReportHtml({ name, resinId, result, gates = [], labels = {}, date = '', lang = 'en' }) {
   const s = result.summary;
@@ -822,7 +837,7 @@ ${row('pl.coolingTime', 'Cooling time', `${f(s.coolingTime, 1)} s`)}${row('pl.cy
 ${s.packPressure != null ? row('pl.pack', 'Packing pressure / gate freeze', `${f(s.packPressure, 1)} MPa / ${f(s.gateFreezeTime ?? s.packTime, 1)} s`) : ''}${s.shrinkageAvg != null ? row('pl.shrinkage', 'Volumetric shrinkage (mean / max)', `${f(s.shrinkageAvg, 2)} / ${f(s.shrinkageMax, 2)} %`) : ''}
 ${row('pl.sink', 'Sink mark depth (max)', `${f(s.sinkMax, 3)} mm`)}${row('pl.clamp', 'Clamp force', `${f(s.clampForce, 1)} kN (${f(s.clampTonnes, 1)} t)`)}
 ${row('pl.wall', 'Nominal / thickest wall', `${f(s.nominalWall, 2)} / ${f(s.maxWall, 2)} mm`)}${row('pl.mass', 'Part mass', `${f(s.mass, 1)} g`)}
-</table></body></html>`;
+</table>${extraReport(result, labels, f, row, L)}</body></html>`;
 }
 
 /**
@@ -841,7 +856,7 @@ export function runStudy({ mesh, gates = [], domain: dOpts = {}, process = {} },
     const result = fillSimulation(domain, { ...process, gates: [...new Set(gateNodes)], signal, onProgress: (fraction, phase) => post({ type: 'progress', fraction, phase }) });
     const plainDomain = { kind: domain.kind, cell: domain.cell, nx: domain.nx, ny: domain.ny, nz: domain.nz, hx: domain.hx, hy: domain.hy, hz: domain.hz, lo: domain.lo, index: domain.index, volume: domain.volume, partingZ: domain.partingZ, nodes: domain.nodes.map((nd) => ({ c: nd.c, h: nd.h })) };
     post({ type: 'result', domain: plainDomain, result, gates: gateNodes });
-    return { domain: plainDomain, result, gates: gateNodes };
+    return { domain: plainDomain, result, gates: gateNodes, full: domain };
   } catch (error) {
     post({ type: 'error', code: error.code ?? 'failed', message: error.message });
     return null;

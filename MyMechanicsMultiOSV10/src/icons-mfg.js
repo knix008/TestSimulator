@@ -67,6 +67,8 @@ export const ICONS_MFG = {
   plShrink: '<rect x="3" y="3" width="18" height="18" rx="1.5" stroke-dasharray="2 1.6"/><rect x="7" y="7" width="10" height="10" rx="1"/><path d="M4 4l3 3M20 4l-3 3M4 20l3-3M20 20l-3-3"/>',
   plSink: '<path d="M3 8h6c1 0 1.5 3 3 3s2-3 3-3h6"/><path d="M3 8v11h18V8"/><path d="M12 14v3M10.5 15.5L12 17l1.5-1.5" opacity="0.7"/>',
   plReport: '<rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M7 16c2-3 3-1 5-4s3-1 5-4" stroke-width="2"/><path d="M7 7h5"/>',
+  plFiber: '<path d="M3 17l5-3M6 20l5-3M9 12l5-3M12 15l5-3M14 7l5-3M17 10l5-3"/><rect x="2" y="3" width="20" height="18" rx="2" opacity="0.5"/>',
+  plWarp: '<path d="M3 16c4-6 14-6 18 0" /><path d="M3 18h18" stroke-dasharray="2 2" opacity="0.6"/><path d="M12 8v4M10.5 10.5L12 12l1.5-1.5" opacity="0.8"/>',
   plCooling: '<path d="M12 3v18M4.5 7.5l15 9M19.5 7.5l-15 9"/><path d="M10 4.5l2 2 2-2M10 19.5l2-2 2 2" opacity="0.7"/>',
   plClamp: '<path d="M4 3v18M20 3v18"/><path d="M4 12h5M20 12h-5"/><rect x="9" y="8" width="6" height="8" rx="1"/><path d="M6 9l3 3-3 3M18 9l-3 3 3 3" opacity="0.6"/>',
   plMidplane: '<path d="M3 9l9-4 9 4-9 4z"/><path d="M3 13l9 4 9-4" stroke-dasharray="2 1.6" opacity="0.6"/>',

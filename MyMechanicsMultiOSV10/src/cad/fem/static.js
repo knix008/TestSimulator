@@ -193,7 +193,8 @@ function finishStatic({ input, model, fx, f, Kref, u, cc, unilateral, bonded, la
   const perBody = model.bodies.map((p, b) => {
     const vd = surfaceField(model, u, 3, b), vs = surfaceField(model, st.vm, 1, b);
     let ms = 0; for (let n = p.nodeStart; n < p.nodeEnd; n++) ms = Math.max(ms, st.vm[n]);
-    return { name: p.name, vertexDisplacement: vd, vertexStress: vs, maxStress: ms, vertexContact: surfaceField(model, contactNodes, 1, b) };
+    // The stress tensor at the surface points too (fatigue: signed and principal measures, biaxiality).
+    return { name: p.name, vertexDisplacement: vd, vertexStress: vs, vertexTensor: surfaceField(model, st.nodal, 6, b), maxStress: ms, vertexContact: surfaceField(model, contactNodes, 1, b) };
   });
   report(1, 'done');
   return {
@@ -202,7 +203,7 @@ function finishStatic({ input, model, fx, f, Kref, u, cc, unilateral, bonded, la
     elements: model.ne, nodeCount: model.nn, elementSize: model.size, quality: model.quality,
     maxDisplacement: dmax.value, maxDisplacementAt: dmax.at, maxStress: smax.value, maxStressAt: smax.at,
     minFactorOfSafety: minFos, iterations: totalIt, residual, linearSolver: solverMethod,
-    vertexDisplacement: perBody[0].vertexDisplacement, vertexStress: perBody[0].vertexStress, bodies: perBody,
+    vertexDisplacement: perBody[0].vertexDisplacement, vertexStress: perBody[0].vertexStress, vertexTensor: perBody[0].vertexTensor, bodies: perBody,
     reactions, externalForce: sumForces(f), contact: { constraints: cc.list.length, pressure, nodalPressure: smooth?.nodal ?? null, force: contactForce, friction: frictionForce, slipping, sticking, area: contactArea, maxPressure, maxPenetration: maxPen, iterations: alIt, list: cc.list },
   };
 }

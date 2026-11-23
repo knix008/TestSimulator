@@ -18,6 +18,8 @@ import { rep } from './cad/kernel.js';
 import { flowSection, streamlines, pathlines, FLUIDS } from './cad/fea-sim2.js';
 import { createFemTools, heatMaterial } from './app-fem.js';
 import { stressColor } from './cad/fea.js';
+import { optimisedShape } from './cad/fem/topology.js';
+import { stlBinary } from './cad/mesh-formats.js';
 import { materialOf, materialName } from './cad/materials.js';
 import { faceSignature, edgeSignature, findFace, findEdges, isCylinder } from './cad/refs.js';
 import { axisOfFace, placePoint, placeDir } from './cad/assembly.js';
@@ -35,7 +37,8 @@ import {
 import { escapeHtml } from './ui/dom.js';
 import { icon } from './icons.js';
 
-const SIM_STUDIES = ['nonlinear', 'drop', 'combination', 'flow'];
+const SIM_STUDIES = ['nonlinear', 'drop', 'combination', 'dynamic', 'topology', 'flow'];
+const G_MM = 9806.65;                              // g in mm/s² (the solver's units)
 const MODES = new Set(['mbd', 'versions', 'asmFeature', 'belt', 'libInsert']);
 const AXES = { x: [1, 0, 0], '-x': [-1, 0, 0], y: [0, 1, 0], '-y': [0, -1, 0], z: [0, 0, 1], '-z': [0, 0, -1] };
 const AUTHOR_KEY = 'mymechanics.vault.author';
@@ -60,8 +63,12 @@ export function createSim2Tools(ctx) {
     nonlinear: { steps: 8, tangentModulus: 0, kinematicFraction: 0.5, plastic: true, geometric: true, history: 'monotonic', cycles: 2, arcLength: false },
     drop: { height: 1000, dropDir: '-z', floorType: 'rigid', floorE: 2000, floorThickness: 10, friction: 0.2, damping: 0.05, plasticDrop: true, order: 1, frame: 0 },
     combination: { cases: [], method: 'linear' },
+    // Linear dynamics by mode superposition (fem/dynamic.js): harmonic, transient or random; force or base excitation.
+    dynamic: { dynKind: 'harmonic', excite: 'force', baseAxis: 'z', baseG: 1, dynModes: 10, dampRatio: 0.02, fFrom: 0, fTo: 0, fSteps: 120, tDuration: 0.05, tCurve: '0:1, 1:1', psdText: '20:0.01, 80:0.04, 350:0.04, 2000:0.007', dynPlot: 'stress' },
     flow: { flowMode: 'external', flowAxis: 'x', flowSign: 1, velocity: 1, fluid: 'air', cellSize: 0, resolution: 16, flowRefine: 0, flowMaxSteps: 0, collision: 'trt', les: 0.12, timeMode: 'steady', duration: 1,
       thermalOn: false, inletT: 20, bodyMode: 'temperature', bodyValue: 60, solidK: 50, buoyancy: false, quantity: 'velocity', showStreams: true, showPaths: false, surfacePressure: true },
+    // Topology optimisation (fem/topology.js, SIMP).
+    topology: { volFrac: 0.4, topoIters: 40, penaltyP: 3, filterR: 0, threshold: 0.5, showShape: true },
     asmStatic: { contact: 'bonded' },
   };
 
@@ -95,8 +102,9 @@ export function createSim2Tools(ctx) {
     if (e.assembly) return runAssembly(e);
     const material = feaMaterial(p);
     const mesh = fem.meshOptions(e, entry.size ?? 100);
-    if (['nonlinear', 'combination'].includes(e.study) && !e.fixtures.length) { notify('error', t('sim.error.no-fixtures')); return; }
-    if (e.study === 'nonlinear' && !e.loads.length) { notify('error', t('sim.error.no-loads')); return; }
+    if (['nonlinear', 'combination', 'dynamic', 'topology'].includes(e.study) && !e.fixtures.length) { notify('error', t('sim.error.no-fixtures')); return; }
+    if (e.study === 'dynamic' && e.excite === 'force' && !e.loads.length) { notify('error', t('sim.error.no-loads')); return; }
+    if (['nonlinear', 'topology'].includes(e.study) && !e.loads.length) { notify('error', t('sim.error.no-loads')); return; }
     if (e.study === 'combination' && !e.cases.length) { notify('error', t('sim2.noCases')); return; }
     let result;
     if (e.study === 'nonlinear') {
@@ -111,6 +119,13 @@ export function createSim2Tools(ctx) {
         mesh: { ...mesh, order: Number(e.order) === 2 ? 2 : 1 }, height: e.height, direction: AXES[e.dropDir], plastic: e.plasticDrop,
         floor: { type: e.floorType, E: e.floorE, thickness: e.floorThickness, friction: e.friction, damping: e.damping, density: 2400, nu: 0.2 },
       }, p.name);
+    } else if (e.study === 'topology') {
+      result = await fem.run('topology', {
+        bodies: [{ mesh: entry.mesh, material }], fixtures: fem.fixturesOf(e), loads: loadsOf(e), mesh: { ...mesh, order: 1 },
+        volumeFraction: Math.min(0.95, Math.max(0.05, e.volFrac)), penalty: e.penaltyP, iterations: Math.max(1, Math.round(e.topoIters)), filterRadius: e.filterR > 0 ? e.filterR : null, threshold: e.threshold,
+      }, p.name);
+    } else if (e.study === 'dynamic') {
+      result = await fem.run('dynamic', dynamicInput(e, entry, material, mesh), p.name);
     } else if (e.study === 'combination') {
       result = await fem.run('combination', { bodies: [{ mesh: entry.mesh, material }], fixtures: fem.fixturesOf(e), cases: e.cases.map((c) => ({ name: c.name, loads: c.loads, factor: c.factor })), method: e.method, mesh }, p.name);
     } else {
@@ -135,16 +150,92 @@ export function createSim2Tools(ctx) {
         state.sim = { partId: p.id, key: entry.key, result: { vertexDisplacement: null }, colors, deformed: false, scale: 1, study: 'flow', cpRange: [lo, hi] };
       } else state.sim = null;
       notify('success', t('sim2.flowDone', { drag: fmt(result.dragForce, 4), dp: fmt(result.pressureDrop, 3) }));
+    } else if (e.study === 'topology') {
+      state.flow = null;
+      const colors = new Float32Array(result.vertexDensity.length * 3);
+      result.vertexDensity.forEach((d, i) => colors.set(stressColor(d, 0, 1), 3 * i));
+      state.sim = { partId: p.id, key: entry.key, result: { ...result, vertexDisplacement: null }, colors, deformed: false, scale: 1, study: 'topology' };
+      state.topo = { partId: p.id, key: entry.key, shape: result.shape, show: e.showShape };
+      notify('success', t('sim2.topoDone', { c: fmt(100 * (1 - result.compliance / result.history[0].compliance), 0), v: fmt(100 * result.volumeFraction, 1), n: result.iterations }));
     } else {
       state.flow = null;
       const { colors, top } = stressColours(result.vertexStress);
       const size = entry.size ?? 100;
       const scale = e.study === 'nonlinear' ? 1 : result.maxDisplacement > 0 ? (size * 0.08) / result.maxDisplacement : 1;
-      state.sim = { partId: p.id, key: entry.key, result, colors, top, deformed: e.study === 'nonlinear', scale, study: e.study };
-      if (e.study === 'drop') { e.frame = 0; notify(result.minFactorOfSafety < 1 ? 'warning' : 'success', t('sim2.dropDone', { stress: fmt(result.peakStress, 1), time: fmt(result.peakStressTime * 1e6, 1) })); }
+      // A random study's displacement is an RMS per point (no shape to deform the body with).
+      const shown = e.study === 'dynamic' && result.kind === 'random' ? { ...result, vertexDisplacement: null } : result;
+      state.sim = { partId: p.id, key: entry.key, result: shown, colors, top, deformed: e.study === 'nonlinear', scale, study: e.study };
+      if (e.study === 'dynamic') notify('success', dynamicSummary(result));
+      else if (e.study === 'drop') { e.frame = 0; notify(result.minFactorOfSafety < 1 ? 'warning' : 'success', t('sim2.dropDone', { stress: fmt(result.peakStress, 1), time: fmt(result.peakStressTime * 1e6, 1) })); }
       else notify(result.minFactorOfSafety < 1 ? 'warning' : 'success', t('notice.simDone', { fos: fmt(result.minFactorOfSafety, 2) }));
     }
     ctx.syncView(); ctx.renderLeft();
+  }
+
+  const pairs = (text) => String(text ?? '').split(/[,;\n]+/).map((p) => p.split(/[:\s]+/).filter(Boolean).map(Number)).filter((q) => q.length === 2 && q.every(Number.isFinite));
+  /** The engine input of a dynamic study. */
+  function dynamicInput(e, entry, material, mesh) {
+    const kind = e.dynKind;
+    return {
+      bodies: [{ mesh: entry.mesh, material }], fixtures: fem.fixturesOf(e), mesh, kind, modes: Math.max(1, Math.min(20, Math.round(e.dynModes))), damping: e.dampRatio,
+      excitation: e.excite === 'base' || kind === 'random' ? { type: 'base', axis: e.baseAxis, acceleration: (Number(e.baseG) || 1) * G_MM } : { type: 'force', loads: loadsOf(e) },
+      harmonic: { from: e.fFrom > 0 ? e.fFrom : null, to: e.fTo > 0 ? e.fTo : null, steps: e.fSteps },
+      transient: { duration: e.tDuration, curve: pairs(e.tCurve).sort((a, b) => a[0] - b[0]) },
+      // The PSD is typed in g²/Hz.
+      random: { psd: pairs(e.psdText).map(([f, s]) => [f, s * G_MM * G_MM]), steps: e.fSteps },
+    };
+  }
+  /** A small value with its significant digits (dynamic displacements are often micrometres). */
+  const sig = (v, d = 4) => (Math.abs(v) > 0 && Math.abs(v) < 10 ** -(d - 1) ? Number(v).toExponential(2) : fmt(v, d));
+  function dynamicSummary(r) {
+    if (r.kind === 'random') return t('sim2.dynRandomDone', { u: sig(r.maxDisplacementRms), s: sig(r.maxStressRms, 2) });
+    if (r.kind === 'transient') return t('sim2.dynTransientDone', { u: sig(r.maxDisplacement), s: sig(r.maxStress, 2), time: fmt(r.peakTime * 1000, 2) });
+    return t('sim2.dynHarmonicDone', { f: fmt(r.peakFrequency, 1), u: sig(r.maxDisplacement), s: sig(r.maxStress, 2) });
+  }
+  function dynamicPm(e, r, { head, material, fix, loadGroup, meshG, clear }) {
+    const { pmGroup, pmNum, pmSeg } = ctx.pm;
+    const text = (key, value, label) => `<label class="pm-field"><span class="pm-label">${escapeHtml(label)}</span><input type="text" class="pm-text" data-pm-field="${key}" value="${escapeHtml(value ?? '')}" spellcheck="false"/></label>`;
+    const kind = e.dynKind;
+    const excite = kind === 'random' ? 'base' : e.excite;
+    const excitation = pmGroup('load', t('sim2.dynExcitation'), `${kind === 'random' ? '' : pmSeg('excite', [['force', t('sim2.dynForce')], ['base', t('sim2.dynBase')]], e.excite)}${excite === 'base' ? `${pmSeg('baseAxis', [['x', 'X'], ['y', 'Y'], ['z', 'Z']], e.baseAxis)}${kind === 'random' ? '' : pmNum('baseG', e.baseG, `${t('sim2.dynAcceleration')} (g)`, 'load')}<p class="pm-note">${escapeHtml(t('sim2.dynBaseNote'))}</p>` : ''}`);
+    const setup = {
+      harmonic: `${pmNum('fFrom', e.fFrom, `${t('sim2.dynFrom')} (Hz, 0 = ${t('fem.auto')})`, 'sim2Dynamic')}${pmNum('fTo', e.fTo, `${t('sim2.dynTo')} (Hz, 0 = ${t('fem.auto')})`, 'sim2Dynamic')}${pmNum('fSteps', e.fSteps, t('sim2.dynSteps'), 'statistics')}`,
+      transient: `${pmNum('tDuration', e.tDuration, `${t('fem.duration')} (s)`, 'clock')}${text('tCurve', e.tCurve, t('sim2.dynCurve'))}<p class="pm-note">${escapeHtml(t('sim2.dynCurveNote'))}</p>`,
+      random: `${text('psdText', e.psdText, t('sim2.dynPsd'))}<p class="pm-note">${escapeHtml(t('sim2.dynPsdNote'))}</p>${pmNum('fSteps', e.fSteps, t('sim2.dynSteps'), 'statistics')}`,
+    }[kind];
+    const options = pmGroup('sim2Dynamic', t('sim2.dynSetup'), `${pmSeg('dynKind', [['harmonic', t('sim2.dynHarmonic')], ['transient', t('sim2.dynTransient')], ['random', t('sim2.dynRandom')]], kind)}${pmNum('dynModes', e.dynModes, t('sim2.dynModes'), 'sim2Dynamic')}${pmNum('dampRatio', e.dampRatio, t('sim2.dynDamping'), 'femSpring')}${setup}`);
+    let res = '';
+    if (r) {
+      const freqs = dl(r.frequencies.slice(0, 6).map((f, i) => [`${t('sim2.dynMode')} ${i + 1}`, `${fmt(f, 2)} Hz`]));
+      if (r.kind === 'random') res = pmGroup('sim2Dynamic', t('sim.results'), `${dl([[t('sim2.dynInputRms'), `${fmt(r.inputRms / G_MM, 3)} g`], [t('sim2.dynURms'), `${sig(r.maxDisplacementRms)} mm`], [t('sim2.dynSRms'), `${sig(r.maxStressRms, 2)} MPa`], [t('sim2.dynS3'), `${sig(r.sigma3.stress, 2)} MPa`]])}${freqs}${legend('0', `${fmt(state.sim?.top ?? r.maxStressRms, 1)} MPa RMS`)}${clear}`);
+      else if (r.kind === 'transient') res = pmGroup('sim2Dynamic', t('sim.results'), `${dl([[t('sim.maxDisp'), `${sig(r.maxDisplacement)} mm`], [t('sim.maxStress'), `${sig(r.maxStress, 2)} MPa`], [t('sim2.dynPeakTime'), `${fmt(r.peakTime * 1000, 3)} ms`], [t('sim2.timeStep'), `${fmt(r.dt * 1e6, 2)} µs × ${r.steps}`]])}${fem.chart(r.history.time, r.history.displacement)}<p class="pm-note">${escapeHtml(t('sim2.dynHistoryChart'))}</p>${freqs}${legend('0', `${fmt(state.sim?.top ?? r.maxStress, 1)} MPa`)}${clear}`);
+      else res = pmGroup('sim2Dynamic', t('sim.results'), `${dl([[t('sim2.dynPeakFrequency'), `${fmt(r.peakFrequency, 2)} Hz`], [t('sim.maxDisp'), `${sig(r.maxDisplacement)} mm`], [t('sim.maxStress'), `${sig(r.maxStress, 2)} MPa`]])}${fem.chart(r.curve.frequency, r.curve[e.dynPlot === 'displacement' ? 'displacement' : 'stress'])}${pmSeg('dynPlot', [['stress', t('sim.maxStress')], ['displacement', t('sim.maxDisp')]], e.dynPlot)}<p class="pm-note">${escapeHtml(t('sim2.dynCurveChart'))}</p>${freqs}${legend('0', `${fmt(state.sim?.top ?? r.maxStress, 1)} MPa`)}${clear}`);
+    }
+    return [head('sim2Dynamic', 'pm.help.dynamic'), studySelector(e), material, fix, excite === 'force' ? loadGroup : '', excitation, options, meshG, res].join('');
+  }
+
+  /** The optimised shape again at another density threshold (no new optimisation). */
+  function retopo(e) {
+    const r = e.result;
+    if (e.study !== 'topology' || !r?.model || !state.topo) return;
+    state.topo.shape = optimisedShape(r.model, r.densities, Math.min(0.95, Math.max(0.05, e.threshold)));
+    r.shape = state.topo.shape;
+    ctx.syncView();
+  }
+  async function exportTopoStl() {
+    const s = editing()?.result?.shape; if (!s?.triangles?.length) return undefined;
+    const name = `${part()?.name ?? 'part'} - ${t('sim2.topology')}.stl`;
+    return ctx.saveExport(name.replace(/[<>:"/\\|?*]/g, '_'), 'stl', stlBinary([{ name: 'topology', vertices: s.vertices, triangles: s.triangles }]), 'model/stl');
+  }
+  function topologyPm(e, r, { head, material, fix, loadGroup, meshG, clear }) {
+    const { pmGroup, pmNum, pmButton } = ctx.pm;
+    const setup = pmGroup('sim2Topology', t('sim2.topoSetup'), `${pmNum('volFrac', e.volFrac, t('sim2.topoVolume'), 'sim2Topology')}${pmNum('topoIters', e.topoIters, t('sim2.topoIterations'), 'statistics')}${pmNum('penaltyP', e.penaltyP, t('sim2.topoPenalty'), 'material')}${pmNum('filterR', e.filterR, `${t('sim2.topoFilter')} (mm, 0 = ${t('fem.auto')})`, 'smartDim')}<p class="pm-note">${escapeHtml(t('sim2.topoNote'))}</p>`);
+    let res = '';
+    if (r) {
+      const h = r.history ?? [];
+      res = pmGroup('sim2Topology', t('sim.results'), `${dl([[t('sim2.topoCompliance'), `${fmt(h[0]?.compliance ?? 0, 3)} → ${fmt(r.compliance, 3)} N·mm`], [t('sim2.topoVolumeResult'), `${fmt(100 * r.volumeFraction, 1)} %`, r.passiveFraction > e.volFrac ? 'error' : ''], [t('sim2.topoPassive'), `${fmt(100 * (r.passiveFraction ?? 0), 1)} %`], [t('sim2.topoIterationsDone'), `${r.iterations}${r.converged ? '' : ' !'}`], [t('sim2.topoShapeVolume'), `${fmt(r.shape?.volume ?? 0, 0)} mm³`], [t('sim.elements'), `${r.elements} (${fmt(r.elementSize, 2)} mm)`]])}${r.passiveFraction > e.volFrac ? `<p class="pm-note error">${escapeHtml(t('sim2.topoPassiveOver'))}</p>` : ''}${fem.chart(h.map((x) => x.iteration), h.map((x) => x.compliance))}<p class="pm-note">${escapeHtml(t('sim2.topoChart'))}</p>${check('showShape', e.showShape, 'sim2Topology', t('sim2.topoShow'))}${pmNum('threshold', e.threshold, t('sim2.topoThreshold'), 'statistics')}<div class="sim-legend"><span>0</span><i></i><span>${escapeHtml(t('sim2.topoDensityOne'))}</span></div><div class="pm-row">${pmButton('topo.stl', 'stlFile', t('sim2.topoStl'))}</div>${clear}`);
+    }
+    return [head('sim2Topology', 'pm.help.topology'), studySelector(e), material, fix, loadGroup, setup, meshG, res].join('');
   }
 
   /** Shows a stored drop-test frame on the body (deformed, true scale). */
@@ -196,6 +287,9 @@ export function createSim2Tools(ctx) {
     const common = {
       bodies: bodies.map((b) => ({ mesh: b.mesh, material: feaMaterial(b.part ?? { material: null }), name: b.name })),
       fixtures: fem.fixturesOf(e), loads: e.loadKind === 'gravity' ? [] : loadsOf(e), gravity: fem.gravityOf(e), contacts: e.contact, friction: e.contact === 'contact' ? e.asmFriction ?? 0 : 0, mesh: fem.meshOptions(e, size),
+      // CG to a relative residual of 1e-6: on the 12-part sample the stresses agree with 1e-8 to 3e-7, in 20 % fewer
+      // iterations.
+      tol: 1e-6,
     };
     // Nonlinear: large displacements, finite sliding of the contact (re-projected every iteration), friction.
     const r = await fem.run(e.asmNonlinear ? 'nonlinear' : 'static', e.asmNonlinear ? { ...common, geometric: true, steps: Math.max(1, Math.round(e.asmSteps ?? 5)), material: undefined } : common, a.name);
@@ -285,6 +379,8 @@ export function createSim2Tools(ctx) {
         pmGroup('femFloor', t('fem.floor'), `${pmSeg('floorType', [['rigid', t('fem.floor.rigid'), 'femFloor'], ['elastic', t('fem.floor.elastic'), 'femSpring'], ['slab', t('fem.floor.slab'), 'femMesh']], e.floorType)}${e.floorType !== 'rigid' ? `${pmNum('floorE', e.floorE, `${t('fem.floor.E')} (MPa)`, 'material')}${pmNum('floorThickness', e.floorThickness, `${t('fem.floor.thickness')} (mm)`, 'smartDim')}` : ''}${pmNum('friction', e.friction, t('fem.friction'), 'femFriction')}${pmNum('damping', e.damping, t('fem.contactDamping'), 'femSpring')}${check('plasticDrop', e.plasticDrop, 'material', t('fem.plasticJ2'))}`),
         meshG, res].join('');
     }
+    if (e.study === 'dynamic') return dynamicPm(e, r, { head, material, fix, loadGroup, meshG, clear });
+    if (e.study === 'topology') return topologyPm(e, r, { head, material, fix, loadGroup, meshG, clear });
     if (e.study === 'combination') {
       const cases = e.cases.map((c, i) => `<div class="sim2-case"><span class="sim2-case-name">${icon('load', 'icon tiny')}${escapeHtml(c.name)}</span>${ctx.pm.textInput(`factor:${i}`, String(c.factor), 'sim2-factor')}<button class="icon-button" data-pm="sim2.delCase:${i}" title="${escapeHtml(t('action.delete'))}">${icon('trash', 'icon tiny')}</button></div>`).join('');
       const res = r ? pmGroup('sim2Combine', t('sim.results'), `${dl([[t('sim.maxStress'), `${fmt(r.maxStress, 2)} MPa`], [t('sim.maxDisp'), `${fmt(r.maxDisplacement, 4)} mm`], [t('sim.fos'), fmt(r.minFactorOfSafety, 2), r.minFactorOfSafety < 1 ? 'error' : ''], ...(r.caseResults ?? []).map((c) => [`${c.name} ×${fmt(c.factor, 2)}`, `${fmt(c.maxStress, 1)} MPa`])])}${legend('0', `${fmt(state.sim?.top ?? r.maxStress, 1)} MPa`)}${clear}`) : '';
@@ -371,7 +467,7 @@ export function createSim2Tools(ctx) {
     ctx.renderLeft();
   }
 
-  const studyOptions = () => [['nonlinear', t('sim2.nonlinear')], ['drop', t('sim2.dropTest')], ['combination', t('sim2.combination')], ['flow', t('sim2.flow')]];
+  const studyOptions = () => [['nonlinear', t('sim2.nonlinear')], ['drop', t('sim2.dropTest')], ['combination', t('sim2.combination')], ['dynamic', t('sim2.dynamic')], ['topology', t('sim2.topology')], ['flow', t('sim2.flow')]];
 
   async function openStudy(study) {
     if (editing()?.mode !== 'simulation') await ctx.runCommand('simulation');
@@ -996,6 +1092,14 @@ export function createSim2Tools(ctx) {
       // The flow display belongs to the Simulation page: it goes when the page closes.
       if (state.flow && editing()?.mode !== 'simulation') state.flow = null;
       const f = state.flow;
+      // The optimised shape of a topology study, over the body made see-through.
+      if (state.topo && editing()?.mode !== 'simulation') state.topo = null;
+      const tp = state.topo;
+      if (tp?.show && p && tp.partId === p.id && entry && tp.key === entry.key && tp.shape?.triangles?.length) {
+        vp().addBody({ key: 'topo:shape', mesh: { vertices: tp.shape.vertices, normals: tp.shape.normals, triangles: Array.from(tp.shape.triangles), faceGroups: [] }, edges: null, color: '#2f7de1', opacity: 1, pickable: false, faceIndex: new Map(), edgeIndex: new Map() });
+        const body = vp().bodies.get('body');
+        if (body) { body.mesh.material.transparent = true; body.mesh.material.opacity = 0.18; body.mesh.material.depthWrite = false; }
+      }
       if (f && p && f.partId === p.id && entry && f.key === entry.key && f.section) {
         vp().addBody({ key: 'flow:section', mesh: { ...f.section.mesh, triangles: Array.from(f.section.mesh.triangles) }, edges: null, colors: f.section.colors, faceIndex: new Map(), edgeIndex: new Map(), opacity: 0.92, pickable: false });
         const body = vp().bodies.get('body');
@@ -1100,6 +1204,15 @@ export function createSim2Tools(ctx) {
     if (key === 'ver.author') { try { storage()?.setItem(AUTHOR_KEY, String(raw).trim()); } catch { /* no storage */ } return ctx.renderLeft(); }
     if (key === 'ver.comment') { state.nextVersionComment = String(raw); return undefined; }
     if (key.startsWith('factor:')) { const c = e.cases?.[Number(key.slice(7))]; const x = Number(String(raw).replace(',', '.')); if (c && Number.isFinite(x)) { c.factor = x; e.result = null; } else notify('error', t('notice.invalidValue', { text: raw })); return ctx.renderLeft(); }
+    if (isSim(e) && ['tCurve', 'psdText'].includes(key)) { e[key] = String(raw ?? ''); e.result = null; return ctx.renderLeft(); }
+    if (isSim(e) && ['fFrom', 'fTo'].includes(key) && v != null) { e[key] = Math.max(0, v); e.result = null; return ctx.renderLeft(); }
+    if (isSim(e) && key === 'dampRatio' && v != null) { e.dampRatio = Math.min(0.5, Math.max(1e-4, v)); e.result = null; return ctx.renderLeft(); }
+    if (isSim(e) && key === 'volFrac' && v != null) { e.volFrac = Math.min(0.95, Math.max(0.05, v)); e.result = null; state.topo = null; return ctx.renderLeft(); }
+    if (isSim(e) && key === 'threshold' && v != null) { e.threshold = Math.min(0.95, Math.max(0.05, v)); retopo(e); return ctx.renderLeft(); }
+    if (isSim(e) && ['topoIters'].includes(key) && v != null) { e.topoIters = Math.max(1, Math.min(200, Math.round(v))); e.result = null; return ctx.renderLeft(); }
+    if (isSim(e) && key === 'filterR' && v != null) { e.filterR = Math.max(0, v); e.result = null; return ctx.renderLeft(); }
+    if (isSim(e) && key === 'penaltyP' && v != null) { e.penaltyP = Math.min(6, Math.max(1, v)); e.result = null; return ctx.renderLeft(); }
+    if (isSim(e) && ['dynModes', 'fSteps'].includes(key) && v != null) { e[key] = Math.max(1, Math.round(v)); e.result = null; return ctx.renderLeft(); }
     if (isSim(e) && fem.field(e, key, v)) return undefined;
     if (isSim(e) && key === 'frame' && v != null) { e.frame = Math.max(0, Math.round(v)); return showFrame(e); }
     if (v == null) { notify('error', t('notice.invalidValue', { text: raw })); return ctx.renderLeft(); }
@@ -1130,6 +1243,7 @@ export function createSim2Tools(ctx) {
     if (key === 'mbd.show') { const p = part(); ctx.change('op.mbd', () => { p.mbdHidden = !checked; }); return; }
     if (key === 'mbd.diameterZone') return mbdField(key, checked);
     if (key === 'ver.require') return vault('require');
+    if (key === 'showShape') { e.showShape = checked; if (state.topo) state.topo.show = checked; ctx.syncView(); return ctx.renderLeft(); }
     if (key === 'showStreams') { e.showStreams = checked; if (state.flow) { state.flow.showStreams = checked; buildFlowDisplay(); } ctx.syncView(); return ctx.renderLeft(); }
     if (key === 'showPaths') { e.showPaths = checked; if (state.flow) { state.flow.showPaths = checked; buildFlowDisplay(); } ctx.syncView(); return ctx.renderLeft(); }
     if (key === 'asmNonlinear') { e.asmNonlinear = checked; e.result = null; return ctx.renderLeft(); }
@@ -1146,7 +1260,7 @@ export function createSim2Tools(ctx) {
     if (e.mode === 'belt') return acceptBelt(e);
     return ctx.cancelEditing({ quiet: true });
   }
-  const NAMES = new Set(['sim2.addCase', 'sim2.delCase', 'mbd.add', 'mbd.one', 'mbd.sel', 'mbd.del', 'mbd.auto', 'ver.pick', 'ver.rollback', 'ver.compare', 'ver.out', 'ver.in', 'lib.sel', 'lib.del']);
+  const NAMES = new Set(['topo.stl', 'sim2.addCase', 'sim2.delCase', 'mbd.add', 'mbd.one', 'mbd.sel', 'mbd.del', 'mbd.auto', 'ver.pick', 'ver.rollback', 'ver.compare', 'ver.out', 'ver.in', 'lib.sel', 'lib.del']);
   function handles(name) { return NAMES.has(name) || (owns(editing()) && ['clear', 'runSim', 'clearSim'].includes(name)); }
   function command(name, arg) {
     const e = editing();
@@ -1158,6 +1272,7 @@ export function createSim2Tools(ctx) {
       vp()?.setSelection([]);
       return ctx.renderLeft();
     }
+    if (name === 'topo.stl') return exportTopoStl();
     if (name === 'sim2.addCase') return addCase();
     if (name === 'sim2.delCase') { e.cases.splice(Number(arg), 1); e.result = null; return ctx.renderLeft(); }
     if (name === 'mbd.add') { e.adding = e.adding === arg ? null : arg; e.refs = []; return ctx.renderLeft(); }
@@ -1185,6 +1300,8 @@ export function createSim2Tools(ctx) {
     nonlinearStudy: { icon: 'sim2Nonlinear', label: 'cmd.nonlinearStudy', enabled: hasPart, checked: () => editing()?.study === 'nonlinear', run: () => openStudy('nonlinear') },
     dropTest: { icon: 'sim2Drop', label: 'cmd.dropTest', enabled: hasPart, checked: () => editing()?.study === 'drop', run: () => openStudy('drop') },
     loadCombination: { icon: 'sim2Combine', label: 'cmd.loadCombination', enabled: hasPart, checked: () => editing()?.study === 'combination', run: () => openStudy('combination') },
+    topologyStudy: { icon: 'sim2Topology', label: 'cmd.topologyStudy', enabled: hasPart, checked: () => editing()?.study === 'topology', run: () => openStudy('topology') },
+    dynamicStudy: { icon: 'sim2Dynamic', label: 'cmd.dynamicStudy', enabled: hasPart, checked: () => editing()?.study === 'dynamic', run: () => openStudy('dynamic') },
     flowStudy: { icon: 'sim2Flow', label: 'cmd.flowStudy', enabled: hasPart, checked: () => editing()?.study === 'flow', run: () => openStudy('flow') },
     assemblySimulation: { icon: 'femAssembly', label: 'cmd.assemblySimulation', enabled: () => Boolean(asm()) && !editing()?.editor, checked: () => Boolean(editing()?.assembly), run: () => (editing()?.assembly ? ctx.cancelEditing({ quiet: true }) : startAsmSim()) },
     mbdAnnotations: { icon: 'mbdAnnotations', label: 'cmd.mbdAnnotations', enabled: hasPart, checked: () => editing()?.mode === 'mbd', run: () => (editing()?.mode === 'mbd' ? ctx.cancelEditing({ quiet: true }) : startMbd()) },
@@ -1205,7 +1322,7 @@ export function createSim2Tools(ctx) {
     libInsert: { icon: 'libInsert', label: 'cmd.libInsert', enabled: hasPart, checked: () => editing()?.mode === 'libInsert', run: () => startLibInsert() },
   };
   const TABS = {
-    evaluate: ['nonlinearStudy', 'dropTest', 'loadCombination', 'flowStudy', 'assemblySimulation', 'mbdAnnotations', 'mbdAutoDimension', 'versionHistory'],
+    evaluate: ['nonlinearStudy', 'dropTest', 'loadCombination', 'dynamicStudy', 'topologyStudy', 'flowStudy', 'assemblySimulation', 'mbdAnnotations', 'mbdAutoDimension', 'versionHistory'],
     features: ['mbdAnnotations', 'libSave', 'libInsert'],
     sketch: ['sk:makeBlock', 'sk:insertBlock', 'sk:explodeBlock', 'sk:picture'],
     assembly: ['asmCut', 'asmHole', 'beltChain', 'versionHistory'],
@@ -1214,7 +1331,7 @@ export function createSim2Tools(ctx) {
   function extendMenus(MENUS) {
     const at = (list, after, ids) => { const i = list.indexOf(after); list.splice(i >= 0 ? i + 1 : list.length, 0, ...ids); };
     if (MENUS.file) at(MENUS.file, 'saveAs', ['versionHistory', 'checkOut', 'checkIn', 'whereUsed']);
-    if (MENUS.tools) at(MENUS.tools, 'simulation', ['nonlinearStudy', 'dropTest', 'loadCombination', 'flowStudy', 'assemblySimulation', '-', 'mbdAnnotations', 'mbdAutoDimension', 'insertModelAnnotations', '-', 'asmCut', 'asmHole', 'beltChain', '-', 'libSave', 'libInsert']);
+    if (MENUS.tools) at(MENUS.tools, 'simulation', ['nonlinearStudy', 'dropTest', 'loadCombination', 'dynamicStudy', 'topologyStudy', 'flowStudy', 'assemblySimulation', '-', 'mbdAnnotations', 'mbdAutoDimension', 'insertModelAnnotations', '-', 'asmCut', 'asmHole', 'beltChain', '-', 'libSave', 'libInsert']);
     if (MENUS.sketch) MENUS.sketch.push('-', 'sk:makeBlock', 'sk:insertBlock', 'sk:explodeBlock', 'sk:picture');
   }
 

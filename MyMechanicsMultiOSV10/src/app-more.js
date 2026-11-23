@@ -18,7 +18,8 @@ import {
   viewDepth, findHoles, holeTableRows, addRevision, sheetSvg, sheetDxf,
 } from './cad/drawing-more.js';
 import { curvatureColours, zebraColours, thicknessAnalysis } from './cad/evaluate.js';
-import { buckling, fatigue, damageColor } from './cad/fea-more.js';
+import { buckling, damageColor } from './cad/fea-more.js';
+import { fatigueStudy, FINISHES, RELIABILITY, LOAD_TYPES, MEAN_METHODS, MEASURES } from './cad/fatigue.js';
 import { analyse as analyseFea, stressColor } from './cad/fea.js';
 import { materialOf, materialName } from './cad/materials.js';
 import { escapeHtml } from './ui/dom.js';
@@ -374,14 +375,14 @@ export function createMoreTools(ctx) {
         if (e.study === 'buckling') return fem.run('buckling', { bodies: [{ mesh: entry.mesh, material }], fixtures: fixturesFem, loads: loadsOf(e), mesh: femMesh, modes: Math.max(1, Math.min(4, Math.round(e.bModes ?? 2))) }, p.name);
         const stat = await fem.run('static', { bodies: [{ mesh: entry.mesh, material }], fixtures: fixturesFem, loads: loadsOf(e), mesh: femMesh }, p.name);
         if (!stat) return null;
-        return { stat, fat: stat.error && stat.error !== 'not-converged' ? null : fatigue(stat, { material, loading: e.loading ?? 'reversed', cycles: e.cycles ?? 1e6 }) };
+        return { stat, fat: stat.error && stat.error !== 'not-converged' ? null : fatigueStudy(stat, fatigueOptions(e, material)) };
       })()
       : await ctx.withProgress('progress.simulation', p.name, async (op, report) => {
         await new Promise((r) => setTimeout(r, 30));
         const onProgress = (f) => report({ fraction: f, text: t('progress.solving') });
         if (e.study === 'buckling') return buckling(entry.mesh, { material, fixtures: e.fixtures.map((x) => x.faceId), loads: loadsOf(e), resolution, modes: Math.max(1, Math.min(4, Math.round(e.bModes ?? 2))), onProgress });
         const stat = analyseFea(entry.mesh, { material, fixtures: e.fixtures.map((x) => x.faceId), loads: loadsOf(e), resolution, onProgress });
-        return { stat, fat: stat.error && stat.error !== 'not-converged' ? null : fatigue(stat, { material, loading: e.loading ?? 'reversed', cycles: e.cycles ?? 1e6 }) };
+        return { stat, fat: stat.error && stat.error !== 'not-converged' ? null : fatigueStudy(stat, fatigueOptions(e, material)) };
       }, { delay: 150 });
     if (!result) return;
     const err = e.study === 'buckling' ? result.error : result.stat.error;
@@ -394,10 +395,8 @@ export function createMoreTools(ctx) {
       notify(result.loadFactor < 1 && result.loadFactor > 0 ? 'warning' : 'success', t('notice.bucklingDone', { f: ctx.fmt(result.loadFactor, 3) }));
     } else {
       const f = result.fat;
-      const colors = new Float32Array(f.vertexDamage.length * 3);
-      f.vertexDamage.forEach((d, i) => colors.set(damageColor(d), i * 3));
-      state.sim = { partId: p.id, key: entry.key, result: result.stat, colors, deformed: false, scale: 1, study: 'fatigue' };
-      notify(f.maxDamage >= 1 ? 'warning' : 'success', t('notice.fatigueDone', { life: lifeText(f.minLife), damage: ctx.fmt(f.maxDamage, 3) }));
+      state.sim = { partId: p.id, key: entry.key, result: result.stat, colors: fatigueColours(f, fatOf(e).plot), deformed: false, scale: 1, study: 'fatigue' };
+      notify(f.maxDamage >= 1 ? 'warning' : 'success', t('notice.fatigueDone', { life: lifeText(f.minLife * f.blockCycles), damage: ctx.fmt(f.maxDamage, 3) }));
       ctx.syncView(); ctx.renderLeft();
     }
   }
@@ -410,6 +409,78 @@ export function createMoreTools(ctx) {
     for (let i = 0; i < n; i++) colors.set(stressColor(Math.hypot(shape[3 * i], shape[3 * i + 1], shape[3 * i + 2]), 0, 1), 3 * i);
     state.sim = { partId: p.id, key: entry.key, result: { ...r.staticResult, vertexDisplacement: shape }, colors, deformed: true, scale: (entry.size ?? 100) * 0.08, study: 'buckling' };
     ctx.syncView(); ctx.renderLeft();
+  }
+
+  /** The fatigue settings of a study (defaults filled; kept on the editing state). */
+  function fatOf(e) {
+    e.fat ??= {};
+    const F = e.fat;
+    F.source ??= 'estimate'; F.finish ??= 'machined'; F.reliability ??= 50; F.loadType ??= 'bending'; F.diameter ??= 0; F.temperature ??= 20;
+    F.table ??= '1e3:400, 1e6:200'; F.kf ??= 1; F.mode ??= 'events'; F.measure ??= 'vonMises'; F.mean ??= 'goodman'; F.plot ??= 'damage';
+    F.events ??= [{ cycles: e.cycles ?? 1e6, min: (e.loading ?? 'reversed') === 'zeroBased' ? 0 : -1, max: 1 }];
+    F.history ??= '0, 1, -0.5, 0.8, -1, 0.6, 0'; F.repeats ??= 1000;
+    return F;
+  }
+  const parseTable = (text) => String(text ?? '').split(/[,;\n]+/).map((p) => p.split(/[:\s]+/).filter(Boolean).map(Number)).filter((q) => q.length === 2 && q.every(Number.isFinite));
+  const parseHistory = (text) => String(text ?? '').split(/[,;\s]+/).map(Number).filter(Number.isFinite);
+  function fatigueOptions(e, material) {
+    const F = fatOf(e);
+    return {
+      material, measure: F.measure, mean: F.mean, kf: F.kf,
+      curve: { source: F.source, table: parseTable(F.table), finish: F.finish, reliability: Number(F.reliability), loadType: F.loadType, diameter: F.diameter, temperature: F.temperature },
+      ...(F.mode === 'history' ? { history: parseHistory(F.history), repeats: F.repeats } : { events: F.events }),
+    };
+  }
+  /** Colours of a fatigue result: damage (green → red at 1), life (log, red short → green long) or biaxiality. */
+  function fatigueColours(f, plot = 'damage') {
+    const n = f.vertexDamage.length, colors = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      let c;
+      if (plot === 'biaxiality') c = stressColor(f.vertexBiaxiality[i], -1, 1);
+      else if (plot === 'life') { const L = f.vertexLife[i] * f.blockCycles; c = stressColor(Number.isFinite(L) ? Math.max(0, 9 - Math.log10(Math.max(1, L))) : 0, 0, 6); }
+      else c = damageColor(f.vertexDamage[i]);
+      colors.set(c, 3 * i);
+    }
+    return colors;
+  }
+  function fatigueGroups(e) {
+    const { pmGroup, pmNum, pmSeg, pmButton } = ctx.pm;
+    const F = fatOf(e);
+    const text = (key, value, label) => `<label class="pm-field"><span class="pm-label">${escapeHtml(label)}</span><input type="text" class="pm-text" data-pm-field="${key}" value="${escapeHtml(value ?? '')}" spellcheck="false"/></label>`;
+    const curve = F.source === 'table'
+      ? `${text('fatTable', F.table, t('fat.table'))}<p class="pm-note">${escapeHtml(t('fat.tableNote'))}</p>`
+      : `<p class="pm-note">${escapeHtml(t('fat.finish'))}</p>${pmSeg('fatFinish', Object.keys(FINISHES).map((k) => [k, t(`fat.finish.${k}`)]), F.finish)}<p class="pm-note">${escapeHtml(t('fat.loadType'))}</p>${pmSeg('fatLoadType', Object.keys(LOAD_TYPES).map((k) => [k, t(`fat.load.${k}`)]), F.loadType)}<p class="pm-note">${escapeHtml(t('fat.reliability'))}</p>${pmSeg('fatReliability', Object.keys(RELIABILITY).map(Number).sort((a, b) => a - b).slice(0, 6).map((k) => [String(k), `${k} %`]), String(F.reliability))}${pmNum('fatDiameter', F.diameter, `${t('fat.diameter')} (mm, 0 = ${t('fat.none')})`, 'dimDiameter')}${pmNum('fatTemperature', F.temperature, `${t('fat.temperature')} (°C)`, 'sun')}`;
+    const events = F.events.map((ev, i) => `<div class="fat-event"><b>${i + 1}</b>${pmNum(`fatEv:${i}:cycles`, ev.cycles, t('fat.cycles'), 'fatigue')}${pmNum(`fatEv:${i}:min`, ev.min, t('fat.min'), 'load')}${pmNum(`fatEv:${i}:max`, ev.max, t('fat.max'), 'load')}${F.events.length > 1 ? `<button type="button" class="icon-button" data-pm="fat.delEvent:${i}" title="${escapeHtml(t('action.delete'))}">${icon('trash', 'icon tiny')}</button>` : ''}</div>`).join('');
+    const loading = F.mode === 'history'
+      ? `${text('fatHistory', F.history, t('fat.history'))}${pmNum('fatRepeats', F.repeats, t('fat.repeats'), 'fatigue')}<p class="pm-note">${escapeHtml(t('fat.historyNote'))}</p>`
+      : `${events}<div class="pm-row">${pmButton('fat.addEvent', 'plus', t('fat.addEvent'))}</div><p class="pm-note">${escapeHtml(t('fat.eventsNote'))}</p>`;
+    return [
+      pmGroup('fatigue', t('fat.curve'), `${pmSeg('fatSource', [['estimate', t('fat.estimate')], ['table', t('fat.tableSource')]], F.source)}${curve}${pmNum('fatKf', F.kf, t('fat.kf'), 'fatigue')}`),
+      pmGroup('load', t('sim.fatigueLoading'), `${pmSeg('fatMode', [['events', t('fat.events')], ['history', t('fat.historyMode')]], F.mode)}${loading}`),
+      pmGroup('statistics', t('fat.method'), `<p class="pm-note">${escapeHtml(t('fat.measure'))}</p>${pmSeg('fatMeasure', MEASURES.map((k) => [k, t(`fat.measure.${k}`)]), F.measure)}<p class="pm-note">${escapeHtml(t('fat.mean'))}</p>${pmSeg('fatMean', MEAN_METHODS.map((k) => [k, t(`fat.mean.${k}`)]), F.mean)}`),
+    ].join('');
+  }
+  /** Fatigue inputs typed in the PropertyManager. True when handled. */
+  function simField(e, key, raw, v) {
+    if (e.study !== 'fatigue' || !/^fat/.test(key)) return false;
+    const F = fatOf(e); let m;
+    if (key === 'fatTable') F.table = String(raw ?? '');
+    else if (key === 'fatHistory') F.history = String(raw ?? '');
+    else if ((m = /^fatEv:(\d+):(cycles|min|max)$/.exec(key))) { const ev = F.events[Number(m[1])]; if (ev && v != null && (m[2] !== 'cycles' || v > 0)) ev[m[2]] = v; }
+    else if (v != null) {
+      const k = { fatKf: 'kf', fatDiameter: 'diameter', fatTemperature: 'temperature', fatRepeats: 'repeats' }[key];
+      if (k === 'kf') F.kf = Math.max(1, v); else if (k === 'repeats') F.repeats = Math.max(1, Math.round(v)); else if (k) F[k] = Math.max(k === 'temperature' ? -273 : 0, v);
+    }
+    e.result = null; ctx.renderLeft();
+    return true;
+  }
+  /** Fatigue commands (events added / removed). True when handled. */
+  function simCommand(e, name, arg) {
+    if (e.study !== 'fatigue') return false;
+    const F = fatOf(e);
+    if (name === 'fat.addEvent') { F.events.push({ cycles: 1e5, min: 0, max: 1 }); e.result = null; ctx.renderLeft(); return true; }
+    if (name === 'fat.delEvent') { F.events.splice(Number(arg), 1); e.result = null; ctx.renderLeft(); return true; }
+    return false;
   }
 
   const lifeText = (n) => (Number.isFinite(n) ? `${n >= 1e4 ? n.toExponential(2) : ctx.fmt(n, 0)} ${t('sim.cycles')}` : t('sim.infiniteLife'));
@@ -432,15 +503,26 @@ export function createMoreTools(ctx) {
         ctx.fem ? `${pmGroup('buckling', t('sim.modeCount'), pmNum('bModes', e.bModes ?? 2, t('sim.modeCount'), 'buckling'))}${ctx.fem.meshGroup(e)}` : pmGroup('statistics', t('sim.mesh'), `${pmNum('bModes', e.bModes ?? 2, t('sim.modeCount'), 'buckling')}${pmNum('resolution', e.resolution, t('sim.resolution'), 'statistics')}<div class="pm-row">${pmButton('runSim', 'play', t('sim.run'), 'primary')}</div>`), res].join('');
     }
     const f = r?.fat;
-    const res = f ? pmGroup('fatigue', t('sim.results'), `<dl class="pm-results"><dt>${escapeHtml(t('sim.minLife'))}</dt><dd class="${f.maxDamage >= 1 ? 'error' : ''}">${escapeHtml(lifeText(f.minLife))}</dd><dt>${escapeHtml(t('sim.maxDamage'))}</dt><dd class="${f.maxDamage >= 1 ? 'error' : ''}">${escapeHtml(ctx.fmt(f.maxDamage, 4))}</dd><dt>${escapeHtml(t('sim.fatigueFos'))}</dt><dd>${escapeHtml(Number.isFinite(f.factorOfSafety) ? ctx.fmt(f.factorOfSafety, 2) : '∞')}</dd><dt>${escapeHtml(t('sim.snCurve'))}</dt><dd>${escapeHtml(`Su ${ctx.fmt(f.curve.su, 0)} · Se ${ctx.fmt(f.curve.se, 0)} MPa`)}</dd></dl><div class="sim-legend more-damage-legend"><span>0</span><i></i><span>${escapeHtml(t('sim.damageOne'))}</span></div><div class="pm-row">${pmButton('clearSim', 'trash', t('sim.clear'))}</div>`) : '';
+    const F = fatOf(e);
+    const res = f ? pmGroup('fatigue', t('sim.results'), `<dl class="pm-results"><dt>${escapeHtml(t('sim.minLife'))}</dt><dd class="${f.maxDamage >= 1 ? 'error' : ''}">${escapeHtml(lifeText(f.minLife * f.blockCycles))}</dd><dt>${escapeHtml(t('fat.lifeBlocks'))}</dt><dd>${escapeHtml(Number.isFinite(f.minLife) ? (f.minLife >= 1e4 ? f.minLife.toExponential(2) : ctx.fmt(f.minLife, 1)) : '∞')}</dd><dt>${escapeHtml(t('sim.maxDamage'))}</dt><dd class="${f.maxDamage >= 1 ? 'error' : ''}">${escapeHtml(ctx.fmt(f.maxDamage, 4))}</dd><dt>${escapeHtml(t('fat.loadFos'))}</dt><dd class="${f.factorOfSafety < 1 ? 'error' : ''}">${escapeHtml(Number.isFinite(f.factorOfSafety) ? ctx.fmt(f.factorOfSafety, 2) : '∞')}</dd><dt>${escapeHtml(t('fat.biaxiality'))}</dt><dd>${escapeHtml(f.worst >= 0 ? ctx.fmt(f.vertexBiaxiality[f.worst], 2) : '—')}</dd><dt>${escapeHtml(t('fat.blockCycles'))}</dt><dd>${escapeHtml(f.blockCycles >= 1e4 ? f.blockCycles.toExponential(2) : ctx.fmt(f.blockCycles, 1))}</dd><dt>${escapeHtml(t('sim.snCurve'))}</dt><dd>${escapeHtml(`Su ${ctx.fmt(f.curve.su, 0)} · Se ${ctx.fmt(f.curve.se, 0)} MPa${f.curve.marin ? ` · k ${ctx.fmt(f.curve.marin.k, 3)}` : ''}`)}</dd></dl>${pmSeg('fatPlot', [['damage', t('fat.plot.damage')], ['life', t('fat.plot.life')], ['biaxiality', t('fat.plot.biaxiality')]], F.plot)}<div class="sim-legend more-damage-legend"><span>0</span><i></i><span>${escapeHtml(t('sim.damageOne'))}</span></div><div class="pm-row">${pmButton('clearSim', 'trash', t('sim.clear'))}</div>`) : '';
     return [pmHead('fatigue', t('cmd.simulation'), t('pm.help.fatigue')), study, material, fix, loadGroup,
-      pmGroup('fatigue', t('sim.fatigueLoading'), `${pmSeg('loading', [['reversed', t('sim.fullyReversed')], ['zeroBased', t('sim.zeroBased')]], e.loading ?? 'reversed')}${pmNum('cycles', e.cycles ?? 1e6, t('sim.cycleCount'), 'fatigue')}`),
+      fatigueGroups(e),
       ctx.fem ? ctx.fem.meshGroup(e) : pmGroup('statistics', t('sim.mesh'), `${pmNum('resolution', e.resolution, t('sim.resolution'), 'statistics')}<div class="pm-row">${pmButton('runSim', 'play', t('sim.run'), 'primary')}</div>`), res].join('');
   }
 
   /** modeIndex of a buckling study: shows that mode. True when handled. */
   function simSet(e, key, value) {
     if (e.study === 'buckling' && key === 'modeIndex') { e.modeIndex = Number(value); showBucklingMode(e); return true; }
+    if (e.study === 'fatigue' && /^fat/.test(key)) {
+      const F = fatOf(e);
+      const k = { fatSource: 'source', fatFinish: 'finish', fatLoadType: 'loadType', fatReliability: 'reliability', fatMode: 'mode', fatMeasure: 'measure', fatMean: 'mean', fatPlot: 'plot' }[key];
+      if (!k) return false;
+      F[k] = k === 'reliability' ? Number(value) : value;
+      if (k === 'plot') { if (state.sim?.study === 'fatigue' && e.result?.fat) { state.sim.colors = fatigueColours(e.result.fat, value); ctx.syncView(); } }
+      else e.result = null;
+      ctx.renderLeft();
+      return true;
+    }
     return false;
   }
 
@@ -641,7 +723,7 @@ export function createMoreTools(ctx) {
 
   return {
     commands, TABS, owns, pm, pick, field, set, toggle, accept, handles, command, subject, afterSolve,
-    colours, onCamera, simStudy, studyOptions, simPm, runSim, simSet,
+    colours, onCamera, simStudy, studyOptions, simPm, runSim, simSet, simField, simCommand,
     drawingAction, adjust, svg, dxf, sheetTabsHtml, sheetDrawing: (d) => { adoptToActiveSheet(d); return sheetDrawing(d); },
   };
 }

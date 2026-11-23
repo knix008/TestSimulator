@@ -5,6 +5,7 @@
 // and a study report; plus the bodies of an assembly (one per component, in assembly space) for contact studies.
 import { runStudy, setWorkerFactory } from './cad/fem/run.js';
 import { probeStatic } from './cad/fem/static.js';
+import { linearizeStatic, linearizationChecks } from './cad/fem/linearize.js';
 import { probeTemperature } from './cad/fem/thermal.js';
 import { probe as probeModel } from './cad/fem/model.js';
 import { thermalProperties, stressColor, temperatureColor } from './cad/fea.js';
@@ -96,12 +97,13 @@ export function createFemTools(ctx) {
     init(e);
     const mesh = meshOptions(e, entry.size ?? 100);
     if (e.study === 'thermal') {
-      if (!e.fixtures.length && !(e.loads.length && e.heatKind === 'convection')) { notify('error', t('sim.error.no-temperature')); return; }
+      if (!e.fixtures.length && !(e.loads.length && ['convection', 'radiation'].includes(e.heatKind))) { notify('error', t('sim.error.no-temperature')); return; }
       const r = await run('thermal', {
         bodies: [{ mesh: entry.mesh, material: heatMaterial(part.material) }], mesh,
         temperatures: e.fixtures.map((x) => ({ faceId: x.faceId, value: e.temperature })),
         fluxes: e.heatKind === 'power' ? e.loads.map((x) => ({ faceId: x.faceId, power: e.power / e.loads.length })) : [],
         convections: e.heatKind === 'convection' ? e.loads.map((x) => ({ faceId: x.faceId, h: e.h, ambient: e.ambient })) : [],
+        radiations: e.heatKind === 'radiation' ? e.loads.map((x) => ({ faceId: x.faceId, emissivity: Math.min(1, e.emissivity ?? 0.9), ambient: e.ambient })) : [],
       }, part.name);
       if (!done(r)) return;
       const colors = new Float32Array(r.vertexTemperature.length * 3);
@@ -195,6 +197,7 @@ export function createFemTools(ctx) {
     const res = [];
     if (r.maxStress != null && !r.nodeTemperature) res.push([t('sim.maxStress'), `${fmt(r.maxStress, 2)} MPa`], [t('sim.maxDisp'), `${fmt(r.maxDisplacement, 4)} mm`], [t('sim.fos'), fmt(r.minFactorOfSafety, 2)]);
     if (r.nodeTemperature) res.push([t('sim.tMin'), `${fmt(r.min, 2)} °C`], [t('sim.tMax'), `${fmt(r.max, 2)} °C`], [t('sim.heatFlow'), `${fmt(r.heatFlowOut ?? 0, 3)} W`]);
+    if (r.nodeTemperature && r.radiationOut) res.push([t('sim.radiated'), `${fmt(r.radiationOut, 3)} W`]);
     if (r.frequencies) r.frequencies.forEach((f, i) => res.push([`${t('sim.frequencies')} ${i + 1}`, `${fmt(f, 2)} Hz`]));
     if (r.loadFactors) r.loadFactors.forEach((f, i) => res.push([`${t('sim.loadFactors')} ${i + 1}`, fmt(f, 3)]));
     if (r.reactions) r.reactions.forEach((x, i) => res.push([`${t('fem.reaction')} ${i + 1}`, `${x.force.map((v) => fmt(v, 2)).join(', ')} N`]));
@@ -234,6 +237,20 @@ export function createFemTools(ctx) {
     return pmGroup('femMesh', t('sim.mesh'), `${pmNum('elementSize', e.elementSize, `${t('fem.elementSize')} (mm, 0 = ${t('fem.auto')})`, 'femMesh')}${pmSeg('order', [['2', t('fem.quadratic'), 'femQuadratic'], ['1', t('fem.linear'), 'femLinear']], String(e.order))}${pmList('refine', e.refine.map(faceItem), t('fem.refineFaces'), 'femRefine', e.pick === 'refine')}${e.refine.length ? pmNum('refineSize', e.refineSize, `${t('fem.refineSize')} (mm, 0 = ${t('fem.auto')})`, 'femRefine') : ''}${quality}${runButton ? `<div class="pm-row">${pmButton('runSim', 'play', t('sim.run'), 'primary')}</div>` : ''}`);
   }
 
+  /** Stress linearisation along P1–P2 (a line through a wall) with the pressure-vessel checks for an allowable S. */
+  function linearization(e) {
+    const r = e.result;
+    if (!r?.stress || r.nodeTemperature || e.probes.length < 2) return '';
+    const lin = linearizeStatic(r, e.probes[0].point, e.probes[1].point, 21);
+    if (!lin.ok) return `<p class="pm-note">${escapeHtml(t('fem.linOutside'))}</p>`;
+    const S = e.allowS > 0 ? e.allowS : Math.round((r.model?.bodies?.[0]?.material?.yield ?? 250) / 1.5);
+    const c = lin.categories;
+    const rows = [['membrane', c.membrane], ['bending', c.bending], ['membraneBending', c.membraneBending], ['peak', c.peak], ['total', c.total]]
+      .map(([k, v]) => `<tr><td>${escapeHtml(t(`fem.lin.${k}`))}</td><td>${fmt(v.intensity, 2)}</td><td>${fmt(v.mises, 2)}</td></tr>`).join('');
+    const checks = linearizationChecks(lin, S).map((x) => `<tr class="${x.ok ? '' : 'fem-lin-fail'}"><td>${escapeHtml(x.name)}</td><td>${fmt(x.value, 1)}</td><td>≤ ${fmt(x.limit, 1)}</td></tr>`).join('');
+    return `<p class="pm-note">${escapeHtml(t('fem.linTitle', { t: fmt(lin.thickness, 2) }))}</p><table class="sim2-table fem-lin"><tr><th></th><th>${escapeHtml(t('fem.lin.intensity'))}</th><th>von Mises</th></tr>${rows}</table>${ctx.pm.pmNum('allowS', S, `${t('fem.linAllowable')} S (MPa)`, 'material')}<table class="sim2-table fem-lin">${checks}</table>`;
+  }
+
   /** Probes (pick points on the result), the plot between the first two, and the report buttons. */
   function resultTools(e) {
     init(e);
@@ -242,7 +259,7 @@ export function createFemTools(ctx) {
     const items = e.probes.map((p, i) => `P${i + 1}: ${(p.values ?? [[t('fem.outside'), '']]).map(([k, v]) => `${k} ${v}`).join(' · ')}`);
     const line = lineSamples(e);
     const plot = line ? `<p class="pm-note">${escapeHtml(t('fem.linePlot'))}</p>${chart(line.map((x) => x.s), line.map((x) => x.v))}` : `<p class="pm-note">${escapeHtml(t('fem.linePlotHint'))}</p>`;
-    return pmGroup('femProbe', t('fem.probes'), `${pmList('probes', items, t('fem.probePick'), 'femProbe', e.pick === 'probe')}${plot}<div class="pm-row">${pmButton('fem.report', 'femReport', t('fem.report.save'))}${pmButton('fem.copyReport', 'copy', t('fem.report.copy'))}</div>`);
+    return pmGroup('femProbe', t('fem.probes'), `${pmList('probes', items, t('fem.probePick'), 'femProbe', e.pick === 'probe')}${plot}${linearization(e)}<div class="pm-row">${pmButton('fem.report', 'femReport', t('fem.report.save'))}${pmButton('fem.copyReport', 'copy', t('fem.report.copy'))}</div>`);
   }
 
   /** Handles a face pick for the FE modes; true when handled. */
@@ -290,6 +307,7 @@ export function createFemTools(ctx) {
   }
   /** Number fields owned here; true when handled. */
   function field(e, key, v) {
+    if (key === 'allowS' && v > 0) { e.allowS = v; ctx.renderLeft(); return true; }
     if (!['elementSize', 'refineSize', 'springK'].includes(key) || v == null || !(v >= 0)) return false;
     e[key] = v; ctx.renderLeft();
     return true;

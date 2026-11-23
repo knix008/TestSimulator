@@ -14,6 +14,8 @@ import { modalStudy, bucklingStudy } from './modal.js';
 import { nonlinearStudy } from './nonlinear.js';
 import { dropStudy } from './explicit.js';
 import { combineStudy } from './combine.js';
+import { dynamicStudy } from './dynamic.js';
+import { topologyStudy } from './topology.js';
 import { flowStudy } from '../cfd/lbm.js';
 
 export const STUDY_KINDS = ['static', 'thermal', 'modal', 'buckling', 'nonlinear', 'drop', 'flow', 'combination'];
@@ -29,6 +31,8 @@ export function runStudyDirect(kind, input, { onProgress = null, cancel = null }
     case 'nonlinear': return nonlinearStudy(args);
     case 'drop': return dropStudy(args);
     case 'combination': return combineStudy(args);
+    case 'dynamic': return dynamicStudy(args);
+    case 'topology': return topologyStudy(args);
     case 'flow': return flowStudy(input.mesh ?? input.bodies?.[0]?.mesh, args);
     default: return { ok: false, error: 'unknown-study' };
   }

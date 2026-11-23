@@ -1,0 +1,17 @@
+[
+  {
+    "name": "large assembly: the gear reducer drawn normally first (edges, one geometry per body)",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.actions.ensureKernel(); m.actions.updateSettings({ largeAssembly: 'off', largeHideSmall: 0 }, { quiet: true }); await m.actions.openSampleAsk('asmGearReducer'); await sleep(2500); const vp = m.viewport; const bodies = [...vp.bodies.values()].filter((b) => b.key.startsWith('comp:')); let tris = 0; for (const b of bodies) tris += b.mesh.geometry.index.count / 3; window.__lam0 = { tris, n: bodies.length }; return JSON.stringify({ bodies: bodies.length > 10, edges: bodies.every((b) => b.edges), status: Boolean(document.querySelector('#statusbar .large-asm')) }); })()",
+    "expect": "\"bodies\":true,\"edges\":true,\"status\":false"
+  },
+  {
+    "name": "large assembly: turned on — no edge lines, repeated parts share a geometry, fewer triangles, the status bar says so",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); m.actions.updateSettings({ largeAssembly: 'on' }, { quiet: true }); await m.run('rebuild'); await sleep(1500); const vp = m.viewport; const bodies = [...vp.bodies.values()].filter((b) => b.key.startsWith('comp:')); const geoms = new Set(bodies.map((b) => b.mesh.geometry)); let tris = 0; for (const b of bodies) tris += b.mesh.geometry.index.count / 3; return JSON.stringify({ same: bodies.length === window.__lam0.n, noEdges: bodies.every((b) => !b.edges), shared: geoms.size < bodies.length, fewer: tris < window.__lam0.tris, status: Boolean(document.querySelector('#statusbar .large-asm')), pick: Boolean(bodies[0].triFace?.length) }); })()",
+    "expect": "\"same\":true,\"noEdges\":true,\"shared\":true,\"fewer\":true,\"status\":true,\"pick\":true"
+  },
+  {
+    "name": "large assembly: small parts hidden below 20 % of the largest part; off again brings the edges back",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); m.actions.updateSettings({ largeHideSmall: 0.2 }, { quiet: true }); await m.run('rebuild'); await sleep(1500); const n1 = [...m.viewport.bodies.keys()].filter((k) => k.startsWith('comp:')).length; const hidden = m.state.largeAssembly?.hidden ?? 0; m.actions.updateSettings({ largeAssembly: 'off', largeHideSmall: 0 }, { quiet: true }); await m.run('rebuild'); await sleep(1500); const bodies = [...m.viewport.bodies.values()].filter((b) => b.key.startsWith('comp:')); return JSON.stringify({ hidden: hidden > 0 && n1 + hidden === window.__lam0.n, back: bodies.length === window.__lam0.n && bodies.every((b) => b.edges), status: Boolean(document.querySelector('#statusbar .large-asm')) }); })()",
+    "expect": "\"hidden\":true,\"back\":true,\"status\":false"
+  }
+]

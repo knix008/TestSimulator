@@ -567,6 +567,41 @@ scene('tools-macro', async (g) => {
   await m.actions.undo(); await g.settle(300);
   return null;
 });
+// 6 · injection moulding: cooling channels and warpage
+scene('plastics-cooling', async (g) => {
+  {
+  const { m } = g;
+  await m.popups.closeAll(); await g.settle(300);
+  await g.sample('basMountBracket'); await g.fit(); await g.settle(500);
+  await m.run('plasticsStudy'); await g.settle(300);
+  const s = m.mfg.plastics.study();
+  m.actions.change('op.plastics', () => { Object.assign(s, { cells: 30, fiber: 0.3, aspect: 20, cooling: { on: true, diameter: 8, flow: 8, inlet: 25, coolant: 'water' }, warp: { on: true, size: 0 } }); });
+  await m.mfg.plastics.run(); await g.settle(500);
+  }
+  g.m.actions.pmSet('plQuantity', 'mouldTemp'); await g.settle(800);
+  return null;
+});
+scene('plastics-warp', async (g) => {
+  const { m } = g;
+  m.actions.pmSet('plQuantity', 'warp'); await g.settle(400);
+  m.actions.pmToggle('plDeformed', true); await g.settle(900);
+  return null;
+});
+scene('tools-markup', async (g) => {
+  const { m } = g;
+  await m.popups.closeAll(); await g.settle(300);
+  await g.sample('advParamBracket'); await g.fit(); await g.settle(500);
+  m.run('markup'); await g.settle(300);
+  const K = m.markup;
+  K.newMarkup({ quiet: true });
+  K.addItem({ kind: 'cloud', pts: [[0.6, 0.55], [0.8, 0.78]], color: '#e53935', width: 3 });
+  K.addItem({ kind: 'arrow', pts: [[0.42, 0.18], [0.6, 0.55]], color: '#e53935', width: 3 });
+  K.addItem({ kind: 'text', pts: [[0.25, 0.1]], text: g.T('구멍이 가장자리에 너무 가깝습니다', 'Holes too close to the edge'), color: '#e53935', size: 16 });
+  K.addItem({ kind: 'highlight', pts: [[0.3, 0.62], [0.42, 0.7]], color: '#fdd835', width: 4 });
+  m.state.editing.comment = g.T('구멍을 5 mm 안쪽으로 옮겨 주세요.', 'Please move the holes 5 mm inward.');
+  K.comment(); await g.settle(600);
+  return null;
+});
 
 // The tutorial's sweep and sheet metal lessons (built step by step)
 scene('tut-sweep-sketches', async (g) => {

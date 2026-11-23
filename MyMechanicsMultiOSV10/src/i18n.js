@@ -25,13 +25,21 @@ import { ko as koMechSch, en as enMechSch } from './i18n/mech-schematic.js';
 import { ko as koMechDc, en as enMechDc } from './i18n/mech-designcheck.js';
 import { ko as koMechTasks, en as enMechTasks } from './i18n/mech-tasks.js';
 import { ko as koMechMacros, en as enMechMacros } from './i18n/mech-macros.js';
+import { ko as koMechFat, en as enMechFat } from './i18n/mech-fatigue.js';
+import { ko as koMechDyn, en as enMechDyn } from './i18n/mech-dynamic.js';
+import { ko as koMechDs, en as enMechDs } from './i18n/mech-designstudy.js';
+import { ko as koMechDf, en as enMechDf } from './i18n/mech-defeature.js';
+import { ko as koMechMk, en as enMechMk } from './i18n/mech-markup.js';
+import { ko as koMechHl, en as enMechHl } from './i18n/mech-harnesslink.js';
+import { ko as koMechPl2, en as enMechPl2 } from './i18n/mech-plastics2.js';
+import { ko as koMechApi, en as enMechApi } from './i18n/mech-api.js';
 import { ko as koMechPlastics, en as enMechPlastics } from './i18n/mech-plastics.js';
 import { ko as koMechInspection, en as enMechInspection } from './i18n/mech-inspection.js';
 
 export const DICTIONARIES = { ko: { ...ko, ...ko3d, ...koExtra, ...koMech, ...koMech2, ...koMechSheet, ...koMechAsm,...koMechPart, ...koMechStd,...koBackgrounds, ...koPrint, ...koDocs, ...koMechDrw, ...koMechSim, ...koMechPdm, ...koMechFem }, en: { ...en, ...en3d, ...enExtra, ...enMech, ...enMech2, ...enMechSheet, ...enMechAsm,...enMechPart, ...enMechStd,...enBackgrounds, ...enPrint, ...enDocs, ...enMechDrw, ...enMechSim, ...enMechPdm, ...enMechFem } };
 // The manufacturing add-ins (CAM, plastics flow, inspection).
-Object.assign(DICTIONARIES.ko, koMechCam, koMechPlastics, koMechInspection, koMechIll, koMechSch, koMechDc, koMechTasks, koMechMacros);
-Object.assign(DICTIONARIES.en, enMechCam, enMechPlastics, enMechInspection, enMechIll, enMechSch, enMechDc, enMechTasks, enMechMacros);
+Object.assign(DICTIONARIES.ko, koMechCam, koMechPlastics, koMechInspection, koMechIll, koMechSch, koMechDc, koMechTasks, koMechMacros, koMechFat, koMechDyn, koMechDs, koMechDf, koMechMk, koMechHl, koMechPl2, koMechApi);
+Object.assign(DICTIONARIES.en, enMechCam, enMechPlastics, enMechInspection, enMechIll, enMechSch, enMechDc, enMechTasks, enMechMacros, enMechFat, enMechDyn, enMechDs, enMechDf, enMechMk, enMechHl, enMechPl2, enMechApi);
 let language = 'ko';
 
 export function setLanguage(value) {

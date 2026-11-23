@@ -150,7 +150,7 @@ const T = {
   'notice.bucklingDone': ['좌굴 해석 완료 — 하중 계수 {f}', 'Buckling study done — load factor {f}'],
   'notice.fatigueDone': ['피로 해석 완료 — 최소 수명 {life}, 최대 손상 {damage}', 'Fatigue study done — minimum life {life}, maximum damage {damage}'],
   'pm.help.buckling': ['고정 면과 하중을 정하고 실행하세요. 하중 계수 × 하중이 좌굴이 시작되는 하중이며, 모드 형상이 휜 모양으로 보입니다.', 'Pick the fixtures and loads, then run. Load factor × load is the load at which the part buckles; the mode shape is shown bent.'],
-  'pm.help.fatigue': ['정적 해석과 같은 고정·하중으로 반복 하중을 겁니다. 재료의 S-N 곡선으로 점마다 수명과 손상(반복 횟수 ÷ 수명)을 구해 색칠합니다.', 'The static fixtures and loads, applied over and over. Each point gets its life from the material\'s S-N curve and its damage (cycles ÷ life) as a colour.'],
+  'pm.help.fatigue': ['정적 해석의 고정·하중을 배율로 반복합니다(하중 이벤트, 또는 하중 이력을 레인플로로 세어). 점마다 응력 텐서에서 피로 응력을 구하고 평균 응력을 보정해, S-N 곡선(추정 + 수정 계수, 또는 표)과 마이너 법칙으로 손상·수명·하중 안전율을 구합니다.', 'The static fixtures and loads, repeated at load factors (load events, or a load history counted by rainflow). Each point\'s fatigue stress comes from its stress tensor, corrected for the mean stress; the S-N curve (estimated with the Marin factors, or a table) and Miner\'s rule give damage, life and the load factor of safety.'],
 };
 
 export const ko = Object.fromEntries(Object.entries(T).map(([k, v]) => [k, v[0]]));

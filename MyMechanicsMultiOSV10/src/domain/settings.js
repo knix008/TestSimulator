@@ -168,6 +168,11 @@ export function defaultSettings(language = 'ko') {
     meshQuality: 'normal',
     /** Model ISO threads exactly in every feature set to 'auto' (slow); off: cosmetic threads. */
     modelledThreads: false,
+    /** Large assembly mode: 'auto' (from largeAssemblyThreshold component instances), 'on' or 'off'. */
+    largeAssembly: 'auto',
+    largeAssemblyThreshold: 40,
+    /** In large assembly mode, components smaller than this fraction of the assembly are not drawn (0: all drawn). */
+    largeHideSmall: 0,
   };
 }
 
@@ -216,6 +221,9 @@ export function normalizeSettings(raw = {}, language) {
   s.displayStyle = DISPLAY_STYLES.includes(s.displayStyle) ? s.displayStyle : base.displayStyle;
   s.meshQuality = ['coarse', 'normal', 'fine'].includes(s.meshQuality) ? s.meshQuality : 'normal';
   s.modelledThreads = s.modelledThreads === true;
+  s.largeAssembly = ['auto', 'on', 'off'].includes(s.largeAssembly) ? s.largeAssembly : 'auto';
+  s.largeAssemblyThreshold = clamp(s.largeAssemblyThreshold, 2, 100000, 40);
+  s.largeHideSmall = Math.min(0.2, Math.max(0, Number(s.largeHideSmall) || 0));
   s.leftDrag = s.leftDrag === 'select' ? 'select' : 'orbit';
   const sp = s.scaleBarPos;
   s.scaleBarPos = sp && Number.isFinite(sp.x) && Number.isFinite(sp.y) ? { x: Math.max(0, Math.min(1, sp.x)), y: Math.max(0, Math.min(1, sp.y)) } : null;

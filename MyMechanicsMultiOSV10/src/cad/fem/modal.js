@@ -66,17 +66,26 @@ export function modalStudy(input) {
   const ones = [0, 1, 2].map((ax) => { const v = new Float64Array(ndof); for (let n = 0; n < model.nn; n++) v[3 * n + ax] = 1; rotateVector(v, fx.frames, true); for (let d = 0; d < ndof; d++) if (mask[d]) v[d] = 0; return v; });
   const Mone = ones.map((v) => applyM(v, new Float64Array(ndof)));
   total = dot(ones[0], Mone[0]);
+  // With `vectors`: the mass-normalised modes in global axes (φᵀMφ = 1) and their participation factors
+  // Γ = φᵀ M ι per axis — what a mode superposition (fem/dynamic.js) needs.
+  const vectors = [], participation = [];
   for (const x of res.vectors) {
     const mx = applyM(x, new Float64Array(ndof)), gm = dot(x, mx);
     effectiveMass.push(Mone.map((mo) => (dot(x, mo) ** 2 / gm) / Math.max(1e-300, total)));
     const g = rotateVector(Float64Array.from(x), fx.frames, false);
     const s = shapeOf(model, g);
     nodeModes.push(s.nodal); shapes.push(s.surface);
+    if (input.vectors) {
+      const k = 1 / Math.sqrt(Math.max(1e-300, gm));
+      const v = Float64Array.from(g, (a) => a * k);
+      vectors.push(v); participation.push(Mone.map((mo) => dot(x, mo) * k));
+    }
   }
   report(1, 'done');
   return {
     ok: res.converged, error: res.converged ? null : 'not-converged', solver: 'tet', model,
     frequencies, modes: shapes, nodes: model.nodes, nodeModes, effectiveMass, totalMass: total,
+    ...(input.vectors ? { vectors, participation, fixed: mask } : {}),
     elements: model.ne, nodeCount: model.nn, elementSize: model.size, quality: model.quality, iterations: res.iterations, solverIterations: res.iterations,
   };
 }

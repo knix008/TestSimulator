@@ -123,12 +123,12 @@ export function wireNumbers(sch) {
   return out;
 }
 
-/** The from–to list: one row per wire { number, from: 'K1:A1', to: 'X1:3', net, color, gauge }, sorted by number. */
+/** The from–to list: one row per wire { number, from: 'K1:A1', to: 'X1:3', net, color, gauge, length (the routed 3D harness length, mm, when linked) }, sorted by number. */
 export function fromTo(sch) {
   const numbers = wireNumbers(sch);
   const netOf = new Map(); for (const n of nets(sch)) for (const w of n.wires) netOf.set(w, n.name);
   const tag = (r) => `${sch.symbols.find((s) => s.id === r.sym)?.tag ?? '?'}:${r.pin}`;
-  return sch.wires.map((w) => ({ number: numbers.get(w.id), from: tag(w.a), to: tag(w.b), net: netOf.get(w.id), color: w.color ?? '', gauge: w.gauge ?? '' }))
+  return sch.wires.map((w) => ({ number: numbers.get(w.id), from: tag(w.a), to: tag(w.b), net: netOf.get(w.id), color: w.color ?? '', gauge: w.gauge ?? '', length: w.length ?? '' }))
     .sort((a, b) => String(a.number).localeCompare(String(b.number), 'en', { numeric: true }));
 }
 
@@ -204,5 +204,5 @@ export function schematicSvg(sch, { selected = null, grid = false, labels = { ti
 /** From–to list as CSV (RFC 4180). */
 export function fromToCsv(sch) {
   const q = (v) => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
-  return ['Wire,From,To,Net,Color,Gauge', ...fromTo(sch).map((r) => [r.number, r.from, r.to, r.net, r.color, r.gauge].map(q).join(','))].join('\n') + '\n';
+  return ['Wire,From,To,Net,Color,Gauge,Length', ...fromTo(sch).map((r) => [r.number, r.from, r.to, r.net, r.color, r.gauge, r.length].map(q).join(','))].join('\n') + '\n';
 }

@@ -4,7 +4,9 @@
 export const ICONS_SIM = {
   sim2Nonlinear: '<path d="M3 21V3"/><path d="M3 21h18"/><path d="M4 19c4-1 6-5 8-9s5-6 9-6" stroke-width="2"/><path d="M4 19l15-13" stroke-dasharray="1.6 1.6" opacity="0.5"/>',
   sim2Drop: '<rect x="8" y="2.5" width="8" height="8" rx="1"/><path d="M12 12v4M10 14.5l2 2 2-2"/><path d="M3 21h18"/><path d="M6 19l1.5-1.5M12 19v-1.6M18 19l-1.5-1.5"/>',
-  sim2Combine: '<circle cx="8" cy="9" r="5"/><circle cx="16" cy="9" r="5" opacity="0.65"/><path d="M12 16v6M9 19h6"/>',
+  sim2Topology: '<path d="M3 20V8l4-3h10l4 3v12z" opacity="0.35"/><path d="M3 20h18M5 20c1-6 3-9 7-11 4 2 6 5 7 11M9 20c.5-3 1.5-5 3-6 1.5 1 2.5 3 3 6"/>',
+  sim2Dynamic:'<path d="M2 12h2.5l2-6 3 12 3-14 3 16 2.5-8H22"/>',
+  sim2Combine:'<circle cx="8" cy="9" r="5"/><circle cx="16" cy="9" r="5" opacity="0.65"/><path d="M12 16v6M9 19h6"/>',
   sim2Flow: '<path d="M2 8c4-3 7 3 11 0s6-2 9-1"/><path d="M2 13c4-3 7 3 11 0s6-2 9-1"/><path d="M2 18c4-3 7 3 11 0s6-2 9-1"/><path d="M19 4l3 3-3 3" opacity="0.7"/>',
   mbdAnnotations: '<path d="M4 12l6-3.5 6 3.5v5L10 20.5 4 17z"/><path d="M14 4h7v4h-7z"/><path d="M16.5 4v4M14 9.5l-3 3"/>',
   mbdAuto: '<path d="M3 20h18M3 17v6M21 17v6"/><path d="M3 4h10v8H3z"/><path d="M17 3l1 2.2 2.4.3-1.8 1.6.5 2.4-2.1-1.2-2.1 1.2.5-2.4-1.8-1.6 2.4-.3z" fill="currentColor" stroke="none"/>',

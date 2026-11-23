@@ -1,0 +1,25 @@
+[
+  {
+    "name": "dynamic: the study opens from its command; the flange's bottom face fixed, the top face loaded",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.actions.ensureKernel(); await m.actions.openSampleAsk('flange'); await sleep(1200); await m.run('dynamicStudy'); await sleep(400); const e = m.state.editing; const faces = m.state.partEntry.faces; const z = (fc) => fc.center?.z ?? fc.center?.[2] ?? 0; const planar = faces.map((fc, i) => ({ i, fc })).filter((x) => x.fc.geomType === 'PLANE').sort((a, b) => z(a.fc) - z(b.fc)); const pick = (index) => m.viewport.options.onPick({ kind: 'face', bodyKey: 'body', index }, {}); e.pick = 'fixtures'; pick(planar[0].i); e.pick = 'loads'; pick(planar.at(-1).i); e.magnitude = 5000; e.dir = '-z'; m.actions.pmSet('loadKind', 'force'); await sleep(200); const pm = document.querySelector('.left-pm-body'); return JSON.stringify({ study: e.study, kinds: pm.querySelectorAll('[data-pm-set=\"dynKind\"]').length, fixed: e.fixtures.length, loaded: e.loads.length }); })()",
+    "expect": "\"study\":\"dynamic\",\"kinds\":3,\"fixed\":1,\"loaded\":1"
+  },
+  {
+    "name": "dynamic: harmonic response — the peak sits at a natural frequency, the curve and the results are shown",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const e = m.state.editing; e.dynModes = 6; e.fSteps = 60; await m.actions.pmCommand('runSim'); for (let i = 0; i < 300 && !e.result; i++) await sleep(200); const r = e.result; const near = r && r.frequencies.some((f) => Math.abs(f - r.peakFrequency) < 0.02 * f); const text = document.querySelector('.left-pm-body').textContent; return JSON.stringify({ kind: r?.kind, modes: r?.frequencies.length, near, curve: r?.curve.frequency.length > 60, stress: r?.maxStress > 0, chart: Boolean(document.querySelector('.left-pm-body svg, .left-pm-body canvas')), shown: /Peak frequency|최대 응답 주파수/.test(text) }); })()",
+    "expect": "\"kind\":\"harmonic\",\"modes\":6,\"near\":true,\"curve\":true,\"stress\":true,\"chart\":true,\"shown\":true"
+  },
+  {
+    "name": "dynamic: time history of a suddenly applied load (overshoot over the static, a peak time); a pulse is typed as text",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const q = (s) => document.querySelector(s); q('[data-pm-set=\"dynKind\"][data-value=\"transient\"]').click(); await sleep(200); const e = m.state.editing; const f1 = Math.min(...(m.state.editing.result?.frequencies ?? [1000])); const fld = (k, v) => { const i = q(`[data-pm-field=\"${k}\"]`); i.value = String(v); i.dispatchEvent(new Event('change', { bubbles: true })); }; fld('tDuration', (3 / f1).toPrecision(4)); await sleep(100); fld('tCurve', '0:1, 10:1'); await sleep(100); e.result = null; await m.actions.pmCommand('runSim'); for (let i = 0; i < 300 && !e.result; i++) await sleep(200); const r = e.result; return JSON.stringify({ kind: r?.kind, curve: e.tCurve, peak: r?.peakTime > 0, disp: r?.maxDisplacement > 0, history: r?.history.time.length > 10 }); })()",
+    "expect": "\"kind\":\"transient\",\"curve\":\"0:1, 10:1\",\"peak\":true,\"disp\":true,\"history\":true"
+  },
+  {
+    "name": "dynamic: random vibration under a base PSD in g²/Hz — RMS displacement and stress, 3σ, and the input RMS",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const q = (s) => document.querySelector(s); q('[data-pm-set=\"dynKind\"][data-value=\"random\"]').click(); await sleep(200); const e = m.state.editing; const fld = (k, v) => { const i = q(`[data-pm-field=\"${k}\"]`); i.value = String(v); i.dispatchEvent(new Event('change', { bubbles: true })); }; fld('psdText', '20:0.04, 2000:0.04'); await sleep(100); await m.actions.pmCommand('runSim'); for (let i = 0; i < 300 && !e.result; i++) await sleep(200); const r = e.result; const text = q('.left-pm-body').textContent; return JSON.stringify({ kind: r?.kind, inputG: r && Math.round(r.inputRms / 9806.65 * 100) / 100, rms: r?.maxDisplacementRms > 0 && r?.maxStressRms > 0, three: r && r.sigma3.stress === 3 * r.maxStressRms, shown: /Max stress 3σ|최대 응력 3σ/.test(text), noDeform: m.state.sim?.result?.vertexDisplacement === null }); })()",
+    "expect": "\"kind\":\"random\",\"inputG\":8\\.9,\"rms\":true,\"three\":true,\"shown\":true,\"noDeform\":true"
+  },
+  {
+    "shot": "dynamic"
+  }
+]

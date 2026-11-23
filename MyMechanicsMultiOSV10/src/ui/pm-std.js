@@ -183,7 +183,7 @@ export function harnessTables(api, f, features = []) {
   return [
     group('harnessConnector', t('harness.connectors'), `<div class="harness-row head conn"><span>${escapeHtml(t('harness.name'))}</span><span>${escapeHtml(t('harness.point'))}</span><span>${escapeHtml(t('harness.pins'))}</span><span></span></div>${cRows}<div class="pm-row">${addBtn(api, 'addConn', 'harnessConnector', t('harness.addConnector'))}</div>`),
     group('harnessClip', t('harness.clips'), `<div class="pt3-table">${kRows}</div><div class="pm-row">${addBtn(api, 'addClip', 'harnessClip', t('harness.addClip'))}</div>${note(t('harness.clipRule'))}`),
-    group('harnessWire', t('harness.wires'), `<div class="harness-wires">${wRows}</div><div class="pm-row">${addBtn(api, 'addWire', 'harnessWire', t('harness.addWire'))}</div>${note(t('harness.wireRule'))}`),
+    group('harnessWire', t('harness.wires'), `<div class="harness-wires">${wRows}</div><div class="pm-row">${addBtn(api, 'addWire', 'harnessWire', t('harness.addWire'))}${api.schematics?.length ? addBtn(api, 'fromSchematic', 'schematic', t('harness.fromSchematic')) : ''}</div>${note(t('harness.wireRule'))}`),
   ].join('');
 }
 

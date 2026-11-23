@@ -69,7 +69,7 @@ test('from–to list, parts list and CSV', () => {
   const bom = schematicBom(s);
   assert.deepEqual(bom.map((b) => b.tag), ['F1', 'K1', 'K1', 'P1', 'S1'], 'supplies and grounds are not parts; coil and contact are both K1');
   const csv = fromToCsv(s);
-  assert.match(csv, /^Wire,From,To,Net,Color,Gauge\n/);
+  assert.match(csv, /^Wire,From,To,Net,Color,Gauge,Length\n/);
   assert.equal(csv.trim().split('\n').length, 8);
 });
 

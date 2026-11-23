@@ -1,0 +1,25 @@
+[
+  {
+    "name": "fatigue: the study on the flange — bottom face fixed, top face loaded; the new curve, loading and method groups are there",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.actions.ensureKernel(); await m.actions.openSampleAsk('flange'); await sleep(1200); await m.run('simulation'); await sleep(300); m.actions.pmSet('study', 'fatigue'); await sleep(200); const e = m.state.editing; const faces = m.state.partEntry.faces; const z = (fc) => { const c = fc.center; return c?.z ?? c?.[2] ?? 0; }; const planar = faces.map((fc, i) => ({ i, fc })).filter((x) => x.fc.geomType === 'PLANE').sort((a, b) => z(a.fc) - z(b.fc)); const pick = (index) => m.viewport.options.onPick({ kind: 'face', bodyKey: 'body', index }, {}); e.pick = 'fixtures'; pick(planar[0].i); e.pick = 'loads'; pick(planar.at(-1).i); e.loadKind = 'force'; e.dir = '-z'; e.magnitude = 300000; m.actions.pmSet('loadKind', 'force'); await sleep(200); const pm = document.querySelector('.left-pm-body'); return JSON.stringify({ study: e.study, groups: ['fatSource', 'fatMode', 'fatMeasure', 'fatMean'].every((k) => pm.querySelector(`[data-pm-set=\"${k}\"]`)), event: Boolean(pm.querySelector('[data-pm-field=\"fatEv:0:cycles\"]')), fixed: e.fixtures.map((x) => x.type).join(), loaded: e.loads.map((x) => x.type).join() }); })()",
+    "expect": "\"study\":\"fatigue\",\"groups\":true,\"event\":true,\"fixed\":\"PLANE\",\"loaded\":\"PLANE\""
+  },
+  {
+    "name": "fatigue: two events (10⁴ reversed, 10⁵ zero-based ×1.5), Gerber; the results list life, blocks, damage, load factor of safety, biaxiality",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const q = (s) => document.querySelector(s); const field = (k, v) => { const i = q(`[data-pm-field=\"${k}\"]`); i.value = String(v); i.dispatchEvent(new Event('change', { bubbles: true })); }; field('fatEv:0:cycles', '10000'); await sleep(150); q('[data-pm=\"fat.addEvent\"]').click(); await sleep(150); field('fatEv:1:cycles', '100000'); await sleep(100); field('fatEv:1:min', '0'); await sleep(100); field('fatEv:1:max', '1.5'); await sleep(100); q('[data-pm-set=\"fatMean\"][data-value=\"gerber\"]').click(); await sleep(150); const e = m.state.editing; await m.actions.pmCommand('runSim'); for (let i = 0; i < 300 && !e.result?.fat; i++) await sleep(200); const f = e.result?.fat; const text = q('.left-pm-body').textContent; return JSON.stringify({ events: e.fat.events.map((x) => [x.cycles, x.min, x.max]), mean: f?.mean, blockCycles: f?.blockCycles, damage: f?.maxDamage > 0, fos: Number.isFinite(f?.factorOfSafety), tensor: Boolean(e.result?.stat?.vertexTensor), shown: /Load factor of safety|하중 안전율/.test(text) && /Biaxiality|2축성/.test(text) && /blocks|블록/.test(text) }); })()",
+    "expect": "\"events\":\\[\\[10000,-1,1\\],\\[100000,0,1\\.5\\]\\],\"mean\":\"gerber\",\"blockCycles\":110000,\"damage\":true,\"fos\":true,\"tensor\":true,\"shown\":true"
+  },
+  {
+    "name": "fatigue: the plot switches between damage, life and biaxiality without running again",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const c0 = Array.from(m.state.sim.colors.slice(0, 30)).join(); document.querySelector('[data-pm-set=\"fatPlot\"][data-value=\"biaxiality\"]').click(); await sleep(200); const c1 = Array.from(m.state.sim.colors.slice(0, 30)).join(); const kept = Boolean(m.state.editing.result?.fat); document.querySelector('[data-pm-set=\"fatPlot\"][data-value=\"life\"]').click(); await sleep(200); return JSON.stringify({ changed: c0 !== c1, kept, plot: m.state.editing.fat.plot }); })()",
+    "expect": "\"changed\":true,\"kept\":true,\"plot\":\"life\""
+  },
+  {
+    "shot": "fatigue"
+  },
+  {
+    "name": "fatigue: a load history counted by rainflow (×1000 repeats) and a user S-N table run too",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const q = (s) => document.querySelector(s); const field = (k, v) => { const i = q(`[data-pm-field=\"${k}\"]`); i.value = String(v); i.dispatchEvent(new Event('change', { bubbles: true })); }; q('[data-pm-set=\"fatMode\"][data-value=\"history\"]').click(); await sleep(150); field('fatHistory', '0, 1, -0.5, 0.8, -1, 0.6, 0'); await sleep(100); field('fatRepeats', '1000'); await sleep(100); q('[data-pm-set=\"fatSource\"][data-value=\"table\"]').click(); await sleep(150); field('fatTable', '1e3:300, 1e5:150, 1e7:80'); await sleep(100); const e = m.state.editing; await m.actions.pmCommand('runSim'); for (let i = 0; i < 300 && !e.result?.fat; i++) await sleep(200); const f = e.result?.fat; m.actions.cancelEditing({ quiet: true }); return JSON.stringify({ source: f?.curve.source, points: f?.curve.points.length, perBlock: f?.blockCycles / 1000, life: f && f.minLife > 0 }); })()",
+    "expect": "\"source\":\"table\",\"points\":3,\"perBlock\":3,\"life\":true"
+  }
+]
