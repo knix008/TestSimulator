@@ -145,6 +145,21 @@ async function main() {
     const gf = await checkPopup(guide, 'guide');
     await waitFor(() => guide.ev('[...document.querySelectorAll("#guide-content img")].length >= 6'), 'guide pictures');
     await guide.shot('guide');
+    // The guide's header tools fit in its own window, and the text size works there.
+    const tools = await guide.ev(`(() => {
+      const d = document.querySelector('dialog[open]');
+      const head = d.querySelector('.modal-head').getBoundingClientRect();
+      const fit = ['.guide-lang', '#guide-font-stepper', '#guide-print', '.icon-x'].every((s) => {
+        const r = d.querySelector(s).getBoundingClientRect();
+        return r.width > 0 && r.top >= head.top && r.bottom <= head.bottom && r.right <= innerWidth;
+      });
+      const before = getComputedStyle(d.querySelector('#guide-content')).fontSize;
+      d.querySelector('[data-guide-font="1"]').click();
+      const after = getComputedStyle(d.querySelector('#guide-content')).fontSize;
+      d.querySelector('[data-guide-font="-1"]').click();
+      return { fit, before, after };
+    })()`);
+    if (!tools.fit || parseFloat(tools.after) !== parseFloat(tools.before) + 1) throw new Error(`guide header tools: ${JSON.stringify(tools)}`);
     await guide.ev('document.querySelector("dialog[open] .icon-x").click()');
     report.push(`about ${af.w}×${af.h}, guide ${gf.w}×${gf.h}: own windows`);
 
@@ -188,6 +203,41 @@ async function main() {
     report.push(`print ${pf.w}×${pf.h}: ${printers.printers.length} printers (default "${printers.defaultPrinter}"), PDF = 1 page of 297 × 210 mm`);
     await print.ev('document.querySelector("dialog[open] .icon-x").click()');
     await waitFor(async () => !(await targets()).some((t) => t.url.includes('popup=print')), 'print window closes');
+
+    // Print in the guide window: the program's print window opens with the guide cut into pages,
+    // and those pages written to a PDF come out as the same number of A4 pages.
+    await main.ev('document.querySelector("#btn-guide").click()');
+    const guide2 = await popup('guide');
+    await waitFor(() => guide2.ev('document.querySelectorAll("#guide-content h2").length > 3'), 'guide again');
+    await guide2.ev('document.querySelector("#guide-print").click()');
+    const docPrint = await popup('print');
+    await waitFor(() => docPrint.ev('document.querySelector("#print-dialog").classList.contains("doc-mode") && document.querySelectorAll("#print-stage .doc-sheet").length > 3'), 'guide print window');
+    await sleep(500);
+    const docState = await docPrint.ev(`(() => {
+      const bodies = [...document.querySelectorAll('#print-stage .doc-body')];
+      return { pages: bodies.length, over: bodies.filter((b) => b.scrollHeight - b.clientHeight > 2).length, subject: document.querySelector('#print-subject').textContent };
+    })()`);
+    if (docState.over || !/^Image2Text /.test(docState.subject)) throw new Error(`guide print window: ${JSON.stringify(docState)}`);
+    await docPrint.shot('guide-print');
+    const docPdf = join(profile, 'guide-check.pdf');
+    await docPrint.ev(`(async () => {
+      const sheets = [...document.querySelectorAll('#print-stage .doc-sheet')].map((s) => {
+        const copy = s.cloneNode(true);
+        copy.style.transform = 'none';
+        copy.style.height = 'calc(' + copy.style.height + ' - 1mm)';
+        return copy;
+      });
+      document.querySelector('#print-sheet').replaceChildren(...sheets);
+      document.querySelector('#print-page-style').textContent = '@page { size: 210mm 297mm; margin: 0; }';
+      await window.__TAURI_INTERNALS__.invoke('print_pdf', { job: { printer: '', copies: 1, widthMm: 210, heightMm: 297 }, path: ${JSON.stringify(docPdf)} });
+    })()`);
+    if (!existsSync(docPdf)) throw new Error('no guide PDF was written');
+    const docPdfPages = (readFileSync(docPdf).toString('latin1').match(/\/Type\s*\/Page[^s]/g) ?? []).length;
+    if (docPdfPages !== docState.pages) throw new Error(`guide PDF has ${docPdfPages} pages, the preview ${docState.pages}`);
+    report.push(`guide print: print window with ${docState.pages} pages, PDF = ${docPdfPages} pages`);
+    await docPrint.ev('document.querySelector("dialog[open] .icon-x").click()');
+    await guide2.ev('document.querySelector("dialog[open] .icon-x").click()');
+    await waitFor(async () => !(await targets()).some((t) => /popup=(print|guide)/.test(t.url)), 'guide and print windows close');
 
     const errors = [...main.errors];
     if (errors.length) throw new Error(`page errors: ${errors.join('; ')}`);

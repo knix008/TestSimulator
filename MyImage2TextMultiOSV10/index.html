@@ -312,6 +312,8 @@
             <input id="file-input" type="file" accept=".png,.jpg,.jpeg,.jpe,.jfif,.gif,.bmp,.webp,.ico,.svg,.avif,.heic,.heif,.hif,.jxl,.tif,.tiff,.qoi,.tga,.hdr,.pic,.pbm,.pgm,.ppm,.pnm,image/png,image/jpeg,image/gif,image/bmp,image/webp,image/svg+xml,image/avif,image/heic,image/heif,image/jxl,image/tiff" multiple hidden />
           </section>
 
+          <div id="rail-split" class="rail-split" role="separator" aria-orientation="horizontal" tabindex="0" data-i18n-title="railSplitTip" data-i18n-aria="railSplitTip" title="끌어서 이미지 목록과 변환 설정의 높이를 나눕니다 (두 번 누르면 기본값)" aria-label="끌어서 이미지 목록과 변환 설정의 높이를 나눕니다 (두 번 누르면 기본값)"><span class="rail-split-grip" aria-hidden="true"></span></div>
+
           <section class="settings" data-i18n-aria="convertSettings" aria-label="변환 설정">
             <div class="panel-head">
               <span class="step">2</span>
@@ -902,6 +904,67 @@
           <svg class="ico head-ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.6C6.6 2.6 4.6 2.2 2 2.4v10c2.6-.2 4.6.2 6 1.2 1.4-1 3.4-1.4 6-1.2v-10c-2.6-.2-4.6.2-6 1.2z"/><path d="M8 3.6v10"/></svg>
           <h2 data-i18n="guideTitle">사용 설명서</h2>
           <span class="panel-spacer"></span>
+          <div class="guide-tools">
+            <div class="seg two guide-lang" role="radiogroup" data-i18n-aria="guideLanguage" aria-label="설명서 언어">
+              <label data-i18n-title="languageKo" title="한국어"><input type="radio" name="guide-language" value="ko" checked /><svg class="flag" viewBox="0 0 72 48" aria-hidden="true">
+              <rect width="72" height="48" fill="#fff"/>
+              <g transform="translate(36 24)">
+                <circle r="8" fill="#cd2e3a"/>
+                <path d="M0-8a8 8 0 0 0 0 16 4 4 0 0 0 0-8 4 4 0 0 1 0-8" fill="#0047a0"/>
+              </g>
+              <g fill="#111">
+                <g transform="translate(15 12) rotate(-56)">
+                  <rect x="-5" y="-3.4" width="10" height="1.15"/>
+                  <rect x="-5" y="-1.05" width="10" height="1.15"/>
+                  <rect x="-5" y="1.3" width="10" height="1.15"/>
+                </g>
+                <g transform="translate(57 36) rotate(-56)">
+                  <rect x="-5" y="-3.4" width="4.1" height="1.15"/>
+                  <rect x=".9" y="-3.4" width="4.1" height="1.15"/>
+                  <rect x="-5" y="-1.05" width="4.1" height="1.15"/>
+                  <rect x=".9" y="-1.05" width="4.1" height="1.15"/>
+                  <rect x="-5" y="1.3" width="4.1" height="1.15"/>
+                  <rect x=".9" y="1.3" width="4.1" height="1.15"/>
+                </g>
+                <g transform="translate(57 12) rotate(56)">
+                  <rect x="-5" y="-3.4" width="4.1" height="1.15"/>
+                  <rect x=".9" y="-3.4" width="4.1" height="1.15"/>
+                  <rect x="-5" y="-1.05" width="10" height="1.15"/>
+                  <rect x="-5" y="1.3" width="4.1" height="1.15"/>
+                  <rect x=".9" y="1.3" width="4.1" height="1.15"/>
+                </g>
+                <g transform="translate(15 36) rotate(56)">
+                  <rect x="-5" y="-3.4" width="10" height="1.15"/>
+                  <rect x="-5" y="-1.05" width="4.1" height="1.15"/>
+                  <rect x=".9" y="-1.05" width="4.1" height="1.15"/>
+                  <rect x="-5" y="1.3" width="10" height="1.15"/>
+                </g>
+              </g>
+            </svg><span data-i18n="languageKo">한국어</span></label>
+              <label data-i18n-title="languageEn" title="English"><input type="radio" name="guide-language" value="en" /><svg class="flag" viewBox="0 0 60 30" aria-hidden="true">
+              <defs><clipPath id="flag-uk-clip-guide"><rect width="60" height="30"/></clipPath></defs>
+              <g clip-path="url(#flag-uk-clip-guide)">
+                <rect width="60" height="30" fill="#012169"/>
+                <path d="M0 0 60 30M60 0 0 30" stroke="#fff" stroke-width="6"/>
+                <path d="M0 0 60 30M60 0 0 30" stroke="#C8102E" stroke-width="4"/>
+                <path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/>
+                <path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/>
+              </g>
+            </svg><span data-i18n="languageEn">English</span></label>
+            </div>
+            <div class="guide-font" data-i18n-title="guideFontTip" title="글자 크기 (Ctrl+- / Ctrl+=)">
+              <svg class="ico guide-font-ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.6 13 5 3.4 8.4 13M2.8 9.8h4.4"/><path d="M9.4 13l2.6-6.6 2.6 6.6M10.3 11h3.4"/></svg>
+              <div class="stepper" id="guide-font-stepper">
+                <button type="button" class="nudge" data-guide-font="-1" data-i18n-aria="decrease" aria-label="감소"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"/></svg></button>
+                <output id="guide-font-out">14</output>
+                <button type="button" class="nudge" data-guide-font="1" data-i18n-aria="increase" aria-label="증가"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"/></svg></button>
+              </div>
+            </div>
+            <button type="button" class="act guide-print-btn" id="guide-print" data-i18n-title="guidePrintTip" title="설명서 인쇄 (Ctrl+P)">
+              <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.4 5.6V1.8h7.2v3.8"/><rect x="1.8" y="5.6" width="12.4" height="5.6" rx="1.2"/><path d="M4.4 9.4h7.2v4.8H4.4z"/><path d="M11.6 7.6h.01"/></svg>
+              <span data-i18n="print">인쇄</span>
+            </button>
+          </div>
           <button class="icon-x" type="submit" value="close" data-i18n-aria="close" aria-label="닫기">
             <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4 4 12"/></svg>
           </button>

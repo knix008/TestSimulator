@@ -21,6 +21,7 @@ import { buildInfo } from './generated/build-info.js';
 import { fileFromEncoded, isTauri, listPrinters, pathOf, pickImages, pickPdfPath, printDirect, printPage, printPdf, readImage, readInstallLanguage, saveTexts } from './files.js';
 import { clearRecent, lastDirectory, rememberDirectory, rememberRecent, removeRecent } from './recent.js';
 import { applyDom, getLanguage, languageFromInstall, setLanguage, t } from './i18n.js';
+import { setupRailSplit } from './railSplit.js';
 import { DEFAULT_THEME, THEMES, applyFont, applyTheme, nextThemeId, themeById, themeLabel } from './themes.js';
 
 const SETTINGS_KEY = 'image2text.settings.v3';
@@ -207,7 +208,7 @@ function sourceUrlOf(result) {
   const bitmap = state.sources.find((source) => source.id === result.sourceId)?.bitmap;
   return bitmap ? makePreviewUrl(bitmap, 2000) : result.previewUrl;
 }
-const guide = createGuide(els.guideDialog);
+const guide = createGuide(els.guideDialog, { onPrint: printGuide });
 
 function openGuide(section) {
   if (usesPopupWindows()) void openPopup('guide', { section });
@@ -239,6 +240,11 @@ async function boot() {
   installTooltips('.toolbar, .start-tools, .start-card h2, .modal-head');
   const settings = loadSettings(installedLanguage);
   applySettings(settings);
+  setupRailSplit({
+    rail: document.querySelector('.rail'),
+    top: document.querySelector('.rail > .sources'),
+    divider: document.querySelector('#rail-split'),
+  });
   bind();
   startBg.atLaunch();
   showStart(settings.showStart !== false);
@@ -963,7 +969,7 @@ function renderGallery() {
     thumb.className = 'thumb';
     const canvas = document.createElement('canvas');
     const showWidth = thumbWidth(result, 156, 108);
-    paintAscii(canvas, result, showWidth, dpr);
+    paintAscii(canvas, result, showWidth, dpr, { screen: true });
     thumb.append(canvas);
 
     const name = document.createElement('strong');
@@ -1072,8 +1078,9 @@ function renderStage() {
     paintAscii(
       els.textPreview,
       result,
-      els.textFrame.clientWidth,
+      els.textFrame.getBoundingClientRect().width,
       window.devicePixelRatio || 1,
+      { screen: true },
     );
   }
 
@@ -1194,8 +1201,11 @@ function fitFrame(slot, frame, aspect, zoom = 1) {
     height = maxHeight;
     width = height * aspect;
   }
-  frame.style.width = `${Math.max(1, width * zoom)}px`;
-  frame.style.height = `${Math.max(1, height * zoom)}px`;
+  // Whole device pixels, so the text canvas inside lines up with the screen's pixels.
+  const dpr = window.devicePixelRatio || 1;
+  const snap = (value) => Math.max(1, Math.round(value * dpr)) / dpr;
+  frame.style.width = `${snap(width * zoom)}px`;
+  frame.style.height = `${snap(height * zoom)}px`;
   return width;
 }
 
@@ -1347,6 +1357,19 @@ async function encodeImage(result, format) {
   const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
   const encode = format.encoder === 'bmp' ? encodeBmp : encodeTiff;
   return encode(data, canvas.width, canvas.height);
+}
+
+/** Print in the guide: the program's print window, for the guide in the shown language. */
+function printGuide(doc) {
+  if (POPUP === 'guide') {
+    channel?.postMessage({ type: 'print-guide', doc });
+    return;
+  }
+  if (usesPopupWindows()) {
+    void openPopup('print', { doc });
+    return;
+  }
+  void printWindow.open({ doc });
 }
 
 function printResult(result) {
@@ -1898,6 +1921,7 @@ function listenToWindows() {
     }
     if (message.type === 'status') setStatus(message.key, message.vars);
     if (message.type === 'show-start') showStart(true);
+    if (message.type === 'print-guide' && !POPUP) printGuide(message.doc);
     if (message.type === 'save-choice' && pendingSaveChoice) {
       const resolve = pendingSaveChoice;
       pendingSaveChoice = null;
@@ -1927,6 +1951,8 @@ async function openHere(payload) {
   } else if (POPUP === 'save') {
     els.savePrompt.textContent = payload.text ?? '';
     showDialog(els.saveDialog);
+  } else if (POPUP === 'print' && payload.doc) {
+    await printWindow.open({ doc: payload.doc });
   } else if (POPUP === 'print' && payload.result) {
     printSources.set(payload.result.id, payload.sourceUrl);
     await printWindow.open(payload.result);

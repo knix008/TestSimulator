@@ -44,7 +44,15 @@ test('no exported side is longer than 8192 pixels', () => {
   assert.equal(size.height, 4096);
 });
 
-test('screen previews keep whole-pixel cells', () => {
+test('a zoomed screen view is exactly the wanted width, within the screen limits', () => {
+  const size = canvasSize(result(), 3000.4, { exact: true, maxEdge: 16384, maxArea: 64e6 });
+  assert.equal(size.width, 3000);
+  const huge = canvasSize(result(), 20000, { exact: true, maxEdge: 16384, maxArea: 64e6 });
+  assert.ok(huge.width <= 16384 && huge.height <= 16384);
+  assert.ok(huge.width * huge.height <= 64e6 * 1.001);
+});
+
+test('the doubled canvas keeps whole-pixel cells', () => {
   const size = canvasSize(result(), 1500);
   assert.ok(Number.isInteger(size.cellWidth) && Number.isInteger(size.cellHeight));
   assert.equal(size.width, size.cellWidth * 100);

@@ -21,6 +21,7 @@ const CATEGORIES = {
   'iconTones.test.js': { title: 'Colorful icons', color: '95' },
   'startBoard.test.js': { title: 'Start board', color: '96' },
   'inputScale.test.js': { title: 'Input resolution', color: '92' },
+  'railSplit.test.js': { title: 'Panel divider', color: '94' },
   'rust.test.js': { title: 'Desktop (Rust)', color: '91' },
 };
 const FALLBACK_COLORS = ['96', '95', '94', '93', '92'];

@@ -3,6 +3,10 @@
 // goes straight to the chosen printer (no system dialog); a file printer such as "Microsoft Print
 // to PDF" asks only where to save the PDF. The browser has no printer list and uses its own
 // print dialog. The preview and the printed page are the same DOM built from planSheet().
+//
+// The same window prints the user guide ("document mode", open({ doc })): the guide is cut into
+// pages of the chosen paper (docPages.js), the preview shows every page, and the options that
+// only mean something for a picture (alignment, size, colour, source image) are hidden.
 import {
   COPIES, DEFAULT_PRINT, MARGIN_LIMIT, MARGIN_PRESETS, PAPERS, SCALE, SIDES,
   marginPreset, normalizePrint, pageCss, planSheet, printJob,
@@ -10,6 +14,8 @@ import {
 import { exportPixelWidth, layoutAspect, paintAscii } from './render.js';
 import { getLanguage, t } from './i18n.js';
 import { showDialog } from './popups.js';
+import { paginate } from './docPages.js';
+import { guideDocument } from './guide.js';
 
 const MM_PX = 96 / 25.4;
 const SCREEN_LOOK = { background: '#121418', ink: '#f3f1ea' };
@@ -82,11 +88,19 @@ export function createPrintWindow({ dialog, getOptions, setOptions, sourceUrlOf,
   const pageStyle = document.querySelector('#print-page-style');
 
   let result = null;
+  let doc = null; // { lang, fontSize, html, title } in document mode
+  let docCache = { key: '', pages: [] };
   let options = { ...DEFAULT_PRINT };
   let images = new Map();
   let renderToken = 0;
   let printers = { printers: [], defaultPrinter: '', filePrinters: [], direct: false };
   let busy = false;
+
+  for (const selector of ['input[name="print-halign"]', 'input[name="print-valign"]', '.stepper[data-field="scale"]', 'input[name="print-ink"]']) {
+    const row = q(selector)?.closest('.print-row');
+    if (row) row.dataset.artOnly = '';
+  }
+  sourceOn.closest('label').dataset.artOnly = '';
 
   const isFilePrinter = (name) => printers.filePrinters.includes(name);
   const printerName = () => options.printer || printers.defaultPrinter || printers.printers[0] || '';
@@ -129,6 +143,8 @@ export function createPrintWindow({ dialog, getOptions, setOptions, sourceUrlOf,
   }
 
   function fillControls() {
+    dialog.classList.toggle('doc-mode', Boolean(doc));
+    stage.classList.toggle('doc-stage', Boolean(doc));
     printerPick.set(printers.direct ? printerName() : '');
     paperPick.set(options.paper);
     const radios = {
@@ -187,7 +203,105 @@ export function createPrintWindow({ dialog, getOptions, setOptions, sourceUrlOf,
   }
 
   function currentPlan() {
+    // A document is portrait unless landscape is chosen; it has no source picture.
+    if (doc) return planSheet({ ...options, source: false }, 0.7);
     return planSheet(options, layoutAspect(result), result.imageWidth / result.imageHeight);
+  }
+
+  /** The text area of a document page, below the title band and above the footer band. */
+  function docArea(plan) {
+    const m = plan.margins;
+    const top = plan.title ? plan.title.y + plan.title.h : m.top;
+    const bottom = plan.footer ? plan.footer.y : plan.page.h - m.bottom;
+    return { x: m.left, y: top, w: Math.max(10, plan.page.w - m.left - m.right), h: Math.max(10, bottom - top) };
+  }
+
+  async function docPages(plan) {
+    const area = docArea(plan);
+    const key = [doc.lang, doc.fontSize, area.w, area.h].join('|');
+    if (docCache.key === key) return docCache.pages;
+    const host = document.createElement('div');
+    host.className = 'guide-content doc-body doc-measure';
+    host.style.setProperty('--guide-font', `${doc.fontSize}px`);
+    document.body.append(host);
+    try {
+      const pages = await paginate(host, doc.html, { widthMm: area.w, heightMm: area.h });
+      docCache = { key, pages };
+      return pages;
+    } finally {
+      host.remove();
+    }
+  }
+
+  async function buildDocSheets(plan) {
+    const pages = await docPages(plan);
+    const area = docArea(plan);
+    const date = new Intl.DateTimeFormat(getLanguage() === 'en' ? 'en-CA' : 'ko-KR', { dateStyle: 'long' }).format(new Date());
+    return pages.map((nodes, index) => {
+      const sheet = document.createElement('div');
+      sheet.className = 'sheet doc-sheet ink-mono';
+      sheet.style.width = `${plan.page.w}mm`;
+      sheet.style.height = `${plan.page.h}mm`;
+      const band = (cls, rect, text) => {
+        const el = document.createElement('div');
+        el.className = cls;
+        Object.assign(el.style, box(rect));
+        el.textContent = text;
+        sheet.append(el);
+      };
+      if (plan.title) band('sheet-title', plan.title, doc.title);
+      const body = document.createElement('div');
+      body.className = 'guide-content doc-body';
+      body.lang = doc.lang;
+      body.style.setProperty('--guide-font', `${doc.fontSize}px`);
+      body.style.setProperty('--page-text-h', `${area.h}mm`);
+      Object.assign(body.style, box(area));
+      body.append(...nodes.map((node) => node.cloneNode(true)));
+      sheet.append(body);
+      // The page number is always there; the date only when "date" is on.
+      const number = `${index + 1} / ${pages.length}`;
+      const footRect = plan.footer ?? { x: plan.margins.left, y: plan.page.h - Math.max(4, plan.margins.bottom * 0.7) - 5, w: area.w, h: 5 };
+      band('sheet-footer doc-footer', footRect, plan.footer ? `${date} · Image2Text · ${number}` : number);
+      return sheet;
+    });
+  }
+
+  async function renderDoc() {
+    const token = ++renderToken;
+    const plan = currentPlan();
+    const sheets = await buildDocSheets(plan);
+    if (token !== renderToken) return;
+    const pageW = plan.page.w * MM_PX;
+    const pageH = plan.page.h * MM_PX;
+    const k = Math.min((stage.clientWidth - 48) / pageW, (stage.clientHeight - 48) / pageH);
+    const frames = sheets.map((sheet) => {
+      const frame = document.createElement('div');
+      frame.className = 'sheet-frame';
+      frame.style.width = `${pageW * k}px`;
+      frame.style.height = `${pageH * k}px`;
+      sheet.style.transform = `scale(${k})`;
+      frame.append(sheet);
+      const guide = document.createElement('div');
+      guide.className = 'sheet-margins';
+      Object.assign(guide.style, {
+        left: `${plan.margins.left * MM_PX * k}px`,
+        top: `${plan.margins.top * MM_PX * k}px`,
+        right: `${plan.margins.right * MM_PX * k}px`,
+        bottom: `${plan.margins.bottom * MM_PX * k}px`,
+      });
+      frame.append(guide);
+      return frame;
+    });
+    const keep = stage.scrollTop;
+    stage.replaceChildren(...frames);
+    stage.scrollTop = keep;
+    info.textContent = `${t('printInfo', {
+      paper: plan.options.paper,
+      orientation: t(plan.orientation === 'landscape' ? 'printLandscape' : 'printPortrait'),
+      w: Math.round(plan.page.w),
+      h: Math.round(plan.page.h),
+      copies: plan.options.copies,
+    })} · ${t('printPages', { n: sheets.length })}`;
   }
 
   async function buildSheet(plan) {
@@ -222,6 +336,7 @@ export function createPrintWindow({ dialog, getOptions, setOptions, sourceUrlOf,
   }
 
   async function render() {
+    if (doc) return renderDoc();
     if (!result) return;
     const token = ++renderToken;
     const plan = currentPlan();
@@ -263,15 +378,15 @@ export function createPrintWindow({ dialog, getOptions, setOptions, sourceUrlOf,
   }
 
   async function printNow() {
-    if (!result || busy) return;
+    if ((!result && !doc) || busy) return;
     busy = true;
     fillControls();
     try {
       const plan = currentPlan();
-      const sheet = await buildSheet(plan);
-      // A sheet exactly as tall as the paper can spill a blank second page on some printers.
-      sheet.style.height = `${plan.page.h - 1}mm`;
-      sheetHost.replaceChildren(sheet);
+      const sheets = doc ? await buildDocSheets(plan) : [await buildSheet(plan)];
+      // A sheet exactly as tall as the paper can spill a blank page on some printers.
+      for (const sheet of sheets) sheet.style.height = `${plan.page.h - 1}mm`;
+      sheetHost.replaceChildren(...sheets);
       pageStyle.textContent = pageCss(plan);
       const job = { ...printJob(plan), printer: printers.direct ? printerName() : '' };
       if (!printers.direct) {
@@ -281,7 +396,7 @@ export function createPrintWindow({ dialog, getOptions, setOptions, sourceUrlOf,
         return;
       }
       if (isFilePrinter(job.printer)) {
-        const path = await platform.pickPdfPath(`${titleOf(result).replace(/[<>:"/\\|?*]/g, '_')}.pdf`, t('printSavePdf'));
+        const path = await platform.pickPdfPath(`${(doc ? doc.title : titleOf(result)).replace(/[<>:"/\\|?*]/g, '_')}.pdf`, t('printSavePdf'));
         if (!path) {
           onStatus('printCancelled');
           return;
@@ -354,9 +469,17 @@ export function createPrintWindow({ dialog, getOptions, setOptions, sourceUrlOf,
     async open(next) {
       if (!next) return false;
       forget();
-      result = next;
+      if (next.doc) {
+        const { html, title, lang } = guideDocument(next.doc.lang);
+        doc = { lang, title, html, fontSize: Math.min(22, Math.max(11, Math.round(Number(next.doc.fontSize) || 14))) };
+        docCache = { key: '', pages: [] };
+        result = null;
+      } else {
+        doc = null;
+        result = next;
+      }
       options = normalizePrint(getOptions());
-      subject.textContent = titleOf(result);
+      subject.textContent = doc ? doc.title : titleOf(result);
       fillControls();
       showDialog(dialog);
       void render();
@@ -370,6 +493,7 @@ export function createPrintWindow({ dialog, getOptions, setOptions, sourceUrlOf,
       return true;
     },
     printNow,
+    get isDocument() { return Boolean(doc); },
     refreshLanguage() {
       if (dialog.open) {
         fillControls();

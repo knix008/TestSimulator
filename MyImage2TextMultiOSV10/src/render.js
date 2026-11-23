@@ -12,6 +12,10 @@ export function layoutAspect(result) {
 }
 
 const MAX_EDGE = 8192;
+// On screen the canvas is drawn 1:1 in device pixels, so a zoomed view may be bigger than an
+// export; the area limit keeps the memory in check (about 64 million pixels).
+const SCREEN_MAX_EDGE = 16384;
+const SCREEN_MAX_AREA = 64e6;
 
 export function textGrid(result) {
   const lines = result.text.split('\n');
@@ -25,14 +29,14 @@ export function textGrid(result) {
 // Canvas size for a wanted pixel width, never over MAX_EDGE on either side.
 // Normally every cell is a whole number of pixels (crisp on screen). With exact, the canvas is
 // exactly the wanted width and the text's aspect, and cells may be fractional (image export).
-export function canvasSize(result, wantedWidth, { exact = false } = {}) {
+export function canvasSize(result, wantedWidth, { exact = false, maxEdge = MAX_EDGE, maxArea = Infinity } = {}) {
   const aspect = layoutAspect(result);
   const { rows, cols } = textGrid(result);
   if (exact) {
     let width = Math.max(cols, Math.round(wantedWidth));
     let height = Math.max(rows, Math.round(width / aspect));
-    if (Math.max(width, height) > MAX_EDGE) {
-      const fitted = MAX_EDGE / Math.max(width, height);
+    const fitted = Math.min(1, maxEdge / Math.max(width, height), Math.sqrt(maxArea / (width * height)));
+    if (fitted < 1) {
       width = Math.max(cols, Math.round(width * fitted));
       height = Math.max(rows, Math.round(height * fitted));
     }
@@ -61,18 +65,36 @@ export function canvasSize(result, wantedWidth, { exact = false } = {}) {
   return { width: pixelWidth, height: pixelHeight, cellWidth, cellHeight };
 }
 
-export function paintAscii(canvas, result, cssWidth, dpr = 1, { background = BACKGROUND, ink = INK, pixelWidth: wanted } = {}) {
+/**
+ * Paints the text art on a canvas. With `screen`, the canvas has exactly one pixel per device
+ * pixel of its box on screen: the browser shows it as it is, so the letters stay sharp at every
+ * zoom (a bigger bitmap shrunk by the browser smears thin strokes). Otherwise it is drawn at twice
+ * the size, or at `pixelWidth` for an export.
+ */
+export function paintAscii(canvas, result, cssWidth, dpr = 1, { background = BACKGROUND, ink = INK, pixelWidth: wanted, screen = false } = {}) {
   const aspect = layoutAspect(result);
   const { lines, rows, cols } = textGrid(result);
-  const scale = Math.max(2, (dpr || 1) * 2);
-  const { width: pixelWidth, height: pixelHeight, cellWidth, cellHeight } = wanted
-    ? canvasSize(result, wanted, { exact: true })
-    : canvasSize(result, cssWidth * scale);
+  const ratio = dpr || 1;
+  const scale = Math.max(2, ratio * 2);
+  const { width: pixelWidth, height: pixelHeight, cellWidth, cellHeight } = screen
+    ? canvasSize(result, cssWidth * ratio, { exact: true, maxEdge: SCREEN_MAX_EDGE, maxArea: SCREEN_MAX_AREA })
+    : wanted
+      ? canvasSize(result, wanted, { exact: true })
+      : canvasSize(result, cssWidth * scale);
 
   canvas.width = pixelWidth;
   canvas.height = pixelHeight;
-  canvas.style.width = `${cssWidth}px`;
-  canvas.style.height = `${cssWidth / aspect}px`;
+  if (screen) {
+    // The box size that is exactly the bitmap; it only differs from cssWidth by a fraction of a
+    // pixel (or when the area limit had to shrink a very large zoom).
+    const fitted = pixelWidth / Math.max(1, Math.round(cssWidth * ratio));
+    const boxWidth = fitted < 0.999 ? cssWidth : pixelWidth / ratio;
+    canvas.style.width = `${boxWidth}px`;
+    canvas.style.height = `${fitted < 0.999 ? cssWidth / aspect : pixelHeight / ratio}px`;
+  } else {
+    canvas.style.width = `${cssWidth}px`;
+    canvas.style.height = `${cssWidth / aspect}px`;
+  }
 
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = true;

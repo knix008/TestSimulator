@@ -83,6 +83,9 @@ class Page {
         this.pending.delete(message.id);
         if (message.error) fail(new Error(message.error.message));
         else done(message.result);
+      } else if (message.method === 'Page.javascriptDialogOpening' && message.params.type === 'beforeunload') {
+        // After real mouse input the page may ask before leaving (unsaved results): leave anyway.
+        this.send('Page.handleJavaScriptDialog', { accept: true }).catch(() => {});
       } else if (message.method === 'Runtime.exceptionThrown') {
         this.errors.push(message.params.exceptionDetails?.exception?.description ?? message.params.exceptionDetails?.text);
       } else if (message.method === 'Runtime.consoleAPICalled' && message.params.type === 'error') {
@@ -213,10 +216,14 @@ async function run(page, lang) {
   await page.click('#print-defaults');
   await page.eval('document.querySelector("#print-dialog").close()');
 
+  await checkZoomSharp(page, lang);
+  await checkRailSplit(page);
+
   // User guide window.
   await page.click('#btn-guide');
   await waitFor(() => page.eval('document.querySelector("#guide-dialog").open && document.querySelectorAll("#guide-toc a").length > 3'), 'guide');
   await page.shot(p('guide'));
+  await checkGuideTools(page, lang);
   await page.eval('document.querySelector("#guide-dialog").close()');
 
   // Extra views for a visual check (not used by the guide): the result card menu, the settings
@@ -279,6 +286,134 @@ async function run(page, lang) {
   console.log(`[shots] ${lang}: export "${sizeText}", print "${orientation}", toolbar fits at the minimum width`);
 }
 
+// Zooming the result: the text canvas always has one bitmap pixel per device pixel, so the
+// letters stay sharp (a bigger bitmap shrunk by the browser smears them), also on a 150% screen.
+async function checkZoomSharp(page, lang) {
+  const sample = () => page.eval(`(() => {
+    const c = document.querySelector('#text-preview');
+    const r = c.getBoundingClientRect();
+    const dpr = devicePixelRatio;
+    return { zoom: document.querySelector('#zoom-reset').textContent, dpr, bitmap: c.width, device: Math.round(r.width * dpr), bitmapH: c.height, deviceH: Math.round(r.height * dpr) };
+  })()`);
+  const bad = [];
+  for (const dpr of [1, 1.5]) {
+    await page.send('Emulation.setDeviceMetricsOverride', { width: WIDTH, height: HEIGHT, deviceScaleFactor: dpr, mobile: false });
+    await sleep(300);
+    await page.eval('document.querySelector("#zoom-reset").click()');
+    for (let i = 0; i < 8; i += 1) {
+      const s = await sample();
+      if (Math.abs(s.bitmap - s.device) > 1 || Math.abs(s.bitmapH - s.deviceH) > 1) bad.push(s);
+      if (i === 5 && dpr === 1 && process.env.SHOTS_EXTRA) {
+        const { data } = await page.send('Page.captureScreenshot', { format: 'png' });
+        writeFileSync(join(process.env.SHOTS_EXTRA, `${lang}-zoom.png`), Buffer.from(data, 'base64'));
+      }
+      await page.eval('document.querySelector("#zoom-in").click()');
+      await sleep(120);
+    }
+    await page.eval('document.querySelector("#zoom-out").click(); document.querySelector("#zoom-out").click()');
+    await sleep(120);
+    const out = await sample();
+    if (Math.abs(out.bitmap - out.device) > 1) bad.push(out);
+  }
+  await page.send('Emulation.setDeviceMetricsOverride', { width: WIDTH, height: HEIGHT, deviceScaleFactor: 1, mobile: false });
+  await page.eval('document.querySelector("#zoom-reset").click()');
+  await sleep(300);
+  if (bad.length) throw new Error(`text canvas is not 1:1 with the screen: ${JSON.stringify(bad.slice(0, 3))}`);
+  console.log('[shots] zoom: text canvas is 1:1 with device pixels from 100% to 400%, at 100% and 150% screen scale');
+}
+
+// The divider above "2 Convert" in the left panel: a mouse drag moves it, the limits hold, the
+// height is remembered and a double-click puts it back.
+async function checkRailSplit(page) {
+  const measure = () => page.eval(`(() => {
+    const d = document.querySelector('#rail-split').getBoundingClientRect();
+    const s = document.querySelector('.rail > .sources').getBoundingClientRect();
+    const c = document.querySelector('.rail > .settings').getBoundingClientRect();
+    const rail = document.querySelector('.rail').getBoundingClientRect();
+    return { x: d.left + d.width / 2, y: d.top + d.height / 2, sources: Math.round(s.height), settings: Math.round(c.height),
+      between: s.bottom <= d.top + 0.5 && d.bottom <= c.top + 0.5, inside: c.bottom <= rail.bottom + 0.5,
+      stored: localStorage.getItem('image2text.railSplit') };
+  })()`);
+  const drag = async (from, dy) => {
+    await page.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: from.x, y: from.y });
+    await page.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: from.x, y: from.y, button: 'left', buttons: 1, clickCount: 1 });
+    for (let i = 1; i <= 5; i += 1) await page.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: from.x, y: from.y + (dy * i) / 5, button: 'left', buttons: 1 });
+    await page.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: from.x, y: from.y + dy, button: 'left', buttons: 0, clickCount: 1 });
+    await sleep(100);
+    return measure();
+  };
+  const start = await measure();
+  if (!start.between) throw new Error(`the panel divider is not between the images and the settings: ${JSON.stringify(start)}`);
+  const down = await drag(start, 80);
+  if (Math.abs(down.sources - (start.sources + 80)) > 2 || !down.inside || Number(down.stored) !== down.sources) throw new Error(`panel divider drag: ${JSON.stringify({ start, down })}`);
+  const top = await drag(down, -2000);
+  if (top.sources !== 120) throw new Error(`panel divider top limit: ${JSON.stringify(top)}`);
+  const bottom = await drag(top, 2000);
+  if (bottom.settings < 159 || !bottom.inside) throw new Error(`panel divider bottom limit: ${JSON.stringify(bottom)}`);
+  await page.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: bottom.x, y: bottom.y, button: 'left', buttons: 1, clickCount: 2 });
+  await page.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: bottom.x, y: bottom.y, button: 'left', buttons: 0, clickCount: 2 });
+  await sleep(100);
+  const reset = await measure();
+  if (Math.abs(reset.sources - start.sources) > 2 || reset.stored !== null) throw new Error(`panel divider reset: ${JSON.stringify({ start, reset })}`);
+  console.log(`[shots] panel divider: ${start.sources} → ${down.sources} px, limits 120 / settings ${bottom.settings}, double-click resets`);
+}
+
+// The guide header: language, text size and print, all on one line and working.
+async function checkGuideTools(page, lang) {
+  const head = await page.eval(`(() => {
+    const d = document.querySelector('#guide-dialog');
+    const head = d.querySelector('.modal-head').getBoundingClientRect();
+    const items = ['.guide-lang', '#guide-font-stepper', '#guide-print', '.icon-x'].map((s) => d.querySelector(s).getBoundingClientRect());
+    return { inside: items.every((r) => r.top >= head.top && r.bottom <= head.bottom && r.right <= head.right + 0.5 && r.width > 0), size: d.querySelector('#guide-font-out').textContent };
+  })()`);
+  if (!head.inside || head.size !== '14') throw new Error(`guide header tools are wrong: ${JSON.stringify(head)}`);
+  const other = lang === 'ko' ? 'en' : 'ko';
+  const firstHeading = 'document.querySelector("#guide-content h1, #guide-content h2").textContent';
+  const before = await page.eval(firstHeading);
+  await page.eval(`document.querySelector('input[name="guide-language"][value="${other}"]').click()`);
+  const after = await page.eval(firstHeading);
+  if (before === after) throw new Error('the guide language switch did not change the document');
+  await page.eval(`document.querySelector('input[name="guide-language"][value="${lang}"]').click()`);
+  const font = async () => page.eval('[getComputedStyle(document.querySelector("#guide-content")).fontSize, document.querySelector("#guide-font-out").textContent]');
+  await page.eval('document.querySelector("[data-guide-font=\\"1\\"]").click()');
+  await page.eval('document.querySelector("[data-guide-font=\\"1\\"]").click()');
+  const bigger = await font();
+  if (bigger.join() !== '16px,16') throw new Error(`guide text size: ${bigger}`);
+  await page.eval('document.querySelector("[data-guide-font=\\"-1\\"]").click(); document.querySelector("[data-guide-font=\\"-1\\"]").click()');
+  // Print: the program's print window in document mode, the guide cut into pages.
+  await page.eval('window.print = () => {}; document.querySelector("#guide-print").click()');
+  await waitFor(() => page.eval('document.querySelector("#print-dialog").open && document.querySelector("#print-dialog").classList.contains("doc-mode") && document.querySelectorAll("#print-stage .doc-sheet").length > 3'), 'guide print window');
+  await sleep(300);
+  const preview = await page.eval(`(() => {
+    const d = document.querySelector('#print-dialog');
+    const bodies = [...d.querySelectorAll('#print-stage .doc-body')];
+    const over = bodies.map((b, i) => [i + 1, b.scrollHeight - b.clientHeight]).filter(([, extra]) => extra > 2);
+    const hidden = ['input[name="print-halign"]', 'input[name="print-ink"]', '.stepper[data-field="scale"]'].every((s) => d.querySelector(s).closest('.print-row').offsetParent === null);
+    const empty = bodies.filter((b) => !b.textContent.trim() && !b.querySelector('img')).length;
+    return { pages: bodies.length, over, hidden, empty, subject: d.querySelector('#print-subject').textContent, info: d.querySelector('#print-info').textContent };
+  })()`);
+  if (process.env.SHOTS_EXTRA) {
+    const { data } = await page.send('Page.captureScreenshot', { format: 'jpeg', quality: 85 });
+    writeFileSync(join(process.env.SHOTS_EXTRA, `${lang}-guide-print.jpg`), Buffer.from(data, 'base64'));
+  }
+  if (preview.over.length || !preview.hidden || preview.empty || !/^Image2Text (사용 설명서|User Guide)$/.test(preview.subject)) throw new Error(`guide print preview: ${JSON.stringify(preview)}`);
+  await page.click('#print-go');
+  await waitFor(() => page.eval('!document.querySelector("#print-dialog").open'), 'guide print sent');
+  await page.send('Emulation.setEmulatedMedia', { media: 'print' });
+  const printed = await page.eval(`(() => {
+    const visible = [...document.body.children].filter((el) => getComputedStyle(el).display !== 'none').map((el) => el.id || el.tagName);
+    const sheets = [...document.querySelectorAll('#print-sheet .doc-sheet')];
+    return { visible, sheets: sheets.length, breaks: sheets.map((s) => getComputedStyle(s).breakAfter), page: document.querySelector('#print-page-style').textContent };
+  })()`);
+  await page.send('Emulation.setEmulatedMedia', { media: '' });
+  await page.eval('window.dispatchEvent(new Event("afterprint"))');
+  const last = printed.breaks.at(-1);
+  if (printed.visible.join() !== 'print-sheet' || printed.sheets !== preview.pages || printed.breaks.slice(0, -1).some((v) => v !== 'page') || last === 'page' || !/^@page \{ size: 210mm 297mm; margin: 0; \}$/.test(printed.page)) {
+    throw new Error(`guide print is wrong: ${JSON.stringify(printed)}`);
+  }
+  console.log(`[shots] guide print: ${preview.pages} pages (${preview.info})`);
+}
+
 async function main() {
   const port = await freePort(5300);
   const vite = spawn(process.execPath, [join(root, 'node_modules/vite/bin/vite.js'), '--port', String(port), '--strictPort'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -310,10 +445,18 @@ async function main() {
     if (viteLog.trim()) console.error(viteLog.trim().split('\n').slice(-8).join('\n'));
     throw error;
   } finally {
+    // Wait for the browser to let go of its profile before removing it; a profile left behind
+    // in the temp folder is not a failed check.
+    const exited = browser && browser.exitCode === null ? new Promise((done) => browser.once('exit', done)) : null;
     browser?.kill();
     vite.kill();
-    await sleep(500);
-    rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
+    await Promise.race([exited, sleep(5000)]);
+    await sleep(300);
+    try {
+      rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
+    } catch {
+      console.log('[shots] note: the temporary browser profile is still in use and was left in the temp folder');
+    }
   }
 }
 

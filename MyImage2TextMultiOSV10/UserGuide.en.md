@@ -65,6 +65,9 @@ maximize.
 - Every toolbar button shows its name and shortcut in a tooltip. Every icon is drawn in its command's color.
 - **1 Images · 2 Convert** (left), **3 Selected result** (middle), **result cards** (bottom) and the **status bar**
   (with the dotted resize triangle at its right end).
+- Drag the divider between **1 Images** and **2 Convert** up or down to share the height between them (the arrow keys
+  move it too; double-click: default). The height is kept for the next time.
+- Zooming **3 Selected result** redraws the letters for the screen's pixels, so they stay sharp.
 
 The window cannot be smaller than 1340 × 720, so the toolbar's buttons and labels are never cut off. Closing with
 unsaved results opens a separate window that asks whether to save (**Save**, **Don't save**, **Cancel**).
@@ -203,7 +206,17 @@ resets language, theme, text, start screen and print settings too (result cards 
 ![User guide window](doc/images/en-guide.jpg)
 
 **Guide** (Shift+F1) shows this guide in its own window. Click an entry on the left to jump to it; the chapter you are
-reading is highlighted. **About** (F1) shows the name, version, author, license, build, runtime and input formats;
+reading is highlighted. The top of the window holds the guide's tools.
+
+- **한국어 · English**: switches the guide alone to the other language. Changing the program's language brings the
+  guide back to it.
+- **Text size** (−/+, 11 to 22): makes the text bigger or smaller. Ctrl+-, Ctrl+= and Ctrl+0 (back to 14) work too, and
+  the size is kept for the next time.
+- **Print** (Ctrl+P): opens the same print window as printing a result. The whole guide, in the shown language and
+  text size, is cut into pages of the paper and every page shows in the preview. Choose the printer, copies, paper,
+  orientation, margins, title and date; the page number is always printed at the bottom.
+
+**About** (F1) shows the name, version, author, license, build, runtime and input formats;
 **Copy info** copies them.
 
 ## Keyboard shortcuts

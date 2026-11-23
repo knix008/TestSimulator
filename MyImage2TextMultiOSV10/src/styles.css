@@ -320,10 +320,40 @@ h1, h2, p, ol { margin: 0; }
 .sources {
   display: flex;
   flex-direction: column;
-  min-height: 180px;
+  min-height: 120px;
   flex: 1 1 42%;
-  border-bottom: 1px solid var(--border);
 }
+
+/* Divider between the images (1) and the conversion settings (2): drag to resize. */
+.rail-split {
+  position: relative;
+  flex: none;
+  height: 7px;
+  margin: 0;
+  cursor: row-resize;
+  touch-action: none;
+  -webkit-app-region: no-drag;
+  background: var(--bg-panel);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  outline: none;
+}
+.rail-split-grip {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 36px;
+  height: 3px;
+  transform: translate(-50%, -50%);
+  border-radius: 2px;
+  background: var(--border-strong);
+}
+.rail-split:hover, .rail-split.dragging, .rail-split:focus-visible {
+  background: color-mix(in srgb, var(--accent) 22%, var(--bg-panel));
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
+}
+.rail-split:hover .rail-split-grip, .rail-split.dragging .rail-split-grip, .rail-split:focus-visible .rail-split-grip { background: var(--accent); }
+body.rail-resizing, body.rail-resizing * { cursor: row-resize !important; user-select: none !important; }
 .add-btn, .convert, .act, .text-btn, .chip {
   -webkit-app-region: no-drag;
 }
@@ -940,7 +970,43 @@ figcaption {
   body > *:not(.print-sheet) { display: none !important; }
   .print-sheet { display: block !important; }
   .print-sheet .sheet { transform: none !important; break-after: avoid; }
+  .print-sheet .doc-sheet { break-after: page; }
+  .print-sheet .doc-sheet:last-child { break-after: auto; }
 }
+
+/* The print window in document mode (the user guide): picture-only options hidden, every page
+   in the preview one under another. */
+.print-modal.doc-mode [data-art-only] { display: none !important; }
+.print-stage.doc-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 24px 0;
+  overflow: auto;
+}
+.print-stage.doc-stage .sheet-frame { flex: none; }
+.guide-content.doc-body {
+  position: absolute;
+  overflow: hidden;
+  padding: 0;
+  color: #000;
+  line-height: 1.55;
+  user-select: none;
+  --text: #000;
+  --text-dim: #444;
+  --border: #bbb;
+  --border-strong: #888;
+  --bg-panel: #f2f2f2;
+  --bg-input: #f2f2f2;
+  --accent: #1a5fb4;
+}
+.guide-content.doc-measure { left: -20000px; top: 0; visibility: hidden; height: auto; overflow: visible; }
+.guide-content.doc-body > :first-child { margin-top: 0; }
+.guide-content.doc-body figure { display: block; }
+.guide-content.doc-body img { width: auto; height: auto; max-width: 100%; max-height: calc(var(--page-text-h, 240mm) - 12mm); object-fit: contain; box-shadow: none; }
+.guide-content.doc-body h2 { border-bottom-color: #bbb; }
+.doc-sheet .doc-footer { justify-content: center; color: #333; }
 
 .statusbar {
   display: flex;
@@ -1410,12 +1476,26 @@ figcaption {
   position: relative;
   overflow: auto;
   padding: 18px 28px 40px;
+  font-size: var(--guide-font, 14px);
   line-height: 1.65;
   user-select: text;
 }
-.guide-content h1 { font-size: 22px; margin: 0 0 12px; }
-.guide-content h2 { font-size: 18px; margin: 26px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
-.guide-content h3 { font-size: 14.5px; margin: 18px 0 8px; }
+.guide-content h1 { font-size: 1.6em; margin: 0 0 12px; }
+.guide-content h2 { font-size: 1.3em; margin: 26px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.guide-content h3 { font-size: 1.05em; margin: 18px 0 8px; }
+
+/* Guide header: document language, text size and print. */
+.guide-tools { display: flex; align-items: center; gap: 10px; flex: none; }
+.guide-lang { grid-template-columns: repeat(2, auto); }
+.guide-lang label { height: 30px; padding: 0 10px; gap: 6px; cursor: pointer; }
+.guide-lang .flag { width: 21px; height: 14px; flex: none; }
+.guide-font { display: flex; align-items: center; gap: 6px; }
+.guide-font-ico { width: 18px; height: 18px; --tone: var(--t-violet); }
+.guide-font .stepper { grid-template-columns: 30px 40px 30px; }
+.guide-print-btn { display: inline-flex; align-items: center; gap: 6px; }
+.guide-print-btn .ico { --tone: var(--t-sky); }
+.popup-mode .modal-head .guide-tools, .popup-mode .modal-head .guide-tools * { -webkit-app-region: no-drag; }
+
 .guide-content p, .guide-content ul, .guide-content ol { margin: 0 0 10px; }
 .guide-content ul, .guide-content ol { padding-left: 1.4em; }
 .guide-content li { margin: 2px 0; }
@@ -1456,7 +1536,7 @@ figcaption {
   border-radius: 8px;
   box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.6);
 }
-.guide-content figcaption { margin-top: 6px; color: var(--text-dim); font-size: 12px; text-align: center; }
+.guide-content figcaption { margin-top: 6px; color: var(--text-dim); font-size: 0.86em; text-align: center; }
 
 /* Narrow windows: labels of the left toolbar group give way first; icons stay. */
 /* The toolbar keeps its labels: the minimum window width leaves room for all of them. */

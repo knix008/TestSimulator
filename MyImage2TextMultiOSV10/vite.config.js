@@ -60,7 +60,9 @@ export default defineConfig({
     strictPort: true,
     host: false,
     watch: {
-      ignored: ['**/src-tauri/**'],
+      // doc/images: docs:shots writes the guide pictures while the app runs; a reload there
+      // would restart the page under the script.
+      ignored: ['**/src-tauri/**', '**/doc/images/**'],
     },
   },
   optimizeDeps: {
