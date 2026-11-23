@@ -2,99 +2,156 @@
 
 ## Before you start
 
-This document is a hands-on course for people new to My Photo Work: you **follow along in the app** as you read.
-Each step takes a few minutes and builds on the result of the one before.
-Every feature is described in full in **Help → User Guide**.
+This is a hands-on course built around one sample picture, **Blonde woman in a red bikini**. You learn the basics of My Photo Work on it, then retouch the same photo from start to finish.
 
-- For a tour that points at the screen itself, run **Help → Tutorial**. This document is that tour written down.
-- Mistakes are fine: **Ctrl+Z** undoes and **Ctrl+Y** redoes.
+- **Part 1 (steps 1–7)** covers the screen and the basic controls: opening the sample, document tabs, zoom and scrolling, tools and the options row, the Work Panels, the Output panel and undo.
+- **Part 2 (steps 8–17)** edits the photo for real: duplicate the layer, crop, brightness, recolour the bikini, blur the background, remove an object, a vignette, a title, before and after, and export.
+- Mistakes are fine. **Ctrl+Z** undoes and **Ctrl+Y** redoes.
+- Every feature is described in **Help → User Guide**, and **Help → Tutorial** points at the screen itself.
 - At the top of this window you can change the font, the text size and the language, and **Print** it.
 
-## Step 1 — Open a sample from the start screen
+## Step 1 — Open the sample from the start screen
 
-![The start screen](images/en/start.png)
+![The sample pictures on the start screen](images/tutorial/en/open.jpg)
 
-1. Press **Home**, the first button on the menu bar, to show the start screen.
-2. In the **Sample pictures** card, click **Lake and sky**. It opens as a new document, with a tab above the canvas.
-3. Open **Mona Lisa (Leonardo)** the same way. With two tabs, click them to switch between the pictures.
-4. When there are more tabs than fit on the row, use **<** and **>** at its right end.
+1. The **Home** button at the far left of the menu bar opens the start screen.
+2. In the **Sample pictures** card, click **Blonde woman in a red bikini**.
+3. The photo opens as a new document and the start screen closes.
 
-> Where there is no picture the canvas shows a white and grey checkerboard: that area is transparent.
+> On the first run a **model setup** window may appear. Choose **Later**; everything in this tutorial works without it.
 
-## Step 2 — Find your way around
+## Step 2 — The editing screen and document tabs
 
-![The editing screen](images/en/main.png)
+![The editing screen](images/tutorial/en/editor.jpg)
 
-- **Menu bar**: File, Edit, Image, Layer, Type, Select, Filter, 3D, View, Window, Help. At its right end: the bottom and right panel buttons, the theme, the language, Settings and About.
-- **Toolbar**: the commands used most. The number between zoom out and zoom in is the zoom.
-- **Tools** (left): the chosen tool's settings appear in the **options bar** under the tabs. A tool with nothing to set shows no options bar.
-- **Work Panels** (right): Layers, Properties, Adjustments and more, chosen by tab. The button at the right of its title bar folds and unfolds it.
-- **Bottom panel**: **Problems**, **Errors** and **Log**, each with **Copy** and **Clear**.
-- The **scrollbars** along the right and the bottom of the canvas move the picture; so does dragging with the space bar held.
+- A **document tab** appears above the canvas. Every file you open adds a tab; click a tab to switch. With many tabs, use **<** and **>** at the right end.
+- Where there is no picture you see a white and grey **checkerboard**: that means transparent.
+- On the left is the **tool strip**, on the right the **Work Panels**, and at the bottom the **Output** panel.
 
-## Step 3 — Make a layer
+## Step 3 — Zoom and scroll
 
-1. Choose **Layer → New Layer** (**Ctrl+Shift+N**). The new layer appears at the top of the **Layers** tab in the Work Panels.
-2. Double-click its name and call it `Practice`.
-3. Hide the layer with the eye button and show it again. While a layer is hidden, the bottom panel's **Problems** says so.
-4. Use the **−** and **+** buttons of the **Opacity** slider to change it in steps of 5.
+![Zoomed in, with the scrollbars](images/tutorial/en/zoom.jpg)
 
-## Step 4 — Select
+1. Choose **View → Zoom in** (**Ctrl++**) twice. The number in the toolbar is the zoom level.
+2. Drag the **scrollbars** below and to the right of the canvas to move around the photo. Dragging with the space bar held down works too.
+3. **View → Fit on screen** (**Ctrl+0**) shows the whole photo again.
 
-1. Choose the **Rectangular Marquee** (**M**) and drag a rectangle over the sky.
-2. Clear it with **Select → Deselect**, then try **Select → Select Subject**: the main subject is picked out for you.
-3. **Select → Inverse** turns the selection around, so only the background is selected.
+## Step 4 — Tools and the options row
 
-> While there is a selection, the adjustments and filters in the next steps change only what is inside it.
+![The Brush tool and its options row](images/tutorial/en/tools.jpg)
 
-## Step 5 — Adjust the colours
+1. Pick the **Brush** (**B**) in the tool strip.
+2. The **options row** appears under the document tabs with size, hardness and opacity. The **−** and **+** beside each slider move one step.
+3. Pick **Move** (**V**) again: it has nothing to set, so the options row disappears. The chosen tool's description goes to **Output → Log**.
 
-![The Curves window](images/en/curves.png)
+## Step 5 — The Work Panels and layers
 
-1. Open **Image → Curves** (**Ctrl+M**). Drag the middle of the curve up a little and the picture brightens.
-2. In **Image → Hue/Saturation** (**Ctrl+U**) raise **Saturation** to make the sky bluer.
-3. To keep the original untouched, add the same adjustment from the **Adjustments** tab as an **adjustment layer**; its values can be changed at any time.
+![Layers in the Work Panels](images/tutorial/en/layers.jpg)
 
-## Step 6 — Try a filter
+- In the **Work Panels** on the right, pick the **Layers** tab. For now there is one layer, the photo.
+- The eye button hides and shows a layer, and **Opacity** below changes how see-through it is.
+- The button at the right of the title bar folds the panel away; folded, its title still shows, written down the strip.
 
-![The Filter menu](images/en/menu-filter.png)
+## Step 6 — The Output panel: Problems, Errors and Log
 
-1. Open the **Filter** menu and choose **Blur ▸ Gaussian Blur**.
-2. Change the **Radius** and the preview follows at once. Press **Apply**.
-3. **Filter → Filter Gallery** lets you choose among the artistic effects by their pictures.
+![The Log in the Output panel](images/tutorial/en/output.jpg)
 
-## Step 7 — Paint and stamp
+- The **Log** tab of the **Output** panel under the canvas lists the commands you ran, the files you opened and the tools you chose, in time order.
+- **Problems** shows what is worth knowing now, such as unsaved changes or hidden layers; **Errors** shows what failed.
+- Every tab has **Copy details** and **Clear**. The button at the far right folds the panel.
 
-1. Choose the **Brush** (**B**), set its size and hardness in the options bar, and paint on the `Practice` layer.
-2. Choose the **Pattern Stamp** (**S** twice), pick a pattern in the **Patterns** tab of the Work Panels, and paint with it.
-3. With the **Clone Stamp** (**S**), **Alt**-click a source, then paint elsewhere to copy it there.
+## Step 7 — Undo and History
 
-> A locked layer cannot be painted on. You are told so once, and the bottom panel's **Problems** keeps the note.
+![The History panel](images/tutorial/en/history.jpg)
 
-## Step 8 — Add text
+1. As a test, choose **Image → Invert**: the colours flip.
+2. The **History** tab of the Work Panels gains an **Invert** row. Clicking an earlier row goes back to that moment.
+3. **Edit → Undo** (**Ctrl+Z**) puts it back. Part 2 now edits this photo for real.
 
-1. Choose **Horizontal Type** (**T**), click the picture and type `Hello`.
-2. Change the font, size and colour in the options bar.
-3. Go back to the Move tool (**V**) and drag the text layer into place.
+## Step 8 — Duplicate the original layer
 
-## Step 9 — Save and export
+![The duplicated layer](images/tutorial/en/duplicate.jpg)
 
-![The Print window](images/en/print.png)
+1. Choose **Layer → Duplicate layer**. A second copy of the photo appears in the Layers panel, and the copy on top is selected.
+2. All the following edits go on this copy. The original stays untouched underneath for the before-and-after in step 16.
 
-1. **File → Save** (**Ctrl+S**) saves a `.mpw` project with all its layers.
-2. **File → Export** writes a picture file such as PNG, JPEG or WebP. Choose PNG to keep the transparent areas.
-3. **File → Print** (**Ctrl+P**) lets you set the paper and the size and print.
+## Step 9 — Crop to a portrait
 
-## Step 10 — When something goes wrong
+![The cropped photo](images/tutorial/en/crop.jpg)
 
-![The right-click menu](images/en/context-menu.png)
+1. Pick the **Rectangular marquee** (**M**) and drag a tall rectangle around the model, trimming a little of the wall at the top and the floor at the bottom.
+2. Choose **Image → Crop to Selection**. The canvas shrinks to the selection.
+3. **View → Fit on screen** shows the whole picture again.
 
-- The bottom panel's **Errors** tab records what went wrong. **Copy** it and paste it into a report.
-- The **Log** tab lists the commands you ran, the files you opened and the tools you chose, in order.
-- Right-click the picture for a menu of the commands used most.
-- Anything else is in **Help → User Guide**.
+## Step 10 — Fix brightness and contrast
 
-## Where next
+![The photo with more brightness and contrast](images/tutorial/en/exposure.jpg)
 
-You can now open a photo, split it into layers, change only the part you select, and save the result.
-Change the colours of the screen with the **theme** button, and make the start screen and the tool defaults your own in **Settings**.
+1. Open **Image → Brightness/Contrast**.
+2. Raise **Brightness** to about 12 and **Contrast** to about 18. The preview shows the result at once.
+3. Click **Apply**. The photo looks a little crisper.
+
+## Step 11 — Turn the bikini blue
+
+![The bikini turned blue](images/tutorial/en/recolor.jpg)
+
+1. With the **Eyedropper** (**I**), click the red of the bikini. That colour becomes the **Foreground** colour.
+2. Open **Select → Colour range**, keep **Tolerance** around 40 and apply. Only the red of the bikini is selected. Too high a tolerance also picks up the reddish shadows of the skin, so raise it a little at a time.
+3. In **Image → Hue/Saturation**, move **Hue** to about −135 and click **Apply**. The colour turns blue while the folds and shading stay.
+4. If some red is left in the folds, pick the remaining red with the eyedropper and repeat 2–3 once.
+5. **Select → Deselect** (**Ctrl+D**) clears the selection.
+
+## Step 12 — Blur the background
+
+![The photo with a blurred background](images/tutorial/en/blur.jpg)
+
+1. Choose **Select → Select subject**. The model is selected automatically.
+2. **Select → Inverse** (**Ctrl+Shift+I**) selects only the background.
+3. In **Filter → Blur → Gaussian blur**, set **Radius** to about 7 and click **Apply**. The wall and the fan go soft and the model stands out.
+4. Finish with **Select → Deselect**.
+
+## Step 13 — Remove the cables on the floor
+
+![The floor with the cables removed](images/tutorial/en/heal.jpg)
+
+1. Draw a **Rectangular marquee** around the bundle of black cables on the floor at the bottom right.
+2. Pick the **Remove** tool from the healing group (**J**) and click once inside the selection. It is filled from the floor around it.
+3. Small marks left over can be painted away with the **Spot healing** tool.
+4. Deselect and go back to the **Move** tool.
+
+## Step 14 — Darken the edges with a vignette
+
+![The photo with a vignette](images/tutorial/en/vignette.jpg)
+
+1. Open **Filter → Lens Correction**.
+2. Lower **Vignette** to about −70 and click **Apply**. The edges darken and the eye goes to the centre.
+
+## Step 15 — Add a title
+
+![The photo with a title](images/tutorial/en/title.jpg)
+
+1. Set the foreground colour in the toolbar to white.
+2. Pick **Horizontal type** (**T**) and click near the top left of the photo.
+3. Type `SUMMER` in the text window, make the size large, turn on bold and click **Apply**. A text layer appears in the Layers panel.
+4. Double-click the text layer later to change it again.
+
+## Step 16 — Before and after
+
+![The edited layer hidden, showing the original](images/tutorial/en/compare.jpg)
+
+1. In the Layers panel, click the eye button of the edited copy to hide it. The original underneath shows, so you can compare with the starting photo. **Problems** now lists **1 hidden layer(s)**.
+2. Click it again to show the edits.
+
+## Step 17 — Export as JPEG or PNG
+
+![The Export As window](images/tutorial/en/export.jpg)
+
+1. Open **File → Export As**.
+2. Choose JPEG or PNG under **Format** and set **Quality** and **Scale**. PNG can **keep a transparent background**.
+3. Click **Export** and choose where to save it.
+4. To keep the layers for later changes, also save the project with **File → Save** (**Ctrl+S**).
+
+## Next steps
+
+- Try the same edits on the other samples: the paintings, the beach and the colour chart.
+- Every menu command and shortcut is listed in **Help → User Guide** (**F1**).

@@ -172,6 +172,7 @@ export function LayersPanel({ ctx }: { ctx: PanelContext }) {
           return (
             <div
               key={layer.id}
+              data-layer-id={layer.id}
               className={`layer-row${active ? ' active' : ''}${dragId === layer.id ? ' dragging' : ''}`}
               style={{ paddingLeft: 4 + depth(layer) * 14 }}
               onContextMenu={(event) => { event.preventDefault(); ctx.openLayerMenu(layer.id, event.clientX, event.clientY) }}

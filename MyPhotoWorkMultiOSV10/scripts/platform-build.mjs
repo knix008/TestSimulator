@@ -39,6 +39,24 @@ export function findInstallers(dir, found = []) {
   return found
 }
 
+/** The version being built: package.json, which tauri.conf.json and Cargo.toml follow. */
+export function currentVersion() {
+  return JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version
+}
+
+/** Only the installers of this version: a bundle folder keeps every earlier build too. */
+export function ofVersion(files, version) {
+  return files.filter((file) => path.basename(file).includes(`_${version}_`) || path.basename(file).includes(`-${version}`) || path.basename(file).includes(`_${version}.`))
+}
+
+/** Installer copies of this app in `dir` from another version: what the new build replaces. */
+export function olderCopies(dir, productName, version) {
+  if (!fs.existsSync(dir)) return []
+  return fs.readdirSync(dir)
+    .filter((name) => INSTALLER.test(name) && name.startsWith(`${productName}_`) && !name.includes(`_${version}_`) && !name.includes(`_${version}.`))
+    .map((name) => path.join(dir, name))
+}
+
 function main() {
   const target = process.argv[2]
   const reason = rejectReason(target)
@@ -47,12 +65,17 @@ function main() {
     process.exit(1)
   }
   const cli = path.join(root, 'node_modules', '@tauri-apps', 'cli', 'tauri.js')
+  const output = process.env.CARGO_TARGET_DIR ? path.resolve(process.env.CARGO_TARGET_DIR) : path.join(root, 'src-tauri', 'target')
+  const version = currentVersion()
+  // Installers left from earlier builds would be copied again; the bundle folders start empty.
+  for (const name of BUILDS[target].bundles.split(',')) {
+    for (const file of findInstallers(path.join(output, 'release', 'bundle', BUNDLE_DIR[name]))) fs.rmSync(file, { recursive: true, force: true })
+  }
   const result = spawnSync(process.execPath, [cli, 'build', '--bundles', BUILDS[target].bundles], { cwd: root, stdio: 'inherit' })
   if (result.status) process.exit(result.status)
-  const output = process.env.CARGO_TARGET_DIR ? path.resolve(process.env.CARGO_TARGET_DIR) : path.join(root, 'src-tauri', 'target')
   const copied = []
   for (const name of BUILDS[target].bundles.split(',')) {
-    for (const file of findInstallers(path.join(output, 'release', 'bundle', BUNDLE_DIR[name]))) {
+    for (const file of ofVersion(findInstallers(path.join(output, 'release', 'bundle', BUNDLE_DIR[name])), version)) {
       const dest = path.join(root, path.basename(file))
       fs.cpSync(file, dest, { recursive: true, force: true })
       copied.push(dest)
@@ -60,8 +83,14 @@ function main() {
     }
   }
   if (!copied.length) {
-    console.error(`[build:${target}] No installer was found to copy.`)
+    console.error(`[build:${target}] No ${version} installer was found to copy.`)
     process.exit(1)
+  }
+  // The project root keeps only this version's installer.
+  const productName = JSON.parse(fs.readFileSync(path.join(root, 'src-tauri', 'tauri.conf.json'), 'utf8')).productName
+  for (const old of olderCopies(root, productName, version)) {
+    fs.rmSync(old, { recursive: true, force: true })
+    console.log(`[build] removed the older ${path.basename(old)} from the project root`)
   }
 }
 

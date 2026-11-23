@@ -32,6 +32,7 @@
     "preview": "vite preview",
     "test:ui": "node scripts/audit-ui.mjs",
     "test:icons": "node scripts/audit-icons.mjs",
+    "tutorial:shots": "node scripts/tutorial-shots.mjs",
     "tutorial:video": "node scripts/tutorial-video.mjs"
   },
   "dependencies": {

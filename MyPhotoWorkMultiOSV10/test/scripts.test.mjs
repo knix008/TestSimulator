@@ -10,7 +10,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { freePort, isFree } from '../scripts/free-port.mjs'
-import { BUILDS, findInstallers, rejectReason } from '../scripts/platform-build.mjs'
+import { BUILDS, currentVersion, findInstallers, ofVersion, olderCopies, rejectReason } from '../scripts/platform-build.mjs'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const read = (name) => readFileSync(path.join(root, 'scripts', name), 'utf8')
@@ -82,11 +82,13 @@ test('clean scripts remove only their generated targets and tolerate missing fil
   const script = path.join(fixture, 'scripts', 'clean.mjs')
   const normal = ['dist', 'build', 'src/build-info.json', 'src-tauri/gen']
   const extra = ['src-tauri/target', 'node_modules']
-  const retained = ['out/result.png', 'MyPhotoWork-Setup.exe', 'src/source.ts']
+  // The installers the build copied to the root: kept by clean, removed by clean:all.
+  const installers = ['My Photo Work_1.0.1_x64-setup.exe', 'My Photo Work_1.0.1_x64_en-US.msi', 'my-photo-work_1.0.1_amd64.deb', 'My Photo Work_1.0.1_amd64.AppImage', 'My Photo Work_1.0.1_x64.dmg']
+  const retained = ['out/result.png', 'src/source.ts', 'MyPhotoWork-Tutorial.mp4', 'README.md', 'tools/helper.exe']
   try {
     mkdirSync(path.dirname(script), { recursive: true })
     copyFileSync(path.join(root, 'scripts', 'clean.mjs'), script)
-    for (const name of [...normal, ...extra, ...retained]) {
+    for (const name of [...normal, ...extra, ...installers, ...retained]) {
       const target = path.join(fixture, name)
       if (path.extname(name)) {
         mkdirSync(path.dirname(target), { recursive: true })
@@ -101,9 +103,10 @@ test('clean scripts remove only their generated targets and tolerate missing fil
     assert.ok(normal.every((name) => existsSync(path.join(fixture, name))))
     assert.equal(run().status, 0)
     assert.ok(normal.every((name) => !existsSync(path.join(fixture, name))))
-    assert.ok([...extra, ...retained].every((name) => existsSync(path.join(fixture, name))))
+    assert.ok([...extra, ...installers, ...retained].every((name) => existsSync(path.join(fixture, name))))
     assert.equal(run('--all').status, 0)
     assert.ok(extra.every((name) => !existsSync(path.join(fixture, name))))
+    assert.ok(installers.every((name) => !existsSync(path.join(fixture, name))), 'clean:all leaves a built installer in the root')
     assert.ok(retained.every((name) => existsSync(path.join(fixture, name))))
     assert.equal(run('--all').status, 0)
   } finally {
@@ -121,4 +124,19 @@ test('each installer is built on the system it runs on', () => {
   assert.match(rejectReason('nope', 'win32'), /Unknown target/)
   assert.equal(BUILDS.win.bundles, 'nsis')
   assert.deepEqual(findInstallers(path.join(root, 'no-such-folder')), [])
+})
+
+test('a build copies only the current version to the root and clears older copies', () => {
+  assert.equal(currentVersion(), pkg.version)
+  const files = ['/b/nsis/My Photo Work_1.0.0_x64-setup.exe', '/b/nsis/My Photo Work_1.0.1_x64-setup.exe', '/b/deb/my-photo-work_1.0.1_amd64.deb']
+  assert.deepEqual(ofVersion(files, '1.0.1').map((file) => path.basename(file)), ['My Photo Work_1.0.1_x64-setup.exe', 'my-photo-work_1.0.1_amd64.deb'])
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'mpw-build-'))
+  try {
+    for (const name of ['My Photo Work_1.0.0_x64-setup.exe', 'My Photo Work_1.0.1_x64-setup.exe', 'Other App_1.0.0_x64-setup.exe', 'notes.txt']) writeFileSync(path.join(dir, name), '')
+    assert.deepEqual(olderCopies(dir, 'My Photo Work', '1.0.1').map((file) => path.basename(file)), ['My Photo Work_1.0.0_x64-setup.exe'])
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+  const script = read('platform-build.mjs')
+  assert.ok(script.indexOf('fs.rmSync(file, { recursive: true, force: true })') < script.indexOf("cli, 'build'"), 'stale bundles are not cleared before the build')
 })

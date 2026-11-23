@@ -165,12 +165,32 @@ test('the button audit is a script of its own (npm run test:icons)', () => {
 
 /* ---------------------------------------------------------------- canvas */
 
-test('everything on the stage that is not picture shows the white and grey transparency checkerboard', () => {
-  assert.match(app, /const TRANSPARENCY_COLORS = \['#ffffff', '#cccccc'\] as const/)
-  const draw = app.slice(app.indexOf("ctx.fillStyle = ctx.createPattern(transparencyTile(), 'repeat')"), app.indexOf('// A live transform or a window'))
+test('everything on the stage that is not picture shows a checkerboard in the theme\'s tones', async () => {
+  const draw = app.slice(app.indexOf('const checkLight = '), app.indexOf('// A live transform or a window'))
+  assert.match(draw, /getPropertyValue\('--stage-check-a'\)/, 'the checkerboard does not follow the theme')
+  assert.match(draw, /getPropertyValue\('--stage-check-b'\)/)
+  assert.match(draw, /transparencyTile\(checkLight, checkDark\)/)
   assert.match(draw, /ctx\.fillRect\(0, 0, width, height\)/, 'the checkerboard does not cover the whole stage')
   assert.match(draw, /strokeRect\(/, 'the canvas edge is not marked')
-  assert.doesNotMatch(app, /--stage-check-a/, 'the dark themed checkerboard is still drawn')
+  assert.match(app, /const TRANSPARENCY_FALLBACK = \['#ffffff', '#cccccc'\] as const/)
+  assert.match(app, /if \(transparencyTileCache\?\.key === key\) return/, 'a theme change keeps the old tile')
+  // Every theme defines both tones; a light theme stays white and grey, a dark one goes dark.
+  const { themes } = await import('../src/themes.ts')
+  for (const theme of themes) {
+    assert.ok(theme.vars['--stage-check-a'] && theme.vars['--stage-check-b'], `${theme.id} has no checkerboard tones`)
+  }
+  const light = themes.find((theme) => theme.kind === 'light')
+  const dark = themes.find((theme) => theme.kind === 'dark')
+  assert.equal(light.vars['--stage-check-a'], '#ffffff')
+  assert.notEqual(dark.vars['--stage-check-a'], '#ffffff')
+})
+
+test('a file dropped on the start screen opens in the main window', () => {
+  const drop = app.slice(app.indexOf('const handleDrop = async'), app.indexOf('const handleDragOver'))
+  assert.match(drop, /const fromStart = startOn\n\s*if \(fromStart\) \{\n\s*setStartOn\(false\)/, 'the start screen stays over the opened file')
+  assert.match(drop, /openFiles\(items, !fromStart && dirtyRef\.current \? 'place' : 'open'\)/, 'a drop on the start screen is placed into the document behind it')
+  const shell = app.slice(app.indexOf('className={`app-shell'), app.indexOf('className={`app-shell') + 600)
+  assert.match(shell, /onDrop=\{\(event\) => void handleDrop\(event\)\}/, 'the drop is not caught at the top of the window')
 })
 
 test('the canvas has a horizontal and a vertical scrollbar that move the pan', async () => {

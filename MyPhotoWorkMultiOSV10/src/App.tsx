@@ -414,20 +414,25 @@ const CommandIcon = ({ id }: { id: string }) => {
 
 /** The size of one square of the transparency checkerboard, in screen pixels. */
 const TRANSPARENCY_CELL = 8
-const TRANSPARENCY_COLORS = ['#ffffff', '#cccccc'] as const
-let transparencyTileCache: HTMLCanvasElement | null = null
-/** Two by two squares, white and light grey: repeated, the usual transparent-PNG checkerboard. */
-function transparencyTile() {
-  if (transparencyTileCache) return transparencyTileCache
+/** Used when the theme gives no checkerboard tones: the usual white and light grey. */
+const TRANSPARENCY_FALLBACK = ['#ffffff', '#cccccc'] as const
+let transparencyTileCache: { key: string; tile: HTMLCanvasElement } | null = null
+/**
+ * Two by two squares in the theme's two checkerboard tones (--stage-check-a / -b):
+ * white and light grey on a light theme, two close dark tones on a dark one.
+ */
+function transparencyTile(light: string, dark: string) {
+  const key = `${light}|${dark}`
+  if (transparencyTileCache?.key === key) return transparencyTileCache.tile
   const tile = document.createElement('canvas')
   tile.width = tile.height = TRANSPARENCY_CELL * 2
   const ctx = tile.getContext('2d') as CanvasRenderingContext2D
-  ctx.fillStyle = TRANSPARENCY_COLORS[0]
+  ctx.fillStyle = light
   ctx.fillRect(0, 0, tile.width, tile.height)
-  ctx.fillStyle = TRANSPARENCY_COLORS[1]
+  ctx.fillStyle = dark
   ctx.fillRect(0, 0, TRANSPARENCY_CELL, TRANSPARENCY_CELL)
   ctx.fillRect(TRANSPARENCY_CELL, TRANSPARENCY_CELL, TRANSPARENCY_CELL, TRANSPARENCY_CELL)
-  transparencyTileCache = tile
+  transparencyTileCache = { key, tile }
   return tile
 }
 
@@ -5874,9 +5879,16 @@ export default function App() {
     const files = [...(event.dataTransfer?.files ?? [])]
       .filter((file) => file.type.startsWith('image/') || /\.(mpw|psd|psb|tiff?|bmp|avif|webp|heic|heif|hif|dcm|dicom|cube)$/i.test(file.name))
     if (files.length === 0) return
+    // A drop on the start screen opens the files and goes to the main window; there it
+    // always opens them (each in a tab), never places them into the document behind.
+    const fromStart = startOn
+    if (fromStart) {
+      setStartOn(false)
+      setTutorialOn(false)
+    }
     try {
       const items = await Promise.all(files.map(fileToOpenItem))
-      await openFiles(items, dirtyRef.current ? 'place' : 'open')
+      await openFiles(items, !fromStart && dirtyRef.current ? 'place' : 'open')
     } catch (error) {
       showError(tr('open'), tr('openFailed'), error)
     }
@@ -6159,9 +6171,12 @@ export default function App() {
     ctx.clearRect(0, 0, width, height)
     const style = getComputedStyle(document.documentElement)
     // Everything that is not picture reads as transparent, the way a transparent PNG is
-    // shown: a white and light-grey checkerboard over the whole stage, the picture's own
-    // transparent pixels included. A thin frame and a shadow mark where the canvas ends.
-    ctx.fillStyle = ctx.createPattern(transparencyTile(), 'repeat') ?? '#ffffff'
+    // shown: a checkerboard over the whole stage, the picture's own transparent pixels
+    // included, in the current theme's two tones. A thin frame and a shadow mark where the
+    // canvas ends.
+    const checkLight = style.getPropertyValue('--stage-check-a').trim() || TRANSPARENCY_FALLBACK[0]
+    const checkDark = style.getPropertyValue('--stage-check-b').trim() || TRANSPARENCY_FALLBACK[1]
+    ctx.fillStyle = ctx.createPattern(transparencyTile(checkLight, checkDark), 'repeat') ?? checkLight
     ctx.fillRect(0, 0, width, height)
 
     const zoom = settings.zoom

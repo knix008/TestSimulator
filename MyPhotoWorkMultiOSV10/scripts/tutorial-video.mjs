@@ -5,10 +5,14 @@
 //   node scripts/tutorial-video.mjs --lang en  English
 //   node scripts/tutorial-video.mjs --limit 3  only the first steps (a quick check)
 //
-// Vite + headless Edge/Chrome over CDP with a throw-away profile: a sample picture is
-// opened, the tour is started from the Help menu command, and every step is held for
-// its reading time while screenshots are taken. ffmpeg (on PATH) turns the frames into
-// an H.264 MP4 (silent). Everything it started is stopped at the end.
+// Vite + headless Edge/Chrome over CDP with a throw-away profile. Chapter 1: the
+// red-bikini sample is opened from the start screen and the in-app tour runs from the
+// Help menu command, every step held for its reading time. Chapter 2 (hands-on): the
+// edits of scripts/tutorial-walkthrough.mjs are made on the same photo, each with a
+// caption naming the step. ffmpeg (on PATH) turns the frames into an H.264 MP4 (silent).
+// Everything it started is stopped at the end.
+//
+//   --no-hands-on  only the tour
 import { execFileSync, spawn } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -16,12 +20,14 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { connect, findBrowser, sleep, waitForTarget } from './cdp.mjs'
 import { freePort } from './free-port.mjs'
+import { HANDS_ON, dismissLaunchPrompts, openSample } from './tutorial-walkthrough.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const argv = process.argv.slice(2)
 const option = (name, fallback) => { const i = argv.indexOf(`--${name}`); return i >= 0 && argv[i + 1] ? argv[i + 1] : fallback }
 const language = option('lang', 'ko') === 'en' ? 'en' : 'ko'
 const limit = Number(option('limit', 0)) || 0
+const handsOn = !argv.includes('--no-hands-on')
 const WIDTH = 1440
 const HEIGHT = 900
 const FPS = 6
@@ -49,10 +55,8 @@ try {
   await page.until('window.__mpw && document.querySelector(".start-screen")', 90000)
   await page.evaluate(`window.__mpw.setSettings({ language: '${language}', showStartOnLaunch: true })`)
   await sleep(1200)
-  // The launch question is answered "later"; the tour is started from the Help command below.
-  await page.evaluate("document.querySelector('[data-action=tutorial-later]')?.click()")
-  await sleep(400)
-  for (const type of ['keyDown', 'keyUp']) await page.send('Input.dispatchKeyEvent', { type, key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 })
+  // The launch prompts are answered "later"; the tour is started from the Help command below.
+  await dismissLaunchPrompts(page)
 
   /** Screenshots for `seconds`, at FPS. */
   const hold = async (seconds) => {
@@ -69,9 +73,21 @@ try {
     }
   }
 
-  // A real picture on the canvas, then back to the start screen where the tour begins.
-  await page.evaluate("document.querySelectorAll('.sample-tile')[1]?.click()")
-  await sleep(1500)
+  /** A caption over the bottom of the screen, for the hands-on chapter; null removes it. */
+  const caption = (text) => page.evaluate(`(() => {
+    let el = document.getElementById('tutorial-video-caption')
+    if (${JSON.stringify(text)} === null) { el?.remove(); return }
+    if (!el) {
+      el = document.createElement('div')
+      el.id = 'tutorial-video-caption'
+      Object.assign(el.style, { position: 'fixed', left: '50%', bottom: '44px', transform: 'translateX(-50%)', zIndex: 9999, padding: '10px 22px', borderRadius: '12px', background: 'rgba(10, 14, 22, 0.86)', color: '#ffffff', font: '600 22px system-ui, sans-serif', boxShadow: '0 10px 30px rgba(0,0,0,0.45)', border: '1px solid rgba(255,255,255,0.18)', pointerEvents: 'none', whiteSpace: 'nowrap' })
+      document.body.appendChild(el)
+    }
+    el.textContent = ${JSON.stringify(text)}
+  })()`)
+
+  // The red-bikini sample on the canvas, then back to the start screen where the tour begins.
+  await openSample(page)
   await page.evaluate('window.__mpw.showStart()')
   await sleep(800)
   await hold(2.5)
@@ -89,6 +105,26 @@ try {
   await page.evaluate('document.querySelector("[data-action=tutorial-next]")?.click()')
   await sleep(600)
   await hold(2)
+
+  // Chapter 2: the hands-on edits on the same photo, each with its caption.
+  if (handsOn) {
+    await page.evaluate('window.__mpw.showStart && document.querySelector(".start-screen") && window.__mpw.run("help.start")')
+    await sleep(600)
+    await caption(language === 'ko' ? '실습 — 빨간 비키니의 금발 여성 사진 보정하기' : 'Hands-on — retouching the red-bikini photo')
+    await hold(3)
+    for (const [index, step] of HANDS_ON.entries()) {
+      const title = `${index + 1} / ${HANDS_ON.length}  ·  ${step.title[language]}`
+      console.log(`hands-on ${title}`)
+      await caption(title)
+      await hold(1.5)
+      await step.act(page)
+      await hold(3.5)
+      if (step.undo) await step.undo(page)
+    }
+    await caption(language === 'ko' ? '완성 — 사용자 설명서와 튜토리얼 문서에서 더 알아보세요' : 'Done — see the User Guide and the Tutorial document for more')
+    await hold(3)
+    await caption(null)
+  }
 } finally {
   try { await page?.send('Browser.close') } catch { /* gone */ }
   for (const child of [browser, vite]) { try { child.kill() } catch { /* gone */ } }
