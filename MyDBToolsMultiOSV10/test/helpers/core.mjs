@@ -13,6 +13,7 @@ export const serializer = await import('../../src/core/serializer.ts');
 export const dataTypes = await import('../../src/core/dataTypes.ts');
 export const geometry = await import('../../src/core/geometry.ts');
 export const relationshipPath = await import('../../src/core/relationshipPath.ts');
+export const lineBridges = await import('../../src/core/lineBridges.ts');
 export const layout = await import('../../src/core/layout.ts');
 export const undoRedo = await import('../../src/core/undoRedo.ts');
 export const sampleSchema = await import('../../src/core/sampleSchema.ts');

@@ -142,8 +142,8 @@
   "TableEditAdd": "Add",
   "TableEditEdit": "Edit",
   "TableEditDelete": "Delete",
-  "TableEditMoveUp": "Up ↑",
-  "TableEditMoveDown": "Down ↓",
+  "TableEditMoveUp": "Up",
+  "TableEditMoveDown": "Down",
   "ColHdrName": "Name",
   "ColHdrType": "Type",
   "ColHdrDefault": "Default",
@@ -653,5 +653,9 @@
   "PrintDiagramColors": "Diagram colours",
   "PrintGrayscale": "Greyscale",
   "PrintHeader": "Heading (name, database, time)",
-  "PrintSheetInfo": "Paper: {0} · {1} × {2} mm"
+  "PrintSheetInfo": "Paper: {0} · {1} × {2} mm",
+  "MenuLineBridges": "Line bridges",
+  "TtToggleBridges": "Line bridges on/off — where relationship lines cross, one hops over the other",
+  "StatusBridgesOn": "Line bridges on.",
+  "StatusBridgesOff": "Line bridges off."
 }

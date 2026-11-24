@@ -379,6 +379,56 @@ const RAW = {
         <path d="M6 7v3M9.5 7v4.5M13 7v3M16.5 7v4.5M20 7v3" />
       </>,
     ),
+  // Close without saving: a page struck through.
+  Discard: () =>
+    icon(
+      <>
+        <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+        <path d="M14 3v5h5" />
+        <path d="M9.5 12.5l5 5M14.5 12.5l-5 5" />
+      </>,
+    ),
+  Copy: () =>
+    icon(
+      <>
+        <rect x="9" y="9" width="11" height="11" rx="2" />
+        <path d="M5 15H4.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5" />
+      </>,
+    ),
+  Plus: () => icon(<path d="M12 5v14M5 12h14" />),
+  Minus: () => icon(<path d="M5 12h14" />),
+  ArrowUp: () => icon(<path d="M12 19V5M6 11l6-6 6 6" />),
+  ArrowDown: () => icon(<path d="M12 5v14M6 13l6 6 6-6" />),
+  ChevronDown: () => icon(<path d="M6 9l6 6 6-6" />),
+  ChevronUp: () => icon(<path d="M6 15l6-6 6 6" />),
+  CheckAll: () =>
+    icon(
+      <>
+        <rect x="3" y="3" width="18" height="18" rx="3" />
+        <path d="M7.5 12.5l3 3 6-7" />
+      </>,
+    ),
+  // Six dots: a handle to drag by.
+  Grip: () =>
+    icon(
+      <>
+        <circle cx="9" cy="6" r="1.2" />
+        <circle cx="15" cy="6" r="1.2" />
+        <circle cx="9" cy="12" r="1.2" />
+        <circle cx="15" cy="12" r="1.2" />
+        <circle cx="9" cy="18" r="1.2" />
+        <circle cx="15" cy="18" r="1.2" />
+      </>,
+    ),
+  CheckNone: () => icon(<rect x="3" y="3" width="18" height="18" rx="3" />),
+  // A line hopping over another in a half circle.
+  Bridge: () =>
+    icon(
+      <>
+        <path d="M2.5 14h6a3.5 3.5 0 0 1 7 0h6" />
+        <path d="M12 4.5v15" />
+      </>,
+    ),
   PanelLeft: () =>
     icon(
       <>

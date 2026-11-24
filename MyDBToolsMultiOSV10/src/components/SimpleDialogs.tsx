@@ -174,16 +174,18 @@ export function ErrorDialog({ message, details, onClose }: ErrorDialogProps) {
       width={560}
       height={440}
       extraActions={
-        <button className="btn" onClick={copy}>
-          {copied ? t('ErrorCopied') : t('ErrorBtnCopy')}
+        <button className="btn" data-action="error-copy" onClick={copy}>
+          {copied ? <Icons.Success /> : <Icons.Copy />}
+          <span>{copied ? t('ErrorCopied') : t('ErrorBtnCopy')}</span>
         </button>
       }
     >
       <p className="error-message">{message}</p>
       {details && (
         <>
-          <button className="link-button" onClick={() => setExpanded((v) => !v)}>
-            {t('ErrorDetails')} {expanded ? '▴' : '▾'}
+          <button className="link-button" data-action="error-details" onClick={() => setExpanded((v) => !v)}>
+            {expanded ? <Icons.ChevronUp /> : <Icons.ChevronDown />}
+            <span>{t('ErrorDetails')}</span>
           </button>
           {expanded && <pre className="error-details">{details}</pre>}
         </>
@@ -199,6 +201,11 @@ interface ConfirmDialogProps {
   cancelLabel?: string;
   /** Optional third action, e.g. "Don't save". */
   discardLabel?: string;
+  /**
+   * What confirming does, for the button icons: "save" (save / don't save /
+   * cancel), "delete" (a bin), or a plain check mark when absent.
+   */
+  intent?: 'save' | 'delete';
   onConfirm: () => void;
   onDiscard?: () => void;
   onCancel: () => void;
@@ -210,6 +217,7 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel,
   discardLabel,
+  intent,
   onConfirm,
   onDiscard,
   onCancel,
@@ -218,17 +226,19 @@ export function ConfirmDialog({
   return (
     <Dialog
       title={title ?? t('MsgConfirm')}
-      icon={<Icons.Question />}
+      icon={intent === 'delete' ? <Icons.Warning /> : <Icons.Question />}
       onClose={onCancel}
       onOk={onConfirm}
       okLabel={confirmLabel ?? t('BtnOk')}
       cancelLabel={cancelLabel ?? t('BtnCancel')}
+      okIcon={intent === 'save' ? <Icons.Save /> : intent === 'delete' ? <Icons.Delete /> : undefined}
       width={440}
       height={260}
       extraActions={
         discardLabel && onDiscard ? (
-          <button className="btn" onClick={onDiscard}>
-            {discardLabel}
+          <button className="btn" data-action="dialog-discard" onClick={onDiscard}>
+            <Icons.Discard />
+            <span>{discardLabel}</span>
           </button>
         ) : undefined
       }

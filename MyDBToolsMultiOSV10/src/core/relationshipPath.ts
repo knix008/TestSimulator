@@ -23,6 +23,8 @@ export interface RelationshipConnectionInfo {
 }
 
 const BEZIER_SAMPLE_COUNT = 24;
+/** Ends closer than this across get a straight line rather than a tiny jog. */
+const NEAR_ALIGNED = 16;
 
 export function getConnectionEdge(bounds: Rect, point: Point): ConnectionEdge {
   const dLeft = Math.abs(point.x - bounds.x);
@@ -132,6 +134,14 @@ export function ensureRoutePoints(
   }
 
   if (rel.RoutePoints.length > 0) return;
+  // A straight line between two facing sides still gets one bend in its middle:
+  // it is the handle that moves the whole line across (both ends slide with it).
+  const bothSides = isHorizontalEdge(startEdge) && isHorizontalEdge(endEdge);
+  const bothEnds = !isHorizontalEdge(startEdge) && !isHorizontalEdge(endEdge);
+  if ((bothSides && Math.abs(start.y - end.y) < 0.5) || (bothEnds && Math.abs(start.x - end.x) < 0.5)) {
+    rel.RoutePoints.push({ X: (start.x + end.x) / 2, Y: (start.y + end.y) / 2 });
+    return;
+  }
   for (const bend of getDefaultOrthogonalBends(start, end, startEdge, endEdge)) {
     rel.RoutePoints.push({ X: bend.x, Y: bend.y });
   }
@@ -265,6 +275,31 @@ export function hitTestRoutePoint(
   return -1;
 }
 
+/**
+ * Moves bend `index` of an orthogonal route to `p` and keeps every segment at a
+ * right angle: a neighbouring bend that shared the bend's row (a horizontal
+ * segment) follows in Y, one that shared its column (vertical) follows in X.
+ * Measured from `origin`, the route as it was when the drag began, so many
+ * pointer events never add up. The two table ends slide on their own.
+ */
+export function moveOrthogonalBend(
+  origin: { X: number; Y: number }[],
+  index: number,
+  p: Point,
+): { X: number; Y: number }[] {
+  const route = origin.map((rp) => ({ X: rp.X, Y: rp.Y }));
+  const at = origin[index];
+  if (!at) return route;
+  route[index] = { X: p.x, Y: p.y };
+  for (const j of [index - 1, index + 1]) {
+    const n = origin[j];
+    if (!n) continue;
+    if (Math.abs(n.Y - at.Y) < 0.5) route[j].Y = p.y;
+    else if (Math.abs(n.X - at.X) < 0.5) route[j].X = p.x;
+  }
+  return route;
+}
+
 export function resetRoutePoints(rel: DbRelationship, connection: RelationshipConnectionInfo): void {
   rel.RoutePoints = [];
   ensureRoutePoints(rel, connection.start, connection.end, connection.startEdge, connection.endEdge);
@@ -367,14 +402,46 @@ export function getRelationshipConnection(
     };
   }
 
-  const start = getConnectionPoint(src, getTableCenter(dst));
-  const end = getConnectionPoint(dst, getTableCenter(src));
-  return {
-    start,
-    end,
-    startEdge: getConnectionEdge(srcBounds, start),
-    endEdge: getConnectionEdge(dstBounds, end),
-  };
+  let start = getConnectionPoint(src, getTableCenter(dst));
+  let end = getConnectionPoint(dst, getTableCenter(src));
+  const startEdge = getConnectionEdge(srcBounds, start);
+  const endEdge = getConnectionEdge(dstBounds, end);
+  if (rel.LineStyle === 'Orthogonal') [start, end] = alignNearlyLevelEnds(srcBounds, dstBounds, start, end, startEdge, endEdge);
+  return { start, end, startEdge, endEdge };
+}
+
+/**
+ * Two ends on facing sides that are only a few pixels apart across would need a
+ * tiny jog; slide both onto one shared row (or column) inside both tables
+ * instead, so the right-angled line runs straight.
+ */
+function alignNearlyLevelEnds(
+  a: Rect,
+  b: Rect,
+  start: Point,
+  end: Point,
+  startEdge: ConnectionEdge,
+  endEdge: ConnectionEdge,
+): [Point, Point] {
+  const sides = isHorizontalEdge(startEdge) && isHorizontalEdge(endEdge);
+  const ends = !isHorizontalEdge(startEdge) && !isHorizontalEdge(endEdge);
+  if (sides && Math.abs(start.y - end.y) >= 0.5 && Math.abs(start.y - end.y) < NEAR_ALIGNED) {
+    const lo = Math.max(a.y, b.y) + 6;
+    const hi = Math.min(a.y + a.h, b.y + b.h) - 6;
+    if (lo <= hi) {
+      const y = clamp((start.y + end.y) / 2, lo, hi);
+      return [{ x: start.x, y }, { x: end.x, y }];
+    }
+  }
+  if (ends && Math.abs(start.x - end.x) >= 0.5 && Math.abs(start.x - end.x) < NEAR_ALIGNED) {
+    const lo = Math.max(a.x, b.x) + 6;
+    const hi = Math.min(a.x + a.w, b.x + b.w) - 6;
+    if (lo <= hi) {
+      const x = clamp((start.x + end.x) / 2, lo, hi);
+      return [{ x, y: start.y }, { x, y: end.y }];
+    }
+  }
+  return [start, end];
 }
 
 /** Recompute orthogonal routes touching a table that just moved. */

@@ -43,10 +43,12 @@ export function SchemaPickerDialog({ title, documents, activeId, onPick, onClose
       extraActions={
         <>
           <button className="btn" onClick={() => setChosen(documents.map((d) => d.id))}>
-            {t('PickSelectAll')}
+            <Icons.CheckAll />
+            <span>{t('PickSelectAll')}</span>
           </button>
           <button className="btn" onClick={() => setChosen([])}>
-            {t('PickSelectNone')}
+            <Icons.CheckNone />
+            <span>{t('PickSelectNone')}</span>
           </button>
         </>
       }

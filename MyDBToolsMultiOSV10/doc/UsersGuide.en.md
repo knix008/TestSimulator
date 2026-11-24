@@ -221,7 +221,25 @@ The parent's primary key is linked to the child's `<parent>_id`-style column. To
 columns use **Edit → Add relationship** (Ctrl+R) or double-click the relationship line.
 
 Relationship lines can be **straight**, **curved** (drag the diamond handles) or **orthogonal**
-(drag the square handles; **Add bend** / **Reset route** in the context menu).
+(drag the square handles; **Add bend** / **Reset route** in the context menu). Dragging a bend
+brings its neighbouring bends along, so every turn stays a right angle, and two ends that are
+almost level are joined by a straight line rather than a tiny jog.
+
+The pointer shows what a drag will do:
+
+| Pointer | Over | Dragging |
+|---------|------|----------|
+| Four-way arrow | A table | Moves the table (all selected tables together) |
+| Up-down arrow | A horizontal piece of an orthogonal line | Moves that piece up or down |
+| Left-right arrow | An upright piece of an orthogonal line | Moves that piece left or right |
+| Cross | A bend or a curve's control point | Places that point exactly |
+| Hand | An unselected relationship line | (click to select it) |
+
+**Line bridges**: where two relationship lines cross, one hops over the other in a small half
+circle, so a crossing never reads as a join. The flatter of the two lines hops (the later one when
+they are equally steep), and crossings right next to a bend or a table end are left alone. Turn
+them on or off with the **bridge** toolbar button or **View → Line bridges** (on by default); the
+screen, image export and print all follow the setting.
 
 ### Tabs, multi-selection, auto-arrange
 

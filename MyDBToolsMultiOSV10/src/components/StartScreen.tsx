@@ -213,7 +213,7 @@ function BoardCard(p: CardProps) {
           aria-label={t('StartMoveCard')}
           onPointerDown={(e) => p.onGrab(p.id, e)}
         >
-          ⠿
+          <Icons.Grip />
         </button>
         {p.icon}
         <span className="board-card-title">{p.title}</span>
@@ -275,9 +275,13 @@ function Stepper({ label, field, value, min, max, step, onChange }: {
   return (
     <label className="start-slider" title={label}>
       <span>{label}</span>
-      <button type="button" className="step" aria-label="−" onClick={() => onChange(Math.max(min, value - step))}>−</button>
+      <button type="button" className="step" aria-label="−" onClick={() => onChange(Math.max(min, value - step))}>
+        <Icons.Minus />
+      </button>
       <input type="range" min={min} max={max} step={step} data-field={field} value={value} onChange={(e) => onChange(Number(e.target.value))} />
-      <button type="button" className="step" aria-label="+" onClick={() => onChange(Math.min(max, value + step))}>+</button>
+      <button type="button" className="step" aria-label="+" onClick={() => onChange(Math.min(max, value + step))}>
+        <Icons.Plus />
+      </button>
       <output>{value}%</output>
     </label>
   );

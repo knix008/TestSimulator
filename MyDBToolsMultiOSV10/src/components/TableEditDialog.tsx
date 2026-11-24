@@ -81,24 +81,29 @@ export function TableEditDialog({ table, targetDb, onSave, onClose }: Props) {
 
         <div className="column-toolbar">
           <button className="btn" onClick={addColumn}>
-            {t('TableEditAdd')}
+            <Icons.Plus />
+            <span>{t('TableEditAdd')}</span>
           </button>
           <button className="btn" disabled={selectedIndex < 0} onClick={() => editColumn(selectedIndex)}>
-            {t('TableEditEdit')}
+            <Icons.Edit />
+            <span>{t('TableEditEdit')}</span>
           </button>
           <button className="btn" disabled={selectedIndex < 0} onClick={() => deleteColumn(selectedIndex)}>
-            {t('TableEditDelete')}
+            <Icons.Delete />
+            <span>{t('TableEditDelete')}</span>
           </button>
           <span className="spacer" />
           <button className="btn" disabled={selectedIndex <= 0} onClick={() => move(selectedIndex, -1)}>
-            {t('TableEditMoveUp')}
+            <Icons.ArrowUp />
+            <span>{t('TableEditMoveUp')}</span>
           </button>
           <button
             className="btn"
             disabled={selectedIndex < 0 || selectedIndex >= draft.Columns.length - 1}
             onClick={() => move(selectedIndex, 1)}
           >
-            {t('TableEditMoveDown')}
+            <Icons.ArrowDown />
+            <span>{t('TableEditMoveDown')}</span>
           </button>
         </div>
 

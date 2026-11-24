@@ -142,8 +142,8 @@
   "TableEditAdd": "추가",
   "TableEditEdit": "편집",
   "TableEditDelete": "삭제",
-  "TableEditMoveUp": "위로 ↑",
-  "TableEditMoveDown": "아래로 ↓",
+  "TableEditMoveUp": "위로",
+  "TableEditMoveDown": "아래로",
   "ColHdrName": "이름",
   "ColHdrType": "타입",
   "ColHdrDefault": "기본값",
@@ -653,5 +653,9 @@
   "PrintDiagramColors": "다이어그램 색",
   "PrintGrayscale": "흑백",
   "PrintHeader": "제목 줄 (이름·DB·시각)",
-  "PrintSheetInfo": "용지: {0} · {1} × {2} mm"
+  "PrintSheetInfo": "용지: {0} · {1} × {2} mm",
+  "MenuLineBridges": "선 교차 브리지",
+  "TtToggleBridges": "선 교차 브리지 켜기/끄기 — 관계선이 교차하는 곳에서 한 선이 반원으로 건너뜁니다",
+  "StatusBridgesOn": "선 교차 브리지를 켰습니다.",
+  "StatusBridgesOff": "선 교차 브리지를 껐습니다."
 }

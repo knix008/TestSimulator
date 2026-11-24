@@ -11,6 +11,7 @@ import {
   getRelationshipConnection,
   type RelationshipConnectionInfo,
 } from '../core/relationshipPath';
+import { findBridges, relationshipPaths, traceWithBridges, type Bridge } from '../core/lineBridges';
 import { getTypeDisplay, isOutgoingForeignKey } from '../core/schema';
 import { getHeaderColor, type Palette } from './theme';
 
@@ -44,6 +45,20 @@ export interface DrawOptions {
    * erased under it instead of being covered up — see `punchRelationshipLabel`.
    */
   transparentLabels?: boolean;
+  /** Hop one line over another where they cross. On unless set to false. */
+  lineBridges?: boolean;
+}
+
+/** A hop's half-width: the same size on screen at any zoom. */
+const BRIDGE_RADIUS_PX = 6;
+
+/**
+ * The user's line-bridge setting, for drawings that do not say (image export,
+ * print, start-screen previews), so they all match the editor.
+ */
+let lineBridgesDefault = true;
+export function setLineBridgesDefault(on: boolean): void {
+  lineBridgesDefault = on;
 }
 
 /** Draw a string clipped to `maxWidth`, appending an ellipsis when it overflows. */
@@ -282,6 +297,7 @@ function drawRelationship(
   schema: DbSchema,
   rel: DbRelationship,
   o: DrawOptions,
+  bridges?: Bridge[],
 ): void {
   const connection = getRelationshipConnection(schema, rel);
   if (!connection) return;
@@ -300,7 +316,12 @@ function drawRelationship(
   ctx.lineWidth = selected ? 3 / zoom : 2.2 / zoom;
   ctx.setLineDash([]);
 
-  if (rel.LineStyle === 'Curved') {
+  if (bridges && bridges.length > 0) {
+    // A line with hops is traced piece by piece (a curve through its samples).
+    ctx.beginPath();
+    traceWithBridges(ctx, pathPoints, bridges, BRIDGE_RADIUS_PX / zoom);
+    ctx.stroke();
+  } else if (rel.LineStyle === 'Curved') {
     const [cp1, cp2] = getCubicControls(
       rel,
       connection.start,
@@ -437,7 +458,11 @@ function drawRelationshipLabel(
  * them, then the relationship labels above everything.
  */
 export function drawSchema(ctx: CanvasRenderingContext2D, schema: DbSchema, o: DrawOptions): void {
-  for (const rel of schema.Relationships) drawRelationship(ctx, schema, rel, o);
+  const bridges =
+    !(o.lineBridges ?? lineBridgesDefault) || schema.Relationships.length < 2
+      ? null
+      : findBridges(relationshipPaths(schema, o.liveRouteTableId), BRIDGE_RADIUS_PX / o.zoom);
+  for (const rel of schema.Relationships) drawRelationship(ctx, schema, rel, o, bridges?.get(rel.Id));
   if (o.transparentLabels) {
     for (const rel of schema.Relationships) punchRelationshipLabel(ctx, schema, rel, o);
   }

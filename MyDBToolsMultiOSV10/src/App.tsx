@@ -48,6 +48,7 @@ import { CanvasContextMenuRequest, DiagramCanvas, computeFitViewport } from './c
 import { ColumnEditDialog } from './components/ColumnEditDialog';
 import { ContextMenu, Dropdown, MenuList, type MenuItem } from './components/Menu';
 import { Icons } from './components/Icons';
+import { setLineBridgesDefault } from './render/drawDiagram';
 import { PreferencesDialog } from './components/PreferencesDialog';
 import { PropertyGrid, type SortMode } from './components/PropertyGrid';
 import { RelationshipEditDialog } from './components/RelationshipEditDialog';
@@ -92,6 +93,8 @@ type ModalState =
       onDiscard?: () => void;
       confirmLabel?: string;
       discardLabel?: string;
+      /** What confirming does, for the button icons. */
+      intent?: 'save' | 'delete';
     };
 
 export default function App() {
@@ -238,6 +241,7 @@ export default function App() {
         title: t('ConfirmDiscardTitle'),
         message: t('MsgUnsavedChanges'),
         confirmLabel: t('ConfirmSave'),
+        intent: 'save',
         discardLabel: t('ConfirmDiscard'),
         onConfirm: () => {
           closeModal();
@@ -288,6 +292,7 @@ export default function App() {
         title: t('ConfirmDiscardTitle'),
         message: t('MsgUnsavedChanges'),
         confirmLabel: t('ConfirmSave'),
+        intent: 'save',
         discardLabel: t('ConfirmDiscard'),
         onConfirm: () => {
           closeModal();
@@ -324,6 +329,7 @@ export default function App() {
           title: t('ConfirmDiscardTitle'),
           message: dirtyRef.current ? t('MsgUnsavedChanges') : t('MsgUnsavedTabs'),
           confirmLabel: t('ConfirmSave'),
+          intent: 'save',
           discardLabel: t('ConfirmDiscard'),
           onConfirm: () => {
             closeModal();
@@ -537,6 +543,7 @@ export default function App() {
       setModal({
         kind: 'confirm',
         title: t('MsgDeleteColumnTitle'),
+        intent: 'delete',
         message: t('MsgDeleteColumn', selectedColumn.Name),
         onConfirm: () => {
           mutate((draft) => removeColumn(draft, tableId, columnId));
@@ -552,6 +559,7 @@ export default function App() {
       setModal({
         kind: 'confirm',
         title: t('MsgDeleteTableTitle'),
+        intent: 'delete',
         message:
           ids.length > 1
             ? t('MsgDeleteTables', ids.length)
@@ -715,6 +723,15 @@ export default function App() {
     setPrefs({ ...prefsRef.current, ShowRulers: next });
     setStatus(t(next ? 'StatusRulersOn' : 'StatusRulersOff'));
   }, [setPrefs, setStatus, t]);
+
+  const toggleBridges = useCallback(() => {
+    const next = !prefsRef.current.LineBridges;
+    setPrefs({ ...prefsRef.current, LineBridges: next });
+    setStatus(t(next ? 'StatusBridgesOn' : 'StatusBridgesOff'));
+  }, [setPrefs, setStatus, t]);
+
+  // Exports, print and the start-screen previews draw lines the same way.
+  setLineBridgesDefault(prefs.LineBridges);
 
   const toggleGrid = useCallback(() => {
     const next = !prefsRef.current.ShowGrid;
@@ -977,6 +994,7 @@ export default function App() {
       { id: 'sep2', separator: true },
       { id: 'grid', label: t('SettingsShowGrid'), icon: <Icons.Grid />, checked: prefs.ShowGrid, onSelect: toggleGrid },
       { id: 'rulers', label: t('MenuShowRulers'), icon: <Icons.Ruler />, checked: prefs.ShowRulers, onSelect: toggleRulers },
+      { id: 'bridges', label: t('MenuLineBridges'), icon: <Icons.Bridge />, checked: prefs.LineBridges, onSelect: toggleBridges },
       { id: 'snap', label: t('SettingsSnapToGrid'), icon: <Icons.Snap />, checked: prefs.SnapToGrid, onSelect: () => setPrefs({ ...prefs, SnapToGrid: !prefs.SnapToGrid }) },
       { id: 'sep3', separator: true },
       { id: 'panel-bottom', label: t('PanelToggleBottom'), icon: <Icons.PanelBottom />, checked: panels.bottom, onSelect: () => togglePanel('bottom') },
@@ -997,7 +1015,7 @@ export default function App() {
       { id: 'theme', label: t('MenuTheme'), icon: <Icons.Palette />, submenu: themeItems },
       { id: 'language', label: t('SettingsLabelLanguage').replace(':', ''), icon: <Icons.Language />, submenu: languageItems },
     ],
-    [t, zoomIn, zoomOut, fitAll, resetZoom, doAutoArrange, mutate, prefs, setPrefs, toggleGrid, toggleRulers,
+    [t, zoomIn, zoomOut, fitAll, resetZoom, doAutoArrange, mutate, prefs, setPrefs, toggleGrid, toggleRulers, toggleBridges,
      rightPanelVisible, panels.bottom, togglePanel, schema.TargetDb, setTargetDb, themeItems, languageItems],
   );
 
@@ -1103,6 +1121,7 @@ export default function App() {
               setModal({
                 kind: 'confirm',
                 title: t('MsgDeleteTableTitle'),
+                intent: 'delete',
                 message:
                   ids.length > 1 ? t('MsgDeleteTables', ids.length) : t('MsgDeleteTable', table.Name),
                 onConfirm: () => {
@@ -1539,6 +1558,15 @@ export default function App() {
           <Icons.Ruler />
         </button>
         <button
+          className={`tb ${prefs.LineBridges ? 'active' : ''}`}
+          data-action="toggle-bridges"
+          title={t('TtToggleBridges')}
+          aria-pressed={prefs.LineBridges}
+          onClick={toggleBridges}
+        >
+          <Icons.Bridge />
+        </button>
+        <button
           className="tb"
           data-action="auto-arrange"
           title={t('TtAutoArrange')}
@@ -1659,6 +1687,7 @@ export default function App() {
             theme={prefs.Theme}
             backdrop={prefs.CanvasBackdrop}
             showRulers={prefs.ShowRulers}
+            lineBridges={prefs.LineBridges}
             tool={tool}
             zoom={viewport.zoom}
             offsetX={viewport.offsetX}
@@ -1979,6 +2008,7 @@ export default function App() {
           message={modal.message}
           confirmLabel={modal.confirmLabel}
           discardLabel={modal.discardLabel}
+          intent={modal.intent}
           onConfirm={modal.onConfirm}
           onDiscard={modal.onDiscard}
           onCancel={closeModal}

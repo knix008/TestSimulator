@@ -16,6 +16,10 @@ interface Props {
   onOk?: () => void;
   okLabel?: string;
   cancelLabel?: string;
+  /** Icon of the OK button, by what it does (default: a check mark). */
+  okIcon?: ReactNode;
+  /** Icon of the Cancel button (default: a cross). */
+  cancelIcon?: ReactNode;
   /** Hide the footer entirely (dialogs that supply their own actions). */
   hideFooter?: boolean;
   width?: number;
@@ -35,6 +39,8 @@ export function Dialog({
   onOk,
   okLabel,
   cancelLabel,
+  okIcon,
+  cancelIcon,
   hideFooter,
   width = 480,
   height = 520,
@@ -65,13 +71,13 @@ export function Dialog({
         <div className="dialog-footer">
           {extraActions}
           <span className="spacer" />
-          <button className="btn" onClick={onClose}>
-            <Icons.Close />
+          <button className="btn" data-action="dialog-cancel" onClick={onClose}>
+            {cancelIcon ?? <Icons.Close />}
             <span>{cancelLabel ?? t('BtnCancel')}</span>
           </button>
           {onOk && (
-            <button className="btn btn-primary" onClick={onOk}>
-              <Icons.Success />
+            <button className="btn btn-primary" data-action="dialog-ok" onClick={onOk}>
+              {okIcon ?? <Icons.Success />}
               <span>{okLabel ?? t('BtnOk')}</span>
             </button>
           )}

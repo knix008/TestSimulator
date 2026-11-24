@@ -360,9 +360,13 @@ export function PrintWindow({ schema, projectPath, theme, levels, report, onClos
                   </Field>
                   <Field label={t('PrintCopies')}>
                     <span className="ps-stepper">
-                      <button type="button" onClick={() => setCopies((c) => Math.max(1, c - 1))}>−</button>
+                      <button type="button" aria-label="−" onClick={() => setCopies((c) => Math.max(1, c - 1))}>
+                        <Icons.Minus />
+                      </button>
                       <output>{copies}</output>
-                      <button type="button" onClick={() => setCopies((c) => Math.min(99, c + 1))}>+</button>
+                      <button type="button" aria-label="+" onClick={() => setCopies((c) => Math.min(99, c + 1))}>
+                        <Icons.Plus />
+                      </button>
                     </span>
                   </Field>
                   <Field label={t('PrintCollate')}>

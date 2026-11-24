@@ -42,6 +42,7 @@ export interface AppSettingsData {
   RecentFilesMaxCount: number;
   ShowGrid: boolean;
   ShowRulers?: boolean;
+  LineBridges?: boolean;
   SnapToGrid: boolean;
   SnapInterval: number;
   NormalizationLevels: string;

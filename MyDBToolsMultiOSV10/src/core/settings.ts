@@ -119,6 +119,8 @@ export interface UserPreferences {
   ShowGrid: boolean;
   /** Rulers on the canvas edges (with the red pointer line). */
   ShowRulers: boolean;
+  /** Where two relationship lines cross, one hops over the other. */
+  LineBridges: boolean;
   SnapToGrid: boolean;
   SnapInterval: number;
   NormalizationLevels: NormalizationLevel[];
@@ -142,6 +144,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   RecentFilesMaxCount: 10,
   ShowGrid: false,
   ShowRulers: true,
+  LineBridges: true,
   SnapToGrid: false,
   SnapInterval: 20,
   NormalizationLevels: ['NF1'],
@@ -209,6 +212,7 @@ export async function loadPreferences(): Promise<UserPreferences> {
     RecentFilesMaxCount: clamp(raw.RecentFilesMaxCount ?? 10, 1, 50),
     ShowGrid: !!raw.ShowGrid,
     ShowRulers: raw.ShowRulers !== false,
+    LineBridges: raw.LineBridges !== false,
     SnapToGrid: !!raw.SnapToGrid,
     SnapInterval: raw.SnapInterval ? clamp(raw.SnapInterval, 5, 100) : 20,
     NormalizationLevels: parseNormalizationLevels(raw.NormalizationLevels, raw.NormalizationLevel),
@@ -235,6 +239,7 @@ export async function savePreferences(prefs: UserPreferences): Promise<void> {
     RecentFilesMaxCount: prefs.RecentFilesMaxCount,
     ShowGrid: prefs.ShowGrid,
     ShowRulers: prefs.ShowRulers,
+    LineBridges: prefs.LineBridges,
     SnapToGrid: prefs.SnapToGrid,
     SnapInterval: prefs.SnapInterval,
     NormalizationLevels: prefs.NormalizationLevels.join(','),

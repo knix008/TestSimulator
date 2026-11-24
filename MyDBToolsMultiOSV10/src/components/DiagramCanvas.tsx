@@ -17,6 +17,7 @@ import {
   getRelationshipConnection,
   hitTestPath,
   hitTestRoutePoint,
+  moveOrthogonalBend,
   resetOrthogonalRoutesForTable,
   resetRoutePoints,
   tryInsertOrthogonalBend,
@@ -46,6 +47,8 @@ interface Props {
   backdrop?: CanvasBackdrop;
   /** Rulers along the top and left edges, with a red line at the pointer. */
   showRulers?: boolean;
+  /** Hop one relationship line over another where they cross. */
+  lineBridges?: boolean;
   tool: ToolMode;
   zoom: number;
   offsetX: number;
@@ -92,7 +95,7 @@ type DragKind =
       /** Every table being moved, each with its own grab offset. */
       grabOffsets: { tableId: string; dx: number; dy: number }[];
     }
-  | { kind: 'routePoint'; relationshipId: string; index: number }
+  | { kind: 'routePoint'; relationshipId: string; index: number; originRoute: { X: number; Y: number }[] }
   | {
       kind: 'segment';
       relationshipId: string;
@@ -106,6 +109,13 @@ type DragKind =
   | { kind: 'marquee'; origin: Point; current: Point; additive: boolean };
 
 /** The rectangle between two corners, however the drag ran. */
+/** Up-down arrows over a horizontal piece of line, left-right over an upright one. */
+function segmentCursor(segment: { index: number; points: Point[] }): string {
+  const a = segment.points[segment.index];
+  const b = segment.points[segment.index + 1];
+  return Math.abs(a.y - b.y) < 0.5 ? 'ns-resize' : 'ew-resize';
+}
+
 function marqueeRect(a: Point, b: Point) {
   return {
     x: Math.min(a.x, b.x),
@@ -227,6 +237,7 @@ export function DiagramCanvas(props: Props) {
       selectedRelationshipId: props.selectedRelationshipId,
       highlightedColumnIds: props.highlightedColumnIds,
       liveRouteTableId: drag.kind === 'table' ? drag.tableId : null,
+      lineBridges: props.lineBridges !== false,
     });
 
     if (drag.kind === 'marquee') {
@@ -256,7 +267,7 @@ export function DiagramCanvas(props: Props) {
   }, [schema, size, zoom, offsetX, offsetY, palette, drag, props.showGrid, props.backdrop, props.snapInterval,
       props.selectedTableId, props.selectedTableIds, props.selectedColumnId,
       props.selectedRelationshipId,
-      props.highlightedColumnIds]);
+      props.highlightedColumnIds, props.lineBridges]);
 
   // ── Hit testing ────────────────────────────────────────────────────────────
 
@@ -388,7 +399,11 @@ export function DiagramCanvas(props: Props) {
     const routeHandle = hitSelectedRouteHandle(p);
     if (routeHandle) {
       props.onMutate(() => {}, { undo: true });
-      setDrag({ kind: 'routePoint', ...routeHandle });
+      setDrag({
+        kind: 'routePoint',
+        ...routeHandle,
+        originRoute: (schema.Relationships.find((r) => r.Id === routeHandle.relationshipId)?.RoutePoints ?? []).map((rp) => ({ X: rp.X, Y: rp.Y })),
+      });
       e.currentTarget.setPointerCapture(e.pointerId);
       return;
     }
@@ -500,7 +515,11 @@ export function DiagramCanvas(props: Props) {
         props.onDragUpdate((draft) => {
           const rel = draft.Relationships.find((r) => r.Id === drag.relationshipId);
           if (!rel || !rel.RoutePoints[drag.index]) return;
-          rel.RoutePoints[drag.index] = { X: snap(p.x), Y: snap(p.y) };
+          const to = { x: snap(p.x), y: snap(p.y) };
+          // An orthogonal bend brings its neighbours along so every turn stays square;
+          // a curve's control point moves on its own.
+          if (rel.LineStyle === 'Orthogonal') rel.RoutePoints = moveOrthogonalBend(drag.originRoute, drag.index, to);
+          else rel.RoutePoints[drag.index] = { X: to.x, Y: to.y };
         });
         return;
 
@@ -544,9 +563,14 @@ export function DiagramCanvas(props: Props) {
       setCursor('crosshair');
     } else if (props.tool.startsWith('Relation')) {
       setCursor('crosshair');
-    } else if (hitSelectedRouteHandle(p) || hitSelectedSegment(p)) {
-      setCursor('move');
+    } else if (hitSelectedRouteHandle(p)) {
+      // A bend or a curve's control point: placed exactly, so a fine cross.
+      setCursor('crosshair');
+    } else if (hitSelectedSegment(p)) {
+      // A straight piece of a right-angled line slides only across itself.
+      setCursor(segmentCursor(hitSelectedSegment(p)!));
     } else if (hitTable(p)) {
+      // A table moves freely: the four-way arrow.
       setCursor('move');
     } else if (hitRelationship(p)) {
       setCursor('pointer');
