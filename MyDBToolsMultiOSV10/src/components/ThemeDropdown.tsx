@@ -60,7 +60,11 @@ export function ThemeDropdown({ theme, language, onPick, onNext, onSettings }: P
         style={{ background: `linear-gradient(135deg, ${def.palette.canvasBackground} 0 50%, ${def.palette.accent} 50%)`, borderColor: def.palette.border }}
       />
       <span className="theme-drop-name">{getThemeName(def.id, language)}</span>
-      {theme === def.id && <span className="theme-drop-check">✓</span>}
+      {theme === def.id && (
+        <span className="theme-drop-check">
+          <Icons.Success />
+        </span>
+      )}
     </button>
   );
 
@@ -81,7 +85,9 @@ export function ThemeDropdown({ theme, language, onPick, onNext, onSettings }: P
           <Icons.Palette />
         </span>
         <span>{getThemeName(theme, language)}</span>
-        <span className="theme-dropdown-caret">▾</span>
+        <span className="theme-dropdown-caret">
+          {open ? <Icons.ChevronUp /> : <Icons.ChevronDown />}
+        </span>
       </button>
       {open && (
         <div className="theme-drop-panel" role="menu">

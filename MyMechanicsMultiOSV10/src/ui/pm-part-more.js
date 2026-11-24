@@ -136,7 +136,7 @@ const SURFACE_PM = {
   },
   flattenSurface(api, f) {
     const { t } = api;
-    const res = api.previewResult?.();
+    const res = api.previewResult;
     const info = res?.distortion ? note(res.exact ? t('pm.flattenExact') : t('pm.flattenDistortion', { lo: res.distortion[0].toFixed(3), hi: res.distortion[1].toFixed(3) })) : '';
     return group('flattenSurface', t('pm.selections'), `${select('surface', [['', t('pm.bodyFace')], ...(api.surfaceList?.(f) ?? []).map((s) => [s.id, s.name, 'surface'])], f.surface ?? '', t('pm.surface'))}${pickBox(api, 'face', oneFace(api, f.face), t('pm.faceToFlatten'), 'face')}${note(t('pm.help.flattenSurface'))}${info}`);
   },
@@ -220,7 +220,7 @@ export const PART_MORE_PM = {
   },
   boundingBox(api, f) {
     const { t } = api;
-    const box = api.previewResult?.()?.box;
+    const box = api.previewResult?.box;
     const rows = box ? [['pm.bbLength', box.length], ['pm.bbWidth', box.width], ['pm.bbThickness', box.thickness]].map(([k, v]) => `<p class="pm-note">${escapeHtml(t(k))}: ${escapeHtml(api.fmtLen(v))}</p>`).join('') : '';
     return [
       group('boundingBox', t('pm.boxKind'), `${seg('mode', [['bestFit', t('pm.bestFit'), 'boundingBox'], ['plane', t('pm.squareToPlane'), 'refPlane']], f.mode ?? 'bestFit')}${f.mode === 'plane' ? select('plane', planeOptions(api, f), f.plane ?? 'std:top', t('pm.referencePlane')) : ''}`),

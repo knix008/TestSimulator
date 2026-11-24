@@ -3958,8 +3958,6 @@ function pmApi() {
     // the spring samples) and the reference curves.
     curveList: (f) => featuresBefore(part, f).filter((x) => x.type === 'helix' || x.type === 'sketch3d' || (CURVE_TYPES.includes(x.type) && PART_MORE_TYPES.includes(x.type))),
     featuresBefore: (f) => featuresBefore(part, f),
-    // What the feature being edited built in its preview (sizes of a bounding box …).
-    previewResult: () => state.previewResult,
     // The schematics (a harness route offers "Wires from schematic" when there is one).
     get schematics() { return project()?.schematics ?? []; },
     bodyCount: (f) => {

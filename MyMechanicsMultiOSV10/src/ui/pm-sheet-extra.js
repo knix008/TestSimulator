@@ -15,7 +15,7 @@ const corners = (api, f) => `${seg('corner', [['overlap', api.t('sx.corner.overl
 const bendGroup = (api, f) => `${field(api, 'radius', f.radius, { label: api.t('pm.bendRadius'), glyph: 'dimRadius', min: 0 })}${field(api, 'kFactor', f.kFactor, { label: api.t('pm.kFactor'), unit: 'number', glyph: 'smartDim', min: 0 })}`;
 /** Built bends / thickness, once the preview has run. */
 const convertInfo = (api) => {
-  const res = api.previewResult?.()?.convert;
+  const res = api.previewResult?.convert;
   return res ? results([[api.t('sx.bendCount'), String(res.bends)], [api.t('pm.thickness'), api.fmtLen ? api.fmtLen(res.thickness) : String(res.thickness)]]) : '';
 };
 
@@ -45,7 +45,7 @@ export const SHEET_EXTRA_PM = {
   },
   unfold(api) {
     const { t } = api;
-    const res = api.previewResult?.()?.unfold;
+    const res = api.previewResult?.unfold;
     return group('unfold', t('pm.parameters'), `${note(t('sx.help.unfold'))}${res?.bends != null ? results([[t('sx.bendCount'), String(res.bends)]]) : ''}`);
   },
   fold(api, f) {
@@ -60,7 +60,7 @@ export const SHEET_EXTRA_PM = {
   weldedCorner(api, f) {
     const { t } = api;
     const options = [['', t('sm.allCorners')], ...before(api, f).filter((x) => x.type === 'edgeFlange' && !x.suppressed).map((x) => [x.id, x.name, 'edgeFlange'])];
-    const res = api.previewResult?.()?.weld;
+    const res = api.previewResult?.weld;
     const info = res ? results([[t('sx.weldCorners'), String(res.corners)], [t('sx.weldVolume'), `${res.volume.toFixed(2)} mm³`], [t('sx.weldLength'), api.fmtLen ? api.fmtLen(res.length) : res.length.toFixed(2)]]) : '';
     return group('weldedCorner', t('sm.cornersToClose'), `${select('flangeA', options, f.flangeA ?? '', `${t('sm.flange')} 1`)}${select('flangeB', options, f.flangeB ?? '', `${t('sm.flange')} 2`)}${note(t('sx.help.weldedCorner'))}${info}`);
   },

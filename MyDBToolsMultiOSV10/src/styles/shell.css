@@ -1720,6 +1720,135 @@ button.bottom-row:hover {
   width: 44px;
 }
 
+/* ── Theme drop-down (menu bar) ────────────────────────────────────────── */
+
+.theme-dropdown {
+  position: relative;
+}
+
+.theme-dropdown-button {
+  font-weight: 600;
+}
+
+.theme-dropdown-button.open {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.theme-dropdown-caret {
+  display: inline-flex;
+  color: var(--text-muted);
+}
+
+.theme-dropdown-caret .ic {
+  width: 12px;
+  height: 12px;
+}
+
+/* A floating panel under the button: light and dark side by side, scrolling
+   inside itself when the window is shorter than the list. */
+.theme-drop-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 600;
+  width: 460px;
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+  padding: 8px;
+  background: var(--panel-background);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 24%);
+  font-weight: 400;
+}
+
+.theme-drop-actions {
+  display: flex;
+  gap: 6px;
+  padding-bottom: 8px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.theme-drop-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.theme-drop-column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.theme-drop-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.theme-drop-custom {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 6px;
+}
+
+.theme-drop-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 26px;
+  padding: 3px 6px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.theme-drop-item:hover {
+  background: var(--tool-hover);
+}
+
+.theme-drop-item.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 700;
+}
+
+.theme-drop-chip {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  border: 1px solid;
+  border-radius: 4px;
+}
+
+.theme-drop-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.theme-drop-check {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
 /* The theme name changes with the theme; a fixed width keeps the menu bar's
    measured width (and so the window minimum) from moving with it. */
 .theme-dropdown-button > span:nth-child(2) {

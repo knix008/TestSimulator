@@ -28,7 +28,7 @@ export const PART_EXTRA_PM = {
   advancedHole(api, f) {
     const { t } = api;
     const sketches = before(api, f).filter((x) => x.type === 'sketch' && !x.suppressed && standalonePoints(x).length);
-    const res = api.previewResult?.()?.holes;
+    const res = api.previewResult?.holes;
     const info = res?.length ? note(t('hx.made', { count: res.length, through: res.filter((h) => h.through).length })) : '';
     return [
       group('advancedHole', t('pm.position'), `${select('sketch', [['', `— ${t('pm.chooseSketch')} —`], ...sketches.map((s) => [s.id, s.name, 'featSketch'])], f.sketch ?? '', t('hx.points'))}${check('reverse', f.reverse, t('pm.reverse'), 'flipV')}`),
@@ -42,7 +42,7 @@ export const PART_EXTRA_PM = {
     const chosen = new Set(f.surfaces ?? []);
     const planes = [['front', t('plane.front')], ['top', t('plane.top')], ['right', t('plane.right')], ...before(api, f).filter((x) => x.type === 'plane' && !x.suppressed).map((p) => [p.id, p.name])];
     const usedPlanes = new Set((f.planes ?? []).map(String));
-    const res = api.previewResult?.()?.intersect;
+    const res = api.previewResult?.intersect;
     const excluded = new Set((f.exclude ?? []).map(String));
     const regions = res?.regions?.length
       ? `<div class="pm-checklist">${res.regions.map((r) => `<label class="pm-check"><input type="checkbox" data-pm-toggle="list:exclude:${r.index}" ${excluded.has(String(r.index)) ? 'checked' : ''}/>${icon('part')}<span>${escapeHtml(t('ix.region', { n: r.index + 1, volume: r.volume.toFixed(1) }))}</span></label>`).join('')}</div>${note(t('ix.excludeHelp'))}`
