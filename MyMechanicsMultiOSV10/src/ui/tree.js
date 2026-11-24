@@ -98,7 +98,7 @@ function assemblyTree(api) {
     const prefix = c.fixed ? '(f) ' : st === 'defined' ? '' : '(-) ';
     const part = c.sub ? api.project.assemblies.find((a) => a.id === c.sub) : api.project.parts.find((p) => p.id === c.part);
     const failed = !part;
-    out.push(row({ key: `comp:${c.id}`, glyph: c.sub ? 'assembly' : 'part', label: `${escapeHtml(prefix)}${escapeHtml(c.name)}`, depth: 1, cls: `${selected(api, `comp:${c.id}`)} ${c.hidden ? 'hidden-item' : ''} ${failed ? 'error' : ''}`, title: part ? `${c.name} — ${part.name}` : c.name }));
+    out.push(row({ key: `comp:${c.id}`, glyph: c.envelope ? 'envelope' : c.sub ? 'assembly' : 'part', label: `${escapeHtml(prefix)}${escapeHtml(c.name)}`, depth: 1, cls: `${selected(api, `comp:${c.id}`)} ${c.hidden || c.envelope ? 'hidden-item' : ''} ${failed ? 'error' : ''}`, title: part ? `${c.name} — ${part.name}` : c.name }));
   }
   const failedMates = api.failedMates ?? new Set();
   out.push(row({ key: 'mates', glyph: 'mate', label: escapeHtml(`${t('tree.mates')} (${asm.mates.length})`), depth: 1, toggle: 'mates', open: !api.collapsed.has('mates'), cls: failedMates.size ? 'warn' : '' }));

@@ -22,6 +22,44 @@ export const kernelReady = () => ready;
 export const rep = () => R;
 
 /**
+ * The sub-shapes of a shape (faces, edges, wires, solids) in the order a topology explorer meets them, each once
+ * — what replicad's getters give, but duplicates are found in hash buckets instead of by comparing every new item
+ * with every earlier one (a faceted body of 6 000 faces and 11 000 edges listed its edges in 22 s, now in a few
+ * hundred ms).
+ */
+export function subShapes(wrapped, kind) {
+  const oc = R.getOC();
+  const E = oc.TopAbs_ShapeEnum;
+  const type = { face: E.TopAbs_FACE, edge: E.TopAbs_EDGE, wire: E.TopAbs_WIRE, solid: E.TopAbs_SOLID, shell: E.TopAbs_SHELL, vertex: E.TopAbs_VERTEX }[kind];
+  const cast = { face: (s) => oc.TopoDS.Face(s), edge: (s) => oc.TopoDS.Edge(s), wire: (s) => oc.TopoDS.Wire(s), solid: (s) => oc.TopoDS.Solid(s), shell: (s) => oc.TopoDS.Shell(s), vertex: (s) => oc.TopoDS.Vertex(s) }[kind];
+  const explorer = new oc.TopExp_Explorer(wrapped, type, E.TopAbs_SHAPE);
+  const buckets = new Map(); const out = [];
+  try {
+    while (explorer.More()) {
+      const item = explorer.Current();
+      const h = oc.ReplicadShapeHasher.HashCode(item, R.HASH_CODE_MAX);
+      let bucket = buckets.get(h);
+      if (!bucket) { bucket = []; buckets.set(h, bucket); }
+      if (!bucket.some((s) => s.IsSame(item))) { bucket.push(item); out.push(cast(item)); }
+      explorer.Next();
+    }
+  } finally { explorer.delete(); }
+  return out;
+}
+
+/** replicad's faces / edges / wires / solids getters on the shape base class, listed by subShapes. */
+function fastTopologyGetters() {
+  let proto = R.Solid?.prototype;
+  while (proto && !Object.prototype.hasOwnProperty.call(proto, 'faces')) proto = Object.getPrototypeOf(proto);
+  if (!proto) return;
+  const wrap = { face: R.Face, edge: R.Edge, wire: R.Wire, solid: R.Solid };
+  for (const [name, kind] of [['faces', 'face'], ['edges', 'edge'], ['wires', 'wire'], ['solids', 'solid']]) {
+    if (!wrap[kind] || !Object.getOwnPropertyDescriptor(proto, name)?.get) continue;
+    Object.defineProperty(proto, name, { configurable: true, get() { return subShapes(this.wrapped, kind).map((s) => new wrap[kind](s)); } });
+  }
+}
+
+/**
  * Loads OpenCASCADE once. `wasmUrl` (optional): where the .wasm file is; by default Vite's URL of it in the
  * app, the file in node_modules under Node.
  */
@@ -41,6 +79,9 @@ export function loadKernel({ wasmUrl = null, onProgress = null } = {}) {
     onProgress?.(0.4);
     const oc = await init({ locateFile: () => url });
     R.setOC(oc);
+    fastTopologyGetters();
+    // The OpenSCAD engine (Manifold) next to OpenCASCADE: OpenSCAD features build synchronously with the part.
+    try { await (await import('./openscad/index.js')).loadManifold(); } catch (error) { console.warn('OpenSCAD engine', error); }
     // The font of sketch text (Roboto, SIL OFL): read from node_modules under Node, a bundled URL in the app.
     try {
       let bytes;

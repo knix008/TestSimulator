@@ -4,7 +4,10 @@
 import { escapeHtml } from './dom.js';
 import { icon } from '../icons.js';
 import { group, field, check, seg, select, pickBox } from './propertymanager.js';
-import { PART_MORE_TYPES, CURVE_TYPES } from '../cad/part-more-types.js';
+import { PART_MORE_TYPES, CURVE_TYPES, SHEET_EXTRA_TYPES } from '../cad/part-more-types.js';
+import { SHEET_EXTRA_PM, sheetExtraStart } from './pm-sheet-extra.js';
+import { PART_EXTRA_PM, partExtraStart } from './pm-part-extra.js';
+import { PART_EXTRA_TYPES } from '../cad/part-more-types.js';
 import { profiles, standalonePoints } from '../cad/sketch.js';
 
 const note = (text, warn = false) => `<p class="pm-note ${warn ? 'warn' : ''}">${warn ? icon('warning', 'icon tiny') : ''}${escapeHtml(text)}</p>`;
@@ -43,7 +46,114 @@ const table = (api, f, label) => {
   return group('tablePattern', label, `<div class="pt3-table"><div class="pt3-row head"><b>#</b><span>X</span><span>Y</span><span>Z</span><span></span></div>${rows}</div><div class="pm-row"><button class="small-button" data-pm="addPt3">${icon('plus')}<span>${escapeHtml(t('pm.addPoint'))}</span></button></div>`);
 };
 
+/** Where a boss or a hook stands: the face, then its centre, a reference point or typed coordinates. */
+const standGroup = (api, f) => {
+  const { t } = api;
+  const pts = ofType(api, f, ['refPoint']);
+  const where = f.pointRef ? 'ref' : f.atCenter === false ? 'xyz' : 'center';
+  return group('mountingBoss', t('pm.position'), `${pickBox(api, 'face', oneFace(api, f.face), t('pm.placementFace'), 'face')}
+    ${seg('at', [['center', t('pm.faceCenter'), 'refPoint'], ['xyz', t('pm.coordinates'), 'pointTool'], ...(pts.length ? [['ref', t('pm.refPoint'), 'refPoint']] : [])], where)}
+    ${where === 'ref' ? select('pointRef', pts.map((p) => [p.id, p.name, 'refPoint']), f.pointRef ?? '', t('pm.refPoint')) : ''}${where === 'xyz' ? xyz(api, f, ['x', 'y', 'z']) : ''}
+    ${check('reverse', f.reverse, t('pm.reverse'), 'flipV')}`);
+};
+
+const FASTENING_PM = {
+  mountingBoss(api, f) {
+    const { t } = api;
+    const pin = f.kind === 'pin';
+    return [
+      standGroup(api, f),
+      group('mountingBoss', t('pm.boss'), `${field(api, 'height', f.height, { label: t('pm.height'), min: 0.01 })}${field(api, 'od', f.od, { label: t('pm.outerDiameter'), glyph: 'dimDiameter', min: 0.01 })}${field(api, 'draft', f.draft, { label: t('pm.draftAngle'), unit: 'angle', glyph: 'dimAngle', min: 0 })}`),
+      group('featHole', t('pm.holeOrPin'), `${seg('kind', [['hole', t('pm.bossHole'), 'featHole'], ['pin', t('pm.bossPin'), 'mountingBoss']], f.kind ?? 'hole')}
+        ${pin ? `${field(api, 'pinDiameter', f.pinDiameter, { label: t('pm.pinDiameter'), glyph: 'dimDiameter', min: 0.01 })}${field(api, 'pinHeight', f.pinHeight, { label: t('pm.pinHeight'), min: 0.01 })}`
+    : `${field(api, 'id', f.id, { label: t('pm.holeDiameter'), glyph: 'dimDiameter', min: 0.01 })}${check('through', f.through, t('pm.throughAll'), 'featHole')}${f.through ? '' : `${field(api, 'holeDepth', f.holeDepth, { label: t('pm.holeDepth'), min: 0.01 })}${field(api, 'holeDraft', f.holeDraft, { label: t('pm.holeDraft'), unit: 'angle', glyph: 'dimAngle', min: 0 })}`}`}`),
+      group('gusset', t('pm.fins'), `${field(api, 'fins', f.fins, { label: t('pm.finCount'), unit: 'count', glyph: 'gusset', min: 0, step: 1 })}${Number(f.fins) > 0 ? `${seg('finShape', [['triangle', t('pm.finTriangle'), 'gusset'], ['rect', t('pm.finRect'), 'rectTool']], f.finShape ?? 'triangle')}${field(api, 'finLength', f.finLength, { label: t('pm.finLength'), min: 0.01 })}${field(api, 'finThickness', f.finThickness, { label: t('pm.finThickness'), min: 0.01 })}${field(api, 'finHeight', f.finHeight, { label: t('pm.finHeight'), min: 0.01 })}${field(api, 'finAngle', f.finAngle, { label: t('pm.finAngle'), unit: 'angle', glyph: 'dimAngle' })}` : ''}`),
+    ].join('');
+  },
+  snapHook(api, f) {
+    const { t } = api;
+    return [
+      standGroup(api, f),
+      group('snapHook', t('pm.hookArm'), `${field(api, 'angle', f.angle, { label: t('pm.lipDirection'), unit: 'angle', glyph: 'dimAngle' })}${field(api, 'height', f.height, { label: t('pm.height'), min: 0.1 })}${field(api, 'width', f.width, { label: t('pm.width'), min: 0.1 })}${field(api, 'thickness', f.thickness, { label: t('pm.thickness'), min: 0.05 })}`),
+      group('snapHook', t('pm.hookLip'), `${field(api, 'lipDepth', f.lipDepth, { label: t('pm.lipDepth'), min: 0 })}${field(api, 'lipHeight', f.lipHeight, { label: t('pm.lipHeight'), min: 0.05 })}${field(api, 'insertAngle', f.insertAngle, { label: t('pm.insertAngle'), unit: 'angle', glyph: 'dimAngle', min: 5, max: 85 })}`),
+    ].join('');
+  },
+  snapHookGroove(api, f) {
+    const { t } = api;
+    const hooks = ofType(api, f, ['snapHook']);
+    return [
+      group('snapHook', t('pm.snapHookFeature'), hooks.length ? select('hook', [['', `— ${t('pm.chooseHook')} —`], ...hooks.map((h) => [h.id, h.name, 'snapHook'])], f.hook ?? '', t('pm.snapHookFeature')) : note(t('pm.needSnapHook'), true)),
+      group('part', t('pm.bodyToCut'), bodySeg(api, f, 'body')),
+      group('snapHookGroove', t('pm.parameters'), `${field(api, 'clearance', f.clearance, { label: t('pm.clearance'), min: 0 })}`),
+    ].join('');
+  },
+  vent(api, f) {
+    const { t } = api;
+    return [
+      group('featSketch', t('pm.sketch'), `${select('sketch', sketchOptions(api, f, (s) => profiles(s).length > 0), f.sketch ?? '', t('pm.ventSketch'))}${note(t('pm.help.vent'))}`),
+      group('vent', t('pm.parameters'), `${field(api, 'ribWidth', f.ribWidth, { label: t('pm.ribWidth'), min: 0.01 })}${field(api, 'sparWidth', f.sparWidth, { label: t('pm.sparWidth'), min: 0.01 })}`),
+    ].join('');
+  },
+  lipGroove(api, f) {
+    const { t } = api;
+    return [
+      group('lipGroove', t('pm.rimFace'), pickBox(api, 'face', oneFace(api, f.face), t('pm.rimFace'), 'face')),
+      group('lipGroove', t('pm.type'), `${seg('kind', [['lip', t('pm.lip'), 'lipGroove'], ['groove', t('pm.groove'), 'featCut']], f.kind ?? 'lip')}${seg('side', [['inner', t('pm.innerEdge'), 'offsetTool'], ['outer', t('pm.outerEdge'), 'offsetTool']], f.side ?? 'inner')}`),
+      group('lipGroove', t('pm.parameters'), `${field(api, 'width', f.width, { label: t('pm.width'), min: 0.01 })}${field(api, 'height', f.height, { label: f.kind === 'groove' ? t('pm.depth') : t('pm.height'), min: 0.01 })}${f.kind === 'groove' ? field(api, 'clearance', f.clearance, { label: t('pm.clearance'), min: 0 }) : ''}`),
+    ].join('');
+  },
+};
+
+const surfaceSelect = (api, f, key = 'surface') => select(key, [['', `— ${api.t('pm.chooseSurface')} —`], ...(api.surfaceList?.(f) ?? []).map((s) => [s.id, s.name, 'surface'])], f[key] ?? '', api.t('pm.surface'));
+
+const SURFACE_PM = {
+  surfaceSweep(api, f) {
+    const { t } = api;
+    const paths = [...(api.sketchList?.(f, 'path') ?? []).map((s) => [s.id, s.name, 'featSketch']), ...(api.curveList?.(f) ?? []).map((c) => [c.id, c.name, 'helix'])];
+    return [
+      group('featSketch', t('pm.profileAndPath'), `${select('sketch', [['', `— ${t('pm.chooseSketch')} —`], ...(api.sketchList?.(f, 'path') ?? []).map((s) => [s.id, s.name, 'featSketch'])], f.sketch ?? '', t('pm.profile'))}${select('path', [['', `— ${t('pm.choosePath')} —`], ...paths.filter(([id]) => id !== f.sketch)], f.path ?? '', t('pm.path'))}`),
+      group('surfaceSweep', t('pm.options'), `${select('transition', [['right', t('sweep.right')], ['round', t('sweep.round')], ['transformed', t('sweep.transformed')]], f.transition ?? 'right', t('pm.corners'))}${check('frenet', f.frenet, t('pm.frenet'), 'helix')}${note(t('pm.help.surfaceSweep'))}`),
+    ].join('');
+  },
+  cutWithSurface(api, f) {
+    const { t } = api;
+    return group('cutWithSurface', t('pm.surfaceCutParams'), `${surfaceSelect(api, f)}${check('flip', f.flip, t('pm.flipCutSide'), 'flipV')}${note(t('pm.help.cutWithSurface'))}`);
+  },
+  deleteHole(api, f) {
+    const { t } = api;
+    return group('deleteHole', t('pm.selections'), `${surfaceSelect(api, f)}${pickBox(api, 'edges', edgeItems(api, f.edges), t('pm.holeEdges'), 'lineTool')}${note(t('pm.help.deleteHole'))}`);
+  },
+  untrimSurface(api, f) {
+    const { t } = api;
+    return group('untrimSurface', t('pm.selections'), `${surfaceSelect(api, f)}${seg('mode', [['natural', t('pm.untrimNatural'), 'untrimSurface'], ['holes', t('pm.untrimHoles'), 'deleteHole']], f.mode ?? 'natural')}`);
+  },
+  midSurface(api, f) {
+    const { t } = api;
+    return [
+      group('midSurface', t('pm.facePairs'), `${pickBox(api, 'faces', faceItems(api, f.faces), t('pm.facePairsPick'), 'face')}${(f.faces ?? []).length % 2 ? note(t('pm.pairsOdd'), true) : ''}`),
+      group('midSurface', t('pm.parameters'), `${field(api, 'maxThickness', f.maxThickness, { label: t('pm.maxWall'), min: 0.01 })}${note(t('pm.help.midSurface'))}`),
+    ].join('');
+  },
+  flattenSurface(api, f) {
+    const { t } = api;
+    const res = api.previewResult?.();
+    const info = res?.distortion ? note(res.exact ? t('pm.flattenExact') : t('pm.flattenDistortion', { lo: res.distortion[0].toFixed(3), hi: res.distortion[1].toFixed(3) })) : '';
+    return group('flattenSurface', t('pm.selections'), `${select('surface', [['', t('pm.bodyFace')], ...(api.surfaceList?.(f) ?? []).map((s) => [s.id, s.name, 'surface'])], f.surface ?? '', t('pm.surface'))}${pickBox(api, 'face', oneFace(api, f.face), t('pm.faceToFlatten'), 'face')}${note(t('pm.help.flattenSurface'))}${info}`);
+  },
+  radiateSurface(api, f) {
+    const { t } = api;
+    return [
+      group('radiateSurface', t('pm.selections'), `${select('plane', planeOptions(api, f), f.plane ?? 'std:top', t('pm.referencePlane'))}${pickBox(api, 'edges', edgeItems(api, f.edges), t('pm.edgesToRadiate'), 'lineTool')}`),
+      group('radiateSurface', t('pm.parameters'), `${field(api, 'distance', f.distance, { label: t('pm.radiateDistance'), min: 0.01 })}${check('flip', f.flip, t('pm.reverse'), 'flipV')}`),
+    ].join('');
+  },
+};
+
 export const PART_MORE_PM = {
+  ...FASTENING_PM,
+  ...SHEET_EXTRA_PM,
+  ...PART_EXTRA_PM,
+  ...SURFACE_PM,
   combine(api, f) {
     const { t } = api;
     return [
@@ -104,8 +214,18 @@ export const PART_MORE_PM = {
     let body = '';
     if (kind === 'coords') body = xyz(api, f, ['x', 'y', 'z']);
     else if (kind === 'faceCenter') body = pickBox(api, 'face', oneFace(api, f.face), t('pm.face'), 'part');
+    else if (kind === 'centerOfMass') body = note(t('pm.help.centerOfMass'));
     else body = `${pickBox(api, 'edge', oneEdge(api, f.edge), t('pm.edge'), 'lineTool')}${kind === 'onEdge' ? field(api, 'at', f.at ?? 0.5, { label: t('pm.alongEdge'), unit: 'number', min: 0 }) : ''}`;
-    return group('refPoint', t('pm.selections'), `${seg('kind', [['coords', t('refPoint.coords')], ['faceCenter', t('refPoint.faceCenter')], ['arcCenter', t('refPoint.arcCenter')], ['onEdge', t('refPoint.onEdge')]], kind)}${body}`);
+    return group('refPoint', t('pm.selections'), `${seg('kind', [['coords', t('refPoint.coords')], ['faceCenter', t('refPoint.faceCenter')], ['arcCenter', t('refPoint.arcCenter')], ['onEdge', t('refPoint.onEdge')], ['centerOfMass', t('refPoint.centerOfMass')]], kind)}${body}`);
+  },
+  boundingBox(api, f) {
+    const { t } = api;
+    const box = api.previewResult?.()?.box;
+    const rows = box ? [['pm.bbLength', box.length], ['pm.bbWidth', box.width], ['pm.bbThickness', box.thickness]].map(([k, v]) => `<p class="pm-note">${escapeHtml(t(k))}: ${escapeHtml(api.fmtLen(v))}</p>`).join('') : '';
+    return [
+      group('boundingBox', t('pm.boxKind'), `${seg('mode', [['bestFit', t('pm.bestFit'), 'boundingBox'], ['plane', t('pm.squareToPlane'), 'refPlane']], f.mode ?? 'bestFit')}${f.mode === 'plane' ? select('plane', planeOptions(api, f), f.plane ?? 'std:top', t('pm.referencePlane')) : ''}`),
+      group('measure', t('pm.boxSize'), rows || note(t('pm.boxPending'))),
+    ].join('');
   },
   coordSys(api, f) {
     const { t } = api;
@@ -196,6 +316,8 @@ export const PART_MORE_PM = {
  * planes: [ref] }. Returns { params, pick } or { notice } (what is missing).
  */
 export function startParams(type, part, sel, featuresBefore) {
+  if (SHEET_EXTRA_TYPES.includes(type)) return sheetExtraStart(type, part, sel, featuresBefore);
+  if (PART_EXTRA_TYPES.includes(type)) return partExtraStart(type, part, sel, featuresBefore);
   const params = {}; let pick = null;
   const feats = sel.features ?? [];
   const sketches = feats.filter((f) => f.type === 'sketch');
@@ -233,6 +355,37 @@ export function startParams(type, part, sel, featuresBefore) {
     }
     case 'compositeCurve': params.curves = feats.filter((f) => ['sketch', 'sketch3d', 'helix', 'curveXYZ', 'projectedCurve'].includes(f.type)).map((f) => f.id); params.edges = sel.edges; pick = 'edges'; break;
     case 'deleteBody': params.bodies = []; break;
+    case 'mountingBoss': case 'snapHook': case 'lipGroove': {
+      const fc = sel.faces.find((x) => x.type === 'PLANE');
+      if (fc) params.face = fc;
+      pick = 'face';
+      break;
+    }
+    case 'surfaceSweep': {
+      const s = sketches[0] ?? last((x) => x.type === 'sketch' && x.entities.some((k) => k.type !== 'point' && !k.construction));
+      if (s) params.sketch = s.id;
+      const p = sketches.find((x) => x !== s) ?? feats.find((x) => CURVE_TYPES.includes(x.type));
+      if (p) params.path = p.id;
+      break;
+    }
+    case 'cutWithSurface': case 'deleteHole': case 'untrimSurface': {
+      const SURF = ['surfaceExtrude', 'surfaceRevolve', 'surfacePlanar', 'surfaceLoft', 'surfaceOffset', 'knit', 'fillSurface', 'boundary', 'trimSurface', 'ruledSurface', 'extendSurface', 'surfaceSweep', 'deleteHole', 'untrimSurface', 'midSurface', 'radiateSurface'];
+      const sf = feats.find((x) => SURF.includes(x.type)) ?? last((x) => SURF.includes(x.type) && !(x.type === 'boundary' && x.op && x.op !== 'surface'));
+      if (!sf) return { notice: 'notice.needSurface' };
+      params.surface = sf.id;
+      if (type === 'deleteHole') { params.edges = sel.edges; pick = 'edges'; }
+      break;
+    }
+    case 'midSurface': params.faces = sel.faces; pick = 'faces'; break;
+    case 'flattenSurface': if (sel.faces[0]) params.face = sel.faces[0]; pick = 'face'; break;
+    case 'radiateSurface': params.edges = sel.edges; pick = 'edges'; break;
+    case 'snapHookGroove': { const h = feats.find((f) => f.type === 'snapHook') ?? last((f) => f.type === 'snapHook'); if (!h) return { notice: 'notice.needSnapHook' }; params.hook = h.id; break; }
+    case 'vent': {
+      const s = sketches.find((x) => profiles(x).length) ?? last((f) => f.type === 'sketch' && profiles(f).length > 0 && !featuresBefore.some((x) => x.sketch === f.id));
+      if (!s) return { notice: 'notice.needSketch' };
+      params.sketch = s.id;
+      break;
+    }
     default: break;
   }
   void profiles;

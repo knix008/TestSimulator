@@ -1,0 +1,92 @@
+[
+  {
+    "name": "openscad: kernel and the OpenSCAD engine load",
+    "eval": "window.__mymechanics.actions.ensureKernel().then(() => 'ready')",
+    "expect": "^ready$"
+  },
+  {
+    "name": "openscad: a .scad program opens as a part with an OpenSCAD feature; the body is the plate minus the hole and the engraving",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const { rep } = await import('/src/cad/kernel.js'); const vol = (p) => { const b = m.actions.buildPart(p ?? m.active()).body; return b ? rep().measureVolume(b) : 0; }; const feat = () => m.active()?.features?.find((f) => f.type === 'openscad'); const editIt = async () => { const f = feat(); m.state.selection = [{ kind: 'feat', id: f.id, key: 'feat:' + f.id }]; await m.run('editFeature'); await sleep(500); }; const setField = (el, v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); }; await m.actions.closeProject({ force: true }); await m.actions.openContent('plate.scad', \"/* [Plate] */\\n// Plate width\\nwidth = 40; // [20:5:80]\\nthickness = 6; // [2:20]\\n/* [Hole] */\\nhole = 10; // [0:30]\\nlabel = \\\"MM\\\"; // [MM, CAD]\\n/* [Hidden] */\\nfn = 48;\\nmodule plate() {\\n  difference() {\\n    translate([-width / 2, -width / 2, 0]) cube([width, width, thickness]);\\n    translate([0, 0, -1]) cylinder(h = thickness + 2, d = hole, $fn = fn);\\n    translate([-width / 2 + 2, -width / 2 + 2, thickness - 1]) linear_extrude(2) text(label, size = 5);\\n  }\\n}\\necho(str(\\\"plate \\\", width));\\nplate();\\n\"); for (let i = 0; i < 60 && !feat(); i++) await sleep(200); await sleep(800);\n     const f = feat(); const v = vol(); const plate = 40 * 40 * 6; const hole = 48 / 2 * 25 * Math.sin(2 * Math.PI / 48) * 6;\n     const said = m.state.log.slice(0, 3).map((x) => x.text).join(' ');\n     return JSON.stringify({ feature: Boolean(f), saved: Boolean(f?.result?.brep), engraved: v < plate - hole - 1 && v > plate - hole - 120, said: /OpenSCAD/.test(said) }); })()",
+    "expect": "\"feature\":true,\"saved\":true,\"engraved\":true,\"said\":true"
+  },
+  {
+    "shot": "openscad-import",
+    "wait": 500
+  },
+  {
+    "name": "openscad: editing the feature shows the Customizer (tabs Plate and Hole, Hidden left out), the code and the echo output",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const { rep } = await import('/src/cad/kernel.js'); const vol = (p) => { const b = m.actions.buildPart(p ?? m.active()).body; return b ? rep().measureVolume(b) : 0; }; const feat = () => m.active()?.features?.find((f) => f.type === 'openscad'); const editIt = async () => { const f = feat(); m.state.selection = [{ kind: 'feat', id: f.id, key: 'feat:' + f.id }]; await m.run('editFeature'); await sleep(500); }; const setField = (el, v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); }; await editIt(); const q = (s) => document.querySelectorAll(s);\n     const params = [...q('[data-scad-param]')].map((e) => e.dataset.scadParam); const tabs = [...q('.scad-tab')].map((e) => e.textContent);\n     return JSON.stringify({ mode: m.state.editing?.mode, width: params.includes('width'), hidden: params.includes('fn'), tabs, code: Boolean(document.querySelector('textarea[data-scad-source]')), echo: /plate 40/.test(document.querySelector('.scad-console')?.textContent ?? '') }); })()",
+    "expect": "\"mode\":\"feature\",\"width\":true,\"hidden\":false,\"tabs\":\\[\"Plate\",\"Hole\"\\],\"code\":true,\"echo\":true"
+  },
+  {
+    "shot": "openscad-customizer",
+    "wait": 300
+  },
+  {
+    "name": "openscad: a Customizer value (width 60) rebuilds the preview; OK keeps it as an override",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const { rep } = await import('/src/cad/kernel.js'); const vol = (p) => { const b = m.actions.buildPart(p ?? m.active()).body; return b ? rep().measureVolume(b) : 0; }; const feat = () => m.active()?.features?.find((f) => f.type === 'openscad'); const editIt = async () => { const f = feat(); m.state.selection = [{ kind: 'feat', id: f.id, key: 'feat:' + f.id }]; await m.run('editFeature'); await sleep(500); }; const setField = (el, v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); }; const v0 = vol(); const el = document.querySelector('input[type=\"range\"][data-scad-param=\"width\"]'); setField(el, '60'); await sleep(1500); await m.actions.acceptEditing(); await sleep(1200);\n     const f = feat(); const v1 = vol();\n     return JSON.stringify({ override: f.overrides.width, grew: v1 > v0 * 2, ratio: Math.round(v1 / v0 * 10) / 10 }); })()",
+    "expect": "\"override\":60,\"grew\":true"
+  },
+  {
+    "name": "openscad: the drop-down and Back to the defaults",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const { rep } = await import('/src/cad/kernel.js'); const vol = (p) => { const b = m.actions.buildPart(p ?? m.active()).body; return b ? rep().measureVolume(b) : 0; }; const feat = () => m.active()?.features?.find((f) => f.type === 'openscad'); const editIt = async () => { const f = feat(); m.state.selection = [{ kind: 'feat', id: f.id, key: 'feat:' + f.id }]; await m.run('editFeature'); await sleep(500); }; const setField = (el, v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); }; await editIt(); const sel = document.querySelector('select[data-scad-param=\"label\"]'); setField(sel, JSON.stringify('CAD')); await sleep(1200);\n     const label = feat() && m.state.editing.feature.overrides.label;\n     document.querySelector('[data-pm=\"scadReset\"]').click(); await sleep(1200);\n     const cleared = Object.keys(m.state.editing.feature.overrides).length === 0; await m.actions.acceptEditing(); await sleep(1000);\n     return JSON.stringify({ label, cleared, width: feat().overrides.width ?? 'default' }); })()",
+    "expect": "\"label\":\"CAD\",\"cleared\":true,\"width\":\"default\""
+  },
+  {
+    "name": "openscad: the code edited in place (a sphere) becomes the body; an error shows in the output and the rebuild message",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const { rep } = await import('/src/cad/kernel.js'); const vol = (p) => { const b = m.actions.buildPart(p ?? m.active()).body; return b ? rep().measureVolume(b) : 0; }; const feat = () => m.active()?.features?.find((f) => f.type === 'openscad'); const editIt = async () => { const f = feat(); m.state.selection = [{ kind: 'feat', id: f.id, key: 'feat:' + f.id }]; await m.run('editFeature'); await sleep(500); }; const setField = (el, v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); }; await editIt(); const ta = document.querySelector('textarea[data-scad-source]'); setField(ta, 'sphere(10, $fn = 24);'); await sleep(1500); await m.actions.acceptEditing(); await sleep(1200);\n     const v = vol(); const rings = 12; let exp = 0; // the OpenSCAD sphere is smaller than the true one\n     await editIt(); setField(document.querySelector('textarea[data-scad-source]'), 'assert(false, \"broken on purpose\"); cube(1);'); await sleep(1500);\n     const err = document.querySelector('.left-pm-body .pm-error')?.textContent ?? ''; const out = document.querySelector('.scad-console')?.textContent ?? '';\n     await m.actions.cancelEditing(); await sleep(800);\n     return JSON.stringify({ sphere: v > 3600 && v < 4189, error: /OpenSCAD/.test(err), message: /broken on purpose/.test(out), kept: vol() === v }); })()",
+    "expect": "\"sphere\":true,\"error\":true,\"message\":true,\"kept\":true"
+  },
+  {
+    "name": "openscad: Ctrl+Enter applies the code; Tab indents (the real keys go through the code field)",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const { rep } = await import('/src/cad/kernel.js'); const vol = (p) => { const b = m.actions.buildPart(p ?? m.active()).body; return b ? rep().measureVolume(b) : 0; }; const feat = () => m.active()?.features?.find((f) => f.type === 'openscad'); const editIt = async () => { const f = feat(); m.state.selection = [{ kind: 'feat', id: f.id, key: 'feat:' + f.id }]; await m.run('editFeature'); await sleep(500); }; const setField = (el, v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); }; await editIt(); const ta = document.querySelector('textarea[data-scad-source]'); ta.focus(); ta.value = 'cube(7);'; ta.setSelectionRange(0, 0); window.__ta = true; return 'ok'; })()",
+    "expect": "^ok$"
+  },
+  {
+    "name": "openscad: Tab then Ctrl+Enter in the code field",
+    "keys": [
+      {
+        "key": "Tab",
+        "code": "Tab",
+        "keyCode": 9
+      },
+      {
+        "key": "Enter",
+        "code": "Enter",
+        "keyCode": 13,
+        "modifiers": 2
+      }
+    ],
+    "wait": 1500
+  },
+  {
+    "name": "openscad: the code was indented and applied (a 7 mm cube in the preview)",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const { rep } = await import('/src/cad/kernel.js'); const vol = (p) => { const b = m.actions.buildPart(p ?? m.active()).body; return b ? rep().measureVolume(b) : 0; }; const feat = () => m.active()?.features?.find((f) => f.type === 'openscad'); const editIt = async () => { const f = feat(); m.state.selection = [{ kind: 'feat', id: f.id, key: 'feat:' + f.id }]; await m.run('editFeature'); await sleep(500); }; const setField = (el, v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); }; const src = m.state.editing?.feature?.source ?? ''; await m.actions.acceptEditing(); await sleep(1000);\n     return JSON.stringify({ indented: src.startsWith('  cube(7);'), cube: Math.abs(vol() - 343) < 1e-6 }); })()",
+    "expect": "\"indented\":true,\"cube\":true"
+  },
+  {
+    "name": "openscad: a 2D program comes in as a sketch on the Top plane",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const { rep } = await import('/src/cad/kernel.js'); const vol = (p) => { const b = m.actions.buildPart(p ?? m.active()).body; return b ? rep().measureVolume(b) : 0; }; const feat = () => m.active()?.features?.find((f) => f.type === 'openscad'); const editIt = async () => { const f = feat(); m.state.selection = [{ kind: 'feat', id: f.id, key: 'feat:' + f.id }]; await m.run('editFeature'); await sleep(500); }; const setField = (el, v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); }; await m.actions.closeProject({ force: true }); await m.actions.openContent('outline.scad', 'difference() { square(20); translate([5, 5]) square(10); }'); await sleep(1500);\n     const sk = m.active()?.features?.find((f) => f.type === 'sketch'); const lines = sk?.entities?.filter((e) => e.type === 'line').length ?? 0;\n     return JSON.stringify({ sketch: Boolean(sk), plane: sk?.plane?.name, lines }); })()",
+    "expect": "\"sketch\":true,\"plane\":\"top\",\"lines\":8"
+  },
+  {
+    "name": "openscad: Export OpenSCAD writes polyhedra that open back to the same solid",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const { rep } = await import('/src/cad/kernel.js'); const vol = (p) => { const b = m.actions.buildPart(p ?? m.active()).body; return b ? rep().measureVolume(b) : 0; }; const feat = () => m.active()?.features?.find((f) => f.type === 'openscad'); const editIt = async () => { const f = feat(); m.state.selection = [{ kind: 'feat', id: f.id, key: 'feat:' + f.id }]; await m.run('editFeature'); await sleep(500); }; const setField = (el, v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); }; await m.actions.closeProject({ force: true }); await m.actions.openSampleAsk('flange'); await sleep(1500); const v0 = vol();\n     window.__saved = null; window.showSaveFilePicker = async (o) => ({ name: o?.suggestedName ?? 'x', createWritable: async () => ({ write: async (b) => { window.__saved = b; }, close: async () => {} }) }); await m.run('exportScad'); for (let i = 0; i < 100 && !window.__saved; i++) await sleep(100); const text = typeof window.__saved === 'string' ? window.__saved : await window.__saved.text();\n     await m.actions.closeProject({ force: true }); await m.actions.openContent('flange.scad', text); for (let i = 0; i < 60 && !feat(); i++) await sleep(200); await sleep(800);\n     const v1 = vol();\n     return JSON.stringify({ polyhedron: /polyhedron\\(/.test(text), back: Boolean(feat()), same: Math.abs(v1 - v0) / v0 < 0.01 }); })()",
+    "expect": "\"polyhedron\":true,\"back\":true,\"same\":true"
+  },
+  {
+    "name": "openscad: Insert › OpenSCAD feature starts with a parametric plate; OK adds its body",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const { rep } = await import('/src/cad/kernel.js'); const vol = (p) => { const b = m.actions.buildPart(p ?? m.active()).body; return b ? rep().measureVolume(b) : 0; }; const feat = () => m.active()?.features?.find((f) => f.type === 'openscad'); const editIt = async () => { const f = feat(); m.state.selection = [{ kind: 'feat', id: f.id, key: 'feat:' + f.id }]; await m.run('editFeature'); await sleep(500); }; const setField = (el, v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); }; await m.actions.closeProject({ force: true }); await m.actions.newDocument('part'); await sleep(800); await m.run('openscadFeature'); await sleep(1500);\n     const editing = m.state.editing?.feature?.type; await m.actions.acceptEditing(); await sleep(1500);\n     const n = 64; const hole = n / 2 * 36 * Math.sin(2 * Math.PI / n) * 10;\n     return JSON.stringify({ editing, body: Math.abs(vol() - (40 * 40 * 10 - hole)) < 1e-3 }); })()",
+    "expect": "\"editing\":\"openscad\",\"body\":true"
+  },
+  {
+    "name": "openscad: a program whose include is missing warns; the PropertyManager lists the file and takes it from a chosen folder",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const { rep } = await import('/src/cad/kernel.js'); const vol = (p) => { const b = m.actions.buildPart(p ?? m.active()).body; return b ? rep().measureVolume(b) : 0; }; const feat = () => m.active()?.features?.find((f) => f.type === 'openscad'); const editIt = async () => { const f = feat(); m.state.selection = [{ kind: 'feat', id: f.id, key: 'feat:' + f.id }]; await m.run('editFeature'); await sleep(500); }; const setField = (el, v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); }; await m.actions.closeProject({ force: true });\n     await m.actions.openContent('main.scad', 'include <lib/parts.scad>\\npost(30);\\ncube(5);'); for (let i = 0; i < 60 && !feat(); i++) await sleep(200); await sleep(600);\n     const warned = m.state.log.slice(0, 4).some((x) => /lib\\/parts\\.scad/.test(x.text)); const v0 = vol();\n     await editIt(); const listed = /lib\\/parts\\.scad/.test(document.querySelector('.left-pm-body')?.textContent ?? '');\n     const file = { name: 'parts.scad', webkitRelativePath: 'project/lib/parts.scad', arrayBuffer: async () => new TextEncoder().encode('module post(h) translate([20, 0, 0]) cylinder(h = h, r = 2, $fn = 4);').buffer };\n     window.__mymechanicsFolderPicks = [[file]];\n     document.querySelector('[data-pm=\"scadFolder\"]').click(); await sleep(2000);\n     const kept = Object.keys(m.state.editing.feature.files ?? {}); await m.actions.acceptEditing(); await sleep(1200);\n     return JSON.stringify({ warned, listed, kept, added: Math.abs(vol() - v0 - 2 * 4 * 30) < 1e-6, v0, v1: vol(), src: feat().source, files: Object.keys(feat().files ?? {}), still: m.state.editing?.mode ?? null, log: m.state.log.slice(0, 3).map((x) => x.text), prev: m.state.previewResult }); })()",
+    "expect": "\"warned\":true,\"listed\":true,\"kept\":\\[\"lib/parts.scad\"\\],\"added\":true"
+  },
+  {
+    "name": "openscad: offered in the open types, the save types and the menus",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const { rep } = await import('/src/cad/kernel.js'); const vol = (p) => { const b = m.actions.buildPart(p ?? m.active()).body; return b ? rep().measureVolume(b) : 0; }; const feat = () => m.active()?.features?.find((f) => f.type === 'openscad'); const editIt = async () => { const f = feat(); m.state.selection = [{ kind: 'feat', id: f.id, key: 'feat:' + f.id }]; await m.run('editFeature'); await sleep(500); }; const setField = (el, v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); }; const native = await import('/src/platform/native.js');\n     return JSON.stringify({ open: native.MODEL_EXTENSIONS.includes('scad'), save: Boolean(native.SAVE_TYPES.scad), exportMenu: m.menus.SUBMENUS.exportTo.items.includes('exportScad'), insert: m.menus.SUBMENUS.bodies.items.includes('openscadFeature') }); })()",
+    "expect": "\"open\":true,\"save\":true,\"exportMenu\":true,\"insert\":true"
+  }
+]

@@ -9,6 +9,12 @@ Packages under the LGPL (OpenCASCADE via replicad-opencascadejs) are loaded from
   tauri-apps-api.LICENSE-APACHE-2.0.txt, tauri-apps-api.LICENSE-MIT.txt
 @tauri-apps/plugin-dialog 2.8.4 — MIT OR Apache-2.0
   tauri-apps-plugin-dialog.LICENSE.spdx.txt
+Liberation Fonts 2.1.5 (Sans, Serif, Mono) — OFL-1.1 — https://github.com/liberationfonts/liberation-fonts
+  LiberationFonts-OFL.txt (the default font of OpenSCAD text())
+manifold-3d 3.5.5 — Apache-2.0 — https://github.com/elalish/manifold
+  manifold-3d.LICENSE.txt
+opentype.js 2.0.0 — MIT — https://opentype.js.org
+  opentype.js.LICENSE.txt
 replicad 1.2.1 — MIT — https://replicad.xyz
   replicad.LICENSE.txt
 replicad-opencascadejs 1.2.1 — LGPL-2.1-only

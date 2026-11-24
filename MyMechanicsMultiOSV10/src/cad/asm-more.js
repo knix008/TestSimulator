@@ -6,6 +6,7 @@
 //   collision detection — a move or rotation done in small steps that stops before the first contact
 //   (or carries on and reports what touches).
 import { quatFromAxisAngle, quatMultiply, quatNormalize, rotate, instanceName, placePoint, placeDir } from './assembly.js';
+import { movedPlacement } from './asm-patterns.js';
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -76,6 +77,9 @@ export function patternPlacements(p, c) {
     for (let i = 1; i < n; i++) out.push(turned(c, axis, i * stepDeg));
   } else if (p.type === 'mirror') {
     out.push(mirroredPlacement(c, p.plane, p.localAxis ?? 0));
+  } else if (p.type === 'moves') {
+    // Pattern / sketch / curve driven and chain patterns: the rigid moves worked out when the pattern was made.
+    for (const T of p.moves ?? []) out.push(movedPlacement(c, T));
   }
   return out;
 }

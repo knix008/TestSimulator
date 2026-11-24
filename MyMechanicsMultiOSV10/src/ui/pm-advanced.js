@@ -101,7 +101,7 @@ export const ADVANCED_PM = {
     const { t } = api;
     return [
       group('position', t('pm.translate'), `${field(api, 'dx', f.dx, { label: 'ΔX', glyph: 'position' })}${field(api, 'dy', f.dy, { label: 'ΔY', glyph: 'position' })}${field(api, 'dz', f.dz, { label: 'ΔZ', glyph: 'position' })}`),
-      group('rotateRight', t('pm.rotate'), `${seg('axis', [['x', 'X'], ['y', 'Y'], ['z', 'Z']], f.axis ?? 'z')}${field(api, 'angle', f.angle, { label: t('pm.angle'), unit: 'angle', glyph: 'dimAngle' })}`),
+      group('rotateRight', t('pm.rotate'), `${field(api, 'cx', f.cx ?? 0, { label: t('pm.rotCentre', { a: 'X' }), glyph: 'pointTool' })}${field(api, 'cy', f.cy ?? 0, { label: t('pm.rotCentre', { a: 'Y' }), glyph: 'pointTool' })}${field(api, 'cz', f.cz ?? 0, { label: t('pm.rotCentre', { a: 'Z' }), glyph: 'pointTool' })}${field(api, 'rx', f.rx ?? 0, { label: t('pm.rotAbout', { a: 'X' }), unit: 'angle', glyph: 'dimAngle' })}${field(api, 'ry', f.ry ?? 0, { label: t('pm.rotAbout', { a: 'Y' }), unit: 'angle', glyph: 'dimAngle' })}${field(api, 'rz', f.rz ?? 0, { label: t('pm.rotAbout', { a: 'Z' }), unit: 'angle', glyph: 'dimAngle' })}${Math.abs(Number(f.angle) || 0) > 1e-9 ? `${seg('axis', [['x', 'X'], ['y', 'Y'], ['z', 'Z']], f.axis ?? 'z')}${field(api, 'angle', f.angle, { label: t('pm.angle'), unit: 'angle', glyph: 'dimAngle' })}` : ''}`),
       group('part', t('pm.options'), check('copy', f.copy, t('pm.copyBody'), 'featLinPattern')),
     ].join('');
   },
@@ -115,8 +115,11 @@ export const ADVANCED_PM = {
   },
   insertPart(api, f) {
     const { t } = api;
+    // A multi-body part: all of it, or one body (Save Bodies makes such parts).
+    const n = f.part ? (api.partBodyCount?.(f.part) ?? 0) : 0;
+    const bodies = n > 1 || (f.body != null && f.body !== '') ? select('body', [['', t('pm.allBodies')], ...Array.from({ length: Math.max(n, Number(f.body ?? -1) + 1) }, (_, i) => [String(i), `${t('pm.body')} ${i + 1}`, 'part'])], f.body == null ? '' : String(f.body), t('pm.body')) : '';
     return [
-      group('part', t('pm.partToInsert'), `${select('part', [['', `— ${t('pm.choosePart')} —`], ...api.otherParts().map((p) => [p.id, p.name, 'part'])], f.part ?? '', t('pm.part'))}${seg('op', [['boss', t('op.boss'), 'featExtrude'], ['cut', t('op.cavity'), 'featCut'], ['common', t('op.common'), 'featIntersect']], f.op)}`),
+      group('part', t('pm.partToInsert'), `${select('part', [['', `— ${t('pm.choosePart')} —`], ...api.otherParts().map((p) => [p.id, p.name, 'part'])], f.part ?? '', t('pm.part'))}${bodies}${seg('op', [['boss', t('op.boss'), 'featExtrude'], ['cut', t('op.cavity'), 'featCut'], ['common', t('op.common'), 'featIntersect']], f.op)}`),
       group('position', t('pm.locate'), `${field(api, 'dx', f.dx, { label: 'ΔX', glyph: 'position' })}${field(api, 'dy', f.dy, { label: 'ΔY', glyph: 'position' })}${field(api, 'dz', f.dz, { label: 'ΔZ', glyph: 'position' })}${seg('axis', [['x', 'X'], ['y', 'Y'], ['z', 'Z']], f.axis ?? 'z')}${field(api, 'angle', f.angle, { label: t('pm.angle'), unit: 'angle', glyph: 'dimAngle' })}${field(api, 'scale', f.scale, { label: t('pm.scaleFactor'), unit: 'number', glyph: 'scaleBody', min: 0.0001 })}`),
     ].join('');
   },
@@ -145,7 +148,7 @@ export const ADVANCED_PM = {
   boundary(api, f) {
     const { t } = api;
     const list = [...api.sketchList(f, 'path'), ...api.curveList(f).map((x) => ({ ...x, icon: 'sketch3d' }))];
-    return group('boundarySurface', t('pm.curves'), `${listToggles(api, 'curv', list, f.curves ?? [])}${(f.curves ?? []).length < 2 ? note(t('pm.loftNeedsTwo'), true) : ''}${note(t('pm.help.boundary'))}`);
+    return group('boundarySurface', t('pm.curves'), `${seg('op', [['surface', t('op.surface'), 'boundarySurface'], ['boss', t('op.boss'), 'featLoft'], ['cut', t('op.cut'), 'featCut']], f.op ?? 'surface')}${listToggles(api, 'curv', list, f.curves ?? [])}${(f.curves ?? []).length < 2 ? note(t('pm.loftNeedsTwo'), true) : ''}${note(t('pm.help.boundary'))}`);
   },
   trimSurface(api, f) {
     const { t } = api;

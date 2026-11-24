@@ -4,7 +4,7 @@
 // must be loaded before make() is called.
 import { rep } from '../../src/cad/kernel.js';
 import { createFeature, regenerate, faceRef, FEATURE_DEFAULTS, STD_PLANES, frame } from '../../src/cad/features.js';
-import { addCircle, addLine, addRectangle, createSketchGeometry } from '../../src/cad/sketch.js';
+import { addArc, addCircle, addLine, addRectangle, createSketchGeometry } from '../../src/cad/sketch.js';
 import { edgeSignature, faceSignature } from '../../src/cad/refs.js';
 
 
@@ -68,22 +68,25 @@ export const FIXTURES = {
   },
   plane: { make: (p, o) => createFeature(p, 'plane', { base: top, ...o }), num: { offset: '+PN' } },
   extrude: {
-    make: (p, o) => { const s = sketchOn(p, front, (k) => addRectangle(k, 0, 0, 20, 10)); return createFeature(p, 'extrude', { sketch: s.id, ...o }); },
+    // withBase: a block the extrude overlaps first (so Merge result off leaves two bodies whose volumes add up).
+    make: (p, { withBase, ...o }) => { if (withBase) extrudeRect(p, front, 5, 5, 15, 25, 4); const s = sketchOn(p, front, (k) => addRectangle(k, 0, 0, 20, 10)); return createFeature(p, 'extrude', { sketch: s.id, ...o }); },
     num: {
       depth: '+V',
       depth2: { with: { end2: 'blind' }, m: 'V', dir: '+' },
       draftAngle: { with: { draft: true, draftAngle: 3 }, to: 6, m: 'V', dir: '-' },
     },
-    bool: { reverse: { m: 'C:front.n', dir: '-' } },
+    bool: { reverse: { m: 'C:front.n', dir: '-' }, merge: { with: { withBase: true }, m: 'V', dir: '+' } },
     opt: { end: ['midplane'], end2: ['blind'] },
   },
   revolve: {
     make: (p, o) => {
+      const { withBase, ...rest } = o;
+      if (withBase) extrudeRect(p, front, 15, 5, 30, 25, 4);
       const s = sketchOn(p, front, (k) => { addRectangle(k, 10, 0, 20, 30); addLine(k, 0, 0, 0, 50, { construction: true }); });
-      return createFeature(p, 'revolve', { sketch: s.id, ...o });
+      return createFeature(p, 'revolve', { sketch: s.id, ...rest });
     },
     num: { angle: { to: 180, m: 'V', dir: '-' } },
-    bool: { reverse: { with: { angle: 90 } } },
+    bool: { reverse: { with: { angle: 90 } }, merge: { with: { withBase: true }, m: 'V', dir: '+' } },
   },
   fillet: {
     make: (p, o) => {
@@ -306,9 +309,16 @@ export const FIXTURES = {
   },
   moveBody: {
     make: (p, o) => { extrudeRect(p, front, 0, 0, 10, 10, 10); return createFeature(p, 'moveBody', o); },
-    num: { dx: { to: 20, m: 'CX', dir: '+' }, dy: { to: 20, m: 'CY', dir: '+' }, dz: { to: 20, m: 'CZ', dir: '+' }, angle: { to: 45 } },
+    num: {
+      dx: { to: 20, m: 'CX', dir: '+' }, dy: { to: 20, m: 'CY', dir: '+' }, dz: { to: 20, m: 'CZ', dir: '+' }, angle: { to: 45 },
+      // Rotation about X / Y / Z through a centre: each angle alone moves the body; the centre matters with a turn.
+      rx: { to: 90 }, ry: { to: 90 }, rz: { to: 90 },
+      cx: { with: { rz: 90 }, to: 30 }, cy: { with: { rx: 90 }, to: 30 }, cz: { with: { ry: 90 }, to: 30 },
+    },
     bool: { copy: { with: { dx: 20 }, m: 'V', dir: '+' } },
     opt: { axis: { with: { angle: 45 }, values: ['x', 'y', 'z'] } },
+    // The rotation centre moves nothing while every angle is 0 (its effect with a turn is checked above).
+    pmSkip: [[/^c[xyz]$/, 'the rotation centre matters only with a rotation']],
   },
   scaleBody: {
     make: (p, o) => { extrudeRect(p, front, 10, 10, 20, 20, 10); return createFeature(p, 'scaleBody', o); },
@@ -364,6 +374,7 @@ export const FIXTURES = {
       const b = sketchOn(p, { kind: 'ref', id: p.features.at(-1).id }, (k) => addRectangle(k, -8, -8, 8, 8));
       return createFeature(p, 'boundary', { curves: [a.id, b.id], ...o });
     },
+    opt: { op: ['boss'] },
   },
   trimSurface: {
     make: (p, o) => {
@@ -439,8 +450,15 @@ export const FIXTURES = {
     opt: { kind: ['twoPlanes'] },
   },
   refPoint: {
-    make: (p, o) => createFeature(p, 'refPoint', { kind: 'coords', x: 5, y: 5, z: 5, ...o }),
+    // withBody: a 30 × 10 × 6 block first (the centre of mass needs a body).
+    make: (p, { withBody, ...o }) => { if (withBody) block(p, 0, 0, 30, 10, 6); return createFeature(p, 'refPoint', { kind: 'coords', x: 5, y: 5, z: 5, ...o }); },
     num: { at: { skip: 'the position along an edge: only used by the "on edge" kind, which needs an edge pick (covered in part-more.test.js)' } },
+    opt: { kind: { with: { withBody: true }, values: ['centerOfMass'] } },
+  },
+  boundingBox: {
+    // A block turned off the axes, so the best-fit box differs from the box square to a plane.
+    make: (p, o) => { block(p, 0, 0, 40, 20, 10); p.features.push(createFeature(p, 'moveBody', { rz: 30, rx: 15 })); return createFeature(p, 'boundingBox', o); },
+    opt: { mode: ['plane'], plane: { with: { mode: 'plane' }, values: ['std:front', 'std:right'] } },
   },
   coordSys: { make: (p, o) => createFeature(p, 'coordSys', o) },
   variableFillet: {
@@ -524,6 +542,128 @@ export const FIXTURES = {
     },
   },
   curveXYZ: { make: (p, o) => createFeature(p, 'curveXYZ', o) },
+  // The default program (a plate with a hole); another program changes the body.
+  openscad: { make: (p, o) => createFeature(p, 'openscad', o), opt: { source: ['sphere(8, $fn = 24);'] } },
+
+  // ── more surfaces
+  surfaceSweep: {
+    // A quarter-circle profile on Top swept up an L-shaped path on Front (the corner makes the transition matter).
+    make: (p, o) => {
+      const prof = sketchOn(p, top, (k) => addArc(k, 0, 0, 10, 0, Math.PI / 2));
+      const path = sketchOn(p, front, (k) => { const l = addLine(k, 10, 0, 10, 30); addLine(k, 0, 0, 40, 30, { from: l.p2 }); });
+      return createFeature(p, 'surfaceSweep', { sketch: prof.id, path: path.id, ...o });
+    },
+    bool: { frenet: { skip: 'a path in one plane: the Frenet frame turns the profile as the default frame does' } },
+    opt: { transition: ['round'] },
+  },
+  cutWithSurface: {
+    make: (p, o) => {
+      block(p, -20, -10, 40, 20, 30);
+      p.features.push({ id: `pl${p.features.length}`, type: 'plane', name: 'PlaneCut', base: top, offset: 12, flip: false });
+      const ps = sketchOn(p, { kind: 'ref', id: p.features.at(-1).id }, (k) => addRectangle(k, -40, -40, 40, 40));
+      const sf = createFeature(p, 'surfacePlanar', { sketch: ps.id });
+      p.features.push(sf);
+      return createFeature(p, 'cutWithSurface', { surface: sf.id, ...o });
+    },
+    bool: { flip: { m: 'V', dir: '+' } },
+  },
+  deleteHole: {
+    make: (p, o) => {
+      const s = sketchOn(p, top, (k) => { addRectangle(k, 0, 0, 60, 30); addCircle(k, 15, 15, 5); addCircle(k, 45, 15, 4); });
+      const sf = createFeature(p, 'surfacePlanar', { sketch: s.id });
+      p.features.push(sf);
+      return createFeature(p, 'deleteHole', { surface: sf.id, ...o });
+    },
+  },
+  untrimSurface: {
+    // A disc with a hole: its natural bounds are the square around it, "holes only" keeps the disc.
+    make: (p, o) => {
+      const s = sketchOn(p, top, (k) => { addCircle(k, 0, 0, 10); addCircle(k, 0, 0, 3); });
+      const sf = createFeature(p, 'surfacePlanar', { sketch: s.id });
+      p.features.push(sf);
+      return createFeature(p, 'untrimSurface', { surface: sf.id, ...o });
+    },
+    opt: { mode: ['holes'] },
+  },
+  flattenSurface: {
+    make: (p, o) => {
+      const s = sketchOn(p, top, (k) => addArc(k, 0, 0, 10, 0, Math.PI / 2));
+      const se = createFeature(p, 'surfaceExtrude', { sketch: s.id, depth: 20 });
+      p.features.push(se);
+      return createFeature(p, 'flattenSurface', { surface: se.id, ...o });
+    },
+  },
+  midSurface: {
+    make: (p, o) => { block(p, 0, 0, 50, 20, 4); return createFeature(p, 'midSurface', o); },
+    num: { maxThickness: { skip: 'the plate is 4 thick: any limit above that finds the same pair (below it finds none)' } },
+  },
+  radiateSurface: {
+    make: (p, o) => {
+      block(p, -20, -10, 40, 20, 8);
+      const rim = faceWhere(built(p), (c) => near(c[2], 8), true);
+      return createFeature(p, 'radiateSurface', { edges: rim.edges.map(edgeSignature), plane: 'std:top', ...o });
+    },
+    num: { distance: { to: 14, m: 'SA', dir: '+' } },
+    // Inward the 40 × 20 rim leaves room for less than 10: flipped with 4.
+    bool: { flip: { with: { distance: 4 } } },
+  },
+
+  // ── fastening features (a 50 × 50 × 4 plate whose top face centre is at (5, 5); a typed point (0, 0) is elsewhere)
+  mountingBoss: {
+    make: (p, o) => { block(p, -20, -20, 50, 50, 4); return createFeature(p, 'mountingBoss', { face: faceWhere(built(p), (c) => near(c[2], 4)), ...o }); },
+    num: {
+      height: { to: 15, m: 'V', dir: '+' }, od: { to: 10, m: 'V', dir: '+' }, draft: { to: 3, m: 'V', dir: '+' },
+      id: { to: 4.5, m: 'V', dir: '-' }, holeDepth: { to: 5, m: 'V', dir: '+' }, holeDraft: { to: 2, m: 'V', dir: '+' },
+      pinDiameter: { with: { kind: 'pin' }, to: 4, m: 'V', dir: '+' }, pinHeight: { with: { kind: 'pin' }, to: 6, m: 'V', dir: '+' },
+      fins: { to: 6, m: 'V', dir: '+' }, finLength: { to: 7, m: 'V', dir: '+' }, finThickness: { to: 2, m: 'V', dir: '+' }, finHeight: { to: 10, m: 'V', dir: '+' }, finAngle: { with: { fins: 1 }, to: 30 },
+      x: { with: { atCenter: false }, to: 10 }, y: { with: { atCenter: false }, to: 10 }, z: { with: { atCenter: false }, to: 10 },
+      [UP.name]: { skip: 'the typed point is projected onto the face: moving it along the face normal moves nothing' },
+    },
+    bool: { through: { m: 'V', dir: '-' }, reverse: {}, atCenter: {} },
+    opt: { kind: ['pin'], finShape: ['rect'] },
+    pmSkip: [[new RegExp(`^${UP.name}$`), 'the typed point is projected onto the face: moving it along the face normal moves nothing']],
+  },
+  snapHook: {
+    make: (p, o) => { block(p, -20, -20, 50, 50, 4); return createFeature(p, 'snapHook', { face: faceWhere(built(p), (c) => near(c[2], 4)), ...o }); },
+    num: {
+      angle: { to: 90 }, height: { to: 20, m: 'V', dir: '+' }, width: { to: 8, m: 'V', dir: '+' }, thickness: { to: 2, m: 'V', dir: '+' },
+      lipDepth: { to: 2, m: 'V', dir: '+' }, lipHeight: { to: 4, m: 'V', dir: '+' }, insertAngle: { to: 45, m: 'V', dir: '+' },
+      x: { with: { atCenter: false }, to: 10 }, y: { with: { atCenter: false }, to: 10 }, z: { with: { atCenter: false }, to: 10 },
+      [UP.name]: { skip: 'the typed point is projected onto the face: moving it along the face normal moves nothing' },
+    },
+    bool: { reverse: {}, atCenter: {} },
+    pmSkip: [[new RegExp(`^${UP.name}$`), 'the typed point is projected onto the face: moving it along the face normal moves nothing']],
+  },
+  snapHookGroove: {
+    make: (p, o) => {
+      block(p, -20, -20, 50, 50, 4);
+      const hook = createFeature(p, 'snapHook', { face: faceWhere(built(p), (c) => near(c[2], 4)) });
+      p.features.push(hook);
+      // A cover over the hook's top as a body of its own (Merge result off).
+      p.features.push({ id: `pl${p.features.length}`, type: 'plane', name: 'PlaneCover', base: top, offset: 14, flip: false });
+      const s = sketchOn(p, { kind: 'ref', id: p.features.at(-1).id }, (k) => addRectangle(k, -15, -15, 25, 25));
+      p.features.push(createFeature(p, 'extrude', { sketch: s.id, depth: 4, merge: false }));
+      return createFeature(p, 'snapHookGroove', { hook: hook.id, body: 1, ...o });
+    },
+    num: { clearance: { to: 0.5, m: 'V', dir: '-' }, body: { skip: 'a body index (which body is cut): any other value names no body' } },
+  },
+  vent: {
+    make: (p, o) => {
+      block(p, -25, -25, 50, 50, 4);
+      const s = sketchOn(p, top, (k) => { addRectangle(k, -15, -10, 15, 10); addLine(k, 0, -10, 0, 10); addLine(k, -15, 0, 15, 0); addCircle(k, -7, 5, 3); });
+      return createFeature(p, 'vent', { sketch: s.id, ...o });
+    },
+    num: { ribWidth: { to: 3, m: 'V', dir: '+' }, sparWidth: { to: 2.5, m: 'V', dir: '+' } },
+  },
+  lipGroove: {
+    make: (p, o) => {
+      block(p, -30, -20, 60, 40, 25);
+      p.features.push(createFeature(p, 'shell', { thickness: 2, faces: [faceWhere(built(p), (c) => near(c[2], 25))] }));
+      return createFeature(p, 'lipGroove', { face: faceWhere(built(p), (c) => near(c[2], 25)), ...o });
+    },
+    num: { width: { to: 1.5, m: 'V', dir: '+' }, height: { to: 2.5, m: 'V', dir: '+' }, clearance: { with: { kind: 'groove' }, to: 0.3, m: 'V', dir: '-' } },
+    opt: { kind: ['groove'], side: ['outer'] },
+  },
 
   // ── more surfaces, sheet metal and weldments
   ruledSurface: {
@@ -673,6 +813,82 @@ export const FIXTURES = {
     },
     opt: { kind: ['pipe', 'cable', 'harness'], dn: { with: { kind: 'pipe' }, values: ['DN40'] }, fittings: { with: { kind: 'pipe' }, values: ['elbows'] }, flanges: { with: { kind: 'pipe' }, values: ['both'] } },
   },
+
+  // ── advanced hole (a 50 × 50 × 20 block, a point sketch on its top face plane), intersect, mate reference (a 4 thick plate)
+  advancedHole: {
+    make: (p, o) => {
+      // 20 thick: the default counterbore (6.5 deep) and the straight hole under it both show.
+      block(p, -20, -20, 50, 50, 20);
+      p.features.push({ id: `pl${p.features.length}`, type: 'plane', name: 'PlaneHole', base: top, offset: 20, flip: false });
+      const pts = sketchOn(p, { kind: 'ref', id: p.features.at(-1).id }, (k) => k.entities.push({ id: 'hp1', type: 'point', x: 5, y: 5, standalone: true }));
+      return createFeature(p, 'advancedHole', { sketch: pts.id, ...o });
+    },
+    // Reversed, the hole goes up out of the plate: nothing is cut (the model changes back to the plain plate).
+    opt: { near: { skip: 'a list of elements: edited in the table, checked by part-extra.test.js' }, far: { skip: 'a list of elements: edited in the table, checked by part-extra.test.js' } },
+  },
+  intersect: {
+    // The plate and the Right plane: two regions; one is left out.
+    make: (p, o) => { block(p, -20, -20, 50, 50, 4); return createFeature(p, 'intersect', { planes: ['right'], exclude: [0], ...o }); },
+    bool: { bodies: { skip: 'without the plate, a plane alone encloses no region' }, merge: { with: { exclude: [] } }, consume: { m: 'V', dir: '+' } },
+  },
+  mateReference: {
+    make: (p, o) => { block(p, -20, -20, 50, 50, 4); return createFeature(p, 'mateReference', { primary: faceWhere(built(p), (c) => near(c[2], 4)), ...o }); },
+  },
+
+  // ── more sheet metal (a 100 × 60 × 40 box; its bottom face is the fixed face)
+  convertSheet: {
+    make: (p, o) => { block(p, 0, 0, 100, 60, 40); const bottom = faceWhere(built(p), (c) => near(c[2], 0), true); return createFeature(p, 'convertSheet', { face: faceSignature(bottom), edges: bottom.edges.map(edgeSignature), ...o }); },
+    num: { thickness: { to: 3, m: 'V', dir: '+' }, radius: { to: 4 }, kFactor: { skip: 'used only in the flat pattern of the bends' }, gap: { to: 1, m: 'V', dir: '-' } },
+    opt: { side: ['outside'], corner: ['open'] },
+  },
+  insertBends: {
+    make: (p, o) => { shelledBox(p); const bottom = faceWhere(built(p), (c, x) => near(c[2], 0) && x.normalAt(x.center)[['x', 'y', 'z'][UP.index]] * UP.sign < 0); return createFeature(p, 'insertBends', { face: bottom, ...o }); },
+    num: { radius: { to: 4 }, kFactor: { skip: 'used only in the flat pattern of the bends' }, gap: { to: 1, m: 'V', dir: '-' } },
+    opt: { corner: ['open'] },
+  },
+  rip: {
+    make: (p, o) => {
+      shelledBox(p);
+      const corner = built(p).edges.find((e) => e.geomType === 'LINE' && [e.startPoint, e.endPoint].every((q) => { const l = loc('top', q); return near(l[0], 100) && near(l[1], 60); }));
+      return createFeature(p, 'rip', { edges: [edgeSignature(corner)], ...o });
+    },
+    num: { gap: { to: 0.5, m: 'V', dir: '-' } },
+    opt: { direction: ['a', 'b'] },
+  },
+  // Unfold alone: the part after it is flat; Fold forms it again with the cut made in between.
+  unfold: { make: (p, o) => { const edge = sheet(p); p.features.push(createFeature(p, 'edgeFlange', { edge: edgeSignature(edge), length: 30 })); return createFeature(p, 'unfold', o); } },
+  fold: {
+    make: (p, o) => {
+      const edge = sheet(p);
+      p.features.push(createFeature(p, 'edgeFlange', { edge: edgeSignature(edge), length: 30 }));
+      p.features.push(createFeature(p, 'unfold', {}));
+      const cs = sketchOn(p, top, (k) => addRectangle(k, 90, 20, 115, 30));
+      p.features.push(createFeature(p, 'extrude', { sketch: cs.id, op: 'cut', end: 'midplane', depth: 20 }));
+      return createFeature(p, 'fold', o);
+    },
+  },
+  crossBreak: {
+    make: (p, o) => { sheet(p); return createFeature(p, 'crossBreak', { face: faceWhere(built(p), (c) => near(c[2], 2)), ...o }); },
+    num: { radius: { skip: 'cosmetic: kept for the drawing note' }, angle: { skip: 'cosmetic: kept for the drawing note' } },
+    opt: { direction: { skip: 'cosmetic: kept for the drawing note' } },
+  },
+  weldedCorner: { make: (p, o) => { const ids = twoFlanges(p); return createFeature(p, 'weldedCorner', { flanges: ids, ...o }); } },
+  tabSlot: {
+    // A 100 × 60 × 5 base and, as a separate body, an 80 × 4 plate standing on it (n 5 … 45). More or longer tabs
+    // take volume away: each slot is the tab plus its clearance all round.
+    make: (p, o) => {
+      block(p, -50, -30, 100, 60, 5);
+      p.features.push({ id: `pl${p.features.length}`, type: 'plane', name: 'PlaneTab', base: top, offset: 5, flip: false });
+      const s = sketchOn(p, { kind: 'ref', id: p.features.at(-1).id }, (k) => addRectangle(k, -40, -2, 40, 2));
+      p.features.push(createFeature(p, 'extrude', { sketch: s.id, depth: 40, merge: false }));
+      const body = built(p);
+      const face = faceWhere(body, (c, x) => near(c[2], 5) && near(c[0], 0) && near(c[1], 0) && x.normalAt(x.center)[['x', 'y', 'z'][UP.index]] * UP.sign > 0);
+      const edge = body.edges.find((e) => e.geomType === 'LINE' && [e.startPoint, e.endPoint].every((q) => { const l = loc('top', q); return near(l[2], 5) && near(l[1], -2); }) && near(e.length, 80));
+      return createFeature(p, 'tabSlot', { edge: edgeSignature(edge), face, ...o });
+    },
+    num: { count: { to: 3, m: 'V', dir: '-' }, length: { to: 14, m: 'V', dir: '-' }, height: { to: 3, m: 'V', dir: '-' }, clearance: { to: 0.4, m: 'V', dir: '-' }, offset: { to: 3 } },
+  },
+
 };
 
 /** An imported 40 × 20 × 10 plate (world coordinates) with a through hole, and its parting line along world z. */
@@ -697,6 +913,11 @@ function block(part, u0, v0, w, d, h, op = 'boss') {
   const e = createFeature(part, 'extrude', { sketch: s.id, depth: h, op });
   part.features.push(e);
   return e;
+}
+/** A 100 × 60 × 40 box on the top plane, shelled 2 thick with its top face open. */
+function shelledBox(part) {
+  block(part, 0, 0, 100, 60, 40);
+  part.features.push(createFeature(part, 'shell', { thickness: 2, faces: [faceWhere(built(part), (c) => near(c[2], 40))] }));
 }
 /** A 20 mm cube on the top plane (u, v −10…10, n 0…20). */
 function cube(part) { return block(part, -10, -10, 20, 20, 20); }

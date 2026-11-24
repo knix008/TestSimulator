@@ -14,7 +14,7 @@
 //     (the sketch is put on that face; ids are new).
 import { rep } from './kernel.js';
 import { quatToAxisAngle, quatConjugate, rotate, composePlacement, flattenAssembly, placeShape } from './assembly.js';
-import { newSketchId, pointsOf, byId, ORIGIN } from './sketch.js';
+import { newSketchId, pointsOf, byId, refreshEquation, mapEquationPlace, ORIGIN, POINT_KEYS } from './sketch.js';
 import { STD_PLANES, frame as makeFrame } from './features.js';
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -289,7 +289,7 @@ export function makeBlock(sketch, ids, { name = 'Block', id = null, base = null 
   const b = base ?? [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2];
   const all = new Set([...pointIds, ...curves.map((e) => e.id)]);
   const entities = [...pts.map((p) => ({ id: p.id, type: 'point', x: round(p.x - b[0]), y: round(p.y - b[1]), ...(p.standalone ? { standalone: true } : {}) })),
-    ...curves.map((e) => { const c = JSON.parse(JSON.stringify(e)); delete c.fixed; delete c.block; if (c.type === 'text') { c.x = round(c.x - b[0]); c.y = round(c.y - b[1]); } return c; })];
+    ...curves.map((e) => { const c = JSON.parse(JSON.stringify(e)); delete c.fixed; delete c.block; if (c.type === 'text') { c.x = round(c.x - b[0]); c.y = round(c.y - b[1]); } if (c.type === 'equation') c.place = mapEquationPlace(e, ([px, py]) => [px - b[0], py - b[1]]); if (c.focus) { c.focus = [c.focus[0] - b[0], c.focus[1] - b[1]]; c.apex = [c.apex[0] - b[0], c.apex[1] - b[1]]; } return c; })];
   const constraints = (sketch.constraints ?? []).filter((c) => [c.a, c.b, c.c].filter(Boolean).every((x) => all.has(x)) && !['fix'].includes(c.type)).map((c) => JSON.parse(JSON.stringify(c)));
   return { id: id ?? `blk${Date.now().toString(36).slice(-5)}${Math.floor(Math.random() * 1e3)}`, name, base: b, entities, constraints };
 }
@@ -309,14 +309,17 @@ export function insertBlock(sketch, block, { x = 0, y = 0, angle = 0, scale: k =
   for (const e of block.entities) {
     const n = { ...JSON.parse(JSON.stringify(e)), id: map.get(e.id), ...tag };
     if (e.type === 'point') { [n.x, n.y] = tf(e.x, e.y); }
-    for (const key of ['p1', 'p2', 'c']) if (n[key]) n[key] = map.get(n[key]) ?? n[key];
+    for (const key of POINT_KEYS) if (n[key]) n[key] = map.get(n[key]) ?? n[key];
     if (n.pts) n.pts = n.pts.map((id) => map.get(id) ?? id);
     if (n.r != null) n.r = round(n.r * k);
     if (n.rx != null) { n.rx = round(n.rx * k); n.ry = round(n.ry * k); n.rot = (n.rot ?? 0) + a; }
     if (n.type === 'text') { [n.x, n.y] = tf(e.x, e.y); n.size = (Number(e.size) || 10) * k; n.rot = (e.rot ?? 0) + a; }
+    if (n.type === 'equation') n.place = mapEquationPlace(e, ([px, py]) => tf(px, py));
+    if (n.focus) { n.focus = tf(...e.focus); n.apex = tf(...e.apex); }
     sketch.entities.push(n);
     ids.push(n.id);
   }
+  for (const id of ids) { const n = byId(sketch, id); if (n?.type === 'equation') refreshEquation(sketch, n); }
   for (const c of block.constraints ?? []) {
     const n = { ...JSON.parse(JSON.stringify(c)) };
     for (const key of ['a', 'b', 'c']) if (n[key]) n[key] = map.get(n[key]) ?? n[key];

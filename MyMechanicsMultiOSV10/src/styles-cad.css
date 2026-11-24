@@ -515,3 +515,23 @@ input[type="color"][data-pm-field] { width: 44px; height: 24px; padding: 0; bord
 .el-extra .el-num { width: 54px; }
 .el-extra span { color: var(--muted); font-size: 11px; }
 .el-table tr.el-over td { color: var(--danger, #c62828); font-weight: 600; }
+
+/* OpenSCAD feature: Customizer rows (name above its slider / field), the code editor, the output. */
+.pm-field.scad-param { flex-wrap: wrap; row-gap: 2px; }
+.pm-field.scad-param > .pm-label { flex: 1 0 calc(100% - 28px); max-width: none; white-space: normal; overflow-wrap: anywhere; }
+.pm-field.scad-param > .slider-control, .pm-field.scad-param > input[type="range"] { flex: 1 1 100%; min-width: 0; }
+.pm-field.scad-param > select, .pm-field.scad-param > input.pm-text:not(.short) { flex: 1 1 100%; }
+.scad-tab { margin: 6px 0 2px; font-size: 12px; font-weight: 600; color: var(--text-strong, inherit); }
+textarea.scad-code { width: 100%; box-sizing: border-box; min-height: 220px; resize: vertical; font: 12px/1.45 ui-monospace, "Cascadia Mono", Consolas, "D2Coding", monospace; tab-size: 2; padding: 6px 8px; border: 1px solid var(--border, #c8cdd6); border-radius: 6px; background: var(--input-bg, var(--panel, #fff)); color: var(--text, inherit); white-space: pre; overflow: auto; }
+textarea.scad-code:focus { outline: 2px solid var(--accent, #2f6fdb); outline-offset: -1px; }
+.scad-console, .scad-files { list-style: none; margin: 4px 0 0; padding: 0; max-height: 160px; overflow: auto; font: 11px/1.4 ui-monospace, Consolas, monospace; }
+.scad-console li, .scad-files li { display: flex; gap: 4px; align-items: flex-start; padding: 1px 0; }
+.scad-console li span, .scad-files li span { overflow-wrap: anywhere; }
+.scad-console li.warn { color: var(--warning, #b26a00); }
+.scad-console li.error { color: var(--danger, #c62828); }
+
+/* Advanced hole: element tables (kind, diameter, depth or angle, remove). */
+.hx-table { display: grid; gap: 4px; }
+.hx-row { display: grid; grid-template-columns: 18px minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) 28px; gap: 4px; align-items: center; }
+.hx-row.head { font-size: 11px; color: var(--muted); }
+.hx-row select, .hx-row input { min-width: 0; width: 100%; }

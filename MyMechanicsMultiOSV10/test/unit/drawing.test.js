@@ -207,6 +207,10 @@ test('every annotation kind renders well-formed SVG and goes to DXF', () => {
     surface: { id: 'a5', kind: 'surface', x: 180, y: 60, ra: '1.6', process: 'removal' },
     centermark: { id: 'a6', kind: 'centermark', x: 200, y: 60, size: 12 },
     dimension: { id: 'a7', kind: 'dimension', a: [20, 150], b: [70, 150], offset: 8 },
+    cloud: { id: 'a8', kind: 'cloud', x: 220, y: 30, w: 40, h: 20, rev: 'B' },
+    datumTarget: { id: 'a9', kind: 'datumTarget', x: 260, y: 40, label: 'A1', target: [270, 55] },
+    hatch: { id: 'a10', kind: 'hatch', x: 280, y: 70, w: 20, h: 15 },
+    bendTable: { id: 'a11', kind: 'bendTable', x: 300, y: 20, rows: [{ no: 1, dir: 'UP', angle: 90, radius: 2, k: 0.44, allowance: 4.53 }] },
   };
   assert.deepEqual(Object.keys(samples), ANNOTATION_KINDS);
   for (const kind of ANNOTATION_KINDS) {

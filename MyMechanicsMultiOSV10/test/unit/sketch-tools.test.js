@@ -11,7 +11,7 @@ import {
   hitTest, profiles, polygonArea, pointInPolygon, standalonePoints, constructionLines, cloneSketch,
 } from '../../src/cad/sketch.js';
 import {
-  addSpline, addEllipse, sketchFillet, sketchChamfer, offsetEntities, mirrorEntities, linearSketchPattern, circularSketchPattern, intersect, trimAt, extendAt,
+  addSpline, addEllipse, addEllipseArc, addConic, addEquationCurve, sketchFillet, sketchChamfer, offsetEntities, mirrorEntities, linearSketchPattern, circularSketchPattern, intersect, trimAt, extendAt,
 } from '../../src/cad/sketchtools.js';
 // features.js first: it and advanced.js import each other, and the app loads features.js first too.
 import '../../src/cad/features.js';
@@ -35,8 +35,8 @@ const dof = (s) => analyse(s).dof;
 
 // ───────────────────────── registries
 
-test('ENTITY_TYPES lists point, line, circle, arc, spline, ellipse and text', () => {
-  assert.deepEqual([...ENTITY_TYPES].sort(), ['arc', 'circle', 'ellipse', 'line', 'point', 'spline', 'text']);
+test('ENTITY_TYPES lists point, line, circle, arc, spline, ellipse, partial ellipse, conic, equation curve and text', () => {
+  assert.deepEqual([...ENTITY_TYPES].sort(), ['arc', 'circle', 'conic', 'ellipse', 'ellipseArc', 'equation', 'line', 'point', 'spline', 'text']);
 });
 
 test('RELATIONS and DIMENSIONS have no duplicates and do not overlap', () => {
@@ -63,6 +63,11 @@ const BUILDERS = {
   spline: (s) => ({ e: addSpline(s, [[0, 0], [10, 5], [20, 0]]), probe: [20, 0], dof: 6, points: 3 }),
   ellipse: (s) => ({ e: addEllipse(s, 3, 4, 8, 2), probe: [11, 4], dof: 2, points: 1 }),
   text: (s) => ({ e: addText(s, 2, 3, 'AB', 10), probe: [2, 8], dof: 0, points: 0 }),
+  // Centre and two ends free, each end held on the ellipse: 6 − 2.
+  ellipseArc: (s) => ({ e: addEllipseArc(s, 0, 0, 10, 4, 0, 0, Math.PI / 2), probe: [10 * Math.cos(0.7), 4 * Math.sin(0.7)], dof: 4, points: 3 }),
+  conic: (s) => ({ e: addConic(s, [0, 0], [5, 10], [10, 0], 0.5), probe: [5, 5], dof: 6, points: 3 }),
+  // Its ends are where the equation puts them: nothing can move.
+  equation: (s) => ({ e: addEquationCurve(s, { fy: 'x', t0: 0, t1: 10 }), probe: [5, 5], dof: 0, points: 2 }),
 };
 
 for (const type of ENTITY_TYPES) {

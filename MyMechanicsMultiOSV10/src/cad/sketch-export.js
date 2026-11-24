@@ -1,8 +1,10 @@
 // A sketch as a 2D drawing (DXF text or, through dwg/write.js, DWG): its geometry in the sketch plane's own
 // coordinates (millimetres) on one layer. Construction geometry and the origin are left out.
 //   line → LINE, circle → CIRCLE, arc → ARC, ellipse → ELLIPSE, spline → LWPOLYLINE (its curve as a fine
-//   polyline), point → POINT, text → TEXT.
-import { arcGeometry, polyline } from './sketch.js';
+//   polyline), partial ellipse → ELLIPSE (its parameter span), conic / parabola / equation curve → LWPOLYLINE,
+//   point → POINT, text → TEXT.
+import { arcGeometry, polyline, POINT_KEYS } from './sketch.js';
+import { ellipseParam } from './sketch-curves.js';
 
 /** The sketch's entities in the plain drawing model of dxf-read.js / dwg/read.js. */
 export function sketchToEntities(sketch, layer = 'SKETCH') {
@@ -11,7 +13,7 @@ export function sketchToEntities(sketch, layer = 'SKETCH') {
   const used = new Set();
   for (const e of sketch.entities) {
     if (e.construction) continue;
-    for (const k of ['p1', 'p2', 'c']) if (e[k]) used.add(e[k]);
+    for (const k of POINT_KEYS) if (e[k]) used.add(e[k]);
     if (e.type === 'spline') for (const p of e.pts) used.add(p);
     const P = (id) => { const p = map.get(id); return [p.x, p.y, 0]; };
     if (e.type === 'line') out.push({ name: 'LINE', layerName: layer, start: P(e.p1), end: P(e.p2) });
@@ -21,6 +23,14 @@ export function sketchToEntities(sketch, layer = 'SKETCH') {
       const c = P(e.c); const rot = e.rot ?? 0; const major = e.rx >= e.ry;
       const a = major ? e.rx : e.ry; const ang = major ? rot : rot + Math.PI / 2;
       out.push({ name: 'ELLIPSE', layerName: layer, center: c, majorAxis: [a * Math.cos(ang), a * Math.sin(ang), 0], ratio: Math.min(e.rx, e.ry) / Math.max(e.rx, e.ry), startParam: 0, endParam: 2 * Math.PI });
+    } else if (e.type === 'ellipseArc') {
+      // DXF ellipse parameters run counter-clockwise from the major axis (the minor-axis case turns them by 90°).
+      const c = P(e.c); const rot = e.rot ?? 0; const major = e.rx >= e.ry;
+      const a = major ? e.rx : e.ry; const ang = major ? rot : rot + Math.PI / 2;
+      const t0 = ellipseParam(c, e.rx, e.ry, rot, P(e.p1)) - (major ? 0 : Math.PI / 2); const t1 = ellipseParam(c, e.rx, e.ry, rot, P(e.p2)) - (major ? 0 : Math.PI / 2);
+      out.push({ name: 'ELLIPSE', layerName: layer, center: c, majorAxis: [a * Math.cos(ang), a * Math.sin(ang), 0], ratio: Math.min(e.rx, e.ry) / Math.max(e.rx, e.ry), startParam: norm(t0), endParam: norm(t1) <= norm(t0) + 1e-12 ? norm(t1) + 2 * Math.PI : norm(t1) });
+    } else if (e.type === 'conic' || e.type === 'equation') {
+      out.push({ name: 'LWPOLYLINE', layerName: layer, points: polyline(sketch, e, map, 192).map(([x, y]) => [x, y]), bulges: [], closed: false });
     } else if (e.type === 'spline') {
       const pts = polyline(sketch, e, map);
       const closed = e.pts.length > 2 && e.pts[0] === e.pts.at(-1);

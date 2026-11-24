@@ -61,11 +61,12 @@ return (async () => {
       if (needGeom && geom() === g0) fails.push(`${what}: the preview geometry did not change`);
     };
     // Number fields.
-    const numKeys = phase === 'opts' ? [] : [...new Set(qa('[data-pm-field]').map((x) => x.dataset.pmField))].filter((k) => !k.startsWith('pt3:') || true);
+    // Number fields are the ones marked data-num (a text field such as a reference's name is not one).
+    const numKeys = phase === 'opts' ? [] : [...new Set(qa('[data-pm-field][data-num]').map((x) => x.dataset.pmField))];
     for (const key of numKeys) {
       if (!q(`[data-pm-field="${css(key)}"]`)) continue;
       seen.num.push(key);
-      const val = () => { const f = feature(); if (key.startsWith('pt3:')) { const [, i, j] = key.split(':').map(Number); return f.points?.[i]?.[j]; } return Number(f[key]); };
+      const val = () => { const f = feature(); if (key.startsWith('pt3:')) { const [, i, j] = key.split(':').map(Number); return f.points?.[i]?.[j]; } if (key.startsWith('hel:')) { const [, side, i, prop] = key.split(':'); return Number(f[side]?.[Number(i)]?.[prop]); } return Number(f[key]); };
       // Settings that rightly leave the shown model alone: skipped in the fixture, used only by the flat
       // pattern, or matched by the fixture's pmSkip list (number fields of the PropertyManager only).
       const pmSkip = (fixture.pmSkip ?? []).find(([re]) => re.test(key));
@@ -84,7 +85,7 @@ return (async () => {
         if (down < up) expectRebuilt(`${key} −`, g0, needGeom);
         if (!(up > v0) && !(down < up)) fails.push(`${key}: neither + nor − changed it (${v0} → ${up} → ${down})`);
         if (!(up > v0) && down < up) { g0 = geom(); btn(1).click(); await settle(); if (!(val() > down)) fails.push(`${key}: + did nothing (${down} → ${val()})`); }
-      } else if (!key.startsWith('pt3:')) fails.push(`${key}: no − / + buttons`);
+      } else if (!key.startsWith('pt3:') && !key.startsWith('hel:')) fails.push(`${key}: no − / + buttons`);
       // A typed value.
       const input = q(`[data-pm-field="${css(key)}"]`);
       if (input) {

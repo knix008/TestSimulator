@@ -1,6 +1,21 @@
 // Icons of the newer part commands (24×24, stroke = currentColor, the same style as icons-cad.js): body
 // tools, reference geometry, fillet variants, patterns, curves and sketch transform tools.
 export const ICONS_PART = {
+  boundingBox: '<path d="M4 8l8-4 8 4v8l-8 4-8-4z" stroke-dasharray="2.4 1.6"/><path d="M4 8l8 4 8-4M12 12v8" stroke-dasharray="2.4 1.6" opacity="0.7"/><path d="M8 10l4-2 4 2v4l-4 2-4-2z" fill="currentColor" opacity="0.35" stroke="none"/>',
+  // ── more surfaces
+  surfaceSweep: '<path d="M3 17c3-6 6-6 9-3s6 3 9-3" opacity="0.6"/><path d="M5 20c3-6 6-6 9-3s6 3 7-1"/><path d="M3 17l2 3M12 14l2 3M21 11v5" opacity="0.5"/>',
+  cutWithSurface: '<rect x="4" y="9" width="16" height="11" rx="1"/><path d="M2 12c4-4 8 2 12-2s6-2 8-4" stroke-width="2"/>',
+  deleteHole: '<path d="M3 7l9-3 9 3v10l-9 3-9-3z"/><circle cx="12" cy="12" r="3" stroke-dasharray="2 1.5"/><path d="M10 10l4 4M14 10l-4 4"/>',
+  untrimSurface: '<path d="M3 7l9-3 9 3v10l-9 3-9-3z" stroke-dasharray="2 1.6"/><path d="M7 9l5-2 5 2v6l-5 2-5-2z"/>',
+  midSurface: '<path d="M3 6h18M3 18h18"/><path d="M3 12h18" stroke-dasharray="3 1.6" stroke-width="2"/>',
+  radiateSurface: '<rect x="8" y="8" width="8" height="8" rx="0.5"/><path d="M8 8L3 3M16 8l5-5M16 16l5 5M8 16l-5 5M3 3h18v18H3z" opacity="0.55"/>',
+  flattenSurface: '<path d="M3 9c3-5 6-5 9 0s6 5 9 0" opacity="0.6"/><path d="M3 16h18l-3 4H6z"/><path d="M12 10v4M10 12.5l2 2 2-2"/>',
+  // ── fastening features
+  mountingBoss: '<path d="M2 20h20"/><path d="M7 20l1-11h8l1 11"/><ellipse cx="12" cy="9" rx="4" ry="1.4"/><path d="M12 9v8" stroke-dasharray="2 1.5" opacity="0.6"/><path d="M3 20l4-7M21 20l-4-7" opacity="0.6"/>',
+  snapHook: '<path d="M3 21h18"/><path d="M9 21V6h2v15"/><path d="M11 6l4 3v3h-4"/>',
+  snapHookGroove: '<path d="M3 8h6v4h6V8h6v10H3z"/><path d="M9 12l-1 3h8l-1-3" stroke-dasharray="2 1.4" opacity="0.6"/>',
+  vent: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 8v8M11 8v8M15 8v8M19 8v8" stroke-width="2.2" opacity="0.7"/>',
+  lipGroove: '<path d="M3 20V9h5v-4h3v4h2v11"/><path d="M14 20V9h3l0 4h4v7" opacity="0.7"/>',
   // ── bodies
   combineBodies: '<rect x="3" y="7" width="10" height="10" rx="1"/><circle cx="15" cy="12" r="6" opacity="0.6"/><path d="M11 12h4M13 10v4"/>',
   deleteBody: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" opacity="0.55"/><path d="M8 9l8 8M16 9l-8 8" stroke-width="2"/>',
@@ -32,4 +47,17 @@ export const ICONS_PART = {
   copyEntities: '<rect x="3" y="3" width="11" height="11" rx="1"/><rect x="10" y="10" width="11" height="11" rx="1" stroke-dasharray="2 1.5"/>',
   rotateEntities: '<path d="M20 12a8 8 0 1 1-3-6.2"/><path d="M17 2v4h4"/><rect x="9" y="9" width="6" height="6" rx="0.5" transform="rotate(20 12 12)"/>',
   scaleEntities: '<rect x="3" y="12" width="9" height="9" rx="1"/><rect x="3" y="3" width="18" height="18" rx="1" stroke-dasharray="2 1.6" opacity="0.6"/><path d="M12 12l7-7M15 5h4v4"/>',
+  // ── drawings: revision cloud, datum target, area hatch, bend table, aligned section, alternate position, flat pattern view
+  revisionCloud: '<path d="M5 9a2.5 2.5 0 0 1 4-2 2.5 2.5 0 0 1 4.5 0 2.5 2.5 0 0 1 4.5 1.5 2.5 2.5 0 0 1 1 4.5 2.5 2.5 0 0 1-2 4 2.5 2.5 0 0 1-4.5 1 2.5 2.5 0 0 1-4.5 0A2.5 2.5 0 0 1 4 15.5 2.5 2.5 0 0 1 5 9z"/><path d="M10 10l4 4M14 10l-4 4" opacity="0.6"/>',
+  datumTarget: '<circle cx="8" cy="8" r="5.5"/><path d="M2.5 8h11"/><path d="M12 12l5 5"/><path d="M15.5 15.5l5 5M20.5 15.5l-5 5" stroke-width="1.8"/>',
+  areaHatch: '<rect x="3" y="4" width="18" height="16" rx="1" stroke-dasharray="2.4 1.6"/><path d="M3 12l8-8M3 19l15-15M9 20l12-12M16 20l5-5"/>',
+  bendTable: '<rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 9h18M3 14h18M9 4v16M15 4v16" opacity="0.7"/><path d="M5 18c2 0 2-3 3-3" stroke-width="1.6"/>',
+  alignedSection: '<path d="M12 3v9l7 7" stroke-dasharray="4 1.4 1.2 1.4" stroke-width="1.8"/><path d="M9 3h6M16.5 21.5l4-4"/><path d="M5 6l3-3M5 6l3 3" opacity="0.7"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/>',
+  alternatePosition: '<rect x="3" y="12" width="9" height="7" rx="1"/><rect x="11" y="4" width="9" height="7" rx="1" stroke-dasharray="4 1.2 1.2 1.2"/><path d="M8 11l4-3" opacity="0.7"/>',
+  flatPatternView: '<path d="M3 14h18v4H3z"/><path d="M8 14v4M16 14v4" stroke-dasharray="1.6 1.2"/><path d="M6 10V5h12v5" opacity="0.55"/><path d="M12 6v5M10 9l2 2 2-2"/>',
+  // ── advanced hole, intersect, mate reference, save bodies
+  advancedHole: '<path d="M4 4h16" /><path d="M7 4v4h3v9l2 3 2-3V8h3V4" /><path d="M10 12h4M10 15h4" opacity="0.6"/>',
+  intersectRegions: '<circle cx="9" cy="10" r="6"/><circle cx="15" cy="14" r="6"/><path d="M12.2 15.2a6 6 0 0 0 2.6-7 6 6 0 0 0-5.6 1.6 6 6 0 0 0 3 5.4z" fill="currentColor" opacity="0.4" stroke="none"/>',
+  mateReference: '<rect x="3" y="12" width="12" height="8" rx="1"/><path d="M9 12V4M6 7l3-3 3 3"/><path d="M15 16h6M18 13v6" stroke-dasharray="2 1.2"/>',
+  saveBodies: '<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><path d="M7 11v4h5M17 11v4h-5M12 15v6M9 18l3 3 3-3"/>',
 };

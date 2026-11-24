@@ -4,7 +4,8 @@
 // (and cavity), sheet metal base and edge flanges with a flat pattern, and weldment structural members.
 // Built by regenerate() in features.js like the others: each returns { body?, tool?, surface?, curve? }.
 import { rep } from './kernel.js';
-import { profiles, byId, standalonePoints } from './sketch.js';
+import { profiles, byId, standalonePoints, curvePieces, equationError, PIECE_CURVES } from './sketch.js';
+import { reversePieces, ellipseArcPieces } from './sketch-curves.js';
 import { findEdges, findFace, planeOfFace, crossV, normalize, cylinderRadius, isCylinder, faceSignature } from './refs.js';
 import { sketchOf, combine, sizeAround, replicadPlane, codeError, loopDrawing, resolvePlane, toWorld, AXES, regenerate, frame as makeFrame, sketchDrawing } from './features.js';
 import { SHEET_MORE_TYPES, SHEET_MORE_DEFAULTS, SHEET_MORE_NAMES } from './sheet-more-types.js';
@@ -14,6 +15,7 @@ import { partingLoops } from './mold-brep.js';
 import { worldUp, worldFront } from './frame.js';
 import { makeHelixStable, makeCylinderStable, makeCircleStable } from './oriented.js';
 import { buildSheetMore } from './sheet-more.js';
+import { bendFrame, zRange, rotationMap, translationMap, mapFrame } from './sheet-fold.js';
 import { isoThread, threadSolid, cosmeticThread, parseThreadSize, wantsModelled, threadFrame, externalRunoutCore, internalRunoutBlank } from './threads.js';
 
 export const ADVANCED_TYPES = [
@@ -40,15 +42,15 @@ export const ADVANCED_DEFAULTS = {
   surfaceLoft: () => ({ sketches: [], ruled: false }),
   surfaceOffset: () => ({ faces: [], distance: 2 }),
   knit: () => ({ surfaces: [], solid: true }),
-  moveBody: () => ({ dx: 0, dy: 0, dz: 0, axis: 'z', angle: 0, copy: false }),
+  moveBody: () => ({ dx: 0, dy: 0, dz: 0, cx: 0, cy: 0, cz: 0, rx: 0, ry: 0, rz: 0, axis: 'z', angle: 0, copy: false }),
   scaleBody: () => ({ factor: 1.02, about: 'origin' }),
   split: () => ({ plane: { kind: 'std', name: 'top' }, keep: 'above' }),
-  insertPart: () => ({ part: null, op: 'boss', dx: 0, dy: 0, dz: 0, axis: 'z', angle: 0, scale: 1 }),
+  insertPart: () => ({ part: null, body: null, op: 'boss', dx: 0, dy: 0, dz: 0, axis: 'z', angle: 0, scale: 1 }),
   baseFlange: () => ({ sketch: null, thickness: 2, radius: 2, kFactor: 0.44, reverse: false }),
   edgeFlange: () => ({ edge: null, length: 20, angle: 90, radius: null, flip: false }),
   structural: () => ({ sketch: null, profile: 'squareTube', w: 40, h: 40, t: 3, rotate: 0 }),
   fillSurface: () => ({ edges: [], curve: null }),
-  boundary: () => ({ curves: [] }),
+  boundary: () => ({ curves: [], op: 'surface' }),
   trimSurface: () => ({ surface: null, tool: null, plane: { kind: 'std', name: 'top' }, keep: 'above' }),
   hem: () => ({ edge: null, kind: 'closed', length: 10, gap: 1, flip: false }),
   sketchedBend: () => ({ sketch: null, angle: 90, radius: null, flip: false, down: false }),
@@ -64,7 +66,7 @@ export const ADVANCED_NAMES = {
   wrap: 'Wrap', thicken: 'Thicken', surfaceExtrude: 'Surface-Extrude', surfaceRevolve: 'Surface-Revolve', surfacePlanar: 'Surface-Plane', surfaceLoft: 'Surface-Loft',
   surfaceOffset: 'Surface-Offset', knit: 'Surface-Knit', moveBody: 'Body-Move/Copy', scaleBody: 'Scale', split: 'Split', insertPart: 'Insert-Part',
   baseFlange: 'Base-Flange', edgeFlange: 'Edge-Flange', structural: 'Structural Member',
-  fillSurface: 'Surface-Fill', boundary: 'Boundary-Surface', trimSurface: 'Surface-Trim', hem: 'Hem', sketchedBend: 'Sketched Bend', jog: 'Jog',
+  fillSurface: 'Surface-Fill', boundary: 'Boundary-Surface', 'boss-boundary': 'Boundary-Boss', 'cut-boundary': 'Boundary-Cut', trimSurface: 'Surface-Trim', hem: 'Hem', sketchedBend: 'Sketched Bend', jog: 'Jog',
   partingLine: 'Parting Line', toolingSplit: 'Tooling Split', sketch3d: '3DSketch',
   ...SHEET_MORE_NAMES, ...MOLD_MORE_NAMES,
 };
@@ -129,13 +131,15 @@ export function sketchWire(sketch, fr) {
   const R = rep();
   const map = new Map(sketch.entities.map((e) => [e.id, e]));
   const W = (id) => { const p = map.get(id); return toWorld(fr, [p.x, p.y]); };
-  const curves = sketch.entities.filter((e) => !e.construction && ['line', 'arc', 'spline', 'circle'].includes(e.type));
+  const curves = sketch.entities.filter((e) => !e.construction && ['line', 'arc', 'spline', 'circle', 'ellipse', ...PIECE_CURVES].includes(e.type));
   if (!curves.length) throw codeError('no-path');
+  const ellipse = curves.find((e) => e.type === 'ellipse');
+  if (ellipse && curves.length === 1) return R.assembleWire(ellipseEdges(ellipse, map, fr));
   const circle = curves.find((e) => e.type === 'circle');
   if (circle && curves.length === 1) { const c = map.get(circle.c); return R.assembleWire([makeCircleStable(circle.r, toWorld(fr, [c.x, c.y]), fr.normal)]); }
   // Ends merged by position; walk from an end used once (an open path) or from anywhere (a closed one).
   const key = (id) => { const p = map.get(id); return `${Math.round(p.x * 1e5)},${Math.round(p.y * 1e5)}`; };
-  const ends = (e) => (e.type === 'line' || e.type === 'arc' ? [e.p1, e.p2] : [e.pts[0], e.pts[e.pts.length - 1]]);
+  const ends = (e) => (e.type === 'spline' ? [e.pts[0], e.pts[e.pts.length - 1]] : [e.p1, e.p2]);
   const degree = new Map();
   for (const e of curves) for (const id of ends(e)) degree.set(key(id), (degree.get(key(id)) ?? 0) + 1);
   const start = curves.find((e) => ends(e).some((id) => degree.get(key(id)) === 1)) ?? curves[0];
@@ -147,12 +151,35 @@ export function sketchWire(sketch, fr) {
     left.delete(cur);
     const [a, b] = ends(cur);
     const fwd = key(a) === key(at);
-    edges.push(edgeOf(cur, fwd, map, fr, W));
+    edges.push(...[edgeOf(cur, fwd, map, fr, W)].flat());
     at = fwd ? b : a;
     cur = [...left].find((e) => ends(e).some((id) => key(id) === key(at))) ?? null;
   }
   if (left.size) throw codeError('path-not-chain');
   return R.assembleWire(edges);
+}
+
+/** A 3D rational Bézier edge through poles (world points) with weights. */
+export function rationalEdge3(poles, weights) {
+  const R = rep(); const oc = R.getOC();
+  const n = poles.length;
+  const arr = new oc.NCollection_Array1_gp_Pnt(1, n); const w = new oc.NCollection_Array1_double(1, n);
+  const made = [];
+  try {
+    poles.forEach((p, i) => { const q = new oc.gp_Pnt(p[0], p[1], p[2]); made.push(q); arr.SetValue(i + 1, q); w.SetValue(i + 1, weights[i]); });
+    const rational = weights.some((x) => Math.abs(x - weights[0]) > 1e-15);
+    const curve = rational ? new oc.Geom_BezierCurve(arr, w) : new oc.Geom_BezierCurve(arr);
+    const maker = new oc.BRepBuilderAPI_MakeEdge(curve);
+    const edge = new R.Edge(maker.Edge());
+    maker.delete();
+    return edge;
+  } finally { for (const q of made) q.delete(); arr.delete(); w.delete(); }
+}
+
+/** A whole ellipse as four exact rational quadratic edges (a closed path). */
+function ellipseEdges(e, map, fr) {
+  const c = map.get(e.c);
+  return ellipseArcPieces([c.x, c.y], e.rx, e.ry, e.rot ?? 0, 0, Math.PI * 2).map((pc) => rationalEdge3(pc.P.map((p) => toWorld(fr, p)), pc.w));
 }
 
 function edgeOf(e, fwd, map, fr, W) {
@@ -166,6 +193,13 @@ function edgeOf(e, fwd, map, fr, W) {
     const m = (a0 + a1) / 2;
     const mid = toWorld(fr, [c.x + r * Math.cos(m), c.y + r * Math.sin(m)]);
     return fwd ? R.makeThreePointArc(W(e.p1), mid, W(e.p2)) : R.makeThreePointArc(W(e.p2), mid, W(e.p1));
+  }
+  // A partial ellipse, a conic or an equation curve: its exact rational Bézier pieces (the plane map is affine).
+  if (PIECE_CURVES.includes(e.type)) {
+    const pieces = curvePieces({ entities: [...map.values()] }, e, map);
+    if (!pieces.length) throw codeError('equation', { message: equationError(e) ?? '' });
+    const list = (fwd ? pieces : reversePieces(pieces)).map((pc) => rationalEdge3(pc.P.map((p) => toWorld(fr, p)), pc.w));
+    return list;
   }
   // A spline: its Bézier pieces as one approximated curve through its points.
   const pts = e.pts.map((id) => W(id));
@@ -589,12 +623,12 @@ function surfaceRevolve(f, ctx) {
 
 function surfacePlanar(f, ctx) {
   const { sketch, frame } = sketchOf(f, ctx);
-  const regions = profiles(sketch);
-  if (!regions.length) throw codeError('no-profile');
-  let d = null;
-  for (const r of regions) { let x = loopDrawing(r.outer); for (const h of r.holes) x = x.cut(loopDrawing(h)); d = d ? d.fuse(x) : x; }
-  const s = d.sketchOnPlane(replicadPlane(frame));
-  return s.sketches ? rep().makeCompound(s.sketches.map((k) => k.face())) : s.face();
+  const R = rep();
+  // One face per region, its outer loop with its holes (a drawing cut by two or more holes came back as the
+  // outer face without holes plus a disc per hole).
+  const faces = regionWires(sketch, frame).map(({ outer, holes }) => R.makeFace(outer, holes));
+  if (!faces.length) throw codeError('no-profile');
+  return faces.length === 1 ? faces[0] : R.makeCompound(faces);
 }
 
 function surfaceOffset(f, ctx) {
@@ -661,6 +695,13 @@ function buildThicken(f, ctx) {
 
 function movedShape(s, f) {
   let out = s;
+  // Rotation about the X, Y and Z axes through a rotation centre (in that order), so a body can be laid down or
+  // turned over in one feature; then the older single-axis angle about the origin; then the translation.
+  const centre = [num(f.cx), num(f.cy), num(f.cz)];
+  for (const [key, axis] of [['rx', [1, 0, 0]], ['ry', [0, 1, 0]], ['rz', [0, 0, 1]]]) {
+    const a = num(f[key]);
+    if (Math.abs(a) > 1e-9) out = out.rotate(a, centre, axis);
+  }
   const ang = num(f.angle);
   if (Math.abs(ang) > 1e-9) out = out.rotate(ang, [0, 0, 0], AXES[f.axis] ?? worldUp());
   const t = [num(f.dx), num(f.dy), num(f.dz)];
@@ -709,6 +750,16 @@ function buildInsertPart(f, ctx) {
   const r = regenerate(other, { project: ctx.project, stack: ctx.stack });
   if (!r.body) throw codeError('no-body');
   let s = r.body.clone();
+  // One body of a multi-body part (its number from 0, in the part's own order), or all of them.
+  if (f.body !== null && f.body !== undefined && f.body !== '') {
+    const R = rep(); const oc = R.getOC(); const list = [];
+    const ex = new oc.TopExp_Explorer(r.body.wrapped, oc.TopAbs_ShapeEnum.TopAbs_SOLID, oc.TopAbs_ShapeEnum.TopAbs_SHAPE);
+    for (; ex.More(); ex.Next()) list.push(R.cast(oc.TopoDS.Solid(ex.Current())));
+    ex.delete();
+    const one = list[Math.round(Number(f.body))];
+    if (!one) throw codeError('body-missing');
+    s = one;
+  }
   const k = num(f.scale, 1);
   if (Math.abs(k - 1) > 1e-12 && k > 0) s = s.scale(k, [0, 0, 0]);
   const tool = movedShape(s, f);
@@ -760,9 +811,10 @@ function buildEdgeFlange(f, ctx) {
   // The bend goes away from the face the edge is on; Flip bends the other way.
   let b = mul(nb, -into);
   if (f.flip) b = mul(b, -1);
-  // Profile in the (o, b) plane at the edge start; the material is at b ∈ [−t, 0] when the bend goes +b from the picked face.
+  // Profile in the (o, b) plane at the edge start; the material is at b ∈ [−t, 0]. Flipped, the bend turns toward the
+  // material, so its inner face is the opposite sheet face: the profile starts t further along b.
   const flipT = f.flip ? 1 : 0;
-  const base = flipT ? add(s, mul(b, -t)) : s;
+  const base = flipT ? add(s, mul(b, t)) : s;
   let draw;
   if (ctx.flat) {
     const flatLen = bendAllowance(theta, r, t, sm.k) + L;
@@ -784,7 +836,8 @@ function buildEdgeFlange(f, ctx) {
   const plane = new R.Plane(base, o, crossV(o, b));
   const sign = dot(d, crossV(o, b)) >= 0 ? 1 : -1;
   const tool = draw.sketchOnPlane(plane).extrude(sign * len);
-  sm.bends.push({ start: s, end: e, angle: theta, radius: r, outward: o, flat: ctx.flat, allowance: bendAllowance(theta, r, t, sm.k) });
+  const fr = bendFrame(base, o, b); [fr.zLo, fr.zHi] = zRange(fr, s, e);
+  sm.bends.push({ start: s, end: e, angle: theta, radius: r, outward: o, flat: ctx.flat, allowance: bendAllowance(theta, r, t, sm.k), frame: fr, r, t, theta, BA: bendAllowance(theta, r, t, sm.k), L, feature: f.id });
   return { tool, body: ctx.body.fuse(tool), bend: sm.bends.at(-1) };
 }
 
@@ -890,6 +943,12 @@ function buildBoundary(f, ctx) {
   const ids = f.curves ?? [];
   if (ids.length < 2) throw codeError('loft-needs-two');
   const closedProfiles = ids.every((id) => { const sk = ctx.part.features.find((x) => x.id === id && x.type === 'sketch'); return sk && profiles(sk).length; });
+  // Boundary boss / cut: a solid through the closed profiles, added to or cut from the body.
+  if (f.op === 'boss' || f.op === 'cut') {
+    if (!closedProfiles) throw codeError('no-profile');
+    const tool = loftOf(ids, ctx, { ruled: false }, false);
+    return { tool, body: combine(ctx, tool, f.op) };
+  }
   if (closedProfiles) return { surface: loftOf(ids, ctx, { ruled: false }, true) };
   const mk = new oc.BRepOffsetAPI_MakeFilling(3, 15, 2, false, 1e-5, 1e-4, 0.01, 0.1, 8, 9);
   for (const id of ids) {
@@ -999,7 +1058,13 @@ function buildSketchedBend(f, ctx) {
   const allowance = bendAllowance(theta, r, t, sm.k);
   const { near, far } = halves(ctx, base, across);
   const section = sectionOf(near, base, across);
-  sm.bends.push({ sketched: true, angle: theta, radius: r, allowance, flat: ctx.flat });
+  const inner0 = f.down ? base : add(base, mul(nb, t));
+  const up0 = f.down ? mul(nb, -1) : nb;
+  const fr = bendFrame(inner0, across, up0);
+  // Bends already on the side that moves go with it (their frames are where the flange now is).
+  const moved = ctx.flat ? translationMap(mul(across, allowance)) : rotationMap(add(inner0, mul(up0, r)), crossV(across, up0), theta);
+  for (const x of sm.bends) if (x.frame && dot(sub(x.frame.o, base), across) > 1e-6) x.frame = mapFrame(moved, x.frame);
+  sm.bends.push({ sketched: true, angle: theta, radius: r, allowance, flat: ctx.flat, frame: fr, r, t, theta, BA: allowance, L: 1e6, feature: f.id });
   if (ctx.flat) {
     // Flat: the bend becomes a strip of the bend allowance between the halves.
     const fill = R.basicFaceExtrusion(section, new R.Vector(mul(across, allowance)));
@@ -1021,6 +1086,8 @@ function buildJog(f, ctx) {
   const { sm, along, across, nb, base } = bendLine(f, ctx);
   const t = sm.thickness;
   const h = Math.max(t, num(f.height, 10));
+  // A jog is two bends (the press brake sees both); they carry no frame, so Fold cannot map across them.
+  sm.bends.push({ jog: true, flat: ctx.flat, feature: f.id }, { jog: true, flat: ctx.flat, feature: f.id });
   const { near, far } = halves(ctx, base, across);
   const section = sectionOf(near, base, across);
   if (ctx.flat) {

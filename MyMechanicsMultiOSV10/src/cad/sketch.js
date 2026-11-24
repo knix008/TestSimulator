@@ -4,9 +4,19 @@
 // defined (black), under defined (blue) or over defined (red). profiles() finds the closed regions a
 // feature (extrude, revolve, cut) turns into a solid. No DOM, no kernel: plain numbers.
 import { jacobian, levenbergMarquardt, nullSpaceInfo } from './solver.js';
+import { ellipseArcPieces, ellipseParam, ellipseResidual, conicPieces, equationPieces, equationEnds, piecesPolyline, reversePieces } from './sketch-curves.js';
 
 export const ORIGIN = 'O';
-export const ENTITY_TYPES = ['point', 'line', 'circle', 'arc', 'spline', 'ellipse', 'text'];
+/**
+ * ellipseArc: { c, p1, p2, rx, ry, rot } counter-clockwise from p1 to p2 on the ellipse; conic: { p1, pc, p2, rho }
+ * (a parabola is a conic with rho 0.5, marked parabola: true); equation: { mode: 'explicit'|'parametric', fy, fx,
+ * t0, t1, place: { x, y, rot, k, flip }, p1, p2 } — its end points are fixed where the equation puts them.
+ */
+export const ENTITY_TYPES = ['point', 'line', 'circle', 'arc', 'spline', 'ellipse', 'ellipseArc', 'conic', 'equation', 'text'];
+/** The keys of an entity that hold point ids (besides a spline's pts). */
+export const POINT_KEYS = ['p1', 'p2', 'c', 'pc'];
+/** Curves made of rational Bézier pieces (curvePieces). */
+export const PIECE_CURVES = ['ellipseArc', 'conic', 'equation'];
 /** Geometric relations (no value) and dimensions (a value). */
 export const RELATIONS = ['coincident', 'horizontal', 'vertical', 'parallel', 'perpendicular', 'tangent', 'equal', 'concentric', 'midpoint', 'pointOnLine', 'pointOnCircle', 'fix', 'symmetric', 'collinear'];
 export const DIMENSIONS = ['distance', 'hdistance', 'vdistance', 'radius', 'diameter', 'angle'];
@@ -33,7 +43,72 @@ export function pointsOf(e) {
   if (e.type === 'arc') return [e.c, e.p1, e.p2];
   if (e.type === 'spline') return [...new Set(e.pts)];
   if (e.type === 'ellipse') return [e.c];
+  if (e.type === 'ellipseArc') return [e.c, e.p1, e.p2];
+  if (e.type === 'conic') return [e.p1, e.pc, e.p2];
+  if (e.type === 'equation') return [e.p1, e.p2];
   return [];
+}
+
+/** The end points of an open curve (lines, arcs, splines and the piece curves), or null. */
+export function curveEnds(e) {
+  if (!e) return null;
+  if (e.type === 'line' || e.type === 'arc' || PIECE_CURVES.includes(e.type)) return [e.p1, e.p2];
+  if (e.type === 'spline') return e.pts[0] === e.pts.at(-1) ? null : [e.pts[0], e.pts.at(-1)];
+  return null;
+}
+
+/** An equation curve's point at its own coordinates (x, y) placed in the sketch (moved, turned, scaled, mirrored). */
+export function placeEquationPoint(e, [x, y]) {
+  const pl = e.place ?? {};
+  const k = Number(pl.k) || 1; const r = Number(pl.rot) || 0;
+  const yy = pl.flip ? -y : y;
+  const c = Math.cos(r); const s = Math.sin(r);
+  return [(Number(pl.x) || 0) + k * (x * c - yy * s), (Number(pl.y) || 0) + k * (x * s + yy * c)];
+}
+
+/**
+ * The exact rational Bézier pieces of an ellipseArc, conic or equation curve (sketch coordinates, from p1 to p2).
+ * An equation that cannot be evaluated gives [] (its error is in equationError()).
+ */
+export function curvePieces(sketch, e, map = idx(sketch)) {
+  const P = (id) => { const p = map.get(id); return [p.x, p.y]; };
+  if (e.type === 'ellipseArc') {
+    const c = P(e.c); const rot = e.rot ?? 0;
+    return ellipseArcPieces(c, e.rx, e.ry, rot, ellipseParam(c, e.rx, e.ry, rot, P(e.p1)), ellipseParam(c, e.rx, e.ry, rot, P(e.p2)));
+  }
+  if (e.type === 'conic') return conicPieces(P(e.p1), P(e.pc), P(e.p2), e.rho ?? 0.5);
+  if (e.type === 'equation') {
+    let local;
+    try { local = equationPieces(e, EQUATION_TOL); } catch { return []; }
+    // The pieces of the curve in its own coordinates, placed (an affine map keeps Bézier poles exact).
+    return local.map((pc) => ({ P: pc.P.map((p) => placeEquationPoint(e, p)), w: pc.w }));
+  }
+  return [];
+}
+
+/** How close an equation curve's pieces follow its equation (mm). */
+export const EQUATION_TOL = 1e-6;
+
+/** Why an equation curve cannot be drawn (null when it can). */
+export function equationError(e) {
+  try { equationPieces(e); return null; } catch (error) { return error.message; }
+}
+
+/** An equation curve's placement after a similarity map fn([x, y]) → [x, y] (move, turn, scale, mirror) of the sketch. */
+export function mapEquationPlace(e, fn) {
+  const o = placeEquationPoint(e, [0, 0]);
+  const ex = placeEquationPoint(e, [1, 0]); const ey = placeEquationPoint(e, [0, 1]);
+  const o2 = fn(o); const x2 = fn(ex); const y2 = fn(ey);
+  const xa = [x2[0] - o2[0], x2[1] - o2[1]]; const ya = [y2[0] - o2[0], y2[1] - o2[1]];
+  return { x: o2[0], y: o2[1], rot: Math.atan2(xa[1], xa[0]), k: Math.hypot(xa[0], xa[1]), ...(cross(xa, ya) < 0 ? { flip: true } : {}) };
+}
+
+/** Puts an equation curve's (fixed) end points where its equation and placement put them. */
+export function refreshEquation(sketch, e) {
+  let ends;
+  try { ends = equationEnds(e); } catch { return false; }
+  [e.p1, e.p2].forEach((id, i) => { const p = byId(sketch, id); if (p) { const [x, y] = placeEquationPoint(e, ends[i]); p.x = x; p.y = y; p.fixed = true; } });
+  return true;
 }
 
 /** Arc geometry: centre, radius, start and end angle (counter-clockwise from start to end). */
@@ -65,6 +140,11 @@ export function polyline(sketch, e, map = idx(sketch), segments = 48) {
   if (e.type === 'ellipse') {
     const c = map.get(e.c); const cr = Math.cos(e.rot ?? 0); const sr = Math.sin(e.rot ?? 0);
     return Array.from({ length: segments + 1 }, (_, i) => { const t = (i / segments) * Math.PI * 2; const u = e.rx * Math.cos(t); const v = e.ry * Math.sin(t); return [c.x + u * cr - v * sr, c.y + u * sr + v * cr]; });
+  }
+  if (PIECE_CURVES.includes(e.type)) {
+    const pieces = curvePieces(sketch, e, map);
+    if (!pieces.length) return pointsOf(e).filter((id) => map.get(id)).map((id) => [map.get(id).x, map.get(id).y]);
+    return piecesPolyline(pieces, Math.max(4, Math.ceil(segments / Math.max(1, pieces.length / 2) / 2)));
   }
   if (e.type === 'point') return [[e.x, e.y]];
   if (e.type === 'text') {
@@ -308,6 +388,13 @@ function constraintResiduals(c, s, P, R, map, K = 10) {
       return [R(ea.id) - R(eb.id)];
     }
     case 'tangent': {
+      // A partial ellipse, a conic or an equation curve: tangent where it meets the other curve (a shared end).
+      if (PIECE_CURVES.includes(ea.type) || PIECE_CURVES.includes(eb.type)) {
+        const shared = sharedEnd(ea, eb);
+        if (!shared) return [0];
+        const ta = endTangent(ea, shared, P, map); const tb = endTangent(eb, shared, P, map);
+        return [(cross(ta, tb) / ((len(ta) * len(tb)) || 1)) * K];
+      }
       const line = ea.type === 'line' ? ea : eb.type === 'line' ? eb : null;
       if (line) {
         const curve = line === ea ? eb : ea;
@@ -382,6 +469,36 @@ function constraintResiduals(c, s, P, R, map, K = 10) {
   }
 }
 
+/** The end point two open curves share (an id), or null. */
+export function sharedEnd(ea, eb) {
+  const a = curveEnds(ea); const b = curveEnds(eb);
+  return a && b ? a.find((id) => b.includes(id)) ?? null : null;
+}
+
+/** The direction of a curve at one of its end points (sign not significant), from the solver's point accessor. */
+export function endTangent(e, end, P, map) {
+  if (e.type === 'line') return v2(P(e.p1), P(e.p2));
+  if (e.type === 'arc' || e.type === 'circle') { const r = v2(P(e.c), P(end)); return [-r[1], r[0]]; }
+  if (e.type === 'conic') return end === e.p1 ? v2(P(e.p1), P(e.pc)) : v2(P(e.pc), P(e.p2));
+  if (e.type === 'ellipseArc') {
+    const c = P(e.c); const rot = e.rot ?? 0;
+    const t = ellipseParam(c, e.rx, e.ry, rot, P(end));
+    const du = -e.rx * Math.sin(t); const dv = e.ry * Math.cos(t);
+    return [du * Math.cos(rot) - dv * Math.sin(rot), du * Math.sin(rot) + dv * Math.cos(rot)];
+  }
+  if (e.type === 'equation') {
+    const pieces = curvePieces({ entities: [...map.values()] }, e, map);
+    if (!pieces.length) return [1, 0];
+    const pc = end === e.p1 ? pieces[0] : pieces.at(-1);
+    return end === e.p1 ? v2(pc.P[0], pc.P[1]) : v2(pc.P.at(-2), pc.P.at(-1));
+  }
+  if (e.type === 'spline') {
+    const bz = splineBeziers({ entities: [...map.values()] }, e, map);
+    return end === e.pts[0] ? v2(bz[0][0], bz[0][1]) : v2(bz.at(-1)[2], bz.at(-1)[3]);
+  }
+  return [1, 0];
+}
+
 /** The point a horizontal/vertical dimension measures from: the point itself, a circle's centre, a line's start. */
 function anchorPoint(e, map) {
   if (e.type === 'point') return e.id;
@@ -393,6 +510,12 @@ function anchorPoint(e, map) {
 function implicitResiduals(sketch, P) {
   const out = [];
   for (const e of sketch.entities) {
+    if (e.type === 'ellipseArc') {
+      // A partial ellipse's ends stay on its ellipse (its radii and angle are its own values, like an ellipse's).
+      const c = P(e.c);
+      out.push(ellipseResidual(c, e.rx, e.ry, e.rot ?? 0, P(e.p1)), ellipseResidual(c, e.rx, e.ry, e.rot ?? 0, P(e.p2)));
+      continue;
+    }
     if (e.type !== 'arc') continue;
     const c = P(e.c); const a = P(e.p1); const b = P(e.p2);
     out.push(Math.hypot(a[0] - c[0], a[1] - c[1]) - Math.hypot(b[0] - c[0], b[1] - c[1]));
@@ -439,17 +562,19 @@ function system(sketch, { skip = null } = {}) {
  * follows (the point stays as close as the relations allow). Returns { ok, dof, status }:
  * status maps entity id → 'defined' | 'under' | 'over'.
  */
-export function solveSketch(sketch, { drag = null } = {}) {
+export function solveSketch(sketch, { drag = null, drags = null } = {}) {
   const sys = system(sketch);
   let x0 = sys.x0;
   let weights = null;
-  if (drag) {
-    const ix = sys.vars.findIndex((v) => v.id === drag.id && v.key === 'x');
-    if (ix >= 0) {
-      x0 = x0.slice(); x0[ix] = drag.x; x0[ix + 1] = drag.y;
-      weights = new Array(x0.length).fill(0); weights[ix] = 1e4; weights[ix + 1] = 1e4;
-    }
+  // drag: one point pulled to (x, y); drags: several (Stretch) — each stays as close as the relations allow.
+  for (const d of drags ?? (drag ? [drag] : [])) {
+    const ix = sys.vars.findIndex((v) => v.id === d.id && v.key === 'x');
+    if (ix < 0) continue;
+    if (!weights) { x0 = x0.slice(); weights = new Array(x0.length).fill(0); }
+    x0[ix] = d.x; x0[ix + 1] = d.y;
+    weights[ix] = 1e4; weights[ix + 1] = 1e4;
   }
+  drag = drag ?? drags?.[0] ?? null;
   const result = levenbergMarquardt(sys.residuals, x0, { maxIter: 200, tol: 1e-9, weights });
   // Never leave the geometry in a broken state: an unsolvable drag keeps the old positions.
   if (result.ok || !drag) sys.apply(result.x);
@@ -547,6 +672,8 @@ export function relationsFor(sketch, ids) {
   if (n === 2 && count('point') === 1 && count('line') === 1) out.push('coincident', 'midpoint');
   if (n === 2 && count('point') === 1 && count('circle') === 1) out.push('coincident', 'concentric');
   if (n === 3 && count('point') === 2 && count('line') === 1) out.push('symmetric');
+  // A partial ellipse, conic or equation curve joined end to end with another curve.
+  if (n === 2 && ids.some((id) => PIECE_CURVES.includes(byId(sketch, id)?.type)) && sharedEnd(byId(sketch, ids[0]), byId(sketch, ids[1]))) out.push('tangent');
   return out;
 }
 
@@ -600,7 +727,8 @@ export function autoRelationsForLine(sketch, line, tol = 0.035) {
 /** Merges point `from` into point `into` (a coincident end: the curves of `from` now use `into`). */
 export function mergePoints(sketch, from, into) {
   if (from === into || from === ORIGIN) return;
-  for (const e of sketch.entities) for (const k of ['p1', 'p2', 'c']) if (e[k] === from) e[k] = into;
+  for (const e of sketch.entities) for (const k of POINT_KEYS) if (e[k] === from) e[k] = into;
+  for (const e of sketch.entities) if (e.pts) e.pts = e.pts.map((id) => (id === from ? into : id));
   for (const c of sketch.constraints) for (const k of ['a', 'b', 'c']) if (c[k] === from) c[k] = into;
   sketch.entities = sketch.entities.filter((e) => e.id !== from);
   sketch.constraints = sketch.constraints.filter((c) => !(c.type === 'coincident' && c.a === c.b));
@@ -641,7 +769,7 @@ export function hitTest(sketch, x, y, tol, { skip = null } = {}) {
  */
 export function profiles(sketch) {
   const map = idx(sketch);
-  const curves = sketch.entities.filter((e) => !e.construction && ['line', 'arc', 'circle', 'spline', 'ellipse'].includes(e.type));
+  const curves = sketch.entities.filter((e) => !e.construction && ['line', 'arc', 'circle', 'spline', 'ellipse', ...PIECE_CURVES].includes(e.type));
   const loops = [];
   // Circles and ellipses are closed by themselves.
   for (const e of curves.filter((x) => x.type === 'circle')) {
@@ -686,6 +814,20 @@ export function profiles(sketch) {
       const a = vertexOf(e.pts[0]); const b = vertexOf(e.pts[e.pts.length - 1]);
       if (a === b) continue;
       edges.push({ e, a, b, kind: 'spline', bez: splineBeziers(sketch, e, map) });
+    } else if (PIECE_CURVES.includes(e.type)) {
+      const pieces = curvePieces(sketch, e, map);
+      if (!pieces.length) continue;
+      const a = vertexOf(e.p1); const b = vertexOf(e.p2);
+      if (a === b) {
+        // A closed equation curve (both ends at one place) is a loop of its own.
+        const points = piecesPolyline(pieces, 12).slice(0, -1);
+        let area = polygonArea(points);
+        let seg = { kind: 'pieces', pieces, from: pieces[0].P[0], to: pieces.at(-1).P.at(-1) };
+        if (area < 0) { seg = reversePieceSeg(seg); area = -area; points.reverse(); }
+        if (area > tol) loops.push({ segs: [seg], area, points });
+        continue;
+      }
+      edges.push({ e, a, b, kind: 'pieces', pieces });
     }
   }
   // Loose ends never close a region: drop edges with an end used once, again and again.
@@ -748,6 +890,13 @@ export function profiles(sketch) {
 function leaveAngle(h) {
   const { ed } = h;
   if (ed.kind === 'line') return Math.atan2(h.to.y - h.from.y, h.to.x - h.from.x);
+  if (ed.kind === 'pieces') {
+    // Leaves along the first pole leg that has a length (forward) or the last one (backward).
+    const pc = h.fwd ? ed.pieces[0] : ed.pieces.at(-1);
+    const P = h.fwd ? pc.P : pc.P.slice().reverse();
+    const q = P.slice(1).find((x) => Math.hypot(x[0] - P[0][0], x[1] - P[0][1]) > 1e-12) ?? P.at(-1);
+    return Math.atan2(q[1] - P[0][1], q[0] - P[0][0]);
+  }
   if (ed.kind === 'spline') {
     // Leaves along its first control leg (forward) or its last one (backward).
     const b = h.fwd ? ed.bez[0] : ed.bez.at(-1);
@@ -764,6 +913,7 @@ function segmentOf(h) {
   const { ed } = h;
   const a = [h.from.x, h.from.y]; const b = [h.to.x, h.to.y];
   if (ed.kind === 'line') return { kind: 'line', a, b };
+  if (ed.kind === 'pieces') { const seg = { kind: 'pieces', pieces: ed.pieces, from: ed.pieces[0].P[0], to: ed.pieces.at(-1).P.at(-1) }; return h.fwd ? seg : reversePieceSeg(seg); }
   if (ed.kind === 'spline') { const seg = { kind: 'spline', beziers: ed.bez, from: ed.bez[0][0], to: ed.bez.at(-1)[3] }; return h.fwd ? seg : reverseSpline(seg); }
   const { cx, cy, r, a0, a1 } = ed.g;
   const m = (a0 + a1) / 2;
@@ -775,8 +925,14 @@ function reverseSpline(s) {
   return { kind: 'spline', beziers, from: beziers[0][0], to: beziers.at(-1)[3] };
 }
 
+function reversePieceSeg(s) {
+  const pieces = reversePieces(s.pieces);
+  return { kind: 'pieces', pieces, from: pieces[0].P[0], to: pieces.at(-1).P.at(-1) };
+}
+
 function segmentPoints(s) {
   if (s.kind === 'line') return [s.a];
+  if (s.kind === 'pieces') return piecesPolyline(s.pieces, 12).slice(0, -1);
   if (s.kind === 'spline') { const out = []; for (const [p0, c1, c2, p3] of s.beziers) for (let i = 0; i < 12; i++) out.push(bezierAt(p0, c1, c2, p3, i / 12)); return out; }
   const n = 24;
   const out = [];

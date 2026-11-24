@@ -6,6 +6,11 @@
 //
 // Flex and Deform rebuild the body as a fine faceted solid (its triangles moved one by one, then sewn):
 // an approximation of the smooth result, but a real closed solid that later features can cut and join.
+import { buildOpenScad } from './openscad-feature.js';
+import { buildFastening } from './fastening.js';
+import { buildSurfaceMore } from './surface-more.js';
+import { buildSheetExtra } from './sheet-extra.js';
+import { buildPartExtra } from './part-extra.js';
 import { rep } from './kernel.js';
 import { byId, profiles, standalonePoints } from './sketch.js';
 import { findEdges, findFace, planeOfFace, crossV, normalize, isCylinder } from './refs.js';
@@ -28,6 +33,11 @@ const DIRS = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1], '-x': [-1, 0, 0], '-y':
 
 export function buildPartMore(f, ctx) {
   switch (f.type) {
+    case 'openscad': return buildOpenScad(f, ctx);
+    case 'mountingBoss': case 'snapHook': case 'snapHookGroove': case 'vent': case 'lipGroove': return buildFastening(f, ctx);
+    case 'surfaceSweep': case 'cutWithSurface': case 'deleteHole': case 'untrimSurface': case 'midSurface': case 'radiateSurface': case 'flattenSurface': return buildSurfaceMore(f, ctx);
+    case 'convertSheet': case 'insertBends': case 'rip': case 'unfold': case 'fold': case 'crossBreak': case 'weldedCorner': case 'tabSlot': return buildSheetExtra(f, ctx);
+    case 'advancedHole': case 'intersect': case 'mateReference': return buildPartExtra(f, ctx);
     case 'combine': return buildCombine(f, ctx);
     case 'deleteBody': return buildDeleteBody(f, ctx);
     case 'indent': return buildIndent(f, ctx);
@@ -35,6 +45,7 @@ export function buildPartMore(f, ctx) {
     case 'deform': return buildDeform(f, ctx);
     case 'refAxis': return buildRefAxis(f, ctx);
     case 'refPoint': return buildRefPoint(f, ctx);
+    case 'boundingBox': return buildBoundingBox(f, ctx);
     case 'coordSys': return buildCoordSys(f, ctx);
     case 'variableFillet': return buildVariableFillet(f, ctx);
     case 'faceFillet': return buildFaceFillet(f, ctx);
@@ -404,7 +415,96 @@ export function pointOfRef(f, ctx) {
     if (!edge) throw codeError('edge-missing');
     return vec(edge.pointAt(Math.max(0, Math.min(1, num(f.at, 0.5)))));
   }
+  if (f.kind === 'centerOfMass') {
+    // The centre of mass of the bodies built so far (uniform density: the volume centroid), moving with the model.
+    if (!ctx.body) throw codeError('no-body');
+    const p = rep().measureShapeVolumeProperties(ctx.body);
+    const c = [...p.centerOfMass];
+    p.delete?.();
+    return c;
+  }
   return [num(f.x), num(f.y), num(f.z)];
+}
+
+// ───────────────────────── bounding box
+
+/** The exact axis-aligned box of a shape in a frame (origin, x, y, z unit vectors): [lo, hi] in frame coordinates. */
+export function boxInFrame(shape, fr) {
+  const R = rep(); const oc = R.getOC();
+  const ax = R.makeAx3(fr.origin, fr.z, fr.x);
+  const trsf = new oc.gp_Trsf();
+  trsf.SetTransformation(ax);
+  const moved = new oc.BRepBuilderAPI_Transform(shape.wrapped, trsf, true, false);
+  const box = new oc.Bnd_Box();
+  try {
+    oc.BRepBndLib.AddOptimal(moved.Shape(), box, false, false);
+    if (box.IsVoid()) throw codeError('no-body');
+    return [[box.GetXMin(), box.GetYMin(), box.GetZMin()], [box.GetXMax(), box.GetYMax(), box.GetZMax()]];
+  } finally { box.delete(); moved.delete(); trsf.delete(); ax.delete(); }
+}
+
+/** Frames to try for a best-fit box: OCCT's optimal oriented box, and each planar face's normal with its edges. */
+function boxCandidates(shape) {
+  const R = rep(); const oc = R.getOC();
+  const out = [];
+  const obb = new oc.Bnd_OBB();
+  try {
+    oc.BRepBndLib.AddOBB(shape.wrapped, obb, false, true, false);
+    if (!obb.IsVoid()) {
+      const d = (xyz) => normalize([xyz.X(), xyz.Y(), xyz.Z()]);
+      const x = d(obb.XDirection()); const y = d(obb.YDirection());
+      out.push({ x, y, z: normalize(crossV(x, y)) });
+    }
+  } catch { /* no oriented box: the face frames below */ } finally { obb.delete(); }
+  const seen = [];
+  for (const face of shape.faces) {
+    if (face.geomType !== 'PLANE') continue;
+    let n; try { n = normalize(vec(face.normalAt(face.center))); } catch { continue; }
+    if (seen.some((m) => Math.abs(Math.abs(n[0] * m[0] + n[1] * m[1] + n[2] * m[2]) - 1) < 1e-9)) continue;
+    seen.push(n);
+    // In-plane directions: each straight edge of the face (the box side lies along one of them for a prism).
+    const dirs = [];
+    for (const e of face.edges) if (e.geomType === 'LINE') { const d = normalize(sub(vec(e.endPoint), vec(e.startPoint))); if (!dirs.some((q) => Math.abs(Math.abs(q[0] * d[0] + q[1] * d[1] + q[2] * d[2]) - 1) < 1e-9)) dirs.push(d); }
+    if (!dirs.length) { const t = Math.abs(n[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0]; dirs.push(normalize(crossV(n, t))); }
+    for (const x of dirs.slice(0, 12)) out.push({ x, y: normalize(crossV(n, x)), z: n });
+    if (seen.length > 40) break;
+  }
+  out.push({ x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] });
+  return out;
+}
+
+/**
+ * Bounding box (reference geometry): the smallest box around the bodies — best fit (the least volume among the
+ * optimal oriented box and boxes square to the part's planar faces) or square to a plane. Its 12 edges are the
+ * feature's curve; `box` gives the centre, the axes and the sizes (length ≥ width ≥ thickness) and the volume.
+ */
+function buildBoundingBox(f, ctx) {
+  if (!ctx.body) throw codeError('no-body');
+  const R = rep();
+  let best = null;
+  const consider = (axes) => {
+    const fr = { origin: [0, 0, 0], ...axes };
+    const [lo, hi] = boxInFrame(ctx.body, fr);
+    const size = [hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]];
+    const volume = size[0] * size[1] * size[2];
+    if (!best || volume < best.volume - 1e-9 * Math.max(1, volume)) best = { axes, lo, hi, size, volume };
+  };
+  if (f.mode === 'plane') {
+    const pf = planeOf(f.plane, ctx);
+    consider({ x: pf.xDir, y: normalize(crossV(pf.normal, pf.xDir)), z: pf.normal });
+  } else for (const c of boxCandidates(ctx.body)) consider(c);
+  const { axes, lo, hi, size } = best;
+  const at = (u, v, w) => add(add(mul(axes.x, u), mul(axes.y, v)), mul(axes.z, w));
+  const corners = [];
+  for (const w of [lo[2], hi[2]]) for (const [u, v] of [[lo[0], lo[1]], [hi[0], lo[1]], [hi[0], hi[1]], [lo[0], hi[1]]]) corners.push(at(u, v, w));
+  const lines = [];
+  for (let i = 0; i < 4; i++) {
+    lines.push(R.makeLine(corners[i], corners[(i + 1) % 4]), R.makeLine(corners[4 + i], corners[4 + ((i + 1) % 4)]));
+    if (size[2] > 1e-9) lines.push(R.makeLine(corners[i], corners[4 + i]));
+  }
+  const sorted = [...size].sort((a, b) => b - a);
+  const centre = at((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2);
+  return { curve: R.makeCompound(lines), box: { centre, axes, size, length: sorted[0], width: sorted[1], thickness: sorted[2], volume: best.volume } };
 }
 
 const crossMark = (p, s) => {

@@ -12,7 +12,7 @@ pub const CHUNK: usize = 1 << 20;
 /// Extensions the app opens: projects, templates, StarUML projects and fragments, JSON,
 /// XMI 2.x (Enterprise Architect, MagicDraw, Papyrus).
 /// "muml" is the extension of version 1.0 projects; they still open.
-pub const DIAGRAM_EXTENSIONS: [&str; 12] = ["mymech", "step", "stp", "igs", "iges", "x_t", "x_b", "xmt_txt", "xmt_bin", "dwg", "dxf", "stl"];
+pub const DIAGRAM_EXTENSIONS: [&str; 13] = ["mymech", "step", "stp", "igs", "iges", "x_t", "x_b", "xmt_txt", "xmt_bin", "dwg", "dxf", "stl", "scad"];
 
 /// Test hook: `MYMECHANICS_IO_DELAY_MS` slows every chunk so the progress window can be checked.
 fn chunk_delay() -> Option<Duration> {

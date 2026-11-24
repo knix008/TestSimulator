@@ -173,7 +173,7 @@ export function sheetMoreStart(type, part, picked, list) {
 }
 
 /** Feature types whose result is a surface body (for the surface choosers). */
-export const SURFACE_LIKE = ['surfaceExtrude', 'surfaceRevolve', 'surfacePlanar', 'surfaceLoft', 'surfaceOffset', 'knit', 'fillSurface', 'boundary', 'trimSurface', 'ruledSurface', 'extendSurface', 'deleteFace'];
+export const SURFACE_LIKE = ['surfaceExtrude', 'surfaceRevolve', 'surfacePlanar', 'surfaceLoft', 'surfaceOffset', 'knit', 'fillSurface', 'boundary', 'trimSurface', 'ruledSurface', 'extendSurface', 'deleteFace', 'surfaceSweep', 'deleteHole', 'untrimSurface', 'midSurface', 'radiateSurface', 'flattenSurface'];
 
 /**
  * The cut list's rows of the weldment features: members with their trimmed / extended lengths, end caps,

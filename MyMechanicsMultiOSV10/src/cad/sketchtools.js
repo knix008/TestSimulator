@@ -3,7 +3,9 @@
 // (cut a curve where others cross it and remove the picked piece) and extend (a line to the next curve).
 // Plain numbers on the sketch's entities — no DOM, no kernel. Every tool keeps the geometry connected
 // (shared points) and adds the expected relations (tangent, symmetric, equal …).
-import { addArc, addConstraint, addLine, arcGeometry, byId, newSketchId, pointsOf, polyline, removeEntities, ORIGIN } from './sketch.js';
+import { addArc, addConstraint, addLine, arcGeometry, byId, newSketchId, pointsOf, polyline, removeEntities, refreshEquation, mapEquationPlace, ORIGIN, POINT_KEYS } from './sketch.js';
+import { ellipsePoint, parabolaSegment, equationPieces } from './sketch-curves.js';
+import { curveIntersections, trimCurveAt } from './sketch-draw.js';
 
 const pt = (sketch, x, y, extra = {}) => { const p = { id: newSketchId('p'), type: 'point', x, y, ...extra }; sketch.entities.push(p); return p; };
 const P = (sketch, id) => { const p = byId(sketch, id); return [p.x, p.y]; };
@@ -29,6 +31,57 @@ export function addEllipse(sketch, cx, cy, rx, ry, rot = 0, { center = null, con
   const c = center ? byId(sketch, center) : pt(sketch, cx, cy);
   const e = { id: newSketchId('e'), type: 'ellipse', c: c.id, rx: Math.max(1e-3, Math.abs(rx)), ry: Math.max(1e-3, Math.abs(ry)), rot, ...(construction ? { construction: true } : {}) };
   sketch.entities.push(e);
+  return e;
+}
+
+/**
+ * A partial ellipse: centre (cx, cy), half axes rx, ry turned by `rot`, counter-clockwise from parameter angle t0
+ * to t1. `from` / `to` / `center` reuse existing points (they are moved onto the ellipse by the solver).
+ */
+export function addEllipseArc(sketch, cx, cy, rx, ry, rot, t0, t1, { center = null, from = null, to = null, construction = false } = {}) {
+  const c = center ? byId(sketch, center) : pt(sketch, cx, cy);
+  const at = (t) => ellipsePoint([c.x, c.y], rx, ry, rot, t);
+  const p1 = from ? byId(sketch, from) : pt(sketch, ...at(t0));
+  const p2 = to ? byId(sketch, to) : pt(sketch, ...at(t1));
+  const e = { id: newSketchId('e'), type: 'ellipseArc', c: c.id, p1: p1.id, p2: p2.id, rx: Math.max(1e-3, Math.abs(rx)), ry: Math.max(1e-3, Math.abs(ry)), rot, ...(construction ? { construction: true } : {}) };
+  sketch.entities.push(e);
+  return e;
+}
+
+/** A conic from p0 to p2 whose end tangents meet at pc; rho (0 … 1, 0.5 = parabola) sets its fullness. */
+export function addConic(sketch, p0, pc, p2, rho = 0.5, { from = null, to = null, parabola = false, construction = false } = {}) {
+  const a = from ? byId(sketch, from) : pt(sketch, ...p0);
+  const c = pt(sketch, ...pc, { construction: true });
+  const b = to ? byId(sketch, to) : pt(sketch, ...p2);
+  const e = { id: newSketchId('n'), type: 'conic', p1: a.id, pc: c.id, p2: b.id, rho: Math.min(0.99, Math.max(0.01, Number(rho) || 0.5)), ...(parabola ? { parabola: true } : {}), ...(construction ? { construction: true } : {}) };
+  sketch.entities.push(e);
+  return e;
+}
+
+/** A parabola from its focus and apex, between the points of it beside `a` and `b`. Null when they do not make one. */
+export function addParabola(sketch, focus, apex, a, b, options = {}) {
+  const seg = parabolaSegment(focus, apex, a, b);
+  if (!seg) return null;
+  const e = addConic(sketch, seg.p0, seg.pc, seg.p2, 0.5, { ...options, parabola: true });
+  e.focus = [...focus]; e.apex = [...apex];
+  return e;
+}
+
+/**
+ * An equation-driven curve: explicit { fy: 'f(x)', t0: x1, t1: x2 } or parametric { mode: 'parametric', fx, fy,
+ * t0, t1 } (angles in radians). Its end points are fixed where the equation puts them. Throws when the equation
+ * cannot be evaluated over the range.
+ */
+export function addEquationCurve(sketch, def, { place = null, construction = false } = {}) {
+  const e = { id: newSketchId('q'), type: 'equation', mode: def.mode === 'parametric' ? 'parametric' : 'explicit', fy: String(def.fy ?? ''), ...(def.mode === 'parametric' ? { fx: String(def.fx ?? '') } : {}), t0: Number(def.t0), t1: Number(def.t1), ...(place ? { place: { ...place } } : {}), ...(construction ? { construction: true } : {}) };
+  const pieces = equationPieces(e);
+  const ends = [pieces[0].P[0], pieces.at(-1).P.at(-1)];
+  const pa = pt(sketch, 0, 0, { fixed: true });
+  const closed = Math.hypot(ends[0][0] - ends[1][0], ends[0][1] - ends[1][1]) < 1e-9;
+  const pb = closed ? pa : pt(sketch, 0, 0, { fixed: true });
+  e.p1 = pa.id; e.p2 = pb.id;
+  sketch.entities.push(e);
+  refreshEquation(sketch, e);
   return e;
 }
 
@@ -171,15 +224,18 @@ function copyEntities(sketch, ids, fn, { reverse = false } = {}) {
   const made = [];
   for (const e of curves) {
     const n = { ...JSON.parse(JSON.stringify(e)), id: newSketchId(e.type[0]) };
-    for (const k of ['p1', 'p2', 'c']) if (n[k]) n[k] = map.get(n[k]);
+    for (const k of POINT_KEYS) if (n[k]) n[k] = map.get(n[k]);
     if (n.pts) n.pts = n.pts.map((id) => map.get(id));
     // A reflection turns an arc's direction around: its ends swap.
-    if (reverse && n.type === 'arc') [n.p1, n.p2] = [n.p2, n.p1];
-    if (n.type === 'ellipse') {
+    if (reverse && (n.type === 'arc' || n.type === 'ellipseArc')) [n.p1, n.p2] = [n.p2, n.p1];
+    if (n.type === 'ellipse' || n.type === 'ellipseArc') {
       const c = byId(sketch, e.c); const ax = fn([c.x + Math.cos(e.rot ?? 0), c.y + Math.sin(e.rot ?? 0)]); const nc = byId(sketch, n.c);
       n.rot = Math.atan2(ax[1] - nc.y, ax[0] - nc.x);
     }
+    if (n.type === 'equation') n.place = mapEquationPlace(e, fn);
+    if (n.focus) { n.focus = fn(e.focus); n.apex = fn(e.apex); }
     sketch.entities.push(n);
+    if (n.type === 'equation') refreshEquation(sketch, n);
     made.push(n);
   }
   for (const id of pointIds) if (!curves.some((e) => pointsOf(e).includes(id))) made.push(byId(sketch, map.get(id)));
@@ -227,8 +283,10 @@ export function circularSketchPattern(sketch, ids, { cx = 0, cy = 0, count = 6, 
 /** Where curve `e` is crossed by the other curves: parameters along it (lines: 0..1; circles / arcs: angle). */
 function crossings(sketch, e) {
   const out = [];
-  const others = sketch.entities.filter((o) => o !== e && !o.construction && ['line', 'circle', 'arc'].includes(o.type));
-  for (const o of others) for (const p of intersect(sketch, e, o)) out.push(p);
+  const analytic = (x) => ['line', 'circle', 'arc'].includes(x.type);
+  const others = sketch.entities.filter((o) => o !== e && !o.construction && o.type !== 'point' && o.type !== 'text');
+  // Lines, circles and arcs meet in closed form; any other curve (ellipses, conics, equation curves, splines) numerically.
+  for (const o of others) for (const p of analytic(o) ? intersect(sketch, e, o) : curveIntersections(sketch, e, o).map((h) => h.point)) out.push(p);
   return out;
 }
 
@@ -281,7 +339,7 @@ export function intersect(sketch, e, o) {
 export function trimAt(sketch, id, x, y) {
   const e = byId(sketch, id);
   if (!e || e.id === ORIGIN) return false;
-  if (!['line', 'circle', 'arc'].includes(e.type)) { removeEntities(sketch, [id]); return true; }
+  if (!['line', 'circle', 'arc'].includes(e.type)) return trimCurveAt(sketch, id, x, y, removeEntities);
   const xs = crossings(sketch, e);
   if (e.type === 'line') {
     const a = P(sketch, e.p1); const b = P(sketch, e.p2); const d = sub(b, a); const L2 = dot(d, d) || 1;
@@ -340,8 +398,9 @@ export function extendAt(sketch, id, x, y) {
   const tmp = { ...sketch, entities: [...sketch.entities, { id: '_r1', type: 'point', x: to[0], y: to[1] }, { id: '_r2', type: 'point', x: to[0] + d[0] * far, y: to[1] + d[1] * far }, probe] };
   let best = null;
   for (const o of sketch.entities) {
-    if (o.id === e.id || o.construction || !['line', 'circle', 'arc'].includes(o.type)) continue;
-    for (const p of intersect(tmp, probe, o)) {
+    if (o.id === e.id || o.construction || o.type === 'point' || o.type === 'text') continue;
+    const hits = ['line', 'circle', 'arc'].includes(o.type) ? intersect(tmp, probe, o) : curveIntersections(tmp, probe, o, 2048).map((h) => h.point);
+    for (const p of hits) {
       const t = dot(sub(p, from), d);
       if (t > L + 1e-6 && (!best || t < best.t)) best = { t, p };
     }

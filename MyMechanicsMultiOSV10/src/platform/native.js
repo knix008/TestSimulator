@@ -7,7 +7,7 @@ import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog';
 import { getLanguage, t } from '../i18n.js';
 /** CAD files the app opens or imports besides its own documents (.mymech). */
-export const MODEL_EXTENSIONS = ['step', 'stp', 'igs', 'iges', 'x_t', 'x_b', 'xmt_txt', 'xmt_bin', 'dwg', 'dxf', 'stl', 'obj', 'ply', 'gltf', 'glb', '3mf', 'wrl', 'vrml'];
+export const MODEL_EXTENSIONS = ['step', 'stp', 'igs', 'iges', 'x_t', 'x_b', 'xmt_txt', 'xmt_bin', 'dwg', 'dxf', 'stl', 'obj', 'ply', 'gltf', 'glb', '3mf', 'wrl', 'vrml', 'scad'];
 import { idbDelete, idbGet, idbSet } from './idb.js';
 
 // A popup shown as a frame inside the main window (web build, tutorial) works like the web build.
@@ -69,6 +69,8 @@ export const emitTo = (target, event, payload) => (isDesktop() ? tauriEmitTo(tar
 export const readTextFile = (path, op) => invoke('read_text_file', { path, op });
 export const writeTextFile = (path, content, op) => invoke('write_text_file', { path, content, op });
 export const pathsExist = (paths) => (isDesktop() ? invoke('paths_exist', { paths }) : Promise.resolve(paths.map(() => true)));
+/** OpenSCAD's library folders on this computer (desktop; none in a browser). */
+export const scadLibraryDirs = () => (isDesktop() ? invoke('scad_library_dirs').catch(() => []) : Promise.resolve([]));
 
 // Model extensions come from io/formats.js (the one list of importable 3D formats).
 const PROJECT_FILTERS = () => [
@@ -85,6 +87,7 @@ export const SAVE_TYPES = {
   x_b: { name: 'Parasolid binary (*.x_b)', extensions: ['x_b'] },
   dxf: { name: 'DXF (*.dxf)', extensions: ['dxf'] },
   dwg: { name: 'DWG R2000 (*.dwg)', extensions: ['dwg'] },
+  scad: { name: 'OpenSCAD (*.scad)', extensions: ['scad'] },
   glb: { name: 'glTF binary (*.glb)', extensions: ['glb'] },
   gltf: { name: 'glTF (*.gltf)', extensions: ['gltf'] },
   obj: { name: 'Wavefront OBJ (*.obj)', extensions: ['obj'] },
@@ -138,7 +141,7 @@ export async function chooseModelFiles(defaultPath) {
   const picked = testPick('__mymechanicsModelPicks');
   if (picked) return [].concat(picked.value ?? []);
   // First filter: every model plus side files (.mtl, textures, .bin), then one per format.
-  const result = await openDialog({ multiple: true, directory: false, defaultPath: defaultPath ?? undefined, filters: [{ name: getLanguage() === 'ko' ? 'CAD 모델·도면 (STEP·IGES·Parasolid·DWG·DXF·STL)' : 'CAD models and drawings (STEP, IGES, Parasolid, DWG, DXF, STL)', extensions: MODEL_EXTENSIONS }] });
+  const result = await openDialog({ multiple: true, directory: false, defaultPath: defaultPath ?? undefined, filters: [{ name: getLanguage() === 'ko' ? 'CAD 모델·도면 (STEP·IGES·Parasolid·DWG·DXF·STL·OpenSCAD)' : 'CAD models and drawings (STEP, IGES, Parasolid, DWG, DXF, STL, OpenSCAD)', extensions: MODEL_EXTENSIONS }] });
   if (!result) return [];
   return Array.isArray(result) ? result : [result];
 }
@@ -372,6 +375,9 @@ export const listFiles = (dir, extensions) => invoke('list_files', { dir, extens
 
 /** Web: a whole folder picked (sub-folders included) → File objects with webkitRelativePath. */
 export function pickFolderWeb() {
+  // Tests hand the folder's files in (no dialog): window.__mymechanicsFolderPicks = [[file-like, …]].
+  const picked = testPick('__mymechanicsFolderPicks');
+  if (picked) return Promise.resolve([].concat(picked.value ?? []));
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';

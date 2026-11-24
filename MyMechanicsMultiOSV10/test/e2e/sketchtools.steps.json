@@ -1,0 +1,839 @@
+[
+  {
+    "name": "sk2: kernel",
+    "eval": "window.__mymechanics.actions.ensureKernel().then(() => 'ready')",
+    "expect": "^ready$"
+  },
+  {
+    "name": "sk2: new part",
+    "eval": "window.__mymechanics.actions.closeProject({ force: true }).then(() => window.__mymechanics.actions.newDocument('part')).then(() => 'ok')",
+    "expect": "^ok$",
+    "wait": 300
+  },
+  {
+    "name": "sk2: sketch on the Top plane, zoomed so 1 mm is 2 px",
+    "eval": "window.__mymechanics.run('sketch').then(async () => { document.querySelector('[data-pm=\"sketchOn:top\"]').click(); await new Promise((r) => setTimeout(r, 600)); const m = window.__mymechanics; const vp = m.viewport; m.actions.updateSettings({ snapToGrid: false }, { quiet: true }); const ed = m.state.editing.editor; const { toWorld } = await import('/src/cad/features.js'); window.__sk = (u, v) => { const r = vp.canvas.getBoundingClientRect(); const s = vp.toScreen(toWorld(ed.frame, [u, v])); return [s.x + r.left, s.y + r.top]; }; const a = window.__sk(0, 0); const b = window.__sk(100, 0); return Math.round(Math.hypot(b[0] - a[0], b[1] - a[1])) > 60 ? 'ok' : 'too small ' + Math.hypot(b[0] - a[0], b[1] - a[1]); })",
+    "expect": "^ok$"
+  },
+  {
+    "name": "sk2: view framed on the drawing area (-60 … 160 mm)",
+    "eval": "(async () => { const m = window.__mymechanics; const vp = m.viewport; const { toWorld } = await import('/src/cad/features.js'); const ed = m.state.editing.editor; const c = toWorld(ed.frame, [50, 15]); vp.target.set(c[0], c[1], c[2]); const r = vp.canvas.getBoundingClientRect(); const inside = () => [window.__sk(-70, -80), window.__sk(170, 110)].every(([x, y]) => x > r.left && x < r.right && y > r.top && y < r.bottom); vp.distance = 50; vp.updateCamera(); for (let i = 0; i < 40 && !inside(); i++) { vp.distance *= 1.25; vp.updateCamera(); } await new Promise((r2) => setTimeout(r2, 300)); const p = window.__sk(-60, -70); const q = window.__sk(160, 100); return [p, q].every(([x, y]) => x > r.left && x < r.right && y > r.top && y < r.bottom) ? 'inside' : JSON.stringify({ p, q, r }); })()",
+    "expect": "^inside$"
+  },
+  {
+    "name": "sk2: parallelogram tool",
+    "eval": "window.__mymechanics.run('sk:parallelogram').then(() => window.__mymechanics.state.editing.editor.tool)",
+    "expect": "^parallelogram$"
+  },
+  {
+    "mouse": [
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(0, 0)[0]",
+        "y": "window.__sk(0, 0)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(0, 0)[0]",
+        "y": "window.__sk(0, 0)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(0, 0)[0]",
+        "y": "window.__sk(0, 0)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(40, 0)[0]",
+        "y": "window.__sk(40, 0)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(40, 0)[0]",
+        "y": "window.__sk(40, 0)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(40, 0)[0]",
+        "y": "window.__sk(40, 0)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(52, 20)[0]",
+        "y": "window.__sk(52, 20)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(52, 20)[0]",
+        "y": "window.__sk(52, 20)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(52, 20)[0]",
+        "y": "window.__sk(52, 20)[1]",
+        "button": "left"
+      }
+    ],
+    "wait": 250
+  },
+  {
+    "name": "sk2: parallelogram — four lines, opposite sides parallel, area 40 × 20",
+    "eval": "(async () => { const ed = window.__mymechanics.state.editing.editor; const { profiles, polygonArea } = await import('/src/cad/sketch.js'); const reg = profiles(ed.sketch); return JSON.stringify({ lines: window.__mymechanics.state.editing.editor.sketch.entities.filter((e) => e.type === 'line' && !e.construction).length, parallel: ed.sketch.constraints.filter((k) => k.type === 'parallel').length, area: Math.round(reg[0].outer.area) }); })()",
+    "expect": "\"lines\":4,\"parallel\":2,\"area\":800"
+  },
+  {
+    "name": "sk2: a line to continue from",
+    "eval": "window.__mymechanics.run('sk:line').then(() => 'ok')",
+    "expect": "^ok$"
+  },
+  {
+    "mouse": [
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(90, 0)[0]",
+        "y": "window.__sk(90, 0)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(90, 0)[0]",
+        "y": "window.__sk(90, 0)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(90, 0)[0]",
+        "y": "window.__sk(90, 0)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(120, 0)[0]",
+        "y": "window.__sk(120, 0)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(120, 0)[0]",
+        "y": "window.__sk(120, 0)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(120, 0)[0]",
+        "y": "window.__sk(120, 0)[1]",
+        "button": "left"
+      }
+    ],
+    "wait": 250
+  },
+  {
+    "name": "sk2: Esc ends the line chain",
+    "keys": [
+      {
+        "key": "Escape",
+        "code": "Escape",
+        "windowsVirtualKeyCode": 27
+      }
+    ],
+    "wait": 150
+  },
+  {
+    "name": "sk2: tangent arc tool",
+    "eval": "window.__mymechanics.run('sk:tangentArc').then(() => window.__mymechanics.state.editing.editor.tool)",
+    "expect": "^tangentArc$"
+  },
+  {
+    "mouse": [
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(120, 0)[0]",
+        "y": "window.__sk(120, 0)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(120, 0)[0]",
+        "y": "window.__sk(120, 0)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(120, 0)[0]",
+        "y": "window.__sk(120, 0)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(140, 20)[0]",
+        "y": "window.__sk(140, 20)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(140, 20)[0]",
+        "y": "window.__sk(140, 20)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(140, 20)[0]",
+        "y": "window.__sk(140, 20)[1]",
+        "button": "left"
+      }
+    ],
+    "wait": 250
+  },
+  {
+    "name": "sk2: tangent arc — leaves the line along it (centre above its end), with a tangent relation",
+    "eval": "(async () => { const ed = window.__mymechanics.state.editing.editor; const { arcGeometry } = await import('/src/cad/sketch.js'); const arc = ed.sketch.entities.find((e) => e.type === 'arc'); const g = arcGeometry(ed.sketch, arc); return JSON.stringify({ cx: Math.round(g.cx), cy: Math.round(g.cy), r: Math.round(g.r), tangent: ed.sketch.constraints.some((k) => k.type === 'tangent' && [k.a, k.b].includes(arc.id)) }); })()",
+    "expect": "\"cx\":120,\"cy\":20,\"r\":20,\"tangent\":true"
+  },
+  {
+    "name": "sk2: 3-point corner rectangle tool",
+    "eval": "window.__mymechanics.run('sk:rect3').then(() => window.__mymechanics.state.editing.editor.tool)",
+    "expect": "^rect3$"
+  },
+  {
+    "mouse": [
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(0, 50)[0]",
+        "y": "window.__sk(0, 50)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(0, 50)[0]",
+        "y": "window.__sk(0, 50)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(0, 50)[0]",
+        "y": "window.__sk(0, 50)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(30, 90)[0]",
+        "y": "window.__sk(30, 90)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(30, 90)[0]",
+        "y": "window.__sk(30, 90)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(30, 90)[0]",
+        "y": "window.__sk(30, 90)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(-8, 56)[0]",
+        "y": "window.__sk(-8, 56)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(-8, 56)[0]",
+        "y": "window.__sk(-8, 56)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(-8, 56)[0]",
+        "y": "window.__sk(-8, 56)[1]",
+        "button": "left"
+      }
+    ],
+    "wait": 250
+  },
+  {
+    "name": "sk2: 3-point rectangle — at an angle, right corners, 50 × 10",
+    "eval": "(async () => { const ed = window.__mymechanics.state.editing.editor; const { profiles } = await import('/src/cad/sketch.js'); const areas = profiles(ed.sketch).map((r) => Math.round(r.outer.area)).sort((a, b) => a - b); return JSON.stringify({ perpendicular: ed.sketch.constraints.filter((k) => k.type === 'perpendicular').length, areas }); })()",
+    "expect": "\"perpendicular\":1,.*500"
+  },
+  {
+    "name": "sk2: 3-point center rectangle tool",
+    "eval": "window.__mymechanics.run('sk:rect3c').then(() => window.__mymechanics.state.editing.editor.tool)",
+    "expect": "^rect3c$"
+  },
+  {
+    "mouse": [
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(80, 70)[0]",
+        "y": "window.__sk(80, 70)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(80, 70)[0]",
+        "y": "window.__sk(80, 70)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(80, 70)[0]",
+        "y": "window.__sk(80, 70)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(80, 85)[0]",
+        "y": "window.__sk(80, 85)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(80, 85)[0]",
+        "y": "window.__sk(80, 85)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(80, 85)[0]",
+        "y": "window.__sk(80, 85)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(90, 70)[0]",
+        "y": "window.__sk(90, 70)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(90, 70)[0]",
+        "y": "window.__sk(90, 70)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(90, 70)[0]",
+        "y": "window.__sk(90, 70)[1]",
+        "button": "left"
+      }
+    ],
+    "wait": 250
+  },
+  {
+    "name": "sk2: 3-point center rectangle — 30 × 20 with its centre point on the diagonals",
+    "eval": "(async () => { const ed = window.__mymechanics.state.editing.editor; const { profiles } = await import('/src/cad/sketch.js'); return JSON.stringify({ areas: profiles(ed.sketch).map((r) => Math.round(r.outer.area)), midpoints: ed.sketch.constraints.filter((k) => k.type === 'midpoint').length }); })()",
+    "expect": "600.*\"midpoints\":2"
+  },
+  {
+    "name": "sk2: perimeter circle tool",
+    "eval": "window.__mymechanics.run('sk:circle3').then(() => window.__mymechanics.state.editing.editor.tool)",
+    "expect": "^circle3$"
+  },
+  {
+    "mouse": [
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(120, 60)[0]",
+        "y": "window.__sk(120, 60)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(120, 60)[0]",
+        "y": "window.__sk(120, 60)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(120, 60)[0]",
+        "y": "window.__sk(120, 60)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(140, 60)[0]",
+        "y": "window.__sk(140, 60)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(140, 60)[0]",
+        "y": "window.__sk(140, 60)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(140, 60)[0]",
+        "y": "window.__sk(140, 60)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(130, 70)[0]",
+        "y": "window.__sk(130, 70)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(130, 70)[0]",
+        "y": "window.__sk(130, 70)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(130, 70)[0]",
+        "y": "window.__sk(130, 70)[1]",
+        "button": "left"
+      }
+    ],
+    "wait": 250
+  },
+  {
+    "name": "sk2: perimeter circle through three points (centre 130, 60 — radius 10)",
+    "eval": "(() => { const ed = window.__mymechanics.state.editing.editor; const c = ed.sketch.entities.find((e) => e.type === 'circle'); const p = ed.sketch.entities.find((e) => e.id === c.c); return [Math.round(p.x), Math.round(p.y), Math.round(c.r)].join(','); })()",
+    "expect": "^130,60,10$"
+  },
+  {
+    "name": "sk2: partial ellipse tool",
+    "eval": "window.__mymechanics.run('sk:partialEllipse').then(() => window.__mymechanics.state.editing.editor.tool)",
+    "expect": "^partialEllipse$"
+  },
+  {
+    "mouse": [
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(-30, -40)[0]",
+        "y": "window.__sk(-30, -40)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(-30, -40)[0]",
+        "y": "window.__sk(-30, -40)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(-30, -40)[0]",
+        "y": "window.__sk(-30, -40)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(0, -40)[0]",
+        "y": "window.__sk(0, -40)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(0, -40)[0]",
+        "y": "window.__sk(0, -40)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(0, -40)[0]",
+        "y": "window.__sk(0, -40)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(-30, -30)[0]",
+        "y": "window.__sk(-30, -30)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(-30, -30)[0]",
+        "y": "window.__sk(-30, -30)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(-30, -30)[0]",
+        "y": "window.__sk(-30, -30)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(0, -40.01)[0]",
+        "y": "window.__sk(0, -40.01)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(0, -40.01)[0]",
+        "y": "window.__sk(0, -40.01)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(0, -40.01)[0]",
+        "y": "window.__sk(0, -40.01)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(-60, -40.01)[0]",
+        "y": "window.__sk(-60, -40.01)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(-60, -40.01)[0]",
+        "y": "window.__sk(-60, -40.01)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(-60, -40.01)[0]",
+        "y": "window.__sk(-60, -40.01)[1]",
+        "button": "left"
+      }
+    ],
+    "wait": 250
+  },
+  {
+    "name": "sk2: partial ellipse — radii 30 and 10, ends on it, half way round",
+    "eval": "(() => { const ed = window.__mymechanics.state.editing.editor; const e = ed.sketch.entities.find((x) => x.type === 'ellipseArc'); const P = (id) => ed.sketch.entities.find((x) => x.id === id); const a = P(e.p1); const b = P(e.p2); return JSON.stringify({ rx: Math.round(e.rx), ry: Math.round(e.ry), a: [Math.round(a.x), Math.round(a.y)], b: [Math.round(b.x), Math.round(b.y)] }); })()",
+    "expect": "\"rx\":30,\"ry\":10,\"a\":\\[0,-40\\],\"b\":\\[-60,-40\\]"
+  },
+  {
+    "name": "sk2: parabola tool",
+    "eval": "window.__mymechanics.run('sk:parabola').then(() => window.__mymechanics.state.editing.editor.tool)",
+    "expect": "^parabola$"
+  },
+  {
+    "mouse": [
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(100, -30)[0]",
+        "y": "window.__sk(100, -30)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(100, -30)[0]",
+        "y": "window.__sk(100, -30)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(100, -30)[0]",
+        "y": "window.__sk(100, -30)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(100, -40)[0]",
+        "y": "window.__sk(100, -40)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(100, -40)[0]",
+        "y": "window.__sk(100, -40)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(100, -40)[0]",
+        "y": "window.__sk(100, -40)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(80, -40)[0]",
+        "y": "window.__sk(80, -40)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(80, -40)[0]",
+        "y": "window.__sk(80, -40)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(80, -40)[0]",
+        "y": "window.__sk(80, -40)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(120, -40)[0]",
+        "y": "window.__sk(120, -40)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(120, -40)[0]",
+        "y": "window.__sk(120, -40)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(120, -40)[0]",
+        "y": "window.__sk(120, -40)[1]",
+        "button": "left"
+      }
+    ],
+    "wait": 250
+  },
+  {
+    "name": "sk2: parabola — focus 10 above the apex: the ends 20 to the side are 10 up (x² / 40)",
+    "eval": "(() => { const ed = window.__mymechanics.state.editing.editor; const e = ed.sketch.entities.find((x) => x.type === 'conic' && x.parabola); const P = (id) => ed.sketch.entities.find((x) => x.id === id); return [P(e.p1), P(e.p2)].map((p) => Math.round(p.x) + ',' + Math.round(p.y)).join(' ') + ' rho=' + e.rho; })()",
+    "expect": "^80,-30 120,-30 rho=0.5$"
+  },
+  {
+    "name": "sk2: conic tool",
+    "eval": "window.__mymechanics.run('sk:conic').then(() => window.__mymechanics.state.editing.editor.tool)",
+    "expect": "^conic$"
+  },
+  {
+    "mouse": [
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(0, -70)[0]",
+        "y": "window.__sk(0, -70)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(0, -70)[0]",
+        "y": "window.__sk(0, -70)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(0, -70)[0]",
+        "y": "window.__sk(0, -70)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(40, -70)[0]",
+        "y": "window.__sk(40, -70)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(40, -70)[0]",
+        "y": "window.__sk(40, -70)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(40, -70)[0]",
+        "y": "window.__sk(40, -70)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(20, -50)[0]",
+        "y": "window.__sk(20, -50)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(20, -50)[0]",
+        "y": "window.__sk(20, -50)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(20, -50)[0]",
+        "y": "window.__sk(20, -50)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(20, -61)[0]",
+        "y": "window.__sk(20, -61)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(20, -61)[0]",
+        "y": "window.__sk(20, -61)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(20, -61)[0]",
+        "y": "window.__sk(20, -61)[1]",
+        "button": "left"
+      }
+    ],
+    "wait": 250
+  },
+  {
+    "name": "sk2: conic — ρ from the shoulder point (0.45 of the way to the top vertex)",
+    "eval": "(() => { const ed = window.__mymechanics.state.editing.editor; const e = ed.sketch.entities.find((x) => x.type === 'conic' && !x.parabola); return e ? e.rho.toFixed(2) : 'none'; })()",
+    "expect": "^0\\.45$"
+  },
+  {
+    "name": "sk2: equation driven curve tool",
+    "eval": "window.__mymechanics.run('sk:equation').then(() => window.__mymechanics.state.editing.editor.tool)",
+    "expect": "^equation$"
+  },
+  {
+    "name": "sk2: equation driven curve from the PropertyManager — y = 5 sin(x / 5), 0 … 30",
+    "eval": "(async () => { const m = window.__mymechanics; m.actions.pmFieldChanged('eq.fy', '5*sin(x/5)', 'text'); m.actions.pmFieldChanged('eq.t0', '0', 'number'); m.actions.pmFieldChanged('eq.t1', '30', 'number'); await new Promise((r) => setTimeout(r, 100)); document.querySelector('[data-pm=\"equationApply\"]').click(); await new Promise((r) => setTimeout(r, 200)); const ed = m.state.editing.editor; const e = ed.sketch.entities.find((x) => x.type === 'equation'); const P = (id) => ed.sketch.entities.find((x) => x.id === id); return e ? [e.fy, P(e.p2).x, Math.round(P(e.p2).y * 1000) / 1000, P(e.p2).fixed].join(' ') : 'none ' + ed.eqError; })()",
+    "expect": "^5\\*sin\\(x/5\\) 30 -1\\.397 true$"
+  },
+  {
+    "name": "sk2: a bad equation is refused with its reason in the PropertyManager",
+    "eval": "(async () => { const m = window.__mymechanics; m.actions.pmFieldChanged('eq.fy', 'sqrt(x - 10)', 'text'); await new Promise((r) => setTimeout(r, 50)); document.querySelector('[data-pm=\"equationApply\"]').click(); await new Promise((r) => setTimeout(r, 150)); const err = document.querySelector('.pm-error')?.textContent ?? ''; return m.state.editing.editor.sketch.entities.filter((x) => x.type === 'equation').length + ' ' + err; })()",
+    "expect": "^1 .*not defined"
+  },
+  {
+    "name": "sk2: split entities tool",
+    "eval": "window.__mymechanics.run('sk:split').then(() => window.__mymechanics.state.editing.editor.tool)",
+    "expect": "^split$"
+  },
+  {
+    "mouse": [
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(105, 0)[0]",
+        "y": "window.__sk(105, 0)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(105, 0)[0]",
+        "y": "window.__sk(105, 0)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(105, 0)[0]",
+        "y": "window.__sk(105, 0)[1]",
+        "button": "left"
+      }
+    ],
+    "wait": 250
+  },
+  {
+    "name": "sk2: split — the line from 90 to 120 is two collinear lines now",
+    "eval": "(() => { const ed = window.__mymechanics.state.editing.editor; const ls = ed.sketch.entities.filter((e) => e.type === 'line' && !e.construction).length; return ls + ' ' + ed.sketch.constraints.some((k) => k.type === 'collinear'); })()",
+    "expect": "^\\d+ true$"
+  },
+  {
+    "mouse": [
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(140, 60)[0]",
+        "y": "window.__sk(140, 60)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(140, 60)[0]",
+        "y": "window.__sk(140, 60)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(140, 60)[0]",
+        "y": "window.__sk(140, 60)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(120, 60)[0]",
+        "y": "window.__sk(120, 60)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(120, 60)[0]",
+        "y": "window.__sk(120, 60)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(120, 60)[0]",
+        "y": "window.__sk(120, 60)[1]",
+        "button": "left"
+      }
+    ],
+    "wait": 250
+  },
+  {
+    "name": "sk2: split a circle with two clicks — two arcs",
+    "eval": "(() => { const ed = window.__mymechanics.state.editing.editor; return ed.sketch.entities.filter((e) => e.type === 'circle').length + ' circles, ' + ed.sketch.entities.filter((e) => e.type === 'arc').length + ' arcs'; })()",
+    "expect": "^0 circles, 3 arcs$"
+  },
+  {
+    "name": "sk2: stretch the slanted side of the parallelogram 10 mm along x: the far side stays, the others lengthen",
+    "eval": "(async () => { const m = window.__mymechanics; await m.run('sk:select'); const ed = m.state.editing.editor; const P = (id) => ed.sketch.entities.find((x) => x.id === id); const near = (p, x, y) => Math.hypot(p.x - x, p.y - y) < 1; const side = ed.sketch.entities.find((e) => e.type === 'line' && !e.construction && ((near(P(e.p1), 40, 0) && near(P(e.p2), 52, 20)) || (near(P(e.p2), 40, 0) && near(P(e.p1), 52, 20)))); const far = ed.sketch.entities.find((e) => e.type === 'line' && !e.construction && ((near(P(e.p1), 0, 0) && near(P(e.p2), 12, 20)) || (near(P(e.p2), 0, 0) && near(P(e.p1), 12, 20)))); const farBefore = [P(far.p1).x, P(far.p1).y, P(far.p2).x, P(far.p2).y]; ed.selection = [side.id]; const open = m.popups.open; m.popups.open = async (kind, opts) => (kind === 'prompt' ? { value: '10, 0' } : open.call(m.popups, kind, opts)); try { await m.run('sk:stretch'); } finally { m.popups.open = open; } const xs = [P(side.p1).x, P(side.p2).x].map((v) => Math.round(v)).sort((a, b) => a - b); const farAfter = [P(far.p1).x, P(far.p1).y, P(far.p2).x, P(far.p2).y]; const still = farAfter.every((v, i) => Math.abs(v - farBefore[i]) < 1e-6); return xs.join(',') + ' far side still ' + still; })()",
+    "expect": "^50,62 far side still true$"
+  },
+  {
+    "name": "sk2: Fully Define Sketch leaves no freedom and nothing over-defined",
+    "eval": "(async () => { const m = window.__mymechanics; await m.run('sk:fullyDefine'); await new Promise((r) => setTimeout(r, 200)); const ed = m.state.editing.editor; return JSON.stringify({ dof: ed.dof, over: Boolean(ed.over), status: document.querySelector('.sketch-status')?.className ?? '' }); })()",
+    "expect": "\"dof\":0,\"over\":false,\"status\":\"sketch-status defined\"",
+    "timeout": 120000
+  },
+  {
+    "name": "sk2: undo takes back the fully define, redo puts it back",
+    "eval": "(async () => { const m = window.__mymechanics; await m.run('undo'); await new Promise((r) => setTimeout(r, 150)); const a = m.state.editing.editor.dof; await m.run('redo'); await new Promise((r) => setTimeout(r, 150)); return a + ' ' + m.state.editing.editor.dof; })()",
+    "expect": "^[1-9]\\d* 0$"
+  },
+  {
+    "name": "sk2: select a partial ellipse and change its minor radius in the PropertyManager",
+    "eval": "(async () => { const m = window.__mymechanics; const ed = m.state.editing.editor; const e = ed.sketch.entities.find((x) => x.type === 'ellipseArc'); ed.selection = [e.id]; ed.api.onState?.(); await new Promise((r) => setTimeout(r, 100)); const box = document.querySelector('[data-pm-field=\"ell.ry\"]'); return box ? 'field' : 'no field'; })()",
+    "expect": "^field$"
+  },
+  {
+    "name": "sk2: exit the sketch and extrude its regions (exact curves in the kernel)",
+    "eval": "(async () => { const m = window.__mymechanics; await m.run('exitSketch'); await new Promise((r) => setTimeout(r, 300)); await m.run('extrude'); m.actions.pmFieldChanged('depth', '5', 'length'); m.actions.acceptEditing(); await new Promise((r) => setTimeout(r, 1500)); const r = m.state.partEntry?.result ?? null; const bad = [...(m.state.partEntry?.results ?? new Map()).values()].filter((x) => !x.ok).map((x) => x.error); return m.active().features.map((f) => f.type).join(',') + ' errors=' + bad.length; })()",
+    "expect": "^sketch,extrude errors=0$",
+    "timeout": 120000
+  }
+]

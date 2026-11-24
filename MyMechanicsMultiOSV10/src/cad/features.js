@@ -56,8 +56,8 @@ export const FEATURE_DEFAULTS = {
   import: () => ({ brep: '', source: '' }),
   sketch: () => ({ plane: { kind: 'std', name: 'front' }, ...createSketchGeometry() }),
   plane: () => ({ base: { kind: 'std', name: 'top' }, offset: 20, flip: false }),
-  extrude: () => ({ sketch: null, op: 'boss', end: 'blind', depth: 10, reverse: false, end2: 'none', depth2: 10 }),
-  revolve: () => ({ sketch: null, op: 'boss', axis: null, angle: 360, reverse: false }),
+  extrude: () => ({ sketch: null, op: 'boss', end: 'blind', depth: 10, reverse: false, end2: 'none', depth2: 10, merge: true }),
+  revolve: () => ({ sketch: null, op: 'boss', axis: null, angle: 360, reverse: false, merge: true }),
   fillet: () => ({ radius: 2, edges: [] }),
   chamfer: () => ({ distance: 1, edges: [] }),
   shell: () => ({ thickness: 1.5, faces: [] }),
@@ -84,6 +84,7 @@ export function createFeature(part, type, params = {}) {
 export const nameKey = (f) => {
   if (f.type === 'extrude' || f.type === 'revolve') return `${f.op === 'cut' ? 'cut' : f.op === 'common' ? 'common' : 'boss'}-${f.type}`;
   if (f.type === 'sweep' || f.type === 'loft') return `${f.op === 'cut' ? 'cut' : 'boss'}-${f.type}`;
+  if (f.type === 'boundary' && (f.op === 'boss' || f.op === 'cut')) return `${f.op}-boundary`;
   return f.type;
 };
 
@@ -168,6 +169,26 @@ export function codeError(code, params = {}) {
 
 // ───────────────────────── sketch → replicad drawing
 
+/**
+ * A rational Bézier piece { P, w } drawn exactly (an OCCT Bézier curve with weights): partial ellipses, conics
+ * and parabolas are drawn as themselves, not as approximations. The pen starts the piece where it is.
+ */
+export function rationalBezierTo(pen, piece) {
+  const R = rep(); const oc = R.getOC();
+  const n = piece.P.length;
+  const poles = new oc.NCollection_Array1_gp_Pnt2d(1, n);
+  const weights = new oc.NCollection_Array1_double(1, n);
+  const made = [];
+  try {
+    piece.P.forEach((p, i) => { const q = new oc.gp_Pnt2d(p[0], p[1]); made.push(q); poles.SetValue(i + 1, q); weights.SetValue(i + 1, piece.w[i]); });
+    const rational = piece.w.some((w) => Math.abs(w - piece.w[0]) > 1e-15);
+    const curve = rational ? new oc.Geom2d_BezierCurve(poles, weights) : new oc.Geom2d_BezierCurve(poles);
+    pen.saveCurve(new R.Curve2D(curve));
+  } finally { for (const q of made) q.delete(); poles.delete(); weights.delete(); }
+  pen.pointer = piece.P[n - 1];
+  return pen;
+}
+
 export function loopDrawing(loop) {
   const R = rep();
   const segs = loop.segs;
@@ -183,6 +204,7 @@ export function loopDrawing(loop) {
     // The last straight segment is drawn by close(); an arc or a spline ends exactly on the next start point.
     if (s.kind === 'line') { if (!last) pen = pen.lineTo(s.b); }
     else if (s.kind === 'spline') { for (const [, c1, c2, p3] of s.beziers) pen = pen.cubicBezierCurveTo(p3, c1, c2); }
+    else if (s.kind === 'pieces') { for (const pc of s.pieces) pen = rationalBezierTo(pen, pc); }
     else pen = pen.threePointsArcTo(s.to, s.mid);
   });
   return pen.close();
@@ -339,7 +361,7 @@ export function sizeAround(ctx, extra = 0) {
 }
 
 /** Joins a tool to the body: boss → fuse, cut → cut (a cut with nothing to cut is an error). */
-export function combine(ctx, tool, op) {
+export function combine(ctx, tool, op, { merge = true } = {}) {
   if (op === 'cut') {
     if (!ctx.body) throw codeError('nothing-to-cut');
     return ctx.body.cut(tool);
@@ -349,7 +371,16 @@ export function combine(ctx, tool, op) {
     if (!ctx.body) throw codeError('nothing-to-cut');
     return ctx.body.intersect(tool);
   }
-  return ctx.body ? ctx.body.fuse(tool) : tool;
+  if (!ctx.body) return tool;
+  // Merge result off: the new solid is a body of its own beside the ones there (a multi-body part).
+  if (merge === false) { const R = rep(); return R.makeCompound([...solidList(ctx.body), ...solidList(tool)]); }
+  return ctx.body.fuse(tool);
+}
+
+/** The solids of a shape (one solid, or the solids of a compound). */
+function solidList(shape) {
+  const R = rep();
+  try { const list = [...R.iterTopo(shape.wrapped, 'solid')].map((x) => R.cast(x)); return list.length ? list : [shape]; } catch { return [shape]; }
 }
 
 /**
@@ -436,7 +467,7 @@ function draftedExtrude(f, sketch, fr) {
 
 function buildExtrude(f, ctx) {
   const tool = extrudeTool(f, ctx);
-  return { tool, body: combine(ctx, tool, f.op) };
+  return { tool, body: combine(ctx, tool, f.op, { merge: f.merge !== false }) };
 }
 
 function revolveTool(f, ctx) {
@@ -454,7 +485,7 @@ function revolveTool(f, ctx) {
 
 function buildRevolve(f, ctx) {
   const tool = revolveTool(f, ctx);
-  return { tool, body: combine(ctx, tool, f.op) };
+  return { tool, body: combine(ctx, tool, f.op, { merge: f.merge !== false }) };
 }
 
 /** Hole profile in (radius, depth) — depth grows into the material; a blind hole ends in a 118° drill point. */
@@ -624,14 +655,16 @@ function buildLinearPattern(f, ctx) {
   if (d2 && f.reverse2) d2 = scale(d2, -1);
   const n2 = d2 ? Math.max(1, Math.min(200, Math.round(f.count2))) : 1;
   const s2 = Number(f.spacing2) || 0;
-  const moves = []; const places = [];
+  const moves = []; const places = []; const steps = [];
   for (let i = 0; i < n1; i++) for (let j = 0; j < n2; j++) {
     if (!i && !j) continue;
     const v = add(scale(d1, i * s1), d2 ? scale(d2, j * s2) : [0, 0, 0]);
     moves.push((s) => s.translate(v));
     places.push((q, isDir) => (isDir ? q : add(q, v)));
+    steps.push({ kind: 'translate', v });
   }
-  return patternThreads(f, ctx, applyCopies(ctx, tools, moves), places);
+  // The moves as data too (a pattern-driven component pattern repeats them in an assembly).
+  return { ...patternThreads(f, ctx, applyCopies(ctx, tools, moves), places), moves: steps };
 }
 
 /** A point / direction rotation by `deg` about the axis through `origin` along `dir` (Rodrigues): (q, isDir) → q'. */
@@ -653,12 +686,13 @@ function buildCircularPattern(f, ctx) {
   const total = Math.max(0.1, Math.min(360, Number(f.angle) || 360));
   const step = f.equal ? (total >= 359.999 ? total / count : total / Math.max(1, count - 1)) : total;
   const sign = f.reverse ? -1 : 1;
-  const moves = []; const places = [];
+  const moves = []; const places = []; const steps = [];
   for (let i = 1; i < count; i++) {
     moves.push((s) => s.rotate(sign * step * i, origin, dir));
     places.push(rotation(sign * step * i, origin, dir));
+    steps.push({ kind: 'rotate', deg: sign * step * i, origin: [...origin], dir: [...dir] });
   }
-  return patternThreads(f, ctx, applyCopies(ctx, tools, moves), places);
+  return { ...patternThreads(f, ctx, applyCopies(ctx, tools, moves), places), moves: steps };
 }
 
 function buildMirror(f, ctx) {

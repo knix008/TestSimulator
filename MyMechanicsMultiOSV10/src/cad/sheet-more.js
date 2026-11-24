@@ -15,6 +15,7 @@ export { SHEET_MORE_TYPES, FORM_TOOLS, SHEET_MORE_ICONS, SHEET_MORE_DEFAULTS, SH
 import { FORM_TOOLS } from './sheet-more-types.js';
 import { worldUp, worldFront } from './frame.js';
 import { makeHelixStable, makeCylinderStable, makeCircleStable } from './oriented.js';
+import { bendFrame, zRange } from './sheet-fold.js';
 
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -359,7 +360,7 @@ function flangeSolid(ctx, s, e, { o, b, d, len }, { angle, radius, length, flip 
   const sm = ctx.sheet; const t = sm.thickness;
   const r = radius; const theta = angle; const L = length;
   const start = sub(s, mul(d, ext0));
-  const base = flip ? add(start, mul(b, -t)) : start;
+  const base = flip ? add(start, mul(b, t)) : start;
   let draw;
   if (ctx.flat) {
     const flatLen = bendAllowance(theta, r, t, sm.k) + L;
@@ -385,7 +386,7 @@ function flangeSolid(ctx, s, e, { o, b, d, len }, { angle, radius, length, flip 
 }
 
 /** Pairs of flanges meeting at a corner (one end in common): { i, j, V, di, dj }, di / dj along each from V. */
-function corners(list) {
+export function corners(list) {
   const out = [];
   const near = (a, b) => len3(sub(a, b)) < 1e-4;
   for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
@@ -398,7 +399,7 @@ function corners(list) {
 }
 
 /** The two flanges of a corner lengthened past it and cut on the bisecting (miter) plane, `gap` apart. */
-function miteredPair(ctx, c, A, B, gap) {
+export function miteredPair(ctx, c, A, B, gap) {
   const ext = (fl) => fl.radius + ctx.sheet.thickness + fl.length + 1;
   const piece = (fl, atStart, mine, other) => {
     const solid = flangeSolid(ctx, fl.s, fl.e, fl.geo, fl, atStart ? ext(fl) : 0, atStart ? 0 : ext(fl));
@@ -440,14 +441,17 @@ function buildMiterFlange(f, ctx) {
       solid = solid.intersect(halfSpace(ctx, add(c.V, mul(m, gap / 2)), m));
     }
     tools.push(solid);
-    sm.bends.push({ start: fl.s, end: fl.e, angle, radius, outward: fl.geo.o, flat: ctx.flat, allowance: bendAllowance(angle, radius, sm.thickness, sm.k), length, flip: f.flip, miter: f.id });
+    const { d, b, o } = fl.geo; const st = sub(fl.s, mul(d, e0));
+    const fr = bendFrame(f.flip ? add(st, mul(b, sm.thickness)) : st, o, b); [fr.zLo, fr.zHi] = zRange(fr, st, add(fl.e, mul(d, e1)));
+    const BA = bendAllowance(angle, radius, sm.thickness, sm.k);
+    sm.bends.push({ start: fl.s, end: fl.e, angle, radius, outward: fl.geo.o, flat: ctx.flat, allowance: BA, length, flip: f.flip, miter: f.id, frame: fr, r: radius, t: sm.thickness, theta: angle, BA, L: length, feature: f.id });
   }
   for (const s of tools) body = body.fuse(s);
   return { body, miter: { flanges: tools.length, corners: cs.length } };
 }
 
 /** The bends of earlier edge / miter flanges, rebuilt as { s, e, geo, angle, radius, length, flip }. */
-function flangesOf(f, ctx) {
+export function flangesOf(f, ctx) {
   const sm = needSheet(ctx);
   const ids = [...(f.flanges ?? []), f.flangeA, f.flangeB].filter(Boolean);
   const out = [];

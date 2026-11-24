@@ -11,7 +11,7 @@ import { ANIMATION_KINDS } from './background.js';
 import { baseName } from '../domain/paths.js';
 import { ANIMATION_INTERVALS } from '../domain/settings.js';
 
-const GRIP = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="20" cy="20" r="2"/><circle cx="14" cy="20" r="2"/><circle cx="20" cy="14" r="2"/><circle cx="8" cy="20" r="2"/><circle cx="14" cy="14" r="2"/><circle cx="20" cy="8" r="2"/></svg>';
+const GRIP = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="19.5" cy="19.5" r="2.3"/><circle cx="12.5" cy="19.5" r="2.3"/><circle cx="5.5" cy="19.5" r="2.3"/><circle cx="19.5" cy="12.5" r="2.3"/><circle cx="12.5" cy="12.5" r="2.3"/><circle cx="19.5" cy="5.5" r="2.3"/></svg>';
 
 /** "Every 30 s" / "Every 2 min" / "Off" for the automatic background change. */
 export const intervalLabel = (seconds) => (!seconds ? t('start.never') : seconds < 60 ? t('start.everySeconds', { n: seconds }) : t('start.everyMinutes', { n: seconds / 60 }));

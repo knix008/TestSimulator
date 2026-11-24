@@ -6,15 +6,17 @@
 import * as THREE from 'three';
 import {
   addArc, addCenterRectangle, addCircle, addConstraint, addLine, addPolygon, addRectangle, addSlot, analyse, arcGeometry, arcThrough, autoRelationsForLine,
-  byId, dimensionFor, hitTest, mergePoints, ORIGIN, pointsOf, polyline, removeEntities, solveSketch, newSketchId, DIMENSIONS, measure,
+  byId, dimensionFor, hitTest, mergePoints, ORIGIN, pointsOf, polyline, removeEntities, solveSketch, newSketchId, DIMENSIONS, measure, equationError, refreshEquation,
 } from '../cad/sketch.js';
 import { toWorld, toSketch, textOutline } from '../cad/features.js';
 import { addText } from '../cad/sketch.js';
-import { addSpline, addEllipse, sketchFillet, sketchChamfer, offsetEntities, mirrorEntities, linearSketchPattern, circularSketchPattern, trimAt, extendAt } from '../cad/sketchtools.js';
+import { addSpline, addEllipse, addEllipseArc, addConic, addParabola, addEquationCurve, sketchFillet, sketchChamfer, offsetEntities, mirrorEntities, linearSketchPattern, circularSketchPattern, trimAt, extendAt } from '../cad/sketchtools.js';
+import { addTangentArc, addRect3, addRect3Center, addParallelogram, addCircle3, circleThrough3, curvesEndingAt, outwardTangent, splitAt } from '../cad/sketch-draw.js';
+import { ellipseParam, ellipsePoint, ccwSpan, parabolaSegment, rhoFromShoulder, conicPieces, piecesPolyline } from '../cad/sketch-curves.js';
 
-export const SKETCH_TOOLS = ['select', 'line', 'centerline', 'rect', 'centerRect', 'circle', 'arc3', 'centerArc', 'polygon', 'slot', 'point', 'spline', 'ellipse', 'text', 'dimension', 'trim', 'extend', 'sketchFillet', 'sketchChamfer'];
+export const SKETCH_TOOLS = ['select', 'line', 'centerline', 'rect', 'centerRect', 'rect3', 'rect3c', 'parallelogram', 'circle', 'circle3', 'arc3', 'centerArc', 'tangentArc', 'polygon', 'slot', 'point', 'spline', 'ellipse', 'partialEllipse', 'parabola', 'conic', 'equation', 'text', 'dimension', 'trim', 'extend', 'split', 'sketchFillet', 'sketchChamfer'];
 /** Tools that pick existing geometry instead of placing new points. */
-const PICK_TOOLS = ['select', 'dimension', 'trim', 'extend', 'sketchFillet', 'sketchChamfer'];
+const PICK_TOOLS = ['select', 'dimension', 'trim', 'extend', 'split', 'equation', 'sketchFillet', 'sketchChamfer'];
 
 const COLORS = { defined: '#111827', under: '#1f5fd6', over: '#d4282f', construction: '#7a8798', selected: '#18a058', hover: '#f28c1e', preview: '#f28c1e', point: '#1f5fd6' };
 
@@ -34,19 +36,59 @@ export class SketchEditor {
     this.filletRadius = 5;
     this.chamferDistance = 2;
     this.chain = null;
+    this.eqDraft = { mode: 'explicit', fy: '5*sin(x/5)', fx: '', t0: 0, t1: 30 };
+    this.eqError = null;
+    this.splitFirst = null;
     this.solve();
+    this.history = [{ snap: this.state(), label: null }];
+    this.historyAt = 0;
   }
 
   get sketch() { return this.feature; }
 
-  /** After an edit: redraw, then tell the app (PropertyManager, status bar). */
-  commit(label) { this.render(); this.api.changed?.(label); }
+  /** After an edit: a step of the sketch's own undo list, redraw, then tell the app (PropertyManager, status bar). */
+  commit(label) {
+    const snap = this.state();
+    if (snap !== this.history[this.historyAt]?.snap) {
+      this.history.length = this.historyAt + 1;
+      this.history.push({ snap, label });
+      if (this.history.length > 300) this.history.shift();
+      this.historyAt = this.history.length - 1;
+    }
+    this.render();
+    this.api.changed?.(label);
+  }
+
+  /** The sketch's geometry and relations as text (one undo step). */
+  state() { return JSON.stringify({ entities: this.sketch.entities, constraints: this.sketch.constraints }); }
+
+  get canUndo() { return this.historyAt > 0; }
+  get canRedo() { return this.historyAt < this.history.length - 1; }
+
+  /** Undo inside the sketch: back one step (returns the step's label, or null). */
+  undo() { if (!this.canUndo) return null; const { label } = this.history[this.historyAt]; this.historyAt -= 1; this.restoreState(this.history[this.historyAt].snap); return label; }
+
+  /** Redo inside the sketch (returns the step's label, or null). */
+  redo() { if (!this.canRedo) return null; this.historyAt += 1; const { label, snap } = this.history[this.historyAt]; this.restoreState(snap); return label; }
+
+  restoreState(snap) {
+    const s = JSON.parse(snap);
+    this.sketch.entities = s.entities;
+    this.sketch.constraints = s.constraints;
+    this.selection = this.selection.filter((id) => s.entities.some((e) => e.id === id) || s.constraints.some((c) => c.id === id));
+    this.pending = []; this.chain = null; this.hover = null; this.splitFirst = null;
+    this.solve();
+    this.render();
+    this.api.changed?.('op.sketch.edit');
+    this.api.onState?.();
+  }
   get viewport() { return this.api.viewport; }
 
   setTool(tool) {
     this.tool = SKETCH_TOOLS.includes(tool) ? tool : 'select';
     this.pending = [];
     this.chain = null;
+    this.splitFirst = null;
     if (!['select', 'dimension'].includes(this.tool)) this.selection = [];
     this.render();
     this.api.onState?.();
@@ -142,7 +184,7 @@ export class SketchEditor {
         this.drag = { id: hit, moved: false };
         return true;
       }
-      if (hit && ['line', 'circle', 'arc'].includes(byId(this.sketch, hit)?.type)) {
+      if (hit && ['line', 'circle', 'arc', 'ellipse', 'ellipseArc', 'conic', 'spline'].includes(byId(this.sketch, hit)?.type)) {
         const p = this.toPlane(e);
         this.drag = { id: hit, entity: true, from: p, moved: false, start: this.snapshot() };
         return true;
@@ -217,6 +259,9 @@ export class SketchEditor {
       }
       return true;
     }
+    if (this.tool === 'split') return this.splitClick(e);
+    // The equation curve is set up in the PropertyManager: clicks in the view only pick.
+    if (this.tool === 'equation') { const id = this.pickEntity(e); if (id) this.selectEntity(id, false); return true; }
     if (this.tool === 'sketchFillet' || this.tool === 'sketchChamfer') {
       const id = this.cornerAt(e);
       if (!id) { this.api.notify?.('info', this.api.t('sketch.pickCorner')); return true; }
@@ -231,6 +276,82 @@ export class SketchEditor {
     if (!snap) return true;
     this.pending.push(snap);
     this.place();
+    return true;
+  }
+
+  /** The equation curve being set up in the PropertyManager (Equation Driven Curve tool). */
+  setEquationDraft(key, value) {
+    if (key === 'mode') this.eqDraft.mode = value === 'parametric' ? 'parametric' : 'explicit';
+    else if (key === 'fx' || key === 'fy') this.eqDraft[key] = String(value);
+    else if (key === 't0' || key === 't1') { const v = Number(String(value).replace(',', '.')); if (Number.isFinite(v)) this.eqDraft[key] = v; }
+    this.eqError = null;
+  }
+
+  /** Adds the drafted equation curve (its error stays in the PropertyManager when it cannot be drawn). */
+  addEquationFromDraft() {
+    try {
+      const e = addEquationCurve(this.sketch, this.eqDraft);
+      this.selection = [e.id];
+      this.eqError = null;
+      this.solve();
+      this.commit('op.equationCurve');
+      this.api.onState?.();
+      return e;
+    } catch (error) {
+      this.eqError = error.message;
+      return null;
+    }
+  }
+
+  /**
+   * Changes a value of a selected curve from the PropertyManager: an equation's kind, equations and range, an
+   * ellipse's radii and angle, a conic's rho. Returns false when the value is refused (the curve stays as it was).
+   */
+  setEntityValue(x, key, raw) {
+    const num = Number(String(raw).replace(',', '.'));
+    const before = JSON.parse(JSON.stringify(x));
+    if (key.startsWith('eqSel.')) {
+      const k = key.slice(6);
+      const next = { ...x };
+      if (k === 'mode') { next.mode = raw === 'parametric' ? 'parametric' : 'explicit'; if (next.mode === 'parametric' && !next.fx) next.fx = 't'; }
+      else if (k === 'fx' || k === 'fy') next[k] = String(raw);
+      else if ((k === 't0' || k === 't1') && Number.isFinite(num)) next[k] = num;
+      else return false;
+      // An equation that cannot be drawn is refused with its reason; the curve keeps its old equation.
+      const why = equationError(next);
+      if (why) { this.api.notify?.('error', why); return true; }
+      Object.assign(x, next);
+      refreshEquation(this.sketch, x);
+    } else if (key === 'conic.rho') {
+      if (!(num > 0 && num < 1)) return false;
+      x.rho = num;
+    } else {
+      if (!Number.isFinite(num)) return false;
+      if (key === 'ell.rx' || key === 'ell.ry') { if (!(num > 0)) return false; x[key.slice(4)] = num; }
+      else if (key === 'ell.rot') x.rot = (num * Math.PI) / 180;
+    }
+    const r = this.solve();
+    if (!r.ok) { Object.assign(x, before); this.solve(); this.api.notify?.('error', this.api.t('sketch.cannotSolve')); }
+    this.commit('op.sketch.edit');
+    return true;
+  }
+
+  /** Split Entities: a click on a curve splits it there (a circle or an ellipse takes two clicks). */
+  splitClick(e) {
+    const id = this.pickEntity(e);
+    const p = this.toPlane(e);
+    const ent = id ? byId(this.sketch, id) : null;
+    if (!ent || ent.type === 'point' || ent.type === 'text' || !p) return true;
+    let made = null;
+    if (ent.type === 'circle' || ent.type === 'ellipse') {
+      if (this.splitFirst?.id !== id) { this.splitFirst = { id, at: p }; this.api.notify?.('info', this.api.t('sketch.splitSecond')); this.render(); return true; }
+      made = splitAt(this.sketch, id, this.splitFirst.at[0], this.splitFirst.at[1], p);
+      this.splitFirst = null;
+    } else made = splitAt(this.sketch, id, p[0], p[1]);
+    if (!made) { this.api.notify?.('info', this.api.t(ent.type === 'spline' ? 'sketch.splitSpline' : 'sketch.nothingToSplit')); return true; }
+    this.hover = null;
+    this.solve();
+    this.commit('op.split');
     return true;
   }
 
@@ -425,6 +546,58 @@ export class SketchEditor {
       if (c.kind === 'point') mergePoints(s, e.c, c.id);
       return done('op.ellipse');
     }
+    if (tool === 'tangentArc') {
+      // Starts at the end of a line, an arc or another curve; the arc leaves it along the curve's direction.
+      if (P.length === 1) {
+        if (P[0].kind !== 'point' || !curvesEndingAt(s, P[0].id).length) { this.pending = []; this.api.notify?.('info', this.api.t('sketch.tangentArcStart')); }
+        this.render();
+        return undefined;
+      }
+      const [a, b] = P;
+      const to = b.kind === 'free' ? null : this.pointAt(b);
+      const made = addTangentArc(s, a.id, [b.x, b.y], { to });
+      if (!made) { this.pending = []; return undefined; }
+      return done('op.arc');
+    }
+    if ((tool === 'rect3' || tool === 'rect3c' || tool === 'parallelogram' || tool === 'circle3') && P.length === 3) {
+      const [a, b, c] = P;
+      const xy = (q) => [q.x, q.y];
+      let made = null;
+      if (tool === 'rect3') made = addRect3(s, xy(a), xy(b), xy(c), { from: a.kind === 'point' ? a.id : null, to: b.kind === 'point' ? b.id : null });
+      else if (tool === 'rect3c') made = addRect3Center(s, xy(a), xy(b), xy(c), { center: a.kind === 'point' ? a.id : null });
+      else if (tool === 'parallelogram') made = addParallelogram(s, xy(a), xy(b), xy(c), { from: a.kind === 'point' ? a.id : null });
+      else {
+        const ids = P.map((q) => (q.kind === 'free' ? null : this.pointAt(q)));
+        made = addCircle3(s, xy(a), xy(b), xy(c), ids);
+      }
+      if (!made) { this.pending = []; this.api.notify?.('info', this.api.t('sketch.pointsInLine')); this.render(); return undefined; }
+      return done(tool === 'circle3' ? 'op.circle' : tool === 'parallelogram' ? 'op.parallelogram' : 'op.rectangle');
+    }
+    if (tool === 'partialEllipse' && P.length === 5) {
+      // Centre, end of the major axis, a point giving the minor axis, then the start and the end (counter-clockwise).
+      const [c, a, b, p0, p1] = P;
+      const rx = Math.hypot(a.x - c.x, a.y - c.y); const rot = Math.atan2(a.y - c.y, a.x - c.x);
+      const ry = Math.abs(-(b.x - c.x) * Math.sin(rot) + (b.y - c.y) * Math.cos(rot));
+      if (rx < this.tol() * 0.3 || ry < this.tol() * 0.3) { this.pending = []; return undefined; }
+      const t0 = ellipseParam([c.x, c.y], rx, ry, rot, [p0.x, p0.y]); const t1 = ellipseParam([c.x, c.y], rx, ry, rot, [p1.x, p1.y]);
+      if (Math.abs(Math.atan2(Math.sin(t1 - t0), Math.cos(t1 - t0))) < 1e-6) { this.pending = []; return undefined; }
+      addEllipseArc(s, c.x, c.y, rx, ry, rot, t0, t1, { center: c.kind === 'point' ? c.id : null });
+      return done('op.ellipse');
+    }
+    if (tool === 'parabola' && P.length === 4) {
+      const [f, v, a, b] = P;
+      const made = addParabola(s, [f.x, f.y], [v.x, v.y], [a.x, a.y], [b.x, b.y]);
+      if (!made) { this.pending = []; this.api.notify?.('info', this.api.t('sketch.pointsInLine')); return undefined; }
+      return done('op.parabola');
+    }
+    if (tool === 'conic' && P.length === 4) {
+      // Start, end, the top vertex (where the end tangents meet), then the shoulder point that sets rho.
+      const [a, b, top, sh] = P;
+      if (Math.abs((b.x - a.x) * (top.y - a.y) - (b.y - a.y) * (top.x - a.x)) < this.tol() ** 2) { this.pending = []; this.api.notify?.('info', this.api.t('sketch.pointsInLine')); return undefined; }
+      const rho = rhoFromShoulder([a.x, a.y], [top.x, top.y], [b.x, b.y], [sh.x, sh.y]);
+      addConic(s, [a.x, a.y], [top.x, top.y], [b.x, b.y], rho, { from: a.kind === 'point' ? a.id : null, to: b.kind === 'point' ? b.id : null });
+      return done('op.conic');
+    }
     if (tool === 'slot' && P.length === 3) {
       const [a, b, w] = P;
       const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
@@ -581,6 +754,62 @@ export class SketchEditor {
         const n = 64; const at = (k) => { const a = (k / n) * Math.PI * 2; const u = rx * Math.cos(a); const v = ry * Math.sin(a); return { x: P[0].x + u * Math.cos(rot) - v * Math.sin(rot), y: P[0].y + u * Math.sin(rot) + v * Math.cos(rot) }; };
         for (let k = 0; k < n; k++) line(at(k), at(k + 1));
       }
+    }
+    const curve = (pts) => { for (let i = 1; i < pts.length; i++) line({ x: pts[i - 1][0], y: pts[i - 1][1] }, { x: pts[i][0], y: pts[i][1] }); };
+    if (t === 'tangentArc' && P.length === 1) {
+      const base = curvesEndingAt(this.sketch, P[0].id)[0];
+      if (base) {
+        const T = outwardTangent(this.sketch, base, P[0].id); const n = [-T[1], T[0]];
+        const ab = [P[0].x - c.x, P[0].y - c.y]; const den = 2 * (n[0] * ab[0] + n[1] * ab[1]);
+        if (Math.abs(den) < 1e-9) line(P[0], c);
+        else {
+          const sR = -(ab[0] * ab[0] + ab[1] * ab[1]) / den; const cx = P[0].x + sR * n[0]; const cy = P[0].y + sR * n[1];
+          const a0 = Math.atan2(P[0].y - cy, P[0].x - cx); const a1 = Math.atan2(c.y - cy, c.x - cx);
+          if (sR > 0) circle(cx, cy, Math.abs(sR), a0, a0 + ccwSpan(a0, a1)); else circle(cx, cy, Math.abs(sR), a1, a1 + ccwSpan(a1, a0));
+        }
+      }
+    }
+    if ((t === 'rect3' || t === 'rect3c' || t === 'parallelogram' || t === 'circle3') && P.length === 1) line(P[0], c);
+    if ((t === 'rect3' || t === 'parallelogram') && P.length === 2) {
+      const [a, b] = P;
+      let q;
+      if (t === 'parallelogram') q = [a, b, c, { x: a.x + c.x - b.x, y: a.y + c.y - b.y }];
+      else { const L = Math.hypot(b.x - a.x, b.y - a.y) || 1; const n = [-(b.y - a.y) / L, (b.x - a.x) / L]; const w = (c.x - a.x) * n[0] + (c.y - a.y) * n[1]; q = [a, b, { x: b.x + n[0] * w, y: b.y + n[1] * w }, { x: a.x + n[0] * w, y: a.y + n[1] * w }]; }
+      for (let i = 0; i < 4; i++) line(q[i], q[(i + 1) % 4]);
+    }
+    if (t === 'rect3c' && P.length === 2) {
+      const [m, e2] = P; const hu = Math.hypot(e2.x - m.x, e2.y - m.y) || 1; const du = [(e2.x - m.x) / hu, (e2.y - m.y) / hu]; const dv = [-du[1], du[0]];
+      const hv = Math.abs((c.x - m.x) * dv[0] + (c.y - m.y) * dv[1]);
+      const q = [[1, -1], [1, 1], [-1, 1], [-1, -1]].map(([i, j]) => ({ x: m.x + du[0] * hu * i + dv[0] * hv * j, y: m.y + du[1] * hu * i + dv[1] * hv * j }));
+      for (let i = 0; i < 4; i++) line(q[i], q[(i + 1) % 4]);
+    }
+    if (t === 'circle3' && P.length === 2) { const g = circleThrough3([P[0].x, P[0].y], [P[1].x, P[1].y], [c.x, c.y]); if (g) circle(g.cx, g.cy, g.r); else line(P[0], c); }
+    if (t === 'partialEllipse') {
+      if (P.length === 1) line(P[0], c);
+      if (P.length >= 2) {
+        const C = [P[0].x, P[0].y]; const rx = Math.hypot(P[1].x - C[0], P[1].y - C[1]); const rot = Math.atan2(P[1].y - C[1], P[1].x - C[0]);
+        const src = P.length === 2 ? c : P[2];
+        const ry = Math.max(1e-9, Math.abs(-(src.x - C[0]) * Math.sin(rot) + (src.y - C[1]) * Math.cos(rot)));
+        const full = Array.from({ length: 65 }, (_, k) => ellipsePoint(C, rx, ry, rot, (k / 64) * Math.PI * 2));
+        if (P.length <= 3) curve(full);
+        if (P.length === 4) {
+          const t0 = ellipseParam(C, rx, ry, rot, [P[3].x, P[3].y]); const span = ccwSpan(t0, ellipseParam(C, rx, ry, rot, [c.x, c.y]));
+          curve(Array.from({ length: 65 }, (_, k) => ellipsePoint(C, rx, ry, rot, t0 + (span * k) / 64)));
+        }
+      }
+    }
+    if (t === 'parabola') {
+      if (P.length === 1 || P.length === 2) line(P[P.length - 1], c);
+      if (P.length >= 2) {
+        const [f, v] = P; const a = P.length === 2 ? { x: v.x - (c.x - v.x), y: v.y - (c.y - v.y) } : P[2];
+        const seg = parabolaSegment([f.x, f.y], [v.x, v.y], [a.x, a.y], [c.x, c.y]);
+        if (seg) curve(piecesPolyline(conicPieces(seg.p0, seg.pc, seg.p2, 0.5), 48));
+      }
+    }
+    if (t === 'conic') {
+      if (P.length === 1) line(P[0], c);
+      if (P.length === 2) { line(P[0], c); line(c, P[1]); }
+      if (P.length === 3) { const rho = rhoFromShoulder([P[0].x, P[0].y], [P[2].x, P[2].y], [P[1].x, P[1].y], [c.x, c.y]); curve(piecesPolyline(conicPieces([P[0].x, P[0].y], [P[2].x, P[2].y], [P[1].x, P[1].y], rho), 48)); }
     }
     if (t === 'slot') { if (P.length === 1) line(P[0], c); if (P.length === 2) { const [a, b] = P; const len = Math.hypot(b.x - a.x, b.y - a.y) || 1; const nx = -(b.y - a.y) / len; const ny = (b.x - a.x) / len; const r = Math.abs((c.x - a.x) * nx + (c.y - a.y) * ny); line({ x: a.x + nx * r, y: a.y + ny * r }, { x: b.x + nx * r, y: b.y + ny * r }); line({ x: a.x - nx * r, y: a.y - ny * r }, { x: b.x - nx * r, y: b.y - ny * r }); const an = Math.atan2(ny, nx); circle(b.x, b.y, r, an - Math.PI, an); circle(a.x, a.y, r, an, an + Math.PI); } }
     out.push({ segments: seg, color: COLORS.preview, width: 1.8 });

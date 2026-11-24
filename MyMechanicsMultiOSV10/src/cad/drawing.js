@@ -169,6 +169,10 @@ function projectWith(shape, dir, x) {
  * project — the drawing reuses its parent's projection — so it gets an empty one.
  */
 export function projectView(shape, type, view = null) {
+  if (view?.kind === 'section' && view.aligned) {
+    const folded = alignedShape(shape, view);
+    return { ...projectSection(folded, view), aligned: true };
+  }
   if (view?.kind === 'section') return projectSection(shape, view);
   if (view?.kind === 'detail') return { visible: [], hidden: [], box: { x0: -1, y0: -1, x1: 1, y1: 1 }, detail: true };
   if ((type === 'custom' || view?.type === 'custom') && view) {
@@ -179,10 +183,53 @@ export function projectView(shape, type, view = null) {
   return projectWith(shape, cam.dir, cam.x);
 }
 
+/**
+ * The two legs of an aligned section's cutting line: from the pivot (the section plane's point) along `u1` in
+ * the section plane, and along `u2` — the opposite direction turned by `aligned.angle` degrees about the parent
+ * view's line of sight `aligned.axis`. { pivot, axis, u1, u2, n1, n2 } (n: the planes' normals toward the viewer).
+ */
+export function alignedLegs(view) {
+  const pivot = vec3(view.plane?.point) ?? [0, 0, 0];
+  const n1 = unit3(vec3(view.plane?.normal) ?? [1, 0, 0]) ?? [1, 0, 0];
+  const axis = unit3(vec3(view.aligned?.axis) ?? [0, -1, 0]) ?? [0, -1, 0];
+  const u1 = unit3(vec3(view.aligned?.along) ?? cross3(n1, axis)) ?? cross3(n1, axis);
+  const th = ((Number(view.aligned?.angle) || 0) * Math.PI) / 180;
+  const rot = (v) => { const c = Math.cos(th); const sn = Math.sin(th); const k = axis; const kv = cross3(k, v); const kd = dot3(k, v); return [0, 1, 2].map((i) => v[i] * c + kv[i] * sn + k[i] * kd * (1 - c)); };
+  return { pivot, axis, u1, u2: rot(u1.map((x) => -x)), n1, n2: rot(n1), angle: (th * 180) / Math.PI };
+}
+
+/**
+ * An aligned section's model: the material on the second leg's side (past the bisector of the two legs) turned
+ * by −angle about the axis through the pivot, so its cut lies in the first leg's plane; the first leg's side as
+ * it is. The section is then taken in that one plane.
+ */
+export function alignedShape(shape, view) {
+  const R = rep();
+  const L = alignedLegs(view);
+  if (Math.abs(L.angle) < 1e-9) return shape;
+  const w = unit3([L.u1[0] + L.u2[0], L.u1[1] + L.u2[1], L.u1[2] + L.u2[2]]) ?? cross3(L.axis, L.u1);
+  let m = cross3(L.axis, w);
+  if (dot3(m, L.u1) < 0) m = m.map((x) => -x);
+  const [lo, hi] = shape.boundingBox.bounds;
+  const big = Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]) * 4 + 10;
+  // A half space as a big box on one side of the plane through the pivot with normal `n`.
+  const half = (n) => {
+    const a = unit3(cross3(n, Math.abs(n[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0]));
+    const b = cross3(n, a);
+    const corner = (i, j) => [0, 1, 2].map((k) => L.pivot[k] + a[k] * big * i + b[k] * big * j);
+    const face = R.makePolygon([corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)]);
+    return R.basicFaceExtrusion(face, new R.Vector(n.map((x) => x * big)));
+  };
+  const side1 = shape.clone().intersect(half(m));
+  const side2 = shape.clone().intersect(half(m.map((x) => -x)));
+  const turned = side2.rotate(-L.angle, L.pivot, L.axis);
+  return R.makeCompound([side1, turned]);
+}
+
 /** A string that changes whenever the projection of the view would (for caching projections). */
 export function projectionKey(view) {
   if (!view) return 'none';
-  if (view.kind === 'section') return `section|${view.type}|${JSON.stringify(view.plane ?? null)}`;
+  if (view.kind === 'section') return `section|${view.type}|${JSON.stringify(view.plane ?? null)}${view.aligned ? `|aligned|${JSON.stringify(view.aligned)}` : ''}`;
   if (view.kind === 'detail') return `detail|${view.parent}`;
   if (view.type === 'custom') return `custom|${JSON.stringify([view.dir ?? null, view.x ?? null, view.up ?? null])}`;
   return String(view.type);
@@ -520,7 +567,9 @@ function primitivesDxf(prims, H, layer = 'NOTES') {
 
 // ───────────────────────── annotations
 
-export const ANNOTATION_KINDS = ['note', 'balloon', 'gdt', 'datum', 'surface', 'centermark', 'dimension'];
+export const ANNOTATION_KINDS = ['note', 'balloon', 'gdt', 'datum', 'surface', 'centermark', 'dimension', 'cloud', 'datumTarget', 'hatch', 'bendTable'];
+/** Area hatch patterns: ANSI31 (lines), ANSI37 (crossed lines), steel (pairs of lines), solid fill. */
+export const HATCH_PATTERNS = ['ansi31', 'ansi37', 'steel', 'solid'];
 export const GDT_SYMBOLS = ['flatness', 'straightness', 'circularity', 'cylindricity', 'parallelism', 'perpendicularity', 'angularity', 'position', 'concentricity', 'symmetry', 'profileLine', 'profileSurface', 'runout', 'totalRunout'];
 /** Tolerance kind of each GD&T symbol (form, orientation, location, profile, runout) and whether it needs a datum. */
 export const GDT_GROUPS = {
@@ -698,8 +747,151 @@ export function annotationPrimitives(a, { scale = 1 } = {}) {
       out.push({ t: 'text', x: tp[0], y: tp[1], text: value, size, anchor: 'middle', rot: Math.abs(ang) < 1e-9 ? 0 : ang });
       return out;
     }
+    case 'cloud': return cloudPrimitives(a, x, y);
+    case 'datumTarget': return datumTargetPrimitives(a, x, y);
+    case 'hatch': return areaHatchPrimitives(a, x, y);
+    case 'bendTable': return bendTablePrimitives(a, x, y);
     default: return [];
   }
+}
+
+/** The region of a cloud or an area hatch: its points, or the rectangle x, y, w × h. */
+function regionOf(a, x, y) {
+  const pts = Array.isArray(a.pts) ? a.pts.map(pt2).filter(Boolean) : [];
+  if (pts.length >= 3) return pts;
+  const w = Number(a.w) > 0 ? Number(a.w) : 40; const h = Number(a.h) > 0 ? Number(a.h) : 25;
+  return [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+}
+const signedArea2 = (pts) => pts.reduce((acc, p, i) => { const q = pts[(i + 1) % pts.length]; return acc + p[0] * q[1] - q[0] * p[1]; }, 0) / 2;
+
+/**
+ * Revision cloud: arcs bulging out along the region's outline, each about `arc` mm long (a scalloped closed
+ * line), and a revision triangle with its letter at the first corner when `rev` is set.
+ */
+export function cloudPrimitives(a, x = Number(a.x) || 0, y = Number(a.y) || 0) {
+  const pts = regionOf(a, x, y);
+  const chord = Number(a.arc) > 0 ? Number(a.arc) : 6;
+  const ccw = signedArea2(pts) > 0;
+  const out = [];
+  const line = [];
+  for (let i = 0; i < pts.length; i++) {
+    const A = pts[i]; const B = pts[(i + 1) % pts.length];
+    const L = Math.hypot(B[0] - A[0], B[1] - A[1]);
+    if (L < 1e-9) continue;
+    const n = Math.max(1, Math.round(L / chord));
+    const d = [(B[0] - A[0]) / L, (B[1] - A[1]) / L];
+    // Outward: to the left of each edge of a positively oriented outline (the sheet's y runs down).
+    const nrm = ccw ? [d[1], -d[0]] : [-d[1], d[0]];
+    const c = L / n;
+    // A circular arc over each chord with a sagitta of 0.35 c, bulging outward.
+    const sag = 0.35 * c; const R = (c * c) / (8 * sag) + sag / 2;
+    for (let k = 0; k < n; k++) {
+      const P = [A[0] + d[0] * c * k, A[1] + d[1] * c * k];
+      const mid = [P[0] + (d[0] * c) / 2, P[1] + (d[1] * c) / 2];
+      const C = [mid[0] - nrm[0] * (R - sag), mid[1] - nrm[1] * (R - sag)];
+      const a0 = Math.atan2(P[1] - C[1], P[0] - C[0]);
+      const Q = [P[0] + d[0] * c, P[1] + d[1] * c];
+      const aq = Math.atan2(Q[1] - C[1], Q[0] - C[0]);
+      const top = Math.atan2(mid[1] + nrm[1] * sag - C[1], mid[0] + nrm[0] * sag - C[0]);
+      // The way round from P to Q that passes the top of the bulge.
+      const norm = (v) => ((v % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+      const fwd = norm(aq - a0);
+      const a1 = norm(top - a0) <= fwd ? a0 + fwd : a0 - (2 * Math.PI - fwd);
+      const seg = arcPts(C[0], C[1], R, a0, a1, 8);
+      if (line.length) seg.shift();
+      line.push(...seg);
+    }
+  }
+  if (line.length) out.push({ t: 'poly', pts: line, closed: true, cls: 'ann-cloud' });
+  if (a.rev) {
+    const [tx, ty] = pts[0];
+    const side = 7; const h = (side * Math.sqrt(3)) / 2;
+    const apex = [tx - side * 0.2, ty - side * 0.8 - h];
+    out.push({ t: 'poly', pts: [[apex[0] - side / 2, apex[1] + h], [apex[0] + side / 2, apex[1] + h], apex], closed: true });
+    out.push({ t: 'text', x: apex[0], y: apex[1] + h * 0.82, text: String(a.rev), size: 3, anchor: 'middle' });
+  }
+  return out;
+}
+
+/**
+ * Datum target: a circle split across — the target's size above (e.g. "Ø6", empty for a point), its label below
+ * ("A1") — with a leader to the target: an X for a point, a dashed circle crossed by lines for an area of `areaSize`.
+ */
+export function datumTargetPrimitives(a, x = Number(a.x) || 0, y = Number(a.y) || 0) {
+  const r = Number(a.size) > 0 ? Number(a.size) : 5;
+  const out = [{ t: 'circle', c: [x, y], r }, { t: 'poly', pts: [[x - r, y], [x + r, y]] }];
+  const ts = r * 0.62;
+  if (a.area) out.push({ t: 'text', x, y: y - r * 0.22, text: String(a.area), size: ts, anchor: 'middle' });
+  out.push({ t: 'text', x, y: y + r * 0.72, text: String(a.label ?? 'A1'), size: ts, anchor: 'middle' });
+  const t = pt2(a.target);
+  if (t) {
+    const d = unit2(sub2(t, [x, y]));
+    if (Math.hypot(t[0] - x, t[1] - y) > r) out.push({ t: 'poly', pts: [add2([x, y], d, r), t] });
+    if (a.targetKind === 'area') {
+      const ar = Math.max(0.5, (Number(a.areaSize) > 0 ? Number(a.areaSize) : 6) / 2);
+      out.push({ t: 'circle', c: t, r: ar, cls: 'ann-phantom' });
+      for (const [P, Q] of polygonHatch(arcPts(t[0], t[1], ar, 0, 2 * Math.PI, 24).slice(0, -1), ar * 0.6, 45)) out.push({ t: 'poly', pts: [P, Q], cls: 'ann-phantom' });
+    } else {
+      const k = 1.3;
+      out.push({ t: 'poly', pts: [[t[0] - k, t[1] - k], [t[0] + k, t[1] + k]] }, { t: 'poly', pts: [[t[0] - k, t[1] + k], [t[0] + k, t[1] - k]] });
+    }
+  }
+  return out;
+}
+
+/** Line segments of a hatch over a polygon: lines at `angle` degrees, `spacing` apart, clipped even–odd. */
+export function polygonHatch(pts, spacing = 2.5, angle = 45, shift = 0) {
+  const th = (angle * Math.PI) / 180; const u = [Math.cos(th), Math.sin(th)]; const nrm = [-u[1], u[0]];
+  const ns = pts.map((p) => p[0] * nrm[0] + p[1] * nrm[1]);
+  const lo = Math.min(...ns); const hi = Math.max(...ns);
+  const out = [];
+  const sp = Math.max(0.2, spacing);
+  for (let c = Math.ceil((lo - shift) / sp) * sp + shift; c <= hi; c += sp) {
+    const ts = [];
+    for (let i = 0; i < pts.length; i++) {
+      const A = pts[i]; const B = pts[(i + 1) % pts.length];
+      const da = A[0] * nrm[0] + A[1] * nrm[1] - c; const db = B[0] * nrm[0] + B[1] * nrm[1] - c;
+      if ((da > 0) === (db > 0)) continue;
+      const f = da / (da - db);
+      ts.push((A[0] + (B[0] - A[0]) * f) * u[0] + (A[1] + (B[1] - A[1]) * f) * u[1]);
+    }
+    ts.sort((p, q) => p - q);
+    for (let k = 0; k + 1 < ts.length; k += 2) out.push([[c * nrm[0] + ts[k] * u[0], c * nrm[1] + ts[k] * u[1]], [c * nrm[0] + ts[k + 1] * u[0], c * nrm[1] + ts[k + 1] * u[1]]]);
+  }
+  return out;
+}
+
+/** Area hatch / fill over a region (no outline of its own unless `border`): a pattern, its spacing and angle. */
+export function areaHatchPrimitives(a, x = Number(a.x) || 0, y = Number(a.y) || 0) {
+  const pts = regionOf(a, x, y);
+  const pattern = HATCH_PATTERNS.includes(a.pattern) ? a.pattern : 'ansi31';
+  const sp = Number(a.spacing) > 0 ? Number(a.spacing) : 2.5;
+  const ang = Number.isFinite(Number(a.angle)) ? Number(a.angle) : 45;
+  const out = [];
+  if (pattern === 'solid') out.push({ t: 'fill', pts, cls: 'ann-solid' });
+  else {
+    // ANSI37: a second set at right angles; steel: lines in pairs (every second gap narrow).
+    const sets = pattern === 'ansi37' ? [[sp, ang, 0], [sp, ang + 90, 0]] : pattern === 'steel' ? [[sp * 2, ang, 0], [sp * 2, ang, sp * 0.5]] : [[sp, ang, 0]];
+    for (const [s0, a0, sh] of sets) for (const [P, Q] of polygonHatch(pts, s0, a0, sh)) out.push({ t: 'poly', pts: [P, Q], cls: 'ann-hatch' });
+  }
+  if (a.border) out.push({ t: 'poly', pts, closed: true });
+  return out;
+}
+
+/** Bend table: No. · direction · angle · inner radius · K-factor · allowance, one row per bend (a.rows). */
+export function bendTablePrimitives(a, x = Number(a.x) || 0, y = Number(a.y) || 0) {
+  const head = Array.isArray(a.head) && a.head.length === 6 ? a.head : ['No.', 'Dir.', 'Angle', 'R', 'K', 'BA'];
+  const rows = (Array.isArray(a.rows) ? a.rows : []).map((row) => [String(row.no), String(row.dir), `${fmt(row.angle)}°`, fmt(row.radius), fmt(row.k), fmt(row.allowance)]);
+  const widths = [10, 14, 16, 14, 12, 16]; const rh = 6; const ts = 3;
+  const W = widths.reduce((p, q) => p + q, 0);
+  const all = [head.map(String), ...rows];
+  const H = rh * all.length;
+  const out = [{ t: 'poly', pts: [[x, y], [x + W, y], [x + W, y + H], [x, y + H]], closed: true, cls: 'ann-frame' }];
+  for (let i = 1; i < all.length; i++) out.push({ t: 'poly', pts: [[x, y + i * rh], [x + W, y + i * rh]], cls: 'ann-frame' });
+  let cx = x;
+  for (const w of widths.slice(0, -1)) { cx += w; out.push({ t: 'poly', pts: [[cx, y], [cx, y + H]], cls: 'ann-frame' }); }
+  all.forEach((row, i) => { let px = x; row.forEach((cell, j) => { out.push({ t: 'text', x: px + widths[j] / 2, y: y + i * rh + rh * 0.7, text: cell, size: ts, anchor: 'middle', bold: i === 0 }); px += widths[j]; }); });
+  return out;
 }
 
 /** One annotation as an SVG group (`<g class="annotation …" data-annotation="id">`). */
@@ -719,7 +911,7 @@ export function annotationSvg(a, { scale = 1, selected = false } = {}) {
 export function bomRows(assembly, project, { lang = 'en' } = {}) {
   const rows = new Map();
   for (const c of assembly?.components ?? []) {
-    if (!c || c.suppressed || c.excludeFromBom) continue;
+    if (!c || c.suppressed || c.excludeFromBom || c.envelope) continue;
     let key; let row;
     if (c.sub != null && c.part == null) {
       key = `sub:${c.sub}`;
@@ -815,6 +1007,8 @@ function parentMarks(drawing, v, p, place, scale, labels) {
       const r = Number(w.radius) > 0 ? Number(w.radius) : Math.max(1e-3, 0.25 * Math.min(p.box.x1 - p.box.x0, p.box.y1 - p.box.y0));
       const C = map(c); const rs = r * s;
       out.push({ t: 'circle', c: C, r: rs, cls: 'detail-circle' }, { t: 'text', x: C[0] + rs * 0.72 + 1.5, y: C[1] - rs * 0.72 - 1.5, text: letter, size: 4.2, bold: true, anchor: 'start' });
+    } else if (w.kind === 'section' && w.aligned && basis) {
+      out.push(...alignedCutMarks(w, p, map, s, basis, letter));
     } else if (w.kind === 'section' && basis) {
       const n = unit3(vec3(w.plane?.normal) ?? worldFront()) ?? worldFront();
       if (Math.abs(dot3(n, basis.dir)) > 1e-3) continue; // the plane is not seen edge-on in this view
@@ -844,6 +1038,37 @@ function parentMarks(drawing, v, p, place, scale, labels) {
       }
     }
   }
+  return out;
+}
+
+/** The cutting line of an aligned section: two legs from the pivot to the view's box, arrows on each leg's end. */
+function alignedCutMarks(w, p, map, s, basis, letter) {
+  const L = alignedLegs(w);
+  const out = [];
+  const P2 = [dot3(L.pivot, basis.x), dot3(L.pivot, basis.y)];
+  const m = 5 / s;
+  const bx = [p.box.x0 - m, p.box.x1 + m]; const by = [p.box.y0 - m, p.box.y1 + m];
+  const legEnd = (u) => {
+    const d2 = unit2([dot3(u, basis.x), dot3(u, basis.y)]);
+    let t1 = Infinity;
+    for (const [o, dd, [lo, hi]] of [[P2[0], d2[0], bx], [P2[1], d2[1], by]]) { if (Math.abs(dd) < 1e-12) continue; t1 = Math.min(t1, Math.max((lo - o) / dd, (hi - o) / dd)); }
+    return Number.isFinite(t1) && t1 > 0 ? map([P2[0] + d2[0] * t1, P2[1] + d2[1] * t1]) : null;
+  };
+  const C = map(P2);
+  for (const [u, n] of [[L.u1, L.n1], [L.u2, L.n2]]) {
+    const E = legEnd(u);
+    if (!E) continue;
+    out.push({ t: 'poly', pts: [C, E], cls: 'cut-line' });
+    const along = unit2(sub2(E, C));
+    out.push({ t: 'poly', pts: [E, add2(E, along, -5)], cls: 'cut-end' });
+    const vd = unit2([-dot3(n, basis.x), dot3(n, basis.y)]);
+    const tail = add2(E, vd, -7);
+    out.push({ t: 'poly', pts: [tail, add2(E, vd, -2.4)], cls: 'ann-line' }, arrowHead(E, vd, 2.6, 0.9));
+    const lp = add2(tail, vd, -2.2);
+    out.push({ t: 'text', x: lp[0], y: lp[1] + 1.5, text: letter, size: 4.2, bold: true, anchor: 'middle' });
+  }
+  // The bend of the cutting line: a thick mark at the pivot.
+  out.push({ t: 'poly', pts: [add2(C, unit2(sub2(legEnd(L.u1) ?? C, C)), 2.5), C, add2(C, unit2(sub2(legEnd(L.u2) ?? C, C)), 2.5)], cls: 'cut-end' });
   return out;
 }
 
@@ -899,14 +1124,21 @@ const EXTRA_CSS = `<style>
     .ann-line,.ann-frame{fill:none;stroke:#000;stroke-width:.25;stroke-linejoin:round;stroke-linecap:round}.ann-fill{fill:#000;stroke:none}
     .ann-text{font-family:Roboto,"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif;fill:#000}.ann-bold{font-weight:bold}
     .annotation.selected .ann-line,.annotation.selected .ann-frame{stroke:#1e88e5}.annotation.selected .ann-fill{fill:#1e88e5}.annotation.selected .ann-text{fill:#1e88e5}
+    .ann-cloud,.ann-hatch{fill:none;stroke:#000;stroke-width:.25;stroke-linejoin:round}.ann-phantom{fill:none;stroke:#000;stroke-width:.2;stroke-dasharray:3 1}.ann-solid{fill:#000;fill-opacity:.35;stroke:none}
+    .annotation.selected .ann-cloud,.annotation.selected .ann-hatch,.annotation.selected .ann-phantom{stroke:#1e88e5}
     .bom-frame{fill:none;stroke:#000;stroke-width:.5}.bom-grid{fill:none;stroke:#000;stroke-width:.2}
   </style>`;
 
 /** Cosmetic thread marks of a view (thin lines and three-quarter circles, the thick thread limit, hidden threads). */
 const THREAD_CSS = `
-  <style>.thread-line{fill:none;stroke:#000;stroke-width:.25}.thread-limit{fill:none;stroke:#000;stroke-width:.5}.thread-hidden{fill:none;stroke:#555;stroke-width:.25;stroke-dasharray:2 1.2}</style>`;
+  <style>.phantom-line{fill:none;stroke:#000;stroke-width:.25;stroke-dasharray:8 1.2 1.2 1.2 1.2 1.2}.bend-line{fill:none;stroke:#000;stroke-width:.25}.bend-up{stroke-dasharray:6 1.5 1.5 1.5}.bend-down{stroke-dasharray:2 1.5}.cross-break{fill:none;stroke:#000;stroke-width:.18}.thread-line{fill:none;stroke:#000;stroke-width:.25}.thread-limit{fill:none;stroke:#000;stroke-width:.5}.thread-hidden{fill:none;stroke:#555;stroke-width:.25;stroke-dasharray:2 1.2}</style>`;
 
 function threadMarksSvg(p, hiddenOn) {
+  const extra = [...(p.phantom ?? []).map((d) => `<path d="${d}" class="phantom-line" vector-effect="non-scaling-stroke"/>`), ...(p.bendLines?.up ?? []).map((d) => `<path d="${d}" class="bend-line bend-up" vector-effect="non-scaling-stroke"/>`), ...(p.bendLines?.down ?? []).map((d) => `<path d="${d}" class="bend-line bend-down" vector-effect="non-scaling-stroke"/>`), ...(p.bendLines?.cross ?? []).map((d) => `<path d="${d}" class="cross-break" vector-effect="non-scaling-stroke"/>`)].join('');
+  return extra + threadMarksOnly(p, hiddenOn);
+}
+
+function threadMarksOnly(p, hiddenOn) {
   const t = p.threads;
   if (!t) return '';
   const path = (cls) => (d) => `<path d="${d}" class="${cls}" vector-effect="non-scaling-stroke"/>`;
@@ -1053,6 +1285,8 @@ export function drawingDxf(drawing, projections, { labels = {}, bomRows: bom = n
   const dimEnts = [];
   let hatched = false;
   let threaded = false;
+  let phantomed = false;
+  let bent = false;
   for (const v of drawing.views) {
     const p = resolve(v); const place = places.get(v.id);
     if (!p || !place) continue;
@@ -1065,6 +1299,8 @@ export function drawingDxf(drawing, projections, { labels = {}, bomRows: bom = n
     const seg = (layer, a, b) => { const c = clip(a, b); if (c) add(layer, map(c[0]), map(c[1])); };
     const emit = (layer, list) => { for (const d of list) for (const poly of pathPolylines(d)) for (let k = 1; k < poly.length; k++) seg(layer, poly[k - 1], poly[k]); };
     emit('VISIBLE', p.visible);
+    if (p.phantom?.length) { emit('PHANTOM', p.phantom); phantomed = true; }
+    if (p.bendLines?.up?.length || p.bendLines?.down?.length || p.bendLines?.cross?.length) { emit('BENDS', [...(p.bendLines.up ?? []), ...(p.bendLines.down ?? []), ...(p.bendLines.cross ?? [])]); bent = true; }
     if (p.threads) {
       emit('THREADS', p.threads.thin ?? []); emit('VISIBLE', p.threads.thick ?? []);
       if (drawing.showHidden !== false && v.hidden !== false) emit('HIDDEN', p.threads.hidden ?? []);
@@ -1098,6 +1334,8 @@ export function drawingDxf(drawing, projections, { labels = {}, bomRows: bom = n
   if (zones.length) { names.push('ZONES'); colors.push(7); }
   if (hatched) { names.push('HATCH'); colors.push(8); }
   if (threaded) { names.push('THREADS'); colors.push(7); }
+  if (phantomed) { names.push('PHANTOM'); colors.push(9); }
+  if (bent) { names.push('BENDS'); colors.push(3); }
   if (notes.length) { names.push('NOTES'); colors.push(7); }
   if (dimEnts.length) { names.push('DIMENSIONS'); colors.push(7); notes.push(...dimEnts); }
   const layers = names.map((name, i) => `0\nLAYER\n2\n${name}\n70\n0\n62\n${colors[i]}\n6\n${name === 'HIDDEN' ? 'HIDDEN' : 'CONTINUOUS'}`).join('\n');

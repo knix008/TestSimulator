@@ -137,6 +137,8 @@ export function defaultSettings(language = 'ko') {
     showProfiles: false,
     fieldOfView: 50,
     orbitSpeed: 100,
+    orbitMode: 'free',
+    arrowStep: 15,
     zoomSpeed: 100,
     invertZoom: false,
     panelView: 'library',
@@ -173,6 +175,7 @@ export function defaultSettings(language = 'ko') {
     largeAssemblyThreshold: 40,
     /** In large assembly mode, components smaller than this fraction of the assembly are not drawn (0: all drawn). */
     largeHideSmall: 0,
+    holeAlignTolerance: 0.01,
   };
 }
 
@@ -224,6 +227,7 @@ export function normalizeSettings(raw = {}, language) {
   s.largeAssembly = ['auto', 'on', 'off'].includes(s.largeAssembly) ? s.largeAssembly : 'auto';
   s.largeAssemblyThreshold = clamp(s.largeAssemblyThreshold, 2, 100000, 40);
   s.largeHideSmall = Math.min(0.2, Math.max(0, Number(s.largeHideSmall) || 0));
+  s.holeAlignTolerance = Math.min(10, Math.max(0, Number.isFinite(Number(s.holeAlignTolerance)) ? Number(s.holeAlignTolerance) : 0.01));
   s.leftDrag = s.leftDrag === 'select' ? 'select' : 'orbit';
   const sp = s.scaleBarPos;
   s.scaleBarPos = sp && Number.isFinite(sp.x) && Number.isFinite(sp.y) ? { x: Math.max(0, Math.min(1, sp.x)), y: Math.max(0, Math.min(1, sp.y)) } : null;
@@ -235,6 +239,8 @@ export function normalizeSettings(raw = {}, language) {
   s.maxFps = [30, 60, 120, 0].includes(Number(s.maxFps)) ? Number(s.maxFps) : 60;
   s.fieldOfView = clamp(s.fieldOfView, 20, 100, base.fieldOfView);
   s.orbitSpeed = clamp(s.orbitSpeed, 20, 300, 100);
+  s.orbitMode = ['free', 'turntable'].includes(s.orbitMode) ? s.orbitMode : base.orbitMode;
+  s.arrowStep = clamp(s.arrowStep, 1, 90, base.arrowStep);
   s.zoomSpeed = clamp(s.zoomSpeed, 20, 300, 100);
   s.panelView = ['library', 'tools', 'materials'].includes(s.panelView) ? s.panelView : base.panelView;
   s.librarySize = ['small', 'medium', 'large'].includes(s.librarySize) ? s.librarySize : base.librarySize;

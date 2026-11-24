@@ -429,6 +429,10 @@ const ANN = {
   surface: { id: 's', kind: 'surface', x: 180, y: 60, ra: '0.8' },
   centermark: { id: 'c', kind: 'centermark', x: 200, y: 60, size: 12 },
   dimension: { id: 'm', kind: 'dimension', a: [20, 150], b: [70, 150] },
+  cloud: { id: 'cl', kind: 'cloud', x: 220, y: 30, w: 40, h: 20, rev: 'B' },
+  datumTarget: { id: 'tg', kind: 'datumTarget', x: 260, y: 40, label: 'A1', area: 'Ø6', target: [270, 55] },
+  hatch: { id: 'h', kind: 'hatch', x: 280, y: 70, w: 20, h: 15, pattern: 'ansi31' },
+  bendTable: { id: 'bt', kind: 'bendTable', x: 300, y: 20, rows: [{ no: 1, dir: 'UP', angle: 90, radius: 2, k: 0.44, allowance: 4.53 }] },
 };
 const withAnn = (...anns) => drawing({ views: [], annotations: anns });
 test('the annotation samples cover every annotation kind', () => { assert.deepEqual(Object.keys(ANN), ANNOTATION_KINDS); });

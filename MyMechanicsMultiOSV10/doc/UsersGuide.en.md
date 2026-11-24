@@ -23,7 +23,8 @@ New to the program? Follow the **tutorial document** first (Help › Tutorial do
 
 ### Mouse and view
 
-* **Left drag or middle drag**: rotate · **right drag / Shift+left / Ctrl+middle**: pan · **wheel**: zoom at the pointer
+* **Left drag or middle drag**: rotate (free, about the screen axes — the model can be laid down or turned over) · **middle drag on an edge**: turn about that edge (a circular edge: about its axis) · **middle drag on a face**: turn about that point · **Alt+drag**: roll about the view centre · **right drag / Shift+left / Ctrl+middle**: pan · **wheel**: zoom at the pointer
+* **Arrow keys**: rotate 15° (set in the settings) about the screen axes · **Shift+arrows**: 90° · **Alt+←/→**: roll · **Ctrl+arrows**: pan. Set **Rotation** under Settings › Navigation to **Turntable** to keep Z always up.
 * **F**: zoom to fit · **Space**: view orientation menu · **Ctrl+1…7**: front, back, left, right, top, bottom, isometric · **Ctrl+8**: normal to
 * **K**: next display style (shaded with edges → shaded → hidden lines removed → hidden lines visible → wireframe)
 * Faces, edges and planes under the pointer turn orange, selected ones blue. Ctrl or Shift+click selects several.
@@ -72,25 +73,37 @@ To change a dimension or a feature's values, double-click the feature in the tre
 | Line | L | Click, click … to chain lines; click an existing point or press Esc to finish. Nearly horizontal or vertical lines get that relation. |
 | Centerline | | A construction line (dashed): an axis of revolution or symmetry. |
 | Corner / Center Rectangle | R | Two clicks; horizontal and vertical relations come with it. |
+| 3 point corner rectangle / 3 point center rectangle | | A rectangle at an angle: the two ends of the first side and a point for the width / the centre, the middle of one side and a point for the other size. Perpendicular and parallel relations are added (horizontal and vertical when drawn level). |
+| Parallelogram | | Click three corners. The opposite sides get parallel relations. |
 | Circle | C | Center, a point on the circle. |
+| Perimeter circle | | Three points on the circle. Clicking existing points holds them on it. |
 | 3 Point / Centerpoint Arc | A | Start, end, a point on the arc / center, start, end. |
+| Tangent arc | | Click the end of a line or an arc, then the end of the arc. It continues tangent to that curve with a tangent relation (straight on, it is a collinear line). |
 | Polygon | P | Center, a vertex; the number of sides is in the PropertyManager. |
 | Straight Slot | | Both end centers, then the width. |
 | Point | | Hole positions and the like. |
 | Smart Dimension | D | One line = length, a circle = diameter, an arc = radius, two lines = distance (parallel) or angle, two points = distance. Double-click a dimension to change it. A dimension that would over define the sketch becomes a reference (driven) one, shown in brackets. |
 | Spline | S | Click points in turn; Enter or Esc finishes, clicking the first point closes it. The curve passes through every point. |
 | Ellipse | E | Centre, end of the major axis, a point for the minor axis. |
+| Partial ellipse | | Centre, end of the major axis, a point for the minor axis, the start and the end (counter-clockwise). The ends are held on the ellipse. Selected, its radii and angle are changed in the PropertyManager. |
+| Parabola | | Focus, apex, then the start and the end of the parabola. It is built as an exact parabola (a rational Bézier curve). |
+| Conic | | Start, end, the top vertex where the end tangents meet, and a shoulder point the curve passes. The shoulder point sets rho (0.5 = parabola, less = ellipse, more = hyperbola); selected, rho is changed in the PropertyManager. |
+| Equation driven curve | | In the PropertyManager, enter `y = f(x)` or parametric `x(t)`, `y(t)` and the range, then **Add the curve**. Angles are in radians; `sin cos tan asin acos atan atan2 sinh cosh tanh sqrt abs exp ln log min max pow`, `pi`, `e` and `^` can be used. If the equation cannot be evaluated over the range, the reason is shown. The ends are fixed where the equation puts them, and the curve follows the equation within 1 µm. |
 | Sketch Fillet / Chamfer | | Click the corner where two lines meet; radius / distance in the PropertyManager. |
 | Offset Entities | O | Copies the selected lines, arcs and circles at a distance; joined lines stay joined. |
 | Mirror Entities | | Select entities and a centerline: mirrored copies with symmetric relations. |
 | Linear / Circular Sketch Pattern | | Copies the selection by spacing and count (linear) or count and angle (circular, about the selected point). |
 | Trim Entities | T | Removes the clicked piece between crossings (a curve nothing crosses is deleted); a circle becomes an arc. |
 | Extend Entities | X | Grows a line to the next entity. |
+| Split entities | | Click on a curve to split it there (lines stay collinear, conics tangent). Circles and ellipses take two clicks and become two arcs. Splines are not split (that would change their shape). |
+| Stretch entities | | Moves the selection by dx, dy while keeping the relations, so joined entities stretch; what is not selected stays where it is as far as the relations allow. If the relations do not allow it, nothing changes. |
+| Fully define sketch | | Adds horizontal / vertical relations to lines drawn almost so, then line lengths, circle diameters, arc radii and the horizontal / vertical positions of the points from the origin until nothing can move. Nothing over-defining is added, and every dimension takes the current value, so the shape does not change. |
 | Text | | Places text where clicked (Roboto font, height in the PropertyManager); extrude, cut or wrap it to engrave or emboss. |
 | 3D Sketch | | A path in space: click while switching between the Front, Top and Right planes, or type coordinates in the table. Lines or a smooth spline, open or closed; used for sweep paths, structural members and filled surfaces. |
 | For construction | | Turns the selected lines and circles into construction geometry and back (construction geometry is not part of a profile). |
 
 * With **Select** (S), drag points or lines: the relations are kept.
+* Inside a sketch, **Undo** (Ctrl+Z) and **Redo** (Ctrl+Y) step through the sketch's own steps (drawing, dimensions, relations).
 * With entities selected, the PropertyManager lists their **existing relations** (removable) and **add relation** buttons (horizontal, vertical, parallel, perpendicular, equal, tangent, concentric, coincident, midpoint, symmetric, collinear, fix).
 * Number boxes take units and arithmetic: `25.4in`, `100/3`, `2*15`. A dimension value like `=W` links it to a global variable (shown with Σ).
 * Only closed contours make features; a closed contour inside another is a hole.
@@ -106,11 +119,18 @@ To change a dimension or a feature's values, double-click the feature in the tre
 | Fillet / Chamfer | Click edges, or click a face to add all of its edges. |
 | Shell | Pick the faces to open and the thickness. |
 | Hole Wizard | Hole, counterbore, countersink; ISO M3–M20 clearance sizes; through or blind (118° drill point). Click a flat face to place holes; the positions are kept in a "HolePositions" sketch. |
+| Advanced Hole | At each point of a point sketch, a hole of near-side elements stacked from the face (counterbore · countersink · straight · tapped · taper, with diameter, depth, angle) and far-side elements stacked back from the far face. A last near element of depth 0 runs through to the far elements. |
+| Intersect | Lists the closed regions that bodies, surfaces and planes make together; check the regions to leave out, and choose Merge result and Consume the bodies used. |
+| Mate Reference | Keeps a part's primary, secondary and tertiary faces with the mate type and alignment of each, under a name. Inserted next to a part with a mate reference of the same name, the part mates itself. |
+| Save Bodies | Each body of a multi-body part becomes a part of its own (it inserts that body of the original, so it stays linked), with an assembly of them. |
 | Linear Pattern | Direction (X, Y, Z or an edge), spacing, count; Direction 2 for a grid. Copies features or the whole body. |
 | Circular Pattern | Axis (X, Y, Z, or a circular or straight edge), total angle, count, equal spacing. |
 | Mirror | About a standard plane, a reference plane or a flat face; features or the whole body. |
 | Reference Plane | Offset from a plane or a face; used as a sketch plane. |
+| Reference point · centre of mass | A reference point at coordinates, a face centre, an arc centre, along an edge, or the **Center of mass** (the volume centroid of the bodies built so far; it follows the model). |
+| Bounding box | **Insert › Reference Geometry › Bounding Box**: the smallest box around the bodies, drawn as its 12 edges, with its length, width and thickness in the PropertyManager. **Best fit** takes the least volume among OCCT's optimal oriented box and boxes square to the part's planar faces; **Square to a plane** is the exact box square to the chosen plane. |
 | Intersect extrude · drafted extrude | Set an extrude's operation to **Intersect** to keep only the overlap. **Draft on** tapers a blind extrude's sides. |
+| Merge result | With **Merge result** off, a boss extrude or revolve makes a body of its own instead of joining the existing body (even where they overlap): for multi-body parts, the mating body of a snap hook groove, and tool bodies of Combine and Indent. |
 | Swept Boss / Cut | Sweeps a closed profile along a path (an open sketch or a helix). Sketch the profile at the start of the path, across it; turn on **Frenet** for helices. |
 | Lofted Boss / Cut | Joins closed profiles on several planes in the order chosen. Ruled option. |
 | Draft | Pick the neutral plane, then the faces to taper (0–45°). |
@@ -119,7 +139,13 @@ To change a dimension or a feature's values, double-click the feature in the tre
 | Helix | A helix by plane, radius, pitch and revolutions; use it as a sweep path for springs. |
 | Thread | Cuts a 60° V thread at a shaft end or hole rim (external / internal found automatically, M3–M24 pitches). A **cosmetic thread** only draws lines. |
 | Wrap | Embosses / debosses a sketch from a plane beside a cylinder or a flat face (projected onto it). |
-| Move/Copy Bodies · Scale · Split | Moves (or copies) the body, scales it, or splits it by a plane keeping one side or both (two bodies). |
+| Move/Copy Bodies · Scale · Split | Moves (ΔX, ΔY, ΔZ) and turns the body about X, Y and Z through a rotation centre — laid down or turned over — (or copies it), scales it, or splits it by a plane keeping one side or both (two bodies). |
+| OpenSCAD feature | **Insert › Bodies › OpenSCAD feature**: a body made by OpenSCAD code. The PropertyManager's **Customizer** lists the variables at the top of the program by their `/* [Tab] */` groups (`// [min:max]` gives a slider, `// [a, b]` a list, `/* [Hidden] */` hides), and a changed value rebuilds the preview. The code is edited in place and applied when you leave the field or press Ctrl+Enter (Tab indents). echo output and warnings show below; include files that were not found are taken in with **Choose the folder**. The program, its values, its files and the solid it made are saved in the project. |
+| Mounting boss | **Insert › Fastening Feature › Mounting Boss**: a round boss on a planar face (at its centre, typed coordinates or a reference point, projected onto the face). Height, outer diameter at the top, outer draft (wider toward the base), a hole (diameter, depth from the top, hole draft, or through all) or a pin (diameter, height), and fins (count, length, thickness, height, first angle; triangular or rectangular). |
+| Snap hook | A cantilever hook on a planar face: arm height, width and thickness, lip depth and height, insertion angle (the slope on top of the lip; a slope longer than the lip makes it a triangle) and the lip's direction. |
+| Snap hook groove | The chosen snap hook's shape grown by the clearance is cut from another body, where the hook latches (that body is a separate one, e.g. an extrude with Merge result off). |
+| Vent | From a sketch on a wall: the largest closed contour is cut through the wall; lines inside it stay as ribs (width) and other closed contours as spars (width). |
+| Lip/Groove | Pick the top (rim) face of a shelled wall: a strip of the given width along its inner (or outer) edge is raised by the height (lip) or cut that deep (groove, wider by the clearance). The inner strip keeps a constant distance from the edge, round at the corners. |
 | Insert Part · Cavity | Adds another part of the project to this one, subtracts it (a cavity for molds) or keeps the overlap. |
 
 ![Editing a sweep: profile (closed sketch) and path](images/en/feature-sweep.png)
@@ -133,6 +159,13 @@ Tree right-click menu: edit feature, rename (F2), suppress / unsuppress, roll ba
 ## 6. Surfaces, sheet metal, weldments and mold tools
 
 * **Surfaces** tab: extruded, revolved, planar and lofted surfaces, **Boundary Surface** (smooth between closed profiles, or bounded by open curves), **Filled Surface** (a patch over a hole's edges or a closed 3D sketch), offset faces, **Trim Surface** (cut by a plane or another surface, keeping one side), Knit (a closed set becomes a solid). **Thicken** turns a surface into a solid (side 1, side 2 or both). Surfaces show translucent teal.
+* **Boundary boss / cut**: set the Boundary Surface's operation to **Boss** or **Cut** to add or remove the solid between its closed profiles. **Thicken** with the cut operation is the thickened cut.
+* **Swept Surface**: the profile sketch's curves (an open chain too) swept along a path as a surface (corner transition, Frenet frame).
+* **Cut With Surface**: a surface crossing the body splits it and the material on the side of the surface's normal is removed (flip for the other side).
+* **Delete Hole · Untrim Surface**: a surface's holes are filled back with the surface itself (pick hole edges for just those). Untrim with **Natural edges** opens the surface to its natural parameter range (a whole turn of a cylinder, a whole B-spline patch, for a plane the rectangle around the face).
+* **Mid-Surface**: a surface half way between each pair of facing planar faces of a thin wall (picked, or found automatically up to a largest wall thickness), sewn together.
+* **Radiate Surface**: from a chain of edges in a plane parallel to the reference plane, a surface spread outward (or inward) in that plane by a distance (e.g. for mould parting surfaces).
+* **Flatten Surface**: one face laid out flat. Planes, cylinders and cones are developed exactly (boundary lengths and area kept, holes included); spheres, tori, B-splines and other faces are laid out by least-squares conformal mapping of a mesh, scaled to their area, with the range of area ratios (the distortion) shown.
 
    ![A car body shell: surface loft → trim → knit → thicken](images/en/surfaces.png)
 * **Sheet Metal** tab: **Base Flange** (closed sketch + thickness, bend radius, K-factor) → **Edge Flange** (pick a straight edge on the sheet's top face, angle, length) → **Hem** (the edge folded back 180°, closed or open) · **Sketched Bend** (bent by an angle along a line drawn on the sheet) · **Jog** (the far side raised by a height with two bends) → **Flatten** shows the flat pattern. Bend allowance = angle × (radius + K × thickness).
@@ -140,6 +173,9 @@ Tree right-click menu: edit feature, rename (F2), suppress / unsuppress, roll ba
    ![Sheet metal chassis: base flange · jog · sketched bend · edge flanges · hem](images/en/sheetmetal.png)
 
    ![Flatten: the flat pattern with bend allowances](images/en/flat-pattern.png)
+* **Sheet metal from a solid:** **Convert to Sheet Metal** turns a solid's fixed face into the sheet's base and, at each chosen edge, the face beyond into a wall (thickness · inside or outside · bend radius · K-factor; where walls meet, **Overlap** — one wall runs over the other's end with the rip gap between — or **Open**). **Insert Bends** does it on a thin-walled solid such as a shell: the thickness is read from the walls and every sharp edge of the fixed face becomes a bend. **Rip** cuts a gap along the edge where two walls meet so they can unfold (on the bisector or along one wall).
+* **Sheet metal — cuts across bends:** put **Unfold** in the tree and from there to the next **Fold** the part is built flat. A cut made in between is wrapped over the bends when it folds (on a bend it is wound onto the bend, on a flange it turns with the flange) and lands in the formed part. Not for sheets with a jog or a lofted bend.
+* **Sheet metal — more:** **Cross Break** (the X of a stiffening break on a flat panel; the shape does not change) · **Welded Corner** (the gap between two edge flanges filled with weld, its volume and length shown; not in the flat pattern) · **Tab and Slot** (with two separate bodies: tabs on one body's edge, slots larger by the clearance in the body whose face it stands on).
 * **Weldments** tab: put **Structural Members** (square / rectangular tube, pipe, round / square bar, angle, channel, I-beam, tee, any size) on a sketch of lines; **Cut List** gives each member's length and the total.
 
    ![A welded machine stand and its cut list](images/en/weldment.png)
@@ -215,12 +251,21 @@ The **flow study** (external or internal) uses the lattice Boltzmann method for 
 
 Double-click a component to open its part tab. When a part changes, the assembly is solved again.
 
+* **Rotating components**: select a component and choose **Rotate 90° about X / Y / Z** (context menu, toolbar) to lay it down or stand it up.
+* **Move Component** (Assembly › Move Component): **drag a component with the mouse** to slide it in the screen plane (**Move**) or turn it about its origin on the screen axes (**Rotate** — lay it down or turn it over any way). Alt+drag uses the other one; Shift+drag adds the component to the ones moved. The ±X/±Y/±Z buttons move or turn by a set distance or angle. With collision detection on, a drag that ends in contact is put back. One drag is one undo step.
+* **Component patterns**: besides linear, circular and mirror copies there are **Pattern driven** (following another part's linear or circular pattern feature, e.g. a bolt in every hole), **Sketch driven** (at every point of a part's sketch; the original at the first point), **Curve driven** (along a curve, equally or every spacing, optionally turned with the tangent; the original at the curve's start) and **Chain** (links placed so each next pin is the point of the path a pitch in a straight line from the previous one, turned along that chord). The copies are fixed and follow their original.
+
 * **Cam mate**: pick the cam's flat face (its outline is the cam profile) and the follower's plane, cylinder or point; the follower stays on the cam profile (turn the cam in a motion study).
 * **Advanced mates**: width (centred between two faces), symmetric (about a plane), limit distance / limit angle (free within a range), lock. **Mechanical mates**: gear (ratio), rack pinion (pitch radius), screw (distance per revolution), hinge. Switch with the Standard / Advanced / Mechanical buttons in the mate PropertyManager.
 * **Sub-assemblies**: the Insert Components list also shows the project's other assemblies; they mate as one component and take one BOM row.
 * **Exploded view**: spreads the components outward from the centre; click again to collapse, **Delete Explode** removes the steps.
 
    ![The six-axis robot exploded](images/en/assembly-explode.png)
+
+* **Replace Components**: the chosen instances (or every instance of their part) use another part. Mate references are found again on the new part (the nearest face of the same kind and direction); mates that find none are suppressed and marked. The PropertyManager says how many will not be found before you press OK.
+* **Copy with Mates**: copies a component and repeats its mates; for each one choose **Repeat** (the same face of the other component), **New reference** (click another face of it) or **Leave out**.
+* **Hole Alignment**: finds holes of different components that meet along their axis and overlap but whose axes are further apart than the tolerance (Settings › Hole alignment tolerance, 0.01 mm by default), and lists them.
+* **Envelope**: makes the selected components reference envelopes: drawn see-through, left out of the BOM, mass properties and interference. **Select Inside Envelope / Select Crossing Envelope** select the components inside its box or crossing it.
 
 ### Standard parts library and smart fasteners
 
@@ -256,11 +301,15 @@ From a part or an assembly, **Drawing › Make drawing** (or Standard 3 View) pu
 * **BOM**: on an assembly drawing, a table of item, part number, name, material and quantity above the title block.
 
    ![Robot assembly drawing: bill of materials and balloons](images/en/drawing-bom.png)
+* **Aligned Section View**: cuts the selected view along a bent cutting line (one leg up from the centre, the other down and turned 30°) and turns the second leg's side into the first leg's plane, so both show as one section. The parent view shows the bent cutting line with its arrows.
+* **Flat Pattern View** (drawing of a sheet metal part): the flat blank seen from above with its bend lines (bend up: dash-dot, bend down: dashed). **Bend Table** places a table of each bend's direction, angle, inner radius, K-factor and allowance. Cross breaks show as an X in the views.
+* **Alternate Position View** (assembly drawing): draws the exploded position (or, without explode steps, the end of the motion study) over the selected view in phantom lines; press it again to remove it.
+* **Revision cloud** (size, arc length, revision mark), **Datum target** (an X for a point, a circle for an area; size above, label below) and **Area hatch** (ANSI31 · ANSI37 · steel · solid, spacing and angle) are placed by clicking the sheet and edited in the right panel. All of them go into the DXF too (phantom and bend lines on layers of their own).
 
 ## 11. View, lights and start page
 
 * **Rulers**: screen-aligned scales along the top and left of the graphics area (1-2-5 steps) with the pointer's place marked in red and its values. In the front, top and right views the rulers say which axis (X, Y, Z) they run along.
-* **Coordinates**: Z is up. Top = XY, Front = XZ (seen from −Y), Right = YZ (seen from +X). Dragging to rotate is a turntable about Z, so the view never turns upside down. Files made before (Y up) are turned to Z up when they are opened.
+* **Coordinates**: Z is up. Top = XY, Front = XZ (seen from −Y), Right = YZ (seen from +X). Dragging turns the view freely about the screen axes, so the model can be laid down or turned over any way (the settings offer a turntable that keeps Z up). Files made before (Y up) are turned to Z up when they are opened.
 * **Grid**: fixed on the chosen plane — Top (XY, the default), Front (XZ) or Right (YZ). When zooming, its spacing is redrawn in 1-2-5 steps once the lines get too dense or too sparse on screen; every fifth line is darker (5 × 5 cells). Turn it on or off and choose its plane in View › Show.
 * **Scale bar**: the bar at the lower right shows a length on screen and the screen scale (1 : n at 96 dpi). Drag it with the mouse to put it anywhere.
 
@@ -283,6 +332,7 @@ From a part or an assembly, **Drawing › Make drawing** (or Standard 3 View) pu
 | Parasolid XT (`.x_t`, `.x_b`, `.xmt_txt`, `.xmt_bin`) | Import (text and binary, including newer releases with an embedded schema; a solid's voids stay hollow) and export (**File › Export › Export Parasolid text (.x_t) / binary (.x_b)**, or the part's context menu). Written in metres. |
 | DWG (R2000–R2018) · DXF | 2D drawing import: model-space lines, circles, arcs, polylines, splines, ellipses and block inserts are flattened into **a sketch on the Top plane of a new part** (scaled to mm by INSUNITS; dimension blocks and text skipped). Drawings export as DXF and **DWG (R2000)**. |
 | Sketch → DXF · DWG | **File › Export › Export sketch as DXF/DWG** saves the sketch being edited (else the active part's last sketch) in sketch-plane coordinates, mm. |
+| OpenSCAD (`.scad`) | Import: runs the program with the language of OpenSCAD 2021.01 (variables, functions, modules, children, list comprehensions, function literals, include/use, echo/assert) and its geometry rules ($fn / $fa / $fs fragments, linear_extrude twist and scale, rotate_extrude, offset, hull, minkowski, projection, text, import, surface), and makes an **OpenSCAD feature** (a 2D result becomes a sketch on the Top plane). include, use and import files are looked for next to the program, then in OPENSCADPATH, the user library folder (Documents\OpenSCAD\libraries) and the installed OpenSCAD's libraries. Export: **File › Export › OpenSCAD (.scad)** — each body a polyhedron() with its colour. |
 | SVG | Drawing export. |
 | CSV | Design table export and import. |
 | PNG | A picture of the graphics area. |

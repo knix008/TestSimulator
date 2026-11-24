@@ -9,8 +9,12 @@
 // The modelling is in cad/asm-more.js, cad/drawing-more.js, cad/evaluate.js and cad/fea-more.js (no DOM there).
 import './styles-asm.css';
 import { rep } from './cad/kernel.js';
-import { mateEntityOfFace, captureMate, placePoint, placeDir, instanceName } from './cad/assembly.js';
+import { mateEntityOfFace, captureMate, placePoint, placeDir, instanceName, quatMultiply, quatFromAxisAngle, quatNormalize, rotate as rotateQ } from './cad/assembly.js';
 import { faceSignature } from './cad/refs.js';
+import { featureDrivenMoves, pointDrivenMoves, curveDrivenMoves, chainMoves } from './cad/asm-patterns.js';
+import { toWorld } from './cad/features.js';
+import { sketchWire } from './cad/advanced.js';
+import { standalonePoints } from './cad/sketch.js';
 import { addComponentPattern, updatePatterns, prunePatterns, smartMateFor, moveWithCollision, kernelCollisions } from './cad/asm-more.js';
 import { projectView } from './cad/drawing.js';
 import {
@@ -47,7 +51,8 @@ export function createMoreTools(ctx) {
     const a = asm();
     if (!a) { notify('info', t('notice.assemblyOnly')); return; }
     if (state.editing) ctx.cancelEditing({ quiet: true });
-    state.editing = { mode: 'compPattern', kind, seeds: selectedComps().filter((id) => !a.components.find((c) => c.id === id)?.pattern), pick: 'seeds', dir: 'x', spacing: Math.round(ctx.assemblySize(a) * 0.6), count: 3, two: false, dir2: 'y', spacing2: Math.round(ctx.assemblySize(a) * 0.6), count2: 2, axisStd: 'z', axisRef: null, cCount: 4, angle: 360, planeStd: 'right', planeRef: null, orientation: 'auto', offset: 0 };
+    state.editing = { mode: 'compPattern', kind, seeds: selectedComps().filter((id) => !a.components.find((c) => c.id === id)?.pattern), pick: 'seeds', dir: 'x', spacing: Math.round(ctx.assemblySize(a) * 0.6), count: 3, two: false, dir2: 'y', spacing2: Math.round(ctx.assemblySize(a) * 0.6), count2: 2, axisStd: 'z', axisRef: null, cCount: 4, angle: 360, planeStd: 'right', planeRef: null, orientation: 'auto', offset: 0, source: '', align: true, equal: true, pitch: 12.7, closed: false };
+    if (DRIVEN.includes(kind)) state.editing.source = drivenSources(kind)[0]?.value ?? '';
     state.leftTab = 'pm';
     ctx.renderAll();
     notify('info', t('compPattern.pickSeeds'));
@@ -64,7 +69,97 @@ export function createMoreTools(ctx) {
     return { comp: topo.comp, local, world: { kind: ent.kind, point: placePoint(topo.comp, point), dir: placeDir(topo.comp, dir) } };
   }
 
+  // ───────────────────────── pattern / sketch / curve driven and chain component patterns
+
+  /** The title key of a component pattern kind. */
+  function patternTitleKey(kind) {
+    return { mirror: 'cmd.mirrorComponents', linear: 'cmd.linearComponentPattern', circular: 'cmd.circularComponentPattern', featureDriven: 'cmd.featureDrivenComponentPattern', sketchDriven: 'cmd.sketchDrivenComponentPattern', curveDriven: 'cmd.curveDrivenComponentPattern', chain: 'cmd.chainComponentPattern' }[kind] ?? 'cmd.linearComponentPattern';
+  }
+
+  /**
+   * What can drive a pattern, from the parts placed in the assembly: their linear / circular pattern features
+   * (pattern driven), sketches with points (sketch driven), sketches with curves and curve features (curve driven,
+   * chain). [{ value: "<comp>|<feature>", label, comp, feature, result }].
+   */
+  function drivenSources(kind) {
+    const a = asm(); if (!a) return [];
+    const out = [];
+    for (const comp of a.components) {
+      if (comp.pattern || !comp.part) continue;
+      const part = ctx.project().parts.find((p) => p.id === comp.part);
+      if (!part) continue;
+      let entry; try { entry = ctx.buildPart(part); } catch { continue; }
+      const results = entry?.result?.results;
+      if (!results) continue;
+      for (const f of part.features) {
+        if (f.suppressed) continue;
+        const res = results.get(f.id);
+        if (!res?.ok) continue;
+        let fits = false;
+        if (kind === 'featureDriven') fits = ['linearPattern', 'circularPattern'].includes(f.type) && Array.isArray(res.moves) && res.moves.length > 0;
+        else if (kind === 'sketchDriven') fits = f.type === 'sketch' && standalonePoints(f).length > 1;
+        else fits = (f.type === 'sketch' && f.entities.some((x) => x.type !== 'point' && !x.construction)) || Boolean(res.curve);
+        if (fits) out.push({ value: `${comp.id}|${f.id}`, label: `${comp.name} › ${f.name}`, comp, feature: f, result: res });
+      }
+    }
+    return out;
+  }
+
+  /** A curve (a sketch's chain or a curve feature) as a dense polyline in assembly coordinates. */
+  function curvePolyline(src) {
+    const wire = src.feature.type === 'sketch' ? sketchWire(src.feature, src.result.frame) : src.result.curve;
+    const edges = wire.edges;
+    const pts = [];
+    for (const e of edges) {
+      const n = e.geomType === 'LINE' ? 1 : 200;
+      const seg = Array.from({ length: n + 1 }, (_, i) => { const p = e.pointAt(i / n); return [p.x, p.y, p.z]; });
+      // Each edge joined to the last point (reversed when it runs the other way).
+      if (pts.length) {
+        const last = pts.at(-1); const d0 = Math.hypot(...seg[0].map((v, k) => v - last[k])); const d1 = Math.hypot(...seg.at(-1).map((v, k) => v - last[k]));
+        if (d1 < d0) seg.reverse();
+        seg.shift();
+      }
+      pts.push(...seg);
+    }
+    return pts.map((p) => placePoint(src.comp, p));
+  }
+
+  /** The rigid moves of a driven pattern (see cad/asm-patterns.js). */
+  function drivenMoves(e) {
+    const src = drivenSources(e.kind).find((x) => x.value === e.source);
+    if (!src) throw new Error(t('compPattern.noSource'));
+    if (e.kind === 'featureDriven') return featureDrivenMoves(src.result.moves, src.comp);
+    if (e.kind === 'sketchDriven') {
+      const pts = standalonePoints(src.feature).map((p) => placePoint(src.comp, toWorld(src.result.frame, [p.x, p.y])));
+      return pointDrivenMoves(pts);
+    }
+    const pts = curvePolyline(src);
+    const first = pts[0]; const last = pts.at(-1);
+    const closed = Math.hypot(...first.map((v, k) => v - last[k])) < 1e-6;
+    if (e.kind === 'chain') return chainMoves(pts, e.pitch, { closed });
+    return curveDrivenMoves(pts, { count: e.count, spacing: e.spacing, equal: e.equal, align: e.align, closed });
+  }
+
+  function drivenPm(e, title) {
+    const { pmHead, pmGroup, pmNum, pmList } = ctx.pm;
+    const glyph = { featureDriven: 'compFeaturePattern', sketchDriven: 'compSketchPattern', curveDriven: 'compCurvePattern', chain: 'compChainPattern' }[e.kind];
+    const sources = drivenSources(e.kind);
+    const seeds = pmGroup('assembly', t('compPattern.seeds'), pmList('seeds', e.seeds.map(compName), t('compPattern.seedList'), 'part', e.pick === 'seeds'));
+    const pick = sources.length
+      ? `<label class="pm-field"><span class="pm-label">${escapeHtml(t('compPattern.source'))}</span><select data-pm-select="source" aria-label="${escapeHtml(t('compPattern.source'))}">${sources.map((x) => `<option value="${escapeHtml(x.value)}" ${x.value === e.source ? 'selected' : ''}>${escapeHtml(x.label)}</option>`).join('')}</select></label>`
+      : `<p class="pm-note warn">${icon('warning', 'icon tiny')}${escapeHtml(t(`compPattern.noSource.${e.kind}`))}</p>`;
+    let params = '';
+    if (e.kind === 'curveDriven') params = pmGroup('compCurvePattern', t('compPattern.instances'), `${pmNum('count', e.count, t('compPattern.count'), 'compCurvePattern')}<label class="pm-check"><input type="checkbox" data-pm-toggle="equal" ${e.equal ? 'checked' : ''}/>${icon('relEqual')}<span>${escapeHtml(t('compPattern.equalSpacing'))}</span></label>${e.equal ? '' : pmNum('spacing', e.spacing, t('compPattern.spacing'), 'smartDim', ctx.units())}<label class="pm-check"><input type="checkbox" data-pm-toggle="align" ${e.align ? 'checked' : ''}/>${icon('compCurvePattern')}<span>${escapeHtml(t('compPattern.alignTangent'))}</span></label>`);
+    if (e.kind === 'chain') params = pmGroup('compChainPattern', t('compPattern.chain'), pmNum('pitch', e.pitch, t('compPattern.pitch'), 'smartDim', ctx.units()));
+    let preview = '';
+    try { if (sources.length) preview = `<p class="pm-note">${escapeHtml(t('compPattern.willMake', { count: drivenMoves(e).length }))}</p>`; } catch { preview = ''; }
+    return [pmHead(glyph, title, t(`pm.help.comp.${e.kind}`)), seeds, pmGroup(glyph, t('compPattern.drivenBy'), `${pick}${preview}`), params].join('');
+  }
+  const DRIVEN = ['featureDriven', 'sketchDriven', 'curveDriven', 'chain'];
+
+
   function patternOptions(e) {
+    if (DRIVEN.includes(e.kind)) return { type: 'moves', kind: e.kind, source: e.source, moves: drivenMoves(e) };
     if (e.kind === 'linear') return { type: 'linear', dir: AXES[e.dir], spacing: e.spacing, count: e.count, ...(e.two ? { dir2: AXES[e.dir2], spacing2: e.spacing2, count2: e.count2 } : {}) };
     if (e.kind === 'circular') return { type: 'circular', axis: e.axisRef ? { point: e.axisRef.point, dir: e.axisRef.dir } : { point: [0, 0, 0], dir: AXES[e.axisStd] }, count: e.cCount, angle: e.angle };
     const n = STD_PLANE_NORMALS[e.planeStd];
@@ -75,11 +170,16 @@ export function createMoreTools(ctx) {
     const e = editing(); const a = asm();
     if (!e.seeds.length) { notify('error', t('compPattern.noSeeds')); return; }
     if (e.kind === 'circular' && !e.axisRef && !AXES[e.axisStd]) return;
+    if (DRIVEN.includes(e.kind)) {
+      let moves = [];
+      try { moves = drivenMoves(e); } catch (error) { notify('error', t('compPattern.drivenFailed', { text: error.message })); return; }
+      if (!moves.length) { notify('error', t('compPattern.noInstances')); return; }
+    }
     let made = [];
     state.editing = null; state.leftTab = 'tree';
     ctx.change(`op.${e.kind === 'mirror' ? 'mirrorComponents' : 'componentPattern'}`, () => {
       const r = addComponentPattern(a, e.seeds, patternOptions(e), { newId: ctx.newId, nameOf: (copy) => instanceName(a, (ctx.project().parts.find((p) => p.id === copy.part) ?? ctx.project().assemblies.find((x) => x.id === copy.sub))?.name ?? 'Part', copy.sub ?? copy.part) });
-      r.pattern.name = `${t(e.kind === 'mirror' ? 'cmd.mirrorComponents' : e.kind === 'linear' ? 'cmd.linearComponentPattern' : 'cmd.circularComponentPattern')}${(a.patterns?.length ?? 0)}`;
+      r.pattern.name = `${t(patternTitleKey(e.kind))}${(a.patterns?.length ?? 0)}`;
       made = r.components;
     });
     notify('success', t('notice.patternMade', { count: made.length }));
@@ -88,7 +188,8 @@ export function createMoreTools(ctx) {
 
   function patternPm(e) {
     const { pmHead, pmGroup, pmNum, pmSeg, pmList } = ctx.pm;
-    const title = t(e.kind === 'mirror' ? 'cmd.mirrorComponents' : e.kind === 'linear' ? 'cmd.linearComponentPattern' : 'cmd.circularComponentPattern');
+    const title = t(patternTitleKey(e.kind));
+    if (DRIVEN.includes(e.kind)) return drivenPm(e, title);
     const glyph = e.kind === 'mirror' ? 'compMirror' : e.kind === 'linear' ? 'compLinPattern' : 'compCirPattern';
     const seeds = pmGroup('assembly', t('compPattern.seeds'), pmList('seeds', e.seeds.map(compName), t('compPattern.seedList'), 'part', e.pick === 'seeds'));
     const dirs = Object.keys(AXES).map((k) => [k, k.toUpperCase()]);
@@ -194,12 +295,89 @@ export function createMoreTools(ctx) {
     if (r.hits.length) notify('warning', t(r.stopped ? 'moveComp.stopped' : 'moveComp.touching', { names: r.hits.map(compName).join(', ') }));
   }
 
+  /**
+   * Free drag in the graphics area while Move Component is open: a left drag on a free component moves it in the
+   * screen plane ('move') or turns it about its own origin like a trackball ('rotate': sideways = about the
+   * screen's vertical, up / down = about its horizontal, so a part can be laid down or turned over); Alt+drag
+   * swaps the two. Ctrl+drag still pans the view. The whole drag is one undo step; with collision detection on
+   * and "stop at contact", a drag that ends in contact is put back to where it last touched nothing.
+   */
+  function dragTool() {
+    const e = editing();
+    if (e?.mode !== 'moveComp') return null;
+    const vp = ctx.viewport();
+    return {
+      down(ev) {
+        const a = asm(); if (!a || !vp) return false;
+        const hit = vp.pick(ev.clientX, ev.clientY, { kinds: ['face', 'edge'] });
+        if (!hit?.bodyKey || !String(hit.bodyKey).startsWith('comp:')) return false;
+        const id = String(hit.bodyKey).replace(/^comp:/, '').split('/')[0];
+        const c = a.components.find((x) => x.id === id);
+        if (!c) return false;
+        const rotateMode = (e.dragMode === 'rotate') !== Boolean(ev.altKey);
+        e.drag = { x: ev.clientX, y: ev.clientY, hit, id, fixed: Boolean(c.fixed), rotate: rotateMode, pivot: [...c.position], start: null, moved: false };
+        return true;
+      },
+      move(ev) {
+        const d = e.drag; if (!d) return false;
+        const dx = ev.clientX - d.x; const dy = ev.clientY - d.y;
+        if (!d.moved && Math.hypot(dx, dy) < 3) return true;
+        if (!d.moved) {
+          // The drag starts: the grabbed component joins (or, without Shift, becomes) the components to move.
+          if (d.fixed) { notify('info', t('moveComp.fixedPicked')); e.drag = null; return true; }
+          const a = asm();
+          if (!e.seeds.includes(d.id)) e.seeds = ev.shiftKey ? [...e.seeds, d.id] : [d.id];
+          d.start = e.seeds.map((s) => a.components.find((x) => x.id === s)).filter((x) => x && !x.fixed).map((x) => ({ c: x, position: [...x.position], rotation: [...x.rotation] }));
+          ctx.renderLeft();
+        }
+        d.moved = true;
+        const right = vp.camera.matrixWorld.elements.slice(0, 3); const up = vp.camera.matrixWorld.elements.slice(4, 7);
+        if (d.rotate) {
+          // About the screen axes through the grabbed component's origin, from where the drag started.
+          const speed = 0.01;
+          const q = quatMultiply(quatFromAxisAngle(up, (dx * speed * 180) / Math.PI), quatFromAxisAngle(right, (dy * speed * 180) / Math.PI));
+          for (const s of d.start) {
+            const rel = s.position.map((v, i) => v - d.pivot[i]);
+            s.c.position = rotateQ(q, rel).map((v, i) => v + d.pivot[i]);
+            s.c.rotation = quatNormalize(quatMultiply(q, s.rotation));
+          }
+        } else {
+          const px = vp.pixelSize();
+          for (const s of d.start) s.c.position = s.position.map((v, i) => v + (right[i] * dx - up[i] * dy) * px);
+        }
+        if (!d.frame) d.frame = requestAnimationFrame(() => { d.frame = 0; ctx.syncView(); });
+        return true;
+      },
+      async up(ev) {
+        const d = e.drag; e.drag = null; if (!d) return;
+        if (d.frame) cancelAnimationFrame(d.frame);
+        // A click (no drag): what a click does in this command — pick the components to move.
+        if (!d.moved) { pick(d.hit, ev); return; }
+        const a = asm();
+        let hits = [];
+        if (e.collision) {
+          await ctx.ensureKernel();
+          hits = collisionTest(e.seeds)(a) ?? [];
+          if (hits.length && e.collisionMode === 'stop') for (const s of d.start) { s.c.position = [...s.position]; s.c.rotation = [...s.rotation]; }
+        }
+        e.last = { hits, stopped: hits.length > 0 && e.collisionMode === 'stop' };
+        if (hits.length) notify('warning', t(e.last.stopped ? 'moveComp.stopped' : 'moveComp.touching', { names: hits.map(compName).join(', ') }));
+        // One undo step from the placement before the drag: put it back, then make the change inside commit.
+        const after = d.start.map((s) => ({ c: s.c, position: [...s.c.position], rotation: [...s.c.rotation] }));
+        if (after.every((x, i) => JSON.stringify([x.position, x.rotation]) === JSON.stringify([d.start[i].position, d.start[i].rotation]))) { ctx.syncView(); ctx.renderAll(); return; }
+        for (const s of d.start) { s.c.position = [...s.position]; s.c.rotation = [...s.rotation]; }
+        ctx.change('op.moveComponent', () => { for (const x of after) { x.c.position = x.position; x.c.rotation = x.rotation; } });
+      },
+    };
+  }
+
   function movePm(e) {
     const { pmHead, pmGroup, pmNum, pmSeg, pmList, pmButton } = ctx.pm;
     const btn = (arg, label) => pmButton(`more.move:${arg}`, arg.includes('r') ? 'rotateRight' : 'moveComponent', label);
     const last = e.last ? `<p class="pm-note ${e.last.hits.length ? 'error' : ''}">${escapeHtml(e.last.hits.length ? t(e.last.stopped ? 'moveComp.stopped' : 'moveComp.touching', { names: e.last.hits.map(compName).join(', ') }) : t('moveComp.free'))}</p>` : '';
     return [pmHead('moveComponent', t('cmd.moveComponent'), t('pm.help.moveComponent')),
       pmGroup('assembly', t('compPattern.seeds'), pmList('seeds', e.seeds.map(compName), t('moveComp.components'), 'part', e.pick === 'seeds')),
+      pmGroup('moveComponent', t('moveComp.freeDrag'), `${pmSeg('dragMode', [['move', t('moveComp.dragMove')], ['rotate', t('moveComp.dragRotate')]], e.dragMode ?? 'move')}<p class="pm-note">${escapeHtml(t('moveComp.dragHelp'))}</p>`),
       pmGroup('moveComponent', t('moveComp.translate'), `${pmNum('step', e.step, t('moveComp.step'), 'smartDim', ctx.units())}<div class="pm-row more-move-grid">${['+x', '-x', '+y', '-y', '+z', '-z'].map((k) => btn(k, k.toUpperCase())).join('')}</div>`),
       pmGroup('rotateRight', t('moveComp.rotate'), `${pmNum('angle', e.angle, `${t('compPattern.angle')} (°)`, 'smartDim')}<div class="pm-row more-move-grid">${['+rx', '-rx', '+ry', '-ry', '+rz', '-rz'].map((k) => btn(k, `${k[0]}${k.slice(2).toUpperCase()}`)).join('')}</div>`),
       pmGroup('collision', t('moveComp.collision'), `<label class="pm-check"><input type="checkbox" data-pm-toggle="collision" ${e.collision ? 'checked' : ''}/>${icon('collision')}<span>${escapeHtml(t('moveComp.detect'))}</span></label>${e.collision ? pmSeg('collisionMode', [['stop', t('moveComp.stopAtContact')], ['highlight', t('moveComp.highlight')]], e.collisionMode) : ''}${last}`)].join('');
@@ -245,6 +423,7 @@ export function createMoreTools(ctx) {
     const e = editing();
     if (v == null) { notify('error', t('notice.invalidValue', { text: raw })); ctx.renderLeft(); return; }
     if (['count', 'count2', 'cCount'].includes(key)) e[key] = Math.max(2, Math.min(200, Math.round(v)));
+    else if (key === 'spacing' && DRIVEN.includes(e.kind)) e[key] = v > 0 ? v : e[key];
     else if (key === 'angle') e[key] = Math.max(0.1, Math.min(360, v));
     else if (key === 'offset') e[key] = v;
     else if (v > 0) e[key] = v;
@@ -260,6 +439,8 @@ export function createMoreTools(ctx) {
   }
 
   function toggle(key, checked) { const e = editing(); e[key] = checked; ctx.renderLeft(); }
+
+  function select(key, value) { const e = editing(); if (!e) return; e[key] = value; ctx.renderLeft(); }
 
   function accept() {
     const e = editing();
@@ -283,7 +464,7 @@ export function createMoreTools(ctx) {
     return undefined;
   }
 
-  const subject = (e) => t({ compPattern: e.kind === 'mirror' ? 'cmd.mirrorComponents' : e.kind === 'linear' ? 'cmd.linearComponentPattern' : 'cmd.circularComponentPattern', smartMate: 'cmd.smartMate', moveComp: 'cmd.moveComponent' }[e.mode]);
+  const subject = (e) => t({ compPattern: patternTitleKey(e.kind), smartMate: 'cmd.smartMate', moveComp: 'cmd.moveComponent' }[e.mode]);
 
   /** After the mates are solved: copies follow their seeds; copies of deleted seeds go. */
   function afterSolve(a) {
@@ -698,6 +879,10 @@ export function createMoreTools(ctx) {
   const commands = {
     linearComponentPattern: { icon: 'compLinPattern', label: 'cmd.linearComponentPattern', enabled: asmOpen, checked: () => editing()?.mode === 'compPattern' && editing().kind === 'linear', run: () => startPattern('linear') },
     circularComponentPattern: { icon: 'compCirPattern', label: 'cmd.circularComponentPattern', enabled: asmOpen, checked: () => editing()?.mode === 'compPattern' && editing().kind === 'circular', run: () => startPattern('circular') },
+    featureDrivenComponentPattern: { icon: 'compFeaturePattern', label: 'cmd.featureDrivenComponentPattern', enabled: asmOpen, checked: () => editing()?.mode === 'compPattern' && editing().kind === 'featureDriven', run: () => startPattern('featureDriven') },
+    sketchDrivenComponentPattern: { icon: 'compSketchPattern', label: 'cmd.sketchDrivenComponentPattern', enabled: asmOpen, checked: () => editing()?.mode === 'compPattern' && editing().kind === 'sketchDriven', run: () => startPattern('sketchDriven') },
+    curveDrivenComponentPattern: { icon: 'compCurvePattern', label: 'cmd.curveDrivenComponentPattern', enabled: asmOpen, checked: () => editing()?.mode === 'compPattern' && editing().kind === 'curveDriven', run: () => startPattern('curveDriven') },
+    chainComponentPattern: { icon: 'compChainPattern', label: 'cmd.chainComponentPattern', enabled: asmOpen, checked: () => editing()?.mode === 'compPattern' && editing().kind === 'chain', run: () => startPattern('chain') },
     mirrorComponents: { icon: 'compMirror', label: 'cmd.mirrorComponents', enabled: asmOpen, checked: () => editing()?.mode === 'compPattern' && editing().kind === 'mirror', run: () => startPattern('mirror') },
     smartMate: { icon: 'smartMate', label: 'cmd.smartMate', enabled: () => asmOpen() && twoComps(), checked: () => editing()?.mode === 'smartMate', run: () => (editing()?.mode === 'smartMate' ? ctx.cancelEditing({ quiet: true }) : startSmartMate()) },
     moveComponent: { icon: 'moveComponent', label: 'cmd.moveComponent', enabled: asmOpen, checked: () => editing()?.mode === 'moveComp', run: () => (editing()?.mode === 'moveComp' ? ctx.cancelEditing({ quiet: true }) : startMove()) },
@@ -716,13 +901,13 @@ export function createMoreTools(ctx) {
 
   /** Command ids per CommandManager tab (appended to the app's lists). */
   const TABS = {
-    assembly: ['linearComponentPattern', 'circularComponentPattern', 'mirrorComponents', 'smartMate', 'moveComponent'],
+    assembly: ['linearComponentPattern', 'circularComponentPattern', 'featureDrivenComponentPattern', 'sketchDrivenComponentPattern', 'curveDrivenComponentPattern', 'chainComponentPattern', 'mirrorComponents', 'smartMate', 'moveComponent'],
     evaluate: ['curvature', 'zebraStripes', 'thicknessAnalysis'],
     drawing: ['brokenOutSection', 'breakView', 'cropView', 'holeTable', 'revisionTable', 'addSheet', 'renameSheet', 'deleteSheet'],
   };
 
   return {
-    commands, TABS, owns, pm, pick, field, set, toggle, accept, handles, command, subject, afterSolve,
+    commands, TABS, owns, pm, pick, dragTool, field, set, toggle, select, accept, handles, command, subject, afterSolve,
     colours, onCamera, simStudy, studyOptions, simPm, runSim, simSet, simField, simCommand,
     drawingAction, adjust, svg, dxf, sheetTabsHtml, sheetDrawing: (d) => { adoptToActiveSheet(d); return sheetDrawing(d); },
   };

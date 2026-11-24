@@ -19,6 +19,10 @@ window.__cmdOne('assembly', 'fixComponent', { select: 'component' })
 return (async () => { await window.__cmdContext('assembly'); window.__CMD_PRE.floatComponent = () => window.__mymechanics.run('fixComponent'); try { return await window.__cmdOne('assembly', 'floatComponent', { select: 'component' }); } finally { delete window.__CMD_PRE.floatComponent; } })()
 //@step {"name": "cmd: assembly · rotateComponent with a component selected — works on it", "expect": "^ok"}
 window.__cmdOne('assembly', 'rotateComponent', { select: 'component' })
+//@step {"name": "cmd: assembly · rotateComponentX with a component selected — works on it", "expect": "^ok"}
+window.__cmdOne('assembly', 'rotateComponentX', { select: 'component' })
+//@step {"name": "cmd: assembly · rotateComponentY with a component selected — works on it", "expect": "^ok"}
+window.__cmdOne('assembly', 'rotateComponentY', { select: 'component' })
 //@step {"name": "cmd: assembly · openPart with a component selected — works on it", "expect": "^ok"}
 window.__cmdOne('assembly', 'openPart', { select: 'component' })
 //@step {"name": "cmd: assembly · delete with a component selected — works on it", "expect": "^ok"}

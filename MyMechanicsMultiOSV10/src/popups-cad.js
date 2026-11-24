@@ -24,8 +24,12 @@ export function renderCadSettings(api) {
     row('largeAssembly', t('settings.largeAssembly'), segmented('largeAssembly', [['auto', t('lam.auto')], ['on', t('lam.on')], ['off', t('lam.off')]], set.largeAssembly ?? 'auto')),
     row('assembly', t('settings.largeAssemblyThreshold'), numberField('largeAssemblyThreshold', set.largeAssemblyThreshold ?? 40, 2, 100000, 10, '', t('settings.largeAssemblyThreshold'))),
     row('hide', t('settings.largeHideSmall'), numberField('largeHideSmall', set.largeHideSmall ?? 0, 0, 0.2, 0.01, '', t('settings.largeHideSmall'))),
+    row('holeAlignment', t('settings.holeAlignTolerance'), numberField('holeAlignTolerance', set.holeAlignTolerance ?? 0.01, 0, 10, 0.01, 'mm', t('settings.holeAlignTolerance'))),
     `<h3 class="section-title">${icon('orbitTool')}${escapeHtml(t('settings.sectionNavigation'))}</h3>`,
     row('info', '', `<span class="muted">${escapeHtml(t('settings.mouseHelp'))}</span>`),
+    row('orbitTool', t('settings.orbitMode'), segmented('orbitMode', [['free', t('settings.orbitFree')], ['turntable', t('settings.orbitTurntable')]], set.orbitMode ?? 'free')),
+    row('orbitTool', t('settings.orbitSpeed'), numberField('orbitSpeed', set.orbitSpeed ?? 100, 20, 300, 10, '%', t('settings.orbitSpeed'))),
+    row('rotateRight', t('settings.arrowStep'), numberField('arrowStep', set.arrowStep ?? 15, 1, 90, 1, '°', t('settings.arrowStep'))),
     toggle('invertZoom', t('settings.invertZoom'), 'zoomTool'),
   ].join('');
 }
@@ -119,6 +123,24 @@ export function renderCadPopup(kind, api) {
         <p class="muted hint">${escapeHtml(t('mass.note'))}</p>
       </div>`,
       foot: `${button('copy-mass', t('action.copy'), 'copy')}<span class="grow"></span>${button('close', t('common.done'), 'check', 'primary')}`,
+    });
+    api.fitHeight();
+    api.ready();
+    return true;
+  }
+  if (kind === 'interference' && P().mode === 'holes') {
+    // Hole alignment (the same window): holes of different components off one axis by more than the tolerance.
+    const p = P();
+    const list = p.items ?? [];
+    const msg = list.length ? t('asmx.holesOff', { count: list.length }) : t('asmx.holesOk', { count: p.checked ?? 0 });
+    root.innerHTML = frame({
+      glyph: 'holeAlignment', title: t('cmd.holeAlignment'),
+      body: `<div class="confirm">
+        <div class="confirm-message">${icon(list.length ? 'warning' : 'check', 'icon big')}<p>${escapeHtml(msg)}</p></div>
+        <p class="pm-note">${escapeHtml(t('asmx.holesSummary', { checked: p.checked ?? 0, aligned: p.aligned ?? 0, tolerance: fmt(p.tolerance ?? 0) }))}</p>
+        ${list.length ? `<ul class="confirm-items" data-hole-items>${list.slice(0, 20).map((it) => `<li title="${escapeHtml(`${it.a} ↔ ${it.b}`)}">${icon('holeAlignment')}<span>${escapeHtml(`${it.a} ↔ ${it.b}`)} — ${escapeHtml(t('asmx.holeOffset', { offset: fmt(it.offset), da: fmt(2 * it.radiusA), db: fmt(2 * it.radiusB) }))}</span></li>`).join('')}</ul>` : ''}
+      </div>`,
+      foot: `<span class="grow"></span>${button('close', t('common.done'), 'check', 'primary')}`,
     });
     api.fitHeight();
     api.ready();

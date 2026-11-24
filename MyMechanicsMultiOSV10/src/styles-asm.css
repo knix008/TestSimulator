@@ -6,3 +6,10 @@
 .more-sheet-tab.active .more-sheet-name { font-weight: 600; }
 .more-move-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
 .more-damage-legend i { background: linear-gradient(90deg, rgb(51 191 64), rgb(242 191 51), rgb(242 51 51)); }
+
+/* Copy with Mates: one block per mate (name, the other component, repeat / new reference / leave out). */
+.asmx-mate { display: grid; gap: 6px; padding: 6px 0; border-top: 1px solid var(--border); }
+.asmx-mate:first-child { border-top: 0; }
+.asmx-mate-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.asmx-mate-head b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.asmx-mate-head .pm-note { margin: 0 0 0 auto; }

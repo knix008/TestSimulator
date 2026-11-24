@@ -2,7 +2,7 @@
 // intersection curve (where the sketch plane cuts the body), and move / copy / rotate / scale of sketch
 // entities. Sketch data only, plus the kernel for reading the body.
 import { rep } from './kernel.js';
-import { addArc, addCircle, addLine, byId, newSketchId, pointsOf, ORIGIN, DIMENSIONS } from './sketch.js';
+import { addArc, addCircle, addLine, byId, newSketchId, pointsOf, refreshEquation, mapEquationPlace, ORIGIN, DIMENSIONS, POINT_KEYS } from './sketch.js';
 import { addSpline } from './sketchtools.js';
 import { circleOfEdge } from './advanced.js';
 import { sectionOf } from './part-more.js';
@@ -115,7 +115,9 @@ export function transformEntities(sketch, ids, op) {
   const fixShape = (n, e) => {
     if (n.r != null) n.r = fixLength(e.r * k);
     if (n.rx != null) { n.rx = fixLength(e.rx * k); n.ry = fixLength(e.ry * k); }
-    if (n.type === 'ellipse') n.rot = (e.rot ?? 0) + rot;
+    if (n.type === 'ellipse' || n.type === 'ellipseArc') n.rot = (e.rot ?? 0) + rot;
+    if (n.type === 'equation') n.place = mapEquationPlace(e, fn);
+    if (n.focus) { n.focus = fn(e.focus); n.apex = fn(e.apex); }
     if (n.type === 'text') { const [x, y] = fn([e.x, e.y]); n.x = x; n.y = y; n.size = (Number(e.size) || 10) * k; n.rot = (e.rot ?? 0) + rot; }
   };
   if (op.copy) {
@@ -131,11 +133,12 @@ export function transformEntities(sketch, ids, op) {
     const made = [];
     for (const e of curves) {
       const n = { ...JSON.parse(JSON.stringify(e)), id: newSketchId(e.type[0]) };
-      for (const key of ['p1', 'p2', 'c']) if (n[key]) n[key] = map.get(n[key]);
+      for (const key of POINT_KEYS) if (n[key]) n[key] = map.get(n[key]);
       if (n.pts) n.pts = n.pts.map((id) => map.get(id));
       fixShape(n, e);
       delete n.fixed;
       sketch.entities.push(n);
+      if (n.type === 'equation') refreshEquation(sketch, n);
       made.push(n);
     }
     for (const id of pointIds) if (!curves.some((e) => pointsOf(e).includes(id))) made.push(byId(sketch, map.get(id)));
@@ -146,7 +149,7 @@ export function transformEntities(sketch, ids, op) {
     const o = byId(sketch, ORIGIN);
     const q = { id: newSketchId('p'), type: 'point', x: o.x, y: o.y };
     sketch.entities.push(q);
-    for (const e of curves) { for (const key of ['p1', 'p2', 'c']) if (e[key] === ORIGIN) e[key] = q.id; if (e.pts) e.pts = e.pts.map((id) => (id === ORIGIN ? q.id : id)); }
+    for (const e of curves) { for (const key of POINT_KEYS) if (e[key] === ORIGIN) e[key] = q.id; if (e.pts) e.pts = e.pts.map((id) => (id === ORIGIN ? q.id : id)); }
     pointIds.delete(ORIGIN); pointIds.add(q.id);
   }
   for (const id of pointIds) {
@@ -156,7 +159,7 @@ export function transformEntities(sketch, ids, op) {
     p.x = fixLength(x); p.y = fixLength(y);
     delete p.fixed;
   }
-  for (const e of curves) fixShape(e, { ...e });
+  for (const e of curves) { fixShape(e, { ...e }); if (e.type === 'equation') refreshEquation(sketch, e); }
   const moved = new Set([...pointIds, ...curves.map((e) => e.id)]);
   sketch.constraints = sketch.constraints.filter((c) => {
     const refs = [c.a, c.b, c.c].filter((x) => x != null);

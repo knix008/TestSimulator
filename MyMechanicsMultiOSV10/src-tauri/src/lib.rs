@@ -3,6 +3,7 @@ pub mod fonts;
 pub mod i18n;
 pub mod instance;
 pub mod printing;
+pub mod scadpaths;
 pub mod vault;
 pub mod window_state;
 
@@ -76,6 +77,12 @@ fn app_info(app: AppHandle) -> AppInfo {
         os: std::env::consts::OS,
         arch: std::env::consts::ARCH,
     }
+}
+
+/// OpenSCAD library folders that exist here (OPENSCADPATH, the user folder, the installed libraries).
+#[tauri::command]
+fn scad_library_dirs() -> Vec<String> {
+    scadpaths::library_dirs()
 }
 
 #[tauri::command]
@@ -769,6 +776,7 @@ pub fn run() {
             write_text_file,
             write_base64_file,
             paths_exist,
+            scad_library_dirs,
             import_background,
             remove_background,
             allow_background,

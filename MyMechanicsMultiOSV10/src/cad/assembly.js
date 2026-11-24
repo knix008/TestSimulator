@@ -660,7 +660,8 @@ export function flattenAssembly(project, assembly, parent = { position: [0, 0, 0
 
 /** Pairs of components whose solids overlap: [{ a, b, volume }]. `bodyOf(comp)` → the placed shape. */
 export function interferences(assembly, bodyOf, measureVolume, minVolume = 1e-3) {
-  const comps = assembly.components.filter((c) => !c.hidden && !c.suppressed);
+  // Envelopes are references (they overlap what they enclose by design).
+  const comps = assembly.components.filter((c) => !c.hidden && !c.suppressed && !c.envelope);
   const placed = comps.map((c) => ({ c, s: bodyOf(c) }));
   const out = [];
   for (let i = 0; i < placed.length; i++) {

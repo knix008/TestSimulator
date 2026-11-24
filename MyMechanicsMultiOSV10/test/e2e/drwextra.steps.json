@@ -1,0 +1,37 @@
+[
+  {
+    "name": "drwextra: kernel and a sheet metal bracket (base flange, two edge flanges, a cross break)",
+    "eval": "(async () => {\n    const m = window.__mymechanics;\n    await m.actions.ensureKernel();\n    await m.actions.closeProject({ force: true });\n    await m.actions.newDocument('part');\n    const F = await import('/src/cad/features.js'); const S = await import('/src/cad/sketch.js'); const Rf = await import('/src/cad/refs.js');\n    const part = m.active(); part.name = 'Bracket';\n    const s = F.createFeature(part, 'sketch', { plane: { kind: 'std', name: 'top' }, ...S.createSketchGeometry() });\n    S.addRectangle(s, 0, 0, 100, 50);\n    part.features.push(s, F.createFeature(part, 'baseFlange', { sketch: s.id, thickness: 2, radius: 2, kFactor: 0.4 }));\n    m.actions.change('op.edit', () => {});\n    const body = m.actions.buildPart(part).body;\n    const at = (e) => [e.startPoint, e.endPoint];\n    const e1 = body.edges.find((e) => e.geomType === 'LINE' && at(e).every((p) => Math.abs(p.x - 100) < 1e-6 && Math.abs(p.z - 2) < 1e-6));\n    const e2 = body.edges.find((e) => e.geomType === 'LINE' && at(e).every((p) => Math.abs(p.x) < 1e-6 && Math.abs(p.z) < 1e-6));\n    const panel = body.faces.find((f) => f.geomType === 'PLANE' && Math.abs(f.center.z - 2) < 1e-6);\n    m.actions.change('op.addFeature', () => {\n      part.features.push(F.createFeature(part, 'edgeFlange', { edge: Rf.edgeSignature(e1), length: 20 }));\n      part.features.push(F.createFeature(part, 'edgeFlange', { edge: Rf.edgeSignature(e2), length: 15 }));\n      part.features.push(F.createFeature(part, 'crossBreak', { face: Rf.faceSignature(panel) }));\n    });\n    await new Promise((r) => setTimeout(r, 300));\n    return String(m.actions.buildPart(part).result.sheet.bends.length);\n  })()",
+    "expect": "^2$",
+    "timeout": 120000
+  },
+  {
+    "name": "drwextra: a drawing (the top view shows the cross break); Flat Pattern View adds the flat view with an up and a down bend line",
+    "eval": "(async () => {\n    const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms));\n    await m.actions.newDrawing(); await sleep(900);\n    await m.run('flatPatternView'); await sleep(1200);\n    const d = m.active();\n    const v = d.views.find((x) => x.flat);\n    const svg = document.querySelector('#drawing-host svg');\n    const up = svg.querySelectorAll('.bend-up').length; const down = svg.querySelectorAll('.bend-down').length;\n    const top = d.views.find((x) => x.type === 'top' && !x.kind && !x.flat);\n    const cross = top ? svg.querySelectorAll(`[data-view=\"${top.id}\"] .cross-break`).length : -1;\n    return `${Boolean(v)} ${up} ${down} ${cross}`;\n  })()",
+    "expect": "^true 1 1 2$",
+    "timeout": 120000
+  },
+  {
+    "name": "drwextra: Bend Table lists both bends (direction, angle, radius, K, allowance) and draws them on the sheet",
+    "eval": "(async () => {\n    const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms));\n    await m.run('bendTable'); await sleep(500);\n    const d = m.active();\n    const a = d.annotations.find((x) => x.kind === 'bendTable');\n    const svg = document.querySelector('#drawing-host svg');\n    const shown = svg.querySelector(`[data-annotation=\"${a.id}\"]`)?.textContent ?? '';\n    const ba = (Math.PI / 2) * (2 + 0.4 * 2);\n    return `${a.rows.length} ${a.rows.map((r) => r.dir).join('/')} ${a.rows[0].angle} ${Math.abs(a.rows[0].allowance - ba) < 1e-6} ${shown.includes('90°')}`;\n  })()",
+    "expect": "^2 (위/아래|UP/DOWN|아래/위|DOWN/UP) 90 true true$"
+  },
+  {
+    "name": "drwextra: Aligned Section from the front view: a section view whose cut is folded into one plane, its bent cutting line on the front view",
+    "eval": "(async () => {\n    const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms));\n    const d = m.active();\n    const front = d.views.find((v) => v.type === 'front' && !v.kind);\n    m.state.drawingSelected = front.id;\n    await m.run('alignedSection'); await sleep(1500);\n    const v = d.views.find((x) => x.aligned);\n    const svg = document.querySelector('#drawing-host svg');\n    const cutLines = svg.querySelectorAll(`[data-view=\"${front.id}\"] .cut-line`).length;\n    const hatch = svg.querySelector(`[data-view=\"${v.id}\"] .hatch`);\n    return `${v.aligned.angle} ${cutLines} ${Boolean(hatch)}`;\n  })()",
+    "expect": "^30 2 true$",
+    "timeout": 120000
+  },
+  {
+    "name": "drwextra: revision cloud, datum target and area hatch placed by clicking the sheet, edited in the panel",
+    "eval": "(async () => {\n    const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms));\n    const d = m.active();\n    // Each placement re-renders the sheet: find its SVG again for every click.\n    const click = async (kind, fx, fy) => {\n      await m.run(`ann:${kind}`);\n      const svg = document.querySelector('#drawing-host svg');\n      const box = svg.getBoundingClientRect();\n      svg.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: box.left + box.width * fx, clientY: box.top + box.height * fy }));\n      await sleep(250);\n      return d.annotations.at(-1);\n    };\n    const c = await click('cloud', 0.3, 0.7); const dt = await click('datumTarget', 0.5, 0.7); const h = await click('hatch', 0.7, 0.7);\n    await sleep(200);\n    const host = document.querySelector('#drawing-host svg');\n    const shown = ['ann-cloud', 'ann-datumTarget', 'ann-hatch'].map((k) => host.querySelectorAll(`.${k}`).length > 0);\n    // Edit the cloud's width through its field in the drawing panel.\n    const field = document.querySelector(`[data-ann=\"${c.id}:w\"]`);\n    if (field) { field.value = '80'; field.dispatchEvent(new Event('change', { bubbles: true })); }\n    await sleep(200);\n    const cloud = m.active().annotations.find((x) => x.id === c.id);\n    return `${c.kind} ${dt.kind} ${h.kind} ${shown.join(',')} ${field ? cloud.w : 'nofield'}`;\n  })()",
+    "expect": "^cloud datumTarget hatch true,true,true 80$",
+    "timeout": 60000
+  },
+  {
+    "name": "drwextra: alternate position view: an assembly with an explode step — its drawing view gets the exploded position in phantom lines",
+    "eval": "(async () => {\n    const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms));\n    const bracket = m.project.parts.find((p) => p.name === 'Bracket');\n    m.project.assemblies.push({ id: 'asmAlt', name: 'AltAsm', components: [], mates: [] });\n    await m.actions.switchDocument({ kind: 'assembly', id: 'asmAlt' });\n    m.actions.cancelEditing?.({ quiet: true });\n    m.actions.insertComponent(bracket.id); m.actions.insertComponent(bracket.id);\n    const a = m.active();\n    a.components[1].position = [0, 0, 30];\n    m.actions.change('op.edit', () => { a.explode = { on: false, steps: [{ comps: [a.components[1].id], dir: [0, 0, 1], distance: 60 }] }; });\n    await m.actions.newDrawing(); await sleep(1200);\n    const d = m.active();\n    const front = d.views.find((v) => v.type === 'front' && !v.kind);\n    m.state.drawingSelected = front.id;\n    await m.run('alternatePositionView'); await sleep(1500);\n    const svg = document.querySelector('#drawing-host svg');\n    const ph = svg.querySelectorAll(`[data-view=\"${front.id}\"] .phantom-line`).length;\n    return `${front.alt?.mode} ${ph > 0}`;\n  })()",
+    "expect": "^explode true$",
+    "timeout": 120000
+  }
+]

@@ -1,0 +1,43 @@
+[
+  {
+    "name": "asmpat: kernel",
+    "eval": "window.__mymechanics.actions.ensureKernel().then(() => 'ready')",
+    "expect": "^ready$"
+  },
+  {
+    "name": "asmpat: a plate part (hole pattern, a point sketch, a path sketch) and a pin part, both placed in a new assembly",
+    "eval": "(async () => {\n      const m = window.__mymechanics;\n      await m.actions.closeProject({ force: true });\n      await m.actions.newDocument('part');\n      const F = await import('/src/cad/features.js'); const S = await import('/src/cad/sketch.js');\n      const plate = m.active(); plate.name = 'Plate';\n      const top = { kind: 'std', name: 'top' };\n      const sk = (draw) => { const s = F.createFeature(plate, 'sketch', { plane: top, ...S.createSketchGeometry() }); draw(s); plate.features.push(s); return s; };\n      const base = sk((k) => S.addRectangle(k, 0, 0, 120, 60));\n      plate.features.push(F.createFeature(plate, 'extrude', { sketch: base.id, depth: 5 }));\n      const hs = sk((k) => S.addCircle(k, 10, 10, 2));\n      const hole = F.createFeature(plate, 'extrude', { sketch: hs.id, op: 'cut', end: 'throughBoth' });\n      plate.features.push(hole);\n      plate.features.push(F.createFeature(plate, 'linearPattern', { seeds: [hole.id], direction: { kind: 'axis', axis: 'x' }, spacing: 25, count: 4 }));\n      const pts = sk((k) => { for (const [x, y] of [[10, 50], [40, 50], [70, 45]]) { const p = { id: S.newSketchId('p'), type: 'point', x, y, standalone: true }; k.entities.push(p); } });\n      pts.name = 'Points';\n      const path = sk((k) => { const l = S.addLine(k, 0, 70, 100, 70); void l; });\n      path.name = 'Path';\n      m.actions.change('op.edit', () => {});\n      await m.run('newPart');\n      const pin = m.active(); pin.name = 'Pin';\n      const ps = F.createFeature(pin, 'sketch', { plane: top, ...S.createSketchGeometry() }); S.addCircle(ps, 0, 0, 1.9); pin.features.push(ps);\n      pin.features.push(F.createFeature(pin, 'extrude', { sketch: ps.id, depth: 15 }));\n      m.actions.change('op.edit', () => {});\n      m.actions.cancelEditing?.({ quiet: true });\n      const proj = m.project;\n      proj.assemblies.push({ id: 'asmT', name: 'Asm', components: [], mates: [] });\n      await m.actions.switchDocument({ kind: 'assembly', id: 'asmT' });\n      m.actions.cancelEditing?.({ quiet: true });\n      m.actions.insertComponent(plate.id);\n      m.actions.insertComponent(pin.id);\n      const a = m.active();\n      // The pin sits in the first hole: (10, 10).\n      const p = a.components.find((c) => c.part === pin.id); p.position = [10, 10, 0];\n      return a.components.length + ' ' + a.components.map((c) => c.name).join(',');\n    })()",
+    "expect": "^2 ",
+    "timeout": 120000
+  },
+  {
+    "name": "asmpat: pattern driven — a pin in every hole of the plate linear pattern",
+    "eval": "(async () => {\n      const m = window.__mymechanics; const a = m.active(); const pin = a.components.find((c) => c.name.startsWith('Pin'));\n      await m.run('featureDrivenComponentPattern');\n      const e = m.state.editing; e.seeds = [pin.id];\n      const sel = document.querySelector('[data-pm-select=\"source\"]');\n      const n = sel ? sel.options.length : 0;\n      m.actions.acceptEditing();\n      await new Promise((r) => setTimeout(r, 300));\n      const copies = a.components.filter((c) => c.seed === pin.id).map((c) => c.position.map((v) => Math.round(v)).join(':'));\n      return n + ' ' + copies.join(' ');\n    })()",
+    "expect": "^1 35:10:0 60:10:0 85:10:0$"
+  },
+  {
+    "name": "asmpat: the pattern record keeps its rigid moves (the copies follow the seed through them)",
+    "eval": "(async () => {\n      const m = window.__mymechanics; const a = m.active();\n      const pat = a.patterns.at(-1);\n      return pat.type + ' ' + pat.moves.length + ' ' + (pat.kind ?? '');\n    })()",
+    "expect": "^moves 3 featureDriven$"
+  },
+  {
+    "name": "asmpat: sketch driven — a copy at each other point of the \"Points\" sketch",
+    "eval": "(async () => {\n      const m = window.__mymechanics; const a = m.active(); const pin = a.components.find((c) => c.name.startsWith('Pin') && !c.pattern);\n      pin.position = [10, 50, 0];\n      await m.run('sketchDrivenComponentPattern');\n      const e = m.state.editing; e.seeds = [pin.id];\n      m.actions.acceptEditing();\n      await new Promise((r) => setTimeout(r, 300));\n      const pat = a.patterns.at(-1);\n      return a.components.filter((c) => c.pattern === pat.id).map((c) => c.position.map((v) => Math.round(v)).join(':')).join(' ');\n    })()",
+    "expect": "^40:50:0 70:45:0$"
+  },
+  {
+    "name": "asmpat: curve driven — 5 copies equally along the \"Path\" line (100 long)",
+    "eval": "(async () => {\n      const m = window.__mymechanics; const a = m.active(); const pin = a.components.find((c) => c.name.startsWith('Pin') && !c.pattern);\n      pin.position = [0, 70, 0];\n      await m.run('curveDrivenComponentPattern');\n      const e = m.state.editing; e.seeds = [pin.id];\n      const opt = [...document.querySelectorAll('[data-pm-select=\"source\"] option')].find((o) => o.textContent.includes('Path'));\n      m.actions.pmSelect?.('source', opt.value) ?? (e.source = opt.value);\n      e.source = opt.value; e.count = 5;\n      m.actions.acceptEditing();\n      await new Promise((r) => setTimeout(r, 300));\n      const pat = a.patterns.at(-1);\n      return a.components.filter((c) => c.pattern === pat.id).map((c) => c.position.map((v) => Math.round(v)).join(':')).join(' ');\n    })()",
+    "expect": "^25:70:0 50:70:0 75:70:0 100:70:0$"
+  },
+  {
+    "name": "asmpat: chain — links every pitch 12.7 along the path",
+    "eval": "(async () => {\n      const m = window.__mymechanics; const a = m.active(); const pin = a.components.find((c) => c.name.startsWith('Pin') && !c.pattern);\n      await m.run('chainComponentPattern');\n      const e = m.state.editing; e.seeds = [pin.id];\n      const opt = [...document.querySelectorAll('[data-pm-select=\"source\"] option')].find((o) => o.textContent.includes('Path'));\n      e.source = opt.value; e.pitch = 12.7;\n      m.actions.acceptEditing();\n      await new Promise((r) => setTimeout(r, 300));\n      const pat = a.patterns.at(-1);\n      const xs = a.components.filter((c) => c.pattern === pat.id).map((c) => c.position[0]);\n      return xs.length + ' ' + (Math.round((xs[1] - xs[0]) * 1000) / 1000);\n    })()",
+    "expect": "^6 12\\.7$"
+  },
+  {
+    "name": "asmpat: undo takes the chain pattern back",
+    "eval": "(async () => { const m = window.__mymechanics; const a = m.active(); const n = a.patterns.length; await m.run('undo'); await new Promise((r) => setTimeout(r, 200)); return n + ' ' + m.active().patterns.length; })()",
+    "expect": "^4 3$"
+  }
+]

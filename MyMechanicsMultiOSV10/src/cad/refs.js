@@ -3,6 +3,7 @@
 // the rebuilt solid as the closest match. A fillet keeps its edge when a dimension earlier in the tree
 // changes, as long as the edge still exists somewhere near.
 import { worldFront } from './frame.js';
+import { rep } from './kernel.js';
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -112,6 +113,20 @@ export function findEdges(shape, sigs, limit = 0.6) {
 }
 
 /** A plane from a planar face: { origin, normal, xDir } (x along the face's first straight edge when it has one). */
+/**
+ * A face's outer wire and its inner wires (holes), read with OCCT directly: replicad's outerWire() / innerWires()
+ * delete the face they are called on, and innerWires() came back empty for a face with two holes.
+ */
+export function faceWires(face) {
+  const R = rep(); const oc = R.getOC();
+  const outer = R.cast(oc.BRepTools.OuterWire(face.wrapped));
+  const inner = [];
+  const ex = new oc.TopExp_Explorer(face.wrapped, oc.TopAbs_ShapeEnum.TopAbs_WIRE, oc.TopAbs_ShapeEnum.TopAbs_SHAPE);
+  for (; ex.More(); ex.Next()) { const w = ex.Current(); if (!w.IsSame(outer.wrapped)) inner.push(R.cast(oc.TopoDS.Wire(w))); }
+  ex.delete();
+  return { outer, inner };
+}
+
 export function planeOfFace(face) {
   const origin = tuple(face.center);
   const normal = unit(tuple(face.normalAt(face.center)));

@@ -2,6 +2,10 @@
 // component patterns and mirror, smart mates, moving with collision detection, drawing sheets and the new
 // view kinds and tables, curvature / zebra / thickness displays, buckling and fatigue studies.
 export const ICONS_ASM = {
+  compFeaturePattern: '<circle cx="6" cy="6" r="2" stroke-dasharray="2 1.4"/><circle cx="12" cy="6" r="2" stroke-dasharray="2 1.4"/><circle cx="18" cy="6" r="2" stroke-dasharray="2 1.4"/><path d="M4 14l2-1 2 1v4l-2 1-2-1zM10 14l2-1 2 1v4l-2 1-2-1zM16 14l2-1 2 1v4l-2 1-2-1z"/>',
+  compSketchPattern: '<path d="M3 20l6-9 6 4 6-10" stroke-dasharray="2 1.6" opacity="0.6"/><path d="M7 9l2-1 2 1v3l-2 1-2-1zM13 13l2-1 2 1v3l-2 1-2-1zM19 3l2 1v3l-2 1-2-1V4z"/>',
+  compCurvePattern: '<path d="M2 20C6 6 14 4 22 8" opacity="0.6"/><path d="M4 13l2-1 2 1v3l-2 1-2-1zM10 7l2-1 2 1v3l-2 1-2-1zM17 5l2-1 2 1v3l-2 1-2-1z"/>',
+  compChainPattern: '<rect x="2" y="9" width="8" height="6" rx="3"/><rect x="8" y="9" width="8" height="6" rx="3" opacity="0.75"/><rect x="14" y="9" width="8" height="6" rx="3" opacity="0.5"/>',
   compLinPattern: '<path d="M3 12l3-1.7 3 1.7v3.4L6 17.1l-3-1.7z"/><path d="M10 12l3-1.7 3 1.7v3.4l-3 1.7-3-1.7z" opacity="0.65"/><path d="M17 12l3-1.7 2 1.2v3.4l-2 1.2-3-1.7z" opacity="0.4"/><path d="M4 6h15M16 3.5L19 6l-3 2.5"/>',
   compCirPattern: '<circle cx="12" cy="12" r="7.5" stroke-dasharray="2 2"/><path d="M12 2.5l2.2 1.3v2.5L12 7.6 9.8 6.3V3.8z"/><path d="M19.5 10l2 1.2v2.4l-2 1.2-2-1.2v-2.4z" opacity="0.6"/><path d="M12 16.4l2.2 1.3v2.5L12 21.5l-2.2-1.3v-2.5z" opacity="0.4"/><circle cx="12" cy="12" r="1" fill="currentColor"/>',
   compMirror: '<path d="M12 2v20" stroke-dasharray="2.2 1.8"/><path d="M8 7L3 9.5v6L8 18l3-1.5v-7z"/><path d="M16 7l5 2.5v6L16 18l-3-1.5v-7z" opacity="0.55"/>',
@@ -21,4 +25,11 @@ export const ICONS_ASM = {
   thickness: '<path d="M3 6h18M3 18h18"/><path d="M6 9v6M18 9v6"/><path d="M6 9l-1.5 1.8M6 9l1.5 1.8M6 15l-1.5-1.8M6 15l1.5-1.8"/><rect x="10" y="9" width="4" height="6" fill="currentColor" opacity="0.4" stroke="none"/>',
   buckling: '<path d="M8 2h8M8 22h8"/><path d="M12 2c4 5 4 15 0 20" stroke-width="2"/><path d="M12 2v20" stroke-dasharray="1.6 1.6" opacity="0.5"/><path d="M19 5v4M17.5 7.5L19 9l1.5-1.5"/>',
   fatigue: '<path d="M2 5v15h20"/><path d="M4 7c4 1 6 4 9 7s5 3 8 3" stroke-width="2"/><path d="M5 11h2M5 15h2" opacity="0.5"/>',
+  // ── replace components, copy with mates, hole alignment, envelopes
+  replaceComponent: '<rect x="2" y="4" width="9" height="9" rx="1" opacity="0.55"/><rect x="13" y="11" width="9" height="9" rx="1"/><path d="M7 15v3h4M17 9V6h-4"/><path d="M9.5 16.5L11 18l-1.5 1.5M14.5 7.5L13 6l1.5-1.5"/>',
+  copyWithMates: '<rect x="3" y="3" width="9" height="9" rx="1"/><rect x="12" y="12" width="9" height="9" rx="1" stroke-dasharray="2 1.5"/><path d="M12 7.5h4.5V12" opacity="0.7"/><circle cx="16.5" cy="7.5" r="1.4" fill="currentColor" stroke="none"/>',
+  holeAlignment: '<path d="M3 7h18v4H3zM3 13h18v4H3z" opacity="0.7"/><path d="M10 7v4M14 7v4M11 13v4M15 13v4"/><path d="M12 3v18" stroke-dasharray="2 1.6" stroke-width="1.8"/>',
+  envelope: '<path d="M12 2l9 5v10l-9 5-9-5V7z" stroke-dasharray="2.4 1.6"/><rect x="8" y="9" width="8" height="7" rx="1"/>',
+  envelopeInside: '<rect x="2" y="3" width="20" height="18" rx="2" stroke-dasharray="2.4 1.6"/><rect x="6" y="7" width="7" height="7" rx="1" fill="currentColor" opacity="0.35"/><rect x="6" y="7" width="7" height="7" rx="1"/><path d="M16 15l2 2 3-4"/>',
+  envelopeCrossing: '<rect x="2" y="3" width="15" height="18" rx="2" stroke-dasharray="2.4 1.6"/><rect x="11" y="8" width="11" height="7" rx="1" fill="currentColor" opacity="0.35"/><rect x="11" y="8" width="11" height="7" rx="1"/>',
 };

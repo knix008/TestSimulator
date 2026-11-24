@@ -458,12 +458,12 @@ body.dragging-rows, body.dragging-rows * { cursor: grabbing !important; }
 
 /* bottom-right resize grip */
 .resize-grip {
-  position: fixed; right: 0; bottom: 0; z-index: 40; width: 18px; height: 18px; display: grid; place-items: center;
-  cursor: nwse-resize; color: var(--text); opacity: 0.6; touch-action: none;
+  position: fixed; right: 0; bottom: 0; z-index: 40; width: 20px; height: 20px; display: grid; place-items: center;
+  cursor: nwse-resize; color: var(--text); opacity: 0.75; touch-action: none;
 }
 .resize-grip.static { cursor: default; }
 .resize-grip:hover { color: var(--accent); opacity: 1; }
-.resize-grip .icon { width: 15px; height: 15px; }
+.resize-grip .icon { width: 17px; height: 17px; }
 
 /* status bar */
 #statusbar {
@@ -1632,8 +1632,8 @@ select.dd-select { background-repeat: no-repeat; background-position: 8px center
 .card-handle:hover { background: var(--hover); }
 .card-handle:focus-visible { outline: 2px solid var(--accent); }
 .card-handle-float { position: absolute; left: 6px; top: 6px; z-index: 2; }
-.card-resize { position: absolute; right: 2px; bottom: 2px; z-index: 4; width: 16px; height: 16px; cursor: nwse-resize; touch-action: none; color: var(--text); }
-.card-resize svg { display: block; width: 14px; height: 14px; margin: 2px 0 0 2px; fill: currentColor; stroke: none; }
+.card-resize { position: absolute; right: 2px; bottom: 2px; z-index: 4; width: 18px; height: 18px; cursor: nwse-resize; touch-action: none; color: var(--text); }
+.card-resize svg { display: block; width: 16px; height: 16px; margin: 2px 0 0 2px; fill: currentColor; stroke: none; }
 .card-resize:hover { color: var(--accent); }
 
 .start-card.bare { justify-content: center; padding: 14px 20px; border-radius: 16px; }

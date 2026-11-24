@@ -151,7 +151,7 @@ const base = {
   error: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/>',
   warning: '<path d="M12 3l9.5 17h-19z"/><path d="M12 10v4.5M12 17.5h.01"/>',
   question: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.7M12 17h.01"/>',
-  grip: '<g fill="currentColor" stroke="none"><circle cx="20" cy="20" r="2"/><circle cx="14" cy="20" r="2"/><circle cx="20" cy="14" r="2"/><circle cx="8" cy="20" r="2"/><circle cx="14" cy="14" r="2"/><circle cx="20" cy="8" r="2"/></g>',
+  grip: '<g fill="currentColor" stroke="none"><circle cx="19.5" cy="19.5" r="2.3"/><circle cx="12.5" cy="19.5" r="2.3"/><circle cx="5.5" cy="19.5" r="2.3"/><circle cx="19.5" cy="12.5" r="2.3"/><circle cx="12.5" cy="12.5" r="2.3"/><circle cx="19.5" cy="5.5" r="2.3"/></g>',
   dot: '<circle cx="12" cy="12" r="4" fill="currentColor"/>',
   file: '<path d="M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/>',
   folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',

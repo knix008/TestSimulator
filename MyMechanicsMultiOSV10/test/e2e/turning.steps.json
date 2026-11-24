@@ -1,0 +1,1352 @@
+[
+  {
+    "name": "turning: kernel loads",
+    "eval": "window.__mymechanics.actions.ensureKernel().then(() => 'ready')",
+    "expect": "^ready$"
+  },
+  {
+    "name": "turning: the flange in the front view, free rotation (the default)",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const V = () => m.viewport; const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; const ang = (a, b) => Math.acos(Math.max(-1, Math.min(1, dot(a, b)))) * 180 / Math.PI; await m.actions.closeProject({ force: true }); await m.actions.openSampleAsk('flange'); await sleep(1200); m.actions.updateSettings({ orbitMode: 'free' }); await m.run('view:front'); await sleep(900); const r = V().canvas.getBoundingClientRect(); window.__c = [r.left + r.width / 2, r.top + r.height / 2];\n     const c = V().cameraState(); return JSON.stringify({ mode: m.state.settings.orbitMode, front: ang(c.dir, [0, -1, 0]) < 0.5 && ang(c.up, [0, 0, 1]) < 0.5 }); })()",
+    "expect": "\"mode\":\"free\",\"front\":true"
+  },
+  {
+    "name": "turning: a real left drag down by half a turn",
+    "mouse": [
+      {
+        "type": "mouseMoved",
+        "x": "window.__c[0]",
+        "y": "window.__c[1] - 262",
+        "modifiers": 0
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__c[0]",
+        "y": "window.__c[1] - 262",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 40
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 17.453292519943297",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 34.90658503988659",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 52.35987755982989",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 69.81317007977319",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 87.26646259971648",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 104.71975511965978",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 122.17304763960307",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 139.62634015954637",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 157.07963267948966",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 174.53292519943295",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 191.98621771937624",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 209.43951023931956",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 226.89280275926285",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 244.34609527920614",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 261.79938779914943",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 279.25268031909275",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 296.705972839036",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 314.1592653589793",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 331.6125578789226",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 349.0658503988659",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 366.51914291880917",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 383.9724354387525",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 401.42572795869575",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 418.8790204786391",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 436.3323129985824",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 453.7856055185257",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 471.238898038469",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 488.6921905584123",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 506.1454830783556",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 523.5987755982989",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseReleased",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 523.5987755982989",
+        "button": "left",
+        "buttons": 0,
+        "modifiers": 0,
+        "delay": 200
+      }
+    ],
+    "wait": 300
+  },
+  {
+    "name": "turning: the model went over the top and is upside down (seen from the back) — laid down on the way",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const V = () => m.viewport; const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; const ang = (a, b) => Math.acos(Math.max(-1, Math.min(1, dot(a, b)))) * 180 / Math.PI; const c = V().cameraState(); return JSON.stringify({ back: ang(c.dir, [0, 1, 0]) < 3, upsideDown: c.up[2] < -0.99 }); })()",
+    "expect": "\"back\":true,\"upsideDown\":true"
+  },
+  {
+    "name": "turning: turntable mode chosen in the settings",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const V = () => m.viewport; const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; const ang = (a, b) => Math.acos(Math.max(-1, Math.min(1, dot(a, b)))) * 180 / Math.PI; m.actions.updateSettings({ orbitMode: 'turntable' }); await m.run('view:front'); await sleep(900); return m.state.settings.orbitMode; })()",
+    "expect": "^turntable$"
+  },
+  {
+    "name": "turning: the same drag in turntable mode",
+    "mouse": [
+      {
+        "type": "mouseMoved",
+        "x": "window.__c[0]",
+        "y": "window.__c[1] - 262",
+        "modifiers": 0
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__c[0]",
+        "y": "window.__c[1] - 262",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 40
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 17.453292519943297",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 34.90658503988659",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 52.35987755982989",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 69.81317007977319",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 87.26646259971648",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 104.71975511965978",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 122.17304763960307",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 139.62634015954637",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 157.07963267948966",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 174.53292519943295",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 191.98621771937624",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 209.43951023931956",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 226.89280275926285",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 244.34609527920614",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 261.79938779914943",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 279.25268031909275",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 296.705972839036",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 314.1592653589793",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 331.6125578789226",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 349.0658503988659",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 366.51914291880917",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 383.9724354387525",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 401.42572795869575",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 418.8790204786391",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 436.3323129985824",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 453.7856055185257",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 471.238898038469",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 488.6921905584123",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 506.1454830783556",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 523.5987755982989",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseReleased",
+        "x": "(window.__c[0]) + 0",
+        "y": "(window.__c[1] - 262) + 523.5987755982989",
+        "button": "left",
+        "buttons": 0,
+        "modifiers": 0,
+        "delay": 200
+      }
+    ],
+    "wait": 300
+  },
+  {
+    "name": "turning: the turntable stops at the top and never turns the model over",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const V = () => m.viewport; const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; const ang = (a, b) => Math.acos(Math.max(-1, Math.min(1, dot(a, b)))) * 180 / Math.PI; const c = V().cameraState(); m.actions.updateSettings({ orbitMode: 'free' }); return JSON.stringify({ upright: c.up[2] >= 0, nearTop: c.dir[2] > 0.99 }); })()",
+    "expect": "\"upright\":true,\"nearTop\":true"
+  },
+  {
+    "name": "turning: the settings window offers the rotation mode and the arrow key step",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const V = () => m.viewport; const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; const ang = (a, b) => Math.acos(Math.max(-1, Math.min(1, dot(a, b)))) * 180 / Math.PI; const html = (await import('/src/popups-cad.js')).default ?? null; const src = await (await fetch('/src/popups-cad.js')).text(); return JSON.stringify({ mode: src.includes(\"segmented('orbitMode'\"), step: src.includes(\"numberField('arrowStep'\") }); })()",
+    "expect": "\"mode\":true,\"step\":true"
+  },
+  {
+    "name": "turning: front view again, the graphics area has the keyboard",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const V = () => m.viewport; const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; const ang = (a, b) => Math.acos(Math.max(-1, Math.min(1, dot(a, b)))) * 180 / Math.PI; await m.run('view:front'); await sleep(900); V().canvas.focus(); window.__cam = V().cameraState(); return document.activeElement === V().canvas ? 'focused' : 'not focused'; })()",
+    "expect": "^focused$"
+  },
+  {
+    "name": "turning: → key",
+    "keys": [
+      {
+        "key": "ArrowRight"
+      }
+    ],
+    "wait": 200
+  },
+  {
+    "name": "turning: → turned the model 15° about the screen vertical (up kept)",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const V = () => m.viewport; const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; const ang = (a, b) => Math.acos(Math.max(-1, Math.min(1, dot(a, b)))) * 180 / Math.PI; const c = V().cameraState(); const r = JSON.stringify({ deg: Math.round(ang(c.dir, window.__cam.dir) * 10) / 10, upKept: ang(c.up, window.__cam.up) < 0.01 }); window.__cam = c; return r; })()",
+    "expect": "\"deg\":15,\"upKept\":true"
+  },
+  {
+    "name": "turning: Shift+↓ key",
+    "keys": [
+      {
+        "key": "ArrowDown",
+        "modifiers": 8
+      }
+    ],
+    "wait": 200
+  },
+  {
+    "name": "turning: Shift+↓ turned it 90° about the screen horizontal — the model is laid down",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const V = () => m.viewport; const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; const ang = (a, b) => Math.acos(Math.max(-1, Math.min(1, dot(a, b)))) * 180 / Math.PI; const c = V().cameraState(); const right = [window.__cam.up[1] * window.__cam.dir[2] - window.__cam.up[2] * window.__cam.dir[1], window.__cam.up[2] * window.__cam.dir[0] - window.__cam.up[0] * window.__cam.dir[2], window.__cam.up[0] * window.__cam.dir[1] - window.__cam.up[1] * window.__cam.dir[0]];\n     const r = JSON.stringify({ deg: Math.round(ang(c.dir, window.__cam.dir) * 10) / 10, aboutHorizontal: Math.abs(dot(c.dir, right)) < 0.01 }); window.__cam = c; return r; })()",
+    "expect": "\"deg\":90,\"aboutHorizontal\":true"
+  },
+  {
+    "name": "turning: Alt+← key",
+    "keys": [
+      {
+        "key": "ArrowLeft",
+        "modifiers": 1
+      }
+    ],
+    "wait": 200
+  },
+  {
+    "name": "turning: Alt+← rolled the view 15° (the line of sight kept)",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const V = () => m.viewport; const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; const ang = (a, b) => Math.acos(Math.max(-1, Math.min(1, dot(a, b)))) * 180 / Math.PI; const c = V().cameraState(); const r = JSON.stringify({ dirKept: ang(c.dir, window.__cam.dir) < 0.01, roll: Math.round(ang(c.up, window.__cam.up) * 10) / 10 }); window.__cam = c; return r; })()",
+    "expect": "\"dirKept\":true,\"roll\":15"
+  },
+  {
+    "name": "turning: Ctrl+→ key",
+    "keys": [
+      {
+        "key": "ArrowRight",
+        "modifiers": 2
+      }
+    ],
+    "wait": 200
+  },
+  {
+    "name": "turning: Ctrl+→ moved the view without turning it",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const V = () => m.viewport; const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; const ang = (a, b) => Math.acos(Math.max(-1, Math.min(1, dot(a, b)))) * 180 / Math.PI; const c = V().cameraState(); return JSON.stringify({ turned: ang(c.dir, window.__cam.dir) > 0.01 || ang(c.up, window.__cam.up) > 0.01, moved: Math.hypot(...c.target.map((v, i) => v - window.__cam.target[i])) > 1e-6 }); })()",
+    "expect": "\"turned\":false,\"moved\":true"
+  },
+  {
+    "name": "turning: an isometric view; a straight edge of the flange is found under the pointer",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const V = () => m.viewport; const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; const ang = (a, b) => Math.acos(Math.max(-1, Math.min(1, dot(a, b)))) * 180 / Math.PI; await m.run('view:iso'); await sleep(900); const v = V(); const r = v.canvas.getBoundingClientRect(); let found = null;\n     for (const body of v.bodies.values()) { const seg = body.edges?.userData.segments; if (!seg) continue;\n       for (let k = 0, s = 0; k < seg.length && !found; k += 6, s++) { const mid = [0, 1, 2].map((i) => (seg[k + i] + seg[k + 3 + i]) / 2); const p = v.toScreen(mid); if (p.x < 60 || p.y < 60 || p.x > r.width - 60 || p.y > r.height - 60) continue;\n         const hit = v.pick(r.left + p.x, r.top + p.y, { kinds: ['edge', 'face'] }); const axis = v.edgeAxisOf(hit); if (hit?.kind === 'edge' && axis?.kind === 'line') found = { x: r.left + p.x, y: r.top + p.y, axis }; } }\n     if (!found) return 'no edge'; window.__pt = [found.x, found.y]; window.__axis = found.axis; window.__cam = v.cameraState();\n     const sp = (q) => { const s = v.toScreen(q); return [s.x, s.y]; }; window.__axisScreen = [sp(found.axis.point), sp(found.axis.point.map((x, i) => x + found.axis.dir[i] * 20))]; return 'edge'; })()",
+    "expect": "^edge$"
+  },
+  {
+    "name": "turning: a real middle drag that starts on the edge",
+    "mouse": [
+      {
+        "type": "mouseMoved",
+        "x": "window.__pt[0]",
+        "y": "window.__pt[1]",
+        "modifiers": 0
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__pt[0]",
+        "y": "window.__pt[1]",
+        "button": "middle",
+        "buttons": 4,
+        "modifiers": 0,
+        "delay": 40
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 10",
+        "y": "(window.__pt[1]) + 4.285714285714286",
+        "button": "middle",
+        "buttons": 4,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 20",
+        "y": "(window.__pt[1]) + 8.571428571428571",
+        "button": "middle",
+        "buttons": 4,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 30",
+        "y": "(window.__pt[1]) + 12.857142857142858",
+        "button": "middle",
+        "buttons": 4,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 40",
+        "y": "(window.__pt[1]) + 17.142857142857142",
+        "button": "middle",
+        "buttons": 4,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 50",
+        "y": "(window.__pt[1]) + 21.428571428571427",
+        "button": "middle",
+        "buttons": 4,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 60",
+        "y": "(window.__pt[1]) + 25.714285714285715",
+        "button": "middle",
+        "buttons": 4,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 70",
+        "y": "(window.__pt[1]) + 30",
+        "button": "middle",
+        "buttons": 4,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 80",
+        "y": "(window.__pt[1]) + 34.285714285714285",
+        "button": "middle",
+        "buttons": 4,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 90",
+        "y": "(window.__pt[1]) + 38.57142857142857",
+        "button": "middle",
+        "buttons": 4,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 100",
+        "y": "(window.__pt[1]) + 42.857142857142854",
+        "button": "middle",
+        "buttons": 4,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 110",
+        "y": "(window.__pt[1]) + 47.142857142857146",
+        "button": "middle",
+        "buttons": 4,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 120",
+        "y": "(window.__pt[1]) + 51.42857142857143",
+        "button": "middle",
+        "buttons": 4,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 130",
+        "y": "(window.__pt[1]) + 55.714285714285715",
+        "button": "middle",
+        "buttons": 4,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 140",
+        "y": "(window.__pt[1]) + 60",
+        "button": "middle",
+        "buttons": 4,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseReleased",
+        "x": "(window.__pt[0]) + 140",
+        "y": "(window.__pt[1]) + 60",
+        "button": "middle",
+        "buttons": 0,
+        "modifiers": 0,
+        "delay": 200
+      }
+    ],
+    "wait": 300
+  },
+  {
+    "name": "turning: the view turned about that edge — the edge stays where it was on screen while the model turns",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const V = () => m.viewport; const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; const ang = (a, b) => Math.acos(Math.max(-1, Math.min(1, dot(a, b)))) * 180 / Math.PI; const v = V(); const c = v.cameraState(); const sp = (q) => { const s = v.toScreen(q); return [s.x, s.y]; }; const a = window.__axis; const now = [sp(a.point), sp(a.point.map((x, i) => x + a.dir[i] * 20))];\n     const moved = Math.max(...now.map((p, i) => Math.hypot(p[0] - window.__axisScreen[i][0], p[1] - window.__axisScreen[i][1])));\n     return JSON.stringify({ turned: ang(c.dir, window.__cam.dir) > 20, edgeStill: moved < 1.5, aboutEdge: Math.abs(dot(c.dir, a.dir) - dot(window.__cam.dir, a.dir)) < 1e-6 }); })()",
+    "expect": "\"turned\":true,\"edgeStill\":true,\"aboutEdge\":true"
+  },
+  {
+    "shot": "turning-about-edge",
+    "wait": 300
+  },
+  {
+    "name": "turning: the front view again for the roll drag",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const V = () => m.viewport; const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; const ang = (a, b) => Math.acos(Math.max(-1, Math.min(1, dot(a, b)))) * 180 / Math.PI; await m.run('view:front'); await sleep(900); const r = V().canvas.getBoundingClientRect(); window.__c = [r.left + r.width / 2, r.top + r.height / 2]; window.__cam = V().cameraState(); return 'ok'; })()",
+    "expect": "^ok$"
+  },
+  {
+    "name": "turning: a real Alt+left drag around the centre",
+    "mouse": [
+      {
+        "type": "mouseMoved",
+        "x": "window.__c[0] + 150",
+        "y": "window.__c[1]",
+        "modifiers": 1
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__c[0] + 150",
+        "y": "window.__c[1]",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 1,
+        "delay": 40
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__c[0] + 150 * Math.cos(0.1308996938995747)",
+        "y": "window.__c[1] + 150 * Math.sin(0.1308996938995747)",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 1,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__c[0] + 150 * Math.cos(0.2617993877991494)",
+        "y": "window.__c[1] + 150 * Math.sin(0.2617993877991494)",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 1,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__c[0] + 150 * Math.cos(0.39269908169872414)",
+        "y": "window.__c[1] + 150 * Math.sin(0.39269908169872414)",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 1,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__c[0] + 150 * Math.cos(0.5235987755982988)",
+        "y": "window.__c[1] + 150 * Math.sin(0.5235987755982988)",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 1,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__c[0] + 150 * Math.cos(0.6544984694978736)",
+        "y": "window.__c[1] + 150 * Math.sin(0.6544984694978736)",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 1,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__c[0] + 150 * Math.cos(0.7853981633974483)",
+        "y": "window.__c[1] + 150 * Math.sin(0.7853981633974483)",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 1,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__c[0] + 150 * Math.cos(0.9162978572970231)",
+        "y": "window.__c[1] + 150 * Math.sin(0.9162978572970231)",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 1,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__c[0] + 150 * Math.cos(1.0471975511965976)",
+        "y": "window.__c[1] + 150 * Math.sin(1.0471975511965976)",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 1,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__c[0] + 150 * Math.cos(1.1780972450961724)",
+        "y": "window.__c[1] + 150 * Math.sin(1.1780972450961724)",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 1,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__c[0] + 150 * Math.cos(1.3089969389957472)",
+        "y": "window.__c[1] + 150 * Math.sin(1.3089969389957472)",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 1,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__c[0] + 150 * Math.cos(1.4398966328953218)",
+        "y": "window.__c[1] + 150 * Math.sin(1.4398966328953218)",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 1,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__c[0] + 150 * Math.cos(1.5707963267948966)",
+        "y": "window.__c[1] + 150 * Math.sin(1.5707963267948966)",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 1,
+        "delay": 16
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__c[0]",
+        "y": "window.__c[1] + 150",
+        "button": "left",
+        "buttons": 0,
+        "modifiers": 1,
+        "delay": 200
+      }
+    ],
+    "wait": 200
+  },
+  {
+    "name": "turning: Alt+drag rolled the view by the angle swept (90°) without changing the line of sight",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const V = () => m.viewport; const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; const ang = (a, b) => Math.acos(Math.max(-1, Math.min(1, dot(a, b)))) * 180 / Math.PI; const c = V().cameraState(); return JSON.stringify({ dirKept: ang(c.dir, window.__cam.dir) < 0.01, roll: Math.round(ang(c.up, window.__cam.up)) }); })()",
+    "expect": "\"dirKept\":true,\"roll\":90"
+  },
+  {
+    "name": "turning: an assembly of two blocks made by a macro; Move Component offers a free drag mode",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const V = () => m.viewport; const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; const ang = (a, b) => Math.acos(Math.max(-1, Math.min(1, dot(a, b)))) * 180 / Math.PI; await m.actions.closeProject({ force: true }); const r = await m.macro.runMacro(\"await mm.newDocument(\\\"part\\\");\\nawait mm.setProperty(\\\"name\\\", \\\"Block\\\");\\nawait mm.extrude(await mm.sketch(\\\"top\\\", [{ rect: [60, 20] }]), 10);\\nawait mm.addAssembly(\\\"Pair\\\");\\nawait mm.insertComponent(\\\"Block\\\", [0, 0, 0]);\\nawait mm.insertComponent(\\\"Block\\\", [0, 80, 0]);\\nreturn mm.components().map((c) => c.name);\");\n     await sleep(800); await m.run('view:iso'); await sleep(700); await m.run('zoomFit'); await sleep(600); const a = m.active(); const c2 = a.components[1]; window.__comp = c2.id; window.__rot0 = [...c2.rotation];\n     await m.run('moveComponent'); await sleep(300); const seg = document.querySelector('[data-pm-seg=\"dragMode\"], [data-pm-set^=\"dragMode\"], .left-pm-body .segmented');\n     m.state.editing.dragMode = 'rotate'; m.state.editing.collision = false;\n     const v = V(); const r2 = v.canvas.getBoundingClientRect(); const p = v.toScreen(c2.position.map((x, i) => x + [0, 0, 5][i])); window.__pt = [r2.left + p.x, r2.top + p.y];\n     const hit = v.pick(window.__pt[0], window.__pt[1]); return JSON.stringify({ macro: r.ok, comps: a.components.length, mode: m.state.editing?.mode, onComp: String(hit?.bodyKey ?? '').startsWith('comp:' + c2.id), help: document.body.textContent.includes(m.t('moveComp.freeDrag')) }); })()",
+    "expect": "\"macro\":true,\"comps\":2,\"mode\":\"moveComp\",\"onComp\":true,\"help\":true"
+  },
+  {
+    "name": "turning: a real left drag down on the second block (rotate mode)",
+    "mouse": [
+      {
+        "type": "mouseMoved",
+        "x": "window.__pt[0]",
+        "y": "window.__pt[1]",
+        "modifiers": 0
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__pt[0]",
+        "y": "window.__pt[1]",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 40
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 0",
+        "y": "(window.__pt[1]) + 10",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 0",
+        "y": "(window.__pt[1]) + 20",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 0",
+        "y": "(window.__pt[1]) + 30",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 0",
+        "y": "(window.__pt[1]) + 40",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 0",
+        "y": "(window.__pt[1]) + 50",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 0",
+        "y": "(window.__pt[1]) + 60",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 0",
+        "y": "(window.__pt[1]) + 70",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 0",
+        "y": "(window.__pt[1]) + 80",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 0",
+        "y": "(window.__pt[1]) + 90",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 0",
+        "y": "(window.__pt[1]) + 100",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 0",
+        "y": "(window.__pt[1]) + 110",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 0",
+        "y": "(window.__pt[1]) + 120",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 0",
+        "y": "(window.__pt[1]) + 130",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 0",
+        "y": "(window.__pt[1]) + 140",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 0",
+        "y": "(window.__pt[1]) + 150",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 0",
+        "y": "(window.__pt[1]) + 160",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseReleased",
+        "x": "(window.__pt[0]) + 0",
+        "y": "(window.__pt[1]) + 160",
+        "button": "left",
+        "buttons": 0,
+        "modifiers": 0,
+        "delay": 200
+      }
+    ],
+    "wait": 600
+  },
+  {
+    "name": "turning: the block turned about the screen horizontal — it is laid down (its Z axis tipped over), one undo step back",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const V = () => m.viewport; const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; const ang = (a, b) => Math.acos(Math.max(-1, Math.min(1, dot(a, b)))) * 180 / Math.PI; const { rotate } = await import('/src/cad/assembly.js'); const c = m.active().components.find((x) => x.id === window.__comp); const z = rotate(c.rotation, [0, 0, 1]);\n     const tipped = Math.abs(z[2]) < 0.8; await m.actions.undo(); await sleep(400); const back = m.active().components.find((x) => x.id === window.__comp);\n     return JSON.stringify({ tipped, tilt: Math.round(Math.acos(Math.min(1, Math.abs(z[2]))) * 180 / Math.PI) > 30, undone: back.rotation.every((v, i) => Math.abs(v - window.__rot0[i]) < 1e-9) }); })()",
+    "expect": "\"tipped\":true,\"tilt\":true,\"undone\":true"
+  },
+  {
+    "name": "turning: a real left drag sideways on the block (move mode)",
+    "eval": "(() => { window.__mymechanics.state.editing.dragMode = 'move'; window.__pos0 = [...window.__mymechanics.active().components[1].position]; return 'ok'; })()",
+    "mouse": [
+      {
+        "type": "mouseMoved",
+        "x": "window.__pt[0]",
+        "y": "window.__pt[1]",
+        "modifiers": 0
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__pt[0]",
+        "y": "window.__pt[1]",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 40
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 10",
+        "y": "(window.__pt[1]) + 0",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 20",
+        "y": "(window.__pt[1]) + 0",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 30",
+        "y": "(window.__pt[1]) + 0",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 40",
+        "y": "(window.__pt[1]) + 0",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 50",
+        "y": "(window.__pt[1]) + 0",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 60",
+        "y": "(window.__pt[1]) + 0",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 70",
+        "y": "(window.__pt[1]) + 0",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 80",
+        "y": "(window.__pt[1]) + 0",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 90",
+        "y": "(window.__pt[1]) + 0",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 100",
+        "y": "(window.__pt[1]) + 0",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 110",
+        "y": "(window.__pt[1]) + 0",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseMoved",
+        "x": "(window.__pt[0]) + 120",
+        "y": "(window.__pt[1]) + 0",
+        "button": "left",
+        "buttons": 1,
+        "modifiers": 0,
+        "delay": 16
+      },
+      {
+        "type": "mouseReleased",
+        "x": "(window.__pt[0]) + 120",
+        "y": "(window.__pt[1]) + 0",
+        "button": "left",
+        "buttons": 0,
+        "modifiers": 0,
+        "delay": 200
+      }
+    ],
+    "wait": 600
+  },
+  {
+    "name": "turning: move mode slid the block in the screen plane without turning it",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const V = () => m.viewport; const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; const ang = (a, b) => Math.acos(Math.max(-1, Math.min(1, dot(a, b)))) * 180 / Math.PI; const c = m.active().components.find((x) => x.id === window.__comp); const d = Math.hypot(...c.position.map((v, i) => v - window.__pos0[i])); return JSON.stringify({ moved: d > 5, notTurned: c.rotation.every((v, i) => Math.abs(v - window.__rot0[i]) < 1e-9) }); })()",
+    "expect": "\"moved\":true,\"notTurned\":true"
+  },
+  {
+    "name": "turning: Rotate 90° about X / Y on a selected component lays it down on either side (menu and toolbar)",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const V = () => m.viewport; const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; const ang = (a, b) => Math.acos(Math.max(-1, Math.min(1, dot(a, b)))) * 180 / Math.PI; await m.actions.cancelEditing?.({ quiet: true }); await sleep(200); const { rotate } = await import('/src/cad/assembly.js'); const id = window.__comp; m.state.selection = [{ kind: 'comp', id, key: 'comp:' + id }];\n     const zOf = () => rotate(m.active().components.find((x) => x.id === id).rotation, [0, 0, 1]).map((v) => Math.round(v * 1e6) / 1e6 + 0);\n     const before = zOf(); await m.run('rotateComponentX'); await sleep(300); const afterX = zOf(); await m.actions.undo(); await sleep(300); await m.run('rotateComponentY'); await sleep(300); const afterY = zOf(); await m.actions.undo(); await sleep(300);\n     const inMenus = ['rotateComponent', 'rotateComponentX', 'rotateComponentY'].every((c) => m.commands[c]);\n     return JSON.stringify({ before, x: Math.abs(afterX[1]) === 1, y: Math.abs(afterY[0]) === 1, back: JSON.stringify(zOf()) === JSON.stringify(before), inMenus }); })()",
+    "expect": "\"x\":true,\"y\":true,\"back\":true,\"inMenus\":true"
+  },
+  {
+    "name": "turning: Move/Copy Body has a rotation centre and an angle about each of X, Y and Z; 90° about X lays the flange on its side",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const V = () => m.viewport; const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; const ang = (a, b) => Math.acos(Math.max(-1, Math.min(1, dot(a, b)))) * 180 / Math.PI; await m.actions.closeProject({ force: true }); await m.actions.openSampleAsk('flange'); await sleep(1500); const p0 = m.active(); const box = (b) => { const [lo, hi] = b.boundingBox.bounds; return hi.map((v, i) => Math.round(v - lo[i])); };\n     const before = box(m.actions.buildPart(p0).body); await m.actions.startFeature('moveBody'); await sleep(500);\n     const fields = ['cx', 'cy', 'cz', 'rx', 'ry', 'rz'].every((k) => document.querySelector('[data-pm-field=\"' + k + '\"]'));\n     const f = m.state.editing?.feature ?? m.state.editing?.draft; if (!f) return 'no feature'; f.rx = 90; await m.actions.acceptEditing(); await sleep(1200);\n     const after = box(m.actions.buildPart(m.active()).body); return JSON.stringify({ fields, before, after, laid: after[0] === before[0] && after[1] === before[2] && after[2] === before[1] }); })()",
+    "expect": "\"fields\":true.*\"laid\":true"
+  }
+]

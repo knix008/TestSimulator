@@ -24,15 +24,19 @@ import { setModelledThreads } from './cad/threads.js';
 import { withThreadMarks } from './cad/drawing-threads.js';
 import { PART_MORE_TYPES, CURVE_TYPES, PART_MORE_ICONS } from './cad/part-more-types.js';
 import { countSolids } from './cad/part-more.js';
-import { importStlSolid } from './cad/stl.js';
+import { importStlSolid, weldMeshObject } from './cad/stl.js';
+import { packFiles, primeScadResult, scadReport } from './cad/openscad-feature.js';
+import { runScadWithFiles, decodeScad, loadFonts, writeScad } from './cad/openscad/index.js';
 import { startParams as partMoreParams } from './ui/pm-part-more.js';
 import { sheetMoreStart, weldmentCutRows, hasWeldments } from './ui/pm-sheet-more.js';
 import { SHEET_MORE_TYPES, SHEET_MORE_ICONS } from './cad/sheet-more-types.js';
 import { convertEntities, intersectionEntities, transformEntities } from './cad/sketch-more.js';
+import { stretchEntities, fullyDefine } from './cad/sketch-draw.js';
 import { syncSlider } from './ui/sliders.js';
 import { edgeSignature, faceSignature } from './cad/refs.js';
 import { solveMates, placeShape, interferences, mateEntityOfFace, quatIdentity, quatToAxisAngle, instanceName, quatFromAxisAngle, quatMultiply, captureMate, mateTouches, MATE_REFS, MATE_DEFAULTS, explodedPlacement, autoExplode, motionFrame, motionCursor, flattenAssembly, composePlacement, placePoint, placeDir } from './cad/assembly.js';
-import { projectView, drawingSvg, drawingDxf, layoutViews, SHEETS, projectionKey, bomRows, VIEW_CAMERAS } from './cad/drawing.js';
+import { projectView, drawingSvg, drawingDxf, layoutViews, SHEETS, projectionKey, bomRows, VIEW_CAMERAS, viewBasis } from './cad/drawing.js';
+import { toWorld as bendToWorld } from './cad/sheet-fold.js';
 import { readDwg } from './cad/dwg/read.js';
 import { writeDwg } from './cad/dwg/write.js';
 import { readDxf } from './cad/dxf-read.js';
@@ -61,6 +65,8 @@ import { escapeHtml, frameThrottle, isMac, keyLabel, pointerDrag } from './ui/do
 import { DOC_KINDS, docLabel, docWindowTitle } from './domain/helpdocs.js';
 import { PROGRESS_ICONS, PROGRESS_NAME_ICONS } from './ui/progressicons.js';
 import { createMoreTools } from './app-more.js';
+import { createAsmTools } from './app-asmtools.js';
+import { mateRefMates } from './cad/part-extra.js';
 import { withSim2 } from './app-sim2.js';
 import { attachPdm } from './app-pdm.js';
 import { attachDrwTools } from './app-drw.js';
@@ -300,9 +306,11 @@ function afterChange() {
 /** Undo / redo work outside modes, and inside Render (its appearance edits; the picture renders again). */
 // Editors with their own undoable edits (render settings, schematics, design check corrections, tasks run on the
 // open document) keep undo/redo; the rest block it.
-const undoBlocked = () => Boolean(state.editing) && !['render', 'schematic', 'designCheck', 'tasks', 'designStudy', 'markup', 'electronics'].includes(state.editing.mode);
+const undoBlocked = () => Boolean(state.editing) && !['render', 'schematic', 'designCheck', 'tasks', 'designStudy', 'markup', 'electronics', 'moveComp'].includes(state.editing.mode);
 
 function undo() {
+  // In a sketch: the sketch's own steps (drawing, dimensions, relations) until the sketch is closed.
+  if (sketching()) { const label = state.editing.editor.undo(); if (label) { renderLeft(); notify('info', t('notice.undone', { label: t(label) })); } return; }
   const d = doc();
   if (!d || undoBlocked()) return;
   const r = d.history.undo();
@@ -319,6 +327,7 @@ function undo() {
 }
 
 function redo() {
+  if (sketching()) { const label = state.editing.editor.redo(); if (label) { renderLeft(); notify('info', t('notice.redone', { label: t(label) })); } return; }
   const d = doc();
   if (!d || undoBlocked()) return;
   const r = d.history.redo();
@@ -338,6 +347,7 @@ function redo() {
 
 async function setDoc(d) {
   await ensureKernel();
+  void prepareScadFonts(scadSources(d.project));
   popups.close('welcome');
   cancelEditing({ quiet: true });
   state.doc = d;
@@ -460,11 +470,13 @@ function mountViewport() {
     onHover: (hit) => { state.hover = hit; renderPointer(hit); },
     onContext: (hit, e) => viewportContextMenu(hit, e),
     onDoubleClick: (hit) => onViewportDoubleClick(hit),
-    tool: () => (sketching() ? state.editing.editor : null),
+    tool: () => (sketching() ? state.editing.editor : more.dragTool?.() ?? null),
     onScaleBarMoved: (pos) => updateSettings({ scaleBarPos: pos }, { quiet: true }),
     onLightSelect: (id) => { if (state.editing?.mode === 'lights') { state.editing.selected = id; renderLeft(); } },
     onLightMoved: (id, position) => { if (!position) return; change('op.light', (p) => { const l = sceneLights(p).lights.find((x) => x.id === id); if (l) l.position = position; }); },
     invertZoom: () => state.settings.invertZoom,
+    orbitMode: () => state.settings.orbitMode,
+    orbitSpeed: () => state.settings.orbitSpeed,
   });
   viewport.setStyle(state.settings.displayStyle);
   viewport.setProjection(!state.settings.perspectiveView);
@@ -722,6 +734,8 @@ function syncAssembly(asm) {
       if (hideBelow > 0 && (entry.size ?? Infinity) < hideBelow) { hidden++; continue; }
       const key = leaf.path.length ? `comp:${c.id}/${leaf.path.join('/')}` : `comp:${c.id}`;
       const spec = bodySpec(key, entry, part, { matrix: componentMatrix(leaf.path.length ? composePlacement(placed, leaf.placement) : placed) });
+      // An envelope is a reference: drawn see-through.
+      if (c.envelope) spec.opacity = 0.28;
       if (light && !spec.colors) Object.assign(spec, { mesh: lightMesh(entry), edges: null, geometryKey: `light:${entryUid(entry)}` });
       list.push(spec);
     }
@@ -1299,8 +1313,58 @@ function insertComponent(partId) {
   const c = { id: newId('cmp'), part: part.id, name: instanceName(asm, part.name, part.id), position: offset, rotation: quatIdentity(), fixed: first };
   state.selection = [{ kind: 'comp', id: c.id, key: `comp:${c.id}` }];
   change('op.insertComponent', () => { asm.components.push(c); });
+  autoMateByReferences(asm, c);
   notify('success', t(first ? 'notice.componentFixed' : 'notice.componentInserted', { name: c.name }));
   fitView();
+}
+
+/** The mate references of a part (its Mate Reference features): [{ name, refs }]. */
+function mateReferencesOf(partId) {
+  const part = project().parts.find((p) => p.id === partId);
+  if (!part) return [];
+  let entry; try { entry = buildPart(part); } catch { return []; }
+  return part.features.filter((f) => f.type === 'mateReference' && !f.suppressed).map((f) => entry.result?.results?.get(f.id)?.mateRef).filter(Boolean);
+}
+
+/** A new component with a mate reference is mated to the first other one whose part has one of the same name. */
+function autoMateByReferences(asm, c) {
+  const mine = mateReferencesOf(c.part);
+  if (!mine.length) return;
+  for (const other of asm.components) {
+    if (other.id === c.id || !other.part) continue;
+    const made = mateRefMates(mine, mateReferencesOf(other.part), c.id, other.id);
+    if (!made.length) continue;
+    change('op.addMate', () => {
+      for (const m of made) {
+        const n = asm.mates.filter((x) => x.type === m.type).length + 1;
+        asm.mates.push({ id: newId('mate'), name: `${t(`mate.${m.type}`)}${n}`, ...m });
+      }
+    });
+    notify('success', t('notice.mateRefMated', { count: made.length, name: other.name }));
+    return;
+  }
+}
+
+/** Save Bodies: every body of the active part becomes a part of its own (linked: it inserts that body), and an assembly of them. */
+function saveBodies() {
+  const part = activePart();
+  if (!part) return;
+  const body = buildPart(part).body;
+  const R = rep(); const oc = R.getOC(); let n = 0;
+  if (body) { const ex = new oc.TopExp_Explorer(body.wrapped, oc.TopAbs_ShapeEnum.TopAbs_SOLID, oc.TopAbs_ShapeEnum.TopAbs_SHAPE); for (; ex.More(); ex.Next()) n++; ex.delete(); }
+  if (n < 2) { notify('info', t('notice.needBodies')); return; }
+  const made = [];
+  const asmId = newId('asm');
+  change('op.saveBodies', (pr) => {
+    for (let i = 0; i < n; i++) {
+      const id = newId('part');
+      const p = { id, name: `${part.name}-${t('pm.body')}${i + 1}`, material: part.material, features: [{ ...createFeature({ features: [] }, 'insertPart', { part: part.id, body: i }), id: `${id}-ins`, name: t('feature.insertPart') }] };
+      pr.parts.push(p); made.push(p);
+    }
+    // Every body stays where it is in the part: the instances are all fixed at the origin.
+    pr.assemblies.push({ id: asmId, name: `${part.name} (${t('cmd.saveBodies')})`, components: made.map((p, i) => ({ id: newId('cmp'), part: p.id, name: `${p.name}<1>`, position: [0, 0, 0], rotation: quatIdentity(), fixed: true })), mates: [] });
+  });
+  notify('success', t('notice.bodiesSaved', { count: n }));
 }
 
 async function insertSamplePart(sampleId) {
@@ -1421,7 +1485,8 @@ function massPropertiesRows() {
   }
   if (asm) {
     let mass = 0; let volume = 0; const com = [0, 0, 0];
-    for (const { shape, part: p } of asm.components.flatMap((c) => componentShapes(c))) {
+    // Envelopes are references: not part of the assembly's mass.
+    for (const { shape, part: p } of asm.components.filter((c) => !c.envelope).flatMap((c) => componentShapes(c))) {
       const vp = R.measureShapeVolumeProperties(shape);
       const m = massOf(vp.volume, p.material);
       mass += m; volume += vp.volume;
@@ -1646,8 +1711,17 @@ function drawingProjections(d) {
   if (!shape) return out;
   for (const v of d.views) {
     if (v.kind === 'detail') continue;
-    const k = `${key}|${projectionKey(v)}`;
-    if (!projectionCache.has(k)) projectionCache.set(k, projectView(shape, v.type, v));
+    // A flat-pattern view projects the part laid flat (with its bend lines); others the model as it is.
+    const flat = v.flat && d.source.kind === 'part' ? flatPatternOf(d) : null;
+    const alt = v.alt && d.source.kind === 'assembly' ? alternateShapeOf(d, v.alt) : null;
+    const k = `${flat ? flat.key : key}|${projectionKey(v)}${alt ? `|alt:${alt.key}` : ''}`;
+    if (!projectionCache.has(k)) {
+      let pr = projectView(flat?.shape ?? shape, v.type, v);
+      if (flat) pr = { ...pr, bendLines: bendLinePaths(flat, v) };
+      else if (d.source.kind === 'part') { const cross = crossBreakPaths(d, v); if (cross.length) pr = { ...pr, bendLines: { up: [], down: [], cross } }; }
+      if (alt?.shape) { try { const ap = projectView(alt.shape, v.type, { ...v, kind: undefined }); pr = { ...pr, phantom: ap.visible }; } catch { /* no phantom */ } }
+      projectionCache.set(k, pr);
+    }
     out.set(v.id, projectionCache.get(k));
   }
   if (projectionCache.size > 80) projectionCache.clear();
@@ -1655,6 +1729,96 @@ function drawingProjections(d) {
   const threads = drawingThreads(d);
   if (threads.length) for (const v of d.views) if (out.has(v.id)) out.set(v.id, withThreadMarks(out.get(v.id), v, threads, { shape, cache: occlusionOf(key) }));
   return more.adjust(d, out);
+}
+
+/** A sheet-metal part's flat pattern for a drawing: { key, shape, bends (flat), formed (bends as formed), sheet }. */
+function flatPatternOf(d) {
+  const src = findDocument(project(), d.source);
+  if (!src) return null;
+  const formed = buildPart(src);
+  if (!formed.result?.sheet) return null;
+  const entry = buildPart({ ...src, flat: true }, { slot: 'drwFlat' });
+  if (!entry.body) return null;
+  return { key: `flat:${entry.key}`, shape: entry.body, bends: entry.result?.sheet?.bends ?? [], formed: formed.result.sheet.bends ?? [], sheet: formed.result.sheet };
+}
+
+/** Bend lines of a flat view (path coordinates like the projection's): { up: [path], down: [path] }. */
+function bendLinePaths(flat, v) {
+  const b = viewBasis(v);
+  if (!b) return { up: [], down: [] };
+  const [lo, hi] = flat.shape.boundingBox.bounds;
+  const corners = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => [i & 1 ? hi[0] : lo[0], i & 2 ? hi[1] : lo[1], i & 4 ? hi[2] : lo[2]]);
+  const dot = (p, q) => p[0] * q[0] + p[1] * q[1] + p[2] * q[2];
+  const out = { up: [], down: [] };
+  flat.bends.forEach((bend, i) => {
+    const F = bend.frame;
+    if (!F) return;
+    // The bend runs along z: within its own extent and the flat blank's box.
+    const zs = corners.map((c) => dot([c[0] - F.o[0], c[1] - F.o[1], c[2] - F.o[2]], F.z));
+    const z0 = Math.max(F.zLo, Math.min(...zs)); const z1 = Math.min(F.zHi, Math.max(...zs));
+    if (!(z1 > z0)) return;
+    const A = bendToWorld(F, [bend.BA / 2, 0, z0]); const B = bendToWorld(F, [bend.BA / 2, 0, z1]);
+    const path = `M ${dot(A, b.x)} ${-dot(A, b.y)} L ${dot(B, b.x)} ${-dot(B, b.y)}`;
+    out[bendDirection(flat, i) === 'down' ? 'down' : 'up'].push(path);
+  });
+  return out;
+}
+
+/** The diagonals of the part's cross breaks in a view (path coordinates). */
+function crossBreakPaths(d, v) {
+  const src = findDocument(project(), d.source);
+  const results = src && buildPart(src).result?.results;
+  const b = viewBasis(v);
+  if (!results || !b || v.kind === 'section') return [];
+  const dot = (p, q) => p[0] * q[0] + p[1] * q[1] + p[2] * q[2];
+  const out = [];
+  for (const f of src.features) {
+    const cb = !f.suppressed && results.get(f.id)?.crossBreak;
+    if (cb) for (const [A, B] of cb.lines) out.push(`M ${dot(A, b.x)} ${-dot(A, b.y)} L ${dot(B, b.x)} ${-dot(B, b.y)}`);
+  }
+  return out;
+}
+
+/** Up or down: the side a bend turns toward (as formed), against the sheet's normal. */
+function bendDirection(flat, i) {
+  const f = flat.formed[i]?.frame; const n = flat.sheet?.normal;
+  if (!f || !n) return 'up';
+  return f.y[0] * n[0] + f.y[1] * n[1] + f.y[2] * n[2] >= 0 ? 'up' : 'down';
+}
+
+/** The rows of a bend table for the drawing's part (number, direction, angle, inner radius, K, allowance). */
+function bendTableRows(d) {
+  const flat = flatPatternOf(d);
+  if (!flat) return null;
+  const k = flat.sheet.k ?? 0.44; const tk = flat.sheet.thickness ?? 0;
+  return flat.formed.map((b, i) => {
+    const angle = Number(b.theta ?? b.angle ?? 90); const radius = Number(b.r ?? b.radius ?? 0);
+    const allowance = Number(b.BA ?? b.allowance ?? ((angle * Math.PI) / 180) * (radius + k * tk));
+    return { no: i + 1, dir: t(bendDirection(flat, i) === 'down' ? 'drw.bendDown' : 'drw.bendUp'), angle, radius, k, allowance };
+  });
+}
+
+/** An assembly in another position (explode steps applied, or the motion study's end) as one shape. */
+function alternateShapeOf(d, alt) {
+  const asm = findDocument(project(), d.source);
+  if (!asm?.components) return null;
+  let placements = null;
+  if (alt.mode === 'motion' && asm.motion) {
+    try { placements = motionFrame(asm, Number(asm.motion.duration ?? 5), { entity: (ref) => mateEntityNow(ref), size: assemblySize(asm) }).placements; } catch { placements = null; }
+  }
+  const R = rep(); const shapes = []; const keys = [];
+  for (const c of asm.components) {
+    if (c.hidden || c.suppressed) continue;
+    const pl = alt.mode === 'motion' ? (placements?.get?.(c.id) ?? c) : explodedPlacement(asm, c, Number(alt.factor ?? 1));
+    for (const leaf of componentLeaves(c)) {
+      const part = project().parts.find((p) => p.id === leaf.part);
+      const b = part && buildPart(part);
+      if (!b?.body) continue;
+      const at = composePlacement(pl, leaf.placement);
+      shapes.push(placeShape(b.body, at)); keys.push(`${b.key}|${JSON.stringify([at.position, at.rotation])}`);
+    }
+  }
+  return { key: keys.join('|'), shape: shapes.length ? R.makeCompound(shapes) : null };
 }
 
 function drawingLabels() {
@@ -1720,7 +1884,7 @@ function fitDrawing() {
 
 // ───────────────────────── advanced features (sweep, loft, surfaces, sheet metal, weldments, mold tools)
 
-const SURFACE_TYPES = ['surfaceExtrude', 'surfaceRevolve', 'surfacePlanar', 'surfaceLoft', 'surfaceOffset', 'knit', 'fillSurface', 'boundary', 'trimSurface', 'ruledSurface', 'extendSurface'];
+const SURFACE_TYPES = ['surfaceExtrude', 'surfaceRevolve', 'surfacePlanar', 'surfaceLoft', 'surfaceOffset', 'knit', 'fillSurface', 'boundary', 'trimSurface', 'ruledSurface', 'extendSurface', 'surfaceSweep', 'deleteHole', 'untrimSurface', 'midSurface', 'radiateSurface', 'flattenSurface'];
 const SKETCH_BASED = ['sweep', 'rib', 'wrap', 'baseFlange', 'structural', 'surfaceExtrude', 'surfaceRevolve', 'surfacePlanar'];
 
 /** The features before `f` (or before the rollback bar for a new one). */
@@ -2259,6 +2423,7 @@ function insertSubassembly(id) {
   const c = { id: newId('cmp'), sub: sub.id, name: instanceName(asm, sub.name, sub.id), position: first ? [0, 0, 0] : [assemblySize(asm) * 0.8, 0, 0], rotation: quatIdentity(), fixed: first };
   state.selection = [{ kind: 'comp', id: c.id, key: `comp:${c.id}` }];
   change('op.insertComponent', () => { asm.components.push(c); });
+  autoMateByReferences(asm, c);
   notify('success', t('notice.componentInserted', { name: c.name }));
   fitView();
 }
@@ -2588,6 +2753,33 @@ async function sketchMoreCommand(kind) {
   notify(made.length ? 'success' : 'info', t(made.length ? 'sketch.made' : 'sketch.nothingMade', { count: made.length }));
 }
 
+/** Stretch Entities: the selection moves by the typed step, the relations kept (joined curves stretch). */
+async function sketchStretchCommand() {
+  if (!sketching()) return;
+  const ed = state.editing.editor;
+  if (!ed.selection.length) { notify('info', t('sketch.selectFirst')); return; }
+  const r = await popups.open('prompt', { title: t('sketch.tool.stretch'), label: t('sketch.movePrompt'), value: '10, 0' });
+  if (r?.value == null) return;
+  const v = String(r.value).split(/[,\s]+/).filter(Boolean).map(Number);
+  if (!v.length || v.some((x) => !Number.isFinite(x))) { notify('error', t('notice.invalidValue', { text: r.value })); return; }
+  const k = UNIT_FACTOR[units()];
+  if (!stretchEntities(ed.sketch, [...ed.selection], v[0] * k, (v[1] ?? 0) * k)) { ed.solve(); ed.render(); notify('warning', t('sketch.stretchBlocked')); return; }
+  ed.solve();
+  ed.commit('op.sketch.stretch');
+  renderLeft();
+}
+
+/** Fully Define Sketch: relations and dimensions until nothing can move (positions from the sketch origin). */
+function sketchFullyDefineCommand() {
+  if (!sketching()) return;
+  const ed = state.editing.editor;
+  const r = fullyDefine(ed.sketch);
+  ed.solve();
+  ed.commit('op.sketch.fullyDefine');
+  renderLeft();
+  notify(r.dof === 0 ? 'success' : 'info', t(r.dof === 0 ? 'sketch.fullyDefined' : 'sketch.partlyDefined', { relations: r.relations, dimensions: r.dimensions, dof: r.dof }));
+}
+
 // ───────────────────────── drawings: section, detail, auxiliary views, annotations, BOM
 
 function drawingBom(d) {
@@ -2623,6 +2815,48 @@ function drawingActionExtra(d, cmd, arg) {
     return notify('success', t('notice.detailView', { label: view.label }));
   }
   if (cmd === 'aux') return addAuxView(d);
+  if (cmd === 'flatView') {
+    if (d.source?.kind !== 'part' || !flatPatternOf(d)) { notify('info', t('notice.needSheetPart')); return undefined; }
+    const view = { id: newId('v'), type: 'top', flat: true, label: t('drw.flatPattern') };
+    change('op.addView', () => { d.views.push(view); });
+    state.drawingSelected = view.id;
+    return notify('success', t('notice.flatView'));
+  }
+  if (cmd === 'bendTable') {
+    const rows = bendTableRows(d);
+    if (!rows) { notify('info', t('notice.needSheetPart')); return undefined; }
+    const existing = (d.annotations ?? []).find((a) => a.kind === 'bendTable');
+    const head = ['drw.bt.no', 'drw.bt.dir', 'drw.bt.angle', 'drw.bt.radius', 'drw.bt.k', 'drw.bt.allowance'].map((key) => t(key));
+    change('op.annotation', () => {
+      if (existing) Object.assign(existing, { rows, head });
+      else d.annotations = [...(d.annotations ?? []), { id: newId('ann'), kind: 'bendTable', x: 20, y: 20, rows, head }];
+    });
+    return notify('success', t('notice.bendTable', { count: rows.length }));
+  }
+  if (cmd === 'alignedSection') {
+    if (!parent) { notify('info', t('notice.needParentView')); return undefined; }
+    const { shape } = drawingShape(d);
+    if (!shape) return undefined;
+    const [lo, hi] = shape.boundingBox.bounds;
+    const point = lo.map((v, i) => (v + hi[i]) / 2);
+    const cam = VIEW_CAMERAS[parent.type] ?? VIEW_CAMERAS.front;
+    const unit = (v) => { const l = Math.hypot(...v); return v.map((x) => x / l); };
+    const axis = unit(cam.dir); const xx = unit(cam.x);
+    // The first leg runs up the parent view from the centre; the second down and turned by the angle.
+    const up = [axis[1] * xx[2] - axis[2] * xx[1], axis[2] * xx[0] - axis[0] * xx[2], axis[0] * xx[1] - axis[1] * xx[0]];
+    const view = { id: newId('v'), type: 'custom', kind: 'section', plane: { point, normal: xx }, dir: xx, aligned: { angle: Number(arg) || 30, axis, along: up }, label: nextLetter(d), parent: parent.id };
+    change('op.addView', () => { d.views.push(view); });
+    state.drawingSelected = view.id;
+    return notify('success', t('notice.sectionView', { label: view.label }));
+  }
+  if (cmd === 'alternate') {
+    if (d.source?.kind !== 'assembly') { notify('info', t('notice.bomNeedsAssembly')); return undefined; }
+    if (!parent) { notify('info', t('notice.needParentView')); return undefined; }
+    const asm = findDocument(project(), d.source);
+    const mode = arg === 'motion' || (!asm?.explode?.steps?.length && asm?.motion) ? 'motion' : 'explode';
+    change('op.edit', () => { if (parent.alt) delete parent.alt; else parent.alt = { mode }; });
+    return notify('success', t(parent.alt ? 'notice.alternateOn' : 'notice.alternateOff', { mode: t(`drw.alt.${mode}`) }));
+  }
   if (cmd === 'place') { state.drawingPlace = arg; return notify('info', t('notice.clickSheet', { kind: t(`ann.${arg}`) })); }
   if (cmd === 'bom') {
     if (d.source?.kind !== 'assembly') { notify('info', t('notice.bomNeedsAssembly')); return undefined; }
@@ -2657,6 +2891,9 @@ async function placeAnnotation(event) {
   if (kind === 'datum') { const used = new Set(list.filter((x) => x.kind === 'datum').map((x) => x.letter)); a.letter = 'ABCDEFGH'.split('').find((c) => !used.has(c)) ?? 'A'; a.target = [a.x, a.y + 10]; }
   if (kind === 'surface') Object.assign(a, { ra: '1.6', process: 'removal' });
   if (kind === 'centermark') a.size = 10;
+  if (kind === 'cloud') Object.assign(a, { w: 50, h: 30, arc: 6, rev: d.title?.revision || 'A' });
+  if (kind === 'datumTarget') { const n = list.filter((x) => x.kind === 'datumTarget').length + 1; Object.assign(a, { label: `A${n}`, area: '', targetKind: 'point', areaSize: 6, size: 5, target: [a.x + 12, a.y + 12] }); }
+  if (kind === 'hatch') Object.assign(a, { w: 30, h: 20, pattern: 'ansi31', spacing: 2.5, angle: 45 });
   change('op.annotation', () => { d.annotations = [...list, a]; });
   state.drawingSelected = a.id;
   renderDrawing();
@@ -2670,7 +2907,9 @@ function setAnnotationField(id, field, value) {
   change('op.annotation', () => {
     if (field === 'datums') a.datums = String(value).split(/[,\s|]+/).filter(Boolean).map((x) => x.toUpperCase()).slice(0, 3);
     else if (['diameter'].includes(field)) a[field] = Boolean(value);
-    else if (['size', 'item'].includes(field)) { const n = Number(value); if (Number.isFinite(n) && n > 0) a[field] = n; }
+    else if (['size', 'item', 'w', 'h', 'arc', 'spacing', 'areaSize'].includes(field)) { const n = Number(value); if (Number.isFinite(n) && n > 0) a[field] = n; }
+    else if (field === 'angle') { const n = Number(value); if (Number.isFinite(n)) a[field] = n; }
+    else if (field === 'border') a[field] = Boolean(value);
     else a[field] = value;
   });
 }
@@ -2719,8 +2958,8 @@ const commands = {
   exitProject: { icon: 'exitProject', label: 'action.exitProject', enabled: () => Boolean(state.doc) && !state.showStart, run: () => closeProject() },
   exit: { icon: 'exit', label: 'action.exit', key: isMac ? 'Ctrl+Q' : 'Alt+F4', run: () => requestExit() },
   // edit
-  undo: { icon: 'undo', label: 'action.undo', key: 'Ctrl+Z', enabled: () => Boolean(doc()?.history.canUndo) && !undoBlocked(), run: () => undo() },
-  redo: { icon: 'redo', label: 'action.redo', key: 'Ctrl+Y', enabled: () => Boolean(doc()?.history.canRedo) && !undoBlocked(), run: () => redo() },
+  undo: { icon: 'undo', label: 'action.undo', key: 'Ctrl+Z', enabled: () => (sketching() ? state.editing.editor.canUndo : Boolean(doc()?.history.canUndo) && !undoBlocked()), run: () => undo() },
+  redo: { icon: 'redo', label: 'action.redo', key: 'Ctrl+Y', enabled: () => (sketching() ? state.editing.editor.canRedo : Boolean(doc()?.history.canRedo) && !undoBlocked()), run: () => redo() },
   delete: { icon: 'trash', label: 'action.delete', key: 'Delete', enabled: () => sel() || (sketching() && state.editing.editor.selection.length > 0) || Boolean(state.drawingSelected), run: () => deleteSelection() },
   rename: { icon: 'edit', label: 'action.rename', key: 'F2', enabled: () => state.selection.length === 1 && ['doc', 'feat', 'comp', 'mate'].includes(state.selection[0].kind), run: () => renameSelected() },
   // Large assembly mode: auto → on → off → auto (the status bar shows it while it is on).
@@ -2765,6 +3004,8 @@ const commands = {
   surfaceOffset: featureCommand('surfaceOffset', 'surfaceOffset', 'cmd.surfaceOffset'),
   knit: featureCommand('knit', 'knit', 'cmd.knit'),
   moveBody: featureCommand('moveBody', 'moveBody', 'cmd.moveBody'),
+  openscadFeature: featureCommand('openscad', 'scadFile', 'cmd.openscad'),
+  exportScad: { icon: 'scadFile', label: 'action.exportScad', enabled: () => Boolean(activePart() || activeAssembly()), run: () => exportScad() },
   scaleBody: featureCommand('scaleBody', 'scaleBody', 'cmd.scaleBody'),
   split: featureCommand('split', 'split', 'cmd.split'),
   insertPart: featureCommand('insertPart', 'insertPartFeat', 'cmd.insertPart'),
@@ -2816,6 +3057,18 @@ const commands = {
   'sk:point': skCommand('point', 'pointTool'),
   'sk:spline': skCommand('spline', 'splineTool', 'S'),
   'sk:ellipse': skCommand('ellipse', 'ellipseTool', 'E'),
+  'sk:rect3': skCommand('rect3', 'rect3Tool'),
+  'sk:rect3c': skCommand('rect3c', 'rect3cTool'),
+  'sk:parallelogram': skCommand('parallelogram', 'parallelogramTool'),
+  'sk:circle3': skCommand('circle3', 'circle3Tool'),
+  'sk:tangentArc': skCommand('tangentArc', 'tangentArcTool'),
+  'sk:partialEllipse': skCommand('partialEllipse', 'partialEllipseTool'),
+  'sk:parabola': skCommand('parabola', 'parabolaTool'),
+  'sk:conic': skCommand('conic', 'conicTool'),
+  'sk:equation': skCommand('equation', 'equationCurve'),
+  'sk:split': skCommand('split', 'splitTool'),
+  'sk:stretch': { icon: 'stretchTool', label: 'sketch.tool.stretch', enabled: () => sketching() && state.editing.editor.selection.length > 0, run: () => sketchStretchCommand() },
+  'sk:fullyDefine': { icon: 'fullyDefine', label: 'sketch.tool.fullyDefine', enabled: () => sketching(), run: () => sketchFullyDefineCommand() },
   'sk:text': skCommand('text', 'textTool'),
   'sk:fillet': skCommand('sketchFillet', 'sketchFillet'),
   'sk:chamfer': skCommand('sketchChamfer', 'sketchChamfer'),
@@ -2859,7 +3112,9 @@ const commands = {
   mate: { icon: 'mate', label: 'cmd.mate', enabled: () => asmOpen() && (activeAssembly()?.components.length ?? 0) > 1, run: () => startMate() },
   fixComponent: { icon: 'fixComponent', label: 'cmd.fix', enabled: () => asmOpen() && state.selection.some((s) => s.kind === 'comp'), run: () => setComponentFixed(true) },
   floatComponent: { icon: 'floatComponent', label: 'cmd.float', enabled: () => asmOpen() && state.selection.some((s) => s.kind === 'comp'), run: () => setComponentFixed(false) },
-  rotateComponent: { icon: 'rotateRight', label: 'cmd.rotate90', enabled: () => asmOpen() && state.selection.some((s) => s.kind === 'comp'), run: () => rotateComponent([0, 0, 1], 90) },
+  rotateComponent: { icon: 'rotateRight', label: 'cmd.rotate90z', enabled: () => asmOpen() && state.selection.some((s) => s.kind === 'comp'), run: () => rotateComponent([0, 0, 1], 90) },
+  rotateComponentX: { icon: 'rotateRight', label: 'cmd.rotate90x', enabled: () => asmOpen() && state.selection.some((s) => s.kind === 'comp'), run: () => rotateComponent([1, 0, 0], 90) },
+  rotateComponentY: { icon: 'rotateRight', label: 'cmd.rotate90y', enabled: () => asmOpen() && state.selection.some((s) => s.kind === 'comp'), run: () => rotateComponent([0, 1, 0], 90) },
   explode: { icon: 'explode', label: 'cmd.explode', enabled: () => asmOpen() && (activeAssembly()?.components.length ?? 0) > 1, checked: () => Boolean(activeAssembly()?.explode?.on), run: () => toggleExplode() },
   resetExplode: { icon: 'collapse', label: 'cmd.resetExplode', enabled: () => Boolean(activeAssembly()?.explode?.steps?.length), run: () => change('op.explode', () => { delete activeAssembly().explode; }) },
   motion: { icon: 'motion', label: 'cmd.motion', enabled: () => asmOpen() && (activeAssembly()?.components.length ?? 0) > 1, checked: () => state.editing?.mode === 'motion', run: () => (state.editing?.mode === 'motion' ? cancelEditing({ quiet: true }) : startMotion()) },
@@ -2869,11 +3124,16 @@ const commands = {
   std3View: { icon: 'standard3View', label: 'cmd.std3View', enabled: () => Boolean(activePart() || activeAssembly() || activeDrawing()), run: () => standardThreeView() },
   hiddenLines: { icon: 'hiddenLines', label: 'drawing.hiddenLines', enabled: () => Boolean(activeDrawing()), checked: () => activeDrawing()?.showHidden !== false, run: () => change('op.edit', () => { const d = activeDrawing(); d.showHidden = d.showHidden === false; }) },
   sectionView: { icon: 'sectionDrawing', label: 'cmd.sectionView', enabled: () => Boolean(activeDrawing()), run: () => drawingAction('section:v') },
+  saveBodies: { icon: 'saveBodies', label: 'cmd.saveBodies', enabled: () => Boolean(activePart()) && !sketching(), run: () => saveBodies() },
   sectionViewH: { icon: 'sectionDrawing', label: 'cmd.sectionViewH', enabled: () => Boolean(activeDrawing()), run: () => drawingAction('section:h') },
+  alignedSection: { icon: 'alignedSection', label: 'cmd.alignedSection', enabled: () => Boolean(activeDrawing()), run: () => drawingAction('alignedSection:30') },
+  alternatePositionView: { icon: 'alternatePosition', label: 'cmd.alternatePositionView', enabled: () => activeDrawing()?.source?.kind === 'assembly', checked: () => { const d = activeDrawing(); return Boolean(d?.views.find((v) => v.id === state.drawingSelected)?.alt); }, run: () => drawingAction('alternate') },
+  flatPatternView: { icon: 'flatPatternView', label: 'cmd.flatPatternView', enabled: () => activeDrawing()?.source?.kind === 'part', run: () => drawingAction('flatView') },
+  bendTable: { icon: 'bendTable', label: 'cmd.bendTable', enabled: () => activeDrawing()?.source?.kind === 'part', run: () => drawingAction('bendTable') },
   detailView: { icon: 'detailView', label: 'cmd.detailView', enabled: () => Boolean(activeDrawing()), run: () => drawingAction('detail') },
   auxView: { icon: 'auxView', label: 'cmd.auxView', enabled: () => Boolean(activeDrawing()), run: () => drawingAction('aux') },
   bom: { icon: 'bom', label: 'cmd.bom', enabled: () => activeDrawing()?.source?.kind === 'assembly', checked: () => Boolean(activeDrawing()?.bom?.show), run: () => drawingAction('bom') },
-  ...Object.fromEntries([['note', 'note'], ['balloon', 'balloon'], ['gdt', 'gdt'], ['datum', 'datum'], ['surface', 'surfaceFinish'], ['centermark', 'centerMark']].map(([k, g]) => [`ann:${k}`, { icon: g, label: `ann.${k}`, enabled: () => Boolean(activeDrawing()), checked: () => state.drawingPlace === k, run: () => drawingAction(`place:${k}`) }])),
+  ...Object.fromEntries([['note', 'note'], ['balloon', 'balloon'], ['gdt', 'gdt'], ['datum', 'datum'], ['surface', 'surfaceFinish'], ['centermark', 'centerMark'], ['cloud', 'revisionCloud'], ['datumTarget', 'datumTarget'], ['hatch', 'areaHatch']].map(([k, g]) => [`ann:${k}`, { icon: g, label: `ann.${k}`, enabled: () => Boolean(activeDrawing()), checked: () => state.drawingPlace === k, run: () => drawingAction(`place:${k}`) }])),
   autoDims: { icon: 'autoDims', label: 'drawing.dims', enabled: () => Boolean(activeDrawing()), checked: () => activeDrawing()?.showDims !== false, run: () => change('op.edit', () => { const d = activeDrawing(); d.showDims = d.showDims === false; }) },
   // appearance
   theme: { icon: 'palette', label: 'action.themeRandom', run: () => updateSettings({ theme: randomThemeId(state.settings.theme) }) },
@@ -2975,6 +3235,29 @@ const schTools = createSchematicTools({
   more.command = (name, arg) => (schTools.handles(name) ? schTools.command(name, arg) : o.command(name, arg));
 }
 Object.assign(commands, schTools.commands);
+
+// Replace components, copy with mates, hole alignment, envelopes (app-asmtools.js), chained the same way.
+const asmTools = createAsmTools({
+  state, t, notify, change, renderAll, renderLeft, cancelEditing, newId, project, activeAssembly, withProgress, popups,
+  viewport: () => viewport, topoOf, assemblySize, componentShapes, buildPart: (p, o) => buildPart(p, o),
+  pm: { pmHead, pmGroup, pmNum, pmSeg, pmList, pmButton, textInput },
+});
+{
+  const o = { ...more };
+  const mine = (e = state.editing) => asmTools.owns(e);
+  more.owns = (e) => mine(e) || o.owns(e);
+  more.pm = (e) => (mine(e) ? asmTools.pm(e) : o.pm(e));
+  more.pick = (hit, ev) => (mine() ? asmTools.pick(hit, ev) : o.pick(hit, ev));
+  more.field = (k, raw, v) => (mine() ? asmTools.field(k, raw, v) : o.field(k, raw, v));
+  more.set = (k, v) => (mine() ? asmTools.set(k, v) : o.set(k, v));
+  more.toggle = (k, c) => (mine() ? asmTools.toggle(k, c) : o.toggle(k, c));
+  more.select = (k, v) => (mine() ? asmTools.select(k, v) : o.select?.(k, v));
+  more.accept = () => (mine() ? asmTools.accept() : o.accept());
+  more.subject = (e) => (mine(e) ? asmTools.subject(e) : o.subject(e));
+  more.handles = (name) => (mine() && asmTools.handles(name)) || o.handles(name);
+  more.command = (name, arg) => (mine() && asmTools.handles(name) ? asmTools.command(name, arg) : o.command(name, arg));
+}
+Object.assign(commands, asmTools.commands);
 
 // Design checker (app-designcheck.js), chained the same way.
 const dcTools = createDesignCheckTools({
@@ -3267,33 +3550,35 @@ async function run(id, context) {
 
 const SUBMENUS = {
   newDoc: { icon: 'fileNew', items: ['newPart', 'newAssembly', 'newDrawing', '-', 'newProjectPart'] },
-  exportTo: { icon: 'exportFile', items: ['exportStep', 'exportIges', 'exportXt', 'exportXb', 'exportStl', '-', 'exportMesh:glb', 'exportMesh:gltf', 'exportMesh:obj', 'exportMesh:ply', 'exportMesh:3mf', 'exportMesh:wrl', 'exportMesh:usdz', '-', 'exportImage', 'exportDxf', 'exportDwg', 'exportSvg', '-', 'exportSketchDxf', 'exportSketchDwg'] },
+  exportTo: { icon: 'exportFile', items: ['exportStep', 'exportIges', 'exportXt', 'exportXb', 'exportStl', 'exportScad', '-', 'exportMesh:glb', 'exportMesh:gltf', 'exportMesh:obj', 'exportMesh:ply', 'exportMesh:3mf', 'exportMesh:wrl', 'exportMesh:usdz', '-', 'exportImage', 'exportDxf', 'exportDwg', 'exportSvg', '-', 'exportSketchDxf', 'exportSketchDwg'] },
   views: { icon: 'views', items: ['view:front', 'view:back', 'view:top', 'view:bottom', 'view:left', 'view:right', '-', 'view:iso', 'view:dimetric', 'view:trimetric', '-', 'normalTo'] },
   displayStyle: { icon: 'styleShaded', items: ['style:shadedEdges', 'style:shaded', 'style:hiddenRemoved', 'style:hiddenVisible', 'style:wireframe'] },
   show: { icon: 'eye', items: ['showPlanes', 'showOrigin', 'showSketches', '-', 'showRulers', 'showGrid', 'gridPlane:front', 'gridPlane:top', 'gridPlane:right', 'showScaleBar', '-', 'leftPanel', 'rightPanel', 'bottomPanel', 'statusBar', 'fps'] },
   appearance: { icon: 'palette', items: ['theme', 'themeMenu', 'language', '-', 'shuffleBackground', 'backgroundImage', 'clearBackground'] },
-  sketchEntities: { icon: 'lineTool', items: ['sk:line', 'sk:centerline', 'sk:rect', 'sk:centerRect', 'sk:circle', 'sk:arc3', 'sk:centerArc', 'sk:polygon', 'sk:slot', 'sk:spline', 'sk:ellipse', 'sk:point', 'sk:text'] },
-  sketchTools: { icon: 'sketchFillet', items: ['sk:fillet', 'sk:chamfer', 'sk:offset', 'sk:mirror', 'sk:linPattern', 'sk:cirPattern', 'sk:trim', 'sk:extend', '-', 'sk:convert', 'sk:intersect', 'sk:move', 'sk:copy', 'sk:rotate', 'sk:scale'] },
+  sketchEntities: { icon: 'lineTool', items: ['sk:line', 'sk:centerline', '-', 'sk:rect', 'sk:centerRect', 'sk:rect3', 'sk:rect3c', 'sk:parallelogram', '-', 'sk:circle', 'sk:circle3', 'sk:arc3', 'sk:centerArc', 'sk:tangentArc', '-', 'sk:polygon', 'sk:slot', 'sk:spline', 'sk:equation', '-', 'sk:ellipse', 'sk:partialEllipse', 'sk:parabola', 'sk:conic', '-', 'sk:point', 'sk:text'] },
+  sketchTools: { icon: 'sketchFillet', items: ['sk:fillet', 'sk:chamfer', 'sk:offset', 'sk:mirror', 'sk:linPattern', 'sk:cirPattern', 'sk:trim', 'sk:extend', 'sk:split', '-', 'sk:convert', 'sk:intersect', 'sk:move', 'sk:copy', 'sk:rotate', 'sk:scale', 'sk:stretch', '-', 'sk:fullyDefine'] },
   patterns: { icon: 'featLinPattern', items: ['linearPattern', 'circularPattern', 'mirror', '-', 'curvePattern', 'sketchPattern', 'tablePattern', 'fillPattern', 'variablePattern'] },
-  refGeometry: { icon: 'refAxis', items: ['refPlane', 'refAxis', 'refPoint', 'coordSys'] },
+  refGeometry: { icon: 'refAxis', items: ['refPlane', 'refAxis', 'refPoint', 'coordSys', 'boundingBox'] },
   curves: { icon: 'curveXYZ', items: ['projectedCurve', 'splitLine', 'compositeCurve', 'curveXYZ', 'helix'] },
   bossBase: { icon: 'featExtrude', items: ['extrude', 'revolve', 'sweep', 'loft', 'thicken'] },
   cutFeat: { icon: 'featCut', items: ['cutExtrude', 'cutRevolve', 'cutSweep', 'cutLoft'] },
   featuresMore: { icon: 'featDraft', items: ['fillet', 'variableFillet', 'faceFillet', 'fullRoundFillet', 'chamfer', 'shell', 'draft', 'rib', 'dome', 'wrap', 'hole', 'thread', 'helix'] },
-  surfaces: { icon: 'surface', items: ['surfaceExtrude', 'surfaceRevolve', 'surfacePlanar', 'surfaceLoft', 'boundary', 'fillSurface', 'surfaceOffset', 'ruledSurface', 'trimSurface', 'extendSurface', 'knit', 'thicken', '-', 'deleteFace', 'replaceFace'] },
-  bodies: { icon: 'moveBody', items: ['moveBody', 'scaleBody', 'split', 'insertPart', '-', 'combine', 'deleteBody', 'indent', 'flex', 'deform'] },
-  sheetMetal: { icon: 'sheetMetal', items: ['baseFlange', 'edgeFlange', 'miterFlange', 'hem', 'tab', 'loftedBend', 'sketchedBend', 'jog', '-', 'closedCorner', 'cornerRelief', 'formTool', '-', 'flatten'] },
+  surfaces: { icon: 'surface', items: ['surfaceExtrude', 'surfaceRevolve', 'surfacePlanar', 'surfaceLoft', 'boundary', 'fillSurface', 'surfaceOffset', 'ruledSurface', 'trimSurface', 'extendSurface', 'knit', 'thicken', '-', 'surfaceSweep', 'radiateSurface', 'midSurface', 'untrimSurface', 'deleteHole', 'cutWithSurface', 'flattenSurface', '-', 'deleteFace', 'replaceFace'] },
+  bodies: { icon: 'moveBody', items: ['moveBody', 'scaleBody', 'split', 'insertPart', 'openscadFeature', '-', 'combine', 'deleteBody', 'indent', 'flex', 'deform'] },
+  sheetMetal: { icon: 'sheetMetal', items: ['baseFlange', 'convertSheet', 'insertBends', 'edgeFlange', 'miterFlange', 'hem', 'tab', 'loftedBend', 'sketchedBend', 'jog', '-', 'closedCorner', 'weldedCorner', 'cornerRelief', 'rip', 'formTool', 'crossBreak', 'tabSlot', '-', 'unfold', 'fold', 'flatten'] },
+  fastening: { icon: 'mountingBoss', items: ['mountingBoss', 'snapHook', 'snapHookGroove', 'vent', 'lipGroove'] },
+  partExtra: { icon: 'advancedHole', items: ['advancedHole', 'intersect', 'mateReference', '-', 'saveBodies'] },
   weldments: { icon: 'structural', items: ['structural', 'trimExtend', 'endCap', 'gusset', 'weldBead', '-', 'cutList'] },
   mold: { icon: 'cavity', items: ['draftAnalysis', 'draft', 'partingLine', 'toolingSplit', 'shrink', 'split', 'cavity'] },
-  annotations: { icon: 'note', items: ['ann:note', 'ann:balloon', 'ann:gdt', 'ann:datum', 'ann:surface', 'ann:centermark', '-', 'bom'] },
-  drawingViews: { icon: 'drawingView', items: ['std3View', 'addView', 'sectionView', 'sectionViewH', 'detailView', 'auxView'] },
+  annotations: { icon: 'note', items: ['ann:note', 'ann:balloon', 'ann:gdt', 'ann:datum', 'ann:datumTarget', 'ann:surface', 'ann:centermark', '-', 'ann:cloud', 'ann:hatch', '-', 'bom', 'bendTable'] },
+  drawingViews: { icon: 'drawingView', items: ['std3View', 'addView', 'sectionView', 'sectionViewH', 'alignedSection', 'detailView', 'auxView', '-', 'flatPatternView', 'alternatePositionView'] },
 };
 const sub = (key) => ({ sub: key });
 const MENUS = {
   file: [sub('newDoc'), 'openExample', 'open', 'startPage', 'recent', 'recentFolders', 'clearRecent', '-', 'save', 'saveAs', '-', 'importStep', sub('exportTo'), '-', 'print', '-', 'closeProject', 'exit'],
   edit: ['undo', 'redo', '-', 'delete', 'rename', '-', 'rebuild', 'editFeature', 'suppress', 'unsuppress', '-', 'rollbackHere', 'rollbackEnd', '-', 'clearSelection'],
   view: [sub('views'), 'zoomFit', 'perspective', '-', sub('displayStyle'), 'section', 'lights', '-', sub('show'), '-', sub('appearance')],
-  insert: ['sketch', '-', sub('bossBase'), sub('cutFeat'), sub('featuresMore'), sub('patterns'), '-', sub('surfaces'), sub('bodies'), sub('sheetMetal'), sub('weldments'), sub('mold'), '-', 'refPlane', sub('refGeometry'), sub('curves'), 'material', '-', sub('drawingViews'), sub('annotations')],
+  insert: ['sketch', '-', sub('bossBase'), sub('cutFeat'), sub('featuresMore'), sub('patterns'), '-', sub('surfaces'), sub('bodies'), sub('fastening'), sub('partExtra'), sub('sheetMetal'), sub('weldments'), sub('mold'), '-', 'refPlane', sub('refGeometry'), sub('curves'), 'material', '-', sub('drawingViews'), sub('annotations')],
   sketch: ['sketch', 'sketch3d', 'exitSketch', 'cancelSketch', '-', 'sk:select', sub('sketchEntities'), sub('sketchTools'), '-', 'sk:dimension', 'construction', '-', 'normalTo'],
   tools: ['massProps', 'measure', 'simulation', 'draftAnalysis', '-', 'equations', 'configurations', 'designTable', 'importTable', '-', 'insertComponent', 'mate', 'fixComponent', 'floatComponent', 'interference', 'explode', 'motion', '-', 'newDrawing', 'std3View', 'addView', '-', 'settings'],
   help: ['welcome', 'userGuide', 'tutorialDoc', 'shortcuts', '-', 'settings', 'about'],
@@ -3313,18 +3598,19 @@ const TOOLBAR_MAIN = { exportSplit: 'exportStep', themeSplit: 'theme', viewsSpli
 
 /** The CommandManager: tabs of big buttons above the graphics area (a ribbon). */
 const COMMAND_TABS = {
-  features: ['sketch', '|', 'extrude', 'revolve', 'sweep', 'loft', '|', 'cutExtrude', 'cutRevolve', 'cutSweep', 'cutLoft', '|', 'fillet', 'chamfer', 'shell', 'draft', 'rib', 'dome', 'wrap', '|', 'hole', 'thread', 'helix', '|', 'linearPattern', 'circularPattern', 'mirror', '|', 'refPlane', 'refAxis', 'refPoint', 'coordSys', 'moveBody', 'split', 'insertPart', 'material', 'rebuild'],
-  bodiesCurves: ['combine', 'deleteBody', 'indent', 'flex', 'deform', '|', 'variableFillet', 'faceFillet', 'fullRoundFillet', '|', 'curvePattern', 'sketchPattern', 'tablePattern', 'fillPattern', 'variablePattern', '|', 'projectedCurve', 'splitLine', 'compositeCurve', 'curveXYZ'],
-  sketch: ['sketch', 'sketch3d', 'sk:dimension', '|', 'sk:line', 'sk:centerline', 'sk:rect', 'sk:centerRect', 'sk:circle', 'sk:arc3', 'sk:centerArc', 'sk:polygon', 'sk:slot', 'sk:spline', 'sk:ellipse', 'sk:point', 'sk:text', '|', 'sk:fillet', 'sk:chamfer', 'sk:offset', 'sk:mirror', 'sk:linPattern', 'sk:cirPattern', 'sk:trim', 'sk:extend', '|', 'sk:convert', 'sk:intersect', 'sk:move', 'sk:copy', 'sk:rotate', 'sk:scale', '|', 'construction', 'normalTo', 'sk:select'],
-  surfaces: ['surfaceExtrude', 'surfaceRevolve', 'surfacePlanar', 'surfaceLoft', 'boundary', 'fillSurface', 'surfaceOffset', 'ruledSurface', '|', 'trimSurface', 'extendSurface', 'knit', '|', 'deleteFace', 'replaceFace', '|', 'thicken', 'sketch3d'],
-  sheetMetal: ['baseFlange', 'edgeFlange', 'miterFlange', 'hem', 'tab', 'loftedBend', 'sketchedBend', 'jog', '|', 'closedCorner', 'cornerRelief', 'formTool', 'flatten', '|', 'hole', 'cutExtrude'],
+  features: ['sketch', '|', 'extrude', 'revolve', 'sweep', 'loft', '|', 'cutExtrude', 'cutRevolve', 'cutSweep', 'cutLoft', '|', 'fillet', 'chamfer', 'shell', 'draft', 'rib', 'dome', 'wrap', '|', 'hole', 'thread', 'helix', '|', 'linearPattern', 'circularPattern', 'mirror', '|', 'refPlane', 'refAxis', 'refPoint', 'coordSys', 'boundingBox', 'moveBody', 'split', 'insertPart', 'openscadFeature', 'material', 'rebuild'],
+  bodiesCurves: ['combine', 'deleteBody', 'indent', 'flex', 'deform', 'intersect', 'saveBodies', '|', 'advancedHole', 'mateReference', '|', 'mountingBoss', 'snapHook', 'snapHookGroove', 'vent', 'lipGroove', '|', 'variableFillet', 'faceFillet', 'fullRoundFillet', '|', 'curvePattern', 'sketchPattern', 'tablePattern', 'fillPattern', 'variablePattern', '|', 'projectedCurve', 'splitLine', 'compositeCurve', 'curveXYZ'],
+  sketch: ['sketch', 'sketch3d', 'sk:dimension', '|', 'sk:line', 'sk:centerline', 'sk:rect', 'sk:centerRect', 'sk:rect3', 'sk:rect3c', 'sk:parallelogram', 'sk:circle', 'sk:circle3', 'sk:arc3', 'sk:centerArc', 'sk:tangentArc', 'sk:polygon', 'sk:slot', 'sk:spline', 'sk:equation', 'sk:ellipse', 'sk:partialEllipse', 'sk:parabola', 'sk:conic', 'sk:point', 'sk:text', '|', 'sk:fillet', 'sk:chamfer', 'sk:offset', 'sk:mirror', 'sk:linPattern', 'sk:cirPattern', 'sk:trim', 'sk:extend', 'sk:split', '|', 'sk:convert', 'sk:intersect', 'sk:move', 'sk:copy', 'sk:rotate', 'sk:scale', 'sk:stretch', '|', 'sk:fullyDefine', 'construction', 'normalTo', 'sk:select'],
+  surfaces: ['surfaceExtrude', 'surfaceRevolve', 'surfacePlanar', 'surfaceLoft', 'boundary', 'fillSurface', 'surfaceOffset', 'ruledSurface', '|', 'trimSurface', 'extendSurface', 'knit', '|', 'surfaceSweep', 'radiateSurface', 'midSurface', 'untrimSurface', 'deleteHole', 'cutWithSurface', 'flattenSurface', '|', 'deleteFace', 'replaceFace', '|', 'thicken', 'sketch3d'],
+  sheetMetal: ['baseFlange', 'convertSheet', 'insertBends', 'edgeFlange', 'miterFlange', 'hem', 'tab', 'loftedBend', 'sketchedBend', 'jog', '|', 'closedCorner', 'weldedCorner', 'cornerRelief', 'rip', 'formTool', 'crossBreak', 'tabSlot', '|', 'unfold', 'fold', 'flatten', '|', 'hole', 'cutExtrude'],
   weldments: ['sketch', 'sketch3d', 'structural', 'trimExtend', '|', 'endCap', 'gusset', 'weldBead', '|', 'cutList'],
   mold: ['draftAnalysis', 'draft', 'partingLine', 'toolingSplit', 'shrink', 'split', 'cavity'],
   evaluate: ['massProps', 'measure', 'section', 'lights', 'interference', '|', 'simulation', 'draftAnalysis', '|', 'equations', 'configurations', 'designTable', 'importTable', 'designStudy'],
-  assembly: ['insertComponent', 'mate', 'fixComponent', 'floatComponent', 'rotateComponent', 'openPart', '|', 'explode', 'resetExplode', 'motion', '|', 'illustration', 'ilAddView', 'ilPlay', 'ilExportHtml', '|', 'interference', 'massProps', 'largeAssemblyMode'],
-  drawing: ['newDrawing', 'std3View', 'addView', 'sectionView', 'detailView', 'auxView', '|', 'ann:note', 'ann:balloon', 'ann:gdt', 'ann:datum', 'ann:surface', 'ann:centermark', 'bom', '|', 'hiddenLines', 'autoDims', '|', 'exportDxf', 'exportDwg', 'exportSvg', 'print'],
+  assembly: ['insertComponent', 'mate', 'fixComponent', 'floatComponent', 'rotateComponent', 'rotateComponentX', 'rotateComponentY', 'openPart', '|', 'explode', 'resetExplode', 'motion', '|', 'illustration', 'ilAddView', 'ilPlay', 'ilExportHtml', '|', 'interference', 'massProps', 'largeAssemblyMode'],
+  drawing: ['newDrawing', 'std3View', 'addView', 'sectionView', 'alignedSection', 'detailView', 'auxView', 'flatPatternView', 'alternatePositionView', '|', 'ann:note', 'ann:balloon', 'ann:gdt', 'ann:datum', 'ann:datumTarget', 'ann:surface', 'ann:centermark', 'ann:cloud', 'ann:hatch', 'bom', 'bendTable', '|', 'hiddenLines', 'autoDims', '|', 'exportDxf', 'exportDwg', 'exportSvg', 'print'],
 };
 for (const [tab, ids] of Object.entries(more.TABS)) COMMAND_TABS[tab]?.push('|', ...ids);
+COMMAND_TABS.assembly.push('|', ...asmTools.TAB);
 more.extendMenus(MENUS);
 COMMAND_TABS.stdTools = std.TAB;
 Object.assign(COMMAND_TABS, mfgTools.TABS);
@@ -3337,6 +3623,7 @@ SUBMENUS.stdRouting = std.SUBMENU;
 MENUS.insert.push('-', sub('stdRouting'));
 MENUS.view.splice(MENUS.view.indexOf('lights') + 1, 0, 'renderView');
 MENUS.tools.splice(MENUS.tools.indexOf('motion') + 1, 0, '-', 'stdLibrary', 'smartFastener', 'renderView');
+MENUS.tools.splice(MENUS.tools.indexOf('interference') + 1, 0, 'holeAlignment', 'replaceComponent', 'copyWithMates', 'envelopeComponent', 'envelopeSelectInside', 'envelopeSelectCrossing');
 
 function visibleCommandTabs() {
   const kind = activeKind();
@@ -3671,6 +3958,8 @@ function pmApi() {
     // the spring samples) and the reference curves.
     curveList: (f) => featuresBefore(part, f).filter((x) => x.type === 'helix' || x.type === 'sketch3d' || (CURVE_TYPES.includes(x.type) && PART_MORE_TYPES.includes(x.type))),
     featuresBefore: (f) => featuresBefore(part, f),
+    // What the feature being edited built in its preview (sizes of a bounding box …).
+    previewResult: () => state.previewResult,
     // The schematics (a harness route offers "Wires from schematic" when there is one).
     get schematics() { return project()?.schematics ?? []; },
     bodyCount: (f) => {
@@ -3681,6 +3970,8 @@ function pmApi() {
     },
     surfaceList: (f) => featuresBefore(part, f).filter((x) => SURFACE_TYPES.includes(x.type) && x.id !== f.id),
     otherParts: () => project().parts.filter((p) => p.id !== part?.id),
+    // How many bodies another part has (Insert Part can take one of them).
+    partBodyCount: (id) => { const p = project().parts.find((x) => x.id === id); try { return p ? countSolids(buildPart(p).body ?? null) : 0; } catch { return 0; } },
     assemblies: () => project().assemblies.filter((a) => a.id !== activeAssembly()?.id && !assemblyContains(a, activeAssembly()?.id)),
     custom: (e) => customPm(e),
     customMode: (mode) => more.owns({ mode }) || std.owns({ mode }),
@@ -3800,7 +4091,7 @@ function propsHtml() {
     out.push(propRow(c.fixed ? 'fixComponent' : 'floatComponent', t('props.state'), escapeHtml(c.fixed ? t('props.fixed') : state.mateStatus.get(c.id) === 'defined' ? t('props.fullyDefined') : t('props.underDefined'))));
     for (const [i, a] of ['X', 'Y', 'Z'].entries()) out.push(propRow('position', `${t('props.position')} ${a}`, propInput(`comp.${c.id}.pos.${i}`, fmtLen(c.position[i]))));
     out.push(propRow('rotateRight', t('props.rotation'), escapeHtml(`${fmt(angle)}° (${axis.map((v) => fmt(v, 2)).join(', ')})`)));
-    out.push(actionsHtml([c.fixed ? 'floatComponent' : 'fixComponent', 'rotateComponent', 'openPart', 'delete']));
+    out.push(actionsHtml([c.fixed ? 'floatComponent' : 'fixComponent', 'rotateComponent', 'rotateComponentX', 'rotateComponentY', 'openPart', 'delete']));
     return out.join('');
   }
   if (asm && s?.kind === 'mate') {
@@ -4191,7 +4482,8 @@ const isXtName = (name) => /\.(x_t|x_b|xmt_txt|xmt_bin)$/i.test(name);
 // 2D drawings: DWG (R2000–R2018) and DXF, opened as a sketch.
 const isCad2dName = (name) => /\.(dwg|dxf)$/i.test(name);
 const isMeshName = (name) => MESH_IMPORT_EXTENSIONS.includes(String(name).toLowerCase().split('.').pop());
-const isModelName = (name) => isStepName(name) || isIgesName(name) || isXtName(name) || isCad2dName(name) || isStlName(name) || isMeshName(name);
+const isScadName = (name) => /\.scad$/i.test(name);
+const isModelName = (name) => isStepName(name) || isIgesName(name) || isXtName(name) || isCad2dName(name) || isStlName(name) || isMeshName(name) || isScadName(name);
 
 /** Mesh exports: format id → extension, MIME type and writer (cad/mesh-formats.js). */
 const MESH_EXPORTS = {
@@ -4227,7 +4519,7 @@ function formatsRequest(message) {
 
 async function openPath(path, { quiet = false } = {}) {
   const name = baseName(path);
-  if (isModelName(name)) return importModelFile(name, await readBytes(path, ''));
+  if (isModelName(name)) return importModelFile(name, await readBytes(path, ''), { path });
   if (!(await confirmReplace())) return null;
   try {
     const text = await withProgress('progress.open', name, (op) => native.readTextFile(path, op));
@@ -4478,9 +4770,9 @@ async function importStepDialog() {
   try {
     if (desktop) {
       const paths = await native.chooseModelFiles(state.settings.lastDirectory);
-      if (paths[0]) await importModelFile(baseName(paths[0]), await readBytes(paths[0], ''));
+      if (paths[0]) await importModelFile(baseName(paths[0]), await readBytes(paths[0], ''), { path: paths[0] });
     } else {
-      const files = await native.pickWithInput('.step,.stp,.igs,.iges,.x_t,.x_b,.dwg,.dxf,.stl', false);
+      const files = await native.pickWithInput('.step,.stp,.igs,.iges,.x_t,.x_b,.dwg,.dxf,.stl,.scad', false);
       if (files[0]) await importModelFile(files[0].name, new Uint8Array(await files[0].arrayBuffer()));
     }
   } catch (error) { showError('error.import', error); }
@@ -4542,9 +4834,138 @@ async function withDocument(projectData, job) {
   }
 }
 
+/**
+ * An OpenSCAD program as a part: a 3D result becomes an OpenSCAD feature (the program, its Customizer values and
+ * the files it reads kept in it, editable), a 2D one a sketch on the Top plane. include / use / import files are
+ * looked for next to the program, then in OpenSCAD's library folders (OPENSCADPATH, the user's, the installed).
+ */
+async function importScad(name, bytes, { path = null, files: given = {} } = {}) {
+  await ensureKernel();
+  const source = decodeScad(bytes);
+  const dir = path ? path.replace(/[\\/][^\\/]*$/, '') : null;
+  const libraries = desktop ? await native.scadLibraryDirs() : [];
+  const loadFile = async (p) => {
+    if (Object.prototype.hasOwnProperty.call(given, p)) return given[p];
+    const places = /^([a-z]:)?[\\/]/i.test(p) ? [p] : [...(dir ? [`${dir}/${p}`] : []), ...libraries.map((l) => `${l}/${p}`)];
+    for (const place of places) { try { return await readBytes(place, ''); } catch { /* not there */ } }
+    return null;
+  };
+  let run;
+  try { run = await busy('progress.import', name, () => runScadWithFiles(source, { loadFile, fileName: name })); }
+  catch (error) { showError('error.import', error, name); return; }
+  const { result, files } = run;
+  for (const w of result.warnings.slice(0, 3)) notify('warning', `OpenSCAD: ${w}`);
+  if (result.missing?.length) notify('warning', t('notice.scadMissing', { files: result.missing.slice(0, 4).join(', ') }));
+  if (result.error) { notify('error', t('notice.scadError', { name, message: result.error.message })); return; }
+  const partName = stripExtension(name);
+  const part = createPart(partName);
+  if (result.dim === 2) {
+    const items = result.outlines.flatMap((o) => o.map((a, i) => ({ kind: 'line', a, b: o[(i + 1) % o.length] })));
+    const { sketch } = itemsToSketch(items, { scale: 1 });
+    part.features.push(createFeature(part, 'sketch', { plane: { kind: 'std', name: 'top' }, ...sketch, name: partName }));
+  } else if (result.dim === 3) {
+    const kept = Object.fromEntries(Object.entries(files).filter(([, v]) => v != null));
+    const f = createFeature(part, 'openscad', { source, fileName: name, files: packFiles(kept), overrides: {}, name: partName });
+    let entry;
+    try { entry = primeScadResult(f, result); } catch (error) { showError('error.import', error, name); return; }
+    f.result = { key: entry.key, brep: entry.brep };
+    part.features.push(f);
+    if (result.color) part.color = `#${result.color.slice(0, 3).map((v) => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, '0')).join('')}`;
+  } else { notify('warning', t('notice.scadEmpty', { name })); return; }
+  if (hasDoc() && project()) change('op.import', (p) => { p.parts.push(part); p.active = { kind: 'part', id: part.id }; });
+  else {
+    const p = createProject({ name: partName, kind: 'none' });
+    p.parts.push(part); p.active = { kind: 'part', id: part.id };
+    await setDoc(new Doc(p, { name: `${partName}.mymech` }));
+    doc().revision = 1;
+  }
+  fitView();
+  notify('success', t(result.dim === 2 ? 'notice.scad2d' : 'notice.scadImported', { name, count: result.dim === 3 ? result.tris.length : result.outlines.length }));
+}
+
+/**
+ * The active part (or every component of the assembly, placed) as an OpenSCAD program: each body a polyhedron
+ * of its tessellation (corners shared, so OpenSCAD sees a closed solid), in its colour.
+ */
+async function exportScad() {
+  await ensureKernel();
+  const part = activePart(); const asm = activeAssembly();
+  const base = fileSafe(active()?.name ?? 'model');
+  const bodies = [];
+  const add = (shape, name, color) => {
+    const m = shape.mesh({ tolerance: 0.02, angularTolerance: 0.2 });
+    const verts = []; for (let i = 0; i < m.vertices.length; i += 3) verts.push([m.vertices[i], m.vertices[i + 1], m.vertices[i + 2]]);
+    const tris = []; for (let i = 0; i < m.triangles.length; i += 3) tris.push([m.triangles[i], m.triangles[i + 1], m.triangles[i + 2]]);
+    const w = weldMeshObject(verts, tris, 1e-6);
+    bodies.push({ name, verts: w.verts, tris: w.tris, color: /^#[0-9a-f]{6}$/i.test(color ?? '') ? color : undefined });
+  };
+  if (part) { const b = buildPart(part).body; if (b) add(b, part.name, part.color || materialOf(part.material).color); }
+  else if (asm) for (const c of asm.components) { const p = project().parts.find((x) => x.id === c.part); const b = p && buildPart(p).body; if (b) add(placeShape(b, c), c.name, p.color || materialOf(p.material).color); }
+  if (!bodies.length) { notify('info', t('notice.noBody')); return; }
+  const text = writeScad(bodies, { title: active()?.name ?? 'model' });
+  await saveExport(`${base}.scad`, 'scad', new Blob([text], { type: 'text/plain' }), 'text/plain');
+}
+
+/** The fonts an OpenSCAD program's text() needs (loaded before it runs); a rebuild when new ones came in. */
+async function prepareScadFonts(sources) {
+  let added = false;
+  for (const s of sources) { try { added = (await loadFonts(s)) || added; } catch { /* the program warns */ } }
+  if (added && hasDoc()) { builds.clear(); syncView(); renderAll(); }
+  return added;
+}
+const scadSources = (p) => (p?.parts ?? []).flatMap((part) => part.features.filter((f) => f.type === 'openscad').map((f) => f.source ?? ''));
+
+/**
+ * The files an OpenSCAD feature asked for and did not find, read from a folder the user picks (the program's
+ * folder or a library folder): they are kept in the feature.
+ */
+async function scadChooseFolder() {
+  const e = state.editing;
+  if (e?.mode !== 'feature' || e.feature.type !== 'openscad') return;
+  const report = scadReport(e.feature);
+  const wanted = report?.missing ?? [];
+  if (!wanted.length) return;
+  const found = {};
+  if (desktop) {
+    const folder = await native.chooseFolder(state.settings.lastDirectory);
+    if (!folder) return;
+    for (const p of wanted) { try { found[p] = await readBytes(`${folder}/${p}`, ''); } catch { /* not in that folder */ } }
+  } else {
+    const list = await native.pickFolderWeb();
+    const byPath = new Map(list.map((file) => [String(file.webkitRelativePath || file.name).split('/').slice(1).join('/'), file]));
+    for (const p of wanted) {
+      const file = byPath.get(p) ?? [...byPath.entries()].find(([k]) => k.endsWith(`/${p}`) || k === p.split('/').pop())?.[1];
+      if (file) found[p] = new Uint8Array(await file.arrayBuffer());
+    }
+  }
+  const n = Object.keys(found).length;
+  notify(n ? 'success' : 'warning', t(n ? 'notice.scadFilesAdded' : 'notice.scadFilesNone', { count: n }));
+  if (!n) return;
+  for (const [p, b] of Object.entries(found)) if (/\.scad$/i.test(p)) await prepareScadFonts([decodeScad(b)]);
+  updateFeature((f) => { f.files = { ...(f.files ?? {}), ...packFiles(found) }; delete f.result; });
+}
+
+/** A Customizer value or the program changed in the PropertyManager. */
+async function scadSourceChanged(text) {
+  if (state.editing?.mode !== 'feature' || state.editing.feature.type !== 'openscad') return;
+  await prepareScadFonts([text]);
+  updateFeature((f) => { f.source = text; delete f.result; });
+}
+function scadParamChanged(name, raw, kind, checked) {
+  if (state.editing?.mode !== 'feature' || state.editing.feature.type !== 'openscad') return;
+  let value;
+  if (kind === 'bool') value = Boolean(checked);
+  else if (kind === 'number') { value = parseLen(raw, 'number'); if (value == null) { notify('error', t('notice.invalidValue', { text: raw })); renderLeft(); return; } }
+  else if (kind === 'json') { try { value = JSON.parse(raw); } catch { value = raw; } }
+  else if (kind === 'vector') { try { value = JSON.parse(String(raw).replace(/\bundef\b/g, 'null')); } catch { notify('error', t('notice.invalidValue', { text: raw })); renderLeft(); return; } }
+  else value = String(raw);
+  updateFeature((f) => { f.overrides = { ...(f.overrides ?? {}), [name]: value }; delete f.result; });
+}
+
 /** A STEP (or STL) file becomes a part with an imported body (new project, or a part of the open one). */
-async function importModelFile(name, bytes) {
+async function importModelFile(name, bytes, { path = null } = {}) {
   if (isCad2dName(name)) return importDrawing2d(name, bytes);
+  if (isScadName(name)) return importScad(name, bytes, { path });
   await ensureKernel();
   try {
     const shape = await busy('progress.import', name, () => shapeFromModel(name, bytes));
@@ -4692,7 +5113,7 @@ function viewportContextMenu(hit, event) {
   if (item?.kind === 'face') return showMenu(menuItems(['sketch', 'hole', 'extrude', 'cutExtrude', '-', 'fillet', 'shell', 'refPlane', '-', 'normalTo', 'zoomFit', '-', 'measure', 'massProps']), anchor, 'context', { header: { icon: 'part', title: t('pm.face') } });
   if (item?.kind === 'edge') return showMenu(menuItems(['fillet', 'chamfer', '-', 'measure', 'zoomFit']), anchor, 'context', { header: { icon: 'lineTool', title: t('pm.edge') } });
   if (item?.kind === 'plane' || item?.kind === 'feat') return showMenu(menuItems(['sketch', 'refPlane', 'mirror', '-', 'normalTo']), anchor, 'context', { header: { icon: 'refPlane', title: t(`plane.${item.id}`, null, t('cmd.plane')) } });
-  if (item?.kind === 'comp') return showMenu(menuItems(['openPart', 'fixComponent', 'floatComponent', 'rotateComponent', '-', 'mate', 'delete', '-', 'zoomFit']), anchor, 'context', { header: { icon: 'part', title: activeAssembly().components.find((c) => c.id === item.id)?.name ?? '' } });
+  if (item?.kind === 'comp') return showMenu(menuItems(['openPart', 'fixComponent', 'floatComponent', 'rotateComponent', 'rotateComponentX', 'rotateComponentY', '-', 'mate', 'delete', '-', 'zoomFit']), anchor, 'context', { header: { icon: 'part', title: activeAssembly().components.find((c) => c.id === item.id)?.name ?? '' } });
   return showMenu(menuItems(['zoomFit', 'viewsMenu', 'normalTo', 'perspective', '-', 'styleMenu', 'section', '-', 'showPlanes', 'showOrigin', '-', 'rebuild', 'massProps']), anchor, 'context', { header: { icon: 'view3d', title: active()?.name ?? 'MyMechanics' } });
 }
 
@@ -4706,7 +5127,7 @@ function treeContextMenu(key, event) {
     return showMenu(menuItems(['editFeature', 'rename', '-', f.suppressed ? 'unsuppress' : 'suppress', 'rollbackHere', 'rollbackEnd', '-', ...extra, '-', 'delete']), anchor, 'context', { header: { icon: featureIcon(f), title: f.name } });
   }
   if (key.startsWith('plane:')) return showMenu(menuItems(['sketch', 'refPlane', 'mirror', '-', 'normalTo']), anchor, 'context', { header: { icon: 'refPlane', title: t(`plane.${key.slice(6)}`) } });
-  if (key.startsWith('comp:')) return showMenu(menuItems(['openPart', 'rename', 'fixComponent', 'floatComponent', 'rotateComponent', '-', 'delete']), anchor, 'context', { header: { icon: 'part', title: activeAssembly()?.components.find((c) => c.id === key.slice(5))?.name ?? '' } });
+  if (key.startsWith('comp:')) return showMenu(menuItems(['openPart', 'rename', 'fixComponent', 'floatComponent', 'rotateComponent', 'rotateComponentX', 'rotateComponentY', '-', 'delete']), anchor, 'context', { header: { icon: 'part', title: activeAssembly()?.components.find((c) => c.id === key.slice(5))?.name ?? '' } });
   if (key.startsWith('mate:')) return showMenu(menuItems(['rename', 'delete']), anchor, 'context', { header: { icon: 'mate', title: activeAssembly()?.mates.find((m) => m.id === key.slice(5))?.name ?? '' } });
   if (key === 'material') return materialMenu(anchor);
   if (key === 'doc') return showMenu(menuItems(['rename', 'rebuild', 'massProps', '-', 'newDrawing', 'exportStep', 'exportIges', 'exportXt', 'exportStl']), anchor, 'context', { header: { icon: activeKind(), title: active()?.name ?? '' } });
@@ -4757,6 +5178,13 @@ function pmFieldChangedImpl(key, raw, unit) {
       return;
     }
     if (key === 'chamferDistance' && v > 0) { ed.chamferDistance = v; renderLeft(); return; }
+    if (key.startsWith('eq.')) { ed.setEquationDraft(key.slice(3), raw); renderLeft(); return; }
+    if (key.startsWith('eqSel.') || key.startsWith('ell.') || key === 'conic.rho') {
+      const x1 = ed.selectionInfo()[0];
+      if (x1 && !ed.setEntityValue(x1, key, raw)) notify('error', t('notice.invalidValue', { text: raw }));
+      renderLeft();
+      return;
+    }
     const x = ed.selectionInfo()[0];
     if (!x || v == null) return;
     if (key === 'pt.x' || key === 'pt.y') { ed.solve({ drag: { id: x.id, x: key === 'pt.x' ? v : x.x, y: key === 'pt.y' ? v : x.y } }); ed.render(); renderLeft(); return; }
@@ -4769,6 +5197,15 @@ function pmFieldChangedImpl(key, raw, unit) {
   if (e.mode === 'lights') return lightsField(key, raw, parseLen(raw, 'number'));
   if (['simulation', 'motion', 'equations', 'configs'].includes(e.mode)) return customField(key, raw, v);
   if (std.featureField(key, raw, v)) return;
+  // A mate reference's name is text, not a number.
+  if (e.mode === 'feature' && key === 'refName') { updateFeature((f) => { f.refName = String(raw).trim() || 'Default'; }); return; }
+  if (e.mode === 'feature' && key.startsWith('hel:')) {
+    // An advanced hole's element: "hel:<near|far>:<index>:<d|depth|angle>".
+    const [, side, i, prop] = key.split(':');
+    if (v == null || v < 0) { notify('error', t('notice.invalidValue', { text: raw })); renderLeft(); return; }
+    updateFeature((f) => { f[side] = (f[side] ?? []).map((x, k) => (k === Number(i) ? { ...x, [prop]: v } : x)); });
+    return;
+  }
   if (e.mode === 'feature' && key.startsWith('pt3:')) {
     const [, i, j] = key.split(':').map(Number);
     if (v == null) { notify('error', t('notice.invalidValue', { text: raw })); renderLeft(); return; }
@@ -4817,6 +5254,8 @@ function pmStepImpl(key, delta) {
 function pmSet(key, value) { return recorder.around('pmSet', [key, value], () => pmSetImpl(key, value)); }
 function pmSetImpl(key, value) {
   const e = state.editing;
+  if (e?.mode === 'sketch' && key === 'eq.mode') { e.editor.setEquationDraft('mode', value); renderLeft(); return undefined; }
+  if (e?.mode === 'sketch' && key === 'eqSel.mode') { const x = e.editor.selectionInfo()[0]; if (x) e.editor.setEntityValue(x, key, value); renderLeft(); return undefined; }
   if (more.owns(e)) return more.set(key, value);
   if (std.owns(e)) return std.set(key, value);
   if (std.featureSet(key, value)) return undefined;
@@ -4843,6 +5282,13 @@ function pmSetImpl(key, value) {
     else if (key === 'stdPlane') { if (f.type === 'plane') f.base = { kind: 'std', name: value }; else f.plane = { kind: 'std', name: value }; }
     else if (key === 'neutralStd') f.neutral = { kind: 'std', name: value };
     else if (key === 'drawPlane') { e.drawPlane = value; e.pick = 'points3d'; }
+    else if (key === 'at') {
+      // Where a boss or a hook stands: the face's centre, typed coordinates (starting at that centre) or a reference point.
+      f.atCenter = value === 'center';
+      if (value === 'ref') f.pointRef = f.pointRef ?? featuresBefore(activePart(), f).find((x) => x.type === 'refPoint')?.id ?? null;
+      else f.pointRef = null;
+      if (value === 'xyz' && f.face?.center) [f.x, f.y, f.z] = f.face.center;
+    }
     else f[key] = value;
   });
   if (key === 'dir1' && value === 'edge') { e.pick = 'direction'; renderLeft(); }
@@ -4898,6 +5344,7 @@ function pmSelectImpl(key, value) {
     updateFeature((f) => { f.size = value || undefined; if (row) [, f.diameter, f.cbDiameter, f.cbDepth, f.csDiameter] = row; });
     return;
   }
+  if (key.startsWith('hel:')) { const [, side, i] = key.split(':'); updateFeature((f) => { f[side] = (f[side] ?? []).map((x, k) => (k === Number(i) ? { ...x, kind: value } : x)); }); return undefined; }
   updateFeature((f) => { f[key] = value || null; if (key === 'sketch' && f.type === 'revolve') f.axis = null; });
 }
 
@@ -4907,6 +5354,8 @@ async function pmCommandImpl(cmd) {
   const [name, arg] = cmd.split(':');
   if (name === 'ok') return acceptEditing();
   if (name === 'cancel') return cancelEditing();
+  if (name === 'scadReset' && e?.mode === 'feature') { updateFeature((f) => { f.overrides = {}; delete f.result; }); return undefined; }
+  if (name === 'scadFolder' && e?.mode === 'feature') return scadChooseFolder();
   if (name === 'sketchOn') return openNewSketch({ kind: 'std', name: arg });
   if (name === 'clear') {
     if (more.owns(e)) return more.command('clear', arg);
@@ -4934,7 +5383,10 @@ async function pmCommandImpl(cmd) {
   if (name === 'insertStep') return importStepDialog();
   if (name === 'insertSub') return insertSubassembly(arg);
   if (name === 'finishSpline' && e?.mode === 'sketch') { e.editor.finishSpline(); return renderLeft(); }
+  if (name === 'equationApply' && e?.mode === 'sketch') { e.editor.addEquationFromDraft(); return renderLeft(); }
   if (name === 'addPt3' && e?.mode === 'feature') { updateFeature((f) => { const last = f.points?.at(-1) ?? [0, 0, 0]; f.points = [...(f.points ?? []), [last[0] + 20, last[1], last[2]]]; }); return undefined; }
+  if (name.startsWith('addHel') && e?.mode === 'feature') { const side = arg === 'far' ? 'far' : 'near'; updateFeature((f) => { const list = f[side] ?? []; const last = list.at(-1); f[side] = [...list, { kind: side === 'far' ? 'countersink' : 'straight', d: last ? Math.max(1, Number(last.d) * 0.8) : 8, depth: 5, angle: 90 }]; }); return undefined; }
+  if (name.startsWith('delHel') && e?.mode === 'feature') { const [side, i] = String(arg).split('.'); updateFeature((f) => { f[side] = (f[side] ?? []).filter((_, k) => k !== Number(i)); }); return undefined; }
   if (name === 'delPt3' && e?.mode === 'feature') { updateFeature((f) => { f.points = f.points.filter((_, k) => k !== Number(arg)); }); return undefined; }
   return customCommand(name, arg);
 }
@@ -5072,6 +5524,8 @@ function bindEvents() {
   root.addEventListener('change', (event) => {
     const target = event.target;
     if (target.closest('.drw-props') && target.dataset.pmSelect != null) return drawingSelect(target.dataset.pmSelect, target.value);
+    if ('scadSource' in target.dataset) return scadSourceChanged(target.value);
+    if (target.dataset.scadParam != null) return scadParamChanged(target.dataset.scadParam, target.value, target.dataset.kind, target.checked);
     if (target.dataset.pmField != null) return pmFieldChanged(target.dataset.pmField, target.value, target.dataset.unit);
     if (target.dataset.pmToggle != null) return pmToggle(target.dataset.pmToggle, target.checked);
     if (target.dataset.pmSelect != null) return pmSelect(target.dataset.pmSelect, target.value);
@@ -5108,6 +5562,11 @@ function bindEvents() {
   });
 
   root.addEventListener('keydown', (event) => {
+    if (event.target.matches?.('textarea[data-scad-source]')) {
+      // Ctrl+Enter applies the code at once (leaving the field applies it too, through 'change').
+      if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); event.stopPropagation(); void scadSourceChanged(event.target.value); return; }
+      if (event.key === 'Tab' && !event.shiftKey) { event.preventDefault(); const ta = event.target; const s = ta.selectionStart; ta.setRangeText('  ', s, ta.selectionEnd, 'end'); return; }
+    }
     if (event.target.matches?.('[data-pm-field], [data-prop], [data-drw-title]') && event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); event.target.dispatchEvent(new Event('change', { bubbles: true })); event.target.blur(); }
   });
 
@@ -5331,12 +5790,31 @@ const SHORTCUTS = [
 /** Ctrl+1 … Ctrl+7: the standard views. */
 const VIEW_KEYS = { 1: 'view:front', 2: 'view:back', 3: 'view:left', 4: 'view:right', 5: 'view:top', 6: 'view:bottom', 7: 'view:iso' };
 
+/**
+ * Arrow keys turn the view about the screen axes by the set step (Shift: 90°); Alt+←/→ roll; Ctrl+arrows pan.
+ * Only while the graphics area (not a field, a list or a menu) has the keyboard.
+ */
+function arrowView(event, key) {
+  const dirs = { arrowleft: [-1, 0], arrowright: [1, 0], arrowup: [0, -1], arrowdown: [0, 1] };
+  if (!dirs[key] || !viewport || viewport.lockRotation && !(event.ctrlKey || event.metaKey)) return false;
+  const inView = event.target === document.body || event.target === viewport.canvas || event.target.closest?.('#view-host');
+  if (!inView) return false;
+  event.preventDefault();
+  const [x, y] = dirs[key];
+  if (event.ctrlKey || event.metaKey) { viewport.panBy(-x * 40, -y * 40); return true; }
+  const step = event.shiftKey ? 90 : Number(state.settings.arrowStep) || 15;
+  if (event.altKey) { if (x) viewport.rotateScreen('z', -x * step); return true; }
+  if (x) viewport.rotateScreen('y', x * step); else viewport.rotateScreen('x', y * step);
+  return true;
+}
+
 function onKeyDown(event) {
   const key = event.key.toLowerCase();
   const editing = event.target.closest?.('input, textarea, select, [contenteditable="true"]');
   const mod = event.ctrlKey || event.metaKey;
   if (mod && !event.altKey) {
     if (editing && ['x', 'c', 'v', 'z', 'y', 'a'].includes(key)) return;
+    if (!editing && hasDoc() && arrowView(event, key)) return;
     if (VIEW_KEYS[key] && !event.shiftKey) { event.preventDefault(); run(VIEW_KEYS[key]); return; }
     const shortcut = SHORTCUTS.find(([k, shift]) => k === key && shift === event.shiftKey);
     if (shortcut) { event.preventDefault(); event.stopPropagation(); run(shortcut[2]); }
@@ -5358,6 +5836,7 @@ function onKeyDown(event) {
   if (key === 'delete' || key === 'backspace') { event.preventDefault(); run('delete'); return; }
   if (key === ' ' && !sketching()) { event.preventDefault(); run('viewsMenu', { anchor: anchorFor('viewsMenu') }); return; }
   if (key === 'f') { event.preventDefault(); run('zoomFit'); return; }
+  if (arrowView(event, key)) return;
   if (sketching()) {
     const map = { l: 'sk:line', r: 'sk:rect', c: 'sk:circle', a: 'sk:arc3', p: 'sk:polygon', d: 'sk:dimension', t: 'sk:trim', s: 'sk:select', e: 'sk:ellipse', x: 'sk:extend', o: 'sk:offset' };
     if (map[key]) { event.preventDefault(); run(map[key]); return; }
@@ -5487,6 +5966,7 @@ window.__mymechanics.markup = mkTools.api;
 window.__mymechanics.electronics = elTools.api;
 window.__mymechanics.freeSurface = fsTools.api;
 window.__mymechanics.pdm = pdm.api;
+window.__mymechanics.asmTools = asmTools;
 
 start()
   .catch((error) => showError('error.unexpected', error, 'start'))

@@ -20,4 +20,13 @@ export const ICONS_SHEET = {
   gusset: '<path d="M4 3v18h17"/><path d="M7 3v15h14" opacity="0.6"/><path d="M7 8v10h10z" fill="currentColor" opacity="0.35"/><path d="M7 8v10h10z"/>',
   weldBead: '<path d="M3 3v18h18"/><path d="M3 13c2 0 3 1 4 3s2 3 2 5" stroke-width="2.2"/><path d="M6 20l1-1M4.5 17.5l1-1M8 19l-1-1" opacity="0.7"/>',
   trimExtend: '<path d="M2 10h12M2 14h12" /><path d="M14 10h6M14 14h6" stroke-dasharray="1.8 1.4"/><path d="M16 4v16" stroke-width="2.2"/>',
+  // ── convert / insert bends, rip, unfold / fold, cross break, welded corner, tab and slot
+  convertSheet: '<path d="M4 8l7-4 9 4v9l-7 4-9-4z" opacity="0.45"/><path d="M4 8v9l9 4" stroke-width="2"/><path d="M4 8l9 4 7-4" stroke-dasharray="2 1.5"/><path d="M15 15h6M18 12l3 3-3 3"/>',
+  insertBends: '<path d="M3 20h9a4 4 0 0 0 4-4V4" stroke-width="2"/><path d="M6 20h6a1 1 0 0 0 1-1V4" opacity="0.5"/><circle cx="12" cy="16" r="1.4" fill="currentColor" stroke="none"/><path d="M19 4v6M16 7h6"/>',
+  rip: '<path d="M3 21V7h7M14 7h7v14" stroke-width="2"/><path d="M10 7l2-4 2 4" stroke-dasharray="1.6 1.3"/><path d="M12 9v12" stroke-dasharray="2 1.6" opacity="0.7"/>',
+  unfold: '<path d="M3 18h9a3 3 0 0 0 3-3V5" opacity="0.5" stroke-dasharray="2 1.5"/><path d="M3 21h18" stroke-width="2"/><path d="M17 6a7 7 0 0 1 4 7"/><path d="M21 9v4h-4"/>',
+  fold: '<path d="M3 21h9a3 3 0 0 0 3-3V5" stroke-width="2"/><path d="M15 21h6" opacity="0.5" stroke-dasharray="2 1.5"/><path d="M21 13a7 7 0 0 0-4-7"/><path d="M17 10V6h4"/>',
+  crossBreak: '<rect x="3" y="5" width="18" height="14" rx="1"/><path d="M3 5l18 14M21 5L3 19" stroke-dasharray="2.2 1.6"/>',
+  weldedCorner: '<path d="M3 21V9h12M15 9v12" opacity="0.6"/><path d="M15 9l6-6v12l-6 6" /><path d="M15 9v12" stroke-width="2.6"/><path d="M13 12l4 1M13 15l4 1M13 18l4 1" opacity="0.7"/>',
+  tabSlot: '<path d="M2 16h20v4H2z"/><path d="M8 4h8v12" /><path d="M8 4v12"/><path d="M10 16v3h4v-3" stroke-width="2"/>',
 };

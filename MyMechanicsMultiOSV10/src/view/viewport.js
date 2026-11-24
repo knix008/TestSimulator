@@ -9,7 +9,7 @@ import { LineSegments2 } from 'three/examples/jsm/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { orbitStep } from './orbit.js';
+import { orbitStep, freeOrbitStep, rollStep, orbitAboutAxis, edgeAxis, ORBIT_SPEED } from './orbit.js';
 
 /** Standard views (Z up): dir points from the model to the eye. Front looks along +Y, top down −Z, right along −X. */
 export const VIEWS = {
@@ -323,12 +323,67 @@ export class Viewport {
     return (2 * this.distance * Math.tan(THREE.MathUtils.degToRad(this.persp.fov / 2))) / this.height;
   }
 
-  /** Turntable orbit (orbit.js): about world Z, elevation clamped short of the poles, no roll. */
-  rotateBy(dx, dy) {
-    const { dir, up } = orbitStep(this.dir.toArray(), this.up.toArray(), dx, dy);
+  /**
+   * Orbit by a drag (orbit.js). 'free' (the default) turns about the screen axes with no clamp, so a model can be
+   * laid down or turned over; 'turntable' turns about world Z with the elevation clamped (setting orbitMode).
+   * A drag that started on an edge turns about that edge (or a circular edge's axis); one that started on a face
+   * turns about the point picked.
+   */
+  rotateBy(dx, dy, pivot = null) {
+    const speed = ORBIT_SPEED * ((this.options.orbitSpeed?.() ?? 100) / 100);
+    if (pivot?.axis) { this.turnAbout(pivot.axis.point, pivot.axis.dir, -(dx + dy) * speed); return; }
+    const before = { dir: this.dir.toArray(), up: this.up.toArray() };
+    const mode = this.options.orbitMode?.() ?? 'free';
+    const { dir, up } = mode === 'turntable' ? orbitStep(before.dir, before.up, dx, dy, speed) : freeOrbitStep(before.dir, before.up, dx, dy, speed);
+    if (pivot?.point) {
+      // Turn about the picked point: the target turns with the view about it (same rotation as dir and up).
+      const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(...before.dir), new THREE.Vector3(...dir));
+      const p = new THREE.Vector3(...pivot.point);
+      this.target.sub(p).applyQuaternion(q).add(p);
+    }
     this.dir.fromArray(dir);
     this.up.fromArray(up);
     this.updateCamera();
+  }
+
+  /** Roll the view about the line of sight by `radians` (positive = the model turns anticlockwise on screen). */
+  rollBy(radians) {
+    const { dir, up } = rollStep(this.dir.toArray(), this.up.toArray(), radians);
+    this.dir.fromArray(dir); this.up.fromArray(up);
+    this.updateCamera();
+  }
+
+  /** The model turned by `radians` about a line through `point` along `axis` (world): an edge, an axis, X/Y/Z. */
+  turnAbout(point, axis, radians) {
+    const r = orbitAboutAxis({ dir: this.dir.toArray(), up: this.up.toArray(), target: this.target.toArray() }, point, axis, -radians);
+    this.dir.fromArray(r.dir); this.up.fromArray(r.up); this.target.fromArray(r.target);
+    this.updateCamera();
+  }
+
+  /**
+   * The model turned about a screen axis through the orbit target by `degrees`: 'x' = the screen's horizontal
+   * (positive tips the top away), 'y' = the screen's vertical (positive turns it to the right), 'z' = roll.
+   */
+  rotateScreen(axis, degrees) {
+    const rad = THREE.MathUtils.degToRad(degrees);
+    if (axis === 'z') { this.rollBy(rad); return; }
+    const right = new THREE.Vector3().crossVectors(this.up, this.dir).normalize();
+    this.turnAbout(this.target.toArray(), axis === 'x' ? right.toArray() : this.up.toArray(), rad);
+  }
+
+  /** The axis an edge hit turns about ({ point, dir } world) or null: a straight edge itself, an arc its axis. */
+  edgeAxisOf(hit) {
+    if (hit?.kind !== 'edge') return null;
+    const body = this.bodies.get(hit.bodyKey);
+    const seg = body?.edges?.userData.segments;
+    if (!seg) return null;
+    const pts = [];
+    for (let k = 0, s = 0; k < seg.length; k += 6, s++) {
+      if ((body.edgeSegments[s] ?? -1) !== hit.index) continue;
+      for (const o of [0, 3]) { const v = new THREE.Vector3(seg[k + o], seg[k + o + 1], seg[k + o + 2]); if (body.matrix) v.applyMatrix4(body.matrix); pts.push(v.toArray()); }
+    }
+    const a = edgeAxis(pts);
+    return a ? { point: a.point, dir: a.dir, kind: a.kind } : null;
   }
 
   panBy(dx, dy) {
@@ -632,9 +687,18 @@ export class Viewport {
           return;
         }
       }
-      // Left drag rotates; Ctrl (or Shift) + left drag, right drag and Ctrl + middle drag move the view.
-      const mode = e.button === 1 ? (e.ctrlKey ? 'pan' : e.shiftKey ? 'zoom' : 'rotate') : e.button === 2 ? 'pan' : (e.shiftKey || e.ctrlKey || e.metaKey ? 'pan' : 'rotate');
-      drag = { mode, x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, button: e.button, moved: false, id: e.pointerId };
+      // Left drag rotates; Ctrl (or Shift) + left drag, right drag and Ctrl + middle drag move the view;
+      // Alt + left or middle drag rolls. A middle drag that starts on an edge turns about that edge (a circular
+      // edge: about its axis); one that starts on a face turns about the point under the pointer.
+      const mode = e.altKey && e.button !== 2 ? 'roll' : e.button === 1 ? (e.ctrlKey ? 'pan' : e.shiftKey ? 'zoom' : 'rotate') : e.button === 2 ? 'pan' : (e.shiftKey || e.ctrlKey || e.metaKey ? 'pan' : 'rotate');
+      let pivot = null;
+      if (mode === 'rotate' && e.button === 1) {
+        const hit = this.pick(e.clientX, e.clientY, { kinds: ['edge', 'face'] });
+        const axis = this.edgeAxisOf(hit);
+        pivot = axis ? { axis } : hit?.point ? { point: hit.point } : null;
+      }
+      const rect0 = c.getBoundingClientRect();
+      drag = { mode, pivot, x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, cx: rect0.left + rect0.width / 2, cy: rect0.top + rect0.height / 2, button: e.button, moved: false, id: e.pointerId };
       c.setPointerCapture(e.pointerId);
     });
     c.addEventListener('pointerleave', () => { this.mouse.inside = false; this.requestRender(); });
@@ -670,7 +734,12 @@ export class Viewport {
         if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4) return;
         drag.moved = true;
         drag.x = e.clientX; drag.y = e.clientY;
-        if (drag.mode === 'rotate' && !this.lockRotation) this.rotateBy(dx, dy);
+        if (drag.mode === 'roll' && !this.lockRotation) {
+          // The angle swept about the view centre (a drag around the centre rolls by that angle).
+          const a0 = Math.atan2(drag.y - dy - drag.cy, drag.x - dx - drag.cx); const a1 = Math.atan2(drag.y - drag.cy, drag.x - drag.cx);
+          let da = a1 - a0; if (da > Math.PI) da -= 2 * Math.PI; if (da < -Math.PI) da += 2 * Math.PI;
+          this.rollBy(-da);
+        } else if (drag.mode === 'rotate' && !this.lockRotation) this.rotateBy(dx, dy, drag.pivot);
         else if (drag.mode === 'pan' || (drag.mode === 'rotate' && this.lockRotation)) this.panBy(dx, dy);
         else if (drag.mode === 'zoom') this.zoomBy(Math.exp(dy * 0.01));
         c.classList.add('dragging');

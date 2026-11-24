@@ -107,10 +107,35 @@ try {
       const top = [...self].sort((a, b) => b[1] - a[1]).slice(0, step.top ?? 18);
       console.log('  profile (self ms):');
       for (const [k, ms] of top) console.log(`    ${ms.toFixed(1).padStart(8)}  ${k}`);
+      // { "total": N }: also the N app functions with the most time including what they call (each counted once
+      // per call path, so recursion does not add up twice) — finds the caller of an expensive library loop.
+      if (step.total) {
+        const byId = new Map(nodes.map((n) => [n.id, n]));
+        const keyOf = (n) => { const f = n.callFrame; return `${f.functionName || '(anon)'} ${f.url.split('/').pop().split('?')[0]}:${f.lineNumber + 1}`; };
+        const inclusive = new Map();
+        const walk = (id, onPath) => {
+          const n = byId.get(id); const k = keyOf(n); let sum = (dt.get(id) ?? 0) / 1000;
+          const fresh = !onPath.has(k); if (fresh) onPath.add(k);
+          for (const c of n.children ?? []) sum += walk(c, onPath);
+          if (fresh) { onPath.delete(k); if (/\/src\//.test(n.callFrame.url)) inclusive.set(k, (inclusive.get(k) ?? 0) + sum); }
+          return sum;
+        };
+        if (nodes.length) walk(nodes[0].id, new Set());
+        console.log('  profile (total ms, app code):');
+        for (const [k, ms] of [...inclusive].sort((a, b) => b[1] - a[1]).slice(0, step.total)) console.log(`    ${ms.toFixed(1).padStart(8)}  ${k}`);
+      }
     }
     // x / y may be JS expressions evaluated in the page (positions computed from the view: { "x": "window.__pt[0]" }).
     const coord = async (v) => (typeof v === 'string' ? (await page.send('Runtime.evaluate', { expression: v, returnByValue: true })).result?.result?.value : v);
     if (step.mouse) for (const ev of step.mouse) { await page.send('Input.dispatchMouseEvent', { button: 'none', clickCount: ev.type === 'mouseMoved' ? 0 : 1, ...ev, x: await coord(ev.x), y: await coord(ev.y), delay: undefined }); if (ev.delay) await sleep(ev.delay); }
+    // Real key presses: [{ key: 'ArrowRight', code?, keyCode?, modifiers?: Alt 1 | Ctrl 2 | Meta 4 | Shift 8 }].
+    const KEY_CODES = { ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40, Escape: 27, Enter: 13 };
+    if (step.keys) for (const k of step.keys) {
+      const base = { key: k.key, code: k.code ?? k.key, windowsVirtualKeyCode: k.keyCode ?? KEY_CODES[k.key] ?? k.key.toUpperCase().charCodeAt(0), modifiers: k.modifiers ?? 0 };
+      await page.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', ...base });
+      await page.send('Input.dispatchKeyEvent', { type: 'keyUp', ...base });
+      await sleep(k.delay ?? 60);
+    }
     if (step.until) { try { await page.waitFor(step.until, { timeout: step.timeout ?? 30000, interval: 200 }); } catch { failed = true; console.log(`✘ timed out: ${step.until} [${Date.now() - t0} ms]`); } }
     if (step.wait) await sleep(step.wait);
     if (step.shot) {
