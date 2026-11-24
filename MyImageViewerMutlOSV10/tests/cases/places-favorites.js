@@ -32,17 +32,35 @@ module.exports = {
       assertIncludes(css, '.pv-homebar {', 'bar styled');
     });
 
-    test('Left panel: 340 px default, 304 px minimum (the four tabs in English, the wider language), up to 600', () => {
-      const rule = css.slice(css.indexOf('#sidebar {'), css.indexOf('#sidebar {') + 200);
+    test('Left panel: 340 px default, minimum = the measured tab labels (all four in full, per language), up to 600', () => {
+      const rule = css.slice(css.indexOf('#sidebar {'), css.indexOf('#sidebar {') + 300);
       assertIncludes(rule, 'width: 340px;', 'default');
-      assertIncludes(rule, 'min-width: 304px;', 'minimum');
+      assertIncludes(rule, 'min-width: var(--sidebar-min-w, 282px);', 'measured minimum, English-tab fallback');
       assertIncludes(rule, 'max-width: 600px;', 'maximum');
       const tab = css.slice(css.indexOf('.tree-tab {'), css.indexOf('.tree-tab {') + 300);
       assertIncludes(tab, 'flex: 0 0 auto;', 'tabs keep their own width (no stretched gaps)');
-      assertIncludes(tab, 'padding: 0 6px;', 'tight padding');
+      assertIncludes(tab, 'padding: 0 4px;', 'tight padding');
+      const fit = app.slice(app.indexOf('function _sidebarFitMin'), app.indexOf('function _initSidebarResize'));
+      assertIncludes(fit, "tabs.querySelectorAll('.tree-tab')", 'measures every tab');
+      assertIncludes(fit, 'b.scrollWidth', 'natural label width');
+      assertIncludes(fit, "sidebar.style.setProperty('--sidebar-min-w'", 'feeds the CSS minimum');
+      assertIncludes(fit, "sidebar.classList.contains('collapsed')", 'not measured while collapsed to a rail');
       const fn = app.slice(app.indexOf('function _initSidebarResize'), app.indexOf('function _initVerticalResize'));
-      assertIncludes(fn, 'const MIN_W = 304;', 'drag minimum');
+      assertIncludes(fn, 'const MIN_W = minW();', 'drag minimum is measured at drag start');
       assertIncludes(fn, 'const MAX_W = 600;', 'drag maximum');
+      const lang = app.slice(app.indexOf('async function _refreshLang'), app.indexOf('async function _refreshLang') + 400);
+      assertIncludes(lang, '_sidebarFitMin();', 'language switch re-measures');
+    });
+
+    test('One picture: Resize in the viewer menu (top level) and the Home / Recent / Favorites menu', () => {
+      const viewer = app.slice(app.indexOf('function _showContextMenu'), app.indexOf('function _imageFileOsMenuItems'));
+      const top = viewer.slice(0, viewer.indexOf("label: t('context.transform')"));
+      assertIncludes(top, "hasImg && { icon: Icons.resize, label: t('context.resize'), shortcut: 'Ctrl+Shift+R', action: () => _openResizeDialog() },", 'viewer top level');
+      const place = app.slice(app.indexOf('function _showPlaceMenu'), app.indexOf('function _markPlacesCurrent'));
+      assertIncludes(place, "action: () => _openBatch([path], { resize: true }) },", 'places menu');
+      assertIncludes(place, "kind !== 'dir' && FormatSupport.isImage?.(path)", 'only for an image file');
+      const tree = app.slice(app.indexOf('function _showTreeContextMenu'), app.indexOf('async function _printPath'));
+      assertIncludes(tree, "action: () => _openBatch([entry.path], { resize: true }) },", 'tree / contact sheet (single)');
     });
 
     test('Drive buttons have their own row under the tabs', () => {

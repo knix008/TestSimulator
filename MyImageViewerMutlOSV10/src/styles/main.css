@@ -1079,7 +1079,8 @@ body.maximized #window-controls #win-max .win-restore-icon { display: block; }
   display: flex;
   flex-direction: column;
   width: 340px;
-  min-width: 304px;
+  /* app.js measures the tab labels and sets --sidebar-min-w (all four tabs fully visible) */
+  min-width: var(--sidebar-min-w, 282px);   /* fallback: the English tabs */
   max-width: 600px;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
@@ -1289,7 +1290,7 @@ body.maximized #window-controls #win-max .win-restore-icon { display: block; }
 .tree-tabs {
   flex-shrink: 0;
   display: flex;
-  gap: 2px;
+  gap: 1px;
   padding: 3px 4px 0;
   background: var(--panel-title-bg);
   border-bottom: 1px solid var(--border);
@@ -1301,9 +1302,9 @@ body.maximized #window-controls #win-max .win-restore-icon { display: block; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   height: 24px;
-  padding: 0 6px;
+  padding: 0 4px;
   border: 1px solid transparent;
   border-bottom: 0;
   border-radius: 5px 5px 0 0;

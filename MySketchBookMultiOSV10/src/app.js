@@ -164,7 +164,7 @@ function showError(titleKey, error, context = '') {
   });
 }
 
-window.addEventListener('error', (event) => { if (event.error || event.message) showError('error.unexpected', event.error ?? event.message, event.filename ? `${event.filename}:${event.lineno}` : ''); });
+window.addEventListener('error', (event) => { if (/^ResizeObserver loop/.test(String(event.message ?? ''))) return; if (event.error || event.message) showError('error.unexpected', event.error ?? event.message, event.filename ? `${event.filename}:${event.lineno}` : ''); });
 window.addEventListener('unhandledrejection', (event) => showError('error.unexpected', event.reason));
 
 // ───────────────────────── documents (one project at a time)

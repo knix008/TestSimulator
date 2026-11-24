@@ -6391,6 +6391,10 @@
       _favoriteMenuItem(path, kind === 'dir'),
       sec && sec.listKind === 'recent' && { icon: Icons.close, label: sec.removeTitle, action: () => sec.remove(path) },
       { separator: true },
+      // One picture: the same Resize dialog the tree uses (a new file next to it, the original stays)
+      kind !== 'dir' && FormatSupport.isImage?.(path) && !FormatSupport.isVideo?.(path) && !FormatSupport.isAudio?.(path) &&
+        { icon: Icons.resize, label: `${t('batch.resizeTitle')}…`, disabled: missing,
+          action: () => _openBatch([path], { resize: true }) },
       { icon: Icons.copy, label: t('tree.copyPath'), action: () => navigator.clipboard.writeText(path).catch(() => {}) },
       !isWeb && { icon: Icons.explorer, label: t('context.showInExplorer'), disabled: missing,
         action: () => window.electronAPI.showItemInFolder(path) },
@@ -11671,13 +11675,13 @@
       { icon: Icons.print, label: t('menu.print'), shortcut: 'Ctrl+P', disabled: !_canPrint(), action: () => _openPrintPreview() },
       hasImg && { icon: Icons.copy,   label: t('context.copy'),   shortcut: 'Ctrl+C', action: _copyToClipboard },
       hasImg && !isAv && { icon: Icons.rectSelect, label: `${t('sel.pickRegion')}…`, action: () => _selectRegionToSave() },
+      // Resize sits at the top level (not only inside Transform) for the picture on screen
+      hasImg && { icon: Icons.resize, label: t('context.resize'), shortcut: 'Ctrl+Shift+R', action: () => _openResizeDialog() },
       hasImg && { icon: Icons.rotateRight, label: t('context.transform'), submenu: () => [
         { icon: Icons.rotateLeft,  label: t('context.rotateLeft'),  shortcut: 'Ctrl+[', action: () => _rotate(-90) },
         { icon: Icons.rotateRight, label: t('context.rotateRight'), shortcut: 'Ctrl+]', action: () => _rotate(90) },
         { icon: Icons.flipH,       label: t('context.flipH'),       action: () => _flip('h') },
         { icon: Icons.flipV,       label: t('context.flipV'),       action: () => _flip('v') },
-        { separator: true },
-        { icon: Icons.resize,      label: t('context.resize'),      shortcut: 'Ctrl+Shift+R', action: () => _openResizeDialog() },
       ] },
       (hasImg || isVideo) && { icon: Icons.zoomIn, label: t('context.zoomMenu'), submenu: () => [
         { icon: Icons.zoomIn,    label: t('context.zoomIn'),    shortcut: 'Ctrl++', action: () => _zoom(1.25) },
@@ -12660,6 +12664,7 @@
   async function _refreshLang() {
     await I18n.loadLanguage(state.lang);
     I18n.applyToDOM();
+    _sidebarFitMin();   // tab labels changed length: the left panel's minimum follows
     window.EditTools?.applyI18n();
     _buildEffectsPanel();
     _populateBgAlgoSelect();
@@ -12918,6 +12923,7 @@
 
     sidebar.classList.toggle('collapsed', !_layout.left);
     right.classList.toggle('collapsed', !_layout.right);
+    if (_layout.left) _sidebarFitMin();   // the tabs may have changed language while collapsed
 
     // The header buttons look like the toolbar's panel toggles: same icon, lit while open
     _setPanelCollapseBtn(document.getElementById('tree-collapse-btn'), 'panelLeft', _layout.left, _leftPanelTip());
@@ -13654,24 +13660,58 @@
   /* ════════════════════════════════════════════
      Sidebar Resize
   ════════════════════════════════════════════ */
+  /**
+   * The narrowest the left panel may get: every tab label (Explorer · Home · Recent ·
+   * Favorites, in the current language) still shows in full. Measured, so it follows the
+   * language; kept in --sidebar-min-w (CSS min-width) and widens the panel if it is now short.
+   * Function-local state only: _refreshLang can call this before the init code below runs.
+   */
+  function _sidebarFitMin() {
+    const FLOOR_W = 150;
+    if (!sidebar) return FLOOR_W;
+    const prev = parseFloat(sidebar.style.getPropertyValue('--sidebar-min-w')) || FLOOR_W;
+    const tabs = document.getElementById('tree-tabs');
+    const list = tabs ? [...tabs.querySelectorAll('.tree-tab')].filter((b) => b.offsetParent !== null) : [];
+    if (!list.length || sidebar.classList.contains('collapsed')) return prev;   // hidden: keep the last value
+    const cs = getComputedStyle(tabs);
+    const gap = parseFloat(cs.columnGap) || 0;
+    let w = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) + gap * (list.length - 1);
+    for (const b of list) {
+      const bs = getComputedStyle(b);
+      // scrollWidth = the label's natural width (nowrap) plus padding; the border is extra
+      w += b.scrollWidth + (parseFloat(bs.borderLeftWidth) || 0) + (parseFloat(bs.borderRightWidth) || 0);
+    }
+    w += parseFloat(getComputedStyle(sidebar).borderRightWidth) || 0;
+    const min = Math.max(FLOOR_W, Math.ceil(w) + 4);   // a little slack for sub-pixel text widths
+    sidebar.style.setProperty('--sidebar-min-w', `${min}px`);
+    const cur = parseFloat(sidebar.style.width) || sidebar.getBoundingClientRect().width;
+    if (cur && cur < min) sidebar.style.width = `${min}px`;
+    return min;
+  }
+
   function _initSidebarResize() {
     const handle = document.getElementById('sidebar-resize-handle');
     if (!handle || !sidebar) return;
 
-    const MIN_W = 304;
     const MAX_W = 600;
+    const minW = () => _sidebarFitMin();
 
     // Restore previous width
     const saved = parseInt(localStorage.getItem('sidebarWidth') || '', 10);
-    if (saved >= MIN_W && saved <= MAX_W) {
-      sidebar.style.width = `${saved}px`;
+    if (saved > 0 && saved <= MAX_W) {
+      sidebar.style.width = `${Math.max(saved, minW())}px`;
+    } else {
+      minW();
     }
+    // Web fonts can land after the first measure; measure again once they are in
+    document.fonts?.ready?.then(() => _sidebarFitMin()).catch(() => {});
 
     handle.addEventListener('mousedown', (e) => {
       e.preventDefault();
       e.stopPropagation();
       const startX = e.clientX;
       const startW = sidebar.getBoundingClientRect().width;
+      const MIN_W = minW();
       handle.classList.add('resizing');
       document.body.classList.add('resizing-col');
 
