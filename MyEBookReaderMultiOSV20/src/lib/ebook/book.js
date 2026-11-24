@@ -15,7 +15,9 @@ import { openCbz, isCbr } from './cbz.js';
 import { openTextBook } from './plaintext.js';
 import { openImageBook, IMAGE_EXTENSIONS, looksLikeImage, isImageName } from './imagebook.js';
 import { looksLikeDjvu } from './djvumagic.js';
-import { looksLikeZip, readZip, readEntry } from './zip.js';
+import {
+  looksLikeZip, readZip, readEntry, findEntry, unlockZip, zipNeedsPassword, ZipPasswordError,
+} from './zip.js';
 import { openPictureFolder } from './picturefolder.js';
 
 // Amazon's own formats (.azw, .azw3, .kf8, .prc) are all the MOBI container:
@@ -204,11 +206,33 @@ function wrap(source, { name, path, size }) {
  *   - `data`  the file bytes
  *   - `name`  file name (used for format hints and the title fallback)
  *   - `path`  absolute path, when there is one
+ *   - `askPassword(reason)` → Promise<string | null>, for a password-protected
+ *     archive (reason 'needed' or 'wrong'; null = the reader cancelled)
  * @returns {Promise<object>} the book
  */
-export async function openBook({ data, name = '', path = '', size = 0 } = {}) {
+export async function openBook({ data, name = '', path = '', size = 0, askPassword = null } = {}) {
   if (!data || !data.length) throw new Error('There is nothing to open — the file is empty.');
+
+  // A password-protected archive (EPUB, CBZ, ZIP, FB2.ZIP) is unlocked before
+  // anything reads it; every later read of these bytes then has the password.
+  let zip = null;
+  if (looksLikeZip(data)) {
+    try { zip = readZip(data); } catch { zip = null; }
+    if (zip && zipNeedsPassword(zip)) await unlockWithPrompt(zip, askPassword);
+  }
+
   const format = detectFormat(data, name);
+
+  // An archive holding just one book ("novel.txt.zip" — how a book whose
+  // format has no password of its own is protected) opens that book.
+  if (zip && (format === 'cbz' || (format === 'epub' && !findEntry(zip, 'META-INF/container.xml')))) {
+    const inner = singleBookEntry(zip);
+    if (inner) {
+      return openBook({
+        data: readEntry(zip, inner), name: inner.name.split('/').pop(), path, size: size || data.length,
+      });
+    }
+  }
 
   // Anything unrecognised falls through to plain text; a file that is plainly
   // not text (a program, an archive, a video) is refused rather than shown as
@@ -272,6 +296,40 @@ export function openPictureFolderBook({ name = '', path = '', pages = [] } = {})
   const source = openPictureFolder({ name, pages });
   const size = pages.reduce((n, p) => n + (p.bytes?.length || 0), 0);
   return wrap(source, { name, path, size });
+}
+
+/**
+ * Asks for the archive's password until it is right. Throws an AbortError
+ * when the reader cancels, a ZipPasswordError when nobody can be asked.
+ */
+export async function unlockWithPrompt(zip, askPassword) {
+  if (typeof askPassword !== 'function') throw new ZipPasswordError('needed');
+  let reason = 'needed';
+  for (;;) {
+    // eslint-disable-next-line no-await-in-loop
+    const pw = await askPassword(reason);
+    if (pw == null) {
+      const err = new Error('Cancelled');
+      err.name = 'AbortError';
+      err.passwordCancelled = true;
+      throw err;
+    }
+    if (unlockZip(zip, pw)) return String(pw);
+    reason = 'wrong';
+  }
+}
+
+// The one book file in an archive that has nothing else (bar folders and
+// macOS litter), or null. A PDF or a picture inside is left alone: a PDF is
+// not opened from an archive, and a picture is a one-page comic already.
+export function singleBookEntry(zip) {
+  const files = zip.entries.filter((e) => !e.directory
+    && !/(^|\/)__MACOSX\//i.test(e.name) && !/(^|\/)\._/.test(e.name));
+  if (files.length !== 1) return null;
+  const [only] = files;
+  const ext = extensionOf(only.name);
+  if (!ext || !EBOOK_EXTENSIONS.includes(ext) || isImageName(only.name)) return null;
+  return only;
 }
 
 // "book.fb2.zip" is how most FictionBook libraries ship their files: the one

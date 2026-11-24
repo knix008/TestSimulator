@@ -232,9 +232,9 @@ function paintFlow(ctx, page) {
  * @returns {Promise<object>} an object with pdf.js's PDFDocumentProxy surface
  */
 export async function openEbookDocument({
-  data, name = '', path = '', onProgress, signal, fontSize = DEFAULT_FONT_SIZE,
+  data, name = '', path = '', onProgress, signal, fontSize = DEFAULT_FONT_SIZE, askPassword = null,
 } = {}) {
-  const book = await openBook({ data, name, path, size: data?.length || 0 });
+  const book = await openBook({ data, name, path, size: data?.length || 0, askPassword });
   const size = clampFontSize(fontSize);
   let layout;
   try {

@@ -28,6 +28,10 @@ pub const KEEP_FOR: Duration = Duration::from_secs(3 * 24 * 60 * 60);
 const MAX_TOTAL: u64 = 64 * 1024 * 1024 * 1024;
 /// The error an extraction stopped by the reader ends with.
 pub const CANCELLED: &str = "Cancelled";
+/// The error for an archive with password-protected files. Nothing is
+/// extracted: the renderer reads the archive itself, asking for the password
+/// (src/lib/ebook/zip.js), so the plain text never lands in the temp folder.
+pub const PASSWORD_PROTECTED: &str = "PasswordProtectedZip";
 
 /// How far an extraction has got, for a progress bar: bytes unpacked out of
 /// the archive's total, and files written out of the files it holds.
@@ -388,6 +392,9 @@ pub fn extract_all(archive: &Path, dest: &Path) -> Result<usize, String> {
 pub fn extract_all_with(archive: &Path, dest: &Path, on_step: &mut OnStep) -> Result<usize, String> {
   let mut f = io::BufReader::new(File::open(archive).map_err(|e| format!("{}: {e}", archive.display()))?);
   let entries = read_entries(&mut f)?;
+  if entries.iter().any(|e| !e.is_dir() && e.flags & 1 != 0) {
+    return Err(PASSWORD_PROTECTED.into());
+  }
   let total: u64 = entries.iter().map(|e| e.size).fold(0u64, u64::saturating_add);
   if total > MAX_TOTAL {
     return Err(bad("it would expand to more than 64 GB"));
@@ -644,6 +651,32 @@ mod tests {
     fs::create_dir(&out).unwrap();
     assert!(extract_all(&zip, &out).unwrap_err().contains("checksum"));
     assert!(read_entries(&mut io::Cursor::new(b"not a zip at all, clearly".to_vec())).is_err());
+  }
+
+  #[test]
+  fn leaves_a_password_protected_archive_to_the_renderer() {
+    let dir = tempfile::tempdir().unwrap();
+    let zip = dir.path().join("locked.zip");
+    let mut bytes = make_zip(&[item("a.jpg", b"plain", false), item("b.jpg", b"secret", false)]);
+    // Mark "b.jpg" encrypted in its local and central headers (general flag bit 0).
+    let mut seen = 0;
+    let mut i = 0;
+    while i + 4 <= bytes.len() {
+      let sig = u32_at(&bytes, i);
+      let name_at = if sig == SIG_LOCAL { 30 } else if sig == SIG_CENTRAL { 46 } else { 0 };
+      if name_at > 0 && bytes.get(i + name_at..i + name_at + 5) == Some(b"b.jpg".as_slice()) {
+        let flag_at = if sig == SIG_LOCAL { i + 6 } else { i + 8 };
+        bytes[flag_at] |= 1;
+        seen += 1;
+      }
+      i += 1;
+    }
+    assert_eq!(seen, 2);
+    fs::write(&zip, bytes).unwrap();
+    let out = dir.path().join("out");
+    fs::create_dir(&out).unwrap();
+    assert_eq!(extract_all(&zip, &out).unwrap_err(), PASSWORD_PROTECTED);
+    assert_eq!(fs::read_dir(&out).unwrap().count(), 0, "nothing is written");
   }
 
   #[test]

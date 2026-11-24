@@ -13,7 +13,13 @@ import Tooltip from './components/Tooltip.jsx';
 import Toasts from './components/Toasts.jsx';
 import SettingsDialog from './components/SettingsDialog.jsx';
 import AboutDialog from './components/AboutDialog.jsx';
-import { ErrorDialog, ProgressDialog, PromptDialog, PropertiesDialog, UnsavedDialog } from './components/Dialogs.jsx';
+import {
+  ErrorDialog, ProgressDialog, PromptDialog, PropertiesDialog, UnsavedDialog, SecurityDialog,
+} from './components/Dialogs.jsx';
+import { awaitPdfPassword, PASSWORD_INCORRECT } from './lib/pdf-password.js';
+import { loadPdfForEditing } from './lib/pdf-crypt.js';
+import { protectionKind, archiveProtectionOf, buildProtectedCopy } from './lib/protect.js';
+import { rememberZipPassword } from './lib/ebook/zip.js';
 import CaptureDialog from './components/CaptureDialog.jsx';
 import PrintDialog from './components/PrintDialog.jsx';
 import {
@@ -31,7 +37,7 @@ import {
   isDesktop, api, openFileDialog, readPath, downloadUrl, copyText, copyImage,
   saveText, writeTextTo, writeBinaryTo, saveBinary, pickAnyFile, pickDirectory, listDirectory, listDrives,
   baseName, dirName, pathExists, saveEncoded, openExternal, droppedPaths, showItemInFolder, readClipboardText,
-  pathKind, pictureBookFiles, readPictureBook, pictureBookCover, isCancelled,
+  pathKind, pictureBookFiles, readPictureBook, pictureBookCover, isCancelled, isPasswordProtectedZip,
 } from './lib/platform.js';
 import { namedActionPage } from './lib/nav.js';
 import {
@@ -56,7 +62,7 @@ import { pageOccurrence } from './lib/search.js';
 import { commentAnchorY, mergeCommentList } from './lib/comments.js';
 import { documentKey, tabLabel, findTabByFile, neighborTabId, nextTabId, anyTabDirty } from './lib/tabs.js';
 import {
-  writeWorkspaceIntoPdf, attachmentRecord, base64ToBytes, MAX_ATTACHMENT_BYTES,
+  buildPdfForSave, attachmentRecord, base64ToBytes, MAX_ATTACHMENT_BYTES,
   suggestedPdfCopyName, pdfSaveTarget, removePdfAnnotations,
 } from './lib/pdf-write.js';
 import {
@@ -191,12 +197,19 @@ export default function App() {
     };
     let shown = false;
     let live = true;
-    const timer = setTimeout(() => { if (live) { shown = true; setTask({ ...state }); } }, SHOW_PROGRESS_AFTER);
+    // `paused` hides the window while the work waits on the user (a password
+    // prompt) — otherwise the progress backdrop would sit over that prompt.
+    let paused = false;
+    const timer = setTimeout(() => { if (live && !paused) { shown = true; setTask({ ...state }); } }, SHOW_PROGRESS_AFTER);
+    const control = {
+      pause: () => { paused = true; if (shown) setTask(null); },
+      resume: () => { paused = false; if (shown && live) setTask({ ...state }); },
+    };
     try {
       return await fn((p) => {
         Object.assign(state, p, { indeterminate: !(p.total > 0) });
-        if (shown) setTask((cur) => ({ ...state, cancelling: !!cur?.cancelling }));
-      }, controller?.signal);
+        if (shown && !paused) setTask((cur) => ({ ...state, cancelling: !!cur?.cancelling }));
+      }, controller?.signal, control);
     } finally {
       live = false;
       clearTimeout(timer);
@@ -408,7 +421,12 @@ export default function App() {
   // `fontSize` lays a reflowable e-book out at that size instead of the saved
   // one; `relayoutFrom` ({ doc, page }) is the same book before that, whose
   // reading position carries over.
-  const openBytes = useCallback(async (payload, { restore, replace = false, fontSize, relayoutFrom, startAt } = {}) => {
+  // `password`: one already known to open these bytes (a reload after Save),
+  // tried before the prompt is shown. `carry`: protection facts to keep when
+  // `data` is a decrypted in-memory rewrite of the open document.
+  const openBytes = useCallback(async (payload, {
+    restore, replace = false, fontSize, relayoutFrom, startAt, password: knownPassword = null, carry = null,
+  } = {}) => {
     // `pictures`: the pages of a folder or ZIP archive of pictures ([{ name, bytes }]),
     // opened as one book known by the folder's or the archive's path.
     const { data, name, path: filePath, size, pictures } = payload;
@@ -431,37 +449,94 @@ export default function App() {
 
       // Everything that is not a PDF — EPUB, MOBI / AZW / AZW3, DjVu, FB2,
       // comics, text — is paginated into a document that looks like one.
+      // Asks for a password in the prompt dialog: resolves the text typed,
+      // or null when the reader cancels.
+      const askPassword = (wrong, label = '') => new Promise((resolve) => {
+        passwordRetry.current = resolve;
+        setPrompt({ open: true, kind: 'password', label, error: wrong ? t('error.passwordWrong') : '' });
+      });
+
       let pdf;
+      // Password protection (see buildPdfForSave and lib/protect.js): what
+      // opens `data`, whether the file is protected, and how Save protects it.
+      let protectionFacts = { password: null, encrypted: false, security: null, encryption: null };
       if (pictures) {
         pdf = await withProgress('paginating', name, (onProgress) =>
           openPictureFolderDocument({ name, path: filePath || '', pages: pictures, onProgress }));
       } else if (looksLikePdf(data)) {
-        const loadingTask = await withProgress('parsing', name, async (onProgress) => {
-          const lt = loadDocument({
+        // An encrypted PDF stops here for its password. The progress window
+        // steps aside so it cannot cover the prompt, and Cancel ends the load
+        // (pdf.js would otherwise wait for the password forever).
+        const opened = await withProgress('parsing', name, (onProgress, _signal, progress) => awaitPdfPassword(
+          loadDocument({
             data,
             onProgress: ({ loaded, total }) => onProgress({ done: loaded, total }),
-            onPassword: (retry, reason) => {
-              passwordRetry.current = retry;
-              setPrompt({ open: true, kind: 'password', error: reason === 2 ? t('error.passwordWrong') : '' });
-            },
-          });
-          await lt.promise;   // resolves once (and if) the password is accepted
-          return lt;
-        });
-        pdf = await loadingTask.promise;
+          }),
+          {
+            knownPassword,
+            pause: progress.pause,
+            resume: progress.resume,
+            ask: (reason) => askPassword(reason === PASSWORD_INCORRECT),
+          },
+        ));
+        passwordRetry.current = null;
+        if (!opened) {
+          setStatusMessage(t('status.passwordCancelled', { name }));
+          return;
+        }
+        pdf = opened.doc;
+        // pdf.js names the security handler of an encrypted file — also for
+        // owner-only protection, which opens without a prompt.
+        let encrypted = opened.password != null;
+        if (!encrypted) {
+          try { encrypted = !!(await pdf.getMetadata())?.info?.EncryptFilterName; } catch { /* treat as plain */ }
+        }
+        protectionFacts = { password: opened.password ?? (encrypted ? '' : null), encrypted, security: null, encryption: null };
       } else {
-        pdf = await withProgress('paginating', name, (onProgress) =>
-          openEbookDocument({
-            data, name, path: filePath || '', onProgress, fontSize: fontSize ?? settings.bookFontSize,
-          }));
+        // A password-protected EPUB / CBZ / ZIP asks for its password the same way.
+        if (knownPassword != null) rememberZipPassword(data, knownPassword);
+        try {
+          pdf = await withProgress('paginating', name, (onProgress, signal, progress) =>
+            openEbookDocument({
+              data,
+              name,
+              path: filePath || '',
+              onProgress,
+              fontSize: fontSize ?? settings.bookFontSize,
+              askPassword: async (reason) => {
+                progress.pause();
+                const pw = await askPassword(reason === 'wrong', t('password.labelArchive', { name }));
+                progress.resume();
+                return pw;
+              },
+            }));
+        } catch (err) {
+          if (err?.passwordCancelled) {
+            passwordRetry.current = null;
+            setStatusMessage(t('status.passwordCancelled', { name }));
+            return;
+          }
+          throw err;
+        }
+        passwordRetry.current = null;
+        const zipFacts = archiveProtectionOf(data);
+        protectionFacts = {
+          password: zipFacts.password, encrypted: zipFacts.encrypted, security: null, encryption: zipFacts.encryption,
+        };
       }
       const nextFile = {
         name,
         path: filePath || null,
         dir: filePath ? dirName(filePath) : null,
         size: size ?? data.length,
-        // A picture book has no single file to re-read or write back.
+        // A picture book has no single file to re-read or write back; its
+        // pictures are kept for saving it as an archive.
         data: pictures ? null : data,
+        pictures: pictures || null,
+        isPdf: !pictures && looksLikePdf(data),
+        ...protectionFacts,
+        protection: { mode: 'keep' },
+        ...(carry || {}),
       };
       const key = documentKey(nextFile);
       const existing = !replace ? findTabByFile(tabsRef.current, nextFile) : null;
@@ -704,6 +779,17 @@ export default function App() {
         setStatusMessage(t('status.openCancelled', { name: label }));
         return;
       }
+      // A password-protected archive is never extracted to disk: it is read
+      // in memory, where its password is asked for (lib/ebook/zip.js).
+      if (kind === 'zip' && isPasswordProtectedZip(err)) {
+        try {
+          const payload = await withProgress('opening', label, (onProgress) => readPath(target, { onProgress }));
+          await openBytes(payload);
+        } catch (inner) {
+          fail(inner, 'read', { file: target });
+        }
+        return;
+      }
       fail(err, 'read', { file: target });
     }
   }, [fail, openBytes, switchToTab, t, toast, withProgress]);
@@ -823,7 +909,7 @@ export default function App() {
     }
   }, [doc, fail, saveWorkspaceAs, t, toast, withProgress, workspaceJson, workspacePath]);
 
-  const reloadAfterPdfSave = useCallback(async (bytes, filePath) => {
+  const reloadAfterPdfSave = useCallback(async (bytes, filePath, password = null) => {
     await openBytes({
       data: bytes,
       name: filePath ? baseName(filePath) : (file?.name || 'document.pdf'),
@@ -831,6 +917,7 @@ export default function App() {
       size: bytes.length,
     }, {
       replace: true,
+      password,
       restore: {
         workspace: {
           ...workspace,
@@ -891,10 +978,12 @@ export default function App() {
     setBookFontSize(stepFontSize(doc?.fontSize ?? settings.bookFontSize, dir));
   }, [doc, setBookFontSize, settings.bookFontSize]);
 
+  // The markup written into the PDF, then the password protection chosen in
+  // File ▸ Password… (kept as it was unless changed). → { bytes, password }
   const buildMarkedPdf = useCallback(() => (
     withProgress('saving', file.name || 'document.pdf', async (onProgress) => {
       onProgress({ done: 0, total: 1 });
-      const out = await writeWorkspaceIntoPdf(file.data, workspace);
+      const out = await buildPdfForSave(file, workspace);
       onProgress({ done: 1, total: 1 });
       return out;
     })
@@ -906,7 +995,7 @@ export default function App() {
     // they go to the workspace file that sits next to it.
     if (doc.isEbook) return saveWorkspaceAs();
     try {
-      const bytes = await buildMarkedPdf();
+      const { bytes, password } = await buildMarkedPdf();
       const saved = await saveBinary({
         defaultName: suggestedPdfCopyName(file.name || 'document.pdf'),
         defaultDir: settings.lastDir,
@@ -915,7 +1004,7 @@ export default function App() {
       });
       if (!saved) return false;
       const nextPath = isDesktop && typeof saved === 'string' ? saved : file.path;
-      await reloadAfterPdfSave(bytes, nextPath);
+      await reloadAfterPdfSave(bytes, nextPath, password);
       toast(t('status.savedPdf', { name: baseName(saved) }), 'ok');
       return true;
     } catch (err) {
@@ -931,9 +1020,9 @@ export default function App() {
     if (doc.isEbook) return saveWorkspace();
     if (pdfSaveTarget({ desktop: isDesktop, path: file.path }) !== 'overwrite') return savePdfAs();
     try {
-      const bytes = await buildMarkedPdf();
+      const { bytes, password } = await buildMarkedPdf();
       await writeBinaryTo(file.path, bytes);
-      await reloadAfterPdfSave(bytes, file.path);
+      await reloadAfterPdfSave(bytes, file.path, password);
       toast(t('status.savedPdf', { name: baseName(file.path) }), 'ok');
       return true;
     } catch (err) {
@@ -942,6 +1031,68 @@ export default function App() {
     }
   }, [buildMarkedPdf, doc, fail, file, reloadAfterPdfSave, savePdfAs, saveWorkspace, t, toast]);
   savePdfRef.current = savePdf;
+
+  // ── File ▸ Password… ──
+  // A PDF keeps the choice for its next Save (the password lives inside the
+  // PDF format). Anything else is saved at once as a copy: an EPUB / CBZ / ZIP
+  // with its archive password added, changed or taken off; another format
+  // inside a password-protected ZIP; a picture folder as a ZIP.
+  const [showSecurity, setShowSecurity] = useState(false);
+  const securityKind = file ? protectionKind({ isPdf: !!file.isPdf, data: file.data, pictures: file.pictures }) : 'file';
+  // A ZIP picture book opened from disk was extracted, not read: it counts as
+  // an archive, read when it is saved.
+  const zipOnDisk = !!(file && !file.data && file.path && /\.(zip|cbz)$/i.test(file.path));
+  const securityDialogKind = zipOnDisk ? 'archive' : securityKind;
+  const securityZipName = file ? (/\.zip$/i.test(file.name || '') ? file.name : `${file?.name || 'book'}.zip`) : '';
+
+  const saveProtectedCopy = useCallback(async (protection) => {
+    if (!file) return false;
+    try {
+      let book = { name: file.name, data: file.data, pictures: file.pictures };
+      if (zipOnDisk) {
+        const read = await withProgress('opening', baseName(file.path), (onProgress) => readPath(file.path, { onProgress }));
+        book = { name: baseName(file.path), data: read.data, pictures: null };
+      }
+      const { bytes, name } = await withProgress('saving', file.name || 'book', async (onProgress) => {
+        onProgress({ done: 0, total: 1 });
+        const out = buildProtectedCopy(book, protection);
+        onProgress({ done: 1, total: 1 });
+        return out;
+      });
+      const ext = (/\.([A-Za-z0-9]+)$/.exec(name) || [])[1] || 'zip';
+      const saved = await saveBinary({
+        defaultName: name,
+        defaultDir: file.dir || settings.lastDir,
+        bytes,
+        filters: [{ name: ext.toUpperCase(), extensions: [ext.toLowerCase()] }],
+      });
+      if (!saved) return false;
+      const savedName = typeof saved === 'string' ? baseName(saved) : name;
+      const locked = protection.mode === 'set' || (protection.mode === 'keep' && !!file.encrypted);
+      toast(t(locked ? 'security.savedLocked' : 'security.savedPlain', { name: savedName }), 'ok');
+      return true;
+    } catch (err) {
+      fail(err, 'save');
+      return false;
+    }
+  }, [fail, file, settings.lastDir, t, toast, withProgress, zipOnDisk]);
+
+  const applySecurity = useCallback((protection) => {
+    setShowSecurity(false);
+    if (!file) return;
+    if (securityDialogKind !== 'pdf') {
+      saveProtectedCopy(protection);
+      return;
+    }
+    const prev = file.protection || { mode: 'keep' };
+    if (prev.mode === protection.mode && (prev.password || '') === (protection.password || '')) return;
+    setFile((f) => (f ? { ...f, protection } : f));
+    setDirty(true);
+    const msg = t(protection.mode === 'none' ? 'security.appliedNone'
+      : protection.mode === 'set' ? 'security.appliedSet' : 'security.appliedKeep');
+    setStatusMessage(msg);
+    toast(msg, 'ok');
+  }, [file, saveProtectedCopy, securityDialogKind, t, toast]);
 
   const askUnsaved = useCallback(() => {
     if (unsavedResolve.current) unsavedResolve.current('cancel');
@@ -1545,7 +1696,16 @@ export default function App() {
         toast(label, 'ok');
         return;
       }
-      const { bytes } = await removePdfAnnotations(file.data, pdfRefs);
+      // The rewrite comes back decrypted; carry the protection it had so the
+      // next Save still knows about (and can keep) the password.
+      const password = file.password || '';
+      const security = file.encrypted
+        ? (file.security || (await loadPdfForEditing(file.data, { password })).security)
+        : null;
+      const { bytes } = await removePdfAnnotations(file.data, pdfRefs, { password });
+      const carry = {
+        password: null, encrypted: !!file.encrypted, security, protection: file.protection || { mode: 'keep' },
+      };
       const nextWorkspace = { ...workspace, annotations: workspace.annotations.filter((a) => !workspaceIds.has(a.id)) };
       commentsKeyRef.current = null;
       await openBytes({
@@ -1555,6 +1715,7 @@ export default function App() {
         size: bytes.length,
       }, {
         replace: true,
+        carry,
         restore: {
           workspace: nextWorkspace,
           view: {
@@ -2254,6 +2415,7 @@ export default function App() {
             onToggleFavorite={toggleFavorite}
             onSave={savePdf}
             onSaveAs={savePdfAs}
+            onSecurity={() => setShowSecurity(true)}
             onSaveWorkspace={saveWorkspace}
             onSaveWorkspaceAs={saveWorkspaceAs}
             onAttachFile={attachFile}
@@ -2600,8 +2762,13 @@ export default function App() {
         open={prompt.open}
         kind={prompt.kind}
         error={prompt.error}
+        label={prompt.label || ''}
         onClose={() => {
-          if (prompt.kind === 'password') passwordRetry.current = null;
+          if (prompt.kind === 'password') {
+            const answer = passwordRetry.current;
+            passwordRetry.current = null;
+            answer?.(null);   // cancelled: the open is abandoned
+          }
           if (prompt.kind === 'comment') commentDraft.current = null;
           setPrompt({ open: false, kind: prompt.kind, error: '' });
         }}
@@ -2609,8 +2776,20 @@ export default function App() {
           if (prompt.kind === 'url') { openFromUrl(value); return; }
           if (prompt.kind === 'comment') { saveComment(value); return; }
           setPrompt({ open: false, kind: 'password', error: '' });
-          try { passwordRetry.current?.(value); } catch (err) { fail(err, 'open'); }
+          const answer = passwordRetry.current;
+          passwordRetry.current = null;
+          answer?.(value);
         }}
+      />
+
+      <SecurityDialog
+        open={showSecurity && !!file}
+        kind={securityDialogKind}
+        encrypted={!!file?.encrypted}
+        protection={securityDialogKind === 'pdf' ? file?.protection : null}
+        zipName={securityZipName}
+        onClose={() => setShowSecurity(false)}
+        onApply={applySecurity}
       />
 
       <CaptureDialog
