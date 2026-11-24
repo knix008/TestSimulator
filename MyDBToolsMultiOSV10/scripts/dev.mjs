@@ -1,0 +1,14 @@
+// npm run dev / npm run web: the editor in a browser (Vite), on 5174 or the next
+// port free on both 127.0.0.1 and ::1. A port another program uses is never
+// reused or stopped.
+import { spawn, execFileSync } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { freePort } from './free-port.mjs';
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+execFileSync(process.execPath, [path.join(root, 'scripts', 'build-docs.mjs')], { cwd: root, stdio: 'inherit' });
+const port = await freePort(5174);
+if (port !== 5174) console.log(`[dev] Port 5174 is in use; using ${port}.`);
+const child = spawn(process.execPath, [path.join(root, 'node_modules', 'vite', 'bin', 'vite.js'), '--host', '127.0.0.1', '--port', String(port), '--strictPort', ...process.argv.slice(2)], { cwd: root, stdio: 'inherit' });
+child.on('exit', (code) => process.exit(code ?? 0));

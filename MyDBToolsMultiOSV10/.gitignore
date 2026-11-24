@@ -1,0 +1,59 @@
+# ── Dependencies ───────────────────────────────────────────────────────────
+node_modules/
+.pnpm-store/
+
+# ── Build output ───────────────────────────────────────────────────────────
+# dist/             : Vite web bundle (npm run build)
+# src-tauri/target/ : cargo output and installers (npm run build:win / mac / linux)
+# src-tauri/gen/    : schemas tauri-build writes
+dist/
+src-tauri/target/
+src-tauri/gen/
+
+# The build scripts drop the finished installer in the project root.
+*.exe
+*.msi
+*.dmg
+*.pkg
+*.AppImage
+*.deb
+*.rpm
+*.snap
+*.blockmap
+
+# Vite dependency pre-bundling and transform caches.
+.vite/
+node_modules/.vite/
+*.tsbuildinfo
+
+# ── Generated assets ───────────────────────────────────────────────────────
+# assets/ and template/ ARE committed: they are produced by `npm run make:icons`
+# and `npm run make:template`, but shipping them keeps a plain `npm install &&
+# npm start` working without running the generators first.
+# public/doc/*.md are copies of doc/ made by `npm run build:docs`.
+public/doc/*.md
+public/doc/images/
+.web-test/
+shots/
+coverage/
+
+# ── Logs and local overrides ───────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-error.log*
+.env
+.env.*
+!.env.example
+
+# ── Editors ────────────────────────────────────────────────────────────────
+.vs/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+
+# ── OS ─────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini

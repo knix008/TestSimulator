@@ -1,0 +1,36 @@
+[package]
+name = "dbtools"
+version = "1.0.1"
+description = "DBTools - Tauri shell around the ER diagram editor"
+authors = ["SHKWON <knix008@naver.com>"]
+license = "UNLICENSED"
+edition = "2021"
+rust-version = "1.83"
+
+[lib]
+name = "dbtools_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-single-instance = "2"
+base64 = "0.22"
+
+# Printing and PDF (src/print.rs): WebView2 Print / PrintToPdf and the printer list.
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Graphics_Printing", "Win32_Security"] }
+
+[profile.release]
+panic = "abort"
+codegen-units = 16
+lto = false
+opt-level = 2
+strip = true
+incremental = true

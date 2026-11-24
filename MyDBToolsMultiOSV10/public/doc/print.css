@@ -1,0 +1,234 @@
+/* The guide's print window: settings on the left, preview on the right, no scroll bars. */
+body.print-page {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-size: 13px;
+}
+
+.pp {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.pp-settings {
+  flex: 0 0 330px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  overflow: hidden;
+  background: var(--panel-background);
+  border-right: 1px solid var(--border-light);
+}
+
+.pp-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.pp-head .pp-head-sub {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+/* No title bar: this head row moves the window and carries Close. */
+.pp-head {
+  min-height: 30px;
+  -webkit-app-region: drag;
+  app-region: drag;
+  user-select: none;
+}
+
+.pp-head-close {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  min-height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.pp-head-close:hover {
+  background: #e11d48;
+}
+
+.pp-head-close:hover .doc-ic {
+  stroke: #fff;
+}
+
+.pp-section {
+  padding: 8px 12px 4px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+}
+
+.pp-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-size: 13px;
+  border: none;
+}
+
+.pp-field {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  margin-bottom: 5px;
+}
+
+.pp-label {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.pp-control {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.pp-control select,
+.pp-control input[type='text'] {
+  width: 100%;
+  min-width: 0;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--panel-background);
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.pp-stepper,
+.pp-seg,
+.pp-pages {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pp-stepper button,
+.pp-seg button,
+.pp-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 3px 8px;
+  min-height: 26px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.pp-stepper output {
+  min-width: 46px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.pp-seg button.active,
+.pp-stepper button:hover,
+.pp-seg button:hover,
+.pp-actions button:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.pp-seg button.active {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.pp-hint {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin: 0 0 6px;
+}
+
+/* Print and Save as PDF share one row; Close sits on its own row below. */
+.pp-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: auto;
+}
+
+.pp-actions button {
+  min-height: 28px;
+}
+
+.pp-actions #close {
+  grid-column: 1 / -1;
+}
+
+.pp-actions button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast, #fff);
+  font-weight: 700;
+}
+
+.pp-actions button.primary .doc-ic {
+  stroke: currentColor;
+}
+
+.pp-preview {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 20px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--app-background) 80%, #000 20%);
+}
+
+.pp-sheet {
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 8px 30px rgb(0 0 0 / 35%);
+}
+
+.pp-sheet iframe {
+  display: block;
+  border: none;
+  background: #fff;
+  transform-origin: 0 0;
+}
+
+.pp-status {
+  display: flex;
+  gap: 12px;
+  padding: 5px 12px;
+  border-top: 1px solid var(--border-light);
+  background: var(--panel-background);
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.spacer {
+  flex: 1;
+}
