@@ -3,11 +3,14 @@
 // (extruded, revolved, planar, lofted, offset, knit), move / copy, scale and split of the body, insert part
 // (and cavity), sheet metal base and edge flanges with a flat pattern, and weldment structural members.
 // Built by regenerate() in features.js like the others: each returns { body?, tool?, surface?, curve? }.
+import { needsSweepMore, sweepMoreTool } from './sweep-more.js';
+import { needsLoftMore, loftMoreTool } from './loft-more.js';
+import { needsRibMore, ribMore } from './rib-more.js';
 import { rep } from './kernel.js';
 import { profiles, byId, standalonePoints, curvePieces, equationError, PIECE_CURVES } from './sketch.js';
 import { reversePieces, ellipseArcPieces } from './sketch-curves.js';
 import { findEdges, findFace, planeOfFace, crossV, normalize, cylinderRadius, isCylinder, faceSignature } from './refs.js';
-import { sketchOf, combine, sizeAround, replicadPlane, codeError, loopDrawing, resolvePlane, toWorld, AXES, regenerate, frame as makeFrame, sketchDrawing } from './features.js';
+import { sketchOf, combine, sizeAround, replicadPlane, codeError, loopDrawing, resolvePlane, toWorld, AXES, regenerate, frame as makeFrame, sketchDrawing, resolveDirection } from './features.js';
 import { SHEET_MORE_TYPES, SHEET_MORE_DEFAULTS, SHEET_MORE_NAMES } from './sheet-more-types.js';
 import { MOLD_MORE_TYPES, MOLD_MORE_DEFAULTS, MOLD_MORE_NAMES } from './mold-more-types.js';
 import { buildMoldMore, toolingSplitBySurfaces, undercutCount } from './mold-more.js';
@@ -225,10 +228,16 @@ function regionWires(sketch, fr) {
 
 function buildSweep(f, ctx) {
   const R = rep();
-  const { sketch, frame } = sketchOf(f, ctx);
   if (!f.path) throw codeError('no-path');
   const path = pathOf(f.path, ctx);
   const config = { transitionMode: f.transition === 'round' ? 'round' : f.transition === 'transformed' ? 'transformed' : 'right', frenet: Boolean(f.frenet) };
+  // Twist, guide curve, circular profile, thin (sweep-more.js).
+  if (needsSweepMore(f)) {
+    const prof = f.circular ? {} : sketchOf(f, ctx);
+    const tool = sweepMoreTool({ ...f, guideWire: f.guide ? pathOf(f.guide, ctx) : null }, path, config, prof.sketch, prof.frame);
+    return { tool, body: combine(ctx, tool, f.op) };
+  }
+  const { sketch, frame } = sketchOf(f, ctx);
   let tool = null;
   for (const { outer, holes } of regionWires(sketch, frame)) {
     let s = R.genericSweep(outer, path, config, false);
@@ -252,15 +261,63 @@ function loftOf(ids, ctx, f, shell = false) {
 }
 
 function buildLoft(f, ctx) {
-  const tool = loftOf(f.sketches, ctx, f);
+  // Guide curves, centre line, start / end conditions, closed, thin (loft-more.js).
+  const tool = needsLoftMore(f) ? loftMoreTool(f, ctx, (id) => pathOf(id, ctx)) : loftOf(f.sketches, ctx, f);
   return { tool, body: combine(ctx, tool, f.op) };
 }
 
 // ───────────────────────── draft, rib, dome
 
+/**
+ * Draft beyond one angle about a neutral plane: a different angle on chosen faces, and parting-line / step draft
+ * (each face next to a parting edge turns about that edge, away from the pull direction; Other face also drafts
+ * the face on the other side of the parting line). Each face is added with its own plane and angle.
+ */
+function draftMore(f, ctx) {
+  const R = rep(); const oc = R.getOC();
+  const body = ctx.body;
+  const items = [];
+  const angleOf = (face, base) => { const own = (f.angles ?? []).find((x) => { const m = findFace(body, x.sig); return m && m.isSame(face); }); return own ? num(own.angle, base) : base; };
+  if (f.kind === 'partingLine' || f.kind === 'step') {
+    let pull = f.pull ? resolveDirection(f.pull, ctx) : [0, 0, 1];
+    if (f.reverse) pull = mul(pull, -1);
+    for (const sig of f.partingEdges ?? []) {
+      const [edge] = findEdges(body, [sig]);
+      if (!edge) throw codeError('edges-lost');
+      const p = vec(edge.pointAt(0.5));
+      const faces = body.faces.filter((fc) => fc.edges.some((e) => e.isSame(edge)));
+      // The face on the pull side of the edge (its centre lies further along the pull); both with Other face.
+      const along = (fc) => (vec(fc.center)[0] - p[0]) * pull[0] + (vec(fc.center)[1] - p[1]) * pull[1] + (vec(fc.center)[2] - p[2]) * pull[2];
+      const sorted = faces.filter((fc) => fc.geomType !== 'PLANE' || Math.abs(Math.abs(dot(normalize(vec(fc.normalAt(vec(fc.center)))), pull)) - 1) > 1e-6).sort((x, y) => along(y) - along(x));
+      const chosen = f.otherFace ? sorted : sorted.slice(0, 1);
+      for (const fc of chosen) items.push({ face: fc, plane: { origin: p, dir: along(fc) >= 0 ? pull : mul(pull, -1) }, angle: angleOf(fc, num(f.angle)) });
+    }
+  } else {
+    const fr = resolvePlane(f.neutral, ctx);
+    const n = f.reverse ? mul(fr.normal, -1) : fr.normal;
+    for (const sig of f.faces ?? []) { const fc = findFace(body, sig); if (fc) items.push({ face: fc, plane: { origin: fr.origin, dir: n }, angle: angleOf(fc, num(f.angle)) }); }
+  }
+  if (!items.length) throw codeError('no-faces');
+  if (items.some((x) => !(Math.abs(x.angle) > 0) || Math.abs(x.angle) >= 45)) throw codeError('bad-angle');
+  const mk = new oc.BRepOffsetAPI_DraftAngle(body.wrapped);
+  const made = [];
+  try {
+    for (const it of items) {
+      const o = new oc.gp_Pnt(...it.plane.origin); const d = new oc.gp_Dir(...normalize(it.plane.dir)); const pln = new oc.gp_Pln(o, d);
+      made.push(o, d, pln);
+      mk.Add(it.face.wrapped, d, (it.angle * Math.PI) / 180, pln, true);
+      if (!mk.AddDone()) throw codeError('draft-failed');
+    }
+    mk.Build(new oc.Message_ProgressRange());
+    if (!mk.IsDone()) throw codeError('draft-failed');
+    return { body: R.cast(mk.ModifiedShape(body.wrapped)) };
+  } finally { mk.delete(); for (const x of made) x.delete(); }
+}
+
 function buildDraft(f, ctx) {
   const R = rep();
   if (!ctx.body) throw codeError('no-body');
+  if (f.kind === 'partingLine' || f.kind === 'step' || f.angles?.length) return draftMore(f, ctx);
   const faces = (f.faces ?? []).map((sig) => findFace(ctx.body, sig)).filter(Boolean);
   if (!faces.length) throw codeError('no-faces');
   const fr = resolvePlane(f.neutral, ctx);
@@ -280,6 +337,8 @@ function buildRib(f, ctx) {
   const R = rep();
   if (!ctx.body) throw codeError('no-body');
   const { sketch, frame } = sketchOf(f, ctx);
+  // Curves, normal direction, one side, linear extension, draft (rib-more.js).
+  if (needsRibMore(f) || sketch.entities.some((e) => !e.construction && ['arc', 'spline', 'ellipse', 'conic', 'parabola', 'equation', 'partialEllipse'].includes(e.type))) return ribMore(f, ctx);
   const lines = sketch.entities.filter((e) => e.type === 'line' && !e.construction);
   if (!lines.length) throw codeError('no-path');
   const [lo, hi] = ctx.body.boundingBox.bounds;
@@ -312,6 +371,7 @@ function buildDome(f, ctx) {
   const p = planeOfFace(face);
   const h = Math.abs(num(f.height, 5));
   if (!(h > 0)) throw codeError('zero-size');
+  if (f.shape === 'elliptical' || f.shape === 'continuous') return domeMore(f, ctx, face, p, h);
   let r = 0;
   for (const e of face.edges) for (const t of [0, 0.25, 0.5, 0.75, 1]) r = Math.max(r, Math.hypot(...sub(vec(e.pointAt(t)), p.origin)));
   const Rs = (r * r + h * h) / (2 * h);
@@ -335,40 +395,139 @@ function buildDome(f, ctx) {
   return { tool, toolOp: f.reverse ? 'cut' : 'boss', body: f.reverse ? ctx.body.cut(tool) : ctx.body.fuse(tool) };
 }
 
+/**
+ * Elliptical and continuous domes. On a circular face, elliptical: a quarter ellipse (semi-axes r and h, an
+ * exact rational arc) turned about the face's normal. Otherwise (continuous, or elliptical on another face):
+ * the face's outline shrunk about its centre by cos φ and raised by h sin φ, sections lofted from the face up to
+ * the top point — the dome meets the side walls square (tangent to walls standing on the face).
+ */
+function domeMore(f, ctx, face, p, h) {
+  const R = rep(); const oc = R.getOC();
+  const out = f.reverse ? -1 : 1;
+  const up = mul(p.normal, out);
+  // One circle (or its arcs): the face's edges all circles about one centre with one radius.
+  const circles = face.edges.filter((e) => e.geomType === 'CIRCLE').map((e) => circleOfEdge(e));
+  const circle = circles.length === face.edges.length && circles.every((c) => Math.hypot(...sub(c.centre, circles[0].centre)) < 1e-6 && Math.abs(c.radius - circles[0].radius) < 1e-6);
+  const c = vec(face.center);
+  let tool;
+  if (circle) {
+    const { centre, radius } = circles[0];
+    const x = normalize(sub(vec(face.edges[0].pointAt(0)), centre));
+    const P = (a, b) => add(centre, add(mul(x, a), mul(up, b)));
+    const w = Math.SQRT1_2;
+    const arc = rationalEdge3([P(radius, 0), P(radius, h), P(0, h)], [1, w, 1]);
+    const prof = R.makeFace(R.assembleWire([R.makeLine(P(0, 0), P(radius, 0)), arc, R.makeLine(P(0, h), P(0, 0))]));
+    tool = R.revolution(prof, centre, up, 360);
+  } else {
+    const outline = face.clone().outerWire();
+    const mk = new oc.BRepOffsetAPI_ThruSections(true, false, 1e-6);
+    const n = 12;
+    for (let i = 0; i < n; i++) {
+      const phi = (Math.PI / 2) * (i / n);
+      const k = Math.cos(phi);
+      const w = outline.clone().scale(k, c).translate(mul(up, h * Math.sin(phi)));
+      mk.AddWire(w.wrapped);
+    }
+    mk.AddVertex(R.makeVertex(add(c, mul(up, h))).wrapped);
+    mk.Build(new oc.Message_ProgressRange());
+    if (!mk.IsDone()) { mk.delete(); throw codeError('dome-failed'); }
+    tool = R.cast(mk.Shape());
+    mk.delete();
+    if (R.measureVolume(tool) < 0) tool = R.cast(tool.wrapped.Reversed());
+  }
+  // With a thin slab under the face (inside the body): a tool that only touches the face is lost by the fuse.
+  tool = tool.fuse(R.basicFaceExtrusion(face.clone(), new R.Vector(mul(up, -h * 0.01))));
+  return { tool, toolOp: f.reverse ? 'cut' : 'boss', body: f.reverse ? ctx.body.cut(tool) : ctx.body.fuse(tool) };
+}
+
 // ───────────────────────── helix and thread
+
+/** Points of a tapered / variable-pitch helix or of a flat spiral, then a fitted B-spline wire. */
+export function helixPoints(f) {
+  const turns = Math.max(0.05, num(f.turns, 4));
+  const r0 = Math.max(0.01, num(f.radius, 10));
+  const per = 96; const n = Math.max(8, Math.ceil(turns * per));
+  const rows = (f.variable ?? []).map((x) => ({ rev: num(x.rev), pitch: num(x.pitch, num(f.pitch, 5)), d: num(x.d, 2 * r0) })).sort((a, b) => a.rev - b.rev);
+  const at = (u, key) => {
+    if (!rows.length) return null;
+    if (u <= rows[0].rev) return rows[0][key];
+    for (let i = 1; i < rows.length; i++) if (u <= rows[i].rev) { const k = (u - rows[i - 1].rev) / ((rows[i].rev - rows[i - 1].rev) || 1); return rows[i - 1][key] + k * (rows[i][key] - rows[i - 1][key]); }
+    return rows[rows.length - 1][key];
+  };
+  const tan = Math.tan((num(f.taper) * Math.PI) / 180) * (f.taperOutward ? 1 : -1);
+  const pts = []; let z = 0; let prevU = 0;
+  for (let i = 0; i <= n; i++) {
+    const u = (turns * i) / n;
+    let r;
+    if (f.kind === 'spiral') r = r0 + num(f.pitch, 5) * u;
+    else {
+      // Height grows by the pitch per turn (the pitch at that turn for a variable one).
+      if (i) z += rows.length ? ((at(prevU, 'pitch') + at(u, 'pitch')) / 2) * (u - prevU) : num(f.pitch, 5) * (u - prevU);
+      r = rows.length ? at(u, 'd') / 2 : r0 + z * tan;
+    }
+    prevU = u;
+    pts.push({ u, r, z: f.kind === 'spiral' ? 0 : z });
+  }
+  return pts;
+}
+
+function helixMoreWire(f, fr, centre) {
+  const R = rep();
+  const y = fr.yDir; const x = fr.xDir; const nrm = fr.normal;
+  const hand = f.lefthand ? -1 : 1;
+  const pts = helixPoints(f).map(({ u, r, z }) => { const a = 2 * Math.PI * u * hand; return [0, 1, 2].map((k) => centre[k] + x[k] * r * Math.cos(a) + y[k] * r * Math.sin(a) + nrm[k] * z); });
+  return R.assembleWire([R.makeBSplineApproximation(pts, { tolerance: 1e-5, degMax: 8, smoothing: null })]);
+}
 
 function helixWire(f, ctx) {
   const R = rep();
   const fr = resolvePlane(f.plane, ctx);
   const centre = toWorld(fr, f.center ?? [0, 0]);
+  // Taper, variable pitch and spiral: the curve computed densely and fitted by a B-spline (1e-5 mm).
+  if ((f.kind && f.kind !== 'helix') || num(f.taper) || f.variable?.length) return helixMoreWire(f, fr, centre);
   const pitch = Math.max(0.01, num(f.pitch, 5)); const turns = Math.max(0.05, num(f.turns, 4));
   return makeHelixStable(pitch, pitch * turns, Math.max(0.01, num(f.radius, 10)), centre, fr.normal, Boolean(f.lefthand));
 }
 
 /**
- * A thread's groove as a faceted solid: a V cross-section (base on the surface, a little outside it; tip
- * `0.6·P` into the material) placed every 1/24 turn along the helix from one pitch before the edge to `L`
- * past it, consecutive sections joined by triangles, the ends closed, sewn into a solid.
+ * Thread groove cross-sections, [axial offset, depth] in units of the pitch P (depth 0 is a little outside the
+ * surface, positive into the material): the 60° V (ISO / UN), ISO 2904 trapezoidal (30°), the 45° / 7° buttress
+ * and the 55° pipe thread (Whitworth form, crests and roots left sharp).
  */
-export function helicalGroove(centre, dir, xDir, radius, P, L, internal = false, lefthand = false, seg = 24) {
+export const THREAD_SECTIONS = {
+  v: (P) => [[-0.425 * P, 0], [0.425 * P, 0], [0, 0.6 * P]],
+  trapezoidal: (P) => [[-0.317 * P, 0], [0.317 * P, 0], [0.183 * P, 0.5 * P], [-0.183 * P, 0.5 * P]],
+  buttress: (P) => [[-0.4 * P, 0], [0.4 * P, 0], [-0.326 * P + 0.12 * P, 0.6 * P], [-0.326 * P, 0.6 * P]],
+  pipe55: (P) => [[-0.4 * P, 0], [0.4 * P, 0], [0, 0.4 * P / Math.tan((27.5 * Math.PI) / 180)]],
+};
+
+/**
+ * A thread's groove as a faceted solid: its cross-section (THREAD_SECTIONS, base on the surface, a little
+ * outside it) placed every 1/24 turn along the helix of lead (P × starts) from one lead before the edge to
+ * L past it, consecutive sections joined by triangles, the ends closed, sewn into a solid; phase turns the
+ * start (the starts of a multi-start thread).
+ */
+export function helicalGroove(centre, dir, xDir, radius, P, L, internal = false, lefthand = false, seg = 24, { form = 'v', lead = P, phase = 0 } = {}) {
   const R = rep(); const oc = R.getOC();
   const y = crossV(dir, xDir);
-  const H = 0.6 * P; const W = 0.85 * P; const lead = 0.06 * P;
-  const rOut = internal ? radius - lead : radius + lead;
-  const rIn = internal ? radius + H : radius - H;
-  const n = Math.ceil(((L + P) / P) * seg);
+  const shape = (THREAD_SECTIONS[form] ?? THREAD_SECTIONS.v)(P);
+  const out = 0.06 * P;
+  const rAt = (depth) => (depth <= 0 ? (internal ? radius - out : radius + out) : internal ? radius + depth : radius - depth);
+  const n = Math.ceil(((L + lead) / lead) * seg);
   const at = (rr, z, ang) => [0, 1, 2].map((k) => centre[k] + dir[k] * z + rr * (Math.cos(ang) * xDir[k] + Math.sin(ang) * y[k]));
-  const section = (i) => { const ang = (lefthand ? -1 : 1) * (i / seg) * 2 * Math.PI; const z = -P + (i / seg) * P; return [at(rOut, z - W / 2, ang), at(rOut, z + W / 2, ang), at(rIn, z, ang)]; };
+  const section = (i) => { const ang = phase + (lefthand ? -1 : 1) * (i / seg) * 2 * Math.PI; const z = -lead + (i / seg) * lead; return shape.map(([dz, depth]) => at(rAt(depth), z + dz, ang)); };
   const sew = new oc.BRepBuilderAPI_Sewing(1e-6, true, true, true, false);
   const tri = (p, q, r) => sew.Add(R.makePolygon([p, q, r]).wrapped);
+  const cap = (pts, flip) => { for (let k = 1; k + 1 < pts.length; k++) (flip ? tri(pts[0], pts[k + 1], pts[k]) : tri(pts[0], pts[k], pts[k + 1])); };
+  const m = shape.length;
   let prev = section(0);
-  tri(prev[0], prev[2], prev[1]);
+  cap(prev, true);
   for (let i = 1; i <= n; i++) {
     const cur = section(i);
-    for (let k = 0; k < 3; k++) { const a0 = prev[k]; const a1 = prev[(k + 1) % 3]; const b0 = cur[k]; const b1 = cur[(k + 1) % 3]; tri(a0, a1, b1); tri(a0, b1, b0); }
+    for (let k = 0; k < m; k++) { const a0 = prev[k]; const a1 = prev[(k + 1) % m]; const b0 = cur[k]; const b1 = cur[(k + 1) % m]; tri(a0, a1, b1); tri(a0, b1, b0); }
     prev = cur;
   }
-  tri(prev[0], prev[1], prev[2]);
+  cap(prev, false);
   sew.Perform(new oc.Message_ProgressRange());
   const shell = R.cast(sew.SewedShape());
   sew.delete();
@@ -426,7 +585,14 @@ function buildThread(f, ctx) {
   if (f.cosmetic) return { thread: { centre, dir, radius, pitch: P, length: L, internal } };
   // The groove is a V (60°, 0.6·P deep) swept along the helix, built from flat triangles (24 per turn): a
   // faceted solid the kernel's booleans handle reliably (smooth swept or twisted solids are often missed).
-  const tool = helicalGroove(centre, dir, perp, radius, P, L, internal, Boolean(f.lefthand));
+  // One groove per start, each turned 360°/starts, all on the lead (P × starts).
+  const starts = Math.max(1, Math.min(8, Math.round(num(f.starts, 1))));
+  const form = THREAD_SECTIONS[f.form] ? f.form : 'v';
+  let tool = null;
+  for (let k = 0; k < starts; k++) {
+    const g = helicalGroove(centre, dir, perp, radius, P, L, internal, Boolean(f.lefthand), 24, { form, lead: P * starts, phase: (2 * Math.PI * k) / starts });
+    tool = tool ? tool.fuse(g) : g;
+  }
   const before = R.measureVolume(ctx.body);
   const body = ctx.body.cut(tool.clone());
   if (!(before - R.measureVolume(body) > 1e-6 * Math.max(1, before))) throw codeError('thread-failed');
@@ -505,6 +671,33 @@ function buildIsoThread(f, ctx, { centre, dir, radius, P, L, internal }) {
 function buildWrap(f, ctx) {
   const R = rep();
   if (!ctx.body) throw codeError('no-body');
+  if (f.op === 'scribe') {
+    // Scribe: the face split along the wrapped outline (the emboss tool's footprint on it); the body keeps its volume.
+    const oc = R.getOC();
+    const face = findFace(ctx.body, f.face);
+    if (!face) throw codeError('face-missing');
+    const { tool } = buildWrap({ ...f, op: 'emboss', depth: 1 }, { ...ctx, body: ctx.body.clone() });
+    const out = []; let split = 0;
+    for (const fc of ctx.body.faces) {
+      if (!fc.isSame(face)) { out.push(fc.clone()); continue; }
+      const args = new oc.NCollection_List_TopoDS_Shape(); args.Append(fc.clone().wrapped);
+      const tools = new oc.NCollection_List_TopoDS_Shape(); tools.Append(tool.clone().wrapped);
+      const sp = new oc.BRepAlgoAPI_Splitter();
+      sp.SetArguments(args); sp.SetTools(tools); sp.Build(new oc.Message_ProgressRange());
+      const pieces = sp.HasErrors() ? [fc.clone()] : R.cast(sp.Shape()).faces;
+      sp.delete();
+      if (pieces.length > 1) split++;
+      out.push(...pieces);
+    }
+    if (!split) throw codeError('projection-missed');
+    const sew = new oc.BRepBuilderAPI_Sewing(1e-5, true, true, true, false);
+    for (const fc of out) sew.Add(fc.wrapped);
+    sew.Perform(new oc.Message_ProgressRange());
+    let body = R.makeSolid([R.cast(sew.SewedShape())]);
+    sew.delete();
+    if (R.measureVolume(body) < 0) body = R.cast(body.wrapped.Reversed());
+    return { body, splitFaces: split };
+  }
   const { sketch, frame } = sketchOf(f, ctx);
   const face = findFace(ctx.body, f.face);
   if (!face) throw codeError('face-missing');

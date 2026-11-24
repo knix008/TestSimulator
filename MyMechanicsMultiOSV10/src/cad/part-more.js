@@ -37,7 +37,7 @@ export function buildPartMore(f, ctx) {
     case 'mountingBoss': case 'snapHook': case 'snapHookGroove': case 'vent': case 'lipGroove': return buildFastening(f, ctx);
     case 'surfaceSweep': case 'cutWithSurface': case 'deleteHole': case 'untrimSurface': case 'midSurface': case 'radiateSurface': case 'flattenSurface': return buildSurfaceMore(f, ctx);
     case 'convertSheet': case 'insertBends': case 'rip': case 'unfold': case 'fold': case 'crossBreak': case 'weldedCorner': case 'tabSlot': return buildSheetExtra(f, ctx);
-    case 'advancedHole': case 'intersect': case 'mateReference': return buildPartExtra(f, ctx);
+    case 'advancedHole': case 'intersect': case 'mateReference': case 'moveFace': case 'connectionPoint': return buildPartExtra(f, ctx);
     case 'combine': return buildCombine(f, ctx);
     case 'deleteBody': return buildDeleteBody(f, ctx);
     case 'indent': return buildIndent(f, ctx);

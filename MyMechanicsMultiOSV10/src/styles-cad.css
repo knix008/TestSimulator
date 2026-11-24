@@ -219,6 +219,10 @@ button.status-item:hover { background: var(--hover); }
 .eq-name { font-weight: 600; }
 .pm-list li.error { color: var(--danger, #d4282f); }
 .cfg-row { display: flex; align-items: center; gap: 4px; padding: 2px; border-radius: 4px; }
+.viz-swatch { width: 14px; height: 14px; border-radius: 3px; flex: none; border: 1px solid color-mix(in srgb, var(--text, #000) 25%, transparent); }
+.viz-row b { font-variant-numeric: tabular-nums; font-weight: 600; }
+.viz-scale { display: flex; align-items: center; gap: 6px; font-size: 11px; margin: 2px 0 6px; }
+.viz-bar { flex: 1; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #1f4fd6, #1fd6c7, #3fd61f, #d6c71f, #d61f1f); }
 .cfg-row.active { background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .cfg-name { flex: 1; padding: 0 4px; }
 .sim-legend { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; font-size: 0.82em; margin: 6px 0; }

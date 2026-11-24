@@ -1280,3 +1280,78 @@ export function modelItemDims(part, results, views) {
   }
   return out;
 }
+
+// ───────────────────────── hole callouts
+
+const fmtMm = (v) => String(Math.round(v * 100) / 100);
+
+/**
+ * The callout lines of a hole feature (count holes of it): ⌀ and depth or THRU, then the counterbore (⌴ ⌀ ↧),
+ * countersink (⌵ ⌀ × angle) or thread (M size × pitch ↧ depth) — the hole wizard's way of writing them.
+ */
+export function holeCalloutLines(f, count = 1) {
+  const n = count > 1 ? `${count}× ` : '';
+  if (f.type === 'advancedHole') {
+    const near = f.near ?? [];
+    const last = near.at(-1);
+    const lines = near.map((el, i) => {
+      const d = `⌀${fmtMm(Number(el.d) || 0)}`;
+      if (el.kind === 'countersink') return `⌵ ${d} × ${fmtMm(Number(el.angle) || 90)}°`;
+      if (el.kind === 'counterbore') return `⌴ ${d} ↧ ${fmtMm(Number(el.depth) || 0)}`;
+      const deep = Number(el.depth) > 0 ? ` ↧ ${fmtMm(Number(el.depth))}` : ' THRU';
+      return `${i === 0 ? n : ''}${el.kind === 'tapped' ? 'M' + fmtMm(Number(el.d) || 0) : d}${deep}`;
+    });
+    if (lines.length && !lines[0].startsWith(n)) lines.unshift(`${n}${last ? `⌀${fmtMm(Number(last.d) || 0)}` : ''}`.trim());
+    return lines.filter(Boolean);
+  }
+  const d = `⌀${fmtMm(Number(f.diameter) || 0)}`;
+  const depth = f.through ? ' THRU' : ` ↧ ${fmtMm(Number(f.depth) || 0)}`;
+  if (f.kind === 'tapped') return [`${n}${d}${depth}`, `${f.threadSize ?? f.ansiTap ?? 'M'} ↧ ${fmtMm(Number(f.threadDepth) || 0)}`];
+  if (f.kind === 'taperedTap') return [`${n}${f.nptSize ?? d}${depth}`];
+  const lines = [`${n}${d}${depth}`];
+  if (f.kind === 'counterbore') lines.push(`⌴ ⌀${fmtMm(Number(f.cbDiameter) || 0)} ↧ ${fmtMm(Number(f.cbDepth) || 0)}`);
+  if (f.kind === 'countersink') lines.push(`⌵ ⌀${fmtMm(Number(f.csDiameter) || 0)} × ${fmtMm(Number(f.csAngle) || 90)}°`);
+  return lines;
+}
+
+/** The largest diameter a hole shows looking down its axis (its counterbore / countersink, else the hole). */
+const outerDiameter = (f) => (f.type === 'advancedHole' ? Math.max(...(f.near ?? []).map((el) => Number(el.d) || 0), 0)
+  : f.kind === 'counterbore' ? Number(f.cbDiameter) : f.kind === 'countersink' ? Number(f.csDiameter) : Number(f.diameter));
+
+/**
+ * Hole callouts of one view: the circles seen end on (centerItems), grouped by the hole feature whose outer or
+ * plain diameter they show; one callout per group at its first circle with the count. → [{ c, r, lines }].
+ */
+export function holeCalloutItems(shape, view, holes) {
+  const marks = centerItems(shape, view).filter((m) => m.ctype === 'mark');
+  const groups = new Map();
+  for (const m of marks) {
+    const d = 2 * m.r;
+    const f = holes.find((h) => Math.abs(outerDiameter(h) - d) < 1e-3) ?? holes.find((h) => Math.abs(Number(h.diameter) - d) < 1e-3);
+    if (!f) continue;
+    const g = groups.get(f.id) ?? { f, marks: [] };
+    g.marks.push(m);
+    groups.set(f.id, g);
+  }
+  return [...groups.values()].map(({ f, marks: list }) => ({ c: list[0].c, r: list[0].r, lines: holeCalloutLines(f, list.length) }));
+}
+
+/** A hole callout on the sheet: a leader from the circle to the text corner (x, y), the lines beside it. */
+export function holeCalloutPrimitives(a, fr) {
+  const C = fr.toSheet(a.c[0], a.c[1]);
+  const R = Math.max(0.5, a.r * fr.s);
+  const T = [Number(a.x), Number(a.y)];
+  const u = unit2(sub2(T, C));
+  const tip = add2(C, u, R);
+  const size = Number(a.size) > 0 ? Number(a.size) : 3.2;
+  const lines = Array.isArray(a.lines) ? a.lines : [];
+  const width = Math.max(...lines.map((l) => textWidth(l, size)), 4);
+  const right = T[0] >= C[0];
+  const shoulder = [T[0] + (right ? 3 : -3), T[1]];
+  const out = [
+    { t: 'poly', pts: [tip, T, shoulder] },
+    { t: 'fill', pts: [tip, add2(add2(tip, u, 2.5), [-u[1], u[0]], 0.45), add2(add2(tip, u, 2.5), [u[1], -u[0]], 0.45)] },
+  ];
+  lines.forEach((text, i) => out.push({ t: 'text', x: right ? shoulder[0] + 0.8 : shoulder[0] - 0.8 - width, y: T[1] - 0.8 + i * size * 1.35, text, size }));
+  return out;
+}

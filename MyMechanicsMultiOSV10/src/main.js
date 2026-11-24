@@ -3,6 +3,7 @@
 // (index.html?popup=<kind>) in the web build and while the tutorial runs.
 import './styles.css';
 import './styles-cad.css';
+import './styles-inputs.css';
 import { applyInstallLanguage, loadSettings, resetForNewInstall } from './domain/settings.js';
 import { setLanguage } from './i18n.js';
 import { applyFont, applyTheme, resolveTheme } from './themes.js';

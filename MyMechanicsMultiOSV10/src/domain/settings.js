@@ -176,6 +176,9 @@ export function defaultSettings(language = 'ko') {
     /** In large assembly mode, components smaller than this fraction of the assembly are not drawn (0: all drawn). */
     largeHideSmall: 0,
     holeAlignTolerance: 0.01,
+    clearanceMin: 1,
+    magneticDistance: 25,
+    clearanceIgnoreTouching: false,
   };
 }
 
@@ -227,6 +230,9 @@ export function normalizeSettings(raw = {}, language) {
   s.largeAssembly = ['auto', 'on', 'off'].includes(s.largeAssembly) ? s.largeAssembly : 'auto';
   s.largeAssemblyThreshold = clamp(s.largeAssemblyThreshold, 2, 100000, 40);
   s.largeHideSmall = Math.min(0.2, Math.max(0, Number(s.largeHideSmall) || 0));
+  s.magneticDistance = Math.min(10000, Math.max(0, Number.isFinite(Number(s.magneticDistance)) ? Number(s.magneticDistance) : 25));
+  s.clearanceMin = Math.min(1000, Math.max(0, Number.isFinite(Number(s.clearanceMin)) ? Number(s.clearanceMin) : 1));
+  s.clearanceIgnoreTouching = Boolean(s.clearanceIgnoreTouching);
   s.holeAlignTolerance = Math.min(10, Math.max(0, Number.isFinite(Number(s.holeAlignTolerance)) ? Number(s.holeAlignTolerance) : 0.01));
   s.leftDrag = s.leftDrag === 'select' ? 'select' : 'orbit';
   const sp = s.scaleBarPos;

@@ -56,8 +56,10 @@ export const ICONS_PART = {
   alternatePosition: '<rect x="3" y="12" width="9" height="7" rx="1"/><rect x="11" y="4" width="9" height="7" rx="1" stroke-dasharray="4 1.2 1.2 1.2"/><path d="M8 11l4-3" opacity="0.7"/>',
   flatPatternView: '<path d="M3 14h18v4H3z"/><path d="M8 14v4M16 14v4" stroke-dasharray="1.6 1.2"/><path d="M6 10V5h12v5" opacity="0.55"/><path d="M12 6v5M10 9l2 2 2-2"/>',
   // ── advanced hole, intersect, mate reference, save bodies
+  moveFace: '<path d="M4 9l8-4 8 4v8l-8 4-8-4z" opacity="0.45"/><path d="M12 13V3M9 6l3-3 3 3"/><path d="M4 9l8 4 8-4"/>',
   advancedHole: '<path d="M4 4h16" /><path d="M7 4v4h3v9l2 3 2-3V8h3V4" /><path d="M10 12h4M10 15h4" opacity="0.6"/>',
   intersectRegions: '<circle cx="9" cy="10" r="6"/><circle cx="15" cy="14" r="6"/><path d="M12.2 15.2a6 6 0 0 0 2.6-7 6 6 0 0 0-5.6 1.6 6 6 0 0 0 3 5.4z" fill="currentColor" opacity="0.4" stroke="none"/>',
+  connectionPoint: '<rect x="3" y="12" width="12" height="8" rx="1"/><circle cx="15" cy="8" r="2.2" fill="currentColor"/><path d="M15 8l6-5M18 3h3v3"/>',
   mateReference: '<rect x="3" y="12" width="12" height="8" rx="1"/><path d="M9 12V4M6 7l3-3 3 3"/><path d="M15 16h6M18 13v6" stroke-dasharray="2 1.2"/>',
   saveBodies: '<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><path d="M7 11v4h5M17 11v4h-5M12 15v6M9 18l3 3 3-3"/>',
 };

@@ -11,10 +11,10 @@ import {
 import { toWorld, toSketch, textOutline } from '../cad/features.js';
 import { addText } from '../cad/sketch.js';
 import { addSpline, addEllipse, addEllipseArc, addConic, addParabola, addEquationCurve, sketchFillet, sketchChamfer, offsetEntities, mirrorEntities, linearSketchPattern, circularSketchPattern, trimAt, extendAt } from '../cad/sketchtools.js';
-import { addTangentArc, addRect3, addRect3Center, addParallelogram, addCircle3, circleThrough3, curvesEndingAt, outwardTangent, splitAt } from '../cad/sketch-draw.js';
+import { addTangentArc, addRect3, addRect3Center, addParallelogram, addCircle3, circleThrough3, curvesEndingAt, outwardTangent, splitAt, addArcSlot } from '../cad/sketch-draw.js';
 import { ellipseParam, ellipsePoint, ccwSpan, parabolaSegment, rhoFromShoulder, conicPieces, piecesPolyline } from '../cad/sketch-curves.js';
 
-export const SKETCH_TOOLS = ['select', 'line', 'centerline', 'rect', 'centerRect', 'rect3', 'rect3c', 'parallelogram', 'circle', 'circle3', 'arc3', 'centerArc', 'tangentArc', 'polygon', 'slot', 'point', 'spline', 'ellipse', 'partialEllipse', 'parabola', 'conic', 'equation', 'text', 'dimension', 'trim', 'extend', 'split', 'sketchFillet', 'sketchChamfer'];
+export const SKETCH_TOOLS = ['select', 'line', 'centerline', 'rect', 'centerRect', 'rect3', 'rect3c', 'parallelogram', 'circle', 'circle3', 'arc3', 'centerArc', 'tangentArc', 'polygon', 'slot', 'slotCenter', 'slotArc3', 'slotArcCenter', 'point', 'spline', 'ellipse', 'partialEllipse', 'parabola', 'conic', 'equation', 'text', 'dimension', 'trim', 'extend', 'split', 'sketchFillet', 'sketchChamfer'];
 /** Tools that pick existing geometry instead of placing new points. */
 const PICK_TOOLS = ['select', 'dimension', 'trim', 'extend', 'split', 'equation', 'sketchFillet', 'sketchChamfer'];
 
@@ -606,6 +606,30 @@ export class SketchEditor {
       addSlot(s, a.x, a.y, b.x, b.y, r);
       return done('op.slot');
     }
+    // Centre-point straight slot: the centre, one end's centre, then the width.
+    if (tool === 'slotCenter' && P.length === 3) {
+      const [m, b, w] = P;
+      const a = { x: 2 * m.x - b.x, y: 2 * m.y - b.y };
+      const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      const nx = -(b.y - a.y) / len; const ny = (b.x - a.x) / len;
+      const r = Math.max(this.tol(), Math.abs((w.x - a.x) * nx + (w.y - a.y) * ny));
+      addSlot(s, a.x, a.y, b.x, b.y, r);
+      return done('op.slot');
+    }
+    // Arc slots: 3-point (start, end, a point on the arc) or centre-point (centre, start, end), then the width.
+    if ((tool === 'slotArc3' || tool === 'slotArcCenter') && P.length === 4) {
+      const g = tool === 'slotArc3' ? circleThrough(P[0], P[2], P[1]) : { cx: P[0].x, cy: P[0].y, r: Math.hypot(P[1].x - P[0].x, P[1].y - P[0].y) };
+      if (!g) { this.pending = []; this.api.notify?.('info', this.api.t('sketch.pointsInLine')); return undefined; }
+      const [st, en, mid] = tool === 'slotArc3' ? [P[0], P[1], P[2]] : [P[1], P[2], null];
+      let a0 = Math.atan2(st.y - g.cy, st.x - g.cx); let a1 = Math.atan2(en.y - g.cy, en.x - g.cx);
+      // 3-point: the way round that passes the middle point; centre-point: counter-clockwise from start to end.
+      const ccw = mid ? (mid.x - st.x) * (en.y - st.y) - (mid.y - st.y) * (en.x - st.x) > 0 : true;
+      if (!ccw) [a0, a1] = [a1, a0];
+      while (a1 <= a0) a1 += Math.PI * 2;
+      const w = 2 * Math.abs(Math.hypot(P[3].x - g.cx, P[3].y - g.cy) - g.r);
+      if (!addArcSlot(s, g, a0, a1, Math.max(this.tol() * 2, w))) { this.pending = []; return undefined; }
+      return done('op.slot');
+    }
     this.render();
     return undefined;
   }
@@ -811,6 +835,11 @@ export class SketchEditor {
       if (P.length === 2) { line(P[0], c); line(c, P[1]); }
       if (P.length === 3) { const rho = rhoFromShoulder([P[0].x, P[0].y], [P[2].x, P[2].y], [P[1].x, P[1].y], [c.x, c.y]); curve(piecesPolyline(conicPieces([P[0].x, P[0].y], [P[2].x, P[2].y], [P[1].x, P[1].y], rho), 48)); }
     }
+    if (t === 'slotCenter') { if (P.length >= 1) line({ x: 2 * P[0].x - (P[1] ?? c).x, y: 2 * P[0].y - (P[1] ?? c).y }, P[1] ?? c); }
+    if ((t === 'slotArc3' || t === 'slotArcCenter') && P.length >= 1) {
+      if (P.length === 1) line(P[0], c);
+      else { const g = t === 'slotArc3' ? circleThrough(P[0], P.length >= 3 ? P[2] : c, P[1]) : { cx: P[0].x, cy: P[0].y, r: Math.hypot(P[1].x - P[0].x, P[1].y - P[0].y) }; if (g) circle(g.cx, g.cy, g.r, 0, Math.PI * 2); }
+    }
     if (t === 'slot') { if (P.length === 1) line(P[0], c); if (P.length === 2) { const [a, b] = P; const len = Math.hypot(b.x - a.x, b.y - a.y) || 1; const nx = -(b.y - a.y) / len; const ny = (b.x - a.x) / len; const r = Math.abs((c.x - a.x) * nx + (c.y - a.y) * ny); line({ x: a.x + nx * r, y: a.y + ny * r }, { x: b.x + nx * r, y: b.y + ny * r }); line({ x: a.x - nx * r, y: a.y - ny * r }, { x: b.x - nx * r, y: b.y - ny * r }); const an = Math.atan2(ny, nx); circle(b.x, b.y, r, an - Math.PI, an); circle(a.x, a.y, r, an, an + Math.PI); } }
     out.push({ segments: seg, color: COLORS.preview, width: 1.8 });
     // The snap target: a ring around a point, a small square on a curve.
@@ -831,7 +860,7 @@ export class SketchEditor {
       if (!DIMENSIONS.includes(c.type)) continue;
       const at = this.dimensionAnchor(c);
       if (!at) continue;
-      const text = `${c.expr ? 'Σ ' : ''}${c.type === 'angle' ? `${fmt(c.value, 'angle')}` : c.type === 'diameter' ? `⌀${fmt(c.value)}` : c.type === 'radius' ? `R${fmt(c.value)}` : fmt(c.value)}`;
+      const text = `${c.expr ? 'Σ ' : ''}${c.type === 'angle' ? `${fmt(c.value, 'angle')}` : c.type === 'diameter' ? `⌀${fmt(c.value)}` : c.type === 'radius' ? `R${fmt(c.value)}` : c.type === 'arcLength' ? `⌒${fmt(c.value)}` : fmt(c.value)}`;
       labels.push({ id: c.id, at: this.world(...at), html: `<span>${c.driven ? `(${text})` : text}</span>`, className: `dim-label ${c.driven ? 'driven' : ''} ${this.selection.includes(c.id) ? 'selected' : ''} ${this.over ? '' : ''}`, title: this.api.t(`dim.${c.type}`) });
     }
     this.viewport.setLabels(labels);
@@ -843,7 +872,7 @@ export class SketchEditor {
     if (!a) return null;
     const off = this.viewport.pixelSize() * 16;
     const mid = (e) => { if (e.type === 'point') return [e.x, e.y]; if (e.type === 'line') { const p = byId(s, e.p1); const q = byId(s, e.p2); return [(p.x + q.x) / 2, (p.y + q.y) / 2]; } const cc = byId(s, e.c); return [cc.x, cc.y]; };
-    if (c.type === 'radius' || c.type === 'diameter') {
+    if (c.type === 'radius' || c.type === 'diameter' || c.type === 'arcLength') {
       if (a.type === 'circle') { const cc = byId(s, a.c); return [cc.x + a.r * 0.72 + off * 0.5, cc.y + a.r * 0.72 + off * 0.5]; }
       const g = arcGeometry(s, a); const m = (g.a0 + g.a1) / 2; return [g.cx + (g.r + off) * Math.cos(m), g.cy + (g.r + off) * Math.sin(m)];
     }

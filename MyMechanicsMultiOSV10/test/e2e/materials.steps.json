@@ -1,0 +1,8 @@
+[
+  {
+    "name": "materials: the right panel lists 150+ materials in families; search narrows them; a card sets the part material",
+    "eval": "(async () => {\n  const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms));\n  await m.actions.ensureKernel();\n  if (m.state.editing) m.actions.cancelEditing({ quiet: true });\n  await m.actions.closeProject({ force: true });\n  await m.actions.openSampleAsk('basMountBracket'); await sleep(1200);\n  // The right panel's material tab.\n  const tab = [...document.querySelectorAll('#right-panel [data-right-tab], #right-panel [data-tab]')].find((b) => /material/i.test(b.dataset.rightTab ?? b.dataset.tab ?? ''));\n  tab?.click(); await sleep(300);\n  const fams = document.querySelectorAll('#right-panel .material-family').length;\n  const cards = document.querySelectorAll('#right-panel .material-card').length;\n  const box = document.querySelector('#right-panel [data-material-search]');\n  box.value = '316'; box.dispatchEvent(new Event('input', { bubbles: true })); await sleep(100);\n  const shown = [...document.querySelectorAll('#right-panel .material-card')].filter((c) => !c.hidden && !c.closest('[hidden]')).map((c) => c.dataset.material);\n  // Pick one: the part takes it.\n  document.querySelector('#right-panel .material-card[data-material=\"stainless-316\"]').click(); await sleep(400);\n  return JSON.stringify({ fams: fams >= 15, cards: cards >= 150, search: shown.join(','), part: m.active().material });\n})()",
+    "expect": "\"fams\":true,\"cards\":true,\"search\":\"stainless-316,stainless-316l\",\"part\":\"stainless-316\"",
+    "timeout": 60000
+  }
+]

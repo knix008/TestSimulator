@@ -16,6 +16,11 @@ import { tapHoles, patternThreads } from './hole-threads.js';
 import { effectiveFeatures } from './params.js';
 import { frameTable, isYUp, worldUp } from './frame.js';
 import { yUpDefaults } from './zup.js';
+import { needsExtrudeMore, extrudeMoreTool } from './extrude-more.js';
+import { needsRevolveMore, revolveMoreTool } from './revolve-more.js';
+import { needsDressUpMore, filletMore, chamferMore, shellMore } from './dressup-more.js';
+import { planeMoreFrame } from './refplane-more.js';
+import { needsHoleMore, holeMoreTool } from './hole-more.js';
 
 export const FEATURE_TYPES = ['import', 'sketch', 'plane', 'extrude', 'revolve', 'fillet', 'chamfer', 'shell', 'hole', 'linearPattern', 'circularPattern', 'mirror', ...ADVANCED_TYPES, ...PART_MORE_TYPES, ...STD_TYPES];
 /** Features that add or remove material with a tool solid (patterns and mirrors copy them). */
@@ -142,6 +147,14 @@ export function resolvePlane(ref, ctx) {
     const x = ref.xDir && Math.abs(dot(ref.xDir, p.normal)) < 1e-6 ? ref.xDir : p.xDir;
     return frame({ origin: ref.origin && Math.abs(dot([ref.origin[0] - p.origin[0], ref.origin[1] - p.origin[1], ref.origin[2] - p.origin[2]], p.normal)) < 1e-6 ? ref.origin : p.origin, xDir: x, normal: p.normal });
   }
+  // In-context: a face of another component of an assembly, kept in this part's frame (ext-refs.js).
+  if (ref.kind === 'ext') {
+    const r = ctx.part?.externalRefs?.find((x) => x.id === ref.id);
+    if (!r?.frame) throw codeError('plane-missing');
+    return frame(r.frame);
+  }
+  // A fixed plane (a broken external reference).
+  if (ref.kind === 'frame' && ref.origin && ref.normal) return frame({ origin: ref.origin, xDir: ref.xDir, normal: ref.normal });
   return frame(STD_PLANES.front);
 }
 
@@ -337,6 +350,8 @@ function buildImport(f, ctx) {
 }
 
 function buildPlane(f, ctx) {
+  // Angle, three points, parallel at a point, normal to a curve, mid plane, tangent, line and point (refplane-more.js).
+  if (f.mode && f.mode !== 'offset') return { frame: planeMoreFrame(f, ctx) };
   const base = resolvePlane(f.base, ctx);
   const normal = f.flip ? scale(base.normal, -1) : base.normal;
   return { frame: frame({ origin: add(base.origin, scale(base.normal, Number(f.offset) || 0)), xDir: base.xDir, normal }) };
@@ -408,6 +423,8 @@ function extrudeDrawing(sketch, drawing, plane, length) {
 
 function extrudeTool(f, ctx) {
   const { sketch, frame: fr } = sketchOf(f, ctx);
+  // Start / end conditions that need geometry, thin features, selected contours (extrude-more.js).
+  if (needsExtrudeMore(f)) return extrudeMoreTool(f, ctx, sketch, fr);
   const drawing = sketchDrawing(sketch);
   const cut = f.op === 'cut';
   if (f.draft && Number(f.draftAngle) > 0 && (f.end ?? 'blind') === 'blind') return draftedExtrude(f, sketch, fr);
@@ -467,6 +484,8 @@ function draftedExtrude(f, sketch, fr) {
 
 function buildExtrude(f, ctx) {
   const tool = extrudeTool(f, ctx);
+  // Flip side to cut: the material outside the profile is removed (what the tool covers is kept).
+  if (f.op === 'cut' && f.flipSide) { if (!ctx.body) throw codeError('nothing-to-cut'); return { tool, body: ctx.body.intersect(tool) }; }
   return { tool, body: combine(ctx, tool, f.op, { merge: f.merge !== false }) };
 }
 
@@ -478,6 +497,8 @@ function revolveTool(f, ctx) {
   const pa = toWorld(fr, [a.x, a.y]); const pb = toWorld(fr, [b.x, b.y]);
   let dir = normalize([pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]]);
   if (f.reverse) dir = scale(dir, -1);
+  // Mid-plane, a second direction, up to vertex / surface, thin, selected contours (revolve-more.js).
+  if (needsRevolveMore(f)) return revolveMoreTool(f, ctx, sketch, fr, pa, dir);
   const angle = Math.max(0.1, Math.min(360, Number(f.angle) || 360));
   const drawing = sketchDrawing(sketch);
   return drawing.sketchOnPlane(replicadPlane(fr)).revolve(dir, { origin: pa, angle });
@@ -521,6 +542,8 @@ function holeTool(f, ctx) {
   const { sketch, frame: fr } = sketchOf(f, ctx);
   const points = standalonePoints(sketch);
   if (!points.length) throw codeError('no-hole-points');
+  // Slots, tapered pipe taps, end conditions at geometry (hole-more.js).
+  if (needsHoleMore(f)) return holeMoreTool(f, ctx, points.map((p) => toWorld(fr, [p.x, p.y])), fr, holeProfile, crossV);
   const into = scale(fr.normal, -1);
   const depth = f.through ? sizeAround(ctx) : Math.max(0.1, Number(f.depth));
   const profile = holeProfile(f, depth);
@@ -552,6 +575,8 @@ function buildHole(f, ctx) {
 
 function buildDressUp(f, ctx, kind) {
   if (!ctx.body) throw codeError('no-body');
+  // Items beyond edges, tangent propagation, multiple radii, chord width, conic / G2 profiles, chamfer types.
+  if (needsDressUpMore(f, kind)) return kind === 'fillet' ? filletMore(f, ctx) : chamferMore(f, ctx);
   const edges = findEdges(ctx.body, f.edges);
   if (!edges.length) throw codeError('no-edges');
   if (edges.length < f.edges.length) ctx.warning = 'edges-lost';
@@ -564,6 +589,7 @@ function buildDressUp(f, ctx, kind) {
 
 function buildShell(f, ctx) {
   if (!ctx.body) throw codeError('no-body');
+  if (needsDressUpMore(f, 'shell')) return shellMore(f, ctx);
   const t = Number(f.thickness);
   if (!(t > 0)) throw codeError('zero-size');
   const faces = f.faces.map((sig) => findFace(ctx.body, sig)).filter(Boolean);
@@ -585,7 +611,7 @@ function seedTools(f, ctx) {
 }
 
 /** A direction reference: a world axis or a straight edge of the body. */
-function resolveDirection(ref, ctx) {
+export function resolveDirection(ref, ctx) {
   if (!ref || ref.kind === 'axis') return AXES[ref?.axis ?? 'x'] ?? AXES.x;
   if (ref.kind === 'edge') {
     const [edge] = findEdges(ctx.body, [ref.sig]);
@@ -650,7 +676,16 @@ function buildLinearPattern(f, ctx) {
   let d1 = resolveDirection(f.direction, ctx);
   if (f.reverse) d1 = scale(d1, -1);
   const n1 = Math.max(1, Math.min(200, Math.round(f.count)));
-  const s1 = Number(f.spacing) || 0;
+  let s1 = Number(f.spacing) || 0;
+  if (f.upTo && Array.isArray(f.upToPoint) && n1 > 1) {
+    // Up to reference: the seed's centre to the reference point (less the offset) shared by the gaps.
+    const [lo, hi] = (tools[0].tool.boundingBox.bounds);
+    const c = [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2];
+    const reach = (f.upToPoint[0] - c[0]) * d1[0] + (f.upToPoint[1] - c[1]) * d1[1] + (f.upToPoint[2] - c[2]) * d1[2] - (Number(f.upToOffset) || 0);
+    if (!(reach > 0)) throw codeError('end-behind');
+    s1 = reach / (n1 - 1);
+  }
+  const skip = new Set((f.skip ?? []).map(String));
   let d2 = f.direction2 ? resolveDirection(f.direction2, ctx) : null;
   if (d2 && f.reverse2) d2 = scale(d2, -1);
   const n2 = d2 ? Math.max(1, Math.min(200, Math.round(f.count2))) : 1;
@@ -658,6 +693,8 @@ function buildLinearPattern(f, ctx) {
   const moves = []; const places = []; const steps = [];
   for (let i = 0; i < n1; i++) for (let j = 0; j < n2; j++) {
     if (!i && !j) continue;
+    if (skip.has(`${i},${j}`)) continue;
+    if (f.seedOnly2 && i && j) continue;
     const v = add(scale(d1, i * s1), d2 ? scale(d2, j * s2) : [0, 0, 0]);
     moves.push((s) => s.translate(v));
     places.push((q, isDir) => (isDir ? q : add(q, v)));
@@ -687,10 +724,19 @@ function buildCircularPattern(f, ctx) {
   const step = f.equal ? (total >= 359.999 ? total / count : total / Math.max(1, count - 1)) : total;
   const sign = f.reverse ? -1 : 1;
   const moves = []; const places = []; const steps = [];
-  for (let i = 1; i < count; i++) {
-    moves.push((s) => s.rotate(sign * step * i, origin, dir));
-    places.push(rotation(sign * step * i, origin, dir));
-    steps.push({ kind: 'rotate', deg: sign * step * i, origin: [...origin], dir: [...dir] });
+  const skip = new Set((f.skip ?? []).map(String));
+  const angles = [];
+  for (let i = 1; i < count; i++) if (!skip.has(String(i))) angles.push(sign * step * i);
+  if (f.dir2) {
+    const count2 = Math.max(1, Math.min(360, Math.round(Number(f.count2) || count)));
+    const total2 = Math.max(0.1, Math.min(360, Number(f.angle2) || total));
+    const step2 = f.equal ? total2 / Math.max(1, count2 - (total2 >= 359.999 ? 0 : 1)) : total2;
+    for (let i = 1; i < count2; i++) if (!skip.has(`-${i}`)) angles.push(-sign * step2 * i);
+  }
+  for (const deg of angles) {
+    moves.push((s) => s.rotate(deg, origin, dir));
+    places.push(rotation(deg, origin, dir));
+    steps.push({ kind: 'rotate', deg, origin: [...origin], dir: [...dir] });
   }
   return { ...patternThreads(f, ctx, applyCopies(ctx, tools, moves), places), moves: steps };
 }

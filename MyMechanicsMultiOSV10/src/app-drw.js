@@ -13,11 +13,12 @@ import '@fontsource/roboto/latin-400.css';
 import '@fontsource/roboto/latin-700.css';
 import { rep } from './cad/kernel.js';
 import { adoptToActiveSheet, sheetDrawing } from './cad/drawing-more.js';
-import { STANDARD_SCALES, scaleLabel } from './cad/drawing.js';
+import { STANDARD_SCALES, scaleLabel, bomRows, viewBasis, autoBalloonLayout } from './cad/drawing.js';
+import { flattenAssembly, placePoint } from './cad/assembly.js';
 import {
   DIM_TYPES, TOL_TYPES, FIT_CLASSES, viewFrames, viewAt, viewEntities, pickEntity, dimensionFromPicks, ordinateFromPicks, autoTextOffset,
   isPictorial, centerItems, modelItemDims, dimLabel, formatNumber, pickToTrue, insideDetail, modelGeometry, pictorialPick, pictorialDimension,
-  layoutDimLabels, ellipseSheet,
+  layoutDimLabels, ellipseSheet, holeCalloutItems,
 } from './cad/drawing-dims.js';
 import { snapDrag, shiftBox } from './cad/drawing-snap.js';
 import { embedFonts } from './cad/text-metrics.js';
@@ -296,6 +297,71 @@ export function createDrwTools(ctx) {
     const ids = new Set(sd.views.map((v) => v.id));
     ctx.change('op.annotation', () => { d.annotations = [...(d.annotations ?? []).filter((a) => !(a.kind === 'drwCenter' && a.auto && ids.has(a.view))), ...made]; });
     notify(made.length ? 'success' : 'info', made.length ? t('drw.centerMarksMade', { count: made.length }) : t('drw.centerMarksNone'));
+  }
+
+  // ───────────────────────── auto balloons
+
+  /** A balloon per BOM row in the selected view (or the first one), pointing at its component, round the view. */
+  function autoBalloons() {
+    const d = drw();
+    if (!d || d.source?.kind !== 'assembly') return;
+    adoptToActiveSheet(d);
+    const sd = sheetDrawing(d);
+    const project = ctx.project();
+    const asm = project.assemblies.find((a) => a.id === d.source.id);
+    if (!asm) return;
+    const { frames: fr } = viewFrames(sd, ctx.drawingProjections(sd));
+    const view = sd.views.find((v) => v.id === state.drawingSelected && fr.has(v.id)) ?? sd.views.find((v) => fr.has(v.id) && !isPictorial(v)) ?? sd.views.find((v) => fr.has(v.id));
+    if (!view) { notify('info', t('drw.autoBalloonNone')); return; }
+    const frame = fr.get(view.id); const b = viewBasis(view);
+    const leaves = flattenAssembly(project, asm);
+    const targets = [];
+    for (const row of bomRows(asm, project, { lang: ctx.lang?.() })) {
+      const leaf = leaves.find((l) => row.components.includes(l.path[0]));
+      const part = leaf ? project.parts.find((p) => p.id === leaf.part) : null;
+      if (!leaf || !part) continue;
+      let c = [0, 0, 0];
+      try { const [lo, hi] = ctx.buildPart(part).body.boundingBox.bounds; c = [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2]; } catch { /* the origin */ }
+      const w = placePoint(leaf.placement, c);
+      const v2 = b ? [w[0] * b.x[0] + w[1] * b.x[1] + w[2] * b.x[2], w[0] * b.y[0] + w[1] * b.y[1] + w[2] * b.y[2]] : [0, 0];
+      targets.push({ item: row.item, target: frame.toSheet(v2[0], v2[1]) });
+    }
+    if (!targets.length) { notify('info', t('drw.autoBalloonNone')); return; }
+    const centre = [targets.reduce((s, x) => s + x.target[0], 0) / targets.length, targets.reduce((s, x) => s + x.target[1], 0) / targets.length];
+    const placed = autoBalloonLayout(targets, centre);
+    const r1 = (v) => Math.round(v * 10) / 10;
+    const made = placed.map((p) => ({ id: ctx.newId('ann'), kind: 'balloon', auto: true, view: view.id, item: p.item, x: r1(p.at[0]), y: r1(p.at[1]), target: [r1(p.target[0]), r1(p.target[1])] }));
+    ctx.change('op.annotation', () => { d.annotations = [...(d.annotations ?? []).filter((a) => !(a.kind === 'balloon' && a.auto && a.view === view.id)), ...made]; });
+    notify('success', t('drw.autoBalloonMade', { count: made.length }));
+  }
+
+  // ───────────────────────── hole callouts
+
+  /** A callout for every hole feature seen end on in each view (with its count), beside its first hole. */
+  function holeCallouts() {
+    const d = drw();
+    if (!d || d.source?.kind !== 'part') return;
+    adoptToActiveSheet(d);
+    const sd = sheetDrawing(d);
+    const { shape } = ctx.drawingShape(d);
+    const model = ctx.project().parts.find((p) => p.id === d.source.id);
+    const holes = (model?.features ?? []).filter((f) => !f.suppressed && (f.type === 'hole' || f.type === 'advancedHole'));
+    if (!shape || !holes.length) { notify('info', t('drw.holeCalloutsNone')); return; }
+    const { frames: fr } = viewFrames(sd, ctx.drawingProjections(sd));
+    const made = [];
+    for (const v of sd.views) {
+      const frame = fr.get(v.id);
+      if (!frame || isPictorial(v)) continue;
+      let items = [];
+      try { items = holeCalloutItems(shape, v, holes); } catch { items = []; }
+      for (const it of items) {
+        const C = frame.toSheet(it.c[0], it.c[1]);
+        made.push({ id: ctx.newId('hc'), kind: 'drwHole', view: v.id, auto: true, c: it.c, r: it.r, lines: it.lines, x: Math.round((C[0] + 14) * 10) / 10, y: Math.round((C[1] - 12) * 10) / 10, ...(d.activeLayer ? { layer: d.activeLayer } : {}) });
+      }
+    }
+    const ids = new Set(sd.views.map((v) => v.id));
+    ctx.change('op.annotation', () => { d.annotations = [...(d.annotations ?? []).filter((a) => !(a.kind === 'drwHole' && a.auto && ids.has(a.view))), ...made]; });
+    notify(made.length ? 'success' : 'info', made.length ? t('drw.holeCalloutsMade', { count: made.length }) : t('drw.holeCalloutsNone'));
   }
 
   // ───────────────────────── weld symbols
@@ -749,6 +815,8 @@ export function createDrwTools(ctx) {
     drwSmartDim: { icon: 'smartDim', label: 'cmd.drwSmartDim', enabled: hasDrawing, checked: () => editing()?.mode === 'drwDim', run: toggleMode('drwDim', startDim) },
     drwModelItems: { icon: 'modelItems', label: 'cmd.drwModelItems', enabled: () => drw()?.source?.kind === 'part', run: () => modelItems() },
     drwCenterMarks: { icon: 'centerMarksAuto', label: 'cmd.drwCenterMarks', enabled: hasDrawing, run: () => centerMarks() },
+    drwAutoBalloon: { icon: 'autoBalloon', label: 'cmd.drwAutoBalloon', enabled: () => drw()?.source?.kind === 'assembly', run: () => autoBalloons() },
+    drwHoleCallout: { icon: 'holeCallout', label: 'cmd.drwHoleCallout', enabled: () => drw()?.source?.kind === 'part', run: () => holeCallouts() },
     drwWeld: { icon: 'weldSymbol', label: 'cmd.drwWeld', enabled: hasDrawing, checked: () => editing()?.mode === 'drwWeld', run: toggleMode('drwWeld', startWeld) },
     drwTable: { icon: 'generalTable', label: 'cmd.drwTable', enabled: hasDrawing, checked: () => editing()?.mode === 'drwTable', run: toggleMode('drwTable', startTable) },
     drwLayers: { icon: 'layers', label: 'cmd.drwLayers', enabled: hasDrawing, checked: () => editing()?.mode === 'drwLayers', run: toggleMode('drwLayers', () => begin('drwLayers')) },
@@ -761,14 +829,14 @@ export function createDrwTools(ctx) {
 
   /** Command ids per CommandManager tab (appended to the app's lists). */
   const TABS = {
-    drawing: ['drwSmartDim', 'drwModelItems', 'drwCenterMarks', 'drwWeld', 'drwTable', 'drwLayers', 'drwTitleBlock', 'drwSheetFormat'],
+    drawing: ['drwSmartDim', 'drwModelItems', 'drwCenterMarks', 'drwHoleCallout', 'drwAutoBalloon', 'drwWeld', 'drwTable', 'drwLayers', 'drwTitleBlock', 'drwSheetFormat'],
     evaluate: EVAL_KINDS.map(([k]) => `eval_${k}`),
     mold: ['shutOff', 'partingSurface', 'eval_undercut'],
   };
 
   /** Adds the commands to the menus (Insert › Annotations, Insert › Mold, Tools). */
   function extendMenus(SUBMENUS, MENUS) {
-    SUBMENUS.annotations?.items.push('-', 'drwSmartDim', 'drwModelItems', 'drwCenterMarks', 'drwWeld', 'drwTable', '-', 'drwLayers', 'drwTitleBlock', 'drwSheetFormat');
+    SUBMENUS.annotations?.items.push('-', 'drwSmartDim', 'drwModelItems', 'drwCenterMarks', 'drwHoleCallout', 'drwAutoBalloon', 'drwWeld', 'drwTable', '-', 'drwLayers', 'drwTitleBlock', 'drwSheetFormat');
     SUBMENUS.mold?.items.splice(Math.max(0, SUBMENUS.mold.items.indexOf('toolingSplit')), 0, 'shutOff', 'partingSurface');
     SUBMENUS.mold?.items.push('eval_undercut');
     SUBMENUS.evalMore = { icon: 'deviation', items: EVAL_KINDS.map(([k]) => `eval_${k}`) };

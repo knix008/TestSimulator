@@ -1,6 +1,7 @@
 // PropertyManager pages of the features beyond extrude / revolve (sweep, loft, draft, rib, dome, helix,
 // thread, wrap, surfaces, thicken, body operations, insert part, sheet metal, weldments). HTML only —
 // app.js binds the data-pm* attributes like the other pages.
+import { thinGroup } from './pm-extrude.js';
 import { escapeHtml } from './dom.js';
 import { icon } from '../icons.js';
 import { group, field, check, seg, select, pickBox, planeName } from './propertymanager.js';
@@ -17,7 +18,23 @@ const listToggles = (api, prefix, items, chosen) => `<div class="pm-checklist">$
   const at = chosen.indexOf(x.id);
   return `<label class="pm-check" title="${escapeHtml(x.name)}"><input type="checkbox" data-pm-toggle="${prefix}:${escapeHtml(x.id)}" ${at >= 0 ? 'checked' : ''}/>${icon(x.icon ?? 'featSketch')}<span>${escapeHtml(x.name)}${at >= 0 ? ` <b class="pm-order">${at + 1}</b>` : ''}</span></label>`;
 }).join('') : `<p class="pm-note">${escapeHtml(api.t('pm.nothingToChoose'))}</p>`}</div>`;
+const num = (v, d = 0) => (Number.isFinite(Number(v)) ? Number(v) : d);
 const note = (text, warn = false) => `<p class="pm-note ${warn ? 'warn' : ''}">${warn ? icon('warning', 'icon tiny') : ''}${escapeHtml(text)}</p>`;
+
+/** Loft guide curves (check boxes), centre line, start / end constraints. */
+function loftCurves(api, f) {
+  const { t } = api;
+  const curves = [...api.sketchList(f, 'path').map((x) => [x.id, x.name]), ...api.curveList(f).map((x) => [x.id, x.name])].filter(([id]) => !(f.sketches ?? []).includes(id));
+  const guides = new Set(f.guides ?? []);
+  let html = curves.length ? '<div class="pm-list">' + curves.map(([id, name]) => check('list:guides:' + id, guides.has(id), name, 'featLoft')).join('') + '</div>' : note(t('pm.noCurves'));
+  html += select('centerline', [['', '— ' + t('pm.none') + ' —'], ...curves], f.centerline ?? '', t('pm.centerline'));
+  const conds = [['none', t('loft.none')], ['normal', t('loft.normal')]];
+  html += select('startCond', conds, f.startCond ?? 'none', t('pm.startConstraint'));
+  if (f.startCond === 'normal') html += field(api, 'startLength', f.startLength ?? 1, { label: t('pm.tangentLength'), unit: 'number', min: 0.05 });
+  html += select('endCond', conds, f.endCond ?? 'none', t('pm.endConstraint'));
+  if (f.endCond === 'normal') html += field(api, 'endLength', f.endLength ?? 1, { label: t('pm.tangentLength'), unit: 'number', min: 0.05 });
+  return group('featLoft', t('pm.guideCurves'), html, guides.size || f.centerline || (f.startCond ?? 'none') !== 'none' || (f.endCond ?? 'none') !== 'none' ? '' : 'collapsed');
+}
 
 export const ADVANCED_PM = {
   sweep(api, f) {
@@ -26,34 +43,87 @@ export const ADVANCED_PM = {
     return [
       group('featSketch', t('pm.profileAndPath'), `${sketchSelect(api, f, 'sketch', t('pm.profile'), 'profile')}${select('path', [['', `— ${t('pm.choosePath')} —`], ...paths], f.path ?? '', t('pm.path'))}${opSeg(t, f, ['featSweep', 'featCutSweep'])}`),
       group('featSweep', t('pm.options'), `${select('transition', [['right', t('sweep.right')], ['round', t('sweep.round')], ['transformed', t('sweep.transformed')]], f.transition ?? 'right', t('pm.corners'))}${check('frenet', f.frenet, t('pm.frenet'), 'helix')}${note(t('pm.help.sweepProfile'))}`),
+      // Circular profile (no sketch), twist along the path, a guide curve that scales the profile.
+      group('featSweep', t('pm.profileAndPath'), `${check('circular', f.circular, t('pm.circularProfile'), 'circleTool')}${f.circular ? field(api, 'diameter', f.diameter ?? 5, { label: t('hole.diameter'), glyph: 'dimDiameter', min: 0.001 }) : ''}`, f.circular ? '' : 'collapsed'),
+      group('helix', t('pm.twistAlongPath'), `${field(api, 'twist', f.twist ?? 0, { label: t('pm.twist'), unit: f.twistUnit === 'turns' ? 'number' : 'angle', glyph: 'dimAngle' })}${seg('twistUnit', [['deg', t('pm.degrees')], ['turns', t('pm.turns')]], f.twistUnit ?? 'deg')}`, f.twist ? '' : 'collapsed'),
+      group('featSweep', t('pm.guideCurves'), select('guide', [['', `— ${t('pm.none')} —`], ...paths.filter(([id]) => id !== f.path)], f.guide ?? '', t('pm.guideCurve')), f.guide ? '' : 'collapsed'),
+      thinGroup(api, f, { caps: false }),
     ].join('');
   },
   loft(api, f) {
     const { t } = api;
     return [
       group('featLoft', t('pm.profiles'), `${listToggles(api, 'loft', api.sketchList(f, 'profile'), f.sketches ?? [])}${(f.sketches ?? []).length < 2 ? note(t('pm.loftNeedsTwo'), true) : ''}${opSeg(t, f, ['featLoft', 'featCutLoft'])}`),
-      group('featLoft', t('pm.options'), check('ruled', f.ruled, t('pm.ruled'), 'lineTool')),
+      group('featLoft', t('pm.options'), check('ruled', f.ruled, t('pm.ruled'), 'lineTool') + check('closed', f.closed, t('pm.closedLoft'), 'featLoft')),
+      loftCurves(api, f),
+      thinGroup(api, f, { caps: false }),
     ].join('');
   },
   draft(api, f, e) {
     const { t } = api;
-    return [
-      group('featDraft', t('pm.draftItems'), `${field(api, 'angle', f.angle, { label: t('pm.draftAngle'), unit: 'angle', glyph: 'dimAngle', min: 0.1 })}${stdPlanes(api, 'neutralStd', f.neutral)}${pickBox(api, 'neutral', [planeName(api, f.neutral)], t('pm.neutralPlane'), 'refPlane')}${check('reverse', f.reverse, t('pm.reverse'), 'flipV')}`),
-      group('part', t('pm.facesToDraft'), pickBox(api, 'faces', faceItems(api, f.faces), t('pm.facesToDraft'), 'featDraft')),
-    ].join('') + (e.pick === 'faces' ? '' : '');
+    const kind = f.kind ?? 'neutral';
+    const parts = [];
+    let head = select('kind', [['neutral', t('draft.neutral')], ['partingLine', t('draft.partingLine')], ['step', t('draft.step')]], kind, t('pm.draftType'));
+    head += field(api, 'angle', f.angle, { label: t('pm.draftAngle'), unit: 'angle', glyph: 'dimAngle', min: 0.1 });
+    if (kind === 'neutral') head += stdPlanes(api, 'neutralStd', f.neutral) + pickBox(api, 'neutral', [planeName(api, f.neutral)], t('pm.neutralPlane'), 'refPlane');
+    else {
+      head += seg('pullAxis', [['x', 'X'], ['y', 'Y'], ['z', 'Z'], ['edge', t('pm.edgeRef')]], f.pull?.kind === 'edge' ? 'edge' : f.pull?.axis ?? 'z');
+      if (f.pull?.kind === 'edge') head += pickBox(api, 'pullEdge', [t('pm.dirVectorEdge')], t('pm.pullDirection'), 'lineTool');
+    }
+    head += check('reverse', f.reverse, t('pm.reverse'), 'flipV');
+    parts.push(group('featDraft', t('pm.draftItems'), head));
+    if (kind === 'neutral') parts.push(group('part', t('pm.facesToDraft'), pickBox(api, 'faces', faceItems(api, f.faces), t('pm.facesToDraft'), 'featDraft')));
+    else {
+      const edges = (f.partingEdges ?? []).map((sig, i) => t('pm.edge') + ' ' + (i + 1));
+      parts.push(group('featDraft', t('pm.partingLines'), pickBox(api, 'partingEdges', edges, t('pm.partingLines'), 'partingLine') + check('otherFace', f.otherFace, t('pm.otherFace'), 'flipH')));
+    }
+    // Face angles: a different angle on some of the faces.
+    const faces = kind === 'neutral' ? (f.faces ?? []) : [];
+    if (faces.length) {
+      let fa = check('faceAngles', Array.isArray(f.angles), t('pm.faceAngles'), 'dimAngle');
+      if (Array.isArray(f.angles)) fa += faces.map((sig, i) => { const own = f.angles.find((x) => Math.hypot(...x.sig.center.map((v, k) => v - sig.center[k])) < 1e-6); return field(api, 'fa:' + i, own ? own.angle : f.angle, { label: t('pm.face') + ' ' + (i + 1), unit: 'angle', glyph: 'dimAngle', min: 0.1 }); }).join('');
+      parts.push(group('dimAngle', t('pm.faceAngles'), fa, Array.isArray(f.angles) ? '' : 'collapsed'));
+    }
+    return parts.join('') + (e.pick === 'faces' ? '' : '');
   },
   rib(api, f) {
     const { t } = api;
-    return group('featRib', t('pm.parameters'), `${sketchSelect(api, f, 'sketch', t('pm.sketch'), 'curves')}${field(api, 'thickness', f.thickness, { label: t('pm.thickness'), min: 0.01 })}${check('flip', f.flip, t('pm.flipMaterial'), 'flipV')}${note(t('pm.help.ribSketch'))}`);
+    let p = sketchSelect(api, f, 'sketch', t('pm.sketch'), 'curves');
+    p += seg('side', [['first', t('rib.first')], ['both', t('rib.both')], ['second', t('rib.second')]], f.side ?? 'both');
+    p += field(api, 'thickness', f.thickness, { label: t('pm.thickness'), min: 0.01 });
+    p += seg('direction', [['parallel', t('rib.parallel')], ['normal', t('rib.normal')]], f.direction ?? 'parallel');
+    p += check('flip', f.flip, t('pm.flipMaterial'), 'flipV');
+    p += seg('extension', [['none', t('rib.extNone')], ['linear', t('rib.extLinear')]], f.extension ?? 'none');
+    if (f.direction === 'normal') p += field(api, 'draft', f.draft ?? 0, { label: t('pm.draftAngle'), unit: 'angle', glyph: 'dimAngle', min: 0 });
+    p += note(t('pm.help.ribSketch'));
+    return group('featRib', t('pm.parameters'), p);
   },
   dome(api, f) {
     const { t } = api;
-    return group('featDome', t('pm.parameters'), `${pickBox(api, 'faces', faceItems(api, f.faces), t('pm.faceToDome'), 'featDome')}${field(api, 'height', f.height, { label: t('pm.height'), min: 0.01 })}${check('reverse', f.reverse, t('pm.reverseDome'), 'flipV')}`);
+    return group('featDome', t('pm.parameters'), `${pickBox(api, 'faces', faceItems(api, f.faces), t('pm.faceToDome'), 'featDome')}${seg('shape', [['spherical', t('dome.spherical')], ['elliptical', t('dome.elliptical')], ['continuous', t('dome.continuous')]], f.shape ?? 'spherical')}${field(api, 'height', f.height, { label: t('pm.height'), min: 0.01 })}${check('reverse', f.reverse, t('pm.reverseDome'), 'flipV')}`);
   },
   helix(api, f) {
     const { t } = api;
-    return group('helix', t('pm.helixDefinition'), `${stdPlanes(api, 'stdPlane', f.plane)}${pickBox(api, 'plane', [planeName(api, f.plane)], t('pm.planeOrFace'), 'refPlane')}
-      ${field(api, 'radius', f.radius, { label: t('pm.radius'), glyph: 'dimRadius', min: 0.01 })}${field(api, 'pitch', f.pitch, { label: t('pm.pitch'), min: 0.01 })}${field(api, 'turns', f.turns, { label: t('pm.turns'), unit: 'number', glyph: 'helix', min: 0.05 })}${check('lefthand', f.lefthand, t('pm.lefthand'), 'flipH')}`);
+    const kind = f.kind ?? 'helix';
+    const rows = f.variable ?? [];
+    let def = `${stdPlanes(api, 'stdPlane', f.plane)}${pickBox(api, 'plane', [planeName(api, f.plane)], t('pm.planeOrFace'), 'refPlane')}${seg('kind', [['helix', t('helix.helix'), 'helix'], ['spiral', t('helix.spiral'), 'helix']], kind)}`;
+    if (!rows.length) def += field(api, 'radius', f.radius, { label: t('pm.radius'), glyph: 'dimRadius', min: 0.01 });
+    if (!rows.length) def += field(api, 'pitch', f.pitch, { label: kind === 'spiral' ? t('pm.spiralPitch') : t('pm.pitch'), min: 0.01 });
+    def += field(api, 'turns', f.turns, { label: t('pm.turns'), unit: 'number', glyph: 'helix', min: 0.05 });
+    def += check('lefthand', f.lefthand, t('pm.lefthand'), 'flipH');
+    const parts = [group('helix', t('pm.helixDefinition'), def)];
+    if (kind === 'helix') {
+      let tp = field(api, 'taper', f.taper ?? 0, { label: t('pm.taperAngle'), unit: 'angle', glyph: 'dimAngle', min: 0 });
+      if (num(f.taper)) tp += check('taperOutward', f.taperOutward, t('pm.taperOutward'), 'flipH');
+      parts.push(group('dimAngle', t('pm.taperHelix'), tp, num(f.taper) ? '' : 'collapsed'));
+      // Variable pitch: rows of turn / pitch / diameter.
+      let vp = check('variablePitch', rows.length > 0, t('pm.variablePitch'), 'helix');
+      if (rows.length) {
+        vp += '<div class="hx-table">' + rows.map((r, k) => '<div class="pm-row">' + field(api, 'var:' + k + ':rev', r.rev, { label: t('pm.revolution'), unit: 'number', min: 0 }) + field(api, 'var:' + k + ':pitch', r.pitch, { label: t('pm.pitch'), min: 0.01 }) + field(api, 'var:' + k + ':d', r.d, { label: t('hole.diameter'), glyph: 'dimDiameter', min: 0.01 }) + '<button type="button" class="icon-button" data-pm="delVar:' + k + '" title="' + t('pm.removeRow') + '">×</button></div>').join('') + '</div><div class="pm-row"><button type="button" class="small-button" data-pm="addVar">' + t('pm.addRow') + '</button></div>';
+      }
+      parts.push(group('helix', t('pm.variablePitch'), vp, rows.length ? '' : 'collapsed'));
+    }
+    return parts.join('');
   },
   thread(api, f) {
     const { t } = api;
@@ -61,12 +131,12 @@ export const ADVANCED_PM = {
     return [
       group('featThread', t('pm.threadLocation'), `${pickBox(api, 'edge', edge, t('pm.circularEdge'), 'featThread')}${seg('internal', [['auto', t('thread.auto')], ['external', t('thread.external')], ['internal', t('thread.internal')]], f.internal ?? 'auto')}${check('reverse', f.reverse, t('pm.reverse'), 'flipV')}`),
       group('featThread', t('pm.specification'), `${select('threadSize', [['', t('hole.custom')], ...THREAD_SIZES.map(([s, , p]) => [s, `${s} × ${p}`])], f.size ?? '', t('hole.size'))}${field(api, 'pitch', f.pitch, { label: t('pm.pitch'), min: 0.1 })}${field(api, 'length', f.length, { label: t('pm.length'), min: 0.1 })}${check('lefthand', f.lefthand, t('pm.lefthand'), 'flipH')}${check('cosmetic', f.cosmetic, t('pm.cosmeticThread'), 'hiddenLines')}`),
-      group('featThread', t('thread.form'), `${select('form', [['iso', t('thread.form.iso')], ['v', t('thread.form.v')]], f.form ?? 'v', t('thread.form'))}${f.form === 'iso' && !f.cosmetic ? select('mode', [['auto', t('thread.mode.auto')], ['cosmetic', t('thread.mode.cosmetic')], ['modelled', t('thread.mode.modelled')]], f.mode ?? 'auto', t('thread.display')) : ''}${f.form === 'iso' ? `<p class="pm-note">${escapeHtml(t('thread.isoNote'))}</p>` : ''}`),
+      group('featThread', t('thread.form'), `${select('form', [['iso', t('thread.form.iso')], ['v', t('thread.form.v')], ['trapezoidal', t('thread.form.trapezoidal')], ['buttress', t('thread.form.buttress')], ['pipe55', t('thread.form.pipe55')]], f.form ?? 'v', t('thread.form'))}${f.form !== 'iso' ? field(api, 'starts', f.starts ?? 1, { label: t('pm.threadStarts'), unit: 'count', min: 1 }) : ''}${''}${f.form === 'iso' && !f.cosmetic ? select('mode', [['auto', t('thread.mode.auto')], ['cosmetic', t('thread.mode.cosmetic')], ['modelled', t('thread.mode.modelled')]], f.mode ?? 'auto', t('thread.display')) : ''}${f.form === 'iso' ? `<p class="pm-note">${escapeHtml(t('thread.isoNote'))}</p>` : ''}`),
     ].join('');
   },
   wrap(api, f) {
     const { t } = api;
-    return group('featWrap', t('pm.parameters'), `${seg('op', [['emboss', t('wrap.emboss'), 'featExtrude'], ['deboss', t('wrap.deboss'), 'featCut']], f.op)}${sketchSelect(api, f, 'sketch', t('pm.sketch'), 'profile')}${pickBox(api, 'face', f.face ? [`${t('pm.face')} (${f.face.type === 'PLANE' ? t('pm.planar') : t('pm.curved')})`] : [], t('pm.faceToWrap'), 'part')}${field(api, 'depth', f.depth, { label: t('pm.depth'), min: 0.01 })}${note(t('pm.help.wrapProjection'))}`);
+    return group('featWrap', t('pm.parameters'), `${seg('op', [['emboss', t('wrap.emboss'), 'featExtrude'], ['deboss', t('wrap.deboss'), 'featCut'], ['scribe', t('wrap.scribe'), 'splitLine']], f.op)}${sketchSelect(api, f, 'sketch', t('pm.sketch'), 'profile')}${pickBox(api, 'face', f.face ? [`${t('pm.face')} (${f.face.type === 'PLANE' ? t('pm.planar') : t('pm.curved')})`] : [], t('pm.faceToWrap'), 'part')}${field(api, 'depth', f.depth, { label: t('pm.depth'), min: 0.01 })}${note(t('pm.help.wrapProjection'))}`);
   },
   thicken(api, f) {
     const { t } = api;

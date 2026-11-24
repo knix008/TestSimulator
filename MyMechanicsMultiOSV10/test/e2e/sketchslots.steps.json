@@ -1,0 +1,277 @@
+[
+  {
+    "name": "sk3: kernel",
+    "eval": "window.__mymechanics.actions.ensureKernel().then(() => 'ready')",
+    "expect": "^ready$"
+  },
+  {
+    "name": "sk3: new part",
+    "eval": "window.__mymechanics.actions.closeProject({ force: true }).then(() => window.__mymechanics.actions.newDocument('part')).then(() => 'ok')",
+    "expect": "^ok$",
+    "wait": 300
+  },
+  {
+    "name": "sk3: sketch on the Top plane, zoomed so 1 mm is 2 px",
+    "eval": "window.__mymechanics.run('sketch').then(async () => { document.querySelector('[data-pm=\"sketchOn:top\"]').click(); await new Promise((r) => setTimeout(r, 600)); const m = window.__mymechanics; const vp = m.viewport; m.actions.updateSettings({ snapToGrid: false }, { quiet: true }); const ed = m.state.editing.editor; const { toWorld } = await import('/src/cad/features.js'); window.__sk = (u, v) => { const r = vp.canvas.getBoundingClientRect(); const s = vp.toScreen(toWorld(ed.frame, [u, v])); return [s.x + r.left, s.y + r.top]; }; const a = window.__sk(0, 0); const b = window.__sk(100, 0); return Math.round(Math.hypot(b[0] - a[0], b[1] - a[1])) > 60 ? 'ok' : 'too small ' + Math.hypot(b[0] - a[0], b[1] - a[1]); })",
+    "expect": "^ok$"
+  },
+  {
+    "name": "sk3: view framed on the drawing area (-60 … 160 mm)",
+    "eval": "(async () => { const m = window.__mymechanics; const vp = m.viewport; const { toWorld } = await import('/src/cad/features.js'); const ed = m.state.editing.editor; const c = toWorld(ed.frame, [50, 15]); vp.target.set(c[0], c[1], c[2]); const r = vp.canvas.getBoundingClientRect(); const inside = () => [window.__sk(-70, -80), window.__sk(170, 110)].every(([x, y]) => x > r.left && x < r.right && y > r.top && y < r.bottom); vp.distance = 50; vp.updateCamera(); for (let i = 0; i < 40 && !inside(); i++) { vp.distance *= 1.25; vp.updateCamera(); } await new Promise((r2) => setTimeout(r2, 300)); const p = window.__sk(-60, -70); const q = window.__sk(160, 100); return [p, q].every(([x, y]) => x > r.left && x < r.right && y > r.top && y < r.bottom) ? 'inside' : JSON.stringify({ p, q, r }); })()",
+    "expect": "^inside$"
+  },
+  {
+    "name": "sk3: slotCenter tool",
+    "eval": "window.__mymechanics.run('sk:slotCenter').then(() => window.__mymechanics.state.editing.editor.tool)",
+    "expect": "^slotCenter$"
+  },
+  {
+    "mouse": [
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(20, 80)[0]",
+        "y": "window.__sk(20, 80)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(20, 80)[0]",
+        "y": "window.__sk(20, 80)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(20, 80)[0]",
+        "y": "window.__sk(20, 80)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(40, 80)[0]",
+        "y": "window.__sk(40, 80)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(40, 80)[0]",
+        "y": "window.__sk(40, 80)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(40, 80)[0]",
+        "y": "window.__sk(40, 80)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(40, 86)[0]",
+        "y": "window.__sk(40, 86)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(40, 86)[0]",
+        "y": "window.__sk(40, 86)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(40, 86)[0]",
+        "y": "window.__sk(40, 86)[1]",
+        "button": "left"
+      }
+    ],
+    "wait": 300
+  },
+  {
+    "name": "sk3: centre-point slot — 40 between end centres, 12 wide: 40·12 + π·6²",
+    "eval": "(async () => { const ed = window.__mymechanics.state.editing.editor; const { profiles } = await import('/src/cad/sketch.js'); const hit = profiles(ed.sketch).map((r) => r.outer.area).find((a) => Math.abs(a - 593.0973355292325) < 0.01 * 593.0973355292325); return hit ? 'area ok' : JSON.stringify(profiles(ed.sketch).map((r) => Math.round(r.outer.area))); })()",
+    "expect": "^area ok$"
+  },
+  {
+    "name": "sk3: slotArc3 tool",
+    "eval": "window.__mymechanics.run('sk:slotArc3').then(() => window.__mymechanics.state.editing.editor.tool)",
+    "expect": "^slotArc3$"
+  },
+  {
+    "mouse": [
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(140, 40)[0]",
+        "y": "window.__sk(140, 40)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(140, 40)[0]",
+        "y": "window.__sk(140, 40)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(140, 40)[0]",
+        "y": "window.__sk(140, 40)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(100, 80)[0]",
+        "y": "window.__sk(100, 80)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(100, 80)[0]",
+        "y": "window.__sk(100, 80)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(100, 80)[0]",
+        "y": "window.__sk(100, 80)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(128.2842712474619, 68.2842712474619)[0]",
+        "y": "window.__sk(128.2842712474619, 68.2842712474619)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(128.2842712474619, 68.2842712474619)[0]",
+        "y": "window.__sk(128.2842712474619, 68.2842712474619)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(128.2842712474619, 68.2842712474619)[0]",
+        "y": "window.__sk(128.2842712474619, 68.2842712474619)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(122, 78.10511776651529)[0]",
+        "y": "window.__sk(122, 78.10511776651529)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(122, 78.10511776651529)[0]",
+        "y": "window.__sk(122, 78.10511776651529)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(122, 78.10511776651529)[0]",
+        "y": "window.__sk(122, 78.10511776651529)[1]",
+        "button": "left"
+      }
+    ],
+    "wait": 300
+  },
+  {
+    "name": "sk3: 3-point arc slot — 90° of R 40, 8 wide: (π/2)·2·40·4 + π·4²",
+    "eval": "(async () => { const ed = window.__mymechanics.state.editing.editor; const { profiles } = await import('/src/cad/sketch.js'); const hit = profiles(ed.sketch).map((r) => r.outer.area).find((a) => Math.abs(a - 552.9203070318035) < 0.01 * 552.9203070318035); return hit ? 'area ok' : JSON.stringify(profiles(ed.sketch).map((r) => Math.round(r.outer.area))); })()",
+    "expect": "^area ok$"
+  },
+  {
+    "name": "sk3: slotArcCenter tool",
+    "eval": "window.__mymechanics.run('sk:slotArcCenter').then(() => window.__mymechanics.state.editing.editor.tool)",
+    "expect": "^slotArcCenter$"
+  },
+  {
+    "mouse": [
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(-20, -30)[0]",
+        "y": "window.__sk(-20, -30)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(-20, -30)[0]",
+        "y": "window.__sk(-20, -30)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(-20, -30)[0]",
+        "y": "window.__sk(-20, -30)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(10, -30)[0]",
+        "y": "window.__sk(10, -30)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(10, -30)[0]",
+        "y": "window.__sk(10, -30)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(10, -30)[0]",
+        "y": "window.__sk(10, -30)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(-20, 0)[0]",
+        "y": "window.__sk(-20, 0)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(-20, 0)[0]",
+        "y": "window.__sk(-20, 0)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(-20, 0)[0]",
+        "y": "window.__sk(-20, 0)[1]",
+        "button": "left"
+      },
+      {
+        "type": "mouseMoved",
+        "x": "window.__sk(4.041630560342618, -5.958369439657382)[0]",
+        "y": "window.__sk(4.041630560342618, -5.958369439657382)[1]",
+        "delay": 20
+      },
+      {
+        "type": "mousePressed",
+        "x": "window.__sk(4.041630560342618, -5.958369439657382)[0]",
+        "y": "window.__sk(4.041630560342618, -5.958369439657382)[1]",
+        "button": "left",
+        "buttons": 1
+      },
+      {
+        "type": "mouseReleased",
+        "x": "window.__sk(4.041630560342618, -5.958369439657382)[0]",
+        "y": "window.__sk(4.041630560342618, -5.958369439657382)[1]",
+        "button": "left"
+      }
+    ],
+    "wait": 300
+  },
+  {
+    "name": "sk3: centre-point arc slot — 90° of R 30, 8 wide: (π/2)·2·30·4 + π·4²",
+    "eval": "(async () => { const ed = window.__mymechanics.state.editing.editor; const { profiles } = await import('/src/cad/sketch.js'); const hit = profiles(ed.sketch).map((r) => r.outer.area).find((a) => Math.abs(a - 427.25660088821184) < 0.01 * 427.25660088821184); return hit ? 'area ok' : JSON.stringify(profiles(ed.sketch).map((r) => Math.round(r.outer.area))); })()",
+    "expect": "^area ok$"
+  }
+]

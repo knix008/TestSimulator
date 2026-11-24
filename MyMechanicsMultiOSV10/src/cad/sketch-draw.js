@@ -156,6 +156,31 @@ export function addCircle3(sketch, a, b, c, ids = []) {
   return circle;
 }
 
+// ───────────────────────── arc slot
+
+/**
+ * An arc slot: its centre line is the arc of circle g (centre, radius r) from angle a0 to a1 (counter-clockwise),
+ * width w. Outer and inner arcs about g's centre, round ends (half circles of radius w / 2 about the ends), the
+ * centre arc as construction; the shared end points hold the shape, the two end caps are kept equal.
+ */
+export function addArcSlot(sketch, g, a0, a1, w) {
+  const h = w / 2;
+  if (!(h > 0) || h >= g.r) return null;
+  const at = (a, rr) => pt(sketch, g.cx + rr * Math.cos(a), g.cy + rr * Math.sin(a));
+  const c = pt(sketch, g.cx, g.cy);
+  const e0 = at(a0, g.r); const e1 = at(a1, g.r);
+  const o0 = at(a0, g.r + h); const o1 = at(a1, g.r + h);
+  const i0 = at(a0, g.r - h); const i1 = at(a1, g.r - h);
+  const arc = (centre, p1, p2, extra = {}) => { const e = { id: newSketchId('a'), type: 'arc', c: centre.id, p1: p1.id, p2: p2.id, ...extra }; sketch.entities.push(e); return e; };
+  const outer = arc(c, o0, o1);
+  const inner = arc(c, i0, i1);
+  const cap1 = arc(e1, o1, i1);
+  const cap0 = arc(e0, i0, o0);
+  const centreArc = arc(c, e0, e1, { construction: true });
+  addConstraint(sketch, { type: 'equal', a: cap0.id, b: cap1.id });
+  return { outer, inner, caps: [cap0, cap1], centreArc };
+}
+
 // ───────────────────────── split entities
 
 /** The parameter of the point nearest (x, y) on a rational piece list: { index, t, point }. */

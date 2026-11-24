@@ -44,14 +44,16 @@ export const SHEET_EXTRA_NAMES = { convertSheet: 'Convert-Sheet', insertBends: '
 export const SHEET_EXTRA_ICONS = { convertSheet: 'convertSheet', insertBends: 'insertBends', rip: 'rip', unfold: 'unfold', fold: 'fold', crossBreak: 'crossBreak', weldedCorner: 'weldedCorner', tabSlot: 'tabSlot' };
 
 /** More part features (part-extra.js): advanced hole, intersect, mate reference. */
-export const PART_EXTRA_TYPES = ['advancedHole', 'intersect', 'mateReference'];
+export const PART_EXTRA_TYPES = ['advancedHole', 'intersect', 'mateReference', 'moveFace', 'connectionPoint'];
 export const PART_EXTRA_DEFAULTS = {
   advancedHole: () => ({ sketch: null, reverse: false, near: [{ kind: 'counterbore', d: 11, depth: 6.5 }, { kind: 'straight', d: 6.6, depth: 0 }], far: [] }),
   intersect: () => ({ bodies: true, surfaces: [], planes: [], exclude: [], merge: true, consume: true }),
+  moveFace: () => ({ faces: [], distance: 2 }),
+  connectionPoint: () => ({ face: null, cpName: 'Connector', offset: 0, flip: false }),
   mateReference: () => ({ refName: 'Default', primary: null, primaryType: 'default', primaryAlign: 'any', secondary: null, secondaryType: 'default', secondaryAlign: 'any', tertiary: null, tertiaryType: 'default', tertiaryAlign: 'any' }),
 };
-export const PART_EXTRA_NAMES = { advancedHole: 'Advanced Hole', intersect: 'Intersect', mateReference: 'MateReference' };
-export const PART_EXTRA_ICONS = { advancedHole: 'advancedHole', intersect: 'intersectRegions', mateReference: 'mateReference' };
+export const PART_EXTRA_NAMES = { advancedHole: 'Advanced Hole', intersect: 'Intersect', mateReference: 'MateReference', moveFace: 'Move Face', connectionPoint: 'Connection Point' };
+export const PART_EXTRA_ICONS = { advancedHole: 'advancedHole', intersect: 'intersectRegions', mateReference: 'mateReference', moveFace: 'moveFace', connectionPoint: 'connectionPoint' };
 
 export const PART_MORE_TYPES = [
   'combine', 'deleteBody', 'indent', 'flex', 'deform',

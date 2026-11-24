@@ -26,8 +26,8 @@ const back = plane([0, 0, 0], [0, 0, -1]);
 test('mate lists: the standard list is unchanged, advanced and mechanical groups, refs per type', () => {
   const p = plane([0, 0, 0], [0, 1, 0]);
   assert.deepEqual(matesFor(p, p), ['coincident', 'parallel', 'perpendicular', 'distance', 'angle']);
-  assert.deepEqual(matesFor(p, p, 'advanced'), ['width', 'symmetric', 'limitDistance', 'limitAngle']);
-  assert.deepEqual(matesFor(zAxis, zAxis, 'mechanical'), ['gear', 'screw', 'hinge', 'rackPinion']);
+  assert.deepEqual(matesFor(p, p, 'advanced'), ['width', 'symmetric', 'limitDistance', 'limitAngle', 'linearCoupler', 'profileCenter']);
+  assert.deepEqual(matesFor(zAxis, zAxis, 'mechanical'), ['gear', 'screw', 'hinge', 'rackPinion', 'slot', 'universalJoint']);
   assert.deepEqual(matesFor(zAxis, p, 'mechanical'), ['rackPinion']);
   for (const t of ['lock', 'width', 'symmetric', 'limitDistance', 'limitAngle', 'gear', 'rackPinion', 'screw', 'hinge']) {
     assert.ok(MATE_TYPES.includes(t), t);

@@ -1,6 +1,7 @@
 // The PropertyManager (the left-panel editor): the options of the feature, sketch, mate or
 // drawing being edited, in group boxes, with selection boxes (pink while they take picks from the
 // graphics area), and OK / Cancel at the top. HTML only — app.js binds the data-pm* attributes.
+import { segGlyph } from './seg-icons.js';
 import { escapeHtml } from './dom.js';
 import { icon } from '../icons.js';
 import { relationsFor, standalonePoints, constructionLines, byId, geomKind, equationError, DIMENSIONS } from '../cad/sketch.js';
@@ -13,6 +14,9 @@ import { SHEET_MORE_PM } from './pm-sheet-more.js';
 import { MOLD_MORE_PM } from './pm-eval-more.js';
 import { STD_PM } from './pm-std.js';
 import { openscadPm } from './pm-openscad.js';
+import { extrudePm, revolvePm } from './pm-extrude.js';
+import { filletPm, chamferPm, shellPm, patternMorePm } from './pm-dressup.js';
+import { refPlanePm, holeMorePm } from './pm-refplane.js';
 
 /** Tapped hole sizes (ISO 261 coarse): [size, d, pitch] — the tap drill is d − P. */
 export const TAP_SIZES = [['M3', 3, 0.5], ['M4', 4, 0.7], ['M5', 5, 0.8], ['M6', 6, 1], ['M8', 8, 1.25], ['M10', 10, 1.5], ['M12', 12, 1.75], ['M16', 16, 2], ['M20', 20, 2.5], ['M24', 24, 3]];
@@ -23,7 +27,7 @@ export const HOLE_SIZES = [
   ['M10', 11, 18, 10.8, 20.4], ['M12', 13.5, 20, 13, 24.4], ['M16', 17.5, 26, 17.5, 32.4], ['M20', 22, 33, 21.5, 40.4],
 ];
 
-const RELATION_ICONS = { coincident: 'relCoincident', horizontal: 'relHorizontal', vertical: 'relVertical', parallel: 'relParallel', perpendicular: 'relPerpendicular', tangent: 'relTangent', equal: 'relEqual', concentric: 'relConcentric', midpoint: 'relMidpoint', fix: 'relFix', symmetric: 'relSymmetric', collinear: 'relCollinear', pointOnLine: 'relPointOnLine', pointOnCircle: 'relPointOnCircle', distance: 'dimDistance', hdistance: 'dimDistance', vdistance: 'dimDistance', radius: 'dimRadius', diameter: 'dimDiameter', angle: 'dimAngle' };
+const RELATION_ICONS = { arcLength: 'dimArcLength', coradial: 'relCoradial', merge: 'relMerge', equalCurvature: 'relEqualCurvature', smooth: 'relSmooth', coincident: 'relCoincident', horizontal: 'relHorizontal', vertical: 'relVertical', parallel: 'relParallel', perpendicular: 'relPerpendicular', tangent: 'relTangent', equal: 'relEqual', concentric: 'relConcentric', midpoint: 'relMidpoint', fix: 'relFix', symmetric: 'relSymmetric', collinear: 'relCollinear', pointOnLine: 'relPointOnLine', pointOnCircle: 'relPointOnCircle', distance: 'dimDistance', hdistance: 'dimDistance', vdistance: 'dimDistance', radius: 'dimRadius', diameter: 'dimDiameter', angle: 'dimAngle' };
 export const relationIcon = (type) => RELATION_ICONS[type] ?? 'addRelation';
 
 function header(api, glyph, title, { ok = true, help = '' } = {}) {
@@ -55,7 +59,7 @@ export function field(api, key, value, { label, glyph = 'smartDim', unit = 'leng
 
 export const check = (key, value, label, glyph = 'check') => `<label class="pm-check" title="${escapeHtml(label)}"><input type="checkbox" data-pm-toggle="${escapeHtml(key)}" ${value ? 'checked' : ''} />${icon(glyph)}<span>${escapeHtml(label)}</span></label>`;
 
-export const seg = (key, options, current) => `<span class="segmented pm-seg" role="radiogroup">${options.map(([v, label, glyph]) => `<button type="button" class="segment ${String(v) === String(current) ? 'active' : ''}" data-pm-set="${escapeHtml(key)}" data-value="${escapeHtml(v)}" title="${escapeHtml(label)}" aria-pressed="${String(v) === String(current)}">${glyph ? icon(glyph) : ''}<span>${escapeHtml(label)}</span></button>`).join('')}</span>`;
+export const seg = (key, options, current) => `<span class="segmented pm-seg" role="radiogroup">${options.map(([v, label, glyph]) => `<button type="button" class="segment ${String(v) === String(current) ? 'active' : ''}" data-pm-set="${escapeHtml(key)}" data-value="${escapeHtml(v)}" title="${escapeHtml(label)}" aria-pressed="${String(v) === String(current)}">${icon(glyph || segGlyph(key, v))}<span>${escapeHtml(label)}</span></button>`).join('')}</span>`;
 
 export const select = (key, options, current, label) => `<label class="pm-field" title="${escapeHtml(label)}"><span class="pm-label">${escapeHtml(label)}</span><select data-pm-select="${escapeHtml(key)}" aria-label="${escapeHtml(label)}">${options.map(([v, text, glyph]) => `<option value="${escapeHtml(v)}" ${glyph ? `data-icon="${glyph}"` : ''} ${String(v) === String(current) ? 'selected' : ''}>${escapeHtml(text)}</option>`).join('')}</select></label>`;
 
@@ -99,34 +103,29 @@ function featurePm(api) {
   const sketchSel = (label = t('pm.sketch')) => select('sketch', [['', `— ${t('pm.chooseSketch')} —`], ...sketchList.map((s) => [s.id, s.name, 'featSketch'])], f.sketch ?? '', label);
   if (f.type === 'extrude') {
     parts.push(group('featSketch', t('pm.from'), `${sketchSel()}${seg('op', [['boss', t('op.boss'), 'featExtrude'], ['cut', t('op.cut'), 'featCut'], ['common', t('op.common'), 'featIntersect']], f.op)}${f.op === 'boss' ? check('merge', f.merge !== false, t('pm.mergeResult'), 'combineBodies') : ''}`));
-    const ends =[['blind', t('end.blind')], ['through', t('end.through')], ['throughBoth', t('end.throughBoth')], ['midplane', t('end.midplane')]];
-    parts.push(group('featExtrude', t('pm.direction1'), `${select('end', ends, f.end, t('pm.endCondition'))}${check('reverse', f.reverse, t('pm.reverse'), 'flipV')}${f.end === 'blind' || f.end === 'midplane' ? field(api, 'depth', f.depth, { label: t('pm.depth'), min: 0.001 }) : ''}${f.end === 'blind' ? `${check('draft', f.draft, t('pm.draftOnOff'), 'featDraft')}${f.draft ? `${field(api, 'draftAngle', f.draftAngle ?? 3, { label: t('pm.draftAngle'), unit: 'angle', glyph: 'dimAngle', min: 0.1 })}${check('draftOutward', f.draftOutward, t('pm.draftOutward'), 'flipH')}` : ''}` : ''}`));
-    if (f.end === 'blind' || f.end === 'through') {
-      const on = f.end2 && f.end2 !== 'none';
-      parts.push(group('featExtrude', t('pm.direction2'), `${check('dir2', on, t('pm.direction2'), 'flipH')}${on ? `${select('end2', [['blind', t('end.blind')], ['through', t('end.through')]], f.end2, t('pm.endCondition'))}${f.end2 === 'blind' ? field(api, 'depth2', f.depth2, { label: t('pm.depth'), min: 0.001 }) : ''}` : ''}`, on ? '' : 'collapsed'));
-    }
+    parts.push(extrudePm(api, f));
   } else if (f.type === 'revolve') {
     const sk = api.sketchById(f.sketch);
     const axes = sk ? sk.entities.filter((x) => x.type === 'line') : [];
     const axisOptions = axes.map((l, i) => [l.id, `${l.construction ? t('pm.centerline') : t('pm.line')} ${i + 1}`, l.construction ? 'centerline' : 'lineTool']);
     parts.push(group('featSketch', t('pm.from'), `${sketchSel()}${seg('op', [['boss', t('op.boss'), 'featRevolve'], ['cut', t('op.cut'), 'featCutRevolve']], f.op)}${f.op === 'boss' ? check('merge', f.merge !== false, t('pm.mergeResult'), 'combineBodies') : ''}`));
     parts.push(group('refAxis', t('pm.axis'), `${select('axis', [['', t('pm.firstCenterline')], ...axisOptions], f.axis ?? '', t('pm.axisOfRevolution'))}${!constructionLines(sk ?? { entities: [] }).length && !f.axis ? `<p class="pm-note warn">${icon('warning', 'icon tiny')}${escapeHtml(t('pm.needCenterline'))}</p>` : ''}`));
-    parts.push(group('dimAngle', t('pm.direction1'), `${field(api, 'angle', f.angle, { label: t('pm.angle'), unit: 'angle', glyph: 'dimAngle', min: 0.1 })}${check('reverse', f.reverse, t('pm.reverse'), 'flipV')}`));
-  } else if (f.type === 'fillet' || f.type === 'chamfer') {
-    const items = (f.edges ?? []).map((sig, i) => `${t('pm.edge')} ${i + 1} (${sig.type === 'CIRCLE' ? t('pm.circular') : sig.type === 'LINE' ? t('pm.straight') : t('pm.curve')})`);
-    parts.push(group(f.type === 'fillet' ? 'featFillet' : 'featChamfer', t('pm.items'), `${f.type === 'fillet' ? field(api, 'radius', f.radius, { label: t('pm.radius'), glyph: 'dimRadius', min: 0.001 }) : field(api, 'distance', f.distance, { label: t('pm.distance'), min: 0.001 })}${pickBox(api, 'edges', items, t('pm.edges'), 'featFillet')}<div class="pm-row"><button class="small-button" data-pm="tangentChain" title="${escapeHtml(t('pm.allEdgesOfFaceTip'))}">${icon('selectAll')}<span>${escapeHtml(t('pm.allEdgesOfFace'))}</span></button></div>`));
+    parts.push(revolvePm(api, f));
+  } else if (f.type === 'fillet') {
+    parts.push(filletPm(api, f));
+  } else if (f.type === 'chamfer') {
+    parts.push(chamferPm(api, f));
   } else if (f.type === 'shell') {
-    const items = (f.faces ?? []).map((sig, i) => `${t('pm.face')} ${i + 1} (${sig.type === 'PLANE' ? t('pm.planar') : t('pm.curved')})`);
-    parts.push(group('featShell', t('pm.parameters'), `${field(api, 'thickness', f.thickness, { label: t('pm.thickness'), min: 0.001 })}${pickBox(api, 'faces', items, t('pm.facesToRemove'), 'featShell')}`));
+    parts.push(shellPm(api, f));
   } else if (f.type === 'hole') {
     const pts = e.holeSketch?.points ?? [];
     const tapped = f.kind === 'tapped';
-    parts.push(group('featHole', t('pm.holeType'), `${seg('kind', [['simple', t('hole.simple'), 'featHole'], ['counterbore', t('hole.counterbore'), 'featHole'], ['countersink', t('hole.countersink'), 'featHole'], ['tapped', t('hole.tapped'), 'featThread']], f.kind)}
+    parts.push(group('featHole', t('pm.holeType'), `${seg('kind', [['simple', t('hole.simple'), 'featHole'], ['counterbore', t('hole.counterbore'), 'featHole'], ['countersink', t('hole.countersink'), 'featHole'], ['tapped', t('hole.tapped'), 'featThread'], ['taperedTap', t('hole.taperedTap'), 'featThread']], f.kind)}
       ${tapped ? `${select('threadSize', TAP_SIZES.map(([s, d, p]) => [s, `${s} × ${p} — ${t('hole.tapDrill')} Ø${Math.round((d - p) * 10) / 10}`]), f.threadSize ?? 'M8', t('hole.threadSize'))}${field(api, 'threadDepth', f.threadDepth, { label: t('hole.threadDepth'), min: 0.1 })}${select('threadMode', [['auto', t('thread.mode.auto')], ['cosmetic', t('thread.mode.cosmetic')], ['modelled', t('thread.mode.modelled')]], f.threadMode ?? 'auto', t('thread.display'))}<p class="pm-note">${escapeHtml(t('hole.tapNote'))}</p>` : select('size', [['', t('hole.custom')], ...HOLE_SIZES.map(([s]) => [s, `${s} — ${t('hole.clearance')}`])], f.size ?? '', t('hole.size'))}
       ${field(api, 'diameter', f.diameter, { label: t('hole.diameter'), glyph: 'dimDiameter', min: 0.1 })}
       ${f.kind === 'counterbore' ? `${field(api, 'cbDiameter', f.cbDiameter, { label: t('hole.cbDiameter'), glyph: 'dimDiameter', min: 0.1 })}${field(api, 'cbDepth', f.cbDepth, { label: t('hole.cbDepth'), min: 0.1 })}` : ''}
       ${f.kind === 'countersink' ? `${field(api, 'csDiameter', f.csDiameter, { label: t('hole.csDiameter'), glyph: 'dimDiameter', min: 0.1 })}${field(api, 'csAngle', f.csAngle, { label: t('hole.csAngle'), unit: 'angle', glyph: 'dimAngle', min: 30 })}` : ''}`));
-    parts.push(group('featExtrude', t('pm.endCondition'), `${seg('through', [['true', t('end.through')], ['false', t('end.blind')]], String(Boolean(f.through)))}${f.through ? '' : field(api, 'depth', f.depth, { label: t('pm.depth'), min: 0.1 })}`));
+    parts.push(holeMorePm(api, f));
     if (e.isNew || e.holeSketch) parts.push(group('pointTool', t('pm.positions'), `${pickBox(api, 'holePoints', pts.map((p, i) => `${t('pm.point')} ${i + 1} (${api.fmtLen(p[0])}, ${api.fmtLen(p[1])})`), t('pm.holePoints'), 'pointTool')}<p class="pm-note">${escapeHtml(t(e.holeSketch?.plane ? 'pm.holeMore' : 'pm.holeFirst'))}</p>`));
     else parts.push(group('featSketch', t('pm.positions'), sketchSel(t('pm.pointsSketch'))));
   } else if (f.type === 'linearPattern' || f.type === 'circularPattern') {
@@ -138,13 +137,14 @@ function featurePm(api) {
     } else {
       parts.push(group('featCirPattern', t('pm.parameters'), `${seg('axisKind', [['x', 'X'], ['y', 'Y'], ['z', 'Z'], ['edge', t('pm.edgeRef')], ...(api.featuresBefore?.(f) ?? []).filter((x) => x.type === 'refAxis').map((x) => [`ref:${x.id}`, x.name, 'refAxis'])], f.axis?.kind === 'ref' ? `ref:${f.axis.id}` : f.axis?.kind === 'edge' ? 'edge' : f.axis?.axis ?? 'z')}${f.axis?.kind === 'edge' ? pickBox(api, 'axis', [axisName(api, f.axis)], t('pm.axisEdge'), 'refAxis') : ''}${check('reverse', f.reverse, t('pm.reverse'), 'flipV')}${field(api, 'angle', f.angle, { label: t('pm.totalAngle'), unit: 'angle', glyph: 'dimAngle', min: 0.1 })}${field(api, 'count', f.count, { label: t('pm.instances'), unit: 'count', glyph: 'featCirPattern', min: 1, step: 1 })}${check('equal', f.equal, t('pm.equalSpacing'), 'relEqual')}`));
     }
+    parts.push(patternMorePm(api, f));
     parts.push(group('part', t('pm.featuresToPattern'), `${check('body', f.body, t('pm.patternBody'), 'part')}${f.body ? '' : pickBox(api, 'seeds', seeds, t('pm.seedFeatures'), 'featExtrude')}`));
   } else if (f.type === 'mirror') {
     const seeds = (f.seeds ?? []).map((id) => api.featureName(id) ?? id);
     parts.push(group('featMirror', t('pm.mirrorPlane'), `${seg('stdPlane', [['front', t('plane.front')], ['top', t('plane.top')], ['right', t('plane.right')]], f.plane?.kind === 'std' ? f.plane.name : '')}${pickBox(api, 'plane', [planeName(api, f.plane)], t('pm.planeOrFace'), 'refPlane')}`));
     parts.push(group('part', t('pm.featuresToMirror'), `${check('body', f.body, t('pm.mirrorBody'), 'part')}${f.body ? '' : pickBox(api, 'seeds', seeds, t('pm.seedFeatures'), 'featExtrude')}`));
   } else if (f.type === 'plane') {
-    parts.push(group('refPlane', t('pm.firstReference'), `${seg('stdPlane', [['front', t('plane.front')], ['top', t('plane.top')], ['right', t('plane.right')]], f.base?.kind === 'std' ? f.base.name : '')}${pickBox(api, 'base', [planeName(api, f.base)], t('pm.planeOrFace'), 'refPlane')}${field(api, 'offset', f.offset, { label: t('pm.offset') })}${check('flip', f.flip, t('pm.flip'), 'flipV')}`));
+    parts.push(refPlanePm(api, f));
   }
   if (ADVANCED_PM[f.type]) parts.push(ADVANCED_PM[f.type](api, f, e));
   else if (f.type === 'openscad') parts.push(openscadPm(api, f, e));
@@ -229,16 +229,20 @@ function matePm(api) {
   const m = e.mate;
   const groupName = e.mateGroup ?? 'standard';
   const types = matesFor(m.a, m.b, groupName);
-  const name = (ref) => (ref ? `${api.componentName(ref.comp)} · ${t(ref.kind === 'axis' ? 'pm.axisFace' : 'pm.planarFace')}` : '');
+  const name = (ref) => (ref ? `${api.componentName(ref.comp)} · ${t(ref.kind === 'axis' ? 'pm.axisFace' : ref.kind === 'point' ? 'pm.vertex' : ref.kind === 'path' ? 'pm.pathEdges' : 'pm.planarFace')}${ref.kind === 'path' ? ` (${ref.pieces?.length ?? 1})` : ''}` : '');
   const parts = [header(api, MATE_ICONS[m.type] ?? 'mate', `${t('pm.mate')}${e.isNew ? '' : ` — ${m.name}`}`, { help: t('pm.help.mate') })];
   const need = MATE_REFS[m.type] ?? {};
-  parts.push(group('select', t('pm.mateSelections'), `${pickBox(api, 'a', m.a ? [name(m.a)] : [], t('pm.entity1'), 'part')}${pickBox(api, 'b', m.b ? [name(m.b)] : [], t('pm.entity2'), 'part')}${need.c ? pickBox(api, 'c', m.c ? [name(m.c)] : [], t(need.d ? 'pm.entity3' : 'pm.symmetryPlane'), 'part') : ''}${need.d ? pickBox(api, 'd', m.d ? [name(m.d)] : [], t('pm.entity4'), 'part') : ''}`));
+  parts.push(group('select', t('pm.mateSelections'), `${pickBox(api, 'a', m.a ? [name(m.a)] : [], t('pm.entity1'), 'part')}${pickBox(api, 'b', m.b ? [name(m.b)] : [], t('pm.entity2'), 'part')}${need.c ? pickBox(api, 'c', m.c ? [name(m.c)] : [], t(need.d ? 'pm.entity3' : m.type === 'slot' ? 'pm.slotEnd2' : 'pm.symmetryPlane'), 'part') : ''}${need.d ? pickBox(api, 'd', m.d ? [name(m.d)] : [], t('pm.entity4'), 'part') : ''}`));
   parts.push(`<div class="pm-row">${seg('mateGroup', [['standard', t('pm.standardMates'), 'mate'], ['advanced', t('pm.advancedMates'), 'mateWidth'], ['mechanical', t('pm.mechanicalMates'), 'mateGear']], groupName)}</div>`);
   if (types.length) {
     parts.push(group('mate', t(`pm.${groupName}Mates`), `<div class="pm-relations">${types.map((ty) => `<button class="small-button ${m.type === ty ? 'active' : ''}" data-pm-set="type" data-value="${ty}" title="${escapeHtml(t(`mate.${ty}`))}">${icon(MATE_ICONS[ty] ?? 'mate')}<span>${escapeHtml(t(`mate.${ty}`))}</span></button>`).join('')}</div>
       ${m.type === 'limitDistance' ? `${field(api, 'min', m.min ?? 0, { label: t('pm.minimum') })}${field(api, 'max', m.max ?? 50, { label: t('pm.maximum') })}` : ''}${m.type === 'limitAngle' ? `${field(api, 'min', m.min ?? 0, { label: t('pm.minimum'), unit: 'angle', glyph: 'dimAngle' })}${field(api, 'max', m.max ?? 90, { label: t('pm.maximum'), unit: 'angle', glyph: 'dimAngle' })}` : ''}
       ${m.type === 'gear' ? field(api, 'ratio', m.ratio ?? 1, { label: t('pm.ratio'), unit: 'number', glyph: 'mateGear' }) : ''}${m.type === 'rackPinion' ? field(api, 'radius', m.radius ?? 10, { label: t('pm.pitchRadius'), glyph: 'dimRadius' }) : ''}${m.type === 'screw' ? field(api, 'pitch', m.pitch ?? 1, { label: t('pm.pitchPerTurn') }) : ''}
-      ${['gear', 'rackPinion', 'screw'].includes(m.type) ? check('reverse', m.reverse, t('pm.reverse'), 'flipV') : ''}
+      ${m.type === 'profileCenter' ? field(api, 'value', m.value ?? 0, { label: t('pm.offsetDistance') }) : ''}
+      ${m.type === 'path' ? `<p class="pm-note">${escapeHtml(t('path.hint'))}</p>${seg('pathMode', [['free', t('slot.free')], ['distance', t('path.distance')], ['percent', t('slot.percent')]], m.pathMode ?? 'free')}${m.pathMode === 'distance' || m.pathMode === 'percent' ? field(api, 'value', m.value ?? 0, { label: m.pathMode === 'percent' ? t('path.percentAlong') : t('path.distanceAlong'), unit: m.pathMode === 'percent' ? 'number' : 'length' }) : ''}${check('flip', m.flip, t('path.fromEnd'), 'flipV')}${m.a?.kind !== 'point' ? check('follow', m.follow, t('path.follow'), 'mateParallel') : ''}` : ''}
+      ${m.type === 'linearCoupler' ? field(api, 'ratio', m.ratio ?? 1, { label: t('pm.ratio'), unit: 'number', glyph: 'mateLinearCoupler' }) : ''}
+      ${m.type === 'slot' ? `${seg('slotMode', [['free', t('slot.free')], ['center', t('slot.center')], ['distance', t('slot.distance')], ['percent', t('slot.percent')]], m.slotMode ?? 'free')}${m.slotMode === 'distance' || m.slotMode === 'percent' ? field(api, 'value', m.value ?? 0, { label: m.slotMode === 'percent' ? t('slot.percentAlong') : t('slot.distanceAlong'), unit: m.slotMode === 'percent' ? 'number' : 'length' }) : ''}` : ''}
+      ${['gear', 'rackPinion', 'screw', 'linearCoupler', 'universalJoint'].includes(m.type) ? check('reverse', m.reverse, t('pm.reverse'), 'flipV') : ''}
       ${m.type === 'distance' ? field(api, 'value', m.value ?? 0, { label: t('pm.distance') }) : ''}${m.type === 'angle' ? field(api, 'value', m.value ?? 90, { label: t('pm.angle'), unit: 'angle', glyph: 'dimAngle' }) : ''}
       ${['coincident', 'distance'].includes(m.type) && m.a?.kind === 'plane' && m.b?.kind === 'plane' ? `<div class="pm-row">${seg('aligned', [['anti', t('mate.antiAligned'), 'flipH'], ['aligned', t('mate.aligned'), 'flipV']], m.aligned ?? 'anti')}</div>` : ''}
       ${m.type === 'distance' ? check('flip', m.flip, t('pm.flipDimension'), 'flipV') : ''}`));

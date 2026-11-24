@@ -1,3 +1,4 @@
+import { MATERIALS } from './materials.js';
 // Machining libraries (no DOM): machines, cutting tools and the cutting data of work materials, and the feeds
 // and speeds worked out from them.
 //
@@ -112,6 +113,9 @@ export const CUT_MATERIALS = {
 
 /** The cutting class of an app material id (cad/materials.js). */
 export function cutMaterialOf(id) {
+  // A library material names its machining class.
+  const own = MATERIALS.find((m) => m.id === id)?.cut;
+  if (own) return own;
   const s = String(id ?? '');
   if (s.startsWith('al-')) return 'aluminium';
   if (s === 'steel-4340') return 'alloySteel';

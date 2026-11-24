@@ -2,6 +2,7 @@
 // "popup-<kind>") or in a frame (web build, tutorial: ?popup=<kind>). Every
 // popup has a fixed size chosen so its content fits without scrolling; long
 // content is split into tabs or pages, and each item takes one line.
+import { segGlyph } from './ui/seg-icons.js';
 import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
 import appIcon from '../assets/icon-256.png';
 import { loadRecent, loadRecentDirs, MAX_RECENT, removeRecent, storeRecent, storeRecentDirs } from './domain/recent.js';
@@ -139,7 +140,7 @@ const toggle = (key, label, glyph, checked = s()[key], attr = 'data-toggle') => 
 
 // options: [value, label, icon name?, ready-made HTML (e.g. a flag)?]
 const segmented = (key, options, current, attr = 'data-setting') => `<span class="segmented" role="radiogroup">${options.map(([value, label, glyph, html]) => `
-  <button class="segment ${String(current) === String(value) ? 'active' : ''}" role="radio" aria-checked="${String(current) === String(value)}" ${attr}="${key}" data-value="${escapeHtml(value)}" title="${escapeHtml(label)}">${html ? `<span class="flag-slot">${html}</span>` : glyph ? icon(glyph) : ''}${escapeHtml(label)}</button>`).join('')}</span>`;
+  <button class="segment ${String(current) === String(value) ? 'active' : ''}" role="radio" aria-checked="${String(current) === String(value)}" ${attr}="${key}" data-value="${escapeHtml(value)}" title="${escapeHtml(label)}">${html ? `<span class="flag-slot">${html}</span>` : icon(glyph || segGlyph(key, value))}${escapeHtml(label)}</button>`).join('')}</span>`;
 
 const select = (attrName, key, options, current, label, extra = '') => `<select ${attrName}="${key}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" ${extra}>${options.map(([value, text, glyph]) => `<option value="${escapeHtml(value)}"${glyph ? ` data-icon="${glyph}"` : ''} ${String(current) === String(value) ? 'selected' : ''}>${escapeHtml(text)}</option>`).join('')}</select>`;
 

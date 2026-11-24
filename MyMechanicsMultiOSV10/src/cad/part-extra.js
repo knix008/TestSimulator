@@ -22,8 +22,95 @@ export function buildPartExtra(f, ctx) {
     case 'advancedHole': return buildAdvancedHole(f, ctx);
     case 'intersect': return buildIntersect(f, ctx);
     case 'mateReference': return buildMateReference(f, ctx);
+    case 'moveFace': return buildMoveFace(f, ctx);
+    case 'connectionPoint': return buildConnectionPoint(f, ctx);
     default: throw codeError('unknown-feature', { type: f.type });
   }
+}
+
+// ───────────────────────── connection point
+
+/**
+ * Connection Point (for magnetic mates): a named point with a direction on a face of the part — a planar face's
+ * centre and outward normal, a cylinder's or cone's axis at its end nearest the face's centre (its direction
+ * out of the face's end); `offset` moves it along the direction, `flip` turns the direction round. In an
+ * assembly, connection points of two components that come near each other snap together (magnetic mate).
+ */
+function buildConnectionPoint(f, ctx) {
+  if (!ctx.body) throw codeError('no-body');
+  if (!f.face) throw codeError('no-faces');
+  const face = findFace(ctx.body, f.face);
+  if (!face) throw codeError('face-missing');
+  const ent = mateEntityOfFace(face, faceSignature);
+  let point = ent.point; let dir = normalize(ent.dir);
+  if (ent.kind === 'axis') {
+    // The axis's end at the face's outer end: the face's points' extent along the axis, the end farther out
+    // from the body's centre.
+    const ts = face.edges.flatMap((e) => [e.startPoint, e.endPoint]).map((v) => dot(sub(vec(v), ent.point), dir));
+    const lo = Math.min(...ts); const hi = Math.max(...ts);
+    const box = ctx.body.boundingBox; const c = vec(box.center);
+    const tc = dot(sub(c, ent.point), dir);
+    const t = Math.abs(hi - tc) >= Math.abs(lo - tc) ? hi : lo;
+    if (t === lo) dir = mul(dir, -1);
+    point = add(ent.point, mul(normalize(ent.dir), t));
+  }
+  if (f.flip) dir = mul(dir, -1);
+  point = add(point, mul(dir, num(f.offset, 0)));
+  const name = String(f.cpName ?? f.name ?? 'Connector').trim() || 'Connector';
+  return { frame: { origin: point, normal: dir, xDir: normalize(crossV(dir, Math.abs(dir[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0])) }, connPoint: { name, point, dir } };
+}
+
+/**
+ * Magnetic mates to add: connection points of two components (world: [{ comp, name, point, dir }]) closer than
+ * `distance` and facing each other (directions within `angle` of opposite) snap; each point takes one partner
+ * (the nearest first), and pairs already joined (`joined`: Set of "compA:name|compB:name") are skipped.
+ * Returns [{ a, b, gap }] (a, b: the world points' entries).
+ */
+export function magneticPairs(points, { distance = 25, angle = 0.5236, joined = new Set() } = {}) {
+  const cands = [];
+  for (let i = 0; i < points.length; i++) for (let j = i + 1; j < points.length; j++) {
+    const a = points[i]; const b = points[j];
+    if (a.comp === b.comp) continue;
+    const gap = Math.hypot(...sub(a.point, b.point));
+    if (gap > distance) continue;
+    if (dot(a.dir, b.dir) > -Math.cos(angle)) continue;
+    const k1 = `${a.comp}:${a.name}|${b.comp}:${b.name}`; const k2 = `${b.comp}:${b.name}|${a.comp}:${a.name}`;
+    if (joined.has(k1) || joined.has(k2)) continue;
+    cands.push({ a, b, gap });
+  }
+  cands.sort((x, y) => x.gap - y.gap);
+  const used = new Set(); const out = [];
+  for (const c of cands) {
+    const ka = `${c.a.comp}:${c.a.name}`; const kb = `${c.b.comp}:${c.b.name}`;
+    if (used.has(ka) || used.has(kb)) continue;
+    used.add(ka); used.add(kb); out.push(c);
+  }
+  return out;
+}
+
+// ───────────────────────── move face
+
+/**
+ * Move Face (offset): planar faces pushed out (positive distance) or pulled in (negative) along their outward
+ * normals — the face swept by the distance added to or taken from the body (the faces around it, square to it,
+ * grow or shrink with it).
+ */
+function buildMoveFace(f, ctx) {
+  const R = rep();
+  if (!ctx.body) throw codeError('no-body');
+  const faces = (f.faces ?? []).map((sig) => findFace(ctx.body, sig)).filter(Boolean);
+  if (!faces.length) throw codeError('no-faces');
+  const d = num(f.distance, 2);
+  if (!(Math.abs(d) > 0)) throw codeError('zero-size');
+  let body = ctx.body;
+  for (const face of faces) {
+    if (face.geomType !== 'PLANE') throw codeError('profile-unsupported');
+    const p = vec(face.center);
+    const n = normalize(vec(face.normalAt(p)));
+    const slab = R.basicFaceExtrusion(face.clone(), new R.Vector(mul(n, d)));
+    body = d > 0 ? body.fuse(slab) : body.cut(slab);
+  }
+  return { body };
 }
 
 // ───────────────────────── advanced hole

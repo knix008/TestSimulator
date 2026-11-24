@@ -8,8 +8,8 @@ import { levenbergMarquardt, jacobian, nullSpaceInfo } from './solver.js';
 import { crossV, isCylinder, normalize } from './refs.js';
 
 export const STANDARD_MATES = ['coincident', 'concentric', 'distance', 'parallel', 'perpendicular', 'angle', 'lock'];
-export const ADVANCED_MATES = ['width', 'symmetric', 'limitDistance', 'limitAngle'];
-export const MECHANICAL_MATES = ['gear', 'rackPinion', 'screw', 'hinge', 'cam'];
+export const ADVANCED_MATES = ['width', 'symmetric', 'limitDistance', 'limitAngle', 'path', 'linearCoupler', 'profileCenter'];
+export const MECHANICAL_MATES = ['gear', 'rackPinion', 'screw', 'hinge', 'cam', 'slot', 'universalJoint'];
 export const MATE_TYPES = ['coincident', 'concentric', 'distance', 'parallel', 'perpendicular', 'angle', 'lock', ...ADVANCED_MATES, ...MECHANICAL_MATES];
 
 /**
@@ -33,6 +33,12 @@ export const MATE_REFS = {
   screw: { a: 'axis', b: 'axis' },
   hinge: { a: 'axis', b: 'axis', c: 'plane', d: 'plane' },
   cam: { a: 'plane', b: 'plane|axis|point' },
+  linearCoupler: { a: 'plane|axis', b: 'plane|axis' },
+  profileCenter: { a: 'plane', b: 'plane' },
+  slot: { a: 'axis', b: 'axis', c: 'axis' },
+  universalJoint: { a: 'axis', b: 'axis' },
+  path: { a: 'point|plane|axis', b: 'path' },
+  magnetic: { a: 'point', b: 'point' },
 };
 
 /** Default numeric fields of the mates that have them (the UI fills these in a new mate). */
@@ -42,6 +48,10 @@ export const MATE_DEFAULTS = {
   gear: { ratio: 1, reverse: false },
   rackPinion: { radius: 10, reverse: false },
   screw: { pitch: 1, reverse: false },
+  linearCoupler: { ratio: 1, reverse: false },
+  slot: { slotMode: 'free', value: 0 },
+  universalJoint: { reverse: false },
+  path: { pathMode: 'free', value: 0, follow: false, flip: false },
 };
 
 const REF_KEYS = ['a', 'b', 'c', 'd'];
@@ -146,6 +156,61 @@ export function mateEntityOfFace(face, sigOf) {
   return { kind: 'plane', point: [c.x, c.y, c.z], dir: [n.x, n.y, n.z], sig };
 }
 
+/**
+ * The point of a polyline nearest to p: { q, s (arc length there), tangent (unit, along increasing s), length,
+ * closed (last point on the first) }.
+ */
+export function nearestOnPath(pts, p) {
+  const closed = pts.length > 2 && Math.hypot(...sub(pts[pts.length - 1], pts[0])) < 1e-6;
+  let best = { d: Infinity, q: pts[0], s: 0, tangent: [1, 0, 0] };
+  let acc = 0;
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const d = sub(pts[i + 1], pts[i]); const l2 = dot(d, d);
+    const l = Math.sqrt(l2);
+    if (l < 1e-12) continue;
+    const t = Math.max(0, Math.min(1, dot(sub(p, pts[i]), d) / l2));
+    const q = addV(pts[i], scale(d, t));
+    const dist = Math.hypot(...sub(p, q));
+    if (dist < best.d - 1e-12) best = { d: dist, q, s: acc + t * l, tangent: scale(d, 1 / l), i, t, l };
+    acc += l;
+  }
+  // The tangent turns smoothly over the last / first quarter of the pieces at a corner (a solve that follows the
+  // path must not see it jump).
+  if (best.i != null) {
+    const dirOf = (j) => { if (closed) j = (j + pts.length - 1) % (pts.length - 1); if (j < 0 || j + 1 >= pts.length) return null; const d = sub(pts[j + 1], pts[j]); const l = Math.hypot(...d); return l > 1e-12 ? { u: scale(d, 1 / l), l } : null; };
+    const here = best.tangent; const pos = best.t * best.l;
+    const prev = dirOf(best.i - 1); const next = dirOf(best.i + 1);
+    let u = here;
+    if (next) { const h = 0.25 * Math.min(best.l, next.l); if (best.l - pos < h) { const w = 0.5 * (1 - (best.l - pos) / h); u = normalize(addV(scale(here, 1 - w), scale(next.u, w))); } }
+    if (prev) { const h = 0.25 * Math.min(best.l, prev.l); if (pos < h) { const w = 0.5 * (1 - pos / h); u = normalize(addV(scale(here, 1 - w), scale(prev.u, w))); } }
+    best.tangent = u;
+  }
+  return { q: best.q, s: best.s, tangent: best.tangent, d: best.d, length: acc, closed };
+}
+
+/**
+ * Edges' sample points chained into one path: each next piece starts where the path so far ends (or ends there:
+ * it is reversed), or is put before its start. Pieces that touch nothing are added at the end as they come.
+ */
+export function chainPath(pieces, tol = 1e-4) {
+  const left = pieces.filter((x) => x?.length >= 2).map((x) => x.map((q) => [...q]));
+  if (!left.length) return [];
+  let path = left.shift();
+  const same = (u, v) => Math.hypot(...sub(u, v)) < tol;
+  while (left.length) {
+    const head = path[0]; const tail = path[path.length - 1];
+    let i = left.findIndex((x) => same(x[0], tail) || same(x[x.length - 1], tail) || same(x[0], head) || same(x[x.length - 1], head));
+    if (i < 0) i = 0;
+    const x = left.splice(i, 1)[0];
+    if (same(x[0], tail)) path = [...path, ...x.slice(1)];
+    else if (same(x[x.length - 1], tail)) path = [...path, ...x.reverse().slice(1)];
+    else if (same(x[x.length - 1], head)) path = [...x, ...path.slice(1)];
+    else if (same(x[0], head)) path = [...x.reverse(), ...path.slice(1)];
+    else path = [...path, ...x];
+  }
+  return path;
+}
+
 /** A cylinder's axis from its circular edges (or its seam lines). */
 export function axisOfFace(face) {
   for (const edge of face.edges ?? []) {
@@ -193,15 +258,17 @@ export function matesFor(a, b, group = 'standard') {
   const aa = a.kind === 'axis' && b.kind === 'axis';
   const ap = (a.kind === 'axis' && b.kind === 'plane') || (a.kind === 'plane' && b.kind === 'axis');
   const pt = a.kind === 'point' && b.kind === 'point';
+  // A point (a vertex, or a face's centre / axis point) of one component on a path (edges) of another.
+  if (b.kind === 'path' || a.kind === 'path') return group === 'advanced' ? ['path'] : [];
   if (group === 'advanced') {
-    if (pp) return ['width', 'symmetric', 'limitDistance', 'limitAngle'];
-    if (aa) return ['symmetric', 'limitDistance', 'limitAngle'];
-    if (ap) return ['limitDistance', 'limitAngle'];
+    if (pp) return ['width', 'symmetric', 'limitDistance', 'limitAngle', 'linearCoupler', 'profileCenter'];
+    if (aa) return ['symmetric', 'limitDistance', 'limitAngle', 'linearCoupler'];
+    if (ap) return ['limitDistance', 'limitAngle', 'linearCoupler'];
     if (pt) return ['symmetric', 'limitDistance'];
     return [];
   }
   if (group === 'mechanical') {
-    if (aa) return ['gear', 'screw', 'hinge', 'rackPinion'];
+    if (aa) return ['gear', 'screw', 'hinge', 'rackPinion', 'slot', 'universalJoint'];
     if (a.kind === 'axis' && b.kind === 'plane') return ['rackPinion'];
     // Cam: a is the cam's flat face (its outline is the cam profile), b the follower.
     if (a.kind === 'plane' && (b.kind === 'plane' || b.kind === 'axis' || b.kind === 'point')) return ['cam'];
@@ -213,8 +280,10 @@ export function matesFor(a, b, group = 'standard') {
   return [];
 }
 
-function worldEntity(ent, comp) {
-  return { kind: ent.kind, point: placePoint(comp, ent.point), dir: normalize(placeDir(comp, ent.dir)) };
+export function worldEntity(ent, comp) {
+  const out = { kind: ent.kind, point: placePoint(comp, ent.point), dir: normalize(placeDir(comp, ent.dir ?? [0, 0, 1])) };
+  if (ent.points) out.points = ent.points.map((q) => placePoint(comp, q));
+  return out;
 }
 
 const crossK = (u, v, K) => { const c = crossV(u, v); return [c[0] * K, c[1] * K, c[2] * K]; };
@@ -334,6 +403,30 @@ export function mateResiduals(m, e, K, place = {}, start = place) {
       const hi = Math.cos((Math.max(0, num(m.min, 0)) * Math.PI) / 180);
       return [outside(dot(a.dir, b.dir), lo, hi) * K];
     }
+    case 'magnetic': {
+      // Connection points snapped together: the points meet and their directions face each other (the turn
+      // about that direction is left free).
+      return [...sub(b.point, a.point), ...scale(addV(a.dir, b.dir), K)];
+    }
+    case 'path': {
+      // a's point lies on b's path (a polyline in b's frame); along it: anywhere, at a distance from its start
+      // (flip: from its end) or at a percentage of its length; follow: a's direction along the path's tangent there.
+      const pts = b.points ?? [];
+      if (pts.length < 2) return [0, 0, 0, 0, 0, 0, 0];
+      const near = nearestOnPath(pts, a.point);
+      const L = near.length || 1e-9;
+      const mode = m.pathMode ?? 'free';
+      const from = (s) => (m.flip ? L - s : s);
+      const target = mode === 'distance' ? num(m.value, 0) : mode === 'percent' ? (num(m.value, 0) / 100) * L : null;
+      let along = 0;
+      if (target != null) { along = from(near.s) - target; if (near.closed) along -= L * Math.round(along / L); }
+      // (a difference, not a cross product: that has no slope at a right angle, where a turn starts from)
+      // Which way along the tangent: the one the component faced when the solve started (fixed while it solves).
+      const d0 = start?.a && place.a ? rotate(start.a.rotation, rotate(quatConjugate(place.a.rotation), a.dir)) : a.dir;
+      const sg = dot(d0, near.tangent) < -1e-3 ? -1 : 1;
+      const follow = m.follow && a.kind !== 'point' ? scale(sub(a.dir, scale(near.tangent, sg)), K) : [0, 0, 0];
+      return [...sub(a.point, near.q), along, ...follow];
+    }
     case 'cam': {
       // The follower touches the cam's outline (m.profile, points in the cam component's frame), seen along
       // the cam's axis (the normal of its flat face). A flat follower: the outline's nearest point lies on
@@ -380,6 +473,45 @@ export function mateResiduals(m, e, K, place = {}, start = place) {
       const t = dot(sub(sub(place.b.position, place.a.position), sub(base.pb, base.pa)), u);
       return [...crossK(a.dir, b.dir, K), ...crossV(sub(b.point, a.point), a.dir), t - (m.reverse ? -1 : 1) * num(m.pitch, 1) * turns];
     }
+    case 'profileCenter': {
+      // The faces against each other (aligned: facing the same way), their centres on one line along the normal,
+      // offset by the distance.
+      const n = addV(a.dir, scale(b.dir, -flip));
+      const target = addV(a.point, scale(a.dir, num(m.value, 0) * (m.flip ? -1 : 1)));
+      return [n[0] * K, n[1] * K, n[2] * K, ...sub(b.point, target)];
+    }
+    case 'linearCoupler': {
+      // b moves along its direction by ratio × a's move along its own (reverse: the other way), from the base.
+      const base = m.base ?? { pa: start.a.position, pb: start.b.position };
+      const sa = dot(sub(place.a.position, base.pa), a.dir);
+      const sb = dot(sub(place.b.position, base.pb), b.dir);
+      return [sb - (m.reverse ? -1 : 1) * num(m.ratio, 1) * sa];
+    }
+    case 'slot': {
+      // The pin's axis (b) parallel to the slot's end axes (a, c) and on the line between them (seen along them);
+      // free: anywhere between the ends; centre / distance from a / percent: at that place.
+      const flat = (v) => sub(v, scale(a.dir, dot(v, a.dir)));
+      const span = flat(sub(c.point, a.point)); const L = Math.hypot(...span) || 1e-9; const u = scale(span, 1 / L);
+      const rel = flat(sub(b.point, a.point));
+      const off = crossV(rel, u); const side = Math.hypot(...off) * Math.sign(dot(off, a.dir) || 1);
+      const t = dot(rel, u) / L;
+      const mode = m.slotMode ?? 'free';
+      const along = mode === 'center' ? (t - 0.5) * L : mode === 'distance' ? t * L - num(m.value, 0) : mode === 'percent' ? (t - num(m.value, 0) / 100) * L : outside(t, 0, 1) * L;
+      return [...crossK(a.dir, b.dir, K), side, along];
+    }
+    case 'universalJoint': {
+      // The shafts' axes meet (the joint's centre) and b turns as a cardan joint drives it:
+      // tan θb = tan θa / cos β, β the angle between the shafts (reverse: the other way round).
+      const base = m.base ?? { a: start.a.rotation, b: start.b.rotation };
+      const n = crossV(a.dir, b.dir); const nl = Math.hypot(...n);
+      const meet = nl > 1e-9 ? dot(sub(b.point, a.point), n) / nl : Math.hypot(...crossV(sub(b.point, a.point), a.dir));
+      const ta = twistAngle(place.a.rotation, base.a, a.dir);
+      const tb = twistAngle(place.b.rotation, base.b, b.dir);
+      const cb = Math.abs(dot(a.dir, b.dir));
+      const want = Math.atan2(Math.sin(ta), Math.cos(ta) * cb);
+      const phi = tb - (m.reverse ? -1 : 1) * want;
+      return [meet, Math.sin(phi) * K, (1 - Math.cos(phi)) * K];
+    }
     case 'hinge':
       return [...mateResiduals({ type: 'concentric' }, { a, b }, K), ...mateResiduals({ type: 'coincident', aligned: m.aligned, flip: m.flip }, { a: c, b: d }, K)];
     default: return [];
@@ -387,9 +519,9 @@ export function mateResiduals(m, e, K, place = {}, start = place) {
 }
 
 /** Refs a mate type needs (a, b always; c / d for width, symmetric and hinge). */
-const requiredRefs = (type) => Object.keys(MATE_REFS[type] ?? { a: 1, b: 1 });
+export const requiredRefs = (type) => Object.keys(MATE_REFS[type] ?? { a: 1, b: 1 });
 /** Whether a mate type reads the refs' geometry (lock does not; gear-like ones also read the placements). */
-const needsGeometry = (type) => type !== 'lock';
+export const needsGeometry = (type) => type !== 'lock';
 
 /**
  * Stores the current relative transform of a lock mate's components (b's component in a's frame) in
@@ -416,7 +548,7 @@ export function captureGear(assembly, mate) {
 /** Captures whatever a new mate keeps from the current pose (lock → relative; gear, rackPinion, screw → base). */
 export function captureMate(assembly, mate) {
   if (mate.type === 'lock') return captureLock(assembly, mate);
-  if (mate.type === 'gear' || mate.type === 'rackPinion' || mate.type === 'screw') return captureGear(assembly, mate);
+  if (['gear', 'rackPinion', 'screw', 'linearCoupler', 'universalJoint'].includes(mate.type)) return captureGear(assembly, mate);
   return mate;
 }
 
@@ -426,7 +558,8 @@ export function captureMate(assembly, mate) {
  */
 export function solveMates(assembly, { entity = (r) => r, size = 100, status: wantStatus = true } = {}) {
   const comps = assembly.components;
-  const compIds = new Set(comps.map((c) => c.id));
+  // A suppressed component (an assembly configuration) is left out with its mates.
+  const compIds = new Set(comps.filter((c) => !c.suppressed).map((c) => c.id));
   const free = comps.filter((c) => !c.fixed);
   const index = new Map(free.map((c, i) => [c.id, i]));
   const cache = new Map();
@@ -462,7 +595,14 @@ export function solveMates(assembly, { entity = (r) => r, size = 100, status: wa
   // A constant damping term on every unknown besides the Marquardt (diagonal) one: with only the latter, a
   // rotation that barely moves a mate (short lever) gets a huge step, spins wildly and stalls the solve
   // (a vertex on a face, two parallel axes at a distance).
-  const result = levenbergMarquardt((x) => residualsOf(x), x0, { maxIter: 300, tol: 1e-8, weights: x0.map(() => 1) });
+  let result = levenbergMarquardt((x) => residualsOf(x), x0, { maxIter: 300, tol: 1e-8, weights: x0.map(() => 1) });
+  // A large turn (a path mate following a corner) can stop short: once more from there when a mate does not hold
+  // yet (interactive solves; a motion study's steps are small).
+  if (wantStatus && mates.some((m) => Math.hypot(...residualsOf(result.x, [m])) > 1e-5)) {
+    for (const c of free) base.set(c.id, placementOf(c.id, result.x));
+    const again = levenbergMarquardt((x) => residualsOf(x), x0, { maxIter: 300, tol: 1e-8, weights: x0.map(() => 1) });
+    if (again.error <= result.error + 1e-12) result = again; else for (const c of free) base.set(c.id, start.get(c.id));
+  }
   for (const c of free) Object.assign(c, placementOf(c.id, result.x));
   // Which mates do not hold (over defined or impossible).
   const failed = mates.filter((m) => Math.hypot(...residualsOf(result.x, [m])) > 1e-5).map((m) => m.id);
@@ -492,16 +632,75 @@ export function solveMates(assembly, { entity = (r) => r, size = 100, status: wa
  * dir·distance·factor (factor 0 → assembled, 1 → fully exploded). Rotation is unchanged.
  * `comp` is the component or its id. Applied whether or not `explode.on` is set (the caller decides).
  */
-export function explodedPlacement(assembly, comp, factor = 1) {
+export function explodedPlacement(assembly, comp, factor = 1, { centers = null, progress = null } = {}) {
   const c = typeof comp === 'string' ? assembly.components.find((x) => x.id === comp) : comp;
   if (!c) return null;
-  let position = [...c.position];
-  for (const step of assembly.explode?.steps ?? []) {
-    if (!step.comps?.includes(c.id)) continue;
-    const dir = normalize(step.dir ?? [0, 0, 0]);
-    position = addV(position, scale(dir, (Number(step.distance) || 0) * factor));
+  let pl = { position: [...c.position], rotation: [...c.rotation] };
+  const local = centers?.get?.(c.id) ?? [0, 0, 0];
+  (assembly.explode?.steps ?? []).forEach((step, i) => {
+    if (!step.comps?.includes(c.id)) return;
+    // Played as an animation: the steps one after the other (progress 0 … number of steps).
+    const f = progress != null ? Math.max(0, Math.min(1, progress - i)) : factor;
+    if (f) pl = applyExplodeStep(step, pl, local, f);
+  });
+  return pl;
+}
+
+/**
+ * One explode step on a component's placement (`local`: the component's centre in its own frame), a fraction
+ * `f` of the way: a regular step moves along `dir` by `distance` and turns by `angle` (°) about `rotAxis`
+ * (default: dir) through the component's centre; a radial step moves each component `distance` straight out
+ * from the axis `axis` = { point, dir } (a component on the axis stays).
+ */
+export function applyExplodeStep(step, pl, local, f = 1) {
+  const centre = placePoint(pl, local);
+  const dist = (Number(step.distance) || 0) * f;
+  let move = [0, 0, 0];
+  if (step.kind === 'radial') {
+    const ax = step.axis ?? { point: [0, 0, 0], dir: [0, 0, 1] };
+    const d = normalize(ax.dir ?? [0, 0, 1]);
+    const rel = sub(centre, ax.point ?? [0, 0, 0]);
+    const out = sub(rel, scale(d, dot(rel, d)));
+    const l = Math.hypot(...out);
+    if (l > 1e-9) move = scale(out, dist / l);
+  } else {
+    const d = Math.hypot(...(step.dir ?? [0, 0, 0])) > 1e-12 ? normalize(step.dir) : [0, 0, 0];
+    move = scale(d, dist);
   }
-  return { position, rotation: [...c.rotation] };
+  const angle = ((Number(step.angle) || 0) * Math.PI) / 180 * f;
+  let position = addV(pl.position, move);
+  let rotation = [...pl.rotation];
+  if (angle) {
+    const axis = normalize(step.rotAxis ?? step.dir ?? [0, 0, 1]);
+    const q = quatFromRotvec(scale(axis, angle));
+    const c1 = addV(centre, move);
+    position = addV(c1, rotate(q, sub(position, c1)));
+    rotation = quatNormalize(quatMultiply(q, rotation));
+  }
+  return { position, rotation };
+}
+
+/**
+ * Explode lines: for each component an explode step moves, the path of its centre from where it is assembled
+ * through the end of each of its steps (one bend per step, as the parts travel). Returns [{ comp, points }].
+ */
+export function explodeLines(assembly, centers = null) {
+  const out = [];
+  for (const c of assembly.components ?? []) {
+    if (c.suppressed || c.hidden) continue;
+    const steps = (assembly.explode?.steps ?? []).filter((s) => s.comps?.includes(c.id));
+    if (!steps.length) continue;
+    const local = centers?.get?.(c.id) ?? [0, 0, 0];
+    let pl = { position: [...c.position], rotation: [...c.rotation] };
+    const points = [placePoint(pl, local)];
+    for (const s of steps) {
+      pl = applyExplodeStep(s, pl, local, 1);
+      const p = placePoint(pl, local);
+      if (Math.hypot(...sub(p, points[points.length - 1])) > 1e-6) points.push(p);
+    }
+    if (points.length > 1) out.push({ comp: c.id, points });
+  }
+  return out;
 }
 
 /**
@@ -568,7 +767,7 @@ function motorSweep(motor, dt) {
 }
 
 /** A motor's placement of its component at time t from its placement at t = 0 (`p0`) and local ref entity. */
-function motorPlacement(motor, p0, local, t) {
+export function motorPlacement(motor, p0, local, t) {
   const point = placePoint(p0, local.point);
   const dir = normalize(placeDir(p0, local.dir));
   const travel = motorTravel(motor, t);
@@ -606,7 +805,7 @@ function motionRunner(assembly, { entity: entityOf = (r) => r, size = 100 } = {}
   // Motors mounted on another motor's component move after it (base to tip).
   const depth = (x, seen = new Set()) => { const up = x.parent && motors.find((y) => y.comp === x.parent); if (!up || seen.has(up)) return 0; seen.add(up); return 1 + depth(up, seen); };
   motors.sort((a, b) => depth(a) - depth(b));
-  const coupled = asm.mates.filter((m) => !m.suppressed && (m.type === 'gear' || m.type === 'rackPinion' || m.type === 'screw'));
+  const coupled = asm.mates.filter((m) => !m.suppressed && ['gear', 'rackPinion', 'screw', 'linearCoupler', 'universalJoint'].includes(m.type));
   const ratio = Math.max(1, ...coupled.filter((m) => m.type === 'gear').map((m) => { const r = Math.abs(num(m.ratio, 1)) || 1; return Math.max(r, 1 / r); }));
   const step = Math.PI / 12;
   const linStep = Math.min(size / 20, ...coupled.filter((m) => m.type === 'rackPinion').map((m) => Math.abs(num(m.radius, 10)) * step || Infinity), ...coupled.filter((m) => m.type === 'screw').map((m) => Math.abs(num(m.pitch, 1)) / 24 || Infinity));
@@ -685,18 +884,19 @@ export function motionFrames(assembly, { fps = 30, entity, size } = {}) {
  * Every part instance of an assembly in world placement, through sub-assemblies (components with `sub:
  * assemblyId`): [{ path: [compId, …], part, comp (the leaf component), placement: { position, rotation } }].
  * A sub-assembly that contains itself (directly or not) is not entered again; suppressed components are left out.
+ * `poses` (a flexible sub-assembly's `flexPose`): where its components are instead of their own placements.
  */
-export function flattenAssembly(project, assembly, parent = { position: [0, 0, 0], rotation: quatIdentity() }, path = [], stack = new Set()) {
+export function flattenAssembly(project, assembly, parent = { position: [0, 0, 0], rotation: quatIdentity() }, path = [], stack = new Set(), poses = null) {
   const out = [];
   if (!assembly || stack.has(assembly.id)) return out;
   stack.add(assembly.id);
   for (const c of assembly.components ?? []) {
     if (c.suppressed) continue;
-    const placement = composePlacement(parent, c);
+    const placement = composePlacement(parent, poses?.[c.id] ?? c);
     const p = [...path, c.id];
     if (c.sub) {
       const sub = project.assemblies?.find((a) => a.id === c.sub);
-      if (sub && !stack.has(sub.id)) out.push(...flattenAssembly(project, sub, placement, p, stack));
+      if (sub && !stack.has(sub.id)) out.push(...flattenAssembly(project, sub, placement, p, stack, c.flexible ? c.flexPose ?? null : null));
     } else if (c.part) out.push({ path: p, part: c.part, comp: c, placement });
   }
   stack.delete(assembly.id);

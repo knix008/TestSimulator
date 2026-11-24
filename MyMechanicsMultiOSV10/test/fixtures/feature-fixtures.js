@@ -831,6 +831,17 @@ export const FIXTURES = {
     make: (p, o) => { block(p, -20, -20, 50, 50, 4); return createFeature(p, 'intersect', { planes: ['right'], exclude: [0], ...o }); },
     bool: { bodies: { skip: 'without the plate, a plane alone encloses no region' }, merge: { with: { exclude: [] } }, consume: { m: 'V', dir: '+' } },
   },
+  moveFace: {
+    // The plate's top face pushed up by the distance.
+    make: (p, o) => { block(p, -20, -20, 50, 50, 4); return createFeature(p, 'moveFace', { faces: [faceWhere(built(p), (c) => near(c[2], 4))], distance: 3, ...o }); },
+    num: { distance: { to: 6, m: 'V', dir: '+' } },
+  },
+  connectionPoint: {
+    // The plate's top face: its centre, pointing up.
+    make: (p, o) => { block(p, -20, -20, 50, 50, 4); return createFeature(p, 'connectionPoint', { face: faceWhere(built(p), (c) => near(c[2], 4)), ...o }); },
+    num: { offset: { skip: 'moves only the reference point (no geometry): checked by magnetic.test.js' } },
+    bool: { flip: { skip: 'turns only the reference direction: checked by magnetic.test.js' } },
+  },
   mateReference: {
     make: (p, o) => { block(p, -20, -20, 50, 50, 4); return createFeature(p, 'mateReference', { primary: faceWhere(built(p), (c) => near(c[2], 4)), ...o }); },
   },

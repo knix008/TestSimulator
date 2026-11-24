@@ -5,6 +5,7 @@
 //
 // The shell (menus as popup windows, toolbar, start page, settings, themes, progress popups) follows
 // MySketchBook; the modelling is in cad/ (no DOM) and the 3D view in view/.
+import { segGlyph } from './ui/seg-icons.js';
 import { pickSolid } from './cad/exchange.js';
 import { writeObj, writePly, writeGltf, writeGlb, writeVrml, write3mf, writeUsdz, MESH_IMPORT_EXTENSIONS } from './cad/mesh-formats.js';
 import { importMeshSolids } from './cad/mesh-import.js';
@@ -34,15 +35,17 @@ import { convertEntities, intersectionEntities, transformEntities } from './cad/
 import { stretchEntities, fullyDefine } from './cad/sketch-draw.js';
 import { syncSlider } from './ui/sliders.js';
 import { edgeSignature, faceSignature } from './cad/refs.js';
-import { solveMates, placeShape, interferences, mateEntityOfFace, quatIdentity, quatToAxisAngle, instanceName, quatFromAxisAngle, quatMultiply, captureMate, mateTouches, MATE_REFS, MATE_DEFAULTS, explodedPlacement, autoExplode, motionFrame, motionCursor, flattenAssembly, composePlacement, placePoint, placeDir } from './cad/assembly.js';
-import { projectView, drawingSvg, drawingDxf, layoutViews, SHEETS, projectionKey, bomRows, VIEW_CAMERAS, viewBasis } from './cad/drawing.js';
+import { explodeLines, chainPath, solveMates, placeShape, interferences, mateEntityOfFace, quatIdentity, quatToAxisAngle, instanceName, quatFromAxisAngle, quatMultiply, captureMate, mateTouches, MATE_REFS, MATE_DEFAULTS, explodedPlacement, autoExplode, motionFrame, motionCursor, flattenAssembly, composePlacement, placePoint, placeDir } from './cad/assembly.js';
+import { nearestVertex } from './cad/extrude-more.js';
+import { ansiHole, ANSI_TAPS, NPT_SIZES } from './cad/hole-more.js';
+import { projectView, drawingSvg, drawingDxf, layoutViews, SHEETS, projectionKey, bomRows, VIEW_CAMERAS, viewBasis, turnedView } from './cad/drawing.js';
 import { toWorld as bendToWorld } from './cad/sheet-fold.js';
 import { readDwg } from './cad/dwg/read.js';
 import { writeDwg } from './cad/dwg/write.js';
 import { readDxf } from './cad/dxf-read.js';
 import { flattenDrawing, itemsToSketch, UNIT_MM } from './cad/cad2d-import.js';
 import { sketchToEntities, entitiesToDxf } from './cad/sketch-export.js';
-import { MATERIALS, materialOf, materialName, massOf } from './cad/materials.js';
+import { MATERIALS, MATERIAL_FAMILIES, familyOf, materialOf, materialName, massOf } from './cad/materials.js';
 import { SAMPLES, buildSample } from './cad/samples.js';
 import { Viewport, hitKey } from './view/viewport.js';
 import { SketchEditor } from './view/sketcher.js';
@@ -66,10 +69,19 @@ import { DOC_KINDS, docLabel, docWindowTitle } from './domain/helpdocs.js';
 import { PROGRESS_ICONS, PROGRESS_NAME_ICONS } from './ui/progressicons.js';
 import { createMoreTools } from './app-more.js';
 import { createAsmTools } from './app-asmtools.js';
-import { mateRefMates } from './cad/part-extra.js';
+import { expandFlexible, flexLeafPlacement } from './cad/flex-sub.js';
+import { createExplodeTools } from './app-explode.js';
+import { createAsmVizTools } from './app-asmviz.js';
+import { createAsmWeldTools } from './app-asmweld.js';
+import { hiddenInside } from './cad/asm-more.js';
+import { createInContextTools } from './app-incontext.js';
+import { keyframePose, captureKey, simulateDynamics, dynamicsPose, inertiaOf, combineInertia } from './cad/motion-dynamics.js';
+import { mateRefMates, magneticPairs } from './cad/part-extra.js';
 import { withSim2 } from './app-sim2.js';
 import { attachPdm } from './app-pdm.js';
 import { attachDrwTools } from './app-drw.js';
+import { createTable } from './cad/drawing-annot.js';
+import { switchAssemblyConfig, addAssemblyConfig, removeAssemblyConfig } from './cad/asm-configs.js';
 import { createStdTools } from './app-std.js';
 import { attachMfgTools } from './app-mfg.js';
 import { createIllustrationTools } from './app-illustration.js';
@@ -252,7 +264,7 @@ function buildPart(part, { upTo = undefined, features = null, slot = 'main' } = 
   const limit = upTo === undefined ? part.rollback ?? null : upTo;
   // Other parts this one inserts (Insert Part / Cavity) rebuild it when they change.
   const deps = feats.filter((f) => f.type === 'insertPart').map((f) => project()?.parts.find((x) => x.id === f.part)?.features ?? null);
-  const key = JSON.stringify([feats, limit, state.settings.meshQuality, part.flat ?? false, part.variables ?? null, part.configurations ?? null, part.config ?? null, deps, Boolean(state.settings.modelledThreads)]);
+  const key = JSON.stringify([feats, limit, state.settings.meshQuality, part.flat ?? false, part.variables ?? null, part.configurations ?? null, part.config ?? null, part.externalRefs ?? null, deps, Boolean(state.settings.modelledThreads)]);
   const cacheKey = `${part.id}:${slot}`;
   const cached = builds.get(cacheKey);
   if (cached?.key === key) return cached;
@@ -619,6 +631,8 @@ function syncPart(part) {
   const ghost = e?.mode === 'sketch';
   const bodies = entry.mesh ? [{ ...bodySpec('body', entry, part), ghost, ...resultColours(part, entry) }] : [];
   for (const sf of entry.extras?.surfaces ?? []) bodies.push({ key: `surf:${sf.id}`, mesh: sf.mesh, edges: sf.edges, color: '#2fa39a', opacity: 0.55, metal: 0.1, rough: 0.6, faceIndex: new Map(), edgeIndex: new Map() });
+  // Edited in the context of an assembly: the other components around it, see-through.
+  bodies.push(...icTools.contextBodies());
   viewport.setBodies(bodies);
   viewport.setPreview(preview);
   // Planes: the standard ones (always while picking a sketch plane or with no body yet) and the reference planes.
@@ -649,7 +663,7 @@ function syncPart(part) {
   if (e?.mode === 'feature' && e.holeSketch?.plane) {
     try {
       const main = buildPart(part);
-      const fr = resolvePlane(e.holeSketch.plane, { body: main.body, planes: main.result.planes });
+      const fr = resolvePlane(e.holeSketch.plane, { body: main.body, planes: main.result.planes, part });
       const pts = e.holeSketch.points.flatMap(([u, v]) => [fr.origin[0] + fr.xDir[0] * u + fr.yDir[0] * v, fr.origin[1] + fr.xDir[1] * u + fr.yDir[1] * v, fr.origin[2] + fr.xDir[2] * u + fr.yDir[2] * v]);
       lines.push({ points: pts, color: '#f28c1e', size: 9 });
     } catch { /* face gone */ }
@@ -724,18 +738,24 @@ function syncAssembly(asm) {
   let hidden = 0;
   for (const c of asm.components) {
     // state.viewHidden: components an illustration view leaves out (display only; the assembly is not changed).
-    if (c.hidden || state.viewHidden?.has(c.id)) continue;
+    if (c.hidden || c.suppressed || state.viewHidden?.has(c.id)) continue;
     const placed = displayPlacement(asm, c);
+    // Simplified representation: a box for the whole component, or only the parts that show from outside.
+    const simple = c.simplified ? simplifiedOf(c) : null;
+    if (simple?.box) { list.push(bodySpec(`comp:${c.id}`, simple.box, simple.part, { matrix: componentMatrix(placed), opacity: 0.85 })); continue; }
     for (const leaf of componentLeaves(c)) {
       const part = project().parts.find((p) => p.id === leaf.part);
       if (!part) continue;
-      const entry = buildPart(part);
+      if (simple?.hidden?.has(leaf.path.join('/'))) { hidden++; continue; }
+      const entry = leaf.path.length ? buildPart(part) : componentBuild(c, part);
       if (!entry.mesh) continue;
       if (hideBelow > 0 && (entry.size ?? Infinity) < hideBelow) { hidden++; continue; }
       const key = leaf.path.length ? `comp:${c.id}/${leaf.path.join('/')}` : `comp:${c.id}`;
       const spec = bodySpec(key, entry, part, { matrix: componentMatrix(leaf.path.length ? composePlacement(placed, leaf.placement) : placed) });
       // An envelope is a reference: drawn see-through.
       if (c.envelope) spec.opacity = 0.28;
+      // Assembly visualization: the component in its colour on the property's scale.
+      if (state.asmVizColours?.has(c.id) && state.asmVizFor === asm.id) { spec.color = state.asmVizColours.get(c.id); delete spec.colors; delete spec.renderColors; }
       if (light && !spec.colors) Object.assign(spec, { mesh: lightMesh(entry), edges: null, geometryKey: `light:${entryUid(entry)}` });
       list.push(spec);
     }
@@ -745,7 +765,7 @@ function syncAssembly(asm) {
   viewport.setPreview(null);
   viewport.setPlanes(Object.entries(STD_PLANES).map(([id, f]) => ({ id, frame: makeFrame(f), size: 120, visible: state.selection.some((s) => s.key === `plane:${id}`) || (state.settings.showPlanes && !list.length) })));
   viewport.groups.origin.visible = state.settings.showOrigin;
-  viewport.setLines('markers', []);
+  viewport.setLines('markers', explodeLineSpecs(asm));
 }
 
 function componentMatrix(c) {
@@ -772,10 +792,28 @@ function camProfile(ref) {
 }
 
 /** Positions the assembly's free components by its mates. */
+/**
+ * Solves an assembly's mates, with the components inside its flexible sub-assemblies as unknowns of their own
+ * (flex-sub.js); their places are kept on the sub-assembly components. Same result as solveMates.
+ */
+function solveWithFlex(asm, opts = {}) {
+  const ex = expandFlexible(asm, project());
+  if (!ex) return solveMates(asm, { entity: (ref) => mateEntityNow(ref, asm), size: assemblySize(asm), ...opts });
+  const r = solveMates(ex.assembly, { entity: ex.entity((ref, inside) => mateEntityNow(ref, inside ?? asm)), size: assemblySize(asm), ...opts });
+  ex.writeBack();
+  return { ...r, status: ex.status(r.status) };
+}
+
+/** A motion study's input: the assembly expanded with its flexible sub-assemblies (or itself) and the entity function. */
+function motionInput(asm) {
+  const ex = expandFlexible(asm, project());
+  return ex ? { assembly: ex.assembly, entity: ex.entity((ref, inside) => mateEntityNow(ref, inside ?? asm)) } : { assembly: asm, entity: (ref) => mateEntityNow(ref, asm) };
+}
+
 function solveAssembly() {
   const asm = activeAssembly();
   if (!asm || !kernelReady()) return;
-  const r = solveMates(asm, { entity: (ref) => mateEntityNow(ref), size: assemblySize(asm) });
+  const r = solveWithFlex(asm);
   state.mateStatus = r.status;
   state.failedMates = new Set(r.failed);
   more.afterSolve(asm);
@@ -788,14 +826,19 @@ function assemblySize(asm) {
 }
 
 /** A mate reference read again from the current part (the part may have changed since the mate was made). */
-function mateEntityNow(ref) {
-  const asm = project()?.assemblies.find((a) => a.components.some((c) => c.id === ref.comp));
+function mateEntityNow(ref, inAsm = null) {
+  const asm = inAsm?.components?.some((c) => c.id === ref.comp) ? inAsm : project()?.assemblies.find((a) => a.components.some((c) => c.id === ref.comp));
   const comp = asm?.components.find((c) => c.id === ref.comp);
   if (!comp) return null;
   const leaf = ref.path?.length ? subassemblyLeaf(comp, ref.path) : null;
   const part = project().parts.find((p) => p.id === (leaf ? leaf.part : comp.part));
   // A sub-assembly referred to as a whole (no path: a face of it in its own frame, as stored) — the entity as stored.
   if (!part) return comp.sub && !ref.path?.length ? ref : null;
+  if (ref.conn) {
+    const cp = connectionPointsOf(part.id).find((x) => x.name === ref.conn);
+    if (cp) { const ent = { ...ref, point: cp.point, dir: cp.dir }; if (leaf) { ent.point = placePoint(leaf.placement, ent.point); ent.dir = placeDir(leaf.placement, ent.dir); } return ent; }
+    return ref;
+  }
   if (ref.sig) {
     // A face made by an assembly cut lives only on the cut body; the part's own faces are found on either.
     const cut = componentCut(comp, leaf);
@@ -861,6 +904,7 @@ function pruneSelection() {
 /** The kernel face / edge of a pick (part: the body; assembly: the component's part body, local coordinates). */
 function topoOf(hit) {
   if (!hit || (hit.kind !== 'face' && hit.kind !== 'edge') || hit.index < 0) return null;
+  if (String(hit.bodyKey).startsWith('ctx:')) return icTools.contextTopo(hit);
   if (hit.bodyKey === 'body') {
     const entry = state.partEntry;
     return { entry, part: activePart(), comp: null, shape: hit.kind === 'face' ? entry?.faces?.[hit.index] : entry?.edgeList?.[hit.index] };
@@ -873,7 +917,7 @@ function topoOf(hit) {
   const part = project().parts.find((p) => p.id === (leaf ? leaf.part : comp.part));
   if (!part) return null;
   // Cut by assembly features: the view shows the cut body, so its faces are the ones picked.
-  const entry = componentCut(comp, leaf) ?? buildPart(part);
+  const entry = componentCut(comp, leaf) ?? (leaf ? buildPart(part) : componentBuild(comp, part));
   return { entry, part, comp, inner: leaf?.placement ?? null, path, shape: hit.kind === 'face' ? entry.faces?.[hit.index] : entry.edgeList?.[hit.index] };
 }
 
@@ -1094,7 +1138,50 @@ function pickForFeature(hit, ev) {
   const topo = topoOf(hit);
   const toggle = (list, sig, same) => { const i = list.findIndex(same); if (i >= 0) list.splice(i, 1); else list.push(sig); };
   const near = (a, b) => Math.hypot(...a.map((v, i) => v - b[i])) < 1e-6;
-  if (e.pick === 'edges' && hit?.kind === 'edge' && topo?.shape) {
+  if (['startFace', 'endFace', 'endFace2'].includes(e.pick) && (hit?.kind === 'plane' || (hit?.kind === 'face' && topo?.shape))) {
+    // An extrude's start / end surface: a face of the body or a plane.
+    const ref = hit.kind === 'plane' ? planeRefOf(hit.id) : { kind: 'face', sig: faceSignature(topo.shape) };
+    updateFeature(() => { f[e.pick] = ref; });
+  } else if (['startVertex', 'endVertex', 'endVertex2'].includes(e.pick) && (hit?.kind === 'face' || hit?.kind === 'edge') && topo?.shape && hit.point) {
+    // A vertex: the one of the picked face or edge nearest the pointer.
+    const v = nearestVertex(topo.shape, hit.point);
+    if (v) updateFeature(() => { f[e.pick] = v.map(round3); });
+  } else if (e.pick === 'faceItems' && hit?.kind === 'face' && topo?.shape) {
+    const sig = faceSignature(topo.shape);
+    updateFeature(() => { f.faceItems = f.faceItems ?? []; toggle(f.faceItems, sig, (x) => near(x.center, sig.center)); });
+  } else if (e.pick === 'featureItems') {
+    const fid = featureOfHit(hit);
+    if (fid) updateFeature(() => { const list = f.featureItems ?? []; f.featureItems = list.includes(fid) ? list.filter((x) => x !== fid) : [...list, fid]; });
+    else notify('info', t('notice.pickSeedInTree'));
+  } else if (e.pick === 'vertex' && (hit?.kind === 'face' || hit?.kind === 'edge') && topo?.shape && hit.point) {
+    const v = nearestVertex(topo.shape, hit.point);
+    if (v) updateFeature(() => { f.vertex = v.map(round3); });
+  } else if (e.pick === 'multiFaces' && hit?.kind === 'face' && topo?.shape) {
+    if (topo.shape.geomType !== 'PLANE') { notify('info', t('notice.pickPlanarFace')); return; }
+    const sig = faceSignature(topo.shape);
+    updateFeature(() => { const list = f.multi ?? []; const i = list.findIndex((x) => near(x.sig.center, sig.center)); f.multi = i >= 0 ? list.filter((_, k) => k !== i) : [...list, { sig, t: Number(f.thickness) * 2 || 3 }]; });
+  } else if (f.type === 'plane' && e.pick === 'axisRef' && hit?.kind === 'edge' && topo?.shape) {
+    updateFeature(() => { f.axisRef = { kind: 'edge', sig: edgeSignature(topo.shape) }; });
+  } else if (f.type === 'plane' && e.pick === 'points' && (hit?.kind === 'face' || hit?.kind === 'edge') && topo?.shape && hit.point) {
+    const v = nearestVertex(topo.shape, hit.point);
+    if (v) updateFeature(() => { f.points = [...(f.points ?? []), v.map(round3)].slice(-3); });
+  } else if (f.type === 'plane' && e.pick === 'point' && (hit?.kind === 'face' || hit?.kind === 'edge') && topo?.shape && hit.point) {
+    const p = f.mode === 'tangent' ? hit.point : nearestVertex(topo.shape, hit.point);
+    if (p) updateFeature(() => { f.point = p.map(round3); });
+  } else if (f.type === 'plane' && e.pick === 'base2' && (hit?.kind === 'plane' || (hit?.kind === 'face' && topo?.shape?.geomType === 'PLANE'))) {
+    const ref = hit.kind === 'plane' ? planeRefOf(hit.id) : faceRef(topo.shape);
+    updateFeature(() => { f.base2 = ref; });
+  } else if (e.pick === 'upToPoint' && (hit?.kind === 'face' || hit?.kind === 'edge') && topo?.shape && hit.point) {
+    const v = nearestVertex(topo.shape, hit.point);
+    if (v) updateFeature(() => { f.upToPoint = v.map(round3); });
+  } else if (e.pick === 'partingEdges' && hit?.kind === 'edge' && topo?.shape) {
+    const sig = edgeSignature(topo.shape);
+    updateFeature(() => { f.partingEdges = f.partingEdges ?? []; toggle(f.partingEdges, sig, (x) => near(x.mid, sig.mid)); });
+  } else if (e.pick === 'pullEdge' && hit?.kind === 'edge' && topo?.shape) {
+    updateFeature(() => { f.pull = { kind: 'edge', sig: edgeSignature(topo.shape) }; });
+  } else if (e.pick === 'dirVector' && hit?.kind === 'edge' && topo?.shape) {
+    updateFeature(() => { f.dirVector = { kind: 'edge', sig: edgeSignature(topo.shape) }; });
+  } else if (e.pick === 'edges' && hit?.kind === 'edge' && topo?.shape) {
     const sig = edgeSignature(topo.shape);
     updateFeature(() => toggle(f.edges, sig, (x) => near(x.mid, sig.mid)));
   } else if (e.pick === 'edges' && hit?.kind === 'face' && topo?.shape) {
@@ -1129,7 +1216,7 @@ function pickForFeature(hit, ev) {
     // Where the pointer meets the face's plane, in the plane's coordinates.
     const main = buildPart(part);
     let fr;
-    try { fr = resolvePlane(e.holeSketch.plane, { body: main.body, planes: main.result.planes }); } catch { notify('error', t('rebuild.face-missing')); return; }
+    try { fr = resolvePlane(e.holeSketch.plane, { body: main.body, planes: main.result.planes, part }); } catch { notify('error', t('rebuild.face-missing')); return; }
     const ray = viewport.rayAt(ev.clientX, ev.clientY).ray;
     const p = ray.intersectPlane(new THREE.Plane().setFromNormalAndCoplanarPoint(new THREE.Vector3(...fr.normal), new THREE.Vector3(...fr.origin)), new THREE.Vector3());
     if (!p) return;
@@ -1191,6 +1278,7 @@ async function startSketch() {
 function pickSketchPlane(hit) {
   if (hit?.kind === 'plane') return openNewSketch(planeRefOf(hit.id));
   const topo = topoOf(hit);
+  if (topo?.ctxComp) return icTools.sketchOnContextFace(topo);
   if (hit?.kind === 'face' && topo?.shape?.geomType === 'PLANE') return openNewSketch(faceRef(topo.shape));
   notify('info', t('notice.pickPlanarFace'));
   return undefined;
@@ -1216,7 +1304,7 @@ function openSketchEditor(sketch, { isNew }) {
   const index = isNew ? (part.rollback ?? part.features.length) : part.features.findIndex((f) => f.id === sketch.id);
   const before = buildPart(part, { upTo: index, slot: 'sketch' });
   let fr;
-  try { fr = resolvePlane(sketch.plane, { body: before.body, planes: before.result.planes }); }
+  try { fr = resolvePlane(sketch.plane, { body: before.body, planes: before.result.planes, part }); }
   catch (error) { showError('error.sketchPlane', error); return; }
   const editor = new SketchEditor(sketchApi, sketch, fr);
   state.editing = { mode: 'sketch', editor, feature: sketch, isNew, index, startJson: JSON.stringify(sketch) };
@@ -1327,6 +1415,45 @@ function mateReferencesOf(partId) {
   return part.features.filter((f) => f.type === 'mateReference' && !f.suppressed).map((f) => entry.result?.results?.get(f.id)?.mateRef).filter(Boolean);
 }
 
+/** The connection points of a part (its Connection Point features): [{ name, point, dir }] in the part. */
+function connectionPointsOf(partId) {
+  const part = project().parts.find((p) => p.id === partId);
+  if (!part) return [];
+  let entry; try { entry = buildPart(part); } catch { return []; }
+  return part.features.filter((f) => f.type === 'connectionPoint' && !f.suppressed).map((f) => entry.result?.results?.get(f.id)?.connPoint).filter(Boolean);
+}
+
+/**
+ * Magnetic mates: connection points of components that are near each other (within the snap distance in the
+ * settings) and face each other snap together — a magnetic mate each. Returns how many were made.
+ */
+function magneticSnap({ quiet = false } = {}) {
+  const asm = activeAssembly();
+  if (!asm) return 0;
+  const world = [];
+  for (const c of asm.components) {
+    if (c.suppressed || c.hidden || !c.part) continue;
+    for (const cp of connectionPointsOf(c.part)) world.push({ comp: c.id, name: cp.name, local: cp, point: placePoint(c, cp.point), dir: placeDir(c, cp.dir) });
+  }
+  const joined = new Set(asm.mates.filter((m) => m.type === 'magnetic').map((m) => `${m.a.comp}:${m.a.conn}|${m.b.comp}:${m.b.conn}`));
+  const pairs = magneticPairs(world, { distance: Math.max(0, Number(state.settings.magneticDistance ?? 25)), joined });
+  if (!pairs.length) { if (!quiet) notify('info', t('magnet.none')); return 0; }
+  change('op.addMate', () => {
+    for (const p of pairs) {
+      // The component that is not fixed moves (b); a fixed one stays.
+      const [a, b] = asm.components.find((c) => c.id === p.a.comp)?.fixed ? [p.a, p.b] : [p.b, p.a];
+      const n = asm.mates.filter((x) => x.type === 'magnetic').length + 1;
+      asm.mates.push({ id: newId('mate'), name: `${t('mate.magnetic')}${n}`, type: 'magnetic',
+        a: { comp: a.comp, kind: 'point', conn: a.name, point: a.local.point, dir: a.local.dir },
+        b: { comp: b.comp, kind: 'point', conn: b.name, point: b.local.point, dir: b.local.dir } });
+    }
+  });
+  solveAssembly();
+  notify('success', t('magnet.snapped', { count: pairs.length }));
+  renderAll();
+  return pairs.length;
+}
+
 /** A new component with a mate reference is mated to the first other one whose part has one of the same name. */
 function autoMateByReferences(asm, c) {
   const mine = mateReferencesOf(c.part);
@@ -1388,9 +1515,50 @@ function startMate() {
   renderAll();
 }
 
+/** An edge's sample points in its part (a line: its ends; a curve: 48 pieces). */
+function edgePoints(edge) {
+  const n = edge.geomType === 'LINE' ? 1 : 48;
+  const out = [];
+  for (let i = 0; i <= n; i++) { const v = edge.pointAt(i / n); out.push([v.x, v.y, v.z]); }
+  return out;
+}
+
+/**
+ * An edge picked while making a mate: the first reference becomes the edge's end nearest the click (a point);
+ * the second (or more edges of that component) makes or extends a path — a path mate.
+ */
+function pickEdgeForMate(hit, topo) {
+  const e = state.editing;
+  const toTop = (q) => (topo.inner ? placePoint(topo.inner, q) : q);
+  const pts = edgePoints(topo.shape).map(toTop);
+  const extend = e.mate.b?.kind === 'path' && e.mate.b.comp === topo.comp.id && (e.pick == null || e.pick === 'b');
+  if (!extend && (e.pick === 'a' || !e.mate.a)) {
+    // The vertex nearest the click, in the component's frame (the click point is in the world).
+    const asm = activeAssembly();
+    const pl = asm.components.find((c) => c.id === topo.comp.id);
+    const ends = [pts[0], pts[pts.length - 1]];
+    const world = ends.map((q) => placePoint(pl, q));
+    const k = hit.point && Math.hypot(...world[1].map((v, i) => v - hit.point[i])) < Math.hypot(...world[0].map((v, i) => v - hit.point[i])) ? 1 : 0;
+    e.mate.a = { comp: topo.comp.id, kind: 'point', point: ends[k], dir: [0, 0, 1] };
+    e.pick = 'b';
+    previewMate();
+    return;
+  }
+  if (!extend && topo.comp.id === e.mate.a?.comp) { notify('info', t('notice.sameComponent')); return; }
+  const pieces = extend ? [...(e.mate.b.pieces ?? []), pts] : [pts];
+  const path = chainPath(pieces);
+  e.mate.b = { comp: topo.comp.id, kind: 'path', point: path[0], dir: [0, 0, 1], points: path, pieces };
+  e.mate.type = 'path';
+  e.mateGroup = 'advanced';
+  Object.assign(e.mate, Object.fromEntries(Object.entries(MATE_DEFAULTS.path).filter(([k]) => e.mate[k] == null)));
+  e.pick = null;
+  previewMate();
+}
+
 function pickForMate(hit) {
   const e = state.editing;
   const topo = topoOf(hit);
+  if (hit?.kind === 'edge' && topo?.comp && topo.shape) return pickEdgeForMate(hit, topo);
   if (hit?.kind !== 'face' || !topo?.comp) { notify('info', t('notice.pickComponentFace')); return; }
   const ent = { comp: topo.comp.id, ...mateEntityOfFace(topo.shape, faceSignature) };
   // A face of a part inside a sub-assembly: in the top component's frame, re-read through its path.
@@ -1414,7 +1582,7 @@ function previewMate() {
   state.mateError = false;
   if (e.mate.a && e.mate.b && e.mate.type) {
     const trial = { ...asm, mates: [...asm.mates.filter((m) => m.id !== e.mate.id), e.mate] };
-    const r = solveMates(trial, { entity: (ref) => mateEntityNow(ref), size: assemblySize(asm) });
+    const r = solveWithFlex(trial);
     asm.components = trial.components;
     state.mateError = r.failed.includes(e.mate.id);
   }
@@ -1436,6 +1604,19 @@ function acceptMate() {
   change('op.addMate', () => { asm.mates = [...asm.mates.filter((m) => m.id !== mate.id), mate]; });
   const failed = state.failedMates.has(mate.id);
   notify(failed ? 'warning' : 'success', t(failed ? 'notice.mateFailed' : 'notice.mateAdded', { name: mate.name }));
+}
+
+/** Makes the chosen sub-assembly components flexible (their parts solved in this assembly) or rigid again. */
+function toggleFlexible() {
+  const asm = activeAssembly();
+  const ids = state.selection.filter((s) => s.kind === 'comp').map((s) => s.id);
+  const subs = asm?.components.filter((c) => ids.includes(c.id) && c.sub) ?? [];
+  if (!subs.length) { notify('info', t('flex.pickSub')); return; }
+  const on = !subs.every((c) => c.flexible);
+  change(on ? 'op.flexible' : 'op.rigid', () => { for (const c of subs) { if (on) c.flexible = true; else { delete c.flexible; delete c.flexPose; } } });
+  solveAssembly();
+  notify('success', t(on ? 'flex.on' : 'flex.off', { count: subs.length }));
+  renderAll();
 }
 
 function setComponentFixed(fixed) {
@@ -1660,6 +1841,42 @@ async function newDrawing() {
   notify('success', t('notice.drawingCreated', { name: d.name }));
 }
 
+/**
+ * Relative view: two planar faces picked in a part — the view looks square at the first (it faces the viewer) with
+ * the second facing right. Added to the part's latest drawing (a new one when it has none).
+ */
+async function relativeView() {
+  const part = activePart();
+  if (!part) { notify('info', t('notice.partOnly')); return; }
+  const faces = state.selection.filter((s) => s.kind === 'face').map((s) => topoOf(s)?.shape).filter(Boolean);
+  if (faces.length < 2 || faces.slice(0, 2).some((f) => f.geomType !== 'PLANE')) { notify('info', t('notice.relativeViewFaces')); return; }
+  const normal = (f) => { const v = f.normalAt(); const a = v.toTuple ? v.toTuple() : [v.x, v.y, v.z]; const l = Math.hypot(...a) || 1; return a.map((x) => x / l); };
+  const front = normal(faces[0]); const right = normal(faces[1]);
+  if (Math.abs(front[0] * right[0] + front[1] * right[1] + front[2] * right[2]) > 0.999) { notify('info', t('notice.relativeViewParallel')); return; }
+  let d = [...project().drawings].reverse().find((x) => x.source?.kind === 'part' && x.source.id === part.id);
+  if (!d) { await newDrawing(); d = activeDrawing(); }
+  if (!d) return;
+  const view = { id: newId('v'), type: 'custom', dir: front, x: right, label: nextLetter(d) };
+  change('op.addView', (pr) => { const dd = pr.drawings.find((x) => x.id === d.id); dd.views.push(view); pr.active = { kind: 'drawing', id: d.id }; });
+  state.drawingSelected = view.id;
+  fitDrawing(); renderDrawing();
+  notify('success', t('notice.relativeView'));
+}
+
+/** 3D drawing view: the selected view turned by typed angles (left / right, up / down) into a custom view. */
+async function turnDrawingView() {
+  const d = activeDrawing();
+  const v = d?.views.find((x) => x.id === state.drawingSelected && x.kind !== 'detail' && x.kind !== 'section');
+  if (!v) { notify('info', t('notice.selectView')); return; }
+  const r = await popups.open('prompt', { title: t('cmd.view3dDrawing'), label: t('drawing.turnAngles'), value: '30, 0' });
+  const [yaw, pitch] = String(r?.value ?? '').split(/[,\s]+/).map(Number);
+  if (!Number.isFinite(yaw) || !Number.isFinite(pitch)) return;
+  const turned = turnedView(v, yaw, pitch);
+  if (!turned) return;
+  change('op.edit', (pr) => { const vv = pr.drawings.find((x) => x.id === d.id).views.find((x) => x.id === v.id); Object.assign(vv, turned); delete vv.up; });
+  renderDrawing();
+}
+
 const projectionCache = new Map();
 /** Hidden stretches of cosmetic threads per thread and view direction (drawing-threads.js occlusion). */
 const threadOcclusion = new Map();
@@ -1804,13 +2021,15 @@ function alternateShapeOf(d, alt) {
   const asm = findDocument(project(), d.source);
   if (!asm?.components) return null;
   let placements = null;
-  if (alt.mode === 'motion' && asm.motion) {
-    try { placements = motionFrame(asm, Number(asm.motion.duration ?? 5), { entity: (ref) => mateEntityNow(ref), size: assemblySize(asm) }).placements; } catch { placements = null; }
+  if (alt.mode === 'motion' && asm.motion && motionType(asm) === 'keyframe') placements = keyframePose(asm, Number(asm.motion.duration ?? 5));
+  else if (alt.mode === 'motion' && asm.motion && motionType(asm) === 'physics') { try { const r = dynamicsResult(asm); placements = r?.frames?.at(-1)?.poses ?? null; } catch { placements = null; } }
+  else if (alt.mode === 'motion' && asm.motion) {
+    try { const mi = motionInput(asm); placements = motionFrame(mi.assembly, Number(asm.motion.duration ?? 5), { entity: mi.entity, size: assemblySize(asm) }).placements; } catch { placements = null; }
   }
   const R = rep(); const shapes = []; const keys = [];
   for (const c of asm.components) {
     if (c.hidden || c.suppressed) continue;
-    const pl = alt.mode === 'motion' ? (placements?.get?.(c.id) ?? c) : explodedPlacement(asm, c, Number(alt.factor ?? 1));
+    const pl = alt.mode === 'motion' ? (placements?.get?.(c.id) ?? c) : explodedPlacement(asm, c, Number(alt.factor ?? 1), { centers: explodeCenters(asm) });
     for (const leaf of componentLeaves(c)) {
       const part = project().parts.find((p) => p.id === leaf.part);
       const b = part && buildPart(part);
@@ -2199,6 +2418,28 @@ function pickForMotion(hit) {
   if (hit?.kind !== 'face' || !topo?.comp) { notify('info', t('notice.pickComponentFace')); return; }
   const ent = { comp: topo.comp.id, ...mateEntityOfFace(topo.shape, faceSignature) };
   if (topo.inner) { ent.point = placePoint(topo.inner, ent.point); ent.dir = placeDir(topo.inner, ent.dir); ent.path = topo.path; }
+  if (e.pick === 'contact') {
+    // A contact between two components (picked by any face of each).
+    e.contactPick = [...(e.contactPick ?? []).filter((id) => id !== ent.comp), ent.comp];
+    if (e.contactPick.length < 2) return renderLeft();
+    const asm = activeAssembly();
+    const [a, b] = e.contactPick;
+    change('op.motion', () => { asm.motion.contacts = [...(asm.motion.contacts ?? []), { id: newId('contact'), a, b, e: 0.5 }]; });
+    e.contactPick = [];
+    return renderLeft();
+  }
+  if (e.pick === 'spring') {
+    // A spring (with its damper) between the centres / axis points of two faces of two components.
+    e.springPick = [...(e.springPick ?? []), { comp: ent.comp, point: ent.point }];
+    if (e.springPick.length === 2 && e.springPick[0].comp === e.springPick[1].comp) { e.springPick = [e.springPick[0]]; notify('info', t('notice.sameComponent')); return renderLeft(); }
+    if (e.springPick.length < 2) return renderLeft();
+    const asm = activeAssembly();
+    const [a, b] = e.springPick;
+    const pa = placePoint(asm.components.find((c) => c.id === a.comp), a.point); const pb = placePoint(asm.components.find((c) => c.id === b.comp), b.point);
+    change('op.motion', () => { asm.motion.springs = [...(asm.motion.springs ?? []), { id: newId('spring'), a, b, k: 1, c: 0.01, length: Math.round(Math.hypot(pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]) * 1000) / 1000 }]; });
+    e.springPick = [];
+    return renderLeft();
+  }
   if (e.kind === 'rotary' && ent.kind !== 'axis') { notify('info', t('notice.motorNeedsAxis')); return; }
   const asm = activeAssembly();
   change('op.motor', () => { asm.motion.motors = [...asm.motion.motors.filter((m) => m.comp !== ent.comp), { id: newId('motor'), kind: e.kind, comp: ent.comp, ref: ent, speed: e.speed }]; });
@@ -2207,11 +2448,97 @@ function pickForMotion(hit) {
 // The motion being played: one solver moved on frame by frame (see motionCursor), made again when the assembly
 // (its components, mates or motion study) changes.
 let motionPlay = null;
+/** The kind of an assembly's motion study: 'motors' (motors drive the mates), 'keyframe' (animation) or 'physics' (motion analysis). */
+const motionType = (asm) => asm?.motion?.type ?? 'motors';
+/** True when the motion study has something to play. */
+function hasMotion(asm) {
+  const ty = motionType(asm);
+  if (ty === 'keyframe') return (asm?.motion?.keys?.length ?? 0) > 1;
+  if (ty === 'physics') return Boolean(asm?.components?.some((c) => !c.fixed));
+  return Boolean(asm?.motion?.motors?.length);
+}
+
+/** Each component's mass, centre of mass and inertia tensor in its own frame (through a sub-assembly's parts). */
+function componentMassProps(asm) {
+  const R = rep(); const out = new Map();
+  for (const c of asm.components) {
+    if (c.suppressed) continue;
+    const list = [];
+    for (const leaf of componentLeaves(c)) {
+      const part = project().parts.find((p) => p.id === leaf.part);
+      let body = null; try { body = part && buildPart(part).body; } catch { body = null; }
+      if (!body) continue;
+      try { list.push({ ...inertiaOf(R, body, materialOf(part.material).density), placement: leaf.placement }); } catch { /* no volume */ }
+    }
+    if (list.length) out.set(c.id, combineInertia(list));
+  }
+  return out;
+}
+
+/**
+ * The gap between two components of a contact (the kernel's closest points of their placed solids): { gap, pa, pb,
+ * n (a → b) }. Overlapping solids give 0, their normal the last one seen (or the line between their centres).
+ */
+function contactGapOf(asm) {
+  const R = rep(); const oc = R.getOC();
+  const local = new Map(); const lastN = new Map();
+  const shapeOf = (id) => {
+    if (!local.has(id)) {
+      const c = asm.components.find((x) => x.id === id);
+      const list = (c ? componentLeaves(c) : []).map((leaf) => { const part = project().parts.find((p) => p.id === leaf.part); let b = null; try { b = part && buildPart(part).body; } catch { b = null; } return b ? (leaf.path.length ? placeShape(b, leaf.placement) : b) : null; }).filter(Boolean);
+      local.set(id, list.length > 1 ? R.makeCompound(list) : list[0] ?? null);
+    }
+    return local.get(id);
+  };
+  return (ct, placeOf) => {
+    const A = shapeOf(ct.a); const B = shapeOf(ct.b);
+    if (!A || !B) return null;
+    const sa = placeShape(A, placeOf(ct.a)); const sb = placeShape(B, placeOf(ct.b));
+    const ds = new oc.BRepExtrema_DistShapeShape(sa.wrapped, sb.wrapped);
+    try {
+      if (!ds.IsDone() || ds.NbSolution() < 1) return null;
+      const gap = ds.Value();
+      // Every distinct pair of closest points (a face over a face: its corners), the first for the normal.
+      const points = [];
+      for (let i = 1; i <= Math.min(ds.NbSolution(), 12); i++) {
+        const p1 = ds.PointOnShape1(i); const p2 = ds.PointOnShape2(i);
+        const q = { pa: [p1.X(), p1.Y(), p1.Z()], pb: [p2.X(), p2.Y(), p2.Z()] };
+        if (Math.abs(Math.hypot(q.pb[0] - q.pa[0], q.pb[1] - q.pa[1], q.pb[2] - q.pa[2]) - gap) > 1e-6) continue;
+        if (points.some((o) => Math.hypot(o.pb[0] - q.pb[0], o.pb[1] - q.pb[1], o.pb[2] - q.pb[2]) < 1e-6)) continue;
+        points.push(q);
+      }
+      if (!points.length) return null;
+      const { pa, pb } = points[0];
+      let n = null;
+      if (gap > 1e-7) n = pb.map((v, i) => (v - pa[i]) / gap);
+      else {
+        n = lastN.get(ct.id);
+        if (!n) { const ca = sa.boundingBox.center; const cb = sb.boundingBox.center; const d = [cb[0] - ca[0], cb[1] - ca[1], cb[2] - ca[2]]; const l = Math.hypot(...d) || 1; n = d.map((v) => v / l); }
+      }
+      lastN.set(ct.id, n);
+      return { gap, pa, pb, n, points };
+    } finally { ds.delete(); sa.delete?.(); sb.delete?.(); }
+  };
+}
+
+/** The motion analysis of the active assembly (made again when the assembly or its study changes). */
+function dynamicsResult(asm, { run = true } = {}) {
+  const key = JSON.stringify([asm.id, asm.components, asm.mates, asm.motion]);
+  if (state.dynamics?.key === key) return state.dynamics.result;
+  if (!run) return null;
+  const mi = motionInput(asm);
+  const result = simulateDynamics(mi.assembly, { entity: mi.entity, size: assemblySize(asm), bodies: componentMassProps(asm), fps: 30, gap: asm.motion?.contacts?.length ? contactGapOf(asm) : null, dt: Number(asm.motion?.step) > 0 ? Number(asm.motion.step) : 1 / 400 });
+  state.dynamics = { key, result };
+  return result;
+}
+
 function motionPose(time) {
   const asm = activeAssembly();
+  if (motionType(asm) === 'keyframe') return hasMotion(asm) ? keyframePose(asm, time) : null;
+  if (motionType(asm) === 'physics') return hasMotion(asm) ? dynamicsPose(dynamicsResult(asm), time) : null;
   if (!asm?.motion?.motors?.length) return null;
   const key = JSON.stringify([asm.id, asm.components, asm.mates, asm.motion]);
-  if (motionPlay?.key !== key) motionPlay = { key, cursor: motionCursor(asm, { entity: (ref) => mateEntityNow(ref), size: assemblySize(asm) }) };
+  if (motionPlay?.key !== key) { const mi = motionInput(asm); motionPlay = { key, cursor: motionCursor(mi.assembly, { entity: mi.entity, size: assemblySize(asm) }) }; }
   return motionPlay.cursor.at(time);
 }
 
@@ -2226,6 +2553,28 @@ function subMotionPose(sub, time) {
   try { return play.cursor.at(time); } catch { return null; }
 }
 
+/** The motion analysis results as a plot (SVG): one quantity of one body, spring, mate or motor over time. */
+function physicsPlot(asm, res, e) {
+  const kind = e.plotKind ?? 'disp';
+  const s = res.series;
+  const nameOf = (id) => asm.components.find((c) => c.id === id)?.name ?? asm.mates.find((m) => m.id === id)?.name ?? id;
+  const groups = { disp: ['bodies', 'disp', 'mm'], speed: ['bodies', 'speed', 'mm/s'], acc: ['bodies', 'acc', 'mm/s²'], spring: ['springs', null, 'N'], mate: ['mates', null, 'N'], motor: ['motors', null, 'N·mm'], contact: ['contacts', null, 'N'] };
+  const [grp, field, unit] = groups[kind];
+  const ids = Object.keys(s[grp] ?? {});
+  const item = ids.includes(e.plotItem) ? e.plotItem : ids[0];
+  const ys = item ? (field ? s[grp][item][field] : s[grp][item]) : [];
+  const W = 260; const H = 120; const pad = 26;
+  const lo = Math.min(0, ...ys); const hi = Math.max(1e-9, ...ys);
+  const T = s.t.at(-1) || 1;
+  const pts = ys.map((y, i) => `${(pad + (s.t[i] / T) * (W - pad - 6)).toFixed(1)},${(H - 16 - ((y - lo) / (hi - lo || 1)) * (H - 26)).toFixed(1)}`).join(' ');
+  const springName = (id, i) => `${t('ph.spring')} ${i + 1}`;
+  const label = (id, i) => (grp === 'contacts' ? `${t('ph.contact')} ${i + 1}` : grp === 'springs' ? springName(id, i) : grp === 'motors' ? `${t('motion.motor')} ${nameOf(asm.motion.motors.find((m) => m.id === id)?.comp)}` : nameOf(id));
+  return `${pmSeg('plotKind', [['disp', t('ph.disp'), 'smartDim'], ['speed', t('ph.speed'), 'motion'], ['acc', t('ph.acc'), 'motion'], ['spring', t('ph.springForce'), 'spring'], ['mate', t('ph.mateForce'), 'mate'], ['motor', t('ph.motorTorque'), 'motor'], ['contact', t('ph.contactForce'), 'contact']], kind)}
+    ${ids.length ? `<label class="pm-field"><span class="pm-label">${escapeHtml(t('ph.item'))}</span><select data-pm-select="plotItem" aria-label="${escapeHtml(t('ph.item'))}">${ids.map((id, i) => `<option value="${escapeHtml(id)}" ${id === item ? 'selected' : ''}>${escapeHtml(label(id, i))}</option>`).join('')}</select></label>
+    <svg class="ph-plot" viewBox="0 0 ${W} ${H}" width="100%" data-physics-plot role="img" aria-label="${escapeHtml(t('ph.plot'))}"><rect x="${pad}" y="10" width="${W - pad - 6}" height="${H - 26}" fill="none" stroke="currentColor" stroke-opacity="0.25"/><polyline points="${pts}" fill="none" stroke="#2f7de1" stroke-width="1.6"/><text x="2" y="16" font-size="8" fill="currentColor">${escapeHtml(fmt(hi, 1))}</text><text x="2" y="${H - 14}" font-size="8" fill="currentColor">${escapeHtml(fmt(lo, 1))}</text><text x="${W - 6}" y="${H - 3}" font-size="8" text-anchor="end" fill="currentColor">${escapeHtml(`${fmt(T, 2)} s`)}</text><text x="${pad + 2}" y="${H - 3}" font-size="8" fill="currentColor">${escapeHtml(unit)}</text></svg>
+    <p class="pm-note" data-physics-peak>${escapeHtml(t('ph.peak', { value: fmt(Math.max(...ys.map(Math.abs), 0), 2), unit }))}</p>` : `<p class="pm-note">${escapeHtml(t('ph.noSeries'))}</p>`}`;
+}
+
 function showMotionTime(time) {
   const asm = activeAssembly();
   const pose = motionPose(time);
@@ -2237,6 +2586,9 @@ function showMotionTime(time) {
     const subPose = c.sub ? subMotionPose(project()?.assemblies.find((a) => a.id === c.sub), time) : null;
     for (const leaf of componentLeaves(c)) {
       const key = leaf.path.length ? `comp:${c.id}/${leaf.path.join('/')}` : `comp:${c.id}`;
+      // A part inside a flexible sub-assembly: where the motion has moved it (its own unknowns).
+      const flexPl = c.flexible && leaf.path.length ? flexLeafPlacement(c, project()?.assemblies.find((a) => a.id === c.sub), leaf, pose) : null;
+      if (flexPl) { viewport.setBodyMatrix(key, componentMatrix(flexPl)); continue; }
       // A direct component of a playing sub-assembly: its placement at this time, not its resting one.
       const inner = subPose && leaf.path.length === 1 ? subPose.get(leaf.path[0]) ?? leaf.placement : leaf.placement;
       viewport.setBodyMatrix(key, componentMatrix(leaf.path.length ? composePlacement(pl, inner) : pl));
@@ -2267,7 +2619,7 @@ function playMotion(on) {
   const e = state.editing;
   if (e?.mode !== 'motion') return;
   const asm = activeAssembly();
-  if (on && !asm.motion.motors.length) { notify('info', t('notice.motionPickMotor')); return; }
+  if (on && !hasMotion(asm)) { notify('info', t(motionType(asm) === 'keyframe' ? 'kf.needKeys' : 'notice.motionPickMotor')); return; }
   e.playing = on;
   if (!on) { renderLeft(); return; }
   let last = performance.now();
@@ -2297,7 +2649,7 @@ function renderMotionBar() {
   if (!area) return;
   let bar = area.querySelector('#motion-bar');
   const asm = activeAssembly();
-  const show = Boolean(asm?.motion?.motors?.length) && state.editing?.mode !== 'motion' && !state.showStart;
+  const show = hasMotion(asm) && (motionType(asm) !== 'physics' || Boolean(dynamicsResult(asm, { run: false }))) && state.editing?.mode !== 'motion' && !state.showStart;
   if (!show) {
     if (state.player.playing) stopPlayer({ quiet: true });
     bar?.remove();
@@ -2317,7 +2669,7 @@ function renderMotionBar() {
 
 function playPlayer() {
   const asm = activeAssembly();
-  if (!asm?.motion?.motors?.length || state.player.playing) return;
+  if (!hasMotion(asm) || state.player.playing) return;
   const p = state.player;
   p.playing = true;
   let last = performance.now();
@@ -2351,6 +2703,13 @@ function toggleExplode() {
   const asm = activeAssembly();
   if (!asm) return;
   if (asm.explode?.steps?.length) { change('op.explode', () => { asm.explode.on = !asm.explode.on; }); notify('info', t(asm.explode.on ? 'notice.exploded' : 'notice.collapsed')); return; }
+  autoExplodeNow();
+}
+
+/** Automatic explode steps (replacing the ones there are): components pushed apart along the assembly's long axis. */
+function autoExplodeNow() {
+  const asm = activeAssembly();
+  if (!asm) return;
   const boxes = new Map();
   for (const c of asm.components) {
     const list = componentShapes(c);
@@ -2359,14 +2718,129 @@ function toggleExplode() {
     for (const { shape } of list) { const [a, b] = shape.boundingBox.bounds; for (let i = 0; i < 3; i++) { lo[i] = Math.min(lo[i], a[i]); hi[i] = Math.max(hi[i], b[i]); } }
     boxes.set(c.id, [lo, hi]);
   }
-  change('op.explode', () => { autoExplode(asm, boxes, assemblySize(asm) * 0.15); });
+  const lines = asm.explode?.lines;
+  change('op.explode', () => { autoExplode(asm, boxes, assemblySize(asm) * 0.15); if (lines === false) asm.explode.lines = false; });
   notify('success', t('notice.exploded'));
   fitView();
 }
 
+const simpleCache = new Map();
+/**
+ * A component's simplified representation (display only; mass, interference and drawings use the full one):
+ * 'box' — its bounding box as one body; 'outer' — its parts without those inside others or tiny ones.
+ */
+function simplifiedOf(c) {
+  const leaves = componentLeaves(c).map((leaf) => {
+    const part = project().parts.find((p) => p.id === leaf.part);
+    let entry = null; try { entry = part && buildPart(part); } catch { entry = null; }
+    if (!entry?.body) return null;
+    let b; try { b = entry.body.boundingBox.bounds; } catch { return null; }
+    const lo = [Infinity, Infinity, Infinity]; const hi = [-Infinity, -Infinity, -Infinity];
+    for (let m = 0; m < 8; m++) { const p = placePoint(leaf.placement, [b[m & 1][0], b[(m >> 1) & 1][1], b[(m >> 2) & 1][2]]); for (let i = 0; i < 3; i++) { lo[i] = Math.min(lo[i], p[i]); hi[i] = Math.max(hi[i], p[i]); } }
+    return { key: leaf.path.join('/'), box: [lo, hi], part, uid: entryUid(entry) };
+  }).filter(Boolean);
+  if (!leaves.length) return null;
+  const key = JSON.stringify([c.simplified, leaves.map((l) => [l.key, l.uid, l.box])]);
+  const hit = simpleCache.get(c.id);
+  if (hit?.key === key) return hit.value;
+  let value;
+  if (c.simplified === 'box') {
+    const lo = [0, 1, 2].map((i) => Math.min(...leaves.map((l) => l.box[0][i]))); const hi = [0, 1, 2].map((i) => Math.max(...leaves.map((l) => l.box[1][i])));
+    const R = rep(); const shape = R.makeBox(lo, hi); const tol = { tolerance: 0.1, angularTolerance: 0.5 };
+    value = { box: { mesh: shape.mesh(tol), edges: shape.meshEdges(tol), faceIndex: new Map(), edgeIndex: new Map() }, part: leaves[0].part };
+  } else value = { hidden: hiddenInside(leaves, { minSize: Number(state.settings.simplifiedMinSize ?? 0.02) }) };
+  simpleCache.set(c.id, { key, value });
+  return value;
+}
+
+/** Sets the simplified representation of the chosen components ('' = full). */
+function setSimplified(mode) {
+  const asm = activeAssembly();
+  const ids = state.selection.filter((s) => s.kind === 'comp').map((s) => s.id);
+  if (!asm || !ids.length) { notify('info', t('simp.pick')); return; }
+  change('op.simplified', () => { for (const c of asm.components) if (ids.includes(c.id)) { if (mode) c.simplified = mode; else delete c.simplified; } });
+  notify('success', t(mode ? `simp.done.${mode}` : 'simp.done.full', { count: ids.length }));
+}
+
+const xpBoxes = new Map();
+/** Each component's centre in its own frame (the middle of its box, through a sub-assembly's parts): explode steps turn about it and radial ones move it out. */
+function explodeCenters(asm) {
+  const out = new Map();
+  for (const c of asm?.components ?? []) {
+    const lo = [Infinity, Infinity, Infinity]; const hi = [-Infinity, -Infinity, -Infinity];
+    for (const leaf of componentLeaves(c)) {
+      const part = project().parts.find((p) => p.id === leaf.part);
+      let entry; try { entry = part && buildPart(part); } catch { entry = null; }
+      if (!entry?.body) continue;
+      const k = entryUid(entry);
+      let b = xpBoxes.get(k);
+      if (!b) { try { b = entry.body.boundingBox.bounds; } catch { continue; } xpBoxes.set(k, b); if (xpBoxes.size > 500) xpBoxes.delete(xpBoxes.keys().next().value); }
+      for (let m = 0; m < 8; m++) {
+        const p = placePoint(leaf.placement, [b[m & 1][0], b[(m >> 1) & 1][1], b[(m >> 2) & 1][2]]);
+        for (let i = 0; i < 3; i++) { lo[i] = Math.min(lo[i], p[i]); hi[i] = Math.max(hi[i], p[i]); }
+      }
+    }
+    if (lo[0] <= hi[0]) out.set(c.id, [0, 1, 2].map((i) => (lo[i] + hi[i]) / 2));
+  }
+  return out;
+}
+
+/** A component's centre in the world where the explode steps so far put it. */
+function placedCenter(asm, id, centers = explodeCenters(asm)) {
+  const c = asm.components.find((x) => x.id === id);
+  if (!c) return null;
+  const pl = asm.explode?.on ? explodedPlacement(asm, c, 1, { centers }) : c;
+  return placePoint(pl, centers.get(id) ?? [0, 0, 0]);
+}
+
+/** Plays the explode (collapsed → exploded) or the collapse, the steps one after the other; resolves at the end. */
+function animateExplode() {
+  const asm = activeAssembly();
+  const n = asm?.explode?.steps?.length ?? 0;
+  if (!n) { notify('info', t('xp.noSteps')); return Promise.resolve(false); }
+  const out = !asm.explode.on;
+  const total = Math.min(6000, 700 * n);
+  const t0 = performance.now();
+  state.explodeCentersNow = explodeCenters(asm);
+  return new Promise((resolve) => {
+    const frame = () => {
+      const k = Math.min(1, (performance.now() - t0) / total);
+      state.explodeProgress = out ? k * n : (1 - k) * n;
+      try { showExplodeProgress(asm); } catch { /* shown at the end */ }
+      if (k < 1) { requestAnimationFrame(frame); return; }
+      state.explodeProgress = null;
+      state.explodeCentersNow = null;
+      change('op.explode', () => { asm.explode.on = out; });
+      notify('info', t(out ? 'notice.exploded' : 'notice.collapsed'));
+      resolve(true);
+    };
+    requestAnimationFrame(frame);
+  });
+}
+
+function showExplodeProgress(asm) {
+  for (const c of asm.components) {
+    if (c.hidden || c.suppressed) continue;
+    const placed = displayPlacement(asm, c);
+    for (const leaf of componentLeaves(c)) {
+      const key = leaf.path.length ? `comp:${c.id}/${leaf.path.join('/')}` : `comp:${c.id}`;
+      viewport.setBodyMatrix(key, componentMatrix(leaf.path.length ? composePlacement(placed, leaf.placement) : placed));
+    }
+  }
+}
+
+/** The explode lines of an exploded assembly (dashed, the paths its parts take). */
+function explodeLineSpecs(asm) {
+  if (!asm?.explode?.on || asm.explode.lines === false || !asm.explode.steps?.length) return [];
+  const segs = [];
+  for (const l of explodeLines(asm, explodeCenters(asm))) for (let i = 1; i < l.points.length; i++) segs.push(...l.points[i - 1], ...l.points[i]);
+  return segs.length ? [{ segments: segs, color: '#d9822b', width: 1.4, dashed: true, dashSize: 4, gapSize: 3 }] : [];
+}
+
 function displayPlacement(asm, c) {
   if (state.motionPose?.has(c.id)) return state.motionPose.get(c.id);
-  return asm.explode?.on ? explodedPlacement(asm, c) : c;
+  if (state.explodeProgress != null && asm.explode?.steps?.length) return explodedPlacement(asm, c, 1, { centers: state.explodeCentersNow ?? explodeCenters(asm), progress: state.explodeProgress });
+  return asm.explode?.on ? explodedPlacement(asm, c, 1, { centers: explodeCenters(asm) }) : c;
 }
 
 const IDENTITY = { position: [0, 0, 0], rotation: [0, 0, 0, 1] };
@@ -2376,7 +2850,7 @@ function componentLeaves(c) {
   if (!c.sub) return [{ path: [], part: c.part, placement: IDENTITY }];
   const sub = project()?.assemblies.find((a) => a.id === c.sub);
   if (!sub) return [];
-  return flattenAssembly(project(), sub).map((x) => ({ path: x.path, part: x.part, placement: x.placement }));
+  return flattenAssembly(project(), sub, undefined, [], new Set(), c.flexible ? c.flexPose ?? null : null).map((x) => ({ path: x.path, part: x.part, placement: x.placement }));
 }
 
 function subassemblyLeaf(comp, path) {
@@ -2389,6 +2863,13 @@ const cutBuilds = new Map();
  * buildPart's (body, mesh, faces, edgeList, faceIndex, edgeIndex, key) so the cut faces show, pick and take
  * mates; null when no assembly feature acts on it. `leaf` as componentLeaves gives (default: the component's part).
  */
+/** A component's part built in the configuration the instance uses (its own build slot per configuration). */
+function componentBuild(c, part) {
+  const cfg = c?.config;
+  if (!cfg || !(part.configurations ?? []).some((x) => x.id === cfg)) return buildPart(part);
+  return buildPart({ ...part, config: cfg }, { slot: `cfg:${cfg}` });
+}
+
 function componentCut(c, leaf = null) {
   const p = project();
   const asm = p?.assemblies.find((a) => a.components.includes(c));
@@ -2397,7 +2878,7 @@ function componentCut(c, leaf = null) {
   const cuts = leafCutFeatures(p, asm, c, lf.path);
   if (!cuts.length) return null;
   const part = p.parts.find((x) => x.id === lf.part);
-  const entry = part && buildPart(part);
+  const entry = part && (lf.path.length ? buildPart(part) : componentBuild(c, part));
   if (!entry?.body) return null;
   const pl = composePlacement(c, lf.placement);
   const size = assemblySize(asm);
@@ -2416,7 +2897,7 @@ function componentShapes(c) {
   const out = [];
   for (const leaf of componentLeaves(c)) {
     const part = project().parts.find((p) => p.id === leaf.part);
-    const b = part && (componentCut(c, leaf) ?? buildPart(part));
+    const b = part && (componentCut(c, leaf) ?? (leaf.path.length ? buildPart(part) : componentBuild(c, part)));
     if (!b?.body) continue;
     const pl = composePlacement(c, leaf.placement);
     out.push({ shape: placeShape(b.body, pl), part, key: `${b.key}|${JSON.stringify([pl.position, pl.rotation])}` });
@@ -2465,11 +2946,45 @@ async function showCutList() {
   await popups.open('massprops', { name: `${part.name} — ${t('cmd.cutList')}`, material: '', rows, kind: 'part' });
 }
 
+/**
+ * A weld table (the drawing's weld symbols, alike ones counted together) or a weldment cut list table (members,
+ * end caps, gussets, beads of the drawn part) as a general table on the sheet, top left of the title block.
+ */
+function drawingTable(kind) {
+  const d = activeDrawing();
+  if (!d) return;
+  let header; let rows;
+  if (kind === 'weld') {
+    const welds = (d.annotations ?? []).filter((a) => a.kind === 'drwWeld');
+    if (!welds.length) { notify('info', t('notice.noWelds')); return; }
+    const groups = new Map();
+    for (const w of welds) { const key = [w.symbol, w.size, w.length, w.allAround ? 1 : 0].join('|'); const g = groups.get(key) ?? { w, qty: 0 }; g.qty += 1; groups.set(key, g); }
+    header = [t('weldTable.no'), t('weldTable.type'), t('weldTable.size'), t('weldTable.length'), t('weldTable.qty')];
+    rows = [...groups.values()].map(({ w, qty }, i) => [String(i + 1), t(`drwWeld.sym.${w.symbol}`, null, w.symbol), String(w.size ?? ''), w.allAround ? t('weldTable.allAround') : String(w.length || '—'), String(qty)]);
+  } else {
+    const part = project().parts.find((p) => p.id === d.source?.id);
+    if (!part || !hasWeldments(part)) { notify('info', t('notice.noMembers')); return; }
+    const { rows: cut } = weldmentCutRows(part, buildPart(part).result.results, { t, fmtLen });
+    if (!cut.length) { notify('info', t('notice.noMembers')); return; }
+    header = [t('weldTable.no'), t('cutTable.item'), t('cutTable.value')];
+    rows = cut.map((r, i) => [String(i + 1), String(r[1] ?? ''), String(r[2] ?? '')]);
+  }
+  const cells = [header, ...rows];
+  const cols = header.length;
+  const a = createTable({ id: newId('tbl'), x: 20, y: 20, rows: cells.length, cols, title: t(kind === 'weld' ? 'cmd.weldTable' : 'cmd.cutListTable') });
+  a.cells = cells;
+  a.colW = header.map((_, c) => Math.max(14, Math.min(70, Math.max(...cells.map((r) => String(r[c]).length)) * 2.2 + 4)));
+  a.auto = kind;
+  change('op.annotation', () => { d.annotations = [...(d.annotations ?? []).filter((x) => !(x.kind === 'drwTable' && x.auto === kind)), a]; });
+  state.drawingSelected = a.id;
+  notify('success', t('notice.tableAdded'));
+}
+
 // ───────────────────────── equations, configurations, design tables
 
 function startEquations(mode = 'equations') {
   const part = activePart();
-  if (!part) { notify('info', t('notice.partOnly')); return; }
+  if (!part && !(mode === 'configs' && activeAssembly())) { notify('info', t('notice.partOnly')); return; }
   if (state.editing) cancelEditing({ quiet: true });
   state.editing = { mode };
   state.leftTab = 'pm';
@@ -2520,7 +3035,7 @@ const pmButton = (cmd, glyph, label, cls = '') => `<button class="small-button $
 const pmGroup = (glyph, title, body) => `<section class="pm-group"><h4>${icon(glyph)}<span>${escapeHtml(title)}</span></h4><div class="pm-group-body">${body}</div></section>`;
 const pmHead = (glyph, title, help) => `<div class="pm-head"><div class="pm-title">${icon(glyph)}<b>${escapeHtml(title)}</b></div><div class="pm-buttons"><button class="pm-ok" data-pm="ok" title="${escapeHtml(t('pm.ok'))}">${icon('check')}</button><button class="pm-cancel" data-pm="cancel" title="${escapeHtml(t('pm.close'))}">${icon('close')}</button></div>${help ? `<p class="pm-help">${icon('info', 'icon tiny')}<span>${escapeHtml(help)}</span></p>` : ''}</div>`;
 const pmNum = (key, value, label, glyph = 'smartDim', unit = '', step = '') => `<label class="pm-field" title="${escapeHtml(label)}">${icon(glyph)}<span class="pm-label">${escapeHtml(label)}</span><input type="text" data-pm-field="${escapeHtml(key)}" data-num data-unit-label="${escapeHtml(unit)}" ${step ? `data-num-step="${step}"` : ''} value="${escapeHtml(String(value))}" spellcheck="false"/></label>`;
-const pmSeg = (key, options, current) => `<span class="segmented pm-seg" role="radiogroup">${options.map(([v, label, glyph]) => `<button type="button" class="segment ${String(v) === String(current) ? 'active' : ''}" data-pm-set="${escapeHtml(key)}" data-value="${escapeHtml(v)}" title="${escapeHtml(label)}">${glyph ? icon(glyph) : ''}<span>${escapeHtml(label)}</span></button>`).join('')}</span>`;
+const pmSeg = (key, options, current) => `<span class="segmented pm-seg" role="radiogroup">${options.map(([v, label, glyph]) => `<button type="button" class="segment ${String(v) === String(current) ? 'active' : ''}" data-pm-set="${escapeHtml(key)}" data-value="${escapeHtml(v)}" title="${escapeHtml(label)}">${icon(glyph || segGlyph(key, v))}<span>${escapeHtml(label)}</span></button>`).join('')}</span>`;
 const pmList = (key, items, label, glyph, active) => `<div class="pm-pick ${active ? 'active' : ''}" data-pm-pick="${escapeHtml(key)}" tabindex="0"><div class="pm-pick-head">${icon(glyph)}<span>${escapeHtml(label)}</span><span class="grow"></span><span class="pm-count">${items.length}</span>${items.length ? `<button type="button" class="icon-button" data-pm="clear:${escapeHtml(key)}" title="${escapeHtml(t('pm.clear'))}">${icon('trash', 'icon tiny')}</button>` : ''}</div><ul class="pm-pick-list">${items.length ? items.map((it) => `<li>${icon(glyph, 'icon tiny')}<span>${escapeHtml(it)}</span></li>`).join('') : `<li class="muted">${escapeHtml(t(active ? 'pm.pickNow' : 'pm.clickToPick'))}</li>`}</ul></div>`;
 
 /** PropertyManager pages that are not features: equations, configurations, simulation, motion study. */
@@ -2538,6 +3053,26 @@ function customPm(e) {
       pmGroup('equations', t('eq.globals'), `<div class="eq-table">${vars || `<p class="pm-note">${escapeHtml(t('eq.none'))}</p>`}</div><div class="pm-row">${pmButton('addVar', 'plus', t('eq.addVariable'))}</div>`),
       pmGroup('smartDim', t('eq.driven'), driven ? `<ul class="pm-list">${driven}</ul>` : `<p class="pm-note">${escapeHtml(t('eq.howToDrive'))}</p>`),
       pmGroup('designTable', t('cmd.designTable'), `<div class="pm-row">${pmButton('exportTable', 'exportFile', t('cmd.exportTable'))}${pmButton('importTable', 'folderOpen', t('cmd.importTable'))}</div>`),
+    ].join('');
+  }
+  if (e.mode === 'configs' && !part && activeAssembly()) {
+    const asm = activeAssembly();
+    const cur = asm.config ?? '';
+    const list = [{ id: '', name: t('config.default') }, ...(asm.configurations ?? [])];
+    const rows = list.map((c) => `<div class="cfg-row ${cur === c.id ? 'active' : ''}"><button class="icon-button" data-pm-set="asmConfig" data-value="${escapeHtml(c.id)}" title="${escapeHtml(t('config.activate'))}">${icon(cur === c.id ? 'check' : 'configurations')}</button><span>${escapeHtml(c.name)}</span>${c.id ? `<button class="icon-button" data-pm="delAsmCfg:${escapeHtml(c.id)}" title="${escapeHtml(t('config.delete'))}">${icon('trash')}</button>` : ''}</div>`).join('');
+    // Per component: suppressed, hidden, and the part configuration it uses.
+    const comps = asm.components.map((c) => {
+      const part = c.part != null ? project().parts.find((p) => p.id === c.part) : null;
+      const cfgs = part?.configurations ?? [];
+      const pick = cfgs.length ? `<select data-pm-select="acc:${escapeHtml(c.id)}" aria-label="${escapeHtml(t('config.partConfig'))}">${[['', t('config.default')], ...cfgs.map((x) => [x.id, x.name])].map(([v, l]) => `<option value="${escapeHtml(v)}" ${(c.config ?? '') === v ? 'selected' : ''}>${escapeHtml(l)}</option>`).join('')}</select>` : '';
+      return `<div class="cfg-comp"><span class="cfg-name">${icon('part', 'icon tiny')}${escapeHtml(c.name)}</span><label class="pm-check" title="${escapeHtml(t('config.suppress'))}"><input type="checkbox" data-pm-toggle="acs:${escapeHtml(c.id)}" ${c.suppressed ? 'checked' : ''}/>${icon('suppress', 'icon tiny')}</label><label class="pm-check" title="${escapeHtml(t('config.hide'))}"><input type="checkbox" data-pm-toggle="ach:${escapeHtml(c.id)}" ${c.hidden ? 'checked' : ''}/>${icon('eye', 'icon tiny')}</label>${pick}</div>`;
+    }).join('');
+    const mates = (asm.mates ?? []).map((m) => `<label class="pm-check"><input type="checkbox" data-pm-toggle="acm:${escapeHtml(m.id)}" ${m.suppressed ? '' : 'checked'}/>${icon('mate', 'icon tiny')}<span>${escapeHtml(m.name ?? t(`mate.${m.type}`))}</span></label>`).join('');
+    return [
+      pmHead('configurations', t('cmd.configurations'), t('pm.help.asmConfigurations')),
+      pmGroup('configurations', t('config.list'), `${rows}<div class="pm-row">${pmButton('addAsmCfg', 'plus', t('config.add'))}</div>`),
+      pmGroup('part', t('config.components', { name: list.find((c) => c.id === cur)?.name ?? '' }), comps || `<p class="pm-note">${escapeHtml(t('config.noComponents'))}</p>`),
+      mates ? pmGroup('mate', t('config.mates'), mates) : '',
     ].join('');
   }
   if (e.mode === 'configs' && part) {
@@ -2605,8 +3140,36 @@ function customPm(e) {
     const asm = activeAssembly();
     const motors = asm?.motion?.motors ?? [];
     const duration = asm?.motion?.duration ?? 5;
+    const mtype = motionType(asm);
+    const typeSeg = pmGroup('motion', t('motion.studyType'), pmSeg('mtype', [['motors', t('motion.typeMotors'), 'motor'], ['keyframe', t('motion.typeKeyframe'), 'keyframe'], ['physics', t('motion.typePhysics'), 'physics']], mtype));
+    const clock = pmGroup('clock', t('motion.study'), `${pmNum('duration', duration, t('motion.duration'), 'clock')}<label class="pm-field"><span class="pm-label">${escapeHtml(t('motion.time'))}</span><input type="range" data-unit="s" data-motion-time min="0" max="${duration}" step="0.01" value="${e.time}"/><output data-motion-clock>${escapeHtml(`${fmt(e.time, 2)} s`)}</output></label><div class="pm-row">${e.playing ? pmButton('stopMotion', 'stop', t('motion.stop')) : pmButton('playMotion', 'play', t('motion.play'), 'primary')}${pmButton('resetMotion', 'rollback', t('motion.reset'))}</div>`);
+    if (mtype === 'keyframe') {
+      const keys = asm.motion.keys ?? [];
+      const rows = keys.map((k, i) => `<div class="cfg-row"><button class="icon-button" data-pm="goKey:${i}" title="${escapeHtml(t('kf.goTo'))}">${icon('keyframe')}</button><span>${escapeHtml(`${fmt(k.time, 2)} s · ${t(k.ease === 'smooth' ? 'kf.smooth' : 'kf.linear')}`)}</span><button class="icon-button" data-pm="delKey:${i}" title="${escapeHtml(t('kf.delete'))}">${icon('trash')}</button></div>`).join('');
+      return [
+        pmHead('motion', t('cmd.motion'), t('pm.help.motion')), typeSeg,
+        pmGroup('keyframe', t('kf.keys', { count: keys.length }), `<p class="pm-note">${escapeHtml(t('kf.hint'))}</p>${rows}${pmSeg('keyEase', [['linear', t('kf.linear'), 'lineTool'], ['smooth', t('kf.smooth'), 'spline']], e.keyEase ?? 'linear')}<div class="pm-row">${pmButton('addKey', 'plus', t('kf.add', { time: fmt(e.time, 2) }), 'primary')}</div>`),
+        clock,
+      ].join('');
+    }
+    if (mtype === 'physics') {
+      const m = asm.motion;
+      const springs = m.springs ?? [];
+      const gr = m.gravity ?? { on: true, dir: [0, 0, -1], g: 9806.65 };
+      const gdir = ['x', 'y', 'z'].flatMap((a) => [`-${a}`, a]).find((k) => { const v = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] }[k.replace('-', '')].map((x) => (k.startsWith('-') ? -x : x)); return v.every((x, i) => Math.abs(x - (gr.dir?.[i] ?? 0)) < 1e-9); }) ?? '-z';
+      const res = dynamicsResult(asm, { run: false });
+      return [
+        pmHead('motion', t('cmd.motion'), t('pm.help.physics')), typeSeg,
+        pmGroup('physics', t('ph.gravity'), `<label class="pm-check"><input type="checkbox" data-pm-toggle="gravityOn" ${gr.on !== false ? 'checked' : ''}/>${icon('arrowDown')}<span>${escapeHtml(t('ph.gravityOn'))}</span></label>${pmSeg('gravityDir', ['-z', 'z', '-y', 'y', '-x', 'x'].map((k) => [k, k.toUpperCase(), 'mkArrow']), gdir)}${pmNum('gravityG', fmt(gr.g ?? 9806.65, 2), t('ph.g'), 'arrowDown', 'mm/s²')}`),
+        pmGroup('spring', t('ph.springs', { count: springs.length }), `${springs.map((s, i) => `<div class="cfg-row"><span>${icon('spring')}</span><span>${escapeHtml(`${asm.components.find((c) => c.id === s.a.comp)?.name ?? '?'} ↔ ${asm.components.find((c) => c.id === s.b.comp)?.name ?? '?'}`)}</span><button class="icon-button" data-pm="delSpring:${i}" title="${escapeHtml(t('ph.deleteSpring'))}">${icon('trash')}</button></div>${pmNum(`spk:${i}`, s.k ?? 1, t('ph.k'), 'spring', 'N/mm')}${pmNum(`spc:${i}`, s.c ?? 0, t('ph.c'), 'damper', 'N·s/mm')}${pmNum(`spl:${i}`, fmt(s.length ?? 0, 3), t('ph.freeLength'), 'smartDim', 'mm')}`).join('')}${pmList('spring', (e.springPick ?? []).map((p) => asm.components.find((c) => c.id === p.comp)?.name ?? '?'), t('ph.pickSpring'), 'spring', e.pick === 'spring')}`),
+        pmGroup('contact', t('ph.contacts', { count: (m.contacts ?? []).length }), `${(m.contacts ?? []).map((ct, i) => `<div class="cfg-row"><span>${icon('contact')}</span><span>${escapeHtml(`${asm.components.find((c) => c.id === ct.a)?.name ?? '?'} ↔ ${asm.components.find((c) => c.id === ct.b)?.name ?? '?'}`)}</span><button class="icon-button" data-pm="delContact:${i}" title="${escapeHtml(t('ph.deleteContact'))}">${icon('trash')}</button></div>${pmNum(`cte:${i}`, ct.e ?? 0.5, t('ph.restitution'), 'contact')}`).join('')}${pmList('contact', (e.contactPick ?? []).map((id) => asm.components.find((c) => c.id === id)?.name ?? '?'), t('ph.pickContact'), 'contact', e.pick === 'contact')}`),
+        pmGroup('motor', t('motion.motors'), `${pmSeg('kind', [['rotary', t('motion.rotary')], ['linear', t('motion.linear')]], e.kind)}${pmNum('speed', e.speed, e.kind === 'rotary' ? t('motion.rpm') : t('motion.mmps'), 'motor')}${pmList('motor', motors.map((mo) => asm.components.find((c) => c.id === mo.comp)?.name ?? '?'), t('motion.motorFace'), 'motor', e.pick === 'motor')}`),
+        pmGroup('statistics', t('ph.run'), `<div class="pm-row">${pmButton('runPhysics', 'play', t('ph.calculate'), 'primary')}</div>${res ? physicsPlot(asm, res, e) : `<p class="pm-note">${escapeHtml(t('ph.notRun'))}</p>`}`),
+        clock,
+      ].join('');
+    }
     return [
-      pmHead('motion', t('cmd.motion'), t('pm.help.motion')),
+      pmHead('motion', t('cmd.motion'), t('pm.help.motion')), typeSeg,
       pmGroup('motor', t('motion.motors'), `${pmSeg('kind', [['rotary', t('motion.rotary')], ['linear', t('motion.linear')]], e.kind)}${pmNum('speed', e.speed, e.kind === 'rotary' ? t('motion.rpm') : t('motion.mmps'), 'motor')}${pmList('motor', motors.map((m) => `${asm.components.find((c) => c.id === m.comp)?.name ?? '?'} — ${m.amplitude && m.period ? `±${fmt(m.amplitude)}${m.kind === 'rotary' ? '°' : ' mm'} / ${fmt(m.period)} s` : `${fmt(m.speed)} ${m.kind === 'rotary' ? 'rpm' : 'mm/s'}`}`), t('motion.motorFace'), 'motor', e.pick === 'motor')}`),
       pmGroup('clock', t('motion.study'), `${pmNum('duration', duration, t('motion.duration'), 'clock')}<label class="pm-field"><span class="pm-label">${escapeHtml(t('motion.time'))}</span><input type="range" data-unit="s" data-motion-time min="0" max="${duration}" step="0.01" value="${e.time}"/><output data-motion-clock>${escapeHtml(`${fmt(e.time, 2)} s`)}</output></label><div class="pm-row">${e.playing ? pmButton('stopMotion', 'stop', t('motion.stop')) : pmButton('playMotion', 'play', t('motion.play'), 'primary')}${pmButton('resetMotion', 'rollback', t('motion.reset'))}</div>`),
     ].join('');
@@ -2624,6 +3187,14 @@ function customField(key, raw, v) {
     const asm = activeAssembly();
     if (v == null) return;
     if (key === 'duration' && v > 0) change('op.motion', () => { asm.motion.duration = v; });
+    if (key === 'gravityG' && v >= 0) change('op.motion', () => { asm.motion.gravity = { on: true, dir: [0, 0, -1], ...asm.motion.gravity, g: v }; });
+    const [sk, si] = key.split(':');
+    const sp = asm.motion.springs?.[Number(si)];
+    if (sp && sk === 'spk' && v >= 0) change('op.motion', () => { sp.k = v; });
+    if (sp && sk === 'spc' && v >= 0) change('op.motion', () => { sp.c = v; });
+    if (sp && sk === 'spl' && v >= 0) change('op.motion', () => { sp.length = v; });
+    const ctc = sk === 'cte' ? asm.motion.contacts?.[Number(si)] : null;
+    if (ctc) change('op.motion', () => { ctc.e = Math.min(1, Math.max(0, v)); });
     if (key === 'speed') { e.speed = v; change('op.motion', () => { for (const m of asm.motion.motors) m.speed = v; }); }
     return;
   }
@@ -2647,16 +3218,46 @@ function customSet(key, value) {
     if (key === 'study') { e.study = value; e.result = null; state.sim = null; syncView(); return renderLeft(); }
     e[key] = value; if (key === 'loadKind' || key === 'heatKind') e.pick = 'loads'; return renderLeft();
   }
-  if (e.mode === 'motion') { e[key] = value; return renderLeft(); }
+  if (e.mode === 'motion') {
+    const asm = activeAssembly();
+    if (key === 'mtype') {
+      change('op.motion', () => { asm.motion.type = value; if (value === 'keyframe' && !(asm.motion.keys ?? []).length) captureKey(asm, 0); });
+      e.pick = value === 'physics' ? 'spring' : 'motor';
+      return renderAll();
+    }
+    if (key === 'gravityDir') { const v = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] }[value.replace('-', '')].map((x) => (value.startsWith('-') ? -x : x)); change('op.motion', () => { asm.motion.gravity = { on: true, g: 9806.65, ...asm.motion.gravity, dir: v }; }); return renderLeft(); }
+    if (key === 'plotKind') { e.plotKind = value; e.plotItem = null; return renderLeft(); }
+    e[key] = value; return renderLeft();
+  }
+  if (key === 'asmConfig' && activeAssembly()) { change('op.config', () => { switchAssemblyConfig(activeAssembly(), value); }); solveAssembly(); return renderAll(); }
+  if (key.startsWith('acc:') && activeAssembly()) { const id = key.slice(4); change('op.config', () => { const c = activeAssembly().components.find((x) => x.id === id); if (c) { if (value) c.config = value; else delete c.config; } }); return renderAll(); }
   if (key === 'activeConfig' && part) { change('op.config', () => { part.config = value || null; }); notify('info', t('notice.configActive', { name: activeConfiguration(part)?.name ?? t('config.default') })); }
   return undefined;
 }
 
 function customToggle(key, checked) {
+  const asm = activeAssembly();
+  if (asm && /^ac[shm]:/.test(key)) {
+    const id = key.slice(4);
+    change('op.config', () => {
+      if (key.startsWith('acm:')) { const m = asm.mates.find((x) => x.id === id); if (m) { if (checked) delete m.suppressed; else m.suppressed = true; } return; }
+      const c = asm.components.find((x) => x.id === id);
+      if (!c) return;
+      const prop = key.startsWith('acs:') ? 'suppressed' : 'hidden';
+      if (checked) c[prop] = true; else delete c[prop];
+    });
+    solveAssembly();
+    return renderAll();
+  }
+  if (key === 'gravityOn' && state.editing?.mode === 'motion') { const asm = activeAssembly(); change('op.motion', () => { asm.motion.gravity = { dir: [0, 0, -1], g: 9806.65, ...asm.motion.gravity, on: checked }; }); return renderLeft(); }
   if (key === 'deformed' && state.sim) { state.sim.deformed = checked; syncView(); }
 }
 
-function customSelect() { return undefined; }
+// Drop-downs of the custom pages: an assembly configuration's part configuration per component.
+function customSelect(key, value) {
+  if (key === 'plotItem' && state.editing?.mode === 'motion') { state.editing.plotItem = value; return renderLeft(); }
+  return key?.startsWith('acc:') ? customSet(key, value) : undefined;
+}
 
 function customCommand(name, arg) {
   const e = state.editing;
@@ -2673,6 +3274,18 @@ function customCommand(name, arg) {
   if (name === 'clear' && e?.mode === 'motion') { const asm = activeAssembly(); change('op.motion', () => { asm.motion.motors = []; }); return undefined; }
   if (name === 'runSim') return runSimulation();
   if (name === 'clearSim') { state.sim = null; if (e) e.result = null; syncView(); return renderLeft(); }
+  if (name === 'addKey' && e?.mode === 'motion') { const asm = activeAssembly(); change('op.motion', () => { captureKey(asm, e.time, e.keyEase ?? 'linear'); if (asm.motion.duration < e.time) asm.motion.duration = e.time; }); notify('success', t('kf.added', { time: fmt(e.time, 2) })); return renderLeft(); }
+  if (name === 'delKey' && e?.mode === 'motion') { const asm = activeAssembly(); change('op.motion', () => { asm.motion.keys.splice(Number(arg), 1); }); return renderLeft(); }
+  if (name === 'goKey' && e?.mode === 'motion') { const k = activeAssembly().motion.keys?.[Number(arg)]; if (k) { e.time = k.time; showMotionTime(e.time); } return renderLeft(); }
+  if (name === 'delContact' && e?.mode === 'motion') { const asm = activeAssembly(); change('op.motion', () => { asm.motion.contacts.splice(Number(arg), 1); }); return renderLeft(); }
+  if (name === 'clear' && e?.mode === 'motion' && arg === 'contact') { e.contactPick = []; return renderLeft(); }
+  if (name === 'delSpring' && e?.mode === 'motion') { const asm = activeAssembly(); change('op.motion', () => { asm.motion.springs.splice(Number(arg), 1); }); return renderLeft(); }
+  if (name === 'runPhysics' && e?.mode === 'motion') {
+    const asm = activeAssembly();
+    if (!asm.components.some((c) => !c.fixed)) { notify('info', t('ph.nothingMoves')); return undefined; }
+    return busy('progress.physics', asm.name, () => dynamicsResult(asm)).then((r) => { notify(r?.ok ? 'success' : 'warning', t(r?.ok ? 'ph.done' : 'ph.unstable', { frames: r?.frames?.length ?? 0 })); e.time = 0; renderAll(); return r; });
+  }
+  if (name === 'clear' && e?.mode === 'motion' && arg === 'spring') { e.springPick = []; return renderLeft(); }
   if (name === 'playMotion') return playMotion(true);
   if (name === 'stopMotion') return playMotion(false);
   if (name === 'resetMotion') { playMotion(false); e.time = 0; syncView(); return renderLeft(); }
@@ -2689,6 +3302,8 @@ function customCommand(name, arg) {
     });
     return undefined;
   }
+  if (name === 'addAsmCfg' && activeAssembly()) { let c; change('op.config', () => { c = addAssemblyConfig(activeAssembly(), `${t('config.name')}${(activeAssembly().configurations?.length ?? 0) + 1}`); }); notify('success', t('notice.configActive', { name: c.name })); return renderAll(); }
+  if (name === 'delAsmCfg' && activeAssembly()) { change('op.config', () => { removeAssemblyConfig(activeAssembly(), arg); }); return renderAll(); }
   if (name === 'exportTable') return exportDesignTable();
   if (name === 'importTable') return importDesignTable();
   if (name === 'addCfg' && part) { let c; change('op.config', () => { c = addConfiguration(part, `${t('config.name')}${(part.configurations?.length ?? 0) + 1}`); part.config = c.id; }); notify('success', t('notice.configActive', { name: c.name })); return undefined; }
@@ -2817,7 +3432,7 @@ function drawingActionExtra(d, cmd, arg) {
     // Cut across the parent view (a vertical line in it): the section looks along the parent's x axis.
     const xl = Math.hypot(...cam.x); const normal = (arg === 'h' ? (() => { const dl = Math.hypot(...cam.dir); const dd = cam.dir.map((v) => v / dl); const xx = cam.x.map((v) => v / xl); return [dd[1] * xx[2] - dd[2] * xx[1], dd[2] * xx[0] - dd[0] * xx[2], dd[0] * xx[1] - dd[1] * xx[0]]; })() : cam.x.map((v) => v / xl));
     const type = Object.entries(VIEW_CAMERAS).find(([, c]) => { const l = Math.hypot(...c.dir); return c.dir.every((v, i) => Math.abs(v / l - normal[i]) < 1e-6); })?.[0] ?? 'custom';
-    const view = { id: newId('v'), type, kind: 'section', plane: { point, normal }, label: nextLetter(d), parent: parent.id, ...(type === 'custom' ? { dir: normal } : {}) };
+    const view = { id: newId('v'), type, kind: 'section', plane: { point, normal }, label: nextLetter(d), parent: parent.id, ...(type === 'custom' ? { dir: normal } : {}), ...(arg === 'r' ? { removed: true } : {}) };
     change('op.addView', () => { d.views.push(view); });
     state.drawingSelected = view.id;
     return notify('success', t('notice.sectionView', { label: view.label }));
@@ -3053,7 +3668,7 @@ const commands = {
   draftAnalysis: { icon: 'draftAnalysis', label: 'cmd.draftAnalysis', enabled: () => Boolean(activePart()), checked: () => Boolean(state.draftAnalysis), run: () => toggleDraftAnalysis() },
   simulation: { icon: 'simulation', label: 'cmd.simulation', enabled: () => Boolean(activePart()) && !sketching(), checked: () => state.editing?.mode === 'simulation', run: () => (state.editing?.mode === 'simulation' ? cancelEditing({ quiet: true }) : startSimulation()) },
   equations: { icon: 'equations', label: 'cmd.equations', enabled: () => Boolean(activePart()) && !sketching(), checked: () => state.editing?.mode === 'equations', run: () => startEquations('equations') },
-  configurations: { icon: 'configurations', label: 'cmd.configurations', enabled: () => Boolean(activePart()) && !sketching(), checked: () => state.editing?.mode === 'configs', run: () => startEquations('configs') },
+  configurations: { icon: 'configurations', label: 'cmd.configurations', enabled: () => Boolean(activePart() || activeAssembly()) && !sketching(), checked: () => state.editing?.mode === 'configs', run: () => startEquations('configs') },
   designTable: { icon: 'designTable', label: 'cmd.exportTable', enabled: () => Boolean(activePart()), run: () => exportDesignTable() },
   importTable: { icon: 'folderOpen', label: 'cmd.importTable', enabled: () => Boolean(activePart()), run: () => importDesignTable() },
   // sketch
@@ -3069,6 +3684,9 @@ const commands = {
   'sk:centerArc': skCommand('centerArc', 'centerArc'),
   'sk:polygon': skCommand('polygon', 'polygonTool', 'P'),
   'sk:slot': skCommand('slot', 'slotTool'),
+  'sk:slotCenter': skCommand('slotCenter', 'slotCenterTool'),
+  'sk:slotArc3': skCommand('slotArc3', 'slotArcTool'),
+  'sk:slotArcCenter': skCommand('slotArcCenter', 'slotArcCenterTool'),
   'sk:point': skCommand('point', 'pointTool'),
   'sk:spline': skCommand('spline', 'splineTool', 'S'),
   'sk:ellipse': skCommand('ellipse', 'ellipseTool', 'E'),
@@ -3126,6 +3744,11 @@ const commands = {
   insertComponent: { icon: 'insertComponent', label: 'cmd.insertComponent', enabled: asmOpen, run: () => startInsertComponent() },
   mate: { icon: 'mate', label: 'cmd.mate', enabled: () => asmOpen() && (activeAssembly()?.components.length ?? 0) > 1, run: () => startMate() },
   fixComponent: { icon: 'fixComponent', label: 'cmd.fix', enabled: () => asmOpen() && state.selection.some((s) => s.kind === 'comp'), run: () => setComponentFixed(true) },
+  magneticSnap: { icon: 'magneticMate', label: 'cmd.magneticSnap', enabled: () => asmOpen() && (activeAssembly()?.components.length ?? 0) > 1, run: () => magneticSnap() },
+  simplifyOuter: { icon: 'simplifyOuter', label: 'cmd.simplifyOuter', enabled: () => asmOpen() && state.selection.some((s) => s.kind === 'comp'), checked: () => { const l = state.selection.filter((s) => s.kind === 'comp').map((s) => activeAssembly()?.components.find((c) => c.id === s.id)); return l.length > 0 && l.every((c) => c?.simplified === 'outer'); }, run: () => setSimplified('outer') },
+  simplifyBox: { icon: 'simplifyBox', label: 'cmd.simplifyBox', enabled: () => asmOpen() && state.selection.some((s) => s.kind === 'comp'), checked: () => { const l = state.selection.filter((s) => s.kind === 'comp').map((s) => activeAssembly()?.components.find((c) => c.id === s.id)); return l.length > 0 && l.every((c) => c?.simplified === 'box'); }, run: () => setSimplified('box') },
+  simplifyFull: { icon: 'assembly', label: 'cmd.simplifyFull', enabled: () => asmOpen() && state.selection.some((s) => s.kind === 'comp' && activeAssembly()?.components.find((c) => c.id === s.id)?.simplified), run: () => setSimplified('') },
+  flexibleComponent: { icon: 'flexibleSub', label: 'cmd.flexibleComponent', enabled: () => asmOpen() && state.selection.some((s) => s.kind === 'comp' && activeAssembly()?.components.find((c) => c.id === s.id)?.sub), checked: () => { const l = state.selection.filter((s) => s.kind === 'comp').map((s) => activeAssembly()?.components.find((c) => c.id === s.id)).filter((c) => c?.sub); return l.length > 0 && l.every((c) => c.flexible); }, run: () => toggleFlexible() },
   floatComponent: { icon: 'floatComponent', label: 'cmd.float', enabled: () => asmOpen() && state.selection.some((s) => s.kind === 'comp'), run: () => setComponentFixed(false) },
   rotateComponent: { icon: 'rotateRight', label: 'cmd.rotate90z', enabled: () => asmOpen() && state.selection.some((s) => s.kind === 'comp'), run: () => rotateComponent([0, 0, 1], 90) },
   rotateComponentX: { icon: 'rotateRight', label: 'cmd.rotate90x', enabled: () => asmOpen() && state.selection.some((s) => s.kind === 'comp'), run: () => rotateComponent([1, 0, 0], 90) },
@@ -3139,11 +3762,16 @@ const commands = {
   std3View: { icon: 'standard3View', label: 'cmd.std3View', enabled: () => Boolean(activePart() || activeAssembly() || activeDrawing()), run: () => standardThreeView() },
   hiddenLines: { icon: 'hiddenLines', label: 'drawing.hiddenLines', enabled: () => Boolean(activeDrawing()), checked: () => activeDrawing()?.showHidden !== false, run: () => change('op.edit', () => { const d = activeDrawing(); d.showHidden = d.showHidden === false; }) },
   sectionView: { icon: 'sectionDrawing', label: 'cmd.sectionView', enabled: () => Boolean(activeDrawing()), run: () => drawingAction('section:v') },
+  view3dDrawing: { icon: 'view3dDrawing', label: 'cmd.view3dDrawing', enabled: () => Boolean(activeDrawing()), run: () => turnDrawingView() },
+  relativeView: { icon: 'relativeView', label: 'cmd.relativeView', enabled: () => Boolean(activePart()), run: () => relativeView() },
+  removedSection: { icon: 'removedSection', label: 'cmd.removedSection', enabled: () => Boolean(activeDrawing()), run: () => drawingAction('section:r') },
   saveBodies: { icon: 'saveBodies', label: 'cmd.saveBodies', enabled: () => Boolean(activePart()) && !sketching(), run: () => saveBodies() },
   sectionViewH: { icon: 'sectionDrawing', label: 'cmd.sectionViewH', enabled: () => Boolean(activeDrawing()), run: () => drawingAction('section:h') },
   alignedSection: { icon: 'alignedSection', label: 'cmd.alignedSection', enabled: () => Boolean(activeDrawing()), run: () => drawingAction('alignedSection:30') },
   alternatePositionView: { icon: 'alternatePosition', label: 'cmd.alternatePositionView', enabled: () => activeDrawing()?.source?.kind === 'assembly', checked: () => { const d = activeDrawing(); return Boolean(d?.views.find((v) => v.id === state.drawingSelected)?.alt); }, run: () => drawingAction('alternate') },
   flatPatternView: { icon: 'flatPatternView', label: 'cmd.flatPatternView', enabled: () => activeDrawing()?.source?.kind === 'part', run: () => drawingAction('flatView') },
+  weldTable: { icon: 'weldTable', label: 'cmd.weldTable', enabled: () => Boolean(activeDrawing()), run: () => drawingTable('weld') },
+  cutListTable: { icon: 'cutList', label: 'cmd.cutListTable', enabled: () => activeDrawing()?.source?.kind === 'part', run: () => drawingTable('cutList') },
   bendTable: { icon: 'bendTable', label: 'cmd.bendTable', enabled: () => activeDrawing()?.source?.kind === 'part', run: () => drawingAction('bendTable') },
   detailView: { icon: 'detailView', label: 'cmd.detailView', enabled: () => Boolean(activeDrawing()), run: () => drawingAction('detail') },
   auxView: { icon: 'auxView', label: 'cmd.auxView', enabled: () => Boolean(activeDrawing()), run: () => drawingAction('aux') },
@@ -3254,7 +3882,7 @@ Object.assign(commands, schTools.commands);
 // Replace components, copy with mates, hole alignment, envelopes (app-asmtools.js), chained the same way.
 const asmTools = createAsmTools({
   state, t, notify, change, renderAll, renderLeft, cancelEditing, newId, project, activeAssembly, withProgress, popups,
-  viewport: () => viewport, topoOf, assemblySize, componentShapes, buildPart: (p, o) => buildPart(p, o),
+  viewport: () => viewport, topoOf, assemblySize, componentShapes, rep, buildPart: (p, o) => buildPart(p, o),
   pm: { pmHead, pmGroup, pmNum, pmSeg, pmList, pmButton, textInput },
 });
 {
@@ -3274,6 +3902,98 @@ const asmTools = createAsmTools({
 }
 Object.assign(commands, asmTools.commands);
 
+// The exploded view editor (app-explode.js), chained the same way.
+const xpTools = createExplodeTools({
+  state, t, notify, change, renderAll, renderLeft, cancelEditing, newId, activeAssembly, assemblySize, topoOf,
+  viewport: () => viewport, explodeCenters, placedCenter, autoExplode: () => autoExplodeNow(), animateExplode: () => animateExplode(),
+  pm: { pmHead, pmGroup, pmNum, pmSeg, pmList, pmButton },
+});
+{
+  const o = { ...more };
+  const mine = (e = state.editing) => xpTools.owns(e);
+  more.owns = (e) => mine(e) || o.owns(e);
+  more.pm = (e) => (mine(e) ? xpTools.pm(e) : o.pm(e));
+  more.pick = (hit, ev) => (mine() ? xpTools.pick(hit, ev) : o.pick(hit, ev));
+  more.field = (k, raw, v) => (mine() ? xpTools.field(k, raw, v) : o.field(k, raw, v));
+  more.set = (k, v) => (mine() ? xpTools.set(k, v) : o.set(k, v));
+  more.toggle = (k, c) => (mine() ? xpTools.toggle(k, c) : o.toggle(k, c));
+  more.select = (k, v) => (mine() ? xpTools.select(k, v) : o.select?.(k, v));
+  more.accept = () => (mine() ? xpTools.accept() : o.accept());
+  more.subject = (e) => (mine(e) ? xpTools.subject(e) : o.subject(e));
+  more.handles = (name) => (mine() && xpTools.handles(name)) || o.handles(name);
+  more.command = (name, arg) => (mine() && xpTools.handles(name) ? xpTools.command(name, arg) : o.command(name, arg));
+}
+Object.assign(commands, xpTools.commands);
+
+// Assembly visualization (app-asmviz.js), chained the same way.
+const vizTools = createAsmVizTools({
+  state, t, notify, renderAll, renderLeft, cancelEditing, activeAssembly, componentShapes, rep, massOf, fmt, syncView: () => syncView(),
+  pm: { pmHead, pmGroup, pmSeg },
+});
+{
+  const o = { ...more };
+  const mine = (e = state.editing) => vizTools.owns(e);
+  more.owns = (e) => mine(e) || o.owns(e);
+  more.pm = (e) => (mine(e) ? vizTools.pm(e) : o.pm(e));
+  more.pick = (hit, ev) => (mine() ? vizTools.pick(hit, ev) : o.pick(hit, ev));
+  more.field = (k, raw, v) => (mine() ? vizTools.field(k, raw, v) : o.field(k, raw, v));
+  more.set = (k, v) => (mine() ? vizTools.set(k, v) : o.set(k, v));
+  more.toggle = (k, c) => (mine() ? vizTools.toggle(k, c) : o.toggle(k, c));
+  more.select = (k, v) => (mine() ? vizTools.select(k, v) : o.select?.(k, v));
+  more.accept = () => (mine() ? vizTools.accept() : o.accept());
+  more.subject = (e) => (mine(e) ? vizTools.subject(e) : o.subject(e));
+  more.handles = (name) => (mine() && vizTools.handles(name)) || o.handles(name);
+  more.command = (name, arg) => (mine() && vizTools.handles(name) ? vizTools.command(name, arg) : o.command(name, arg));
+}
+Object.assign(commands, vizTools.commands);
+
+// Assembly weld beads (app-asmweld.js), chained the same way (and drawn after the components).
+const awTools = createAsmWeldTools({
+  state, t, notify, change, renderAll, renderLeft, cancelEditing, newId, project, activeAssembly, topoOf, fmt, buildPart: (p) => buildPart(p),
+  viewport: () => viewport,
+  pm: { pmHead, pmGroup, pmNum, pmList },
+});
+{
+  const o = { ...more };
+  const mine = (e = state.editing) => awTools.owns(e);
+  more.owns = (e) => mine(e) || o.owns(e);
+  more.pm = (e) => (mine(e) ? awTools.pm(e) : o.pm(e));
+  more.pick = (hit, ev) => (mine() ? awTools.pick(hit, ev) : o.pick(hit, ev));
+  more.field = (k, raw, v) => (mine() ? awTools.field(k, raw, v) : o.field(k, raw, v));
+  more.set = (k, v) => (mine() ? awTools.set(k, v) : o.set(k, v));
+  more.toggle = (k, c) => (mine() ? awTools.toggle(k, c) : o.toggle(k, c));
+  more.select = (k, v) => (mine() ? awTools.select(k, v) : o.select?.(k, v));
+  more.accept = () => (mine() ? awTools.accept() : o.accept());
+  more.subject = (e) => (mine(e) ? awTools.subject(e) : o.subject(e));
+  more.handles = (name) => (mine() && awTools.handles(name)) || o.handles(name);
+  more.command = (name, arg) => (mine() && awTools.handles(name) ? awTools.command(name, arg) : o.command(name, arg));
+  more.decorate = (kind) => { o.decorate?.(kind); awTools.decorate(kind); };
+}
+Object.assign(commands, awTools.commands);
+
+// Top-down design: parts edited in the context of an assembly, external references (app-incontext.js).
+const icTools = createInContextTools({
+  state, t, notify, change, renderAll, renderLeft, cancelEditing, newId, project, activeAssembly, activePart, switchDocument, buildPart: (p) => buildPart(p),
+  componentLeaves, matchesSig, bodySpec, componentMatrix, openNewSketch, startSketchPick: () => startSketch(),
+  pm: { pmHead, pmGroup, pmButton },
+});
+{
+  const o = { ...more };
+  const mine = (e = state.editing) => icTools.owns(e);
+  more.owns = (e) => mine(e) || o.owns(e);
+  more.pm = (e) => (mine(e) ? icTools.pm(e) : o.pm(e));
+  more.pick = (hit, ev) => (mine() ? icTools.pick(hit, ev) : o.pick(hit, ev));
+  more.field = (k, raw, v) => (mine() ? icTools.field(k, raw, v) : o.field(k, raw, v));
+  more.set = (k, v) => (mine() ? icTools.set(k, v) : o.set(k, v));
+  more.toggle = (k, c) => (mine() ? icTools.toggle(k, c) : o.toggle(k, c));
+  more.select = (k, v) => (mine() ? icTools.select(k, v) : o.select?.(k, v));
+  more.accept = () => (mine() ? icTools.accept() : o.accept());
+  more.subject = (e) => (mine(e) ? icTools.subject(e) : o.subject(e));
+  more.handles = (name) => (mine() && icTools.handles(name)) || o.handles(name);
+  more.command = (name, arg) => (mine() && icTools.handles(name) ? icTools.command(name, arg) : o.command(name, arg));
+}
+Object.assign(commands, icTools.commands);
+
 // Design checker (app-designcheck.js), chained the same way.
 const dcTools = createDesignCheckTools({
   state, t, notify, change, renderAll, renderLeft, cancelEditing, saveExport, fileSafe, project, updateSettings, units, switchDocument, select,
@@ -3288,7 +4008,7 @@ function designCheckContext() {
     localBaseName: (key) => t(`fname.${key}`, null, null),
     ...(kernelReady() ? {
       rebuildErrors: (part) => partRebuildErrors(part),
-      mateFailures: (asm) => (asm.mates?.length ? solveMates(structuredClone(asm), { entity: (ref) => mateEntityNow(ref), size: assemblySize(asm), status: false }).failed : []),
+      mateFailures: (asm) => (asm.mates?.length ? solveWithFlex(structuredClone(asm), { status: false }).failed : []),
     } : {}),
   };
 }
@@ -3538,7 +4258,9 @@ function materialMenu(anchor) {
   const part = activePart();
   if (!part) return undefined;
   const handlers = {};
-  const items = MATERIALS.map((m) => { handlers[`custom:mat:${m.id}`] = () => setMaterial(m.id); return { id: `custom:mat:${m.id}`, label: `${lang() === 'en' ? m.en : m.ko} — ${m.density} kg/m³`, icon: 'material', checked: part.material === m.id }; });
+  // One submenu per family (steel, tool steel, stainless, … wood, ceramics): the list is long.
+  const item = (m) => { handlers[`custom:mat:${m.id}`] = () => setMaterial(m.id); return { id: `custom:mat:${m.id}`, label: `${lang() === 'en' ? m.en : m.ko} — ${m.density} kg/m³`, icon: 'material', checked: part.material === m.id }; };
+  const items = MATERIAL_FAMILIES.map((fam) => [fam, MATERIALS.filter((m) => familyOf(m) === fam)]).filter(([, list]) => list.length).map(([fam, list]) => ({ id: `submenu:mat-${fam}`, label: t(`matFamily.${fam}`), icon: 'material', submenu: true, checked: list.some((m) => m.id === part.material), children: list.map(item) }));
   return showMenu(items, anchor ?? anchorFor('material'), 'context', { handlers, header: { icon: 'material', title: t('cmd.material') } });
 }
 
@@ -3570,7 +4292,7 @@ const SUBMENUS = {
   displayStyle: { icon: 'styleShaded', items: ['style:shadedEdges', 'style:shaded', 'style:hiddenRemoved', 'style:hiddenVisible', 'style:wireframe'] },
   show: { icon: 'eye', items: ['showPlanes', 'showOrigin', 'showSketches', '-', 'showRulers', 'showGrid', 'gridPlane:front', 'gridPlane:top', 'gridPlane:right', 'showScaleBar', '-', 'leftPanel', 'rightPanel', 'bottomPanel', 'statusBar', 'fps'] },
   appearance: { icon: 'palette', items: ['theme', 'themeMenu', 'language', '-', 'shuffleBackground', 'backgroundImage', 'clearBackground'] },
-  sketchEntities: { icon: 'lineTool', items: ['sk:line', 'sk:centerline', '-', 'sk:rect', 'sk:centerRect', 'sk:rect3', 'sk:rect3c', 'sk:parallelogram', '-', 'sk:circle', 'sk:circle3', 'sk:arc3', 'sk:centerArc', 'sk:tangentArc', '-', 'sk:polygon', 'sk:slot', 'sk:spline', 'sk:equation', '-', 'sk:ellipse', 'sk:partialEllipse', 'sk:parabola', 'sk:conic', '-', 'sk:point', 'sk:text'] },
+  sketchEntities: { icon: 'lineTool', items: ['sk:line', 'sk:centerline', '-', 'sk:rect', 'sk:centerRect', 'sk:rect3', 'sk:rect3c', 'sk:parallelogram', '-', 'sk:circle', 'sk:circle3', 'sk:arc3', 'sk:centerArc', 'sk:tangentArc', '-', 'sk:polygon', 'sk:slot', 'sk:slotCenter', 'sk:slotArc3', 'sk:slotArcCenter', 'sk:spline', 'sk:equation', '-', 'sk:ellipse', 'sk:partialEllipse', 'sk:parabola', 'sk:conic', '-', 'sk:point', 'sk:text'] },
   sketchTools: { icon: 'sketchFillet', items: ['sk:fillet', 'sk:chamfer', 'sk:offset', 'sk:mirror', 'sk:linPattern', 'sk:cirPattern', 'sk:trim', 'sk:extend', 'sk:split', '-', 'sk:convert', 'sk:intersect', 'sk:move', 'sk:copy', 'sk:rotate', 'sk:scale', 'sk:stretch', '-', 'sk:fullyDefine'] },
   patterns: { icon: 'featLinPattern', items: ['linearPattern', 'circularPattern', 'mirror', '-', 'curvePattern', 'sketchPattern', 'tablePattern', 'fillPattern', 'variablePattern'] },
   refGeometry: { icon: 'refAxis', items: ['refPlane', 'refAxis', 'refPoint', 'coordSys', 'boundingBox'] },
@@ -3582,10 +4304,10 @@ const SUBMENUS = {
   bodies: { icon: 'moveBody', items: ['moveBody', 'scaleBody', 'split', 'insertPart', 'openscadFeature', '-', 'combine', 'deleteBody', 'indent', 'flex', 'deform'] },
   sheetMetal: { icon: 'sheetMetal', items: ['baseFlange', 'convertSheet', 'insertBends', 'edgeFlange', 'miterFlange', 'hem', 'tab', 'loftedBend', 'sketchedBend', 'jog', '-', 'closedCorner', 'weldedCorner', 'cornerRelief', 'rip', 'formTool', 'crossBreak', 'tabSlot', '-', 'unfold', 'fold', 'flatten'] },
   fastening: { icon: 'mountingBoss', items: ['mountingBoss', 'snapHook', 'snapHookGroove', 'vent', 'lipGroove'] },
-  partExtra: { icon: 'advancedHole', items: ['advancedHole', 'intersect', 'mateReference', '-', 'saveBodies'] },
+  partExtra: { icon: 'advancedHole', items: ['advancedHole', 'intersect', 'mateReference', 'connectionPoint', 'moveFace', '-', 'saveBodies', '-', 'exitInContext', 'updateExternalRefs', 'externalRefs'] },
   weldments: { icon: 'structural', items: ['structural', 'trimExtend', 'endCap', 'gusset', 'weldBead', '-', 'cutList'] },
   mold: { icon: 'cavity', items: ['draftAnalysis', 'draft', 'partingLine', 'toolingSplit', 'shrink', 'split', 'cavity'] },
-  annotations: { icon: 'note', items: ['ann:note', 'ann:balloon', 'ann:gdt', 'ann:datum', 'ann:datumTarget', 'ann:surface', 'ann:centermark', '-', 'ann:cloud', 'ann:hatch', '-', 'bom', 'bendTable'] },
+  annotations: { icon: 'note', items: ['ann:note', 'ann:balloon', 'ann:gdt', 'ann:datum', 'ann:datumTarget', 'ann:surface', 'ann:centermark', '-', 'ann:cloud', 'ann:hatch', '-', 'bom', 'weldTable', 'cutListTable', 'bendTable'] },
   drawingViews: { icon: 'drawingView', items: ['std3View', 'addView', 'sectionView', 'sectionViewH', 'alignedSection', 'detailView', 'auxView', '-', 'flatPatternView', 'alternatePositionView'] },
 };
 const sub = (key) => ({ sub: key });
@@ -3614,15 +4336,15 @@ const TOOLBAR_MAIN = { exportSplit: 'exportStep', themeSplit: 'theme', viewsSpli
 /** The CommandManager: tabs of big buttons above the graphics area (a ribbon). */
 const COMMAND_TABS = {
   features: ['sketch', '|', 'extrude', 'revolve', 'sweep', 'loft', '|', 'cutExtrude', 'cutRevolve', 'cutSweep', 'cutLoft', '|', 'fillet', 'chamfer', 'shell', 'draft', 'rib', 'dome', 'wrap', '|', 'hole', 'thread', 'helix', '|', 'linearPattern', 'circularPattern', 'mirror', '|', 'refPlane', 'refAxis', 'refPoint', 'coordSys', 'boundingBox', 'moveBody', 'split', 'insertPart', 'openscadFeature', 'material', 'rebuild'],
-  bodiesCurves: ['combine', 'deleteBody', 'indent', 'flex', 'deform', 'intersect', 'saveBodies', '|', 'advancedHole', 'mateReference', '|', 'mountingBoss', 'snapHook', 'snapHookGroove', 'vent', 'lipGroove', '|', 'variableFillet', 'faceFillet', 'fullRoundFillet', '|', 'curvePattern', 'sketchPattern', 'tablePattern', 'fillPattern', 'variablePattern', '|', 'projectedCurve', 'splitLine', 'compositeCurve', 'curveXYZ'],
-  sketch: ['sketch', 'sketch3d', 'sk:dimension', '|', 'sk:line', 'sk:centerline', 'sk:rect', 'sk:centerRect', 'sk:rect3', 'sk:rect3c', 'sk:parallelogram', 'sk:circle', 'sk:circle3', 'sk:arc3', 'sk:centerArc', 'sk:tangentArc', 'sk:polygon', 'sk:slot', 'sk:spline', 'sk:equation', 'sk:ellipse', 'sk:partialEllipse', 'sk:parabola', 'sk:conic', 'sk:point', 'sk:text', '|', 'sk:fillet', 'sk:chamfer', 'sk:offset', 'sk:mirror', 'sk:linPattern', 'sk:cirPattern', 'sk:trim', 'sk:extend', 'sk:split', '|', 'sk:convert', 'sk:intersect', 'sk:move', 'sk:copy', 'sk:rotate', 'sk:scale', 'sk:stretch', '|', 'sk:fullyDefine', 'construction', 'normalTo', 'sk:select'],
+  bodiesCurves: ['combine', 'deleteBody', 'indent', 'flex', 'deform', 'intersect', 'saveBodies', '|', 'advancedHole', 'mateReference', 'connectionPoint', 'moveFace', '|', 'exitInContext', 'updateExternalRefs', 'externalRefs', '|', 'mountingBoss', 'snapHook', 'snapHookGroove', 'vent', 'lipGroove', '|', 'variableFillet', 'faceFillet', 'fullRoundFillet', '|', 'curvePattern', 'sketchPattern', 'tablePattern', 'fillPattern', 'variablePattern', '|', 'projectedCurve', 'splitLine', 'compositeCurve', 'curveXYZ'],
+  sketch: ['sketch', 'sketch3d', 'sk:dimension', '|', 'sk:line', 'sk:centerline', 'sk:rect', 'sk:centerRect', 'sk:rect3', 'sk:rect3c', 'sk:parallelogram', 'sk:circle', 'sk:circle3', 'sk:arc3', 'sk:centerArc', 'sk:tangentArc', 'sk:polygon', 'sk:slot', 'sk:slotCenter', 'sk:slotArc3', 'sk:slotArcCenter', 'sk:spline', 'sk:equation', 'sk:ellipse', 'sk:partialEllipse', 'sk:parabola', 'sk:conic', 'sk:point', 'sk:text', '|', 'sk:fillet', 'sk:chamfer', 'sk:offset', 'sk:mirror', 'sk:linPattern', 'sk:cirPattern', 'sk:trim', 'sk:extend', 'sk:split', '|', 'sk:convert', 'sk:intersect', 'sk:move', 'sk:copy', 'sk:rotate', 'sk:scale', 'sk:stretch', '|', 'sk:fullyDefine', 'construction', 'normalTo', 'sk:select'],
   surfaces: ['surfaceExtrude', 'surfaceRevolve', 'surfacePlanar', 'surfaceLoft', 'boundary', 'fillSurface', 'surfaceOffset', 'ruledSurface', '|', 'trimSurface', 'extendSurface', 'knit', '|', 'surfaceSweep', 'radiateSurface', 'midSurface', 'untrimSurface', 'deleteHole', 'cutWithSurface', 'flattenSurface', '|', 'deleteFace', 'replaceFace', '|', 'thicken', 'sketch3d'],
   sheetMetal: ['baseFlange', 'convertSheet', 'insertBends', 'edgeFlange', 'miterFlange', 'hem', 'tab', 'loftedBend', 'sketchedBend', 'jog', '|', 'closedCorner', 'weldedCorner', 'cornerRelief', 'rip', 'formTool', 'crossBreak', 'tabSlot', '|', 'unfold', 'fold', 'flatten', '|', 'hole', 'cutExtrude'],
   weldments: ['sketch', 'sketch3d', 'structural', 'trimExtend', '|', 'endCap', 'gusset', 'weldBead', '|', 'cutList'],
   mold: ['draftAnalysis', 'draft', 'partingLine', 'toolingSplit', 'shrink', 'split', 'cavity'],
   evaluate: ['massProps', 'measure', 'section', 'lights', 'interference', '|', 'simulation', 'draftAnalysis', '|', 'equations', 'configurations', 'designTable', 'importTable', 'designStudy'],
-  assembly: ['insertComponent', 'mate', 'fixComponent', 'floatComponent', 'rotateComponent', 'rotateComponentX', 'rotateComponentY', 'openPart', '|', 'explode', 'resetExplode', 'motion', '|', 'illustration', 'ilAddView', 'ilPlay', 'ilExportHtml', '|', 'interference', 'massProps', 'largeAssemblyMode'],
-  drawing: ['newDrawing', 'std3View', 'addView', 'sectionView', 'alignedSection', 'detailView', 'auxView', 'flatPatternView', 'alternatePositionView', '|', 'ann:note', 'ann:balloon', 'ann:gdt', 'ann:datum', 'ann:datumTarget', 'ann:surface', 'ann:centermark', 'ann:cloud', 'ann:hatch', 'bom', 'bendTable', '|', 'hiddenLines', 'autoDims', '|', 'exportDxf', 'exportDwg', 'exportSvg', 'print'],
+  assembly: ['insertComponent', 'newPartInContext', 'editInContext', 'mate', 'magneticSnap', 'fixComponent', 'floatComponent', 'flexibleComponent', 'rotateComponent', 'rotateComponentX', 'rotateComponentY', 'openPart', '|', 'explode', 'explodeEditor', 'explodeAnimate', 'resetExplode', 'motion', '|', 'illustration', 'ilAddView', 'ilPlay', 'ilExportHtml', '|', 'interference', 'massProps', 'assemblyVisualization', 'assemblyVisualizationOff', 'asmWeldBead', 'largeAssemblyMode', 'simplifyOuter', 'simplifyBox', 'simplifyFull'],
+  drawing: ['newDrawing', 'std3View', 'addView', 'sectionView', 'removedSection', 'relativeView', 'view3dDrawing', 'alignedSection', 'detailView', 'auxView', 'flatPatternView', 'alternatePositionView', '|', 'ann:note', 'ann:balloon', 'ann:gdt', 'ann:datum', 'ann:datumTarget', 'ann:surface', 'ann:centermark', 'ann:cloud', 'ann:hatch', 'bom', 'weldTable', 'cutListTable', 'bendTable', '|', 'hiddenLines', 'autoDims', '|', 'exportDxf', 'exportDwg', 'exportSvg', 'print'],
 };
 for (const [tab, ids] of Object.entries(more.TABS)) COMMAND_TABS[tab]?.push('|', ...ids);
 COMMAND_TABS.assembly.push('|', ...asmTools.TAB);
@@ -4049,7 +4771,7 @@ function propsHtml() {
     out.push(propRow('tag', t('props.partNo'), propInput('part.partNo', part.partNo)));
     out.push(propRow('notes', t('props.description'), propInput('part.description', part.description)));
     out.push(customPropsHtml(part));
-    out.push(propRow('material', t('props.material'), `<select data-prop="part.material" data-icon="material">${MATERIALS.map((m) => `<option value="${m.id}" ${m.id === part.material ? 'selected' : ''}>${escapeHtml(lang() === 'en' ? m.en : m.ko)}</option>`).join('')}</select>`));
+    out.push(propRow('material', t('props.material'), `<select data-prop="part.material" data-icon="material">${MATERIAL_FAMILIES.filter((fam) => MATERIALS.some((m) => familyOf(m) === fam)).map((fam) => `<optgroup label="${escapeHtml(t(`matFamily.${fam}`))}">${MATERIALS.filter((m) => familyOf(m) === fam).map((m) => `<option value="${m.id}" ${m.id === part.material ? 'selected' : ''}>${escapeHtml(lang() === 'en' ? m.en : m.ko)}</option>`).join('')}</optgroup>`).join('')}</select>`));
     out.push(propRow('palette', t('props.color'), `<input type="color" data-prop="part.color" value="${escapeHtml(part.color || materialOf(part.material).color)}"/><button class="small-button" data-prop-reset="part.color" title="${escapeHtml(t('props.colorReset'))}">${icon('refresh')}</button>`));
     const b = kernelReady() ? buildPart(part) : null;
     if (b?.body) {
@@ -4132,8 +4854,10 @@ function propsHtml() {
 function materialsHtml() {
   const part = activePart();
   if (!part) return `<p class="panel-hint">${icon('info')}<span>${escapeHtml(t('props.partOnlyMaterial'))}</span></p>`;
-  const groups = [...new Set(MATERIALS.map((m) => m.group))];
-  return groups.map((g) => `<h4 class="prop-title">${icon('material')}<span>${escapeHtml(t(`matGroup.${g}`))}</span></h4><div class="material-list">${MATERIALS.filter((m) => m.group === g).map((m) => `<button class="material-card ${part.material === m.id ? 'active' : ''}" data-material="${m.id}" title="${escapeHtml(`${lang() === 'en' ? m.en : m.ko} · ${m.density} kg/m³ · E ${m.E} GPa · σy ${m.yield} MPa`)}"><span class="material-swatch" style="background:linear-gradient(135deg, ${m.color}, color-mix(in srgb, ${m.color} 55%, #000))"></span><span class="material-name">${escapeHtml(lang() === 'en' ? m.en : m.ko)}</span><small>${m.density} kg/m³</small></button>`).join('')}</div>`).join('');
+  // A search box over the cards, the families folded (the one holding the part's material open).
+  const search = `<label class="pm-field material-search">${icon('search')}<input type="search" data-material-search placeholder="${escapeHtml(t('mat.search'))}" aria-label="${escapeHtml(t('mat.search'))}" /></label>`;
+  const fams = MATERIAL_FAMILIES.filter((fam) => MATERIALS.some((m) => familyOf(m) === fam));
+  return search + fams.map((g) => `<details class="material-family" ${MATERIALS.some((m) => familyOf(m) === g && m.id === part.material) ? 'open' : ''}><summary class="prop-title">${icon('material')}<span>${escapeHtml(t(`matFamily.${g}`))}</span><span class="pm-count">${MATERIALS.filter((m) => familyOf(m) === g).length}</span></summary><div class="material-list">${MATERIALS.filter((m) => familyOf(m) === g).map((m) => `<button class="material-card ${part.material === m.id ? 'active' : ''}" data-material="${m.id}" title="${escapeHtml(`${lang() === 'en' ? m.en : m.ko} · ${m.density} kg/m³ · E ${m.E} GPa · σy ${m.yield} MPa`)}"><span class="material-swatch" style="background:linear-gradient(135deg, ${m.color}, color-mix(in srgb, ${m.color} 55%, #000))"></span><span class="material-name">${escapeHtml(lang() === 'en' ? m.en : m.ko)}</span><small>${m.density} kg/m³</small></button>`).join('')}</div></details>`).join('');
 }
 
 function displayHtml() {
@@ -5126,7 +5850,7 @@ function viewportContextMenu(hit, event) {
   if (item?.kind === 'face') return showMenu(menuItems(['sketch', 'hole', 'extrude', 'cutExtrude', '-', 'fillet', 'shell', 'refPlane', '-', 'normalTo', 'zoomFit', '-', 'measure', 'massProps']), anchor, 'context', { header: { icon: 'part', title: t('pm.face') } });
   if (item?.kind === 'edge') return showMenu(menuItems(['fillet', 'chamfer', '-', 'measure', 'zoomFit']), anchor, 'context', { header: { icon: 'lineTool', title: t('pm.edge') } });
   if (item?.kind === 'plane' || item?.kind === 'feat') return showMenu(menuItems(['sketch', 'refPlane', 'mirror', '-', 'normalTo']), anchor, 'context', { header: { icon: 'refPlane', title: t(`plane.${item.id}`, null, t('cmd.plane')) } });
-  if (item?.kind === 'comp') return showMenu(menuItems(['openPart', 'fixComponent', 'floatComponent', 'rotateComponent', 'rotateComponentX', 'rotateComponentY', '-', 'mate', 'delete', '-', 'zoomFit']), anchor, 'context', { header: { icon: 'part', title: activeAssembly().components.find((c) => c.id === item.id)?.name ?? '' } });
+  if (item?.kind === 'comp') return showMenu(menuItems(['openPart', 'fixComponent', 'floatComponent', 'flexibleComponent', 'simplifyOuter', 'simplifyBox', 'simplifyFull', 'rotateComponent', 'rotateComponentX', 'rotateComponentY', '-', 'mate', 'delete', '-', 'zoomFit']), anchor, 'context', { header: { icon: 'part', title: activeAssembly().components.find((c) => c.id === item.id)?.name ?? '' } });
   return showMenu(menuItems(['zoomFit', 'viewsMenu', 'normalTo', 'perspective', '-', 'styleMenu', 'section', '-', 'showPlanes', 'showOrigin', '-', 'rebuild', 'massProps']), anchor, 'context', { header: { icon: 'view3d', title: active()?.name ?? 'MyMechanics' } });
 }
 
@@ -5140,7 +5864,7 @@ function treeContextMenu(key, event) {
     return showMenu(menuItems(['editFeature', 'rename', '-', f.suppressed ? 'unsuppress' : 'suppress', 'rollbackHere', 'rollbackEnd', '-', ...extra, '-', 'delete']), anchor, 'context', { header: { icon: featureIcon(f), title: f.name } });
   }
   if (key.startsWith('plane:')) return showMenu(menuItems(['sketch', 'refPlane', 'mirror', '-', 'normalTo']), anchor, 'context', { header: { icon: 'refPlane', title: t(`plane.${key.slice(6)}`) } });
-  if (key.startsWith('comp:')) return showMenu(menuItems(['openPart', 'rename', 'fixComponent', 'floatComponent', 'rotateComponent', 'rotateComponentX', 'rotateComponentY', '-', 'delete']), anchor, 'context', { header: { icon: 'part', title: activeAssembly()?.components.find((c) => c.id === key.slice(5))?.name ?? '' } });
+  if (key.startsWith('comp:')) return showMenu(menuItems(['openPart', 'rename', 'fixComponent', 'floatComponent', 'flexibleComponent', 'simplifyOuter', 'simplifyBox', 'simplifyFull', 'editInContext', 'rotateComponent', 'rotateComponentX', 'rotateComponentY', '-', 'delete']), anchor, 'context', { header: { icon: 'part', title: activeAssembly()?.components.find((c) => c.id === key.slice(5))?.name ?? '' } });
   if (key.startsWith('mate:')) return showMenu(menuItems(['rename', 'delete']), anchor, 'context', { header: { icon: 'mate', title: activeAssembly()?.mates.find((m) => m.id === key.slice(5))?.name ?? '' } });
   if (key === 'material') return materialMenu(anchor);
   if (key === 'doc') return showMenu(menuItems(['rename', 'rebuild', 'massProps', '-', 'newDrawing', 'exportStep', 'exportIges', 'exportXt', 'exportStl']), anchor, 'context', { header: { icon: activeKind(), title: active()?.name ?? '' } });
@@ -5219,6 +5943,30 @@ function pmFieldChangedImpl(key, raw, unit) {
     updateFeature((f) => { f[side] = (f[side] ?? []).map((x, k) => (k === Number(i) ? { ...x, [prop]: v } : x)); });
     return;
   }
+  if (e.mode === 'feature' && key.startsWith('var:')) {
+    const [, i, prop] = key.split(':');
+    if (v == null || (prop !== 'rev' && !(v > 0)) || v < 0) { notify('error', t('notice.invalidValue', { text: raw })); renderLeft(); return; }
+    updateFeature((f) => { if (f.variable?.[Number(i)]) f.variable[Number(i)] = { ...f.variable[Number(i)], [prop]: v }; });
+    return;
+  }
+  if (e.mode === 'feature' && key.startsWith('fa:')) {
+    const i = Number(key.split(':')[1]);
+    if (!(v > 0) || v >= 45) { notify('error', t('notice.invalidValue', { text: raw })); renderLeft(); return; }
+    updateFeature((f) => { const sig = f.faces?.[i]; if (!sig) return; f.angles = (f.angles ?? []).filter((x) => Math.hypot(...x.sig.center.map((c, k) => c - sig.center[k])) >= 1e-6); f.angles.push({ sig, angle: v }); });
+    return;
+  }
+  if (e.mode === 'feature' && (key.startsWith('rad:') || key.startsWith('mt:'))) {
+    const i = Number(key.split(':')[1]);
+    if (!(v > 0)) { notify('error', t('notice.invalidValue', { text: raw })); renderLeft(); return; }
+    updateFeature((f) => {
+      if (key.startsWith('mt:')) { if (f.multi?.[i]) f.multi[i] = { ...f.multi[i], t: v }; return; }
+      const sig = f.edges?.[i];
+      if (!sig) return;
+      f.radii = (f.radii ?? []).filter((x) => !(x.sig && Math.hypot(...x.sig.mid.map((c, k) => c - sig.mid[k])) < 1e-6));
+      f.radii.push({ sig, r: v });
+    });
+    return;
+  }
   if (e.mode === 'feature' && key.startsWith('pt3:')) {
     const [, i, j] = key.split(':').map(Number);
     if (v == null) { notify('error', t('notice.invalidValue', { text: raw })); renderLeft(); return; }
@@ -5238,15 +5986,16 @@ function pmFieldChangedImpl(key, raw, unit) {
   }
   if (e.mode !== 'feature' || v == null) { if (v == null) notify('error', t('notice.invalidValue', { text: raw })); renderLeft(); return; }
   const type = e.feature.type;
-  const limits = { count: [1, 500], count2: [1, 500], csAngle: [30, 150], turns: [0.05, 500], kFactor: [0, 1] };
+  const limits = { count: [1, 500], count2: [1, 500], csAngle: [30, 150], turns: [0.05, 500], kFactor: [0, 1], starts: [1, 8] };
   if (['revolve', 'circularPattern', 'surfaceRevolve'].includes(type)) limits.angle = [0.1, 360];
+  if (type === 'revolve') Object.assign(limits, { angle2: [0.1, 360], endOffset: [0, 1e6], endOffset2: [0, 1e6] });
   if (type === 'draft') limits.angle = [0.1, 44];
   if (type === 'edgeFlange') limits.angle = [1, 180];
-  if (type === 'extrude') limits.draftAngle = [0.1, 44];
+  if (type === 'extrude') Object.assign(limits, { draftAngle: [0.1, 44], startOffset: [0, 1e6], endOffset: [0, 1e6], endOffset2: [0, 1e6] });
   let value = v;
   if (limits[key]) value = Math.max(limits[key][0], Math.min(limits[key][1], value));
-  if (['count', 'count2'].includes(key)) value = Math.round(value);
-  if (['depth', 'depth2', 'diameter', 'cbDiameter', 'cbDepth', 'csDiameter', 'pitch', 'length', 'height', 'factor', 'w', 'h', 't', 'scale'].includes(key) && !(value > 0)) { notify('error', t('notice.invalidValue', { text: raw })); renderLeft(); return; }
+  if (['count', 'count2', 'starts'].includes(key)) value = Math.round(value);
+  if (['depth', 'depth2', 'diameter', 'cbDiameter', 'cbDepth', 'csDiameter', 'pitch', 'length', 'height', 'factor', 'w', 'h', 't', 'scale', 'thinT1', 'thinT2', 'capThickness'].includes(key) && !(value > 0)) { notify('error', t('notice.invalidValue', { text: raw })); renderLeft(); return; }
   if (['radius', 'distance', 'thickness'].includes(key) && !(value > 0) && !(key === 'radius' && ['baseFlange', 'edgeFlange'].includes(type) && value === 0) && !(key === 'distance' && type === 'surfaceOffset' && value !== 0)) { notify('error', t('notice.invalidValue', { text: raw })); renderLeft(); return; }
   updateFeature((f) => { f[key] = value; if (f.exprs?.[key]) { delete f.exprs[key]; if (!Object.keys(f.exprs).length) delete f.exprs; } if (key === 'diameter') delete f.size; if (key === 'pitch' && f.type === 'thread') delete f.size; });
 }
@@ -5258,8 +6007,10 @@ function pmStepImpl(key, delta) {
   if (e?.mode === 'sketch' && key === 'polygonSides') { e.editor.polygonSides = Math.max(3, e.editor.polygonSides + delta); renderLeft(); return; }
   const target = e?.mode === 'feature' ? e.feature : e?.mode === 'mate' ? e.mate : null;
   if (!target) return;
-  const k = e.mode === 'mate' ? 'value' : key;
-  const cur = Number(target[k]) || 0;
+  const k = e.mode === 'mate' && !['min', 'max', 'ratio', 'radius', 'pitch'].includes(key) ? 'value' : key;
+  // Fields of table rows ("var:1:pitch", "rad:0", "mt:2"): the value shown in the field.
+  const shown = key.includes(':') ? Number(document.querySelector(`#left-panel [data-pm-field="${CSS.escape(key)}"]`)?.value) : NaN;
+  const cur = Number.isFinite(shown) ? shown : Number(target[k]) || 0;
   const step = ['count', 'count2'].includes(k) ? 1 : ['angle', 'csAngle'].includes(k) ? (e.feature?.type === 'circularPattern' ? 15 : 5) : (units() === 'in' ? 1.5875 : cur >= 20 ? 5 : 1);
   pmFieldChanged(key, String(cur + delta * step), 'number');
 }
@@ -5279,6 +6030,8 @@ function pmSetImpl(key, value) {
       if (value === 'cam') { e.mate.profile = camProfile(e.mate.a); if (e.mate.b?.kind === 'axis' && e.mate.b.sig?.radius) e.mate.followerRadius = e.mate.b.sig.radius; }
     }
     else if (key === 'aligned') e.mate.aligned = value;
+    else if (key === 'slotMode') e.mate.slotMode = value;
+    else if (key === 'pathMode') e.mate.pathMode = value;
     else if (key === 'mateGroup') e.mateGroup = value;
     previewMate(); return;
   }
@@ -5293,6 +6046,10 @@ function pmSetImpl(key, value) {
     else if (key === 'dir2axis') f.direction2 = { kind: 'axis', axis: value };
     else if (key === 'axisKind') f.axis = value === 'edge' ? { kind: 'edge', sig: f.axis?.sig ?? null } : value.startsWith('ref:') ? { kind: 'ref', id: value.slice(4) } : { kind: 'axis', axis: value };
     else if (key === 'stdPlane') { if (f.type === 'plane') f.base = { kind: 'std', name: value }; else f.plane = { kind: 'std', name: value }; }
+    else if (key === 'fit') { f.fit = value; if (f.ansiSize) Object.assign(f, ansiHole(f.ansiSize, f.kind, value) ?? {}); }
+    else if (key === 'pullAxis') f.pull = value === 'edge' ? { kind: 'edge', sig: f.pull?.sig ?? null } : { kind: 'axis', axis: value };
+    else if (key === 'stdPlane2') f.base2 = { kind: 'std', name: value };
+    else if (key === 'axisKind2') f.axisRef = value === 'edge' ? { kind: 'edge', sig: f.axisRef?.sig ?? null } : { kind: 'axis', axis: value };
     else if (key === 'neutralStd') f.neutral = { kind: 'std', name: value };
     else if (key === 'drawPlane') { e.drawPlane = value; e.pick = 'points3d'; }
     else if (key === 'at' && ['center', 'xyz', 'ref'].includes(value)) {
@@ -5307,6 +6064,7 @@ function pmSetImpl(key, value) {
   });
   if (key === 'dir1' && value === 'edge') { e.pick = 'direction'; renderLeft(); }
   if (key === 'axisKind' && value === 'edge') { e.pick = 'axis'; renderLeft(); }
+  if (key === 'axisKind2' && value === 'edge') { e.pick = 'axisRef'; renderLeft(); }
 }
 
 function pmToggle(key, checked) { return recorder.around('pmToggle', [key, checked], () => pmToggleImpl(key, checked)); }
@@ -5314,7 +6072,7 @@ function pmToggleImpl(key, checked) {
   const e = state.editing;
   if (more.owns(e)) return more.toggle(key, checked);
   if (std.owns(e)) return std.toggle(key, checked);
-  if (e?.mode === 'mate') { if (key === 'flip' || key === 'reverse') { e.mate[key] = checked; previewMate(); } return; }
+  if (e?.mode === 'mate') { if (key === 'flip' || key === 'reverse' || key === 'follow') { e.mate[key] = checked; previewMate(); } return; }
   if (e?.mode === 'lights') { const [scope, id] = key.split(':'); change('op.light', (p) => { const L = sceneLights(p); if (scope === 'cam') L.cameraLight.on = checked; else { const l = L.lights.find((x) => x.id === id); if (l) l.on = checked; } }); return undefined; }
   if (['simulation', 'motion', 'equations', 'configs'].includes(e?.mode)) return customToggle(key, checked);
   if (e?.mode !== 'feature') return;
@@ -5329,7 +6087,17 @@ function pmToggleImpl(key, checked) {
       const value = Number.isFinite(Number(raw)) ? Number(raw) : raw;
       f[list] = (f[list] ?? []).filter((x) => String(x) !== raw);
       if (checked) f[list].push(value);
-    } else if (key === 'dir2') { if (f.type === 'extrude') f.end2 = checked ? 'blind' : 'none'; else f.direction2 = checked ? { kind: 'axis', axis: 'y' } : null; }
+    } else if (key === 'variablePitch') {
+      if (checked) { const d = 2 * (Number(f.radius) || 10); const p = Number(f.pitch) || 5; f.variable = [{ rev: 0, pitch: p, d }, { rev: Math.max(1, Number(f.turns) || 4), pitch: p, d }]; } else delete f.variable;
+    } else if (key === 'faceAngles') {
+      if (checked) f.angles = []; else delete f.angles;
+    } else if (key === 'multiRadius') {
+      if (checked) f.radii = []; else delete f.radii;
+    } else if (key === 'selContours') {
+      const sk = activePart()?.features.find((x) => x.id === f.sketch);
+      f.contours = checked ? (sk ? profiles(sk).map((_, i) => i) : []) : undefined;
+      if (!checked) delete f.contours;
+    } else if (key === 'dir2' && f.type === 'circularPattern') { f.dir2 = checked; } else if (key === 'dir2') { if (f.type === 'extrude' || f.type === 'revolve') f.end2 = checked ? 'blind' : 'none'; else f.direction2 = checked ? { kind: 'axis', axis: 'y' } : null; }
     else f[key] = checked;
   });
 }
@@ -5352,7 +6120,12 @@ function pmSelectImpl(key, value) {
     updateFeature((f) => { f.size = value || undefined; if (row) f.pitch = row[2]; });
     return;
   }
-  if (key === 'profile') { updateFeature((f) => { f.profile = value; [f.w, f.h, f.t] = STRUCTURAL_PROFILES[value] ?? [f.w, f.h, f.t]; }); return; }
+  if (key === 'profile') { updateFeature((f) => { f.profile = value; if (f.type === 'structural') [f.w, f.h, f.t] = STRUCTURAL_PROFILES[value] ?? [f.w, f.h, f.t]; }); return; }
+  // Hole Wizard: ANSI inch sizes (clearance by fit, counterbore, countersink), UNC / UNF and NPT taps, the end condition.
+  if (key === 'ansiSize') { updateFeature((f) => { f.ansiSize = value || undefined; const d = value ? ansiHole(value, f.kind, f.fit ?? 'normal') : null; if (d) Object.assign(f, d); }); return; }
+  if (key === 'ansiTap') { updateFeature((f) => { f.ansiTap = value || undefined; const row = ANSI_TAPS.find(([n]) => n === value); if (row) { f.diameter = Math.round(row[3] * 25.4 * 1e4) / 1e4; f.threadSize = undefined; } }); return; }
+  if (key === 'nptSize') { updateFeature((f) => { f.nptSize = value || undefined; const row = NPT_SIZES.find(([n]) => n === value); if (row) f.diameter = Math.round(row[3] * 25.4 * 1e4) / 1e4; }); return; }
+  if (key === 'holeEnd') { updateFeature((f) => { f.through = value === 'through'; f.end = value === 'through' || value === 'blind' ? undefined : value; if (!f.end) delete f.end; }); return; }
   if (key === 'size') {
     const row = HOLE_SIZES.find(([s]) => s === value);
     updateFeature((f) => { f.size = value || undefined; if (row) [, f.diameter, f.cbDiameter, f.cbDepth, f.csDiameter] = row; });
@@ -5375,7 +6148,7 @@ async function pmCommandImpl(cmd) {
     if (more.owns(e)) return more.command('clear', arg);
     if (std.owns(e)) return std.command('clear', arg);
     if (e?.mode === 'measure') { e.picks = []; e.result = []; viewport.setSelection([]); return renderLeft(); }
-    if (e?.mode === 'feature') updateFeature((f, ed) => { if (arg === 'holePoints') ed.holeSketch.points = []; else if (Array.isArray(f[arg])) f[arg] = []; });
+    if (e?.mode === 'feature') updateFeature((f, ed) => { if (arg === 'holePoints') ed.holeSketch.points = []; else if (Array.isArray(f[arg]) && !/Vertex/.test(arg)) f[arg] = []; else if (arg in f) delete f[arg]; });
     // The simulation's fixture / load lists and the motion study's motors are cleared by customCommand.
     if (e?.mode === 'simulation' || e?.mode === 'motion') return customCommand(name, arg);
     return undefined;
@@ -5400,6 +6173,8 @@ async function pmCommandImpl(cmd) {
   if (name === 'equationApply' && e?.mode === 'sketch') { e.editor.addEquationFromDraft(); return renderLeft(); }
   if (name === 'addPt3' && e?.mode === 'feature') { updateFeature((f) => { const last = f.points?.at(-1) ?? [0, 0, 0]; f.points = [...(f.points ?? []), [last[0] + 20, last[1], last[2]]]; }); return undefined; }
   if (name.startsWith('addHel') && e?.mode === 'feature') { const side = arg === 'far' ? 'far' : 'near'; updateFeature((f) => { const list = f[side] ?? []; const last = list.at(-1); f[side] = [...list, { kind: side === 'far' ? 'countersink' : 'straight', d: last ? Math.max(1, Number(last.d) * 0.8) : 8, depth: 5, angle: 90 }]; }); return undefined; }
+  if (name === 'addVar' && e?.mode === 'feature') { updateFeature((f) => { const list = f.variable ?? []; const last = list.at(-1) ?? { rev: 0, pitch: Number(f.pitch) || 5, d: 2 * (Number(f.radius) || 10) }; f.variable = [...list, { rev: last.rev + 1, pitch: last.pitch, d: last.d }]; }); return undefined; }
+  if (name === 'delVar' && e?.mode === 'feature') { updateFeature((f) => { f.variable = (f.variable ?? []).filter((_, k) => k !== Number(arg)); if (!f.variable.length) delete f.variable; }); return undefined; }
   if (name.startsWith('delHel') && e?.mode === 'feature') { const [side, i] = String(arg).split('.'); updateFeature((f) => { f[side] = (f[side] ?? []).filter((_, k) => k !== Number(i)); }); return undefined; }
   if (name === 'delPt3' && e?.mode === 'feature') { updateFeature((f) => { f.points = f.points.filter((_, k) => k !== Number(arg)); }); return undefined; }
   return customCommand(name, arg);
@@ -5483,7 +6258,7 @@ function bindEvents() {
     const pmSetBtn = target.closest('[data-pm-set]');
     if (pmSetBtn) return pmSet(pmSetBtn.dataset.pmSet, pmSetBtn.dataset.value);
     const pmRemove = target.closest('[data-pm-remove]');
-    if (pmRemove) { const [k, i] = pmRemove.dataset.pmRemove.split(':'); return updateFeature((f, e) => { if (k === 'holePoints') e.holeSketch.points.splice(Number(i), 1); else if (Array.isArray(f[k])) f[k].splice(Number(i), 1); }); }
+    if (pmRemove) { const [k, i] = pmRemove.dataset.pmRemove.split(':'); return updateFeature((f, e) => { if (k === 'holePoints') e.holeSketch.points.splice(Number(i), 1); else if (/^(start|end)(Face|Vertex)2?$|^dirVector$|^vertex$|^point$|^axisRef$|^base2$|^upToPoint$|^pullEdge$/.test(k)) { delete f[k === 'pullEdge' ? 'pull' : k]; } else if (k === 'multiFaces') f.multi.splice(Number(i), 1); else if (Array.isArray(f[k])) f[k].splice(Number(i), 1); }); }
     const pick = target.closest('[data-pm-pick]');
     if (pick && state.editing && !target.closest('button')) { state.editing.pick = pick.dataset.pmPick; renderLeft(); renderStatus(); return undefined; }
     const mat = target.closest('[data-material]');
@@ -5559,6 +6334,15 @@ function bindEvents() {
 
   root.addEventListener('input', (event) => {
     const target = event.target;
+    if ('materialSearch' in target.dataset) {
+      const q = target.value.trim().toLowerCase();
+      for (const fam of root.querySelectorAll('.material-family')) {
+        let any = false;
+        for (const card of fam.querySelectorAll('.material-card')) { const hit = !q || (card.title + ' ' + card.textContent).toLowerCase().includes(q); card.hidden = !hit; any ||= hit; }
+        fam.hidden = !any; if (q) fam.open = any;
+      }
+      return undefined;
+    }
     if ('sectionOffset' in target.dataset && state.section) { state.section = { ...state.section, offset: Number(target.value) }; viewport.setSection(state.section); }
     if ('playerTime' in target.dataset && activeAssembly()) {
       state.player.playing = false; state.player.time = Number(target.value);
@@ -5962,6 +6746,7 @@ window.__mymechanics = {
   actions: {
     newDocument, openSampleAsk, openContent, saveDoc, closeProject, select, change, undo, redo, startFeature, startSketch, openNewSketch, editSketch, editFeature,
     acceptEditing, cancelEditing, exitSketch, sketchCommand, switchDocument, newDrawing, insertComponent, startMate, showStartPage, updateSettings, pmFieldChanged, pmSet, pmToggle, pmCommand,
+    pick: (hit, mods) => onViewportPick(hit, mods),
     buildPart: (part) => buildPart(part), exportModel, checkInterference, massPropertiesRows, rollbackTo, ensureKernel, regenerate,
   },
   get project() { return project(); },

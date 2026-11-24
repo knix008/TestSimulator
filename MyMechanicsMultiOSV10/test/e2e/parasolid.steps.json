@@ -31,6 +31,7 @@
   {
     "name": "parasolid: a damaged file is refused with a readable message, the open project untouched",
     "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.actions.closeProject({ force: true }); await m.actions.openSampleAsk('flange'); await sleep(800); const before = m.active()?.name; await m.actions.openContent('broken.x_t', '**ABC\\n**END_OF_HEADER***\\nT5 : abc17 SCH_1300000_130060 12 1 3'); await sleep(1500); const said = m.state.log.slice(0, 4).map((x) => x.text).join(' '); return JSON.stringify({ kept: m.active()?.name === before, said: /(Parasolid|손상)/.test(said) }); })()",
-    "expect": "\"kept\":true,\"said\":true"
+    "expect": "\"kept\":true,\"said\":true",
+    "allowErrors": "error.import Error: "
   }
 ]

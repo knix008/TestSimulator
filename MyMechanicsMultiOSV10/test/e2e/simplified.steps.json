@@ -1,0 +1,8 @@
+[
+  {
+    "name": "simplified: the robot gripper shown as a box (one body), then outer parts only (fewer bodies), then in full again; mass properties keep every part",
+    "eval": "(async () => {\n    const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms));\n    await m.actions.ensureKernel();\n    if (m.state.editing) m.actions.cancelEditing({ quiet: true });\n    await m.actions.closeProject({ force: true });\n    await m.actions.openSampleAsk('asmRobot'); await sleep(1200);\n    const a = m.active();\n    const g = a.components.find((c) => c.sub);\n    const count = () => [...m.viewport.bodies.keys()].filter((k) => k === 'comp:' + g.id || k.startsWith('comp:' + g.id + '/')).length;\n    const full = count();\n    const mass0 = JSON.stringify(m.actions.massPropertiesRows().rows);\n    m.state.selection = [{ kind: 'comp', id: g.id, key: 'comp:' + g.id }];\n    await m.run('simplifyBox'); await sleep(400);\n    const box = count();\n    const mass1 = JSON.stringify(m.actions.massPropertiesRows().rows);\n    m.state.selection = [{ kind: 'comp', id: g.id, key: 'comp:' + g.id }];\n    await m.run('simplifyOuter'); await sleep(400);\n    const outer = count();\n    m.state.selection = [{ kind: 'comp', id: g.id, key: 'comp:' + g.id }];\n    await m.run('simplifyFull'); await sleep(400);\n    return [full > 1, box, outer >= 1 && outer <= full, count() === full, mass0 === mass1].join(' ');\n  })()",
+    "expect": "^true 1 true true true$",
+    "timeout": 120000
+  }
+]

@@ -24,6 +24,9 @@ export function renderCadSettings(api) {
     row('largeAssembly', t('settings.largeAssembly'), segmented('largeAssembly', [['auto', t('lam.auto')], ['on', t('lam.on')], ['off', t('lam.off')]], set.largeAssembly ?? 'auto')),
     row('assembly', t('settings.largeAssemblyThreshold'), numberField('largeAssemblyThreshold', set.largeAssemblyThreshold ?? 40, 2, 100000, 10, '', t('settings.largeAssemblyThreshold'))),
     row('hide', t('settings.largeHideSmall'), numberField('largeHideSmall', set.largeHideSmall ?? 0, 0, 0.2, 0.01, '', t('settings.largeHideSmall'))),
+    row('magneticMate', t('settings.magneticDistance'), numberField('magneticDistance', set.magneticDistance ?? 25, 0, 10000, 1, 'mm', t('settings.magneticDistance'))),
+    row('clearanceCheck', t('settings.clearanceMin'), numberField('clearanceMin', set.clearanceMin ?? 1, 0, 1000, 0.1, 'mm', t('settings.clearanceMin'))),
+    toggle('clearanceIgnoreTouching', t('settings.clearanceIgnoreTouching'), 'interference'),
     row('holeAlignment', t('settings.holeAlignTolerance'), numberField('holeAlignTolerance', set.holeAlignTolerance ?? 0.01, 0, 10, 0.01, 'mm', t('settings.holeAlignTolerance'))),
     `<h3 class="section-title">${icon('orbitTool')}${escapeHtml(t('settings.sectionNavigation'))}</h3>`,
     row('info', '', `<span class="muted">${escapeHtml(t('settings.mouseHelp'))}</span>`),
@@ -123,6 +126,23 @@ export function renderCadPopup(kind, api) {
         <p class="muted hint">${escapeHtml(t('mass.note'))}</p>
       </div>`,
       foot: `${button('copy-mass', t('action.copy'), 'copy')}<span class="grow"></span>${button('close', t('common.done'), 'check', 'primary')}`,
+    });
+    api.fitHeight();
+    api.ready();
+    return true;
+  }
+  if (kind === 'interference' && P().mode === 'clearance') {
+    // Clearance verification (the same window): pairs closer than the minimum clearance, closest first.
+    const p = P();
+    const list = p.items ?? [];
+    const msg = list.length ? t('asmx.clearanceLow', { count: list.length, min: fmt(p.min ?? 0) }) : t('asmx.clearanceOk', { count: p.checked ?? 0, min: fmt(p.min ?? 0) });
+    root.innerHTML = frame({
+      glyph: 'clearanceCheck', title: t('cmd.clearanceCheck'),
+      body: `<div class="confirm">
+        <div class="confirm-message">${icon(list.length ? 'warning' : 'check', 'icon big')}<p>${escapeHtml(msg)}</p></div>
+        ${list.length ? `<ul class="confirm-items" data-clearance-items>${list.slice(0, 30).map((it) => `<li title="${escapeHtml(`${it.a} ↔ ${it.b}`)}">${icon('clearanceCheck')}<span>${escapeHtml(`${it.a} ↔ ${it.b}`)} — ${escapeHtml(it.gap < 1e-6 ? t('asmx.clearanceTouch') : t('asmx.clearanceGap', { gap: fmt(it.gap) }))}</span></li>`).join('')}</ul>` : ''}
+      </div>`,
+      foot: `<span class="grow"></span>${button('close', t('common.done'), 'check', 'primary')}`,
     });
     api.fitHeight();
     api.ready();

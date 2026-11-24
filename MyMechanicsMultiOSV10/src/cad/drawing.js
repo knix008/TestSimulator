@@ -229,7 +229,7 @@ export function alignedShape(shape, view) {
 /** A string that changes whenever the projection of the view would (for caching projections). */
 export function projectionKey(view) {
   if (!view) return 'none';
-  if (view.kind === 'section') return `section|${view.type}|${JSON.stringify(view.plane ?? null)}${view.aligned ? `|aligned|${JSON.stringify(view.aligned)}` : ''}`;
+  if (view.kind === 'section') return `section|${view.type}|${JSON.stringify(view.plane ?? null)}${view.aligned ? `|aligned|${JSON.stringify(view.aligned)}` : ''}${view.removed ? '|removed' : ''}`;
   if (view.kind === 'detail') return `detail|${view.parent}`;
   if (view.type === 'custom') return `custom|${JSON.stringify([view.dir ?? null, view.x ?? null, view.up ?? null])}`;
   return String(view.type);
@@ -274,7 +274,19 @@ export function sectionShape(shape, plane) {
 
 function projectSection(shape, view) {
   const b = viewBasis(view);
-  const kept = sectionShape(shape, view.plane);
+  let kept = sectionShape(shape, view.plane);
+  // A removed section: only the cut itself — a thin slice behind the plane, whose outline is the cut face's.
+  if (kept && view.removed) {
+    const R = rep();
+    const n = unit3(vec3(view.plane?.normal) ?? worldFront()) ?? worldFront();
+    const p = vec3(view.plane?.point) ?? [0, 0, 0];
+    const [[x0, y0, z0], [x1, y1, z1]] = kept.boundingBox.bounds;
+    const L = 4 * (Math.hypot(x1 - x0, y1 - y0, z1 - z0) + len3(p) + 1);
+    const t = Math.max(1e-3, Math.hypot(x1 - x0, y1 - y0, z1 - z0) * 1e-4);
+    const back = [p[0] - n[0] * t, p[1] - n[1] * t, p[2] - n[2] * t];
+    const slab = R.drawRectangle(L, L).sketchOnPlane(new R.Plane(back, autoXAxis(n), n)).extrude(t * 1.0001);
+    try { kept = kept.intersect(slab); } catch { /* the whole kept part */ }
+  }
   if (!kept) return { visible: [], hidden: [], box: { x0: -1, y0: -1, x1: 1, y1: 1 }, section: { triangles: [] }, basis: b };
   const out = projectWith(kept, b.dir, b.x);
   // The cut faces: planar faces of the kept part lying in the plane, facing the viewer.
@@ -1341,4 +1353,35 @@ export function drawingDxf(drawing, projections, { labels = {}, bomRows: bom = n
   const layers = names.map((name, i) => `0\nLAYER\n2\n${name}\n70\n0\n62\n${colors[i]}\n6\n${name === 'HIDDEN' ? 'HIDDEN' : 'CONTINUOUS'}`).join('\n');
   const entities = notes.length ? [...lines, ...notes] : lines;
   return `0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n70\n4\n0\nENDSEC\n0\nSECTION\n2\nTABLES\n0\nTABLE\n2\nLAYER\n70\n${names.length}\n${layers}\n0\nENDTAB\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n${entities.join('\n')}\n0\nENDSEC\n0\nEOF\n`;
+}
+
+/**
+ * Auto balloons: one per BOM row, pointing at the projected centre of its first component (targets: sheet
+ * points by row item), placed on a ring round the view's centre outside its targets, spread so that no two
+ * are closer than the balloon spacing. → [{ item, target: [x, y], at: [x, y] }].
+ */
+export function autoBalloonLayout(targets, centre, { radius = 6, gap = 2 } = {}) {
+  if (!targets.length) return [];
+  const reach = Math.max(...targets.map((t) => Math.hypot(t.target[0] - centre[0], t.target[1] - centre[1]))) + radius * 3;
+  const items = targets.map((t) => ({ ...t, ang: Math.atan2(t.target[1] - centre[1], t.target[0] - centre[0]) })).sort((a, b) => a.ang - b.ang);
+  // Spread by angle: the smallest step that keeps neighbours a balloon apart on the ring.
+  const step = (2 * radius + gap) / reach;
+  for (let i = 1; i < items.length; i++) if (items[i].ang - items[i - 1].ang < step) items[i].ang = items[i - 1].ang + step;
+  return items.map((t) => ({ item: t.item, target: t.target, at: [centre[0] + reach * Math.cos(t.ang), centre[1] + reach * Math.sin(t.ang)] }));
+}
+
+/**
+ * A view turned in 3D (3D drawing view): its basis turned by `yaw` degrees about the sheet's vertical and
+ * `pitch` about the sheet's horizontal, as a custom view (dir, x).
+ */
+export function turnedView(view, yaw = 0, pitch = 0) {
+  const b = viewBasis(view);
+  if (!b) return null;
+  const rot = (v, k, deg) => { const a = (deg * Math.PI) / 180; const c = Math.cos(a); const s = Math.sin(a); const kv = cross3(k, v); const kd = dot3(k, v); return [0, 1, 2].map((i) => v[i] * c + kv[i] * s + k[i] * kd * (1 - c)); };
+  let dir = rot(b.dir, b.y, yaw); let x = rot(b.x, b.y, yaw);
+  const y = cross3(dir, x);
+  dir = rot(dir, x, pitch);
+  x = unit3(x);
+  void y;
+  return { type: 'custom', dir: unit3(dir), x };
 }

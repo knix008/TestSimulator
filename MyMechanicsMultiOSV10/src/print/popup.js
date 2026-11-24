@@ -7,6 +7,7 @@
 // Printing: the desktop app prints straight to a chosen printer (WebView2) or opens the system dialog;
 // the web build prints this frame (window.print()). Save as PDF: WebView2's (vector) PDF of the same
 // page on the desktop, a PDF of the page as a picture on the web (print/pdf.js).
+import { segGlyph } from '../ui/seg-icons.js';
 import * as native from '../platform/native.js';
 import { captureSize, drawingPlacement, initialSetup, loadStored, MARGINS, modelBoxes, normalizeSetup, pageGeometry, PAPERS, storeSetup } from './layout.js';
 import { pageSvg } from './sheet.js';
@@ -62,7 +63,7 @@ function ask(api) {
   api.action('print-render', { gen: u.gen, request: req });
 }
 
-const seg = (api, key, options, current) => `<span class="segmented" role="radiogroup">${options.map(([value, label, glyph]) => `<button class="segment ${String(current) === String(value) ? 'active' : ''}" role="radio" aria-checked="${String(current) === String(value)}" data-action="print-set" data-key="${key}" data-value="${api.escapeHtml(value)}" title="${api.escapeHtml(label)}">${glyph ? api.icon(glyph) : ''}${api.escapeHtml(label)}</button>`).join('')}</span>`;
+const seg = (api, key, options, current) => `<span class="segmented" role="radiogroup">${options.map(([value, label, glyph]) => `<button class="segment ${String(current) === String(value) ? 'active' : ''}" role="radio" aria-checked="${String(current) === String(value)}" data-action="print-set" data-key="${key}" data-value="${api.escapeHtml(value)}" title="${api.escapeHtml(label)}">${api.icon(glyph || segGlyph(key, value))}${api.escapeHtml(label)}</button>`).join('')}</span>`;
 const section = (api, glyph, title, rows) => `<section class="print-section"><h3>${api.icon(glyph)}<span>${api.escapeHtml(title)}</span></h3>${rows.filter(Boolean).join('')}</section>`;
 const mm = (v) => String(+Number(v).toFixed(1));
 

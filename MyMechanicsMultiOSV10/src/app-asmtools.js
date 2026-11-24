@@ -2,7 +2,7 @@
 // and Copy with Mates (PropertyManager pages), Hole Alignment (a check with its result list), and envelopes
 // (mark components as envelopes; select what is inside or crossing one). Chained onto the hooks of `more`
 // in app.js like the other add-ins.
-import { replaceComponents, bestReference, copyWithMates, holeAlignment, envelopeSelection, isEnvelope } from './cad/asm-tools.js';
+import { replaceComponents, bestReference, copyWithMates, holeAlignment, clearances, envelopeSelection, isEnvelope } from './cad/asm-tools.js';
 import { mateEntityOfFace, mateTouches, instanceName, axisOfFace } from './cad/assembly.js';
 import { faceSignature, cylinderRadius, isCylinder } from './cad/refs.js';
 import { escapeHtml } from './ui/dom.js';
@@ -198,6 +198,30 @@ export function createAsmTools(ctx) {
     return r;
   }
 
+  // ───────────────────────── clearance verification
+
+  async function checkClearance() {
+    const a = asm();
+    if (!a) { notify('info', t('notice.assemblyOnly')); return undefined; }
+    const R = ctx.rep();
+    const min = Math.max(0, Number(state.settings.clearanceMin ?? 1));
+    const among = selectedComps();
+    const r = await ctx.withProgress('asmx.checkingClearance', a.name, () => {
+      const items = a.components.filter((c) => !c.hidden && !c.suppressed && !isEnvelope(c)).map((c) => {
+        const l = ctx.componentShapes(c).map((x) => x.shape);
+        const shape = l.length > 1 ? R.makeCompound(l) : l[0] ?? null;
+        return { id: c.id, shape, box: shape?.boundingBox?.bounds ?? null };
+      });
+      return clearances(items, (p, q) => R.measureDistanceBetween(p, q), { min, among, ignoreTouching: Boolean(state.settings.clearanceIgnoreTouching) });
+    });
+    state.clearance = r;
+    const items = r.items.map((m) => ({ a: compName(m.a), b: compName(m.b), gap: m.gap }));
+    notify(items.length ? 'warning' : 'success', items.length ? t('asmx.clearanceLow', { count: items.length, min: fmtMm(min) }) : t('asmx.clearanceOk', { count: r.checked, min: fmtMm(min) }));
+    await ctx.popups.open('interference', { mode: 'clearance', items, checked: r.checked, min });
+    return r;
+  }
+  const fmtMm = (v) => String(Math.round(v * 1000) / 1000);
+
   // ───────────────────────── envelopes
 
   function toggleEnvelope() {
@@ -302,11 +326,12 @@ export function createAsmTools(ctx) {
     replaceComponent: { icon: 'replaceComponent', label: 'cmd.replaceComponent', enabled: () => asmOpen() && ctx.project().parts.length > 1, checked: () => editing()?.mode === 'replaceComp', run: () => (editing()?.mode === 'replaceComp' ? ctx.cancelEditing({ quiet: true }) : startReplace()) },
     copyWithMates: { icon: 'copyWithMates', label: 'cmd.copyWithMates', enabled: () => asmOpen() && (asm()?.components.length ?? 0) > 0, checked: () => editing()?.mode === 'copyMates', run: () => (editing()?.mode === 'copyMates' ? ctx.cancelEditing({ quiet: true }) : startCopy()) },
     holeAlignment: { icon: 'holeAlignment', label: 'cmd.holeAlignment', enabled: () => (asm()?.components.length ?? 0) > 1, run: () => checkHoles() },
+    clearanceCheck: { icon: 'clearanceCheck', label: 'cmd.clearanceCheck', enabled: () => (asm()?.components.length ?? 0) > 1, run: () => checkClearance() },
     envelopeComponent: { icon: 'envelope', label: 'cmd.envelopeComponent', enabled: () => asmOpen() && selectedComps().length > 0, checked: () => selectedComps().length > 0 && selectedComps().every((id) => isEnvelope(comp(id))), run: () => toggleEnvelope() },
     envelopeSelectInside: { icon: 'envelopeInside', label: 'cmd.envelopeSelectInside', enabled: () => Boolean(asm()?.components.some(isEnvelope)), run: () => selectByEnvelope('inside') },
     envelopeSelectCrossing: { icon: 'envelopeCrossing', label: 'cmd.envelopeSelectCrossing', enabled: () => Boolean(asm()?.components.some(isEnvelope)), run: () => selectByEnvelope('crossing') },
   };
-  const TAB = ['replaceComponent', 'copyWithMates', 'holeAlignment', 'envelopeComponent', 'envelopeSelectInside', 'envelopeSelectCrossing'];
+  const TAB = ['replaceComponent', 'copyWithMates', 'holeAlignment', 'clearanceCheck', 'envelopeComponent', 'envelopeSelectInside', 'envelopeSelectCrossing'];
 
-  return { owns, pm, pick, field, set, toggle, select, accept, subject, handles, command, commands, TAB, holesOf, checkHoles, boxesOf };
+  return { owns, pm, pick, field, set, toggle, select, accept, subject, handles, command, commands, TAB, holesOf, checkHoles, checkClearance, boxesOf };
 }

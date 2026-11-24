@@ -24,7 +24,7 @@ export const SHEET_EXTRA_PM = {
     const { t } = api;
     return [
       group('convertSheet', t('pm.selections'), `${pickBox(api, 'face', oneFace(api, f.face), t('sx.fixedFace'), 'face')}${pickBox(api, 'edges', edgeItems(api, f.edges), t('sx.bendEdges'), 'lineTool')}${note(t('sx.help.convert'))}`),
-      group('sheetMetal', t('pm.sheetMetal'), `${field(api, 'thickness', f.thickness, { label: t('pm.thickness'), min: 0.05 })}${seg('side', [['inside', t('sx.side.inside'), 'shell'], ['outside', t('sx.side.outside'), 'featExtrude']], f.side ?? 'inside')}${bendGroup(api, f)}`),
+      group('sheetMetal', t('pm.sheetMetal'), `${field(api, 'thickness', f.thickness, { label: t('pm.thickness'), min: 0.05 })}${seg('side', [['inside', t('sx.side.inside'), 'featShell'], ['outside', t('sx.side.outside'), 'featExtrude']], f.side ?? 'inside')}${bendGroup(api, f)}`),
       group('closedCorner', t('sx.cornerDefaults'), `${corners(api, f)}${convertInfo(api)}`),
     ].join('');
   },
