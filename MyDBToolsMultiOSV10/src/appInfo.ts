@@ -4,7 +4,7 @@
 // renderer, the Tauri shell and the tests all need it, and only one
 // of the three can rely on a bundler. `test/unit/ui.test.mjs` checks that it
 // still matches package.json, so the two cannot drift apart unnoticed.
-export const APP_NAME = 'DBTools';
+export const APP_NAME = 'MyDBTools';
 
 /** Full version, matching package.json. */
 export const APP_VERSION = '1.0.1';

@@ -70,7 +70,7 @@ export function getFormatDisplayName(format: DbFileFormat): string {
     case 'VectorIndex':
       return 'Vector Index';
     case 'Project':
-      return 'DBTools Project';
+      return 'MyDBTools Project';
     default:
       return '알 수 없음';
   }

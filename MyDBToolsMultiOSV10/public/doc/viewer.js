@@ -84,7 +84,7 @@
       window.open('print.html?' + query, 'dbtools-doc-print', 'width=1180,height=860');
     }
   };
-  document.title = 'DBTools — ' + L[doc];
+  document.title = 'MyDBTools — ' + L[doc];
 
   // ── window buttons (desktop: the window has no title bar) ────────────────
   (function () {

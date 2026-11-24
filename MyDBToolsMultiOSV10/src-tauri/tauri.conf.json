@@ -1,9 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "DBTools",
-  "mainBinaryName": "DBTools",
+  "productName": "MyDBTools",
+  "mainBinaryName": "MyDBTools",
   "version": "1.0.1",
-  "identifier": "com.shkwon.dbtools",
+  "identifier": "com.shkwon.mydbtools",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://127.0.0.1:5174",
@@ -28,7 +28,7 @@
     "copyright": "Copyright (c) 2026 SHKWON",
     "category": "DeveloperTool",
     "shortDescription": "ER diagram and database schema design tool",
-    "longDescription": "DBTools designs database schemas as ER diagrams, analyses normalization and indexes, and exports SQL, documents and images.",
+    "longDescription": "MyDBTools designs database schemas as ER diagrams, analyses normalization and indexes, and exports SQL, documents and images.",
     "icon": [
       "../assets/icons/32x32.png",
       "../assets/icons/128x128.png",
@@ -45,8 +45,8 @@
         "ext": [
           "mdprj"
         ],
-        "name": "DBTools Project",
-        "description": "DBTools ER diagram project",
+        "name": "MyDBTools Project",
+        "description": "MyDBTools ER diagram project",
         "role": "Editor"
       }
     ],

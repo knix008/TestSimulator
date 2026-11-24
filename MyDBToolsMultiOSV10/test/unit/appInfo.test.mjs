@@ -15,7 +15,7 @@ suite('app identity', () => {
   test('the title carries both the name and the version', () => {
     expect(appInfo.APP_TITLE).toContain(appInfo.APP_NAME);
     expect(appInfo.APP_TITLE).toContain('v1.0.1');
-    expect(appInfo.APP_TITLE).toBe('DBTools v1.0.1');
+    expect(appInfo.APP_TITLE).toBe('MyDBTools v1.0.1');
   });
 
   test('the version is 1.0.1 and the label carries all of it', () => {
@@ -74,7 +74,7 @@ suite('window title', () => {
   });
 
   test('with no document the application name stands in', () => {
-    expect(windowTitle(null, false)).toBe(`DBTools — ${APP_TITLE}`);
-    expect(windowTitle('   ', false)).toBe(`DBTools — ${APP_TITLE}`);
+    expect(windowTitle(null, false)).toBe(`MyDBTools — ${APP_TITLE}`);
+    expect(windowTitle('   ', false)).toBe(`MyDBTools — ${APP_TITLE}`);
   });
 });

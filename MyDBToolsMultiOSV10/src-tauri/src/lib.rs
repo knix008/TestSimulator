@@ -1,4 +1,4 @@
-// DBTools - Tauri shell.
+// MyDBTools - Tauri shell.
 //
 //   - the main window: frameless (the page draws the title bar), at the saved place
 //     and size; hidden until the page says it has painted, so there is no white flash
@@ -20,14 +20,20 @@ use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter, LogicalSize, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
 pub const MAIN: &str = "main";
-pub const TITLE: &str = "DBTools v1.0.1";
+pub const TITLE: &str = "MyDBTools v1.0.1";
 /// The page measures the toolbar and raises this (set_min_width).
 const MIN_WIDTH: f64 = 900.0;
 const MIN_HEIGHT: f64 = 640.0;
 const DEFAULT_WIDTH: f64 = 1480.0;
 const DEFAULT_HEIGHT: f64 = 920.0;
-/// The folder the Electron build used (its userData), so settings carry over.
-const DATA_FOLDER: &str = "DBTools";
+/// Where settings, recent files and the window place live (under %APPDATA% etc.).
+const DATA_FOLDER: &str = "MyDBTools";
+/// The folder the program used while it was called DBTools (and the Electron
+/// build before it); its files are carried over once, on the first start.
+const OLD_DATA_FOLDER: &str = "DBTools";
+/// The program's own files in the data folder (the old Electron folder also
+/// holds Chromium's caches, which are not ours to move).
+const DATA_FILES: &[&str] = &["settings.json", "recent.json", "window.json"];
 const DOC_WINDOW: &str = "doc";
 const DOC_PRINT_WINDOW: &str = "doc-print";
 /// Files the app opens from the command line or a file association.
@@ -54,15 +60,47 @@ pub fn data_dir() -> PathBuf {
     if let Some(dir) = std::env::var_os("DBTOOLS_DATA_DIR").filter(|d| !d.is_empty()) {
         return PathBuf::from(dir);
     }
+    config_root().join(DATA_FOLDER)
+}
+
+/// The per-user folder that application data folders sit in.
+fn config_root() -> PathBuf {
     let var = |name: &str| std::env::var(name).unwrap_or_else(|_| ".".into());
     if cfg!(windows) {
-        return PathBuf::from(var("APPDATA")).join(DATA_FOLDER);
+        return PathBuf::from(var("APPDATA"));
     }
     if cfg!(target_os = "macos") {
-        return PathBuf::from(var("HOME")).join("Library/Application Support").join(DATA_FOLDER);
+        return PathBuf::from(var("HOME")).join("Library/Application Support");
     }
-    let base = std::env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| format!("{}/.config", var("HOME")));
-    PathBuf::from(base).join(DATA_FOLDER)
+    PathBuf::from(std::env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| format!("{}/.config", var("HOME"))))
+}
+
+/// First start under the new name: bring the settings, recent files and window
+/// place over from the old DBTools folder. Copies (the old folder is left as it
+/// was) and never overwrites a file the new folder already has. Not in a test
+/// run with its own data folder.
+fn carry_over_old_data() {
+    if std::env::var_os("DBTOOLS_DATA_DIR").is_some_and(|d| !d.is_empty()) {
+        return;
+    }
+    let root = config_root();
+    copy_missing_files(&root.join(OLD_DATA_FOLDER), &root.join(DATA_FOLDER), DATA_FILES);
+}
+
+/// Copies each of `names` from `from` to `to` where `to` lacks it. Returns how many.
+fn copy_missing_files(from: &Path, to: &Path, names: &[&str]) -> usize {
+    let mut copied = 0;
+    for name in names {
+        let source = from.join(name);
+        let target = to.join(name);
+        if !source.is_file() || target.exists() {
+            continue;
+        }
+        if std::fs::create_dir_all(to).is_ok() && std::fs::copy(&source, &target).is_ok() {
+            copied += 1;
+        }
+    }
+    copied
 }
 
 /// The first argument that names an openable file that exists.
@@ -283,10 +321,10 @@ async fn open_doc(app: AppHandle, doc: String, language: String) -> Result<(), S
     let language = if language == "en" { "en" } else { "ko" };
     let page = format!("doc/index.html?doc={doc}&lang={language}");
     let title = match (doc, language) {
-        ("tutorial", "en") => "DBTools Tutorial",
-        ("tutorial", _) => "DBTools 튜토리얼",
-        (_, "en") => "DBTools User Guide",
-        _ => "DBTools 사용자 설명서",
+        ("tutorial", "en") => "MyDBTools Tutorial",
+        ("tutorial", _) => "MyDBTools 튜토리얼",
+        (_, "en") => "MyDBTools User Guide",
+        _ => "MyDBTools 사용자 설명서",
     };
     if let Some(win) = app.get_webview_window(DOC_WINDOW) {
         let _ = win.eval(format!("window.location.replace('index.html?doc={doc}&lang={language}')"));
@@ -315,7 +353,7 @@ async fn open_doc_print(app: AppHandle, doc: String, language: String) -> Result
     let doc = if doc == "tutorial" { "tutorial" } else { "guide" };
     let language = if language == "en" { "en" } else { "ko" };
     let page = format!("doc/print.html?doc={doc}&lang={language}");
-    let title = if language == "en" { "DBTools — Print" } else { "DBTools — 인쇄" };
+    let title = if language == "en" { "MyDBTools — Print" } else { "MyDBTools — 인쇄" };
     if let Some(win) = app.get_webview_window(DOC_PRINT_WINDOW) {
         let _ = win.eval(format!("window.location.replace('print.html?doc={doc}&lang={language}')"));
         let _ = win.unminimize();
@@ -376,6 +414,7 @@ fn open_in_main(app: &AppHandle, file: String) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    carry_over_old_data();
     let mut builder = tauri::Builder::default();
     // A test run with its own data folder must not hand over to an installed copy.
     if std::env::var_os("DBTOOLS_DATA_DIR").is_none() {
@@ -436,7 +475,7 @@ pub fn run() {
             popout::popout_close,
         ])
         .build(tauri::generate_context!())
-        .expect("DBTools failed to start");
+        .expect("MyDBTools failed to start");
     app.run(|_handle, _event| {
         // macOS hands a double-clicked file over as an event, not an argument.
         #[cfg(target_os = "macos")]
@@ -453,6 +492,35 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_old_dbtools_files_are_carried_over_once_without_overwriting() {
+        let base = std::env::temp_dir().join(format!("mydbtools-carry-{}", std::process::id()));
+        let old = base.join("DBTools");
+        let new = base.join("MyDBTools");
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(&old).unwrap();
+        std::fs::write(old.join("settings.json"), "{\"Theme\":\"old\"}").unwrap();
+        std::fs::write(old.join("recent.json"), "[\"a.mdprj\"]").unwrap();
+        std::fs::write(old.join("Cookies"), "chromium").unwrap();
+
+        // First start: the program's files come over; Chromium's do not.
+        assert_eq!(copy_missing_files(&old, &new, DATA_FILES), 2);
+        assert_eq!(std::fs::read_to_string(new.join("settings.json")).unwrap(), "{\"Theme\":\"old\"}");
+        assert!(!new.join("Cookies").exists());
+        assert!(old.join("settings.json").exists(), "the old folder is left alone");
+
+        // Later starts never overwrite what the new folder has.
+        std::fs::write(new.join("settings.json"), "{\"Theme\":\"new\"}").unwrap();
+        assert_eq!(copy_missing_files(&old, &new, DATA_FILES), 0);
+        assert_eq!(std::fs::read_to_string(new.join("settings.json")).unwrap(), "{\"Theme\":\"new\"}");
+
+        // Nothing to bring over: nothing happens, no folder is made.
+        let none = base.join("none");
+        assert_eq!(copy_missing_files(&base.join("missing"), &none, DATA_FILES), 0);
+        assert!(!none.exists());
+        let _ = std::fs::remove_dir_all(&base);
+    }
 
     #[test]
     fn only_existing_project_files_are_picked_from_the_arguments() {

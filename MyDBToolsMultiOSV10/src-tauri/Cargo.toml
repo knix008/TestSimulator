@@ -1,14 +1,14 @@
 [package]
-name = "dbtools"
+name = "mydbtools"
 version = "1.0.1"
-description = "DBTools - Tauri shell around the ER diagram editor"
+description = "MyDBTools - Tauri shell around the ER diagram editor"
 authors = ["SHKWON <knix008@naver.com>"]
 license = "UNLICENSED"
 edition = "2021"
 rust-version = "1.83"
 
 [lib]
-name = "dbtools_lib"
+name = "mydbtools_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

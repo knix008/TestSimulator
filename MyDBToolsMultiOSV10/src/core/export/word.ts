@@ -273,7 +273,7 @@ export async function exportWord(
   });
 
   const doc = new Document({
-    creator: 'DBTools',
+    creator: 'MyDBTools',
     title: `${schema.Name} 설계 보고서`,
     styles: {
       default: {

@@ -646,7 +646,7 @@ export async function exportAnalysisWord(
   });
 
   const doc = new Document({
-    creator: 'DBTools',
+    creator: 'MyDBTools',
     title: `${schema.Name} ${REPORT_HEADING}`,
     styles: {
       default: {

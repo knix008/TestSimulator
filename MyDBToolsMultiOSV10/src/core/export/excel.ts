@@ -41,7 +41,7 @@ export async function exportExcel(
   const imported = await import('exceljs');
   const ExcelJS = imported.default ?? imported;
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'DBTools';
+  workbook.creator = 'MyDBTools';
   const reportPrefs = options.report ?? DEFAULT_REPORT_PREFS;
   workbook.created = options.now ?? new Date();
 

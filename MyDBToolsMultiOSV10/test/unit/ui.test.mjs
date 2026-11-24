@@ -202,7 +202,7 @@ suite('cover page', () => {
     const cover = coverPage.buildCover(sample, { now });
     expect(cover.subject).toBe('OnlineShop');
     expect(cover.heading).toContain('보고서');
-    expect(cover.producer).toBe('DBTools');
+    expect(cover.producer).toBe('MyDBTools');
     const rows = Object.fromEntries(cover.rows.map((r) => [r.label, r.value]));
     expect(rows['대상 데이터베이스']).toBe('PostgreSQL');
     expect(rows['테이블 수']).toBe('5');

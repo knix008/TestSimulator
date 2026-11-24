@@ -734,7 +734,7 @@ export function DiagramCanvas(props: Props) {
       {!hasTables && (
         <div className="canvas-empty">
           <img className="canvas-empty-icon" src={appIcon} alt="" width={96} height={96} draggable={false} />
-          <div className="canvas-empty-title">DBTools</div>
+          <div className="canvas-empty-title">MyDBTools</div>
           <div className="canvas-empty-tagline">{t('CanvasWelcomeTagline')}</div>
           <div className="canvas-empty-hint">{t('CanvasNoTables')}</div>
         </div>

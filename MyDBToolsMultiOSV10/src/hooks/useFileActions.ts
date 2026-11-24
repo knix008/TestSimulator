@@ -37,7 +37,7 @@ const DESIGN_REPORT_TITLE = '데이터베이스 설계 보고서';
 const ANALYSIS_REPORT_TITLE = '데이터베이스 분석 보고서';
 
 export const PROJECT_FILTER = [
-  { name: 'DBTools Project', extensions: ['mdprj'] },
+  { name: 'MyDBTools Project', extensions: ['mdprj'] },
   { name: 'JSON', extensions: ['json'] },
 ];
 
@@ -53,7 +53,7 @@ export const DATABASE_FILTER = [
 ];
 
 export const WORKSPACE_FILTER = [
-  { name: 'DBTools Workspace', extensions: [WORKSPACE_EXTENSION] },
+  { name: 'MyDBTools Workspace', extensions: [WORKSPACE_EXTENSION] },
 ];
 
 export interface FileActionCallbacks {

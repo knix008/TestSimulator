@@ -1,4 +1,4 @@
-# DBTools Tutorial
+# MyDBTools Tutorial
 
 This tutorial walks a first-time user through the main features **in about 30 minutes**: open an
 example, add a table and relationships, fix what the normalization analysis finds, export SQL,
@@ -11,7 +11,7 @@ matching chapter of the [User guide](UsersGuide.en.md).
 
 ## Before you start
 
-- Desktop: start **DBTools**. From source, run `npm start` in the project folder.
+- Desktop: start **MyDBTools**. From source, run `npm start` in the project folder.
 - Web: run `npm run web` and open <http://127.0.0.1:5174>.
 
 The **start screen** appears. If it does not, press **Home** at the front of the menu bar.
@@ -20,7 +20,7 @@ The **start screen** appears. If it does not, press **Home** at the front of the
 
 ## Step 1 — The start screen
 
-1. The title card shows the name and version, **DBTools v1.0.1**.
+1. The title card shows the name and version, **MyDBTools v1.0.1**.
 2. **Get started** holds New · Open project · Open database · Open workspace.
 3. Press **User guide** on the **Help** card. The guide opens in a **window of its own**; its
    **Tutorial** button switches to this document. Leave the guide window beside the app.

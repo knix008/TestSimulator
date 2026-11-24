@@ -28,9 +28,9 @@ for (const name of fs.existsSync(path.join(root, 'public/doc')) ? fs.readdirSync
 }
 if (all) {
   targets.push('node_modules');
-  // Installers the build scripts copied to the root (DBTools_<version>_…).
+  // Installers the build scripts copied to the root (MyDBTools_<version>_…).
   for (const name of fs.readdirSync(root)) {
-    if (/^DBTools_.*\.(exe|msi|dmg|deb|rpm|AppImage)$/i.test(name)) targets.push(name);
+    if (/^MyDBTools_.*\.(exe|msi|dmg|deb|rpm|AppImage)$/i.test(name)) targets.push(name);
   }
 }
 

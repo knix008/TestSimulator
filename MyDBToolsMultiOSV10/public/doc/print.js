@@ -50,7 +50,7 @@
 
   M.followTheme();
   document.documentElement.lang = lang;
-  document.title = 'DBTools — ' + T.title + ' — ' + title;
+  document.title = 'MyDBTools — ' + T.title + ' — ' + title;
 
   // ── settings panel ───────────────────────────────────────────────────────
   function option(value, label, selected) {
@@ -144,7 +144,7 @@
       // The preview sheet scrolls with the wheel but shows no scroll bars.
       preview ? 'html { overflow-x: hidden; scrollbar-width: none; } html::-webkit-scrollbar { display: none; }' : '',
     ].join('\n');
-    return '<!doctype html><html lang="' + lang + '"><head><meta charset="utf-8"><title>DBTools — ' + M.esc(title) +
+    return '<!doctype html><html lang="' + lang + '"><head><meta charset="utf-8"><title>MyDBTools — ' + M.esc(title) +
       '</title><style>' + css + '</style></head><body>' + bodyHtml + '</body></html>';
   }
 
@@ -184,7 +184,7 @@
       duplex: state.duplex === 'none' ? null : state.duplex,
       collate: state.collate,
       pageRanges: state.allPages ? null : state.ranges,
-      headerTitle: state.headers ? 'DBTools — ' + title : null,
+      headerTitle: state.headers ? 'MyDBTools — ' + title : null,
     };
   }
   function systemPrint() {
@@ -195,7 +195,7 @@
   function savePdf() {
     if (!bridge) return systemPrint();
     bridge
-      .invoke('files_pick_save', { name: 'DBTools-' + doc + '-' + lang + '.pdf', filters: [{ name: 'PDF', extensions: ['pdf'] }] })
+      .invoke('files_pick_save', { name: 'MyDBTools-' + doc + '-' + lang + '.pdf', filters: [{ name: 'PDF', extensions: ['pdf'] }] })
       .then(function (output) {
         if (!output) return;
         var j = job();

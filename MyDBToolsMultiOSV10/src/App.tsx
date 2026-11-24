@@ -1424,7 +1424,7 @@ export default function App() {
       }}>
         <div className="brand" title={`${APP_TITLE} — ${startOn ? t('StartTitle') : currentPath ?? schema.Name}${!startOn && isDirty ? ' ●' : ''}`}>
           <img src={appIcon} alt="" draggable={false} />
-          <span className="brand-name">DBTools</span>
+          <span className="brand-name">MyDBTools</span>
           <span className="brand-version">v{APP_VERSION}</span>
           {!startOn && isDirty && <em className="title-dirty" aria-label={t('UnsavedMarker')}>●</em>}
         </div>

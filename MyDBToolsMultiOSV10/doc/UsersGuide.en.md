@@ -1,10 +1,10 @@
-# DBTools User Guide
+# MyDBTools User Guide
 
-DBTools designs database schemas as ER diagrams. It runs the same way in a **web browser, on
+MyDBTools designs database schemas as ER diagrams. It runs the same way in a **web browser, on
 Windows, macOS and Linux**; the desktop edition runs in a **Tauri** shell (Rust + the operating
 system's web view).
 
-> New to DBTools? Work through the [Tutorial](Tutorial.en.md) first. It opens an example, adds
+> New to MyDBTools? Work through the [Tutorial](Tutorial.en.md) first. It opens an example, adds
 > tables and relationships, runs the analysis, prints, and changes the theme, one step at a time.
 
 ---
@@ -37,8 +37,8 @@ browser's own file dialogs.
 
 ### On the desktop
 
-- **Installed**: start **DBTools** from the Start menu or the desktop shortcut. Double-clicking a
-  `.mdprj` file opens it too; if DBTools is already running, the running window comes forward and
+- **Installed**: start **MyDBTools** from the Start menu or the desktop shortcut. Double-clicking a
+  `.mdprj` file opens it too; if MyDBTools is already running, the running window comes forward and
   opens the file in a new tab.
 - **From source**: `npm start` starts the Vite dev server (port 5174, or the next free one) and
   then `tauri dev`. Rust (`cargo`) must be installed.
@@ -50,9 +50,9 @@ position and size are restored on the next start.
 ### Building the installers
 
 ```bash
-npm run build:win      # Windows — DBTools_1.0.1_x64-setup.exe (NSIS)
-npm run build:mac      # macOS   — DBTools_1.0.1_*.dmg
-npm run build:linux    # Linux   — DBTools_1.0.1_amd64.deb, .AppImage
+npm run build:win      # Windows — MyDBTools_1.0.1_x64-setup.exe (NSIS)
+npm run build:mac      # macOS   — MyDBTools_1.0.1_*.dmg
+npm run build:linux    # Linux   — MyDBTools_1.0.1_amd64.deb, .AppImage
 ```
 
 Run each on its own operating system. The finished installer of this version is **copied to the
@@ -70,7 +70,7 @@ Settings (SQLite at first).
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│  Title bar (icon · DBTools v1.0.1 · document · ─ □ ✕)                  │
+│  Title bar (icon · MyDBTools v1.0.1 · document · ─ □ ✕)                  │
 ├──────────────────────────────────────────────────────────────────────┤
 │  Menu bar (Home | File | Edit | View | Analyze | Help …… Theme ▾ 🏳 ⚙ ⓘ) │
 ├──────────────────────────────────────────────────────────────────────┤
@@ -88,8 +88,8 @@ Settings (SQLite at first).
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-**Title bar** — the program name and version (`DBTools v1.0.1`) and the current document. A `●`
-after the document name means unsaved changes. The taskbar shows `document — DBTools v1.0.1`.
+**Title bar** — the program name and version (`MyDBTools v1.0.1`) and the current document. A `●`
+after the document name means unsaved changes. The taskbar shows `document — MyDBTools v1.0.1`.
 
 **Menu bar** — the **Home** button at the front opens and closes the
 [start screen](#10-start-screen-and-examples). At the right end are the **theme drop-down,
@@ -182,7 +182,7 @@ the file it came from, and which tab was in front. **File → Open workspace** b
 | SQLite | `.db`, `.sqlite`, `.sqlite3`, `.db3` | Tables, columns, PK, UNIQUE, foreign keys |
 | SQL DDL | `.sql` | `CREATE TABLE` / `ALTER TABLE … FOREIGN KEY` |
 | Vector index | `.faiss`, `.findex`, `.hnsw`, `.index` | Faiss and hnswlib metadata |
-| Project | `.mdprj`, `.json` | DBTools project |
+| Project | `.mdprj`, `.json` | MyDBTools project |
 
 Imported schemas are auto-arranged and are not tied to a project file until you save them.
 Access (`.mdb`/`.accdb`), SQL Server (`.mdf`) and encrypted SQLite are not supported; export a
@@ -314,7 +314,7 @@ main window stays usable; the print window can be resized and maximized.
 
 The diagram is scaled to one page under a line with the schema name, target database, table and
 relationship counts and the time. Choosing a file-only printer such as "Microsoft Print to PDF"
-saves through DBTools' own save dialog instead of the driver's. In a browser and on macOS / Linux,
+saves through MyDBTools' own save dialog instead of the driver's. In a browser and on macOS / Linux,
 **Print** opens the system print dialog.
 
 ---
@@ -337,7 +337,7 @@ statement. Columns already covered are listed as Already indexed.
 
 ## 10. Start screen and examples
 
-When DBTools starts, the **start screen** covers the editor. Reopen it any time with **Home** on
+When MyDBTools starts, the **start screen** covers the editor. Reopen it any time with **Home** on
 the menu bar, **File → Start screen** or **Help → Start screen**; close it with **Go to the
 editor** or Esc. Untick **Show the start screen when the app starts** (also in Settings →
 Appearance) to go straight to the editor.
@@ -558,9 +558,9 @@ It leaves that port alone and uses the next free one; the terminal shows which.
 
 | OS | Folder |
 |----|--------|
-| Windows | `%APPDATA%\DBTools` |
-| macOS | `~/Library/Application Support/DBTools` |
-| Linux | `~/.config/DBTools` |
+| Windows | `%APPDATA%\MyDBTools` |
+| macOS | `~/Library/Application Support/MyDBTools` |
+| Linux | `~/.config/MyDBTools` |
 
 `settings.json` (settings and custom themes), `recent.json` and `window.json` (window place). It is
 the same folder the earlier Electron edition used, so settings carry over. The web edition keeps

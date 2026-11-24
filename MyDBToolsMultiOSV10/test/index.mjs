@@ -40,7 +40,7 @@ const filter = process.argv[2];
 console.log('');
 console.log(rule('═'));
 console.log(
-  `  ${c.bold(c.cyan('DBTools'))} ${c.grey('·')} ${c.bold('test suite')}` +
+  `  ${c.bold(c.cyan('MyDBTools'))} ${c.grey('·')} ${c.bold('test suite')}` +
     (filter ? `   ${c.onYellow(` filter: ${filter} `)}` : ''),
 );
 console.log(

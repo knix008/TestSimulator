@@ -1,6 +1,6 @@
-# DBTools 사용자 설명서
+# MyDBTools 사용자 설명서
 
-DBTools는 ER 다이어그램 및 데이터베이스 스키마 설계 프로그램입니다.
+MyDBTools는 ER 다이어그램 및 데이터베이스 스키마 설계 프로그램입니다.
 **웹 브라우저, Windows, macOS, Linux** 에서 동일하게 동작합니다. 데스크톱 판은
 **Tauri** 셸(Rust + 운영체제 웹뷰)로 실행됩니다.
 
@@ -37,7 +37,7 @@ DBTools는 ER 다이어그램 및 데이터베이스 스키마 설계 프로그�
 
 ### 데스크톱에서 사용
 
-- **설치본**: 시작 메뉴·바탕 화면의 **DBTools** 실행. `.mdprj` 파일을 더블클릭해도 열립니다.
+- **설치본**: 시작 메뉴·바탕 화면의 **MyDBTools** 실행. `.mdprj` 파일을 더블클릭해도 열립니다.
   이미 실행 중이면 새 창 대신 실행 중인 창이 앞으로 나오고 그 파일이 새 탭으로 열립니다.
 - **개발 실행**: `npm start` — Vite 개발 서버(기본 5174, 사용 중이면 다음 빈 포트)를 띄운 뒤
   `tauri dev` 로 창을 엽니다. Rust(`cargo`)가 설치되어 있어야 합니다.
@@ -49,9 +49,9 @@ DBTools는 ER 다이어그램 및 데이터베이스 스키마 설계 프로그�
 ### 설치 파일 만들기
 
 ```bash
-npm run build:win      # Windows — DBTools_1.0.1_x64-setup.exe (NSIS)
-npm run build:mac      # macOS   — DBTools_1.0.1_*.dmg
-npm run build:linux    # Linux   — DBTools_1.0.1_amd64.deb, .AppImage
+npm run build:win      # Windows — MyDBTools_1.0.1_x64-setup.exe (NSIS)
+npm run build:mac      # macOS   — MyDBTools_1.0.1_*.dmg
+npm run build:linux    # Linux   — MyDBTools_1.0.1_amd64.deb, .AppImage
 ```
 
 각 명령은 해당 운영체제에서 실행합니다. 빌드가 끝나면 이번 버전의 설치 파일이
@@ -69,7 +69,7 @@ npm run build:linux    # Linux   — DBTools_1.0.1_amd64.deb, .AppImage
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│  제목 표시줄 (아이콘 · DBTools v1.0.1 · 문서 이름 · ─ □ ✕)               │
+│  제목 표시줄 (아이콘 · MyDBTools v1.0.1 · 문서 이름 · ─ □ ✕)               │
 ├──────────────────────────────────────────────────────────────────────┤
 │  메뉴 막대 (홈 | 파일 | 편집 | 보기 | 분석 | 도움말 …… 테마 ▾ 🏳 ⚙ ⓘ)   │
 ├──────────────────────────────────────────────────────────────────────┤
@@ -87,9 +87,9 @@ npm run build:linux    # Linux   — DBTools_1.0.1_amd64.deb, .AppImage
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-**제목 표시줄** — 프로그램 이름과 버전(`DBTools v1.0.1`), 현재 문서 이름이 표시됩니다.
+**제목 표시줄** — 프로그램 이름과 버전(`MyDBTools v1.0.1`), 현재 문서 이름이 표시됩니다.
 저장하지 않은 변경이 있으면 문서 이름 뒤에 `●` 가 붙습니다. 운영체제 작업 표시줄에는
-`문서 이름 — DBTools v1.0.1` 형식으로 나옵니다.
+`문서 이름 — MyDBTools v1.0.1` 형식으로 나옵니다.
 
 **메뉴 막대** — 맨 앞의 **홈** 단추는 [시작 화면](#10-시작-화면과-예제)을 열고 닫습니다.
 오른쪽 끝에는 **테마 드롭다운 · 언어 전환 · 설정 · 프로그램 정보** 가 있습니다.
@@ -178,7 +178,7 @@ JSON 형식(UTF-8)이며 스키마 이름, 대상 DB, 테이블·컬럼·관계,
 | SQLite | `.db`, `.sqlite`, `.sqlite3`, `.db3` | 테이블·컬럼·PK·UNIQUE·외래 키를 읽습니다 |
 | SQL DDL | `.sql` | `CREATE TABLE` / `ALTER TABLE ... FOREIGN KEY` 파싱 |
 | Vector Index | `.faiss`, `.findex`, `.hnsw`, `.index` | Faiss · hnswlib 인덱스 메타데이터 |
-| 프로젝트 | `.mdprj`, `.json` | DBTools 프로젝트 파일 |
+| 프로젝트 | `.mdprj`, `.json` | MyDBTools 프로젝트 파일 |
 
 가져온 스키마는 자동 배치되며, `.mdprj` 로 저장하기 전까지 프로젝트 파일과 연결되지 않습니다.
 
@@ -863,9 +863,9 @@ Firefox·Safari에서는 다운로드 폴더에 저장됩니다.
 
 | 운영체제 | 폴더 |
 |----------|------|
-| Windows | `%APPDATA%\DBTools` |
-| macOS | `~/Library/Application Support/DBTools` |
-| Linux | `~/.config/DBTools` |
+| Windows | `%APPDATA%\MyDBTools` |
+| macOS | `~/Library/Application Support/MyDBTools` |
+| Linux | `~/.config/MyDBTools` |
 
 `settings.json`(설정·사용자 정의 테마), `recent.json`(최근 파일), `window.json`(창 위치·크기)이
 있습니다. 이전 Electron 판과 같은 폴더라 설정이 그대로 이어집니다. 웹 판은 브라우저 저장소에 둡니다.

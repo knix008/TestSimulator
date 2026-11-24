@@ -65,7 +65,7 @@ export const DEFAULT_REPORT_PREFS: ReportPrefs = {
   CoverAuthor: '',
   CoverShowDetails: true,
   CoverShowProjectPath: true,
-  CoverProducer: 'DBTools',
+  CoverProducer: 'MyDBTools',
 
   HeadingNumberStyle: 'none',
 

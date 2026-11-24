@@ -1,4 +1,4 @@
-# DBToolsMultiOSV10 — DBTools v1.0.1
+# DBToolsMultiOSV10 — MyDBTools v1.0.1
 
 [DBToolsWinV10](../DBToolsWinV10)(Windows Forms / .NET 10)를 **TypeScript + React** 로 다시 구현한
 ER 다이어그램 · 데이터베이스 스키마 설계 도구입니다. 데스크톱 판은 **Tauri 2**(Rust 셸 + 운영체제
@@ -39,7 +39,7 @@ npm run web        # 브라우저용 개발 서버 (http://127.0.0.1:5174)
 
 ```bash
 npm run build          # 문서 복사(build:docs) + 웹 번들(dist/)
-npm run build:debug    # 디버그 exe (설치 파일 없이) — src-tauri/target/debug/DBTools(.exe)
+npm run build:debug    # 디버그 exe (설치 파일 없이) — src-tauri/target/debug/MyDBTools(.exe)
 npm run build:win      # Windows NSIS 설치 파일
 npm run build:mac      # macOS .app / .dmg
 npm run build:linux    # Linux .deb / .AppImage
@@ -237,8 +237,8 @@ SQLite 등가 표현으로 변환합니다. **SQL 텍스트 내보내기는 원�
 | 최근 파일 | `<데이터 폴더>/recent.json` | 지원 안 함 |
 | 창 위치 · 크기 | `<데이터 폴더>/window.json` | — |
 
-데이터 폴더: Windows `%APPDATA%DBTools`, macOS `~/Library/Application Support/DBTools`, Linux
-`~/.config/DBTools` (이전 Electron 판과 같은 폴더). 시험 실행은 `DBTOOLS_DATA_DIR` 로 다른 폴더를 쓰며,
+데이터 폴더: Windows `%APPDATA%MyDBTools`, macOS `~/Library/Application Support/MyDBTools`, Linux
+`~/.config/MyDBTools` (이전 Electron 판과 같은 폴더). 시험 실행은 `DBTOOLS_DATA_DIR` 로 다른 폴더를 쓰며,
 이때는 단일 실행 잠금도 끕니다.
 
 ## 문제 해결

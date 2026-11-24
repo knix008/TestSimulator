@@ -242,7 +242,7 @@ mod imp {
     static NAV: Mutex<Option<Sender<Result<(), String>>>> = Mutex::new(None);
 
     fn work_dir() -> PathBuf {
-        let d = std::env::temp_dir().join("DBTools-print");
+        let d = std::env::temp_dir().join("MyDBTools-print");
         let _ = std::fs::create_dir_all(&d);
         d
     }
@@ -255,7 +255,7 @@ mod imp {
         std::fs::write(&blank, "<!doctype html><title>print</title>").map_err(|e| e.to_string())?;
         let url = tauri::Url::from_file_path(&blank).map_err(|_| "bad temp path".to_string())?;
         let mut b = WebviewWindowBuilder::new(app, HOST_LABEL, WebviewUrl::External(url))
-            .title("DBTools print")
+            .title("MyDBTools print")
             .inner_size(820.0, 1100.0)
             .visible(false)
             .focused(false)

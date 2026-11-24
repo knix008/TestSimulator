@@ -1,5 +1,5 @@
 {
-  "name": "dbtools-multios",
+  "name": "mydbtools-multios",
   "version": "1.0.1",
   "description": "Cross-platform ER diagram and database schema design tool (Tauri desktop shell)",
   "author": "SHKWON <knix008@naver.com>",

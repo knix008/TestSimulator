@@ -74,7 +74,7 @@ function CanvasPreview({ theme, backdrop }: { theme: ThemeDefinition; backdrop: 
     <div className="theme-preview" style={{ background: p.appBackground, color: p.textPrimary, borderColor: p.border }}>
       <div className="theme-preview-bar" style={{ background: p.panelBackground, borderColor: p.border }}>
         <span className="theme-preview-dot" style={{ background: p.accent }} />
-        <span style={{ color: p.textSecondary }}>DBTools</span>
+        <span style={{ color: p.textSecondary }}>MyDBTools</span>
       </div>
       <div className="theme-preview-canvas" style={{ background: pattern }}>
         <div className="theme-preview-table" style={{ borderColor: p.canvasBorder, background: p.canvasRowOdd }}>
