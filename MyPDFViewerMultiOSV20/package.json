@@ -44,7 +44,7 @@
     "test": "npm run test:js && npm run test:rust",
     "test:js": "vitest run",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
-    "smoke:desktop": "node scripts/smoke-desktop.mjs",
+    "smoke:desktop": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/smoke-desktop.mjs",
     "pretest:watch": "node scripts/ensure-deps.mjs",
     "test:watch": "vitest",
     "sync:doc": "node scripts/sync-doc.mjs"

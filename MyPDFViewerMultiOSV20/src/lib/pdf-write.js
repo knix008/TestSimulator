@@ -5,8 +5,10 @@ import {
   PDFDocument,
   PDFHexString,
   PDFName,
+  PDFNumber,
   PDFString,
 } from 'pdf-lib';
+import { ALL_PERMISSIONS, encryptPdfBytes, loadPdfForEditing } from './pdf-crypt.js';
 
 export const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
 
@@ -283,7 +285,7 @@ export function appendOutlineEntries(pdfDoc, entries) {
   if (outlines) {
     if (!existingFirst) outlines.set(PDFName.of('First'), refs[0]);
     outlines.set(PDFName.of('Last'), refs[refs.length - 1]);
-    outlines.set(PDFName.of('Count'), existingCount + valid.length);
+    outlines.set(PDFName.of('Count'), PDFNumber.of(existingCount + valid.length));
   } else {
     context.assign(outlinesRef, context.obj({
       Type: 'Outlines',
@@ -313,9 +315,11 @@ export function attachmentRecord({ page, name, mime, bytes, y, rect } = {}) {
 // Takes annotations that are already in the PDF out of it. `refs` are
 // { page, num, gen } — the object a page's /Annots entry points at. The
 // annotation object itself is left unreferenced; pdf-lib drops it on save.
-export async function removePdfAnnotations(pdfBytes, refs = []) {
+// `password` opens an encrypted source; the result is written unencrypted
+// (applyPdfProtection puts a password back on when the user wants one).
+export async function removePdfAnnotations(pdfBytes, refs = [], { password = '' } = {}) {
   const src = pdfBytes instanceof Uint8Array ? pdfBytes : new Uint8Array(pdfBytes || []);
-  const pdfDoc = await PDFDocument.load(src, { updateMetadata: false });
+  const { pdfDoc } = await loadPdfForEditing(src, { password });
   const pages = pdfDoc.getPages();
   let removed = 0;
   for (const r of refs) {
@@ -341,9 +345,11 @@ export function workspaceHasPdfMarkup(workspace) {
   return notes + marks + files > 0;
 }
 
-export async function writeWorkspaceIntoPdf(pdfBytes, workspace = {}) {
+// An encrypted source is decrypted with `password` first — pdf-lib cannot
+// edit an encrypted file — so the bytes returned are always unencrypted.
+export async function writeWorkspaceIntoPdf(pdfBytes, workspace = {}, { password = '' } = {}) {
   const src = pdfBytes instanceof Uint8Array ? pdfBytes : new Uint8Array(pdfBytes || []);
-  const pdfDoc = await PDFDocument.load(src, { updateMetadata: false });
+  const { pdfDoc } = await loadPdfForEditing(src, { password });
   const pages = pdfDoc.getPages();
 
   for (const annot of workspace.annotations || []) {
@@ -385,4 +391,54 @@ export async function writeWorkspaceIntoPdf(pdfBytes, workspace = {}) {
 
   const saved = await pdfDoc.save({ useObjectStreams: false });
   return saved instanceof Uint8Array ? saved : new Uint8Array(saved);
+}
+
+// Password protection for a PDF being saved. `bytes` is the unencrypted
+// output of writeWorkspaceIntoPdf; `protection.mode` is the user's choice:
+//   'keep' — as the source was: a plain source stays plain, an encrypted one is
+//            locked again with the same user password and permission bits
+//            (owner-only protection stays prompt-free);
+//   'none' — no password;
+//   'set'  — locked with `protection.password` (AES-256).
+// `source` = { encrypted, password (the one that opened it), security } — the
+// last from loadPdfForEditing. Returns { bytes, password } where password is
+// what now opens the file (null when it is not encrypted).
+export async function applyPdfProtection(bytes, protection = {}, source = {}) {
+  const mode = protection.mode || 'keep';
+  if (mode === 'none') return { bytes, password: null };
+  if (mode === 'set') {
+    const pw = String(protection.password ?? '');
+    if (!pw) throw new Error('A password is needed to protect the PDF.');
+    return { bytes: await encryptPdfBytes(bytes, { userPassword: pw, ownerPassword: pw }), password: pw };
+  }
+  if (!source.encrypted) return { bytes, password: null };
+  const sec = source.security || {};
+  const opened = String(source.password ?? '');
+  const userPassword = sec.userPassword ?? opened;
+  const out = await encryptPdfBytes(bytes, {
+    userPassword,
+    // Opened with the owner password: keep it. Otherwise it is unknown, and a
+    // random one keeps the permission bits meaningful.
+    ownerPassword: sec.openedAsOwner ? opened : undefined,
+    permissions: Number.isFinite(sec.permissions) ? sec.permissions : ALL_PERMISSIONS,
+  });
+  return { bytes: out, password: userPassword };
+}
+
+// Everything Save / Save As does to the bytes: markup in, then protection.
+// `file` carries what the viewer knows about the open document:
+//   password   — opens `data` ('' / null when it needs none),
+//   encrypted  — whether the document was password protected when opened,
+//   security   — loadPdfForEditing's description of that protection (looked
+//                up here when missing and still readable from `data`),
+//   protection — the user's choice for the saved file ({ mode, password }).
+export async function buildPdfForSave(file, workspace = {}) {
+  const password = file.password || '';
+  const protection = file.protection || { mode: 'keep' };
+  let security = file.security || null;
+  if (file.encrypted && !security && protection.mode === 'keep') {
+    security = (await loadPdfForEditing(file.data, { password })).security;
+  }
+  const marked = await writeWorkspaceIntoPdf(file.data, workspace, { password });
+  return applyPdfProtection(marked, protection, { encrypted: !!file.encrypted, password, security });
 }

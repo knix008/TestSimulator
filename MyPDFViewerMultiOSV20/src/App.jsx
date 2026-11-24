@@ -13,7 +13,9 @@ import Tooltip from './components/Tooltip.jsx';
 import Toasts from './components/Toasts.jsx';
 import SettingsDialog from './components/SettingsDialog.jsx';
 import AboutDialog from './components/AboutDialog.jsx';
-import { ErrorDialog, ProgressDialog, PromptDialog, PropertiesDialog, UnsavedDialog } from './components/Dialogs.jsx';
+import {
+  ErrorDialog, ProgressDialog, PromptDialog, PropertiesDialog, UnsavedDialog, SecurityDialog,
+} from './components/Dialogs.jsx';
 import CaptureDialog from './components/CaptureDialog.jsx';
 import PrintDialog from './components/PrintDialog.jsx';
 import {
@@ -56,9 +58,11 @@ import { pageOccurrence } from './lib/search.js';
 import { commentAnchorY, mergeCommentList } from './lib/comments.js';
 import { documentKey, tabLabel, findTabByFile, neighborTabId, nextTabId, anyTabDirty } from './lib/tabs.js';
 import {
-  writeWorkspaceIntoPdf, attachmentRecord, base64ToBytes, MAX_ATTACHMENT_BYTES,
-  suggestedPdfCopyName, pdfSaveTarget, removePdfAnnotations,
+  attachmentRecord, base64ToBytes, MAX_ATTACHMENT_BYTES,
+  suggestedPdfCopyName, pdfSaveTarget, removePdfAnnotations, buildPdfForSave,
 } from './lib/pdf-write.js';
+import { loadPdfForEditing } from './lib/pdf-crypt.js';
+import { awaitPdfPassword, PASSWORD_INCORRECT } from './lib/pdf-password.js';
 import {
   registerOpened, addPaths, removeFromGallery, setFavorite, isFavorite, renderThumb,
   recentlyOpened, favoritesOf, clampTileSize, forgetOpened, forgetAllOpened, clampBookSize,
@@ -127,6 +131,7 @@ export default function App() {
   const openSettings = useCallback((tab = 'appearance') => { setSettingsTab(tab); setShowSettings(true); }, []);
   const [showAbout, setShowAbout] = useState(false);
   const [showProps, setShowProps] = useState(false);
+  const [showSecurity, setShowSecurity] = useState(false);
   const [capture, setCapture] = useState(null);        // { dataUrl, width, height, page }
   const [selectedImage, setSelectedImage] = useState(null); // { page, id, rect }
   const [showPrint, setShowPrint] = useState(false);
@@ -182,12 +187,19 @@ export default function App() {
     const state = { kind, name, done: 0, total: 0, indeterminate: true };
     let shown = false;
     let live = true;
-    const timer = setTimeout(() => { if (live) { shown = true; setTask({ ...state }); } }, SHOW_PROGRESS_AFTER);
+    // `paused` hides the dialog while the work waits on the user (a password
+    // prompt) — otherwise the progress backdrop would sit over that prompt.
+    let paused = false;
+    const timer = setTimeout(() => { if (live && !paused) { shown = true; setTask({ ...state }); } }, SHOW_PROGRESS_AFTER);
+    const control = {
+      pause: () => { paused = true; if (shown) setTask(null); },
+      resume: () => { paused = false; if (shown && live) setTask({ ...state }); },
+    };
     try {
       return await fn((p) => {
         Object.assign(state, p, { indeterminate: !(p.total > 0) });
-        if (shown) setTask({ ...state });
-      });
+        if (shown && !paused) setTask({ ...state });
+      }, control);
     } finally {
       live = false;
       clearTimeout(timer);
@@ -396,7 +408,12 @@ export default function App() {
 
   // Turns raw bytes into an open document. Handles both PDFs and workspaces.
   // A new file becomes its own tab unless `replace` is set (Save-as reload).
-  const openBytes = useCallback(async (payload, { restore, replace = false } = {}) => {
+  // `password`: one already known to open these bytes (a reload after Save),
+  // tried before the prompt is shown. `carry`: protection facts to keep when
+  // `data` is a decrypted in-memory rewrite of the open document.
+  const openBytes = useCallback(async (payload, {
+    restore, replace = false, password: knownPassword = null, carry = null,
+  } = {}) => {
     const { data, name, path: filePath, size } = payload;
     try {
       // A .pdfvw workspace points at a PDF: load that, then restore the work.
@@ -419,26 +436,49 @@ export default function App() {
         throw new Error(`${t('error.notPdf')} (${name})`);
       }
 
-      const loadingTask = await withProgress('parsing', name, async (onProgress) => {
-        const lt = loadDocument({
+      // An encrypted PDF stops here for its password. The progress dialog
+      // steps aside so it cannot cover the prompt, and Cancel ends the load
+      // (pdf.js would otherwise wait for the password forever).
+      const opened = await withProgress('parsing', name, (onProgress, progress) => awaitPdfPassword(
+        loadDocument({
           data,
           onProgress: ({ loaded, total }) => onProgress({ done: loaded, total }),
-          onPassword: (retry, reason) => {
-            passwordRetry.current = retry;
-            setPrompt({ open: true, kind: 'password', error: reason === 2 ? t('error.passwordWrong') : '' });
-          },
-        });
-        await lt.promise;   // resolves once (and if) the password is accepted
-        return lt;
-      });
-
-      const pdf = await loadingTask.promise;
+        }),
+        {
+          knownPassword,
+          pause: progress.pause,
+          resume: progress.resume,
+          ask: (reason) => new Promise((resolve) => {
+            passwordRetry.current = resolve;
+            setPrompt({ open: true, kind: 'password', error: reason === PASSWORD_INCORRECT ? t('error.passwordWrong') : '' });
+          }),
+        },
+      ));
+      passwordRetry.current = null;
+      if (!opened) {
+        setStatusMessage(t('status.passwordCancelled', { name }));
+        return;
+      }
+      const { doc: pdf, password: usedPassword } = opened;
+      // pdf.js names the security handler of an encrypted file — also for
+      // owner-only protection, which opens without a prompt.
+      let encrypted = usedPassword != null;
+      if (!encrypted) {
+        try { encrypted = !!(await pdf.getMetadata())?.info?.EncryptFilterName; } catch { /* treat as plain */ }
+      }
       const nextFile = {
         name,
         path: filePath || null,
         dir: filePath ? dirName(filePath) : null,
         size: size ?? data.length,
         data,
+        // Password protection (see buildPdfForSave): what opens `data`,
+        // whether the document is protected, and how Save should protect it.
+        password: usedPassword ?? (encrypted ? '' : null),
+        encrypted,
+        security: null,
+        protection: { mode: 'keep' },
+        ...(carry || {}),
       };
       const key = documentKey(nextFile);
       const existing = !replace ? findTabByFile(tabsRef.current, nextFile) : null;
@@ -715,7 +755,7 @@ export default function App() {
     }
   }, [doc, fail, saveWorkspaceAs, t, toast, withProgress, workspaceJson, workspacePath]);
 
-  const reloadAfterPdfSave = useCallback(async (bytes, filePath) => {
+  const reloadAfterPdfSave = useCallback(async (bytes, filePath, password = null) => {
     await openBytes({
       data: bytes,
       name: filePath ? baseName(filePath) : (file?.name || 'document.pdf'),
@@ -723,6 +763,7 @@ export default function App() {
       size: bytes.length,
     }, {
       replace: true,
+      password,
       restore: {
         workspace: {
           ...workspace,
@@ -745,7 +786,7 @@ export default function App() {
   const buildMarkedPdf = useCallback(() => (
     withProgress('saving', file.name || 'document.pdf', async (onProgress) => {
       onProgress({ done: 0, total: 1 });
-      const out = await writeWorkspaceIntoPdf(file.data, workspace);
+      const out = await buildPdfForSave(file, workspace);   // { bytes, password }
       onProgress({ done: 1, total: 1 });
       return out;
     })
@@ -754,7 +795,7 @@ export default function App() {
   const savePdfAs = useCallback(async () => {
     if (!doc || !file?.data) return false;
     try {
-      const bytes = await buildMarkedPdf();
+      const { bytes, password } = await buildMarkedPdf();
       const saved = await saveBinary({
         defaultName: suggestedPdfCopyName(file.name || 'document.pdf'),
         defaultDir: settings.lastDir,
@@ -763,7 +804,7 @@ export default function App() {
       });
       if (!saved) return false;
       const nextPath = isDesktop && typeof saved === 'string' ? saved : file.path;
-      await reloadAfterPdfSave(bytes, nextPath);
+      await reloadAfterPdfSave(bytes, nextPath, password);
       toast(t('status.savedPdf', { name: baseName(saved) }), 'ok');
       return true;
     } catch (err) {
@@ -778,9 +819,9 @@ export default function App() {
     if (!doc || !file?.data) return false;
     if (pdfSaveTarget({ desktop: isDesktop, path: file.path }) !== 'overwrite') return savePdfAs();
     try {
-      const bytes = await buildMarkedPdf();
+      const { bytes, password } = await buildMarkedPdf();
       await writeBinaryTo(file.path, bytes);
-      await reloadAfterPdfSave(bytes, file.path);
+      await reloadAfterPdfSave(bytes, file.path, password);
       toast(t('status.savedPdf', { name: baseName(file.path) }), 'ok');
       return true;
     } catch (err) {
@@ -1393,7 +1434,16 @@ export default function App() {
         toast(label, 'ok');
         return;
       }
-      const { bytes } = await removePdfAnnotations(file.data, pdfRefs);
+      // The rewrite comes back decrypted; carry the protection it had so the
+      // next Save still knows about (and can keep) the password.
+      const password = file.password || '';
+      const security = file.encrypted
+        ? (file.security || (await loadPdfForEditing(file.data, { password })).security)
+        : null;
+      const { bytes } = await removePdfAnnotations(file.data, pdfRefs, { password });
+      const carry = {
+        password: null, encrypted: !!file.encrypted, security, protection: file.protection || { mode: 'keep' },
+      };
       const nextWorkspace = { ...workspace, annotations: workspace.annotations.filter((a) => !workspaceIds.has(a.id)) };
       commentsKeyRef.current = null;
       await openBytes({
@@ -1403,6 +1453,7 @@ export default function App() {
         size: bytes.length,
       }, {
         replace: true,
+        carry,
         restore: {
           workspace: nextWorkspace,
           view: {
@@ -2017,6 +2068,7 @@ export default function App() {
         onToggleFavorite={toggleFavorite}
         onSave={savePdf}
         onSaveAs={savePdfAs}
+        onSecurity={() => setShowSecurity(true)}
         onSaveWorkspace={saveWorkspace}
         onSaveWorkspaceAs={saveWorkspaceAs}
         onAttachFile={attachFile}
@@ -2327,6 +2379,25 @@ export default function App() {
         onClose={() => setShowProps(false)}
       />
 
+      <SecurityDialog
+        open={showSecurity && !!file}
+        encrypted={!!file?.encrypted}
+        protection={file?.protection}
+        onClose={() => setShowSecurity(false)}
+        onApply={(protection) => {
+          setShowSecurity(false);
+          const prev = file?.protection || { mode: 'keep' };
+          if (prev.mode === protection.mode && (prev.password || '') === (protection.password || '')) return;
+          setFile((f) => (f ? { ...f, protection } : f));
+          // Only a change from "as it is" needs saving.
+          setDirty(true);
+          const msg = t(protection.mode === 'none' ? 'security.appliedNone'
+            : protection.mode === 'set' ? 'security.appliedSet' : 'security.appliedKeep');
+          setStatusMessage(msg);
+          toast(msg, 'ok');
+        }}
+      />
+
       <UnsavedDialog
         open={unsavedOpen}
         onSave={() => finishUnsaved('save')}
@@ -2339,7 +2410,11 @@ export default function App() {
         kind={prompt.kind}
         error={prompt.error}
         onClose={() => {
-          if (prompt.kind === 'password') passwordRetry.current = null;
+          if (prompt.kind === 'password') {
+            const answer = passwordRetry.current;
+            passwordRetry.current = null;
+            answer?.(null);   // cancelled: the load is abandoned
+          }
           if (prompt.kind === 'comment') commentDraft.current = null;
           setPrompt({ open: false, kind: prompt.kind, error: '' });
         }}
@@ -2347,7 +2422,9 @@ export default function App() {
           if (prompt.kind === 'url') { openFromUrl(value); return; }
           if (prompt.kind === 'comment') { saveComment(value); return; }
           setPrompt({ open: false, kind: 'password', error: '' });
-          try { passwordRetry.current?.(value); } catch (err) { fail(err, 'open'); }
+          const answer = passwordRetry.current;
+          passwordRetry.current = null;
+          answer?.(value);
         }}
       />
 

@@ -282,7 +282,35 @@ PDF 자체는 넣지 않고 **경로만 가리킵니다.** 형식이 다르거�
 * 다시 연 형광펜은 **페이지 캔버스가 외형대로 그립니다.** 주석 레이어는 같은 자리를 다시 칠하지 않고
   (`commentMarkFill` — 겹쳐 칠하면 색이 진해졌습니다), 메모 카드는 주석 패널에서 고른 것만 펼칩니다
   (`showsCommentCard` — 형광펜 메모는 대개 칠한 글자 자체라, 늘 펼치면 아래 줄을 가렸습니다).
-* 암호가 걸린 PDF에 쓰는 것은 지원하지 않습니다.
+* 암호가 걸린 PDF도 씁니다 — 아래 7.6 참고. 결과는 늘 복호화된 바이트이고,
+  `applyPdfProtection` 이 사용자가 고른 대로 다시 암호를 겁니다 (`buildPdfForSave` 가 둘을 묶습니다).
+
+## 7.6 PDF 암호 — `src/lib/pdf-crypt.js` · `pdf-crypto-core.js` · `pdf-password.js`
+
+pdf.js 는 암호 PDF를 *읽기만* 하고, pdf-lib 은 암호화·복호화를 전혀 못 합니다. 그래서 표준 보안 처리기
+(ISO 32000-2 §7.6.4)를 직접 구현했습니다.
+
+| 모듈 | 하는 일 |
+| --- | --- |
+| `pdf-crypto-core.js` | MD5 · RC4 · AES-128/256-CBC · SHA-256/384/512 (동기, 순수 JS). WebCrypto 는 비동기 전용이고 http 웹 배포에 없으며 MD5/RC4·패딩 없는 AES 가 없어서입니다. SHA-2 상수는 BigInt 제곱/세제곱근으로 계산합니다 |
+| `pdf-crypt.js` | `loadPdfForEditing(bytes, { password })` → 모든 문자열·스트림을 복호화하고 `/Encrypt` 를 뺀 pdf-lib 문서 + 원래 보호 정보. `encryptPdfBytes` → AES-256(R6, 기본) · AES-128 · RC4-128 · RC4-40 으로 암호화 |
+| `pdf-password.js` | `awaitPdfPassword(task, { ask, knownPassword, pause, resume })` — pdf.js 로딩 작업의 암호 대기 |
+
+* **열기가 멈추던 문제**: pdf.js 는 `onPassword` 뒤 `retry` 가 올 때까지 끝없이 기다립니다. 진행률 창이
+  암호 창 위를 덮고 있었고(같은 backdrop, 뒤에 렌더), 취소해도 작업이 끝나지 않았습니다.
+  지금은 묻는 동안 진행률 창을 숨기고(`pause`/`resume`), 취소하면 `task.destroy()` 로 끝냅니다.
+* **개체 스트림**: pdf-lib 파서는 `/ObjStm` 을 읽는 즉시 풀어 버리므로, 파서 인스턴스의
+  `parseIndirectObject`/`parseIndirectObjectHeader`/`parseObject` 를 감싸 *최상위 개체를 읽은 직후* 개체 번호로
+  복호화합니다. `/Encrypt` 위치는 트레일러에서만 알 수 있어 두 번 파싱합니다(1차: 개체 스트림 건너뜀).
+* 암호화해 쓸 때는 개체 스트림 없이(`useObjectStreams: false`) 씁니다. 개체 스트림 안의 문자열은 따로
+  암호화하지 않는 규칙이라, 클래식 xref 가 단순하고 안전합니다.
+* XRef 스트림, `EncryptMetadata false` 인 Metadata, 서명 사전의 `/Contents` 는 암호화 대상이 아닙니다.
+* 파일 객체(`file`)에 `password`(이 바이트를 여는 암호) · `encrypted` · `security` · `protection`
+  (`{ mode: 'keep' | 'none' | 'set', password }`)을 둡니다. 저장 후 다시 열 때는 새 암호를 `knownPassword` 로 넘겨
+  다시 묻지 않습니다. 작업 파일(`.pdfvw`)에는 암호를 쓰지 않습니다.
+* 테스트: `test/pdf-crypt.test.js` (qpdf 로 만든 `test/fixtures/encrypted/*.pdf` 복호화, 우리가 만든 파일을
+  pdf.js 로 검증), `test/pdf-password.test.js`, `test/security-dialog.test.jsx`, 데스크톱 smoke 의
+  *Password-protected PDF* 묶음.
 
 창을 닫을 때 저장하지 않은 주석이 있으면 `close-request` 이벤트 → `UnsavedDialog` 가
 PDF 저장을 권합니다 (`win_force_close` 로만 실제로 닫힙니다).

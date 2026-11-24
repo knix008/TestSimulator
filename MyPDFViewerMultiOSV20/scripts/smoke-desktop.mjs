@@ -17,7 +17,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -507,6 +507,125 @@ try {
     await m.click(flag);
     await sleep(300);
     eq(await m.ev(`!!${byLabel('확대')}`), true, 'Korean');
+  });
+
+  // ── Password-protected PDFs ──────────────────────────────
+  // Copies of test/fixtures/encrypted/aes256-r6.pdf (user password "user-pw").
+  console.log(`\n${C.b}Password-protected PDF${C.x}`);
+  const LOCKED = path.join(WORK, 'locked.pdf');
+  const LOCKED2 = path.join(WORK, 'locked-cancel.pdf');
+  fs.copyFileSync(path.join(root, 'test', 'fixtures', 'encrypted', 'aes256-r6.pdf'), LOCKED);
+  fs.copyFileSync(LOCKED, LOCKED2);
+  const { loadPdfForEditing, mayBeEncrypted } = await import(pathToFileURL(path.join(root, 'src', 'lib', 'pdf-crypt.js')).href);
+  const openPath = (p) => m.ev(`window.__TAURI_INTERNALS__.invoke('plugin:event|emit', { event: 'open-path', payload: ${JSON.stringify(p)} })`);
+  const waitFor = async (expr, ms = 10000) => {
+    const end = Date.now() + ms;
+    while (Date.now() < end) { if (await m.ev(expr)) return true; await sleep(150); }
+    return false;
+  };
+  const promptUp = `!!document.querySelector('.prompt-modal input[type="password"]')`;
+  const progressUp = `!!document.querySelector('.progress-modal')`;
+  const typePassword = async (text) => {
+    await m.ev(`(() => { const i = document.querySelector('.prompt-modal input[type="password"]'); i.focus(); i.select(); })()`);
+    await m.send('Input.insertText', { text });
+    await m.key('Enter', 'Enter', 13);
+  };
+  const title = () => m.ev(`document.querySelector('.titlebar-title').textContent`);
+  const fileMenuItem = async (text) => {
+    await m.click(byLabel('파일'));
+    await m.click(`[...document.querySelectorAll('.dd-item')].find((b) => b.textContent.includes(${JSON.stringify(text)}))`);
+  };
+
+  await check('an encrypted PDF asks for its password, with nothing covering the prompt', async () => {
+    await openPath(LOCKED);
+    expect(await waitFor(promptUp), 'no password prompt');
+    await sleep(400);   // past the 180 ms progress delay
+    expect(!(await m.ev(progressUp)), 'the progress dialog is over the prompt');
+    const top = await m.ev(`(() => { const r = document.querySelector('.prompt-modal').getBoundingClientRect(); const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!el?.closest('.prompt-modal'); })()`);
+    expect(top, 'something else is on top of the prompt');
+    await m.shot('password-prompt');
+  });
+  await check('a wrong password asks again and says so', async () => {
+    await typePassword('wrong');
+    expect(await waitFor(`!!document.querySelector('.prompt-modal .field-error')`), 'no error shown');
+    eq(await m.ev(`document.querySelector('.prompt-modal .field-error').textContent`), '암호가 올바르지 않습니다.', 'error text');
+  });
+  await check('the right password opens it', async () => {
+    await typePassword('user-pw');
+    expect(await waitFor(`!document.querySelector('.prompt-modal') && /locked\\.pdf/.test(document.querySelector('.titlebar-title').textContent)`), 'did not open');
+    expect(await waitFor(`!!document.querySelector('[data-page] canvas, .pdf-page canvas')`), 'no page drawn');
+    expect(!(await m.ev(progressUp)), 'progress dialog left behind');
+  });
+  await check('cancelling the prompt abandons the open instead of hanging', async () => {
+    await openPath(LOCKED2);
+    expect(await waitFor(promptUp), 'no password prompt');
+    await m.key('Escape', 'Escape', 27);
+    expect(await waitFor(`!document.querySelector('.prompt-modal')`), 'prompt stayed');
+    await sleep(500);
+    expect(!(await m.ev(progressUp)), 'progress dialog stuck');
+    expect(/locked\.pdf/.test(await title()) && !/locked-cancel/.test(await title()), `title is ${await title()}`);
+    // Still usable: the prompt comes back on a new try.
+    await openPath(LOCKED2);
+    expect(await waitFor(promptUp), 'no prompt on the second try');
+    await m.key('Escape', 'Escape', 27);
+    expect(await waitFor(`!document.querySelector('.prompt-modal')`), 'prompt stayed (2)');
+  });
+  await check('PDF Password… shows keep / remove / change for the protected file, fitting its window', async () => {
+    await fileMenuItem('PDF 암호');
+    expect(await waitFor(`!!document.querySelector('.security-modal')`), 'no dialog');
+    eq(await m.ev(`[...document.querySelectorAll('.security-option-label')].map((e) => e.textContent)`),
+      ['지금 암호 그대로 저장', '암호를 풀어서 저장', '새 암호로 바꿔 저장'], 'options');
+    const fit = await m.ev(`(() => {
+      const modal = document.querySelector('.security-modal').getBoundingClientRect();
+      const cut = [...document.querySelectorAll('.security-modal *')].filter((e) => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflow !== 'visible').length;
+      return { inside: modal.left >= 0 && modal.top >= 0 && modal.right <= innerWidth && modal.bottom <= innerHeight, cut };
+    })()`);
+    eq(fit, { inside: true, cut: 0 }, 'layout');
+    await m.click(`[...document.querySelectorAll('.security-option')][2]`);
+    expect(await waitFor(`document.querySelectorAll('.security-modal input[type="password"]').length === 2`), 'no password fields');
+    await m.shot('security-dialog');
+  });
+  await check('Remove the password + Save writes a PDF without a password', async () => {
+    await m.click(`[...document.querySelectorAll('.security-option')][1]`);
+    await m.click(`[...document.querySelectorAll('.security-modal .btn.primary')][0]`);
+    expect(await waitFor(`!document.querySelector('.security-modal')`), 'dialog stayed');
+    const before = fs.statSync(LOCKED).mtimeMs;
+    await m.key('s', 'KeyS', 83, 2);
+    const end = Date.now() + 10000;
+    while (Date.now() < end && fs.statSync(LOCKED).mtimeMs === before) await sleep(200);
+    await sleep(800);
+    const bytes = new Uint8Array(fs.readFileSync(LOCKED));
+    expect(!mayBeEncrypted(bytes), 'the saved file is still encrypted');
+    eq((await loadPdfForEditing(bytes)).pdfDoc.getPageCount(), 2, 'pages');
+    expect(!(await m.ev(promptUp)), 'asked for a password after saving');
+  });
+  await check('Protect with a password + Save locks it, and the app reopens it without asking', async () => {
+    await fileMenuItem('PDF 암호');
+    expect(await waitFor(`!!document.querySelector('.security-modal')`), 'no dialog');
+    eq(await m.ev(`[...document.querySelectorAll('.security-option-label')].map((e) => e.textContent)`),
+      ['암호 없이 저장', '암호를 걸어 저장'], 'options for a plain file');
+    await m.click(`[...document.querySelectorAll('.security-option')][1]`);
+    expect(await waitFor(`document.querySelectorAll('.security-modal input[type="password"]').length === 2`), 'no fields');
+    for (const i of [0, 1]) {
+      await m.ev(`document.querySelectorAll('.security-modal input[type="password"]')[${i}].focus()`);
+      await m.send('Input.insertText', { text: '새 암호 1' });
+    }
+    await m.click(`[...document.querySelectorAll('.security-modal .btn.primary')][0]`);
+    expect(await waitFor(`!document.querySelector('.security-modal')`), 'dialog stayed');
+    const before = fs.statSync(LOCKED).mtimeMs;
+    await m.key('s', 'KeyS', 83, 2);
+    const end = Date.now() + 10000;
+    while (Date.now() < end && fs.statSync(LOCKED).mtimeMs === before) await sleep(200);
+    await sleep(1200);
+    const bytes = new Uint8Array(fs.readFileSync(LOCKED));
+    expect(mayBeEncrypted(bytes), 'the saved file is not encrypted');
+    const { security } = await loadPdfForEditing(bytes, { password: '새 암호 1' });
+    eq(security.method, 'aes256', 'method');
+    let refused = false;
+    try { await loadPdfForEditing(bytes, { password: 'user-pw' }); } catch { refused = true; }
+    expect(refused, 'the old password still opens it');
+    expect(!(await m.ev(promptUp)), 'asked for the password it just set');
+    expect(await m.ev(`!!document.querySelector('[data-page] canvas, .pdf-page canvas')`), 'page not shown after reload');
   });
 } catch (e) {
   results.push({ name: current || 'setup', ok: false, error: e.message });

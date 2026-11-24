@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Modal from './Modal.jsx';
-import { IconAlert, IconCopy, IconCheck, IconDownload, IconUrl, IconText } from './Icons.jsx';
+import { IconAlert, IconCopy, IconCheck, IconDownload, IconUrl, IconText, IconLock } from './Icons.jsx';
 import { copyText, formatBytes } from '../lib/platform.js';
 import { isHttpUrl } from '../lib/view.js';
 
@@ -144,7 +144,8 @@ export function PromptDialog({ open, kind, error, onSubmit, onClose }) {
   const isComment = kind === 'comment';
 
   const submit = () => {
-    const v = value.trim();
+    // A password is used exactly as typed; spaces can be part of it.
+    const v = kind === 'password' ? value : value.trim();
     if (isUrl && !isHttpUrl(v)) { setLocalError(t('url.invalid')); return; }
     if (!v) return;
     onSubmit(v);
@@ -263,6 +264,114 @@ export function UnsavedDialog({ open, onSave, onDiscard, onCancel }) {
       )}
     >
       <p className="unsaved-message">{t('unsaved.message')}</p>
+    </Modal>
+  );
+}
+
+// ── PDF password (how Save protects the file) ─────────────
+// `encrypted`: the open document is password protected. `protection` is the
+// current choice ({ mode: 'keep' | 'none' | 'set', password }); onApply gets
+// the new one. Nothing is written until the next Save / Save As.
+export function SecurityDialog({ open, encrypted, protection, onApply, onClose }) {
+  const { t } = useTranslation();
+  const [mode, setMode] = useState('keep');
+  const [pw, setPw] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!open) return;
+    setMode(protection?.mode || 'keep');
+    setPw(protection?.mode === 'set' ? protection.password || '' : '');
+    setConfirm(protection?.mode === 'set' ? protection.password || '' : '');
+    setError('');
+  }, [open, protection]);
+
+  if (!open) return null;
+
+  const options = [
+    { id: 'keep', label: encrypted ? t('security.keepLocked') : t('security.keepPlain'), hint: encrypted ? t('security.keepLockedHint') : t('security.keepPlainHint') },
+    ...(encrypted ? [{ id: 'none', label: t('security.none'), hint: t('security.noneHint') }] : []),
+    { id: 'set', label: encrypted ? t('security.change') : t('security.set'), hint: t('security.setHint') },
+  ];
+
+  const apply = () => {
+    if (mode === 'set') {
+      if (!pw) { setError(t('security.empty')); return; }
+      if (pw !== confirm) { setError(t('security.mismatch')); return; }
+      onApply({ mode, password: pw });
+      return;
+    }
+    onApply({ mode });
+  };
+  const onKey = (e) => { if (e.key === 'Enter') apply(); };
+
+  return (
+    <Modal
+      open
+      title={t('security.title')}
+      icon={IconLock}
+      onClose={onClose}
+      width={520}
+      className="security-modal"
+      closeLabel={t('common.cancel')}
+      footer={(
+        <>
+          <div className="spacer" />
+          <button className="btn" type="button" onClick={onClose}>{t('common.cancel')}</button>
+          <button className="btn primary" type="button" onClick={apply}>{t('security.apply')}</button>
+        </>
+      )}
+    >
+      <p className="security-state">
+        {encrypted ? t('security.stateLocked') : t('security.statePlain')}
+      </p>
+      <div className="security-options" role="radiogroup" aria-label={t('security.title')}>
+        {options.map((opt) => (
+          <label key={opt.id} className={`security-option${mode === opt.id ? ' active' : ''}`}>
+            <input
+              type="radio"
+              name="pdf-security"
+              value={opt.id}
+              checked={mode === opt.id}
+              onChange={() => { setMode(opt.id); setError(''); }}
+            />
+            <span className="security-option-text">
+              <span className="security-option-label">{opt.label}</span>
+              <span className="security-option-hint">{opt.hint}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      {mode === 'set' ? (
+        <div className="security-fields">
+          <label className="field">
+            <span className="field-label">{t('security.password')}</span>
+            <input
+              data-autofocus
+              className="input"
+              type="password"
+              autoComplete="new-password"
+              value={pw}
+              onChange={(e) => { setPw(e.target.value); setError(''); }}
+              onKeyDown={onKey}
+            />
+          </label>
+          <label className="field">
+            <span className="field-label">{t('security.confirm')}</span>
+            <input
+              className="input"
+              type="password"
+              autoComplete="new-password"
+              value={confirm}
+              onChange={(e) => { setConfirm(e.target.value); setError(''); }}
+              onKeyDown={onKey}
+            />
+          </label>
+        </div>
+      ) : null}
+      <p className="hint security-note">{t('security.note')}</p>
+      {error ? <p className="field-error" role="alert">{error}</p> : null}
     </Modal>
   );
 }

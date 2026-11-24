@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  IconOpen, IconUrl, IconRecent, IconSave, IconSaveAs, IconUndo, IconRedo, IconCopy, IconClip,
+  IconOpen, IconUrl, IconRecent, IconSave, IconSaveAs, IconLock, IconUndo, IconRedo, IconCopy, IconClip,
   IconSelectAll, IconMarquee, IconHand, IconImage, IconText, IconHighlight, IconBookmark, IconComment,
   IconFirst, IconPrev, IconNext, IconLast, IconZoomIn, IconZoomOut,
   IconRotateLeft, IconRotateRight,
@@ -279,7 +279,7 @@ export default function Toolbar({
   settings, doc, pageNumber, numPages, scale, hasSelection, dirty,
   history, tool, onTool, panel,
   onOpen, onOpenUrl, onOpenRecent, onRemoveRecent, onClearRecent, isFavoritePath, onToggleFavorite,
-  onSave, onSaveAs, onSaveWorkspace, onSaveWorkspaceAs, onAttachFile,
+  onSave, onSaveAs, onSecurity, onSaveWorkspace, onSaveWorkspaceAs, onAttachFile,
   onCopyText, onSelectPage, onExtractImages, onExportText,
   onHighlight, onComment, onComments, onBookmarks, onBookmark,
   onGoToPage, onZoom, onZoomMode, onRotate, onLayout, onPageEffect,
@@ -339,6 +339,10 @@ export default function Toolbar({
               <IconSave size={15} /><span className="dd-name wide">{t('toolbar.save')}</span><span className="dd-key">Ctrl+S</span></button></li>
             <li><button className="dd-item" onClick={onSaveAs} disabled={!doc} title={t('tip.saveAs')}>
               <IconSaveAs size={15} /><span className="dd-name wide">{t('toolbar.saveAs')}</span></button></li>
+            {onSecurity ? (
+              <li><button className="dd-item" onClick={onSecurity} disabled={!doc} title={t('tip.security')}>
+                <IconLock size={15} /><span className="dd-name wide">{t('toolbar.security')}</span></button></li>
+            ) : null}
             {onAttachFile ? (
               <li><button className="dd-item" onClick={onAttachFile} disabled={!doc} title={t('tip.attach')}>
                 <IconClip size={15} /><span className="dd-name wide">{t('toolbar.attach')}</span></button></li>
