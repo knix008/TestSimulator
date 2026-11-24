@@ -383,7 +383,9 @@ pub fn read_file(archive: &Path, name: &str, limit: u64) -> Result<Vec<u8>, Stri
 }
 
 /// Extracts every usable entry of `archive` into `dest` (which must exist).
-/// Returns how many files were written.
+/// Returns how many files were written. (The app always reports progress
+/// through extract_all_with; this shorthand is for the tests.)
+#[cfg(test)]
 pub fn extract_all(archive: &Path, dest: &Path) -> Result<usize, String> {
   extract_all_with(archive, dest, &mut |_| true)
 }
@@ -466,6 +468,8 @@ pub fn cache_folder_for(root: &Path, archive: &Path) -> Result<PathBuf, String> 
 }
 
 /// Extracts `archive` under `root` (once) and returns the folder it is in.
+/// (The app goes through extract_cached_with; this shorthand is for the tests.)
+#[cfg(test)]
 pub fn extract_cached(root: &Path, archive: &Path) -> Result<PathBuf, String> {
   extract_cached_with(root, archive, &mut |_| true)
 }
