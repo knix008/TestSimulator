@@ -13,6 +13,7 @@
 // and kept in sync — including the theme variables, which live on <html>.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { invoke } from '@tauri-apps/api/core';
 import { getHost } from '../platform';
 
 export type PopupKind = 'dialog' | 'print';
@@ -204,7 +205,7 @@ export function PopupWindow({
         /* already torn down */
       }
       if (desktop) {
-        void import('@tauri-apps/api/core').then(({ invoke }) => invoke('popout_close', { label }));
+        void invoke('popout_close', { label });
       } else {
         try {
           if (popup && !popup.closed) popup.close();
@@ -242,7 +243,6 @@ export function PopupWindow({
         return;
       }
       busy = true;
-      const { invoke } = await import('@tauri-apps/api/core');
       const label = labelRef.current;
       const want = kind === 'print' ? { width, height } : measureDialog(doc, width);
       if (want) {

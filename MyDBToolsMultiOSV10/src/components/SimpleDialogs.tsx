@@ -1,6 +1,7 @@
 // About, error, confirm and prompt dialogs — ports of Dialogs/{AboutDialog,ErrorDialog}.cs.
 import { useEffect, useState, type ReactNode } from 'react';
 import { getLanguage, useT } from '../i18n';
+import { invoke } from '@tauri-apps/api/core';
 import { Dialog } from './Dialog';
 import { Icons } from './Icons';
 import { APP_NAME, APP_TITLE, APP_VERSION } from '../appInfo';
@@ -39,9 +40,7 @@ export function AboutDialog({ onClose, onUserGuide }: { onClose: () => void; onU
 
   useEffect(() => {
     if (!('__TAURI_INTERNALS__' in window)) return;
-    void import('@tauri-apps/api/core').then(({ invoke }) =>
-      invoke<HostFacts>('app_info').then(setHost).catch(() => {}),
-    );
+    void invoke<HostFacts>('app_info').then(setHost).catch(() => {});
   }, []);
 
   const built = (() => {

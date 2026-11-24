@@ -1,5 +1,6 @@
 // Port of MainForm.cs — menus, toolbar, tool panel, canvas, side panels, status bar.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import type {
   DbColumn,
   DbRelationship,
@@ -385,11 +386,11 @@ export default function App() {
   useEffect(() => {
     if (host.kind !== 'desktop') return;
     let stop: (() => void) | undefined;
-    void import('@tauri-apps/api/window').then(async ({ getCurrentWindow }) => {
+    void (async () => {
       const win = getCurrentWindow();
       setMaximized(await win.isMaximized());
       stop = await win.onResized(async () => setMaximized(await win.isMaximized()));
-    });
+    })();
     return () => stop?.();
   }, [host.kind]);
 

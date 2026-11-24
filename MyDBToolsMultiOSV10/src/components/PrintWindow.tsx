@@ -10,6 +10,7 @@
 // browser, macOS, Linux) the document goes to the system print dialog.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { DbSchema } from '../types';
+import { invoke } from '@tauri-apps/api/core';
 import { getDbDisplayName } from '../types';
 import type { NormalizationLevel } from '../core/analysis/normalization';
 import type { ReportPrefs } from '../core/export/reportOptions';
@@ -178,7 +179,7 @@ export function PrintWindow({ schema, projectPath, theme, levels, report, onClos
   useEffect(() => {
     if (host.kind !== 'desktop') return;
     let cancelled = false;
-    void import('@tauri-apps/api/core').then(async ({ invoke }) => {
+    void (async () => {
       try {
         const info = await invoke<{ printers: PrinterInfo[]; silent: boolean }>('print_info');
         if (cancelled) return;
@@ -188,7 +189,7 @@ export function PrintWindow({ schema, projectPath, theme, levels, report, onClos
       } catch {
         /* the system dialog prints instead */
       }
-    });
+    })();
     return () => {
       cancelled = true;
     };
@@ -265,7 +266,6 @@ export function PrintWindow({ schema, projectPath, theme, levels, report, onClos
     if (host.kind !== 'desktop') return systemPrint();
     setBusy(true);
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
       const output = await invoke<string | null>('files_pick_save', {
         name: `${schema.Name || 'schema'}.pdf`,
         filters: [{ name: 'PDF', extensions: ['pdf'] }],
@@ -288,7 +288,6 @@ export function PrintWindow({ schema, projectPath, theme, levels, report, onClos
     setBusy(true);
     setMessage(t('PrintSending'));
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
       await invoke('print_html', { job: { ...job(), printer: printer || null, copies } });
       const done = t('PrintSent', printer || t('PrintDefaultPrinter'));
       setMessage(done);
