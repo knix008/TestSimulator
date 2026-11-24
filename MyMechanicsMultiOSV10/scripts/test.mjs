@@ -193,11 +193,16 @@ for (const id of selected) {
             const name = cut > 0 ? rest.slice(0, cut) : rest;
             tests.push({ group, name, status: m[1] === '✔' ? 'pass' : 'fail', ms: m[3] ? Number(m[3]) : null, error: cut > 0 ? rest.slice(cut + 2) : undefined });
           } else if (/^\s+! /.test(line) && !/warning:/.test(line) && tests.length) {
+            // A page error or console error during a step fails that step (the runner exits with 1 for it).
             const last = tests[tests.length - 1];
+            last.status = 'fail';
             last.error = `${last.error ? `${last.error}\n` : ''}${line.trim()}`;
           }
         },
       });
+      for (const t of tests) t.file ??= file;
+      // Still a failure no step shows (a timed-out `until`, a browser that did not start): name the file.
+      if (r.code && !tests.some((t) => t.status === 'fail' && t.file === file)) tests.push({ group: '(runner)', name: `${file} exited with code ${r.code}`, status: 'fail', ms: null, error: r.out.slice(-1500), file });
       total.code ||= r.code; total.out += r.out; total.ms += r.ms;
       }
       return { tests, ...total };
