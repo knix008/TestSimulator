@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Modal from './Modal.jsx';
-import { IconAlert, IconCopy, IconCheck, IconDownload, IconUrl, IconText } from './Icons.jsx';
+import { IconAlert, IconCopy, IconCheck, IconDownload, IconUrl, IconText, IconLock } from './Icons.jsx';
 import { copyText, formatBytes } from '../lib/platform.js';
 import { isHttpUrl } from '../lib/view.js';
 
@@ -140,8 +140,149 @@ export function ProgressDialog({ task, onCancel }) {
   );
 }
 
+// ── Password dialog (File ▸ Password…) ───────────────────
+// What Save does about a password. `kind`:
+//   'pdf'     the choice is kept and applied by the next Save / Save As
+//   'archive' EPUB / CBZ / ZIP — saved right away (Save asks where), with a
+//             choice of ZIP encryption
+//   'file'    a format with no password of its own: protecting it saves it
+//             in a password-protected ZIP (`zipName`)
+//   'folder'  a folder of pictures, saved as a ZIP (`zipName`)
+// onApply gets { mode: 'keep' | 'none' | 'set', password?, encryption? }.
+export function SecurityDialog({
+  open, kind = 'pdf', encrypted, protection, zipName = '', onApply, onClose,
+}) {
+  const { t } = useTranslation();
+  const [mode, setMode] = useState('keep');
+  const [pw, setPw] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [encryption, setEncryption] = useState('aes256');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!open) return;
+    setMode(protection?.mode || 'keep');
+    setPw(protection?.mode === 'set' ? protection.password || '' : '');
+    setConfirm(protection?.mode === 'set' ? protection.password || '' : '');
+    setEncryption(protection?.encryption === 'zipcrypto' ? 'zipcrypto' : 'aes256');
+    setError('');
+  }, [open, protection]);
+
+  if (!open) return null;
+
+  const isPdf = kind === 'pdf';
+  const locked = !!encrypted && (kind === 'pdf' || kind === 'archive');
+  const options = [
+    { id: 'keep', label: locked ? t('security.keepLocked') : t('security.keepPlain'), hint: locked ? t('security.keepLockedHint') : t('security.keepPlainHint') },
+    ...(locked ? [{ id: 'none', label: t('security.none'), hint: t('security.noneHint') }] : []),
+    { id: 'set', label: locked ? t('security.change') : t('security.set'), hint: isPdf ? t('security.setHint') : t('security.setHintFile') },
+  ];
+  const state = kind === 'pdf' ? (locked ? t('security.stateLocked') : t('security.statePlain'))
+    : kind === 'archive' ? (locked ? t('security.stateArchiveLocked') : t('security.stateArchivePlain'))
+      : kind === 'folder' ? t('security.stateFolder', { name: zipName })
+        : t('security.stateFilePlain', { name: zipName });
+
+  const apply = () => {
+    if (mode === 'set') {
+      if (!pw) { setError(t('security.empty')); return; }
+      if (pw !== confirm) { setError(t('security.mismatch')); return; }
+      onApply(isPdf ? { mode, password: pw } : { mode, password: pw, encryption });
+      return;
+    }
+    onApply({ mode });
+  };
+  const onKey = (e) => { if (e.key === 'Enter') apply(); };
+
+  return (
+    <Modal
+      open
+      title={isPdf ? t('security.title') : t('security.titleFile')}
+      icon={IconLock}
+      onClose={onClose}
+      width={540}
+      className="security-modal"
+      closeLabel={t('common.cancel')}
+      footer={(
+        <>
+          <div className="spacer" />
+          <button className="btn" type="button" onClick={onClose}>{t('common.cancel')}</button>
+          <button className="btn primary" type="button" onClick={apply}>{isPdf ? t('security.apply') : t('security.save')}</button>
+        </>
+      )}
+    >
+      <p className="security-state">{state}</p>
+      <div className="security-options" role="radiogroup" aria-label={isPdf ? t('security.title') : t('security.titleFile')}>
+        {options.map((opt) => (
+          <label key={opt.id} className={`security-option${mode === opt.id ? ' active' : ''}`}>
+            <input
+              type="radio"
+              name="file-security"
+              value={opt.id}
+              checked={mode === opt.id}
+              onChange={() => { setMode(opt.id); setError(''); }}
+            />
+            <span className="security-option-text">
+              <span className="security-option-label">{opt.label}</span>
+              <span className="security-option-hint">{opt.hint}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      {mode === 'set' ? (
+        <>
+          <div className="security-fields">
+            <label className="field">
+              <span className="field-label">{t('security.password')}</span>
+              <input
+                data-autofocus
+                className="input"
+                type="password"
+                autoComplete="new-password"
+                value={pw}
+                onChange={(e) => { setPw(e.target.value); setError(''); }}
+                onKeyDown={onKey}
+              />
+            </label>
+            <label className="field">
+              <span className="field-label">{t('security.confirm')}</span>
+              <input
+                className="input"
+                type="password"
+                autoComplete="new-password"
+                value={confirm}
+                onChange={(e) => { setConfirm(e.target.value); setError(''); }}
+                onKeyDown={onKey}
+              />
+            </label>
+          </div>
+          {!isPdf ? (
+            <div className="security-encryption" role="radiogroup" aria-label={t('security.encryption')}>
+              <span className="field-label">{t('security.encryption')}</span>
+              {['aes256', 'zipcrypto'].map((id) => (
+                <label key={id}>
+                  <input
+                    type="radio"
+                    name="zip-encryption"
+                    value={id}
+                    checked={encryption === id}
+                    onChange={() => setEncryption(id)}
+                  />
+                  <span>{t(`security.${id}`)}</span>
+                </label>
+              ))}
+            </div>
+          ) : null}
+        </>
+      ) : null}
+      <p className="hint security-note">{isPdf ? t('security.note') : t('security.noteFile')}</p>
+      {error ? <p className="field-error" role="alert">{error}</p> : null}
+    </Modal>
+  );
+}
+
 // ── Prompt dialog (URL / password) ────────────────────────
-export function PromptDialog({ open, kind, error, onSubmit, onClose }) {
+// `label` overrides the password field's label (an archive's name).
+export function PromptDialog({ open, kind, error, label: labelOverride = '', onSubmit, onClose }) {
   const { t } = useTranslation();
   const [value, setValue] = useState('');
   const [localError, setLocalError] = useState('');
@@ -153,6 +294,12 @@ export function PromptDialog({ open, kind, error, onSubmit, onClose }) {
   const isComment = kind === 'comment';
 
   const submit = () => {
+    // A password is taken exactly as typed: spaces can be part of it.
+    if (kind === 'password') {
+      if (!value) return;
+      onSubmit(value);
+      return;
+    }
     const v = value.trim();
     if (isUrl && !isHttpUrl(v)) { setLocalError(t('url.invalid')); return; }
     if (!v) return;
@@ -160,14 +307,14 @@ export function PromptDialog({ open, kind, error, onSubmit, onClose }) {
   };
 
   const title = isUrl ? t('url.title') : isComment ? t('comment.title') : t('password.title');
-  const label = isUrl ? t('url.label') : isComment ? t('comment.label') : t('password.label');
+  const label = isUrl ? t('url.label') : isComment ? t('comment.label') : (labelOverride || t('password.label'));
   const action = isUrl ? t('url.open') : isComment ? t('comment.ok') : t('password.ok');
 
   return (
     <Modal
       open
       title={title}
-      icon={isUrl ? IconUrl : IconText}
+      icon={isUrl ? IconUrl : kind === 'password' ? IconLock : IconText}
       onClose={onClose}
       width={520}
       className="prompt-modal"

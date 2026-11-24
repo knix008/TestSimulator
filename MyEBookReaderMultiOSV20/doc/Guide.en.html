@@ -132,7 +132,7 @@
     <table>
       <tr><th>Button</th><th>What it does</th></tr>
       <tr><td>Home</td><td>A toggle — shows the start screen; press again to go back to what you were reading.</td></tr>
-      <tr><td>File ▾</td><td>Open (<kbd>Ctrl</kbd>+<kbd>O</kbd>), open URL, save, save as, attach file, save workspace, export text, print, and the recent files (☆ add to library, the bin removes one, <b>Clear all</b> removes them all).</td></tr>
+      <tr><td>File ▾</td><td>Open (<kbd>Ctrl</kbd>+<kbd>O</kbd>), open URL, save, save as, password…, attach file, save workspace, export text, print, and the recent files (☆ add to library, the bin removes one, <b>Clear all</b> removes them all).</td></tr>
       <tr><td>Theme</td><td>Each press moves to the next theme. The ▾ list has your <b>custom</b> themes and a <b>Settings</b> button (to make one) at the top, then the <b>20 Dark</b> themes, then the <b>20 Light</b> ones below, each in two columns.</td></tr>
       <tr><td>Language (flag)</td><td>Korean ↔ English. The flag shows the language you switch to.</td></tr>
       <tr><td>Help · Settings · About</td><td>This guide, the settings window, version and author.</td></tr>
@@ -269,6 +269,19 @@
       <li><b>Save As</b> — a PDF as <code>name-annotated.pdf</code>, other formats as a new workspace.</li>
       <li>A <b>workspace</b> keeps the book's path, the page and view, highlights, bookmarks, clips and attachments; double-click it to open the book as you left it. MyPDFViewer workspaces (pdfvw) open too.</li>
       <li>Unsaved changes are asked about before a tab or the window closes.</li>
+    </ul>
+    <h3 id="password">Passwords</h3>
+    <ul>
+      <li><b>Opening a protected book</b> — a PDF (RC4, AES-128, AES-256) or an EPUB, CBZ, ZIP or FB2.ZIP (ZipCrypto, AES) asks for its password. A wrong one is asked again; [Cancel] leaves the book closed.</li>
+      <li><b>File ▾ → Password…</b> — what Save does about the password: <b>keep it</b>, <b>remove it</b>, or <b>protect / change it</b>.
+        <ul>
+          <li>PDF — applied by the next <b>Save / Save As</b> (a new password uses AES-256).</li>
+          <li>EPUB, CBZ, ZIP — [Save…] asks where to save straight away. Encryption: <b>AES-256</b> (recommended — 7-Zip, Bandizip, WinRAR) or <b>ZipCrypto</b> (Windows Explorer opens it too, but it is weak).</li>
+          <li>TXT, MOBI, DjVu and other formats without a password of their own — saved in a password-protected ZIP (<code>name.txt.zip</code>), which this reader opens straight into the book.</li>
+          <li>A picture folder — saved as a ZIP file.</li>
+        </ul>
+      </li>
+      <li>A password-protected ZIP is read in memory only; it is never extracted to the temp folder.</li>
     </ul>
 
     <h2 id="gallery">14. Opened files</h2>

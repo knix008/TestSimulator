@@ -132,6 +132,15 @@ export function isCancelled(err) {
 }
 
 /**
+ * True for the host's answer to extracting a password-protected archive
+ * (src-tauri/src/unzip.rs PASSWORD_PROTECTED): nothing was extracted, and the
+ * archive is to be read in memory, asking for its password.
+ */
+export function isPasswordProtectedZip(err) {
+  return String(err?.message ?? err).includes('PasswordProtectedZip');
+}
+
+/**
  * Extracts a ZIP archive into its cache folder (once; reopening reuses it)
  * and returns that folder. A big archive takes a while: `onProgress` gets
  * { done, total } in bytes plus { files, filesTotal }, and aborting `signal`

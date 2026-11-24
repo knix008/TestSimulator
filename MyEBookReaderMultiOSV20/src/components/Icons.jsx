@@ -35,6 +35,10 @@ export const IconSave = (p) => (
 export const IconSaveAs = (p) => (
   <S {...p}><path d="M5 3h9l3 3v6" /><path d="M5 3v18h6" /><path d="M8 3v5h6" /><path d="m20 14-6 6v3h3l6-6z" transform="translate(-2 -1) scale(0.9)" /></S>
 );
+// Padlock: a file's password (protect / unprotect on save).
+export const IconLock = (p) => (
+  <S {...p}><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /><path d="M12 15v2" /></S>
+);
 export const IconCopy = (p) => (
   <S {...p}><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" /></S>
 );

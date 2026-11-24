@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  IconOpen, IconUrl, IconFolderOpen, IconRecent, IconSave, IconSaveAs, IconUndo, IconRedo, IconCopy, IconClip,
+  IconOpen, IconUrl, IconFolderOpen, IconRecent, IconSave, IconSaveAs, IconLock, IconUndo, IconRedo, IconCopy, IconClip,
   IconSelectAll, IconMarquee, IconHand, IconImage, IconText, IconHighlight, IconBookmark, IconComment,
   IconFirst, IconPrev, IconNext, IconLast, IconZoomIn, IconZoomOut, IconMinus, IconPlus,
   IconRotateLeft, IconRotateRight, IconSidebar, IconRightPanel,
@@ -654,7 +654,7 @@ export default function Toolbar({
 // The Home button and the File menu, shown at the left of the title bar.
 export function HomeFileButtons({
   settings, doc, homeOpen = false, onHome,
-  onOpen, onOpenFolder, onOpenUrl, onSave, onSaveAs, onAttachFile, onSaveWorkspace, onSaveWorkspaceAs,
+  onOpen, onOpenFolder, onOpenUrl, onSave, onSaveAs, onSecurity, onAttachFile, onSaveWorkspace, onSaveWorkspaceAs,
   onExportText, onPrint, onOpenRecent, onRemoveRecent, onClearRecent, isFavoritePath, onToggleFavorite,
 }) {
   const { t } = useTranslation();
@@ -678,6 +678,10 @@ export function HomeFileButtons({
             <IconSave size={15} /><span className="dd-name wide">{t('toolbar.save')}</span><span className="dd-key">Ctrl+S</span></button></li>
           <li><button className="dd-item" onClick={onSaveAs} disabled={!doc} title={t('tip.saveAs')}>
             <IconSaveAs size={15} /><span className="dd-name wide">{t('toolbar.saveAs')}</span></button></li>
+          {onSecurity ? (
+            <li><button className="dd-item" onClick={onSecurity} disabled={!doc} title={t('tip.security')}>
+              <IconLock size={15} /><span className="dd-name wide">{t('toolbar.security')}</span></button></li>
+          ) : null}
           {onAttachFile ? (
             <li><button className="dd-item" onClick={onAttachFile} disabled={!doc} title={t('tip.attach')}>
               <IconClip size={15} /><span className="dd-name wide">{t('toolbar.attach')}</span></button></li>
