@@ -1,0 +1,8 @@
+[
+  {
+    "name": "robot: the robot sample plays: every link and both gripper fingers move on screen",
+    "eval": "(async () => {\n    const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms));\n    await m.actions.ensureKernel();\n    if (m.state.editing) m.actions.cancelEditing({ quiet: true });\n    await m.actions.closeProject({ force: true });\n    await m.actions.openSampleAsk('asmRobot'); await sleep(1500);\n    const keys = [...m.viewport.bodies.keys()].filter((k) => k.startsWith('comp:'));\n    const mat = (k) => [...m.viewport.bodies.get(k).mesh.matrix.elements];\n    const at0 = new Map(keys.map((k) => [k, mat(k)]));\n    const slider = document.querySelector('#motion-bar [data-player-time]');\n    if (!slider) return 'no player slider';\n    const changed = new Set();\n    for (const t of [0.8, 1.6, 2.5, 3.7]) {\n      slider.value = String(t); slider.dispatchEvent(new Event('input', { bubbles: true })); await sleep(200);\n      for (const k of keys) { const a = at0.get(k); const b = mat(k); if (a.some((v, i) => Math.abs(v - b[i]) > 1e-6)) changed.add(k); }\n    }\n    const names = (k) => { const id = k.slice(5).split('/'); const c = m.active().components.find((x) => x.id === id[0]); return id.length > 1 ? `${c?.name}/${m.project.assemblies.flatMap((a) => a.components).find((x) => x.id === id[1])?.name}` : c?.name; };\n    const still = keys.filter((k) => !changed.has(k)).map(names);\n    return `${keys.length} bodies, ${changed.size} moved; still: ${still.join(', ')}`;\n  })()",
+    "expect": "^10 bodies, 9 moved; still: (로봇 베이스|Robot base)<1>$",
+    "timeout": 120000
+  }
+]

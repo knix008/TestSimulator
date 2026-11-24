@@ -794,7 +794,8 @@ function mateEntityNow(ref) {
   if (!comp) return null;
   const leaf = ref.path?.length ? subassemblyLeaf(comp, ref.path) : null;
   const part = project().parts.find((p) => p.id === (leaf ? leaf.part : comp.part));
-  if (!part) return null;
+  // A sub-assembly referred to as a whole (no path: a face of it in its own frame, as stored) — the entity as stored.
+  if (!part) return comp.sub && !ref.path?.length ? ref : null;
   if (ref.sig) {
     // A face made by an assembly cut lives only on the cut body; the part's own faces are found on either.
     const cut = componentCut(comp, leaf);
@@ -2214,6 +2215,17 @@ function motionPose(time) {
   return motionPlay.cursor.at(time);
 }
 
+// A sub-assembly with a motion study of its own plays it too while the assembly's plays (a robot's gripper
+// opens and closes while the arm moves): one cursor per sub-assembly, made again when it changes.
+const subMotionPlay = new Map();
+function subMotionPose(sub, time) {
+  if (!sub?.motion?.motors?.length) return null;
+  const key = JSON.stringify([sub.components, sub.mates, sub.motion]);
+  let play = subMotionPlay.get(sub.id);
+  if (play?.key !== key) { play = { key, cursor: motionCursor(sub, { entity: (ref) => mateEntityNow(ref), size: assemblySize(sub) }) }; subMotionPlay.set(sub.id, play); }
+  try { return play.cursor.at(time); } catch { return null; }
+}
+
 function showMotionTime(time) {
   const asm = activeAssembly();
   const pose = motionPose(time);
@@ -2222,9 +2234,12 @@ function showMotionTime(time) {
   for (const c of asm.components) {
     const pl = pose.get(c.id);
     if (!pl) continue;
+    const subPose = c.sub ? subMotionPose(project()?.assemblies.find((a) => a.id === c.sub), time) : null;
     for (const leaf of componentLeaves(c)) {
       const key = leaf.path.length ? `comp:${c.id}/${leaf.path.join('/')}` : `comp:${c.id}`;
-      viewport.setBodyMatrix(key, componentMatrix(leaf.path.length ? composePlacement(pl, leaf.placement) : pl));
+      // A direct component of a playing sub-assembly: its placement at this time, not its resting one.
+      const inner = subPose && leaf.path.length === 1 ? subPose.get(leaf.path[0]) ?? leaf.placement : leaf.placement;
+      viewport.setBodyMatrix(key, componentMatrix(leaf.path.length ? composePlacement(pl, inner) : pl));
     }
   }
 }
@@ -2592,7 +2607,7 @@ function customPm(e) {
     const duration = asm?.motion?.duration ?? 5;
     return [
       pmHead('motion', t('cmd.motion'), t('pm.help.motion')),
-      pmGroup('motor', t('motion.motors'), `${pmSeg('kind', [['rotary', t('motion.rotary')], ['linear', t('motion.linear')]], e.kind)}${pmNum('speed', e.speed, e.kind === 'rotary' ? t('motion.rpm') : t('motion.mmps'), 'motor')}${pmList('motor', motors.map((m) => `${asm.components.find((c) => c.id === m.comp)?.name ?? '?'} — ${fmt(m.speed)} ${m.kind === 'rotary' ? 'rpm' : 'mm/s'}`), t('motion.motorFace'), 'motor', e.pick === 'motor')}`),
+      pmGroup('motor', t('motion.motors'), `${pmSeg('kind', [['rotary', t('motion.rotary')], ['linear', t('motion.linear')]], e.kind)}${pmNum('speed', e.speed, e.kind === 'rotary' ? t('motion.rpm') : t('motion.mmps'), 'motor')}${pmList('motor', motors.map((m) => `${asm.components.find((c) => c.id === m.comp)?.name ?? '?'} — ${m.amplitude && m.period ? `±${fmt(m.amplitude)}${m.kind === 'rotary' ? '°' : ' mm'} / ${fmt(m.period)} s` : `${fmt(m.speed)} ${m.kind === 'rotary' ? 'rpm' : 'mm/s'}`}`), t('motion.motorFace'), 'motor', e.pick === 'motor')}`),
       pmGroup('clock', t('motion.study'), `${pmNum('duration', duration, t('motion.duration'), 'clock')}<label class="pm-field"><span class="pm-label">${escapeHtml(t('motion.time'))}</span><input type="range" data-unit="s" data-motion-time min="0" max="${duration}" step="0.01" value="${e.time}"/><output data-motion-clock>${escapeHtml(`${fmt(e.time, 2)} s`)}</output></label><div class="pm-row">${e.playing ? pmButton('stopMotion', 'stop', t('motion.stop')) : pmButton('playMotion', 'play', t('motion.play'), 'primary')}${pmButton('resetMotion', 'rollback', t('motion.reset'))}</div>`),
     ].join('');
   }
@@ -5280,8 +5295,9 @@ function pmSetImpl(key, value) {
     else if (key === 'stdPlane') { if (f.type === 'plane') f.base = { kind: 'std', name: value }; else f.plane = { kind: 'std', name: value }; }
     else if (key === 'neutralStd') f.neutral = { kind: 'std', name: value };
     else if (key === 'drawPlane') { e.drawPlane = value; e.pick = 'points3d'; }
-    else if (key === 'at') {
+    else if (key === 'at' && ['center', 'xyz', 'ref'].includes(value)) {
       // Where a boss or a hook stands: the face's centre, typed coordinates (starting at that centre) or a reference point.
+      // (Other features' `at` settings, such as a shut-off's parting / top, are stored as they are.)
       f.atCenter = value === 'center';
       if (value === 'ref') f.pointRef = f.pointRef ?? featuresBefore(activePart(), f).find((x) => x.type === 'refPoint')?.id ?? null;
       else f.pointRef = null;

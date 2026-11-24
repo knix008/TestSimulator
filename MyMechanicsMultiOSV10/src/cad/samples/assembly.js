@@ -23,7 +23,7 @@ export const SAMPLES = [
   { id: 'asmDoorHinge', group: 'assembly', icon: 'mateHinge', ko: ['경첩 문', '맞대기 경첩 2벌(날개·핀) · 힌지 메이트 · 각도 제한 0–110° · 잠금 메이트'], en: ['Hinged door', 'Two butt hinges (leaves, pins) · hinge mates · angle limit 0–110° · lock mates'] },
   { id: 'asmFlangeJoint', group: 'assembly', icon: 'mate', ko: ['플랜지 볼트 체결부', '용접 목 플랜지 2개·개스킷·배관·볼트/너트/와셔 4벌 · 원형 패턴 구멍'], en: ['Bolted flange joint', '2 weld-neck flanges, gasket, pipes, 4 bolts / nuts / washers · circular hole pattern'] },
   { id: 'asmPlanetary', group: 'assembly', icon: 'featCirPattern', ko: ['유성 기어 세트', '선 기어·유성 기어 3개·내치 링 기어 · 기어 메이트 6개 · 선 기어 모터'], en: ['Planetary gear set', 'Sun, 3 planets, internal ring gear · 6 gear mates · sun motor'] },
-  { id: 'asmRobot', group: 'assembly', icon: 'assembly', ko: ['6축 다관절 로봇', '베이스·선회·상완·전완·3축 손목·툴 플랜지 + 2지 그리퍼 서브 어셈블리 · 힌지/각도 제한 메이트 · J4·J6 모터 · 분해도'], en: ['Six-axis articulated robot', 'Base, waist, upper arm, forearm, 3-axis wrist, tool flange + two-finger gripper sub-assembly · hinge and angle-limit mates · J4 and J6 motors · exploded view'] },
+  { id: 'asmRobot', group: 'assembly', icon: 'assembly', ko: ['6축 다관절 로봇', '베이스·선회·상완·전완·3축 손목·툴 플랜지 + 2지 그리퍼 서브 어셈블리 · 힌지/각도 제한 메이트 · J1–J6 관절 모터·그리퍼 개폐 모션 · 분해도'], en: ['Six-axis articulated robot', 'Base, waist, upper arm, forearm, 3-axis wrist, tool flange + two-finger gripper sub-assembly · hinge and angle-limit mates · J1–J6 joint motors, gripper opening and closing · exploded view'] },
   { id: 'asmCart', group: 'assembly', icon: 'insertComponent', ko: ['운반 카트 (서브 어셈블리)', '캐스터 서브 어셈블리 4번 사용 · 용접 파이프 손잡이(구조 부재) · 폭 메이트'], en: ['Utility cart (sub-assemblies)', 'Caster sub-assembly used 4 times · welded pipe handle (structural member) · width mate'] },
   { id: 'asmShaftDrawing', group: 'assembly', icon: 'sectionDrawing', ko: ['전동축 부품도', '단면도 A-A · 상세도 B · 흔들림/원통도/직각도 기하 공차 · 데이텀 · 표면 거칠기 · 주기'], en: ['Transmission shaft drawing', 'Section A-A · detail B · runout, cylindricity, perpendicularity GD&T · datums · surface finish · notes'] },
   { id: 'asmHousingDrawing', group: 'assembly', icon: 'gdt', ko: ['베어링 하우징 부품도', '평면도 위 단면도 A-A · 단면의 상세도 C · 위치도(MMC)·평면도 공차 · 데이텀 A/B'], en: ['Bearing housing drawing', 'Section A-A from the top view · detail C of the section · position (MMC) and flatness GD&T · datums A/B'] },
@@ -1353,7 +1353,7 @@ function robotModel(L) {
     b.add('chamfer', { distance: 1, edges: b.edges((e) => e.type === 'CIRCLE' && near(e.mid[0], 12) && near(Math.hypot(e.mid[1], e.mid[2]), 31.5, 0.05)) });
     return b.part;
   })();
-  // Gripper sub-assembly: body (fixed) with a finger slot, two fingers centred by a width mate and opened by a distance mate.
+  // Gripper sub-assembly: body (fixed) with a finger slot, two fingers centred by a width mate, their opening held by a limit-distance mate.
   const gBody = (() => {
     const b = builder(part(L('그리퍼 몸체', 'Gripper body'), { material: 'al-6061', partNo: 'RB-210' }));
     const sp = b.sketch('right', (k) => circle(k, 0, 0, 31.5), 'Spigot');
@@ -1396,8 +1396,11 @@ function robotModel(L) {
     return c;
   });
   addMate(grip, 'width', P.gb(gB, PL([0, 1, 0], 38)), P.gb(gB, PL([0, -1, 0], 38)), { c: P.f(fingers[0], PL([0, 1, 0], 8)), d: P.f(fingers[1], PL([0, 1, 0], 8)) });
-  addMate(grip, 'distance', P.f(fingers[0], PL([0, -1, 0], 0)), P.f(fingers[1], PL([0, -1, 0], 0)), { value: 30 });
+  // The opening: free between 12 and 50 mm (the stroke), 30 at rest.
+  addMate(grip, 'limitDistance', P.f(fingers[0], PL([0, -1, 0], 0)), P.f(fingers[1], PL([0, -1, 0], 0)), { min: 12, max: 50 });
   settle(project, grip);
+  // Its own motion: the first finger driven open and closed (±6 mm every 2 s), the width mate moves the other.
+  grip.motion = { duration: 6, motors: [{ id: 'motor-grip', kind: 'linear', comp: fingers[0].id, ref: P.f(fingers[0], PL([0, 1, 0], 8)), speed: 0, amplitude: 6, period: 2 }] };
 
   const asm = createAssembly(L('6축 다관절 로봇', 'Six-axis articulated robot'), { partNo: 'RB-000', description: L('가반 5 kg, 도달 900 mm', 'Payload 5 kg, reach 900 mm') });
   project.assemblies.push(asm);
@@ -1434,8 +1437,21 @@ function robotModel(L) {
   addMate(asm, 'concentric', P.flange(cFl, CY(15.75)), P.gb(cG.id, CY(15.75)));
   addMate(asm, 'concentric', P.flange(cFl, CY(3.3, at(1, 25, 1))), P.gb(cG.id, CY(3.3, at(1, 25, 1))));
   settle(project, asm);
-  // Motion: forearm roll (J4) and tool roll (J6) — coaxial with the wrist straight, so the flange's motor turns at J4 + J6.
-  asm.motion = { duration: 3, motors: [{ id: 'motor-j4', kind: 'rotary', comp: cY.id, ref: j4, speed: 10 }, { id: 'motor-j6', kind: 'rotary', comp: cFl.id, ref: j6, speed: 30 }] };
+  // Motion: every joint. Each motor is mounted on the link before it (parent), so a joint turns wherever the
+  // joints under it have taken it; J1–J5 swing inside their angle limits, the tool flange (J6) turns round, and the
+  // gripper sub-assembly plays its own motion (the fingers open and close).
+  const swing = (id, comp, ref, parent, amplitude, period) => ({ id, kind: 'rotary', comp, ref, parent, speed: 0, amplitude, period });
+  asm.motion = {
+    duration: 6,
+    motors: [
+      swing('motor-j1', cW.id, j1, cBase.id, 45, 6),
+      swing('motor-j2', cU.id, P.upper(cU, CY(25)), cW.id, 20, 6),
+      swing('motor-j3', cF.id, P.fore(cF, CY(20, at(2, -20, 1))), cU.id, 25, 3),
+      swing('motor-j4', cY.id, j4, cF.id, 60, 4),
+      swing('motor-j5', cP.id, P.pitch(cP, CY(10)), cY.id, 30, 3),
+      { id: 'motor-j6', kind: 'rotary', comp: cFl.id, ref: j6, parent: cP.id, speed: 20 },
+    ],
+  };
   asm.explode = {
     on: false,
     steps: [

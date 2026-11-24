@@ -284,9 +284,9 @@ Next to the ISO items there are **DIN** items; where DIN differs from ISO, they 
 | DIN 125 A | Plain washer | same dimensions as ISO 7089 |
 
 **Smart Fasteners** put bolts, washers and nuts of the right size and length into an assembly's holes; the DIN items can be chosen as the bolt and nut kinds too.
-* **Motion study**: put a rotary (rpm) or linear (mm/s) motor on a component's cylindrical face and play. Components joined by gear, rack and screw mates follow; the time slider shows any moment.
+* **Motion study**: put a rotary (rpm) or linear (mm/s) motor on a component's cylindrical face and play. Components joined by gear, rack and screw mates follow; the time slider shows any moment. A motor with an amplitude and a period swings back and forth over that range, and a motor mounted on another component (its parent) turns wherever that component has gone, so a chain of joints like a robot arm moves all at once. A sub-assembly with a motion study of its own (the robot sample's gripper) plays along. In the robot sample joints J1–J6 all move and the gripper opens and closes.
 
-   ![Motion study: J4 and J6 motors and the time slider](images/en/assembly-motion.png)
+   ![Motion study: a motor on every joint and the time slider](images/en/assembly-motion.png)
 
 ## 10. Drawings
 

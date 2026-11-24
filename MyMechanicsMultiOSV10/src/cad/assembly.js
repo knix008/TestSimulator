@@ -540,14 +540,51 @@ export function autoExplode(assembly, bodyBoxes, spacing = 10) {
 const RPM = (2 * Math.PI) / 60;
 const clonePlacement = (c) => ({ position: [...c.position], rotation: [...c.rotation] });
 
+/**
+ * How far a motor has moved at time t: rad for a rotary motor, mm for a linear one. A motor with an `amplitude`
+ * (° or mm) and a `period` (s) swings back and forth, amplitude · sin(2πt / period); otherwise it runs at its
+ * speed (rpm or mm/s).
+ */
+export function motorTravel(motor, t) {
+  const amp = Number(motor.amplitude) || 0;
+  const period = Number(motor.period) || 0;
+  if (amp && period > 0) {
+    const s = amp * Math.sin((2 * Math.PI * t) / period);
+    return motor.kind === 'linear' ? s : (s * Math.PI) / 180;
+  }
+  const speed = Number(motor.speed) || 0;
+  return motor.kind === 'linear' ? speed * t : speed * RPM * t;
+}
+
+/** The largest step a motor makes over dt (rad or mm), for the number of solver sub-steps. */
+function motorSweep(motor, dt) {
+  const amp = Number(motor.amplitude) || 0;
+  const period = Number(motor.period) || 0;
+  if (amp && period > 0) {
+    const peak = (2 * Math.PI * amp) / period; // the fastest it moves (°/s or mm/s)
+    return Math.abs(dt) * (motor.kind === 'linear' ? peak : (peak * Math.PI) / 180);
+  }
+  return Math.abs(dt) * Math.abs(Number(motor.speed) || 0) * (motor.kind === 'linear' ? 1 : RPM);
+}
+
 /** A motor's placement of its component at time t from its placement at t = 0 (`p0`) and local ref entity. */
 function motorPlacement(motor, p0, local, t) {
   const point = placePoint(p0, local.point);
   const dir = normalize(placeDir(p0, local.dir));
-  const speed = Number(motor.speed) || 0;
-  if (motor.kind === 'linear') return { position: addV(p0.position, scale(dir, speed * t)), rotation: [...p0.rotation] };
-  const q = quatFromRotvec(scale(dir, speed * RPM * t));
+  const travel = motorTravel(motor, t);
+  if (motor.kind === 'linear') return { position: addV(p0.position, scale(dir, travel)), rotation: [...p0.rotation] };
+  const q = quatFromRotvec(scale(dir, travel));
   return { position: addV(point, rotate(q, sub(p0.position, point))), rotation: quatNormalize(quatMultiply(q, p0.rotation)) };
+}
+
+/**
+ * `pl` carried along by a parent that moved from `from` to `to` (a motor whose `parent` is the component it is
+ * mounted on: a robot's joint turns on the link before it, wherever that link has gone).
+ */
+function carried(pl, from, to) {
+  const q = quatNormalize(quatMultiply(to.rotation, quatConjugate(from.rotation)));
+  const t = sub(to.position, rotate(q, from.position));
+  return { position: addV(rotate(q, pl.position), t), rotation: quatNormalize(quatMultiply(q, pl.rotation)) };
 }
 
 /**
@@ -562,8 +599,13 @@ function motionRunner(assembly, { entity: entityOf = (r) => r, size = 100 } = {}
   const entity = (r) => { const k = JSON.stringify(r); if (!memo.has(k)) memo.set(k, entityOf(r)); return memo.get(k); };
   const asm = structuredClone(assembly);
   const motors = (asm.motion?.motors ?? []).map((m) => ({ m, comp: asm.components.find((c) => c.id === m.comp), local: m.ref ? entity(m.ref) : null })).filter((x) => x.comp && x.local);
-  const p0 = new Map(motors.map((x) => [x.comp.id, clonePlacement(x.comp)]));
-  for (const x of motors) x.comp.fixed = true;
+  // Every component's placement at t = 0 (a motor's own and the one of the part it is mounted on).
+  const p0 = new Map(asm.components.map((c) => [c.id, clonePlacement(c)]));
+  const byId = new Map(asm.components.map((c) => [c.id, c]));
+  for (const x of motors) { x.comp.fixed = true; x.parent = x.m.parent && x.m.parent !== x.comp.id ? byId.get(x.m.parent) ?? null : null; }
+  // Motors mounted on another motor's component move after it (base to tip).
+  const depth = (x, seen = new Set()) => { const up = x.parent && motors.find((y) => y.comp === x.parent); if (!up || seen.has(up)) return 0; seen.add(up); return 1 + depth(up, seen); };
+  motors.sort((a, b) => depth(a) - depth(b));
   const coupled = asm.mates.filter((m) => !m.suppressed && (m.type === 'gear' || m.type === 'rackPinion' || m.type === 'screw'));
   const ratio = Math.max(1, ...coupled.filter((m) => m.type === 'gear').map((m) => { const r = Math.abs(num(m.ratio, 1)) || 1; return Math.max(r, 1 / r); }));
   const step = Math.PI / 12;
@@ -574,14 +616,17 @@ function motionRunner(assembly, { entity: entityOf = (r) => r, size = 100 } = {}
     const dt = t - time;
     let n = 1;
     for (const x of motors) {
-      const v = Math.abs(Number(x.m.speed) || 0) * Math.abs(dt);
-      n = Math.max(n, x.m.kind === 'linear' ? Math.ceil(v / linStep) : Math.ceil((v * RPM * ratio) / step));
+      const v = motorSweep(x.m, dt);
+      n = Math.max(n, x.m.kind === 'linear' ? Math.ceil(v / linStep) : Math.ceil((v * ratio) / step));
     }
     n = Math.min(n, 5000);
     for (let i = 1; i <= n; i++) {
       for (const m of coupled) captureGear(asm, m);
       const ti = time + (dt * i) / n;
-      for (const x of motors) Object.assign(x.comp, motorPlacement(x.m, p0.get(x.comp.id), x.local, ti));
+      for (const x of motors) {
+        const own = motorPlacement(x.m, p0.get(x.comp.id), x.local, ti);
+        Object.assign(x.comp, x.parent ? carried(own, p0.get(x.parent.id), x.parent) : own);
+      }
       if (asm.mates.length) { last = solveMates(asm, { entity, size, status: false }); motionSolves++; }
     }
     time = t;
