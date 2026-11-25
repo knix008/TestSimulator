@@ -20,7 +20,11 @@ use std::time::{Duration, Instant};
 
 const CACHE_VERSION: u32 = 1;
 const THUMB_SIZE: u32 = 256;
-const THUMB_EXTS: &[&str] = &[".jpg", ".jpeg", ".jfif", ".png", ".webp", ".gif", ".tif", ".tiff"];
+const THUMB_EXTS: &[&str] = &[
+    ".jpg", ".jpeg", ".jfif", ".jpe", ".png", ".apng", ".webp", ".gif", ".tif", ".tiff", ".bmp", ".dib", ".ico",
+    // what the image crate reads besides (Cargo.toml features)
+    ".tga", ".hdr", ".exr", ".pbm", ".pgm", ".ppm", ".pnm", ".pam", ".qoi", ".ff",
+];
 
 #[derive(Clone, Serialize, Deserialize)]
 struct Entry {
@@ -200,7 +204,8 @@ pub fn cache_put(path: &str, bytes: &Value, meta: &Value) -> Value {
 static MAKING: Mutex<Option<HashMap<String, Arc<Mutex<()>>>>> = Mutex::new(None);
 
 fn supported(path: &str) -> bool {
-    THUMB_EXTS.contains(&node_extname(path).to_lowercase().as_str())
+    // + JPEG XL, JPEG 2000, PSD, PCX, ICNS, DDS, camera RAW (formats.rs)
+    THUMB_EXTS.contains(&node_extname(path).to_lowercase().as_str()) || super::formats::handles(path)
 }
 
 /// One thumbnail (cached on disk); None when this format is not read here or it fails.

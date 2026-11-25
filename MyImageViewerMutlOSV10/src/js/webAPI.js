@@ -226,14 +226,14 @@
         if (res.ok) {
           const v = await res.json();
           return {
-            version: String(v.version || '1.0.2'),
+            version: String(v.version || '1.0.3'),
             buildNumber: String(v.buildNumber || ''),
             name: 'MyImageViewer',
             isPackaged: false,
           };
         }
       } catch {}
-      return { version: '1.0.2', buildNumber: '', name: 'MyImageViewer', isPackaged: false };
+      return { version: '1.0.3', buildNumber: '', name: 'MyImageViewer', isPackaged: false };
     },
     getLaunchFile: async () => null,
     readHelpDoc: async (lang) => {

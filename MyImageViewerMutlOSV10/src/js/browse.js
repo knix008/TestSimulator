@@ -30,6 +30,8 @@ window.Browse = (() => {
   const _view = { mode: 'grid', size: 160, sort: 'name', desc: false };
 
   /* Thumbnail size ladder — the toolbar steps through it, smallest to largest. */
+  // grid = thumbnails, tiles = thumbnail with the name and details beside it, list, details
+  const MODES = ['grid', 'tiles', 'list', 'details'];
   const SIZES = [64, 80, 96, 120, 160, 200, 240, 300, 380];
   const DEFAULT_SIZE = 160;
   const MIN_SIZE = SIZES[0];
@@ -50,7 +52,7 @@ window.Browse = (() => {
   function _loadView() {
     try {
       const saved = JSON.parse(localStorage.getItem(VIEW_KEY) || '{}');
-      if (['grid', 'list', 'details'].includes(saved.mode)) _view.mode = saved.mode;
+      if (MODES.includes(saved.mode)) _view.mode = saved.mode;
       if (saved.size >= MIN_SIZE && saved.size <= MAX_SIZE) _view.size = saved.size;
       if (['name', 'date', 'size', 'type'].includes(saved.sort)) _view.sort = saved.sort;
       if (typeof saved.desc === 'boolean') _view.desc = saved.desc;
@@ -84,6 +86,7 @@ window.Browse = (() => {
         <button type="button" class="browse-btn" id="browse-order"></button>
         <span class="browse-sep"></span>
         <button type="button" class="browse-btn" id="browse-mode-grid" data-mode="grid"></button>
+        <button type="button" class="browse-btn" id="browse-mode-tiles" data-mode="tiles"></button>
         <button type="button" class="browse-btn" id="browse-mode-list" data-mode="list"></button>
         <button type="button" class="browse-btn" id="browse-mode-details" data-mode="details"></button>
         <span class="browse-sep"></span>
@@ -160,6 +163,7 @@ window.Browse = (() => {
     up.addEventListener('click', () => goUp());
 
     _root.querySelector('#browse-mode-grid').innerHTML = Icons.viewGrid || '';
+    _root.querySelector('#browse-mode-tiles').innerHTML = Icons.viewTiles || '';
     _root.querySelector('#browse-mode-list').innerHTML = Icons.viewList || '';
     _root.querySelector('#browse-mode-details').innerHTML = Icons.viewDetails || '';
     _root.querySelectorAll('[data-mode]').forEach((btn) => {
@@ -436,6 +440,7 @@ window.Browse = (() => {
     _applySizeVar();
     _queueSaveView();
     _syncSizeChrome();
+    _viewChanged();
   }
 
   function _syncSizeChrome() {
@@ -488,12 +493,18 @@ window.Browse = (() => {
   }
 
   function setMode(mode) {
-    if (!['grid', 'list', 'details'].includes(mode)) return;
+    if (!MODES.includes(mode)) return;
+    if (mode === _view.mode) return;
     _view.mode = mode;
     _saveView();
     _syncChrome();
     _render();
+    _viewChanged();
   }
+
+  /** The current view (the app's toolbar view buttons follow it). */
+  function getView() { return { mode: _view.mode, size: _view.size }; }
+  function _viewChanged() { window.dispatchEvent(new CustomEvent('browse-view-change', { detail: getView() })); }
 
   /** Paint the selection set onto the tiles. */
   function _paintSelection() {
@@ -952,7 +963,7 @@ window.Browse = (() => {
   }
 
   return {
-    init, open, show, hide, refresh, goUp, setMode, setSize, setFilmstrip, isFilmstrip, select, stepFilm,
+    init, open, show, hide, refresh, goUp, setMode, setSize, getView, MODES, setFilmstrip, isFilmstrip, select, stepFilm,
     stepSize: _stepSize, getDir, isVisible, applyI18n, getSelected, getSelectedPaths, selectAll, DRAG_MIME,
   };
 })();

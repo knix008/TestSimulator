@@ -26,6 +26,42 @@ module.exports = {
       assertIncludes(html, `id="${id}"`, id);
     });
 
+    test('Print window: printer and page setup on the left, preview on the right; Print goes straight to the printer', () => {
+      const html = h.read('src/index.html');
+      const app = h.read('src/js/app.js');
+      const css = h.read('src/styles/main.css');
+      const host = h.read('src-tauri/src/printing.rs');
+      const main = h.read('src-tauri/src/main.rs');
+      // left / right
+      assert(html.indexOf('class="print-controls-col"') < html.indexOf('class="print-preview-col"'), 'settings column first');
+      assertIncludes(css, 'grid-template-columns: 400px minmax(0, 1fr);', 'settings left, preview right');
+      // detailed page setup
+      for (const id of ['print-m-top', 'print-m-bottom', 'print-m-left', 'print-m-right', 'print-position']) assertIncludes(html, `id="${id}"`, id);
+      for (const p of ['B4', 'B5', 'A6', 'Postcard', 'Photo4x6', 'Photo5x7', 'Photo8x10']) {
+        assertIncludes(html, `<option value="${p}"`, `paper ${p}`);
+        assert(new RegExp(`\\b${p}: \\[`).test(app), `size of ${p}`);
+      }
+      assertIncludes(app, "const PRINT_POSITIONS = ['mc', 'tc', 'bc', 'ml', 'mr', 'tl', 'tr', 'bl', 'br'];", 'nine positions');
+      assertIncludes(app, 'const cw = Math.max(1, pw - m.l - m.r);', 'four margins in the layout');
+      // direct printing: the page drawn at real size in the print window, printed by WebView2
+      assertIncludes(app, "page.style.width = `${L.pw}mm`;", 'real-size page');
+      assertIncludes(app, "await invoke('print_direct', { label, job });", 'no system dialog');
+      assertIncludes(app, "if ((list.filePrinters || []).includes(printer)) {", 'file printers save a PDF');
+      assertIncludes(css, 'body > *:not(.print-sheet) { display: none !important; }', 'only the page is printed');
+      assertIncludes(host, 'core.Print(&settings, &handler)', 'WebView2 Print');
+      assertIncludes(host, 'more.SetPrinterName(', 'the chosen printer');
+      assertIncludes(host, 'COREWEBVIEW2_PRINT_COLOR_MODE_GRAYSCALE', 'grayscale on the printer');
+      assertIncludes(host, 'if !label.starts_with("dialog-") {', 'only the print dialog window');
+      for (const c of ['printing::list_printers', 'printing::print_direct', 'printing::print_pdf']) assertIncludes(main, c, c);
+      // one fixed size, tall enough that no setting is hidden
+      assertIncludes(main, 'label == "dialog-auto-improve-overlay" || label == "dialog-print-overlay"', 'window cannot be resized');
+      const box = css.slice(css.indexOf('.dialog-box.print-dialog-box {'), css.indexOf('.dialog-box.print-dialog-box .dialog-header'));
+      for (const k of ['width: 1080px;', 'height: 820px;', 'max-height: none;']) assertIncludes(box, k, k);
+      for (const k of ['print.marginCustom', 'print.position', 'print.pos.tl', 'print.savedPdf', 'print.err.printer-unavailable']) {
+        assert(h.read('src/i18n/ko.json').includes(`"${k}"`) && h.read('src/i18n/en.json').includes(`"${k}"`), k);
+      }
+    });
+
     test('Print dialog CSS forbids scrollbars', () => {
       assertIncludes(css, '.dialog-box.print-dialog-box', 'print box');
       assertIncludes(css, 'print-pair', 'compact two-column controls');

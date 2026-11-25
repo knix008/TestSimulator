@@ -468,6 +468,10 @@ pub(super) fn plan(algo: &str, params: &Value) -> Result<PyPlan, String> {
         _ => "auto",
     };
     let tile = num(params, "tile").map(|t| if t <= 0 { 0 } else { t.clamp(64, 1024) / 8 * 8 }).unwrap_or(0);
+    let overlap = num(params, "overlap").map(|v| nearest(v, &[8, 16, 32, 48, 64])).unwrap_or(32);
+    let precision = if params.get("precision").and_then(Value::as_str) == Some("fp16") { "fp16" } else { "fp32" };
+    let batch = num(params, "batch").map(|v| nearest(v, &[0, 1, 2, 4, 8, 16])).unwrap_or(0);
+    let seams = if params.get("seams").and_then(Value::as_str) == Some("single") { "single" } else { "overlap" };
     let pick = |allowed: &[i64], def: i64| num(params, "scale").map(|v| nearest(v, allowed)).unwrap_or(def);
     let (engine, family, task, size, scale, main) = match algo {
         "swinir-classical" => {
@@ -501,6 +505,8 @@ pub(super) fn plan(algo: &str, params: &Value) -> Result<PyPlan, String> {
     let args = vec![
         "--family".into(), family.into(), "--task".into(), task.into(), "--size".into(), size.into(),
         "--scale".into(), scale.to_string(), "--tile".into(), tile.to_string(), "--device".into(), device.into(),
+        "--overlap".into(), overlap.to_string(), "--precision".into(), precision.into(),
+        "--batch".into(), batch.to_string(), "--seams".into(), seams.into(),
     ];
     Ok(PyPlan { engine, models, main, args, scale })
 }
@@ -602,6 +608,12 @@ mod tests {
         assert!(a.args.windows(2).any(|w| w == ["--device", "auto"]), "unknown device → auto");
         assert!(plan("espcn", &json!({ "scale": 2 })).unwrap().main.file == "ESPCN_x2.pb");
         assert!(plan("nope", &json!({})).is_err());
+        let t = plan("edsr", &json!({ "overlap": 40, "precision": "fp16", "batch": 99, "seams": "x" })).unwrap();
+        for pair in [["--overlap", "48"], ["--precision", "fp16"], ["--batch", "16"], ["--seams", "overlap"]] {
+            assert!(t.args.windows(2).any(|w| w == pair), "{pair:?} in {:?}", t.args);
+        }
+        let d = plan("aurasr", &json!({ "precision": "fp64", "seams": "single" })).unwrap();
+        assert!(d.args.windows(2).any(|w| w == ["--precision", "fp32"]) && d.args.windows(2).any(|w| w == ["--seams", "single"]));
     }
 
     #[test]

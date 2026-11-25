@@ -101,24 +101,26 @@ module.exports = {
       const sandbox = { window: {}, document: {}, localStorage: { getItem: () => null, setItem() {} }, performance: { now: () => 0 } };
       vm.runInNewContext(h.read('src/js/startboard.js'), sandbox);
       const SB = sandbox.window.StartBoard;
-      const ids = ['hero', 'begin', 'recent', 'tasks', 'scenes'];
-      const measured = { hero: 6, begin: 14, tasks: 14, recent: 12, scenes: 12 };
+      const ids = ['hero', 'begin', 'recent', 'folders', 'tasks', 'scenes'];
+      const measured = { hero: 6, begin: 14, tasks: 14, recent: 12, folders: 10, scenes: 12 };
       const cells = SB.cardsOf(null, ids, measured);
       const stuck = SB.place(cells, 'hero', { col: 2, row: 9, w: 1, h: 2, fit: false });
-      assert(stuck.hero.col === 0 && stuck.hero.row === 0 && stuck.hero.w === 3 && stuck.hero.fit === true, 'a move of the name card is ignored');
+      assert(stuck.hero.col === 0 && stuck.hero.row === 0 && stuck.hero.w === SB.COLS && stuck.hero.fit === true, 'a move of the name card is ignored');
       const arranged = SB.autoArrange(ids, measured);
-      assert(arranged.hero.col === 0 && arranged.hero.row === 0 && arranged.hero.w === 3, 'auto arrange keeps the name card on top');
-      // MySketchBook: Start and Recent share a row (2/3 + 1/3, as tall as the taller), then full rows
-      const band = SB.autoArrange(ids, { hero: 4, begin: 20, tasks: 8, recent: 6, scenes: 10 });
-      assert(band.begin.col === 0 && band.begin.w === 2 && band.recent.col === 2 && band.recent.w === 1, 'Start beside Recent');
-      assert(band.begin.row === band.hero.h && band.recent.row === band.begin.row && band.recent.h === 20, 'one shelf, as tall as the taller');
-      for (const id of ['tasks', 'scenes']) assert(band[id].col === 0 && band[id].w === 3, `${id} takes the whole row`);
-      assert(band.tasks.row === band.begin.row + 20 && band.scenes.row === band.tasks.row + 8, 'each row is only as tall as its section');
-      const again = SB.cardsOf({ version: SB.LAYOUT_VERSION, flow: 'horizontal', cards: band }, ids, { hero: 4, begin: 20, tasks: 8, recent: 6, scenes: 10 });
-      assert(again.tasks.w === 3 && again.tasks.row === again.begin.row + again.begin.h, 'auto arrange is packed the same way again');
+      assert(arranged.hero.col === 0 && arranged.hero.row === 0 && arranged.hero.w === SB.COLS, 'auto arrange keeps the name card on top');
+      // Start on a whole row; Recent & Favorites beside Recent folders (half and half, as tall as the taller)
+      const m2 = { hero: 4, begin: 8, tasks: 8, recent: 12, folders: 6, scenes: 10 };
+      const band = SB.autoArrange(ids, m2);
+      assert(SB.COLS === 6 && band.begin.col === 0 && band.begin.w === 6 && band.begin.row === band.hero.h, 'Start takes the whole row');
+      assert(band.recent.col === 0 && band.recent.w === 3 && band.folders.col === 3 && band.folders.w === 3, 'Recent & Favorites beside Recent folders');
+      assert(band.recent.row === band.begin.row + 8 && band.folders.row === band.recent.row && band.folders.h === 12, 'one shelf under Start, as tall as the taller');
+      for (const id of ['tasks', 'scenes']) assert(band[id].col === 0 && band[id].w === 6, `${id} takes the whole row`);
+      assert(band.tasks.row === band.recent.row + 12 && band.scenes.row === band.tasks.row + 8, 'each row is only as tall as its section');
+      const again = SB.cardsOf({ version: SB.LAYOUT_VERSION, flow: 'horizontal', cards: band }, ids, m2);
+      assert(again.tasks.w === 6 && again.folders.col === 3 && again.tasks.row === again.recent.row + again.recent.h, 'auto arrange is packed the same way again');
       const shifted = SB.place(cells, 'begin', { col: 2, row: 0 });
       assert(shifted.begin.row >= shifted.hero.h, 'a card dropped on the name card lands under it');
-      assert(shifted.hero.row === 0 && shifted.hero.w === 3, 'the name card did not move aside');
+      assert(shifted.hero.row === 0 && shifted.hero.w === SB.COLS, 'the name card did not move aside');
       for (const a of ids) for (const b of ids) if (a < b) assert(!SB.overlaps(shifted[a], shifted[b]), `${a} overlaps ${b}`);
     });
 

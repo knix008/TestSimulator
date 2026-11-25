@@ -54,7 +54,16 @@
   // _buildToolbar() and _initPanelLayout() read these while the module is still
   // initialising, so they have to be declared before the init calls below.
   const LAYOUT_KEY = 'panelLayoutV2';
-  const _layout = { left: true, right: true };
+  // Toolbar folder-view buttons (consts used by the first toolbar build: keep them up here)
+  const BROWSE_VIEWS = [
+    { id: 'btn-view-large',   icon: 'viewLarge',   tip: 'toolbar.viewLarge',   mode: 'grid', size: 240 },
+    { id: 'btn-view-medium',  icon: 'viewMedium',  tip: 'toolbar.viewMedium',  mode: 'grid', size: 160 },
+    { id: 'btn-view-small',   icon: 'viewSmall',   tip: 'toolbar.viewSmall',   mode: 'grid', size: 96 },
+    { id: 'btn-view-tiles',   icon: 'viewTiles',   tip: 'toolbar.viewTiles',   mode: 'tiles' },
+    { id: 'btn-view-list',    icon: 'viewList',    tip: 'toolbar.viewList',    mode: 'list' },
+    { id: 'btn-view-details', icon: 'viewDetails', tip: 'toolbar.viewDetails', mode: 'details' },
+  ];
+  const _layout = { left: true, right: true, bottom: true };   // bottom = the filmstrip
   // Edit window: Presets (left) and Adjustments (right), each expanded or collapsed to a rail
   const EW_LAYOUT_KEY = 'editPanelLayoutV1';
   const _ewLayout = { left: true, right: true };
@@ -105,6 +114,10 @@
   // Pointer marker on the rulers (_paintGuideCursor) — declared up here because the first
   // ruler paint runs during start-up, before the code near those functions has run.
   const GUIDE_RULER = 22;        // ruler band thickness (px)
+  // The picture's extent on the rulers (both axes alike): the theme accent, drawn faint
+  const RULER_EXTENT_FILL = 0.12;   // band behind the ticks
+  const RULER_EXTENT_EDGE = 0.5;    // the 3 px line along the inner edge
+  const RULER_EXTENT_LABEL = 0.8;   // "W 400" / "H 540"
   const GUIDE_CELL_MIN = 36;
   const GUIDE_CELL_MAX = 170;
   let _guideCanvas = null;
@@ -163,6 +176,8 @@
   _initPrintDialog();
   // Popup title bars: icon + label (static dialogs; the file dialog swaps its own per mode)
   document.querySelectorAll('.dialog-title-icon[data-icon]').forEach((el) => { el.innerHTML = Icons[el.dataset.icon] || ''; });
+  // Popup buttons: an icon before every label
+  document.querySelectorAll('.btn-ico[data-icon], .ew-action-icon[data-icon]').forEach((el) => { el.innerHTML = Icons[el.dataset.icon] || ''; });
 
   /* ─── DOM refs ─── */
   const app              = document.getElementById('app');
@@ -296,7 +311,7 @@
   const START_SCENE_IDS = [
     'valley', 'ocean', 'aurora', 'stars', 'rain', 'snow', 'dusk', 'forest', 'dunes', 'city',
     'nebula', 'bokeh', 'grid', 'ribbons', 'embers', 'lake', 'sunrise', 'fireflies', 'geometry', 'ink',
-    'petals', 'mountains',
+    'petals', 'mountains', 'canyon', 'autumn', 'glacier', 'meadow', 'galaxy',
   ];
   const START_SPEED_ROWS = [
     ['transparency', 'start.transparency', 100, 5],
@@ -304,7 +319,11 @@
   ];
   const START_SCREEN_DEFAULT = {
     scene: 'valley', transparency: 0, motion: 20, showOnStart: true,
+    // Background: move to the next scene every autoSceneSec seconds while the start screen shows
+    autoScene: false, autoSceneSec: 30,
   };
+  const AUTO_SCENE_MIN = 5;
+  const AUTO_SCENE_MAX = 3600;
   let _startBg = null;
   let _startBgLoading = null;
   let _startBoard = null;
@@ -876,8 +895,9 @@
       { separator: true },
       // Panels: collapse / expand the left (explorer + file info) and right (colour) panels
       { id:'btn-browse',      icon:'viewGrid',   tip: _browseTip,          action: () => _toggleBrowseMode() },
-      { id:'btn-panel-left',  icon:'panelLeft',  tip: _leftPanelTip,       action: () => _toggleLeftPanel() },
-      { id:'btn-panel-right', icon:'panelRight', tip: _rightPanelTip,      action: () => _toggleRightPanel() },
+      { separator: true },
+      // Folder views (as in Explorer): icons in three sizes, tiles, list, details — each shows the sheet
+      ...BROWSE_VIEWS.map((v) => ({ id: v.id, icon: v.icon, tip: v.tip, action: () => _setBrowseView(v) })),
       { separator: true },
       { id:'btn-edit',        icon:'edit',       tip:'toolbar.edit',       action: _openEditWindow, disabled: true },
       { spacer: true },
@@ -889,6 +909,21 @@
       { id:'btn-settings',    icon:'settings',   tip:'toolbar.settings',   action: _openSettings },
       { id:'btn-info',        icon:'info',       tip:'menu.about',         action: () => _showDialog('about-overlay') },
     ];
+
+    // The panel buttons live in the menu bar (left of minimise), not in this toolbar
+    for (const [id, icon, tip, run] of [
+      ['btn-panel-left', 'panelLeft', _leftPanelTip, () => _toggleLeftPanel()],
+      ['btn-panel-bottom', 'panelBottom', _bottomPanelTip, () => _toggleBottomPanel()],
+      ['btn-panel-right', 'panelRight', _rightPanelTip, () => _toggleRightPanel()],
+    ]) {
+      const b = document.getElementById(id);
+      if (!b) continue;
+      b.innerHTML = Icons[icon] || '';
+      if (b._panelBound) continue;
+      b._panelBound = true;
+      b.addEventListener('click', run);
+      Tooltip.attach(b, tip);
+    }
 
     // Keep the zoom input before clearing
     const zoomWrap = document.getElementById('zoom-input-wrap') || (() => {
@@ -1128,7 +1163,6 @@
       { icon: Icons.zoomOut,    label: t('menu.zoomOut'),     shortcut: 'Ctrl+-', action: () => _ewZoomBy(0.8) },
       { icon: Icons.fitWindow,  label: t('menu.fitToWindow'), shortcut: 'Ctrl+0', action: () => _ewFit() },
       { icon: Icons.actualSize, label: t('menu.actualSize'),  shortcut: 'Ctrl+1', action: () => _ewZoomTo(1) },
-      { icon: Icons.ruler,      label: t('menu.ruler'),       checked: _guides.ruler, action: () => _toggleGuide('ruler') },
       { separator: true },
       { icon: Icons.panelLeft,  label: t('menu.ewLeftPanel'),  checked: _ewLayout.left,  action: () => _toggleEwLeftPanel() },
       { icon: Icons.panelRight, label: t('menu.ewRightPanel'), checked: _ewLayout.right, action: () => _toggleEwRightPanel() },
@@ -1306,6 +1340,7 @@
     const home = _homeIsOpen();
     return [
       { icon: Icons.panelLeft,  label: t('menu.leftPanel'),  checked: _layout.left,  disabled: home, action: () => _toggleLeftPanel() },
+      { icon: Icons.panelBottom, label: t('menu.bottomPanel'), checked: _layout.bottom, disabled: home, action: () => _toggleBottomPanel() },
       { icon: Icons.panelRight, label: t('menu.rightPanel'), checked: _layout.right, disabled: home, action: () => _toggleRightPanel() },
       { separator: true },
       { icon: Icons.viewGrid, label: t('menu.browseMode'), checked: _browseMode, disabled: home, action: () => _toggleBrowseMode() },
@@ -1339,8 +1374,6 @@
     document.getElementById('menubar-home')?.addEventListener('click', () => _goHome());
     // Edit window: the same Home — _goHome closes the editor first (unsaved edits are asked about)
     document.getElementById('ew-menubar-home')?.addEventListener('click', () => _goHome());
-    document.getElementById('help-shortcuts')?.addEventListener('click', () => _showDialog('shortcuts-overlay'));
-    document.getElementById('help-about')?.addEventListener('click', () => _showDialog('about-overlay'));
   }
 
   function _showHome() {
@@ -1445,6 +1478,8 @@
         transparency: num('transparency', 100, 0),
         motion: num('motion', 100, 20),
         showOnStart: saved.showOnStart !== false,
+        autoScene: saved.autoScene === true,
+        autoSceneSec: Math.max(AUTO_SCENE_MIN, Math.min(AUTO_SCENE_MAX, num('autoSceneSec', AUTO_SCENE_MAX, START_SCREEN_DEFAULT.autoSceneSec))),
       };
     } catch {
       return { ...START_SCREEN_DEFAULT };
@@ -1474,6 +1509,15 @@
       });
       const sel = document.getElementById('settings-start-scene');
       if (sel && [...sel.options].some((opt) => opt.value === screen.scene)) sel.value = screen.scene;
+      for (const id of ['start-auto-scene', 'settings-start-auto']) {
+        const box = document.getElementById(id);
+        if (box) box.checked = screen.autoScene;
+      }
+      for (const id of ['start-auto-sec', 'settings-start-auto-sec']) {
+        const n = document.getElementById(id);
+        if (n && document.activeElement !== n) n.value = String(screen.autoSceneSec);
+        if (n) n.disabled = !screen.autoScene;
+      }
       for (const el of document.querySelectorAll('[data-start-key]')) {
         const key = el.dataset.startKey;
         if (screen[key] == null || el.value === String(screen[key])) continue;
@@ -1552,6 +1596,64 @@
     return row;
   }
 
+  /** "Change the background automatically every [30] s": checkbox, − seconds +, on one line. */
+  function _startAutoRow(screen, boxId, secId, className) {
+    const row = document.createElement('div');
+    row.className = className;
+    const label = document.createElement('label');
+    label.className = 'start-auto-check';
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.id = boxId;
+    box.checked = screen.autoScene;
+    const text = document.createElement('span');
+    text.textContent = I18n.t('start.autoScene');
+    label.append(box, text);
+    const ctrl = document.createElement('div');
+    ctrl.className = 'start-auto-ctrl';
+    const num = document.createElement('input');
+    num.type = 'number';
+    num.id = secId;
+    num.min = String(AUTO_SCENE_MIN);
+    num.max = String(AUTO_SCENE_MAX);
+    num.step = '5';
+    num.value = String(screen.autoSceneSec);
+    num.disabled = !screen.autoScene;
+    num.title = I18n.t('start.autoSceneSec');
+    const unit = document.createElement('span');
+    unit.className = 'start-auto-unit';
+    unit.textContent = I18n.t('start.seconds');
+    _bindAutoScene(box, num);
+    ctrl.append(_startStepButton(-1, num), num, unit, _startStepButton(1, num));
+    row.append(label, ctrl);
+    return row;
+  }
+
+  function _bindAutoScene(box, num) {
+    box.addEventListener('change', () => { _autoSceneCount = 0; _saveStartScreen({ autoScene: box.checked }); });
+    const commit = () => {
+      const v = Math.max(AUTO_SCENE_MIN, Math.min(AUTO_SCENE_MAX, Math.round(Number(num.value)) || START_SCREEN_DEFAULT.autoSceneSec));
+      num.value = String(v);
+      _saveStartScreen({ autoSceneSec: v });
+    };
+    num.addEventListener('input', () => { if (!_startSyncing && Number(num.value) >= AUTO_SCENE_MIN) _saveStartScreen({ autoSceneSec: Math.min(AUTO_SCENE_MAX, Math.round(Number(num.value))) }); });
+    num.addEventListener('change', commit);
+  }
+
+  /* Every second: while the start screen shows and auto change is on, count; at the period,
+     the next scene (in the order of the scene buttons). */
+  function _autoSceneTick() {
+    const screen = _startScreen();
+    if (!screen.autoScene || !_homeIsOpen() || document.hidden) { _autoSceneCount = 0; return; }
+    _autoSceneCount += 1;
+    if (_autoSceneCount < screen.autoSceneSec) return;
+    _autoSceneCount = 0;
+    const i = START_SCENE_IDS.indexOf(screen.scene);
+    _saveStartScreen({ scene: START_SCENE_IDS[(i + 1) % START_SCENE_IDS.length] });
+  }
+  let _autoSceneCount = 0;
+  setInterval(() => _autoSceneTick(), 1000);
+
   function _renderHome() {
     const scroll = document.getElementById('start-scroll');
     if (!scroll) return;
@@ -1568,7 +1670,10 @@
    * tabs). A click opens the entry and leaves the screen; × forgets one, the heading's
    * button clears the list.
    */
-  function _homePlaces() {
+  /** which: the lists of one card — Recent & Favorites ['files', 'favorites'] or Recent folders
+   *  ['dirs']. A card with one list has no sub-heading: the card title names it, and the list's
+   *  clear button goes to the title row (host.clearBtn). */
+  function _homePlaces(which = ['files', 'dirs', 'favorites']) {
     // Declared here, not above: Home is drawn by start-up code that runs before this line (TDZ)
     const HOME_PLACES_MAX = 8;
     const t = I18n.t.bind(I18n);
@@ -1597,7 +1702,33 @@
         clearLabel: t('places.clearFavorites'), clear: () => _clearFavorites(),
       },
     ];
-    for (const L of lists) {
+    const single = which.length === 1;
+    const shown = lists.filter((x) => which.includes(x.id));
+    // A card with several lists also gets one button on its title row that clears them all
+    // (each row still has its ×, each list its own clear button)
+    if (!single && shown.some((L) => L.entries().length)) {
+      const all = document.createElement('button');
+      all.type = 'button';
+      all.className = 'start-sub-clear start-clear-all';
+      all.title = t('places.clearAll');
+      all.setAttribute('aria-label', t('places.clearAll'));
+      all.innerHTML = Icons.delete || '';
+      all.addEventListener('click', async () => {
+        const r = await window.electronAPI.showMessageBox({
+          type: 'warning',
+          title: t('home.places'),
+          message: t('places.clearAllConfirm'),
+          buttons: [t('places.clearAllYes'), t('dialog.delete.no')],
+          defaultId: 1, cancelId: 1,
+        });
+        if (r?.response !== 0) return;
+        if (which.includes('files')) _clearRecentFiles();
+        if (which.includes('dirs')) await _clearRecentFolderHistory();
+        if (which.includes('favorites')) await _clearFavorites({ ask: false });
+      });
+      host.clearBtn = all;
+    }
+    for (const L of shown) {
       const entries = L.entries().slice(0, HOME_PLACES_MAX);
       const head = document.createElement('h3');
       head.className = 'start-sub';
@@ -1612,7 +1743,8 @@
         clear.setAttribute('aria-label', L.clearLabel);
         clear.innerHTML = Icons.delete || '';
         clear.addEventListener('click', () => { L.clear(); });
-        head.appendChild(clear);
+        if (single) host.clearBtn = clear;
+        else head.appendChild(clear);
       }
       const list = document.createElement('div');
       list.className = 'start-list';
@@ -1652,7 +1784,8 @@
         row.append(open, removeBtn);
         list.appendChild(row);
       }
-      host.append(head, list);
+      if (single) host.append(list);
+      else host.append(head, list);
     }
     return host;
   }
@@ -1674,7 +1807,8 @@
     tasks.className = 'task-grid';
     for (const task of HOME_TASKS) tasks.appendChild(_homeCard(task));
 
-    const recentHost = _homePlaces();
+    const recentHost = _homePlaces(['files', 'favorites']);
+    const foldersHost = _homePlaces(['dirs']);
 
     const tipIndex = Math.floor(Date.now() / 86400000) % 4;
     const more = document.createElement('p');
@@ -1729,17 +1863,11 @@
     }
     const speeds = document.createElement('div');
     speeds.className = 'start-speeds';
+    // One line: automatic scene change first, then transparency and speed
+    speeds.appendChild(_startAutoRow(screen, 'start-auto-scene', 'start-auto-sec', 'start-speed start-auto'));
     for (const [key, label, max, step] of START_SPEED_ROWS) {
       speeds.appendChild(_startRange(key, label, max, step, screen[key]));
     }
-    const reset = document.createElement('button');
-    reset.type = 'button';
-    reset.className = 'start-speed-reset';
-    reset.textContent = I18n.t('start.speedReset');
-    reset.addEventListener('click', () => _saveStartScreen({
-      transparency: 0, motion: 20,
-    }));
-    speeds.appendChild(reset);
     const sceneBody = document.createElement('div');
     sceneBody.append(scenes, speeds);
 
@@ -1747,7 +1875,7 @@
     tip.classList.add('start-banner');
 
     // Hero (bare card): logo, name and version, the lead line, help / settings / open folder
-    const verText = _appInfoCache ? _versionLabel(_appInfoCache) : (document.querySelector('.app-brand-ver')?.textContent || 'V1.0.2');
+    const verText = _appInfoCache ? _versionLabel(_appInfoCache) : (document.querySelector('.app-brand-ver')?.textContent || 'V1.0.3');
     const hero = document.createElement('div');
     hero.className = 'start-hero';
     hero.innerHTML = `<img src="./assets/icon.png" alt="" class="start-icon">`
@@ -1780,7 +1908,8 @@
     );
 
     // The board: movable, resizable cards (startboard.js, MySketchBook style). The order is the
-    // default arrangement: Start beside Recent, then What you can do, then Background.
+    // default arrangement: Start on a whole row, then Recent & Favorites beside Recent folders,
+    // then What you can do, then Background.
     const moveTip = I18n.t('start.moveCard');
     const resizeTip = I18n.t('start.resizeCard');
     // A count at the right end of the title row, like MySketchBook's "11"
@@ -1796,7 +1925,8 @@
     board.append(
       StartBoard.card('hero', { body: hero, bare: true, locked: true }),
       card('begin', 'home', I18n.t('home.begin'), begin),
-      card('recent', 'recent', I18n.t('home.places'), recentHost),
+      card('recent', 'recent', I18n.t('home.places'), recentHost, recentHost.clearBtn || null),
+      card('folders', 'folder', I18n.t('home.recentFolders'), foldersHost, foldersHost.clearBtn || null),
       card('tasks', 'viewGrid', I18n.t('home.tasks'), tasks, note(HOME_TASKS.length)),
       card('scenes', 'image', I18n.t('home.background'), sceneBody, note(START_SCENE_IDS.length)),
     );
@@ -1845,13 +1975,133 @@
 
   if (showHome && !document.body.classList.contains('home-open')) _showHome();
 
+  /* The manual window. Its language starts as the program's and can be switched for the
+     manual alone; the text size (− / +, Ctrl+− / Ctrl++ / Ctrl+0) is remembered; Print
+     (Ctrl+P) prints the manual as shown — language, size and pictures. Colours follow the
+     main theme (dialogWindow.js copies data-theme to its window on every change). */
+  const HELP_FONT = { min: 10, max: 24, normal: 13 };
+  const HELP_FONT_KEY = 'helpFontSizeV1';
+  let _helpLang = '';
+  let _helpFont = (() => {
+    try {
+      const n = Math.round(Number(localStorage.getItem(HELP_FONT_KEY)));
+      return Number.isFinite(n) && n >= HELP_FONT.min && n <= HELP_FONT.max ? n : HELP_FONT.normal;
+    } catch { return HELP_FONT.normal; }
+  })();
+
   function _openHelp() {
+    _helpLang = state.lang === 'ko' ? 'ko' : 'en';
+    _bindHelpTools();
     _showDialog('help-overlay');
+    _setHelpFont(_helpFont, false);
     _fillHelpDoc();
   }
 
+  function _setHelpFont(size, save = true) {
+    _helpFont = Math.max(HELP_FONT.min, Math.min(HELP_FONT.max, Math.round(Number(size)) || HELP_FONT.normal));
+    if (save) { try { localStorage.setItem(HELP_FONT_KEY, String(_helpFont)); } catch { /* kept for this run */ } }
+    const doc = document.getElementById('help-doc');
+    if (doc) doc.style.setProperty('--help-font', `${_helpFont}px`);
+    const val = document.getElementById('help-font-val');
+    if (val) val.textContent = String(_helpFont);
+    const down = document.getElementById('help-font-down');
+    const up = document.getElementById('help-font-up');
+    if (down) down.disabled = _helpFont <= HELP_FONT.min;
+    if (up) up.disabled = _helpFont >= HELP_FONT.max;
+  }
+
+  function _syncHelpLangButtons() {
+    document.querySelectorAll('#help-overlay [data-help-lang]').forEach((b) => {
+      b.setAttribute('aria-pressed', String(b.dataset.helpLang === _helpLang));
+    });
+  }
+
+  function _bindHelpTools() {
+    const overlay = document.getElementById('help-overlay');
+    if (!overlay || overlay._helpTools) return;
+    overlay._helpTools = true;
+    overlay.querySelectorAll('[data-help-lang]').forEach((b) => b.addEventListener('click', () => {
+      if (_helpLang === b.dataset.helpLang) return;
+      _helpLang = b.dataset.helpLang;
+      _fillHelpDoc();
+    }));
+    overlay.querySelector('#help-font-down')?.addEventListener('click', () => _setHelpFont(_helpFont - 1));
+    overlay.querySelector('#help-font-up')?.addEventListener('click', () => _setHelpFont(_helpFont + 1));
+    overlay.querySelector('#help-font-reset')?.addEventListener('click', () => _setHelpFont(HELP_FONT.normal));
+    overlay.querySelector('#help-print')?.addEventListener('click', () => _printHelp());
+    // The keys work in the manual's own window (its document's events reach the overlay)
+    overlay.addEventListener('keydown', (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const k = e.key;
+      if (k === '=' || k === '+') _setHelpFont(_helpFont + 1);
+      else if (k === '-' || k === '_') _setHelpFont(_helpFont - 1);
+      else if (k === '0') _setHelpFont(HELP_FONT.normal);
+      else if (k.toLowerCase() === 'p') _printHelp();
+      else return;
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    // Ctrl+wheel over the text changes its size too
+    overlay.querySelector('#help-doc')?.addEventListener('wheel', (e) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      _setHelpFont(_helpFont + (e.deltaY < 0 ? 1 : -1));
+    }, { passive: false });
+  }
+
+  /** The manual as one printable page: light paper colours, the shown language and text size. */
+  function _helpPrintHtml() {
+    const doc = document.getElementById('help-doc');
+    const base = location.href.replace(/[#?].*$/, '').replace(/[^/]*$/, '');
+    const pt = (_helpFont * 0.75).toFixed(1);
+    const title = (doc?.querySelector('h1')?.textContent || I18n.t('help.title')).replace(/[<>&"]/g, '');
+    return `<!doctype html><html lang="${_helpLang}"><head><meta charset="utf-8"><base href="${base}"><title>${title}</title><style>
+@page { size: A4; margin: 16mm 15mm 18mm; }
+html, body { margin: 0; background: #fff; color: #111; }
+body { font: ${pt}pt/1.5 "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+h1 { font-size: 1.8em; margin: 0 0 0.6em; }
+h2 { font-size: 1.3em; margin: 1.4em 0 0.5em; padding-bottom: 0.2em; border-bottom: 1px solid #bbb; break-after: avoid; }
+h3 { font-size: 1.1em; margin: 1em 0 0.4em; break-after: avoid; }
+p, li { margin: 0.35em 0; }
+ul, ol { padding-left: 1.4em; }
+code, kbd { font-family: Consolas, monospace; font-size: 0.92em; background: #f1f1f1; border: 1px solid #ccc; border-radius: 3px; padding: 0 3px; }
+table { width: 100%; border-collapse: collapse; margin: 0.6em 0 1em; break-inside: auto; }
+tr { break-inside: avoid; }
+th, td { border: 1px solid #999; padding: 4px 6px; text-align: left; vertical-align: top; font-size: 0.95em; }
+th { background: #eee; }
+hr { border: 0; border-top: 1px solid #bbb; margin: 1.2em 0; }
+.help-fig { margin: 0.6em 0 1em; break-inside: avoid; }
+.help-fig img { display: block; max-width: 100%; max-height: 120mm; margin: 0 auto; border: 1px solid #bbb; }
+.help-fig figcaption { text-align: center; font-size: 0.9em; color: #444; margin-top: 3px; }
+</style></head><body>${doc ? doc.innerHTML : ''}</body></html>`;
+  }
+
+  /** Print from the manual's own window, so the print dialog opens over it. */
+  function _printHelp() {
+    const overlay = document.getElementById('help-overlay');
+    const owner = overlay?.ownerDocument || document;
+    if (!document.getElementById('help-doc')?.querySelector('h1, h2')) return;
+    const frame = owner.createElement('iframe');
+    frame.title = 'print';
+    frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+    frame.srcdoc = _helpPrintHtml();
+    frame.onload = async () => {
+      const w = frame.contentWindow;
+      try {
+        // Pictures first, or they print as empty boxes
+        await Promise.all([...w.document.images].map((img) => (img.complete ? null : new Promise((r) => { img.onload = r; img.onerror = r; }))));
+        w.focus();
+        w.print();
+      } catch (err) {
+        console.warn('help print', err);
+      }
+      setTimeout(() => frame.remove(), 1500);
+    };
+    owner.body.appendChild(frame);
+  }
+
   function _helpDocUrl() {
-    const file = state.lang === 'ko' ? '도움말.md' : 'help.md';
+    const file = _helpLang === 'ko' ? '도움말.md' : 'help.md';
     const name = encodeURIComponent(file);
     if (location.protocol === 'file:') return `../doc/${name}`;
     return `/doc/${name}`;
@@ -1862,21 +2112,27 @@
     const doc = document.getElementById('help-doc');
     const nav = document.getElementById('help-nav');
     if (!doc || !nav) return;
-    const key = state.lang || 'en';
+    if (!_helpLang) _helpLang = state.lang === 'ko' ? 'ko' : 'en';
+    _syncHelpLangButtons();
+    const key = _helpLang;
     if (_helpDocKey === key && doc.querySelector('h1')) return;
     doc.innerHTML = `<p class="help-status">${I18n.t('help.loading')}</p>`;
     nav.innerHTML = '';
     try {
       let md = '';
       if (window.electronAPI?.readHelpDoc && window.electronAPI.platform !== 'web') {
-        md = await window.electronAPI.readHelpDoc(state.lang);
+        md = await window.electronAPI.readHelpDoc(_helpLang);
       }
       if (!md) {
         const res = await fetch(_helpDocUrl(), { cache: 'no-store' });
         if (!res.ok) throw new Error(String(res.status));
         md = await res.text();
       }
+      // A quicker second press may have asked for the other language meanwhile
+      if (key !== _helpLang) return;
       doc.innerHTML = _markdownToHtml(md);
+      doc.lang = key;
+      doc.scrollTop = 0;
       _helpDocKey = key;
       nav.innerHTML = '';
       doc.querySelectorAll('h2').forEach((h, i) => {
@@ -2022,7 +2278,12 @@
   /* Print preview: paper / orientation / margins / scale are chosen here, the page is
    * drawn to scale, and "Print" sends the picture straight to the selected printer
    * (the system default is pre-selected). */
-  const PRINT_PAPERS = { A4: [210, 297], Letter: [215.9, 279.4], Legal: [215.9, 355.6], A3: [297, 420], A5: [148, 210], Tabloid: [279.4, 431.8] };
+  const PRINT_PAPERS = {
+    A4: [210, 297], Letter: [215.9, 279.4], Legal: [215.9, 355.6], A3: [297, 420], A5: [148, 210], Tabloid: [279.4, 431.8],
+    B4: [250, 353], B5: [176, 250], A6: [105, 148], Postcard: [100, 148], Photo4x6: [101.6, 152.4], Photo5x7: [127, 177.8], Photo8x10: [203.2, 254],
+  };
+  // Where the picture sits in the printable area: t / m / b × l / c / r
+  const PRINT_POSITIONS = ['mc', 'tc', 'bc', 'ml', 'mr', 'tl', 'tr', 'bl', 'br'];
   const PRINT_PREFS_KEY = 'printPrefs';   // _print itself is declared at the top of the module
 
   function _loadPrintPrefs() {
@@ -2041,7 +2302,17 @@
       printer:  q('print-printer')?.value || '',
       paper:    PRINT_PAPERS[q('print-paper-size')?.value] ? q('print-paper-size').value : 'A4',
       orient:   radio('print-orient') || 'auto',
+      marginPreset: q('print-margins')?.value === 'custom' ? 'custom' : String(Math.max(0, parseFloat(q('print-margins')?.value) || 0)),
       marginMm: Math.max(0, parseFloat(q('print-margins')?.value) || 0),
+      margins: (() => {
+        if (q('print-margins')?.value !== 'custom') {
+          const m = Math.max(0, parseFloat(q('print-margins')?.value) || 0);
+          return { t: m, b: m, l: m, r: m };
+        }
+        const v = (id) => Math.min(80, Math.max(0, parseFloat(q(id)?.value) || 0));
+        return { t: v('print-m-top'), b: v('print-m-bottom'), l: v('print-m-left'), r: v('print-m-right') };
+      })(),
+      position: PRINT_POSITIONS.includes(q('print-position')?.value) ? q('print-position').value : 'mc',
       scale:    radio('print-scale') || 'fit',
       scalePct: Math.min(400, Math.max(5, parseFloat(q('print-scale-pct')?.value) || 100)),
       copies:   Math.min(99, Math.max(1, parseInt(q('print-copies')?.value, 10) || 1)),
@@ -2061,7 +2332,12 @@
     if (q('print-paper-size') && PRINT_PAPERS[f.paper]) q('print-paper-size').value = f.paper;
     const orient = document.querySelector(`input[name="print-orient"][value="${f.orient}"]`);
     if (orient) orient.checked = true;
-    if (q('print-margins')) q('print-margins').value = String(f.marginMm);
+    if (q('print-margins')) q('print-margins').value = f.marginPreset === 'custom' ? 'custom' : String(f.marginMm);
+    const m = f.margins || { t: f.marginMm, b: f.marginMm, l: f.marginMm, r: f.marginMm };
+    for (const [id, k] of [['print-m-top', 't'], ['print-m-bottom', 'b'], ['print-m-left', 'l'], ['print-m-right', 'r']]) {
+      if (q(id) && Number.isFinite(Number(m[k]))) q(id).value = String(m[k]);
+    }
+    if (q('print-position')) q('print-position').value = PRINT_POSITIONS.includes(f.position) ? f.position : 'mc';
     const scale = document.querySelector(`input[name="print-scale"][value="${f.scale}"]`);
     if (scale) scale.checked = true;
     if (q('print-scale-pct')) q('print-scale-pct').value = String(f.scalePct);
@@ -2137,8 +2413,9 @@
     const pw = landscape ? ph0 : pw0;
     const ph = landscape ? pw0 : ph0;
     const chrome = _printChrome(f);
-    const cw = Math.max(1, pw - 2 * f.marginMm);
-    const ch = Math.max(1, ph - 2 * f.marginMm - chrome.headerMm - chrome.footerMm);
+    const m = f.margins || { t: f.marginMm, b: f.marginMm, l: f.marginMm, r: f.marginMm };
+    const cw = Math.max(1, pw - m.l - m.r);
+    const ch = Math.max(1, ph - m.t - m.b - chrome.headerMm - chrome.footerMm);
     let iw = 0, ih = 0;
     if (_print.imgW && _print.imgH) {
       const fit = Math.min(cw / _print.imgW, ch / _print.imgH);
@@ -2148,7 +2425,7 @@
       iw = _print.imgW * k;
       ih = _print.imgH * k;
     }
-    return { pw, ph, cw, ch, iw, ih, landscape, ...chrome };
+    return { pw, ph, cw, ch, iw, ih, landscape, m, ...chrome };
   }
 
   function _renderPrintPreview() {
@@ -2166,8 +2443,12 @@
     paper.style.width = `${L.pw * k}px`;
     paper.style.height = `${L.ph * k}px`;
     paper.classList.toggle('gray', f.color === 'gray');
-    content.style.left = `${f.marginMm * k}px`;
-    content.style.top = `${(f.marginMm + L.headerMm) * k}px`;
+    content.style.left = `${L.m.l * k}px`;
+    content.style.top = `${(L.m.t + L.headerMm) * k}px`;
+    const [pv, ph2] = (f.position || 'mc').split('');
+    const FLEX = { t: 'flex-start', m: 'center', b: 'flex-end', l: 'flex-start', c: 'center', r: 'flex-end' };
+    content.style.alignItems = FLEX[pv] || 'center';
+    content.style.justifyContent = FLEX[ph2] || 'center';
     content.style.width = `${L.cw * k}px`;
     content.style.height = `${L.ch * k}px`;
     img.style.width = `${L.iw * k}px`;
@@ -2180,9 +2461,10 @@
       const on = mm > 0;
       el.hidden = !on;
       if (!on) return;
-      el.style.left = el.style.right = `${f.marginMm * k}px`;
-      if (top) el.style.top = `${f.marginMm * k}px`;
-      else el.style.bottom = `${f.marginMm * k}px`;
+      el.style.left = `${L.m.l * k}px`;
+      el.style.right = `${L.m.r * k}px`;
+      if (top) el.style.top = `${L.m.t * k}px`;
+      else el.style.bottom = `${L.m.b * k}px`;
       el.style.height = `${mm * k}px`;
       el.style.fontSize = `${fontPx}px`;
       const set = (side, text) => {
@@ -2197,6 +2479,7 @@
     fillBand('print-footer', L.footer, L.footerMm, false);
 
     document.getElementById('print-scale-custom-wrap')?.toggleAttribute('hidden', f.scale !== 'custom');
+    document.getElementById('print-margins-custom')?.toggleAttribute('hidden', f.marginPreset !== 'custom');
     document.getElementById('print-header-custom-wrap')?.toggleAttribute('hidden', !f.headerOn || f.headerKind !== 'custom');
     document.getElementById('print-header-opts')?.toggleAttribute('hidden', !f.headerOn);
     document.getElementById('print-pageno-opts')?.toggleAttribute('hidden', !f.pageNoOn);
@@ -2204,7 +2487,7 @@
     if (info) {
       const t = I18n.t.bind(I18n);
       info.textContent = (t('print.pageInfo') || '')
-        .replace('{paper}', f.paper)
+        .replace('{paper}', (document.querySelector('#print-paper-size option:checked')?.textContent || f.paper).replace(/\s*\(.*$/, ''))
         .replace('{orient}', t(L.landscape ? 'print.landscape' : 'print.portrait'))
         .replace('{pw}', Math.round(L.pw)).replace('{ph}', Math.round(L.ph))
         .replace('{iw}', Math.round(L.iw)).replace('{ih}', Math.round(L.ih));
@@ -2300,6 +2583,17 @@
         return;
       }
       _print.dataUrl = dataUrl;
+      const direct = await _printDirect(f, L, dataUrl, title);
+      if (direct.done) {
+        _hideDialog('print-overlay');
+        _updateStatus({ msg: (I18n.t(direct.pdf ? 'print.savedPdf' : 'print.sent') || 'Sent to {printer}').replace('{printer}', direct.printer).replace('{file}', direct.pdf || '') });
+        return;
+      }
+      if (direct.cancelled) return;
+      if (direct.error) {
+        _showError(I18n.t('error.print') || 'Could not print the image.', I18n.t(`print.err.${direct.error}`) || direct.error);
+        return;
+      }
       const res = await window.electronAPI.printImage({
         dataUrl,
         title,
@@ -2328,6 +2622,93 @@
     } finally {
       _print.busy = false;
       if (goBtn) { goBtn.disabled = false; goBtn.querySelector('span').textContent = I18n.t('print.print'); }
+    }
+  }
+
+  /** The page to print, at its real size (mm), in the print window's own document: the only
+   *  thing its print view shows (.print-sheet, @media print in main.css). */
+  function _buildPrintSheet(doc, f, L, dataUrl) {
+    doc.querySelectorAll('.print-sheet').forEach((n) => n.remove());
+    const sheet = doc.createElement('div');
+    sheet.className = `print-sheet${f.color === 'gray' ? ' gray' : ''}`;
+    const page = doc.createElement('div');
+    page.className = 'ps-page';
+    page.style.width = `${L.pw}mm`;
+    page.style.height = `${L.ph}mm`;
+    const band = (slots, mm, top) => {
+      if (!(mm > 0)) return;
+      const b = doc.createElement('div');
+      b.className = 'ps-band';
+      b.style.left = `${L.m.l}mm`;
+      b.style.right = `${L.m.r}mm`;
+      b.style.height = `${mm}mm`;
+      b.style[top ? 'top' : 'bottom'] = `${top ? L.m.t : L.m.b}mm`;
+      for (const [cls, key] of [['l', 'left'], ['c', 'center'], ['r', 'right']]) {
+        const s = doc.createElement('span');
+        s.className = cls;
+        s.textContent = slots[key] || '';
+        b.appendChild(s);
+      }
+      page.appendChild(b);
+    };
+    band(L.header, L.headerMm, true);
+    const area = doc.createElement('div');
+    area.className = 'ps-area';
+    area.style.left = `${L.m.l}mm`;
+    area.style.top = `${L.m.t + L.headerMm}mm`;
+    area.style.width = `${L.cw}mm`;
+    area.style.height = `${L.ch}mm`;
+    const [pv, ph] = (f.position || 'mc').split('');
+    const FLEX = { t: 'flex-start', m: 'center', b: 'flex-end', l: 'flex-start', c: 'center', r: 'flex-end' };
+    area.style.alignItems = FLEX[pv] || 'center';
+    area.style.justifyContent = FLEX[ph] || 'center';
+    const img = doc.createElement('img');
+    img.alt = '';
+    img.style.width = `${L.iw}mm`;
+    img.style.height = `${L.ih}mm`;
+    img.src = dataUrl;
+    area.appendChild(img);
+    page.appendChild(area);
+    band(L.footer, L.footerMm, false);
+    sheet.appendChild(page);
+    doc.body.appendChild(sheet);
+    return { sheet, img };
+  }
+
+  /**
+   * "Print": straight to the chosen printer, no system dialog (desktop, Windows: printing.rs).
+   * A printer that writes a file (Microsoft Print to PDF, XPS) asks where to save a PDF instead.
+   * { done, printer, pdf } | { cancelled } | { error } | {} = not available here (system dialog).
+   */
+  async function _printDirect(f, L, dataUrl, title) {
+    const invoke = window.__TAURI__?.core?.invoke;
+    const overlay = document.getElementById('print-overlay');
+    if (!invoke || !overlay || !window.DialogWindows?.isOut?.('print-overlay')) return {};
+    let list;
+    try { list = await invoke('list_printers'); } catch { return {}; }
+    if (!list?.direct) return {};
+    const printer = f.printer || list.defaultPrinter || '';
+    const job = { printer, copies: f.copies, widthMm: Math.round(L.pw * 100) / 100, heightMm: Math.round(L.ph * 100) / 100, gray: f.color === 'gray' };
+    const label = 'dialog-print-overlay';
+    let pdf = '';
+    if ((list.filePrinters || []).includes(printer)) {
+      const base = String(title || 'image').replace(/\.[^.]+$/, '');
+      const res = await window.electronAPI.showSaveDialog({ defaultPath: `${base}.pdf`, filters: [{ name: 'PDF', extensions: ['pdf'] }] });
+      if (!res || res.canceled || !res.filePath) return { cancelled: true };
+      pdf = /\.pdf$/i.test(res.filePath) ? res.filePath : `${res.filePath}.pdf`;
+    }
+    const doc = overlay.ownerDocument;
+    const { sheet, img } = _buildPrintSheet(doc, f, L, dataUrl);
+    try {
+      if (!img.complete) await new Promise((r) => { img.onload = r; img.onerror = r; });
+      try { await img.decode(); } catch { /* drawn anyway */ }
+      if (pdf) await invoke('print_pdf', { label, job, path: pdf });
+      else await invoke('print_direct', { label, job });
+      return { done: true, printer: printer || I18n.t('print.defaultPrinter'), pdf };
+    } catch (err) {
+      return { error: String(err && err.message ? err.message : err) };
+    } finally {
+      sheet.remove();
     }
   }
 
@@ -6073,9 +6454,10 @@
     _applyFavorites(await window.electronAPI.favoritesRemove?.(p));
   }
 
-  async function _clearFavorites() {
+  async function _clearFavorites({ ask = true } = {}) {
     if (!_favorites.length) return;
     const t = I18n.t.bind(I18n);
+    if (!ask) { _applyFavorites(await window.electronAPI.favoritesClear?.()); return; }
     const r = await window.electronAPI.showMessageBox({
       type: 'warning',
       title: t('tree.tab.favorites'),
@@ -6818,11 +7200,19 @@
     return { fifth: false, step };
   }
 
+  /** The ruler is always shown in the edit window; in the viewer it follows its switch. */
+  function _rulerOn(container) {
+    return _guides.ruler || (!!container && container !== viewerContainer);
+  }
+
   function _paintGuides(container, left, top, zoom, w, h) {
-    const show = (_guides.ruler || _guides.grid) && w > 0 && h > 0 && zoom > 0
+    const rulerOn = _rulerOn(container);
+    const show = (rulerOn || _guides.grid) && w > 0 && h > 0 && zoom > 0
       // hidden only under the full contact sheet — the filmstrip leaves the image in view
       && !(container === viewerContainer && window.Browse?.isVisible?.() && !window.Browse?.isFilmstrip?.());
     _guideGeo = show ? { container, left, top, zoom, w, h } : null;
+    // The prev / next buttons step inside the ruler band (CSS .has-ruler)
+    if (container) container.classList.toggle('has-ruler', show && rulerOn);
     _watchGuideCursor(container);
     _paintGuideCursor();
     if (!show) {
@@ -6850,13 +7240,14 @@
 
     const plan = _guidePlan(w, h, zoom);
     const ruler = GUIDE_RULER;
-    const originX = _guides.ruler ? ruler : 0;
-    const originY = _guides.ruler ? ruler : 0;
+    const originX = rulerOn ? ruler : 0;
+    const originY = rulerOn ? ruler : 0;
     const imgRight = left + w * zoom;
     const imgBottom = top + h * zoom;
     const cs = getComputedStyle(document.body);
     const bar = cs.getPropertyValue('--bg-secondary').trim() || '#1e2430';
     const ink = cs.getPropertyValue('--text-primary').trim() || '#e8eef8';
+    const extentColor = cs.getPropertyValue('--accent').trim() || '#60a5fa';
 
     if (_guides.grid) {
       ctx.save();
@@ -6900,11 +7291,26 @@
       ctx.restore();
     }
 
-    if (!_guides.ruler) return;
+    if (!rulerOn) return;
 
     ctx.fillStyle = bar;
     ctx.fillRect(0, 0, cw, ruler);
     ctx.fillRect(0, 0, ruler, ch);
+    // The picture's width (top) and height (left), one faint theme colour, the size at the end
+    const extent = (horizontal) => {
+      const a = Math.max(ruler, horizontal ? left : top);
+      const b = Math.min(horizontal ? cw : ch, horizontal ? imgRight : imgBottom);
+      if (b <= a) return;
+      ctx.save();
+      ctx.globalAlpha = RULER_EXTENT_FILL;
+      ctx.fillStyle = extentColor;
+      if (horizontal) ctx.fillRect(a, 0, b - a, ruler); else ctx.fillRect(0, a, ruler, b - a);
+      ctx.globalAlpha = RULER_EXTENT_EDGE;
+      ctx.fillRect(horizontal ? a : ruler - 3, horizontal ? ruler - 3 : a, horizontal ? b - a : 3, horizontal ? 3 : b - a);
+      ctx.restore();
+    };
+    extent(true);
+    extent(false);
     ctx.fillStyle = ink;
     ctx.font = '10px sans-serif';
     ctx.textBaseline = 'top';
@@ -6942,9 +7348,25 @@
           }
         }
       }
+      // Past the picture: the same scale continues to the ends of the ruler
+      const outStep = plan.fifth ? _niceGuideStep(zoom) : step;
+      const outMinor = outStep % 5 === 0 ? outStep / 5 : (outStep % 2 === 0 ? outStep / 2 : 0);
+      const viewFrom = (ruler - origin) / zoom;
+      const viewTo = (span - origin) / zoom;
+      for (let value = Math.floor(viewFrom / outStep) * outStep; value <= viewTo + 0.01; value += outStep) {
+        const outside = (v) => v < -0.01 || v > size + 0.01;
+        if (outside(value)) ticks.push({ value, major: true, out: true });
+        if (outMinor > 0 && outMinor * zoom >= 6) {
+          for (let k = 1; k < outStep / outMinor; k++) {
+            const v = value + outMinor * k;
+            if (outside(v)) ticks.push({ value: v, major: false, out: true });
+          }
+        }
+      }
+      ticks.sort((p, q) => p.value - q.value);
       let lastLabel = -Infinity;
       for (const tick of ticks) {
-        if (tick.value < -0.5 || tick.value > size + 0.5) continue;
+        if (!tick.out && (tick.value < -0.5 || tick.value > size + 0.5)) continue;
         const pos = Math.round(origin + tick.value * zoom) + 0.5;
         if (pos < ruler || pos > span) continue;
         const len = tick.major ? 8 : 4;
@@ -6971,6 +7393,32 @@
     };
     drawAxis(true);
     drawAxis(false);
+    // "W 400" / "H 540" at the picture's far edge, in the same faint colour
+    ctx.font = 'bold 10px sans-serif';
+    const wLabel = `W ${w}`;
+    const wx = Math.min(imgRight, cw) - ctx.measureText(wLabel).width - 4;
+    if (imgRight > ruler + 30 && wx > ruler) {
+      ctx.fillStyle = bar;
+      ctx.fillRect(wx - 3, 2, ctx.measureText(wLabel).width + 6, 12);
+      ctx.save();
+      ctx.globalAlpha = RULER_EXTENT_LABEL;
+      ctx.fillStyle = extentColor;
+      ctx.fillText(wLabel, wx, 3);
+      ctx.restore();
+    }
+    const hLabel = `H ${h}`;
+    const hy = Math.min(imgBottom, ch) - ctx.measureText(hLabel).width - 4;
+    if (imgBottom > ruler + 30 && hy > ruler) {
+      ctx.save();
+      ctx.translate(3, hy);
+      ctx.rotate(Math.PI / 2);
+      ctx.fillStyle = bar;
+      ctx.fillRect(-3, -2, ctx.measureText(hLabel).width + 6, 12);
+      ctx.globalAlpha = RULER_EXTENT_LABEL;
+      ctx.fillStyle = extentColor;
+      ctx.fillText(hLabel, 0, -1);
+      ctx.restore();
+    }
   }
 
   /* The pointer on the rulers: a red line in each band at the mouse, with the image pixel
@@ -6994,7 +7442,7 @@
   function _paintGuideCursor() {
     const geo = _guideGeo;
     const p = _guidePointer;
-    const on = !!(geo && _guides.ruler && p && p.container === geo.container);
+    const on = !!(geo && _rulerOn(geo.container) && p && p.container === geo.container);
     if (!on) {
       if (_guideCursorCanvas) _guideCursorCanvas.hidden = true;
       return;
@@ -9071,7 +9519,12 @@
       buttons.forEach((label, i) => {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.textContent = label;
+        const ico = document.createElement('span');
+        ico.className = 'btn-ico';
+        ico.innerHTML = Icons[_confirmButtonIcon(label, i, cancelId, defaultId)] || '';
+        const text = document.createElement('span');
+        text.textContent = label;
+        btn.append(ico, text);
         if (i === defaultId) btn.classList.add('primary');
         btn.addEventListener('click', () => finish(i, i === cancelId));
         footer.appendChild(btn);
@@ -9083,6 +9536,18 @@
       _resetDialogPos(overlay);
       footer.querySelector('.primary')?.focus();
     });
+  }
+
+  /** A button's label without dropping its icon (the text sits in the span after .btn-ico). */
+  function _setButtonLabel(btn, text) {
+    const span = btn?.querySelector('.btn-ico + span');
+    if (span) span.textContent = text;
+    else if (btn) btn.textContent = text;
+  }
+
+  /** The confirm box builds its buttons from labels: the icon comes from the words, else the role (icons.js). */
+  function _confirmButtonIcon(label, i, cancelId, defaultId) {
+    return window.buttonIconFor ? window.buttonIconFor(label, i, cancelId, defaultId) : (i === cancelId ? 'close' : 'check');
   }
 
   async function _saveRelatedPrompt(opts) {
@@ -11076,7 +11541,7 @@
       if (m.footer) m.footer.hidden = !_onCancel;
       if (m.cancel) {
         m.cancel.disabled = false;
-        m.cancel.textContent = I18n.t('progress.stop') || 'Stop';
+        _setButtonLabel(m.cancel, I18n.t('progress.stop') || 'Stop');
       }
     }
 
@@ -11261,7 +11726,7 @@
       const m = _modalEls();
       if (m.cancel) {
         m.cancel.disabled = true;
-        m.cancel.textContent = I18n.t('progress.stopping') || 'Stopping…';
+        _setButtonLabel(m.cancel, I18n.t('progress.stopping') || 'Stopping…');
       }
       try { fn(); } catch (err) { console.error('progress cancel', err); }
     }
@@ -12155,6 +12620,21 @@
     document.getElementById('settings-start-scene')?.addEventListener('change', (e) => {
       _saveStartScreen({ scene: e.target.value });
     });
+    {
+      const box = document.getElementById('settings-start-auto');
+      const num = document.getElementById('settings-start-auto-sec');
+      if (box && num && !box._autoBound) {
+        box._autoBound = true;
+        _bindAutoScene(box, num);
+        document.querySelectorAll('#settings-overlay [data-auto-step]').forEach((b) => {
+          b.addEventListener('click', () => {
+            if (num.disabled) return;
+            _nudgeStartRange(num, Number(b.dataset.autoStep));
+            num.dispatchEvent(new Event('change'));
+          });
+        });
+      }
+    }
     document.querySelectorAll('#settings-overlay [data-start-key]').forEach((el) => {
       const val = document.getElementById(`${el.id}-val`);
       const paint = () => { if (val) val.textContent = `${el.value}%`; };
@@ -12806,12 +13286,12 @@
         if (res.ok) _appInfoCache = await res.json();
       } catch {}
     }
-    if (!_appInfoCache) _appInfoCache = { version: '1.0.2', buildNumber: '' };
+    if (!_appInfoCache) _appInfoCache = { version: '1.0.3', buildNumber: '' };
     return _appInfoCache;
   }
 
   function _versionLabel(info) {
-    const version = String(info?.version || '1.0.2');
+    const version = String(info?.version || '1.0.3');
     const build = String(info?.buildNumber || '').trim();
     return build ? `V${version} (${build})` : `V${version}`;
   }
@@ -12822,7 +13302,7 @@
     const buildEl = document.getElementById('about-build-num');
     const brandVer = document.querySelector('.app-brand-ver');
     const label = _versionLabel(info);
-    if (verEl) verEl.textContent = String(info.version || '1.0.2');
+    if (verEl) verEl.textContent = String(info.version || '1.0.3');
     if (buildEl) buildEl.textContent = String(info.buildNumber || '').trim() || '—';
     _fillAboutRows(info);
     if (brandVer) brandVer.textContent = label;
@@ -12842,7 +13322,7 @@
     const converted = [...FormatSupport.VIDEO_EXTS, ...FormatSupport.AUDIO_EXTS].filter((e) => _needsTranscode(`x.${e}`));
     const desktop = window.electronAPI.platform !== 'web';
     const rows = [
-      [t('about.version'), `${info.version || '1.0.2'}${String(info.buildNumber || '').trim() ? ` (${t('about.build')} ${String(info.buildNumber).trim()})` : ''}`],
+      [t('about.version'), `${info.version || '1.0.3'}${String(info.buildNumber || '').trim() ? ` (${t('about.build')} ${String(info.buildNumber).trim()})` : ''}`],
       [t('about.images'), list(FormatSupport.IMAGE_EXTS)],
       [t('about.video'), list(FormatSupport.VIDEO_EXTS)],
       [t('about.audio'), list(FormatSupport.AUDIO_EXTS)],
@@ -12975,6 +13455,7 @@
       const saved = JSON.parse(localStorage.getItem(LAYOUT_KEY) || '{}');
       if (typeof saved.left === 'boolean') _layout.left = saved.left;
       if (typeof saved.right === 'boolean') _layout.right = saved.right;
+      if (typeof saved.bottom === 'boolean') _layout.bottom = saved.bottom;
     } catch { /* defaults */ }
   }
 
@@ -12994,6 +13475,7 @@
 
   function _leftPanelTip()  { return I18n.t(_layout.left ? 'toolbar.collapseLeft' : 'toolbar.expandLeft'); }
   function _rightPanelTip() { return I18n.t(_layout.right ? 'toolbar.collapseRight' : 'toolbar.expandRight'); }
+  function _bottomPanelTip() { return I18n.t(_layout.bottom ? 'toolbar.collapseBottom' : 'toolbar.expandBottom'); }
 
   /**
    * Collapsing never hides a panel: it shrinks to a rail that still shows the
@@ -13013,10 +13495,19 @@
 
     document.getElementById('btn-panel-left')?.classList.toggle('active', _layout.left);
     document.getElementById('btn-panel-right')?.classList.toggle('active', _layout.right);
+    document.getElementById('btn-panel-bottom')?.classList.toggle('active', _layout.bottom);
+    // The bottom strip of pictures hides completely; the viewer takes its room
+    document.getElementById('viewer-area')?.classList.toggle('film-collapsed', !_layout.bottom);
   }
 
   function _toggleLeftPanel(force) {
     _layout.left = typeof force === 'boolean' ? force : !_layout.left;
+    _saveLayout();
+    _applyPanelLayout();
+  }
+
+  function _toggleBottomPanel(force) {
+    _layout.bottom = typeof force === 'boolean' ? force : !_layout.bottom;
     _saveLayout();
     _applyPanelLayout();
   }
@@ -13167,9 +13658,33 @@
 
   function _browseTip() { return I18n.t(_browseShowing() ? 'toolbar.browseOff' : 'toolbar.browseOn'); }
 
+  /** A toolbar view button: switch the folder view, then show the contact sheet in it. */
+  function _setBrowseView(v) {
+    Browse.setMode?.(v.mode);
+    if (v.size) Browse.setSize?.(v.size);
+    if (!_browseMode) _toggleBrowseMode(true);
+    else if (!_browseShowing()) _toggleBrowseMode();   // from the image / filmstrip back to the sheet
+    _syncBrowseViewButtons();
+  }
+
+  /** Light the view button that matches the folder view (icon sizes: the nearest size). */
+  function _syncBrowseViewButtons() {
+    const view = Browse.getView?.();
+    if (!view) return;
+    let on = BROWSE_VIEWS.find((v) => v.mode === view.mode && !v.size);
+    if (view.mode === 'grid') {
+      const icons = BROWSE_VIEWS.filter((v) => v.size);
+      on = icons.reduce((best, v) => (Math.abs(v.size - view.size) < Math.abs(best.size - view.size) ? v : best), icons[0]);
+    }
+    for (const v of BROWSE_VIEWS) document.getElementById(v.id)?.classList.toggle('active', v === on);
+  }
+
   /** The toolbar button tracks what is on screen, not just the stored mode. */
+  window.addEventListener('browse-view-change', () => _syncBrowseViewButtons());
+
   function _syncBrowseChrome() {
     document.getElementById('btn-browse')?.classList.toggle('active', _browseShowing());
+    _syncBrowseViewButtons();
     // Print follows what is actually on screen, sheet included
     _setChromeBtn(document.getElementById('btn-print'), _canPrint());
     // Edit is available for the open image or a still selected in the sheet

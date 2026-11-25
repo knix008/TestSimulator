@@ -1,8 +1,17 @@
 /* Format detection and special format support */
 window.FormatSupport = (() => {
+  /* Pictures the host decodes into PNG for the page (desktop, host/imaging.rs + host/formats.rs):
+     Targa, DirectDraw, Radiance HDR, OpenEXR, Netpbm, QOI, Farbfeld, JPEG XL, JPEG 2000,
+     Photoshop, PCX, Apple icons, and camera RAW (its full-size embedded JPEG). */
+  const CONVERT_EXTS = new Set([
+    'tga','icb','vda','vst','dds','hdr','exr','pbm','pgm','ppm','pnm','pam','qoi','ff',
+    'jxl','jp2','j2k','j2c','jpf','jpx','jpc','psd','pcx','icns',
+    'dng','cr2','cr3','crw','nef','nrw','arw','srf','sr2','orf','rw2','raf','pef','srw','x3f','3fr','iiq','mos','mrw','erf','kdc','dcr','rwl',
+  ]);
   const IMAGE_EXTS = new Set([
-    'jpg','jpeg','png','gif','bmp','webp','svg','ico','tiff','tif',
+    'jpg','jpeg','jpe','jfif','png','apng','gif','bmp','dib','webp','svg','ico','tiff','tif',
     'heic','heif','hif','dcm','dicom','avif',
+    ...CONVERT_EXTS,
   ]);
   const VIDEO_EXTS = new Set([
     'mp4','webm','ogv','mov','avi','mkv','m4v','flv','wmv','3gp',
@@ -12,7 +21,7 @@ window.FormatSupport = (() => {
     'mp3','wav','flac','aac','m4a','ogg','opus','wma','aiff','aif',   // (no MIDI: nothing here can synthesise it)
   ]);
   const NATIVE_EXTS = new Set([
-    'jpg','jpeg','png','gif','bmp','webp','svg','ico','avif',
+    'jpg','jpeg','jpe','jfif','png','apng','gif','bmp','dib','webp','svg','ico','avif',
   ]);
   const TIFF_EXTS = new Set(['tiff','tif']);
   const HEIC_EXTS = new Set(['heic','heif','hif']);
@@ -31,6 +40,7 @@ window.FormatSupport = (() => {
   function isSupportedFile(filePath) { return isImage(filePath) || isVideo(filePath) || isAudio(filePath); }
   function isNativeImage(filePath) { return NATIVE_EXTS.has(getExtension(filePath)); }
   function isTiff(filePath)  { return TIFF_EXTS.has(getExtension(filePath)); }
+  function isConverted(filePath) { return CONVERT_EXTS.has(getExtension(filePath)); }
   function isHeic(filePath)  { return HEIC_EXTS.has(getExtension(filePath)); }
   function isDcm(filePath)   { return DCM_EXTS.has(getExtension(filePath)); }
   /** Formats that should keep frame animation in an <img> (not canvas). */
@@ -162,6 +172,15 @@ window.FormatSupport = (() => {
       return { type: 'error', message: (dataUrl && dataUrl.error) || 'Could not load image' };
     }
 
+    // Formats the webview cannot draw: the host decodes them (desktop)
+    if (isConverted(filePath)) {
+      const result = await window.electronAPI.convertToPng?.(filePath);
+      if (result && !result.error && typeof result === 'string' && result.startsWith('data:')) {
+        return { type: 'image', dataUrl: result };
+      }
+      return { type: 'error', message: (result && result.error) || `Could not decode .${ext}` };
+    }
+
     if (isTiff(filePath) || isHeic(filePath)) {
       const result = await window.electronAPI.convertToPng(filePath);
       if (result && !result.error && typeof result === 'string'
@@ -218,8 +237,8 @@ window.FormatSupport = (() => {
   }
 
   const VIEW_MIME = {
-    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', bmp: 'image/bmp',
-    webp: 'image/webp', ico: 'image/x-icon', avif: 'image/avif',
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', jpe: 'image/jpeg', jfif: 'image/jpeg', png: 'image/png', apng: 'image/apng',
+    gif: 'image/gif', bmp: 'image/bmp', dib: 'image/bmp', webp: 'image/webp', ico: 'image/x-icon', avif: 'image/avif',
   };
 
   /**
@@ -357,7 +376,7 @@ window.FormatSupport = (() => {
   }
 
   return {
-    getExtension, isImage, isVideo, isAudio, isSupportedFile,
+    getExtension, isImage, isVideo, isAudio, isSupportedFile, isConverted, CONVERT_EXTS,
     isNativeImage, isTiff, isHeic, isDcm, isAnimatedImage, hasAnimation,
     loadImageFile, loadImageForView, decodeOffThread, hasAnimationBytes, loadDicomFile, readFileBytes, formatFileSize, formatDate, decodeDicomBuffer,
     IMAGE_EXTS, VIDEO_EXTS, AUDIO_EXTS,

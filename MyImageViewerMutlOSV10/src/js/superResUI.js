@@ -171,6 +171,8 @@ window.SuperResUI = (() => {
     if (key === 'noise') return t(`sr.noise.${v}`, String(v));
     if (key === 'gpu') return v === 'auto' ? t('sr.gpu.auto', 'Automatic') : v === 'cpu' ? t('sr.gpu.cpu', 'CPU') : `GPU ${v}`;
     if (key === 'device') return t(`sr.device.${v}`, v);
+    if (key === 'precision' || key === 'seams') return t(`sr.${key}.${v}`, v);
+    if (key === 'batch') return v === 0 ? t('sr.tile.auto', 'Automatic') : String(v);
     if (key === 'tile' && v === 0) return t('sr.tile.auto', 'Automatic');
     if (key === 'syncgap') return t(`sr.syncgap.${v}`, String(v));
     if (spec.fmt === 'x') return `×${v}`;
@@ -500,13 +502,15 @@ window.SuperResUI = (() => {
     return `${dev} · ${build} · ${_mb(env.diskBytes || 0)}`;
   }
 
+  const _icon = (name) => (window.Icons && window.Icons[name]) || '';
+
   function _engineRow({ key, label, version, installed, models, state, title }) {
     return `<div class="sr-engine-row" data-engine="${key}">
         <span class="sr-engine-name">${_esc(label)} <span class="sr-engine-ver">${_esc(version || '')}</span></span>
         <span class="sr-chip sr-chip-${installed ? 'ok' : 'dl'}">${_esc(installed ? t('sr.installed', 'Installed') : t('sr.notInstalled', 'Not installed'))}</span>
         <span class="sr-engine-state" title="${_esc(title || '')}">${_esc(models ? `${models} — ${state}` : state)}</span>
-        <button type="button" class="settings-btn" data-sr-act="install" data-engine="${key}">${_esc(installed ? t('sr.reinstall', 'Reinstall') : t('sr.download', 'Download'))}</button>
-        <button type="button" class="settings-btn" data-sr-act="remove" data-engine="${key}"${installed ? '' : ' disabled'}>${_esc(t('sr.remove', 'Remove'))}</button>
+        <button type="button" class="settings-btn" data-sr-act="install" data-engine="${key}"><span class="btn-ico">${_icon(installed ? 'reset' : 'download')}</span><span>${_esc(installed ? t('sr.reinstall', 'Reinstall') : t('sr.download', 'Download'))}</span></button>
+        <button type="button" class="settings-btn" data-sr-act="remove" data-engine="${key}"${installed ? '' : ' disabled'}><span class="btn-ico">${_icon('delete')}</span><span>${_esc(t('sr.remove', 'Remove'))}</span></button>
       </div>`;
   }
 

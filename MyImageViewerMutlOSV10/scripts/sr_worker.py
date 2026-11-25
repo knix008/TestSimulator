@@ -112,15 +112,31 @@ def make_reporter(lo: int, hi: int):
     return report
 
 
-def tiled(model, img, scale: int, tile: int, multiple: int, device, report):
-    """img: 1×3×H×W (any range). Tile by tile with the overlap averaged; the result is
-    gathered on the CPU so a big picture does not fill the GPU."""
+def half_dtype(device):
+    """The 16-bit type for a GPU: bfloat16 where the hardware has it (FP32's range, so
+    attention scores cannot overflow, which turned SwinIR's FP16 output black), else
+    float16; None on the CPU."""
+    import torch
+
+    if device.type == "cuda":
+        return torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+    if device.type == "mps":
+        return torch.float16
+    return None
+
+
+def tiled(model, img, scale: int, tile: int, multiple: int, device, report, overlap: int = 32, half: bool = False):
+    """img: 1×3×H×W (any range). Tile by tile with `overlap` px shared between neighbours and
+    averaged (fewer seams); the result is gathered on the CPU so a big picture does not fill
+    the GPU. `half`: FP16 autocast on a GPU (faster, half the memory)."""
+    import contextlib
+
     import torch
 
     _, c, h, w = img.shape
     tile = min(tile, h, w)
     tile -= tile % multiple
-    overlap = min(32, tile // 4)
+    overlap = max(0, min(overlap, tile // 2))
     stride = max(multiple, tile - overlap)
     hs = list(range(0, h - tile, stride)) + [h - tile]
     ws = list(range(0, w - tile, stride)) + [w - tile]
@@ -129,7 +145,15 @@ def tiled(model, img, scale: int, tile: int, multiple: int, device, report):
     total, done = len(hs) * len(ws), 0
     for y in hs:
         for x in ws:
-            res = model(img[..., y:y + tile, x:x + tile].to(device)).float().cpu()
+            patch = img[..., y:y + tile, x:x + tile].to(device)
+            low = half_dtype(device) if half else None
+            with (torch.autocast(device.type, dtype=low) if low is not None else contextlib.nullcontext()):
+                res = model(patch)
+            res = res.float()
+            if low is not None and not torch.isfinite(res).all():
+                # Overflowed in half precision: this tile again in FP32
+                res = model(patch).float()
+            res = res.cpu()
             out[..., y * scale:(y + tile) * scale, x * scale:(x + tile) * scale].add_(res)
             weight[..., y * scale:(y + tile) * scale, x * scale:(x + tile) * scale].add_(1)
             done += 1
@@ -203,7 +227,7 @@ def run_torch_net(args, build, value_range: float, multiple: int, default_tile: 
 
     def work(dev, t):
         model.to(dev)
-        return tiled(model, img, args.scale, t, max(multiple, 8), dev, report)
+        return tiled(model, img, args.scale, t, max(multiple, 8), dev, report, args.overlap, args.precision == "fp16")
 
     with torch.inference_mode():
         out = with_gpu_fallback(device, name, tile, work)
@@ -260,10 +284,14 @@ def run_aurasr(args):
     config = json.loads((Path(args.model).parent / "config.json").read_text())
     rgb, alpha = load_image(args.input)
     w, h = rgb.size
-    # Two passes of 64 px tiles (the second offset by 32): count them for the progress bar
+    # 64 px tiles; "overlap" seams = a second pass offset by 32 px blended in (cleaner, twice
+    # the work), "single" = one pass. Counted for the progress bar.
     size = config.get("input_image_size", 64)
-    total = math.ceil(h / size) * math.ceil(w / size) + math.ceil((h + size) / size) * math.ceil((w + size) / size)
-    batch = 8 if device.type != "cpu" else 2
+    overlapped = args.seams != "single"
+    total = math.ceil(h / size) * math.ceil(w / size)
+    if overlapped:
+        total += math.ceil((h + size) / size) * math.ceil((w + size) / size)
+    batch = args.batch if args.batch and args.batch > 0 else (8 if device.type != "cpu" else 2)
     report = make_reporter(12, 95)
 
     def work(dev, _tile):
@@ -282,7 +310,12 @@ def run_aurasr(args):
             return res
 
         net.forward = counted
-        return model.upscale_4x_overlapped(rgb, max_batch_size=batch)
+        low = half_dtype(dev) if args.precision == "fp16" else None
+        import contextlib
+        with (torch.autocast(dev.type, dtype=low) if low is not None else contextlib.nullcontext()):
+            if overlapped:
+                return model.upscale_4x_overlapped(rgb, max_batch_size=batch)
+            return model.upscale_4x(rgb, max_batch_size=batch)
 
     with torch.inference_mode():
         out = with_gpu_fallback(device, name, 512, work)
@@ -339,6 +372,10 @@ def main() -> int:
     ap.add_argument("--model")
     ap.add_argument("--tile", type=int, default=0)
     ap.add_argument("--device", choices=["auto", "gpu", "cpu"], default="auto")
+    ap.add_argument("--overlap", type=int, default=32)
+    ap.add_argument("--precision", choices=["fp32", "fp16"], default="fp32")
+    ap.add_argument("--batch", type=int, default=0)
+    ap.add_argument("--seams", choices=["overlap", "single"], default="overlap")
     ap.add_argument("input", nargs="?")
     ap.add_argument("output", nargs="?")
     args = ap.parse_args()

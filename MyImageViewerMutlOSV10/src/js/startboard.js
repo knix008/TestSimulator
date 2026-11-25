@@ -1,17 +1,17 @@
-/* Start page card board (MySketchBook style): three columns, cards snapped to 20px rows and
+/* Start page card board (MySketchBook style): six columns, cards snapped to 20px rows and
    never overlapping. The handle (four-way arrow) moves a card — a see-through copy follows the
    pointer and the others slide aside — the corner resizes it, a double click on the corner
    fits it to its content again. The arrangement is saved in localStorage ('startLayout'). */
 window.StartBoard = (() => {
-  const COLS = 3;
+  const COLS = 6;
   const ROW = 20;
   const GAP = 14;
   // Raised when the default arrangement changes: an older saved one starts over once.
-  const LAYOUT_VERSION = 4;
+  const LAYOUT_VERSION = 5;
   const STORE_KEY = 'startLayout';
-  /** Auto arrange (MySketchBook layout): Start (2/3) and Recent (1/3) share a row, then
-   *  "What you can do" and Background each take a whole row. */
-  const SPAN = { hero: 3, begin: 2, recent: 1, tasks: 3, scenes: 3 };
+  /** Auto arrange: Start takes a whole row; under it Recent & Favorites and Recent folders
+   *  share a row half and half; then "What you can do" and Background each take a whole row. */
+  const SPAN = { hero: 6, begin: 6, recent: 3, folders: 3, tasks: 6, scenes: 6 };
 
   /** Move handle (MySketchBook): a four-way arrow. */
   const HANDLE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5"/></svg>';

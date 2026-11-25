@@ -52,11 +52,17 @@ module.exports = {
       assertIncludes(app, "'tree-panel-icon': 'folderTree', 'info-panel-icon': 'fileInfo', 'color-panel-icon': 'palette'", 'icons');
       assert(left.split('panel-collapse-btn').length === 2, 'one collapse button on the left');
       assert(right.split('panel-collapse-btn').length === 2, 'one collapse button on the right');
-      // Toolbar: exactly one button per side.
+      // Menu bar, just left of the window buttons (minimise …): exactly one button per side,
+      // in both windows; none left on the toolbars.
       const bar = app.slice(app.indexOf('function _buildToolbar'), app.indexOf('{ spacer: true }'));
-      assert(bar.split("id:'btn-panel-").length === 3, 'two panel buttons on the toolbar');
-      assertIncludes(bar, "id:'btn-panel-left',  icon:'panelLeft'", 'left panel button');
-      assertIncludes(bar, "id:'btn-panel-right', icon:'panelRight'", 'right panel button');
+      assert(!bar.includes("id:'btn-panel-"), 'no panel buttons on the toolbar');
+      const menubar = html.slice(html.indexOf('<div id="menubar"'), html.indexOf('<div id="win-ctrl-gutter">'));
+      assertIncludes(menubar, '<button type="button" class="menubar-panel-btn" id="btn-panel-left"></button>', 'left panel button');
+      assertIncludes(menubar, '<button type="button" class="menubar-panel-btn" id="btn-panel-right"></button>', 'right panel button');
+      const ewbar = html.slice(html.indexOf('<div id="ew-menubar"'), html.indexOf('<div id="ew-win-gutter">'));
+      for (const id of ['ew-panel-left', 'ew-panel-right']) assertIncludes(ewbar, `id="${id}"`, `${id} in the edit window's menu bar`);
+      assert(html.split('id="ew-panel-left"').length === 2 && html.split('id="btn-panel-left"').length === 2, 'no duplicates');
+      assertIncludes(app, "['btn-panel-left', 'panelLeft', _leftPanelTip, () => _toggleLeftPanel()],", 'bound');
       // Collapsed = rail with icon + vertical title, not hidden.
       const fn = app.slice(app.indexOf('function _applyPanelLayout'), app.indexOf('function _toggleLeftPanel'));
       assertIncludes(fn, "sidebar.classList.toggle('collapsed', !_layout.left)", 'left collapses');

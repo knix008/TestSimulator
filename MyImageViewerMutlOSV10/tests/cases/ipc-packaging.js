@@ -73,8 +73,17 @@ module.exports = {
       assertIncludes(runner, 'id="summary"', 'summary section');
       assertIncludes(runner, 'id="details"', 'details section');
       assertIncludes(runner, 'table class="summary"', 'suite summary table');
-      assertIncludes(runner, "console.log(`${C.bold}  요약${C.reset}`)", 'console summary');
-      assertIncludes(runner, "console.log(`${C.bold}  상세${C.reset}", 'console details');
+      assertIncludes(runner, "console.log(`${C.bold}  Summary${C.reset}", 'console summary');
+      assertIncludes(runner, 'function printCase(t)', 'console details, one line per case');
+    });
+
+    test('Console prints each case as it finishes, in fixed columns', () => {
+      const runner = h.read('tests/run-feature-tests.js');
+      assertIncludes(runner, 'flush();\r\n  };', 'fill() prints the result at once');
+      for (const k of ['const NUM_W = ', 'const TIME_W = ', 'padStartW(h.fmtMs(t.ms), TIME_W)']) assertIncludes(runner, k, k);
+      // only East Asian wide characters count as two cells (— and → are one)
+      assertIncludes(runner, '(cp >= 0xac00 && cp <= 0xd7a3)', 'Hangul is wide');
+      assert(!runner.includes('codePointAt(0) > 0x7f ? 2 : 1'), 'no "every non-ASCII is wide" rule');
     });
   },
 };

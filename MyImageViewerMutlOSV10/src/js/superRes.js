@@ -44,11 +44,19 @@
     gpu:         { kind: 'select', values: ['auto', 'cpu', '0', '1'], def: 'auto' },
     // PyTorch models: GPU when there is one (CUDA / Apple MPS / OpenCL for ESPCN), else the CPU
     device:      { kind: 'select', values: ['auto', 'gpu', 'cpu'], def: 'auto' },
+    // Tiles share this many pixels with their neighbours (averaged: fewer seams)
+    overlap:     { kind: 'select', values: [8, 16, 32, 48, 64], def: 32, fmt: 'px' },
+    // FP16 on a GPU: faster, half the memory (the CPU always uses FP32)
+    precision:   { kind: 'select', values: ['fp32', 'fp16'], def: 'fp32' },
+    // AuraSR: 64 px tiles sent to the GPU at once (0 = automatic)
+    batch:       { kind: 'select', values: [0, 1, 2, 4, 8, 16], def: 0 },
+    // AuraSR: a second, offset pass blended in (clean seams) or one pass (about twice as fast)
+    seams:       { kind: 'select', values: ['overlap', 'single'], def: 'overlap' },
   };
 
   const AI_COMMON = ['tile', 'gpu', 'tta', 'sharpen', 'sharpRadius'];
-  const PY_COMMON = ['device', 'tile', 'sharpen', 'sharpRadius'];
-  const PY_TILE = { values: [0, 128, 192, 256, 320, 384, 512], def: 0 };
+  const PY_COMMON = ['device', 'precision', 'tile', 'overlap', 'sharpen', 'sharpRadius'];
+  const PY_TILE = { values: [0, 128, 192, 256, 320, 384, 512, 768, 1024], def: 0 };
   const ALGORITHMS = [
     { id: 'nearest', kind: 'builtin', params: ['scale'] },
     // Tuned defaults: interpolation softens, so a little unsharp mask after it (less for the
@@ -81,7 +89,7 @@
       over: { scale: { values: [2, 3, 4], def: 4 }, tile: PY_TILE } },
     { id: 'edsr', kind: 'ai', engine: 'edsr', py: true, params: ['scale', ...PY_COMMON],
       over: { scale: { values: [2, 3, 4], def: 4 }, tile: PY_TILE } },
-    { id: 'aurasr', kind: 'ai', engine: 'aurasr', py: true, params: ['outScale', 'device', 'sharpen', 'sharpRadius'], native: 4 },
+    { id: 'aurasr', kind: 'ai', engine: 'aurasr', py: true, params: ['outScale', 'device', 'precision', 'batch', 'seams', 'sharpen', 'sharpRadius'], native: 4 },
     { id: 'espcn', kind: 'ai', engine: 'espcn', py: true, params: ['scale', 'device', 'sharpen', 'sharpRadius'],
       over: { scale: { values: [2, 3, 4], def: 4 } } },
   ];

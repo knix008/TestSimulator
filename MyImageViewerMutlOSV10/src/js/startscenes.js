@@ -5,7 +5,7 @@
 export const START_SCENE_IDS = [
   'valley', 'ocean', 'aurora', 'stars', 'rain', 'snow', 'dusk', 'forest', 'dunes', 'city',
   'nebula', 'bokeh', 'grid', 'ribbons', 'embers', 'lake', 'sunrise', 'fireflies', 'geometry', 'ink',
-  'petals', 'mountains',
+  'petals', 'mountains', 'canyon', 'autumn', 'glacier', 'meadow', 'galaxy',
 ];
 
 const LEGACY_SPEED = { off: 0, slow: 20, medium: 55, fast: 100 };

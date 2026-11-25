@@ -40,12 +40,17 @@ window.Icons = {
   delete: `<svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>`,
   arrowUp: `<svg viewBox="0 0 24 24"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8z"/></svg>`,
   viewGrid: `<svg viewBox="0 0 24 24"><path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/></svg>`,
+  viewLarge: `<svg viewBox="0 0 24 24"><path d="M3 3h18v18H3V3zm2 2v14h14V5H5zm2 9 3-4 2.5 3 1.5-2 3 3H7z"/></svg>`,
+  viewMedium: `<svg viewBox="0 0 24 24"><path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8zM5 5v4h4V5H5zm10 0v4h4V5h-4zM5 15v4h4v-4H5zm10 0v4h4v-4h-4z"/></svg>`,
+  viewSmall: `<svg viewBox="0 0 24 24"><path d="M3 3h5v5H3V3zm6.5 0h5v5h-5V3zM16 3h5v5h-5V3zM3 9.5h5v5H3v-5zm6.5 0h5v5h-5v-5zm6.5 0h5v5h-5v-5zM3 16h5v5H3v-5zm6.5 0h5v5h-5v-5zm6.5 0h5v5h-5v-5z"/></svg>`,
+  viewTiles: `<svg viewBox="0 0 24 24"><path d="M3 4h7v7H3V4zm9 1h9v2h-9V5zm0 3h6v2h-6V8zM3 13h7v7H3v-7zm9 1h9v2h-9v-2zm0 3h6v2h-6v-2z"/></svg>`,
   viewList: `<svg viewBox="0 0 24 24"><path d="M3 5h4v4H3V5zm6 1h12v2H9V6zM3 11h4v4H3v-4zm6 1h12v2H9v-2zm-6 5h4v4H3v-4zm6 1h12v2H9v-2z"/></svg>`,
   viewDetails: `<svg viewBox="0 0 24 24"><path d="M3 5h18v2H3V5zm0 4h18v2H3V9zm0 4h18v2H3v-2zm0 4h18v2H3v-2z"/></svg>`,
   sortAsc: `<svg viewBox="0 0 24 24"><path d="M12 4l6 7h-4v9h-4v-9H6l6-7z"/></svg>`,
   sortDesc: `<svg viewBox="0 0 24 24"><path d="M12 20l-6-7h4V4h4v9h4l-6 7z"/></svg>`,
   folderTree: `<svg viewBox="0 0 24 24"><path d="M3 4h6l2 2h10v3H3V4zm0 6h18v10H3V10zm2 2v6h14v-6H5z"/></svg>`,
   panelLeft: `<svg viewBox="0 0 24 24"><path d="M3 3h18a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm0 2v14h6V5H3zm8 0v14h10V5H11z"/></svg>`,
+  panelBottom: `<svg viewBox="0 0 24 24"><path d="M3 3h18a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm0 2v8h18V5H3zm0 10v4h18v-4H3z"/></svg>`,
   panelRight: `<svg viewBox="0 0 24 24"><path d="M3 3h18a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm0 2v14h10V5H3zm12 0v14h6V5h-6z"/></svg>`,
   info: `<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>`,
   /* Menu bar icons */
@@ -64,6 +69,8 @@ window.Icons = {
   fileInfo: `<svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11zm-7-3h2v-5h-2v5zm0-7h2V8h-2v2z"/></svg>`,
   fmtImage: `<svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>`,
   sliders: `<svg viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>`,
+  check: `<svg viewBox="0 0 24 24"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`,
+  download: `<svg viewBox="0 0 24 24"><path d="M11 3h2v9.17l3.59-3.58L18 10l-6 6-6-6 1.41-1.41L11 12.17V3zM4 18h16v2H4v-2z"/></svg>`,
   copy: `<svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`,
   explorer: `<svg viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V6h5.17l2 2H20v10z"/></svg>`,
   reset: `<svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>`,
@@ -156,6 +163,11 @@ window.Icons = {
   sceneInk: `<svg viewBox="0 0 24 24"><path d="M12 3c3 2 7 3 8 7 1 4-1 8-5 9s-8-1-9-5-1-8 2-10c1.2 2 3 3 4 1 0 0 .2-1 0-2z"/></svg>`,
   scenePetals: `<svg viewBox="0 0 24 24"><path d="M12 8c0-3 1.6-5 1.6-5S16 5 16 8s-1.8 3-4 3-4-1.2-4-3 2.4-5 2.4-5S12 5 12 8zm0 8c0 3-1.6 5-1.6 5S8 19 8 16s1.8-3 4-3 4 1.2 4 3-2.4 5-2.4 5S12 19 12 16zM8 12c-3 0-5-1.6-5-1.6S5 8 8 8s3 1.8 3 4-1.2 4-3 4-5-2.4-5-2.4S5 12 8 12zm8 0c3 0 5 1.6 5 1.6S19 16 16 16s-3-1.8-3-4 1.2-4 3-4 5 2.4 5 2.4S19 12 16 12zM11 11h2v2h-2z"/></svg>`,
   sceneMountains: `<svg viewBox="0 0 24 24"><path d="M2 19 9 6l4 7 2-3 7 9H2zm8.2-4.2L12 12l1.5 2.6-1.3.2z"/></svg>`,
+  sceneCanyon: `<svg viewBox="0 0 24 24"><path d="M2 4h5l1 5-2 4 2 7H2V4zm20 0h-5l-1 4 2 5-2 7h6V4zM10 20l1-5h2l1 5h-4z"/></svg>`,
+  sceneAutumn: `<svg viewBox="0 0 24 24"><path d="M12 2c1 2 3 3 5 3-1 2-1 4 1 5-2 1-3 2-3 4-2-1-3 0-3 2v6h-2v-6c0-2-1-3-3-2 0-2-1-3-3-4 2-1 2-3 1-5 2 0 4-1 5-3h2z"/></svg>`,
+  sceneGlacier: `<svg viewBox="0 0 24 24"><path d="M3 15 8 6l3 4 3-6 7 11H3zm6.2-4.4L8 9l-1.4 2.6h2.6zM2 17c1.8 1.6 3.6 1.6 5.4 0s3.6-1.6 5.4 0 3.6 1.6 5.4 0 3 -1.2 3.8-.4V20H2v-3z"/></svg>`,
+  sceneMeadow: `<svg viewBox="0 0 24 24"><path d="M12 4a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm-1 5h2v5c1.4-2 3.4-3 6-3-1.6 2.4-3.6 4-6 4.4V20h-2v-4.6C8.6 15 6.6 13.4 5 11c2.6 0 4.6 1 6 3V9zM2 20h20v2H2v-2z"/></svg>`,
+  sceneGalaxy: `<svg viewBox="0 0 24 24"><path d="M12 10a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm-8.5-.5C5 5.4 10 3.6 14 5c-3.4-.2-6.4 1.4-7.6 4.2-1 2.4.4 4.8 2.6 5.8-3.2.2-5.6-2-5.5-5.5zm17 5c-1.5 4.1-6.5 5.9-10.5 4.5 3.4.2 6.4-1.4 7.6-4.2 1-2.4-.4-4.8-2.6-5.8 3.2-.2 5.6 2 5.5 5.5z"/></svg>`,
 
   /* ── Edit window: drawing, retouching, tone, selection (editTools.js) ── */
   brush: `<svg viewBox="0 0 24 24"><path d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2 .92 1.22 2.49 2 4 2 2.21 0 4-1.79 4-4 0-1.66-1.34-3-3-3zm13.71-9.37-1.34-1.34a.996.996 0 0 0-1.41 0L9 12.25 11.75 15l8.96-8.96a.996.996 0 0 0 0-1.41z"/></svg>`,
@@ -265,7 +277,7 @@ window.Icons = {
     lasso: '#f472b6', polygon: '#c084fc', magicWand: '#e879f9', bgRemove: '#2dd4bf',
     paste: '#86efac', cut: '#fb7185', crop: '#fbbf24', palette: '#f472b6', settings: '#94a3b8',
     caretDown: '#94a3b8', warning: '#fbbf24', info: '#38bdf8', panelLeft: '#7dd3fc',
-    panelRight: '#a5b4fc', viewGrid: '#34d399', viewList: '#60a5fa', viewDetails: '#c084fc',
+    panelRight: '#a5b4fc', panelBottom: '#86efac', viewGrid: '#34d399', viewLarge: '#34d399', viewMedium: '#2dd4bf', viewSmall: '#22d3ee', viewTiles: '#fbbf24', viewList: '#60a5fa', viewDetails: '#c084fc',
     sortAsc: '#4ade80', sortDesc: '#fb923c', chevronLeft: '#94a3b8', chevronRight: '#94a3b8',
     arrowUp: '#60a5fa', layers: '#818cf8', annotations: '#f472b6', ruler: '#fbbf24',
     guideRuler: '#fbbf24', guideGrid: '#7dd3fc',
@@ -275,6 +287,7 @@ window.Icons = {
     sceneGrid: '#67e8f9', sceneRibbons: '#f9a8d4', sceneEmbers: '#f97316', sceneLake: '#22d3ee',
     sceneSunrise: '#facc15', sceneFireflies: '#bef264', sceneGeometry: '#818cf8', sceneInk: '#94a3b8',
     scenePetals: '#fb7185', sceneMountains: '#86efac',
+    sceneCanyon: '#f97316', sceneAutumn: '#f59e0b', sceneGlacier: '#bae6fd', sceneMeadow: '#a3e635', sceneGalaxy: '#a78bfa',
     brush: '#f472b6', highlighter: '#facc15', eraser: '#fda4af', drawLine: '#93c5fd', drawArrow: '#60a5fa',
     drawRect: '#38bdf8', drawEllipse: '#2dd4bf', drawText: '#e2e8f0', mosaic: '#a78bfa', blurBrush: '#7dd3fc',
     cloneStamp: '#fb923c', heal: '#4ade80', redEye: '#f87171', cropTool: '#fbbf24', straighten: '#c084fc',
@@ -303,4 +316,29 @@ window.Icons = {
       ? html.replace('class="', `class="ico ico-${key}" style="color:${color}" `)
       : html.replace('<svg', `<svg class="ico ico-${key}" style="color:${color}"`);
   }
+})();
+
+/* The icon of a message-box button, picked from its label (both confirmation boxes use it):
+   delete → bin, save → disk, cancel / no → ✕, OK / yes → ✓ …; otherwise from its role. */
+window.buttonIconFor = (() => {
+  const RULES = [
+    [/삭제|지우|delete|remove|trash|clear/i, 'delete'],
+    [/저장 안|저장하지|don.?t save|discard|버리/i, 'exit'],
+    [/다른 이름|save as/i, 'saveAs'],
+    [/저장|save|덮어|overwrite|replace|바꾸/i, 'save'],
+    [/취소|cancel|닫기|close|아니|^no$/i, 'close'],
+    [/다운로드|설치|download|install/i, 'download'],
+    [/다시|재시도|retry|again/i, 'reset'],
+    [/열기|open/i, 'folderOpen'],
+    [/복사|copy/i, 'copy'],
+    [/설정|settings/i, 'settings'],
+    [/해제/i, 'starOutline'],
+    [/확인|^ok$|^예$|^yes$|계속|continue|적용|apply/i, 'check'],
+  ];
+  return (label, i, cancelId, defaultId) => {
+    const hit = RULES.find(([re]) => re.test(String(label || '').trim()));
+    if (hit) return hit[1];
+    if (i === cancelId) return 'close';
+    return i === defaultId ? 'check' : 'chevronRight';
+  };
 })();

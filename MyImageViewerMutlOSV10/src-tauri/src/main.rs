@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod host;
+mod printing;
 mod window_icon;
 
 use std::path::PathBuf;
@@ -225,7 +226,7 @@ fn dialog_label(fragment: Option<&str>) -> Option<String> {
 
 /// Dialogs whose window stays the size of their content.
 fn is_fixed_dialog(label: &str) -> bool {
-    label == "dialog-auto-improve-overlay"
+    label == "dialog-auto-improve-overlay" || label == "dialog-print-overlay"
 }
 
 fn dialog_window(app: &AppHandle, url: &tauri::Url, features: NewWindowFeatures) -> NewWindowResponse<tauri::Wry> {
@@ -431,6 +432,9 @@ fn main() {
             close_dialog,
             dialog_start_dragging,
             dialog_window_state,
+            printing::list_printers,
+            printing::print_direct,
+            printing::print_pdf,
         ])
         .on_window_event(|window, event| {
             if cfg!(debug_assertions) {

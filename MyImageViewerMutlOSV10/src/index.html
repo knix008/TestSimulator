@@ -26,7 +26,7 @@
       <div id="app-brand" class="app-brand">
         <img src="./assets/icon.png" alt="" draggable="false">
         <span class="app-brand-name" data-i18n="app.title">MyImageViewer</span>
-        <span class="app-brand-ver">V1.0.2</span>
+        <span class="app-brand-ver">V1.0.3</span>
       </div>
       <button type="button" id="menubar-home" class="menubar-btn menubar-home" aria-pressed="false">
         <span id="menubar-home-icon"></span>
@@ -34,6 +34,12 @@
       </button>
       <div id="menubar-menus" class="menubar-menus"></div>
       <div id="titlebar-file" class="titlebar-file" title=""></div>
+      <!-- Left / right panels: collapse · expand, just left of minimise -->
+      <div class="menubar-panels" role="group">
+        <button type="button" class="menubar-panel-btn" id="btn-panel-left"></button>
+        <button type="button" class="menubar-panel-btn" id="btn-panel-bottom"></button>
+        <button type="button" class="menubar-panel-btn" id="btn-panel-right"></button>
+      </div>
       <div id="win-ctrl-gutter"></div>
     </div>
 
@@ -501,7 +507,7 @@
         </div>
       </div>
       <div class="dialog-footer" id="progress-footer" hidden>
-        <button type="button" id="progress-cancel" data-i18n="progress.stop">Stop</button>
+        <button type="button" id="progress-cancel"><span class="btn-ico" data-icon="mediaStop"></span><span data-i18n="progress.stop">Stop</span></button>
       </div>
     </div>
   </div>
@@ -557,8 +563,8 @@ Do you want to save before closing?</p>
         <p id="rename-error" class="rename-error" hidden></p>
       </div>
       <div class="dialog-footer">
-        <button type="button" id="rename-cancel" data-i18n="dialog.rename.cancel">Cancel</button>
-        <button type="button" class="primary" id="rename-ok" data-i18n="dialog.rename.ok">Rename</button>
+        <button type="button" id="rename-cancel"><span class="btn-ico" data-icon="close"></span><span data-i18n="dialog.rename.cancel">Cancel</span></button>
+        <button type="button" class="primary" id="rename-ok"><span class="btn-ico" data-icon="edit"></span><span data-i18n="dialog.rename.ok">Rename</span></button>
       </div>
     </div>
   </div>
@@ -612,6 +618,7 @@ Do you want to save before closing?</p>
           <span data-i18n="details.copy">Copy all</span>
         </button>
         <button type="button" class="btn-icon primary" data-close-dialog>
+          <span class="btn-ico" data-icon="close"></span>
           <span data-i18n="details.close">Close</span>
         </button>
       </div>
@@ -630,6 +637,22 @@ Do you want to save before closing?</p>
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
         </button>
       </div>
+      <div class="help-tools" role="toolbar" data-i18n-aria="help.tools" aria-label="Manual tools">
+        <span class="help-tool-group help-lang" role="group" data-i18n-aria="help.lang" aria-label="Manual language">
+          <button type="button" class="help-lang-btn" data-help-lang="ko" data-i18n-title="help.langKo" title="Show the manual in Korean"><span class="btn-ico help-flag" data-icon="flagKo"></span><span>한국어</span></button>
+          <button type="button" class="help-lang-btn" data-help-lang="en" data-i18n-title="help.langEn" title="Show the manual in English"><span class="btn-ico help-flag" data-icon="flagUs"></span><span>English</span></button>
+        </span>
+        <span class="help-tool-group help-font" role="group" data-i18n-aria="help.fontSize" aria-label="Text size">
+          <span class="btn-ico help-font-ico" data-icon="drawText"></span>
+          <span class="help-font-label" data-i18n="help.fontSize">Text size</span>
+          <button type="button" class="help-font-step" id="help-font-down" data-i18n-title="help.fontDown" title="Smaller text (Ctrl+−)">−</button>
+          <output id="help-font-val" class="help-font-val">13</output>
+          <button type="button" class="help-font-step" id="help-font-up" data-i18n-title="help.fontUp" title="Larger text (Ctrl++)">+</button>
+          <button type="button" class="help-font-reset" id="help-font-reset" data-i18n-title="help.fontReset" title="Normal size (Ctrl+0)"><span class="btn-ico" data-icon="reset"></span></button>
+        </span>
+        <span class="help-tools-spacer"></span>
+        <button type="button" class="help-print-btn" id="help-print" data-i18n-title="help.printTip" title="Print the manual (Ctrl+P)"><span class="btn-ico" data-icon="print"></span><span data-i18n="help.print">Print</span></button>
+      </div>
       <div class="dialog-body help-body">
         <nav id="help-nav" class="help-nav" data-i18n-aria="help.toc" aria-label="Contents"></nav>
         <article id="help-doc" class="help-doc">
@@ -637,15 +660,8 @@ Do you want to save before closing?</p>
         </article>
       </div>
       <div class="dialog-footer">
-        <button type="button" class="btn-icon" id="help-shortcuts">
-          <span class="ew-action-icon" data-icon="keyboard"></span>
-          <span data-i18n="menu.shortcuts">Keyboard Shortcuts</span>
-        </button>
-        <button type="button" class="btn-icon" id="help-about">
-          <span class="ew-action-icon" data-icon="info"></span>
-          <span data-i18n="menu.about">About</span>
-        </button>
         <button type="button" class="btn-icon primary" data-close-dialog>
+          <span class="btn-ico" data-icon="close"></span>
           <span data-i18n="about.close">Close</span>
         </button>
       </div>
@@ -671,7 +687,7 @@ Do you want to save before closing?</p>
             <h2 data-i18n="app.title">MyImageViewer</h2>
             <p class="about-version-line">
               <span data-i18n="about.version">Version</span>
-              <span id="about-version-num">1.0.2</span>
+              <span id="about-version-num">1.0.3</span>
               <span class="about-build-chip">(<span data-i18n="about.build">Build</span> <span id="about-build-num">—</span>)</span>
             </p>
             <p class="about-desc" data-i18n="about.desc">A multi-platform image viewer and editor.</p>
@@ -706,6 +722,11 @@ Do you want to save before closing?</p>
       </button>
       <div id="ew-menubar-menus" class="menubar-menus"></div>
       <span id="edit-window-title" class="titlebar-file" title=""></span>
+      <!-- Presets (left) / Adjustments (right) panels, just left of minimise -->
+      <div class="menubar-panels" role="group">
+        <button type="button" class="menubar-panel-btn" id="ew-panel-left"  data-i18n-title="toolbar.collapseLeft"></button>
+        <button type="button" class="menubar-panel-btn" id="ew-panel-right" data-i18n-title="toolbar.collapseRight"></button>
+      </div>
       <div id="ew-win-gutter"></div>
     </div>
 
@@ -783,13 +804,6 @@ Do you want to save before closing?</p>
           <button class="ew-btn" id="ew-fit"      data-i18n-title="toolbar.fitWindow"></button>
         </div>
 
-        <div class="ew-sep"></div>
-
-        <!-- Side panels: Presets (left) / Adjustments (right) -->
-        <div class="ew-group" role="group">
-          <button class="ew-btn" id="ew-panel-left"  data-i18n-title="toolbar.collapseLeft"></button>
-          <button class="ew-btn" id="ew-panel-right" data-i18n-title="toolbar.collapseRight"></button>
-        </div>
       </div>
 
       <span class="ew-spacer"></span>
@@ -944,6 +958,15 @@ Do you want to save before closing?</p>
             <select id="settings-start-scene" class="resize-select"></select>
           </div>
           <div class="settings-start-grid">
+            <div class="settings-start-item settings-start-auto">
+              <label class="start-auto-check" for="settings-start-auto"><input type="checkbox" id="settings-start-auto"><span data-i18n="start.autoScene">Change the background automatically</span></label>
+              <span class="settings-start-ctrl">
+                <button type="button" class="settings-start-step" data-auto-step="-1" data-i18n-title="start.speedDown" title="Decrease">−</button>
+                <input type="number" id="settings-start-auto-sec" min="5" max="3600" step="5" value="30" data-i18n-title="start.autoSceneSec">
+                <span data-i18n="start.seconds">s</span>
+                <button type="button" class="settings-start-step" data-auto-step="1" data-i18n-title="start.speedUp" title="Increase">+</button>
+              </span>
+            </div>
             <div class="settings-start-item">
               <label for="settings-start-transparency"><span data-i18n="start.transparency">Background transparency</span></label>
               <span class="settings-start-ctrl">
@@ -968,14 +991,14 @@ Do you want to save before closing?</p>
               <span data-i18n="settings.recentFolders">Recent folders</span>
               <span class="settings-hint" id="settings-recent-count"></span>
             </label>
-            <button type="button" class="settings-btn" id="settings-clear-recent" data-i18n="toolbar.clearRecentFolders">Clear recent folders</button>
+            <button type="button" class="settings-btn" id="settings-clear-recent"><span class="btn-ico" data-icon="delete"></span><span data-i18n="toolbar.clearRecentFolders">Clear recent folders</span></button>
           </div>
           <div class="settings-row" id="settings-thumb-cache-row">
             <label for="settings-clear-thumbs">
               <span data-i18n="settings.thumbCache">Thumbnail cache</span>
               <span class="settings-hint" id="settings-thumb-cache-size"></span>
             </label>
-            <button type="button" class="settings-btn" id="settings-clear-thumbs" data-i18n="settings.clearThumbCache">Clear thumbnail cache</button>
+            <button type="button" class="settings-btn" id="settings-clear-thumbs"><span class="btn-ico" data-icon="delete"></span><span data-i18n="settings.clearThumbCache">Clear thumbnail cache</span></button>
           </div>
           <div class="settings-row settings-row-assoc">
             <label>
@@ -985,8 +1008,8 @@ Do you want to save before closing?</p>
               <span class="settings-hint" id="settings-assoc-status"></span>
             </label>
             <div class="settings-assoc-actions">
-              <button type="button" class="settings-btn" id="settings-set-default" data-i18n="settings.setAsDefault">Set as default</button>
-              <button type="button" class="settings-btn" id="settings-open-default-apps" data-i18n="settings.openDefaultApps">Windows settings</button>
+              <button type="button" class="settings-btn" id="settings-set-default"><span class="btn-ico" data-icon="star"></span><span data-i18n="settings.setAsDefault">Set as default</span></button>
+              <button type="button" class="settings-btn" id="settings-open-default-apps"><span class="btn-ico" data-icon="settings"></span><span data-i18n="settings.openDefaultApps">Windows settings</span></button>
             </div>
           </div>
         </div>
@@ -1004,8 +1027,8 @@ Do you want to save before closing?</p>
             <label class="dlg-row"><span class="dlg-label" data-i18n="theme.accent">Accent</span><span class="dlg-ctl"><input type="color" data-custom="accent" value="#e8a33d"></span></label>
             <div class="dlg-row"><span class="dlg-label"></span>
               <span class="dlg-ctl">
-                <button type="button" class="settings-btn" data-custom-reset data-i18n="theme.resetDefault">Default</button>
-                <button type="button" class="settings-btn" data-custom-apply data-i18n="theme.apply">Apply</button>
+                <button type="button" class="settings-btn" data-custom-reset><span class="btn-ico" data-icon="reset"></span><span data-i18n="theme.resetDefault">Default</span></button>
+                <button type="button" class="settings-btn" data-custom-apply><span class="btn-ico" data-icon="check"></span><span data-i18n="theme.apply">Apply</span></button>
               </span></div>
           </div>
         </div>
@@ -1076,7 +1099,7 @@ Do you want to save before closing?</p>
             </label>
             <div class="settings-inline">
               <input type="color" id="settings-dicom-overlay-color" class="settings-color">
-              <button type="button" class="settings-btn" id="settings-dicom-overlay-reset" data-i18n="settings.default">Default</button>
+              <button type="button" class="settings-btn" id="settings-dicom-overlay-reset"><span class="btn-ico" data-icon="reset"></span><span data-i18n="settings.default">Default</span></button>
             </div>
           </div>
         </div>
@@ -1108,7 +1131,7 @@ Do you want to save before closing?</p>
             <label class="sr-def"><span data-i18n="sr.format">File format</span><select id="settings-sr-format" class="resize-select"></select></label>
             <label class="sr-def"><span data-i18n="sr.quality">Quality</span><span class="sr-def-q"><input type="range" id="settings-sr-quality" min="40" max="100" step="1"><span id="settings-sr-quality-val" class="settings-value">92</span></span></label>
             <label class="sr-def sr-def-check"><input type="checkbox" id="settings-sr-save"><span data-i18n="sr.saveFile">Save as a new file</span></label>
-            <button type="button" class="settings-btn" id="settings-sr-reset" data-i18n="sr.resetAll">All defaults</button>
+            <button type="button" class="settings-btn" id="settings-sr-reset"><span class="btn-ico" data-icon="reset"></span><span data-i18n="sr.resetAll">All defaults</span></button>
           </div>
           <div id="settings-sr-engines" class="sr-engines"></div>
         </div>
@@ -1279,7 +1302,7 @@ Do you want to save before closing?</p>
             <span data-i18n="resize.folder">Folder</span>
             <span class="resize-path-row">
               <input id="resize-dir" type="text" spellcheck="false">
-              <button type="button" class="resize-browse" id="resize-browse-dir" data-i18n="resize.browse">Browse…</button>
+              <button type="button" class="resize-browse" id="resize-browse-dir"><span class="btn-ico" data-icon="folderOpen"></span><span data-i18n="resize.browse">Browse…</span></button>
             </span>
           </label>
           <label class="resize-field">
@@ -1311,8 +1334,8 @@ Do you want to save before closing?</p>
         </div>
       </div>
       <div class="dialog-footer">
-        <button type="button" id="resize-cancel" data-i18n="dialog.unsaved.cancel">Cancel</button>
-        <button type="button" class="primary" id="resize-ok" data-i18n="resize.ok">OK</button>
+        <button type="button" id="resize-cancel"><span class="btn-ico" data-icon="close"></span><span data-i18n="dialog.unsaved.cancel">Cancel</span></button>
+        <button type="button" class="primary" id="resize-ok"><span class="btn-ico" data-icon="check"></span><span data-i18n="resize.ok">OK</span></button>
       </div>
     </div>
   </div>
@@ -1330,26 +1353,6 @@ Do you want to save before closing?</p>
         </button>
       </div>
       <div class="dialog-body print-dialog-body">
-        <div class="print-preview-col">
-          <div class="print-preview-stage" id="print-preview-stage">
-            <div class="print-paper" id="print-paper">
-              <div class="print-band print-header" id="print-header">
-                <span class="print-slot print-slot-l" id="print-header-l"></span>
-                <span class="print-slot print-slot-c" id="print-header-c"></span>
-                <span class="print-slot print-slot-r" id="print-header-r"></span>
-              </div>
-              <div class="print-content" id="print-content">
-                <canvas id="print-preview-img"></canvas>
-              </div>
-              <div class="print-band print-footer" id="print-footer">
-                <span class="print-slot print-slot-l" id="print-footer-l"></span>
-                <span class="print-slot print-slot-c" id="print-footer-c"></span>
-                <span class="print-slot print-slot-r" id="print-footer-r"></span>
-              </div>
-            </div>
-          </div>
-          <div class="print-page-info" id="print-page-info"></div>
-        </div>
         <div class="print-controls-col">
           <label class="print-field print-field-full">
             <span data-i18n="print.printer">Printer</span>
@@ -1366,6 +1369,13 @@ Do you want to save before closing?</p>
                 <option value="A3">A3 (297 × 420 mm)</option>
                 <option value="A5">A5 (148 × 210 mm)</option>
                 <option value="Tabloid">Tabloid (279 × 432 mm)</option>
+                <option value="B4">B4 (250 × 353 mm)</option>
+                <option value="B5">B5 (176 × 250 mm)</option>
+                <option value="A6">A6 (105 × 148 mm)</option>
+                <option value="Postcard" data-i18n="print.paperPostcard">Postcard (100 × 148 mm)</option>
+                <option value="Photo4x6" data-i18n="print.paperPhoto4x6">Photo 4 × 6 in (102 × 152 mm)</option>
+                <option value="Photo5x7" data-i18n="print.paperPhoto5x7">Photo 5 × 7 in (127 × 178 mm)</option>
+                <option value="Photo8x10" data-i18n="print.paperPhoto8x10">Photo 8 × 10 in (203 × 254 mm)</option>
               </select>
             </label>
             <label class="print-field">
@@ -1375,9 +1385,33 @@ Do you want to save before closing?</p>
                 <option value="5" data-i18n="print.marginNarrow">Narrow (5 mm)</option>
                 <option value="10" selected data-i18n="print.marginNormal">Normal (10 mm)</option>
                 <option value="20" data-i18n="print.marginWide">Wide (20 mm)</option>
+                <option value="custom" data-i18n="print.marginCustom">Custom…</option>
               </select>
             </label>
           </div>
+          <div class="print-field print-field-full" id="print-margins-custom" hidden>
+            <span data-i18n="print.marginSides">Margins (mm)</span>
+            <div class="print-quad">
+              <label><span data-i18n="print.mTop">Top</span><input id="print-m-top" type="number" min="0" max="80" step="1" value="10"></label>
+              <label><span data-i18n="print.mBottom">Bottom</span><input id="print-m-bottom" type="number" min="0" max="80" step="1" value="10"></label>
+              <label><span data-i18n="print.mLeft">Left</span><input id="print-m-left" type="number" min="0" max="80" step="1" value="10"></label>
+              <label><span data-i18n="print.mRight">Right</span><input id="print-m-right" type="number" min="0" max="80" step="1" value="10"></label>
+            </div>
+          </div>
+          <label class="print-field print-field-full">
+            <span data-i18n="print.position">Picture position on the page</span>
+            <select id="print-position" class="resize-select">
+              <option value="mc" data-i18n="print.pos.mc" selected>Centre</option>
+              <option value="tc" data-i18n="print.pos.tc">Top centre</option>
+              <option value="bc" data-i18n="print.pos.bc">Bottom centre</option>
+              <option value="ml" data-i18n="print.pos.ml">Middle left</option>
+              <option value="mr" data-i18n="print.pos.mr">Middle right</option>
+              <option value="tl" data-i18n="print.pos.tl">Top left</option>
+              <option value="tr" data-i18n="print.pos.tr">Top right</option>
+              <option value="bl" data-i18n="print.pos.bl">Bottom left</option>
+              <option value="br" data-i18n="print.pos.br">Bottom right</option>
+            </select>
+          </label>
 
           <div class="print-field print-field-full">
             <span data-i18n="print.orientation">Orientation</span>
@@ -1479,6 +1513,26 @@ Do you want to save before closing?</p>
             </div>
           </div>
         </div>
+        <div class="print-preview-col">
+          <div class="print-preview-stage" id="print-preview-stage">
+            <div class="print-paper" id="print-paper">
+              <div class="print-band print-header" id="print-header">
+                <span class="print-slot print-slot-l" id="print-header-l"></span>
+                <span class="print-slot print-slot-c" id="print-header-c"></span>
+                <span class="print-slot print-slot-r" id="print-header-r"></span>
+              </div>
+              <div class="print-content" id="print-content">
+                <canvas id="print-preview-img"></canvas>
+              </div>
+              <div class="print-band print-footer" id="print-footer">
+                <span class="print-slot print-slot-l" id="print-footer-l"></span>
+                <span class="print-slot print-slot-c" id="print-footer-c"></span>
+                <span class="print-slot print-slot-r" id="print-footer-r"></span>
+              </div>
+            </div>
+          </div>
+          <div class="print-page-info" id="print-page-info"></div>
+        </div>
       </div>
       <div class="dialog-footer">
         <button class="btn-icon" data-close-dialog>
@@ -1526,8 +1580,8 @@ Do you want to save before closing?</p>
         <span class="fd-quality-hint" data-i18n="fd.qualityHint">Higher = better quality, larger file</span>
       </div>
       <div class="dialog-footer">
-        <button type="button" id="fd-cancel" data-i18n="dialog.unsaved.cancel">Cancel</button>
-        <button type="button" class="primary" id="fd-ok"><span id="fd-ok-label">Open</span></button>
+        <button type="button" id="fd-cancel"><span class="btn-ico" data-icon="close"></span><span data-i18n="dialog.unsaved.cancel">Cancel</span></button>
+        <button type="button" class="primary" id="fd-ok"><span class="btn-ico" id="fd-ok-icon" data-icon="folderOpen"></span><span id="fd-ok-label">Open</span></button>
       </div>
     </div>
   </div>
@@ -1553,8 +1607,8 @@ Do you want to save before closing?</p>
           <label><span data-i18n="theme.bg">Background</span><input type="color" data-custom="bg" value="#1f2433"></label>
           <label><span data-i18n="theme.text">Text</span><input type="color" data-custom="text" value="#dde3f0"></label>
           <label><span data-i18n="theme.accent">Accent</span><input type="color" data-custom="accent" value="#e8a33d"></label>
-          <button type="button" class="settings-btn" data-custom-reset data-i18n="theme.resetDefault">Default</button>
-          <button type="button" class="settings-btn" data-custom-apply data-i18n="theme.apply">Apply</button>
+          <button type="button" class="settings-btn" data-custom-reset><span class="btn-ico" data-icon="reset"></span><span data-i18n="theme.resetDefault">Default</span></button>
+          <button type="button" class="settings-btn" data-custom-apply><span class="btn-ico" data-icon="check"></span><span data-i18n="theme.apply">Apply</span></button>
         </div>
       </div>
     </div>
@@ -1584,8 +1638,8 @@ Do you want to save before closing?</p>
         </div>
       </div>
       <div class="dialog-footer">
-        <button type="button" id="auto-improve-cancel" data-i18n="dialog.unsaved.cancel">Cancel</button>
-        <button type="button" class="primary" id="auto-improve-ok" data-i18n="effects.apply">Apply</button>
+        <button type="button" id="auto-improve-cancel"><span class="btn-ico" data-icon="close"></span><span data-i18n="dialog.unsaved.cancel">Cancel</span></button>
+        <button type="button" class="primary" id="auto-improve-ok"><span class="btn-ico" data-icon="check"></span><span data-i18n="effects.apply">Apply</span></button>
       </div>
     </div>
   </div>
@@ -1626,10 +1680,10 @@ Do you want to save before closing?</p>
         </div>
       </div>
       <div class="dialog-footer">
-        <button type="button" id="tone-auto" class="footer-left" data-i18n="tone.auto">Auto</button>
-        <button type="button" id="tone-reset" data-i18n="tone.reset">Reset</button>
-        <button type="button" id="tone-cancel" data-i18n="dialog.unsaved.cancel">Cancel</button>
-        <button type="button" class="primary" id="tone-ok" data-i18n="resize.ok">OK</button>
+        <button type="button" id="tone-auto" class="footer-left"><span class="btn-ico" data-icon="autoFix"></span><span data-i18n="tone.auto">Auto</span></button>
+        <button type="button" id="tone-reset"><span class="btn-ico" data-icon="reset"></span><span data-i18n="tone.reset">Reset</span></button>
+        <button type="button" id="tone-cancel"><span class="btn-ico" data-icon="close"></span><span data-i18n="dialog.unsaved.cancel">Cancel</span></button>
+        <button type="button" class="primary" id="tone-ok"><span class="btn-ico" data-icon="check"></span><span data-i18n="resize.ok">OK</span></button>
       </div>
     </div>
   </div>
@@ -1661,8 +1715,8 @@ Do you want to save before closing?</p>
           </span></div>
       </div>
       <div class="dialog-footer">
-        <button type="button" id="canvas-size-cancel" data-i18n="dialog.unsaved.cancel">Cancel</button>
-        <button type="button" class="primary" id="canvas-size-ok" data-i18n="resize.ok">OK</button>
+        <button type="button" id="canvas-size-cancel"><span class="btn-ico" data-icon="close"></span><span data-i18n="dialog.unsaved.cancel">Cancel</span></button>
+        <button type="button" class="primary" id="canvas-size-ok"><span class="btn-ico" data-icon="check"></span><span data-i18n="resize.ok">OK</span></button>
       </div>
     </div>
   </div>
@@ -1696,8 +1750,8 @@ Do you want to save before closing?</p>
         <div class="dlg-row"><span class="dlg-label"></span><label class="dlg-check"><input type="checkbox" id="wm-shadow" checked> <span data-i18n="watermark.shadow">Shadow (readable on any background)</span></label></div>
       </div>
       <div class="dialog-footer">
-        <button type="button" id="watermark-cancel" data-i18n="dialog.unsaved.cancel">Cancel</button>
-        <button type="button" class="primary" id="watermark-ok" data-i18n="resize.ok">OK</button>
+        <button type="button" id="watermark-cancel"><span class="btn-ico" data-icon="close"></span><span data-i18n="dialog.unsaved.cancel">Cancel</span></button>
+        <button type="button" class="primary" id="watermark-ok"><span class="btn-ico" data-icon="check"></span><span data-i18n="resize.ok">OK</span></button>
       </div>
     </div>
   </div>
@@ -1753,7 +1807,7 @@ Do you want to save before closing?</p>
         <div class="dlg-hint batch-convert-only" data-i18n="batch.wmHint">The watermark uses the size, colour and position last set in Image › Watermark.</div>
         <div class="dlg-section" data-i18n="resize.saveTo">Save to</div>
         <div class="dlg-row"><span class="dlg-label" data-i18n="resize.folder">Folder</span>
-          <span class="dlg-ctl"><input type="text" id="batch-dir" spellcheck="false"><button type="button" class="dlg-btn" id="batch-browse" data-i18n="resize.browse">Browse…</button></span></div>
+          <span class="dlg-ctl"><input type="text" id="batch-dir" spellcheck="false"><button type="button" class="dlg-btn" id="batch-browse"><span class="btn-ico" data-icon="folderOpen"></span><span data-i18n="resize.browse">Browse…</span></button></span></div>
         <div class="dlg-row" id="batch-subdir-row"><label class="dlg-label dlg-check"><input type="checkbox" id="batch-subdir" checked> <span data-i18n="batch.subdir">Subfolder</span></label>
           <input type="text" id="batch-subdir-name" spellcheck="false"></div>
         <div class="dlg-hint" id="batch-subdir-hint" data-i18n="batch.subdirHint">With more than one picture, the results go into a new folder inside the folder above.</div>
@@ -1761,8 +1815,8 @@ Do you want to save before closing?</p>
         <div class="dlg-hint" data-i18n="batch.safeHint">Originals are never changed; an existing file gets a number instead of being replaced.</div>
       </div>
       <div class="dialog-footer">
-        <button type="button" id="batch-cancel" data-i18n="dialog.unsaved.cancel">Cancel</button>
-        <button type="button" class="primary" id="batch-ok" data-i18n="batch.start">Start</button>
+        <button type="button" id="batch-cancel"><span class="btn-ico" data-icon="close"></span><span data-i18n="dialog.unsaved.cancel">Cancel</span></button>
+        <button type="button" class="primary" id="batch-ok"><span class="btn-ico" data-icon="mediaPlay"></span><span data-i18n="batch.start">Start</span></button>
       </div>
     </div>
   </div>
@@ -1788,24 +1842,24 @@ Do you want to save before closing?</p>
           </div>
           <div class="sr-desc" id="sr-algo-desc"></div>
           <div class="sr-section-title"><span data-i18n="sr.params">Parameters</span>
-            <button type="button" class="settings-btn sr-reset" id="sr-reset-params" data-i18n="sr.resetParams">Default values</button></div>
+            <button type="button" class="settings-btn sr-reset" id="sr-reset-params"><span class="btn-ico" data-icon="reset"></span><span data-i18n="sr.resetParams">Default values</span></button></div>
           <div class="dlg-form sr-params" id="sr-params"></div>
           <div class="sr-section-title"><span data-i18n="sr.output">Result</span>
             <label class="sr-save-check"><input type="checkbox" id="sr-save" checked><span data-i18n="sr.saveFile">Save as a new file</span></label></div>
           <div class="dlg-form sr-output">
             <div class="dlg-row"><span class="dlg-label" data-i18n="sr.size">Size</span><span class="dlg-ctl sr-size" id="sr-size">—</span></div>
-            <div class="dlg-row sr-file-row"><label class="dlg-label" for="sr-name" data-i18n="sr.fileName">File name</label><span class="dlg-ctl"><input type="text" id="sr-name" spellcheck="false" autocomplete="off"><span class="sr-name-ext" id="sr-name-ext">.jpg</span><button type="button" class="settings-btn sr-mini-btn" id="sr-name-auto" data-i18n-title="sr.nameAuto" title="Automatic name">↺</button></span></div>
+            <div class="dlg-row sr-file-row"><label class="dlg-label" for="sr-name" data-i18n="sr.fileName">File name</label><span class="dlg-ctl"><input type="text" id="sr-name" spellcheck="false" autocomplete="off"><span class="sr-name-ext" id="sr-name-ext">.jpg</span><button type="button" class="settings-btn sr-mini-btn" id="sr-name-auto" data-i18n-title="sr.nameAuto" title="Automatic name"><span class="btn-ico" data-icon="reset"></span></button></span></div>
             <div class="dlg-row sr-file-row"><label class="dlg-label" for="sr-format" data-i18n="sr.formatQuality">Format · quality</label><span class="dlg-ctl"><select id="sr-format" class="resize-select sr-format"></select><span class="sr-quality" id="sr-quality-row"><input type="range" id="sr-quality" min="40" max="100" step="1" value="92"><span class="sr-range-val" id="sr-quality-val">92</span></span></span></div>
-            <div class="dlg-row sr-file-row"><span class="dlg-label" data-i18n="sr.saveFolder">Folder</span><span class="dlg-ctl"><span class="sr-folder" id="sr-folder">—</span><button type="button" class="settings-btn sr-mini-btn" id="sr-folder-pick" data-i18n="sr.browse">Browse…</button></span></div>
+            <div class="dlg-row sr-file-row"><span class="dlg-label" data-i18n="sr.saveFolder">Folder</span><span class="dlg-ctl"><span class="sr-folder" id="sr-folder">—</span><button type="button" class="settings-btn sr-mini-btn" id="sr-folder-pick"><span class="btn-ico" data-icon="folderOpen"></span><span data-i18n="sr.browse">Browse…</span></button></span></div>
           </div>
           <div class="sr-warn" id="sr-warn" role="status"></div>
         </div>
       </div>
       <div class="dialog-footer">
-        <button type="button" class="sr-reset-all" id="sr-reset-all" data-i18n="sr.resetAll">All defaults</button>
+        <button type="button" class="sr-reset-all" id="sr-reset-all"><span class="btn-ico" data-icon="reset"></span><span data-i18n="sr.resetAll">All defaults</span></button>
         <span class="settings-footer-spacer"></span>
-        <button type="button" id="sr-cancel" data-i18n="dialog.unsaved.cancel">Cancel</button>
-        <button type="button" class="primary" id="sr-ok" data-i18n="sr.run">Upscale</button>
+        <button type="button" id="sr-cancel"><span class="btn-ico" data-icon="close"></span><span data-i18n="dialog.unsaved.cancel">Cancel</span></button>
+        <button type="button" class="primary" id="sr-ok"><span class="btn-ico" data-icon="superRes"></span><span data-i18n="sr.run">Upscale</span></button>
       </div>
     </div>
   </div>
@@ -1823,8 +1877,8 @@ Do you want to save before closing?</p>
           <span class="dlg-ctl amount-ctl"><input type="range" id="amount-range" min="1" max="100" step="1" value="10"><input type="number" id="amount-number" min="1" max="100" step="1" value="10"><span class="dlg-unit" data-i18n="resize.px">px</span></span></div>
       </div>
       <div class="dialog-footer">
-        <button type="button" id="amount-cancel" data-i18n="dialog.unsaved.cancel">Cancel</button>
-        <button type="button" class="primary" id="amount-ok" data-i18n="resize.ok">OK</button>
+        <button type="button" id="amount-cancel"><span class="btn-ico" data-icon="close"></span><span data-i18n="dialog.unsaved.cancel">Cancel</span></button>
+        <button type="button" class="primary" id="amount-ok"><span class="btn-ico" data-icon="check"></span><span data-i18n="resize.ok">OK</span></button>
       </div>
     </div>
   </div>

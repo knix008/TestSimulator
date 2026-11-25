@@ -17,6 +17,10 @@ fn reader(path: &str) -> Result<ImageReader<std::io::BufReader<std::fs::File>>, 
 
 /// The picture the way it is meant to be seen (EXIF orientation applied).
 pub(crate) fn decode_upright(path: &str) -> Result<DynamicImage, String> {
+    // JPEG XL, JPEG 2000, Photoshop, PCX, Apple icons, camera RAW (host/formats.rs)
+    if let Some(out) = super::formats::decode(path) {
+        return out;
+    }
     let mut decoder = reader(path)?.into_decoder().map_err(|e| e.to_string())?;
     let orientation = decoder.orientation().unwrap_or(image::metadata::Orientation::NoTransforms);
     let mut img = DynamicImage::from_decoder(decoder).map_err(|e| e.to_string())?;
@@ -60,6 +64,21 @@ pub fn convert_to_png(path: &str) -> Value {
 pub fn image_basic_meta(path: &str) -> Value {
     let mut basic = Map::new();
     let ext = super::node_extname(path).to_lowercase();
+    // JPEG XL, JPEG 2000, Photoshop, PCX, Apple icons, camera RAW: size and kind from the decoded picture
+    if super::formats::handles(path) {
+        if let Ok(img) = decode_upright(path) {
+            basic.insert("width".into(), json!(img.width()));
+            basic.insert("height".into(), json!(img.height()));
+            let channels = img.color().channel_count();
+            basic.insert("channels".into(), json!(channels));
+            basic.insert("space".into(), json!(if channels <= 2 { "b-w" } else { "srgb" }));
+            if img.color().has_alpha() {
+                basic.insert("hasAlpha".into(), json!(true));
+            }
+        }
+        basic.insert("format".into(), json!(ext.trim_start_matches('.')));
+        return json!({ "basic": basic, "tags": {}, "all": {} });
+    }
     if let Ok(r) = reader(path) {
         let format = r.format();
         if let Some(f) = format {
@@ -71,6 +90,13 @@ pub fn image_basic_meta(path: &str) -> Value {
                 image::ImageFormat::Tiff => "tiff",
                 image::ImageFormat::Bmp => "bmp",
                 image::ImageFormat::Ico => "ico",
+                image::ImageFormat::Tga => "tga",
+                image::ImageFormat::Dds => "dds",
+                image::ImageFormat::Hdr => "hdr",
+                image::ImageFormat::OpenExr => "exr",
+                image::ImageFormat::Pnm => "pnm",
+                image::ImageFormat::Qoi => "qoi",
+                image::ImageFormat::Farbfeld => "farbfeld",
                 _ => "",
             };
             if !name.is_empty() {

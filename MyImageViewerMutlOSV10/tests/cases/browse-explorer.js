@@ -10,6 +10,25 @@ module.exports = {
 
     /* ── Explorer: moving to the parent directory ── */
 
+    test('Toolbar folder views: large / medium / small icons, tiles, list, details — each shows the sheet in that view', () => {
+      const browse = h.read('src/js/browse.js');
+      assertIncludes(browse, "const MODES = ['grid', 'tiles', 'list', 'details'];", 'tiles mode');
+      assertIncludes(browse, 'id="browse-mode-tiles" data-mode="tiles"', 'sheet bar button');
+      assertIncludes(browse, "window.dispatchEvent(new CustomEvent('browse-view-change'", 'toolbar follows the sheet bar');
+      for (const [id, mode, size] of [['btn-view-large', 'grid', 240], ['btn-view-medium', 'grid', 160], ['btn-view-small', 'grid', 96], ['btn-view-tiles', 'tiles'], ['btn-view-list', 'list'], ['btn-view-details', 'details']]) {
+        const row = app.split(/\r?\n/).find((l) => l.includes(`id: '${id}'`)) || '';
+        assert(row.includes(`mode: '${mode}'`) && (!size || row.includes(`size: ${size} `)), id);
+        const icon = row.match(/icon: '(\w+)'/)[1];
+        assert(src.icons.includes(`  ${icon}: \x60<svg`), `icon ${icon}`);
+        const tip = row.match(/tip: '([\w.]+)'/)[1];
+        assert(src.ko[tip] && src.en[tip], tip);
+      }
+      assertIncludes(app, '...BROWSE_VIEWS.map((v) => ({ id: v.id, icon: v.icon, tip: v.tip, action: () => _setBrowseView(v) })),', 'on the toolbar');
+      assert(app.indexOf('const BROWSE_VIEWS = [') < app.indexOf('function _buildToolbar'), 'declared before the toolbar is built');
+      assertIncludes(src.css, '#browse-view[data-mode="tiles"]:not(.is-filmstrip) .browse-tile {', 'tiles layout, never in the filmstrip');
+      assert(src.ko['browse.mode.tiles'] && src.en['browse.mode.tiles'], 'tiles name');
+    });
+
     test('Path bar carries an Up button and a breadcrumb strip', () => {
       assertIncludes(html, 'id="tree-up-btn"', 'up button markup');
       assertIncludes(html, 'id="tree-crumbs"', 'crumb host markup');
@@ -242,13 +261,13 @@ module.exports = {
 
     /* ── Toolbar order ── */
 
-    test('Edit sits after the right-panel button, behind a separator', () => {
+    test('Edit sits after the thumbnail button, behind a separator (panel buttons are in the menu bar)', () => {
       const bar = app.slice(app.indexOf("id:'btn-browse'"), app.indexOf('{ spacer: true }'));
-      const iInfo = bar.indexOf("id:'btn-panel-right'");
-      const iSep = bar.indexOf('{ separator: true }', iInfo);
+      const iBrowse = bar.indexOf("id:'btn-browse'");
+      const iSep = bar.indexOf('{ separator: true }', iBrowse);
       const iEdit = bar.indexOf("id:'btn-edit'");
-      assert(iInfo >= 0 && iSep > iInfo && iEdit > iSep,
-        `expected info < separator < edit, got ${iInfo}/${iSep}/${iEdit}`);
+      assert(iBrowse >= 0 && iSep > iBrowse && iEdit > iSep,
+        `expected browse < separator < edit, got ${iBrowse}/${iSep}/${iEdit}`);
     });
 
     test('Thumbnails drag onto an explorer folder: move, Ctrl = copy', () => {

@@ -107,14 +107,18 @@ module.exports = {
       assertIncludes(app, 'hasFile && _favoriteMenuItem(state.currentFile, false),', 'viewer');
     });
 
-    test('Start screen shows recent files, recent folders and favorites, stacked (no tabs)', () => {
-      assertIncludes(app, "card('recent', 'recent', I18n.t('home.places'), recentHost)", 'card');
+    test('Start screen: recent files + favorites in one card, recent folders in its own card beside it (no tabs)', () => {
+      assertIncludes(app, "card('recent', 'recent', I18n.t('home.places'), recentHost, recentHost.clearBtn || null),", 'card, clear-all on its title row');
+      assertIncludes(app, "if (which.includes('favorites')) await _clearFavorites({ ask: false });", 'clear all: one question, both lists');
+      assertIncludes(app, "removeTitle: t('context.removeFavorite'), remove: (p) => _removeFavorite(p),", 'each favorite has its own remove');
+      for (const k of ['places.clearAll', 'places.clearAllConfirm', 'places.clearAllYes']) assert(ko[k] && en[k], k);
       for (const k of ['home.recentFiles', 'home.recentFolders']) assertIncludes(app, `t('${k}')`, k);
       assertIncludes(app, "entries: () => _favorites.map(", 'favorites list');
-      const fn = app.slice(app.indexOf('function _homePlaces()'), app.indexOf('function _renderHomeBody'));
+      const fn = app.slice(app.indexOf('function _homePlaces('), app.indexOf('function _renderHomeBody'));
       assert(!fn.includes('TabStrip') && !fn.includes("role', 'tab'"), 'no tabs');
       assertIncludes(fn, "head.className = 'start-sub';", 'a heading per list');
       assertIncludes(fn, '.slice(0, HOME_PLACES_MAX)', 'kept short');
+      assertIncludes(fn, 'if (single) host.append(list);', 'a one-list card has no repeated heading');
       assertIncludes(css, '.start-link {', 'rows styled');
     });
 

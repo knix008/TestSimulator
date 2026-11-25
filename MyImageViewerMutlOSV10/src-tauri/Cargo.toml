@@ -1,6 +1,6 @@
 [package]
 name = "myimageviewer"
-version = "1.0.2"
+version = "1.0.3"
 description = "MyImageViewer"
 authors = ["SHKWON"]
 edition = "2021"
@@ -23,7 +23,15 @@ tauri-plugin-dialog = "2"
 # Links, "show in folder"
 tauri-plugin-opener = "2"
 # Thumbnails, TIFF → PNG, image header facts (no AVIF / SVG: the webview decodes those)
-image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp", "tiff", "bmp", "ico"] }
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp", "tiff", "bmp", "ico", "tga", "hdr", "exr", "pnm", "qoi", "ff"] }
+# More picture formats, all pure Rust (host/formats.rs): JPEG XL, JPEG 2000, Photoshop, PCX, Apple icons
+jxl-oxide = "0.12"
+hayro-jpeg2000 = "0.5"
+psd = "0.3"
+pcx = "0.2"
+icns = "0.5"
+# DirectDraw textures (uncompressed and BC1–BC7), decode only (image 0.25 has no DDS decoder)
+image_dds = { version = "0.7", default-features = false, features = ["ddsfile", "image"] }
 # Folder / file change notifications
 notify = "8"
 base64 = "0.22"
@@ -46,6 +54,10 @@ winreg = "0.55"
 # Installed font families for the font lists (GDI EnumFontFamiliesExW). The page's own
 # queryLocalFonts() made WebView2 ask "use your computer's fonts?" on every start.
 windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Graphics_Gdi"] }
+# Printing straight to a printer (no system dialog): WebView2 Print / PrintToPdf and the printer
+# list. Same versions as Tauri's own webview2-com / windows (Cargo.lock), so the types match.
+webview2-com = "0.39"
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Graphics_Printing", "Win32_Security"] }
 
 # The AV1 encoder is unusably slow unoptimised (seconds become minutes): optimised in dev too
 [profile.dev.package.rav1e]
@@ -57,3 +69,8 @@ codegen-units = 1
 lto = true
 opt-level = "s"
 strip = true
+
+# Tests only: a JPEG XL file to decode (host/formats.rs tests)
+[dev-dependencies]
+zune-jpegxl = "0.5"
+zune-core = "0.5"

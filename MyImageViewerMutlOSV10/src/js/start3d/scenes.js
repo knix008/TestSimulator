@@ -786,6 +786,159 @@ const SCENES = {
       k.points(s.mist, { uShape: 6, uCenter: [eye[0], 6, eye[2]], uBox: [600, 10, 600], uVel: [3, 0, 1], uTime: t.objects, uSize: 32, uMaxSize: 256, uColorA: [1, 1, 1], uColorB: horizon, uAlpha: 0.08 }, { blend: 'alpha' });
     },
   },
+
+  // A flight down a winding red-rock canyon: the channel ring with tall banded walls.
+  canyon: {
+    build: (kit, rnd) => ({ phase: rnd() * TAU, ground: { mode: TERRAIN.channel, amp: 75, freq: 0.014, seed: [rnd() * 50, rnd() * 50], shape: [700, 10, 46, 0] }, dust: kit.cloud(seeds(900, 151)) }),
+    draw(k, s, t, tone) {
+      const { c, dark } = tone;
+      const a = s.phase + t.camera * 0.011;
+      const path = circle(700, a);
+      const dir = turn(path.dir, Math.sin(t.camera * 0.06) * 0.08);
+      const eye = [path.pos[0], 9 + Math.sin(t.camera * 0.13) * 3, path.pos[2]];
+      const sun = sunDir(headingOf(path.dir) + 0.7 + Math.sin(t.sky * 0.01) * 0.3, dark ? 0.16 : 0.55);
+      const horizon = c(dark ? [0.86, 0.55, 0.42] : [0.96, 0.8, 0.62]);
+      const sunColor = dark ? [1, 0.66, 0.42] : [1, 0.93, 0.8];
+      const env = { sun, sunColor, ambient: c([0.36, 0.28, 0.26]), fog: horizon, fogRange: [90, 420] };
+      k.camera(eye, ahead(eye, dir, 40, -2), { fov: 1.0, roll: Math.sin(t.camera * 0.09) * 0.04 });
+      k.begin(horizon);
+      k.sky(skyOf({ zenith: c(dark ? [0.18, 0.16, 0.4] : [0.24, 0.48, 0.85]), horizon, sun, sunColor, sunSize: 0.03, glow: 1.1, clouds: 0.25, cloudColor: dark ? [1, 0.75, 0.62] : [1, 0.98, 0.95], time: t.sky, haze: 0.4 }));
+      k.terrain(s.ground, { ...light(env), uLow: [0.62, 0.38, 0.24], uMid: [0.72, 0.36, 0.2], uHigh: [0.82, 0.52, 0.32], uPeak: [0.9, 0.7, 0.5], uBands: [0, 6, 18, 2.5], uSpan: 900 });
+      k.points(s.dust, { uCenter: ahead(eye, dir, 25, -4), uBox: [60, 10, 60], uVel: [4, 0.4, 1.5], uWobble: [0.4, 0.5, 0.4], uWobbleFreq: 1.5, uTime: t.objects, uSize: 0.06, uColorA: [0.95, 0.72, 0.5], uColorB: [1, 0.86, 0.7], uAlpha: 0.45 }, { blend: 'alpha' });
+    },
+  },
+
+  // Autumn woods: orange, red and gold trees, a still pond and leaves drifting down.
+  autumn: {
+    build(kit, rnd) {
+      const ground = { mode: TERRAIN.hills, amp: 6, freq: 0.025, seed: [rnd() * 50, rnd() * 50] };
+      const spots = plant(rnd, 640, { outer: 130, avoid: awayFromRing(38, 4.5) });
+      const b = new MeshBuilder();
+      const leaves = [[0.85, 0.38, 0.1], [0.78, 0.18, 0.08], [0.92, 0.66, 0.16], [0.62, 0.3, 0.12]];
+      for (const [x, z] of spots) {
+        const h = 6 + rnd() * 7;
+        if (rnd() < 0.18) pine(b, x, z, h, [0.12, 0.26, 0.14], TRUNK, rnd);
+        else roundTree(b, x, z, h * 0.8, leaves[Math.floor(rnd() * leaves.length)], [0.28, 0.18, 0.12], rnd);
+      }
+      const grass = plant(rnd, 1100, { outer: 70, avoid: awayFromRing(38, 1.2) });
+      return { ground, phase: rnd() * TAU, trees: kit.mesh(b), grass: kit.mesh(tufts(rnd, grass, [0.55, 0.45, 0.2], 0.16)), leaves: kit.cloud(seeds(2200, 161)) };
+    },
+    draw(k, s, t, tone) {
+      const { c } = tone;
+      const level = -0.5;
+      const a = s.phase + t.camera * 0.011;
+      const path = circle(38, a);
+      const dir = turn(path.dir, Math.sin(t.camera * 0.07) * 0.35);
+      const eye = [path.pos[0], follow(s, 'alt', Math.max(level, terrainHeight(s.ground, path.pos[0], path.pos[2])) + 1.9, t.step), path.pos[2]];
+      const sun = sunDir(t.sky * 0.01 + 0.4, 0.38);
+      const horizon = c([0.96, 0.82, 0.64], 0.1);
+      const sunColor = [1, 0.86, 0.64];
+      const env = { sun, sunColor, ambient: c([0.4, 0.34, 0.3]), fog: horizon, fogRange: [35, 200] };
+      const sky = skyOf({ zenith: c([0.36, 0.56, 0.85]), horizon, sun, sunColor, clouds: 0.4, cloudColor: [1, 0.95, 0.88], time: t.sky, haze: 0.45 });
+      const land = { ...light(env), uLow: [0.5, 0.36, 0.18], uMid: [0.46, 0.4, 0.2], uHigh: [0.48, 0.38, 0.26], uPeak: [0.5, 0.42, 0.3], uBands: [0, 4, 30, 1], uSpan: 400 };
+      const trees = { ...light(env), uWind: 0.22, uTime: t.objects, uTint: c([1, 1, 1], 0.06), uMinGround: level + 0.3 };
+      k.camera(eye, ahead(eye, dir, 10, 0.4), { fov: 1.0, level });
+      k.begin(horizon);
+      k.sky(sky);
+      k.beginMirror();
+      k.sky(sky);
+      k.terrain(s.ground, land);
+      k.solid(s.trees, trees, { ground: s.ground });
+      k.endMirror();
+      k.water({ uLevel: level, uSpan: 300, uWave: 0.03, uRipple: 0.1, uTime: t.objects, uSun: sun, uSunColor: sunColor, uDeep: c([0.08, 0.1, 0.08]), uShallow: c([0.16, 0.16, 0.1]), uZenith: sky.uZenith, uHorizon: horizon, uFog: horizon, uFogRange: env.fogRange, uMirror: 0.85, uSpec: 1, uShine: 200 });
+      k.terrain(s.ground, land);
+      k.solid(s.trees, trees, { ground: s.ground });
+      k.solid(s.grass, { ...trees, uWind: 0.14 }, { ground: s.ground });
+      k.points(s.leaves, { uShape: 3, uCenter: ahead(eye, dir, 10, 5), uBox: [50, 24, 50], uVel: [1.2, -1.4, 0.5], uWobble: [1, 0.4, 1], uWobbleFreq: 1.1, uTime: t.objects, uSize: 0.16, uColorA: [0.92, 0.42, 0.1], uColorB: [0.96, 0.75, 0.2], uAlpha: 0.95 }, { blend: 'alpha' });
+    },
+  },
+
+  // A cold sea under snow peaks, ice mist drifting over the water.
+  glacier: {
+    build: (kit, rnd) => ({ phase: rnd() * TAU, ground: { mode: TERRAIN.far, amp: 130, freq: 0.007, seed: [rnd() * 50, rnd() * 50], shape: [170, 360, 0, 0] }, mist: kit.cloud(seeds(160, 171)), flakes: kit.cloud(seeds(1500, 172)) }),
+    draw(k, s, t, tone) {
+      const { c, dark } = tone;
+      const a = s.phase + t.camera * 0.006;
+      const path = circle(60, a);
+      const dir = turn(path.dir, 0.9 + Math.sin(t.camera * 0.04) * 0.3);
+      const eye = [path.pos[0], 4 + Math.sin(t.camera * 0.3) * 0.4, path.pos[2]];
+      const sun = sunDir(headingOf(dir) + 0.5 + Math.sin(t.sky * 0.01) * 0.3, dark ? 0.1 : 0.3);
+      const horizon = c(dark ? [0.6, 0.62, 0.78] : [0.82, 0.9, 0.97]);
+      const sunColor = dark ? [0.95, 0.8, 0.85] : [1, 0.98, 0.94];
+      const env = { sun, sunColor, ambient: c([0.5, 0.56, 0.66]), fog: horizon, fogRange: [180, 700] };
+      const sky = skyOf({ zenith: c(dark ? [0.1, 0.14, 0.34] : [0.3, 0.55, 0.88]), horizon, sun, sunColor, sunSize: 0.03, glow: 0.9, clouds: 0.35, cloudColor: dark ? [0.85, 0.82, 0.92] : [1, 1, 1], time: t.sky, haze: 0.35 });
+      const ice = { ...light(env), uLow: [0.74, 0.84, 0.92], uMid: [0.62, 0.74, 0.86], uHigh: [0.52, 0.58, 0.68], uPeak: [0.97, 0.98, 1], uBands: [0, 10, 40, 2], uSparkle: 0.7, uTime: t.objects, uSpan: 1400 };
+      k.camera(eye, ahead(eye, dir, 60, 4), { fov: 0.95, roll: Math.sin(t.camera * 0.4) * 0.012 });
+      k.begin(horizon);
+      k.sky(sky);
+      k.beginMirror();
+      k.sky(sky);
+      k.terrain(s.ground, ice);
+      k.endMirror();
+      k.water({ uSpan: 800, uWave: 0.3, uWaveScale: 1.1, uRipple: 0.2, uTime: t.objects, uSun: sun, uSunColor: sunColor, uDeep: c([0.02, 0.1, 0.18]), uShallow: c([0.1, 0.3, 0.38]), uZenith: sky.uZenith, uHorizon: horizon, uFog: horizon, uFogRange: [120, 500], uMirror: 0.9, uSpec: 1.8, uShine: 160 });
+      k.terrain(s.ground, ice);
+      k.points(s.mist, { uShape: 6, uCenter: [eye[0], 2, eye[2]], uBox: [300, 4, 300], uVel: [1.5, 0, 0.6], uTime: t.objects, uSize: 14, uMaxSize: 256, uColorA: [1, 1, 1], uColorB: horizon, uAlpha: 0.07 }, { blend: 'alpha' });
+      k.points(s.flakes, { uShape: 2, uCenter: ahead(eye, dir, 15), uBox: [60, 30, 60], uVel: [1.2, -1.5, 0.4], uWobble: [0.6, 0.2, 0.6], uWobbleFreq: 1, uTime: t.objects, uSize: 0.08, uColorA: [1, 1, 1], uColorB: [0.88, 0.94, 1], uAlpha: 0.7 }, { blend: 'alpha' });
+    },
+  },
+
+  // An open meadow of long grass and wild flowers, butterflies over it.
+  meadow: {
+    build(kit, rnd) {
+      const ground = { mode: TERRAIN.hills, amp: 9, freq: 0.012, seed: [rnd() * 50, rnd() * 50] };
+      const grass = plant(rnd, 4200, { outer: 90 });
+      const spots = plant(rnd, 90, { inner: 70, outer: 220 });
+      return {
+        ground, phase: rnd() * TAU,
+        grass: kit.mesh(tufts(rnd, grass, [0.42, 0.62, 0.22], 0.22)),
+        trees: kit.mesh(woods(rnd, spots, { pines: 0.2, height: [7, 12] })),
+        flowers: [seeds(1400, 181), seeds(1400, 182)].map((d) => kit.cloud(d)),
+        flies: kit.cloud(seeds(90, 183)),
+      };
+    },
+    draw(k, s, t, tone) {
+      const { c, dark } = tone;
+      const a = s.phase + t.camera * 0.008;
+      const path = circle(40, a);
+      const dir = turn(path.dir, Math.sin(t.camera * 0.05) * 0.4);
+      const eye = [path.pos[0], follow(s, 'alt', terrainHeight(s.ground, path.pos[0], path.pos[2]) + 2.2, t.step), path.pos[2]];
+      const sun = sunDir(t.sky * 0.01 + 2, dark ? 0.2 : 0.6);
+      const horizon = c(dark ? [0.92, 0.72, 0.6] : [0.82, 0.9, 0.95]);
+      const sunColor = dark ? [1, 0.78, 0.55] : [1, 0.97, 0.88];
+      const env = { sun, sunColor, ambient: c([0.42, 0.46, 0.44]), fog: horizon, fogRange: [60, 300] };
+      k.camera(eye, ahead(eye, dir, 14, -0.6), { fov: 1.0 });
+      k.begin(horizon);
+      k.sky(skyOf({ zenith: c(dark ? [0.2, 0.26, 0.5] : [0.3, 0.56, 0.9]), horizon, sun, sunColor, clouds: 0.55, cloudColor: dark ? [1, 0.84, 0.78] : [1, 1, 1], time: t.sky, haze: 0.35 }));
+      k.terrain(s.ground, { ...light(env), uLow: [0.4, 0.58, 0.24], uMid: [0.36, 0.54, 0.22], uHigh: [0.44, 0.56, 0.28], uPeak: [0.48, 0.56, 0.3], uSpan: 600 });
+      const plants = { ...light(env), uWind: 0.35, uTime: t.objects, uTint: c([1, 1, 1], 0.05) };
+      k.solid(s.trees, { ...plants, uWind: 0.18 }, { ground: s.ground });
+      k.solid(s.grass, plants, { ground: s.ground });
+      const low = terrainHeight(s.ground, eye[0], eye[2]) + 0.25;
+      const bed = { uShape: 2, uCenter: [eye[0], low, eye[2]], uBox: [70, 0.6, 70], uWobble: [0.08, 0.04, 0.08], uWobbleFreq: 1.2, uTime: t.objects, uSize: 0.24, uFadeFar: 50, uAlpha: 0.95 };
+      k.points(s.flowers[0], { ...bed, uColorA: [1, 0.85, 0.2], uColorB: [1, 1, 1] }, { blend: 'alpha' });
+      k.points(s.flowers[1], { ...bed, uColorA: [0.95, 0.35, 0.6], uColorB: [0.65, 0.45, 1] }, { blend: 'alpha' });
+      k.points(s.flies, { uShape: 3, uCenter: ahead(eye, dir, 8, 0), uBox: [24, 3, 24], uVel: [0.4, 0, 0.2], uWobble: [1.4, 0.6, 1.4], uWobbleFreq: 0.6, uTime: t.objects, uSize: 0.18, uColorA: [1, 0.7, 0.2], uColorB: [0.5, 0.75, 1], uAlpha: 0.95 }, { blend: 'alpha' });
+    },
+  },
+
+  // A slow pass through a spiral galaxy: a swirling disc of stars and glowing gas.
+  galaxy: {
+    build: (kit, rnd) => ({ phase: rnd() * TAU, disc: kit.cloud(seeds(9000, 191)), core: kit.cloud(seeds(260, 192)), arms: kit.cloud(seeds(220, 193)) }),
+    draw(k, s, t, tone) {
+      const { c, accent } = tone;
+      const a = s.phase + t.camera * 0.006;
+      const eye = [Math.cos(a) * 260, 70 + Math.sin(t.camera * 0.02) * 40, Math.sin(a) * 260];
+      const nebA = mix([0.45, 0.35, 1], accent, 0.3);
+      const nebB = c([1, 0.55, 0.75], 0.2);
+      const black = [0.005, 0.006, 0.02];
+      k.camera(eye, [0, 0, 0], { fov: 1.0, roll: Math.sin(t.camera * 0.03) * 0.08 });
+      k.begin(black);
+      k.sky(skyOf({ zenith: black, horizon: c([0.02, 0.02, 0.05]), sun: [0, 1, 0], sunColor: [0, 0, 0], sunSize: 0, glow: 0, stars: 1.6, milky: 0.3, nebula: 0.4, nebA, nebB, spin: t.sky * 0.006, time: t.sky, space: 1, haze: 0 }));
+      k.points(s.arms, { uShape: 6, uCenter: [0, 0, 0], uBox: [360, 18, 360], uSwirl: 0.05, uTime: t.objects, uSize: 30, uMaxSize: 256, uColorA: nebA, uColorB: nebB, uAlpha: 0.1 });
+      k.points(s.disc, { uShape: 0, uCenter: [0, 0, 0], uBox: [400, 10, 400], uSwirl: 0.04, uTime: t.objects, uSize: 0.5, uTwinkle: 0.5, uColorA: [1, 1, 1], uColorB: c([0.75, 0.82, 1], 0.3) });
+      k.points(s.core, { uShape: 6, uCenter: [0, 0, 0], uBox: [60, 14, 60], uSwirl: 0.08, uTime: t.objects, uSize: 16, uMaxSize: 256, uColorA: [1, 0.9, 0.7], uColorB: [1, 0.75, 0.5], uAlpha: 0.14 });
+    },
+  },
 };
 
 export function sceneOf(id) {

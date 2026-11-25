@@ -139,8 +139,29 @@ fn save_default(opts: &Value) -> String {
 fn save_dialog(opts: &Value) -> Option<String> {
     let target = save_default(opts);
     let mut d = dialog()?.set_directory(node_dirname(&target)).set_file_name(super::node_basename(&target));
-    for (name, exts) in IMAGE_SAVE_FILTERS {
-        d = d.add_filter(*name, exts);
+    // The caller's own file types ([{ name, extensions }], e.g. PDF for Print to PDF), else images
+    let own: Vec<(String, Vec<String>)> = opts
+        .get("filters")
+        .and_then(Value::as_array)
+        .map(|list| {
+            list.iter()
+                .filter_map(|f| {
+                    let name = f.get("name")?.as_str()?.to_string();
+                    let exts: Vec<String> = f.get("extensions")?.as_array()?.iter().filter_map(|e| e.as_str().map(str::to_string)).collect();
+                    (!exts.is_empty()).then_some((name, exts))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    if own.is_empty() {
+        for (name, exts) in IMAGE_SAVE_FILTERS {
+            d = d.add_filter(*name, exts);
+        }
+    } else {
+        for (name, exts) in &own {
+            let refs: Vec<&str> = exts.iter().map(String::as_str).collect();
+            d = d.add_filter(name, &refs);
+        }
     }
     picked(d.blocking_save_file())
 }

@@ -11,6 +11,7 @@
 mod config;
 mod favorites;
 mod files;
+mod formats;
 mod imaging;
 mod media;
 mod rembg;

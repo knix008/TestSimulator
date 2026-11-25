@@ -2,7 +2,7 @@
 
 ## Overview
 
-MyImageViewer **v1.0.2** is a cross-platform image viewer and editor. The desktop shell is **Tauri 2** (Rust + the system webview). The same renderer (`src/`) runs in two modes:
+MyImageViewer **v1.0.3** is a cross-platform image viewer and editor. The desktop shell is **Tauri 2** (Rust + the system webview). The same renderer (`src/`) runs in two modes:
 
 1. **Desktop** — Tauri window; the host (files, thumbnails, conversions, metadata) is Rust in the same process (`npm start`)
 2. **Web** — Express static server + browser `electronAPI` shim (`npm run web`)
@@ -324,7 +324,7 @@ Shared contract (`preload` and `webAPI`):
 | `assets/icon_512.png` | Large icon source |
 | `assets/icon.svg` | Source artwork. `npm run create-icons` regenerates PNG / ICO. Tauri bundle icons live in `src-tauri/icons`. The desktop build links this folder into the page at `assets/` (`src-tauri/build.rs`), so it is not copied under `src/`. |
 
-Packaged builds use `package.json → build.win/mac/linux.icon`. Toolbar shows **V1.0.2** next to the product name.
+Packaged builds use `package.json → build.win/mac/linux.icon`. Toolbar shows **V1.0.3** next to the product name.
 
 ---
 

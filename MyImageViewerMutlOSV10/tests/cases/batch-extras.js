@@ -166,7 +166,7 @@ module.exports = {
       assertIncludes(batch, 'new Promise((r) => setTimeout(r, 40)),', 'keeps going when frames stop (minimised)');
       assertIncludes(app, 'if (creep) dlg.startCreep(90);', 'creep can be turned off');
       assertIncludes(app, "modal: !!modal || !!document.getElementById('edit-window')?.classList.contains('visible'),", 'modal option');
-      assertIncludes(html, '<button type="button" id="progress-cancel" data-i18n="progress.stop">Stop</button>', 'Stop button');
+      assertIncludes(html, '<button type="button" id="progress-cancel"><span class="btn-ico" data-icon="mediaStop"></span><span data-i18n="progress.stop">Stop</span></button>', 'Stop button');
       assertIncludes(html, '<span id="progress-detail" class="progress-detail"></span>', 'detail line');
       assert(ko['progress.stop'] && en['progress.stop'] && ko['progress.stopping'] && en['progress.stopping'], 'strings');
     });

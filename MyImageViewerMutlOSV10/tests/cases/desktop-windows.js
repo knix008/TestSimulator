@@ -193,7 +193,7 @@ module.exports = {
 
     test('Filmstrip is a row below the viewer (divider, no overlap, no widening)', () => {
       const film = css.slice(css.indexOf('#browse-view.is-filmstrip {'), css.indexOf('#browse-view.is-filmstrip {') + 900);
-      for (const s of ['position: relative !important;', 'order: 1;', 'flex: 0 0 104px;', 'border-top: 2px solid', 'min-width: 0;']) assertIncludes(film, s, s);
+      for (const s of ['position: relative !important;', 'order: 1;', 'flex: 0 0 140px;', 'border-top: 2px solid', 'min-width: 0;']) assertIncludes(film, s, s);
     });
 
     /* ── Background removal ── */
@@ -296,10 +296,144 @@ module.exports = {
       assert(html.split('data-custom="bg" value="#1f2433"').length === 3, 'inputs start at the preset');
     });
 
+    test('Bottom panel: menu bar button + Window menu hide the picture strip, remembered', () => {
+      assertIncludes(html, '<button type="button" class="menubar-panel-btn" id="btn-panel-bottom"></button>', 'menu bar button');
+      const at = (id) => html.indexOf(`id="${id}"`);
+      assert(at('btn-panel-left') < at('btn-panel-bottom') && at('btn-panel-bottom') < at('btn-panel-right'), 'order: left, bottom, right');
+      assertIncludes(app, "['btn-panel-bottom', 'panelBottom', _bottomPanelTip, () => _toggleBottomPanel()],", 'wired');
+      assertIncludes(app, "label: t('menu.bottomPanel'), checked: _layout.bottom", 'Window menu');
+      assertIncludes(app, "if (typeof saved.bottom === 'boolean') _layout.bottom = saved.bottom;", 'remembered');
+      assertIncludes(app, "classList.toggle('film-collapsed', !_layout.bottom)", 'applied');
+      assertIncludes(src.css, '#viewer-area.film-collapsed #browse-view.is-filmstrip { display: none !important; }', 'hidden');
+      for (const k of ['menu.bottomPanel', 'toolbar.collapseBottom', 'toolbar.expandBottom']) assert(src.ko[k] && src.en[k], k);
+    });
+
+    test('Start backgrounds: 27 scenes (three full rows of 9), each with a 3D scene, name, icon and first-paint colours', () => {
+      const list = (code) => [...code.slice(code.indexOf('START_SCENE_IDS = ['), code.indexOf('];', code.indexOf('START_SCENE_IDS = ['))).matchAll(/'([a-z]+)'/g)].map((m) => m[1]);
+      const ids = list(app);
+      assert(ids.length === 27 && new Set(ids).size === 27, String(ids.length));
+      assert(JSON.stringify(list(h.read('src/js/startscenes.js'))) === JSON.stringify(ids), 'startscenes.js has the same list');
+      const scenes = h.read('src/js/start3d/scenes.js');
+      for (const id of ids) {
+        assert(new RegExp(`\n  ${id}: \{`).test(scenes), `scene ${id}`);
+        assert(src.ko[`start.scene.${id}`] && src.en[`start.scene.${id}`], `name ${id}`);
+        const key = `scene${id[0].toUpperCase()}${id.slice(1)}`;
+        assert(src.icons.includes(`  ${key}: \x60<svg`) && src.icons.includes(`${key}: '#`), `icon ${key}`);
+      }
+      for (const id of ['canyon', 'autumn', 'glacier', 'meadow', 'galaxy']) assertIncludes(src.css, `.start-bg[data-scene='${id}']`, id);
+    });
+
+    test('Prev / next buttons step inside the ruler band', () => {
+      assertIncludes(app, "container.classList.toggle('has-ruler', show && rulerOn);", 'class');
+      assertIncludes(src.css, '.has-ruler > .viewer-nav-prev { left: 36px; }', 'left');
+      assertIncludes(src.css, '.has-ruler > .viewer-nav-next { right: 36px; }', 'right');
+    });
+
+    test('Every popup button has an icon before its label (static dialogs, confirm box, model manager)', () => {
+      // each dialog / popup block of index.html
+      const blocks = [];
+      const open = /<div[^>]*class="[^"]*(dialog-overlay|progress-overlay)[^"]*"[^>]*>/g;
+      let m;
+      while ((m = open.exec(html))) {
+        let depth = 0;
+        const tag = /<\/?div\b[^>]*>/g;
+        tag.lastIndex = m.index;
+        let t;
+        while ((t = tag.exec(html))) {
+          depth += t[0][1] === '/' ? -1 : 1;
+          if (depth === 0) { blocks.push(html.slice(m.index, tag.lastIndex)); open.lastIndex = tag.lastIndex; break; }
+        }
+      }
+      assert(blocks.length >= 20, `found ${blocks.length} popups`);
+      const bare = [];
+      for (const b of blocks) {
+        for (const [, attrs, inner] of b.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)) {
+          const iconned = /<svg|data-icon=|settings-lang-flag/.test(inner) || /class="[^"]*(swatch|step|-tab\b|fd-nav-btn)/.test(attrs) || /id="fd-(up|home)"/.test(attrs);
+          if (!iconned) bare.push((attrs.match(/id="([^"]+)"/) || [])[1] || inner.replace(/<[^>]+>/g, '').trim());
+          // a label that comes from I18n must sit on its own span, or I18n would wipe the icon
+          if (/class="btn-ico"/.test(inner)) assert(!/\sdata-i18n="/.test(attrs), `${attrs}: data-i18n on the button itself`);
+        }
+      }
+      assert(!bare.length, `no icon: ${bare.join(', ')}`);
+      for (const k of ['check', 'download']) assert(src.icons.includes(`  ${k}: \x60<svg`), `icon ${k}`);
+      assertIncludes(app, "document.querySelectorAll('.btn-ico[data-icon], .ew-action-icon[data-icon]').forEach((el) => { el.innerHTML = Icons[el.dataset.icon] || ''; });", 'filled at start');
+      assertIncludes(app, "ico.innerHTML = Icons[_confirmButtonIcon(label, i, cancelId, defaultId)] || '';", 'confirm box buttons');
+      assertIncludes(h.read('src/js/tauriAPI.js'), "const name = window.buttonIconFor ? window.buttonIconFor(label, i, cancelId, defaultId) : '';", 'desktop message box buttons');
+      assertIncludes(src.icons, 'window.buttonIconFor = (() => {', 'one rule for both boxes');
+      assertIncludes(app, "_setButtonLabel(m.cancel, I18n.t('progress.stopping') || 'Stopping…');", 'Stop keeps its icon while stopping');
+      const sr = h.read('src/js/superResUI.js');
+      assert(sr.split('<span class="btn-ico">${_icon(').length === 3, 'model manager Download / Reinstall / Remove');
+      assertIncludes(h.read('src/js/fileDialog.js'), "okIcon.innerHTML = Icons[mode === 'save' ? 'save' : 'folderOpen'] || '';", 'file dialog Open / Save');
+      assertIncludes(src.css, 'button:has(> .btn-ico) { display: inline-flex;', 'icon and label side by side');
+    });
+
+    test('User guide: its own window with manual language, text size and Print; pictures in both languages', () => {
+      // a window of its own, not modal (dialogWindow.js), following the main theme
+      const dw = h.read('src/js/dialogWindow.js');
+      assertIncludes(dw, "const STANDALONE = new Set(['help-overlay']);", 'standalone window');
+      assertIncludes(dw, "attributeFilter: ['data-theme', 'data-theme-kind', 'lang', 'style']", 'theme changes reach it');
+      // the tool row
+      for (const k of ['data-help-lang="ko"', 'data-help-lang="en"', 'id="help-font-down"', 'id="help-font-val"', 'id="help-font-up"', 'id="help-font-reset"', 'id="help-print"']) assertIncludes(html, k, k);
+      assert(html.indexOf('class="help-tools"') < html.indexOf('id="help-nav"'), 'tools above the contents');
+      // language for the manual alone, size remembered, keys, print
+      assertIncludes(app, "md = await window.electronAPI.readHelpDoc(_helpLang);", 'manual language');
+      assertIncludes(app, "const file = _helpLang === 'ko' ? '도움말.md' : 'help.md';", 'web build too');
+      assertIncludes(app, "const HELP_FONT = { min: 10, max: 24, normal: 13 };", 'size range');
+      assertIncludes(app, "localStorage.setItem(HELP_FONT_KEY, String(_helpFont))", 'size remembered');
+      assertIncludes(app, "if (k === '=' || k === '+') _setHelpFont(_helpFont + 1);", 'Ctrl++');
+      assertIncludes(app, "else if (k.toLowerCase() === 'p') _printHelp();", 'Ctrl+P');
+      assertIncludes(app, "const owner = overlay?.ownerDocument || document;", 'printed from the guide window');
+      assertIncludes(app, '@page { size: A4;', 'A4 page');
+      assertIncludes(app, 'html, body { margin: 0; background: #fff; color: #111; }', 'black on white');
+      assertIncludes(app, "const pt = (_helpFont * 0.75).toFixed(1);", 'printed at the shown size');
+      // every text size in the manual follows --help-font
+      assertIncludes(src.css, '.help-doc { font-size: var(--help-font, 13px); }', 'one size');
+      const docCss = src.css.slice(src.css.indexOf('.help-doc { font-size: var(--help-font'), src.css.indexOf('.help-status {'));
+      assert(!/font-size:\s*\d+(\.\d+)?px/.test(docCss), 'no fixed px sizes inside the manual');
+      for (const k of ['help.fontSize', 'help.fontDown', 'help.fontUp', 'help.fontReset', 'help.print', 'help.printTip', 'help.langKo', 'help.langEn']) assert(src.ko[k] && src.en[k], k);
+      assert(src.ko['help.title'] === '사용 설명서' && src.en['help.title'] === 'User guide', 'title');
+      // both manuals: same pictures, each one on disk
+      const pics = (md) => [...md.matchAll(/!\[[^\]]*\]\((help\/[^)]+)\)/g)].map((m) => m[1]);
+      const ko = pics(h.read('doc/도움말.md'));
+      const en = pics(h.read('doc/help.md'));
+      assert(ko.length >= 8 && JSON.stringify(ko) === JSON.stringify(en), `pictures ko ${ko.length} / en ${en.length}`);
+      for (const p of ko) assert(h.exists(`src/${p}`), `missing src/${p}`);
+      assert(/^# MyImageViewer 사용 설명서/m.test(h.read('doc/도움말.md')) && /^# MyImageViewer User Guide/m.test(h.read('doc/help.md')), 'titles');
+      assert(h.read('doc/도움말.md').includes('## 사용 설명서 창') && h.read('doc/help.md').includes('## The guide window'), 'the window explains itself');
+    });
+
+    test('Most current picture formats: the host decodes what the webview cannot (JPEG XL, JPEG 2000, PSD, RAW …)', () => {
+      const fmt = h.read('src/js/formatSupport.js');
+      const host = h.read('src-tauri/src/host/formats.rs');
+      const imaging = h.read('src-tauri/src/host/imaging.rs');
+      const cargo = h.read('src-tauri/Cargo.toml');
+      // the page knows them and sends them to the host
+      for (const e of ['jxl', 'jp2', 'j2k', 'psd', 'pcx', 'icns', 'tga', 'dds', 'hdr', 'exr', 'pbm', 'pgm', 'ppm', 'qoi', 'dng', 'cr2', 'cr3', 'nef', 'arw', 'orf', 'rw2', 'raf']) {
+        assert(new RegExp(`'${e}'`).test(fmt.slice(fmt.indexOf('const CONVERT_EXTS'), fmt.indexOf('const IMAGE_EXTS'))), `.${e} is converted by the host`);
+      }
+      assertIncludes(fmt, '...CONVERT_EXTS,', 'they count as images (explorer, thumbnails, stepping)');
+      assertIncludes(fmt, 'if (isConverted(filePath)) {', 'routed to convertToPng');
+      for (const e of ['jfif', 'jpe', 'apng', 'dib']) assert(fmt.includes(`'${e}'`), `.${e}`);
+      // the host: one decoder for viewer, thumbnails, editor and info
+      assertIncludes(imaging, 'if let Some(out) = super::formats::decode(path) {', 'decode_upright asks formats.rs first');
+      assertIncludes(imaging, 'if super::formats::handles(path) {', 'file info for them too');
+      for (const c of ['jxl-oxide', 'hayro-jpeg2000', 'psd', 'pcx', 'icns', 'image_dds']) assert(new RegExp(`^${c} = `, 'm').test(cargo), `crate ${c}`);
+      for (const feat of ['"tga"', '"hdr"', '"exr"', '"pnm"', '"qoi"', '"ff"']) assertIncludes(cargo.slice(cargo.indexOf('image = {'), cargo.indexOf('\n', cargo.indexOf('image = {'))), feat, `image crate ${feat}`);
+      assertIncludes(host, 'pub fn embedded_jpeg(bytes: &[u8])', 'camera RAW: the embedded full-size JPEG');
+      assertIncludes(host, 'fn jpeg_xl_opens_pixel_exact()', 'round-trip tests in Rust');
+      for (const L of ['ko', 'en']) assert(/JPEG XL, JPEG 2000/.test(src[L]['about.formats']), `about lists them (${L})`);
+    });
+
+    test('User guide window: only Close in its footer (no Shortcuts / About)', () => {
+      const box = html.slice(html.indexOf('id="help-overlay"'), html.indexOf('</div>', html.indexOf('class="dialog-footer"', html.indexOf('id="help-overlay"'))));
+      assert(!box.includes('help-shortcuts') && !box.includes('help-about'), 'no shortcut / about buttons');
+      assertIncludes(box, 'data-i18n="about.close"', 'Close stays');
+    });
+
     test('Window menu is greyed out on the start screen, except Settings', () => {
       const body = app.slice(app.indexOf('function _windowMenuItems()'), app.indexOf('function _helpMenuItems()'));
       assertIncludes(body, 'const home = _homeIsOpen();', 'start screen checked');
-      assert(body.split('disabled: home').length - 1 === 6, 'panels, browse, fullscreen, minimise, maximise');
+      assert(body.split('disabled: home').length - 1 === 7, 'three panels, browse, fullscreen, minimise, maximise');
       assert(/label: t\('menu\.settings'\), action:/.test(body), 'Settings stays enabled');
     });
 
@@ -344,20 +478,26 @@ module.exports = {
       assertIncludes(SB.HANDLE_SVG, 'M12 3v18M3 12h18', 'four-way arrow');
       assertIncludes(css, '.card-handle svg { width: 16px; height: 16px; fill: none; stroke: currentColor;', 'handle drawn as strokes');
       assertIncludes(css, '  color: var(--start-handle);\r\n  cursor: grab;', 'handle in its own accent');
-      assertIncludes(css, 'grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  grid-auto-rows: 20px;', 'three columns, 20px rows');
-      for (const id of ['hero', 'begin', 'tasks', 'recent', 'scenes']) assertIncludes(app, `'${id}'`, id);
+      assertIncludes(css, 'grid-template-columns: repeat(6, minmax(0, 1fr));\r\n  grid-auto-rows: 20px;', 'six columns, 20px rows');
+      for (const id of ['hero', 'begin', 'tasks', 'recent', 'folders', 'scenes']) assertIncludes(app, `'${id}'`, id);
       assertIncludes(app, '_startBoard = StartBoard.start(board, { reduced });', 'board started');
       assertIncludes(app, "StartBoard.card('hero', { body: hero, bare: true, locked: true })", 'name card cannot be moved or resized');
       assertIncludes(app, "arrange.addEventListener('click', () => _startBoard?.arrange());", 'auto arrange');
-      // Default layout: the name card, Start (2/3) beside Recent (1/3), then a full row each
-      const ids = ['hero', 'begin', 'recent', 'tasks', 'scenes'];
-      const cells = SB.cardsOf(null, ids, { hero: 6, begin: 14, tasks: 14, recent: 12, scenes: 12 });
-      assert(cells.hero.row === 0 && cells.hero.w === 3, 'hero spans the top');
-      assert(cells.begin.w === 2 && cells.recent.w === 1 && cells.recent.row === cells.begin.row && cells.recent.col === 2, 'Start beside Recent');
-      assert(cells.tasks.w === 3 && cells.tasks.row === cells.begin.row + cells.begin.h, 'What you can do on the next row');
-      assert(cells.scenes.w === 3 && cells.scenes.row === cells.tasks.row + cells.tasks.h, 'Background below');
+      // Default layout: the name card, Start on a whole row, Recent & Favorites beside Recent folders, then a full row each
+      const ids = ['hero', 'begin', 'recent', 'folders', 'tasks', 'scenes'];
+      const cells = SB.cardsOf(null, ids, { hero: 6, begin: 14, tasks: 14, recent: 12, folders: 10, scenes: 12 });
+      assert(cells.hero.row === 0 && cells.hero.w === 6, 'hero spans the top');
+      assert(cells.begin.w === 6 && cells.begin.col === 0 && cells.begin.row === cells.hero.h, 'Start takes the whole row');
+      assert(cells.recent.w === 3 && cells.folders.w === 3 && cells.recent.col === 0 && cells.folders.col === 3 && cells.recent.row === cells.begin.row + cells.begin.h && cells.folders.row === cells.recent.row, 'Recent & Favorites beside Recent folders, under Start');
+      assert(cells.tasks.w === 6 && cells.tasks.row === cells.recent.row + cells.recent.h, 'What you can do on the next row');
+      assert(cells.scenes.w === 6 && cells.scenes.row === cells.tasks.row + cells.tasks.h, 'Background below');
+      // the two lists in their own cards; the folders card has no repeated sub-heading
+      assertIncludes(app, "const recentHost = _homePlaces(['files', 'favorites']);", 'recent files + favorites');
+      assertIncludes(app, "const foldersHost = _homePlaces(['dirs']);", 'recent folders');
+      assertIncludes(app, "card('folders', 'folder', I18n.t('home.recentFolders'), foldersHost, foldersHost.clearBtn || null),", 'its own card, clear on the title row');
+      assertIncludes(css, '.start-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }', 'Start: two rows of four');
       const order = app.slice(app.indexOf("card('begin'"), app.indexOf("card('scenes'"));
-      assert(order.indexOf("card('recent'") > 0 && order.indexOf("card('recent'") < order.indexOf("card('tasks'"), 'card order is the default arrangement');
+      assert(order.indexOf("card('recent'") > 0 && order.indexOf("card('recent'") < order.indexOf("card('folders'") && order.indexOf("card('folders'") < order.indexOf("card('tasks'"), 'card order is the default arrangement');
       assertIncludes(app, "tools.append(showLabel, startSettings, arrange);", 'start screen settings in the tools row');
       assertIncludes(app, "wrap.append(tools, tip, board, foot);", 'tip banner above the board');
       assertIncludes(app, "docs.className = 'start-docs';", 'hero button group');
@@ -365,13 +505,13 @@ module.exports = {
       for (const a of ids) for (const b of ids) if (a < b) assert(!SB.overlaps(cells[a], cells[b]), `${a} / ${b} overlap`);
       // Moving a card pushes the others aside, never on top of each other
       const moved = SB.place(cells, 'scenes', { col: 0, row: 0 });
-      assert(moved.hero.col === 0 && moved.hero.row === 0 && moved.hero.w === 3 && moved.hero.fit === true, 'name card stays across the top');
+      assert(moved.hero.col === 0 && moved.hero.row === 0 && moved.hero.w === 6 && moved.hero.fit === true, 'name card stays across the top');
       assert(moved.scenes.row >= moved.hero.row + moved.hero.h, 'a card dropped on the name card goes below it');
       for (const a of ids) for (const b of ids) if (a < b) assert(!SB.overlaps(moved[a], moved[b]), `after move: ${a} / ${b} overlap`);
       const hijacked = SB.layoutValue(cells);
       hijacked.cards.hero = { col: 1, row: 8, w: 1, h: 4, fit: false };
       const restored = SB.cardsOf(hijacked, ids, { hero: 6 });
-      assert(restored.hero.col === 0 && restored.hero.row === 0 && restored.hero.w === 3 && restored.hero.fit === true, 'a saved name-card position is put back');
+      assert(restored.hero.col === 0 && restored.hero.row === 0 && restored.hero.w === 6 && restored.hero.fit === true, 'a saved name-card position is put back');
       // A saved layout comes back; an old version starts over
       const saved = SB.layoutValue(moved);
       assert(SB.cardsOf(saved, ids, {}).scenes.row === moved.scenes.row, 'saved layout restored');
@@ -424,6 +564,13 @@ module.exports = {
       const firstUse = app.indexOf('_applyTransform();');
       assert(decl > 0 && app.indexOf('const GUIDE_RULER = 22;') < firstUse && decl < firstUse, 'state declared at the top');
       for (const k of ['menu.ruler', 'toolbar.ruler', 'toolbar.rulerOff']) assert(src.ko[k] && src.en[k], `missing ${k}`);
+    });
+
+    test('Ruler: the picture extent on both axes is one faint theme accent colour', () => {
+      assertIncludes(app, "const extentColor = cs.getPropertyValue('--accent').trim() || '#60a5fa';", 'theme accent');
+      assert(!/RULER_[WH]_COLOR/.test(app), 'no separate width / height colours');
+      for (const k of ['RULER_EXTENT_FILL = 0.12', 'RULER_EXTENT_EDGE = 0.5', 'RULER_EXTENT_LABEL = 0.8']) assertIncludes(app, k, k);
+      assert(app.split('ctx.fillStyle = extentColor;').length === 4, 'band, width label and height label all use it');
     });
 
     test('Start screen first paint: a missing scene is "valley", not "undefined"; the 3D canvas is born full size', () => {

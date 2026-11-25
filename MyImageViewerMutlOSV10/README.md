@@ -2,7 +2,7 @@
 
 다양한 이미지 형식을 지원하는 멀티 플랫폼 이미지 뷰어 및 편집기입니다.  
 A multi-platform image viewer and editor built with **Tauri** and vanilla JavaScript.  
-**Version 1.0.2** — Desktop (Windows / macOS / Linux) and **web browser** modes.
+**Version 1.0.3** — Desktop (Windows / macOS / Linux) and **web browser** modes.
 
 ## Features / 기능
 
@@ -276,7 +276,7 @@ MyImageViewer/
 │   ├── service.js          # File, image, DICOM, print, associations
 │   └── electron-shim.js    # Node stand-in for the old main-process API
 ├── server.js               # Express static server (web mode)
-├── package.json            # v1.0.2
+├── package.json            # v1.0.3
 ├── assets/                 # App icons (icon.ico, icon.png, icon_512.png, …)
 ├── doc/                    # Help (도움말.md, help.md)
 ├── scripts/

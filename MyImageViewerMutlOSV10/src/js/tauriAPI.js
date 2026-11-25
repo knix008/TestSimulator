@@ -375,7 +375,14 @@ ${band('ftr', footerMm, footer)}
       buttons.forEach((label, i) => {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.textContent = label;
+        // Every popup button has an icon before its label (icons.js picks it from the words)
+        const ico = document.createElement('span');
+        ico.className = 'btn-ico';
+        const name = window.buttonIconFor ? window.buttonIconFor(label, i, cancelId, defaultId) : '';
+        ico.innerHTML = (window.Icons && window.Icons[name]) || '';
+        const text = document.createElement('span');
+        text.textContent = label;
+        btn.append(ico, text);
         if (i === defaultId) btn.classList.add('primary');
         btn.addEventListener('click', () => finish(i));
         footer.appendChild(btn);

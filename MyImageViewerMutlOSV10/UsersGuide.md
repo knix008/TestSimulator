@@ -1,6 +1,6 @@
 # MyImageViewer 사용자 가이드 / User Guide
 
-**MyImageViewer v1.0.2**
+**MyImageViewer v1.0.3**
 
 ---
 
@@ -25,8 +25,9 @@
 17. [저장 / Saving](#저장--saving)
 18. [테마 및 언어 / Theme and Language](#테마-및-언어--theme-and-language)
 19. [설치 및 기본 앱 / Installer and Default App](#설치-및-기본-앱--installer-and-default-app)
-20. [단축키 / Shortcuts](#단축키--shortcuts)
-21. [문제 해결 / Troubleshooting](#문제-해결--troubleshooting)
+20. [사용 설명서 창 / User Guide Window](#사용-설명서-창--user-guide-window)
+21. [단축키 / Shortcuts](#단축키--shortcuts)
+22. [문제 해결 / Troubleshooting](#문제-해결--troubleshooting)
 
 ---
 
@@ -75,12 +76,12 @@ Windows / Linux 데스크톱은 **테두리 없는 창**이며, 제목 표시줄
 
 | 줄 | 내용 |
 |----|------|
-| **메뉴 바** | 앱 아이콘, **MyImageViewer**, 버전, **홈**, **파일 · 편집 · 보기 · 창 · 도움말**, 현재 파일 이름(변경됨은 ●). 메뉴가 아닌 빈 곳을 드래그하면 창이 움직입니다. 최소화 / 최대화 / 닫기는 오른쪽 위에 있습니다. **도움말** 메뉴에는 기능 설명, 단축키, 정보가 있습니다. |
+| **메뉴 바** | 앱 아이콘, **MyImageViewer**, 버전, **홈**, **파일 · 편집 · 보기 · 창 · 도움말**, 현재 파일 이름(변경됨은 ●). 메뉴가 아닌 빈 곳을 드래그하면 창이 움직입니다. 최소화 / 최대화 / 닫기는 오른쪽 위에 있습니다. **도움말** 메뉴에는 사용 설명서(`F1`, 별도 창), 단축키, 정보가 있습니다. 메뉴 바 오른쪽, 최소화 왼쪽에는 **왼쪽 · 아래 · 오른쪽 패널** 접기 단추가 있습니다. |
 | **툴바** | 파일 열기 · 폴더 열기 · 인쇄, 실행 취소/다시 실행, 맞춤/실제 크기, 회전/뒤집기/크기 조절, 이전/다음, 편집 창, **축소 [배율] 확대**, 정보, 테마(팔레트 = 다음 테마, ▾ = 목록), 언어(국기), 설정 |
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ [아이콘] MyImageViewer V1.0.2  홈  파일 편집 보기 창  도움말  sample.jpg │
+│ [아이콘] MyImageViewer V1.0.3  홈  파일 편집 보기 창  도움말  sample.jpg │
 │ ↶ ↷ │ ⛶ 1:1 │ ⟲ ⟳ ⇋ ⇅ ▭ │ ‹ › │ ✎ 🖨 │ 🔍- 128% 🔍+    ⓘ 🎨▾ 🇰🇷 ⚙ │
 ├─────────────────┬─────────────────────────┬─────────────────┤
 │ 🗂 탐색기 [C:][D:]‹│                         │ 🎨 색상 · 보정   ›│
@@ -776,6 +777,20 @@ Windows 설치 파일(`MyImageViewer_<버전>_x64-setup.exe`)의 순서입니다
 macOS / Linux 패키지에도 같은 이미지 형식이 문서 형식으로 등록되어, “다음으로 열기” 목록에 나타납니다.
 
 이미 실행 중인 상태에서 파일을 다시 열면 **새 창을 만들지 않고** 기존 창에서 엽니다.
+
+---
+
+## 사용 설명서 창 / User Guide Window
+
+**도움말 ▸ 사용 설명서**(`F1`)는 그림이 들어 있는 설명서를 **별도 창**으로 엽니다. 메인 창과 따로 움직이고(모달 아님), 최소화 · 최대화 · 크기 조절이 됩니다. 색은 메인 창의 테마를 따르고, 테마를 바꾸면 열려 있는 설명서 창도 함께 바뀝니다. 내용은 `doc/도움말.md` · `doc/help.md`, 그림은 `src/help/*.jpg`입니다.
+
+| 도구 | 동작 |
+|------|------|
+| **한국어 / English** | 설명서만 다른 언어로 봅니다(프로그램 언어는 그대로) |
+| **글자 크기 − / + / ↺** | 10–24 px, `Ctrl+−` / `Ctrl++` / `Ctrl+0`, `Ctrl`+휠. 기억됨 |
+| **인쇄** (`Ctrl+P`) | 보이는 언어 · 글자 크기 그대로, 그림 포함, A4 흰 바탕으로 인쇄 |
+
+The **User guide** (`F1`) opens in a window of its own, with pictures. It is not modal, can be minimised, maximised and resized, and takes the main window’s theme — changing the theme recolours an open guide window. Its tool row switches the guide alone between Korean and English, sets the text size (10–24 px, remembered; `Ctrl+−` / `Ctrl++` / `Ctrl+0`) and prints the guide (`Ctrl+P`) in the shown language and size, pictures included, black on white.
 
 ---
 

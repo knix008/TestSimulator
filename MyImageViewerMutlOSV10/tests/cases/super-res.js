@@ -83,9 +83,9 @@ module.exports = {
       assert(SR.DEFAULT_AI === 'esrgan-x4plus' && SR.DEFAULT_BUILTIN === 'lanczos', 'first-run algorithm');
       assert(SR.defaults('lanczos').sharpen === 20 && SR.defaults('bicubic').sharpen === 30 && SR.defaults('bilinear').sharpen === 50, 'built-in sharpening');
       assert(SR.defaults('nearest').sharpen === undefined && SR.defaults('esrgan-x4plus').sharpen === 0 && SR.defaults('cugan-se').noise === -1, 'AI: no sharpening, conservative denoise');
-      assertIncludes(html, 'id="sr-reset-params" data-i18n="sr.resetParams"', 'this algorithm');
-      assertIncludes(html, 'id="sr-reset-all" data-i18n="sr.resetAll"', 'everything, in the dialog');
-      assertIncludes(html, 'id="settings-sr-reset" data-i18n="sr.resetAll"', 'everything, in the Settings window');
+      assertIncludes(html, 'id="sr-reset-params"><span class="btn-ico" data-icon="reset"></span><span data-i18n="sr.resetParams">', 'this algorithm');
+      assertIncludes(html, 'id="sr-reset-all"><span class="btn-ico" data-icon="reset"></span><span data-i18n="sr.resetAll">', 'everything, in the dialog');
+      assertIncludes(html, 'id="settings-sr-reset"><span class="btn-ico" data-icon="reset"></span><span data-i18n="sr.resetAll">', 'everything, in the Settings window');
       for (const id of ['settings-sr-algo', 'settings-sr-format', 'settings-sr-quality', 'settings-sr-save']) assertIncludes(html, `id="${id}"`, id);
       assertIncludes(ui, 'function resetAll() {', 'reset');
     });

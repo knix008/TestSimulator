@@ -31,6 +31,74 @@ function nsToMs(ns) {
 }
 
 const pending = [];
+const summaryOnly = process.argv.includes('--summary') || process.env.SUMMARY === '1';
+
+/* Terminal cell width: only East Asian wide characters (Hangul, CJK, full-width forms,
+   emoji) take two cells; dashes, arrows, ×, ▸ … take one; combining marks none. */
+function charW(cp) {
+  if ((cp >= 0x300 && cp <= 0x36f) || (cp >= 0x200b && cp <= 0x200f) || cp === 0xfe0f) return 0;
+  if ((cp >= 0x1100 && cp <= 0x115f) || (cp >= 0x2e80 && cp <= 0x303e) || (cp >= 0x3041 && cp <= 0x33ff)
+    || (cp >= 0x3400 && cp <= 0x4dbf) || (cp >= 0x4e00 && cp <= 0x9fff) || (cp >= 0xa960 && cp <= 0xa97f)
+    || (cp >= 0xac00 && cp <= 0xd7a3) || (cp >= 0xf900 && cp <= 0xfaff) || (cp >= 0xfe30 && cp <= 0xfe4f)
+    || (cp >= 0xff00 && cp <= 0xff60) || (cp >= 0xffe0 && cp <= 0xffe6) || (cp >= 0x1f300 && cp <= 0x1faff)
+    || (cp >= 0x20000 && cp <= 0x3fffd)) return 2;
+  return 1;
+}
+function cellW(s) {
+  let w = 0;
+  for (const ch of String(s)) w += charW(ch.codePointAt(0));
+  return w;
+}
+function padEndW(s, w) {
+  return String(s) + ' '.repeat(Math.max(0, w - cellW(s)));
+}
+function padStartW(s, w) {
+  return ' '.repeat(Math.max(0, w - cellW(s))) + String(s);
+}
+
+/* Fixed columns, so every line lines up while results are still arriving */
+const NUM_W = 4;          // case number inside its suite
+const MARK_W = 4;         // PASS / FAIL
+const TIME_W = 12;        // "12345.678 ms"
+const FRAC_W = 9;         // "892/892"
+const NAME_COL = 2 + NUM_W + 2 + MARK_W + 2 + TIME_W + 2;
+let suiteNameW = 10;      // set once every case file is loaded
+const firstLine = (s) => String(s || '').split(/\r?\n/)[0];
+const markOf = (ok) => (ok ? `${C.green}PASS${C.reset}` : `${C.red}${C.bold}FAIL${C.reset}`);
+
+/* Results are printed in order as soon as each one is known (an async case holds the
+   ones after it until it settles). */
+let flushed = 0;
+let live = null;          // { name, n, passed, failed, ms } of the suite being printed
+function endLiveSuite() {
+  if (!live) return;
+  if (summaryOnly) {
+    const color = live.failed ? C.red : C.green;
+    console.log(`  ${markOf(!live.failed)}  ${C.bold}${color}${padEndW(live.name, suiteNameW)}${C.reset}  ${padStartW(`${live.passed}/${live.n}`, FRAC_W)}  ${C.magenta}${padStartW(h.fmtMs(live.ms), TIME_W)}${C.reset}`);
+  }
+  live = null;
+}
+function printCase(t) {
+  if (!live || live.name !== t.suite) {
+    endLiveSuite();
+    live = { name: t.suite, n: 0, passed: 0, failed: 0, ms: 0 };
+    if (!summaryOnly) {
+      const file = suiteFile[t.suite] ? `  ${C.dim}${suiteFile[t.suite]}${C.reset}` : '';
+      console.log('');
+      console.log(`${C.bold}${C.cyan}▸ ${t.suite}${C.reset}${file}`);
+    }
+  }
+  live.n++;
+  live.ms += t.ms;
+  if (t.ok) live.passed++; else live.failed++;
+  if (summaryOnly) return;
+  const name = t.ok ? t.name : `${C.red}${t.name}${C.reset}`;
+  console.log(`  ${C.dim}${padStartW(String(live.n), NUM_W)}${C.reset}  ${markOf(t.ok)}  ${C.magenta}${padStartW(h.fmtMs(t.ms), TIME_W)}${C.reset}  ${name}`);
+  if (t.error) console.log(`${' '.repeat(NAME_COL)}${C.red}↳ ${firstLine(t.error)}${C.reset}`);
+}
+function flush() {
+  while (flushed < results.length && results[flushed]) printCase(results[flushed++]);
+}
 
 function test(name, fn) {
   const index = results.length;
@@ -46,6 +114,7 @@ function test(name, fn) {
       ms: nsToMs(process.hrtime.bigint() - started),
       ...(error ? { error: error && error.message ? error.message : String(error) } : {}),
     };
+    flush();
   };
   try {
     const result = fn();
@@ -70,17 +139,33 @@ const files = fs.readdirSync(CASE_DIR).filter((f) => f.endsWith('.js')).sort();
 if (!files.length) throw new Error('tests/cases is empty — add *.js test files');
 
 const suiteFile = {};
-for (const file of files) {
+const mods = files.map((file) => {
   const mod = require(path.join(CASE_DIR, file));
   if (!mod || typeof mod.run !== 'function') {
     throw new Error(`${file} must export { name, run }`);
   }
-  currentSuite = mod.name || file;
-  suiteFile[currentSuite] = file;
+  const name = mod.name || file;
+  suiteFile[name] = file;
+  return { name, mod };
+});
+suiteNameW = Math.max(cellW('Suite'), cellW('Total'), ...mods.map((m) => cellW(m.name)));
+
+console.log('');
+console.log(`${C.bold}${C.cyan}MyImageViewer ${src.pkg.version} feature tests${C.reset}  ${C.dim}${files.length} case files${C.reset}`);
+if (summaryOnly) {
+  console.log(`  ${C.dim}${padEndW('', MARK_W)}  ${padEndW('Suite', suiteNameW)}  ${padStartW('Passed', FRAC_W)}  ${padStartW('Time', TIME_W)}${C.reset}`);
+} else {
+  console.log(`  ${C.dim}${padStartW('#', NUM_W)}  ${padEndW('Res', MARK_W)}  ${padStartW('Time', TIME_W)}  Test${C.reset}`);
+}
+
+for (const { name, mod } of mods) {
+  currentSuite = name;
   mod.run({ test, each, src, h });
 }
 
 function report() {
+flush();
+endLiveSuite();
 const totalMs = nsToMs(process.hrtime.bigint() - runStarted);
 const passed = results.filter((r) => r.ok).length;
 const failed = results.filter((r) => !r.ok).length;
@@ -196,8 +281,6 @@ const rows = bySuite.map((s, i) => {
 
 const fileList = files.map((f) => `<code>${esc(f)}</code>`).join(' · ');
 const rate = results.length ? Math.floor((passed / results.length) * 100) : 0;
-const summaryOnly = process.argv.includes('--summary') || process.env.SUMMARY === '1';
-
 const htmlReport = `<!DOCTYPE html>
 <html lang="ko"><head><meta charset="utf-8"><title>MyImageViewer 기능 테스트</title>
 <style>
@@ -301,78 +384,40 @@ const htmlReport = `<!DOCTYPE html>
 
 fs.writeFileSync(path.join(__dirname, 'results.html'), htmlReport);
 
-function cellW(s) {
-  let w = 0;
-  for (const ch of String(s)) w += ch.codePointAt(0) > 0x7f ? 2 : 1;
-  return w;
-}
-function padEndW(s, w) {
-  return String(s) + ' '.repeat(Math.max(0, w - cellW(s)));
-}
-function padStartW(s, w) {
-  return ' '.repeat(Math.max(0, w - cellW(s))) + String(s);
-}
-
-const nameW = Math.max(cellW('스위트'), cellW('합계'), ...bySuite.map((s) => cellW(s.name)));
-const fileW = Math.max(cellW('파일'), ...bySuite.map((s) => cellW(s.file || '')));
-const colW = nameW + fileW + 36;
+/* Console summary: every table in fixed, measured columns */
+const fileW = Math.max(cellW('File'), ...bySuite.map((s) => cellW(s.file || '')));
+const FAIL_W = 6;
+const colW = 2 + suiteNameW + 2 + fileW + 2 + FRAC_W + 2 + FAIL_W + 2 + TIME_W;
 const line = (ch) => `${C.dim}${ch.repeat(colW)}${C.reset}`;
+const rule = () => console.log(`${C.dim}  ${'─'.repeat(colW - 2)}${C.reset}`);
 const failedItems = results.filter((t) => !t.ok);
+const row = (name, file, frac, nFail, ms, color) => console.log(
+  `  ${C.bold}${color}${padEndW(name, suiteNameW)}${C.reset}  ${C.dim}${padEndW(file, fileW)}${C.reset}  ${padStartW(frac, FRAC_W)}  ${nFail ? C.red : ''}${padStartW(String(nFail), FAIL_W)}${C.reset}  ${C.magenta}${padStartW(h.fmtMs(ms), TIME_W)}${C.reset}`
+);
 
 console.log('');
-console.log(`${C.bold}${C.cyan}MyImageViewer ${src.pkg.version} 기능 테스트${C.reset}`);
 console.log(line('═'));
-console.log(`${C.bold}  요약${C.reset}`);
-console.log(`  ${C.dim}전체 ${results.length}  ·  스위트 ${bySuite.length}  ·  성공률 ${rate}%  ·  ${h.fmtMs(totalMs)}${C.reset}`);
+console.log(`${C.bold}  Summary${C.reset}  ${C.dim}${results.length} tests · ${bySuite.length} suites · ${rate}% passed · ${h.fmtMs(totalMs)}${C.reset}`);
 console.log(line('─'));
-console.log(`${C.bold}  ${padEndW('스위트', nameW)}  ${padEndW('파일', fileW)}  ${padStartW('통과', 8)}  ${padStartW('실패', 4)}  ${padStartW('시간', 10)}${C.reset}`);
-console.log(`${C.dim}  ${'─'.repeat(colW - 2)}${C.reset}`);
-for (const s of bySuite) {
-  const color = s.failed ? C.yellow : C.green;
-  console.log(
-    `  ${C.bold}${color}${padEndW(s.name, nameW)}${C.reset}  ${C.dim}${padEndW(s.file || '', fileW)}${C.reset}  ${padStartW(`${s.passed}/${s.total}`, 8)}  ${padStartW(String(s.failed), 4)}  ${C.magenta}${padStartW(h.fmtMs(s.ms), 10)}${C.reset}`
-  );
-}
-console.log(`${C.dim}  ${'─'.repeat(colW - 2)}${C.reset}`);
-console.log(
-  `  ${C.bold}${padEndW('합계', nameW)}${C.reset}  ${C.dim}${padEndW('—', fileW)}${C.reset}  ${padStartW(`${passed}/${results.length}`, 8)}  ${padStartW(String(failed), 4)}  ${C.magenta}${padStartW(h.fmtMs(totalMs), 10)}${C.reset}`
-);
+console.log(`${C.bold}  ${padEndW('Suite', suiteNameW)}  ${padEndW('File', fileW)}  ${padStartW('Passed', FRAC_W)}  ${padStartW('Failed', FAIL_W)}  ${padStartW('Time', TIME_W)}${C.reset}`);
+rule();
+for (const s of bySuite) row(s.name, s.file || '', `${s.passed}/${s.total}`, s.failed, s.ms, s.failed ? C.red : C.green);
+rule();
+row('Total', '', `${passed}/${results.length}`, failed, totalMs, failed ? C.red : C.cyan);
 
 if (failedItems.length) {
   console.log('');
-  console.log(`${C.bold}${C.red}  실패${C.reset}`);
+  console.log(`${C.bold}${C.red}  Failed${C.reset}`);
   for (const t of failedItems) {
-    console.log(`  ${C.red}FAIL${C.reset} ${C.dim}${h.fmtMs(t.ms).padStart(8)}${C.reset}  ${C.dim}${t.suite}${C.reset}  ${t.name}`);
-    if (t.error) console.log(`         ${C.red}${t.error}${C.reset}`);
+    console.log(`  ${C.red}FAIL${C.reset}  ${C.magenta}${padStartW(h.fmtMs(t.ms), TIME_W)}${C.reset}  ${C.dim}${padEndW(t.suite, suiteNameW)}${C.reset}  ${t.name}`);
+    if (t.error) console.log(`  ${' '.repeat(MARK_W + 2 + TIME_W + 2 + suiteNameW + 2)}${C.red}↳ ${firstLine(t.error)}${C.reset}`);
   }
 }
 
 console.log('');
-console.log(`${C.bold}${C.yellow}  느린 케이스${C.reset}`);
+console.log(`${C.bold}${C.yellow}  Slowest${C.reset}`);
 for (const t of slowest.slice(0, 8)) {
-  console.log(`  ${C.magenta}${h.fmtMs(t.ms).padStart(8)}${C.reset}  ${C.dim}${t.suite}${C.reset}  ${t.name}`);
-}
-
-if (!summaryOnly) {
-  console.log('');
-  console.log(line('═'));
-  console.log(`${C.bold}  상세${C.reset}  ${C.dim}각 테스트 내용 · 결과 · 실행 시간${C.reset}`);
-  console.log(line('─'));
-  for (const s of bySuite) {
-    const color = s.failed ? C.yellow : C.green;
-    const file = s.file ? `${C.dim}${s.file}${C.reset}  ` : '';
-    console.log('');
-    const nameColW = Math.max(cellW('테스트 내용'), ...s.items.map((t) => cellW(t.name)));
-    const timeColW = Math.max(cellW('실행 시간'), ...s.items.map((t) => cellW(h.fmtMs(t.ms))), 10);
-    console.log(`${C.bold}${color}▸ ${s.name}${C.reset}  ${file}${s.passed}/${s.total}  ${C.magenta}${h.fmtMs(s.ms)}${C.reset}`);
-    console.log(`  ${C.dim}${padStartW('#', 3)}  ${padEndW('결과', 4)}  ${padEndW('테스트 내용', nameColW)}  ${padStartW('실행 시간', timeColW)}${C.reset}`);
-    s.items.forEach((t, j) => {
-      const mark = t.ok ? `${C.green}PASS${C.reset}` : `${C.red}FAIL${C.reset}`;
-      const time = `${C.magenta}${padStartW(h.fmtMs(t.ms), timeColW)}${C.reset}`;
-      const num = padStartW(String(j + 1), 3);
-      console.log(`  ${C.dim}${num}${C.reset}  ${mark}  ${padEndW(t.name, nameColW)}  ${time}${t.error ? `  ${C.red}${t.error}${C.reset}` : ''}`);
-    });
-  }
+  console.log(`  ${markOf(t.ok)}  ${C.magenta}${padStartW(h.fmtMs(t.ms), TIME_W)}${C.reset}  ${C.dim}${padEndW(t.suite, suiteNameW)}${C.reset}  ${t.name}`);
 }
 
 console.log('');
