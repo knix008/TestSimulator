@@ -1,8 +1,8 @@
 {
   "name": "mycalc",
-  "version": "10.0.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "MyCalc 10.0",
+  "description": "MyCalc 2.0",
   "author": "MyCalc",
   "scripts": {
     "start": "tauri dev",

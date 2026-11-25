@@ -10,7 +10,8 @@ function walk(rel) {
   return fs.readdirSync(abs).flatMap((name) => walk(path.join(rel, name)));
 }
 
-const files = ["index.html", ...walk("style"), ...walk("src"), ...walk("assets")];
+// The user guide is read by the guide window at run time, in both languages.
+const files = ["index.html", "USERSGUIDE.md", "USERSGUIDE.en.md", ...walk("style"), ...walk("src"), ...walk("assets")];
 
 fs.rmSync(outDir, { recursive: true, force: true });
 for (const rel of files) {

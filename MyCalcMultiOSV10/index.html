@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MyCalc 10.0</title>
+  <title>MyCalc 2.0</title>
   <link rel="icon" href="assets/icon.png" />
   <link rel="stylesheet" href="style/styles.css" />
   <script>
     const bootParams = new URLSearchParams(location.search);
     if (bootParams.get("desktop") === "1") document.documentElement.classList.add("desktop");
     const bootPop = bootParams.get("pop");
-  if (bootPop === "graph" || bootPop === "settings" || bootPop === "info" || bootPop === "help" || bootPop === "print" || bootPop === "memo") {
+  if (bootPop === "graph" || bootPop === "settings" || bootPop === "info" || bootPop === "help" || bootPop === "print" || bootPop === "memo" || bootPop === "guide") {
     document.documentElement.classList.add(bootPop + "-pop");
   }
     let bootLang = "ko";
@@ -18,12 +18,13 @@
       const savedLang = localStorage.getItem("mycalc-lang");
       if (savedLang === "en" || savedLang === "ko") bootLang = savedLang;
     } catch { /* The title stays Korean when storage is unavailable. */ }
-    if (bootPop === "settings") document.title = (bootLang === "en" ? "Settings" : "설정") + " — MyCalc 10.0";
-    if (bootPop === "info") document.title = (bootLang === "en" ? "About" : "프로그램 정보") + " — MyCalc 10.0";
-    if (bootPop === "graph") document.title = "MyCalc 10.0 Graph";
-    if (bootPop === "help") document.title = (bootLang === "en" ? "Graph help" : "그래프 도움말") + " — MyCalc 10.0";
-    if (bootPop === "print") document.title = (bootLang === "en" ? "Print" : "인쇄") + " — MyCalc 10.0";
-    if (bootPop === "memo") document.title = (bootLang === "en" ? "Notepad" : "메모장") + " — MyCalc 10.0";
+    if (bootPop === "settings") document.title = (bootLang === "en" ? "Settings" : "설정") + " — MyCalc 2.0";
+    if (bootPop === "info") document.title = (bootLang === "en" ? "About" : "프로그램 정보") + " — MyCalc 2.0";
+    if (bootPop === "graph") document.title = "MyCalc 2.0 Graph";
+    if (bootPop === "help") document.title = (bootLang === "en" ? "Graph help" : "그래프 도움말") + " — MyCalc 2.0";
+    if (bootPop === "print") document.title = (bootLang === "en" ? "Print" : "인쇄") + " — MyCalc 2.0";
+    if (bootPop === "memo") document.title = (bootLang === "en" ? "Notepad" : "메모장") + " — MyCalc 2.0";
+    if (bootPop === "guide") document.title = (bootLang === "en" ? "User guide" : "사용 설명서") + " — MyCalc 2.0";
   </script>
 </head>
 <body>
@@ -33,11 +34,13 @@
         <div class="brand">
           <img class="logo" src="assets/icon.png" alt="" width="42" height="42" draggable="false" />
           <div>
-            <h1>MyCalc <span class="version">10.0</span></h1>
+            <h1>MyCalc <span class="version">2.0</span></h1>
             <p data-i18n="tagline">기본, 공학용, 프로그래머, 통계, 그래프, 단위, 날짜</p>
           </div>
         </div>
         <div class="brand-actions">
+          <button type="button" id="printBtn" data-i18n-aria="printScreen" data-i18n-title="printScreen" aria-label="보이는 화면 인쇄" data-tooltip="보이는 화면 인쇄"><span class="icon icon-print" aria-hidden="true"></span></button>
+          <button type="button" id="guideBtn" data-i18n-aria="guide" data-i18n-title="guide" aria-label="사용 설명서" data-tooltip="사용 설명서"><span class="icon icon-guide" aria-hidden="true"></span></button>
           <button type="button" id="memoBtn" data-i18n-aria="memoOpen" data-i18n-title="memoOpen" aria-label="메모장 보기" data-tooltip="메모장 보기"><span class="icon icon-memo" aria-hidden="true"></span></button>
           <button type="button" id="settingsBtn" data-i18n-aria="settings" data-i18n-title="settings" aria-label="설정" data-tooltip="설정"><span class="icon icon-settings" aria-hidden="true"></span></button>
           <button type="button" id="infoBtn" data-i18n-aria="info" data-i18n-title="info" aria-label="정보" data-tooltip="정보"><span class="icon icon-info" aria-hidden="true"></span></button>
@@ -234,8 +237,13 @@
       <div class="graph-tools">
         <div class="graph-title" id="graphTitle">
           <span class="icon icon-graph" aria-hidden="true"></span>
-          <strong>MyCalc 10.0 Graph</strong>
+          <strong>MyCalc 2.0 Graph</strong>
         </div>
+        <button type="button" id="graphGuide" class="tool-icon title-tool" hidden data-i18n-aria="guide" data-i18n-title="guide" aria-label="사용 설명서" data-tooltip="사용 설명서"><span class="icon icon-guide" aria-hidden="true"></span></button>
+        <button type="button" id="graphInfo" class="tool-icon title-tool" hidden data-i18n-aria="info" data-i18n-title="info" aria-label="정보" data-tooltip="정보"><span class="icon icon-info" aria-hidden="true"></span></button>
+        <span class="title-sep" aria-hidden="true"></span>
+        <button type="button" id="panelLeft" class="tool-icon" hidden aria-pressed="true" data-i18n-aria="panelLeft" data-i18n-title="panelLeft" aria-label="식 패널" data-tooltip="식 패널"><span class="icon icon-panel-left" aria-hidden="true"></span></button>
+        <button type="button" id="panelRight" class="tool-icon" hidden aria-pressed="false" data-i18n-aria="panelRight" data-i18n-title="panelRight" aria-label="설정 패널" data-tooltip="설정 패널"><span class="icon icon-panel-right" aria-hidden="true"></span></button>
         <button type="button" id="graphMin" class="tool-icon win-btn" hidden data-i18n-aria="minimize" data-i18n-title="minimize" aria-label="최소화" data-tooltip="최소화"><span class="icon icon-min" aria-hidden="true"></span></button>
         <button type="button" id="graphMax" class="tool-icon win-btn" hidden data-i18n-aria="maximize" data-i18n-title="maximize" aria-label="최대화" data-tooltip="최대화"><span class="icon icon-max" aria-hidden="true"></span><span class="icon icon-restore" aria-hidden="true"></span></button>
         <button type="button" id="graphClose" class="win-close tool-icon" hidden data-i18n-aria="close" data-i18n-title="close" aria-label="닫기" data-tooltip="닫기">×</button>
@@ -258,8 +266,6 @@
         <button type="button" id="axesToggle" class="tool-icon" hidden aria-pressed="true" data-i18n-aria="axes" data-i18n-title="axes" aria-label="좌표축" data-tooltip="좌표축"><span class="icon icon-axis" aria-hidden="true"></span></button>
         <button type="button" id="boxToggle" class="tool-icon" hidden aria-pressed="false" data-i18n-aria="rangeBox" data-i18n-title="rangeBox" aria-label="범위 상자 On/Off" data-tooltip="범위 상자 On/Off"><span class="icon icon-box" aria-hidden="true"></span></button>
         <button type="button" id="heatToggle" class="tool-icon" hidden aria-pressed="false" data-i18n-aria="heatBar" data-i18n-title="heatBar" aria-label="온도 바 On/Off" data-tooltip="온도 바 On/Off"><span class="icon icon-colorbar" aria-hidden="true"></span></button>
-        <button type="button" id="panelLeft" class="tool-icon" hidden aria-pressed="true" data-i18n-aria="panelLeft" data-i18n-title="panelLeft" aria-label="식 패널" data-tooltip="식 패널"><span class="icon icon-panel-left" aria-hidden="true"></span></button>
-        <button type="button" id="panelRight" class="tool-icon" hidden aria-pressed="false" data-i18n-aria="panelRight" data-i18n-title="panelRight" aria-label="설정 패널" data-tooltip="설정 패널"><span class="icon icon-panel-right" aria-hidden="true"></span></button>
         <button type="button" id="lightToggle" class="tool-icon" hidden aria-pressed="true" data-i18n-aria="light" data-i18n-title="light" aria-label="광원" data-tooltip="광원"><span class="icon icon-light" aria-hidden="true"></span></button>
         <button type="button" id="graphSettings" class="tool-icon" hidden data-i18n-aria="settings" data-i18n-title="settings" aria-label="설정" data-tooltip="설정"><span class="icon icon-settings" aria-hidden="true"></span></button>
         <button type="button" id="exportGraph" class="tool-icon" hidden data-i18n-aria="exportImage" data-i18n-title="exportImage" aria-label="내보내기" data-tooltip="내보내기"><span class="icon icon-export" aria-hidden="true"></span></button>
@@ -282,21 +288,48 @@
         <span class="axis-sep" id="axisRangeSep" aria-hidden="true"></span>
         <div class="axis-span" data-axis="x">
           <span class="axis-span-tag">X</span>
-          <input type="number" id="axisMinX" class="axis-num" step="any" data-i18n-aria="axisMinX" data-i18n-title="axisMinX" aria-label="X 최소" data-tooltip="X 최소" />
-          <span class="axis-span-dash" aria-hidden="true">~</span>
-          <input type="number" id="axisMaxX" class="axis-num" step="any" data-i18n-aria="axisMaxX" data-i18n-title="axisMaxX" aria-label="X 최대" data-tooltip="X 최대" />
+          <span class="axis-end-label" data-i18n="rangeMin">최소</span>
+          <span class="num-step axis-end-step">
+            <button type="button" class="step-down" id="axisMinDownX" data-i18n-aria="axisMinDownX" data-i18n-title="axisMinDownX" aria-label="X 최소 감소" data-tooltip="X 최소 감소">−</button>
+            <input type="number" id="axisMinX" class="axis-num" step="any" data-i18n-aria="axisMinX" data-i18n-title="axisMinX" aria-label="X 최소" data-tooltip="X 최소" />
+            <button type="button" class="step-up" id="axisMinUpX" data-i18n-aria="axisMinUpX" data-i18n-title="axisMinUpX" aria-label="X 최소 증가" data-tooltip="X 최소 증가">+</button>
+          </span>
+          <span class="axis-end-label" data-i18n="rangeMax">최대</span>
+          <span class="num-step axis-end-step">
+            <button type="button" class="step-down" id="axisMaxDownX" data-i18n-aria="axisMaxDownX" data-i18n-title="axisMaxDownX" aria-label="X 최대 감소" data-tooltip="X 최대 감소">−</button>
+            <input type="number" id="axisMaxX" class="axis-num" step="any" data-i18n-aria="axisMaxX" data-i18n-title="axisMaxX" aria-label="X 최대" data-tooltip="X 최대" />
+            <button type="button" class="step-up" id="axisMaxUpX" data-i18n-aria="axisMaxUpX" data-i18n-title="axisMaxUpX" aria-label="X 최대 증가" data-tooltip="X 최대 증가">+</button>
+          </span>
         </div>
         <div class="axis-span" data-axis="y">
           <span class="axis-span-tag">Y</span>
-          <input type="number" id="axisMinY" class="axis-num" step="any" data-i18n-aria="axisMinY" data-i18n-title="axisMinY" aria-label="Y 최소" data-tooltip="Y 최소" />
-          <span class="axis-span-dash" aria-hidden="true">~</span>
-          <input type="number" id="axisMaxY" class="axis-num" step="any" data-i18n-aria="axisMaxY" data-i18n-title="axisMaxY" aria-label="Y 최대" data-tooltip="Y 최대" />
+          <span class="axis-end-label" data-i18n="rangeMin">최소</span>
+          <span class="num-step axis-end-step">
+            <button type="button" class="step-down" id="axisMinDownY" data-i18n-aria="axisMinDownY" data-i18n-title="axisMinDownY" aria-label="Y 최소 감소" data-tooltip="Y 최소 감소">−</button>
+            <input type="number" id="axisMinY" class="axis-num" step="any" data-i18n-aria="axisMinY" data-i18n-title="axisMinY" aria-label="Y 최소" data-tooltip="Y 최소" />
+            <button type="button" class="step-up" id="axisMinUpY" data-i18n-aria="axisMinUpY" data-i18n-title="axisMinUpY" aria-label="Y 최소 증가" data-tooltip="Y 최소 증가">+</button>
+          </span>
+          <span class="axis-end-label" data-i18n="rangeMax">최대</span>
+          <span class="num-step axis-end-step">
+            <button type="button" class="step-down" id="axisMaxDownY" data-i18n-aria="axisMaxDownY" data-i18n-title="axisMaxDownY" aria-label="Y 최대 감소" data-tooltip="Y 최대 감소">−</button>
+            <input type="number" id="axisMaxY" class="axis-num" step="any" data-i18n-aria="axisMaxY" data-i18n-title="axisMaxY" aria-label="Y 최대" data-tooltip="Y 최대" />
+            <button type="button" class="step-up" id="axisMaxUpY" data-i18n-aria="axisMaxUpY" data-i18n-title="axisMaxUpY" aria-label="Y 최대 증가" data-tooltip="Y 최대 증가">+</button>
+          </span>
         </div>
         <div class="axis-span" data-axis="z" hidden>
           <span class="axis-span-tag">Z</span>
-          <input type="number" id="axisMinZ" class="axis-num" step="any" data-i18n-aria="axisMinZ" data-i18n-title="axisMinZ" aria-label="Z 최소" data-tooltip="Z 최소" />
-          <span class="axis-span-dash" aria-hidden="true">~</span>
-          <input type="number" id="axisMaxZ" class="axis-num" step="any" data-i18n-aria="axisMaxZ" data-i18n-title="axisMaxZ" aria-label="Z 최대" data-tooltip="Z 최대" />
+          <span class="axis-end-label" data-i18n="rangeMin">최소</span>
+          <span class="num-step axis-end-step">
+            <button type="button" class="step-down" id="axisMinDownZ" data-i18n-aria="axisMinDownZ" data-i18n-title="axisMinDownZ" aria-label="Z 최소 감소" data-tooltip="Z 최소 감소">−</button>
+            <input type="number" id="axisMinZ" class="axis-num" step="any" data-i18n-aria="axisMinZ" data-i18n-title="axisMinZ" aria-label="Z 최소" data-tooltip="Z 최소" />
+            <button type="button" class="step-up" id="axisMinUpZ" data-i18n-aria="axisMinUpZ" data-i18n-title="axisMinUpZ" aria-label="Z 최소 증가" data-tooltip="Z 최소 증가">+</button>
+          </span>
+          <span class="axis-end-label" data-i18n="rangeMax">최대</span>
+          <span class="num-step axis-end-step">
+            <button type="button" class="step-down" id="axisMaxDownZ" data-i18n-aria="axisMaxDownZ" data-i18n-title="axisMaxDownZ" aria-label="Z 최대 감소" data-tooltip="Z 최대 감소">−</button>
+            <input type="number" id="axisMaxZ" class="axis-num" step="any" data-i18n-aria="axisMaxZ" data-i18n-title="axisMaxZ" aria-label="Z 최대" data-tooltip="Z 최대" />
+            <button type="button" class="step-up" id="axisMaxUpZ" data-i18n-aria="axisMaxUpZ" data-i18n-title="axisMaxUpZ" aria-label="Z 최대 증가" data-tooltip="Z 최대 증가">+</button>
+          </span>
         </div>
         </div>
       </div>
@@ -309,10 +342,13 @@
           <span data-i18n="exportFormat">형식</span>
           <select id="exportFormat">
             <option value="png">PNG</option>
-            <option value="gif">GIF</option>
             <option value="jpg">JPG</option>
-            <option value="tiff">TIFF</option>
+            <option value="gif">GIF</option>
             <option value="webp">WEBP</option>
+            <option value="avif">AVIF</option>
+            <option value="svg">SVG</option>
+            <option value="tiff">TIFF</option>
+            <option value="bmp">BMP</option>
           </select>
         </label>
         <label class="export-check" id="exportAlphaField">
@@ -338,7 +374,8 @@
         </div>
         <div class="graph-split" id="graphSplit" role="separator" aria-orientation="vertical" data-i18n-aria="panelSize" data-i18n-title="panelSize" aria-label="패널 크기" data-tooltip="패널 크기"></div>
         <div class="canvas-wrap">
-          <canvas id="plot" width="800" height="420" data-i18n-aria="canvas" aria-label="함수 그래프"></canvas>
+          <canvas id="plot" width="800" height="420" tabindex="0" data-i18n-aria="canvas" aria-label="함수 그래프"></canvas>
+          <input id="graphBackgroundPicker" class="graph-bg-picker" type="color" value="#ffffff" tabindex="-1" aria-hidden="true" />
           <input id="legendEditor" class="legend-editor" hidden maxlength="80" autocomplete="off" spellcheck="false" />
           <input id="legendColor" class="legend-color" type="color" hidden data-i18n-aria="graphColor" aria-label="그래프 색" />
           <div id="readout" class="readout">드래그로 이동, 휠로 확대</div>
@@ -348,33 +385,7 @@
           <section class="side-group" id="sideAxisValues">
             <h3 data-i18n="axisRange">축 범위</h3>
             <div id="sideAxisValueList"></div>
-          </section>
-          <section class="side-group" id="sideAxisGroup">
-            <h3 data-i18n="axisLength">축 길이</h3>
-            <label class="axis-length">
-              <span>X</span>
-              <span class="num-step">
-                <button type="button" class="step-down" id="axisLenDownX" data-i18n-aria="axisDownX" data-i18n-title="axisDownX" aria-label="X 감소" data-tooltip="X 감소">−</button>
-                <span class="axis-range-slot" id="axisRangeX"><output id="axisLenX" data-i18n-aria="axisLenX" aria-label="X 길이">20</output></span>
-                <button type="button" class="step-up" id="axisLenUpX" data-i18n-aria="axisUpX" data-i18n-title="axisUpX" aria-label="X 증가" data-tooltip="X 증가">+</button>
-              </span>
-            </label>
-            <label class="axis-length">
-              <span>Y</span>
-              <span class="num-step">
-                <button type="button" class="step-down" id="axisLenDownY" data-i18n-aria="axisDownY" data-i18n-title="axisDownY" aria-label="Y 감소" data-tooltip="Y 감소">−</button>
-                <span class="axis-range-slot" id="axisRangeY"><output id="axisLenY" data-i18n-aria="axisLenY" aria-label="Y 길이">20</output></span>
-                <button type="button" class="step-up" id="axisLenUpY" data-i18n-aria="axisUpY" data-i18n-title="axisUpY" aria-label="Y 증가" data-tooltip="Y 증가">+</button>
-              </span>
-            </label>
-            <label class="axis-length">
-              <span>Z</span>
-              <span class="num-step">
-                <button type="button" class="step-down" id="axisLenDownZ" data-i18n-aria="axisDownZ" data-i18n-title="axisDownZ" aria-label="Z 감소" data-tooltip="Z 감소">−</button>
-                <span class="axis-range-slot" id="axisRangeZ"><output id="axisLenZ" data-i18n-aria="axisLenZ" aria-label="Z 길이">20</output></span>
-                <button type="button" class="step-up" id="axisLenUpZ" data-i18n-aria="axisUpZ" data-i18n-title="axisUpZ" aria-label="Z 증가" data-tooltip="Z 증가">+</button>
-              </span>
-            </label>
+            <p class="axis-range-note" id="axisRangeNote" role="status" hidden data-i18n="axisRangeRule">최소값은 최대값보다 작고, 범위에 0이 들어가야 합니다.</p>
           </section>
           <section class="side-group" id="sideLightGroup">
             <h3 data-i18n="light">광원</h3>
@@ -417,7 +428,7 @@
           <div class="info-brand">
             <img class="info-icon" src="assets/icon.png" alt="" width="52" height="52" draggable="false" />
             <div class="info-intro">
-              <p class="info-name" id="infoTitle">MyCalc 10.0</p>
+              <p class="info-name" id="infoTitle">MyCalc 2.0</p>
               <p class="info-lead" data-i18n="infoLead">기본, 공학용, 프로그래머, 환율, 단위, 날짜 계산기입니다. 그래프는 별도의 창에서 엽니다.</p>
             </div>
           </div>
@@ -448,7 +459,7 @@
             </div>
             <div>
               <dt data-i18n="infoBuild">빌드 정보</dt>
-              <dd data-i18n="infoBuildDesc">버전 10.0.0</dd>
+              <dd data-i18n="infoBuildDesc">버전 2.0.0</dd>
             </div>
             <div>
               <dt data-i18n="infoAuthor">제작자</dt>
@@ -486,6 +497,12 @@
             <button type="button" id="tipsOn" aria-pressed="true" data-i18n="tooltipsOn" data-i18n-title="tipsOnTip" data-tooltip="툴팁 켜기">켜기</button>
             <button type="button" id="tipsOff" aria-pressed="false" data-i18n="tooltipsOff" data-i18n-title="tipsOffTip" data-tooltip="툴팁 끄기">끄기</button>
           </div>
+          <h3 class="expr-font-heading" data-i18n="graphExprFont">수식 글자</h3>
+          <span class="num-step expr-font-step" role="group" data-i18n-aria="graphExprFontTip" aria-label="그래프 수식 입력칸의 글자 크기">
+            <button type="button" class="step-down" id="graphExprFontDown" data-i18n-aria="graphExprFontDown" data-i18n-title="graphExprFontDown" aria-label="수식 글자 작게" data-tooltip="수식 글자 작게">−</button>
+            <output id="graphExprFontOut" data-i18n-title="graphExprFontTip" data-tooltip="그래프 수식 입력칸의 글자 크기">10px</output>
+            <button type="button" class="step-up" id="graphExprFontUp" data-i18n-aria="graphExprFontUp" data-i18n-title="graphExprFontUp" aria-label="수식 글자 크게" data-tooltip="수식 글자 크게">+</button>
+          </span>
         </section>
         <div class="theme-columns">
           <section class="theme-group">
@@ -509,6 +526,35 @@
           <button type="button" id="resetSettings" data-i18n="resetDefaults" data-i18n-title="resetDefaults" data-tooltip="기본 설정">기본 설정</button>
           <button type="button" id="applyCustom" data-i18n="apply" data-i18n-title="apply" data-tooltip="적용">적용</button>
         </div>
+      </div>
+    </section>
+    <section class="sheet guide-desk" id="guideSheet" hidden aria-labelledby="guideTitle">
+      <div class="sheet-head guide-head">
+        <div class="pop-title">
+          <span class="icon icon-guide" aria-hidden="true"></span>
+          <h2 id="guideTitle" data-i18n="guide">사용 설명서</h2>
+        </div>
+        <div class="guide-tools">
+          <div class="lang-choices guide-lang" role="group" data-i18n-aria="guideLang" aria-label="설명서 언어">
+            <button type="button" id="guideLangKo" data-lang="ko" aria-pressed="true" data-i18n-title="guideLangKo" data-tooltip="설명서를 한국어로"><img class="flag" alt="" src="assets/icons/flag-kr.svg" width="22" height="15" draggable="false" />한국어</button>
+            <button type="button" id="guideLangEn" data-lang="en" aria-pressed="false" data-i18n-title="guideLangEn" data-tooltip="설명서를 영어로"><img class="flag" alt="" src="assets/icons/flag-uk.svg" width="22" height="15" draggable="false" />English</button>
+          </div>
+          <span class="num-step guide-font" role="group" data-i18n-aria="guideFont" aria-label="글자 크기">
+            <button type="button" class="step-down" id="guideFontDown" data-i18n-aria="guideFontDown" data-i18n-title="guideFontDown" aria-label="글자 작게" data-tooltip="글자 작게">−</button>
+            <output id="guideFontOut" data-i18n-aria="guideFont" aria-label="글자 크기">14</output>
+            <button type="button" class="step-up" id="guideFontUp" data-i18n-aria="guideFontUp" data-i18n-title="guideFontUp" aria-label="글자 크게" data-tooltip="글자 크게">+</button>
+          </span>
+          <button type="button" id="guidePrint" class="guide-print" data-i18n-title="guidePrintTip" data-tooltip="설명서 인쇄 (Ctrl+P)"><span class="icon icon-print" aria-hidden="true"></span><span data-i18n="print">인쇄</span></button>
+        </div>
+        <div class="sheet-actions">
+          <button type="button" id="guideMin" class="win-btn" hidden data-i18n-aria="minimize" data-i18n-title="minimize" aria-label="최소화" data-tooltip="최소화"><span class="icon icon-min" aria-hidden="true"></span></button>
+          <button type="button" id="guideMax" class="win-btn" hidden data-i18n-aria="maximize" data-i18n-title="maximize" aria-label="최대화" data-tooltip="최대화"><span class="icon icon-max" aria-hidden="true"></span><span class="icon icon-restore" aria-hidden="true"></span></button>
+          <button type="button" id="guideClose" class="settings-close" data-i18n-aria="close" data-i18n-title="close" aria-label="닫기" data-tooltip="닫기">×</button>
+        </div>
+      </div>
+      <div class="guide-body">
+        <nav class="guide-toc" id="guideToc" data-i18n-aria="guideContents" aria-label="목차"></nav>
+        <article class="guide-doc" id="guideDoc" tabindex="0"><p class="guide-wait" data-i18n="guideLoading">설명서를 불러오는 중</p></article>
       </div>
     </section>
     <section class="sheet memo-desk" id="memoSheet" hidden aria-labelledby="memoTitle">
@@ -693,6 +739,21 @@
             <option value="gray" data-i18n="grayscale">흑백</option>
           </select>
         </label>
+        <label>
+          <span data-i18n="printBackground">배경 색</span>
+          <span class="print-bg-row">
+            <select id="printBackground">
+              <option value="none" data-i18n="printBgNone" selected>없음 (흰 종이)</option>
+              <option value="#f5f5f4" data-i18n="printBgGray">연한 회색</option>
+              <option value="#fdf6e3" data-i18n="printBgCream">미색</option>
+              <option value="#e0f2fe" data-i18n="printBgBlue">연한 파랑</option>
+              <option value="#dcfce7" data-i18n="printBgGreen">연한 초록</option>
+              <option value="#1c1917" data-i18n="printBgBlack">검정</option>
+              <option value="custom" data-i18n="printBgCustom">사용자 지정</option>
+            </select>
+            <input type="color" id="printBackgroundColor" value="#fdf6e3" data-i18n-aria="printBgCustom" aria-label="사용자 지정" hidden />
+          </span>
+        </label>
         <label class="print-check">
           <input id="printPageNumber" type="checkbox" />
           <span data-i18n="pageNumber">페이지 번호</span>
@@ -713,13 +774,19 @@
       <div class="print-stage">
         <div class="print-preview" id="printPreview" data-i18n-aria="printPreview" aria-label="미리보기">
           <p id="printWait" data-i18n="printWait">그래프를 불러오는 중</p>
-          <div class="print-page" id="printPage">
-            <div class="print-frame" id="printFrame">
-              <div class="print-heading" id="printHeading" hidden></div>
-              <div class="print-graph">
-                <img id="printImage" alt="" />
+          <div class="print-pages" id="printPages">
+            <div class="print-page" id="printPage">
+              <div class="print-frame" id="printFrame">
+                <div class="print-heading" id="printHeading" hidden></div>
+                <div class="print-body" id="printBody">
+                  <div class="print-graph" id="printGraphBox">
+                    <img id="printImage" alt="" />
+                  </div>
+                  <ul class="print-formulas" id="printFormulas" hidden></ul>
+                  <div class="print-doc" id="printDoc" hidden></div>
+                </div>
+                <div class="print-footer" id="printFooter" hidden></div>
               </div>
-              <div class="print-footer" id="printFooter" hidden></div>
             </div>
           </div>
         </div>
@@ -758,6 +825,7 @@
   </div>
   <script src="src/i18n.js"></script>
   <script src="src/engine.js"></script>
+  <script src="src/svg-context.js"></script>
   <script src="src/graph.js"></script>
   <script src="src/image-export.js"></script>
   <script src="src/themes.js"></script>
@@ -767,5 +835,7 @@
   <script src="src/desktop.js"></script>
   <script src="src/app.js"></script>
   <script src="src/memo.js"></script>
+  <script src="src/graph-menu.js"></script>
+  <script src="src/guide.js"></script>
 </body>
 </html>

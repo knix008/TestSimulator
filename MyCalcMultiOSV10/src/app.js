@@ -729,11 +729,21 @@ const INPUT_GUIDE = {
   "You can add at most 8 functions": ["You can add at most 8 functions.", "Delete an expression from the list, then add a new one."],
   "범위가 올바르지 않습니다": ["범위가 올바르지 않습니다.", "최소값은 최대값보다 작아야 합니다."],
   "The range is not valid": ["The range is not valid.", "Each minimum must be smaller than its maximum."],
+  "범위에 0이 들어가야 합니다": ["범위에 0이 들어가야 합니다.", "최소값은 0 이하, 최대값은 0 이상으로 입력하세요."],
+  "The range must include 0": ["The range must include 0.", "Make each minimum 0 or less and each maximum 0 or more."],
   "내보내지 못했습니다.": ["그래프를 저장하지 못했습니다.", "다른 파일 이름이나 폴더를 선택한 뒤 다시 저장하세요."],
   "Could not export the graph.": ["The graph could not be saved.", "Choose another file name or folder, then save again."],
   "인쇄하지 못했습니다.": ["인쇄하지 못했습니다.", "프린터 연결을 확인한 뒤 다시 인쇄하세요."],
   "Printing failed.": ["Printing failed.", "Check the printer connection, then print again."],
+  "이 브라우저는 AVIF로 저장할 수 없습니다.": ["이 브라우저는 AVIF로 저장할 수 없습니다.", "데스크톱 앱에서 저장하거나 PNG, WEBP 같은 다른 형식을 고르세요."],
+  "This browser cannot write AVIF.": ["This browser cannot write AVIF.", "Save from the desktop app, or pick another format such as PNG or WEBP."],
 };
+
+// Errors raised under a fixed code, read out in the current language.
+function codedGuide(message) {
+  if (message === "AVIF_UNAVAILABLE") return uiText("이 브라우저는 AVIF로 저장할 수 없습니다.", "This browser cannot write AVIF.");
+  return "";
+}
 
 function inputGuide(message) {
   return INPUT_GUIDE[message] || null;
@@ -1207,10 +1217,8 @@ function syncGraphStatus() {
     cell.append(el("span", "status-value", value));
     bar.append(cell);
   }
-  const hover = el("span", "status-cell status-hover");
-  hover.append(el("span", "status-label", t("statusCursor")));
-  hover.append(el("span", "status-value", board.hoverLabel || "—"));
-  bar.append(hover);
+  // The pointer's place is read out in the corner of the plot itself, so the
+  // bar does not repeat it.
 }
 
 function syncViewFields() {
@@ -1238,15 +1246,21 @@ function syncAxisSpans() {
   for (const axis of ["x", "y", "z"]) {
     const upper = axis.toUpperCase();
     const group = document.querySelector(`.axis-span[data-axis="${axis}"]`);
-    // 3D takes the length from the settings panel and splits it in half, so
-    // the smallest and largest boxes stay hidden. 2D still types them here.
-    if (group) group.hidden = is3d || axis === "z";
+    // Every axis the dimension draws types its own smallest and largest.
+    if (group) group.hidden = axis === "z" && !is3d;
     for (const end of ["Min", "Max"]) {
       const input = document.getElementById(`axis${end}${upper}`);
       // Whoever is typing keeps their text until they are done with it.
       if (!input || document.activeElement === input) continue;
       input.value = spanText(board.view[`${axis}${end}`]);
       input.classList.remove("is-wrong");
+    }
+    if (axis === "z" && !is3d) continue;
+    for (const end of ["Min", "Max"]) {
+      for (const [dir, name] of [[-1, "Down"], [1, "Up"]]) {
+        const button = document.getElementById(`axis${end}${name}${upper}`);
+        if (button) button.disabled = board.steppedEnd(axis, end, dir) === null;
+      }
     }
   }
 }
@@ -1258,6 +1272,14 @@ function readNumberField(input) {
   return Number.isFinite(value) ? value : null;
 }
 
+// Says why a typed range was not taken: each minimum is below its maximum,
+// and 0 lies between them.
+function showAxisRangeNote(show) {
+  const note = document.getElementById("axisRangeNote");
+  if (!note) return;
+  note.hidden = !show;
+}
+
 function bindAxisSpans() {
   for (const axis of ["x", "y", "z"]) {
     const upper = axis.toUpperCase();
@@ -1267,20 +1289,35 @@ function bindAxisSpans() {
     const apply = () => {
       const from = readNumberField(low);
       const to = readNumberField(high);
-      let ok = from !== null && to !== null && to > from;
+      let ok = from !== null && to !== null && to > from && from <= 0 && to >= 0;
       if (ok) {
         try {
-          board.setView({ [`${axis}Min`]: from, [`${axis}Max`]: to });
+          board.setView({ [`${axis}Min`]: from, [`${axis}Max`]: to }, { exact: true });
         } catch {
           ok = false;
         }
       }
       low.classList.toggle("is-wrong", !ok);
       high.classList.toggle("is-wrong", !ok);
+      showAxisRangeNote(!ok);
       if (!ok) return;
       syncGraphChrome();
       publishGraph();
     };
+    for (const end of ["Min", "Max"]) {
+      for (const [dir, name] of [[-1, "Down"], [1, "Up"]]) {
+        const button = document.getElementById(`axis${end}${name}${upper}`);
+        if (!button) continue;
+        button.addEventListener("click", () => {
+          if (!board.stepEnd(axis, end, dir)) return;
+          low.classList.remove("is-wrong");
+          high.classList.remove("is-wrong");
+          syncGraphChrome();
+          syncAxisSpans();
+          publishGraph();
+        });
+      }
+    }
     for (const input of [low, high]) {
       input.addEventListener("change", apply);
       // A range that was never accepted goes back to the one being drawn.
@@ -1289,6 +1326,7 @@ function bindAxisSpans() {
         input.value = spanText(board.view[`${axis}${input === low ? "Min" : "Max"}`]);
         low.classList.remove("is-wrong");
         high.classList.remove("is-wrong");
+        showAxisRangeNote(false);
       });
     }
   }
@@ -1353,15 +1391,13 @@ function placeAxisColors() {
   }
 }
 
-// 2D types the two ends of each axis. 3D uses one length and hides those boxes.
+// Both dimensions set the two ends of each axis, by typing or with − and +.
 function placeAxisRanges() {
   const list = document.getElementById("sideAxisValueList");
   const values = document.getElementById("sideAxisValues");
-  const lengths = document.getElementById("sideAxisGroup");
   const light = document.getElementById("sideLightGroup");
   const is3d = board.dimension === "3d";
-  if (values) values.hidden = is3d;
-  if (lengths) lengths.hidden = !is3d;
+  if (values) values.hidden = false;
   if (light) light.hidden = !is3d;
   if (!list) return;
   for (const axis of ["x", "y", "z"]) {
@@ -1688,9 +1724,6 @@ function bind() {
   document.getElementById("fnSort").addEventListener("click", () => sortFunctions());
   document.getElementById("plot").addEventListener("pointermove", () => {
     if (board.hoverLabel) readoutEl.textContent = board.hoverLabel;
-    // Only the one cell changes under the pointer, so the bar is not rebuilt.
-    const cell = document.querySelector("#graphStatus .status-hover .status-value");
-    if (cell) cell.textContent = board.hoverLabel || "—";
   });
   document.addEventListener("keydown", (ev) => {
     if (state.mode === "graph") return;
@@ -1834,10 +1867,10 @@ function applyStoredTheme() {
 
 function syncWindowTitle() {
   const root = document.documentElement;
-  if (root.classList.contains("settings-pop")) document.title = `${t("settingsTitle")} — MyCalc 10.0`;
-  else if (root.classList.contains("info-pop")) document.title = `${t("infoTitle")} — MyCalc 10.0`;
-  else if (root.classList.contains("graph-pop")) document.title = "MyCalc 10.0 Graph";
-  else if (root.classList.contains("print-pop")) document.title = `${t("printTitle")} — MyCalc 10.0`;
+  if (root.classList.contains("settings-pop")) document.title = `${t("settingsTitle")} — MyCalc 2.0`;
+  else if (root.classList.contains("info-pop")) document.title = `${t("infoTitle")} — MyCalc 2.0`;
+  else if (root.classList.contains("graph-pop")) document.title = "MyCalc 2.0 Graph";
+  else if (root.classList.contains("print-pop")) document.title = `${t("printTitle")} — MyCalc 2.0`;
 }
 
 function resetSettings() {
@@ -1850,6 +1883,7 @@ function resetSettings() {
   renderThemeGroups();
   publishUi({ type: "theme" });
   setKeypad(KEYPAD_ORDERS[0]);
+  setGraphExprFont(GRAPH_EXPR_FONT.normal);
 }
 
 function selectPreset(theme) {
@@ -3044,21 +3078,6 @@ function syncSidePanel() {
     if (document.activeElement !== input) input.value = String(value);
     document.getElementById(`${id}Out`).textContent = label;
   };
-  const minHalf = 1e-6;
-  const maxHalf = 1e9;
-  for (const axis of ["x", "y", "z"]) {
-    const upper = axis.toUpperCase();
-    const low = board.view[`${axis}Min`];
-    const high = board.view[`${axis}Max`];
-    if (!Number.isFinite(low) || !Number.isFinite(high)) continue;
-    const half = (high - low) / 2;
-    const length = document.getElementById(`axisLen${upper}`);
-    if (length) length.textContent = spanText(high - low);
-    const down = document.getElementById(`axisLenDown${upper}`);
-    const up = document.getElementById(`axisLenUp${upper}`);
-    if (down) down.disabled = !(half > minHalf);
-    if (up) up.disabled = !(half < maxHalf);
-  }
   document.getElementById("sideLightOn").checked = board.light.on;
   set("sideLightTurn", degrees(board.light.azimuth), `${degrees(board.light.azimuth)}\u00b0`);
   set("sideLightRise", degrees(board.light.elevation), `${degrees(board.light.elevation)}\u00b0`);
@@ -3089,17 +3108,6 @@ function bindSidePanel() {
   };
   for (const input of [turn, rise, far]) input.addEventListener("input", apply);
   lit.addEventListener("change", apply);
-  const step = (axis, factor) => {
-    board.stepAxis(axis, factor);
-    syncSidePanel();
-    syncGraphChrome();
-    publishGraph();
-  };
-  for (const axis of ["x", "y", "z"]) {
-    const upper = axis.toUpperCase();
-    document.getElementById(`axisLenDown${upper}`).addEventListener("click", () => step(axis, 0.75));
-    document.getElementById(`axisLenUp${upper}`).addEventListener("click", () => step(axis, 4 / 3));
-  }
 }
 
 function bindCurrency() {
@@ -3244,6 +3252,8 @@ function snapshotGraph() {
     floorZ: Number.isFinite(board.floorZ) ? board.floorZ : null,
     zAuto: board.zAuto !== false,
     stretched: board.stretched === true,
+    graphTheme: board.graphTheme,
+    background: board.background,
     axes: {
       x: { ...board.axes.x },
       y: { ...board.axes.y },
@@ -3319,6 +3329,10 @@ function applyGraphState(state) {
     board.floorZ = Number.isFinite(state.floorZ) ? state.floorZ : null;
     board.zAuto = state.zAuto !== false;
     board.stretched = state.stretched === true;
+    // The colours came along with the axes and curves above, so the theme
+    // only switches the paper and ink here.
+    if (typeof state.graphTheme === "string") board.setGraphTheme(state.graphTheme, { recolor: false });
+    if ("background" in state) board.background = typeof state.background === "string" ? state.background : null;
     board.meshKey = "";
     board.draw();
     syncGraphChrome();
@@ -3333,6 +3347,44 @@ function applyGraphState(state) {
 // Tooltips can be switched off in the settings for readers who find them
 // popping up too often. Read on every hover, so a switch made in another
 // window, or another running copy, holds at once.
+// The text size of the 2D/3D formula box, set in the settings and shared by
+// every window through storage.
+const GRAPH_EXPR_FONT_KEY = "mycalc-graph-expr-font";
+const GRAPH_EXPR_FONT = { min: 8, max: 24, normal: 10 };
+
+function graphExprFont() {
+  try {
+    const value = Math.round(Number(localStorage.getItem(GRAPH_EXPR_FONT_KEY)));
+    if (Number.isFinite(value) && value >= GRAPH_EXPR_FONT.min && value <= GRAPH_EXPR_FONT.max) return value;
+  } catch {
+    /* Storage can be unavailable; the normal size holds. */
+  }
+  return GRAPH_EXPR_FONT.normal;
+}
+
+function renderGraphExprFont() {
+  const size = graphExprFont();
+  document.documentElement.style.setProperty("--graph-expr-font", `${size}px`);
+  const out = document.getElementById("graphExprFontOut");
+  if (out) out.textContent = `${size}px`;
+  const down = document.getElementById("graphExprFontDown");
+  const up = document.getElementById("graphExprFontUp");
+  if (down) down.disabled = size <= GRAPH_EXPR_FONT.min;
+  if (up) up.disabled = size >= GRAPH_EXPR_FONT.max;
+}
+
+function setGraphExprFont(size) {
+  const next = Math.min(GRAPH_EXPR_FONT.max, Math.max(GRAPH_EXPR_FONT.min, Math.round(size)));
+  try {
+    if (next === GRAPH_EXPR_FONT.normal) localStorage.removeItem(GRAPH_EXPR_FONT_KEY);
+    else localStorage.setItem(GRAPH_EXPR_FONT_KEY, String(next));
+  } catch {
+    /* Without storage the size still changes in this window. */
+  }
+  renderGraphExprFont();
+  if (next !== graphExprFont()) document.documentElement.style.setProperty("--graph-expr-font", `${next}px`);
+}
+
 const TOOLTIPS_KEY = "mycalc-tooltips";
 
 function tooltipsEnabled() {
@@ -3417,7 +3469,24 @@ const PRINT_PAPERS = {
   Legal: [216, 356],
   B5: [182, 257],
 };
-let printImageUrl = "";
+// ----- What gets printed -----
+// A window that wants something printed builds a print document and keeps it
+// as its request. The print window says hello when it opens; every window
+// with a request answers, and the newest request is the one shown. A window
+// that asks while the print window is already open sends its document at once.
+//   { kind: "graph", image, formulas: [{ color, text }] }
+//   { kind: "document", html, fontScale }
+let printRequest = null;
+let shownPrintAt = 0;
+let printDocument = null;
+
+function escapeHtml(text) {
+  return String(text ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 
 function capturePrintImage() {
   const canvas = document.getElementById("plot");
@@ -3425,20 +3494,70 @@ function capturePrintImage() {
   const previous = board.paintBackdrop;
   board.paintBackdrop = true;
   board.draw();
+  let image = "";
   try {
-    printImageUrl = canvas.toDataURL("image/png");
+    image = canvas.toDataURL("image/png");
   } catch {
-    printImageUrl = "";
+    image = "";
   } finally {
     board.paintBackdrop = previous;
     board.draw();
   }
-  return printImageUrl;
+  return image;
 }
 
-function sendPrintImage() {
-  if (!printImageUrl) capturePrintImage();
-  if (graphChannel && printImageUrl) graphChannel.postMessage({ type: "print-image", id: graphWindowId, image: printImageUrl });
+// The picture with nothing behind it, for a page with a background colour of
+// its own: dark ink for a light page, light ink for a dark one.
+function captureClearImage(lightInk) {
+  const canvas = document.getElementById("plot");
+  if (!canvas) return "";
+  board.exportTransparent = true;
+  board.exportLightInk = !!lightInk;
+  board.draw();
+  let image = "";
+  try {
+    image = canvas.toDataURL("image/png");
+  } catch {
+    image = "";
+  } finally {
+    board.exportTransparent = false;
+    board.exportLightInk = false;
+    board.draw();
+  }
+  return image;
+}
+
+// The graph as printed: the picture, and under it each formula drawn, in the
+// colour of its curve.
+function graphPrintDocument() {
+  const prefix = board.dimension === "3d" ? "z = " : "y = ";
+  return {
+    kind: "graph",
+    image: capturePrintImage(),
+    clearDark: captureClearImage(false),
+    clearLight: captureClearImage(true),
+    formulas: board.functions
+      .filter((fn) => fn.visible)
+      .map((fn) => ({ color: fn.color, text: (fn.legendText && fn.legendText.trim()) || prefix + fn.expr })),
+  };
+}
+
+function sendPrintRequest() {
+  if (graphChannel && printRequest) {
+    graphChannel.postMessage({ type: "print-doc", id: graphWindowId, at: printRequest.at, doc: printRequest.doc });
+  }
+}
+
+function requestPrint(doc) {
+  printRequest = { at: Date.now(), doc };
+  sendPrintRequest();
+  openChildWindow("print");
+}
+
+function acceptPrintDocument(doc, at) {
+  if (!doc || (Number.isFinite(at) && at < shownPrintAt)) return;
+  if (Number.isFinite(at)) shownPrintAt = at;
+  showPrintDocument(doc);
 }
 
 const HEADING_FONTS = {
@@ -3505,35 +3624,51 @@ function printSetup() {
     color: document.getElementById("printColor").value !== "gray",
     pageNumber: document.getElementById("printPageNumber").checked,
     showDate: document.getElementById("printDate").checked,
+    background: printBackground(),
   };
 }
 
-function printFooterLine(setup) {
+// Room between the frame's edge and the text, in mm: a little inside a
+// border, more on a coloured page so the text does not touch the colour's edge.
+function printFramePad(setup) {
+  if (setup.background) return 4;
+  return setup.borderOn ? 1.2 : 0;
+}
+
+// The page's background colour, or null for plain paper.
+function printBackground() {
+  const choice = document.getElementById("printBackground");
+  if (!choice || choice.value === "none") return null;
+  const value = choice.value === "custom" ? document.getElementById("printBackgroundColor").value : choice.value;
+  return /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : null;
+}
+
+function printFooterLine(setup, page = 1) {
   const parts = [];
   if (setup.footer) parts.push(setup.footer);
   if (setup.showDate) parts.push(new Date().toLocaleDateString(uiLang === "en" ? "en-US" : "ko-KR"));
-  if (setup.pageNumber) parts.push(t("pageMark"));
+  if (setup.pageNumber) parts.push(uiText(`${page}페이지`, `Page ${page}`));
   return parts.join("   ");
 }
 
-function layoutPrintPreview() {
-  const preview = document.getElementById("printPreview");
-  const page = document.getElementById("printPage");
-  const style = document.getElementById("printPageStyle");
-  if (!preview || !page) return;
-  const setup = printSetup();
-  const box = preview.getBoundingClientRect();
-  const scale = Math.min((box.width - 36) / setup.width, (box.height - 36) / setup.height);
-  const px = Math.max(0.2, scale);
+function printPages() {
+  return [...document.querySelectorAll("#printPages .print-page")];
+}
+
+// Heading, footer and border of one page, at `px` screen pixels to the mm.
+function decoratePrintPage(page, setup, px, number) {
   page.style.width = `${setup.width * px}px`;
   page.style.height = `${setup.height * px}px`;
   page.style.padding = `${setup.marginTop * px}px ${setup.marginRight * px}px ${setup.marginBottom * px}px ${setup.marginLeft * px}px`;
-  const heading = document.getElementById("printHeading");
-  const footer = document.getElementById("printFooter");
-  const frame = document.getElementById("printFrame");
-  const image = document.getElementById("printImage");
-  const borderStyle = document.getElementById("printBorderStyle");
-  if (borderStyle) borderStyle.disabled = !setup.borderOn;
+  page.style.filter = setup.color ? "none" : "grayscale(1)";
+  // The colour fills the printed area inside the margins, where a printer
+  // can put ink, and the text takes whichever ink reads on it.
+  page.style.setProperty("--print-paper", setup.background || "transparent");
+  page.style.setProperty("--print-ink", setup.background ? inkOn(setup.background) : "#1c1917");
+  page.classList.toggle("has-paper", !!setup.background);
+  const heading = page.querySelector(".print-heading");
+  const footer = page.querySelector(".print-footer");
+  const frame = page.querySelector(".print-frame");
   if (heading) {
     heading.hidden = !setup.heading;
     heading.textContent = setup.heading;
@@ -3543,7 +3678,7 @@ function layoutPrintPreview() {
     heading.style.marginBottom = setup.heading ? `${1.5 * px}px` : "0";
   }
   if (footer) {
-    const line = printFooterLine(setup);
+    const line = printFooterLine(setup, number);
     footer.hidden = !line;
     footer.textContent = line;
     footer.style.textAlign = setup.align;
@@ -3555,33 +3690,182 @@ function layoutPrintPreview() {
     frame.style.borderStyle = setup.borderOn ? setup.border : "none";
     frame.style.borderWidth = setup.borderOn ? `${borderMm * px}px` : "0";
     frame.style.borderColor = "#1c1917";
-    frame.style.padding = setup.borderOn ? `${1.2 * px}px` : "0";
-  }
-  if (image) {
-    image.style.setProperty("--graph-scale", `${setup.scale}%`);
-    image.style.filter = setup.color ? "none" : "grayscale(1)";
-  }
-  if (style) {
-    const padding = window.mycalcPrint && window.mycalcPrint.nativeMargins
-      ? "0"
-      : `${setup.marginTop}mm ${setup.marginRight}mm ${setup.marginBottom}mm ${setup.marginLeft}mm`;
-    const borderMm = setup.borderOn ? (setup.border === "double" ? 1.1 : 0.35) : 0;
-    const headingMm = (setup.headingPt * 25.4 / 72).toFixed(2);
-    style.textContent = `@page { size: ${setup.width}mm ${setup.height}mm; margin: 0; } @media print { html.print-pop #printPage { width: ${setup.width}mm !important; height: ${setup.height}mm !important; padding: ${padding} !important; } html.print-pop #printHeading { font-family: ${setup.headingFont} !important; font-size: ${headingMm}mm !important; } html.print-pop #printFooter { font-size: 3.2mm !important; } html.print-pop #printFrame { border-width: ${borderMm}mm !important; padding: ${setup.borderOn ? 1.2 : 0}mm !important; } }`;
+    frame.style.padding = `${printFramePad(setup) * px}px`;
   }
 }
 
-function showPrintImage(image) {
+// One more page like the first, with its own empty document area.
+function addPrintPage() {
+  const first = document.getElementById("printPage");
+  const page = first.cloneNode(true);
+  page.removeAttribute("id");
+  for (const node of page.querySelectorAll("[id]")) node.removeAttribute("id");
+  page.classList.add("is-extra");
+  page.querySelector(".print-graph")?.remove();
+  page.querySelector(".print-formulas")?.remove();
+  const body = page.querySelector(".print-doc");
+  body.hidden = false;
+  body.replaceChildren();
+  document.getElementById("printPages").append(page);
+  return body;
+}
+
+function printFits(body) {
+  return body.scrollHeight <= body.clientHeight + 1;
+}
+
+// Moves the last rows of a table, or the last items of a list, onto a copy of
+// it until what is left fits. Returns the copy, or null when nothing can move.
+function splitPrintBlock(block, body) {
+  const table = block.tagName === "TABLE" ? block : null;
+  const list = block.tagName === "UL" || block.tagName === "OL" ? block : null;
+  if (!table && !list) return null;
+  const rest = block.cloneNode(false);
+  let take;
+  let into;
+  if (table) {
+    const tbody = table.tBodies[0];
+    if (!tbody || tbody.rows.length < 2) return null;
+    if (table.tHead) rest.append(table.tHead.cloneNode(true));
+    into = document.createElement("tbody");
+    rest.append(into);
+    take = () => (tbody.rows.length > 1 ? tbody.rows[tbody.rows.length - 1] : null);
+  } else {
+    if (list.children.length < 2) return null;
+    into = rest;
+    take = () => (list.children.length > 1 ? list.lastElementChild : null);
+  }
+  let moved = 0;
+  while (!printFits(body)) {
+    const item = take();
+    if (!item) break;
+    into.prepend(item);
+    moved += 1;
+  }
+  if (!moved) return null;
+  if (list && list.tagName === "OL") rest.start = (Number(list.start) || 1) + list.children.length;
+  return rest;
+}
+
+// Lays a document's blocks into pages, a whole block at a time; a table or a
+// list too long for one page carries on onto the next.
+function paginatePrintDocument() {
+  for (const extra of document.querySelectorAll("#printPages .print-page.is-extra")) extra.remove();
+  const first = document.getElementById("printDoc");
+  if (!first || !printDocument || printDocument.kind !== "document") return;
+  first.replaceChildren();
+  const source = document.createElement("template");
+  source.innerHTML = printDocument.html || "";
+  let body = first;
+  for (const node of [...source.content.childNodes]) {
+    if (node.nodeType === Node.TEXT_NODE && !node.textContent.trim()) continue;
+    const block = node.nodeType === Node.ELEMENT_NODE ? node : Object.assign(document.createElement("p"), { textContent: node.textContent });
+    body.append(block);
+    if (printFits(body)) continue;
+    if (body.childElementCount > 1) {
+      block.remove();
+      body = addPrintPage();
+      body.append(block);
+      if (printFits(body)) continue;
+    }
+    let piece = block;
+    while (!printFits(body)) {
+      const rest = splitPrintBlock(piece, body);
+      if (!rest) break;
+      body = addPrintPage();
+      body.append(rest);
+      piece = rest;
+    }
+  }
+}
+
+function layoutPrintPreview() {
+  const preview = document.getElementById("printPreview");
+  const first = document.getElementById("printPage");
+  const holder = document.getElementById("printPages");
+  const style = document.getElementById("printPageStyle");
+  if (!preview || !first || !holder) return;
+  const setup = printSetup();
+  const box = preview.getBoundingClientRect();
+  const scale = Math.min((box.width - 36) / setup.width, (box.height - 36) / setup.height);
+  const px = Math.max(0.2, scale);
+  const borderStyle = document.getElementById("printBorderStyle");
+  if (borderStyle) borderStyle.disabled = !setup.borderOn;
+  // Sizes inside the page are in --mm, so text breaks the same way on paper.
+  holder.style.setProperty("--mm", `${px}px`);
+  const doc = printDocument;
+  const fontScale = doc && doc.kind === "document" ? Math.min(2, Math.max(0.6, Number(doc.fontScale) || 1)) : 1;
+  holder.style.setProperty("--print-text", String((setup.scale / 100) * fontScale));
+  decoratePrintPage(first, setup, px, 1);
+  const image = document.getElementById("printImage");
+  if (image && doc && doc.kind === "graph") {
+    // On a coloured page the graph is the see-through copy, inked to suit.
+    const dark = setup.background && inkOn(setup.background) !== "#1c1917";
+    const wanted = (setup.background && (dark ? doc.clearLight : doc.clearDark)) || doc.image;
+    if (wanted && image.getAttribute("src") !== wanted) image.src = wanted;
+    image.style.background = setup.background ? "transparent" : "";
+  }
+  if (image) image.style.setProperty("--graph-scale", `${setup.scale}%`);
+  if (image) image.style.filter = setup.color ? "none" : "grayscale(1)";
+  if (doc && doc.kind === "document") paginatePrintDocument();
+  const pages = printPages();
+  pages.forEach((page, index) => decoratePrintPage(page, setup, px, index + 1));
+  holder.dataset.pages = String(pages.length);
+  const count = document.getElementById("printPageCount");
+  if (count) count.textContent = pages.length > 1 ? uiText(`${pages.length}쪽`, `${pages.length} pages`) : "";
+  if (style) {
+    // Windows lays the margins round the page itself, so the page box is then
+    // the paper less its margins and carries no padding of its own.
+    const native = !!(window.mycalcPrint && window.mycalcPrint.nativeMargins);
+    const padding = native ? "0" : `${setup.marginTop}mm ${setup.marginRight}mm ${setup.marginBottom}mm ${setup.marginLeft}mm`;
+    const pageWidth = native ? setup.width - setup.marginLeft - setup.marginRight : setup.width;
+    const pageHeight = native ? setup.height - setup.marginTop - setup.marginBottom : setup.height;
+    const borderMm = setup.borderOn ? (setup.border === "double" ? 1.1 : 0.35) : 0;
+    const headingMm = (setup.headingPt * 25.4 / 72).toFixed(2);
+    style.textContent = `@page { size: ${setup.width}mm ${setup.height}mm; margin: 0; } @media print { html.print-pop #printPages { --mm: 1mm !important; } html.print-pop .print-page { width: ${pageWidth}mm !important; height: ${pageHeight}mm !important; padding: ${padding} !important; } html.print-pop .print-heading { font-family: ${setup.headingFont} !important; font-size: ${headingMm}mm !important; margin-bottom: ${setup.heading ? 1.5 : 0}mm !important; } html.print-pop .print-footer { font-size: 3.2mm !important; margin-top: 1.5mm !important; } html.print-pop .print-frame { border-width: ${borderMm}mm !important; padding: ${printFramePad(setup)}mm !important; } }`;
+  }
+}
+
+function showPrintDocument(doc) {
   const page = document.getElementById("printPage");
-  const img = document.getElementById("printImage");
   const wait = document.getElementById("printWait");
   const button = document.getElementById("printNow");
-  if (!page || !img || !image) return;
-  img.src = image;
+  if (!page || !doc) return;
+  printDocument = doc;
+  const graph = document.getElementById("printGraphBox");
+  const formulas = document.getElementById("printFormulas");
+  const body = document.getElementById("printDoc");
+  const img = document.getElementById("printImage");
+  const isGraph = doc.kind === "graph";
+  graph.hidden = !isGraph;
+  body.hidden = isGraph;
+  formulas.replaceChildren();
+  if (isGraph) {
+    if (doc.image) img.src = doc.image;
+    for (const item of doc.formulas || []) {
+      const row = document.createElement("li");
+      const chip = document.createElement("span");
+      chip.className = "print-formula-chip";
+      chip.style.background = /^#[0-9a-f]{3,8}$/i.test(item.color) ? item.color : "#1c1917";
+      const text = document.createElement("span");
+      text.textContent = item.text;
+      row.append(chip, text);
+      formulas.append(row);
+    }
+  }
+  formulas.hidden = !isGraph || !formulas.children.length;
   page.classList.add("has-graph");
+  page.dataset.kind = doc.kind;
+  const heading = document.getElementById("printHeadingText");
+  if (heading) heading.placeholder = isGraph ? t("headingHint") : uiText("제목", "Title");
   if (wait) wait.hidden = true;
   if (button) button.disabled = false;
   layoutPrintPreview();
+}
+
+// Kept for the graph-only callers: a picture and no formulas.
+function showPrintImage(image) {
+  showPrintDocument({ kind: "graph", image, formulas: [] });
 }
 
 async function loadPrinters() {
@@ -3668,8 +3952,10 @@ async function saveGraphImage() {
   board.paintBackdrop = !transparent;
   board.draw();
   try {
-    const blob = await encodeCanvas(board.canvas, format, transparent);
-    const name = `MyCalc-10.0.${spec.ext}`;
+    const blob = format === "svg"
+      ? new Blob([board.toSvg()], { type: spec.mime })
+      : await encodeCanvas(board.canvas, format, transparent, board.backgroundColor());
+    const name = `MyCalc-2.0.${spec.ext}`;
     if (window.mycalcDesktop && window.mycalcDesktop.saveFile) {
       const result = await window.mycalcDesktop.saveFile({
         name,
@@ -3686,7 +3972,9 @@ async function saveGraphImage() {
     }
   } catch (err) {
     if (!err || err.name === "AbortError") return;
-    if (inputGuide(err.message)) reportInput(err.message);
+    const coded = codedGuide(err.message);
+    if (coded) reportInput(coded);
+    else if (inputGuide(err.message)) reportInput(err.message);
     else reportProgram(err);
   } finally {
     board.exportTransparent = false;
@@ -3724,13 +4012,17 @@ function bindPrintWindow() {
     input.addEventListener("input", () => syncStepButtons(input));
     syncStepButtons(input);
   }
-  for (const id of ["printPaper", "printOrient", "printMargin", "printMarginRight", "printMarginBottom", "printMarginLeft", "printHeadingText", "printHeadingAlign", "printHeadingFont", "printHeadingSize", "printFooterText", "printBorder", "printBorderStyle", "printScale", "printColor", "printPageNumber", "printDate", "printCopies"]) {
+  for (const id of ["printPaper", "printOrient", "printMargin", "printMarginRight", "printMarginBottom", "printMarginLeft", "printHeadingText", "printHeadingAlign", "printHeadingFont", "printHeadingSize", "printFooterText", "printBorder", "printBorderStyle", "printScale", "printColor", "printBackground", "printBackgroundColor", "printPageNumber", "printDate", "printCopies"]) {
     document.getElementById(id).addEventListener("input", () => {
       const error = document.getElementById("printError");
       if (error) error.textContent = "";
       layoutPrintPreview();
     });
   }
+  const background = document.getElementById("printBackground");
+  background.addEventListener("input", () => {
+    document.getElementById("printBackgroundColor").hidden = background.value !== "custom";
+  });
   document.getElementById("printNow").addEventListener("click", () => {
     printGraphPage();
   });
@@ -3749,7 +4041,7 @@ function openChildWindow(kind) {
   const url = new URL("index.html", location.href);
   url.searchParams.set("pop", kind);
   url.hash = kind;
-  const size = kind === "graph" ? "width=1140,height=700" : kind === "print" ? "width=920,height=680" : kind === "settings" ? "width=820,height=700" : kind === "help" ? "width=720,height=640" : kind === "memo" ? "width=760,height=640" : "width=560,height=420";
+  const size = kind === "graph" ? "width=1140,height=700" : kind === "print" ? "width=920,height=680" : kind === "settings" ? "width=820,height=700" : kind === "help" ? "width=720,height=640" : kind === "guide" ? "width=900,height=700" : kind === "memo" ? "width=760,height=640" : "width=560,height=470";
   const resizable = kind === "settings" || kind === "info" ? "resizable=no" : "resizable=yes";
   const child = window.open(url.href, `mycalc-${kind}`, `popup=yes,${size},${resizable}`);
   if (child) child.focus();
@@ -3757,9 +4049,118 @@ function openChildWindow(kind) {
 }
 
 function openPrintWindow() {
-  capturePrintImage();
-  sendPrintImage();
-  openChildWindow("print");
+  requestPrint(graphPrintDocument());
+}
+
+// ----- Printing the calculator's own window -----
+// What the reader sees in the current mode, set out as a short document: the
+// inputs and results as a table, and any list the mode keeps.
+
+function printText(id) {
+  const node = document.getElementById(id);
+  if (!node) return "";
+  if ("value" in node && node.tagName !== "OUTPUT" && node.tagName !== "BUTTON") return String(node.value || "").trim();
+  return String(node.textContent || "").trim();
+}
+
+function printChoice(id) {
+  const select = document.getElementById(id);
+  if (!select || select.selectedIndex < 0) return "";
+  return String(select.options[select.selectedIndex].textContent || "").trim();
+}
+
+function printRows(rows) {
+  const body = rows
+    .filter(([, value]) => value !== "" && value !== null && value !== undefined)
+    .map(([label, value, strong]) => `<tr><th>${escapeHtml(label)}</th><td${strong ? ' class="print-strong"' : ""}>${escapeHtml(value)}</td></tr>`)
+    .join("");
+  return body ? `<table class="print-pairs"><tbody>${body}</tbody></table>` : "";
+}
+
+function printList(title, items, ordered = false) {
+  if (!items.length) return "";
+  const tag = ordered ? "ol" : "ul";
+  return `<h2>${escapeHtml(title)}</h2><${tag}>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</${tag}>`;
+}
+
+function mainPrintDocument() {
+  const mode = state.mode;
+  const title = `<h1>MyCalc 2.0 — ${escapeHtml(t(`mode.${mode}`))}</h1>`;
+  const when = `<p class="print-meta">${escapeHtml(new Date().toLocaleString(uiLang === "en" ? "en-US" : "ko-KR"))}</p>`;
+  let html = "";
+  if (mode === "basic" || mode === "scientific") {
+    html += printRows([
+      [uiText("식", "Expression"), printText("expr")],
+      [uiText("결과", "Result"), printText("result"), true],
+      [uiText("각도 단위", "Angle unit"), printText("angleBtn")],
+      [uiText("표기", "Notation"), printText("notationBtn")],
+      [uiText("메모리", "Memory"), state.memory ? formatNumber(state.memory, state.notation) : ""],
+    ]);
+    html += printList(
+      uiText("계산 기록", "History"),
+      state.history.map((item) => `${item.expr} = ${formatNumber(item.value, state.notation)}`),
+    );
+  } else if (mode === "programmer") {
+    html += printRows([
+      [uiText("비트 너비", "Bit width"), `${state.bits}-bit`],
+      [uiText("식", "Expression"), printText("progExpr")],
+      ["HEX", printText("val16"), state.base === 16],
+      ["DEC", printText("val10"), state.base === 10],
+      ["OCT", printText("val8"), state.base === 8],
+      ["BIN", printText("val2"), state.base === 2],
+      [uiText("오류", "Error"), printText("progError")],
+    ]);
+  } else if (mode === "stats") {
+    const summary = [];
+    const list = document.getElementById("statSummary");
+    if (list) {
+      for (const term of list.querySelectorAll("dt")) {
+        const value = term.nextElementSibling;
+        if (value && value.tagName === "DD") summary.push([term.textContent.trim(), value.textContent.trim()]);
+      }
+    }
+    html += printRows([[uiText("개수", "Count"), String(state.stats.values.length)], ...summary]);
+    html += printList(uiText("데이터", "Data"), state.stats.values.map((value) => formatNumber(value, state.notation)), true);
+  } else if (mode === "currency") {
+    html += printRows([
+      [uiText("보낼 통화", "From"), `${printText("rateAmount")} ${printChoice("rateFrom")}`],
+      [uiText("받을 통화", "To"), `${printText("rateResult")} ${printChoice("rateTo")}`, true],
+      [uiText("환율 상태", "Rates"), printText("rateState")],
+      [uiText("참고", "Note"), printText("rateNote")],
+    ]);
+  } else if (mode === "unit") {
+    html += printRows([
+      [uiText("종류", "Kind"), printChoice("unitGroup")],
+      [uiText("값", "Value"), `${printText("unitAmount")} ${printChoice("unitFrom")}`],
+      [uiText("결과", "Result"), `${printText("unitResult")} ${printChoice("unitTo")}`, true],
+      [uiText("참고", "Note"), printText("unitNote")],
+    ]);
+  } else if (mode === "date") {
+    const adding = !document.getElementById("dateAddPane").hidden;
+    html += adding
+      ? printRows([
+          [uiText("날짜", "Date"), printText("dateStart")],
+          [uiText("년", "Years"), printText("dateYears")],
+          [uiText("월", "Months"), printText("dateMonths")],
+          [uiText("주", "Weeks"), printText("dateWeeks")],
+          [uiText("일", "Days"), printText("dateDays")],
+          [uiText("결과", "Result"), printText("dateAddResult"), true],
+          [uiText("참고", "Note"), printText("dateAddNote")],
+        ])
+      : printRows([
+          [uiText("시작", "From"), printText("dateFrom")],
+          [uiText("끝", "To"), printText("dateTo")],
+          [uiText("차이", "Difference"), printText("dateDiffResult"), true],
+          [uiText("참고", "Note"), printText("dateDiffNote")],
+        ]);
+  }
+  return { kind: "document", html: title + when + html };
+}
+
+// The main window's print button: the values on screen. The graph has its
+// own window, whose print button sends the graph and its formulas.
+function printMainWindow() {
+  requestPrint(mainPrintDocument());
 }
 
 function openGraphWindow() {
@@ -3815,8 +4216,8 @@ if (graphChannel) {
       applyGraphState(message.state);
       if (graphPopup) graphReady = true;
     }
-    else if (message.type === "print-hello" && graphPopup) sendPrintImage();
-    else if (message.type === "print-image" && pageKind === "print") showPrintImage(message.image);
+    else if (message.type === "print-hello" && pageKind !== "print") sendPrintRequest();
+    else if (message.type === "print-doc" && pageKind === "print") acceptPrintDocument(message.doc, message.at);
   };
 }
 
@@ -3854,6 +4255,9 @@ document.getElementById("infoOk").addEventListener("click", () => {
   else closeSheets();
 });
 document.getElementById("resetSettings").addEventListener("click", resetSettings);
+document.getElementById("graphExprFontDown").addEventListener("click", () => setGraphExprFont(graphExprFont() - 1));
+document.getElementById("graphExprFontUp").addEventListener("click", () => setGraphExprFont(graphExprFont() + 1));
+renderGraphExprFont();
 document.getElementById("applyCustom").addEventListener("click", () => {
   // A preset chip has already applied and stored itself. Apply is for the
   // swatches, so with none of them touched it closes and leaves the choice be.
@@ -3880,7 +4284,7 @@ document.addEventListener("keydown", (ev) => {
     ev.stopPropagation();
     return;
   }
-  if (pageKind === "settings" || pageKind === "info" || pageKind === "print") {
+  if (pageKind === "settings" || pageKind === "info" || pageKind === "print" || pageKind === "guide") {
     ev.preventDefault();
     ev.stopPropagation();
     closeThisWindow();
@@ -3897,6 +4301,7 @@ window.addEventListener("storage", (ev) => {
   if (ev.key === KEYPAD_KEY) applyStoredKeypad();
   if (ev.key === STATS_KEY) applyStoredStats();
   if (ev.key === TOOLTIPS_KEY) renderTooltipChoice();
+  if (ev.key === GRAPH_EXPR_FONT_KEY || ev.key === null) renderGraphExprFont();
   if (ev.key === "mycalc-lang" && (ev.newValue === "ko" || ev.newValue === "en") && ev.newValue !== uiLang) applyLanguage(ev.newValue);
 });
 if (uiChannel) {
@@ -4073,6 +4478,12 @@ if (graphPopup) {
   graphMax.addEventListener("click", () => controlGraphWindow("maximize"));
   graphClose.addEventListener("click", () => closeThisWindow());
   printGraphBtn.addEventListener("click", openPrintWindow);
+  // The guide and About sit on the title row, beside the panel switches.
+  for (const [id, kind] of [["graphGuide", "guide"], ["graphInfo", "info"]]) {
+    const button = document.getElementById(id);
+    button.hidden = false;
+    button.addEventListener("click", () => openChildWindow(kind));
+  }
   const bindGraphResize = (el, edges) => {
     el.addEventListener("pointerdown", (ev) => {
       if (graphMax.classList.contains("is-restore")) return;

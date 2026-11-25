@@ -48,7 +48,7 @@ fn child_spec(kind: &str) -> Option<ChildSpec> {
             // The same floor is GRAPH_MIN_WIDTH / GRAPH_MIN_HEIGHT in src/app.js.
             min_width: 950.0,
             min_height: 520.0,
-            title: "MyCalc 10.0 Graph",
+            title: "MyCalc 2.0 Graph",
             desktop: true,
             fixed: false,
         },
@@ -58,16 +58,16 @@ fn child_spec(kind: &str) -> Option<ChildSpec> {
             min_width: 720.0,
             // Shorter than this and the four rows of theme swatches get squashed.
             min_height: 640.0,
-            title: "설정 — MyCalc 10.0",
+            title: "설정 — MyCalc 2.0",
             desktop: false,
             fixed: false,
         },
         "info" => ChildSpec {
             width: 560.0,
-            height: 436.0,
+            height: 470.0,
             min_width: 560.0,
-            min_height: 436.0,
-            title: "프로그램 정보 — MyCalc 10.0",
+            min_height: 470.0,
+            title: "프로그램 정보 — MyCalc 2.0",
             desktop: false,
             fixed: true,
         },
@@ -76,7 +76,17 @@ fn child_spec(kind: &str) -> Option<ChildSpec> {
             height: 640.0,
             min_width: 560.0,
             min_height: 420.0,
-            title: "그래프 도움말 — MyCalc 10.0",
+            title: "그래프 도움말 — MyCalc 2.0",
+            desktop: false,
+            fixed: false,
+        },
+        "guide" => ChildSpec {
+            width: 900.0,
+            height: 700.0,
+            // Narrower than this and the contents list squeezes the text.
+            min_width: 640.0,
+            min_height: 440.0,
+            title: "사용 설명서 — MyCalc 2.0",
             desktop: false,
             fixed: false,
         },
@@ -86,7 +96,7 @@ fn child_spec(kind: &str) -> Option<ChildSpec> {
             // The same floor is MEMO_MIN_WIDTH / MEMO_MIN_HEIGHT in src/memo.js.
             min_width: 600.0,
             min_height: 440.0,
-            title: "메모장 — MyCalc 10.0",
+            title: "메모장 — MyCalc 2.0",
             desktop: false,
             fixed: false,
         },
@@ -339,7 +349,7 @@ fn open_print(app: &AppHandle, owner: &WebviewWindow) -> Result<(), String> {
         "print",
         page_url("print", false),
     ))
-    .title("인쇄 — MyCalc 10.0")
+    .title("인쇄 — MyCalc 2.0")
     .inner_size(920.0, 680.0)
     .min_inner_size(760.0, 520.0)
     .resizable(true)
@@ -465,7 +475,7 @@ fn save_file(window: WebviewWindow, name: String, bytes: Vec<u8>) -> SaveOutcome
     }
     let mut safe = name.replace(['\\', '/', ':', '*', '?', '"', '<', '>', '|'], "_");
     if safe.trim().is_empty() {
-        safe = "MyCalc-10.0.png".into();
+        safe = "MyCalc-2.0.png".into();
     }
     let ext = safe.rsplit('.').next().unwrap_or("png").to_ascii_lowercase();
     let ext = if ext.is_empty() || ext == safe.to_ascii_lowercase() {
@@ -506,11 +516,48 @@ fn save_file(window: WebviewWindow, name: String, bytes: Vec<u8>) -> SaveOutcome
     }
 }
 
+// RGBA pixels in the request body, width / height / quality in its headers,
+// and the AVIF file back as raw bytes.
+#[tauri::command]
+async fn encode_avif(request: tauri::ipc::Request<'_>) -> Result<tauri::ipc::Response, String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("invalid".into());
+    };
+    let number = |name: &str| {
+        request
+            .headers()
+            .get(name)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.parse::<usize>().ok())
+    };
+    let (width, height) = (number("width").unwrap_or(0), number("height").unwrap_or(0));
+    let quality = number("quality").unwrap_or(85).clamp(1, 100) as f32;
+    if width == 0 || height == 0 || bytes.len() != width * height * 4 {
+        return Err("invalid".into());
+    }
+    let pixels: Vec<ravif::RGBA8> = bytes
+        .chunks_exact(4)
+        .map(|p| ravif::RGBA8::new(p[0], p[1], p[2], p[3]))
+        .collect();
+    let encoded = tauri::async_runtime::spawn_blocking(move || {
+        ravif::Encoder::new()
+            .with_quality(quality)
+            .with_alpha_quality(quality)
+            .with_speed(6)
+            .encode_rgba(ravif::Img::new(&pixels[..], width, height))
+            .map(|image| image.avif_file)
+            .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())??;
+    Ok(tauri::ipc::Response::new(encoded))
+}
+
 fn close_children(app: &AppHandle) {
     if let Some(state) = app.try_state::<AppState>() {
         state.closing.store(true, Ordering::SeqCst);
     }
-    for label in ["graph", "settings", "info", "help", "memo", "print"] {
+    for label in ["graph", "settings", "info", "help", "memo", "guide", "print"] {
         if let Some(child) = app.get_webview_window(label) {
             let _ = child.close();
         }
@@ -565,6 +612,7 @@ pub fn run() {
             close_window,
             window_ready,
             save_file,
+            encode_avif,
             list_printers,
             print_page,
             edit_menu::edit_menu

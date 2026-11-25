@@ -178,10 +178,10 @@ function updateSummary(elapsed) {
   bar.setAttribute("aria-valuenow", String(ratio));
   bar.setAttribute("aria-valuemax", "100");
   document.title = failed
-    ? `${failed} failed · MyCalc 10.0 tests`
+    ? `${failed} failed · MyCalc 2.0 tests`
     : done === tests.length && tests.length
-      ? `${passed} passed · MyCalc 10.0 tests`
-      : "MyCalc 10.0 tests";
+      ? `${passed} passed · MyCalc 2.0 tests`
+      : "MyCalc 2.0 tests";
 }
 
 function waitForApp() {
