@@ -108,6 +108,8 @@ html.is-popup #app { min-width: 0; display: block; }
 .toolbar-zoom .stepper-button-tool { width: 26px; height: 28px; }
 .toolbar-zoom .stepper-value { width: 52px; }
 .toolbar-timescale .stepper-value { width: 58px; }
+/* What each stepper zooms (font size / schedule), just left of it. */
+.toolbar-label { display: inline-flex; align-items: center; height: 30px; padding: 0 6px 0 2px; color: var(--muted); font-size: 0.85em; font-weight: 600; white-space: nowrap; user-select: none; }
 .toolbar-timescale .stepper-button-tool .icon { width: 15px; height: 15px; }
 
 /* tabs */
@@ -272,7 +274,7 @@ input.invalid { border-color: var(--danger) !important; }
 /* Two lines (same total height as the chart's two-tier timescale): plan title on top, column labels below. */
 .grid-head.two-line .grid-head-inner { height: var(--row-height); }
 .grid-title {
-  display: flex; align-items: center; justify-content: center; gap: 6px; height: var(--row-height); padding: 0 8px; box-sizing: border-box;
+  display: flex; align-items: center; justify-content: flex-start; gap: 6px; height: var(--row-height); padding: 0 8px; box-sizing: border-box;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden;
 }
 .grid-title span { overflow: hidden; text-overflow: ellipsis; }

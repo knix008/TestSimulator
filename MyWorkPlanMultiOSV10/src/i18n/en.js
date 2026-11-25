@@ -52,7 +52,7 @@ export default {
   'progress.dbSave': 'Saving to the database', 'progress.dbLoad': 'Reading from the database', 'progress.dbList': 'Reading the plans in the database',
 
   'tip.withKey': '{label} ({key})', 'tip.undoWith': 'Undo: {label}', 'tip.redoWith': 'Redo: {label}', 'tip.language': 'Switch language (to 한국어)',
-  'tip.themeRandom': 'Random theme (now: {current})', 'tip.viewMenu': 'Switch view (now: {name})', 'tip.timescaleValue': 'Schedule (timescale) ratio — default = 100% (Ctrl+mouse wheel on the chart)', 'tip.zoomValue': 'Zoom (Ctrl+mouse wheel)',
+  'tip.themeRandom': 'Random theme (now: {current})', 'tip.viewMenu': 'Switch view (now: {name})', 'toolbar.zoomLabel': 'Font', 'toolbar.timescaleLabel': 'Schedule', 'tip.timescaleValue': 'Schedule (timescale) ratio — default = 100% (Ctrl+mouse wheel on the chart)', 'tip.zoomValue': 'Zoom (Ctrl+mouse wheel)',
   'tip.resize': 'Drag to resize the window', 'tip.splitter': 'Drag to resize the table and the chart', 'tip.panelSplitter': 'Drag to resize the panel',
   'tip.search': 'Search task names, notes and resources',
 

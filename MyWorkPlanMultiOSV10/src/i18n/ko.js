@@ -54,7 +54,7 @@ export default {
   'progress.dbSave': '데이터베이스에 저장하는 중', 'progress.dbLoad': '데이터베이스에서 읽는 중', 'progress.dbList': '데이터베이스의 계획 목록을 읽는 중',
 
   'tip.withKey': '{label} ({key})', 'tip.undoWith': '실행 취소: {label}', 'tip.redoWith': '다시 실행: {label}', 'tip.language': '언어 전환 (English로)',
-  'tip.themeRandom': '테마 무작위로 바꾸기 (지금: {current})', 'tip.viewMenu': '보기 전환 (지금: {name})', 'tip.timescaleValue': '일정(시간 눈금) 비율 — 기본 = 100% (Ctrl+차트 위 마우스 휠)', 'tip.zoomValue': '확대/축소 비율 (Ctrl+마우스 휠)',
+  'tip.themeRandom': '테마 무작위로 바꾸기 (지금: {current})', 'tip.viewMenu': '보기 전환 (지금: {name})', 'toolbar.zoomLabel': '글꼴', 'toolbar.timescaleLabel': '일정', 'tip.timescaleValue': '일정(시간 눈금) 비율 — 기본 = 100% (Ctrl+차트 위 마우스 휠)', 'tip.zoomValue': '확대/축소 비율 (Ctrl+마우스 휠)',
   'tip.resize': '끌어서 창 크기 변경', 'tip.splitter': '끌어서 표와 차트의 너비 조절', 'tip.panelSplitter': '끌어서 패널 너비 조절',
   'tip.search': '작업 이름·메모·자원 검색',
 

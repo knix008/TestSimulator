@@ -1300,7 +1300,7 @@ function renderToolbar() {
   };
   const button = (id) => {
     if (id === 'zoom') {
-      return `<span class="stepper toolbar-zoom" title="${escapeHtml(t('tip.zoomValue'))}">
+      return `<span class="toolbar-label" data-toolbar-label="zoom">${escapeHtml(t('toolbar.zoomLabel'))}</span><span class="stepper toolbar-zoom" title="${escapeHtml(t('tip.zoomValue'))}">
         <button class="tool-button stepper-button-tool" data-command="zoomOut" title="${escapeHtml(commandTip('zoomOut'))}" aria-label="${escapeHtml(t('action.zoomOut'))}">${icon('minus')}</button>
         <input class="stepper-value" id="zoom-value" type="text" inputmode="decimal" value="${state.settings.zoom}%" title="${escapeHtml(t('tip.zoomValue'))}" aria-label="${escapeHtml(t('tip.zoomValue'))}" />
         <button class="tool-button stepper-button-tool" data-command="zoomIn" title="${escapeHtml(commandTip('zoomIn'))}" aria-label="${escapeHtml(t('action.zoomIn'))}">${icon('plus')}</button>
@@ -1308,7 +1308,7 @@ function renderToolbar() {
     }
     if (id === 'timescale') {
       // The schedule (time axis) zoom: out · current ratio (type a percent) · in.
-      return `<span class="stepper toolbar-zoom toolbar-timescale" title="${escapeHtml(t('tip.timescaleValue'))}">
+      return `<span class="toolbar-label" data-toolbar-label="timescale">${escapeHtml(t('toolbar.timescaleLabel'))}</span><span class="stepper toolbar-zoom toolbar-timescale" title="${escapeHtml(t('tip.timescaleValue'))}">
         <button class="tool-button stepper-button-tool" data-command="timescaleOut" title="${escapeHtml(commandTip('timescaleOut'))}" aria-label="${escapeHtml(t('action.timescaleOut'))}">${icon('timescaleOut')}</button>
         <input class="stepper-value" id="timescale-value" type="text" inputmode="decimal" value="${timescalePercent()}%" title="${escapeHtml(t('tip.timescaleValue'))}" aria-label="${escapeHtml(t('tip.timescaleValue'))}" />
         <button class="tool-button stepper-button-tool" data-command="timescaleIn" title="${escapeHtml(commandTip('timescaleIn'))}" aria-label="${escapeHtml(t('action.timescaleIn'))}">${icon('timescaleIn')}</button>
