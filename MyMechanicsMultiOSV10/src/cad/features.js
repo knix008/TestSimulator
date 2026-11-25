@@ -5,7 +5,11 @@
 //
 // Coordinates are millimetres, Z up (frame.js): Top plane = XY, Front = XZ (seen from −Y), Right = YZ (seen from +X).
 import { rep, fontLoaded } from './kernel.js';
-import { profiles, standalonePoints, constructionLines, byId, createSketchGeometry, newSketchId, hasRegions } from './sketch.js';
+import { setbackCorner } from './fillet-setback.js';
+import { referencesOf } from './feature-order.js';
+import { instanceTools, applyInstances } from './pattern-more.js';
+import { normalCutTool } from './normal-cut.js';
+import { profiles, standalonePoints, constructionLines, byId, createSketchGeometry, newSketchId, hasRegions, solveSketch } from './sketch.js';
 import { faceSignature, findEdges, findFace, planeOfFace, crossV, normalize, setAreaMeasure } from './refs.js';
 import { ADVANCED_DEFAULTS, ADVANCED_NAMES, buildAdvanced, ADVANCED_TYPES } from './advanced.js';
 import { PART_MORE_TYPES, PART_MORE_DEFAULTS, PART_MORE_NAMES } from './part-more-types.js';
@@ -499,6 +503,14 @@ function buildExtrude(f, ctx) {
   const tool = extrudeTool(f, ctx);
   // Flip side to cut: the material outside the profile is removed (what the tool covers is kept).
   if (f.op === 'cut' && f.flipSide) { if (!ctx.body) throw codeError('nothing-to-cut'); return { tool, body: ctx.body.intersect(tool) }; }
+  // Sheet metal normal cut: square to the sheet where the cut meets it (bends cut radially), cad/normal-cut.js.
+  if (f.op === 'cut' && f.normalCut && ctx.sheet && ctx.body) {
+    const { frame } = sketchOf(f, ctx);
+    const into = scale(frame.normal, f.reverse ? 1 : -1);
+    const nt = normalCutTool(ctx.body, tool, ctx.sheet.thickness, into);
+    if (!nt) throw codeError('nothing-to-cut');
+    return { tool: nt, body: ctx.body.cut(nt) };
+  }
   return { tool, body: combine(ctx, tool, f.op, { merge: f.merge !== false }) };
 }
 
@@ -614,8 +626,41 @@ function buildHole(f, ctx) {
   return { tool, body };
 }
 
+/**
+ * Keep features: the fillet / chamfer made on the body without the chosen earlier features (and whatever builds on
+ * them), those features' tools then added or cut again — a boss or cut in the round's way is kept, not eaten.
+ */
+function keepFeaturesDressUp(f, ctx, kind) {
+  const keep = new Set(f.keep);
+  const idx = ctx.part.features.findIndex((x) => x.id === f.id);
+  const before = ctx.part.features.slice(0, idx < 0 ? ctx.part.features.length : idx);
+  // Left out: the kept features and every later one that refers to one of them (its sketch excepted).
+  const ids = before.map((x) => x.id);
+  const out = new Set(keep);
+  for (const x of before) if (!out.has(x.id) && x.type !== 'sketch' && referencesOf(x, ids).some((r) => out.has(r))) out.add(x.id);
+  const sub = regenerate({ ...ctx.part, features: before.filter((x) => !out.has(x.id)) }, { project: ctx.project, flat: ctx.flat, stack: ctx.stack.slice(0, -1) });
+  if (!sub.body) throw codeError('no-body');
+  const made = buildDressUp({ ...f, keep: undefined }, { ...ctx, body: sub.body }, kind);
+  let body = made.body;
+  for (const x of before) {
+    if (!keep.has(x.id)) continue;
+    const r = ctx.results.get(x.id);
+    if (!r?.ok || !r.tool) throw codeError('keep-no-tool');
+    body = (r.toolOp ?? (x.type === 'hole' || x.op === 'cut' ? 'cut' : 'boss')) === 'cut' ? body.cut(r.tool) : body.fuse(r.tool);
+  }
+  return { ...made, body, kept: keep.size };
+}
+
 function buildDressUp(f, ctx, kind) {
   if (!ctx.body) throw codeError('no-body');
+  if ((f.keep ?? []).length) return keepFeaturesDressUp(f, ctx, kind);
+  // Setbacks: the fillet as usual, then each chosen corner blended from its setback distances (fillet-setback.js).
+  if (kind === 'fillet' && (f.setbacks ?? []).length) {
+    const made = buildDressUp({ ...f, setbacks: undefined }, ctx, kind);
+    let body = made.body;
+    for (const sb of f.setbacks) body = setbackCorner(ctx.body, body, sb.vertex, sb.d, { codeError });
+    return { ...made, body };
+  }
   // Items beyond edges, tangent propagation, multiple radii, chord width, conic / G2 profiles, chamfer types.
   if (needsDressUpMore(f, kind)) return kind === 'fillet' ? filletMore(f, ctx) : chamferMore(f, ctx);
   const edges = findEdges(ctx.body, f.edges);
@@ -713,6 +758,15 @@ function applyCopies(ctx, tools, transforms) {
   return { body, copies: made };
 }
 
+/** Whether a pattern rebuilds its instances (geometry pattern off, or a variation) rather than copying the seed. */
+const rebuildsInstances = (f) => !f.body && (f.geometry === false || (Array.isArray(f.vary) && f.vary.some((v) => v?.dim && (Number(v.step) || Number(v.step2)))));
+/** The body with every instance rebuilt in place (pattern-more.js). */
+function rebuiltInstances(f, ctx, places, moves, index) {
+  if (!ctx.body) throw codeError('no-body');
+  const list = places.map((place, k) => instanceTools(f, ctx, place, moves[k], index[k], { build, solveSketch, codeError }));
+  return applyInstances(ctx.body, list);
+}
+
 function buildLinearPattern(f, ctx) {
   const tools = f.body ? [{ tool: ctx.body, op: 'boss' }] : seedTools(f, ctx);
   if (!tools.length) throw codeError('no-seeds');
@@ -733,7 +787,7 @@ function buildLinearPattern(f, ctx) {
   if (d2 && f.reverse2) d2 = scale(d2, -1);
   const n2 = d2 ? Math.max(1, Math.min(200, Math.round(f.count2))) : 1;
   const s2 = Number(f.spacing2) || 0;
-  const moves = []; const places = []; const steps = [];
+  const moves = []; const places = []; const steps = []; const index = [];
   for (let i = 0; i < n1; i++) for (let j = 0; j < n2; j++) {
     if (!i && !j) continue;
     if (skip.has(`${i},${j}`)) continue;
@@ -742,7 +796,10 @@ function buildLinearPattern(f, ctx) {
     moves.push((s) => s.translate(v));
     places.push((q, isDir) => (isDir ? q : add(q, v)));
     steps.push({ kind: 'translate', v });
+    index.push([i, j]);
   }
+  // Instances rebuilt in place (geometry pattern off) or varied by the seed sketch's dimensions (pattern-more.js).
+  if (rebuildsInstances(f)) return { ...patternThreads(f, ctx, rebuiltInstances(f, ctx, places, moves, index), places), moves: steps };
   // The moves as data too (a pattern-driven component pattern repeats them in an assembly).
   return { ...patternThreads(f, ctx, applyCopies(ctx, tools, moves), places), moves: steps };
 }
@@ -781,16 +838,25 @@ function buildCircularPattern(f, ctx) {
     places.push(rotation(deg, origin, dir));
     steps.push({ kind: 'rotate', deg, origin: [...origin], dir: [...dir] });
   }
+  if (rebuildsInstances(f)) return { ...patternThreads(f, ctx, rebuiltInstances(f, ctx, places, moves, angles.map((a) => [Math.round(Math.abs(a) / step), 0])), places), moves: steps };
   return { ...patternThreads(f, ctx, applyCopies(ctx, tools, moves), places), moves: steps };
 }
 
 function buildMirror(f, ctx) {
   if (!ctx.body) throw codeError('no-body');
   const fr = resolvePlane(f.plane, ctx);
-  if (f.body) return { body: ctx.body.fuse(ctx.body.clone().mirror(fr.normal, fr.origin)) };
+  // Mirror body: fused with the original, or (merge result off) kept as a body of its own.
+  if (f.body) { const m = ctx.body.clone().mirror(fr.normal, fr.origin); return { body: f.merge === false ? rep().makeCompound([...solidList(ctx.body), ...solidList(m)]) : ctx.body.fuse(m) }; }
+  const move = (s) => s.mirror(fr.normal, fr.origin);
+  // Geometry pattern off: each seed built again on its mirrored sketch (end conditions worked out on that side).
+  if (f.geometry === false) {
+    const n = normalize(fr.normal);
+    const place = (q, isDir) => { const d = isDir ? dot(q, n) : dot([q[0] - fr.origin[0], q[1] - fr.origin[1], q[2] - fr.origin[2]], n); return [q[0] - 2 * d * n[0], q[1] - 2 * d * n[1], q[2] - 2 * d * n[2]]; };
+    return applyInstances(ctx.body, [instanceTools(f, ctx, place, move, ['m'], { build, solveSketch, codeError, mirror: true })]);
+  }
   const tools = seedTools(f, ctx);
   if (!tools.length) throw codeError('no-seeds');
-  return applyCopies(ctx, tools, [(s) => s.mirror(fr.normal, fr.origin)]);
+  return applyCopies(ctx, tools, [move]);
 }
 
 // ───────────────────────── helpers for the app

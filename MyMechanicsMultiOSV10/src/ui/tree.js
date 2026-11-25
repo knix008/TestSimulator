@@ -27,7 +27,7 @@ export const FEATURE_ICONS = {
 export const featureIcon = (f) => FEATURE_ICONS[nameKey(f)] ?? 'part';
 export const MATE_ICONS = { path: 'matePath', magnetic: 'magneticMate', profileCenter: 'mateProfileCenter', linearCoupler: 'mateLinearCoupler', slot: 'mateSlot', universalJoint: 'mateUniversal', coincident: 'mateCoincident', concentric: 'mateConcentric', distance: 'mateDistance', parallel: 'mateParallel', perpendicular: 'matePerpendicular', angle: 'mateAngle', lock: 'mateLock', width: 'mateWidth', symmetric: 'mateSymmetric', limitDistance: 'mateLimit', limitAngle: 'mateLimit', gear: 'mateGear', rackPinion: 'mateRack', screw: 'mateScrew', hinge: 'mateHinge' };
 
-const row = ({ key, glyph, label, depth = 0, cls = '', toggle = null, open = true, extra = '', title = '' }) => `<div class="tree-row ${cls}" data-tree="${escapeHtml(key)}" style="--depth:${depth}" title="${escapeHtml(title || label)}" role="treeitem" tabindex="-1">
+const row = ({ key, glyph, label, depth = 0, cls = '', toggle = null, open = true, extra = '', title = '', drag = false }) => `<div class="tree-row ${cls}" data-tree="${escapeHtml(key)}" style="--depth:${depth}" title="${escapeHtml(title || label)}" role="treeitem" tabindex="-1"${drag ? ' draggable="true"' : ''}>
   <span class="tree-toggle">${toggle ? `<button class="tree-twisty" data-tree-toggle="${escapeHtml(toggle)}" aria-label="toggle">${icon(open ? 'caretDown' : 'caretRight', 'icon tiny')}</button>` : ''}</span>
   ${icon(glyph)}<span class="tree-label">${label}</span>${extra}</div>`;
 
@@ -56,12 +56,22 @@ function partTree(api) {
     out.push(row({ key: `plane:${id}`, glyph, label: escapeHtml(t(`plane.${id}`)), depth: 1, cls: `${selected(api, `plane:${id}`)} ${api.hiddenPlanes?.has(id) ? 'hidden-item' : ''}` }));
   }
   out.push(row({ key: 'origin', glyph: 'origin', label: escapeHtml(t('tree.origin')), depth: 1, cls: selected(api, 'origin') }));
+  // Feature folders: a folder row where its first member is, its members inside it (collapsible).
+  const shownFolders = new Set();
   part.features.forEach((f, i) => {
     if (i === rollback) out.push(rollbackRow(t));
     if (f.type === 'sketch' && used.has(f.id)) return;
+    const folder = (part.folders ?? []).find((g) => g.members.includes(f.id));
+    let depth = 1;
+    if (folder) {
+      const fk = `fold:${folder.id}`;
+      if (!shownFolders.has(folder.id)) { shownFolders.add(folder.id); out.push(row({ key: `folder:${folder.id}`, glyph: api.collapsed.has(fk) ? 'folder' : 'folderOpen', label: escapeHtml(folder.name), depth: 1, toggle: fk, open: !api.collapsed.has(fk), cls: `tree-folder ${selected(api, `folder:${folder.id}`)}` })); }
+      if (api.collapsed.has(fk)) return;
+      depth = 2;
+    }
     const child = f.sketch ? part.features.find((x) => x.id === f.sketch) : null;
-    out.push(featureRow(api, f, results.get(f.id), i >= rollback, child ? `f:${f.id}` : null));
-    if (child && !api.collapsed.has(`f:${f.id}`)) out.push(featureRow(api, child, results.get(child.id), i >= rollback, null, 2));
+    out.push(featureRow(api, f, results.get(f.id), i >= rollback, child ? `f:${f.id}` : null, depth));
+    if (child && !api.collapsed.has(`f:${f.id}`)) out.push(featureRow(api, child, results.get(child.id), i >= rollback, null, depth + 1));
   });
   if (rollback >= part.features.length) out.push(rollbackRow(t));
   return `<div class="tree" role="tree">${out.join('')}</div>`;
@@ -83,7 +93,7 @@ function featureRow(api, f, r, rolled, toggle, depth = 1) {
   const cls = ['tree-feature', selected(api, `feat:${f.id}`), failed ? 'error' : '', f.suppressed ? 'suppressed' : '', rolled ? 'rolled' : '', api.editingId === f.id ? 'editing' : ''].join(' ');
   const badge = failed ? `<span class="tree-badge error" title="${escapeHtml(t(`rebuild.${r.error}`, null, r.error))}">${icon('error', 'icon tiny')}</span>` : '';
   const title = failed ? `${f.name} — ${t(`rebuild.${r.error}`, null, r.error)}` : f.name;
-  return row({ key: `feat:${f.id}`, glyph: featureIcon(f), label: `${escapeHtml(prefix)}${escapeHtml(f.name)}`, depth, cls, toggle, open: !api.collapsed.has(toggle), extra: badge, title });
+  return row({ key: `feat:${f.id}`, glyph: featureIcon(f), label: `${escapeHtml(prefix)}${escapeHtml(f.name)}`, depth, cls, toggle, open: !api.collapsed.has(toggle), extra: badge, title, drag: true });
 }
 
 function assemblyTree(api) {

@@ -17,7 +17,10 @@ import { textWidth } from './text-metrics.js';
 import { isCylinder } from './refs.js';
 import { toWorld } from './features.js';
 
-export const DIM_TYPES = ['auto', 'horizontal', 'vertical', 'aligned', 'radial', 'diameter', 'angular', 'ordinate', 'chamfer', 'arclength'];
+export const DIM_TYPES = ['auto', 'horizontal', 'vertical', 'aligned', 'radial', 'diameter', 'angular', 'ordinate', 'baseline', 'chain', 'chamfer', 'arclength'];
+
+/** Dimension sets built point by point (the first pick is the origin): ordinate, baseline and chain. */
+export const SET_TYPES = ['ordinate', 'baseline', 'chain'];
 export const TOL_TYPES = ['none', 'symmetric', 'bilateral', 'limits', 'fit', 'basic', 'reference'];
 
 const EPS = 1e-6;
@@ -232,11 +235,22 @@ export function dimensionFromPicks(picks, dtype = 'auto') {
   return { error: 'more' };
 }
 
-/** An ordinate dimension set: the first pick is the origin (0), every other one adds a point. */
-export function ordinateFromPicks(picks, axis = 'x') {
+/**
+ * A dimension set along X or Y: the first pick is the origin, every other one adds a point. 'ordinate' — the
+ * coordinates from the origin (0); 'baseline' — stacked linear dimensions, each from the origin; 'chain' — linear
+ * dimensions end to end, each from the point before it, on one line.
+ */
+export function ordinateFromPicks(picks, axis = 'x', dtype = 'ordinate') {
   const pts = picks.map(pointOf).filter(Boolean);
   if (pts.length < 2) return { error: 'more' };
-  return { dtype: 'ordinate', axis: axis === 'y' ? 'y' : 'x', origin: pts[0], pts: pts.slice(1) };
+  return { dtype: SET_TYPES.includes(dtype) ? dtype : 'ordinate', axis: axis === 'y' ? 'y' : 'x', origin: pts[0], pts: pts.slice(1) };
+}
+
+/** The linear dimensions a baseline or chain set is drawn as: [{ p1, p2, value }] (baseline: nearest first). */
+export function setSpans(a) {
+  const k = a.axis === 'y' ? 1 : 0;
+  if (a.dtype === 'chain') return a.pts.map((p, i) => { const q = i ? a.pts[i - 1] : a.origin; return { p1: q, p2: p, value: Math.abs(p[k] - q[k]), i }; });
+  return a.pts.map((p, i) => ({ p1: a.origin, p2: p, value: Math.abs(p[k] - a.origin[k]), i })).sort((x, y) => x.value - y.value);
 }
 
 const angleOf = (a, v, b) => {
@@ -264,7 +278,8 @@ export function dimValue(a) {
       if (ang > 90) ang = 180 - ang;
       return { distance: along, angle: ang };
     }
-    case 'ordinate': return a.pts.map((p) => Math.abs(a.axis === 'y' ? p[1] - a.origin[1] : p[0] - a.origin[0]));
+    case 'ordinate': case 'baseline': return a.pts.map((p) => Math.abs(a.axis === 'y' ? p[1] - a.origin[1] : p[0] - a.origin[0]));
+    case 'chain': return a.pts.map((p, i) => { const q = i ? a.pts[i - 1] : a.origin; return Math.abs(a.axis === 'y' ? p[1] - q[1] : p[0] - q[0]); });
     default: return NaN;
   }
 }
@@ -546,7 +561,7 @@ export const angle3 = (a, v, b) => { const u = unit3(sub3(a, v)); const w = unit
 export function pictorialDimension(picks, dtype, basis) {
   const [A, B] = picks;
   if (!A) return { error: 'more' };
-  if (['horizontal', 'vertical', 'ordinate', 'chamfer'].includes(dtype)) return { error: 'pictorialType' };
+  if (['horizontal', 'vertical', 'ordinate', 'baseline', 'chain', 'chamfer'].includes(dtype)) return { error: 'pictorialType' };
   const P = (p) => proj2(basis, p);
   const linear = (p1, p2) => (dist3(p1, p2) < EPS ? { error: 'zero' } : { dtype: 'aligned', p1: P(p1), p2: P(p2), m3: { p1, p2 } });
   const circle = (c, type) => ({ dtype: type, c: c.c, r: c.r, full: c.full, start: 0, sweep: TAU, m3: { c: c.c3, n: c.n3, r: c.r, ...(c.pts3?.length ? { pts: c.pts3 } : {}) } });
@@ -694,7 +709,8 @@ export function dimPushDir(a, fr) {
   if (len2(d) < 1e-9) d = sub2(T, [fr.place.cx, fr.place.cy]);
   if (len2(d) < 1e-9) d = [0, 1];
   // Linear dimensions move square to what they measure (their text slides along the dimension line otherwise).
-  if (a.dtype === 'horizontal') d = [0, Math.sign(d[1]) || 1];
+  if (a.dtype === 'horizontal' || ((a.dtype === 'baseline' || a.dtype === 'chain') && a.axis !== 'y')) d = [0, Math.sign(d[1]) || 1];
+  else if (a.dtype === 'baseline' || a.dtype === 'chain') d = [Math.sign(d[0]) || 1, 0];
   else if (a.dtype === 'vertical') d = [Math.sign(d[0]) || 1, 0];
   else if (a.dtype === 'aligned' && a.p1 && a.p2) { const n = perp(unit2(sub2(S(a.p2), S(a.p1)))); d = dot2(n, d) < 0 ? [-n[0], -n[1]] : n; }
   return unit2(d);
@@ -816,6 +832,7 @@ export function dimLabel(a) {
   const v = dimValue(a);
   if (a.dtype === 'chamfer') return `${formatNumber(v.distance, a.precision ?? null)} × ${formatNumber(v.angle, 0)}°`;
   if (a.dtype === 'ordinate') return v.map((x) => formatNumber(x, a.precision ?? null)).join(' ');
+  if (a.dtype === 'baseline' || a.dtype === 'chain') return v.map((x) => dimText({ ...a, dtype: a.axis === 'y' ? 'vertical' : 'horizontal' }, x)).map((t) => [t.main, t.upper, t.lower].filter(Boolean).join(' ')).join(' ');
   const t = dimText(a, v);
   return [t.main, t.upper, t.lower].filter(Boolean).join(' ');
 }
@@ -955,7 +972,7 @@ export function autoTextOffset(g, fr, gap = 9) {
     let n = perp(unit2(sub2(B, A)));
     if (dot2(n, sub2(m, mid)) < 0) n = [-n[0], -n[1]];
     at = add2(m, n, gap + 3);
-  } else if (g.dtype === 'ordinate') {
+  } else if (SET_TYPES.includes(g.dtype)) {
     const P = [g.origin, ...g.pts].map(S);
     at = g.axis === 'y' ? [Math.max(...P.map((q) => q[0])) + gap, P[0][1]] : [P[0][0], Math.max(...P.map((q) => q[1])) + gap];
   } else at = [fr.place.cx, fr.place.cy];
@@ -1111,6 +1128,24 @@ export function dimPrimitives(a, fr, { size = 3.2 } = {}) {
           out.push({ t: 'poly', pts: [[Q[0], Q[1] + (y > Q[1] ? 1.2 : -1.2)], [Q[0], y]], cls: 'dx-thin' });
           out.push({ t: 'text', x: Q[0] + size * 0.35, y: y + (y >= Q[1] ? 1 : -1), text: txt, size, anchor: y >= Q[1] ? 'start' : 'end', rot: -90 });
         }
+      });
+      break;
+    }
+    case 'baseline': case 'chain': {
+      // Linear dimensions: the first one where the text is, a baseline's others stacked away from the points.
+      const k = a.axis === 'y' ? 0 : 1; // the sheet coordinate across the dimension lines
+      const P = [a.origin, ...a.pts].map(S);
+      const mean = P.reduce((s, q) => s + q[k], 0) / P.length;
+      const away = T[k] >= mean ? 1 : -1;
+      const gap = Number(a.spacing) > 0 ? Number(a.spacing) : size * 2.2;
+      setSpans(a).forEach((sp, j) => {
+        const A = S(sp.p1); const B = S(sp.p2);
+        const across = T[k] + (a.dtype === 'baseline' ? away * j * gap : 0);
+        const along = k === 1 ? (A[0] + B[0]) / 2 : (A[1] + B[1]) / 2;
+        const at = k === 1 ? [along, across] : [across, along];
+        const sub = { ...a, dtype: a.axis === 'y' ? 'vertical' : 'horizontal', p1: sp.p1, p2: sp.p2, x: at[0] - fr.place.cx, y: at[1] - fr.place.cy };
+        delete sub.origin; delete sub.pts;
+        out.push(...dimPrimitives(sub, fr, { size }));
       });
       break;
     }

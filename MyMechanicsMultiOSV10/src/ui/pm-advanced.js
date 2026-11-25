@@ -6,6 +6,9 @@ import { escapeHtml } from './dom.js';
 import { icon } from '../icons.js';
 import { group, field, check, seg, select, pickBox, planeName } from './propertymanager.js';
 import { STRUCTURAL_PROFILES } from '../cad/advanced.js';
+import { profiles } from '../cad/sketch.js';
+import { rowTable } from './pm-sheet-gauge.js';
+import { gaugeGroups, thicknessField } from './pm-sheet-gauge.js';
 
 /** Metric coarse threads: [size, major diameter, pitch]. */
 /** A 3D sketch's relations and dimensions: pick segments / points, add, edit values, delete; freedoms left. */
@@ -43,6 +46,21 @@ const listToggles = (api, prefix, items, chosen) => `<div class="pm-checklist">$
 const num = (v, d = 0) => (Number.isFinite(Number(v)) ? Number(v) : d);
 const note = (text, warn = false) => `<p class="pm-note ${warn ? 'warn' : ''}">${warn ? icon('warning', 'icon tiny') : ''}${escapeHtml(text)}</p>`;
 
+/** Loft connectors: each profile's start vertex (V1 …) and direction; automatic pairs them by the nearest turn. */
+function loftConnectors(api, f) {
+  const { t } = api;
+  const all = api.featuresBefore?.(f) ?? [];
+  const rows = (f.sketches ?? []).map((id) => {
+    const sk = all.find((x) => x.id === id);
+    let n = 0; try { n = profiles(sk)[0]?.outer?.segs?.length ?? 0; } catch { n = 0; }
+    if (!sk || n < 2) return '';
+    const c = f.connect?.[id] ?? {};
+    const opts = [['', t('loft.auto')], ...Array.from({ length: n }, (_, i) => [String(i), `V${i + 1}`])];
+    return `${select(`lc:${id}`, opts, Number.isInteger(c.start) ? String(c.start) : '', sk.name)}${check(`lf:${id}`, Boolean(c.flip), `${sk.name} — ${t('loft.flip')}`, 'flipH')}`;
+  }).join('');
+  return rows ? group('featLoft', t('loft.connectors'), `${rows}${note(t('loft.help.connectors'))}`, f.connect && Object.keys(f.connect).length ? '' : 'collapsed') : '';
+}
+
 /** Loft guide curves (check boxes), centre line, start / end constraints. */
 function loftCurves(api, f) {
   const { t } = api;
@@ -50,12 +68,24 @@ function loftCurves(api, f) {
   const guides = new Set(f.guides ?? []);
   let html = curves.length ? '<div class="pm-list">' + curves.map(([id, name]) => check('list:guides:' + id, guides.has(id), name, 'featLoft')).join('') + '</div>' : note(t('pm.noCurves'));
   html += select('centerline', [['', '— ' + t('pm.none') + ' —'], ...curves], f.centerline ?? '', t('pm.centerline'));
-  const conds = [['none', t('loft.none')], ['normal', t('loft.normal')]];
+  const conds = [['none', t('loft.none')], ['normal', t('loft.normal')], ['tangentFace', t('loft.tangentFace')], ['curvatureFace', t('loft.curvatureFace')]];
+  const withLength = (c) => c && c !== 'none';
   html += select('startCond', conds, f.startCond ?? 'none', t('pm.startConstraint'));
-  if (f.startCond === 'normal') html += field(api, 'startLength', f.startLength ?? 1, { label: t('pm.tangentLength'), unit: 'number', min: 0.05 });
+  if (withLength(f.startCond)) html += field(api, 'startLength', f.startLength ?? 1, { label: t('pm.tangentLength'), unit: 'number', min: 0.05 });
   html += select('endCond', conds, f.endCond ?? 'none', t('pm.endConstraint'));
-  if (f.endCond === 'normal') html += field(api, 'endLength', f.endLength ?? 1, { label: t('pm.tangentLength'), unit: 'number', min: 0.05 });
+  if (withLength(f.endCond)) html += field(api, 'endLength', f.endLength ?? 1, { label: t('pm.tangentLength'), unit: 'number', min: 0.05 });
   return group('featLoft', t('pm.guideCurves'), html, guides.size || f.centerline || (f.startCond ?? 'none') !== 'none' || (f.endCond ?? 'none') !== 'none' ? '' : 'collapsed');
+}
+
+/** The sweep options a surface sweep shares with the solid one: circular profile, twist, start tangency, guide curves. */
+export function sweepMoreGroups(api, f, paths) {
+  const { t } = api;
+  return [
+    group('featSweep', t('pm.profileAndPath'), `${check('circular', f.circular, t('pm.circularProfile'), 'circleTool')}${f.circular ? field(api, 'diameter', f.diameter ?? 5, { label: t('hole.diameter'), glyph: 'dimDiameter', min: 0.001 }) : ''}`, f.circular ? '' : 'collapsed'),
+    group('helix', t('pm.twistAlongPath'), `${field(api, 'twist', f.twist ?? 0, { label: t('pm.twist'), unit: f.twistUnit === 'turns' ? 'number' : 'angle', glyph: 'dimAngle' })}${seg('twistUnit', [['deg', t('pm.degrees')], ['turns', t('pm.turns')]], f.twistUnit ?? 'deg')}`, f.twist ? '' : 'collapsed'),
+    group('featSweep', t('sweep.tangency'), seg('startTangent', [['none', t('sweep.tan.none'), 'close'], ['path', t('sweep.tan.path'), 'relTangent']], f.startTangent ?? 'none')),
+    group('featSweep', t('pm.guideCurves'), `${select('guide', [['', `— ${t('pm.none')} —`], ...paths.filter(([id]) => id !== f.path)], f.guide ?? '', t('pm.guideCurve'))}${f.guide ? `<div class="pm-checks">${paths.filter(([id]) => id !== f.path && id !== f.guide).map(([id, name, g]) => `<label class="pm-check"><input type="checkbox" data-pm-toggle="sg:${escapeHtml(id)}" ${(f.guides ?? []).includes(id) ? 'checked' : ''}/>${icon(g)}<span>${escapeHtml(name)}</span></label>`).join('')}</div><p class="pm-note">${escapeHtml(t((f.guides ?? []).length ? 'sweep.help.guides' : 'sweep.help.guide'))}</p>` : ''}`, f.guide ? '' : 'collapsed'),
+  ].join('');
 }
 
 export const ADVANCED_PM = {
@@ -65,10 +95,9 @@ export const ADVANCED_PM = {
     return [
       group('featSketch', t('pm.profileAndPath'), `${sketchSelect(api, f, 'sketch', t('pm.profile'), 'profile')}${select('path', [['', `— ${t('pm.choosePath')} —`], ...paths], f.path ?? '', t('pm.path'))}${opSeg(t, f, ['featSweep', 'featCutSweep'])}`),
       group('featSweep', t('pm.options'), `${select('transition', [['right', t('sweep.right')], ['round', t('sweep.round')], ['transformed', t('sweep.transformed')]], f.transition ?? 'right', t('pm.corners'))}${check('frenet', f.frenet, t('pm.frenet'), 'helix')}${note(t('pm.help.sweepProfile'))}`),
-      // Circular profile (no sketch), twist along the path, a guide curve that scales the profile.
-      group('featSweep', t('pm.profileAndPath'), `${check('circular', f.circular, t('pm.circularProfile'), 'circleTool')}${f.circular ? field(api, 'diameter', f.diameter ?? 5, { label: t('hole.diameter'), glyph: 'dimDiameter', min: 0.001 }) : ''}`, f.circular ? '' : 'collapsed'),
-      group('helix', t('pm.twistAlongPath'), `${field(api, 'twist', f.twist ?? 0, { label: t('pm.twist'), unit: f.twistUnit === 'turns' ? 'number' : 'angle', glyph: 'dimAngle' })}${seg('twistUnit', [['deg', t('pm.degrees')], ['turns', t('pm.turns')]], f.twistUnit ?? 'deg')}`, f.twist ? '' : 'collapsed'),
-      group('featSweep', t('pm.guideCurves'), select('guide', [['', `— ${t('pm.none')} —`], ...paths.filter(([id]) => id !== f.path)], f.guide ?? '', t('pm.guideCurve')), f.guide ? '' : 'collapsed'),
+      sweepMoreGroups(api, f, paths),
+      // Solid sweep: a revolved tool body (a cutter) moved along the path with its axis held.
+      group('featCutSweep', t('sweep.solid'), `${select('solidTool', [['', `— ${t('pm.none')} —`], ...(api.featuresBefore?.(f) ?? []).filter((x) => ['revolve', 'extrude'].includes(x.type) && !x.suppressed).map((x) => [x.id, x.name, x.type === 'revolve' ? 'featRevolve' : 'featExtrude'])], f.solidTool ?? '', t('sweep.toolBody'))}<p class="pm-note">${escapeHtml(t('sweep.help.solid'))}</p>`, f.solidTool ? '' : 'collapsed'),
       thinGroup(api, f, { caps: false }),
     ].join('');
   },
@@ -78,6 +107,7 @@ export const ADVANCED_PM = {
       group('featLoft', t('pm.profiles'), `${listToggles(api, 'loft', api.sketchList(f, 'profile'), f.sketches ?? [])}${(f.sketches ?? []).length < 2 ? note(t('pm.loftNeedsTwo'), true) : ''}${opSeg(t, f, ['featLoft', 'featCutLoft'])}`),
       group('featLoft', t('pm.options'), check('ruled', f.ruled, t('pm.ruled'), 'lineTool') + check('closed', f.closed, t('pm.closedLoft'), 'featLoft')),
       loftCurves(api, f),
+      loftConnectors(api, f),
       thinGroup(api, f, { caps: false }),
     ].join('');
   },
@@ -180,7 +210,7 @@ export const ADVANCED_PM = {
   },
   surfaceLoft(api, f) {
     const { t } = api;
-    return group('surface', t('pm.profiles'), `${listToggles(api, 'loft', api.sketchList(f, 'profile'), f.sketches ?? [])}${check('ruled', f.ruled, t('pm.ruled'), 'lineTool')}`);
+    return [group('surface', t('pm.profiles'), `${listToggles(api, 'loft', api.sketchList(f, 'profile'), f.sketches ?? [])}${check('ruled', f.ruled, t('pm.ruled'), 'lineTool')}`), loftCurves(api, f), loftConnectors(api, f)].join('');
   },
   surfaceOffset(api, f) {
     const { t } = api;
@@ -213,35 +243,55 @@ export const ADVANCED_PM = {
     const bodies = n > 1 || (f.body != null && f.body !== '') ? select('body', [['', t('pm.allBodies')], ...Array.from({ length: Math.max(n, Number(f.body ?? -1) + 1) }, (_, i) => [String(i), `${t('pm.body')} ${i + 1}`, 'part'])], f.body == null ? '' : String(f.body), t('pm.body')) : '';
     return [
       group('part', t('pm.partToInsert'), `${select('part', [['', `— ${t('pm.choosePart')} —`], ...api.otherParts().map((p) => [p.id, p.name, 'part'])], f.part ?? '', t('pm.part'))}${bodies}${seg('op', [['boss', t('op.boss'), 'featExtrude'], ['cut', t('op.cavity'), 'featCut'], ['common', t('op.common'), 'featIntersect']], f.op)}`),
+      group('mirrorEntities', t('mirp.mirror'), seg('mirror', [['none', t('mirp.none'), 'close'], ['front', t('plane.front'), 'planeFront'], ['top', t('plane.top'), 'planeTop'], ['right', t('plane.right'), 'planeRight']], f.mirror ?? 'none')),
       group('position', t('pm.locate'), `${field(api, 'dx', f.dx, { label: 'ΔX', glyph: 'position' })}${field(api, 'dy', f.dy, { label: 'ΔY', glyph: 'position' })}${field(api, 'dz', f.dz, { label: 'ΔZ', glyph: 'position' })}${seg('axis', [['x', 'X'], ['y', 'Y'], ['z', 'Z']], f.axis ?? 'z')}${field(api, 'angle', f.angle, { label: t('pm.angle'), unit: 'angle', glyph: 'dimAngle' })}${field(api, 'scale', f.scale, { label: t('pm.scaleFactor'), unit: 'number', glyph: 'scaleBody', min: 0.0001 })}`),
     ].join('');
   },
   baseFlange(api, f) {
     const { t } = api;
     return [
-      group('sheetMetal', t('pm.sheetMetal'), `${sketchSelect(api, f, 'sketch', t('pm.sketch'), 'profile')}${field(api, 'thickness', f.thickness, { label: t('pm.thickness'), min: 0.05 })}${check('reverse', f.reverse, t('pm.reverse'), 'flipV')}`),
-      group('edgeFlange', t('pm.bendAllowance'), `${field(api, 'radius', f.radius, { label: t('pm.bendRadius'), glyph: 'dimRadius', min: 0 })}${field(api, 'kFactor', f.kFactor, { label: t('pm.kFactor'), unit: 'number', glyph: 'smartDim', min: 0 })}`),
+      group('sheetMetal', t('pm.sheetMetal'), `${sketchSelect(api, f, 'sketch', t('pm.sketch'), 'profile')}${thicknessField(api, f)}${check('reverse', f.reverse, t('pm.reverse'), 'flipV')}`),
+      gaugeGroups(api, f),
     ].join('');
   },
   edgeFlange(api, f) {
     const { t } = api;
     const edge = f.edge ? [`${t('pm.edge')} (${t('pm.straight')})`] : [];
-    return group('edgeFlange', t('pm.flangeParameters'), `${pickBox(api, 'edge', edge, t('pm.edge'), 'edgeFlange')}${field(api, 'angle', f.angle, { label: t('pm.angle'), unit: 'angle', glyph: 'dimAngle', min: 1 })}${field(api, 'length', f.length, { label: t('pm.flangeLength'), min: 0 })}${field(api, 'radius', f.radius ?? 0, { label: t('pm.bendRadiusOverride'), glyph: 'dimRadius', min: 0 })}${check('flip', f.flip, t('pm.flipBend'), 'flipV')}`);
+    const params = group('edgeFlange', t('pm.flangeParameters'), `${pickBox(api, 'edge', edge, t('pm.edge'), 'edgeFlange')}${field(api, 'angle', f.angle, { label: t('pm.angle'), unit: 'angle', glyph: 'dimAngle', min: 1 })}${field(api, 'length', f.length, { label: t('pm.flangeLength'), min: 0 })}${field(api, 'radius', f.radius ?? 0, { label: t('pm.bendRadiusOverride'), glyph: 'dimRadius', min: 0 })}${check('flip', f.flip, t('pm.flipBend'), 'flipV')}`);
+    // Flange position, length reference and width (offsets from the edge's ends).
+    const pos = group('edgeFlange', t('flange.position'), `${seg('position', [['bendOutside', t('flange.bendOutside'), 'edgeFlange'], ['materialOutside', t('flange.materialOutside'), 'featExtrude'], ['materialInside', t('flange.materialInside'), 'featShell'], ['virtualSharp', t('flange.virtualSharp'), 'dimAngle']], f.position ?? 'bendOutside')}${seg('lengthRef', [['tangent', t('flange.tangent'), 'relTangent'], ['outerSharp', t('flange.outerSharp'), 'dimHorizontal'], ['innerSharp', t('flange.innerSharp'), 'dimVertical']], f.lengthRef ?? 'tangent')}${field(api, 'offsetStart', f.offsetStart ?? 0, { label: t('flange.offsetStart'), glyph: 'dimHorizontal', min: 0 })}${field(api, 'offsetEnd', f.offsetEnd ?? 0, { label: t('flange.offsetEnd'), glyph: 'dimHorizontal', min: 0 })}`);
+    // The flange's outline: a rectangle, or a polygon edited point by point (u along the edge, v along the flange).
+    const pts = f.profilePts ?? [];
+    const prof = group('edgeFlange', t('flange.profile'), pts.length ? `${rowTable(api, 'fp', [['u', 'U', 'len'], ['v', 'V', 'len']], pts, { seedLabel: t('flange.reset') })}<button type="button" class="small-button" data-pm="smRowsClear:fp">${icon('close')}<span>${escapeHtml(t('flange.rectangle'))}</span></button>` : `<button type="button" class="small-button" data-pm="smRowsSeed:fp">${icon('edgeFlange')}<span>${escapeHtml(t('flange.editProfile'))}</span></button><p class="pm-note">${escapeHtml(t('flange.help.profile'))}</p>`, pts.length ? '' : 'collapsed');
+    return params + pos + prof;
   },
   structural(api, f) {
     const { t } = api;
-    return group('structural', t('pm.selections'), `${select('profile', Object.keys(STRUCTURAL_PROFILES).map((k) => [k, t(`profile.${k}`)]), f.profile, t('pm.profileType'))}${field(api, 'w', f.w, { label: t('pm.width'), min: 0.5 })}${['rectTube', 'angle', 'channel', 'ibeam', 'tee'].includes(f.profile) ? field(api, 'h', f.h, { label: t('pm.height'), min: 0.5 }) : ''}${['roundBar', 'squareBar'].includes(f.profile) ? '' : field(api, 't', f.t, { label: t('pm.wallThickness'), min: 0.1 })}${field(api, 'rotate', f.rotate, { label: t('pm.rotateProfile'), unit: 'angle', glyph: 'dimAngle' })}${sketchSelect(api, f, 'sketch', t('pm.pathSegments'), 'curves')}`);
+    const base = group('structural', t('pm.selections'), `${select('profile', [...Object.keys(STRUCTURAL_PROFILES).map((k) => [k, t(`profile.${k}`)]), ['custom', t('profile.custom')]], f.profile, t('pm.profileType'))}${field(api, 'w', f.w, { label: t('pm.width'), min: 0.5 })}${['rectTube', 'angle', 'channel', 'ibeam', 'tee'].includes(f.profile) ? field(api, 'h', f.h, { label: t('pm.height'), min: 0.5 }) : ''}${['roundBar', 'squareBar'].includes(f.profile) ? '' : field(api, 't', f.t, { label: t('pm.wallThickness'), min: 0.1 })}${field(api, 'rotate', f.rotate, { label: t('pm.rotateProfile'), unit: 'angle', glyph: 'dimAngle' })}${sketchSelect(api, f, 'sketch', t('pm.pathSegments'), 'curves')}`);
+    // A custom profile from a sketch (drawn round its origin, the path point); the corner treatment at joints.
+    const custom = f.profile === 'custom' ? select('profileSketch', [['', `— ${t('pm.chooseSketch')} —`], ...api.sketchList(f, 'profile').map((x) => [x.id, x.name, 'featSketch'])], f.profileSketch ?? '', t('wd.profileSketch')) : '';
+    const corners = seg('corner', [['none', t('wd.corner.none'), 'close'], ['miter', t('wd.corner.miter'), 'dimAngle'], ['butt1', t('wd.corner.butt1'), 'featExtrude'], ['butt2', t('wd.corner.butt2'), 'featCut']], f.corner ?? 'none');
+    return base + group('structural', t('wd.options'), `${custom}<p class="pm-label">${escapeHtml(t('wd.cornerTreatment'))}</p>${corners}<p class="pm-note">${escapeHtml(t('wd.help.corner'))}</p>`);
   },
   fillSurface(api, f) {
     const { t } = api;
     const items = (f.edges ?? []).map((sig, i) => `${t('pm.edge')} ${i + 1}`);
     const curves = [...api.sketchList(f, 'path').map((x) => [x.id, x.name, 'featSketch']), ...api.curveList(f).map((x) => [x.id, x.name, 'sketch3d'])];
-    return group('surfaceFill', t('pm.patchBoundary'), `${pickBox(api, 'edges', items, t('pm.boundaryEdges'), 'lineTool')}${select('curve', [['', `— ${t('pm.orCurve')} —`], ...curves], f.curve ?? '', t('pm.boundaryCurve'))}${note(t('pm.help.fillSurface'))}`);
+    // Continuity at the boundary and curves the patch passes through.
+    const more = group('surfaceFill', t('fill.options'), `${seg('continuity', [['contact', t('fill.contact'), 'close'], ['tangent', t('bnd.tan.face'), 'relTangent'], ['curvature', t('bnd.tan.curvature'), 'curvatureComb']], f.continuity ?? 'contact')}<p class="pm-label">${escapeHtml(t('fill.constraints'))}</p>${listToggles(api, 'fcon', curves.filter(([id]) => id !== f.curve).map(([id, name, icon]) => ({ id, name, icon })), f.constraints ?? [])}`);
+    return group('surfaceFill', t('pm.patchBoundary'), `${pickBox(api, 'edges', items, t('pm.boundaryEdges'), 'lineTool')}${select('curve', [['', `— ${t('pm.orCurve')} —`], ...curves], f.curve ?? '', t('pm.boundaryCurve'))}${note(t('pm.help.fillSurface'))}`) + more;
   },
   boundary(api, f) {
     const { t } = api;
     const list = [...api.sketchList(f, 'path'), ...api.curveList(f).map((x) => ({ ...x, icon: 'sketch3d' }))];
-    return group('boundarySurface', t('pm.curves'), `${seg('op', [['surface', t('op.surface'), 'boundarySurface'], ['boss', t('op.boss'), 'featLoft'], ['cut', t('op.cut'), 'featCut']], f.op ?? 'surface')}${listToggles(api, 'curv', list, f.curves ?? [])}${(f.curves ?? []).length < 2 ? note(t('pm.loftNeedsTwo'), true) : ''}${note(t('pm.help.boundary'))}`);
+    const base = group('boundarySurface', t('pm.curves'), `${seg('op', [['surface', t('op.surface'), 'boundarySurface'], ['boss', t('op.boss'), 'featLoft'], ['cut', t('op.cut'), 'featCut']], f.op ?? 'surface')}${listToggles(api, 'curv', list, f.curves ?? [])}${(f.curves ?? []).length < 2 ? note(t('pm.loftNeedsTwo'), true) : ''}${note(t('pm.help.boundary'))}`);
+    // Direction 2: curves crossing the profiles (the skin follows them); conditions at the ends with their influence.
+    const second = listToggles(api, 'crv2', list.filter((x) => !(f.curves ?? []).includes(x.id)), f.curves2 ?? []);
+    const conds = [['none', t('loft.none')], ['normal', t('loft.normal')], ['tangentFace', t('loft.tangentFace')], ['curvatureFace', t('loft.curvatureFace')]];
+    let ends = `${select('startCond', conds, f.startCond ?? 'none', t('pm.startConstraint'))}${(f.startCond ?? 'none') !== 'none' ? field(api, 'startLength', f.startLength ?? 1, { label: t('bnd.influence'), unit: 'number', min: 0.05 }) : ''}`;
+    ends += `${select('endCond', conds, f.endCond ?? 'none', t('pm.endConstraint'))}${(f.endCond ?? 'none') !== 'none' ? field(api, 'endLength', f.endLength ?? 1, { label: t('bnd.influence'), unit: 'number', min: 0.05 }) : ''}`;
+    const patch = seg('tangent', [['none', t('bnd.tan.none'), 'close'], ['face', t('bnd.tan.face'), 'relTangent'], ['curvature', t('bnd.tan.curvature'), 'curvatureComb']], f.tangent ?? 'none');
+    return [base, group('boundarySurface', t('pm.direction2'), second), group('boundarySurface', t('bnd.conditions'), `${ends}<p class="pm-label">${escapeHtml(t('bnd.patch'))}</p>${patch}`, (f.startCond ?? 'none') !== 'none' || (f.endCond ?? 'none') !== 'none' || (f.tangent ?? 'none') !== 'none' ? '' : 'collapsed')].join('');
   },
   trimSurface(api, f) {
     const { t } = api;

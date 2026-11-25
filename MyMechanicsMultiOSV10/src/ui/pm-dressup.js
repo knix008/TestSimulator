@@ -40,7 +40,21 @@ export function filletPm(api, f) {
     }).join('');
   }
   parts.push(group('dimRadius', t('pm.filletParameters'), size));
+  // Setbacks: corners blended from a distance along each of their edges.
+  const sb = (f.setbacks ?? []).map((x, i) => `<div class="pm-row-title">${icon('refPoint', 'icon tiny')}<span>${escapeHtml(`${t('setback.corner')} ${i + 1} (${x.vertex.map((c) => api.fmt(c)).join(', ')})`)}</span><button type="button" class="icon-button" data-pm="sbDel:${i}" title="${escapeHtml(t('setback.remove'))}">${icon('trash')}</button></div>${[0, 1, 2].map((k) => field(api, `sb:${i}:${k}`, x.d?.[k] ?? x.d?.[0] ?? 1, { label: `${t('setback.distance')} ${k + 1}`, glyph: 'dimHorizontal', min: 0.001 })).join('')}`).join('');
+  parts.push(group('refPoint', t('setback.title'), `${pickBox(api, 'sbVertex', [], t('setback.pick'), 'refPoint')}${sb}<p class="pm-note">${escapeHtml(t('setback.help'))}</p>`, (f.setbacks ?? []).length ? '' : 'collapsed'));
+  parts.push(keepGroup(api, f));
   return parts.join('');
+}
+
+/** Keep features: earlier bosses / cuts the round must not eat (built again after it). */
+const KEEPABLE = ['extrude', 'revolve', 'hole', 'sweep', 'loft', 'boundary', 'advancedHole', 'insertPart', 'rib', 'mountingBoss', 'ventFeature', 'lip', 'snapHook'];
+function keepGroup(api, f) {
+  const { t } = api;
+  const list = (api.featuresBefore?.(f) ?? []).filter((x) => KEEPABLE.includes(x.type) && !x.suppressed).slice(1);
+  if (!list.length) return '';
+  const keep = new Set(f.keep ?? []);
+  return group('featFillet', t('keep.title'), `<div class="pm-list">${list.map((x) => check(`list:keep:${x.id}`, keep.has(x.id), x.name, 'featExtrude')).join('')}</div><p class="pm-note">${escapeHtml(t('keep.help'))}</p>`, keep.size ? '' : 'collapsed');
 }
 
 export function chamferPm(api, f) {
@@ -57,6 +71,7 @@ export function chamferPm(api, f) {
   if (kind === 'angleDist') p += field(api, 'angle', f.angle ?? 45, { label: t('pm.angle'), unit: 'angle', glyph: 'dimAngle', min: 0.1 });
   if (kind === 'distDist' || kind === 'angleDist' || kind === 'offsetFace' || kind === 'faceFace') p += check('flip', f.flip, t('pm.flipDirection'), 'flipH');
   parts.push(group('dimAngle', t('pm.chamferParameters'), p));
+  if (!['vertex', 'faceFace'].includes(kind)) parts.push(keepGroup(api, f));
   return parts.join('');
 }
 

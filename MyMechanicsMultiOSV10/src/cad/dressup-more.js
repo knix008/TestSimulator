@@ -1,7 +1,9 @@
 // Fillet, chamfer and shell options beyond one size on picked edges / faces:
 //   fillet   items: edges, faces (all their edges), features (the edges of their faces); tangent propagation;
 //            multiple radii (a radius per edge); chord width instead of radius; profile circular, conic (rho) or
-//            curvature continuous (G2, a quintic Bézier) — the last two for straight edges between planar faces
+//            curvature continuous (G2, a quintic Bézier) — exact sweeps / revolutions for straight edges between
+//            planes and circular edges; on any other edge the rolling ball's contact points are solved on the real
+//            faces at sections along the edge and the conic / G2 sections lofted
 //            and circular edges between a plane and a coaxial cylinder / plane, built exactly as a swept or
 //            revolved cross-section
 //   chamfer  distance (equal), distance-distance, angle-distance (each with Flip direction), offset face (planar
@@ -192,7 +194,81 @@ function profileFillet(body, edge, r, profile, rho) {
     const key = [...centre, ...axis.map(Math.abs)].map((x) => Math.round(x * 1e4)).join(',') + ':' + Math.round(len(sub(c, centre)) * 1e4);
     return { tool, convex: s.convex, key };
   }
-  throw codeError('profile-unsupported');
+  return { general: true };
+}
+
+/**
+ * A conic / G2 fillet on any edge between two faces: at 32 sections along the edge the ball of radius r touching
+ * both faces (its centre at offset r from each, solved on the real faces), the profile from one contact point to the
+ * other with its corner where the faces' tangent lines there meet; the sections lofted in eight pieces and cut from
+ * (convex) or added to (concave) the body.
+ */
+function generalProfileFillet(body, orig, edge, r, profile, rho) {
+  const R = rep(); const oc = R.getOC();
+  const faces = facesOfEdge(orig, edge);
+  if (faces.length !== 2) throw codeError('edge-not-between-faces');
+  const closest = (face, q) => {
+    const v = R.makeVertex(q);
+    const ex = new oc.BRepExtrema_DistShapeShape(v.wrapped, face.wrapped);
+    try { const pp = ex.PointOnShape2(1); return { d: ex.Value(), p: [pp.X(), pp.Y(), pp.Z()] }; } finally { ex.delete(); }
+  };
+  const closed = len(sub(vec(edge.startPoint), vec(edge.endPoint))) < 1e-7;
+  const n = 32;
+  const sections = [];
+  let convex = true;
+  for (let i = 0; i <= (closed ? n - 1 : n); i++) {
+    const t = closed ? (i + 0.5) / n : i / n;
+    const sc = section(orig, edge, t);
+    const [f1, f2] = sc.faces;
+    let a = r / Math.max(1e-12, Math.abs(dot(f1.u, f2.n)));
+    let b = r / Math.max(1e-12, Math.abs(dot(f2.u, f1.n)));
+    const Q = (x, y) => add(sc.p, add(mul(f1.u, x), mul(f2.u, y)));
+    const F = (x, y) => { const q = Q(x, y); return [closest(f1.face, q).d - r, closest(f2.face, q).d - r]; };
+    for (let it = 0; it < 16; it++) {
+      const res = F(a, b);
+      if (Math.abs(res[0]) < 1e-10 && Math.abs(res[1]) < 1e-10) break;
+      const e = 1e-6 * Math.max(1, Math.abs(a) + Math.abs(b));
+      const ra = F(a + e, b); const rb = F(a, b + e);
+      const J = [[(ra[0] - res[0]) / e, (rb[0] - res[0]) / e], [(ra[1] - res[1]) / e, (rb[1] - res[1]) / e]];
+      const det = J[0][0] * J[1][1] - J[0][1] * J[1][0];
+      if (Math.abs(det) < 1e-14) break;
+      a -= (J[1][1] * res[0] - J[0][1] * res[1]) / det; b -= (-J[1][0] * res[0] + J[0][0] * res[1]) / det;
+    }
+    const q = Q(a, b);
+    const p1 = closest(f1.face, q).p; const p2 = closest(f2.face, q).p;
+    // The faces' tangent lines at the contact points, in the section: square to the edge and to the ball's radius.
+    const T = sc.d;
+    const towards = (pt, other) => { let d = normalize(cross(T, normalize(sub(q, pt)))); if (dot(d, sub(sc.p, pt)) < 0) d = mul(d, -1); return d; };
+    const d1 = towards(p1); const d2 = towards(p2);
+    // Their meeting point (the nearest points of the two lines).
+    const w = sub(p1, p2); const A = dot(d1, d1); const B = dot(d1, d2); const C = dot(d2, d2); const D = dot(d1, w); const E = dot(d2, w);
+    const den = A * C - B * B;
+    const l1 = Math.abs(den) > 1e-14 ? (B * E - C * D) / den : 0; const l2 = Math.abs(den) > 1e-14 ? (A * E - B * D) / den : 0;
+    const corner = mul(add(add(p1, mul(d1, l1)), add(p2, mul(d2, l2))), 0.5);
+    const { poles, weights } = blendPoles(p1, corner, p2, profile, rho);
+    const reach = 4 * Math.max(len(sub(p1, sc.p)), len(sub(p2, sc.p)), 1e-3);
+    const out = sc.convex ? add(sc.p, mul(normalize(add(f1.n, f2.n)), reach)) : sc.p;
+    sections.push({ poles, weights, p1, p2, out });
+    convex = sc.convex;
+  }
+  const wireOf = (x) => R.assembleWire([bezierEdge(x.poles, x.weights), R.makeLine(x.p2, x.out), R.makeLine(x.out, x.p1)]);
+  const loft = (list) => {
+    const mk = new oc.BRepOffsetAPI_ThruSections(true, false, 1e-6);
+    for (const sec of list) mk.AddWire(wireOf(sec).wrapped);
+    mk.Build(new oc.Message_ProgressRange());
+    if (!mk.IsDone()) { mk.delete(); throw codeError('kernel'); }
+    let tt = R.cast(mk.Shape()); mk.delete();
+    if (R.measureVolume(tt) < 0) tt = R.cast(tt.wrapped.Reversed());
+    return tt;
+  };
+  const list = closed ? [...sections, sections[0]] : sections;
+  const parts = 8; const step = (list.length - 1) / parts;
+  let res = body;
+  for (let i = 0; i < parts; i++) {
+    const piece = loft(list.slice(Math.round(i * step), Math.round((i + 1) * step) + 1));
+    res = convex ? res.cut(piece) : res.fuse(piece);
+  }
+  return res;
 }
 
 /** The fillet with the options above. */
@@ -211,15 +287,19 @@ export function filletMore(f, ctx) {
   // Every edge's cross-section tool from the body as it is (the arcs of one circle share one revolved tool),
   // then the convex ones taken away and the concave ones added.
   const seen = new Set();
-  const tools = [];
+  const tools = []; const general = [];
   for (const edge of edges) {
     const t = profileFillet(body, edge, radiusOf(f, body, edge), profile, num(f.rho, 0.5));
+    if (t.general) { general.push(edge); continue; }
     if (t.key && seen.has(t.key)) continue;
     if (t.key) seen.add(t.key);
     tools.push(t);
   }
+  const orig = body;
   for (const t of tools.filter((x) => x.convex)) body = body.cut(t.tool);
   for (const t of tools.filter((x) => !x.convex)) body = body.fuse(t.tool);
+  // Edges between curved faces, or curved edges: sections solved on the faces and lofted.
+  for (const edge of general) body = generalProfileFillet(body, orig, edge, radiusOf(f, orig, edge), profile, num(f.rho, 0.5));
   return { body, matched: edges.length };
 }
 

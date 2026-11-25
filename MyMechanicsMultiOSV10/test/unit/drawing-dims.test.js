@@ -257,3 +257,38 @@ test('title block fields, sheet formats (ISO / ANSI sizes, zones) and tables', (
   d.layers = [{ id: 'L', name: 'L', color: '#000000', visible: true }];
   assert.equal(sheetDrawing(d).format.standard, 'ISO'); assert.equal(sheetDrawing(d).layers.length, 1);
 });
+
+test('baseline and chain dimension sets: values, labels, stacked and end-to-end lines on the sheet', () => {
+  const P = (x, y) => ({ kind: 'point', p: [x, y] });
+  const picks = [P(-50, -25), P(-30, -25), P(0, -25), P(50, -25)];
+  const b = ordinateFromPicks(picks, 'x', 'baseline');
+  assert.equal(b.dtype, 'baseline');
+  assert.deepEqual(dimValue(b), [20, 50, 100]);
+  assert.equal(dimLabel(b), '20 50 100');
+  const c = ordinateFromPicks(picks, 'x', 'chain');
+  assert.deepEqual(dimValue(c), [20, 30, 50]);
+  assert.equal(dimLabel({ ...c, precision: 1 }), '20.0 30.0 50.0');
+  assert.deepEqual(dimValue(ordinateFromPicks([P(0, 0), P(0, 7), P(3, 12)], 'y', 'chain')), [7, 5]);
+  assert.equal(ordinateFromPicks([P(0, 0)], 'x', 'chain').error, 'more');
+  const body = block();
+  const { d, projections } = sheetOf(body);
+  const { frames } = viewFrames(d, projections);
+  const fr = frames.get(ZID);
+  const ents = viewEntities(fr.p);
+  const real = [[-50, -25], [50, -25]].map((q) => pickEntity(ents, q, 0.5));
+  const mk = (id, g) => { const a = { id, kind: 'drwDim', view: ZID, ...g }; [a.x, a.y] = autoTextOffset(a, fr); return a; };
+  const base = mk('b1', ordinateFromPicks([real[0], P(-30, -25), P(0, -25), real[1]], 'x', 'baseline'));
+  const chain = mk('c1', ordinateFromPicks([real[0], P(-30, -25), P(0, -25), real[1]], 'x', 'chain'));
+  const texts = (a) => dimPrimitives(a, fr).filter((p) => p.t === 'text');
+  // Baseline: three lines at three heights (one arrow pair each); chain: three dimensions on one line.
+  const bt = texts(base); assert.deepEqual(bt.map((p) => p.text), ['20', '50', '100']);
+  assert.equal(new Set(bt.map((p) => p.y.toFixed(3))).size, 3);
+  const ct = texts(chain); assert.deepEqual(ct.map((p) => p.text), ['20', '30', '50']);
+  assert.equal(new Set(ct.map((p) => p.y.toFixed(3))).size, 1);
+  assert.equal(dimPrimitives(base, fr).filter((p) => p.t === 'fill').length, 6);
+  d.annotations.push(base, chain);
+  const svg = drwSvg(d, projections);
+  for (const t of ['20', '30', '50', '100']) assert.ok(svg.includes(`>${t}<`), `SVG has ${t}`);
+  const dxf = drwDxf(drawingDxf(d, projections), d, projections, { info: { name: 'Block' } });
+  for (const t of ['30', '100']) assert.ok(dxf.includes(`\n1\n${t}\n`), `DXF has ${t}`);
+});

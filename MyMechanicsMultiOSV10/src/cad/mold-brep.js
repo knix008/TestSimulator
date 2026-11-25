@@ -271,7 +271,7 @@ export function coneSilhouette(face, ax, d, h) {
  * come from one cutter and the kernel's section of it with the cone is exact. undefined when no split is needed,
  * null when the face is not readable.
  */
-function coneCutter(face, d, size) {
+export function coneCutter(face, d, size) {
   const R = rep();
   const sl = coneSilhouetteLines(face, d);
   if (!sl) return null;

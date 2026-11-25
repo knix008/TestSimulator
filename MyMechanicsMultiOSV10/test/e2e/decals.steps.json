@@ -1,0 +1,21 @@
+[
+  {
+    "name": "decal: kernel",
+    "eval": "window.__mymechanics.actions.ensureKernel().then(() => 'ready')",
+    "expect": "^ready$"
+  },
+  {
+    "name": "decal: a 40 × 20 × 10 block",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.closeProject({ force: true }); await m.actions.openContent('blk.scad', 'cube([40, 20, 10]);'); for (let i = 0; i < 60 && !m.active()?.features?.some((f) => f.type === 'openscad'); i++) await new Promise((r) => setTimeout(r, 200)); await new Promise((r) => setTimeout(r, 400)); return 'ok'; })()",
+    "expect": "^ok$"
+  },
+  {
+    "name": "decal: Decals page; a decal on the top face from an image; it is drawn on the model and kept in the part; width and turn change it",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.run('decals'); await sleep(200); const cv = document.createElement('canvas'); cv.width = 64; cv.height = 32; const g = cv.getContext('2d'); g.fillStyle = '#d33'; g.fillRect(0, 0, 64, 32); g.fillStyle = '#fff'; g.font = '20px sans-serif'; g.fillText('MM', 14, 24); const { rep } = await import('/src/cad/kernel.js'); const { faceSignature } = await import('/src/cad/refs.js'); const body = m.actions.buildPart(m.active()).body; const top = body.faces.find((f) => f.geomType === 'PLANE' && f.center.z > 9); const d = await m.decals.addDecal(faceSignature(top), { src: cv.toDataURL(), name: 'logo.png', aspect: 0.5, width: 30 }); await sleep(800); const grp = m.viewport.scene.getObjectByName('decals'); const drawn = grp?.children.length ?? 0; await m.actions.pmFieldChanged('decal.width', '20', 'length'); await m.actions.pmFieldChanged('decal.angle', '30', 'angle'); await sleep(200); const p = m.active().decals?.[0]; return JSON.stringify({ kept: Boolean(p?.src), drawn, width: p?.width, angle: p?.angle, row: Boolean(document.querySelector('[data-pm^=\"decalDel:\"]')) }); })()",
+    "expect": "\"kept\":true,\"drawn\":1,\"width\":20,\"angle\":30,\"row\":true"
+  },
+  {
+    "shot": "decal",
+    "wait": 400
+  }
+]

@@ -1,0 +1,13 @@
+[
+  {
+    "name": "weld table: kernel; a pipe standing on a plate with a 3 mm fillet weld round it",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.actions.ensureKernel(); await m.actions.closeProject({ force: true }); await m.actions.newDocument('part'); await sleep(300);\n      const F = await import('/src/cad/features.js'); const S = await import('/src/cad/sketch.js'); const Rf = await import('/src/cad/refs.js'); const p = m.active();\n      m.actions.change('op.addFeature', () => {\n        const s1 = F.createFeature(p, 'sketch', { plane: { kind: 'std', name: 'top' }, ...S.createSketchGeometry() }); S.addRectangle(s1, -30, -30, 30, 30); p.features.push(s1);\n        p.features.push(F.createFeature(p, 'extrude', { sketch: s1.id, depth: 5 }));\n        const pl = F.createFeature(p, 'plane', { base: { kind: 'std', name: 'top' }, offset: 5 }); p.features.push(pl);\n        const s2 = F.createFeature(p, 'sketch', { plane: { kind: 'ref', id: pl.id }, ...S.createSketchGeometry() }); S.addCircle(s2, 0, 0, 10); p.features.push(s2);\n        p.features.push(F.createFeature(p, 'extrude', { sketch: s2.id, depth: 30 }));\n      }); await sleep(400);\n      const b = m.actions.buildPart(p).body; const e = b.edges.find((x) => x.geomType === 'CIRCLE' && Math.abs(x.startPoint.z - 5) < 1e-6);\n      m.actions.change('op.addFeature', () => { p.features.push(F.createFeature(p, 'weldBead', { edges: [Rf.edgeSignature(e)], size: 3, name: 'Weld' })); }); await sleep(400);\n      return String(m.actions.buildPart(p).result.results.get(p.features.at(-1).id)?.ok); })()",
+    "expect": "^true$"
+  },
+  {
+    "name": "weld table: a drawing of it; Weld Table puts a table with the bead (fillet z3, its length round the pipe, 1, its volume)",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.actions.newDrawing(); await sleep(900);\n      await m.run('weldTable'); await sleep(400); const d = m.active(); const a = d.annotations.find((x) => x.kind === 'drwTable' && x.auto === 'weld');\n      const row = a?.cells?.[1] ?? []; const svg = document.querySelector('.drawing-paper svg')?.outerHTML ?? '';\n      return JSON.stringify({ cols: a?.cells?.[0]?.length, size: row[2], length: Number(String(row[3]).split(' ')[0]).toFixed(1), qty: row[4], volume: Number(String(row[5]).split(' ')[0]).toFixed(0), shown: svg.includes('>z3<') }); })()",
+    "expect": "\"cols\":6,\"size\":\"z3\",\"length\":\"62\\.8\",\"qty\":\"1\",\"volume\":\"311\",\"shown\":true",
+    "shot": "drw-weld-table"
+  }
+]

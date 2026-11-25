@@ -4,6 +4,7 @@
 import { escapeHtml } from './dom.js';
 import { icon } from '../icons.js';
 import { group, field, check, seg, select, pickBox } from './propertymanager.js';
+import { sweepMoreGroups } from './pm-advanced.js';
 import { PART_MORE_TYPES, CURVE_TYPES, SHEET_EXTRA_TYPES } from '../cad/part-more-types.js';
 import { SHEET_EXTRA_PM, sheetExtraStart } from './pm-sheet-extra.js';
 import { PART_EXTRA_PM, partExtraStart } from './pm-part-extra.js';
@@ -36,6 +37,8 @@ const xyz = (api, f, keys, glyph = 'pointTool') => keys.map((k) => field(api, k,
 const axes3 = (key, value) => seg(key, [['x', 'X'], ['y', 'Y'], ['z', 'Z'], ...(/^-[xyz]$/.test(String(value)) ? [[value, `−${value.slice(1).toUpperCase()}`]] : [])], value);
 const dirs6 = (key, value) => seg(key, [['x', '+X'], ['-x', '−X'], ['y', '+Y'], ['-y', '−Y'], ['z', '+Z'], ['-z', '−Z']], value);
 const ofType = (api, f, types) => before(api, f).filter((x) => types.includes(x.type) && !x.suppressed);
+/** Feature types that make surface bodies (a split line by intersection can use them). */
+const SURFACE_LIKE = ['surfaceExtrude', 'surfaceRevolve', 'surfacePlanar', 'surfaceLoft', 'surfaceOffset', 'surfaceSweep', 'knit', 'fillSurface', 'boundary', 'trimSurface', 'ruledSurface', 'extendSurface', 'surfaceSpline', 'radiateSurface'];
 const planeOptions = (api, f) => [['std:front', api.t('plane.front')], ['std:top', api.t('plane.top')], ['std:right', api.t('plane.right')], ...ofType(api, f, ['plane']).map((p) => [`ref:${p.id}`, p.name, 'refPlane'])];
 const sketchOptions = (api, f, test) => [['', `— ${api.t('pm.chooseSketch')} —`], ...before(api, f).filter((x) => x.type === 'sketch' && !x.suppressed && test(x)).map((s) => [s.id, s.name, 'featSketch'])];
 const hasCurves = (s) => s.entities.some((k) => k.type !== 'point' && !k.construction);
@@ -113,6 +116,7 @@ const SURFACE_PM = {
     return [
       group('featSketch', t('pm.profileAndPath'), `${select('sketch', [['', `— ${t('pm.chooseSketch')} —`], ...(api.sketchList?.(f, 'path') ?? []).map((s) => [s.id, s.name, 'featSketch'])], f.sketch ?? '', t('pm.profile'))}${select('path', [['', `— ${t('pm.choosePath')} —`], ...paths.filter(([id]) => id !== f.sketch)], f.path ?? '', t('pm.path'))}`),
       group('surfaceSweep', t('pm.options'), `${select('transition', [['right', t('sweep.right')], ['round', t('sweep.round')], ['transformed', t('sweep.transformed')]], f.transition ?? 'right', t('pm.corners'))}${check('frenet', f.frenet, t('pm.frenet'), 'helix')}${note(t('pm.help.surfaceSweep'))}`),
+      sweepMoreGroups(api, f, paths),
     ].join('');
   },
   cutWithSurface(api, f) {
@@ -296,7 +300,17 @@ export const PART_MORE_PM = {
   },
   splitLine(api, f) {
     const { t } = api;
-    return group('splitLine', t('pm.selections'), `${select('sketch', sketchOptions(api, f, hasCurves), f.sketch ?? '', t('pm.sketchToProject'))}${pickBox(api, 'faces', faceItems(api, f.faces), t('pm.facesToSplit'), 'part')}${note(t('pm.help.projectAll'))}`);
+    const kind = f.kind ?? 'projection';
+    const kinds = seg('kind', [['projection', t('sl.projection'), 'projectedCurve'], ['silhouette', t('sl.silhouette'), 'silhouette'], ['intersection', t('sl.intersection'), 'intersectRegions']], kind);
+    let body = '';
+    if (kind === 'projection') body = select('sketch', sketchOptions(api, f, hasCurves), f.sketch ?? '', t('pm.sketchToProject'));
+    else if (kind === 'silhouette') body = `${select('plane', planeOptions(api, f), f.plane ?? 'std:top', t('sl.direction'))}${note(t('sl.help.silhouette'))}`;
+    else {
+      const tools = f.tools ?? [];
+      const opts = [...planeOptions(api, f).map(([v, name, g]) => [v, name, g ?? 'refPlane']), ...ofType(api, f, SURFACE_LIKE).map((x) => [`surf:${x.id}`, x.name, 'knit'])];
+      body = `<div class="pm-checks">${opts.map(([v, name, g]) => `<label class="pm-check"><input type="checkbox" data-pm-toggle="slt:${escapeHtml(v)}" ${tools.includes(v) ? 'checked' : ''}/>${icon(g)}<span>${escapeHtml(name)}</span></label>`).join('')}</div>${pickBox(api, 'toolFaces', faceItems(api, f.toolFaces ?? []), t('sl.toolFaces'), 'face')}${note(t('sl.help.intersection'))}`;
+    }
+    return group('splitLine', t('pm.selections'), `${kinds}${body}${pickBox(api, 'faces', faceItems(api, f.faces), t('pm.facesToSplit'), 'part')}${kind === 'projection' ? note(t('pm.help.projectAll')) : ''}`);
   },
   compositeCurve(api, f) {
     const { t } = api;

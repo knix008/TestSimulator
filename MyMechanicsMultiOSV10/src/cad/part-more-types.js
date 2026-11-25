@@ -99,7 +99,7 @@ export const PART_MORE_DEFAULTS = {
   fillPattern: () => ({ seeds: [], face: null, spacing: 15, margin: 3, layout: 'square', diameter: 5, angle: 0 }),
   variablePattern: () => ({ seeds: [], param: 'depth', delta: 5, count: 3, axis: 'x', spacing: 20 }),
   projectedCurve: () => ({ sketch: null, faces: [] }),
-  splitLine: () => ({ sketch: null, faces: [] }),
+  splitLine: () => ({ kind: 'projection', sketch: null, faces: [], plane: 'std:top', tools: [], toolFaces: [] }),
   compositeCurve: () => ({ curves: [], edges: [] }),
   curveXYZ: () => ({ points: [[0, 0, 0], [20, 0, 10], [40, -10, 0], [60, -20, 15]], closed: false }),
   // A spline lying on a face, through points picked on it (surface-spline.js).

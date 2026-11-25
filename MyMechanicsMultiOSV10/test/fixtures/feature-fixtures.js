@@ -844,7 +844,8 @@ export const FIXTURES = {
   moveFace: {
     // The plate's top face pushed up by the distance.
     make: (p, o) => { block(p, -20, -20, 50, 50, 4); return createFeature(p, 'moveFace', { faces: [faceWhere(built(p), (c) => near(c[2], 4))], distance: 3, ...o }); },
-    num: { distance: { to: 6, m: 'V', dir: '+' } },
+    // The angle turns the face only in the rotate mode (about X through the face's centre).
+    num: { distance: { to: 6, m: 'V', dir: '+' }, angle: { with: { mode: 'rotate' }, to: 5 } },
   },
   connectionPoint: {
     // The plate's top face: its centre, pointing up.

@@ -15,6 +15,8 @@ export const ICONS_DRW = {
   dimChamfer: '<path d="M3 20h10l7-7V3"/><path d="M13 20l7-7" stroke-width="2.2"/><path d="M16 16l4 4" opacity="0.6"/><path d="M6 6h6" /><path d="M12 6l4 10" opacity="0.6"/>',
   dimTrueLength: '<path d="M4 18l8-4 8 4M12 14V4" opacity="0.6"/><path d="M5 20l7-3.5"/><path d="M5 20l1-2.6M5 20l2.8-.3M12 16.5l-1 2.6M12 16.5l-2.8.3"/><text x="16.5" y="9" font-size="6" text-anchor="middle" fill="currentColor" stroke="none" font-family="sans-serif" font-weight="700">TL</text>',
   dimProjected: '<path d="M4 6l8 4 8-4M12 10v10" opacity="0.6"/><path d="M4 20h10" stroke-dasharray="2 1.2"/><path d="M4 20l2-1.2M4 20l2 1.2M14 20l-2-1.2M14 20l-2 1.2"/><path d="M4 6v14M14 11v9" opacity="0.5"/>',
+  dimBaseline: '<path d="M4 4v16M10 9v11M15 13v7M20 17v3" opacity="0.6"/><path d="M4 6h6M4 10.5h11M4 15h16"/><path d="M4 6l1.6-1M4 6l1.6 1M10 6l-1.6-1M10 6l-1.6 1M15 10.5l-1.6-1M15 10.5l-1.6 1M20 15l-1.6-1M20 15l-1.6 1"/>',
+  dimChain: '<path d="M3 8v12M9 11v9M15 9v11M21 12v8" opacity="0.6"/><path d="M3 15h18"/><path d="M3 15l1.6-1M3 15l1.6 1M9 15l-1.6-1M9 15l-1.6 1M9 15l1.6-1M9 15l1.6 1M15 15l-1.6-1M15 15l-1.6 1M15 15l1.6-1M15 15l1.6 1M21 15l-1.6-1M21 15l-1.6 1"/>',
   dimArcLength: '<path d="M4 19a8 8 0 0 1 16 0" opacity="0.6"/><path d="M6.5 13.5a7 7 0 0 1 11 0"/><path d="M6.5 13.5l.4-2.6M6.5 13.5l2.5.6M17.5 13.5l-.4-2.6M17.5 13.5l-2.5.6"/><path d="M8.5 6.5a4 4 0 0 1 7 0" stroke-width="1.4"/>',
   snapAlign: '<rect x="4" y="5" width="7" height="5" rx="0.8"/><rect x="13" y="14" width="7" height="5" rx="0.8"/><path d="M4 2v20" stroke-dasharray="2 1.3" opacity="0.8"/><path d="M4 16.5h9" opacity="0.6"/><path d="M9 14.5l-2 2 2 2"/>',
   dimTolerance: '<path d="M4 15h9"/><path d="M15 6h5M17.5 3.5v5M15 13h5"/><path d="M4 12l2-2v7" opacity="0.7"/>',

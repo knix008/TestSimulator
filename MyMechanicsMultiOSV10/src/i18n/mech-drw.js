@@ -14,7 +14,7 @@ const EVAL = {
   costing: ['원가 계산', 'Costing', '공정(절삭 가공·판금·주조·사출 성형)별로 원가를 계산합니다. 절삭은 B-rep에서 찾은 구멍(드릴·카운터보어·카운터싱크·리머·탭), 피처마다 깎아 낸 부피(포켓), 선삭(환봉 소재), 황삭·정삭·준비를 작업별로 나눕니다. 단가표는 고칠 수 있고 부품에 저장되며, 내역은 CSV·HTML 보고서로 내보냅니다.', 'Costs the part by process (machining, sheet metal, casting, injection moulding). Machining is feature based: holes found on the B-rep (drill, counterbore, countersink, ream, tap), the volume each cutting feature removed (pockets), turning from round bar, roughing, finishing and setups, one row per operation. The rate tables can be edited and are kept with the part; the breakdown exports as CSV or an HTML report.'],
   sustain: ['지속 가능성', 'Sustainability', '원가 계산과 같은 작업 내역으로 CO₂ 환산량을 계산합니다: 사들인 소재 × 계수, 작업마다 쓴 전력 × 전력 계수, 운송. 계수는 고칠 수 있습니다.', 'Works out the CO₂e from the same operation breakdown as the costing: the material bought × its factor, the energy of every operation × the grid factor, and transport. The factors can be edited.'],
 };
-const DIMS = { auto: ['자동', 'Smart'], horizontal: ['수평', 'Horizontal'], vertical: ['수직', 'Vertical'], aligned: ['평행', 'Aligned'], radial: ['반지름', 'Radial'], diameter: ['지름', 'Diameter'], angular: ['각도', 'Angular'], ordinate: ['세로좌표', 'Ordinate'], chamfer: ['모따기', 'Chamfer'], arclength: ['호 길이', 'Arc length'] };
+const DIMS = { auto: ['자동', 'Smart'], horizontal: ['수평', 'Horizontal'], vertical: ['수직', 'Vertical'], aligned: ['평행', 'Aligned'], radial: ['반지름', 'Radial'], diameter: ['지름', 'Diameter'], angular: ['각도', 'Angular'], ordinate: ['세로좌표', 'Ordinate'], baseline: ['기준선', 'Baseline'], chain: ['체인', 'Chain'], chamfer: ['모따기', 'Chamfer'], arclength: ['호 길이', 'Arc length'] };
 const TOLS = { none: ['없음', 'None'], symmetric: ['대칭 ±', 'Symmetric ±'], bilateral: ['편차 +/−', 'Deviation +/−'], limits: ['한계 치수', 'Limits'], fit: ['끼워맞춤 (ISO 286)', 'Fit (ISO 286)'], basic: ['기본 치수 (틀)', 'Basic (box)'], reference: ['참고 치수 ( )', 'Reference ( )'] };
 const WELDS = { fillet: ['필릿', 'Fillet'], square: ['I형', 'Square'], vGroove: ['V형', 'V-groove'], bevel: ['베벨', 'Bevel'], uGroove: ['U형', 'U-groove'], jGroove: ['J형', 'J-groove'], flareV: ['플레어 V', 'Flare-V'], plug: ['플러그', 'Plug'], spot: ['스폿', 'Spot'], seam: ['심', 'Seam'] };
 
@@ -64,7 +64,7 @@ const T = {
   'cmd.drwLayers': ['도면층', 'Layers'],
   'cmd.drwTitleBlock': ['표제란 편집', 'Edit Title Block'],
   'cmd.drwSheetFormat': ['시트 형식', 'Sheet Format'],
-  'tip.drwSmartDim': ['뷰의 모서리·꼭짓점을 골라 치수를 붙입니다 (수평·수직·평행·반지름·지름·각도·세로좌표·모따기)', 'Pick edges and vertices in a view to dimension them (horizontal, vertical, aligned, radial, diameter, angular, ordinate, chamfer)'],
+  'tip.drwSmartDim': ['뷰의 모서리·꼭짓점을 골라 치수를 붙입니다 (수평·수직·평행·반지름·지름·각도·세로좌표·기준선·체인·모따기·호 길이)', 'Pick edges and vertices in a view to dimension them (horizontal, vertical, aligned, radial, diameter, angular, ordinate, baseline, chain, chamfer, arc length)'],
   'tip.drwModelItems': ['부품의 스케치 치수와 돌출 깊이를 뷰로 가져옵니다', "Brings the part's sketch dimensions and extrude depths into the views"],
   'tip.drwCenterMarks': ['원통 면에서 중심 표시와 중심선을 넣습니다', 'Inserts centre marks and centre lines from the cylindrical faces'],
   'pm.help.drwSmartDim': ['종류를 고르고 뷰에서 모서리나 꼭짓점을 누르세요. 선 하나 = 길이, 원 = 지름, 두 점·평행선 = 거리, 두 선 = 각도. 치수를 누르면 정밀도와 공차를 고칠 수 있습니다. 등각·이등각 뷰에서는 모델의 3D 길이(TL)를 재고, 상세도는 모델 값, 끊긴 뷰는 끊긴 길이를 더한 실제 거리를 씁니다. 치수는 언제든 끌어 글자를 옮길 수 있습니다.', 'Choose a type and click edges or vertices in a view. One line = its length, a circle = its diameter, two points or parallel lines = their distance, two lines = the angle. Click a dimension to edit its precision and tolerance. In isometric and dimetric views the model\'s 3D length is measured (TL); detail views show model values, broken views the true distance across the break. Drag a dimension at any time to move its text.'],
@@ -104,7 +104,7 @@ const T = {
   'drwDim.pickSilhouette': ['윤곽선 (원통)', 'Silhouette (cylinder)'],
   'drwDim.outsideDetail': ['상세도의 원 안을 누르세요', 'Click inside the detail view\'s circle'],
   'drwDim.noModelEdge': ['여기에 모델의 모서리나 꼭짓점이 없습니다', 'No model edge or vertex here'],
-  'drwDim.error.pictorialType': ['등각·이등각 뷰에서는 수평·수직·세로좌표·모따기 치수를 쓸 수 없습니다 — 자동, 평행, 반지름, 지름, 각도를 쓰세요', 'Horizontal, vertical, ordinate and chamfer dimensions do not apply in isometric and dimetric views — use auto, aligned, radius, diameter or angle'],
+  'drwDim.error.pictorialType': ['등각·이등각 뷰에서는 수평·수직·세로좌표·기준선·체인·모따기 치수를 쓸 수 없습니다 — 자동, 평행, 반지름, 지름, 각도를 쓰세요', 'Horizontal, vertical, ordinate, baseline, chain and chamfer dimensions do not apply in isometric and dimetric views — use auto, aligned, radius, diameter or angle'],
   'drwDim.pictorial': ['입체 뷰 (등각·이등각)', 'Pictorial views (isometric, dimetric)'],
   'drwDim.measureTrue': ['실제 길이', 'True size'],
   'drwDim.measureProjected': ['투영 길이', 'Projected size'],

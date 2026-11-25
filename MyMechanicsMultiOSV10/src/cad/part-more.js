@@ -7,6 +7,7 @@
 // Flex and Deform rebuild the body as a fine faceted solid (its triangles moved one by one, then sewn):
 // an approximation of the smooth result, but a real closed solid that later features can cut and join.
 import { buildOpenScad } from './openscad-feature.js';
+import { silhouetteTools, planeTool, splitFace } from './split-line-more.js';
 import { buildFastening } from './fastening.js';
 import { buildSurfaceMore } from './surface-more.js';
 import { buildSheetExtra } from './sheet-extra.js';
@@ -890,24 +891,41 @@ function buildProjectedCurve(f, ctx) {
 /** Split line: the faces cut along the sketch projected onto them (more faces, the same solid). */
 function buildSplitLine(f, ctx) {
   const R = rep(); const oc = R.getOC();
-  const { sketch, frame } = sketchOf(f, ctx);
-  const wire = sketchWire(sketch, frame);
   const faces = targetFaces(f, ctx);
-  const tool = prismBothWays(wire, frame.normal, sizeAround(ctx));
+  const big = sizeAround(ctx);
+  // The tools that cut a face: the sketch's prism (projection), the face's silhouette for a direction, or the
+  // planes / faces / surface bodies it meets (split-line-more.js).
+  let toolsFor;
+  const kind = f.kind ?? 'projection';
+  if (kind === 'silhouette') {
+    const d = planeOf(f.plane ?? 'std:top', ctx).normal;
+    toolsFor = (face) => silhouetteTools(face, d, big);
+  } else if (kind === 'intersection') {
+    const tools = [];
+    for (const ref of f.tools ?? []) {
+      if (ref.startsWith('std:') || ref.startsWith('ref:')) { const fr = planeOf(ref, ctx); tools.push(planeTool(fr.origin, fr.normal, big)); }
+      else if (ref.startsWith('surf:')) { const sh = ctx.surfaces.get(ref.slice(5)); if (sh) tools.push(sh); }
+    }
+    for (const sig of f.toolFaces ?? []) { const fc = findFace(ctx.body, sig); if (fc) tools.push(fc); }
+    if (!tools.length) throw codeError('no-tools');
+    toolsFor = () => tools;
+  } else {
+    const { sketch, frame } = sketchOf(f, ctx);
+    const tool = prismBothWays(sketchWire(sketch, frame), frame.normal, big);
+    toolsFor = () => [tool];
+  }
   const out = [];
-  let split = 0;
+  let split = 0; let anyTool = false;
   for (const face of ctx.body.faces) {
     if (!faces.some((x) => x.isSame(face))) { out.push(face.clone()); continue; }
-    const args = new oc.NCollection_List_TopoDS_Shape(); args.Append(face.clone().wrapped);
-    const tools = new oc.NCollection_List_TopoDS_Shape(); tools.Append(tool.clone().wrapped);
-    const sp = new oc.BRepAlgoAPI_Splitter();
-    sp.SetArguments(args); sp.SetTools(tools); sp.Build(new oc.Message_ProgressRange());
-    const pieces = sp.HasErrors() ? [face.clone()] : R.cast(sp.Shape()).faces;
-    sp.delete();
+    const tools = toolsFor(face);
+    if (tools.length) anyTool = true;
+    const pieces = tools.length ? splitFace(face, tools, big * 1e-6) : [face.clone()];
     if (pieces.length > 1) split++;
     out.push(...pieces);
   }
-  if (!split) throw codeError('projection-missed');
+  // A silhouette that already runs along the face's edges (a cylinder's seam) splits nothing: that is fine.
+  if (!split && !(kind === 'silhouette' && anyTool)) throw codeError(kind === 'projection' ? 'projection-missed' : 'split-missed');
   const sew = new oc.BRepBuilderAPI_Sewing(1e-5, true, true, true, false);
   for (const fc of out) sew.Add(fc.wrapped);
   sew.Perform(new oc.Message_ProgressRange());

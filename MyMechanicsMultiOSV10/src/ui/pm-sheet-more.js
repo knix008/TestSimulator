@@ -85,10 +85,21 @@ export const SHEET_MORE_PM = {
   },
   formTool(api, f) {
     const { t } = api;
-    const tool = FORM_TOOLS.includes(f.tool) ? f.tool : 'dimple';
+    const tool = f.tool === 'custom' ? 'custom' : FORM_TOOLS.includes(f.tool) ? f.tool : 'dimple';
     const long = tool === 'louver' || tool === 'lance';
+    // A custom forming tool: a part of the project as the punch, its stop face and faces to punch out.
+    let custom = '';
+    if (tool === 'custom') {
+      const parts = (api.otherParts?.() ?? []).map((p) => [p.id, p.name, 'part']);
+      const faces = f.toolPart ? (api.partPlanarFaces?.(f.toolPart) ?? []) : [];
+      const key = (sig) => sig.center.map((c) => Math.round(c * 1e4)).join(',');
+      const stop = f.stopFace ? key(f.stopFace) : '';
+      const removed = new Set((f.removeFaces ?? []).map(key));
+      custom = group('formTool', t('form.custom'), `${select('toolPart', [['', `— ${t('pm.choosePart')} —`], ...parts], f.toolPart ?? '', t('form.punch'))}${faces.length ? `${select('stopFace', [['', `— ${t('form.stopFace')} —`], ...faces.map((x) => [key(x.sig), x.label, 'face'])], stop, t('form.stopFace'))}<p class="pm-label">${escapeHtml(t('form.removeFaces'))}</p><div class="pm-list">${faces.filter((x) => key(x.sig) !== stop).map((x) => check(`frm:${key(x.sig)}`, removed.has(key(x.sig)), x.label, 'face')).join('')}</div>` : ''}<p class="pm-note">${escapeHtml(t('form.help.custom'))}</p>`);
+    }
     return [
-      group('formTool', t('sm.formLibrary'), seg('tool', FORM_TOOLS.map((k) => [k, t(`sm.form.${k}`), `form${k[0].toUpperCase()}${k.slice(1)}`]), tool)),
+      group('formTool', t('sm.formLibrary'), seg('tool', [...FORM_TOOLS.map((k) => [k, t(`sm.form.${k}`), `form${k[0].toUpperCase()}${k.slice(1)}`]), ['custom', t('form.customTool'), 'part']], tool)),
+      custom,
       group('formTool', t('sm.placement'), `${pickBox(api, 'face', oneFace(api, f.face), t('sm.sheetFace'), 'part')}${field(api, 'dx', f.dx, { label: 'ΔX', glyph: 'position' })}${field(api, 'dy', f.dy, { label: 'ΔY', glyph: 'position' })}${field(api, 'angle', f.angle, { label: t('pm.angle'), unit: 'angle', glyph: 'dimAngle' })}${check('down', f.down, t('sm.formDown'), 'flipV')}`),
       group('formTool', t('pm.parameters'), `${field(api, 'size', f.size, { label: long ? t('pm.length') : t('sm.diameter'), min: 1 })}${long ? field(api, 'width', f.width, { label: t('pm.width'), min: 0.5 }) : ''}${field(api, 'height', f.height, { label: t('pm.height'), min: 0.1 })}${note(t(`sm.help.form.${tool}`))}`),
     ].join('');
@@ -188,8 +199,9 @@ export function weldmentCutRows(part, results, { t, fmtLen }) {
     const trim = live.filter((x) => x.type === 'trimExtend' && x.member === f.id).at(-1);
     const members = (trim ? results.get(trim.id)?.members : null) ?? results.get(f.id)?.members ?? [];
     for (const [i, m] of members.entries()) {
-      rows.push(['structural', `${f.name} #${i + 1} · ${t(`profile.${f.profile}`)} ${fmtLen(f.w, false)}${['rectTube', 'angle', 'channel', 'ibeam', 'tee'].includes(f.profile) ? `×${fmtLen(f.h, false)}` : ''}`, fmtLen(m.length)]);
-      memberTotal += m.length;
+      rows.push(['structural', `${f.name} #${i + 1} · ${t(`profile.${f.profile}`)} ${fmtLen(f.w, false)}${['rectTube', 'angle', 'channel', 'ibeam', 'tee'].includes(f.profile) ? `×${fmtLen(f.h, false)}` : ''}`, `${fmtLen(m.cutLength ?? m.length)}${(m.angle1 ?? 90) !== 90 || (m.angle2 ?? 90) !== 90 ? ` ∠${m.angle1 ?? 90}° / ${m.angle2 ?? 90}°` : ''}`]);
+      // Stock to cut: the member's length after its corner cuts.
+      memberTotal += m.cutLength ?? m.length;
     }
   }
   for (const f of live.filter((x) => x.type === 'endCap')) {

@@ -38,6 +38,7 @@ import { convertEntities, intersectionEntities, transformEntities } from './cad/
 import { silhouetteEntities } from './cad/sketch-silhouette.js';
 import { setDriven, setArcCondition, baselineDimensions } from './cad/sketch-diagnose.js';
 import { refreshPierce } from './cad/sketch-pierce.js';
+import { moveFeature, makeFolder, moveIntoFolder, dissolveFolder } from './cad/feature-order.js';
 import { makePartsFromBlocks, updateFromLayout } from './cad/layout.js';
 import { blockInstances } from './cad/asm-extra.js';
 import { REL3D, solve3d, addRelation3d, measure3d, pruneRelations3d } from './cad/sketch3d-solve.js';
@@ -55,6 +56,7 @@ import { writeDwg } from './cad/dwg/write.js';
 import { readDxf } from './cad/dxf-read.js';
 import { flattenDrawing, itemsToSketch, UNIT_MM } from './cad/cad2d-import.js';
 import { sketchToEntities, entitiesToDxf } from './cad/sketch-export.js';
+import { flatPatternEntities } from './cad/flat-dxf.js';
 import { MATERIALS, MATERIAL_FAMILIES, familyOf, materialOf, materialName, massOf } from './cad/materials.js';
 import { SAMPLES, buildSample } from './cad/samples.js';
 import { Viewport, hitKey } from './view/viewport.js';
@@ -84,6 +86,8 @@ import { expandFlexible, flexLeafPlacement } from './cad/flex-sub.js';
 import { createExplodeTools } from './app-explode.js';
 import { createAsmVizTools } from './app-asmviz.js';
 import { createSectionPropsTools } from './app-secprops.js';
+import { createDecalTools } from './app-decals.js';
+import { ruleK, gaugeRowsOf, gaugeOf, seedBendRows, DEFAULT_K_ROWS } from './cad/sheet-gauge.js';
 import { createAsmWeldTools } from './app-asmweld.js';
 import { hiddenInside } from './cad/asm-more.js';
 import { createInContextTools } from './app-incontext.js';
@@ -685,6 +689,8 @@ function syncPart(part) {
   // Hidden by the body like its edges (an internal thread or a helix inside a part must not show through it).
   for (const c of entry.extras?.curves ?? []) lines.push({ segments: c.segments, color: '#9c4dcc', width: 1.8, depthTest: true });
   viewport.setLines('markers', lines);
+  // Decals on the part's faces (app-decals.js).
+  decalTools.show();
 }
 
 function sketchLines(f, fr, color) {
@@ -779,6 +785,7 @@ function syncAssembly(asm) {
   viewport.setPlanes(Object.entries(STD_PLANES).map(([id, f]) => ({ id, frame: makeFrame(f), size: 120, visible: state.selection.some((s) => s.key === `plane:${id}`) || (state.settings.showPlanes && !list.length) })));
   viewport.groups.origin.visible = state.settings.showOrigin;
   viewport.setLines('markers', [...explodeLineSpecs(asm), ...componentSketchLines(asm)]);
+  decalTools.show();
 }
 
 /**
@@ -1206,6 +1213,11 @@ function pickForFeature(hit, ev) {
     const fid = featureOfHit(hit);
     if (fid) updateFeature(() => { const list = f.featureItems ?? []; f.featureItems = list.includes(fid) ? list.filter((x) => x !== fid) : [...list, fid]; });
     else notify('info', t('notice.pickSeedInTree'));
+  } else if (e.pick === 'sbVertex' && (hit?.kind === 'face' || hit?.kind === 'edge') && topo?.shape && hit.point) {
+    // A fillet setback corner: the vertex nearest the click, with a setback of 2.5 radii along each edge to start.
+    const v = nearestVertex(topo.shape, hit.point);
+    const d = Math.round((Number(f.radius) || 2) * 2.5 * 1000) / 1000;
+    if (v) updateFeature(() => { f.setbacks = [...(f.setbacks ?? []), { vertex: v.map(round3), d: [d, d, d] }]; });
   } else if (e.pick === 'vertex' && (hit?.kind === 'face' || hit?.kind === 'edge') && topo?.shape && hit.point) {
     const v = nearestVertex(topo.shape, hit.point);
     if (v) updateFeature(() => { f.vertex = v.map(round3); });
@@ -1240,6 +1252,9 @@ function pickForFeature(hit, ev) {
   } else if (e.pick === 'edges' && hit?.kind === 'face' && topo?.shape) {
     // A face: all of its edges (picking a face fillets its edges).
     updateFeature(() => { for (const edge of topo.shape.edges) { const sig = edgeSignature(edge); if (!f.edges.some((x) => near(x.mid, sig.mid))) f.edges.push(sig); } });
+  } else if (e.pick === 'toolFaces' && hit?.kind === 'face' && topo?.shape) {
+    const sig = faceSignature(topo.shape);
+    updateFeature(() => { f.toolFaces ??= []; toggle(f.toolFaces, sig, (x) => near(x.center, sig.center)); });
   } else if (e.pick === 'faces' && hit?.kind === 'face' && topo?.shape) {
     const sig = faceSignature(topo.shape);
     if (f.type === 'dome') { if (sig.type !== 'PLANE') { notify('info', t('notice.pickPlanarFace')); return; } updateFeature(() => { f.faces = [sig]; }); return; }
@@ -2065,7 +2080,9 @@ function bendTableRows(d) {
   return flat.formed.map((b, i) => {
     const angle = Number(b.theta ?? b.angle ?? 90); const radius = Number(b.r ?? b.radius ?? 0);
     const allowance = Number(b.BA ?? b.allowance ?? ((angle * Math.PI) / 180) * (radius + k * tk));
-    return { no: i + 1, dir: t(bendDirection(flat, i) === 'down' ? 'drw.bendDown' : 'drw.bendUp'), angle, radius, k, allowance };
+    // The K a table-driven bend amounts to (gauge / bend tables: cad/sheet-gauge.js).
+    const kb = flat.sheet.rule != null && typeof flat.sheet.rule !== 'number' ? ruleK(flat.sheet.rule, angle, radius, tk) : k;
+    return { no: i + 1, dir: t(bendDirection(flat, i) === 'down' ? 'drw.bendDown' : 'drw.bendUp'), angle, radius, k: Math.round(kb * 1000) / 1000, allowance };
   });
 }
 
@@ -2999,6 +3016,25 @@ async function showCutList() {
   await popups.open('massprops', { name: `${part.name} — ${t('cmd.cutList')}`, material: '', rows, kind: 'part' });
 }
 
+/** The weld beads of a drawing's model: [{ size, length, count, volume, cosmetic }] (part features or assembly welds). */
+function modelWeldBeads(d) {
+  const out = [];
+  if (d.source?.kind === 'part') {
+    const part = project().parts.find((p) => p.id === d.source.id);
+    const results = part ? buildPart(part).result?.results : null;
+    for (const f of part?.features ?? []) {
+      const w = f.type === 'weldBead' && !f.suppressed ? results?.get(f.id)?.weld : null;
+      if (w) out.push({ size: w.size, length: w.length, count: w.count, cosmetic: w.cosmetic, volume: w.cosmetic ? 0 : w.volume ?? 0.5 * w.size * w.size * w.length });
+    }
+  } else if (d.source?.kind === 'assembly') {
+    const a = project().assemblies?.find((x) => x.id === d.source.id);
+    for (const w of (a?.welds ?? []).filter((x) => !x.suppressed)) {
+      try { const g = awTools.geometry(w); out.push({ size: Number(w.size), length: g.length, count: w.a.edges?.length ?? 1, cosmetic: false, volume: g.volume }); } catch { /* a weld that cannot be made is left out */ }
+    }
+  }
+  return out;
+}
+
 /**
  * A weld table (the drawing's weld symbols, alike ones counted together) or a weldment cut list table (members,
  * end caps, gussets, beads of the drawn part) as a general table on the sheet, top left of the title block.
@@ -3009,11 +3045,18 @@ function drawingTable(kind) {
   let header; let rows;
   if (kind === 'weld') {
     const welds = (d.annotations ?? []).filter((a) => a.kind === 'drwWeld');
-    if (!welds.length) { notify('info', t('notice.noWelds')); return; }
+    // The model's weld beads too: the drawn part's Weld Bead features, or the drawn assembly's welds (fillets of
+    // leg z): one row per size, its total length, bead count and deposited volume.
+    const beads = modelWeldBeads(d);
+    if (!welds.length && !beads.length) { notify('info', t('notice.noWelds')); return; }
     const groups = new Map();
     for (const w of welds) { const key = [w.symbol, w.size, w.length, w.allAround ? 1 : 0].join('|'); const g = groups.get(key) ?? { w, qty: 0 }; g.qty += 1; groups.set(key, g); }
-    header = [t('weldTable.no'), t('weldTable.type'), t('weldTable.size'), t('weldTable.length'), t('weldTable.qty')];
-    rows = [...groups.values()].map(({ w, qty }, i) => [String(i + 1), t(`drwWeld.sym.${w.symbol}`, null, w.symbol), String(w.size ?? ''), w.allAround ? t('weldTable.allAround') : String(w.length || '—'), String(qty)]);
+    header = [t('weldTable.no'), t('weldTable.type'), t('weldTable.size'), t('weldTable.length'), t('weldTable.qty'), t('weldTable.volume')];
+    rows = [...groups.values()].map(({ w, qty }) => [t(`drwWeld.sym.${w.symbol}`, null, w.symbol), String(w.size ?? ''), w.allAround ? t('weldTable.allAround') : String(w.length || '—'), String(qty), '—']);
+    const bySize = new Map();
+    for (const b of beads) { const key = `${b.size}|${b.cosmetic ? 1 : 0}`; const g = bySize.get(key) ?? { size: b.size, cosmetic: b.cosmetic, length: 0, count: 0, volume: 0 }; g.length += b.length; g.count += b.count; g.volume += b.volume; bySize.set(key, g); }
+    for (const g of bySize.values()) rows.push([`${t('drwWeld.sym.fillet', null, 'fillet')}${g.cosmetic ? ` (${t('weldTable.cosmetic')})` : ''}`, `z${fmt(g.size)}`, fmtLen(g.length), String(g.count), g.cosmetic ? '—' : `${fmt(g.volume)} mm³`]);
+    rows = rows.map((r, i) => [String(i + 1), ...r]);
   } else {
     const part = project().parts.find((p) => p.id === d.source?.id);
     if (!part || !hasWeldments(part)) { notify('info', t('notice.noMembers')); return; }
@@ -3639,6 +3682,8 @@ const commands = {
   exportDwg: { icon: 'dwgFile', label: 'action.exportDwg', enabled: () => Boolean(activeDrawing()), run: () => exportDrawing('dwg') },
   exportSketchDxf: { icon: 'dxfFile', label: 'action.exportSketchDxf', enabled: () => Boolean(sketchForExport()), run: () => exportSketch('dxf') },
   exportSketchDwg: { icon: 'dwgFile', label: 'action.exportSketchDwg', enabled: () => Boolean(sketchForExport()), run: () => exportSketch('dwg') },
+  exportFlatDxf: { icon: 'dxfFile', label: 'action.exportFlatDxf', enabled: () => hasSheet(), run: () => exportFlatPattern('dxf') },
+  exportFlatDwg: { icon: 'dwgFile', label: 'action.exportFlatDwg', enabled: () => hasSheet(), run: () => exportFlatPattern('dwg') },
   exportSvg: { icon: 'svgFile', label: 'action.exportSvg', enabled: () => Boolean(activeDrawing()), run: () => exportDrawing('svg') },
   print: { icon: 'print', label: 'action.print', key: 'Ctrl+P', enabled: hasDoc, run: () => printDocument() },
   closeProject: { icon: 'closeTab', label: 'action.closeProject', key: 'Ctrl+W', enabled: () => Boolean(state.doc), run: () => closeProject() },
@@ -4045,6 +4090,49 @@ const secTools = createSectionPropsTools({
 }
 Object.assign(commands, secTools.commands);
 
+// Decals on the part's faces (app-decals.js).
+const decalTools = createDecalTools({
+  state, t, notify, renderAll, renderLeft, cancelEditing, activePart, newId, change, rep, units: () => units(),
+  viewport: () => viewport, partEntry: () => (activePart() ? buildPart(activePart()) : null), topoOf: (hit) => topoOf(hit), requestRender: () => viewport?.requestRender(),
+  pm: { pmHead, pmGroup, pmNum, pmSeg },
+});
+{
+  const o = { ...more };
+  const mine = (e = state.editing) => decalTools.owns(e);
+  more.owns = (e) => mine(e) || o.owns(e);
+  more.pm = (e) => (mine(e) ? decalTools.pm(e) : o.pm(e));
+  more.pick = (hit, ev) => (mine() ? decalTools.pick(hit, ev) : o.pick(hit, ev));
+  more.field = (k, raw, v) => (mine() ? decalTools.field(k, raw, v) : o.field(k, raw, v));
+  more.set = (k, v) => (mine() ? decalTools.set(k, v) : o.set(k, v));
+  more.toggle = (k, c) => (mine() ? decalTools.toggle(k, c) : o.toggle(k, c));
+  more.select = (k, v) => (mine() ? decalTools.select(k, v) : o.select?.(k, v));
+  more.accept = () => (mine() ? decalTools.accept() : o.accept());
+  more.subject = (e) => (mine(e) ? decalTools.subject(e) : o.subject(e));
+  more.handles = (name) => (mine() && decalTools.handles(name)) || o.handles(name);
+  more.command = (name, arg) => (mine() && decalTools.handles(name) ? decalTools.command(name, arg) : o.command(name, arg));
+}
+Object.assign(commands, decalTools.commands);
+
+/**
+ * Mirror Part: a new part, the active one mirrored about a standard plane (an Insert Part feature with its mirror
+ * set: it follows the original whenever that changes), with the original's material and colour.
+ */
+async function mirrorPart() {
+  const src = activePart();
+  if (!src) { notify('info', t('notice.partOnly')); return; }
+  const r = await popups.open('prompt', { title: t('cmd.mirrorPart'), label: t('mirp.prompt'), value: 'right' });
+  const plane = String(r?.value ?? '').trim().toLowerCase();
+  if (!['front', 'top', 'right'].includes(plane)) { if (r?.value != null) notify('error', t('notice.invalidValue', { text: r.value })); return; }
+  const part = createPart(`${src.name} (${t('mirp.suffix')})`);
+  part.material = src.material; if (src.color) part.color = src.color;
+  part.features.push(createFeature(part, 'insertPart', { part: src.id, mirror: plane, name: `${t('mirp.of')} ${src.name}` }));
+  change('op.mirrorPart', (p) => { p.parts.push(part); });
+  switchDocument({ kind: 'part', id: part.id });
+  notify('success', t('mirp.made', { name: part.name }));
+  renderAll();
+}
+commands.mirrorPart = { icon: 'mirrorPart', label: 'cmd.mirrorPart', enabled: () => Boolean(activePart()), run: () => mirrorPart() };
+
 // Assembly weld beads (app-asmweld.js), chained the same way (and drawn after the components).
 const awTools = createAsmWeldTools({
   state, t, notify, change, renderAll, renderLeft, cancelEditing, newId, project, activeAssembly, topoOf, fmt, buildPart: (p) => buildPart(p),
@@ -4440,7 +4528,7 @@ async function run(id, context) {
 
 const SUBMENUS = {
   newDoc: { icon: 'fileNew', items: ['newPart', 'newAssembly', 'newDrawing', '-', 'newProjectPart'] },
-  exportTo: { icon: 'exportFile', items: ['exportStep', 'exportIges', 'exportXt', 'exportXb', 'exportStl', 'exportScad', '-', 'exportMesh:glb', 'exportMesh:gltf', 'exportMesh:obj', 'exportMesh:ply', 'exportMesh:3mf', 'exportMesh:off', 'exportMesh:amf', 'exportMesh:wrl', 'exportMesh:usdz', '-', 'exportImage', 'exportDxf', 'exportDwg', 'exportSvg', '-', 'exportSketchDxf', 'exportSketchDwg'] },
+  exportTo: { icon: 'exportFile', items: ['exportStep', 'exportIges', 'exportXt', 'exportXb', 'exportStl', 'exportScad', '-', 'exportMesh:glb', 'exportMesh:gltf', 'exportMesh:obj', 'exportMesh:ply', 'exportMesh:3mf', 'exportMesh:off', 'exportMesh:amf', 'exportMesh:wrl', 'exportMesh:usdz', '-', 'exportImage', 'exportDxf', 'exportDwg', 'exportSvg', '-', 'exportSketchDxf', 'exportSketchDwg', 'exportFlatDxf', 'exportFlatDwg'] },
   views: { icon: 'views', items: ['view:front', 'view:back', 'view:top', 'view:bottom', 'view:left', 'view:right', '-', 'view:iso', 'view:dimetric', 'view:trimetric', '-', 'normalTo'] },
   displayStyle: { icon: 'styleShaded', items: ['style:shadedEdges', 'style:shaded', 'style:hiddenRemoved', 'style:hiddenVisible', 'style:wireframe'] },
   show: { icon: 'eye', items: ['showPlanes', 'showOrigin', 'showSketches', '-', 'showRulers', 'showGrid', 'gridPlane:front', 'gridPlane:top', 'gridPlane:right', 'showScaleBar', '-', 'leftPanel', 'rightPanel', 'bottomPanel', 'statusBar', 'fps'] },
@@ -4454,8 +4542,8 @@ const SUBMENUS = {
   cutFeat: { icon: 'featCut', items: ['cutExtrude', 'cutRevolve', 'cutSweep', 'cutLoft'] },
   featuresMore: { icon: 'featDraft', items: ['fillet', 'variableFillet', 'faceFillet', 'fullRoundFillet', 'chamfer', 'shell', 'draft', 'rib', 'dome', 'wrap', 'hole', 'thread', 'helix'] },
   surfaces: { icon: 'surface', items: ['surfaceExtrude', 'surfaceRevolve', 'surfacePlanar', 'surfaceLoft', 'boundary', 'fillSurface', 'surfaceOffset', 'ruledSurface', 'trimSurface', 'extendSurface', 'knit', 'thicken', '-', 'surfaceSweep', 'radiateSurface', 'midSurface', 'untrimSurface', 'deleteHole', 'cutWithSurface', 'flattenSurface', '-', 'deleteFace', 'replaceFace'] },
-  bodies: { icon: 'moveBody', items: ['moveBody', 'scaleBody', 'split', 'insertPart', 'openscadFeature', '-', 'combine', 'deleteBody', 'indent', 'flex', 'deform'] },
-  sheetMetal: { icon: 'sheetMetal', items: ['baseFlange', 'convertSheet', 'insertBends', 'edgeFlange', 'miterFlange', 'hem', 'tab', 'loftedBend', 'sketchedBend', 'jog', '-', 'closedCorner', 'weldedCorner', 'cornerRelief', 'rip', 'formTool', 'crossBreak', 'tabSlot', '-', 'unfold', 'fold', 'flatten'] },
+  bodies: { icon: 'moveBody', items: ['moveBody', 'scaleBody', 'split', 'insertPart', 'mirrorPart', 'openscadFeature', '-', 'combine', 'deleteBody', 'indent', 'flex', 'deform'] },
+  sheetMetal: { icon: 'sheetMetal', items: ['baseFlange', 'convertSheet', 'insertBends', 'edgeFlange', 'miterFlange', 'hem', 'tab', 'loftedBend', 'sketchedBend', 'jog', '-', 'closedCorner', 'weldedCorner', 'cornerRelief', 'rip', 'formTool', 'crossBreak', 'tabSlot', '-', 'unfold', 'fold', 'flatten', 'exportFlatDxf'] },
   fastening: { icon: 'mountingBoss', items: ['mountingBoss', 'snapHook', 'snapHookGroove', 'vent', 'lipGroove'] },
   partExtra: { icon: 'advancedHole', items: ['advancedHole', 'intersect', 'mateReference', 'connectionPoint', 'moveFace', '-', 'saveBodies', '-', 'exitInContext', 'updateExternalRefs', 'externalRefs'] },
   weldments: { icon: 'structural', items: ['structural', 'trimExtend', 'endCap', 'gusset', 'weldBead', '-', 'cutList'] },
@@ -4488,11 +4576,11 @@ const TOOLBAR_MAIN = { exportSplit: 'exportStep', themeSplit: 'theme', viewsSpli
 
 /** The CommandManager: tabs of big buttons above the graphics area (a ribbon). */
 const COMMAND_TABS = {
-  features: ['sketch', '|', 'extrude', 'revolve', 'sweep', 'loft', '|', 'cutExtrude', 'cutRevolve', 'cutSweep', 'cutLoft', '|', 'fillet', 'chamfer', 'shell', 'draft', 'rib', 'dome', 'wrap', '|', 'hole', 'thread', 'helix', '|', 'linearPattern', 'circularPattern', 'mirror', '|', 'refPlane', 'refAxis', 'refPoint', 'coordSys', 'boundingBox', 'moveBody', 'split', 'insertPart', 'openscadFeature', 'material', 'rebuild'],
+  features: ['sketch', '|', 'extrude', 'revolve', 'sweep', 'loft', '|', 'cutExtrude', 'cutRevolve', 'cutSweep', 'cutLoft', '|', 'fillet', 'chamfer', 'shell', 'draft', 'rib', 'dome', 'wrap', '|', 'hole', 'thread', 'helix', '|', 'linearPattern', 'circularPattern', 'mirror', '|', 'refPlane', 'refAxis', 'refPoint', 'coordSys', 'boundingBox', 'moveBody', 'split', 'insertPart', 'openscadFeature', 'material', 'decals', 'rebuild'],
   bodiesCurves: ['combine', 'deleteBody', 'indent', 'flex', 'deform', 'intersect', 'saveBodies', '|', 'advancedHole', 'mateReference', 'connectionPoint', 'moveFace', '|', 'exitInContext', 'updateExternalRefs', 'externalRefs', '|', 'mountingBoss', 'snapHook', 'snapHookGroove', 'vent', 'lipGroove', '|', 'variableFillet', 'faceFillet', 'fullRoundFillet', '|', 'curvePattern', 'sketchPattern', 'tablePattern', 'fillPattern', 'variablePattern', '|', 'projectedCurve', 'splitLine', 'compositeCurve', 'curveXYZ'],
   sketch: ['sketch', 'sketch3d', 'sk:dimension', '|', 'sk:line', 'sk:centerline', 'sk:rect', 'sk:centerRect', 'sk:rect3', 'sk:rect3c', 'sk:parallelogram', 'sk:circle', 'sk:circle3', 'sk:arc3', 'sk:centerArc', 'sk:tangentArc', 'sk:polygon', 'sk:slot', 'sk:slotCenter', 'sk:slotArc3', 'sk:slotArcCenter', 'sk:spline', 'sk:styleSpline', 'sk:equation', 'sk:ellipse', 'sk:partialEllipse', 'sk:parabola', 'sk:conic', 'sk:point', 'sk:text', '|', 'sk:fillet', 'sk:chamfer', 'sk:offset', 'sk:mirror', 'sk:dynamicMirror', 'sk:linPattern', 'sk:cirPattern', 'sk:trim', 'sk:extend', 'sk:split', '|', 'sk:convert', 'sk:intersect', 'sk:silhouette', 'sk:silhouetteInternal', 'sk:move', 'sk:copy', 'sk:rotate', 'sk:scale', 'sk:stretch', '|', 'sk:fullyDefine', 'sk:baselineDim', 'sk:repair', 'sk:autotrace', 'construction', 'normalTo', 'sk:select'],
   surfaces: ['surfaceExtrude', 'surfaceRevolve', 'surfacePlanar', 'surfaceLoft', 'boundary', 'fillSurface', 'surfaceOffset', 'ruledSurface', '|', 'trimSurface', 'extendSurface', 'knit', '|', 'surfaceSweep', 'radiateSurface', 'midSurface', 'untrimSurface', 'deleteHole', 'cutWithSurface', 'flattenSurface', '|', 'deleteFace', 'replaceFace', '|', 'thicken', 'sketch3d'],
-  sheetMetal: ['baseFlange', 'convertSheet', 'insertBends', 'edgeFlange', 'miterFlange', 'hem', 'tab', 'loftedBend', 'sketchedBend', 'jog', '|', 'closedCorner', 'weldedCorner', 'cornerRelief', 'rip', 'formTool', 'crossBreak', 'tabSlot', '|', 'unfold', 'fold', 'flatten', '|', 'hole', 'cutExtrude'],
+  sheetMetal: ['baseFlange', 'convertSheet', 'insertBends', 'edgeFlange', 'miterFlange', 'hem', 'tab', 'loftedBend', 'sketchedBend', 'jog', '|', 'closedCorner', 'weldedCorner', 'cornerRelief', 'rip', 'formTool', 'crossBreak', 'tabSlot', '|', 'unfold', 'fold', 'flatten', 'exportFlatDxf', '|', 'hole', 'cutExtrude'],
   weldments: ['sketch', 'sketch3d', 'structural', 'trimExtend', '|', 'endCap', 'gusset', 'weldBead', '|', 'cutList'],
   mold: ['draftAnalysis', 'draft', 'partingLine', 'toolingSplit', 'shrink', 'split', 'cavity'],
   evaluate: ['massProps', 'measure', 'sectionProperties', 'section', 'lights', 'interference', '|', 'simulation', 'draftAnalysis', '|', 'equations', 'configurations', 'designTable', 'importTable', 'designStudy'],
@@ -4858,6 +4946,8 @@ function pmApi() {
     },
     surfaceList: (f) => featuresBefore(part, f).filter((x) => SURFACE_TYPES.includes(x.type) && x.id !== f.id),
     otherParts: () => project().parts.filter((p) => p.id !== part?.id),
+    // The planar faces of another part (a custom forming tool's stop face and faces to remove): [{ sig, label }].
+    partPlanarFaces: (id) => { const other = project().parts.find((p) => p.id === id); const body = other ? buildPart(other).body : null; return (body?.faces ?? []).map((fc, i) => ({ fc, i })).filter((x) => x.fc.geomType === 'PLANE').map(({ fc, i }) => { const sig = faceSignature(fc); const n = sig.normal ?? [0, 0, 0]; return { sig, label: `F${i + 1} (${sig.center.map((c) => fmt(c)).join(', ')}) n ${n.map((c) => fmt(c)).join(', ')}` }; }); },
     // How many bodies another part has (Insert Part can take one of them).
     partBodyCount: (id) => { const p = project().parts.find((x) => x.id === id); try { return p ? countSolids(buildPart(p).body ?? null) : 0; } catch { return 0; } },
     assemblies: () => project().assemblies.filter((a) => a.id !== activeAssembly()?.id && !assemblyContains(a, activeAssembly()?.id)),
@@ -6005,6 +6095,23 @@ async function exportSketch(format) {
   if (format === 'dxf') await saveExport(`${base}.dxf`, 'dxf', entitiesToDxf(entities), 'application/dxf');
   else await saveExport(`${base}.dwg`, 'dwg', new Blob([writeDwg({ layers: [{ name: 'SKETCH', color: 7 }], entities, units: 4 })], { type: 'image/vnd.dwg' }), 'image/vnd.dwg');
 }
+/**
+ * The active sheet metal part's flat pattern as DXF or DWG (R2000), straight from the part: outline and holes, bend
+ * lines on BEND_UP / BEND_DOWN, a note per bend (cad/flat-dxf.js).
+ */
+async function exportFlatPattern(format) {
+  const part = activePart();
+  if (!part) return;
+  const formed = buildPart(part);
+  if (!formed.result?.sheet) { notify('info', t('notice.needSheetMetal')); return; }
+  const flat = buildPart({ ...part, flat: true }, { slot: 'drwFlat' });
+  const out = flat.body ? flatPatternEntities(flat.body, formed.result.sheet, flat.result?.sheet?.bends ?? [], formed.result.sheet.bends ?? [], { fmt: (v) => fmt(v) }) : null;
+  if (!out) { notify('warning', t('notice.flatFailed')); return; }
+  const base = fileSafe(`${part.name || 'part'}-flat`);
+  if (format === 'dxf') await saveExport(`${base}.dxf`, 'dxf', entitiesToDxf(out.entities, out.layers), 'application/dxf');
+  else await saveExport(`${base}.dwg`, 'dwg', new Blob([writeDwg({ layers: out.layers, entities: out.entities, units: 4 })], { type: 'image/vnd.dwg' }), 'image/vnd.dwg');
+}
+const hasSheet = () => { const p = activePart(); return Boolean(p && !sketching() && p.features.some((f) => ['baseFlange', 'convertSheet', 'insertBends', 'loftedBend'].includes(f.type) && !f.suppressed)); };
 /** DXF text: UTF-8 (R2007+), else the ANSI code page read as Latin-1. */
 function decodeDxf(bytes) {
   try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes); } catch { return new TextDecoder('latin1').decode(bytes); }
@@ -6085,14 +6192,61 @@ function viewportContextMenu(hit, event) {
   return showMenu(menuItems(['zoomFit', 'viewsMenu', 'normalTo', 'perspective', '-', 'styleMenu', 'section', '-', 'showPlanes', 'showOrigin', '-', 'rebuild', 'massProps']), anchor, 'context', { header: { icon: 'view3d', title: active()?.name ?? 'MyMechanics' } });
 }
 
+// ───────────────────────── feature order and folders (cad/feature-order.js)
+
+/** Moves a feature before another (or into a folder) from a drag in the tree. */
+function dropFeature(id, targetKey) {
+  const part = activePart();
+  if (!part) return;
+  const apply = (pt) => (targetKey.startsWith('folder:') ? moveIntoFolder(pt, id, targetKey.slice(7)) : moveFeature(pt, id, targetKey.startsWith('feat:') ? targetKey.slice(5) : null));
+  // Tried on a copy first: a refused move leaves the part (and the undo history) alone.
+  const r = apply(JSON.parse(JSON.stringify(part)));
+  if (!r.ok) {
+    if (r.reason === 'dependency') { const [a, b] = r.bad[0]; const name = (x) => part.features.find((f) => f.id === x)?.name ?? x; notify('warning', t('order.refused', { feature: name(a), needs: name(b) })); }
+    return;
+  }
+  change('op.reorder', (p) => { apply(p.parts.find((x) => x.id === part.id)); });
+  renderAll();
+}
+function newFolder() {
+  const part = activePart();
+  const ids = state.selection.filter((s) => s.kind === 'feat').map((s) => s.id);
+  if (!part || !ids.length) { notify('info', t('order.pickFeatures')); return; }
+  const fid = newId('fold'); const name = `${t('order.folder')}${(part.folders?.length ?? 0) + 1}`;
+  if (!makeFolder(JSON.parse(JSON.stringify(part)), ids, name, () => fid)) { notify('warning', t('order.notAdjacent')); return; }
+  change('op.folder', (p) => { makeFolder(p.parts.find((x) => x.id === part.id), ids, name, () => fid); });
+  renderAll();
+}
+function dissolveSelectedFolder() {
+  const part = activePart(); const sel = state.selection.find((s) => s.kind === 'folder');
+  if (!part || !sel) return;
+  change('op.folder', (p) => dissolveFolder(p.parts.find((x) => x.id === part.id), sel.id));
+  state.selection = []; renderAll();
+}
+async function renameFolder() {
+  const part = activePart(); const sel = state.selection.find((s) => s.kind === 'folder');
+  const g = part?.folders?.find((x) => x.id === sel?.id);
+  if (!g) return;
+  const r = await popups.open('prompt', { title: t('cmd.renameFolder'), label: t('order.folderName'), value: g.name });
+  if (!r?.value?.trim()) return;
+  change('op.folder', (p) => { const x = p.parts.find((q) => q.id === part.id).folders.find((q) => q.id === g.id); x.name = r.value.trim(); });
+  renderAll();
+}
+Object.assign(commands, {
+  newFolder: { icon: 'folder', label: 'cmd.newFolder', enabled: () => Boolean(activePart()) && state.selection.some((s) => s.kind === 'feat'), run: () => newFolder() },
+  dissolveFolder: { icon: 'folderOpen', label: 'cmd.dissolveFolder', enabled: () => state.selection.some((s) => s.kind === 'folder'), run: () => dissolveSelectedFolder() },
+  renameFolder: { icon: 'edit', label: 'cmd.renameFolder', enabled: () => state.selection.some((s) => s.kind === 'folder'), run: () => renameFolder() },
+});
+
 function treeContextMenu(key, event) {
+  if (key.startsWith('folder:')) return showMenu(menuItems(['renameFolder', 'dissolveFolder']), anchorAt(event), 'context', { header: { icon: 'folder', title: t('order.folder') } });
   const anchor = anchorAt(event);
   const part = activePart();
   if (key.startsWith('feat:')) {
     const f = part?.features.find((x) => x.id === key.slice(5));
     if (!f) return undefined;
     const extra = f.type === 'sketch' ? ['extrude', 'cutExtrude', 'revolve'] : ['linearPattern', 'circularPattern', 'mirror'];
-    return showMenu(menuItems(['editFeature', 'rename', '-', f.suppressed ? 'unsuppress' : 'suppress', 'rollbackHere', 'rollbackEnd', '-', ...extra, '-', 'delete']), anchor, 'context', { header: { icon: featureIcon(f), title: f.name } });
+    return showMenu(menuItems(['editFeature', 'rename', '-', f.suppressed ? 'unsuppress' : 'suppress', 'rollbackHere', 'rollbackEnd', '-', ...extra, '-', 'newFolder', '-', 'delete']), anchor, 'context', { header: { icon: featureIcon(f), title: f.name } });
   }
   if (key.startsWith('plane:')) return showMenu(menuItems(['sketch', 'refPlane', 'mirror', '-', 'normalTo']), anchor, 'context', { header: { icon: 'refPlane', title: t(`plane.${key.slice(6)}`) } });
   if (key.startsWith('comp:')) return showMenu(menuItems(['openPart', 'rename', 'fixComponent', 'floatComponent', 'flexibleComponent', 'simplifyOuter', 'simplifyBox', 'simplifyFull', 'editInContext', 'rotateComponent', 'rotateComponentX', 'rotateComponentY', '-', 'delete']), anchor, 'context', { header: { icon: 'part', title: activeAssembly()?.components.find((c) => c.id === key.slice(5))?.name ?? '' } });
@@ -6136,6 +6290,8 @@ function pmFieldChangedImpl(key, raw, unit) {
   const e = state.editing;
   if (!e) return;
   const v = parseLen(raw, unit === 'length' ? 'length' : 'number');
+  // Sheet metal gauge / bend table rows (ui/pm-sheet-gauge.js).
+  if (e.mode === 'feature' && /^(cg|kr|br|fp):\d+:\w+$/.test(key)) return sheetRowField(key, raw, v);
   if (e.mode === 'sketch') {
     const ed = e.editor;
     if (key === 'polygonSides' && v >= 3) { ed.polygonSides = Math.round(v); renderLeft(); return; }
@@ -6214,6 +6370,27 @@ function pmFieldChangedImpl(key, raw, unit) {
     });
     return;
   }
+  if (e.mode === 'feature' && /^sb:\d+:\d$/.test(key)) {
+    // A fillet setback distance (corner i, edge k).
+    if (!(v > 0)) { notify('error', t('notice.invalidValue', { text: raw })); renderLeft(); return; }
+    const [, i, k] = key.split(':').map(Number);
+    updateFeature((f) => { const x = f.setbacks?.[i]; if (!x) return; const d = [0, 1, 2].map((m) => x.d?.[m] ?? x.d?.[0] ?? v); d[k] = v; f.setbacks = f.setbacks.map((y, m) => (m === i ? { ...y, d } : y)); });
+    return;
+  }
+  if (e.mode === 'feature' && (key.startsWith('vary:') || key.startsWith('vary2:'))) {
+    // A variable pattern's step for one dimension of the seed sketch (per instance along direction 1 / 2).
+    if (v == null) { notify('error', t('notice.invalidValue', { text: raw })); renderLeft(); return; }
+    const [k, dim] = key.split(':'); const prop = k === 'vary' ? 'step' : 'step2';
+    updateFeature((f) => {
+      const list = (f.vary ?? []).map((x) => ({ ...x }));
+      let row = list.find((x) => x.dim === dim);
+      if (!row) { row = { dim, step: 0, step2: 0 }; list.push(row); }
+      row[prop] = v;
+      f.vary = list.filter((x) => Number(x.step) || Number(x.step2));
+      if (!f.vary.length) delete f.vary;
+    });
+    return;
+  }
   if (e.mode === 'feature' && key.startsWith('pt3:')) {
     const [, i, j] = key.split(':').map(Number);
     if (v == null) { notify('error', t('notice.invalidValue', { text: raw })); renderLeft(); return; }
@@ -6271,6 +6448,16 @@ function pmStepImpl(key, delta) {
 function pmSet(key, value) { return recorder.around('pmSet', [key, value], () => pmSetImpl(key, value)); }
 function pmSetImpl(key, value) {
   const e = state.editing;
+  if (e?.mode === 'feature' && key === 'bendMethod') {
+    // An allowance / deduction table starts filled from the K-factor (the gauge's radii, or the bend radius).
+    updateFeature((f) => {
+      const was = f.bendMethod; f.bendMethod = value;
+      if ((value === 'allowance' || value === 'deduction') && (!f.bendRows?.length || (was !== value && (was === 'allowance' || was === 'deduction')))) {
+        const g = gaugeOf(f); f.bendRows = seedBendRows(value, g?.thickness ?? (Number(f.thickness) || 2), g ? g.radii : [Number(f.radius) || 0], g?.k ?? (Number(f.kFactor) || 0.44));
+      }
+    });
+    return undefined;
+  }
   if (e?.mode === 'sketch' && key === 'styleDegree') { e.editor.styleDegree = Number(value); e.editor.pending = []; e.editor.render(); renderLeft(); return undefined; }
   if (e?.mode === 'sketch' && key === 'trace.mode') { e.editor.traceOptions.mode = value; renderLeft(); return undefined; }
   if (e?.mode === 'sketch' && key === 'offset.cap') { e.editor.offsetOptions.cap = value; renderLeft(); return undefined; }
@@ -6346,6 +6533,44 @@ function pmToggleImpl(key, checked) {
       const id = key.slice(5); const list = key.startsWith('loft:') ? 'sketches' : key.startsWith('curv:') ? 'curves' : 'surfaces';
       f[list] = (f[list] ?? []).filter((x) => x !== id);
       if (checked) f[list].push(id);
+    } else if (key.startsWith('fcon:')) {
+      // A fill surface's constraint curves (the patch passes through them).
+      const id = key.slice(5);
+      f.constraints = (f.constraints ?? []).filter((x) => x !== id);
+      if (checked) f.constraints.push(id);
+      if (!f.constraints.length) delete f.constraints;
+    } else if (key.startsWith('frm:')) {
+      // A custom forming tool's face to punch out (by its centre key).
+      const k = key.slice(4);
+      const face = (pmApi().partPlanarFaces?.(f.toolPart) ?? []).find((x) => x.sig.center.map((c) => Math.round(c * 1e4)).join(',') === k);
+      f.removeFaces = (f.removeFaces ?? []).filter((x) => x.center.map((c) => Math.round(c * 1e4)).join(',') !== k);
+      if (checked && face) f.removeFaces.push(face.sig);
+      if (!f.removeFaces.length) delete f.removeFaces;
+    } else if (key.startsWith('crv2:')) {
+      // A boundary's second-direction curves.
+      const id = key.slice(5);
+      f.curves2 = (f.curves2 ?? []).filter((x) => x !== id);
+      if (checked) f.curves2.push(id);
+      if (!f.curves2.length) delete f.curves2;
+    } else if (key.startsWith('lf:')) {
+      // A loft connector's direction (the profile run the other way round).
+      const id = key.slice(3);
+      const c = { ...(f.connect?.[id] ?? {}) };
+      if (checked) c.flip = true; else delete c.flip;
+      f.connect = { ...(f.connect ?? {}), [id]: c };
+      if (!Object.keys(c).length) delete f.connect[id];
+      if (!Object.keys(f.connect).length) delete f.connect;
+    } else if (key.startsWith('sg:')) {
+      // A sweep's further guide curves (the profile follows every guide).
+      const id = key.slice(3);
+      f.guides = (f.guides ?? []).filter((x) => x !== id);
+      if (checked) f.guides.push(id);
+      if (!f.guides.length) delete f.guides;
+    } else if (key.startsWith('slt:')) {
+      // Split line by intersection: the planes / surface bodies it meets ("slt:std:front", "slt:ref:<id>", "slt:surf:<id>").
+      const ref = key.slice(4);
+      f.tools = (f.tools ?? []).filter((x) => x !== ref);
+      if (checked) f.tools.push(ref);
     } else if (key.startsWith('list:')) {
       // A list of plain values (body numbers): "list:<field>:<value>".
       const [, list, raw] = key.split(':');
@@ -6473,8 +6698,81 @@ function pmSelectImpl(key, value) {
     updateFeature((f) => { f.size = value || undefined; if (row) [, f.diameter, f.cbDiameter, f.cbDepth, f.csDiameter] = row; });
     return;
   }
+  if (key === 'gaugeTable') {
+    updateFeature((f) => {
+      f.gaugeTable = value || 'none';
+      if (f.gaugeTable === 'custom' && !f.customGauges?.length) f.customGauges = [{ name: '1', thickness: Number(f.thickness) || 2, radius: Number(f.radius) || 2, k: Number(f.kFactor) || 0.44 }];
+      const rows = gaugeRowsOf(f);
+      if (rows.length && !rows.some((r) => r.name === String(f.gauge))) f.gauge = rows[0].name;
+      const g = gaugeOf(f); if (g) { f.thickness = g.thickness; f.radius = g.radii[0]; f.kFactor = g.k; }
+    });
+    return;
+  }
+  if (key === 'gauge') { updateFeature((f) => { f.gauge = value; const g = gaugeOf(f); if (g) { f.thickness = g.thickness; f.radius = g.radii[0]; f.kFactor = g.k; } }); return; }
+  if (key === 'gaugeRadius') { updateFeature((f) => { f.radius = Number(value); }); return; }
+  if (key === 'stopFace' && e.feature?.type === 'formTool') {
+    const face = (pmApi().partPlanarFaces?.(e.feature.toolPart) ?? []).find((x) => x.sig.center.map((c) => Math.round(c * 1e4)).join(',') === value);
+    updateFeature((f) => { f.stopFace = face ? face.sig : null; f.removeFaces = (f.removeFaces ?? []).filter((x) => !face || x.center.join() !== face.sig.center.join()); });
+    return;
+  }
+  if (key.startsWith('lc:')) {
+    // A loft connector: the profile's start vertex ('' = automatic).
+    const id = key.slice(3);
+    updateFeature((f) => {
+      const c = { ...(f.connect?.[id] ?? {}) };
+      if (value === '' || value == null) delete c.start; else c.start = Number(value);
+      f.connect = { ...(f.connect ?? {}), [id]: c };
+      if (!Object.keys(c).length) delete f.connect[id];
+      if (!Object.keys(f.connect).length) delete f.connect;
+    });
+    return;
+  }
   if (key.startsWith('hel:')) { const [, side, i] = key.split(':'); updateFeature((f) => { f[side] = (f[side] ?? []).map((x, k) => (k === Number(i) ? { ...x, kind: value } : x)); }); return undefined; }
   updateFeature((f) => { f[key] = value || null; if (key === 'sketch' && f.type === 'revolve') f.axis = null; });
+}
+
+// ───────────────────────── sheet metal gauge and bend tables (cad/sheet-gauge.js, ui/pm-sheet-gauge.js)
+
+const SHEET_ROWS = { cg: 'customGauges', kr: 'kRows', br: 'bendRows', fp: 'profilePts' };
+/** A cell of a gauge / K / bend table row ("br:2:value"). */
+function sheetRowField(key, raw, v) {
+  const [p, i, col] = key.split(':'); const list = SHEET_ROWS[p];
+  if (col !== 'name' && (v == null || (!(v >= 0) && p !== 'fp'))) { notify('error', t('notice.invalidValue', { text: raw })); renderLeft(); return; }
+  updateFeature((f) => {
+    const rows = (f[list]?.length ? f[list] : p === 'kr' ? DEFAULT_K_ROWS : []).map((r) => ({ ...r }));
+    if (!rows[Number(i)]) return;
+    rows[Number(i)][col] = col === 'name' ? String(raw).trim() : col === 'k' ? Math.min(1, v) : v;
+    f[list] = rows;
+    if (p === 'cg') { const g = gaugeOf(f); if (g) { f.thickness = g.thickness; f.kFactor = g.k; if (!g.radii.some((r) => Math.abs(r - Number(f.radius)) < 1e-6)) f.radius = g.radii[0]; } }
+  });
+}
+/** Adds a row (a copy of the last), deletes one, or fills a bend table from the K-factor. */
+function sheetRowCommand(name, arg) {
+  const [p, i] = String(arg).split('.'); const list = SHEET_ROWS[p];
+  if (!list) return;
+  updateFeature((f) => {
+    const rows = (f[list]?.length ? f[list] : p === 'kr' ? DEFAULT_K_ROWS : []).map((r) => ({ ...r }));
+    if (name === 'smRowDel') rows.splice(Number(i), 1);
+    else if (name === 'smRowAdd' && p === 'fp') {
+      // A new corner halfway along the profile's closing side.
+      const a = rows[rows.length - 1] ?? { u: 0, v: 0 }; const b = rows[0] ?? { u: 0, v: 0 };
+      rows.push({ u: (Number(a.u) + Number(b.u)) / 2, v: (Number(a.v) + Number(b.v)) / 2 });
+    } else if (name === 'smRowsSeed' && p === 'fp') {
+      // The rectangle the flange has now: its width along the edge, its length.
+      const w = Math.max(1e-3, (Number(f.edge?.length) || 50) - (Number(f.offsetStart) || 0) - (Number(f.offsetEnd) || 0)); const L = Number(f.length) || 20;
+      rows.splice(0, rows.length, { u: 0, v: 0 }, { u: w, v: 0 }, { u: w, v: L }, { u: 0, v: L });
+    } else if (name === 'smRowAdd') {
+      const last = rows[rows.length - 1];
+      rows.push(p === 'cg' ? { name: String(rows.length + 1), thickness: last?.thickness ?? (Number(f.thickness) || 2), radius: last?.radius ?? (Number(f.radius) || 2), k: last?.k ?? 0.44 }
+        : p === 'kr' ? { ratio: (last?.ratio ?? 0) + 1, k: last?.k ?? 0.44 } : { angle: 90, radius: Number(f.radius) || 0, value: 0 });
+    } else if (name === 'smRowsSeed') {
+      const g = gaugeOf(f); const tk = g?.thickness ?? (Number(f.thickness) || 2); const k = g?.k ?? (Number(f.kFactor) || 0.44);
+      if (p === 'kr') rows.splice(0, rows.length, ...DEFAULT_K_ROWS.map((r) => ({ ...r })));
+      else rows.splice(0, rows.length, ...seedBendRows(f.bendMethod === 'deduction' ? 'deduction' : 'allowance', tk, g ? g.radii : [Number(f.radius) || 0], k));
+    }
+    f[list] = rows;
+    if (name === 'smRowsClear') delete f[list];
+  });
 }
 
 function pmCommand(cmd) { return recorder.around('pmCommand', [cmd], () => pmCommandImpl(cmd)); }
@@ -6483,6 +6781,8 @@ async function pmCommandImpl(cmd) {
   const [name, arg] = cmd.split(':');
   if (name === 'ok') return acceptEditing();
   if (name === 'cancel') return cancelEditing();
+  if (['smRowAdd', 'smRowDel', 'smRowsSeed', 'smRowsClear'].includes(name) && e?.mode === 'feature') return sheetRowCommand(name, arg);
+  if (name === 'sbDel' && e?.mode === 'feature') { updateFeature((f) => { f.setbacks = (f.setbacks ?? []).filter((_, i) => i !== Number(arg)); if (!f.setbacks.length) delete f.setbacks; }); return undefined; }
   if (name === 'scadReset' && e?.mode === 'feature') { updateFeature((f) => { f.overrides = {}; delete f.result; }); return undefined; }
   if (name === 'scadFolder' && e?.mode === 'feature') return scadChooseFolder();
   if (name === 'offsetApply' && e?.mode === 'sketch') {
@@ -6809,6 +7109,29 @@ function bindEvents() {
     };
     window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
   }, true);
+
+  // Feature tree: drag a feature onto another (it goes before it) or onto a folder (into it).
+  root.addEventListener('dragstart', (event) => {
+    const r = event.target.closest?.('[data-tree^="feat:"]');
+    if (!r) return;
+    event.dataTransfer.setData('application/x-mymech-feature', r.dataset.tree.slice(5));
+    event.dataTransfer.effectAllowed = 'move';
+  });
+  root.addEventListener('dragover', (event) => {
+    const r = event.target.closest?.('[data-tree^="feat:"], [data-tree^="folder:"]');
+    if (!r || !event.dataTransfer?.types?.includes('application/x-mymech-feature')) return;
+    event.preventDefault();
+    root.querySelectorAll('.tree-row.drop-target').forEach((x) => x.classList.remove('drop-target'));
+    r.classList.add('drop-target');
+  });
+  root.addEventListener('drop', (event) => {
+    const r = event.target.closest?.('[data-tree^="feat:"], [data-tree^="folder:"]');
+    const id = event.dataTransfer?.getData('application/x-mymech-feature');
+    root.querySelectorAll('.tree-row.drop-target').forEach((x) => x.classList.remove('drop-target'));
+    if (!r || !id) return;
+    event.preventDefault();
+    if (r.dataset.tree !== `feat:${id}`) dropFeature(id, r.dataset.tree);
+  });
 
   // Drawing views: drag to move.
   root.addEventListener('pointerdown', (event) => {
@@ -7139,6 +7462,7 @@ window.__mymechanics = {
   active: () => active(),
 };
 window.__mymechanics.sim2 = more.sim2;
+window.__mymechanics.decals = decalTools;
 window.__mymechanics.mfg = mfgTools.api;
 window.__mymechanics.illustration = illTools.api;
 window.__mymechanics.schematic = schTools.api;

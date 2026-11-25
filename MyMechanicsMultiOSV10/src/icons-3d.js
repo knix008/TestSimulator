@@ -42,6 +42,8 @@ export const ICONS_3D = {
   axisY: '<path d="M3 16h15"/><path d="M15 13l3 3-3 3"/><path d="M14 4l2.5 3L19 4M16.5 7v3"/>',
   axisZ: '<path d="M3 16h15"/><path d="M15 13l3 3-3 3"/><path d="M14 4h5l-5 6h5"/>',
   sectionProps: '<path d="M4 9l8-5 8 5-8 5z" opacity="0.5"/><path d="M4 9v6l8 5 8-5V9"/><path d="M8 11l8 0M10 13h4" /><circle cx="12" cy="12" r="1.2"/>',
+  mirrorPart: '<path d="M12 2v20" stroke-dasharray="2 2"/><path d="M10 6H4v12h6z"/><path d="M14 6h6v12h-6z" opacity="0.55"/><path d="M6 10h2M16 10h2"/>',
+  decal: '<path d="M4 6l10-2 6 4-10 2z" opacity="0.5"/><rect x="5" y="9" width="14" height="10" rx="1"/><path d="M7 17l3-4 2 2 2-3 3 5"/><circle cx="9" cy="12" r="1"/>',
   offsetTool: '<rect x="3" y="3" width="18" height="18" rx="1"/><rect x="7.5" y="7.5" width="9" height="9" rx="0.5"/><path d="M3 3l4.5 4.5"/>',
   selectChain: '<path d="M3 17l5-6 4 3 5-7"/><circle cx="3" cy="17" r="1.6"/><circle cx="8" cy="11" r="1.6"/><circle cx="12" cy="14" r="1.6"/><circle cx="17" cy="7" r="1.6"/><path d="M19 13l2 2-2 2"/>',
   followMe: '<path d="M4 20V9a5 5 0 0 1 5-5h11"/><rect x="2" y="17" width="4" height="4"/><path d="M17 1.5L20 4l-3 2.5"/>',

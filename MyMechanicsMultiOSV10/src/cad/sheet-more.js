@@ -7,9 +7,11 @@
 // returns { body?, tool?, surface?, curve?, … } and the extra data the cut list or the flat pattern needs.
 import { rep } from './kernel.js';
 import { profiles, byId } from './sketch.js';
-import { findEdges, findFace, crossV, normalize } from './refs.js';
-import { sketchOf, sizeAround, replicadPlane, codeError, loopDrawing, resolvePlane, toWorld } from './features.js';
+import { findEdges, findFace, crossV, normalize, planeOfFace } from './refs.js';
+import { sketchOf, sizeAround, replicadPlane, codeError, loopDrawing, resolvePlane, toWorld, regenerate } from './features.js';
+import { transformed } from './sheet-extra.js';
 import { sketchWire, bendAllowance, structuralProfile, circleOfEdge } from './advanced.js';
+import { sheetSettings } from './sheet-gauge.js';
 
 export { SHEET_MORE_TYPES, FORM_TOOLS, SHEET_MORE_ICONS, SHEET_MORE_DEFAULTS, SHEET_MORE_NAMES } from './sheet-more-types.js';
 import { FORM_TOOLS } from './sheet-more-types.js';
@@ -363,7 +365,7 @@ function flangeSolid(ctx, s, e, { o, b, d, len }, { angle, radius, length, flip 
   const base = flip ? add(start, mul(b, t)) : start;
   let draw;
   if (ctx.flat) {
-    const flatLen = bendAllowance(theta, r, t, sm.k) + L;
+    const flatLen = bendAllowance(theta, r, t, sm.rule ?? sm.k) + L;
     draw = R.draw([0, 0]).lineTo([flatLen, 0]).lineTo([flatLen, -t]).lineTo([0, -t]).close();
   } else {
     const th = (theta * Math.PI) / 180;
@@ -443,7 +445,7 @@ function buildMiterFlange(f, ctx) {
     tools.push(solid);
     const { d, b, o } = fl.geo; const st = sub(fl.s, mul(d, e0));
     const fr = bendFrame(f.flip ? add(st, mul(b, sm.thickness)) : st, o, b); [fr.zLo, fr.zHi] = zRange(fr, st, add(fl.e, mul(d, e1)));
-    const BA = bendAllowance(angle, radius, sm.thickness, sm.k);
+    const BA = bendAllowance(angle, radius, sm.thickness, sm.rule ?? sm.k);
     sm.bends.push({ start: fl.s, end: fl.e, angle, radius, outward: fl.geo.o, flat: ctx.flat, allowance: BA, length, flip: f.flip, miter: f.id, frame: fr, r: radius, t: sm.thickness, theta: angle, BA, L: length, feature: f.id });
   }
   for (const s of tools) body = body.fuse(s);
@@ -579,7 +581,7 @@ function buildLoftedBend(f, ctx) {
   if (ids.length < 2) throw codeError('loft-needs-two');
   const prof = ids.slice(0, 2).map((id) => { const { sketch, frame } = sketchOf({ sketch: id }, ctx, id); return { wire: sketchWire(sketch, frame), frame }; });
   const t = Math.max(0.05, num(f.thickness, 2));
-  if (!ctx.sheet) ctx.sheet = { thickness: t, radius: Math.max(0, num(f.radius, t)), k: Math.min(1, Math.max(0, num(f.kFactor, 0.44))), normal: prof[0].frame.normal, origin: prof[0].frame.origin, bends: [] };
+  if (!ctx.sheet) { const set = sheetSettings({ ...f, thickness: t }); ctx.sheet = { thickness: set.thickness, radius: set.radius, k: set.k, rule: set.rule, normal: prof[0].frame.normal, origin: prof[0].frame.origin, bends: [] }; }
   const n = Math.max(8, Math.min(256, Math.round(num(f.segments, 64))));
   const P = chainPoints(prof[0].wire, n); const Q = chainPoints(prof[1].wire, n);
   const shell = R.loft([prof[0].wire.clone(), prof[1].wire.clone()], { ruled: true }, true);
@@ -702,9 +704,59 @@ function buildFormTool(f, ctx) {
   // z points the way the form rises; the local origin is on the sheet's other face.
   const z = f.down ? mul(n, -1) : n;
   const origin = f.down ? at : sub(at, mul(n, t));
+  // A forming tool made as a part of its own (custom): pressed in with its stop face on the sheet's far face.
+  if (f.tool === 'custom') return customForm(f, ctx, t, { origin, x, y: f.down ? mul(y, -1) : y, z });
   const { formed, hole, size } = formShapes(f, t, { origin, x, y: f.down ? mul(y, -1) : y, z });
   const body = ctx.body.cut(hole).fuse(formed);
   return { body, form: { tool: FORM_TOOLS.includes(f.tool) ? f.tool : 'dimple', size } };
+}
+
+/**
+ * A custom forming tool: another part (the punch) whose stop face (a planar face) sits on the sheet's far face, the
+ * punch rising through the sheet. The sheet under the stop face's outline goes; a wall as thick as the sheet wraps
+ * over the punch (its faces offset outward by t, round outside the punch's convex edges), the punch's own volume left
+ * hollow, open on the far side; faces chosen to be removed are punched through.
+ */
+function customForm(f, ctx, t, { origin, x, y, z }) {
+  const R = rep(); const oc = R.getOC();
+  const other = ctx.project?.parts?.find((p) => p.id === f.toolPart);
+  if (!other) throw codeError('part-missing');
+  if (ctx.stack.includes(other.id)) throw codeError('part-cycle');
+  const built = regenerate(other, { project: ctx.project, stack: ctx.stack });
+  if (!built.body) throw codeError('no-body');
+  const punch0 = built.body;
+  const stop = findFace(punch0, f.stopFace);
+  if (!stop || stop.geomType !== 'PLANE') throw codeError('form-stop-face');
+  // The punch's frame: the stop face's centre, its own x in the face, z into the punch (against the outward normal).
+  const pf = planeOfFace(stop);
+  const zs = mul(normalOf(stop), -1); const xs = normalize(sub(pf.xDir, mul(zs, dot(pf.xDir, zs)))); const ys = crossV(zs, xs);
+  const cs = vec(stop.center);
+  // p ↦ origin + x (p − cs)·xs + y (p − cs)·ys + z (p − cs)·zs, as { R, T }.
+  const Rm = [0, 1, 2].map((i) => [0, 1, 2].map((j) => x[i] * xs[j] + y[i] * ys[j] + z[i] * zs[j]));
+  const T = [0, 1, 2].map((i) => origin[i] - (Rm[i][0] * cs[0] + Rm[i][1] * cs[1] + Rm[i][2] * cs[2]));
+  const place = (s) => transformed(s, { R: Rm, T });
+  const punch = place(punch0);
+  // The wall: the punch thickened outward by t, open at its stop face (arc joins: rounded outside corners).
+  const list = new oc.NCollection_List_TopoDS_Shape(); list.Append(stop.wrapped);
+  const mk = new oc.BRepOffsetAPI_MakeThickSolid();
+  mk.MakeThickSolidByJoin(punch0.wrapped, list, t, 1e-6, oc.BRepOffset_Mode.BRepOffset_Skin, false, false, oc.GeomAbs_JoinType.GeomAbs_Arc, false, new oc.Message_ProgressRange());
+  if (!mk.IsDone()) { mk.delete(); throw codeError('kernel'); }
+  let wall = R.cast(mk.Shape()); mk.delete();
+  try { if (R.measureVolume(wall) < 0) wall = R.cast(wall.wrapped.Reversed()); } catch { /* keep */ }
+  wall = place(wall);
+  // The sheet's material over the stop face's outline (as thick as the sheet) is replaced by the wall.
+  const footprint = place(R.basicFaceExtrusion(R.makeFace(stop.outerWire().clone()), new R.Vector(mul(zs, t))));
+  let body = ctx.body.cut(footprint).fuse(wall).cut(punch);
+  // Faces of the punch to remove: punched through the wall there.
+  for (const sig of f.removeFaces ?? []) {
+    const fc = findFace(punch0, sig);
+    if (!fc || fc.geomType !== 'PLANE') continue;
+    const n = normalOf(fc);
+    const cut = place(R.basicFaceExtrusion(R.makeFace(fc.outerWire().clone()).translate(mul(n, -1e-3)), new R.Vector(mul(n, t * 3))));
+    body = body.cut(cut);
+  }
+  const [lo, hi] = punch.boundingBox.bounds;
+  return { body, form: { tool: 'custom', part: other.id, size: [0, 1, 2].map((i) => hi[i] - lo[i]) } };
 }
 
 // ───────────────────────── weldments
@@ -786,6 +838,8 @@ function buildWeldBead(f, ctx) {
     if (edge.geomType === 'LINE') bead = R.basicFaceExtrusion(profile, new R.Vector(sub(vec(edge.endPoint), vec(edge.startPoint))));
     else if (edge.geomType === 'CIRCLE') { const c = circleOfEdge(edge); bead = R.revolution(profile, c.centre, c.normal, 360); }
     else throw codeError('edge-unsupported');
+    // The deposited volume (for the drawing's weld table).
+    weld.volume = (weld.volume ?? 0) + R.measureVolume(bead);
     body = body.fuse(bead);
   }
   return { body, weld };

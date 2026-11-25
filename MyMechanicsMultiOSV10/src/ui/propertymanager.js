@@ -143,11 +143,14 @@ function featurePm(api) {
       parts.push(group('featCirPattern', t('pm.parameters'), `${seg('axisKind', [['x', 'X'], ['y', 'Y'], ['z', 'Z'], ['edge', t('pm.edgeRef')], ...(api.featuresBefore?.(f) ?? []).filter((x) => x.type === 'refAxis').map((x) => [`ref:${x.id}`, x.name, 'refAxis'])], f.axis?.kind === 'ref' ? `ref:${f.axis.id}` : f.axis?.kind === 'edge' ? 'edge' : f.axis?.axis ?? 'z')}${f.axis?.kind === 'edge' ? pickBox(api, 'axis', [axisName(api, f.axis)], t('pm.axisEdge'), 'refAxis') : ''}${check('reverse', f.reverse, t('pm.reverse'), 'flipV')}${field(api, 'angle', f.angle, { label: t('pm.totalAngle'), unit: 'angle', glyph: 'dimAngle', min: 0.1 })}${field(api, 'count', f.count, { label: t('pm.instances'), unit: 'count', glyph: 'featCirPattern', min: 1, step: 1 })}${check('equal', f.equal, t('pm.equalSpacing'), 'relEqual')}`));
     }
     parts.push(patternMorePm(api, f));
+    parts.push(patternInstancePm(api, f));
     parts.push(group('part', t('pm.featuresToPattern'), `${check('body', f.body, t('pm.patternBody'), 'part')}${f.body ? '' : pickBox(api, 'seeds', seeds, t('pm.seedFeatures'), 'featExtrude')}`));
   } else if (f.type === 'mirror') {
     const seeds = (f.seeds ?? []).map((id) => api.featureName(id) ?? id);
     parts.push(group('featMirror', t('pm.mirrorPlane'), `${seg('stdPlane', [['front', t('plane.front')], ['top', t('plane.top')], ['right', t('plane.right')]], f.plane?.kind === 'std' ? f.plane.name : '')}${pickBox(api, 'plane', [planeName(api, f.plane)], t('pm.planeOrFace'), 'refPlane')}`));
     parts.push(group('part', t('pm.featuresToMirror'), `${check('body', f.body, t('pm.mirrorBody'), 'part')}${f.body ? '' : pickBox(api, 'seeds', seeds, t('pm.seedFeatures'), 'featExtrude')}`));
+    // Mirror body: fused or kept as a body of its own; mirror features: copied or built again on the far side.
+    parts.push(group('featMirror', t('pm.options'), f.body ? check('merge', f.merge !== false, t('pm.mergeResult'), 'combineBodies') : `${check('geometry', f.geometry !== false, t('pat.geometry'), 'featMirror')}<p class="pm-note">${escapeHtml(t(f.geometry !== false ? 'pat.help.geometry' : 'pat.help.rebuild'))}</p>`));
   } else if (f.type === 'plane') {
     parts.push(refPlanePm(api, f));
   }
@@ -160,6 +163,27 @@ function featurePm(api) {
   const r = api.previewResult;
   if (r && r.ok === false) parts.push(`<p class="pm-error">${icon('error')}<span>${escapeHtml(t(`rebuild.${r.error}`, null, r.error))}</span></p>`);
   return parts.join('');
+}
+
+/**
+ * How a pattern makes its instances: Geometry pattern (copies of the seed's shape) or each instance built again in
+ * place; for a linear pattern, the variation of the first seed sketch's dimensions per instance (cad/pattern-more.js).
+ */
+function patternInstancePm(api, f) {
+  const { t } = api;
+  let body = `${check('geometry', f.geometry !== false, t('pat.geometry'), 'featLinPattern')}<p class="pm-note">${escapeHtml(t(f.geometry !== false ? 'pat.help.geometry' : 'pat.help.rebuild'))}</p>`;
+  if (f.type === 'linearPattern' && !f.body) {
+    const all = api.featuresBefore?.(f) ?? [];
+    const seed = all.find((x) => x.id === f.seeds?.[0]);
+    const sk = seed?.sketch ? all.find((x) => x.id === seed.sketch) : null;
+    const dims = (sk?.constraints ?? []).filter((c) => DIMENSIONS.includes(c.type) && Number.isFinite(Number(c.value)) && !c.driven);
+    if (dims.length) {
+      const step = (c, k) => (f.vary ?? []).find((v) => v.dim === c.id)?.[k] ?? 0;
+      const label = (c) => `${t(`dim.${c.type}`, null, c.type)} ${c.type === 'angle' ? api.fmt(c.value) + '°' : api.fmtLenBare(c.value)}`;
+      body += `<p class="pm-label">${escapeHtml(t('pat.vary'))}</p>${dims.map((c) => `${field(api, `vary:${c.id}`, step(c, 'step'), { label: `${label(c)} — ${t('pm.direction1')}`, unit: c.type === 'angle' ? 'angle' : 'length', glyph: 'smartDim' })}${f.direction2 ? field(api, `vary2:${c.id}`, step(c, 'step2'), { label: `${label(c)} — ${t('pm.direction2')}`, unit: c.type === 'angle' ? 'angle' : 'length', glyph: 'smartDim' }) : ''}`).join('')}<p class="pm-note">${escapeHtml(t('pat.help.vary'))}</p>`;
+    }
+  }
+  return group('featLinPattern', t('pat.instances'), body);
 }
 
 function sketchPm(api) {

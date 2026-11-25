@@ -10,6 +10,7 @@ import { rep } from './kernel.js';
 import { findEdges, findFace, crossV, normalize } from './refs.js';
 import { codeError, sizeAround, regenerate } from './features.js';
 import { bendAllowance } from './advanced.js';
+import { sheetSettings } from './sheet-gauge.js';
 import { meshSolid } from './openscad-feature.js';
 import { flangesOf, corners, miteredPair } from './sheet-more.js';
 import { bendFrame, zRange, toLocal, toWorld, foldLocal, flangeMap, refineAcross } from './sheet-fold.js';
@@ -50,7 +51,7 @@ function frameBox(F, x0, x1, y0, y1, z0, z1) {
 }
 
 /** A shape moved by a rigid map { R, T } (p' = R p + T). */
-function transformed(shape, M) {
+export function transformed(shape, M) {
   const R = rep(); const oc = R.getOC();
   const tr = new oc.gp_Trsf();
   tr.SetValues(M.R[0][0], M.R[0][1], M.R[0][2], M.T[0], M.R[1][0], M.R[1][1], M.R[1][2], M.T[1], M.R[2][0], M.R[2][1], M.R[2][2], M.T[2]);
@@ -160,8 +161,11 @@ function buildConvert(f, ctx, auto) {
     t = wallThickness(ctx.body, face);
     if (!t) throw codeError('not-thin');
   } else t = Math.max(0.05, num(f.thickness, 2));
-  const r = Math.max(0, num(f.radius, t));
-  const k = clamp(num(f.kFactor, 0.44), 0, 1);
+  // A gauge table sets the thickness (Convert to Sheet Metal), the radius and K; the bend method the rule.
+  const set = sheetSettings({ ...f, thickness: t });
+  if (!auto) t = set.thickness;
+  const r = auto ? Math.max(0, num(f.radius, t)) : set.radius;
+  const k = set.k; const rule = set.rule;
   const outside = !auto && f.side === 'outside';
   const nb = outside ? nF : mul(nF, -1);
   const gap = Math.max(0, num(f.gap, auto ? 0.1 : 0.2));
@@ -241,7 +245,7 @@ function buildConvert(f, ctx, auto) {
       }
     }
     F.zLo = lo; F.zHi = hi;
-    const BA = bendAllowance(b.theta, r, t, k);
+    const BA = bendAllowance(b.theta, r, t, rule);
     const rec = { r, t, theta: b.theta, BA, L: b.L };
     pieces.push(bendSolid(F, rec, ctx.flat, 'all'));
     if (ext[0] > 1e-6) { const G = { ...F, zLo: lo - ext[0], zHi: lo }; const p = bendSolid(G, rec, ctx.flat, 'flange'); if (p) pieces.push(p); }
@@ -253,7 +257,7 @@ function buildConvert(f, ctx, auto) {
   // The other bodies of the part stay as they are.
   const others = solids.filter((s) => !s.faces.some((fc) => fc.wrapped.IsSame(face.wrapped)));
   const body = others.length ? R.makeCompound([...others, ...solidsOf(sheet)]) : sheet;
-  ctx.sheet = { thickness: t, radius: r, k, normal: nb, origin: P0, bends: records };
+  ctx.sheet = { thickness: t, radius: r, k, rule, normal: nb, origin: P0, bends: records };
   return { body, sheet: ctx.sheet, convert: { bends: records.length, thickness: t } };
 }
 

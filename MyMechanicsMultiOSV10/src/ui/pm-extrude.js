@@ -63,6 +63,8 @@ export function extrudePm(api, f) {
   // Direction of extrusion (an edge; empty: the sketch normal) and, for a cut, the side that is removed.
   d1 += pickBox(api, 'dirVector', f.dirVector ? [t('pm.dirVectorEdge')] : [], t('pm.dirVector'), 'lineTool');
   if (f.op === 'cut') d1 += check('flipSide', f.flipSide, t('pm.flipSide'), 'flipH');
+  // Sheet metal: a normal cut (square to the sheet, radial in bends) once the part has a sheet.
+  if (f.op === 'cut' && (api.featuresBefore?.(f) ?? []).some((x) => ['baseFlange', 'convertSheet', 'insertBends', 'loftedBend'].includes(x.type) && !x.suppressed)) d1 += check('normalCut', f.normalCut, t('pm.normalCut'), 'sheetMetal');
   parts.push(group('featExtrude', t('pm.direction1'), d1));
 
   // Direction 2 (not with mid-plane / through-both, which already go both ways).

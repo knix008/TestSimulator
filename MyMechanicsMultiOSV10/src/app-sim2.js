@@ -21,7 +21,7 @@ import { stressColor } from './cad/fea.js';
 import { optimisedShape } from './cad/fem/topology.js';
 import { stlBinary } from './cad/mesh-formats.js';
 import { materialOf, materialName } from './cad/materials.js';
-import { faceSignature, edgeSignature, findFace, findEdges, isCylinder } from './cad/refs.js';
+import { faceSignature, edgeSignature, findFace, findEdges, isCylinder, planeOfFace } from './cad/refs.js';
 import { axisOfFace, placePoint, placeDir } from './cad/assembly.js';
 import { faceRef } from './cad/features.js';
 import { layoutViews, viewBasis } from './cad/drawing.js';
@@ -32,7 +32,7 @@ import {
 import { addVersion, versionsOf, compareVersions, rollbackTo, checkOut, checkIn, isReadOnly, setRequireCheckout, requiresCheckout, whereUsed } from './cad/versions.js';
 import {
   createAsmFeature, asmFeatureTool, cutComponent, featureActsOn, beltPath, beltMesh, chainLinks, createBelt,
-  makeBlock, insertBlock, blockInstances, explodeBlock, pictureCorners, normalisePicture, makeLibraryItem, insertLibraryItem, loadLibrary, saveLibrary,
+  makeBlock, insertBlock, blockInstances, explodeBlock, pictureCorners, normalisePicture, makeLibraryItem, insertLibraryItem, libraryDims, placedFaceRef, loadLibrary, saveLibrary,
 } from './cad/asm-extra.js';
 import { escapeHtml } from './ui/dom.js';
 import { icon } from './icons.js';
@@ -1058,9 +1058,14 @@ export function createSim2Tools(ctx) {
   }
 
   function libPm(e) {
-    const { pmHead, pmGroup, pmButton } = ctx.pm;
+    const { pmHead, pmGroup, pmButton, pmNum, pmSeg } = ctx.pm;
     const list = loadLibrary(storage());
-    return [pmHead('libInsert', t('cmd.libInsert'), t('pm.help.libInsert')),
+    const item = list.find((x) => x.id === e.item);
+    // Size parameters (the item's dimensions) and where it goes on the face.
+    const dims = libraryDims(item);
+    const size = dims.length ? pmGroup('smartDim', t('lib.size'), dims.map((d) => pmNum(`libdim:${d.id}`, e.dims?.[d.id] ?? d.value, `${d.sketch} · ${t(`dim.${d.type}`, null, d.type)}`, 'smartDim', d.type === 'angle' ? '°' : 'mm')).join('')) : '';
+    const place = pmGroup('position', t('lib.place'), `${pmSeg('lib.at', [['click', t('lib.atClick'), 'pointTool'], ['center', t('lib.atCenter'), 'refPoint']], e.at ?? 'click')}${pmNum('lib.dx', e.dx ?? 0, 'X', 'position', 'mm')}${pmNum('lib.dy', e.dy ?? 0, 'Y', 'position', 'mm')}${pmNum('lib.angle', e.angle ?? 0, t('pm.angle'), 'dimAngle', '°')}`);
+    return [pmHead('libInsert', t('cmd.libInsert'), t('pm.help.libInsert')), size, place,
       pmGroup('libSave', t('asmx.library'), `<ul class="pm-list sim2-list">${list.map((x) => `<li class="${x.id === e.item ? 'active' : ''}"><button class="sim2-row" data-pm="lib.sel:${escapeHtml(x.id)}">${icon('libSave', 'icon tiny')}<span>${escapeHtml(`${x.name} (${x.features.length})`)}</span></button><button class="icon-button" data-pm="lib.del:${escapeHtml(x.id)}" title="${escapeHtml(t('action.delete'))}">${icon('trash', 'icon tiny')}</button></li>`).join('')}</ul><p class="pm-note">${escapeHtml(t('asmx.libPickFace'))}</p>`),
       pmGroup('info', '', `<div class="pm-row">${pmButton('cancel', 'close', t('pm.close'))}</div>`)].join('');
   }
@@ -1072,8 +1077,12 @@ export function createSim2Tools(ctx) {
     const item = loadLibrary(storage()).find((x) => x.id === e.item);
     if (!item) return;
     let made = [];
+    // Where it goes: at the clicked point (or the face's centre), moved and turned as set on the page.
+    const ref = faceRef(face);
+    const plane = placedFaceRef(ref, planeOfFace(face).normal, { at: (e.at ?? 'click') === 'click' && hit.point ? [hit.point.x ?? hit.point[0], hit.point.y ?? hit.point[1], hit.point.z ?? hit.point[2]] : null, dx: e.dx ?? 0, dy: e.dy ?? 0, angle: e.angle ?? 0 });
+    const dims = e.dims ?? null;
     state.editing = null; state.leftTab = 'tree';
-    ctx.change('op.libInsert', () => { made = insertLibraryItem(p, item, faceRef(face), { nameOf: (f) => `${item.name}-${f.name}` }); });
+    ctx.change('op.libInsert', () => { made = insertLibraryItem(p, item, plane, { nameOf: (f) => `${item.name}-${f.name}`, dims }); });
     notify('success', t('asmx.libInserted', { name: item.name, count: made.length }));
   }
 
@@ -1203,6 +1212,11 @@ export function createSim2Tools(ctx) {
   }
   function field(key, raw, v) {
     const e = editing();
+    if (e.mode === 'libInsert' && (key.startsWith('libdim:') || ['lib.dx', 'lib.dy', 'lib.angle'].includes(key))) {
+      if (v == null) { notify('error', t('notice.invalidValue', { text: raw })); return ctx.renderLeft(); }
+      if (key.startsWith('libdim:')) { if (!(v > 0)) { notify('error', t('notice.invalidValue', { text: raw })); return ctx.renderLeft(); } e.dims = { ...(e.dims ?? {}), [key.slice(7)]: v }; } else e[key.slice(4)] = v;
+      return ctx.renderLeft();
+    }
     if (e.mode === 'mbd' && key.startsWith('mbd.')) return mbdField(key, raw);
     if (key === 'ver.author') { try { storage()?.setItem(AUTHOR_KEY, String(raw).trim()); } catch { /* no storage */ } return ctx.renderLeft(); }
     if (key === 'ver.comment') { state.nextVersionComment = String(raw); return undefined; }
@@ -1235,6 +1249,7 @@ export function createSim2Tools(ctx) {
     const e = editing();
     if (isSim(e)) return simSet(e, key, value);
     if (e.mode === 'mbd' && key.startsWith('mbd.')) return mbdField(key, value);
+    if (e.mode === 'libInsert' && key === 'lib.at') { e.at = value; return ctx.renderLeft(); }
     if (e.mode === 'versions' && (key === 'ver.a' || key === 'ver.b')) { e[key.slice(4)] = value === 'current' ? 'current' : Number(value); e.diff = null; return ctx.renderLeft(); }
     e[key] = value;
     if (e.mode === 'belt' && key === 'kind') e.thickness = value === 'chain' ? 6 : 2;

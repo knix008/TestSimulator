@@ -4,6 +4,8 @@
 // (and cavity), sheet metal base and edge flanges with a flat pattern, and weldment structural members.
 // Built by regenerate() in features.js like the others: each returns { body?, tool?, surface?, curve? }.
 import { needsSweepMore, sweepMoreTool } from './sweep-more.js';
+import { ruleAllowance, sheetSettings, gaugeOf } from './sheet-gauge.js';
+import { solidSweep } from './solid-sweep.js';
 import { needsLoftMore, loftMoreTool } from './loft-more.js';
 import { needsRibMore, ribMore } from './rib-more.js';
 import { rep } from './kernel.js';
@@ -48,7 +50,7 @@ export const ADVANCED_DEFAULTS = {
   moveBody: () => ({ dx: 0, dy: 0, dz: 0, cx: 0, cy: 0, cz: 0, rx: 0, ry: 0, rz: 0, axis: 'z', angle: 0, copy: false }),
   scaleBody: () => ({ factor: 1.02, about: 'origin' }),
   split: () => ({ plane: { kind: 'std', name: 'top' }, keep: 'above' }),
-  insertPart: () => ({ part: null, body: null, op: 'boss', dx: 0, dy: 0, dz: 0, axis: 'z', angle: 0, scale: 1 }),
+  insertPart: () => ({ part: null, body: null, op: 'boss', dx: 0, dy: 0, dz: 0, axis: 'z', angle: 0, scale: 1, mirror: 'none' }),
   baseFlange: () => ({ sketch: null, thickness: 2, radius: 2, kFactor: 0.44, reverse: false }),
   edgeFlange: () => ({ edge: null, length: 20, angle: 90, radius: null, flip: false }),
   structural: () => ({ sketch: null, profile: 'squareTube', w: 40, h: 40, t: 3, rotate: 0 }),
@@ -101,7 +103,7 @@ export function buildAdvanced(f, ctx) {
     case 'surfaceExtrude': return { surface: surfaceExtrude(f, ctx) };
     case 'surfaceRevolve': return { surface: surfaceRevolve(f, ctx) };
     case 'surfacePlanar': return { surface: surfacePlanar(f, ctx) };
-    case 'surfaceLoft': return { surface: loftOf(f.sketches, ctx, f, true) };
+    case 'surfaceLoft': return { surface: needsLoftMore(f) ? capsOff(loftMoreTool(f, ctx, (id) => pathOf(id, ctx)), f.sketches, ctx) : loftOf(f.sketches, ctx, f, true) };
     case 'surfaceOffset': return { surface: surfaceOffset(f, ctx) };
     case 'knit': return buildKnit(f, ctx);
     case 'moveBody': return buildMove(f, ctx);
@@ -210,7 +212,7 @@ function edgeOf(e, fwd, map, fr, W) {
 }
 
 /** A path for a sweep: a sketch (open or closed chain) or a helix feature. */
-function pathOf(id, ctx) {
+export function pathOf(id, ctx) {
   if (ctx.curves.has(id)) return ctx.curves.get(id);
   const { sketch, frame } = sketchOf({ sketch: id }, ctx, id);
   return sketchWire(sketch, frame);
@@ -226,18 +228,59 @@ function regionWires(sketch, fr) {
 
 // ───────────────────────── sweep and loft
 
+/**
+ * Start tangency "path": the profile turned (about the line where its plane and the path's normal plane meet, through
+ * the path's start) so that it stands square to the path at its start.
+ */
+export function squareToPath(frame, path) {
+  const e = path.edges[0];
+  const p0 = vec(e.startPoint); let t = normalize(vec(e.tangentAt(0)));
+  if (dot(t, frame.normal) < 0) t = mul(t, -1);
+  const k = crossV(frame.normal, t); const s = Math.hypot(...k); const c = dot(frame.normal, t);
+  if (s < 1e-12) return frame;
+  const u = mul(k, 1 / s); const ang = Math.atan2(s, c);
+  const rot = (v) => { const cv = crossV(u, v); const uv = dot(u, v); return [0, 1, 2].map((i) => v[i] * Math.cos(ang) + cv[i] * Math.sin(ang) + u[i] * uv * (1 - Math.cos(ang))); };
+  return { ...frame, origin: add(p0, rot(sub(frame.origin, p0))), xDir: rot(frame.xDir), yDir: rot(frame.yDir), normal: rot(frame.normal) };
+}
+
+/** A body without the solid that matches `solid` (same volume and box): the other solids, as one shape. */
+function withoutSolid(body, solid) {
+  const R = rep();
+  let list; try { list = [...R.iterTopo(body.wrapped, 'solid')].map((x) => R.cast(x)); } catch { return body; }
+  if (list.length < 2) return body;
+  const v = R.measureVolume(solid); const [a0, a1] = solid.boundingBox.bounds;
+  const same = (s) => { const [b0, b1] = s.boundingBox.bounds; return Math.abs(R.measureVolume(s) - v) <= 1e-6 * Math.max(1, v) && [0, 1, 2].every((i) => Math.abs(a0[i] - b0[i]) < 1e-6 && Math.abs(a1[i] - b1[i]) < 1e-6); };
+  const keep = list.filter((s) => !same(s));
+  if (keep.length === list.length || !keep.length) return body;
+  return keep.length === 1 ? keep[0] : R.makeCompound(keep);
+}
+
 function buildSweep(f, ctx) {
   const R = rep();
   if (!f.path) throw codeError('no-path');
   const path = pathOf(f.path, ctx);
+  // Solid sweep: a revolved tool body moved along the path, its axis held (solid-sweep.js).
+  if (f.solidTool) {
+    const tr = ctx.results.get(f.solidTool);
+    if (!tr?.ok || !tr.tool) throw codeError('tool-missing');
+    const tool = solidSweep(tr.tool, path, { codeError });
+    if (!ctx.body) throw codeError('nothing-to-cut');
+    // The tool body is used up: taken out of the part's bodies before the cut.
+    const keep = withoutSolid(ctx.body, tr.tool);
+    const body = (f.op ?? 'cut') === 'cut' ? keep.cut(tool) : keep.fuse(tool);
+    return { tool, body };
+  }
   const config = { transitionMode: f.transition === 'round' ? 'round' : f.transition === 'transformed' ? 'transformed' : 'right', frenet: Boolean(f.frenet) };
   // Twist, guide curve, circular profile, thin (sweep-more.js).
   if (needsSweepMore(f)) {
     const prof = f.circular ? {} : sketchOf(f, ctx);
-    const tool = sweepMoreTool({ ...f, guideWire: f.guide ? pathOf(f.guide, ctx) : null }, path, config, prof.sketch, prof.frame);
+    if (prof.frame && f.startTangent === 'path') prof.frame = squareToPath(prof.frame, path);
+    const guideIds = [f.guide, ...(f.guides ?? [])].filter((x, i, all) => x && x !== f.path && all.indexOf(x) === i);
+    const tool = sweepMoreTool({ ...f, guideWire: f.guide ? pathOf(f.guide, ctx) : null, guideWires: guideIds.map((id) => pathOf(id, ctx)) }, path, config, prof.sketch, prof.frame);
     return { tool, body: combine(ctx, tool, f.op) };
   }
-  const { sketch, frame } = sketchOf(f, ctx);
+  const { sketch, frame: frame0 } = sketchOf(f, ctx);
+  const frame = f.startTangent === 'path' ? squareToPath(frame0, path) : frame0;
   let tool = null;
   for (const { outer, holes } of regionWires(sketch, frame)) {
     let s = R.genericSweep(outer, path, config, false);
@@ -1039,6 +1082,9 @@ function buildInsertPart(f, ctx) {
   }
   const k = num(f.scale, 1);
   if (Math.abs(k - 1) > 1e-12 && k > 0) s = s.scale(k, [0, 0, 0]);
+  // Mirrored about a plane through the origin: the opposite-hand part (Mirror Part).
+  const MIRROR = { front: [0, 1, 0], top: [0, 0, 1], right: [1, 0, 0] };
+  if (MIRROR[f.mirror]) s = s.mirror(MIRROR[f.mirror], [0, 0, 0]);
   const tool = movedShape(s, f);
   const op = f.op === 'cut' ? 'cut' : f.op === 'common' ? 'common' : 'boss';
   return { tool, toolOp: op === 'cut' ? 'cut' : 'boss', body: op === 'boss' && !ctx.body ? tool : combine(ctx, tool, op) };
@@ -1047,17 +1093,20 @@ function buildInsertPart(f, ctx) {
 // ───────────────────────── sheet metal
 
 /** Bend allowance (length of the bend's neutral line): angle × (r + k·t). */
-export const bendAllowance = (angleDeg, r, t, k) => ((Math.abs(angleDeg) * Math.PI) / 180) * (r + k * t);
+// `k`: a K-factor, or a bend rule from a gauge / bend table (cad/sheet-gauge.js).
+export const bendAllowance = (angleDeg, r, t, k) => (typeof k === 'number' ? ((Math.abs(angleDeg) * Math.PI) / 180) * (r + k * t) : ruleAllowance(k, angleDeg, r, t));
 
 function buildBaseFlange(f, ctx) {
   const { sketch, frame } = sketchOf(f, ctx);
-  const t = Math.max(0.05, num(f.thickness, 2));
+  // Thickness, radius and K from the gauge table when one is chosen; the bend rule from the bend method.
+  const set = sheetSettings(f);
+  const t = set.thickness;
   const dir = f.reverse ? -1 : 1;
   let d = null;
   for (const r of profiles(sketch)) { let x = loopDrawing(r.outer); for (const h of r.holes) x = x.cut(loopDrawing(h)); d = d ? d.fuse(x) : x; }
   if (!d) throw codeError('no-profile');
   const tool = d.sketchOnPlane(replicadPlane(frame)).extrude(t * dir);
-  ctx.sheet = { thickness: t, radius: Math.max(0, num(f.radius, t)), k: Math.min(1, Math.max(0, num(f.kFactor, 0.44))), normal: mul(frame.normal, dir), origin: frame.origin, bends: [] };
+  ctx.sheet = { thickness: t, radius: set.radius, k: set.k, rule: set.rule, gauge: gaugeOf(f)?.name ?? null, normal: mul(frame.normal, dir), origin: frame.origin, bends: [] };
   return { tool, body: combine(ctx, tool, 'boss'), sheet: ctx.sheet };
 }
 
@@ -1073,8 +1122,17 @@ function buildEdgeFlange(f, ctx) {
   if (!edge || edge.geomType !== 'LINE') throw codeError('edge-missing');
   const t = sm.thickness; const r = f.radius == null || f.radius === '' ? sm.radius : Math.max(0, num(f.radius));
   const theta = Math.max(1, Math.min(180, num(f.angle, 90)));
-  const L = Math.max(0, num(f.length, 20));
-  const s = vec(edge.startPoint); const e = vec(edge.endPoint);
+  const half = Math.tan(((Math.min(theta, 179) * Math.PI) / 180) / 2);
+  // Length reference: the straight part after the bend (tangent), or measured from the outer / inner virtual sharp.
+  const L0 = Math.max(0, num(f.length, 20));
+  const profilePts = Array.isArray(f.profilePts) && f.profilePts.length >= 3 ? f.profilePts.map((q) => [num(q.u, 0), num(q.v, 0)]) : null;
+  // A custom flange profile replaces the straight part: the bend alone here, the profile's prism added below.
+  const L = profilePts ? 0 : Math.max(0, f.lengthRef === 'outerSharp' ? L0 - (r + t) * half : f.lengthRef === 'innerSharp' ? L0 - r * half : L0);
+  let s = vec(edge.startPoint); let e = vec(edge.endPoint);
+  // Flange width: shortened from the edge's start and end.
+  { const dd = normalize(sub(e, s)); const total = Math.hypot(...sub(e, s)); const a0 = Math.max(0, num(f.offsetStart, 0)); const a1 = Math.max(0, num(f.offsetEnd, 0));
+    if (a0 + a1 >= total - 1e-6) throw codeError('flange-too-narrow');
+    s = add(s, mul(dd, a0)); e = sub(e, mul(dd, a1)); }
   const d = normalize(sub(e, s)); const len = Math.hypot(...sub(e, s));
   const nb = sm.normal;
   if (Math.abs(dot(d, nb)) > 1e-3) throw codeError('edge-not-on-sheet');
@@ -1088,13 +1146,24 @@ function buildEdgeFlange(f, ctx) {
   // The bend goes away from the face the edge is on; Flip bends the other way.
   let b = mul(nb, -into);
   if (f.flip) b = mul(b, -1);
+  // Flange position: where the bend starts across the edge (into the sheet, which is then cut back to it).
+  //   bendOutside (the bend beyond the edge), materialOutside (the flange's inner face on the edge), materialInside
+  //   (its outer face on the edge), virtualSharp (the outer virtual sharp on the edge).
+  const shift = f.position === 'materialInside' ? r + t : f.position === 'materialOutside' ? r : f.position === 'virtualSharp' ? (r + t) * half : 0;
+  let body0 = ctx.body;
+  if (shift > 1e-9) {
+    // The strip of sheet between the new bend line and the edge goes (as wide as the flange).
+    const strip = R.basicFaceExtrusion(R.makePolygon([s, e, add(e, mul(o, -shift)), add(s, mul(o, -shift))]).translate(mul(nb, -2 * t)), new R.Vector(mul(nb, 4 * t)));
+    body0 = body0.cut(strip);
+    s = add(s, mul(o, -shift)); e = add(e, mul(o, -shift));
+  }
   // Profile in the (o, b) plane at the edge start; the material is at b ∈ [−t, 0]. Flipped, the bend turns toward the
   // material, so its inner face is the opposite sheet face: the profile starts t further along b.
   const flipT = f.flip ? 1 : 0;
   const base = flipT ? add(s, mul(b, t)) : s;
   let draw;
   if (ctx.flat) {
-    const flatLen = bendAllowance(theta, r, t, sm.k) + L;
+    const flatLen = bendAllowance(theta, r, t, sm.rule ?? sm.k) + L;
     draw = R.draw([0, 0]).lineTo([flatLen, 0]).lineTo([flatLen, -t]).lineTo([0, -t]).close();
   } else {
     const th = (theta * Math.PI) / 180;
@@ -1112,10 +1181,22 @@ function buildEdgeFlange(f, ctx) {
   }
   const plane = new R.Plane(base, o, crossV(o, b));
   const sign = dot(d, crossV(o, b)) >= 0 ? 1 : -1;
-  const tool = draw.sketchOnPlane(plane).extrude(sign * len);
+  let tool = draw.sketchOnPlane(plane).extrude(sign * len);
+  if (profilePts) {
+    // The flange's outline as edited: a polygon on the straight part's inner face (formed: past the bend at its
+    // angle; flat: past the bend allowance), as thick as the sheet.
+    const th = (theta * Math.PI) / 180;
+    const BA = bendAllowance(theta, r, t, sm.rule ?? sm.k);
+    const origin = ctx.flat ? add(base, mul(o, BA)) : add(base, add(mul(o, r * Math.sin(th)), mul(b, r - r * Math.cos(th))));
+    const along = ctx.flat ? o : add(mul(o, Math.cos(th)), mul(b, Math.sin(th)));
+    const thick = ctx.flat ? mul(b, -1) : add(mul(o, Math.sin(th)), mul(b, -Math.cos(th)));
+    const P = profilePts.map(([u, v]) => add(origin, add(mul(d, u), mul(along, v))));
+    const prism = R.basicFaceExtrusion(R.makePolygon(P), new R.Vector(mul(thick, t)));
+    tool = tool.fuse(prism);
+  }
   const fr = bendFrame(base, o, b); [fr.zLo, fr.zHi] = zRange(fr, s, e);
-  sm.bends.push({ start: s, end: e, angle: theta, radius: r, outward: o, flat: ctx.flat, allowance: bendAllowance(theta, r, t, sm.k), frame: fr, r, t, theta, BA: bendAllowance(theta, r, t, sm.k), L, feature: f.id });
-  return { tool, body: ctx.body.fuse(tool), bend: sm.bends.at(-1) };
+  sm.bends.push({ start: s, end: e, angle: theta, radius: r, outward: o, flat: ctx.flat, allowance: bendAllowance(theta, r, t, sm.rule ?? sm.k), frame: fr, r, t, theta, BA: bendAllowance(theta, r, t, sm.rule ?? sm.k), L, feature: f.id });
+  return { tool, body: body0.fuse(tool), bend: sm.bends.at(-1) };
 }
 
 // ───────────────────────── weldments
@@ -1158,22 +1239,92 @@ function buildStructural(f, ctx) {
   }
   if (!segs.length) throw codeError('no-path');
   const rot = (num(f.rotate) * Math.PI) / 180;
-  let tool = null;
-  const members = [];
-  for (const { id, pa, pb } of segs) {
-    const l = { id };
-    const L = Math.hypot(...sub(pb, pa));
-    if (L < 1e-6) continue;
-    const dir = normalize(sub(pb, pa));
+  // The profile: a built-in section, or a custom one drawn in a sketch (its coordinates round the path point).
+  const profile = () => {
+    if (f.profile !== 'custom') return structuralProfile(f.profile, f.w, f.h, f.t);
+    const sk = ctx.part.features.find((x) => x.id === f.profileSketch && x.type === 'sketch');
+    if (!sk) throw codeError('no-profile');
+    let d = null;
+    for (const r of profiles(sk)) { let x = loopDrawing(r.outer); for (const h of r.holes) x = x.cut(loopDrawing(h)); d = d ? d.fuse(x) : x; }
+    if (!d) throw codeError('no-profile');
+    return d;
+  };
+  const corner = ['miter', 'butt1', 'butt2'].includes(f.corner) ? f.corner : 'none';
+  const r6 = (x) => Math.round(x * 1000) / 1000;
+  const key = (p) => p.map((c) => Math.round(c * 1e5)).join(',');
+  const list = segs.map((sg) => ({ ...sg, L: Math.hypot(...sub(sg.pb, sg.pa)) })).filter((sg) => sg.L >= 1e-6);
+  // Joints: where exactly two members meet end to end.
+  const ends = new Map();
+  list.forEach((sg, i) => { for (const [end, p] of [['a', sg.pa], ['b', sg.pb]]) { const k = key(p); ends.set(k, [...(ends.get(k) ?? []), { i, end }]); } });
+  const joints = [...ends.values()].filter((x) => x.length === 2 && x[0].i !== x[1].i);
+  const axes = list.map((sg) => {
+    const dir = normalize(sub(sg.pb, sg.pa));
     // Profile axes: across the sketch plane (its normal) and across the line within it, turned by `rotate`.
     const u0 = refNormal && Math.abs(dot(refNormal, dir)) < 0.99 ? refNormal : normalize(crossV(dir, Math.abs(dot(dir, worldUp())) < 0.9 ? worldUp() : [1, 0, 0]));
     const v0 = normalize(crossV(dir, u0));
     const u = add(mul(u0, Math.cos(rot)), mul(v0, Math.sin(rot)));
-    const plane = new R.Plane(pa, u, dir);
-    const solid = structuralProfile(f.profile, f.w, f.h, f.t).sketchOnPlane(plane).extrude(L);
-    tool = tool ? tool.fuse(solid) : solid;
-    members.push({ line: l.id, length: Math.round(L * 1000) / 1000 });
+    return { dir, u, v: crossV(dir, u) };
+  });
+  // How far a member's section reaches across the path in direction w (from the profile's 2D box).
+  const prof0 = profile();
+  const [[x0, y0], [x1, y1]] = (() => { const bb = prof0.boundingBox; return [[bb.bounds[0][0], bb.bounds[0][1]], [bb.bounds[1][0], bb.bounds[1][1]]]; })();
+  const reach = (i, w) => { const { u, v } = axes[i]; return Math.max(...[[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(([px, py]) => px * dot(u, w) + py * dot(v, w))); };
+  // Extensions into the joints (corner treatment), then each member's solid.
+  const ext = list.map(() => ({ a: 0, b: 0 }));
+  if (corner !== 'none') for (const [A, B] of joints) { ext[A.i][A.end] = 2 * Math.max(reach(B.i, axes[A.i].dir), reach(B.i, mul(axes[A.i].dir, -1)), 1e-3); ext[B.i][B.end] = 2 * Math.max(reach(A.i, axes[B.i].dir), reach(A.i, mul(axes[B.i].dir, -1)), 1e-3); }
+  const solids = list.map((sg, i) => {
+    const { dir, u } = axes[i];
+    const start = sub(sg.pa, mul(dir, ext[i].a));
+    return profile().sketchOnPlane(new R.Plane(start, u, dir)).extrude(sg.L + ext[i].a + ext[i].b);
+  });
+  const angles = list.map(() => ({ a: 90, b: 90 }));
+  if (corner !== 'none') {
+    const [lo, hi] = solids.reduce((acc, s) => { const [l, h] = s.boundingBox.bounds; return [[0, 1, 2].map((k) => Math.min(acc[0][k], l[k])), [0, 1, 2].map((k) => Math.max(acc[1][k], h[k]))]; }, [[Infinity, Infinity, Infinity], [-Infinity, -Infinity, -Infinity]]);
+    const big = Math.hypot(...sub(hi, lo)) * 2 + 10;
+    const keep = (P, n) => { // the side of the plane through P that n points away from
+      const a = Math.abs(n[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
+      const e1 = normalize(crossV(n, a)); const e2 = crossV(n, e1);
+      const c = (s, t) => add(add(P, mul(e1, s * big)), mul(e2, t * big));
+      return R.basicFaceExtrusion(R.makePolygon([c(-1, -1), c(1, -1), c(1, 1), c(-1, 1)]), new R.Vector(mul(n, -big)));
+    };
+    for (const [A, B] of joints) {
+      const J = A.end === 'a' ? list[A.i].pa : list[A.i].pb;
+      // Directions pointing into the joint along each member.
+      const inA = A.end === 'b' ? axes[A.i].dir : mul(axes[A.i].dir, -1);
+      const inB = B.end === 'b' ? axes[B.i].dir : mul(axes[B.i].dir, -1);
+      if (Math.abs(dot(inA, inB)) > 1 - 1e-9) continue; // in line: nothing to cut
+      if (corner === 'miter') {
+        // The bisector plane: each member keeps its own side.
+        const n = normalize(sub(inA, inB));
+        solids[A.i] = solids[A.i].intersect(keep(J, n));
+        solids[B.i] = solids[B.i].intersect(keep(J, mul(n, -1)));
+        // The end cut's angle to the member's line (90 = square).
+        const ang = 90 - (Math.acos(Math.min(1, Math.abs(dot(inA, n)))) * 180) / Math.PI;
+        angles[A.i][A.end] = r6(ang); angles[B.i][B.end] = r6(ang);
+      } else {
+        // Butt: one member runs through to the other's outer face; the other is trimmed against it.
+        const [run, trim] = corner === 'butt1' ? [A, B] : [B, A];
+        const inRun = run === A ? inA : inB;
+        const inTrim = trim === A ? inA : inB;
+        solids[run.i] = solids[run.i].intersect(keep(add(J, mul(inRun, reach(trim.i, inRun))), inRun));
+        // The trimmed one stops at the through member's near face (the face across the trimmed one's approach).
+        const runDir = axes[run.i].dir;
+        const nf = normalize(sub(inTrim, mul(runDir, dot(inTrim, runDir))));
+        solids[trim.i] = solids[trim.i].intersect(keep(sub(J, mul(nf, reach(run.i, mul(nf, -1)))), nf));
+        angles[trim.i][trim.end] = r6(90 - (Math.acos(Math.min(1, Math.abs(dot(inTrim, nf)))) * 180) / Math.PI);
+      }
+    }
   }
+  let tool = null;
+  const members = [];
+  list.forEach((sg, i) => {
+    const s = solids[i];
+    tool = tool ? tool.fuse(s) : s;
+    // Cut length: the member's extent along its own line (after the corner cuts); its end cut angles.
+    let cutLength = sg.L;
+    try { const { dir } = axes[i]; const vs = s.edges.flatMap((e) => [0, 0.5, 1].map((t) => dot(vec(e.pointAt(t)), dir))); if (vs.length) cutLength = Math.max(...vs) - Math.min(...vs); } catch { /* the line's length */ }
+    members.push({ line: sg.id, length: r6(sg.L), cutLength: r6(cutLength), angle1: angles[i].a, angle2: angles[i].b });
+  });
   if (!tool) throw codeError('no-path');
   return { tool, body: combine(ctx, tool, 'boss'), members };
 }
@@ -1204,39 +1355,104 @@ function loopWire(f, ctx) {
   return R.assembleWire(edges.map((e) => e.clone()));
 }
 
-/** Fill surface: a smooth patch spanning a closed boundary (a hole in a body, a 3D sketch loop). */
-function buildFillSurface(f, ctx) {
-  const R = rep();
-  const face = R.makeNonPlanarFace(loopWire(f, ctx));
-  return { surface: face };
-}
-
 /**
- * Boundary surface: through two or more closed profiles (a smooth skin, like a loft) or, from open curves,
- * a patch whose edges are all the curves (a filling bounded by them).
+ * Fill surface: a smooth patch spanning a closed boundary (a hole in a body, a 3D sketch loop).
+ *   continuity     at the boundary: contact (C0), tangent (G1) or curvature (G2) to the body's faces along it
+ *   constraints    curves inside the boundary the patch must pass through (sketches, 3D sketches, curves)
  */
-function buildBoundary(f, ctx) {
+function buildFillSurface(f, ctx) {
   const R = rep(); const oc = R.getOC();
-  const ids = f.curves ?? [];
-  if (ids.length < 2) throw codeError('loft-needs-two');
-  const closedProfiles = ids.every((id) => { const sk = ctx.part.features.find((x) => x.id === id && x.type === 'sketch'); return sk && profiles(sk).length; });
-  // Boundary boss / cut: a solid through the closed profiles, added to or cut from the body.
-  if (f.op === 'boss' || f.op === 'cut') {
-    if (!closedProfiles) throw codeError('no-profile');
-    const tool = loftOf(ids, ctx, { ruled: false }, false);
-    return { tool, body: combine(ctx, tool, f.op) };
-  }
-  if (closedProfiles) return { surface: loftOf(ids, ctx, { ruled: false }, true) };
+  const wire = loopWire(f, ctx);
+  const cont = f.continuity ?? 'contact';
+  if (cont === 'contact' && !(f.constraints ?? []).length) return { surface: R.makeNonPlanarFace(wire) };
+  const order = cont === 'curvature' ? oc.GeomAbs_Shape.GeomAbs_G2 : cont === 'tangent' ? oc.GeomAbs_Shape.GeomAbs_G1 : null;
   const mk = new oc.BRepOffsetAPI_MakeFilling(3, 15, 2, false, 1e-5, 1e-4, 0.01, 0.1, 8, 9);
-  for (const id of ids) {
-    const wire = ctx.curves.has(id) ? ctx.curves.get(id) : (() => { const { sketch, frame } = sketchOf({ sketch: id }, ctx, id); return sketchWire(sketch, frame); })();
-    for (const e of wire.edges) mk.Add(e.wrapped, oc.GeomAbs_Shape.GeomAbs_C0, true);
+  for (const e of wire.edges) {
+    // The face of the body on the far side of the hole's edge: the patch continues it.
+    const support = order && ctx.body ? supportFace(ctx.body, e) : null;
+    if (support) mk.Add(e.wrapped, support.wrapped, order, true);
+    else mk.Add(e.wrapped, oc.GeomAbs_Shape.GeomAbs_C0, true);
+  }
+  for (const id of f.constraints ?? []) {
+    const cw = ctx.curves.has(id) ? ctx.curves.get(id) : (() => { const { sketch, frame } = sketchOf({ sketch: id }, ctx, id); return sketchWire(sketch, frame); })();
+    for (const e of cw.edges) mk.Add(e.wrapped, oc.GeomAbs_Shape.GeomAbs_C0, false);
   }
   mk.Build(new oc.Message_ProgressRange());
   if (!mk.IsDone()) { mk.delete(); throw codeError('kernel'); }
   const face = R.cast(mk.Shape());
   mk.delete();
   return { surface: face };
+}
+
+/**
+ * Boundary surface: through two or more closed profiles (a smooth skin, like a loft) or, from open curves,
+ * a patch whose edges are all the curves (a filling bounded by them).
+ *   direction 2    curves crossing the profiles (curves2): the skin follows them (as loft guide curves)
+ *   conditions     start / end: normal to profile, tangent to face, curvature to face, with an influence (how far
+ *                  the condition reaches); for a patch of open curves, tangency (G1) or curvature (G2) to the faces
+ *                  of the body the curves lie on
+ */
+function buildBoundary(f, ctx) {
+  const R = rep(); const oc = R.getOC();
+  const ids = f.curves ?? [];
+  if (ids.length < 2) throw codeError('loft-needs-two');
+  const closedProfiles = ids.every((id) => { const sk = ctx.part.features.find((x) => x.id === id && x.type === 'sketch'); return sk && profiles(sk).length; });
+  const steered = (f.curves2 ?? []).length || (f.startCond && f.startCond !== 'none') || (f.endCond && f.endCond !== 'none');
+  const skin = (shell) => {
+    if (!steered) return loftOf(ids, ctx, { ruled: false }, shell);
+    // Through the profiles with the second direction's curves and the end conditions (loft-more.js).
+    const solid = loftMoreTool({ sketches: ids, guides: f.curves2 ?? [], startCond: f.startCond, endCond: f.endCond, startLength: f.startLength, endLength: f.endLength }, ctx, (id) => pathOf(id, ctx));
+    if (!shell) return solid;
+    return capsOff(solid, ids, ctx);
+  };
+  // Boundary boss / cut: a solid through the closed profiles, added to or cut from the body.
+  if (f.op === 'boss' || f.op === 'cut') {
+    if (!closedProfiles) throw codeError('no-profile');
+    const tool = skin(false);
+    return { tool, body: combine(ctx, tool, f.op) };
+  }
+  if (closedProfiles) return { surface: skin(true) };
+  const mk = new oc.BRepOffsetAPI_MakeFilling(3, 15, 2, false, 1e-5, 1e-4, 0.01, 0.1, 8, 9);
+  // Open curves: a patch bounded by all of them (both directions); tangent / curvature to the body's faces at the
+  // curves lying on them.
+  const order = f.tangent === 'curvature' ? oc.GeomAbs_Shape.GeomAbs_G2 : f.tangent === 'face' ? oc.GeomAbs_Shape.GeomAbs_G1 : null;
+  for (const id of [...ids, ...(f.curves2 ?? [])]) {
+    const wire = ctx.curves.has(id) ? ctx.curves.get(id) : (() => { const { sketch, frame } = sketchOf({ sketch: id }, ctx, id); return sketchWire(sketch, frame); })();
+    for (const e of wire.edges) {
+      const support = order && ctx.body ? supportFace(ctx.body, e) : null;
+      if (support) mk.Add(e.wrapped, support.wrapped, order, true);
+      else mk.Add(e.wrapped, oc.GeomAbs_Shape.GeomAbs_C0, true);
+    }
+  }
+  mk.Build(new oc.Message_ProgressRange());
+  if (!mk.IsDone()) { mk.delete(); throw codeError('kernel'); }
+  const face = R.cast(mk.Shape());
+  mk.delete();
+  return { surface: face };
+}
+
+/** A lofted solid's skin: without its two end caps (the planar faces in the first and last profile's planes). */
+function capsOff(solid, ids, ctx) {
+  const R = rep(); const oc = R.getOC();
+  const planes = [ids[0], ids.at(-1)].map((id) => sketchOf({ sketch: id }, ctx, id).frame);
+  const onCap = (fc) => fc.geomType === 'PLANE' && planes.some((fr) => Math.abs(dot(sub(vec(fc.center), fr.origin), fr.normal)) < 1e-6 && Math.abs(Math.abs(dot(vec(fc.normalAt(fc.center)), fr.normal)) - 1) < 1e-9);
+  const sew = new oc.BRepBuilderAPI_Sewing(1e-6, true, true, true, false);
+  for (const fc of solid.faces) if (!onCap(fc)) sew.Add(fc.wrapped);
+  sew.Perform(new oc.Message_ProgressRange());
+  const out = R.cast(sew.SewedShape()); sew.delete();
+  return out;
+}
+
+/** The body face an edge lies on (its middle and ends within 1e-5), for a boundary patch's tangency. */
+function supportFace(body, edge) {
+  const R = rep();
+  const pts = [0, 0.5, 1].map((u) => vec(edge.pointAt(u)));
+  for (const fc of body.faces) {
+    let ok = true;
+    for (const p of pts) { const q = new R.DistanceQuery(R.makeVertex(p)); let d = Infinity; try { d = q.distanceTo(fc); } catch { d = Infinity; } q.delete?.(); if (d > 1e-5) { ok = false; break; } }
+    if (ok) return fc;
+  }
+  return null;
 }
 
 /** Splits `shape` by `tool` with the kernel's splitter: the pieces as one shape. */
@@ -1332,7 +1548,7 @@ function buildSketchedBend(f, ctx) {
   const { sm, across, nb, base } = bendLine(f, ctx);
   const t = sm.thickness; const r = f.radius == null || f.radius === '' ? sm.radius : Math.max(0, num(f.radius));
   const theta = Math.max(1, Math.min(180, num(f.angle, 90)));
-  const allowance = bendAllowance(theta, r, t, sm.k);
+  const allowance = bendAllowance(theta, r, t, sm.rule ?? sm.k);
   const { near, far } = halves(ctx, base, across);
   const section = sectionOf(near, base, across);
   const inner0 = f.down ? base : add(base, mul(nb, t));
@@ -1368,7 +1584,7 @@ function buildJog(f, ctx) {
   const { near, far } = halves(ctx, base, across);
   const section = sectionOf(near, base, across);
   if (ctx.flat) {
-    const len = h - t + 2 * bendAllowance(90, 0, t, sm.k);
+    const len = h - t + 2 * bendAllowance(90, 0, t, sm.rule ?? sm.k);
     const fill = R.basicFaceExtrusion(section, new R.Vector(mul(across, len)));
     return { body: near.fuse(fill).fuse(far.translate(mul(across, len))) };
   }

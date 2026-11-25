@@ -1,0 +1,18 @@
+[
+  {
+    "name": "split line: kernel; a cylinder lying along x with a split line feature",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.actions.ensureKernel(); await m.actions.closeProject({ force: true }); await m.actions.newDocument('part'); await sleep(300);\n      const F = await import('/src/cad/features.js'); const S = await import('/src/cad/sketch.js'); const p = m.active();\n      m.actions.change('op.addFeature', () => { const s = F.createFeature(p, 'sketch', { plane: { kind: 'std', name: 'right' }, ...S.createSketchGeometry() }); S.addCircle(s, 0, 10, 10); p.features.push(s); p.features.push(F.createFeature(p, 'extrude', { sketch: s.id, depth: 40 })); p.features.push(F.createFeature(p, 'splitLine', { kind: 'projection', name: 'Split' })); });\n      await sleep(400); window.__faces0 = m.actions.buildPart({ ...p, features: p.features.slice(0, 2) }).body.faces.length; return String(window.__faces0); })()",
+    "expect": "^4$"
+  },
+  {
+    "name": "split line: Silhouette from the Front plane splits the cylinder along its top and bottom lines",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const p = m.active(); m.actions.editFeature(p.features[2].id); await sleep(500);\n      const segs = ['projection', 'silhouette', 'intersection'].every((k) => document.querySelector('[data-pm-set=\"kind\"][data-value=\"' + k + '\"] svg'));\n      m.actions.pmSet('kind', 'silhouette'); await sleep(300); m.actions.pmSelect('plane', 'std:front'); await sleep(600);\n      const plane = Boolean(document.querySelector('[data-pm-select=\"plane\"]')); await m.actions.acceptEditing(); await sleep(500);\n      const r = m.actions.buildPart(m.active()); return JSON.stringify({ segs, plane, ok: r.result.results.get(p.features[2].id).ok, faces: r.body.faces.length - window.__faces0 }); })()",
+    "expect": "\"segs\":true,\"plane\":true,\"ok\":true,\"faces\":2",
+    "shot": "split-line-silhouette"
+  },
+  {
+    "name": "split line: Intersection with the Front and Right planes (check boxes) splits the faces where they meet",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const p = m.active(); m.actions.editFeature(p.features[2].id); await sleep(500);\n      m.actions.pmSet('kind', 'intersection'); await sleep(300);\n      for (const v of ['std:front', 'std:right']) { const b = document.querySelector('[data-pm-toggle=\"slt:' + v + '\"]'); b.click(); await sleep(300); }\n      await m.actions.acceptEditing(); await sleep(500);\n      const f = m.active().features[2]; const r = m.actions.buildPart(m.active());\n      return JSON.stringify({ tools: f.tools.join(','), ok: r.result.results.get(f.id).ok, more: r.body.faces.length > window.__faces0 }); })()",
+    "expect": "\"tools\":\"std:front,std:right\",\"ok\":true,\"more\":true"
+  }
+]

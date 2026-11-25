@@ -13,6 +13,7 @@
 //   library features — a feature with its sketch saved as a library item and inserted on a picked planar face
 //     (the sketch is put on that face; ids are new).
 import { rep } from './kernel.js';
+import { solveSketch, DIMENSIONS } from './sketch.js';
 import { quatToAxisAngle, quatConjugate, rotate, composePlacement, flattenAssembly, placeShape } from './assembly.js';
 import { newSketchId, pointsOf, byId, refreshEquation, mapEquationPlace, ORIGIN, POINT_KEYS } from './sketch.js';
 import { STD_PLANES, frame as makeFrame } from './features.js';
@@ -388,13 +389,18 @@ export function makeLibraryItem(part, featureId, { name = null, id = null } = {}
  * Inserts a library item into a part: its sketch goes on `plane` (a plane reference, e.g. faceRef(face)), with new
  * ids and names (`nameOf(type) → name`). Placed at the end (or before the rollback bar). Returns the new features.
  */
-export function insertLibraryItem(part, item, plane, { nameOf = null, newId = null } = {}) {
+export function insertLibraryItem(part, item, plane, { nameOf = null, newId = null, dims = null } = {}) {
   const ids = new Map();
   const fresh = (f) => (newId ? newId(f.type) : `${f.type.slice(0, 3)}${Date.now().toString(36).slice(-5)}${Math.floor(Math.random() * 1e5)}`);
   const copies = item.features.map((f) => { const c = JSON.parse(JSON.stringify(f)); const nid = fresh(c); ids.set(c.id, nid); c.id = nid; return c; });
   for (const c of copies) {
     if (c.sketch && ids.has(c.sketch)) c.sketch = ids.get(c.sketch);
-    if (c.type === 'sketch') c.plane = JSON.parse(JSON.stringify(plane));
+    if (c.type === 'sketch') {
+      c.plane = JSON.parse(JSON.stringify(plane));
+      // Size parameters: the item's dimensions given new values, the sketch solved with them.
+      const own = (c.constraints ?? []).filter((k) => dims && dims[k.id] != null && Number.isFinite(Number(dims[k.id])));
+      if (own.length) { for (const k of own) k.value = Number(dims[k.id]); solveSketch(c); }
+    }
     delete c.suppressed;
     c.name = nameOf ? nameOf(c) : `${item.name}-${c.name}`;
     c.library = item.id;
@@ -403,6 +409,28 @@ export function insertLibraryItem(part, item, plane, { nameOf = null, newId = nu
   part.features.splice(at, 0, ...copies);
   if (part.rollback != null) part.rollback += copies.length;
   return copies;
+}
+
+/** A library item's size parameters: its sketches' driving dimensions [{ id, type, value, sketch }]. */
+export function libraryDims(item) {
+  const out = [];
+  for (const f of item?.features ?? []) if (f.type === 'sketch') for (const k of f.constraints ?? []) if (DIMENSIONS.includes(k.type) && Number.isFinite(Number(k.value)) && !k.driven) out.push({ id: k.id, type: k.type, value: Number(k.value), sketch: f.name });
+  return out;
+}
+
+/**
+ * A face plane reference moved for a library item: its origin at `at` (a point on the face, else the face's own) plus
+ * dx, dy along the face's axes, its x direction turned by `angle` degrees in the face.
+ */
+export function placedFaceRef(ref, normal, { at = null, dx = 0, dy = 0, angle = 0 } = {}) {
+  const n = normal; const x = ref.xDir; const y = [n[1] * x[2] - n[2] * x[1], n[2] * x[0] - n[0] * x[2], n[0] * x[1] - n[1] * x[0]];
+  let o = ref.origin;
+  if (at) { const d = [at[0] - o[0], at[1] - o[1], at[2] - o[2]]; const h = d[0] * n[0] + d[1] * n[1] + d[2] * n[2]; o = [at[0] - h * n[0], at[1] - h * n[1], at[2] - h * n[2]]; }
+  o = [0, 1, 2].map((i) => o[i] + dx * x[i] + dy * y[i]);
+  const a = (angle * Math.PI) / 180;
+  const xr = [0, 1, 2].map((i) => Math.cos(a) * x[i] + Math.sin(a) * y[i]);
+  const r6 = (v) => Math.round(v * 1e6) / 1e6;
+  return { ...ref, origin: o.map(r6), xDir: xr.map(r6) };
 }
 
 /** The library in a storage (localStorage-like; anything with getItem / setItem) or in memory. */

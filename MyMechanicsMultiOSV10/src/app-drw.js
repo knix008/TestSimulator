@@ -16,7 +16,7 @@ import { adoptToActiveSheet, sheetDrawing } from './cad/drawing-more.js';
 import { STANDARD_SCALES, scaleLabel, bomRows, viewBasis, autoBalloonLayout } from './cad/drawing.js';
 import { flattenAssembly, placePoint } from './cad/assembly.js';
 import {
-  DIM_TYPES, TOL_TYPES, FIT_CLASSES, viewFrames, viewAt, viewEntities, pickEntity, dimensionFromPicks, ordinateFromPicks, autoTextOffset,
+  DIM_TYPES, TOL_TYPES, FIT_CLASSES, viewFrames, viewAt, viewEntities, pickEntity, dimensionFromPicks, ordinateFromPicks, SET_TYPES, autoTextOffset,
   isPictorial, centerItems, modelItemDims, dimLabel, formatNumber, pickToTrue, insideDetail, modelGeometry, pictorialPick, pictorialDimension,
   layoutDimLabels, ellipseSheet, holeCalloutItems,
 } from './cad/drawing-dims.js';
@@ -40,7 +40,7 @@ import { icon } from './icons.js';
 const MODES = new Set(['drwDim', 'drwWeld', 'drwTable', 'drwLayers', 'drwTitle', 'drwFormat', 'evalMore']);
 const PLACE = 'drw';
 const AXIS = { x: [1, 0, 0], '-x': [-1, 0, 0], y: [0, 1, 0], '-y': [0, -1, 0], z: [0, 0, 1], '-z': [0, 0, -1] };
-const DIM_ICONS = { auto: 'smartDim', horizontal: 'dimHorizontal', vertical: 'dimVertical', aligned: 'dimAligned', radial: 'dimRadius', diameter: 'dimDiameter', angular: 'dimAngle', ordinate: 'dimOrdinate', chamfer: 'dimChamfer', arclength: 'dimArcLength' };
+const DIM_ICONS = { auto: 'smartDim', horizontal: 'dimHorizontal', vertical: 'dimVertical', aligned: 'dimAligned', radial: 'dimRadius', diameter: 'dimDiameter', angular: 'dimAngle', ordinate: 'dimOrdinate', baseline: 'dimBaseline', chain: 'dimChain', chamfer: 'dimChamfer', arclength: 'dimArcLength' };
 /** A rate typed in the Costing / Sustainability page: '' clears it (the default again), numbers, 'auto' setups, the currency, a speed table "t:speed, …". undefined = not valid. */
 function parseRate(path, raw) {
   const text = String(raw ?? '').trim();
@@ -156,7 +156,7 @@ export function createDrwTools(ctx) {
     if (!raw) { notify('info', t('drwDim.nothingHere')); return; }
     let pick = pickToTrue(f, raw);
     if (f.pictorial) return pictorialClick(d, e, f, pick, f.toTrue(q[0], q[1]), fr);
-    if (e.dtype === 'ordinate') {
+    if (SET_TYPES.includes(e.dtype)) {
       const o = e.ordinateId ? ann(e.ordinateId) : null;
       if (o && o.view === f.v.id) {
         const pt = pick.kind === 'point' ? pick.p : pick.kind === 'arc' ? pick.c : null;
@@ -165,7 +165,7 @@ export function createDrwTools(ctx) {
         return;
       }
       e.picks.push(pick);
-      const g = ordinateFromPicks(e.picks, e.axis);
+      const g = ordinateFromPicks(e.picks, e.axis, e.dtype);
       if (g.error) { ctx.renderLeft(); ctx.renderDrawing(); return; }
       const a = makeDim(d, f, g, e, fr);
       e.ordinateId = a.id; e.picks = [];
@@ -190,7 +190,7 @@ export function createDrwTools(ctx) {
 
   /** A click in an isometric / dimetric view: the pick matched to the model's 3D edges, the value measured in 3D. */
   function pictorialClick(d, e, f, pick, q, fr) {
-    if (['horizontal', 'vertical', 'ordinate', 'chamfer'].includes(e.dtype)) { notify('warning', t('drwDim.error.pictorialType')); return; }
+    if (['horizontal', 'vertical', 'ordinate', 'baseline', 'chain', 'chamfer'].includes(e.dtype)) { notify('warning', t('drwDim.error.pictorialType')); return; }
     const pk = pictorialPick(pick, q, modelGeom(d), f.basis, 2.2 / f.s);
     if (!pk) { notify('info', t('drwDim.noModelEdge')); return; }
     e.picks.push(pk);
@@ -246,7 +246,7 @@ export function createDrwTools(ctx) {
       : `${textRow('upper', e.upper, t(e.tolType === 'symmetric' ? 'drwDim.tolValue' : 'drwDim.upper'), 'dimTolerance')}${e.tolType === 'symmetric' ? '' : textRow('lower', e.lower, t('drwDim.lower'), 'dimTolerance')}`;
     return [
       pmHead('smartDim', t('cmd.drwSmartDim'), t('pm.help.drwSmartDim')),
-      pmGroup('smartDim', t('drwDim.type'), `${buttons('dtype', types, e.dtype)}${e.dtype === 'ordinate' ? ctx.pm.pmSeg('axis', [['x', t('drwDim.ordX')], ['y', t('drwDim.ordY')]], e.axis) : ''}`),
+      pmGroup('smartDim', t('drwDim.type'), `${buttons('dtype', types, e.dtype)}${SET_TYPES.includes(e.dtype) ? ctx.pm.pmSeg('axis', [['x', t('drwDim.ordX')], ['y', t('drwDim.ordY')]], e.axis) : ''}`),
       pmGroup('select', t('drwDim.picks'), pmList('picks', e.picks.map(pickLabel), t('drwDim.picksList'), 'smartDim', true)),
       pmGroup('dimTolerance', t('drwDim.tolerance'), `${sel('precision', [['', t('drwDim.precisionAuto')], ...[0, 1, 2, 3, 4].map((k) => [String(k), k ? `0.${'0'.repeat(k - 1)}1` : '1'])], e.precision === '' || e.precision == null ? '' : String(e.precision), t('drwDim.precision'))}${sel('tolType', TOL_TYPES.map((k) => [k, t(`drwDim.tol.${k}`)]), e.tolType, t('drwDim.tolType'))}${tolFields}`),
       pictorialGroup(e, a),

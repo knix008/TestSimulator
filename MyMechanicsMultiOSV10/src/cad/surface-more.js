@@ -6,7 +6,9 @@
 import { rep } from './kernel.js';
 import { findEdges, findFace, normalize, crossV, faceWires } from './refs.js';
 import { codeError, sketchOf, resolvePlane, frame as makeFrame, STD_PLANES } from './features.js';
-import { sketchWire } from './advanced.js';
+import { sketchWire, pathOf, squareToPath } from './advanced.js';
+import { sweepMoreTool } from './sweep-more.js';
+import { profiles } from './sketch.js';
 
 const num = (v, d = 0) => (Number.isFinite(Number(v)) ? Number(v) : d);
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -47,12 +49,23 @@ function sewn(faces) {
 /** A swept surface: the profile sketch's curves (an open chain or a closed loop) swept along the path as a skin. */
 function buildSurfaceSweep(f, ctx) {
   const R = rep();
-  const { sketch, frame } = sketchOf(f, ctx);
   if (!f.path) throw codeError('no-path');
   const path = ctx.curves.has(f.path) ? ctx.curves.get(f.path) : (() => { const p = sketchOf({ sketch: f.path }, ctx, f.path); return sketchWire(p.sketch, p.frame); })();
-  const profile = sketchWire(sketch, frame);
+  const circular = Boolean(f.circular);
+  const prof = circular ? {} : sketchOf(f, ctx);
+  // Start tangency: the profile turned square to the path at its start.
+  const frame = prof.frame && f.startTangent === 'path' ? squareToPath(prof.frame, path) : prof.frame;
   const config = { transitionMode: f.transition === 'round' ? 'round' : f.transition === 'transformed' ? 'transformed' : 'right', frenet: Boolean(f.frenet) };
-  const [skin] = R.genericSweep(profile, path, config, true);
+  const guideIds = [f.guide, ...(f.guides ?? [])].filter((x, i, all) => x && x !== f.path && all.indexOf(x) === i);
+  const more = circular || Number(f.twist) || guideIds.length;
+  if (!more) {
+    const [skin] = R.genericSweep(sketchWire(prof.sketch, frame), path, config, true);
+    return { surface: skin };
+  }
+  // Twist, guide curves (one: scale, more: through every one), circular profile — as the solid sweep, as a sheet;
+  // an open profile is swept as it is (sweep-more.js).
+  const openWire = circular || profiles(prof.sketch).length ? null : sketchWire(prof.sketch, frame);
+  const skin = sweepMoreTool({ ...f, guide: guideIds[0] ?? null, guideWire: guideIds[0] ? pathOf(guideIds[0], ctx) : null, guideWires: guideIds.map((id) => pathOf(id, ctx)) }, path, config, prof.sketch, frame, { shell: true, openWire });
   return { surface: skin };
 }
 

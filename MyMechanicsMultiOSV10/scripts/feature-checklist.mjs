@@ -65,10 +65,10 @@ export const ITEMS = [
   // ── part features
   i('pf', '돌출 보스·컷', D, '', 'extrude (끝 조건 9종·시작 조건 4종·방향 벡터·구배·얇은 피처·선택 윤곽·자르기 방향 반대로)'),
   i('pf', '회전 보스·컷', D, '', 'revolve (블라인드·중간 평면·두 방향·꼭짓점/면까지·면에서 오프셋·얇은 피처·선택 윤곽)'),
-  i('pf', '스윕 보스·컷', P, '비틀기(각도·회전 수), 안내 곡선(크기 법칙), 원형 단면, 얇은 피처는 됨. 안내 곡선 여러 개, 시작/끝 접선 조건, 솔리드(공구 바디) 스윕이 없음', 'sweep'),
-  i('pf', '로프트 보스·컷', P, '안내 곡선(여러 개)·중심선·시작/끝 단면 수직·닫힌 로프트·얇은 피처는 됨. 안내 곡선·중심선은 중간 단면(B-스플라인)을 끼워 맞추는 방식이고, 접선·곡률 연속(인접 면) 구속과 연결점 편집이 없음', 'loft'),
-  i('pf', '경계 보스·컷', P, '경계 곡면으로 만듦. 방향별 접선/곡률 조건·영향 비율 옵션 확인 필요', 'boundary'),
-  i('pf', '필렛', P, '모서리마다 반경·현 폭·면/피처 항목·접선 전파·원뿔(rho)·곡률 연속 단면은 됨. 원뿔·곡률 연속은 평면 사이 직선 모서리와 원형 모서리에만 됨. 셋백(꼭짓점 블렌드), 피처 유지, 넘침 처리 옵션이 없음', 'fillet variableFillet faceFillet fullRoundFillet'),
+  i('pf', '스윕 보스·컷', D, '비틀기, 안내 곡선 하나(크기 법칙)·여러 개(모든 곡선을 지나는 단면 변형), 시작 접선(경로에 수직), 원형 단면, 얇은 피처, 솔리드 스윕(회전체 공구, 축 유지, 축에 수직인 평면 경로)', 'sweep'),
+  i('pf', '로프트 보스·컷', D, '안내 곡선(여러 개)·중심선·시작/끝 단면 수직·면에 접선·면에 곡률 연속(단면 점마다 옆면 법선·법곡률)·커넥터(시작 꼭짓점·방향)·닫힌 로프트·얇은 피처', 'loft'),
+  i('pf', '경계 보스·컷', D, '방향 2 곡선, 시작/끝 조건(단면 수직·면에 접선·면에 곡률)과 영향 길이, 열린 곡선 패치의 면 접선(G1)·곡률(G2)', 'boundary'),
+  i('pf', '필렛', P, '모서리마다 반경·현 폭·면/피처 항목·접선 전파·원뿔(rho)·곡률 연속(모든 모서리)·셋백(꼭짓점 블렌드)·피처 유지는 됨. 넘침 처리(모서리 유지/곡면 유지) 옵션이 없음', 'fillet variableFillet faceFillet fullRoundFillet'),
   i('pf', '모따기', D, '', 'chamfer'),
   i('pf', '셸', D, '', 'shell'),
   i('pf', '구배', P, '중립 평면·분할선·단계 구배, 면마다 각도, 반대쪽 면은 됨. 곡선 분할선은 모서리마다 그 중점을 지나는 평면을 기준으로 함', 'draft'),
@@ -87,7 +87,7 @@ export const ITEMS = [
   i('pf', '바디 저장·부품 삽입', D, '', 'saveBodies insertPart'),
   i('pf', '면 삭제·면 바꾸기·면 이동', D, '', 'deleteFace replaceFace moveFace'),
   i('pf', '자유형(Freeform) 면 변형', M, '제어 곡선·점으로 면을 끌어 모양을 바꾸는 피처가 없음'),
-  i('pf', '라이브러리 피처', P, '저장·넣기는 있음. 참조(위치 맞춤) 지정, 크기 매개변수 대화 확인 필요', 'libSave libInsert'),
+  i('pf', '라이브러리 피처', D, '저장·넣기, 넣을 때 크기 매개변수(스케치 치수 변경 후 풀기)·위치(누른 곳/면 중심, X·Y 이동, 면 안 회전)', 'libSave libInsert'),
 
   // ── reference geometry
   i('rg', '참조 평면', D, '', 'refPlane (오프셋·각도·세 점·점 지나는 평행·곡선에 수직·중간·원통에 접함·선과 점)'),
@@ -96,35 +96,35 @@ export const ITEMS = [
   i('rg', '좌표계', D, '', 'coordSys'),
   i('rg', '질량 중심 점·경계 상자', D, '', 'refPoint boundingBox'),
   i('rg', '메이트 참조', D, '', 'mateReference'),
-  i('rg', '곡선: 투영·분할선·복합·XYZ 점 곡선', P, '분할선은 스케치 투영만. 실루엣 분할선, 교차 분할선이 없음', 'projectedCurve splitLine compositeCurve curveXYZ'),
+  i('rg', '곡선: 투영·분할선·복합·XYZ 점 곡선', D, '분할선: 투영·실루엣(원통·구·원뿔 정확, 일반 곡면은 계산한 실루엣)·교차(평면·곡면 바디·면)', 'projectedCurve splitLine compositeCurve curveXYZ'),
 
   // ── patterns
-  i('pt', '선형 패턴', P, '건너뛸 인스턴스, 참조까지, 방향 2 시드만은 됨. 스케치 변형(인스턴스마다 치수 변화), 형상 패턴(빠른 패턴)이 없음', 'linearPattern'),
-  i('pt', '원형 패턴', P, '건너뛸 인스턴스, 방향 2(반대쪽)는 됨. 형상 패턴(빠른 패턴)이 없음', 'circularPattern'),
-  i('pt', '대칭 복사', P, '면/바디 대칭 외에 "형상 패턴", 결과 병합/새 바디 선택 확인 필요', 'mirror'),
+  i('pt', '선형 패턴', D, '건너뛸 인스턴스, 참조까지, 방향 2 시드만, 형상 패턴 켜기/끄기(끄면 인스턴스마다 다시 만들어 끝 조건 재계산), 스케치 변형(방향 1·2 치수 증가량)', 'linearPattern'),
+  i('pt', '원형 패턴', D, '건너뛸 인스턴스, 방향 2(반대쪽), 형상 패턴 켜기/끄기(끄면 인스턴스마다 다시 만듦)', 'circularPattern'),
+  i('pt', '대칭 복사', D, '피처/면/바디 대칭, 형상 패턴 켜기/끄기(끄면 대칭 쪽에서 다시 만듦, 호·타원 방향 반전), 바디 대칭 결과 병합/새 바디', 'mirror'),
   i('pt', '곡선·스케치·테이블·채우기·가변 패턴', D, '', 'curvePattern sketchPattern tablePattern fillPattern variablePattern'),
 
   // ── surfaces
-  i('sf', '곡면 돌출·회전·스윕·로프트·평면·오프셋', P, '로프트·스윕의 안내 곡선·접선 조건이 없음(솔리드와 같은 한계)', 'surfaceExtrude surfaceRevolve surfaceSweep surfaceLoft surfacePlanar surfaceOffset'),
-  i('sf', '경계 곡면·채우기 곡면', P, '채우기 곡면의 구속 곡선(내부 통과 곡선), 곡률 연속 조건 확인 필요', 'boundary fillSurface'),
+  i('sf', '곡면 돌출·회전·스윕·로프트·평면·오프셋', D, '곡면 스윕·로프트도 솔리드와 같은 안내 곡선(여러 개, 열린 단면 포함)·접선/면 조건·커넥터·비틀기를 쓰고 끝 면 없는 시트로 만듦', 'surfaceExtrude surfaceRevolve surfaceSweep surfaceLoft surfacePlanar surfaceOffset'),
+  i('sf', '경계 곡면·채우기 곡면', D, '경계 곡면(방향 2, 끝 조건, 패치 G1/G2), 채우기 곡면(접촉·접선·곡률 연속, 구속 곡선)', 'boundary fillSurface'),
   i('sf', '룰드 곡면·방사 곡면·중간 곡면·곡면 펼치기', D, '', 'ruledSurface radiateSurface midSurface flattenSurface'),
   i('sf', '니트·자르기·트림 해제·연장·구멍 지우기·곡면으로 자르기', D, '', 'knit trimSurface untrimSurface extendSurface deleteHole cutWithSurface'),
   i('sf', '곡면 필렛', M, '두 곡면 사이 필렛(곡면 바디 필렛)이 없음'),
   i('sf', '면 바꾸기·면 삭제(패치)', D, '', 'replaceFace deleteFace'),
 
   // ── sheet metal
-  i('sm', '베이스 플랜지·모서리 플랜지·마이터 플랜지·헴·조그·스케치 굽힘·로프트 굽힘', P, '모서리 플랜지의 플랜지 위치(재질 안/밖/굽힘 바깥), 사용자 정의 윤곽 편집, 굽힘 여유 표·굽힘 공제 표가 없음(K 계수만)', 'baseFlange edgeFlange miterFlange hem jog sketchedBend loftedBend'),
+  i('sm', '베이스 플랜지·모서리 플랜지·마이터 플랜지·헴·조그·스케치 굽힘·로프트 굽힘', D, '모서리 플랜지 위치(굽힘 바깥/재질 바깥/재질 안/가상 꼭짓점)·길이 기준(접선/바깥·안쪽 가상 꼭짓점)·폭(양 끝 띄우기)·플랜지 윤곽 편집(꼭짓점 다각형, 전개도 포함)·게이지/굽힘 표', 'baseFlange edgeFlange miterFlange hem jog sketchedBend loftedBend'),
   i('sm', '판금으로 변환·굽힘 삽입·찢기·펼치기/접기·교차 굽힘·용접 모서리·탭과 슬롯', D, '', 'convertSheet insertBends rip unfold fold crossBreak weldedCorner tabSlot'),
-  i('sm', '닫힌 모서리·모서리 릴리프·성형 도구·통풍구·전개도', P, '성형 도구는 내장 모양만(사용자 성형 도구 만들기가 없음), 게이지 표(재질·두께별) 확인 필요', 'closedCorner cornerRelief formTool flatten vent'),
-  i('sm', '판금 게이지 표·굽힘 표(굽힘 여유/공제)', M, '두께·반경·K를 표에서 고르는 게이지 표와 굽힘 계산 표가 없음'),
-  i('sm', '판금 전개도 내보내기(DXF, 굽힘선 층)', P, '도면 전개도 뷰·DXF는 있음. 부품에서 바로 전개도 DXF로 내보내기 확인 필요'),
-  i('sm', '구멍·컷이 굽힘을 가로지르는 법선 컷', M, '굽힘을 지나는 컷을 판에 수직으로 만드는 옵션이 없음'),
+  i('sm', '닫힌 모서리·모서리 릴리프·성형 도구·통풍구·전개도', D, '내장 성형 도구(딤플·엠보스·루버·랜스)와 사용자 성형 도구(프로젝트 부품을 펀치로, 정지 면·뚫을 면)', 'closedCorner cornerRelief formTool flatten vent'),
+  i('sm', '판금 게이지 표·굽힘 표(굽힘 여유/공제)', D, '강판·아연도·스테인리스·알루미늄·미터 게이지 표와 사용자 표(두께·반경·K), 굽힘 계산: K-계수·r/t별 K 표·DIN 6935·굽힘 여유 표·굽힘 공제 표(각도·반경 보간)', 'baseFlange convertSheet'),
+  i('sm', '판금 전개도 내보내기(DXF, 굽힘선 층)', D, '부품에서 바로 전개도 DXF/DWG: 외곽·구멍(OUTLINE), 굽힘선(BEND_UP/BEND_DOWN), 굽힘마다 각도·반경·여유 메모(BEND_NOTES); 도면 전개도 뷰·DXF도 있음', 'exportFlatDxf exportFlatDwg flatPatternView'),
+  i('sm', '구멍·컷이 굽힘을 가로지르는 법선 컷', D, '돌출 컷의 "법선 컷": 들어오는 쪽 판 면(평면·굽힘 원통)에 놓인 단면을 판 두께만큼 면 법선(굽힘은 반지름) 방향으로 잘라냄', 'extrude'),
 
   // ── weldments
-  i('wd', '구조 부재(표준 단면)', P, '내장 단면만. 사용자 단면 라이브러리 추가, 그룹별 코너 처리(끝 맞춤·마이터) 옵션 확인 필요', 'structural'),
+  i('wd', '구조 부재(표준 단면)', D, '내장 단면 + 스케치 사용자 단면(라이브러리 저장·삽입으로 재사용), 코너 처리(겹침·마이터·끝 맞춤 1/2)', 'structural'),
   i('wd', '자르기/연장·끝 막기·거싯·용접 비드', D, '', 'trimExtend endCap gusset weldBead'),
-  i('wd', '절단 목록(cut list) 표·속성', P, '절단 목록은 있음. 도면의 용접 절단 목록 표, 각도 절단 길이 계산 확인 필요', 'cutList'),
-  i('wd', '용접 기호·용접 표(도면)', P, '용접 기호는 있음. 용접 표가 없음', 'drwWeld'),
+  i('wd', '절단 목록(cut list) 표·속성', D, '절단 목록 창과 도면 절단 목록 표, 부재마다 절단 길이·양 끝 절단 각', 'cutList cutListTable'),
+  i('wd', '용접 기호·용접 표(도면)', D, '용접 기호, 용접 표(도면 기호 + 부품 용접 비드·어셈블리 용접: 크기·길이·수량·용착량)', 'drwWeld weldTable'),
 
   // ── mold
   i('md', '분할선·차단 곡면·분할 곡면·금형 분할·코어/캐비티', D, '', 'partingLine shutOff partingSurface toolingSplit cavity'),
@@ -139,9 +139,9 @@ export const ITEMS = [
   i('pm', '재질·질량 특성', D, '', 'material massProps'),
   i('pm', '사용자 정의 속성', D, '', 'customProps'),
   i('pm', '다중 바디 관리(바디 폴더·결과 병합)', D, '', 'combine deleteBody'),
-  i('pm', '롤백·억제·피처 재정렬', P, '롤백·억제는 있음. 피처 트리에서 끌어 순서 바꾸기, 피처 폴더 확인 필요', 'rollbackHere suppress'),
-  i('pm', '외관(색·질감·데칼)', P, '데칼(이미지 붙이기)이 없음'),
-  i('pm', '파생 부품(대칭 부품·부품 삽입)', P, '부품 삽입은 있음. 대칭 부품 만들기(반대쪽 파일)가 없음', 'insertPart'),
+  i('pm', '롤백·억제·피처 재정렬', D, '', 'rollbackHere suppress newFolder'),
+  i('pm', '외관(색·질감·데칼)', D, '', 'appearance decals'),
+  i('pm', '파생 부품(대칭 부품·부품 삽입)', D, '', 'insertPart mirrorPart'),
   i('pm', '형상 단순화(Defeature)', D, '', 'defeature'),
 
   // ── evaluate
@@ -176,7 +176,7 @@ export const ITEMS = [
   i('dr', '단면·정렬 단면·상세·끊기·자르기·부분 단면', D, '', 'sectionView alignedSection detailView breakView cropView brokenOutSection'),
   i('dr', '제거 단면·상대 뷰·3D 도면 뷰', D, '', 'removedSection relativeView view3dDrawing'),
   i('dr', '전개도 뷰·대체 위치 뷰', D, '', 'flatPatternView alternatePositionView'),
-  i('dr', '스마트 치수·모델 항목·자동 치수', P, '세로 좌표(ordinate) 치수는 있음. 기준선 치수, 체인 치수, 모따기 치수, 호 길이 치수 확인 필요', 'drwSmartDim drwModelItems autoDims'),
+  i('dr', '스마트 치수·모델 항목·자동 치수', D, '세로좌표·기준선(층층이 쌓임)·체인(한 줄 연결) 묶음 치수, 모따기·호 길이 치수 모두 있음', 'drwSmartDim drwModelItems autoDims'),
   i('dr', '주석: 노트·풍선·GD&T·데이텀·표면 거칠기·중심 표시·구름·데이텀 대상·해치', D, '', 'ann:note ann:balloon ann:gdt ann:datum ann:surface ann:centermark ann:cloud ann:datumTarget ann:hatch'),
   i('dr', '중심선·구멍 설명(hole callout)·자동 풍선', D, '', 'drwCenterMarks drwHoleCallout drwAutoBalloon'),
   i('dr', '표: BOM·구멍 표·개정 표·굽힘 표·일반 표', D, '', 'bom holeTable revisionTable bendTable drwTable'),
