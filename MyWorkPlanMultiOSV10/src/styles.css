@@ -269,7 +269,7 @@ input.invalid { border-color: var(--danger) !important; }
 /* Two lines (same total height as the chart's two-tier timescale): plan title on top, column labels below. */
 .grid-head.two-line .grid-head-inner { height: var(--row-height); }
 .grid-title {
-  display: flex; align-items: center; gap: 6px; height: var(--row-height); padding: 0 8px; box-sizing: border-box;
+  display: flex; align-items: center; justify-content: center; gap: 6px; height: var(--row-height); padding: 0 8px; box-sizing: border-box;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden;
 }
 .grid-title span { overflow: hidden; text-overflow: ellipsis; }
@@ -1328,7 +1328,9 @@ html.is-web body { overflow-x: auto; }
 .bp-empty { display: flex; align-items: center; justify-content: center; gap: 8px; height: 100%; min-height: 60px; color: var(--muted); }
 .bp-empty .icon[data-tone] { color: var(--success) !important; }
 /* A folded side panel still says what it is: icon and title on top of the rail. */
-.panel-rail .rail-title { order: -1; border-top: 0; border-bottom: 1px solid var(--hairline); padding-top: 2px; margin-top: 0; }
+/* Folded panel: the expand button at the very top, then the panel's icon and name, then its buttons. */
+.panel-rail .rail-button.expand { order: -2; }
+.panel-rail .rail-title { order: -1; border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); padding-top: 4px; margin-top: 2px; }
 .panel-fold .icon { width: 17px; height: 17px; }
 
 /* Project information › Statistics: label + current · baseline · actual · remaining on one line

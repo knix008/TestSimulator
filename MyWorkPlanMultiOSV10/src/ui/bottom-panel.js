@@ -31,8 +31,8 @@ export function bottomPanelHtml(ctx) {
     <div class="bp-tabs" role="tablist">${tabs}</div>
     <span class="grow"></span>
     <button type="button" class="icon-button" data-command="bottomPanelFold" title="${escapeHtml(t(collapsed ? 'bottom.expand' : 'bottom.collapse'))}" aria-label="${escapeHtml(t(collapsed ? 'bottom.expand' : 'bottom.collapse'))}" aria-expanded="${!collapsed}">${icon(collapsed ? 'foldUp' : 'foldDown')}</button>
-    <button type="button" class="icon-button" data-command="bottomPanel" title="${escapeHtml(t('bottom.close'))}" aria-label="${escapeHtml(t('bottom.close'))}">${icon('close')}</button>
   </div>`;
+  // No "×" here: the fold button above folds the panel, and the menu-bar panel button turns it off.
   if (collapsed) return head;
   return `${head}<div class="bp-body" role="tabpanel" data-bottom-body="${tab}">${body(ctx, tab)}</div>`;
 }

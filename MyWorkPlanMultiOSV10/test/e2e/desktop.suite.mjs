@@ -690,12 +690,12 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await freshSample(app);
     await app.main.click('#left-panel .panel-header [data-command="leftPanel"]');
     await sleep(300);
-    const rail = await app.main.eval(`(() => { const p = document.querySelector('#left-panel'); const expand = p.querySelector('.rail-button.expand'); const title = p.querySelector('.rail-title'); const buttons = [...p.querySelectorAll('.rail-button')]; return { width: p.offsetWidth, expandFirst: buttons[0] === expand && p.querySelector('.panel-rail').firstElementChild === expand, title: title?.textContent.trim(), icons: buttons.every((b) => b.querySelector('svg')) }; })()`);
+    const rail = await app.main.eval(`(() => { const p = document.querySelector('#left-panel'); const expand = p.querySelector('.rail-button.expand'); const title = p.querySelector('.rail-title'); const buttons = [...p.querySelectorAll('.rail-button')]; return { width: p.offsetWidth, expandFirst: [...p.querySelectorAll('.panel-rail > *')].every((el) => el === expand || el.getBoundingClientRect().top >= expand.getBoundingClientRect().bottom - 1), title: title?.textContent.trim(), icons: buttons.every((b) => b.querySelector('svg')) }; })()`);
     assert.ok(rail.width < 80 && rail.expandFirst && rail.title && rail.icons, JSON.stringify(rail));
     await app.main.click('#left-panel .rail-button.expand');
     await app.main.click('#right-panel .panel-header [data-command="rightPanel"]');
     await sleep(300);
-    assert.ok(await app.main.eval(`document.querySelector('#right-panel .rail-title') && document.querySelector('#right-panel .rail-button.expand') === document.querySelector('#right-panel .panel-rail').firstElementChild`));
+    assert.ok(await app.main.eval(`document.querySelector('#right-panel .rail-title') && (() => { const e = document.querySelector('#right-panel .rail-button.expand'); return [...document.querySelectorAll('#right-panel .panel-rail > *')].every((el) => el === e || el.getBoundingClientRect().top >= e.getBoundingClientRect().bottom - 1); })()`));
     await app.main.click('#right-panel .rail-button.expand');
     await sleep(300);
     const split = await app.main.center('[data-split="left"]');

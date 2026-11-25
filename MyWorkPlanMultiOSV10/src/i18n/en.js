@@ -110,7 +110,7 @@ export default {
   'common.yes': 'Yes', 'common.no': 'No', 'common.na': 'NA', 'common.none': 'None', 'common.ok': 'OK', 'common.cancel': 'Cancel', 'common.close': 'Close', 'common.done': 'Done',
   'common.save': 'Save', 'common.projectCalendar': 'Project calendar', 'common.prevPage': 'Previous page', 'common.nextPage': 'Next page',
 
-  'grid.selectAll': 'Select all', 'grid.resize': 'Drag to resize the column (double-click: fit to content)', 'grid.rowTip': 'Click: select · drag: move rows (left/right changes the level) · double-click: information',
+  'grid.taskOrder': 'Task order', 'grid.resourceList': 'Resource list', 'grid.selectAll': 'Select all', 'grid.resize': 'Drag to resize the column (double-click: fit to content)', 'grid.rowTip': 'Click: select · drag: move rows (left/right changes the level) · double-click: information',
   'grid.newTask': 'Type a new task name here', 'grid.newResource': 'Type a new resource name here', 'grid.expand': 'Expand subtasks', 'grid.collapse': 'Collapse subtasks',
   'grid.sortBy': 'Sort by {name}', 'grid.hideColumn': 'Hide this column', 'grid.resetWidth': 'Reset column width', 'grid.editCell': 'Edit cell',
 
@@ -482,7 +482,6 @@ export default {
   'bottom.titleTip': "Problems, critical path, overallocation, delays and milestones of the open plan",
   'bottom.expand': "Unfold the bottom panel",
   'bottom.collapse': "Fold the bottom panel",
-  'bottom.close': "Turn the bottom panel off (Ctrl+Shift+3)",
   'bottom.tab.problems': "Problems",
   'bottom.tab.critical': "Critical path",
   'bottom.tab.overallocation': "Overallocation",

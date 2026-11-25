@@ -117,7 +117,7 @@ export default {
   'common.save': '저장', 'common.projectCalendar': '프로젝트 달력', 'common.prevPage': '이전 쪽', 'common.nextPage': '다음 쪽',
 
   // ── grid
-  'grid.selectAll': '모두 선택', 'grid.resize': '끌어서 열 너비 조절 (두 번 클릭: 내용에 맞추기)', 'grid.rowTip': '클릭: 선택 · 끌기: 행 이동 (좌우로 끌면 수준 변경) · 두 번 클릭: 정보',
+  'grid.taskOrder': '작업 순서', 'grid.resourceList': '자원 목록', 'grid.selectAll': '모두 선택', 'grid.resize': '끌어서 열 너비 조절 (두 번 클릭: 내용에 맞추기)', 'grid.rowTip': '클릭: 선택 · 끌기: 행 이동 (좌우로 끌면 수준 변경) · 두 번 클릭: 정보',
   'grid.newTask': '여기에 새 작업 이름을 입력하세요', 'grid.newResource': '여기에 새 자원 이름을 입력하세요', 'grid.expand': '하위 작업 펼치기', 'grid.collapse': '하위 작업 접기',
   'grid.sortBy': '{name} 기준 정렬', 'grid.hideColumn': '이 열 숨기기', 'grid.resetWidth': '열 너비 원래대로', 'grid.editCell': '셀 편집',
 
@@ -516,7 +516,6 @@ export default {
   'bottom.titleTip': "열린 계획의 일정 문제, 주 공정, 초과 할당, 지연, 마일스톤",
   'bottom.expand': "하단 패널 펴기",
   'bottom.collapse': "하단 패널 접기",
-  'bottom.close': "하단 패널 끄기 (Ctrl+Shift+3)",
   'bottom.tab.problems': "문제",
   'bottom.tab.critical': "주 공정",
   'bottom.tab.overallocation': "초과 할당",

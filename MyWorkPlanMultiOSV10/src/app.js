@@ -819,7 +819,9 @@ function taskGridOptions(extra = {}) {
   const doc = () => activeDoc();
   return {
     kind: 'task',
-    title: () => doc()?.project.title ?? '',
+    // The table's top line names what it lists (the plan's name is already on its tab).
+    title: () => t('grid.taskOrder'),
+    titleIcon: 'list',
     rows: () => taskRows(),
     fields: () => currentColumns('task').map((id) => TASK_FIELD_MAP.get(id)).filter(Boolean),
     ctx: () => fieldCtx(),
@@ -867,7 +869,8 @@ function taskGridOptions(extra = {}) {
 function resourceGridOptions() {
   return {
     kind: 'resource',
-    title: () => activeDoc()?.project.title ?? '',
+    title: () => t('grid.resourceList'),
+    titleIcon: 'user',
     rows: () => activeDoc().project.resources.map((resource, index) => ({ id: resource.id, item: resource, info: null, number: index + 1 })),
     fields: () => currentColumns('resource').map((id) => RESOURCE_FIELD_MAP.get(id)).filter(Boolean),
     ctx: () => fieldCtx(),

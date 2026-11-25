@@ -414,7 +414,7 @@ The header has the panel icon, the title **Schedule check** and five tabs, each 
 
 - **Click a row** to go to it: a task is selected and scrolled into view (the view switches to the Gantt Chart unless a task table view is already shown); a person is selected in the Resource Sheet.
 - **Fold / unfold**: the button at the right of the header folds the panel to its header line, which still shows the icon, the title and the tab counts. Clicking a tab unfolds it again.
-- **×** turns the panel off. The **Bottom panel** toolbar button (between the Tool panel and Properties panel buttons), `Ctrl+Shift+3` and **View › Show › Bottom panel (schedule check)** turn it on and off; **View › Show › Fold / unfold the bottom panel** folds it.
+- The header has only the fold button (no ×). The **Bottom panel** button on the menu bar (between the Tool panel and Properties panel buttons), `Ctrl+Shift+3` and **View › Show › Bottom panel (schedule check)** turn it on and off; **View › Show › Fold / unfold the bottom panel** folds it.
 - **Height**: drag the top edge of the panel. The height, the chosen tab and the folded state are kept for the next start.
 
 ### Status bar
@@ -794,7 +794,7 @@ Switch between the 13 views with the toolbar view button (current view name ▾)
 
 ### Gantt Chart
 
-The task table on the left, the Gantt chart on the right, a splitter between them. The chart has a two-tier timescale, shaded non-working time, the today and status-date lines, link arrows, deadlines, baseline bars and slack lines. Black brackets are summary tasks, diamonds are milestones and red bars are critical tasks. **Settings › Gantt chart › Text next to bars** picks Name · Resources · % complete · None. See [The window](#the-window) for a picture.
+The task table on the left, the Gantt chart on the right, a splitter between them. The table header has two lines: **Task order** centred on top (**Resource list** on the resource sheet) and the column names below (Task Name · Duration · % Complete · Start · Finish …); together they are as tall as the chart's two-tier timescale. The chart has a two-tier timescale, shaded non-working time, the today and status-date lines, link arrows, deadlines, baseline bars and slack lines. Black brackets are summary tasks, diamonds are milestones and red bars are critical tasks. **Settings › Gantt chart › Text next to bars** picks Name · Resources · % complete · None. See [The window](#the-window) for a picture.
 
 ### Tracking Gantt
 

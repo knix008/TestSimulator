@@ -56,10 +56,10 @@ export class Grid {
     this.columns = fields;
     const total = ROW_NUMBER_WIDTH + fields.reduce((sum, field) => sum + this.width(field), 0);
     this.totalWidth = total;
-    // Two header lines: the plan's title on top, the column labels below.
+    // Two header lines: what the table lists ("작업 순서") on top, centred; the column labels below.
     const title = this.o.title?.() ?? '';
     this.head.classList.toggle('two-line', Boolean(this.o.title));
-    this.head.innerHTML = `${this.o.title ? `<div class="grid-title" data-grid-title title="${escapeHtml(title)}">${icon('project', 'icon tiny')}<span>${escapeHtml(title)}</span></div>` : ''}<div class="grid-head-cols"><div class="grid-head-inner" style="width:${total + 40}px">
+    this.head.innerHTML = `${this.o.title ? `<div class="grid-title" data-grid-title title="${escapeHtml(title)}">${icon(this.o.titleIcon ?? 'list', 'icon tiny')}<span>${escapeHtml(title)}</span></div>` : ''}<div class="grid-head-cols"><div class="grid-head-inner" style="width:${total + 40}px">
       <div class="grid-hcell rownum" style="width:${ROW_NUMBER_WIDTH}px" title="${escapeHtml(t('grid.selectAll'))}" data-select-all>${icon('selectAll', 'icon tiny')}</div>
       ${fields.map((field) => `<div class="grid-hcell ${field.align}" data-field="${field.id}" style="width:${this.width(field)}px" title="${escapeHtml(t(`field.${field.id}.tip`, null, t(`field.${field.id}`)))}">
         ${field.id === 'indicators' ? icon('info', 'icon tiny') : field.id === 'mode' ? icon('autoMode', 'icon tiny') : `<span>${escapeHtml(t(`field.${field.id}`))}</span>`}

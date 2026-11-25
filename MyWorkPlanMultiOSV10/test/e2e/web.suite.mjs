@@ -852,6 +852,16 @@ export const cases = [
     await W(app, `(a.updateSettings({ showBottomPanel: true, bottomPanelCollapsed: false, bottomPanelHeight: 230, showLeftPanel: true, showRightPanel: true }), 1)`);
     await sleep(300);
     const before = await app.main.eval(`document.querySelector('#view-host').getBoundingClientRect().height`);
+    assert.equal(await app.main.eval(`document.querySelectorAll('#bottom-panel .bp-head [data-command="bottomPanel"], #bottom-panel .bp-head svg[data-icon="close"]').length`), 0, 'no "×" in the header: folding is enough');
+    // Folded side panels: the expand button is the topmost thing on the rail (above the panel's icon and name).
+    await W(app, `(a.updateSettings({ showLeftPanel: false, showRightPanel: false }), 1)`);
+    await sleep(300);
+    for (const side of ['left', 'right']) {
+      const top = await app.main.eval(`(() => { const rail = document.querySelector('#${side}-panel .panel-rail'); const e = rail.querySelector('.rail-button.expand'); return [...rail.children].every((el) => el === e || el.getBoundingClientRect().top >= e.getBoundingClientRect().bottom - 1); })()`);
+      assert.ok(top, `${side} rail: expand button on top`);
+    }
+    await W(app, `(a.updateSettings({ showLeftPanel: true, showRightPanel: true }), 1)`);
+    await sleep(300);
     await app.main.click('#bottom-panel [data-command="bottomPanelFold"]');
     await sleep(300);
     const folded = await app.main.eval(`(() => { const p = document.querySelector('#bottom-panel'); return { body: Boolean(p.querySelector('.bp-body')), title: p.querySelector('.bp-title')?.textContent.trim(), icon: Boolean(p.querySelector('.bp-title svg')), counts: p.querySelectorAll('.bp-count').length, height: p.getBoundingClientRect().height, fold: p.querySelector('[data-command="bottomPanelFold"] svg')?.dataset.icon }; })()`);
@@ -878,7 +888,7 @@ export const cases = [
     await W(app, `(a.updateSettings({ showLeftPanel: false, showRightPanel: false }), 1)`);
     await sleep(300);
     const rails = await app.main.eval(`['#left-panel', '#right-panel'].map((id) => { const rail = document.querySelector(id + ' .panel-rail'); const first = [...rail.children].sort((x, y) => x.getBoundingClientRect().top - y.getBoundingClientRect().top)[0]; return { first: first.className, icon: Boolean(first.querySelector('svg.icon')), text: first.textContent.trim(), expand: rail.querySelector('.rail-button.expand svg').dataset.icon }; })`);
-    assert.deepEqual(rails.map((r) => [r.first, r.icon, Boolean(r.text), r.expand]), [['rail-title', true, true, 'foldRight'], ['rail-title', true, true, 'foldLeft']]);
+    assert.deepEqual(rails.map((r) => [r.first, r.icon, Boolean(r.text), r.expand]), [['rail-button expand', true, true, 'foldRight'], ['rail-button expand', true, true, 'foldLeft']], 'the expand button is the topmost thing on a folded rail');
     await W(app, `(a.updateSettings({ showLeftPanel: true, showRightPanel: true }), 1)`);
   } },
   { group: '인쇄', name: '인쇄 미리 보기 → 브라우저 인쇄', async run(app) {
