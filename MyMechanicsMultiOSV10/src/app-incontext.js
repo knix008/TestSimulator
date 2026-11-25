@@ -187,6 +187,6 @@ export function createInContextTools(ctx) {
   return {
     owns, pm, pick: () => undefined, field: () => ctx.renderLeft(), set: () => ctx.renderLeft(), toggle, select: () => false,
     accept: () => { state.editing = null; return ctx.renderAll(); }, subject: () => t('cmd.externalRefs'), handles, command, commands,
-    context, contextBodies, contextTopo, sketchOnContextFace, refresh, exitInContext,
+    context, contextBodies, contextTopo, sketchOnContextFace, refresh, exitInContext, editInContext,
   };
 }

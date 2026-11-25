@@ -48,7 +48,7 @@ export const PART_EXTRA_TYPES = ['advancedHole', 'intersect', 'mateReference', '
 export const PART_EXTRA_DEFAULTS = {
   advancedHole: () => ({ sketch: null, reverse: false, near: [{ kind: 'counterbore', d: 11, depth: 6.5 }, { kind: 'straight', d: 6.6, depth: 0 }], far: [] }),
   intersect: () => ({ bodies: true, surfaces: [], planes: [], exclude: [], merge: true, consume: true }),
-  moveFace: () => ({ faces: [], distance: 2 }),
+  moveFace: () => ({ faces: [], mode: 'offset', distance: 2, direction: { kind: 'axis', axis: 'z' }, axis: { kind: 'axis', axis: 'x' }, angle: 10 }),
   connectionPoint: () => ({ face: null, cpName: 'Connector', offset: 0, flip: false }),
   mateReference: () => ({ refName: 'Default', primary: null, primaryType: 'default', primaryAlign: 'any', secondary: null, secondaryType: 'default', secondaryAlign: 'any', tertiary: null, tertiaryType: 'default', tertiaryAlign: 'any' }),
 };
@@ -60,7 +60,7 @@ export const PART_MORE_TYPES = [
   'refAxis', 'refPoint', 'coordSys', 'boundingBox',
   'variableFillet', 'faceFillet', 'fullRoundFillet',
   'curvePattern', 'sketchPattern', 'tablePattern', 'fillPattern', 'variablePattern',
-  'projectedCurve', 'splitLine', 'compositeCurve', 'curveXYZ',
+  'projectedCurve', 'splitLine', 'compositeCurve', 'curveXYZ', 'surfaceSpline',
   'openscad',
   ...FASTENING_TYPES,
   ...SURFACE_MORE_TYPES,
@@ -102,6 +102,8 @@ export const PART_MORE_DEFAULTS = {
   splitLine: () => ({ sketch: null, faces: [] }),
   compositeCurve: () => ({ curves: [], edges: [] }),
   curveXYZ: () => ({ points: [[0, 0, 0], [20, 0, 10], [40, -10, 0], [60, -20, 15]], closed: false }),
+  // A spline lying on a face, through points picked on it (surface-spline.js).
+  surfaceSpline: () => ({ face: null, points: [], closed: false }),
   // An OpenSCAD program (openscad-feature.js); the default source is set there when the feature is made.
   openscad: () => ({ source: SCAD_DEFAULT_SOURCE, fileName: 'model.scad', overrides: {}, files: {} }),
   ...FASTENING_DEFAULTS,
@@ -115,7 +117,7 @@ export const PART_MORE_NAMES = {
   refAxis: 'Axis', refPoint: 'Point', coordSys: 'Coordinate System', boundingBox: 'Bounding Box',
   variableFillet: 'VarFillet', faceFillet: 'FaceFillet', fullRoundFillet: 'FullRoundFillet',
   curvePattern: 'CrvPattern', sketchPattern: 'SketchPattern', tablePattern: 'TPattern', fillPattern: 'FillPattern', variablePattern: 'VarPattern',
-  projectedCurve: 'Curve-Projected', splitLine: 'Split Line', compositeCurve: 'CompCurve', curveXYZ: 'Curve-XYZ',
+  projectedCurve: 'Curve-Projected', splitLine: 'Split Line', compositeCurve: 'CompCurve', curveXYZ: 'Curve-XYZ', surfaceSpline: 'Spline on Surface',
   openscad: 'OpenSCAD',
   ...FASTENING_NAMES,
   ...SURFACE_MORE_NAMES,
@@ -129,7 +131,7 @@ export const PART_MORE_ICONS = {
   refAxis: 'refAxis', refPoint: 'refPoint', coordSys: 'coordSys', boundingBox: 'boundingBox',
   variableFillet: 'variableFillet', faceFillet: 'faceFillet', fullRoundFillet: 'fullRoundFillet',
   curvePattern: 'curvePattern', sketchPattern: 'sketchDrivenPattern', tablePattern: 'tablePattern', fillPattern: 'fillPattern', variablePattern: 'variablePattern',
-  projectedCurve: 'projectedCurve', splitLine: 'splitLine', compositeCurve: 'compositeCurve', curveXYZ: 'curveXYZ',
+  projectedCurve: 'projectedCurve', splitLine: 'splitLine', compositeCurve: 'compositeCurve', curveXYZ: 'curveXYZ', surfaceSpline: 'surfaceSpline',
   openscad: 'scadFile',
   ...FASTENING_ICONS,
   ...SURFACE_MORE_ICONS,
@@ -139,4 +141,4 @@ export const PART_MORE_ICONS = {
 
 
 /** Features whose result is a curve (paths for sweeps, curve-driven patterns, composite curves). */
-export const CURVE_TYPES = ['helix', 'sketch3d', 'projectedCurve', 'compositeCurve', 'curveXYZ'];
+export const CURVE_TYPES = ['helix', 'sketch3d', 'projectedCurve', 'compositeCurve', 'curveXYZ', 'surfaceSpline'];

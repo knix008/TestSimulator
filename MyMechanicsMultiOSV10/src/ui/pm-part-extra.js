@@ -28,7 +28,13 @@ export const PART_EXTRA_PM = {
   moveFace(api, f) {
     const { t } = api;
     const faces = (f.faces ?? []).map((sig, k) => `${t('pm.face')} ${k + 1} (${sig.type === 'PLANE' ? t('pm.planar') : t('pm.curved')})`);
-    return group('moveFace', t('pm.parameters'), `${pickBox(api, 'faces', faces, t('pm.facesToMove'), 'moveFace')}${field(api, 'distance', f.distance ?? 2, { label: t('pm.offsetDistance') })}${note(t('pm.help.moveFace'))}`);
+    const mode = f.mode ?? 'offset';
+    const axisSeg = (key, ref) => seg(key, [['x', 'X', 'axisX'], ['y', 'Y', 'axisY'], ['z', 'Z', 'axisZ'], ['edge', t('pm.edge'), 'lineTool']], ref?.kind === 'edge' ? 'edge' : ref?.axis ?? 'x');
+    let body = `${pickBox(api, 'faces', faces, t('pm.facesToMove'), 'moveFace')}${seg('mode', [['offset', t('mvf.offset'), 'offsetTool'], ['translate', t('mvf.translate'), 'moveBody'], ['rotate', t('mvf.rotate'), 'rotateTool']], mode)}`;
+    if (mode === 'offset') body += field(api, 'distance', f.distance ?? 2, { label: t('pm.offsetDistance') });
+    if (mode === 'translate') body += `${axisSeg('dir1', f.direction)}${f.direction?.kind === 'edge' ? pickBox(api, 'direction', f.direction.sig ? [t('pm.edge')] : [], t('pm.directionEdge'), 'lineTool') : ''}${field(api, 'distance', f.distance ?? 2, { label: t('pm.distance') })}`;
+    if (mode === 'rotate') body += `${axisSeg('axisKind', f.axis)}${f.axis?.kind === 'edge' ? pickBox(api, 'axis', f.axis.sig ? [t('pm.edge')] : [], t('pm.axisEdge'), 'lineTool') : ''}${field(api, 'angle', f.angle ?? 10, { label: t('pm.angle'), unit: 'angle', glyph: 'dimAngle' })}`;
+    return group('moveFace', t('pm.parameters'), `${body}${note(t(mode === 'offset' ? 'pm.help.moveFace' : 'mvf.help'))}`);
   },
   advancedHole(api, f) {
     const { t } = api;

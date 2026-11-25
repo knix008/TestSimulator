@@ -14,6 +14,7 @@ import { buildPartExtra } from './part-extra.js';
 import { rep } from './kernel.js';
 import { byId, profiles, standalonePoints } from './sketch.js';
 import { findEdges, findFace, planeOfFace, crossV, normalize, isCylinder } from './refs.js';
+import { buildSurfaceSpline } from './surface-spline.js';
 import { sketchOf, sizeAround, codeError, resolvePlane, toWorld, AXES, regenerate, frame as makeFrame, STD_PLANES } from './features.js';
 import { sketchWire, circleOfEdge } from './advanced.js';
 import { worldUp, worldFront } from './frame.js';
@@ -59,6 +60,7 @@ export function buildPartMore(f, ctx) {
     case 'splitLine': return buildSplitLine(f, ctx);
     case 'compositeCurve': return buildCompositeCurve(f, ctx);
     case 'curveXYZ': return buildCurveXYZ(f);
+    case 'surfaceSpline': return buildSurfaceSpline(f, ctx);
     default: throw codeError('unknown-feature', { type: f.type });
   }
 }

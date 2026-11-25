@@ -19,7 +19,7 @@ import { worldUp, worldFront } from './frame.js';
 import { makeHelixStable, makeCylinderStable, makeCircleStable } from './oriented.js';
 import { buildSheetMore } from './sheet-more.js';
 import { bendFrame, zRange, rotationMap, translationMap, mapFrame } from './sheet-fold.js';
-import { isoThread, threadSolid, cosmeticThread, parseThreadSize, wantsModelled, threadFrame, externalRunoutCore, internalRunoutBlank } from './threads.js';
+import { isoThread, formThread, threadSolid, cosmeticThread, parseThreadSize, wantsModelled, threadFrame, externalRunoutCore, internalRunoutBlank } from './threads.js';
 
 export const ADVANCED_TYPES = [
   'sweep', 'loft', 'draft', 'rib', 'dome', 'helix', 'thread', 'wrap', 'thicken',
@@ -36,7 +36,7 @@ export const ADVANCED_DEFAULTS = {
   rib: () => ({ sketch: null, thickness: 3, flip: false }),
   dome: () => ({ faces: [], height: 5, reverse: false }),
   helix: () => ({ plane: { kind: 'std', name: 'top' }, center: [0, 0], radius: 10, pitch: 5, turns: 4, lefthand: false }),
-  thread: () => ({ edge: null, pitch: 1.5, length: 10, internal: 'auto', reverse: false, cosmetic: false, lefthand: false, form: 'iso', mode: 'auto' }),
+  thread: () => ({ edge: null, pitch: 1.5, length: 10, internal: 'auto', reverse: false, cosmetic: false, lefthand: false, form: 'iso', mode: 'auto', offset: 0, trimEnd: true }),
   wrap: () => ({ sketch: null, face: null, depth: 1, op: 'emboss' }),
   thicken: () => ({ surface: null, thickness: 2, side: 'out', op: 'boss' }),
   surfaceExtrude: () => ({ sketch: null, depth: 20, midplane: false, reverse: false }),
@@ -371,6 +371,13 @@ function buildDome(f, ctx) {
   const p = planeOfFace(face);
   const h = Math.abs(num(f.height, 5));
   if (!(h > 0)) throw codeError('zero-size');
+  // A direction other than the face's normal: the dome leans along it (sheared, sections lofted).
+  if (f.direction && !(f.direction.kind === 'axis' && (f.direction.axis ?? 'normal') === 'normal')) {
+    const d = normalize(resolveDirection(f.direction, ctx));
+    const up0 = mul(p.normal, f.reverse ? -1 : 1);
+    const along = d[0] * up0[0] + d[1] * up0[1] + d[2] * up0[2];
+    if (Math.abs(along) > 1e-3 && Math.abs(along) < 1 - 1e-9) return domeDirected(f, ctx, face, p, h, along > 0 ? d : mul(d, -1));
+  }
   if (f.shape === 'elliptical' || f.shape === 'continuous') return domeMore(f, ctx, face, p, h);
   let r = 0;
   for (const e of face.edges) for (const t of [0, 0.25, 0.5, 0.75, 1]) r = Math.max(r, Math.hypot(...sub(vec(e.pointAt(t)), p.origin)));
@@ -392,6 +399,48 @@ function buildDome(f, ctx) {
     const v = R.measureVolume(clipped);
     if (v > 1e-9 && v <= R.measureVolume(tool) + 1e-6) tool = clipped;
   } catch { /* a round face: the cap is already right */ }
+  return { tool, toolOp: f.reverse ? 'cut' : 'boss', body: f.reverse ? ctx.body.cut(tool) : ctx.body.fuse(tool) };
+}
+
+/**
+ * A dome leaning along direction `d` (not the face's normal): each level of the dome (its outline scaled about
+ * the face's centre, at height z) moved along d so that it rises along d instead of the normal — a shear, which
+ * keeps the volume and the height above the face. Spherical: the levels of the sphere cap; elliptical and
+ * continuous: of the quarter ellipse. The levels are lofted to the top point.
+ */
+function domeDirected(f, ctx, face, p, h, d) {
+  const R = rep(); const oc = R.getOC();
+  const up = mul(p.normal, f.reverse ? -1 : 1);
+  const c = vec(face.center);
+  const lean = sub(mul(d, 1 / (d[0] * up[0] + d[1] * up[1] + d[2] * up[2])), up);
+  const outline = face.clone().outerWire();
+  let r = 0;
+  for (const e of face.edges) for (const t of [0, 0.25, 0.5, 0.75, 1]) r = Math.max(r, Math.hypot(...sub(vec(e.pointAt(t)), c)));
+  const n = 24;
+  const levels = [];
+  if ((f.shape ?? 'spherical') === 'spherical') {
+    const Rs = (r * r + h * h) / (2 * h); const phi = Math.atan2(r, Rs - h);
+    for (let i = 0; i < n; i++) { const a = phi * (1 - i / n); levels.push([(Rs * Math.sin(a)) / r, h - Rs + Rs * Math.cos(a)]); }
+  } else for (let i = 0; i < n; i++) { const a = (Math.PI / 2) * (i / n); levels.push([Math.cos(a), h * Math.sin(a)]); }
+  const spherical = (f.shape ?? 'spherical') === 'spherical';
+  // A spherical dome is the sphere cap over the circle round the face, cut to the face: its levels are circles
+  // (sheared), and the cap is cut by the face extruded along the direction.
+  const circleWire = (rad, at) => R.assembleWire([R.makeCircle(rad, at, up)]);
+  const mk = new oc.BRepOffsetAPI_ThruSections(true, false, 1e-6);
+  for (const [k, z] of levels) {
+    const shift = add(mul(up, z), mul(lean, z));
+    mk.AddWire((spherical ? circleWire(k * r, add(c, shift)) : outline.clone().scale(k, c).translate(shift)).wrapped);
+  }
+  mk.AddVertex(R.makeVertex(add(c, add(mul(up, h), mul(lean, h)))).wrapped);
+  mk.Build(new oc.Message_ProgressRange());
+  if (!mk.IsDone()) { mk.delete(); throw codeError('dome-failed'); }
+  let tool = R.cast(mk.Shape()); mk.delete();
+  if (R.measureVolume(tool) < 0) tool = R.cast(tool.wrapped.Reversed());
+  if (spherical && !(face.edges.length === 1 && face.edges[0].geomType === 'CIRCLE')) {
+    const prism = R.basicFaceExtrusion(face.clone(), new R.Vector(mul(d, (h * 2 + 1) / (d[0] * up[0] + d[1] * up[1] + d[2] * up[2]))));
+    tool = tool.intersect(prism);
+  }
+  tool = tool.fuse(R.basicFaceExtrusion(face.clone(), new R.Vector(mul(up, -h * 0.01))));
   return { tool, toolOp: f.reverse ? 'cut' : 'boss', body: f.reverse ? ctx.body.cut(tool) : ctx.body.fuse(tool) };
 }
 
@@ -581,8 +630,16 @@ function buildThread(f, ctx) {
   if (f.internal === true || f.internal === 'internal') internal = true;
   if (f.internal === false || f.internal === 'external') internal = false;
   if (f.reverse) dir = mul(dir, -1);
-  if (f.form === 'iso') return buildIsoThread(f, ctx, { centre, dir, radius, P, L, internal });
-  if (f.cosmetic) return { thread: { centre, dir, radius, pitch: P, length: L, internal } };
+  // Start offset: the thread begins this far from the edge along the axis (before it: negative — what lies before
+  // the edge is outside the material, so it starts at the edge). Trimming with the end face stops it at the
+  // cylinder's end.
+  const offset = num(f.offset, 0);
+  const run0 = cylinderRun(ctx.body, centre, dir, radius);
+  // Nothing is cut before the thread's start (a groove's lead-in would): from the offset, or from the edge.
+  const clip = { lo: Math.max(0, offset), hi: f.trimEnd !== false && run0 > 1e-6 ? run0 : Infinity };
+  const start = add(centre, mul(dir, offset));
+  if (f.form === 'iso' || (THREAD_SECTIONS[f.form] && !f.cosmetic && f.faceted !== true)) return buildIsoThread(f, ctx, { centre: start, dir, radius, P, L, internal, edgeCentre: centre, clip, offset });
+  if (f.cosmetic) return { thread: { centre: start, dir, radius, pitch: P, length: L, internal } };
   // The groove is a V (60°, 0.6·P deep) swept along the helix, built from flat triangles (24 per turn): a
   // faceted solid the kernel's booleans handle reliably (smooth swept or twisted solids are often missed).
   // One groove per start, each turned 360°/starts, all on the lead (P × starts).
@@ -590,13 +647,26 @@ function buildThread(f, ctx) {
   const form = THREAD_SECTIONS[f.form] ? f.form : 'v';
   let tool = null;
   for (let k = 0; k < starts; k++) {
-    const g = helicalGroove(centre, dir, perp, radius, P, L, internal, Boolean(f.lefthand), 24, { form, lead: P * starts, phase: (2 * Math.PI * k) / starts });
+    const g = helicalGroove(start, dir, perp, radius, P, L, internal, Boolean(f.lefthand), 24, { form, lead: P * starts, phase: (2 * Math.PI * k) / starts });
     tool = tool ? tool.fuse(g) : g;
   }
+  tool = clipAlong(tool, centre, dir, radius + 2 * P, clip, offset, offset + L);
   const before = R.measureVolume(ctx.body);
   const body = ctx.body.cut(tool.clone());
   if (!(before - R.measureVolume(body) > 1e-6 * Math.max(1, before))) throw codeError('thread-failed');
-  return { tool, toolOp: 'cut', body, thread: { centre, dir, radius, pitch: P, length: L, internal } };
+  return { tool, toolOp: 'cut', body, thread: { centre: start, dir, radius, pitch: P, length: L, internal } };
+}
+
+/**
+ * A thread tool cut to the axial range [lo, hi] (from the edge's centre along dir; infinite ends: as far as the
+ * tool goes from `from` to `to`) by a cylinder of radius r — trimming with the start / end face.
+ */
+function clipAlong(tool, centre, dir, r, { lo, hi }, from, to) {
+  if (!Number.isFinite(lo) && !Number.isFinite(hi)) return tool;
+  const a = Number.isFinite(lo) ? lo : from - 1e3; const b = Number.isFinite(hi) ? hi : to + 1e3;
+  if (!(b > a)) throw codeError('thread-failed');
+  const zone = rep().makeCylinder(r, b - a, add(centre, mul(dir, a)), dir);
+  return tool.intersect(zone, { simplify: false });
 }
 
 /**
@@ -618,19 +688,33 @@ function cylinderRun(body, centre, dir, radius) {
 }
 
 /** An ISO metric thread on a shaft or in a hole: cosmetic (a thread record) or modelled (exact, threads.js). */
-function buildIsoThread(f, ctx, { centre, dir, radius, P, L, internal }) {
+function buildIsoThread(f, ctx, { centre, dir, radius, P, L, internal, edgeCentre = centre, clip = { lo: 0, hi: Infinity }, offset = 0 }) {
   const R = rep();
-  const named = parseThreadSize(f.size);
+  const iso = !f.form || f.form === 'iso';
+  const named = iso ? parseThreadSize(f.size) : null;
   // M d × P: the named size, else the shaft's diameter (external) or the hole's minor diameter plus the
-  // thread depth (internal, a hole drilled to D1).
-  const d = named?.d ?? (internal ? 2 * radius + 1.25 * (Math.sqrt(3) / 2) * P : 2 * radius);
-  const pitch = named ? (Number(f.pitch) > 0 ? Number(f.pitch) : named.P) : P;
+  // thread depth (internal, a hole drilled to D1). Other forms: their basic profile on the shaft / in the hole.
   let spec;
-  try { spec = isoThread(d, pitch); } catch { throw codeError('thread-size'); }
-  const run = cylinderRun(ctx.body, centre, dir, radius);
-  const length = run > 1e-6 ? Math.min(L, run) : L;
-  const modelled = f.cosmetic !== true && wantsModelled(f.mode ?? 'auto');
-  const record = cosmeticThread({ centre, dir, length, internal, d: spec.d, P: spec.P, radius, modelled, lefthand: Boolean(f.lefthand) });
+  if (iso) {
+    const d = named?.d ?? (internal ? 2 * radius + 1.25 * (Math.sqrt(3) / 2) * P : 2 * radius);
+    const pitch = named ? (Number(f.pitch) > 0 ? Number(f.pitch) : named.P) : P;
+    try { spec = isoThread(d, pitch); } catch { throw codeError('thread-size'); }
+  } else {
+    const starts = Math.max(1, Math.min(8, Math.round(num(f.starts, 1))));
+    try {
+      const depth = formThread(f.form, 100, P).depth;
+      spec = formThread(f.form, internal ? 2 * radius + 2 * depth : 2 * radius, P, { starts });
+    } catch { throw codeError('thread-size'); }
+  }
+  // The run from the thread's start (the edge's run less the offset); a thread starting before the edge and trimmed
+  // with the start face begins at the edge.
+  const run = Math.max(0, cylinderRun(ctx.body, edgeCentre, dir, radius) - offset);
+  // Trimmed with the end face (the default) the thread stops where the cylinder ends; not trimmed it runs its length.
+  let length = run > 1e-6 && f.trimEnd !== false ? Math.min(L, run) : L;
+  if (offset < 0) { centre = edgeCentre; length = Math.max(spec.P, length + offset); }
+  const modelled = f.cosmetic !== true && (iso ? wantsModelled(f.mode ?? 'auto') : true);
+  const record = iso ? cosmeticThread({ centre, dir, length, internal, d: spec.d, P: spec.P, radius, modelled, lefthand: Boolean(f.lefthand) })
+    : { centre: [...centre], dir: [...dir], length, internal: Boolean(internal), pitch: spec.P, major: spec.d, minor: spec.d1, pitchDiameter: spec.d2, radius, size: `${f.form} ${Math.round(spec.d * 100) / 100}×${spec.P}${spec.starts > 1 ? ` (${spec.starts} starts)` : ''}${f.lefthand ? '-LH' : ''}`, modelled: true, lefthand: Boolean(f.lefthand) };
   if (!modelled) return { thread: record, threads: [record] };
   const before = R.measureVolume(ctx.body);
   // Ending inside material (a shoulder, the plain rest of the shaft, the bottom of a blind hole), the thread
@@ -651,7 +735,7 @@ function buildIsoThread(f, ctx, { centre, dir, radius, P, L, internal }) {
       const zone = R.makeCylinder(radius + 0.3 * spec.P, length, centre, dir);
       const piece = ctx.body.clone().intersect(zone.clone(), { simplify: false });
       const rest = ctx.body.clone().cut(zone, { simplify: false });
-      let rod = threadSolid(spec, 'external', { origin: centre, dir, length, lefthand: Boolean(f.lefthand) }).intersect(piece, { simplify: false });
+      let rod = threadSolid(iso ? spec : { ...spec, lift: 1e-4 }, 'external', { origin: centre, dir, length, lefthand: Boolean(f.lefthand) }).intersect(piece, { simplify: false });
       if (endsInMaterial) rod = rod.fuse(externalRunoutCore(spec, fr, length), { simplify: false });
       body = R.measureVolume(rest) > 1e-9 ? rest.fuse(rod, { optimisation: 'commonFace', simplify: false }) : rod;
     }

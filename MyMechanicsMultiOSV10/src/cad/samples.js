@@ -73,8 +73,8 @@ export function builder(part) {
       part.features.push(f);
       return { kind: 'ref', id: f.id };
     },
-    // Sample threads keep the V-groove form they were measured with (test/fixtures/samples-yup-baseline.json);
-    // new threads made in the app are ISO threads.
+    // Sample threads use the V (UN 60°) form — an exact screw solid like every thread form (the baseline,
+    // test/fixtures/samples-yup-baseline.json, has their parts measured that way); new threads made in the app are ISO.
     add(type, params) { const f = createFeature(part, type, type === 'thread' ? { form: 'v', ...params } : params); part.features.push(f); return f; },
     /** Signatures of the built body's edges that `test(sig)` accepts. */
     edges(test) { const r = regenerate(part); return r.body ? r.body.edges.map(edgeSignature).filter(test) : []; },

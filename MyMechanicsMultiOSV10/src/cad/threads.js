@@ -41,6 +41,57 @@ export function isoThread(d, P = COARSE_PITCH[d]) {
   };
 }
 
+/**
+ * The other thread forms, as exact screw solids (the same sweep as the ISO thread): their basic profiles, the
+ * same for the bolt and the nut. Depth h and the flank angles:
+ *   v            UN / ISO 60° basic profile: crest flat P/8, root flat P/4, depth 5H/8 (H = √3/2 P)
+ *   trapezoidal  ISO 2904 30°: flats 0.366 P at crest and root, depth 0.5 P
+ *   buttress     7° / 45° (pressure / clearance flank): depth 0.6 P, the rest of the pitch as equal flats
+ *   pipe55       Whitworth 55° (BSP): H = 0.960491 P, depth 0.640327 P, crests and roots rounded r = 0.137329 P
+ * starts > 1: a multi-start thread (lead = starts × P), the section repeated round the axis.
+ */
+export function formThread(form, d, P, { starts = 1 } = {}) {
+  d = Number(d); P = Number(P);
+  const depth = { v: (5 / 8) * (SQ3 / 2) * P, trapezoidal: 0.5 * P, buttress: 0.6 * P, pipe55: 0.640327 * P }[form];
+  if (depth === undefined || !(d > 0) || !(P > 0) || 2 * depth >= d) throw Object.assign(new Error(`bad thread ${form} ${d}×${P}`), { code: 'thread-size' });
+  const n = Math.max(1, Math.min(8, Math.round(Number(starts) || 1)));
+  return { form, d, P, H: (SQ3 / 2) * P, depth, d1: d - 2 * depth, d3: d - 2 * depth, d2: d - depth, starts: n, lead: n * P, tapDrill: Math.round((d - 2 * depth) * 10) / 10 };
+}
+
+/** One pitch of a form's basic profile (crest centred at z = 0), as profilePieces gives it. */
+function formPieces(spec) {
+  // `lift`: the crest raised a hair (an external thread trimmed by its shaft: a crest exactly on the shaft's
+  // cylinder is a coincident / tangent surface the kernel's booleans mishandle); the root stays where it is.
+  const { P, d, depth } = spec; const Rr = d / 2 - depth; const R = d / 2 + (spec.lift ?? 0);
+  const line = (z0, r0, z1, r1) => ({ z0, z1, kind: 'line', r: (z) => r0 + ((r1 - r0) * (z - z0)) / (z1 - z0), r0, r1 });
+  const flat = (z0, z1, r) => ({ z0, z1, kind: 'flat', r: () => r, r0: r, r1: r });
+  const tan = (deg) => Math.tan((deg * Math.PI) / 180);
+  if (spec.form === 'v' || spec.form === 'trapezoidal') {
+    const crest = spec.form === 'v' ? P / 8 : 0.366 * P;
+    const run = depth * tan(spec.form === 'v' ? 30 : 15);
+    const root = P - crest - 2 * run;
+    const a = crest / 2; const b = a + run; const c = b + root;
+    return [flat(-a, a, R), line(a, R, b, Rr), flat(b, c, Rr), line(c, Rr, c + run, R)];
+  }
+  if (spec.form === 'buttress') {
+    // The load (7°) flank first, then the root, the 45° flank, the crest.
+    const r7 = depth * tan(7); const r45 = depth * tan(45);
+    const flats = (P - r7 - r45) / 2;
+    const a = flats / 2;
+    return [flat(-a, a, R), line(a, R, a + r7, Rr), flat(a + r7, a + r7 + flats, Rr), line(a + r7 + flats, Rr, a + r7 + flats + r45, R)];
+  }
+  // 55° Whitworth: round crest and root arcs tangent to the flanks.
+  const al = (27.5 * Math.PI) / 180;
+  const H = P / (2 * Math.tan(al)); const r = 0.137329 * P;
+  const apexTop = d / 2 + H / 6 + (spec.lift ?? 0); const apexBot = d / 2 + H / 6 - H;
+  const rcTop = apexTop - r / Math.sin(al); const rcBot = apexBot + r / Math.sin(al);
+  const w = r * Math.cos(al);
+  const tTop = rcTop + r * Math.sin(al); const tBot = rcBot - r * Math.sin(al);
+  const crest = { z0: -w, z1: w, kind: 'arc', sign: 1, rc: rcTop, zc: 0, rho: r, r: (z) => rcTop + Math.sqrt(Math.max(0, r * r - z * z)), r0: tTop, r1: tTop };
+  const rootArc = { z0: P / 2 - w, z1: P / 2 + w, kind: 'arc', sign: -1, rc: rcBot, zc: P / 2, rho: r, r: (z) => rcBot - Math.sqrt(Math.max(0, r * r - (z - P / 2) ** 2)), r0: tBot, r1: tBot };
+  return [crest, line(w, tTop, P / 2 - w, tBot), rootArc, line(P / 2 + w, tBot, P - w, tTop)];
+}
+
 /** M8 → { d: 8, P: 1.25 } (coarse), "M10x1.25" → fine; null for anything else. */
 export function parseThreadSize(name) {
   const m = /^M(\d+(?:\.\d+)?)(?:\s*[x×]\s*(\d+(?:\.\d+)?))?$/i.exec(String(name ?? '').trim());
@@ -57,6 +108,7 @@ export const threadName = (d, P) => (COARSE_PITCH[d] === P ? `M${d}` : `M${d}×$
  * { z0, z1, kind: 'flat' | 'line' | 'arc', r(z) }. `kind`: 'external' (design profile) or 'internal' (basic).
  */
 export function profilePieces(spec, kind = 'external') {
+  if (spec.form) return formPieces(spec);
   const { d, P, H } = spec;
   const R = d / 2;
   const line = (z0, r0, z1, r1) => ({ z0, z1, kind: 'line', r: (z) => r0 + ((r1 - r0) * (z - z0)) / (z1 - z0), r0, r1 });
@@ -71,16 +123,18 @@ export function profilePieces(spec, kind = 'external') {
   const zc = P / 2;
   const w = (rho * SQ3) / 2; // half the axial span of the root arc
   const zt = zc - w; const rt = rc - rho / 2; // tangent point on the descending flank
-  const arc = { z0: zt, z1: zc + w, kind: 'arc', r: (z) => rc - Math.sqrt(Math.max(0, rho * rho - (z - zc) ** 2)), r0: rt, r1: rt, rc, zc, rho };
+  const arc = { z0: zt, z1: zc + w, kind: 'arc', sign: -1, r: (z) => rc - Math.sqrt(Math.max(0, rho * rho - (z - zc) ** 2)), r0: rt, r1: rt, rc, zc, rho };
   return [flat(crest0, crest1, R), line(crest1, R, zt, rt), arc, line(zc + w, rt, (15 * P) / 16, R)];
 }
 
 /** The profile radius at axial position z (periodic). */
 export function profileRadius(spec, z, kind = 'external') {
   const { P } = spec;
-  let u = ((z % P) + P) % P;
-  if (u >= (15 * P) / 16) u -= P;
-  for (const piece of profilePieces(spec, kind)) if (u >= piece.z0 - 1e-12 && u <= piece.z1 + 1e-12) return piece.r(u);
+  const pieces = profilePieces(spec, kind);
+  // The pieces cover one pitch from the first one's start.
+  const z0 = pieces[0].z0;
+  const u = ((((z - z0) % P) + P) % P) + z0;
+  for (const piece of pieces) if (u >= piece.z0 - 1e-12 && u <= piece.z1 + 1e-12) return piece.r(u);
   return spec.d / 2;
 }
 
@@ -95,10 +149,10 @@ export function sectionArea(spec, kind = 'external') {
     if (p.kind === 'flat') I += dz * p.r0 * p.r0;
     else if (p.kind === 'line') I += (dz * (p.r0 * p.r0 + p.r0 * p.r1 + p.r1 * p.r1)) / 3;
     else {
-      // ∫ (rc − √(ρ² − x²))² dx over x ∈ [−w, w]
-      const { rc, rho } = p; const w = dz / 2;
+      // ∫ (rc ± √(ρ² − x²))² dx over x ∈ [−w, w] (− a root arc, + a crest arc)
+      const { rc, rho } = p; const w = dz / 2; const sg = p.sign ?? -1;
       const F = (x) => (x / 2) * Math.sqrt(rho * rho - x * x) + ((rho * rho) / 2) * Math.asin(x / rho);
-      I += 2 * w * (rc * rc + rho * rho) - (2 * w ** 3) / 3 - 2 * rc * (F(w) - F(-w));
+      I += 2 * w * (rc * rc + rho * rho) - (2 * w ** 3) / 3 + sg * 2 * rc * (F(w) - F(-w));
     }
   }
   return (Math.PI / spec.P) * I;
@@ -134,20 +188,26 @@ export function threadFrame(origin, dir, xDir = null) {
 export function sectionWire(spec, kind, fr, { lefthand = false } = {}) {
   const R = rep();
   const hand = lefthand ? -1 : 1;
+  // One turn of the section covers one lead: the pitch's profile repeated for each start.
+  const lead = spec.lead ?? spec.P;
   const at = (z) => {
     const r = profileRadius(spec, z, kind);
-    const a = (-hand * 2 * Math.PI * z) / spec.P;
+    const a = (-hand * 2 * Math.PI * z) / lead;
     const c = Math.cos(a) * r; const s = Math.sin(a) * r;
     return [0, 1, 2].map((k) => fr.origin[k] + fr.x[k] * c + fr.y[k] * s);
   };
   const edges = [];
-  for (const p of profilePieces(spec, kind)) {
-    if (p.kind === 'flat') edges.push(R.makeThreePointArc(at(p.z0), at((p.z0 + p.z1) / 2), at(p.z1)));
-    else {
-      const pts = [];
-      const n = 16;
-      for (let i = 0; i <= n; i++) pts.push(at(p.z0 + ((p.z1 - p.z0) * i) / n));
-      edges.push(R.makeBSplineApproximation(pts, { tolerance: 1e-6, degMax: 4, degMin: 2 }));
+  for (let k = 0; k < (spec.starts ?? 1); k++) {
+    const off = k * spec.P;
+    for (const p of profilePieces(spec, kind)) {
+      const z0 = p.z0 + off; const z1 = p.z1 + off;
+      if (p.kind === 'flat') edges.push(R.makeThreePointArc(at(z0), at((z0 + z1) / 2), at(z1)));
+      else {
+        const pts = [];
+        const n = 16;
+        for (let i = 0; i <= n; i++) pts.push(at(z0 + ((z1 - z0) * i) / n));
+        edges.push(R.makeBSplineApproximation(pts, { tolerance: 1e-6, degMax: 4, degMin: 2 }));
+      }
     }
   }
   return R.assembleWire(edges);
@@ -213,10 +273,11 @@ export function threadSolid(spec, kind, { origin = [0, 0, 0], dir = [0, 0, 1], x
   const fr = threadFrame(origin, dir, xDir);
   const L = Number(length);
   if (!(L > 0)) throw Object.assign(new Error('thread length'), { code: 'thread-failed' });
-  const key = JSON.stringify([spec.d, spec.P, kind, fr.origin, fr.z, fr.x, L, Boolean(lefthand)].flat().map((v) => (typeof v === 'number' ? Math.round(v * 1e9) / 1e9 : v)));
+  const key = JSON.stringify([spec.form ?? 'iso', spec.starts ?? 1, spec.lift ?? 0, spec.d, spec.P, kind, fr.origin, fr.z, fr.x, L, Boolean(lefthand)].flat().map((v) => (typeof v === 'number' ? Math.round(v * 1e9) / 1e9 : v)));
   let s = solids.get(key);
   if (!s) {
-    s = screwSweep(sectionWire(spec, kind, fr, { lefthand }), fr, L, spec.P, lefthand);
+    // Swept along a helix of the lead; the surface repeats every lead, so one lead is swept and copied.
+    s = screwSweep(sectionWire(spec, kind, fr, { lefthand }), fr, L, spec.lead ?? spec.P, lefthand);
     if (solids.size > 200) { for (const v of solids.values()) v.delete?.(); solids.clear(); }
     solids.set(key, s);
   }

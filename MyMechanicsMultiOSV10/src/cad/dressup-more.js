@@ -8,11 +8,12 @@
 //            faces), vertex (three distances along the edges of a corner)
 //   shell    inward or outward, a different thickness on chosen planar faces, or no face removed (a hollow body)
 import { rep } from './kernel.js';
-import { findEdges, findFace, faceSignature, edgeSignature, normalize } from './refs.js';
-import { codeError } from './features.js';
+import { findEdges, findFace, faceSignature, edgeSignature, normalize, crossV } from './refs.js';
+import { codeError, sizeAround } from './features.js';
+import { planeFace } from './extrude-more.js';
 
 export const FILLET_PROFILES = ['circular', 'conic', 'curvature'];
-export const CHAMFER_KINDS = ['distance', 'distDist', 'angleDist', 'offsetFace', 'vertex'];
+export const CHAMFER_KINDS = ['distance', 'distDist', 'angleDist', 'offsetFace', 'vertex', 'faceFace'];
 
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -21,6 +22,7 @@ const mul = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const len = (a) => Math.hypot(a[0], a[1], a[2]);
 const vec = (p) => (Array.isArray(p) ? p : p.toTuple ? p.toTuple() : [p.x, p.y, p.z]);
+const distance = (a, b) => { try { return rep().measureDistanceBetween(a, b); } catch { return Infinity; } };
 const num = (v, d = 0) => (Number.isFinite(Number(v)) ? Number(v) : d);
 const volume = (s) => { try { return Math.abs(rep().measureVolume(s)); } catch { return 0; } };
 
@@ -224,6 +226,24 @@ export function filletMore(f, ctx) {
 // ───────────────────────── chamfer
 
 /** Distances along face 1 and face 2 of an offset-face chamfer (offsets h1, h2 measured square to the faces). */
+/** Whether a cylinder or cone face has the axis of a circular edge (through its centre, along its normal). */
+function coaxial(face, edge) {
+  const oc = rep().getOC();
+  const ad = new oc.BRepAdaptor_Surface(face.wrapped, true);
+  try {
+    const ax = /CYL/.test(face.geomType) ? ad.Cylinder().Axis() : ad.Cone().Axis();
+    const l = ax.Location(); const d = ax.Direction();
+    const at = [l.X(), l.Y(), l.Z()]; const dir = [d.X(), d.Y(), d.Z()];
+    const ce = new oc.BRepAdaptor_Curve(oc.TopoDS.Edge(edge.wrapped));
+    try {
+      const c = ce.Circle(); const cl = c.Location(); const cn = c.Axis().Direction();
+      const centre = [cl.X(), cl.Y(), cl.Z()]; const n = [cn.X(), cn.Y(), cn.Z()];
+      const off = sub(centre, at); const along = dot(off, dir);
+      return Math.abs(Math.abs(dot(n, dir)) - 1) < 1e-9 && len(sub(off, mul(dir, along))) < 1e-7;
+    } finally { ce.delete?.(); }
+  } catch { return false; } finally { ad.delete?.(); }
+}
+
 function offsetFaceDistances(s, h1, h2) {
   // Q = p + a u1 + b u2 with its distance to face 1 = h1, to face 2 = h2; distances along the faces are Q's
   // projections onto u1 and u2 (u1 ⟂ n1, u2 ⟂ n2).
@@ -236,17 +256,58 @@ function offsetFaceDistances(s, h1, h2) {
   return [dot(Q, f1.u), dot(Q, f2.u)];
 }
 
+/**
+ * Face-face chamfer: between two planar faces (next to each other or not — faces between them are taken away):
+ * the chamfer plane runs through the lines on each face at distance d1 (first face) and d2 (second face) from
+ * the line where their planes meet, and all material beyond it in that corner goes (exact).
+ */
+function faceFaceChamfer(f, ctx) {
+  const R = rep();
+  const A = f.faceA ? findFace(ctx.body, f.faceA) : null; const B = f.faceB ? findFace(ctx.body, f.faceB) : null;
+  if (!A || !B) throw codeError('face-missing');
+  if (A.geomType !== 'PLANE' || B.geomType !== 'PLANE') throw codeError('profile-unsupported');
+  let d1 = num(f.distance, 1); let d2 = num(f.distance2, d1);
+  if (!(d1 > 0) || !(d2 > 0)) throw codeError('zero-size');
+  if (f.flip) [d1, d2] = [d2, d1];
+  const ca = vec(A.center); const cb = vec(B.center);
+  const na = normalize(vec(A.normalAt(ca))); const nb = normalize(vec(B.normalAt(cb)));
+  const u = crossV(na, nb);
+  if (len(u) < 1e-6) throw codeError('profile-unsupported');
+  const ud = normalize(u);
+  // A point on the line where the planes meet: solve na·x = na·ca, nb·x = nb·cb, ud·x = ud·ca.
+  const M = [na, nb, ud]; const rhs = [dot(na, ca), dot(nb, cb), dot(ud, ca)];
+  const det3 = (m) => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+  const D = det3(M);
+  const L0 = [0, 1, 2].map((k) => det3(M.map((row, i) => row.map((v, j) => (j === k ? rhs[i] : v)))) / D);
+  // Into each face from the line (toward its centre, across the line).
+  const across = (c) => { const w = sub(c, L0); return normalize(sub(w, mul(ud, dot(w, ud)))); };
+  const pa = add(L0, mul(across(ca), d1)); const pb = add(L0, mul(across(cb), d2));
+  let nc = normalize(crossV(sub(pb, pa), ud));
+  if (dot(nc, add(na, nb)) < 0) nc = mul(nc, -1);
+  const size = sizeAround(ctx) * 4 + 10;
+  const half = (o, n) => R.basicFaceExtrusion(planeFace(o, n, size), new R.Vector(mul(normalize(n), size)));
+  // The corner beyond the chamfer plane, inside both faces' planes.
+  const tool = half(pa, nc).intersect(half(ca, mul(na, -1))).intersect(half(cb, mul(nb, -1)));
+  const before = R.measureVolume(ctx.body);
+  const body = ctx.body.cut(tool);
+  if (!(before - R.measureVolume(body) > 1e-9)) throw codeError('chamfer-nothing');
+  return { body, matched: 1 };
+}
+
 /** The chamfer with the options above. */
 export function chamferMore(f, ctx) {
   const R = rep(); const oc = R.getOC();
   if (!ctx.body) throw codeError('no-body');
   const kind = CHAMFER_KINDS.includes(f.kind) ? f.kind : 'distance';
   if (kind === 'vertex') return vertexChamfer(f, ctx);
+  if (kind === 'faceFace') return faceFaceChamfer(f, ctx);
   const edges = itemEdges({ ...f, propagate: f.propagate }, ctx);
   if (!edges.length) throw codeError('no-edges');
   const d1 = num(f.distance, 1); const d2 = num(f.distance2, d1); const ang = num(f.angle, 45);
   if (!(d1 > 0) || !(d2 > 0)) throw codeError('zero-size');
   const mk = new oc.BRepFilletAPI_MakeChamfer(ctx.body.wrapped);
+  const varying = [];
+  let added = 0;
   try {
     for (const edge of edges) {
       const faces = facesOfEdge(ctx.body, edge);
@@ -258,17 +319,99 @@ export function chamferMore(f, ctx) {
       else if (kind === 'angleDist') mk.AddDA(d1, (ang * Math.PI) / 180, E, F);
       else if (kind === 'offsetFace') {
         const s = section(ctx.body, edge);
-        if (!s.faces.every((x) => x.face.geomType === 'PLANE')) throw codeError('profile-unsupported');
+        // Exact where the cross-section is the same all along the edge: straight edges between planes, and circular
+        // edges between a plane and a coaxial cylinder or cone (their sections through the axis are straight lines).
+        // Elsewhere the distances along the faces change along the edge: that edge is chamfered on its own
+        // (variableOffsetChamfer) after the others.
+        if (!s.faces.every((x) => x.face.geomType === 'PLANE' || (edge.geomType === 'CIRCLE' && /CYL|CONE/.test(x.face.geomType) && coaxial(x.face, edge)))) { varying.push(edge); continue; }
         const first = f.flip ? 1 : 0;
         const [s1, s2] = offsetFaceDistances(s, first ? d2 : d1, first ? d1 : d2);
         const Fs = oc.TopoDS.Face(s.faces[0].face.wrapped);
         mk.Add(s1, s2, E, Fs);
       }
+      added++;
     }
-    mk.Build(new oc.Message_ProgressRange());
-    if (!mk.IsDone()) throw codeError('kernel');
-    return { body: R.cast(mk.Shape()), matched: edges.length };
+    let body = ctx.body;
+    if (added > 0) {
+      mk.Build(new oc.Message_ProgressRange());
+      if (!mk.IsDone()) throw codeError('kernel');
+      body = R.cast(mk.Shape());
+    }
+    for (const edge of varying) body = variableOffsetChamfer(body, ctx.body, edge, f.flip ? num(f.distance2, d1) : d1, f.flip ? d1 : num(f.distance2, d1));
+    return { body, matched: edges.length };
   } finally { mk.delete(); }
+}
+
+/**
+ * Offset-face chamfer on an edge whose cross-section changes along it (curved faces met at an angle that varies):
+ * at points along the edge, the point Q at distance h1 from face 1 and h2 from face 2 (inside the corner, in the
+ * plane square to the edge) is found on the faces themselves (Newton on the true distances), its feet on the two
+ * faces are the chamfer's edges there, and the triangles (feet, a point well outside the corner) are lofted into
+ * the tool that cuts the corner off. `orig`: the body the edge and its faces belong to.
+ */
+function variableOffsetChamfer(body, orig, edge, h1, h2) {
+  const R = rep(); const oc = R.getOC();
+  const faces = facesOfEdge(orig, edge);
+  if (faces.length !== 2) throw codeError('edge-not-between-faces');
+  const closest = (face, q) => {
+    const v = R.makeVertex(q);
+    const ex = new oc.BRepExtrema_DistShapeShape(v.wrapped, face.wrapped);
+    try { const p = ex.PointOnShape2(1); return { d: ex.Value(), p: [p.X(), p.Y(), p.Z()] }; } finally { ex.delete(); }
+  };
+  const closed = len(sub(vec(edge.startPoint), vec(edge.endPoint))) < 1e-7;
+  const n = 32;
+  const sections = [];
+  let convex = true;
+  for (let i = 0; i <= (closed ? n - 1 : n); i++) {
+    // A closed edge: sampled between its seam points (its vertex, often on a face's seam, troubles the booleans).
+    const t = closed ? (i + 0.5) / n : i / n;
+    const s = section(orig, edge, t);
+    const [f1, f2] = s.faces;
+    // Start from the flat answer (the faces' tangent planes), then correct on the real faces.
+    let a = h2 / Math.max(1e-12, Math.abs(dot(f1.u, f2.n)));
+    let b = h1 / Math.max(1e-12, Math.abs(dot(f2.u, f1.n)));
+    const Q = (x, y) => add(s.p, add(mul(f1.u, x), mul(f2.u, y)));
+    const F = (x, y) => { const q = Q(x, y); return [closest(f1.face, q).d - h1, closest(f2.face, q).d - h2]; };
+    for (let it = 0; it < 12; it++) {
+      const r = F(a, b);
+      if (Math.abs(r[0]) < 1e-9 && Math.abs(r[1]) < 1e-9) break;
+      const e = 1e-6 * Math.max(1, Math.abs(a) + Math.abs(b));
+      const ra = F(a + e, b); const rb = F(a, b + e);
+      const J = [[(ra[0] - r[0]) / e, (rb[0] - r[0]) / e], [(ra[1] - r[1]) / e, (rb[1] - r[1]) / e]];
+      const det = J[0][0] * J[1][1] - J[0][1] * J[1][0];
+      if (Math.abs(det) < 1e-14) break;
+      a -= (J[1][1] * r[0] - J[0][1] * r[1]) / det; b -= (-J[1][0] * r[0] + J[0][0] * r[1]) / det;
+    }
+    const q = Q(a, b);
+    const p1 = closest(f1.face, q).p; const p2 = closest(f2.face, q).p;
+    // Convex: a point well outside the corner (the tool cuts the corner off); concave: the edge itself (the tool is
+    // the material the chamfer adds).
+    // (A few chamfer sizes out: far enough to hold the corner, near enough that the tool never crosses itself.)
+    const reach = 4 * Math.max(len(sub(p1, s.p)), len(sub(p2, s.p)), 1e-3);
+    const out = s.convex ? add(s.p, mul(normalize(add(f1.n, f2.n)), reach)) : s.p;
+    sections.push([p1, p2, out]);
+    convex = s.convex;
+  }
+  const tri = ([p1, p2, out]) => R.assembleWire([R.makeLine(p1, p2), R.makeLine(p2, out), R.makeLine(out, p1)]);
+  const loft = (list) => {
+    const mk = new oc.BRepOffsetAPI_ThruSections(true, false, 1e-6);
+    for (const sec of list) mk.AddWire(tri(sec).wrapped);
+    mk.Build(new oc.Message_ProgressRange());
+    if (!mk.IsDone()) { mk.delete(); throw codeError('kernel'); }
+    let t = R.cast(mk.Shape()); mk.delete();
+    if (R.measureVolume(t) < 0) t = R.cast(t.wrapped.Reversed());
+    return t;
+  };
+  // The tool in eight lofted pieces (a closed edge: round to its first section again), applied one after another:
+  // one loft round a whole closed edge, or over half of it, is not taken reliably by the kernel's booleans.
+  const list = closed ? [...sections, sections[0]] : sections;
+  const parts = 8; const step = (list.length - 1) / parts;
+  let out = body;
+  for (let i = 0; i < parts; i++) {
+    const piece = loft(list.slice(Math.round(i * step), Math.round((i + 1) * step) + 1));
+    out = convex ? out.cut(piece) : out.fuse(piece);
+  }
+  return out;
 }
 
 /** A vertex chamfer: the corner cut off by the plane through the points d1, d2, d3 along its three edges. */
@@ -299,6 +442,35 @@ function vertexChamfer(f, ctx) {
 }
 
 // ───────────────────────── shell
+
+/**
+ * Multi-thickness on a curved face: its inner wall in the shelled body (the face of it at the shell thickness
+ * from the original face) thickened into the hollow (a thicker wall) or into the wall (a thinner one) by the
+ * difference — the kernel's offset of that one face, exact for cylinders, cones, spheres and tori.
+ */
+function curvedWall(body, original, face, t, ti) {
+  const R = rep(); const oc = R.getOC();
+  const tol = 1e-5 * Math.max(1, t);
+  const fresh = body.faces.filter((fc) => !original.faces.some((o) => o.isSame(fc)) && fc.geomType === face.geomType);
+  const c = vec(face.center); const n = normalize(vec(face.normalAt(c)));
+  const target = sub(c, mul(n, t));
+  // Every face of the inner wall (a full turn may come as several faces).
+  const near = fresh.filter((fc) => Math.abs(distance(fc, face) - t) < tol);
+  if (!near.length) throw codeError('face-missing');
+  void target;
+  let out = body;
+  for (const inner of near) {
+    const mk = new oc.BRepOffsetAPI_MakeThickSolid();
+    // The inner wall's normal points out of the material (into the hollow): + grows the wall, − eats into it.
+    mk.MakeThickSolidBySimple(inner.wrapped, ti - t);
+    mk.Build(new oc.Message_ProgressRange());
+    if (!mk.IsDone()) { mk.delete(); throw codeError('kernel'); }
+    let slab = R.cast(mk.Shape()); mk.delete();
+    try { if (R.measureVolume(slab) < 0) slab = R.cast(slab.wrapped.Reversed()); } catch { /* keep */ }
+    out = ti > t ? out.fuse(slab) : out.cut(slab);
+  }
+  return out;
+}
 
 /** The shell with the options above. */
 export function shellMore(f, ctx) {
@@ -335,9 +507,10 @@ export function shellMore(f, ctx) {
   for (const item of f.multi ?? []) {
     if (f.outward) throw codeError('multi-outward');
     const face = findFace(ctx.body, item.sig);
-    if (!face || face.geomType !== 'PLANE') throw codeError('profile-unsupported');
+    if (!face) throw codeError('face-missing');
     const ti = num(item.t, t);
     if (!(ti > 0) || Math.abs(ti - t) < 1e-9) continue;
+    if (face.geomType !== 'PLANE') { body = curvedWall(body, ctx.body, face, t, ti); continue; }
     const p = vec(face.center);
     const out = normalize(vec(face.normalAt(p)));
     // The inner wall of that face lies at depth t: find it in the shelled body (parallel, facing inward).

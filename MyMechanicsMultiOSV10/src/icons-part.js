@@ -39,6 +39,7 @@ export const ICONS_PART = {
   projectedCurve: '<path d="M4 6c3-3 6 3 9 0s5-3 7 0" stroke-dasharray="2 1.5"/><path d="M3 17l5-3h13l-5 3z"/><path d="M5 15c3-2 6 1 9-1s4-1 5 0" stroke-width="2"/><path d="M8 7v6M16 6v7" opacity="0.4"/>',
   splitLine: '<path d="M3 9l9-5 9 5-9 5z"/><path d="M3 9v6l9 5 9-5V9"/><path d="M8 7.5l9 4.5" stroke-width="2" stroke-dasharray="2.5 1.2"/>',
   compositeCurve: '<path d="M3 18l5-8"/><path d="M8 10c3-5 6-5 8-1" opacity="0.75"/><path d="M16 9l5 4" opacity="0.55"/><circle cx="8" cy="10" r="1.4" fill="currentColor"/><circle cx="16" cy="9" r="1.4" fill="currentColor"/>',
+  surfaceSpline: '<path d="M3 16l6-9h12l-6 9z" opacity="0.6"/><path d="M6 13c3-3 5 1 8-2s3-2 4-2"/><circle cx="6" cy="13" r="1.2"/><circle cx="18" cy="9" r="1.2"/>',
   curveXYZ: '<path d="M3 19c3-9 7 2 10-6s5-6 8-9"/><circle cx="3" cy="19" r="1.3" fill="currentColor"/><circle cx="8.5" cy="14" r="1.3" fill="currentColor"/><circle cx="14" cy="10" r="1.3" fill="currentColor"/><circle cx="21" cy="4" r="1.3" fill="currentColor"/><path d="M3 22h5M3 22v-3" opacity="0.4"/>',
   // ── sketch tools
   convertEntities: '<path d="M3 15l5-9h13l-5 9z" opacity="0.55"/><path d="M6 20h11" stroke-width="2"/><path d="M11 12v6M9 16l2 2 2-2"/>',

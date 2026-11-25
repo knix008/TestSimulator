@@ -6,15 +6,21 @@
 import * as THREE from 'three';
 import {
   addArc, addCenterRectangle, addCircle, addConstraint, addLine, addPolygon, addRectangle, addSlot, analyse, arcGeometry, arcThrough, autoRelationsForLine,
-  byId, dimensionFor, hitTest, mergePoints, ORIGIN, pointsOf, polyline, removeEntities, solveSketch, newSketchId, DIMENSIONS, measure, equationError, refreshEquation,
+  byId, splineBeziers, bezierPoint, dimensionFor, hitTest, mergePoints, ORIGIN, pointsOf, polyline, removeEntities, solveSketch, newSketchId, DIMENSIONS, measure, equationError, refreshEquation,
 } from '../cad/sketch.js';
 import { toWorld, toSketch, textOutline } from '../cad/features.js';
 import { addText } from '../cad/sketch.js';
-import { addSpline, addEllipse, addEllipseArc, addConic, addParabola, addEquationCurve, sketchFillet, sketchChamfer, offsetEntities, mirrorEntities, linearSketchPattern, circularSketchPattern, trimAt, extendAt } from '../cad/sketchtools.js';
+import { offsetChain } from '../cad/sketch-offset.js';
+import { checkSketch, repairSketch } from '../cad/sketch-repair.js';
+import { diagnoseSketch, refreshDriven } from '../cad/sketch-diagnose.js';
+import { addSpline, addEllipse, addEllipseArc, addConic, addParabola, addEquationCurve, sketchFillet, sketchChamfer, sketchChamferBy, offsetEntities, mirrorEntities, linearSketchPattern, circularSketchPattern, trimAt, extendAt, mirrorDynamic, addStyleSpline, curvatureComb } from '../cad/sketchtools.js';
+
+/** Commits made by the drawing tools (what dynamic mirror copies). */
+const DRAW_LABELS = new Set(['op.line', 'op.arc', 'op.circle', 'op.ellipse', 'op.parabola', 'op.point', 'op.polygon', 'op.rectangle', 'op.parallelogram', 'op.spline', 'op.slot', 'op.conic', 'op.text', 'op.equationCurve']);
 import { addTangentArc, addRect3, addRect3Center, addParallelogram, addCircle3, circleThrough3, curvesEndingAt, outwardTangent, splitAt, addArcSlot } from '../cad/sketch-draw.js';
 import { ellipseParam, ellipsePoint, ccwSpan, parabolaSegment, rhoFromShoulder, conicPieces, piecesPolyline } from '../cad/sketch-curves.js';
 
-export const SKETCH_TOOLS = ['select', 'line', 'centerline', 'rect', 'centerRect', 'rect3', 'rect3c', 'parallelogram', 'circle', 'circle3', 'arc3', 'centerArc', 'tangentArc', 'polygon', 'slot', 'slotCenter', 'slotArc3', 'slotArcCenter', 'point', 'spline', 'ellipse', 'partialEllipse', 'parabola', 'conic', 'equation', 'text', 'dimension', 'trim', 'extend', 'split', 'sketchFillet', 'sketchChamfer'];
+export const SKETCH_TOOLS = ['select', 'line', 'centerline', 'rect', 'centerRect', 'rect3', 'rect3c', 'parallelogram', 'circle', 'circle3', 'arc3', 'centerArc', 'tangentArc', 'polygon', 'slot', 'slotCenter', 'slotArc3', 'slotArcCenter', 'point', 'spline', 'styleSpline', 'ellipse', 'partialEllipse', 'parabola', 'conic', 'equation', 'text', 'dimension', 'trim', 'extend', 'split', 'sketchFillet', 'sketchChamfer'];
 /** Tools that pick existing geometry instead of placing new points. */
 const PICK_TOOLS = ['select', 'dimension', 'trim', 'extend', 'split', 'equation', 'sketchFillet', 'sketchChamfer'];
 
@@ -35,6 +41,16 @@ export class SketchEditor {
     this.polygonSides = 6;
     this.filletRadius = 5;
     this.chamferDistance = 2;
+    // Offset Entities options (the PropertyManager page while it is open).
+    // Auto Trace page (the sketch picture's outlines): its options.
+    this.traceOpen = false; this.traceOptions = { mode: 'dark', threshold: 128, tol: 1, minArea: 16 };
+    // Repair Sketch page: the gap tolerance and the last check.
+    this.repairOpen = false; this.repairGap = 0.01;
+    this.offsetOpen = false;
+    this.offsetOptions = { distance: 2, reverse: false, both: false, cap: 'arcs', chain: true, baseConstruction: false, construction: false };
+    this.styleDegree = 3; // style spline: 3, 5 or 7
+    this.combs = new Set(); this.combScale = 1; // splines showing their curvature comb
+    this.chamferMode = 'equal'; this.chamferDistance2 = 2; this.chamferAngle = 45; this.chamferFlip = false;
     this.chain = null;
     this.eqDraft = { mode: 'explicit', fy: '5*sin(x/5)', fx: '', t0: 0, t1: 30 };
     this.eqError = null;
@@ -48,6 +64,12 @@ export class SketchEditor {
 
   /** After an edit: a step of the sketch's own undo list, redraw, then tell the app (PropertyManager, status bar). */
   commit(label) {
+    // Dynamic mirror: what a drawing tool just made is mirrored about the chosen centerline.
+    if (this.mirrorAxis && DRAW_LABELS.has(label) && byId(this.sketch, this.mirrorAxis)) {
+      const fresh = this.sketch.entities.filter((e) => e.type !== 'point' && e.id !== this.mirrorAxis && !this.knownIds?.has(e.id)).map((e) => e.id);
+      if (fresh.length) { mirrorDynamic(this.sketch, fresh, this.mirrorAxis); this.solve(); }
+    }
+    this.knownIds = new Set(this.sketch.entities.map((e) => e.id));
     const snap = this.state();
     if (snap !== this.history[this.historyAt]?.snap) {
       this.history.length = this.historyAt + 1;
@@ -97,9 +119,13 @@ export class SketchEditor {
   /** Re-solves and refreshes the colours (after any change). */
   solve(options = {}) {
     const r = solveSketch(this.sketch, options);
+    // Reference (driven) dimensions show what they measure after every change.
+    refreshDriven(this.sketch);
     this.status = r.status;
     this.dof = r.dof;
     this.over = r.over || !r.ok;
+    this.redundant = Number(r.redundant) || 0;
+    this.diagnosis = null;
     return r;
   }
 
@@ -265,7 +291,7 @@ export class SketchEditor {
     if (this.tool === 'sketchFillet' || this.tool === 'sketchChamfer') {
       const id = this.cornerAt(e);
       if (!id) { this.api.notify?.('info', this.api.t('sketch.pickCorner')); return true; }
-      const made = this.tool === 'sketchFillet' ? sketchFillet(this.sketch, id, this.filletRadius) : sketchChamfer(this.sketch, id, this.chamferDistance);
+      const made = this.tool === 'sketchFillet' ? sketchFillet(this.sketch, id, this.filletRadius) : sketchChamferBy(this.sketch, id, { mode: this.chamferMode, d: this.chamferDistance, d2: this.chamferDistance2, angle: this.chamferAngle, flip: this.chamferFlip });
       if (!made) { this.api.notify?.('warning', this.api.t('sketch.cornerFailed')); return true; }
       this.hover = null;
       this.solve();
@@ -392,6 +418,45 @@ export class SketchEditor {
   // ───────────────────────── selection tools (offset, mirror, patterns)
 
   selectedCurves() { return this.selection.filter((id) => { const e = byId(this.sketch, id); return e && e.type !== 'point'; }); }
+
+  /** Offset with the options of the Offset Entities page (sketch-offset.js). Returns the number of curves made. */
+  offsetSelectionBy(options = this.offsetOptions) {
+    const ids = this.selectedCurves();
+    if (!ids.length) return 0;
+    const { made, failed } = offsetChain(this.sketch, ids, options);
+    if (failed) this.api.notify?.('warning', this.api.t('sko.vanished', { count: failed }));
+    if (!made.length) return 0;
+    this.selection = made.map((x) => x.id);
+    this.solve(); this.commit('op.offset');
+    return made.length;
+  }
+
+  /** What Repair Sketch would fix (sketch-repair.js), without changing the sketch. */
+  repairCheck() { return checkSketch(this.sketch, { gap: this.repairGap }); }
+  /** Repairs the sketch; the open ends that remain are selected. Returns the report. */
+  repairNow() {
+    const r = repairSketch(this.sketch, { gap: this.repairGap });
+    this.selection = [...r.openEnds];
+    this.solve(); this.commit('op.repairSketch');
+    return r;
+  }
+
+  /** The conflicting / redundant relations (computed once per change, when the sketch is over defined). */
+  diagnose() {
+    if (!this.over && !this.redundant) return null;
+    this.diagnosis ??= diagnoseSketch(this.sketch);
+    return this.diagnosis;
+  }
+
+  /** Turns dynamic mirror on about the selected centerline (or off). Returns the axis id or null. */
+  toggleDynamicMirror() {
+    if (this.mirrorAxis) { this.mirrorAxis = null; return null; }
+    const axis = this.selection.map((id) => byId(this.sketch, id)).find((e) => e?.type === 'line' && e.construction) ?? this.selection.map((id) => byId(this.sketch, id)).find((e) => e?.type === 'line');
+    if (!axis) return null;
+    this.mirrorAxis = axis.id;
+    this.knownIds = new Set(this.sketch.entities.map((e) => e.id));
+    return axis.id;
+  }
 
   offsetSelection(distance) {
     const ids = this.selectedCurves();
@@ -522,6 +587,13 @@ export class SketchEditor {
       const { circle } = addPolygon(s, c.x, c.y, r, this.polygonSides, Math.atan2(b.y - c.y, b.x - c.x));
       if (c.kind === 'point') mergePoints(s, circle.c, c.id);
       return done('op.polygon');
+    }
+    if (tool === 'styleSpline') {
+      // A style spline: degree + 1 control points (the first and last on the curve).
+      if (P.length < this.styleDegree + 1) { this.render(); return undefined; }
+      const ids = [this.pointAt(P[0]), ...P.slice(1, -1).map(() => undefined), this.pointAt(P[P.length - 1])];
+      addStyleSpline(s, P.map((q) => [q.x, q.y]), { ids });
+      return done('op.spline');
     }
     if (tool === 'spline') {
       // Clicking the first point again closes the spline; Enter / Esc finishes an open one.
@@ -732,10 +804,51 @@ export class SketchEditor {
     // The origin of the sketch (red arrows).
     const o = this.world(0, 0); const ax = this.viewport.pixelSize() * 28;
     list.push({ segments: [...o, ...this.world(ax, 0), ...o, ...this.world(0, ax)], color: '#d4282f', width: 1.6 });
+    // Style splines: their control polygon (dashed). Curvature combs of the splines that show one.
+    const poly = []; const comb = []; const combEnv = [];
+    for (const e of s.entities) {
+      if (e.type !== 'spline') continue;
+      if (e.style) for (let i = 1; i < e.pts.length; i++) { const a = map.get(e.pts[i - 1]); const b = map.get(e.pts[i]); poly.push(...this.world(a.x, a.y), ...this.world(b.x, b.y)); }
+      if (this.combs.has(e.id)) {
+        const teeth = curvatureComb(s, e, { samples: 64, scale: this.combScale * this.combUnit(s, e) });
+        teeth.forEach((q, i) => { comb.push(...this.world(...q.at), ...this.world(...q.tip)); if (i) combEnv.push(...this.world(...teeth[i - 1].tip), ...this.world(...q.tip)); });
+      }
+    }
+    if (poly.length) list.push({ segments: poly, color: COLORS.construction, width: 1, dashed: true, dashSize: this.viewport.pixelSize() * 4, gapSize: this.viewport.pixelSize() * 3 });
+    if (comb.length) list.push({ segments: comb, color: '#d9480f', width: 1, opacity: 0.75 }, { segments: combEnv, color: '#d9480f', width: 1.4 });
     list.push(...this.previewLines());
     list.push(this.gridLines());
     this.viewport.setLines('sketch', list);
     this.renderDimensions();
+  }
+
+  /** Sets or clears a spline point's tangent handle (direction in degrees, weight a factor on its natural length). */
+  setHandle(splineId, index, patch) {
+    const e = byId(this.sketch, splineId);
+    if (!e || e.type !== 'spline' || e.style) return false;
+    e.handles ??= {};
+    if (patch === null) delete e.handles[index];
+    else e.handles[index] = { ...(e.handles[index] ?? {}), ...patch };
+    if (!Object.keys(e.handles).length) delete e.handles;
+    this.solve(); this.commit('op.splineHandle');
+    return true;
+  }
+  /** The natural tangent direction (degrees) at a spline point (what a new handle starts from). */
+  naturalAngle(splineId, index) {
+    const e = byId(this.sketch, splineId);
+    const bz = splineBeziers(this.sketch, { ...e, handles: undefined });
+    const b = index < bz.length ? bz[index] : bz[bz.length - 1];
+    const [p, q] = index < bz.length ? [b[0], b[1]] : [b[2], b[3]];
+    return (Math.atan2(q[1] - p[1], q[0] - p[0]) * 180) / Math.PI;
+  }
+
+  /** A comb length unit: the spline's size squared over the largest curvature sample, so the comb is readable. */
+  combUnit(s, e) {
+    const teeth = curvatureComb(s, e, { samples: 64, scale: 1 });
+    const kmax = Math.max(1e-9, ...teeth.map((q) => Math.abs(q.k)));
+    let lo = [Infinity, Infinity], hi = [-Infinity, -Infinity];
+    for (const q of teeth) { lo = [Math.min(lo[0], q.at[0]), Math.min(lo[1], q.at[1])]; hi = [Math.max(hi[0], q.at[0]), Math.max(hi[1], q.at[1])]; }
+    return (0.25 * Math.hypot(hi[0] - lo[0], hi[1] - lo[1])) / kmax;
   }
 
   gridLines() {
@@ -770,6 +883,12 @@ export class SketchEditor {
     if (t === 'arc3') { if (P.length === 1) line(P[0], c); if (P.length === 2) { const g = circleThrough(P[0], c, P[1]); if (g) { const tmp = arcAngles(g, P[0], P[1], c); circle(g.cx, g.cy, g.r, tmp.a0, tmp.a1); } else line(P[0], P[1]); } }
     if (t === 'centerArc') { if (P.length === 1) line(P[0], c); if (P.length === 2) { const r = Math.hypot(P[1].x - P[0].x, P[1].y - P[0].y); let a0 = Math.atan2(P[1].y - P[0].y, P[1].x - P[0].x); let a1 = Math.atan2(c.y - P[0].y, c.x - P[0].x); while (a1 <= a0) a1 += Math.PI * 2; circle(P[0].x, P[0].y, r, a0, a1); void a0; } }
     if (t === 'spline' && P.length) { for (let i = 1; i < P.length; i++) line(P[i - 1], P[i]); line(P[P.length - 1], c); }
+    if (t === 'styleSpline' && P.length) {
+      // The control polygon so far and the Bézier it makes with the cursor as the next control point.
+      const ctrl = [...P, c].map((q) => [q.x, q.y]);
+      for (let i = 1; i < ctrl.length; i++) line({ x: ctrl[i - 1][0], y: ctrl[i - 1][1] }, { x: ctrl[i][0], y: ctrl[i][1] });
+      if (ctrl.length > 2) { let prev = ctrl[0]; for (let i = 1; i <= 48; i++) { const q = bezierPoint(ctrl, i / 48); line({ x: prev[0], y: prev[1] }, { x: q[0], y: q[1] }); prev = q; } }
+    }
     if (t === 'ellipse') {
       if (P.length === 1) line(P[0], c);
       if (P.length === 2) {

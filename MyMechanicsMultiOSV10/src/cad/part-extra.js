@@ -9,6 +9,7 @@ import { findFace, crossV, normalize } from './refs.js';
 import { sketchOf, codeError, sizeAround, toWorld, resolvePlane, replicadPlane } from './features.js';
 import { mateEntityOfFace } from './assembly.js';
 import { faceSignature } from './refs.js';
+import { buildMoveFaceMore } from './move-face.js';
 
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -96,21 +97,8 @@ export function magneticPairs(points, { distance = 25, angle = 0.5236, joined = 
  * grow or shrink with it).
  */
 function buildMoveFace(f, ctx) {
-  const R = rep();
-  if (!ctx.body) throw codeError('no-body');
-  const faces = (f.faces ?? []).map((sig) => findFace(ctx.body, sig)).filter(Boolean);
-  if (!faces.length) throw codeError('no-faces');
-  const d = num(f.distance, 2);
-  if (!(Math.abs(d) > 0)) throw codeError('zero-size');
-  let body = ctx.body;
-  for (const face of faces) {
-    if (face.geomType !== 'PLANE') throw codeError('profile-unsupported');
-    const p = vec(face.center);
-    const n = normalize(vec(face.normalAt(p)));
-    const slab = R.basicFaceExtrusion(face.clone(), new R.Vector(mul(n, d)));
-    body = d > 0 ? body.fuse(slab) : body.cut(slab);
-  }
-  return { body };
+  // Offset, translate or rotate (planar faces), offset a cylinder's radius — move-face.js.
+  return buildMoveFaceMore(f, ctx);
 }
 
 // ───────────────────────── advanced hole

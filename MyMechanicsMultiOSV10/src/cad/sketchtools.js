@@ -3,7 +3,8 @@
 // (cut a curve where others cross it and remove the picked piece) and extend (a line to the next curve).
 // Plain numbers on the sketch's entities — no DOM, no kernel. Every tool keeps the geometry connected
 // (shared points) and adds the expected relations (tangent, symmetric, equal …).
-import { addArc, addConstraint, addLine, arcGeometry, byId, newSketchId, pointsOf, polyline, removeEntities, refreshEquation, mapEquationPlace, ORIGIN, POINT_KEYS } from './sketch.js';
+import { addArc, addConstraint, addLine, arcGeometry, byId, newSketchId, pointsOf, polyline, removeEntities, refreshEquation, mapEquationPlace, ORIGIN, POINT_KEYS, splineBeziers } from './sketch.js';
+const splineBeziersOf = (sketch, e) => splineBeziers(sketch, e);
 import { ellipsePoint, parabolaSegment, equationPieces } from './sketch-curves.js';
 import { curveIntersections, trimCurveAt } from './sketch-draw.js';
 
@@ -24,6 +25,46 @@ export function addSpline(sketch, points, { closed = false, ids = [], constructi
   const spline = { id: newSketchId('s'), type: 'spline', pts, ...(construction ? { construction: true } : {}) };
   sketch.entities.push(spline);
   return spline;
+}
+
+/**
+ * A style spline: one Bézier whose control polygon is the points (degree = points − 1: 3, 5 or 7). The inner
+ * control points are construction points; the curve passes only through the first and the last.
+ */
+export function addStyleSpline(sketch, points, { ids = [], construction = false } = {}) {
+  const pts = points.map(([x, y], i) => ids[i] ?? pt(sketch, x, y, i > 0 && i < points.length - 1 ? { construction: true } : {}).id);
+  const spline = { id: newSketchId('s'), type: 'spline', style: true, pts, ...(construction ? { construction: true } : {}) };
+  sketch.entities.push(spline);
+  return spline;
+}
+
+/**
+ * The curvature comb of a spline (or any curve): [{ at: [x, y], tip: [x, y] }] — at each of `samples` points the
+ * normal scaled by the signed curvature × `scale` (how much it bends, and which way).
+ */
+export function curvatureComb(sketch, e, { samples = 48, scale = 1 } = {}) {
+  const bz = splineBeziersOf(sketch, e);
+  const out = [];
+  for (const b of bz) {
+    const n = Math.max(4, Math.round(samples / bz.length));
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      const d1 = derivative(b, t, 1); const d2 = derivative(b, t, 2);
+      const sp = Math.hypot(d1[0], d1[1]) || 1e-12;
+      const k = (d1[0] * d2[1] - d1[1] * d2[0]) / (sp * sp * sp);
+      const nrm = [-d1[1] / sp, d1[0] / sp];
+      const at = bezierValue(b, t);
+      out.push({ at, tip: [at[0] - nrm[0] * k * scale, at[1] - nrm[1] * k * scale], k });
+    }
+  }
+  return out;
+}
+function bezierValue(b, t) { let q = b.map((p) => [...p]); while (q.length > 1) q = q.slice(1).map((p, i) => [q[i][0] + (p[0] - q[i][0]) * t, q[i][1] + (p[1] - q[i][1]) * t]); return q[0]; }
+/** The r-th derivative of a Bézier at t (its hodograph). */
+function derivative(b, t, r) {
+  let q = b.map((p) => [...p]);
+  for (let k = 0; k < r && q.length > 1; k++) { const m = q.length - 1; q = q.slice(1).map((p, i) => [m * (p[0] - q[i][0]), m * (p[1] - q[i][1])]); }
+  return q.length ? bezierValue(q, t) : [0, 0];
 }
 
 /** An ellipse around (cx,cy) with half axes rx, ry turned by `rot` radians. */
@@ -149,6 +190,36 @@ export function sketchChamfer(sketch, id, d, d2 = d) {
   return line;
 }
 
+/**
+ * Chamfer of a corner by the reference's options: 'equal' (d along both lines), 'distDist' (d along the first
+ * line picked, d2 along the second; `flip` swaps them) or 'angleDist' (d along the first line, the chamfer
+ * line at `angle` degrees to it). Returns the chamfer line, or null.
+ */
+export function sketchChamferBy(sketch, id, { mode = 'equal', d = 2, d2 = d, angle = 45, flip = false } = {}) {
+  const lines = cornerLines(sketch, id);
+  if (!lines) return null;
+  if (flip) lines.reverse();
+  // sketchChamfer takes the lines in the order cornerLines gives; distances are mapped to that order.
+  const first = lines[0];
+  const order = cornerLines(sketch, id);
+  const swap = order[0] !== first;
+  if (mode === 'equal') return sketchChamfer(sketch, id, d, d);
+  let a = d; let b = d2;
+  if (mode === 'angleDist') {
+    const c = P(sketch, id);
+    const u = unit(sub(P(sketch, first.p1 === id ? first.p2 : first.p1), c));
+    const other = lines[1];
+    const v = unit(sub(P(sketch, other.p1 === id ? other.p2 : other.p1), c));
+    const phi = Math.acos(Math.max(-1, Math.min(1, dot(u, v))));
+    const th = (Number(angle) * Math.PI) / 180;
+    // Triangle corner–A–B: angle φ at the corner, θ at A (on the first line, d from the corner).
+    const rest = Math.PI - phi - th;
+    if (!(th > 0) || !(rest > 1e-9)) return null;
+    b = (d * Math.sin(th)) / Math.sin(rest);
+  }
+  return swap ? sketchChamfer(sketch, id, b, a) : sketchChamfer(sketch, id, a, b);
+}
+
 // ───────────────────────── offset entities
 
 /**
@@ -251,6 +322,39 @@ export function mirrorEntities(sketch, ids, lineId) {
   const { made, map } = copyEntities(sketch, ids.filter((id) => id !== lineId), reflect, { reverse: true });
   for (const [from, to] of map) addConstraint(sketch, { type: 'symmetric', a: from, b: to, c: lineId });
   return made;
+}
+
+/**
+ * Dynamic mirror: mirrors newly drawn entities about the axis line as they are made. Points on the axis are
+ * shared (the copy's point merged into the original, held on the axis), curves lying on the axis are not doubled,
+ * and every other point pair gets a symmetric relation. Returns the copies.
+ */
+export function mirrorDynamic(sketch, ids, axisId) {
+  const axis = byId(sketch, axisId);
+  if (!axis || axis.type !== 'line') return [];
+  const a = P(sketch, axis.p1); const d = unit(sub(P(sketch, axis.p2), a));
+  const off = (id) => { const p = P(sketch, id); return Math.abs(cross(d, sub(p, a))); };
+  const tol = 1e-7 * Math.max(1, Math.hypot(...a), len(sub(P(sketch, axis.p2), a)));
+  const made = mirrorEntities(sketch, ids, axisId);
+  const sym = sketch.constraints.filter((k) => k.type === 'symmetric' && k.c === axisId && ids.some((id) => pointsOf(byId(sketch, id) ?? {}).includes(k.a)));
+  for (const k of sym) {
+    if (off(k.a) > tol || !byId(sketch, k.b)) continue;
+    const copy = k.b;
+    sketch.constraints = sketch.constraints.filter((x) => x !== k);
+    for (const e of sketch.entities) for (const key of POINT_KEYS) if (e[key] === copy) e[key] = k.a;
+    for (const e of sketch.entities) if (e.pts) e.pts = e.pts.map((x) => (x === copy ? k.a : x));
+    sketch.entities = sketch.entities.filter((e) => e.id !== copy);
+    if (!sketch.constraints.some((x) => x.type === 'pointOnLine' && x.a === k.a && x.b === axisId) && ![axis.p1, axis.p2].includes(k.a)) addConstraint(sketch, { type: 'pointOnLine', a: k.a, b: axisId });
+  }
+  // A copy that came back onto its original (a curve on the axis) goes.
+  const sig = (e) => `${e.type}:${pointsOf(e).slice().sort().join(',')}:${e.r ?? ''}`;
+  const originals = new Set(ids.map((id) => byId(sketch, id)).filter(Boolean).map(sig));
+  const keep = [];
+  for (const e of made) {
+    if (originals.has(sig(e)) || (e.type === 'line' && e.p1 === e.p2)) { sketch.entities = sketch.entities.filter((x) => x !== e); sketch.constraints = sketch.constraints.filter((k) => ![k.a, k.b, k.c].includes(e.id)); }
+    else keep.push(e);
+  }
+  return keep;
 }
 
 /** Linear sketch pattern: count copies (the original included) spaced by (dx, dy); optional second direction. */

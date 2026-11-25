@@ -48,13 +48,14 @@ export function chamferPm(api, f) {
   const parts = [];
   const kind = f.kind ?? 'distance';
   if (kind === 'vertex') parts.push(group('featChamfer', t('pm.items'), pickBox(api, 'vertex', vertexItems(api, f.vertex), t('pm.vertex'), 'refPoint')));
+  else if (kind === 'faceFace') parts.push(group('featChamfer', t('pm.items'), `${pickBox(api, 'faceA', f.faceA ? [faceLabel(api, f.faceA, 0)] : [], t('chamfer.faceA'), 'surface')}${pickBox(api, 'faceB', f.faceB ? [faceLabel(api, f.faceB, 0)] : [], t('chamfer.faceB'), 'surface')}`));
   else parts.push(group('featChamfer', t('pm.items'), items(api, f, 'featChamfer')));
-  let p = select('kind', [['distance', t('chamfer.distance')], ['distDist', t('chamfer.distDist')], ['angleDist', t('chamfer.angleDist')], ['offsetFace', t('chamfer.offsetFace')], ['vertex', t('chamfer.vertex')]], kind, t('pm.chamferType'));
+  let p = select('kind', [['distance', t('chamfer.distance')], ['distDist', t('chamfer.distDist')], ['angleDist', t('chamfer.angleDist')], ['offsetFace', t('chamfer.offsetFace')], ['vertex', t('chamfer.vertex')], ['faceFace', t('chamfer.faceFace')]], kind, t('pm.chamferType'));
   p += field(api, 'distance', f.distance, { label: kind === 'offsetFace' ? t('pm.offset1') : t('pm.distance1'), min: 0.001 });
-  if (kind === 'distDist' || kind === 'offsetFace' || kind === 'vertex') p += field(api, 'distance2', f.distance2 ?? f.distance, { label: kind === 'offsetFace' ? t('pm.offset2') : t('pm.distance2'), min: 0.001 });
+  if (kind === 'distDist' || kind === 'offsetFace' || kind === 'vertex' || kind === 'faceFace') p += field(api, 'distance2', f.distance2 ?? f.distance, { label: kind === 'offsetFace' ? t('pm.offset2') : t('pm.distance2'), min: 0.001 });
   if (kind === 'vertex') p += field(api, 'distance3', f.distance3 ?? f.distance, { label: t('pm.distance3'), min: 0.001 });
   if (kind === 'angleDist') p += field(api, 'angle', f.angle ?? 45, { label: t('pm.angle'), unit: 'angle', glyph: 'dimAngle', min: 0.1 });
-  if (kind === 'distDist' || kind === 'angleDist' || kind === 'offsetFace') p += check('flip', f.flip, t('pm.flipDirection'), 'flipH');
+  if (kind === 'distDist' || kind === 'angleDist' || kind === 'offsetFace' || kind === 'faceFace') p += check('flip', f.flip, t('pm.flipDirection'), 'flipH');
   parts.push(group('dimAngle', t('pm.chamferParameters'), p));
   return parts.join('');
 }

@@ -1,5 +1,5 @@
-// Thread: several starts (each a groove on the lead, turned 360°/starts) and other forms (trapezoidal,
-// buttress, 55° pipe) — the material removed compared with the single-start V groove.
+// Thread: several starts (the section repeated round the axis, on a lead of starts × P) and other forms
+// (trapezoidal, buttress, 55° pipe) — exact screw solids like the ISO thread.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadKernel, rep } from '../../src/cad/kernel.js';
@@ -7,6 +7,7 @@ import { createFeature, regenerate } from '../../src/cad/features.js';
 import { addCircle, createSketchGeometry } from '../../src/cad/sketch.js';
 import { edgeSignature } from '../../src/cad/refs.js';
 import { THREAD_SECTIONS } from '../../src/cad/advanced.js';
+import { formThread, sectionArea } from '../../src/cad/threads.js';
 
 await loadKernel();
 const R = rep();
@@ -43,11 +44,14 @@ test('a two-start thread: the same material as one start of that pitch (grooves 
   assert.ok(diff > 0.2 * one, String(diff));
 });
 
-test('trapezoidal, buttress and pipe forms remove material in proportion to their sections', () => {
-  const v = removed({});
-  for (const form of ['trapezoidal', 'buttress', 'pipe55']) {
-    const ratio = removed({ form }) / v;
-    // The sections all start at the surface: the removed volumes scale with their areas (within the faceting).
-    assert.ok(Math.abs(ratio - inside(form) / inside('v')) < 0.08 * (inside(form) / inside('v')), `${form}: ${ratio} vs ${inside(form) / inside('v')}`);
+test('V, trapezoidal, buttress and 55° pipe threads are exact screw solids: the fully threaded part has the section area × length', () => {
+  for (const form of ['v', 'trapezoidal', 'buttress', 'pipe55']) {
+    removed({ form });
+    // The top 16 mm (the runout fades the thread over the last 2.5 P = 7.5 mm of the 24).
+    const slab = R.makeCylinder(12, 16, [0, 0, 24], [0, 0, 1]);
+    const got = V(removed.last.clone().intersect(slab));
+    const want = sectionArea(formThread(form, 20, 3)) * 16;
+    assert.ok(Math.abs(got - want) < 2e-4 * want, `${form}: ${got} vs ${want}`);
   }
 });
+void inside;

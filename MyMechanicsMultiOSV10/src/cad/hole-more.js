@@ -46,6 +46,41 @@ export const NPT_SIZES = [
 /** NPT taper: 1 in 16 on the diameter. */
 export const NPT_TAPER = 1 / 16;
 
+/**
+ * Metric hole standards besides ISO: per size [clearance fine / medium / coarse Ø, socket head cap screw
+ * counterbore Ø, depth, 90° countersink Ø] in mm.
+ *   din  clearance DIN EN 20273, counterbores DIN 974-1 (for ISO 4762), countersinks DIN EN ISO 15065
+ *   jis  clearance JIS B 1001 (classes 1 / 2 / 3), counterbores for JIS B 1176 screws, 90° countersinks
+ *   gb   clearance GB/T 5277, counterbores GB/T 152.3, countersinks GB/T 152.2
+ */
+export const METRIC_STANDARDS = {
+  din: {
+    M3: [3.2, 3.4, 3.6, 6.5, 3.4, 6.3], M4: [4.3, 4.5, 4.8, 8, 4.4, 8.4], M5: [5.3, 5.5, 5.8, 10, 5.4, 10.4], M6: [6.4, 6.6, 7, 11, 6.4, 12.4],
+    M8: [8.4, 9, 10, 15, 8.6, 16.4], M10: [10.5, 11, 12, 18, 10.6, 20.4], M12: [13, 13.5, 14.5, 20, 12.6, 24.4], M14: [15, 15.5, 16.5, 24, 14.6, 28.4],
+    M16: [17, 17.5, 18.5, 26, 16.6, 32.4], M20: [21, 22, 24, 33, 20.6, 40.4], M24: [25, 26, 28, 40, 24.8, 48.4],
+  },
+  jis: {
+    M3: [3.2, 3.4, 3.6, 6.5, 3.3, 6.4], M4: [4.3, 4.5, 4.8, 8, 4.4, 8.6], M5: [5.3, 5.5, 5.8, 9.5, 5.4, 10.6], M6: [6.4, 6.6, 7, 11, 6.5, 12.6],
+    M8: [8.4, 9, 10, 14, 8.6, 16.8], M10: [10.5, 11, 12, 17.5, 10.8, 20.8], M12: [13, 14, 15, 20, 13, 24.8], M14: [15, 16, 17, 23, 15.2, 28.8],
+    M16: [17, 18, 20, 26, 17.5, 32.8], M20: [21, 22, 25, 32, 21.5, 40.8], M24: [25, 26, 28, 39, 25.5, 48.8],
+  },
+  gb: {
+    M3: [3.2, 3.4, 3.6, 6, 3.4, 6.4], M4: [4.3, 4.5, 4.8, 8, 4.6, 9.6], M5: [5.3, 5.5, 5.8, 10, 5.7, 10.6], M6: [6.4, 6.6, 7, 11, 6.8, 12.8],
+    M8: [8.4, 9, 10, 15, 9, 17.6], M10: [10.5, 11, 12, 18, 11, 20.3], M12: [13, 13.5, 14.5, 20, 13, 24.4], M14: [15, 15.5, 16.5, 24, 15, 28.4],
+    M16: [17, 17.5, 18.5, 26, 17.5, 32.4], M20: [21, 22, 24, 33, 21.5, 40.4], M24: [25, 26, 28, 40, 25.5, 48.4],
+  },
+};
+
+/** The hole dimensions (mm) of a metric size in a standard (din / jis / gb) for a hole type and fit. */
+export function metricStdHole(standard, size, kind, fit = 'normal') {
+  const row = METRIC_STANDARDS[standard]?.[size];
+  if (!row) return null;
+  const d = row[fit === 'close' ? 0 : fit === 'loose' ? 2 : 1];
+  if (kind === 'counterbore') return { diameter: d, cbDiameter: row[3], cbDepth: row[4] };
+  if (kind === 'countersink') return { diameter: d, csDiameter: row[5], csAngle: 90 };
+  return { diameter: d };
+}
+
 /** The hole dimensions (mm) of an ANSI inch size for a hole type and fit. */
 export function ansiHole(size, kind, fit = 'normal') {
   const row = ANSI_SIZES.find((r) => r[0] === size);

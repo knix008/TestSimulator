@@ -8,6 +8,28 @@ import { group, field, check, seg, select, pickBox, planeName } from './property
 import { STRUCTURAL_PROFILES } from '../cad/advanced.js';
 
 /** Metric coarse threads: [size, major diameter, pitch]. */
+/** A 3D sketch's relations and dimensions: pick segments / points, add, edit values, delete; freedoms left. */
+function relations3dGroup(api, f, e) {
+  const { t } = api;
+  const n = f.points?.length ?? 0; const segs = f.closed && n > 2 ? n : Math.max(0, n - 1);
+  const sel = e.s3sel ?? { segs: [], pts: [] };
+  // Picking what a relation applies to (a selection of the page, not a setting of the feature): buttons.
+  const chip = (kind, i, on) => `<button type="button" class="pm-chip ${on ? 'on' : ''}" data-pm="s3sel:${kind === 's3seg' ? 'seg' : 'pt'}.${i}" aria-pressed="${on ? 'true' : 'false'}">${icon(kind === 's3seg' ? 'lineTool' : 'pointTool', 'icon tiny')}<span>${kind === 's3seg' ? `${i + 1}–${(i + 1) % n + 1}` : i + 1}</span></button>`;
+  const chips = `<div class="pm-chips"><span class="pm-label">${escapeHtml(t('s3.segments'))}</span>${Array.from({ length: segs }, (_, i) => chip('s3seg', i, sel.segs.includes(i))).join('')}</div><div class="pm-chips"><span class="pm-label">${escapeHtml(t('s3.points'))}</span>${Array.from({ length: n }, (_, i) => chip('s3pt', i, sel.pts.includes(i))).join('')}</div>`;
+  const types = [['alongX', 'axisX'], ['alongY', 'axisY'], ['alongZ', 'axisZ'], ['parallelXY', 'planeTop'], ['parallelYZ', 'planeRight'], ['parallelZX', 'planeFront'], ['parallel', 'relParallel'], ['perpendicular', 'relPerpendicular'], ['equal', 'relEqual'], ['fix', 'relFix'], ['coincident', 'relCoincident'], ['length', 'dimDistance'], ['distance', 'dimDistance'], ['angle', 'dimAngle'], ['pointX', 'dimDistance'], ['pointY', 'dimDistance'], ['pointZ', 'dimDistance']];
+  const fits = (ty) => { const want = { alongX: ['seg', 1], alongY: ['seg', 1], alongZ: ['seg', 1], parallelXY: ['seg', 1], parallelYZ: ['seg', 1], parallelZX: ['seg', 1], parallel: ['seg', 2], perpendicular: ['seg', 2], equal: ['seg', 2], fix: ['pt', 1], coincident: ['pt', 2], length: ['seg', 1], distance: ['pt', 2], angle: ['seg', 2], pointX: ['pt', 1], pointY: ['pt', 1], pointZ: ['pt', 1] }[ty]; return (want[0] === 'seg' ? sel.segs.length === want[1] && !sel.pts.length : sel.pts.length === want[1] && !sel.segs.length); };
+  const avail = types.filter(([ty]) => fits(ty));
+  const btns = avail.length ? `<div class="pm-relations">${avail.map(([ty, g]) => `<button class="small-button" data-pm="rel3:${ty}" title="${escapeHtml(t(`s3.rel.${ty}`))}">${icon(g)}<span>${escapeHtml(t(`s3.rel.${ty}`))}</span></button>`).join('')}</div>` : `<p class="pm-note">${escapeHtml(t('s3.help'))}</p>`;
+  const rels = (f.relations3d ?? []).map((r) => {
+    const what = ['fix', 'coincident', 'distance', 'pointX', 'pointY', 'pointZ'].includes(r.type) ? [r.a, r.b].filter((x) => x !== undefined).map((x) => x + 1).join(', ') : [r.a, r.b].filter((x) => x !== undefined).map((x) => `${x + 1}–${(x + 1) % n + 1}`).join(', ');
+    const dim = r.value !== undefined;
+    const val = dim ? `<input type="text" class="pm-text short num" data-pm-field="r3:${escapeHtml(r.id)}" data-num value="${escapeHtml(r.type === 'angle' ? api.fmt(r.value) : api.fmtLenBare(r.value))}" ${r.driven ? 'readonly' : ''} spellcheck="false"/><button class="icon-button ${r.driven ? 'active' : ''}" data-pm="drivenRel3:${escapeHtml(r.id)}" title="${escapeHtml(t('skd.makeDriven'))}">${icon('dimDriven', 'icon tiny')}</button>` : '';
+    return `<li class="${r.driven ? 'muted' : ''}"><span>${escapeHtml(t(`s3.rel.${r.type}`))} (${escapeHtml(what)})</span><span class="grow"></span>${val}<button class="icon-button" data-pm="delRel3:${escapeHtml(r.id)}" title="${escapeHtml(t('pm.deleteRelation'))}">${icon('trash', 'icon tiny')}</button></li>`;
+  }).join('');
+  const dof = f.dof3 ?? null;
+  return group('addRelation', t('s3.title'), `${chips}${btns}${rels ? `<ul class="pm-list">${rels}</ul>` : ''}${dof != null && f.relations3d?.length ? `<p class="pm-note">${escapeHtml(t(dof === 0 ? 's3.defined' : 's3.dof', { dof }))}</p>` : ''}`);
+}
+
 export const THREAD_SIZES = [['M3', 3, 0.5], ['M4', 4, 0.7], ['M5', 5, 0.8], ['M6', 6, 1], ['M8', 8, 1.25], ['M10', 10, 1.5], ['M12', 12, 1.75], ['M16', 16, 2], ['M20', 20, 2.5], ['M24', 24, 3]];
 
 const opSeg = (t, f, glyphs = ['featExtrude', 'featCut']) => seg('op', [['boss', t('op.boss'), glyphs[0]], ['cut', t('op.cut'), glyphs[1]]], f.op);
@@ -100,7 +122,7 @@ export const ADVANCED_PM = {
   },
   dome(api, f) {
     const { t } = api;
-    return group('featDome', t('pm.parameters'), `${pickBox(api, 'faces', faceItems(api, f.faces), t('pm.faceToDome'), 'featDome')}${seg('shape', [['spherical', t('dome.spherical')], ['elliptical', t('dome.elliptical')], ['continuous', t('dome.continuous')]], f.shape ?? 'spherical')}${field(api, 'height', f.height, { label: t('pm.height'), min: 0.01 })}${check('reverse', f.reverse, t('pm.reverseDome'), 'flipV')}`);
+    return group('featDome', t('pm.parameters'), `${pickBox(api, 'faces', faceItems(api, f.faces), t('pm.faceToDome'), 'featDome')}${seg('shape', [['spherical', t('dome.spherical')], ['elliptical', t('dome.elliptical')], ['continuous', t('dome.continuous')]], f.shape ?? 'spherical')}${field(api, 'height', f.height, { label: t('pm.height'), min: 0.01 })}${check('reverse', f.reverse, t('pm.reverseDome'), 'flipV')}`) + group('featDome', t('dome.direction'), `${seg('dir1', [['normal', t('dome.normal'), 'refAxis'], ['x', 'X', 'axisX'], ['y', 'Y', 'axisY'], ['z', 'Z', 'axisZ'], ['edge', t('pm.edge'), 'lineTool']], !f.direction ? 'normal' : f.direction.kind === 'edge' ? 'edge' : f.direction.axis ?? 'normal')}${f.direction?.kind === 'edge' ? pickBox(api, 'direction', f.direction.sig ? [t('pm.edge')] : [], t('pm.directionEdge'), 'lineTool') : ''}<p class="pm-note">${escapeHtml(t('dome.dirHelp'))}</p>`);
   },
   helix(api, f) {
     const { t } = api;
@@ -131,6 +153,7 @@ export const ADVANCED_PM = {
     return [
       group('featThread', t('pm.threadLocation'), `${pickBox(api, 'edge', edge, t('pm.circularEdge'), 'featThread')}${seg('internal', [['auto', t('thread.auto')], ['external', t('thread.external')], ['internal', t('thread.internal')]], f.internal ?? 'auto')}${check('reverse', f.reverse, t('pm.reverse'), 'flipV')}`),
       group('featThread', t('pm.specification'), `${select('threadSize', [['', t('hole.custom')], ...THREAD_SIZES.map(([s, , p]) => [s, `${s} × ${p}`])], f.size ?? '', t('hole.size'))}${field(api, 'pitch', f.pitch, { label: t('pm.pitch'), min: 0.1 })}${field(api, 'length', f.length, { label: t('pm.length'), min: 0.1 })}${check('lefthand', f.lefthand, t('pm.lefthand'), 'flipH')}${check('cosmetic', f.cosmetic, t('pm.cosmeticThread'), 'hiddenLines')}`),
+      group('featThread', t('thread.startEnd'), `${field(api, 'offset', f.offset ?? 0, { label: t('thread.offset'), glyph: 'dimDistance' })}${check('trimEnd', f.trimEnd !== false, t('thread.trimEnd'), 'trimTool')}`),
       group('featThread', t('thread.form'), `${select('form', [['iso', t('thread.form.iso')], ['v', t('thread.form.v')], ['trapezoidal', t('thread.form.trapezoidal')], ['buttress', t('thread.form.buttress')], ['pipe55', t('thread.form.pipe55')]], f.form ?? 'v', t('thread.form'))}${f.form !== 'iso' ? field(api, 'starts', f.starts ?? 1, { label: t('pm.threadStarts'), unit: 'count', min: 1 }) : ''}${''}${f.form === 'iso' && !f.cosmetic ? select('mode', [['auto', t('thread.mode.auto')], ['cosmetic', t('thread.mode.cosmetic')], ['modelled', t('thread.mode.modelled')]], f.mode ?? 'auto', t('thread.display')) : ''}${f.form === 'iso' ? `<p class="pm-note">${escapeHtml(t('thread.isoNote'))}</p>` : ''}`),
     ].join('');
   },
@@ -259,6 +282,7 @@ export const ADVANCED_PM = {
       group('sketch3d', t('pm.points3d'), `<div class="pt3-table"><div class="pt3-row head"><b>#</b><span>X</span><span>Y</span><span>Z</span><span></span></div>${rows}</div><div class="pm-row"><button class="small-button" data-pm="addPt3">${icon('plus')}<span>${escapeHtml(t('pm.addPoint'))}</span></button></div>`),
       group('refPlane', t('pm.clickPlane'), `${seg('drawPlane', [['front', `${t('plane.front')} (XZ)`], ['top', `${t('plane.top')} (XY)`], ['right', `${t('plane.right')} (YZ)`]], e.drawPlane ?? 'top')}${pickBox(api, 'points3d', [], t('pm.clickToAddPoints'), 'pointTool')}${note(t('pm.help.sketch3d'))}`),
       group('splineTool', t('pm.options'), `${check('spline', f.spline, t('pm.smoothSpline'), 'splineTool')}${check('closed', f.closed, t('pm.closedLoop'), 'refresh')}`),
+      relations3dGroup(api, f, e),
     ].join('');
   },
 };

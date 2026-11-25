@@ -1,0 +1,36 @@
+[
+  {
+    "name": "layout: kernel",
+    "eval": "window.__mymechanics.actions.ensureKernel().then(() => 'ready')",
+    "expect": "^ready$"
+  },
+  {
+    "name": "layout: a new assembly",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.closeProject({ force: true }); await m.actions.newDocument('assembly'); await new Promise((r) => setTimeout(r, 500)); return m.state.doc ? 'ok' : 'no'; })()",
+    "expect": "^ok$"
+  },
+  {
+    "name": "layout: New Layout adds a fixed layout part and opens it in context; blocks are made and inserted in its sketch",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const S = await import('/src/cad/sketch.js'); const X = await import('/src/cad/asm-extra.js'); const asm = () => m.active(); await m.run('newLayout'); await sleep(600);\n     const p = m.project; const layout = p.parts.find((x) => x.isLayout); const inCtx = Boolean(m.state.inContext);\n     const sk = layout.features.find((f) => f.type === 'sketch');\n     m.actions.change('op.layout', (pp) => {\n       const l = pp.parts.find((x) => x.isLayout); const s = l.features.find((f) => f.type === 'sketch');\n       const tmp = S.createSketchGeometry(); const r = S.addRectangle(tmp, -20, -10, 20, 10);\n       const blk = X.makeBlock(tmp, (r.lines ?? r).map((q) => q.id ?? q), { name: 'Plate', base: [0, 0] });\n       pp.sketchBlocks = [...(pp.sketchBlocks ?? []), blk];\n       X.insertBlock(s, blk, { x: 50, y: 30, angle: 30 }); X.insertBlock(s, blk, { x: -40, y: 10 });\n     }); await sleep(200);\n     await m.run('exitInContext'); await sleep(500);\n     return JSON.stringify({ layout: Boolean(layout), fixed: Boolean(asm().components?.find((c) => c.part === layout.id)?.fixed), inCtx, sketch: Boolean(sk), back: m.active()?.components ? 'assembly' : 'part' }); })()",
+    "expect": "\"layout\":true,\"fixed\":true,\"inCtx\":true,\"sketch\":true,\"back\":\"assembly\""
+  },
+  {
+    "name": "layout: Make Part from Block makes one part and two linked components where the instances are",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const S = await import('/src/cad/sketch.js'); const X = await import('/src/cad/asm-extra.js'); const asm = () => m.active(); m.state.selection = []; await m.run('makePartFromBlock'); await sleep(500);\n     const comps = asm().components.filter((c) => c.layoutLink); const part = m.project.parts.find((x) => x.fromBlock);\n     const a = comps.find((c) => Math.abs(c.position[0] - 50) < 1e-6);\n     return JSON.stringify({ comps: comps.length, part: Boolean(part), lines: part.features[0].entities.filter((e) => e.type === 'line').length, at: a ? a.position.map((v) => Math.round(v * 1000) / 1000) : null }); })()",
+    "expect": "\"comps\":2,\"part\":true,\"lines\":4,\"at\":\\[50,30,0\\]"
+  },
+  {
+    "name": "layout: moving an instance in the layout and Update from Layout moves its component",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const S = await import('/src/cad/sketch.js'); const X = await import('/src/cad/asm-extra.js'); const asm = () => m.active(); m.actions.change('op.layout', (pp) => { const s = pp.parts.find((x) => x.isLayout).features.find((f) => f.type === 'sketch'); const inst = [...X.blockInstances(s).keys()][0]; for (const e of s.entities) if (e.block?.instance === inst && e.type === 'point') { e.x += 10; e.y -= 5; } });\n     await m.run('updateLayout'); await sleep(400);\n     const a = asm().components.filter((c) => c.layoutLink).map((c) => c.position.map((v) => Math.round(v * 1000) / 1000)).sort((p, q) => q[0] - p[0])[0];\n     return JSON.stringify({ a }); })()",
+    "expect": "\"a\":\\[60,25,0\\]"
+  },
+  {
+    "name": "layout: the layout sketch and the block-part sketches are drawn in the assembly, placed with their components",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const S = await import('/src/cad/sketch.js'); const X = await import('/src/cad/asm-extra.js'); const asm = () => m.active(); const g = m.viewport.groups.markers ?? m.viewport.scene.getObjectByName('markers'); let segs = 0; g?.traverse?.((o) => { const a = o.geometry?.attributes?.instanceStart ?? o.geometry?.attributes?.position; if (a) segs += a.count; });\n     return JSON.stringify({ drawn: segs > 0 }); })()",
+    "expect": "\"drawn\":true"
+  },
+  {
+    "shot": "layout-parts",
+    "wait": 400
+  }
+]

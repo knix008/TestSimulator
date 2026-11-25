@@ -3,11 +3,15 @@
 // with Ctrl+Enter), the files it uses, and what it printed (echo) or warned the last time it ran.
 import { escapeHtml } from './dom.js';
 import { icon } from '../icons.js';
-import { scadParams, scadReport } from '../cad/openscad-feature.js';
+import { scadParams, scadReport, scadTime, scadUsesTime } from '../cad/openscad-feature.js';
+import { SCAD_EXPORTS } from '../cad/openscad/export.js';
 import { toStr } from '../cad/openscad/values.js';
 import { group } from './propertymanager.js';
+import { scadEditorHtml, messageLine } from './scad-editor.js';
 
 const literal = (v) => toStr(v, false);
+/** A console line naming a line of the code: clicking it selects that line. */
+const lineAttr = (msg) => { const n = messageLine(msg); return n ? ` data-scad-line="${n}" title="line ${n}"` : ''; };
 
 function paramRow(p) {
   const name = escapeHtml(p.name);
@@ -40,18 +44,35 @@ export function openscadPm(api, f) {
   }
   const files = Object.keys(f.files ?? {});
   out.push(group('scadFile', t('scad.source'), `<p class="pm-note">${icon('scadFile', 'icon tiny')} ${escapeHtml(f.fileName || 'model.scad')}${files.length ? ` · ${escapeHtml(t('scad.files', { count: files.length }))}` : ''}</p>
-    <textarea class="scad-code" data-scad-source spellcheck="false" wrap="off" rows="14" aria-label="${escapeHtml(t('scad.source'))}">${escapeHtml(f.source ?? '')}</textarea>
+    ${scadEditorHtml(f.source ?? '', t('scad.source'))}
     <p class="pm-note">${escapeHtml(t('scad.sourceHelp'))}</p>
     ${files.length ? `<ul class="scad-files">${files.map((k) => `<li>${icon('file', 'icon tiny')}<span>${escapeHtml(k)}</span></li>`).join('')}</ul>` : ''}`));
+  // Animation: $t from 0 to 1 in `steps` frames at `fps` frames a second (as OpenSCAD's Animate panel).
+  const steps = Math.max(1, Math.round(Number(f.animSteps ?? 20)));
+  const fps = Number(f.animFps ?? 10);
+  const frame = Math.round(scadTime(f) * steps) % steps;
+  const playing = Boolean(api.scadPlaying?.());
+  const uses = scadUsesTime(f);
+  out.push(group('animate', t('scad.animate'), `${uses ? '' : `<p class="pm-note">${escapeHtml(t('scad.noTime'))}</p>`}
+    <label class="pm-field">${icon('clock')}<span class="pm-label">${escapeHtml(t('scad.time'))}</span><input type="text" class="pm-text short num" data-scad-anim="t" value="${escapeHtml(String(Math.round(scadTime(f) * 1e6) / 1e6))}" spellcheck="false"/></label>
+    <label class="pm-field">${icon('speed')}<span class="pm-label">${escapeHtml(t('scad.fps'))}</span><input type="text" class="pm-text short num" data-scad-anim="fps" value="${escapeHtml(String(fps))}" spellcheck="false"/></label>
+    <label class="pm-field">${icon('featLinPattern')}<span class="pm-label">${escapeHtml(t('scad.steps'))}</span><input type="text" class="pm-text short num" data-scad-anim="steps" value="${steps}" spellcheck="false"/></label>
+    <input type="range" class="scad-frame" min="0" max="${steps - 1}" step="1" value="${frame}" data-scad-anim="frame" aria-label="${escapeHtml(t('scad.frame'))}"/>
+    <p class="pm-note">${escapeHtml(t('scad.frameOf', { frame: frame + 1, steps }))}</p>
+    <div class="pm-row"><button type="button" class="small-button" data-pm="scadAnimPlay" ${uses ? '' : 'disabled'}>${icon(playing ? 'pause' : 'play')}<span>${escapeHtml(t(playing ? 'scad.pause' : 'scad.play'))}</span></button><button type="button" class="small-button" data-pm="scadAnimDump" ${uses ? '' : 'disabled'}>${icon('exportImage')}<span>${escapeHtml(t('scad.dump'))}</span></button></div>`));
+  // Exports of what the program made (its 2D outlines or 3D mesh) and its CSG tree.
+  const rep = scadReport(f);
+  const dim = rep?.code === 'scad-2d' ? 2 : 3;
+  out.push(group('exportFile', t('scad.export'), `<div class="pm-row wrap">${SCAD_EXPORTS[dim].map((x) => `<button type="button" class="small-button" data-pm="scadExport:${x}">${icon(x === 'csg' ? 'scadFile' : dim === 2 ? 'dxfFile' : 'meshFile')}<span>${x.toUpperCase()}</span></button>`).join('')}</div>`));
   const report = scadReport(f);
   if (report?.missing?.length) {
     out.push(group('warning', t('scad.missingTitle'), `<ul class="scad-files">${report.missing.map((k) => `<li class="warn">${icon('warning', 'icon tiny')}<span>${escapeHtml(k)}</span></li>`).join('')}</ul><p class="pm-note">${escapeHtml(t('scad.missingHelp'))}</p><div class="pm-row"><button type="button" class="small-button" data-pm="scadFolder">${icon('folderOpen')}<span>${escapeHtml(t('scad.chooseFolder'))}</span></button></div>`));
   }
   if (report) {
     const lines = [
-      ...(report.error ? [`<li class="error">${icon('error', 'icon tiny')}<span>${escapeHtml(report.error)}</span></li>`] : []),
+      ...(report.error ? [`<li class="error"${lineAttr(report.error)}>${icon('error', 'icon tiny')}<span>${escapeHtml(report.error)}</span></li>`] : []),
       ...(report.echoes ?? []).map((l) => `<li>${icon('chevronRight', 'icon tiny')}<span>${escapeHtml(l)}</span></li>`),
-      ...(report.warnings ?? []).map((l) => `<li class="warn">${icon('warning', 'icon tiny')}<span>${escapeHtml(l)}</span></li>`),
+      ...(report.warnings ?? []).map((l) => `<li class="warn"${lineAttr(l)}>${icon('warning', 'icon tiny')}<span>${escapeHtml(l)}</span></li>`),
     ];
     const stats = report.triangles ? `<p class="pm-note">${escapeHtml(t('scad.triangles', { count: report.triangles }))}</p>` : '';
     out.push(group('info', t('scad.console'), `${stats}${lines.length ? `<ul class="scad-console">${lines.join('')}</ul>` : `<p class="pm-note">${escapeHtml(t('scad.quiet'))}</p>`}`));

@@ -4,7 +4,7 @@
 // and dimensions added until nothing can move). Every tool adds the relations the shape needs.
 import {
   addArc, addCircle, addConstraint, addLine, addRelation, analyse, arcGeometry, autoRelationsForLine, byId, curveEnds, curvePieces, dimensionFor,
-  endTangent, newSketchId, pointsOf, polyline, solveSketch, splineBeziers, bezierAt, ORIGIN,
+  endTangent, newSketchId, pointsOf, polyline, solveSketch, splineBeziers, bezierAt, bezierPoint, ORIGIN,
 } from './sketch.js';
 import { ellipseParam, ellipsePoint, pieceAt, equationFunction } from './sketch-curves.js';
 
@@ -354,7 +354,7 @@ export function curveParam(sketch, e) {
   if (e.type === 'spline') {
     const bz = splineBeziers(sketch, e, map);
     const closed = e.pts.length > 3 && e.pts[0] === e.pts.at(-1);
-    return { at: (s) => { const i = Math.min(bz.length - 1, Math.max(0, Math.floor(s))); const [p0, c1, c2, p3] = bz[i]; return bezierAt(p0, c1, c2, p3, Math.min(1, Math.max(0, s - i))); }, s0: 0, s1: bz.length, closed };
+    return { at: (s) => { const i = Math.min(bz.length - 1, Math.max(0, Math.floor(s))); return bezierPoint(bz[i], Math.min(1, Math.max(0, s - i))); }, s0: 0, s1: bz.length, closed };
   }
   return null;
 }

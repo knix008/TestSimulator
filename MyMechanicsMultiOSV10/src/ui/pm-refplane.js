@@ -2,7 +2,7 @@
 // normal to a curve, mid plane, tangent, line and point) and the references each way needs.
 import { group, seg, select, check, field, pickBox, planeName } from './propertymanager.js';
 import { vertexItems, endRefs } from './pm-extrude.js';
-import { ANSI_SIZES, ANSI_TAPS, NPT_SIZES } from '../cad/hole-more.js';
+import { ANSI_SIZES, METRIC_STANDARDS, ANSI_TAPS, NPT_SIZES } from '../cad/hole-more.js';
 
 const MODES = ['offset', 'angle', 'threePoints', 'parallelAtPoint', 'normalToCurve', 'mid', 'tangent', 'linePoint'];
 
@@ -31,7 +31,11 @@ export function holeMorePm(api, f) {
   const { t } = api;
   const parts = [];
   const std = f.standard ?? 'iso';
-  let sp = seg('standard', [['iso', t('hole.std.iso')], ['ansiInch', t('hole.std.ansiInch')]], std);
+  let sp = seg('standard', [['iso', t('hole.std.iso')], ['ansiInch', t('hole.std.ansiInch')], ['din', 'DIN'], ['jis', 'JIS'], ['gb', 'GB']], std);
+  if (['din', 'jis', 'gb'].includes(std) && f.kind !== 'tapped' && f.kind !== 'taperedTap') {
+    sp += select('mSize', [['', t('hole.custom')], ...Object.keys(METRIC_STANDARDS[std]).map((n) => [n, n])], f.mSize ?? '', t('hole.size'));
+    sp += seg('fit', [['close', t(std === 'jis' ? 'hole.fit.class1' : 'hole.fit.fine')], ['normal', t(std === 'jis' ? 'hole.fit.class2' : 'hole.fit.medium')], ['loose', t(std === 'jis' ? 'hole.fit.class3' : 'hole.fit.coarse')]], f.fit ?? 'normal');
+  }
   if (std === 'ansiInch') {
     if (f.kind === 'tapped') sp += select('ansiTap', [['', t('hole.custom')], ...ANSI_TAPS.map(([n, , , d]) => [n, n + ' — ' + t('hole.tapDrill') + ' Ø' + d.toFixed(4) + '"'])], f.ansiTap ?? '', t('hole.threadSize'));
     else if (f.kind !== 'taperedTap') {

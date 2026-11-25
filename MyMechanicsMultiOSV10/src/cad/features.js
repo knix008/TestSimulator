@@ -21,6 +21,7 @@ import { needsRevolveMore, revolveMoreTool } from './revolve-more.js';
 import { needsDressUpMore, filletMore, chamferMore, shellMore } from './dressup-more.js';
 import { planeMoreFrame } from './refplane-more.js';
 import { needsHoleMore, holeMoreTool } from './hole-more.js';
+import { refreshPierce } from './sketch-pierce.js';
 
 export const FEATURE_TYPES = ['import', 'sketch', 'plane', 'extrude', 'revolve', 'fillet', 'chamfer', 'shell', 'hole', 'linearPattern', 'circularPattern', 'mirror', ...ADVANCED_TYPES, ...PART_MORE_TYPES, ...STD_TYPES];
 /** Features that add or remove material with a tool solid (patterns and mirrors copy them). */
@@ -216,7 +217,7 @@ export function loopDrawing(loop) {
     const last = i === segs.length - 1;
     // The last straight segment is drawn by close(); an arc or a spline ends exactly on the next start point.
     if (s.kind === 'line') { if (!last) pen = pen.lineTo(s.b); }
-    else if (s.kind === 'spline') { for (const [, c1, c2, p3] of s.beziers) pen = pen.cubicBezierCurveTo(p3, c1, c2); }
+    else if (s.kind === 'spline') { for (const b of s.beziers) pen = b.length === 4 ? pen.cubicBezierCurveTo(b[3], b[1], b[2]) : pen.bezierCurveTo(b.at(-1), b.slice(1, -1)); }
     else if (s.kind === 'pieces') { for (const pc of s.pieces) pen = rationalBezierTo(pen, pc); }
     else pen = pen.threePointsArcTo(s.to, s.mid);
   });
@@ -292,7 +293,10 @@ export function regenerate(input, { upTo = null, project = null, flat = undefine
   const R = rep();
   setAreaMeasure((face) => R.measureArea(face));
   // Equations, global variables and the active configuration give the values the features are built with.
-  const part = { ...input, features: effectiveFeatures(input) };
+  const eff = effectiveFeatures(input);
+  // A copy of the list: a sketch with pierce relations is replaced by a solved copy (the stored part stays as it is).
+  const feats = eff.slice(); if (eff.errors) Object.defineProperty(feats, 'errors', { value: eff.errors });
+  const part = { ...input, features: feats };
   const results = new Map();
   const planes = new Map();
   const ctx = { body: null, planes, part, results, project, surfaces: new Map(), curves: new Map(), flat: flat ?? Boolean(input.flat), stack: [...stack, input.id], sheet: null };
@@ -302,7 +306,16 @@ export function regenerate(input, { upTo = null, project = null, flat = undefine
     const f = part.features[i];
     if (f.suppressed) { results.set(f.id, { ok: true, suppressed: true, body: ctx.body }); continue; }
     try {
-      const out = build(f, ctx) ?? {};
+      let out;
+      if (f.type === 'sketch' && f.constraints?.some((c) => c.type === 'pierce')) {
+        // Pierce relations follow their curves: a copy of the sketch with the crossings refreshed, solved.
+        const frame = resolvePlane(f.plane, ctx);
+        const copy = JSON.parse(JSON.stringify(f));
+        const frames = new Map([...results].filter(([, r]) => r.frame && r.ok).map(([id, r]) => [id, r.frame]));
+        const pr = refreshPierce(copy, frame, { features: part.features, frames, curves: ctx.curves });
+        part.features[i] = copy;
+        out = { frame, ...(pr.missing.length ? { warnings: [{ code: 'pierce-missing', count: pr.missing.length }] } : {}) };
+      } else out = build(f, ctx) ?? {};
       if (out.body !== undefined) ctx.body = out.body;
       if (out.frame && (f.type === 'plane')) planes.set(f.id, out.frame);
       if (out.surface) ctx.surfaces.set(f.id, out.surface);
@@ -532,25 +545,53 @@ export function holeProfile(f, depth) {
 
 /** The axes of a hole feature's holes: [{ at (on the sketch plane), dir (into the material) }]. */
 export function holeAxes(f, ctx) {
+  return holePositions(f, ctx).map(({ at, dir }) => ({ at, dir }));
+}
+
+/**
+ * Where the holes go: { at, dir (into the material), fr (a frame at the hole: normal against dir) }. From a 2D
+ * sketch: its standalone points, along the sketch plane's normal. From a 3D sketch: each of its points on a face
+ * of the body, along that face's normal there (holes on several faces at once).
+ */
+export function holePositions(f, ctx) {
+  const s3 = ctx.part.features.find((x) => x.id === f.sketch && x.type === 'sketch3d');
+  if (s3) {
+    if (!ctx.body) throw codeError('no-body');
+    const out = [];
+    for (const p of s3.points ?? []) {
+      let best = null; let bd = Infinity;
+      for (const face of ctx.body.faces) { let d = Infinity; try { d = rep().measureDistanceBetween(face, rep().makeVertex(p)); } catch { /* skip */ } if (d < bd) { bd = d; best = face; } }
+      if (!best || bd > 1e-4 * Math.max(1, sizeAround(ctx))) continue;
+      const nv = best.normalAt(p); const n = normalize([nv.x, nv.y, nv.z]);
+      const into = scale(n, -1);
+      const x = normalize(Math.abs(n[2]) < 0.9 ? crossV([0, 0, 1], n) : crossV([1, 0, 0], n));
+      out.push({ at: [...p], dir: into, fr: { origin: [...p], xDir: x, yDir: crossV(n, x), normal: n } });
+    }
+    if (!out.length) throw codeError('no-hole-points');
+    return out;
+  }
   const { sketch, frame: fr } = sketchOf(f, ctx);
   const into = scale(fr.normal, -1);
-  return standalonePoints(sketch).map((p) => ({ at: toWorld(fr, [p.x, p.y]), dir: into }));
+  return standalonePoints(sketch).map((p) => ({ at: toWorld(fr, [p.x, p.y]), dir: into, fr }));
 }
 
 function holeTool(f, ctx) {
   const R = rep();
-  const { sketch, frame: fr } = sketchOf(f, ctx);
-  const points = standalonePoints(sketch);
-  if (!points.length) throw codeError('no-hole-points');
-  // Slots, tapered pipe taps, end conditions at geometry (hole-more.js).
-  if (needsHoleMore(f)) return holeMoreTool(f, ctx, points.map((p) => toWorld(fr, [p.x, p.y])), fr, holeProfile, crossV);
-  const into = scale(fr.normal, -1);
+  const positions = holePositions(f, ctx);
+  if (!positions.length) throw codeError('no-hole-points');
+  // Slots, tapered pipe taps, end conditions at geometry (hole-more.js): one frame for a 2D sketch, one per hole
+  // for a 3D sketch.
+  if (needsHoleMore(f)) {
+    const frames = [...new Set(positions.map((p) => p.fr))];
+    let tool = null;
+    for (const fr of frames) { const one = holeMoreTool(f, ctx, positions.filter((p) => p.fr === fr).map((p) => p.at), fr, holeProfile, crossV); tool = tool ? tool.fuse(one) : one; }
+    return tool;
+  }
   const depth = f.through ? sizeAround(ctx) : Math.max(0.1, Number(f.depth));
   const profile = holeProfile(f, depth);
   let tool = null;
-  for (const p of points) {
-    const at = toWorld(fr, [p.x, p.y]);
-    // The profile's plane holds the hole axis: x = radial (the sketch x), y = into the material.
+  for (const { at, dir: into, fr } of positions) {
+    // The profile's plane holds the hole axis: x = radial (the frame's x), y = into the material.
     const u = fr.xDir;
     const plane = new R.Plane(at, u, crossV(u, into));
     let pen = R.draw(profile[0]);
@@ -613,6 +654,8 @@ function seedTools(f, ctx) {
 /** A direction reference: a world axis or a straight edge of the body. */
 export function resolveDirection(ref, ctx) {
   if (!ref || ref.kind === 'axis') return AXES[ref?.axis ?? 'x'] ?? AXES.x;
+  // A typed vector.
+  if (ref.kind === 'vector' && Array.isArray(ref.v) && ref.v.some((x) => Math.abs(Number(x)) > 1e-12)) return normalize(ref.v.map(Number));
   if (ref.kind === 'edge') {
     const [edge] = findEdges(ctx.body, [ref.sig]);
     if (!edge) throw codeError('edge-missing');

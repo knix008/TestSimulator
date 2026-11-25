@@ -32,6 +32,8 @@ export const ICONS_ASM = {
   // ── replace components, copy with mates, hole alignment, envelopes
   replaceComponent: '<rect x="2" y="4" width="9" height="9" rx="1" opacity="0.55"/><rect x="13" y="11" width="9" height="9" rx="1"/><path d="M7 15v3h4M17 9V6h-4"/><path d="M9.5 16.5L11 18l-1.5 1.5M14.5 7.5L13 6l1.5-1.5"/>',
   copyWithMates: '<rect x="3" y="3" width="9" height="9" rx="1"/><rect x="12" y="12" width="9" height="9" rx="1" stroke-dasharray="2 1.5"/><path d="M12 7.5h4.5V12" opacity="0.7"/><circle cx="16.5" cy="7.5" r="1.4" fill="currentColor" stroke="none"/>',
+  layoutSketch: '<rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="3 2"/><rect x="6" y="7" width="6" height="5"/><rect x="13" y="12" width="5" height="6"/>',
+  partFromBlock: '<rect x="3" y="4" width="8" height="6" stroke-dasharray="2 1.5"/><path d="M11 7h4M13 5l2 2-2 2"/><path d="M15 12l4-2 3 2v6l-3 2-4-2z"/>',
   extRef: '<rect x="3" y="9" width="8" height="8" rx="1"/><rect x="13" y="4" width="8" height="8" rx="1" stroke-dasharray="2 1.5"/><path d="M9 9l5-3M13 9h-3v-3"/>',
   editInContext: '<rect x="2" y="4" width="20" height="16" rx="2" stroke-dasharray="3 2" opacity="0.6"/><rect x="8" y="8" width="8" height="8" rx="1"/><path d="M14 6l4 4"/>',
   newPartInContext: '<rect x="2" y="4" width="20" height="16" rx="2" stroke-dasharray="3 2" opacity="0.6"/><path d="M12 8v8M8 12h8"/>',
