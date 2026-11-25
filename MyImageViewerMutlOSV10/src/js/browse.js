@@ -801,23 +801,61 @@ window.Browse = (() => {
     _grid.querySelectorAll('[data-needs-thumb="1"]').forEach((tile) => _observer.observe(tile));
   }
 
-  function _render() {
+  /** What a tile shows of its entry: a tile whose entry still matches is reused as is. */
+  function _entrySig(entry) {
+    return [entry.isDirectory ? 1 : 0, entry.name, entry.size ?? '', entry.mtimeMs ?? '', entry.birthtimeMs ?? ''].join('|');
+  }
+
+  /** The listing as one string, to tell a re-read that changed nothing. */
+  function _listingSig(entries) {
+    return entries.map((e) => `${_norm(e.path)}|${_entrySig(e)}`).sort().join('\n');
+  }
+
+  /**
+   * Draw `_entries` into the grid. Tiles are matched by path and reused, and only
+   * moved / added / removed where the listing differs: a folder watcher refresh
+   * (git, a build, any write in a subfolder) used to empty the grid and rebuild every
+   * tile, which flashed all thumbnails and, mid wheel scroll, threw the smooth scroll
+   * back to where it was when the refresh began. `rebuild` redraws every tile
+   * (labels baked into the tiles changed language).
+   */
+  function _render({ rebuild = false } = {}) {
     if (!_grid) return;
     const rows = _sorted(_entries);
-    // Emptying the grid drops its scroll to 0; a re-render (refresh, sort) must not jump
-    const keepLeft = _grid.scrollLeft, keepTop = _grid.scrollTop;
-    _grid.replaceChildren();
+    const old = new Map();
+    for (const el of _grid.querySelectorAll(':scope > .browse-tile')) old.set(_norm(el.dataset.path), el);
+    _grid.querySelector(':scope > .browse-empty')?.remove();
     if (!rows.length) {
+      for (const el of old.values()) el.remove();
       const empty = document.createElement('div');
       empty.className = 'browse-empty';
       empty.textContent = _t('tree.empty', 'Empty folder');
       _grid.appendChild(empty);
     } else {
-      const frag = document.createDocumentFragment();
-      for (const entry of rows) frag.appendChild(_tile(entry));
-      _grid.appendChild(frag);
-      _grid.scrollLeft = keepLeft;
-      _grid.scrollTop = keepTop;
+      // Emptying the grid would drop its scroll to 0; it is only emptied on a rebuild
+      const keepLeft = _grid.scrollLeft, keepTop = _grid.scrollTop;
+      // Pick the tiles to keep, and drop the rest first: a stale tile left in place
+      // would sit in the walk below and make every tile after it look out of place.
+      const plan = rows.map((entry) => {
+        const key = _norm(entry.path);
+        const sig = _entrySig(entry);
+        const tile = old.get(key);
+        if (tile && !rebuild && tile.dataset.sig === sig) { old.delete(key); return { entry, sig, tile }; }
+        return { entry, sig, tile: null };
+      });
+      for (const el of old.values()) el.remove();
+      let cursor = _grid.firstElementChild;
+      // Skip anything that is not a tile (the marquee box) when walking the order
+      const skip = () => { while (cursor && !cursor.classList.contains('browse-tile')) cursor = cursor.nextElementSibling; };
+      for (const step of plan) {
+        const tile = step.tile || _tile(step.entry);
+        tile.dataset.sig = step.sig;
+        skip();
+        if (tile === cursor) cursor = cursor.nextElementSibling;
+        else _grid.insertBefore(tile, cursor);
+      }
+      if (_grid.scrollLeft !== keepLeft) _grid.scrollLeft = keepLeft;
+      if (_grid.scrollTop !== keepTop) _grid.scrollTop = keepTop;
     }
     // Keep only what still exists (a refresh after delete / move)
     const alive = new Set(rows.map((e) => _norm(e.path)));
@@ -866,7 +904,14 @@ window.Browse = (() => {
     // or the grid would show this folder under the other folder's path.
     if (gen !== _openGen) return;
 
-    _entries = entries.filter((e) => e.isDirectory || FormatSupport.isSupportedFile(e.path));
+    const next = entries.filter((e) => e.isDirectory || FormatSupport.isSupportedFile(e.path));
+    // A watcher refresh that changed nothing shown (a subfolder written to, git touching
+    // .git) leaves the grid alone — no redraw, no info-panel reload, no re-prefetch.
+    if (keepSelection && sameDir && _listingSig(next) === _listingSig(_entries)) {
+      _entries = next;
+      return;
+    }
+    _entries = next;
     // Another folder starts at its beginning; the same folder re-read keeps its place
     if (!sameDir && _grid) _grid.scrollTo({ left: 0, top: 0 });
     _render();
@@ -959,7 +1004,7 @@ window.Browse = (() => {
       _pathEl.title = _dir;
     }
     _syncChrome();
-    _render();
+    _render({ rebuild: true });
   }
 
   return {

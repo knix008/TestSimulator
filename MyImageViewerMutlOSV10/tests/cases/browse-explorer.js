@@ -230,10 +230,22 @@ module.exports = {
     });
 
     test('Redraws do not fire the selection callback', () => {
-      const render = browse.slice(browse.indexOf('function _render()'), browse.indexOf('function _syncCount()'));
+      const render = browse.slice(browse.indexOf('function _render('), browse.indexOf('function _syncCount()'));
       assertIncludes(render, '_paintSelection();', 'render repaints the selection');
       assert(!/_notify\(\)|_onSelect\(/.test(render), 'render is silent');
       assertIncludes(browse, 'function _select(path, { notify = true } = {})', 'opt-out parameter');
+    });
+
+    test('Watcher refresh does not rebuild the grid (wheel-scroll flicker)', () => {
+      const render = browse.slice(browse.indexOf('function _render('), browse.indexOf('function _syncCount()'));
+      assert(!render.includes('replaceChildren'), 'the grid is never emptied wholesale');
+      assertIncludes(render, 'tile.dataset.sig === sig', 'tiles are reused while their entry is unchanged');
+      assert(render.indexOf('for (const el of old.values()) el.remove();') < render.indexOf('let cursor'),
+        'stale tiles go before the walk, so they do not shift every later tile');
+      assertIncludes(render, '_grid.insertBefore(tile, cursor)', 'only out-of-place tiles move');
+      const open = browse.slice(browse.indexOf('async function open('), browse.indexOf('function getSelected()'));
+      assertIncludes(open, '_listingSig(next) === _listingSig(_entries)', 'an unchanged re-read is a no-op');
+      assertIncludes(browse, '_render({ rebuild: true })', 'language change still redraws every tile');
     });
 
     test('Thumbnail view selects many: Ctrl / Shift click, marquee drag, Ctrl+A', () => {
