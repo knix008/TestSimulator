@@ -264,7 +264,16 @@ input.invalid { border-color: var(--danger) !important; }
 /* ───────────────────────── grid (sheets) */
 .grid { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: color-mix(in srgb, var(--surface) 92%, transparent); font-family: var(--font-family); font-size: calc(var(--font-size) * var(--zoom, 1)); font-weight: var(--font-weight); font-style: var(--font-style); }
 .grid-head { flex: none; overflow: hidden; border-bottom: 1px solid var(--border); background: var(--toolbar); }
+.grid-head-cols { overflow: hidden; }
 .grid-head-inner { display: flex; height: calc(var(--row-height) * 2); align-items: stretch; }
+/* Two lines (same total height as the chart's two-tier timescale): plan title on top, column labels below. */
+.grid-head.two-line .grid-head-inner { height: var(--row-height); }
+.grid-title {
+  display: flex; align-items: center; gap: 6px; height: var(--row-height); padding: 0 8px; box-sizing: border-box;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden;
+}
+.grid-title span { overflow: hidden; text-overflow: ellipsis; }
+.grid-title .icon { flex: none; }
 .grid-hcell {
   position: relative; display: flex; align-items: center; gap: 4px; padding: 0 6px; flex: none; font-weight: 600; font-size: 0.92em;
   border-right: 1px solid var(--border); white-space: nowrap; overflow: hidden; color: var(--text);

@@ -809,6 +809,7 @@ function taskGridOptions(extra = {}) {
   const doc = () => activeDoc();
   return {
     kind: 'task',
+    title: () => doc()?.project.title ?? '',
     rows: () => taskRows(),
     fields: () => currentColumns('task').map((id) => TASK_FIELD_MAP.get(id)).filter(Boolean),
     ctx: () => fieldCtx(),
@@ -856,6 +857,7 @@ function taskGridOptions(extra = {}) {
 function resourceGridOptions() {
   return {
     kind: 'resource',
+    title: () => activeDoc()?.project.title ?? '',
     rows: () => activeDoc().project.resources.map((resource, index) => ({ id: resource.id, item: resource, info: null, number: index + 1 })),
     fields: () => currentColumns('resource').map((id) => RESOURCE_FIELD_MAP.get(id)).filter(Boolean),
     ctx: () => fieldCtx(),

@@ -862,7 +862,7 @@ Switch the column set with **View › Table, filter and group › Table (column 
 
 | Table | Columns |
 |---|---|
-| **Entry** | Indicators, Mode, Task Name, Duration, Start, Finish, Predecessors, Resource Names |
+| **Entry** | Indicators, Mode, Task Name, Duration, % Complete, Start, Finish, Predecessors, Resource Names |
 | **Schedule** | Start, Finish, Late Start, Late Finish, Free Slack, Total Slack |
 | **Cost** | Fixed Cost, Labor Cost, Cost, Baseline Cost, Cost Variance, Actual Cost, Remaining Cost |
 | **Work** | Work, Baseline Work, Work Variance, Actual Work, Remaining Work, % Complete |

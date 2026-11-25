@@ -314,7 +314,7 @@ export const RESOURCE_FIELD_MAP = new Map(RESOURCE_FIELDS.map((field) => [field.
 
 /** View › Tables for tasks (the name column and the ID column always come first). */
 export const TASK_TABLES = {
-  entry: ['indicators', 'mode', 'name', 'duration', 'start', 'finish', 'predecessors', 'resourceNames'],
+  entry: ['indicators', 'mode', 'name', 'duration', 'percentComplete', 'start', 'finish', 'predecessors', 'resourceNames'],
   schedule: ['indicators', 'name', 'start', 'finish', 'lateStart', 'lateFinish', 'freeSlack', 'totalSlack'],
   cost: ['indicators', 'name', 'fixedCost', 'laborCost', 'cost', 'baselineCost', 'costVariance', 'actualCost', 'remainingCost'],
   work: ['indicators', 'name', 'work', 'baselineWork', 'workVariance', 'actualWork', 'remainingWork', 'percentComplete'],

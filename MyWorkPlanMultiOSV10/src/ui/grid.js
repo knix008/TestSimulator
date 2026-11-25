@@ -30,7 +30,7 @@ export class Grid {
     this.rowsEl = this.host.querySelector('.grid-rows');
     this.renderWindow = frameThrottle(() => this.drawRows());
     this.body.addEventListener('scroll', () => {
-      this.head.scrollLeft = this.body.scrollLeft;
+      if (this.cols) this.cols.scrollLeft = this.body.scrollLeft;
       this.renderWindow();
       this.o.onScroll?.(this.body.scrollTop);
     }, { passive: true });
@@ -56,14 +56,18 @@ export class Grid {
     this.columns = fields;
     const total = ROW_NUMBER_WIDTH + fields.reduce((sum, field) => sum + this.width(field), 0);
     this.totalWidth = total;
-    this.head.innerHTML = `<div class="grid-head-inner" style="width:${total + 40}px">
+    // Two header lines: the plan's title on top, the column labels below.
+    const title = this.o.title?.() ?? '';
+    this.head.classList.toggle('two-line', Boolean(this.o.title));
+    this.head.innerHTML = `${this.o.title ? `<div class="grid-title" data-grid-title title="${escapeHtml(title)}">${icon('project', 'icon tiny')}<span>${escapeHtml(title)}</span></div>` : ''}<div class="grid-head-cols"><div class="grid-head-inner" style="width:${total + 40}px">
       <div class="grid-hcell rownum" style="width:${ROW_NUMBER_WIDTH}px" title="${escapeHtml(t('grid.selectAll'))}" data-select-all>${icon('selectAll', 'icon tiny')}</div>
       ${fields.map((field) => `<div class="grid-hcell ${field.align}" data-field="${field.id}" style="width:${this.width(field)}px" title="${escapeHtml(t(`field.${field.id}.tip`, null, t(`field.${field.id}`)))}">
         ${field.id === 'indicators' ? icon('info', 'icon tiny') : field.id === 'mode' ? icon('autoMode', 'icon tiny') : `<span>${escapeHtml(t(`field.${field.id}`))}</span>`}
         <i class="grid-resize" data-resize="${field.id}" title="${escapeHtml(t('grid.resize'))}"></i>
       </div>`).join('')}
-    </div>`;
-    this.head.scrollLeft = this.body.scrollLeft;
+    </div></div>`;
+    this.cols = this.head.querySelector('.grid-head-cols');
+    this.cols.scrollLeft = this.body.scrollLeft;
     this.spacer.style.height = `${(this.list.length + (this.o.newRow ? 1 : 0)) * this.rowHeight + 4}px`;
     this.spacer.style.width = `${total + 40}px`;
     this.drawRows();
@@ -73,6 +77,11 @@ export class Grid {
   update() {
     this.list = this.o.rows();
     this.spacer.style.height = `${(this.list.length + (this.o.newRow ? 1 : 0)) * this.rowHeight + 4}px`;
+    const title = this.head.querySelector('[data-grid-title]');
+    if (title) {
+      const text = this.o.title?.() ?? '';
+      if (title.title !== text) { title.title = text; title.querySelector('span').textContent = text; }
+    }
     this.drawRows();
   }
 
