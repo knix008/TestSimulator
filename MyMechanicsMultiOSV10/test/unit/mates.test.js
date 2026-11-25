@@ -50,7 +50,7 @@ for (const type of MATE_TYPES) {
     const r = MATE_REFS[type];
     assert.ok(r, 'entry');
     assert.ok(r.a && r.b, 'a and b');
-    for (const kinds of Object.values(r)) for (const k of kinds.split('|')) assert.ok(['any', 'plane', 'axis', 'point', 'comp'].includes(k), k);
+    for (const kinds of Object.values(r)) for (const k of kinds.split('|')) assert.ok(['any', 'plane', 'axis', 'point', 'comp', 'path'].includes(k), k);
   });
 }
 
@@ -61,15 +61,16 @@ for (const [type, n] of Object.entries({ width: 4, hinge: 4, symmetric: 3, coinc
 for (const [type, fields] of Object.entries(MATE_DEFAULTS)) {
   test(`MATE_DEFAULTS of ${type} are numbers / booleans and the mate type exists`, () => {
     assert.ok(MATE_TYPES.includes(type));
-    for (const v of Object.values(fields)) assert.ok(typeof v === 'number' || typeof v === 'boolean');
+    // Numbers and switches; a mode is a word (the slot mate's free / center / distance / percent).
+    for (const [k, v] of Object.entries(fields)) assert.ok(typeof v === 'number' || typeof v === 'boolean' || (/Mode$/.test(k) && typeof v === 'string'), k);
   });
 }
 
 const KINDS = { plane: TOP, axis: Y_AXIS, point: pointE([0, 0, 0]) };
 const EXPECTED_FOR = {
   standard: { 'plane-plane': ['coincident', 'parallel', 'perpendicular', 'distance', 'angle'], 'axis-axis': ['concentric', 'parallel', 'perpendicular', 'distance', 'angle'], 'axis-plane': ['coincident', 'parallel', 'perpendicular', 'distance'], 'plane-axis': ['coincident', 'parallel', 'perpendicular', 'distance'], 'point-point': [], 'point-plane': [], 'plane-point': [], 'axis-point': [], 'point-axis': [] },
-  advanced: { 'plane-plane': ['width', 'symmetric', 'limitDistance', 'limitAngle'], 'axis-axis': ['symmetric', 'limitDistance', 'limitAngle'], 'axis-plane': ['limitDistance', 'limitAngle'], 'plane-axis': ['limitDistance', 'limitAngle'], 'point-point': ['symmetric', 'limitDistance'], 'point-plane': [], 'plane-point': [], 'axis-point': [], 'point-axis': [] },
-  mechanical: { 'plane-plane': ['cam'], 'axis-axis': ['gear', 'screw', 'hinge', 'rackPinion'], 'axis-plane': ['rackPinion'], 'plane-axis': ['cam'], 'point-point': [], 'point-plane': [], 'plane-point': ['cam'], 'axis-point': [], 'point-axis': [] },
+  advanced: { 'plane-plane': ['width', 'symmetric', 'limitDistance', 'limitAngle', 'linearCoupler', 'profileCenter'], 'axis-axis': ['symmetric', 'limitDistance', 'limitAngle', 'linearCoupler'], 'axis-plane': ['limitDistance', 'limitAngle', 'linearCoupler'], 'plane-axis': ['limitDistance', 'limitAngle', 'linearCoupler'], 'point-point': ['symmetric', 'limitDistance'], 'point-plane': [], 'plane-point': [], 'axis-point': [], 'point-axis': [] },
+  mechanical: { 'plane-plane': ['cam'], 'axis-axis': ['gear', 'screw', 'hinge', 'rackPinion', 'slot', 'universalJoint'], 'axis-plane': ['rackPinion'], 'plane-axis': ['cam'], 'point-point': [], 'point-plane': [], 'plane-point': ['cam'], 'axis-point': [], 'point-axis': [] },
 };
 for (const [group, table] of Object.entries(EXPECTED_FOR)) {
   for (const [pairName, expected] of Object.entries(table)) {
@@ -89,9 +90,9 @@ test('matesFor "all" concatenates the three groups; a missing ref gives none', (
 for (const type of MATE_TYPES) {
   test(`every type offered by matesFor('all') for some pair is a known type: ${type}`, () => {
     const offered = new Set();
-    for (const a of Object.values(KINDS)) for (const b of Object.values(KINDS)) for (const t of matesFor(a, b, 'all')) offered.add(t);
+    for (const a of Object.values(KINDS)) for (const b of [...Object.values(KINDS), { kind: 'path' }]) for (const t of matesFor(a, b, 'all')) offered.add(t);
     // lock is chosen by component, not by entity kinds.
-    if (type === 'lock') assert.ok(!offered.has('lock'));
+    if (type === 'lock' || type === 'magnetic') assert.ok(!offered.has(type));
     else assert.ok(offered.has(type), `${type} is offered for some pair of refs`);
   });
 }
@@ -561,7 +562,7 @@ test('captureMate stores lock.relative, and base for gear, rackPinion and screw;
   for (const type of MATE_TYPES) {
     const m = captureMate(asm, { id: type, type, a: { comp: 'a' }, b: { comp: 'b' } });
     if (type === 'lock') { assert.ok(m.relative, 'lock'); nearV(m.relative.position, [-1, 2, 0]); }
-    else if (['gear', 'rackPinion', 'screw'].includes(type)) { assert.deepEqual(m.base.pa, [1, 0, 0], type); assert.deepEqual(m.base.pb, [0, 2, 0], type); }
+    else if (['gear', 'rackPinion', 'screw', 'linearCoupler', 'universalJoint'].includes(type)) { assert.deepEqual(m.base.pa, [1, 0, 0], type); assert.deepEqual(m.base.pb, [0, 2, 0], type); }
     else { assert.equal(m.relative, undefined, type); assert.equal(m.base, undefined, type); }
   }
 });

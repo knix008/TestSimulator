@@ -1,0 +1,21 @@
+[
+  {
+    "name": "secp: kernel",
+    "eval": "window.__mymechanics.actions.ensureKernel().then(() => 'ready')",
+    "expect": "^ready$"
+  },
+  {
+    "name": "secp: a part with a 40 × 20 × 30 block (OpenSCAD)",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.closeProject({ force: true }); await m.actions.openContent('blk.scad', 'cube([40, 20, 30]);'); for (let i = 0; i < 60 && !m.active()?.features?.some((f) => f.type === 'openscad'); i++) await new Promise((r) => setTimeout(r, 200)); await new Promise((r) => setTimeout(r, 400)); return 'ok'; })()",
+    "expect": "^ok$"
+  },
+  {
+    "name": "secp: Section Properties on the Top plane offset 10: area 800, Iu = 40·20³/12, Iv = 20·40³/12; the section is previewed",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.run('sectionProperties'); await sleep(300); await m.actions.pmSet('secPlane', 'top'); await sleep(200); await m.actions.pmFieldChanged('secOffset', '10', 'length'); await sleep(300); const v = (k) => document.querySelector('[data-secp=\"' + k + '\"]')?.textContent ?? ''; const num = (k) => Number(v(k).replace(/[^0-9.-e]/g, ' ').trim().split(/s+/)[0]); const prev = m.viewport.groups.preview.children.length; return JSON.stringify({ area: num('area'), Iu: Math.round(num('Iu')), Iv: Math.round(num('Iv')), prev: prev > 0 }); })()",
+    "expect": "\"area\":800,\"Iu\":26667,\"Iv\":106667,\"prev\":true"
+  },
+  {
+    "shot": "section-properties",
+    "wait": 300
+  }
+]

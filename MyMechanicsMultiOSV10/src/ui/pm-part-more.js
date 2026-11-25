@@ -305,6 +305,10 @@ export const PART_MORE_PM = {
     const rows = list.map(([id, name, glyph]) => { const at = chosen.indexOf(id); return `<label class="pm-check"><input type="checkbox" data-pm-toggle="curv:${escapeHtml(id)}" ${at >= 0 ? 'checked' : ''}/>${icon(glyph)}<span>${escapeHtml(name)}${at >= 0 ? ` <b class="pm-order">${at + 1}</b>` : ''}</span></label>`; }).join('');
     return group('compositeCurve', t('pm.entitiesToJoin'), `<div class="pm-checklist">${rows || note(t('pm.nothingToChoose'))}</div>${pickBox(api, 'edges', edgeItems(api, f.edges), t('pm.edges'), 'lineTool')}`);
   },
+  surfaceSpline(api, f) {
+    const { t } = api;
+    return [group('surfaceSpline', t('pm.selections'), `${pickBox(api, 'face', f.face ? faceItems(api, [f.face]) : [], t('ssp.face'), 'part')}${note(t('ssp.help'))}`), table(api, f, t('pm.curvePoints')), group('surfaceSpline', t('pm.options'), check('closed', f.closed, t('pm.closedCurve'), 'refresh'))].join('');
+  },
   curveXYZ(api, f) {
     const { t } = api;
     return [table(api, f, t('pm.curvePoints')), group('curveXYZ', t('pm.options'), check('closed', f.closed, t('pm.closedCurve'), 'refresh'))].join('');
@@ -353,6 +357,7 @@ export function startParams(type, part, sel, featuresBefore) {
       params.sketch = s.id; params.faces = sel.faces; pick = 'faces';
       break;
     }
+    case 'surfaceSpline': { const fc = sel.faces[0]; if (fc) params.face = fc; pick = 'face'; break; }
     case 'compositeCurve': params.curves = feats.filter((f) => ['sketch', 'sketch3d', 'helix', 'curveXYZ', 'projectedCurve'].includes(f.type)).map((f) => f.id); params.edges = sel.edges; pick = 'edges'; break;
     case 'deleteBody': params.bodies = []; break;
     case 'mountingBoss': case 'snapHook': case 'lipGroove': {

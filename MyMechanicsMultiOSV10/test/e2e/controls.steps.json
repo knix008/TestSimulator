@@ -810,6 +810,16 @@
     "eval": "window.__pmCheck('curveXYZ', 'opts')"
   },
   {
+    "name": "pm: surfaceSpline numbers — every number field's −, + and a typed value change the feature and rebuild its preview",
+    "expect": "^surfaceSpline ok",
+    "eval": "window.__pmCheck('surfaceSpline', 'num')"
+  },
+  {
+    "name": "pm: surfaceSpline options — every toggle, segment, drop-down and pick box changes the feature; OK stores the values",
+    "expect": "^surfaceSpline ok",
+    "eval": "window.__pmCheck('surfaceSpline', 'opts')"
+  },
+  {
     "name": "pm: openscad numbers — every number field's −, + and a typed value change the feature and rebuild its preview",
     "expect": "^openscad ok",
     "eval": "window.__pmCheck('openscad', 'num')"
@@ -1050,6 +1060,26 @@
     "eval": "window.__pmCheck('mateReference', 'opts')"
   },
   {
+    "name": "pm: moveFace numbers — every number field's −, + and a typed value change the feature and rebuild its preview",
+    "expect": "^moveFace ok",
+    "eval": "window.__pmCheck('moveFace', 'num')"
+  },
+  {
+    "name": "pm: moveFace options — every toggle, segment, drop-down and pick box changes the feature; OK stores the values",
+    "expect": "^moveFace ok",
+    "eval": "window.__pmCheck('moveFace', 'opts')"
+  },
+  {
+    "name": "pm: connectionPoint numbers — every number field's −, + and a typed value change the feature and rebuild its preview",
+    "expect": "^connectionPoint ok",
+    "eval": "window.__pmCheck('connectionPoint', 'num')"
+  },
+  {
+    "name": "pm: connectionPoint options — every toggle, segment, drop-down and pick box changes the feature; OK stores the values",
+    "expect": "^connectionPoint ok",
+    "eval": "window.__pmCheck('connectionPoint', 'opts')"
+  },
+  {
     "name": "pm: stdPart numbers — every number field's −, + and a typed value change the feature and rebuild its preview",
     "expect": "^stdPart ok",
     "eval": "window.__pmCheck('stdPart', 'num')"
@@ -1072,7 +1102,7 @@
   {
     "name": "pm: feature types added after this file was written — each opens and every control applies",
     "expect": "^ok",
-    "eval": "return (async () => {\n  const known = new Set([\"import\",\"sketch\",\"plane\",\"extrude\",\"revolve\",\"fillet\",\"chamfer\",\"shell\",\"hole\",\"linearPattern\",\"circularPattern\",\"mirror\",\"sweep\",\"loft\",\"draft\",\"rib\",\"dome\",\"helix\",\"thread\",\"wrap\",\"thicken\",\"surfaceExtrude\",\"surfaceRevolve\",\"surfacePlanar\",\"surfaceLoft\",\"surfaceOffset\",\"knit\",\"moveBody\",\"scaleBody\",\"split\",\"insertPart\",\"baseFlange\",\"edgeFlange\",\"structural\",\"fillSurface\",\"boundary\",\"trimSurface\",\"hem\",\"sketchedBend\",\"jog\",\"partingLine\",\"toolingSplit\",\"sketch3d\",\"ruledSurface\",\"deleteFace\",\"replaceFace\",\"extendSurface\",\"miterFlange\",\"loftedBend\",\"tab\",\"closedCorner\",\"cornerRelief\",\"formTool\",\"endCap\",\"gusset\",\"weldBead\",\"trimExtend\",\"shutOff\",\"partingSurface\",\"combine\",\"deleteBody\",\"indent\",\"flex\",\"deform\",\"refAxis\",\"refPoint\",\"coordSys\",\"boundingBox\",\"variableFillet\",\"faceFillet\",\"fullRoundFillet\",\"curvePattern\",\"sketchPattern\",\"tablePattern\",\"fillPattern\",\"variablePattern\",\"projectedCurve\",\"splitLine\",\"compositeCurve\",\"curveXYZ\",\"openscad\",\"mountingBoss\",\"snapHook\",\"snapHookGroove\",\"vent\",\"lipGroove\",\"surfaceSweep\",\"cutWithSurface\",\"deleteHole\",\"untrimSurface\",\"midSurface\",\"radiateSurface\",\"flattenSurface\",\"convertSheet\",\"insertBends\",\"rip\",\"unfold\",\"fold\",\"crossBreak\",\"weldedCorner\",\"tabSlot\",\"advancedHole\",\"intersect\",\"mateReference\",\"stdPart\",\"route\"]);\n  const out = [];\n  for (const t of window.__featureTypes.filter((x) => !known.has(x))) { out.push(await window.__pmCheck(t, 'num')); out.push(await window.__pmCheck(t, 'opts')); }\n  const bad = out.filter((x) => !/^\\S+ ok/.test(x));\n  return bad.length ? bad.join(' || ') : `ok ${out.length / 2} more types`;\n})()"
+    "eval": "return (async () => {\n  const known = new Set([\"import\",\"sketch\",\"plane\",\"extrude\",\"revolve\",\"fillet\",\"chamfer\",\"shell\",\"hole\",\"linearPattern\",\"circularPattern\",\"mirror\",\"sweep\",\"loft\",\"draft\",\"rib\",\"dome\",\"helix\",\"thread\",\"wrap\",\"thicken\",\"surfaceExtrude\",\"surfaceRevolve\",\"surfacePlanar\",\"surfaceLoft\",\"surfaceOffset\",\"knit\",\"moveBody\",\"scaleBody\",\"split\",\"insertPart\",\"baseFlange\",\"edgeFlange\",\"structural\",\"fillSurface\",\"boundary\",\"trimSurface\",\"hem\",\"sketchedBend\",\"jog\",\"partingLine\",\"toolingSplit\",\"sketch3d\",\"ruledSurface\",\"deleteFace\",\"replaceFace\",\"extendSurface\",\"miterFlange\",\"loftedBend\",\"tab\",\"closedCorner\",\"cornerRelief\",\"formTool\",\"endCap\",\"gusset\",\"weldBead\",\"trimExtend\",\"shutOff\",\"partingSurface\",\"combine\",\"deleteBody\",\"indent\",\"flex\",\"deform\",\"refAxis\",\"refPoint\",\"coordSys\",\"boundingBox\",\"variableFillet\",\"faceFillet\",\"fullRoundFillet\",\"curvePattern\",\"sketchPattern\",\"tablePattern\",\"fillPattern\",\"variablePattern\",\"projectedCurve\",\"splitLine\",\"compositeCurve\",\"curveXYZ\",\"surfaceSpline\",\"openscad\",\"mountingBoss\",\"snapHook\",\"snapHookGroove\",\"vent\",\"lipGroove\",\"surfaceSweep\",\"cutWithSurface\",\"deleteHole\",\"untrimSurface\",\"midSurface\",\"radiateSurface\",\"flattenSurface\",\"convertSheet\",\"insertBends\",\"rip\",\"unfold\",\"fold\",\"crossBreak\",\"weldedCorner\",\"tabSlot\",\"advancedHole\",\"intersect\",\"mateReference\",\"moveFace\",\"connectionPoint\",\"stdPart\",\"route\"]);\n  const out = [];\n  for (const t of window.__featureTypes.filter((x) => !known.has(x))) { out.push(await window.__pmCheck(t, 'num')); out.push(await window.__pmCheck(t, 'opts')); }\n  const bad = out.filter((x) => !/^\\S+ ok/.test(x));\n  return bad.length ? bad.join(' || ') : `ok ${out.length / 2} more types`;\n})()"
   },
   {
     "name": "cmd: helpers (commands that would leave the page, print or open file dialogs are stubbed or skipped)",
@@ -1248,6 +1278,16 @@
     "name": "cmd: part · exportMesh:3mf — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('part', 'exportMesh:3mf')"
+  },
+  {
+    "name": "cmd: part · exportMesh:off — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'exportMesh:off')"
+  },
+  {
+    "name": "cmd: part · exportMesh:amf — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'exportMesh:amf')"
   },
   {
     "name": "cmd: part · exportMesh:usdz — has a visible effect (or is skipped with its reason / not available here)",
@@ -1735,6 +1775,11 @@
     "eval": "window.__cmdOne('part', 'curveXYZ')"
   },
   {
+    "name": "cmd: part · surfaceSpline — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'surfaceSpline')"
+  },
+  {
     "name": "cmd: part · openscad — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('part', 'openscad')"
@@ -1855,6 +1900,16 @@
     "eval": "window.__cmdOne('part', 'mateReference')"
   },
   {
+    "name": "cmd: part · moveFace — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'moveFace')"
+  },
+  {
+    "name": "cmd: part · connectionPoint — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'connectionPoint')"
+  },
+  {
     "name": "cmd: part · ruledSurface — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('part', 'ruledSurface')"
@@ -1923,6 +1978,16 @@
     "name": "cmd: part · trimExtend — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('part', 'trimExtend')"
+  },
+  {
+    "name": "cmd: part · sk:silhouette — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'sk:silhouette')"
+  },
+  {
+    "name": "cmd: part · sk:silhouetteInternal — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'sk:silhouetteInternal')"
   },
   {
     "name": "cmd: part · sk:convert — has a visible effect (or is skipped with its reason / not available here)",
@@ -2050,6 +2115,21 @@
     "eval": "window.__cmdOne('part', 'sk:slot')"
   },
   {
+    "name": "cmd: part · sk:slotCenter — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'sk:slotCenter')"
+  },
+  {
+    "name": "cmd: part · sk:slotArc3 — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'sk:slotArc3')"
+  },
+  {
+    "name": "cmd: part · sk:slotArcCenter — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'sk:slotArcCenter')"
+  },
+  {
     "name": "cmd: part · sk:point — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('part', 'sk:point')"
@@ -2058,6 +2138,11 @@
     "name": "cmd: part · sk:spline — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('part', 'sk:spline')"
+  },
+  {
+    "name": "cmd: part · sk:styleSpline — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'sk:styleSpline')"
   },
   {
     "name": "cmd: part · sk:ellipse — has a visible effect (or is skipped with its reason / not available here)",
@@ -2118,6 +2203,26 @@
     "name": "cmd: part · sk:stretch — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('part', 'sk:stretch')"
+  },
+  {
+    "name": "cmd: part · sk:baselineDim — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'sk:baselineDim')"
+  },
+  {
+    "name": "cmd: part · sk:dynamicMirror — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'sk:dynamicMirror')"
+  },
+  {
+    "name": "cmd: part · sk:autotrace — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'sk:autotrace')"
+  },
+  {
+    "name": "cmd: part · sk:repair — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'sk:repair')"
   },
   {
     "name": "cmd: part · sk:fullyDefine — has a visible effect (or is skipped with its reason / not available here)",
@@ -2390,6 +2495,31 @@
     "eval": "window.__cmdOne('part', 'fixComponent')"
   },
   {
+    "name": "cmd: part · magneticSnap — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'magneticSnap')"
+  },
+  {
+    "name": "cmd: part · simplifyOuter — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'simplifyOuter')"
+  },
+  {
+    "name": "cmd: part · simplifyBox — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'simplifyBox')"
+  },
+  {
+    "name": "cmd: part · simplifyFull — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'simplifyFull')"
+  },
+  {
+    "name": "cmd: part · flexibleComponent — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'flexibleComponent')"
+  },
+  {
     "name": "cmd: part · floatComponent — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('part', 'floatComponent')"
@@ -2450,6 +2580,21 @@
     "eval": "window.__cmdOne('part', 'sectionView')"
   },
   {
+    "name": "cmd: part · view3dDrawing — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'view3dDrawing')"
+  },
+  {
+    "name": "cmd: part · relativeView — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'relativeView')"
+  },
+  {
+    "name": "cmd: part · removedSection — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'removedSection')"
+  },
+  {
     "name": "cmd: part · saveBodies — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('part', 'saveBodies')"
@@ -2473,6 +2618,16 @@
     "name": "cmd: part · flatPatternView — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('part', 'flatPatternView')"
+  },
+  {
+    "name": "cmd: part · weldTable — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'weldTable')"
+  },
+  {
+    "name": "cmd: part · cutListTable — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'cutListTable')"
   },
   {
     "name": "cmd: part · bendTable — has a visible effect (or is skipped with its reason / not available here)",
@@ -2865,6 +3020,16 @@
     "eval": "window.__cmdOne('part', 'drwCenterMarks')"
   },
   {
+    "name": "cmd: part · drwAutoBalloon — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'drwAutoBalloon')"
+  },
+  {
+    "name": "cmd: part · drwHoleCallout — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'drwHoleCallout')"
+  },
+  {
     "name": "cmd: part · drwWeld — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('part', 'drwWeld')"
@@ -3240,6 +3405,11 @@
     "eval": "window.__cmdOne('part', 'holeAlignment')"
   },
   {
+    "name": "cmd: part · clearanceCheck — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'clearanceCheck')"
+  },
+  {
     "name": "cmd: part · envelopeComponent — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('part', 'envelopeComponent')"
@@ -3253,6 +3423,76 @@
     "name": "cmd: part · envelopeSelectCrossing — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('part', 'envelopeSelectCrossing')"
+  },
+  {
+    "name": "cmd: part · explodeEditor — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'explodeEditor')"
+  },
+  {
+    "name": "cmd: part · explodeAnimate — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'explodeAnimate')"
+  },
+  {
+    "name": "cmd: part · assemblyVisualization — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'assemblyVisualization')"
+  },
+  {
+    "name": "cmd: part · assemblyVisualizationOff — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'assemblyVisualizationOff')"
+  },
+  {
+    "name": "cmd: part · sectionProperties — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'sectionProperties')"
+  },
+  {
+    "name": "cmd: part · asmWeldBead — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'asmWeldBead')"
+  },
+  {
+    "name": "cmd: part · editInContext — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'editInContext')"
+  },
+  {
+    "name": "cmd: part · newPartInContext — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'newPartInContext')"
+  },
+  {
+    "name": "cmd: part · exitInContext — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'exitInContext')"
+  },
+  {
+    "name": "cmd: part · updateExternalRefs — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'updateExternalRefs')"
+  },
+  {
+    "name": "cmd: part · externalRefs — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'externalRefs')"
+  },
+  {
+    "name": "cmd: part · newLayout — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'newLayout')"
+  },
+  {
+    "name": "cmd: part · makePartFromBlock — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'makePartFromBlock')"
+  },
+  {
+    "name": "cmd: part · updateLayout — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'updateLayout')"
   },
   {
     "name": "cmd: part · designCheck — has a visible effect (or is skipped with its reason / not available here)",
@@ -3357,7 +3597,7 @@
   {
     "name": "cmd: part · commands added later — each has a visible effect",
     "expect": "^ok",
-    "eval": "window.__cmdLater('part', [\"newPart\",\"newProjectPart\",\"newAssembly\",\"newDrawing\",\"openExample\",\"open\",\"startPage\",\"save\",\"saveAs\",\"recent\",\"recentFolders\",\"clearRecent\",\"importStep\",\"exportMenu\",\"exportStep\",\"exportIges\",\"exportXt\",\"exportXb\",\"exportMesh:glb\",\"exportMesh:gltf\",\"exportMesh:obj\",\"exportMesh:ply\",\"exportMesh:wrl\",\"exportMesh:3mf\",\"exportMesh:usdz\",\"exportStl\",\"exportImage\",\"exportDxf\",\"exportDwg\",\"exportSketchDxf\",\"exportSketchDwg\",\"exportSvg\",\"print\",\"closeProject\",\"exitProject\",\"exit\",\"undo\",\"redo\",\"delete\",\"rename\",\"largeAssemblyMode\",\"rebuild\",\"editFeature\",\"suppress\",\"unsuppress\",\"rollbackHere\",\"rollbackEnd\",\"clearSelection\",\"sketch\",\"extrude\",\"revolve\",\"cutExtrude\",\"cutRevolve\",\"fillet\",\"chamfer\",\"shell\",\"hole\",\"linearPattern\",\"circularPattern\",\"mirror\",\"refPlane\",\"material\",\"sweep\",\"cutSweep\",\"loft\",\"cutLoft\",\"draft\",\"rib\",\"dome\",\"helix\",\"thread\",\"wrap\",\"thicken\",\"surfaceExtrude\",\"surfaceRevolve\",\"surfacePlanar\",\"surfaceLoft\",\"surfaceOffset\",\"knit\",\"moveBody\",\"openscadFeature\",\"exportScad\",\"scaleBody\",\"split\",\"insertPart\",\"cavity\",\"shrink\",\"baseFlange\",\"edgeFlange\",\"flatten\",\"structural\",\"fillSurface\",\"boundary\",\"trimSurface\",\"hem\",\"sketchedBend\",\"jog\",\"partingLine\",\"toolingSplit\",\"sketch3d\",\"combine\",\"deleteBody\",\"indent\",\"flex\",\"deform\",\"refAxis\",\"refPoint\",\"coordSys\",\"boundingBox\",\"variableFillet\",\"faceFillet\",\"fullRoundFillet\",\"curvePattern\",\"sketchPattern\",\"tablePattern\",\"fillPattern\",\"variablePattern\",\"projectedCurve\",\"splitLine\",\"compositeCurve\",\"curveXYZ\",\"openscad\",\"mountingBoss\",\"snapHook\",\"snapHookGroove\",\"vent\",\"lipGroove\",\"surfaceSweep\",\"cutWithSurface\",\"deleteHole\",\"untrimSurface\",\"midSurface\",\"radiateSurface\",\"flattenSurface\",\"convertSheet\",\"insertBends\",\"rip\",\"unfold\",\"fold\",\"crossBreak\",\"weldedCorner\",\"tabSlot\",\"advancedHole\",\"intersect\",\"mateReference\",\"ruledSurface\",\"deleteFace\",\"replaceFace\",\"extendSurface\",\"miterFlange\",\"loftedBend\",\"tab\",\"closedCorner\",\"cornerRelief\",\"formTool\",\"endCap\",\"gusset\",\"weldBead\",\"trimExtend\",\"sk:convert\",\"sk:intersect\",\"sk:move\",\"sk:copy\",\"sk:rotate\",\"sk:scale\",\"cutList\",\"draftAnalysis\",\"simulation\",\"equations\",\"configurations\",\"designTable\",\"importTable\",\"exitSketch\",\"cancelSketch\",\"sk:select\",\"sk:line\",\"sk:centerline\",\"sk:rect\",\"sk:centerRect\",\"sk:circle\",\"sk:arc3\",\"sk:centerArc\",\"sk:polygon\",\"sk:slot\",\"sk:point\",\"sk:spline\",\"sk:ellipse\",\"sk:rect3\",\"sk:rect3c\",\"sk:parallelogram\",\"sk:circle3\",\"sk:tangentArc\",\"sk:partialEllipse\",\"sk:parabola\",\"sk:conic\",\"sk:equation\",\"sk:split\",\"sk:stretch\",\"sk:fullyDefine\",\"sk:text\",\"sk:fillet\",\"sk:chamfer\",\"sk:extend\",\"sk:offset\",\"sk:mirror\",\"sk:linPattern\",\"sk:cirPattern\",\"sk:dimension\",\"sk:trim\",\"construction\",\"normalTo\",\"view:front\",\"view:back\",\"view:top\",\"view:bottom\",\"view:left\",\"view:right\",\"view:iso\",\"view:dimetric\",\"view:trimetric\",\"viewsMenu\",\"zoomFit\",\"perspective\",\"style:shadedEdges\",\"style:shaded\",\"style:hiddenRemoved\",\"style:hiddenVisible\",\"style:wireframe\",\"styleMenu\",\"styleCycle\",\"section\",\"showPlanes\",\"showOrigin\",\"showSketches\",\"showRulers\",\"showGrid\",\"gridPlane:front\",\"gridPlane:top\",\"gridPlane:right\",\"showScaleBar\",\"leftPanel\",\"rightPanel\",\"bottomPanel\",\"statusBar\",\"fps\",\"massProps\",\"lights\",\"measure\",\"interference\",\"insertComponent\",\"mate\",\"fixComponent\",\"floatComponent\",\"rotateComponent\",\"rotateComponentX\",\"rotateComponentY\",\"explode\",\"resetExplode\",\"motion\",\"openPart\",\"addView\",\"std3View\",\"hiddenLines\",\"sectionView\",\"saveBodies\",\"sectionViewH\",\"alignedSection\",\"alternatePositionView\",\"flatPatternView\",\"bendTable\",\"detailView\",\"auxView\",\"bom\",\"ann:note\",\"ann:balloon\",\"ann:gdt\",\"ann:datum\",\"ann:surface\",\"ann:centermark\",\"ann:cloud\",\"ann:datumTarget\",\"ann:hatch\",\"autoDims\",\"theme\",\"themeMenu\",\"language\",\"shuffleBackground\",\"backgroundImage\",\"clearBackground\",\"userGuide\",\"tutorialDoc\",\"shortcuts\",\"settings\",\"about\",\"welcome\",\"linearComponentPattern\",\"circularComponentPattern\",\"featureDrivenComponentPattern\",\"sketchDrivenComponentPattern\",\"curveDrivenComponentPattern\",\"chainComponentPattern\",\"mirrorComponents\",\"smartMate\",\"moveComponent\",\"curvature\",\"zebraStripes\",\"thicknessAnalysis\",\"brokenOutSection\",\"breakView\",\"cropView\",\"holeTable\",\"revisionTable\",\"addSheet\",\"renameSheet\",\"deleteSheet\",\"nonlinearStudy\",\"dropTest\",\"loadCombination\",\"topologyStudy\",\"dynamicStudy\",\"flowStudy\",\"assemblySimulation\",\"mbdAnnotations\",\"mbdAutoDimension\",\"insertModelAnnotations\",\"versionHistory\",\"checkOut\",\"checkIn\",\"whereUsed\",\"asmCut\",\"asmHole\",\"beltChain\",\"sk:makeBlock\",\"sk:insertBlock\",\"sk:explodeBlock\",\"sk:picture\",\"libSave\",\"libInsert\",\"vaultExplorer\",\"vaultCheckIn\",\"vaultCheckOut\",\"vaultInsert\",\"vaultUpdateLinks\",\"vaultPackAndGo\",\"drwSmartDim\",\"drwModelItems\",\"drwCenterMarks\",\"drwWeld\",\"drwTable\",\"drwLayers\",\"drwTitleBlock\",\"drwSheetFormat\",\"eval_deviation\",\"eval_symmetry\",\"eval_geometry\",\"eval_undercut\",\"eval_compare\",\"eval_costing\",\"eval_sustain\",\"shutOff\",\"partingSurface\",\"camManager\",\"camStock\",\"camTools\",\"camRecognize\",\"camPlan\",\"camFacing\",\"camPocket\",\"camAdaptive\",\"camContour\",\"camSlot\",\"camHelix\",\"camSpot\",\"camDrill\",\"camPeck\",\"camTap\",\"camZLevel\",\"camParallel\",\"camScallop\",\"camWaterline\",\"camTurnFace\",\"camTurnRough\",\"camTurnFinish\",\"camTurnBore\",\"camTurnGroove\",\"camTurnThread\",\"camGenerate\",\"camSimulate\",\"camPost\",\"camSetupSheet\",\"plasticsStudy\",\"plGate\",\"plSuggest\",\"plRun\",\"plFillTime\",\"plPressure\",\"plTemperature\",\"plWeld\",\"plAirTraps\",\"plSink\",\"plReport\",\"plFiber\",\"plCooling\",\"plWarp\",\"inspBalloon\",\"inspTable\",\"inspRenumber\",\"inspClear\",\"inspImport\",\"inspCsv\",\"inspExcel\",\"inspReport\",\"illustration\",\"ilAddView\",\"ilPlay\",\"ilExportSvg\",\"ilExportHtml\",\"schematic\",\"schFromTo\",\"replaceComponent\",\"copyWithMates\",\"holeAlignment\",\"envelopeComponent\",\"envelopeSelectInside\",\"envelopeSelectCrossing\",\"designCheck\",\"taskScheduler\",\"macroRecord\",\"macroRun\",\"macroStop\",\"macroEditor\",\"designStudy\",\"defeature\",\"markup\",\"markupReport\",\"electronicsCooling\",\"freeSurface\",\"stdLibrary\",\"smartFastener\",\"pipeRoute\",\"tubeRoute\",\"cableRoute\",\"harnessRoute\",\"harnessDrawing\",\"renderView\"])"
+    "eval": "window.__cmdLater('part', [\"newPart\",\"newProjectPart\",\"newAssembly\",\"newDrawing\",\"openExample\",\"open\",\"startPage\",\"save\",\"saveAs\",\"recent\",\"recentFolders\",\"clearRecent\",\"importStep\",\"exportMenu\",\"exportStep\",\"exportIges\",\"exportXt\",\"exportXb\",\"exportMesh:glb\",\"exportMesh:gltf\",\"exportMesh:obj\",\"exportMesh:ply\",\"exportMesh:wrl\",\"exportMesh:3mf\",\"exportMesh:off\",\"exportMesh:amf\",\"exportMesh:usdz\",\"exportStl\",\"exportImage\",\"exportDxf\",\"exportDwg\",\"exportSketchDxf\",\"exportSketchDwg\",\"exportSvg\",\"print\",\"closeProject\",\"exitProject\",\"exit\",\"undo\",\"redo\",\"delete\",\"rename\",\"largeAssemblyMode\",\"rebuild\",\"editFeature\",\"suppress\",\"unsuppress\",\"rollbackHere\",\"rollbackEnd\",\"clearSelection\",\"sketch\",\"extrude\",\"revolve\",\"cutExtrude\",\"cutRevolve\",\"fillet\",\"chamfer\",\"shell\",\"hole\",\"linearPattern\",\"circularPattern\",\"mirror\",\"refPlane\",\"material\",\"sweep\",\"cutSweep\",\"loft\",\"cutLoft\",\"draft\",\"rib\",\"dome\",\"helix\",\"thread\",\"wrap\",\"thicken\",\"surfaceExtrude\",\"surfaceRevolve\",\"surfacePlanar\",\"surfaceLoft\",\"surfaceOffset\",\"knit\",\"moveBody\",\"openscadFeature\",\"exportScad\",\"scaleBody\",\"split\",\"insertPart\",\"cavity\",\"shrink\",\"baseFlange\",\"edgeFlange\",\"flatten\",\"structural\",\"fillSurface\",\"boundary\",\"trimSurface\",\"hem\",\"sketchedBend\",\"jog\",\"partingLine\",\"toolingSplit\",\"sketch3d\",\"combine\",\"deleteBody\",\"indent\",\"flex\",\"deform\",\"refAxis\",\"refPoint\",\"coordSys\",\"boundingBox\",\"variableFillet\",\"faceFillet\",\"fullRoundFillet\",\"curvePattern\",\"sketchPattern\",\"tablePattern\",\"fillPattern\",\"variablePattern\",\"projectedCurve\",\"splitLine\",\"compositeCurve\",\"curveXYZ\",\"surfaceSpline\",\"openscad\",\"mountingBoss\",\"snapHook\",\"snapHookGroove\",\"vent\",\"lipGroove\",\"surfaceSweep\",\"cutWithSurface\",\"deleteHole\",\"untrimSurface\",\"midSurface\",\"radiateSurface\",\"flattenSurface\",\"convertSheet\",\"insertBends\",\"rip\",\"unfold\",\"fold\",\"crossBreak\",\"weldedCorner\",\"tabSlot\",\"advancedHole\",\"intersect\",\"mateReference\",\"moveFace\",\"connectionPoint\",\"ruledSurface\",\"deleteFace\",\"replaceFace\",\"extendSurface\",\"miterFlange\",\"loftedBend\",\"tab\",\"closedCorner\",\"cornerRelief\",\"formTool\",\"endCap\",\"gusset\",\"weldBead\",\"trimExtend\",\"sk:silhouette\",\"sk:silhouetteInternal\",\"sk:convert\",\"sk:intersect\",\"sk:move\",\"sk:copy\",\"sk:rotate\",\"sk:scale\",\"cutList\",\"draftAnalysis\",\"simulation\",\"equations\",\"configurations\",\"designTable\",\"importTable\",\"exitSketch\",\"cancelSketch\",\"sk:select\",\"sk:line\",\"sk:centerline\",\"sk:rect\",\"sk:centerRect\",\"sk:circle\",\"sk:arc3\",\"sk:centerArc\",\"sk:polygon\",\"sk:slot\",\"sk:slotCenter\",\"sk:slotArc3\",\"sk:slotArcCenter\",\"sk:point\",\"sk:spline\",\"sk:styleSpline\",\"sk:ellipse\",\"sk:rect3\",\"sk:rect3c\",\"sk:parallelogram\",\"sk:circle3\",\"sk:tangentArc\",\"sk:partialEllipse\",\"sk:parabola\",\"sk:conic\",\"sk:equation\",\"sk:split\",\"sk:stretch\",\"sk:baselineDim\",\"sk:dynamicMirror\",\"sk:autotrace\",\"sk:repair\",\"sk:fullyDefine\",\"sk:text\",\"sk:fillet\",\"sk:chamfer\",\"sk:extend\",\"sk:offset\",\"sk:mirror\",\"sk:linPattern\",\"sk:cirPattern\",\"sk:dimension\",\"sk:trim\",\"construction\",\"normalTo\",\"view:front\",\"view:back\",\"view:top\",\"view:bottom\",\"view:left\",\"view:right\",\"view:iso\",\"view:dimetric\",\"view:trimetric\",\"viewsMenu\",\"zoomFit\",\"perspective\",\"style:shadedEdges\",\"style:shaded\",\"style:hiddenRemoved\",\"style:hiddenVisible\",\"style:wireframe\",\"styleMenu\",\"styleCycle\",\"section\",\"showPlanes\",\"showOrigin\",\"showSketches\",\"showRulers\",\"showGrid\",\"gridPlane:front\",\"gridPlane:top\",\"gridPlane:right\",\"showScaleBar\",\"leftPanel\",\"rightPanel\",\"bottomPanel\",\"statusBar\",\"fps\",\"massProps\",\"lights\",\"measure\",\"interference\",\"insertComponent\",\"mate\",\"fixComponent\",\"magneticSnap\",\"simplifyOuter\",\"simplifyBox\",\"simplifyFull\",\"flexibleComponent\",\"floatComponent\",\"rotateComponent\",\"rotateComponentX\",\"rotateComponentY\",\"explode\",\"resetExplode\",\"motion\",\"openPart\",\"addView\",\"std3View\",\"hiddenLines\",\"sectionView\",\"view3dDrawing\",\"relativeView\",\"removedSection\",\"saveBodies\",\"sectionViewH\",\"alignedSection\",\"alternatePositionView\",\"flatPatternView\",\"weldTable\",\"cutListTable\",\"bendTable\",\"detailView\",\"auxView\",\"bom\",\"ann:note\",\"ann:balloon\",\"ann:gdt\",\"ann:datum\",\"ann:surface\",\"ann:centermark\",\"ann:cloud\",\"ann:datumTarget\",\"ann:hatch\",\"autoDims\",\"theme\",\"themeMenu\",\"language\",\"shuffleBackground\",\"backgroundImage\",\"clearBackground\",\"userGuide\",\"tutorialDoc\",\"shortcuts\",\"settings\",\"about\",\"welcome\",\"linearComponentPattern\",\"circularComponentPattern\",\"featureDrivenComponentPattern\",\"sketchDrivenComponentPattern\",\"curveDrivenComponentPattern\",\"chainComponentPattern\",\"mirrorComponents\",\"smartMate\",\"moveComponent\",\"curvature\",\"zebraStripes\",\"thicknessAnalysis\",\"brokenOutSection\",\"breakView\",\"cropView\",\"holeTable\",\"revisionTable\",\"addSheet\",\"renameSheet\",\"deleteSheet\",\"nonlinearStudy\",\"dropTest\",\"loadCombination\",\"topologyStudy\",\"dynamicStudy\",\"flowStudy\",\"assemblySimulation\",\"mbdAnnotations\",\"mbdAutoDimension\",\"insertModelAnnotations\",\"versionHistory\",\"checkOut\",\"checkIn\",\"whereUsed\",\"asmCut\",\"asmHole\",\"beltChain\",\"sk:makeBlock\",\"sk:insertBlock\",\"sk:explodeBlock\",\"sk:picture\",\"libSave\",\"libInsert\",\"vaultExplorer\",\"vaultCheckIn\",\"vaultCheckOut\",\"vaultInsert\",\"vaultUpdateLinks\",\"vaultPackAndGo\",\"drwSmartDim\",\"drwModelItems\",\"drwCenterMarks\",\"drwAutoBalloon\",\"drwHoleCallout\",\"drwWeld\",\"drwTable\",\"drwLayers\",\"drwTitleBlock\",\"drwSheetFormat\",\"eval_deviation\",\"eval_symmetry\",\"eval_geometry\",\"eval_undercut\",\"eval_compare\",\"eval_costing\",\"eval_sustain\",\"shutOff\",\"partingSurface\",\"camManager\",\"camStock\",\"camTools\",\"camRecognize\",\"camPlan\",\"camFacing\",\"camPocket\",\"camAdaptive\",\"camContour\",\"camSlot\",\"camHelix\",\"camSpot\",\"camDrill\",\"camPeck\",\"camTap\",\"camZLevel\",\"camParallel\",\"camScallop\",\"camWaterline\",\"camTurnFace\",\"camTurnRough\",\"camTurnFinish\",\"camTurnBore\",\"camTurnGroove\",\"camTurnThread\",\"camGenerate\",\"camSimulate\",\"camPost\",\"camSetupSheet\",\"plasticsStudy\",\"plGate\",\"plSuggest\",\"plRun\",\"plFillTime\",\"plPressure\",\"plTemperature\",\"plWeld\",\"plAirTraps\",\"plSink\",\"plReport\",\"plFiber\",\"plCooling\",\"plWarp\",\"inspBalloon\",\"inspTable\",\"inspRenumber\",\"inspClear\",\"inspImport\",\"inspCsv\",\"inspExcel\",\"inspReport\",\"illustration\",\"ilAddView\",\"ilPlay\",\"ilExportSvg\",\"ilExportHtml\",\"schematic\",\"schFromTo\",\"replaceComponent\",\"copyWithMates\",\"holeAlignment\",\"clearanceCheck\",\"envelopeComponent\",\"envelopeSelectInside\",\"envelopeSelectCrossing\",\"explodeEditor\",\"explodeAnimate\",\"assemblyVisualization\",\"assemblyVisualizationOff\",\"sectionProperties\",\"asmWeldBead\",\"editInContext\",\"newPartInContext\",\"exitInContext\",\"updateExternalRefs\",\"externalRefs\",\"newLayout\",\"makePartFromBlock\",\"updateLayout\",\"designCheck\",\"taskScheduler\",\"macroRecord\",\"macroRun\",\"macroStop\",\"macroEditor\",\"designStudy\",\"defeature\",\"markup\",\"markupReport\",\"electronicsCooling\",\"freeSurface\",\"stdLibrary\",\"smartFastener\",\"pipeRoute\",\"tubeRoute\",\"cableRoute\",\"harnessRoute\",\"harnessDrawing\",\"renderView\"])"
   },
   {
     "name": "cmd: assembly · newPart — has a visible effect (or is skipped with its reason / not available here)",
@@ -3478,6 +3718,16 @@
     "name": "cmd: assembly · exportMesh:3mf — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('assembly', 'exportMesh:3mf')"
+  },
+  {
+    "name": "cmd: assembly · exportMesh:off — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'exportMesh:off')"
+  },
+  {
+    "name": "cmd: assembly · exportMesh:amf — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'exportMesh:amf')"
   },
   {
     "name": "cmd: assembly · exportMesh:usdz — has a visible effect (or is skipped with its reason / not available here)",
@@ -3965,6 +4215,11 @@
     "eval": "window.__cmdOne('assembly', 'curveXYZ')"
   },
   {
+    "name": "cmd: assembly · surfaceSpline — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'surfaceSpline')"
+  },
+  {
     "name": "cmd: assembly · openscad — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('assembly', 'openscad')"
@@ -4085,6 +4340,16 @@
     "eval": "window.__cmdOne('assembly', 'mateReference')"
   },
   {
+    "name": "cmd: assembly · moveFace — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'moveFace')"
+  },
+  {
+    "name": "cmd: assembly · connectionPoint — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'connectionPoint')"
+  },
+  {
     "name": "cmd: assembly · ruledSurface — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('assembly', 'ruledSurface')"
@@ -4153,6 +4418,16 @@
     "name": "cmd: assembly · trimExtend — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('assembly', 'trimExtend')"
+  },
+  {
+    "name": "cmd: assembly · sk:silhouette — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'sk:silhouette')"
+  },
+  {
+    "name": "cmd: assembly · sk:silhouetteInternal — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'sk:silhouetteInternal')"
   },
   {
     "name": "cmd: assembly · sk:convert — has a visible effect (or is skipped with its reason / not available here)",
@@ -4280,6 +4555,21 @@
     "eval": "window.__cmdOne('assembly', 'sk:slot')"
   },
   {
+    "name": "cmd: assembly · sk:slotCenter — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'sk:slotCenter')"
+  },
+  {
+    "name": "cmd: assembly · sk:slotArc3 — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'sk:slotArc3')"
+  },
+  {
+    "name": "cmd: assembly · sk:slotArcCenter — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'sk:slotArcCenter')"
+  },
+  {
     "name": "cmd: assembly · sk:point — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('assembly', 'sk:point')"
@@ -4288,6 +4578,11 @@
     "name": "cmd: assembly · sk:spline — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('assembly', 'sk:spline')"
+  },
+  {
+    "name": "cmd: assembly · sk:styleSpline — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'sk:styleSpline')"
   },
   {
     "name": "cmd: assembly · sk:ellipse — has a visible effect (or is skipped with its reason / not available here)",
@@ -4348,6 +4643,26 @@
     "name": "cmd: assembly · sk:stretch — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('assembly', 'sk:stretch')"
+  },
+  {
+    "name": "cmd: assembly · sk:baselineDim — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'sk:baselineDim')"
+  },
+  {
+    "name": "cmd: assembly · sk:dynamicMirror — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'sk:dynamicMirror')"
+  },
+  {
+    "name": "cmd: assembly · sk:autotrace — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'sk:autotrace')"
+  },
+  {
+    "name": "cmd: assembly · sk:repair — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'sk:repair')"
   },
   {
     "name": "cmd: assembly · sk:fullyDefine — has a visible effect (or is skipped with its reason / not available here)",
@@ -4620,6 +4935,31 @@
     "eval": "window.__cmdOne('assembly', 'fixComponent')"
   },
   {
+    "name": "cmd: assembly · magneticSnap — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'magneticSnap')"
+  },
+  {
+    "name": "cmd: assembly · simplifyOuter — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'simplifyOuter')"
+  },
+  {
+    "name": "cmd: assembly · simplifyBox — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'simplifyBox')"
+  },
+  {
+    "name": "cmd: assembly · simplifyFull — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'simplifyFull')"
+  },
+  {
+    "name": "cmd: assembly · flexibleComponent — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'flexibleComponent')"
+  },
+  {
     "name": "cmd: assembly · floatComponent — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('assembly', 'floatComponent')"
@@ -4680,6 +5020,21 @@
     "eval": "window.__cmdOne('assembly', 'sectionView')"
   },
   {
+    "name": "cmd: assembly · view3dDrawing — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'view3dDrawing')"
+  },
+  {
+    "name": "cmd: assembly · relativeView — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'relativeView')"
+  },
+  {
+    "name": "cmd: assembly · removedSection — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'removedSection')"
+  },
+  {
     "name": "cmd: assembly · saveBodies — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('assembly', 'saveBodies')"
@@ -4703,6 +5058,16 @@
     "name": "cmd: assembly · flatPatternView — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('assembly', 'flatPatternView')"
+  },
+  {
+    "name": "cmd: assembly · weldTable — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'weldTable')"
+  },
+  {
+    "name": "cmd: assembly · cutListTable — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'cutListTable')"
   },
   {
     "name": "cmd: assembly · bendTable — has a visible effect (or is skipped with its reason / not available here)",
@@ -5095,6 +5460,16 @@
     "eval": "window.__cmdOne('assembly', 'drwCenterMarks')"
   },
   {
+    "name": "cmd: assembly · drwAutoBalloon — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'drwAutoBalloon')"
+  },
+  {
+    "name": "cmd: assembly · drwHoleCallout — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'drwHoleCallout')"
+  },
+  {
     "name": "cmd: assembly · drwWeld — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('assembly', 'drwWeld')"
@@ -5470,6 +5845,11 @@
     "eval": "window.__cmdOne('assembly', 'holeAlignment')"
   },
   {
+    "name": "cmd: assembly · clearanceCheck — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'clearanceCheck')"
+  },
+  {
     "name": "cmd: assembly · envelopeComponent — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('assembly', 'envelopeComponent')"
@@ -5483,6 +5863,76 @@
     "name": "cmd: assembly · envelopeSelectCrossing — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('assembly', 'envelopeSelectCrossing')"
+  },
+  {
+    "name": "cmd: assembly · explodeEditor — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'explodeEditor')"
+  },
+  {
+    "name": "cmd: assembly · explodeAnimate — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'explodeAnimate')"
+  },
+  {
+    "name": "cmd: assembly · assemblyVisualization — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'assemblyVisualization')"
+  },
+  {
+    "name": "cmd: assembly · assemblyVisualizationOff — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'assemblyVisualizationOff')"
+  },
+  {
+    "name": "cmd: assembly · sectionProperties — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'sectionProperties')"
+  },
+  {
+    "name": "cmd: assembly · asmWeldBead — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'asmWeldBead')"
+  },
+  {
+    "name": "cmd: assembly · editInContext — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'editInContext')"
+  },
+  {
+    "name": "cmd: assembly · newPartInContext — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'newPartInContext')"
+  },
+  {
+    "name": "cmd: assembly · exitInContext — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'exitInContext')"
+  },
+  {
+    "name": "cmd: assembly · updateExternalRefs — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'updateExternalRefs')"
+  },
+  {
+    "name": "cmd: assembly · externalRefs — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'externalRefs')"
+  },
+  {
+    "name": "cmd: assembly · newLayout — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'newLayout')"
+  },
+  {
+    "name": "cmd: assembly · makePartFromBlock — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'makePartFromBlock')"
+  },
+  {
+    "name": "cmd: assembly · updateLayout — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'updateLayout')"
   },
   {
     "name": "cmd: assembly · designCheck — has a visible effect (or is skipped with its reason / not available here)",
@@ -5587,7 +6037,7 @@
   {
     "name": "cmd: assembly · commands added later — each has a visible effect",
     "expect": "^ok",
-    "eval": "window.__cmdLater('assembly', [\"newPart\",\"newProjectPart\",\"newAssembly\",\"newDrawing\",\"openExample\",\"open\",\"startPage\",\"save\",\"saveAs\",\"recent\",\"recentFolders\",\"clearRecent\",\"importStep\",\"exportMenu\",\"exportStep\",\"exportIges\",\"exportXt\",\"exportXb\",\"exportMesh:glb\",\"exportMesh:gltf\",\"exportMesh:obj\",\"exportMesh:ply\",\"exportMesh:wrl\",\"exportMesh:3mf\",\"exportMesh:usdz\",\"exportStl\",\"exportImage\",\"exportDxf\",\"exportDwg\",\"exportSketchDxf\",\"exportSketchDwg\",\"exportSvg\",\"print\",\"closeProject\",\"exitProject\",\"exit\",\"undo\",\"redo\",\"delete\",\"rename\",\"largeAssemblyMode\",\"rebuild\",\"editFeature\",\"suppress\",\"unsuppress\",\"rollbackHere\",\"rollbackEnd\",\"clearSelection\",\"sketch\",\"extrude\",\"revolve\",\"cutExtrude\",\"cutRevolve\",\"fillet\",\"chamfer\",\"shell\",\"hole\",\"linearPattern\",\"circularPattern\",\"mirror\",\"refPlane\",\"material\",\"sweep\",\"cutSweep\",\"loft\",\"cutLoft\",\"draft\",\"rib\",\"dome\",\"helix\",\"thread\",\"wrap\",\"thicken\",\"surfaceExtrude\",\"surfaceRevolve\",\"surfacePlanar\",\"surfaceLoft\",\"surfaceOffset\",\"knit\",\"moveBody\",\"openscadFeature\",\"exportScad\",\"scaleBody\",\"split\",\"insertPart\",\"cavity\",\"shrink\",\"baseFlange\",\"edgeFlange\",\"flatten\",\"structural\",\"fillSurface\",\"boundary\",\"trimSurface\",\"hem\",\"sketchedBend\",\"jog\",\"partingLine\",\"toolingSplit\",\"sketch3d\",\"combine\",\"deleteBody\",\"indent\",\"flex\",\"deform\",\"refAxis\",\"refPoint\",\"coordSys\",\"boundingBox\",\"variableFillet\",\"faceFillet\",\"fullRoundFillet\",\"curvePattern\",\"sketchPattern\",\"tablePattern\",\"fillPattern\",\"variablePattern\",\"projectedCurve\",\"splitLine\",\"compositeCurve\",\"curveXYZ\",\"openscad\",\"mountingBoss\",\"snapHook\",\"snapHookGroove\",\"vent\",\"lipGroove\",\"surfaceSweep\",\"cutWithSurface\",\"deleteHole\",\"untrimSurface\",\"midSurface\",\"radiateSurface\",\"flattenSurface\",\"convertSheet\",\"insertBends\",\"rip\",\"unfold\",\"fold\",\"crossBreak\",\"weldedCorner\",\"tabSlot\",\"advancedHole\",\"intersect\",\"mateReference\",\"ruledSurface\",\"deleteFace\",\"replaceFace\",\"extendSurface\",\"miterFlange\",\"loftedBend\",\"tab\",\"closedCorner\",\"cornerRelief\",\"formTool\",\"endCap\",\"gusset\",\"weldBead\",\"trimExtend\",\"sk:convert\",\"sk:intersect\",\"sk:move\",\"sk:copy\",\"sk:rotate\",\"sk:scale\",\"cutList\",\"draftAnalysis\",\"simulation\",\"equations\",\"configurations\",\"designTable\",\"importTable\",\"exitSketch\",\"cancelSketch\",\"sk:select\",\"sk:line\",\"sk:centerline\",\"sk:rect\",\"sk:centerRect\",\"sk:circle\",\"sk:arc3\",\"sk:centerArc\",\"sk:polygon\",\"sk:slot\",\"sk:point\",\"sk:spline\",\"sk:ellipse\",\"sk:rect3\",\"sk:rect3c\",\"sk:parallelogram\",\"sk:circle3\",\"sk:tangentArc\",\"sk:partialEllipse\",\"sk:parabola\",\"sk:conic\",\"sk:equation\",\"sk:split\",\"sk:stretch\",\"sk:fullyDefine\",\"sk:text\",\"sk:fillet\",\"sk:chamfer\",\"sk:extend\",\"sk:offset\",\"sk:mirror\",\"sk:linPattern\",\"sk:cirPattern\",\"sk:dimension\",\"sk:trim\",\"construction\",\"normalTo\",\"view:front\",\"view:back\",\"view:top\",\"view:bottom\",\"view:left\",\"view:right\",\"view:iso\",\"view:dimetric\",\"view:trimetric\",\"viewsMenu\",\"zoomFit\",\"perspective\",\"style:shadedEdges\",\"style:shaded\",\"style:hiddenRemoved\",\"style:hiddenVisible\",\"style:wireframe\",\"styleMenu\",\"styleCycle\",\"section\",\"showPlanes\",\"showOrigin\",\"showSketches\",\"showRulers\",\"showGrid\",\"gridPlane:front\",\"gridPlane:top\",\"gridPlane:right\",\"showScaleBar\",\"leftPanel\",\"rightPanel\",\"bottomPanel\",\"statusBar\",\"fps\",\"massProps\",\"lights\",\"measure\",\"interference\",\"insertComponent\",\"mate\",\"fixComponent\",\"floatComponent\",\"rotateComponent\",\"rotateComponentX\",\"rotateComponentY\",\"explode\",\"resetExplode\",\"motion\",\"openPart\",\"addView\",\"std3View\",\"hiddenLines\",\"sectionView\",\"saveBodies\",\"sectionViewH\",\"alignedSection\",\"alternatePositionView\",\"flatPatternView\",\"bendTable\",\"detailView\",\"auxView\",\"bom\",\"ann:note\",\"ann:balloon\",\"ann:gdt\",\"ann:datum\",\"ann:surface\",\"ann:centermark\",\"ann:cloud\",\"ann:datumTarget\",\"ann:hatch\",\"autoDims\",\"theme\",\"themeMenu\",\"language\",\"shuffleBackground\",\"backgroundImage\",\"clearBackground\",\"userGuide\",\"tutorialDoc\",\"shortcuts\",\"settings\",\"about\",\"welcome\",\"linearComponentPattern\",\"circularComponentPattern\",\"featureDrivenComponentPattern\",\"sketchDrivenComponentPattern\",\"curveDrivenComponentPattern\",\"chainComponentPattern\",\"mirrorComponents\",\"smartMate\",\"moveComponent\",\"curvature\",\"zebraStripes\",\"thicknessAnalysis\",\"brokenOutSection\",\"breakView\",\"cropView\",\"holeTable\",\"revisionTable\",\"addSheet\",\"renameSheet\",\"deleteSheet\",\"nonlinearStudy\",\"dropTest\",\"loadCombination\",\"topologyStudy\",\"dynamicStudy\",\"flowStudy\",\"assemblySimulation\",\"mbdAnnotations\",\"mbdAutoDimension\",\"insertModelAnnotations\",\"versionHistory\",\"checkOut\",\"checkIn\",\"whereUsed\",\"asmCut\",\"asmHole\",\"beltChain\",\"sk:makeBlock\",\"sk:insertBlock\",\"sk:explodeBlock\",\"sk:picture\",\"libSave\",\"libInsert\",\"vaultExplorer\",\"vaultCheckIn\",\"vaultCheckOut\",\"vaultInsert\",\"vaultUpdateLinks\",\"vaultPackAndGo\",\"drwSmartDim\",\"drwModelItems\",\"drwCenterMarks\",\"drwWeld\",\"drwTable\",\"drwLayers\",\"drwTitleBlock\",\"drwSheetFormat\",\"eval_deviation\",\"eval_symmetry\",\"eval_geometry\",\"eval_undercut\",\"eval_compare\",\"eval_costing\",\"eval_sustain\",\"shutOff\",\"partingSurface\",\"camManager\",\"camStock\",\"camTools\",\"camRecognize\",\"camPlan\",\"camFacing\",\"camPocket\",\"camAdaptive\",\"camContour\",\"camSlot\",\"camHelix\",\"camSpot\",\"camDrill\",\"camPeck\",\"camTap\",\"camZLevel\",\"camParallel\",\"camScallop\",\"camWaterline\",\"camTurnFace\",\"camTurnRough\",\"camTurnFinish\",\"camTurnBore\",\"camTurnGroove\",\"camTurnThread\",\"camGenerate\",\"camSimulate\",\"camPost\",\"camSetupSheet\",\"plasticsStudy\",\"plGate\",\"plSuggest\",\"plRun\",\"plFillTime\",\"plPressure\",\"plTemperature\",\"plWeld\",\"plAirTraps\",\"plSink\",\"plReport\",\"plFiber\",\"plCooling\",\"plWarp\",\"inspBalloon\",\"inspTable\",\"inspRenumber\",\"inspClear\",\"inspImport\",\"inspCsv\",\"inspExcel\",\"inspReport\",\"illustration\",\"ilAddView\",\"ilPlay\",\"ilExportSvg\",\"ilExportHtml\",\"schematic\",\"schFromTo\",\"replaceComponent\",\"copyWithMates\",\"holeAlignment\",\"envelopeComponent\",\"envelopeSelectInside\",\"envelopeSelectCrossing\",\"designCheck\",\"taskScheduler\",\"macroRecord\",\"macroRun\",\"macroStop\",\"macroEditor\",\"designStudy\",\"defeature\",\"markup\",\"markupReport\",\"electronicsCooling\",\"freeSurface\",\"stdLibrary\",\"smartFastener\",\"pipeRoute\",\"tubeRoute\",\"cableRoute\",\"harnessRoute\",\"harnessDrawing\",\"renderView\"])"
+    "eval": "window.__cmdLater('assembly', [\"newPart\",\"newProjectPart\",\"newAssembly\",\"newDrawing\",\"openExample\",\"open\",\"startPage\",\"save\",\"saveAs\",\"recent\",\"recentFolders\",\"clearRecent\",\"importStep\",\"exportMenu\",\"exportStep\",\"exportIges\",\"exportXt\",\"exportXb\",\"exportMesh:glb\",\"exportMesh:gltf\",\"exportMesh:obj\",\"exportMesh:ply\",\"exportMesh:wrl\",\"exportMesh:3mf\",\"exportMesh:off\",\"exportMesh:amf\",\"exportMesh:usdz\",\"exportStl\",\"exportImage\",\"exportDxf\",\"exportDwg\",\"exportSketchDxf\",\"exportSketchDwg\",\"exportSvg\",\"print\",\"closeProject\",\"exitProject\",\"exit\",\"undo\",\"redo\",\"delete\",\"rename\",\"largeAssemblyMode\",\"rebuild\",\"editFeature\",\"suppress\",\"unsuppress\",\"rollbackHere\",\"rollbackEnd\",\"clearSelection\",\"sketch\",\"extrude\",\"revolve\",\"cutExtrude\",\"cutRevolve\",\"fillet\",\"chamfer\",\"shell\",\"hole\",\"linearPattern\",\"circularPattern\",\"mirror\",\"refPlane\",\"material\",\"sweep\",\"cutSweep\",\"loft\",\"cutLoft\",\"draft\",\"rib\",\"dome\",\"helix\",\"thread\",\"wrap\",\"thicken\",\"surfaceExtrude\",\"surfaceRevolve\",\"surfacePlanar\",\"surfaceLoft\",\"surfaceOffset\",\"knit\",\"moveBody\",\"openscadFeature\",\"exportScad\",\"scaleBody\",\"split\",\"insertPart\",\"cavity\",\"shrink\",\"baseFlange\",\"edgeFlange\",\"flatten\",\"structural\",\"fillSurface\",\"boundary\",\"trimSurface\",\"hem\",\"sketchedBend\",\"jog\",\"partingLine\",\"toolingSplit\",\"sketch3d\",\"combine\",\"deleteBody\",\"indent\",\"flex\",\"deform\",\"refAxis\",\"refPoint\",\"coordSys\",\"boundingBox\",\"variableFillet\",\"faceFillet\",\"fullRoundFillet\",\"curvePattern\",\"sketchPattern\",\"tablePattern\",\"fillPattern\",\"variablePattern\",\"projectedCurve\",\"splitLine\",\"compositeCurve\",\"curveXYZ\",\"surfaceSpline\",\"openscad\",\"mountingBoss\",\"snapHook\",\"snapHookGroove\",\"vent\",\"lipGroove\",\"surfaceSweep\",\"cutWithSurface\",\"deleteHole\",\"untrimSurface\",\"midSurface\",\"radiateSurface\",\"flattenSurface\",\"convertSheet\",\"insertBends\",\"rip\",\"unfold\",\"fold\",\"crossBreak\",\"weldedCorner\",\"tabSlot\",\"advancedHole\",\"intersect\",\"mateReference\",\"moveFace\",\"connectionPoint\",\"ruledSurface\",\"deleteFace\",\"replaceFace\",\"extendSurface\",\"miterFlange\",\"loftedBend\",\"tab\",\"closedCorner\",\"cornerRelief\",\"formTool\",\"endCap\",\"gusset\",\"weldBead\",\"trimExtend\",\"sk:silhouette\",\"sk:silhouetteInternal\",\"sk:convert\",\"sk:intersect\",\"sk:move\",\"sk:copy\",\"sk:rotate\",\"sk:scale\",\"cutList\",\"draftAnalysis\",\"simulation\",\"equations\",\"configurations\",\"designTable\",\"importTable\",\"exitSketch\",\"cancelSketch\",\"sk:select\",\"sk:line\",\"sk:centerline\",\"sk:rect\",\"sk:centerRect\",\"sk:circle\",\"sk:arc3\",\"sk:centerArc\",\"sk:polygon\",\"sk:slot\",\"sk:slotCenter\",\"sk:slotArc3\",\"sk:slotArcCenter\",\"sk:point\",\"sk:spline\",\"sk:styleSpline\",\"sk:ellipse\",\"sk:rect3\",\"sk:rect3c\",\"sk:parallelogram\",\"sk:circle3\",\"sk:tangentArc\",\"sk:partialEllipse\",\"sk:parabola\",\"sk:conic\",\"sk:equation\",\"sk:split\",\"sk:stretch\",\"sk:baselineDim\",\"sk:dynamicMirror\",\"sk:autotrace\",\"sk:repair\",\"sk:fullyDefine\",\"sk:text\",\"sk:fillet\",\"sk:chamfer\",\"sk:extend\",\"sk:offset\",\"sk:mirror\",\"sk:linPattern\",\"sk:cirPattern\",\"sk:dimension\",\"sk:trim\",\"construction\",\"normalTo\",\"view:front\",\"view:back\",\"view:top\",\"view:bottom\",\"view:left\",\"view:right\",\"view:iso\",\"view:dimetric\",\"view:trimetric\",\"viewsMenu\",\"zoomFit\",\"perspective\",\"style:shadedEdges\",\"style:shaded\",\"style:hiddenRemoved\",\"style:hiddenVisible\",\"style:wireframe\",\"styleMenu\",\"styleCycle\",\"section\",\"showPlanes\",\"showOrigin\",\"showSketches\",\"showRulers\",\"showGrid\",\"gridPlane:front\",\"gridPlane:top\",\"gridPlane:right\",\"showScaleBar\",\"leftPanel\",\"rightPanel\",\"bottomPanel\",\"statusBar\",\"fps\",\"massProps\",\"lights\",\"measure\",\"interference\",\"insertComponent\",\"mate\",\"fixComponent\",\"magneticSnap\",\"simplifyOuter\",\"simplifyBox\",\"simplifyFull\",\"flexibleComponent\",\"floatComponent\",\"rotateComponent\",\"rotateComponentX\",\"rotateComponentY\",\"explode\",\"resetExplode\",\"motion\",\"openPart\",\"addView\",\"std3View\",\"hiddenLines\",\"sectionView\",\"view3dDrawing\",\"relativeView\",\"removedSection\",\"saveBodies\",\"sectionViewH\",\"alignedSection\",\"alternatePositionView\",\"flatPatternView\",\"weldTable\",\"cutListTable\",\"bendTable\",\"detailView\",\"auxView\",\"bom\",\"ann:note\",\"ann:balloon\",\"ann:gdt\",\"ann:datum\",\"ann:surface\",\"ann:centermark\",\"ann:cloud\",\"ann:datumTarget\",\"ann:hatch\",\"autoDims\",\"theme\",\"themeMenu\",\"language\",\"shuffleBackground\",\"backgroundImage\",\"clearBackground\",\"userGuide\",\"tutorialDoc\",\"shortcuts\",\"settings\",\"about\",\"welcome\",\"linearComponentPattern\",\"circularComponentPattern\",\"featureDrivenComponentPattern\",\"sketchDrivenComponentPattern\",\"curveDrivenComponentPattern\",\"chainComponentPattern\",\"mirrorComponents\",\"smartMate\",\"moveComponent\",\"curvature\",\"zebraStripes\",\"thicknessAnalysis\",\"brokenOutSection\",\"breakView\",\"cropView\",\"holeTable\",\"revisionTable\",\"addSheet\",\"renameSheet\",\"deleteSheet\",\"nonlinearStudy\",\"dropTest\",\"loadCombination\",\"topologyStudy\",\"dynamicStudy\",\"flowStudy\",\"assemblySimulation\",\"mbdAnnotations\",\"mbdAutoDimension\",\"insertModelAnnotations\",\"versionHistory\",\"checkOut\",\"checkIn\",\"whereUsed\",\"asmCut\",\"asmHole\",\"beltChain\",\"sk:makeBlock\",\"sk:insertBlock\",\"sk:explodeBlock\",\"sk:picture\",\"libSave\",\"libInsert\",\"vaultExplorer\",\"vaultCheckIn\",\"vaultCheckOut\",\"vaultInsert\",\"vaultUpdateLinks\",\"vaultPackAndGo\",\"drwSmartDim\",\"drwModelItems\",\"drwCenterMarks\",\"drwAutoBalloon\",\"drwHoleCallout\",\"drwWeld\",\"drwTable\",\"drwLayers\",\"drwTitleBlock\",\"drwSheetFormat\",\"eval_deviation\",\"eval_symmetry\",\"eval_geometry\",\"eval_undercut\",\"eval_compare\",\"eval_costing\",\"eval_sustain\",\"shutOff\",\"partingSurface\",\"camManager\",\"camStock\",\"camTools\",\"camRecognize\",\"camPlan\",\"camFacing\",\"camPocket\",\"camAdaptive\",\"camContour\",\"camSlot\",\"camHelix\",\"camSpot\",\"camDrill\",\"camPeck\",\"camTap\",\"camZLevel\",\"camParallel\",\"camScallop\",\"camWaterline\",\"camTurnFace\",\"camTurnRough\",\"camTurnFinish\",\"camTurnBore\",\"camTurnGroove\",\"camTurnThread\",\"camGenerate\",\"camSimulate\",\"camPost\",\"camSetupSheet\",\"plasticsStudy\",\"plGate\",\"plSuggest\",\"plRun\",\"plFillTime\",\"plPressure\",\"plTemperature\",\"plWeld\",\"plAirTraps\",\"plSink\",\"plReport\",\"plFiber\",\"plCooling\",\"plWarp\",\"inspBalloon\",\"inspTable\",\"inspRenumber\",\"inspClear\",\"inspImport\",\"inspCsv\",\"inspExcel\",\"inspReport\",\"illustration\",\"ilAddView\",\"ilPlay\",\"ilExportSvg\",\"ilExportHtml\",\"schematic\",\"schFromTo\",\"replaceComponent\",\"copyWithMates\",\"holeAlignment\",\"clearanceCheck\",\"envelopeComponent\",\"envelopeSelectInside\",\"envelopeSelectCrossing\",\"explodeEditor\",\"explodeAnimate\",\"assemblyVisualization\",\"assemblyVisualizationOff\",\"sectionProperties\",\"asmWeldBead\",\"editInContext\",\"newPartInContext\",\"exitInContext\",\"updateExternalRefs\",\"externalRefs\",\"newLayout\",\"makePartFromBlock\",\"updateLayout\",\"designCheck\",\"taskScheduler\",\"macroRecord\",\"macroRun\",\"macroStop\",\"macroEditor\",\"designStudy\",\"defeature\",\"markup\",\"markupReport\",\"electronicsCooling\",\"freeSurface\",\"stdLibrary\",\"smartFastener\",\"pipeRoute\",\"tubeRoute\",\"cableRoute\",\"harnessRoute\",\"harnessDrawing\",\"renderView\"])"
   },
   {
     "name": "cmd: drawing · newPart — has a visible effect (or is skipped with its reason / not available here)",
@@ -5708,6 +6158,16 @@
     "name": "cmd: drawing · exportMesh:3mf — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('drawing', 'exportMesh:3mf')"
+  },
+  {
+    "name": "cmd: drawing · exportMesh:off — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'exportMesh:off')"
+  },
+  {
+    "name": "cmd: drawing · exportMesh:amf — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'exportMesh:amf')"
   },
   {
     "name": "cmd: drawing · exportMesh:usdz — has a visible effect (or is skipped with its reason / not available here)",
@@ -6195,6 +6655,11 @@
     "eval": "window.__cmdOne('drawing', 'curveXYZ')"
   },
   {
+    "name": "cmd: drawing · surfaceSpline — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'surfaceSpline')"
+  },
+  {
     "name": "cmd: drawing · openscad — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('drawing', 'openscad')"
@@ -6315,6 +6780,16 @@
     "eval": "window.__cmdOne('drawing', 'mateReference')"
   },
   {
+    "name": "cmd: drawing · moveFace — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'moveFace')"
+  },
+  {
+    "name": "cmd: drawing · connectionPoint — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'connectionPoint')"
+  },
+  {
     "name": "cmd: drawing · ruledSurface — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('drawing', 'ruledSurface')"
@@ -6383,6 +6858,16 @@
     "name": "cmd: drawing · trimExtend — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('drawing', 'trimExtend')"
+  },
+  {
+    "name": "cmd: drawing · sk:silhouette — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'sk:silhouette')"
+  },
+  {
+    "name": "cmd: drawing · sk:silhouetteInternal — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'sk:silhouetteInternal')"
   },
   {
     "name": "cmd: drawing · sk:convert — has a visible effect (or is skipped with its reason / not available here)",
@@ -6510,6 +6995,21 @@
     "eval": "window.__cmdOne('drawing', 'sk:slot')"
   },
   {
+    "name": "cmd: drawing · sk:slotCenter — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'sk:slotCenter')"
+  },
+  {
+    "name": "cmd: drawing · sk:slotArc3 — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'sk:slotArc3')"
+  },
+  {
+    "name": "cmd: drawing · sk:slotArcCenter — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'sk:slotArcCenter')"
+  },
+  {
     "name": "cmd: drawing · sk:point — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('drawing', 'sk:point')"
@@ -6518,6 +7018,11 @@
     "name": "cmd: drawing · sk:spline — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('drawing', 'sk:spline')"
+  },
+  {
+    "name": "cmd: drawing · sk:styleSpline — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'sk:styleSpline')"
   },
   {
     "name": "cmd: drawing · sk:ellipse — has a visible effect (or is skipped with its reason / not available here)",
@@ -6578,6 +7083,26 @@
     "name": "cmd: drawing · sk:stretch — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('drawing', 'sk:stretch')"
+  },
+  {
+    "name": "cmd: drawing · sk:baselineDim — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'sk:baselineDim')"
+  },
+  {
+    "name": "cmd: drawing · sk:dynamicMirror — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'sk:dynamicMirror')"
+  },
+  {
+    "name": "cmd: drawing · sk:autotrace — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'sk:autotrace')"
+  },
+  {
+    "name": "cmd: drawing · sk:repair — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'sk:repair')"
   },
   {
     "name": "cmd: drawing · sk:fullyDefine — has a visible effect (or is skipped with its reason / not available here)",
@@ -6850,6 +7375,31 @@
     "eval": "window.__cmdOne('drawing', 'fixComponent')"
   },
   {
+    "name": "cmd: drawing · magneticSnap — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'magneticSnap')"
+  },
+  {
+    "name": "cmd: drawing · simplifyOuter — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'simplifyOuter')"
+  },
+  {
+    "name": "cmd: drawing · simplifyBox — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'simplifyBox')"
+  },
+  {
+    "name": "cmd: drawing · simplifyFull — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'simplifyFull')"
+  },
+  {
+    "name": "cmd: drawing · flexibleComponent — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'flexibleComponent')"
+  },
+  {
     "name": "cmd: drawing · floatComponent — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('drawing', 'floatComponent')"
@@ -6910,6 +7460,21 @@
     "eval": "window.__cmdOne('drawing', 'sectionView')"
   },
   {
+    "name": "cmd: drawing · view3dDrawing — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'view3dDrawing')"
+  },
+  {
+    "name": "cmd: drawing · relativeView — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'relativeView')"
+  },
+  {
+    "name": "cmd: drawing · removedSection — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'removedSection')"
+  },
+  {
     "name": "cmd: drawing · saveBodies — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('drawing', 'saveBodies')"
@@ -6933,6 +7498,16 @@
     "name": "cmd: drawing · flatPatternView — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('drawing', 'flatPatternView')"
+  },
+  {
+    "name": "cmd: drawing · weldTable — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'weldTable')"
+  },
+  {
+    "name": "cmd: drawing · cutListTable — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'cutListTable')"
   },
   {
     "name": "cmd: drawing · bendTable — has a visible effect (or is skipped with its reason / not available here)",
@@ -7325,6 +7900,16 @@
     "eval": "window.__cmdOne('drawing', 'drwCenterMarks')"
   },
   {
+    "name": "cmd: drawing · drwAutoBalloon — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'drwAutoBalloon')"
+  },
+  {
+    "name": "cmd: drawing · drwHoleCallout — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'drwHoleCallout')"
+  },
+  {
     "name": "cmd: drawing · drwWeld — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('drawing', 'drwWeld')"
@@ -7700,6 +8285,11 @@
     "eval": "window.__cmdOne('drawing', 'holeAlignment')"
   },
   {
+    "name": "cmd: drawing · clearanceCheck — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'clearanceCheck')"
+  },
+  {
     "name": "cmd: drawing · envelopeComponent — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('drawing', 'envelopeComponent')"
@@ -7713,6 +8303,76 @@
     "name": "cmd: drawing · envelopeSelectCrossing — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('drawing', 'envelopeSelectCrossing')"
+  },
+  {
+    "name": "cmd: drawing · explodeEditor — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'explodeEditor')"
+  },
+  {
+    "name": "cmd: drawing · explodeAnimate — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'explodeAnimate')"
+  },
+  {
+    "name": "cmd: drawing · assemblyVisualization — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'assemblyVisualization')"
+  },
+  {
+    "name": "cmd: drawing · assemblyVisualizationOff — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'assemblyVisualizationOff')"
+  },
+  {
+    "name": "cmd: drawing · sectionProperties — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'sectionProperties')"
+  },
+  {
+    "name": "cmd: drawing · asmWeldBead — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'asmWeldBead')"
+  },
+  {
+    "name": "cmd: drawing · editInContext — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'editInContext')"
+  },
+  {
+    "name": "cmd: drawing · newPartInContext — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'newPartInContext')"
+  },
+  {
+    "name": "cmd: drawing · exitInContext — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'exitInContext')"
+  },
+  {
+    "name": "cmd: drawing · updateExternalRefs — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'updateExternalRefs')"
+  },
+  {
+    "name": "cmd: drawing · externalRefs — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'externalRefs')"
+  },
+  {
+    "name": "cmd: drawing · newLayout — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'newLayout')"
+  },
+  {
+    "name": "cmd: drawing · makePartFromBlock — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'makePartFromBlock')"
+  },
+  {
+    "name": "cmd: drawing · updateLayout — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'updateLayout')"
   },
   {
     "name": "cmd: drawing · designCheck — has a visible effect (or is skipped with its reason / not available here)",
@@ -7817,7 +8477,7 @@
   {
     "name": "cmd: drawing · commands added later — each has a visible effect",
     "expect": "^ok",
-    "eval": "window.__cmdLater('drawing', [\"newPart\",\"newProjectPart\",\"newAssembly\",\"newDrawing\",\"openExample\",\"open\",\"startPage\",\"save\",\"saveAs\",\"recent\",\"recentFolders\",\"clearRecent\",\"importStep\",\"exportMenu\",\"exportStep\",\"exportIges\",\"exportXt\",\"exportXb\",\"exportMesh:glb\",\"exportMesh:gltf\",\"exportMesh:obj\",\"exportMesh:ply\",\"exportMesh:wrl\",\"exportMesh:3mf\",\"exportMesh:usdz\",\"exportStl\",\"exportImage\",\"exportDxf\",\"exportDwg\",\"exportSketchDxf\",\"exportSketchDwg\",\"exportSvg\",\"print\",\"closeProject\",\"exitProject\",\"exit\",\"undo\",\"redo\",\"delete\",\"rename\",\"largeAssemblyMode\",\"rebuild\",\"editFeature\",\"suppress\",\"unsuppress\",\"rollbackHere\",\"rollbackEnd\",\"clearSelection\",\"sketch\",\"extrude\",\"revolve\",\"cutExtrude\",\"cutRevolve\",\"fillet\",\"chamfer\",\"shell\",\"hole\",\"linearPattern\",\"circularPattern\",\"mirror\",\"refPlane\",\"material\",\"sweep\",\"cutSweep\",\"loft\",\"cutLoft\",\"draft\",\"rib\",\"dome\",\"helix\",\"thread\",\"wrap\",\"thicken\",\"surfaceExtrude\",\"surfaceRevolve\",\"surfacePlanar\",\"surfaceLoft\",\"surfaceOffset\",\"knit\",\"moveBody\",\"openscadFeature\",\"exportScad\",\"scaleBody\",\"split\",\"insertPart\",\"cavity\",\"shrink\",\"baseFlange\",\"edgeFlange\",\"flatten\",\"structural\",\"fillSurface\",\"boundary\",\"trimSurface\",\"hem\",\"sketchedBend\",\"jog\",\"partingLine\",\"toolingSplit\",\"sketch3d\",\"combine\",\"deleteBody\",\"indent\",\"flex\",\"deform\",\"refAxis\",\"refPoint\",\"coordSys\",\"boundingBox\",\"variableFillet\",\"faceFillet\",\"fullRoundFillet\",\"curvePattern\",\"sketchPattern\",\"tablePattern\",\"fillPattern\",\"variablePattern\",\"projectedCurve\",\"splitLine\",\"compositeCurve\",\"curveXYZ\",\"openscad\",\"mountingBoss\",\"snapHook\",\"snapHookGroove\",\"vent\",\"lipGroove\",\"surfaceSweep\",\"cutWithSurface\",\"deleteHole\",\"untrimSurface\",\"midSurface\",\"radiateSurface\",\"flattenSurface\",\"convertSheet\",\"insertBends\",\"rip\",\"unfold\",\"fold\",\"crossBreak\",\"weldedCorner\",\"tabSlot\",\"advancedHole\",\"intersect\",\"mateReference\",\"ruledSurface\",\"deleteFace\",\"replaceFace\",\"extendSurface\",\"miterFlange\",\"loftedBend\",\"tab\",\"closedCorner\",\"cornerRelief\",\"formTool\",\"endCap\",\"gusset\",\"weldBead\",\"trimExtend\",\"sk:convert\",\"sk:intersect\",\"sk:move\",\"sk:copy\",\"sk:rotate\",\"sk:scale\",\"cutList\",\"draftAnalysis\",\"simulation\",\"equations\",\"configurations\",\"designTable\",\"importTable\",\"exitSketch\",\"cancelSketch\",\"sk:select\",\"sk:line\",\"sk:centerline\",\"sk:rect\",\"sk:centerRect\",\"sk:circle\",\"sk:arc3\",\"sk:centerArc\",\"sk:polygon\",\"sk:slot\",\"sk:point\",\"sk:spline\",\"sk:ellipse\",\"sk:rect3\",\"sk:rect3c\",\"sk:parallelogram\",\"sk:circle3\",\"sk:tangentArc\",\"sk:partialEllipse\",\"sk:parabola\",\"sk:conic\",\"sk:equation\",\"sk:split\",\"sk:stretch\",\"sk:fullyDefine\",\"sk:text\",\"sk:fillet\",\"sk:chamfer\",\"sk:extend\",\"sk:offset\",\"sk:mirror\",\"sk:linPattern\",\"sk:cirPattern\",\"sk:dimension\",\"sk:trim\",\"construction\",\"normalTo\",\"view:front\",\"view:back\",\"view:top\",\"view:bottom\",\"view:left\",\"view:right\",\"view:iso\",\"view:dimetric\",\"view:trimetric\",\"viewsMenu\",\"zoomFit\",\"perspective\",\"style:shadedEdges\",\"style:shaded\",\"style:hiddenRemoved\",\"style:hiddenVisible\",\"style:wireframe\",\"styleMenu\",\"styleCycle\",\"section\",\"showPlanes\",\"showOrigin\",\"showSketches\",\"showRulers\",\"showGrid\",\"gridPlane:front\",\"gridPlane:top\",\"gridPlane:right\",\"showScaleBar\",\"leftPanel\",\"rightPanel\",\"bottomPanel\",\"statusBar\",\"fps\",\"massProps\",\"lights\",\"measure\",\"interference\",\"insertComponent\",\"mate\",\"fixComponent\",\"floatComponent\",\"rotateComponent\",\"rotateComponentX\",\"rotateComponentY\",\"explode\",\"resetExplode\",\"motion\",\"openPart\",\"addView\",\"std3View\",\"hiddenLines\",\"sectionView\",\"saveBodies\",\"sectionViewH\",\"alignedSection\",\"alternatePositionView\",\"flatPatternView\",\"bendTable\",\"detailView\",\"auxView\",\"bom\",\"ann:note\",\"ann:balloon\",\"ann:gdt\",\"ann:datum\",\"ann:surface\",\"ann:centermark\",\"ann:cloud\",\"ann:datumTarget\",\"ann:hatch\",\"autoDims\",\"theme\",\"themeMenu\",\"language\",\"shuffleBackground\",\"backgroundImage\",\"clearBackground\",\"userGuide\",\"tutorialDoc\",\"shortcuts\",\"settings\",\"about\",\"welcome\",\"linearComponentPattern\",\"circularComponentPattern\",\"featureDrivenComponentPattern\",\"sketchDrivenComponentPattern\",\"curveDrivenComponentPattern\",\"chainComponentPattern\",\"mirrorComponents\",\"smartMate\",\"moveComponent\",\"curvature\",\"zebraStripes\",\"thicknessAnalysis\",\"brokenOutSection\",\"breakView\",\"cropView\",\"holeTable\",\"revisionTable\",\"addSheet\",\"renameSheet\",\"deleteSheet\",\"nonlinearStudy\",\"dropTest\",\"loadCombination\",\"topologyStudy\",\"dynamicStudy\",\"flowStudy\",\"assemblySimulation\",\"mbdAnnotations\",\"mbdAutoDimension\",\"insertModelAnnotations\",\"versionHistory\",\"checkOut\",\"checkIn\",\"whereUsed\",\"asmCut\",\"asmHole\",\"beltChain\",\"sk:makeBlock\",\"sk:insertBlock\",\"sk:explodeBlock\",\"sk:picture\",\"libSave\",\"libInsert\",\"vaultExplorer\",\"vaultCheckIn\",\"vaultCheckOut\",\"vaultInsert\",\"vaultUpdateLinks\",\"vaultPackAndGo\",\"drwSmartDim\",\"drwModelItems\",\"drwCenterMarks\",\"drwWeld\",\"drwTable\",\"drwLayers\",\"drwTitleBlock\",\"drwSheetFormat\",\"eval_deviation\",\"eval_symmetry\",\"eval_geometry\",\"eval_undercut\",\"eval_compare\",\"eval_costing\",\"eval_sustain\",\"shutOff\",\"partingSurface\",\"camManager\",\"camStock\",\"camTools\",\"camRecognize\",\"camPlan\",\"camFacing\",\"camPocket\",\"camAdaptive\",\"camContour\",\"camSlot\",\"camHelix\",\"camSpot\",\"camDrill\",\"camPeck\",\"camTap\",\"camZLevel\",\"camParallel\",\"camScallop\",\"camWaterline\",\"camTurnFace\",\"camTurnRough\",\"camTurnFinish\",\"camTurnBore\",\"camTurnGroove\",\"camTurnThread\",\"camGenerate\",\"camSimulate\",\"camPost\",\"camSetupSheet\",\"plasticsStudy\",\"plGate\",\"plSuggest\",\"plRun\",\"plFillTime\",\"plPressure\",\"plTemperature\",\"plWeld\",\"plAirTraps\",\"plSink\",\"plReport\",\"plFiber\",\"plCooling\",\"plWarp\",\"inspBalloon\",\"inspTable\",\"inspRenumber\",\"inspClear\",\"inspImport\",\"inspCsv\",\"inspExcel\",\"inspReport\",\"illustration\",\"ilAddView\",\"ilPlay\",\"ilExportSvg\",\"ilExportHtml\",\"schematic\",\"schFromTo\",\"replaceComponent\",\"copyWithMates\",\"holeAlignment\",\"envelopeComponent\",\"envelopeSelectInside\",\"envelopeSelectCrossing\",\"designCheck\",\"taskScheduler\",\"macroRecord\",\"macroRun\",\"macroStop\",\"macroEditor\",\"designStudy\",\"defeature\",\"markup\",\"markupReport\",\"electronicsCooling\",\"freeSurface\",\"stdLibrary\",\"smartFastener\",\"pipeRoute\",\"tubeRoute\",\"cableRoute\",\"harnessRoute\",\"harnessDrawing\",\"renderView\"])"
+    "eval": "window.__cmdLater('drawing', [\"newPart\",\"newProjectPart\",\"newAssembly\",\"newDrawing\",\"openExample\",\"open\",\"startPage\",\"save\",\"saveAs\",\"recent\",\"recentFolders\",\"clearRecent\",\"importStep\",\"exportMenu\",\"exportStep\",\"exportIges\",\"exportXt\",\"exportXb\",\"exportMesh:glb\",\"exportMesh:gltf\",\"exportMesh:obj\",\"exportMesh:ply\",\"exportMesh:wrl\",\"exportMesh:3mf\",\"exportMesh:off\",\"exportMesh:amf\",\"exportMesh:usdz\",\"exportStl\",\"exportImage\",\"exportDxf\",\"exportDwg\",\"exportSketchDxf\",\"exportSketchDwg\",\"exportSvg\",\"print\",\"closeProject\",\"exitProject\",\"exit\",\"undo\",\"redo\",\"delete\",\"rename\",\"largeAssemblyMode\",\"rebuild\",\"editFeature\",\"suppress\",\"unsuppress\",\"rollbackHere\",\"rollbackEnd\",\"clearSelection\",\"sketch\",\"extrude\",\"revolve\",\"cutExtrude\",\"cutRevolve\",\"fillet\",\"chamfer\",\"shell\",\"hole\",\"linearPattern\",\"circularPattern\",\"mirror\",\"refPlane\",\"material\",\"sweep\",\"cutSweep\",\"loft\",\"cutLoft\",\"draft\",\"rib\",\"dome\",\"helix\",\"thread\",\"wrap\",\"thicken\",\"surfaceExtrude\",\"surfaceRevolve\",\"surfacePlanar\",\"surfaceLoft\",\"surfaceOffset\",\"knit\",\"moveBody\",\"openscadFeature\",\"exportScad\",\"scaleBody\",\"split\",\"insertPart\",\"cavity\",\"shrink\",\"baseFlange\",\"edgeFlange\",\"flatten\",\"structural\",\"fillSurface\",\"boundary\",\"trimSurface\",\"hem\",\"sketchedBend\",\"jog\",\"partingLine\",\"toolingSplit\",\"sketch3d\",\"combine\",\"deleteBody\",\"indent\",\"flex\",\"deform\",\"refAxis\",\"refPoint\",\"coordSys\",\"boundingBox\",\"variableFillet\",\"faceFillet\",\"fullRoundFillet\",\"curvePattern\",\"sketchPattern\",\"tablePattern\",\"fillPattern\",\"variablePattern\",\"projectedCurve\",\"splitLine\",\"compositeCurve\",\"curveXYZ\",\"surfaceSpline\",\"openscad\",\"mountingBoss\",\"snapHook\",\"snapHookGroove\",\"vent\",\"lipGroove\",\"surfaceSweep\",\"cutWithSurface\",\"deleteHole\",\"untrimSurface\",\"midSurface\",\"radiateSurface\",\"flattenSurface\",\"convertSheet\",\"insertBends\",\"rip\",\"unfold\",\"fold\",\"crossBreak\",\"weldedCorner\",\"tabSlot\",\"advancedHole\",\"intersect\",\"mateReference\",\"moveFace\",\"connectionPoint\",\"ruledSurface\",\"deleteFace\",\"replaceFace\",\"extendSurface\",\"miterFlange\",\"loftedBend\",\"tab\",\"closedCorner\",\"cornerRelief\",\"formTool\",\"endCap\",\"gusset\",\"weldBead\",\"trimExtend\",\"sk:silhouette\",\"sk:silhouetteInternal\",\"sk:convert\",\"sk:intersect\",\"sk:move\",\"sk:copy\",\"sk:rotate\",\"sk:scale\",\"cutList\",\"draftAnalysis\",\"simulation\",\"equations\",\"configurations\",\"designTable\",\"importTable\",\"exitSketch\",\"cancelSketch\",\"sk:select\",\"sk:line\",\"sk:centerline\",\"sk:rect\",\"sk:centerRect\",\"sk:circle\",\"sk:arc3\",\"sk:centerArc\",\"sk:polygon\",\"sk:slot\",\"sk:slotCenter\",\"sk:slotArc3\",\"sk:slotArcCenter\",\"sk:point\",\"sk:spline\",\"sk:styleSpline\",\"sk:ellipse\",\"sk:rect3\",\"sk:rect3c\",\"sk:parallelogram\",\"sk:circle3\",\"sk:tangentArc\",\"sk:partialEllipse\",\"sk:parabola\",\"sk:conic\",\"sk:equation\",\"sk:split\",\"sk:stretch\",\"sk:baselineDim\",\"sk:dynamicMirror\",\"sk:autotrace\",\"sk:repair\",\"sk:fullyDefine\",\"sk:text\",\"sk:fillet\",\"sk:chamfer\",\"sk:extend\",\"sk:offset\",\"sk:mirror\",\"sk:linPattern\",\"sk:cirPattern\",\"sk:dimension\",\"sk:trim\",\"construction\",\"normalTo\",\"view:front\",\"view:back\",\"view:top\",\"view:bottom\",\"view:left\",\"view:right\",\"view:iso\",\"view:dimetric\",\"view:trimetric\",\"viewsMenu\",\"zoomFit\",\"perspective\",\"style:shadedEdges\",\"style:shaded\",\"style:hiddenRemoved\",\"style:hiddenVisible\",\"style:wireframe\",\"styleMenu\",\"styleCycle\",\"section\",\"showPlanes\",\"showOrigin\",\"showSketches\",\"showRulers\",\"showGrid\",\"gridPlane:front\",\"gridPlane:top\",\"gridPlane:right\",\"showScaleBar\",\"leftPanel\",\"rightPanel\",\"bottomPanel\",\"statusBar\",\"fps\",\"massProps\",\"lights\",\"measure\",\"interference\",\"insertComponent\",\"mate\",\"fixComponent\",\"magneticSnap\",\"simplifyOuter\",\"simplifyBox\",\"simplifyFull\",\"flexibleComponent\",\"floatComponent\",\"rotateComponent\",\"rotateComponentX\",\"rotateComponentY\",\"explode\",\"resetExplode\",\"motion\",\"openPart\",\"addView\",\"std3View\",\"hiddenLines\",\"sectionView\",\"view3dDrawing\",\"relativeView\",\"removedSection\",\"saveBodies\",\"sectionViewH\",\"alignedSection\",\"alternatePositionView\",\"flatPatternView\",\"weldTable\",\"cutListTable\",\"bendTable\",\"detailView\",\"auxView\",\"bom\",\"ann:note\",\"ann:balloon\",\"ann:gdt\",\"ann:datum\",\"ann:surface\",\"ann:centermark\",\"ann:cloud\",\"ann:datumTarget\",\"ann:hatch\",\"autoDims\",\"theme\",\"themeMenu\",\"language\",\"shuffleBackground\",\"backgroundImage\",\"clearBackground\",\"userGuide\",\"tutorialDoc\",\"shortcuts\",\"settings\",\"about\",\"welcome\",\"linearComponentPattern\",\"circularComponentPattern\",\"featureDrivenComponentPattern\",\"sketchDrivenComponentPattern\",\"curveDrivenComponentPattern\",\"chainComponentPattern\",\"mirrorComponents\",\"smartMate\",\"moveComponent\",\"curvature\",\"zebraStripes\",\"thicknessAnalysis\",\"brokenOutSection\",\"breakView\",\"cropView\",\"holeTable\",\"revisionTable\",\"addSheet\",\"renameSheet\",\"deleteSheet\",\"nonlinearStudy\",\"dropTest\",\"loadCombination\",\"topologyStudy\",\"dynamicStudy\",\"flowStudy\",\"assemblySimulation\",\"mbdAnnotations\",\"mbdAutoDimension\",\"insertModelAnnotations\",\"versionHistory\",\"checkOut\",\"checkIn\",\"whereUsed\",\"asmCut\",\"asmHole\",\"beltChain\",\"sk:makeBlock\",\"sk:insertBlock\",\"sk:explodeBlock\",\"sk:picture\",\"libSave\",\"libInsert\",\"vaultExplorer\",\"vaultCheckIn\",\"vaultCheckOut\",\"vaultInsert\",\"vaultUpdateLinks\",\"vaultPackAndGo\",\"drwSmartDim\",\"drwModelItems\",\"drwCenterMarks\",\"drwAutoBalloon\",\"drwHoleCallout\",\"drwWeld\",\"drwTable\",\"drwLayers\",\"drwTitleBlock\",\"drwSheetFormat\",\"eval_deviation\",\"eval_symmetry\",\"eval_geometry\",\"eval_undercut\",\"eval_compare\",\"eval_costing\",\"eval_sustain\",\"shutOff\",\"partingSurface\",\"camManager\",\"camStock\",\"camTools\",\"camRecognize\",\"camPlan\",\"camFacing\",\"camPocket\",\"camAdaptive\",\"camContour\",\"camSlot\",\"camHelix\",\"camSpot\",\"camDrill\",\"camPeck\",\"camTap\",\"camZLevel\",\"camParallel\",\"camScallop\",\"camWaterline\",\"camTurnFace\",\"camTurnRough\",\"camTurnFinish\",\"camTurnBore\",\"camTurnGroove\",\"camTurnThread\",\"camGenerate\",\"camSimulate\",\"camPost\",\"camSetupSheet\",\"plasticsStudy\",\"plGate\",\"plSuggest\",\"plRun\",\"plFillTime\",\"plPressure\",\"plTemperature\",\"plWeld\",\"plAirTraps\",\"plSink\",\"plReport\",\"plFiber\",\"plCooling\",\"plWarp\",\"inspBalloon\",\"inspTable\",\"inspRenumber\",\"inspClear\",\"inspImport\",\"inspCsv\",\"inspExcel\",\"inspReport\",\"illustration\",\"ilAddView\",\"ilPlay\",\"ilExportSvg\",\"ilExportHtml\",\"schematic\",\"schFromTo\",\"replaceComponent\",\"copyWithMates\",\"holeAlignment\",\"clearanceCheck\",\"envelopeComponent\",\"envelopeSelectInside\",\"envelopeSelectCrossing\",\"explodeEditor\",\"explodeAnimate\",\"assemblyVisualization\",\"assemblyVisualizationOff\",\"sectionProperties\",\"asmWeldBead\",\"editInContext\",\"newPartInContext\",\"exitInContext\",\"updateExternalRefs\",\"externalRefs\",\"newLayout\",\"makePartFromBlock\",\"updateLayout\",\"designCheck\",\"taskScheduler\",\"macroRecord\",\"macroRun\",\"macroStop\",\"macroEditor\",\"designStudy\",\"defeature\",\"markup\",\"markupReport\",\"electronicsCooling\",\"freeSurface\",\"stdLibrary\",\"smartFastener\",\"pipeRoute\",\"tubeRoute\",\"cableRoute\",\"harnessRoute\",\"harnessDrawing\",\"renderView\"])"
   },
   {
     "name": "cmd: part · editFeature with a feature selected — works on it",

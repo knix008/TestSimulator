@@ -39,6 +39,7 @@ export const ICONS_PART = {
   projectedCurve: '<path d="M4 6c3-3 6 3 9 0s5-3 7 0" stroke-dasharray="2 1.5"/><path d="M3 17l5-3h13l-5 3z"/><path d="M5 15c3-2 6 1 9-1s4-1 5 0" stroke-width="2"/><path d="M8 7v6M16 6v7" opacity="0.4"/>',
   splitLine: '<path d="M3 9l9-5 9 5-9 5z"/><path d="M3 9v6l9 5 9-5V9"/><path d="M8 7.5l9 4.5" stroke-width="2" stroke-dasharray="2.5 1.2"/>',
   compositeCurve: '<path d="M3 18l5-8"/><path d="M8 10c3-5 6-5 8-1" opacity="0.75"/><path d="M16 9l5 4" opacity="0.55"/><circle cx="8" cy="10" r="1.4" fill="currentColor"/><circle cx="16" cy="9" r="1.4" fill="currentColor"/>',
+  surfaceSpline: '<path d="M3 16l6-9h12l-6 9z" opacity="0.6"/><path d="M6 13c3-3 5 1 8-2s3-2 4-2"/><circle cx="6" cy="13" r="1.2"/><circle cx="18" cy="9" r="1.2"/>',
   curveXYZ: '<path d="M3 19c3-9 7 2 10-6s5-6 8-9"/><circle cx="3" cy="19" r="1.3" fill="currentColor"/><circle cx="8.5" cy="14" r="1.3" fill="currentColor"/><circle cx="14" cy="10" r="1.3" fill="currentColor"/><circle cx="21" cy="4" r="1.3" fill="currentColor"/><path d="M3 22h5M3 22v-3" opacity="0.4"/>',
   // ── sketch tools
   convertEntities: '<path d="M3 15l5-9h13l-5 9z" opacity="0.55"/><path d="M6 20h11" stroke-width="2"/><path d="M11 12v6M9 16l2 2 2-2"/>',
@@ -56,8 +57,10 @@ export const ICONS_PART = {
   alternatePosition: '<rect x="3" y="12" width="9" height="7" rx="1"/><rect x="11" y="4" width="9" height="7" rx="1" stroke-dasharray="4 1.2 1.2 1.2"/><path d="M8 11l4-3" opacity="0.7"/>',
   flatPatternView: '<path d="M3 14h18v4H3z"/><path d="M8 14v4M16 14v4" stroke-dasharray="1.6 1.2"/><path d="M6 10V5h12v5" opacity="0.55"/><path d="M12 6v5M10 9l2 2 2-2"/>',
   // ── advanced hole, intersect, mate reference, save bodies
+  moveFace: '<path d="M4 9l8-4 8 4v8l-8 4-8-4z" opacity="0.45"/><path d="M12 13V3M9 6l3-3 3 3"/><path d="M4 9l8 4 8-4"/>',
   advancedHole: '<path d="M4 4h16" /><path d="M7 4v4h3v9l2 3 2-3V8h3V4" /><path d="M10 12h4M10 15h4" opacity="0.6"/>',
   intersectRegions: '<circle cx="9" cy="10" r="6"/><circle cx="15" cy="14" r="6"/><path d="M12.2 15.2a6 6 0 0 0 2.6-7 6 6 0 0 0-5.6 1.6 6 6 0 0 0 3 5.4z" fill="currentColor" opacity="0.4" stroke="none"/>',
+  connectionPoint: '<rect x="3" y="12" width="12" height="8" rx="1"/><circle cx="15" cy="8" r="2.2" fill="currentColor"/><path d="M15 8l6-5M18 3h3v3"/>',
   mateReference: '<rect x="3" y="12" width="12" height="8" rx="1"/><path d="M9 12V4M6 7l3-3 3 3"/><path d="M15 16h6M18 13v6" stroke-dasharray="2 1.2"/>',
   saveBodies: '<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><path d="M7 11v4h5M17 11v4h-5M12 15v6M9 18l3 3 3-3"/>',
 };

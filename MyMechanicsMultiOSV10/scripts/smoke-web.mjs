@@ -147,7 +147,13 @@ try {
       writeFileSync(file, Buffer.from(shot.result.data, 'base64'));
       console.log(`📷 ${file} (${Date.now() - t0} ms)`);
     }
-    for (const e of [...page.errors.splice(0), ...logs.splice(0)]) { console.log(`  ! ${String(e).slice(0, 500)}`); if (!/warning:/.test(e)) failed = true; }
+    // A step that provokes an error on purpose (a damaged file refused) names it in `allowErrors` (a regex).
+    const allowed = step.allowErrors ? new RegExp(step.allowErrors) : null;
+    for (const e of [...page.errors.splice(0), ...logs.splice(0)]) {
+      if (allowed?.test(String(e))) { console.log(`  ~ expected: ${String(e).slice(0, 300)}`); continue; }
+      console.log(`  ! ${String(e).slice(0, 500)}`);
+      if (!/warning:/.test(e)) failed = true;
+    }
   }
   page.close();
 } finally {

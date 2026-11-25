@@ -1,6 +1,7 @@
 // The PropertyManager (the left-panel editor): the options of the feature, sketch, mate or
 // drawing being edited, in group boxes, with selection boxes (pink while they take picks from the
 // graphics area), and OK / Cancel at the top. HTML only — app.js binds the data-pm* attributes.
+import { segGlyph } from './seg-icons.js';
 import { escapeHtml } from './dom.js';
 import { icon } from '../icons.js';
 import { relationsFor, standalonePoints, constructionLines, byId, geomKind, equationError, DIMENSIONS } from '../cad/sketch.js';
@@ -13,6 +14,9 @@ import { SHEET_MORE_PM } from './pm-sheet-more.js';
 import { MOLD_MORE_PM } from './pm-eval-more.js';
 import { STD_PM } from './pm-std.js';
 import { openscadPm } from './pm-openscad.js';
+import { extrudePm, revolvePm } from './pm-extrude.js';
+import { filletPm, chamferPm, shellPm, patternMorePm } from './pm-dressup.js';
+import { refPlanePm, holeMorePm } from './pm-refplane.js';
 
 /** Tapped hole sizes (ISO 261 coarse): [size, d, pitch] — the tap drill is d − P. */
 export const TAP_SIZES = [['M3', 3, 0.5], ['M4', 4, 0.7], ['M5', 5, 0.8], ['M6', 6, 1], ['M8', 8, 1.25], ['M10', 10, 1.5], ['M12', 12, 1.75], ['M16', 16, 2], ['M20', 20, 2.5], ['M24', 24, 3]];
@@ -23,7 +27,7 @@ export const HOLE_SIZES = [
   ['M10', 11, 18, 10.8, 20.4], ['M12', 13.5, 20, 13, 24.4], ['M16', 17.5, 26, 17.5, 32.4], ['M20', 22, 33, 21.5, 40.4],
 ];
 
-const RELATION_ICONS = { coincident: 'relCoincident', horizontal: 'relHorizontal', vertical: 'relVertical', parallel: 'relParallel', perpendicular: 'relPerpendicular', tangent: 'relTangent', equal: 'relEqual', concentric: 'relConcentric', midpoint: 'relMidpoint', fix: 'relFix', symmetric: 'relSymmetric', collinear: 'relCollinear', pointOnLine: 'relPointOnLine', pointOnCircle: 'relPointOnCircle', distance: 'dimDistance', hdistance: 'dimDistance', vdistance: 'dimDistance', radius: 'dimRadius', diameter: 'dimDiameter', angle: 'dimAngle' };
+const RELATION_ICONS = { pierce: 'pierce', arcLength: 'dimArcLength', coradial: 'relCoradial', merge: 'relMerge', equalCurvature: 'relEqualCurvature', smooth: 'relSmooth', coincident: 'relCoincident', horizontal: 'relHorizontal', vertical: 'relVertical', parallel: 'relParallel', perpendicular: 'relPerpendicular', tangent: 'relTangent', equal: 'relEqual', concentric: 'relConcentric', midpoint: 'relMidpoint', fix: 'relFix', symmetric: 'relSymmetric', collinear: 'relCollinear', pointOnLine: 'relPointOnLine', pointOnCircle: 'relPointOnCircle', distance: 'dimDistance', hdistance: 'dimDistance', vdistance: 'dimDistance', radius: 'dimRadius', diameter: 'dimDiameter', angle: 'dimAngle' };
 export const relationIcon = (type) => RELATION_ICONS[type] ?? 'addRelation';
 
 function header(api, glyph, title, { ok = true, help = '' } = {}) {
@@ -55,7 +59,7 @@ export function field(api, key, value, { label, glyph = 'smartDim', unit = 'leng
 
 export const check = (key, value, label, glyph = 'check') => `<label class="pm-check" title="${escapeHtml(label)}"><input type="checkbox" data-pm-toggle="${escapeHtml(key)}" ${value ? 'checked' : ''} />${icon(glyph)}<span>${escapeHtml(label)}</span></label>`;
 
-export const seg = (key, options, current) => `<span class="segmented pm-seg" role="radiogroup">${options.map(([v, label, glyph]) => `<button type="button" class="segment ${String(v) === String(current) ? 'active' : ''}" data-pm-set="${escapeHtml(key)}" data-value="${escapeHtml(v)}" title="${escapeHtml(label)}" aria-pressed="${String(v) === String(current)}">${glyph ? icon(glyph) : ''}<span>${escapeHtml(label)}</span></button>`).join('')}</span>`;
+export const seg = (key, options, current) => `<span class="segmented pm-seg" role="radiogroup">${options.map(([v, label, glyph]) => `<button type="button" class="segment ${String(v) === String(current) ? 'active' : ''}" data-pm-set="${escapeHtml(key)}" data-value="${escapeHtml(v)}" title="${escapeHtml(label)}" aria-pressed="${String(v) === String(current)}">${icon(glyph || segGlyph(key, v))}<span>${escapeHtml(label)}</span></button>`).join('')}</span>`;
 
 export const select = (key, options, current, label) => `<label class="pm-field" title="${escapeHtml(label)}"><span class="pm-label">${escapeHtml(label)}</span><select data-pm-select="${escapeHtml(key)}" aria-label="${escapeHtml(label)}">${options.map(([v, text, glyph]) => `<option value="${escapeHtml(v)}" ${glyph ? `data-icon="${glyph}"` : ''} ${String(v) === String(current) ? 'selected' : ''}>${escapeHtml(text)}</option>`).join('')}</select></label>`;
 
@@ -99,36 +103,36 @@ function featurePm(api) {
   const sketchSel = (label = t('pm.sketch')) => select('sketch', [['', `— ${t('pm.chooseSketch')} —`], ...sketchList.map((s) => [s.id, s.name, 'featSketch'])], f.sketch ?? '', label);
   if (f.type === 'extrude') {
     parts.push(group('featSketch', t('pm.from'), `${sketchSel()}${seg('op', [['boss', t('op.boss'), 'featExtrude'], ['cut', t('op.cut'), 'featCut'], ['common', t('op.common'), 'featIntersect']], f.op)}${f.op === 'boss' ? check('merge', f.merge !== false, t('pm.mergeResult'), 'combineBodies') : ''}`));
-    const ends =[['blind', t('end.blind')], ['through', t('end.through')], ['throughBoth', t('end.throughBoth')], ['midplane', t('end.midplane')]];
-    parts.push(group('featExtrude', t('pm.direction1'), `${select('end', ends, f.end, t('pm.endCondition'))}${check('reverse', f.reverse, t('pm.reverse'), 'flipV')}${f.end === 'blind' || f.end === 'midplane' ? field(api, 'depth', f.depth, { label: t('pm.depth'), min: 0.001 }) : ''}${f.end === 'blind' ? `${check('draft', f.draft, t('pm.draftOnOff'), 'featDraft')}${f.draft ? `${field(api, 'draftAngle', f.draftAngle ?? 3, { label: t('pm.draftAngle'), unit: 'angle', glyph: 'dimAngle', min: 0.1 })}${check('draftOutward', f.draftOutward, t('pm.draftOutward'), 'flipH')}` : ''}` : ''}`));
-    if (f.end === 'blind' || f.end === 'through') {
-      const on = f.end2 && f.end2 !== 'none';
-      parts.push(group('featExtrude', t('pm.direction2'), `${check('dir2', on, t('pm.direction2'), 'flipH')}${on ? `${select('end2', [['blind', t('end.blind')], ['through', t('end.through')]], f.end2, t('pm.endCondition'))}${f.end2 === 'blind' ? field(api, 'depth2', f.depth2, { label: t('pm.depth'), min: 0.001 }) : ''}` : ''}`, on ? '' : 'collapsed'));
-    }
+    parts.push(extrudePm(api, f));
   } else if (f.type === 'revolve') {
     const sk = api.sketchById(f.sketch);
     const axes = sk ? sk.entities.filter((x) => x.type === 'line') : [];
     const axisOptions = axes.map((l, i) => [l.id, `${l.construction ? t('pm.centerline') : t('pm.line')} ${i + 1}`, l.construction ? 'centerline' : 'lineTool']);
     parts.push(group('featSketch', t('pm.from'), `${sketchSel()}${seg('op', [['boss', t('op.boss'), 'featRevolve'], ['cut', t('op.cut'), 'featCutRevolve']], f.op)}${f.op === 'boss' ? check('merge', f.merge !== false, t('pm.mergeResult'), 'combineBodies') : ''}`));
     parts.push(group('refAxis', t('pm.axis'), `${select('axis', [['', t('pm.firstCenterline')], ...axisOptions], f.axis ?? '', t('pm.axisOfRevolution'))}${!constructionLines(sk ?? { entities: [] }).length && !f.axis ? `<p class="pm-note warn">${icon('warning', 'icon tiny')}${escapeHtml(t('pm.needCenterline'))}</p>` : ''}`));
-    parts.push(group('dimAngle', t('pm.direction1'), `${field(api, 'angle', f.angle, { label: t('pm.angle'), unit: 'angle', glyph: 'dimAngle', min: 0.1 })}${check('reverse', f.reverse, t('pm.reverse'), 'flipV')}`));
-  } else if (f.type === 'fillet' || f.type === 'chamfer') {
-    const items = (f.edges ?? []).map((sig, i) => `${t('pm.edge')} ${i + 1} (${sig.type === 'CIRCLE' ? t('pm.circular') : sig.type === 'LINE' ? t('pm.straight') : t('pm.curve')})`);
-    parts.push(group(f.type === 'fillet' ? 'featFillet' : 'featChamfer', t('pm.items'), `${f.type === 'fillet' ? field(api, 'radius', f.radius, { label: t('pm.radius'), glyph: 'dimRadius', min: 0.001 }) : field(api, 'distance', f.distance, { label: t('pm.distance'), min: 0.001 })}${pickBox(api, 'edges', items, t('pm.edges'), 'featFillet')}<div class="pm-row"><button class="small-button" data-pm="tangentChain" title="${escapeHtml(t('pm.allEdgesOfFaceTip'))}">${icon('selectAll')}<span>${escapeHtml(t('pm.allEdgesOfFace'))}</span></button></div>`));
+    parts.push(revolvePm(api, f));
+  } else if (f.type === 'fillet') {
+    parts.push(filletPm(api, f));
+  } else if (f.type === 'chamfer') {
+    parts.push(chamferPm(api, f));
   } else if (f.type === 'shell') {
-    const items = (f.faces ?? []).map((sig, i) => `${t('pm.face')} ${i + 1} (${sig.type === 'PLANE' ? t('pm.planar') : t('pm.curved')})`);
-    parts.push(group('featShell', t('pm.parameters'), `${field(api, 'thickness', f.thickness, { label: t('pm.thickness'), min: 0.001 })}${pickBox(api, 'faces', items, t('pm.facesToRemove'), 'featShell')}`));
+    parts.push(shellPm(api, f));
   } else if (f.type === 'hole') {
     const pts = e.holeSketch?.points ?? [];
     const tapped = f.kind === 'tapped';
-    parts.push(group('featHole', t('pm.holeType'), `${seg('kind', [['simple', t('hole.simple'), 'featHole'], ['counterbore', t('hole.counterbore'), 'featHole'], ['countersink', t('hole.countersink'), 'featHole'], ['tapped', t('hole.tapped'), 'featThread']], f.kind)}
+    parts.push(group('featHole', t('pm.holeType'), `${seg('kind', [['simple', t('hole.simple'), 'featHole'], ['counterbore', t('hole.counterbore'), 'featHole'], ['countersink', t('hole.countersink'), 'featHole'], ['tapped', t('hole.tapped'), 'featThread'], ['taperedTap', t('hole.taperedTap'), 'featThread']], f.kind)}
       ${tapped ? `${select('threadSize', TAP_SIZES.map(([s, d, p]) => [s, `${s} × ${p} — ${t('hole.tapDrill')} Ø${Math.round((d - p) * 10) / 10}`]), f.threadSize ?? 'M8', t('hole.threadSize'))}${field(api, 'threadDepth', f.threadDepth, { label: t('hole.threadDepth'), min: 0.1 })}${select('threadMode', [['auto', t('thread.mode.auto')], ['cosmetic', t('thread.mode.cosmetic')], ['modelled', t('thread.mode.modelled')]], f.threadMode ?? 'auto', t('thread.display'))}<p class="pm-note">${escapeHtml(t('hole.tapNote'))}</p>` : select('size', [['', t('hole.custom')], ...HOLE_SIZES.map(([s]) => [s, `${s} — ${t('hole.clearance')}`])], f.size ?? '', t('hole.size'))}
       ${field(api, 'diameter', f.diameter, { label: t('hole.diameter'), glyph: 'dimDiameter', min: 0.1 })}
       ${f.kind === 'counterbore' ? `${field(api, 'cbDiameter', f.cbDiameter, { label: t('hole.cbDiameter'), glyph: 'dimDiameter', min: 0.1 })}${field(api, 'cbDepth', f.cbDepth, { label: t('hole.cbDepth'), min: 0.1 })}` : ''}
       ${f.kind === 'countersink' ? `${field(api, 'csDiameter', f.csDiameter, { label: t('hole.csDiameter'), glyph: 'dimDiameter', min: 0.1 })}${field(api, 'csAngle', f.csAngle, { label: t('hole.csAngle'), unit: 'angle', glyph: 'dimAngle', min: 30 })}` : ''}`));
-    parts.push(group('featExtrude', t('pm.endCondition'), `${seg('through', [['true', t('end.through')], ['false', t('end.blind')]], String(Boolean(f.through)))}${f.through ? '' : field(api, 'depth', f.depth, { label: t('pm.depth'), min: 0.1 })}`));
+    parts.push(holeMorePm(api, f));
     if (e.isNew || e.holeSketch) parts.push(group('pointTool', t('pm.positions'), `${pickBox(api, 'holePoints', pts.map((p, i) => `${t('pm.point')} ${i + 1} (${api.fmtLen(p[0])}, ${api.fmtLen(p[1])})`), t('pm.holePoints'), 'pointTool')}<p class="pm-note">${escapeHtml(t(e.holeSketch?.plane ? 'pm.holeMore' : 'pm.holeFirst'))}</p>`));
-    else parts.push(group('featSketch', t('pm.positions'), sketchSel(t('pm.pointsSketch'))));
+    else {
+      // Positions from a 2D sketch's points, or from a 3D sketch's points on faces (each hole square to its face).
+      const s3 = (api.curveList?.(f) ?? []).filter((x) => x.type === 'sketch3d');
+      const opts = [['', `— ${t('pm.chooseSketch')} —`], ...sketchList.map((s) => [s.id, s.name, 'featSketch']), ...s3.map((s) => [s.id, `${s.name} (3D)`, 'sketch3d'])];
+      parts.push(group('featSketch', t('pm.positions'), `${select('sketch', opts, f.sketch ?? '', t('pm.pointsSketch'))}${s3.length ? `<p class="pm-note">${escapeHtml(t('hole.from3d'))}</p>` : ''}`));
+    }
   } else if (f.type === 'linearPattern' || f.type === 'circularPattern') {
     const seeds = (f.seeds ?? []).map((id) => api.featureName(id) ?? id);
     if (f.type === 'linearPattern') {
@@ -138,13 +142,14 @@ function featurePm(api) {
     } else {
       parts.push(group('featCirPattern', t('pm.parameters'), `${seg('axisKind', [['x', 'X'], ['y', 'Y'], ['z', 'Z'], ['edge', t('pm.edgeRef')], ...(api.featuresBefore?.(f) ?? []).filter((x) => x.type === 'refAxis').map((x) => [`ref:${x.id}`, x.name, 'refAxis'])], f.axis?.kind === 'ref' ? `ref:${f.axis.id}` : f.axis?.kind === 'edge' ? 'edge' : f.axis?.axis ?? 'z')}${f.axis?.kind === 'edge' ? pickBox(api, 'axis', [axisName(api, f.axis)], t('pm.axisEdge'), 'refAxis') : ''}${check('reverse', f.reverse, t('pm.reverse'), 'flipV')}${field(api, 'angle', f.angle, { label: t('pm.totalAngle'), unit: 'angle', glyph: 'dimAngle', min: 0.1 })}${field(api, 'count', f.count, { label: t('pm.instances'), unit: 'count', glyph: 'featCirPattern', min: 1, step: 1 })}${check('equal', f.equal, t('pm.equalSpacing'), 'relEqual')}`));
     }
+    parts.push(patternMorePm(api, f));
     parts.push(group('part', t('pm.featuresToPattern'), `${check('body', f.body, t('pm.patternBody'), 'part')}${f.body ? '' : pickBox(api, 'seeds', seeds, t('pm.seedFeatures'), 'featExtrude')}`));
   } else if (f.type === 'mirror') {
     const seeds = (f.seeds ?? []).map((id) => api.featureName(id) ?? id);
     parts.push(group('featMirror', t('pm.mirrorPlane'), `${seg('stdPlane', [['front', t('plane.front')], ['top', t('plane.top')], ['right', t('plane.right')]], f.plane?.kind === 'std' ? f.plane.name : '')}${pickBox(api, 'plane', [planeName(api, f.plane)], t('pm.planeOrFace'), 'refPlane')}`));
     parts.push(group('part', t('pm.featuresToMirror'), `${check('body', f.body, t('pm.mirrorBody'), 'part')}${f.body ? '' : pickBox(api, 'seeds', seeds, t('pm.seedFeatures'), 'featExtrude')}`));
   } else if (f.type === 'plane') {
-    parts.push(group('refPlane', t('pm.firstReference'), `${seg('stdPlane', [['front', t('plane.front')], ['top', t('plane.top')], ['right', t('plane.right')]], f.base?.kind === 'std' ? f.base.name : '')}${pickBox(api, 'base', [planeName(api, f.base)], t('pm.planeOrFace'), 'refPlane')}${field(api, 'offset', f.offset, { label: t('pm.offset') })}${check('flip', f.flip, t('pm.flip'), 'flipV')}`));
+    parts.push(refPlanePm(api, f));
   }
   if (ADVANCED_PM[f.type]) parts.push(ADVANCED_PM[f.type](api, f, e));
   else if (f.type === 'openscad') parts.push(openscadPm(api, f, e));
@@ -165,13 +170,27 @@ function sketchPm(api) {
   const rels = relationsFor(ed.sketch, ids);
   const status = ed.over ? 'over' : ed.dof === 0 ? 'defined' : 'under';
   const parts = [header(api, 'featSketch', `${api.editing.feature.name} — ${t('pm.editing')}`, { help: t('pm.help.sketch') })];
-  parts.push(group('dofFree', t('pm.status'), `<div class="sketch-status ${status}">${icon(status === 'defined' ? 'check' : status === 'over' ? 'error' : 'dofFree')}<span>${escapeHtml(t(`sketch.status.${status}`, { dof: ed.dof }))}</span></div>`));
+  // Over defined: which relations conflict, which are redundant (delete one, or make a dimension driven).
+  const dg = ed.diagnose?.();
+  const relRow = (id, kind) => {
+    const c = ed.sketch.constraints.find((k) => k.id === id);
+    if (!c) return '';
+    const dim = DIMENSIONS.includes(c.type);
+    return `<li class="${kind}">${icon(relationIcon(c.type), 'icon tiny')}<span>${escapeHtml(t(`rel.${c.type}`))}${dim ? ` = ${escapeHtml(c.type === 'angle' ? `${api.fmt(c.value)}°` : api.fmtLen(c.value))}` : ''}</span><span class="grow"></span>${dim ? `<button class="icon-button" data-pm="drivenToggle:${escapeHtml(c.id)}" title="${escapeHtml(t('skd.makeDriven'))}">${icon('dimDriven', 'icon tiny')}</button>` : ''}<button class="icon-button" data-pm="delRelation:${escapeHtml(c.id)}" title="${escapeHtml(t('pm.deleteRelation'))}">${icon('trash', 'icon tiny')}</button></li>`;
+  };
+  const diag = dg && (dg.conflicts.length || dg.redundant.length) ? `${dg.conflicts.length ? `<p class="pm-note">${escapeHtml(t('skd.conflicts'))}</p><ul class="pm-list">${dg.conflicts.map((id) => relRow(id, 'error')).join('')}</ul>` : ''}${dg.redundant.length ? `<p class="pm-note">${escapeHtml(t('skd.redundant'))}</p><ul class="pm-list">${dg.redundant.map((id) => relRow(id, 'warn')).join('')}</ul>` : ''}` : '';
+  parts.push(group('dofFree', t('pm.status'), `<div class="sketch-status ${status}">${icon(status === 'defined' ? 'check' : status === 'over' ? 'error' : 'dofFree')}<span>${escapeHtml(t(`sketch.status.${status}`, { dof: ed.dof }))}</span></div>${diag}`));
   // The selection: its relations, and what can be added.
   if (sel.length) {
     const rows = sel.map((x) => `<li>${icon(x.type === 'point' ? 'pointTool' : x.type === 'line' ? (x.construction ? 'centerline' : 'lineTool') : x.type === 'circle' ? 'circleTool' : x.type === 'arc' ? 'arcTool' : x.type === 'spline' ? 'splineTool' : x.type === 'ellipse' ? 'ellipseTool' : x.type === 'ellipseArc' ? 'partialEllipseTool' : x.type === 'conic' ? (x.parabola ? 'parabolaTool' : 'conicTool') : x.type === 'equation' ? 'equationCurve' : x.type === 'text' ? 'textTool' : relationIcon(x.type), 'icon tiny')}<span>${escapeHtml(entityLabel(api, x))}</span></li>`).join('');
     parts.push(group('select', t('pm.selected'), `<ul class="pm-list">${rows}</ul>${entityProps(api, sel)}`));
     const existing = ed.sketch.constraints.filter((c) => ids.some((id) => [c.a, c.b, c.c].includes(id)));
-    if (existing.length) parts.push(group('addRelation', t('pm.existingRelations'), `<ul class="pm-list">${existing.map((c) => `<li class="${c.driven ? 'muted' : ''}">${icon(relationIcon(c.type), 'icon tiny')}<span>${escapeHtml(t(`rel.${c.type}`))}${DIMENSIONS.includes(c.type) ? ` = ${escapeHtml(c.type === 'angle' ? `${api.fmt(c.value)}°` : api.fmtLen(c.value))}` : ''}</span><button class="icon-button" data-pm="delRelation:${escapeHtml(c.id)}" title="${escapeHtml(t('pm.deleteRelation'))}">${icon('trash', 'icon tiny')}</button></li>`).join('')}</ul>`));
+    if (existing.length) parts.push(group('addRelation', t('pm.existingRelations'), `<ul class="pm-list">${existing.map((c) => `<li class="${c.driven ? 'muted' : ''}">${icon(relationIcon(c.type), 'icon tiny')}<span>${escapeHtml(t(`rel.${c.type}`))}${DIMENSIONS.includes(c.type) ? ` = ${escapeHtml(c.type === 'angle' ? `${api.fmt(c.value)}°` : api.fmtLen(c.value))}` : ''}</span>${dimExtras(api, ed, c)}<button class="icon-button" data-pm="delRelation:${escapeHtml(c.id)}" title="${escapeHtml(t('pm.deleteRelation'))}">${icon('trash', 'icon tiny')}</button></li>`).join('')}</ul>`));
+    // One point: it can pierce a curve outside the sketch (another sketch's curve, a 3D curve).
+    if (ids.length === 1 && byId(ed.sketch, ids[0])?.type === 'point' && api.pierceOptions) {
+      const opts = api.pierceOptions();
+      if (opts.length) parts.push(group('pierce', t('rel.pierce'), `<label class="pm-field">${icon('pierce')}<span class="pm-label">${escapeHtml(t('skp.curve'))}</span><select data-pm-select="pierceTo"><option value="">—</option>${opts.map((o) => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join('')}</select></label><p class="pm-note">${escapeHtml(t('skp.help'))}</p>`));
+    }
     if (rels.length) parts.push(group('addRelation', t('pm.addRelations'), `<div class="pm-relations">${rels.map((r) => `<button class="small-button" data-pm="relation:${r}" title="${escapeHtml(t(`rel.${r}`))}">${icon(relationIcon(r))}<span>${escapeHtml(t(`rel.${r}`))}</span></button>`).join('')}</div>`));
     if (ids.some((id) => byId(ed.sketch, id)?.type !== 'point')) parts.push(`<div class="pm-row"><button class="small-button" data-pm="construction" title="${escapeHtml(t('sketch.construction'))}">${icon('constructionToggle')}<span>${escapeHtml(t('sketch.construction'))}</span></button><button class="small-button danger" data-pm="deleteSel" title="${escapeHtml(t('action.delete'))}">${icon('trash')}<span>${escapeHtml(t('action.delete'))}</span></button></div>`);
     parts.push(`<div class="pm-relations">${[['sk:offset', 'offsetTool'], ['sk:mirror', 'mirrorEntities'], ['sk:linPattern', 'sketchLinPattern'], ['sk:cirPattern', 'sketchCirPattern']].map(([id, g]) => `<button class="small-button" data-command="${id}" title="${escapeHtml(t(`sketch.tool.${id.slice(3)}`))}">${icon(g)}<span>${escapeHtml(t(`sketch.tool.${id.slice(3)}`))}</span></button>`).join('')}</div>`);
@@ -180,7 +199,58 @@ function sketchPm(api) {
   }
   if (ed.tool === 'polygon') parts.push(group('polygonTool', t('pm.polygon'), field(api, 'polygonSides', ed.polygonSides, { label: t('pm.sides'), unit: 'count', glyph: 'polygonTool', min: 3, step: 1 })));
   if (ed.tool === 'sketchFillet') parts.push(group('sketchFillet', t('sketch.tool.sketchFillet'), field(api, 'filletRadius', ed.filletRadius, { label: t('pm.radius'), glyph: 'dimRadius', min: 0.001 })));
-  if (ed.tool === 'sketchChamfer') parts.push(group('sketchChamfer', t('sketch.tool.sketchChamfer'), field(api, 'chamferDistance', ed.chamferDistance, { label: t('pm.distance'), min: 0.001 })));
+  if (ed.tool === 'styleSpline') parts.push(group('styleSpline', t('sketch.tool.styleSpline'), `<div class="pm-row">${seg('styleDegree', [['3', t('sks.deg', { n: 3 }), 'styleSpline'], ['5', t('sks.deg', { n: 5 }), 'styleSpline'], ['7', t('sks.deg', { n: 7 }), 'styleSpline']], String(ed.styleDegree))}</div><p class="pm-note">${escapeHtml(t('sks.help', { n: ed.styleDegree + 1 }))}</p>`));
+  // A selected spline: its curvature comb, and (an interpolating one) a tangent handle on each point.
+  const spl = sel.length === 1 && sel[0].type === 'spline' ? sel[0] : null;
+  if (spl) {
+    const combOn = ed.combs?.has(spl.id);
+    let body = `<label class="pm-check"><input type="checkbox" data-pm-toggle="comb:${escapeHtml(spl.id)}" ${combOn ? 'checked' : ''}/>${icon('curvatureComb')}<span>${escapeHtml(t('sks.comb'))}</span></label>${combOn ? field(api, 'comb.scale', ed.combScale, { label: t('sks.combScale'), unit: 'count', glyph: 'curvatureComb', min: 0.01 }) : ''}`;
+    if (!spl.style) {
+      const closed = spl.pts.length > 3 && spl.pts[0] === spl.pts.at(-1);
+      const n = closed ? spl.pts.length - 1 : spl.pts.length;
+      const rows = Array.from({ length: n }, (_, i) => {
+        const h = spl.handles?.[i];
+        return `<div class="pm-handle"><label class="pm-check"><input type="checkbox" data-pm-toggle="handleOn:${escapeHtml(spl.id)}:${i}" ${h ? 'checked' : ''}/>${icon('splineHandle')}<span>${escapeHtml(t('sks.point', { n: i + 1 }))}</span></label>${h ? `${field(api, `handle.angle.${spl.id}.${i}`, h.angle, { label: t('sks.angle'), unit: 'angle', glyph: 'dimAngle' })}${field(api, `handle.weight.${spl.id}.${i}`, h.weight ?? 1, { label: t('sks.weight'), unit: 'count', glyph: 'dimDistance', min: 0.01 })}` : ''}</div>`;
+      }).join('');
+      body += `<p class="pm-note">${escapeHtml(t('sks.handlesHelp'))}</p>${rows}`;
+    } else body += `<p class="pm-note">${escapeHtml(t('sks.styleNote', { n: spl.pts.length - 1 }))}</p>`;
+    parts.push(group('splineTool', t('sks.spline'), body));
+  }
+  if (ed.traceOpen) {
+    const o = ed.traceOptions;
+    const body = `<div class="pm-row">${seg('trace.mode', [['dark', t('skt.dark'), 'moon'], ['light', t('skt.light'), 'sun']], o.mode)}</div>
+      ${field(api, 'trace.threshold', o.threshold, { label: t('skt.threshold'), unit: 'count', glyph: 'appearance', min: 0, step: 1 })}
+      ${field(api, 'trace.tol', o.tol, { label: t('skt.tol'), unit: 'count', glyph: 'dimDistance', min: 0.1 })}
+      ${field(api, 'trace.minArea', o.minArea, { label: t('skt.minArea'), unit: 'count', glyph: 'pointTool', min: 0, step: 1 })}
+      <p class="pm-note">${escapeHtml(t('skt.help'))}</p>
+      <div class="pm-row"><button class="small-button" data-pm="traceNow">${icon('autoTrace')}<span>${escapeHtml(t('skt.trace'))}</span></button><button class="small-button" data-pm="traceClose">${icon('close')}<span>${escapeHtml(t('pm.close'))}</span></button></div>`;
+    parts.push(group('autoTrace', t('sketch.tool.autoTrace'), body));
+  }
+  if (ed.repairOpen) {
+    const c = ed.repairCheck();
+    const row = (glyph, label, n) => `<li class="${n ? 'warn' : 'muted'}">${icon(glyph, 'icon tiny')}<span>${escapeHtml(label)}</span><span class="grow"></span><b>${n}</b></li>`;
+    const body = `${field(api, 'repair.gap', ed.repairGap, { label: t('skr.gap'), glyph: 'dimDistance', min: 0.000001 })}
+      <ul class="pm-list">${row('dimDistance', t('skr.gaps'), c.gaps.length)}${row('copy', t('skr.duplicates'), c.duplicates.length)}${row('lineTool', t('skr.overlaps'), c.overlaps.length)}${row('pointTool', t('skr.tiny'), c.tiny.length)}${row('warning', t('skr.openEnds'), c.openEnds.length)}${row('selectChain', t('skr.branches'), c.branches.length)}</ul>
+      <p class="pm-note">${escapeHtml(t('skr.help'))}</p>
+      <div class="pm-row"><button class="small-button" data-pm="repairNow">${icon('repairSketch')}<span>${escapeHtml(t('skr.repair'))}</span></button><button class="small-button" data-pm="repairShowOpen" ${c.openEnds.length + c.branches.length ? '' : 'disabled'}>${icon('search')}<span>${escapeHtml(t('skr.show'))}</span></button><button class="small-button" data-pm="repairClose">${icon('close')}<span>${escapeHtml(t('pm.close'))}</span></button></div>`;
+    parts.push(group('repairSketch', t('sketch.tool.repair'), body));
+  }
+  if (ed.offsetOpen) {
+    const o = ed.offsetOptions;
+    const chk = (k, label, glyph) => `<label class="pm-check"><input type="checkbox" data-pm-toggle="offset.${k}" ${o[k] ? 'checked' : ''}/>${icon(glyph)}<span>${escapeHtml(label)}</span></label>`;
+    const body = `${field(api, 'offset.distance', o.distance, { label: t('pm.distance'), glyph: 'offsetTool', min: 0.001 })}
+      ${chk('reverse', t('sko.reverse'), 'reverse')}${chk('both', t('sko.both'), 'offsetTool')}
+      ${o.both ? `<div class="pm-row">${seg('offset.cap', [['none', t('sko.capNone'), 'lineTool'], ['arcs', t('sko.capArcs'), 'arcTool'], ['lines', t('sko.capLines'), 'lineTool']], o.cap)}</div>` : ''}
+      ${chk('chain', t('sko.chain'), 'selectChain')}${chk('baseConstruction', t('sko.base'), 'constructionToggle')}${chk('construction', t('sko.cons'), 'centerline')}
+      <p class="pm-note">${escapeHtml(t('sko.help'))}</p>
+      <div class="pm-row"><button class="small-button" data-pm="offsetApply">${icon('check')}<span>${escapeHtml(t('sko.apply'))}</span></button><button class="small-button" data-pm="offsetClose">${icon('close')}<span>${escapeHtml(t('pm.close'))}</span></button></div>`;
+    parts.push(group('offsetTool', t('sketch.tool.offset'), body));
+  }
+  if (ed.tool === 'sketchChamfer') {
+    const mode = ed.chamferMode ?? 'equal';
+    const body = `<div class="pm-row">${seg('chamferMode', [['equal', t('skc.equal'), 'featChamfer'], ['distDist', t('skc.distDist'), 'dimDistance'], ['angleDist', t('skc.angleDist'), 'dimAngle']], mode)}</div>${field(api, 'chamferDistance', ed.chamferDistance, { label: mode === 'equal' ? t('pm.distance') : t('skc.d1'), min: 0.001 })}${mode === 'distDist' ? field(api, 'chamferDistance2', ed.chamferDistance2, { label: t('skc.d2'), min: 0.001 }) : ''}${mode === 'angleDist' ? field(api, 'chamferAngle', ed.chamferAngle, { label: t('pm.angle'), unit: 'angle', glyph: 'dimAngle', min: 0.01 }) : ''}${mode !== 'equal' ? `<label class="pm-check"><input type="checkbox" data-pm-toggle="chamferFlip" ${ed.chamferFlip ? 'checked' : ''}/>${icon('reverse')}<span>${escapeHtml(t('skc.flip'))}</span></label>` : ''}`;
+    parts.push(group('sketchChamfer', t('sketch.tool.sketchChamfer'), body));
+  }
   if (ed.tool === 'equation') {
     const d = ed.eqDraft;
     parts.push(group('equationCurve', t('sketch.tool.equation'), `${equationFields(api, d, 'eq')}<div class="pm-row"><button class="small-button" data-pm="equationApply" title="${escapeHtml(t('sketch.equationAdd'))}">${icon('check')}<span>${escapeHtml(t('sketch.equationAdd'))}</span></button></div>`));
@@ -189,6 +259,22 @@ function sketchPm(api) {
   const counts = { lines: ed.sketch.entities.filter((x) => x.type === 'line').length, arcs: ed.sketch.entities.filter((x) => x.type === 'arc' || x.type === 'circle').length, relations: ed.sketch.constraints.length };
   parts.push(`<p class="pm-foot muted">${escapeHtml(t('sketch.counts', counts))}</p>`);
   return parts.join('');
+}
+
+/** A dimension row's extras: the driven switch, and where a distance meets a circle or arc (centre / min / max). */
+function dimExtras(api, ed, c) {
+  const { t } = api;
+  if (!DIMENSIONS.includes(c.type)) return '';
+  let out = `<button class="icon-button ${c.driven ? 'active' : ''}" data-pm="drivenToggle:${escapeHtml(c.id)}" title="${escapeHtml(t(c.driven ? 'skd.makeDriving' : 'skd.makeDriven'))}" aria-pressed="${c.driven ? 'true' : 'false'}">${icon('dimDriven', 'icon tiny')}</button>`;
+  if (c.type === 'distance') {
+    for (const which of ['a', 'b']) {
+      const e = byId(ed.sketch, c[which]);
+      if (!e || !(e.type === 'circle' || e.type === 'arc')) continue;
+      const cur = c[which === 'a' ? 'condA' : 'condB'] ?? 'center';
+      out += `<select class="pm-mini" data-pm-select="arcCond:${escapeHtml(c.id)}:${which}" title="${escapeHtml(t('skd.arcCond'))}">${['center', 'min', 'max'].map((k) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${escapeHtml(t(`skd.cond.${k}`))}</option>`).join('')}</select>`;
+    }
+  }
+  return out;
 }
 
 /** The fields of an equation-driven curve (the new one being drawn, or a selected one): kind, equations, range. */
@@ -229,16 +315,20 @@ function matePm(api) {
   const m = e.mate;
   const groupName = e.mateGroup ?? 'standard';
   const types = matesFor(m.a, m.b, groupName);
-  const name = (ref) => (ref ? `${api.componentName(ref.comp)} · ${t(ref.kind === 'axis' ? 'pm.axisFace' : 'pm.planarFace')}` : '');
+  const name = (ref) => (ref ? `${api.componentName(ref.comp)} · ${t(ref.kind === 'axis' ? 'pm.axisFace' : ref.kind === 'point' ? 'pm.vertex' : ref.kind === 'path' ? 'pm.pathEdges' : 'pm.planarFace')}${ref.kind === 'path' ? ` (${ref.pieces?.length ?? 1})` : ''}` : '');
   const parts = [header(api, MATE_ICONS[m.type] ?? 'mate', `${t('pm.mate')}${e.isNew ? '' : ` — ${m.name}`}`, { help: t('pm.help.mate') })];
   const need = MATE_REFS[m.type] ?? {};
-  parts.push(group('select', t('pm.mateSelections'), `${pickBox(api, 'a', m.a ? [name(m.a)] : [], t('pm.entity1'), 'part')}${pickBox(api, 'b', m.b ? [name(m.b)] : [], t('pm.entity2'), 'part')}${need.c ? pickBox(api, 'c', m.c ? [name(m.c)] : [], t(need.d ? 'pm.entity3' : 'pm.symmetryPlane'), 'part') : ''}${need.d ? pickBox(api, 'd', m.d ? [name(m.d)] : [], t('pm.entity4'), 'part') : ''}`));
+  parts.push(group('select', t('pm.mateSelections'), `${pickBox(api, 'a', m.a ? [name(m.a)] : [], t('pm.entity1'), 'part')}${pickBox(api, 'b', m.b ? [name(m.b)] : [], t('pm.entity2'), 'part')}${need.c ? pickBox(api, 'c', m.c ? [name(m.c)] : [], t(need.d ? 'pm.entity3' : m.type === 'slot' ? 'pm.slotEnd2' : 'pm.symmetryPlane'), 'part') : ''}${need.d ? pickBox(api, 'd', m.d ? [name(m.d)] : [], t('pm.entity4'), 'part') : ''}`));
   parts.push(`<div class="pm-row">${seg('mateGroup', [['standard', t('pm.standardMates'), 'mate'], ['advanced', t('pm.advancedMates'), 'mateWidth'], ['mechanical', t('pm.mechanicalMates'), 'mateGear']], groupName)}</div>`);
   if (types.length) {
     parts.push(group('mate', t(`pm.${groupName}Mates`), `<div class="pm-relations">${types.map((ty) => `<button class="small-button ${m.type === ty ? 'active' : ''}" data-pm-set="type" data-value="${ty}" title="${escapeHtml(t(`mate.${ty}`))}">${icon(MATE_ICONS[ty] ?? 'mate')}<span>${escapeHtml(t(`mate.${ty}`))}</span></button>`).join('')}</div>
       ${m.type === 'limitDistance' ? `${field(api, 'min', m.min ?? 0, { label: t('pm.minimum') })}${field(api, 'max', m.max ?? 50, { label: t('pm.maximum') })}` : ''}${m.type === 'limitAngle' ? `${field(api, 'min', m.min ?? 0, { label: t('pm.minimum'), unit: 'angle', glyph: 'dimAngle' })}${field(api, 'max', m.max ?? 90, { label: t('pm.maximum'), unit: 'angle', glyph: 'dimAngle' })}` : ''}
       ${m.type === 'gear' ? field(api, 'ratio', m.ratio ?? 1, { label: t('pm.ratio'), unit: 'number', glyph: 'mateGear' }) : ''}${m.type === 'rackPinion' ? field(api, 'radius', m.radius ?? 10, { label: t('pm.pitchRadius'), glyph: 'dimRadius' }) : ''}${m.type === 'screw' ? field(api, 'pitch', m.pitch ?? 1, { label: t('pm.pitchPerTurn') }) : ''}
-      ${['gear', 'rackPinion', 'screw'].includes(m.type) ? check('reverse', m.reverse, t('pm.reverse'), 'flipV') : ''}
+      ${m.type === 'profileCenter' ? field(api, 'value', m.value ?? 0, { label: t('pm.offsetDistance') }) : ''}
+      ${m.type === 'path' ? `<p class="pm-note">${escapeHtml(t('path.hint'))}</p>${seg('pathMode', [['free', t('slot.free')], ['distance', t('path.distance')], ['percent', t('slot.percent')]], m.pathMode ?? 'free')}${m.pathMode === 'distance' || m.pathMode === 'percent' ? field(api, 'value', m.value ?? 0, { label: m.pathMode === 'percent' ? t('path.percentAlong') : t('path.distanceAlong'), unit: m.pathMode === 'percent' ? 'number' : 'length' }) : ''}${check('flip', m.flip, t('path.fromEnd'), 'flipV')}${m.a?.kind !== 'point' ? check('follow', m.follow, t('path.follow'), 'mateParallel') : ''}` : ''}
+      ${m.type === 'linearCoupler' ? field(api, 'ratio', m.ratio ?? 1, { label: t('pm.ratio'), unit: 'number', glyph: 'mateLinearCoupler' }) : ''}
+      ${m.type === 'slot' ? `${seg('slotMode', [['free', t('slot.free')], ['center', t('slot.center')], ['distance', t('slot.distance')], ['percent', t('slot.percent')]], m.slotMode ?? 'free')}${m.slotMode === 'distance' || m.slotMode === 'percent' ? field(api, 'value', m.value ?? 0, { label: m.slotMode === 'percent' ? t('slot.percentAlong') : t('slot.distanceAlong'), unit: m.slotMode === 'percent' ? 'number' : 'length' }) : ''}` : ''}
+      ${['gear', 'rackPinion', 'screw', 'linearCoupler', 'universalJoint'].includes(m.type) ? check('reverse', m.reverse, t('pm.reverse'), 'flipV') : ''}
       ${m.type === 'distance' ? field(api, 'value', m.value ?? 0, { label: t('pm.distance') }) : ''}${m.type === 'angle' ? field(api, 'value', m.value ?? 90, { label: t('pm.angle'), unit: 'angle', glyph: 'dimAngle' }) : ''}
       ${['coincident', 'distance'].includes(m.type) && m.a?.kind === 'plane' && m.b?.kind === 'plane' ? `<div class="pm-row">${seg('aligned', [['anti', t('mate.antiAligned'), 'flipH'], ['aligned', t('mate.aligned'), 'flipV']], m.aligned ?? 'anti')}</div>` : ''}
       ${m.type === 'distance' ? check('flip', m.flip, t('pm.flipDimension'), 'flipV') : ''}`));

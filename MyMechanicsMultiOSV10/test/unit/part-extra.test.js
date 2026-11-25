@@ -146,3 +146,15 @@ test('insert part of one body (Save Bodies): body 1 of a two-body part', () => {
   one.features[0].body = 5;
   assert.equal(regenerate(one, { project }).results.get(one.features[0].id).error, 'body-missing');
 });
+
+test('move face: the top face of a block pushed out 5 and pulled in 3', () => {
+  const part = newPart();
+  const s = sketchOn(part, top, (k) => addRectangle(k, -30, -20, 30, 20));
+  add(part, 'extrude', { sketch: s.id, depth: 20 });
+  const body = ok(part).body;
+  const topFace = body.faces.find((f) => f.geomType === 'PLANE' && Math.abs(f.center.z - 20) < 1e-6);
+  const m = add(part, 'moveFace', { faces: [faceSignature(topFace)], distance: 5 });
+  near(V(ok(part).body), 60 * 40 * 25, 1e-9);
+  m.distance = -3;
+  near(V(ok(part).body), 60 * 40 * 17, 1e-9);
+});

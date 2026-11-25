@@ -1,6 +1,8 @@
 // Z up: every sample, built now, is the Y-up baseline (test/fixtures/samples-yup-baseline.json, measured before
 // the switch) turned by R = +90° about X — same volumes and areas, boxes = R(old boxes), component placements
-// R·M·Rᵀ, drawing views the same — and the document migration turns old files once (idempotent).
+// R·M·Rᵀ, drawing views the same — and the document migration turns old files once (idempotent). Parts with
+// modelled threads (basClevis, basCapScrew, hsgBottle) were re-measured on 2026-11-25 when every thread form became
+// an exact screw solid (it had been a faceted groove); their boxes are the original ones.
 // ZUP_ONLY=id1,id2 limits the samples (for quick runs).
 import test from 'node:test';
 import assert from 'node:assert/strict';

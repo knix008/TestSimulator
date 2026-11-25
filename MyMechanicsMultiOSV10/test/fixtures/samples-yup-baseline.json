@@ -71,8 +71,8 @@
  "basClevis": {
   "parts": {
    "Stepped clevis#0": {
-    "volume": 66730.457035,
-    "area": 15979.418165,
+    "volume": 66701.67308,
+    "area": 15849.393764,
     "box": [
      [
       -20,
@@ -232,8 +232,8 @@
  "basCapScrew": {
   "parts": {
    "Socket head cap screw M12×50#0": {
-    "volume": 7573.80904,
-    "area": 4220.657743,
+    "volume": 7542.127935,
+    "area": 4156.193004,
     "box": [
      [
       -8.991671,
@@ -1293,8 +1293,8 @@
  "hsgBottle": {
   "parts": {
    "Sports bottle#0": {
-    "volume": 78332.135526,
-    "area": 80728.308077,
+    "volume": 78622.292935,
+    "area": 80151.954414,
     "box": [
      [
       -33,

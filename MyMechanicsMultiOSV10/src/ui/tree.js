@@ -25,7 +25,7 @@ export const FEATURE_ICONS = {
   ...STD_ICONS,
 };
 export const featureIcon = (f) => FEATURE_ICONS[nameKey(f)] ?? 'part';
-export const MATE_ICONS = { coincident: 'mateCoincident', concentric: 'mateConcentric', distance: 'mateDistance', parallel: 'mateParallel', perpendicular: 'matePerpendicular', angle: 'mateAngle', lock: 'mateLock', width: 'mateWidth', symmetric: 'mateSymmetric', limitDistance: 'mateLimit', limitAngle: 'mateLimit', gear: 'mateGear', rackPinion: 'mateRack', screw: 'mateScrew', hinge: 'mateHinge' };
+export const MATE_ICONS = { path: 'matePath', magnetic: 'magneticMate', profileCenter: 'mateProfileCenter', linearCoupler: 'mateLinearCoupler', slot: 'mateSlot', universalJoint: 'mateUniversal', coincident: 'mateCoincident', concentric: 'mateConcentric', distance: 'mateDistance', parallel: 'mateParallel', perpendicular: 'matePerpendicular', angle: 'mateAngle', lock: 'mateLock', width: 'mateWidth', symmetric: 'mateSymmetric', limitDistance: 'mateLimit', limitAngle: 'mateLimit', gear: 'mateGear', rackPinion: 'mateRack', screw: 'mateScrew', hinge: 'mateHinge' };
 
 const row = ({ key, glyph, label, depth = 0, cls = '', toggle = null, open = true, extra = '', title = '' }) => `<div class="tree-row ${cls}" data-tree="${escapeHtml(key)}" style="--depth:${depth}" title="${escapeHtml(title || label)}" role="treeitem" tabindex="-1">
   <span class="tree-toggle">${toggle ? `<button class="tree-twisty" data-tree-toggle="${escapeHtml(toggle)}" aria-label="toggle">${icon(open ? 'caretDown' : 'caretRight', 'icon tiny')}</button>` : ''}</span>

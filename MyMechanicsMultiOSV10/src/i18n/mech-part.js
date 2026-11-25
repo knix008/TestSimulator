@@ -4,6 +4,18 @@
 // tools convert entities, intersection curve, move / copy / rotate / scale. { key: [Korean, English] }.
 const T = {
   'pm.allBodies': ['모든 바디', 'All bodies'],
+  'cmd.connectionPoint': ['연결점', 'Connection Point'],
+  'feature.connectionPoint': ['연결점', 'Connection point'],
+  'fname.connectionPoint': ['연결점', 'Connection Point'],
+  'cp.name': ['연결점 이름', 'Connector name'],
+  'cp.face': ['연결점 면', 'Face of the connection point'],
+  'cp.help': ['어셈블리에서 이 점이 다른 부품의 연결점 가까이 오면 자석 메이트로 붙습니다 (점이 만나고 방향이 마주 봄).', 'In an assembly, this point snaps to another part\'s connection point that comes near it (magnetic mate: the points meet and face each other).'],
+  'cmd.moveFace': ['면 이동', 'Move Face'],
+  'feature.moveFace': ['면 이동', 'Move face'],
+  'fname.moveFace': ['면이동', 'Move Face'],
+  'pm.facesToMove': ['이동할 면', 'Faces to move'],
+  'pm.offsetDistance': ['오프셋 거리 (−: 안쪽)', 'Offset distance (−: inward)'],
+  'pm.help.moveFace': ['평면을 바깥쪽 법선 방향으로 밀거나(+) 당깁니다(−).', 'Pushes planar faces out along their normals (+) or pulls them in (−).'],
   'cmd.advancedHole': ['고급 구멍', 'Advanced Hole'],
   'feature.advancedHole': ['고급 구멍', 'Advanced hole'],
   'fname.advancedHole': ['고급구멍', 'Advanced Hole'],
@@ -87,6 +99,13 @@ const T = {
   'cmd.projectedCurve': ['투영 곡선', 'Projected Curve'],
   'cmd.splitLine': ['분할선', 'Split Line'],
   'cmd.compositeCurve': ['복합 곡선', 'Composite Curve'],
+  'cmd.surfaceSpline': ['곡면 위 스플라인', 'Spline on Surface'],
+  'tip.surfaceSpline': ['면 위에 놓이는 스플라인 (면을 고르고 그 위에 점을 클릭)', 'A spline lying on a face (pick the face, click points on it)'],
+  'feature.surfaceSpline': ['곡면 위 스플라인', 'Spline on surface'],
+  'fname.surfaceSpline': ['곡면-스플라인', 'Spline on Surface'],
+  'pm.help.surfaceSpline': ['면을 클릭하고 그 위에 지나갈 점들을 클릭하세요. 곡선 전체가 면 위에 놓입니다.', 'Click a face, then the points on it the curve passes through. The whole curve lies on the face.'],
+  'ssp.face': ['곡선을 놓을 면', 'Face to lie on'],
+  'ssp.help': ['점은 면의 매개변수 공간에서 이어지므로 곡선의 모든 점이 면 위에 있습니다. 표에서 좌표를 고칠 수 있습니다.', 'The points are joined in the face\'s own parameters, so every point of the curve is on the face. Edit the coordinates in the table.'],
   'cmd.curveXYZ': ['XYZ 점 곡선', 'Curve Through XYZ Points'],
 
   // ── command tooltips

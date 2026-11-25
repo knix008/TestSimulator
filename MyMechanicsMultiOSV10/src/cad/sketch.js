@@ -18,8 +18,8 @@ export const POINT_KEYS = ['p1', 'p2', 'c', 'pc'];
 /** Curves made of rational Bézier pieces (curvePieces). */
 export const PIECE_CURVES = ['ellipseArc', 'conic', 'equation'];
 /** Geometric relations (no value) and dimensions (a value). */
-export const RELATIONS = ['coincident', 'horizontal', 'vertical', 'parallel', 'perpendicular', 'tangent', 'equal', 'concentric', 'midpoint', 'pointOnLine', 'pointOnCircle', 'fix', 'symmetric', 'collinear'];
-export const DIMENSIONS = ['distance', 'hdistance', 'vdistance', 'radius', 'diameter', 'angle'];
+export const RELATIONS = ['coincident', 'horizontal', 'vertical', 'parallel', 'perpendicular', 'tangent', 'equal', 'concentric', 'midpoint', 'pointOnLine', 'pointOnCircle', 'fix', 'symmetric', 'collinear', 'coradial', 'merge', 'equalCurvature', 'smooth'];
+export const DIMENSIONS = ['distance', 'hdistance', 'vdistance', 'radius', 'diameter', 'angle', 'arcLength'];
 
 let counter = 0;
 export const newSketchId = (prefix) => `${prefix}${Date.now().toString(36).slice(-4)}${(counter++).toString(36)}`;
@@ -132,8 +132,9 @@ export function polyline(sketch, e, map = idx(sketch), segments = 48) {
   }
   if (e.type === 'spline') {
     const out = [];
-    for (const [p0, c1, c2, p3] of splineBeziers(sketch, e, map)) {
-      for (let i = out.length ? 1 : 0; i <= 16; i++) out.push(bezierAt(p0, c1, c2, p3, i / 16));
+    for (const b of splineBeziers(sketch, e, map)) {
+      const k = b.length > 4 ? 48 : 16;
+      for (let i = out.length ? 1 : 0; i <= k; i++) out.push(bezierPoint(b, i / k));
     }
     return out;
   }
@@ -173,22 +174,44 @@ export function addText(sketch, x, y, text, size = 10, rot = 0) {
  * [[p0, c1, c2, p3], …]. The kernel draws the same pieces, so what is seen is what is built. A spline whose
  * first and last point are the same is closed (smooth through the join).
  */
-export function splineBeziers(sketch, e, map = idx(sketch)) {
-  const P = e.pts.map((id) => { const p = map.get(id); return [p.x, p.y]; });
+export function splineBeziers(sketch, e, map = sketch ? idx(sketch) : null, at0 = null) {
+  // Points from the entities, or from the solver's accessor (at0(id) → [x, y]).
+  const P = e.pts.map((id) => { if (at0) return at0(id); const p = map.get(id); return [p.x, p.y]; });
+  // A style spline: its points are the control polygon of one Bézier (degree = points − 1: 3, 5 or 7).
+  if (e.style) return [P];
   const closed = e.pts.length > 3 && e.pts[0] === e.pts[e.pts.length - 1];
   const n = P.length;
   const at = (i) => {
     if (closed) { const m = n - 1; return P[((i % m) + m) % m]; }
     return P[Math.max(0, Math.min(n - 1, i))];
   };
+  // The tangent at each point (Catmull-Rom: half the step between its neighbours), or the handle set on it: its
+  // direction (degrees) and its weight (a factor on the natural length).
+  const m = closed ? n - 1 : n;
+  const T = Array.from({ length: n }, (_, i) => {
+    const t0 = [(at(i + 1)[0] - at(i - 1)[0]) / 2, (at(i + 1)[1] - at(i - 1)[1]) / 2];
+    const h = e.handles?.[closed ? i % m : i];
+    if (!h) return t0;
+    const L = Math.hypot(t0[0], t0[1]) || Math.hypot(at(i + 1)[0] - at(i)[0], at(i + 1)[1] - at(i)[1]) || 1;
+    const w = Number.isFinite(Number(h.weight)) ? Number(h.weight) : 1;
+    const a = Number.isFinite(Number(h.angle)) ? (Number(h.angle) * Math.PI) / 180 : Math.atan2(t0[1], t0[0]);
+    return [Math.cos(a) * L * w, Math.sin(a) * L * w];
+  });
   const out = [];
   for (let i = 0; i < n - 1; i++) {
-    const p0 = at(i); const p1 = at(i + 1); const pm = at(i - 1); const p2 = at(i + 2);
-    const c1 = [p0[0] + (p1[0] - pm[0]) / 6, p0[1] + (p1[1] - pm[1]) / 6];
-    const c2 = [p1[0] - (p2[0] - p0[0]) / 6, p1[1] - (p2[1] - p0[1]) / 6];
-    out.push([p0, c1, c2, p1]);
+    const p0 = at(i); const p1 = at(i + 1);
+    const t0 = T[i]; const t1 = T[closed && i + 1 === n - 1 ? 0 : i + 1];
+    out.push([p0, [p0[0] + t0[0] / 3, p0[1] + t0[1] / 3], [p1[0] - t1[0] / 3, p1[1] - t1[1] / 3], p1]);
   }
   return out;
+}
+
+/** A point of a Bézier of any degree (control points, t ∈ [0, 1]) by de Casteljau. */
+export function bezierPoint(ctrl, t) {
+  if (ctrl.length === 4) return bezierAt(ctrl[0], ctrl[1], ctrl[2], ctrl[3], t);
+  let q = ctrl.map((p) => [p[0], p[1]]);
+  while (q.length > 1) q = q.slice(1).map((p, i) => [q[i][0] + (p[0] - q[i][0]) * t, q[i][1] + (p[1] - q[i][1]) * t]);
+  return q[0];
 }
 
 export function bezierAt(p0, c1, c2, p3, t) {
@@ -388,6 +411,14 @@ function constraintResiduals(c, s, P, R, map, K = 10) {
       return [R(ea.id) - R(eb.id)];
     }
     case 'tangent': {
+      // A spline joined end to end with another curve: their directions agree where they meet (the spline's from its solver points).
+      if (ea.type === 'spline' || eb.type === 'spline') {
+        const shared = sharedEnd(ea, eb);
+        if (!shared) return [0];
+        const tan = (e) => { if (e.type !== 'spline') return endTangent(e, shared, P, map); const pts = e.pts.map((id) => P(id)); return shared === e.pts[0] ? v2(pts[0], pts[1]) : v2(pts.at(-2), pts.at(-1)); };
+        const ta = tan(ea); const tb = tan(eb);
+        return [(cross(ta, tb) / ((len(ta) * len(tb)) || 1)) * K];
+      }
       // A partial ellipse, a conic or an equation curve: tangent where it meets the other curve (a shared end).
       if (PIECE_CURVES.includes(ea.type) || PIECE_CURVES.includes(eb.type)) {
         const shared = sharedEnd(ea, eb);
@@ -410,6 +441,24 @@ function constraintResiduals(c, s, P, R, map, K = 10) {
       return [c.internal ? d - Math.abs(R(ea.id) - R(eb.id)) : d - (R(ea.id) + R(eb.id))];
     }
     case 'concentric': { const a = center(ea); const b = center(eb); return [a[0] - b[0], a[1] - b[1]]; }
+    // Coradial: the same centre and the same radius.
+    case 'coradial': { const a = center(ea); const b = center(eb); return [a[0] - b[0], a[1] - b[1], R(ea.id) - R(eb.id)]; }
+    // Merge: two points become one.
+    case 'merge': { const a = P(c.a); const b = P(c.b); return [a[0] - b[0], a[1] - b[1]]; }
+    // Equal curvature where two curves join (a spline meeting an arc, a line or another spline); smooth adds tangency.
+    case 'equalCurvature': case 'smooth': {
+      const shared = sharedEnd(ea, eb);
+      if (!shared) return [0];
+      const ka = Math.abs(endCurvature(ea, shared, P, map, R)); const kb = Math.abs(endCurvature(eb, shared, P, map, R));
+      const out = [(ka - kb) * K * K];
+      if (c.type === 'smooth') {
+        // A spline's end tangent from the solver's points (the stored ones lag while it solves).
+        const tan = (e) => { if (e.type !== 'spline') return endTangent(e, shared, P, map); const pts = e.pts.map((id) => P(id)); return shared === e.pts[0] ? v2(pts[0], pts[1]) : v2(pts.at(-2), pts.at(-1)); };
+        const ta = tan(ea); const tb = tan(eb);
+        out.push((cross(ta, tb) / ((len(ta) * len(tb)) || 1)) * K);
+      }
+      return out;
+    }
     case 'midpoint': {
       const p = P(c.a); const [a, b] = L(eb);
       return [p[0] - (a[0] + b[0]) / 2, p[1] - (a[1] + b[1]) / 2];
@@ -420,6 +469,8 @@ function constraintResiduals(c, s, P, R, map, K = 10) {
     }
     case 'pointOnCircle': { const p = P(c.a); return [len(v2(center(eb), p)) - R(eb.id)]; }
     case 'fix': { const p = P(c.a); return [p[0] - c.x, p[1] - c.y]; }
+    // Pierce: where a curve outside the sketch crosses its plane (sketch-pierce.js keeps x, y up to date).
+    case 'pierce': { if (!Number.isFinite(c.x)) return [0, 0]; const p = P(c.a); return [p[0] - c.x, p[1] - c.y]; }
     case 'symmetric': {
       const a = P(c.a); const b = P(c.b); const line = map.get(c.c);
       const [l1, l2] = L(line); const d = v2(l1, l2);
@@ -439,12 +490,15 @@ function constraintResiduals(c, s, P, R, map, K = 10) {
         const p = P((ka === 'point' ? ea : eb).id); const [a, b] = L(ka === 'line' ? ea : eb); const d = v2(a, b);
         return [Math.abs(cross(d, v2(a, p))) / (len(d) || 1) - value];
       }
-      if (ka === 'circle' && kb === 'circle') return [len(v2(center(ea), center(eb))) - value];
+      // Circles and arcs: from the centre, or the nearest (min) / farthest (max) point of the curve (c.condA / c.condB).
+      const cond = (k) => ({ min: -1, max: 1 }[k] ?? 0);
+      if (ka === 'circle' && kb === 'circle') return [len(v2(center(ea), center(eb))) + cond(c.condA) * R(ea.id) + cond(c.condB) * R(eb.id) - value];
       if (ka === 'circle' || kb === 'circle') {
         const circle = ka === 'circle' ? ea : eb; const other = circle === ea ? eb : ea;
-        if (geomKind(other) === 'point') return [len(v2(center(circle), P(other.id))) - value];
+        const k = cond(circle === ea ? c.condA : c.condB) * R(circle.id);
+        if (geomKind(other) === 'point') return [len(v2(center(circle), P(other.id))) + k - value];
         const [a, b] = L(other); const d = v2(a, b);
-        return [Math.abs(cross(d, v2(a, center(circle)))) / (len(d) || 1) - value];
+        return [Math.abs(cross(d, v2(a, center(circle)))) / (len(d) || 1) + k - value];
       }
       return [0];
     }
@@ -455,6 +509,13 @@ function constraintResiduals(c, s, P, R, map, K = 10) {
       return [(c.sign ?? 1) * (pb[axis] - pa[axis]) - Number(c.value)];
     }
     case 'radius': return [R(ea.id) - Number(c.value)];
+    // Arc length: the radius times the angle swept from the arc's start to its end (counter-clockwise).
+    case 'arcLength': {
+      const o = center(ea); const a = P(ea.p1); const b = P(ea.p2);
+      let th = Math.atan2(b[1] - o[1], b[0] - o[0]) - Math.atan2(a[1] - o[1], a[0] - o[0]);
+      while (th <= 0) th += Math.PI * 2;
+      return [R(ea.id) * th - Number(c.value)];
+    }
     case 'diameter': return [2 * R(ea.id) - Number(c.value)];
     case 'angle': {
       const [a1, a2] = L(ea); const [b1, b2] = L(eb);
@@ -467,6 +528,26 @@ function constraintResiduals(c, s, P, R, map, K = 10) {
     }
     default: return [];
   }
+}
+
+/** The signed curvature of a curve at its end `end` (1/radius of an arc, 0 for a line, the end of a spline's Bézier). */
+export function endCurvature(e, end, P, map, R) {
+  if (e.type === 'line') return 0;
+  if (e.type === 'arc' || e.type === 'circle') return 1 / (R(e.id) || 1e-9);
+  if (e.type === 'spline') {
+    // The end Bézier (the same control points as splineBeziers: handles and style splines included), from the
+    // solver's points. Curvature of a degree-m Bézier at its start: (m − 1)/m · (d1 × d2)/|d1|³.
+    if (e.pts.length < 2) return 0;
+    const bz = splineBeziers(null, e, null, P);
+    const atStart = end === e.pts[0];
+    const b = atStart ? bz[0] : bz.at(-1).slice().reverse();
+    const m = b.length - 1;
+    const d1 = v2(b[0], b[1]); const d2 = v2(b[1], b[2] ?? b[1]);
+    const l = len(d1) || 1e-9;
+    // At the end it is measured on the reversed curve (as the relations that compare end curvatures expect).
+    return (((m - 1) / m) * cross(d1, d2)) / (l * l * l);
+  }
+  return 0;
 }
 
 /** The end point two open curves share (an id), or null. */
@@ -494,7 +575,7 @@ export function endTangent(e, end, P, map) {
   }
   if (e.type === 'spline') {
     const bz = splineBeziers({ entities: [...map.values()] }, e, map);
-    return end === e.pts[0] ? v2(bz[0][0], bz[0][1]) : v2(bz.at(-1)[2], bz.at(-1)[3]);
+    return end === e.pts[0] ? v2(bz[0][0], bz[0][1]) : v2(bz.at(-1).at(-2), bz.at(-1).at(-1));
   }
   return [1, 0];
 }
@@ -636,6 +717,9 @@ export function dimensionFor(sketch, ids, kind = 'auto') {
     else if (a.type === 'circle') c = { type: kind === 'radius' ? 'radius' : 'diameter', a: a.id };
     else if (a.type === 'arc') c = { type: kind === 'diameter' ? 'diameter' : 'radius', a: a.id };
     else return null;
+  } else if ((a.type === 'arc' && b.type === 'point' && [a.p1, a.p2].includes(b.id)) || (b.type === 'arc' && a.type === 'point' && [b.p1, b.p2].includes(a.id))) {
+    // An arc and one of its ends: the arc length.
+    c = { type: 'arcLength', a: (a.type === 'arc' ? a : b).id };
   } else if (a.type === 'line' && b.type === 'line') {
     const da = v2([map.get(a.p1).x, map.get(a.p1).y], [map.get(a.p2).x, map.get(a.p2).y]);
     const db = v2([map.get(b.p1).x, map.get(b.p1).y], [map.get(b.p2).x, map.get(b.p2).y]);
@@ -667,7 +751,10 @@ export function relationsFor(sketch, ids) {
   if (n === 1 && kinds[0] === 'point') out.push('fix');
   if (n === 2 && count('point') === 2) out.push('coincident', 'horizontal', 'vertical');
   if (n === 2 && count('line') === 2) out.push('parallel', 'perpendicular', 'equal', 'collinear');
-  if (n === 2 && count('circle') === 2) out.push('equal', 'concentric', 'tangent');
+  if (n === 2 && count('circle') === 2) out.push('equal', 'concentric', 'tangent', 'coradial');
+  if (n === 2 && count('point') === 2) out.push('merge');
+  // Curves joined end to end (a spline with an arc, a line or another spline): equal curvature, smooth (G2).
+  if (n === 2 && ids.some((id) => byId(sketch, id)?.type === 'spline') && sharedEnd(byId(sketch, ids[0]), byId(sketch, ids[1]))) out.push('tangent', 'equalCurvature', 'smooth');
   if (n === 2 && count('line') === 1 && count('circle') === 1) out.push('tangent');
   if (n === 2 && count('point') === 1 && count('line') === 1) out.push('coincident', 'midpoint');
   if (n === 2 && count('point') === 1 && count('circle') === 1) out.push('coincident', 'concentric');
@@ -701,7 +788,8 @@ export function addRelation(sketch, type, ids) {
   if (type === 'tangent') {
     const [a, b] = ents;
     let internal = false;
-    if (a.type !== 'line' && b.type !== 'line') {
+    // Internal or external: only between two circles / arcs (a spline or conic joins end to end).
+    if (['circle', 'arc'].includes(a.type) && ['circle', 'arc'].includes(b.type)) {
       const ca = map.get(a.c); const cb = map.get(b.c);
       const ra = a.type === 'circle' ? a.r : Math.hypot(map.get(a.p1).x - ca.x, map.get(a.p1).y - ca.y);
       const rb = b.type === 'circle' ? b.r : Math.hypot(map.get(b.p1).x - cb.x, map.get(b.p1).y - cb.y);
@@ -785,7 +873,7 @@ export function profiles(sketch) {
     const bez = splineBeziers(sketch, e, map);
     const points = polyline(sketch, e, map).slice(0, -1);
     let area = polygonArea(points);
-    let seg = { kind: 'spline', beziers: bez, from: bez[0][0], to: bez.at(-1)[3] };
+    let seg = { kind: 'spline', beziers: bez, from: bez[0][0], to: bez.at(-1).at(-1) };
     if (area < 0) { seg = reverseSpline(seg); area = -area; points.reverse(); }
     loops.push({ segs: [seg], area, points });
   }
@@ -921,8 +1009,8 @@ function segmentOf(h) {
 }
 
 function reverseSpline(s) {
-  const beziers = s.beziers.slice().reverse().map(([p0, c1, c2, p3]) => [p3, c2, c1, p0]);
-  return { kind: 'spline', beziers, from: beziers[0][0], to: beziers.at(-1)[3] };
+  const beziers = s.beziers.slice().reverse().map((b) => b.slice().reverse());
+  return { kind: 'spline', beziers, from: beziers[0][0], to: beziers.at(-1).at(-1) };
 }
 
 function reversePieceSeg(s) {
@@ -933,7 +1021,7 @@ function reversePieceSeg(s) {
 function segmentPoints(s) {
   if (s.kind === 'line') return [s.a];
   if (s.kind === 'pieces') return piecesPolyline(s.pieces, 12).slice(0, -1);
-  if (s.kind === 'spline') { const out = []; for (const [p0, c1, c2, p3] of s.beziers) for (let i = 0; i < 12; i++) out.push(bezierAt(p0, c1, c2, p3, i / 12)); return out; }
+  if (s.kind === 'spline') { const out = []; for (const b of s.beziers) { const k = b.length > 4 ? 36 : 12; for (let i = 0; i < k; i++) out.push(bezierPoint(b, i / k)); } return out; }
   const n = 24;
   const out = [];
   for (let i = 0; i < n; i++) {

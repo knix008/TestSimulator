@@ -235,3 +235,28 @@ export function placedBox(box, c) {
   }
   return [lo, hi];
 }
+
+// ───────────────────────── simplified representation
+
+/**
+ * Simplified representation of a sub-assembly: the parts that cannot be seen from outside are left out of the
+ * display. `leaves` = [{ key, box: [lo, hi] }] in one frame; a leaf whose box lies inside another leaf's box
+ * (within `tol`) is hidden, as is a leaf smaller than `minSize` × the whole box's diagonal. Returns the Set of
+ * hidden keys.
+ */
+export function hiddenInside(leaves, { tol = 1e-6, minSize = 0 } = {}) {
+  const hidden = new Set();
+  const all = leaves.filter((l) => l.box);
+  const diag = (b) => Math.hypot(b[1][0] - b[0][0], b[1][1] - b[0][1], b[1][2] - b[0][2]);
+  const whole = all.length ? [[0, 1, 2].map((i) => Math.min(...all.map((l) => l.box[0][i]))), [0, 1, 2].map((i) => Math.max(...all.map((l) => l.box[1][i])))] : null;
+  for (const l of all) {
+    if (minSize > 0 && diag(l.box) < minSize * diag(whole)) { hidden.add(l.key); continue; }
+    for (const o of all) {
+      if (o === l || hidden.has(o.key)) continue;
+      const inside = [0, 1, 2].every((i) => l.box[0][i] >= o.box[0][i] - tol && l.box[1][i] <= o.box[1][i] + tol);
+      const same = [0, 1, 2].every((i) => Math.abs(l.box[0][i] - o.box[0][i]) <= tol && Math.abs(l.box[1][i] - o.box[1][i]) <= tol);
+      if (inside && !same) { hidden.add(l.key); break; }
+    }
+  }
+  return hidden;
+}

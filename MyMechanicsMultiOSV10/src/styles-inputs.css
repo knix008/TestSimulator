@@ -1,0 +1,23 @@
+/* Every value the user types is centred in its box (user rule): the PropertyManager's number fields, the
+   steppers and sliders, number inputs of the left and right panels, popups and dialogs. Loaded once from
+   main.js; !important because the feature stylesheets come in from their own modules in no fixed order. */
+input[type='number'],
+input[inputmode='decimal'],
+input[inputmode='numeric'],
+input[data-unit],
+input[data-pm-field],
+input[data-num],
+.pm-input input,
+.num-control input,
+.stepper .stepper-value,
+.slider-value,
+#left-panel input[type='text'][data-num-field],
+#right-panel input[type='number'],
+#right-panel .pm-input input,
+.side-panel .pm-input input,
+.hx-table input,
+.pm-text.short,
+input[data-ann],
+input[data-scad-param][data-kind='number'] {
+  text-align: center !important;
+}

@@ -8,13 +8,13 @@
 //     (drawing.format: { standard: 'ISO' | 'ANSI', zones }: zone numbers and letters in the border).
 // Dimensions and centre marks are in drawing-dims.js; this file assembles everything for one sheet.
 import { SHEETS, annotationPrimitives, scaleLabel } from './drawing.js';
-import { viewFrames, dimPrimitives, centerPrimitives, dimLabel, resolveLegacyDims } from './drawing-dims.js';
+import { viewFrames, dimPrimitives, centerPrimitives, dimLabel, resolveLegacyDims , holeCalloutPrimitives } from './drawing-dims.js';
 import { primsBox } from './drawing-snap.js';
 import { harnessPrimitives } from './harness-sheet.js';
 import { textWidth } from './text-metrics.js';
 
 /** The annotation kinds drawn here (the base drawing code draws nothing for them). */
-export const DRW_KINDS = new Set(['drwDim', 'drwCenter', 'drwWeld', 'drwTable', 'drwHarness']);
+export const DRW_KINDS = new Set(['drwDim', 'drwCenter', 'drwWeld', 'drwTable', 'drwHarness', 'drwHole']);
 export const WELD_SYMBOLS = ['fillet', 'square', 'vGroove', 'bevel', 'uGroove', 'jGroove', 'flareV', 'plug', 'spot', 'seam'];
 export const WELD_SIDES = ['arrow', 'other', 'both'];
 export const WELD_CONTOURS = ['none', 'flat', 'convex', 'concave'];
@@ -260,10 +260,10 @@ export function drwItems(sd, projections) {
     if (!DRW_KINDS.has(a?.kind)) continue;
     let prims = [];
     try {
-      if (a.kind === 'drwDim' || a.kind === 'drwCenter') {
+      if (a.kind === 'drwDim' || a.kind === 'drwCenter' || a.kind === 'drwHole') {
         const fr = frames.get(a.view);
         if (!fr) continue;
-        prims = a.kind === 'drwDim' ? dimPrimitives(a, fr, { size: Number(a.size) > 0 ? Number(a.size) : 3.2 }) : centerPrimitives(a, fr);
+        prims = a.kind === 'drwDim' ? dimPrimitives(a, fr, { size: Number(a.size) > 0 ? Number(a.size) : 3.2 }) : a.kind === 'drwHole' ? holeCalloutPrimitives(a, fr) : centerPrimitives(a, fr);
       } else if (a.kind === 'drwWeld') prims = weldPrimitives(a, { iso });
       else if (a.kind === 'drwTable') prims = tablePrimitives(a);
       else if (a.kind === 'drwHarness') prims = harnessPrimitives(a);

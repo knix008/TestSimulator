@@ -144,8 +144,10 @@ export class Page {
     const end = Date.now() + timeout;
     let last;
     while (Date.now() < end) {
+      // A page that has gone (closed or crashed) never answers: stop at once instead of waiting out the timeout.
+      if (this.closed) throw new Error(`window closed while waiting for ${expression.slice(0, 160)}`);
       try {
-        last = await this.eval(expression);
+        last = await this.eval(expression, Math.max(1000, Math.min(20000, end - Date.now())));
         if (last) return last;
       } catch (error) {
         last = error.message;

@@ -305,9 +305,9 @@ export function insertBlock(sketch, block, { x = 0, y = 0, angle = 0, scale: k =
   const map = new Map();
   for (const e of block.entities) map.set(e.id, newSketchId(e.type === 'point' ? 'p' : e.type[0]));
   const ids = [];
-  const tag = { block: { id: block.id, instance: inst } };
   for (const e of block.entities) {
-    const n = { ...JSON.parse(JSON.stringify(e)), id: map.get(e.id), ...tag };
+    // Each entity remembers which of the block's it is (so the instance's place can be found from its points).
+    const n = { ...JSON.parse(JSON.stringify(e)), id: map.get(e.id), block: { id: block.id, instance: inst, src: e.id } };
     if (e.type === 'point') { [n.x, n.y] = tf(e.x, e.y); }
     for (const key of POINT_KEYS) if (n[key]) n[key] = map.get(n[key]) ?? n[key];
     if (n.pts) n.pts = n.pts.map((id) => map.get(id) ?? id);

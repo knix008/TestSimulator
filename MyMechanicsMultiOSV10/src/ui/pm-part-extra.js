@@ -25,6 +25,17 @@ function elementTable(api, f, side) {
 }
 
 export const PART_EXTRA_PM = {
+  moveFace(api, f) {
+    const { t } = api;
+    const faces = (f.faces ?? []).map((sig, k) => `${t('pm.face')} ${k + 1} (${sig.type === 'PLANE' ? t('pm.planar') : t('pm.curved')})`);
+    const mode = f.mode ?? 'offset';
+    const axisSeg = (key, ref) => seg(key, [['x', 'X', 'axisX'], ['y', 'Y', 'axisY'], ['z', 'Z', 'axisZ'], ['edge', t('pm.edge'), 'lineTool']], ref?.kind === 'edge' ? 'edge' : ref?.axis ?? 'x');
+    let body = `${pickBox(api, 'faces', faces, t('pm.facesToMove'), 'moveFace')}${seg('mode', [['offset', t('mvf.offset'), 'offsetTool'], ['translate', t('mvf.translate'), 'moveBody'], ['rotate', t('mvf.rotate'), 'rotateTool']], mode)}`;
+    if (mode === 'offset') body += field(api, 'distance', f.distance ?? 2, { label: t('pm.offsetDistance') });
+    if (mode === 'translate') body += `${axisSeg('dir1', f.direction)}${f.direction?.kind === 'edge' ? pickBox(api, 'direction', f.direction.sig ? [t('pm.edge')] : [], t('pm.directionEdge'), 'lineTool') : ''}${field(api, 'distance', f.distance ?? 2, { label: t('pm.distance') })}`;
+    if (mode === 'rotate') body += `${axisSeg('axisKind', f.axis)}${f.axis?.kind === 'edge' ? pickBox(api, 'axis', f.axis.sig ? [t('pm.edge')] : [], t('pm.axisEdge'), 'lineTool') : ''}${field(api, 'angle', f.angle ?? 10, { label: t('pm.angle'), unit: 'angle', glyph: 'dimAngle' })}`;
+    return group('moveFace', t('pm.parameters'), `${body}${note(t(mode === 'offset' ? 'pm.help.moveFace' : 'mvf.help'))}`);
+  },
   advancedHole(api, f) {
     const { t } = api;
     const sketches = before(api, f).filter((x) => x.type === 'sketch' && !x.suppressed && standalonePoints(x).length);
@@ -53,6 +64,13 @@ export const PART_EXTRA_PM = {
       group('intersectRegions', t('pm.options'), `${check('merge', f.merge !== false, t('ix.merge'), 'combineBodies')}${check('consume', f.consume !== false, t('ix.consume'), 'deleteBody')}`),
     ].join('');
   },
+  connectionPoint(api, f) {
+    const { t } = api;
+    return [
+      group('connectionPoint', t('cp.name'), `<label class="pm-field"><span class="pm-label">${escapeHtml(t('cp.name'))}</span><input type="text" class="pm-text" data-pm-field="cpName" value="${escapeHtml(f.cpName ?? 'Connector')}" spellcheck="false"/></label>${note(t('cp.help'))}`),
+      group('connectionPoint', t('pm.parameters'), `${pickBox(api, 'face', oneFace(api, f.face), t('cp.face'), 'face')}${field(api, 'offset', f.offset ?? 0, { label: t('pm.offsetDistance') })}${check('flip', f.flip, t('pm.flipDirection'), 'flipV')}`),
+    ].join('');
+  },
   mateReference(api, f) {
     const { t } = api;
     const row = (k) => `${pickBox(api, k, oneFace(api, f[k]), t(`mr.${k}`), 'face')}${f[k] ? `${seg(`${k}Type`, MATE_REF_TYPES.map((x) => [x, t(`mr.type.${x}`)]), f[`${k}Type`] ?? 'default')}${seg(`${k}Align`, MATE_REF_ALIGN.map((x) => [x, t(`mr.align.${x}`)]), f[`${k}Align`] ?? 'any')}` : ''}`;
@@ -66,6 +84,8 @@ export const PART_EXTRA_PM = {
 };
 
 export function partExtraStart(type, part, sel, featuresBefore) {
+  if (type === 'moveFace') return { params: { faces: sel.faces ?? [] }, pick: 'faces' };
+  if (type === 'connectionPoint') return { params: sel.faces?.[0] ? { face: sel.faces[0] } : {}, pick: 'face' };
   const params = {}; let pick = null;
   const last = (pred) => [...featuresBefore].reverse().find(pred);
   switch (type) {

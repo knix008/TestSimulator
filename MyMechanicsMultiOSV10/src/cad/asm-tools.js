@@ -6,6 +6,8 @@
 //     other component), given a new reference on the other side, or left out;
 //   hole alignment — holes of different components on parallel axes that overlap along the axis and side by
 //     side but are not on one axis (off by more than the tolerance);
+//   clearance verification — pairs of components (or of the chosen ones against the rest) closer than a minimum
+//     clearance, with the closest gap of each pair (touching or overlapping: 0);
 //   envelopes — reference components (shown see-through, left out of the BOM, mass and interference) and the
 //     components inside / crossing an envelope's box.
 import { mateTouches } from './assembly.js';
@@ -126,6 +128,40 @@ export function copyWithMates(asm, compId, plan, { newId, nameOf, mateName = (m)
 }
 
 // ───────────────────────── hole alignment
+
+/**
+ * Clearance verification: `items` = [{ id, shape, box: [lo, hi] }] placed in assembly space; `distance(a, b)` the
+ * minimum distance between two shapes (0 when they touch or overlap). Pairs closer than `min` are listed with their
+ * gap, smallest first. `among`: only pairs with at least one of these ids (the chosen components against the
+ * rest); `ignoreEqual`: a gap equal to the minimum (within 1e-6) is not reported; `ignoreTouching`: gap 0 (touching or
+ * interfering) is left to the interference check. Pairs whose boxes are farther apart than `min` are not measured.
+ * Returns { checked, items: [{ a, b, gap }] }.
+ */
+export function clearances(items, distance, { min = 1, among = null, ignoreEqual = false, ignoreTouching = false } = {}) {
+  const out = []; let checked = 0;
+  const pick = among?.length ? new Set(among) : null;
+  for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length; j++) {
+    const A = items[i]; const B = items[j];
+    if (!A.shape || !B.shape || A.id === B.id) continue;
+    if (pick && !pick.has(A.id) && !pick.has(B.id)) continue;
+    if (A.box && B.box && boxGap(A.box, B.box) > min + 1e-6) continue;
+    checked++;
+    let gap;
+    try { gap = Math.max(0, distance(A.shape, B.shape)); } catch { continue; }
+    if (!(gap < min + (ignoreEqual ? -1e-6 : 1e-6))) continue;
+    if (ignoreTouching && gap < 1e-6) continue;
+    out.push({ a: A.id, b: B.id, gap });
+  }
+  out.sort((x, y) => x.gap - y.gap);
+  return { checked, items: out };
+}
+
+/** The gap between two boxes [lo, hi] (0 when they overlap). */
+export function boxGap([alo, ahi], [blo, bhi]) {
+  let s = 0;
+  for (let k = 0; k < 3; k++) { const d = Math.max(0, blo[k] - ahi[k], alo[k] - bhi[k]); s += d * d; }
+  return Math.sqrt(s);
+}
 
 /**
  * Misaligned holes: `holes` = [{ comp, point, dir (unit), radius, lo, hi }] in assembly space, lo / hi the hole's

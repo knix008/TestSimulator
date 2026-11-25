@@ -16,6 +16,12 @@ import { tapHoles, patternThreads } from './hole-threads.js';
 import { effectiveFeatures } from './params.js';
 import { frameTable, isYUp, worldUp } from './frame.js';
 import { yUpDefaults } from './zup.js';
+import { needsExtrudeMore, extrudeMoreTool } from './extrude-more.js';
+import { needsRevolveMore, revolveMoreTool } from './revolve-more.js';
+import { needsDressUpMore, filletMore, chamferMore, shellMore } from './dressup-more.js';
+import { planeMoreFrame } from './refplane-more.js';
+import { needsHoleMore, holeMoreTool } from './hole-more.js';
+import { refreshPierce } from './sketch-pierce.js';
 
 export const FEATURE_TYPES = ['import', 'sketch', 'plane', 'extrude', 'revolve', 'fillet', 'chamfer', 'shell', 'hole', 'linearPattern', 'circularPattern', 'mirror', ...ADVANCED_TYPES, ...PART_MORE_TYPES, ...STD_TYPES];
 /** Features that add or remove material with a tool solid (patterns and mirrors copy them). */
@@ -142,6 +148,14 @@ export function resolvePlane(ref, ctx) {
     const x = ref.xDir && Math.abs(dot(ref.xDir, p.normal)) < 1e-6 ? ref.xDir : p.xDir;
     return frame({ origin: ref.origin && Math.abs(dot([ref.origin[0] - p.origin[0], ref.origin[1] - p.origin[1], ref.origin[2] - p.origin[2]], p.normal)) < 1e-6 ? ref.origin : p.origin, xDir: x, normal: p.normal });
   }
+  // In-context: a face of another component of an assembly, kept in this part's frame (ext-refs.js).
+  if (ref.kind === 'ext') {
+    const r = ctx.part?.externalRefs?.find((x) => x.id === ref.id);
+    if (!r?.frame) throw codeError('plane-missing');
+    return frame(r.frame);
+  }
+  // A fixed plane (a broken external reference).
+  if (ref.kind === 'frame' && ref.origin && ref.normal) return frame({ origin: ref.origin, xDir: ref.xDir, normal: ref.normal });
   return frame(STD_PLANES.front);
 }
 
@@ -203,7 +217,7 @@ export function loopDrawing(loop) {
     const last = i === segs.length - 1;
     // The last straight segment is drawn by close(); an arc or a spline ends exactly on the next start point.
     if (s.kind === 'line') { if (!last) pen = pen.lineTo(s.b); }
-    else if (s.kind === 'spline') { for (const [, c1, c2, p3] of s.beziers) pen = pen.cubicBezierCurveTo(p3, c1, c2); }
+    else if (s.kind === 'spline') { for (const b of s.beziers) pen = b.length === 4 ? pen.cubicBezierCurveTo(b[3], b[1], b[2]) : pen.bezierCurveTo(b.at(-1), b.slice(1, -1)); }
     else if (s.kind === 'pieces') { for (const pc of s.pieces) pen = rationalBezierTo(pen, pc); }
     else pen = pen.threePointsArcTo(s.to, s.mid);
   });
@@ -279,7 +293,10 @@ export function regenerate(input, { upTo = null, project = null, flat = undefine
   const R = rep();
   setAreaMeasure((face) => R.measureArea(face));
   // Equations, global variables and the active configuration give the values the features are built with.
-  const part = { ...input, features: effectiveFeatures(input) };
+  const eff = effectiveFeatures(input);
+  // A copy of the list: a sketch with pierce relations is replaced by a solved copy (the stored part stays as it is).
+  const feats = eff.slice(); if (eff.errors) Object.defineProperty(feats, 'errors', { value: eff.errors });
+  const part = { ...input, features: feats };
   const results = new Map();
   const planes = new Map();
   const ctx = { body: null, planes, part, results, project, surfaces: new Map(), curves: new Map(), flat: flat ?? Boolean(input.flat), stack: [...stack, input.id], sheet: null };
@@ -289,7 +306,16 @@ export function regenerate(input, { upTo = null, project = null, flat = undefine
     const f = part.features[i];
     if (f.suppressed) { results.set(f.id, { ok: true, suppressed: true, body: ctx.body }); continue; }
     try {
-      const out = build(f, ctx) ?? {};
+      let out;
+      if (f.type === 'sketch' && f.constraints?.some((c) => c.type === 'pierce')) {
+        // Pierce relations follow their curves: a copy of the sketch with the crossings refreshed, solved.
+        const frame = resolvePlane(f.plane, ctx);
+        const copy = JSON.parse(JSON.stringify(f));
+        const frames = new Map([...results].filter(([, r]) => r.frame && r.ok).map(([id, r]) => [id, r.frame]));
+        const pr = refreshPierce(copy, frame, { features: part.features, frames, curves: ctx.curves });
+        part.features[i] = copy;
+        out = { frame, ...(pr.missing.length ? { warnings: [{ code: 'pierce-missing', count: pr.missing.length }] } : {}) };
+      } else out = build(f, ctx) ?? {};
       if (out.body !== undefined) ctx.body = out.body;
       if (out.frame && (f.type === 'plane')) planes.set(f.id, out.frame);
       if (out.surface) ctx.surfaces.set(f.id, out.surface);
@@ -337,6 +363,8 @@ function buildImport(f, ctx) {
 }
 
 function buildPlane(f, ctx) {
+  // Angle, three points, parallel at a point, normal to a curve, mid plane, tangent, line and point (refplane-more.js).
+  if (f.mode && f.mode !== 'offset') return { frame: planeMoreFrame(f, ctx) };
   const base = resolvePlane(f.base, ctx);
   const normal = f.flip ? scale(base.normal, -1) : base.normal;
   return { frame: frame({ origin: add(base.origin, scale(base.normal, Number(f.offset) || 0)), xDir: base.xDir, normal }) };
@@ -408,6 +436,8 @@ function extrudeDrawing(sketch, drawing, plane, length) {
 
 function extrudeTool(f, ctx) {
   const { sketch, frame: fr } = sketchOf(f, ctx);
+  // Start / end conditions that need geometry, thin features, selected contours (extrude-more.js).
+  if (needsExtrudeMore(f)) return extrudeMoreTool(f, ctx, sketch, fr);
   const drawing = sketchDrawing(sketch);
   const cut = f.op === 'cut';
   if (f.draft && Number(f.draftAngle) > 0 && (f.end ?? 'blind') === 'blind') return draftedExtrude(f, sketch, fr);
@@ -467,6 +497,8 @@ function draftedExtrude(f, sketch, fr) {
 
 function buildExtrude(f, ctx) {
   const tool = extrudeTool(f, ctx);
+  // Flip side to cut: the material outside the profile is removed (what the tool covers is kept).
+  if (f.op === 'cut' && f.flipSide) { if (!ctx.body) throw codeError('nothing-to-cut'); return { tool, body: ctx.body.intersect(tool) }; }
   return { tool, body: combine(ctx, tool, f.op, { merge: f.merge !== false }) };
 }
 
@@ -478,6 +510,8 @@ function revolveTool(f, ctx) {
   const pa = toWorld(fr, [a.x, a.y]); const pb = toWorld(fr, [b.x, b.y]);
   let dir = normalize([pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]]);
   if (f.reverse) dir = scale(dir, -1);
+  // Mid-plane, a second direction, up to vertex / surface, thin, selected contours (revolve-more.js).
+  if (needsRevolveMore(f)) return revolveMoreTool(f, ctx, sketch, fr, pa, dir);
   const angle = Math.max(0.1, Math.min(360, Number(f.angle) || 360));
   const drawing = sketchDrawing(sketch);
   return drawing.sketchOnPlane(replicadPlane(fr)).revolve(dir, { origin: pa, angle });
@@ -511,23 +545,53 @@ export function holeProfile(f, depth) {
 
 /** The axes of a hole feature's holes: [{ at (on the sketch plane), dir (into the material) }]. */
 export function holeAxes(f, ctx) {
+  return holePositions(f, ctx).map(({ at, dir }) => ({ at, dir }));
+}
+
+/**
+ * Where the holes go: { at, dir (into the material), fr (a frame at the hole: normal against dir) }. From a 2D
+ * sketch: its standalone points, along the sketch plane's normal. From a 3D sketch: each of its points on a face
+ * of the body, along that face's normal there (holes on several faces at once).
+ */
+export function holePositions(f, ctx) {
+  const s3 = ctx.part.features.find((x) => x.id === f.sketch && x.type === 'sketch3d');
+  if (s3) {
+    if (!ctx.body) throw codeError('no-body');
+    const out = [];
+    for (const p of s3.points ?? []) {
+      let best = null; let bd = Infinity;
+      for (const face of ctx.body.faces) { let d = Infinity; try { d = rep().measureDistanceBetween(face, rep().makeVertex(p)); } catch { /* skip */ } if (d < bd) { bd = d; best = face; } }
+      if (!best || bd > 1e-4 * Math.max(1, sizeAround(ctx))) continue;
+      const nv = best.normalAt(p); const n = normalize([nv.x, nv.y, nv.z]);
+      const into = scale(n, -1);
+      const x = normalize(Math.abs(n[2]) < 0.9 ? crossV([0, 0, 1], n) : crossV([1, 0, 0], n));
+      out.push({ at: [...p], dir: into, fr: { origin: [...p], xDir: x, yDir: crossV(n, x), normal: n } });
+    }
+    if (!out.length) throw codeError('no-hole-points');
+    return out;
+  }
   const { sketch, frame: fr } = sketchOf(f, ctx);
   const into = scale(fr.normal, -1);
-  return standalonePoints(sketch).map((p) => ({ at: toWorld(fr, [p.x, p.y]), dir: into }));
+  return standalonePoints(sketch).map((p) => ({ at: toWorld(fr, [p.x, p.y]), dir: into, fr }));
 }
 
 function holeTool(f, ctx) {
   const R = rep();
-  const { sketch, frame: fr } = sketchOf(f, ctx);
-  const points = standalonePoints(sketch);
-  if (!points.length) throw codeError('no-hole-points');
-  const into = scale(fr.normal, -1);
+  const positions = holePositions(f, ctx);
+  if (!positions.length) throw codeError('no-hole-points');
+  // Slots, tapered pipe taps, end conditions at geometry (hole-more.js): one frame for a 2D sketch, one per hole
+  // for a 3D sketch.
+  if (needsHoleMore(f)) {
+    const frames = [...new Set(positions.map((p) => p.fr))];
+    let tool = null;
+    for (const fr of frames) { const one = holeMoreTool(f, ctx, positions.filter((p) => p.fr === fr).map((p) => p.at), fr, holeProfile, crossV); tool = tool ? tool.fuse(one) : one; }
+    return tool;
+  }
   const depth = f.through ? sizeAround(ctx) : Math.max(0.1, Number(f.depth));
   const profile = holeProfile(f, depth);
   let tool = null;
-  for (const p of points) {
-    const at = toWorld(fr, [p.x, p.y]);
-    // The profile's plane holds the hole axis: x = radial (the sketch x), y = into the material.
+  for (const { at, dir: into, fr } of positions) {
+    // The profile's plane holds the hole axis: x = radial (the frame's x), y = into the material.
     const u = fr.xDir;
     const plane = new R.Plane(at, u, crossV(u, into));
     let pen = R.draw(profile[0]);
@@ -552,6 +616,8 @@ function buildHole(f, ctx) {
 
 function buildDressUp(f, ctx, kind) {
   if (!ctx.body) throw codeError('no-body');
+  // Items beyond edges, tangent propagation, multiple radii, chord width, conic / G2 profiles, chamfer types.
+  if (needsDressUpMore(f, kind)) return kind === 'fillet' ? filletMore(f, ctx) : chamferMore(f, ctx);
   const edges = findEdges(ctx.body, f.edges);
   if (!edges.length) throw codeError('no-edges');
   if (edges.length < f.edges.length) ctx.warning = 'edges-lost';
@@ -564,6 +630,7 @@ function buildDressUp(f, ctx, kind) {
 
 function buildShell(f, ctx) {
   if (!ctx.body) throw codeError('no-body');
+  if (needsDressUpMore(f, 'shell')) return shellMore(f, ctx);
   const t = Number(f.thickness);
   if (!(t > 0)) throw codeError('zero-size');
   const faces = f.faces.map((sig) => findFace(ctx.body, sig)).filter(Boolean);
@@ -585,8 +652,10 @@ function seedTools(f, ctx) {
 }
 
 /** A direction reference: a world axis or a straight edge of the body. */
-function resolveDirection(ref, ctx) {
+export function resolveDirection(ref, ctx) {
   if (!ref || ref.kind === 'axis') return AXES[ref?.axis ?? 'x'] ?? AXES.x;
+  // A typed vector.
+  if (ref.kind === 'vector' && Array.isArray(ref.v) && ref.v.some((x) => Math.abs(Number(x)) > 1e-12)) return normalize(ref.v.map(Number));
   if (ref.kind === 'edge') {
     const [edge] = findEdges(ctx.body, [ref.sig]);
     if (!edge) throw codeError('edge-missing');
@@ -650,7 +719,16 @@ function buildLinearPattern(f, ctx) {
   let d1 = resolveDirection(f.direction, ctx);
   if (f.reverse) d1 = scale(d1, -1);
   const n1 = Math.max(1, Math.min(200, Math.round(f.count)));
-  const s1 = Number(f.spacing) || 0;
+  let s1 = Number(f.spacing) || 0;
+  if (f.upTo && Array.isArray(f.upToPoint) && n1 > 1) {
+    // Up to reference: the seed's centre to the reference point (less the offset) shared by the gaps.
+    const [lo, hi] = (tools[0].tool.boundingBox.bounds);
+    const c = [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2];
+    const reach = (f.upToPoint[0] - c[0]) * d1[0] + (f.upToPoint[1] - c[1]) * d1[1] + (f.upToPoint[2] - c[2]) * d1[2] - (Number(f.upToOffset) || 0);
+    if (!(reach > 0)) throw codeError('end-behind');
+    s1 = reach / (n1 - 1);
+  }
+  const skip = new Set((f.skip ?? []).map(String));
   let d2 = f.direction2 ? resolveDirection(f.direction2, ctx) : null;
   if (d2 && f.reverse2) d2 = scale(d2, -1);
   const n2 = d2 ? Math.max(1, Math.min(200, Math.round(f.count2))) : 1;
@@ -658,6 +736,8 @@ function buildLinearPattern(f, ctx) {
   const moves = []; const places = []; const steps = [];
   for (let i = 0; i < n1; i++) for (let j = 0; j < n2; j++) {
     if (!i && !j) continue;
+    if (skip.has(`${i},${j}`)) continue;
+    if (f.seedOnly2 && i && j) continue;
     const v = add(scale(d1, i * s1), d2 ? scale(d2, j * s2) : [0, 0, 0]);
     moves.push((s) => s.translate(v));
     places.push((q, isDir) => (isDir ? q : add(q, v)));
@@ -687,10 +767,19 @@ function buildCircularPattern(f, ctx) {
   const step = f.equal ? (total >= 359.999 ? total / count : total / Math.max(1, count - 1)) : total;
   const sign = f.reverse ? -1 : 1;
   const moves = []; const places = []; const steps = [];
-  for (let i = 1; i < count; i++) {
-    moves.push((s) => s.rotate(sign * step * i, origin, dir));
-    places.push(rotation(sign * step * i, origin, dir));
-    steps.push({ kind: 'rotate', deg: sign * step * i, origin: [...origin], dir: [...dir] });
+  const skip = new Set((f.skip ?? []).map(String));
+  const angles = [];
+  for (let i = 1; i < count; i++) if (!skip.has(String(i))) angles.push(sign * step * i);
+  if (f.dir2) {
+    const count2 = Math.max(1, Math.min(360, Math.round(Number(f.count2) || count)));
+    const total2 = Math.max(0.1, Math.min(360, Number(f.angle2) || total));
+    const step2 = f.equal ? total2 / Math.max(1, count2 - (total2 >= 359.999 ? 0 : 1)) : total2;
+    for (let i = 1; i < count2; i++) if (!skip.has(`-${i}`)) angles.push(-sign * step2 * i);
+  }
+  for (const deg of angles) {
+    moves.push((s) => s.rotate(deg, origin, dir));
+    places.push(rotation(deg, origin, dir));
+    steps.push({ kind: 'rotate', deg, origin: [...origin], dir: [...dir] });
   }
   return { ...patternThreads(f, ctx, applyCopies(ctx, tools, moves), places), moves: steps };
 }

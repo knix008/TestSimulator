@@ -161,6 +161,37 @@ export function write3mf(items) {
   return zipSync({ '[Content_Types].xml': strToU8(types), '_rels/.rels': strToU8(rels), '3D/3dmodel.model': strToU8(model) }, { level: 6 });
 }
 
+/** OFF (Object File Format, as OpenSCAD writes it): all items in one mesh, a colour (0…1) on every face. */
+export function writeOff(items) {
+  const nv = items.reduce((n, it) => n + it.vertices.length / 3, 0);
+  const nf = items.reduce((n, it) => n + it.triangles.length / 3, 0);
+  const out = ['OFF', '# MyMechanics OFF export (mm, Z up)', `${nv} ${nf} 0`];
+  for (const it of items) for (let i = 0; i < it.vertices.length; i += 3) out.push(`${fmt(it.vertices[i])} ${fmt(it.vertices[i + 1])} ${fmt(it.vertices[i + 2])}`);
+  let base = 0;
+  for (const it of items) {
+    const [r, g, b] = it.color ?? [0.7, 0.7, 0.7];
+    const col = ` ${fmt(r)} ${fmt(g)} ${fmt(b)} 1`;
+    for (let i = 0; i < it.triangles.length; i += 3) out.push(`3 ${it.triangles[i] + base} ${it.triangles[i + 1] + base} ${it.triangles[i + 2] + base}${col}`);
+    base += it.vertices.length / 3;
+  }
+  return `${out.join('\n')}\n`;
+}
+
+/** AMF 1.1 (Additive Manufacturing File, millimetres): an object per item with its colour. */
+export function writeAmf(items) {
+  const out = ['<?xml version="1.0" encoding="UTF-8"?>', '<amf unit="millimeter" version="1.1">', '  <metadata type="producer">MyMechanics</metadata>'];
+  items.forEach((it, k) => {
+    const [r, g, b] = it.color ?? [0.7, 0.7, 0.7];
+    out.push(`  <object id="${k}">`, `    <metadata type="name">${clean(it.name, `body${k + 1}`)}</metadata>`, `    <color><r>${fmt(r)}</r><g>${fmt(g)}</g><b>${fmt(b)}</b></color>`, '    <mesh>', '      <vertices>');
+    for (let i = 0; i < it.vertices.length; i += 3) out.push(`        <vertex><coordinates><x>${fmt(it.vertices[i])}</x><y>${fmt(it.vertices[i + 1])}</y><z>${fmt(it.vertices[i + 2])}</z></coordinates></vertex>`);
+    out.push('      </vertices>', '      <volume>');
+    for (let i = 0; i < it.triangles.length; i += 3) out.push(`        <triangle><v1>${it.triangles[i]}</v1><v2>${it.triangles[i + 1]}</v2><v3>${it.triangles[i + 2]}</v3></triangle>`);
+    out.push('      </volume>', '    </mesh>', '  </object>');
+  });
+  out.push('</amf>');
+  return `${out.join('\n')}\n`;
+}
+
 /** USDZ: a Z-up USD stage (millimetres) with a Mesh and display colour per item, stored with 64-byte alignment. */
 export function writeUsdz(items) {
   const prims = items.map((it, k) => {
@@ -429,7 +460,48 @@ export function read3mf(bytes) {
   return all;
 }
 
-/** The mesh objects of a file by its extension (obj, ply, gltf, glb, wrl, vrml, 3mf). */
+/** OFF / COFF / NOFF / STOFF (Geomview): a vertex or face per line; polygons cut into fans, colours passed over. */
+export function readOff(text) {
+  const lines = String(text).split(/\r?\n/).map((l) => l.replace(/#.*$/, '').trim()).filter(Boolean);
+  let li = 0;
+  let head = '';
+  let first = lines[0]?.split(/\s+/) ?? [];
+  if (/OFF$/.test(first[0] ?? '')) { head = first[0]; first = first.slice(1); li = 1; if (!first.length) first = (lines[li++] ?? '').split(/\s+/); }
+  else li = 1;
+  const nv = Number(first[0]); const nf = Number(first[1]);
+  if (!(nv >= 0) || !(nf >= 0)) throw Object.assign(new Error('not an OFF file'), { code: 'bad-file' });
+  const verts = [];
+  for (let i = 0; i < nv; i++) { const w = (lines[li++] ?? '').split(/\s+/).map(Number); verts.push([w[0], w[1], w[2]]); }
+  const tris = [];
+  for (let f = 0; f < nf; f++) {
+    const w = (lines[li++] ?? '').split(/\s+/).map(Number);
+    const n = w[0]; const ids = w.slice(1, 1 + n);
+    for (let j = 1; j + 1 < n; j++) tris.push([ids[0], ids[j], ids[j + 1]]);
+  }
+  void head;
+  return [{ name: 'off', verts, tris }];
+}
+
+/** AMF (plain or zipped): every object's volumes as one mesh each. */
+export function readAmf(bytes) {
+  let b = bytes instanceof Uint8Array ? bytes : enc(String(bytes));
+  if (b[0] === 0x50 && b[1] === 0x4b) { const files = unzipSync(b); b = Object.values(files)[0]; }
+  const xml = dec(b);
+  const unitScale = { millimeter: 1, meter: 1000, inch: 25.4, feet: 304.8, micron: 0.001 }[/<amf[^>]*unit="([^"]+)"/.exec(xml)?.[1] ?? 'millimeter'] ?? 1;
+  const out = [];
+  const num = (s, tag) => { const i = s.indexOf(`<${tag}>`); if (i < 0) return 0; const j = s.indexOf(`</${tag}>`, i); return Number(s.slice(i + tag.length + 2, j).trim()); };
+  for (const m of xml.matchAll(/<object[^>]*>([^]*?)<[/]object>/g)) {
+    const body = m[1];
+    const name = /<metadata type="name">([^<]*)<[/]metadata>/.exec(body)?.[1] ?? `object${out.length + 1}`;
+    const verts = [...body.matchAll(/<vertex>([^]*?)<[/]vertex>/g)].map((v) => [num(v[1], 'x') * unitScale, num(v[1], 'y') * unitScale, num(v[1], 'z') * unitScale]);
+    const tris = [...body.matchAll(/<triangle>([^]*?)<[/]triangle>/g)].map((t) => [num(t[1], 'v1'), num(t[1], 'v2'), num(t[1], 'v3')]);
+    if (verts.length && tris.length) out.push({ name, verts, tris });
+  }
+  if (!out.length) throw Object.assign(new Error('no AMF objects'), { code: 'bad-file' });
+  return out;
+}
+
+/** The mesh objects of a file by its extension (obj, ply, gltf, glb, wrl, vrml, 3mf, off, amf). */
 export function readMeshFile(name, data) {
   const ext = String(name).toLowerCase().split('.').pop();
   const bytes = typeof data === 'string' ? enc(data) : (data instanceof Uint8Array ? data : new Uint8Array(data));
@@ -439,9 +511,11 @@ export function readMeshFile(name, data) {
     case 'gltf': case 'glb': return readGltf(bytes);
     case 'wrl': case 'vrml': return readVrml(dec(bytes));
     case '3mf': return read3mf(bytes);
+    case 'off': return readOff(dec(bytes));
+    case 'amf': return readAmf(bytes);
     default: throw Object.assign(new Error(`unknown mesh format .${ext}`), { code: 'bad-file' });
   }
 }
 
 /** The extensions readMeshFile reads. */
-export const MESH_IMPORT_EXTENSIONS = ['obj', 'ply', 'gltf', 'glb', 'wrl', 'vrml', '3mf'];
+export const MESH_IMPORT_EXTENSIONS = ['obj', 'ply', 'gltf', 'glb', 'wrl', 'vrml', '3mf', 'off', 'amf'];

@@ -4,7 +4,7 @@
 // built-in modules (handed to geometry.js through `geo`). The output is a tree of geometry made by `geo`.
 import { parse, scadError } from './parser.js';
 import {
-  Range, FunctionValue, isNum, isVec, isStr, isBool, isRange, isFn, typeName, truthy, toStr, repr, numStr,
+  Range, FunctionValue, ObjectValue, isObj, isNum, isVec, isStr, isBool, isRange, isFn, typeName, truthy, toStr, repr, numStr,
   sinDeg, cosDeg, tanDeg, asinDeg, acosDeg, atanDeg, atan2Deg, roundHalfAway, equal, negate, add, sub, mul, div, mod, pow, compare, index,
 } from './values.js';
 
@@ -394,6 +394,7 @@ class Run {
         const v = this.expr(e.obj, scope);
         const k = { x: 0, y: 1, z: 2 }[e.name];
         if (isVec(v) && k !== undefined) return v[k];
+        if (isObj(v)) return v.get(e.name);
         if (isRange(v)) return e.name === 'begin' ? v.begin : e.name === 'step' ? v.step : e.name === 'end' ? v.end : undefined;
         return undefined;
       }
@@ -561,6 +562,18 @@ function normalise(p) {
 function rootOf(scope) { let s = scope; while (s.parent) s = s.parent; return s; }
 
 /** What a for loop goes over: vector elements, range values, string characters, or a single value. */
+/** Arguments by name, positional ones taking the names in order. */
+function textArgs(args, names) {
+  const out = {}; let k = 0;
+  for (const a of args) { if (a.name) out[a.name] = a.value; else if (k < names.length) out[names[k++]] = a.value; }
+  return out;
+}
+/** A plain JS record (nested) as an OpenSCAD object. */
+function toObject(o) {
+  if (o && typeof o === 'object' && !Array.isArray(o)) return new ObjectValue(Object.entries(o).map(([k, v]) => [k, toObject(v)]));
+  return o;
+}
+
 function iterable(v, run) {
   if (isVec(v)) return v;
   if (isRange(v)) {
@@ -569,6 +582,7 @@ function iterable(v, run) {
     return v.iter();
   }
   if (isStr(v)) return [...v];
+  if (isObj(v)) return v.keys();
   if (v === undefined) return [];
   return [v];
 }
@@ -712,6 +726,46 @@ const BUILTINS = {
   is_string: oneArg('is_string', isStr),
   is_list: oneArg('is_list', isVec),
   is_function: oneArg('is_function', isFn),
+  is_object: oneArg('is_object', isObj),
+  /**
+   * object(…): members from [name, value] pairs, lists of pairs, other objects (copied) and name = value
+   * arguments, later ones replacing earlier; a name given with undef as its value removes the member.
+   */
+  object(args, scope, e) {
+    const m = new Map();
+    const put = (k, v) => { if (v === undefined) m.delete(k); else m.set(k, v); };
+    const pair = (p) => {
+      if (isVec(p) && p.length === 2 && isStr(p[0])) { put(p[0], p[1]); return true; }
+      if (isVec(p) && p.length === 1 && isStr(p[0])) { m.delete(p[0]); return true; }
+      return false;
+    };
+    for (const a of args) {
+      if (a.name) { put(a.name, a.value); continue; }
+      const v = a.value;
+      if (isObj(v)) { for (const [k, x] of v.map) put(k, x); continue; }
+      if (pair(v)) continue;
+      if (isVec(v) && v.every((p) => pair(p))) continue;
+      this.warn(`object() argument ${repr(v)} is not an object, a [name, value] pair or a list of them`, e);
+    }
+    return new ObjectValue(m);
+  },
+  has_key(args, scope, e) {
+    const [o, k] = args.map((a) => a.value);
+    if (args.length !== 2) { this.warn('has_key() number of parameters does not match', e); return undefined; }
+    return isObj(o) && isStr(k) ? o.has(k) : false;
+  },
+  /** The size and placement of a text as text() would draw it (with the same arguments). */
+  textmetrics(args, scope, e) {
+    const named = textArgs(args, ['text', 'size', 'font', 'halign', 'valign', 'spacing', 'direction', 'language', 'script']);
+    const m = this.geo?.textMetrics?.(named, (n) => scope.lookupVar(n).value);
+    return m ? toObject(m) : undefined;
+  },
+  /** The metrics of a font at a size: nominal and largest ascent and descent, line spacing, family and style. */
+  fontmetrics(args, scope, e) {
+    const named = textArgs(args, ['size', 'font']);
+    const m = this.geo?.fontMetrics?.(named);
+    return m ? toObject(m) : undefined;
+  },
   parent_module(args, scope, e) {
     const n = args.length ? args[0].value : 0;
     const stack = this.moduleStack;

@@ -43,6 +43,18 @@ export class FunctionValue {
   constructor(params, body, scope, name = null) { this.params = params; this.body = body; this.scope = scope; this.name = name; }
 }
 
+/**
+ * An object (the newer OpenSCAD's object() values): named members in the order they were given. Read with
+ * o.name or o["name"]; a for loop runs over the member names.
+ */
+export class ObjectValue {
+  constructor(entries = []) { this.map = new Map(entries); }
+  get(k) { return this.map.get(k); }
+  has(k) { return this.map.has(k); }
+  keys() { return [...this.map.keys()]; }
+}
+export const isObj = (v) => v instanceof ObjectValue;
+
 export const isNum = (v) => typeof v === 'number';
 export const isVec = Array.isArray;
 export const isStr = (v) => typeof v === 'string';
@@ -58,6 +70,7 @@ export function typeName(v) {
   if (isVec(v)) return 'vector';
   if (isRange(v)) return 'range';
   if (isFn(v)) return 'function';
+  if (isObj(v)) return 'object';
   return 'undefined';
 }
 
@@ -68,6 +81,7 @@ export function truthy(v) {
   if (isNum(v)) return v !== 0;
   if (isStr(v)) return v.length > 0;
   if (isVec(v)) return v.length > 0;
+  if (isObj(v)) return v.map.size > 0;
   return true;
 }
 
@@ -107,6 +121,7 @@ export function toStr(v, top = true) {
   if (isStr(v)) return top ? v : `"${v}"`;
   if (isVec(v)) return `[${v.map((x) => toStr(x, false)).join(', ')}]`;
   if (isRange(v)) return `[${numStr(v.begin)} : ${numStr(v.step)} : ${numStr(v.end)}]`;
+  if (isObj(v)) return v.map.size ? `{ ${[...v.map].map(([k, x]) => `${k} = ${toStr(x, false)}; `).join('')}}` : '{ }';
   if (isFn(v)) return `function(${v.params.map((p) => (p.def ? `${p.name} = ${exprSource(p.def)}` : p.name)).join(', ')}) ${exprSource(v.body)}`;
   return 'undef';
 }
@@ -214,6 +229,7 @@ export function equal(a, b) {
   if (a === b) return true;
   if (isNum(a) && isNum(b)) return a === b;
   if (isVec(a) && isVec(b)) return a.length === b.length && a.every((x, i) => equal(x, b[i]));
+  if (isObj(a) && isObj(b)) return a.map.size === b.map.size && [...a.map].every(([k, x]) => b.has(k) && equal(x, b.get(k)));
   if (isRange(a) && isRange(b)) {
     // Equal when they give the same values (two empty ranges are equal).
     const n = a.count;
@@ -303,6 +319,7 @@ export function compare(op, a, b) {
 
 /** A vector index (fractions floored, out of range = undef). */
 export function index(obj, i) {
+  if (isObj(obj)) return isStr(i) ? obj.get(i) : undefined;
   if (!isNum(i) || Number.isNaN(i)) return undefined;
   const k = Math.floor(i);
   if (k < 0) return undefined;

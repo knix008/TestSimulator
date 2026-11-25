@@ -26,6 +26,7 @@
   {
     "name": "dwg: offered in the open types, the save types and the Export menu; a damaged DWG is refused with a message",
     "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const native = await import('/src/platform/native.js');\n     const offered = ['dwg', 'dxf'].every((e) => native.MODEL_EXTENSIONS.includes(e)) && Boolean(native.SAVE_TYPES.dwg) && ['exportDwg', 'exportSketchDxf', 'exportSketchDwg'].every((id) => m.menus.SUBMENUS.exportTo.items.includes(id));\n     await m.actions.openContent('broken.dwg', new Uint8Array([65, 67, 49, 48, 49, 53, 0, 0, 0, 0])); await sleep(800);\n     const said = m.state.log.slice(0, 3).map((x) => x.text).join(' ');\n     return JSON.stringify({ offered, said: /DWG/.test(said) }); })()",
-    "expect": "\"offered\":true,\"said\":true"
+    "expect": "\"offered\":true,\"said\":true",
+    "allowErrors": "error.import Error: the DWG file is damaged"
   }
 ]

@@ -7,6 +7,7 @@
 //
 // The rules live in cad/vault.js; where the files are kept, in platform/vault-store.js (a folder on the
 // desktop — local or shared — or IndexedDB in a browser).
+import { segGlyph } from './ui/seg-icons.js';
 import './styles-pdm.css';
 import { Vault, VaultError, STATES, ROLES, SCHEMES, FIELD_TYPES, TRANSITIONS, describeContent, applyLinks } from './cad/vault.js';
 import { makeZip } from './cad/vault-zip.js';
@@ -281,7 +282,7 @@ export function attachPdm(more, ctx) {
   const esc = escapeHtml;
   const btn = (a, glyph, label, { disabled = false, title = '', cls = '' } = {}) => `<button type="button" class="pdm-button ${cls}" data-pdm="${esc(a)}" ${disabled || S.busy ? 'disabled' : ''} title="${esc(title || label)}">${icon(glyph, 'icon tiny')}<span>${esc(label)}</span></button>`;
   const iconBtn = (a, glyph, label, { disabled = false, cls = '' } = {}) => `<button type="button" class="icon-button pdm-icon ${cls}" data-pdm="${esc(a)}" ${disabled || S.busy ? 'disabled' : ''} title="${esc(label)}" aria-label="${esc(label)}">${icon(glyph, 'icon tiny')}</button>`;
-  const seg = (a, options, current) => `<span class="segmented pdm-seg" role="radiogroup">${options.map(([v, label, glyph]) => `<button type="button" class="segment ${String(v) === String(current) ? 'active' : ''}" data-pdm="${esc(`${a}:${v}`)}" title="${esc(label)}">${glyph ? icon(glyph, 'icon tiny') : ''}<span>${esc(label)}</span></button>`).join('')}</span>`;
+  const seg = (a, options, current) => `<span class="segmented pdm-seg" role="radiogroup">${options.map(([v, label, glyph]) => `<button type="button" class="segment ${String(v) === String(current) ? 'active' : ''}" data-pdm="${esc(`${a}:${v}`)}" title="${esc(label)}">${icon(glyph || segGlyph(a, v), 'icon tiny')}<span>${esc(label)}</span></button>`).join('')}</span>`;
   const input = (key, value, { placeholder = '', disabled = false, type = 'text', cls = '' } = {}) => `<input type="${type}" class="pdm-input ${cls}" data-pdm-field="${esc(key)}" value="${esc(value ?? '')}" placeholder="${esc(placeholder)}" ${disabled ? 'disabled' : ''} spellcheck="false"/>`;
   const select = (key, options, current, { disabled = false } = {}) => `<select class="pdm-input" data-pdm-field="${esc(key)}" ${disabled ? 'disabled' : ''}>${options.map(([v, label]) => `<option value="${esc(v)}" ${String(v) === String(current) ? 'selected' : ''}>${esc(label)}</option>`).join('')}</select>`;
   const check = (key, checked, label, { disabled = false } = {}) => `<label class="pdm-check"><input type="checkbox" data-pdm-field="${esc(key)}" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}/><span>${esc(label)}</span></label>`;

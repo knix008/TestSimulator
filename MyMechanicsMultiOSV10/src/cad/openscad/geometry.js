@@ -3,6 +3,7 @@
 // fragments from $fn / $fa / $fs, the same ring layout of spheres, the same slices and diagonals of
 // linear_extrude, the same rings of rotate_extrude, text outlines at OpenSCAD's size and curve steps — so a
 // model has the faces OpenSCAD gives it. A node is { d3: Manifold | null, d2: CrossSection | null, color }.
+import { straightSkeleton, coneHullPoints } from './roof.js';
 import { isNum, isVec, isStr, isBool, sinDeg, cosDeg, angleAxis, toStr, repr } from './values.js';
 import { readImportFile } from './files.js';
 
@@ -77,6 +78,52 @@ export function snap32(v) {
   const f = Math.fround(v);
   for (let p = 6; p <= 9; p++) { const s = Number(f.toPrecision(p)); if (Math.fround(s) === f) return s; }
   return f;
+}
+
+/** The 4×4 matrix (rows) of translate / rotate / scale / mirror / multmatrix with bound arguments. */
+export function transformMatrix(name, a, warn = () => {}) {
+  const M = IDENT();
+  switch (name) {
+    case 'translate': { const v = vecOf(a.v, 2) ? [a.v[0], a.v[1], isNum(a.v[2]) ? a.v[2] : 0] : null; if (!v) { if (a.v !== undefined) warn(`Unable to convert translate(${repr(a.v)}) parameter to a vec3 or vec2 of numbers`); return M; } M[0][3] = v[0]; M[1][3] = v[1]; M[2][3] = v[2]; return M; }
+    case 'scale': {
+      let s = [1, 1, 1];
+      if (isNum(a.v)) s = [a.v, a.v, a.v]; else if (vecOf(a.v, 2)) s = [a.v[0], a.v[1], isNum(a.v[2]) ? a.v[2] : 1]; else if (a.v !== undefined) warn(`Unable to convert scale(${repr(a.v)}) parameter to a number, a vec3 or vec2 of numbers or a number`);
+      M[0][0] = s[0]; M[1][1] = s[1]; M[2][2] = s[2]; return M;
+    }
+    case 'rotate': {
+      const av = a.a;
+      if (isVec(av)) {
+        const [x, y, z] = [0, 1, 2].map((i) => (isNum(av[i]) ? av[i] : 0));
+        const sx = sinDeg(x), cx = cosDeg(x), sy = sinDeg(y), cy = cosDeg(y), sz = sinDeg(z), cz = cosDeg(z);
+        const R = [[cy * cz, cz * sx * sy - cx * sz, cx * cz * sy + sx * sz], [cy * sz, cx * cz + sx * sy * sz, -cz * sx + cx * sy * sz], [-sy, cy * sx, cx * cy]];
+        for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) M[i][j] = R[i][j];
+        return M;
+      }
+      if (isNum(av)) {
+        const v = vecOf(a.v, 3);
+        const R = v && (v[0] || v[1] || v[2]) ? angleAxis(av, v) : [[cosDeg(av), -sinDeg(av), 0], [sinDeg(av), cosDeg(av), 0], [0, 0, 1]];
+        for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) M[i][j] = R[i][j];
+        return M;
+      }
+      if (av !== undefined) warn(`Unable to convert rotate(a=${repr(av)}, ...) parameter`);
+      return M;
+    }
+    case 'mirror': {
+      const v = vecOf(a.v, 2) ? [a.v[0], a.v[1], isNum(a.v[2]) ? a.v[2] : 0] : [1, 0, 0];
+      const l = Math.hypot(...v);
+      if (!(l > 0)) return M;
+      const n = v.map((x) => x / l);
+      for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) M[i][j] = (i === j ? 1 : 0) - 2 * n[i] * n[j];
+      return M;
+    }
+    case 'multmatrix': {
+      const m = a.m;
+      if (!isVec(m)) { if (m !== undefined) warn('Unable to convert multmatrix(m) parameter'); return M; }
+      for (let i = 0; i < Math.min(4, m.length); i++) { if (!isVec(m[i])) continue; for (let j = 0; j < Math.min(4, m[i].length); j++) if (isNum(m[i][j])) M[i][j] = m[i][j]; }
+      return M;
+    }
+    default: return M;
+  }
 }
 
 export function createGeometry(W, { fonts = null, warn = () => {} } = {}) {
@@ -277,50 +324,7 @@ export function createGeometry(W, { fonts = null, warn = () => {} } = {}) {
     return node(d3, d2, n.color);
   }
 
-  function matrixOf(name, a) {
-    const M = IDENT();
-    switch (name) {
-      case 'translate': { const v = vecOf(a.v, 2) ? [a.v[0], a.v[1], isNum(a.v[2]) ? a.v[2] : 0] : null; if (!v) { if (a.v !== undefined) warn(`Unable to convert translate(${repr(a.v)}) parameter to a vec3 or vec2 of numbers`); return M; } M[0][3] = v[0]; M[1][3] = v[1]; M[2][3] = v[2]; return M; }
-      case 'scale': {
-        let s = [1, 1, 1];
-        if (isNum(a.v)) s = [a.v, a.v, a.v]; else if (vecOf(a.v, 2)) s = [a.v[0], a.v[1], isNum(a.v[2]) ? a.v[2] : 1]; else if (a.v !== undefined) warn(`Unable to convert scale(${repr(a.v)}) parameter to a number, a vec3 or vec2 of numbers or a number`);
-        M[0][0] = s[0]; M[1][1] = s[1]; M[2][2] = s[2]; return M;
-      }
-      case 'rotate': {
-        const av = a.a;
-        if (isVec(av)) {
-          const [x, y, z] = [0, 1, 2].map((i) => (isNum(av[i]) ? av[i] : 0));
-          const sx = sinDeg(x), cx = cosDeg(x), sy = sinDeg(y), cy = cosDeg(y), sz = sinDeg(z), cz = cosDeg(z);
-          const R = [[cy * cz, cz * sx * sy - cx * sz, cx * cz * sy + sx * sz], [cy * sz, cx * cz + sx * sy * sz, -cz * sx + cx * sy * sz], [-sy, cy * sx, cx * cy]];
-          for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) M[i][j] = R[i][j];
-          return M;
-        }
-        if (isNum(av)) {
-          const v = vecOf(a.v, 3);
-          const R = v && (v[0] || v[1] || v[2]) ? angleAxis(av, v) : [[cosDeg(av), -sinDeg(av), 0], [sinDeg(av), cosDeg(av), 0], [0, 0, 1]];
-          for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) M[i][j] = R[i][j];
-          return M;
-        }
-        if (av !== undefined) warn(`Unable to convert rotate(a=${repr(av)}, ...) parameter`);
-        return M;
-      }
-      case 'mirror': {
-        const v = vecOf(a.v, 2) ? [a.v[0], a.v[1], isNum(a.v[2]) ? a.v[2] : 0] : [1, 0, 0];
-        const l = Math.hypot(...v);
-        if (!(l > 0)) return M;
-        const n = v.map((x) => x / l);
-        for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) M[i][j] = (i === j ? 1 : 0) - 2 * n[i] * n[j];
-        return M;
-      }
-      case 'multmatrix': {
-        const m = a.m;
-        if (!isVec(m)) { if (m !== undefined) warn('Unable to convert multmatrix(m) parameter'); return M; }
-        for (let i = 0; i < Math.min(4, m.length); i++) { if (!isVec(m[i])) continue; for (let j = 0; j < Math.min(4, m[i].length); j++) if (isNum(m[i][j])) M[i][j] = m[i][j]; }
-        return M;
-      }
-      default: return M;
-    }
-  }
+  const matrixOf = (name, a) => transformMatrix(name, a, warn);
 
   // ── colour
 
@@ -418,6 +422,34 @@ export function createGeometry(W, { fonts = null, warn = () => {} } = {}) {
     const segs = fragments(Math.abs(delta), sp.fn, sp.fs, sp.fa);
     const cs = own(n.d2.offset(delta, join, 1000000, segs));
     return node(null, cs.isEmpty() ? null : cs, n.color);
+  }
+
+  // ── roof (roof.js)
+
+  function roof(nodes, a, sp) {
+    const n = unionOf(nodes);
+    if (!n?.d2) return null;
+    const method = isStr(a.method) ? a.method : 'voronoi';
+    if (method !== 'voronoi' && method !== 'straight') { warn(`Unknown roof method '${method}'. Using 'voronoi'.`); }
+    const outs = outlinesOf(n.d2).map((o) => o.pts);
+    if (!outs.length) return null;
+    let d3;
+    if (method === 'straight') {
+      const sk = straightSkeleton(outs);
+      const cols = sk.pieces.map((pts) => { try { return own(Manifold.hull(pts)); } catch { return null; } }).filter((m) => m && !m.isEmpty() && m.volume() > 1e-12);
+      if (!cols.length) return null;
+      d3 = cols.length > 1 ? own(Manifold.union(cols)) : cols[0];
+    } else {
+      // The shape raised high enough, less everything closer to the outline than its height.
+      const b = n.d2.bounds();
+      const h = Math.hypot(b.max[0] - b.min[0], b.max[1] - b.min[1]) / 2 + 1;
+      const segs = Math.max(fragments(h, sp.fn, sp.fs, sp.fa), 8);
+      const cones = [];
+      for (const o of outs) for (let i = 0; i < o.length; i++) cones.push(own(Manifold.hull(coneHullPoints(o[i], o[(i + 1) % o.length], h, segs))));
+      const block = own(Manifold.extrude(n.d2, h));
+      d3 = own(Manifold.difference([block, cones.length > 1 ? own(Manifold.union(cones)) : cones[0]]));
+    }
+    return node(d3.isEmpty() ? null : d3, null, n.color);
   }
 
   // ── extrusions
@@ -632,19 +664,25 @@ export function createGeometry(W, { fonts = null, warn = () => {} } = {}) {
     return node(manifoldOf(verts, polys));
   }
 
-  function text(a, sp) {
-    const str = a.text === undefined ? '' : isStr(a.text) ? a.text : toStr(a.text);
-    if (!str) return null;
+  /** The font a text() / textmetrics() asks for (Liberation Sans when it is not there), its scales, or null. */
+  function fontFor(a) {
     const size = isNum(a.size) ? a.size : 10;
-    const spacing = isNum(a.spacing) ? a.spacing : 1;
-    const segs = Math.max(Math.floor(fragments(size, sp.fn, sp.fs, sp.fa) / 8) + 1, 2);
     const spec = parseFontName(isStr(a.font) ? a.font : 'Liberation Sans');
     const font = fonts?.(spec.family, spec.style) ?? fonts?.('Liberation Sans', spec.style) ?? fonts?.('Liberation Sans', 'Regular');
     if (!font) { warn(`Can't get font ${isStr(a.font) ? a.font : 'Liberation Sans'}`); return null; }
-    const em = font.unitsPerEm;
     // FreeType at OpenSCAD's char size: outline units → size·100/72 per em; advances and boxes (HarfBuzz) are
     // divided by 1.024e5 instead of 1e5, so they are 1000/1024 of that.
-    const outK = (size * 100) / 72 / em; const posK = outK * (1e5 / 1.024e5);
+    const outK = (size * 100) / 72 / font.unitsPerEm;
+    return { font, spec, size, outK, posK: outK * (1e5 / 1.024e5) };
+  }
+
+  /** Glyphs of a text placed as text() places them: { font, outK, placed, xo, yo, width, ascend, descend, vertical, advance }. */
+  function layoutText(a) {
+    const str = a.text === undefined ? '' : isStr(a.text) ? a.text : toStr(a.text);
+    const f = fontFor(a);
+    if (!f) return null;
+    const { font, outK, posK } = f;
+    const spacing = isNum(a.spacing) ? a.spacing : 1;
     let glyphs = font.stringToGlyphs(str);
     const dir = isStr(a.direction) ? a.direction : 'ltr';
     if (dir === 'rtl') glyphs = glyphs.slice().reverse();
@@ -670,6 +708,12 @@ export function createGeometry(W, { fonts = null, warn = () => {} } = {}) {
     const halign = isStr(a.halign) ? a.halign : 'left'; const valign = isStr(a.valign) ? a.valign : 'baseline';
     const xo = halign === 'right' ? -width : halign === 'center' ? -width / 2 : 0;
     const yo = valign === 'top' ? -ascend : valign === 'center' ? descend / 2 - ascend / 2 : valign === 'bottom' ? descend : 0;
+    return { str, font, outK, posK, placed, xo, yo, width, ascend, descend, vertical, advance: vertical ? [0, -pen] : [pen, 0] };
+  }
+
+  /** Outlines of placed glyphs (curves cut into `segs` pieces). */
+  function glyphOutlines(L, segs) {
+    const { font, outK, placed, xo, yo, vertical, posK } = L;
     const outlines = [];
     for (const p of placed) {
       const ox = vertical ? xo + p.xoff : xo + p.pen; const oy = vertical ? yo - p.pen - font.ascender * posK : yo;
@@ -686,7 +730,47 @@ export function createGeometry(W, { fonts = null, warn = () => {} } = {}) {
     }
     // Drop a closing point equal to the start.
     for (const o of outlines) { const f = o[0]; const l = o[o.length - 1]; if (o.length > 3 && Math.abs(f[0] - l[0]) < 1e-12 && Math.abs(f[1] - l[1]) < 1e-12) o.pop(); }
-    return node(null, cross2(outlines, 'NonZero'));
+    return outlines;
+  }
+
+  function text(a, sp) {
+    const str = a.text === undefined ? '' : isStr(a.text) ? a.text : toStr(a.text);
+    if (!str) return null;
+    const L = layoutText(a);
+    if (!L) return null;
+    const segs = Math.max(Math.floor(fragments(isNum(a.size) ? a.size : 10, sp.fn, sp.fs, sp.fa) / 8) + 1, 2);
+    return node(null, cross2(glyphOutlines(L, segs), 'NonZero'));
+  }
+
+  /**
+   * textmetrics(): the box of the ink as text() would draw it — position (lower left), size, ascent and descent
+   * from the baseline (descent ≤ 0), the alignment offset and the advance of the pen.
+   */
+  function textMetrics(a) {
+    const L = layoutText(a);
+    if (!L) return null;
+    const outlines = L.str ? glyphOutlines(L, 8) : [];
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const o of outlines) for (const [x, y] of o) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+    if (!outlines.length) { x0 = L.xo; y0 = L.yo; x1 = L.xo; y1 = L.yo; }
+    return { position: [x0, y0], size: [x1 - x0, y1 - y0], ascent: y1 - L.yo, descent: y0 - L.yo, offset: [L.xo, L.yo], advance: L.advance };
+  }
+
+  /** fontmetrics(): a font's nominal and largest ascent / descent at a size, its line spacing, family and style. */
+  function fontMetrics(a) {
+    const f = fontFor(a);
+    if (!f) return null;
+    const { font, posK } = f;
+    const hhea = font.tables?.hhea ?? {}; const head = font.tables?.head ?? {};
+    const asc = font.ascender; const desc = font.descender; const gap = hhea.lineGap ?? 0;
+    const names = font.names ?? {};
+    const pick = (n) => n?.en ?? Object.values(n ?? {})[0] ?? '';
+    return {
+      nominal: { ascent: asc * posK, descent: desc * posK },
+      max: { ascent: (head.yMax ?? asc) * posK, descent: (head.yMin ?? desc) * posK },
+      interline: (asc - desc + gap) * posK,
+      font: { family: pick(names.fontFamily) || f.spec.family, style: pick(names.fontSubfamily) || f.spec.style },
+    };
   }
 
   // ── the module table
@@ -721,6 +805,7 @@ export function createGeometry(W, { fonts = null, warn = () => {} } = {}) {
     linear_extrude: { names: ['file', 'layer', 'height', 'origin', 'scale', 'center', 'twist', 'slices'], run: (a, sp, kids, ctx) => linearExtrude(kids(), a, sp, ctx) },
     rotate_extrude: { names: ['file', 'layer', 'origin', 'scale'], run: (a, sp, kids, ctx) => rotateExtrude(kids(), a, sp, ctx) },
     projection: { names: ['cut'], run: (a, sp, kids) => projection(kids(), a) },
+    roof: { names: ['method', 'convexity'], run: (a, sp, kids) => roof(kids(), a, sp) },
   };
 
   return {
@@ -740,6 +825,7 @@ export function createGeometry(W, { fonts = null, warn = () => {} } = {}) {
       } finally { warn = prevWarn; }
     },
     group: (nodes) => unionOf(nodes),
+    textMetrics, fontMetrics,
     boolean,
     highlight: (n) => highlights.push(n),
     background: (n) => backgrounds.push(n),

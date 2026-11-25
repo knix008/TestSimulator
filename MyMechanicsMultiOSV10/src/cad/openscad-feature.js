@@ -69,18 +69,25 @@ export function unpackFiles(files) {
 /** The key a build is cached by: the program, its values and its files. */
 export function scadKey(f) {
   const files = Object.entries(f.files ?? {}).map(([k, v]) => [k, typeof v === 'string' ? v.length : v?.b64?.length ?? 0]).sort();
-  return JSON.stringify([f.source ?? '', f.overrides ?? {}, files, f.fileName ?? '']);
+  return JSON.stringify([f.source ?? '', f.overrides ?? {}, files, f.fileName ?? '', ...(scadUsesTime(f) ? [scadTime(f)] : [])]);
 }
+/** The animation time $t of the feature (0 ≤ $t < 1). */
+export const scadTime = (f) => { const v = Number(f.animT ?? 0); return Number.isFinite(v) ? v - Math.floor(v) : 0; };
+/** Whether the program reads $t (otherwise every time gives the same body and one cache entry). */
+export const scadUsesTime = (f) => /\$t\b/.test(String(f.source ?? ''));
+/** The specials a run of the feature starts with. */
+export const scadSpecials = (f) => ({ $t: scadTime(f) });
+
 const hashOf = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); };
 
 const cache = new Map(); // key → { brep, echoes, warnings, color, dim, triangles }
 const failed = new Map(); // key → { code, error, echoes, warnings } of a program that did not give a solid
 function fail(key, code, info) {
   failed.set(key, { code, ...info });
-  while (failed.size > 24) failed.delete(failed.keys().next().value);
+  while (failed.size > 64) failed.delete(failed.keys().next().value);
   throw codeError(code, info);
 }
-const remember = (key, entry) => { cache.set(key, entry); while (cache.size > 24) cache.delete(cache.keys().next().value); return entry; };
+const remember = (key, entry) => { cache.set(key, entry); while (cache.size > 96) cache.delete(cache.keys().next().value); return entry; };
 
 /** Runs the program of `f` (or takes the cached result): { brep, echoes, warnings, color } or throws a coded error. */
 export function scadResult(f) {
@@ -92,7 +99,7 @@ export function scadResult(f) {
   if (hit === undefined && failed.has(key)) { const x = failed.get(key); throw codeError(x.code, x); }
   if (!manifoldReady()) throw codeError('scad-engine');
   let r;
-  try { r = runScad(String(f.source ?? ''), { files: unpackFiles(f.files), overrides: f.overrides ?? {}, fileName: f.fileName || 'model.scad' }); }
+  try { r = runScad(String(f.source ?? ''), { files: unpackFiles(f.files), overrides: f.overrides ?? {}, fileName: f.fileName || 'model.scad', specials: scadSpecials(f) }); }
   catch (error) { fail(key, 'scad-error', { error: String(error?.message ?? error), echoes: [], warnings: [] }); }
   const info = { echoes: r.echoes, warnings: r.warnings, missing: r.missing };
   if (r.error) fail(key, 'scad-error', { error: r.error.message, ...info });

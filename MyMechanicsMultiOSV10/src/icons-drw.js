@@ -2,6 +2,12 @@
 // sheet formats), the added Evaluate tools and the mold surfaces (24×24, stroke = currentColor), in the style
 // of icons-cad.js.
 export const ICONS_DRW = {
+  view3dDrawing: '<rect x="3" y="5" width="18" height="14" rx="1" opacity="0.5"/><path d="M8 10l4-2 4 2v4l-4 2-4-2z"/><path d="M18 4a3 3 0 0 1 2 3"/>',
+  relativeView: '<path d="M4 8l8-4 8 4v8l-8 4-8-4z"/><path d="M4 8l8 4 8-4M12 12v8" opacity="0.5"/><path d="M16 13l4 0M18 11l2 2-2 2"/>',
+  removedSection: '<path d="M4 12h6" stroke-dasharray="4 1.5 1 1.5"/><path d="M4 9v6"/><rect x="13" y="6" width="8" height="12" rx="1"/><path d="M13 10l4-4M13 14l8-8M14 18l7-7M18 18l3-3" opacity="0.6"/>',
+  weldTable: '<rect x="3" y="5" width="18" height="14" rx="1"/><path d="M3 9h18M9 5v14"/><path d="M12 14l2-2 2 2 2-2"/>',
+  autoBalloon: '<circle cx="7" cy="7" r="3.5"/><circle cx="17" cy="7" r="3.5"/><path d="M9 10l3 6M15 10l-3 6"/><circle cx="12" cy="17" r="1.2" fill="currentColor"/>',
+  holeCallout: '<circle cx="8" cy="15" r="4"/><path d="M11 12l5-5h5"/><path d="M14 4h7M14 10h7" opacity="0.55"/>',
   dimHorizontal: '<path d="M4 6v12M20 6v12" opacity="0.6"/><path d="M4 12h16"/><path d="M7 10l-3 2 3 2M17 10l3 2-3 2"/>',
   dimVertical: '<path d="M6 4h12M6 20h12" opacity="0.6"/><path d="M12 4v16"/><path d="M10 7l2-3 2 3M10 17l2 3 2-3"/>',
   dimAligned: '<path d="M3 15l6 6M15 3l6 6" opacity="0.6"/><path d="M6 18L18 6"/><path d="M6 14v4h4M14 6h4v4"/>',

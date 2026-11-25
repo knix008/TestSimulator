@@ -219,6 +219,10 @@ button.status-item:hover { background: var(--hover); }
 .eq-name { font-weight: 600; }
 .pm-list li.error { color: var(--danger, #d4282f); }
 .cfg-row { display: flex; align-items: center; gap: 4px; padding: 2px; border-radius: 4px; }
+.viz-swatch { width: 14px; height: 14px; border-radius: 3px; flex: none; border: 1px solid color-mix(in srgb, var(--text, #000) 25%, transparent); }
+.viz-row b { font-variant-numeric: tabular-nums; font-weight: 600; }
+.viz-scale { display: flex; align-items: center; gap: 6px; font-size: 11px; margin: 2px 0 6px; }
+.viz-bar { flex: 1; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #1f4fd6, #1fd6c7, #3fd61f, #d6c71f, #d61f1f); }
 .cfg-row.active { background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .cfg-name { flex: 1; padding: 0 4px; }
 .sim-legend { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; font-size: 0.82em; margin: 6px 0; }
@@ -522,8 +526,21 @@ input[type="color"][data-pm-field] { width: 44px; height: 24px; padding: 0; bord
 .pm-field.scad-param > .slider-control, .pm-field.scad-param > input[type="range"] { flex: 1 1 100%; min-width: 0; }
 .pm-field.scad-param > select, .pm-field.scad-param > input.pm-text:not(.short) { flex: 1 1 100%; }
 .scad-tab { margin: 6px 0 2px; font-size: 12px; font-weight: 600; color: var(--text-strong, inherit); }
-textarea.scad-code { width: 100%; box-sizing: border-box; min-height: 220px; resize: vertical; font: 12px/1.45 ui-monospace, "Cascadia Mono", Consolas, "D2Coding", monospace; tab-size: 2; padding: 6px 8px; border: 1px solid var(--border, #c8cdd6); border-radius: 6px; background: var(--input-bg, var(--panel, #fff)); color: var(--text, inherit); white-space: pre; overflow: auto; }
+.scad-editor { position: relative; }
+.scad-editor .scad-hl, textarea.scad-code { margin: 0; width: 100%; box-sizing: border-box; min-height: 220px; font: 12px/1.45 ui-monospace, "Cascadia Mono", Consolas, "D2Coding", monospace; tab-size: 2; padding: 6px 8px; border: 1px solid transparent; border-radius: 6px; white-space: pre; overflow: auto; letter-spacing: 0; }
+.scad-editor .scad-hl { position: absolute; inset: 0; height: 100%; pointer-events: none; color: var(--text, inherit); background: var(--input-bg, var(--panel, #fff)); border-color: var(--border, #c8cdd6); scrollbar-width: none; }
+.scad-editor .scad-hl::-webkit-scrollbar { display: none; }
+textarea.scad-code { position: relative; display: block; resize: vertical; background: transparent; color: transparent; caret-color: var(--text, #222); }
+textarea.scad-code::selection { background: color-mix(in srgb, var(--accent, #2f6fdb) 30%, transparent); color: transparent; }
 textarea.scad-code:focus { outline: 2px solid var(--accent, #2f6fdb); outline-offset: -1px; }
+.sh-kw { color: #8b3fd1; font-weight: 600; } .sh-mod { color: #1f6fd1; } .sh-fn { color: #0f8a8a; } .sh-num { color: #b35a00; } .sh-str { color: #2e8b3a; } .sh-com { color: #7c8591; font-style: italic; } .sh-sp { color: #c2185b; } .sh-var, .sh-id { color: inherit; }
+:root[data-theme="dark"] .sh-kw { color: #c792ea; } :root[data-theme="dark"] .sh-mod { color: #82aaff; } :root[data-theme="dark"] .sh-fn { color: #4fd6be; } :root[data-theme="dark"] .sh-num { color: #f78c6c; } :root[data-theme="dark"] .sh-str { color: #c3e88d; } :root[data-theme="dark"] .sh-com { color: #8a93a6; } :root[data-theme="dark"] .sh-sp { color: #ff7eb6; }
+.scad-complete { position: absolute; left: 8px; right: 8px; bottom: 6px; z-index: 3; list-style: none; margin: 0; padding: 2px; max-height: 150px; overflow: auto; background: var(--panel, #fff); border: 1px solid var(--border, #c8cdd6); border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,.18); font: 11px/1.4 ui-monospace, Consolas, monospace; }
+.scad-complete li { display: flex; gap: 8px; align-items: baseline; padding: 2px 6px; border-radius: 4px; cursor: pointer; }
+.scad-complete li small { opacity: .65; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scad-complete li.on { background: color-mix(in srgb, var(--accent, #2f6fdb) 18%, transparent); }
+.scad-console li[data-scad-line] { cursor: pointer; text-decoration: underline dotted; }
+.scad-frame { width: 100%; }
 .scad-console, .scad-files { list-style: none; margin: 4px 0 0; padding: 0; max-height: 160px; overflow: auto; font: 11px/1.4 ui-monospace, Consolas, monospace; }
 .scad-console li, .scad-files li { display: flex; gap: 4px; align-items: flex-start; padding: 1px 0; }
 .scad-console li span, .scad-files li span { overflow-wrap: anywhere; }
@@ -535,3 +552,10 @@ textarea.scad-code:focus { outline: 2px solid var(--accent, #2f6fdb); outline-of
 .hx-row { display: grid; grid-template-columns: 18px minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) 28px; gap: 4px; align-items: center; }
 .hx-row.head { font-size: 11px; color: var(--muted); }
 .hx-row select, .hx-row input { min-width: 0; width: 100%; }
+/* 3D sketch relations: segment / point chips to pick what a relation applies to. */
+.pm-chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin: 4px 0; }
+.pm-chips > .pm-label { min-width: 48px; }
+.pm-chip { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border: 1px solid var(--border, #c8cdd6); border-radius: 10px; cursor: pointer; font-size: 11px; }
+.pm-chip input { display: none; }
+.pm-chip.on { background: color-mix(in srgb, var(--accent, #2f6fdb) 18%, transparent); border-color: var(--accent, #2f6fdb); }
+.pm-handle { border-top: 1px dashed var(--border, #c8cdd6); padding-top: 3px; margin-top: 3px; }

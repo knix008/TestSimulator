@@ -8,7 +8,7 @@ import {
   ORIGIN, ENTITY_TYPES, RELATIONS, DIMENSIONS, createSketchGeometry, byId, pointsOf, arcGeometry, polyline, textWidth, hasRegions, addText,
   splineBeziers, bezierAt, sketchBounds, addConstraint, addLine, addCircle, addArc, arcThrough, addRectangle, addCenterRectangle, addPolygon,
   addSlot, removeEntities, geomKind, solveSketch, analyse, measure, dimensionFor, relationsFor, addRelation, autoRelationsForLine, mergePoints,
-  hitTest, profiles, polygonArea, pointInPolygon, standalonePoints, constructionLines, cloneSketch,
+  hitTest, profiles, polygonArea, pointInPolygon, standalonePoints, constructionLines, cloneSketch, endCurvature,
 } from '../../src/cad/sketch.js';
 import {
   addSpline, addEllipse, addEllipseArc, addConic, addEquationCurve, sketchFillet, sketchChamfer, offsetEntities, mirrorEntities, linearSketchPattern, circularSketchPattern, intersect, trimAt, extendAt,
@@ -496,7 +496,35 @@ const RELATION_CASES = {
     const a = addLine(s, 0, 0, 10, 0); const b = addLine(s, 12, 2, 20, 3);
     return { ids: [a.id, b.id], removes: 2, check: () => { near(pointLineDistance(s, b.p1, a), 0, 1e-6); near(pointLineDistance(s, b.p2, a), 0, 1e-6); } };
   },
+  coradial: (s) => {
+    const a = addCircle(s, 0, 0, 5); const b = addCircle(s, 3, 2, 2);
+    return { ids: [a.id, b.id], removes: 3, check: () => { near(dist(xy(s, a.c), xy(s, b.c)), 0, 1e-6); near(a.r, b.r, 1e-6); } };
+  },
+  merge: (s) => {
+    const a = addLine(s, 0, 0, 10, 0); const b = addLine(s, 12, 3, 20, 8);
+    return { ids: [a.p2, b.p1], removes: 2, check: () => near(dist(xy(s, a.p2), xy(s, b.p1)), 0, 1e-6) };
+  },
+  equalCurvature: (s) => {
+    const arc = addArc(s, 0, 0, 20, 0, Math.PI / 2);
+    const end = byId(s, arc.p2);
+    const sp = addSpline(s, [[end.x, end.y], [-15, 25], [-30, 20], [-45, 30]], { ids: [arc.p2] });
+    return { ids: [arc.id, sp.id], removes: 1, check: () => near(Math.abs(curvatureAtJoin(s, arc, sp)), 1 / arcRadius(s, arc), 1e-4) };
+  },
+  smooth: (s) => {
+    const arc = addArc(s, 0, 0, 20, 0, Math.PI / 2);
+    const end = byId(s, arc.p2);
+    const sp = addSpline(s, [[end.x, end.y], [-15, 25], [-30, 20], [-45, 30]], { ids: [arc.p2] });
+    return { ids: [arc.id, sp.id], removes: 2, check: () => near(Math.abs(curvatureAtJoin(s, arc, sp)), 1 / arcRadius(s, arc), 1e-4) };
+  },
 };
+
+/** The radius of an arc and the curvature of a spline where it leaves the arc's end (for the G2 relations). */
+const arcRadius = (s, arc) => dist(xy(s, arc.c), xy(s, arc.p1));
+function curvatureAtJoin(s, arc, sp) {
+  const map = new Map(s.entities.map((e) => [e.id, e]));
+  const P = (id) => xy(s, id);
+  return endCurvature(sp, sp.pts[0], P, map, () => arcRadius(s, arc));
+}
 
 test('every relation type has a case in this test file', () => {
   assert.deepEqual(RELATIONS.filter((r) => !RELATION_CASES[r]), []);
@@ -637,8 +665,8 @@ test('relation: point on circle works on an arc', () => {
 const OFFERS = [
   ['one line', (s) => [addLine(s, 0, 0, 1, 0).id], ['horizontal', 'vertical']],
   ['one point', (s) => [addLine(s, 0, 0, 1, 0).p1], ['fix']],
-  ['two points', (s) => { const l = addLine(s, 0, 0, 1, 0); return [l.p1, l.p2]; }, ['coincident', 'horizontal', 'vertical']],
-  ['two circles', (s) => [addCircle(s, 0, 0, 1).id, addCircle(s, 5, 0, 1).id], ['equal', 'concentric', 'tangent']],
+  ['two points', (s) => { const l = addLine(s, 0, 0, 1, 0); return [l.p1, l.p2]; }, ['coincident', 'horizontal', 'vertical', 'merge']],
+  ['two circles', (s) => [addCircle(s, 0, 0, 1).id, addCircle(s, 5, 0, 1).id], ['equal', 'concentric', 'tangent', 'coradial']],
   ['a line and a circle', (s) => [addLine(s, 0, 0, 1, 0).id, addCircle(s, 5, 0, 1).id], ['tangent']],
   ['a point and a line', (s) => { s.entities.push({ id: 'q', type: 'point', x: 3, y: 3 }); return ['q', addLine(s, 0, 0, 1, 0).id]; }, ['coincident', 'midpoint']],
   ['a point and a circle', (s) => { s.entities.push({ id: 'q', type: 'point', x: 3, y: 3 }); return ['q', addCircle(s, 0, 0, 1).id]; }, ['coincident', 'concentric']],
@@ -689,6 +717,11 @@ const DIMENSION_CASES = {
   },
   radius: (s) => { const c = addCircle(s, 0, 0, 5); return { c: { type: 'radius', a: c.id, value: 7.5 }, check: () => near(c.r, 7.5, 1e-6) }; },
   diameter: (s) => { const c = addCircle(s, 0, 0, 5); return { c: { type: 'diameter', a: c.id, value: 30 }, check: () => near(c.r, 15, 1e-6) }; },
+  arcLength: (s) => {
+    const arc = addArc(s, 0, 0, 20, 0, Math.PI / 2);
+    addConstraint(s, { type: 'radius', a: arc.id, value: 20 });
+    return { c: { type: 'arcLength', a: arc.id, value: 40 }, check: () => { const o = xy(s, arc.c); const a = xy(s, arc.p1); const b = xy(s, arc.p2); let th = Math.atan2(b[1] - o[1], b[0] - o[0]) - Math.atan2(a[1] - o[1], a[0] - o[0]); while (th <= 0) th += 2 * Math.PI; near(20 * th, 40, 1e-6); } };
+  },
   angle: (s) => {
     const a = addLine(s, 0, 0, 10, 0, { from: ORIGIN }); const b = addLine(s, 0, 0, 5, 8, { from: ORIGIN });
     addConstraint(s, { type: 'horizontal', a: a.id });

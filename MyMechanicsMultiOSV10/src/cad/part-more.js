@@ -14,6 +14,7 @@ import { buildPartExtra } from './part-extra.js';
 import { rep } from './kernel.js';
 import { byId, profiles, standalonePoints } from './sketch.js';
 import { findEdges, findFace, planeOfFace, crossV, normalize, isCylinder } from './refs.js';
+import { buildSurfaceSpline } from './surface-spline.js';
 import { sketchOf, sizeAround, codeError, resolvePlane, toWorld, AXES, regenerate, frame as makeFrame, STD_PLANES } from './features.js';
 import { sketchWire, circleOfEdge } from './advanced.js';
 import { worldUp, worldFront } from './frame.js';
@@ -37,7 +38,7 @@ export function buildPartMore(f, ctx) {
     case 'mountingBoss': case 'snapHook': case 'snapHookGroove': case 'vent': case 'lipGroove': return buildFastening(f, ctx);
     case 'surfaceSweep': case 'cutWithSurface': case 'deleteHole': case 'untrimSurface': case 'midSurface': case 'radiateSurface': case 'flattenSurface': return buildSurfaceMore(f, ctx);
     case 'convertSheet': case 'insertBends': case 'rip': case 'unfold': case 'fold': case 'crossBreak': case 'weldedCorner': case 'tabSlot': return buildSheetExtra(f, ctx);
-    case 'advancedHole': case 'intersect': case 'mateReference': return buildPartExtra(f, ctx);
+    case 'advancedHole': case 'intersect': case 'mateReference': case 'moveFace': case 'connectionPoint': return buildPartExtra(f, ctx);
     case 'combine': return buildCombine(f, ctx);
     case 'deleteBody': return buildDeleteBody(f, ctx);
     case 'indent': return buildIndent(f, ctx);
@@ -59,6 +60,7 @@ export function buildPartMore(f, ctx) {
     case 'splitLine': return buildSplitLine(f, ctx);
     case 'compositeCurve': return buildCompositeCurve(f, ctx);
     case 'curveXYZ': return buildCurveXYZ(f);
+    case 'surfaceSpline': return buildSurfaceSpline(f, ctx);
     default: throw codeError('unknown-feature', { type: f.type });
   }
 }

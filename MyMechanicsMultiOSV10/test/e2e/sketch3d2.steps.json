@@ -1,0 +1,22 @@
+[
+  {
+    "name": "s3d: kernel",
+    "eval": "window.__mymechanics.actions.ensureKernel().then(() => 'ready')",
+    "expect": "^ready$"
+  },
+  {
+    "name": "s3d: new part with a 3D sketch being edited",
+    "eval": "(async () => { const m = window.__mymechanics; await m.actions.closeProject({ force: true }); await m.actions.newDocument('part'); await m.run('sketch3d'); await new Promise((r) => setTimeout(r, 600)); return m.state.editing?.feature?.type; })()",
+    "expect": "^sketch3d$"
+  },
+  {
+    "name": "s3d: an L path made exact — fix the start, segment 1 along X, segment 2 along Z, lengths 40 and 25: fully defined",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const f = () => m.state.editing?.feature; const tog = async (k) => { const [kind, i] = k.split(':'); await m.actions.pmCommand('s3sel:' + (kind === 's3seg' ? 'seg' : 'pt') + '.' + i); await sleep(80); }; const cmd = async (c) => { await m.actions.pmCommand(c); await sleep(150); }; m.actions.pmFieldChanged; const g = f(); g.points = [[0.3, -0.2, 0.1], [39, 1, -0.5], [41, 0.8, 24]]; await tog('s3pt:0');\n     await cmd('rel3:fix'); const fixed = f().relations3d?.length === 1;\n     const p0 = f().relations3d[0]; p0.at = [0, 0, 0];\n     await tog('s3seg:0'); await cmd('rel3:alongX'); await tog('s3seg:1'); await cmd('rel3:alongZ');\n     await tog('s3seg:0'); await cmd('rel3:length'); await tog('s3seg:1'); await cmd('rel3:length');\n     const [l1, l2] = f().relations3d.filter((r) => r.type === 'length');\n     await m.actions.pmFieldChanged('r3:' + l1.id, '40'); await sleep(150); await m.actions.pmFieldChanged('r3:' + l2.id, '25'); await sleep(200);\n     const pts = f().points.map((p) => p.map((v) => Math.round(v * 1000) / 1000));\n     const note = document.querySelector('.pm-note')?.parentElement?.textContent ?? '';\n     return JSON.stringify({ fixed, rels: f().relations3d.length, pts, dof: f().dof3, ui: Boolean(document.querySelector('[data-pm-field=\"r3:' + l1.id + '\"]')) }); })()",
+    "expect": "\"fixed\":true,\"rels\":5,\"pts\":\\[\\[0,0,0\\],\\[40,0,0\\],\\[40,0,25\\]\\],\"dof\":0,\"ui\":true"
+  },
+  {
+    "name": "s3d: a dimension on a fully defined 3D sketch becomes a driven one (it reports 47.17); accepting builds the path",
+    "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const f = () => m.state.editing?.feature; const tog = async (k) => { const [kind, i] = k.split(':'); await m.actions.pmCommand('s3sel:' + (kind === 's3seg' ? 'seg' : 'pt') + '.' + i); await sleep(80); }; const cmd = async (c) => { await m.actions.pmCommand(c); await sleep(150); }; await tog('s3pt:0'); await tog('s3pt:2'); await cmd('rel3:distance'); const d = f().relations3d.find((r) => r.type === 'distance');\n     const before = f().relations3d.length; const kept = Math.round(d.value * 100) / 100;\n     const driven = Boolean(d.driven); await cmd('drivenRel3:' + d.id); const stillDriven = Boolean(f().relations3d.find((r) => r.id === d.id)?.driven);\n     await m.actions.acceptEditing(); await sleep(400);\n     const curve = m.actions.buildPart(m.active()).result.curves; const ok = [...curve.values()].length > 0;\n     return JSON.stringify({ added: before, kept, driven, stillDriven, ok }); })()",
+    "expect": "\"added\":6,\"kept\":47.17,\"driven\":true,\"stillDriven\":true,\"ok\":true"
+  }
+]

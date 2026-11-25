@@ -138,8 +138,9 @@ const K1020 = THERMAL['steel-1020'].k * 1e-3;   // W/(mm·K)
 
 test('thermal properties cover every material id; objects and unknown ids fall back sensibly', () => {
   for (const m of MATERIALS) {
-    const t = THERMAL[m.id];
-    assert.ok(t && t.k > 0 && t.cp > 0, `thermal data for ${m.id}`);
+    // From the table, or the library material's own values (materials-more.js).
+    const t = thermalProperties(m.id);
+    assert.ok(t !== THERMAL_GENERIC && t.k > 0 && t.cp > 0, `thermal data for ${m.id}`);
   }
   assert.equal(thermalProperties('steel-1020').k, 51.9);
   assert.equal(thermalProperties({ k: 12 }).k, 12);

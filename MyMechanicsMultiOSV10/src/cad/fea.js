@@ -769,9 +769,11 @@ export const THERMAL_GENERIC = { k: 50, cp: 500 };
 
 /** Thermal properties of a material id string or object ({ k } or { id }), falling back to THERMAL_GENERIC. */
 export function thermalProperties(material) {
-  if (typeof material === 'string') return THERMAL[material] ?? THERMAL_GENERIC;
+  // A library material carries its own k and cp (materials.js); the table above keeps the older values.
+  const own = (id) => { const m = MATERIALS.find((x) => x.id === id); return m && m.k > 0 && m.cp > 0 ? { k: m.k, cp: m.cp } : null; };
+  if (typeof material === 'string') return THERMAL[material] ?? own(material) ?? THERMAL_GENERIC;
   if (material && Number.isFinite(material.k) && material.k > 0) return { cp: THERMAL[material.id]?.cp ?? THERMAL_GENERIC.cp, ...material };
-  return THERMAL[material?.id] ?? THERMAL_GENERIC;
+  return THERMAL[material?.id] ?? own(material?.id) ?? THERMAL_GENERIC;
 }
 
 function failedThermal(error) {

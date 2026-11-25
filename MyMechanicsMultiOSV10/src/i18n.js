@@ -11,6 +11,7 @@ import { ko as koMech2, en as enMech2 } from './i18n/mech2.js';
 import { ko as koMechSheet, en as enMechSheet } from './i18n/mech-sheet.js';
 import { ko as koMechAsm, en as enMechAsm } from './i18n/mech-asm.js';
 import { ko as koMechPart, en as enMechPart } from './i18n/mech-part.js';
+import { ko as koMechCore, en as enMechCore } from './i18n/mech-core.js';
 import { ko as koMechStd, en as enMechStd } from './i18n/mech-std.js';
 import { ko as koBackgrounds, en as enBackgrounds } from './i18n/backgrounds.js';
 import { ko as koPrint, en as enPrint } from './i18n/print.js';
@@ -38,7 +39,7 @@ import { ko as koMechFs, en as enMechFs } from './i18n/mech-freesurface.js';
 import { ko as koMechPlastics, en as enMechPlastics } from './i18n/mech-plastics.js';
 import { ko as koMechInspection, en as enMechInspection } from './i18n/mech-inspection.js';
 
-export const DICTIONARIES = { ko: { ...ko, ...ko3d, ...koExtra, ...koMech, ...koMech2, ...koMechSheet, ...koMechAsm,...koMechPart, ...koMechStd,...koBackgrounds, ...koPrint, ...koDocs, ...koMechDrw, ...koMechSim, ...koMechPdm, ...koMechFem }, en: { ...en, ...en3d, ...enExtra, ...enMech, ...enMech2, ...enMechSheet, ...enMechAsm,...enMechPart, ...enMechStd,...enBackgrounds, ...enPrint, ...enDocs, ...enMechDrw, ...enMechSim, ...enMechPdm, ...enMechFem } };
+export const DICTIONARIES = { ko: { ...ko, ...ko3d, ...koExtra, ...koMech, ...koMech2, ...koMechSheet, ...koMechAsm,...koMechPart, ...koMechCore, ...koMechStd,...koBackgrounds, ...koPrint, ...koDocs, ...koMechDrw, ...koMechSim, ...koMechPdm, ...koMechFem }, en: { ...en, ...en3d, ...enExtra, ...enMech, ...enMech2, ...enMechSheet, ...enMechAsm,...enMechPart, ...enMechCore, ...enMechStd,...enBackgrounds, ...enPrint, ...enDocs, ...enMechDrw, ...enMechSim, ...enMechPdm, ...enMechFem } };
 // The manufacturing add-ins (CAM, plastics flow, inspection).
 Object.assign(DICTIONARIES.ko, koMechCam, koMechPlastics, koMechInspection, koMechIll, koMechSch, koMechDc, koMechTasks, koMechMacros, koMechFat, koMechDyn, koMechDs, koMechDf, koMechMk, koMechHl, koMechPl2, koMechApi, koMechEl, koMechFs);
 Object.assign(DICTIONARIES.en, enMechCam, enMechPlastics, enMechInspection, enMechIll, enMechSch, enMechDc, enMechTasks, enMechMacros, enMechFat, enMechDyn, enMechDs, enMechDf, enMechMk, enMechHl, enMechPl2, enMechApi, enMechEl, enMechFs);

@@ -235,7 +235,10 @@ export const FIXTURES = {
     // New threads are ISO threads, cosmetic by default ('auto' follows the global option, off here): the
     // settings change the thread record; mode 'modelled' and the older V form cut the shaft.
     num: { length: { to: 7 }, pitch: { to: 2 } },
-    bool: { cosmetic: { skip: 'the default ISO thread (mode auto, global option off) is cosmetic already; the modelled case is the mode choice' } },
+    bool: {
+      cosmetic: { skip: 'the default ISO thread (mode auto, global option off) is cosmetic already; the modelled case is the mode choice' },
+      trimEnd: { skip: 'on a shaft the thread past its end has no material to cut; it matters for a blind tapped hole (thread-offset test)' },
+    },
     opt: {
       mode: ['modelled'],
       form: ['v'],
@@ -542,6 +545,13 @@ export const FIXTURES = {
     },
   },
   curveXYZ: { make: (p, o) => createFeature(p, 'curveXYZ', o) },
+  // Three points on the top face of a block.
+  surfaceSpline: {
+    make: (p, o) => { block(p, -20, -20, 40, 40, 10); const b = built(p); return createFeature(p, 'surfaceSpline', { face: faceWhere(b, (c) => near(c[2], 10)), points: [[-15, -10, 10], [0, 8, 10], [15, -5, 10]], ...o }); },
+    opt: { closed: [true] },
+    // The points sit on the top face (z = 10): a typed Z is projected back onto it, so the curve rightly stays.
+    pmSkip: [[/^pt3:\d+:2$/, 'projected back onto the face']],
+  },
   // The default program (a plate with a hole); another program changes the body.
   openscad: { make: (p, o) => createFeature(p, 'openscad', o), opt: { source: ['sphere(8, $fn = 24);'] } },
 
@@ -830,6 +840,17 @@ export const FIXTURES = {
     // The plate and the Right plane: two regions; one is left out.
     make: (p, o) => { block(p, -20, -20, 50, 50, 4); return createFeature(p, 'intersect', { planes: ['right'], exclude: [0], ...o }); },
     bool: { bodies: { skip: 'without the plate, a plane alone encloses no region' }, merge: { with: { exclude: [] } }, consume: { m: 'V', dir: '+' } },
+  },
+  moveFace: {
+    // The plate's top face pushed up by the distance.
+    make: (p, o) => { block(p, -20, -20, 50, 50, 4); return createFeature(p, 'moveFace', { faces: [faceWhere(built(p), (c) => near(c[2], 4))], distance: 3, ...o }); },
+    num: { distance: { to: 6, m: 'V', dir: '+' } },
+  },
+  connectionPoint: {
+    // The plate's top face: its centre, pointing up.
+    make: (p, o) => { block(p, -20, -20, 50, 50, 4); return createFeature(p, 'connectionPoint', { face: faceWhere(built(p), (c) => near(c[2], 4)), ...o }); },
+    num: { offset: { skip: 'moves only the reference point (no geometry): checked by magnetic.test.js' } },
+    bool: { flip: { skip: 'turns only the reference direction: checked by magnetic.test.js' } },
   },
   mateReference: {
     make: (p, o) => { block(p, -20, -20, 50, 50, 4); return createFeature(p, 'mateReference', { primary: faceWhere(built(p), (c) => near(c[2], 4)), ...o }); },
