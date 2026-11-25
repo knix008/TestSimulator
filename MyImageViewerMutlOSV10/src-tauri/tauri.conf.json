@@ -37,7 +37,8 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "runtime/": "runtime/"
+      "runtime/": "runtime/",
+      "../samples/paintings/": "paintings/"
     },
     "publisher": "SHKWON",
     "copyright": "Copyright (c) 2024-2026 SHKWON (knix008@naver.com)",

@@ -7,11 +7,12 @@ window.StartBoard = (() => {
   const ROW = 20;
   const GAP = 14;
   // Raised when the default arrangement changes: an older saved one starts over once.
-  const LAYOUT_VERSION = 5;
+  const LAYOUT_VERSION = 6;
   const STORE_KEY = 'startLayout';
   /** Auto arrange: Start takes a whole row; under it Recent & Favorites and Recent folders
-   *  share a row half and half; then "What you can do" and Background each take a whole row. */
-  const SPAN = { hero: 6, begin: 6, recent: 3, folders: 3, tasks: 6, scenes: 6 };
+   *  share a row half and half; then "What you can do", Sample paintings and Background each
+   *  take a whole row. */
+  const SPAN = { hero: 6, begin: 6, recent: 3, folders: 3, tasks: 6, paintings: 6, scenes: 6 };
 
   /** Move handle (MySketchBook): a four-way arrow. */
   const HANDLE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5"/></svg>';

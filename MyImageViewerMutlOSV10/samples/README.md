@@ -12,6 +12,7 @@
 | `JPEG2000.dcm` | DICOM NM 256×1024, JPEG 2000 transfer syntax, lossy-compression tags |
 | `SC_rgb_small_odd.dcm` | DICOM RGB secondary capture, 3×3 |
 | `sample.mp4` / `sample.webm` / `sample.wav` / `sample.mp3` | A/V |
+| `paintings/*.jpg` | 24 public-domain masterpieces (Wikimedia Commons, longest side 1400 px) shown on the start screen's Sample paintings card; thumbnails in `src/gallery/`. Bundled with the app as `resources/paintings` |
 | `City.webp` | City / aerial sample (useful for miniature / diorama preset) |
 
 > Older `sample.heic` / `sample.heif` were tiny AVIF files mislabeled as HEIC (not real photos). They were replaced with genuine HEVC HEIC/HEIF images.  

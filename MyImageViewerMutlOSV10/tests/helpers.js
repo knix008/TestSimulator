@@ -5,8 +5,11 @@ const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
 
+/** Sources as LF text: git (core.autocrlf) checks some files out with CRLF, and the
+ *  multi-line snippets the tests look for are written with \n. */
+const lf = (text) => text.replace(/\r\n/g, '\n');
 function read(rel) {
-  return fs.readFileSync(path.join(ROOT, rel), 'utf8');
+  return lf(fs.readFileSync(path.join(ROOT, rel), 'utf8'));
 }
 function exists(rel) {
   return fs.existsSync(path.join(ROOT, rel));
@@ -15,13 +18,15 @@ function exists(rel) {
 function readHost() {
   const dir = path.join(ROOT, 'src-tauri', 'src', 'host');
   return fs.readdirSync(dir).filter((n) => n.endsWith('.rs')).sort()
-    .map((n) => fs.readFileSync(path.join(dir, n), 'utf8')).join('\n');
+    .map((n) => lf(fs.readFileSync(path.join(dir, n), 'utf8'))).join('\n');
 }
 function assert(cond, msg) {
   if (!cond) throw new Error(msg || 'assertion failed');
 }
 function assertIncludes(hay, needle, label) {
-  assert(hay.includes(needle), `${label || 'source'} missing ${JSON.stringify(needle)}`);
+  // Line endings do not count: some snippets were written with \r\n, the sources read as \n
+  if (typeof hay === 'string' && typeof needle === 'string') { hay = lf(hay); needle = lf(needle); }
+  assert(hay.includes(needle),`${label || 'source'} missing ${JSON.stringify(needle)}`);
 }
 
 const PRINT_PAPERS = {

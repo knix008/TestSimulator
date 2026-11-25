@@ -101,7 +101,22 @@ pub fn app_info() -> Value {
         Some(Value::Number(n)) => n.to_string(),
         _ => String::new(),
     };
-    json!({ "version": version, "buildNumber": build, "name": "MyImageViewer", "isPackaged": !cfg!(debug_assertions) })
+    json!({
+        "version": version, "buildNumber": build, "name": "MyImageViewer", "isPackaged": !cfg!(debug_assertions),
+        "galleryDir": gallery_dir().map(|p| p.to_string_lossy().into_owned()),
+    })
+}
+
+/// The start screen's sample paintings: resources/paintings in a release build,
+/// samples/paintings of the source tree in a debug build.
+fn gallery_dir() -> Option<std::path::PathBuf> {
+    let dir = if cfg!(debug_assertions) {
+        super::project_root().join("samples").join("paintings")
+    } else {
+        super::plain_path(super::app()?.path().resource_dir().ok()?).join("paintings")
+    };
+    let dir = std::fs::canonicalize(&dir).map(super::plain_path).unwrap_or(dir);
+    dir.is_dir().then_some(dir)
 }
 
 // ── Dialogs (native, owned by the main window) ──

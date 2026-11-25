@@ -37,6 +37,8 @@ for (const pkg of VENDOR_PKGS) {
 
 app.use('/doc', express.static(DOC));
 app.use('/assets', express.static(ASSETS));
+// Start screen sample paintings (the desktop app opens them from resources/paintings)
+app.use('/paintings', express.static(path.join(__dirname, 'samples', 'paintings')));
 app.use(express.static(ROOT, {
   extensions: ['html'],
   setHeaders(res, filePath) {

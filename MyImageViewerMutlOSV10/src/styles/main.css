@@ -5702,6 +5702,35 @@ body.home-open #main-area { display: none !important; }
 .start-tip-more[hidden] { display: none; }
 .start-show { cursor: pointer; }
 
+/* Sample paintings card: 24 thumbnails. The column count is always 3, 4, 6, 8 or 12 (it divides
+   24), picked from the card's width, so the last row is never half empty. */
+.start-paintings-wrap { container-type: inline-size; }
+.start-paintings { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+@container (min-width: 464px) { .start-paintings { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@container (min-width: 700px) { .start-paintings { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+@container (min-width: 936px) { .start-paintings { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
+@container (min-width: 1408px) { .start-paintings { grid-template-columns: repeat(12, minmax(0, 1fr)); } }
+.start-painting {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--start-surface);
+  color: var(--text-primary);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: border-color .12s ease, transform .12s ease, box-shadow .12s ease;
+}
+.start-painting img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: var(--bg-hover); }
+.start-painting-name { padding: 5px 7px 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; line-height: 1.2; }
+.start-painting:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 0, 0, .18); }
+.start-painting:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+@media (prefers-reduced-motion: reduce) { .start-painting, .start-painting:hover { transition: none; transform: none; } }
+
 /* Background card: scenes and speeds */
 /* Scene buttons: icon and name on one line */
 .start-scenes { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }

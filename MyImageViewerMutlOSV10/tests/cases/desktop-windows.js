@@ -323,6 +323,23 @@ module.exports = {
       for (const id of ['canyon', 'autumn', 'glacier', 'meadow', 'galaxy']) assertIncludes(src.css, `.start-bg[data-scene='${id}']`, id);
     });
 
+    test('Start sample paintings: 24 pictures above Background, full rows only, each with a thumbnail, image and names', () => {
+      const code = app.slice(app.indexOf('START_PAINTINGS = ['), app.indexOf('];', app.indexOf('START_PAINTINGS = [')));
+      const ids = [...code.matchAll(/'([a-z-]+)'/g)].map((m) => m[1]);
+      assert(ids.length === 24 && new Set(ids).size === 24, String(ids.length));
+      for (const id of ids) {
+        assert(h.exists(`src/gallery/${id}.jpg`), `thumbnail ${id}`);
+        assert(h.exists(`samples/paintings/${id}.jpg`), `image ${id}`);
+        for (const k of [`painting.${id}`, `painting.${id}.by`]) assert(src.ko[k] && src.en[k], k);
+      }
+      assert(app.indexOf("card('paintings'") > 0 && app.indexOf("card('paintings'") < app.indexOf("card('scenes'"), 'the card sits above Background');
+      // every column count the grid can take divides 24
+      const cols = [...src.css.matchAll(/\.start-paintings \{[^}]*repeat\((\d+),/g)].map((m) => Number(m[1]));
+      assert(cols.length >= 4 && cols.every((c) => 24 % c === 0), `columns ${cols}`);
+      assertIncludes(h.read('src-tauri/tauri.conf.json'), '"../samples/paintings/": "paintings/"', 'bundled');
+      assertIncludes(h.read('src-tauri/src/host/system.rs'), '"galleryDir"', 'gallery folder');
+    });
+
     test('Prev / next buttons step inside the ruler band', () => {
       assertIncludes(app, "container.classList.toggle('has-ruler', show && rulerOn);", 'class');
       assertIncludes(src.css, '.has-ruler > .viewer-nav-prev { left: 36px; }', 'left');

@@ -313,6 +313,16 @@
     'nebula', 'bokeh', 'grid', 'ribbons', 'embers', 'lake', 'sunrise', 'fireflies', 'geometry', 'ink',
     'petals', 'mountains', 'canyon', 'autumn', 'glacier', 'meadow', 'galaxy',
   ];
+  // Sample paintings on the start screen (public domain, from Wikimedia Commons). 24 = a whole
+  // number of rows at 3, 4, 6, 8 or 12 columns, so the grid never ends in a half-empty row.
+  // Thumbnails: src/gallery/<id>.jpg; the images that open: samples/paintings/<id>.jpg
+  // (bundled as resources/paintings, the folder comes from getAppInfo().galleryDir).
+  const START_PAINTINGS = [
+    'starry-night', 'mona-lisa', 'pearl-earring', 'great-wave', 'birth-of-venus', 'the-scream',
+    'impression-sunrise', 'the-kiss', 'night-watch', 'grande-jatte', 'moulin-galette', 'wanderer',
+    'las-meninas', 'liberty', 'sunflowers', 'hunters-snow', 'temeraire', 'school-athens',
+    'water-lilies', 'cafe-terrace', 'red-fuji', 'creation-adam', 'milkmaid', 'garden-delights',
+  ];
   const START_SPEED_ROWS = [
     ['transparency', 'start.transparency', 100, 5],
     ['motion', 'start.motion', 100, 5],
@@ -1790,6 +1800,58 @@
     return host;
   }
 
+  /** The sample paintings card body: a grid of thumbnails whose column count (CSS container
+   *  queries) always divides the 24 pictures, so every row is full. A click opens the picture. */
+  function _startPaintings() {
+    const wrap = document.createElement('div');
+    wrap.className = 'start-paintings-wrap';
+    const grid = document.createElement('div');
+    grid.className = 'start-paintings';
+    for (const id of START_PAINTINGS) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'start-painting';
+      btn.dataset.painting = id;
+      const title = I18n.t(`painting.${id}`);
+      const by = I18n.t(`painting.${id}.by`);
+      btn.title = `${title}\n${by}\n${I18n.t('home.paintingsTip')}`;
+      btn.setAttribute('aria-label', `${title}, ${by}`);
+      const img = document.createElement('img');
+      img.src = `./gallery/${id}.jpg`;
+      img.alt = '';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.draggable = false;
+      const name = document.createElement('span');
+      name.className = 'start-painting-name';
+      name.textContent = title;
+      btn.append(img, name);
+      btn.addEventListener('click', () => { _openPainting(id).catch((err) => console.error(err)); });
+      grid.appendChild(btn);
+    }
+    wrap.appendChild(grid);
+    return wrap;
+  }
+
+  async function _openPainting(id) {
+    if (_isWeb()) {
+      // Browser mode: server.js serves samples/paintings at ./paintings/
+      const res = await fetch(`./paintings/${id}.jpg`);
+      if (!res.ok) throw new Error(`painting ${id}: ${res.status}`);
+      const file = new File([await res.blob()], `${id}.jpg`, { type: 'image/jpeg' });
+      _hideHome();
+      const p = FileRegistry.registerFile(file, '/');
+      await _openFile(p, { center: true });
+      return;
+    }
+    if (!_appInfoCache) _appInfoCache = await window.electronAPI.getAppInfo();
+    const dir = _appInfoCache?.galleryDir;
+    if (!dir) throw new Error('no gallery folder');
+    const sep = dir.includes('\\') ? '\\' : '/';
+    _hideHome();
+    await _openFileRevealed(`${dir.replace(/[\\/]+$/, '')}${sep}${id}.jpg`);
+  }
+
   function _renderHomeBody(scroll) {
     const begin = document.createElement('div');
     begin.className = 'start-actions';
@@ -1928,6 +1990,7 @@
       card('recent', 'recent', I18n.t('home.places'), recentHost, recentHost.clearBtn || null),
       card('folders', 'folder', I18n.t('home.recentFolders'), foldersHost, foldersHost.clearBtn || null),
       card('tasks', 'viewGrid', I18n.t('home.tasks'), tasks, note(HOME_TASKS.length)),
+      card('paintings', 'image', I18n.t('home.paintings'), _startPaintings(), note(START_PAINTINGS.length)),
       card('scenes', 'image', I18n.t('home.background'), sceneBody, note(START_SCENE_IDS.length)),
     );
 
