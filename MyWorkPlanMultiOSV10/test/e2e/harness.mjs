@@ -40,7 +40,7 @@ export class App {
   }
 
   async start() {
-    if (!fs.existsSync(exe)) throw new Error(`${path.relative(root, exe)} 가 없습니다. cargo build 를 먼저 실행하세요.`);
+    if (!fs.existsSync(exe)) throw new Error(`${path.relative(root, exe)} is missing. Run cargo build first.`);
     this.work = fs.mkdtempSync(path.join(os.tmpdir(), 'myworkplan-e2e-'));
     this.files = path.join(this.work, 'files');
     this.profile = path.join(this.work, 'profile');

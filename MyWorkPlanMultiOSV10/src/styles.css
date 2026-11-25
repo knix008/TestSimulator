@@ -87,7 +87,8 @@ html.is-popup #app { min-width: 0; display: block; }
 .view-name > [data-view-name].off { visibility: hidden; }
 .split-button { display: inline-flex; align-items: center; }
 .split-button .tool-button:first-child:not(.wide) { border-top-right-radius: 0; border-bottom-right-radius: 0; }
-.split-button .split-arrow { width: 16px; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+/* No side padding: the 12px chevron sits in the middle of the 16px button (the tool button padding pushed it right). */
+.split-button .split-arrow { width: 16px; padding: 0; place-items: center; justify-content: center; border-top-left-radius: 0; border-bottom-left-radius: 0; }
 .split-button .split-arrow .icon { width: 12px; height: 12px; }
 
 /* number steppers: [−] value [+] */
@@ -106,6 +107,8 @@ html.is-popup #app { min-width: 0; display: block; }
 .toolbar-zoom { height: 30px; }
 .toolbar-zoom .stepper-button-tool { width: 26px; height: 28px; }
 .toolbar-zoom .stepper-value { width: 52px; }
+.toolbar-timescale .stepper-value { width: 58px; }
+.toolbar-timescale .stepper-button-tool .icon { width: 15px; height: 15px; }
 
 /* tabs */
 #tabs { display: flex; align-items: stretch; gap: 4px; padding: 3px 6px 0; background: var(--panel); border-bottom: 1px solid var(--border); min-width: 0; }
@@ -1450,16 +1453,19 @@ html.is-viewer #app, html.is-viewer #app:not(:empty) { display: block; min-width
 
 /* ───────────────────────── kanban board */
 .kanban-view { flex: 1; display: flex; min-width: 0; min-height: 0; background: color-mix(in srgb, var(--chart) 88%, transparent); }
-.kb-board { flex: 1; display: grid; grid-template-columns: repeat(3, minmax(220px, 1fr)); gap: 12px; padding: 12px; min-width: 0; min-height: 0; overflow-x: auto; }
+.kb-board { flex: 1; display: grid; grid-template-columns: repeat(4, minmax(220px, 1fr)); gap: 12px; padding: 12px; min-width: 0; min-height: 0; overflow-x: auto; }
 .kb-column { display: flex; flex-direction: column; min-height: 0; border: 1px solid var(--border); border-radius: 10px; background: color-mix(in srgb, var(--surface) 82%, transparent); transition: box-shadow 0.12s, border-color 0.12s; }
 .kb-column.kb-over { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
 .kb-head { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--border); font-weight: 700; }
 .kb-head .icon { width: 16px; height: 16px; }
 .kb-count { margin-left: auto; min-width: 24px; padding: 1px 8px; border-radius: 10px; background: var(--surface2); color: var(--muted); font-size: 0.85em; text-align: center; font-variant-numeric: tabular-nums; }
+.kb-backlog .kb-head { box-shadow: inset 0 3px 0 color-mix(in srgb, var(--text) 18%, transparent); border-radius: 10px 10px 0 0; }
+.kb-backlog .kb-card::before { background: var(--kb-color, color-mix(in srgb, var(--text) 20%, transparent)); }
+.kb-column.kb-backlog { background: color-mix(in srgb, var(--surface2) 70%, transparent); }
 .kb-todo .kb-head { box-shadow: inset 0 3px 0 color-mix(in srgb, var(--text) 35%, transparent); border-radius: 10px 10px 0 0; }
 .kb-doing .kb-head { box-shadow: inset 0 3px 0 var(--accent); border-radius: 10px 10px 0 0; }
 .kb-done .kb-head { box-shadow: inset 0 3px 0 var(--success); border-radius: 10px 10px 0 0; }
-.kb-list { flex: 1; min-height: 0; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+.kb-list { position: relative; flex: 1; min-height: 0; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
 .kb-empty { padding: 18px 8px; text-align: center; color: var(--muted); font-size: 0.85em; border: 1px dashed var(--border); border-radius: 8px; }
 .kb-card { position: relative; display: flex; flex-direction: column; gap: 5px; padding: 8px 10px 8px 13px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); cursor: grab; user-select: none; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
 .kb-card::before { content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 4px; border-radius: 0 3px 3px 0; background: var(--kb-color, var(--accent)); }
@@ -1467,8 +1473,12 @@ html.is-viewer #app, html.is-viewer #app:not(:empty) { display: block; min-width
 .kb-todo .kb-card::before { background: var(--kb-color, color-mix(in srgb, var(--text) 35%, transparent)); }
 .kb-card:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--border)); }
 .kb-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
-.kb-card.kb-dragging { opacity: 0.35; }
-.kb-ghost { position: fixed; z-index: 9999; pointer-events: none; transform: rotate(2deg); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3); cursor: grabbing; }
+.kb-card.kb-lifted { display: none; }
+.kb-placeholder { flex: none; border: 2px dashed color-mix(in srgb, var(--accent) 70%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--accent) 12%, transparent); box-sizing: border-box; }
+.kb-list:has(.kb-placeholder) .kb-empty { display: none; }
+.kb-ghost { position: fixed; z-index: 9999; margin: 0; pointer-events: none; opacity: 0.92; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.25); }
+.kb-ghost-count { position: absolute; top: -8px; right: -8px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: var(--accent); color: #fff; font-size: 0.75em; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+body.kb-grabbing, body.kb-grabbing * { cursor: grabbing !important; }
 .kb-top { display: flex; align-items: center; gap: 6px; font-size: 0.78em; color: var(--muted); }
 .kb-phase { display: inline-flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; }
 .kb-phase span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

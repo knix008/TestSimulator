@@ -7,7 +7,8 @@
 //   npm test -- --installer           also build the Windows installer and check it
 //
 // Categories: js · package · rust · db · web · desktop · tutorial · installer
-// While running, each test is printed as it finishes (✔ ✖ ○ + time, coloured).
+// While running, each test is printed as it finishes in aligned columns (elapsed,
+// #, ✔ PASS / ✖ FAIL / ○ SKIP, group › name, its own time), coloured, in English.
 // At the end every category is listed with its tests aligned in columns
 // (failures first, then slowest first) and a summary table follows. The full
 // results are written to test-results/results.json.
@@ -23,7 +24,8 @@ import { run } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const color = (process.stdout.isTTY || Boolean(process.env.FORCE_COLOR)) && !process.env.NO_COLOR;
+// Colour is on by default (also when the output is piped to a log); NO_COLOR or --no-color turns it off.
+const color = !process.env.NO_COLOR && !process.argv.includes('--no-color');
 const paint = (code) => (text) => (color ? `\x1b[${code}m${text}\x1b[0m` : String(text));
 const c = {
   bold: paint('1'), dim: paint('2'), red: paint('31'), green: paint('32'), yellow: paint('33'), blue: paint('34'), magenta: paint('35'),
@@ -32,14 +34,14 @@ const c = {
 };
 
 const CATEGORIES = [
-  { id: 'js', title: 'JS 단위 테스트', subtitle: '일정 계산 · 달력 · 모델 · 필드 · 필터 · 추적 · 형식 · XML/CSV · 템플릿 · 인쇄 · 번역 · 아이콘 · 테마', tint: c.cyan, run: runJs('unit') },
-  { id: 'package', title: '패키징 · 아이콘 · 문서', subtitle: '3D 아이콘 · 파일 형식 등록 · 설치 언어 · 설정 초기화(사용자 데이터 유지) · 재설치 · 문서 포함', tint: c.purple, run: runJs('static') },
-  { id: 'rust', title: 'Rust 단위 테스트', subtitle: '파일 입출력·진행률 · 글꼴 · 창 위치 · 단일 실행 잠금', tint: c.magenta, run: (report) => runCargo(['test', '--lib'])(report) },
-  { id: 'db', title: 'DB 통합 테스트', subtitle: '실제 MariaDB/MySQL 서버 (test/db.local.json) · 임시 PostgreSQL 서버 · 계획 저장/읽기/목록/삭제', tint: c.green, run: (report) => runCargo(['test', '--test', 'db_integration'], { nocapture: true, env: dbEnv() })(report) },
-  { id: 'web', title: 'E2E · 웹', subtitle: '웹 빌드를 헤드리스 Edge/Chrome 으로 조작 (CDP)', tint: c.blue, run: runWeb },
-  { id: 'desktop', title: 'E2E · 데스크톱 GUI', subtitle: '실제 앱 실행 후 메뉴·툴바·팝업·보기·파일·인쇄·설정 조작 (CDP + Win32)', tint: c.yellow, run: runDesktop },
-  { id: 'tutorial', title: '튜토리얼', subtitle: '실제 앱에서 튜토리얼의 모든 단계를 실행 (오류 없음)', tint: c.teal, run: runTutorial },
-  { id: 'installer', title: '설치 프로그램', subtitle: 'npm run build:win → NSIS 설치 파일 검사', tint: c.orange, run: runInstaller, optIn: true },
+  { id: 'js', title: 'JS unit tests', subtitle: 'scheduling · calendars · model · fields · filters · tracking · formats · XML/CSV · templates · printing · i18n · icons · themes', tint: c.cyan, run: runJs('unit') },
+  { id: 'package', title: 'Packaging · icons · docs', subtitle: '3D icons · file associations · installer languages · settings reset (user data kept) · reinstall · bundled docs', tint: c.purple, run: runJs('static') },
+  { id: 'rust', title: 'Rust unit tests', subtitle: 'file I/O · progress · fonts · window placement · single-instance lock', tint: c.magenta, run: (report) => runCargo(['test', '--lib'])(report) },
+  { id: 'db', title: 'DB integration', subtitle: 'real MariaDB/MySQL server (test/db.local.json) · temporary PostgreSQL server · save/load/list/delete plans', tint: c.green, run: (report) => runCargo(['test', '--test', 'db_integration'], { nocapture: true, env: dbEnv() })(report) },
+  { id: 'web', title: 'E2E · web', subtitle: 'the web build driven in headless Edge/Chrome (CDP)', tint: c.blue, run: runWeb },
+  { id: 'desktop', title: 'E2E · desktop GUI', subtitle: 'the real app: menus · toolbar · popups · views · files · printing · settings (CDP + Win32)', tint: c.yellow, run: runDesktop },
+  { id: 'tutorial', title: 'Tutorial', subtitle: 'every tutorial step in the real app (no errors)', tint: c.teal, run: runTutorial },
+  { id: 'installer', title: 'Installer', subtitle: 'npm run build:win → NSIS installer checks', tint: c.orange, run: runInstaller, optIn: true },
 ];
 
 // ───────────────────────── arguments
@@ -116,20 +118,27 @@ function line(text = '') {
   if (active) spin(spinnerText);
 }
 
+/** Width of the name column in the live lines: fits the terminal (elapsed, #, status and time take ~42 cells). */
+const LIVE_WIDTH = Math.max(40, Math.min(100, (process.stdout.columns || 140) - 42));
+
 function makeReporter(category, results, categoryStart) {
   let count = 0;
   return (result) => {
     count += 1;
     results.push(result);
-    const mark = result.skipped ? c.yellow('○') : result.ok ? c.green('✔') : c.red('✖');
-    const name = result.skipped ? c.yellow(result.name) : result.ok ? result.name : c.red(result.name);
-    const group = result.group ? c.gray(`${result.group} › `) : '';
+    const mark = result.skipped ? c.yellow('○ SKIP') : result.ok ? c.green('✔ PASS') : c.red('✖ FAIL');
+    // Columns: elapsed · # · status · group › name (cut or padded to one width) · this test's own time, right-aligned.
+    const groupText = result.group ? `${result.group} › ` : '';
+    const label = fit(groupText + result.name, LIVE_WIDTH);
+    const head = label.slice(0, Math.min(groupText.length, label.length));
+    const rest = label.slice(head.length);
+    const name = c.gray(head) + (result.skipped ? c.yellow(rest) : result.ok ? c.white(rest) : c.red(rest));
     const elapsed = c.gray(`[${formatMs(performance.now() - categoryStart).padStart(8)}]`);
-    line(`  ${elapsed} ${c.gray(String(count).padStart(3))} ${mark} ${group}${name} ${timeColor(result.ms)(`(${formatMs(result.ms)})`)}${result.skipped && typeof result.skipped === 'string' ? c.yellow(` — ${result.skipped}`) : ''}`);
+    line(`  ${elapsed} ${category.tint(String(count).padStart(4))}  ${mark}  ${name}  ${timeColor(result.ms)(formatMs(result.ms).padStart(9))}${result.skipped && typeof result.skipped === 'string' ? c.yellow(`  — ${result.skipped}`) : ''}`);
     if (!result.ok && result.error) {
       for (const errorLine of String(result.error).split('\n').slice(0, 10)) line(`        ${c.red(errorLine)}`);
     }
-    spin(`${category.title} 실행 중… (${count}개 완료)`);
+    spin(`${category.title} running… (${count} done)`);
   };
 }
 
@@ -168,7 +177,7 @@ function stopDebugApp() {
 
 function runCargo(cargoArgs, { nocapture = false, env = {} } = {}) {
   return (report) => stopDebugApp().then(() => new Promise((resolve, reject) => {
-    spin('컴파일 중… (첫 실행은 몇 분 걸릴 수 있습니다)');
+    spin('Compiling… (the first run can take a few minutes)');
     const testArgs = ['--test-threads=1', ...(nocapture ? ['--nocapture'] : [])];
     const child = spawn('cargo', [...cargoArgs, '--manifest-path', 'src-tauri/Cargo.toml', '--', ...testArgs], {
       cwd: root,
@@ -229,8 +238,8 @@ function runCargo(cargoArgs, { nocapture = false, env = {} } = {}) {
       const text = chunk.toString();
       stderr += text;
       const compiling = text.match(/Compiling (\S+)/);
-      if (compiling) spin(`컴파일 중… ${compiling[1]}`);
-      else if (/Running /.test(text)) spin('테스트 실행 중…');
+      if (compiling) spin(`Compiling… ${compiling[1]}`);
+      else if (/Running /.test(text)) spin('Running tests…');
       for (const textLine of text.replace(/\r/g, '').split('\n')) if (open && /panicked at/.test(textLine)) open.note += ` ${textLine}`;
     });
     child.on('error', reject);
@@ -242,7 +251,7 @@ function runCargo(cargoArgs, { nocapture = false, env = {} } = {}) {
       }
       if (code !== 0 && !failed.length) {
         const message = stderr.split('\n').filter((textLine) => /^error/.test(textLine)).slice(0, 12).join('\n') || `cargo exited with ${code}`;
-        report({ name: '컴파일', group: 'cargo', ok: false, ms: 0, error: message });
+        report({ name: 'compile', group: 'cargo', ok: false, ms: 0, error: message });
       }
       resolve();
     });
@@ -276,10 +285,10 @@ async function runCases(report, cases, context, label) {
 }
 
 async function runWeb(report) {
-  spin('웹 빌드 중… (vite build)');
+  spin('Building the web app… (vite build)');
   const start = performance.now();
   const build = await exec(process.execPath, [path.join(root, 'node_modules', 'vite', 'bin', 'vite.js'), 'build']);
-  report({ name: '웹 빌드 (vite build → dist/)', group: '빌드', ok: build.code === 0, ms: performance.now() - start, error: build.code ? build.output.split('\n').slice(-12).join('\n') : null });
+  report({ name: 'web build (vite build → dist/)', group: 'build', ok: build.code === 0, ms: performance.now() - start, error: build.code ? build.output.split('\n').slice(-12).join('\n') : null });
   if (build.code !== 0) return;
   const { WebApp } = await import(pathToFileURL(path.join(root, 'test', 'e2e', 'web.harness.mjs')).href);
   const { cases } = await import(pathToFileURL(path.join(root, 'test', 'e2e', 'web.suite.mjs')).href);
@@ -287,37 +296,37 @@ async function runWeb(report) {
   const launched = performance.now();
   try {
     await app.start();
-    report({ name: '브라우저 실행 · 페이지 열기', group: '실행', ok: true, ms: performance.now() - launched });
+    report({ name: 'start browser · open page', group: 'launch', ok: true, ms: performance.now() - launched });
   } catch (error) {
-    report({ name: '브라우저 실행 · 페이지 열기', group: '실행', ok: false, ms: performance.now() - launched, error: error.message });
+    report({ name: 'start browser · open page', group: 'launch', ok: false, ms: performance.now() - launched, error: error.message });
     await app.stop();
     return;
   }
-  await runCases(report, cases, app, 'E2E · 웹');
+  await runCases(report, cases, app, 'E2E · web');
   await app.stop();
 }
 
 async function runDesktop(report) {
   if (process.platform !== 'win32') {
-    report({ name: '데스크톱 E2E 는 Windows(WebView2 CDP)에서 실행됩니다', ok: true, skipped: 'Windows 전용', ms: 0 });
+    report({ name: 'desktop E2E runs on Windows (WebView2 CDP)', ok: true, skipped: 'Windows only', ms: 0 });
     return;
   }
-  spin('앱 빌드 확인 중… (cargo build)');
+  spin('Checking the app build… (cargo build)');
   await exec('powershell.exe', ['-NoProfile', '-Command', `Get-Process myworkplan -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '${path.join(root, 'src-tauri', 'target').replace(/'/g, "''")}*' } | Stop-Process -Force`]);
   const start = performance.now();
-  const build = await exec('cargo', ['build', '--manifest-path', 'src-tauri/Cargo.toml'], { onOutput: (text) => { const m = text.match(/Compiling (\S+)/); if (m) spin(`앱 빌드 중… ${m[1]}`); } });
-  report({ name: '앱 빌드 (cargo build)', group: '빌드', ok: build.code === 0, ms: performance.now() - start, error: build.code ? build.output.split('\n').filter((l) => /error/.test(l)).slice(0, 10).join('\n') : null });
+  const build = await exec('cargo', ['build', '--manifest-path', 'src-tauri/Cargo.toml'], { onOutput: (text) => { const m = text.match(/Compiling (\S+)/); if (m) spin(`Building the app… ${m[1]}`); } });
+  report({ name: 'app build (cargo build)', group: 'build', ok: build.code === 0, ms: performance.now() - start, error: build.code ? build.output.split('\n').filter((l) => /error/.test(l)).slice(0, 10).join('\n') : null });
   if (build.code !== 0) return;
   const { App } = await import(pathToFileURL(path.join(root, 'test', 'e2e', 'harness.mjs')).href);
   const { cases } = await import(pathToFileURL(path.join(root, 'test', 'e2e', 'desktop.suite.mjs')).href);
-  spin('앱 실행 중…');
+  spin('Starting the app…');
   const app = new App();
   const launched = performance.now();
   try {
     await app.start();
-    report({ name: '앱 실행 · DevTools 연결', group: '실행', ok: true, ms: performance.now() - launched });
+    report({ name: 'start app · connect DevTools', group: 'launch', ok: true, ms: performance.now() - launched });
   } catch (error) {
-    report({ name: '앱 실행 · DevTools 연결', group: '실행', ok: false, ms: performance.now() - launched, error: error.message });
+    report({ name: 'start app · connect DevTools', group: 'launch', ok: false, ms: performance.now() - launched, error: error.message });
     await app.stop();
     return;
   }
@@ -329,49 +338,49 @@ async function runDesktop(report) {
       await app.restart().catch(() => {});
     }
   };
-  await runCases(report, cases, app, 'E2E · 데스크톱');
+  await runCases(report, cases, app, 'E2E · desktop');
   await app.stop();
 }
 
 async function runInstaller(report) {
   if (process.platform !== 'win32') {
-    report({ name: 'Windows 설치 파일은 Windows 에서 만듭니다', ok: true, skipped: 'Windows 전용', ms: 0 });
+    report({ name: 'the Windows installer is built on Windows', ok: true, skipped: 'Windows only', ms: 0 });
     return;
   }
   const { version } = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-  spin('설치 파일 빌드 중… (npm run build:win, 몇 분 걸립니다)');
+  spin('Building the installer… (npm run build:win, takes a few minutes)');
   const start = performance.now();
-  const build = await exec(process.execPath, [path.join(root, 'scripts', 'build.mjs'), 'win'], { onOutput: (text) => { const m = text.match(/Compiling (\S+)|Running makensis|Finished/); if (m) spin(`설치 파일 빌드 중… ${m[0]}`); } });
+  const build = await exec(process.execPath, [path.join(root, 'scripts', 'build.mjs'), 'win'], { onOutput: (text) => { const m = text.match(/Compiling (\S+)|Running makensis|Finished/); if (m) spin(`Building the installer… ${m[0]}`); } });
   const exe = path.join(root, 'release', `MyWorkPlan-Setup-${version}.exe`);
-  report({ name: 'npm run build:win → NSIS 설치 파일', group: '빌드', ok: build.code === 0 && fs.existsSync(exe), ms: performance.now() - start, error: build.code ? build.output.split('\n').slice(-15).join('\n') : null });
+  report({ name: 'npm run build:win → NSIS installer', group: 'build', ok: build.code === 0 && fs.existsSync(exe), ms: performance.now() - start, error: build.code ? build.output.split('\n').slice(-15).join('\n') : null });
   if (!fs.existsSync(exe)) return;
   const check = (name, test) => {
     const t0 = performance.now();
-    try { test(); report({ name, group: '설치 파일', ok: true, ms: performance.now() - t0 }); } catch (error) { report({ name, group: '설치 파일', ok: false, ms: performance.now() - t0, error: error.message }); }
+    try { test(); report({ name, group: 'installer', ok: true, ms: performance.now() - t0 }); } catch (error) { report({ name, group: 'installer', ok: false, ms: performance.now() - t0, error: error.message }); }
   };
   const nsi = fs.readFileSync(path.join(root, 'src-tauri', 'target', 'release', 'nsis', 'x64', 'installer.nsi'), 'utf8');
-  check('설치 파일 크기·서명 헤더 (MZ)', () => {
+  check('installer size · MZ header', () => {
     const bytes = fs.readFileSync(exe);
     if (bytes.subarray(0, 2).toString() !== 'MZ' || bytes.length < 1_000_000) throw new Error(`size ${bytes.length}`);
   });
-  check('설치 언어: 한국어·영어 선택 화면', () => {
+  check('installer languages: Korean · English picker', () => {
     for (const part of ['Korean.nsh', 'English.nsh', 'MUI_LANGDLL_DISPLAY']) if (!nsi.includes(part) && !fs.existsSync(path.join(root, 'src-tauri', 'target', 'release', 'nsis', 'x64', part))) throw new Error(part);
   });
-  check('설치 아이콘 = 프로그램 아이콘', () => {
+  check('installer icon = app icon', () => {
     if (!/!define INSTALLERICON ".*[\\/]icons[\\/]icon\.ico"/.test(nsi) || !nsi.includes('!define MUI_ICON "${INSTALLERICON}"')) throw new Error('INSTALLERICON');
   });
-  check('파일 형식 등록: .mwp / .mwpt', () => {
+  check('file associations: .mwp / .mwpt', () => {
     for (const part of ['APP_ASSOCIATE "mwp" "MyWorkPlan.Plan"', 'APP_ASSOCIATE "mwpt" "MyWorkPlan.Template"']) if (!nsi.includes(part)) throw new Error(part);
   });
-  check('문서 아이콘 파일 설치 (plan.ico, template.ico)', () => { for (const part of ['"/oname=plan.ico"', '"/oname=template.ico"']) if (!nsi.includes(part)) throw new Error(part); });
-  check('설치 훅: 설정 초기화(사용자 데이터 유지) · 이전 설치 완전 제거 · 문서 아이콘 · 설명서 바로 가기', () => {
+  check('document icons installed (plan.ico, template.ico)', () => { for (const part of ['"/oname=plan.ico"', '"/oname=template.ico"']) if (!nsi.includes(part)) throw new Error(part); });
+  check('install hooks: settings reset (user data kept) · old install removed · document icons · guide shortcut', () => {
     if (!/!include ".*hooks\.nsh"/.test(nsi)) throw new Error('hooks.nsh not included');
     for (const part of ['!insertmacro NSIS_HOOK_PREINSTALL', '!insertmacro NSIS_HOOK_POSTINSTALL']) if (!nsi.includes(part)) throw new Error(part);
   });
-  check('문서 포함: 사용 설명서 · 튜토리얼 · 예제 프로젝트', () => {
+  check('bundled docs: user guide · tutorial · sample project', () => {
     for (const part of ['UsersGuide.html', 'UsersGuide.en.html', 'Tutorial.html', 'Tutorial.en.html', 'website-redesign.ko.mwp']) if (!nsi.includes(part)) throw new Error(`${part} is not in the installer`);
   });
-  check('설치 파일이 프로젝트 루트에 복사됨', () => {
+  check('installer copied to the project root', () => {
     const copy = path.join(root, `MyWorkPlan-Setup-${version}.exe`);
     if (!fs.existsSync(copy)) throw new Error(copy);
     if (fs.statSync(copy).size !== fs.statSync(exe).size) throw new Error('the root copy differs from release/');
@@ -381,16 +390,16 @@ async function runInstaller(report) {
 /** Runs every tutorial step in the real desktop app; a step fails on a page error or an error popup. */
 async function runTutorial(report) {
   if (process.platform !== 'win32') {
-    report({ name: '튜토리얼 검사는 Windows(WebView2 CDP)에서 실행됩니다', ok: true, skipped: 'Windows 전용', ms: 0 });
+    report({ name: 'the tutorial check runs on Windows (WebView2 CDP)', ok: true, skipped: 'Windows only', ms: 0 });
     return;
   }
   const { App } = await import(pathToFileURL(path.join(root, 'test', 'e2e', 'harness.mjs')).href);
   const app = new App();
-  spin('앱 실행 중…');
+  spin('Starting the app…');
   try {
     await app.start();
   } catch (error) {
-    report({ name: '앱 실행', ok: false, ms: 0, error: error.message });
+    report({ name: 'start app', ok: false, ms: 0, error: error.message });
     await app.stop();
     return;
   }
@@ -401,7 +410,7 @@ async function runTutorial(report) {
     await app.main.eval(`${P}.actions.startTutorial(); 1`);
     for (let i = 0; i < steps.length; i++) {
       const start = performance.now();
-      spin(`튜토리얼 ${i + 1}/${steps.length} · ${steps[i].id}`);
+      spin(`Tutorial ${i + 1}/${steps.length} · ${steps[i].id}`);
       app.main.errors.length = 0;
       try {
         if (i > 0) await app.main.eval(`${P}.tutorial().next(); 1`);
@@ -411,7 +420,7 @@ async function runTutorial(report) {
         const popupError = await app.main.eval(`(() => { const f = document.querySelector('.web-popup-error iframe'); return f?.contentDocument?.querySelector('#error-detail')?.value ?? ''; })()`);
         if (app.main.errors.length) throw new Error(app.main.errors.join('\n'));
         if (popupError) throw new Error(popupError);
-        report({ name: `${String(i + 1).padStart(2, '0')} ${steps[i].id}${target ? '' : ' (대상 없음)'}`, group: steps[i].chapter, ok: target, ms: performance.now() - start, error: target ? null : 'the step outlines nothing' });
+        report({ name: `${String(i + 1).padStart(2, '0')} ${steps[i].id}${target ? '' : ' (no target)'}`, group: steps[i].chapter, ok: target, ms: performance.now() - start, error: target ? null : 'the step outlines nothing' });
       } catch (error) {
         report({ name: `${String(i + 1).padStart(2, '0')} ${steps[i].id}`, group: steps[i].chapter, ok: false, ms: performance.now() - start, error: error.message });
       }
@@ -419,7 +428,7 @@ async function runTutorial(report) {
     const end = performance.now();
     await app.main.eval(`${P}.tutorial().stop().then(() => 1)`);
     const restored = await app.main.eval(`${P}.state.settings.tutorialDone === true && !document.querySelector('#tutorial-layer.active') && !${P}.popups.inline`);
-    report({ name: '끝나면 설정·화면 원래대로 (튜토리얼 탭 닫힘, 팝업은 다시 OS 창)', group: '정리', ok: restored, ms: performance.now() - end, error: restored ? null : 'not restored' });
+    report({ name: 'afterwards settings and screen are restored (tutorial tab closed, popups back in OS windows)', group: 'cleanup', ok: restored, ms: performance.now() - end, error: restored ? null : 'not restored' });
   } finally {
     await app.stop();
   }
@@ -430,25 +439,26 @@ async function runTutorial(report) {
 const totalStart = performance.now();
 const summary = [];
 line();
-line(`${c.inverseBlue(c.bold(' MyWorkPlan 테스트 '))} ${c.gray(new Date().toLocaleString())}`);
-line(c.gray(`  분류: ${selected.join(', ')}   (npm test -- --only js,rust · --skip desktop · --quick · --installer)`));
+line(`${c.inverseBlue(c.bold(' MyWorkPlan tests '))} ${c.gray(new Date().toLocaleString('en-US'))}`);
+line(c.gray(`  categories: ${selected.join(', ')}   (npm test -- --only js,rust · --skip desktop · --quick · --installer · --no-color)`));
 
 for (const category of CATEGORIES.filter((item) => selected.includes(item.id))) {
   line();
   line(`${category.tint('▌')} ${c.bold(category.tint(category.title))} ${c.gray(`— ${category.subtitle}`)}`);
+  line(c.gray(`  ${'ELAPSED'.padStart(10)} ${'#'.padStart(4)}  STATUS  ${fit('GROUP › TEST', LIVE_WIDTH)}  ${'TIME'.padStart(9)}`));
   const results = [];
   const start = performance.now();
   try {
     await category.run(makeReporter(category, results, start));
   } catch (error) {
-    results.push({ name: '실행기 오류', ok: false, ms: 0, error: error.stack ?? error.message });
-    line(`  ${c.red('✖ 실행기 오류')} ${c.red(error.message)}`);
+    results.push({ name: 'runner error', ok: false, ms: 0, error: error.stack ?? error.message });
+    line(`  ${c.red('✖ runner error')} ${c.red(error.message)}`);
   }
   stopSpin();
   const ms = performance.now() - start;
   const passed = results.filter((r) => r.ok && !r.skipped).length;
   const failedCount = results.filter((r) => !r.ok).length;
-  line(`  ${c.gray('└')} ${failedCount ? c.red(`✖ ${failedCount} 실패`) : c.green(`✔ ${passed} 통과`)}${results.some((r) => r.skipped) ? c.yellow(` · ○ ${results.filter((r) => r.skipped).length} 건너뜀`) : ''} ${c.gray(`(${formatMs(ms)})`)}`);
+  line(`  ${c.gray('└')} ${failedCount ? c.red(`✖ ${failedCount} failed`) : c.green(`✔ ${passed} passed`)}${results.some((r) => r.skipped) ? c.yellow(` · ○ ${results.filter((r) => r.skipped).length} skipped`) : ''} ${c.gray(`(${formatMs(ms)})`)}`);
   summary.push({ category, results, ms });
 }
 stopSpin();
@@ -460,19 +470,19 @@ const rule = (text) => {
   return c.bold(`${'━'.repeat(4)} ${text} ${'━'.repeat(pad)}`);
 };
 line();
-line(rule('결과 (분류별 · 실패 우선 · 느린 순)'));
+line(rule('Results (by category · failures first · slowest first)'));
 for (const { category, results, ms } of summary) {
   const failed = results.filter((result) => !result.ok);
   const status = failed.length ? c.inverseRed(' FAIL ') : c.inverseGreen(' PASS ');
   line();
-  line(`${status} ${c.bold(category.tint(category.title))} ${c.gray(`(${results.length}개 · ${formatMs(ms)})`)}`);
-  line(c.gray(`   ${'상태'.padEnd(7)}  ${fit('분류 › 테스트', width)}  ${'시간'.padStart(9)}  막대`));
+  line(`${status} ${c.bold(category.tint(category.title))} ${c.gray(`(${results.length} tests · ${formatMs(ms)})`)}`);
+  line(c.gray(`   ${'STATUS'.padEnd(8)}  ${fit('GROUP › TEST', width)}  ${'TIME'.padStart(9)}  BAR`));
   const sorted = [...results].sort((a, b) => Number(a.ok) - Number(b.ok) || Number(Boolean(a.skipped)) - Number(Boolean(b.skipped)) || b.ms - a.ms);
   const slowest = Math.max(1, ...sorted.map((r) => r.ms));
   for (const result of sorted) {
     const label = `${result.group ? `${result.group} › ` : ''}${result.name}`;
     const padded = fit(label, width);
-    const mark = result.skipped ? c.yellow('○ 건너뜀') : result.ok ? c.green('✔ 통과  ') : c.red('✖ 실패  ');
+    const mark = result.skipped ? c.yellow('○ SKIP  ') : result.ok ? c.green('✔ PASS  ') : c.red('✖ FAIL  ');
     const bar = '█'.repeat(Math.max(1, Math.round((result.ms / slowest) * 16)));
     const text = result.skipped ? c.yellow(padded) : result.ok ? padded : c.red(padded);
     line(`   ${mark}  ${text}  ${timeColor(result.ms)(formatMs(result.ms).padStart(9))}  ${timeColor(result.ms)(bar)}`);
@@ -481,7 +491,7 @@ for (const { category, results, ms } of summary) {
 
 line();
 line(c.bold('┌──────────────────────────────┬────────┬────────┬────────┬────────┬────────────┐'));
-line(c.bold('│ 분류                         │  통과  │  실패  │ 건너뜀 │  전체  │    시간    │'));
+line(c.bold('│ Category                     │ Passed │ Failed │Skipped │ Total  │    Time    │'));
 line(c.bold('├──────────────────────────────┼────────┼────────┼────────┼────────┼────────────┤'));
 let passed = 0;
 let failedTotal = 0;
@@ -498,12 +508,12 @@ for (const { category, results, ms } of summary) {
   line(`│ ${category.tint(fit(category.title, 28))} │ ${c.green(String(ok).padStart(6))} │ ${(bad ? c.red : c.gray)(String(bad).padStart(6))} │ ${(skippedCount ? c.yellow : c.gray)(String(skippedCount).padStart(6))} │ ${String(results.length).padStart(6)} │ ${formatMs(ms).padStart(10)} │`);
 }
 line(c.bold('├──────────────────────────────┼────────┼────────┼────────┼────────┼────────────┤'));
-line(`│ ${c.bold(fit('합계', 28))} │ ${c.green(c.bold(String(passed).padStart(6)))} │ ${(failedTotal ? c.red : c.gray)(c.bold(String(failedTotal).padStart(6)))} │ ${(skippedTotal ? c.yellow : c.gray)(c.bold(String(skippedTotal).padStart(6)))} │ ${c.bold(String(total).padStart(6))} │ ${c.bold(formatMs(performance.now() - totalStart).padStart(10))} │`);
+line(`│ ${c.bold(fit('Total', 28))} │ ${c.green(c.bold(String(passed).padStart(6)))} │ ${(failedTotal ? c.red : c.gray)(c.bold(String(failedTotal).padStart(6)))} │ ${(skippedTotal ? c.yellow : c.gray)(c.bold(String(skippedTotal).padStart(6)))} │ ${c.bold(String(total).padStart(6))} │ ${c.bold(formatMs(performance.now() - totalStart).padStart(10))} │`);
 line(c.bold('└──────────────────────────────┴────────┴────────┴────────┴────────┴────────────┘'));
 line();
 line(failedTotal
-  ? `${c.inverseRed(c.bold(` ✖ ${failedTotal}개 실패 `))} ${c.red('위 목록의 빨간 항목을 확인하세요.')}`
-  : `${c.inverseGreen(c.bold(` ✔ 모든 테스트 통과 (${passed}개${skippedTotal ? `, 건너뜀 ${skippedTotal}개` : ''}) `))}`);
+  ? `${c.inverseRed(c.bold(` ✖ ${failedTotal} failed `))} ${c.red('See the red entries above.')}`
+  : `${c.inverseGreen(c.bold(` ✔ All tests passed (${passed}${skippedTotal ? `, ${skippedTotal} skipped` : ''}) `))}`);
 
 const reportDir = path.join(root, 'test-results');
 fs.mkdirSync(reportDir, { recursive: true });
@@ -514,5 +524,5 @@ fs.writeFileSync(path.join(reportDir, 'results.json'), JSON.stringify({
   skipped: skippedTotal,
   categories: summary.map(({ category, results, ms }) => ({ id: category.id, title: category.title, ms: Math.round(ms), results })),
 }, null, 2));
-line(c.gray('  자세한 결과: test-results/results.json'));
+line(c.gray('  Full results: test-results/results.json'));
 process.exit(failedTotal ? 1 : 0);

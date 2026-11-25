@@ -19,7 +19,7 @@ import { insertRecurring } from './domain/recurring.js';
 import { addRecent, loadRecent, loadRecentDirs, removeRecent, storeRecent, storeRecentDirs } from './domain/recent.js';
 import {
   loadSettings, PANEL_MIN, PRINT_KEY, RECENT_DIRS_KEY, RECENT_KEY, SESSION_KEY, STORAGE_KEY, storeSettings, timescaleStep, TIMESCALE, VIEWS, ZOOM,
-  dbConfig, dbDescribe, dbProblems, ANIMATIONS,
+  dbConfig, dbDescribe, dbProblems, ANIMATIONS, defaultSettings,
 } from './domain/settings.js';
 import { compactDuration, formatDuration, formatLag, formatMoney, parseDuration, unitMinutes } from './domain/duration.js';
 import { dayOf, dayStart, formatDay, fromMin, nowMin, parseDay, toMin } from './domain/time.js';
@@ -53,7 +53,7 @@ import { REPORTS, ReportsView, reportModel } from './views/reports.js';
 import { bytesToBase64, reportFileName, reportToDocx, reportToHtml, reportToMarkdown } from './export/report-export.js';
 import { chartPngs, reportToPdf } from './export/report-pdf.js';
 import { CONTENTS, renderPrintSvg } from './print/render.js';
-import { criticalPath } from './domain/critical.js';
+import { criticalPath, criticalPathSteps, CRITICAL_STAGES } from './domain/critical.js';
 import { encodeBmp, encodeTiff, imageFormat, rasterSize } from './export/image-encode.js';
 
 const root = document.querySelector('#app');
@@ -476,6 +476,24 @@ function setProgress(ids, percent) {
   if (!doc || !targets.length) return;
   change('op.progress', (project) => setPercentComplete(project, doc.sched, targets, percent));
   notify('success', t('notice.progress', { count: leafIds(doc.project, targets).length, percent }));
+}
+
+/**
+ * A kanban drop as one undo step: `moves` [{ id, percent, backlog }] change
+ * progress and the backlog mark (the cards that changed column), `order` is the target column's cards top to
+ * bottom — each gets its place (kanbanRank) so the board keeps the dropped order.
+ */
+function kanbanMove(moves, order) {
+  const doc = activeDoc();
+  if (!doc || (!moves.length && !order.length)) return;
+  change(moves.length ? 'op.progress' : 'op.kanbanOrder', (project) => {
+    const groups = new Map();
+    for (const { id, percent } of moves) groups.set(percent, [...(groups.get(percent) ?? []), id]);
+    for (const [percent, ids] of groups) setPercentComplete(project, doc.sched, ids, percent);
+    for (const { id, backlog } of moves) { const task = P.findTask(project, id); if (task) task.backlog = Boolean(backlog); }
+    order.forEach((id, index) => { const task = P.findTask(project, id); if (task) task.kanbanRank = index; });
+  });
+  if (moves.length) notify('success', t('notice.progress', { count: moves.length, percent: moves[0].percent }));
 }
 
 function indentSelected(direction) {
@@ -926,6 +944,10 @@ function lagText(link) {
   return formatLag(link.lag, link.lagUnit, activeDoc().project.options);
 }
 
+/** The schedule's zoom as a percent of the default timescale (16 px a day = 100%). */
+const TIMESCALE_BASE = defaultSettings().timescale;
+const timescalePercent = () => Math.round((state.settings.timescale / TIMESCALE_BASE) * 100);
+
 function setTimescale(px) {
   const value = Math.max(TIMESCALE.min, Math.min(TIMESCALE.max, Math.round(px)));
   if (value === state.settings.timescale) return;
@@ -1179,7 +1201,7 @@ const TOOLBAR = [
   ['viewSplit'],
   ['showCritical', 'criticalPath'],
   ['zoom'],
-  ['timescaleOut', 'timescaleIn'],
+  ['timescale'],
 ];
 /** Panel fold / unfold buttons: on the menu bar, just left of the window's minimize button. */
 const PANEL_BUTTONS = ['leftPanel', 'bottomPanel', 'rightPanel'];
@@ -1284,6 +1306,14 @@ function renderToolbar() {
         <button class="tool-button stepper-button-tool" data-command="zoomIn" title="${escapeHtml(commandTip('zoomIn'))}" aria-label="${escapeHtml(t('action.zoomIn'))}">${icon('plus')}</button>
       </span>`;
     }
+    if (id === 'timescale') {
+      // The schedule (time axis) zoom: out · current ratio (type a percent) · in.
+      return `<span class="stepper toolbar-zoom toolbar-timescale" title="${escapeHtml(t('tip.timescaleValue'))}">
+        <button class="tool-button stepper-button-tool" data-command="timescaleOut" title="${escapeHtml(commandTip('timescaleOut'))}" aria-label="${escapeHtml(t('action.timescaleOut'))}">${icon('timescaleOut')}</button>
+        <input class="stepper-value" id="timescale-value" type="text" inputmode="decimal" value="${timescalePercent()}%" title="${escapeHtml(t('tip.timescaleValue'))}" aria-label="${escapeHtml(t('tip.timescaleValue'))}" />
+        <button class="tool-button stepper-button-tool" data-command="timescaleIn" title="${escapeHtml(commandTip('timescaleIn'))}" aria-label="${escapeHtml(t('action.timescaleIn'))}">${icon('timescaleIn')}</button>
+      </span>`;
+    }
     if (id === 'themeSplit') {
       return `<span class="split-button">${plain('theme')}<button class="tool-button split-arrow" data-command="themeMenu" title="${escapeHtml(commandTip('themeMenu'))}" aria-label="${escapeHtml(t('action.themeChoose'))}" aria-haspopup="true">${icon('chevronDown')}</button></span>`;
     }
@@ -1313,6 +1343,8 @@ function renderToolbarState() {
   }
   const zoom = root.querySelector('#zoom-value');
   if (zoom && document.activeElement !== zoom) zoom.value = `${state.settings.zoom}%`;
+  const scale = root.querySelector('#timescale-value');
+  if (scale && document.activeElement !== scale) scale.value = `${timescalePercent()}%`;
   // Every view name sits in the same cell (only the current one shows), so the button keeps the width of the longest one.
   const current = activeDoc()?.view.id ?? 'gantt';
   const viewButton = root.querySelector('.view-split [data-view-icon]');
@@ -1941,14 +1973,37 @@ let criticalMode = false;
 /** Settings as the views see them: the critical-path mode always shows critical tasks. */
 const viewSettings = () => (criticalMode ? { ...state.settings, showCritical: true } : state.settings);
 
-function toggleCriticalPath() {
-  criticalMode = !criticalMode;
+/** Plans this big show the progress popup at once (one stage alone can block the screen past the usual delay). */
+const CRITICAL_POPUP_AT_ONCE = 400;
+let criticalBusy = false;
+
+async function toggleCriticalPath() {
+  if (criticalBusy) return;
   const doc = activeDoc();
   let showFirst = null;
-  if (criticalMode && doc) {
-    // Forward and backward passes, then the driving critical chains that reach the project finish.
-    doc.recalculate();
-    const cp = criticalPath(doc.project, doc.sched);
+  if (!criticalMode && doc) {
+    // Forward and backward passes, then the driving critical chains that reach the project finish —
+    // in stages with a breath between them, so a plan that takes a while shows a progress popup.
+    criticalBusy = true;
+    let cp;
+    try {
+      const total = CRITICAL_STAGES.length + 2;
+      const big = doc.project.tasks.length >= CRITICAL_POPUP_AT_ONCE;
+      cp = await withProgress('progress.critical', doc.project.title || docName(doc), async (op, report) => {
+        const step = async (done, stage) => { report({ done, total, label: t(`progress.criticalStage.${stage}`) }); await breath(); };
+        await step(0, 'schedule');
+        doc.recalculate();
+        const steps = criticalPathSteps(doc.project, doc.sched);
+        for (let next = steps.next(); ; next = steps.next()) {
+          if (next.done) { await step(total - 1, 'draw'); return next.value; }
+          await step(next.value.index + 1, CRITICAL_STAGES[next.value.index + 1] ?? 'draw');
+        }
+      }, { delay: big ? 0 : 250 });
+    } finally {
+      criticalBusy = false;
+    }
+    if (activeDoc() !== doc) return;
+    criticalMode = true;
     const name = (id) => `${doc.sched.info(id).row}. ${P.findTask(doc.project, id)?.name ?? ''}`;
     if (cp.ids.size) {
       notify('success', t('notice.criticalPath', { count: cp.ids.size, chains: cp.chains.length, from: name(cp.chains[0][0]), to: name(cp.chains[0].at(-1)), finish: formatDay(cp.finish, state.settings.dateFormat) }));
@@ -1957,6 +2012,7 @@ function toggleCriticalPath() {
       notify('info', t('notice.criticalNone'));
     }
   } else {
+    criticalMode = false;
     notify('info', t('notice.criticalOff'));
   }
   renderAll();
@@ -2076,14 +2132,15 @@ async function openThemePicker(anchor) {
  * Runs a long task; when it takes longer than a moment, a progress popup shows
  * how far it got (bytes read/written by the backend, or steps of a calculation).
  */
-async function withProgress(titleKey, name, task) {
+async function withProgress(titleKey, name, task, { delay = 250 } = {}) {
   const op = P.newId('op');
   let shown = false;
   let last = null;
-  const timer = setTimeout(() => {
+  const open = () => {
     shown = true;
     popups.open('progress', { title: t(titleKey), name, op, last });
-  }, 250);
+  };
+  const timer = delay > 0 ? setTimeout(open, delay) : (open(), null);
   const unlisten = await native.listen('io-progress', (progress) => {
     if (progress.op !== op) return;
     last = progress;
@@ -2105,6 +2162,8 @@ async function withProgress(titleKey, name, task) {
 }
 
 const nextFrame = () => new Promise((resolve) => setTimeout(resolve, 0));
+/** Lets the screen (and an open progress popup) paint before the next blocking step. */
+const breath = () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
 
 // ───────────────────────── files
 
@@ -3503,6 +3562,7 @@ function bindEvents() {
     if (target.dataset.settingToggle) return updateSettings({ [target.dataset.settingToggle]: target.checked });
     if ('startToggle' in target.dataset) return updateSettings({ showStartPage: target.checked }, { quiet: true });
     if (target.id === 'zoom-value') return setZoom(parseFloat(target.value) || 100);
+    if (target.id === 'timescale-value') { setTimescale((TIMESCALE_BASE * (parseFloat(target.value) || 100)) / 100); target.value = `${timescalePercent()}%`; return undefined; }
     if (target.dataset.propField) return onPropField(target);
     if (target.dataset.propResource) {
       const field = RESOURCE_FIELD_MAP.get(target.dataset.propResource);
@@ -3568,7 +3628,11 @@ function bindEvents() {
     if (event.target.id === 'zoom-value' && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
       event.preventDefault();
       setZoom(state.settings.zoom + (event.key === 'ArrowUp' ? ZOOM.step : -ZOOM.step));
-    } else if (event.target.id === 'zoom-value' && event.key === 'Enter') event.target.blur();
+    } else if (event.target.id === 'timescale-value' && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+      event.preventDefault();
+      stepTimescale(event.key === 'ArrowUp' ? 1 : -1, null, state.view);
+      event.target.value = `${timescalePercent()}%`;
+    } else if ((event.target.id === 'zoom-value' || event.target.id === 'timescale-value') && event.key === 'Enter') event.target.blur();
     else if (event.target.matches?.('.props input') && event.key === 'Enter') { event.preventDefault(); event.target.dispatchEvent(new Event('change', { bubbles: true })); }
   });
 
@@ -3838,6 +3902,7 @@ const appApi = {
   moveTaskBar,
   resizeTaskBar,
   setProgress,
+  kanbanMove,
   linkFromTo,
   reassignTask,
   editTaskField,

@@ -64,8 +64,10 @@ test('menu headings have their own icons', () => {
 
 test('the toolbar shows only commands, each once', () => {
   const toolbar = /const TOOLBAR = (\[[\s\S]*?\]);/.exec(app)[1];
-  const ids = [...toolbar.matchAll(/'(\w+)'/g)].map((m) => m[1]).filter((id) => !['zoom', 'viewSplit'].includes(id));
+  const ids = [...toolbar.matchAll(/'(\w+)'/g)].map((m) => m[1]).filter((id) => !['zoom', 'timescale', 'viewSplit'].includes(id));
   const commands = commandIcons();
+  // The two steppers (screen zoom, schedule timescale) are built from their − / + commands.
+  for (const id of ['zoomOut', 'zoomIn', 'timescaleOut', 'timescaleIn']) assert.ok(commands.has(id), `stepper command ${id}`);
   for (const id of ids) assert.ok(commands.has(id), `toolbar button ${id} is a command`);
   assert.equal(new Set(ids).size, ids.length);
 });

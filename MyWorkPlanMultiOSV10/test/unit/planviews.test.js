@@ -70,7 +70,9 @@ test('print: the burndown chart is a page of its own with the paper size', () =>
 });
 
 test('kanban: three columns by % complete, drops set the progress, every leaf task on the board once', () => {
-  assert.deepEqual(KANBAN_COLUMNS.map((c) => c.id), ['todo', 'doing', 'done']);
+  assert.deepEqual(KANBAN_COLUMNS.map((c) => c.id), ['backlog', 'todo', 'doing', 'done']);
+  assert.deepEqual([kanbanColumnOf(0, true), kanbanColumnOf(40, true), kanbanColumnOf(100, true)], ['backlog', 'doing', 'done'], 'the backlog mark only counts for tasks not started');
+  assert.equal(kanbanDropPercent('backlog', 60), 0);
   assert.deepEqual([kanbanColumnOf(0), kanbanColumnOf(1), kanbanColumnOf(99), kanbanColumnOf(100), kanbanColumnOf(undefined)], ['todo', 'doing', 'doing', 'done', 'todo']);
   assert.equal(kanbanDropPercent('done', 30), 100);
   assert.equal(kanbanDropPercent('todo', 30), 0);
@@ -79,9 +81,16 @@ test('kanban: three columns by % complete, drops set the progress, every leaf ta
   const { project, sched } = sample();
   const cards = kanbanCards(project, sched, null);
   const leaves = project.tasks.filter((task) => !sched.info(task.id).summary && task.active !== false);
-  assert.equal(cards.todo.length + cards.doing.length + cards.done.length, leaves.length);
+  assert.equal(cards.backlog.length + cards.todo.length + cards.doing.length + cards.done.length, leaves.length);
   for (const card of cards.done) assert.ok(card.info.percentComplete >= 100);
-  assert.ok([...cards.todo, ...cards.doing, ...cards.done].every((card) => typeof card.phase === 'string'));
+  assert.ok([...cards.backlog, ...cards.todo, ...cards.doing, ...cards.done].every((card) => typeof card.phase === 'string'));
+  // A drop's order is kept (kanbanRank), cards never placed follow after it in schedule order.
+  const column = Object.values(cards).find((list) => list.length >= 3);
+  const [first, second, ...rest] = column.map((card) => card.task);
+  second.kanbanRank = 0;
+  first.kanbanRank = 1;
+  const reordered = kanbanCards(project, sched, null)[kanbanColumnOf(column[0].info.percentComplete)].map((card) => card.task.id);
+  assert.deepEqual(reordered, [second.id, first.id, ...rest.map((task) => task.id)]);
   assert.equal(initials('Kim Minsu'), 'KM');
   assert.equal(initials('홍길동'), '홍길');
 });

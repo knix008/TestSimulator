@@ -28,7 +28,7 @@ test('nothing to show still gives an axis', () => {
   assert.deepEqual(niceTicks(Number.NaN).ticks, [0, 1]);
 });
 
-test('value axes: hours from minutes, money in 만/억 or K/M, percent fixed 0–100', () => {
+test('value axes: hours from minutes, money in Korean 10^4/10^8 units or K/M, percent fixed 0–100', () => {
   const hours = valueAxis(146 * 60, 'hours', { language: 'ko' });
   assert.deepEqual(hours.ticks.map((tick) => tick.text), ['0시간', '50시간', '100시간', '150시간']);
   assert.equal(hours.top, 150 * 60);

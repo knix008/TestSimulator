@@ -131,6 +131,10 @@ export function createTask(project, data = {}) {
     barColor: data.barColor ?? '',
     hideBar: data.hideBar ?? false,
     timeline: data.timeline ?? false,
+    // Place on the kanban board within its column (null = schedule order, after ranked cards).
+    kanbanRank: Number.isFinite(data.kanbanRank) ? data.kanbanRank : null,
+    // Put aside on the kanban board: a 0% task waits in the Backlog column instead of Not started.
+    backlog: Boolean(data.backlog),
     levelingDelay: data.levelingDelay ?? 0,
     baselines: data.baselines ?? {},
     recurring: data.recurring ?? null,

@@ -199,7 +199,7 @@ test('PDF: header, one page per JPEG, xref offsets point at their objects, strea
     assert.equal(text.slice(start + Number(match[1]), start + Number(match[1]) + 10), '\nendstream', `stream at ${start}`);
   }
   assert.ok(text.includes(latin1(pages[1].jpeg)), 'the JPEG bytes are embedded unchanged');
-  assert.ok(text.includes('/Title <FEFFBE44C6A9'), 'title as UTF-16BE (비용)');
+  assert.ok(text.includes('/Title <FEFFBE44C6A9'), 'title as UTF-16BE (the Korean word for cost)');
   assert.ok(text.includes('/MediaBox [0 0 595.28 841.89]'), 'A4');
 });
 

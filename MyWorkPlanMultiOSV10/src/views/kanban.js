@@ -1,8 +1,8 @@
-// Kanban board: the plan's tasks as cards in three columns by progress —
-// Not started (0%), In progress (1–99%) and Done (100%). Cards show the phase
+// Kanban board: the plan's tasks as cards in four columns — Backlog (0%,
+// put aside: task.backlog), Not started (0%), In progress (1–99%) and Done (100%). Cards show the phase
 // (the summary above the task), the dates, the people, the progress and the
 // critical / late / milestone marks. Drag a card to another column to change
-// its progress (0%, 50% when it starts, 100%); click selects, double-click
+// its progress (0%, 50% when it starts, 100%; Backlog also marks it); click selects, double-click
 // opens the task, right-click gives the task menu. Every leaf task is on the
 // board (collapsed outline levels do not hide cards); inactive tasks are left out.
 import { escapeHtml } from '../ui/dom.js';
@@ -11,24 +11,25 @@ import { t } from '../i18n.js';
 import { formatDay } from '../domain/time.js';
 
 export const KANBAN_COLUMNS = [
+  { id: 'backlog', glyph: 'kanbanBacklog', percent: 0 },
   { id: 'todo', glyph: 'kanbanTodo', percent: 0 },
   { id: 'doing', glyph: 'kanbanDoing', percent: 50 },
   { id: 'done', glyph: 'kanbanDone', percent: 100 },
 ];
 
-/** Which column a task belongs to, from its % complete. */
-export const kanbanColumnOf = (percent) => ((percent ?? 0) >= 100 ? 'done' : (percent ?? 0) > 0 ? 'doing' : 'todo');
+/** Which column a task belongs to, from its % complete (a 0% task marked backlog waits in the Backlog). */
+export const kanbanColumnOf = (percent, backlog = false) => ((percent ?? 0) >= 100 ? 'done' : (percent ?? 0) > 0 ? 'doing' : backlog ? 'backlog' : 'todo');
 
 /** The percent a card gets when it is dropped on a column (a task already in progress keeps its value). */
 export function kanbanDropPercent(column, current) {
   if (column === 'done') return 100;
-  if (column === 'todo') return 0;
+  if (column === 'todo' || column === 'backlog') return 0;
   return current > 0 && current < 100 ? current : 50;
 }
 
 /** Cards of each column: leaf, active tasks in the visible rows, in schedule order. */
 export function kanbanCards(project, sched, rows) {
-  const out = { todo: [], doing: [], done: [] };
+  const out = { backlog: [], todo: [], doing: [], done: [] };
   const parentOf = new Map();
   const stack = [];
   for (const task of project.tasks) {
@@ -42,9 +43,20 @@ export function kanbanCards(project, sched, rows) {
     const info = sched.info(id);
     const task = project.tasks.find((x) => x.id === id);
     if (!task || !info || info.summary || task.active === false) continue;
-    out[kanbanColumnOf(info.percentComplete)].push({ task, info, phase: parentOf.get(id)?.name ?? '' });
+    out[kanbanColumnOf(info.percentComplete, task.backlog)].push({ task, info, phase: parentOf.get(id)?.name ?? '' });
   }
-  for (const list of Object.values(out)) list.sort((a, b) => a.info.start - b.info.start || a.info.row - b.info.row);
+  // Cards placed by a drop keep their place (kanbanRank); the rest follow in schedule order.
+  const rank = (card) => (Number.isFinite(card.task.kanbanRank) ? card.task.kanbanRank : null);
+  const bySchedule = (a, b) => a.info.start - b.info.start || a.info.row - b.info.row;
+  for (const list of Object.values(out)) {
+    list.sort((a, b) => {
+      const ra = rank(a);
+      const rb = rank(b);
+      if (ra != null && rb != null) return ra - rb || bySchedule(a, b);
+      if (ra != null || rb != null) return ra != null ? -1 : 1;
+      return bySchedule(a, b);
+    });
+  }
   return out;
 }
 
@@ -92,66 +104,179 @@ export class KanbanView {
   bind() {
     const app = this.app;
     const host = this.host;
+    // The view host is shared by every view: the listeners go away with this view (destroy).
+    this.listening = new AbortController();
+    const signal = this.listening.signal;
     host.addEventListener('dblclick', (event) => {
       const el = event.target.closest('[data-task]');
       if (el) app.openTaskInfo(el.dataset.task);
-    });
+    }, { signal });
     host.addEventListener('contextmenu', (event) => {
       event.preventDefault();
       const el = event.target.closest('[data-task]');
       if (el) { if (!app.isSelected(el.dataset.task)) app.selectTask(el.dataset.task, {}); app.contextMenu(event, 'bar', { id: el.dataset.task }); } else app.contextMenu(event, 'chart', {});
-    });
-    // Click selects; dragging a card moves it to another column (its progress changes).
+    }, { signal });
+    // Click selects. Dragging lifts the card out of its list: a silhouette of
+    // it takes its place and follows the pointer through the columns, the cards
+    // where it would go slide apart to make room, and the drop puts the card
+    // exactly there (another column also changes its progress).
     host.addEventListener('pointerdown', (event) => {
       const el = event.target.closest('.kb-card');
       if (!el || event.button !== 0) return;
       const id = el.dataset.task;
       const start = { x: event.clientX, y: event.clientY };
-      let ghost = null;
-      let over = null;
-      const move = (e) => {
-        if (!ghost) {
-          if (Math.hypot(e.clientX - start.x, e.clientY - start.y) < 6) return;
-          const box = el.getBoundingClientRect();
-          ghost = el.cloneNode(true);
-          ghost.classList.add('kb-ghost');
-          ghost.style.width = `${box.width}px`;
-          ghost.dataset.dx = String(start.x - box.left);
-          ghost.dataset.dy = String(start.y - box.top);
-          document.body.append(ghost);
-          el.classList.add('kb-dragging');
-        }
-        ghost.style.left = `${e.clientX - Number(ghost.dataset.dx)}px`;
-        ghost.style.top = `${e.clientY - Number(ghost.dataset.dy)}px`;
-        const column = document.elementFromPoint(e.clientX, e.clientY)?.closest?.('.kb-column');
-        if (over !== column) { over?.classList.remove('kb-over'); over = column; over?.classList.add('kb-over'); }
+      let drag = null;
+      let pointer = start;
+      const begin = () => {
+        // Every selected card on the board moves together when the dragged one is part of the selection.
+        const onBoard = new Set([...host.querySelectorAll('.kb-card')].map((card) => card.dataset.task));
+        const ids = app.isSelected(id) ? [id, ...app.selection().ids.filter((x) => x !== id && onBoard.has(x))] : [id];
+        const cards = ids.map((x) => host.querySelector(`.kb-card[data-task="${CSS.escape(x)}"]`)).filter(Boolean);
+        const box = el.getBoundingClientRect();
+        const ghost = el.cloneNode(true);
+        ghost.classList.add('kb-ghost');
+        ghost.classList.remove('selected');
+        ghost.style.width = `${box.width}px`;
+        if (cards.length > 1) ghost.insertAdjacentHTML('beforeend', `<span class="kb-ghost-count">${cards.length}</span>`);
+        document.body.append(ghost);
+        const placeholder = document.createElement('div');
+        placeholder.className = 'kb-placeholder';
+        placeholder.style.height = `${box.height}px`;
+        flip(() => {
+          el.before(placeholder);
+          for (const card of cards) card.classList.add('kb-lifted');
+        });
+        drag = { ids, cards, ghost, placeholder, dx: start.x - box.left, dy: start.y - box.top, over: null, raf: 0 };
+        document.body.classList.add('kb-grabbing');
       };
-      const up = () => {
+      // Where the silhouette goes: the list under the pointer, before the first card whose middle is below it.
+      const place = () => {
+        const { placeholder } = drag;
+        const column = document.elementFromPoint(pointer.x, pointer.y)?.closest?.('.kb-column');
+        if (drag.over !== column) { drag.over?.classList.remove('kb-over'); drag.over = column && host.contains(column) ? column : null; drag.over?.classList.add('kb-over'); }
+        if (!drag.over) {
+          // Off the board: the silhouette goes back where the card came from.
+          if (placeholder.nextElementSibling !== el) flip(() => el.before(placeholder));
+          return;
+        }
+        const list = drag.over.querySelector('.kb-list');
+        const y = pointer.y - list.getBoundingClientRect().top - list.clientTop + list.scrollTop;
+        const next = [...list.querySelectorAll('.kb-card:not(.kb-lifted)')].find((card) => card.offsetTop + card.offsetHeight / 2 > y) ?? null;
+        if (placeholder.parentElement === list && nextCard(placeholder) === next) return;
+        flip(() => (next ? next.before(placeholder) : list.append(placeholder)));
+      };
+      // Near the top or bottom of a list it scrolls, and the silhouette keeps following.
+      const autoScroll = () => {
+        drag.raf = requestAnimationFrame(autoScroll);
+        const list = drag.over?.querySelector('.kb-list');
+        if (!list) return;
+        const r = list.getBoundingClientRect();
+        const step = pointer.y < r.top + 36 ? -8 : pointer.y > r.bottom - 36 ? 8 : 0;
+        if (!step) return;
+        const before = list.scrollTop;
+        list.scrollTop += step;
+        if (list.scrollTop !== before) place();
+      };
+      const move = (e) => {
+        pointer = { x: e.clientX, y: e.clientY };
+        if (!drag) {
+          if (Math.hypot(e.clientX - start.x, e.clientY - start.y) < 6) return;
+          begin();
+          autoScroll();
+        }
+        drag.ghost.style.left = `${e.clientX - drag.dx}px`;
+        drag.ghost.style.top = `${e.clientY - drag.dy}px`;
+        place();
+      };
+      const stop = () => {
         window.removeEventListener('pointermove', move);
         window.removeEventListener('pointerup', up);
-        window.removeEventListener('pointercancel', up);
-        over?.classList.remove('kb-over');
-        el.classList.remove('kb-dragging');
-        if (!ghost) return;
-        ghost.remove();
-        const target = over?.dataset.column;
-        const info = app.sched().info(id);
-        if (!target || !info || kanbanColumnOf(info.percentComplete) === target) return;
-        // Every selected card moves together when the dragged one is part of the selection.
-        const ids = app.isSelected(id) ? app.selection().ids.filter((x) => !app.sched().info(x)?.summary) : [id];
-        app.setProgress(ids, kanbanDropPercent(target, info.percentComplete ?? 0));
+        window.removeEventListener('pointercancel', cancel);
+        window.removeEventListener('keydown', key, true);
+        if (!drag) return false;
+        cancelAnimationFrame(drag.raf);
+        drag.over?.classList.remove('kb-over');
+        document.body.classList.remove('kb-grabbing');
+        drag.ghost.remove();
+        return true;
+      };
+      const restore = () => {
+        drag.placeholder.remove();
+        for (const card of drag.cards) card.classList.remove('kb-lifted');
+      };
+      const cancel = () => { if (stop()) restore(); };
+      const key = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancel(); } };
+      const up = () => {
+        if (!stop()) return;
+        const { placeholder, ids } = drag;
+        const list = placeholder.parentElement;
+        const target = list?.dataset.column;
+        if (!target) return restore();
+        // The target column top to bottom, the moved cards where the silhouette is.
+        const order = [];
+        for (const child of list.children) {
+          if (child === placeholder) order.push(...ids);
+          else if (child.matches('.kb-card:not(.kb-lifted)')) order.push(child.dataset.task);
+        }
+        const sched = app.sched();
+        const moves = ids.flatMap((x) => {
+          const info = sched.info(x);
+          const task = app.project().tasks.find((item) => item.id === x);
+          return info && kanbanColumnOf(info.percentComplete, task?.backlog) !== target ? [{ id: x, percent: kanbanDropPercent(target, info.percentComplete ?? 0), backlog: target === 'backlog' }] : [];
+        });
+        const current = kanbanCards(app.project(), sched, null)[target].map((card) => card.task.id);
+        if (!moves.length && order.join('\n') === current.join('\n')) return restore();
+        app.kanbanMove(moves, order);
       };
       app.selectTask(id, event);
       window.addEventListener('pointermove', move);
       window.addEventListener('pointerup', up);
-      window.addEventListener('pointercancel', up);
-    });
+      window.addEventListener('pointercancel', cancel);
+      window.addEventListener('keydown', key, true);
+    }, { signal });
   }
 
   update() { this.render(); }
   selectionChanged() { for (const el of this.host.querySelectorAll('[data-task]')) el.classList.toggle('selected', this.app.isSelected(el.dataset.task)); }
   scrollToTask(id) { this.host.querySelector(`[data-task="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
-  destroy() { this.host.innerHTML = ''; this.host.className = 'view-host'; }
+  destroy() { this.listening.abort(); this.host.innerHTML = ''; this.host.className = 'view-host'; }
+}
+
+/** The next card after an element in its list (skipping lifted cards), or null at the end. */
+function nextCard(node) {
+  for (let el = node.nextElementSibling; el; el = el.nextElementSibling) if (el.matches('.kb-card:not(.kb-lifted)')) return el;
+  return null;
+}
+
+/**
+ * Runs a DOM change and slides the board's cards from where they were to where
+ * they end up (FLIP), so cards make room for the silhouette instead of jumping.
+ * Rects are read with the running slide included, so a slide that is cut short
+ * continues smoothly from where it is.
+ */
+function flip(mutate) {
+  const reduce = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const cards = reduce ? [] : [...document.querySelectorAll('.kb-board .kb-card:not(.kb-lifted)')];
+  const before = new Map(cards.map((card) => [card, card.getBoundingClientRect()]));
+  mutate();
+  const moved = [];
+  for (const card of cards) {
+    const a = before.get(card);
+    const b = card.getBoundingClientRect();
+    const dx = a.left - b.left;
+    const dy = a.top - b.top;
+    if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue;
+    card.style.transition = 'none';
+    card.style.transform = `translate(${dx}px, ${dy}px)`;
+    moved.push(card);
+  }
+  if (!moved.length) return;
+  void document.body.offsetHeight;
+  for (const card of moved) {
+    card.style.transition = 'transform 180ms cubic-bezier(0.2, 0, 0, 1)';
+    card.style.transform = '';
+    card.addEventListener('transitionend', () => { card.style.transition = ''; }, { once: true });
+  }
 }
 
 /** Two letters for a person's badge: initials of a two-word name, else its first two characters. */

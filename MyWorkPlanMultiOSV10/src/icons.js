@@ -57,6 +57,7 @@ const paths = {
   viewResourceGraph: '<path d="M3 20h18"/><rect x="5" y="12" width="3" height="8"/><rect x="10.5" y="7" width="3" height="13"/><rect x="16" y="10" width="3" height="10"/><path d="M3 9h18" stroke-dasharray="2 2"/>',
   viewTeam: '<circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="16" r="2.4"/><rect x="11" y="4.5" width="9" height="3" rx="1.2"/><rect x="13" y="14.5" width="8" height="3" rx="1.2"/><path d="M3 11h18"/>',
   viewKanban: '<rect x="3" y="3" width="5" height="18" rx="1.2"/><rect x="9.5" y="3" width="5" height="12" rx="1.2"/><rect x="16" y="3" width="5" height="15" rx="1.2"/><path d="M4.5 7h2M4.5 10h2M11 7h2M17.5 7h2"/>',
+  kanbanBacklog: '<rect x="4" y="5" width="16" height="4" rx="1"/><path d="M5 9v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/>',
   kanbanTodo: '<circle cx="12" cy="12" r="8"/><path d="M12 8v4"/>',
   kanbanDoing: '<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/>',
   kanbanDone: '<circle cx="12" cy="12" r="8"/><path d="M8.2 12.3l2.6 2.6 5-5.4"/>',

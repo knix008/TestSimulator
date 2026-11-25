@@ -54,13 +54,13 @@ export default {
   'progress.dbSave': '데이터베이스에 저장하는 중', 'progress.dbLoad': '데이터베이스에서 읽는 중', 'progress.dbList': '데이터베이스의 계획 목록을 읽는 중',
 
   'tip.withKey': '{label} ({key})', 'tip.undoWith': '실행 취소: {label}', 'tip.redoWith': '다시 실행: {label}', 'tip.language': '언어 전환 (English로)',
-  'tip.themeRandom': '테마 무작위로 바꾸기 (지금: {current})', 'tip.viewMenu': '보기 전환 (지금: {name})', 'tip.zoomValue': '확대/축소 비율 (Ctrl+마우스 휠)',
+  'tip.themeRandom': '테마 무작위로 바꾸기 (지금: {current})', 'tip.viewMenu': '보기 전환 (지금: {name})', 'tip.timescaleValue': '일정(시간 눈금) 비율 — 기본 = 100% (Ctrl+차트 위 마우스 휠)', 'tip.zoomValue': '확대/축소 비율 (Ctrl+마우스 휠)',
   'tip.resize': '끌어서 창 크기 변경', 'tip.splitter': '끌어서 표와 차트의 너비 조절', 'tip.panelSplitter': '끌어서 패널 너비 조절',
   'tip.search': '작업 이름·메모·자원 검색',
 
   // ── op (undo labels)
   'op.insertTask': '작업 삽입', 'op.insertSummary': '요약 작업 삽입', 'op.deleteTasks': '작업 삭제', 'op.deleteResources': '자원 삭제', 'op.link': '작업 연결', 'op.unlink': '연결 끊기',
-  'op.moveTask': '작업 이동', 'op.duration': '기간 변경', 'op.progress': '진행률 변경', 'op.indent': '들여쓰기', 'op.outdent': '내어쓰기', 'op.moveRows': '행 이동', 'op.timeline': '시간 표시 막대',
+  'op.moveTask': '작업 이동', 'op.duration': '기간 변경', 'op.progress': '진행률 변경', 'op.kanbanOrder': '카드 순서 변경', 'op.indent': '들여쓰기', 'op.outdent': '내어쓰기', 'op.moveRows': '행 이동', 'op.timeline': '시간 표시 막대',
   'op.mode': '일정 모드 변경', 'op.inactive': '활성/비활성', 'op.addResource': '자원 추가', 'op.assign': '자원 할당', 'op.fillDown': '아래로 채우기', 'op.cut': '잘라내기', 'op.paste': '붙여넣기',
   'op.import': '가져오기', 'op.insertProject': '프로젝트 삽입', 'op.taskInfo': '작업 정보', 'op.resourceInfo': '자원 정보', 'op.editLink': '연결 변경', 'op.projectInfo': '프로젝트 정보',
   'op.calendar': '작업 시간 변경', 'op.baseline': '기준 계획 설정', 'op.baselineClear': '기준 계획 지우기', 'op.updateProject': '프로젝트 업데이트', 'op.levelingOptions': '평준화 옵션',
@@ -71,7 +71,7 @@ export default {
   'view.timeline': '시간 표시 막대', 'view.kanban': '칸반 보드', 'view.resourceSheet': '자원 시트', 'view.resourceUsage': '자원 사용', 'view.resourceGraph': '자원 그래프', 'view.teamPlanner': '팀 플래너', 'view.reports': '보고서',
   'viewShort.gantt': '간트', 'viewShort.tracking': '추적', 'viewShort.taskSheet': '시트', 'viewShort.taskUsage': '작업 사용', 'viewShort.network': '네트워크', 'viewShort.calendar': '일정표',
   'viewShort.timeline': '타임라인', 'viewShort.kanban': '칸반',
-  'kanban.todo': '시작 전', 'kanban.doing': '진행 중', 'kanban.done': '완료', 'kanban.empty': '여기에 카드를 끌어 놓으세요', 'viewShort.resourceSheet': '자원', 'viewShort.resourceUsage': '자원 사용', 'viewShort.resourceGraph': '그래프', 'viewShort.teamPlanner': '팀', 'viewShort.reports': '보고서',
+  'kanban.backlog': '백로그', 'kanban.todo': '시작 전', 'kanban.doing': '진행 중', 'kanban.done': '완료', 'kanban.empty': '여기에 카드를 끌어 놓으세요', 'viewShort.resourceSheet': '자원', 'viewShort.resourceUsage': '자원 사용', 'viewShort.resourceGraph': '그래프', 'viewShort.teamPlanner': '팀', 'viewShort.reports': '보고서',
 
   // ── tables, filters, groups, sorting
   'tableName.entry': '입력', 'tableName.schedule': '일정', 'tableName.cost': '비용', 'tableName.work': '작업량', 'tableName.tracking': '추적', 'tableName.variance': '차이',
@@ -262,7 +262,7 @@ export default {
 
   // ── progress
   'progress.wait': '잠시 기다려 주세요…', 'progress.bytes': '{done} / {total}', 'progress.steps': '{done} / {total} 단계', 'progress.open': '여는 중', 'progress.save': '저장하는 중',
-  'progress.export': '내보내는 중', 'progress.image': '그림을 만드는 중', 'progress.background': '배경 이미지를 복사하는 중', 'progress.leveling': '자원을 평준화하는 중',
+  'progress.export': '내보내는 중', 'progress.image': '그림을 만드는 중', 'progress.background': '배경 이미지를 복사하는 중', 'progress.leveling': '자원을 평준화하는 중', 'progress.critical': '주 공정을 구하는 중', 'progress.criticalStage.schedule': '일정 계산(정방향·역방향)', 'progress.criticalStage.collect': '여유 없는 작업 찾기', 'progress.criticalStage.trace': '완료까지 이어진 작업 추적', 'progress.criticalStage.chains': '주 공정 경로 잇기', 'progress.criticalStage.summaries': '요약 작업 표시', 'progress.criticalStage.draw': '화면에 그리기',
 
   // ── print
   'print.title': '인쇄 미리 보기', 'print.tabRange': '인쇄 범위', 'print.tabPage': '페이지 설정', 'print.tabHeader': '머리글·바닥글', 'print.range.all': '전체 프로젝트',

@@ -81,17 +81,17 @@ async function docTab(app, kind) {
 const plan = (title, names) => JSON.stringify({ format: 'myworkplan', version: 1, project: { title, tasks: names.map((name, i) => ({ id: `w${i}`, name, duration: 480 })) } });
 
 export const cases = [
-  { group: '페이지', name: '제목에 프로그램 이름과 버전, 아이콘', async run(app) {
+  { group: 'Page', name: 'Title shows the program name, version and icon', async run(app) {
     assert.equal(await app.main.eval('document.title'), `MyWorkPlan v${VERSION}`);
     assert.ok(await app.main.eval(`Boolean(document.querySelector('link[rel="icon"]'))`));
   } },
-  { group: '페이지', name: '처음 열면 튜토리얼 안내 (프레임 팝업)', async run(app) {
+  { group: 'Page', name: 'First open offers the tutorial (frame popup)', async run(app) {
     await app.waitFrame('welcome', `document.querySelector('.popup-head h2 svg')`);
     assert.match(await app.frame('welcome', `document.querySelector('.popup').innerText`), /튜토리얼/);
     await app.frame('welcome', `(document.querySelector('[data-value="later"]').click(), 1)`);
     await app.main.waitFor(`!document.querySelector('.web-popup-welcome')`);
   } },
-  { group: '시작 페이지', name: '템플릿·예제·튜토리얼·움직이는 배경', async run(app) {
+  { group: 'Start page', name: 'Templates, samples, tutorial and animated background', async run(app) {
     await W(app, 'a.showStartPage()');
     await sleep(300);
     const info = await app.main.eval(`({ shown: !document.querySelector('#start-page').hidden, templates: document.querySelectorAll('.template-tile').length, tutorial: Boolean(document.querySelector('[data-start="tutorial"]')) })`);
@@ -104,7 +104,7 @@ export const cases = [
     await sleep(500);
     assert.ok(await W(app, 'api.project().tasks.length > 10'), 'a template opens as a new plan');
   } },
-  { group: '시작 페이지', name: '카드 보드: MyUMLMaker 모양, 테마 카드 없음, 바로 가기 10개(인쇄 포함), 격자에 빈칸 없음', async run(app) {
+  { group: 'Start page', name: 'Card board: MyUMLMaker look, no theme card, 10 shortcuts (incl. Print), no gaps in the grid', async run(app) {
     await W(app, `(() => { for (const doc of [...w.state.docs]) a.closeDoc(doc, { force: true }); a.showStartPage(); return 1; })()`);
     await sleep(400);
     const info = await app.main.eval(`(() => {
@@ -140,7 +140,7 @@ export const cases = [
     assert.equal(info.overlap, false, 'cards never overlap');
     assert.equal(info.sideScroll, false, 'no sideways scrolling');
   } },
-  { group: '시작 페이지', name: '예제 40개(8분야×5): 누르면 그 언어의 새 계획 탭, 진행 중 예제는 기준 계획·완료율', async run(app) {
+  { group: 'Start page', name: '40 samples (8 fields x 5): click opens a new plan tab in that language; in-progress samples have a baseline and % complete', async run(app) {
     await W(app, `(() => { for (const doc of [...w.state.docs]) a.closeDoc(doc, { force: true }); a.showStartPage(); return 1; })()`);
     await sleep(300);
     const groups = await app.main.eval(`[...document.querySelectorAll('#start-page .sample-group')].map((g) => g.querySelectorAll('[data-start="sample"]').length)`);
@@ -156,7 +156,7 @@ export const cases = [
     await sleep(500);
     assert.ok(await W(app, `api.project().tasks.every((t) => !t.percentComplete) && w.state.docs.length === 2`), 'a sample that starts next Monday opens in its own tab');
   } },
-  { group: '시작 페이지', name: '카드 옮기기·자동 정렬·불투명도가 저장되고, 인쇄 타일은 열린 계획의 인쇄 창을 엶', async run(app) {
+  { group: 'Start page', name: 'Card moves, auto-arrange and opacity are saved; the Print tile opens print for the open plan', async run(app) {
     await W(app, `(() => { for (const doc of [...w.state.docs]) a.closeDoc(doc, { force: true }); a.updateSettings({ startLayout: null }); a.showStartPage(); return 1; })()`);
     await sleep(400);
     // Drag the Recent card's handle to the left column.
@@ -188,7 +188,7 @@ export const cases = [
     await app.waitFrame('print');
     await closeFrames(app);
   } },
-  { group: '시작 페이지', name: '튜토리얼 영상 단추: 별도 창(브라우저 탭)의 영상 화면, 언어 국기 단추', async run(app) {
+  { group: 'Start page', name: 'Tutorial video button: video page in its own window (browser tab), language flag button', async run(app) {
     await W(app, `(a.showStartPage(), 1)`);
     await sleep(300);
     await app.main.click('#start-page [data-start="tutorial-video"]');
@@ -201,7 +201,7 @@ export const cases = [
       page.close();
     }
   } },
-  { group: '시작 페이지', name: '설정 › 시작 화면: 항목 숨기기가 시작 화면에 바로 반영', async run(app) {
+  { group: 'Start page', name: 'Settings › Start page: hiding items applies to the start page at once', async run(app) {
     await W(app, `(() => { a.showStartPage(); w.popups.open('settings', { tab: 'start' }); return 1; })()`);
     await app.waitFrame('settings', `Boolean(document.querySelector('[data-toggle="startShowSamples"]'))`);
     await app.frame('settings', `(document.querySelector('[data-toggle="startShowSamples"]').click(), 1)`);
@@ -210,7 +210,7 @@ export const cases = [
     await app.main.waitFor(`Boolean(document.querySelector('#start-page .start-card-samples'))`, { timeout: 5000, message: 'samples card back' });
     await closeFrames(app);
   } },
-  { group: '시작 페이지', name: '배경: 시작할 때마다 무작위, 정한 시간마다 자동으로 바뀜', async run(app) {
+  { group: 'Start page', name: 'Background: random on every start, changes automatically at the set interval', async run(app) {
     const first = await W(app, 'w.state.settings.animation');
     await app.reload();
     await app.frame('welcome', `(document.querySelector('[data-value="later"]')?.click(), 1)`).catch(() => {});
@@ -223,7 +223,7 @@ export const cases = [
     await app.main.waitFor(`window.__myworkplan.state.settings.animation !== ${JSON.stringify(second)}`, { timeout: 20000, message: 'the background changes by itself' });
     await W(app, `a.updateSettings({ animationInterval: 30 })`);
   } },
-  { group: '창', name: '메뉴바의 홈 버튼, 좌우 패널은 툴바 바로 아래·탭은 두 패널 사이', async run(app) {
+  { group: 'Window', name: 'Home button in the menu bar; side panels right below the toolbar, tabs between the panels', async run(app) {
     await freshSample(app);
     const layout = await app.main.eval(`(() => {
       const r = (s) => document.querySelector(s).getBoundingClientRect();
@@ -255,13 +255,13 @@ export const cases = [
     await sleep(300);
     assert.deepEqual(await app.main.eval(`[document.querySelector('#start-page').hidden, window.__myworkplan.state.docs.length, window.__myworkplan.api.project().tasks.length]`), [true, 1, 0], 'a blank plan');
   } },
-  { group: '툴바', name: '모든 버튼에 툴팁, 한 줄, 투명도 조절 없음', async run(app) {
+  { group: 'Toolbar', name: 'Every button has a tooltip, single row, no opacity control', async run(app) {
     assert.deepEqual(await app.main.eval(`[...document.querySelectorAll('button')].filter((b) => b.getClientRects().length && !(b.title || '').trim()).map((b) => b.outerHTML.slice(0, 80))`), []);
     const rows = await app.main.eval(`new Set([...document.querySelectorAll('#toolbar .tool-button')].map((b) => { const r = b.getBoundingClientRect(); return Math.round(r.top + r.height / 2); })).size`);
     assert.equal(rows, 1);
     assert.equal(await app.main.eval(`Boolean(document.querySelector('.opacity-control'))`), false);
   } },
-  { group: '메뉴', name: '메뉴: 한 줄, 아이콘+이름, 머리글, 바깥 클릭으로 닫힘', async run(app) {
+  { group: 'Menu', name: 'Menus: single column, icon + label, heading, close on outside click', async run(app) {
     await app.main.click('[data-menu="edit"]');
     await app.waitFrame('menu', `document.querySelectorAll('.menu-item').length > 5`);
     const info = await app.frame('menu', `({ lefts: new Set([...document.querySelectorAll('.menu-item')].map((i) => Math.round(i.getBoundingClientRect().left))).size, icons: [...document.querySelectorAll('.menu-item')].every((i) => i.querySelector('.menu-icon svg') && i.querySelector('.menu-label').textContent.trim()), head: document.querySelector('.popup-menu').getAttribute('aria-label'), noHeader: !document.querySelector('.menu-head') })`);
@@ -272,7 +272,7 @@ export const cases = [
     await app.main.eval(`document.querySelector('.web-popup-shield').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); 1`);
     await app.main.waitFor(`!document.querySelector('.web-popup-menu')`);
   } },
-  { group: '메뉴', name: '컨텍스트 메뉴: 작업 행·차트·열 머리글이 서로 다름', async run(app) {
+  { group: 'Menu', name: 'Context menus differ for task rows, chart and column headers', async run(app) {
     await freshSample(app);
     const open = async (selector) => {
       const p = await app.main.center(selector);
@@ -287,7 +287,7 @@ export const cases = [
     const menus = [await open('.grid-row[data-index="2"] .grid-cell[data-field="name"]'), await open('.chart-body'), await open('.grid-hcell[data-field="duration"]')];
     assert.equal(new Set(menus).size, 3);
   } },
-  { group: '팝업', name: '팝업 프레임: 아이콘+제목, 스크롤 없음, 머리글을 끌어 이동', async run(app) {
+  { group: 'Popup', name: 'Popup frame: icon + title, no scrolling, drag the header to move', async run(app) {
     await freshSample(app);
     await W(app, `(w.run('settings'), 1)`);
     await app.waitFrame('settings');
@@ -308,7 +308,7 @@ export const cases = [
     assert.ok(Math.abs(after.x - before.x) > 50 || Math.abs(after.y - before.y) > 30, `moved ${JSON.stringify(before)} → ${JSON.stringify(after)}`);
     await closeFrames(app);
   } },
-  { group: '테마', name: '테마 드롭다운: 다크 20 | 라이트 20 두 줄', async run(app) {
+  { group: 'Theme', name: 'Theme dropdown: two columns, 20 dark | 20 light', async run(app) {
     await app.main.click('[data-command="themeMenu"]');
     await app.waitFrame('theme', `document.querySelectorAll('[data-pick-theme]').length > 30`);
     assert.deepEqual(await app.frame('theme', `[...document.querySelectorAll('.picker-column')].map((c) => c.querySelectorAll('[data-pick-theme]').length)`), [20, 20]);
@@ -316,7 +316,7 @@ export const cases = [
     await sleep(300);
     assert.equal(await W(app, 'w.state.settings.theme'), 'monokai');
   } },
-  { group: '툴바', name: '보기 드롭다운: 보기를 바꿔도 툴바 버튼이 움직이지 않음, 메뉴바에 계획 이름 없음', async run(app) {
+  { group: 'Toolbar', name: 'View dropdown: toolbar buttons stay put when switching views, no plan name in the menu bar', async run(app) {
     await freshSample(app);
     assert.equal(await app.main.eval(`document.querySelector('#menubar .menubar-title')`), null, 'the menubar shows no plan title');
     const views = ['gantt', 'tracking', 'taskSheet', 'taskUsage', 'network', 'calendar', 'timeline', 'kanban', 'resourceSheet', 'resourceUsage', 'resourceGraph', 'teamPlanner', 'reports'];
@@ -330,7 +330,7 @@ export const cases = [
     }
     await W(app, `(a.switchView('gantt'), 1)`);
   } },
-  { group: '보기', name: '간트 차트 줄: 작업 표와 같은 교차 색·선택 표시, 같은 높이에 정렬', async run(app) {
+  { group: 'Views', name: 'Gantt chart rows: same alternating colors and selection as the task table, aligned at the same height', async run(app) {
     await freshSample(app);
     await W(app, `(a.selectTask(api.project().tasks[4].id), 1)`);
     await sleep(200);
@@ -343,7 +343,7 @@ export const cases = [
     assert.ok(rows.chart.some((r) => r[0]) && rows.chart.some((r) => !r[0]), 'rows alternate');
     assert.ok(rows.chart.some((r) => r[1]), 'the selected row is highlighted in the chart too');
   } },
-  { group: '창', name: '홈 화면은 좌우 패널을 모두 숨겨도 창 전체 폭을 씀', async run(app) {
+  { group: 'Window', name: 'Home screen uses the full window width with both side panels hidden', async run(app) {
     await app.main.eval(`window.__myworkplan.popups.closeAll().then(() => 1)`);
     const widths = [];
     for (const [left, right] of [[true, true], [false, true], [true, false], [false, false]]) {
@@ -355,7 +355,7 @@ export const cases = [
       assert.ok(width >= page - 2, `home screen ${width}px of ${page}px`);
     }
   } },
-  { group: '일정', name: '주 공정 표시 버튼: 툴바에서 주 공정 강조를 켜고 끔', async run(app) {
+  { group: 'Schedule', name: 'Show critical path button: toggles critical path highlighting from the toolbar', async run(app) {
     await freshSample(app);
     await W(app, `a.updateSettings({ showCritical: true })`);
     const sel = '#toolbar [data-command="showCritical"]';
@@ -375,7 +375,7 @@ export const cases = [
     assert.deepEqual([again.pressed, again.setting], ['true', true], 'pressing again turns it back on');
     assert.ok(again.bars > 0);
   } },
-  { group: '일정', name: '주 공정 찾기 버튼: 토글, 앞뒤로 계산해 주 공정 작업·연결을 표시', async run(app) {
+  { group: 'Schedule', name: 'Find critical path button: toggle; forward/backward pass marks critical tasks and links', async run(app) {
     await freshSample(app);
     await W(app, `a.updateSettings({ showCritical: false })`);
     const state = () => app.main.eval(`({ pressed: document.querySelector('#toolbar [data-command="criticalPath"]').getAttribute('aria-pressed'), focus: document.querySelector('#app').classList.contains('critical-focus'), rows: document.querySelectorAll('.grid-row.critical-row').length, status: document.querySelector('.critical-status')?.textContent.trim() ?? null, notice: document.querySelector('#statusbar .status-notice').textContent })`);
@@ -397,7 +397,50 @@ export const cases = [
     const again = await state();
     assert.deepEqual([again.pressed, again.focus, again.rows, again.status], ['false', false, 0, null], 'pressing again turns it off');
   } },
-  { group: '편집', name: '작업 추가 → 실행 취소 → 다시 실행 (Ctrl+Z/Y)', async run(app) {
+  { group: 'Schedule', name: 'Critical path on a big plan: a progress popup shows each stage, closes when done', async run(app) {
+    await freshSample(app);
+    // 600 more tasks (copies of the sample's leaf tasks) make the plan big enough for the popup to open at once.
+    await W(app, `(() => {
+      const doc = a.activeDoc();
+      const leaves = doc.project.tasks.filter((t) => !doc.sched.info(t.id).summary);
+      for (let i = 0; i < 600; i++) { const src = leaves[i % leaves.length]; doc.project.tasks.push({ ...JSON.parse(JSON.stringify(src)), id: 'big-' + i, name: src.name + ' ' + i, outlineLevel: 1, predecessors: i ? [{ taskId: 'big-' + (i - 1), type: 'FS', lag: 0, lagUnit: 'd' }] : [] }); }
+      doc.recalculate();
+      return 1;
+    })()`);
+    // Record what the popup shows while the stages run.
+    await app.main.eval(`(() => { window.__cpSeen = []; const look = () => { const f = document.querySelector('.web-popup-progress iframe'); const text = f?.contentDocument?.querySelector('#progress-text')?.textContent; if (text && window.__cpSeen.at(-1) !== text) window.__cpSeen.push(text); }; window.__cpTimer = setInterval(look, 5); new MutationObserver(look).observe(document.body, { childList: true, subtree: true }); return 1; })()`);
+    await app.main.click('#toolbar [data-command="criticalPath"]');
+    await app.main.waitFor(`document.querySelector('#toolbar [data-command="criticalPath"]').getAttribute('aria-pressed') === 'true'`, { timeout: 30000 });
+    await sleep(700);
+    const seen = await app.main.eval(`(clearInterval(window.__cpTimer), window.__cpSeen)`);
+    assert.ok(seen.length >= 2, `the popup showed the stages: ${JSON.stringify(seen)}`);
+    assert.ok(seen.some((text) => /\d+ \/ 6/.test(text)), JSON.stringify(seen));
+    assert.equal(await app.main.eval(`Boolean(document.querySelector('.web-popup-progress'))`), false, 'the popup closes when done');
+    await app.main.click('#toolbar [data-command="criticalPath"]');
+    await sleep(300);
+  } },
+  { group: 'Schedule', name: 'Toolbar schedule zoom: out · current ratio · in; typing a percent sets the timescale', async run(app) {
+    await freshSample(app);
+    await W(app, `a.updateSettings({ timescale: 16 })`);
+    const value = () => app.main.eval(`document.querySelector('#timescale-value').value`);
+    assert.equal(await value(), '100%');
+    await app.main.click('#toolbar [data-command="timescaleIn"]');
+    await sleep(200);
+    assert.ok(await W(app, `w.state.settings.timescale > 16`), 'zoom in widens the days');
+    assert.notEqual(await value(), '100%');
+    await app.main.click('#toolbar [data-command="timescaleOut"]');
+    await app.main.click('#toolbar [data-command="timescaleOut"]');
+    await sleep(200);
+    assert.ok(await W(app, `w.state.settings.timescale < 16`), 'zoom out narrows them');
+    await app.main.eval(`(() => { const input = document.querySelector('#timescale-value'); input.focus(); input.value = '200'; input.dispatchEvent(new Event('change', { bubbles: true })); input.blur(); return 1; })()`);
+    await sleep(200);
+    assert.equal(await W(app, `w.state.settings.timescale`), 32);
+    assert.equal(await value(), '200%');
+    const box = await app.main.eval(`(() => { const r = document.querySelector('.toolbar-timescale').getBoundingClientRect(); return r.right <= document.querySelector('#toolbar').getBoundingClientRect().right && r.height > 20; })()`);
+    assert.ok(box, 'the stepper is fully on the toolbar');
+    await W(app, `a.updateSettings({ timescale: 16 })`);
+  } },
+  { group: 'Edit', name: 'Add task → undo → redo (Ctrl+Z/Y)', async run(app) {
     await freshSample(app);
     const count = await W(app, 'api.project().tasks.length');
     await W(app, `a.insertTask({ name: 'web task' }, { edit: false })`);
@@ -409,7 +452,7 @@ export const cases = [
     await sleep(200);
     assert.equal(await W(app, 'api.project().tasks.length'), count + 1);
   } },
-  { group: '편집', name: '클립보드: 복사한 작업을 브라우저 클립보드로, 붙여넣기', async run(app) {
+  { group: 'Edit', name: 'Clipboard: copied tasks go to the browser clipboard, paste', async run(app) {
     await freshSample(app);
     await app.main.eval(CLIP_SPY);
     await W(app, `(api.select('task', [api.project().tasks[3].id]), document.querySelector('.grid-body').focus(), 1)`);
@@ -422,7 +465,7 @@ export const cases = [
     await sleep(400);
     assert.equal(await W(app, 'api.project().tasks.length'), count + 1);
   } },
-  { group: '편집', name: 'Ctrl+휠 확대·축소', async run(app) {
+  { group: 'Edit', name: 'Ctrl+wheel zoom in/out', async run(app) {
     await W(app, `a.updateSettings({ zoom: 100 })`);
     const p = await app.main.center('.grid-body');
     await app.main.wheel(p.x, p.y, -100, 2);
@@ -430,7 +473,7 @@ export const cases = [
     assert.equal(await W(app, 'w.state.settings.zoom'), 110);
     await W(app, `a.updateSettings({ zoom: 100 })`);
   } },
-  { group: '파일', name: '파일 끌어다 놓기: 계획은 새 탭, 이미지는 배경', async run(app) {
+  { group: 'File', name: 'Drag and drop files: plans open in a new tab, images become the background', async run(app) {
     await freshSample(app);
     const tabs = await W(app, 'w.state.docs.length');
     await drop(app, [{ name: 'dropped.mwp', text: plan('웹에서 놓음', ['하나', '둘']) }]);
@@ -441,7 +484,7 @@ export const cases = [
     assert.equal(await W(app, 'w.state.settings.backgroundKind'), 'image');
     await W(app, `(a.removeBackground(), a.updateSettings({ backgroundKind: 'animated' }), 1)`);
   } },
-  { group: '파일', name: '저장(브라우저 저장 창)·XML/CSV 내보내기', async run(app) {
+  { group: 'File', name: 'Save (browser save dialog), XML/CSV export', async run(app) {
     await freshSample(app);
     await stubSavePicker(app);
     await W(app, `a.saveDoc(a.activeDoc(), { saveAs: true })`);
@@ -463,13 +506,13 @@ export const cases = [
       assert.ok(Object.keys(await app.main.eval('window.__saved')).some((n) => n.endsWith(`.${ext}`)), `image ${format}`);
     }
   } },
-  { group: '파일', name: '열기(브라우저 파일 선택)', async run(app) {
+  { group: 'File', name: 'Open (browser file picker)', async run(app) {
     await app.main.eval(`(() => { window.showOpenFilePicker = async () => [{ name: 'picked.mwp', getFile: async () => new File([${JSON.stringify(plan('고른 계획', ['A', 'B', 'C']))}], 'picked.mwp') }]; return 1; })()`);
     await W(app, `w.run('open')`);
     await app.main.waitFor(`window.__myworkplan.api.project()?.title === '고른 계획'`);
     assert.equal(await W(app, 'api.project().tasks.length'), 3);
   } },
-  { group: '파일', name: '저장 안 한 변경이 있으면 페이지를 떠날 때 확인', async run(app) {
+  { group: 'File', name: 'Unsaved changes prompt before leaving the page', async run(app) {
     await freshSample(app);
     await W(app, `a.insertTask({ name: 'unsaved' }, { edit: false })`);
     app.dialogs.length = 0;
@@ -477,14 +520,14 @@ export const cases = [
     assert.deepEqual(app.dialogs, ['beforeunload']);
     await app.frame('welcome', `(document.querySelector('[data-value="later"]')?.click(), 1)`).catch(() => {});
   } },
-  { group: '설정', name: '설정은 새로 고침 뒤에도 남음 (localStorage)', async run(app) {
+  { group: 'Settings', name: 'Settings survive a reload (localStorage)', async run(app) {
     await W(app, `a.updateSettings({ theme: 'dracula', language: 'en', timescale: 30 })`);
     await app.reload();
     assert.deepEqual(await W(app, `({ theme: w.state.settings.theme, language: w.state.settings.language, timescale: w.state.settings.timescale })`), { theme: 'dracula', language: 'en', timescale: 30 });
     assert.match(await app.main.eval(`document.querySelector('[data-menu="file"]').textContent`), /File/);
     await W(app, `a.updateSettings({ theme: 'light', language: 'ko', timescale: 16 })`);
   } },
-  ...['gantt', 'tracking', 'taskSheet', 'taskUsage', 'network', 'calendar', 'timeline', 'kanban', 'resourceSheet', 'resourceUsage', 'resourceGraph', 'teamPlanner', 'reports'].map((view) => ({ group: '보기', name: `${view}`, async run(app) {
+  ...['gantt', 'tracking', 'taskSheet', 'taskUsage', 'network', 'calendar', 'timeline', 'kanban', 'resourceSheet', 'resourceUsage', 'resourceGraph', 'teamPlanner', 'reports'].map((view) => ({ group: 'Views', name: `${view}`, async run(app) {
     if (view === 'gantt') await freshSample(app);
     await W(app, `a.switchView('${view}')`);
     await sleep(400);
@@ -492,7 +535,7 @@ export const cases = [
     assert.deepEqual(await app.main.eval(CLIP_CHECK), [], 'nothing cut off');
     assert.equal(await app.main.eval(`Boolean(document.querySelector('.web-popup-error'))`), false);
   } })),
-  { group: '도움말', name: '튜토리얼 문서: 별도 창(브라우저 탭), 장 이동, 국기 단추로 언어, 글자 크기 − px +', async run(app) {
+  { group: 'Help', name: 'Tutorial document: own window (browser tab), chapter navigation, flag button for language, font size − px +', async run(app) {
     await W(app, '(a.showStartPage(), 1)');
     await sleep(300);
     await app.main.click('#start-page [data-start="tutorial-doc"]');
@@ -529,7 +572,7 @@ export const cases = [
       page.close();
     }
   } },
-  { group: '보기', name: '그래프·보고서 차트: 축 눈금과 눈금자 수치, 격자선, 겹치지 않는 눈금 글자', async run(app) {
+  { group: 'Views', name: 'Graph and report charts: axis ticks and ruler values, grid lines, non-overlapping tick labels', async run(app) {
     await freshSample(app);
     const views = [['resourceGraph', null], ...['overview', 'cost', 'work', 'burndown', 'critical', 'late', 'upcoming', 'milestones', 'resources'].map((id) => ['reports', id])];
     let seen = 0;
@@ -549,7 +592,7 @@ export const cases = [
     assert.ok(seen >= 6, `${seen} charts checked`);
     await W(app, `(a.switchView('gantt'), 1)`);
   } },
-  { group: '기능 점검', name: '보기 13가지(칸반 보드 포함)가 모두 오류 없이 그려짐 (예제 계획)', async run(app) {
+  { group: 'Feature check', name: 'All 13 views (incl. Kanban board) render without errors (sample plan)', async run(app) {
     await freshSample(app);
     await app.main.eval(TRACK_ERRORS);
     const views = await W(app, `w.state.settings && ${JSON.stringify(['gantt', 'tracking', 'taskSheet', 'taskUsage', 'network', 'calendar', 'timeline', 'kanban', 'resourceSheet', 'resourceUsage', 'resourceGraph', 'teamPlanner', 'reports'])}`);
@@ -561,7 +604,7 @@ export const cases = [
     }
     assert.deepEqual(await app.main.eval(ERRORS), [], 'no errors');
   } },
-  { group: '기능 점검', name: '보고서 10가지(인건비 포함)가 모두 그려지고 복사됨', async run(app) {
+  { group: 'Feature check', name: 'All 10 reports (incl. labor cost) render and copy', async run(app) {
     await freshSample(app);
     await app.main.eval(TRACK_ERRORS);
     await app.main.eval(CLIP_SPY);
@@ -577,7 +620,7 @@ export const cases = [
     }
     assert.deepEqual(await app.main.eval(ERRORS), [], 'no errors');
   } },
-  { group: '기능 점검', name: '메뉴의 모든 명령을 차례로 실행해도 오류가 없음', async run(app) {
+  { group: 'Feature check', name: 'Running every menu command in turn raises no errors', async run(app) {
     await freshSample(app);
     await stubSavePicker(app);
     await app.main.eval(TRACK_ERRORS);
@@ -605,7 +648,7 @@ export const cases = [
     assert.ok(ran.length > 80, `${ran.length} commands ran`);
     assert.deepEqual(await app.main.eval(ERRORS), [], `no errors after ${ran.length} commands`);
   } },
-  { group: '기능 점검', name: '예제 40개를 모두 열어 간트·추적 간트·자원 시트·인건비 보고서가 오류 없이 그려짐', async run(app) {
+  { group: 'Feature check', name: 'All 40 samples open and render Gantt, Tracking Gantt, Resource Sheet and labor cost report without errors', async run(app) {
     await closeFrames(app);
     await app.main.eval(TRACK_ERRORS);
     const ids = await app.main.eval(`[...document.querySelectorAll('[data-start="sample"]')].map((b) => b.dataset.value)`).then(async (list) => (list.length ? list : W(app, `(a.showStartPage(), [...document.querySelectorAll('[data-start="sample"]')].map((b) => b.dataset.value))`)));
@@ -620,7 +663,7 @@ export const cases = [
     }
     assert.deepEqual(await app.main.eval(ERRORS), [], 'no errors');
   } },
-  { group: '인건비', name: '자원 정보 › 비용: 월급을 넣으면 시간당 단가가 보이고, 확인하면 비용·자원 시트·인건비 보고서에 반영', async run(app) {
+  { group: 'Labor cost', name: 'Resource info › Costs: a monthly wage shows the hourly rate; OK applies it to costs, Resource Sheet and labor cost report', async run(app) {
     await freshSample(app);
     await W(app, `(a.switchView('resourceSheet'), 1)`);
     const id = await W(app, `api.project().resources.find((r) => r.type === 'work' && !r.wage).id`);
@@ -646,12 +689,12 @@ export const cases = [
     await W(app, `(w.run('undo'), 1)`);
     assert.equal(await W(app, `api.project().resources.find((r) => r.id === ${JSON.stringify(id)}).wage`), null, 'undo takes the wage back');
   } },
-  { group: '칸반 보드', name: '칸반 보드: 시작 전·진행 중·완료 세 열, 카드를 끌어 다른 열에 놓으면 완료율이 바뀜', async run(app) {
+  { group: 'Kanban board', name: 'Kanban board: four columns (incl. backlog), silhouette and cards shift while dragging, dropping in another column sets % complete, order kept within a column', async run(app) {
     await freshSample(app);
     await W(app, `(a.switchView('kanban'), 1)`);
     await sleep(400);
     const columns = await app.main.eval(`[...document.querySelectorAll('#view-host .kb-column')].map((c) => ({ id: c.dataset.column, cards: c.querySelectorAll('.kb-card').length, count: Number(c.querySelector('.kb-count').textContent) }))`);
-    assert.deepEqual(columns.map((c) => c.id), ['todo', 'doing', 'done']);
+    assert.deepEqual(columns.map((c) => c.id), ['backlog', 'todo', 'doing', 'done']);
     assert.ok(columns.every((c) => c.cards === c.count), JSON.stringify(columns));
     const leaves = await W(app, `api.project().tasks.filter((t) => !api.sched().info(t.id).summary && t.active !== false).length`);
     assert.equal(columns.reduce((n, c) => n + c.cards, 0), leaves, 'every leaf task is a card');
@@ -661,13 +704,60 @@ export const cases = [
     const to = await app.main.center('.kb-done .kb-list');
     await app.main.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: from.x, y: from.y, button: 'left', clickCount: 1 });
     for (let i = 1; i <= 8; i++) await app.main.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: from.x + ((to.x - from.x) * i) / 8, y: from.y + ((to.y - from.y) * i) / 8, button: 'left', buttons: 1 });
+    // While dragging: the card is a flat (not tilted) floating copy, its silhouette sits in the Done list where it will land.
+    const during = await app.main.eval(`(() => {
+      const ghost = document.querySelector('.kb-ghost');
+      const holes = [...document.querySelectorAll('.kb-placeholder')];
+      return { ghost: Boolean(ghost), transform: ghost && getComputedStyle(ghost).transform, holes: holes.length, inDone: Boolean(document.querySelector('.kb-done .kb-list .kb-placeholder')),
+        lifted: getComputedStyle(document.querySelector('.kb-card[data-task="${id}"]')).display };
+    })()`);
+    assert.deepEqual(during, { ghost: true, transform: 'none', holes: 1, inDone: true, lifted: 'none' }, JSON.stringify(during));
     await app.main.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: to.x, y: to.y, button: 'left', clickCount: 1 });
     await sleep(400);
     assert.equal(await W(app, `api.project().tasks.find((t) => t.id === ${JSON.stringify(id)}).percentComplete`), 100, 'dropped on Done: 100%');
     assert.ok(await app.main.eval(`Boolean(document.querySelector('.kb-done .kb-card[data-task="${id}"]'))`), 'the card moved to Done');
-    await W(app, `(w.run('undo'), a.switchView('gantt'), 1)`);
+    assert.equal(await app.main.eval(`document.querySelectorAll('.kb-placeholder, .kb-ghost').length`), 0);
+    await W(app, `(w.run('undo'), 1)`);
+    await sleep(300);
+    // Backlog: a card in progress dropped there goes back to 0% and stays in the Backlog (not Not started); undo brings it back.
+    const busy = await app.main.eval(`document.querySelector('.kb-doing .kb-card').dataset.task`);
+    const pct = await W(app, `api.project().tasks.find((t) => t.id === ${JSON.stringify(busy)}).percentComplete`);
+    const p = await app.main.center(`.kb-card[data-task="${busy}"]`);
+    const b = await app.main.center('.kb-backlog .kb-list');
+    await app.main.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: p.x, y: p.y, button: 'left', clickCount: 1 });
+    for (let i = 1; i <= 8; i++) await app.main.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p.x + ((b.x - p.x) * i) / 8, y: p.y + ((b.y - p.y) * i) / 8, button: 'left', buttons: 1 });
+    await app.main.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: b.x, y: b.y, button: 'left', clickCount: 1 });
+    await sleep(400);
+    assert.deepEqual(await W(app, `(({ percentComplete, backlog }) => ({ percentComplete, backlog }))(api.project().tasks.find((t) => t.id === ${JSON.stringify(busy)}))`), { percentComplete: 0, backlog: true });
+    assert.ok(await app.main.eval(`Boolean(document.querySelector('.kb-backlog .kb-card[data-task="${busy}"]'))`), 'the card is in the Backlog');
+    await W(app, `(w.run('undo'), 1)`);
+    await sleep(300);
+    assert.equal(await W(app, `api.project().tasks.find((t) => t.id === ${JSON.stringify(busy)}).percentComplete`), pct, 'undo puts the progress back');
+    assert.ok(await app.main.eval(`Boolean(document.querySelector('.kb-doing .kb-card[data-task="${busy}"]'))`));
+    // Reorder inside a column: the last card dragged above the first takes the top, the others slide down and keep their order.
+    const col = await app.main.eval(`[...document.querySelectorAll('.kb-column')].find((c) => c.querySelectorAll('.kb-card').length >= 3).dataset.column`);
+    const order = () => app.main.eval(`[...document.querySelectorAll('.kb-${col} .kb-card')].map((c) => c.dataset.task)`);
+    const before = await order();
+    const last = before.at(-1);
+    await app.main.eval(`document.querySelector('.kb-${col} .kb-card[data-task="${last}"]').scrollIntoView({ block: 'nearest' })`);
+    const a = await app.main.center(`.kb-card[data-task="${last}"]`);
+    await app.main.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: a.x, y: a.y, button: 'left', clickCount: 1 });
+    await app.main.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: a.x, y: a.y - 10, button: 'left', buttons: 1 });
+    await app.main.eval(`document.querySelector('.kb-${col} .kb-list').scrollTop = 0`);
+    const top = await app.main.eval(`(() => { const r = document.querySelector('.kb-${col} .kb-card:not(.kb-lifted)').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + 4 }; })()`);
+    for (let i = 1; i <= 6; i++) await app.main.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: top.x, y: a.y + ((top.y - a.y) * i) / 6, button: 'left', buttons: 1 });
+    const slid = await app.main.eval(`(() => { const list = document.querySelector('.kb-${col} .kb-list'); return { first: list.firstElementChild.className, sliding: [...list.querySelectorAll('.kb-card')].some((c) => c.style.transition.includes('transform')) }; })()`);
+    assert.equal(slid.first, 'kb-placeholder', 'the silhouette is at the top of the list');
+    assert.ok(slid.sliding, 'the cards slide to make room');
+    await app.main.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: top.x, y: top.y, button: 'left', clickCount: 1 });
+    await sleep(400);
+    assert.deepEqual(await order(), [last, ...before.slice(0, -1)], 'dropped order is kept');
+    await W(app, `(w.run('undo'), 1)`);
+    await sleep(300);
+    assert.deepEqual(await order(), before, 'undo restores the order');
+    await W(app, `(a.switchView('gantt'), 1)`);
   } },
-  { group: '보고서', name: '번다운 차트 보고서: 핵심 수치·남은 작업량·남은 작업 수, 인쇄 창에 번다운 차트가 골라져 열림', async run(app) {
+  { group: 'Reports', name: 'Burndown report: key figures, remaining work and remaining tasks; print opens with the burndown chart selected', async run(app) {
     await freshSample(app);
     await W(app, `(api.doc().view.report = 'burndown', a.switchView('reports'), 1)`);
     await sleep(400);
@@ -693,7 +783,7 @@ export const cases = [
     await closeFrames(app);
     await W(app, `(a.switchView('gantt'), 1)`);
   } },
-  { group: '메뉴', name: '하위 메뉴는 메뉴 옆에 함께 열림 (메뉴가 사라지지 않음, 각자 크기)', async run(app) {
+  { group: 'Menu', name: 'Submenus open beside the menu (menu stays open, each sized on its own)', async run(app) {
     await freshSample(app);
     await app.main.click('[data-menu="view"]');
     await app.waitFrame('menu', `document.querySelector('[data-id="submenu:views"]')`);
@@ -709,7 +799,7 @@ export const cases = [
     assert.equal(await W(app, 'w.state.viewId'), 'kanban');
     await W(app, `(a.switchView('gantt'), 1)`);
   } },
-  { group: '팝업', name: '설정 창: 모든 탭이 보이고 < > 단추가 없음 (한국어·영어)', async run(app) {
+  { group: 'Popup', name: 'Settings window: all tabs visible, no < > buttons (Korean and English)', async run(app) {
     for (const language of ['ko', 'en']) {
       await closeFrames(app);
       await W(app, `(a.updateSettings({ language: ${JSON.stringify(language)} }), w.run('settings'), 1)`);
@@ -720,7 +810,7 @@ export const cases = [
     await closeFrames(app);
     await W(app, `(a.updateSettings({ language: 'ko' }), 1)`);
   } },
-  { group: '속성 패널', name: '완료율: 프로젝트·요약·작업·여러 작업 모두 [−] 값 [+] 로 편집, 값 가운데, 줄 높이·값 열 정렬', async run(app) {
+  { group: 'Properties panel', name: '% complete: project, summary, task and multiple tasks all edit with [−] value [+], centered value, aligned row height and value column', async run(app) {
     await freshSample(app);
     await W(app, `(a.switchView('gantt'), a.clearSelection?.(), 1)`);
     await sleep(300);
@@ -754,7 +844,7 @@ export const cases = [
     assert.equal(new Set(layout.xs).size, 1, `value column: ${layout.xs}`);
     await W(app, `(a.clearSelection?.(), 1)`);
   } },
-  { group: '인건비', name: '자원 시트 인건비 표: 임금 기준·임금 칸 편집, 비율 열, 프로젝트 정보 › 통계의 인건비', async run(app) {
+  { group: 'Labor cost', name: 'Resource Sheet labor cost table: pay basis and wage cells editable, share column, labor cost in Project info › Statistics', async run(app) {
     await freshSample(app);
     await W(app, `(a.switchView('resourceSheet'), a.setViewOptions({ resourceTable: 'labor' }), 1)`);
     await sleep(300);
@@ -769,7 +859,7 @@ export const cases = [
     assert.match(await app.frame('project', `document.body.innerText`), /인건비 비율[\s\S]*%/);
     await closeFrames(app);
   } },
-  { group: '아이콘', name: '메인 창·메뉴·팝업 창의 모든 아이콘에 색이 있고, 툴바는 여러 색', async run(app) {
+  { group: 'Icons', name: 'Every icon in the main window, menus and popups is colored; the toolbar uses many colors', async run(app) {
     await freshSample(app);
     const main = await app.main.eval(`(() => {
       const icons = [...document.querySelectorAll('#app svg.icon')];
@@ -797,7 +887,7 @@ export const cases = [
     await W(app, `(a.updateSettings({ theme: w.state.settings.theme }), document.documentElement.dataset.mode)`);
     assert.ok(['dark', 'light'].includes(await app.main.eval(`document.documentElement.dataset.mode`)));
   } },
-  { group: '하단 패널', name: '일정 점검: 툴바 단추로 켜고 끄기, 탭 5개와 개수, 줄을 누르면 작업·자원으로 이동', async run(app) {
+  { group: 'Bottom panel', name: 'Schedule check: toggled from the toolbar, 5 tabs with counts, clicking a row goes to the task or resource', async run(app) {
     await freshSample(app);
     await W(app, `(a.updateSettings({ showBottomPanel: true, bottomPanelCollapsed: false, bottomPanelTab: 'problems' }), 1)`);
     await sleep(300);
@@ -847,7 +937,7 @@ export const cases = [
     assert.equal(await app.main.eval(`document.querySelector('#bottom-panel').hidden`), true, 'hidden on the start page');
     await W(app, `(a.showStartPage(false), 1)`);
   } },
-  { group: '하단 패널', name: '접고 펴기: 접어도 아이콘·제목·개수가 보이고 보기가 넓어짐, 높이 끌기, 좌우 패널 접힘도 아이콘·제목', async run(app) {
+  { group: 'Bottom panel', name: 'Collapse/expand: icon, title and counts stay visible and the view grows; drag to resize height; folded side panels show icon and title too', async run(app) {
     await freshSample(app);
     await W(app, `(a.updateSettings({ showBottomPanel: true, bottomPanelCollapsed: false, bottomPanelHeight: 230, showLeftPanel: true, showRightPanel: true }), 1)`);
     await sleep(300);
@@ -891,7 +981,7 @@ export const cases = [
     assert.deepEqual(rails.map((r) => [r.first, r.icon, Boolean(r.text), r.expand]), [['rail-button expand', true, true, 'foldRight'], ['rail-button expand', true, true, 'foldLeft']], 'the expand button is the topmost thing on a folded rail');
     await W(app, `(a.updateSettings({ showLeftPanel: true, showRightPanel: true }), 1)`);
   } },
-  { group: '인쇄', name: '인쇄 미리 보기 → 브라우저 인쇄', async run(app) {
+  { group: 'Print', name: 'Print preview → browser print', async run(app) {
     await freshSample(app);
     await W(app, `(w.run('print'), 1)`);
     await app.waitFrame('print', `window.__myworkplanPopup.printLayout().count >= 1`);
@@ -901,7 +991,7 @@ export const cases = [
     assert.ok(await app.frame('print', 'window.__printed') >= 1);
     await closeFrames(app);
   } },
-  { group: '오류', name: '잘못된 파일 → 오류 팝업, 자세히 복사', async run(app) {
+  { group: 'Errors', name: 'Invalid file → error popup, copy details', async run(app) {
     await drop(app, [{ name: 'broken.mwp', text: '{ nope' }]);
     await app.waitFrame('error', `document.querySelector('#error-detail')`);
     assert.match(await app.frame('error', `document.querySelector('#error-detail').value`), /broken\.mwp/);

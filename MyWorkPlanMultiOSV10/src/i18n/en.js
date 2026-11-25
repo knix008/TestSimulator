@@ -52,12 +52,12 @@ export default {
   'progress.dbSave': 'Saving to the database', 'progress.dbLoad': 'Reading from the database', 'progress.dbList': 'Reading the plans in the database',
 
   'tip.withKey': '{label} ({key})', 'tip.undoWith': 'Undo: {label}', 'tip.redoWith': 'Redo: {label}', 'tip.language': 'Switch language (to 한국어)',
-  'tip.themeRandom': 'Random theme (now: {current})', 'tip.viewMenu': 'Switch view (now: {name})', 'tip.zoomValue': 'Zoom (Ctrl+mouse wheel)',
+  'tip.themeRandom': 'Random theme (now: {current})', 'tip.viewMenu': 'Switch view (now: {name})', 'tip.timescaleValue': 'Schedule (timescale) ratio — default = 100% (Ctrl+mouse wheel on the chart)', 'tip.zoomValue': 'Zoom (Ctrl+mouse wheel)',
   'tip.resize': 'Drag to resize the window', 'tip.splitter': 'Drag to resize the table and the chart', 'tip.panelSplitter': 'Drag to resize the panel',
   'tip.search': 'Search task names, notes and resources',
 
   'op.insertTask': 'Insert task', 'op.insertSummary': 'Insert summary task', 'op.deleteTasks': 'Delete tasks', 'op.deleteResources': 'Delete resources', 'op.link': 'Link tasks', 'op.unlink': 'Unlink',
-  'op.moveTask': 'Move task', 'op.duration': 'Change duration', 'op.progress': 'Change progress', 'op.indent': 'Indent', 'op.outdent': 'Outdent', 'op.moveRows': 'Move rows', 'op.timeline': 'Timeline',
+  'op.moveTask': 'Move task', 'op.duration': 'Change duration', 'op.progress': 'Change progress', 'op.kanbanOrder': 'Reorder cards', 'op.indent': 'Indent', 'op.outdent': 'Outdent', 'op.moveRows': 'Move rows', 'op.timeline': 'Timeline',
   'op.mode': 'Change task mode', 'op.inactive': 'Activate / inactivate', 'op.addResource': 'Add resource', 'op.assign': 'Assign resources', 'op.fillDown': 'Fill down', 'op.cut': 'Cut', 'op.paste': 'Paste',
   'op.import': 'Import', 'op.insertProject': 'Insert project', 'op.taskInfo': 'Task information', 'op.resourceInfo': 'Resource information', 'op.editLink': 'Change link', 'op.projectInfo': 'Project information',
   'op.calendar': 'Change working time', 'op.baseline': 'Set baseline', 'op.baselineClear': 'Clear baseline', 'op.updateProject': 'Update project', 'op.levelingOptions': 'Leveling options',
@@ -67,7 +67,7 @@ export default {
   'view.timeline': 'Timeline', 'view.kanban': 'Kanban Board', 'view.resourceSheet': 'Resource Sheet', 'view.resourceUsage': 'Resource Usage', 'view.resourceGraph': 'Resource Graph', 'view.teamPlanner': 'Team Planner', 'view.reports': 'Reports',
   'viewShort.gantt': 'Gantt', 'viewShort.tracking': 'Tracking', 'viewShort.taskSheet': 'Sheet', 'viewShort.taskUsage': 'Task usage', 'viewShort.network': 'Network', 'viewShort.calendar': 'Calendar',
   'viewShort.timeline': 'Timeline', 'viewShort.kanban': 'Kanban',
-  'kanban.todo': 'Not started', 'kanban.doing': 'In progress', 'kanban.done': 'Done', 'kanban.empty': 'Drop cards here', 'viewShort.resourceSheet': 'Resources', 'viewShort.resourceUsage': 'Res. usage', 'viewShort.resourceGraph': 'Graph', 'viewShort.teamPlanner': 'Team', 'viewShort.reports': 'Reports',
+  'kanban.backlog': 'Backlog', 'kanban.todo': 'Not started', 'kanban.doing': 'In progress', 'kanban.done': 'Done', 'kanban.empty': 'Drop cards here', 'viewShort.resourceSheet': 'Resources', 'viewShort.resourceUsage': 'Res. usage', 'viewShort.resourceGraph': 'Graph', 'viewShort.teamPlanner': 'Team', 'viewShort.reports': 'Reports',
 
   'tableName.entry': 'Entry', 'tableName.schedule': 'Schedule', 'tableName.cost': 'Cost', 'tableName.work': 'Work', 'tableName.tracking': 'Tracking', 'tableName.variance': 'Variance',
   'tableName.baseline': 'Baseline', 'tableName.summary': 'Summary', 'tableName.constraints': 'Constraint dates',
@@ -241,7 +241,7 @@ export default {
   'about.runtime': 'Runtime', 'about.platform': 'Platform', 'about.webBuild': 'Web (browser)', 'about.author': 'Author',
 
   'progress.wait': 'Please wait…', 'progress.bytes': '{done} / {total}', 'progress.steps': 'step {done} of {total}', 'progress.open': 'Opening', 'progress.save': 'Saving',
-  'progress.export': 'Exporting', 'progress.image': 'Drawing the picture', 'progress.background': 'Copying the background image', 'progress.leveling': 'Leveling resources',
+  'progress.export': 'Exporting', 'progress.image': 'Drawing the picture', 'progress.background': 'Copying the background image', 'progress.critical': 'Finding the critical path', 'progress.criticalStage.schedule': 'Scheduling (forward and backward pass)', 'progress.criticalStage.collect': 'Finding tasks without slack', 'progress.criticalStage.trace': 'Tracing work to the project finish', 'progress.criticalStage.chains': 'Linking the critical chains', 'progress.criticalStage.summaries': 'Marking summary tasks', 'progress.criticalStage.draw': 'Drawing', 'progress.leveling': 'Leveling resources',
 
   'print.title': 'Print preview', 'print.tabRange': 'What to print', 'print.tabPage': 'Page setup', 'print.tabHeader': 'Header and footer', 'print.range.all': 'Entire project',
   'print.range.view': 'Current view (filtered tasks)', 'print.range.custom': 'Custom', 'print.rows': 'Task ID range', 'print.fromRow': 'First ID', 'print.toRow': 'Last ID',

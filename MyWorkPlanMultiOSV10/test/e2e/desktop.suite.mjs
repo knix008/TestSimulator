@@ -86,7 +86,7 @@ const PNG_1x1 = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUl
 
 export const cases = [
   // ───────────────────────── first start
-  { group: '처음 실행', name: '튜토리얼 안내 팝업 (독립 OS 창) → 나중에', async run(app) {
+  { group: 'First run', name: 'Tutorial offer popup (separate OS window) → Later', async run(app) {
     const page = await app.popup('welcome');
     await expectPopupWindow(app, page, 'welcome');
     const text = await page.eval(`document.querySelector('.popup').innerText`);
@@ -96,14 +96,14 @@ export const cases = [
     await sleep(300);
     assert.equal(await W(app, 'w.state.settings.tutorialOffered'), true, 'offered once');
   } },
-  { group: '처음 실행', name: '시작 페이지: 템플릿 8개, 최근 파일·폴더, 예제, 튜토리얼 시작 버튼', async run(app) {
+  { group: 'First run', name: 'Start page: 8 templates, recent files and folders, samples, start tutorial button', async run(app) {
     const info = await app.main.eval(`({ shown: !document.querySelector('#start-page').hidden, templates: document.querySelectorAll('.template-tile').length, tutorial: Boolean(document.querySelector('[data-start="tutorial"]')), banner: Boolean(document.querySelector('.start-banner')), recent: Boolean(document.querySelector('.start-card.recent')), samples: document.querySelectorAll('[data-start="sample"]').length })`);
     assert.ok(info.shown, 'start page shown');
     assert.equal(info.templates, 8);
     assert.ok(info.tutorial && info.banner && info.recent, JSON.stringify(info));
     assert.equal(info.samples, 40, '40 sample projects listed');
   } },
-  { group: '처음 실행', name: '시작 페이지 배경이 움직이고 바꿀 수 있음', async run(app) {
+  { group: 'First run', name: 'Start page background animates and can be changed', async run(app) {
     const frames = async () => app.main.eval(`(() => { const c = document.querySelector('.start-bg'); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let h = 0; for (let y = 0; y < c.height; y += 7) for (let x = 0; x < c.width; x += 7) { const i = (y * c.width + x) * 4; h = (h * 31 + d[i] * 3 + d[i + 1] * 5 + d[i + 2]) >>> 0; } return h; })()`);
     const a = await frames();
     await sleep(900);
@@ -120,7 +120,7 @@ export const cases = [
   } },
 
   // ───────────────────────── window
-  { group: '창', name: '메뉴바의 홈 버튼, 좌우 패널은 툴바 바로 아래·탭은 두 패널 사이', async run(app) {
+  { group: 'Window', name: 'Home button in the menu bar; side panels right below the toolbar, tabs between the panels', async run(app) {
     await freshSample(app);
     const layout = await app.main.eval(`(() => {
       const r = (s) => document.querySelector(s).getBoundingClientRect();
@@ -152,10 +152,10 @@ export const cases = [
     await sleep(300);
     assert.deepEqual(await app.main.eval(`[document.querySelector('#start-page').hidden, window.__myworkplan.state.docs.length, window.__myworkplan.api.project().tasks.length]`), [true, 1, 0], 'a blank plan');
   } },
-  { group: '창', name: '타이틀 바: 프로그램 이름과 버전', async run(app) {
+  { group: 'Window', name: 'Title bar: program name and version', async run(app) {
     assert.equal(mainWindow(app)?.title, TITLE);
   } },
-  { group: '창', name: '제목 표시줄 없음: 메뉴바 왼쪽에 아이콘·이름·버전, 오른쪽 끝에 최소화·최대화·닫기, 메뉴바로 창 이동', async run(app) {
+  { group: 'Window', name: 'No title bar: icon, name and version at the left of the menu bar, minimize/maximize/close at the right end, menu bar moves the window', async run(app) {
     await freshSample(app);
     const main = mainWindow(app);
     // Windows keeps the caption style bit on an undecorated Tauri window (DWM hides it): measure the frame instead.
@@ -194,7 +194,7 @@ export const cases = [
     await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|unminimize', { label: 'main' }).then(() => 1)`);
     await sleep(500);
   } },
-  { group: '창', name: '최소 크기: OS(SetWindowPos·Snap)로 줄여도 원래대로 돌아오고, 툴바는 한 줄·가려진 버튼 없음 (한국어·영어)', async run(app) {
+  { group: 'Window', name: 'Minimum size: shrinking via the OS (SetWindowPos, Snap) springs back; toolbar stays one row with no hidden buttons (Korean and English)', async run(app) {
     await freshSample(app);
     const shrink = (handle) => ps(`Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public static class S{[DllImport("user32.dll")]public static extern bool SetWindowPos(IntPtr h,IntPtr a,int x,int y,int cx,int cy,uint f);}';[void][S]::SetWindowPos([IntPtr]${handle},[IntPtr]::Zero,60,40,600,480,0x0014)`);
     for (const language of ['ko', 'en']) {
@@ -223,7 +223,7 @@ export const cases = [
     await resize(app, 1480, 900);
     await sleep(400);
   } },
-  { group: '창', name: '이미 실행 중이면 오류 팝업 후 종료 (두 번째 실행)', async run(app) {
+  { group: 'Window', name: 'Already running: error popup, then exit (second launch)', async run(app) {
     const lockDir = tempDir('lock');
     const report = path.join(lockDir, 'already.txt');
     const profile = tempDir('profile2');
@@ -258,7 +258,7 @@ export const cases = [
       await sleep(800);
     }
   } },
-  { group: '창', name: '최소 창 폭: 툴바·메뉴가 가려지지 않고 툴바는 한 줄', async run(app) {
+  { group: 'Window', name: 'Minimum window width: toolbar and menus not clipped, toolbar in one row', async run(app) {
     await freshSample(app);
     const min = await W(app, 'w.state.minWidth');
     assert.ok(min > 800, `minimum width ${min}`);
@@ -282,7 +282,7 @@ export const cases = [
     assert.ok(result.height < 44, `${result.height}px high`);
     assert.deepEqual(result.hidden, []);
   } },
-  { group: '창', name: '오른쪽 아래 모서리의 크기 조절 표시로 창 크기 바꾸기 (실제 마우스)', async run(app) {
+  { group: 'Window', name: 'Resize the window with the bottom-right size grip (real mouse)', async run(app) {
     await resize(app, 1300, 820);
     await sleep(400);
     // Measured after the resize: the grip moves with the window corner.
@@ -303,7 +303,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await sleep(300);
     assert.ok(after.w > before.w + 40 && after.h > before.h + 25, `window grew ${JSON.stringify(before)} → ${JSON.stringify(after)}`);
   } },
-  { group: '창', name: '상태 표시줄: 상태 정보와 명령 결과', async run(app) {
+  { group: 'Window', name: 'Status bar: status info and command results', async run(app) {
     await freshSample(app);
     await W(app, `a.insertTask({ name: 'status check' }, { edit: false })`);
     await W(app, `(w.run('calculate'), 1)`);
@@ -316,13 +316,13 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
   } },
 
   // ───────────────────────── toolbar
-  { group: '툴바', name: '모든 버튼에 툴팁 · 한 줄 · 아이콘은 서로 다름', async run(app) {
+  { group: 'Toolbar', name: 'Every button has a tooltip · single row · distinct icons', async run(app) {
     const missing = await app.main.eval(`[...document.querySelectorAll('#toolbar button, #toolbar input, #tabs button, #left-panel button, #right-panel button, #statusbar button')].filter((b) => !(b.title || '').trim()).map((b) => b.outerHTML.slice(0, 90))`);
     assert.deepEqual(missing, []);
     const icons = await app.main.eval(`[...document.querySelectorAll('#toolbar [data-command]')].filter((b) => b.dataset.command !== 'language').map((b) => b.querySelector('svg')?.innerHTML)`);
     assert.equal(new Set(icons).size, icons.length, 'no two toolbar buttons share an icon');
   } },
-  { group: '툴바', name: '프로그램 정보 버튼: 빌드 정보와 제작자', async run(app) {
+  { group: 'Toolbar', name: 'About button: build info and author', async run(app) {
     await app.main.click('[data-command="about"]');
     const page = await app.popup('about');
     await expectPopupWindow(app, page, 'about');
@@ -334,7 +334,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     page.close();
     await closePopups(app);
   } },
-  { group: '툴바', name: '테마 버튼은 매번 다른 테마를 무작위로', async run(app) {
+  { group: 'Toolbar', name: 'Theme button picks a different random theme each time', async run(app) {
     const seen = new Set();
     let previous = await W(app, 'w.state.settings.theme');
     for (let i = 0; i < 6; i++) {
@@ -347,7 +347,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     }
     assert.ok(seen.size >= 4, `${seen.size} different themes`);
   } },
-  { group: '툴바', name: '테마 드롭다운: 다크 | 라이트 두 줄, 사용자 정의', async run(app) {
+  { group: 'Toolbar', name: 'Theme dropdown: two columns dark | light, custom', async run(app) {
     await app.main.click('[data-command="themeMenu"]');
     const page = await app.popup('theme');
     await expectPopupWindow(app, page, 'theme');
@@ -364,7 +364,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await sleep(400);
     assert.equal(await W(app, 'w.state.settings.theme'), 'nord');
   } },
-  { group: '툴바', name: '모든 테마에서 글자가 잘 보임 (실제 화면 색 대비)', async run(app) {
+  { group: 'Toolbar', name: 'Text is readable in every theme (real on-screen color contrast)', async run(app) {
     const ids = await app.main.eval(`(async () => { const m = await import('/src/themes.js'); return m.THEMES.map((t) => t.id); })()`);
     const problems = [];
     for (const id of ids) {
@@ -390,7 +390,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await W(app, `a.updateSettings({ theme: 'light' })`);
     assert.equal(problems.length, 0, `low contrast: ${problems.join(' | ')}`);
   } },
-  { group: '툴바', name: '언어 버튼: 한국어일 때 영국 국기, 영어일 때 태극기', async run(app) {
+  { group: 'Toolbar', name: 'Language button: UK flag in Korean, Korean flag in English', async run(app) {
     await W(app, `a.updateSettings({ language: 'ko' })`);
     await sleep(200);
     const flag = () => app.main.eval(`document.querySelector('[data-command="language"] svg').innerHTML.includes('012169') ? 'uk' : document.querySelector('[data-command="language"] svg').innerHTML.includes('cd2e3a') ? 'kr' : '?'`);
@@ -409,12 +409,12 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await sleep(300);
     assert.match(await app.main.eval(`document.querySelector('[data-menu="file"]').textContent`), /파일/);
   } },
-  { group: '툴바', name: '창 투명도 설정은 없음', async run(app) {
+  { group: 'Toolbar', name: 'No window opacity setting', async run(app) {
     assert.equal(await app.main.eval(`Boolean(document.querySelector('.opacity-control, #opacity-slider'))`), false);
   } },
 
   // ───────────────────────── menus
-  ...[['file', '파일'], ['edit', '편집'], ['view', '보기'], ['task', '작업'], ['resource', '자원'], ['project', '프로젝트'], ['report', '보고서'], ['help', '도움말']].map(([name, title]) => ({ group: '메뉴', name: `메뉴 "${title}": 독립 창, 한 줄, 아이콘+이름`, async run(app) {
+  ...[['file', '파일'], ['edit', '편집'], ['view', '보기'], ['task', '작업'], ['resource', '자원'], ['project', '프로젝트'], ['report', '보고서'], ['help', '도움말']].map(([name, title]) => ({ group: 'Menu', name: `Menu "${name}": separate window, single column, icon + label`, async run(app) {
     await app.main.click(`[data-menu="${name}"]`);
     const menu = await app.popup('menu');
     await menu.waitFor(`document.querySelector('.menu-item') && document.querySelector('.popup-menu')?.getAttribute('aria-label') === '${title}' && !document.querySelector('.menu-head')`);
@@ -435,7 +435,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await sleep(250);
     menu.close();
   } })),
-  { group: '메뉴', name: '메뉴는 작은 주 창 밖으로 펼쳐짐', async run(app) {
+  { group: 'Menu', name: 'Menus extend beyond a small main window', async run(app) {
     const min = await W(app, 'w.state.minWidth');
     await resize(app, min, 600);
     await sleep(500);
@@ -453,7 +453,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.ok(popup, 'menu window');
     assert.ok(popup.bottom > main.bottom || popup.top < main.top, `menu ${popup.top}..${popup.bottom} goes beyond the window ${main.top}..${main.bottom}`);
   } },
-  { group: '메뉴', name: '긴 메뉴는 분류된 하위 메뉴 (보기 › 보기 전환 › 네트워크 다이어그램)', async run(app) {
+  { group: 'Menu', name: 'Long menus use grouped submenus (View › Switch view › Network Diagram)', async run(app) {
     await freshSample(app);
     await app.main.click('[data-menu="view"]');
     let menu = await app.popup('menu');
@@ -483,7 +483,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
   } },
 
   // ───────────────────────── context menus
-  { group: '컨텍스트 메뉴', name: '대상마다 다른 메뉴 (작업 행·막대·연결선·열 머리글·차트·자원·탭·입력 칸), 모든 항목에 아이콘', async run(app) {
+  { group: 'Context menu', name: 'A different menu per target (task row, bar, link, column header, chart, resource, tab, input), icons on every item', async run(app) {
     await freshSample(app);
     const open = async (selector, expectHeader) => {
       const point = await app.main.center(selector);
@@ -541,7 +541,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     ['print', `window.__myworkplan.run('print')`],
     ['recent', `window.__myworkplan.run('recent')`],
     ['link', `(() => { const p = window.__myworkplan.api.project(); const t = p.tasks.find((x) => x.predecessors.length); return window.__myworkplan.api.openLinkInfo(t.predecessors[0].taskId, t.id); })()`],
-  ].map(([kind, js]) => ({ group: '팝업', name: `"${kind}": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능`, async run(app) {
+  ].map(([kind, js]) => ({ group: 'Popup', name: `"${kind}": separate OS window · fixed size · no scrolling · icon + title · aligned · movable`, async run(app) {
     await closePopups(app);
     if (!(await W(app, 'Boolean(api.project())'))) await freshSample(app);
     await W(app, `api.select('task', [api.project().tasks[3].id])`);
@@ -577,7 +577,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
   } })),
 
   // ───────────────────────── editing
-  { group: '편집', name: '표에서 기간 입력 → 일정 다시 계산, 실행 취소/다시 실행', async run(app) {
+  { group: 'Edit', name: 'Entering a duration in the table → reschedule, undo/redo', async run(app) {
     await freshSample(app);
     // A task that has not started (a finished task keeps its actual finish).
     const index = await W(app, `api.taskRows().findIndex((r) => r.task && !api.sched().info(r.task.id).summary && !r.task.milestone && !r.task.actualStart && !(r.task.percentComplete > 0))`);
@@ -596,7 +596,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await sleep(200);
     assert.equal(await W(app, `api.sched().info('${id}').finish`), after, 'Ctrl+Y');
   } },
-  { group: '편집', name: '작업 삽입·마일스톤·들여쓰기·연결 (툴바)', async run(app) {
+  { group: 'Edit', name: 'Insert task, milestone, indent, link (toolbar)', async run(app) {
     await freshSample(app);
     const count = await W(app, 'api.project().tasks.length');
     await W(app, `api.select('task', [api.project().tasks[6].id])`);
@@ -623,7 +623,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await sleep(200);
     assert.ok(await W(app, `api.project().tasks.find((t) => t.id === '${ids[1]}').predecessors.some((l) => l.taskId === '${ids[0]}')`));
   } },
-  { group: '편집', name: '간트 막대 끌기: 이동·기간·연결 (실제 마우스)', async run(app) {
+  { group: 'Edit', name: 'Dragging Gantt bars: move, duration, link (real mouse)', async run(app) {
     await freshSample(app);
     await W(app, `a.setTimescale(40)`);
     await sleep(500);
@@ -643,7 +643,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await sleep(400);
     assert.ok(await W(app, `api.project().tasks.find((t) => t.id === '${id}').duration`) > durationBefore, 'resizing lengthens the task');
   } },
-  { group: '편집', name: '클립보드: Ctrl+C 로 작업 복사 (OS 클립보드), Ctrl+V 로 붙여넣기, 외부 텍스트 붙여넣기', async run(app) {
+  { group: 'Edit', name: 'Clipboard: Ctrl+C copies tasks (OS clipboard), Ctrl+V pastes, pasting external text', async run(app) {
     await freshSample(app);
     await W(app, `api.select('task', [api.project().tasks[2].id]); document.querySelector('.grid-body').focus()`);
     await app.main.key('c', 2);
@@ -659,7 +659,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await sleep(600);
     assert.ok(await W(app, `api.project().tasks.some((t) => t.name === '외부 작업 하나' && t.duration === 960)`), 'text from another program becomes tasks');
   } },
-  { group: '편집', name: 'Ctrl+마우스 휠: 확대/축소, 차트 위에서는 시간 눈금', async run(app) {
+  { group: 'Edit', name: 'Ctrl+mouse wheel: zoom in/out, timescale over the chart', async run(app) {
     await freshSample(app);
     await W(app, `a.updateSettings({ zoom: 100, timescale: 16 })`);
     const grid = await app.main.center('.grid-body');
@@ -672,7 +672,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.ok(await W(app, 'w.state.settings.timescale') > 16, 'timescale zoomed in');
     await W(app, `a.updateSettings({ zoom: 100, timescale: 16 })`);
   } },
-  { group: '편집', name: 'Ctrl+끌기로 차트 이동', async run(app) {
+  { group: 'Edit', name: 'Ctrl+drag pans the chart', async run(app) {
     await freshSample(app);
     await sleep(300);
     const before = await app.main.eval(`document.querySelector('.chart-body').scrollLeft`);
@@ -686,7 +686,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
   } },
 
   // ───────────────────────── panels and tabs
-  { group: '패널', name: '좌우 패널: 접으면 아이콘+제목 레일 (펼치기 버튼이 위), 구분자로 너비 조절, 최소 너비', async run(app) {
+  { group: 'Panels', name: 'Side panels: collapse to an icon + title rail (expand button on top), splitter resizes width, minimum width', async run(app) {
     await freshSample(app);
     await app.main.click('#left-panel .panel-header [data-command="leftPanel"]');
     await sleep(300);
@@ -710,7 +710,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     const clipped = await app.main.eval(`[...document.querySelectorAll('#left-panel .tool-tile span, #left-panel .view-button span')].filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent)`);
     assert.deepEqual(clipped, [], 'all labels fit at the minimum width');
   } },
-  { group: '탭', name: '탭이 많으면 스크롤바 대신 오른쪽 끝에 < > 버튼', async run(app) {
+  { group: 'Tabs', name: 'Many tabs show < > buttons at the right end instead of a scrollbar', async run(app) {
     await freshSample(app);
     const idle = await app.main.eval(`(() => { const n = document.querySelector('#tabs .tab-nav'); return { shown: getComputedStyle(n).display !== 'none', disabled: [...n.querySelectorAll('.tab-scroll')].map((x) => x.disabled) }; })()`);
     assert.deepEqual(idle, { shown: true, disabled: [true, true] }, 'always there, disabled while the tabs fit');
@@ -725,7 +725,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
   } },
 
   // ───────────────────────── views
-  ...['gantt', 'tracking', 'taskSheet', 'taskUsage', 'network', 'calendar', 'timeline', 'resourceSheet', 'resourceUsage', 'resourceGraph', 'teamPlanner', 'reports'].map((view) => ({ group: '보기', name: `${view} 보기가 그려짐`, async run(app) {
+  ...['gantt', 'tracking', 'taskSheet', 'taskUsage', 'network', 'calendar', 'timeline', 'resourceSheet', 'resourceUsage', 'resourceGraph', 'teamPlanner', 'reports'].map((view) => ({ group: 'Views', name: `${view} view renders`, async run(app) {
     await freshSample(app);
     app.main.errors.length = 0;
     await W(app, `a.switchView('${view}')`);
@@ -737,7 +737,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.equal(await app.hasPopup('error'), false, 'no error popup');
   } })),
 
-  { group: '보기', name: '그래프·보고서 차트: 축 눈금과 눈금자 수치, 격자선, 겹치지 않는 눈금 글자', async run(app) {
+  { group: 'Views', name: 'Graph and report charts: axis ticks and ruler values, grid lines, non-overlapping tick labels', async run(app) {
     await freshSample(app);
     const views = [['resourceGraph', null], ...['overview', 'cost', 'work', 'burndown', 'critical', 'late', 'upcoming', 'milestones', 'resources'].map((id) => ['reports', id])];
     let seen = 0;
@@ -758,7 +758,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await W(app, `(a.switchView('gantt'), 1)`);
   } },
   // ───────────────────────── scheduling features
-  { group: '툴바', name: '보기 드롭다운: 보기를 바꿔도 툴바 버튼이 움직이지 않음, 메뉴바에 계획 이름 없음', async run(app) {
+  { group: 'Toolbar', name: 'View dropdown: toolbar buttons stay put when switching views, no plan name in the menu bar', async run(app) {
     await freshSample(app);
     assert.equal(await app.main.eval(`document.querySelector('#menubar .menubar-title')`), null, 'the menubar shows no plan title');
     const views = ['gantt', 'tracking', 'taskSheet', 'taskUsage', 'network', 'calendar', 'timeline', 'resourceSheet', 'resourceUsage', 'resourceGraph', 'teamPlanner', 'reports'];
@@ -772,7 +772,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     }
     await W(app, `(a.switchView('gantt'), 1)`);
   } },
-  { group: '보기', name: '간트 차트 줄: 작업 표와 같은 교차 색·선택 표시, 같은 높이에 정렬', async run(app) {
+  { group: 'Views', name: 'Gantt chart rows: same alternating colors and selection as the task table, aligned at the same height', async run(app) {
     await freshSample(app);
     await W(app, `(a.selectTask(api.project().tasks[4].id), 1)`);
     await sleep(200);
@@ -785,7 +785,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.ok(rows.chart.some((r) => r[0]) && rows.chart.some((r) => !r[0]), 'rows alternate');
     assert.ok(rows.chart.some((r) => r[1]), 'the selected row is highlighted in the chart too');
   } },
-  { group: '창', name: '홈 화면은 좌우 패널을 모두 숨겨도 창 전체 폭을 씀', async run(app) {
+  { group: 'Window', name: 'Home screen uses the full window width with both side panels hidden', async run(app) {
     await app.main.eval(`window.__myworkplan.popups.closeAll().then(() => 1)`);
     const widths = [];
     for (const [left, right] of [[true, true], [false, true], [true, false], [false, false]]) {
@@ -797,7 +797,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
       assert.ok(width >= page - 2, `home screen ${width}px of ${page}px`);
     }
   } },
-  { group: '설치', name: '새로 설치한 뒤 첫 실행: 설정은 기본값으로, 최근 파일·DB 연결·배경 이미지는 그대로 (한 번만)', async run(app) {
+  { group: 'Install', name: 'First run after a fresh install: settings reset to defaults, recent files, DB connection and background image kept (once only)', async run(app) {
     const marker = path.join(app.config, 'install-reset');
     const recent = JSON.stringify([{ path: 'D:\\plans\\kept.mwp', title: 'kept' }]);
     await app.main.eval(`(localStorage.setItem('myworkplan.recent.v1', ${JSON.stringify(recent)}), 1)`);
@@ -826,7 +826,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.equal((await settings()).zoom, 120, 'once only: later starts keep what the user sets');
     await W(app, `(a.updateSettings({ zoom: 100, dbKind: 'none', dbHost: 'localhost', backgroundName: '' }), 1)`);
   } },
-  { group: '일정', name: '주 공정 표시 버튼: 툴바에서 주 공정 강조를 켜고 끔', async run(app) {
+  { group: 'Schedule', name: 'Show critical path button: toggles critical path highlighting from the toolbar', async run(app) {
     await freshSample(app);
     await W(app, `a.updateSettings({ showCritical: true })`);
     const sel = '#toolbar [data-command="showCritical"]';
@@ -846,7 +846,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.deepEqual([again.pressed, again.setting], ['true', true], 'pressing again turns it back on');
     assert.ok(again.bars > 0);
   } },
-  { group: '일정', name: '주 공정 찾기 버튼: 토글, 앞뒤로 계산해 주 공정 작업·연결을 표시', async run(app) {
+  { group: 'Schedule', name: 'Find critical path button: toggle; forward/backward pass marks critical tasks and links', async run(app) {
     await freshSample(app);
     await W(app, `a.updateSettings({ showCritical: false })`);
     const state = () => app.main.eval(`({ pressed: document.querySelector('#toolbar [data-command="criticalPath"]').getAttribute('aria-pressed'), focus: document.querySelector('#app').classList.contains('critical-focus'), rows: document.querySelectorAll('.grid-row.critical-row').length, status: document.querySelector('.critical-status')?.textContent.trim() ?? null, notice: document.querySelector('#statusbar .status-notice').textContent })`);
@@ -868,7 +868,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     const again = await state();
     assert.deepEqual([again.pressed, again.focus, again.rows, again.status], ['false', false, 0, null], 'pressing again turns it off');
   } },
-  { group: '일정', name: '자원 평준화로 초과 할당 해소 (진행 팝업)', async run(app) {
+  { group: 'Schedule', name: 'Resource leveling resolves overallocation (progress popup)', async run(app) {
     await freshSample(app);
     assert.ok(await W(app, `[...api.sched().resources.values()].some((r) => r.overallocated)`), 'the sample starts overallocated');
     await W(app, `a.levelNow()`);
@@ -878,7 +878,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await sleep(300);
     assert.ok(await W(app, `[...api.sched().resources.values()].some((r) => r.overallocated)`), 'clear leveling restores');
   } },
-  { group: '일정', name: '작업 정보 팝업에서 이름·기간·선행 작업 바꾸기', async run(app) {
+  { group: 'Schedule', name: 'Change name, duration and predecessors in the Task info popup', async run(app) {
     await freshSample(app);
     const id = await W(app, `api.project().tasks[13].id`);
     await W(app, `api.select('task', ['${id}'])`);
@@ -892,13 +892,13 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.equal(task.name, '바뀐 이름');
     assert.equal(task.duration, 7 * 480);
   } },
-  { group: '일정', name: '작업 시간 변경: 휴일 추가 → 일정이 밀림', async run(app) {
+  { group: 'Schedule', name: 'Change working time: adding a holiday → schedule slips', async run(app) {
     await freshSample(app);
     const finish = await W(app, 'api.sched().finish');
     await W(app, `a.change('op.calendar', (p) => { const cal = p.calendars.find((c) => c.id === p.calendarId); cal.exceptions.push({ id: 'x', name: 'test', start: new Date((api.sched().finish - 1440 * 20) * 60000).toISOString().slice(0, 10), finish: new Date((api.sched().finish - 1440 * 16) * 60000).toISOString().slice(0, 10), working: false, periods: [] }); })`);
     assert.ok(await W(app, 'api.sched().finish') > finish);
   } },
-  { group: '일정', name: '기준 계획 → 추적 간트에 기준 막대', async run(app) {
+  { group: 'Schedule', name: 'Baseline → baseline bars in Tracking Gantt', async run(app) {
     await freshSample(app);
     await W(app, `a.change('op.baseline', (p) => { for (const t of p.tasks) t.baselines = {}; })`);
     await W(app, `(w.run('setBaseline'), 1)`);
@@ -910,7 +910,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await sleep(500);
     assert.ok(await app.main.eval(`document.querySelectorAll('.baseline').length > 5`));
   } },
-  { group: '일정', name: '반복 작업 만들기', async run(app) {
+  { group: 'Schedule', name: 'Create a recurring task', async run(app) {
     await freshSample(app);
     const count = await W(app, 'api.project().tasks.length');
     await W(app, `(w.run('insertRecurring'), 1)`);
@@ -920,7 +920,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await sleep(500);
     assert.equal(await W(app, 'api.project().tasks.length'), count + 9, 'a summary and 8 weekly occurrences');
   } },
-  { group: '일정', name: '찾기·바꾸기·이동', async run(app) {
+  { group: 'Schedule', name: 'Find, replace, go to', async run(app) {
     await freshSample(app);
     const name = await W(app, 'api.project().tasks[20].name');
     const result = await W(app, `a.findNext({ text: ${JSON.stringify(name.slice(0, 3))}, field: 'name', direction: 1 })`);
@@ -932,7 +932,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
   } },
 
   // ───────────────────────── files
-  { group: '파일', name: 'DB를 설정하면 저장은 파일과 DB 둘 다 (SQLite)', async run(app) {
+  { group: 'File', name: 'With a DB configured, save writes both the file and the DB (SQLite)', async run(app) {
     await freshSample(app);
     const dir = tempDir('both');
     const dbFile = path.join(dir, '계획 DB.sqlite');
@@ -958,7 +958,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
       await W(app, `a.updateSettings({ dbKind: 'none', dbFile: '' })`);
     }
   } },
-  { group: '파일', name: '저장(.mwp) → 열기: 같은 내용, 최근 파일·폴더에 기록, 진행 팝업', async run(app) {
+  { group: 'File', name: 'Save (.mwp) → open: same content, recorded in recent files and folders, progress popup', async run(app) {
     await freshSample(app);
     const dir = tempDir('files');
     const file = path.join(dir, 'saved.mwp');
@@ -976,7 +976,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.ok(recent.some((p) => p.toLowerCase() === file.toLowerCase()), 'recent file');
     assert.ok(await W(app, `w.state.recentDirs.some((d) => d.path.toLowerCase() === ${JSON.stringify(dir.toLowerCase())})`), 'recent folder');
   } },
-  { group: '파일', name: '최근 파일 최대 10개, 하나씩·전체 지우기 (파일 메뉴의 최근 파일 창)', async run(app) {
+  { group: 'File', name: 'Recent files: up to 10, clear one or all (Recent files window in the File menu)', async run(app) {
     const dir = tempDir('recent');
     for (let i = 0; i < 12; i++) {
       const file = path.join(dir, `p${i}.mwp`);
@@ -1003,7 +1003,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.equal(await W(app, 'w.state.recent.length'), 0, 'the main window follows');
     await W(app, `(() => { for (const doc of [...w.state.docs]) a.closeDoc(doc, { force: true }); return 1; })()`);
   } },
-  { group: '파일', name: '이미지로 내보내기 팝업: 형식·배경·내용·배율 → 선택이 내보내기에 쓰임', async run(app) {
+  { group: 'File', name: 'Export as image popup: format, background, content, scale → choices are used by the export', async run(app) {
     await freshSample(app);
     const file = path.join(tempDir('image-popup'), 'popup.webp');
     const done = W(app, `(window.__myworkplanSavePicks = [${JSON.stringify(file)}], a.exportImage())`);
@@ -1026,7 +1026,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.equal(bytes.subarray(0, 4).toString(), 'RIFF');
     assert.equal(bytes.subarray(8, 12).toString(), 'WEBP');
   } },
-  { group: '파일', name: '간트 차트 이미지: PNG·JPEG·WebP·BMP·TIFF·SVG, 투명 배경', async run(app) {
+  { group: 'File', name: 'Gantt chart image: PNG, JPEG, WebP, BMP, TIFF, SVG, transparent background', async run(app) {
     await freshSample(app);
     const dir = tempDir('images');
     const magic = { png: [1, 4, 'PNG'], jpeg: [0, 3, '\xff\xd8\xff'], webp: [8, 12, 'WEBP'], bmp: [0, 2, 'BM'], tiff: [0, 4, 'II*\0'], svg: [0, 4, '<svg'] };
@@ -1052,7 +1052,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
       }
     }
   } },
-  { group: '파일', name: 'MS Project XML·CSV·템플릿·PNG 내보내기, XML 가져오기', async run(app) {
+  { group: 'File', name: 'MS Project XML, CSV, template and PNG export; XML import', async run(app) {
     await freshSample(app);
     const dir = tempDir('export');
     for (const [type, name] of [['xml', 'plan.xml'], ['csv', 'plan.csv'], ['mwpt', 'plan.mwpt']]) {
@@ -1069,7 +1069,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await sleep(400);
     assert.ok(await W(app, 'api.project().tasks.length > 20'), 'imported');
   } },
-  { group: '파일', name: '보고서 내보내기: HTML·Markdown·Word(.docx)·PDF (보고서 메뉴의 하위 메뉴)', async run(app) {
+  { group: 'File', name: 'Report export: HTML, Markdown, Word (.docx), PDF (submenu of the Report menu)', async run(app) {
     await freshSample(app);
     await W(app, `(a.activeDoc().view.report = 'cost', a.switchView('reports'), 1)`);
     await sleep(400);
@@ -1102,7 +1102,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     const items = await W(app, `w.commands.exportReportHtml && w.commands.exportReportMd && w.commands.exportReportDocx && w.commands.exportReportPdf ? 4 : 0`);
     assert.equal(items, 4);
   } },
-  { group: '파일', name: '오래 걸리는 파일 작업은 진행 팝업 (진행률 막대)', async run(app) {
+  { group: 'File', name: 'Long file operations show a progress popup (progress bar)', async run(app) {
     await app.restart([], { MYWORKPLAN_IO_DELAY_MS: '1200' });
     await app.popup('welcome').then((p) => p.close()).catch(() => {});
     await closePopups(app);
@@ -1119,7 +1119,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await app.popup('welcome').then((p) => p.close()).catch(() => {});
     await closePopups(app);
   } },
-  { group: '파일', name: '끌어다 놓기: 계획 파일은 열리고 이미지는 배경, 텍스트는 작업', async run(app) {
+  { group: 'File', name: 'Drag and drop: plan files open, images become the background, text becomes tasks', async run(app) {
     await freshSample(app);
     const dir = tempDir('drop');
     const plan = path.join(dir, 'dropped.mwp');
@@ -1136,7 +1136,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await W(app, 'a.removeBackground()');
     await W(app, `a.updateSettings({ backgroundKind: 'animated' })`);
   } },
-  { group: '파일', name: '저장 안 한 변경이 있으면 끝낼 때 저장 여부를 물음 (취소하면 그대로)', async run(app) {
+  { group: 'File', name: 'Unsaved changes prompt to save on exit (Cancel keeps the app open)', async run(app) {
     await freshSample(app);
     await W(app, `a.insertTask({ name: 'unsaved' }, { edit: false })`);
     const answer = W(app, 'a.confirmExit()');
@@ -1150,7 +1150,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
   } },
 
   // ───────────────────────── printing
-  { group: '인쇄', name: '인쇄 미리 보기: 전체/현재 보기/사용자 지정, 페이지 설정, 바로 인쇄', async run(app) {
+  { group: 'Print', name: 'Print preview: all / current view / custom, page setup, quick print', async run(app) {
     await freshSample(app);
     await W(app, `api.select('task', [api.project().tasks[3].id, api.project().tasks[4].id])`);
     await app.main.click('[data-command="print"]');
@@ -1192,7 +1192,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
   } },
 
   // ───────────────────────── settings
-  { group: '설정', name: '설정 창: 테마 탭(다크/라이트/사용자 정의), 글꼴(시스템의 모든 글꼴·크기·굵기·기울임)', async run(app) {
+  { group: 'Settings', name: 'Settings window: Theme tab (dark/light/custom), font (every system font, size, weight, italic)', async run(app) {
     await W(app, `(w.popups.open('settings', { tab: 'appearance' }), 1)`);
     const page = await app.popup('settings');
     await expectPopupWindow(app, page, 'settings');
@@ -1213,7 +1213,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await W(app, `a.updateSettings({ fontFamily: '', fontStyle: 'normal' })`);
     await closePopups(app);
   } },
-  { group: '설정', name: '설정은 다음 실행 때 다시 읽힘', async run(app) {
+  { group: 'Settings', name: 'Settings are read back on the next launch', async run(app) {
     await W(app, `a.updateSettings({ theme: 'dracula', zoom: 120, language: 'en', showRightPanel: false })`);
     const animationBefore = await W(app, 'w.state.settings.animation');
     await sleep(300);
@@ -1227,7 +1227,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
   } },
 
   // ───────────────────────── errors
-  { group: '오류', name: '오류는 팝업으로 자세히, 내용 복사 가능', async run(app) {
+  { group: 'Errors', name: 'Errors show in a detailed popup, contents can be copied', async run(app) {
     const dir = tempDir('bad');
     const file = path.join(dir, 'broken.mwp');
     fs.writeFileSync(file, '{ not json');
@@ -1243,7 +1243,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     page.close();
     await closePopups(app);
   } },
-  { group: '오류', name: '백엔드 심각한 오류(패닉)도 위치·스레드·백트레이스와 함께 팝업', async run(app) {
+  { group: 'Errors', name: 'Backend fatal errors (panics) also pop up with location, thread and backtrace', async run(app) {
     await app.main.eval(`window.__TAURI_INTERNALS__.invoke('raise_test_panic').then(() => 1)`);
     const page = await app.popup('error');
     const report = await page.eval(`document.querySelector('#error-detail').value`);
@@ -1254,7 +1254,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
   } },
 
   // ───────────────────────── help
-  { group: '도움말', name: '튜토리얼 문서: 별도 OS 창, 장 이동, 국기 단추로 언어 전환, 글자 크기 − px + (기억됨)', async run(app) {
+  { group: 'Help', name: 'Tutorial document: separate OS window, chapter navigation, flag button switches language, font size − px + (remembered)', async run(app) {
     await W(app, '(a.showStartPage(), 1)');
     await sleep(300);
     assert.ok(await app.main.eval(`Boolean(document.querySelector('#start-page [data-start="tutorial-doc"]'))`), 'the start page lists the tutorial document');
@@ -1295,7 +1295,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
       await closeDocWindow(app, 'tutorial', page);
     }
   } },
-  { group: '도움말', name: '사용 설명서: 별도 OS 창 (다시 고르면 같은 창), 국기 단추·글자 크기', async run(app) {
+  { group: 'Help', name: 'User guide: separate OS window (choosing again reuses it), flag button and font size', async run(app) {
     await W(app, `(w.run('userGuide'), 1)`);
     const page = await docWindow(app, 'guide');
     try {
@@ -1310,7 +1310,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
       await closeDocWindow(app, 'guide', page);
     }
   } },
-  { group: '도움말', name: '튜토리얼: 시작·다음·자동 재생·끝내면 원래대로', async run(app) {
+  { group: 'Help', name: 'Tutorial: start, next, autoplay, restores the app when finished', async run(app) {
     await freshSample(app);
     const docs = await W(app, 'w.state.docs.length');
     await W(app, 'a.startTutorial()');
