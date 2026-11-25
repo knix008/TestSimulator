@@ -1,6 +1,6 @@
 # 구조
 
-MyCalc 10.0은 번들러 없는 정적 페이지입니다. Tauri는 그 페이지를 창에 띄우고, 빌드는 같은 파일을 지금 운영체제의 패키지로 만듭니다.
+MyCalc 2.0은 번들러 없는 정적 페이지입니다. Tauri는 그 페이지를 창에 띄우고, 빌드는 같은 파일을 지금 운영체제의 패키지로 만듭니다.
 
 ```
 index.html          화면
@@ -39,7 +39,7 @@ test/               브라우저 테스트
 
 ## Tauri
 
-데스크톱 셸은 `src-tauri`입니다. 식별자는 `local.mycalc.desktop`이고 창 제목은 MyCalc 10.0입니다. 페이지는 Node를 쓰지 않습니다. `src/desktop.js`가 `invoke`로 창 크기, 최소화와 최대화, 위치, 자식 창, 그림 저장을 부탁합니다. `npm start`는 `scripts/dev-server.js`로 `http://127.0.0.1:1420`을 연 뒤 그 주소를 웹뷰에 넣습니다. 계산기 주소는 `index.html?desktop=1`이고, 그래프 창만 `desktop=1`을 더 붙입니다.
+데스크톱 셸은 `src-tauri`입니다. 식별자는 `local.mycalc.desktop`이고 창 제목은 MyCalc 2.0입니다. 페이지는 Node를 쓰지 않습니다. `src/desktop.js`가 `invoke`로 창 크기, 최소화와 최대화, 위치, 자식 창, 그림 저장을 부탁합니다. `npm start`는 `scripts/dev-server.js`로 `http://127.0.0.1:1420`을 연 뒤 그 주소를 웹뷰에 넣습니다. 계산기 주소는 `index.html?desktop=1`이고, 그래프 창만 `desktop=1`을 더 붙입니다.
 
 인쇄 창은 프린터 목록을 보여 주고, 고른 프린터와 매수, 용지, 여백, 방향, 색으로 인쇄합니다. 그래프 배경도 인쇄되고 머리글과 바닥글은 비웁니다. 오른쪽 클릭의 잘라내기·복사·붙여넣기 글자는 페이지 언어를 따릅니다.
 

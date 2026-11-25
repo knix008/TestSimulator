@@ -1,10 +1,17 @@
+// `alpha`: the format can keep a see-through background, so the reader is
+// asked whether to. JPG and BMP always get the plot's background.
 const IMAGE_FORMATS = {
   png: { ext: "png", mime: "image/png", alpha: true },
-  gif: { ext: "gif", mime: "image/gif", alpha: true },
   jpg: { ext: "jpg", mime: "image/jpeg", alpha: false },
-  tiff: { ext: "tiff", mime: "image/tiff", alpha: true },
+  gif: { ext: "gif", mime: "image/gif", alpha: true },
   webp: { ext: "webp", mime: "image/webp", alpha: true },
+  avif: { ext: "avif", mime: "image/avif", alpha: true },
+  svg: { ext: "svg", mime: "image/svg+xml", alpha: true },
+  tiff: { ext: "tiff", mime: "image/tiff", alpha: true },
+  bmp: { ext: "bmp", mime: "image/bmp", alpha: false },
 };
+
+const AVIF_UNAVAILABLE = "AVIF_UNAVAILABLE";
 
 function canvasBlob(canvas, type, quality) {
   return new Promise((resolve, reject) => {
@@ -15,12 +22,12 @@ function canvasBlob(canvas, type, quality) {
   });
 }
 
-function flattenCanvas(canvas) {
+function flattenCanvas(canvas, background) {
   const copy = document.createElement("canvas");
   copy.width = canvas.width;
   copy.height = canvas.height;
   const ctx = copy.getContext("2d");
-  ctx.fillStyle = themeVar("--screen", "#0c0a09");
+  ctx.fillStyle = background || themeVar("--screen", "#0c0a09");
   ctx.fillRect(0, 0, copy.width, copy.height);
   ctx.drawImage(canvas, 0, 0);
   return copy;
@@ -272,12 +279,66 @@ function encodeTiff(image, transparent) {
   return file;
 }
 
-async function encodeCanvas(canvas, format, transparent) {
+// 24-bit BMP, bottom row first, each row padded to four bytes.
+function encodeBmp(image) {
+  const { width, height, data } = image;
+  const row = Math.ceil((width * 3) / 4) * 4;
+  const size = 54 + row * height;
+  const file = new Uint8Array(size);
+  file[0] = 0x42;
+  file[1] = 0x4d;
+  writeU32(file, 2, size);
+  writeU32(file, 10, 54);
+  writeU32(file, 14, 40);
+  writeU32(file, 18, width);
+  writeU32(file, 22, height);
+  writeU16(file, 26, 1);
+  writeU16(file, 28, 24);
+  writeU32(file, 34, row * height);
+  writeU32(file, 38, 2835);
+  writeU32(file, 42, 2835);
+  for (let y = 0; y < height; y++) {
+    const source = (height - 1 - y) * width * 4;
+    const target = 54 + y * row;
+    for (let x = 0; x < width; x++) {
+      file[target + x * 3] = data[source + x * 4 + 2];
+      file[target + x * 3 + 1] = data[source + x * 4 + 1];
+      file[target + x * 3 + 2] = data[source + x * 4];
+    }
+  }
+  return file;
+}
+
+// The web view writes AVIF where its engine can. WebView2 cannot, so the
+// desktop program encodes it instead (ravif in src-tauri/src/lib.rs).
+async function encodeAvif(canvas, transparent, background) {
+  const source = transparent ? canvas : flattenCanvas(canvas, background);
+  try {
+    const blob = await canvasBlob(source, "image/avif", 0.9);
+    if (blob.type === "image/avif") return blob;
+  } catch {
+    /* Falls through to the desktop encoder. */
+  }
+  if (window.mycalcDesktop && window.mycalcDesktop.encodeAvif) {
+    const image = source.getContext("2d").getImageData(0, 0, source.width, source.height);
+    const bytes = await window.mycalcDesktop.encodeAvif(source.width, source.height, new Uint8Array(image.data.buffer), 85);
+    return new Blob([bytes], { type: "image/avif" });
+  }
+  throw new Error(AVIF_UNAVAILABLE);
+}
+
+// `background` is the colour a format without transparency is laid on.
+async function encodeCanvas(canvas, format, transparent, background) {
   const spec = IMAGE_FORMATS[format];
   if (!spec) throw new Error(format);
-  if (format === "jpg") return canvasBlob(flattenCanvas(canvas), spec.mime, 0.92);
+  if (format === "jpg") return canvasBlob(flattenCanvas(canvas, background), spec.mime, 0.92);
   if (format === "png") return canvasBlob(canvas, spec.mime);
   if (format === "webp") return canvasBlob(canvas, spec.mime, 0.92);
+  if (format === "avif") return encodeAvif(canvas, !!transparent, background);
+  if (format === "bmp") {
+    const flat = flattenCanvas(canvas, background);
+    return new Blob([encodeBmp(flat.getContext("2d").getImageData(0, 0, flat.width, flat.height))], { type: spec.mime });
+  }
   const image = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
   const bytes = format === "gif" ? encodeGif(image, !!transparent) : encodeTiff(image, !!transparent);
   return new Blob([bytes], { type: spec.mime });

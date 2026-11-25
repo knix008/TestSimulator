@@ -22,6 +22,13 @@
     setBounds(bounds) {
       return invoke("set_bounds", { bounds });
     },
+    // RGBA pixels in, an AVIF file out: WebView2 has no AVIF encoder.
+    async encodeAvif(width, height, rgba, quality) {
+      const result = await invoke("encode_avif", rgba, {
+        headers: { width: String(width), height: String(height), quality: String(quality || 85) },
+      });
+      return new Uint8Array(result);
+    },
     openWindow(kind) {
       return invoke("open_window", { kind });
     },

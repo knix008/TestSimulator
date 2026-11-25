@@ -1,0 +1,32 @@
+/* The user's guide. Opened inside the guide window, the app sets the theme colours (--bg …);
+   opened on its own (Start menu shortcut, browser) it uses these defaults. */
+:root { --bg: #f6f8fb; --surface: #ffffff; --border: #d3dbe6; --text: #1a2333; --muted: #5f6d82; --accent: #2563eb; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-dark]) { --bg: #0f1623; --surface: #182233; --border: #2c3a52; --text: #e6edf7; --muted: #93a3bb; --accent: #4f9cff; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.7 'Segoe UI', 'Malgun Gothic', system-ui, sans-serif; }
+main { max-width: 980px; margin: 0 auto; padding: 28px 32px 60px; }
+header.cover { display: flex; align-items: center; gap: 18px; padding: 20px 24px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); }
+header.cover img { width: 84px; height: 84px; }
+header.cover h1 { margin: 0; font-size: 2em; }
+header.cover h1 small { color: var(--accent); font-size: 0.5em; }
+header.cover p { margin: 4px 0 0; color: var(--muted); }
+nav.toc { margin: 22px 0; padding: 14px 20px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); columns: 2; }
+nav.toc a { display: block; color: var(--text); text-decoration: none; padding: 2px 0; }
+nav.toc a:hover { color: var(--accent); }
+h2 { margin: 42px 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--accent); font-size: 1.45em; scroll-margin-top: 12px; }
+h3 { margin: 24px 0 8px; font-size: 1.12em; }
+a { color: var(--accent); }
+figure { margin: 14px 0 20px; }
+figure img { display: block; max-width: 100%; border-radius: 10px; border: 1px solid var(--border); box-shadow: 0 8px 26px rgba(0, 0, 0, 0.18); }
+figcaption { margin-top: 6px; color: var(--muted); font-size: 0.9em; }
+table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; background: var(--surface); border-radius: 8px; overflow: hidden; }
+th, td { padding: 7px 10px; border: 1px solid var(--border); text-align: left; vertical-align: top; }
+th { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+kbd { display: inline-block; padding: 0 6px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; background: var(--surface); font: 0.88em Consolas, monospace; }
+.tip { padding: 10px 14px; border-left: 4px solid var(--accent); border-radius: 6px; background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.cols { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px 14px; padding: 0; list-style: none; }
+.cols li::before { content: '◆ '; color: var(--accent); }
+footer { margin-top: 50px; color: var(--muted); font-size: 0.9em; text-align: center; }
+@media print { nav.toc { display: none; } h2 { break-after: avoid; } figure { break-inside: avoid; } body { background: #fff; color: #000; } }

@@ -1,6 +1,92 @@
 // The axes are orange, green and sky blue, so no curve takes those hues.
 const AXIS_COLORS = { x: "#fb923c", y: "#4ade80", z: "#7dd3fc" };
 const PALETTE = ["#ef4444", "#a855f7", "#eab308", "#6366f1", "#ec4899", "#84cc16", "#d946ef", "#14b8a6"];
+
+// Looks for the plot alone. "app" follows the calculator's own theme; every
+// other one brings its own paper, ink, axes and curve colours. `vars` stand in
+// for the page's colour variables while the plot is drawn.
+const GRAPH_THEMES = [
+  { id: "app", ko: "앱 테마", en: "App theme", bg: null, vars: null, axes: AXIS_COLORS, palette: PALETTE },
+  {
+    id: "paper", ko: "종이", en: "Paper", bg: "#ffffff",
+    vars: { "--ink": "#1c1917", "--muted": "#78716c", "--chip": "#f5f5f4", "--card": "#ffffff", "--accent": "#2563eb" },
+    axes: { x: "#ea580c", y: "#16a34a", z: "#0284c7" },
+    palette: ["#dc2626", "#7c3aed", "#ca8a04", "#4f46e5", "#db2777", "#65a30d", "#c026d3", "#0d9488"],
+  },
+  {
+    id: "chalk", ko: "칠판", en: "Chalkboard", bg: "#1f3a2e",
+    vars: { "--ink": "#f1f5f0", "--muted": "#a7c4b5", "--chip": "#29493b", "--card": "#1f3a2e", "--accent": "#fde68a" },
+    axes: { x: "#fdba74", y: "#fef08a", z: "#bae6fd" },
+    palette: ["#fca5a5", "#d8b4fe", "#fde047", "#a5b4fc", "#f9a8d4", "#bef264", "#f0abfc", "#5eead4"],
+  },
+  {
+    id: "blueprint", ko: "청사진", en: "Blueprint", bg: "#0b3d91",
+    vars: { "--ink": "#e0f2fe", "--muted": "#93c5fd", "--chip": "#12479f", "--card": "#0b3d91", "--accent": "#fbbf24" },
+    axes: { x: "#fdba74", y: "#86efac", z: "#f0f9ff" },
+    palette: ["#fca5a5", "#f0abfc", "#fde047", "#ffffff", "#f9a8d4", "#bef264", "#fdba74", "#5eead4"],
+  },
+  {
+    id: "sepia", ko: "세피아", en: "Sepia", bg: "#f4ecd8",
+    vars: { "--ink": "#3b2f1e", "--muted": "#8b7355", "--chip": "#ebe0c5", "--card": "#f4ecd8", "--accent": "#9a3412" },
+    axes: { x: "#c2410c", y: "#4d7c0f", z: "#1d4ed8" },
+    palette: ["#b91c1c", "#6d28d9", "#a16207", "#1e40af", "#be185d", "#3f6212", "#86198f", "#0f766e"],
+  },
+  {
+    id: "mono", ko: "흑백", en: "Monochrome", bg: "#ffffff",
+    vars: { "--ink": "#000000", "--muted": "#6b6b6b", "--chip": "#f2f2f2", "--card": "#ffffff", "--accent": "#000000" },
+    axes: { x: "#000000", y: "#000000", z: "#000000" },
+    palette: ["#000000", "#404040", "#707070", "#202020", "#555555", "#858585", "#303030", "#606060"],
+  },
+  {
+    id: "neon", ko: "네온", en: "Neon", bg: "#07030f",
+    vars: { "--ink": "#f5f3ff", "--muted": "#8b80b6", "--chip": "#160d2b", "--card": "#07030f", "--accent": "#22d3ee" },
+    axes: { x: "#ff9f1c", y: "#39ff14", z: "#00e5ff" },
+    palette: ["#ff2e63", "#bc13fe", "#fff01f", "#4d4dff", "#ff00a0", "#ccff00", "#f700ff", "#00ffc8"],
+  },
+  {
+    id: "ocean", ko: "바다", en: "Ocean", bg: "#062a3a",
+    vars: { "--ink": "#e0f7fa", "--muted": "#7fb3c4", "--chip": "#0b3a4f", "--card": "#062a3a", "--accent": "#5eead4" },
+    axes: { x: "#fdba74", y: "#86efac", z: "#bae6fd" },
+    palette: ["#f87171", "#c4b5fd", "#fde68a", "#93c5fd", "#f9a8d4", "#a3e635", "#e879f9", "#2dd4bf"],
+  },
+  {
+    id: "forest", ko: "숲", en: "Forest", bg: "#10241a",
+    vars: { "--ink": "#ecfdf5", "--muted": "#86a893", "--chip": "#173224", "--card": "#10241a", "--accent": "#facc15" },
+    axes: { x: "#fb923c", y: "#bef264", z: "#7dd3fc" },
+    palette: ["#f87171", "#c084fc", "#fde047", "#818cf8", "#f472b6", "#4ade80", "#e879f9", "#5eead4"],
+  },
+  {
+    id: "solar", ko: "솔라 다크", en: "Solar dark", bg: "#002b36",
+    vars: { "--ink": "#eee8d5", "--muted": "#839496", "--chip": "#073642", "--card": "#002b36", "--accent": "#b58900" },
+    axes: { x: "#cb4b16", y: "#859900", z: "#268bd2" },
+    palette: ["#dc322f", "#6c71c4", "#b58900", "#2aa198", "#d33682", "#93a1a1", "#e0a050", "#5fafd7"],
+  },
+  {
+    id: "pastel", ko: "파스텔", en: "Pastel", bg: "#fbf7ff",
+    vars: { "--ink": "#3f3a4f", "--muted": "#9a93ad", "--chip": "#f1ebf9", "--card": "#fbf7ff", "--accent": "#a78bfa" },
+    axes: { x: "#f59e0b", y: "#34d399", z: "#60a5fa" },
+    palette: ["#f87171", "#a78bfa", "#facc15", "#818cf8", "#f472b6", "#84cc16", "#e879f9", "#2dd4bf"],
+  },
+  {
+    id: "contrast", ko: "고대비", en: "High contrast", bg: "#000000",
+    vars: { "--ink": "#ffffff", "--muted": "#e5e5e5", "--chip": "#000000", "--card": "#000000", "--accent": "#ffff00" },
+    axes: { x: "#ff8c00", y: "#00ff00", z: "#00ffff" },
+    palette: ["#ff3030", "#ff40ff", "#ffff00", "#6080ff", "#ff69b4", "#adff2f", "#ffffff", "#00ffd0"],
+  },
+];
+
+// Colours the plot draws with, standing in for the page's own while a graph
+// theme other than "app" is on. Set by the board, read by themeVar.
+let graphThemeVars = null;
+
+// A minimum below its maximum, with 0 between them (either end may be 0).
+function rangeHoldsZero(low, high) {
+  return Number.isFinite(low) && Number.isFinite(high) && low < high && low <= 0 && high >= 0;
+}
+
+function graphThemeById(id) {
+  return GRAPH_THEMES.find((theme) => theme.id === id) || GRAPH_THEMES[0];
+}
 // The 3D floor is a hint of a surface, not a drawing of its own, so its lines
 // stay well under the ink of the curves above them.
 const FLOOR_INK = 0.4;
@@ -45,6 +131,7 @@ function rulerValue(value, step) {
 }
 
 function themeVar(name, fallback) {
+  if (graphThemeVars && graphThemeVars[name]) return graphThemeVars[name];
   const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   return value || fallback;
 }
@@ -204,7 +291,12 @@ class GraphBoard {
     this.autoSquare = true;
     this.drawn = this.view;
     this.exportTransparent = false;
+    this.exportLightInk = false;
     this.paintBackdrop = false;
+    // The plot's own look: one of GRAPH_THEMES, and a background colour that,
+    // when set, wins over the theme's.
+    this.graphTheme = "app";
+    this.background = null;
     this.onChange = null;
     this.onView = null;
     this.onDimension = null;
@@ -261,7 +353,7 @@ class GraphBoard {
       id: this.nextId++,
       expr,
       ast,
-      color: PALETTE[this.functions.length % PALETTE.length],
+      color: this.palette()[this.functions.length % PALETTE.length],
       visible: true,
       legend: true,
       legendText: "",
@@ -392,7 +484,10 @@ class GraphBoard {
     this.onDimension?.();
   }
 
-  setView(view) {
+  // `exact` is for ends typed into the minimum and maximum boxes: each axis
+  // then shows precisely its own range, even if a unit on x and a unit on y
+  // end up different lengths on screen.
+  setView(view, { exact = false } = {}) {
     const next = { ...this.view, ...view };
     if (!(next.xMax > next.xMin) || !(next.yMax > next.yMin)) {
       throw new Error(uiText("범위가 올바르지 않습니다", "The range is not valid"));
@@ -401,29 +496,77 @@ class GraphBoard {
       if (!(next.zMax > next.zMin)) throw new Error(uiText("범위가 올바르지 않습니다", "The range is not valid"));
       this.zAuto = false;
     }
-    // A range set by hand goes back to units of the same length on both axes,
-    // which may show more than was asked for but never less.
-    this.stretched = false;
+    // Ends set in the boxes or with their buttons always keep 0 between them.
+    if (exact) {
+      for (const axis of ["x", "y", "z"]) {
+        if (!(`${axis}Min` in view) && !(`${axis}Max` in view)) continue;
+        if (!rangeHoldsZero(next[`${axis}Min`], next[`${axis}Max`])) {
+          throw new Error(uiText("범위에 0이 들어가야 합니다", "The range must include 0"));
+        }
+      }
+    }
+    // Otherwise a range set by hand goes back to units of the same length on
+    // both axes, which may show more than was asked for but never less.
+    this.stretched = exact && this.dimension === "2d";
     Object.assign(this.view, next);
     this.meshKey = "";
     this.draw();
     this.onView?.();
   }
 
-  // One axis grows or shrinks about the origin, half its length on either side
-  // of 0. The other two stay put, and the drawn box remains a cube: a longer axis
-  // only spreads its ticks.
+  // How far one press of a minimum or maximum button moves that end: a round
+  // tenth of the axis, so -10 .. 10 steps by 2.
+  endStep(axis) {
+    const low = this.view[`${axis}Min`];
+    const high = this.view[`${axis}Max`];
+    return niceStep(high - low, 10);
+  }
+
+  // Where one end of an axis lands after a press, or null when it would meet
+  // or pass the other end. The end snaps to the next multiple of the step, so
+  // a typed -1.67 goes up to 0 rather than to 0.33.
+  steppedEnd(axis, end, direction) {
+    if (axis !== "x" && axis !== "y" && axis !== "z") return null;
+    if (end !== "Min" && end !== "Max") return null;
+    const low = this.view[`${axis}Min`];
+    const high = this.view[`${axis}Max`];
+    const value = end === "Min" ? low : high;
+    const step = this.endStep(axis);
+    if (!Number.isFinite(value) || !(step > 0)) return null;
+    const ratio = value / step;
+    const count = direction > 0 ? Math.floor(ratio + 1e-9) + 1 : Math.ceil(ratio - 1e-9) - 1;
+    const next = Number((count * step).toPrecision(12));
+    if (!Number.isFinite(next) || Math.abs(next) > 1e9) return null;
+    if (end === "Min" ? !(next < high) : !(next > low)) return null;
+    // The ends never cross 0: the minimum stays at or below it, the maximum at or above.
+    if (end === "Min" ? next > 0 : next < 0) return null;
+    return next;
+  }
+
+  // Moves only the minimum or only the maximum of one axis.
+  stepEnd(axis, end, direction) {
+    const next = this.steppedEnd(axis, end, direction);
+    if (next === null) return false;
+    this.setView({ [`${axis}${end}`]: next }, { exact: true });
+    return true;
+  }
+
+  // One axis grows or shrinks about the middle of its range, so a range typed
+  // off centre keeps its middle (the default one stays split about 0). The other
+  // two stay put, and the drawn box remains a cube: a longer axis only spreads
+  // its ticks.
   stepAxis(axis, factor) {
     if (axis !== "x" && axis !== "y" && axis !== "z") return;
     const lowKey = `${axis}Min`;
     const highKey = `${axis}Max`;
     const low = this.view[lowKey];
     const high = this.view[highKey];
+    const middle = (low + high) / 2;
     let half = ((high - low) / 2) * factor;
-    if (!Number.isFinite(half)) return;
+    if (!Number.isFinite(half) || !Number.isFinite(middle)) return;
     half = Math.min(1e9, Math.max(1e-6, half));
-    const nextLow = -half;
-    const nextHigh = half;
+    const nextLow = middle - half;
+    const nextHigh = middle + half;
     if (Math.abs(nextLow - low) + Math.abs(nextHigh - high) <= Math.max(1e-9, Math.abs(high - low) * 1e-9)) return;
     this.setView({ [lowKey]: nextLow, [highKey]: nextHigh });
   }
@@ -444,6 +587,60 @@ class GraphBoard {
     }
     this.draw();
     this.onView?.();
+  }
+
+  // The plot as an SVG file: the same drawing, sent through a context that
+  // writes shapes and text instead of pixels.
+  toSvg() {
+    const real = this.ctx;
+    const svg = new SvgContext(this.canvas.width, this.canvas.height);
+    this.ctx = svg;
+    try {
+      this.draw();
+    } finally {
+      this.ctx = real;
+    }
+    this.draw();
+    return svg.toString(window.devicePixelRatio || 1);
+  }
+
+  // The curve colours new expressions take, from the graph theme.
+  palette() {
+    return graphThemeById(this.graphTheme).palette;
+  }
+
+  // The colour under the plot, or null when it shows the window behind it.
+  backgroundColor() {
+    if (this.background) return this.background;
+    return graphThemeById(this.graphTheme).bg;
+  }
+
+  // A graph theme recolours the paper, the ink, the three axes and every
+  // curve in both dimensions, by its place in the list.
+  setGraphTheme(id, { recolor = true } = {}) {
+    const theme = graphThemeById(id);
+    this.graphTheme = theme.id;
+    graphThemeVars = theme.vars;
+    if (recolor) {
+      for (const axis of ["x", "y", "z"]) this.axes[axis].color = theme.axes[axis];
+      for (const list of [this.fns2d, this.fns3d]) {
+        list.forEach((fn, index) => {
+          fn.color = theme.palette[index % theme.palette.length];
+        });
+      }
+    }
+    this.scene = null;
+    this.meshKey = "";
+    this.draw();
+    this.onChange?.();
+  }
+
+  setBackground(color) {
+    const value = typeof color === "string" && /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : null;
+    this.background = value;
+    this.scene = null;
+    this.draw();
+    this.onChange?.();
   }
 
   toggleGrid() {
@@ -816,6 +1013,8 @@ class GraphBoard {
   }
 
   onPointerDown(ev) {
+    // The right button opens the context menu; it never pans or turns.
+    if (ev.button === 2) return;
     try {
       this.canvas.setPointerCapture(ev.pointerId);
     } catch {
@@ -1005,7 +1204,13 @@ class GraphBoard {
     this.syncFrame();
     const dpr = window.devicePixelRatio || 1;
     ctx.clearRect(0, 0, width, height);
-    if (this.paintBackdrop && !this.exportTransparent) fillWindowBackdrop(ctx, width, height);
+    const paper = this.backgroundColor();
+    if (!this.exportTransparent) {
+      if (paper) {
+        ctx.fillStyle = paper;
+        ctx.fillRect(0, 0, width, height);
+      } else if (this.paintBackdrop) fillWindowBackdrop(ctx, width, height);
+    }
 
     if (this.dimension === "3d") this.draw3d(ctx, dpr);
     else {
@@ -1046,12 +1251,16 @@ class GraphBoard {
     return px >= box.x && px <= box.x + box.w && py >= box.y && py <= box.y + box.h;
   }
 
+  // A see-through picture is laid on paper of an unknown colour: dark ink by
+  // default, light ink when it is meant for a dark page.
   exportInk() {
-    return this.exportTransparent ? "#1c1917" : themeVar("--ink", "#fafaf9");
+    if (this.exportTransparent) return this.exportLightInk ? "#fafaf9" : "#1c1917";
+    return themeVar("--ink", "#fafaf9");
   }
 
   exportEdge() {
-    return this.exportTransparent ? "#57534e" : themeVar("--muted", "#a8a29e");
+    if (this.exportTransparent) return this.exportLightInk ? "#d6d3d1" : "#57534e";
+    return themeVar("--muted", "#a8a29e");
   }
 
   drawLegend(ctx, dpr) {

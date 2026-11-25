@@ -284,12 +284,12 @@ suite("Screen and modes", () => {
     }
   });
 
-  test("Title and info panel include version 10.0", () => {
+  test("Title and info panel include version 2.0", () => {
     const doc = appWindow.document;
-    assert(doc.title === "MyCalc 10.0", doc.title);
-    assert(doc.querySelector("h1").textContent.includes("10.0"), "Heading");
+    assert(doc.title === "MyCalc 2.0", doc.title);
+    assert(doc.querySelector("h1").textContent.includes("2.0"), "Heading");
     appWindow.openSheet(doc.getElementById("infoSheet"));
-    assert(doc.querySelector(".info-name").textContent === "MyCalc 10.0", "Info panel");
+    assert(doc.querySelector(".info-name").textContent === "MyCalc 2.0", "Info panel");
     appWindow.closeSheets();
   });
 
@@ -939,12 +939,15 @@ suite("Graph", () => {
     assert(doc.querySelector('.axis-field[data-axis="z"]').hidden, "2D shows the Z colour");
     assert(!values.hidden && values.contains(doc.getElementById("axisMinX")) && values.contains(doc.getElementById("axisMaxY")), "2D ranges left the settings panel");
     assert(doc.getElementById("axisRow").hidden, "2D left the axis row on the toolbar");
-    assert(doc.getElementById("sideAxisGroup").hidden && doc.getElementById("sideLightGroup").hidden, "2D shows the lengths or the lamp");
+    assert(!doc.getElementById("sideAxisGroup") && doc.getElementById("sideLightGroup").hidden, "2D shows the lengths or the lamp");
     doc.getElementById("dim3d").click();
     flush(loaded.win);
     assert(doc.getElementById("graphSide").firstElementChild === colors, "Axis colours are not at the top of the settings panel");
     assert(colors.contains(doc.getElementById("axisShowX")) && colors.contains(doc.getElementById("axisShowZ")), "3D colours left the settings panel");
-    assert(doc.getElementById("sideAxisValues").hidden && !doc.getElementById("sideAxisGroup").hidden, "3D still types the two ends");
+    assert(!doc.getElementById("sideAxisValues").hidden && !doc.getElementById("sideAxisGroup"), "3D hid the ends or kept the lengths");
+    for (const axis of ["X", "Y", "Z"]) {
+      assert(!doc.querySelector(`.axis-span[data-axis="${axis.toLowerCase()}"]`).hidden, `3D hid the ${axis} ends`);
+    }
     assert(!doc.getElementById("axisRow").querySelector(".axis-field"), "3D left an axis colour on the toolbar");
     for (const axis of ["X", "Y", "Z"]) {
       const toggle = doc.getElementById(`axisShow${axis}`);
@@ -2842,7 +2845,7 @@ suite("Product features", () => {
     const loaded = await loadApp("pop=graph&desktop=1");
     try {
       const doc = loaded.win.document;
-      assert(doc.title === "MyCalc 10.0 Graph", doc.title);
+      assert(doc.title === "MyCalc 2.0 Graph", doc.title);
       assert(!doc.getElementById("printGraph").hidden, "Print button");
       assert(!doc.getElementById("exportGraph").hidden, "Export button");
       const graphSettings = doc.getElementById("graphSettings");
@@ -2959,7 +2962,7 @@ suite("Product features", () => {
     }
   });
 
-  test("The graph exports PNG, GIF, JPG, TIFF, and WEBP", async () => {
+  test("The graph exports PNG, JPG, GIF, WEBP, AVIF, SVG, TIFF, and BMP", async () => {
     const loaded = await loadApp("pop=graph&desktop=1");
     try {
       const doc = loaded.win.document;
@@ -2969,13 +2972,14 @@ suite("Product features", () => {
       const sheet = doc.getElementById("exportSheet");
       assert(!sheet.hidden, "Export sheet");
       const format = doc.getElementById("exportFormat");
-      assert([...format.options].map((option) => option.value).join(",") === "png,gif,jpg,tiff,webp", "Formats");
-      format.value = "jpg";
-      format.dispatchEvent(new Event("change", { bubbles: true }));
-      assert(doc.getElementById("exportAlphaField").hidden, "JPEG transparency");
-      format.value = "png";
-      format.dispatchEvent(new Event("change", { bubbles: true }));
-      assert(!doc.getElementById("exportAlphaField").hidden, "PNG transparency");
+      const values = [...format.options].map((option) => option.value).join(",");
+      assert(values === "png,jpg,gif,webp,avif,svg,tiff,bmp", `Formats ${values}`);
+      // Only the formats that can hold a see-through background offer it.
+      for (const [kind, offers] of [["png", true], ["jpg", false], ["gif", true], ["webp", true], ["avif", true], ["svg", true], ["tiff", true], ["bmp", false]]) {
+        format.value = kind;
+        format.dispatchEvent(new Event("change", { bubbles: true }));
+        assert(doc.getElementById("exportAlphaField").hidden === !offers, `${kind} transparency choice`);
+      }
       const headers = await callWin(loaded.win, () => {
         const canvas = document.createElement("canvas");
         canvas.width = 4;
@@ -2984,7 +2988,7 @@ suite("Product features", () => {
         ctx.clearRect(0, 0, 4, 4);
         ctx.fillStyle = "#ff0000";
         ctx.fillRect(2, 2, 1, 1);
-        return Promise.all(["png", "gif", "jpg", "tiff", "webp"].map(async (kind) => {
+        return Promise.all(["png", "gif", "jpg", "tiff", "webp", "bmp"].map(async (kind) => {
           const blob = await encodeCanvas(canvas, kind, kind !== "jpg");
           const bytes = new Uint8Array(await blob.arrayBuffer());
           return { kind, n: bytes.length, b0: bytes[0], b1: bytes[1] };
@@ -2996,6 +3000,45 @@ suite("Product features", () => {
       assert(by.jpg.b0 === 0xff && by.jpg.b1 === 0xd8 && by.jpg.n > 16, "JPG");
       assert(by.tiff.b0 === 0x49 && by.tiff.b1 === 0x49 && by.tiff.n > 80, "TIFF");
       assert(by.webp.b0 === 0x52 && by.webp.b1 === 0x49 && by.webp.n > 16, "WEBP");
+      // 4 x 4 at 24 bits: 54 bytes of header and four rows of 12 bytes.
+      assert(by.bmp.b0 === 0x42 && by.bmp.b1 === 0x4d && by.bmp.n === 54 + 4 * 12, `BMP ${by.bmp.n}`);
+      // AVIF: the engine's own writer, or the desktop one; a browser with
+      // neither says so instead of saving something else under the name.
+      const avif = await callWin(loaded.win, async () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 4;
+        canvas.height = 4;
+        try {
+          const blob = await encodeCanvas(canvas, "avif", true);
+          const bytes = new Uint8Array(await blob.arrayBuffer());
+          return { ok: true, brand: String.fromCharCode(...bytes.slice(4, 12)) };
+        } catch (error) {
+          return { ok: false, message: error.message };
+        }
+      });
+      assert(avif.ok ? avif.brand.startsWith("ftypavi") : avif.message === "AVIF_UNAVAILABLE", JSON.stringify(avif));
+      // SVG is the drawing itself: shapes and text that read back as a picture.
+      const svg = await callWin(loaded.win, async () => {
+        board.addFunction("sin(x)");
+        const text = board.toSvg();
+        while (board.functions.length) board.removeFunction(board.functions[0].id);
+        const parsed = new DOMParser().parseFromString(text, "image/svg+xml");
+        const image = new Image();
+        const loadedOk = await new Promise((resolve) => {
+          image.onload = () => resolve(true);
+          image.onerror = () => resolve(false);
+          image.src = URL.createObjectURL(new Blob([text], { type: "image/svg+xml" }));
+        });
+        return {
+          broken: !!parsed.querySelector("parsererror"),
+          paths: parsed.querySelectorAll("path").length,
+          texts: parsed.querySelectorAll("text").length,
+          loadedOk,
+          width: image.naturalWidth,
+        };
+      });
+      assert(!svg.broken && svg.loadedOk && svg.width > 0, `SVG did not load ${JSON.stringify(svg)}`);
+      assert(svg.paths > 5 && svg.texts > 3, `SVG holds ${svg.paths} paths and ${svg.texts} texts`);
       const alpha = await callWin(loaded.win, async () => {
         const canvas = document.createElement("canvas");
         canvas.width = 4;
@@ -3030,7 +3073,7 @@ suite("Product features", () => {
     try {
       loaded.win.applyLanguage("ko");
       const doc = loaded.win.document;
-      assert(doc.title === "인쇄 — MyCalc 10.0", doc.title);
+      assert(doc.title === "인쇄 — MyCalc 2.0", doc.title);
       const head = doc.querySelector(".print-head");
       assert(head.querySelector("h2").textContent === "인쇄", head.querySelector("h2").textContent);
       assert(head.querySelector(".icon-print"), "The print window has no print icon");
@@ -3411,8 +3454,9 @@ suite("Product features", () => {
         ["a list row", row],
         ["the row's text", row.querySelector(".fn-expr")],
         ["the settings panel", doc.getElementById("graphSide")],
-        ["the axis length heading", doc.querySelector("#sideAxisGroup h3")],
-        ["an axis length", doc.getElementById("axisLenX")],
+        ["the axis range heading", doc.querySelector("#sideAxisValues h3")],
+        ["an axis minimum", doc.getElementById("axisMinX")],
+        ["an axis minimum button", doc.getElementById("axisMinUpX")],
         ["the light heading", doc.querySelector("#sideLightGroup h3")],
         ["the light-on label", doc.querySelector(".side-check span")],
         ["a slider label", doc.querySelector(".side-slide span")],
@@ -3613,7 +3657,7 @@ suite("Product features", () => {
       info.win.applyLanguage("ko");
       const settingsDoc = settings.win.document;
       const infoDoc = info.win.document;
-      assert(settingsDoc.title === "설정 — MyCalc 10.0", settingsDoc.title);
+      assert(settingsDoc.title === "설정 — MyCalc 2.0", settingsDoc.title);
       assert(!settingsDoc.getElementById("settingsSheet").hidden, "Settings sheet");
       const closeSettings = settingsDoc.getElementById("closeSettings");
       assert(closeSettings.textContent === "×", closeSettings.textContent);
@@ -3624,8 +3668,8 @@ suite("Product features", () => {
       assert(getComputedStyle(settingsDoc.querySelector(".stage")).display === "none", "Calculator stays in settings");
       assert(settingsDoc.getElementById("settingsSheet").scrollHeight - settingsDoc.getElementById("settingsSheet").clientHeight === 0, "Settings scrolls");
       assert(settingsDoc.querySelectorAll("#darkThemes .theme-chip").length === 20, "Dark themes");
-      assert(infoDoc.title === "프로그램 정보 — MyCalc 10.0", infoDoc.title);
-      assert(infoDoc.querySelector(".info-name").textContent === "MyCalc 10.0", "Info name");
+      assert(infoDoc.title === "프로그램 정보 — MyCalc 2.0", infoDoc.title);
+      assert(infoDoc.querySelector(".info-name").textContent === "MyCalc 2.0", "Info name");
       assert(infoDoc.querySelector(".info-icon"), "Info icon");
       const brand = infoDoc.querySelector(".info-brand");
       const icon = brand.querySelector(".info-icon").getBoundingClientRect();
@@ -5820,7 +5864,6 @@ suite("Axis ranges and the lamp", () => {
         z: doc.querySelector('.axis-span[data-axis="z"]').hidden,
         lamp: doc.getElementById("lightToggle").hidden,
         light: doc.getElementById("sideLightGroup").hidden,
-        lengths: doc.getElementById("sideAxisGroup").hidden,
         values: doc.getElementById("sideAxisValues").hidden,
         side: doc.getElementById("graphSide").hidden,
       };
@@ -5830,14 +5873,14 @@ suite("Axis ranges and the lamp", () => {
         z: doc.querySelector('.axis-span[data-axis="z"]').hidden,
         lamp: doc.getElementById("lightToggle").hidden,
         values: doc.getElementById("sideAxisValues").hidden,
-        lengths: doc.getElementById("sideAxisGroup").hidden,
         side: doc.getElementById("graphSide").hidden,
       };
-      assert(hiddenIn2d.z && hiddenIn2d.lamp && hiddenIn2d.light && hiddenIn2d.lengths && !hiddenIn2d.values && !hiddenIn2d.side, "the height or the lamp showed in 2D");
-      assert(shownIn3d.z && shownIn3d.values, "3D still shows the smallest and largest");
-      assert(!shownIn3d.lamp && !shownIn3d.lengths && !shownIn3d.side, "the lamp stayed away in 3D");
+      assert(hiddenIn2d.z && hiddenIn2d.lamp && hiddenIn2d.light && !hiddenIn2d.values && !hiddenIn2d.side, "the height or the lamp showed in 2D");
+      assert(!shownIn3d.z && !shownIn3d.values, "3D hides the smallest and largest");
+      assert(!shownIn3d.lamp && !shownIn3d.side, "the lamp stayed away in 3D");
       assert(doc.getElementById("lightAtX") == null && doc.getElementById("lightSpan") == null, "the lamp position is still on the toolbar");
-      assert(doc.getElementById("axisRangeZ").contains(doc.getElementById("axisLenZ")), "the z length is not in the settings panel");
+      assert(!doc.getElementById("sideAxisGroup") && !doc.getElementById("axisLenZ"), "the axis lengths are still in the settings panel");
+      assert(doc.getElementById("sideAxisValueList").contains(doc.getElementById("axisMinUpZ")), "the z buttons are not in the settings panel");
       assert(doc.getElementById("sideAxisValueList").contains(doc.querySelector('.axis-span[data-axis="x"]')), "the x range left the settings panel");
       assert(!doc.getElementById("axisRow").querySelector(".axis-span, .axis-field"), "the toolbar still holds an axis setting");
     } finally {
@@ -6866,11 +6909,13 @@ suite("Graph side panels", () => {
       assert(left.dataset.tooltip === "Expression panel" && left.getAttribute("aria-label") === "Expression panel", left.dataset.tooltip);
       assert(right.dataset.tooltip === "Settings panel" && right.getAttribute("aria-label") === "Settings panel", right.dataset.tooltip);
       assert(g.doc.querySelector("#sideLightGroup h3").textContent === "Light", g.doc.querySelector("#sideLightGroup h3").textContent);
-      assert(g.doc.querySelector("#sideAxisGroup h3").textContent === "Axis length", g.doc.querySelector("#sideAxisGroup h3").textContent);
-      assert(g.doc.getElementById("axisLenDownX").getAttribute("aria-label") === "Decrease X", g.doc.getElementById("axisLenDownX").getAttribute("aria-label"));
+      assert(g.doc.querySelector("#sideAxisValues h3").textContent === "Axis range", g.doc.querySelector("#sideAxisValues h3").textContent);
+      assert(g.doc.getElementById("axisMinDownX").getAttribute("aria-label") === "Decrease X minimum", g.doc.getElementById("axisMinDownX").getAttribute("aria-label"));
+      assert(g.doc.querySelector('.axis-span[data-axis="x"] .axis-end-label').textContent === "Min", "the minimum label stayed Korean");
       g.win.applyLanguage("ko");
       assert(g.doc.querySelector("#sideLightGroup h3").textContent === "광원", g.doc.querySelector("#sideLightGroup h3").textContent);
-      assert(g.doc.querySelector("#sideAxisGroup h3").textContent === "축 길이", g.doc.querySelector("#sideAxisGroup h3").textContent);
+      assert(g.doc.querySelector("#sideAxisValues h3").textContent === "축 범위", g.doc.querySelector("#sideAxisValues h3").textContent);
+      assert(g.doc.getElementById("axisMaxUpY").getAttribute("aria-label") === "Y 최대 증가", g.doc.getElementById("axisMaxUpY").getAttribute("aria-label"));
       assert(left.dataset.tooltip === "식 패널" && right.dataset.tooltip === "설정 패널", `${left.dataset.tooltip} / ${right.dataset.tooltip}`);
     } finally {
       g.win.applyLanguage("ko");
@@ -6912,61 +6957,125 @@ suite("Graph side panels", () => {
     }
   });
 
-  test("Each axis length steps from the settings panel", async () => {
+  test("Each end of each axis steps from the settings panel", async () => {
     const g = await openGraph({ right: true });
     try {
       callWin(g.win, () => board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10, zMin: -10, zMax: 10 }));
       flush(g.win);
-      const centred = (axis) => {
-        const slot = g.doc.getElementById(`axisRange${axis}`);
-        const length = g.doc.getElementById(`axisLen${axis}`);
-        const row = slot.parentElement.getBoundingClientRect();
-        const box = length.getBoundingClientRect();
-        const ends = g.doc.querySelector(`.axis-span[data-axis="${axis.toLowerCase()}"]`);
-        return {
-          home: slot.contains(length),
-          align: getComputedStyle(length).textAlign,
-          delta: (box.left + box.right) / 2 - (row.left + row.right) / 2,
-          text: length.textContent,
-          hiddenEnds: ends.hidden && g.doc.getElementById("sideAxisValueList").contains(ends),
-        };
-      };
       for (const axis of ["X", "Y", "Z"]) {
-        const place = centred(axis);
-        assert(place.home, `${axis} length left the settings panel`);
-        assert(place.align === "center", `${axis} length is not centred`);
-        assert(Math.abs(place.delta) < 1, `${axis} length sits ${place.delta}px off centre`);
-        assert(place.text === "20", `${axis} reads ${place.text}`);
-        assert(place.hiddenEnds, `${axis} still shows its smallest and largest`);
+        for (const end of ["Min", "Max"]) {
+          const input = g.doc.getElementById(`axis${end}${axis}`);
+          const down = g.doc.getElementById(`axis${end}Down${axis}`);
+          const up = g.doc.getElementById(`axis${end}Up${axis}`);
+          const row = input.parentElement;
+          assert(row === down.parentElement && row === up.parentElement, `${axis} ${end} is not one − value + row`);
+          assert(down.nextElementSibling === input && input.nextElementSibling === up, `${axis} ${end} buttons are out of order`);
+          assert(getComputedStyle(input).textAlign === "center", `${axis} ${end} is not centred`);
+          const middle = (box) => (box.left + box.right) / 2;
+          const gap = middle(input.getBoundingClientRect()) - (middle(down.getBoundingClientRect()) + middle(up.getBoundingClientRect())) / 2;
+          assert(Math.abs(gap) < 1, `${axis} ${end} value sits ${gap}px off centre`);
+          assert(!down.hidden && !up.hidden && !down.disabled && !up.disabled, `${axis} ${end} buttons are not ready`);
+        }
       }
-      g.doc.getElementById("axisLenUpX").click();
-      const grown = callWin(g.win, () => ({ ...board.view }));
-      assert(Math.abs(grown.xMax - grown.xMin - 80 / 3) < 1e-9, `x grew to ${grown.xMax - grown.xMin}`);
-      assert(Math.abs((grown.xMin + grown.xMax) / 2) < 1e-9, "x left its middle");
-      assert(Math.abs(grown.xMin + 40 / 3) < 1e-9 && Math.abs(grown.xMax - 40 / 3) < 1e-9, "x was not split in half");
-      assert(grown.yMin === -10 && grown.yMax === 10 && grown.zMin === -10 && grown.zMax === 10, "y or z moved with x");
-      assert(g.doc.getElementById("axisLenX").textContent === "26.666667", g.doc.getElementById("axisLenX").textContent);
-      g.doc.getElementById("axisLenDownX").click();
-      const back = callWin(g.win, () => board.view.xMax - board.view.xMin);
-      assert(Math.abs(back - 20) < 1e-6, `x came back to ${back}`);
-      assert(g.doc.getElementById("axisLenX").textContent === "20", g.doc.getElementById("axisLenX").textContent);
-      g.doc.getElementById("axisLenDownZ").click();
-      const shrunk = callWin(g.win, () => ({
-        span: board.view.zMax - board.view.zMin,
-        mid: (board.view.zMin + board.view.zMax) / 2,
-        x: board.view.xMax - board.view.xMin,
-        low: board.view.zMin,
-        high: board.view.zMax,
-      }));
-      assert(Math.abs(shrunk.span - 15) < 1e-9, `z shrank to ${shrunk.span}`);
-      assert(Math.abs(shrunk.mid) < 1e-9, "z left its middle");
-      assert(Math.abs(shrunk.low + 7.5) < 1e-9 && Math.abs(shrunk.high - 7.5) < 1e-9, "z was not split in half");
-      assert(Math.abs(shrunk.x - 20) < 1e-6, "x moved with z");
-      assert(g.doc.getElementById("axisLenZ").textContent === "15", g.doc.getElementById("axisLenZ").textContent);
+      // A press moves that one end by a round tenth of the axis.
+      g.doc.getElementById("axisMinUpX").click();
+      g.doc.getElementById("axisMaxDownZ").click();
+      flush(g.win);
+      let view = callWin(g.win, () => ({ ...board.view }));
+      assert(view.xMin === -8 && view.xMax === 10, `x went to ${view.xMin} .. ${view.xMax}`);
+      assert(view.zMin === -10 && view.zMax === 8, `z went to ${view.zMin} .. ${view.zMax}`);
+      assert(view.yMin === -10 && view.yMax === 10, "y moved with x or z");
+      assert(g.doc.getElementById("axisMinX").value === "-8" && g.doc.getElementById("axisMaxZ").value === "8", "the boxes did not follow the buttons");
+      g.doc.getElementById("axisMinDownX").click();
+      flush(g.win);
+      assert(callWin(g.win, () => board.view.xMin) === -10, "x minimum did not come back");
+      // A typed end off the steps snaps to the next one.
+      callWin(g.win, () => board.setView({ yMin: -1.7, yMax: 10 }, { exact: true }));
+      flush(g.win);
+      g.doc.getElementById("axisMinUpY").click();
+      assert(callWin(g.win, () => board.view.yMin) === -1, `y minimum went to ${callWin(g.win, () => board.view.yMin)}`);
     } finally {
       callWin(g.win, () => {
         board.resetView();
         board.setDimension("2d");
+      });
+      closeGraph(g);
+    }
+  });
+
+  test("Each axis takes its own smallest and largest in 2D and 3D", async () => {
+    const g = await openGraph({ right: true });
+    const type = (id, value) => {
+      const input = g.doc.getElementById(id);
+      input.value = value;
+      input.dispatchEvent(new g.win.Event("change"));
+    };
+    try {
+      g.doc.getElementById("dim2d").click();
+      flush(g.win);
+      type("axisMinX", "0");
+      type("axisMaxX", "20");
+      type("axisMinY", "-2");
+      type("axisMaxY", "2");
+      flush(g.win);
+      const flat = callWin(g.win, () => ({ view: { ...board.view }, drawn: { ...board.drawn } }));
+      assert(flat.view.xMin === 0 && flat.view.xMax === 20 && flat.view.yMin === -2 && flat.view.yMax === 2, `2D range ${JSON.stringify(flat.view)}`);
+      // Typed ends are shown as typed, not widened to equal units.
+      assert(flat.drawn.xMin === 0 && flat.drawn.xMax === 20 && flat.drawn.yMin === -2 && flat.drawn.yMax === 2, `2D drew ${JSON.stringify(flat.drawn)}`);
+      type("axisMinY", "5");
+      type("axisMaxY", "1");
+      assert(g.doc.getElementById("axisMinY").classList.contains("is-wrong"), "a backwards range was not marked");
+      assert(callWin(g.win, () => board.view.yMin) === -2, "a backwards range was taken");
+      assert(!g.doc.getElementById("axisRangeNote").hidden, "a backwards range was not explained");
+      // Every range keeps 0 between its ends.
+      const typePair = (low, high) => {
+        g.doc.getElementById("axisMinY").value = low;
+        type("axisMaxY", high);
+      };
+      typePair("2", "5");
+      assert(g.doc.getElementById("axisMaxY").classList.contains("is-wrong"), "a range above 0 was not marked");
+      assert(callWin(g.win, () => board.view.yMin) === -2 && callWin(g.win, () => board.view.yMax) === 2, "a range above 0 was taken");
+      typePair("-7", "-3");
+      assert(callWin(g.win, () => board.view.yMin) === -2 && callWin(g.win, () => board.view.yMax) === 2, "a range below 0 was taken");
+      let refused = false;
+      try {
+        callWin(g.win, () => board.setView({ xMin: 1, xMax: 4 }, { exact: true }));
+      } catch (error) {
+        refused = /0/.test(error.message);
+      }
+      assert(refused, "the board took a range without 0");
+      typePair("0", "2");
+      assert(callWin(g.win, () => board.view.yMin) === 0, "a range starting at 0 was refused");
+      assert(g.doc.getElementById("axisRangeNote").hidden, "the note stayed after a good range");
+      // At 0 the minimum cannot go up any more.
+      assert(g.doc.getElementById("axisMinUpY").disabled, "the minimum can step past 0");
+      typePair("-2", "2");
+
+      g.doc.getElementById("dim3d").click();
+      flush(g.win);
+      for (const axis of ["X", "Y", "Z"]) {
+        assert(!g.doc.querySelector(`.axis-span[data-axis="${axis.toLowerCase()}"]`).hidden, `3D hid the ${axis} ends`);
+      }
+      type("axisMinX", "0");
+      type("axisMaxX", "10");
+      type("axisMinY", "-4");
+      type("axisMaxY", "8");
+      type("axisMinZ", "-1");
+      type("axisMaxZ", "3");
+      flush(g.win);
+      const deep = callWin(g.win, () => ({ ...board.view }));
+      assert(deep.xMin === 0 && deep.xMax === 10 && deep.yMin === -4 && deep.yMax === 8 && deep.zMin === -1 && deep.zMax === 3, `3D range ${JSON.stringify(deep)}`);
+      // The buttons move only their own end of a range typed off centre.
+      g.doc.getElementById("axisMaxDownY").click();
+      flush(g.win);
+      const stepped = callWin(g.win, () => ({ ...board.view }));
+      assert(stepped.yMin === -4 && stepped.yMax === 7, `y stepped to ${stepped.yMin} .. ${stepped.yMax}`);
+      assert(g.doc.getElementById("axisMinY").value === "-4" && g.doc.getElementById("axisMaxY").value === "7", "the boxes did not follow the buttons");
+    } finally {
+      callWin(g.win, () => {
+        board.resetView();
+        board.setDimension("2d");
+        board.resetView();
       });
       closeGraph(g);
     }
@@ -8044,6 +8153,463 @@ suite("GUI", () => {
         }
       }
       assert(hover === "rgb(220, 38, 38)" || hover === "#dc2626", hover || "no hover colour");
+    } finally {
+      loaded.frame.remove();
+    }
+  });
+});
+
+suite("Graph menu, themes, printing and the guide", () => {
+  async function graphWindow() {
+    const loaded = await loadApp("pop=graph&desktop=1");
+    loaded.frame.style.width = "1200px";
+    loaded.frame.style.height = "760px";
+    for (let i = 0; i < 40 && !callWin(loaded.win, () => graphReady); i++) await wait(25);
+    callWin(loaded.win, () => {
+      for (const dim of ["3d", "2d"]) {
+        board.setDimension(dim);
+        while (board.functions.length) board.removeFunction(board.functions[0].id);
+      }
+      board.setGraphTheme("app");
+      board.setBackground(null);
+      board.resetView();
+    });
+    flush(loaded.win);
+    return loaded;
+  }
+
+  function rightClick(win, x, y) {
+    const canvas = win.document.getElementById("plot");
+    const box = canvas.getBoundingClientRect();
+    canvas.dispatchEvent(new win.MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: box.left + x, clientY: box.top + y }));
+  }
+
+  test("Right-clicking the plot opens the graph menu in 2D and 3D", async () => {
+    const g = await graphWindow();
+    try {
+      const doc = g.win.document;
+      for (const dim of ["2d", "3d"]) {
+        doc.getElementById(dim === "2d" ? "dim2d" : "dim3d").click();
+        flush(g.win);
+        rightClick(g.win, 200, 150);
+        const menu = doc.getElementById("graphMenu");
+        assert(menu, `${dim}: no menu`);
+        const ids = [...menu.querySelectorAll(":scope > .ctx-item")].map((item) => item.dataset.menu);
+        for (const id of ["save", "copy", "print", "theme", "background", "grid", "legend", "reset", "guide"]) {
+          assert(ids.includes(id), `${dim}: the menu has no ${id}`);
+        }
+        assert(ids.includes(dim === "2d" ? "ruler" : "box"), `${dim}: the menu lacks its own switches`);
+        const box = menu.getBoundingClientRect();
+        assert(box.right <= g.win.innerWidth && box.bottom <= g.win.innerHeight, `${dim}: the menu leaves the window`);
+        assert(doc.activeElement && doc.activeElement.closest("#graphMenu"), `${dim}: the menu took no focus`);
+        doc.activeElement.dispatchEvent(new g.win.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        assert(!doc.getElementById("graphMenu"), `${dim}: Escape left the menu open`);
+      }
+      // A switch in the menu is the toolbar's own switch.
+      rightClick(g.win, 200, 150);
+      const before = callWin(g.win, () => board.showGrid);
+      doc.querySelector('#graphMenu [data-menu="grid"]').click();
+      assert(callWin(g.win, () => board.showGrid) === !before, "the grid switch did nothing");
+      assert(doc.getElementById("gridToggle").getAttribute("aria-pressed") === String(!before), "the toolbar did not follow the menu");
+      assert(!doc.getElementById("graphMenu"), "the menu stayed open after a choice");
+      // The right button never pans.
+      const view = callWin(g.win, () => JSON.stringify(board.view));
+      const canvas = doc.getElementById("plot");
+      canvas.dispatchEvent(new g.win.PointerEvent("pointerdown", { button: 2, clientX: 300, clientY: 300, bubbles: true, pointerId: 7 }));
+      canvas.dispatchEvent(new g.win.PointerEvent("pointermove", { button: 2, buttons: 2, clientX: 360, clientY: 340, bubbles: true, pointerId: 7 }));
+      canvas.dispatchEvent(new g.win.PointerEvent("pointerup", { button: 2, clientX: 360, clientY: 340, bubbles: true, pointerId: 7 }));
+      assert(callWin(g.win, () => JSON.stringify(board.view)) === view, "the right button moved the view");
+    } finally {
+      callWin(g.win, () => board.setDimension("2d"));
+      g.frame.remove();
+    }
+  });
+
+  test("A graph theme recolours the paper, axes and curves", async () => {
+    const g = await graphWindow();
+    try {
+      const doc = g.win.document;
+      callWin(g.win, () => {
+        board.addFunction("sin(x)");
+        board.addFunction("x^2/10");
+      });
+      rightClick(g.win, 200, 150);
+      const theme = doc.querySelector('#graphMenu [data-menu="theme"]');
+      theme.dispatchEvent(new g.win.PointerEvent("pointerenter"));
+      const items = [...theme.querySelectorAll(".ctx-sub .ctx-item")].map((item) => item.dataset.menu);
+      assert(items.length >= 10, `only ${items.length} themes`);
+      assert(theme.querySelector('[data-menu="theme-app"]').getAttribute("aria-checked") === "true", "the app theme is not marked");
+      theme.querySelector('[data-menu="theme-paper"]').click();
+      flush(g.win);
+      const paper = callWin(g.win, () => {
+        const ctx = board.canvas.getContext("2d");
+        const corner = ctx.getImageData(2, board.canvas.height - 3, 1, 1).data;
+        return {
+          theme: board.graphTheme,
+          axis: board.axes.x.color,
+          colors: board.functions.map((fn) => fn.color),
+          corner: [...corner],
+          menu: !!document.getElementById("graphMenu"),
+          swatch: getComputedStyle(document.getElementById("axisShowX")).backgroundColor,
+        };
+      });
+      assert(paper.theme === "paper" && !paper.menu, "the theme was not taken");
+      assert(paper.axis === "#ea580c", `x axis ${paper.axis}`);
+      assert(paper.colors[0] === "#dc2626" && paper.colors[1] === "#7c3aed", paper.colors.join(","));
+      assert(paper.corner[0] > 240 && paper.corner[1] > 240 && paper.corner[2] > 240 && paper.corner[3] === 255, `the paper is ${paper.corner}`);
+      assert(paper.swatch === "rgb(234, 88, 12)", `the axis button shows ${paper.swatch}`);
+      // A new curve takes the theme's next colour.
+      const third = callWin(g.win, () => board.addFunction("cos(x)").color);
+      assert(third === "#ca8a04", third);
+      // And the app theme gives the window's own look back.
+      callWin(g.win, () => board.setGraphTheme("app"));
+      assert(callWin(g.win, () => board.backgroundColor()) === null, "the app theme kept a paper");
+    } finally {
+      g.frame.remove();
+    }
+  });
+
+  test("The background colour comes from the menu and wins over the theme", async () => {
+    const g = await graphWindow();
+    try {
+      const doc = g.win.document;
+      callWin(g.win, () => board.setGraphTheme("chalk"));
+      rightClick(g.win, 200, 150);
+      const background = doc.querySelector('#graphMenu [data-menu="background"]');
+      background.dispatchEvent(new g.win.PointerEvent("pointerenter"));
+      const chips = background.querySelectorAll(".ctx-sub .ctx-color");
+      assert(chips.length === 12, `${chips.length} swatches`);
+      assert(background.querySelector('[data-menu="bg-theme"]').getAttribute("aria-checked") === "true", "theme default is not marked");
+      assert(background.querySelector('[data-menu="bg-custom"]'), "no custom colour");
+      background.querySelector('.ctx-color[data-color="#1e3a8a"]').click();
+      const navy = callWin(g.win, () => {
+        const pixel = board.canvas.getContext("2d").getImageData(2, board.canvas.height - 3, 1, 1).data;
+        return { bg: board.backgroundColor(), pixel: [...pixel] };
+      });
+      assert(navy.bg === "#1e3a8a", navy.bg);
+      assert(navy.pixel[0] === 0x1e && navy.pixel[1] === 0x3a && navy.pixel[2] === 0x8a, `drew ${navy.pixel}`);
+      // The colour box picks any colour.
+      const picker = doc.getElementById("graphBackgroundPicker");
+      picker.value = "#336699";
+      picker.dispatchEvent(new g.win.Event("input", { bubbles: true }));
+      assert(callWin(g.win, () => board.background) === "#336699", "the custom colour was not taken");
+      // A see-through export leaves the background out; JPG keeps it.
+      const out = await callWin(g.win, async () => {
+        board.exportTransparent = true;
+        board.draw();
+        const clear = board.canvas.getContext("2d").getImageData(2, board.canvas.height - 3, 1, 1).data[3];
+        board.exportTransparent = false;
+        board.draw();
+        const jpg = await encodeCanvas(board.canvas, "jpg", false, board.backgroundColor());
+        const bitmap = await createImageBitmap(jpg);
+        const view = document.createElement("canvas");
+        view.width = bitmap.width;
+        view.height = bitmap.height;
+        view.getContext("2d").drawImage(bitmap, 0, 0);
+        return { clear, jpg: [...view.getContext("2d").getImageData(2, view.height - 3, 1, 1).data] };
+      });
+      assert(out.clear === 0, `a see-through picture has alpha ${out.clear} at the corner`);
+      assert(Math.abs(out.jpg[0] - 0x33) < 8 && Math.abs(out.jpg[2] - 0x99) < 8, `JPG corner ${out.jpg}`);
+      callWin(g.win, () => board.setBackground(null));
+      assert(callWin(g.win, () => board.backgroundColor()) === "#1f3a2e", "theme default did not return to the theme's paper");
+    } finally {
+      g.frame.remove();
+    }
+  });
+
+  test("Printing a graph sends the picture and its formulas", async () => {
+    const g = await graphWindow();
+    const print = await loadApp("pop=print");
+    try {
+      const doc = callWin(g.win, () => {
+        board.addFunction("sin(x)");
+        board.addFunction("x^2/10");
+        return graphPrintDocument();
+      });
+      assert(doc.kind === "graph" && doc.image.startsWith("data:image/png"), "no picture");
+      assert(doc.formulas.map((item) => item.text).join("|") === "y = sin(x)|y = x^2/10", doc.formulas.map((item) => item.text).join("|"));
+      print.win.__doc = doc;
+      callWin(print.win, () => acceptPrintDocument(window.__doc, Date.now()));
+      await wait(30);
+      flush(print.win);
+      const pdoc = print.win.document;
+      const rows = [...pdoc.querySelectorAll("#printFormulas li")];
+      assert(rows.length === 2 && rows[1].textContent === "y = x^2/10", rows.map((row) => row.textContent).join("|"));
+      assert(!pdoc.getElementById("printGraphBox").hidden && pdoc.getElementById("printDoc").hidden, "the graph page shows the document area");
+      assert(pdoc.querySelectorAll(".print-page").length === 1, "a graph takes more than one page");
+      const image = pdoc.getElementById("printImage").getBoundingClientRect();
+      const list = pdoc.getElementById("printFormulas").getBoundingClientRect();
+      assert(image.height > 50 && list.top >= image.bottom - 1, "the formulas are not under the picture");
+      assert(!pdoc.getElementById("printNow").disabled, "print stays disabled");
+      // An older request never replaces a newer one.
+      callWin(print.win, () => acceptPrintDocument({ kind: "document", html: "<h1>old</h1>" }, 1));
+      assert(pdoc.getElementById("printDoc").hidden, "an old request replaced the shown one");
+    } finally {
+      print.frame.remove();
+      g.frame.remove();
+    }
+  });
+
+  test("A long document runs over several pages with numbers", async () => {
+    const print = await loadApp("pop=print");
+    try {
+      print.win.applyLanguage("ko");
+      const html = ["<h1>Long</h1>"]
+        .concat(Array.from({ length: 30 }, (_, i) => `<p>Paragraph ${i + 1}: ${"words ".repeat(40)}</p>`))
+        .concat([`<table><thead><tr><th>n</th><th>n²</th></tr></thead><tbody>${Array.from({ length: 90 }, (_, i) => `<tr><td>${i}</td><td>${i * i}</td></tr>`).join("")}</tbody></table>`])
+        .join("");
+      print.win.__html = html;
+      callWin(print.win, () => showPrintDocument({ kind: "document", html: window.__html, fontScale: 1 }));
+      const doc = print.win.document;
+      doc.getElementById("printPageNumber").click();
+      flush(print.win);
+      const pages = [...doc.querySelectorAll("#printPages .print-page")];
+      assert(pages.length >= 3, `${pages.length} pages`);
+      pages.forEach((page, index) => {
+        const body = page.querySelector(".print-doc");
+        assert(!body.hidden && body.children.length > 0, `page ${index + 1} is empty`);
+        assert(body.scrollHeight <= body.clientHeight + 1, `page ${index + 1} overflows by ${body.scrollHeight - body.clientHeight}px`);
+        const footer = page.querySelector(".print-footer").textContent;
+        assert(footer.includes(`${index + 1}페이지`), `page ${index + 1} footer ${footer}`);
+      });
+      const rows = pages.reduce((sum, page) => sum + page.querySelectorAll("tbody tr").length, 0);
+      assert(rows === 90, `${rows} table rows across pages`);
+      const tables = pages.flatMap((page) => [...page.querySelectorAll("table")]);
+      assert(tables.length >= 2 && tables.every((table) => table.tHead && table.tHead.textContent.includes("n²")), "a carried-on table lost its header");
+      const paragraphs = pages.reduce((sum, page) => sum + page.querySelectorAll("p").length, 0);
+      assert(paragraphs === 30, `${paragraphs} paragraphs`);
+      // Landscape paper fits fewer lines, so the same text needs more pages.
+      const orient = doc.getElementById("printOrient");
+      orient.value = "landscape";
+      orient.dispatchEvent(new Event("input", { bubbles: true }));
+      assert(doc.querySelectorAll("#printPages .print-page").length > pages.length, "landscape did not repaginate");
+      // The page rule for paper prints every page at full size.
+      assert(doc.getElementById("printPageStyle").textContent.includes(".print-page"), "the paper rule misses the extra pages");
+    } finally {
+      print.frame.remove();
+    }
+  });
+
+  test("The calculator's print button prints what each mode shows", async () => {
+    const loaded = await loadApp("desktop=1");
+    try {
+      const win = loaded.win;
+      const doc = win.document;
+      callWin(win, () => {
+        window.__opened = [];
+        openChildWindow = (kind) => window.__opened.push(kind);
+      });
+      assert(doc.getElementById("printBtn") && doc.getElementById("guideBtn"), "the top row has no print or guide button");
+      const row = doc.querySelector(".top-row");
+      assert(row.scrollWidth <= row.clientWidth + 1, "the top row overflows");
+      callWin(win, () => {
+        setMode("basic");
+        const input = document.getElementById("expr");
+        input.value = "1+2*3";
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      doc.getElementById("printBtn").click();
+      const basic = callWin(win, () => ({ opened: window.__opened.slice(), doc: printRequest && printRequest.doc }));
+      assert(basic.opened.includes("print"), "the print window did not open");
+      assert(basic.doc.kind === "document" && basic.doc.html.includes("1+2*3") && basic.doc.html.includes(">7<"), basic.doc.html.slice(0, 300));
+      for (const [mode, needle] of [["programmer", "HEX"], ["stats", "<table"], ["currency", "<table"], ["unit", "<table"], ["date", "<table"]]) {
+        win.__mode = mode;
+        const text = callWin(win, () => {
+          setMode(window.__mode);
+          return mainPrintDocument().html;
+        });
+        assert(text.includes(needle) && text.includes("MyCalc 2.0"), `${mode}: ${text.slice(0, 200)}`);
+      }
+      callWin(win, () => setMode("basic"));
+    } finally {
+      loaded.frame.remove();
+    }
+  });
+
+  test("The guide shows contents, switches language and text size, and prints", async () => {
+    try {
+      localStorage.removeItem("mycalc-guide-font");
+    } catch {
+      /* Storage may be blocked. */
+    }
+    const loaded = await loadApp("pop=guide");
+    try {
+      const win = loaded.win;
+      const doc = win.document;
+      win.applyLanguage("ko");
+      for (let i = 0; i < 80 && !doc.querySelector("#guideDoc h1"); i++) await wait(25);
+      assert(doc.title.includes("사용 설명서"), doc.title);
+      assert(!doc.getElementById("guideSheet").hidden, "the guide is hidden");
+      assert(doc.querySelector("#guideDoc h1").textContent === "MyCalc 2.0 사용 설명서", doc.querySelector("#guideDoc h1").textContent);
+      const toc = [...doc.querySelectorAll("#guideToc a")].map((link) => link.textContent);
+      for (const name of ["기본", "그래프", "인쇄", "사용 설명서"]) assert(toc.includes(name), `the contents lack ${name}`);
+      // Colours are the calculator theme's.
+      const style = getComputedStyle(doc.getElementById("guideDoc"));
+      const screen = getComputedStyle(doc.documentElement).getPropertyValue("--screen").trim();
+      const probe = doc.createElement("div");
+      probe.style.color = screen;
+      doc.body.append(probe);
+      const screenRgb = getComputedStyle(probe).color;
+      probe.remove();
+      assert(style.backgroundColor === screenRgb, `guide paper ${style.backgroundColor} vs theme ${screenRgb}`);
+      // Text size.
+      const size = () => Number.parseFloat(getComputedStyle(doc.getElementById("guideDoc")).fontSize);
+      assert(size() === 14 && doc.getElementById("guideFontOut").textContent === "14", `starts at ${size()}`);
+      doc.getElementById("guideFontUp").click();
+      doc.getElementById("guideFontUp").click();
+      assert(size() === 16, `grew to ${size()}`);
+      assert(localStorage.getItem("mycalc-guide-font") === "16", "the size was not kept");
+      for (let i = 0; i < 20; i++) doc.getElementById("guideFontUp").click();
+      assert(size() === 22 && doc.getElementById("guideFontUp").disabled, "the size went past 22");
+      doc.dispatchEvent(new win.KeyboardEvent("keydown", { key: "0", ctrlKey: true, bubbles: true }));
+      assert(size() === 14, "Ctrl+0 did not reset");
+      // Language.
+      doc.getElementById("guideLangEn").click();
+      for (let i = 0; i < 80 && !doc.querySelector("#guideDoc h1")?.textContent.includes("User Guide"); i++) await wait(25);
+      assert(doc.querySelector("#guideDoc h1").textContent === "MyCalc 2.0 User Guide", doc.querySelector("#guideDoc h1").textContent);
+      assert(doc.getElementById("guideLangEn").getAttribute("aria-pressed") === "true", "English is not marked");
+      assert([...doc.querySelectorAll("#guideToc a")].some((link) => link.textContent === "Printing"), "the contents stayed Korean");
+      // Both guides have the same sections.
+      const sections = await callWin(win, async () => {
+        const count = async (file) => (await (await fetch(file)).text()).split(/\r?\n/).filter((line) => /^##\s/.test(line)).length;
+        return [await count("USERSGUIDE.md"), await count("USERSGUIDE.en.md")];
+      });
+      assert(sections[0] === sections[1], `Korean has ${sections[0]} sections, English ${sections[1]}`);
+      // Print hands the whole guide over, in the shown language and size.
+      callWin(win, () => {
+        window.__opened = [];
+        openChildWindow = (kind) => window.__opened.push(kind);
+      });
+      doc.getElementById("guideFontUp").click();
+      doc.getElementById("guidePrint").click();
+      for (let i = 0; i < 40 && !callWin(win, () => window.__opened.length); i++) await wait(25);
+      const sent = callWin(win, () => ({ opened: window.__opened.slice(), doc: printRequest && printRequest.doc }));
+      assert(sent.opened.includes("print"), "print did not open the print window");
+      assert(sent.doc.kind === "document" && sent.doc.html.includes("User Guide") && Math.abs(sent.doc.fontScale - 15 / 14) < 1e-9, JSON.stringify({ kind: sent.doc.kind, scale: sent.doc.fontScale }));
+    } finally {
+      try {
+        localStorage.removeItem("mycalc-guide-font");
+      } catch {
+        /* Storage may be blocked. */
+      }
+      loaded.frame.remove();
+    }
+  });
+
+  test("The formula box text size starts at 10px and is set in the settings", async () => {
+    try {
+      localStorage.removeItem("mycalc-graph-expr-font");
+    } catch {
+      /* Storage may be blocked. */
+    }
+    const graph = await loadApp("pop=graph&desktop=1");
+    const settings = await loadApp("pop=settings");
+    try {
+      const size = () => getComputedStyle(graph.win.document.getElementById("graphExpr")).fontSize;
+      assert(size() === "10px", `starts at ${size()}`);
+      const sdoc = settings.win.document;
+      const out = sdoc.getElementById("graphExprFontOut");
+      assert(out.textContent === "10px", out.textContent);
+      const row = sdoc.querySelector(".lang-setting");
+      assert(row.contains(out) && row.scrollWidth <= row.clientWidth + 1, "the size control does not fit the settings row");
+      sdoc.getElementById("graphExprFontUp").click();
+      sdoc.getElementById("graphExprFontUp").click();
+      assert(out.textContent === "12px", out.textContent);
+      assert(localStorage.getItem("mycalc-graph-expr-font") === "12", "the size was not kept");
+      // Another window follows through storage.
+      graph.win.dispatchEvent(new graph.win.StorageEvent("storage", { key: "mycalc-graph-expr-font", newValue: "12" }));
+      assert(size() === "12px", `the graph window shows ${size()}`);
+      for (let i = 0; i < 30; i++) sdoc.getElementById("graphExprFontDown").click();
+      assert(out.textContent === "8px" && sdoc.getElementById("graphExprFontDown").disabled, "the size went under 8px");
+      sdoc.getElementById("resetSettings").click();
+      assert(out.textContent === "10px", `defaults gave ${out.textContent}`);
+    } finally {
+      try {
+        localStorage.removeItem("mycalc-graph-expr-font");
+      } catch {
+        /* Storage may be blocked. */
+      }
+      settings.frame.remove();
+      graph.frame.remove();
+    }
+  });
+
+  test("The graph title row holds guide, About and the panel switches left of minimize", async () => {
+    const loaded = await loadApp("pop=graph&desktop=1");
+    try {
+      loaded.frame.style.width = "1140px";
+      const doc = loaded.win.document;
+      for (const dim of ["dim2d", "dim3d"]) {
+        doc.getElementById(dim).click();
+        flush(loaded.win);
+        const ids = ["graphGuide", "graphInfo", "panelLeft", "panelRight", "graphMin", "graphMax", "graphClose"];
+        const boxes = ids.map((id) => doc.getElementById(id).getBoundingClientRect());
+        ids.forEach((id, index) => assert(!doc.getElementById(id).hidden && boxes[index].width > 0, `${dim}: ${id} is hidden`));
+        for (let i = 1; i < boxes.length; i++) assert(boxes[i].left >= boxes[i - 1].right - 1, `${dim}: ${ids[i]} is not right of ${ids[i - 1]}`);
+        const top = boxes[0].top;
+        assert(boxes.every((box) => Math.abs(box.top + box.height / 2 - (top + boxes[0].height / 2)) < 4), `${dim}: the title row is not one line`);
+      }
+      loaded.win.__opened = [];
+      callWin(loaded.win, () => {
+        openChildWindow = (kind) => window.__opened.push(kind);
+      });
+      doc.getElementById("graphGuide").click();
+      doc.getElementById("graphInfo").click();
+      assert(loaded.win.__opened.join(",") === "guide,info", loaded.win.__opened.join(","));
+    } finally {
+      loaded.frame.remove();
+    }
+  });
+
+  test("The print background colour fills the page and the ink follows it", async () => {
+    const print = await loadApp("pop=print");
+    try {
+      const doc = print.win.document;
+      callWin(print.win, () => {
+        board.canvas.width = 400;
+        board.canvas.height = 260;
+        board.addFunction("sin(x)");
+        acceptPrintDocument(graphPrintDocument(), Date.now());
+      });
+      const sent = callWin(print.win, () => printDocument);
+      assert(sent.clearDark && sent.clearLight && sent.clearDark !== sent.clearLight, "no see-through copies of the graph");
+      const choice = doc.getElementById("printBackground");
+      const picker = doc.getElementById("printBackgroundColor");
+      assert(choice.value === "none" && picker.hidden, "the page does not start plain");
+      const frame = doc.getElementById("printFrame");
+      const image = doc.getElementById("printImage");
+      assert(image.getAttribute("src") === sent.image, "plain paper does not print the graph as shown");
+      choice.value = "#1c1917";
+      choice.dispatchEvent(new Event("input", { bubbles: true }));
+      assert(getComputedStyle(frame).backgroundColor === "rgb(28, 25, 23)", getComputedStyle(frame).backgroundColor);
+      assert(image.getAttribute("src") === sent.clearLight, "a dark page did not take the light-inked graph");
+      assert(getComputedStyle(doc.getElementById("printFormulas")).color === "rgb(250, 250, 249)", "the formulas stayed dark on a dark page");
+      choice.value = "custom";
+      choice.dispatchEvent(new Event("input", { bubbles: true }));
+      assert(!picker.hidden, "custom shows no colour box");
+      picker.value = "#e0f2fe";
+      picker.dispatchEvent(new Event("input", { bubbles: true }));
+      assert(getComputedStyle(frame).backgroundColor === "rgb(224, 242, 254)", getComputedStyle(frame).backgroundColor);
+      assert(image.getAttribute("src") === sent.clearDark, "a light page did not take the dark-inked graph");
+      assert(Number.parseFloat(getComputedStyle(frame).paddingTop) > 0, "the text touches the colour's edge");
+      assert(doc.getElementById("printPageStyle").textContent.includes("padding: 4mm"), "the paper rule lost the coloured page's inner room");
+      choice.value = "none";
+      choice.dispatchEvent(new Event("input", { bubbles: true }));
+      assert(getComputedStyle(frame).backgroundColor === "rgba(0, 0, 0, 0)" && image.getAttribute("src") === sent.image, "plain paper did not come back");
+    } finally {
+      print.frame.remove();
+    }
+  });
+
+  test("The guide's Markdown keeps tables, lists and code", async () => {
+    const loaded = await loadApp("pop=guide");
+    try {
+      const out = callWin(loaded.win, () => renderGuideMarkdown("# T\n\n## A b\n\nSee `x^2` and **bold**.\n\n- one\n- two\n\n1. first\n2. second\n\n| a | b |\n|---|---|\n| 1 | <2> |\n\n[web](https://example.com) [file](README.md)\n"));
+      assert(out.headings.map((heading) => heading.id).join(",") === "t,a-b", out.headings.map((heading) => heading.id).join(","));
+      assert(out.html.includes("<code>x^2</code>") && out.html.includes("<strong>bold</strong>"), out.html);
+      assert(out.html.includes("<ul><li>one</li><li>two</li></ul>") && out.html.includes("<ol><li>first</li>"), out.html);
+      assert(out.html.includes("<td>&lt;2&gt;</td>"), "table cells are not escaped");
+      assert(out.html.includes('href="https://example.com"') && !out.html.includes('href="README.md"'), "links");
     } finally {
       loaded.frame.remove();
     }

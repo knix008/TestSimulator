@@ -1770,7 +1770,6 @@ canvas.is-3d.dragging { cursor: grabbing; }
 
 /* The cursor reading is the one cell that changes as the pointer moves, so it
    is given the tail of the bar and the room to grow into. */
-.status-hover { margin-left: auto; }
 
 .notice {
   position: fixed;
@@ -2393,14 +2392,16 @@ html.print-pop #printSheet .print-preview { -webkit-app-region: no-drag; }
 
 /* The help is a document: it scrolls, and only its chrome is a window. */
 .help-dialog { display: flex; flex-direction: column; min-height: 0; }
+/* Laid out like the calculator: the title sits on the card and only the text
+   is on the dark screen panel, with no frame line of its own. */
 .help-body {
   display: flex;
   flex-direction: column;
+  gap: 12px;
   min-height: 0;
   color: var(--ink);
-  background: var(--screen);
-  border-radius: 14px;
-  padding: 12px 14px;
+  background: transparent;
+  padding: 0;
 }
 .help-name { margin: 0; font-size: 18px; font-weight: 750; color: var(--ink); }
 .help-lead { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; font-weight: 400; }
@@ -2408,7 +2409,8 @@ html.print-pop #printSheet .print-preview { -webkit-app-region: no-drag; }
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 0 0 8px;
+  margin: 0;
+  padding: 2px 44px 0 4px;
   flex: 0 0 auto;
 }
 /* The question mark is the sign of this window, drawn in the accent colour
@@ -2656,39 +2658,55 @@ html.graph-pop #screenGraph .graph-side {
   color: var(--ink);
 }
 
-.axis-length {
+/* Each axis: its letter, then a minimum row and a maximum row, each a −, the
+   value (typed in, centred) and a +. */
+.graph-side .axis-span {
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr);
+  grid-template-columns: 18px auto minmax(0, 1fr);
   align-items: center;
-  gap: 6px;
+  column-gap: 6px;
+  row-gap: 4px;
+  min-width: 0;
+}
+
+.graph-side .axis-span[hidden] { display: none; }
+
+.graph-side .axis-span-tag {
+  grid-row: span 2;
   font-size: 12px;
+}
+
+.graph-side .axis-span .axis-end-label {
+  font-size: 11px;
   font-weight: 700;
   color: var(--muted);
 }
 
-.axis-range-slot {
+.axis-span .axis-end-label,
+.axis-span .axis-end-step .step-down,
+.axis-span .axis-end-step .step-up {
+  white-space: nowrap;
+}
+
+.axis-end-step { min-width: 0; }
+
+/* The number box has no border of its own here, so the row shows a bad range. */
+.axis-end-step:has(.axis-num.is-wrong) { border-color: var(--danger); }
+
+.graph-side .axis-end-step .axis-num {
   flex: 1 1 auto;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  width: 0;
   min-width: 0;
-}
-
-.graph-side .axis-span {
-  justify-content: center;
-  min-width: 0;
-}
-
-.graph-side .axis-span-tag { display: none; }
-
-.graph-side .axis-num {
-  width: 52px;
   height: auto;
   border: 0;
   border-radius: 0;
   background: transparent;
   text-align: center;
-  padding: 4px 0;
+  padding: 4px 2px;
+  font-family: Consolas, "Malgun Gothic", monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .num-step output {
@@ -2987,16 +3005,29 @@ html.info-pop .info-body .info-lead {
   line-height: 1.4;
 }
 
-html.info-pop .info-list { gap: 4px; }
+/* The list sits on the window's own card, like the calculator's background:
+   no panel, and no background or frame on any row. It scrolls rather than
+   hide a row if a font ever runs taller than planned. */
+html.info-pop .info-list {
+  gap: 3px;
+  padding: 4px 4px 0;
+  background: none;
+  border-radius: 0;
+  min-height: 0;
+  overflow-y: auto;
+}
 
 html.info-pop .info-list > div {
   grid-template-columns: 96px minmax(0, 1fr);
   gap: 12px;
-  padding: 4px 10px;
-  background: var(--screen);
-  border: 1px solid var(--line);
-  border-radius: 12px;
+  padding: 1px 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
 }
+
+html.info-pop .info-list dt,
+html.info-pop .info-list dd { line-height: 1.4; }
 
 #printSheet { display: none; }
 
@@ -3236,15 +3267,26 @@ html.print-pop #printSheet {
   justify-content: center;
   background: #2a2622;
   border-radius: 16px;
-  overflow: hidden;
+  overflow: auto;
 }
 
 #printWait { margin: 0; color: #d6d3d1; font-size: 13px; }
+
+/* The pages stack down the preview; a long document scrolls. */
+.print-pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  margin: auto;
+  padding: 18px 0;
+}
 
 .print-page {
   display: none;
   box-sizing: border-box;
   background: #fff;
+  color: #1c1917;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
 }
 
@@ -3275,6 +3317,15 @@ html.print-pop #printSheet {
 
 .print-heading { font-weight: 750; }
 
+.print-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .print-graph {
   flex: 1 1 auto;
   min-width: 0;
@@ -3284,6 +3335,10 @@ html.print-pop #printSheet {
   justify-content: center;
 }
 
+.print-graph[hidden],
+.print-formulas[hidden],
+.print-doc[hidden] { display: none; }
+
 .print-page img {
   width: var(--graph-scale, 100%);
   height: var(--graph-scale, 100%);
@@ -3292,18 +3347,117 @@ html.print-pop #printSheet {
   background: #fff;
 }
 
+/* The formulas under a printed graph, each beside its curve's colour. */
+.print-formulas {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--mm, 1mm) * 1.2) calc(var(--mm, 1mm) * 5);
+  margin: calc(var(--mm, 1mm) * 3) 0 0;
+  padding: 0;
+  list-style: none;
+  font-family: Consolas, "Malgun Gothic", monospace;
+  font-size: calc(var(--mm, 1mm) * 3.4 * var(--print-text, 1));
+  color: #1c1917;
+}
+
+.print-formulas li {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--mm, 1mm) * 1.6);
+}
+
+.print-formula-chip {
+  flex: 0 0 auto;
+  width: calc(var(--mm, 1mm) * 5);
+  height: calc(var(--mm, 1mm) * 1.2);
+  border-radius: calc(var(--mm, 1mm) * 0.6);
+}
+
+/* A printed document: the calculator's screen or the user guide. Every size
+   is in --mm, so the preview breaks its lines where the paper will. */
+.print-doc {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  font-family: "Malgun Gothic", "Segoe UI", sans-serif;
+  font-size: calc(var(--mm, 1mm) * 3.5 * var(--print-text, 1));
+  line-height: 1.55;
+  color: #1c1917;
+}
+
+.print-doc > :first-child { margin-top: 0; }
+.print-doc h1 { margin: 0 0 0.5em; font-size: 1.6em; line-height: 1.25; }
+.print-doc h2 { margin: 1.1em 0 0.45em; font-size: 1.25em; line-height: 1.3; border-bottom: calc(var(--mm, 1mm) * 0.25) solid #d6d3d1; padding-bottom: 0.15em; }
+.print-doc h3 { margin: 0.9em 0 0.35em; font-size: 1.08em; }
+.print-doc p { margin: 0 0 0.6em; }
+.print-doc ul,
+.print-doc ol { margin: 0 0 0.6em; padding-left: 1.5em; }
+.print-doc li { margin: 0.12em 0; }
+.print-doc code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.92em; background: #f5f5f4; border-radius: 0.2em; padding: 0 0.25em; }
+.print-doc pre { margin: 0 0 0.6em; padding: 0.5em 0.7em; background: #f5f5f4; border-radius: 0.3em; white-space: pre-wrap; font-family: Consolas, monospace; font-size: 0.9em; }
+.print-doc img { max-width: 100%; }
+.print-doc table { border-collapse: collapse; margin: 0 0 0.8em; min-width: 50%; }
+.print-doc th,
+.print-doc td { border: calc(var(--mm, 1mm) * 0.25) solid #a8a29e; padding: 0.3em 0.7em; text-align: left; vertical-align: top; }
+.print-doc thead th,
+.print-doc .print-pairs th { background: #f5f5f4; font-weight: 700; }
+.print-doc .print-pairs th { width: 30%; white-space: nowrap; }
+.print-doc .print-strong { font-weight: 800; font-size: 1.15em; }
+.print-doc .print-meta { color: #57534e; font-size: 0.88em; }
+
+/* On paper only the pages are left, one after another. */
 @media print {
-  html.print-pop body * { visibility: hidden; }
-  html.print-pop #printPage,
-  html.print-pop #printPage * { visibility: visible; }
-  html.print-pop #printPage {
-    position: absolute;
-    left: 0;
-    top: 0;
+  html.print-pop,
+  html.print-pop body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  html.print-pop body > :not(.app) { display: none !important; }
+  html.print-pop .app {
+    display: block !important;
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: none !important;
+    overflow: visible !important;
+  }
+  html.print-pop .app > :not(#printSheet),
+  html.print-pop #printSheet > :not(.print-stage),
+  html.print-pop .print-stage > :not(.print-preview),
+  html.print-pop #printWait { display: none !important; }
+  html.print-pop #printSheet,
+  html.print-pop .print-stage,
+  html.print-pop .print-preview,
+  html.print-pop .print-pages {
+    display: block !important;
+    position: static !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: none !important;
+    overflow: visible !important;
+  }
+  html.print-pop .print-page {
     margin: 0 !important;
     box-shadow: none !important;
     border-radius: 0 !important;
     display: flex !important;
+    overflow: hidden;
+    break-after: page;
+    page-break-after: always;
+  }
+  html.print-pop .print-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
   }
 }
 
@@ -3581,3 +3735,415 @@ html.memo-pop .memo-head .pop-title .icon { color: var(--accent); }
   .memo-item { flex-wrap: wrap; }
   .memo-actions { width: 100%; justify-content: flex-end; }
 }
+
+/* ----- Graph context menu ----- */
+.ctx-menu {
+  position: fixed;
+  z-index: 80;
+  min-width: 200px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--key);
+  color: var(--ink);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  font-size: 13px;
+  -webkit-app-region: no-drag;
+}
+
+.ctx-menu.ctx-sub {
+  position: absolute;
+  min-width: 180px;
+}
+
+.ctx-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 30px;
+  padding: 4px 10px 4px 6px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ctx-item:hover,
+.ctx-item:focus-visible,
+.ctx-item[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  outline: none;
+}
+
+.ctx-item:disabled { opacity: 0.45; cursor: default; }
+
+.ctx-check {
+  flex: 0 0 16px;
+  text-align: center;
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.ctx-swatch {
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.ctx-label { flex: 1 1 auto; }
+
+.ctx-arrow {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.ctx-sep {
+  height: 1px;
+  margin: 5px 6px;
+  background: var(--line);
+}
+
+.ctx-swatches {
+  display: grid;
+  grid-template-columns: repeat(6, 24px);
+  gap: 6px;
+  padding: 6px 8px 6px 30px;
+}
+
+.ctx-color {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.ctx-color[aria-pressed="true"] {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.ctx-color:focus-visible {
+  outline: 2px solid var(--op);
+  outline-offset: 1px;
+}
+
+.graph-bg-picker {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  left: 50%;
+  top: 50%;
+}
+
+#plot:focus-visible {
+  outline: 2px solid var(--op);
+  outline-offset: -2px;
+}
+
+.axis-range-note {
+  margin: 0;
+  color: var(--danger);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* ----- User guide window -----
+   Every colour comes from the calculator theme, so the guide changes with it. */
+.icon-guide { -webkit-mask-image: url("../assets/icons/guide.svg"); mask-image: url("../assets/icons/guide.svg"); }
+
+#guideSheet { display: none; }
+
+html.guide-pop,
+html.guide-pop body {
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+}
+html.guide-pop body { display: block; }
+html.guide-pop .app {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.28),
+    inset -1px -2px 0 rgba(0, 0, 0, 0.18),
+    var(--shadow);
+  background:
+    linear-gradient(148deg, rgba(255, 255, 255, 0.2), transparent 36%),
+    linear-gradient(328deg, rgba(0, 0, 0, 0.16), transparent 42%),
+    var(--card);
+}
+html.guide-pop .top,
+html.guide-pop .stage,
+html.guide-pop #keys,
+html.guide-pop #infoSheet,
+html.guide-pop #helpSheet,
+html.guide-pop #settingsSheet,
+html.guide-pop #memoSheet,
+html.guide-pop #printSheet {
+  display: none !important;
+}
+html.guide-pop #guideSheet {
+  display: flex;
+  position: static;
+  height: 100%;
+  padding: 14px 16px 16px;
+  gap: 12px;
+  background: transparent;
+}
+
+.guide-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: nowrap;
+}
+html.guide-pop .guide-head { -webkit-app-region: drag; }
+html.guide-pop #guideSheet button,
+html.guide-pop #guideSheet a,
+html.guide-pop .guide-body,
+html.guide-pop .graph-resize,
+html.guide-pop .graph-edge { -webkit-app-region: no-drag; }
+
+.guide-head .pop-title h2 { margin: 0; font-size: 18px; white-space: nowrap; }
+.guide-head .pop-title .icon { color: var(--accent); }
+
+.guide-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.guide-lang button { min-width: 0; height: 30px; padding: 0 10px; font-size: 12px; }
+
+.guide-font {
+  min-height: 30px;
+  width: 112px;
+}
+.guide-font output {
+  flex: 1 1 auto;
+  min-width: 0;
+  align-self: center;
+  text-align: center;
+  font-family: Consolas, "Malgun Gothic", monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.guide-print {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--key);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.guide-print:hover { background: var(--key-hover); }
+.guide-print .icon { width: 15px; height: 15px; }
+
+.guide-head .sheet-actions { margin-left: 4px; }
+
+.guide-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.guide-toc {
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--screen);
+}
+
+.guide-toc a {
+  display: block;
+  padding: 6px 10px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  text-decoration: none;
+  line-height: 1.35;
+}
+.guide-toc a:hover { background: var(--key); color: var(--ink); }
+.guide-toc a.is-current {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.guide-doc {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 26px 30px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--screen);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.65;
+}
+.guide-doc:focus-visible { outline: 2px solid var(--op); outline-offset: -2px; }
+.guide-doc > :first-child { margin-top: 0; }
+.guide-doc h1 { margin: 0 0 0.6em; font-size: 1.7em; line-height: 1.25; color: var(--ink); }
+.guide-doc h2 {
+  margin: 1.5em 0 0.5em;
+  padding-bottom: 0.25em;
+  border-bottom: 1px solid var(--line);
+  font-size: 1.3em;
+  color: var(--accent);
+  scroll-margin-top: 10px;
+}
+.guide-doc h3 { margin: 1.1em 0 0.4em; font-size: 1.1em; }
+.guide-doc p { margin: 0 0 0.75em; }
+.guide-doc ul,
+.guide-doc ol { margin: 0 0 0.75em; padding-left: 1.5em; }
+.guide-doc li { margin: 0.2em 0; }
+.guide-doc a { color: var(--accent); }
+.guide-doc code {
+  padding: 0.05em 0.35em;
+  border-radius: 5px;
+  background: var(--key);
+  font-family: Consolas, "Cascadia Mono", monospace;
+  font-size: 0.92em;
+}
+.guide-doc pre {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--key);
+  overflow-x: auto;
+}
+.guide-doc pre code { padding: 0; background: none; }
+.guide-doc table { border-collapse: collapse; margin: 0 0 1em; }
+.guide-doc th,
+.guide-doc td { padding: 6px 10px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+.guide-doc th { background: var(--key); }
+.guide-doc blockquote {
+  margin: 0 0 0.75em;
+  padding: 6px 12px;
+  border-left: 3px solid var(--accent);
+  background: var(--key);
+  border-radius: 0 8px 8px 0;
+}
+.guide-doc hr { border: 0; border-top: 1px solid var(--line); margin: 1.2em 0; }
+.guide-wait { color: var(--muted); }
+
+/* The narrowest calculator (360 px) has seven buttons on its top row: the
+   name and version stack, and the tagline, cut short there anyway, steps aside. */
+@media (max-width: 420px) {
+  html:not([class*="-pop"]) .brand p { display: none; }
+  html:not([class*="-pop"]) .brand h1 { display: flex; flex-direction: column; line-height: 1.1; white-space: nowrap; }
+  html:not([class*="-pop"]) .brand .version { margin-left: 0; }
+  html:not([class*="-pop"]) .logo { width: 30px; height: 30px; }
+  html:not([class*="-pop"]) .brand-actions { gap: 3px; }
+  html:not([class*="-pop"]) .brand-actions button { width: 30px; min-height: 30px; }
+}
+
+/* The 2D/3D formula box: small by default, sized in the settings. */
+.graph-input,
+html.graph-pop .graph-tool-row .graph-input { font-size: var(--graph-expr-font, 10px); }
+
+.lang-setting .expr-font-heading { margin-left: 8px; }
+.expr-font-step { width: 118px; min-height: 32px; }
+.expr-font-step output {
+  flex: 1 1 auto;
+  min-width: 0;
+  align-self: center;
+  text-align: center;
+  font-family: Consolas, "Malgun Gothic", monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* Language, tooltips and formula text share one row in the settings. */
+#settingsSheet .lang-setting { flex-wrap: nowrap; gap: 10px; }
+#settingsSheet .lang-setting h3 { white-space: nowrap; }
+#settingsSheet .lang-setting .lang-choices button { min-width: 64px; padding: 0 10px; }
+#settingsSheet .expr-font-step { width: 104px; flex: 0 0 auto; }
+#settingsSheet .lang-setting { gap: 8px; }
+#settingsSheet .lang-setting .lang-choices button { min-width: 56px; padding: 0 9px; }
+
+/* The help text is the window's screen panel, as on the calculator. */
+.help-body .help-doc {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--screen);
+  border-radius: 20px;
+  padding: 12px 14px 10px;
+}
+html.help-pop .app { padding: 12px; }
+
+/* The guide follows the same pattern: contents on the card, text on the
+   screen panel, no frame lines. */
+.guide-toc { border: 0; background: transparent; padding: 0 4px 0 0; }
+.guide-doc { border: 0; border-radius: 20px; }
+html.guide-pop #guideSheet { padding: 12px; }
+
+/* Graph window title row: guide, About and the two panel switches sit just
+   left of minimize, the same in 2D and 3D. */
+.title-sep { display: none; }
+html.graph-pop #graphMin { margin-left: 4px; }
+html.graph-pop .title-sep {
+  display: block;
+  width: 1px;
+  align-self: center;
+  height: 20px;
+  margin: 0 2px;
+  background: var(--line);
+}
+html.graph-pop #graphGuide,
+html.graph-pop #graphInfo { display: inline-flex; }
+html.graph-pop #panelRight + #graphMin { margin-left: 10px; }
+
+/* Print background: the area inside the margins takes the chosen colour. */
+.print-bg-row { display: flex; gap: 6px; align-items: center; }
+.print-bg-row select { flex: 1 1 auto; min-width: 0; }
+.print-bg-row input[type="color"] { flex: 0 0 38px; width: 38px; height: 32px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--key); }
+.print-bg-row input[hidden] { display: none; }
+.print-page .print-frame { background: var(--print-paper, transparent); }
+.print-page,
+.print-page * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.print-heading,
+.print-footer,
+.print-formulas,
+.print-doc { color: var(--print-ink, #1c1917); }
+.print-page.has-paper .print-doc thead th,
+.print-page.has-paper .print-doc .print-pairs th,
+.print-page.has-paper .print-doc code,
+.print-page.has-paper .print-doc pre { background: rgba(128, 128, 128, 0.16); }
+.print-page.has-paper .print-doc .print-meta { color: inherit; opacity: 0.75; }
+.print-page.has-paper .print-page img,
+.print-page.has-paper img { background: transparent; }

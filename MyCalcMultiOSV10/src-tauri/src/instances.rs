@@ -72,7 +72,7 @@ fn other_calculators() -> Vec<(i32, i32)> {
             }
             let mut text = [0u16; 64];
             let len = GetWindowTextW(hwnd, text.as_mut_ptr(), text.len() as i32);
-            if len <= 0 || String::from_utf16_lossy(&text[..len as usize]) != "MyCalc 10.0" {
+            if len <= 0 || String::from_utf16_lossy(&text[..len as usize]) != "MyCalc 2.0" {
                 return 1;
             }
             let mut rect = Rect { left: 0, top: 0, right: 0, bottom: 0 };
