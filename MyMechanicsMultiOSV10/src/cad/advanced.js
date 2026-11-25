@@ -6,6 +6,9 @@
 import { needsSweepMore, sweepMoreTool } from './sweep-more.js';
 import { ruleAllowance, sheetSettings, gaugeOf } from './sheet-gauge.js';
 import { solidSweep } from './solid-sweep.js';
+import { curvedDraftRegions } from './draft-curved.js';
+import { wrapOnSurface } from './wrap-surface.js';
+import { faceSampler } from './mold-brep.js';
 import { needsLoftMore, loftMoreTool } from './loft-more.js';
 import { needsRibMore, ribMore } from './rib-more.js';
 import { rep } from './kernel.js';
@@ -120,7 +123,7 @@ export function buildAdvanced(f, ctx) {
     case 'sketchedBend': return buildSketchedBend(f, ctx);
     case 'jog': return buildJog(f, ctx);
     case 'partingLine': return buildPartingLine(f, ctx);
-    case 'toolingSplit': return buildToolingSplit(f, ctx);
+    case 'toolingSplit': { const part = ctx.body ? ctx.body.clone() : null; const out = buildToolingSplit(f, ctx); ctx.toolingPart = part; return out; }
     case 'sketch3d': return buildSketch3d(f, ctx);
     default:
       if (SHEET_MORE_TYPES.includes(f.type)) return buildSheetMore(f, ctx);
@@ -321,6 +324,7 @@ function draftMore(f, ctx) {
   const body = ctx.body;
   const items = [];
   const angleOf = (face, base) => { const own = (f.angles ?? []).find((x) => { const m = findFace(body, x.sig); return m && m.isSame(face); }); return own ? num(own.angle, base) : base; };
+  const curved = [];
   if (f.kind === 'partingLine' || f.kind === 'step') {
     let pull = f.pull ? resolveDirection(f.pull, ctx) : [0, 0, 1];
     if (f.reverse) pull = mul(pull, -1);
@@ -333,15 +337,35 @@ function draftMore(f, ctx) {
       const along = (fc) => (vec(fc.center)[0] - p[0]) * pull[0] + (vec(fc.center)[1] - p[1]) * pull[1] + (vec(fc.center)[2] - p[2]) * pull[2];
       const sorted = faces.filter((fc) => fc.geomType !== 'PLANE' || Math.abs(Math.abs(dot(normalize(vec(fc.normalAt(vec(fc.center)))), pull)) - 1) > 1e-6).sort((x, y) => along(y) - along(x));
       const chosen = f.otherFace ? sorted : sorted.slice(0, 1);
-      for (const fc of chosen) items.push({ face: fc, plane: { origin: p, dir: along(fc) >= 0 ? pull : mul(pull, -1) }, angle: angleOf(fc, num(f.angle)) });
+      // A curved parting edge, or a curved face: drafted about the curve itself (draft-curved.js), after the rest.
+      for (const fc of chosen) {
+        const item = { face: fc, plane: { origin: p, dir: along(fc) >= 0 ? pull : mul(pull, -1) }, angle: angleOf(fc, num(f.angle)) };
+        if (edge.geomType !== 'LINE' || fc.geomType !== 'PLANE') curved.push({ faceSig: faceSignature(fc), edgeSig: sig, dir: item.plane.dir, angle: item.angle });
+        else items.push(item);
+      }
     }
   } else {
     const fr = resolvePlane(f.neutral, ctx);
     const n = f.reverse ? mul(fr.normal, -1) : fr.normal;
     for (const sig of f.faces ?? []) { const fc = findFace(body, sig); if (fc) items.push({ face: fc, plane: { origin: fr.origin, dir: n }, angle: angleOf(fc, num(f.angle)) }); }
   }
-  if (!items.length) throw codeError('no-faces');
-  if (items.some((x) => !(Math.abs(x.angle) > 0) || Math.abs(x.angle) >= 45)) throw codeError('bad-angle');
+  if (!items.length && !curved.length) throw codeError('no-faces');
+  if ([...items, ...curved].some((x) => !(Math.abs(x.angle) > 0) || Math.abs(x.angle) >= 45)) throw codeError('bad-angle');
+  // Curved parting lines: each face drafted about its curve, on the body the plane drafts made.
+  const curvedDrafts = (start) => {
+    const normalAt = (fc, p) => { const S = faceSampler(fc); try { const [u, v] = fc.uvCoordinates(p); return S.at(u, v).n; } finally { S.delete(); } };
+    // Every face's regions from the same body, then applied together (one face's draft would change the next's edge).
+    const regions = curved.map((c) => {
+      const fc = findFace(start, c.faceSig); const [e] = findEdges(start, [c.edgeSig]);
+      if (!fc || !e) throw codeError('edges-lost');
+      return curvedDraftRegions(fc, e, c.dir, c.angle, { codeError, normalAt });
+    });
+    let out = start;
+    for (const g of regions) out = out.cut(g.remove);
+    for (const g of regions) out = out.fuse(g.add);
+    return { body: out };
+  };
+  if (!items.length) return curvedDrafts(body);
   const mk = new oc.BRepOffsetAPI_DraftAngle(body.wrapped);
   const made = [];
   try {
@@ -353,7 +377,8 @@ function draftMore(f, ctx) {
     }
     mk.Build(new oc.Message_ProgressRange());
     if (!mk.IsDone()) throw codeError('draft-failed');
-    return { body: R.cast(mk.ModifiedShape(body.wrapped)) };
+    const drafted = R.cast(mk.ModifiedShape(body.wrapped));
+    return curved.length ? curvedDrafts(drafted) : { body: drafted };
   } finally { mk.delete(); for (const x of made) x.delete(); }
 }
 
@@ -839,6 +864,12 @@ function buildWrap(f, ctx) {
       return { tool, toolOp: op, body: combine(ctx, tool, op) };
     } catch { /* fall back to the projection below */ }
   }
+  // Any other curved face: laid on by arc length along its own u and v lines (wrap-surface.js).
+  if (face.geomType !== 'PLANE' && !isCylinder(face.geomType)) {
+    const tool = wrapOnSurface(face, sketch, frame, depth, f.op === 'deboss', { codeError, thickOf });
+    const op = f.op === 'deboss' ? 'cut' : 'boss';
+    return { tool, toolOp: op, body: combine(ctx, tool, op) };
+  }
   let shellRegion;
   let reach;
   if (isCylinder(face.geomType)) {
@@ -1323,7 +1354,8 @@ function buildStructural(f, ctx) {
     // Cut length: the member's extent along its own line (after the corner cuts); its end cut angles.
     let cutLength = sg.L;
     try { const { dir } = axes[i]; const vs = s.edges.flatMap((e) => [0, 0.5, 1].map((t) => dot(vec(e.pointAt(t)), dir))); if (vs.length) cutLength = Math.max(...vs) - Math.min(...vs); } catch { /* the line's length */ }
-    members.push({ line: sg.id, length: r6(sg.L), cutLength: r6(cutLength), angle1: angles[i].a, angle2: angles[i].b });
+    // The member's line and section axes (the profile's x along u, y along v) for frame analysis.
+    members.push({ line: sg.id, length: r6(sg.L), cutLength: r6(cutLength), angle1: angles[i].a, angle2: angles[i].b, a: [...sg.pa], b: [...sg.pb], u: [...axes[i].u], v: [...axes[i].v] });
   });
   if (!tool) throw codeError('no-path');
   return { tool, body: combine(ctx, tool, 'boss'), members };
@@ -1333,7 +1365,7 @@ function buildStructural(f, ctx) {
 
 /** Sketches a feature of `type` can use (closed regions, open paths, lines, points …). */
 export function sketchUse(type) {
-  if (['sweep', 'loft', 'baseFlange', 'surfacePlanar', 'surfaceLoft', 'wrap'].includes(type)) return 'profile';
+  if (['sweep', 'loft', 'baseFlange', 'surfacePlanar', 'surfaceLoft', 'wrap', 'sideCore'].includes(type)) return 'profile';
   if (['rib', 'structural', 'surfaceExtrude', 'surfaceRevolve'].includes(type)) return 'curves';
   return null;
 }

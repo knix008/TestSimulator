@@ -26,7 +26,8 @@ const storage = () => { try { return globalThis.localStorage ?? null; } catch { 
 const STATE_ICONS = { wip: 'stateWip', pending: 'statePending', released: 'stateReleased', obsolete: 'stateObsolete' };
 const TR_ICONS = { submit: 'trSubmit', approve: 'trApprove', reject: 'trReject', revise: 'trRevise', obsolete: 'trObsolete', reinstate: 'trReinstate' };
 const KIND_ICONS = { part: 'part', assembly: 'assembly', drawing: 'drawing' };
-const SUBS = [['history', 'versionHistory'], ['contains', 'refContains'], ['whereUsed', 'refWhereUsed'], ['bom', 'bomIndented'], ['pack', 'packAndGo'], ['events', 'lifecycle']];
+const SUBS = [['history', 'versionHistory'], ['contains', 'refContains'], ['whereUsed', 'refWhereUsed'], ['bom', 'bomIndented'], ['pack', 'packAndGo'], ['events', 'lifecycle'], ['discussion', 'pdmDiscussion']];
+const WATCH_KEY = 'mymechanics.vault.watch';
 
 export function attachPdm(more, ctx) {
   const { t } = ctx;
@@ -38,6 +39,8 @@ export function attachPdm(more, ctx) {
     rename: '', copySuffix: ' (copy)', comment: '', keepOut: false, chg: { type: 'ecr', title: '', desc: '', files: [], sel: null },
     field: { card: 'general', key: '', label: '', type: 'text', options: '', required: false }, role: { user: '', role: 'editor', password: '' }, webName: '', webList: [], busy: false,
     login: null, pw: { old: '', next: '' }, reset: {},
+    // Working together: the vault read again every `watch` seconds (0 = off), news of others since `seen`.
+    watch: loadWatch(), seen: null, news: [], talk: '',
   };
   const lastUser = () => { try { return storage()?.getItem(AUTHOR_KEY) || ''; } catch { return ''; } };
   /** The logged-in user (the vault's session), else the name last used. */
@@ -47,6 +50,41 @@ export function attachPdm(more, ctx) {
   const roleName = (r) => t(`pdm.role.${r}`);
 
   // ───────────────────────── connecting
+
+  function loadWatch() { try { const v = Number(storage()?.getItem(WATCH_KEY)); return Number.isFinite(v) && storage()?.getItem(WATCH_KEY) != null ? v : 15; } catch { return 15; } }
+
+  // ───────────────────────── working together: the vault watched for others' work
+
+  let timer = 0;
+  /** (Re)starts the watch: every S.watch seconds the vault is read again and others' new work announced. */
+  function startWatch() {
+    clearInterval(timer); timer = 0;
+    if (!S.vault || !(S.watch > 0)) return;
+    S.seen ??= S.vault.activity({ limit: 1 })[0]?.time ?? S.vault.now();
+    timer = setInterval(() => { void poll(); }, S.watch * 1000);
+  }
+  /** One look at the vault: news of others since the last look as notices, the explorer and marks redrawn. */
+  async function poll() {
+    const v = S.vault;
+    if (!v || S.busy) return [];
+    try { await v.refresh(); } catch { return []; }
+    const news = v.activity({ since: S.seen, others: true, limit: 50 });
+    if (!news.length) return [];
+    S.seen = news[0].time;
+    S.news = [...news, ...S.news].slice(0, 100);
+    for (const e of news.slice(0, 3).reverse()) notify('info', newsText(e));
+    if (news.length > 3) notify('info', t('pdm.newsMore', { count: news.length - 3 }));
+    if (S.open) render();
+    ctx.renderAll?.();
+    return news;
+  }
+  /** One line about an event. */
+  function newsText(e) {
+    const what = e.kind === 'change'
+      ? `${e.number} ${t(`pdm.log.${e.action}`, null, e.action)}`
+      : `${e.name} — ${e.type === 'transition' ? t(`pdm.tr.${e.transition}`) : t(`pdm.ev.${e.type}`, null, e.type)}`;
+    return `${e.by}: ${what}${e.comment ? ` — ${e.comment}` : ''}`;
+  }
 
   function loadLocation() { try { return JSON.parse(storage()?.getItem(LOCATION_KEY) ?? 'null'); } catch { return null; } }
   function saveLocation(loc) { try { if (loc) storage()?.setItem(LOCATION_KEY, JSON.stringify(loc)); else storage()?.removeItem(LOCATION_KEY); } catch { /* no storage */ } }
@@ -60,6 +98,7 @@ export function attachPdm(more, ctx) {
     const host = location.kind === 'folder' && isDesktop() ? (await vaultInfo(location.root)).host : 'browser';
     const opts = { user: who, password, host };
     S.vault = create ? await Vault.create(store, { name: name || location.root, scheme, ...opts }) : await Vault.login(store, opts);
+    S.seen = null; S.news = []; startWatch();
     S.location = location; S.host = host; S.sel = null; S.bom = null; S.cmp = { a: null, b: null, diff: null }; S.login = null;
     try { storage()?.setItem(AUTHOR_KEY, S.vault.user); } catch { /* no storage */ }
     saveLocation(location);
@@ -71,7 +110,7 @@ export function attachPdm(more, ctx) {
     if (!S.vault) return false;
     try { await S.vault.refresh(); return true; } catch { return false; }
   }
-  function logout() { S.vault = null; S.sel = null; S.login = S.location ? { location: S.location, create: false, user: lastUser(), password: '' } : null; }
+  function logout() { clearInterval(timer); timer = 0; S.vault = null; S.sel = null; S.login = S.location ? { location: S.location, create: false, user: lastUser(), password: '' } : null; }
 
   const testFolder = () => { const q = globalThis.window?.__mymechanicsFolderPicks; return Array.isArray(q) && q.length ? { value: q.shift() } : null; };
   async function pickFolder() { const p = testFolder(); return p ? p.value : chooseFolder(S.location?.kind === 'folder' ? S.location.root : undefined); }
@@ -297,7 +336,7 @@ export function attachPdm(more, ctx) {
     return `<header class="pdm-head">${icon('vault')}<div class="pdm-title"><b>${esc(t('pdm.title'))}</b><span class="muted" title="${esc(where)}">${esc(where)}</span></div>
       ${v ? `<span class="pdm-user" title="${esc(t('pdm.youAre', { user: user(), role: roleName(v.role) }))}">${icon('roleUser', 'icon tiny')}<span>${esc(user())}</span><em>${esc(roleName(v.role))}</em></span>` : ''}
       ${v ? `${iconBtn('refresh', 'vaultRefresh', t('pdm.refresh'))}${iconBtn('logout', 'exitProject', t('pdm.logout'))}` : ''}${iconBtn('close', 'close', t('pdm.close'), { cls: 'pdm-close' })}</header>
-      ${v ? `<nav class="pdm-tabs">${seg('tab', [['files', t('pdm.tab.files'), 'vaultExplorer'], ['changes', t('pdm.tab.changes'), 'changeOrder'], ['settings', t('pdm.tab.settings'), 'gear']], S.tab)}</nav>` : ''}`;
+      ${v ? `<nav class="pdm-tabs">${seg('tab', [['files', t('pdm.tab.files'), 'vaultExplorer'], ['changes', t('pdm.tab.changes'), 'changeOrder'], ['activity', `${t('pdm.tab.activity')}${waitingCount() ? ` (${waitingCount()})` : ''}`, 'pdmActivity'], ['settings', t('pdm.tab.settings'), 'gear']], S.tab)}</nav>` : ''}`;
   }
 
   /** The login (or, for a new vault, the first admin account) form. */
@@ -323,7 +362,24 @@ export function attachPdm(more, ctx) {
     return `${group('info', t('pdm.welcome'), `<p class="pdm-note">${esc(t('pdm.welcomeText'))}</p>${last}`)}${folder}${web}`;
   }
 
+  const waitingCount = () => { const w = V()?.awaitingMe(); return w ? w.changes.length + w.files.length : 0; };
+
+  /** Working together: what waits for me, the vault's latest activity, the watch setting. */
+  function activityHtml() {
+    const v = V(); const w = v.awaitingMe();
+    const waiting = [
+      ...w.files.map((f) => `<li>${icon(KIND_ICONS[f.kind] ?? 'part', 'icon tiny')}<button type="button" class="pdm-link grow" data-pdm="selFile:${esc(f.id)}">${esc(f.name)}</button>${badge(f.state)}<span class="muted">${esc(t('pdm.waitApprove'))}</span></li>`),
+      ...w.changes.map((c) => `<li>${icon(c.type === 'ecr' ? 'changeRequest' : 'changeOrder', 'icon tiny')}<button type="button" class="pdm-link grow" data-pdm="chgOpen:${esc(c.id)}">${esc(`${c.number} — ${c.title}`)}</button><span class="pdm-status pdm-status-${esc(c.status)}">${esc(t(`pdm.status.${c.status}`))}</span></li>`),
+    ].join('');
+    const feed = v.activity({ limit: 60 }).map((e) => `<li class="${e.by === user() ? 'mine' : ''}">${icon(e.kind === 'change' ? 'changeOrder' : e.type === 'comment' ? 'pdmDiscussion' : e.type === 'transition' ? TR_ICONS[e.transition] ?? 'lifecycle' : e.type === 'checkIn' ? 'vaultCheckIn' : e.type === 'checkOut' ? 'vaultCheckOut' : 'note', 'icon tiny')}<span class="grow">${esc(when(e.time))} · <b>${esc(e.by)}</b> — ${esc(newsText(e).slice(e.by.length + 2))}</span>${e.kind === 'file' ? iconBtn(`selFile:${e.file}`, 'vaultOpen', t('pdm.show')) : iconBtn(`chgOpen:${e.change}`, 'vaultOpen', t('pdm.show'))}</li>`).join('');
+    const out = v.files.filter((f) => f.checkout).map((f) => `<li>${icon('vaultCheckOut', 'icon tiny')}<button type="button" class="pdm-link grow" data-pdm="selFile:${esc(f.id)}">${esc(f.name)}</button><span class="muted">${esc(t('pdm.heldBy', { by: f.checkout.by, host: f.checkout.host ?? '' }))}</span></li>`).join('');
+    return `${group('pdmActivity', t('pdm.waiting', { count: w.files.length + w.changes.length }), waiting ? `<ul class="pdm-list">${waiting}</ul>` : `<p class="pdm-note">${esc(t('pdm.nothingWaiting'))}</p>`)}
+      ${group('vaultCheckOut', t('pdm.workingOn'), out ? `<ul class="pdm-list">${out}</ul>` : `<p class="pdm-note">${esc(t('pdm.nobodyOut'))}</p>`)}
+      ${group('lifecycle', t('pdm.activity'), `<div class="pdm-row">${seg('watch', [['0', t('pdm.watchOff'), 'stop'], ['15', '15 s', 'refresh'], ['60', '1 min', 'refresh'], ['300', '5 min', 'refresh']], String(S.watch))}${btn('pollNow', 'refresh', t('pdm.pollNow'))}</div><p class="pdm-note muted">${esc(t('pdm.watchHelp'))}</p><ul class="pdm-list pdm-feed">${feed}</ul>`)}`;
+  }
+
   function bodyHtml() {
+    if (S.tab === 'activity') return activityHtml();
     if (S.tab === 'changes') return changesHtml();
     if (S.tab === 'settings') return settingsHtml();
     return filesHtml();
@@ -398,6 +454,10 @@ export function attachPdm(more, ctx) {
 
   function subHtml(f) {
     const v = V();
+    if (S.sub === 'discussion') {
+      const list = v.comments(f.id).map((c) => `<li class="${c.by === user() ? 'mine' : ''}"><span class="grow"><b>${esc(c.by)}</b> <span class="muted">${esc(when(c.time))}</span><br/>${esc(c.text)}</span></li>`).join('');
+      return group('pdmDiscussion', t('pdm.discussion', { count: v.comments(f.id).length }), `${list ? `<ul class="pdm-list pdm-talk">${list}</ul>` : `<p class="pdm-note">${esc(t('pdm.noTalk'))}</p>`}<div class="pdm-row">${input('talk', S.talk, { placeholder: t('pdm.writeComment'), cls: 'grow' })}${btn('talkPost', 'pdmDiscussion', t('pdm.post'), { disabled: !S.talk.trim(), cls: 'primary' })}</div>`);
+    }
     if (S.sub === 'history') {
       const rows = f.versions.slice().reverse().map((x) => `<li class="${S.cmp.a === x.version || S.cmp.b === x.version ? 'picked' : ''}"><span class="pdm-rev">${esc(`${x.revision}.${x.version}`)}</span><span class="grow">${esc(when(x.time))} · ${esc(x.by)}${x.comment ? ` — ${esc(x.comment)}` : ''}</span>
         ${iconBtn(`cmpA:${x.version}`, 'versionCompare', t('pdm.compareFrom'), { cls: S.cmp.a === x.version ? 'active' : '' })}${iconBtn(`cmpB:${x.version}`, 'versionCompare', t('pdm.compareTo'), { cls: S.cmp.b === x.version ? 'active' : '' })}
@@ -448,7 +508,7 @@ export function attachPdm(more, ctx) {
       <p class="muted">${esc(t('pdm.chgBy', { by: sel.by, time: when(sel.time) }))} · ${esc(t('pdm.approvalsNeeded', { have: sel.approvals.filter((a) => a.decision === 'approve').length, need: sel.type === 'ecr' ? 1 : sel.required }))}</p>
       <ul class="pdm-list">${sel.files.map((id) => `<li>${icon(KIND_ICONS[v.file(id)?.kind] ?? 'part', 'icon tiny')}<button type="button" class="pdm-link" data-pdm="selFile:${esc(id)}">${esc(fileName(id))}</button>${v.file(id) ? badge(v.file(id).state) : ''}<span class="pdm-rev">${esc(v.file(id)?.revision ?? '')}</span></li>`).join('')}</ul>
       <ul class="pdm-list">${sel.log.slice().reverse().map((l) => `<li><span class="grow">${esc(when(l.time))} · ${esc(l.by)} — ${esc(t(`pdm.log.${l.action}`, null, l.action))}${l.comment ? `: ${esc(l.comment)}` : ''}</span></li>`).join('')}</ul>
-      <div class="pdm-row">${input('chg.comment', S.chg.comment ?? '', { placeholder: t('pdm.comment'), cls: 'grow' })}</div>
+      <div class="pdm-row">${input('chg.comment', S.chg.comment ?? '', { placeholder: t('pdm.comment'), cls: 'grow' })}${btn('chgTalk', 'pdmDiscussion', t('pdm.post'))}</div>
       <div class="pdm-row wrap">${sel.type === 'eco' && sel.status === 'draft' ? btn('chgSubmit', 'trSubmit', t('pdm.chgSubmit')) : ''}
       ${(sel.type === 'ecr' && sel.status === 'open') || (sel.type === 'eco' && sel.status === 'pending') ? `${btn('chgApprove', 'trApprove', t('pdm.chgApprove'), { disabled: !atLeastRole('approver') || sel.by === user() })}${btn('chgReject', 'trReject', t('pdm.chgReject'), { disabled: !atLeastRole('approver') || sel.by === user() })}` : ''}
       ${sel.type === 'ecr' && sel.status === 'approved' ? btn('chgOrder', 'changeOrder', t('pdm.chgOrder')) : ''}
@@ -491,6 +551,10 @@ export function attachPdm(more, ctx) {
     switch (name) {
       case 'close': return closeExplorer();
       case 'refresh': return act(() => v.refresh());
+      case 'pollNow': return poll().then(() => render());
+      case 'chgOpen': S.tab = 'changes'; S.chg.sel = arg; return render();
+      case 'talkPost': { const text = S.talk; return act(async () => { await v.comment(f.id, text); S.talk = ''; }); }
+      case 'chgTalk': { const text = S.chg.comment ?? ''; return act(async () => { await v.comment(S.chg.sel, text); S.chg.comment = ''; }); }
       case 'tab': S.tab = arg; return render();
       case 'sub': S.sub = arg; return render();
       case 'sel': if (S.sel !== arg) { S.sel = arg; S.rename = ''; S.cmp = { a: null, b: null, diff: null }; } return render();
@@ -592,6 +656,8 @@ export function attachPdm(more, ctx) {
     if (key.startsWith('policy:')) return setPolicy(key.slice(7), String(value));
     if (key === 'webName') { S.webName = String(value); return render(); }
     if (key === 'comment') { S.comment = String(value); return undefined; }
+    if (key === 'talk') { S.talk = String(value); return render(); }
+    if (key === 'watch') { S.watch = Math.max(0, Number(value) || 0); try { storage()?.setItem(WATCH_KEY, String(S.watch)); } catch { /* no storage */ } startWatch(); return render(); }
     if (key === 'keepOut') { S.keepOut = Boolean(value); return undefined; }
     if (key === 'rename') { S.rename = String(value); return undefined; }
     if (key === 'copySuffix') { S.copySuffix = String(value); return undefined; }
@@ -690,6 +756,6 @@ export function attachPdm(more, ctx) {
 
   return {
     commands,
-    api: { state: S, openExplorer, closeExplorer, connect, logout, ensureVault, action, field, checkInActive, checkOutActive, insertSelected, updateActiveLinks, setPolicy, save, vault: () => S.vault, linkedFile },
+    api: { state: S, poll, startWatch, openExplorer, closeExplorer, connect, logout, ensureVault, action, field, checkInActive, checkOutActive, insertSelected, updateActiveLinks, setPolicy, save, vault: () => S.vault, linkedFile },
   };
 }

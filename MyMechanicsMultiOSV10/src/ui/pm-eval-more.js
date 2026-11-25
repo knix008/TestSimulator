@@ -3,7 +3,7 @@
 // warning on the tooling split). HTML only — app.js / app-drw.js bind the data-pm* attributes.
 import { escapeHtml } from './dom.js';
 import { icon } from '../icons.js';
-import { group, field, check, seg } from './propertymanager.js';
+import { group, field, check, seg, select } from './propertymanager.js';
 import { COST_TABLE_DEFAULTS, CO2_TABLE_DEFAULTS, MATERIAL_GROUPS, costSettings, co2Settings } from '../cad/costing.js';
 
 /** [kind, icon] of the Evaluate tools, in toolbar order. */
@@ -165,6 +165,15 @@ export const MOLD_MORE_PM = {
     const { t } = api;
     const r = api.previewResult?.partingSurface;
     return group('partingSurface', t('mold.partingSurface'), `${seg('dir', [['', t('mold.fromPartingLine')], ...PULL_DIRS], f.dir ?? '')}${field(api, 'distance', f.distance ?? 30, { label: t('mold.distance'), min: 1 })}${seg('mode', [['normal', t('mold.mode.normal'), 'partingSurface'], ['tangent', t('mold.mode.tangent'), 'surface'], ['ruled', t('mold.mode.ruled'), 'ruledSurface']], f.mode ?? 'normal')}${r ? note(r.planar ? t('mold.planar', { count: r.edges }) : t('mold.following', { count: r.edges, faces: r.faces ?? r.edges, mode: t(`mold.mode.${r.mode ?? 'normal'}`) })) : ''}${r?.split ? note(t('mold.silhouetteSplit', { count: r.split })) : ''}${undercutWarning(api)}${note(t('pm.help.partingSurface'))}`);
+  },
+  sideCore(api, f) {
+    const { t } = api;
+    const sketches = (api.sketchList?.(f, 'profile') ?? []).map((x) => [x.id, x.name, 'featSketch']);
+    const r = api.previewResult?.sideCore;
+    return [
+      group('sideCore', t('mold.sideCore'), `${select('sketch', [['', `— ${t('pm.chooseSketch')} —`], ...sketches], f.sketch ?? '', t('pm.sketch'))}${seg('end', [['through', t('end.through'), 'featCut'], ['blind', t('end.blind'), 'featExtrude']], f.end ?? 'through')}${f.end === 'blind' ? field(api, 'depth', f.depth ?? 20, { label: t('pm.depth'), min: 0.001 }) : ''}${check('reverse', f.reverse, t('pm.reverse'), 'flipV')}${field(api, 'draftAngle', f.draftAngle ?? 0, { label: t('pm.draftAngle'), unit: 'angle', glyph: 'dimAngle', min: 0 })}`),
+      `${note(t('mold.help.sideCore'))}${r ? note(t('mold.sideCoreMade', { volume: api.fmt(r.volume) })) : ''}`,
+    ].join('');
   },
   toolingSplit(api, f) {
     const { t } = api;

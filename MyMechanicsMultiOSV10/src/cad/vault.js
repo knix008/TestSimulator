@@ -994,6 +994,53 @@ export class Vault {
     return [...merged.values()].map(({ total, key, ...r }, i) => ({ ...r, item: String(i + 1), level: 0 }));
   }
 
+  // ── working together: activity, what waits for me, discussions
+
+  /**
+   * What happened in the vault, newest first: file events ({ kind: 'file', file, name, type, by, time, comment,
+   * transition, version }) and change-order log entries ({ kind: 'change', change, number, title, action, by, time,
+   * comment }). since — only after this time (ISO); others — not my own; limit.
+   */
+  activity({ since = null, others = false, limit = 100 } = {}) {
+    const out = [];
+    for (const f of this.files) for (const e of f.events ?? []) out.push({ kind: 'file', file: f.id, name: f.name, ...e });
+    for (const c of this.index?.changes ?? []) for (const l of c.log ?? []) out.push({ kind: 'change', change: c.id, number: c.number, title: c.title, ...l });
+    return out.filter((e) => (!since || e.time > since) && (!others || e.by !== this.user)).sort((a, b) => (a.time < b.time ? 1 : a.time > b.time ? -1 : 0)).slice(0, limit);
+  }
+
+  /**
+   * What waits for the current user: change requests and orders to decide (an approver; not their own, not decided
+   * yet), files pending approval they may approve (not the submitter), and draft orders of theirs to send.
+   */
+  awaitingMe() {
+    const me = this.user, approver = atLeast(this.role, 'approver');
+    const changes = (this.index?.changes ?? []).filter((c) => (approver && c.by !== me && !c.approvals.some((a) => a.by === me) && ((c.type === 'ecr' && c.status === 'open') || (c.type === 'eco' && c.status === 'pending'))) || (c.by === me && c.type === 'eco' && c.status === 'draft'));
+    const files = approver ? this.files.filter((f) => f.state === 'pending' && !this.blockOf(this.index, f, TRANSITIONS.find((t) => t.id === 'approve'))) : [];
+    return { changes, files };
+  }
+
+  /** Adds a comment to a file's or a change's discussion (anyone who can read the vault). */
+  async comment(id, text) {
+    const body = String(text ?? '').trim();
+    if (!body) fail('noComment');
+    return this.mutate((ix) => {
+      const time = this.now();
+      const f = ix.files.find((x) => x.id === id);
+      if (f) {
+        const c = { id: newId('m'), by: this.user, time, text: body };
+        (f.comments ??= []).push(c);
+        f.events.push({ type: 'comment', by: this.user, time, comment: body });
+        return c;
+      }
+      const ch = this.mustChange(ix, id);
+      ch.log.push({ action: 'comment', by: this.user, time, comment: body });
+      return { by: this.user, time, text: body };
+    });
+  }
+
+  /** A file's discussion, oldest first. */
+  comments(id) { return this.file(id)?.comments ?? []; }
+
   // ── change requests and orders
 
   /** A new change request ('ecr', open) or change order ('eco', draft). */

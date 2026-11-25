@@ -74,8 +74,8 @@ const MRT = mrtBasis();
  */
 export function latticeRun(config) {
   const { dims, solid, qwall = null, flowAxis = 0, flowSign = 1, inlet = 'velocity', outlet = 'pressure', sides = ['slip', 'slip', 'slip'], tau = 0.8,
-    collision = 'trt', smagorinsky = 0, force = null, uIn = 0.05, inletProfile = null, thermal = null, steps = 4000, minSteps = 200, tol = 1e-6,
-    transient = false, samples = 100, onSample = null, onProgress = null, cancel = null, center = null, fixedCells = null, rotation = null } = config;
+    collision = 'trt', smagorinsky = 0, force = null, uIn = 0.05, inletProfile = null, thermal = null, steps = 4000, minSteps = 200, tol = 1e-6, goalTol = 0, goalWindow = 12,
+    transient = false, samples = 100, onSample = null, onProgress = null, cancel = null, center = null, fixedCells = null, rotation = null, rheology = null, porous = null, mixingLength = null } = config;
   const [nx, ny, nz] = dims, N = nx * ny * nz;
   const F64 = N < 400000;
   let f = F64 ? new Float64Array(Q * N) : new Float32Array(Q * N), g = F64 ? new Float64Array(Q * N) : new Float32Array(Q * N);
@@ -182,7 +182,14 @@ export function latticeRun(config) {
   const mrtRate = Float64Array.from(MRT.groups, (gname) => (gname === 'nu' ? -1 : rates[gname]));
   // Rotation: { axis (unit vector), center (cells), omega (rad per step), mask (solid cells that turn; all when absent) }.
   const rot = rotation ? { ...rotation, axis: rotation.axis.map((v) => v / Math.hypot(...rotation.axis)) } : null;
-  const K = { cx, cy, cz, w, opp, fx0, fy0, fz0, bg, Tcell, tau, cs2, collision, feq, fc, mom, src, mrtRate, lambdaTRT, nx, ny, nz, ci, rot };
+  // Non-Newtonian fluids: each cell's relaxation time from its shear rate (the previous step's τ gives it), lattice
+  // units: ν(γ̇) = power law K·γ̇^(n−1) or Carreau ν∞ + (ν0 − ν∞)(1 + (λγ̇)²)^((n−1)/2), held within τ 0.51…10.
+  const tauCell = rheology ? new Float64Array(N).fill(tau) : null;
+  // Porous cells (Darcy–Forchheimer): α = ν/K, β = C_F/√K (lattice), the resistance −α u − β|u|u as a body force.
+  // Mixing-length (Prandtl, zero-equation RANS) turbulence: ν_t = l² |S| with l per cell (lattice), the Smagorinsky
+  // closure with the wall-distance length in place of C_s Δ.
+  const mixC = mixingLength ? Float64Array.from(mixingLength, (l) => 18 * Math.SQRT2 * l * l) : null;
+  const K = { cx, cy, cz, w, opp, fx0, fy0, fz0, bg, Tcell, tau, cs2, collision, feq, fc, mom, src, mrtRate, lambdaTRT, nx, ny, nz, ci, rot, rheology, tauCell, porous, mixC };
   const fo6 = new Float64Array(6);
   const KH = { cx, cy, cz, th, dims, sides, inletCells, outletCells, uinVec, N, nx, ny, nz, idx };
   for (; steps_ < steps; steps_++) {
@@ -264,7 +271,16 @@ export function latticeRun(config) {
       onProgress?.(Math.min(0.99, steps_ / steps), { step: steps_, change });
       if (cancel?.()) break;
       if (!transient) {
-        if (steps_ > minSteps && change < tol) stable++; else if (!averaged) stable = 0;
+        // Settled on the goals (goalTol): the body force averaged over the last goalWindow samples differs from its
+        // average over the window before by less than goalTol of its size (an oscillating force settles on its mean) —
+        // the run may stop before the whole field has settled to tol.
+        let goalsSettled = false;
+        if (goalTol > 0 && forceHistory.length >= 2 * goalWindow) {
+          const mean = (from, to) => { const m = [0, 0, 0]; for (let q = from; q < to; q++) for (let a = 0; a < 3; a++) m[a] += forceHistory[q].force[a] / (to - from); return m; };
+          const n = forceHistory.length, m1 = mean(n - 2 * goalWindow, n - goalWindow), m2 = mean(n - goalWindow, n), mag = Math.max(1e-30, Math.hypot(...m2));
+          goalsSettled = [0, 1, 2].every((a) => Math.abs(m2[a] - m1[a]) / mag < goalTol);
+        }
+        if (steps_ > minSteps && (change < tol || goalsSettled)) stable++; else if (!averaged) stable = 0;
         if (stable >= 3 && !averaged) { averaged = 1; for (let a = 0; a < 3; a++) { sum[a] = forceOut[a]; sumT[a] = torqueOut[a]; } heatSum = heatToFluid; }
         if (averaged >= avgWindow) { converged = true; steps_++; break; }
       }
@@ -297,7 +313,7 @@ export function latticeRun(config) {
 const PAIRS = [1, 3, 5, 7, 9, 11, 13, 15, 17];
 
 function collideKernel(f, fluid, P) {
-  const { cx, cy, cz, w, fx0, fy0, fz0, bg, Tcell, tau, cs2, collision, feq, fc, mom, src, mrtRate, lambdaTRT } = P;
+  const { cx, cy, cz, w, fx0, fy0, fz0, bg, Tcell, tau, cs2, collision, feq, fc, mom, src, mrtRate, lambdaTRT, rheology, tauCell, porous, mixC } = P;
   const mrt = collision === 'mrt', bgk = collision === 'bgk';
   const constForce = fx0 !== 0 || fy0 !== 0 || fz0 !== 0;
   for (let m = 0; m < fluid.length; m++) {
@@ -310,8 +326,17 @@ function collideKernel(f, fluid, P) {
     }
     let ax = fx0, ay = fy0, az = fz0;
     if (bg) { const dT = Tcell[s] - bg.Tref; ax += bg.g[0] * dT; ay += bg.g[1] * dT; az += bg.g[2] * dT; }
-    const forced = constForce || (bg && (ax !== 0 || ay !== 0 || az !== 0));
+    let forced = constForce || (bg && (ax !== 0 || ay !== 0 || az !== 0));
     const ir = 1 / r;
+    if (porous && porous.mask[s]) {
+      // Guo & Zhao: u = v / (c0 + √(c0² + c1|v|)), v = m/ρ + a_ext/2, c0 = (1 + α/2)/2, c1 = β/2; the resistance then a force.
+      const al = porous.alpha, be = porous.beta;
+      const vx = mx * ir + 0.5 * ax, vy = my * ir + 0.5 * ay, vz = mz * ir + 0.5 * az, vm = Math.hypot(vx, vy, vz);
+      const c0 = 0.5 * (1 + 0.5 * al), c1 = 0.5 * be, k = 1 / (c0 + Math.sqrt(c0 * c0 + c1 * vm));
+      const px = vx * k, py = vy * k, pz = vz * k, pm = Math.hypot(px, py, pz);
+      ax -= al * px + be * pm * px; ay -= al * py + be * pm * py; az -= al * pz + be * pm * pz;
+      forced = true;
+    }
     const ux = (mx + 0.5 * r * ax) * ir, uy = (my + 0.5 * r * ay) * ir, uz = (mz + 0.5 * r * az) * ir, usq = 1.5 * (ux * ux + uy * uy + uz * uz);
     // Equilibrium (even part ep, odd part em per pair).
     feq[0] = w[0] * r * (1 - usq);
@@ -320,11 +345,20 @@ function collideKernel(f, fluid, P) {
       feq[q] = ep + em; feq[q + 1] = ep - em;
     }
     let t0 = tau;
-    if (cs2) {
+    if (rheology) {
       let pxx = 0, pyy = 0, pzz = 0, pxy = 0, pyz = 0, pzx = 0;
       for (let q = 1; q < Q; q++) { const d = f[o + q] - feq[q], a1 = cx[q], b1 = cy[q], c1 = cz[q]; pxx += a1 * a1 * d; pyy += b1 * b1 * d; pzz += c1 * c1 * d; pxy += a1 * b1 * d; pyz += b1 * c1 * d; pzx += c1 * a1 * d; }
       const Pi = Math.sqrt(pxx * pxx + pyy * pyy + pzz * pzz + 2 * (pxy * pxy + pyz * pyz + pzx * pzx));
-      t0 = 0.5 * (tau + Math.sqrt(tau * tau + (cs2 * Pi) * ir));
+      const gam = (3 * Math.SQRT2 * Pi) / (2 * r * tauCell[s]);
+      const nu = rheology.model === 'carreau' ? rheology.nuInf + (rheology.nu0 - rheology.nuInf) * (1 + (rheology.lambda * gam) ** 2) ** ((rheology.n - 1) / 2) : rheology.K * Math.max(gam, 1e-12) ** (rheology.n - 1);
+      // Relaxed towards the new value (half a step) so a cell's τ and γ̇ settle together.
+      t0 = 0.5 * tauCell[s] + 0.5 * Math.min(10, Math.max(0.51, 0.5 + 3 * nu));
+      tauCell[s] = t0;
+    } else if (cs2 || mixC) {
+      let pxx = 0, pyy = 0, pzz = 0, pxy = 0, pyz = 0, pzx = 0;
+      for (let q = 1; q < Q; q++) { const d = f[o + q] - feq[q], a1 = cx[q], b1 = cy[q], c1 = cz[q]; pxx += a1 * a1 * d; pyy += b1 * b1 * d; pzz += c1 * c1 * d; pxy += a1 * b1 * d; pyz += b1 * c1 * d; pzx += c1 * a1 * d; }
+      const Pi = Math.sqrt(pxx * pxx + pyy * pyy + pzz * pzz + 2 * (pxy * pxy + pyz * pyz + pzx * pzx));
+      t0 = 0.5 * (tau + Math.sqrt(tau * tau + ((mixC ? mixC[s] : cs2) * Pi) * ir));
     }
     const wp = 1 / t0;
     // Guo forcing source S_q.
@@ -559,14 +593,15 @@ export const FLUIDS = {
  */
 export function flowStudy(mesh, opts = {}) {
   const { mode = 'external', axis = 'x', sign = 1, velocity = 1, fluid = 'air', cellSize = null, resolution = 24, domain = {}, sides: sideMode = 'slip',
-    collision = 'trt', les = 0.12, uLat: uLat0 = 0.06, time = { mode: 'steady' }, thermal = null, maxCells = 3e6, onProgress = null, cancel = null, rotation = null } = opts;
+    collision = 'trt', les = 0.12, uLat: uLat0 = 0.06, time = { mode: 'steady' }, thermal = null, maxCells = 3e6, onProgress = null, cancel = null, rotation = null,
+    rheology = null, porous = null, turbulence = 'les' } = opts;
   let uLat = uLat0;
   const comps = (thermal?.components ?? []).filter((c) => c?.mesh?.vertices?.length);
   // No main mesh (electronics: every solid is a component) — the grid is made around the components.
   const S = surfaceModel(comps.length ? joinMeshes([...(mesh ? [mesh] : []), ...comps.map((c) => c.mesh)]) : mesh);
   if (!(S.volume > 0)) return { ok: false, error: 'empty' };
   const fa = { x: 0, y: 1, z: 2 }[axis] ?? 0;
-  const props = typeof fluid === 'string' ? FLUIDS[fluid] ?? FLUIDS.air : { ...FLUIDS.air, ...fluid };
+  let props = typeof fluid === 'string' ? FLUIDS[fluid] ?? FLUIDS.air : { ...FLUIDS.air, ...fluid };
   const ext = [0, 1, 2].map((a) => S.hi[a] - S.lo[a]);
   const lateralAxes = [0, 1, 2].filter((a) => a !== fa);
   const across = Math.max(...lateralAxes.map((a) => ext[a]));
@@ -584,6 +619,12 @@ export function flowStudy(mesh, opts = {}) {
   const origin = lo;
   const N = dims[0] * dims[1] * dims[2];
   const solid = voxelize(S, origin, h, dims);
+  // A porous body (external flow): its cells are fluid with the Darcy–Forchheimer resistance (porousMask).
+  let porousMask = null;
+  if (porous && mode === 'external' && porous.permeability > 0) {
+    porousMask = new Uint8Array(N);
+    for (let s = 0; s < N; s++) if (solid[s] === 1) { porousMask[s] = 1; solid[s] = 0; }
+  }
   if (mode === 'internal') {
     // Close off the outside: flood from the lateral domain faces within each cross-section (the body's walls stop it).
     const idx = (c) => c[0] + dims[0] * (c[1] + dims[1] * c[2]);
@@ -635,6 +676,9 @@ export function flowStudy(mesh, opts = {}) {
   if (mode === 'internal' && !inletArea) return { ok: false, error: 'no-passage' };
   const lcCells = mode === 'internal' ? Math.max(1, (4 * inletArea) / Math.max(1, inletPerim)) : across / h;
   const lcM = (lcCells * h) / 1000, dxM = h / 1000;
+  // A non-Newtonian fluid: the lattice is scaled with its viscosity at the flow's shear rate U / L.
+  const muOf = (gam) => (rheology?.model === 'carreau' ? rheology.muInf + (rheology.mu0 - rheology.muInf) * (1 + (rheology.lambda * gam) ** 2) ** ((rheology.n - 1) / 2) : rheology.K * Math.max(gam, 1e-9) ** (rheology.n - 1));
+  if (rheology) props = { ...props, viscosity: muOf(velocity / Math.max(1e-9, lcM)) / props.density };
   const reynolds = (velocity * lcM) / props.viscosity;
   // Internal (viscous) flow: keep the lattice pressure drop ~ 96 u² L / (Re D) below 0.1 so compressibility stays small.
   if (mode === 'internal') uLat = Math.max(0.004, Math.min(uLat, Math.sqrt((0.1 * Math.max(reynolds, 1e-6) * lcCells) / (96 * dims[fa]))));
@@ -642,9 +686,23 @@ export function flowStudy(mesh, opts = {}) {
   // A transient run of a short duration in a slow flow: at least 50 steps, by a smaller time step (a lower lattice
   // velocity) — never by running longer than the time asked for.
   if (transient) { const dt0 = (uLat * dxM) / Math.max(1e-12, velocity); const want = (time.duration ?? 1) / 50; if (dt0 > want) uLat *= want / dt0; }
+  // A porous body: its lattice pressure drop 3·(α u + β u²)·L grows as u_lat² (α ∝ ν_lat ∝ u_lat) — kept under 0.03 in
+  // density (weak compressibility) by a smaller lattice velocity.
+  if (porousMask) {
+    const Kl = porous.permeability / (dxM * dxM), Lc = ext[fa] / h;
+    const est = (u) => 3 * (((u * lcCells) / Math.max(1e-12, reynolds)) / Kl * u + ((porous.forchheimer ?? 0.55) / Math.sqrt(Kl)) * u * u) * Lc;
+    const d0 = est(uLat);
+    if (d0 > 0.03) uLat = Math.max(0.002, uLat * Math.sqrt(0.03 / d0));
+  }
   const nuLat = (uLat * lcCells) / Math.max(1e-12, reynolds);
   const tau = 0.5 + 3 * nuLat;
   const dt = (uLat * dxM) / Math.max(1e-12, velocity);
+  // Lattice rheology: ν_lat = ν dt/dx² with γ̇ = γ̇_lat/dt — power law K_lat = (K/ρ) dt^(2−n)/dx², Carreau ν0, ν∞, λ/dt.
+  const rheoLat = !rheology ? null : rheology.model === 'carreau'
+    ? { model: 'carreau', nu0: (rheology.mu0 / props.density) * dt / (dxM * dxM), nuInf: (rheology.muInf / props.density) * dt / (dxM * dxM), lambda: rheology.lambda / dt, n: rheology.n }
+    : { model: 'powerLaw', K: ((rheology.K / props.density) * dt ** (2 - rheology.n)) / (dxM * dxM), n: rheology.n };
+  // Porous: α = ν/K, β = C_F/√K in lattice units (K_lat = K/dx²).
+  const porousLat = porousMask ? { mask: porousMask, alpha: nuLat / (porous.permeability / (dxM * dxM)), beta: (porous.forchheimer ?? 0.55) / Math.sqrt(porous.permeability / (dxM * dxM)) } : null;
   const flowThrough = dims[fa] / uLat;
   const steps = transient ? Math.min(time.maxSteps ?? 400000, Math.max(50, Math.round((time.duration ?? 1) / dt))) : Math.min(time.maxSteps ?? 20000, Math.max(3000, Math.round((time.passes ?? 10) * flowThrough)));
   const sides = [0, 1, 2].map((a) => (a === fa ? 'open' : mode === 'internal' ? 'wall' : sideMode));
@@ -693,7 +751,28 @@ export function flowStudy(mesh, opts = {}) {
   // Body centre (cells) for the moments.
   const ctr = [0, 1, 2].map((a) => ((S.lo[a] + S.hi[a]) / 2 - origin[a]) / h - 0.5);
   const snapshots = [];
-  const levels = mode === 'external' && !compCell && !rotation ? Math.max(0, Math.min(3, Math.round(opts.refine ?? 0))) : 0;
+  // Mixing-length turbulence: l = min(κ·y, 0.09·δ) from each fluid cell's distance y to the nearest wall cell
+  // (κ 0.41, δ half the characteristic size), cells and half a cell for the wall's half-way position.
+  let mixLen = null;
+  if (turbulence === 'mixing' && !rheology) {
+    const dist = new Float64Array(N).fill(Infinity), queue = [];
+    for (let s = 0; s < N; s++) if (solid[s]) { dist[s] = 0; queue.push(s); }
+    const nb = [];
+    for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (let c = -1; c <= 1; c++) if (a || b || c) nb.push([a, b, c, Math.hypot(a, b, c)]);
+    // Chamfer distance by repeated relaxation in wavefront order (a BFS, then refined over the diagonal moves).
+    for (let q = 0; q < queue.length; q++) {
+      const s = queue[q], i = s % dims[0], j = Math.floor(s / dims[0]) % dims[1], k = Math.floor(s / (dims[0] * dims[1]));
+      for (const [a, b, c, w] of nb) {
+        const ii = i + a, jj = j + b, kk = k + c;
+        if (ii < 0 || jj < 0 || kk < 0 || ii >= dims[0] || jj >= dims[1] || kk >= dims[2]) continue;
+        const t = ii + dims[0] * (jj + dims[1] * kk), d = dist[s] + w;
+        if (d < dist[t] - 1e-9) { const first = dist[t] === Infinity; dist[t] = d; if (first) queue.push(t); else queue.push(t); }
+      }
+    }
+    const delta = 0.5 * lcCells;
+    mixLen = Float64Array.from(dist, (d, s) => (solid[s] || !Number.isFinite(d) ? 0 : Math.min(0.41 * Math.max(0, d - 0.5), 0.09 * delta)));
+  }
+  const levels = mode === 'external' && !compCell && !rotation && !rheology && !porousMask && !mixLen ? Math.max(0, Math.min(3, Math.round(opts.refine ?? 0))) : 0;
   // A rotating body (rotation: { axis 'x' | 'y' | 'z' | vector, center mm (default: the body's middle), rpm }): its walls
   // move with ω × r; the torque is taken about the rotation centre.
   let rot = null;
@@ -704,7 +783,7 @@ export function flowStudy(mesh, opts = {}) {
     rot = { axis: ax, center: cmm.map((v, a) => (v - origin[a]) / h), omega: omega * dt, omegaPhys: omega, rpm: Number(rotation.rpm), centerMm: cmm };
   }
   const coarseCfg = {
-    dims, solid, qwall, flowAxis: fa, flowSign: sign, sides, tau, collision, smagorinsky: les, uIn: uLat, thermal: th, steps, rotation: rot ? { axis: rot.axis, center: rot.center, omega: rot.omega } : null, minSteps: Math.min(steps, Math.round(1.5 * flowThrough)), tol: time.tol ?? 2e-7,
+    dims, solid, qwall, flowAxis: fa, flowSign: sign, sides, tau, collision, smagorinsky: rheoLat || mixLen || turbulence === 'none' ? 0 : les, uIn: uLat, thermal: th, steps, rheology: rheoLat, porous: porousLat, mixingLength: mixLen, rotation: rot ? { axis: rot.axis, center: rot.center, omega: rot.omega } : null, minSteps: Math.min(steps, Math.round(1.5 * flowThrough)), tol: time.tol ?? 2e-7, goalTol: time.goalTol ?? 0,
     transient, samples: transient ? 200 : 100, center: rot ? rot.center.map((v) => v - 0.5) : ctr, cancel, ramp: Math.round(Math.min(steps * 0.2, 0.6 * flowThrough)), keepState: levels > 0,
     onProgress: (f, info) => onProgress?.(0.05 + (levels ? 0.45 : 0.9) * f, { stage: 'flow', ...info }),
   };
@@ -848,6 +927,15 @@ export function flowStudy(mesh, opts = {}) {
   const frontalArea = front.size * fine.h * fine.h;
   const dragCoefficient = front.size ? drag / (0.5 * props.density * velocity * velocity * frontalArea * 1e-6) : 0;
   const pressureDrop = ((lat.inletRho - lat.outletRho) / 3) * qd;
+  // Across a porous body: the mean pressure two cells before it minus two cells after it, over its footprint.
+  let porousDrop = null;
+  if (porousMask) {
+    let k0 = Infinity, k1 = -Infinity; const foot = new Set();
+    for (let s = 0; s < N; s++) if (porousMask[s]) { const c = [s % dims[0], Math.floor(s / dims[0]) % dims[1], Math.floor(s / (dims[0] * dims[1]))]; k0 = Math.min(k0, c[fa]); k1 = Math.max(k1, c[fa]); c[fa] = 0; foot.add(c.join(',')); }
+    const plane = (kk) => { let sum = 0, n = 0; for (const key of foot) { const c = key.split(',').map(Number); c[fa] = kk; if (kk < 0 || kk >= dims[fa]) continue; const t = c[0] + dims[0] * (c[1] + dims[1] * c[2]); if (solid[t]) continue; sum += lat.rho[t]; n++; } return n ? sum / n : NaN; };
+    const before = sign > 0 ? k0 - 2 : k1 + 2, after = sign > 0 ? k1 + 2 : k0 - 2;
+    porousDrop = ((plane(before) - plane(after)) / 3) * qd;
+  }
   let vmax = 0; for (let s = 0; s < N; s++) vmax = Math.max(vmax, Math.hypot(lat.vel[3 * s], lat.vel[3 * s + 1], lat.vel[3 * s + 2]));
   const flow = { dims: fine.dims, origin: fine.origin, h: fine.h, vel: fine.lat.vel, rho: fine.lat.rho, temp: fine.lat.temp, solid: fine.solid, flowAxis: fa, flowSign: sign, velocity, uLat, fluid: props };
   // Pressure on the body: from the fluid cells near each surface vertex (offset along the outward normal).
@@ -895,7 +983,7 @@ export function flowStudy(mesh, opts = {}) {
     ok: true, error: lat.converged ? null : (transient ? null : 'not-converged'), ...lat, mode, axis, sign, origin, h, solid, fluidCells, cells: N,
     uLat, reynolds, reynoldsSimulated: reynolds, capped: false, velocity, fluid: props, dt, physicalTime: lat.steps * dt,
     forceVector: forceN, dragForce: drag, liftForce: forceN[lateral2] ?? 0, sideForce: forceN[lateral1] ?? 0,
-    moments: fine.lat.torque.map((v) => v * toNf * dxF), blocks: blocks.map(({ rho: _r, vel: _v, solid: _s, ...b }) => b), refined: blocks.length, refineRequested: levels, refineFailed, coupling, couplingSettled: !coupling.length || coupling.at(-1) < (opts.couplingTol ?? 0.005), dragCoefficient, frontalArea, pressureDrop, meanVelocity: velocity, maxVelocity: vmax * scaleV,
+    moments: fine.lat.torque.map((v) => v * toNf * dxF), blocks: blocks.map(({ rho: _r, vel: _v, solid: _s, ...b }) => b), refined: blocks.length, refineRequested: levels, refineFailed, coupling, couplingSettled: !coupling.length || coupling.at(-1) < (opts.couplingTol ?? 0.005), dragCoefficient, frontalArea, turbulence: mixLen ? 'mixing' : turbulence === 'none' || rheology ? 'none' : 'les', pressureDrop, porousDrop, rheology: rheology ?? null, porous: porous && porousMask ? porous : null, meanVelocity: velocity, maxVelocity: vmax * scaleV,
     hydraulicDiameter: mode === 'internal' ? lcCells * h : 0, characteristicLength: lcCells * h, elements: fluidCells, elementSize: h,
     vertexPressure, vertexCp, heat, nusselt, strouhal, collision, les, tau, components, inletArea: inletArea * h * h,
     rotation: rot ? (() => { const n = rot.axis.map((v) => v / Math.hypot(...rot.axis)); const M = fine.lat.torque.map((v) => v * toNf * dxF); const torque = M[0] * n[0] + M[1] * n[1] + M[2] * n[2]; return { rpm: rot.rpm, axis: n, center: rot.centerMm, torque, power: -torque * rot.omegaPhys }; })() : null,

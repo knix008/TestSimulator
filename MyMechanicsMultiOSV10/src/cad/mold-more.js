@@ -14,7 +14,7 @@
 //     cavity, the bottom the core;
 //   undercut warning — the faces neither mould half can release (mold-brep.js, on the B-rep).
 import { rep } from './kernel.js';
-import { codeError } from './features.js';
+import { codeError, extrudeTool } from './features.js';
 import { partingLoops, undercutBrep, rayCaster, faceSamples } from './mold-brep.js';
 
 const AXIS_DIRS = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1], '-x': [-1, 0, 0], '-y': [0, -1, 0], '-z': [0, 0, -1] };
@@ -450,7 +450,36 @@ export function toolingSplitBySurfaces(f, ctx) {
   return { body: out.length === 1 ? out[0] : R.makeCompound(out), tooling: { dir, bySurface: true, pieces, shutOffs: shutOffs.length }, undercuts };
 }
 
+/**
+ * Side core (a side action or lifter): a sketch's outline extruded — blind or through all, with an optional draft —
+ * through the tooling bodies; what it covers of the core and cavity becomes a body of its own, taken out of them.
+ * The moulded part (kept with the tooling) is left alone.
+ */
+function buildSideCore(f, ctx) {
+  const R = rep();
+  if (!ctx.body) throw codeError('no-body');
+  if (!f.sketch) throw codeError('sketch-missing');
+  const angle = Math.abs(Number(f.draftAngle) || 0);
+  const tool = extrudeTool({ ...f, type: 'extrude', op: 'boss', end: f.end === 'blind' ? 'blind' : 'through', depth: Number(f.depth) || 20, draft: angle > 0, draftAngle: angle, end2: 'none' }, ctx);
+  const part = ctx.toolingPart ?? null;
+  const pv = part ? R.measureVolume(part) : 0; const [pa, pb] = part ? part.boundingBox.bounds : [[0, 0, 0], [0, 0, 0]];
+  const isPart = (s) => part && Math.abs(R.measureVolume(s) - pv) < 1e-6 * Math.max(1, pv) && (() => { const [a, b] = s.boundingBox.bounds; return [0, 1, 2].every((i) => Math.abs(a[i] - pa[i]) < 1e-6 && Math.abs(b[i] - pb[i]) < 1e-6); })();
+  const solids = [];
+  { const oc = R.getOC(); const ex = new oc.TopExp_Explorer(ctx.body.wrapped, oc.TopAbs_ShapeEnum.TopAbs_SOLID, oc.TopAbs_ShapeEnum.TopAbs_SHAPE); for (; ex.More(); ex.Next()) solids.push(R.cast(oc.TopoDS.Solid(ex.Current()))); ex.delete(); }
+  const kept = []; let core = null;
+  for (const s of solids) {
+    if (isPart(s)) { kept.push(s); continue; }
+    const piece = s.clone().intersect(tool);
+    let v = 0; try { v = R.measureVolume(piece); } catch { v = 0; }
+    if (v > 1e-9) { core = core ? core.fuse(piece) : piece; kept.push(s.clone().cut(tool)); } else kept.push(s);
+  }
+  if (!core) throw codeError('core-missed');
+  const volume = R.measureVolume(core);
+  return { body: R.makeCompound([...kept, core]), sideCore: { volume } };
+}
+
 export function buildMoldMore(f, ctx) {
+  if (f.type === 'sideCore') return buildSideCore(f, ctx);
   if (f.type === 'shutOff') return buildShutOff(f, ctx);
   if (f.type === 'partingSurface') return buildPartingSurface(f, ctx);
   throw codeError('unknown-feature', { type: f.type });

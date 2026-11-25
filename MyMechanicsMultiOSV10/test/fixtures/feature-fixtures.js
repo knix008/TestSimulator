@@ -552,6 +552,20 @@ export const FIXTURES = {
     // The points sit on the top face (z = 10): a typed Z is projected back onto it, so the curve rightly stays.
     pmSkip: [[/^pt3:\d+:2$/, 'projected back onto the face']],
   },
+  // A horizontal and a vertical planar surface crossing at x = 0.
+  surfaceFillet: {
+    make: (p, o) => {
+      const a = sketchOn(p, top, (k) => addRectangle(k, -20, -10, 20, 10)); const A = createFeature(p, 'surfacePlanar', { sketch: a.id }); p.features.push(A);
+      const b = sketchOn(p, right, (k) => addRectangle(k, -10, -20, 10, 20)); const B = createFeature(p, 'surfacePlanar', { sketch: b.id }); p.features.push(B);
+      return createFeature(p, 'surfaceFillet', { surfaceA: A.id, surfaceB: B.id, ...o });
+    },
+  },
+  // The top face of a block, one inner control point raised 4.
+  freeform: {
+    make: (p, o) => { block(p, -20, -20, 40, 40, 10); const b = built(p); return createFeature(p, 'freeform', { face: faceWhere(b, (c) => near(c[2], 10)), points: [{ i: 1, j: 1, d: 4 }], ...o }); },
+    num: { nu: { to: 5 }, nv: { to: 5 } },
+    opt: { continuity: ['tangent'] },
+  },
   // The default program (a plate with a hole); another program changes the body.
   openscad: { make: (p, o) => createFeature(p, 'openscad', o), opt: { source: ['sphere(8, $fn = 24);'] } },
 
@@ -783,6 +797,11 @@ export const FIXTURES = {
     make: (p, o) => { moldPlate(p); return createFeature(p, 'shutOff', o); },
     opt: { at: { skip: 'where the shut-off patch sits in the opening: with one straight hole every choice gives the same patch' } },
   },
+  // The plate's tooling, a 6 × 4 outline on the Front plane extruded through it.
+  sideCore: {
+    make: (p, o) => { moldPlate(p); p.features.push(createFeature(p, 'toolingSplit', { dir: 'z', gap: 0 })); const k = sketchOn(p, front, (s) => addRectangle(s, 17, 3, 23, 7)); return createFeature(p, 'sideCore', { sketch: k.id, ...o }); },
+    num: { depth: { with: { end: 'blind' }, to: 5 }, draftAngle: { with: { end: 'blind', depth: 8 }, to: 3 } },
+  },
   partingSurface: {
     make: (p, o) => { moldPlate(p); return createFeature(p, 'partingSurface', o); },
     num: { distance: { to: 40, m: 'SA', dir: '+' } },
@@ -850,7 +869,7 @@ export const FIXTURES = {
   connectionPoint: {
     // The plate's top face: its centre, pointing up.
     make: (p, o) => { block(p, -20, -20, 50, 50, 4); return createFeature(p, 'connectionPoint', { face: faceWhere(built(p), (c) => near(c[2], 4)), ...o }); },
-    num: { offset: { skip: 'moves only the reference point (no geometry): checked by magnetic.test.js' } },
+    num: { offset: { skip: 'moves only the reference point (no geometry): checked by magnetic.test.js' }, od: { skip: 'a routing size carried by the point (no geometry): used by assembly routes, checked by routing-parts.steps.json' } },
     bool: { flip: { skip: 'turns only the reference direction: checked by magnetic.test.js' } },
   },
   mateReference: {

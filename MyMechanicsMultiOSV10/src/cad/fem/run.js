@@ -4,11 +4,14 @@
 //   runStudy(kind, input, { onProgress(fraction, info), signal (AbortSignal), worker: true }) → Promise<result>
 //   runStudyDirect(kind, input, { onProgress, cancel }) → result
 //
-// kinds: static, thermal, modal, buckling, nonlinear, drop, flow, combination.
+// kinds: static, adaptive (static with h-adaptive meshing), submodel (a region driven by a global result), shell (a thin part as mid-surface shells), thermal, modal, buckling, nonlinear, drop, flow, combination.
 // Results cross the worker boundary by structured clone: functions and caches are dropped (sanitize), typed arrays
 // are transferred. A sanitized result still supports probes and line plots (model.js locate() rebuilds its hash).
 
 import { linearStatic } from './static.js';
+import { adaptiveStatic, pAdaptiveStatic } from './adaptive.js';
+import { submodelStatic } from './submodel.js';
+import { partShellStudy } from './shell.js';
 import { heatStudy } from './thermal.js';
 import { modalStudy, bucklingStudy } from './modal.js';
 import { nonlinearStudy } from './nonlinear.js';
@@ -17,6 +20,8 @@ import { combineStudy } from './combine.js';
 import { dynamicStudy } from './dynamic.js';
 import { topologyStudy } from './topology.js';
 import { flowStudy, fanFlowStudy, voxelize } from '../cfd/lbm.js';
+import { compressibleStudy } from '../cfd/euler.js';
+import { mixedAssemblyStudy } from './mixed.js';
 import { vesselStudy } from '../cfd/freesurface.js';
 import { surfaceModel } from './mesh.js';
 
@@ -27,6 +32,15 @@ export function runStudyDirect(kind, input, { onProgress = null, cancel = null }
   const args = { ...input, onProgress, cancel };
   switch (kind) {
     case 'static': return linearStatic(args);
+    // Mixed mesh: bodies of kind 'solid' | 'shell' | 'beam' bonded where they meet.
+    case 'mixed': return mixedAssemblyStudy(args);
+    case 'submodel': return submodelStatic(args);
+    // A thin part on its mid-surface (DKT + CST facet shells): input { mesh, shellFaces, thickness, fixtures, loads, gravity, material }.
+    case 'shell': return partShellStudy(args);
+    // Adaptive meshing: input.adaptive = { target (relative error), maxPasses }; each pass reports its progress share.
+    case 'adaptive': { const a = input.adaptive ?? {}, n = Math.max(1, a.maxPasses ?? 4); let k = 0;
+      if (a.method === 'p') return pAdaptiveStatic({ ...args, onProgress: onProgress ? (f, info) => onProgress((k + Math.min(1, f)) / (n + 1), { ...(info ?? {}), pass: k + 1 }) : null }, { target: a.target ?? 0.05, maxPasses: n + 1, onPass: () => { k++; } });
+      return adaptiveStatic({ ...args, onProgress: onProgress ? (f, info) => onProgress((k + Math.min(1, f)) / n, { ...(info ?? {}), pass: k + 1 }) : null }, { target: a.target ?? 0.05, maxPasses: n, onPass: () => { k++; } }); }
     case 'thermal': return heatStudy(args);
     case 'modal': return modalStudy(args);
     case 'buckling': return bucklingStudy(args);
@@ -36,6 +50,8 @@ export function runStudyDirect(kind, input, { onProgress = null, cancel = null }
     case 'dynamic': return dynamicStudy(args);
     case 'topology': return topologyStudy(args);
     case 'flow': return flowStudy(input.mesh ?? input.bodies?.[0]?.mesh, args);
+    // Compressible gas flow (Euler): Mach, pressure, temperature of the free stream.
+    case 'compressible': return compressibleStudy(input.mesh, { ...args, onProgress: onProgress ? (f) => onProgress(f, { stage: 'flow' }) : null });
     // Electronics cooling: every solid a component (no main mesh); with a fan, run at its operating point.
     case 'electronics': return args.fan ? fanFlowStudy(null, args) : flowStudy(null, args);
     // Free surface: the part as a container (its solid voxelised as the walls).

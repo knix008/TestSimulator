@@ -7,6 +7,8 @@
 // Flex and Deform rebuild the body as a fine faceted solid (its triangles moved one by one, then sewn):
 // an approximation of the smooth result, but a real closed solid that later features can cut and join.
 import { buildOpenScad } from './openscad-feature.js';
+import { freeformBody } from './freeform.js';
+import { surfaceFillet } from './surface-fillet.js';
 import { silhouetteTools, planeTool, splitFace } from './split-line-more.js';
 import { buildFastening } from './fastening.js';
 import { buildSurfaceMore } from './surface-more.js';
@@ -62,6 +64,24 @@ export function buildPartMore(f, ctx) {
     case 'compositeCurve': return buildCompositeCurve(f, ctx);
     case 'curveXYZ': return buildCurveXYZ(f);
     case 'surfaceSpline': return buildSurfaceSpline(f, ctx);
+    case 'surfaceFillet': {
+      // A round between two surface bodies, each trimmed to the other (surface-fillet.js).
+      const A = ctx.surfaces.get(f.surfaceA); const B = ctx.surfaces.get(f.surfaceB);
+      if (!A || !B || f.surfaceA === f.surfaceB) throw codeError('no-surfaces');
+      const r = num(f.radius, 3);
+      if (!(r > 0)) throw codeError('zero-size');
+      return { surface: surfaceFillet(A, B, r, { flipA: Boolean(f.flipA), flipB: Boolean(f.flipB) }, { codeError }) };
+    }
+    case 'freeform': {
+      // A face reshaped by control points (freeform.js); trimmed faces on a fine mesh.
+      if (!ctx.body) throw codeError('no-body');
+      const face = findFace(ctx.body, f.face);
+      if (!face) throw codeError('face-missing');
+      const [lo, hi] = ctx.body.boundingBox.bounds;
+      const h = Math.max(len(sub(hi, lo)) / 40, 0.2);
+      const r = freeformBody(ctx.body, face, { nu: Math.round(num(f.nu, 4)), nv: Math.round(num(f.nv, 4)), points: f.points ?? [], continuity: f.continuity }, { codeError, faceted: (fn) => deformBodies(ctx, fn, h) });
+      return { body: r.body, faceted: !r.exact };
+    }
     default: throw codeError('unknown-feature', { type: f.type });
   }
 }
@@ -322,8 +342,97 @@ function buildFlex(f, ctx) {
 }
 
 /** Point deform: the material within `radius` of the point is pushed `amount` along `dir`, falling off smoothly. */
+/** Points evenly along a curve (sketch path, 3D sketch or curve feature) by arc length. */
+function evenPoints(id, ctx, n = 128) {
+  const pts = curvePolyline(curveWire(id, ctx), 256).pts;
+  const s = [0]; for (let i = 1; i < pts.length; i++) s.push(s[i - 1] + len(sub(pts[i], pts[i - 1])));
+  const L = s.at(-1) || 1;
+  return Array.from({ length: n + 1 }, (_, k) => { const d = (L * k) / n; let i = s.findIndex((x) => x >= d); if (i <= 0) i = 1; const t = (d - s[i - 1]) / Math.max(1e-12, s[i] - s[i - 1]); return add(pts[i - 1], mul(sub(pts[i], pts[i - 1]), t)); });
+}
+
+/** Rays against a triangle mesh: { inside(p), exit(p, d) } (crossing parity along d; the distance to leave along d). */
+function meshRays(shape, tol) {
+  const m = shape.mesh({ tolerance: tol, angularTolerance: 0.1 });
+  const V = m.vertices; const T = m.triangles;
+  const P = (i) => [V[3 * i], V[3 * i + 1], V[3 * i + 2]];
+  const tris = []; for (let i = 0; i < T.length; i += 3) tris.push([P(T[i]), P(T[i + 1]), P(T[i + 2])]);
+  const hits = (o, d) => {
+    const out = [];
+    for (const [a, b, c] of tris) {
+      const e1 = sub(b, a); const e2 = sub(c, a); const h = crossV(d, e2); const det = dot(e1, h);
+      if (Math.abs(det) < 1e-14) continue;
+      const s = sub(o, a); const u = dot(s, h) / det; if (u < 0 || u > 1) continue;
+      const q = crossV(s, e1); const v = dot(d, q) / det; if (v < 0 || u + v > 1) continue;
+      const t = dot(e2, q) / det; if (t > 1e-9) out.push(t);
+    }
+    return out.sort((x, y) => x - y);
+  };
+  // An oblique probe direction for the parity test (no ray along a mesh edge or face).
+  const probe = normalize([0.3713, 0.5871, 0.7193]);
+  return { inside: (p) => hits(p, probe).length % 2 === 1, exit: (p, d) => { const h = hits(p, d); return h.length ? h[0] : 0; } };
+}
+
+/**
+ * Deform beyond the point kind:
+ *   curve  each initial curve's points carried to the matching target curve (by arc length); the body near them
+ *          moves with a smooth fall-off over the radius (several pairs add up)
+ *   push   a tool body pressed into the body along a direction: points inside the tool move out to its surface,
+ *          the surroundings ease off over the radius; the tool body itself is used up
+ */
+function buildDeformMore(f, ctx) {
+  const r = Math.max(0.01, num(f.radius, 30));
+  const fall = (q) => (q >= 1 ? 0 : (1 - q * q) ** 2);
+  const [lo, hi] = ctx.body.boundingBox.bounds;
+  const h = Math.max(Math.min(len(sub(hi, lo)) / 25, r / 5), 0.2);
+  if (f.kind === 'curve') {
+    const from = f.curvesFrom ?? []; const to = f.curvesTo ?? [];
+    if (!from.length || from.length !== to.length) throw codeError('deform-curves');
+    const pairs = from.map((id, i) => { const A = evenPoints(id, ctx); const B = evenPoints(to[i], ctx); return { A, D: A.map((p, k) => sub(B[k], p)) }; });
+    const fn = (p) => {
+      let out = p;
+      for (const { A, D } of pairs) {
+        let k = 0; let best = Infinity;
+        for (let i = 0; i < A.length; i++) { const d = len(sub(A[i], p)); if (d < best) { best = d; k = i; } }
+        const w = fall(best / r);
+        if (w > 0) out = add(out, mul(D[k], w));
+      }
+      return out;
+    };
+    return { body: deformBodies(ctx, fn, h), faceted: true };
+  }
+  // Push.
+  const tr = ctx.results.get(f.tool);
+  if (!tr?.ok || !tr.tool) throw codeError('tool-missing');
+  const tool = tr.tool;
+  const dir = DIRS[f.dir] ?? worldUp();
+  const rays = meshRays(tool, h * 0.1);
+  // The body without the tool body (a separate body of the part), deformed.
+  const tv = rep().measureVolume(tool); const [ta, tb] = tool.boundingBox.bounds;
+  const same = (s) => { const [a, b] = s.boundingBox.bounds; return Math.abs(rep().measureVolume(s) - tv) < 1e-6 * Math.max(1, tv) && [0, 1, 2].every((i) => Math.abs(a[i] - ta[i]) < 1e-6 && Math.abs(b[i] - tb[i]) < 1e-6); };
+  const solids = solidsOf(ctx.body).filter((s) => !same(s));
+  const moved = new Map();
+  const out = [];
+  for (const s of solids) {
+    const { verts, tris } = fineMesh(s, h);
+    const inside = verts.map((p) => rays.inside(p));
+    const push = verts.map((p, i) => (inside[i] ? mul(dir, rays.exit(p, dir)) : null));
+    const pts = verts.map((p, i) => [p, push[i]]).filter(([, d]) => d);
+    const fn = (p, i) => {
+      if (push[i]) return add(p, push[i]);
+      let best = Infinity; let d = null;
+      for (const [q, dq] of pts) { const e = len(sub(q, p)); if (e < best) { best = e; d = dq; } }
+      const w = d ? fall(best / r) : 0;
+      return w > 0 ? add(p, mul(d, w)) : p;
+    };
+    out.push(mergeFlat(solidFromTriangles(verts.map(fn), tris)));
+    moved.set(s, pts.length);
+  }
+  return { body: bodyOf(out), faceted: true, pushed: [...moved.values()].reduce((a, b) => a + b, 0) };
+}
+
 function buildDeform(f, ctx) {
   if (!ctx.body) throw codeError('no-body');
+  if (f.kind === 'curve' || f.kind === 'push') return buildDeformMore(f, ctx);
   const c = f.pointRef && ctx.refPoints?.has(f.pointRef) ? ctx.refPoints.get(f.pointRef) : [num(f.x), num(f.y), num(f.z)];
   const r = Math.max(0.01, num(f.radius, 30));
   const d = num(f.amount, 5);

@@ -825,6 +825,7 @@ export function createDrwTools(ctx) {
     ...Object.fromEntries(EVAL_KINDS.map(([kind, glyph]) => [`eval_${kind}`, evalCmd(kind, glyph)])),
     shutOff: { icon: 'shutOff', label: 'cmd.shutOff', enabled: partBody, run: () => ctx.startFeature('shutOff') },
     partingSurface: { icon: 'partingSurface', label: 'cmd.partingSurface', enabled: partBody, run: () => ctx.startFeature('partingSurface') },
+    sideCore: { icon: 'sideCore', label: 'cmd.sideCore', enabled: partBody, run: () => ctx.startFeature('sideCore') },
   };
 
   /** Command ids per CommandManager tab (appended to the app's lists). */

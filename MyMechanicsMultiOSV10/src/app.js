@@ -57,6 +57,7 @@ import { readDxf } from './cad/dxf-read.js';
 import { flattenDrawing, itemsToSketch, UNIT_MM } from './cad/cad2d-import.js';
 import { sketchToEntities, entitiesToDxf } from './cad/sketch-export.js';
 import { flatPatternEntities } from './cad/flat-dxf.js';
+import { solarPosition, sunDirection } from './cad/sun.js';
 import { MATERIALS, MATERIAL_FAMILIES, familyOf, materialOf, materialName, massOf } from './cad/materials.js';
 import { SAMPLES, buildSample } from './cad/samples.js';
 import { Viewport, hitKey } from './view/viewport.js';
@@ -87,6 +88,12 @@ import { createExplodeTools } from './app-explode.js';
 import { createAsmVizTools } from './app-asmviz.js';
 import { createSectionPropsTools } from './app-secprops.js';
 import { createDecalTools } from './app-decals.js';
+import { createWalkTools } from './app-walk.js';
+import { createFrameTools } from './app-frame.js';
+import { createScanTools } from './app-scan.js';
+import { readIdfBoard, readIdfLibrary, idfModel, idfProject } from './cad/idf.js';
+import { boardFromBody, packageFromBody, placementOf, writeIdfBoard, writeIdfLibrary } from './cad/idf-export.js';
+import { createCustomTools, drawingTemplateOf, applyDrawingTemplate } from './app-custom.js';
 import { ruleK, gaugeRowsOf, gaugeOf, seedBendRows, DEFAULT_K_ROWS } from './cad/sheet-gauge.js';
 import { createAsmWeldTools } from './app-asmweld.js';
 import { hiddenInside } from './cad/asm-more.js';
@@ -397,11 +404,18 @@ async function setDoc(d) {
 
 function untitledName(kind = 'part') { state.untitled += 1; return t(`new.${kind}Name`, { n: state.untitled }); }
 
-async function newDocument(kind = 'part', { unit = null } = {}) {
+async function newDocument(kind = 'part', { unit = null, blank = false } = {}) {
   if (kind === 'drawing') {
     if (hasDoc() && (activePart() || activeAssembly())) return newDrawing();
     notify('info', t('notice.drawingNeedsModel'));
     return null;
+  }
+  // The user's default template for this kind (Customize › Templates), unless a blank one is asked for.
+  const tpl = blank ? null : customTools.api.defaultTemplate(kind);
+  if (tpl) {
+    const made = await newFromTemplate(tpl);
+    if (made && unit) updateSettings({ units: unit }, { quiet: true });
+    return made;
   }
   if (!(await confirmReplace())) return null;
   const name = untitledName(kind);
@@ -505,6 +519,9 @@ function mountViewport() {
     invertZoom: () => state.settings.invertZoom,
     orbitMode: () => state.settings.orbitMode,
     orbitSpeed: () => state.settings.orbitSpeed,
+    gestures: () => customTools.api.gesturesOn(),
+    gestureLabels: () => customTools.api.gestureLabels(),
+    onGesture: (dx, dy) => customTools.api.onGesture(dx, dy),
   });
   viewport.setStyle(state.settings.displayStyle);
   viewport.setProjection(!state.settings.perspectiveView);
@@ -524,7 +541,24 @@ function sceneLights(p) {
   return p.lights;
 }
 
-const LIGHT_KINDS = ['directional', 'point', 'spot'];
+const LIGHT_KINDS = ['directional', 'point', 'spot', 'sun'];
+
+/**
+ * A sun light's place: from its location, date, time and time zone (cad/sun.js), shining on its target from far
+ * along the sun's direction (north along +Y turned by `north`). Below the horizon it is off.
+ */
+function placeSun(l, size = 400) {
+  const now = new Date();
+  l.lat ??= 37.57; l.lon ??= 126.98; l.tz ??= 9; l.north ??= 0;
+  l.date ??= now.toISOString().slice(0, 10); l.time ??= '12:00';
+  const s = solarPosition(Number(l.lat), Number(l.lon), l.date, l.time, Number(l.tz));
+  const d = sunDirection(s.azimuth, s.elevation, Number(l.north));
+  const tg = l.target ?? [0, 0, 0];
+  l.position = tg.map((c, i) => Math.round((c + d[i] * size) * 1000) / 1000);
+  l.sun = { azimuth: Math.round(s.azimuth * 100) / 100, elevation: Math.round(s.elevation * 100) / 100 };
+  l.on = s.elevation > 0;
+  return l;
+}
 
 function startLights() {
   if (!project() || activeKind() === 'drawing') { notify('info', t('notice.lightsNeedModel')); return; }
@@ -541,6 +575,7 @@ function addLight(kind) {
   const c = box && !box.isEmpty() ? box.getCenter(new THREE.Vector3()).toArray() : [0, 0, 0];
   const n = sceneLights(project()).lights.length + 1;
   const light = { id: newId('light'), name: `${t(`light.${kind}`)}${n}`, kind, color: kind === 'spot' ? '#fff3d6' : '#ffffff', intensity: kind === 'directional' ? 1 : 0.8, position: [c[0] + size * 0.6, c[1] - size * 0.5, c[2] + size * 0.8].map((v) => Math.round(v)), target: c.map((v) => Math.round(v)), angle: 30, on: true };
+  if (kind === 'sun') placeSun(light, size);
   change('op.light', (p) => { sceneLights(p).lights.push(light); });
   state.editing.selected = light.id;
   syncView();
@@ -555,7 +590,7 @@ function lightsPm(e) {
   const vec3 = (key, v) => `<span class="pm-vec3">${[0, 1, 2].map((i) => num(`${key}.${i}`, v[i])).join('')}</span>`;
   const list = L.lights.map((l) => `<div class="light-row ${e.selected === l.id ? 'active' : ''}"><button class="icon-button" data-pm="selLight:${escapeHtml(l.id)}" title="${escapeHtml(t('light.select'))}">${icon(l.kind === 'directional' ? 'sun' : 'bulb')}</button><span class="grow">${escapeHtml(l.name)}</span><label class="pm-check"><input type="checkbox" data-pm-toggle="light:${escapeHtml(l.id)}:on" ${l.on !== false ? 'checked' : ''}/></label><button class="icon-button" data-pm="delLight:${escapeHtml(l.id)}" title="${escapeHtml(t('action.delete'))}">${icon('trash', 'icon tiny')}</button></div>`).join('');
   const sel = L.lights.find((l) => l.id === e.selected);
-  const props = sel ? pmGroup(sel.kind === 'directional' ? 'sun' : 'bulb', t('light.properties', { name: sel.name }), [
+  const props = sel ? pmGroup(sel.kind === 'directional' || sel.kind === 'sun' ? 'sun' : 'bulb', t('light.properties', { name: sel.name }), [
     row(t('pm.name'), `<input type="text" class="pm-text" data-pm-field="light:${sel.id}:name" value="${escapeHtml(sel.name)}" spellcheck="false"/>`, 'edit'),
     `<div class="pm-row">${pmSeg(`light:${sel.id}:kind`, LIGHT_KINDS.map((k) => [k, t(`light.${k}`)]), sel.kind)}</div>`,
     row(t('light.color'), color(`light:${sel.id}:color`, sel.color), 'palette'),
@@ -563,13 +598,23 @@ function lightsPm(e) {
     row(t('light.position'), vec3(`light:${sel.id}:position`, sel.position), 'position'),
     sel.kind !== 'point' ? row(t('light.target'), vec3(`light:${sel.id}:target`, sel.target ?? [0, 0, 0]), 'origin') : '',
     sel.kind === 'spot' ? row(t('light.angle'), num(`light:${sel.id}:angle`, sel.angle ?? 30), 'dimAngle') : '',
+    // The sun: where and when (its direction follows; below the horizon it is off).
+    sel.kind === 'sun' ? [
+      row(t('sun.lat'), num(`light:${sel.id}:lat`, sel.lat ?? 37.57, '°'), 'position'),
+      row(t('sun.lon'), num(`light:${sel.id}:lon`, sel.lon ?? 126.98, '°'), 'position'),
+      row(t('sun.date'), `<input type="date" class="pm-text" data-pm-field="light:${sel.id}:date" value="${escapeHtml(sel.date ?? '')}"/>`, 'calendar'),
+      row(t('sun.time'), `<input type="time" class="pm-text" data-pm-field="light:${sel.id}:time" value="${escapeHtml(sel.time ?? '12:00')}"/>`, 'clock'),
+      row(t('sun.tz'), num(`light:${sel.id}:tz`, sel.tz ?? 9, 'h'), 'clock'),
+      row(t('sun.north'), num(`light:${sel.id}:north`, sel.north ?? 0, '°'), 'dimAngle'),
+      `<p class="pm-note">${escapeHtml(t('sun.at', { azimuth: fmt(sel.sun?.azimuth ?? 0, 1), elevation: fmt(sel.sun?.elevation ?? 0, 1) }))}${sel.on === false ? ` — ${escapeHtml(t('sun.below'))}` : ''}</p>`,
+    ].join('') : '',
     `<p class="pm-note">${escapeHtml(t('light.dragHint'))}</p>`,
   ].join('')) : '';
   return [
     pmHead('bulb', t('cmd.lights'), t('pm.help.lights')),
     pmGroup('sun', t('light.ambient'), `${row(t('light.color'), color('amb:color', L.ambient.color), 'palette')}${row(t('light.groundColor'), color('amb:ground', L.ambient.ground ?? '#8a8f99'), 'palette')}${row(t('light.intensity'), num('amb:intensity', L.ambient.intensity), 'sun')}`),
     pmGroup('eye', t('light.cameraLight'), `<label class="pm-check"><input type="checkbox" data-pm-toggle="cam:on" ${L.cameraLight.on !== false ? 'checked' : ''}/><span>${escapeHtml(t('light.followsCamera'))}</span></label>${row(t('light.color'), color('cam:color', L.cameraLight.color), 'palette')}${row(t('light.intensity'), num('cam:intensity', L.cameraLight.intensity), 'sun')}`),
-    pmGroup('bulb', t('light.list'), `${list || `<p class="pm-note">${escapeHtml(t('light.none'))}</p>`}<div class="pm-relations">${LIGHT_KINDS.map((k) => pmButton(`addLight:${k}`, k === 'directional' ? 'sun' : 'bulb', t(`light.add.${k}`))).join('')}</div>`),
+    pmGroup('bulb', t('light.list'), `${list || `<p class="pm-note">${escapeHtml(t('light.none'))}</p>`}<div class="pm-relations">${LIGHT_KINDS.map((k) => pmButton(`addLight:${k}`, k === 'directional' || k === 'sun' ? 'sun' : 'bulb', t(`light.add.${k}`))).join('')}</div>`),
     props,
   ].join('');
 }
@@ -586,6 +631,8 @@ function lightsField(key, raw, v) {
     const [name, index] = field.split('.');
     if (name === 'name') { if (text) l.name = text; }
     else if (name === 'color') l.color = text;
+    else if (l.kind === 'sun' && ['lat', 'lon', 'tz', 'north'].includes(name)) { if (v != null) { l[name] = name === 'lat' ? Math.max(-90, Math.min(90, v)) : v; placeSun(l); } }
+    else if (l.kind === 'sun' && (name === 'date' || name === 'time')) { if (text) { l[name] = text; placeSun(l); } }
     else if (name === 'position' || name === 'target') { if (v != null) { l[name] = [...(l[name] ?? [0, 0, 0])]; l[name][Number(index)] = v; } }
     else if (v != null && v >= 0) l[name] = name === 'angle' ? Math.min(89, Math.max(1, v)) : v;
   });
@@ -651,7 +698,7 @@ function syncPart(part) {
   bodies.push(...icTools.contextBodies());
   viewport.setBodies(bodies);
   // Section Properties: its section shown on the model.
-  viewport.setPreview(state.editing?.mode === 'secProps' ? state.editing.previewSpec ?? null : preview);
+  viewport.setPreview(state.editing?.mode === 'secProps' ? state.editing.previewSpec ?? null : state.editing?.mode === 'simulation' && state.editing.result && state.editing.subPreview ? state.editing.subPreview : more.fem?.shellPreview?.(state.editing) ?? preview);
   // Planes: the standard ones (always while picking a sketch plane or with no body yet) and the reference planes.
   const size = Math.max(60, (entry.size ?? 100) * 0.75);
   const picking = e?.mode === 'sketchPlane';
@@ -1129,6 +1176,9 @@ function cancelEditing({ quiet = false } = {}) {
   const e = state.editing;
   if (!e) return;
   std.cleanup(e);
+  if (walkTools.owns(e)) walkTools.cancel(e);
+  if (frameTools.owns(e)) { state.editing = null; frameTools.cleanup(); }
+  if (customTools.owns(e)) customTools.cancel(e);
   if (e.mode === 'sketch') { e.editor.dispose(); viewport?.setLines('sketch', []); viewport?.setLabels([]); }
   if (e.mode === 'mate' && e.base && activeAssembly()) activeAssembly().components = JSON.parse(e.base);
   // An illustration view's display (exploded placements, hidden components) ends with its page.
@@ -1889,7 +1939,7 @@ async function renameSelected() {
 
 // ───────────────────────── drawings
 
-async function newDrawing() {
+async function newDrawing({ template = null } = {}) {
   const p = project();
   if (!p) return;
   await ensureKernel();
@@ -1902,6 +1952,9 @@ async function newDrawing() {
     d = addDrawing(pr, src, `${srcDoc.name} - ${t('drawing.sheetName')}${pr.drawings.length + 1}`);
     d.projection = state.settings.projection;
     d.title.partNo = srcDoc.partNo ?? '';
+    // A template (or the default drawing template): the sheet, its settings and standard views.
+    const tpl = template ?? customTools.api.defaultTemplate('drawing');
+    if (tpl?.drawing) applyDrawingTemplate(d, tpl.drawing);
     pr.active = { kind: 'drawing', id: d.id };
   });
   fitDrawing();
@@ -2135,6 +2188,7 @@ function renderDrawing() {
   if (!kernelReady()) { host.innerHTML = `<p class="panel-hint">${icon('hourglass')}<span>${escapeHtml(t('progress.kernelLoading'))}</span></p>`; return; }
   // Harness sheets follow their harness (app-std.js): rebuilt, or marked out of date.
   std.syncHarnessDrawings(d);
+  std.syncPipeIsoDrawings?.(d);
   let svg;
   try { svg = more.svg(d, { labels: drawingLabels(), info: drawingInfo(d), selected: state.drawingSelected, bomRows: drawingBom(d) }); }
   catch (error) { host.innerHTML = `<p class="panel-hint error">${icon('error')}<span>${escapeHtml(native.errorText(error))}</span></p>`; return; }
@@ -2174,7 +2228,7 @@ function fitDrawing() {
 
 // ───────────────────────── advanced features (sweep, loft, surfaces, sheet metal, weldments, mold tools)
 
-const SURFACE_TYPES = ['surfaceExtrude', 'surfaceRevolve', 'surfacePlanar', 'surfaceLoft', 'surfaceOffset', 'knit', 'fillSurface', 'boundary', 'trimSurface', 'ruledSurface', 'extendSurface', 'surfaceSweep', 'deleteHole', 'untrimSurface', 'midSurface', 'radiateSurface', 'flattenSurface'];
+const SURFACE_TYPES = ['surfaceFillet', 'surfaceExtrude', 'surfaceRevolve', 'surfacePlanar', 'surfaceLoft', 'surfaceOffset', 'knit', 'fillSurface', 'boundary', 'trimSurface', 'ruledSurface', 'extendSurface', 'surfaceSweep', 'deleteHole', 'untrimSurface', 'midSurface', 'radiateSurface', 'flattenSurface'];
 const SKETCH_BASED = ['sweep', 'rib', 'wrap', 'baseFlange', 'structural', 'surfaceExtrude', 'surfaceRevolve', 'surfacePlanar'];
 
 /** The features before `f` (or before the rollback bar for a new one). */
@@ -2315,6 +2369,8 @@ function resultColours(part, entry) {
   const sim = state.sim;
   if (sim && sim.partId === part.id && sim.key === entry.key && sim.result) {
     const extra = { colors: sim.colors };
+    // A shell study is drawn on its mid-surface (the viewport's preview); the solid is shown see-through around it.
+    if (sim.result.kind === 'shell') extra.ghost = true;
     if (sim.deformed && sim.result.vertexDisplacement) {
       const v = entry.mesh.vertices; const d = sim.result.vertexDisplacement; const k = sim.scale;
       extra.mesh = { ...entry.mesh, vertices: Float32Array.from(v, (x, i) => x + d[i] * k) };
@@ -3227,7 +3283,8 @@ function customPm(e) {
       study,
       pmGroup('material', t('sim.material'), `<p class="pm-note">${escapeHtml(`${materialName(part.material, lang())} · E ${mat.E} GPa · σy ${mat.yield} MPa`)}</p>${pmNum('nu', e.nu, t('sim.poisson'))}`),
       pmGroup('fixture', t('sim.fixtures'), `${more.fem?.fixtureKinds(e) ?? ''}${pmList('fixtures', e.fixtures.map(more.fem?.faceItem ?? faceName), t('sim.fixedFaces'), 'fixture', e.pick === 'fixtures')}`),
-      pmGroup('load', t('sim.loads'), `${pmSeg('loadKind', more.fem ? more.fem.loadKinds(e) : [['force', t('sim.force')], ['pressure', t('sim.pressure')]], e.loadKind)}${e.loadKind === 'gravity' ? '' : pmList('loads', e.loads.map(faceName), t('sim.loadFaces'), 'load', e.pick === 'loads')}${pmNum('magnitude', e.magnitude, more.fem ? more.fem.loadLabel(e) : e.loadKind === 'pressure' ? `${t('sim.pressure')} (MPa)` : `${t('sim.force')} (N)`, 'load')}${e.loadKind !== 'pressure' ? pmSeg('dir', Object.keys(LOAD_DIRS).map((k) => [k, k.toUpperCase()]), e.dir) : ''}`),
+      pmGroup('load', t('sim.loads'), `${pmSeg('loadKind', more.fem ? more.fem.loadKinds(e) : [['force', t('sim.force')], ['pressure', t('sim.pressure')]], e.loadKind)}${(more.fem ? more.fem.bodyLoad(e.loadKind) : e.loadKind === 'gravity') ? '' : pmList('loads', e.loads.map(faceName), t('sim.loadFaces'), 'load', e.pick === 'loads')}${pmNum('magnitude', e.magnitude, more.fem ? more.fem.loadLabel(e) : e.loadKind === 'pressure' ? `${t('sim.pressure')} (MPa)` : `${t('sim.force')} (N)`, 'load')}${(more.fem ? more.fem.loadHasDir(e) : e.loadKind !== 'pressure') ? pmSeg('dir', Object.keys(LOAD_DIRS).map((k) => [k, k.toUpperCase()]), e.dir) : ''}${more.fem?.loadExtras(e) ?? ''}`),
+      e.study === 'static' && more.fem ? more.fem.connectorGroup(e) : '',
       more.fem ? more.fem.meshGroup(e) : pmGroup('statistics', t('sim.mesh'), `${pmNum('resolution', e.resolution, t('sim.resolution'), 'statistics')}<div class="pm-row">${pmButton('runSim', 'play', t('sim.run'), 'primary')}</div>`),
       res, more.fem?.resultTools(e) ?? '',
     ].join('');
@@ -3332,6 +3389,7 @@ function customSet(key, value) {
 }
 
 function customToggle(key, checked) {
+  if (state.editing?.mode === 'simulation' && more.fem?.toggle?.(state.editing, key, checked)) return undefined;
   const asm = activeAssembly();
   if (asm && /^ac[shm]:/.test(key)) {
     const id = key.slice(4);
@@ -3352,6 +3410,8 @@ function customToggle(key, checked) {
 // Drop-downs of the custom pages: an assembly configuration's part configuration per component.
 function customSelect(key, value) {
   if (key === 'plotItem' && state.editing?.mode === 'motion') { state.editing.plotItem = value; return renderLeft(); }
+  // Assembly study: a component's element kind (solid / shell / beam — a mixed mesh).
+  if (key?.startsWith('elemKind:') && state.editing?.mode === 'simulation') { const e = state.editing; e.elemKinds ??= {}; e.elemKinds[key.slice(9)] = value; e.result = null; state.asmSim = null; return renderLeft(); }
   return key?.startsWith('acc:') ? customSet(key, value) : undefined;
 }
 
@@ -3364,7 +3424,7 @@ function customCommand(name, arg) {
   if (name === 'selLight' && e?.mode === 'lights') { e.selected = arg; syncView(); return renderLeft(); }
   if (name === 'delLight' && e?.mode === 'lights') { change('op.light', (p) => { const L = sceneLights(p); L.lights = L.lights.filter((x) => x.id !== arg); }); if (e.selected === arg) e.selected = null; return renderLeft(); }
   const part = activePart();
-  if (e?.mode === 'simulation' && more.fem?.handles(name)) return more.fem.command(name, e, active()?.name ?? '');
+  if (e?.mode === 'simulation' && more.fem?.handles(name)) return more.fem.command(name, e, active()?.name ?? '', arg);
   if (name === 'clear' && e?.mode === 'simulation' && more.fem?.clear(e, arg)) return undefined;
   if (name === 'clear' && e?.mode === 'simulation') { e[arg] = []; viewport.setSelection([]); return renderLeft(); }
   if (name === 'clear' && e?.mode === 'motion') { const asm = activeAssembly(); change('op.motion', () => { asm.motion.motors = []; }); return undefined; }
@@ -3670,6 +3730,8 @@ const commands = {
   recentFolders: { icon: 'recentFolder', label: 'action.recentFolders', run: (c) => recentFoldersMenu(c?.anchor) },
   clearRecent: { icon: 'clearHistory', label: 'action.clearRecent', enabled: () => state.recent.length > 0 || state.recentDirs.length > 0, run: () => clearRecentAll() },
   importStep: { icon: 'stepFile', label: 'action.importStep', key: 'Ctrl+I', run: () => importStepDialog() },
+  importIdf: { icon: 'pcbBoard', label: 'cmd.importIdf', run: () => importIdfDialog() },
+  exportIdf: { icon: 'pcbBoard', label: 'cmd.exportIdf', enabled: () => Boolean(activePart() || activeAssembly()), run: () => exportIdf() },
   exportMenu: { icon: 'chevronDown', label: 'action.exportMenu', enabled: hasDoc, run: (c) => showMenu(menuItems(SUBMENUS.exportTo.items), c?.anchor ?? anchorFor('exportMenu'), 'context', { header: { icon: 'exportFile', title: t('submenu.exportTo') } }) },
   exportStep: { icon: 'stepFile', label: 'action.exportStep', enabled: () => Boolean(activePart() || activeAssembly()), run: () => exportModel('step') },
   exportIges: { icon: 'igesFile', label: 'action.exportIges', enabled: () => Boolean(activePart() || activeAssembly()), run: () => exportModel('iges') },
@@ -4113,6 +4175,145 @@ const decalTools = createDecalTools({
 }
 Object.assign(commands, decalTools.commands);
 
+// Walkthrough and video recording (app-walk.js).
+const walkTools = createWalkTools({
+  state, t, notify, renderAll, renderLeft, cancelEditing, fmt, saveExport, viewport: () => viewport, units: () => units(),
+  updateSettings: (patch) => updateSettings(patch, { quiet: true }),
+  hasModel: () => hasDoc() && activeKind() !== 'drawing',
+  baseName: () => safeName(),
+  motion: {
+    available: () => { const a = activeAssembly(); return Boolean(a && hasMotion(a) && (motionType(a) !== 'physics' || dynamicsResult(a, { run: false }))); },
+    duration: () => Math.max(0.1, Number(activeAssembly()?.motion?.duration) || 5),
+    show: (time) => showMotionTime(time),
+  },
+  pm: { pmHead, pmGroup, pmNum, pmSeg, pmButton },
+});
+{
+  const o = { ...more };
+  const mine = (e = state.editing) => walkTools.owns(e);
+  more.owns = (e) => mine(e) || o.owns(e);
+  more.pm = (e) => (mine(e) ? walkTools.pm(e) : o.pm(e));
+  more.pick = (hit, ev) => (mine() ? walkTools.pick(hit, ev) : o.pick(hit, ev));
+  more.dragTool = () => (mine() ? walkTools.dragTool() : o.dragTool?.() ?? null);
+  more.field = (k, raw, v) => (mine() ? walkTools.field(k, raw, v) : o.field(k, raw, v));
+  more.set = (k, v) => (mine() ? walkTools.set(k, v) : o.set(k, v));
+  more.toggle = (k, c) => (mine() ? walkTools.toggle(k, c) : o.toggle(k, c));
+  more.select = (k, v) => (mine() ? walkTools.select(k, v) : o.select?.(k, v));
+  more.accept = () => (mine() ? walkTools.accept() : o.accept());
+  more.subject = (e) => (mine(e) ? walkTools.subject(e) : o.subject(e));
+  more.handles = (name) => (mine() && walkTools.handles(name)) || o.handles(name);
+  more.command = (name, arg) => (mine() && walkTools.handles(name) ? walkTools.command(name, arg) : o.command(name, arg));
+}
+Object.assign(commands, walkTools.commands);
+
+// Beam (frame) study of weldments (app-frame.js).
+const frameTools = createFrameTools({
+  state, t, notify, renderAll, renderLeft, cancelEditing, change, fmt, saveExport, activePart, viewport: () => viewport, syncView: () => syncView(),
+  partEntry: () => state.partEntry,
+  feaMaterial: (p) => { const m = materialOf(p.material); return { E: m.E * 1000, nu: m.nu ?? 0.3, yield: m.yield, density: m.density }; },
+  pm: { pmHead, pmGroup, pmNum, pmSeg, pmButton },
+});
+{
+  const o = { ...more };
+  const mine = (e = state.editing) => frameTools.owns(e);
+  more.owns = (e) => mine(e) || o.owns(e);
+  more.pm = (e) => (mine(e) ? frameTools.pm(e) : o.pm(e));
+  more.pick = (hit, ev) => (mine() ? frameTools.pick(hit, ev) : o.pick(hit, ev));
+  more.field = (k, raw, v) => (mine() ? frameTools.field(k, raw, v) : o.field(k, raw, v));
+  more.set = (k, v) => (mine() ? frameTools.set(k, v) : o.set(k, v));
+  more.toggle = (k, c) => (mine() ? frameTools.toggle(k, c) : o.toggle(k, c));
+  more.select = (k, v) => (mine() ? frameTools.select(k, v) : o.select?.(k, v));
+  more.accept = () => (mine() ? frameTools.accept() : o.accept());
+  more.subject = (e) => (mine(e) ? frameTools.subject(e) : o.subject(e));
+  more.handles = (name) => (mine() && frameTools.handles(name)) || o.handles(name);
+  more.command = (name, arg) => (mine() && frameTools.handles(name) ? frameTools.command(name, arg) : o.command(name, arg));
+  const od = more.decorate;
+  more.decorate = (kind) => { od?.(kind); frameTools.decorate(kind); };
+}
+Object.assign(commands, frameTools.commands);
+
+// Scan to Solid: a scanned / faceted body rebuilt from fitted surfaces (app-scan.js).
+const scanTools = createScanTools({
+  state, t, notify, renderAll, renderLeft, cancelEditing, change, fmt, activePart, withProgress,
+  partEntry: () => state.partEntry,
+  pm: { pmHead, pmGroup, pmNum, pmSeg, pmButton },
+});
+{
+  const o = { ...more };
+  const mine = (e = state.editing) => scanTools.owns(e);
+  more.owns = (e) => mine(e) || o.owns(e);
+  more.pm = (e) => (mine(e) ? scanTools.pm(e) : o.pm(e));
+  more.pick = (hit, ev) => (mine() ? scanTools.pick(hit, ev) : o.pick(hit, ev));
+  more.field = (k, raw, v) => (mine() ? scanTools.field(k, raw, v) : o.field(k, raw, v));
+  more.set = (k, v) => (mine() ? scanTools.set(k, v) : o.set(k, v));
+  more.toggle = (k, c) => (mine() ? scanTools.toggle(k, c) : o.toggle(k, c));
+  more.select = (k, v) => (mine() ? scanTools.select(k, v) : o.select?.(k, v));
+  more.accept = () => (mine() ? scanTools.accept() : o.accept());
+  more.subject = (e) => (mine(e) ? scanTools.subject(e) : o.subject(e));
+  more.handles = (name) => (mine() && scanTools.handles(name)) || o.handles(name);
+  more.command = (name, arg) => (mine() && scanTools.handles(name) ? scanTools.command(name, arg) : o.command(name, arg));
+}
+Object.assign(commands, scanTools.commands);
+
+// Customize: shortcuts, toolbar, mouse gestures and templates (app-custom.js).
+const customTools = createCustomTools({
+  state, t, notify, renderAll, renderLeft, cancelEditing, commands, saveExport, run: (id) => run(id),
+  updateSettings: (patch) => updateSettings(patch, { quiet: true }),
+  renderChrome: () => { renderToolbar(); renderCommandManager(); },
+  defaultShortcuts: () => defaultShortcuts(),
+  allTabs: () => baseCommandTabs(),
+  hasDoc: () => hasDoc(),
+  currentKind: () => activeKind(),
+  pickFile: (accept) => native.pickWithInput(accept, false),
+  templateOfCurrent: (kind) => templateOfCurrent(kind),
+  newFromTemplate: (tpl) => newFromTemplate(tpl),
+  pm: { pmHead, pmGroup, pmNum, pmSeg, pmButton },
+});
+{
+  const o = { ...more };
+  const mine = (e = state.editing) => customTools.owns(e);
+  more.owns = (e) => mine(e) || o.owns(e);
+  more.pm = (e) => (mine(e) ? customTools.pm(e) : o.pm(e));
+  more.pick = (hit, ev) => (mine() ? customTools.pick(hit, ev) : o.pick(hit, ev));
+  more.field = (k, raw, v) => (mine() ? customTools.field(k, raw, v) : o.field(k, raw, v));
+  more.set = (k, v) => (mine() ? customTools.set(k, v) : o.set(k, v));
+  more.toggle = (k, c) => (mine() ? customTools.toggle(k, c) : o.toggle(k, c));
+  more.select = (k, v) => (mine() ? customTools.select(k, v) : o.select?.(k, v));
+  more.accept = () => (mine() ? customTools.accept() : o.accept());
+  more.subject = (e) => (mine(e) ? customTools.subject(e) : o.subject(e));
+  more.handles = (name) => (mine() && customTools.handles(name)) || o.handles(name);
+  more.command = (name, arg) => (mine() && customTools.handles(name) ? customTools.command(name, arg) : o.command(name, arg));
+}
+Object.assign(commands, customTools.commands);
+
+/** A template's body from the active document: the whole project (a part or assembly) or a drawing's sheet. */
+function templateOfCurrent(kind) {
+  if (!project()) return null;
+  if (kind === 'drawing') { const d = activeDrawing(); return d ? { drawing: drawingTemplateOf(d) } : null; }
+  const k = activeKind();
+  if (k !== 'part' && k !== 'assembly') return null;
+  return { text: packProject(project()) };
+}
+
+/** A new document from a template: a project copy under a new name, or a drawing of the active model laid out like it. */
+async function newFromTemplate(tpl) {
+  if (tpl.kind === 'drawing') {
+    if (!hasDoc() || !(activePart() || activeAssembly())) { notify('info', t('notice.drawingNeedsModel')); return null; }
+    await newDrawing({ template: tpl });
+    return activeDrawing();
+  }
+  if (!(await confirmReplace())) return null;
+  try {
+    const p = unpackProject(new TextEncoder().encode(tpl.text));
+    const name = untitledName(tpl.kind);
+    p.name = name;
+    const d = new Doc(p, { name: `${name}.mymech` });
+    await busy('progress.new', name, () => setDoc(d));
+    notify('success', t('custom.tplCreated', { name, template: tpl.name }));
+    return d;
+  } catch (error) { showError('error.open', error, tpl.name); return null; }
+}
+
 /**
  * Mirror Part: a new part, the active one mirrored about a standard plane (an Insert Part feature with its mirror
  * set: it follows the original whenever that changes), with the original's material and colour.
@@ -4455,6 +4656,8 @@ const std = createStdTools({
   state, t, notify, change, commit, syncView, renderAll, renderLeft, cancelEditing, ensureKernel, newId, fmt, fmtLen, parseLen, units, lang, fitView, saveExport, fileSafe,
   viewport: () => viewport, viewHost: () => root.querySelector('#view-host'), activeName: () => active()?.name ?? '', project, activePart, activeAssembly, topoOf, assemblySize,
   beginFeature, updateFeature, buildPart: (p) => buildPart(p),
+  // Routing components: the connection / route points of the active assembly's components, in its frame.
+  routingPoints: () => { const a = activeAssembly(); if (!a) return []; const out = []; for (const c of a.components) { if (c.suppressed || !c.part) continue; for (const cp of connectionPointsOf(c.part)) if (cp.routeType) out.push({ comp: c.id, compName: c.name, ...cp, point: placePoint(c, cp.point), dir: placeDir(c, cp.dir) }); } return out; },
   partEntry: (c) => { const pt = project()?.parts.find((x) => x.id === c.part); return pt ? buildPart(pt) : null; },
   // Every part of a component (a sub-assembly's parts with their placement in it) and its build, for hole series.
   partLeaves: (c) => componentLeaves(c).map((l) => { const pt = project()?.parts.find((x) => x.id === l.part); return pt ? { ...l, entry: buildPart(pt) } : null; }).filter(Boolean),
@@ -4541,19 +4744,19 @@ const SUBMENUS = {
   bossBase: { icon: 'featExtrude', items: ['extrude', 'revolve', 'sweep', 'loft', 'thicken'] },
   cutFeat: { icon: 'featCut', items: ['cutExtrude', 'cutRevolve', 'cutSweep', 'cutLoft'] },
   featuresMore: { icon: 'featDraft', items: ['fillet', 'variableFillet', 'faceFillet', 'fullRoundFillet', 'chamfer', 'shell', 'draft', 'rib', 'dome', 'wrap', 'hole', 'thread', 'helix'] },
-  surfaces: { icon: 'surface', items: ['surfaceExtrude', 'surfaceRevolve', 'surfacePlanar', 'surfaceLoft', 'boundary', 'fillSurface', 'surfaceOffset', 'ruledSurface', 'trimSurface', 'extendSurface', 'knit', 'thicken', '-', 'surfaceSweep', 'radiateSurface', 'midSurface', 'untrimSurface', 'deleteHole', 'cutWithSurface', 'flattenSurface', '-', 'deleteFace', 'replaceFace'] },
-  bodies: { icon: 'moveBody', items: ['moveBody', 'scaleBody', 'split', 'insertPart', 'mirrorPart', 'openscadFeature', '-', 'combine', 'deleteBody', 'indent', 'flex', 'deform'] },
+  surfaces: { icon: 'surface', items: ['surfaceExtrude', 'surfaceRevolve', 'surfacePlanar', 'surfaceLoft', 'boundary', 'fillSurface', 'surfaceOffset', 'ruledSurface', 'trimSurface', 'extendSurface', 'knit', 'surfaceFillet', 'thicken', '-', 'surfaceSweep', 'radiateSurface', 'midSurface', 'untrimSurface', 'deleteHole', 'cutWithSurface', 'flattenSurface', '-', 'deleteFace', 'replaceFace'] },
+  bodies: { icon: 'moveBody', items: ['moveBody', 'scaleBody', 'split', 'insertPart', 'mirrorPart', 'openscadFeature', '-', 'combine', 'deleteBody', 'indent', 'flex', 'deform', 'freeform'] },
   sheetMetal: { icon: 'sheetMetal', items: ['baseFlange', 'convertSheet', 'insertBends', 'edgeFlange', 'miterFlange', 'hem', 'tab', 'loftedBend', 'sketchedBend', 'jog', '-', 'closedCorner', 'weldedCorner', 'cornerRelief', 'rip', 'formTool', 'crossBreak', 'tabSlot', '-', 'unfold', 'fold', 'flatten', 'exportFlatDxf'] },
   fastening: { icon: 'mountingBoss', items: ['mountingBoss', 'snapHook', 'snapHookGroove', 'vent', 'lipGroove'] },
   partExtra: { icon: 'advancedHole', items: ['advancedHole', 'intersect', 'mateReference', 'connectionPoint', 'moveFace', '-', 'saveBodies', '-', 'exitInContext', 'updateExternalRefs', 'externalRefs'] },
   weldments: { icon: 'structural', items: ['structural', 'trimExtend', 'endCap', 'gusset', 'weldBead', '-', 'cutList'] },
-  mold: { icon: 'cavity', items: ['draftAnalysis', 'draft', 'partingLine', 'toolingSplit', 'shrink', 'split', 'cavity'] },
+  mold: { icon: 'cavity', items: ['draftAnalysis', 'draft', 'partingLine', 'toolingSplit', 'sideCore', 'shrink', 'split', 'cavity'] },
   annotations: { icon: 'note', items: ['ann:note', 'ann:balloon', 'ann:gdt', 'ann:datum', 'ann:datumTarget', 'ann:surface', 'ann:centermark', '-', 'ann:cloud', 'ann:hatch', '-', 'bom', 'weldTable', 'cutListTable', 'bendTable'] },
   drawingViews: { icon: 'drawingView', items: ['std3View', 'addView', 'sectionView', 'sectionViewH', 'alignedSection', 'detailView', 'auxView', '-', 'flatPatternView', 'alternatePositionView'] },
 };
 const sub = (key) => ({ sub: key });
 const MENUS = {
-  file: [sub('newDoc'), 'openExample', 'open', 'startPage', 'recent', 'recentFolders', 'clearRecent', '-', 'save', 'saveAs', '-', 'importStep', sub('exportTo'), '-', 'print', '-', 'closeProject', 'exit'],
+  file: [sub('newDoc'), 'templates', 'openExample', 'open', 'startPage', 'recent', 'recentFolders', 'clearRecent', '-', 'save', 'saveAs', '-', 'importStep', 'importIdf', sub('exportTo'), 'exportIdf', '-', 'print', '-', 'closeProject', 'exit'],
   edit: ['undo', 'redo', '-', 'delete', 'rename', '-', 'rebuild', 'editFeature', 'suppress', 'unsuppress', '-', 'rollbackHere', 'rollbackEnd', '-', 'clearSelection'],
   view: [sub('views'), 'zoomFit', 'perspective', '-', sub('displayStyle'), 'section', 'lights', '-', sub('show'), '-', sub('appearance')],
   insert: ['sketch', '-', sub('bossBase'), sub('cutFeat'), sub('featuresMore'), sub('patterns'), '-', sub('surfaces'), sub('bodies'), sub('fastening'), sub('partExtra'), sub('sheetMetal'), sub('weldments'), sub('mold'), '-', 'refPlane', sub('refGeometry'), sub('curves'), 'material', '-', sub('drawingViews'), sub('annotations')],
@@ -4572,17 +4775,19 @@ const TOOLBAR = [
   ['massProps', 'measure'],
 ];
 const TOOLBAR_RIGHT = ['themeSplit', 'language', 'settings', 'about'];
+/** The toolbar's groups and the user's own (Customize › Toolbar) after them. */
+const toolbarGroups = () => { const extra = customTools.api.toolbarExtra(); return extra.length ? [...TOOLBAR, extra] : TOOLBAR; };
 const TOOLBAR_MAIN = { exportSplit: 'exportStep', themeSplit: 'theme', viewsSplit: 'view:iso', styleSplit: 'styleCycle' };
 
 /** The CommandManager: tabs of big buttons above the graphics area (a ribbon). */
 const COMMAND_TABS = {
   features: ['sketch', '|', 'extrude', 'revolve', 'sweep', 'loft', '|', 'cutExtrude', 'cutRevolve', 'cutSweep', 'cutLoft', '|', 'fillet', 'chamfer', 'shell', 'draft', 'rib', 'dome', 'wrap', '|', 'hole', 'thread', 'helix', '|', 'linearPattern', 'circularPattern', 'mirror', '|', 'refPlane', 'refAxis', 'refPoint', 'coordSys', 'boundingBox', 'moveBody', 'split', 'insertPart', 'openscadFeature', 'material', 'decals', 'rebuild'],
-  bodiesCurves: ['combine', 'deleteBody', 'indent', 'flex', 'deform', 'intersect', 'saveBodies', '|', 'advancedHole', 'mateReference', 'connectionPoint', 'moveFace', '|', 'exitInContext', 'updateExternalRefs', 'externalRefs', '|', 'mountingBoss', 'snapHook', 'snapHookGroove', 'vent', 'lipGroove', '|', 'variableFillet', 'faceFillet', 'fullRoundFillet', '|', 'curvePattern', 'sketchPattern', 'tablePattern', 'fillPattern', 'variablePattern', '|', 'projectedCurve', 'splitLine', 'compositeCurve', 'curveXYZ'],
+  bodiesCurves: ['combine', 'deleteBody', 'indent', 'flex', 'deform', 'freeform', 'intersect', 'saveBodies', '|', 'advancedHole', 'mateReference', 'connectionPoint', 'moveFace', '|', 'exitInContext', 'updateExternalRefs', 'externalRefs', '|', 'mountingBoss', 'snapHook', 'snapHookGroove', 'vent', 'lipGroove', '|', 'variableFillet', 'faceFillet', 'fullRoundFillet', '|', 'curvePattern', 'sketchPattern', 'tablePattern', 'fillPattern', 'variablePattern', '|', 'projectedCurve', 'splitLine', 'compositeCurve', 'curveXYZ'],
   sketch: ['sketch', 'sketch3d', 'sk:dimension', '|', 'sk:line', 'sk:centerline', 'sk:rect', 'sk:centerRect', 'sk:rect3', 'sk:rect3c', 'sk:parallelogram', 'sk:circle', 'sk:circle3', 'sk:arc3', 'sk:centerArc', 'sk:tangentArc', 'sk:polygon', 'sk:slot', 'sk:slotCenter', 'sk:slotArc3', 'sk:slotArcCenter', 'sk:spline', 'sk:styleSpline', 'sk:equation', 'sk:ellipse', 'sk:partialEllipse', 'sk:parabola', 'sk:conic', 'sk:point', 'sk:text', '|', 'sk:fillet', 'sk:chamfer', 'sk:offset', 'sk:mirror', 'sk:dynamicMirror', 'sk:linPattern', 'sk:cirPattern', 'sk:trim', 'sk:extend', 'sk:split', '|', 'sk:convert', 'sk:intersect', 'sk:silhouette', 'sk:silhouetteInternal', 'sk:move', 'sk:copy', 'sk:rotate', 'sk:scale', 'sk:stretch', '|', 'sk:fullyDefine', 'sk:baselineDim', 'sk:repair', 'sk:autotrace', 'construction', 'normalTo', 'sk:select'],
-  surfaces: ['surfaceExtrude', 'surfaceRevolve', 'surfacePlanar', 'surfaceLoft', 'boundary', 'fillSurface', 'surfaceOffset', 'ruledSurface', '|', 'trimSurface', 'extendSurface', 'knit', '|', 'surfaceSweep', 'radiateSurface', 'midSurface', 'untrimSurface', 'deleteHole', 'cutWithSurface', 'flattenSurface', '|', 'deleteFace', 'replaceFace', '|', 'thicken', 'sketch3d'],
+  surfaces: ['surfaceExtrude', 'surfaceRevolve', 'surfacePlanar', 'surfaceLoft', 'boundary', 'fillSurface', 'surfaceOffset', 'ruledSurface', '|', 'trimSurface', 'extendSurface', 'knit', 'surfaceFillet', '|', 'surfaceSweep', 'radiateSurface', 'midSurface', 'untrimSurface', 'deleteHole', 'cutWithSurface', 'flattenSurface', '|', 'deleteFace', 'replaceFace', '|', 'thicken', 'sketch3d', '|', 'scanToSolid', 'recognizeFeatures'],
   sheetMetal: ['baseFlange', 'convertSheet', 'insertBends', 'edgeFlange', 'miterFlange', 'hem', 'tab', 'loftedBend', 'sketchedBend', 'jog', '|', 'closedCorner', 'weldedCorner', 'cornerRelief', 'rip', 'formTool', 'crossBreak', 'tabSlot', '|', 'unfold', 'fold', 'flatten', 'exportFlatDxf', '|', 'hole', 'cutExtrude'],
-  weldments: ['sketch', 'sketch3d', 'structural', 'trimExtend', '|', 'endCap', 'gusset', 'weldBead', '|', 'cutList'],
-  mold: ['draftAnalysis', 'draft', 'partingLine', 'toolingSplit', 'shrink', 'split', 'cavity'],
+  weldments: ['sketch', 'sketch3d', 'structural', 'trimExtend', '|', 'endCap', 'gusset', 'weldBead', '|', 'cutList', 'frameStudy'],
+  mold: ['draftAnalysis', 'draft', 'partingLine', 'toolingSplit', 'sideCore', 'shrink', 'split', 'cavity'],
   evaluate: ['massProps', 'measure', 'sectionProperties', 'section', 'lights', 'interference', '|', 'simulation', 'draftAnalysis', '|', 'equations', 'configurations', 'designTable', 'importTable', 'designStudy'],
   assembly: ['insertComponent', 'newPartInContext', 'editInContext', 'newLayout', 'makePartFromBlock', 'updateLayout', 'mate', 'magneticSnap', 'fixComponent', 'floatComponent', 'flexibleComponent', 'rotateComponent', 'rotateComponentX', 'rotateComponentY', 'openPart', '|', 'explode', 'explodeEditor', 'explodeAnimate', 'resetExplode', 'motion', '|', 'illustration', 'ilAddView', 'ilPlay', 'ilExportHtml', '|', 'interference', 'massProps', 'assemblyVisualization', 'assemblyVisualizationOff', 'asmWeldBead', 'largeAssemblyMode', 'simplifyOuter', 'simplifyBox', 'simplifyFull'],
   drawing: ['newDrawing', 'std3View', 'addView', 'sectionView', 'removedSection', 'relativeView', 'view3dDrawing', 'alignedSection', 'detailView', 'auxView', 'flatPatternView', 'alternatePositionView', '|', 'ann:note', 'ann:balloon', 'ann:gdt', 'ann:datum', 'ann:datumTarget', 'ann:surface', 'ann:centermark', 'ann:cloud', 'ann:hatch', 'bom', 'weldTable', 'cutListTable', 'bendTable', '|', 'hiddenLines', 'autoDims', '|', 'exportDxf', 'exportDwg', 'exportSvg', 'print'],
@@ -4599,11 +4804,24 @@ MENUS.tools?.push({ sub: 'illustration' }, 'schematic', 'schFromTo', '-', 'desig
 COMMAND_TABS.evaluate?.push('|', 'designCheck');
 SUBMENUS.stdRouting = std.SUBMENU;
 MENUS.insert.push('-', sub('stdRouting'));
-MENUS.view.splice(MENUS.view.indexOf('lights') + 1, 0, 'renderView');
-MENUS.tools.splice(MENUS.tools.indexOf('motion') + 1, 0, '-', 'stdLibrary', 'smartFastener', 'renderView');
+MENUS.view.splice(MENUS.view.indexOf('lights') + 1, 0, 'renderView', 'walkthrough', 'recordVideo');
+MENUS.tools.splice(MENUS.tools.indexOf('motion') + 1, 0, '-', 'stdLibrary', 'smartFastener', 'renderView', 'walkthrough', 'recordVideo');
+COMMAND_TABS.evaluate?.splice(COMMAND_TABS.evaluate.indexOf('lights') + 1, 0, 'walkthrough', 'recordVideo');
+MENUS.tools.push('-', 'customize');
 MENUS.tools.splice(MENUS.tools.indexOf('interference') + 1, 0, 'holeAlignment', 'replaceComponent', 'copyWithMates', 'envelopeComponent', 'envelopeSelectInside', 'envelopeSelectCrossing');
 
+/** The CommandManager's tabs with the user's choices: hidden ones left out, My tools first when it has commands. */
 function visibleCommandTabs() {
+  const base = baseCommandTabs();
+  const hidden = new Set(state.settings.hiddenTabs ?? []);
+  let tabs = base.filter((id) => !hidden.has(id));
+  if (!tabs.length && base.length) tabs = [base[0]];
+  const mine = customTools.api.userTab();
+  COMMAND_TABS.user = mine;
+  return base.length && mine.length ? ['user', ...tabs] : tabs;
+}
+
+function baseCommandTabs() {
   const kind = activeKind();
   if (kind === 'part') return ['features', 'sketch', 'surfaces', 'sheetMetal', 'weldments', 'mold', 'bodiesCurves', 'stdTools', 'evaluate', 'drawing', 'cam', 'plastics'];
   if (kind === 'assembly') return ['assembly', 'stdTools', 'evaluate', 'drawing'];
@@ -4699,7 +4917,7 @@ function renderToolbar() {
     return plain(id);
   };
   toolbar.innerHTML = `<div class="toolbar-inner">
-    <div class="toolbar-left">${TOOLBAR.map((group, i) => `${i ? `<span class="tool-sep" data-group-sep="${i}" aria-hidden="true"></span>` : ''}<div class="tool-group" data-group="${i}">${group.map(button).join('')}</div>`).join('')}<button class="tool-button toolbar-more" data-toolbar-more hidden title="${escapeHtml(t('toolbar.more'))}" aria-label="${escapeHtml(t('toolbar.more'))}" aria-haspopup="true">${icon('toolbarMore')}</button></div>
+    <div class="toolbar-left">${toolbarGroups().map((group, i) => `${i ? `<span class="tool-sep" data-group-sep="${i}" aria-hidden="true"></span>` : ''}<div class="tool-group" data-group="${i}">${group.map(button).join('')}</div>`).join('')}<button class="tool-button toolbar-more" data-toolbar-more hidden title="${escapeHtml(t('toolbar.more'))}" aria-label="${escapeHtml(t('toolbar.more'))}" aria-haspopup="true">${icon('toolbarMore')}</button></div>
     <span class="grow"></span>
     <div class="toolbar-right tool-group">${TOOLBAR_RIGHT.map(button).join('')}</div>
   </div>`;
@@ -4725,7 +4943,7 @@ function fitToolbar() {
   let cut = groups.length;
   for (const [i, g] of groups.entries()) if (g.getBoundingClientRect().right - start > limit) { cut = Math.max(1, i); break; }
   for (const el of left.querySelectorAll('[data-group], [data-group-sep]')) el.hidden = Number(el.dataset.group ?? el.dataset.groupSep) >= cut;
-  state.toolbarHidden = TOOLBAR.slice(cut);
+  state.toolbarHidden = toolbarGroups().slice(cut);
 }
 
 function showToolbarMore(button) {
@@ -5463,7 +5681,8 @@ const isXtName = (name) => /\.(x_t|x_b|xmt_txt|xmt_bin)$/i.test(name);
 const isCad2dName = (name) => /\.(dwg|dxf)$/i.test(name);
 const isMeshName = (name) => MESH_IMPORT_EXTENSIONS.includes(String(name).toLowerCase().split('.').pop());
 const isScadName = (name) => /\.scad$/i.test(name);
-const isModelName = (name) => isStepName(name) || isIgesName(name) || isXtName(name) || isCad2dName(name) || isStlName(name) || isMeshName(name) || isScadName(name);
+const isIdfName = (name) => /\.(emn|brd|idf)$/i.test(name);
+const isModelName = (name) => isIdfName(name) || isStepName(name) || isIgesName(name) || isXtName(name) || isCad2dName(name) || isStlName(name) || isMeshName(name) || isScadName(name);
 
 /** Mesh exports: format id → extension, MIME type and writer (cad/mesh-formats.js). */
 const MESH_EXPORTS = {
@@ -5760,6 +5979,90 @@ async function importStepDialog() {
   } catch (error) { showError('error.import', error); }
 }
 
+// ───────────────────────── IDF (ECAD ↔ MCAD: board outline, holes, component placement)
+
+/**
+ * An IDF board file (and its library, given or found next to it with the same name) as a new assembly: the board
+ * and every placed package (cad/idf.js). Packages the library lacks are listed in the notice.
+ */
+async function importIdfBoard(name, bytes, { path = null, library = null } = {}) {
+  try {
+    const text = typeof bytes === 'string' ? bytes : new TextDecoder().decode(bytes);
+    let libText = library;
+    if (libText == null && path && desktop) {
+      const base = path.replace(/\.[^./\\]+$/, '');
+      const candidates = ['.emp', '.EMP', '.lib', '.LIB'].map((x) => base + x);
+      const found = await native.pathsExist(candidates).catch(() => candidates.map(() => false));
+      const at = candidates[found.findIndex(Boolean)];
+      if (at) libText = new TextDecoder().decode(await readBytes(at, ''));
+    }
+    await ensureKernel();
+    const board = readIdfBoard(text);
+    const model = idfModel(board, libText ? readIdfLibrary(libText) : new Map());
+    const p = idfProject(model, stripExtension(name));
+    p.assemblies[0].idf = { source: name, version: board.version, keepouts: model.keepouts, notes: board.notes, missing: model.missing, holes: board.holes.length };
+    if (!(await confirmReplace())) return null;
+    await busy('progress.import', name, () => setDoc(new Doc(p, { name: `${stripExtension(name)}.mymech` })));
+    doc().revision = 1;
+    fitView();
+    notify('success', t('idf.imported', { name, count: model.placements.length, holes: board.holes.length }), model.missing.length ? t('idf.missing', { count: model.missing.length, list: model.missing.slice(0, 12).join(', ') }) : (libText ? '' : t('idf.noLibrary')));
+    return p;
+  } catch (error) { showError('error.import', error, name); return null; }
+}
+
+/** File › Import IDF: the board file and (picked with it) the library file. */
+async function importIdfDialog() {
+  try {
+    const files = await native.pickWithInput('.emn,.brd,.idf,.emp,.lib', true);
+    if (!files?.length) return null;
+    const texts = await Promise.all(files.map(async (f) => ({ name: f.name, text: await f.text() })));
+    const board = texts.find((f) => /BOARD_FILE|PANEL_FILE/i.test(f.text.slice(0, 400))) ?? texts.find((f) => isIdfName(f.name));
+    if (!board) { notify('info', t('idf.pickBoard')); return null; }
+    const lib = texts.find((f) => f !== board && /LIBRARY_FILE/i.test(f.text.slice(0, 400)));
+    return importIdfBoard(board.name, board.text, { library: lib?.text ?? null });
+  } catch (error) { showError('error.import', error); return null; }
+}
+
+/**
+ * File › Export IDF: the board (the active part, or in an assembly its FR-4 part, else the first) — outline,
+ * cutouts, round holes, thickness — and in an assembly every other component placed on it with its package
+ * outline and height (relative to the board's own placement), as .emn and .emp files.
+ */
+async function exportIdf() {
+  await ensureKernel();
+  const asm = activeAssembly(); const part = activePart();
+  if (!asm && !part) { notify('info', t('idf.needModel')); return false; }
+  try {
+    const partById = (id) => project().parts.find((x) => x.id === id);
+    const comps = asm ? asm.components.filter((c) => c.part && !c.suppressed && partById(c.part)) : [];
+    const boardComp = asm ? comps.find((c) => partById(c.part).material === 'fr4') ?? comps[0] : null;
+    const boardPart = asm ? partById(boardComp?.part) : part;
+    if (!boardPart) { notify('info', t('idf.needModel')); return false; }
+    const body = buildPart(boardPart)?.body;
+    if (!body) { notify('info', t('idf.needModel')); return false; }
+    const board = boardFromBody(body);
+    const inv = boardComp ? componentMatrix(boardComp).invert() : new THREE.Matrix4();
+    const packages = new Map(); const placements = [];
+    for (const c of comps) {
+      if (c === boardComp) continue;
+      const pp = partById(c.part); const pb = buildPart(pp)?.body;
+      if (!pb) continue;
+      if (!packages.has(pp.id)) packages.set(pp.id, { pkg: pp.name, partNo: pp.partNo || pp.name, ...packageFromBody(pb) });
+      const pos = new THREE.Vector3(); const quat = new THREE.Quaternion();
+      inv.clone().multiply(componentMatrix(c)).decompose(pos, quat, new THREE.Vector3());
+      // The package's own base (its lowest Z) sits at the mounting offset.
+      const base = packages.get(pp.id).base;
+      const lift = new THREE.Vector3(0, 0, base).applyQuaternion(quat);
+      const at = pos.clone().add(lift).toArray();
+      placements.push({ pkg: pp.name, partNo: pp.partNo || pp.name, refdes: c.refdes ?? c.name.replace(/[<>]/g, ''), x: at[0], y: at[1], ...placementOf(at, quat.toArray(), board) });
+    }
+    const name = safeName();
+    const ok = await saveExport(`${name}.emn`, 'emn', writeIdfBoard({ name, board, placements }), 'text/plain');
+    if (ok && packages.size) await saveExport(`${name}.emp`, 'emp', writeIdfLibrary([...packages.values()]), 'text/plain');
+    return ok;
+  } catch (error) { showError('error.export', error, 'IDF'); return false; }
+}
+
 /** The body of a neutral model file (STEP, IGES, STL and the mesh formats). `warn(key, args)` for what was off. */
 async function shapeFromModel(name, bytes, warn = (key, args) => notify('warning', t(key, args))) {
   await ensureKernel();
@@ -6022,6 +6325,7 @@ async function scadExportResult(format) {
 
 /** A STEP (or STL) file becomes a part with an imported body (new project, or a part of the open one). */
 async function importModelFile(name, bytes, { path = null } = {}) {
+  if (isIdfName(name)) return importIdfBoard(name, bytes, { path });
   if (isCad2dName(name)) return importDrawing2d(name, bytes);
   if (isScadName(name)) return importScad(name, bytes, { path });
   await ensureKernel();
@@ -6370,6 +6674,13 @@ function pmFieldChangedImpl(key, raw, unit) {
     });
     return;
   }
+  if (e.mode === 'feature' && /^ffp:\d+:\d+$/.test(key)) {
+    // A freeform control point's offset along the face normal.
+    if (v == null) { notify('error', t('notice.invalidValue', { text: raw })); renderLeft(); return; }
+    const [, i, j] = key.split(':').map(Number);
+    updateFeature((f) => { f.points = [...(f.points ?? []).filter((p) => !(p.i === i && p.j === j)), ...(v ? [{ i, j, d: v }] : [])]; });
+    return;
+  }
   if (e.mode === 'feature' && /^sb:\d+:\d$/.test(key)) {
     // A fillet setback distance (corner i, edge k).
     if (!(v > 0)) { notify('error', t('notice.invalidValue', { text: raw })); renderLeft(); return; }
@@ -6479,7 +6790,7 @@ function pmSetImpl(key, value) {
     else if (key === 'mateGroup') e.mateGroup = value;
     previewMate(); return;
   }
-  if (e?.mode === 'lights' && key.startsWith('light:')) { const [, id] = key.split(':'); change('op.light', (p) => { const l = sceneLights(p).lights.find((x) => x.id === id); if (l) l.kind = value; }); return undefined; }
+  if (e?.mode === 'lights' && key.startsWith('light:')) { const [, id] = key.split(':'); change('op.light', (p) => { const l = sceneLights(p).lights.find((x) => x.id === id); if (l) { l.kind = value; if (value === 'sun') placeSun(l); else delete l.sun; } }); return undefined; }
   if (['simulation', 'motion', 'equations', 'configs'].includes(e?.mode)) return customSet(key, value);
   if (e?.mode !== 'feature') return;
   updateFeature((f) => {
@@ -6715,6 +7026,16 @@ function pmSelectImpl(key, value) {
     updateFeature((f) => { f.stopFace = face ? face.sig : null; f.removeFaces = (f.removeFaces ?? []).filter((x) => !face || x.center.join() !== face.sig.center.join()); });
     return;
   }
+  if (key.startsWith('dfFrom:') || key.startsWith('dfTo:')) {
+    // Deform curve pairs: the i-th initial / target curve ('' removes the pair).
+    const [k, i] = key.split(':'); const list = k === 'dfFrom' ? 'curvesFrom' : 'curvesTo';
+    updateFeature((f) => {
+      const a = [...(f[list] ?? [])]; a[Number(i)] = value || null;
+      f[list] = a;
+      if (!value && k === 'dfFrom') { f.curvesFrom = (f.curvesFrom ?? []).filter((_, j) => j !== Number(i)); f.curvesTo = (f.curvesTo ?? []).filter((_, j) => j !== Number(i)); }
+    });
+    return;
+  }
   if (key.startsWith('lc:')) {
     // A loft connector: the profile's start vertex ('' = automatic).
     const id = key.slice(3);
@@ -6860,7 +7181,8 @@ async function pmCommandImpl(cmd) {
   if (name === 'delVar' && e?.mode === 'feature') { updateFeature((f) => { f.variable = (f.variable ?? []).filter((_, k) => k !== Number(arg)); if (!f.variable.length) delete f.variable; }); return undefined; }
   if (name.startsWith('delHel') && e?.mode === 'feature') { const [side, i] = String(arg).split('.'); updateFeature((f) => { f[side] = (f[side] ?? []).filter((_, k) => k !== Number(i)); }); return undefined; }
   if (name === 'delPt3' && e?.mode === 'feature') { updateFeature((f) => { f.points = f.points.filter((_, k) => k !== Number(arg)); pruneRelations3d(f); solveRelations3d(f); }); return undefined; }
-  return customCommand(name, arg);
+  // Customize's commands carry a command id that may hold ':' (view:top): the whole rest is the argument.
+  return customCommand(name, /^(ck|ct|cg|tp)\./.test(name) ? cmd.slice(name.length + 1) : arg);
 }
 
 // ───────────────────────── events
@@ -7315,10 +7637,23 @@ function arrowView(event, key) {
   return true;
 }
 
+/** The built-in shortcuts as key combinations ('Ctrl+Shift+S' → saveAs …), for Customize. */
+function defaultShortcuts() {
+  const name = (k) => ({ '!': '1', '@': '2' }[k] ?? k.toUpperCase());
+  return [
+    ...SHORTCUTS.map(([k, shift, cmd]) => [`Ctrl+${shift ? 'Shift+' : ''}${name(k)}`, cmd]),
+    ...Object.entries(VIEW_KEYS).map(([k, cmd]) => [`Ctrl+${k}`, cmd]),
+    ['F1', 'userGuide'], ['F2', 'rename'], ['F', 'zoomFit'], ['K', 'styleCycle'], ['Delete', 'delete'], ['Space', 'viewsMenu'],
+  ];
+}
+
 function onKeyDown(event) {
   const key = event.key.toLowerCase();
   const editing = event.target.closest?.('input, textarea, select, [contenteditable="true"]');
   const mod = event.ctrlKey || event.metaKey;
+  // The user's own shortcuts (Customize › Keyboard) come first; a default turned off does nothing.
+  const custom = customTools.api.keyCommand(event, Boolean(editing));
+  if (custom) { event.preventDefault(); event.stopPropagation(); if (custom.cmd) run(custom.cmd, custom.cmd === 'viewsMenu' ? { anchor: anchorFor('viewsMenu') } : undefined); return; }
   if (mod && !event.altKey) {
     if (editing && ['x', 'c', 'v', 'z', 'y', 'a'].includes(key)) return;
     if (!editing && hasDoc() && arrowView(event, key)) return;
@@ -7463,6 +7798,10 @@ window.__mymechanics = {
 };
 window.__mymechanics.sim2 = more.sim2;
 window.__mymechanics.decals = decalTools;
+window.__mymechanics.walk = walkTools.api;
+window.__mymechanics.frame = frameTools.api;
+window.__mymechanics.custom = customTools.api;
+window.__mymechanics.idf = { importIdfBoard, exportIdf };
 window.__mymechanics.mfg = mfgTools.api;
 window.__mymechanics.illustration = illTools.api;
 window.__mymechanics.schematic = schTools.api;

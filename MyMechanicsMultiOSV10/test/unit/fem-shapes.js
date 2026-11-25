@@ -190,3 +190,29 @@ export function tubeMesh(Ro, Ri, L, seg = 48, layers = 8) {
   end(0, 2, false); end(L, 3, true);
   return b.done();
 }
+
+/** A ring sector Ri…Ro, 0…L in z, θ from 0 to `angle`: faces 0 outer, 1 inner, 2 z = 0, 3 z = L, 4 θ = 0, 5 θ = angle. */
+export function sectorMesh(Ro, Ri, L, angle, seg = 12, layers = 4, rad = 3) {
+  const vertices = [], triangles = [], faceGroups = [];
+  const v = (r, th, z) => { vertices.push(r * Math.cos(th), r * Math.sin(th), z); return vertices.length / 3 - 1; };
+  const grid = (fn, nu, nv) => { const ids = []; for (let j = 0; j <= nv; j++) for (let i = 0; i <= nu; i++) ids.push(fn(i / nu, j / nv)); return ids; };
+  const face = (id, ids, nu, nv, flip) => {
+    const start = triangles.length;
+    for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) {
+      const p = j * (nu + 1) + i, a = ids[p], b = ids[p + 1], c = ids[p + nu + 2], d = ids[p + nu + 1];
+      if (flip) triangles.push(a, c, b, a, d, c); else triangles.push(a, b, c, a, c, d);
+    }
+    faceGroups.push({ start, count: triangles.length - start, faceId: id });
+  };
+  face(0, grid((s, t) => v(Ro, s * angle, t * L), seg, layers), seg, layers, false);
+  face(1, grid((s, t) => v(Ri, s * angle, t * L), seg, layers), seg, layers, true);
+  face(2, grid((s, t) => v(Ri + t * (Ro - Ri), s * angle, 0), seg, rad), seg, rad, false);
+  face(3, grid((s, t) => v(Ri + t * (Ro - Ri), s * angle, L), seg, rad), seg, rad, true);
+  face(4, grid((s, t) => v(Ri + s * (Ro - Ri), 0, t * L), rad, layers), rad, layers, false);
+  face(5, grid((s, t) => v(Ri + s * (Ro - Ri), angle, t * L), rad, layers), rad, layers, true);
+  // Weld equal points (the shared edges).
+  const key = new Map(), map = []; const out = [];
+  for (let i = 0; i < vertices.length / 3; i++) { const k = [0, 1, 2].map((c) => Math.round(vertices[3 * i + c] * 1e6)).join(','); if (!key.has(k)) { key.set(k, out.length / 3); out.push(vertices[3 * i], vertices[3 * i + 1], vertices[3 * i + 2]); } map.push(key.get(k)); }
+  return { vertices: Float32Array.from(out), triangles: Uint32Array.from(triangles.map((i) => map[i])), faceGroups };
+}
+

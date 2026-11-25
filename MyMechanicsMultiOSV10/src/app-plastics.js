@@ -5,6 +5,8 @@
 import * as THREE from 'three';
 import { RESINS, RESIN_IDS, resinOf, partDomain, suggestGate, resultColours, plasticsReportHtml, rampColour } from './cad/plastics.js';
 import { runMouldingStudy, vertexColours } from './cad/plastics-post.js';
+import { multiCavityStudy, balanceRunners, layoutCavities } from './cad/plastics-runner.js';
+import { gasAssistStudy } from './cad/plastics-gas.js';
 import { COOLANTS, MOULD_STEELS } from './cad/plastics-cooling.js';
 import { escapeHtml } from './ui/dom.js';
 import { icon } from './icons.js';
@@ -30,7 +32,7 @@ export function createPlasticsTools(ctx) {
   const sel = (key, options, current, label, glyph = null) => `<label class="pm-field" title="${escapeHtml(label)}">${glyph ? icon(glyph) : ''}<span class="pm-label">${escapeHtml(label)}</span><select data-pm-select="${escapeHtml(key)}" aria-label="${escapeHtml(label)}">${options.map(([v, text]) => `<option value="${escapeHtml(v)}" ${String(v) === String(current ?? '') ? 'selected' : ''}>${escapeHtml(text)}</option>`).join('')}</select></label>`;
   let saveHook = null;
   let inline = false; // tests: run on this thread
-  const runtime = { key: null, domain: null, result: null, resultKey: null };
+  const runtime = { key: null, domain: null, result: null, resultKey: null, runner: null, gas: null };
 
   function studyOf(p, { create = false } = {}) {
     if (!p) return null;
@@ -84,7 +86,7 @@ export function createPlasticsTools(ctx) {
       mesh: { vertices: Float32Array.from(k.entry.mesh.vertices), triangles: Uint32Array.from(k.entry.mesh.triangles) },
       gates: s.gates ?? [],
       domain: { cells: Math.max(10, Math.min(160, Math.round(s.cells ?? 50))), mode: s.mode ?? 'auto', budget: s.budget ?? 60000 },
-      process: { resin: s.resin, melt: s.melt || null, mould: s.mould || null, fillTime: s.fillTime || 0, maxPressure: s.maxPressure || 180, packPressure: s.packPressure || null, packTime: s.packTime || null },
+      process: { resin: s.resin, melt: s.melt || null, mould: s.mould || null, fillTime: s.fillTime || 0, maxPressure: s.maxPressure || 180, packPressure: s.packPressure || null, packTime: s.packTime || null, inserts: (s.inserts ?? []).map((x) => ({ points: x.points, temperature: x.temperature })) },
       fiber: s.fiber > 0 ? { fraction: s.fiber, aspect: s.aspect || 20 } : null,
       cooling: s.cooling?.on ? { auto: { diameter: s.cooling.diameter || 8, flow: s.cooling.flow || 6, inlet: s.cooling.inlet ?? 25, coolant: s.cooling.coolant || 'water', pitch: s.cooling.pitch || null, depth: s.cooling.depth || null }, cycleTime: s.cooling.cycle || 0, steel: s.cooling.steel || 'p20' } : null,
       warp: s.warp?.on ? { on: true, size: s.warp.size || 0 } : null,
@@ -114,6 +116,114 @@ export function createPlasticsTools(ctx) {
     if (owns(editing())) editing().quantity ??= 'fillTime';
     ctx.syncView(); ctx.renderLeft();
     return result;
+  }
+
+  // ───────────────────────── runners, multi-cavity and family moulds
+
+  const runnerOf = (s) => ({ cavities: 1, family: [], diameter: 6, gateDiameter: 0, gap: 10, ...(s?.runner ?? {}) });
+  /** Other parts of the project that have a body (family mould candidates). */
+  function familyCandidates() {
+    const p = part();
+    return (ctx.state.doc?.project?.parts ?? []).filter((q) => q !== p && q.features?.length);
+  }
+  /** The cavities: this part × the count, then each family part picked; meshes from their builds, gates from their studies. */
+  function cavitiesOf(s) {
+    const R = runnerOf(s), p = part(), entry = ctx.buildPart(p);
+    if (!entry?.mesh) return [];
+    const own = { mesh: { vertices: Float32Array.from(entry.mesh.vertices), triangles: Uint32Array.from(entry.mesh.triangles) }, gate: s.gates?.[0] ?? null };
+    const out = Array.from({ length: Math.max(1, Math.min(8, Math.round(R.cavities))) }, (_, i) => ({ ...own, name: `${p.name} ${i + 1}`, partId: p.id }));
+    for (const id of R.family) {
+      const q = familyCandidates().find((x) => x.id === id);
+      const qe = q ? ctx.buildPart(q) : null;
+      if (!qe?.mesh) continue;
+      out.push({ mesh: { vertices: Float32Array.from(qe.mesh.vertices), triangles: Uint32Array.from(qe.mesh.triangles) }, gate: q.plastics?.gates?.[0] ?? null, name: q.name, partId: q.id });
+    }
+    return out;
+  }
+  /** Runs the mould (balanced: the branches resized until the cavities fill together). */
+  async function runRunner({ balance = false } = {}) {
+    const p = part(); const s = studyOf(p, { create: true }); const R = runnerOf(s);
+    const cavities = cavitiesOf(s);
+    if (!cavities.length) { notify('info', t('notice.noBody')); return null; }
+    const input = {
+      cavities, gap: R.gap,
+      runner: { diameter: R.diameter, gateDiameter: R.gateDiameter > 0 ? R.gateDiameter : undefined, branches: !balance && R.branches?.length === cavities.length ? R.branches : undefined },
+      process: { resin: s.resin, melt: s.melt || null, mould: s.mould || null, fillTime: s.fillTime || 0, maxPressure: s.maxPressure || 180 },
+      domain: { cells: Math.max(10, Math.min(30, Math.round(s.cells ?? 50))), mode: s.mode ?? 'auto', budget: 20000 },
+    };
+    const out = await ctx.withProgress('progress.plastics', p.name, () => new Promise((resolve) => {
+      setTimeout(() => { try { resolve(balance ? balanceRunners(input, { target: 0.03, maxIterations: 10 }) : multiCavityStudy(input)); } catch (error) { notify('error', t('pl.failed', { reason: error.message })); resolve(null); } }, 20);
+    }), { delay: 150 });
+    if (!out?.ok) return null;
+    if (balance) edit((st) => { st.runner = { ...runnerOf(st), branches: out.branches.map((v) => Math.round(v * 100) / 100) }; });
+    // Keep what the panel and the view need (not the whole graph).
+    const md = out.mould;
+    runtime.runner = {
+      key: runtime.key, cavities: out.cavities.map((c, i) => ({ ...c, offset: out.offsets[i] })), imbalance: out.imbalance, runnerVolume: out.runnerVolume, runnerShare: out.runnerShare, spruePressure: out.spruePressure,
+      shortShot: out.shortShot, balanced: balance, history: out.history ?? null, diameter: R.diameter,
+      boxes: cavities.map((c, i) => { const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity]; for (let v = 0; v < c.mesh.vertices.length; v += 3) for (let k = 0; k < 3; k++) { const x = c.mesh.vertices[v + k] + out.offsets[i][k]; lo[k] = Math.min(lo[k], x); hi[k] = Math.max(hi[k], x); } return [lo, hi]; }),
+      runnerPoints: (() => { const pts = []; for (let n = md.runner.start; n < md.runner.end; n++) pts.push(...md.domain.nodes[n].c); return pts; })(),
+      gates: out.cavities.map((c) => md.domain.nodes[c.gateNode].c),
+    };
+    notify(out.shortShot ? 'warning' : 'success', t(out.shortShot ? 'pl.runnerShort' : 'pl.runnerDone', { imb: fmt(out.imbalance * 100, 1), p: fmt(out.spruePressure ?? 0, 1) }));
+    ctx.syncView(); ctx.renderLeft();
+    return runtime.runner;
+  }
+  function runnerGroup(s) {
+    const { pmNum, pmButton } = ctx.pm;
+    const R = runnerOf(s);
+    const check = (key, on, label, glyph) => `<label class="pm-check" title="${escapeHtml(label)}"><input type="checkbox" data-pm-toggle="${key}" ${on ? 'checked' : ''}/>${icon(glyph)}<span>${escapeHtml(label)}</span></label>`;
+    const fam = familyCandidates();
+    const famBody = fam.length ? `<p class="pm-label">${escapeHtml(t('pl.family'))}</p>${fam.map((q) => check(`plFamily.${q.id}`, R.family.includes(q.id), q.name, 'part')).join('')}` : `<p class="pm-note">${escapeHtml(t('pl.familyNone'))}</p>`;
+    const rr = runtime.runner && runtime.runner.key === runtime.key ? runtime.runner : null;
+    let res = '';
+    if (rr) {
+      res = `<table class="sim2-table pl-cavity-table"><tr><th>${escapeHtml(t('pl.cavity'))}</th><th>${escapeHtml(t('pl.r.fillTime'))}</th><th>${escapeHtml(t('pl.filledShare'))}</th><th>${escapeHtml(t('pl.branchD'))}</th></tr>${rr.cavities.map((c) => `<tr class="${c.complete ? '' : 'warn'}"><td>${escapeHtml(c.name)}</td><td>${escapeHtml(`${fmt(c.fillTime, 3)} s`)}</td><td>${escapeHtml(`${fmt(c.filled * 100, 1)} %`)}</td><td>${escapeHtml(`${fmt(c.branchDiameter, 2)} mm`)}</td></tr>`).join('')}</table>
+      <ul class="mfg-results"><li class="${rr.imbalance > 0.05 ? 'warn' : ''}">${icon('plFillTime', 'icon tiny')}<span>${escapeHtml(`${t('pl.imbalance')}: ${fmt(rr.imbalance * 100, 1)} %`)}</span></li><li>${icon('plPressure', 'icon tiny')}<span>${escapeHtml(`${t('pl.spruePressure')}: ${fmt(rr.spruePressure ?? 0, 1)} MPa`)}</span></li><li>${icon('material', 'icon tiny')}<span>${escapeHtml(`${t('pl.runnerVolume')}: ${fmt(rr.runnerVolume / 1000, 2)} cm³ (${fmt(rr.runnerShare * 100, 1)} %)`)}</span></li>${rr.history ? `<li>${icon('plRunner', 'icon tiny')}<span>${escapeHtml(t('pl.balanceSteps', { steps: rr.history.map((v) => `${fmt(v * 100, 1)}%`).join(' → ') }))}</span></li>` : ''}</ul>`;
+    }
+    return `${pmNum('plCavities', R.cavities, t('pl.cavities'), 'plRunner', '')}${famBody}${pmNum('plRunnerD', R.diameter, t('pl.runnerD'), 'plRunner', 'mm')}${pmNum('plGateD', R.gateDiameter, t('pl.gateD'), 'plGate', 'mm')}${pmNum('plRunnerGap', R.gap, t('pl.runnerGap'), 'plVoxel', 'mm')}${R.branches?.length ? `<p class="pm-note">${escapeHtml(t('pl.branchesSet', { list: R.branches.map((v) => fmt(v, 2)).join(' / ') }))}</p>` : ''}<p class="pm-note">${escapeHtml(t('pl.runnerNote'))}</p><div class="pm-row">${pmButton('pl.runRunner', 'plRun', t('pl.runRunner'))}${pmButton('pl.balance', 'plRunner', t('pl.balance'))}</div>${res}`;
+  }
+
+  // ───────────────────────── gas-assisted injection and insert moulding
+
+  const gasOf = (s) => ({ shot: 85, minThick: 1.3, skin: 0.2, pin: null, ...(s?.gas ?? {}) });
+  /** Points of a part face (its mesh vertices, thinned to 200) for an insert. */
+  function facePoints(faceIndex) {
+    const entry = ctx.buildPart(part()); const face = entry?.faces?.[faceIndex];
+    if (!face || !entry.mesh?.faceGroups) return null;
+    const g = entry.mesh.faceGroups.find((x) => x.faceId === face.hashCode);
+    if (!g) return null;
+    const ids = [...new Set(Array.from(entry.mesh.triangles.slice(g.start, g.start + g.count)))];
+    const step = Math.max(1, Math.ceil(ids.length / 200));
+    return ids.filter((_, i) => i % step === 0).map((v) => [0, 1, 2].map((k) => Math.round(entry.mesh.vertices[3 * v + k] * 1000) / 1000));
+  }
+  function runGas() {
+    const s = studyOf(part(), { create: true }); const G = gasOf(s);
+    const d = domain();
+    if (!d?.nodes.length) { notify('info', t('notice.noBody')); return null; }
+    const gates = (s.gates?.length ? s.gates : [d.nodes[suggestGate(d)].c]).map((g) => nearestNodeOf(d, g));
+    const pin = G.pin ? nearestNodeOf(d, G.pin) : gates[0];
+    let r;
+    try { r = gasAssistStudy(d, { gates, process: { resin: s.resin, melt: s.melt || null, mould: s.mould || null, fillTime: s.fillTime || 0, maxPressure: s.maxPressure || 180 }, gas: { node: pin, shot: G.shot / 100, minThick: G.minThick, skin: G.skin } }); }
+    catch (error) { notify('error', t('pl.failed', { reason: error.message })); return null; }
+    runtime.gas = { key: runtime.key, summary: r.summary, points: d.nodes.flatMap((nd, i) => (r.gas[i] ? nd.c : [])), pin: d.nodes[pin].c };
+    const sm = r.summary;
+    notify(sm.complete ? 'success' : 'warning', t(sm.blowThrough ? 'pl.gasBlow' : sm.shortShot ? 'pl.gasShort' : 'pl.gasDone', { gas: fmt(sm.gasVolume * 100, 1), reach: fmt(sm.penetration, 1) }));
+    ctx.syncView(); ctx.renderLeft();
+    return runtime.gas;
+  }
+  const nearestNodeOf = (d, p) => { let b = 0, bd = Infinity; d.nodes.forEach((n, i) => { const q = Math.hypot(n.c[0] - p[0], n.c[1] - p[1], d.kind === 'midplane' ? 0 : n.c[2] - p[2]); if (q < bd) { bd = q; b = i; } }); return b; };
+  function gasGroup(s, e) {
+    const { pmNum, pmButton } = ctx.pm;
+    const G = gasOf(s);
+    const check = (key, on, label, glyph) => `<label class="pm-check" title="${escapeHtml(label)}"><input type="checkbox" data-pm-toggle="${key}" ${on ? 'checked' : ''}/>${icon(glyph)}<span>${escapeHtml(label)}</span></label>`;
+    const inserts = (s.inserts ?? []).map((x, i) => `<li>${icon('plInsert', 'icon tiny')}<span class="grow">${escapeHtml(t('pl.insertN', { n: i + 1, temp: fmt(x.temperature, 0) }))}</span><button type="button" class="icon-button" data-pm="pl.delInsert:${i}" title="${escapeHtml(t('pm.clear'))}">${icon('trash', 'icon tiny')}</button></li>`).join('');
+    const ins = `<p class="pm-label">${escapeHtml(t('pl.inserts'))}</p><ul class="pm-pick-list">${inserts || `<li class="muted">${escapeHtml(t(e.pick === 'insert' ? 'pl.pickInsertNow' : 'pl.noInserts'))}</li>`}</ul>${pmNum('plInsertT', s.insertTemp ?? 25, t('pl.insertTemp'), 'plTemperature', '°C')}<div class="pm-row">${pmButton('pl.pickInsert', 'plInsert', t(e.pick === 'insert' ? 'pl.picking' : 'pl.pickInsert'))}</div><p class="pm-note">${escapeHtml(t('pl.insertNote'))}</p>`;
+    const g = runtime.gas && runtime.gas.key === runtime.key ? runtime.gas.summary : null;
+    const res = g ? `<ul class="mfg-results pl-gas-results"><li class="${g.complete ? '' : 'warn'}">${icon(g.complete ? 'check' : 'warning', 'icon tiny')}<span>${escapeHtml(t(g.blowThrough ? 'pl.gasBlowShort' : g.shortShot ? 'pl.gasShortShort' : 'pl.gasFilled'))}</span></li><li>${icon('plGas', 'icon tiny')}<span>${escapeHtml(`${t('pl.gasVolume')}: ${fmt(g.gasVolume * 100, 1)} %`)}</span></li><li>${icon('plGas', 'icon tiny')}<span>${escapeHtml(`${t('pl.gasReach')}: ${fmt(g.penetration, 1)} mm`)}</span></li><li>${icon('plVoxel', 'icon tiny')}<span>${escapeHtml(`${t('pl.gasNodes')}: ${g.gasNodes} · ${t('pl.nominalWall')} ${fmt(g.nominalWall, 2)} mm`)}</span></li></ul>` : '';
+    const gas = `${pmNum('plGasShot', G.shot, t('pl.gasShot'), 'plGas', '%')}${pmNum('plGasThick', G.minThick, t('pl.gasThick'), 'plVoxel', '×')}${pmNum('plGasSkin', G.skin * 100, t('pl.gasSkin'), 'plCooling', '%')}<p class="pm-note">${escapeHtml(G.pin ? t('pl.gasPinAt', { p: G.pin.map((v) => fmt(v, 1)).join(', ') }) : t('pl.gasPinGate'))}</p><div class="pm-row">${pmButton('pl.pickGasPin', 'plGate', t(e.pick === 'gasPin' ? 'pl.picking' : 'pl.pickGasPin'))}${pmButton('pl.runGas', 'plGas', t('pl.runGas'))}</div><p class="pm-note">${escapeHtml(t('pl.gasNote'))}</p>${res}`;
+    void check;
+    return `${ins}<hr class="pm-sep"/>${gas}`;
   }
 
   function suggest() {
@@ -222,6 +332,8 @@ export function createPlasticsTools(ctx) {
       pmGroup('plCooling', t('pl.coolGroup'), coolBody),
       pmGroup('plWarp', t('pl.warpGroup'), warpBody),
       pmGroup('plRun', t('pl.resultsGroup'), results),
+      pmGroup('plRunner', t('pl.runnerGroup'), runnerGroup(s)),
+      pmGroup('plGas', t('pl.gasGroup'), gasGroup(s, e)),
     ].join('');
   }
 
@@ -235,11 +347,19 @@ export function createPlasticsTools(ctx) {
       plChInlet: [(st) => { st.cooling.inlet = v; }, v > -40 && v < 200], plChPitch: [(st) => { st.cooling.pitch = v; }, v >= 0],
       plChDepth: [(st) => { st.cooling.depth = v; }, v >= 0], plCycle: [(st) => { st.cooling.cycle = v; }, v >= 0],
       plWarpSize: [(st) => { st.warp.size = v; }, v >= 0],
+      plInsertT: [(st) => { st.insertTemp = v; }, v > -50 && v < 500],
+      plGasShot: [(st) => { st.gas = { ...gasOf(st), shot: v }; }, v >= 30 && v <= 99],
+      plGasThick: [(st) => { st.gas = { ...gasOf(st), minThick: v }; }, v >= 1 && v <= 5],
+      plGasSkin: [(st) => { st.gas = { ...gasOf(st), skin: v / 100 }; }, v > 0 && v < 50],
+      plCavities: [(st) => { st.runner = { ...runnerOf(st), cavities: Math.round(v), branches: null }; }, v >= 1 && v <= 8],
+      plRunnerD: [(st) => { st.runner = { ...runnerOf(st), diameter: v, branches: null }; }, v > 0],
+      plGateD: [(st) => { st.runner = { ...runnerOf(st), gateDiameter: v }; }, v >= 0],
+      plRunnerGap: [(st) => { st.runner = { ...runnerOf(st), gap: v }; }, v >= 0],
     }[key];
     if (extra) {
       if (!extra[1]) { notify('error', t('notice.invalidValue', { text: raw })); return ctx.renderLeft(); }
       edit((st) => { st.cooling ??= {}; st.warp ??= {}; extra[0](st); });
-      runtime.result = null;
+      runtime.result = null; runtime.runner = null;
       return undefined;
     }
     if (key === 'plWarpScale') { if (v > 0) { editing().warpScale = v; runtime.colourKey = null; ctx.syncView(); } return ctx.renderLeft(); }
@@ -268,6 +388,15 @@ export function createPlasticsTools(ctx) {
 
   function pick(hit) {
     const e = editing();
+    if (e?.pick === 'insert') {
+      if (hit?.kind !== 'face') return undefined;
+      const pts = facePoints(hit.index);
+      if (!pts) return undefined;
+      edit((s) => { s.inserts = [...(s.inserts ?? []), { points: pts, temperature: s.insertTemp ?? 25 }]; });
+      runtime.result = null; notify('success', t('pl.insertAdded'));
+      return undefined;
+    }
+    if (e?.pick === 'gasPin') { if (!hit?.point) return undefined; edit((s) => { s.gas = { ...gasOf(s), pin: hit.point.map((v) => Math.round(v * 1000) / 1000) }; }); e.pick = null; runtime.gas = null; return ctx.renderLeft(); }
     if (e?.pick !== 'gate' || !hit?.point) return undefined;
     edit((s) => { s.gates = [...(s.gates ?? []), hit.point.map((v) => Math.round(v * 1000) / 1000)]; });
     runtime.result = null;
@@ -275,7 +404,7 @@ export function createPlasticsTools(ctx) {
     return undefined;
   }
 
-  const NAMES = new Set(['pl.pickGate', 'pl.suggest', 'pl.delGate', 'pl.run', 'pl.report']);
+  const NAMES = new Set(['pl.pickGate', 'pl.suggest', 'pl.delGate', 'pl.run', 'pl.report', 'pl.runRunner', 'pl.balance', 'pl.pickInsert', 'pl.delInsert', 'pl.pickGasPin', 'pl.runGas']);
   const handles = (name) => NAMES.has(name);
   async function command(name, arg) {
     const e = editing();
@@ -284,6 +413,12 @@ export function createPlasticsTools(ctx) {
     if (name === 'pl.suggest') return suggest();
     if (name === 'pl.delGate') { edit((s) => { s.gates = (s.gates ?? []).filter((_, i) => i !== Number(arg)); }); runtime.result = null; return undefined; }
     if (name === 'pl.run') return run();
+    if (name === 'pl.runRunner') return runRunner();
+    if (name === 'pl.pickInsert') { e.pick = e.pick === 'insert' ? null : 'insert'; return ctx.renderLeft(); }
+    if (name === 'pl.delInsert') { edit((s) => { s.inserts = (s.inserts ?? []).filter((_, i) => i !== Number(arg)); }); runtime.result = null; return undefined; }
+    if (name === 'pl.pickGasPin') { e.pick = e.pick === 'gasPin' ? null : 'gasPin'; return ctx.renderLeft(); }
+    if (name === 'pl.runGas') return runGas();
+    if (name === 'pl.balance') return runRunner({ balance: true });
     if (name === 'pl.report') return saveReport();
     return undefined;
   }
@@ -292,6 +427,8 @@ export function createPlasticsTools(ctx) {
     const e = editing();
     if (key === 'plCoolOn') { edit((s) => { s.cooling = { ...(s.cooling ?? {}), on: checked }; }); runtime.result = null; return ctx.renderLeft(); }
     if (key === 'plWarpOn') { edit((s) => { s.warp = { ...(s.warp ?? {}), on: checked }; }); runtime.result = null; return ctx.renderLeft(); }
+    const fm = /^plFamily\.(.+)$/.exec(key);
+    if (fm) { edit((s) => { const R = runnerOf(s); R.family = checked ? [...new Set([...R.family, fm[1]])] : R.family.filter((x) => x !== fm[1]); s.runner = { ...R, branches: null }; }); runtime.runner = null; return ctx.renderLeft(); }
     if (key === 'plDeformed') { e.deformed = checked; runtime.colourKey = null; ctx.syncView(); return ctx.renderLeft(); }
     return undefined;
   }
@@ -368,6 +505,21 @@ export function createPlasticsTools(ctx) {
       // The cooling channels (each polyline as segments), drawn while a cooling quantity is shown.
       if (res.cooling?.channels && ['mouldTemp', 'coolTime'].includes(e.quantity)) for (const ch of res.cooling.channels) { const seg = []; for (let i = 1; i < ch.points.length; i++) seg.push(...ch.points[i - 1], ...ch.points[i]); list.push({ segments: seg, color: ch.side === 'core' ? '#1e88e5' : '#00acc1', width: 3 }); }
     }
+    // Gas-assisted filling: the cored nodes and the gas pin.
+    const gs = runtime.gas && runtime.gas.key === runtime.key ? runtime.gas : null;
+    if (gs) { list.push({ points: gs.points, color: '#7c4dff', size: 7 }); list.push({ points: gs.pin, color: '#00b8d4', size: 12 }); }
+    // The mould layout of the last runner run: cavity boxes, the runner's centre line, the gates.
+    const rr = runtime.runner && runtime.runner.key === runtime.key ? runtime.runner : null;
+    if (rr) {
+      for (const [lo, hi] of rr.boxes) {
+        const c = (i) => [(i & 1) ? hi[0] : lo[0], (i & 2) ? hi[1] : lo[1], (i & 4) ? hi[2] : lo[2]];
+        const seg = [];
+        for (const [a, b] of [[0, 1], [2, 3], [4, 5], [6, 7], [0, 2], [1, 3], [4, 6], [5, 7], [0, 4], [1, 5], [2, 6], [3, 7]]) seg.push(...c(a), ...c(b));
+        list.push({ segments: seg, color: '#78909c', width: 1.5, dashed: true });
+      }
+      list.push({ points: rr.runnerPoints, color: '#ff9100', size: Math.max(4, Math.min(12, rr.diameter * 1.5)) });
+      list.push({ points: rr.gates.flat(), color: '#ff3d00', size: 10 });
+    }
     vp.setLines('mfgPl', list);
   }
 
@@ -400,6 +552,6 @@ export function createPlasticsTools(ctx) {
     ctx.syncView(); return ctx.renderLeft();
   }
   const TAB = ['plasticsStudy', 'plGate', 'plSuggest', '|', 'plRun', '|', 'plFillTime', 'plPressure', 'plTemperature', 'plWeld', 'plAirTraps', 'plSink', '|', 'plFiber', 'plCooling', 'plWarp', '|', 'plReport'];
-  const api = { begin, run, suggest, report, saveReport, domain: () => runtime.domain ?? domain(), result: () => runtime.result, study: () => studyOf(part()), setSaveHook(fn) { saveHook = fn; }, setInline(on) { inline = Boolean(on); } };
+  const api = { begin, run, runRunner, runner: () => runtime.runner, runGas, gas: () => runtime.gas, suggest, report, saveReport, domain: () => runtime.domain ?? domain(), result: () => runtime.result, study: () => studyOf(part()), setSaveHook(fn) { saveHook = fn; }, setInline(on) { inline = Boolean(on); } };
   return { commands, TAB, owns, pm, pick, field, set, select, toggle, accept: () => finish(), handles, command, subject: () => t('cmd.plasticsStudy'), colours, decorate, api };
 }

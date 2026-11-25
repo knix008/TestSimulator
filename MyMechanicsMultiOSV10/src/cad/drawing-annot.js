@@ -11,10 +11,11 @@ import { SHEETS, annotationPrimitives, scaleLabel } from './drawing.js';
 import { viewFrames, dimPrimitives, centerPrimitives, dimLabel, resolveLegacyDims , holeCalloutPrimitives } from './drawing-dims.js';
 import { primsBox } from './drawing-snap.js';
 import { harnessPrimitives } from './harness-sheet.js';
+import { isoPrimitives } from './pipe-iso-draw.js';
 import { textWidth } from './text-metrics.js';
 
 /** The annotation kinds drawn here (the base drawing code draws nothing for them). */
-export const DRW_KINDS = new Set(['drwDim', 'drwCenter', 'drwWeld', 'drwTable', 'drwHarness', 'drwHole']);
+export const DRW_KINDS = new Set(['drwDim', 'drwCenter', 'drwWeld', 'drwTable', 'drwHarness', 'drwHole', 'drwPipeIso']);
 export const WELD_SYMBOLS = ['fillet', 'square', 'vGroove', 'bevel', 'uGroove', 'jGroove', 'flareV', 'plug', 'spot', 'seam'];
 export const WELD_SIDES = ['arrow', 'other', 'both'];
 export const WELD_CONTOURS = ['none', 'flat', 'convex', 'concave'];
@@ -267,6 +268,7 @@ export function drwItems(sd, projections) {
       } else if (a.kind === 'drwWeld') prims = weldPrimitives(a, { iso });
       else if (a.kind === 'drwTable') prims = tablePrimitives(a);
       else if (a.kind === 'drwHarness') prims = harnessPrimitives(a);
+      else if (a.kind === 'drwPipeIso') prims = isoPrimitives(a);
     } catch { prims = []; }
     items.push({ a, prims, color: colorOf(sd, a), layer: layerOf(sd, a), visible: annotationVisible(sd, a) });
   }
@@ -381,7 +383,7 @@ export function injectDxf(dxf, layers, entities) {
 export function drwDxf(dxf, sd, projections, { info = {}, labels = {}, layered = [] } = {}) {
   const [W, H] = SHEETS[sd.sheet] ?? SHEETS.A3;
   const { items, format, scale } = drwItems(sd, projections);
-  const DEF = { drwDim: 'DIMENSIONS', drwCenter: 'CENTER', drwWeld: 'WELDS', drwTable: 'TABLES', drwHarness: 'HARNESS' };
+  const DEF = { drwDim: 'DIMENSIONS', drwCenter: 'CENTER', drwWeld: 'WELDS', drwTable: 'TABLES', drwHarness: 'HARNESS', drwPipeIso: 'PIPING' };
   const layers = new Map();
   const ents = [];
   const use = (name, color, off = false, linetype) => { if (!layers.has(name)) layers.set(name, { name, color, off, linetype }); return name; };
@@ -427,6 +429,7 @@ export function annotationBoxes(sd, projections) {
       } else if (a.kind === 'drwWeld') prims = weldPrimitives(a, { iso });
       else if (a.kind === 'drwTable') prims = tablePrimitives(a);
       else if (a.kind === 'drwHarness') prims = harnessPrimitives(a);
+      else if (a.kind === 'drwPipeIso') prims = isoPrimitives(a);
       else prims = annotationPrimitives(a, { scale });
     } catch { prims = []; }
     const textOnly = a.kind === 'note' || a.kind === 'drwDim' || a.kind === 'dimension';

@@ -16,6 +16,8 @@
 // A toolpath: { op, tool, kind: 'mill' | 'turn', moves: [{ k: 'r' | 'f' | 't' | 'cyc', p: [x, y, z], f? , …}],
 // rpm, feed, plunge, warnings }. 'cyc' moves are canned drilling cycles ({ cycle, p (hole bottom), r, q, dwell });
 // expandMoves() turns them into plain moves the way a control runs them.
+import { editMoves } from './cam-edit.js';
+import { MULTI_OPS, MULTI_DEFAULTS, genRotary4, genMulti5, genMtAxial, genMtRadial } from './cam-multiaxis.js';
 import {
   offsetLoops, insideRegion, reverseLoop, rectLoop, circleLoop, loopArea, loopLength, windingOf, resample, clipPolyline, unionLoops,
   dropCutter, groupRegions, geom2, segDist, cleanLoop, SegmentIndex,
@@ -26,9 +28,9 @@ import { cutterOf, millingData, turningData, cutMaterialOf, machineOf, METRIC_TH
 const { dist } = geom2;
 const round = (v, k = 1e4) => Math.round(v * k) / k;
 
-export const MILL_OPS = ['facing', 'pocket', 'adaptive', 'contour', 'slot', 'helix', 'spot', 'drill', 'peck', 'chipBreak', 'tap', 'zlevel', 'parallel', 'scallop', 'waterline'];
+export const MILL_OPS = ['facing', 'pocket', 'adaptive', 'contour', 'slot', 'helix', 'spot', 'drill', 'peck', 'chipBreak', 'tap', 'zlevel', 'parallel', 'scallop', 'waterline', ...MULTI_OPS];
 export const TURN_OPS = ['tFace', 'tRough', 'tFinish', 'tDrill', 'tBoreRough', 'tBoreFinish', 'tGroove', 'tThread'];
-export const OP_GROUPS = { face: ['facing'], rough25: ['pocket', 'adaptive', 'slot', 'helix'], finish25: ['contour'], holes: ['spot', 'drill', 'peck', 'chipBreak', 'tap'], mill3d: ['zlevel', 'parallel', 'scallop', 'waterline'], turn: TURN_OPS };
+export const OP_GROUPS = { face: ['facing'], rough25: ['pocket', 'adaptive', 'slot', 'helix'], finish25: ['contour'], holes: ['spot', 'drill', 'peck', 'chipBreak', 'tap'], mill3d: ['zlevel', 'parallel', 'scallop', 'waterline'], turn: TURN_OPS , multi: ['rotary4', 'multi5', 'mtAxial', 'mtRadial'] };
 
 /** Parameters of each operation (lengths mm, angles degrees, stepover a fraction of the tool diameter). */
 export const OP_DEFAULTS = {
@@ -55,6 +57,7 @@ export const OP_DEFAULTS = {
   tBoreFinish: { leave: 0, clearance: 0 },
   tGroove: { stepover: 0.8, leave: 0 },
   tThread: { pitch: 1.5, passes: 6, length: 0, z1: null, external: true },
+  ...MULTI_DEFAULTS,
 };
 
 /** A new operation with its defaults. */
@@ -1362,6 +1365,9 @@ const GENERATORS = {
   facing: genFacing, pocket: (c, o) => genPocket(c, o), adaptive: (c, o) => genPocket(c, o, { adaptive: true }), contour: genContour, slot: genSlot, helix: genHelix,
   spot: genDrilling, drill: genDrilling, peck: genDrilling, chipBreak: genDrilling, tap: genDrilling,
   zlevel: genZLevel, parallel: genParallel, scallop: genScallop, waterline: genWaterline,
+  // Multi-axis (cam-multiaxis.js): 4-axis rotary, 5-axis simultaneous, mill-turn live tools.
+  rotary4: (c, o) => genRotary4(c, o, { toolOf, speeds }), multi5: (c, o) => genMulti5(c, o, { toolOf, speeds, finishArea, dropAlong, clipPolyline, rectLoop }),
+  mtAxial: (c, o) => genMtAxial(c, o, { toolOf, speeds }), mtRadial: (c, o) => genMtRadial(c, o, { toolOf, speeds }),
   tFace: genTFace, tRough: genTRough, tFinish: genTFinish, tDrill: genTDrill, tBoreRough: (c, o) => genTBore(c, o, false), tBoreFinish: (c, o) => genTBore(c, o, true), tGroove: genTGroove, tThread: genTThread,
 };
 
@@ -1373,6 +1379,8 @@ export function generateToolpath(ctx, op) {
   if (TURN_OPS.includes(op.type) !== isTurnTool(tool)) throw Object.assign(new Error('tool kind'), { code: 'wrongTool' });
   if (TURN_OPS.includes(op.type) && !ctx.profile) throw Object.assign(new Error('not a turned part'), { code: 'notTurnable' });
   const r = gen(ctx, op);
+  // The operation's toolpath edits (cam-edit.js) laid over the generated moves (milling).
+  if (op.edits && !TURN_OPS.includes(op.type) && r.moves) r.moves = editMoves(r.moves, op.edits, ctx);
   return { op: op.id, opType: op.type, tool: tool.id, kind: TURN_OPS.includes(op.type) ? 'turn' : 'mill', warnings: [], ...r };
 }
 

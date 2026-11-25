@@ -483,7 +483,8 @@ function solveSPD(domain, G, active, diagExtra, rhs, p, { tol = 1e-7, maxIter = 
  * Fills the domain from the gate nodes, then packs it. Units: lengths mm in the domain, results in s, MPa, °C,
  * kN. options: { resin (RESINS entry or id), melt, mould (°C), fillTime (s; 0 = from the volume), maxPressure
  * (MPa), packPressure (MPa; null = 80 % of the gate pressure at the end of filling), packTime (s; null = until
- * the gate freezes), layers (gapwise), maxSteps, onProgress(fraction, phase), signal ({ cancelled }) }.
+ * the gate freezes), layers (gapwise), maxSteps, onProgress(fraction, phase), signal ({ cancelled }), wallTemp
+ * (°C per node, or null: the mould temperature everywhere — an insert moulded in cools its nodes to its own) }.
  *
  * Filling: the pressure on the filled nodes (the front at 0, the flow rate at the gates), the conductances from
  * the viscosity and the still-molten gap (the frozen skins narrow it); every wall's gapwise temperature is
@@ -491,7 +492,7 @@ function solveSPD(domain, G, active, diagExtra, rhs, p, { tol = 1e-7, maxIter = 
  * gate held at the packing pressure, the melt compressible (Tait), each step's mass balance solved implicitly;
  * the mass in each node when it is sealed gives its volumetric shrinkage, the core still molten then its sink.
  */
-export function fillSimulation(domain, { gates = [], resin: resinIn = 'abs', melt = null, mould = null, fillTime = 0, maxPressure = 180, packPressure = null, packTime = null, layers = 10, switchover = 99, maxSteps = 4000, onProgress = null, signal = null } = {}) {
+export function fillSimulation(domain, { gates = [], resin: resinIn = 'abs', melt = null, mould = null, fillTime = 0, maxPressure = 180, packPressure = null, packTime = null, layers = 10, switchover = 99, maxSteps = 4000, onProgress = null, signal = null, wallTemp = null } = {}) {
   const resin = typeof resinIn === 'string' ? RESINS[resinIn] : resinIn;
   const Tm = melt ?? resin.melt ?? 230; const Tw = mould ?? resin.mould ?? 50;
   const noFlow = resin.noFlow ?? -Infinity;
@@ -574,7 +575,7 @@ export function fillSimulation(domain, { gates = [], resin: resinIn = 'abs', mel
         const z = (l + 0.5) / kf; const gr = shear[i] * z;
         TL[base + l] += (eta[i] * gr * gr * dt) / (rhoC * cp);
       }
-      conductLayers(TL.subarray(base, base + L), L, H[i], alpha, Tw, dt, sc);
+      conductLayers(TL.subarray(base, base + L), L, H[i], alpha, wallTemp?.[i] ?? Tw, dt, sc);
       ff[i] = frozenFraction(TL.subarray(base, base + L), L, noFlow);
       eta[i] = viscosity(resin, flowMean(i), shear[i]);
     }
@@ -634,7 +635,7 @@ export function fillSimulation(domain, { gates = [], resin: resinIn = 'abs', mel
       if (signal?.cancelled) throw Object.assign(new Error('cancelled'), { code: 'cancelled' });
       k++;
       const Told = new Float64Array(n); for (let i = 0; i < n; i++) Told[i] = bulk(i);
-      for (let i = 0; i < n; i++) { const base = i * L; conductLayers(TL.subarray(base, base + L), L, H[i], alpha, Tw, dtp, sc); ff[i] = frozenFraction(TL.subarray(base, base + L), L, noFlow); }
+      for (let i = 0; i < n; i++) { const base = i * L; conductLayers(TL.subarray(base, base + L), L, H[i], alpha, wallTemp?.[i] ?? Tw, dtp, sc); ff[i] = frozenFraction(TL.subarray(base, base + L), L, noFlow); }
       for (let e = 0; e < E.length; e++) {
         const a = EA[e]; const b = EB[e];
         const etaE = (viscosity(resin, flowMean(a), 10) + viscosity(resin, flowMean(b), 10)) / 2;
@@ -853,7 +854,15 @@ export function runStudy({ mesh, gates = [], domain: dOpts = {}, process = {} },
     if (!domain?.nodes.length) throw Object.assign(new Error('no cavity'), { code: 'noCavity' });
     let gateNodes = gates.map((g) => nearestNode(domain, g));
     if (!gateNodes.length) gateNodes = [suggestGate(domain)];
-    const result = fillSimulation(domain, { ...process, gates: [...new Set(gateNodes)], signal, onProgress: (fraction, phase) => post({ type: 'progress', fraction, phase }) });
+    // Inserts moulded in ({ points (of their faces), temperature }): the nodes by them take the insert's wall temperature.
+    let wallTemp = null;
+    if (process.inserts?.length) {
+      const Tw = process.mould ?? (RESINS[process.resin] ?? RESINS.abs).mould ?? 50, reach = 1.5 * (domain.cell ?? 1);
+      wallTemp = new Float64Array(domain.nodes.length).fill(Tw);
+      domain.nodes.forEach((nd, i) => { for (const ins of process.inserts) if (ins.points.some((q) => Math.hypot(nd.c[0] - q[0], nd.c[1] - q[1], domain.kind === 'midplane' ? 0 : nd.c[2] - q[2]) <= reach)) { wallTemp[i] = ins.temperature; break; } });
+    }
+    const result = fillSimulation(domain, { ...process, wallTemp, gates: [...new Set(gateNodes)], signal, onProgress: (fraction, phase) => post({ type: 'progress', fraction, phase }) });
+    if (wallTemp) result.insertNodes = wallTemp.reduce((s, v, i) => s + (process.inserts.some((x) => x.temperature === v) && v !== (process.mould ?? (RESINS[process.resin] ?? RESINS.abs).mould ?? 50) ? 1 : 0), 0);
     const plainDomain = { kind: domain.kind, cell: domain.cell, nx: domain.nx, ny: domain.ny, nz: domain.nz, hx: domain.hx, hy: domain.hy, hz: domain.hz, lo: domain.lo, index: domain.index, volume: domain.volume, partingZ: domain.partingZ, nodes: domain.nodes.map((nd) => ({ c: nd.c, h: nd.h })) };
     post({ type: 'result', domain: plainDomain, result, gates: gateNodes });
     return { domain: plainDomain, result, gates: gateNodes, full: domain };

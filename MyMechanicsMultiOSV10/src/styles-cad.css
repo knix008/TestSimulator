@@ -121,7 +121,9 @@
 .pm-field select, .pm-field input[type="text"]:not(.pm-input input) { min-width: 0; width: 100%; }
 .pm-check { display: flex; align-items: center; gap: 6px; font-size: 0.88em; cursor: pointer; }
 .pm-check .icon { width: 15px; height: 15px; color: var(--muted); }
-.pm-seg { width: 100%; display: flex; }
+/* Choices wrap onto more rows when they do not fit the panel (never cut off). */
+.pm-seg { width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); }
+.pm-seg .segment { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pm-seg .segment { flex: 1; justify-content: center; display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px; font-size: 0.84em; }
 .pm-seg .segment .icon { width: 14px; height: 14px; }
 .pm-pick { border: 1px solid var(--border); border-radius: 8px; background: var(--bg); cursor: pointer; }
@@ -571,3 +573,29 @@ textarea.scad-code:focus { outline: 2px solid var(--accent, #2f6fdb); outline-of
 .pm-mini-table input.pm-text { width: 100%; min-width: 0; box-sizing: border-box; }
 .pm-mini-table input.num { text-align: center; }
 .pm-row-buttons { display: flex; gap: 4px; flex-wrap: wrap; margin: 2px 0 4px; }
+
+/* Right panel: buttons stand in one vertical column (full width, their icons lined up on the left). */
+#right-panel .prop-actions,
+#right-panel .pm-relations,
+#right-panel .pm-row-buttons,
+#right-panel .cfg-actions { display: flex; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 4px; }
+#right-panel .prop-actions > .small-button,
+#right-panel .pm-relations > .small-button,
+#right-panel .pm-row-buttons > .small-button,
+#right-panel .cfg-actions > .small-button { width: 100%; justify-content: flex-start; margin: 0; }
+#right-panel .material-list,
+#right-panel .sch-palette,
+#right-panel .task-kinds { grid-template-columns: minmax(0, 1fr); }
+
+/* Customize: command lists with their keys, the key being recorded, the tabs shown. */
+.custom-list { display: flex; flex-direction: column; gap: 2px; max-height: 340px; overflow: auto; }
+.custom-list .cfg-row { display: flex; align-items: center; gap: 4px; min-height: 26px; }
+.custom-list .cfg-row .grow { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.custom-key { display: inline-flex; align-items: center; gap: 1px; }
+.custom-key kbd { font: 11px/1.4 ui-monospace, Consolas, monospace; padding: 0 4px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface-2, var(--surface)); white-space: nowrap; }
+.custom-capture { font-size: 11px; color: var(--accent); white-space: nowrap; animation: custom-blink 1s steps(2) infinite; }
+@keyframes custom-blink { 50% { opacity: 0.35; } }
+.custom-tabs { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
+.custom-sections { margin: 6px 8px; }
+.custom-sections .pm-seg { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+.custom-sections .pm-seg .segment { justify-content: center; min-width: 0; }

@@ -5,7 +5,7 @@
 //
 // Coordinates are millimetres, Z up (frame.js): Top plane = XY, Front = XZ (seen from −Y), Right = YZ (seen from +X).
 import { rep, fontLoaded } from './kernel.js';
-import { setbackCorner } from './fillet-setback.js';
+import { setbackCorner, keepEdgeOverflow, edgeZone } from './fillet-setback.js';
 import { referencesOf } from './feature-order.js';
 import { instanceTools, applyInstances } from './pattern-more.js';
 import { normalCutTool } from './normal-cut.js';
@@ -22,7 +22,7 @@ import { frameTable, isYUp, worldUp } from './frame.js';
 import { yUpDefaults } from './zup.js';
 import { needsExtrudeMore, extrudeMoreTool } from './extrude-more.js';
 import { needsRevolveMore, revolveMoreTool } from './revolve-more.js';
-import { needsDressUpMore, filletMore, chamferMore, shellMore } from './dressup-more.js';
+import { needsDressUpMore, filletMore, chamferMore, shellMore, planarRounds } from './dressup-more.js';
 import { planeMoreFrame } from './refplane-more.js';
 import { needsHoleMore, holeMoreTool } from './hole-more.js';
 import { refreshPierce } from './sketch-pierce.js';
@@ -438,7 +438,7 @@ function extrudeDrawing(sketch, drawing, plane, length) {
   return out;
 }
 
-function extrudeTool(f, ctx) {
+export function extrudeTool(f, ctx) {
   const { sketch, frame: fr } = sketchOf(f, ctx);
   // Start / end conditions that need geometry, thin features, selected contours (extrude-more.js).
   if (needsExtrudeMore(f)) return extrudeMoreTool(f, ctx, sketch, fr);
@@ -654,6 +654,19 @@ function keepFeaturesDressUp(f, ctx, kind) {
 function buildDressUp(f, ctx, kind) {
   if (!ctx.body) throw codeError('no-body');
   if ((f.keep ?? []).length) return keepFeaturesDressUp(f, ctx, kind);
+  // Overflow: "keep edge" — where the round would run past its two faces onto a neighbour, it stops at their edge;
+  // "keep surface" — the round carries on and trims the neighbour. The kernel's fillet when it can; when the round
+  // overflows so that the kernel cannot, exact rounds from the planes of the edge's faces.
+  if (kind === 'fillet' && (f.overflow === 'keepEdge' || f.overflow === 'keepSurface')) {
+    const edges = findEdges(ctx.body, f.edges ?? []);
+    if (!edges.length) throw codeError('no-edges');
+    const r = Number(f.radius) || 1;
+    let made = null;
+    try { made = buildDressUp({ ...f, overflow: undefined }, ctx, kind); } catch { made = null; }
+    if (made) return f.overflow === 'keepEdge' ? { ...made, body: keepEdgeOverflow(ctx.body, made.body, edges, r) } : made;
+    const zone = (e) => edgeZone(ctx.body, e, r);
+    return { body: planarRounds(ctx.body, edges, () => r, f.overflow === 'keepEdge' ? zone : null), matched: edges.length, overflow: true };
+  }
   // Setbacks: the fillet as usual, then each chosen corner blended from its setback distances (fillet-setback.js).
   if (kind === 'fillet' && (f.setbacks ?? []).length) {
     const made = buildDressUp({ ...f, setbacks: undefined }, ctx, kind);

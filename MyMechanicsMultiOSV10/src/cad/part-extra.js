@@ -58,7 +58,8 @@ function buildConnectionPoint(f, ctx) {
   if (f.flip) dir = mul(dir, -1);
   point = add(point, mul(dir, num(f.offset, 0)));
   const name = String(f.cpName ?? f.name ?? 'Connector').trim() || 'Connector';
-  return { frame: { origin: point, normal: dir, xDir: normalize(crossV(dir, Math.abs(dir[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0])) }, connPoint: { name, point, dir } };
+  const routing = f.routeType && f.routeType !== 'none' ? { routeType: f.routeType, size: f.routeType === 'pipe' ? f.size ?? 'DN25' : Number(f.od) || 12, role: f.role === 'route' ? 'route' : 'connection' } : {};
+  return { frame: { origin: point, normal: dir, xDir: normalize(crossV(dir, Math.abs(dir[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0])) }, connPoint: { name, point, dir, ...routing } };
 }
 
 /**

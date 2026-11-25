@@ -48,7 +48,46 @@ export function projectOnFace(model, f, p, pos = model.nodes) {
   if (s < 0) s = 0; if (t < 0) t = 0; if (s + t > 1) { const k = s + t; s /= k; t /= k; }
   const q = [A[0] + s * u[0] + t * v[0], A[1] + s * u[1] + t * v[1], A[2] + s * u[2] + t * v[2]];
   const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]], nl = Math.hypot(...n) || 1;
-  return { d: Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]), l: [1 - s - t, s, t], point: q, normal: n.map((x) => x / nl) };
+  const flat = { d: Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]), l: [1 - s - t, s, t], point: q, normal: n.map((x) => x / nl) };
+  return npf === 6 ? curvedProjection(model, f, p, pos, s, t, flat) : flat;
+}
+
+/**
+ * Projection onto a quadratic (6-node) face itself, not its corner triangle: Newton on the closest point of
+ * X(s, t) = Σ N_a x_a from the straight projection (kept inside the triangle), the normal ∂X/∂s × ∂X/∂t there.
+ * On a curved surface the corner triangle lies inside the true face by the element's chord sag — as large as a
+ * shrink fit's interference.
+ */
+function curvedProjection(model, f, p, pos, s0, t0, flat) {
+  const X = []; for (let a = 0; a < 6; a++) { const q = 3 * model.faces.nodes[6 * f + a]; X.push([pos[q], pos[q + 1], pos[q + 2]]); }
+  const evalAt = (s, t) => {
+    const l0 = 1 - s - t, l1 = s, l2 = t;
+    const N = [l0 * (2 * l0 - 1), l1 * (2 * l1 - 1), l2 * (2 * l2 - 1), 4 * l0 * l1, 4 * l1 * l2, 4 * l2 * l0];
+    // ∂N/∂s and ∂N/∂t (l0 = 1 − s − t).
+    const Ns = [-(4 * l0 - 1), 4 * l1 - 1, 0, 4 * (l0 - l1), 4 * l2, -4 * l2];
+    const Nt = [-(4 * l0 - 1), 0, 4 * l2 - 1, -4 * l1, 4 * l1, 4 * (l0 - l2)];
+    const P = [0, 0, 0], Ps = [0, 0, 0], Pt = [0, 0, 0];
+    for (let a = 0; a < 6; a++) for (let k = 0; k < 3; k++) { P[k] += N[a] * X[a][k]; Ps[k] += Ns[a] * X[a][k]; Pt[k] += Nt[a] * X[a][k]; }
+    return { P, Ps, Pt };
+  };
+  let s = s0, t = t0;
+  for (let it = 0; it < 10; it++) {
+    const { P, Ps, Pt } = evalAt(s, t);
+    const r = [P[0] - p[0], P[1] - p[1], P[2] - p[2]];
+    const g1 = r[0] * Ps[0] + r[1] * Ps[1] + r[2] * Ps[2], g2 = r[0] * Pt[0] + r[1] * Pt[1] + r[2] * Pt[2];
+    const a11 = Ps[0] * Ps[0] + Ps[1] * Ps[1] + Ps[2] * Ps[2], a22 = Pt[0] * Pt[0] + Pt[1] * Pt[1] + Pt[2] * Pt[2], a12 = Ps[0] * Pt[0] + Ps[1] * Pt[1] + Ps[2] * Pt[2];
+    const det = a11 * a22 - a12 * a12;
+    if (!(Math.abs(det) > 1e-300)) break;
+    let ds = -(a22 * g1 - a12 * g2) / det, dt = -(a11 * g2 - a12 * g1) / det;
+    let ns = s + ds, nt = t + dt;
+    if (ns < 0) ns = 0; if (nt < 0) nt = 0; if (ns + nt > 1) { const k = ns + nt; ns /= k; nt /= k; }
+    ds = ns - s; dt = nt - t; s = ns; t = nt;
+    if (Math.abs(ds) + Math.abs(dt) < 1e-12) break;
+  }
+  const { P, Ps, Pt } = evalAt(s, t);
+  const n = [Ps[1] * Pt[2] - Ps[2] * Pt[1], Ps[2] * Pt[0] - Ps[0] * Pt[2], Ps[0] * Pt[1] - Ps[1] * Pt[0]], nl = Math.hypot(...n);
+  if (!(nl > 0)) return flat;
+  return { d: Math.hypot(p[0] - P[0], p[1] - P[1], p[2] - P[2]), l: [1 - s - t, s, t], point: P, normal: n.map((x) => x / nl) };
 }
 
 /** Linear sub-triangles of a face (local node indices) with the area coordinates of their corners on the face. */
@@ -108,6 +147,77 @@ export function mortarConstraints(model, slaveFaces, project, { k, mu = 0, reach
  * facesB, friction }]; walls [{ point, normal, body?, faceIds?, friction? }]; friction μ (default for all).
  * Returns { list, pairs (node pairs for the matrix pattern) }.
  */
+/**
+ * Cyclic-symmetry ties: the nodes of side B follow side A turned by the sector angle about the axis the two
+ * planar cut faces share (u_B = R u_A at the matching point). fixtures [{ type: 'cyclic', faceId (A), faceB, body }].
+ * Returns the tie records (type 'bonded' with R) and node pairs for the matrix pattern.
+ */
+export function cyclicTies(model, fixtures, { bondedStiffness = 300 } = {}) {
+  const list = [], pairs = [];
+  for (const fx of fixtures ?? []) {
+    if (fx?.type !== 'cyclic' || fx.faceB == null) continue;
+    const ref = (id) => (fx.body != null ? { body: fx.body, faceId: id } : id);
+    const A = selectFaces(model, ref(fx.faceId)), B = selectFaces(model, ref(fx.faceB));
+    if (!A.length || !B.length) continue;
+    const sa = planeOf(model, A), sb = planeOf(model, B);
+    let dir = cross3(sa.normal, sb.normal); const dl = Math.hypot(...dir);
+    if (dl < 1e-6) continue; // parallel cuts: no axis
+    dir = dir.map((v) => v / dl);
+    // A point on both planes (closest to the faces' centroids).
+    const P = planesPoint(sa, sb, dir);
+    const radial = (c) => { const w = [c[0] - P[0], c[1] - P[1], c[2] - P[2]], t = dot3(w, dir); return [w[0] - t * dir[0], w[1] - t * dir[1], w[2] - t * dir[2]]; };
+    const ra = radial(sa.centroid), rb = radial(sb.centroid);
+    const th = Math.atan2(dot3(cross3(ra, rb), dir), dot3(ra, rb));
+    const R = rotation(dir, th), Rt = rotation(dir, -th);
+    const body = model.faces.body[A[0]], master = faceIndex(model, body, [...new Set(A.map((f) => model.faces.faceId[f]))]);
+    const h = model.bodies[body].mesh.size, k = (bondedStiffness * model.bodies[body].material.E) / h, tol = 0.35 * h;
+    const { area } = nodalAreas(model, B);
+    const npf = model.faces.npf;
+    for (const [s, aS] of area) {
+      const p = [model.nodes[3 * s] - P[0], model.nodes[3 * s + 1] - P[1], model.nodes[3 * s + 2] - P[2]];
+      const q = [0, 1, 2].map((i) => Rt[3 * i] * p[0] + Rt[3 * i + 1] * p[1] + Rt[3 * i + 2] * p[2] + P[i]);
+      let best = null;
+      for (const f of master.near(q, tol)) { const r = projectOnFace(model, f, q); if (r.d <= tol && (!best || r.d < best.r.d)) best = { f, r }; }
+      if (!best) continue;
+      const N = faceShape(model.order, best.r.l), m = [], w = [];
+      for (let a = 0; a < npf; a++) { m.push(model.faces.nodes[npf * best.f + a]); w.push(N[a]); }
+      if (m.includes(s)) continue; // on the axis (both sides): nothing to tie
+      const c = { type: 'bonded', s, m, w, n: dir, g0: 0, area: aS, k, R, cyclic: true };
+      list.push(c);
+      const ids = [s, ...m]; for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) pairs.push(ids[i], ids[j]);
+    }
+  }
+  return { list, pairs };
+}
+
+const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+function planeOf(model, faces) {
+  const npf = model.faces.npf; const c = [0, 0, 0]; const n = [0, 0, 0]; let A = 0;
+  for (const f of faces) {
+    const P = (a) => { const q = 3 * model.faces.nodes[npf * f + a]; return [model.nodes[q], model.nodes[q + 1], model.nodes[q + 2]]; };
+    const p0 = P(0), p1 = P(1), p2 = P(2), nn = cross3([p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]], [p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]]), a = Math.hypot(...nn) / 2;
+    for (let i = 0; i < 3; i++) { c[i] += a * (p0[i] + p1[i] + p2[i]) / 3; n[i] += nn[i]; }
+    A += a;
+  }
+  const nl = Math.hypot(...n) || 1;
+  return { centroid: c.map((v) => v / (A || 1)), normal: n.map((v) => v / nl) };
+}
+/** The point of the line where two planes meet that is nearest their centroids' middle. */
+function planesPoint(a, b, dir) {
+  const mid = a.centroid.map((v, i) => (v + b.centroid[i]) / 2);
+  // Solve n_a·x = n_a·c_a, n_b·x = n_b·c_b, dir·x = dir·mid.
+  const M = [...a.normal, ...b.normal, ...dir], r = [dot3(a.normal, a.centroid), dot3(b.normal, b.centroid), dot3(dir, mid)];
+  const det = (m) => m[0] * (m[4] * m[8] - m[5] * m[7]) - m[1] * (m[3] * m[8] - m[5] * m[6]) + m[2] * (m[3] * m[7] - m[4] * m[6]);
+  const d = det(M);
+  return [0, 1, 2].map((col) => { const m = M.slice(); for (let i = 0; i < 3; i++) m[3 * i + col] = r[i]; return det(m) / d; });
+}
+/** The rotation matrix (row-major) of θ about a unit axis. */
+export function rotation(k, th) {
+  const c = Math.cos(th), s = Math.sin(th), v = 1 - c, [x, y, z] = k;
+  return [c + x * x * v, x * y * v - z * s, x * z * v + y * s, y * x * v + z * s, c + y * y * v, y * z * v - x * s, z * x * v - y * s, z * y * v + x * s, c + z * z * v];
+}
+
 export function contactConstraints(model, { contacts = 'none', walls = [], tolerance = null, contactStiffness = 200, bondedStiffness = 300, friction = 0, pos = model.nodes, method = 'node' } = {}) {
   const list = [], pairs = [];
   const bodyCount = model.bodies.length;
@@ -179,11 +289,25 @@ export function contactConstraints(model, { contacts = 'none', walls = [], toler
 }
 
 export const idsOf = (c) => c.ids ?? [c.s, ...c.m];
+/** The direction a master node's displacement is read along: Rᵀd for a rotated tie (cyclic symmetry), else d. */
+const along = (c, i, d) => (c.R && i > 0 ? [c.R[0] * d[0] + c.R[3] * d[1] + c.R[6] * d[2], c.R[1] * d[0] + c.R[4] * d[1] + c.R[7] * d[2], c.R[2] * d[0] + c.R[5] * d[1] + c.R[8] * d[2]] : d);
+const AXES = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
 export const coefOf = (c) => c.coef ?? [1, ...c.w.map((x) => -x)];
 
 /** Adds kA·(d⊗c)(d⊗c)ᵀ for direction d (bonded: every direction). */
 export function addPenalty(K, c, dir = c.n, kA = c.k * c.area) {
   const ids = idsOf(c), coef = coefOf(c);
+  if (c.type === 'bonded' && c.R) {
+    // Each axis' row: e·u_s − Σ w (Rᵀe)·u_m.
+    for (const e of AXES) {
+      const rows = ids.map((_, i) => along(c, i, e));
+      for (let i = 0; i < ids.length; i++) for (let j = 0; j < ids.length; j++) {
+        const v = kA * coef[i] * coef[j];
+        if (v) for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) { const x = v * rows[i][a] * rows[j][b]; if (x) addEntry(K, 3 * ids[i] + a, 3 * ids[j] + b, x); }
+      }
+    }
+    return;
+  }
   if (c.type === 'bonded') {
     for (let i = 0; i < ids.length; i++) for (let j = 0; j < ids.length; j++) { const v = kA * coef[i] * coef[j]; if (v) for (let d = 0; d < 3; d++) addEntry(K, 3 * ids[i] + d, 3 * ids[j] + d, v); }
     return;
@@ -199,11 +323,12 @@ export function addPenalty(K, c, dir = c.n, kA = c.k * c.area) {
 export function jump(c, u, dir = c.n) {
   const ids = idsOf(c), coef = coefOf(c);
   let x = 0;
-  for (let i = 0; i < ids.length; i++) { const d = 3 * ids[i]; x += coef[i] * (u[d] * dir[0] + u[d + 1] * dir[1] + u[d + 2] * dir[2]); }
+  for (let i = 0; i < ids.length; i++) { const d = 3 * ids[i], e = along(c, i, dir); x += coef[i] * (u[d] * e[0] + u[d + 1] * e[1] + u[d + 2] * e[2]); }
   return x;
 }
 /** Σ coef·u (vector). */
 export function vectorJump(c, u) {
+  if (c.R) return AXES.map((e) => jump(c, u, e));
   const ids = idsOf(c), coef = coefOf(c), g = [0, 0, 0];
   for (let i = 0; i < ids.length; i++) for (let d = 0; d < 3; d++) g[d] += coef[i] * u[3 * ids[i] + d];
   return g;
@@ -211,7 +336,7 @@ export function vectorJump(c, u) {
 /** Adds s·(d⊗c) to b (a force along d spread over the constraint's nodes). */
 export function addForce(b, c, dir, s) {
   const ids = idsOf(c), coef = coefOf(c);
-  for (let q = 0; q < ids.length; q++) for (let a = 0; a < 3; a++) b[3 * ids[q] + a] += s * coef[q] * dir[a];
+  for (let q = 0; q < ids.length; q++) { const e = along(c, q, dir); for (let a = 0; a < 3; a++) b[3 * ids[q] + a] += s * coef[q] * e[a]; }
 }
 /** Two unit tangents of a normal. */
 export function tangents(n) {

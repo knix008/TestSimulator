@@ -1,0 +1,24 @@
+[
+ {
+  "name": "scan: kernel",
+  "eval": "window.__mymechanics.actions.ensureKernel().then(() => 'ready')",
+  "expect": "^ready$"
+ },
+ {
+  "name": "scan: a faceted body — an 80 × 50 × 20 plate with a Ø16 hole imported as a mesh (STL-like, every face triangles)",
+  "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.actions.closeProject({ force: true }); await m.actions.newDocument('part', { blank: true }); await sleep(300); const { rep } = await import('/src/cad/kernel.js'); const { solidFromMesh } = await import('/src/cad/stl.js'); const { createFeature } = await import('/src/cad/features.js'); const R = rep(); const body = R.makeBox([0, 0, 0], [80, 50, 20]).cut(R.makeCylinder(8, 30, [20, 25, -5], [0, 0, 1])); const mesh = body.mesh({ tolerance: 0.01, angularTolerance: 0.05 }); const P = []; for (let i = 0; i < mesh.vertices.length; i += 3) P.push([mesh.vertices[i], mesh.vertices[i + 1], mesh.vertices[i + 2]]); const T = []; for (let i = 0; i < mesh.triangles.length; i += 3) T.push([mesh.triangles[i], mesh.triangles[i + 1], mesh.triangles[i + 2]]); const { weld } = await import('/src/cad/scan-fit.js'); const W = weld(mesh); const faceted = solidFromMesh(W.P, W.T); m.actions.change('op.feature', (p) => { const part = p.parts.find((x) => x.id === p.active.id); part.features.push(createFeature(part, 'import', { brep: faceted.serialize(), source: 'scan.stl', name: 'scan' })); }); await sleep(1500); const kinds = {}; for (const f of m.state.partEntry.faces) kinds[f.geomType] = (kinds[f.geomType] ?? 0) + 1; return JSON.stringify({ planes: kinds.PLANE > 20, cyl: kinds.CYLINDRE ?? 0 }); })()",
+  "expect": "\"planes\":true,\"cyl\":0"
+ },
+ {
+  "name": "scan: Scan to Solid — Analyse lists 6 planes and 1 cylinder (R 8, full turn, a hole); Make Solid adds a part of 6 planes and 1 exact cylinder",
+  "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.run('scanToSolid'); await sleep(300); const page = Boolean(document.querySelector('[data-pm-field=\"scanTol\"]')); await m.actions.pmCommand('scan.analyse'); await sleep(300); const rep = m.state.editing.report; const rows = document.querySelectorAll('.scan-table tr').length; const before = m.state.doc.project.parts.length; await m.actions.pmCommand('scan.make'); for (let i = 0; i < 100 && m.state.doc.project.parts.length === before; i++) await sleep(150); await sleep(1500); const kinds = {}; for (const f of m.state.partEntry.faces) kinds[f.geomType] = (kinds[f.geomType] ?? 0) + 1; const cyl = rep.regions.find((x) => x.kind === 'cylinder'); return JSON.stringify({ page, planes: rep.planes, cylinders: rep.cylinders, r8: cyl && Math.abs(cyl.r - 8) < 0.02 && cyl.coverage > 350 && cyl.convex === false, rows: rows === 1 + 7, parts: m.state.doc.project.parts.length, active: /fitted|면 맞춤/.test(m.active().name), kinds }); })()",
+  "expect": "\"page\":true,\"planes\":6,\"cylinders\":1,\"r8\":true,\"rows\":true,\"parts\":2,\"active\":true,\"kinds\":\\{\"PLANE\":6,\"CYLINDRE\":1\\}",
+  "shot": "scan"
+ },
+ {
+  "name": "recognize: an imported stepped plate with a hole becomes planes, sketches and extrudes; the Import feature suppressed; the same volume",
+  "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.actions.closeProject({ force: true }); await m.actions.newDocument('part', { blank: true }); await sleep(300); const { rep } = await import('/src/cad/kernel.js'); const { createFeature } = await import('/src/cad/features.js'); const R = rep(); const body = R.makeBox([0, 0, 0], [80, 50, 10]).fuse(R.makeBox([0, 0, 10], [30, 50, 18])).cut(R.makeCylinder(4, 40, [15, 25, -5], [0, 0, 1])); const v0 = R.measureVolume(body); m.actions.change('op.feature', (p) => { const part = p.parts.find((x) => x.id === p.active.id); part.features.push(createFeature(part, 'import', { brep: body.serialize(), source: 'plate.step', name: 'plate' })); }); await sleep(1200); await m.run('recognizeFeatures'); await sleep(2500); const f = m.active().features; const v1 = R.measureVolume(m.state.partEntry.body); return JSON.stringify({ suppressed: f.find((x) => x.type === 'import')?.suppressed, extrudes: f.filter((x) => x.type === 'extrude').length, cuts: f.filter((x) => x.op === 'cut').length, same: Math.abs(v1 / v0 - 1) < 1e-4 }); })()",
+  "expect": "\"suppressed\":true,\"extrudes\":3,\"cuts\":1,\"same\":true",
+  "shot": "recognize"
+ }
+]

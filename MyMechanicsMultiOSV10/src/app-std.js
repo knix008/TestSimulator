@@ -24,16 +24,17 @@ import { routeBom, routeSolid, routeSection, faceOffsetPoint } from './cad/routi
 import { harnessSolid, harnessBom, harnessModel, harnessFlat, harnessSvg, harnessDxf } from './cad/harness.js';
 import { editRouteTable, routeTableCommand, isRouteTableKey, ensureHarness } from './cad/route-edit.js';
 import { harnessWiresFromSchematic, mergeHarnessWires } from './cad/harness-link.js';
-import { stdShape } from './cad/stdparts.js';
+import { stdShape, PIPES } from './cad/stdparts.js';
 import { holeOfFace, fastenerPlan, holePattern, holeSeries, FASTENER_KINDS, NUT_KINDS } from './cad/fastener.js';
 import { createRenderTools } from './app-render.js';
+import { createPipeIsoTools } from './app-pipeiso.js';
 import { materialName } from './cad/materials.js';
 import { sizeControls, sizeTableHtml, stdSummary, placementGroup, routeSettings, routePoints as routePointsHtml, routeBomHtml, stdNames, routeBranches, harnessTables, harnessResults, harnessLabels } from './ui/pm-std.js';
 import { escapeHtml } from './ui/dom.js';
 import { select as selectHtml } from './ui/propertymanager.js';
 import { icon } from './icons.js';
 
-const MODES = new Set(['stdLibrary', 'smartFastener', 'asmRoute', 'render', 'harnessSheet']);
+const MODES = new Set(['stdLibrary', 'smartFastener', 'asmRoute', 'render', 'harnessSheet', 'pipeIsoSheet']);
 const ROUTE_MATERIAL = { pipe: 'steel-1020', tube: 'copper', cable: 'rubber', harness: 'rubber' };
 const round3 = (v) => Math.round(v * 1000) / 1000;
 
@@ -474,11 +475,40 @@ export function createStdTools(ctx) {
       routePointsHtml(A, e.f, { picking: true }),
       routeBranches(A, e.f),
       e.f.kind === 'harness' ? harnessTables(A, e.f, []) : '',
+      routingPointsGroup(e),
       pmGroup('pointTool', t('route.pickOptions'), pmNum('standoff', e.standoff, t('route.standoff'), 'smartDim', ctx.units())),
       e.error ? `<p class="pm-error">${icon('error')}<span>${escapeHtml(t(`rebuild.${e.error}`, null, e.error))}</span></p>` : '',
       routeBomHtml(A, e.bom),
       harnessResults(A, e.f, e.bom, []),
     ].join('');
+  }
+
+  /** Routing components' points the route can use: CPoints of its kind (start / end with a stub along them), RPoints. */
+  const routingPoints = (e) => (ctx.routingPoints?.() ?? []).filter((p) => p.routeType === e.f.kind || (p.role === 'route' && e.f.kind !== 'harness'));
+  function routingPointsGroup(e) {
+    const list = routingPoints(e);
+    if (!list.length) return '';
+    const { pmGroup } = ctx.pm;
+    const rows = list.map((p, i) => `<div class="cfg-row">${icon(p.role === 'route' ? 'pointTool' : 'connectionPoint', 'icon tiny')}<span class="grow">${escapeHtml(`${p.compName} · ${p.name}${p.role === 'route' ? '' : ` · ${typeof p.size === 'number' ? `Ø${p.size}` : p.size}`}`)}</span><button type="button" class="small-button" data-pm="std.routeCp:${i}" title="${escapeHtml(t(p.role === 'route' ? 'cp.addRPoint' : e.f.points.length ? 'cp.endHere' : 'cp.startHere'))}">${icon(p.role === 'route' ? 'plus' : 'connectionPoint', 'icon tiny')}<span>${escapeHtml(t(p.role === 'route' ? 'cp.addRPoint' : e.f.points.length ? 'cp.endHere' : 'cp.startHere'))}</span></button></div>`).join('');
+    return pmGroup('connectionPoint', t('cp.routingPoints'), `<div class="custom-list">${rows}</div><p class="pm-note">${escapeHtml(t('cp.routeNote'))}</p>`);
+  }
+  /** Uses a routing point: a CPoint starts the route (its size taken, a stub out along it) or ends it (stub, point). */
+  function useRoutingPoint(e, i) {
+    const p = routingPoints(e)[Number(i)];
+    if (!p) return;
+    if (p.role === 'route') { e.f.points.push(p.point.map(round3)); return ctx.renderLeft(); }
+    const od = e.f.kind === 'pipe' ? (PIPES[p.size]?.od ?? 30) : Number(p.size) || 10;
+    const stub = p.point.map((v, k) => round3(v + p.dir[k] * 1.5 * od));
+    if (!e.f.points.length) {
+      if (e.f.kind === 'pipe') e.f.dn = p.size; else if (e.f.kind === 'tube') e.f.od = Number(p.size); else e.f.diameter = Number(p.size);
+      e.f.points.push(p.point.map(round3), stub);
+      e.f.startConn = { comp: p.comp, name: p.name };
+    } else {
+      e.f.points.push(stub, p.point.map(round3));
+      e.f.endConn = { comp: p.comp, name: p.name };
+    }
+    notify('info', t('cp.used', { name: `${p.compName} · ${p.name}` }));
+    return ctx.renderLeft();
   }
 
   function asmRoutePick(hit, ev) {
@@ -542,6 +572,7 @@ export function createStdTools(ctx) {
     if (e.mode === 'asmRoute') return asmRoutePm(e);
     if (e.mode === 'render') return rnd.pm(e);
     if (e.mode === 'harnessSheet') return harnessSheetPm(e);
+    if (e.mode === 'pipeIsoSheet') return iso.pm(e);
     return '';
   }
 
@@ -555,6 +586,7 @@ export function createStdTools(ctx) {
   function field(key, raw, v) {
     const e = editing();
     if (e.mode === 'harnessSheet') { if (key === 'hsRowH' && v > 0) setSheetOption('rowH', Math.max(3, Math.min(12, v))); else ctx.renderLeft(); return; }
+    if (e.mode === 'pipeIsoSheet') { iso.field(key, v); return; }
     if (e.mode === 'render') return rnd.field(key, raw, v);
     if (e.mode === 'asmRoute' && isRouteTableKey(key)) { if (editRouteTable(e.f, key, raw, v) === 'invalid') notify('error', t('notice.invalidValue', { text: raw })); ctx.renderLeft(); return; }
     if (v == null) { notify('error', t('notice.invalidValue', { text: raw })); ctx.renderLeft(); return; }
@@ -608,6 +640,7 @@ export function createStdTools(ctx) {
     const e = editing();
     if (e.mode === 'render') { rnd.toggle(key, checked); return; }
     if (e.mode === 'harnessSheet') { const k = { hsAuto: 'auto', hsMirror: 'mirror', hsWires: 'showWires', hsConnectors: 'showConnectors' }[key]; if (k) setSheetOption(k, checked); return; }
+    if (e.mode === 'pipeIsoSheet') { iso.toggle(key, checked); return; }
     if (e.mode === 'stdLibrary') e.p[key] = checked;
     else e[key] = checked;
     ctx.renderLeft();
@@ -629,6 +662,7 @@ export function createStdTools(ctx) {
     }
     if (e?.mode === 'render') return rnd.select(key, value);
     if (e?.mode === 'harnessSheet' && key === 'hsScale') { setSheetOption('scale', value === 'auto' ? 'auto' : Number(value)); return true; }
+    if (e?.mode === 'pipeIsoSheet' && iso.select(key, value)) return true;
     if (isRouteTableKey(key)) {
       const num = Number(value);
       if (e?.mode === 'asmRoute') { editRouteTable(e.f, key, value, Number.isFinite(num) ? num : null); ctx.renderLeft(); return true; }
@@ -681,7 +715,7 @@ export function createStdTools(ctx) {
     if (e?.mode === 'asmRoute') { ctx.viewport()?.setPreview(null); previewKey = ''; }
   }
 
-  const COMMAND_NAMES = new Set(['std.insert', 'std.render', 'std.renderStop', 'std.renderSave', 'fastener.delete', 'std.harnessUpdate']);
+  const COMMAND_NAMES = new Set(['std.insert', 'std.render', 'std.renderStop', 'std.renderSave', 'fastener.delete', 'std.harnessUpdate', 'std.isoUpdate', 'std.routeCp']);
   function handles(name) { return COMMAND_NAMES.has(name) || rnd.handles(name) || (owns(editing()) && ['addPt3', 'delPt3', 'clear', 'routeEdit'].includes(name)) || (name === 'routeEdit' && routeFeature(editing())); }
 
   /** The flattened harness of the route being edited, saved as SVG or DXF (export path, file dialog). */
@@ -711,6 +745,7 @@ export function createStdTools(ctx) {
 
   const sheetLabels = () => ({ ...harnessLabels(t), clips: t('harness.clips') });
   const activeDrw = () => (ctx.project()?.active?.kind === 'drawing' ? ctx.project().drawings.find((d) => d.id === ctx.project().active.id) ?? null : null);
+  const iso = createPipeIsoTools(ctx, { begin, activeDrw, part, asm, editing });
 
   /** Builds the sheet of annotation `ann` (on drawing `d`) from its harness; throws the rebuild error codes. */
   function rebuildHarnessSheet(d, ann, src) {
@@ -853,6 +888,8 @@ export function createStdTools(ctx) {
     if (rnd.handles(name)) return rnd.command(name, arg);
     if (name === 'routeEdit') return routeEdit(arg);
     if (name === 'std.harnessUpdate') return updateSheet();
+    if (name === 'std.isoUpdate') return iso.update();
+    if (name === 'std.routeCp' && e?.mode === 'asmRoute') return useRoutingPoint(e, arg);
     if (e?.mode === 'asmRoute') {
       if (name === 'addPt3') { const last = e.f.points.at(-1) ?? [0, 0, 0]; e.f.points.push([last[0] + 50, last[1], last[2]]); }
       if (name === 'delPt3') e.f.points.splice(Number(arg), 1);
@@ -862,7 +899,7 @@ export function createStdTools(ctx) {
     return undefined;
   }
 
-  const subject = (e) => t({ stdLibrary: 'cmd.stdLibrary', smartFastener: 'cmd.smartFastener', asmRoute: `cmd.${e.f?.kind ?? 'pipe'}Route`, render: 'cmd.renderView', harnessSheet: 'cmd.harnessDrawing' }[e.mode]);
+  const subject = (e) => t({ stdLibrary: 'cmd.stdLibrary', smartFastener: 'cmd.smartFastener', asmRoute: `cmd.${e.f?.kind ?? 'pipe'}Route`, render: 'cmd.renderView', harnessSheet: 'cmd.harnessDrawing', pipeIsoSheet: 'cmd.pipeIso' }[e.mode]);
 
   // ───────────────────────── commands
 
@@ -876,16 +913,17 @@ export function createStdTools(ctx) {
     cableRoute: { icon: 'cableRoute', label: 'cmd.cableRoute', enabled: docOpen, run: () => startRoute('cable') },
     harnessRoute: { icon: 'harnessRoute', label: 'cmd.harnessRoute', enabled: docOpen, run: () => startRoute('harness') },
     harnessDrawing: { icon: 'harnessFlat', label: 'cmd.harnessDrawing', enabled: () => Boolean(harnessSource() || activeDrw()?.annotations?.some((x) => x.kind === 'drwHarness')), checked: () => editing()?.mode === 'harnessSheet', run: () => (editing()?.mode === 'harnessSheet' ? ctx.cancelEditing({ quiet: true }) : harnessDrawing()) },
+    pipeIso: iso.command,
     renderView: { icon: 'renderView', label: 'cmd.renderView', enabled: docOpen, checked: () => editing()?.mode === 'render', run: toggleMode('render', startRender) },
   };
 
   /** The CommandManager tab of these tools. */
-  const TAB = ['stdLibrary', 'smartFastener', '|', 'pipeRoute', 'tubeRoute', 'cableRoute', 'harnessRoute', 'harnessDrawing', '|', 'renderView'];
-  const SUBMENU = { icon: 'stdLibrary', items: ['stdLibrary', 'smartFastener', '-', 'pipeRoute', 'tubeRoute', 'cableRoute', 'harnessRoute', 'harnessDrawing'] };
+  const TAB = ['stdLibrary', 'smartFastener', '|', 'pipeRoute', 'tubeRoute', 'cableRoute', 'harnessRoute', 'harnessDrawing', 'pipeIso', '|', 'renderView'];
+  const SUBMENU = { icon: 'stdLibrary', items: ['stdLibrary', 'smartFastener', '-', 'pipeRoute', 'tubeRoute', 'cableRoute', 'harnessRoute', 'harnessDrawing', 'pipeIso'] };
 
   return {
     commands, TAB, SUBMENU, owns, pm, pick, field, step, set, toggle, select, featureSet, featureField, accept, cleanup, handles, command, subject,
-    startLibrary, startRoute, insertLibrary, harnessDrawing, syncHarnessDrawings, fastenerPick, editFastener, deleteFastener, rerender, saveRender,
+    startLibrary, startRoute, insertLibrary, harnessDrawing, syncHarnessDrawings, pipeIso: iso, syncPipeIsoDrawings: (d) => iso.sync(d), fastenerPick, editFastener, deleteFastener, rerender, saveRender,
     get photo() { return rnd.photo; },
     get renderSettings() { return rnd.renderSettings; },
     setSaveHook(fn) { rnd.setSaveHook(fn); },

@@ -127,6 +127,12 @@ function radiusOf(f, body, edge) {
 
 /** A 2D point list of a quadratic rational (conic) or a quintic (G2) blend from a to b with corner c. */
 function blendPoles(a, c, b, profile, rho) {
+  if (profile === 'circular') {
+    // The arc tangent to both lines: its middle weight is the sine of half the angle at the corner.
+    const u = normalize(sub(a, c)); const v = normalize(sub(b, c));
+    const ang = Math.acos(Math.max(-1, Math.min(1, dot(u, v))));
+    return { poles: [a, c, b], weights: [1, Math.sin(ang / 2), 1] };
+  }
   if (profile === 'conic') { const r = Math.max(0.01, Math.min(0.99, rho)); return { poles: [a, c, b], weights: [1, r / (1 - r), 1] }; }
   // Curvature continuous: three poles on each tangent line (zero curvature where it meets the flat faces).
   const along = (p, q, k) => add(p, mul(sub(q, p), k));
@@ -269,6 +275,24 @@ function generalProfileFillet(body, orig, edge, r, profile, rho) {
     res = convex ? res.cut(piece) : res.fuse(piece);
   }
   return res;
+}
+
+/**
+ * A circular round on straight edges between planes built from the planes themselves (not bounded by the faces):
+ * the round where the kernel's fillet cannot go because it overflows its faces. Returns the body with the rounds
+ * cut (convex) or added (concave); `clip(edge)` (keep edge) limits each round's material to a region.
+ */
+export function planarRounds(body, edges, radiusOf, clip = null) {
+  let out = body;
+  for (const edge of edges) {
+    const faces = facesOfEdge(body, edge);
+    if (edge.geomType !== 'LINE' || faces.length !== 2 || !faces.every((fc) => fc.geomType === 'PLANE')) throw codeError('overflow-unsupported');
+    const t = profileFillet(body, edge, radiusOf(edge), 'circular', 0.5);
+    let tool = t.tool;
+    if (clip) { const z = clip(edge); if (z) tool = tool.intersect(z); }
+    out = t.convex ? out.cut(tool) : out.fuse(tool);
+  }
+  return out;
 }
 
 /** The fillet with the options above. */

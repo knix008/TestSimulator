@@ -38,7 +38,7 @@ const axes3 = (key, value) => seg(key, [['x', 'X'], ['y', 'Y'], ['z', 'Z'], ...(
 const dirs6 = (key, value) => seg(key, [['x', '+X'], ['-x', '−X'], ['y', '+Y'], ['-y', '−Y'], ['z', '+Z'], ['-z', '−Z']], value);
 const ofType = (api, f, types) => before(api, f).filter((x) => types.includes(x.type) && !x.suppressed);
 /** Feature types that make surface bodies (a split line by intersection can use them). */
-const SURFACE_LIKE = ['surfaceExtrude', 'surfaceRevolve', 'surfacePlanar', 'surfaceLoft', 'surfaceOffset', 'surfaceSweep', 'knit', 'fillSurface', 'boundary', 'trimSurface', 'ruledSurface', 'extendSurface', 'surfaceSpline', 'radiateSurface'];
+const SURFACE_LIKE = ['surfaceFillet', 'surfaceExtrude', 'surfaceRevolve', 'surfacePlanar', 'surfaceLoft', 'surfaceOffset', 'surfaceSweep', 'knit', 'fillSurface', 'boundary', 'trimSurface', 'ruledSurface', 'extendSurface', 'surfaceSpline', 'radiateSurface'];
 const planeOptions = (api, f) => [['std:front', api.t('plane.front')], ['std:top', api.t('plane.top')], ['std:right', api.t('plane.right')], ...ofType(api, f, ['plane']).map((p) => [`ref:${p.id}`, p.name, 'refPlane'])];
 const sketchOptions = (api, f, test) => [['', `— ${api.t('pm.chooseSketch')} —`], ...before(api, f).filter((x) => x.type === 'sketch' && !x.suppressed && test(x)).map((s) => [s.id, s.name, 'featSketch'])];
 const hasCurves = (s) => s.entities.some((k) => k.type !== 'point' && !k.construction);
@@ -196,7 +196,21 @@ export const PART_MORE_PM = {
   deform(api, f) {
     const { t } = api;
     const pts = ofType(api, f, ['refPoint']);
+    const kind = f.kind ?? 'point';
+    const kinds = group('deform', t('df.kind'), seg('kind', [['point', t('df.point'), 'refPoint'], ['curve', t('df.curve'), 'sketch3d'], ['push', t('df.push'), 'moveFace']], kind));
+    if (kind === 'curve') {
+      // Pairs: initial curve i → target curve i.
+      const curves = [...(api.sketchList?.(f, 'path') ?? []).map((x) => [x.id, x.name, 'featSketch']), ...(api.curveList?.(f) ?? []).map((x) => [x.id, x.name, 'sketch3d'])];
+      const from = f.curvesFrom ?? []; const to = f.curvesTo ?? [];
+      const rows = [...from.map((id, i) => `${select(`dfFrom:${i}`, [['', `— ${t('pm.none')} —`], ...curves], id, `${t('df.initial')} ${i + 1}`)}${select(`dfTo:${i}`, [['', `— ${t('pm.none')} —`], ...curves], to[i] ?? '', `${t('df.target')} ${i + 1}`)}`), `${select(`dfFrom:${from.length}`, [['', `— ${t('df.addPair')} —`], ...curves], '', `${t('df.initial')} ${from.length + 1}`)}`].join('');
+      return [kinds, group('sketch3d', t('df.pairs'), rows), group('deform', t('pm.parameters'), `${field(api, 'radius', f.radius, { label: t('pm.deformRadius'), glyph: 'dimRadius', min: 0.01 })}${note(t('df.help.curve'))}${note(t('pm.help.faceted'))}`)].join('');
+    }
+    if (kind === 'push') {
+      const tools = ofType(api, f, ['extrude', 'revolve', 'loft', 'sweep', 'insertPart']).map((x) => [x.id, x.name, 'featExtrude']);
+      return [kinds, group('moveFace', t('df.tool'), `${select('tool', [['', `— ${t('df.toolBody')} —`], ...tools], f.tool ?? '', t('df.toolBody'))}${dirs6('dir', f.dir ?? '-z')}`), group('deform', t('pm.parameters'), `${field(api, 'radius', f.radius, { label: t('df.smooth'), glyph: 'dimRadius', min: 0.01 })}${note(t('df.help.push'))}${note(t('pm.help.faceted'))}`)].join('');
+    }
     return [
+      kinds,
       group('refPoint', t('pm.deformPoint'), `${select('pointRef', [['', t('pm.coordinates')], ...pts.map((p) => [p.id, p.name, 'refPoint'])], f.pointRef ?? '', t('pm.refPoint'))}${f.pointRef ? '' : xyz(api, f, ['x', 'y', 'z'])}`),
       group('deform', t('pm.parameters'), `${dirs6('dir', f.dir ?? 'z')}${field(api, 'amount', f.amount, { label: t('pm.deformDistance') })}${field(api, 'radius', f.radius, { label: t('pm.deformRadius'), glyph: 'dimRadius', min: 0.01 })}${note(t('pm.help.faceted'))}`),
     ].join('');
@@ -319,6 +333,27 @@ export const PART_MORE_PM = {
     const rows = list.map(([id, name, glyph]) => { const at = chosen.indexOf(id); return `<label class="pm-check"><input type="checkbox" data-pm-toggle="curv:${escapeHtml(id)}" ${at >= 0 ? 'checked' : ''}/>${icon(glyph)}<span>${escapeHtml(name)}${at >= 0 ? ` <b class="pm-order">${at + 1}</b>` : ''}</span></label>`; }).join('');
     return group('compositeCurve', t('pm.entitiesToJoin'), `<div class="pm-checklist">${rows || note(t('pm.nothingToChoose'))}</div>${pickBox(api, 'edges', edgeItems(api, f.edges), t('pm.edges'), 'lineTool')}`);
   },
+  surfaceFillet(api, f) {
+    const { t } = api;
+    const list = ofType(api, f, SURFACE_LIKE).map((x) => [x.id, x.name, 'surface']);
+    return [
+      group('surfaceFillet', t('sfl.surfaces'), `${select('surfaceA', [['', `— ${t('pm.chooseSurface')} —`], ...list], f.surfaceA ?? '', t('sfl.a'))}${check('flipA', f.flipA, t('sfl.flipA'), 'flipV')}${select('surfaceB', [['', `— ${t('pm.chooseSurface')} —`], ...list.filter(([id]) => id !== f.surfaceA)], f.surfaceB ?? '', t('sfl.b'))}${check('flipB', f.flipB, t('sfl.flipB'), 'flipV')}`),
+      group('surfaceFillet', t('pm.parameters'), `${field(api, 'radius', f.radius, { label: t('pm.radius'), glyph: 'dimRadius', min: 0.001 })}${note(t('sfl.help'))}`),
+    ].join('');
+  },
+  freeform(api, f) {
+    const { t } = api;
+    const nu = Math.max(3, Math.round(Number(f.nu) || 4)); const nv = Math.max(3, Math.round(Number(f.nv) || 4));
+    const fixed = f.continuity === 'tangent' ? 2 : 1;
+    const d = (i, j) => (f.points ?? []).find((p) => p.i === i && p.j === j)?.d ?? 0;
+    let grid = '';
+    for (let j = nv - 1 - fixed; j >= fixed; j--) for (let i = fixed; i <= nu - 1 - fixed; i++) grid += field(api, `ffp:${i}:${j}`, d(i, j), { label: `P(${i}, ${j})`, glyph: 'pointTool' });
+    return [
+      group('freeform', t('pm.selections'), `${pickBox(api, 'face', f.face ? faceItems(api, [f.face]) : [], t('ff.face'), 'part')}${note(t('ff.help'))}`),
+      group('freeform', t('ff.grid'), `${field(api, 'nu', nu, { label: t('ff.nu'), unit: 'count', glyph: 'tablePattern', min: 3, step: 1 })}${field(api, 'nv', nv, { label: t('ff.nv'), unit: 'count', glyph: 'tablePattern', min: 3, step: 1 })}${seg('continuity', [['contact', t('ff.contact'), 'close'], ['tangent', t('bnd.tan.face'), 'relTangent']], f.continuity ?? 'contact')}`),
+      group('pointTool', t('ff.points'), grid || note(t('ff.noInner'))),
+    ].join('');
+  },
   surfaceSpline(api, f) {
     const { t } = api;
     return [group('surfaceSpline', t('pm.selections'), `${pickBox(api, 'face', f.face ? faceItems(api, [f.face]) : [], t('ssp.face'), 'part')}${note(t('ssp.help'))}`), table(api, f, t('pm.curvePoints')), group('surfaceSpline', t('pm.options'), check('closed', f.closed, t('pm.closedCurve'), 'refresh'))].join('');
@@ -371,7 +406,8 @@ export function startParams(type, part, sel, featuresBefore) {
       params.sketch = s.id; params.faces = sel.faces; pick = 'faces';
       break;
     }
-    case 'surfaceSpline': { const fc = sel.faces[0]; if (fc) params.face = fc; pick = 'face'; break; }
+    case 'surfaceFillet': { const s = feats.filter((x) => SURFACE_LIKE.includes(x.type)).slice(-2); if (s.length === 2) { params.surfaceA = s[0].id; params.surfaceB = s[1].id; } break; }
+    case 'surfaceSpline': case 'freeform': { const fc = sel.faces[0]; if (fc) params.face = fc; pick = 'face'; break; }
     case 'compositeCurve': params.curves = feats.filter((f) => ['sketch', 'sketch3d', 'helix', 'curveXYZ', 'projectedCurve'].includes(f.type)).map((f) => f.id); params.edges = sel.edges; pick = 'edges'; break;
     case 'deleteBody': params.bodies = []; break;
     case 'mountingBoss': case 'snapHook': case 'lipGroove': {

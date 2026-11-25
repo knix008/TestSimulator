@@ -23,6 +23,46 @@ export function edgesAt(body, v, tol = 1e-6) {
   return out;
 }
 
+/**
+ * Fillet overflow "keep edge": the material the round takes away (convex edges) or adds (concave ones) is kept to
+ * the region under the edge's two faces (each face thickened inward by a few radii) — where the round would have
+ * rolled over onto a neighbouring face, that face and its edge stay as they were.
+ */
+export function keepEdgeOverflow(orig, filleted, edges, r) {
+  let allowed = null;
+  for (const e of edges) { const zone = edgeZone(orig, e, r); if (zone) allowed = allowed ? allowed.fuse(zone) : zone; }
+  if (!allowed) return filleted;
+  const removed = orig.clone().cut(filleted).intersect(allowed);
+  const added = filleted.clone().cut(orig).intersect(allowed);
+  return orig.clone().cut(removed).fuse(added);
+}
+
+/** The region over and under an edge's two faces (each face thickened both ways by 3 r): where its round may act. */
+export function edgeZone(orig, e, r) {
+  const R = rep(); const oc = R.getOC();
+  {
+    const faces = orig.faces.filter((fc) => fc.edges.some((x) => x.isSame(e)));
+    if (faces.length !== 2) return null;
+    let zone = null;
+    for (const fc of faces) {
+      const mk = new oc.BRepOffsetAPI_MakeThickSolid();
+      mk.MakeThickSolidBySimple(fc.wrapped, -3 * r);
+      mk.Build(new oc.Message_ProgressRange());
+      if (!mk.IsDone()) { mk.delete(); zone = null; break; }
+      let slab = R.cast(mk.Shape()); mk.delete();
+      try { if (R.measureVolume(slab) < 0) slab = R.cast(slab.wrapped.Reversed()); } catch { /* keep */ }
+      // Both ways (a concave edge's added material is outside the body, over the faces).
+      const mk2 = new oc.BRepOffsetAPI_MakeThickSolid();
+      mk2.MakeThickSolidBySimple(fc.wrapped, 3 * r);
+      mk2.Build(new oc.Message_ProgressRange());
+      if (mk2.IsDone()) { let s2 = R.cast(mk2.Shape()); try { if (R.measureVolume(s2) < 0) s2 = R.cast(s2.wrapped.Reversed()); } catch { /* keep */ } slab = slab.fuse(s2); }
+      mk2.delete();
+      zone = zone ? zone.intersect(slab) : slab;
+    }
+    return zone;
+  }
+}
+
 /** A half-space solid: the side of the plane through p with normal n that n points away from (a big box). */
 function halfSpace(p, n, big) {
   const R = rep();

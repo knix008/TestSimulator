@@ -101,6 +101,12 @@ export function velocityAt(flow, p) {
 function cellValue(flow, quantity) {
   const { vel, rho, temp, dims, solid, h } = flow;
   const scaleV = flow.velocity / flow.uLat, q = flow.fluid.density * scaleV * scaleV;
+  // A compressible (Euler) result carries its own pressure (gauge to the free stream), temperature and Mach number.
+  if (flow.compressible) {
+    if (quantity === 'pressure') return (s) => flow.p[s] - flow.pInf;
+    if (quantity === 'temperature') return (s) => flow.T[s] - 273.15;
+    if (quantity === 'mach') return (s) => flow.mach[s];
+  }
   if (quantity === 'pressure') return (s) => ((rho[s] - 1) / 3) * q;
   if (quantity === 'temperature') return (s) => (temp ? temp[s] : 0);
   if (quantity === 'vorticity') {

@@ -1,0 +1,33 @@
+[
+ {
+  "name": "iso: kernel",
+  "eval": "window.__mymechanics.actions.ensureKernel().then(() => 'ready')",
+  "expect": "^ready$"
+ },
+ {
+  "name": "iso: a part with a DN50 pipe route (elbow, tee branch going up, flanges at the ends)",
+  "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.actions.closeProject({ force: true }); await m.actions.newDocument('part', { blank: true }); await sleep(300); const { createFeature } = await import('/src/cad/features.js'); m.actions.change('op.feature', (p) => { const part = p.parts.find((x) => x.id === p.active.id); part.features.push(createFeature(part, 'route', { kind: 'pipe', dn: 'DN50', fittings: 'elbows', flanges: 'both', points: [[0, 0, 0], [3000, 0, 0], [3000, 2000, 0]], branches: [{ points: [[1500, 0, 0], [1500, 0, 1000]] }] })); }); await sleep(2500); return JSON.stringify({ route: m.active().features.some((f) => f.type === 'route'), enabled: Boolean(m.commands.pipeIso?.enabled?.() ?? true) }); })()",
+  "expect": "\"route\":true"
+ },
+ {
+  "name": "iso: Pipe ISO makes a drawing with the isometric, the spool / BOM / weld tables and its edit page",
+  "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.run('pipeIso'); await sleep(1200); const d = m.project.drawings.at(-1); const ann = d.annotations.find((a) => a.kind === 'drwPipeIso'); const tables = d.annotations.filter((a) => a.kind === 'drwTable' && a.pipeIso === ann?.id).map((t) => t.role); return JSON.stringify({ kind: m.project.active.kind, iso: Boolean(ann), tables, mode: m.state.editing?.mode, spools: ann?.iso.spools.length, welds: ann?.iso.shopWelds, page: Boolean(document.querySelector('[data-pm-field=\"isoMaxSpool\"]')), status: document.querySelector('[data-iso-status]')?.dataset.isoStatus }); })()",
+  "expect": "\"kind\":\"drawing\",\"iso\":true,\"tables\":\\[\"spools\",\"bom\",\"welds\"\\],\"mode\":\"pipeIsoSheet\",\"spools\":1,\"welds\":8,\"page\":true,\"status\":\"current\""
+ },
+ {
+  "name": "iso: a 2.5 m maximum spool length adds field welds and spools; the sheet shows FW marks and spool numbers",
+  "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); m.actions.pmFieldChanged('isoMaxSpool', '2500'); await sleep(800); const d = m.project.drawings.at(-1); const ann = d.annotations.find((a) => a.kind === 'drwPipeIso'); const svg = document.querySelector('.drawing-sheet svg, svg.drawing-sheet, #drawing svg, .drawing svg'); const text = svg ? svg.textContent : document.body.innerText; const T = d.annotations.filter((a) => a.kind === 'drwTable' && a.pipeIso === ann.id), box = (t) => [t.x, t.y, t.x + t.colW.reduce((s, w) => s + w, 0), t.y + (t.title ? t.rowH : 0) + t.rowH * t.rows]; const overlap = T.some((a, i) => T.some((b, j) => j > i && box(a)[0] < box(b)[2] && box(b)[0] < box(a)[2] && box(a)[1] < box(b)[3] && box(b)[1] < box(a)[3])); const inside = !overlap && d.annotations.filter((a) => a.kind === 'drwTable' && a.pipeIso === ann.id).every((t) => t.y + (t.title ? t.rowH : 0) + t.rowH * t.rows <= 297 - 10); return JSON.stringify({ inside, spools: ann.iso.spools.length > 1, fw: ann.iso.fieldWelds.length >= 2, svgFW: /FW/.test(text), svgS2: /S2/.test(text), rows: d.annotations.find((a) => a.role === 'spools' && a.pipeIso === ann.id).rows === ann.iso.spools.length + 1 }); })()",
+  "expect": "\"inside\":true,\"spools\":true,\"fw\":true,\"svgFW\":true,\"svgS2\":true,\"rows\":true"
+ },
+ {
+  "name": "iso: the whole sheet",
+  "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.run('zoomFit'); await sleep(600); return /ann\\.drwPipeIso/.test(document.body.innerText) ? 'raw key' : 'ok'; })()",
+  "expect": "^ok$",
+  "shot": "iso"
+ },
+ {
+  "name": "iso: the sheet follows the route (DN50 → DN80 updates the BOM)",
+  "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const part = m.project.parts[0]; m.actions.change('op.feature', () => { part.features.find((f) => f.type === 'route').dn = 'DN80'; }); await sleep(300); m.actions.switchDocument?.({ kind: 'part', id: part.id }); await sleep(800); const d = m.project.drawings.at(-1); m.actions.switchDocument?.({ kind: 'drawing', id: d.id }); await sleep(1200); const bom = d.annotations.find((a) => a.role === 'bom'); return JSON.stringify({ dn80: bom.cells.flat().some((c) => /DN80/.test(c)), crashed: /예기치 않은 오류|Unexpected error/.test(document.body.innerText) }); })()",
+  "expect": "\"dn80\":true,\"crashed\":false"
+ }
+]

@@ -44,6 +44,7 @@ export const ICONS_DRW = {
   compareDocs: '<rect x="3" y="5" width="10" height="14" rx="1"/><rect x="11" y="3" width="10" height="14" rx="1" opacity="0.7"/><path d="M6 10h4M6 13h4M14 8h4M14 11h4"/>',
   costing: '<circle cx="12" cy="12" r="9"/><path d="M15 8.5c-.6-1-1.8-1.5-3-1.5-1.8 0-3 .9-3 2.3 0 3.2 6 1.6 6 4.8 0 1.4-1.3 2.4-3 2.4-1.4 0-2.6-.6-3.2-1.6M12 5v2M12 17v2"/>',
   sustainability: '<path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14z" fill="currentColor" opacity="0.3"/><path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14zM5 19l8-8"/>',
+  sideCore: '<rect x="3" y="6" width="12" height="12" rx="1" opacity="0.5"/><rect x="11" y="9" width="10" height="6" rx="1"/><path d="M17 12h5M20 10l2 2-2 2"/>',
   shutOff: '<rect x="3" y="8" width="18" height="8" rx="1"/><circle cx="12" cy="12" r="2.6" fill="currentColor" opacity="0.45"/><circle cx="12" cy="12" r="2.6"/><path d="M12 3v3M12 18v3" opacity="0.6"/>',
   partingSurface: '<path d="M2 13l5-3h10l5 3-5 3H7z" fill="currentColor" opacity="0.25"/><path d="M2 13l5-3h10l5 3-5 3H7z"/><path d="M8 10V5h8v5" opacity="0.7"/><path d="M12 19v3M10 20.5l2 1.5 2-1.5" />',
   timer: '<circle cx="12" cy="13" r="8"/><path d="M12 13V9M10 2h4M18 6l1.5-1.5"/>',

@@ -37,6 +37,7 @@ export const ICONS_STD = {
   pipeFlange: '<rect x="3" y="4" width="5" height="16" rx="1"/><path d="M8 8h12M8 16h12"/><circle cx="5.5" cy="7" r="0.9" fill="currentColor"/><circle cx="5.5" cy="17" r="0.9" fill="currentColor"/>',
   pipeBend: '<path d="M4 20v-6a8 8 0 0 1 8-8h8" stroke-width="3.2" opacity="0.35"/><path d="M4 20v-6a8 8 0 0 1 8-8h8"/><path d="M8 14a4 4 0 0 1 4-4" stroke-dasharray="1.5 1.5"/>',
   // ── routing
+  pipeIso: '<path d="M3 17l6-3.5v-7L15 3"/><path d="M9 13.5l6 3.5 6-3.5"/><circle cx="9" cy="6.5" r="1.1" fill="currentColor"/><circle cx="9" cy="13.5" r="1.1" fill="currentColor"/><path d="M13 19h8M13 21.5h5" stroke-width="1"/>',
   pipeRoute: '<path d="M3 20h5a3 3 0 0 0 3-3V8a3 3 0 0 1 3-3h7" stroke-width="3.4" opacity="0.3"/><path d="M3 20h5a3 3 0 0 0 3-3V8a3 3 0 0 1 3-3h7"/><circle cx="3" cy="20" r="1.4" fill="currentColor"/><circle cx="21" cy="5" r="1.4" fill="currentColor"/>',
   tubeRoute: '<path d="M3 18c4 0 4-6 8-6s4-6 10-6" stroke-width="2.8" opacity="0.3"/><path d="M3 18c4 0 4-6 8-6s4-6 10-6"/><path d="M3 15v6M21 3v6" opacity="0.6"/>',
   cableRoute: '<path d="M3 6c5 0 4 6 9 6s4 6 9 6" stroke-width="2.6"/><rect x="1.5" y="4" width="3" height="4" rx="0.8"/><rect x="19.5" y="16" width="3" height="4" rx="0.8"/>',

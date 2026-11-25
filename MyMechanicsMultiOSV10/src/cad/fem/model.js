@@ -296,6 +296,12 @@ const normFixture = (f) => (typeof f === 'object' && f && !Array.isArray(f) ? { 
  *   roller        the normal component 0 (planar or curved faces: per-node normal frames) — also symmetry planes
  *   displacement  value [ux, uy, uz] with null for a free component (global axes)
  *   elastic       a distributed spring k (N/mm³) on the face (stiffness only)
+ *   hinge         a cylindrical face held radially and axially, free to turn about its axis (a fixed hinge / pin)
+ *   cylindrical   a cylindrical face's radial / circumferential / axial displacement given ({ radial, circumferential,
+ *                 axial }: a value in mm, or null for free) in the cylinder's own frame
+ *   cyclic        (tied by the study: the faceB side follows the faceId side turned by the sector angle)
+ *   field         every node takes the displacement of another static result there ({ source: { model,
+ *                 displacement } }, interpolated in its mesh) — the cut faces of a submodel
  */
 export function fixtureData(model, fixtures) {
   const ndof = 3 * model.nn, fixed = new Uint8Array(ndof), value = new Float64Array(ndof), frames = new Map(), springs = [];
@@ -305,7 +311,38 @@ export function fixtureData(model, fixtures) {
     const faces = selectFaces(model, fx.body != null ? { body: fx.body, faceId: fx.faceId } : fx.faceId);
     if (!faces.length) return;
     if (fx.type === 'elastic') { springs.push({ faces, k: Number(fx.stiffness ?? fx.k) || 0 }); count++; return; }
+    if (fx.type === 'cyclic') return;
     const nodes = onFaceNodes(model, faces);
+    if (fx.type === 'field') {
+      const src = fx.source;
+      if (!src?.model || !src.displacement) return;
+      for (const n of nodes) {
+        const r = probe(src.model, [model.nodes[3 * n], model.nodes[3 * n + 1], model.nodes[3 * n + 2]], { u: [src.displacement, 3] });
+        if (r.element < 0) continue;
+        frames.delete(n);
+        for (let c = 0; c < 3; c++) { fixed[3 * n + c] = 1; value[3 * n + c] = r.values.u[c]; }
+        owner[n] = i;
+      }
+      count++;
+      return;
+    }
+    if (fx.type === 'hinge' || fx.type === 'cylindrical') {
+      // The cylinder's frame at each node: radial, circumferential, axial (rows).
+      const cyl = cylinderOfFaces(model, faces);
+      if (!cyl) return;
+      const want = fx.type === 'hinge' ? { radial: 0, circumferential: null, axial: 0 } : { radial: fx.radial ?? null, circumferential: fx.circumferential ?? null, axial: fx.axial ?? null };
+      const vals = [want.radial, want.circumferential, want.axial];
+      for (const n of nodes) {
+        if (frames.has(n) || (fixed[3 * n] && fixed[3 * n + 1] && fixed[3 * n + 2])) continue;
+        const R = cylinderFrame(cyl, [model.nodes[3 * n], model.nodes[3 * n + 1], model.nodes[3 * n + 2]]);
+        if (!R) continue;
+        frames.set(n, R);
+        for (let c = 0; c < 3; c++) if (vals[c] != null && Number.isFinite(Number(vals[c]))) { fixed[3 * n + c] = 1; value[3 * n + c] = Number(vals[c]); }
+        owner[n] = i;
+      }
+      count++;
+      return;
+    }
     if (fx.type === 'roller' || fx.type === 'symmetry') {
       // A planar face keeps one normal for all its nodes (symmetry planes); curved faces use per-node normals.
       const st = cadFaceStats(model, faces) ?? faceStats(model, faces), flat = st.flatness > 0.995;
@@ -333,6 +370,108 @@ export function fixtureData(model, fixtures) {
     count++;
   });
   return { fixed, value, frames, springs, count, owner };
+}
+
+/** Eigen decomposition of a symmetric 3×3 (row-major) by Jacobi rotations: { values, vectors (columns) }. */
+export function eigenSym3(A) {
+  const a = Array.from(A); const v = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+  for (let sweep = 0; sweep < 50; sweep++) {
+    const off = a[1] ** 2 + a[2] ** 2 + a[5] ** 2;
+    if (off < 1e-30) break;
+    for (const [p, q] of [[0, 1], [0, 2], [1, 2]]) {
+      const apq = a[3 * p + q];
+      if (Math.abs(apq) < 1e-300) continue;
+      const th = (a[3 * q + q] - a[3 * p + p]) / (2 * apq);
+      const t = Math.sign(th || 1) / (Math.abs(th) + Math.sqrt(th * th + 1)); const c = 1 / Math.sqrt(t * t + 1); const s = t * c;
+      for (let k = 0; k < 3; k++) { const akp = a[3 * k + p], akq = a[3 * k + q]; a[3 * k + p] = c * akp - s * akq; a[3 * k + q] = s * akp + c * akq; }
+      for (let k = 0; k < 3; k++) { const apk = a[3 * p + k], aqk = a[3 * q + k]; a[3 * p + k] = c * apk - s * aqk; a[3 * q + k] = s * apk + c * aqk; }
+      for (let k = 0; k < 3; k++) { const vkp = v[3 * k + p], vkq = v[3 * k + q]; v[3 * k + p] = c * vkp - s * vkq; v[3 * k + q] = s * vkp + c * vkq; }
+    }
+  }
+  return { values: [a[0], a[4], a[8]], vectors: v };
+}
+
+/**
+ * The cylinder of faces (from the nodes and their normals): the axis is the direction the normals have least of
+ * (they are all square to it), its point the centre of the circle fitted (least squares) to the nodes seen along
+ * it. { point, dir, radius } or null.
+ */
+export function cylinderOfFaces(model, faces) {
+  // The straight corner triangles of the faces: their normals are square to the axis (mid-edge nodes lie on chords).
+  // A few triangles at the face's edges can be another face's (the mesher's labels there): the fit is repeated
+  // without the triangles that are not square to the axis found and the corners off its circle.
+  // The CAD faces' own triangles (their corners are on the surface) when the model keeps them, else the mesh's.
+  const npf = model.faces.npf;
+  let tris = [];
+  const push = (ids, P) => {
+    const u = [P[1][0] - P[0][0], P[1][1] - P[0][1], P[1][2] - P[0][2]], v = [P[2][0] - P[0][0], P[2][1] - P[0][1], P[2][2] - P[0][2]];
+    const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]], l = Math.hypot(...n);
+    if (l > 1e-300) tris.push({ ids, P, n: n.map((x) => x / l), a: l / 2 });
+  };
+  const seen = new Set();
+  for (const f of faces) {
+    const b = model.faces.body[f], id = model.faces.faceId[f], key = `${b}:${id}`;
+    const S = model.bodies[b].mesh.surfaceModel;
+    if (!S) { tris = []; break; }
+    if (seen.has(key)) continue;
+    seen.add(key);
+    for (let t = 0; t < S.nt; t++) {
+      if (S.faceOf[t] !== id) continue;
+      const ids = [0, 1, 2].map((q) => `${key}:${S.T[3 * t + q]}`);
+      push(ids, [0, 1, 2].map((q) => { const o = 3 * S.T[3 * t + q]; return [S.V[o], S.V[o + 1], S.V[o + 2]]; }));
+    }
+  }
+  if (!tris.length) for (const f of faces) {
+    const ids = [0, 1, 2].map((a) => model.faces.nodes[npf * f + a]);
+    push(ids, ids.map((id) => [model.nodes[3 * id], model.nodes[3 * id + 1], model.nodes[3 * id + 2]]));
+  }
+  let cyl = null;
+  for (let pass = 0; pass < 4; pass++) {
+    if (tris.length < 4) return cyl;
+    const S = new Float64Array(9);
+    for (const t of tris) for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) S[3 * i + j] += t.a * t.n[i] * t.n[j];
+    const { values, vectors } = eigenSym3(S);
+    const k = values.indexOf(Math.min(...values));
+    const dir = [vectors[k], vectors[3 + k], vectors[6 + k]];
+    const fr = frameFromNormal(dir), e1 = fr.slice(3, 6), e2 = fr.slice(6, 9);
+    const corners = new Map();
+    for (const t of tris) t.ids.forEach((id, q) => corners.set(id, t.P[q]));
+    // Kasa circle fit in the plane (e1, e2): x² + y² + D x + E y + F = 0.
+    const M = new Float64Array(9), r = new Float64Array(3);
+    let h0 = 0;
+    for (const p of corners.values()) {
+      const x = p[0] * e1[0] + p[1] * e1[1] + p[2] * e1[2], y = p[0] * e2[0] + p[1] * e2[1] + p[2] * e2[2];
+      h0 += p[0] * dir[0] + p[1] * dir[1] + p[2] * dir[2];
+      const row = [x, y, 1], rhs = -(x * x + y * y);
+      for (let i = 0; i < 3; i++) { r[i] += row[i] * rhs; for (let j = 0; j < 3; j++) M[3 * i + j] += row[i] * row[j]; }
+    }
+    const sol = solve3(M, r);
+    if (!sol) return cyl;
+    const cx = -sol[0] / 2, cy = -sol[1] / 2, radius = Math.sqrt(Math.max(0, cx * cx + cy * cy - sol[2]));
+    cyl = { point: [0, 1, 2].map((i) => cx * e1[i] + cy * e2[i] + (h0 / corners.size) * dir[i]), dir, radius };
+    const off = (p) => { const w = [p[0] - cyl.point[0], p[1] - cyl.point[1], p[2] - cyl.point[2]], t = w[0] * dir[0] + w[1] * dir[1] + w[2] * dir[2]; return Math.abs(Math.hypot(w[0] - t * dir[0], w[1] - t * dir[1], w[2] - t * dir[2]) - radius); };
+    const keep = tris.filter((t) => Math.abs(t.n[0] * dir[0] + t.n[1] * dir[1] + t.n[2] * dir[2]) < 0.05 && t.P.every((p) => off(p) < 1e-3 * radius + 1e-9));
+    if (keep.length === tris.length) break;
+    tris = keep;
+  }
+  return cyl;
+}
+
+function solve3(M, r) {
+  const det = (m) => m[0] * (m[4] * m[8] - m[5] * m[7]) - m[1] * (m[3] * m[8] - m[5] * m[6]) + m[2] * (m[3] * m[7] - m[4] * m[6]);
+  const d = det(M);
+  if (Math.abs(d) < 1e-300) return null;
+  return [0, 1, 2].map((c) => { const m = Array.from(M); for (let i = 0; i < 3; i++) m[3 * i + c] = r[i]; return det(m) / d; });
+}
+
+/** The frame (rows: radial, circumferential, axial) of a cylinder at a point; null on the axis. */
+export function cylinderFrame(cyl, p) {
+  const { point, dir } = cyl;
+  const w = [p[0] - point[0], p[1] - point[1], p[2] - point[2]], t = w[0] * dir[0] + w[1] * dir[1] + w[2] * dir[2];
+  const r = [w[0] - t * dir[0], w[1] - t * dir[1], w[2] - t * dir[2]], rl = Math.hypot(...r);
+  if (rl < 1e-9) return null;
+  const er = r.map((v) => v / rl), et = [dir[1] * er[2] - dir[2] * er[1], dir[2] * er[0] - dir[0] * er[2], dir[0] * er[1] - dir[1] * er[0]];
+  return [...er, ...et, ...dir];
 }
 
 /** Rows: the normal first, then two tangents. */
@@ -402,14 +541,55 @@ export function addSprings(model, K, springs) {
  *   { faceId, pressure: p }         normal pressure (positive pushes into the body)
  *   { faceId, torque: [Mx,My,Mz] }  a moment about the faces' centroid, as the traction (M × r)/I_p
  *   { faceId, traction: [tx,ty,tz] } a uniform traction (MPa)
+ *   { faceId, bearing: [Fx,Fy,Fz] }  a bearing (pin) load on a cylindrical face: radial pressure p₀·cos θ over the
+ *                                    half facing the force (θ from its direction), p₀ so the faces carry F
+ *   { faceId, remote: { point, force, moment } } a force and moment acting at a point off the faces, carried to
+ *                                    them as a rigid (distributed-coupling) traction F/A + ω × r with I·ω = M + (P − c) × F
+ *   { faceId, mass: m (kg), accel: [ax,ay,az] (m/s², default gravity or 9.81 down), point? } a mass on the faces
+ *                                    (its weight at its centre or at `point`, as a remote load)
+ *   { centrifugal: { point, axis, omega (rad/s), alpha (rad/s²) } } body force ρ(ω²·r⊥ + α × r) of a spin
+ *   { thermal: { deltaT } | { temperatures (per node), reference } } thermal expansion: ∫ Gᵀ (3λ+2μ) α ΔT dV
+ *                                    (α of each body's material, 1e-6/K); the stresses subtract the thermal strain
  * gravity [gx,gy,gz] in m/s² (body force ρg). `scale` multiplies everything.
  */
 export function loadVector(model, loads = [], gravity = null, scale = 1) {
   const f = new Float64Array(3 * model.nn);
   const npf = model.faces.npf;
   for (const load of loads) {
+    if (load.centrifugal) { centrifugalLoad(model, load.centrifugal, f, scale); continue; }
+    if (load.thermal) { thermalLoad(model, load.thermal, f, scale); continue; }
     const faces = selectFaces(model, load.body != null ? { body: load.body, faceId: load.faceId } : load.faceId);
     if (!faces.length) continue;
+    if (load.bearing) {
+      const F = load.bearing, Fl = Math.hypot(...F);
+      if (!(Fl > 0)) continue;
+      const d = F.map((v) => v / Fl);
+      let S = 0;
+      integrateFaces(model, faces, (ids, N, A) => { const a = Math.hypot(A[0], A[1], A[2]); const w = Math.max(0, -(A[0] * d[0] + A[1] * d[1] + A[2] * d[2]) / a); S += w * w * a; });
+      if (!(S > 0)) continue;
+      // The radial cos-distribution's resultant R (along F for a true cylinder; a faceted one leaves a little across
+      // it): scaled to F's size along it, the rest of F added with the same weight, so the faces carry F exactly.
+      const R = [0, 0, 0]; let W = 0;
+      integrateFaces(model, faces, (ids, N, A) => { const a = Math.hypot(A[0], A[1], A[2]); const w = Math.max(0, -(A[0] * d[0] + A[1] * d[1] + A[2] * d[2]) / a); W += w * a; for (let c = 0; c < 3; c++) R[c] -= w * A[c]; });
+      const p0 = (F[0] * R[0] + F[1] * R[1] + F[2] * R[2]) / (R[0] ** 2 + R[1] ** 2 + R[2] ** 2);
+      const corr = [0, 1, 2].map((c) => (F[c] - p0 * R[c]) / (W || 1));
+      integrateFaces(model, faces, (ids, N, A) => {
+        const a = Math.hypot(A[0], A[1], A[2]); const w = Math.max(0, -(A[0] * d[0] + A[1] * d[1] + A[2] * d[2]) / a);
+        if (!w) return;
+        for (let q = 0; q < npf; q++) for (let c = 0; c < 3; c++) f[3 * ids[q] + c] += scale * w * N[q] * (-p0 * A[c] + corr[c] * a);
+      });
+      continue;
+    }
+    if (load.remote || load.mass) {
+      const st = faceStats(model, faces);
+      let P; let F; let Mo;
+      if (load.mass) {
+        const acc = load.accel ?? (gravity && gravity.some((g) => g) ? gravity : [0, 0, -9.81]);
+        P = load.point ?? st.centroid; F = acc.map((g) => load.mass * g); Mo = [0, 0, 0];
+      } else { P = load.remote.point ?? st.centroid; F = load.remote.force ?? [0, 0, 0]; Mo = load.remote.moment ?? [0, 0, 0]; }
+      rigidTraction(model, faces, st, F, add3(Mo, cross(sub3(P, st.centroid), F)), f, scale);
+      continue;
+    }
     if (load.force || load.traction) {
       const st = faceStats(model, faces);
       const t = load.traction ?? load.force.map((v) => v / (st.area || 1));
@@ -442,6 +622,86 @@ export function loadVector(model, loads = [], gravity = null, scale = 1) {
 }
 
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const add3 = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+
+/**
+ * A force F and moment M (about the faces' centroid c) spread over faces as the traction of a rigid coupling:
+ * t = F/A + ω × r (r from c), with the faces' area inertia I = ∫(|r|² 1 − r rᵀ) dA and I ω = M — so ∫t dA = F and
+ * ∫ r × t dA = M exactly, whatever the faces' shape.
+ */
+function rigidTraction(model, faces, st, F, M, f, scale) {
+  const npf = model.faces.npf, I = new Float64Array(9), c = st.centroid, A = st.area || 1;
+  integrateFaces(model, faces, (ids, N, Av, x) => {
+    const a = Math.hypot(Av[0], Av[1], Av[2]), r = sub3(x, c), rr = r[0] * r[0] + r[1] * r[1] + r[2] * r[2];
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) I[3 * i + j] += a * ((i === j ? rr : 0) - r[i] * r[j]);
+  });
+  const w = M.some((v) => v) ? solve3(I, M) ?? [0, 0, 0] : [0, 0, 0];
+  integrateFaces(model, faces, (ids, N, Av, x) => {
+    const a = Math.hypot(Av[0], Av[1], Av[2]), r = sub3(x, c), wr = cross(w, r);
+    for (let q = 0; q < npf; q++) for (let k = 0; k < 3; k++) f[3 * ids[q] + k] += scale * N[q] * (F[k] / A + wr[k]) * a;
+  });
+}
+
+/** Body force of a spin about an axis: ρ (ω² r⊥ + α â × r), r from the axis point (mm, rad/s → N/mm³). */
+function centrifugalLoad(model, cf, f, scale) {
+  const al = Math.hypot(...cf.axis) || 1, ax = cf.axis.map((v) => v / al), P = cf.point ?? [0, 0, 0];
+  const w2 = (Number(cf.omega) || 0) ** 2, alpha = Number(cf.alpha) || 0;
+  const npe = model.npe, rule = ruleOf(model.order), dNs = ruleDerivatives(model.order, rule), X = new Float64Array(3 * npe), G = new Float64Array(3 * npe), N = new Float64Array(npe);
+  for (let e = 0; e < model.ne; e++) {
+    const rho = model.bodies[model.elemBody[e]].material.rho;
+    elementX(model, e, X);
+    for (let gp = 0; gp < rule.weights.length; gp++) {
+      const wgt = rule.weights[gp] * gradients(npe, X, dNs[gp], G);
+      shapeValues(model.order, rule.points[gp], N);
+      const x = [0, 0, 0];
+      for (let a = 0; a < npe; a++) for (let k = 0; k < 3; k++) x[k] += N[a] * X[3 * a + k];
+      const r = sub3(x, P), t = r[0] * ax[0] + r[1] * ax[1] + r[2] * ax[2], rp = [r[0] - t * ax[0], r[1] - t * ax[1], r[2] - t * ax[2]], tan = cross(ax, r);
+      const b = [0, 1, 2].map((k) => rho * (w2 * rp[k] + alpha * tan[k]));
+      for (let a = 0; a < npe; a++) for (let k = 0; k < 3; k++) f[3 * model.elements[npe * e + a] + k] += scale * b[k] * N[a] * wgt;
+    }
+  }
+}
+
+/** The temperature change at every node of a thermal load: uniform ΔT, or node temperatures minus the reference. */
+export function thermalChange(model, th) {
+  const dT = new Float64Array(model.nn);
+  if (th.temperatures && th.temperatures.length === model.nn) { const ref = Number(th.reference) || 0; for (let n = 0; n < model.nn; n++) dT[n] = th.temperatures[n] - ref; }
+  else dT.fill(Number(th.deltaT) || 0);
+  return dT;
+}
+
+/** The thermal strain α ΔT at an element's Gauss point (ΔT interpolated from its nodes). */
+export function thermalStrainAt(model, dT, e, N) {
+  const npe = model.npe, alpha = (Number(model.bodies[model.elemBody[e]].material.alpha) || 0) * 1e-6;
+  let d = 0; for (let a = 0; a < npe; a++) d += N[a] * dT[model.elements[npe * e + a]];
+  return alpha * d;
+}
+
+/** Equivalent nodal forces of thermal expansion: f_a = ∫ (3λ + 2μ) α ΔT ∇N_a dV. */
+function thermalLoad(model, th, f, scale) {
+  const dT = thermalChange(model, th);
+  const npe = model.npe, rule = ruleOf(model.order), dNs = ruleDerivatives(model.order, rule), X = new Float64Array(3 * npe), G = new Float64Array(3 * npe), N = new Float64Array(npe);
+  for (let e = 0; e < model.ne; e++) {
+    const mat = model.bodies[model.elemBody[e]].material, k3 = 3 * mat.lambda + 2 * mat.mu;
+    elementX(model, e, X);
+    for (let gp = 0; gp < rule.weights.length; gp++) {
+      const wgt = rule.weights[gp] * gradients(npe, X, dNs[gp], G);
+      shapeValues(model.order, rule.points[gp], N);
+      const s = k3 * thermalStrainAt(model, dT, e, N) * wgt * scale;
+      if (!s) continue;
+      for (let a = 0; a < npe; a++) for (let k = 0; k < 3; k++) f[3 * model.elements[npe * e + a] + k] += s * G[3 * a + k];
+    }
+  }
+}
+
+/** The strain offset of a thermal load for elasticStresses (the normal strains less α ΔT), or null. */
+export function thermalOffset(model, loads) {
+  const th = (loads ?? []).find((l) => l.thermal)?.thermal;
+  if (!th) return null;
+  const dT = thermalChange(model, th), rule = ruleOf(model.order), N = new Float64Array(model.npe);
+  return (e, g, eps) => { shapeValues(model.order, rule.points[g], N); const a = thermalStrainAt(model, dT, e, N); eps[0] -= a; eps[1] -= a; eps[2] -= a; };
+}
 
 // ───────────────────────── stresses
 

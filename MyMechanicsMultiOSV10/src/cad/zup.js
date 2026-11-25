@@ -165,6 +165,7 @@ export function turnFeature(f, T) {
     }
     case 'tablePattern': if (!f.cs && Array.isArray(f.points)) f.points = f.points.map((p) => T.v(p)); break;
     case 'variablePattern': letter('axis', () => negate('spacing')); break;
+    case 'freeform': case 'surfaceFillet': break;
     case 'curveXYZ': case 'sketch3d': case 'surfaceSpline': if (Array.isArray(f.points)) f.points = f.points.map((p) => T.v(p)); break;
     case 'ruledSurface': letter('axis', () => { if ((f.mode ?? 'tangent') === 'vector') f.reverse = !f.reverse; }); break;
     default: break;

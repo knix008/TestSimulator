@@ -614,3 +614,39 @@ test('the test store refuses paths outside the vault and removes nothing but loc
   await assert.rejects(store.removeLock('files/a.mymech'));
   assert.equal(await store.read('files/a.mymech'), 'x');
 });
+
+// ───────────────────────── working together
+
+test('working together: activity of others since a time, what waits for an approver, discussions on files and changes', async () => {
+  const { alice, bob, carol } = await team();
+  const f = await alice.addFile('Bracket', partFile('Bracket'));
+  await alice.setCard(f.id, ready);
+  await bob.refresh();
+  const seen = bob.now();
+  await new Promise((r) => setTimeout(r, 5));
+  await alice.transition(f.id, 'submit', { comment: 'please check' });
+  const eco = await alice.createChange('ecr', { title: 'Thicker flange', files: [f.id] });
+  await carol.refresh();
+  await carol.comment(f.id, 'Edge too sharp?');
+  await bob.refresh();
+  const news = bob.activity({ since: seen, others: true });
+  assert.deepEqual(news.map((e) => e.type ?? e.action).sort(), ['comment', 'create', 'transition']);
+  assert.ok(news.every((e) => e.by !== 'bob'));
+  assert.equal(news.find((e) => e.kind === 'change').number, eco.number);
+  // Bob (approver) has the pending file and the open request; Alice (editor, the author) has neither to decide.
+  const w = bob.awaitingMe();
+  assert.deepEqual(w.files.map((x) => x.id), [f.id]);
+  assert.deepEqual(w.changes.map((c) => c.id), [eco.id]);
+  await alice.refresh();
+  assert.equal(alice.awaitingMe().changes.length, 0);
+  // Discussions: the file keeps its thread; a change takes comments into its log.
+  await bob.comment(f.id, 'Fine as is');
+  await bob.comment(eco.id, 'Needs a drawing');
+  await alice.refresh();
+  assert.deepEqual(alice.comments(f.id).map((c) => [c.by, c.text]), [['carol', 'Edge too sharp?'], ['bob', 'Fine as is']]);
+  assert.equal(alice.change(eco.id).log.at(-1).comment, 'Needs a drawing');
+  await assert.rejects(bob.comment(f.id, '  '), code('noComment'));
+  // Deciding takes it off the list.
+  await bob.decideChange(eco.id, 'approve');
+  assert.equal(bob.awaitingMe().changes.length, 0);
+});

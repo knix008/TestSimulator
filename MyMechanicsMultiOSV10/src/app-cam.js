@@ -10,6 +10,7 @@ import { simulateMilling, gougeCheck, simulateTurning, turnGougeCheck, cycleTime
 import { postProcess, POSTS, POST_IDS, WCS_ORIGINS, setupSheetHtml, wcsOrigin } from './cad/cam-post.js';
 import { cloneTools, MACHINES, machineOf, cutMaterialOf, CUT_MATERIALS, MILL_TOOL_TYPES, TURN_TOOL_TYPES, isTurnTool, parseInsert, withInsert } from './cad/cam-tools.js';
 import { materialName } from './cad/materials.js';
+import { passList } from './cad/cam-edit.js';
 import { escapeHtml } from './ui/dom.js';
 import { icon } from './icons.js';
 
@@ -17,13 +18,16 @@ const TABS = ['setup', 'tools', 'features', 'ops', 'sim', 'post'];
 const OP_ICONS = {
   facing: 'camFacing', pocket: 'camPocket', adaptive: 'camAdaptive', contour: 'camContour', slot: 'camSlot', helix: 'camHelix', spot: 'camSpot', drill: 'camDrill', peck: 'camPeck', chipBreak: 'camPeck', tap: 'camTap',
   zlevel: 'camZLevel', parallel: 'camParallel', scallop: 'camScallop', waterline: 'camWaterline',
+  rotary4: 'camRotary4', multi5: 'camMulti5', mtAxial: 'camMillTurnAxial', mtRadial: 'camMillTurnRadial',
   tFace: 'camTurnFace', tRough: 'camTurnRough', tFinish: 'camTurnFinish', tDrill: 'camDrill', tBoreRough: 'camTurnBore', tBoreFinish: 'camTurnBore', tGroove: 'camTurnGroove', tThread: 'camTurnThread',
 };
 const FEATURE_ICONS = { face: 'camFacing', pocket: 'camPocket', slot: 'camSlot', boss: 'camBoss', step: 'camStep', hole: 'camDrill', surface3d: 'camParallel' };
 const TOOL_ICONS = { flat: 'camToolFlat', ball: 'camToolBall', bull: 'camToolBull', face: 'camFacing', drill: 'camDrill', spot: 'camSpot', tap: 'camTap', turnRough: 'camTurnRough', turnFinish: 'camTurnFinish', bore: 'camTurnBore', groove: 'camTurnGroove', thread: 'camTurnThread', turnDrill: 'camDrill' };
 const PATH_COLOURS = ['#1e88e5', '#43a047', '#8e24aa', '#f4511e', '#00897b', '#6d4c41', '#3949ab', '#c0ca33', '#d81b60', '#00acc1'];
-const NUM_PARAMS = ['stepdown', 'stepover', 'leave', 'leaveZ', 'ramp', 'engagement', 'scallop', 'angle', 'sample', 'depth', 'dwell', 'peck', 'breakThrough', 'pitch', 'passes', 'length', 'z1', 'major', 'clearance', 'rpm', 'feedRate', 'plungeRate', 'vc', 'feedRev'];
+const NUM_PARAMS = ['stepdown', 'stepover', 'leave', 'leaveZ', 'ramp', 'engagement', 'scallop', 'angle', 'sample', 'depth', 'dwell', 'peck', 'breakThrough', 'pitch', 'passes', 'length', 'z1', 'major', 'clearance', 'rpm', 'feedRate', 'plungeRate', 'vc', 'feedRev', 'angleStep', 'maxTilt', 'lead', 'count', 'startAngle', 'z'];
 const PERCENT = new Set(['stepover']);
+const MT_OPS = ['mtAxial', 'mtRadial'];
+const MULTI_NOTES = { rotary4: 'cam.note.rotary4', multi5: 'cam.note.multi5', mtAxial: 'cam.note.mtAxial', mtRadial: 'cam.note.mtRadial' };
 
 export function createCamTools(ctx) {
   const { state, t } = ctx;
@@ -146,6 +150,10 @@ export function createCamTools(ctx) {
       case 'drill': case 'peck': case 'chipBreak': return pick(['drill'], (x) => !feature || Math.abs(x.d - feature.d) < 0.06)[0] ?? pick(['drill'])[0];
       case 'tap': return pick(['tap'], (x) => !feature?.thread || x.thread === feature.thread)[0];
       case 'parallel': case 'scallop': case 'waterline': return pick(['ball'])[0] ?? pick(['bull'])[0];
+      case 'multi5': return pick(['ball'])[0];
+      case 'rotary4': return pick(['ball']).at(-1) ?? pick(['flat']).at(-1);
+      case 'mtAxial': return pick(['drill'], (x) => !feature || Math.abs(x.d - feature.d) < 0.06)[0] ?? pick(['drill'])[0];
+      case 'mtRadial': return pick(['drill'])[0];
       case 'tFace': case 'tRough': return pick(['turnRough'])[0];
       case 'tFinish': return pick(['turnFinish'])[0];
       case 'tBoreRough': case 'tBoreFinish': return pick(['bore'])[0];
@@ -161,7 +169,8 @@ export function createCamTools(ctx) {
     const p = part();
     if (!p) { notify('info', t('cam.needPart')); return; }
     const cam = camOf(p, { create: true });
-    const lathe = TURN_OPS.includes(type);
+    // Mill-turn live-tool operations run on the lathe set-up.
+    const lathe = TURN_OPS.includes(type) || MT_OPS.includes(type);
     if (lathe !== isLathe(cam)) { ctx.change('op.cam', () => { const c = camOf(p, { create: true }); c.machine = lathe ? 'lathe' : 'vmc'; c.post = machineOf(c.machine).post; }); }
     const rt = model();
     if (!rt) { notify('info', t('notice.noBody')); return; }
@@ -254,6 +263,7 @@ export function createCamTools(ctx) {
     runtime.sim = result.sim; runtime.check = result.check;
     const g = result.check.count;
     notify(g ? 'warning' : 'success', g ? t('cam.gouges', { count: g, depth: fmt(result.check.max, 3) }) : t('cam.simulated', { volume: fmt(result.sim.removed / 1000, 1) }));
+    if (result.sim.skipped?.length) notify('info', t('cam.simSkipped', { count: result.sim.skipped.length }));
     if (editing()?.mode === 'cam') editing().tab = 'sim';
     ctx.syncView(); ctx.renderLeft();
     return result;
@@ -398,7 +408,7 @@ export function createCamTools(ctx) {
       const failed = rt?.program?.errors.find((x) => x.op === o.id);
       return `<div class="cam-row ${e.opId === o.id ? 'active' : ''} ${o.suppressed ? 'muted' : ''} ${failed ? 'error' : ''}"><input type="checkbox" data-pm-toggle="camOpOn:${escapeHtml(o.id)}" ${o.suppressed ? '' : 'checked'} title="${escapeHtml(t('cam.opOn'))}"/><button type="button" class="grow cam-op" data-pm="cam.selOp:${escapeHtml(o.id)}">${icon(OP_ICONS[o.type] ?? 'camPocket', 'icon tiny')}<span>${i + 1}. ${escapeHtml(o.name ?? t(`cam.op.${o.type}`))}</span><span class="pm-count">T${tool?.T ?? '?'}${tIndex >= 0 && times ? ` · ${fmtTime(times.perOp[tIndex])}` : ''}</span></button></div>`;
     }).join('') || `<p class="pm-note">${escapeHtml(t('cam.noOps'))}</p>`;
-    const types = lathe ? TURN_OPS : MILL_OPS;
+    const types = lathe ? [...TURN_OPS, ...MT_OPS] : MILL_OPS.filter((ty) => !MT_OPS.includes(ty));
     const add = `<div class="pm-row">${sel('camNewOpType', types.map((ty) => [ty, t(`cam.op.${ty}`)]), e.newOpType ?? types[0], t('cam.opType'))}${pmButton('cam.addOp', 'plus', t('cam.addOp'))}</div>`;
     const op = cam.ops.find((o) => o.id === e.opId);
     let detail = `<p class="pm-note">${escapeHtml(t('cam.pickOp'))}</p>`;
@@ -413,9 +423,12 @@ export function createCamTools(ctx) {
         sel('camOpTool', tools.map((x) => [x.id, `T${x.T} ${t(`cam.tool.${x.type}`)} Ø${fmt(x.d)}`]), op.tool, t('cam.tool'), TOOL_ICONS[cam.tools.find((x) => x.id === op.tool)?.type] ?? 'camToolFlat'),
         FEATURE_TYPES_FOR[op.type] ? sel('camOpFeature', [['', t(['drill', 'peck', 'chipBreak', 'tap', 'spot'].includes(op.type) ? 'cam.allMatching' : 'cam.wholePart')], ...feats.map((f) => [f.id, featureName(f)])], op.feature ?? '', t('cam.feature'), 'camRecognize') : '',
         keys.map(num).join(''),
+        'pattern' in (OP_DEFAULTS[op.type] ?? {}) ? ctx.pm.pmSeg('camOpPattern', [['lines', t('cam.pattern.lines'), 'camParallel'], ['rings', t('cam.pattern.rings'), 'camRotary4']], op.pattern ?? 'lines') : '',
+        MULTI_NOTES[op.type] ? `<p class="pm-note">${escapeHtml(t(MULTI_NOTES[op.type]))}</p>` : '',
         'direction' in (OP_DEFAULTS[op.type] ?? {}) ? ctx.pm.pmSeg('camOpDirection', [['climb', t('cam.climb'), 'camClimb'], ['conventional', t('cam.conventional'), 'camConventional']], op.direction ?? 'climb') : '',
         'finishPass' in (OP_DEFAULTS[op.type] ?? {}) ? check('camOpFinish', op.finishPass, t('cam.finishPass'), 'camContour') : '',
         `<details class="cam-overrides"><summary>${escapeHtml(t('cam.speedsFeeds'))}</summary>${(lathe ? ['vc', 'feedRev'] : ['rpm', 'feedRate', 'plungeRate']).map((k) => pmNum(`camOp.${k}`, op[k] ?? 0, t(`cam.param.${k}`), 'camSpeed', '')).join('')}<p class="pm-note">${escapeHtml(t('cam.zeroIsAuto'))}${pathInfo ? ` · ${pathInfo.css ? `${Math.round(pathInfo.vc)} m/min` : `S${pathInfo.rpm}`} · F${fmt(pathInfo.feed, lathe ? 3 : 0)}` : ''}</p></details>`,
+        lathe ? '' : editGroup(e, op, cam, rt),
         `<div class="pm-row">${pmButton(`cam.moveOp:${op.id}|-1`, 'camMoveUp', t('cam.moveUp'))}${pmButton(`cam.moveOp:${op.id}|1`, 'camMoveDown', t('cam.moveDown'))}${pmButton(`cam.genOp:${op.id}`, 'camGenerate', t('cam.generateOne'))}${pmButton(`cam.delOp:${op.id}`, 'trash', t('action.delete'))}</div>`,
       ].join('');
     }
@@ -424,6 +437,59 @@ export function createCamTools(ctx) {
       pmGroup('edit', t('cam.opParams'), detail),
     ].join('');
   }
+
+  /**
+   * Toolpath editing (cad/cam-edit.js) of a milling operation: leads, linking, order, direction, feed, a trim window,
+   * and each pass of the generated path (delete / reverse / feed factor). The edits stay with the operation.
+   */
+  function editGroup(e, op, cam, rt) {
+    const { pmNum, pmSeg, pmButton } = ctx.pm;
+    const ed = op.edits ?? {};
+    const lead = (which) => {
+      const L = ed[which] ?? { type: 'none' };
+      return `${pmSeg(`camEdit.${which}`, [['none', t('cam.edit.none'), 'close'], ['arc', t('cam.edit.arc'), 'camLeadArc'], ['line', t('cam.edit.line'), 'camLeadLine']], L.type ?? 'none')}${L.type === 'arc' ? `${pmNum(`camEd.${which}.radius`, L.radius ?? 2, t('cam.edit.radius'), 'dimRadius', 'mm')}${pmNum(`camEd.${which}.angle`, L.angle ?? 90, t('cam.edit.angle'), 'dimAngle', '°')}` : ''}${L.type === 'line' ? pmNum(`camEd.${which}.length`, L.length ?? 3, t('cam.edit.length'), 'smartDim', 'mm') : ''}`;
+    };
+    const link = ed.linking ?? { mode: 'clearance' };
+    const trim = ed.trim ?? null;
+    let passes = [];
+    if (rt) { try { passes = passList(generateToolpath(camCtx(cam, rt), { ...op, edits: null }).moves, ed); } catch { passes = []; } }
+    const del = new Set(ed.deleted ?? []), rev = new Set(ed.reversed ?? []);
+    const rows = passes.slice(0, 200).map((p) => `<div class="cam-row ${del.has(p.index) ? 'muted' : ''} ${e.passSel === p.index ? 'active' : ''}"><button type="button" class="grow cam-op" data-pm="cam.pass:sel|${p.index}"><span>#${p.index + 1}</span><span class="pm-count">Z ${fmt(p.z, 2)} · ${fmt(p.length, 1)} mm${ed.feeds?.[p.index] ? ` · ×${fmt(ed.feeds[p.index], 2)}` : ''}${rev.has(p.index) ? ' · ⇄' : ''}</span></button><button type="button" class="icon-button" data-pm="cam.pass:rev|${p.index}" title="${escapeHtml(t('cam.edit.reverse'))}">${icon('camReverse', 'icon tiny')}</button><button type="button" class="icon-button" data-pm="cam.pass:del|${p.index}" title="${escapeHtml(t(del.has(p.index) ? 'cam.edit.restore' : 'action.delete'))}">${icon(del.has(p.index) ? 'undo' : 'trash', 'icon tiny')}</button></div>`).join('');
+    const passFeed = e.passSel != null && passes.some((p) => p.index === e.passSel) ? pmNum('camEd.passFeed', Math.round((ed.feeds?.[e.passSel] ?? 1) * 100), t('cam.edit.passFeed', { n: e.passSel + 1 }), 'camSpeed', '%') : '';
+    return `<details class="cam-overrides cam-edit" ${e.editOpen ? 'open' : ''} data-cam-edit><summary>${icon('camEditPath', 'icon tiny')} ${escapeHtml(t('cam.edit.title'))}${Object.keys(ed).length ? ' •' : ''}</summary>
+      <p class="pm-note">${escapeHtml(t('cam.edit.leadIn'))}</p>${lead('leadIn')}
+      <p class="pm-note">${escapeHtml(t('cam.edit.leadOut'))}</p>${lead('leadOut')}
+      ${pmSeg('camEdit.leadSide', [['left', t('cam.edit.left'), 'camClimb'], ['right', t('cam.edit.right'), 'camConventional']], ed.leadSide ?? 'left')}
+      <p class="pm-note">${escapeHtml(t('cam.edit.linking'))}</p>
+      ${pmSeg('camEdit.link', [['clearance', t('cam.edit.clearance'), 'camRetract'], ['minimum', t('cam.edit.minimum'), 'camRetractMin'], ['stay', t('cam.edit.stay'), 'camStayDown']], link.mode)}
+      ${link.mode === 'stay' ? pmNum('camEd.stayDown', link.stayDown ?? 5, t('cam.edit.stayDown'), 'smartDim', 'mm') : ''}
+      ${pmSeg('camEdit.order', [['asis', t('cam.edit.asis'), 'camPlan'], ['nearest', t('cam.edit.nearest'), 'camNearest']], ed.order ?? 'asis')}
+      ${check('camEdReverseAll', Boolean(ed.reverseAll), t('cam.edit.reverseAll'), 'camReverse')}
+      ${pmNum('camEd.feedAll', Math.round((ed.feedAll ?? 1) * 100), t('cam.edit.feedAll'), 'camSpeed', '%')}
+      ${check('camEdTrim', Boolean(trim), t('cam.edit.trim'), 'camTrim')}
+      ${trim ? `${['x0', 'x1', 'y0', 'y1'].map((k) => pmNum(`camEd.trim.${k}`, trim[k], t(`cam.edit.${k}`), 'position', 'mm')).join('')}${pmSeg('camEdit.trimKeep', [['inside', t('cam.edit.inside'), 'camTrim'], ['outside', t('cam.edit.outside'), 'camTrimOut']], trim.keep ?? 'inside')}` : ''}
+      <p class="pm-note">${escapeHtml(t('cam.edit.passes', { count: passes.length, gone: del.size }))}</p><div class="cam-list cam-passes">${rows}</div>${passFeed}
+      <div class="pm-row">${pmButton('cam.resetEdits', 'undo', t('cam.edit.reset'))}</div></details>`;
+  }
+
+  /** Changes the selected operation's edits (dropping empty ones) and marks the program to be made again. */
+  function editOp(mutate) {
+    const e = editing();
+    e.editOpen = true;
+    edit((c) => {
+      const op = c.ops.find((o) => o.id === e.opId);
+      if (!op) return;
+      const ed = structuredClone(op.edits ?? {});
+      mutate(ed);
+      for (const k of Object.keys(ed)) { const v = ed[k]; if (v == null || (Array.isArray(v) && !v.length) || (typeof v === 'object' && !Array.isArray(v) && !Object.keys(v).length)) delete ed[k]; }
+      if (ed.leadIn?.type === 'none') delete ed.leadIn; if (ed.leadOut?.type === 'none') delete ed.leadOut;
+      if (ed.linking?.mode === 'clearance') delete ed.linking; if (ed.order === 'asis') delete ed.order; if (ed.feedAll === 1) delete ed.feedAll; if (ed.leadSide === 'left') delete ed.leadSide;
+      if (Object.keys(ed).length) op.edits = ed; else delete op.edits;
+    });
+    invalidate();
+  }
+  /** The default window: the stock's footprint. */
+  const stockBox = () => { const s = runtime.stock; return s && s.kind !== 'bar' ? { x0: s.x0, x1: s.x1, y0: s.y0, y1: s.y1, keep: 'inside' } : { x0: -50, x1: 50, y0: -50, y1: 50, keep: 'inside' }; };
 
   function simPm(e) {
     const { pmGroup, pmButton, pmNum } = ctx.pm;
@@ -493,6 +559,18 @@ export function createCamTools(ctx) {
       edit((c) => { const tool = c.tools.find((x) => x.id === e.toolId); if (tool) tool[k] = k === 'T' || k === 'flutes' ? Math.max(1, Math.round(v)) : v; });
       return undefined;
     }
+    if (key.startsWith('camEd.')) {
+      const k = key.slice(6);
+      if (!Number.isFinite(v)) { notify('error', t('notice.invalidValue', { text: raw })); return ctx.renderLeft(); }
+      const lead = /^(leadIn|leadOut)\.(radius|angle|length)$/.exec(k);
+      if (lead) { if (!(v > 0)) return ctx.renderLeft(); editOp((ed) => { ed[lead[1]] = { ...(ed[lead[1]] ?? { type: 'arc' }), [lead[2]]: v }; }); return undefined; }
+      if (k === 'stayDown') { editOp((ed) => { ed.linking = { mode: 'stay', ...(ed.linking ?? {}), stayDown: Math.max(0, v) }; }); return undefined; }
+      if (k === 'feedAll') { if (v > 0) editOp((ed) => { ed.feedAll = v / 100; }); return undefined; }
+      if (k === 'passFeed') { if (v > 0 && e.passSel != null) editOp((ed) => { ed.feeds = { ...(ed.feeds ?? {}) }; if (v === 100) delete ed.feeds[e.passSel]; else ed.feeds[e.passSel] = v / 100; }); return undefined; }
+      const tr = /^trim\.(x0|x1|y0|y1)$/.exec(k);
+      if (tr) { editOp((ed) => { ed.trim = { ...(ed.trim ?? stockBox()), [tr[1]]: v }; }); return undefined; }
+      return undefined;
+    }
     if (key.startsWith('camOp.')) {
       const k = key.slice(6);
       if (k === 'name') { edit((c) => { const op = c.ops.find((o) => o.id === e.opId); if (op) op.name = String(raw); }); return undefined; }
@@ -511,6 +589,12 @@ export function createCamTools(ctx) {
     const e = editing();
     if (key === 'camTab') { e.tab = value; ctx.syncView(); return ctx.renderLeft(); }
     if (key === 'camStockMode') { edit((c) => { c.stock = { ...(c.stock ?? {}), mode: value }; if (value === 'custom' && runtime.stock) Object.assign(c.stock, runtime.stock.kind === 'bar' ? { r: runtime.stock.r, z0: runtime.stock.z0, z1: runtime.stock.z1 } : { x0: runtime.stock.x0, y0: runtime.stock.y0, z0: runtime.stock.z0, x1: runtime.stock.x1, y1: runtime.stock.y1, z1: runtime.stock.z1 }); }); return undefined; }
+    if (key === 'camEdit.leadIn' || key === 'camEdit.leadOut') { const w = key.slice(8); editOp((ed) => { ed[w] = { ...(ed[w] ?? {}), type: value }; if (value === 'arc') { ed[w].radius ??= 2; ed[w].angle ??= 90; } if (value === 'line') ed[w].length ??= 3; }); return undefined; }
+    if (key === 'camEdit.leadSide') { editOp((ed) => { ed.leadSide = value; }); return undefined; }
+    if (key === 'camEdit.link') { editOp((ed) => { ed.linking = { ...(ed.linking ?? {}), mode: value }; if (value === 'stay') ed.linking.stayDown ??= 5; }); return undefined; }
+    if (key === 'camEdit.order') { editOp((ed) => { ed.order = value; }); return undefined; }
+    if (key === 'camEdit.trimKeep') { editOp((ed) => { ed.trim = { ...(ed.trim ?? stockBox()), keep: value }; }); return undefined; }
+    if (key === 'camOpPattern') { edit((c) => { const op = c.ops.find((o) => o.id === e.opId); if (op) op.pattern = value; }); invalidate(); return undefined; }
     if (key === 'camOpDirection') { edit((c) => { const op = c.ops.find((o) => o.id === e.opId); if (op) op.direction = value; }); invalidate(); return undefined; }
     return undefined;
   }
@@ -533,6 +617,8 @@ export function createCamTools(ctx) {
   function toggle(key, checked) {
     const e = editing();
     if (key === 'camCoolant') { edit((c) => { c.coolant = checked; }); return undefined; }
+    if (key === 'camEdReverseAll') { editOp((ed) => { ed.reverseAll = checked || undefined; }); return undefined; }
+    if (key === 'camEdTrim') { editOp((ed) => { ed.trim = checked ? stockBox() : undefined; }); return undefined; }
     if (key === 'camOpFinish') { edit((c) => { const op = c.ops.find((o) => o.id === e.opId); if (op) op.finishPass = checked; }); invalidate(); return undefined; }
     if (key.startsWith('camOpOn:')) { const id = key.slice(8); edit((c) => { const op = c.ops.find((o) => o.id === id); if (op) op.suppressed = !checked; }); invalidate(); return undefined; }
     const show = { camShowPath: 'showPath', camShowRapids: 'showRapids', camShowStock: 'showStock', camShowSim: 'showSim' }[key];
@@ -540,7 +626,7 @@ export function createCamTools(ctx) {
     return undefined;
   }
 
-  const NAMES = new Set(['cam.selTool', 'cam.addTool', 'cam.delTool', 'cam.selFeature', 'cam.planFeature', 'cam.planAll', 'cam.selOp', 'cam.addOp', 'cam.delOp', 'cam.moveOp', 'cam.genOp', 'cam.generate', 'cam.simulate', 'cam.saveGcode', 'cam.saveSheet']);
+  const NAMES = new Set(['cam.pass', 'cam.resetEdits', 'cam.selTool', 'cam.addTool', 'cam.delTool', 'cam.selFeature', 'cam.planFeature', 'cam.planAll', 'cam.selOp', 'cam.addOp', 'cam.delOp', 'cam.moveOp', 'cam.genOp', 'cam.generate', 'cam.simulate', 'cam.saveGcode', 'cam.saveSheet']);
   const handles = (name) => NAMES.has(name);
 
   async function command(name, arg) {
@@ -586,6 +672,14 @@ export function createCamTools(ctx) {
         catch (error) { notify('error', t('cam.opFailed', { name: op.name, reason: t(`cam.error.${error.code}`, null, error.message) })); }
         return generate({ quiet: true });
       }
+      case 'cam.pass': {
+        const [what, n] = String(arg).split('|'); const i = Number(n);
+        if (what === 'sel') { e.passSel = e.passSel === i ? null : i; e.editOpen = true; ctx.syncView(); return ctx.renderLeft(); }
+        if (what === 'del') editOp((ed) => { const s = new Set(ed.deleted ?? []); if (s.has(i)) s.delete(i); else s.add(i); ed.deleted = [...s].sort((a, b) => a - b); });
+        if (what === 'rev') editOp((ed) => { const s = new Set(ed.reversed ?? []); if (s.has(i)) s.delete(i); else s.add(i); ed.reversed = [...s].sort((a, b) => a - b); });
+        return undefined;
+      }
+      case 'cam.resetEdits': editOp((ed) => { for (const k of Object.keys(ed)) delete ed[k]; }); e.passSel = null; return undefined;
       case 'cam.generate': return generate();
       case 'cam.simulate': return simulate();
       case 'cam.saveGcode': return saveGcode();
@@ -708,13 +802,14 @@ export function createCamTools(ctx) {
     camFacing: opCmd('facing'), camPocket: opCmd('pocket'), camAdaptive: opCmd('adaptive'), camContour: opCmd('contour'), camSlot: opCmd('slot'), camHelix: opCmd('helix'),
     camSpot: opCmd('spot'), camDrill: opCmd('drill'), camPeck: opCmd('peck'), camTap: opCmd('tap'),
     camZLevel: opCmd('zlevel'), camParallel: opCmd('parallel'), camScallop: opCmd('scallop'), camWaterline: opCmd('waterline'),
+    camRotary4: opCmd('rotary4'), camMulti5: opCmd('multi5'), camMillTurnAxial: opCmd('mtAxial'), camMillTurnRadial: opCmd('mtRadial'),
     camTurnFace: opCmd('tFace'), camTurnRough: opCmd('tRough'), camTurnFinish: opCmd('tFinish'), camTurnBore: opCmd('tBoreRough'), camTurnGroove: opCmd('tGroove'), camTurnThread: opCmd('tThread'),
     camGenerate: { icon: 'camGenerate', label: 'cmd.camGenerate', enabled: () => Boolean(part()?.cam?.ops?.length), run: () => { if (!owns(editing())) begin('sim'); return generate(); } },
     camSimulate: { icon: 'camSimulate', label: 'cmd.camSimulate', enabled: () => Boolean(part()?.cam?.ops?.length), run: () => { if (!owns(editing())) begin('sim'); return simulate(); } },
     camPost: { icon: 'camPost', label: 'cmd.camPost', enabled: () => Boolean(part()?.cam?.ops?.length), run: () => saveGcode() },
     camSetupSheet: { icon: 'camSetupSheet', label: 'cmd.camSetupSheet', enabled: () => Boolean(part()?.cam?.ops?.length), run: () => saveSetupSheet() },
   };
-  const TAB = ['camManager', 'camStock', 'camTools', 'camRecognize', 'camPlan', '|', 'camFacing', 'camPocket', 'camAdaptive', 'camContour', 'camSlot', 'camHelix', '|', 'camSpot', 'camDrill', 'camPeck', 'camTap', '|', 'camZLevel', 'camParallel', 'camScallop', 'camWaterline', '|', 'camTurnFace', 'camTurnRough', 'camTurnFinish', 'camTurnBore', 'camTurnGroove', 'camTurnThread', '|', 'camGenerate', 'camSimulate', 'camPost', 'camSetupSheet'];
+  const TAB = ['camManager', 'camStock', 'camTools', 'camRecognize', 'camPlan', '|', 'camFacing', 'camPocket', 'camAdaptive', 'camContour', 'camSlot', 'camHelix', '|', 'camSpot', 'camDrill', 'camPeck', 'camTap', '|', 'camZLevel', 'camParallel', 'camScallop', 'camWaterline', '|', 'camRotary4', 'camMulti5', 'camMillTurnAxial', 'camMillTurnRadial', '|', 'camTurnFace', 'camTurnRough', 'camTurnFinish', 'camTurnBore', 'camTurnGroove', 'camTurnThread', '|', 'camGenerate', 'camSimulate', 'camPost', 'camSetupSheet'];
 
   const api = {
     begin, addOp, planAll, recognize, generate, simulate, saveGcode, saveSetupSheet, gcode, setupSheet,

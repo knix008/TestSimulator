@@ -81,6 +81,11 @@ const PROJECT_FILTERS = () => [
 /** Save types: the drawing, a template, StarUML, pictures, documents. */
 export const SAVE_TYPES = {
   mymech: { name: 'MyMechanics (*.mymech)', extensions: ['mymech'] },
+  mymechtpl: { name: 'MyMechanics template (*.mymechtpl)', extensions: ['mymechtpl'] },
+  mp4: { name: 'MP4 video (*.mp4)', extensions: ['mp4'] },
+  webm: { name: 'WebM video (*.webm)', extensions: ['webm'] },
+  emn: { name: 'IDF board (*.emn)', extensions: ['emn', 'brd'] },
+  emp: { name: 'IDF library (*.emp)', extensions: ['emp', 'lib'] },
   step: { name: 'STEP (*.step, *.stp)', extensions: ['step', 'stp'] },
   iges: { name: 'IGES (*.igs, *.iges)', extensions: ['igs', 'iges'] },
   x_t: { name: 'Parasolid text (*.x_t)', extensions: ['x_t'] },
@@ -150,7 +155,7 @@ export async function chooseModelFiles(defaultPath) {
 export async function chooseSavePath(defaultPath, types = ['mymech']) {
   const picked = testPick('__mymechanicsSavePicks');
   if (picked) return picked.value;
-  return (await saveDialog({ defaultPath: defaultPath ?? undefined, filters: types.map((type) => SAVE_TYPES[type]) })) ?? null;
+  return (await saveDialog({ defaultPath: defaultPath ?? undefined, filters: types.map((type) => SAVE_TYPES[type] ?? { name: `${String(type).toUpperCase()} (*.${type})`, extensions: [type] }) })) ?? null;
 }
 
 export async function chooseFolder(defaultPath) {

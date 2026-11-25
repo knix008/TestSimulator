@@ -1,0 +1,33 @@
+[
+ {
+  "name": "fluid model: kernel",
+  "eval": "window.__mymechanics.actions.ensureKernel().then(() => 'ready')",
+  "expect": "^ready$"
+ },
+ {
+  "name": "fluid model: a 20 mm block, the flow study",
+  "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.actions.closeProject({ force: true }); await m.actions.newDocument('part', { blank: true }); await sleep(300); const { itemsToSketch } = await import('/src/cad/cad2d-import.js'); const { createFeature } = await import('/src/cad/features.js'); m.actions.change('op.feature', (p) => { const part = p.parts.find((x) => x.id === p.active.id); part.variables = [{ name: 'H', expr: '20' }]; const { sketch } = itemsToSketch([{ kind: 'line', a: [0, 0], b: [20, 0] }, { kind: 'line', a: [20, 0], b: [20, 20] }, { kind: 'line', a: [20, 20], b: [0, 20] }, { kind: 'line', a: [0, 20], b: [0, 0] }]); const sk = createFeature(part, 'sketch', { plane: { kind: 'std', name: 'top' }, ...sketch }); part.features.push(sk, createFeature(part, 'extrude', { sketch: sk.id, depth: 20 })); }); await sleep(1200); await m.run('flowStudy'); await sleep(300); const e = m.state.editing; Object.assign(e, { fluid: 'water', velocity: 0.0025, resolution: 8, flowMaxSteps: 0 }); return e.study; })()",
+  "expect": "^flow$"
+ },
+ {
+  "name": "fluid model: compressible air at Mach 2 — a bow shock, the Mach field, stagnation pressure near the pitot value",
+  "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const e = m.state.editing; m.actions.pmSet('regime', 'compressible'); await sleep(100); const fields = Boolean(document.querySelector('[data-pm-field=\"mach\"]')); m.actions.pmFieldChanged('mach', '2'); e.resolution = 6; e.result = null; await m.actions.pmCommand('runSim'); for (let i = 0; i < 600 && !e.result; i++) await sleep(150); await sleep(300); const r = e.result; m.actions.pmSet('quantity', 'mach'); await sleep(300); return JSON.stringify({ fields, ok: r?.ok, comp: r?.compressible, shock: r?.shock, near: r && r.stagnationPressure > 0.8 * r.pitot && r.stagnationPressure < 1.02 * r.pitot, section: (m.state.flow?.section?.max ?? 0) > 1.2, rows: /마하|Mach/.test(document.querySelector('.left-pm-body')?.textContent ?? '') }); })()",
+  "expect": "\"fields\":true,\"ok\":true,\"comp\":true,\"shock\":true,\"near\":true,\"section\":true,\"rows\":true",
+  "shot": "compressible"
+ },
+ {
+  "name": "fluid model: water through the block made porous — the pressure drop across it is listed",
+  "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const e = m.state.editing; m.actions.pmSet('regime', 'incompressible'); m.actions.pmToggle('porousOn', true); await sleep(100); Object.assign(e, { fluid: 'water', velocity: 0.01, resolution: 8, flowMaxSteps: 3000 }); m.actions.pmFieldChanged('permeability', '1e-8'); e.result = null; await m.actions.pmCommand('runSim'); for (let i = 0; i < 600 && !e.result; i++) await sleep(150); await sleep(300); const r = e.result; return JSON.stringify({ ok: r?.ok, drop: (r?.porousDrop ?? 0) > 0 }); })()",
+  "expect": "\"ok\":true,\"drop\":true"
+ },
+ {
+  "name": "fluid model: a shear-thinning power-law liquid runs and is reported",
+  "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const e = m.state.editing; m.actions.pmToggle('porousOn', false); m.actions.pmSet('rheo', 'powerLaw'); await sleep(100); const fields = Boolean(document.querySelector('[data-pm-field=\"rheoK\"]')); Object.assign(e, { resolution: 6, flowMaxSteps: 2000 }); e.result = null; await m.actions.pmCommand('runSim'); for (let i = 0; i < 600 && !e.result; i++) await sleep(150); await sleep(300); const r = e.result; return JSON.stringify({ fields, ok: r?.ok, rheo: r?.rheology?.model }); })()",
+  "expect": "\"fields\":true,\"ok\":true,\"rheo\":\"powerLaw\""
+ },
+ {
+  "name": "fluid model: mixing-length turbulence runs and is reported",
+  "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const e = m.state.editing; m.actions.pmSet('rheo', 'newtonian'); m.actions.pmSet('turbulence', 'mixing'); await sleep(100); const note = /혼합 길이|mixing length/i.test(document.querySelector('.left-pm-body')?.textContent ?? ''); Object.assign(e, { fluid: 'air', velocity: 5, resolution: 6, flowMaxSteps: 2000 }); e.result = null; await m.actions.pmCommand('runSim'); for (let i = 0; i < 600 && !e.result; i++) await sleep(150); return JSON.stringify({ note, ok: e.result?.ok, turb: e.result?.turbulence }); })()",
+  "expect": "\"note\":true,\"ok\":true,\"turb\":\"mixing\""
+ }
+]

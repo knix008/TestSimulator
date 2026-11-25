@@ -57,14 +57,18 @@ export function simulateMilling(stock, paths, tools, { cell = 0.5, onProgress = 
   const td = createTriDexel(stock, cell);
   const toolMap = new Map(tools.map((t) => [t.id, t]));
   const before = dexelVolume(td);
-  let rapidCuts = 0; let samples = 0; const rapidAt = [];
+  let rapidCuts = 0; let samples = 0; const rapidAt = []; const skipped = [];
   const step = cell * 0.5;
   paths.forEach((tp, pi) => {
     const tool = toolMap.get(tp.tool);
     if (!tool) return;
     const cutter = cutterOf(tool);
+    // The stock model cuts with a vertical tool: a 5-axis path is replayed with the vertical tool at the same ball
+    // centres (`vt`: what the ball removes); rotary (A axis) and mill-turn (C axis) paths are left out (`skipped`).
+    if (tp.multi === 'rotary4' || tp.multi === 'millTurn') { skipped.push(tp.op); return; }
     let pos = null;
-    for (const m of expandMoves(tp.moves)) {
+    for (const m0 of expandMoves(tp.moves)) {
+      const m = m0.vt ? { ...m0, p: m0.vt } : m0;
       if (!m.p) continue;
       if (!pos) { pos = m.p; continue; }
       const L = Math.hypot(m.p[0] - pos[0], m.p[1] - pos[1], m.p[2] - pos[2]);
@@ -80,7 +84,7 @@ export function simulateMilling(stock, paths, tools, { cell = 0.5, onProgress = 
     }
     onProgress?.((pi + 1) / paths.length);
   });
-  return { dexel: td, map: topMap(td), removed: before - dexelVolume(td), rapidCuts, rapidAt, samples };
+  return { dexel: td, map: topMap(td), removed: before - dexelVolume(td), rapidCuts, rapidAt, samples, skipped };
 }
 
 function cutsAt(map, prof, R, x, y, zt) {
@@ -251,9 +255,12 @@ export function simulateTurning(stock, paths, tools, { cell = 0.1 } = {}) {
   const toolMap = new Map(tools.map((t) => [t.id, t]));
   const removed = [];
   const step = Math.min(g.dr, g.dz) * 0.5;
+  const skipped = [];
   for (const tp of paths) {
     const tool = toolMap.get(tp.tool);
     if (!tool) continue;
+    // Live-tool (C axis) drilling is off the turning section: not in this model.
+    if (tp.multi) { skipped.push(tp.op); continue; }
     let pos = null;
     for (const m of expandMoves(tp.moves)) {
       if (!m.p) continue;
@@ -272,7 +279,7 @@ export function simulateTurning(stock, paths, tools, { cell = 0.1 } = {}) {
   }
   let vol = 0;
   for (const k of removed) { const i = k % g.nr; vol += 2 * Math.PI * (i + 0.5) * g.dr * g.dr * g.dz; }
-  return { grid: g, removed: vol, removedCells: removed };
+  return { grid: g, removed: vol, removedCells: removed, skipped };
 }
 
 /** Turning gouges: removed cells inside the part's profile. profileAt(z) → { outer, inner }. */

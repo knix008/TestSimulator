@@ -1,0 +1,23 @@
+[
+ {
+  "name": "particles: kernel",
+  "eval": "window.__mymechanics.actions.ensureKernel().then(() => 'ready')",
+  "expect": "^ready$"
+ },
+ {
+  "name": "particles: a 20 mm block in a 5 m/s air stream, the flow study",
+  "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.actions.closeProject({ force: true }); await m.actions.newDocument('part', { blank: true }); await sleep(300); const { itemsToSketch } = await import('/src/cad/cad2d-import.js'); const { createFeature } = await import('/src/cad/features.js'); m.actions.change('op.feature', (p) => { const part = p.parts.find((x) => x.id === p.active.id); part.variables = [{ name: 'H', expr: '20' }]; const { sketch } = itemsToSketch([{ kind: 'line', a: [0, 0], b: [20, 0] }, { kind: 'line', a: [20, 0], b: [20, 20] }, { kind: 'line', a: [20, 20], b: [0, 20] }, { kind: 'line', a: [0, 20], b: [0, 0] }]); const sk = createFeature(part, 'sketch', { plane: { kind: 'std', name: 'top' }, ...sketch }); part.features.push(sk, createFeature(part, 'extrude', { sketch: sk.id, depth: 20 })); }); await sleep(1200); await m.run('flowStudy'); await sleep(300); const e = m.state.editing; Object.assign(e, { fluid: 'air', velocity: 5, resolution: 10 }); return e.study; })()",
+  "expect": "^flow$"
+ },
+ {
+  "name": "particles: run the flow, then 300 µm sand from the inlet — trajectories, impacts on the block, erosion, fates",
+  "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); const e = m.state.editing; await m.actions.pmCommand('runSim'); for (let i = 0; i < 400 && !e.result; i++) await sleep(150); await sleep(300); const group = Boolean(document.querySelector('[data-pm-field=\"pt.diameter\"]')); m.actions.pmFieldChanged('pt.diameter', '300'); m.actions.pmFieldChanged('pt.count', '36'); m.actions.pmToggle('pt.gravity', false); await sleep(100); await m.actions.pmCommand('pt.run'); await sleep(400); const p = m.state.flow.particles; const s = p?.summary; return JSON.stringify({ group, ok: e.result?.ok, paths: (p?.segments.length ?? 0) > 100, impacts: (s?.impacts ?? 0) > 0, erosion: (s?.maxErosion ?? 0) > 0, all: s ? s.fates.escaped + s.fates.trapped + s.fates.lost : 0, most: s ? s.fates.escaped > 0.6 * 36 : false, shown: Boolean(document.querySelector('.pt-results')) }); })()",
+  "expect": "\"group\":true,\"ok\":true,\"paths\":true,\"impacts\":true,\"erosion\":true,\"all\":36,\"most\":true,\"shown\":true",
+  "shot": "particles"
+ },
+ {
+  "name": "particles: Clear removes them",
+  "eval": "(async () => { const m = window.__mymechanics; const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await m.actions.pmCommand('pt.clear'); await sleep(200); return JSON.stringify({ gone: !m.state.flow.particles, results: !document.querySelector('.pt-results') }); })()",
+  "expect": "\"gone\":true,\"results\":true"
+ }
+]

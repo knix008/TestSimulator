@@ -131,6 +131,7 @@ export class Viewport {
   }
 
   resize() {
+    if (this.fixedSize) return;
     const w = Math.max(1, this.host.clientWidth); const h = Math.max(1, this.host.clientHeight);
     this.width = w; this.height = h;
     this.renderer.setSize(w, h, false);
@@ -180,6 +181,50 @@ export class Viewport {
     this.drawOverlay();
     this.options.onStats?.({ calls: this.renderer.info.render.calls, triangles: this.renderer.info.render.triangles, ms: performance.now() - t0 });
   }
+
+  /**
+   * The guide of a mouse gesture in progress: a ring round where the right button went down, the eight
+   * directions' commands round it (the one the drag points at stands out) and the drag's line.
+   */
+  drawGesture(ctx) {
+    const { x0, y0, x, y } = this.gesture;
+    const labels = this.options.gestureLabels?.() ?? [];
+    const dx = x - x0; const dy = y - y0; const far = Math.hypot(dx, dy) >= 24;
+    const sector = far ? ((Math.round(Math.atan2(-dy, dx) / (Math.PI / 4)) % 8) + 8) % 8 : -1;
+    const css = getComputedStyle(document.documentElement);
+    const bg = css.getPropertyValue('--surface').trim() || '#f4f6f9';
+    const fg = css.getPropertyValue('--text').trim() || '#1d2430';
+    const accent = css.getPropertyValue('--accent').trim() || '#2f6fed';
+    ctx.save();
+    ctx.lineWidth = 1.5; ctx.strokeStyle = fg; ctx.globalAlpha = 0.35;
+    ctx.beginPath(); ctx.arc(x0, y0, 24, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.font = "12px 'Segoe UI', 'Malgun Gothic', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (let i = 0; i < 8; i++) {
+      const label = labels[i];
+      if (!label) continue;
+      const a = (i * Math.PI) / 4; const lx = x0 + Math.cos(a) * 78; const ly = y0 - Math.sin(a) * 58;
+      const w = ctx.measureText(label).width + 12;
+      ctx.fillStyle = i === sector ? accent : bg; ctx.globalAlpha = i === sector ? 1 : 0.92;
+      ctx.beginPath(); ctx.roundRect?.(lx - w / 2, ly - 10, w, 20, 6); ctx.fill();
+      ctx.globalAlpha = 1; ctx.strokeStyle = i === sector ? accent : fg; ctx.lineWidth = 0.6; ctx.stroke();
+      ctx.fillStyle = i === sector ? '#fff' : fg; ctx.fillText(label, lx, ly + 0.5);
+    }
+    ctx.strokeStyle = accent; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x, y); ctx.stroke();
+    ctx.restore();
+  }
+
+  /** Holds the drawing size at w × h (a video's frames) until releaseSize; window resizes wait till then. */
+  fixSize(w, h) {
+    this.fixedSize = [w, h];
+    this.renderer.setSize(w, h, false);
+    this.width = w; this.height = h;
+    for (const m of this.lineMaterials) m.resolution.set(w, h);
+    this.updateCamera();
+  }
+
+  releaseSize() { this.fixedSize = null; this.resize(); }
 
   /** A picture of the view (thumbnails, Save as image). */
   capture(width = this.width, height = this.height) {
@@ -486,6 +531,7 @@ export class Viewport {
     const dpr = this.overlay.width / Math.max(1, this.width);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, this.width, this.height);
+    if (this.gesture) this.drawGesture(ctx);
     const g = this.guides;
     if (!g.rulers && !g.scaleBar) return;
     const css = getComputedStyle(document.documentElement);
@@ -687,6 +733,15 @@ export class Viewport {
           return;
         }
       }
+      // Mouse gestures (when on): a right-drag is a gesture — its direction runs a command; a right click still
+      // opens the context menu.
+      if (e.button === 2 && !e.ctrlKey && !e.altKey && this.options.gestures?.()) {
+        const rect = c.getBoundingClientRect();
+        this.gesture = { x0: e.clientX - rect.left, y0: e.clientY - rect.top, x: e.clientX - rect.left, y: e.clientY - rect.top };
+        drag = { gesture: true, id: e.pointerId, sx: e.clientX, sy: e.clientY, moved: false, button: 2 };
+        try { c.setPointerCapture(e.pointerId); } catch { /* a pointer that is already gone */ }
+        return;
+      }
       // Left drag rotates; Ctrl (or Shift) + left drag, right drag and Ctrl + middle drag move the view;
       // Alt + left or middle drag rolls. A middle drag that starts on an edge turns about that edge (a circular
       // edge: about its axis); one that starts on a face turns about the point under the pointer.
@@ -728,6 +783,12 @@ export class Viewport {
         }
         return;
       }
+      if (drag?.gesture) {
+        this.gesture.x = this.mouse.x; this.gesture.y = this.mouse.y;
+        if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) >= 12) drag.moved = true;
+        this.requestRender();
+        return;
+      }
       if (drag?.tool) { this.options.tool?.()?.move?.(e); return; }
       if (drag) {
         const dx = e.clientX - drag.x; const dy = e.clientY - drag.y;
@@ -755,6 +816,13 @@ export class Viewport {
       c.classList.remove('dragging');
       try { c.releasePointerCapture(e.pointerId); } catch { /* gone */ }
       if (d.tool) { this.options.tool?.()?.up?.(e); return; }
+      if (d.gesture) {
+        const g = this.gesture; this.gesture = null; this.requestRender();
+        const dx = e.clientX - d.sx; const dy = e.clientY - d.sy;
+        if (d.moved && Math.hypot(dx, dy) >= 24) this.options.onGesture?.(dx, dy, e);
+        else if (!d.moved) this.options.onContext?.(this.pick(e.clientX, e.clientY), e);
+        return g;
+      }
       if (d.scaleBar) { this.options.onScaleBarMoved?.(this.guides.scaleBarPos); return; }
       if (d.light) { if (d.moved) this.options.onLightMoved?.(d.light, this.userLights.get(d.light)?.spec.position); return; }
       if (!d.moved && d.button === 0) {
@@ -1102,7 +1170,11 @@ export class Viewport {
       g.setAttribute('position', new THREE.Float32BufferAttribute(spec.mesh.vertices, 3));
       g.setAttribute('normal', new THREE.Float32BufferAttribute(spec.mesh.normals, 3));
       g.setIndex(spec.mesh.triangles);
-      const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: spec.cut ? '#e05252' : PREVIEW, transparent: true, opacity: 0.45, depthWrite: false, side: THREE.DoubleSide }));
+      // With vertex colours (a result on a region, e.g. a submodel's stress): opaque, drawn just in front of the body.
+      if (spec.colors) g.setAttribute('color', new THREE.Float32BufferAttribute(spec.colors, 3));
+      const m = new THREE.Mesh(g, spec.colors
+        ? new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
+        : new THREE.MeshStandardMaterial({ color: spec.cut ? '#e05252' : PREVIEW, transparent: true, opacity: 0.45, depthWrite: false, side: THREE.DoubleSide }));
       this.groups.preview.add(m);
     }
     this.requestRender();

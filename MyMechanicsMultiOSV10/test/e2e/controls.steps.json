@@ -600,6 +600,16 @@
     "eval": "window.__pmCheck('partingSurface', 'opts')"
   },
   {
+    "name": "pm: sideCore numbers — every number field's −, + and a typed value change the feature and rebuild its preview",
+    "expect": "^sideCore ok",
+    "eval": "window.__pmCheck('sideCore', 'num')"
+  },
+  {
+    "name": "pm: sideCore options — every toggle, segment, drop-down and pick box changes the feature; OK stores the values",
+    "expect": "^sideCore ok",
+    "eval": "window.__pmCheck('sideCore', 'opts')"
+  },
+  {
     "name": "pm: combine numbers — every number field's −, + and a typed value change the feature and rebuild its preview",
     "expect": "^combine ok",
     "eval": "window.__pmCheck('combine', 'num')"
@@ -818,6 +828,26 @@
     "name": "pm: surfaceSpline options — every toggle, segment, drop-down and pick box changes the feature; OK stores the values",
     "expect": "^surfaceSpline ok",
     "eval": "window.__pmCheck('surfaceSpline', 'opts')"
+  },
+  {
+    "name": "pm: freeform numbers — every number field's −, + and a typed value change the feature and rebuild its preview",
+    "expect": "^freeform ok",
+    "eval": "window.__pmCheck('freeform', 'num')"
+  },
+  {
+    "name": "pm: freeform options — every toggle, segment, drop-down and pick box changes the feature; OK stores the values",
+    "expect": "^freeform ok",
+    "eval": "window.__pmCheck('freeform', 'opts')"
+  },
+  {
+    "name": "pm: surfaceFillet numbers — every number field's −, + and a typed value change the feature and rebuild its preview",
+    "expect": "^surfaceFillet ok",
+    "eval": "window.__pmCheck('surfaceFillet', 'num')"
+  },
+  {
+    "name": "pm: surfaceFillet options — every toggle, segment, drop-down and pick box changes the feature; OK stores the values",
+    "expect": "^surfaceFillet ok",
+    "eval": "window.__pmCheck('surfaceFillet', 'opts')"
   },
   {
     "name": "pm: openscad numbers — every number field's −, + and a typed value change the feature and rebuild its preview",
@@ -1102,7 +1132,7 @@
   {
     "name": "pm: feature types added after this file was written — each opens and every control applies",
     "expect": "^ok",
-    "eval": "return (async () => {\n  const known = new Set([\"import\",\"sketch\",\"plane\",\"extrude\",\"revolve\",\"fillet\",\"chamfer\",\"shell\",\"hole\",\"linearPattern\",\"circularPattern\",\"mirror\",\"sweep\",\"loft\",\"draft\",\"rib\",\"dome\",\"helix\",\"thread\",\"wrap\",\"thicken\",\"surfaceExtrude\",\"surfaceRevolve\",\"surfacePlanar\",\"surfaceLoft\",\"surfaceOffset\",\"knit\",\"moveBody\",\"scaleBody\",\"split\",\"insertPart\",\"baseFlange\",\"edgeFlange\",\"structural\",\"fillSurface\",\"boundary\",\"trimSurface\",\"hem\",\"sketchedBend\",\"jog\",\"partingLine\",\"toolingSplit\",\"sketch3d\",\"ruledSurface\",\"deleteFace\",\"replaceFace\",\"extendSurface\",\"miterFlange\",\"loftedBend\",\"tab\",\"closedCorner\",\"cornerRelief\",\"formTool\",\"endCap\",\"gusset\",\"weldBead\",\"trimExtend\",\"shutOff\",\"partingSurface\",\"combine\",\"deleteBody\",\"indent\",\"flex\",\"deform\",\"refAxis\",\"refPoint\",\"coordSys\",\"boundingBox\",\"variableFillet\",\"faceFillet\",\"fullRoundFillet\",\"curvePattern\",\"sketchPattern\",\"tablePattern\",\"fillPattern\",\"variablePattern\",\"projectedCurve\",\"splitLine\",\"compositeCurve\",\"curveXYZ\",\"surfaceSpline\",\"openscad\",\"mountingBoss\",\"snapHook\",\"snapHookGroove\",\"vent\",\"lipGroove\",\"surfaceSweep\",\"cutWithSurface\",\"deleteHole\",\"untrimSurface\",\"midSurface\",\"radiateSurface\",\"flattenSurface\",\"convertSheet\",\"insertBends\",\"rip\",\"unfold\",\"fold\",\"crossBreak\",\"weldedCorner\",\"tabSlot\",\"advancedHole\",\"intersect\",\"mateReference\",\"moveFace\",\"connectionPoint\",\"stdPart\",\"route\"]);\n  const out = [];\n  for (const t of window.__featureTypes.filter((x) => !known.has(x))) { out.push(await window.__pmCheck(t, 'num')); out.push(await window.__pmCheck(t, 'opts')); }\n  const bad = out.filter((x) => !/^\\S+ ok/.test(x));\n  return bad.length ? bad.join(' || ') : `ok ${out.length / 2} more types`;\n})()"
+    "eval": "return (async () => {\n  const known = new Set([\"import\",\"sketch\",\"plane\",\"extrude\",\"revolve\",\"fillet\",\"chamfer\",\"shell\",\"hole\",\"linearPattern\",\"circularPattern\",\"mirror\",\"sweep\",\"loft\",\"draft\",\"rib\",\"dome\",\"helix\",\"thread\",\"wrap\",\"thicken\",\"surfaceExtrude\",\"surfaceRevolve\",\"surfacePlanar\",\"surfaceLoft\",\"surfaceOffset\",\"knit\",\"moveBody\",\"scaleBody\",\"split\",\"insertPart\",\"baseFlange\",\"edgeFlange\",\"structural\",\"fillSurface\",\"boundary\",\"trimSurface\",\"hem\",\"sketchedBend\",\"jog\",\"partingLine\",\"toolingSplit\",\"sketch3d\",\"ruledSurface\",\"deleteFace\",\"replaceFace\",\"extendSurface\",\"miterFlange\",\"loftedBend\",\"tab\",\"closedCorner\",\"cornerRelief\",\"formTool\",\"endCap\",\"gusset\",\"weldBead\",\"trimExtend\",\"shutOff\",\"partingSurface\",\"sideCore\",\"combine\",\"deleteBody\",\"indent\",\"flex\",\"deform\",\"refAxis\",\"refPoint\",\"coordSys\",\"boundingBox\",\"variableFillet\",\"faceFillet\",\"fullRoundFillet\",\"curvePattern\",\"sketchPattern\",\"tablePattern\",\"fillPattern\",\"variablePattern\",\"projectedCurve\",\"splitLine\",\"compositeCurve\",\"curveXYZ\",\"surfaceSpline\",\"freeform\",\"surfaceFillet\",\"openscad\",\"mountingBoss\",\"snapHook\",\"snapHookGroove\",\"vent\",\"lipGroove\",\"surfaceSweep\",\"cutWithSurface\",\"deleteHole\",\"untrimSurface\",\"midSurface\",\"radiateSurface\",\"flattenSurface\",\"convertSheet\",\"insertBends\",\"rip\",\"unfold\",\"fold\",\"crossBreak\",\"weldedCorner\",\"tabSlot\",\"advancedHole\",\"intersect\",\"mateReference\",\"moveFace\",\"connectionPoint\",\"stdPart\",\"route\"]);\n  const out = [];\n  for (const t of window.__featureTypes.filter((x) => !known.has(x))) { out.push(await window.__pmCheck(t, 'num')); out.push(await window.__pmCheck(t, 'opts')); }\n  const bad = out.filter((x) => !/^\\S+ ok/.test(x));\n  return bad.length ? bad.join(' || ') : `ok ${out.length / 2} more types`;\n})()"
   },
   {
     "name": "cmd: helpers (commands that would leave the page, print or open file dialogs are stubbed or skipped)",
@@ -1223,6 +1253,16 @@
     "name": "cmd: part · importStep — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('part', 'importStep')"
+  },
+  {
+    "name": "cmd: part · importIdf — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'importIdf')"
+  },
+  {
+    "name": "cmd: part · exportIdf — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'exportIdf')"
   },
   {
     "name": "cmd: part · exportMenu — has a visible effect (or is skipped with its reason / not available here)",
@@ -1788,6 +1828,16 @@
     "name": "cmd: part · surfaceSpline — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('part', 'surfaceSpline')"
+  },
+  {
+    "name": "cmd: part · freeform — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'freeform')"
+  },
+  {
+    "name": "cmd: part · surfaceFillet — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'surfaceFillet')"
   },
   {
     "name": "cmd: part · openscad — has a visible effect (or is skipped with its reason / not available here)",
@@ -3110,6 +3160,11 @@
     "eval": "window.__cmdOne('part', 'partingSurface')"
   },
   {
+    "name": "cmd: part · sideCore — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'sideCore')"
+  },
+  {
     "name": "cmd: part · camManager — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('part', 'camManager')"
@@ -3203,6 +3258,26 @@
     "name": "cmd: part · camWaterline — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('part', 'camWaterline')"
+  },
+  {
+    "name": "cmd: part · camRotary4 — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'camRotary4')"
+  },
+  {
+    "name": "cmd: part · camMulti5 — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'camMulti5')"
+  },
+  {
+    "name": "cmd: part · camMillTurnAxial — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'camMillTurnAxial')"
+  },
+  {
+    "name": "cmd: part · camMillTurnRadial — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'camMillTurnRadial')"
   },
   {
     "name": "cmd: part · camTurnFace — has a visible effect (or is skipped with its reason / not available here)",
@@ -3465,6 +3540,41 @@
     "eval": "window.__cmdOne('part', 'decals')"
   },
   {
+    "name": "cmd: part · walkthrough — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'walkthrough')"
+  },
+  {
+    "name": "cmd: part · recordVideo — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'recordVideo')"
+  },
+  {
+    "name": "cmd: part · frameStudy — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'frameStudy')"
+  },
+  {
+    "name": "cmd: part · recognizeFeatures — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'recognizeFeatures')"
+  },
+  {
+    "name": "cmd: part · scanToSolid — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'scanToSolid')"
+  },
+  {
+    "name": "cmd: part · customize — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'customize')"
+  },
+  {
+    "name": "cmd: part · templates — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'templates')"
+  },
+  {
     "name": "cmd: part · mirrorPart — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('part', 'mirrorPart')"
@@ -3610,6 +3720,11 @@
     "eval": "window.__cmdOne('part', 'harnessDrawing')"
   },
   {
+    "name": "cmd: part · pipeIso — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('part', 'pipeIso')"
+  },
+  {
     "name": "cmd: part · renderView — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('part', 'renderView')"
@@ -3632,7 +3747,7 @@
   {
     "name": "cmd: part · commands added later — each has a visible effect",
     "expect": "^ok",
-    "eval": "window.__cmdLater('part', [\"newPart\",\"newProjectPart\",\"newAssembly\",\"newDrawing\",\"openExample\",\"open\",\"startPage\",\"save\",\"saveAs\",\"recent\",\"recentFolders\",\"clearRecent\",\"importStep\",\"exportMenu\",\"exportStep\",\"exportIges\",\"exportXt\",\"exportXb\",\"exportMesh:glb\",\"exportMesh:gltf\",\"exportMesh:obj\",\"exportMesh:ply\",\"exportMesh:wrl\",\"exportMesh:3mf\",\"exportMesh:off\",\"exportMesh:amf\",\"exportMesh:usdz\",\"exportStl\",\"exportImage\",\"exportDxf\",\"exportDwg\",\"exportSketchDxf\",\"exportSketchDwg\",\"exportFlatDxf\",\"exportFlatDwg\",\"exportSvg\",\"print\",\"closeProject\",\"exitProject\",\"exit\",\"undo\",\"redo\",\"delete\",\"rename\",\"largeAssemblyMode\",\"rebuild\",\"editFeature\",\"suppress\",\"unsuppress\",\"rollbackHere\",\"rollbackEnd\",\"clearSelection\",\"sketch\",\"extrude\",\"revolve\",\"cutExtrude\",\"cutRevolve\",\"fillet\",\"chamfer\",\"shell\",\"hole\",\"linearPattern\",\"circularPattern\",\"mirror\",\"refPlane\",\"material\",\"sweep\",\"cutSweep\",\"loft\",\"cutLoft\",\"draft\",\"rib\",\"dome\",\"helix\",\"thread\",\"wrap\",\"thicken\",\"surfaceExtrude\",\"surfaceRevolve\",\"surfacePlanar\",\"surfaceLoft\",\"surfaceOffset\",\"knit\",\"moveBody\",\"openscadFeature\",\"exportScad\",\"scaleBody\",\"split\",\"insertPart\",\"cavity\",\"shrink\",\"baseFlange\",\"edgeFlange\",\"flatten\",\"structural\",\"fillSurface\",\"boundary\",\"trimSurface\",\"hem\",\"sketchedBend\",\"jog\",\"partingLine\",\"toolingSplit\",\"sketch3d\",\"combine\",\"deleteBody\",\"indent\",\"flex\",\"deform\",\"refAxis\",\"refPoint\",\"coordSys\",\"boundingBox\",\"variableFillet\",\"faceFillet\",\"fullRoundFillet\",\"curvePattern\",\"sketchPattern\",\"tablePattern\",\"fillPattern\",\"variablePattern\",\"projectedCurve\",\"splitLine\",\"compositeCurve\",\"curveXYZ\",\"surfaceSpline\",\"openscad\",\"mountingBoss\",\"snapHook\",\"snapHookGroove\",\"vent\",\"lipGroove\",\"surfaceSweep\",\"cutWithSurface\",\"deleteHole\",\"untrimSurface\",\"midSurface\",\"radiateSurface\",\"flattenSurface\",\"convertSheet\",\"insertBends\",\"rip\",\"unfold\",\"fold\",\"crossBreak\",\"weldedCorner\",\"tabSlot\",\"advancedHole\",\"intersect\",\"mateReference\",\"moveFace\",\"connectionPoint\",\"ruledSurface\",\"deleteFace\",\"replaceFace\",\"extendSurface\",\"miterFlange\",\"loftedBend\",\"tab\",\"closedCorner\",\"cornerRelief\",\"formTool\",\"endCap\",\"gusset\",\"weldBead\",\"trimExtend\",\"sk:silhouette\",\"sk:silhouetteInternal\",\"sk:convert\",\"sk:intersect\",\"sk:move\",\"sk:copy\",\"sk:rotate\",\"sk:scale\",\"cutList\",\"draftAnalysis\",\"simulation\",\"equations\",\"configurations\",\"designTable\",\"importTable\",\"exitSketch\",\"cancelSketch\",\"sk:select\",\"sk:line\",\"sk:centerline\",\"sk:rect\",\"sk:centerRect\",\"sk:circle\",\"sk:arc3\",\"sk:centerArc\",\"sk:polygon\",\"sk:slot\",\"sk:slotCenter\",\"sk:slotArc3\",\"sk:slotArcCenter\",\"sk:point\",\"sk:spline\",\"sk:styleSpline\",\"sk:ellipse\",\"sk:rect3\",\"sk:rect3c\",\"sk:parallelogram\",\"sk:circle3\",\"sk:tangentArc\",\"sk:partialEllipse\",\"sk:parabola\",\"sk:conic\",\"sk:equation\",\"sk:split\",\"sk:stretch\",\"sk:baselineDim\",\"sk:dynamicMirror\",\"sk:autotrace\",\"sk:repair\",\"sk:fullyDefine\",\"sk:text\",\"sk:fillet\",\"sk:chamfer\",\"sk:extend\",\"sk:offset\",\"sk:mirror\",\"sk:linPattern\",\"sk:cirPattern\",\"sk:dimension\",\"sk:trim\",\"construction\",\"normalTo\",\"view:front\",\"view:back\",\"view:top\",\"view:bottom\",\"view:left\",\"view:right\",\"view:iso\",\"view:dimetric\",\"view:trimetric\",\"viewsMenu\",\"zoomFit\",\"perspective\",\"style:shadedEdges\",\"style:shaded\",\"style:hiddenRemoved\",\"style:hiddenVisible\",\"style:wireframe\",\"styleMenu\",\"styleCycle\",\"section\",\"showPlanes\",\"showOrigin\",\"showSketches\",\"showRulers\",\"showGrid\",\"gridPlane:front\",\"gridPlane:top\",\"gridPlane:right\",\"showScaleBar\",\"leftPanel\",\"rightPanel\",\"bottomPanel\",\"statusBar\",\"fps\",\"massProps\",\"lights\",\"measure\",\"interference\",\"insertComponent\",\"mate\",\"fixComponent\",\"magneticSnap\",\"simplifyOuter\",\"simplifyBox\",\"simplifyFull\",\"flexibleComponent\",\"floatComponent\",\"rotateComponent\",\"rotateComponentX\",\"rotateComponentY\",\"explode\",\"resetExplode\",\"motion\",\"openPart\",\"addView\",\"std3View\",\"hiddenLines\",\"sectionView\",\"view3dDrawing\",\"relativeView\",\"removedSection\",\"saveBodies\",\"sectionViewH\",\"alignedSection\",\"alternatePositionView\",\"flatPatternView\",\"weldTable\",\"cutListTable\",\"bendTable\",\"detailView\",\"auxView\",\"bom\",\"ann:note\",\"ann:balloon\",\"ann:gdt\",\"ann:datum\",\"ann:surface\",\"ann:centermark\",\"ann:cloud\",\"ann:datumTarget\",\"ann:hatch\",\"autoDims\",\"theme\",\"themeMenu\",\"language\",\"shuffleBackground\",\"backgroundImage\",\"clearBackground\",\"userGuide\",\"tutorialDoc\",\"shortcuts\",\"settings\",\"about\",\"welcome\",\"linearComponentPattern\",\"circularComponentPattern\",\"featureDrivenComponentPattern\",\"sketchDrivenComponentPattern\",\"curveDrivenComponentPattern\",\"chainComponentPattern\",\"mirrorComponents\",\"smartMate\",\"moveComponent\",\"curvature\",\"zebraStripes\",\"thicknessAnalysis\",\"brokenOutSection\",\"breakView\",\"cropView\",\"holeTable\",\"revisionTable\",\"addSheet\",\"renameSheet\",\"deleteSheet\",\"nonlinearStudy\",\"dropTest\",\"loadCombination\",\"topologyStudy\",\"dynamicStudy\",\"flowStudy\",\"assemblySimulation\",\"mbdAnnotations\",\"mbdAutoDimension\",\"insertModelAnnotations\",\"versionHistory\",\"checkOut\",\"checkIn\",\"whereUsed\",\"asmCut\",\"asmHole\",\"beltChain\",\"sk:makeBlock\",\"sk:insertBlock\",\"sk:explodeBlock\",\"sk:picture\",\"libSave\",\"libInsert\",\"vaultExplorer\",\"vaultCheckIn\",\"vaultCheckOut\",\"vaultInsert\",\"vaultUpdateLinks\",\"vaultPackAndGo\",\"drwSmartDim\",\"drwModelItems\",\"drwCenterMarks\",\"drwAutoBalloon\",\"drwHoleCallout\",\"drwWeld\",\"drwTable\",\"drwLayers\",\"drwTitleBlock\",\"drwSheetFormat\",\"eval_deviation\",\"eval_symmetry\",\"eval_geometry\",\"eval_undercut\",\"eval_compare\",\"eval_costing\",\"eval_sustain\",\"shutOff\",\"partingSurface\",\"camManager\",\"camStock\",\"camTools\",\"camRecognize\",\"camPlan\",\"camFacing\",\"camPocket\",\"camAdaptive\",\"camContour\",\"camSlot\",\"camHelix\",\"camSpot\",\"camDrill\",\"camPeck\",\"camTap\",\"camZLevel\",\"camParallel\",\"camScallop\",\"camWaterline\",\"camTurnFace\",\"camTurnRough\",\"camTurnFinish\",\"camTurnBore\",\"camTurnGroove\",\"camTurnThread\",\"camGenerate\",\"camSimulate\",\"camPost\",\"camSetupSheet\",\"plasticsStudy\",\"plGate\",\"plSuggest\",\"plRun\",\"plFillTime\",\"plPressure\",\"plTemperature\",\"plWeld\",\"plAirTraps\",\"plSink\",\"plReport\",\"plFiber\",\"plCooling\",\"plWarp\",\"inspBalloon\",\"inspTable\",\"inspRenumber\",\"inspClear\",\"inspImport\",\"inspCsv\",\"inspExcel\",\"inspReport\",\"illustration\",\"ilAddView\",\"ilPlay\",\"ilExportSvg\",\"ilExportHtml\",\"schematic\",\"schFromTo\",\"replaceComponent\",\"copyWithMates\",\"holeAlignment\",\"clearanceCheck\",\"envelopeComponent\",\"envelopeSelectInside\",\"envelopeSelectCrossing\",\"explodeEditor\",\"explodeAnimate\",\"assemblyVisualization\",\"assemblyVisualizationOff\",\"sectionProperties\",\"decals\",\"mirrorPart\",\"asmWeldBead\",\"editInContext\",\"newPartInContext\",\"exitInContext\",\"updateExternalRefs\",\"externalRefs\",\"newLayout\",\"makePartFromBlock\",\"updateLayout\",\"designCheck\",\"taskScheduler\",\"macroRecord\",\"macroRun\",\"macroStop\",\"macroEditor\",\"designStudy\",\"defeature\",\"markup\",\"markupReport\",\"electronicsCooling\",\"freeSurface\",\"stdLibrary\",\"smartFastener\",\"pipeRoute\",\"tubeRoute\",\"cableRoute\",\"harnessRoute\",\"harnessDrawing\",\"renderView\",\"newFolder\",\"dissolveFolder\",\"renameFolder\"])"
+    "eval": "window.__cmdLater('part', [\"newPart\",\"newProjectPart\",\"newAssembly\",\"newDrawing\",\"openExample\",\"open\",\"startPage\",\"save\",\"saveAs\",\"recent\",\"recentFolders\",\"clearRecent\",\"importStep\",\"importIdf\",\"exportIdf\",\"exportMenu\",\"exportStep\",\"exportIges\",\"exportXt\",\"exportXb\",\"exportMesh:glb\",\"exportMesh:gltf\",\"exportMesh:obj\",\"exportMesh:ply\",\"exportMesh:wrl\",\"exportMesh:3mf\",\"exportMesh:off\",\"exportMesh:amf\",\"exportMesh:usdz\",\"exportStl\",\"exportImage\",\"exportDxf\",\"exportDwg\",\"exportSketchDxf\",\"exportSketchDwg\",\"exportFlatDxf\",\"exportFlatDwg\",\"exportSvg\",\"print\",\"closeProject\",\"exitProject\",\"exit\",\"undo\",\"redo\",\"delete\",\"rename\",\"largeAssemblyMode\",\"rebuild\",\"editFeature\",\"suppress\",\"unsuppress\",\"rollbackHere\",\"rollbackEnd\",\"clearSelection\",\"sketch\",\"extrude\",\"revolve\",\"cutExtrude\",\"cutRevolve\",\"fillet\",\"chamfer\",\"shell\",\"hole\",\"linearPattern\",\"circularPattern\",\"mirror\",\"refPlane\",\"material\",\"sweep\",\"cutSweep\",\"loft\",\"cutLoft\",\"draft\",\"rib\",\"dome\",\"helix\",\"thread\",\"wrap\",\"thicken\",\"surfaceExtrude\",\"surfaceRevolve\",\"surfacePlanar\",\"surfaceLoft\",\"surfaceOffset\",\"knit\",\"moveBody\",\"openscadFeature\",\"exportScad\",\"scaleBody\",\"split\",\"insertPart\",\"cavity\",\"shrink\",\"baseFlange\",\"edgeFlange\",\"flatten\",\"structural\",\"fillSurface\",\"boundary\",\"trimSurface\",\"hem\",\"sketchedBend\",\"jog\",\"partingLine\",\"toolingSplit\",\"sketch3d\",\"combine\",\"deleteBody\",\"indent\",\"flex\",\"deform\",\"refAxis\",\"refPoint\",\"coordSys\",\"boundingBox\",\"variableFillet\",\"faceFillet\",\"fullRoundFillet\",\"curvePattern\",\"sketchPattern\",\"tablePattern\",\"fillPattern\",\"variablePattern\",\"projectedCurve\",\"splitLine\",\"compositeCurve\",\"curveXYZ\",\"surfaceSpline\",\"freeform\",\"surfaceFillet\",\"openscad\",\"mountingBoss\",\"snapHook\",\"snapHookGroove\",\"vent\",\"lipGroove\",\"surfaceSweep\",\"cutWithSurface\",\"deleteHole\",\"untrimSurface\",\"midSurface\",\"radiateSurface\",\"flattenSurface\",\"convertSheet\",\"insertBends\",\"rip\",\"unfold\",\"fold\",\"crossBreak\",\"weldedCorner\",\"tabSlot\",\"advancedHole\",\"intersect\",\"mateReference\",\"moveFace\",\"connectionPoint\",\"ruledSurface\",\"deleteFace\",\"replaceFace\",\"extendSurface\",\"miterFlange\",\"loftedBend\",\"tab\",\"closedCorner\",\"cornerRelief\",\"formTool\",\"endCap\",\"gusset\",\"weldBead\",\"trimExtend\",\"sk:silhouette\",\"sk:silhouetteInternal\",\"sk:convert\",\"sk:intersect\",\"sk:move\",\"sk:copy\",\"sk:rotate\",\"sk:scale\",\"cutList\",\"draftAnalysis\",\"simulation\",\"equations\",\"configurations\",\"designTable\",\"importTable\",\"exitSketch\",\"cancelSketch\",\"sk:select\",\"sk:line\",\"sk:centerline\",\"sk:rect\",\"sk:centerRect\",\"sk:circle\",\"sk:arc3\",\"sk:centerArc\",\"sk:polygon\",\"sk:slot\",\"sk:slotCenter\",\"sk:slotArc3\",\"sk:slotArcCenter\",\"sk:point\",\"sk:spline\",\"sk:styleSpline\",\"sk:ellipse\",\"sk:rect3\",\"sk:rect3c\",\"sk:parallelogram\",\"sk:circle3\",\"sk:tangentArc\",\"sk:partialEllipse\",\"sk:parabola\",\"sk:conic\",\"sk:equation\",\"sk:split\",\"sk:stretch\",\"sk:baselineDim\",\"sk:dynamicMirror\",\"sk:autotrace\",\"sk:repair\",\"sk:fullyDefine\",\"sk:text\",\"sk:fillet\",\"sk:chamfer\",\"sk:extend\",\"sk:offset\",\"sk:mirror\",\"sk:linPattern\",\"sk:cirPattern\",\"sk:dimension\",\"sk:trim\",\"construction\",\"normalTo\",\"view:front\",\"view:back\",\"view:top\",\"view:bottom\",\"view:left\",\"view:right\",\"view:iso\",\"view:dimetric\",\"view:trimetric\",\"viewsMenu\",\"zoomFit\",\"perspective\",\"style:shadedEdges\",\"style:shaded\",\"style:hiddenRemoved\",\"style:hiddenVisible\",\"style:wireframe\",\"styleMenu\",\"styleCycle\",\"section\",\"showPlanes\",\"showOrigin\",\"showSketches\",\"showRulers\",\"showGrid\",\"gridPlane:front\",\"gridPlane:top\",\"gridPlane:right\",\"showScaleBar\",\"leftPanel\",\"rightPanel\",\"bottomPanel\",\"statusBar\",\"fps\",\"massProps\",\"lights\",\"measure\",\"interference\",\"insertComponent\",\"mate\",\"fixComponent\",\"magneticSnap\",\"simplifyOuter\",\"simplifyBox\",\"simplifyFull\",\"flexibleComponent\",\"floatComponent\",\"rotateComponent\",\"rotateComponentX\",\"rotateComponentY\",\"explode\",\"resetExplode\",\"motion\",\"openPart\",\"addView\",\"std3View\",\"hiddenLines\",\"sectionView\",\"view3dDrawing\",\"relativeView\",\"removedSection\",\"saveBodies\",\"sectionViewH\",\"alignedSection\",\"alternatePositionView\",\"flatPatternView\",\"weldTable\",\"cutListTable\",\"bendTable\",\"detailView\",\"auxView\",\"bom\",\"ann:note\",\"ann:balloon\",\"ann:gdt\",\"ann:datum\",\"ann:surface\",\"ann:centermark\",\"ann:cloud\",\"ann:datumTarget\",\"ann:hatch\",\"autoDims\",\"theme\",\"themeMenu\",\"language\",\"shuffleBackground\",\"backgroundImage\",\"clearBackground\",\"userGuide\",\"tutorialDoc\",\"shortcuts\",\"settings\",\"about\",\"welcome\",\"linearComponentPattern\",\"circularComponentPattern\",\"featureDrivenComponentPattern\",\"sketchDrivenComponentPattern\",\"curveDrivenComponentPattern\",\"chainComponentPattern\",\"mirrorComponents\",\"smartMate\",\"moveComponent\",\"curvature\",\"zebraStripes\",\"thicknessAnalysis\",\"brokenOutSection\",\"breakView\",\"cropView\",\"holeTable\",\"revisionTable\",\"addSheet\",\"renameSheet\",\"deleteSheet\",\"nonlinearStudy\",\"dropTest\",\"loadCombination\",\"topologyStudy\",\"dynamicStudy\",\"flowStudy\",\"assemblySimulation\",\"mbdAnnotations\",\"mbdAutoDimension\",\"insertModelAnnotations\",\"versionHistory\",\"checkOut\",\"checkIn\",\"whereUsed\",\"asmCut\",\"asmHole\",\"beltChain\",\"sk:makeBlock\",\"sk:insertBlock\",\"sk:explodeBlock\",\"sk:picture\",\"libSave\",\"libInsert\",\"vaultExplorer\",\"vaultCheckIn\",\"vaultCheckOut\",\"vaultInsert\",\"vaultUpdateLinks\",\"vaultPackAndGo\",\"drwSmartDim\",\"drwModelItems\",\"drwCenterMarks\",\"drwAutoBalloon\",\"drwHoleCallout\",\"drwWeld\",\"drwTable\",\"drwLayers\",\"drwTitleBlock\",\"drwSheetFormat\",\"eval_deviation\",\"eval_symmetry\",\"eval_geometry\",\"eval_undercut\",\"eval_compare\",\"eval_costing\",\"eval_sustain\",\"shutOff\",\"partingSurface\",\"sideCore\",\"camManager\",\"camStock\",\"camTools\",\"camRecognize\",\"camPlan\",\"camFacing\",\"camPocket\",\"camAdaptive\",\"camContour\",\"camSlot\",\"camHelix\",\"camSpot\",\"camDrill\",\"camPeck\",\"camTap\",\"camZLevel\",\"camParallel\",\"camScallop\",\"camWaterline\",\"camRotary4\",\"camMulti5\",\"camMillTurnAxial\",\"camMillTurnRadial\",\"camTurnFace\",\"camTurnRough\",\"camTurnFinish\",\"camTurnBore\",\"camTurnGroove\",\"camTurnThread\",\"camGenerate\",\"camSimulate\",\"camPost\",\"camSetupSheet\",\"plasticsStudy\",\"plGate\",\"plSuggest\",\"plRun\",\"plFillTime\",\"plPressure\",\"plTemperature\",\"plWeld\",\"plAirTraps\",\"plSink\",\"plReport\",\"plFiber\",\"plCooling\",\"plWarp\",\"inspBalloon\",\"inspTable\",\"inspRenumber\",\"inspClear\",\"inspImport\",\"inspCsv\",\"inspExcel\",\"inspReport\",\"illustration\",\"ilAddView\",\"ilPlay\",\"ilExportSvg\",\"ilExportHtml\",\"schematic\",\"schFromTo\",\"replaceComponent\",\"copyWithMates\",\"holeAlignment\",\"clearanceCheck\",\"envelopeComponent\",\"envelopeSelectInside\",\"envelopeSelectCrossing\",\"explodeEditor\",\"explodeAnimate\",\"assemblyVisualization\",\"assemblyVisualizationOff\",\"sectionProperties\",\"decals\",\"walkthrough\",\"recordVideo\",\"frameStudy\",\"recognizeFeatures\",\"scanToSolid\",\"customize\",\"templates\",\"mirrorPart\",\"asmWeldBead\",\"editInContext\",\"newPartInContext\",\"exitInContext\",\"updateExternalRefs\",\"externalRefs\",\"newLayout\",\"makePartFromBlock\",\"updateLayout\",\"designCheck\",\"taskScheduler\",\"macroRecord\",\"macroRun\",\"macroStop\",\"macroEditor\",\"designStudy\",\"defeature\",\"markup\",\"markupReport\",\"electronicsCooling\",\"freeSurface\",\"stdLibrary\",\"smartFastener\",\"pipeRoute\",\"tubeRoute\",\"cableRoute\",\"harnessRoute\",\"harnessDrawing\",\"pipeIso\",\"renderView\",\"newFolder\",\"dissolveFolder\",\"renameFolder\"])"
   },
   {
     "name": "cmd: assembly · newPart — has a visible effect (or is skipped with its reason / not available here)",
@@ -3698,6 +3813,16 @@
     "name": "cmd: assembly · importStep — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('assembly', 'importStep')"
+  },
+  {
+    "name": "cmd: assembly · importIdf — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'importIdf')"
+  },
+  {
+    "name": "cmd: assembly · exportIdf — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'exportIdf')"
   },
   {
     "name": "cmd: assembly · exportMenu — has a visible effect (or is skipped with its reason / not available here)",
@@ -4263,6 +4388,16 @@
     "name": "cmd: assembly · surfaceSpline — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('assembly', 'surfaceSpline')"
+  },
+  {
+    "name": "cmd: assembly · freeform — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'freeform')"
+  },
+  {
+    "name": "cmd: assembly · surfaceFillet — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'surfaceFillet')"
   },
   {
     "name": "cmd: assembly · openscad — has a visible effect (or is skipped with its reason / not available here)",
@@ -5585,6 +5720,11 @@
     "eval": "window.__cmdOne('assembly', 'partingSurface')"
   },
   {
+    "name": "cmd: assembly · sideCore — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'sideCore')"
+  },
+  {
     "name": "cmd: assembly · camManager — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('assembly', 'camManager')"
@@ -5678,6 +5818,26 @@
     "name": "cmd: assembly · camWaterline — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('assembly', 'camWaterline')"
+  },
+  {
+    "name": "cmd: assembly · camRotary4 — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'camRotary4')"
+  },
+  {
+    "name": "cmd: assembly · camMulti5 — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'camMulti5')"
+  },
+  {
+    "name": "cmd: assembly · camMillTurnAxial — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'camMillTurnAxial')"
+  },
+  {
+    "name": "cmd: assembly · camMillTurnRadial — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'camMillTurnRadial')"
   },
   {
     "name": "cmd: assembly · camTurnFace — has a visible effect (or is skipped with its reason / not available here)",
@@ -5940,6 +6100,41 @@
     "eval": "window.__cmdOne('assembly', 'decals')"
   },
   {
+    "name": "cmd: assembly · walkthrough — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'walkthrough')"
+  },
+  {
+    "name": "cmd: assembly · recordVideo — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'recordVideo')"
+  },
+  {
+    "name": "cmd: assembly · frameStudy — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'frameStudy')"
+  },
+  {
+    "name": "cmd: assembly · recognizeFeatures — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'recognizeFeatures')"
+  },
+  {
+    "name": "cmd: assembly · scanToSolid — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'scanToSolid')"
+  },
+  {
+    "name": "cmd: assembly · customize — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'customize')"
+  },
+  {
+    "name": "cmd: assembly · templates — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'templates')"
+  },
+  {
     "name": "cmd: assembly · mirrorPart — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('assembly', 'mirrorPart')"
@@ -6085,6 +6280,11 @@
     "eval": "window.__cmdOne('assembly', 'harnessDrawing')"
   },
   {
+    "name": "cmd: assembly · pipeIso — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('assembly', 'pipeIso')"
+  },
+  {
     "name": "cmd: assembly · renderView — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('assembly', 'renderView')"
@@ -6107,7 +6307,7 @@
   {
     "name": "cmd: assembly · commands added later — each has a visible effect",
     "expect": "^ok",
-    "eval": "window.__cmdLater('assembly', [\"newPart\",\"newProjectPart\",\"newAssembly\",\"newDrawing\",\"openExample\",\"open\",\"startPage\",\"save\",\"saveAs\",\"recent\",\"recentFolders\",\"clearRecent\",\"importStep\",\"exportMenu\",\"exportStep\",\"exportIges\",\"exportXt\",\"exportXb\",\"exportMesh:glb\",\"exportMesh:gltf\",\"exportMesh:obj\",\"exportMesh:ply\",\"exportMesh:wrl\",\"exportMesh:3mf\",\"exportMesh:off\",\"exportMesh:amf\",\"exportMesh:usdz\",\"exportStl\",\"exportImage\",\"exportDxf\",\"exportDwg\",\"exportSketchDxf\",\"exportSketchDwg\",\"exportFlatDxf\",\"exportFlatDwg\",\"exportSvg\",\"print\",\"closeProject\",\"exitProject\",\"exit\",\"undo\",\"redo\",\"delete\",\"rename\",\"largeAssemblyMode\",\"rebuild\",\"editFeature\",\"suppress\",\"unsuppress\",\"rollbackHere\",\"rollbackEnd\",\"clearSelection\",\"sketch\",\"extrude\",\"revolve\",\"cutExtrude\",\"cutRevolve\",\"fillet\",\"chamfer\",\"shell\",\"hole\",\"linearPattern\",\"circularPattern\",\"mirror\",\"refPlane\",\"material\",\"sweep\",\"cutSweep\",\"loft\",\"cutLoft\",\"draft\",\"rib\",\"dome\",\"helix\",\"thread\",\"wrap\",\"thicken\",\"surfaceExtrude\",\"surfaceRevolve\",\"surfacePlanar\",\"surfaceLoft\",\"surfaceOffset\",\"knit\",\"moveBody\",\"openscadFeature\",\"exportScad\",\"scaleBody\",\"split\",\"insertPart\",\"cavity\",\"shrink\",\"baseFlange\",\"edgeFlange\",\"flatten\",\"structural\",\"fillSurface\",\"boundary\",\"trimSurface\",\"hem\",\"sketchedBend\",\"jog\",\"partingLine\",\"toolingSplit\",\"sketch3d\",\"combine\",\"deleteBody\",\"indent\",\"flex\",\"deform\",\"refAxis\",\"refPoint\",\"coordSys\",\"boundingBox\",\"variableFillet\",\"faceFillet\",\"fullRoundFillet\",\"curvePattern\",\"sketchPattern\",\"tablePattern\",\"fillPattern\",\"variablePattern\",\"projectedCurve\",\"splitLine\",\"compositeCurve\",\"curveXYZ\",\"surfaceSpline\",\"openscad\",\"mountingBoss\",\"snapHook\",\"snapHookGroove\",\"vent\",\"lipGroove\",\"surfaceSweep\",\"cutWithSurface\",\"deleteHole\",\"untrimSurface\",\"midSurface\",\"radiateSurface\",\"flattenSurface\",\"convertSheet\",\"insertBends\",\"rip\",\"unfold\",\"fold\",\"crossBreak\",\"weldedCorner\",\"tabSlot\",\"advancedHole\",\"intersect\",\"mateReference\",\"moveFace\",\"connectionPoint\",\"ruledSurface\",\"deleteFace\",\"replaceFace\",\"extendSurface\",\"miterFlange\",\"loftedBend\",\"tab\",\"closedCorner\",\"cornerRelief\",\"formTool\",\"endCap\",\"gusset\",\"weldBead\",\"trimExtend\",\"sk:silhouette\",\"sk:silhouetteInternal\",\"sk:convert\",\"sk:intersect\",\"sk:move\",\"sk:copy\",\"sk:rotate\",\"sk:scale\",\"cutList\",\"draftAnalysis\",\"simulation\",\"equations\",\"configurations\",\"designTable\",\"importTable\",\"exitSketch\",\"cancelSketch\",\"sk:select\",\"sk:line\",\"sk:centerline\",\"sk:rect\",\"sk:centerRect\",\"sk:circle\",\"sk:arc3\",\"sk:centerArc\",\"sk:polygon\",\"sk:slot\",\"sk:slotCenter\",\"sk:slotArc3\",\"sk:slotArcCenter\",\"sk:point\",\"sk:spline\",\"sk:styleSpline\",\"sk:ellipse\",\"sk:rect3\",\"sk:rect3c\",\"sk:parallelogram\",\"sk:circle3\",\"sk:tangentArc\",\"sk:partialEllipse\",\"sk:parabola\",\"sk:conic\",\"sk:equation\",\"sk:split\",\"sk:stretch\",\"sk:baselineDim\",\"sk:dynamicMirror\",\"sk:autotrace\",\"sk:repair\",\"sk:fullyDefine\",\"sk:text\",\"sk:fillet\",\"sk:chamfer\",\"sk:extend\",\"sk:offset\",\"sk:mirror\",\"sk:linPattern\",\"sk:cirPattern\",\"sk:dimension\",\"sk:trim\",\"construction\",\"normalTo\",\"view:front\",\"view:back\",\"view:top\",\"view:bottom\",\"view:left\",\"view:right\",\"view:iso\",\"view:dimetric\",\"view:trimetric\",\"viewsMenu\",\"zoomFit\",\"perspective\",\"style:shadedEdges\",\"style:shaded\",\"style:hiddenRemoved\",\"style:hiddenVisible\",\"style:wireframe\",\"styleMenu\",\"styleCycle\",\"section\",\"showPlanes\",\"showOrigin\",\"showSketches\",\"showRulers\",\"showGrid\",\"gridPlane:front\",\"gridPlane:top\",\"gridPlane:right\",\"showScaleBar\",\"leftPanel\",\"rightPanel\",\"bottomPanel\",\"statusBar\",\"fps\",\"massProps\",\"lights\",\"measure\",\"interference\",\"insertComponent\",\"mate\",\"fixComponent\",\"magneticSnap\",\"simplifyOuter\",\"simplifyBox\",\"simplifyFull\",\"flexibleComponent\",\"floatComponent\",\"rotateComponent\",\"rotateComponentX\",\"rotateComponentY\",\"explode\",\"resetExplode\",\"motion\",\"openPart\",\"addView\",\"std3View\",\"hiddenLines\",\"sectionView\",\"view3dDrawing\",\"relativeView\",\"removedSection\",\"saveBodies\",\"sectionViewH\",\"alignedSection\",\"alternatePositionView\",\"flatPatternView\",\"weldTable\",\"cutListTable\",\"bendTable\",\"detailView\",\"auxView\",\"bom\",\"ann:note\",\"ann:balloon\",\"ann:gdt\",\"ann:datum\",\"ann:surface\",\"ann:centermark\",\"ann:cloud\",\"ann:datumTarget\",\"ann:hatch\",\"autoDims\",\"theme\",\"themeMenu\",\"language\",\"shuffleBackground\",\"backgroundImage\",\"clearBackground\",\"userGuide\",\"tutorialDoc\",\"shortcuts\",\"settings\",\"about\",\"welcome\",\"linearComponentPattern\",\"circularComponentPattern\",\"featureDrivenComponentPattern\",\"sketchDrivenComponentPattern\",\"curveDrivenComponentPattern\",\"chainComponentPattern\",\"mirrorComponents\",\"smartMate\",\"moveComponent\",\"curvature\",\"zebraStripes\",\"thicknessAnalysis\",\"brokenOutSection\",\"breakView\",\"cropView\",\"holeTable\",\"revisionTable\",\"addSheet\",\"renameSheet\",\"deleteSheet\",\"nonlinearStudy\",\"dropTest\",\"loadCombination\",\"topologyStudy\",\"dynamicStudy\",\"flowStudy\",\"assemblySimulation\",\"mbdAnnotations\",\"mbdAutoDimension\",\"insertModelAnnotations\",\"versionHistory\",\"checkOut\",\"checkIn\",\"whereUsed\",\"asmCut\",\"asmHole\",\"beltChain\",\"sk:makeBlock\",\"sk:insertBlock\",\"sk:explodeBlock\",\"sk:picture\",\"libSave\",\"libInsert\",\"vaultExplorer\",\"vaultCheckIn\",\"vaultCheckOut\",\"vaultInsert\",\"vaultUpdateLinks\",\"vaultPackAndGo\",\"drwSmartDim\",\"drwModelItems\",\"drwCenterMarks\",\"drwAutoBalloon\",\"drwHoleCallout\",\"drwWeld\",\"drwTable\",\"drwLayers\",\"drwTitleBlock\",\"drwSheetFormat\",\"eval_deviation\",\"eval_symmetry\",\"eval_geometry\",\"eval_undercut\",\"eval_compare\",\"eval_costing\",\"eval_sustain\",\"shutOff\",\"partingSurface\",\"camManager\",\"camStock\",\"camTools\",\"camRecognize\",\"camPlan\",\"camFacing\",\"camPocket\",\"camAdaptive\",\"camContour\",\"camSlot\",\"camHelix\",\"camSpot\",\"camDrill\",\"camPeck\",\"camTap\",\"camZLevel\",\"camParallel\",\"camScallop\",\"camWaterline\",\"camTurnFace\",\"camTurnRough\",\"camTurnFinish\",\"camTurnBore\",\"camTurnGroove\",\"camTurnThread\",\"camGenerate\",\"camSimulate\",\"camPost\",\"camSetupSheet\",\"plasticsStudy\",\"plGate\",\"plSuggest\",\"plRun\",\"plFillTime\",\"plPressure\",\"plTemperature\",\"plWeld\",\"plAirTraps\",\"plSink\",\"plReport\",\"plFiber\",\"plCooling\",\"plWarp\",\"inspBalloon\",\"inspTable\",\"inspRenumber\",\"inspClear\",\"inspImport\",\"inspCsv\",\"inspExcel\",\"inspReport\",\"illustration\",\"ilAddView\",\"ilPlay\",\"ilExportSvg\",\"ilExportHtml\",\"schematic\",\"schFromTo\",\"replaceComponent\",\"copyWithMates\",\"holeAlignment\",\"clearanceCheck\",\"envelopeComponent\",\"envelopeSelectInside\",\"envelopeSelectCrossing\",\"explodeEditor\",\"explodeAnimate\",\"assemblyVisualization\",\"assemblyVisualizationOff\",\"sectionProperties\",\"decals\",\"mirrorPart\",\"asmWeldBead\",\"editInContext\",\"newPartInContext\",\"exitInContext\",\"updateExternalRefs\",\"externalRefs\",\"newLayout\",\"makePartFromBlock\",\"updateLayout\",\"designCheck\",\"taskScheduler\",\"macroRecord\",\"macroRun\",\"macroStop\",\"macroEditor\",\"designStudy\",\"defeature\",\"markup\",\"markupReport\",\"electronicsCooling\",\"freeSurface\",\"stdLibrary\",\"smartFastener\",\"pipeRoute\",\"tubeRoute\",\"cableRoute\",\"harnessRoute\",\"harnessDrawing\",\"renderView\",\"newFolder\",\"dissolveFolder\",\"renameFolder\"])"
+    "eval": "window.__cmdLater('assembly', [\"newPart\",\"newProjectPart\",\"newAssembly\",\"newDrawing\",\"openExample\",\"open\",\"startPage\",\"save\",\"saveAs\",\"recent\",\"recentFolders\",\"clearRecent\",\"importStep\",\"importIdf\",\"exportIdf\",\"exportMenu\",\"exportStep\",\"exportIges\",\"exportXt\",\"exportXb\",\"exportMesh:glb\",\"exportMesh:gltf\",\"exportMesh:obj\",\"exportMesh:ply\",\"exportMesh:wrl\",\"exportMesh:3mf\",\"exportMesh:off\",\"exportMesh:amf\",\"exportMesh:usdz\",\"exportStl\",\"exportImage\",\"exportDxf\",\"exportDwg\",\"exportSketchDxf\",\"exportSketchDwg\",\"exportFlatDxf\",\"exportFlatDwg\",\"exportSvg\",\"print\",\"closeProject\",\"exitProject\",\"exit\",\"undo\",\"redo\",\"delete\",\"rename\",\"largeAssemblyMode\",\"rebuild\",\"editFeature\",\"suppress\",\"unsuppress\",\"rollbackHere\",\"rollbackEnd\",\"clearSelection\",\"sketch\",\"extrude\",\"revolve\",\"cutExtrude\",\"cutRevolve\",\"fillet\",\"chamfer\",\"shell\",\"hole\",\"linearPattern\",\"circularPattern\",\"mirror\",\"refPlane\",\"material\",\"sweep\",\"cutSweep\",\"loft\",\"cutLoft\",\"draft\",\"rib\",\"dome\",\"helix\",\"thread\",\"wrap\",\"thicken\",\"surfaceExtrude\",\"surfaceRevolve\",\"surfacePlanar\",\"surfaceLoft\",\"surfaceOffset\",\"knit\",\"moveBody\",\"openscadFeature\",\"exportScad\",\"scaleBody\",\"split\",\"insertPart\",\"cavity\",\"shrink\",\"baseFlange\",\"edgeFlange\",\"flatten\",\"structural\",\"fillSurface\",\"boundary\",\"trimSurface\",\"hem\",\"sketchedBend\",\"jog\",\"partingLine\",\"toolingSplit\",\"sketch3d\",\"combine\",\"deleteBody\",\"indent\",\"flex\",\"deform\",\"refAxis\",\"refPoint\",\"coordSys\",\"boundingBox\",\"variableFillet\",\"faceFillet\",\"fullRoundFillet\",\"curvePattern\",\"sketchPattern\",\"tablePattern\",\"fillPattern\",\"variablePattern\",\"projectedCurve\",\"splitLine\",\"compositeCurve\",\"curveXYZ\",\"surfaceSpline\",\"freeform\",\"surfaceFillet\",\"openscad\",\"mountingBoss\",\"snapHook\",\"snapHookGroove\",\"vent\",\"lipGroove\",\"surfaceSweep\",\"cutWithSurface\",\"deleteHole\",\"untrimSurface\",\"midSurface\",\"radiateSurface\",\"flattenSurface\",\"convertSheet\",\"insertBends\",\"rip\",\"unfold\",\"fold\",\"crossBreak\",\"weldedCorner\",\"tabSlot\",\"advancedHole\",\"intersect\",\"mateReference\",\"moveFace\",\"connectionPoint\",\"ruledSurface\",\"deleteFace\",\"replaceFace\",\"extendSurface\",\"miterFlange\",\"loftedBend\",\"tab\",\"closedCorner\",\"cornerRelief\",\"formTool\",\"endCap\",\"gusset\",\"weldBead\",\"trimExtend\",\"sk:silhouette\",\"sk:silhouetteInternal\",\"sk:convert\",\"sk:intersect\",\"sk:move\",\"sk:copy\",\"sk:rotate\",\"sk:scale\",\"cutList\",\"draftAnalysis\",\"simulation\",\"equations\",\"configurations\",\"designTable\",\"importTable\",\"exitSketch\",\"cancelSketch\",\"sk:select\",\"sk:line\",\"sk:centerline\",\"sk:rect\",\"sk:centerRect\",\"sk:circle\",\"sk:arc3\",\"sk:centerArc\",\"sk:polygon\",\"sk:slot\",\"sk:slotCenter\",\"sk:slotArc3\",\"sk:slotArcCenter\",\"sk:point\",\"sk:spline\",\"sk:styleSpline\",\"sk:ellipse\",\"sk:rect3\",\"sk:rect3c\",\"sk:parallelogram\",\"sk:circle3\",\"sk:tangentArc\",\"sk:partialEllipse\",\"sk:parabola\",\"sk:conic\",\"sk:equation\",\"sk:split\",\"sk:stretch\",\"sk:baselineDim\",\"sk:dynamicMirror\",\"sk:autotrace\",\"sk:repair\",\"sk:fullyDefine\",\"sk:text\",\"sk:fillet\",\"sk:chamfer\",\"sk:extend\",\"sk:offset\",\"sk:mirror\",\"sk:linPattern\",\"sk:cirPattern\",\"sk:dimension\",\"sk:trim\",\"construction\",\"normalTo\",\"view:front\",\"view:back\",\"view:top\",\"view:bottom\",\"view:left\",\"view:right\",\"view:iso\",\"view:dimetric\",\"view:trimetric\",\"viewsMenu\",\"zoomFit\",\"perspective\",\"style:shadedEdges\",\"style:shaded\",\"style:hiddenRemoved\",\"style:hiddenVisible\",\"style:wireframe\",\"styleMenu\",\"styleCycle\",\"section\",\"showPlanes\",\"showOrigin\",\"showSketches\",\"showRulers\",\"showGrid\",\"gridPlane:front\",\"gridPlane:top\",\"gridPlane:right\",\"showScaleBar\",\"leftPanel\",\"rightPanel\",\"bottomPanel\",\"statusBar\",\"fps\",\"massProps\",\"lights\",\"measure\",\"interference\",\"insertComponent\",\"mate\",\"fixComponent\",\"magneticSnap\",\"simplifyOuter\",\"simplifyBox\",\"simplifyFull\",\"flexibleComponent\",\"floatComponent\",\"rotateComponent\",\"rotateComponentX\",\"rotateComponentY\",\"explode\",\"resetExplode\",\"motion\",\"openPart\",\"addView\",\"std3View\",\"hiddenLines\",\"sectionView\",\"view3dDrawing\",\"relativeView\",\"removedSection\",\"saveBodies\",\"sectionViewH\",\"alignedSection\",\"alternatePositionView\",\"flatPatternView\",\"weldTable\",\"cutListTable\",\"bendTable\",\"detailView\",\"auxView\",\"bom\",\"ann:note\",\"ann:balloon\",\"ann:gdt\",\"ann:datum\",\"ann:surface\",\"ann:centermark\",\"ann:cloud\",\"ann:datumTarget\",\"ann:hatch\",\"autoDims\",\"theme\",\"themeMenu\",\"language\",\"shuffleBackground\",\"backgroundImage\",\"clearBackground\",\"userGuide\",\"tutorialDoc\",\"shortcuts\",\"settings\",\"about\",\"welcome\",\"linearComponentPattern\",\"circularComponentPattern\",\"featureDrivenComponentPattern\",\"sketchDrivenComponentPattern\",\"curveDrivenComponentPattern\",\"chainComponentPattern\",\"mirrorComponents\",\"smartMate\",\"moveComponent\",\"curvature\",\"zebraStripes\",\"thicknessAnalysis\",\"brokenOutSection\",\"breakView\",\"cropView\",\"holeTable\",\"revisionTable\",\"addSheet\",\"renameSheet\",\"deleteSheet\",\"nonlinearStudy\",\"dropTest\",\"loadCombination\",\"topologyStudy\",\"dynamicStudy\",\"flowStudy\",\"assemblySimulation\",\"mbdAnnotations\",\"mbdAutoDimension\",\"insertModelAnnotations\",\"versionHistory\",\"checkOut\",\"checkIn\",\"whereUsed\",\"asmCut\",\"asmHole\",\"beltChain\",\"sk:makeBlock\",\"sk:insertBlock\",\"sk:explodeBlock\",\"sk:picture\",\"libSave\",\"libInsert\",\"vaultExplorer\",\"vaultCheckIn\",\"vaultCheckOut\",\"vaultInsert\",\"vaultUpdateLinks\",\"vaultPackAndGo\",\"drwSmartDim\",\"drwModelItems\",\"drwCenterMarks\",\"drwAutoBalloon\",\"drwHoleCallout\",\"drwWeld\",\"drwTable\",\"drwLayers\",\"drwTitleBlock\",\"drwSheetFormat\",\"eval_deviation\",\"eval_symmetry\",\"eval_geometry\",\"eval_undercut\",\"eval_compare\",\"eval_costing\",\"eval_sustain\",\"shutOff\",\"partingSurface\",\"sideCore\",\"camManager\",\"camStock\",\"camTools\",\"camRecognize\",\"camPlan\",\"camFacing\",\"camPocket\",\"camAdaptive\",\"camContour\",\"camSlot\",\"camHelix\",\"camSpot\",\"camDrill\",\"camPeck\",\"camTap\",\"camZLevel\",\"camParallel\",\"camScallop\",\"camWaterline\",\"camRotary4\",\"camMulti5\",\"camMillTurnAxial\",\"camMillTurnRadial\",\"camTurnFace\",\"camTurnRough\",\"camTurnFinish\",\"camTurnBore\",\"camTurnGroove\",\"camTurnThread\",\"camGenerate\",\"camSimulate\",\"camPost\",\"camSetupSheet\",\"plasticsStudy\",\"plGate\",\"plSuggest\",\"plRun\",\"plFillTime\",\"plPressure\",\"plTemperature\",\"plWeld\",\"plAirTraps\",\"plSink\",\"plReport\",\"plFiber\",\"plCooling\",\"plWarp\",\"inspBalloon\",\"inspTable\",\"inspRenumber\",\"inspClear\",\"inspImport\",\"inspCsv\",\"inspExcel\",\"inspReport\",\"illustration\",\"ilAddView\",\"ilPlay\",\"ilExportSvg\",\"ilExportHtml\",\"schematic\",\"schFromTo\",\"replaceComponent\",\"copyWithMates\",\"holeAlignment\",\"clearanceCheck\",\"envelopeComponent\",\"envelopeSelectInside\",\"envelopeSelectCrossing\",\"explodeEditor\",\"explodeAnimate\",\"assemblyVisualization\",\"assemblyVisualizationOff\",\"sectionProperties\",\"decals\",\"walkthrough\",\"recordVideo\",\"frameStudy\",\"recognizeFeatures\",\"scanToSolid\",\"customize\",\"templates\",\"mirrorPart\",\"asmWeldBead\",\"editInContext\",\"newPartInContext\",\"exitInContext\",\"updateExternalRefs\",\"externalRefs\",\"newLayout\",\"makePartFromBlock\",\"updateLayout\",\"designCheck\",\"taskScheduler\",\"macroRecord\",\"macroRun\",\"macroStop\",\"macroEditor\",\"designStudy\",\"defeature\",\"markup\",\"markupReport\",\"electronicsCooling\",\"freeSurface\",\"stdLibrary\",\"smartFastener\",\"pipeRoute\",\"tubeRoute\",\"cableRoute\",\"harnessRoute\",\"harnessDrawing\",\"pipeIso\",\"renderView\",\"newFolder\",\"dissolveFolder\",\"renameFolder\"])"
   },
   {
     "name": "cmd: drawing · newPart — has a visible effect (or is skipped with its reason / not available here)",
@@ -6173,6 +6373,16 @@
     "name": "cmd: drawing · importStep — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('drawing', 'importStep')"
+  },
+  {
+    "name": "cmd: drawing · importIdf — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'importIdf')"
+  },
+  {
+    "name": "cmd: drawing · exportIdf — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'exportIdf')"
   },
   {
     "name": "cmd: drawing · exportMenu — has a visible effect (or is skipped with its reason / not available here)",
@@ -6738,6 +6948,16 @@
     "name": "cmd: drawing · surfaceSpline — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('drawing', 'surfaceSpline')"
+  },
+  {
+    "name": "cmd: drawing · freeform — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'freeform')"
+  },
+  {
+    "name": "cmd: drawing · surfaceFillet — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'surfaceFillet')"
   },
   {
     "name": "cmd: drawing · openscad — has a visible effect (or is skipped with its reason / not available here)",
@@ -8060,6 +8280,11 @@
     "eval": "window.__cmdOne('drawing', 'partingSurface')"
   },
   {
+    "name": "cmd: drawing · sideCore — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'sideCore')"
+  },
+  {
     "name": "cmd: drawing · camManager — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('drawing', 'camManager')"
@@ -8153,6 +8378,26 @@
     "name": "cmd: drawing · camWaterline — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('drawing', 'camWaterline')"
+  },
+  {
+    "name": "cmd: drawing · camRotary4 — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'camRotary4')"
+  },
+  {
+    "name": "cmd: drawing · camMulti5 — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'camMulti5')"
+  },
+  {
+    "name": "cmd: drawing · camMillTurnAxial — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'camMillTurnAxial')"
+  },
+  {
+    "name": "cmd: drawing · camMillTurnRadial — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'camMillTurnRadial')"
   },
   {
     "name": "cmd: drawing · camTurnFace — has a visible effect (or is skipped with its reason / not available here)",
@@ -8415,6 +8660,41 @@
     "eval": "window.__cmdOne('drawing', 'decals')"
   },
   {
+    "name": "cmd: drawing · walkthrough — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'walkthrough')"
+  },
+  {
+    "name": "cmd: drawing · recordVideo — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'recordVideo')"
+  },
+  {
+    "name": "cmd: drawing · frameStudy — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'frameStudy')"
+  },
+  {
+    "name": "cmd: drawing · recognizeFeatures — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'recognizeFeatures')"
+  },
+  {
+    "name": "cmd: drawing · scanToSolid — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'scanToSolid')"
+  },
+  {
+    "name": "cmd: drawing · customize — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'customize')"
+  },
+  {
+    "name": "cmd: drawing · templates — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'templates')"
+  },
+  {
     "name": "cmd: drawing · mirrorPart — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('drawing', 'mirrorPart')"
@@ -8560,6 +8840,11 @@
     "eval": "window.__cmdOne('drawing', 'harnessDrawing')"
   },
   {
+    "name": "cmd: drawing · pipeIso — has a visible effect (or is skipped with its reason / not available here)",
+    "expect": "^(ok|n/a)",
+    "eval": "window.__cmdOne('drawing', 'pipeIso')"
+  },
+  {
     "name": "cmd: drawing · renderView — has a visible effect (or is skipped with its reason / not available here)",
     "expect": "^(ok|n/a)",
     "eval": "window.__cmdOne('drawing', 'renderView')"
@@ -8582,7 +8867,7 @@
   {
     "name": "cmd: drawing · commands added later — each has a visible effect",
     "expect": "^ok",
-    "eval": "window.__cmdLater('drawing', [\"newPart\",\"newProjectPart\",\"newAssembly\",\"newDrawing\",\"openExample\",\"open\",\"startPage\",\"save\",\"saveAs\",\"recent\",\"recentFolders\",\"clearRecent\",\"importStep\",\"exportMenu\",\"exportStep\",\"exportIges\",\"exportXt\",\"exportXb\",\"exportMesh:glb\",\"exportMesh:gltf\",\"exportMesh:obj\",\"exportMesh:ply\",\"exportMesh:wrl\",\"exportMesh:3mf\",\"exportMesh:off\",\"exportMesh:amf\",\"exportMesh:usdz\",\"exportStl\",\"exportImage\",\"exportDxf\",\"exportDwg\",\"exportSketchDxf\",\"exportSketchDwg\",\"exportFlatDxf\",\"exportFlatDwg\",\"exportSvg\",\"print\",\"closeProject\",\"exitProject\",\"exit\",\"undo\",\"redo\",\"delete\",\"rename\",\"largeAssemblyMode\",\"rebuild\",\"editFeature\",\"suppress\",\"unsuppress\",\"rollbackHere\",\"rollbackEnd\",\"clearSelection\",\"sketch\",\"extrude\",\"revolve\",\"cutExtrude\",\"cutRevolve\",\"fillet\",\"chamfer\",\"shell\",\"hole\",\"linearPattern\",\"circularPattern\",\"mirror\",\"refPlane\",\"material\",\"sweep\",\"cutSweep\",\"loft\",\"cutLoft\",\"draft\",\"rib\",\"dome\",\"helix\",\"thread\",\"wrap\",\"thicken\",\"surfaceExtrude\",\"surfaceRevolve\",\"surfacePlanar\",\"surfaceLoft\",\"surfaceOffset\",\"knit\",\"moveBody\",\"openscadFeature\",\"exportScad\",\"scaleBody\",\"split\",\"insertPart\",\"cavity\",\"shrink\",\"baseFlange\",\"edgeFlange\",\"flatten\",\"structural\",\"fillSurface\",\"boundary\",\"trimSurface\",\"hem\",\"sketchedBend\",\"jog\",\"partingLine\",\"toolingSplit\",\"sketch3d\",\"combine\",\"deleteBody\",\"indent\",\"flex\",\"deform\",\"refAxis\",\"refPoint\",\"coordSys\",\"boundingBox\",\"variableFillet\",\"faceFillet\",\"fullRoundFillet\",\"curvePattern\",\"sketchPattern\",\"tablePattern\",\"fillPattern\",\"variablePattern\",\"projectedCurve\",\"splitLine\",\"compositeCurve\",\"curveXYZ\",\"surfaceSpline\",\"openscad\",\"mountingBoss\",\"snapHook\",\"snapHookGroove\",\"vent\",\"lipGroove\",\"surfaceSweep\",\"cutWithSurface\",\"deleteHole\",\"untrimSurface\",\"midSurface\",\"radiateSurface\",\"flattenSurface\",\"convertSheet\",\"insertBends\",\"rip\",\"unfold\",\"fold\",\"crossBreak\",\"weldedCorner\",\"tabSlot\",\"advancedHole\",\"intersect\",\"mateReference\",\"moveFace\",\"connectionPoint\",\"ruledSurface\",\"deleteFace\",\"replaceFace\",\"extendSurface\",\"miterFlange\",\"loftedBend\",\"tab\",\"closedCorner\",\"cornerRelief\",\"formTool\",\"endCap\",\"gusset\",\"weldBead\",\"trimExtend\",\"sk:silhouette\",\"sk:silhouetteInternal\",\"sk:convert\",\"sk:intersect\",\"sk:move\",\"sk:copy\",\"sk:rotate\",\"sk:scale\",\"cutList\",\"draftAnalysis\",\"simulation\",\"equations\",\"configurations\",\"designTable\",\"importTable\",\"exitSketch\",\"cancelSketch\",\"sk:select\",\"sk:line\",\"sk:centerline\",\"sk:rect\",\"sk:centerRect\",\"sk:circle\",\"sk:arc3\",\"sk:centerArc\",\"sk:polygon\",\"sk:slot\",\"sk:slotCenter\",\"sk:slotArc3\",\"sk:slotArcCenter\",\"sk:point\",\"sk:spline\",\"sk:styleSpline\",\"sk:ellipse\",\"sk:rect3\",\"sk:rect3c\",\"sk:parallelogram\",\"sk:circle3\",\"sk:tangentArc\",\"sk:partialEllipse\",\"sk:parabola\",\"sk:conic\",\"sk:equation\",\"sk:split\",\"sk:stretch\",\"sk:baselineDim\",\"sk:dynamicMirror\",\"sk:autotrace\",\"sk:repair\",\"sk:fullyDefine\",\"sk:text\",\"sk:fillet\",\"sk:chamfer\",\"sk:extend\",\"sk:offset\",\"sk:mirror\",\"sk:linPattern\",\"sk:cirPattern\",\"sk:dimension\",\"sk:trim\",\"construction\",\"normalTo\",\"view:front\",\"view:back\",\"view:top\",\"view:bottom\",\"view:left\",\"view:right\",\"view:iso\",\"view:dimetric\",\"view:trimetric\",\"viewsMenu\",\"zoomFit\",\"perspective\",\"style:shadedEdges\",\"style:shaded\",\"style:hiddenRemoved\",\"style:hiddenVisible\",\"style:wireframe\",\"styleMenu\",\"styleCycle\",\"section\",\"showPlanes\",\"showOrigin\",\"showSketches\",\"showRulers\",\"showGrid\",\"gridPlane:front\",\"gridPlane:top\",\"gridPlane:right\",\"showScaleBar\",\"leftPanel\",\"rightPanel\",\"bottomPanel\",\"statusBar\",\"fps\",\"massProps\",\"lights\",\"measure\",\"interference\",\"insertComponent\",\"mate\",\"fixComponent\",\"magneticSnap\",\"simplifyOuter\",\"simplifyBox\",\"simplifyFull\",\"flexibleComponent\",\"floatComponent\",\"rotateComponent\",\"rotateComponentX\",\"rotateComponentY\",\"explode\",\"resetExplode\",\"motion\",\"openPart\",\"addView\",\"std3View\",\"hiddenLines\",\"sectionView\",\"view3dDrawing\",\"relativeView\",\"removedSection\",\"saveBodies\",\"sectionViewH\",\"alignedSection\",\"alternatePositionView\",\"flatPatternView\",\"weldTable\",\"cutListTable\",\"bendTable\",\"detailView\",\"auxView\",\"bom\",\"ann:note\",\"ann:balloon\",\"ann:gdt\",\"ann:datum\",\"ann:surface\",\"ann:centermark\",\"ann:cloud\",\"ann:datumTarget\",\"ann:hatch\",\"autoDims\",\"theme\",\"themeMenu\",\"language\",\"shuffleBackground\",\"backgroundImage\",\"clearBackground\",\"userGuide\",\"tutorialDoc\",\"shortcuts\",\"settings\",\"about\",\"welcome\",\"linearComponentPattern\",\"circularComponentPattern\",\"featureDrivenComponentPattern\",\"sketchDrivenComponentPattern\",\"curveDrivenComponentPattern\",\"chainComponentPattern\",\"mirrorComponents\",\"smartMate\",\"moveComponent\",\"curvature\",\"zebraStripes\",\"thicknessAnalysis\",\"brokenOutSection\",\"breakView\",\"cropView\",\"holeTable\",\"revisionTable\",\"addSheet\",\"renameSheet\",\"deleteSheet\",\"nonlinearStudy\",\"dropTest\",\"loadCombination\",\"topologyStudy\",\"dynamicStudy\",\"flowStudy\",\"assemblySimulation\",\"mbdAnnotations\",\"mbdAutoDimension\",\"insertModelAnnotations\",\"versionHistory\",\"checkOut\",\"checkIn\",\"whereUsed\",\"asmCut\",\"asmHole\",\"beltChain\",\"sk:makeBlock\",\"sk:insertBlock\",\"sk:explodeBlock\",\"sk:picture\",\"libSave\",\"libInsert\",\"vaultExplorer\",\"vaultCheckIn\",\"vaultCheckOut\",\"vaultInsert\",\"vaultUpdateLinks\",\"vaultPackAndGo\",\"drwSmartDim\",\"drwModelItems\",\"drwCenterMarks\",\"drwAutoBalloon\",\"drwHoleCallout\",\"drwWeld\",\"drwTable\",\"drwLayers\",\"drwTitleBlock\",\"drwSheetFormat\",\"eval_deviation\",\"eval_symmetry\",\"eval_geometry\",\"eval_undercut\",\"eval_compare\",\"eval_costing\",\"eval_sustain\",\"shutOff\",\"partingSurface\",\"camManager\",\"camStock\",\"camTools\",\"camRecognize\",\"camPlan\",\"camFacing\",\"camPocket\",\"camAdaptive\",\"camContour\",\"camSlot\",\"camHelix\",\"camSpot\",\"camDrill\",\"camPeck\",\"camTap\",\"camZLevel\",\"camParallel\",\"camScallop\",\"camWaterline\",\"camTurnFace\",\"camTurnRough\",\"camTurnFinish\",\"camTurnBore\",\"camTurnGroove\",\"camTurnThread\",\"camGenerate\",\"camSimulate\",\"camPost\",\"camSetupSheet\",\"plasticsStudy\",\"plGate\",\"plSuggest\",\"plRun\",\"plFillTime\",\"plPressure\",\"plTemperature\",\"plWeld\",\"plAirTraps\",\"plSink\",\"plReport\",\"plFiber\",\"plCooling\",\"plWarp\",\"inspBalloon\",\"inspTable\",\"inspRenumber\",\"inspClear\",\"inspImport\",\"inspCsv\",\"inspExcel\",\"inspReport\",\"illustration\",\"ilAddView\",\"ilPlay\",\"ilExportSvg\",\"ilExportHtml\",\"schematic\",\"schFromTo\",\"replaceComponent\",\"copyWithMates\",\"holeAlignment\",\"clearanceCheck\",\"envelopeComponent\",\"envelopeSelectInside\",\"envelopeSelectCrossing\",\"explodeEditor\",\"explodeAnimate\",\"assemblyVisualization\",\"assemblyVisualizationOff\",\"sectionProperties\",\"decals\",\"mirrorPart\",\"asmWeldBead\",\"editInContext\",\"newPartInContext\",\"exitInContext\",\"updateExternalRefs\",\"externalRefs\",\"newLayout\",\"makePartFromBlock\",\"updateLayout\",\"designCheck\",\"taskScheduler\",\"macroRecord\",\"macroRun\",\"macroStop\",\"macroEditor\",\"designStudy\",\"defeature\",\"markup\",\"markupReport\",\"electronicsCooling\",\"freeSurface\",\"stdLibrary\",\"smartFastener\",\"pipeRoute\",\"tubeRoute\",\"cableRoute\",\"harnessRoute\",\"harnessDrawing\",\"renderView\",\"newFolder\",\"dissolveFolder\",\"renameFolder\"])"
+    "eval": "window.__cmdLater('drawing', [\"newPart\",\"newProjectPart\",\"newAssembly\",\"newDrawing\",\"openExample\",\"open\",\"startPage\",\"save\",\"saveAs\",\"recent\",\"recentFolders\",\"clearRecent\",\"importStep\",\"importIdf\",\"exportIdf\",\"exportMenu\",\"exportStep\",\"exportIges\",\"exportXt\",\"exportXb\",\"exportMesh:glb\",\"exportMesh:gltf\",\"exportMesh:obj\",\"exportMesh:ply\",\"exportMesh:wrl\",\"exportMesh:3mf\",\"exportMesh:off\",\"exportMesh:amf\",\"exportMesh:usdz\",\"exportStl\",\"exportImage\",\"exportDxf\",\"exportDwg\",\"exportSketchDxf\",\"exportSketchDwg\",\"exportFlatDxf\",\"exportFlatDwg\",\"exportSvg\",\"print\",\"closeProject\",\"exitProject\",\"exit\",\"undo\",\"redo\",\"delete\",\"rename\",\"largeAssemblyMode\",\"rebuild\",\"editFeature\",\"suppress\",\"unsuppress\",\"rollbackHere\",\"rollbackEnd\",\"clearSelection\",\"sketch\",\"extrude\",\"revolve\",\"cutExtrude\",\"cutRevolve\",\"fillet\",\"chamfer\",\"shell\",\"hole\",\"linearPattern\",\"circularPattern\",\"mirror\",\"refPlane\",\"material\",\"sweep\",\"cutSweep\",\"loft\",\"cutLoft\",\"draft\",\"rib\",\"dome\",\"helix\",\"thread\",\"wrap\",\"thicken\",\"surfaceExtrude\",\"surfaceRevolve\",\"surfacePlanar\",\"surfaceLoft\",\"surfaceOffset\",\"knit\",\"moveBody\",\"openscadFeature\",\"exportScad\",\"scaleBody\",\"split\",\"insertPart\",\"cavity\",\"shrink\",\"baseFlange\",\"edgeFlange\",\"flatten\",\"structural\",\"fillSurface\",\"boundary\",\"trimSurface\",\"hem\",\"sketchedBend\",\"jog\",\"partingLine\",\"toolingSplit\",\"sketch3d\",\"combine\",\"deleteBody\",\"indent\",\"flex\",\"deform\",\"refAxis\",\"refPoint\",\"coordSys\",\"boundingBox\",\"variableFillet\",\"faceFillet\",\"fullRoundFillet\",\"curvePattern\",\"sketchPattern\",\"tablePattern\",\"fillPattern\",\"variablePattern\",\"projectedCurve\",\"splitLine\",\"compositeCurve\",\"curveXYZ\",\"surfaceSpline\",\"freeform\",\"surfaceFillet\",\"openscad\",\"mountingBoss\",\"snapHook\",\"snapHookGroove\",\"vent\",\"lipGroove\",\"surfaceSweep\",\"cutWithSurface\",\"deleteHole\",\"untrimSurface\",\"midSurface\",\"radiateSurface\",\"flattenSurface\",\"convertSheet\",\"insertBends\",\"rip\",\"unfold\",\"fold\",\"crossBreak\",\"weldedCorner\",\"tabSlot\",\"advancedHole\",\"intersect\",\"mateReference\",\"moveFace\",\"connectionPoint\",\"ruledSurface\",\"deleteFace\",\"replaceFace\",\"extendSurface\",\"miterFlange\",\"loftedBend\",\"tab\",\"closedCorner\",\"cornerRelief\",\"formTool\",\"endCap\",\"gusset\",\"weldBead\",\"trimExtend\",\"sk:silhouette\",\"sk:silhouetteInternal\",\"sk:convert\",\"sk:intersect\",\"sk:move\",\"sk:copy\",\"sk:rotate\",\"sk:scale\",\"cutList\",\"draftAnalysis\",\"simulation\",\"equations\",\"configurations\",\"designTable\",\"importTable\",\"exitSketch\",\"cancelSketch\",\"sk:select\",\"sk:line\",\"sk:centerline\",\"sk:rect\",\"sk:centerRect\",\"sk:circle\",\"sk:arc3\",\"sk:centerArc\",\"sk:polygon\",\"sk:slot\",\"sk:slotCenter\",\"sk:slotArc3\",\"sk:slotArcCenter\",\"sk:point\",\"sk:spline\",\"sk:styleSpline\",\"sk:ellipse\",\"sk:rect3\",\"sk:rect3c\",\"sk:parallelogram\",\"sk:circle3\",\"sk:tangentArc\",\"sk:partialEllipse\",\"sk:parabola\",\"sk:conic\",\"sk:equation\",\"sk:split\",\"sk:stretch\",\"sk:baselineDim\",\"sk:dynamicMirror\",\"sk:autotrace\",\"sk:repair\",\"sk:fullyDefine\",\"sk:text\",\"sk:fillet\",\"sk:chamfer\",\"sk:extend\",\"sk:offset\",\"sk:mirror\",\"sk:linPattern\",\"sk:cirPattern\",\"sk:dimension\",\"sk:trim\",\"construction\",\"normalTo\",\"view:front\",\"view:back\",\"view:top\",\"view:bottom\",\"view:left\",\"view:right\",\"view:iso\",\"view:dimetric\",\"view:trimetric\",\"viewsMenu\",\"zoomFit\",\"perspective\",\"style:shadedEdges\",\"style:shaded\",\"style:hiddenRemoved\",\"style:hiddenVisible\",\"style:wireframe\",\"styleMenu\",\"styleCycle\",\"section\",\"showPlanes\",\"showOrigin\",\"showSketches\",\"showRulers\",\"showGrid\",\"gridPlane:front\",\"gridPlane:top\",\"gridPlane:right\",\"showScaleBar\",\"leftPanel\",\"rightPanel\",\"bottomPanel\",\"statusBar\",\"fps\",\"massProps\",\"lights\",\"measure\",\"interference\",\"insertComponent\",\"mate\",\"fixComponent\",\"magneticSnap\",\"simplifyOuter\",\"simplifyBox\",\"simplifyFull\",\"flexibleComponent\",\"floatComponent\",\"rotateComponent\",\"rotateComponentX\",\"rotateComponentY\",\"explode\",\"resetExplode\",\"motion\",\"openPart\",\"addView\",\"std3View\",\"hiddenLines\",\"sectionView\",\"view3dDrawing\",\"relativeView\",\"removedSection\",\"saveBodies\",\"sectionViewH\",\"alignedSection\",\"alternatePositionView\",\"flatPatternView\",\"weldTable\",\"cutListTable\",\"bendTable\",\"detailView\",\"auxView\",\"bom\",\"ann:note\",\"ann:balloon\",\"ann:gdt\",\"ann:datum\",\"ann:surface\",\"ann:centermark\",\"ann:cloud\",\"ann:datumTarget\",\"ann:hatch\",\"autoDims\",\"theme\",\"themeMenu\",\"language\",\"shuffleBackground\",\"backgroundImage\",\"clearBackground\",\"userGuide\",\"tutorialDoc\",\"shortcuts\",\"settings\",\"about\",\"welcome\",\"linearComponentPattern\",\"circularComponentPattern\",\"featureDrivenComponentPattern\",\"sketchDrivenComponentPattern\",\"curveDrivenComponentPattern\",\"chainComponentPattern\",\"mirrorComponents\",\"smartMate\",\"moveComponent\",\"curvature\",\"zebraStripes\",\"thicknessAnalysis\",\"brokenOutSection\",\"breakView\",\"cropView\",\"holeTable\",\"revisionTable\",\"addSheet\",\"renameSheet\",\"deleteSheet\",\"nonlinearStudy\",\"dropTest\",\"loadCombination\",\"topologyStudy\",\"dynamicStudy\",\"flowStudy\",\"assemblySimulation\",\"mbdAnnotations\",\"mbdAutoDimension\",\"insertModelAnnotations\",\"versionHistory\",\"checkOut\",\"checkIn\",\"whereUsed\",\"asmCut\",\"asmHole\",\"beltChain\",\"sk:makeBlock\",\"sk:insertBlock\",\"sk:explodeBlock\",\"sk:picture\",\"libSave\",\"libInsert\",\"vaultExplorer\",\"vaultCheckIn\",\"vaultCheckOut\",\"vaultInsert\",\"vaultUpdateLinks\",\"vaultPackAndGo\",\"drwSmartDim\",\"drwModelItems\",\"drwCenterMarks\",\"drwAutoBalloon\",\"drwHoleCallout\",\"drwWeld\",\"drwTable\",\"drwLayers\",\"drwTitleBlock\",\"drwSheetFormat\",\"eval_deviation\",\"eval_symmetry\",\"eval_geometry\",\"eval_undercut\",\"eval_compare\",\"eval_costing\",\"eval_sustain\",\"shutOff\",\"partingSurface\",\"sideCore\",\"camManager\",\"camStock\",\"camTools\",\"camRecognize\",\"camPlan\",\"camFacing\",\"camPocket\",\"camAdaptive\",\"camContour\",\"camSlot\",\"camHelix\",\"camSpot\",\"camDrill\",\"camPeck\",\"camTap\",\"camZLevel\",\"camParallel\",\"camScallop\",\"camWaterline\",\"camRotary4\",\"camMulti5\",\"camMillTurnAxial\",\"camMillTurnRadial\",\"camTurnFace\",\"camTurnRough\",\"camTurnFinish\",\"camTurnBore\",\"camTurnGroove\",\"camTurnThread\",\"camGenerate\",\"camSimulate\",\"camPost\",\"camSetupSheet\",\"plasticsStudy\",\"plGate\",\"plSuggest\",\"plRun\",\"plFillTime\",\"plPressure\",\"plTemperature\",\"plWeld\",\"plAirTraps\",\"plSink\",\"plReport\",\"plFiber\",\"plCooling\",\"plWarp\",\"inspBalloon\",\"inspTable\",\"inspRenumber\",\"inspClear\",\"inspImport\",\"inspCsv\",\"inspExcel\",\"inspReport\",\"illustration\",\"ilAddView\",\"ilPlay\",\"ilExportSvg\",\"ilExportHtml\",\"schematic\",\"schFromTo\",\"replaceComponent\",\"copyWithMates\",\"holeAlignment\",\"clearanceCheck\",\"envelopeComponent\",\"envelopeSelectInside\",\"envelopeSelectCrossing\",\"explodeEditor\",\"explodeAnimate\",\"assemblyVisualization\",\"assemblyVisualizationOff\",\"sectionProperties\",\"decals\",\"walkthrough\",\"recordVideo\",\"frameStudy\",\"recognizeFeatures\",\"scanToSolid\",\"customize\",\"templates\",\"mirrorPart\",\"asmWeldBead\",\"editInContext\",\"newPartInContext\",\"exitInContext\",\"updateExternalRefs\",\"externalRefs\",\"newLayout\",\"makePartFromBlock\",\"updateLayout\",\"designCheck\",\"taskScheduler\",\"macroRecord\",\"macroRun\",\"macroStop\",\"macroEditor\",\"designStudy\",\"defeature\",\"markup\",\"markupReport\",\"electronicsCooling\",\"freeSurface\",\"stdLibrary\",\"smartFastener\",\"pipeRoute\",\"tubeRoute\",\"cableRoute\",\"harnessRoute\",\"harnessDrawing\",\"pipeIso\",\"renderView\",\"newFolder\",\"dissolveFolder\",\"renameFolder\"])"
   },
   {
     "name": "cmd: part · editFeature with a feature selected — works on it",

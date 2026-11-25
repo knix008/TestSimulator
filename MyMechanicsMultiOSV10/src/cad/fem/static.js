@@ -24,7 +24,9 @@ const fail = (error, extra = {}) => ({
   vertexDisplacement: new Float32Array(0), vertexStress: new Float32Array(0), ...extra,
 });
 
-import { contactConstraints, addPenalty, jump, vectorJump, addForce, tangents } from './contact.js';
+import { contactConstraints, cyclicTies, addPenalty, jump, vectorJump, addForce, tangents } from './contact.js';
+import { thermalOffset } from './model.js';
+import { connectorConstraints, addConnectors, addPreloads, connectorResults } from './connectors.js';
 import { smoothedAggregation } from './amg.js';
 import { setMultigrid, csrFromGraph } from './sparse.js';
 import { matmul, transpose } from './amg.js';
@@ -51,20 +53,32 @@ export function linearStatic(input) {
   const f = loadVector(model, loads, gravity);
   let fn = 0; for (let d = 0; d < f.length; d++) fn += f[d] * f[d];
   let anyPrescribed = false; for (let d = 0; d < f.length; d++) if (fx.fixed[d] && fx.value[d]) { anyPrescribed = true; break; }
-  if (!(fn > 0) && !anyPrescribed) return fail('no-loads', { model });
   report(0.32, 'assemble');
 
   const cc = contactConstraints(model, { contacts, walls, tolerance, contactStiffness: input.contactStiffness ?? 200, friction: input.friction ?? 0, method: input.contactMethod ?? 'node', bondedStiffness: input.bondedStiffness ?? 10 });
+  // Cyclic symmetry: ties of one cut face to the other turned by the sector angle.
+  const cyc = cyclicTies(model, fixtures, { bondedStiffness: input.bondedStiffness ?? 10 });
+  if (cyc.list.length) { cc.list.push(...cyc.list); cc.pairs = Int32Array.from([...(cc.pairs ?? []), ...cyc.pairs]); }
+  // Connectors (springs, bolts, pins, rigid links, spot welds, bearings): their couplings in the pattern.
+  const conn = connectorConstraints(model, input.connectors ?? []);
+  if (conn.pairs.length) cc.pairs = Int32Array.from([...(cc.pairs ?? []), ...conn.pairs]);
+  addPreloads(f, conn);
+  const preloaded = conn.list.some((c) => c.preload);
+  cc.conn = conn;
+  // A shrink (interference) fit loads the bodies by itself: contact that starts overlapping.
+  const interference = cc.list.some((c) => c.type === 'contact' && c.g0 < -1e-12);
+  if (!(fn > 0) && !anyPrescribed && !interference && !preloaded) return fail('no-loads', { model });
   const graph = cc.pairs ? modelGraph(model, cc.pairs) : modelGraph(model);
   const K0 = stiffnessMatrix(model, graph, (x) => report(0.32 + 0.1 * x, 'assemble'));
   addSprings(model, K0, fx.springs);
+  addConnectors(K0, conn);
   const Kref = cloneMatrix(K0);                  // for reactions
   const bonded0 = cc.list.filter((c) => c.type === 'bonded'), unilateral = cc.list.filter((c) => c.type === 'contact');
   report(0.45, 'solve');
   const ndof = 3 * model.nn, u = new Float64Array(ndof);
   // Bonded ties without unilateral contact: eliminated exactly (u_slave = Σ w u_master), the reduced system
   // K̂ = TᵀKT is as well conditioned as one body; with contact the ties use the augmented Lagrangian below.
-  if (bonded0.length && !unilateral.length && input.tie !== 'penalty') {
+  if (bonded0.length && !unilateral.length && input.tie !== 'penalty' && !bonded0.some((c) => c.R)) {
     const red = eliminateTies(K0, f, bonded0, model.nn, fx);
     if (red) {
       red.setCoords(model.nodes);
@@ -182,7 +196,7 @@ function finishStatic({ input, model, fx, f, Kref, u, cc, unilateral, bonded, la
   // Contact pressure as a field: the nodal contact forces are the consistent loads ∫N_a p dA of the pressure, so the
   // pressure is recovered by the L2 projection M p = f with the face mass M = ∫N_a N_b dA over the slave faces.
   // Mortar multipliers are already a nodal pressure field; node-to-surface forces are projected.
-  const st = elasticStresses(model, u);
+  const st = elasticStresses(model, u, thermalOffset(model, input.loads));
   // Contact pressure from the recovered stress at the contact nodes: p = −n·σ·n (smooth, the surface traction).
   const smooth = cc.list.some((c) => c.mortar) ? mortarPressure(cc.list, pressure) : tractionPressure(cc.list, pressure, st.nodal);
   if (smooth) maxPressure = smooth.max;
@@ -204,7 +218,7 @@ function finishStatic({ input, model, fx, f, Kref, u, cc, unilateral, bonded, la
     maxDisplacement: dmax.value, maxDisplacementAt: dmax.at, maxStress: smax.value, maxStressAt: smax.at,
     minFactorOfSafety: minFos, iterations: totalIt, residual, linearSolver: solverMethod,
     vertexDisplacement: perBody[0].vertexDisplacement, vertexStress: perBody[0].vertexStress, vertexTensor: perBody[0].vertexTensor, bodies: perBody,
-    reactions, externalForce: sumForces(f), contact: { constraints: cc.list.length, pressure, nodalPressure: smooth?.nodal ?? null, force: contactForce, friction: frictionForce, slipping, sticking, area: contactArea, maxPressure, maxPenetration: maxPen, iterations: alIt, list: cc.list },
+    reactions, externalForce: sumForces(f), connectors: cc.conn ? connectorResults(cc.conn, u) : [], contact: { constraints: cc.list.length, pressure, nodalPressure: smooth?.nodal ?? null, force: contactForce, friction: frictionForce, slipping, sticking, area: contactArea, maxPressure, maxPenetration: maxPen, iterations: alIt, list: cc.list },
   };
 }
 

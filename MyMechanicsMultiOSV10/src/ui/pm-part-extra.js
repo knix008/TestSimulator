@@ -6,6 +6,7 @@ import { icon } from '../icons.js';
 import { group, field, check, seg, select, pickBox } from './propertymanager.js';
 import { HOLE_ELEMENTS, MATE_REF_TYPES, MATE_REF_ALIGN } from '../cad/part-extra.js';
 import { standalonePoints } from '../cad/sketch.js';
+import { PIPE_SIZES } from '../cad/stdparts.js';
 
 const note = (text, warn = false) => `<p class="pm-note ${warn ? 'warn' : ''}">${warn ? icon('warning', 'icon tiny') : ''}${escapeHtml(text)}</p>`;
 const before = (api, f) => api.featuresBefore?.(f) ?? [];
@@ -69,6 +70,8 @@ export const PART_EXTRA_PM = {
     return [
       group('connectionPoint', t('cp.name'), `<label class="pm-field"><span class="pm-label">${escapeHtml(t('cp.name'))}</span><input type="text" class="pm-text" data-pm-field="cpName" value="${escapeHtml(f.cpName ?? 'Connector')}" spellcheck="false"/></label>${note(t('cp.help'))}`),
       group('connectionPoint', t('pm.parameters'), `${pickBox(api, 'face', oneFace(api, f.face), t('cp.face'), 'face')}${field(api, 'offset', f.offset ?? 0, { label: t('pm.offsetDistance') })}${check('flip', f.flip, t('pm.flipDirection'), 'flipV')}`),
+      // Routing component: what the point connects (a pipe size / an outside diameter), CPoint or RPoint.
+      group('pipeRoute', t('cp.routing'), `${seg('routeType', [['none', t('cp.rt.none')], ['pipe', t('route.pipe'), 'pipeRoute'], ['tube', t('route.tube'), 'tubeRoute'], ['cable', t('route.cable'), 'cableRoute']], f.routeType ?? 'none')}${f.routeType === 'pipe' ? select('size', PIPE_SIZES.map((s) => [s, s]), f.size ?? 'DN25', t('route.pipeSize')) : f.routeType && f.routeType !== 'none' ? field(api, 'od', f.od ?? 12, { label: t('route.od'), glyph: 'dimDiameter', min: 0.1 }) : ''}${f.routeType && f.routeType !== 'none' ? `${seg('role', [['connection', t('cp.role.connection'), 'connectionPoint'], ['route', t('cp.role.route'), 'pointTool']], f.role ?? 'connection')}${note(t('cp.routingHelp'))}` : ''}`),
     ].join('');
   },
   mateReference(api, f) {

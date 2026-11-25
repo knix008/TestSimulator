@@ -458,8 +458,11 @@ export const SHORTCUT_LIST = [
 
 function settingsShortcuts() {
   // Every shortcut on one page (user rule): three columns, no pages.
-  const list = SHORTCUT_LIST;
-  return `<div class="shortcut-grid" style="grid-template-rows: repeat(${Math.ceil(list.length / 3)}, auto)">${list.map(([key, label]) => `<div class="shortcut-row" title="${escapeHtml(t(label))}"><kbd>${escapeHtml(key.startsWith('shortcut.') ? t(key) : key)}</kbd><span>${escapeHtml(t(label).replace(/…$/, ''))}</span></div>`).join('')}</div>`;
+  // With the user's own (Tools › Customize): a default changed or turned off leaves the list, theirs are added.
+  const over = s().keyBindings ?? {};
+  const labelKey = (id) => [`cmd.${id}`, `action.${id}`, id.startsWith('view:') ? `view.${id.slice(5)}` : ''].find((k) => k && t(k) !== k) ?? id;
+  const list = [...SHORTCUT_LIST.filter(([key]) => !Object.hasOwn(over, key)), ...Object.entries(over).filter(([, id]) => id).map(([key, id]) => [key, labelKey(id), true])];
+  return `<div class="shortcut-grid" style="grid-template-rows: repeat(${Math.ceil(list.length / 3)}, auto)">${list.map(([key, label, mine]) => `<div class="shortcut-row ${mine ? 'custom' : ''}" title="${escapeHtml(t(label))}"><kbd>${escapeHtml(key.startsWith('shortcut.') ? t(key) : key)}</kbd><span>${escapeHtml(t(label).replace(/…$/, ''))}</span></div>`).join('')}</div><p class="pm-note">${escapeHtml(t('custom.inSettings'))}</p>`;
 }
 
 // ───────────────────────── about

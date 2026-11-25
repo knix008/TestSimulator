@@ -4,6 +4,7 @@
 // Dialects (mill): 'fanuc', 'haas', 'linuxcnc', 'iso'; (lathe): 'fanucLathe', 'linuxcncLathe'. Coordinates are
 // moved into the work offset (G54): milling from model to the WCS origin (stock top centre by default),
 // turning to Z0 at the part's front face and X as a diameter. Modal words are written only when they change.
+import { axisToAC } from './cam-multiaxis.js';
 import { expandMoves } from './cam-ops.js';
 
 export const POSTS = {
@@ -83,6 +84,8 @@ export function postProcess({ number = 1001, name = 'PART', tools, paths, stock,
       emit(postId === 'fanucLathe' ? 'G99' : 'G95');
     } else emit(`S${Math.round(tp.rpm)} M3`);
     if (coolant) emit('M8');
+    // Multi-axis paths (cam-multiaxis.js) have their own writer: A (4th axis), A/C with TCP (5-axis), C (mill-turn).
+    if (tp.multi) { multiAxisMoves(tp, { emit, f, origin, lathe, tool, post }); reset(); needsG43 = false; continue; }
     for (const m of programMoves(tp, comp)) {
       if (!lathe && needsG43) {
         // First move of a tool: XY first, then the length offset with the Z move.
@@ -120,6 +123,58 @@ export function postProcess({ number = 1001, name = 'PART', tools, paths, stock,
   emit(post.end);
   if (post.percent) lines.push('%');
   return `${lines.join('\n')}\n`;
+}
+
+/**
+ * The program lines of a multi-axis toolpath:
+ *   rotary4   X Y Z from the machine position about the A axis (Y 0, Z the radius) and A in degrees; G43 on the
+ *             first move.
+ *   multi5    tool-centre-point control (G43.4: the control keeps the tip on X Y Z, part coordinates, while A / C
+ *             tilt the table): A = acos k, C = atan2(i, −j) of the tool axis, C kept continuous; G49 after.
+ *   millTurn  live tool with the C axis: C positions the part (M19-style indexing as C words), axial holes drilled
+ *             with G83 on the face at X = the radius's diameter, radial holes with G87 along −X at Z.
+ */
+function multiAxisMoves(tp, { emit, f, origin, lathe, tool, post }) {
+  if (tp.multi === 'rotary4') {
+    let first = true; let g = null;
+    for (const m of tp.moves) {
+      const [x, y, z] = m.mp; const w = m.k === 'r' ? 'G0' : 'G1';
+      const words = [w !== g ? w : '', `X${f(x - origin[0], 4)}`, `Y${f(y, 4)}`, `Z${f(z, 4)}`, `A${f(m.a, 3)}`, m.k === 'f' ? `F${Math.round(m.f)}` : ''].filter(Boolean);
+      if (first) { emit(`G0 X${f(x - origin[0], 4)} Y${f(y, 4)} A${f(m.a, 3)}`); emit(`G43 H${tool.T} Z${f(z, 4)}`); first = false; g = 'G0'; continue; }
+      emit(words.join(' ')); g = w;
+    }
+    return;
+  }
+  if (tp.multi === 'multi5') {
+    let first = true; let g = null; let C = null;
+    for (const m of tp.moves) {
+      const ac = axisToAC(m.t ?? [0, 0, 1], C); C = ac.C;
+      const [x, y, z] = m.p; const w = m.k === 'r' ? 'G0' : 'G1';
+      const xyz = `X${f(x - origin[0], 4)} Y${f(y - origin[1], 4)} Z${f(z - origin[2], 4)} A${f(ac.A, 3)} C${f(ac.C, 3)}`;
+      if (first) { emit(`G0 A${f(ac.A, 3)} C${f(ac.C, 3)}`); emit(`G43.4 H${tool.T}`); emit(`G0 ${xyz}`); first = false; g = 'G0'; continue; }
+      emit(`${w !== g ? `${w} ` : ''}${xyz}${m.k === 'f' ? ` F${Math.round(m.f)}` : ''}`); g = w;
+    }
+    emit('G49');
+    return;
+  }
+  // Mill-turn (lathe programs: X diameter; milling programs on a mill with a rotary table work alike in C).
+  emit('M5'); emit(`G97 S${Math.round(tp.rpm)} M13 (LIVE TOOL)`);
+  for (const m of tp.moves) {
+    if (m.k !== 'cyc') continue;
+    const q = m.q > 0 ? ` Q${f(m.q)}` : '';
+    if (m.live === 'radial') {
+      emit(`G0 C${f(m.c, 3)}`);
+      emit(`G0 X${f(2 * (m.init ?? m.rStart + 3), 4)} Z${f(m.z - origin[2], 4)}`);
+      emit(`G87 X${f(2 * m.radius, 4)} R${f(2 * m.rStart, 4)}${q} F${f(m.f, 0)}`);
+    } else {
+      emit(`G0 C${f(m.c, 3)}`);
+      emit(`G0 X${f(2 * m.radius, 4)} Z${f(m.init - origin[2], 4)}`);
+      emit(`G83 Z${f(m.p[2] - origin[2], 4)} R${f(m.r - origin[2], 4)}${q} F${f(m.f, 0)}`);
+    }
+    emit('G80');
+  }
+  emit('M15');
+  void lathe; void post;
 }
 
 function cycleLine(m, post, postId, origin, lathe, f) {
